@@ -1032,8 +1032,11 @@ const failoverStickyBase = new Map();
 // function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
 // (chat's nested { type:'function', function:{...} } shape is NOT accepted there).
 function toResponsesContent(content) {
-  // String → single input_text block. Parts array (vision) → text parts only (Responses/DeepSeek has no image
-  // input; image_url parts degrade to a visible placeholder instead of erroring the request).
+  // String → single input_text block. Parts array (vision) → text parts + input_image parts。图片 part 在此
+  // 展平成 Responses 形 { type:'input_image', image_url:'data:…' }(OpenAI Responses 官方形状;DeepSeek
+  // /responses 现也接受 input_image —— 2026-09 用户确认,旧注释「Responses 无图像输入」已过时)。
+  // chat 形 {type:'image_url', image_url:{url}} 与 Responses 形都认;URI 实在取不出才降级为可见占位文本
+  // (绝不静默丢图)。图片是否随消息发由上游闸住:provider.vision !== true 时根本不建 image part(09-workflow)。
   if (typeof content === 'string') return [{ type: 'input_text', text: content }];
   if (Array.isArray(content)) {
     const parts = [];
@@ -1041,7 +1044,13 @@ function toResponsesContent(content) {
       if (!part || typeof part !== 'object') continue;
       if (part.type === 'text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
       else if (part.type === 'input_text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
-      else if (part.type === 'image_url' || part.type === 'input_image') parts.push({ type: 'input_text', text: '[图片输入：Responses API 不支持图像，已替换为占位文本]' });
+      else if (part.type === 'image_url' || part.type === 'input_image') {
+        const raw = typeof part.image_url === 'string' ? part.image_url
+          : (part.image_url && typeof part.image_url.url === 'string') ? part.image_url.url
+          : (typeof part.input_image === 'string' ? part.input_image : '');
+        if (raw) parts.push({ type: 'input_image', image_url: raw });
+        else parts.push({ type: 'input_text', text: '[图片输入无法解析图像 URI，已替换为占位文本]' });
+      }
     }
     return parts.length ? parts : [{ type: 'input_text', text: '' }];
   }

@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 142(精确 119 / 前缀 14 / 正则 9),ROUTE_AUTH 129 条,生成于 2026-09-21T13:42:07.760Z。
+> 判定点 142(精确 119 / 前缀 14 / 正则 9),ROUTE_AUTH 129 条,生成于 2026-09-22T07:10:40.327Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -66,7 +66,7 @@
 | POST | `/api/memory/relations/confirm` | exact | token-browser | 13-http-router.js:901 | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/relations/` | prefix | token-browser | 13-http-router.js:909 | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/` | prefix | token-browser | 13-http-router.js:918 | action-feedback.static.e2e.js, agent-quality-workflow.e2e.js, auth-deny-default.e2e.js 等 5 件 |
-| POST | `/api/stop` | exact | token-browser | 13-http-router.js:928 | focus-rail.browser.e2e.js, kimi-agent-cli.e2e.js, live-full-text.static.e2e.js 等 10 件 |
+| POST | `/api/stop` | exact | token-browser | 13-http-router.js:928 | focus-rail.browser.e2e.js, kimi-agent-cli.e2e.js, live-full-text.static.e2e.js 等 11 件 |
 | POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js:952 | context-compact-v2.e2e.js, provider-compact.e2e.js, summary-entity-check.e2e.js 等 4 件 |
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js:961 | — |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js:978 | — |
@@ -90,10 +90,10 @@
 | GET | `/api/storage/summary` | exact | token self | 13-http-router.js:1589 | frontend-domains.static.e2e.js, metrics-panel.e2e.js, session-storage-v2.e2e.js 等 4 件 |
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1601 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1633 | steward-conversation.static.e2e.js, vision-loop.e2e.js |
-| GET | `/api/upload/content` | exact | token self | 13-http-router.js:1644 | vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1664 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 138 件 |
-| POST | `/api/tools/` | prefix | token | 13-http-router.js:1682 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 15 件 |
-| * | `/health` | exact | host-gate | 13-http-router.js:1957 | — |
+| GET | `/api/upload/content` | exact | token self | 13-http-router.js:1647 | vision-loop.e2e.js |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1667 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 138 件 |
+| POST | `/api/tools/` | prefix | token | 13-http-router.js:1685 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 15 件 |
+| * | `/health` | exact | host-gate | 13-http-router.js:1960 | — |
 
 ## event-stream(1)
 

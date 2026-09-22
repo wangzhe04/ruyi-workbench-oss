@@ -10270,6 +10270,13 @@ function buildAttachmentPrompt(attachments) {
       lines.push(fence(file.transcript));
       lines.push('  </attachment>');
     }
+    // v1.9 图片 OCR 文本兜底:图片没随消息发像素时(端点不收图/图超限),OCR 文本走同款围栏＋中和,
+    // 纯文本模型也能拿到图里的文字。只有 OCR 真跑过的才落 record.ocrText(13b maybeOcrImageAttachment)。
+    if (file.ocrText) {
+      lines.push('  <attachment kind="image-ocr" untrusted>');
+      lines.push(fence(file.ocrText));
+      lines.push('  </attachment>');
+    }
   }
   lines.push('</attached_files>');
   return lines.join('\n');
@@ -10303,11 +10310,16 @@ const VisualPipeline = ((fspModule, pathModule) => {
     const parts = [{ type: 'text', text: String(textContent || '') }];
     for (const a of (attachments || [])) {
       if (!a || !a.path || !IMAGE_EXT_RE.test(String(a.name || a.path))) continue;
+      // v1.9:优先发 sendPath —— 上传时为超限大图压缩出的派生件(13b maybeCompressImageAttachment,≤5MB
+      // 目标),大图不再直接降级占位;派生件缺失/不可读回退原图,仍超限才降级占位文本。mime 跟实际发送文件走。
+      let target = String(a.sendPath || '') || a.path;
       try {
-        const st = await fsp.stat(a.path);
+        let st = await fsp.stat(target).catch(() => null);
+        if (!st && target !== a.path) { target = a.path; st = await fsp.stat(target); }
+        if (!st) throw new Error('missing');
         if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || path.basename(a.path)}]`; continue; }
-        const buf = await fsp.readFile(a.path);
-        const uri = `data:${attachmentMime(a.name || a.path)};base64,${buf.toString('base64')}`;
+        const buf = await fsp.readFile(target);
+        const uri = `data:${attachmentMime(target)};base64,${buf.toString('base64')}`;
         parts.push({ type: 'image_url', image_url: { url: uri } });
       } catch { parts[0].text += `\n[图片读取失败:${a.name || path.basename(a.path)}]`; }
     }
@@ -10400,13 +10412,17 @@ async function makeAttachmentRecord(input) {
   await fsp.writeFile(target, buffer);
 
   let textPreview = '';
-  const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|html|css|yaml|yml|ini|log)$/i.test(safeName);
+  // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
+  const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(safeName);
   if (textLike && buffer.length <= 256 * 1024) {
     textPreview = buffer.toString('utf8').slice(0, 12000);
   }
   // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
   // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。
   const audioLike = /\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(safeName);
+  // v1.9:图片附件打 kind:'image'(与 audio 同模具,空不落字段)——上传路由凭它触发图片预处理
+  // (OCR 文本兜底 / 超限压缩派生件,见 13b maybeOcrImageAttachment / maybeCompressImageAttachment)。
+  const imageLike = /\.(png|jpe?g|gif|webp|bmp)$/i.test(safeName);
   return {
     id,
     name: safeName,
@@ -10415,6 +10431,7 @@ async function makeAttachmentRecord(input) {
     createdAt: nowIso(),
     textPreview,
     ...(audioLike ? { kind: 'audio' } : {}),
+    ...(imageLike ? { kind: 'image' } : {}),
   };
 }
 
@@ -28053,8 +28070,11 @@ const failoverStickyBase = new Map();
 // function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
 // (chat's nested { type:'function', function:{...} } shape is NOT accepted there).
 function toResponsesContent(content) {
-  // String → single input_text block. Parts array (vision) → text parts only (Responses/DeepSeek has no image
-  // input; image_url parts degrade to a visible placeholder instead of erroring the request).
+  // String → single input_text block. Parts array (vision) → text parts + input_image parts。图片 part 在此
+  // 展平成 Responses 形 { type:'input_image', image_url:'data:…' }(OpenAI Responses 官方形状;DeepSeek
+  // /responses 现也接受 input_image —— 2026-09 用户确认,旧注释「Responses 无图像输入」已过时)。
+  // chat 形 {type:'image_url', image_url:{url}} 与 Responses 形都认;URI 实在取不出才降级为可见占位文本
+  // (绝不静默丢图)。图片是否随消息发由上游闸住:provider.vision !== true 时根本不建 image part(09-workflow)。
   if (typeof content === 'string') return [{ type: 'input_text', text: content }];
   if (Array.isArray(content)) {
     const parts = [];
@@ -28062,7 +28082,13 @@ function toResponsesContent(content) {
       if (!part || typeof part !== 'object') continue;
       if (part.type === 'text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
       else if (part.type === 'input_text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
-      else if (part.type === 'image_url' || part.type === 'input_image') parts.push({ type: 'input_text', text: '[图片输入：Responses API 不支持图像，已替换为占位文本]' });
+      else if (part.type === 'image_url' || part.type === 'input_image') {
+        const raw = typeof part.image_url === 'string' ? part.image_url
+          : (part.image_url && typeof part.image_url.url === 'string') ? part.image_url.url
+          : (typeof part.input_image === 'string' ? part.input_image : '');
+        if (raw) parts.push({ type: 'input_image', image_url: raw });
+        else parts.push({ type: 'input_text', text: '[图片输入无法解析图像 URI，已替换为占位文本]' });
+      }
     }
     return parts.length ? parts : [{ type: 'input_text', text: '' }];
   }
@@ -44571,6 +44597,9 @@ async function handleApi(req, res, pathname) {
     // 127-114c②:音频附件尽力转写(函数内部绝不 throw —— 未配置零行为,失败只落 transcribeError,
     // 文件已落盘可下载,转写是增量)。13→13b 既有边,委派行形状同下楼几条域路由。
     await maybeTranscribeAudioAttachment(file);
+    // v1.9:图片附件预处理(OCR 文本兜底 / 超限压缩派生件;两函数内部各自零 throw,绝不挡上传)。
+    await maybeOcrImageAttachment(file);
+    await maybeCompressImageAttachment(file);
     return send(res, json({ ok: true, file }));
   }
   // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。
@@ -46219,6 +46248,64 @@ async function maybeTranscribeAudioAttachment(file) {
     if (result.failure) { file.transcribeError = result.failure.code; return; }
     file.transcript = String(result.text || '').slice(0, 12000);
   } catch { file.transcribeError = 'asr.internal'; }
+}
+// v1.9 图片输入增强(与上面音频转写同模具:尽力而为、绝不 throw、未配置/缺席零行为):
+//   ① maybeOcrImageAttachment —— OCR 文本兜底。当前主端点【不收图】(provider.vision !== true)时,上传即经
+//      桥接的 ai_computer_control__ocr_image 把图里的文字落 record.ocrText;进提示词由 03 buildAttachmentPrompt
+//      打 <attachment kind="image-ocr" untrusted> 围栏,纯文本模型也能拿到图内文字。端点收图(vision=true)时
+//      不 OCR —— 像素随消息直达模型,OCR 是纯开销。
+//   ② maybeCompressImageAttachment —— 超限压缩。图片 >5MB 且端点收图时,用桥接的 ai_computer_control__image_resize
+//      重采样出 ≤5MB 的派生件 record.sendPath(uploads/<id>/send.jpg);04-visual-pipeline 发送时优先读它,
+//      超限大图不再直接降级占位。两条都要求桥接 MCP 在场;缺席/失败 = 零行为(存量 record 形状零漂移)。
+const IMAGE_OCR_MAX_CHARS = 12000;           // 与 textPreview 上限同值
+const IMAGE_SEND_MAX_BYTES = 5 * 1024 * 1024; // 与 04-visual-pipeline 的 IMAGE_ATTACH_MAX 同值(那边是发送闸,这边是压缩目标)
+
+async function bridgedToolClient(config, toolName) {
+  const { route } = await collectBridgedTools(config);
+  const bridge = resolveBridge(route, toolName);
+  if (!bridge) return null;
+  const client = await getBridgedClient(bridge.serverId, config);
+  return client ? { client, toolName: bridge.toolName } : null;
+}
+
+async function maybeOcrImageAttachment(file) {
+  try {
+    if (!file || file.kind !== 'image' || !file.path) return;
+    const config = await readConfig();
+    const provider = activeOpenAiProvider(config);
+    if (provider && provider.vision === true) return; // 收图端点:像素直达,不需要 OCR 文本
+    const target = await bridgedToolClient(config, 'ai_computer_control__ocr_image');
+    if (!target) return;
+    const result = await target.client.callTool(target.toolName, { path: file.path, lang: 'zh' });
+    if (!result || result.ok === false) return;
+    const text = typeof result.text === 'string' ? result.text
+      : (typeof result.content === 'string' ? result.content : '');
+    if (text.trim()) file.ocrText = text.slice(0, IMAGE_OCR_MAX_CHARS);
+  } catch { file.ocrError = 'ocr.internal'; }
+}
+
+async function maybeCompressImageAttachment(file) {
+  try {
+    if (!file || file.kind !== 'image' || !file.path) return;
+    if (!(file.size > IMAGE_SEND_MAX_BYTES)) return;
+    const config = await readConfig();
+    const provider = activeOpenAiProvider(config);
+    if (!provider || provider.vision !== true) return; // 不发像素的路径压缩了也没人看
+    const target = await bridgedToolClient(config, 'ai_computer_control__image_resize');
+    if (!target) return;
+    const outPath = path.join(path.dirname(file.path), 'send.jpg');
+    // 文件大小≈像素数:按面积开方缩一档再留 15% 余量给 JPEG 编码差;一轮不行再缩一次(共≤2 趴,
+    // 仍超限就零行为 —— 发送侧的 5MB 闸会走原有占位降级,绝不发超限大包)。
+    let scale = Math.min(1, Math.sqrt((IMAGE_SEND_MAX_BYTES * 0.85) / file.size));
+    for (let i = 0; i < 2; i++) {
+      const result = await target.client.callTool(target.toolName, { path: file.path, output_path: outPath, scale: Number(scale.toFixed(4)) });
+      if (!result || result.ok === false || result.success === false) return;
+      const st = await fsp.stat(outPath).catch(() => null);
+      if (!st) return;
+      if (st.size <= IMAGE_SEND_MAX_BYTES) { file.sendPath = outPath; file.sendSize = st.size; return; }
+      scale *= 0.7;
+    }
+  } catch { file.compressError = 'image.compress_failed'; }
 }
 async function handleAudioTranscribe(req, res) {
   const config = await readConfig();

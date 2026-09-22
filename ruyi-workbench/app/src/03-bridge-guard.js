@@ -1027,6 +1027,13 @@ function buildAttachmentPrompt(attachments) {
       lines.push(fence(file.transcript));
       lines.push('  </attachment>');
     }
+    // v1.9 图片 OCR 文本兜底:图片没随消息发像素时(端点不收图/图超限),OCR 文本走同款围栏＋中和,
+    // 纯文本模型也能拿到图里的文字。只有 OCR 真跑过的才落 record.ocrText(13b maybeOcrImageAttachment)。
+    if (file.ocrText) {
+      lines.push('  <attachment kind="image-ocr" untrusted>');
+      lines.push(fence(file.ocrText));
+      lines.push('  </attachment>');
+    }
   }
   lines.push('</attached_files>');
   return lines.join('\n');

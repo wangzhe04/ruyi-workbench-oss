@@ -67,7 +67,7 @@ function streamChat(port, payload) {
 }
 // vision boolean + whether to bridge fake-mcp (desktop tools) + extra fake env; single active provider.
 // 127-114c②: asr=true 追加 asrProviderId/asrModel(指向同一个 fake —— 它的 ASR 桩无条件在)。
-function writeConfig(vision, bridgeMcp, asr) {
+function writeConfig(vision, bridgeMcp, asr, providerExtra) {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     // 116-5a:本件隔离回合/工具/台账,不测线程自动摘要(它有自己的 thread-brief.e2e.js)
     stewardThreadBriefV1: false,
@@ -75,7 +75,8 @@ function writeConfig(vision, bridgeMcp, asr) {
     defaultWorkspace: HOME, recentWorkspaces: [],
     externalMcpServers: bridgeMcp ? [{ id: 'ai-computer-control', label: 'Fake ACC', command: NODE, args: [FAKE_MCP], enabled: true }] : [],
     desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
-    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], vision: !!vision }],
+    // providerExtra:v1.9 场景 (g) 给 provider 塞 apiStyle:'responses' 等字段。
+    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + FAKE_PORT, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }], vision: !!vision, ...(providerExtra || {}) }],
     activeProvider: 'fake',
     ...(asr ? { asrProviderId: 'fake', asrModel: 'fake-asr-v1' } : {}),
   }, null, 2));
@@ -315,6 +316,79 @@ function hasEvictedPlaceholder(ph) {
     ok(upE.body && upE.body.ok === true, '(f6) upload NOT blocked by upstream 5xx (原文件保留)');
     ok(attE && attE.kind === 'audio' && !('transcript' in attE) && attE.transcribeError === 'asr.upstream', '(f6) transcribeError:"asr.upstream" recorded, no transcript — got: ' + JSON.stringify(attE && attE.transcribeError));
 
+    killp(fake); fake = null;
+
+    // ── (g) v1.9 Responses input_image 透传 ─────────────────────────────────────────────────
+    // 判据:apiStyle:'responses' + vision:true + 图片附件 → 请求体 input 的 user item content 数组含
+    // input_image part(不再降级成「已替换为占位文本」);FAKE_VISION 回显 SEEN_IMAGE 证明像素抵达模型。
+    writeConfig(true, true, false, { apiStyle: 'responses' }); clearCapture();
+    fake = spawnFake({ FAKE_VISION: '1' }); procs.push(fake);
+    for (let i = 0; i < 30 && !(await fakeUp(FAKE_PORT)); i++) await sleep(120);
+    const cG = await postJson(WB_PORT, '/api/sessions', { title: 'responses image', cwd: HOME }, hdr);
+    const sidG = cG.body && cG.body.session && cG.body.session.id;
+    ok(!!sidG, '(g) session created');
+    const evG = await streamChat(WB_PORT, { sessionId: sidG, message: '看看这张图', cwd: HOME, attachments: [att] });
+    const textG = evG.filter(e => e.type === 'assistant_delta').map(e => e.text).join('');
+    ok(/SEEN_IMAGE:/.test(textG), '(g) responses: reply carries SEEN_IMAGE: (input_image reached the model) — got: ' + JSON.stringify(textG.slice(0, 60)));
+    const capsG = readCaptures();
+    const bodyG = capsG.length ? capsG[capsG.length - 1] : null;
+    const inputG = (bodyG && Array.isArray(bodyG.input)) ? bodyG.input : [];
+    const imgPartsG = inputG.reduce((acc, it) => acc.concat((it && Array.isArray(it.content)) ? it.content.filter(c => c && c.type === 'input_image') : []), []);
+    ok(imgPartsG.length >= 1, '(g) responses: input items carry an input_image part — got ' + imgPartsG.length);
+    ok(imgPartsG.length > 0 && imgPartsG.every(p => typeof p.image_url === 'string' && p.image_url.startsWith('data:image/')), '(g) responses: input_image.image_url is a data URI string');
+    ok(!JSON.stringify(bodyG || {}).includes('已替换为占位文本'), '(g) responses: the image is NOT degraded to placeholder text');
+    killp(fake);
+
+    // ── (h) v1.9 图片 OCR 文本兜底 ─────────────────────────────────────────────────────────────
+    // 判据:vision:false(端点不收图)+ 图片附件 + 桥接在场 → 上传即 OCR,record.ocrText 落原文,进提示词
+    // 带 <attachment kind="image-ocr" untrusted> 围栏且尖括号中和;vision:true 不 OCR(像素直达,零开销)。
+    writeConfig(false, true); clearCapture();
+    fake = spawnFake({}); procs.push(fake);
+    for (let i = 0; i < 30 && !(await fakeUp(FAKE_PORT)); i++) await sleep(120);
+    const upH = await postJson(WB_PORT, '/api/upload', { name: 'scan.png', data: PNG_B64 }, hdr);
+    const attH = upH.body && upH.body.file;
+    ok(attH && attH.kind === 'image', '(h) png upload → kind:"image"');
+    ok(attH && typeof attH.ocrText === 'string' && attH.ocrText.includes('FAKE_OCR_TEXT'), '(h) OCR text recorded at upload (vision off) — got: ' + JSON.stringify(attH && attH.ocrText));
+    const upH2 = await postJson(WB_PORT, '/api/upload', { name: 'fencepayload-scan.png', data: PNG_B64 }, hdr);
+    const attH2 = upH2.body && upH2.body.file;
+    ok(attH2 && /<\/attachment>/.test(String(attH2.ocrText || '')), '(h2) record.ocrText carries RAW fake payload (neutralization is prompt-side)');
+    const cH = await postJson(WB_PORT, '/api/sessions', { title: 'ocr fallback', cwd: HOME }, hdr);
+    const sidH = cH.body && cH.body.session && cH.body.session.id;
+    await streamChat(WB_PORT, { sessionId: sidH, message: '图里写了啥', cwd: HOME, attachments: [attH, attH2] });
+    const capsH = readCaptures();
+    const userH = capsH.length && [...(capsH[capsH.length - 1].messages || [])].reverse().find(m => m && m.role === 'user');
+    const textH = userH && typeof userH.content === 'string' ? userH.content : '';
+    ok(textH.includes('<attachment kind="image-ocr" untrusted>'), '(h) prompt has <attachment kind="image-ocr" untrusted> fence');
+    ok(textH.includes('[/attachment] [script]alert(1)[/script]'), '(h) OCR text angle brackets neutralized in prompt');
+    ok(textH && !textH.includes('</attachment> <script>'), '(h) raw breakout sequence NOT in prompt');
+    ok((textH.match(/<\/attachment>/g) || []).length === 2, '(h) exactly TWO literal </attachment> (two legit fence closes) — got ' + (textH.match(/<\/attachment>/g) || []).length);
+    writeConfig(true, true);
+    const upH3 = await postJson(WB_PORT, '/api/upload', { name: 'shot.png', data: PNG_B64 }, hdr);
+    const attH3 = upH3.body && upH3.body.file;
+    ok(attH3 && attH3.kind === 'image' && !('ocrText' in attH3), '(h3) vision on → pixels ride along, NO OCR field (零开销)');
+    killp(fake);
+
+    // ── (i) v1.9 超限图片压缩派生件 ────────────────────────────────────────────────────────────
+    // 判据:>5MB 图片 + vision:true + 桥接在场 → 上传时压缩出 record.sendPath(send.jpg,≤5MB),
+    // 发送读派生件(image/jpeg data URI);vision:false 不压缩(不发像素)。
+    writeConfig(true, true); clearCapture();
+    fake = spawnFake({ FAKE_VISION: '1' }); procs.push(fake);
+    for (let i = 0; i < 30 && !(await fakeUp(FAKE_PORT)); i++) await sleep(120);
+    const bigPng = Buffer.concat([Buffer.from(PNG_B64, 'base64'), Buffer.alloc(6 * 1024 * 1024)]);
+    const upI = await postJson(WB_PORT, '/api/upload', { name: 'huge.png', data: bigPng.toString('base64') }, hdr);
+    const attI = upI.body && upI.body.file;
+    ok(attI && attI.sendPath && /send\.jpg$/.test(String(attI.sendPath)), '(i) oversize image compressed → record.sendPath (send.jpg) — got: ' + JSON.stringify(attI && attI.sendPath));
+    ok(attI && attI.sendSize > 0 && attI.sendSize <= 5 * 1024 * 1024, '(i) sendSize within the 5MB send budget — got ' + (attI && attI.sendSize));
+    const cI = await postJson(WB_PORT, '/api/sessions', { title: 'big image', cwd: HOME }, hdr);
+    const sidI = cI.body && cI.body.session && cI.body.session.id;
+    await streamChat(WB_PORT, { sessionId: sidI, message: '看大图', cwd: HOME, attachments: [attI] });
+    const capsI = readCaptures();
+    const userI = capsI.length && [...(capsI[capsI.length - 1].messages || [])].reverse().find(m => m && m.role === 'user');
+    ok(userI && Array.isArray(userI.content) && userI.content.some(p => p && p.type === 'image_url' && /^data:image\/jpeg/.test(String((p.image_url && p.image_url.url) || ''))), '(i) request carries the COMPRESSED image part (image/jpeg data URI)');
+    writeConfig(false, true);
+    const upI2 = await postJson(WB_PORT, '/api/upload', { name: 'huge2.png', data: bigPng.toString('base64') }, hdr);
+    const attI2 = upI2.body && upI2.body.file;
+    ok(attI2 && !('sendPath' in attI2), '(i2) vision off → no compression derived file (no pixels are sent)');
     killp(fake); fake = null;
 
     // Verdict line MUST follow the harness convention "<NAME> E2E: ALL PASS" — the regression runner

@@ -406,6 +406,28 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ object: 'list', data: [entry('fake-model'), entry('fake-reasoner')] }));
       return;
     }
+    // v1.9 图片透传 Responses:POST .../responses —— 与 /chat/completions 同一捕获,最小 Responses SSE
+    // (response.output_text.delta → response.completed,无 [DONE])。FAKE_VISION=1 且 input 里任一
+    // message item 的 content 数组含 input_image part 时,回复文本回显 SEEN_IMAGE:<hash>(与 chat 形同口径)。
+    if (req.method === 'POST' && url.endsWith('/responses')) {
+      chatRequestCount += 1;
+      capture(body);
+      let rp = {};
+      try { rp = JSON.parse(body); } catch { /* ignore */ }
+      const imgPart = (Array.isArray(rp.input) ? rp.input : [])
+        .map(it => (it && Array.isArray(it.content)) ? it.content.find(c => c && (c.type === 'input_image' || c.type === 'image_url')) : null)
+        .find(Boolean);
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+      let rtext = 'Hello, world (responses)';
+      if (VISION && imgPart) {
+        const u = String((imgPart.image_url && (imgPart.image_url.url || imgPart.image_url)) || '');
+        rtext = 'SEEN_IMAGE:' + u.length + '-' + u.slice(0, 8);
+      }
+      sse(res, { type: 'response.output_text.delta', delta: rtext });
+      sse(res, { type: 'response.completed', response: { id: 'resp_fake', usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } });
+      res.end();
+      return;
+    }
     if (req.method === 'POST' && url.includes('/chat/completions')) {
       chatRequestCount += 1; // v1.0-S6 (B): served-request tally (read via GET /__count)
       capture(body); // v0.8-S6: persist the raw request body (system prompt inspection by e2e)

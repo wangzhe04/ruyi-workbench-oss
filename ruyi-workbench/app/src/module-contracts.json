@@ -10965,6 +10965,20 @@
         },
         {
           "provider": "13b-api-domain-routes.js",
+          "symbol": "maybeCompressImageAttachment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13b-api-domain-routes.js",
+          "symbol": "maybeOcrImageAttachment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13b-api-domain-routes.js",
           "symbol": "maybeTranscribeAudioAttachment",
           "kinds": [
             "call"
@@ -11053,6 +11067,8 @@
         "AUDIO_STREAM_MAX_SESSIONS",
         "AUDIO_STREAM_UPSTREAM_TIMEOUT_MS",
         "AUDIO_WARMUP_SILENCE_MS",
+        "IMAGE_OCR_MAX_CHARS",
+        "IMAGE_SEND_MAX_BYTES",
         "STEER_REFUSAL",
         "audioStreamFailure",
         "audioStreamReap",
@@ -11060,6 +11076,7 @@
         "audioStreamUpstream",
         "audioWarmupLoaded",
         "audioWarmups",
+        "bridgedToolClient",
         "handleAudioApiRoutes",
         "handleAudioCorrect",
         "handleAudioStreamOpen",
@@ -11069,6 +11086,8 @@
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
         "handleSteerApiRoute",
+        "maybeCompressImageAttachment",
+        "maybeOcrImageAttachment",
         "maybeTranscribeAudioAttachment",
         "readAudioBody",
         "runAudioWarmup",
@@ -11275,6 +11294,20 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "collectBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "getBridgedClient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "hasPendingQuestionForSession",
           "kinds": [
             "call"
@@ -11317,6 +11350,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "resolveBridge",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "resolveExternalMcpServers",
           "kinds": [
             "call"
@@ -11334,6 +11374,13 @@
           "symbol": "ToolboxHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
           ]
         },
         {

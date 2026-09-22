@@ -1636,6 +1636,9 @@ async function handleApi(req, res, pathname) {
     // 127-114c②:音频附件尽力转写(函数内部绝不 throw —— 未配置零行为,失败只落 transcribeError,
     // 文件已落盘可下载,转写是增量)。13→13b 既有边,委派行形状同下楼几条域路由。
     await maybeTranscribeAudioAttachment(file);
+    // v1.9:图片附件预处理(OCR 文本兜底 / 超限压缩派生件;两函数内部各自零 throw,绝不挡上传)。
+    await maybeOcrImageAttachment(file);
+    await maybeCompressImageAttachment(file);
     return send(res, json({ ok: true, file }));
   }
   // 图片/附件回显:读取 makeAttachmentRecord 写下的上传件原字节(聊天气泡里的图片缩略图/大图)。

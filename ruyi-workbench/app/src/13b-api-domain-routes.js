@@ -690,6 +690,64 @@ async function maybeTranscribeAudioAttachment(file) {
     file.transcript = String(result.text || '').slice(0, 12000);
   } catch { file.transcribeError = 'asr.internal'; }
 }
+// v1.9 图片输入增强(与上面音频转写同模具:尽力而为、绝不 throw、未配置/缺席零行为):
+//   ① maybeOcrImageAttachment —— OCR 文本兜底。当前主端点【不收图】(provider.vision !== true)时,上传即经
+//      桥接的 ai_computer_control__ocr_image 把图里的文字落 record.ocrText;进提示词由 03 buildAttachmentPrompt
+//      打 <attachment kind="image-ocr" untrusted> 围栏,纯文本模型也能拿到图内文字。端点收图(vision=true)时
+//      不 OCR —— 像素随消息直达模型,OCR 是纯开销。
+//   ② maybeCompressImageAttachment —— 超限压缩。图片 >5MB 且端点收图时,用桥接的 ai_computer_control__image_resize
+//      重采样出 ≤5MB 的派生件 record.sendPath(uploads/<id>/send.jpg);04-visual-pipeline 发送时优先读它,
+//      超限大图不再直接降级占位。两条都要求桥接 MCP 在场;缺席/失败 = 零行为(存量 record 形状零漂移)。
+const IMAGE_OCR_MAX_CHARS = 12000;           // 与 textPreview 上限同值
+const IMAGE_SEND_MAX_BYTES = 5 * 1024 * 1024; // 与 04-visual-pipeline 的 IMAGE_ATTACH_MAX 同值(那边是发送闸,这边是压缩目标)
+
+async function bridgedToolClient(config, toolName) {
+  const { route } = await collectBridgedTools(config);
+  const bridge = resolveBridge(route, toolName);
+  if (!bridge) return null;
+  const client = await getBridgedClient(bridge.serverId, config);
+  return client ? { client, toolName: bridge.toolName } : null;
+}
+
+async function maybeOcrImageAttachment(file) {
+  try {
+    if (!file || file.kind !== 'image' || !file.path) return;
+    const config = await readConfig();
+    const provider = activeOpenAiProvider(config);
+    if (provider && provider.vision === true) return; // 收图端点:像素直达,不需要 OCR 文本
+    const target = await bridgedToolClient(config, 'ai_computer_control__ocr_image');
+    if (!target) return;
+    const result = await target.client.callTool(target.toolName, { path: file.path, lang: 'zh' });
+    if (!result || result.ok === false) return;
+    const text = typeof result.text === 'string' ? result.text
+      : (typeof result.content === 'string' ? result.content : '');
+    if (text.trim()) file.ocrText = text.slice(0, IMAGE_OCR_MAX_CHARS);
+  } catch { file.ocrError = 'ocr.internal'; }
+}
+
+async function maybeCompressImageAttachment(file) {
+  try {
+    if (!file || file.kind !== 'image' || !file.path) return;
+    if (!(file.size > IMAGE_SEND_MAX_BYTES)) return;
+    const config = await readConfig();
+    const provider = activeOpenAiProvider(config);
+    if (!provider || provider.vision !== true) return; // 不发像素的路径压缩了也没人看
+    const target = await bridgedToolClient(config, 'ai_computer_control__image_resize');
+    if (!target) return;
+    const outPath = path.join(path.dirname(file.path), 'send.jpg');
+    // 文件大小≈像素数:按面积开方缩一档再留 15% 余量给 JPEG 编码差;一轮不行再缩一次(共≤2 趴,
+    // 仍超限就零行为 —— 发送侧的 5MB 闸会走原有占位降级,绝不发超限大包)。
+    let scale = Math.min(1, Math.sqrt((IMAGE_SEND_MAX_BYTES * 0.85) / file.size));
+    for (let i = 0; i < 2; i++) {
+      const result = await target.client.callTool(target.toolName, { path: file.path, output_path: outPath, scale: Number(scale.toFixed(4)) });
+      if (!result || result.ok === false || result.success === false) return;
+      const st = await fsp.stat(outPath).catch(() => null);
+      if (!st) return;
+      if (st.size <= IMAGE_SEND_MAX_BYTES) { file.sendPath = outPath; file.sendSize = st.size; return; }
+      scale *= 0.7;
+    }
+  } catch { file.compressError = 'image.compress_failed'; }
+}
 async function handleAudioTranscribe(req, res) {
   const config = await readConfig();
   const resolved = resolveAsrProvider(config);

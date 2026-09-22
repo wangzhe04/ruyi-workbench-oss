@@ -21,13 +21,17 @@ async function makeAttachmentRecord(input) {
   await fsp.writeFile(target, buffer);
 
   let textPreview = '';
-  const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|html|css|yaml|yml|ini|log)$/i.test(safeName);
+  // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
+  const textLike = /\.(txt|md|json|js|ts|tsx|jsx|py|ps1|bat|cmd|csv|xml|svg|html|css|yaml|yml|ini|log)$/i.test(safeName);
   if (textLike && buffer.length <= 256 * 1024) {
     textPreview = buffer.toString('utf8').slice(0, 12000);
   }
   // 127-114c②(26 号文 §3):音频附件打 kind:'audio'(扩展名白名单)——上传路由凭它触发尽力转写;
   // 非音频不落此字段(与 hiddenModels/caps「空不落字段」同模具,存量记录形状零漂移)。
   const audioLike = /\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(safeName);
+  // v1.9:图片附件打 kind:'image'(与 audio 同模具,空不落字段)——上传路由凭它触发图片预处理
+  // (OCR 文本兜底 / 超限压缩派生件,见 13b maybeOcrImageAttachment / maybeCompressImageAttachment)。
+  const imageLike = /\.(png|jpe?g|gif|webp|bmp)$/i.test(safeName);
   return {
     id,
     name: safeName,
@@ -36,6 +40,7 @@ async function makeAttachmentRecord(input) {
     createdAt: nowIso(),
     textPreview,
     ...(audioLike ? { kind: 'audio' } : {}),
+    ...(imageLike ? { kind: 'image' } : {}),
   };
 }
 

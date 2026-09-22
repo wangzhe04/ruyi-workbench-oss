@@ -26,11 +26,16 @@ const VisualPipeline = ((fspModule, pathModule) => {
     const parts = [{ type: 'text', text: String(textContent || '') }];
     for (const a of (attachments || [])) {
       if (!a || !a.path || !IMAGE_EXT_RE.test(String(a.name || a.path))) continue;
+      // v1.9:优先发 sendPath —— 上传时为超限大图压缩出的派生件(13b maybeCompressImageAttachment,≤5MB
+      // 目标),大图不再直接降级占位;派生件缺失/不可读回退原图,仍超限才降级占位文本。mime 跟实际发送文件走。
+      let target = String(a.sendPath || '') || a.path;
       try {
-        const st = await fsp.stat(a.path);
+        let st = await fsp.stat(target).catch(() => null);
+        if (!st && target !== a.path) { target = a.path; st = await fsp.stat(target); }
+        if (!st) throw new Error('missing');
         if (st.size > IMAGE_ATTACH_MAX) { parts[0].text += `\n[图片过大未发送:${a.name || path.basename(a.path)}]`; continue; }
-        const buf = await fsp.readFile(a.path);
-        const uri = `data:${attachmentMime(a.name || a.path)};base64,${buf.toString('base64')}`;
+        const buf = await fsp.readFile(target);
+        const uri = `data:${attachmentMime(target)};base64,${buf.toString('base64')}`;
         parts.push({ type: 'image_url', image_url: { url: uri } });
       } catch { parts[0].text += `\n[图片读取失败:${a.name || path.basename(a.path)}]`; }
     }
