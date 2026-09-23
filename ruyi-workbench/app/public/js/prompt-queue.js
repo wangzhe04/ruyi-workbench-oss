@@ -1,4 +1,5 @@
 'use strict';
+import { preserveListFocus } from './util.js';
 
 // prompt-queue.js — 「等你处理」队列（135，用户 2026-09-23：多条提问／权限同时来时依次排队，
 // 最小化到右下角小窗并显示每条的等待时长；要考虑权限申请很多的情况）。
@@ -334,6 +335,7 @@ export function createPromptQueue({
   }
 
   function buildStructure(groups) {
+    const restoreFocus = preserveListFocus(list, pill);
     list.textContent = '';
     timeCells.clear();
     for (const group of groups) {
@@ -346,6 +348,7 @@ export function createPromptQueue({
         const row = el('button', `pd-row pd-${item.type}`);
         row.type = 'button';
         row.dataset.interventionId = item.id;
+        row.dataset.focusKey = item.id;
         const kind = el('span', 'pd-kind', t(item.type === 'question' ? 'promptQueue.row.question' : 'promptQueue.row.permission'));
         const main = el('span', 'pd-row-main');
         const time = el('span', 'pd-time', '');
@@ -358,6 +361,7 @@ export function createPromptQueue({
       for (const cand of bulkAllowCandidates(group.rows)) {
         const bulk = el('button', 'pd-bulk', t('promptQueue.group.allowTool', { tool: humanizeToolName(cand.tool), count: cand.items.length }));
         bulk.type = 'button';
+        bulk.dataset.focusKey = JSON.stringify([group.sessionId, cand.tool, 'bulk']);
         bulk.title = t('promptQueue.group.allowToolHint', { count: cand.items.length });
         bulk.onclick = async () => {
           bulk.disabled = true;
@@ -370,11 +374,13 @@ export function createPromptQueue({
       }
       list.append(section);
     }
+    restoreFocus();
   }
 
   function render() {
     const show = items.size > 0 && !active && shellMode() === 'classic';
     if (!show) {
+      if (!items.size && dock?.contains(doc().activeElement)) doc().querySelector('#promptInput')?.focus();
       if (dock) { dock.hidden = true; doc().body.classList.remove('has-prompt-dock'); }
       structureSig = '';
       return;

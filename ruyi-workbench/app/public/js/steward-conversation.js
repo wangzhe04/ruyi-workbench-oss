@@ -455,6 +455,9 @@ export function stewardActionReceiptState(result) {
 // 工具稳定信封 → i18n 人话键（§8.4 按钮落定：result.ok===false 时按 result.error 说人话，
 // 按钮行保留可重试）。表外的一律落到 errGeneric 并把原始 error 原样带出去（诚实优先）。
 const STEWARD_ACT_ERROR_KEYS = Object.freeze({
+  invalid_request: 'stewardShell.chat.errInvalidAct',
+  not_allowed: 'stewardShell.chat.errUnavailableAct',
+  payload_forbidden_key: 'stewardShell.chat.errUnavailableAct',
   propose_required: 'stewardShell.chat.errProposeRequired',
   not_found: 'stewardShell.chat.errNotFound',
   'steward.busy': 'stewardShell.chat.errBusy',
@@ -935,17 +938,27 @@ export function createStewardConversation({
     try {
       const response = await api('/api/steward/act', { method: 'POST', body: JSON.stringify({ act }) });
       const result = response && response.result;
+      if (!response || response.ok !== true || (act.kind === 'tool' && (!result || typeof result.ok !== 'boolean'))) {
+        showActProblem(actsRow, t('stewardShell.chat.actUnconfirmed'));
+        // A lost receipt may follow a successful write: do not invite duplicates.
+        if (btn) { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); }
+        return;
+      }
       if (result && result.ok === false) {
         // 117l-B2 ⑤：查表那一步搬进 stewardActErrorMessage（多一条 steward.queued 要插 wait.label），
         // 表外仍然落到 errGeneric 并把原始 error 原样带出去。
         const message = stewardActErrorMessage(result.error, t)
           || t('stewardShell.chat.errGeneric', { error: stewardErrorText(result.error) });
         showActProblem(actsRow, message);
-        if (btn) btn.disabled = false;   // 按钮行保留可重试
+        if (btn) {
+          btn.disabled = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(result.error);
+          if (btn.disabled) btn.classList.remove(STEWARD_PRIMARY_CLASS);
+        }
         return;
       }
       // ② 纯导航：**不落回执、不消费按钮行**，把这一枚恢复成可点的（下次还要再点）。
       // 其余 kind 照旧一次性落定成灰字回执。
+      actsRow?.parentNode?.querySelector('.steward-act-problem')?.remove();
       if (isNavigationAct(act)) {
         if (btn) btn.disabled = false;
         if (act.sessionId) openThread(act.sessionId);
@@ -954,8 +967,12 @@ export function createStewardConversation({
       }
       if (typeof onSettled === 'function') onSettled(act, response);
     } catch (error) {
-      showActProblem(actsRow, t('stewardShell.chat.errGeneric', { error: stewardErrorText(error) }));
-      if (btn) btn.disabled = false;
+      const info = apiErrorInfo(error);
+      const code = stewardErrorCode(info || error);
+      const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(code);
+      showActProblem(actsRow, invalid ? stewardActErrorMessage(code, t) || t('stewardShell.chat.errUnavailableAct')
+        : t('stewardShell.chat.actUnconfirmed'));
+      if (btn) { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); }
     }
   }
 
@@ -1614,7 +1631,7 @@ export function createStewardConversation({
     const result = row.result;
     // 三态各自的那半句。failed 那一档仍然把后端的错误人话原样带出来（诚实优先，不归一成一句）。
     const stateText = state === 'done' ? t('stewardShell.chat.actionDone')
-      : state === 'failed' ? stewardErrorText(result && result.error)
+      : state === 'failed' ? stewardActErrorMessage(result && result.error, t) || stewardErrorText(result && result.error)
         : t('stewardShell.chat.actionNoReceipt');
     return t('stewardShell.chat.actionLine', {
       // 116-3 copy P1-1（§8.1 原则 7）：优先用后端给的人话标签（13h 的 stewardActLabel，与「行动流水」

@@ -1126,7 +1126,7 @@ const MCP_TOOLS = [
   // 实现住 13t-steward-schedule.js,门控壳仍是 13g 的 stewardToolHandler。
   {
     name: 'steward_schedule_create',
-    description: '给用户排一条定时任务(到点由如意自己触发)。**下单之前必须先用人话把计划回读一遍、等用户说对了才调**——「我给你排一条:每个工作日 18:00,在新线程里生成周报草稿,对吗?」;用户没确认就别调,排错的日程比不排更烦人。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
+    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {

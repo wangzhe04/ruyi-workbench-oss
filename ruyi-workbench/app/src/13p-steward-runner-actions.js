@@ -161,8 +161,14 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
 // 这类待决只能由用户在线程里亲自按,所以降级成「去线程里看」(open_thread,只切视图、不执行任何工具);
 // 拿不到线程 id 就不画按钮 —— 宁可少一个按钮,也不画一个按下去必被拒的。
 const STEWARD_EXEMPT_OPEN_THREAD_LABEL = '去线程里看';
-function stewardDowngradeActions(executed, acts) {
-  const next = acts.slice();
+function stewardDowngradeActions(executed, acts, priorReceipts = []) {
+  // Reconcile proposals with real receipts. Successful actions must not execute
+  // twice; invalid arguments do not become valid just because a user clicks.
+  const receipts = executed.concat(priorReceipts);
+  const settled = act => act.kind === 'tool' && receipts.some(row =>
+    row && row.tool === act.tool && configValueEquals(row.args || {}, act.args || {})
+    && row.result && (row.result.ok === true || ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(row.result.error)));
+  const next = acts.filter(act => !settled(act));
   for (const row of executed) {
     if (next.length >= STEWARD_ACTS_MAX) break;
     const result = row && row.result;
@@ -175,7 +181,7 @@ function stewardDowngradeActions(executed, acts) {
       next.push(openAct);
       continue;
     }
-    if (next.some(act => act.kind === 'tool' && act.tool === row.tool && JSON.stringify(act.args || {}) === JSON.stringify(row.args || {}))) continue;
+    if (next.some(act => act.kind === 'tool' && act.tool === row.tool && configValueEquals(act.args || {}, row.args || {}))) continue;
     // 116-2b:自理动作降级时用它自己的人话标签(「重试」/「续跑」)——它是按【意图】提的,
     // 不是按工具名提的:回合类重试走的是 thread_continue,按工具名会说成「接着办」,那不是用户
     // 要按的那件事。没有显式标签时仍按工具与 args 派生(既有行为逐字不变)。
@@ -210,7 +216,7 @@ function stewardDowngradeActions(executed, acts) {
     const sid = row.args && (row.args.sessionId || row.args.missionId) ? safeSessionId(row.args.sessionId || row.args.missionId) : '';
     if (sid) act.sessionId = sid;
     if (!next.some(a => a.primary)) act.primary = true;
-    next.push(act);
+    if (!settled(act) && stewardNormalizeAct(act)) next.push(act);
   }
   return next.slice(0, STEWARD_ACTS_MAX);
 }

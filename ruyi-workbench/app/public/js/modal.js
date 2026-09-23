@@ -71,8 +71,8 @@ export function installFocusTrap(backdrop) {
     const nodes = [...modal.querySelectorAll(sel)].filter(n => n.offsetParent !== null);
     if (!nodes.length) return;
     const first = nodes[0], last = nodes[nodes.length - 1];
-    const active = document.activeElement;
-    if (e.shiftKey && (active === first || !modal.contains(active))) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && (active === last || !modal.contains(active))) { e.preventDefault(); first.focus(); }
+    const active = (backdrop.ownerDocument || document).activeElement;
+    if (e.shiftKey && (active === first || active === modal || !modal.contains(active))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (active === last || active === modal || !modal.contains(active))) { e.preventDefault(); first.focus(); }
   });
 }

@@ -40,6 +40,7 @@ ok(/--glass-blur-1:\s*blur\(8px\)/.test(CSS) && /--glass-blur-2:\s*blur\(16px\)/
 const lines = CSS.split('\n');
 const offenders = [];
 const WHITE = ['.sidebar, .tool-pane', '.topbar', '.composer', '.modal', '.palette', '.popover', '.toast',
+  '.mermaid-lightbox', // Single full-screen viewer; shared blur token and transparency fallback.
   '.wb-layer-tag', '.wb-cvtools', // 工作台画布轻层(仅 blur-1,画布视图内,不入框架/浮层预算轴)
   '.preview-deskbar', '.preview-dock', '.preview-error-card', // Wave 76: 与经典框架互斥的 Preview 壳层; 主区三态只会出现一张卡
   '.preview-needs-scrim', '.preview-needs-drawer', // Wave 81: 一个全局、互斥的待决浮层；内部卡片不叠 blur

@@ -714,7 +714,7 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 整份再算得下面这个值。
 // 135c 续钉(前值 ac796a20…):只在载荷末尾新增一层 css/views/background-tray.css(线程内后台任务条)。
 // 算法自证同上:抠掉这一层重算 = 前值,逐字相同。
-const LEGACY_STYLES_SHA256 = '782f08db193773e4818064eba02260cc411829e06932f52ceecd407fb67d807a';
+const LEGACY_STYLES_SHA256 = 'abe014def4a8e477de446df3eb7c917d6c914004de0fd1368b0964f3f1cc0d65';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -1,4 +1,5 @@
 'use strict';
+import { preserveListFocus } from './util.js';
 
 // background-tray.js — 线程内「后台任务」条（135c，用户 2026-09-23：会话内的后台任务进度也要有类似
 // 「等你处理」的显示，但要做点小差别，而且只在对应线程下显示那个线程的）。
@@ -71,6 +72,7 @@ export function createBackgroundTray({
   let lastFetchAt = 0, fetching = false;
   let railCounts = {};
   let started = false;
+  let lastSuccessAt = 0, stale = false;
 
   function visible() {
     try { return !doc().hidden; } catch { return true; }
@@ -80,13 +82,18 @@ export function createBackgroundTray({
   async function refresh() {
     if (fetching || !api) return;
     const sid = String(currentSessionId() || '');
-    if (sid !== sessionId) { sessionId = sid; items = []; expanded = false; closeAllOutputs(); structureSig = ''; }
+    if (sid !== sessionId) { sessionId = sid; items = []; expanded = false; closeAllOutputs(); structureSig = ''; lastSuccessAt = 0; stale = false; }
     if (!sid || !visible() || shellMode() !== 'classic') { render(); schedule(); return; }
     fetching = true; lastFetchAt = now();
     try {
       const res = await api(`/api/sessions/${encodeURIComponent(sid)}/background`);
-      if (String(currentSessionId() || '') === sid) items = Array.isArray(res && res.items) ? res.items : [];
-    } catch { /* 旁注,拿不到就等下一拍 */ }
+      if (String(currentSessionId() || '') === sid) {
+        items = Array.isArray(res && res.items) ? res.items : [];
+        lastSuccessAt = now(); stale = false;
+      }
+    } catch {
+      if (String(currentSessionId() || '') === sid) stale = true;
+    }
     finally { fetching = false; render(); schedule(); }
   }
   function schedule() {
@@ -203,6 +210,7 @@ export function createBackgroundTray({
   }
 
   async function stopItem(item, btn) {
+    const targetSessionId = sessionId;
     const ok = await confirmDanger({
       titleKey: 'bgTray.stop.title',
       bodyKey: item.kind === 'shell' ? 'bgTray.stop.bodyShell' : 'bgTray.stop.bodyRun',
@@ -213,7 +221,7 @@ export function createBackgroundTray({
     if (!ok) return;
     btn.disabled = true;
     try {
-      await api(`/api/sessions/${encodeURIComponent(sessionId)}/background/stop`, { method: 'POST', body: JSON.stringify({ id: item.id }) });
+      await api(`/api/sessions/${encodeURIComponent(targetSessionId)}/background/stop`, { method: 'POST', body: JSON.stringify({ id: item.id }) });
     } catch (e) {
       toast(t('bgTray.stop.failed'), 'err');
       btn.disabled = false;
@@ -222,6 +230,7 @@ export function createBackgroundTray({
   }
 
   function buildRows() {
+    const restoreFocus = preserveListFocus(list, chip);
     list.textContent = '';
     rowCells.clear();
     for (const item of items) {
@@ -240,16 +249,19 @@ export function createBackgroundTray({
       if (item.kind === 'shell') {
         const out = el('button', 'bg-tray-btn', t('bgTray.action.output'));
         out.type = 'button'; out.setAttribute('aria-expanded', 'false');
+        out.dataset.focusKey = item.id + ':output';
         out.onclick = () => toggleOutput(item, row, out);
         actions.append(out);
       } else {
         const crew = el('button', 'bg-tray-btn', t('bgTray.action.crew'));
         crew.type = 'button';
+        crew.dataset.focusKey = item.id + ':crew';
         crew.onclick = () => { expanded = false; closeAllOutputs(); render(); openCrew(item.runId); };
         actions.append(crew);
       }
       const stop = el('button', 'bg-tray-btn bg-tray-stop', t('bgTray.action.stop'));
       stop.type = 'button';
+      stop.dataset.focusKey = item.id + ':stop';
       if (item.status === 'stopping') stop.disabled = true;
       stop.onclick = () => stopItem(item, stop);
       actions.append(stop);
@@ -257,11 +269,13 @@ export function createBackgroundTray({
       list.append(row);
       rowCells.set(item.id, { time, progress });
     }
+    restoreFocus();
   }
 
   function render() {
     const show = items.length > 0 && shellMode() === 'classic' && !!sessionId && sessionId === String(currentSessionId() || '');
     if (!show) {
+      if (tray?.contains(doc().activeElement)) composerHost()?.querySelector('textarea, input, button')?.focus();
       if (tray) tray.hidden = true;
       structureSig = '';
       closeAllOutputs();
@@ -269,12 +283,14 @@ export function createBackgroundTray({
     }
     if (!ensureTray()) return;
     tray.hidden = false;
-    const nowMs = now();
+    const nowMs = stale && lastSuccessAt ? lastSuccessAt : now();
     const oldest = Math.min(...items.map(i => Date.parse(i.startedAt) || nowMs));
     chipCount.textContent = t('bgTray.chip.count', { count: items.length });
-    chipTime.textContent = t('bgTray.chip.longest', { time: formatElapsed(nowMs - oldest) });
+    chipTime.textContent = stale ? t('bgTray.stale', { time: new Date(lastSuccessAt).toLocaleTimeString() })
+      : t('bgTray.chip.longest', { time: formatElapsed(nowMs - oldest) });
+    tray.classList.toggle('is-stale', stale);
     chip.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    chip.setAttribute('aria-label', t('bgTray.chip.label', { count: items.length }));
+    chip.setAttribute('aria-label', t('bgTray.chip.label', { count: items.length }) + (stale ? ' · ' + chipTime.textContent : ''));
     panel.hidden = !expanded;
     if (!expanded) return;
     const sig = items.map(i => i.id + ':' + i.status).join('|');

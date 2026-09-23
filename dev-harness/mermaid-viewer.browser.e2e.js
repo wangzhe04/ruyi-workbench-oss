@@ -278,6 +278,8 @@ try {
     `B2 工具条 = 源码 / 复制 / 放大 / 导出 SVG / 导出 PNG（实得 ${rendered && rendered.buttons.join('|')}）`);
 
   /* ═════════ B3 灯箱：开出、同一份 SVG、适应窗口落位 ═════════ */
+  await cdp.evaluate(`document.querySelector('#lensSeg [data-lens="classic"]').click(), true`);
+  ok(Boolean(await waitForEval(cdp, `(() => document.documentElement.dataset.shellMode === 'classic' && !document.documentElement.dataset.vt ? 1 : null)()`)), 'B3a 工作台视角可见后检查键盘焦点');
   await cdp.evaluate(`(() => {
     const btn = Array.from(document.querySelectorAll('#messages .mermaid-tools .mermaid-btn')).find(b => b.textContent === '放大');
     if (btn) btn.click();
@@ -358,6 +360,19 @@ try {
     return true;
   })()`);
   ok((await cdp.evaluate(`(() => !document.querySelector('.mermaid-lightbox'))()`)) === true, 'B5d 点遮罩空白处退出灯箱');
+  const keyboard = await cdp.evaluate(`(() => {
+    const trigger = Array.from(document.querySelectorAll('#messages .mermaid-btn')).find(b => b.textContent === '放大');
+    trigger.focus(); trigger.click();
+    const box = document.querySelector('.mermaid-lightbox');
+    const buttons = [...box.querySelectorAll('button')];
+    const tab = shiftKey => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Tab',shiftKey,bubbles:true,cancelable:true}));
+    tab(true); const initial = document.activeElement === buttons.at(-1);
+    tab(false); const forward = document.activeElement === buttons[0];
+    tab(true); const backward = document.activeElement === buttons.at(-1);
+    buttons.at(-1).click();
+    return { initial, forward, backward, returned: document.activeElement === trigger };
+  })()`);
+  ok(Object.values(keyboard).every(Boolean), 'B5e Tab/Shift+Tab stay inside viewer; close restores trigger focus ' + JSON.stringify(keyboard));
   const exports = await cdp.evaluate(`(async () => {
     const saved = [];
     const blobs = new Map();

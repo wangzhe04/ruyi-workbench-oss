@@ -480,6 +480,20 @@ function stewardNormalizeAct(raw) {
     logEvent({ kind: 'steward_act_undeliverable', tool: stewardSanitizeText(tool).slice(0, 64) });
     return null;
   }
+  // A label is not an executable reminder. Reuse the scheduler's actual
+  // validation (including past one-shot times) before offering the button.
+  if (kind === 'tool' && tool === 'steward_schedule_create') {
+    const args = raw.args || {};
+    const checked = normalizeSchedulerTask({
+      title: args.title, schedule: args.schedule, payload: args.payload,
+      target: args.tier !== undefined ? { ...(args.target || {}), tier: args.tier } : args.target,
+      autonomy: { permissionMode: args.permissionMode }, createdBy: 'steward', id: '', revision: 0,
+    }, Date.now());
+    if (!checked.ok) {
+      logEvent({ kind: 'steward_act_undeliverable', tool, reason: checked.code });
+      return null;
+    }
+  }
   // 107-S1 ④(46 号文 §5 ⑦b H1):**confirm 档的按钮不许由模型命名**。修前这一行 label 优先用
   // `raw.label` —— 模型写「好,我知道了」,args 里是 steward_config_set{externalMcpServers:[…]},
   // 用户按下去就是用户「亲手按了」(13q 据此置那一位),而 args 一个字都没被校验过。
@@ -498,6 +512,7 @@ function stewardNormalizeAct(raw) {
     if (confirmSpec) act.confirmItems = stewardActConfirmLines(confirmSpec);
   }
   const sessionId = raw.sessionId ? safeSessionId(raw.sessionId) : '';
+  if (kind === 'open_thread' && !sessionId) return null;
   if (sessionId) act.sessionId = sessionId;
   if (raw.primary === true) act.primary = true;
   return act;

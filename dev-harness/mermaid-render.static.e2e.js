@@ -236,7 +236,7 @@ function buildContainer(doc, source = SOURCE) {
 
 (async () => {
   const source = fs.readFileSync(runtimePath, 'utf8');
-  const mod = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+  const mod = await import(require('url').pathToFileURL(runtimePath).href);
 
   // 纯函数
   ok(mod.mermaidThemeFor(true) === 'dark' && mod.mermaidThemeFor(false) === 'default',
@@ -319,8 +319,8 @@ function buildContainer(doc, source = SOURCE) {
   views[0].onclick();
   ok(docB.body.querySelector('.mermaid-lightbox'), 'D26a 点图本身也能开出灯箱');
   const escHandlers = docB.body.querySelector('.mermaid-lightbox').listeners.keydown || [];
-  ok(escHandlers.length === 1, 'D26b 灯箱挂了 Esc 监听');
-  escHandlers[0]({ key: 'Escape' });
+  ok(escHandlers.length > 0, 'D26b 灯箱挂了键盘监听');
+  for (const handler of escHandlers) handler({ key: 'Escape', preventDefault() {}, stopPropagation() {} });
   ok(!docB.body.querySelector('.mermaid-lightbox'), 'D26c Esc 退出灯箱');
 
   // (c) 同源码重复调用命中缓存,mermaid.render 不重跑。

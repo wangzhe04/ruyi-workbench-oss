@@ -59,7 +59,9 @@ if (fs.existsSync(venvPy)) {
     "import sys; sys.path.insert(0, r'mcp/ai-computer-control/src'); import ai_computer_control.server as s; print(len(s.mcp._tool_manager.list_tools()))"],
     { cwd: ROOT, encoding: 'utf8', timeout: 120000, windowsHide: true });
   const live = parseInt(String(r.stdout || '').trim().split(/\r?\n/).pop(), 10);
-  ok(facts.accTools === live, `facts.accTools(${facts.accTools}) == 活注册表(${live})`);
+  const probeOk = r.status === 0 && Number.isInteger(live);
+  ok(probeOk, `ACC 活注册表探针可执行${probeOk ? '' : ': ' + String(r.error?.message || r.stderr || 'empty output').trim().slice(0, 600)}`);
+  if (probeOk) ok(facts.accTools === live, `facts.accTools(${facts.accTools}) == 活注册表(${live})`);
 } else {
   ok(Number.isInteger(facts.accTools) && facts.accTools > 0, `facts.accTools(${facts.accTools}) 是正整数(无 venv,活对账由 CI acc-smoke 承担)`);
 }

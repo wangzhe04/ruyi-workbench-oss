@@ -11,6 +11,22 @@ import { getLocale } from './i18n.js';
 // 按 id 取元素 / 造元素(全站两大高频 helper)。
 export const $ = id => document.getElementById(id);
 export const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+// Preserve a keyboard user's place across a synchronous list rebuild. Never move
+// focus when they were typing or interacting elsewhere.
+export function preserveListFocus(list, fallback) {
+  const active = list?.ownerDocument?.activeElement;
+  if (!active || !list.contains(active)) return () => {};
+  const selector = 'button:not([disabled])';
+  const before = [...list.querySelectorAll(selector)];
+  const index = Math.max(0, before.indexOf(active));
+  const key = active.dataset?.focusKey;
+  return () => {
+    const after = [...list.querySelectorAll(selector)];
+    const target = (key && after.find(node => node.dataset.focusKey === key))
+      || after[Math.min(index, after.length - 1)] || fallback;
+    target?.focus?.({ preventScroll: true });
+  };
+}
 export const fileBasename = pathValue => {
   const value = String(pathValue || '');
   return value.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || value;

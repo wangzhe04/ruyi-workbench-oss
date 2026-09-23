@@ -77,7 +77,12 @@ const toolNames = list => list.filter(a => a.kind === 'tool').map(a => a.tool);
   const block = src13m.slice(src13m.indexOf('const STEWARD_ACTION_HOOKS'), src13m.indexOf('const STEWARD_ACTION_HOOKS') + 2600);
   const inTable = [...block.matchAll(/^\s{2}(steward_[a-z_]+):/gm)].map(m => m[1]);
   ok(inTable.length >= 15, `⑤0 扫得到 act 表(实得 ${inTable.length} 个键;扫不到 = 本条静默失效)`);
-  const rejected = inTable.filter(tool => actsOf([{ label: 'x', kind: 'tool', tool, args: {} }]).length !== 1);
+  // Scheduling now validates executable arguments before showing a button.
+  const validArgs = tool => tool === 'steward_schedule_create' ? {
+    title: '检查结果', schedule: { kind: 'once', date: '2099-01-01', at: '13:00' },
+    payload: { kind: 'reminder', text: '检查结果' },
+  } : {};
+  const rejected = inTable.filter(tool => actsOf([{ label: 'x', kind: 'tool', tool, args: validArgs(tool) }]).length !== 1);
   ok(rejected.length === 0, `⑤ 表里的每一个工具都真的能变成按钮(变不成的:${JSON.stringify(rejected)})`);
 
   const src13f = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'src', '13f-native-tool-schemas.js'), 'utf8');

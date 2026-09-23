@@ -24,10 +24,37 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+require('../lib/self-isolate-home.js');
+const srv = require('../../ruyi-workbench/app/server.js');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const MODULE_PATH = path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'steward-conversation.js');
+describe('executable steward proposals', () => {
+  const reminder = { title: '提醒', schedule: { kind: 'once', date: '2099-01-01', at: '13:00' }, payload: { kind: 'reminder', text: '查看结果' } };
+  const act = args => ({ kind: 'tool', tool: 'steward_schedule_create', label: '排13:00提醒', args });
+  const parse = acts => srv.stewardParseReply(JSON.stringify({ say: '提醒', why: '', actions: [], acts })).acts;
+  it('rejects incomplete and past reminders before rendering, retains valid ones', () => {
+    assert.equal(parse([act({})]).length, 0);
+    assert.equal(parse([act({ ...reminder, schedule: { ...reminder.schedule, date: '2000-01-01' } })]).length, 0);
+    assert.equal(parse([act(reminder)]).length, 1);
+    assert.equal(parse([{ kind: 'open_thread', label: '打开' }]).length, 0);
+  });
+  it('receipts remove completed/invalid duplicates regardless of argument key order', () => {
+    const args = { message: '继续', sessionId: 'sess_test' };
+    const proposal = { kind: 'tool', tool: 'steward_thread_continue', args: { sessionId: 'sess_test', message: '继续' } };
+    for (const result of [{ ok: true }, { ok: false, error: 'invalid_request' }]) {
+      assert.equal(srv.stewardDowngradeActions([{ tool: proposal.tool, args, result }], [proposal]).length, 0);
+    }
+    assert.equal(srv.stewardDowngradeActions([{ tool: proposal.tool, args, result: { ok: false, error: 'steward.busy' } }], [proposal]).length, 1);
+    assert.equal(srv.stewardDowngradeActions([{ tool: proposal.tool, args, result: { ok: false, error: 'propose_required' } }], [proposal]).length, 1);
+    assert.equal(srv.stewardDowngradeActions([], [proposal], [{ tool: proposal.tool, args, result: {ok:true} }]).length, 0);
+    assert.equal(srv.stewardDowngradeActions([{ tool: proposal.tool, args, result: {ok:false,error:'propose_required'} }], [], [{ tool: proposal.tool, args, result: {ok:true} }]).length, 0);
+  });
+  it('unattended downgrade cannot turn an invalid reminder into a button', () => {
+    assert.equal(srv.stewardDowngradeActions([{ tool: 'steward_schedule_create', args: {}, result: { ok: false, error: 'propose_required' } }], []).length, 0);
+  });
+});
 let modulePromise;
 function loadModule() {
   // 这条链上的 state.js 会在模块顶层写一次 `window.state` 的兼容层 —— 给它一个 window 别名即可，

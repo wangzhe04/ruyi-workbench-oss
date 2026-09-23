@@ -16,6 +16,13 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+#### 管家少问一步，按钮与后台状态更可靠（2026-09-23）
+
+- 用户已经明确交代、信息齐全且权限允许的事，管家直接处理并报告回执；简单提醒不再一律要求重复确认，不把做不了的事擅自替换成提醒。必要授权与会调用模型的定时任务仍保留确认。
+- 提醒按钮生成前校验参数与时间；已成功或参数错误的同一动作不再重复给按钮。执行失败会说明原因，没有回执不会显示成功，也不诱导重复执行。
+- 待处理队列和后台任务列表更新时保留键盘焦点；后台断连时显示最后确认的状态时间，恢复后自动对账。停止确认期间切线程也不会把操作发到另一条线程。
+- Mermaid 全屏查看器支持 Tab/Shift+Tab 焦点循环，关闭后回到原入口；按钮颜色与模糊效果接入现有主题规范。
+
 #### Mermaid 图表：回复里直接渲染，还能点开全屏看；委托书横幅退役（2026-09-22）
 
 - **回复里的 ```mermaid 代码块现在真画成图**：图表库（mermaid 11）已随包内置，流程图、时序图等在对话里直接渲染，不再只显示源码；亮暗主题自动跟随，工具条自带源码切换、复制、导出 SVG、导出 PNG。
@@ -124,6 +131,13 @@ This file records user-facing release highlights; it does not replace the comple
 - **标准／重度第一次说话不再又卡又不准**：本地识别模型（Qwen3-ASR）空闲时不占显存，第一次用要现装，实测 12–30 秒；这段时间里说的话只有第一遍小模型的字，校正全排在装载后面，机器还会跟着抖一阵。现在点麦克风会先确认模型装好没：装着就直接录；没装就在麦克风上显示转圈和「加载模型 0:07」，装好后才开始录音（再点一下或按 Esc 取消；装好时你不在这个窗口，就不替你打开麦克风）。轻度档的模型本来就常驻，没有这一段等待。
 
 ### English
+
+#### Fewer unnecessary confirmations and more reliable actions (2026-09-23)
+
+- The steward is instructed to execute clear, permitted requests and report receipts. Fully specified reminders no longer require repeated confirmation; required authorization and scheduled model runs retain their confirmation rules.
+- Reminder buttons validate their arguments and time before display. Completed or invalid actions are not offered again unchanged. Missing receipts never appear as success or invite duplicate execution.
+- Updating intervention and background-task lists preserves keyboard focus. Disconnected background status shows its last confirmed time. Switching threads during stop confirmation keeps the original target.
+- The Mermaid viewer traps Tab/Shift+Tab, restores focus on close, and uses shared theme tokens.
 
 #### Mermaid diagrams: rendered inline, with a fullscreen viewer; brief band retired (2026-09-22)
 

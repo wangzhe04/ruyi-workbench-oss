@@ -3023,4 +3023,8 @@
   ,"bgTray.stop.ok": "Stop"
   ,"bgTray.stop.failed": "Could not stop it; it may have just finished"
   ,"bgTray.rail.hint": "{{count}} background tasks running in this thread"
+  ,"bgTray.stale": "Disconnected; status as of {{time}}"
+  ,"stewardShell.chat.errInvalidAct": "This action has missing details or an expired time. Please clarify what should happen."
+  ,"stewardShell.chat.errUnavailableAct": "This action is unavailable. Please tell me what you need done."
+  ,"stewardShell.chat.actUnconfirmed": "No execution receipt was received. Check the result before trying again to avoid duplicates."
 }

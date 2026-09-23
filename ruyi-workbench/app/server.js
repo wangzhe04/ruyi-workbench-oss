@@ -21539,7 +21539,7 @@ const PROMPT_ZH = {
       '6. 不显示 ETA、不编造进度、不把没做的事说成做了;不知道就说不知道。工具返回 propose_required 时不要重试,把它当成一条提议交给用户。',
       '输出契约:每次回复必须是一个 JSON 对象,不要围栏、不要 JSON 之外的任何文字。字段:',
       '{"say": 给用户的一段话(≤600 字,简洁人话), "why": 依据一句话(来自哪条事件/线程/记忆), "acts": [{"label": ≤12 字的按钮文字, "kind": "tool"|"open_thread"|"dismiss", "tool": steward_* 工具名, "args": {…}, "sessionId": 线程 id, "primary": true}], "actions": [{"tool": steward_* 工具名, "args": {…}}]}',
-      'acts 是跟在话后面的一行按钮(≤3 个,主动作只有一个 primary),由用户点,我不做;actions 是我现在就做的事(工作台按目标线程的权限执行,权限不够会自动降级成一个按钮交给用户)。两者都可以为空数组。',
+      '用户明确交代、参数齐全且权限允许的事,直接调工具或用 actions 执行,按真实回执报告,不用重复确认。acts 是用户点的按钮(≤3 个,一个 primary),只留决定、必要授权或导航,不凑按钮。缺什么问什么;不能做的事不擅自改成提醒。两数组均可为空,权限不足仍降级提议。',
       // 129k:模型反复把【只读】工具提成按钮,按下去只能看到一句内部错误话。产出侧已经在 13o 把
       // 这种按钮直接丢掉(不画按不动的按钮),这一行是让模型一开始就别浪费那个名额。
       'kind:"tool" 的按钮只能是【会改变什么的】那一类:开/接着办/改名/换工作区/提优先级、批准或拒绝待决、重试或续跑、停线程、改线程权限、记或否决一条记忆、改设置、开关技能、定时任务的增删与起停。**只读的查看类工具(各种清单、搜索、看线程、看用量)不能当按钮** —— 用户要的是那个答案,不是一个再点一次的动作:这一回合就把工具调了,把结果写进 say。要让用户去看某条线程用 kind:"open_thread"。',
@@ -21784,7 +21784,7 @@ const PROMPT_EN = {
       '6. No ETA, no invented progress, never claim work that did not happen; say when you do not know. On propose_required, do not retry - hand it to the user as a proposal.',
       'Output contract: every reply is a single JSON object, no code fence, no text outside it. Fields:',
       '{"say": one message for the user (<=600 chars, plain language), "why": one sentence of grounds (which event/thread/memory), "acts": [{"label": button text <=12 chars, "kind": "tool"|"open_thread"|"dismiss", "tool": a steward_* tool name, "args": {…}, "sessionId": thread id, "primary": true}], "actions": [{"tool": a steward_* tool name, "args": {…}}]}',
-      'acts is the row of buttons after the message (<=3, one primary) the USER presses, not me; actions is what I do now (run under the target thread\'s permission, downgraded to a button when permission is short). Both may be empty.',
+      'Explicit, permitted requests: use tools/actions, report receipts; no reconfirmation. acts (<=3, one primary): decisions, approval or navigation only. Ask for missing details; never substitute unsolicited reminders. Both arrays may be empty.',
       'A kind:"tool" button must CHANGE something: open / continue / rename / move / prioritize a thread, approve or reject a decision, retry or resume, stop, change a thread\'s permission, write or veto a memory, change a setting, toggle a skill, manage a scheduled task. Read-only lookups (listings, search, thread read, usage) can NEVER be a button - the user wants the answer, not another click: call the tool this turn and put the result in say. To point at a thread use kind:"open_thread".',
     ].join('\n'),
     // 117l: same keys/params as PROMPT_ZH.steward.rules / .routeHintBlock (see the Chinese pack for why
@@ -42876,7 +42876,7 @@ const MCP_TOOLS = [
   // 实现住 13t-steward-schedule.js,门控壳仍是 13g 的 stewardToolHandler。
   {
     name: 'steward_schedule_create',
-    description: '给用户排一条定时任务(到点由如意自己触发)。**下单之前必须先用人话把计划回读一遍、等用户说对了才调**——「我给你排一条:每个工作日 18:00,在新线程里生成周报草稿,对吗?」;用户没确认就别调,排错的日程比不排更烦人。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
+    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {
@@ -55618,6 +55618,20 @@ function stewardNormalizeAct(raw) {
     logEvent({ kind: 'steward_act_undeliverable', tool: stewardSanitizeText(tool).slice(0, 64) });
     return null;
   }
+  // A label is not an executable reminder. Reuse the scheduler's actual
+  // validation (including past one-shot times) before offering the button.
+  if (kind === 'tool' && tool === 'steward_schedule_create') {
+    const args = raw.args || {};
+    const checked = normalizeSchedulerTask({
+      title: args.title, schedule: args.schedule, payload: args.payload,
+      target: args.tier !== undefined ? { ...(args.target || {}), tier: args.tier } : args.target,
+      autonomy: { permissionMode: args.permissionMode }, createdBy: 'steward', id: '', revision: 0,
+    }, Date.now());
+    if (!checked.ok) {
+      logEvent({ kind: 'steward_act_undeliverable', tool, reason: checked.code });
+      return null;
+    }
+  }
   // 107-S1 ④(46 号文 §5 ⑦b H1):**confirm 档的按钮不许由模型命名**。修前这一行 label 优先用
   // `raw.label` —— 模型写「好,我知道了」,args 里是 steward_config_set{externalMcpServers:[…]},
   // 用户按下去就是用户「亲手按了」(13q 据此置那一位),而 args 一个字都没被校验过。
@@ -55636,6 +55650,7 @@ function stewardNormalizeAct(raw) {
     if (confirmSpec) act.confirmItems = stewardActConfirmLines(confirmSpec);
   }
   const sessionId = raw.sessionId ? safeSessionId(raw.sessionId) : '';
+  if (kind === 'open_thread' && !sessionId) return null;
   if (sessionId) act.sessionId = sessionId;
   if (raw.primary === true) act.primary = true;
   return act;
@@ -55870,8 +55885,14 @@ async function stewardExecuteActions(actions, session, config, trigger, priorTar
 // 这类待决只能由用户在线程里亲自按,所以降级成「去线程里看」(open_thread,只切视图、不执行任何工具);
 // 拿不到线程 id 就不画按钮 —— 宁可少一个按钮,也不画一个按下去必被拒的。
 const STEWARD_EXEMPT_OPEN_THREAD_LABEL = '去线程里看';
-function stewardDowngradeActions(executed, acts) {
-  const next = acts.slice();
+function stewardDowngradeActions(executed, acts, priorReceipts = []) {
+  // Reconcile proposals with real receipts. Successful actions must not execute
+  // twice; invalid arguments do not become valid just because a user clicks.
+  const receipts = executed.concat(priorReceipts);
+  const settled = act => act.kind === 'tool' && receipts.some(row =>
+    row && row.tool === act.tool && configValueEquals(row.args || {}, act.args || {})
+    && row.result && (row.result.ok === true || ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(row.result.error)));
+  const next = acts.filter(act => !settled(act));
   for (const row of executed) {
     if (next.length >= STEWARD_ACTS_MAX) break;
     const result = row && row.result;
@@ -55884,7 +55905,7 @@ function stewardDowngradeActions(executed, acts) {
       next.push(openAct);
       continue;
     }
-    if (next.some(act => act.kind === 'tool' && act.tool === row.tool && JSON.stringify(act.args || {}) === JSON.stringify(row.args || {}))) continue;
+    if (next.some(act => act.kind === 'tool' && act.tool === row.tool && configValueEquals(act.args || {}, row.args || {}))) continue;
     // 116-2b:自理动作降级时用它自己的人话标签(「重试」/「续跑」)——它是按【意图】提的,
     // 不是按工具名提的:回合类重试走的是 thread_continue,按工具名会说成「接着办」,那不是用户
     // 要按的那件事。没有显式标签时仍按工具与 args 派生(既有行为逐字不变)。
@@ -55919,7 +55940,7 @@ function stewardDowngradeActions(executed, acts) {
     const sid = row.args && (row.args.sessionId || row.args.missionId) ? safeSessionId(row.args.sessionId || row.args.missionId) : '';
     if (sid) act.sessionId = sid;
     if (!next.some(a => a.primary)) act.primary = true;
-    next.push(act);
+    if (!settled(act) && stewardNormalizeAct(act)) next.push(act);
   }
   return next.slice(0, STEWARD_ACTS_MAX);
 }
@@ -56574,7 +56595,7 @@ function stewardMergeDelegationReceipts(executedRows, delegationToolCalls, title
   }
   return extra;
 }
-async function stewardDelegationToolCalls(turnSeq) {
+async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
   const want = Math.max(0, Number(turnSeq) || 0);
   if (!want) return [];
   const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
@@ -56583,7 +56604,8 @@ async function stewardDelegationToolCalls(turnSeq) {
   for (const m of messages) {
     if (!m || m.role !== 'assistant' || Number(m.turnSeq) !== want || !Array.isArray(m.toolCalls)) continue;
     for (const call of m.toolCalls) {
-      if (call && call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation) out.push(call);
+      if (call && ((includeActions && STEWARD_ACTION_HOOKS[call.name]) ||
+        (call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation))) out.push(call);
     }
   }
   return out;
@@ -56638,7 +56660,8 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 127 波 2-quater B2:回合里工具直调的代批(见 stewardMergeDelegationReceipts 头注)在三条出口【之前】取出来 ——
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
-  const delegationCalls = await stewardDelegationToolCalls(turn && turn.turnSeq);
+  const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  const delegationCalls = turnToolCalls.filter(call => call.name === 'steward_decide' && call.result?.ok === true && call.result.exemptDelegation);
   const delegationTitles = new Map();
   for (const call of delegationCalls) {
     const sid = safeSessionId(call && call.input && (call.input.missionId || call.input.sessionId));
@@ -56711,7 +56734,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
   const delegationRows = stewardMergeDelegationReceipts(selfServe.executed.concat(actionRows), delegationCalls, delegationTitleOf);
   const executed = selfServe.executed.concat(delegationRows, actionRows);
-  const acts = stewardDowngradeActions(executed, parsedReply.acts);
+  // Direct tool calls happen before the final JSON reply too. Their receipts
+  // must invalidate duplicate buttons just like the structured actions do.
+  const directReceipts = turnToolCalls.map(call => ({ tool: call.name, args: call.input || {}, result: call.result }));
+  const acts = stewardDowngradeActions(executed, parsedReply.acts, directReceipts);
   // 117l D5:say/why 在【这里】过一遍人话化 —— 于是 steward_reply 帧、落盘的 meta、/api/steward/state
   // 的 lastReply 三处拿到的是【同一份】文字(修前 ※ 里满是 sess_/question_)。acts/actions 不动。
   const say = await stewardHumanizeSay(parsedReply.say);

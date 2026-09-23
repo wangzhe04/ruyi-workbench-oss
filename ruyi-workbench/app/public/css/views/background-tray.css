@@ -179,3 +179,5 @@
   .bg-tray { right: var(--sp-2); max-width: calc(100% - 2 * var(--sp-2)); }
   .bg-tray-panel { min-width: 0; }
 }
+.bg-tray.is-stale .bg-tray-spin { animation: none; }
+.bg-tray.is-stale .bg-tray-time { color: var(--warn); }

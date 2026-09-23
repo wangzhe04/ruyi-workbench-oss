@@ -15774,6 +15774,13 @@
           ]
         },
         {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "normalizeSchedulerTask",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "08-agent-runs.js",
           "symbol": "parseStructuredAgentOutput",
           "kinds": [
@@ -16009,6 +16016,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "usageDayKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "configValueEquals",
           "kinds": [
             "call"
           ]
@@ -16296,6 +16310,13 @@
         {
           "provider": "13o-steward-runner-prompt.js",
           "symbol": "stewardActLabel",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13o-steward-runner-prompt.js",
+          "symbol": "stewardNormalizeAct",
           "kinds": [
             "call"
           ]

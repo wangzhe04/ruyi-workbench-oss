@@ -1,4 +1,5 @@
 'use strict';
+import { installFocusTrap } from './modal.js';
 // 109a: Mermaid 图表渲染运行时(纯离线、懒加载、失败即降级)。
 //
 // 设计约束(与 CONTRIBUTING 五条红线对齐):
@@ -281,8 +282,10 @@ const VIEWER_ZOOM_STEP = 1.25;
 
 function closeMermaidViewer(doc) {
   const open = doc && doc.__ruyiMermaidViewer;
+  const trigger = open && open.__focusTrigger;
   if (open && typeof open.remove === 'function') open.remove();
   if (doc) doc.__ruyiMermaidViewer = null;
+  if (trigger?.isConnected) trigger.focus?.({ preventScroll: true });
 }
 
 function openMermaidViewer(doc, markup, t) {
@@ -292,11 +295,13 @@ function openMermaidViewer(doc, markup, t) {
   closeMermaidViewer(doc);
 
   const overlay = doc.createElement('div');
+  overlay.__focusTrigger = doc.activeElement;
   overlay.className = 'mermaid-lightbox';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', t('mermaid.diagramAria'));
   overlay.tabIndex = -1;
+  installFocusTrap(overlay);
 
   const stage = doc.createElement('div');
   stage.className = 'mermaid-lightbox-stage';
@@ -396,7 +401,11 @@ function openMermaidViewer(doc, markup, t) {
     zoomAt(cx, cy, state.scale * (event.deltaY < 0 ? VIEWER_ZOOM_STEP : 1 / VIEWER_ZOOM_STEP));
   }, { passive: false });
   overlay.addEventListener('keydown', event => {
-    if (event && event.key === 'Escape') closeMermaidViewer(doc);
+    if (event && event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMermaidViewer(doc);
+    }
   });
   // 点遮罩空白处退出;点在图或控制条上不退出。
   overlay.onclick = event => { if (event && event.target === overlay) closeMermaidViewer(doc); };

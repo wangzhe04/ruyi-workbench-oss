@@ -8,6 +8,7 @@
 *.png binary
 *.ico binary
 *.dll binary
+*.exe binary
 *.xlsx binary
 *.docx binary
 *.pptx binary

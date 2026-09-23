@@ -155,7 +155,7 @@ function stewardMergeDelegationReceipts(executedRows, delegationToolCalls, title
   }
   return extra;
 }
-async function stewardDelegationToolCalls(turnSeq) {
+async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
   const want = Math.max(0, Number(turnSeq) || 0);
   if (!want) return [];
   const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
@@ -164,7 +164,8 @@ async function stewardDelegationToolCalls(turnSeq) {
   for (const m of messages) {
     if (!m || m.role !== 'assistant' || Number(m.turnSeq) !== want || !Array.isArray(m.toolCalls)) continue;
     for (const call of m.toolCalls) {
-      if (call && call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation) out.push(call);
+      if (call && ((includeActions && STEWARD_ACTION_HOOKS[call.name]) ||
+        (call.name === 'steward_decide' && call.result && call.result.ok === true && call.result.exemptDelegation))) out.push(call);
     }
   }
   return out;
@@ -219,7 +220,8 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 127 波 2-quater B2:回合里工具直调的代批(见 stewardMergeDelegationReceipts 头注)在三条出口【之前】取出来 ——
   // 回合被抢占 / 失败时,已经落定的代批照样是真的发生了,回执不能跟着回合一起丢。取不到回合号(回合整个抛出)
   // 就是空表。没有代批时三条出口的信封与修前逐字节相同。
-  const delegationCalls = await stewardDelegationToolCalls(turn && turn.turnSeq);
+  const turnToolCalls = await stewardDelegationToolCalls(turn && turn.turnSeq, true);
+  const delegationCalls = turnToolCalls.filter(call => call.name === 'steward_decide' && call.result?.ok === true && call.result.exemptDelegation);
   const delegationTitles = new Map();
   for (const call of delegationCalls) {
     const sid = safeSessionId(call && call.input && (call.input.missionId || call.input.sessionId));
@@ -292,7 +294,10 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合里的工具调用 → 回合结束后执行的结构化 actions。没有代批时 delegationRows 为空,executed 与修前逐元素相同。
   const delegationRows = stewardMergeDelegationReceipts(selfServe.executed.concat(actionRows), delegationCalls, delegationTitleOf);
   const executed = selfServe.executed.concat(delegationRows, actionRows);
-  const acts = stewardDowngradeActions(executed, parsedReply.acts);
+  // Direct tool calls happen before the final JSON reply too. Their receipts
+  // must invalidate duplicate buttons just like the structured actions do.
+  const directReceipts = turnToolCalls.map(call => ({ tool: call.name, args: call.input || {}, result: call.result }));
+  const acts = stewardDowngradeActions(executed, parsedReply.acts, directReceipts);
   // 117l D5:say/why 在【这里】过一遍人话化 —— 于是 steward_reply 帧、落盘的 meta、/api/steward/state
   // 的 lastReply 三处拿到的是【同一份】文字(修前 ※ 里满是 sess_/question_)。acts/actions 不动。
   const say = await stewardHumanizeSay(parsedReply.say);
