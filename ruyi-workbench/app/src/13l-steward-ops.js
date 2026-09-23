@@ -25,6 +25,8 @@ const STEWARD_CONFIG_KEYS = Object.freeze([
   'stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',
   'stewardMaxCostPerDay', 'stewardAutoActions', 'stewardContextBudgetTokens', 'stewardReadBudgetChars',
   'stewardVisitIdleMinutes', 'stewardConversationRetention',
+  // 136:人设两键与触发线系数 —— 管家读得到自己的人设与预算口径(问「你现在叫什么/预算多少」不用猜)。
+  'stewardPersonaName', 'stewardPersonaStyle', 'stewardContextBudgetRatio',
 ]);
 async function stewardImplSelfStatus(args, ctx, config) {
   const wantSteward = !args.section || args.section === 'all' || args.section === 'steward';

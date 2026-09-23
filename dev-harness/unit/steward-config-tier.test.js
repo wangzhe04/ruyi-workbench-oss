@@ -68,7 +68,7 @@ ok(!STEWARD_CONFIG_TIERS.free.some(k => new RegExp(STEWARD_CONFIG_TIERS.secretPa
 // free      = 改错了用户一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
 // confirm   = 花钱 / 换执行主体 / 改「谁能不问就做什么」的边界,须用户亲手按下按钮;
 // forbidden = 任何权限都不经管家(密钥、数据根与围栏、命令与桌面放行、提示词注入、授权书面)。
-// 132b(53 号文 §2):三张表逐键重判 —— free 31 / confirm 93 / forbidden 39(默认表 163 键)。判据只有三条:
+// 132b(53 号文 §2):三张表逐键重判 —— 136 起 free 33 / confirm 95 / forbidden 39(默认表 166 键)。判据只有三条:
 //   free      改错了一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
 //   confirm   会花钱、换执行主体、改「谁能不问就做什么」的边界,或影响用户多久看得见一件事 —— 用户按一下按钮;
 //   forbidden 密钥、数据根与围栏、命令／桌面／工具放行、提示词注入面、自我扩权开关、簿记与用户行为记录。
@@ -85,6 +85,8 @@ const EXPECTED = {
   stewardModel: 'free', stewardPollMs: 'free', stewardMaxTurnsPerHour: 'free', stewardMaxCostPerDay: 'free',
   stewardReadBudgetChars: 'free', stewardNotifyPerHour: 'free', stewardVisitIdleMinutes: 'free', stewardConversationRetention: 'free',
   stewardMaxParallelThreads: 'free', stewardGlobalMaxTurnsPerHour: 'free', stewardGlobalMaxCostPerDay: 'free',
+  // 136:人设两键 —— 纯装饰(自称/口吻),改错了一眼看得见、一键清空,与 locale/theme 同类。
+  stewardPersonaName: 'free', stewardPersonaStyle: 'free',
   // ── confirm (93) 花钱／换执行主体／改「谁能不问就做什么」的边界／决定用户多久看见 —— 用户按一下按钮 ─────────────────────────────
   agentCliType: 'confirm', newThreadEngine: 'confirm', permissionMode: 'confirm', includeWorkbenchMcp: 'confirm',
   autoResumeClaudeSessions: 'confirm', model: 'confirm', compactProviderId: 'confirm', compactModel: 'confirm',
@@ -110,6 +112,8 @@ const EXPECTED = {
   quietCardSnoozeMinutes: 'confirm', schedulerEnabledV1: 'confirm', schedulerAskWaitMinutes: 'confirm', agentWorkflowMaxNodes: 'confirm',
   agentNodeWrapUpMs: 'confirm', agentTaskPoolPolicy: 'confirm', agentTaskPoolAutoCap: 'confirm', usageBudget: 'confirm',
   claudePricing: 'confirm',
+  // 136:触发线系数 —— 调高 = 管家每回合更贵,归「会花钱」;不含 Tokens 不撞密钥正则,故与其姊妹键不同档。
+  stewardContextBudgetRatio: 'confirm',
   // ── forbidden (39) 密钥、数据根与围栏、放行面、注入面、自我扩权、簿记与行为记录;含 Tokens 的三个键撞密钥正则 ─────────────────────────────
   configSchema: 'forbidden', configExplicitKeysV1: 'forbidden', version: 'forbidden', lastUsedEngineRoute: 'forbidden',
   claudePath: 'forbidden', kimiPath: 'forbidden', defaultWorkspace: 'forbidden', extraClaudeArgs: 'forbidden',

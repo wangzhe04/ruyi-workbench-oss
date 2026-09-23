@@ -1096,6 +1096,23 @@
               <p class="field-help muted" data-i18n="settings.steward.stopHint">停机只停管家自己的轮询与在途回合；已经在跑的线程照旧，由它们自己的权限管。</p>
             </section>
 
+            <!-- ①b 管家人设（136，用户 2026-09-23「言行不够拟人」）：名字与口吻偏好。只改它怎么说话，不改任何权限与纪律； -->
+            <!-- 进管家提示词的【易变层】（13o personaBlock），两键皆空时提示词逐字节不变。 -->
+            <section class="steward-settings-group" id="cfgStewardGroupPersona" aria-labelledby="cfgStewardPersonaHeading">
+              <h4 id="cfgStewardPersonaHeading" class="settings-subhead" data-i18n="settings.steward.group.persona">管家人设</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.personaHint">给管家起个名字、定个口吻。只改它怎么说话，不改任何权限与纪律。</p>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardPersonaName" data-i18n="settings.steward.personaName">管家的名字（空 = 如意）</label>
+                  <input id="cfgStewardPersonaName" type="text" maxlength="20" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardPersonaStyle" data-i18n="settings.steward.personaStyle">口吻偏好（空 = 默认）</label>
+                  <input id="cfgStewardPersonaStyle" type="text" maxlength="200" placeholder="如：更活泼、偶尔用 emoji" data-i18n-attr="placeholder:settings.steward.personaStylePh" />
+                </div>
+              </div>
+            </section>
+
             <!-- ② 新线程默认权限 -->
             <section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="cfgStewardPermissionHeading">
               <h4 id="cfgStewardPermissionHeading" class="settings-subhead" data-i18n="settings.steward.group.permission">新线程默认权限</h4>
@@ -1194,12 +1211,25 @@
                 <div class="field-block">
                   <label for="cfgStewardRetention" data-i18n="settings.steward.retention">和管家的对话保留多久</label>
                   <select id="cfgStewardRetention">
-                    <option value="visit" data-i18n="settings.steward.retention.visit">只保留本次打开期间（默认）</option>
-                    <option value="24h" data-i18n="settings.steward.retention.24h">24 小时</option>
+                    <option value="visit" data-i18n="settings.steward.retention.visit">只保留本次打开期间</option>
+                    <option value="24h" data-i18n="settings.steward.retention.24h">24 小时（默认）</option>
                     <option value="forever" data-i18n="settings.steward.retention.forever">一直保留</option>
                   </select>
                 </div>
               </div>
+              <!-- 136（用户 2026-09-23「上下文太紧」）：管家上下文预算与触发系数。tokens 键管家自己改不了 -->
+              <!-- （撞 06i 密钥兜底正则，forbidden），本来就只能在这里改——此前这里没有字段，是事实缺口。 -->
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardContextBudget" data-i18n="settings.steward.contextBudget">管家上下文预算（token）</label>
+                  <input id="cfgStewardContextBudget" type="number" min="16000" max="2000000" step="1000" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardBudgetRatio" data-i18n="settings.steward.budgetRatio">用到几成触发压缩</label>
+                  <input id="cfgStewardBudgetRatio" type="number" min="0.3" max="0.95" step="0.05" />
+                </div>
+              </div>
+              <p class="field-help muted" data-i18n="settings.steward.contextBudgetHint">管家每回合都要重读一遍对话；预算越大、成数越高，压缩越少触发、记得越久，但每回合更贵。触发线 ＝ min(预算, 模型窗口) × 成数。</p>
               <!-- 116-5b（§11.8.5/§11.8.6）：线程自动摘要。放在「模型与预算」段而不是「自治」段——它不是一项管家的自治权，是一笔钱：开着就会在每一条还没有名字的新线程上多打一发。 -->
               <!-- 也【不随管家总开关】：消费面一半在经典壳（会话列表与搜索结果），管家关着也该有名字。 -->
               <label class="check"><input type="checkbox" id="cfgStewardThreadBrief" /> <span data-i18n="settings.steward.threadBrief">自动给每条线程起名字</span></label>

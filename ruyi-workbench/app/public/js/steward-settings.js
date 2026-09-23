@@ -1124,7 +1124,13 @@ export function createStewardSettingsDomain({
       // 127 波 2-quater B2：管家代批。默认开（缺字段 = 开），与上面那一格同方向：判 !== false。
       const exemptDelegation = byId('cfgStewardExemptDelegation'); if (exemptDelegation) exemptDelegation.checked = c.stewardExemptDelegationV1 !== false;
       const retention = byId('cfgStewardRetention');
-      if (retention) retention.value = ['visit', '24h', 'forever'].includes(c.stewardConversationRetention) ? c.stewardConversationRetention : 'visit';
+      if (retention) retention.value = ['visit', '24h', 'forever'].includes(c.stewardConversationRetention) ? c.stewardConversationRetention : '24h';   // 136:缺省回 24h(与 01-config 默认同值)
+      // 136:上下文预算两格与人设两格。数字框读不到就留空,让服务端回来的那个数说话(与 threadIndexRecent
+      // 同一手法,客户端不抄第二份钳位);人设两格是字符串,缺省即空串。
+      const ctxBudget = byId('cfgStewardContextBudget'); if (ctxBudget) ctxBudget.value = Number.isFinite(Number(c.stewardContextBudgetTokens)) ? String(Number(c.stewardContextBudgetTokens)) : '';
+      const budgetRatio = byId('cfgStewardBudgetRatio'); if (budgetRatio) budgetRatio.value = Number.isFinite(Number(c.stewardContextBudgetRatio)) ? String(Number(c.stewardContextBudgetRatio)) : '';
+      const personaName = byId('cfgStewardPersonaName'); if (personaName) personaName.value = String(c.stewardPersonaName || '');
+      const personaStyle = byId('cfgStewardPersonaStyle'); if (personaStyle) personaStyle.value = String(c.stewardPersonaStyle || '');
       // 121-K7（§13.5 登记③）：「最近 N 条」窗口。缺省与钳位都在 src/01-config.js 一处
       // （THREAD_INDEX_RECENT_DEFAULT/MIN/MAX），这里【不写第二份区间】—— 读不到就留空，
       // 让服务端回来的那个数说话（min/max 只挂在 <input> 上给浏览器做输入提示）。
@@ -1221,7 +1227,22 @@ export function createStewardSettingsDomain({
     });
     onChange('cfgStewardGlobalMaxTurnsPerHour', event => saveConfig({ stewardGlobalMaxTurnsPerHour: num(event.target, 120) }));
     onChange('cfgStewardGlobalMaxCostPerDay', event => saveConfig({ stewardGlobalMaxCostPerDay: num(event.target, 20) }));
-    onChange('cfgStewardRetention', event => saveConfig({ stewardConversationRetention: String(event.target.value || 'visit') }));
+    onChange('cfgStewardRetention', event => saveConfig({ stewardConversationRetention: String(event.target.value || '24h') }));   // 136:缺省回 24h
+    // 136:预算两格 —— 送原样数字、服务端 normalizeConfig 钳完再回填(与 cfgStewardThreadIndexRecent 同一模具,
+    // 客户端不抄第二份钳位)。tokens 键在 06i 是 forbidden(密钥正则),管家改不了,只能在这里改。
+    onChange('cfgStewardContextBudget', async event => {
+      if (!await saveConfig({ stewardContextBudgetTokens: num(event.target, 200000) })) return;
+      const clamped = Number(config().stewardContextBudgetTokens);
+      if (Number.isFinite(clamped)) event.target.value = String(clamped);
+    });
+    onChange('cfgStewardBudgetRatio', async event => {
+      if (!await saveConfig({ stewardContextBudgetRatio: num(event.target, 0.6) })) return;
+      const clamped = Number(config().stewardContextBudgetRatio);
+      if (Number.isFinite(clamped)) event.target.value = String(clamped);
+    });
+    // 136:人设两格 —— 客户端先 trim+截断(上限与 01-config 归一同值:20/200),服务端再兜一道。
+    onChange('cfgStewardPersonaName', event => saveConfig({ stewardPersonaName: String(event.target.value || '').trim().slice(0, 20) }));
+    onChange('cfgStewardPersonaStyle', event => saveConfig({ stewardPersonaStyle: String(event.target.value || '').trim().slice(0, 200) }));
     // 121-K7（§13.5 登记③）：写回原样送数字，钳位由服务端 normalizeConfig 做（客户端不抄第二份
     // [10,200]）；落盘之后 fillStewardSettings 会把钳过的值回填到框里。
     onChange('cfgStewardThreadIndexRecent', async event => {

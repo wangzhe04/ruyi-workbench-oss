@@ -65,12 +65,20 @@ ok(panelStart > 0 && panelEnd > panelStart, 'A3 管家面板在 Agent CLI 面板
 // 121-K7 翻面重钉（34 号文 §13.5 登记③与 §7.2 表首行）：在「新开线程用什么模型」之后
 // 插入两组 ——「任务索引」（threadIndexRecent 的设置入口）与「定时任务」（口袋第一项与
 // 焦点栏「接下来」落到的那一面）。新契约是八组、顺序固定，不是放宽旧契约。
-const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPermission', 'cfgStewardGroupAuto',
+// 136 翻面重钉（用户 2026-09-23「言行不够拟人」）：在「管家总开关」之后插入「管家人设」
+// （名字/口吻偏好，01-config 的 stewardPersonaName/stewardPersonaStyle）。人设是身份，跟着总开关走;
+// 新契约是十组、顺序固定，不是放宽旧契约（A4c companion 单独钉它的插入位置）。
+const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPersona', 'cfgStewardGroupPermission', 'cfgStewardGroupAuto',
   'cfgStewardGroupBudget', 'cfgStewardGroupThreadModels', 'cfgStewardGroupIndex', 'cfgStewardGroupSchedule',
   'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
 const groupOrder = [...panel.matchAll(/<section class="steward-settings-group" id="(cfgStewardGroup[A-Za-z]+)"/g)].map(m => m[1]);
 ok(JSON.stringify(groupOrder) === JSON.stringify(GROUP_IDS),
-  `A4 八组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+  `A4 十组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+// A4c companion（136）：人设组必须紧跟「管家总开关」、「新线程默认权限」之前 —— 它是身份，
+// 不许插到预算或记忆旁边（那是事实与钱，不是它是谁）。
+ok(groupOrder.indexOf('cfgStewardGroupPersona') === groupOrder.indexOf('cfgStewardGroupPower') + 1
+  && groupOrder.indexOf('cfgStewardGroupPermission') === groupOrder.indexOf('cfgStewardGroupPersona') + 1,
+  'A4c 136：「管家人设」紧跟「管家总开关」,其后是「新线程默认权限」');
 // A4b companion（117l-A3 新增）：新组必须紧跟在「模型与预算」之后、「管家记得的关于你」之前——
 // 不许插到别处（比如页尾或权限组旁边，那样会打散「预算相关的钱都聚在一起」这条既有阅读顺序）。
 // 121-K7 翻面：K7 的两组插在 ThreadModels 与 Memory 之间，所以 A4b 的后半从「紧挨着 Memory」
@@ -96,6 +104,9 @@ const CONTROL_IDS = [
   'cfgStewardProviderId', 'cfgStewardModel', 'cfgStewardPollMs', 'cfgStewardVisitIdle',
   'cfgStewardMaxTurnsPerHour', 'cfgStewardMaxCostPerDay', 'cfgStewardMaxParallelThreads',
   'cfgStewardGlobalMaxTurnsPerHour', 'cfgStewardGlobalMaxCostPerDay', 'cfgStewardRetention',
+  // 136：人设组两格（名字/口吻）与「模型与预算」组里的上下文预算两格（预算 token/触发系数）。
+  // tokens 键在 06i 是 forbidden（密钥正则兜底）,管家自己改不了 —— 这个字段是它唯一的设置入口。
+  'cfgStewardPersonaName', 'cfgStewardPersonaStyle', 'cfgStewardContextBudget', 'cfgStewardBudgetRatio',
   // 117l-A3：新开线程「强模型」／「快速模型」两档，各自服务商 + 模型名。
   'cfgStewardStrongProviderId', 'cfgStewardStrongModel', 'cfgStewardFastProviderId', 'cfgStewardFastModel',
   'cfgStewardMemoryPanel', 'cfgStewardMemoryRefreshBtn', 'cfgStewardMemoryExportBtn',

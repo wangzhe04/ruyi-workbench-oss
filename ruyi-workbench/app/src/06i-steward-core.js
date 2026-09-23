@@ -1331,7 +1331,8 @@ const STEWARD_CONFIG_SECRET_PATTERN = /apiKey|token|secret|password/i;
 
 // free:改错了代价 = 用户看一眼就发现、一键改回;不影响钱、不影响权限、不影响能动世界的范围。
 // 132b(53 号文 §2;用户 2026-09-21「希望能尽量改如意更多的选项」):从「新增键默认最保守、只登记 40 个」改成
-// 逐键判过的三张表 —— free 31 / confirm 88 / forbidden 44。判据只有三条(§2.2):
+// 逐键判过的三张表 —— 136 起 free 33 / confirm 95(此前 31/93;forbidden 数量随默认表总长浮动,以
+// unit/steward-config-tier.test.js 的 EXPECTED 为准)。判据只有三条(§2.2):
 //   free      改错了一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
 //   confirm   会花钱、换执行主体、改「谁能不问就做什么」的边界,或影响用户多久看得见一件事 —— 用户按一下按钮;
 //   forbidden 密钥、数据根与围栏、命令／桌面／工具放行、提示词注入面、自我扩权开关、簿记与用户行为记录。
@@ -1344,6 +1345,8 @@ const STEWARD_CONFIG_TIER_FREE = Object.freeze([
   'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour', 'stewardMaxCostPerDay',
   'stewardReadBudgetChars', 'stewardVisitIdleMinutes', 'stewardNotifyPerHour',
   'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour', 'stewardGlobalMaxCostPerDay',
+  // 136:管家人设两键 —— 纯装饰(自称与口吻),改错了一眼看得见、一键清空,与 locale/theme 同类。
+  'stewardPersonaName', 'stewardPersonaStyle',
   // 132b:等待时长 —— 变短只会更早拒／更早算卡住,变长只是多等,不放行任何东西(用户实报「线程提问的等待时长」改不了)。
   'permissionTimeoutMs', 'questionTimeoutMs', 'turnIdleTimeoutMs', 'autonomyPauseOnTimeout', 'autonomyPauseTtlMs',
   // 132b:显示粒度、启停整洁度、本地开销 —— 都是「看一眼就发现、一键改回」那一类。
@@ -1376,6 +1379,10 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'runtimeMemoryVectorRecallV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
   'toolEconomicsShadowV1', 'boundedReadSchedulerV1', 'boundedReadConcurrencyV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'toolLoadingMode',
   'autoCompactThreshold', 'contextWindowOverrides', 'thinkingBudget', 'claudeThinkingEffort', 'betaInterleavedThinking', 'maxTurns', 'openaiMaxToolIterations',
+  // 136:管家压缩触发线系数 —— 调高 = 管家每回合更贵,归「会花钱」那一类;管家只能递按钮。
+  // 它的姊妹键 stewardContextBudgetTokens 撞密钥正则(Tokens)仍 forbidden,两个键有意不同档:
+  // 正则不开例外(06i 头注),系数没撞正则,按判据落在 confirm。
+  'stewardContextBudgetRatio',
   // 132b:并发与班组 —— 同时跑几个就是同时花几份钱。
   'subagentMaxConcurrent', 'subagentMaxPerTurn', 'agentWorkflowMaxNodes', 'agentNodeWrapUpMs', 'agentTaskPoolPolicy', 'agentTaskPoolAutoCap',
   'agentAutoModelTiering', 'shellSessionMax',
@@ -1424,6 +1431,9 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['stewardVisitIdleMinutes', '用户离开多少分钟后算「不在」', 'Minutes of user inactivity before counted as away'],
   ['stewardNotifyPerHour', '管家一小时最多主动叫你几次', 'Max proactive notifications per hour'],
   ['stewardConversationRetention', '管家对话保留:visit(本次)/ 24h / forever', 'Steward conversation retention: visit / 24h / forever'],
+  ['stewardPersonaName', '管家自称的名字(≤20 字);空 = 默认「如意」', 'Name the steward calls itself (<=20 chars); empty = default "Ruyi"'],
+  ['stewardPersonaStyle', '管家口吻偏好,如「更活泼、偶尔用 emoji」(≤200 字);空 = 默认口吻', 'Tone preference for the steward, e.g. "livelier, occasional emoji" (<=200 chars); empty = default voice'],
+  ['stewardContextBudgetRatio', '管家上下文用到几成触发压缩(0.3–0.95);调高 = 每回合更贵、压缩更少触发', 'Share of the steward context budget that triggers compaction (0.3-0.95); higher = pricier turns, rarer compaction'],
   ['stewardMaxParallelThreads', '管家同时最多盯几条线程', 'Max threads the steward runs in parallel'],
   ['stewardGlobalMaxTurnsPerHour', '全部线程每小时合计最多跑几个回合', 'Global cap on thread turns per hour'],
   ['stewardGlobalMaxCostPerDay', '全部线程每天合计最多花多少钱', 'Global cap on daily spend across threads'],

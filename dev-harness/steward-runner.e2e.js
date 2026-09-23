@@ -480,19 +480,23 @@ try {
 
   /* ═════════ (D-3) 自理清单:relay 未勾选 -> 只提议 ═════════ */
   {
+    // 136:relay 的【默认值】翻成开了(01-config 默认表;用户 2026-09-23 拍板「更省心」),但「没勾就只
+    // 提议」这道闸本身一字未变 —— 本段显式把 relay 关上,钉的仍是那道闸。跑完复位,不污染后面的段。
+    writeConfig({ stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true, answer: false } });
     const events = [{ inboxSeq: 20, kind: 'failed', sessionId: FIXED_THREAD, missionId: FIXED_THREAD, seq: 20, at: new Date().toISOString(), payload: { summary: '又失败了' }, count: 1 }];
     const r = await srv.runStewardTurn({ trigger: 'inbox', events });
     // 116-2b 重钉:自理动作(确定性处置)排在【模型 actions 之前】,故不能再按下标 0 取模型那条。
     // 断言本意一字未改 —— 找的仍是「模型提的 thread_continue 被自理清单 relay 那道闸挡下」这一条。
     const executed = (r.actions || []).find(a => a && a.result && a.result.reason === 'self_serve_off');
     ok(executed && executed.tool === 'steward_thread_continue' && executed.result && executed.result.error === 'propose_required' && executed.result.reason === 'self_serve_off',
-      `D11 自理清单里 relay 默认关 -> 无人值守回合的递话只提议(got ${executed && executed.result && executed.result.error})`);
+      `D11 自理清单里 relay 未勾选 -> 无人值守回合的递话只提议(got ${executed && executed.result && executed.result.error})`);
     // 116-2b 追加:同一批里工作台自己那条确定性重试,被【目标线程权限】那道闸挡下(全局档 default)。
     const selfServed = (r.actions || []).find(a => a && a.auto === true);
     ok(selfServed && selfServed.tool === 'steward_thread_continue' && selfServed.args.message === '继续'
       && selfServed.result && selfServed.result.reason === 'self_serve_gate',
       `D11b 自理重试在 default 档线程上只提议(got ${selfServed && selfServed.result && selfServed.result.reason})`);
     ok(r.acts.some(a => a.tool === 'steward_thread_continue' && a.label === '接着办'), 'D12 自理清单挡下的 action 同样降级成一条按钮');
+    writeConfig({});
   }
 
   /* ═════════ (G-2) 到访:静默判定与预算重置 ═════════ */
@@ -605,6 +609,12 @@ try {
     const small = srv.stewardContextBudget(session, config, 50000);
     ok(big === Math.round(200000 * 0.6), `I1 模型窗口够大时预算 = stewardContextBudgetTokens × 60%(got ${big})`);
     ok(small === Math.round(50000 * 0.6), `I2 模型窗口更小时取小值 × 60%(got ${small})`);
+    // 136(用户 2026-09-23「上下文太紧」):触发线系数可配。这里直传 raw 键值(不走 normalize),
+    // 顺便钉住 13o 那道「防旁路」的再夹。
+    ok(srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.9 }, 1000000) === Math.round(200000 * 0.9),
+      `I5 136 系数可配:0.9 → ${Math.round(200000 * 0.9)}(got ${srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.9 }, 1000000)})`);
+    ok(srv.stewardContextBudget(session, { ...config, stewardContextBudgetRatio: 0.01 }, 1000000) === Math.round(200000 * 0.3),
+      'I6 136 系数越界低,夹到下限 0.3(不经过 normalize 也守得住)');
     ok(typeof srv.StewardHooks.contextBudget === 'function' && typeof srv.StewardHooks.visitNotesPrompt === 'function',
       'I3 分叉经 StewardHooks 挂接(10-context-governance 不认识 13h)');
     ok(/交接笔记|已经做出的决定/.test(String(srv.StewardHooks.visitNotesPrompt(config))), 'I4 到访内 L2 压缩用 steward.visitNotes 摘要 prompt');

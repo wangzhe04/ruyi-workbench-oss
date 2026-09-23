@@ -53,12 +53,26 @@ ok(/if \(clamped !== config\.stewardMaxTurnsPerHour\) \{ config\.stewardMaxTurns
 ok(/stewardMaxCostPerDay:\s*1,/.test(configSrc), '默认值: stewardMaxCostPerDay=1');
 // 129g 加了第五格 answer(代答),**默认关** —— 它独立于 relay:勾「事项内自动交接」不该顺带
 // 把「替我回答线程的提问」也给出去(一格两权,用户按的时候看不见第二个)。
-ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*false,\s*newThread:\s*true,\s*answer:\s*false\s*\},/.test(configSrc),
-  "默认值: stewardAutoActions={retry:true,resume:null,relay:false,newThread:true,answer:false}");
+// 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 递话是管家本职,默认只提议
+// 等于每句话都多问一遍。answer 仍默认关。不迁移存量(117m-A1 同一条纪律:显式落过 false 的原样保留)。
+ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*true,\s*newThread:\s*true,\s*answer:\s*false\s*\},/.test(configSrc),
+  "默认值: stewardAutoActions={retry:true,resume:null,relay:true,newThread:true,answer:false}(136:relay 翻默认)");
 ok(/stewardContextBudgetTokens:\s*200000,/.test(configSrc), '默认值: stewardContextBudgetTokens=200000');
+// 136:触发线系数(0.6)与人设两键(空串)的默认值字面量。
+ok(/stewardContextBudgetRatio:\s*0\.6,/.test(configSrc), '默认值: stewardContextBudgetRatio=0.6(136 新增)');
+ok(/stewardPersonaName:\s*'',/.test(configSrc) && /stewardPersonaStyle:\s*'',/.test(configSrc),
+  "默认值: stewardPersonaName/stewardPersonaStyle=''(136 新增人设两键)");
 ok(/stewardReadBudgetChars:\s*48000,/.test(configSrc), '默认值: stewardReadBudgetChars=48000');
 ok(/stewardVisitIdleMinutes:\s*60,/.test(configSrc), '默认值: stewardVisitIdleMinutes=60');
-ok(/stewardConversationRetention:\s*'visit',/.test(configSrc), "默认值: stewardConversationRetention='visit'");
+// 136(用户 2026-09-23「管家不记事」):默认 visit → 24h。与 maxTurnsPerHour 同一条 B10b 纪律 ——
+// 默认表与 sanitize 兜底必须是同一个值,否则「缺省」和「填了垃圾」落到不同策略。
+ok(/stewardConversationRetention:\s*'24h',/.test(configSrc), "默认值: stewardConversationRetention='24h'(136 从 visit 翻默认)");
+{
+  const declared = (configSrc.match(/stewardConversationRetention:\s*'(\w+)',/) || [])[1];
+  const fallback = (configSrc.match(/\? config\.stewardConversationRetention : '(\w+)';/) || [])[1];
+  ok(declared === '24h' && fallback === '24h',
+    `默认值: retention 默认表与 sanitize 兜底是同一个值(默认表 ${declared} / 兜底 ${fallback})`);
+}
 // 116h(27 号文 §3.1 116h 行;用户 2026-09-03 拍板「默认 5、设置可调」):线程间仲裁三个全局闸。
 ok(/stewardMaxParallelThreads:\s*5,/.test(configSrc), '默认值: stewardMaxParallelThreads=5(116h 用户拍板)');
 ok(/stewardGlobalMaxTurnsPerHour:\s*120,/.test(configSrc), '默认值: stewardGlobalMaxTurnsPerHour=120');
@@ -78,6 +92,7 @@ const clampChecks = [
   { label: 'stewardMaxTurnsPerHour clamp [1,120]', re: /Math\.min\(120, Math\.max\(1, Math\.round\(n\)\)\) : 30;/ }, // 117m-A1:区间 [1,120] 一字未动,只有兜底默认 12→30
   { label: 'stewardMaxCostPerDay clamp [0,1000]', re: /Math\.min\(1000, Math\.max\(0, n\)\) : 1;/ },
   { label: 'stewardContextBudgetTokens clamp [16000,2000000]', re: /Math\.min\(2000000, Math\.max\(16000, Math\.round\(n\)\)\) : 200000;/ },
+  { label: 'stewardContextBudgetRatio clamp [0.3,0.95](136)', re: /Math\.min\(0\.95, Math\.max\(0\.3, n\)\) : 0\.6;/ },
   { label: 'stewardReadBudgetChars clamp [4000,400000]', re: /Math\.min\(400000, Math\.max\(4000, Math\.round\(n\)\)\) : 48000;/ },
   { label: 'stewardVisitIdleMinutes clamp [5,1440]', re: /Math\.min\(1440, Math\.max\(5, Math\.round\(n\)\)\) : 60;/ },
   { label: 'stewardMaxParallelThreads clamp [1,32]', re: /Math\.min\(32, Math\.max\(1, Math\.round\(n\)\)\) : 5;/ },
@@ -97,6 +112,12 @@ ok(/typeof raw0\.newThread === 'boolean' \? raw0\.newThread : DEF_AA\.newThread/
   'sanitize: stewardAutoActions.newThread 严格布尔回该键默认');
 ok(/typeof raw0\.answer === 'boolean' \? raw0\.answer : DEF_AA\.answer/.test(configSrc),
   'sanitize: stewardAutoActions.answer 严格布尔回该键默认');
+
+// 136:人设两键的归一 —— trim + 上限截断(20/200),非字符串先 String()。
+ok(/String\(config\.stewardPersonaName \|\| ''\)\.trim\(\)\.slice\(0, 20\)/.test(configSrc),
+  'sanitize: stewardPersonaName trim + ≤20 字截断');
+ok(/String\(config\.stewardPersonaStyle \|\| ''\)\.trim\(\)\.slice\(0, 200\)/.test(configSrc),
+  'sanitize: stewardPersonaStyle trim + ≤200 字截断');
 
 // ── 129g 机械锁:自理清单的每一格都必须出现在设置界面的 autoPatch() 名单里 ─────────────────
 // 漏一格不是「界面少一个勾选框」那么轻:steward-settings.js 的 autoPatch() **整份覆写**
@@ -173,9 +194,12 @@ const dirty = {
   stewardMaxCostPerDay: 'free',       // 非数字 -> 回默认 1
   stewardAutoActions: { retry: 'yes', resume: 'sometimes', relay: 1, newThread: false, extraJunkKey: 'drop-me' },
   stewardContextBudgetTokens: 999999999, // 越界高 -> clamp 到 2000000
+  stewardContextBudgetRatio: 99,         // 越界高 -> clamp 到 0.95(136)
+  stewardPersonaName: 'x'.repeat(30),    // 超长 -> 截断到 20 字(136)
+  stewardPersonaStyle: '  更活泼  ',      // 首尾空白 -> trim(136)
   stewardReadBudgetChars: -100,        // 越界低 -> clamp 到 4000
   stewardVisitIdleMinutes: 99999,      // 越界高 -> clamp 到 1440
-  stewardConversationRetention: 'never', // 非法枚举 -> 回默认 'visit'
+  stewardConversationRetention: 'never', // 非法枚举 -> 回默认 '24h'(136 起)
   stewardMaxParallelThreads: 999,      // 越界高 -> clamp 到 32
   stewardGlobalMaxTurnsPerHour: 0,     // 越界低 -> clamp 到 1
   stewardGlobalMaxCostPerDay: 'lots',  // 非数字 -> 回默认 20
@@ -189,13 +213,16 @@ ok(c1.stewardModel.length === 160, 'stewardModel 超长截断到 160 字符');
 ok(c1.stewardPollMs === 5000, 'stewardPollMs=1 clamp 到下限 5000');
 ok(c1.stewardMaxTurnsPerHour === 1, 'stewardMaxTurnsPerHour=-5 clamp 到下限 1');
 ok(c1.stewardMaxCostPerDay === 1, "非法 stewardMaxCostPerDay='free' 回默认 1");
-ok(c1.stewardAutoActions.retry === true && c1.stewardAutoActions.resume === null && c1.stewardAutoActions.relay === false
+ok(c1.stewardAutoActions.retry === true && c1.stewardAutoActions.resume === null && c1.stewardAutoActions.relay === true
   && c1.stewardAutoActions.newThread === false && !('extraJunkKey' in c1.stewardAutoActions),
-  'stewardAutoActions:非布尔回默认、resume 非三态回 null、未知键丢弃、合法布尔 false 被尊重');
+  'stewardAutoActions:非布尔回默认(136 起 relay 默认 true)、resume 非三态回 null、未知键丢弃、合法布尔 false 被尊重');
 ok(c1.stewardContextBudgetTokens === 2000000, 'stewardContextBudgetTokens 越界高 clamp 到 2000000');
+ok(c1.stewardContextBudgetRatio === 0.95, 'stewardContextBudgetRatio=99 越界高 clamp 到 0.95(136)');
+ok(c1.stewardPersonaName === 'x'.repeat(20), 'stewardPersonaName 超长截断到 20 字(136)');
+ok(c1.stewardPersonaStyle === '更活泼', 'stewardPersonaStyle 首尾空白被 trim(136)');
 ok(c1.stewardReadBudgetChars === 4000, 'stewardReadBudgetChars 越界低 clamp 到 4000');
 ok(c1.stewardVisitIdleMinutes === 1440, 'stewardVisitIdleMinutes 越界高 clamp 到 1440');
-ok(c1.stewardConversationRetention === 'visit', "非法枚举 'never' 回默认 'visit'");
+ok(c1.stewardConversationRetention === '24h', "非法枚举 'never' 回默认 '24h'(136 起)");
 ok(c1.stewardMaxParallelThreads === 32, 'stewardMaxParallelThreads 越界高 clamp 到 32');
 ok(c1.stewardGlobalMaxTurnsPerHour === 1, 'stewardGlobalMaxTurnsPerHour=0 clamp 到下限 1');
 ok(c1.stewardGlobalMaxCostPerDay === 20, "非法 stewardGlobalMaxCostPerDay='lots' 回默认 20");
@@ -214,7 +241,8 @@ ok(second.changed === false && JSON.stringify(second.persisted) === JSON.stringi
 const c2 = second.config;
 ok(JSON.stringify(c2.stewardAutoActions) === JSON.stringify(c1.stewardAutoActions), 'stewardAutoActions 二次归一内容不变');
 for (const key of ['stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',
-  'stewardMaxCostPerDay', 'stewardContextBudgetTokens', 'stewardReadBudgetChars', 'stewardVisitIdleMinutes', 'stewardConversationRetention',
+  'stewardMaxCostPerDay', 'stewardContextBudgetTokens', 'stewardContextBudgetRatio', 'stewardReadBudgetChars', 'stewardVisitIdleMinutes', 'stewardConversationRetention',
+  'stewardPersonaName', 'stewardPersonaStyle',
   'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour', 'stewardGlobalMaxCostPerDay']) {
   ok(c2[key] === c1[key], `${key} 二次归一后值不变(幂等)`);
 }

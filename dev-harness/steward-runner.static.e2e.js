@@ -204,14 +204,29 @@ const srv = require(path.join(APP, 'server.js'));
   // 而「中文还剩一半空间」是假余量 —— 按 token 算两包本来就差不多(596/682)。
   // 新值 900/860 tok **比原意更紧**,不是放水:2500 字符对中文本来就等于 ≈1660 tok。
   // 关系不变(27 号文):rules 不许比 stable 贵 —— 它每回合拼在第一条 user 消息前缀里,不吃前缀缓存。
+  // 136(用户 2026-09-23「言行不够拟人」):900 → 1050。口吻是品味型要求,形容词管不住(134b/135 两轮
+  // 实测),few-shot 对照样例才管得住 —— 三组【好/坏】样例约 +90 tok(zh 879→967 / en 894→1009)。
+  // 样例住 stable 不住 rules:它是版本级常量,吃前缀缓存,零每回合成本;rules 闸(860)不动,
+  // 「不缓存层不许比缓存层贵」的关系仍在(860 < 1050)。再要加 stable 内容,先压缩,别再把抬闸当默认动作。
   const tok = srv.estimateTextTokens;
-  const STABLE_BUDGET_TOKENS = 900;
+  const STABLE_BUDGET_TOKENS = 1050;
   ok(typeof tok === 'function', '③ 129a 尺子在(estimateTextTokens 已导出;拿不到 = 下面几条在比空气)');
   ok(Math.round(tok('测试')) > 0 && Math.round(tok('abcdefghij')) > 0, '③ 129a 尺子自检:中英文都量得出非零 token');
   ok(Math.round(tok(zh.stable)) <= STABLE_BUDGET_TOKENS,
     `③ 中文稳定层 ≤${STABLE_BUDGET_TOKENS} tok(§11.2 稳定层预算;got ${Math.round(tok(zh.stable))} tok / ${zh.stable.length} 字符)`);
   ok(Math.round(tok(en.stable)) <= STABLE_BUDGET_TOKENS,
     `③ 英文稳定层 ≤${STABLE_BUDGET_TOKENS} tok(got ${Math.round(tok(en.stable))} tok / ${en.stable.length} 字符)`);
+  // 136(用户 2026-09-23):口吻 few-shot 样例行(中英双包)+ personaBlock 模板函数(中英双包)。
+  // 样例住 stable 是刻意的:版本级常量吃前缀缓存,零每回合成本。
+  ok(/学感觉,不学字句/.test(zh.stable) && /Sound like this/.test(en.stable),
+    '③ 136 中英稳定层都有口吻 few-shot 样例行(形容词管不住口吻,对照样例才管得住)');
+  ok(typeof zh.personaBlock === 'function' && typeof en.personaBlock === 'function',
+    '③ 136 中英双包都有 personaBlock 模板函数(人设块,由 13o 装配进易变层)');
+  {
+    const onlyStyle = zh.personaBlock({ name: '', style: '更活泼' });
+    ok(onlyStyle.includes('更活泼') && !onlyStyle.includes('「」'),
+      '③ 136 personaBlock 只给口吻时不出空名字引号(两键皆空时 13o 整段不装配)');
+  }
   for (const [label, pack] of [['中文', zh], ['英文', en]]) {
     ok(/say/.test(pack.stable) && /acts/.test(pack.stable) && /actions/.test(pack.stable) && /why/.test(pack.stable),
       `③ ${label}稳定层写明四字段输出契约`);
@@ -265,6 +280,11 @@ const srv = require(path.join(APP, 'server.js'));
   // 那种写法只数得到一处并给出一条假红(本刀实测)。按「同一行内」定界。
   const ceilingHits = (src13o.match(/stewardTrimSayAtSentence\([^\n;]*STEWARD_SAY_CEILING\)/g) || []).length;
   ok(ceilingHits === 2, `③ 117y-S1(b) 两处用的是同一个天花板常量 STEWARD_SAY_CEILING(got ${ceilingHits} 处)`);
+  // 136:13o 的两个新装配点 —— 人设块(空配置不输出)与可配的预算系数(再夹一道防 raw config 旁路)。
+  ok(/function stewardPersonaBlock\(/.test(src13o) && /if \(persona\) parts\.push\(persona\)/.test(src13o),
+    '③ 136 13o 装配人设块:两键皆空时整段不输出(零字节纪律,与 routeHintBlock 同)');
+  ok(/stewardContextBudgetRatio/.test(src13o) && /Math\.min\(0\.95, Math\.max\(0\.3, ratioRaw\)\)/.test(src13o),
+    '③ 136 13o 预算系数从 stewardContextBudgetRatio 读,缺省回 0.6 并按 [0.3,0.95] 再夹一道');
   ok(/const STEWARD_SAY_TARGET = 600;/.test(src13m) && /const STEWARD_SAY_CEILING = 4000;/.test(src13m),
     '③ 117y-S1 两个常量拆开定在 13m(TARGET 600 只是提示词目标 / CEILING 4000 只防病态载荷)');
   ok(/function stewardTrimSayAtSentence\(/.test(src06i) && !/function stewardTrimSayAtSentence\(/.test(srcRunnerFamily),

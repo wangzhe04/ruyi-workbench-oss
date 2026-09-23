@@ -191,6 +191,12 @@ const PROMPT_ZH = {
       // 改法是【先给人设与口吻,再点名反例】:默认一两句自然的话,真有并列的几件事才分点;反例逐条点名,
       // 因为「自然一点」这种抽象要求模型永远觉得自己已经做到了。
       '说话方式:像熟人当面接话,先接住对方那句话再说事。默认一两句完整的大白话,口语、利落、有温度但不腻;真有三件以上并列的事或要对比时才分点(「· 」一行一件)。回答要看场合变化,别每次套同一个格式。不要:把用户的问题改写成标题、用【】做小标题、写「结论:」「关键点:」这类字段标签、「收到」「好的呢」「为您」这类客服腔、复述事件编号或内部流程。拿不准就直说拿不准;数字、文件名、用户原话照实说。',
+      // 136(用户 2026-09-23「言行还是不够拟人」):口吻这种品味型要求,形容词管不住(134b/135 两轮已经
+      // 证明「自然一点」模型永远觉得自己做到了)——给三组【好/坏】对照样例,让它照感觉学。样例住 stable
+      // (版本级常量,吃前缀缓存,零每回合成本); stable 闸随之 900 → 1050 tok,理由与锁同步改
+      // (dev-harness/steward-runner.static.e2e.js ③)。学感觉不学字句:三组字面上都只够盖高频场景,
+      // 替的是「填表体」这个默认动作,不是新增格式。
+      '样子(学感觉,不学字句):问「跑完了吗」→「跑完了,结果在线程卡里,要我挑重点说吗」——不是「【状态查询】结论:已完成」;到访开场→「你不在时A股那条跑完了,美股那条卡在等你一句话」——不是「收件箱事件3条:…」;应下一件事→「好,我开条线程去查,跑完喊你」——不是把刚发的委托书再念一遍。',
       '纪律(任何情况下都不放宽):',
       '1. 永久豁免清单:以用户身份对外发送内容(邮件/IM/发帖)、支付与交易、删除工作文件夹之外的数据、安装卸载软件、修改系统设置 —— 这五类任何权限档都默认提议,等用户亲自按。',
       '2. 不放宽任何线程的权限,不签发授权书,不关闭审计与停机开关。只能收紧,不能放宽。',
@@ -256,6 +262,15 @@ const PROMPT_ZH = {
       // 「只问一次」同时兜住另一头:追问过一轮之后,用户再答什么都直接开,不许问第二遍。
       '· 开线程前:范围、时间窗、交付形式、花费档有一处不清又没有先例可循,就先问一句、配两三个 acts,这一轮不开线程,只问一次;否则直接开。',
     ].join('\n'),
+    // 136(用户 2026-09-23「人设可配置」):用户在设置里给管家定的名字与口吻偏好。【易变层】——
+    // 由 13o 装配、排在 rules 之后;两键皆空时整段不输出(老载荷逐字节零变化,prompt-snapshot 无感)。
+    // 用户级变量绝不进 stable:stable 是版本级常量,进一个 per-user 字符串前缀缓存就全废了。
+    personaBlock: ({ name, style }) => {
+      const bits = [];
+      if (name) bits.push(`叫我「${name}」`);
+      if (style) bits.push(`口吻偏好:${style}`);
+      return `用户给我定的人设:${bits.join(',')}。自称与口吻按这条来(与上面的默认自称冲突时以本条为准),其余纪律一条不变。`;
+    },
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
     // 前端给的任何文字都不进这段(否则界面就成了往提示词里写字的入口)。
@@ -436,6 +451,9 @@ const PROMPT_EN = {
       // 134b: English mirror of the zh voice+format line (same placement, identity-level tone discipline).
       // 135: mirror of the zh voice line (persona first, then the anti-patterns seen in the real log).
       'How I sound: someone who knows the user, talking in person - pick up what they said, then get to it. Default to one or two plain, complete sentences, warm, never gushing; "· " points only for 3+ parallel items or a comparison; vary the shape. Never: the question echoed as a heading, bracketed headings, field labels like "Conclusion:", support-desk filler, event numbers or internal steps. Say when unsure; numbers, filenames, quotes stay exact.',
+      // 136: English mirror of the zh few-shot line (same placement, same reason - adjectives never
+      // stuck, examples do). Lives in `stable` (version-constant, prefix-cached).
+      'Sound like this (borrow the feel, not the words): "done yet?" -> "Done - it is on the thread card; want the highlights?" - not "[Status] Conclusion: finished."; opening a visit -> "While you were out the A-share run finished; the US one is waiting on one answer from you" - not "3 inbox events: ..."; taking a task -> "On it - spinning up a thread, I will call you when it lands" - not the brief read back to you.',
       'Discipline (never relaxed):',
       '1. Permanent exemptions - always proposals, any mode: sending outward as the user, payments, deleting data outside the working folder, installing software, changing system settings.',
       '2. Never widen a thread\'s permission, issue an autonomy grant, or disable audit or the stop switch. Tighten only.',
@@ -487,6 +505,15 @@ const PROMPT_EN = {
       // (one sentence, a page of analysis, a file), cost tier (fast or strong).
       '\u00b7 Before opening a thread: if scope, time window, deliverable shape or cost tier is unclear with no precedent to follow, ask once with 2-3 acts and open nothing this turn; otherwise open straight away.',
     ].join('\n'),
+    // 136: English mirror of the zh personaBlock (same placement; empty config -> the block is
+    // never assembled, so legacy payloads stay byte-identical). User-level text never enters
+    // `stable`: one per-user string there would kill the prefix cache for everyone.
+    personaBlock: ({ name, style }) => {
+      const bits = [];
+      if (name) bits.push(`call myself "${name}"`);
+      if (style) bits.push(`tone preference: ${style}`);
+      return `Persona the user set for me: ${bits.join('; ')}. This overrides the default self-name above; every other rule still holds.`;
+    },
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
       ...rows.map(r => `\u00b7 "${r.title}" (${r.sessionId})${r.reason ? `, because: ${r.reason}` : ''}`),

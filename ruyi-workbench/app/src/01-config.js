@@ -392,9 +392,16 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
     stewardMaxCostPerDay: 1,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
-    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true, answer: false },
+    // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 把用户的话递给对的线程是管家的
+    // 本职,默认只提议等于每句话都多问一遍。answer(代答)仍默认关:那是唯一【替用户说话】的一格(129g)。
+    // 不迁移存量:config.json 里已显式落 relay:false 的老用户原样保留(与 117m-A1 同一条纪律)。
+    stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
     stewardContextBudgetTokens: 200000,
+    // 136(同上「上下文太紧」):预算的几成触发 L2 压缩,clamp [0.3,0.95],非法回默认 0.6。
+    // 大窗口模型(百万级)下 0.6 偏保守,可调高;代价是管家每回合更贵、压缩更少触发。
+    // 管家自己改不了它:confirm 档(会花钱),只能递按钮等用户按;tokens 键则撞密钥正则仍 forbidden。
+    stewardContextBudgetRatio: 0.6,
     // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
     stewardReadBudgetChars: 48000,
     // 129f(31 号文 §2.4):管家一小时最多主动叫你几次。6 次是原文定的数 —— 一小时六次已经是
@@ -402,8 +409,16 @@ function defaultConfig() {
     stewardNotifyPerHour: 6,
     // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440]。
     stewardVisitIdleMinutes: 60,
-    // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
-    stewardConversationRetention: 'visit',
+    // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit|24h|forever。
+    // 136(用户 2026-09-23「不记事」):默认 visit → 24h —— 「到访即忘」(60 分钟静默就整段归档清空)是
+    // 「管家不像个熟人」观感的最大来源;跨到访的长期连续性仍走管家记忆库,24h 只是把【今天】留住。
+    // 不迁移存量(同上一条纪律);normalizeConfig 的兜底值同步是 '24h',两处必须同一个值。
+    stewardConversationRetention: '24h',
+    // 136(同上「言行不够拟人」):管家人设。两键皆空 = 用 stable 层的默认自称「如意」与默认口吻。
+    // 名字 ≤20 字、口吻偏好 ≤200 字(01-config 归一截断);进提示词的【易变层】(13o 的 personaBlock),
+    // 不进 stable —— 用户级变量,进了稳定层就破前缀缓存纪律。free 档:改错了一眼看得见、一键清空。
+    stewardPersonaName: '',
+    stewardPersonaStyle: '',
     // 第 123 波 M2(37 号文 §3.5):安静卡「稍后」推迟多少分钟,clamp [1,1440]。
     // 它建的是一条【真的】 once reminder(而不是把卡藏起来),所以这个数就是「多久之后再提醒我」;
     // 上限 24 小时:再长就不该由一枚「稍后」来表达了,那是一条新的定时任务。
@@ -1299,7 +1314,7 @@ function normalizeConfig(raw, opts = {}) {
   // 修前它搭在 relay 上:用户勾「事项内自动交接」是要让上一条线程的结论流到下一条,顺带却把
   // 「替我回答」也给了出去。一格两权,用户按的时候看不出第二个。
   {
-    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true, answer: false };
+    const DEF_AA = { retry: true, resume: null, relay: true, newThread: true, answer: false };   // 136:relay 默认开,与默认表同值(两处必须同值,否则缺省与填垃圾落到不同行为)
     const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
     const aa = raw0 ? {
       retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
@@ -1316,6 +1331,13 @@ function normalizeConfig(raw, opts = {}) {
     const n = Number(config.stewardContextBudgetTokens);
     const clamped = Number.isFinite(n) ? Math.min(2000000, Math.max(16000, Math.round(n))) : 200000;
     if (clamped !== config.stewardContextBudgetTokens) { config.stewardContextBudgetTokens = clamped; changed = true; }
+  }
+  // 136(用户 2026-09-23「上下文太紧」):压缩触发线系数,clamp [0.3,0.95],非法回默认 0.6
+  // (允许小数、不取整 —— 0.65 是合法值;与 stewardMaxCostPerDay 同一口径)。
+  {
+    const n = Number(config.stewardContextBudgetRatio);
+    const clamped = Number.isFinite(n) ? Math.min(0.95, Math.max(0.3, n)) : 0.6;
+    if (clamped !== config.stewardContextBudgetRatio) { config.stewardContextBudgetRatio = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家按需深读(steward_thread_read 等)单次到访合计字符预算,clamp [4000,400000],
   // 非法回默认 48000。
@@ -1342,10 +1364,19 @@ function normalizeConfig(raw, opts = {}) {
     const clamped = Number.isFinite(n) ? Math.min(1440, Math.max(1, Math.round(n))) : 30;
     if (clamped !== config.quietCardSnoozeMinutes) { config.quietCardSnoozeMinutes = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit(默认,到访重置即清)|24h|forever,非法回默认。
+  // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit|24h|forever,非法回默认。
+  // 136:默认 visit → 24h,兜底同步改(两处必须同一个值,否则缺省与填垃圾落到不同策略)。
   {
-    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : 'visit';
+    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : '24h';
     if (norm !== config.stewardConversationRetention) { config.stewardConversationRetention = norm; changed = true; }
+  }
+  // 136(用户 2026-09-23「言行不够拟人」):管家人设两个字符串键 —— trim + 上限截断(名字 20 字 /
+  // 口吻 200 字),与 stewardModel 同一口径(非字符串先 String(),未知类型不留原值)。
+  {
+    const name = String(config.stewardPersonaName || '').trim().slice(0, 20);
+    if (name !== config.stewardPersonaName) { config.stewardPersonaName = name; changed = true; }
+    const style = String(config.stewardPersonaStyle || '').trim().slice(0, 200);
+    if (style !== config.stewardPersonaStyle) { config.stewardPersonaStyle = style; changed = true; }
   }
   // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10):线程间仲裁的三个全局闸。夹取口径与上面 116a 的
   // 各键一致(非有限数回该键自身默认;整数键取整,金额键保留小数)。

@@ -1433,9 +1433,16 @@ function defaultConfig() {
     // 第 116 波 116a(27 号文 §11.3):管家自身每日花费上限(USD),clamp [0,1000]。
     stewardMaxCostPerDay: 1,
     // 第 116 波 116a(27 号文 §11.3):管家「可以自己做的事」自理清单;resume:null=跟随 autonomyAutoResume。
-    stewardAutoActions: { retry: true, resume: null, relay: false, newThread: true, answer: false },
+    // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 把用户的话递给对的线程是管家的
+    // 本职,默认只提议等于每句话都多问一遍。answer(代答)仍默认关:那是唯一【替用户说话】的一格(129g)。
+    // 不迁移存量:config.json 里已显式落 relay:false 的老用户原样保留(与 117m-A1 同一条纪律)。
+    stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
     stewardContextBudgetTokens: 200000,
+    // 136(同上「上下文太紧」):预算的几成触发 L2 压缩,clamp [0.3,0.95],非法回默认 0.6。
+    // 大窗口模型(百万级)下 0.6 偏保守,可调高;代价是管家每回合更贵、压缩更少触发。
+    // 管家自己改不了它:confirm 档(会花钱),只能递按钮等用户按;tokens 键则撞密钥正则仍 forbidden。
+    stewardContextBudgetRatio: 0.6,
     // 第 116 波 116a(27 号文 §11.3):管家按需深读单次到访合计字符预算,clamp [4000,400000]。
     stewardReadBudgetChars: 48000,
     // 129f(31 号文 §2.4):管家一小时最多主动叫你几次。6 次是原文定的数 —— 一小时六次已经是
@@ -1443,8 +1450,16 @@ function defaultConfig() {
     stewardNotifyPerHour: 6,
     // 第 116 波 116a(27 号文 §11.3):判定「一次到访」结束的静默分钟数,clamp [5,1440]。
     stewardVisitIdleMinutes: 60,
-    // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit(默认,到访重置即清)|24h|forever。
-    stewardConversationRetention: 'visit',
+    // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,visit|24h|forever。
+    // 136(用户 2026-09-23「不记事」):默认 visit → 24h —— 「到访即忘」(60 分钟静默就整段归档清空)是
+    // 「管家不像个熟人」观感的最大来源;跨到访的长期连续性仍走管家记忆库,24h 只是把【今天】留住。
+    // 不迁移存量(同上一条纪律);normalizeConfig 的兜底值同步是 '24h',两处必须同一个值。
+    stewardConversationRetention: '24h',
+    // 136(同上「言行不够拟人」):管家人设。两键皆空 = 用 stable 层的默认自称「如意」与默认口吻。
+    // 名字 ≤20 字、口吻偏好 ≤200 字(01-config 归一截断);进提示词的【易变层】(13o 的 personaBlock),
+    // 不进 stable —— 用户级变量,进了稳定层就破前缀缓存纪律。free 档:改错了一眼看得见、一键清空。
+    stewardPersonaName: '',
+    stewardPersonaStyle: '',
     // 第 123 波 M2(37 号文 §3.5):安静卡「稍后」推迟多少分钟,clamp [1,1440]。
     // 它建的是一条【真的】 once reminder(而不是把卡藏起来),所以这个数就是「多久之后再提醒我」;
     // 上限 24 小时:再长就不该由一枚「稍后」来表达了,那是一条新的定时任务。
@@ -2340,7 +2355,7 @@ function normalizeConfig(raw, opts = {}) {
   // 修前它搭在 relay 上:用户勾「事项内自动交接」是要让上一条线程的结论流到下一条,顺带却把
   // 「替我回答」也给了出去。一格两权,用户按的时候看不出第二个。
   {
-    const DEF_AA = { retry: true, resume: null, relay: false, newThread: true, answer: false };
+    const DEF_AA = { retry: true, resume: null, relay: true, newThread: true, answer: false };   // 136:relay 默认开,与默认表同值(两处必须同值,否则缺省与填垃圾落到不同行为)
     const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
     const aa = raw0 ? {
       retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
@@ -2357,6 +2372,13 @@ function normalizeConfig(raw, opts = {}) {
     const n = Number(config.stewardContextBudgetTokens);
     const clamped = Number.isFinite(n) ? Math.min(2000000, Math.max(16000, Math.round(n))) : 200000;
     if (clamped !== config.stewardContextBudgetTokens) { config.stewardContextBudgetTokens = clamped; changed = true; }
+  }
+  // 136(用户 2026-09-23「上下文太紧」):压缩触发线系数,clamp [0.3,0.95],非法回默认 0.6
+  // (允许小数、不取整 —— 0.65 是合法值;与 stewardMaxCostPerDay 同一口径)。
+  {
+    const n = Number(config.stewardContextBudgetRatio);
+    const clamped = Number.isFinite(n) ? Math.min(0.95, Math.max(0.3, n)) : 0.6;
+    if (clamped !== config.stewardContextBudgetRatio) { config.stewardContextBudgetRatio = clamped; changed = true; }
   }
   // 第 116 波 116a(27 号文 §11.3):管家按需深读(steward_thread_read 等)单次到访合计字符预算,clamp [4000,400000],
   // 非法回默认 48000。
@@ -2383,10 +2405,19 @@ function normalizeConfig(raw, opts = {}) {
     const clamped = Number.isFinite(n) ? Math.min(1440, Math.max(1, Math.round(n))) : 30;
     if (clamped !== config.quietCardSnoozeMinutes) { config.quietCardSnoozeMinutes = clamped; changed = true; }
   }
-  // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit(默认,到访重置即清)|24h|forever,非法回默认。
+  // 第 116 波 116a(27 号文 §11.3):管家会话历史保留策略,枚举 visit|24h|forever,非法回默认。
+  // 136:默认 visit → 24h,兜底同步改(两处必须同一个值,否则缺省与填垃圾落到不同策略)。
   {
-    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : 'visit';
+    const norm = ['visit', '24h', 'forever'].includes(config.stewardConversationRetention) ? config.stewardConversationRetention : '24h';
     if (norm !== config.stewardConversationRetention) { config.stewardConversationRetention = norm; changed = true; }
+  }
+  // 136(用户 2026-09-23「言行不够拟人」):管家人设两个字符串键 —— trim + 上限截断(名字 20 字 /
+  // 口吻 200 字),与 stewardModel 同一口径(非字符串先 String(),未知类型不留原值)。
+  {
+    const name = String(config.stewardPersonaName || '').trim().slice(0, 20);
+    if (name !== config.stewardPersonaName) { config.stewardPersonaName = name; changed = true; }
+    const style = String(config.stewardPersonaStyle || '').trim().slice(0, 200);
+    if (style !== config.stewardPersonaStyle) { config.stewardPersonaStyle = style; changed = true; }
   }
   // 第 116 波 116h(27 号文 §3.1 116h 行 / §8.10):线程间仲裁的三个全局闸。夹取口径与上面 116a 的
   // 各键一致(非有限数回该键自身默认;整数键取整,金额键保留小数)。
@@ -21530,6 +21561,12 @@ const PROMPT_ZH = {
       // 改法是【先给人设与口吻,再点名反例】:默认一两句自然的话,真有并列的几件事才分点;反例逐条点名,
       // 因为「自然一点」这种抽象要求模型永远觉得自己已经做到了。
       '说话方式:像熟人当面接话,先接住对方那句话再说事。默认一两句完整的大白话,口语、利落、有温度但不腻;真有三件以上并列的事或要对比时才分点(「· 」一行一件)。回答要看场合变化,别每次套同一个格式。不要:把用户的问题改写成标题、用【】做小标题、写「结论:」「关键点:」这类字段标签、「收到」「好的呢」「为您」这类客服腔、复述事件编号或内部流程。拿不准就直说拿不准;数字、文件名、用户原话照实说。',
+      // 136(用户 2026-09-23「言行还是不够拟人」):口吻这种品味型要求,形容词管不住(134b/135 两轮已经
+      // 证明「自然一点」模型永远觉得自己做到了)——给三组【好/坏】对照样例,让它照感觉学。样例住 stable
+      // (版本级常量,吃前缀缓存,零每回合成本); stable 闸随之 900 → 1050 tok,理由与锁同步改
+      // (dev-harness/steward-runner.static.e2e.js ③)。学感觉不学字句:三组字面上都只够盖高频场景,
+      // 替的是「填表体」这个默认动作,不是新增格式。
+      '样子(学感觉,不学字句):问「跑完了吗」→「跑完了,结果在线程卡里,要我挑重点说吗」——不是「【状态查询】结论:已完成」;到访开场→「你不在时A股那条跑完了,美股那条卡在等你一句话」——不是「收件箱事件3条:…」;应下一件事→「好,我开条线程去查,跑完喊你」——不是把刚发的委托书再念一遍。',
       '纪律(任何情况下都不放宽):',
       '1. 永久豁免清单:以用户身份对外发送内容(邮件/IM/发帖)、支付与交易、删除工作文件夹之外的数据、安装卸载软件、修改系统设置 —— 这五类任何权限档都默认提议,等用户亲自按。',
       '2. 不放宽任何线程的权限,不签发授权书,不关闭审计与停机开关。只能收紧,不能放宽。',
@@ -21595,6 +21632,15 @@ const PROMPT_ZH = {
       // 「只问一次」同时兜住另一头:追问过一轮之后,用户再答什么都直接开,不许问第二遍。
       '· 开线程前:范围、时间窗、交付形式、花费档有一处不清又没有先例可循,就先问一句、配两三个 acts,这一轮不开线程,只问一次;否则直接开。',
     ].join('\n'),
+    // 136(用户 2026-09-23「人设可配置」):用户在设置里给管家定的名字与口吻偏好。【易变层】——
+    // 由 13o 装配、排在 rules 之后;两键皆空时整段不输出(老载荷逐字节零变化,prompt-snapshot 无感)。
+    // 用户级变量绝不进 stable:stable 是版本级常量,进一个 per-user 字符串前缀缓存就全废了。
+    personaBlock: ({ name, style }) => {
+      const bits = [];
+      if (name) bits.push(`叫我「${name}」`);
+      if (style) bits.push(`口吻偏好:${style}`);
+      return `用户给我定的人设:${bits.join(',')}。自称与口吻按这条来(与上面的默认自称冲突时以本条为准),其余纪律一条不变。`;
+    },
     // 117l D1(§11.9;用户第四轮走查第 2 条「无论关键词匹配到什么,都要发给管家让它决定」):
     // 输入区的关键词预判降级成【提示】。服务端只信 sessionId,标题一律自己按显示名重查 ——
     // 前端给的任何文字都不进这段(否则界面就成了往提示词里写字的入口)。
@@ -21775,6 +21821,9 @@ const PROMPT_EN = {
       // 134b: English mirror of the zh voice+format line (same placement, identity-level tone discipline).
       // 135: mirror of the zh voice line (persona first, then the anti-patterns seen in the real log).
       'How I sound: someone who knows the user, talking in person - pick up what they said, then get to it. Default to one or two plain, complete sentences, warm, never gushing; "· " points only for 3+ parallel items or a comparison; vary the shape. Never: the question echoed as a heading, bracketed headings, field labels like "Conclusion:", support-desk filler, event numbers or internal steps. Say when unsure; numbers, filenames, quotes stay exact.',
+      // 136: English mirror of the zh few-shot line (same placement, same reason - adjectives never
+      // stuck, examples do). Lives in `stable` (version-constant, prefix-cached).
+      'Sound like this (borrow the feel, not the words): "done yet?" -> "Done - it is on the thread card; want the highlights?" - not "[Status] Conclusion: finished."; opening a visit -> "While you were out the A-share run finished; the US one is waiting on one answer from you" - not "3 inbox events: ..."; taking a task -> "On it - spinning up a thread, I will call you when it lands" - not the brief read back to you.',
       'Discipline (never relaxed):',
       '1. Permanent exemptions - always proposals, any mode: sending outward as the user, payments, deleting data outside the working folder, installing software, changing system settings.',
       '2. Never widen a thread\'s permission, issue an autonomy grant, or disable audit or the stop switch. Tighten only.',
@@ -21826,6 +21875,15 @@ const PROMPT_EN = {
       // (one sentence, a page of analysis, a file), cost tier (fast or strong).
       '\u00b7 Before opening a thread: if scope, time window, deliverable shape or cost tier is unclear with no precedent to follow, ask once with 2-3 acts and open nothing this turn; otherwise open straight away.',
     ].join('\n'),
+    // 136: English mirror of the zh personaBlock (same placement; empty config -> the block is
+    // never assembled, so legacy payloads stay byte-identical). User-level text never enters
+    // `stable`: one per-user string there would kill the prefix cache for everyone.
+    personaBlock: ({ name, style }) => {
+      const bits = [];
+      if (name) bits.push(`call myself "${name}"`);
+      if (style) bits.push(`tone preference: ${style}`);
+      return `Persona the user set for me: ${bits.join('; ')}. This overrides the default self-name above; every other rule still holds.`;
+    },
     routeHintBlock: ({ rows }) => [
       'Composer pre-route (a hint, not a verdict): this sentence may be a follow-up to one of these threads -',
       ...rows.map(r => `\u00b7 "${r.title}" (${r.sessionId})${r.reason ? `, because: ${r.reason}` : ''}`),
@@ -23527,7 +23585,8 @@ const STEWARD_CONFIG_SECRET_PATTERN = /apiKey|token|secret|password/i;
 
 // free:改错了代价 = 用户看一眼就发现、一键改回;不影响钱、不影响权限、不影响能动世界的范围。
 // 132b(53 号文 §2;用户 2026-09-21「希望能尽量改如意更多的选项」):从「新增键默认最保守、只登记 40 个」改成
-// 逐键判过的三张表 —— free 31 / confirm 88 / forbidden 44。判据只有三条(§2.2):
+// 逐键判过的三张表 —— 136 起 free 33 / confirm 95(此前 31/93;forbidden 数量随默认表总长浮动,以
+// unit/steward-config-tier.test.js 的 EXPECTED 为准)。判据只有三条(§2.2):
 //   free      改错了一眼看得见、一键改回,不花钱、不改权限、不扩大能动世界的范围;
 //   confirm   会花钱、换执行主体、改「谁能不问就做什么」的边界,或影响用户多久看得见一件事 —— 用户按一下按钮;
 //   forbidden 密钥、数据根与围栏、命令／桌面／工具放行、提示词注入面、自我扩权开关、簿记与用户行为记录。
@@ -23540,6 +23599,8 @@ const STEWARD_CONFIG_TIER_FREE = Object.freeze([
   'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour', 'stewardMaxCostPerDay',
   'stewardReadBudgetChars', 'stewardVisitIdleMinutes', 'stewardNotifyPerHour',
   'stewardConversationRetention', 'stewardMaxParallelThreads', 'stewardGlobalMaxTurnsPerHour', 'stewardGlobalMaxCostPerDay',
+  // 136:管家人设两键 —— 纯装饰(自称与口吻),改错了一眼看得见、一键清空,与 locale/theme 同类。
+  'stewardPersonaName', 'stewardPersonaStyle',
   // 132b:等待时长 —— 变短只会更早拒／更早算卡住,变长只是多等,不放行任何东西(用户实报「线程提问的等待时长」改不了)。
   'permissionTimeoutMs', 'questionTimeoutMs', 'turnIdleTimeoutMs', 'autonomyPauseOnTimeout', 'autonomyPauseTtlMs',
   // 132b:显示粒度、启停整洁度、本地开销 —— 都是「看一眼就发现、一键改回」那一类。
@@ -23572,6 +23633,10 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'runtimeMemoryVectorRecallV1', 'coreMemoryMaxItemsV1', 'coreMemoryCharBudgetV1', 'memoryRelevanceMaxV1', 'memoryFixedSelectionMaxV1', 'memoryIndexCharCapV1',
   'toolEconomicsShadowV1', 'boundedReadSchedulerV1', 'boundedReadConcurrencyV1', 'metaToolHintsV1', 'actionArgumentModelViewV1', 'toolLoadingMode',
   'autoCompactThreshold', 'contextWindowOverrides', 'thinkingBudget', 'claudeThinkingEffort', 'betaInterleavedThinking', 'maxTurns', 'openaiMaxToolIterations',
+  // 136:管家压缩触发线系数 —— 调高 = 管家每回合更贵,归「会花钱」那一类;管家只能递按钮。
+  // 它的姊妹键 stewardContextBudgetTokens 撞密钥正则(Tokens)仍 forbidden,两个键有意不同档:
+  // 正则不开例外(06i 头注),系数没撞正则,按判据落在 confirm。
+  'stewardContextBudgetRatio',
   // 132b:并发与班组 —— 同时跑几个就是同时花几份钱。
   'subagentMaxConcurrent', 'subagentMaxPerTurn', 'agentWorkflowMaxNodes', 'agentNodeWrapUpMs', 'agentTaskPoolPolicy', 'agentTaskPoolAutoCap',
   'agentAutoModelTiering', 'shellSessionMax',
@@ -23620,6 +23685,9 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['stewardVisitIdleMinutes', '用户离开多少分钟后算「不在」', 'Minutes of user inactivity before counted as away'],
   ['stewardNotifyPerHour', '管家一小时最多主动叫你几次', 'Max proactive notifications per hour'],
   ['stewardConversationRetention', '管家对话保留:visit(本次)/ 24h / forever', 'Steward conversation retention: visit / 24h / forever'],
+  ['stewardPersonaName', '管家自称的名字(≤20 字);空 = 默认「如意」', 'Name the steward calls itself (<=20 chars); empty = default "Ruyi"'],
+  ['stewardPersonaStyle', '管家口吻偏好,如「更活泼、偶尔用 emoji」(≤200 字);空 = 默认口吻', 'Tone preference for the steward, e.g. "livelier, occasional emoji" (<=200 chars); empty = default voice'],
+  ['stewardContextBudgetRatio', '管家上下文用到几成触发压缩(0.3–0.95);调高 = 每回合更贵、压缩更少触发', 'Share of the steward context budget that triggers compaction (0.3-0.95); higher = pricier turns, rarer compaction'],
   ['stewardMaxParallelThreads', '管家同时最多盯几条线程', 'Max threads the steward runs in parallel'],
   ['stewardGlobalMaxTurnsPerHour', '全部线程每小时合计最多跑几个回合', 'Global cap on thread turns per hour'],
   ['stewardGlobalMaxCostPerDay', '全部线程每天合计最多花多少钱', 'Global cap on daily spend across threads'],
@@ -52726,6 +52794,8 @@ const STEWARD_CONFIG_KEYS = Object.freeze([
   'stewardEnabledV1', 'stewardProviderId', 'stewardModel', 'stewardPollMs', 'stewardMaxTurnsPerHour',
   'stewardMaxCostPerDay', 'stewardAutoActions', 'stewardContextBudgetTokens', 'stewardReadBudgetChars',
   'stewardVisitIdleMinutes', 'stewardConversationRetention',
+  // 136:人设两键与触发线系数 —— 管家读得到自己的人设与预算口径(问「你现在叫什么/预算多少」不用猜)。
+  'stewardPersonaName', 'stewardPersonaStyle', 'stewardContextBudgetRatio',
 ]);
 async function stewardImplSelfStatus(args, ctx, config) {
   const wantSteward = !args.section || args.section === 'all' || args.section === 'steward';
@@ -55498,6 +55568,17 @@ function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
   return out.join('\n');
 }
 
+// 136(用户 2026-09-23「人设可配置」):人设块装配。两键皆空 → 整段不输出(与 routeHintBlock 同一条
+// 零字节纪律:prompt-snapshot 只看 steward 段,默认配置下老载荷逐字节不变)。进提示词前先过
+// stewardSanitizeText 压成单行,长度上限与 01-config 的归一截断同值(20/200)—— 这里再切一刀是
+// 防「配置未经 normalize 就进来」的旁路(如测试直接传 raw config)。
+function stewardPersonaBlock(config, pack) {
+  const name = stewardSanitizeText(String((config && config.stewardPersonaName) || '').trim()).slice(0, 20).trim();
+  const style = stewardSanitizeText(String((config && config.stewardPersonaStyle) || '').trim()).slice(0, 200).trim();
+  if (!name && !style) return '';
+  return pack.steward.personaBlock({ name, style });
+}
+
 // 09 的提示词分叉入口(经 StewardHooks.buildSystemPrompt 调)。返回 {stable, volatile}:
 // stable 进 system(版本级常量,前缀缓存完整命中),volatile 进第一条 user 消息前缀(与普通会话
 // 的 turnVolatile 同一投放位置),易变内容后置。
@@ -55506,6 +55587,10 @@ async function buildStewardSystemPrompt(session, config, ctx) {
   const parts = [];
   // 117l:本波三条纪律(见 06b 的 rules 头注:英文稳定层已到 2453/2500,塞不下)。恒在,零条件。
   parts.push(pack.steward.rules);
+  // 136:人设块(用户定的名字/口吻)紧跟 rules —— 它是身份级设定,排在总览与记忆这些「事实层」之前。
+  // 未配置时 stewardPersonaBlock 返回空串,整段不输出(零字节纪律)。
+  const persona = stewardPersonaBlock(config, pack);
+  if (persona) parts.push(persona);
   // 117l D1:输入区预判只是【提示】。它随这一回合的用户消息一起来(POST /api/steward/message 的
   // routeHint),挂在回合登记项上 —— 管家并发恒为 1,故「当前在途的那个 entry」就是本回合,不会串。
   // 无 hint 时这一段整段不输出:老载荷逐字节零变化(prompt-snapshot 据此只看 steward 段)。
@@ -55521,12 +55606,18 @@ async function buildStewardSystemPrompt(session, config, ctx) {
 }
 
 // 10 的预算分叉入口(经 StewardHooks.contextBudget 调)。§11.2:预算 = min(stewardContextBudgetTokens,
-// 该模型 conversationWindow);到 60% 触发既有 L2。返回的是【触发线】,maybeAutoCompact 直接拿它比。
+// 该模型 conversationWindow);136 起触发比例也可配(stewardContextBudgetRatio,默认 0.6,clamp [0.3,0.95])
+// —— 大窗口模型(百万级)下 0.6 偏保守,用户可在设置页调高,代价是每回合更贵。返回的是【触发线】,
+// maybeAutoCompact 直接拿它比;压缩后的重播种预算(10 的 budgetOverride)用的也是这同一条线。
 function stewardContextBudget(session, config, window) {
   const configured = Math.max(1, Math.round(Number(config && config.stewardContextBudgetTokens) || 200000));
   const modelWindow = Math.max(0, Math.round(Number(window) || 0));
   const cap = modelWindow > 0 ? Math.min(configured, modelWindow) : configured;
-  return Math.max(1, Math.round(cap * 0.6));
+  // 136:系数从配置读,缺省/非法回 0.6;normalizeConfig 已 clamp,这里再夹一道 —— 本函数会被测试与
+  // 旁路以 raw config 直调,不能把「一定走过归一」当前提。
+  const ratioRaw = Number(config && config.stewardContextBudgetRatio);
+  const ratio = Number.isFinite(ratioRaw) ? Math.min(0.95, Math.max(0.3, ratioRaw)) : 0.6;
+  return Math.max(1, Math.round(cap * ratio));
 }
 function stewardVisitNotesPrompt(config) {
   return getPromptPack(config && config.locale).steward.visitNotes;

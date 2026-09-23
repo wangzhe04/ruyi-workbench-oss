@@ -16,6 +16,13 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### 中文
 
+#### 管家更像熟人了：人设可配、口吻有样例、上下文预算可调（第 136 波，2026-09-24）
+
+- **管家人设可配置**：设置 · 管家新增「管家人设」组——给管家起个名字、写一句口吻偏好（如「更活泼、偶尔用 emoji」），立即进入管家自己的提示词；只改它怎么说话，不改任何权限与纪律。
+- **口吻有了对照样例**：管家提示词稳定层新增三组「好/坏」回复样例（问状态、到访开场、答应办事），专治把回答写成「【状态查询】结论：…」这种填表体的问题。
+- **管家上下文预算放开**：设置 · 管家 · 模型与预算新增「上下文预算（token）」与「用到几成触发压缩」两格——此前这个预算键没有任何界面入口，只能手改配置文件。触发线 ＝ min(预算, 模型窗口) × 成数（默认 200000 × 0.6；成数可在 0.3–0.95 之间调，用大窗口模型时调高，管家记得更久、压缩更少触发）。
+- **默认值更省心**：管家对话保留默认从「只保留本次打开期间」放宽为「24 小时」（到访即忘是「管家不记事」观感的最大来源）；「事项内自动交接」默认开。存量配置不动：这两项只影响从未显式设置过的用户，自己选过的偏好原样保留。
+
 #### 管家少问一步，按钮与后台状态更可靠（2026-09-23）
 
 - 用户已经明确交代、信息齐全且权限允许的事，管家直接处理并报告回执；简单提醒不再一律要求重复确认，不把做不了的事擅自替换成提醒。必要授权与会调用模型的定时任务仍保留确认。
@@ -131,6 +138,13 @@ This file records user-facing release highlights; it does not replace the comple
 - **标准／重度第一次说话不再又卡又不准**：本地识别模型（Qwen3-ASR）空闲时不占显存，第一次用要现装，实测 12–30 秒；这段时间里说的话只有第一遍小模型的字，校正全排在装载后面，机器还会跟着抖一阵。现在点麦克风会先确认模型装好没：装着就直接录；没装就在麦克风上显示转圈和「加载模型 0:07」，装好后才开始录音（再点一下或按 Esc 取消；装好时你不在这个窗口，就不替你打开麦克风）。轻度档的模型本来就常驻，没有这一段等待。
 
 ### English
+
+#### A more personal steward: configurable persona, voice examples, tunable context budget (wave 136, 2026-09-24)
+
+- **Configurable steward persona**: Settings · Steward gains a "Persona" group — give the steward a name and a tone preference (e.g. "livelier, occasional emoji"), injected into the steward's own prompt immediately. It only changes how the steward talks; no permission or rule changes.
+- **Voice few-shot examples**: the steward prompt's stable layer adds three good/bad reply pairs (status question, visit opener, accepting a task), targeting the "fill-in-the-form" reply style seen in the field.
+- **Steward context budget is adjustable**: Settings · Steward · Model & budget gains "context budget (tokens)" and "compaction trigger share" fields — previously this budget key had no UI and could only be hand-edited in the config file. Trigger = min(budget, model window) × share (default 200000 × 0.6; share tunable from 0.3 to 0.95 — raise it on large-window models so the steward remembers longer and compacts less often).
+- **More hands-off defaults**: steward conversation retention now defaults to "24 hours" instead of "this visit only" (forgetting every visit was the biggest "the steward doesn't remember me" complaint), and automatic in-mission hand-off now defaults on. Existing installs are untouched: both apply only where no explicit preference was ever saved.
 
 #### Fewer unnecessary confirmations and more reliable actions (2026-09-23)
 
