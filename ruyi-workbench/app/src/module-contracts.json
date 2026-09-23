@@ -12741,6 +12741,7 @@
       "layer": "transport",
       "provides": [
         "STEWARD_ACTIVE_WINDOW_MS",
+        "STEWARD_ADOPTED_DEDUPE_MS",
         "STEWARD_ADOPTED_QUEUE_MAX",
         "STEWARD_CARRY_MAX_EVENTS",
         "STEWARD_CURSOR_FILE",
@@ -15953,6 +15954,7 @@
         "stewardHumanizeSay",
         "stewardInboxMessage",
         "stewardLastAssistantContent",
+        "stewardLastAssistantFinalSegment",
         "stewardNormalizeRouteHint",
         "stewardSelfServeAllows",
         "stewardSelfServeEntry",
@@ -16711,6 +16713,13 @@
         {
           "provider": "13p-steward-runner-actions.js",
           "symbol": "stewardLastAssistantContent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13p-steward-runner-actions.js",
+          "symbol": "stewardLastAssistantFinalSegment",
           "kinds": [
             "call"
           ]

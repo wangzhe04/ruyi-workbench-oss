@@ -572,8 +572,10 @@ const stewardRuntime = {
   // 在这里排队,由下一拍 stewardCollectEvents 开头一次性取走。硬顶见 STEWARD_ADOPTED_QUEUE_MAX:
   // 管家关着时没人来取,队列不能无限长(溢出丢【最早】的 —— 最近那次交接才是用户还记得的那次)。
   adopted: [],
+  adoptedRecent: new Map(),   // 135:重复交接去重窗口(sid+委托 -> 时刻),只在内存
 };
 const STEWARD_ADOPTED_QUEUE_MAX = 50;
+const STEWARD_ADOPTED_DEDUPE_MS = 10 * 60 * 1000;   // 135:同一线程同一句委托在 10 分钟内重复交接只算一次
 let stewardAppendChain = Promise.resolve();
 
 // 121-K3:订阅总线。装在模块加载期,进程生命周期内不卸(同 13r 的纪律)。它【只排队,不落盘】——
@@ -587,13 +589,25 @@ RUYI_EVENTS.subscribe((name, payload) => {
 function stewardQueueThreadAdopted(data) {
   const sid = safeSessionId(data && data.sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return;
+  const note = String((data && data.note) || '').slice(0, 200);
+  // 135(真机取证:收件箱 93/94 两条一模一样的 adopted 各叫醒一回合,管家第二回只能说「同上一条,
+  // 不用重复处理」):同一条线程、同一句委托在窗口内再来一次就是重复投递,不再叫醒管家。
+  // 委托换了一句话照常入箱 —— 那是用户补了新交代。只在内存里记,重置随运行时一起清。
+  if (!(stewardRuntime.adoptedRecent instanceof Map)) stewardRuntime.adoptedRecent = new Map();
+  const now = Date.now();
+  for (const [key, at] of stewardRuntime.adoptedRecent) {
+    if (now - at > STEWARD_ADOPTED_DEDUPE_MS) stewardRuntime.adoptedRecent.delete(key);
+  }
+  const dedupeKey = sid + '\n' + note;
+  if (stewardRuntime.adoptedRecent.has(dedupeKey)) return;
+  stewardRuntime.adoptedRecent.set(dedupeKey, now);
   stewardRuntime.adopted.push({
     sessionId: sid,
     missionId: String((data && data.missionId) || sid),
     title: String((data && data.title) || ''),
     // 121-K6a(§4.4「委托一句」):用户交接时顺手带的一句话(02 已经 trim+≤200 字)。这里只再夹一次
     // 防御性上限,不再改内容——它要原样出现在管家下一回合看到的人话里。
-    note: String((data && data.note) || '').slice(0, 200),
+    note,
     at: String((data && data.at) || nowIso()),
   });
   while (stewardRuntime.adopted.length > STEWARD_ADOPTED_QUEUE_MAX) stewardRuntime.adopted.shift();
@@ -663,6 +677,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
   stewardRuntime.carry = [];
   stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
+  stewardRuntime.adoptedRecent = new Map();   // 135:重复交接的去重窗口,同上
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8

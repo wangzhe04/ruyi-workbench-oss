@@ -228,7 +228,12 @@ function startProvider(captures) {
 
     const app = readFrontendSrc();
     ok(app.includes("turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))"), 'active-turn replay skips already answered questions');
-    ok(app.includes('b.dataset.sessionId === sid && b.dataset.questionId === qid'), 'duplicate question events reuse the open modal without auto-cancelling it');
+    // 135:提问改走「等你处理」队列 —— 去重从「按 data-* 找已开的弹窗」换成「按 questionId 入队、已在队里只补字段」,
+    // 已决过的 id 永不复活。行为面(同一条再来不重弹、不替用户发取消)由 unit/prompt-queue.test.js ② 真跑着钉。
+    ok(app.includes("promptQueue.offer({ id: qid, type: 'question', sessionId: sid")
+      && app.includes('promptQueue.isSettled(qid)')
+      && app.includes('// 同一条又来一次（重放／对账）：只补字段，不重排、不重弹。'),
+      'duplicate question events reuse the queued/open prompt without auto-cancelling it');
     ok(app.includes("if (evt?.type === 'ask_user') showAskUserModal"), 'a background-session question is surfaced immediately instead of waiting for chat remount');
     ok(app.includes("if (!r?.ok || !r.delivered) throw new Error('answer was not delivered')"), 'UI closes the modal only after delivery acknowledgement');
     ok(app.includes("selectedOptionIds: selected.map(option => option.id)") && app.includes("otherText: text"),

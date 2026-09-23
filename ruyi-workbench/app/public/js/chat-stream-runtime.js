@@ -104,6 +104,8 @@ export function createChatStreamRuntime(deps = {}) {
     scrollMessagesToBottom,
     settleLiveThinking,
     showAskUserModal,
+    // 135:事件流里看到结果(permission_decision / question_answer)就把队列里那一条撤掉。
+    settlePrompt = () => {},
     state,
     suggestMemoryFromTurn = async () => {},
     syncContextWindowManual = async () => {},
@@ -290,6 +292,10 @@ export function createChatStreamRuntime(deps = {}) {
   function surfaceBackgroundQuestion(line, sessionId) {
     let evt; try { evt = JSON.parse(line); } catch { return; }
     if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId, evt.context || '', Number(evt.deadlineAt) || 0);
+    // 135:后台线程的权限申请修前只能等你切过去、或在 120 s 后被自动拒绝;现在同样进「等你处理」队列。
+    else if (evt?.type === 'permission_request') handlePermissionRequest(evt, sessionId);
+    else if (evt?.type === 'permission_decision') settlePrompt(evt.requestId);
+    else if (evt?.type === 'question_answer') settlePrompt(evt.questionId || evt.id);
   }
   function mountActiveTurn(sessionId) {
     const turn = activeTurns.get(sessionId);
@@ -318,6 +324,14 @@ export function createChatStreamRuntime(deps = {}) {
       if (thinkingParts.length) { handleStreamLine(JSON.stringify({ type: 'thinking_delta', text: thinkingParts.join('') }), turn.live, turn.main, sessionId); thinkingParts = []; }
       if (textParts.length) { handleStreamLine(JSON.stringify({ type: 'assistant_delta', text: textParts.join('') }), turn.live, turn.main, sessionId); textParts = []; }
     };
+    // 135:重放按时间顺序走,已经有结果的申请会先入队(弹一下)再被结果撤掉。先把有结果的记成已决,重放时就不入队。
+    for (let index = Number(turn.eventHead) || 0; index < turn.eventLines.length; index++) {
+      const line = turn.eventLines[index];
+      if (!line.includes('"permission_decision"') && !line.includes('"question_answer"')) continue;
+      let evt; try { evt = JSON.parse(line); } catch { continue; }
+      if (evt.type === 'permission_decision') settlePrompt(evt.requestId);
+      else if (evt.type === 'question_answer') settlePrompt(evt.questionId || evt.id);
+    }
     for (let index = Number(turn.eventHead) || 0; index < turn.eventLines.length; index++) {
       const line = turn.eventLines[index];
       let evt; try { evt = JSON.parse(line); } catch { continue; }
@@ -1389,12 +1403,13 @@ export function createChatStreamRuntime(deps = {}) {
           ...evt, type: 'question', status: evt.ok === false ? 'cancelled' : 'answered',
           answerSummary: evt.summary || '',
         });
+        settlePrompt(evt.questionId || evt.id);
         // 回答落定后仍保持跟随最新：回答卡替换成已答状态，视口停在提问/最新位置。
         maybeScrollToBottom();
         break;
       case 'permission_request':
         registerLiveSemanticCard(live, { ...evt, type: 'permission', status: 'pending' });
-        handlePermissionRequest(evt);
+        handlePermissionRequest(evt, streamSessionId);
         maybeScrollToBottom(); // EC-D 56: 权限卡入列走粘性跟随
         break;
       case 'permission_paused':
@@ -1407,6 +1422,7 @@ export function createChatStreamRuntime(deps = {}) {
         updateLiveSemanticCard(live, evt.requestId, {
           ...evt, type: 'permission', status: evt.behavior === 'allow' ? 'allowed' : 'denied',
         });
+        settlePrompt(evt.requestId);
         break;
       case 'plan':
         // v0.9-S5 (真流程 plan mode): the model proposed an execution plan and the turn is paused. Render an

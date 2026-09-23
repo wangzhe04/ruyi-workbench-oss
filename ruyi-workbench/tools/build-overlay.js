@@ -79,6 +79,7 @@ const PAYLOAD_FILES = [
   'app/public/js/navigation-controls.js',
   'app/public/js/session-experience.js',
   'app/public/js/interaction-prompts.js',
+  'app/public/js/prompt-queue.js', // 135:interaction-prompts.js 静态 import 它,漏发即提问/权限弹窗全挂
   'app/public/js/tool-runtime.js',
   'app/public/js/workspace-preferences.js',
   // 第56波:任务单五态派生纯函数(Pretender P0;PoC 与将来新壳层共用,须随离线包发布)
@@ -155,6 +156,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/settings.css', // 123-S1
   'app/public/css/views/steward-board.css', // 117g/117h
   'app/public/css/views/quiet-card.css', // 121-K6a
+  'app/public/css/views/prompt-dock.css', // 135
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

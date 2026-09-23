@@ -252,7 +252,13 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 它(盖章只写 .steward,不动 createdAt,所以先读后盖、先盖后读拿到的是同一个值)。用户那条消息
   // 的 createdAt 更早,水位推到助手这条即把两条一起盖住。
   const stampedAt = await stewardLastAssistantCreatedAt();
-  const parsedReply = stewardParseReply(finalText);
+  let parsedReply = stewardParseReply(finalText);
+  // 135:整段解析失败时退到【最后一段文字】再解析一次(见 13p stewardLastAssistantFinalSegment 头注)——
+  // 工具调用之前那些边做边说的过程话不再和答复一起上屏。没有多段就是同一个结果,不另起一套兜底。
+  if (!parsedReply.parsed) {
+    const finalSegment = await stewardLastAssistantFinalSegment();
+    if (finalSegment.trim()) parsedReply = stewardParseReply(finalSegment);
+  }
   // 123-P1 ①(38 号文;用户 2026-09-14 真机取证):契约不完整 —— 模型没给必填的 why(判据与理由见
   // 13o stewardParseReply 那一段头注)。这里做两件事:记一条审计(trigger / 模型给了哪些键 / say
   // 有多长,正文一个字不进日志),以及往下把旗子带进回执与落盘的章 —— 前端据此在这条回复下面画

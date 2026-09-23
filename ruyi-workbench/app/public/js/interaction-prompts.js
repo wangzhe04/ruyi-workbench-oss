@@ -9,6 +9,8 @@ import { t } from './i18n.js';
 // 32 号文 §4（M2-a）：模态原语（背影／焦点陷阱／焦点归还／__cancel）落在叶子 js/modal.js，
 // 3.0 管家壳的危险操作确认与这里共用同一份。
 import { buildModal as openModal, focusFirstInteractive, installFocusTrap } from './modal.js';
+// 135：多条提问／权限排队 + 右下角「等你处理」小窗（排队、计时、对账都在叶子里，弹窗长相仍归本域）。
+import { createPromptQueue } from './prompt-queue.js';
 
 export function createInteractionPromptsDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -24,16 +26,66 @@ function buildModal(title, bodyEl, footEl, onCancel) {
 // §4.9 helper 与焦点陷阱（focusFirstInteractive / installFocusTrap）一并搬进 js/modal.js ——
 // 静态模态（index.html）的焦点陷阱仍从本域的返回面取（app.js 那处一个字未动）。
 
+// 135：提问与权限都先进队列（去重、排序、最小化、倒计时），轮到它才由下面两个 render* 画弹窗。
+// 修前第二条提问到达会把第一条的弹窗 __cancel 掉（=替用户答了一句「取消」），现在两条都留着、依次答。
+function sessionTitleOf(sessionId) {
+  const id = String(sessionId || '');
+  const hit = (state.sessions || []).find(s => s && String(s.id) === id) || (state.currentSession && String(state.currentSession.id) === id ? state.currentSession : null);
+  return hit ? String(hit.title || '') : '';
+}
+const promptQueue = createPromptQueue({
+  api, t, el,
+  humanizeToolName: name => humanizeToolName(name),
+  sessionTitle: sessionTitleOf,
+  openItem: (item, ctx) => (item.type === 'question' ? renderAskModal(item, ctx) : renderPermissionModal(item, ctx)),
+  allowToolForThread: async (sessionId, tool, payloads) => {
+    sessionAllowAdd(sessionId, tool);
+    await Promise.all(payloads.map(p => decide(p.requestId, 'allow', { scope: 'session' })));
+  },
+});
+setTimeout(() => promptQueue.start(), 1500);   // 首拍对账：刷新前就挂着的、别的页面发起的申请
+
+// 弹窗头下的一行：这一条已经等了多久／还剩多久，以及后面还排着几条。每秒刷新，弹窗关掉即停。
+function attachQueueStatus(modal, item, { time: showTime = true } = {}) {
+  const line = el('div', 'prompt-queue-status');
+  const time = el('span', 'pq-time');
+  const behind = el('span', 'pq-behind');
+  line.append(time, behind);
+  const bodyWrap = modal.backdrop.querySelector('.modal-body');
+  if (bodyWrap) bodyWrap.prepend(line);
+  const sync = () => {
+    time.textContent = showTime ? promptQueue.timeText(item.id) : '';
+    time.hidden = !showTime;
+    const n = Math.max(0, promptQueue.size() - 1);
+    behind.textContent = n ? t('promptQueue.modal.queued', { count: n }) : '';
+    behind.hidden = !n;
+    line.hidden = !showTime && !n;
+  };
+  sync();
+  const timer = setInterval(() => { if (!modal.backdrop.isConnected) { clearInterval(timer); return; } sync(); }, 1000);
+}
+function minimizeButton(ctx, modalRef) {
+  const b = el('button', 'ghost prompt-minimize', t('promptQueue.modal.minimize'));
+  b.type = 'button';
+  b.title = t('promptQueue.modal.minimizeHint');
+  b.onclick = () => { ctx.minimize(); if (modalRef.current) modalRef.current.close(); };
+  return b;
+}
+
 function showAskUserModal(questionId, questions, streamSessionId, context = '', deadlineAt = 0) {
   const sid = streamSessionId || state.currentSession?.id; // pin the session the question belongs to
   const qid = String(questionId || '');
   const turn = sid ? activeTurns.get(sid) : null;
-  if (!sid || !qid || turn?.answeredQuestions?.has(qid)) return;
-  // Replaying a background turn can encounter the same ask_user event again. Reuse the existing modal;
-  // closing it would send a cancellation before the user's real selection and silently win the race.
-  const open = [...document.querySelectorAll('.modal-backdrop.ask-modal')];
-  if (open.some(b => b.dataset.sessionId === sid && b.dataset.questionId === qid)) return;
-  open.forEach(b => { if (b.__cancel) b.__cancel(); else b.remove(); });
+  if (!sid || !qid || turn?.answeredQuestions?.has(qid) || promptQueue.isSettled(qid)) return;
+  // 重放同一条 ask_user：队列按 id 去重，不会再弹第二个，也不会替用户发一句取消。
+  promptQueue.offer({ id: qid, type: 'question', sessionId: sid, deadlineAt: Number(deadlineAt) || 0, payload: { questions, context } });
+}
+function renderAskModal(item, ctx) {
+  const sid = item.sessionId;
+  const qid = item.id;
+  const questions = item.payload.questions;
+  const context = item.payload.context || '';
+  const deadlineAt = item.deadlineAt;
   const list = Array.isArray(questions) ? questions : (questions && questions.questions) || [questions];
   const body = el('div', 'ask-sheet');
   const intro = el('div', 'ask-intro');
@@ -45,6 +97,9 @@ function showAskUserModal(questionId, questions, streamSessionId, context = '', 
   );
   intro.append(introMark, introCopy);
   body.appendChild(intro);
+  // 135：别的线程的提问也会轮到这里,与权限弹窗同一行写清是谁在问。
+  const askThreadTitle = sessionTitleOf(sid) || item.title || '';
+  if (askThreadTitle && sid !== String(state.currentSession?.id || '')) body.appendChild(el('div', 'perm-thread', t('promptQueue.modal.fromThread', { title: askThreadTitle })));
   if (String(context || '').trim()) {
     const contextBox = el('section', 'ask-context');
     contextBox.append(el('div', 'ask-context-label', t('ask.contextLabel')),
@@ -147,33 +202,32 @@ function showAskUserModal(questionId, questions, streamSessionId, context = '', 
   };
   const footActions = el('div', 'ask-foot-actions');
   if (currentDeadline > 0) footActions.appendChild(countdown);
-  footActions.append(footHint, submit);
-  // Fire-and-forget answer (used only by the cancel path — Esc/✕/backdrop). Cancelling still answers (empty)
-  // so the turn doesn't hang waiting for a tool_result. F4④:已实证现有关闭路径确实空答放行,不会丢弃挂起。
+  const modalRef = { current: null };
+  footActions.append(minimizeButton(ctx, modalRef), footHint, submit);
   const markAnswered = () => { const active = activeTurns.get(sid); if (active?.answeredQuestions) active.answeredQuestions.add(qid); };
-  const postAnswer = content => {
-    if (!sid) { toast(t("toast.sessionEndedNoAnswer"), 'err'); return; }
-    api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, content, isError: true }) })
-      .then(r => { if (r?.delivered) markAnswered(); }).catch(e => toast(apiErrText(e), 'err'));
-  };
-  const modal = buildModal(t('ask.title'), body, footActions, () => postAnswer(t('ask.cancelled')));
-  // F4②:标记为 ask modal,供下一条提问到达时精确关旧的。
-  modal.backdrop.classList.add('ask-modal');
+  // 135：Esc／✕／点背影 = 收进右下角小窗，不再替用户答一句「取消」—— 这道题照样挂着，排在队列里等你回来。
+  // 真要放弃就在小窗里打开它再答；超时仍按后端原语义（questionTimeoutMs）。
+  const modal = buildModal(t('ask.title'), body, footActions, () => ctx.minimize());
+  modalRef.current = modal;
+  // F4②:标记为 ask modal(resolveClassicPromptIntervention 据此精确关掉它)。
+  modal.backdrop.classList.add('ask-modal', 'prompt-queue-modal');
   modal.backdrop.querySelector('.modal')?.classList.add('ask-question-modal');
   modal.backdrop.dataset.sessionId = sid;
   modal.backdrop.dataset.questionId = qid;
+  attachQueueStatus(modal, item, { time: false });
   if (currentDeadline > 0) {
     syncCountdown();
-    const tickTimer = setInterval(syncCountdown, 1000);
+    // 修前两只定时器挂在一个从不触发的 'remove' 事件上(DOM 没有这个事件),弹窗关掉后还一直跑;改成自查在不在屏上。
+    const tickTimer = setInterval(() => { if (!modal.backdrop.isConnected) { clearInterval(tickTimer); return; } syncCountdown(); }, 1000);
     const heartbeatTimer = setInterval(() => {
+      if (!modal.backdrop.isConnected) { clearInterval(heartbeatTimer); return; }
       api('/api/question/heartbeat', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid }) })
         .then(r => {
           const next = Number(r && r.deadlineAt) || 0;
-          if (next > 0) { currentDeadline = next; syncCountdown(); }
+          if (next > 0) { currentDeadline = next; item.deadlineAt = next; syncCountdown(); }
         })
         .catch(() => { clearInterval(heartbeatTimer); }); // 409 → question already settled server-side
     }, 30000);
-    modal.backdrop.addEventListener('remove', () => { clearInterval(tickTimer); clearInterval(heartbeatTimer); });
   }
   const collectAnswers = () => states.map(state => {
     const selected = state.options.filter(option => option.input.checked);
@@ -224,7 +278,7 @@ function showAskUserModal(questionId, questions, streamSessionId, context = '', 
   // F4①:提交按钮点击后禁用 + 「发送中…」,await POST 回来再 close;失败则 toast + 恢复按钮(不 close,让用户重试)。
   submit.onclick = async () => {
     if (submit.disabled) return;
-    if (!sid) { toast(t("toast.sessionEndedNoAnswer"), 'err'); modal.close(); return; }
+    if (!sid) { toast(t("toast.sessionEndedNoAnswer"), 'err'); ctx.done(); return; }
     const answers = collectAnswers();
     const content = answers.map(a => `${a.question}: ${a.answer.join(', ')}`).join('\n');
     const prevLabel = submit.textContent;
@@ -233,13 +287,14 @@ function showAskUserModal(questionId, questions, streamSessionId, context = '', 
       const r = await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, answers, content }) });
       if (!r?.ok || !r.delivered) throw new Error('answer was not delivered');
       markAnswered();
-      modal.close();
+      ctx.done();   // 出队并关弹窗;队列里还有就轮到下一条
     } catch (e) {
       toast(t("toast.answerFail", { p1: apiErrText(e) }), 'err');
       submit.disabled = false; submit.textContent = prevLabel;
       syncState();
     }
   };
+  return modal;
 }
 
 // v0.8-S4b B3: plain-language tool-name map (人话化). ai_computer_control__ prefixed bridged tools →
@@ -299,16 +354,32 @@ function sessionAllowAdd(sid, tool) { let s = sessionAllow.get(sid); if (!s) { s
 function decide(requestId, behavior, extra) {
   return api('/api/permission/decision', { method: 'POST', body: JSON.stringify({ requestId, behavior, ...(extra || {}) }) }).catch(e => toast(apiErrText(e), 'err'));
 }
-function handlePermissionRequest(evt) {
-  const sid = state.currentSession?.id || '';
+// 135：streamSessionId 是【这条事件所属的会话】。修前取 state.currentSession —— 后台线程的申请一律不经这里,
+// 所以两者恒等;现在后台线程的申请也走这里(进队列),必须按事件自己的会话记「本次会话自动允许」。
+function handlePermissionRequest(evt, streamSessionId) {
+  const sid = String(streamSessionId || state.currentSession?.id || '');
+  const id = String(evt && evt.requestId || '');
+  if (!id || promptQueue.isSettled(id)) return;   // 回到线程时事件重放:已决定的不再弹
+  const tool = evt.toolName || 'unknown';
+  // Session-scoped auto-allow: skip the popup entirely for a tool the user already blessed this session.
+  if (sessionAllowHas(sid, tool)) { decide(id, 'allow'); promptQueue.settle(id); return; }
+  promptQueue.offer({ id, type: 'permission', sessionId: sid, payload: { ...evt, requestId: id } });
+}
+// 事件流里看到了结果(permission_decision / question_answer):不论是谁、在哪儿决定的,出队。
+function settlePrompt(id) { promptQueue.settle(id); }
+
+function renderPermissionModal(item, ctx) {
+  const evt = item.payload;
+  const sid = item.sessionId;
   const tool = evt.toolName || 'unknown';
   const tier = TIER_META[evt.tier] ? evt.tier : 'exec';
   const tierMeta = permissionTierMeta(tier);
   const revertible = evt.revertible === true;
-  // Session-scoped auto-allow: skip the popup entirely for a tool the user already blessed this session.
-  if (sessionAllowHas(sid, tool)) { decide(evt.requestId, 'allow'); return; }
 
   const body = el('div');
+  // 135：后台线程的申请也会轮到这里,得写清是哪条线程在要权限。
+  const threadTitle = sessionTitleOf(sid) || item.title || '';
+  if (threadTitle && sid !== String(state.currentSession?.id || '')) body.appendChild(el('div', 'perm-thread', t('promptQueue.modal.fromThread', { title: threadTitle })));
   // Humanized title + raw tool name (mono, secondary) so power users still see exactly what runs.
   body.appendChild(el('p', '', t('permission.request.intent', { engine: engineLabel() })));
   const titleRow = el('div', 'perm-title-row');
@@ -345,15 +416,28 @@ function handlePermissionRequest(evt) {
   const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
   const deny = el('button', 'danger', t('permission.deny'));
   const allow = el('button', 'primary', t('permission.allow'));
-  foot.append(deny, allow);
-  // Cancel (Escape/✕/backdrop) denies, so the held bridge request is released immediately.
-  const modal = buildModal(t('permission.request.title', { engine: engineLabel() }), body, foot, () => decide(evt.requestId, 'deny', { message: t('permission.request.cancelled') }));
-  modal.backdrop.classList.add('permission-modal');
+  const modalRef = { current: null };
+  foot.append(minimizeButton(ctx, modalRef), deny, allow);
+  // 135：Esc／✕／点背影 = 收进右下角小窗。修前是「取消即拒绝」,叠着几个弹窗时一次 Esc 全部拒掉。
+  // 拒绝只剩那枚明确的「拒绝」按钮;没人管的申请仍按后端超时自动拒绝(小窗里有倒计时)。
+  const modal = buildModal(t('permission.request.title', { engine: engineLabel() }), body, foot, () => ctx.minimize());
+  modalRef.current = modal;
+  modal.backdrop.classList.add('permission-modal', 'prompt-queue-modal');
   modal.backdrop.dataset.sessionId = sid;
   modal.backdrop.dataset.interventionId = String(evt.requestId || '');
-  deny.onclick = () => { decide(evt.requestId, 'deny', { message: t('permission.request.denied') }); modal.close(); };
+  attachQueueStatus(modal, item);
+  deny.onclick = () => { decide(evt.requestId, 'deny', { message: t('permission.request.denied') }); ctx.done(); };
   allow.onclick = () => {
-    if (sessBox.checked) sessionAllowAdd(sid, tool);
+    if (sessBox.checked) {
+      sessionAllowAdd(sid, tool);
+      // 同一线程里已经排着的同一工具申请:勾了「本次会话自动允许」就一并放行,不再一个个弹。
+      for (const queued of promptQueue.list()) {
+        if (queued.id === item.id || queued.type !== 'permission' || queued.sessionId !== sid) continue;
+        if (String(queued.payload.toolName || '') !== tool) continue;
+        decide(queued.id, 'allow', { scope: 'session' });
+        promptQueue.settle(queued.id);
+      }
+    }
     if (permBox && permBox.checked) {
       // Persist a read/edit allow rule. normalizeConfig will drop it server-side if the tier disqualifies
       // it, so this is safe even if the tier badge and the server disagree.
@@ -361,8 +445,9 @@ function handlePermissionRequest(evt) {
       saveConfigPartial({ toolAllowRules: rules });
       toast(t('permission.alwaysAllowed', { tool: humanizeToolName(tool) }), 'ok');
     }
-    decide(evt.requestId, 'allow', sessBox.checked ? { scope: 'session' } : undefined); modal.close();
+    decide(evt.requestId, 'allow', sessBox.checked ? { scope: 'session' } : undefined); ctx.done();
   };
+  return modal;
 }
 
 // Wave 81: a decision made in the Preview global inbox must retire an already-open classic prompt
@@ -374,6 +459,10 @@ function resolveClassicPromptIntervention({ sessionId, interventionId, type } = 
     const turn = sid ? activeTurns.get(sid) : null;
     if (turn?.answeredQuestions) turn.answeredQuestions.add(id);
   }
+  // 135：先出队(队列持有的弹窗由它自己关,不走 cancel 路径);下面照旧兜住队列之外的老弹窗。
+  const queued = promptQueue.has(id);
+  promptQueue.settle(id);
+  if (queued) return true;
   const selector = type === 'question' ? '.modal-backdrop.ask-modal' : '.modal-backdrop.permission-modal';
   const backdrop = [...document.querySelectorAll(selector)].find(node => {
     if (node.dataset.sessionId !== sid) return false;
@@ -474,6 +563,9 @@ function handleAgentWorkflowEvent(evt, live) {
     installFocusTrap,
     resolveClassicPromptIntervention,
     setComposerHint,
+    settlePrompt,
     showAskUserModal,
+    // 135:组合根把那一条共用的事件流交进来(app.js 里事件流建在本域之后)。
+    bindPromptQueueEvents: eventStream => promptQueue.bindEventStream(eventStream),
   });
 }

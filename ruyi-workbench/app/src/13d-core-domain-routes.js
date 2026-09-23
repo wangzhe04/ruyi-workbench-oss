@@ -1637,6 +1637,10 @@ async function handleInterventionApiRoutes(req, res, pathname) {
                 : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
                   : activeChildren.has(sessionId),
           live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
+          // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
+          // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
+          deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
+            : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
         });
         counts.total++;
         if (iv.type === 'permission') counts.permission++;
@@ -1647,6 +1651,14 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       }
     }
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
+    // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
+    // 只读【有待决的】那几条会话的头(每个 ~1 KB),取不到就留空,前端退回「未命名线程」。
+    const titleOf = new Map();
+    for (const sid of new Set(pending.map(p => p.sessionId))) {
+      const head = await readSessionHeadResilient(sid).catch(() => null);
+      titleOf.set(sid, String((head && head.title) || '').slice(0, 120));
+    }
+    for (const p of pending) p.title = titleOf.get(p.sessionId) || '';
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);

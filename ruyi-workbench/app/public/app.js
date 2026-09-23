@@ -394,6 +394,7 @@ const {
   scrollMessagesToBottom,
   settleLiveThinking,
   showAskUserModal: (...args) => showAskUserModal(...args),
+  settlePrompt: (...args) => settlePrompt(...args),
   state,
   suggestMemoryFromTurn: (...args) => suggestMemoryFromTurn(...args),
   switchSettingsTab: (...args) => switchSettingsTab(...args),
@@ -532,7 +533,9 @@ const {
   humanizeToolName,
   installFocusTrap,
   resolveClassicPromptIntervention,
+  bindPromptQueueEvents,
   setComposerHint,
+  settlePrompt,
   showAskUserModal,
 } = createInteractionPromptsDomain({
   apiErrText,
@@ -833,6 +836,7 @@ const eventStream = createEventStream({
   lensProvider: () => (document.documentElement.getAttribute('data-shell-mode') === 'steward' ? 'steward' : 'classic'),
   sessionIdProvider: () => String((state.currentSession && state.currentSession.id) || ''),
 });
+bindPromptQueueEvents(eventStream); // 135:有线程在等你的推送一到,「等你处理」队列立刻对账
 
 const {
   autonomyFormSync,

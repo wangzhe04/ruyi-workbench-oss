@@ -370,7 +370,7 @@ const srv = require(path.join(APP, 'server.js'));
   const tools = [{ function: { name: 'file_read' } }, { function: { name: 'tool_search' } }];
   const stable = srv.buildStableSystemPrompt(provider, 'fake-model', 'C:\\proj', tools, false, {});
   ok(/本地 AI 工作台/.test(stable) && /先读后改/.test(stable), '④ 普通会话稳定层仍是普通包(身份层 + 工具协议层)');
-  ok(!/我是如意,这台电脑上的工作台管家/.test(stable), '④ 管家稳定层绝不泄漏进普通会话');
+  ok(!/我是如意,用户在这台电脑上的管家/.test(stable), '④ 管家稳定层绝不泄漏进普通会话');
   const volatile = srv.buildVolatileParts(provider, tools, null, {}, '', [], [], null);
   ok(!/我记得的关于用户的事/.test(volatile) && !/线程总览/.test(volatile), '④ 管家记忆块与总览绝不泄漏进普通会话易变层');
   // 分叉入口在源码里就是「session.kind === 'steward'」这一条判据(不经 sessionKind 归一)。

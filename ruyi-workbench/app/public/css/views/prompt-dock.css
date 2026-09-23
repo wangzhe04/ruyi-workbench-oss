@@ -1,0 +1,213 @@
+/* 135（用户 2026-09-23）：「等你处理」小窗——多条提问／权限排队时收在工作台右下角，
+   显示件数、最久等了多久；展开后按线程分组，每条显示已等多久／还剩多久。
+   JS 在 js/prompt-queue.js：它只在工作台视角、且当前没有队列弹窗开着时露出（hidden 属性）。
+   层级 41：高于安静卡（40），低于顶栏（42）与模态背影（50）——弹窗开着时它本来就藏起来。
+   右下角正好是输入框的发送键：JS 把 --prompt-dock-bottom 设成输入框上沿之上 8px（没有输入框就贴底）。
+   它和安静卡、toast 同占右下角：body.has-prompt-dock 时把后两者往上让出小窗的高度。
+   实色面板（不开 backdrop-filter：ui-v4-glass G2 的模糊白名单只收既有浮层，这个小窗不值得再占一席）。 */
+
+.prompt-dock {
+  position: fixed;
+  right: var(--sp-5);
+  bottom: var(--prompt-dock-bottom, var(--sp-5));
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  max-width: min(360px, calc(100vw - 2 * var(--sp-4)));
+}
+.prompt-dock[hidden] { display: none; }
+:root[data-shell-mode="steward"] .prompt-dock { display: none; }
+
+body.has-prompt-dock #quietCardHost { bottom: calc(var(--prompt-dock-bottom, var(--sp-5)) + 52px); }
+body.has-prompt-dock .toast-tray { bottom: calc(var(--prompt-dock-bottom, 18px) + 52px); }
+
+.prompt-dock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  padding: 6px var(--sp-3);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  box-shadow: var(--glass-shadow);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.prompt-dock-pill:hover { background: var(--panel-3); }
+.prompt-dock-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pd-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.pd-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-align: center;
+  line-height: 18px;
+}
+.pd-longest {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.prompt-dock.pd-urgent .prompt-dock-pill { border-color: var(--danger); }
+.prompt-dock.pd-urgent .pd-dot { background: var(--danger); }
+
+.prompt-dock.pd-pulse .prompt-dock-pill { animation: prompt-dock-pulse 900ms var(--ease-out); }
+@keyframes prompt-dock-pulse {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prompt-dock.pd-pulse .prompt-dock-pill { animation: none; }
+}
+
+.prompt-dock-panel {
+  width: 100%;
+  min-width: 280px;
+  /* 窗口矮时别顶进顶栏：扣掉小窗离底的高度、胶囊本身与顶栏（约 120px）。 */
+  max-height: min(60vh, 460px, calc(100vh - var(--prompt-dock-bottom, 20px) - 120px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+.prompt-dock-panel[hidden] { display: none; }
+.pd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.pd-collapse {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pd-list {
+  overflow-y: auto;
+  padding: var(--sp-1) 0 var(--sp-2);
+}
+.pd-group { padding: var(--sp-1) var(--sp-2); }
+.pd-group + .pd-group { border-top: 1px solid var(--line); }
+.pd-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-1) var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.pd-group-title {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pd-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 6px var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm, 6px);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pd-row:hover { background: var(--panel-3); }
+.pd-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pd-kind {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+}
+.pd-question .pd-kind { background: var(--accent-soft); color: var(--accent); }
+.pd-permission .pd-kind { background: var(--gold-soft); color: var(--gold); }
+.pd-row-main { display: flex; flex-direction: column; min-width: 0; }
+.pd-summary {
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pd-time {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.pd-row.pd-warn { border-color: var(--danger); }
+.pd-row.pd-warn .pd-time { color: var(--danger); }
+.pd-bulk {
+  margin: var(--sp-1) var(--sp-2) 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 3px var(--sp-2);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+}
+.pd-bulk:hover { background: var(--gold-soft); }
+.pd-bulk:disabled { opacity: .6; cursor: default; }
+
+/* 弹窗里的那一行：这条等了多久／还剩多久，后面还排着几件。 */
+.prompt-queue-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.prompt-queue-status[hidden], .prompt-queue-status [hidden] { display: none; }
+.pq-behind { color: var(--gold); }
+.perm-thread {
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+.prompt-minimize { margin-right: auto; }
+
+@media (max-width: 640px) {
+  .prompt-dock { right: var(--sp-4); bottom: var(--prompt-dock-bottom, var(--sp-4)); }
+  .prompt-dock-panel { min-width: 0; }
+}

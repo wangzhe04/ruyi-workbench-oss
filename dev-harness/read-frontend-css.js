@@ -52,6 +52,9 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // lens — its own sheet since it's the one place besides floating popovers allowed to use --glass-*
   // per §7.1's closing line). Appended last for the same reason.
   'css/views/quiet-card.css',
+  // 135: prompt-dock layer (the bottom-right 'waiting for you' queue of thread questions and permission
+  // requests, plus the queue status line inside those two modals). Appended last for the same reason.
+  'css/views/prompt-dock.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -703,7 +706,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   .brief-fence 折叠块样式），workbench.css 主视图状态机摘掉 #threadCommission 选择器。主题令牌全走 var()/color-mix。
 // 算法自证：把 chat-narrative/chat-shell/workbench 三份 CSS 从 HEAD 检出重算 = 1fe033a3…，与被替换的旧值逐字相同；
 //   换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'cd3a9d41f5d05b616522c9be784ca2d0f35846c1443924c4fec1aad252bd0d20';
+// 135 续钉（前值 cd3a9d41…）：只在载荷末尾新增一层 css/views/prompt-dock.css（「等你处理」队列小窗）。
+// 算法自证：从本刀的载荷末尾抠掉这一层（换行 + 其去首行正文）重算 = cd3a9d41…，与被替换的旧值逐字相同；
+// 整份再算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'ac796a200a643dbd452192096a996ce6dc05ac2f304c246fbe67bb724a806b3a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

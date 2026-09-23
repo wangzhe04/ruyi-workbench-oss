@@ -666,6 +666,22 @@ async function stewardLastAssistantContent() {
   }
   return '';
 }
+// 135(用户 2026-09-23「管家的交互怪怪的」;真机 steward.messages.ndjson 取证):带工具调用的回合里,
+// content 是【每一轮迭代的文字拼起来的】—— 模型在调工具之前先说一段「【开线程】…」、工具回来后又说一段,
+// 契约解析失败时兜底把两段一起端给用户,于是同一件事上屏两遍。只在解析失败时用它:取最后一段非空文字,
+// 那才是这一回合的答复,前面几段是边做边说的过程话。没有分段(老消息、单轮回合)返回空串,调用方照旧。
+async function stewardLastAssistantFinalSegment() {
+  const session = await loadSession(STEWARD_SESSION_ID).catch(() => null);
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m || m.role !== 'assistant') continue;
+    const texts = (Array.isArray(m.segments) ? m.segments : [])
+      .filter(s => s && s.type === 'text' && String(s.text || '').trim());
+    return texts.length > 1 ? String(texts[texts.length - 1].text) : '';
+  }
+  return '';
+}
 
 // 117l D1(§11.9;用户第四轮走查第 2 条):输入区预判的服务端归一。
 // **只信 sessionId**:标题一律自己按显示名重查,原因串按既有的中和口径清洗并截断,前端给的标题
