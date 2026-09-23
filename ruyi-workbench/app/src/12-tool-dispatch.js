@@ -1086,19 +1086,19 @@ const SHELL_TOOL_HANDLERS = {
   } },
   shell_send: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
-      return shellSend(args);
+      return shellSend(args, ctx);
   } },
   shell_poll: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
-      return shellPoll(args);
+      return shellPoll(args, ctx);
   } },
   shell_kill: { paths: null, guardNote: "同 shell_start", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
-      return shellKill(args);
+      return shellKill(args, ctx);
   } },
   shell_list: { paths: null, guardNote: "会话清单只读,不触文件路径", handler: async (args, ctx) => {
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
-      return shellList();
+      return shellList(ctx);   // 135c:只列本线程开的(见 11 shellVisibleTo)
   } },
 };
 

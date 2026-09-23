@@ -449,7 +449,7 @@
     ]
   },
   "routing": {
-    "decisionPoints": 142,
+    "decisionPoints": 143,
     "problems": 0,
     "routeAuthEntries": 129,
     "routeAuthSha256": "67f477e05f82a74b8774c8b2b5648177832521eae7a3d1218df55d3b81728730",

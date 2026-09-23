@@ -39,6 +39,8 @@ import { createShellModeController } from './js/shell-mode.js'; // 121-K1
 import { createAppFrame } from './js/app-frame.js'; // 121-K4
 import { createBootFailure } from './js/boot-failure.js';
 import { createEventStream } from './js/event-stream.js'; // 121-K2b
+import { createBackgroundTray } from './js/background-tray.js'; // 135c:线程内后台任务条
+import { confirmDanger } from './js/confirm-panel.js';
 import { STEWARD_NEW_THREAD_EVENT } from './js/steward-board.js'; // 121-K4：左栏「＋ 新任务」派的那一条
 import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
@@ -837,6 +839,14 @@ const eventStream = createEventStream({
   sessionIdProvider: () => String((state.currentSession && state.currentSession.id) || ''),
 });
 bindPromptQueueEvents(eventStream); // 135:有线程在等你的推送一到,「等你处理」队列立刻对账
+// 135c:当前线程的后台任务条(输入框上沿)＋别的线程在左栏的「⟳N」标记。「去班组看」切到班组画布。
+const backgroundTray = createBackgroundTray({
+  api, t, el, toast, confirmDanger,
+  currentSessionId: () => String((state.currentSession && state.currentSession.id) || ''),
+  openCrew: () => { const tab = document.getElementById('mainViewTabCanvas'); if (tab) tab.click(); },
+});
+backgroundTray.bindEventStream(eventStream);
+setTimeout(() => backgroundTray.start(), 1500);
 
 const {
   autonomyFormSync,

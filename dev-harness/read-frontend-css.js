@@ -55,6 +55,9 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 135: prompt-dock layer (the bottom-right 'waiting for you' queue of thread questions and permission
   // requests, plus the queue status line inside those two modals). Appended last for the same reason.
   'css/views/prompt-dock.css',
+  // 135c: background-tray layer (the per-thread 'background tasks' chip on the composer's top edge and the
+  // rail '⟳N' mark for other threads). Appended last for the same reason.
+  'css/views/background-tray.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -709,7 +712,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 135 续钉（前值 cd3a9d41…）：只在载荷末尾新增一层 css/views/prompt-dock.css（「等你处理」队列小窗）。
 // 算法自证：从本刀的载荷末尾抠掉这一层（换行 + 其去首行正文）重算 = cd3a9d41…，与被替换的旧值逐字相同；
 // 整份再算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'ac796a200a643dbd452192096a996ce6dc05ac2f304c246fbe67bb724a806b3a';
+// 135c 续钉(前值 ac796a20…):只在载荷末尾新增一层 css/views/background-tray.css(线程内后台任务条)。
+// 算法自证同上:抠掉这一层重算 = 前值,逐字相同。
+const LEGACY_STYLES_SHA256 = '782f08db193773e4818064eba02260cc411829e06932f52ceecd407fb67d807a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

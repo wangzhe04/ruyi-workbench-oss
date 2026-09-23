@@ -8539,6 +8539,7 @@
         "_rgProbe",
         "backgroundJobFile",
         "backgroundJobText",
+        "backgroundShellCountsBySession",
         "browserHeaders",
         "builtinSearch",
         "classifyFetchError",
@@ -8592,18 +8593,24 @@
         "searchFileContent",
         "searchFileContentJs",
         "searchFileContentRg",
+        "sessionBackgroundShellRows",
+        "sessionShellOutputTail",
         "shellAppend",
         "shellEndOffset",
         "shellIdValid",
         "shellIdleReaper",
         "shellKill",
+        "shellLastLine",
         "shellList",
+        "shellLookup",
         "shellMcpChildGuard",
         "shellPoll",
         "shellSend",
         "shellSessions",
         "shellSliceFrom",
         "shellStart",
+        "shellStripClixml",
+        "shellVisibleTo",
         "ssrfCheck",
         "summarizeGitStatus",
         "walkFiles",
@@ -8786,6 +8793,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "redact",
           "kinds": [
             "call"
           ]
@@ -11590,6 +11604,7 @@
       "file": "13d-core-domain-routes.js",
       "layer": "transport",
       "provides": [
+        "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
         "SESSION_SEARCH_HEAD_BYTES",
         "SESSION_SEARCH_INDEX_FILE",
@@ -11630,6 +11645,7 @@
         "readSessionSearchIndex",
         "refreshSessionSearchIndex",
         "searchSessionsByContent",
+        "sessionBackgroundRunRows",
         "sessionMessageText",
         "sessionSearchIndexPath",
         "sessionSearchSnippet"
@@ -11645,6 +11661,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]

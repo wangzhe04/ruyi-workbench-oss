@@ -295,7 +295,10 @@ export function createPromptQueue({
   function placeAboveComposer() {
     let bottom = 0;
     try {
-      const box = doc().querySelector('.chat-pane .composer-box');
+      // 135c:输入框上沿若挂着「后台任务」那一枚,就再浮到它之上 —— 两枚都在右边,不许叠在一起。
+      // (量整个 .bg-tray:它展开时面板也在里面,小窗得浮到面板之上。)
+      const trayChip = doc().querySelector('.chat-pane .bg-tray:not([hidden])');
+      const box = trayChip || doc().querySelector('.chat-pane .composer-box');
       const r = box && box.getBoundingClientRect();
       if (r && r.height > 0 && r.width > 0) bottom = Math.max(0, Math.round(window.innerHeight - r.top + 8));
     } catch { /* ignore */ }
@@ -402,7 +405,11 @@ export function createPromptQueue({
     }
   }
 
-  function start() { reconcile(); }
+  function start() {
+    reconcile();
+    // 135c 同一处发现:页面在后台时对账只排不拉,切回前台立刻对一次,别让等你的那条再晚 5～15 s 露面。
+    try { doc().addEventListener('visibilitychange', () => { try { if (!doc().hidden) kick(); } catch { /* ignore */ } }); } catch { /* ignore */ }
+  }
   // 推送来了(有线程在等你 / 线程状态变了)就尽快对一次账,不必等 5／15 s 的轮询 —— 真机验证:
   // 后台线程的申请只靠空闲轮询要 ~17 s 才露面,而默认 120 s 就自动拒绝。250 ms 合并一串连发的帧。
   // 真机量过:回合跑起来时 thread.state 一秒好几帧,不设下限会把对账打成每秒数发。两次对账至少隔 1 s。

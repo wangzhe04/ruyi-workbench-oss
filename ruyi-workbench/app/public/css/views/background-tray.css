@@ -1,0 +1,181 @@
+/* 135c（用户 2026-09-23）：线程内「后台任务」条——贴在当前线程输入框（.composer，本身 position:relative）
+   的上沿右侧，只显示这一条线程在跑的后台命令／后台子代理／班组。JS 在 js/background-tray.js。
+   与右下角「等你处理」（prompt-dock.css）刻意做出差别：
+     · 那边是金色描边、会跳一下、数的是「等了多久」；这边是低调的蓝色细描边、只有一枚在转的小环、
+       数的是「已跑多久」，从不跳动、不弹窗；
+     · 那边 position:fixed 跨线程；这边 absolute 挂在本线程输入框上，换线程就换内容。
+   实色面板（不开 backdrop-filter：ui-v4-glass G2 的模糊白名单只收既有浮层）。
+   左栏「⟳N」标记也在本层（.rail-bg-mark）。 */
+
+.bg-tray {
+  position: absolute;
+  right: var(--sp-4);
+  bottom: 100%;
+  margin-bottom: 6px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  max-width: min(420px, calc(100% - 2 * var(--sp-4)));
+  pointer-events: none;           /* 容器不挡对话区的点击；胶囊与面板自己再开回 auto */
+}
+.bg-tray[hidden] { display: none; }
+:root[data-shell-mode="steward"] .bg-tray { display: none; }
+
+.bg-tray-chip {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 28px;
+  padding: 3px var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.bg-tray-chip:hover { background: var(--panel-3); color: var(--ink); }
+.bg-tray-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bg-tray-spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bg-tray-spin 1.1s linear infinite;
+}
+@keyframes bg-tray-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .bg-tray-spin { animation: none; border-top-color: color-mix(in srgb, var(--accent) 30%, transparent); background: var(--accent); }
+}
+.bg-tray-count { color: var(--accent); font-weight: 600; }
+.bg-tray-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.bg-tray-panel {
+  pointer-events: auto;
+  width: 100%;
+  min-width: 300px;
+  max-height: min(50vh, 380px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--glass-shadow);
+  overflow: hidden;
+}
+.bg-tray-panel[hidden] { display: none; }
+.bg-tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.bg-tray-collapse {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.bg-tray-list { overflow-y: auto; padding: var(--sp-1) 0; }
+.bg-tray-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--sp-2) var(--sp-3);
+}
+.bg-tray-row + .bg-tray-row { border-top: 1px solid var(--line); }
+.bg-tray-row-top { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.bg-tray-kind {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+}
+.bg-tray-name {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bg-tray-command {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bg-tray-meta {
+  display: flex;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.bg-tray-elapsed { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.bg-tray-progress { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bg-tray-actions { display: flex; gap: var(--sp-1); margin-top: 2px; }
+.bg-tray-btn {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.bg-tray-btn:hover { background: var(--panel-3); }
+.bg-tray-btn:disabled { opacity: .6; cursor: default; }
+.bg-tray-stop { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+.bg-tray-stop:hover { background: var(--danger-veil); }
+.bg-tray-output {
+  margin: var(--sp-1) 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: var(--sp-2);
+  border-radius: 6px;
+  background: var(--code-bg);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 左栏：别的线程有后台任务在跑时的小标记（自己这条不画——输入框上沿已经有那一枚了）。 */
+.rail-bg-mark {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .bg-tray { right: var(--sp-2); max-width: calc(100% - 2 * var(--sp-2)); }
+  .bg-tray-panel { min-width: 0; }
+}

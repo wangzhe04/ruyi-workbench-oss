@@ -34,6 +34,15 @@ EventStreamHooks.mergeBackgroundJobs = session => {
     seen.add(job.id);
   }
 };
+// 135c(真机走查):PowerShell 把进度流序列化成 CLIXML 写进 stderr —— 一行 `#< CLIXML` 加一大行 `<Objs …>…</Objs>`
+// (里面还常是乱码的本地化进度文字)。它原样进了完成回执(对话里、模型下一轮都看得到)和「看输出」。
+// 只剥这两种行首,别的一个字不动。
+function shellStripClixml(text) {
+  return String(text || '').split('\n').filter(line => {
+    const l = line.replace(/^\s+/, '');
+    return !l.startsWith('#< CLIXML') && !l.startsWith('<Objs ') && !l.startsWith('<Obj ');
+  }).join('\n');
+}
 function completeBackgroundJob(shellId, sess) {
   if (sess.mode !== 'background' || sess.notified || !sess.sessionId) return;
   sess.notified = true;
@@ -41,7 +50,7 @@ function completeBackgroundJob(shellId, sess) {
   const job = {
     id: sess.jobId, shellId, name: sess.name, sessionId: sess.sessionId,
     status: sess.cancelled ? 'cancelled' : sess.timedOut ? 'timed_out' : sess.exitCode === 0 ? 'succeeded' : 'failed',
-    exitCode: sess.exitCode, output: sess.buf.slice(-6000), truncated: sess.baseOffset > 0 || sess.buf.length > 6000,
+    exitCode: sess.exitCode, output: shellStripClixml(sess.buf).slice(-6000), truncated: sess.baseOffset > 0 || sess.buf.length > 6000,
     completedAt: nowIso(),
   };
   const file = backgroundJobFile(sess.sessionId);
@@ -151,7 +160,9 @@ function shellStart(args, config, ctx = {}) {
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
   const now = Date.now();
-  const sess = { child, name, cwd, mode, sessionId: safeSessionId((ctx && ctx.sessionId) || ''), jobId: crypto.randomBytes(12).toString('hex'), timedOut: false, buf: '', baseOffset: 0, running: true, exitCode: null, startedAt: now, lastUsedAt: now };
+  // 135c(线程内后台任务条):记下命令原文供界面显示 —— 先过 04 的 redact(与权限弹窗/审计同一张表),压成一行、裁 200。
+  const commandShown = command ? redact(command).replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+  const sess = { child, name, cwd, mode, command: commandShown, sessionId: safeSessionId((ctx && ctx.sessionId) || ''), jobId: crypto.randomBytes(12).toString('hex'), timedOut: false, buf: '', baseOffset: 0, running: true, exitCode: null, startedAt: now, lastUsedAt: now };
   let deadline = null;
   if (command) {
     child.stdin.end();
@@ -177,9 +188,22 @@ function shellStart(args, config, ctx = {}) {
 // entirely silent command gets a bounded 5s startup/grace window; returning earlier can leave that command
 // queued and misattribute its output to the next shell_send. Long-running tasks won't finish
 // within one send — track them with shell_poll. output = increment from the pre-send cursor to now.
-async function shellSend(args) {
-  const shellId = String(args.shellId || '');
+// 135c(真机核实的隔离缺口):shell_list 修前列出【整个进程】的 shell,shell_poll/send/kill 也不认主 ——
+// A 线程的模型能看到并杀掉 B 线程的后台命令。现在带 ctx.sessionId 的调用只看得见自己线程开的;
+// 子代理的工具调用用的是父会话 id(08 toolCall 传 parentSession.id),所以父子之间照常互通。
+// 不带 ctx 的内部调用方(空闲收割、关机收尸)仍然看得见全部。
+function shellVisibleTo(sess, ctx) {
+  const sid = safeSessionId((ctx && ctx.sessionId) || '');
+  return !sid || !sess.sessionId || sess.sessionId === sid;
+}
+function shellLookup(shellId, ctx) {
   const sess = shellSessions.get(shellId);
+  return sess && shellVisibleTo(sess, ctx) ? sess : null;
+}
+
+async function shellSend(args, ctx) {
+  const shellId = String(args.shellId || '');
+  const sess = shellLookup(shellId, ctx);
   // v0.8-S7 error guidance: an unknown shellId (typo, or the session was reaped/killed) → point the model
   // at shell_list / shell_start rather than leaving it to retry the same dead id.
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'`, hint: '用 shell_list 查看现有会话,或 shell_start 新建' };
@@ -217,9 +241,9 @@ async function shellSend(args) {
   return { ok: true, output: slice.output, cursor: slice.cursor, truncated: slice.truncated || false, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
 }
 
-function shellPoll(args) {
+function shellPoll(args, ctx) {
   const shellId = String(args.shellId || '');
-  const sess = shellSessions.get(shellId);
+  const sess = shellLookup(shellId, ctx);
   // v0.8-S7 error guidance: same unknown-shellId hint as shell_send.
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'`, hint: '用 shell_list 查看现有会话,或 shell_start 新建' };
   sess.lastUsedAt = Date.now();
@@ -231,9 +255,9 @@ function shellPoll(args) {
   return out;
 }
 
-function shellKill(args) {
+function shellKill(args, ctx) {
   const shellId = String(args.shellId || '');
-  const sess = shellSessions.get(shellId);
+  const sess = shellLookup(shellId, ctx);
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'` };
   sess.cancelled = true;
   try { if (sess.child && sess.child.pid) killChildTree(sess.child.pid); } catch { /* already gone */ }
@@ -242,9 +266,10 @@ function shellKill(args) {
   return { ok: true };
 }
 
-function shellList() {
+function shellList(ctx) {
   const shells = [];
   for (const [shellId, s] of shellSessions) {
+    if (!shellVisibleTo(s, ctx)) continue;
     shells.push({
       shellId, name: s.name, cwd: s.cwd, running: s.running, exitCode: s.exitCode,
       mode: s.mode || 'interactive', timedOut: s.timedOut === true,
@@ -254,6 +279,49 @@ function shellList() {
   }
   return { ok: true, shells };
 }
+
+// 135c:线程内后台任务条的三个读写口(13d 的 /api/sessions/:id/background 路由用)。只认【后台命令】
+// (shell_start 带 command 的那种):交互式 shell 是一个常驻提示符,不是「一件在跑的事」。
+// PowerShell 把进度流序列化成 CLIXML 写进 stderr(`#< CLIXML`、`<Objs …>`),那不是给人看的「最近一行」。
+function shellLastLine(sess) {
+  const tail = String(sess.buf || '').slice(-4000).split(/\r?\n/).map(l => l.trim())
+    .filter(l => l && !l.startsWith('#< CLIXML') && !l.startsWith('<Objs ') && !l.startsWith('<Obj '));
+  return tail.length ? redact(tail[tail.length - 1]).slice(0, 160) : '';
+}
+function sessionBackgroundShellRows(sessionId) {
+  const sid = safeSessionId(sessionId);
+  const rows = [];
+  if (!sid) return rows;
+  for (const [shellId, s] of shellSessions) {
+    if (s.mode !== 'background' || !s.running || s.sessionId !== sid) continue;
+    rows.push({ id: 'shell:' + shellId, kind: 'shell', shellId, name: s.name, command: s.command || '', startedAt: new Date(s.startedAt).toISOString(), tail: shellLastLine(s) });
+  }
+  return rows;
+}
+function backgroundShellCountsBySession() {
+  const counts = {};
+  for (const [, s] of shellSessions) {
+    if (s.mode !== 'background' || !s.running || !s.sessionId) continue;
+    counts[s.sessionId] = (counts[s.sessionId] || 0) + 1;
+  }
+  return counts;
+}
+// 最近输出(给「看输出」):只给这条线程自己的 shell,且过一遍 redact。
+function sessionShellOutputTail(sessionId, shellId, maxChars = 8000) {
+  const sid = safeSessionId(sessionId);
+  const sess = sid ? shellLookup(String(shellId || ''), { sessionId: sid }) : null;
+  if (!sess || !sess.sessionId) return null;
+  const cap = Math.min(20000, Math.max(200, Number(maxChars) || 8000));
+  return { output: redact(shellStripClixml(String(sess.buf || '').slice(-cap))), truncated: sess.baseOffset > 0 || sess.buf.length > cap, running: sess.running === true };
+}
+
+// 13d 的后台任务路由经延迟绑定命名空间取这四个口(直接引用会造一条 13d->11 的新循环边,依赖图门禁不收)。
+EventStreamHooks.backgroundShells = Object.freeze({
+  rows: sessionBackgroundShellRows,
+  counts: backgroundShellCountsBySession,
+  outputTail: sessionShellOutputTail,
+  stop: (sessionId, shellId) => shellKill({ shellId }, { sessionId }),
+});
 
 // Reap every live shell session (called on serve-process shutdown alongside killAllMcpClients).
 function killAllShellSessions() {

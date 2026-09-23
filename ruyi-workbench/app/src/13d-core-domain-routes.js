@@ -242,6 +242,58 @@ async function handleSessionApiRoutes(req, res, pathname) {
       purgeAssociated: Boolean(body && body.purgeAssociated),
     })));
   }
+  // 135c(用户 2026-09-23「会话内的后台任务进度」;拍板:只在对应线程里显示、跑完即消失、能停但先确认、
+  // 别的线程只在左栏打一个小标记)。四条路由,都排在下面 '/api/sessions/' 通配分支之前(否则
+  // 'background' 会被当成会话 id)。修前后台命令【没有任何 HTTP 读口】—— 只有模型自己的 shell_* 工具看得见。
+  //   GET  /api/sessions/background-counts      各线程在跑的后台件数(左栏标记用;只有计数,不带内容)
+  //   GET  /api/sessions/:id/background         这条线程在跑的后台任务:后台命令 + 后台子代理 + 班组
+  //   GET  /api/sessions/:id/background/output  某条后台命令的最近输出(过 redact)
+  //   POST /api/sessions/:id/background/stop    停一件:命令走 shellKill(认主),子代理/班组走既有 stop 动作
+  if (req.method === 'GET' && pathname === '/api/sessions/background-counts') {
+    if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+    const shells = EventStreamHooks.backgroundShells;
+    const counts = shells ? shells.counts() : {};
+    for (const row of sessionBackgroundRunRows(null)) counts[row.sessionId] = (counts[row.sessionId] || 0) + 1;
+    return send(res, json({ ok: true, counts }));
+  }
+  {
+    const bg = /^\/api\/sessions\/([^/]+)\/background(\/output|\/stop)?$/.exec(pathname);
+    if (bg) {
+      if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
+      const sid = safeSessionId(decodeURIComponent(bg[1]));
+      if (!sid) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (req.method === 'GET' && !bg[2]) {
+        const shells = EventStreamHooks.backgroundShells;
+        const items = (shells ? shells.rows(sid) : []).concat(sessionBackgroundRunRows(sid));
+        items.sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)));
+        return send(res, json({ ok: true, sessionId: sid, items }));
+      }
+      if (req.method === 'GET' && bg[2] === '/output') {
+        const shellId = new URL(req.url, 'http://x').searchParams.get('shellId') || '';
+        const shells = EventStreamHooks.backgroundShells;
+        const out = shells ? shells.outputTail(sid, shellId, 8000) : null;
+        if (!out) return send(res, json({ ok: false, error: 'background command not found' }, 404));
+        return send(res, json({ ok: true, ...out }));
+      }
+      if (req.method === 'POST' && bg[2] === '/stop') {
+        const body = await readJsonBody(req);
+        const taskId = String((body && body.id) || '');
+        if (taskId.startsWith('shell:')) {
+          const shells = EventStreamHooks.backgroundShells;
+          const result = shells ? shells.stop(sid, taskId.slice(6)) : { ok: false };
+          logEvent({ kind: 'background_task_stop', sessionId: sid, taskId, ok: result.ok === true, by: 'user' });
+          return send(res, json(result.ok ? { ok: true, state: 'stopped' } : { ok: false, error: 'background command not found' }, result.ok ? 200 : 404));
+        }
+        if (taskId.startsWith('run:')) {
+          const result = await agentRunActionCommand({ sessionId: sid, runId: taskId.slice(4), action: 'stop' });
+          logEvent({ kind: 'background_task_stop', sessionId: sid, taskId, ok: result.status === 200, by: 'user' });
+          return send(res, json(result.body, result.status));
+        }
+        return send(res, json({ ok: false, error: 'unknown background task id' }, 400));
+      }
+      return send(res, json({ ok: false, error: 'method not allowed' }, 405));
+    }
+  }
   if (pathname.startsWith('/api/sessions/')) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
@@ -1922,6 +1974,40 @@ async function handleInterventionApiRoutes(req, res, pathname) {
 // 沿用原有分支继续处理 —— 这样搬家对 HTTP 面是逐字节等价的。
 // 归属校验(live.run.sessionId !== sessionId -> 404)在函数内【再做一次】:进程内调用方(管家)不经过
 // 路由体那道闸,fail-closed 的重复判定比信任调用方便宜得多。
+// 135c:线程内后台任务条里的「子代理 / 班组」两类。只看【活着的】run(activeAgentRuns,进程内真值):
+// 跑完的 run 按拍板「跑完即消失」不出现,结果照旧走 background.completed 的 toast 与对话里的回执。
+// sessionId 传 null = 全部线程(左栏计数用)。tail 取在跑节点最近一条 progressLog,过 redact 裁 160。
+const BACKGROUND_RUN_DONE = new Set(['succeeded', 'failed', 'skipped', 'cancelled', 'stopped', 'partial']);
+function sessionBackgroundRunRows(sessionId) {
+  const sid = sessionId ? safeSessionId(sessionId) : '';
+  const rows = [];
+  for (const [runId, live] of activeAgentRuns) {
+    const run = live && live.run;
+    if (!run || !run.sessionId) continue;
+    if (sid && run.sessionId !== sid) continue;
+    const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+    let tail = '', tailAt = '';
+    for (const node of nodes) {
+      if (!node || node.status !== 'running' || !Array.isArray(node.progressLog) || !node.progressLog.length) continue;
+      const last = node.progressLog[node.progressLog.length - 1];
+      if (last && String(last.at || '') >= tailAt) { tailAt = String(last.at || ''); tail = String(last.text || ''); }
+    }
+    const first = nodes[0] || {};
+    rows.push({
+      id: 'run:' + runId,
+      kind: run.kind === 'spawn_agent' ? 'agent' : 'run',
+      runId,
+      sessionId: run.sessionId,
+      name: String(run.title || first.task || first.id || runId).replace(/\s+/g, ' ').slice(0, 120),
+      startedAt: run.createdAt || '',
+      status: live.stopRequested ? 'stopping' : live.paused ? 'paused' : String(run.status || 'running'),
+      progress: { done: nodes.filter(n => n && BACKGROUND_RUN_DONE.has(n.status)).length, total: nodes.length },
+      tail: tail ? redact(tail.replace(/\s+/g, ' ')).slice(0, 160) : '',
+    });
+  }
+  return rows;
+}
+
 async function agentRunActionCommand(input) {
   const o = (input && typeof input === 'object') ? input : {};
   const sessionId = safeSessionId(o.sessionId);
