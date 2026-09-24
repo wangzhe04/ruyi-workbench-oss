@@ -134,7 +134,9 @@ function skillDisplayDescription(entry) {
   return skillDisplayText(entry, 'description');
 }
 function skillDisplaySource(entry) {
-  const key = ({ project: 'skills.source.project', user: 'skills.source.user', builtin: 'skills.source.builtin', 'claude-code': 'skills.source.claude-code' })[entry?.source];
+  // W2 迁移中心:其它 Agent CLI 的技能同样活读进来,来源标签要看得见(codex / kimi / Claude Code 插件)。
+  const key = ({ project: 'skills.source.project', user: 'skills.source.user', builtin: 'skills.source.builtin', 'claude-code': 'skills.source.claude-code',
+    codex: 'skills.source.codex', kimi: 'skills.source.kimi', 'claude-plugin': 'skills.source.claude-plugin' })[entry?.source];
   return key ? t(key) : t('common.unknown');
 }
 function skillDisplayUnavailableReason(entry) {

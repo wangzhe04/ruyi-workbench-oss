@@ -1988,8 +1988,13 @@ async function startServerInner(opts) {
   {
     const imp = await autoImportClaudeCodeMcp(config).catch(() => null);
     if (imp && imp.config) config = imp.config;
-    if (imp && imp.added) console.log(`Auto-imported ${imp.added} MCP server(s) from Claude Code: ${(imp.ids || []).join(', ')}`);
+    if (imp && imp.added) console.log(`Auto-imported ${imp.added} MCP server(s) from ${(imp.bySource || []).map(r => r.origin).join('/') || 'Claude Code'}: ${(imp.ids || []).join(', ')}`);
   }
+  // W2 迁移中心:① 本包登记进安装登记表(老版本识别的账,所有包共用一个数据根,只能记在这里);
+  // ② 本机其它 Agent CLI 的全局指令文件同步成工作台核心记忆(只读几个小文件 + 哈希比对,幂等)。
+  // 都是旁路:失败只吞,不挡启动。
+  await recordInstallLaunch(LAUNCH_MODE);
+  if (config.importAgentInstructions !== false) await syncAgentInstructionImports({ auto: true }).catch(() => null);
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);

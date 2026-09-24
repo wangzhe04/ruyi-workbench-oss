@@ -1680,6 +1680,31 @@ async function readSkillDir(baseDir, source, caps) {
 // 技能同 id 优先级 project > user > claude-code > builtin;命令/Playbook 各自命名空间(Playbook id 加 'pb:' 前缀防撞)。
 // requires 门控复用 evalPlaybookAvailability 的能力矩阵逻辑(getCapabilities 60s 缓存)。caps 可预传避免重复探测。
 // claude-code 源只读直连 ~/.claude/skills(本机 Claude Code 个人技能),不复制;删除仅允许 user 源(见 DELETE /api/skills)。
+// W2 迁移中心:Claude Code 已安装插件的技能目录。只认 Claude Code 自己的安装账
+// ~/.claude/plugins/installed_plugins.json(v1:{plugins:{"名@市场":{installPath}}};v2:值是安装数组)——
+// marketplaces/ 下是「可装」的全集,不是已装的,不扫。~/.claude/settings.json 的 enabledPlugins 里显式 false 的跳过。
+// 只读、从不抛;每个插件取 <installPath>/skills。
+async function claudePluginSkillDirs() {
+  const claudeDir = agentCliHomes().claude;
+  const installed = safeJsonParse(await readIfExists(path.join(claudeDir, 'plugins', 'installed_plugins.json'), 512 * 1024), null);
+  const plugins = installed && installed.plugins && typeof installed.plugins === 'object' ? installed.plugins : null;
+  if (!plugins) return [];
+  const settings = safeJsonParse(await readIfExists(path.join(claudeDir, 'settings.json'), 512 * 1024), null);
+  const enabled = settings && settings.enabledPlugins && typeof settings.enabledPlugins === 'object' ? settings.enabledPlugins : {};
+  const out = [];
+  for (const [name, value] of Object.entries(plugins)) {
+    if (enabled[name] === false) continue;
+    const installs = Array.isArray(value) ? value : [value];
+    for (const inst of installs) {
+      const installPath = inst && typeof inst.installPath === 'string' ? inst.installPath : '';
+      if (!installPath || !path.isAbsolute(installPath)) continue;
+      out.push({ plugin: String(name).slice(0, 120), skillsDir: path.join(installPath, 'skills') });
+      break; // 同一插件多份安装(不同 scope)只取第一份
+    }
+    if (out.length >= 64) break;
+  }
+  return out;
+}
 async function loadSkillRegistry(cwd, config, caps) {
   if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
   const out = [];
@@ -1702,6 +1727,15 @@ async function loadSkillRegistry(cwd, config, caps) {
       });
     }
   }
+  // W2 迁移中心:其它 Agent CLI 的技能同样只读直连(活读,不复制),优先级从低到高:
+  //   builtin < claude-plugin(Claude Code 已安装插件自带的技能)< kimi(~/.kimi-code/skills)< codex(~/.codex/skills)
+  //   < claude-code(~/.claude/skills)< user < project。同名时高优先级那份生效,来源标签随条目走(技能库里看得见)。
+  for (const dir of await claudePluginSkillDirs()) {
+    for (const [id, e] of await readSkillDir(dir.skillsDir, 'claude-plugin', caps)) skillMap.set(id, { ...e, plugin: dir.plugin });
+  }
+  const cliHomes = agentCliHomes();
+  for (const [id, e] of await readSkillDir(path.join(cliHomes.kimi, 'skills'), 'kimi', caps)) skillMap.set(id, e);
+  for (const [id, e] of await readSkillDir(path.join(cliHomes.codex, 'skills'), 'codex', caps)) skillMap.set(id, e);
   // 本机 Claude Code 个人技能(~/.claude/skills/<id>/SKILL.md)作为第 4 源映射进来(只读直连,不复制)。
   // 优先级:builtin < claude-code < user < project -- 放在 user 之前,让 Ruyi 自己的 user 技能可覆盖同名 Claude Code 技能。
   // 目录缺失时 readSkillDir 返回空 Map(优雅 no-op),与 ~/.claude/commands 的读取同精神。

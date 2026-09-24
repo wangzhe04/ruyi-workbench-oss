@@ -675,6 +675,139 @@ const RUYI_EVENTS = {
 // Object.assign 填充实现。未填充(理论上不可能)时那一行是无操作。
 const EventStreamHooks = {};
 
+// ── 迁移中心(56 号文 §3,W2):其它 Agent CLI 的家目录 + 如意包根判定 + 安装登记表 ─────────────────
+// 迁移中心的实现住在 13u-migration-center.js(零入边);13b 的路由经这张表迟绑定调进去(13b → 00-boot 是
+// 既有后向边),与 EventStreamHooks 同款。未填充时路由回 503,不会误走别的分支。
+const MigrationHooks = {};
+
+// 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
+// USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。
+//   Claude Code:~/.claude 与 ~/.claude.json;Codex:$CODEX_HOME,缺省 ~/.codex;
+//   Kimi Code:$KIMI_CODE_HOME,缺省 ~/.kimi-code(与 syncMcpServersToKimi 同一口径);Gemini CLI:~/.gemini。
+function agentCliHomes() {
+  const home = os.homedir();
+  return {
+    home,
+    claude: path.join(home, '.claude'),
+    claudeJson: path.join(home, '.claude.json'),
+    codex: String(process.env.CODEX_HOME || '').trim() || path.join(home, '.codex'),
+    kimi: String(process.env.KIMI_CODE_HOME || '').trim() || path.join(home, '.kimi-code'),
+    gemini: path.join(home, '.gemini'),
+  };
+}
+
+// 给人看的路径:家目录前缀写成 ~(只影响显示,不参与任何判定)。
+function tildePath(p) {
+  const s = String(p || '');
+  const home = os.homedir();
+  if (!home || !s) return s;
+  const a = process.platform === 'win32' ? s.toLowerCase() : s;
+  const h = process.platform === 'win32' ? home.toLowerCase() : home;
+  if (a === h) return '~';
+  if (a.startsWith(h) && (s[home.length] === '\\' || s[home.length] === '/')) return '~' + s.slice(home.length).replace(/\\/g, '/');
+  return s;
+}
+
+// 路径比较键:resolve + 去尾分隔符;Windows 下大小写不敏感。
+function samePathKey(p) {
+  let s = path.resolve(String(p || ''));
+  if (process.platform === 'win32') s = s.toLowerCase();
+  return s.length > 3 ? s.replace(/[\\/]+$/, '') : s;
+}
+
+// 如意包根标记:<root>/app/server.js 是文件,且 <root>/package.json 的 name 是 ruyi-workbench 或
+// <root>/Start-Workbench.cmd 在。两条都要:只有 app/server.js 的目录可能是别的 Node 项目。
+// 返回 { root, version } 或 null。只读、从不抛。
+function ruyiPackageInfo(dir) {
+  try {
+    const root = path.resolve(String(dir || ''));
+    if (!fs.statSync(path.join(root, 'app', 'server.js')).isFile()) return null;
+    let named = false; let version = '';
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+      named = Boolean(pkg && pkg.name === 'ruyi-workbench');
+      if (pkg && typeof pkg.version === 'string') version = pkg.version.slice(0, 40);
+    } catch { /* 没有或坏的 package.json:只能靠启动脚本认 */ }
+    if (!named && !fs.existsSync(path.join(root, 'Start-Workbench.cmd'))) return null;
+    return { root, version };
+  } catch { return null; }
+}
+
+// 从一个绝对路径沿祖先链往上找【最近】的如意包根(最多 12 层)。不全盘扫描、不列举任何目录。
+// 最近优先:源码树 ruyi-workbench/ 下的 dist/Ruyi-vX 是另一个包,应认成 dist/Ruyi-vX 而不是外层。
+// cache(可选 Map)按目录键记忆结果,一次扫描里同一棵树只 stat 一遍。
+function findRuyiPackageRootFor(p, cache) {
+  const raw = String(p || '').trim();
+  if (!raw || !path.isAbsolute(raw)) return null;
+  let dir = path.resolve(raw);
+  const seen = [];
+  for (let i = 0; i < 12; i++) {
+    const key = samePathKey(dir);
+    if (cache && cache.has(key)) { const hit = cache.get(key); for (const k of seen) cache.set(k, hit); return hit; }
+    seen.push(key);
+    const info = ruyiPackageInfo(dir);
+    if (info) { if (cache) for (const k of seen) cache.set(k, info); return info; }
+    const parent = path.dirname(dir);
+    if (!parent || parent === dir) break;
+    dir = parent;
+  }
+  if (cache) for (const k of seen) cache.set(k, null);
+  return null;
+}
+
+// 安装登记表 <data>/install-registry.json:每个启动过的包一行
+//   { packageRoot, version, launchMode, firstSeenAt, lastLaunchedAt, pid }
+// 所有包共用同一个数据根(dataRoot()),所以「本机都有哪些包启动过」只能记在这里。只记账、不做决定。
+const INSTALL_REGISTRY_SCHEMA = 1;
+const INSTALL_REGISTRY_MAX = 64;
+function installRegistryPath() { return path.join(paths.data, 'install-registry.json'); }
+function readInstallRegistry() {
+  try {
+    const raw = safeJsonParse(fs.readFileSync(installRegistryPath(), 'utf8'), null);
+    const rows = raw && Array.isArray(raw.packages) ? raw.packages : [];
+    const packages = [];
+    const seen = new Set();
+    for (const r of rows) {
+      if (!r || typeof r.packageRoot !== 'string' || !path.isAbsolute(r.packageRoot)) continue;
+      const key = samePathKey(r.packageRoot);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      packages.push({
+        packageRoot: path.resolve(r.packageRoot),
+        version: typeof r.version === 'string' ? r.version.slice(0, 40) : '',
+        launchMode: typeof r.launchMode === 'string' ? r.launchMode.slice(0, 16) : '',
+        firstSeenAt: typeof r.firstSeenAt === 'string' ? r.firstSeenAt.slice(0, 40) : '',
+        lastLaunchedAt: typeof r.lastLaunchedAt === 'string' ? r.lastLaunchedAt.slice(0, 40) : '',
+        pid: Number.isInteger(r.pid) && r.pid > 0 ? r.pid : 0,
+      });
+    }
+    return { schema: INSTALL_REGISTRY_SCHEMA, packages };
+  } catch { return { schema: INSTALL_REGISTRY_SCHEMA, packages: [] }; }
+}
+// 本包这次启动:登记(或刷新)一行。失败只吞掉 —— 登记表是旁路账,绝不挡启动。
+async function recordInstallLaunch(launchMode) {
+  try {
+    const reg = readInstallRegistry();
+    const root = path.resolve(externalRoot());
+    const key = samePathKey(root);
+    const now = nowIso();
+    let row = reg.packages.find(r => samePathKey(r.packageRoot) === key);
+    if (!row) { row = { packageRoot: root, firstSeenAt: now }; reg.packages.push(row); }
+    row.version = VERSION;
+    row.launchMode = String(launchMode || '').slice(0, 16);
+    row.lastLaunchedAt = now;
+    row.pid = process.pid;
+    // 目录已不在的行顺手剔掉(老包被用户手动删了);按最近启动倒序,封顶。
+    const packages = reg.packages
+      .filter(r => samePathKey(r.packageRoot) === key || fs.existsSync(r.packageRoot))
+      .sort((a, b) => String(b.lastLaunchedAt || '').localeCompare(String(a.lastLaunchedAt || '')))
+      .slice(0, INSTALL_REGISTRY_MAX);
+    await fsp.mkdir(paths.data, { recursive: true });
+    await atomicWriteJson(installRegistryPath(), { schema: INSTALL_REGISTRY_SCHEMA, updatedAt: now, packages });
+    return { ok: true, packageRoot: root };
+  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
+}
+
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
   // open: 低敏读(host 门已过,无 token 需求)
@@ -783,6 +916,12 @@ const ROUTE_AUTH = [
   // 55b:启停/删除持久化 -- 写配置路径,token 级同 import/apply。
   { m: 'POST', p: '/api/mcp/connectors/toggle', auth: 'token' },
   { m: 'DELETE', p: '/api/mcp/connectors', auth: 'token' },
+  // W2 迁移中心:scan 回本机各处配置里的路径与指令文件摘要(内容型 GET);apply/undo 改写外部配置文件;
+  // recycle 把老包目录移进回收站(handler 另要 body.confirm === body.root)。一律 token 级,同 import/apply。
+  { m: 'GET', p: '/api/migration/scan', auth: 'token' },
+  { m: 'POST', p: '/api/migration/apply', auth: 'token' },
+  { m: 'POST', p: '/api/migration/undo', auth: 'token' },
+  { m: 'POST', p: '/api/migration/recycle', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   // 127-A-S02:自然语言服务入口匹配 —— 只读计算(评既有清单,零持久化),与 GET /api/playbooks 同档
   // token-browser;必须排在下一条 /api/playbooks/ 前缀 token 规则【之前】,否则被它抢先吞成 token 级。
@@ -1189,8 +1328,16 @@ function defaultConfig() {
     // 启动时自动把本机 Claude Code(~/.claude.json 的 mcpServers)中 Ruyi 还没有的 stdio/远程条目映射进
     // externalMcpServers。默认开;关掉则完全不扫。dismissedMcpIds 记录用户已从 Ruyi 删除的 id,自动导入跳过
     // 它们(避免「删了又自动回来」的循环);用户经 import-config/apply 显式再导入会从 dismissed 移除。
+    // W2 迁移中心:键名保留(存量兼容),语义扩为「启动时从本机 Agent CLI 自动导入 MCP」——
+    // Claude Code(~/.claude.json)、Codex(~/.codex/config.toml)、Kimi Code(~/.kimi-code/mcp.json)三源同一开关。
     autoImportClaudeCodeMcp: true,
     dismissedMcpIds: [],
+    // W2 迁移中心:启动时把本机其它 Agent CLI 的全局指令文件(~/.claude/CLAUDE.md、~/.codex/AGENTS.md、
+    // ~/.kimi-code/AGENTS.md、~/.gemini/GEMINI.md)同步成工作台全局核心记忆(06d syncAgentInstructionImports)。
+    // 关掉 = 启动时不再扫;迁移中心里的手动「导入」照常可用。
+    importAgentInstructions: true,
+    // W2 迁移中心:首启提示卡「看过了」的记账 —— 用户看过的候选键(来源:条目)。出现不在这里的新候选才再提示。
+    migrationSeenKeys: [],
     // Master switch for line 2: also expose external/desktop MCP tools to the NATIVE provider tool loop
     // (bridged via an in-process MCP stdio client). Off => providers see only the workbench's own tools.
     bridgeExternalToolsToProvider: true,
@@ -2061,6 +2208,19 @@ function normalizeConfig(raw, opts = {}) {
     }
     config.dismissedMcpIds = cleanIds.slice(0, 50);
     if (!Array.isArray(raw && raw.dismissedMcpIds) || JSON.stringify(config.dismissedMcpIds) !== JSON.stringify(raw.dismissedMcpIds)) changed = true;
+  }
+  // W2 迁移中心:importAgentInstructions 布尔(显式 !== false 才为 true);migrationSeenKeys 字符串数组,去重 + 每条截 200 + 留最新 300。
+  {
+    const b = config.importAgentInstructions !== false;
+    if (b !== config.importAgentInstructions) { config.importAgentInstructions = b; changed = true; }
+    const rawArr = Array.isArray(config.migrationSeenKeys) ? config.migrationSeenKeys : [];
+    const seen = new Set(); const cleanKeys = [];
+    for (const x of rawArr) {
+      const s = String(typeof x === 'string' ? x : '').trim().slice(0, 200);
+      if (s && !seen.has(s)) { seen.add(s); cleanKeys.push(s); }
+    }
+    config.migrationSeenKeys = cleanKeys.slice(-300);
+    if (!Array.isArray(raw && raw.migrationSeenKeys) || JSON.stringify(config.migrationSeenKeys) !== JSON.stringify(raw.migrationSeenKeys)) changed = true;
   }
   if (config.bridgeExternalToolsToProvider !== false) config.bridgeExternalToolsToProvider = true;
   else config.bridgeExternalToolsToProvider = false;
@@ -3078,11 +3238,17 @@ async function syncMcpServersToClaude(config) {
     // 桌面内置连接器与 drop-in 没有 origin,照旧同步 —— 它们不是从 Claude Code 来的,不构成「删了又回来」的闭环。
     const fromClaudeCode = new Set((Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [])
       .filter(item => item && item.origin === 'claude-code').map(item => String(item.id)));
+    // W2 迁移中心:从 Codex / Kimi 导进来的条目同样不外溢进 Claude Code 的用户级配置 —— 如意自己的 Claude
+    // 引擎经 --mcp-config 拿全部 externalMcpServers,不靠 ~/.claude.json;把一个工具的连接器喷进另一个工具,
+    // 用户在那边删掉后又会被写回来(与 claude-code 来源同一个闭环)。
+    const fromOtherCli = new Set((Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [])
+      .filter(item => item && (item.origin === 'codex' || item.origin === 'kimi')).map(item => String(item.id)));
     const skippedIds = [];
     const t0 = Date.now();
     for (var s of servers) {
       if (!s.id || !s.command) continue;
       if (fromClaudeCode.has(String(s.id))) { skippedIds.push(String(s.id)); continue; }
+      if (fromOtherCli.has(String(s.id))) { skippedIds.push(String(s.id)); continue; }
       // ruyi-toolbox 登记的 MCP 组件只在如意运行时存在(04:绝不写回 config),也不写进 Claude CLI 的用户级配置 ——
       // 写过去,下次启动就会被下面的自动导入当成「Claude Code 里的连接器」导回来、固化进 externalMcpServers,
       // 于是删掉登记文件／关掉总开关都撤不走它(toolbox-discovery.e2e F3 实测抓到的闭环)。
@@ -3094,7 +3260,7 @@ async function syncMcpServersToClaude(config) {
       try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
     // 跳过了谁要能查:否则「为什么这个连接器没同步过去」在真机上无从定位。
-    if (skippedIds.length) logEvent({ kind: 'mcp_sync_skip_origin', origin: 'claude-code', ids: skippedIds });
+    if (skippedIds.length) logEvent({ kind: 'mcp_sync_skip_origin', origin: 'claude-code', ids: skippedIds.filter(id => fromClaudeCode.has(id)), otherCli: skippedIds.filter(id => fromOtherCli.has(id)) });
   } catch { /* non-fatal */ }
 }
 
@@ -3119,6 +3285,11 @@ async function syncMcpServersToKimi(config) {
       const generatedPath = await generateMcpConfig(config.mcpCommandMode);
       const generated = safeJsonParse(await fsp.readFile(generatedPath, 'utf8'), {}) || {};
       generatedServers = generated.mcpServers || {};
+    }
+    // W2 迁移中心:Kimi 现在也是自动导入的来源。从 Kimi 导进来的条目本来就在它自己的 mcp.json 里 ——
+    // 不写回、不接管所有权(否则用户在 Kimi 里删掉它,下次同步又写回去,与 claude-code 来源同一个闭环)。
+    for (const item of (Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [])) {
+      if (item && item.origin === 'kimi') delete generatedServers[String(item.id)];
     }
     const resolvedServers = new Map(resolveExternalMcpServers(config).map(server => [String(server.id), server]));
     const nextIds = new Set(Object.keys(generatedServers));
@@ -3169,60 +3340,110 @@ async function syncMcpServersToKimi(config) {
 async function autoImportClaudeCodeMcp(config) {
   try {
     if (!config || config.autoImportClaudeCodeMcp === false) return { added: 0, config };
-    // Ruyi 保留 id:绝不能作为外部服务器导入(否则与内部桥/桌面内置连接器同 id 冲突)。
-    //   win-claude-workbench = 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
-    //   ai-computer-control   = 桌面控制内置连接器(detectDesktopMcp 单独探测,mcpConnectorMutateError 视为 builtin)。
-    const RESERVED_IDS = new Set(['win-claude-workbench', 'ai-computer-control']);
-    const claudeJson = path.join(os.homedir(), '.claude.json');
+    // W2 迁移中心:来源从「只认 ~/.claude.json」扩到 Claude Code / Codex / Kimi Code 三家(agentMcpImportSources,
+    // 顺序即优先级:同 id 先到先得)。逐条判定与迁移中心的「可导入/已导入/已忽略」同一个函数
+    // (classifyAgentMcpCandidate):保留 id、toolbox- 前缀、dismissed、如意自己的入口、Kimi 里如意自己
+    // 同步过去的条目,一律不导。
+    const sources = agentMcpImportSources();
+    const managedKimi = await kimiMcpManagedIds();
     // 117n-M2:扫描 + 合并 + 落盘整段进 mutateConfig 的临界区(此前是裸 readConfig 之外的
     // read-modify-write:boot 期这一写与并发的 /api/config 保存互相吞字段)。conflict/dismissed
     // 的判据一律用锁内刚读到的 current,不用调用方传进来的可能已陈旧的 config。
     const r = await mutateConfig(async (current) => {
-      const { servers, errors } = await scanMcpSources([claudeJson], current);
-      // scanMcpSources 把"文件不存在/无 mcpServers 字段"也作为 error 返回 -- 这两者是预期情况
-      // (用户没装 Claude Code 或没配 MCP),静默合理。但"文件过大(>256KB)/JSON 解析失败"是真问题,
-      // 静默吞掉会让自动导入不工作且零诊断(重度用户的 ~/.claude.json projects 字段可超 256KB)。
-      // 故:非预期 error 走审计,让用户/开发者能定位"为什么没自动导入"。
-      if (Array.isArray(errors)) {
-        for (const e of errors) {
-          const msg = String((e && e.error) || '');
-          if (!msg || msg.includes('文件不存在') || msg.includes('未找到 mcpServers')) continue; // 预期,跳过
-          try { logEvent({ kind: 'mcp_auto_import_scan_error', path: String((e && e.path) || claudeJson), error: msg }); } catch { /* logging must never re-throw */ }
-        }
-      }
-      const dismissed = new Set(Array.isArray(current.dismissedMcpIds) ? current.dismissedMcpIds : []);
       const list = Array.isArray(current.externalMcpServers) ? current.externalMcpServers.slice() : [];
+      const view = { externalMcpServers: list, dismissedMcpIds: Array.isArray(current.dismissedMcpIds) ? current.dismissedMcpIds : [] };
       const added = [];
-      for (const raw of servers) {
-        if (!raw || raw.unsupported) continue; // 远程缺 url 等无效条目
-        if (raw.conflict) continue; // 已在 config -> 不覆盖
-        if (RESERVED_IDS.has(raw.id)) continue; // Ruyi 保留 id -> 跳过
-        if (String(raw.id || '').startsWith('toolbox-')) continue; // toolbox- 前缀归自动发现所有:老版本同步过去的残留不导回来
-        if (dismissed.has(raw.id)) continue; // 用户已删 -> 不自动回来
-        if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
-        // 122-§2.6:打来源标记。这一条是「从 Claude Code 导进来的」,syncMcpServersToClaude 据此跳过它 ——
-        // 否则用户在 Claude 里删掉一个连接器,下次启动 Ruyi 又 `claude mcp add-json` 把它写回去(§13.17 真机
-        // ~/.claude.json 被夹具污染三次,病根就是这条闭环)。import-folder / import-config 是用户主动导,不打标。
-        const srv = sanitizeExternalMcpServer({ ...raw, origin: 'claude-code' });
-        if (!srv) continue;
-        list.push(srv); added.push(srv.id);
+      const bySource = [];
+      for (const src of sources) {
+        const { servers, errors } = await scanMcpSources([src.file], view);
+        // scanMcpSources 把"文件不存在/无 mcpServers 字段"也作为 error 返回 -- 这两者是预期情况
+        // (用户没装该工具或没配 MCP),静默合理。但"文件过大(>256KB)/JSON 解析失败"是真问题,
+        // 静默吞掉会让自动导入不工作且零诊断(重度用户的 ~/.claude.json projects 字段可超 256KB)。
+        // 故:非预期 error 走审计,让用户/开发者能定位"为什么没自动导入"。
+        if (Array.isArray(errors)) {
+          for (const e of errors) {
+            const msg = String((e && e.error) || '');
+            if (!msg || msg.includes('文件不存在') || msg.includes('未找到 mcpServers') || msg.includes('未知格式')) continue; // 预期,跳过
+            try { logEvent({ kind: 'mcp_auto_import_scan_error', origin: src.origin, path: String((e && e.path) || src.file), error: msg }); } catch { /* logging must never re-throw */ }
+          }
+        }
+        const ids = [];
+        for (const raw of servers) {
+          if (classifyAgentMcpCandidate(raw, src.origin, view, managedKimi).status !== 'importable') continue;
+          if (list.length >= 10) break; // 上限:list 已含 existing+added(归一化也 cap 10,这里先停避免白加后被丢)
+          // 122-§2.6:打来源标记。这一条是「从 Claude Code(或 Codex / Kimi)导进来的」,反向同步据此跳过它 ——
+          // 否则用户在那边删掉一个连接器,下次启动 Ruyi 又把它写回去(§13.17 真机 ~/.claude.json 被夹具污染三次,
+          // 病根就是这条闭环)。import-folder / import-config 是用户主动导,不打标。
+          const srv = sanitizeExternalMcpServer({ ...raw, origin: src.origin });
+          if (!srv) continue;
+          list.push(srv); added.push(srv.id); ids.push(srv.id);
+        }
+        if (ids.length) bySource.push({ origin: src.origin, source: src.file, ids });
       }
       if (!added.length) return { abort: null }; // 零新增 -> 不落盘(与修前 return 前不写盘等价)
       current.externalMcpServers = list;
-      return { value: added };
+      return { value: { added, bySource } };
     });
     if (!r.ok) return { added: 0, config: r.config };
-    const next = r.config; const added = r.value;
+    const next = r.config; const { added, bySource } = r.value;
     // 122-§2.5:这里原本 `await generateMcpConfig(next.mcpCommandMode)` —— 它内部 resolveExternalMcpServers
     // → detectDesktopMcp → pickPython 会在【listen 之前】付一整轮探针(冷缓存本机实测 ~2 s),而本函数是 boot
     // 唯一被 await 的调用点。已挪到 13-http-router 的 listen 之后那个 setImmediate 段里统一重生成;
     // 其余调用方(/api/status、/api/mcp、起 claude 前)本来就各自现调 generateMcpConfig,不依赖这一发。
-    logEvent({ kind: 'mcp_auto_import', source: claudeJson, added: added.length, ids: added });
-    return { added: added.length, ids: added, config: next };
+    for (const row of bySource) logEvent({ kind: 'mcp_auto_import', origin: row.origin, source: row.source, added: row.ids.length, ids: row.ids });
+    return { added: added.length, ids: added, bySource, config: next };
   } catch (e) {
     try { logEvent({ kind: 'mcp_auto_import_error', error: (e && e.message) || String(e) }); } catch { /* logging must never re-throw */ }
     return { added: 0, error: (e && e.message) || String(e), config };
   }
+}
+
+// W2 迁移中心:MCP 自动导入的三个来源(顺序即优先级)。路径一律经 agentCliHomes() 现算,测试隔离家即生效。
+function agentMcpImportSources() {
+  const homes = agentCliHomes();
+  return [
+    { origin: 'claude-code', label: 'Claude Code', file: homes.claudeJson },
+    { origin: 'codex', label: 'Codex', file: path.join(homes.codex, 'config.toml') },
+    { origin: 'kimi', label: 'Kimi Code', file: path.join(homes.kimi, 'mcp.json') },
+  ];
+}
+// Kimi 的 mcp.json 里有一部分是如意自己 syncMcpServersToKimi 写过去的(所有权记在 <data>/kimi-mcp-sync.json)。
+// 那些不是「Kimi 的连接器」,导回来就是如意连如意的回环 —— 一律排除。
+async function kimiMcpManagedIds() {
+  try {
+    const sc = safeJsonParse(await fsp.readFile(path.join(paths.data, 'kimi-mcp-sync.json'), 'utf8'), null);
+    return new Set(sc && Array.isArray(sc.managedIds) ? sc.managedIds.map(String) : []);
+  } catch { return new Set(); }
+}
+// 别的 CLI 里登记的「如意自己」(权限桥 / MCP 入口):命令或参数指向某个如意包的 app/server.js,或命令就是
+// Ruyi.exe。导进来等于如意连自己,一律跳过。
+function looksLikeRuyiSelfMcp(raw) {
+  const parts = [raw && raw.command, ...((raw && Array.isArray(raw.args)) ? raw.args : [])].map(x => String(x || '').trim());
+  for (const p of parts) {
+    if (/(^|[\\/])ruyi(-workbench)?\.exe$/i.test(p)) return true;
+    if (/[\\/]app[\\/]server\.js$/i.test(p) && path.isAbsolute(p) && findRuyiPackageRootFor(p)) return true;
+  }
+  return false;
+}
+// 一条外部候选的判定(自动导入与迁移中心的逐项状态共用一个判据,两边不会说两套话)。
+//   status: 'importable' 可导入 | 'imported' 如意里已有同 id | 'dismissed' 用户删过 | 'skipped' 不该导(reason 说为什么)
+// view = { externalMcpServers, dismissedMcpIds };managedKimi = kimiMcpManagedIds() 的结果(只对 kimi 来源有意义)。
+function classifyAgentMcpCandidate(raw, origin, view, managedKimi) {
+  const id = String((raw && raw.id) || '');
+  if (!raw || !id) return { status: 'skipped', reason: 'invalid' };
+  // Ruyi 保留 id:绝不能作为外部服务器导入(否则与内部桥/桌面内置连接器同 id 冲突)。
+  //   win-claude-workbench = 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
+  //   ai-computer-control   = 桌面控制内置连接器(detectDesktopMcp 单独探测,mcpConnectorMutateError 视为 builtin)。
+  if (id === 'win-claude-workbench' || id === 'ai-computer-control') return { status: 'skipped', reason: 'reserved' };
+  if (id.startsWith('toolbox-')) return { status: 'skipped', reason: 'toolbox' }; // toolbox- 前缀归自动发现所有:老版本同步过去的残留不导回来
+  if (origin === 'kimi' && managedKimi && managedKimi.has(id)) return { status: 'skipped', reason: 'ruyi-managed' };
+  const list = view && Array.isArray(view.externalMcpServers) ? view.externalMcpServers : [];
+  if (list.some(s => s && s.id === id)) return { status: 'imported', reason: '' }; // 已在 config -> 不覆盖
+  if (raw.unsupported) return { status: 'skipped', reason: 'unsupported' }; // 远程缺 url 等无效条目
+  if (looksLikeRuyiSelfMcp(raw)) return { status: 'skipped', reason: 'ruyi-self' };
+  const dismissed = view && Array.isArray(view.dismissedMcpIds) ? view.dismissedMcpIds : [];
+  if (dismissed.includes(id)) return { status: 'dismissed', reason: '' }; // 用户已删 -> 不自动回来
+  return { status: 'importable', reason: '' };
 }
 
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
@@ -13994,7 +14215,9 @@ async function runClaudeTurn({
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
     // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
     try {
-      const memEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
+      // W2 迁移中心:CLI 自己原生会读的全局指令文件(Claude Code 读 ~/.claude/CLAUDE.md、Kimi Code 读
+      // ~/.kimi-code/AGENTS.md)导成的记忆,在【那个】CLI 的回合里不再注入一遍(去重;provider 引擎照常有)。
+      const memEntries = filterMemoryForNativeCli([...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])], agentCliType);
       // R4-S1:真实主回合必须把 confirmed contradicts 传进索引构建；此前只有纯函数 e2e 显式传 map，
       // 线上 Claude 注入漏传，导致关系已确认但提示里看不到冲突标记。
       const memoryConflicts = memEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -15493,6 +15716,8 @@ function sanitizeExternalMcpCommon(raw) {
   // 'claude-code'(那是从 Claude Code 导进来的,不能再同步回去把用户删掉的条目复活)。
   const origin = String(raw.origin || '').trim();
   if (origin === 'claude-code' || origin === 'ruyi') out.origin = origin;
+  // W2 迁移中心:自动导入扩到 Codex / Kimi Code 两家,来源标记同一用途(反向同步据此不外溢、不回写)。
+  else if (origin === 'codex' || origin === 'kimi') out.origin = origin;
   return out;
 }
 
@@ -25076,6 +25301,282 @@ async function migrateLegacyAccMemory() {
   await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'imported', source, imported, skipped, completedAt: nowIso() });
   logEvent({ kind: 'acc_memory_import_complete', source, imported, skipped });
   return { ok: true, source, imported, skipped };
+}
+
+// ============================================================================
+// W2 迁移中心 · 指令文件 → 核心记忆。本机其它 Agent CLI 的【全局】指令文件导成工作台全局记忆
+// (core:true、type convention),换到如意的用户不必把「我的规矩」再说一遍。
+//   · 来源:agentInstructionSources();每个来源取第一个非空文件(Codex 的 AGENTS.override.md 优先于
+//     AGENTS.md,与 Codex 自己的读取次序一致)。Kimi Code 的全局指令位置取自它自己的二进制里的读取逻辑
+//     ($KIMI_CODE_HOME/AGENTS.md,缺省 ~/.kimi-code/AGENTS.md)。
+//   · 拆分:核心胶囊每轮只放每条的摘要(≤520 字),所以按标题/段落把全文切成 ≤480 字的块,一块一条;每个来源
+//     最多 12 块进核心(约 6K 字,不挤占用户自己的核心席位),余下合成一条 core:false 的「其余部分」,并在
+//     第 12 条的摘要末尾注明去哪读。
+//   · 同步:sidecar <data>/memory/.agent-instructions-import-v1.json 记来源哈希与我们写下的每条文件哈希。
+//     来源变了:我们写的条目一字未动 → 自动重导;用户改过(文件哈希变了)→ 不覆盖,只标 sourceChanged。
+//     用户删掉任何一条(或在迁移中心点「移除」)→ 记 dismissed,不再自动导回(显式「导入」才解除)。
+//   · 去重:CLI 原生会读的那份(claude-md ↔ Claude Code、kimi-agents ↔ Kimi Code)在该 CLI 的回合不注入
+//     (filterMemoryForNativeCli,05 调用);provider 引擎照常注入。
+// ============================================================================
+const AGENT_INSTRUCTION_IMPORT_SCHEMA = 1;
+const AGENT_INSTRUCTION_MAX_BYTES = 200 * 1024;
+const AGENT_INSTRUCTION_CORE_PARTS = 12;
+const AGENT_INSTRUCTION_CHUNK_CHARS = 480;
+const AGENT_INSTRUCTION_NATIVE_CLI = Object.freeze({ 'claude-md': 'claude', 'kimi-agents': 'kimi' });
+let agentInstructionChain = Promise.resolve();
+
+function agentInstructionSources() {
+  const homes = agentCliHomes();
+  return [
+    { key: 'claude-md', tool: 'claude-code', label: 'Claude Code', nativeCli: 'claude', files: [path.join(homes.claude, 'CLAUDE.md')] },
+    { key: 'codex-agents', tool: 'codex', label: 'Codex', nativeCli: '', files: [path.join(homes.codex, 'AGENTS.override.md'), path.join(homes.codex, 'AGENTS.md')] },
+    { key: 'kimi-agents', tool: 'kimi', label: 'Kimi Code', nativeCli: 'kimi', files: [path.join(homes.kimi, 'AGENTS.md')] },
+    { key: 'gemini-md', tool: 'gemini', label: 'Gemini CLI', nativeCli: '', files: [path.join(homes.gemini, 'GEMINI.md')] },
+  ];
+}
+function agentInstructionImportFile() { return path.join(paths.memory, '.agent-instructions-import-v1.json'); }
+function agentInstructionMemoryId(key, n) { return 'agentmd-' + key + '-' + n; }
+function agentInstructionSourceKeyOf(id) {
+  const m = /^agentmd-([a-z]+-[a-z]+)-\d+$/.exec(String(id || ''));
+  return m ? m[1] : '';
+}
+// 某个 CLI 自己原生会读的那份导入条目,从该 CLI 回合的注入清单里拿掉。cliType 空 = 不过滤(provider 引擎)。
+function filterMemoryForNativeCli(entries, cliType) {
+  const list = Array.isArray(entries) ? entries : [];
+  const cli = String(cliType || '');
+  if (!cli) return list.slice();
+  return list.filter(e => !(e && e.scope === 'global' && AGENT_INSTRUCTION_NATIVE_CLI[agentInstructionSourceKeyOf(e.id)] === cli));
+}
+function sha256Hex(text) { return crypto.createHash('sha256').update(String(text), 'utf8').digest('hex'); }
+
+async function readAgentInstructionState() {
+  try {
+    const raw = safeJsonParse(await fsp.readFile(agentInstructionImportFile(), 'utf8'), null);
+    if (raw && raw.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && raw.sources && typeof raw.sources === 'object' && !Array.isArray(raw.sources)) return raw;
+  } catch { /* 首次 */ }
+  return { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} };
+}
+async function writeAgentInstructionState(state) {
+  await fsp.mkdir(paths.memory, { recursive: true });
+  await atomicWriteJson(agentInstructionImportFile(), { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, updatedAt: nowIso(), sources: state.sources });
+}
+
+// 取来源的第一个非空文件。返回 null(没有)/{ file, error }(过大、读不了)/{ file, text, hash }。
+async function readAgentInstructionSource(src) {
+  for (const file of src.files) {
+    let st;
+    try { st = await fsp.stat(file); } catch { continue; }
+    if (!st.isFile()) continue;
+    if (st.size > AGENT_INSTRUCTION_MAX_BYTES) return { file, error: 'too-large', size: st.size };
+    let text = '';
+    try { text = await fsp.readFile(file, 'utf8'); } catch { return { file, error: 'unreadable' }; }
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    text = text.replace(/\r\n?/g, '\n');
+    if (!text.trim()) continue; // 空文件不算(Codex:override 空 → 看 AGENTS.md)
+    return { file, text, hash: sha256Hex(text).slice(0, 32) };
+  }
+  return null;
+}
+
+// 全文 → 块。先按 #/##/### 标题切段(代码围栏里的 # 不算),相邻的小段合并到 ≤480 字(压平后),
+// 超长段再按空行切段落,段落还超长就按字数硬切。每块带所属标题,摘要里给续段补上下文。
+function splitAgentInstructionText(text) {
+  const CHUNK = AGENT_INSTRUCTION_CHUNK_CHARS;
+  const flat = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const sections = [];
+  let cur = { heading: '', lines: [] };
+  let inFence = false;
+  for (const line of String(text || '').split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+    const isHeading = !inFence && /^#{1,3}\s+\S/.test(line);
+    if (isHeading && cur.lines.some(l => l.trim())) { sections.push(cur); cur = { heading: '', lines: [] }; }
+    if (isHeading && !cur.heading) cur.heading = line.replace(/^#+\s+/, '').trim().slice(0, 60);
+    cur.lines.push(line);
+  }
+  if (cur.lines.some(l => l.trim())) sections.push(cur);
+  const chunks = [];
+  let acc = null;
+  const flush = () => { if (acc && acc.flat) chunks.push(acc); acc = null; };
+  for (const sec of sections) {
+    const body = sec.lines.join('\n').trim();
+    const f = flat(body);
+    if (!f) continue;
+    if (f.length <= CHUNK) {
+      if (acc && acc.flat.length + 1 + f.length <= CHUNK) { acc.body += '\n\n' + body; acc.flat += ' ' + f; }
+      else { flush(); acc = { heading: sec.heading, body, flat: f }; }
+      continue;
+    }
+    flush();
+    let p = null;
+    for (const para of body.split(/\n\s*\n/)) {
+      const pf = flat(para);
+      if (!pf) continue;
+      if (pf.length > CHUNK) {
+        if (p) { chunks.push(p); p = null; }
+        const raw = para.trim();
+        for (let i = 0; i < raw.length; i += CHUNK) {
+          const piece = raw.slice(i, i + CHUNK);
+          if (flat(piece)) chunks.push({ heading: sec.heading, body: piece.trim(), flat: flat(piece) });
+        }
+        continue;
+      }
+      if (p && p.flat.length + 1 + pf.length <= CHUNK) { p.body += '\n\n' + para.trim(); p.flat += ' ' + pf; }
+      else { if (p) chunks.push(p); p = { heading: sec.heading, body: para.trim(), flat: pf }; }
+    }
+    if (p) chunks.push(p);
+  }
+  flush();
+  return chunks;
+}
+
+// 一个来源 → 待写条目清单(纯函数:不落盘)。最多 12 条 core,余下合一条 core:false。
+function planAgentInstructionEntries(src, read, displayPath) {
+  const chunks = splitAgentInstructionText(read.text);
+  const coreChunks = chunks.slice(0, AGENT_INSTRUCTION_CORE_PARTS);
+  const rest = chunks.slice(AGENT_INSTRUCTION_CORE_PARTS);
+  const total = coreChunks.length + (rest.length ? 1 : 0);
+  const out = [];
+  coreChunks.forEach((c, i) => {
+    const n = i + 1;
+    let summary = (c.heading && !c.flat.startsWith('#') ? '〔' + c.heading + '〕' : '') + c.flat;
+    if (rest.length && n === coreChunks.length) summary = summary.slice(0, CORE_MEMORY_SUMMARY_CAP - 60) + ' …(余下部分见记忆 ' + agentInstructionMemoryId(src.key, total) + ')';
+    out.push({
+      id: agentInstructionMemoryId(src.key, n), core: true, part: n + '/' + total,
+      name: (src.label + ' 全局指令 · ' + (c.heading || ('第 ' + n + ' 段'))).slice(0, 120),
+      description: ('从 ' + displayPath + ' 导入的全局指令(第 ' + n + '/' + total + ' 段)').slice(0, 400),
+      coreSummary: summary.slice(0, CORE_MEMORY_SUMMARY_CAP), body: c.body,
+    });
+  });
+  if (rest.length) {
+    out.push({
+      id: agentInstructionMemoryId(src.key, total), core: false, part: total + '/' + total,
+      name: (src.label + ' 全局指令 · 其余部分').slice(0, 120),
+      description: ('从 ' + displayPath + ' 导入的全局指令(第 ' + total + '/' + total + ' 段,超出核心席位的其余部分)').slice(0, 400),
+      coreSummary: '', body: rest.map(c => c.body).join('\n\n'),
+    });
+  }
+  return out;
+}
+
+function renderAgentInstructionMemory(entry, src, read, importedAt) {
+  const lines = ['---', 'name: ' + fmVal(entry.name), 'description: ' + fmVal(entry.description), 'type: convention',
+    'createdAt: ' + importedAt, 'updatedAt: ' + importedAt, 'core: ' + String(entry.core), 'importance: normal',
+    'coreSummary: ' + fmVal(entry.coreSummary).slice(0, CORE_MEMORY_SUMMARY_CAP), 'sourceRunId: agent-instructions-import-v1',
+    'importSource: ' + src.key, 'importSourcePath: ' + fmVal(read.file), 'importSourceHash: ' + read.hash,
+    'importedAt: ' + importedAt, 'importPart: ' + entry.part, '---', '', String(entry.body || '').trim(), ''];
+  return lines.join('\n');
+}
+
+async function removeAgentInstructionEntries(key, record) {
+  const ids = new Set((record && Array.isArray(record.entries) ? record.entries : []).map(e => String(e && e.id || '')).filter(Boolean));
+  // 兜底:按 id 前缀把同来源的残留(上次写到一半的)也清掉。只动 agentmd-<key>- 开头的全局条目。
+  try { for (const f of await fsp.readdir(memoryGlobalDir())) { const id = f.replace(/\.md$/i, ''); if (f.toLowerCase().endsWith('.md') && agentInstructionSourceKeyOf(id) === key) ids.add(id); } } catch { /* 目录还没有 */ }
+  for (const id of ids) await deleteMemory(id, 'global', '').catch(() => {});
+  return ids.size;
+}
+
+async function writeAgentInstructionEntries(src, read, displayPath) {
+  const importedAt = nowIso();
+  const plan = planAgentInstructionEntries(src, read, displayPath);
+  await fsp.mkdir(memoryGlobalDir(), { recursive: true });
+  const entries = [];
+  for (const entry of plan) {
+    const content = renderAgentInstructionMemory(entry, src, read, importedAt);
+    await atomicWriteJson(path.join(memoryGlobalDir(), entry.id + '.md'), content);
+    entries.push({ id: entry.id, hash: sha256Hex(content).slice(0, 32), core: entry.core });
+  }
+  return { importedAt, entries };
+}
+
+// 我们写下的条目现在怎样:missing(被删了几条)/ modified(被改了几条)。
+async function inspectAgentInstructionEntries(record) {
+  let missing = 0, modified = 0;
+  for (const e of (record && Array.isArray(record.entries) ? record.entries : [])) {
+    let content = null;
+    try { content = await fsp.readFile(path.join(memoryGlobalDir(), String(e.id) + '.md'), 'utf8'); } catch { missing++; continue; }
+    if (sha256Hex(content).slice(0, 32) !== e.hash) modified++;
+  }
+  return { missing, modified };
+}
+
+// 同步入口(启动期、迁移中心 scan/apply 共用;整段串行化)。
+//   opts.auto     true = 按配置开关自动导入/自动重导(启动期与 scan);false = 只看不写(除非 import/dismiss 点名)
+//   opts.importKeys  显式导入(解除 dismissed、覆盖用户改动)
+//   opts.dismissKeys 显式移除(删条目 + 记 dismissed)
+// 返回 { ok, sources: [{ key, tool, label, file, displayPath, status, entries, coreEntries, importedAt, userModified, sourceChanged }] }
+//   status: absent | too-large | importable | imported | source-updated | dismissed
+function syncAgentInstructionImports(opts = {}) {
+  const job = agentInstructionChain.then(() => syncAgentInstructionImportsUnlocked(opts));
+  agentInstructionChain = job.catch(() => {});
+  return job;
+}
+async function syncAgentInstructionImportsUnlocked(opts) {
+  const auto = opts.auto === true;
+  const importKeys = new Set(Array.isArray(opts.importKeys) ? opts.importKeys.map(String) : []);
+  const dismissKeys = new Set(Array.isArray(opts.dismissKeys) ? opts.dismissKeys.map(String) : []);
+  const state = await readAgentInstructionState();
+  let dirty = false;
+  const out = [];
+  for (const src of agentInstructionSources()) {
+    const record = state.sources[src.key] || null;
+    const read = await readAgentInstructionSource(src);
+    const file = read ? read.file : src.files[src.files.length - 1];
+    const displayPath = tildePath(file);
+    const row = { key: src.key, tool: src.tool, label: src.label, nativeCli: src.nativeCli, file, displayPath, status: 'absent', entries: 0, coreEntries: 0, importedAt: '', userModified: false, sourceChanged: false };
+    if (dismissKeys.has(src.key)) {
+      await removeAgentInstructionEntries(src.key, record);
+      state.sources[src.key] = { key: src.key, file, sourceHash: read && read.hash ? read.hash : '', entries: [], dismissed: true, dismissedAt: nowIso() };
+      dirty = true;
+      logEvent({ kind: 'agent_instructions_dismiss', source: src.key });
+      out.push({ ...row, status: 'dismissed' });
+      continue;
+    }
+    if (read && read.error) {
+      out.push({ ...row, status: read.error === 'too-large' ? 'too-large' : 'absent', error: read.error });
+      continue;
+    }
+    const forced = importKeys.has(src.key);
+    if (record && record.dismissed && !forced) { out.push({ ...row, status: read ? 'dismissed' : 'absent' }); continue; }
+    if (record && !record.dismissed && Array.isArray(record.entries) && record.entries.length && !forced) {
+      const inspect = await inspectAgentInstructionEntries(record);
+      if (inspect.missing) {
+        // 用户在记忆面板里删了我们导入的条目 = 不要它了。记 dismissed,余下的条目留给用户自己处置。
+        state.sources[src.key] = { ...record, dismissed: true, dismissedAt: nowIso(), entries: [] };
+        dirty = true;
+        logEvent({ kind: 'agent_instructions_dismiss', source: src.key, reason: 'entry-deleted' });
+        out.push({ ...row, status: read ? 'dismissed' : 'absent' });
+        continue;
+      }
+      const userModified = inspect.modified > 0;
+      const sourceChanged = Boolean(read && read.hash !== record.sourceHash);
+      if (sourceChanged && !userModified && auto) {
+        await removeAgentInstructionEntries(src.key, record);
+        const written = await writeAgentInstructionEntries(src, read, displayPath);
+        state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
+        dirty = true;
+        logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: 'source-updated' });
+        out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt });
+        continue;
+      }
+      if (Boolean(record.sourceChanged) !== sourceChanged || Boolean(record.userModified) !== userModified) {
+        state.sources[src.key] = { ...record, sourceChanged, userModified };
+        dirty = true;
+      }
+      out.push({ ...row, status: sourceChanged ? 'source-updated' : 'imported', entries: record.entries.length,
+        coreEntries: record.entries.filter(e => e && e.core).length, importedAt: record.importedAt || '', userModified, sourceChanged, sourceMissing: !read });
+      continue;
+    }
+    if (!read) { out.push(row); continue; }
+    if (!auto && !forced) { out.push({ ...row, status: 'importable' }); continue; }
+    await removeAgentInstructionEntries(src.key, record);
+    const written = await writeAgentInstructionEntries(src, read, displayPath);
+    state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
+    dirty = true;
+    logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: forced ? 'explicit' : 'auto' });
+    out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt });
+  }
+  if (dirty) await writeAgentInstructionState(state);
+  return { ok: true, sources: out };
 }
 
 async function resolveWorkbenchMemoryToolContext(ctx) {
@@ -42334,6 +42835,31 @@ async function readSkillDir(baseDir, source, caps) {
 // 技能同 id 优先级 project > user > claude-code > builtin;命令/Playbook 各自命名空间(Playbook id 加 'pb:' 前缀防撞)。
 // requires 门控复用 evalPlaybookAvailability 的能力矩阵逻辑(getCapabilities 60s 缓存)。caps 可预传避免重复探测。
 // claude-code 源只读直连 ~/.claude/skills(本机 Claude Code 个人技能),不复制;删除仅允许 user 源(见 DELETE /api/skills)。
+// W2 迁移中心:Claude Code 已安装插件的技能目录。只认 Claude Code 自己的安装账
+// ~/.claude/plugins/installed_plugins.json(v1:{plugins:{"名@市场":{installPath}}};v2:值是安装数组)——
+// marketplaces/ 下是「可装」的全集,不是已装的,不扫。~/.claude/settings.json 的 enabledPlugins 里显式 false 的跳过。
+// 只读、从不抛;每个插件取 <installPath>/skills。
+async function claudePluginSkillDirs() {
+  const claudeDir = agentCliHomes().claude;
+  const installed = safeJsonParse(await readIfExists(path.join(claudeDir, 'plugins', 'installed_plugins.json'), 512 * 1024), null);
+  const plugins = installed && installed.plugins && typeof installed.plugins === 'object' ? installed.plugins : null;
+  if (!plugins) return [];
+  const settings = safeJsonParse(await readIfExists(path.join(claudeDir, 'settings.json'), 512 * 1024), null);
+  const enabled = settings && settings.enabledPlugins && typeof settings.enabledPlugins === 'object' ? settings.enabledPlugins : {};
+  const out = [];
+  for (const [name, value] of Object.entries(plugins)) {
+    if (enabled[name] === false) continue;
+    const installs = Array.isArray(value) ? value : [value];
+    for (const inst of installs) {
+      const installPath = inst && typeof inst.installPath === 'string' ? inst.installPath : '';
+      if (!installPath || !path.isAbsolute(installPath)) continue;
+      out.push({ plugin: String(name).slice(0, 120), skillsDir: path.join(installPath, 'skills') });
+      break; // 同一插件多份安装(不同 scope)只取第一份
+    }
+    if (out.length >= 64) break;
+  }
+  return out;
+}
 async function loadSkillRegistry(cwd, config, caps) {
   if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
   const out = [];
@@ -42356,6 +42882,15 @@ async function loadSkillRegistry(cwd, config, caps) {
       });
     }
   }
+  // W2 迁移中心:其它 Agent CLI 的技能同样只读直连(活读,不复制),优先级从低到高:
+  //   builtin < claude-plugin(Claude Code 已安装插件自带的技能)< kimi(~/.kimi-code/skills)< codex(~/.codex/skills)
+  //   < claude-code(~/.claude/skills)< user < project。同名时高优先级那份生效,来源标签随条目走(技能库里看得见)。
+  for (const dir of await claudePluginSkillDirs()) {
+    for (const [id, e] of await readSkillDir(dir.skillsDir, 'claude-plugin', caps)) skillMap.set(id, { ...e, plugin: dir.plugin });
+  }
+  const cliHomes = agentCliHomes();
+  for (const [id, e] of await readSkillDir(path.join(cliHomes.kimi, 'skills'), 'kimi', caps)) skillMap.set(id, e);
+  for (const [id, e] of await readSkillDir(path.join(cliHomes.codex, 'skills'), 'codex', caps)) skillMap.set(id, e);
   // 本机 Claude Code 个人技能(~/.claude/skills/<id>/SKILL.md)作为第 4 源映射进来(只读直连,不复制)。
   // 优先级:builtin < claude-code < user < project -- 放在 user 之前,让 Ruyi 自己的 user 技能可覆盖同名 Claude Code 技能。
   // 目录缺失时 readSkillDir 返回空 Map(优雅 no-op),与 ~/.claude/commands 的读取同精神。
@@ -45726,8 +46261,13 @@ async function startServerInner(opts) {
   {
     const imp = await autoImportClaudeCodeMcp(config).catch(() => null);
     if (imp && imp.config) config = imp.config;
-    if (imp && imp.added) console.log(`Auto-imported ${imp.added} MCP server(s) from Claude Code: ${(imp.ids || []).join(', ')}`);
+    if (imp && imp.added) console.log(`Auto-imported ${imp.added} MCP server(s) from ${(imp.bySource || []).map(r => r.origin).join('/') || 'Claude Code'}: ${(imp.ids || []).join(', ')}`);
   }
+  // W2 迁移中心:① 本包登记进安装登记表(老版本识别的账,所有包共用一个数据根,只能记在这里);
+  // ② 本机其它 Agent CLI 的全局指令文件同步成工作台核心记忆(只读几个小文件 + 哈希比对,幂等)。
+  // 都是旁路:失败只吞,不挡启动。
+  await recordInstallLaunch(LAUNCH_MODE);
+  if (config.importAgentInstructions !== false) await syncAgentInstructionImports({ auto: true }).catch(() => null);
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
@@ -46391,8 +46931,44 @@ function parseArgs(argv) {
 // 每个函数:命中自己域的路由则处理并 return true,否则 return false(调用处 fallthrough)。
 // 顺序与语义与原 handleApi 内联块完全一致;e2e 全量即回归网。
 
+// ── W2 迁移中心:/api/migration/scan|apply|undo|recycle ──────────────────────────────────────
+// 实现在 13u-migration-center.js(零入边),经 00-boot 的 MigrationHooks 迟绑定调进去。四条都是 token 级
+// (01b-route-auth):scan 回的是本机各处配置里的路径与指令文件摘要,apply/undo 会改写外部配置文件,
+// recycle 会把一个目录移进回收站(另要 body.confirm === body.root)。命中返回 true,否则 false。
+async function handleMigrationApiRoutes(req, res, pathname) {
+  const reply = result => {
+    const r = result && typeof result === 'object' ? { ...result } : { ok: false, error: 'no-result' };
+    const status = Number.isInteger(r.status) ? r.status : (r.ok === false ? 400 : 200);
+    delete r.status;
+    // 失败一律给稳定码 migration.<原因>(与 apiFailure 同形 {code, params, message}),前端按码分支不按句子。
+    if (r.ok === false && typeof r.error === 'string') r.error = { code: 'migration.' + r.error.replace(/-/g, '_'), params: {}, message: r.error };
+    send(res, json(r, status));
+    return true;
+  };
+  const hook = name => (typeof MigrationHooks[name] === 'function' ? MigrationHooks[name] : null);
+  const unavailable = () => reply({ ok: false, error: 'migration center unavailable', status: 503 });
+  if (req.method === 'GET' && pathname === '/api/migration/scan') {
+    const fn = hook('scan'); if (!fn) return unavailable();
+    return reply(await fn());
+  }
+  if (req.method === 'POST' && pathname === '/api/migration/apply') {
+    const fn = hook('apply'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  if (req.method === 'POST' && pathname === '/api/migration/undo') {
+    const fn = hook('undo'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  if (req.method === 'POST' && pathname === '/api/migration/recycle') {
+    const fn = hook('recycle'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  return false;
+}
+
 // ── MCP 域:/api/mcp/import-folder、/api/mcp/import-config/scan|apply ─────────────────────────
 async function handleMcpApiRoutes(req, res, pathname) {
+  if (await handleMigrationApiRoutes(req, res, pathname)) return true;
   // v1.0.2-S5: 从文件夹导入外部 MCP。POST /api/mcp/import-folder {path}(用户经 /api/pick-folder 选好的绝对
   // 路径)。读该文件夹下 ruyi-mcp.json 清单(≤32KB), 经 sanitizeExternalMcpServer 清洗, 尊重 externalMcpServers
   // ≤10 上限, id 已存在则更新该条(否则追加), 持久化 config(writeConfig 原子写)并再生成 generateMcpConfig。
@@ -60554,6 +61130,710 @@ Object.assign(SchedulerHooks, {
   onSchedulerNotice: schedulerOnSchedulerNotice,
   commitmentsSince: schedulerCommitmentsSince,
   prepareThread: schedulerPrepareThread,
+});
+
+// ============================================================================
+// 13u 迁移中心(W2;56 号文 §3 + 用户 2026-09-24 原话「让用户无痛迁移…包括把老的如意迁移到新的如意里;
+// 要注意如意的安装包可能是在电脑里的任意位置」)。
+//
+// 两件事,一个面:
+//   ① 从 Claude Code / Codex / Kimi Code 导入:全局指令文件(06d syncAgentInstructionImports,导成核心记忆)、
+//      MCP(01 classifyAgentMcpCandidate,与启动期自动导入同一个判据)、技能(12 loadSkillRegistry 活读)。
+//   ② 老版本如意 → 当前包:所有包共用一个数据根,配置/会话/记忆本来就是同一份;真正会断的是【别处存着的
+//      指向老包目录的绝对路径】(56 号文 §3.1 的实例:~/.claude.json 的 ai-computer-control 指着
+//      dist/Ruyi-v1.6.7-full/…/python.exe)。本模块只从「登记表 + 各处配置里的绝对路径」认老包,不全盘扫描;
+//      路径落在【另一个】如意包根(00 ruyiPackageInfo 的标记)里、且当前包有同相对路径的文件 → 提议改写;
+//      没有对应文件的 MCP 条目 → 提议移除。应用前每个文件先备份(<file>.bak-ruyi-migrate-<ts>),改动写进
+//      迁移日志 <data>/migrations/<ts>.json,「撤销」按日志逐项反向改回(只改回我们改过、且此后没人再动的值)。
+//   ③ 删老包:只「移到回收站」,不做永久删除;拒绝当前包、拒绝仍在运行的包、拒绝仍被引用的包、拒绝装着数据根的目录。
+//
+// 替用户做的默认决定(56 号文 §3.3 三条,报告里写明、用户可推翻):一键全改,但预览里逐项勾选(默认全勾);
+// 删老包只进回收站;老包一次列全;旧名 MCP 条目(如 ai-computer-control)新包里有对应文件就改路径,否则提议移除。
+//
+// 本模块【零入边】:消费点(13b 的 /api/migration/* 路由)只经 00-boot 的 MigrationHooks 调进来;它自己只向
+// 更早的模块取符号 —— 依赖图上不添前向边、不进循环。
+// ============================================================================
+
+const MIGRATION_LOG_SCHEMA = 1;
+const MIGRATION_BACKUP_TAG = '.bak-ruyi-migrate-';
+const MIGRATION_SIZE_BUDGET_MS = 6000;       // 一次扫描里算目录大小的总时间预算(超了就报「至少 X」)
+const MIGRATION_SIZE_FILE_CAP = 80000;       // 单个包最多数这么多个文件
+const MIGRATION_SIZE_TTL_MS = 10 * 60 * 1000;
+const MIGRATION_EXTERNAL_SOURCES = Object.freeze(['claude-code', 'codex', 'kimi', 'claude-plugin']);
+const migrationSizeCache = new Map();        // 包根键 -> { at, bytes, files, capped }
+let migrationChain = Promise.resolve();
+
+function migrationSerial(fn) {
+  const job = migrationChain.then(fn);
+  migrationChain = job.catch(() => {});
+  return job;
+}
+function migrationDir() { return path.join(paths.data, 'migrations'); }
+function migrationStamp() { return new Date().toISOString().replace(/[:.]/g, '-'); }
+function migrationHash(text) { return crypto.createHash('sha1').update(String(text), 'utf8').digest('hex').slice(0, 12); }
+function migrationCurrentRoot() { return path.resolve(externalRoot()); }
+// childKey / parentKey 都是 samePathKey 的结果:child 就是 parent,或在 parent 之下。
+function migrationPathInside(childKey, parentKey) {
+  return childKey === parentKey || childKey.startsWith(parentKey + '\\') || childKey.startsWith(parentKey + '/');
+}
+
+// ── 引用扫描:各处配置里指向「另一个如意包」的字符串 ─────────────────────────────────────────────
+// 一个值(可能是 ; 分隔的路径表)里指向老包的段 → 改写方案。newValue 为 null = 至少一段在当前包里没有对应文件。
+// encode:TOML 基本字符串里反斜杠是转义过的(我们的迷你解析器不反转义),写回时按原样式编码。
+function migrationAnalyzeValue(value, ctx, encode) {
+  const s = String(value == null ? '' : value);
+  if (!s || s.length > 4000) return null;
+  const parts = process.platform === 'win32' && s.includes(';') ? s.split(';') : [s];
+  let hit = false, allTargets = true;
+  const roots = new Map();
+  const mapped = parts.map(part => {
+    const t = part.trim();
+    if (!t || !path.isAbsolute(t)) return part;
+    const info = findRuyiPackageRootFor(t, ctx.cache);
+    if (!info || samePathKey(info.root) === ctx.currentKey) return part;
+    hit = true;
+    roots.set(samePathKey(info.root), info.root);
+    const rel = path.relative(info.root, path.resolve(t));
+    if (rel.startsWith('..')) { allTargets = false; return part; }
+    const target = rel ? path.join(ctx.currentRoot, rel) : ctx.currentRoot;
+    if (!fs.existsSync(target)) { allTargets = false; return part; }
+    return part.replace(t, encode ? encode(t, target) : target);
+  });
+  if (!hit) return null;
+  return { roots: [...roots.values()], newValue: allTargets ? mapped.join(';') : null };
+}
+
+// 一个 MCP 条目(json/toml/如意配置里的一条)→ 引用项;没有指向老包的字段时回 null。
+function migrationServerItem(ctx, meta, server, encode) {
+  const changes = [];
+  const roots = new Map();
+  let complete = true;
+  const look = (field, value) => {
+    if (typeof value !== 'string') return;
+    const a = migrationAnalyzeValue(value, ctx, encode);
+    if (!a) return;
+    for (const r of a.roots) roots.set(samePathKey(r), r);
+    if (a.newValue == null) complete = false;
+    changes.push({ field, from: value, to: a.newValue });
+  };
+  look('command', server && server.command);
+  (server && Array.isArray(server.args) ? server.args : []).forEach((a, i) => look('args.' + i, a));
+  look('cwd', server && server.cwd);
+  if (server && server.env && typeof server.env === 'object') for (const [k, v] of Object.entries(server.env)) look('env.' + k, v);
+  if (!changes.length) return null;
+  let action = complete ? 'rewrite' : 'remove';
+  if (!complete && meta.kind === 'toml') action = 'manual'; // TOML 里整段删除不做,留给用户手动
+  const id = migrationHash([samePathKey(meta.file), JSON.stringify(meta.container || []), meta.serverId, changes.map(c => c.field + '=' + c.from).join('\n')].join('\n'));
+  return {
+    id, file: meta.file, displayFile: tildePath(meta.file), kind: meta.kind, owner: meta.owner,
+    container: meta.container || [], serverId: meta.serverId, entryLabel: meta.entryLabel || meta.serverId,
+    packageRoots: [...roots.values()], action, changes: changes.map(c => ({ field: c.field, from: c.from, to: action === 'rewrite' ? c.to : null })),
+  };
+}
+
+function migrationGetAt(obj, pointer) {
+  let cur = obj;
+  for (const k of pointer) { if (!cur || typeof cur !== 'object') return undefined; cur = cur[k]; }
+  return cur;
+}
+
+async function migrationCollectRefs(config) {
+  const currentRoot = migrationCurrentRoot();
+  const ctx = { cache: new Map(), currentRoot, currentKey: samePathKey(currentRoot) };
+  const homes = agentCliHomes();
+  const items = [];
+  // ① JSON 形的 MCP 声明:~/.claude.json(含 projects.<路径>.mcpServers)、Kimi 的 mcp.json、如意自己生成的 workbench.mcp*.json
+  const jsonFiles = [
+    { file: homes.claudeJson, owner: 'claude-code' },
+    { file: path.join(homes.kimi, 'mcp.json'), owner: 'kimi' },
+  ];
+  try {
+    for (const f of await fsp.readdir(paths.generated)) {
+      if (/^workbench\.mcp.*\.json$/i.test(f)) jsonFiles.push({ file: path.join(paths.generated, f), owner: 'ruyi-generated' });
+    }
+  } catch { /* generated/ 还没有 */ }
+  for (const jf of jsonFiles) {
+    let obj = null;
+    try {
+      const st = await fsp.stat(jf.file);
+      if (!st.isFile() || st.size > 8 * 1024 * 1024) continue;
+      obj = safeJsonParse(await fsp.readFile(jf.file, 'utf8'), null);
+    } catch { continue; }
+    if (!obj || typeof obj !== 'object') continue;
+    const containers = [['mcpServers']];
+    if (jf.owner === 'claude-code' && obj.projects && typeof obj.projects === 'object') {
+      for (const p of Object.keys(obj.projects)) containers.push(['projects', p, 'mcpServers']);
+    }
+    for (const container of containers) {
+      const servers = migrationGetAt(obj, container);
+      if (!servers || typeof servers !== 'object' || Array.isArray(servers)) continue;
+      for (const [serverId, server] of Object.entries(servers)) {
+        const item = migrationServerItem(ctx, { file: jf.file, kind: 'json', owner: jf.owner, container, serverId,
+          entryLabel: container.length > 1 ? serverId + ' (' + tildePath(container[1]) + ')' : serverId }, server);
+        if (item) items.push(item);
+      }
+    }
+  }
+  // ② Codex 的 config.toml [mcp_servers.X]
+  {
+    const file = path.join(homes.codex, 'config.toml');
+    let text = null;
+    try { const st = await fsp.stat(file); if (st.isFile() && st.size <= 512 * 1024) text = await fsp.readFile(file, 'utf8'); } catch { /* 没装 Codex */ }
+    if (text) {
+      const encode = (raw, target) => (raw.includes('\\\\') ? target.replace(/\\/g, '\\\\') : target);
+      for (const server of _parseTomlMcpServers(text)) {
+        const item = migrationServerItem(ctx, { file, kind: 'toml', owner: 'codex', container: ['mcp_servers'], serverId: server.id }, server, encode);
+        if (item) items.push(item);
+      }
+    }
+  }
+  // ③ 如意自己的配置:externalMcpServers 可改写/移除;desktopMcp / claudePath / kimiPath 只报告(设置页那一份表单会把
+  //    它们整字段存回去,这里改了会被下一次「保存设置」盖掉 —— 所以交给用户在设置里改)。
+  for (const s of (Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [])) {
+    if (!s || !s.id) continue;
+    const item = migrationServerItem(ctx, { file: paths.config, kind: 'ruyi-config', owner: 'ruyi', container: ['externalMcpServers'], serverId: s.id }, s);
+    if (item) items.push(item);
+  }
+  {
+    const dm = config.desktopMcp || {};
+    const item = migrationServerItem(ctx, { file: paths.config, kind: 'ruyi-config', owner: 'ruyi', container: [], serverId: 'desktopMcp', entryLabel: 'desktopMcp' }, { command: dm.command, args: dm.args, cwd: dm.cwd });
+    if (item) items.push({ ...item, action: 'manual', changes: item.changes.map(c => ({ ...c, to: null })), note: 'settings' });
+    for (const key of ['claudePath', 'kimiPath']) {
+      const it = migrationServerItem(ctx, { file: paths.config, kind: 'ruyi-config', owner: 'ruyi', container: [], serverId: key, entryLabel: key }, { command: config[key] });
+      if (it) items.push({ ...it, action: 'manual', changes: it.changes.map(c => ({ ...c, to: null })), note: 'settings' });
+    }
+  }
+  return items;
+}
+
+// ── 老包清单:登记表 ∪ 引用里认出来的包根(不全盘扫描)──────────────────────────────────────────
+function migrationPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return Boolean(e && e.code === 'EPERM'); }
+}
+// 「还在跑」:登记表里那一行的 pid 还活着,且那次启动晚于本次开机(开机前的 pid 不可能还活着,排除 pid 复用的大头)。
+// 判不准时宁可判「在跑」—— 后果只是拒绝移进回收站,方向是安全的。
+function migrationPackageRunning(row) {
+  if (!row || !row.pid) return false;
+  const bootAt = Date.now() - os.uptime() * 1000;
+  const launched = Date.parse(String(row.lastLaunchedAt || ''));
+  if (Number.isFinite(launched) && launched < bootAt - 60000) return false;
+  return migrationPidAlive(row.pid);
+}
+async function migrationDirSize(root, budget) {
+  const key = samePathKey(root);
+  const hit = migrationSizeCache.get(key);
+  if (hit && Date.now() - hit.at < MIGRATION_SIZE_TTL_MS) return hit;
+  let bytes = 0, files = 0, capped = false;
+  const stack = [root];
+  while (stack.length) {
+    if (files >= MIGRATION_SIZE_FILE_CAP || Date.now() > budget.deadline) { capped = true; break; }
+    const dir = stack.pop();
+    let ents = [];
+    try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { continue; }
+    for (const d of ents) {
+      if (d.isSymbolicLink()) continue;
+      const p = path.join(dir, d.name);
+      if (d.isDirectory()) stack.push(p);
+      else if (d.isFile()) { try { bytes += (await fsp.stat(p)).size; } catch { /* 读不到的文件不计 */ } files++; }
+    }
+  }
+  const out = { at: Date.now(), bytes, files, capped };
+  if (!capped) migrationSizeCache.set(key, out);
+  return out;
+}
+async function migrationListPackages(refs, opts = {}) {
+  const currentRoot = migrationCurrentRoot();
+  const currentKey = samePathKey(currentRoot);
+  const reg = readInstallRegistry();
+  const map = new Map();
+  for (const row of reg.packages) {
+    const key = samePathKey(row.packageRoot);
+    if (key === currentKey) continue;
+    const info = ruyiPackageInfo(row.packageRoot);
+    if (!info) continue;
+    map.set(key, { root: info.root, version: info.version || row.version, lastLaunchedAt: row.lastLaunchedAt, firstSeenAt: row.firstSeenAt,
+      launchMode: row.launchMode, running: migrationPackageRunning(row), discoveredBy: ['registry'] });
+  }
+  for (const item of refs) {
+    for (const r of item.packageRoots) {
+      const key = samePathKey(r);
+      if (key === currentKey) continue;
+      if (map.has(key)) { const p = map.get(key); if (!p.discoveredBy.includes('reference')) p.discoveredBy.push('reference'); continue; }
+      const info = ruyiPackageInfo(r);
+      if (!info) continue;
+      map.set(key, { root: info.root, version: info.version, lastLaunchedAt: '', firstSeenAt: '', launchMode: '', running: false, discoveredBy: ['reference'] });
+    }
+  }
+  const budget = { deadline: Date.now() + MIGRATION_SIZE_BUDGET_MS };
+  const out = [];
+  for (const [key, p] of map) {
+    const myRefs = refs.filter(item => item.packageRoots.some(r => samePathKey(r) === key));
+    const size = opts.withSizes ? await migrationDirSize(p.root, budget) : null;
+    out.push({ ...p, key, refCount: myRefs.length, refIds: myRefs.map(item => item.id),
+      containsCurrent: migrationPathInside(currentKey, key),
+      sizeBytes: size ? size.bytes : null, sizeCapped: size ? size.capped : null });
+  }
+  out.sort((a, b) => String(b.lastLaunchedAt || '').localeCompare(String(a.lastLaunchedAt || '')) || a.root.localeCompare(b.root));
+  return out;
+}
+
+// ── 导入面(MCP / 技能)的只读视图 ───────────────────────────────────────────────────────────
+function migrationMcpSummary(raw) {
+  if (raw.url) return String(raw.type || 'http') + ' ' + safeUrlForDisplay(raw.url);
+  return path.basename(String(raw.command || '')) + (Array.isArray(raw.args) && raw.args.length ? ' +' + raw.args.length : '');
+}
+async function migrationScanMcp(config) {
+  const managedKimi = await kimiMcpManagedIds();
+  const view = { externalMcpServers: Array.isArray(config.externalMcpServers) ? config.externalMcpServers : [], dismissedMcpIds: Array.isArray(config.dismissedMcpIds) ? config.dismissedMcpIds : [] };
+  const sources = [];
+  const servers = [];
+  for (const src of agentMcpImportSources()) {
+    const parsed = parseMcpConfigFile(src.file);
+    const missing = Boolean(parsed.error && /文件不存在/.test(parsed.error));
+    sources.push({ origin: src.origin, label: src.label, file: src.file, displayFile: tildePath(src.file), exists: !missing,
+      error: parsed.error && !missing && !/未找到 mcpServers/.test(parsed.error) ? parsed.error : '' });
+    for (const raw of parsed.servers) {
+      const v = classifyAgentMcpCandidate(raw, src.origin, view, managedKimi);
+      const existing = view.externalMcpServers.find(s => s && s.id === raw.id);
+      servers.push({ key: src.origin + ':' + raw.id, origin: src.origin, label: src.label, id: raw.id, summary: migrationMcpSummary(raw),
+        status: v.status, reason: v.reason, importedOrigin: existing ? String(existing.origin || 'ruyi') : '' });
+    }
+  }
+  return { sources, servers, limit: 10, used: view.externalMcpServers.length };
+}
+async function migrationScanSkills(config) {
+  let registry = [];
+  try { registry = await loadSkillRegistry('', config, null); } catch { registry = []; }
+  return registry.filter(e => e && e.kind === 'skill' && MIGRATION_EXTERNAL_SOURCES.includes(e.source))
+    .map(e => ({ key: e.source + ':' + e.id, id: e.id, name: e.name, source: e.source, plugin: e.plugin || '', available: e.available !== false }));
+}
+
+async function migrationLogs() {
+  let files = [];
+  try { files = (await fsp.readdir(migrationDir())).filter(f => /^[0-9TZ-]+\.json$/.test(f)).sort().reverse(); } catch { return []; }
+  const out = [];
+  for (const f of files.slice(0, 20)) {
+    const log = safeJsonParse(await fsp.readFile(path.join(migrationDir(), f), 'utf8').catch(() => ''), null);
+    if (log && log.schema === MIGRATION_LOG_SCHEMA) out.push(log);
+  }
+  return out;
+}
+
+// 首启提示的候选键:出现任何一个不在 config.migrationSeenKeys 里的键就提示一次。
+function migrationPromptKeys(parts) {
+  const keys = [];
+  for (const s of parts.instructions) if (['importable', 'imported', 'source-updated'].includes(s.status)) keys.push('instr:' + s.key);
+  for (const s of parts.mcp.servers) {
+    if (s.status === 'importable' || (s.status === 'imported' && s.importedOrigin === s.origin)) keys.push('mcp:' + s.key);
+  }
+  for (const s of parts.skills) keys.push('skill:' + s.key);
+  for (const p of parts.packages) keys.push('pkg:' + p.key);
+  return keys.map(k => k.slice(0, 200)).slice(0, 300);
+}
+
+async function migrationCollect(opts = {}) {
+  const config = await readConfig();
+  const instr = await syncAgentInstructionImports({ auto: config.importAgentInstructions !== false });
+  const mcp = await migrationScanMcp(config);
+  const skills = await migrationScanSkills(config);
+  const refs = await migrationCollectRefs(config);
+  await migrationRememberPackages(refs.flatMap(r => r.packageRoots)).catch(() => 0);
+  const packages = await migrationListPackages(refs, { withSizes: opts.withSizes === true });
+  const keys = migrationPromptKeys({ instructions: instr.sources, mcp, skills, packages });
+  const seen = new Set(Array.isArray(config.migrationSeenKeys) ? config.migrationSeenKeys : []);
+  const fresh = keys.filter(k => !seen.has(k));
+  return { config, instructions: instr.sources, mcp, skills, refs, packages, keys, fresh };
+}
+
+async function migrationScan() {
+  return migrationSerial(async () => {
+    const c = await migrationCollect({ withSizes: true });
+    const logs = await migrationLogs();
+    const last = logs.find(l => !l.undoneAt) || null;
+    const counts = {
+      instructions: c.instructions.filter(s => s.status === 'imported' || s.status === 'source-updated').length,
+      instructionsImportable: c.instructions.filter(s => s.status === 'importable').length,
+      mcpImported: c.mcp.servers.filter(s => s.status === 'imported' && s.importedOrigin === s.origin).length,
+      mcpImportable: c.mcp.servers.filter(s => s.status === 'importable').length,
+      skills: c.skills.length,
+      packages: c.packages.length,
+      refs: c.refs.filter(r => r.action !== 'manual').length,
+    };
+    return {
+      ok: true,
+      current: { root: migrationCurrentRoot(), version: VERSION },
+      settings: { importAgentInstructions: c.config.importAgentInstructions !== false, autoImportClaudeCodeMcp: c.config.autoImportClaudeCodeMcp !== false },
+      instructions: c.instructions, mcp: c.mcp, skills: c.skills, refs: c.refs, packages: c.packages,
+      lastMigration: last ? { id: last.id, createdAt: last.createdAt, items: (last.files || []).reduce((n, f) => n + (f.items || []).length, 0) } : null,
+      prompt: { show: c.fresh.length > 0, fresh: c.fresh.length, counts },
+    };
+  });
+}
+
+// ── 应用:导入 / 改写老包引用 / 记「看过了」/ 两个开关 ────────────────────────────────────────
+async function migrationImportMcp(list) {
+  const want = (Array.isArray(list) ? list : []).map(x => ({ origin: String(x && x.origin || ''), id: String(x && x.id || '') })).filter(x => x.origin && x.id).slice(0, 20);
+  if (!want.length) return { ok: true, added: [], skipped: [] };
+  const managedKimi = await kimiMcpManagedIds();
+  const sources = new Map(agentMcpImportSources().map(s => [s.origin, s]));
+  const r = await mutateConfig(async current => {
+    const list2 = Array.isArray(current.externalMcpServers) ? current.externalMcpServers.slice() : [];
+    const added = [], skipped = [];
+    for (const w of want) {
+      const src = sources.get(w.origin);
+      if (!src) { skipped.push({ ...w, reason: 'unknown-source' }); continue; }
+      const raw = parseMcpConfigFile(src.file).servers.find(s => s.id === w.id);
+      if (!raw) { skipped.push({ ...w, reason: 'not-found' }); continue; }
+      // 显式导入:dismissed 不拦(用户改主意了),其余判据与自动导入相同。
+      const v = classifyAgentMcpCandidate(raw, w.origin, { externalMcpServers: list2, dismissedMcpIds: [] }, managedKimi);
+      if (v.status !== 'importable') { skipped.push({ ...w, reason: v.status === 'imported' ? 'already-imported' : v.reason }); continue; }
+      if (list2.length >= 10) { skipped.push({ ...w, reason: 'limit' }); continue; }
+      const srv = sanitizeExternalMcpServer({ ...raw, origin: w.origin });
+      if (!srv) { skipped.push({ ...w, reason: 'invalid' }); continue; }
+      list2.push(srv); added.push(srv.id);
+    }
+    if (!added.length) return { abort: { added, skipped } };
+    current.externalMcpServers = list2;
+    current.dismissedMcpIds = (Array.isArray(current.dismissedMcpIds) ? current.dismissedMcpIds : []).filter(x => !added.includes(x));
+    return { value: { added, skipped } };
+  });
+  const value = r.ok ? r.value : (r.value || { added: [], skipped: [] });
+  if (value.added.length) {
+    void generateMcpConfig(r.config && r.config.mcpCommandMode).catch(() => {});
+    logEvent({ kind: 'mcp_import', ids: value.added, added: value.added.length, source: 'migration-center' });
+  }
+  return { ok: true, ...value };
+}
+
+function migrationSetField(server, field, value) {
+  if (field === 'command' || field === 'cwd') { server[field] = value; return; }
+  const m = /^(args|env)\.(.+)$/.exec(field);
+  if (!m) return;
+  if (m[1] === 'args') { const i = Number(m[2]); if (Array.isArray(server.args) && Number.isInteger(i) && i >= 0 && i < server.args.length) server.args[i] = value; }
+  else if (server.env && typeof server.env === 'object') server.env[m[2]] = value;
+}
+function migrationGetField(server, field) {
+  if (!server || typeof server !== 'object') return undefined;
+  if (field === 'command' || field === 'cwd') return server[field];
+  const m = /^(args|env)\.(.+)$/.exec(field);
+  if (!m) return undefined;
+  if (m[1] === 'args') return Array.isArray(server.args) ? server.args[Number(m[2])] : undefined;
+  return server.env && typeof server.env === 'object' ? server.env[m[2]] : undefined;
+}
+// TOML 的 [mcp_servers.<id>] 段在全文里的 [start, end) 字符区间(找不到回 null)。
+function migrationTomlSection(text, serverId) {
+  const lines = text.split('\n');
+  let pos = 0, start = -1;
+  for (const line of lines) {
+    const m = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
+    if (start >= 0 && /^\s*\[/.test(line)) return { start, end: pos };
+    if (m && m[1].replace(/^["']|["']$/g, '') === serverId) start = pos + line.length + 1;
+    pos += line.length + 1;
+  }
+  return start >= 0 ? { start, end: text.length } : null;
+}
+// 在 TOML 段内把带引号的旧值换成新值(保留原引号样式)。返回 { text, count }。
+function migrationTomlReplace(text, serverId, from, to) {
+  const sec = migrationTomlSection(text, serverId);
+  if (!sec) return { text, count: 0 };
+  let body = text.slice(sec.start, sec.end);
+  let count = 0;
+  for (const q of ['"', "'"]) {
+    const needle = q + from + q;
+    while (body.includes(needle)) { body = body.replace(needle, q + to + q); count++; }
+  }
+  return { text: text.slice(0, sec.start) + body + text.slice(sec.end), count };
+}
+
+async function migrationBackup(file, ts) {
+  const backup = file + MIGRATION_BACKUP_TAG + ts;
+  await fsp.copyFile(file, backup);
+  return backup;
+}
+
+async function migrationRewriteRefs(ids) {
+  const wantIds = new Set((Array.isArray(ids) ? ids : []).map(String));
+  if (!wantIds.size) return { ok: true, id: null, items: 0 };
+  const config = await readConfig();
+  const refs = await migrationCollectRefs(config);
+  const selected = refs.filter(r => wantIds.has(r.id) && (r.action === 'rewrite' || r.action === 'remove'));
+  const stale = [...wantIds].filter(id => !refs.some(r => r.id === id));
+  if (!selected.length) return { ok: false, error: 'nothing-to-apply', stale, status: 409 };
+  await migrationRememberPackages(selected.flatMap(item => item.packageRoots)).catch(() => 0);
+  const ts = migrationStamp();
+  const log = { schema: MIGRATION_LOG_SCHEMA, id: ts, createdAt: nowIso(), currentRoot: migrationCurrentRoot(), version: VERSION, files: [] };
+  const byFile = new Map();
+  for (const item of selected) { const k = samePathKey(item.file) + '|' + item.kind; if (!byFile.has(k)) byFile.set(k, []); byFile.get(k).push(item); }
+  let applied = 0;
+  const failures = [];
+  for (const items of byFile.values()) {
+    const { file, kind } = items[0];
+    const entry = { file, kind, backup: '', items: [] };
+    try {
+      entry.backup = await migrationBackup(file, ts);
+      if (kind === 'ruyi-config') {
+        const r = await mutateConfig(async cfg => {
+          const list = Array.isArray(cfg.externalMcpServers) ? cfg.externalMcpServers.slice() : [];
+          const done = [];
+          for (const item of items) {
+            const idx = list.findIndex(s => s && s.id === item.serverId);
+            if (idx < 0) continue;
+            if (item.action === 'remove') {
+              const [removed] = list.splice(idx, 1);
+              cfg.dismissedMcpIds = [...new Set([...(Array.isArray(cfg.dismissedMcpIds) ? cfg.dismissedMcpIds : []), item.serverId])];
+              done.push({ ...item, removed });
+            } else {
+              const server = { ...list[idx], args: Array.isArray(list[idx].args) ? list[idx].args.slice() : [], env: { ...(list[idx].env || {}) } };
+              const changes = item.changes.filter(c => migrationGetField(server, c.field) === c.from);
+              for (const c of changes) migrationSetField(server, c.field, c.to);
+              list[idx] = server;
+              if (changes.length) done.push({ ...item, changes });
+            }
+          }
+          if (!done.length) return { abort: done };
+          cfg.externalMcpServers = list;
+          return { value: done };
+        });
+        if (r.ok) { entry.items = r.value; void generateMcpConfig(r.config && r.config.mcpCommandMode).catch(() => {}); }
+      } else if (kind === 'json') {
+        const text = await fsp.readFile(file, 'utf8');
+        const obj = JSON.parse(text);
+        for (const item of items) {
+          const container = migrationGetAt(obj, item.container);
+          if (!container || typeof container !== 'object' || !container[item.serverId]) continue;
+          if (item.action === 'remove') {
+            entry.items.push({ ...item, removed: container[item.serverId] });
+            delete container[item.serverId];
+          } else {
+            const server = container[item.serverId];
+            const changes = item.changes.filter(c => migrationGetField(server, c.field) === c.from);
+            for (const c of changes) migrationSetField(server, c.field, c.to);
+            if (changes.length) entry.items.push({ ...item, changes });
+          }
+        }
+        if (entry.items.length) await atomicWriteJson(file, JSON.stringify(obj, null, 2) + (text.endsWith('\n') ? '\n' : ''));
+      } else if (kind === 'toml') {
+        let text = await fsp.readFile(file, 'utf8');
+        for (const item of items) {
+          if (item.action !== 'rewrite') continue;
+          const changes = [];
+          for (const c of item.changes) {
+            const r = migrationTomlReplace(text, item.serverId, c.from, c.to);
+            if (r.count) { text = r.text; changes.push(c); }
+          }
+          if (changes.length) entry.items.push({ ...item, changes });
+        }
+        if (entry.items.length) await atomicWriteJson(file, text);
+      }
+    } catch (e) {
+      failures.push({ file: tildePath(file), error: (e && e.message) || String(e) });
+    }
+    if (entry.items.length) { applied += entry.items.length; log.files.push(entry); }
+    else if (entry.backup) await fsp.unlink(entry.backup).catch(() => {}); // 一项都没落:备份没用,不留垃圾
+  }
+  if (!applied) return { ok: false, error: 'nothing-applied', failures, status: 409 };
+  await fsp.mkdir(migrationDir(), { recursive: true });
+  await atomicWriteJson(path.join(migrationDir(), ts + '.json'), log);
+  logEvent({ kind: 'migration_apply', id: ts, files: log.files.length, items: applied, failures: failures.length });
+  return { ok: true, id: ts, items: applied, files: log.files.map(f => ({ file: tildePath(f.file), backup: f.backup, items: f.items.length })), failures, stale };
+}
+
+async function migrationApply(body) {
+  return migrationSerial(async () => {
+    const b = body && typeof body === 'object' ? body : {};
+    const out = { ok: true };
+    const importKeys = Array.isArray(b.importInstructions) ? b.importInstructions.map(String).slice(0, 10) : [];
+    const dismissKeys = Array.isArray(b.dismissInstructions) ? b.dismissInstructions.map(String).slice(0, 10) : [];
+    if (b.settings && typeof b.settings === 'object') {
+      const patch = {};
+      for (const k of ['importAgentInstructions', 'autoImportClaudeCodeMcp']) if (typeof b.settings[k] === 'boolean') patch[k] = b.settings[k];
+      if (Object.keys(patch).length) {
+        await mutateConfig(async cfg => { Object.assign(cfg, patch); return { value: true }; });
+        out.settings = patch;
+      }
+    }
+    if (importKeys.length || dismissKeys.length) {
+      const r = await syncAgentInstructionImports({ auto: false, importKeys, dismissKeys });
+      out.instructions = r.sources.filter(s => importKeys.includes(s.key) || dismissKeys.includes(s.key));
+    }
+    if (Array.isArray(b.importMcp) && b.importMcp.length) out.mcp = await migrationImportMcp(b.importMcp);
+    if (Array.isArray(b.rewriteRefs) && b.rewriteRefs.length) {
+      out.refs = await migrationRewriteRefs(b.rewriteRefs);
+      if (!out.refs.ok) { out.ok = false; out.error = out.refs.error; }
+    }
+    if (b.markSeen === true) {
+      const c = await migrationCollect({ withSizes: false });
+      const keys = c.keys;
+      await mutateConfig(async cfg => {
+        const prev = Array.isArray(cfg.migrationSeenKeys) ? cfg.migrationSeenKeys : [];
+        const merged = [...prev.filter(k => !keys.includes(k)), ...keys].slice(-300);
+        cfg.migrationSeenKeys = merged;
+        return { value: merged.length };
+      });
+      out.seen = keys.length;
+    }
+    return out;
+  });
+}
+
+// ── 撤销:按日志逐项反向改回(只改回「现在的值仍是我们写下的值」的那些;被删的条目只在原位空着时放回)──
+async function migrationUndo(body) {
+  return migrationSerial(async () => {
+    const logs = await migrationLogs();
+    const wantId = String((body && body.id) || '');
+    const log = wantId ? logs.find(l => l.id === wantId) : logs.find(l => !l.undoneAt);
+    if (!log) return { ok: false, error: 'no-migration-to-undo', status: 404 };
+    if (log.undoneAt) return { ok: false, error: 'already-undone', status: 409 };
+    let restored = 0, skipped = 0;
+    for (const f of log.files || []) {
+      try {
+        if (f.kind === 'ruyi-config') {
+          await mutateConfig(async cfg => {
+            const list = Array.isArray(cfg.externalMcpServers) ? cfg.externalMcpServers.slice() : [];
+            for (const item of f.items || []) {
+              if (item.removed) {
+                if (list.some(s => s && s.id === item.serverId) || list.length >= 10) { skipped++; continue; }
+                list.push(item.removed); restored++;
+                cfg.dismissedMcpIds = (Array.isArray(cfg.dismissedMcpIds) ? cfg.dismissedMcpIds : []).filter(x => x !== item.serverId);
+              } else {
+                const idx = list.findIndex(s => s && s.id === item.serverId);
+                if (idx < 0) { skipped++; continue; }
+                const server = { ...list[idx], args: Array.isArray(list[idx].args) ? list[idx].args.slice() : [], env: { ...(list[idx].env || {}) } };
+                for (const c of item.changes || []) {
+                  if (migrationGetField(server, c.field) === c.to) { migrationSetField(server, c.field, c.from); restored++; } else skipped++;
+                }
+                list[idx] = server;
+              }
+            }
+            cfg.externalMcpServers = list;
+            return { value: true };
+          });
+          void generateMcpConfig().catch(() => {});
+        } else if (f.kind === 'json') {
+          let text = '';
+          try { text = await fsp.readFile(f.file, 'utf8'); } catch { text = ''; }
+          const obj = text ? JSON.parse(text) : {};
+          for (const item of f.items || []) {
+            let container = migrationGetAt(obj, item.container);
+            if (item.removed) {
+              if (!container || typeof container !== 'object') {
+                container = obj;
+                for (const k of item.container) { if (!container[k] || typeof container[k] !== 'object') container[k] = {}; container = container[k]; }
+              }
+              if (container[item.serverId]) { skipped++; continue; }
+              container[item.serverId] = item.removed; restored++;
+            } else {
+              const server = container && container[item.serverId];
+              if (!server) { skipped++; continue; }
+              for (const c of item.changes || []) {
+                if (migrationGetField(server, c.field) === c.to) { migrationSetField(server, c.field, c.from); restored++; } else skipped++;
+              }
+            }
+          }
+          await atomicWriteJson(f.file, JSON.stringify(obj, null, 2) + (text.endsWith('\n') ? '\n' : ''));
+        } else if (f.kind === 'toml') {
+          let text = await fsp.readFile(f.file, 'utf8');
+          for (const item of f.items || []) {
+            for (const c of item.changes || []) {
+              const r = migrationTomlReplace(text, item.serverId, c.to, c.from);
+              if (r.count) { text = r.text; restored++; } else skipped++;
+            }
+          }
+          await atomicWriteJson(f.file, text);
+        }
+      } catch { skipped++; }
+    }
+    log.undoneAt = nowIso();
+    log.undoResult = { restored, skipped };
+    await atomicWriteJson(path.join(migrationDir(), log.id + '.json'), log);
+    logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
+    return { ok: true, id: log.id, restored, skipped };
+  });
+}
+
+// 从引用里认出来的老包记进登记表(没启动过的行:pid 0、lastLaunchedAt 空)。否则引用一改完,它就既不在登记表、
+// 也不再被任何配置指着 —— 从清单里消失,用户再也点不到「移到回收站」。
+async function migrationRememberPackages(roots) {
+  const reg = readInstallRegistry();
+  const known = new Set(reg.packages.map(r => samePathKey(r.packageRoot)));
+  const currentKey = samePathKey(migrationCurrentRoot());
+  let added = 0;
+  for (const root of roots) {
+    const key = samePathKey(root);
+    if (known.has(key) || key === currentKey) continue;
+    const info = ruyiPackageInfo(root);
+    if (!info) continue;
+    reg.packages.push({ packageRoot: info.root, version: info.version, launchMode: '', firstSeenAt: nowIso(), lastLaunchedAt: '', pid: 0 });
+    known.add(key); added++;
+  }
+  if (!added) return 0;
+  await fsp.mkdir(paths.data, { recursive: true });
+  await atomicWriteJson(installRegistryPath(), { schema: reg.schema, updatedAt: nowIso(), packages: reg.packages });
+  return added;
+}
+
+// ── 移到回收站 ───────────────────────────────────────────────────────────────────────────────
+async function migrationForgetPackage(root) {
+  const key = samePathKey(root);
+  const reg = readInstallRegistry();
+  const packages = reg.packages.filter(r => samePathKey(r.packageRoot) !== key);
+  if (packages.length === reg.packages.length) return;
+  await atomicWriteJson(installRegistryPath(), { schema: reg.schema, updatedAt: nowIso(), packages });
+}
+async function migrationSendToRecycleBin(root) {
+  // 测试钩子:设了 RUYI_MIGRATION_RECYCLE_STUB_DIR 时,不碰系统回收站,把目录挪进这个目录(e2e 用)。
+  const stub = String(process.env.RUYI_MIGRATION_RECYCLE_STUB_DIR || '').trim();
+  if (stub) {
+    await fsp.mkdir(stub, { recursive: true });
+    await fsp.rename(root, path.join(stub, path.basename(root) + '-' + migrationStamp()));
+    return { via: 'test-stub' };
+  }
+  if (process.platform !== 'win32') return { error: 'unsupported-platform' };
+  // 目标路径经环境变量传入,脚本是纯 ASCII 常量 —— 零拼接、零注入。只移进回收站(SendToRecycleBin),不做永久删除。
+  const script = "$ErrorActionPreference='Stop'; Add-Type -AssemblyName Microsoft.VisualBasic; "
+    + '[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($env:RUYI_RECYCLE_TARGET, '
+    + '[Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs, [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin)';
+  const r = await DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    { env: { RUYI_RECYCLE_TARGET: root }, timeoutMs: 180000 });
+  if (fs.existsSync(root)) return { error: 'recycle-failed', detail: String((r && (r.stderr || r.stdout)) || '').trim().slice(0, 400) };
+  return { via: 'recycle-bin' };
+}
+async function migrationRecycle(body) {
+  return migrationSerial(async () => {
+    const root = String((body && body.root) || '').trim();
+    if (!root || !path.isAbsolute(root)) return { ok: false, error: 'root-required', status: 400 };
+    if (String((body && body.confirm) || '') !== root) return { ok: false, error: 'confirm-mismatch', status: 400 };
+    const key = samePathKey(root);
+    const currentKey = samePathKey(migrationCurrentRoot());
+    if (migrationPathInside(currentKey, key)) return { ok: false, error: 'current-package', status: 409 };
+    if (migrationPathInside(samePathKey(paths.data), key)) return { ok: false, error: 'contains-data', status: 409 };
+    if (migrationPathInside(samePathKey(os.homedir()), key)) return { ok: false, error: 'contains-home', status: 409 };
+    const config = await readConfig();
+    const refs = await migrationCollectRefs(config);
+    const packages = await migrationListPackages(refs, { withSizes: false });
+    const pkg = packages.find(p => p.key === key);
+    if (!pkg || !ruyiPackageInfo(root)) return { ok: false, error: 'not-an-old-package', status: 404 };
+    if (pkg.running) return { ok: false, error: 'running', status: 409 };
+    if (pkg.refCount > 0) {
+      return { ok: false, error: 'referenced', status: 409,
+        refs: refs.filter(r => pkg.refIds.includes(r.id)).map(r => ({ id: r.id, file: r.displayFile, entry: r.entryLabel, action: r.action })) };
+    }
+    const done = await migrationSendToRecycleBin(pkg.root);
+    if (done.error) return { ok: false, error: done.error, detail: done.detail || '', status: 500 };
+    migrationSizeCache.delete(key);
+    await migrationForgetPackage(pkg.root).catch(() => {});
+    logEvent({ kind: 'migration_recycle', root: pkg.root, version: pkg.version || '', via: done.via });
+    return { ok: true, root: pkg.root, version: pkg.version || '', via: done.via };
+  });
+}
+
+// 迟绑定挂接(见 00-boot 的 MigrationHooks 头注)。
+Object.assign(MigrationHooks, {
+  scan: migrationScan,
+  apply: migrationApply,
+  undo: migrationUndo,
+  recycle: migrationRecycle,
 });
 
 async function main() {

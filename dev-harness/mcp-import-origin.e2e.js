@@ -133,16 +133,22 @@ async function bootOnce(oldToken) {
 
     // ── 形状锁 ──
     const src = readServerSource();
+    // W2 迁移中心:自动导入扩到 Codex / Kimi 两家后,放行的 origin 多了 codex / kimi 两个值(仍是白名单,其它丢弃)。
     ok(/const origin = String\(raw\.origin \|\| ''\)\.trim\(\);/.test(src)
-      && /if \(origin === 'claude-code' \|\| origin === 'ruyi'\) out\.origin = origin;/.test(src),
-    's sanitizeExternalMcpServer 只放行两个 origin 值，其它丢弃（缺省不补字段＝存量视为 ruyi）');
-    ok(/sanitizeExternalMcpServer\(\{ \.\.\.raw, origin: 'claude-code' \}\)/.test(src),
-      's autoImportClaudeCodeMcp 给新导入条目打 origin:\'claude-code\'');
+      && /if \(origin === 'claude-code' \|\| origin === 'ruyi'\) out\.origin = origin;/.test(src)
+      && /else if \(origin === 'codex' \|\| origin === 'kimi'\) out\.origin = origin;/.test(src),
+    's sanitizeExternalMcpServer 只放行白名单 origin 值(claude-code/ruyi/codex/kimi)，其它丢弃（缺省不补字段＝存量视为 ruyi）');
+    // W2:打标从字面 'claude-code' 改成按来源 src.origin(claude-code 仍是第一个来源,A 段实测它打的是 claude-code)。
+    ok(/sanitizeExternalMcpServer\(\{ \.\.\.raw, origin: src\.origin \}\)/.test(src) && /\{ origin: 'claude-code', label: 'Claude Code', file: homes\.claudeJson \}/.test(src),
+      's autoImportClaudeCodeMcp 给新导入条目按来源打 origin(~/.claude.json 来的是 claude-code)');
     ok(/if \(fromClaudeCode\.has\(String\(s\.id\)\)\) \{ skippedIds\.push/.test(src),
       's syncMcpServersToClaude 跳过 claude-code 来源');
     ok(/delete clean\.origin;/.test(src), 's /api/mcp upsert 落盘时清掉 origin（用户接管）');
+    // W2:Kimi 现在也是来源 —— Kimi 同步只多了一件事:从 Kimi 导进来的(origin kimi)不写回、不接管;其余逐字不变。
     const kimi = src.slice(src.indexOf('async function syncMcpServersToKimi(config)'), src.indexOf('async function autoImportClaudeCodeMcp(config)'));
-    ok(kimi.length > 200 && !/origin/.test(kimi), 's Kimi 同步一个字未动（它不是来源，且有 sidecar 所有权表可干净撤回）');
+    const kimiOrigins = kimi.match(/origin/g) || [];
+    ok(kimi.length > 200 && /if \(item && item\.origin === 'kimi'\) delete generatedServers\[String\(item\.id\)\];/.test(kimi) && !/claude-code/.test(kimi),
+      's Kimi 同步只跳过 kimi 来源(从 Kimi 导进来的不写回),claude-code 来源照常同步(' + kimiOrigins.length + ' 处 origin)');
   } finally {
     kill(wb);
     await sleep(300);

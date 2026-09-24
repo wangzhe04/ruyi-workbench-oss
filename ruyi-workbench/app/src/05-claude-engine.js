@@ -318,7 +318,9 @@ async function runClaudeTurn({
     // v2 跨会话记忆: 已启用记忆的紧凑索引。第35波 P2 起与技能索引同走 stdin 一次性注入(原文,不中和);
     // P3-2 的 fits-or-drop 契约由段内构建自带截断(MEMORY_INDEX_CAP)替代,不再有命令行预算丢弃面。
     try {
-      const memEntries = [...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])];
+      // W2 迁移中心:CLI 自己原生会读的全局指令文件(Claude Code 读 ~/.claude/CLAUDE.md、Kimi Code 读
+      // ~/.kimi-code/AGENTS.md)导成的记忆,在【那个】CLI 的回合里不再注入一遍(去重;provider 引擎照常有)。
+      const memEntries = filterMemoryForNativeCli([...(memoryPreflight.coreEntries || []), ...(memoryPreflight.entries || [])], agentCliType);
       // R4-S1:真实主回合必须把 confirmed contradicts 传进索引构建；此前只有纯函数 e2e 显式传 map，
       // 线上 Claude 注入漏传，导致关系已确认但提示里看不到冲突标记。
       const memoryConflicts = memEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
@@ -1817,6 +1819,8 @@ function sanitizeExternalMcpCommon(raw) {
   // 'claude-code'(那是从 Claude Code 导进来的,不能再同步回去把用户删掉的条目复活)。
   const origin = String(raw.origin || '').trim();
   if (origin === 'claude-code' || origin === 'ruyi') out.origin = origin;
+  // W2 迁移中心:自动导入扩到 Codex / Kimi Code 两家,来源标记同一用途(反向同步据此不外溢、不回写)。
+  else if (origin === 'codex' || origin === 'kimi') out.origin = origin;
   return out;
 }
 

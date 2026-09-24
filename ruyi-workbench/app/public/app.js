@@ -46,6 +46,7 @@ import { createStewardShellDomain } from './js/steward-shell.js'; // 117a
 import { bindNotifySettings } from './js/notify-policy.js'; // 121-K1
 import { bindRailPocket } from './js/rail-pocket.js'; // 121-K7：左栏栏底的口袋（§2.3 末段）
 import { createComposerVoice, syncComposerVoices, COMPOSER_VOICE_SETUP_EVENT } from './js/composer-voice.js'; // 127-⑦ 输入框麦克风；128f-⑭ 没配语音识别时是待开启的灰钮
+import { bindMigrationCenter } from './js/migration-center.js'; // W2：迁移中心（集成页签末尾的区块 ＋ 两视角的首启卡）
 // 117a/121-K1: the shell-mode controller and the steward domain are each other's injected dependency
 // (the controller owns the single applyShellMode; the steward owns admission + fail-closed recovery).
 // One late-bound handle opens that cycle. Null handle = the steward domain never composed -> admission
@@ -1033,6 +1034,7 @@ function bindEvents() {
   bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
   bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
   bindRailPocket({ api, state, t, eventStream, openStewardPanel: section => stewardShellDomain.openStewardPanel(section), openUsage: () => { openToolPane(); switchTab('usage'); }, openDoctor: () => { openModal('settingsModal'); switchSettingsTab('doctor', true); }, isStewardMode: () => document.documentElement.getAttribute('data-shell-mode') === 'steward' }); // 121-K7：口袋四项（§2.3／§7.2；「体检 · 用量」两视角两条路）
+  bindMigrationCenter({ openIntegrations: () => { openModal('settingsModal'); switchSettingsTab('integrations', true); } }); // W2：迁移中心挂进 #stab-integrations；首启卡两视角都出
   // sidebar
   $('newSessionBtn').onclick = () => { void startFromRail(); };
   bindRailSessionActions(); // 121-K4：左栏行上「置顶／重命名／删除」的委托（会话怎么改仍在 session-experience 一处）

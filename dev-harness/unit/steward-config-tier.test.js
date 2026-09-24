@@ -128,6 +128,9 @@ const EXPECTED = {
   workspaces: 'forbidden', allowOutsideWorkspace: 'forbidden', stewardExemptDelegationV1: 'forbidden', stewardWorkspaceRoot: 'forbidden',
   stewardContextBudgetTokens: 'forbidden', agentRoleOverrides: 'forbidden', searchBackend: 'forbidden', appendSystemPrompt: 'forbidden',
   additionalDirectories: 'forbidden', subagentBudgetMigrated: 'forbidden', searchBackendMigrated: 'forbidden',
+  // W2 迁移中心:importAgentInstructions 决定「别的 CLI 的指令文件进不进每轮的核心记忆」—— 提示词注入面,
+  // 与 appendSystemPrompt 同类;migrationSeenKeys 是用户行为记账(首启卡看过没有),与 onboarding 同类。两个都 forbidden。
+  importAgentInstructions: 'forbidden', migrationSeenKeys: 'forbidden',
 };
 
 /* ═══════════ ⑤ 132b:free ∪ confirm 的每个键都有中英两句 help(模型改之前得知道它是什么) ═══════════ */

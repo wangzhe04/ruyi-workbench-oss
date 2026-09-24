@@ -106,6 +106,12 @@ const ROUTE_AUTH = [
   // 55b:启停/删除持久化 -- 写配置路径,token 级同 import/apply。
   { m: 'POST', p: '/api/mcp/connectors/toggle', auth: 'token' },
   { m: 'DELETE', p: '/api/mcp/connectors', auth: 'token' },
+  // W2 迁移中心:scan 回本机各处配置里的路径与指令文件摘要(内容型 GET);apply/undo 改写外部配置文件;
+  // recycle 把老包目录移进回收站(handler 另要 body.confirm === body.root)。一律 token 级,同 import/apply。
+  { m: 'GET', p: '/api/migration/scan', auth: 'token' },
+  { m: 'POST', p: '/api/migration/apply', auth: 'token' },
+  { m: 'POST', p: '/api/migration/undo', auth: 'token' },
+  { m: 'POST', p: '/api/migration/recycle', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   // 127-A-S02:自然语言服务入口匹配 —— 只读计算(评既有清单,零持久化),与 GET /api/playbooks 同档
   // token-browser;必须排在下一条 /api/playbooks/ 前缀 token 规则【之前】,否则被它抢先吞成 token 级。

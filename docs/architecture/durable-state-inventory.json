@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 53,
+  "count": 57,
   "lifecycleCounts": {
-    "dedicated-exemption": 17,
-    "external-exemption": 9,
+    "dedicated-exemption": 18,
+    "external-exemption": 10,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 20
+    "shared-lifecycle": 22
   },
   "entries": [
     {
@@ -443,6 +443,62 @@
       "recovery": "repeat idempotent import",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "shared atomic marker"
+    },
+    {
+      "id": "agent-instructions-import",
+      "pattern": "<data>/memory/.agent-instructions-import-v1.json",
+      "owner": "06d-memory-domain.js",
+      "anchor": "'.agent-instructions-import-v1.json'",
+      "schema": "object / schema 1 (sources.<key>: file/sourceHash/importedAt/entries[{id,hash,core}]/dismissed/sourceChanged/userModified)",
+      "writePrimitive": "atomicWriteJson inside a serialized chain",
+      "corruption": "wrong schema or unreadable = empty (re-imports only what is still absent; entry-file hashes gate every overwrite)",
+      "capacity": "one record per instruction source (4)",
+      "cache": "none",
+      "recovery": "delete it: the next sync re-imports sources whose agentmd-* entries are missing",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "ownership proof for imported agentmd-* memories: without it a user edit could be silently overwritten"
+    },
+    {
+      "id": "install-registry",
+      "pattern": "<data>/install-registry.json",
+      "owner": "00-boot.js",
+      "anchor": "'install-registry.json'",
+      "schema": "object / schema 1 (packages[{packageRoot,version,launchMode,firstSeenAt,lastLaunchedAt,pid}])",
+      "writePrimitive": "atomicWriteJson (boot upsert; migration center remembers reference-discovered packages and forgets recycled ones)",
+      "corruption": "unreadable = empty list; rows with missing/relative roots dropped",
+      "capacity": "64 rows; rows whose directory is gone are pruned on the next boot",
+      "cache": "none",
+      "recovery": "every launch re-registers itself",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "the only place that knows where the other Ruyi packages on this machine live (all packages share one data root)"
+    },
+    {
+      "id": "migration-log",
+      "pattern": "<data>/migrations/<ts>.json",
+      "owner": "13u-migration-center.js",
+      "anchor": "'migrations'",
+      "schema": "object / schema 1 (files[{file,kind,backup,items[{serverId,action,changes,removed}]}], undoneAt)",
+      "writePrimitive": "atomicWriteJson once per apply; rewritten once on undo",
+      "corruption": "unparsable log is skipped (that migration can no longer be undone from the UI; its backups remain)",
+      "capacity": "newest 20 listed; one per apply",
+      "cache": "none",
+      "recovery": "backups next to each edited file",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "undo ledger: undo only reverses values that still equal what the migration wrote"
+    },
+    {
+      "id": "migration-backups",
+      "pattern": "<file>.bak-ruyi-migrate-<ts> beside ~/.claude.json / ~/.kimi-code/mcp.json / ~/.codex/config.toml / <data>/config.json / generated mcp",
+      "owner": "13u-migration-center.js",
+      "anchor": "'.bak-ruyi-migrate-'",
+      "schema": "verbatim copy of the file before the migration edited it",
+      "writePrimitive": "fsp.copyFile before the first write to that file",
+      "corruption": "never read by the app (human recovery only)",
+      "capacity": "one per edited file per apply; removed when nothing in that file ended up changing",
+      "cache": "n/a",
+      "recovery": "copy back by hand",
+      "lifecycle": "external-exemption",
+      "exemptionReason": "insurance for edits to externally owned CLI configs"
     },
     {
       "id": "memory-proposals",

@@ -58,6 +58,10 @@ const CSS_PAYLOAD_GROUPS = Object.freeze([
   // 135c: background-tray layer (the per-thread 'background tasks' chip on the composer's top edge and the
   // rail '⟳N' mark for other threads). Appended last for the same reason.
   'css/views/background-tray.css',
+  // W2: migration-center layer (the #migrationCenter block appended to the settings Integrations tab at runtime
+  // and the one-time first-run card host #migrationCardHost shared by both lenses; the card itself reuses the
+  // .quiet-card classes). Appended last for the same reason.
+  'css/views/migration.css',
 ]);
 const CSS_ROUTES = Object.freeze(CSS_PAYLOAD_GROUPS.flatMap(group => Array.isArray(group) ? group : [group]));
 const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
@@ -752,7 +756,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // = 2a787f60…,与被替换的旧值逐字相同(先自证再替换);换回本刀的 CSS 再算得下面这个值。
 // 反向:改 CSS 之后、重钉之前 frontend-domains D51 与 live-full-text F3 双红(本刀快通道实测)。
 // wave137 合并:W6 的重钉建在 f8aecfcf 上;合进 wave137(已含 W4/W5 两次重钉)后按工作树整份重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '73f352d3983828f165c8c247fc8a260b66b7e614bfd53a1b99e378cdbfd954e9';
+// W2 续钉(前值 2a787f60…):只在载荷末尾新增一层 css/views/migration.css(迁移中心区块 + 首启卡挂点),既有层零改动。
+// 算法自证:不登记这一层(CSS_ROUTES 里去掉它)重算 = 2a787f60…,与被替换的旧值逐字相同;登记后整份再算得下面这个值。
+// wave137 合并:W2 的续钉建在 f8aecfcf 上(新增 migration.css 层);合进 wave137(已含 W4/W5/W6 三次重钉)后按工作树整份重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '7d45633996358f0601792eb8e1fe38b227fac1abec96e118ef74dd3d4cc5e327';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -1,0 +1,72 @@
+/* W2 迁移中心（56 号文 §3）：设置「集成」页签末尾由 js/migration-center.js 运行时追加的 #migrationCenter 区块，
+   以及两个视角共用的首启卡挂点 #migrationCardHost。卡片本体沿用安静卡的外观类（.quiet-card 一族，见 quiet-card.css），
+   这里只管挂点位置与区块里的行排版；颜色一律走既有 token。 */
+
+#migrationCardHost {
+  position: fixed;
+  top: calc(var(--sp-5) + 48px);
+  right: var(--sp-5);
+  z-index: 41;
+  max-width: 340px;
+  pointer-events: none;
+}
+#migrationCardHost:empty { display: none; }
+#migrationCardHost .quiet-card { pointer-events: auto; }
+.migration-card-dot { background: var(--accent); }
+
+.migration-center .migration-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0;
+}
+.migration-subhead {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.migration-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.migration-group-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.migration-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+.migration-row-text { flex: 1 1 auto; min-width: 0; }
+.migration-row-title { font-size: var(--fs-sm); color: var(--ink); overflow-wrap: anywhere; }
+.migration-row-detail { font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.migration-row-actions { display: flex; flex: 0 0 auto; gap: var(--sp-1); }
+.migration-ref-check { display: flex; align-items: flex-start; gap: var(--sp-2); width: 100%; }
+.migration-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.migration-chip {
+  flex: 0 0 auto;
+  padding: 1px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+.migration-chip-imported,
+.migration-chip-live { border-color: var(--accent); color: var(--accent); }
+.migration-chip-importable,
+.migration-chip-source-updated,
+.migration-chip-running { border-color: var(--gold-line); color: var(--gold); }
+
+@media (max-width: 640px) {
+  #migrationCardHost { left: var(--sp-3); right: var(--sp-3); max-width: none; }
+  .migration-row { flex-wrap: wrap; }
+}

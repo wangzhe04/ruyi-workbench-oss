@@ -131,6 +131,8 @@ const PAYLOAD_FILES = [
   // 127-⑦:输入框麦克风(两个视角共用)。app.js 与 steward-composer.js 都静态 import 它 —— 缺文件
   // 两个视角的输入区一起挂掉,同 rail-pocket.js 的理由。
   'app/public/js/composer-voice.js',
+  // W2:迁移中心(设置「集成」页签末尾的区块 + 两个视角的首启卡)。app.js 静态 import 它 —— 缺文件整页挂掉,同上。
+  'app/public/js/migration-center.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',
@@ -159,6 +161,7 @@ const PAYLOAD_FILES = [
   'app/public/css/views/quiet-card.css', // 121-K6a
   'app/public/css/views/prompt-dock.css', // 135
   'app/public/css/views/background-tray.css', // 135c
+  'app/public/css/views/migration.css', // W2 迁移中心
   'app/public/styles.css',
   'app/public/vendor/marked.min.js',
   'app/public/vendor/highlight.min.js',

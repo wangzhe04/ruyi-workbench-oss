@@ -3,8 +3,44 @@
 // 每个函数:命中自己域的路由则处理并 return true,否则 return false(调用处 fallthrough)。
 // 顺序与语义与原 handleApi 内联块完全一致;e2e 全量即回归网。
 
+// ── W2 迁移中心:/api/migration/scan|apply|undo|recycle ──────────────────────────────────────
+// 实现在 13u-migration-center.js(零入边),经 00-boot 的 MigrationHooks 迟绑定调进去。四条都是 token 级
+// (01b-route-auth):scan 回的是本机各处配置里的路径与指令文件摘要,apply/undo 会改写外部配置文件,
+// recycle 会把一个目录移进回收站(另要 body.confirm === body.root)。命中返回 true,否则 false。
+async function handleMigrationApiRoutes(req, res, pathname) {
+  const reply = result => {
+    const r = result && typeof result === 'object' ? { ...result } : { ok: false, error: 'no-result' };
+    const status = Number.isInteger(r.status) ? r.status : (r.ok === false ? 400 : 200);
+    delete r.status;
+    // 失败一律给稳定码 migration.<原因>(与 apiFailure 同形 {code, params, message}),前端按码分支不按句子。
+    if (r.ok === false && typeof r.error === 'string') r.error = { code: 'migration.' + r.error.replace(/-/g, '_'), params: {}, message: r.error };
+    send(res, json(r, status));
+    return true;
+  };
+  const hook = name => (typeof MigrationHooks[name] === 'function' ? MigrationHooks[name] : null);
+  const unavailable = () => reply({ ok: false, error: 'migration center unavailable', status: 503 });
+  if (req.method === 'GET' && pathname === '/api/migration/scan') {
+    const fn = hook('scan'); if (!fn) return unavailable();
+    return reply(await fn());
+  }
+  if (req.method === 'POST' && pathname === '/api/migration/apply') {
+    const fn = hook('apply'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  if (req.method === 'POST' && pathname === '/api/migration/undo') {
+    const fn = hook('undo'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  if (req.method === 'POST' && pathname === '/api/migration/recycle') {
+    const fn = hook('recycle'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  return false;
+}
+
 // ── MCP 域:/api/mcp/import-folder、/api/mcp/import-config/scan|apply ─────────────────────────
 async function handleMcpApiRoutes(req, res, pathname) {
+  if (await handleMigrationApiRoutes(req, res, pathname)) return true;
   // v1.0.2-S5: 从文件夹导入外部 MCP。POST /api/mcp/import-folder {path}(用户经 /api/pick-folder 选好的绝对
   // 路径)。读该文件夹下 ruyi-mcp.json 清单(≤32KB), 经 sanitizeExternalMcpServer 清洗, 尊重 externalMcpServers
   // ≤10 上限, id 已存在则更新该条(否则追加), 持久化 config(writeConfig 原子写)并再生成 generateMcpConfig。

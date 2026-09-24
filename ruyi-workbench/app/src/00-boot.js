@@ -674,3 +674,136 @@ const RUYI_EVENTS = {
 // 新前向边;它只写 `EventStreamHooks.handleApiRoutes`(13 → 00-boot 是既有后向边),13r 加载时
 // Object.assign 填充实现。未填充(理论上不可能)时那一行是无操作。
 const EventStreamHooks = {};
+
+// ── 迁移中心(56 号文 §3,W2):其它 Agent CLI 的家目录 + 如意包根判定 + 安装登记表 ─────────────────
+// 迁移中心的实现住在 13u-migration-center.js(零入边);13b 的路由经这张表迟绑定调进去(13b → 00-boot 是
+// 既有后向边),与 EventStreamHooks 同款。未填充时路由回 503,不会误走别的分支。
+const MigrationHooks = {};
+
+// 其它 Agent CLI 的用户级目录。一律在【调用时】按 os.homedir() 与各家的覆盖变量解析(不缓存):测试把
+// USERPROFILE/HOME 指到临时家,这里立刻跟着走 —— 这就是「测试绝不碰真机家目录」的那一道闸。
+//   Claude Code:~/.claude 与 ~/.claude.json;Codex:$CODEX_HOME,缺省 ~/.codex;
+//   Kimi Code:$KIMI_CODE_HOME,缺省 ~/.kimi-code(与 syncMcpServersToKimi 同一口径);Gemini CLI:~/.gemini。
+function agentCliHomes() {
+  const home = os.homedir();
+  return {
+    home,
+    claude: path.join(home, '.claude'),
+    claudeJson: path.join(home, '.claude.json'),
+    codex: String(process.env.CODEX_HOME || '').trim() || path.join(home, '.codex'),
+    kimi: String(process.env.KIMI_CODE_HOME || '').trim() || path.join(home, '.kimi-code'),
+    gemini: path.join(home, '.gemini'),
+  };
+}
+
+// 给人看的路径:家目录前缀写成 ~(只影响显示,不参与任何判定)。
+function tildePath(p) {
+  const s = String(p || '');
+  const home = os.homedir();
+  if (!home || !s) return s;
+  const a = process.platform === 'win32' ? s.toLowerCase() : s;
+  const h = process.platform === 'win32' ? home.toLowerCase() : home;
+  if (a === h) return '~';
+  if (a.startsWith(h) && (s[home.length] === '\\' || s[home.length] === '/')) return '~' + s.slice(home.length).replace(/\\/g, '/');
+  return s;
+}
+
+// 路径比较键:resolve + 去尾分隔符;Windows 下大小写不敏感。
+function samePathKey(p) {
+  let s = path.resolve(String(p || ''));
+  if (process.platform === 'win32') s = s.toLowerCase();
+  return s.length > 3 ? s.replace(/[\\/]+$/, '') : s;
+}
+
+// 如意包根标记:<root>/app/server.js 是文件,且 <root>/package.json 的 name 是 ruyi-workbench 或
+// <root>/Start-Workbench.cmd 在。两条都要:只有 app/server.js 的目录可能是别的 Node 项目。
+// 返回 { root, version } 或 null。只读、从不抛。
+function ruyiPackageInfo(dir) {
+  try {
+    const root = path.resolve(String(dir || ''));
+    if (!fs.statSync(path.join(root, 'app', 'server.js')).isFile()) return null;
+    let named = false; let version = '';
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+      named = Boolean(pkg && pkg.name === 'ruyi-workbench');
+      if (pkg && typeof pkg.version === 'string') version = pkg.version.slice(0, 40);
+    } catch { /* 没有或坏的 package.json:只能靠启动脚本认 */ }
+    if (!named && !fs.existsSync(path.join(root, 'Start-Workbench.cmd'))) return null;
+    return { root, version };
+  } catch { return null; }
+}
+
+// 从一个绝对路径沿祖先链往上找【最近】的如意包根(最多 12 层)。不全盘扫描、不列举任何目录。
+// 最近优先:源码树 ruyi-workbench/ 下的 dist/Ruyi-vX 是另一个包,应认成 dist/Ruyi-vX 而不是外层。
+// cache(可选 Map)按目录键记忆结果,一次扫描里同一棵树只 stat 一遍。
+function findRuyiPackageRootFor(p, cache) {
+  const raw = String(p || '').trim();
+  if (!raw || !path.isAbsolute(raw)) return null;
+  let dir = path.resolve(raw);
+  const seen = [];
+  for (let i = 0; i < 12; i++) {
+    const key = samePathKey(dir);
+    if (cache && cache.has(key)) { const hit = cache.get(key); for (const k of seen) cache.set(k, hit); return hit; }
+    seen.push(key);
+    const info = ruyiPackageInfo(dir);
+    if (info) { if (cache) for (const k of seen) cache.set(k, info); return info; }
+    const parent = path.dirname(dir);
+    if (!parent || parent === dir) break;
+    dir = parent;
+  }
+  if (cache) for (const k of seen) cache.set(k, null);
+  return null;
+}
+
+// 安装登记表 <data>/install-registry.json:每个启动过的包一行
+//   { packageRoot, version, launchMode, firstSeenAt, lastLaunchedAt, pid }
+// 所有包共用同一个数据根(dataRoot()),所以「本机都有哪些包启动过」只能记在这里。只记账、不做决定。
+const INSTALL_REGISTRY_SCHEMA = 1;
+const INSTALL_REGISTRY_MAX = 64;
+function installRegistryPath() { return path.join(paths.data, 'install-registry.json'); }
+function readInstallRegistry() {
+  try {
+    const raw = safeJsonParse(fs.readFileSync(installRegistryPath(), 'utf8'), null);
+    const rows = raw && Array.isArray(raw.packages) ? raw.packages : [];
+    const packages = [];
+    const seen = new Set();
+    for (const r of rows) {
+      if (!r || typeof r.packageRoot !== 'string' || !path.isAbsolute(r.packageRoot)) continue;
+      const key = samePathKey(r.packageRoot);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      packages.push({
+        packageRoot: path.resolve(r.packageRoot),
+        version: typeof r.version === 'string' ? r.version.slice(0, 40) : '',
+        launchMode: typeof r.launchMode === 'string' ? r.launchMode.slice(0, 16) : '',
+        firstSeenAt: typeof r.firstSeenAt === 'string' ? r.firstSeenAt.slice(0, 40) : '',
+        lastLaunchedAt: typeof r.lastLaunchedAt === 'string' ? r.lastLaunchedAt.slice(0, 40) : '',
+        pid: Number.isInteger(r.pid) && r.pid > 0 ? r.pid : 0,
+      });
+    }
+    return { schema: INSTALL_REGISTRY_SCHEMA, packages };
+  } catch { return { schema: INSTALL_REGISTRY_SCHEMA, packages: [] }; }
+}
+// 本包这次启动:登记(或刷新)一行。失败只吞掉 —— 登记表是旁路账,绝不挡启动。
+async function recordInstallLaunch(launchMode) {
+  try {
+    const reg = readInstallRegistry();
+    const root = path.resolve(externalRoot());
+    const key = samePathKey(root);
+    const now = nowIso();
+    let row = reg.packages.find(r => samePathKey(r.packageRoot) === key);
+    if (!row) { row = { packageRoot: root, firstSeenAt: now }; reg.packages.push(row); }
+    row.version = VERSION;
+    row.launchMode = String(launchMode || '').slice(0, 16);
+    row.lastLaunchedAt = now;
+    row.pid = process.pid;
+    // 目录已不在的行顺手剔掉(老包被用户手动删了);按最近启动倒序,封顶。
+    const packages = reg.packages
+      .filter(r => samePathKey(r.packageRoot) === key || fs.existsSync(r.packageRoot))
+      .sort((a, b) => String(b.lastLaunchedAt || '').localeCompare(String(a.lastLaunchedAt || '')))
+      .slice(0, INSTALL_REGISTRY_MAX);
+    await fsp.mkdir(paths.data, { recursive: true });
+    await atomicWriteJson(installRegistryPath(), { schema: INSTALL_REGISTRY_SCHEMA, updatedAt: now, packages });
+    return { ok: true, packageRoot: root };
+  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
+}

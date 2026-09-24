@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-24T19:06:18.086Z",
+  "generatedAt": "2026-09-24T19:09:57.442Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -17,10 +17,10 @@
     ]
   },
   "summary": {
-    "routeAuthEntries": 131,
-    "decisionPoints": 145,
+    "routeAuthEntries": 135,
+    "decisionPoints": 149,
     "byKind": {
-      "exact": 122,
+      "exact": 126,
       "prefix": 14,
       "regex": 9
     },
@@ -453,6 +453,30 @@
     {
       "m": "DELETE",
       "p": "/api/mcp/connectors",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "GET",
+      "p": "/api/migration/scan",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/migration/apply",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/migration/undo",
+      "auth": "token",
+      "prefix": false
+    },
+    {
+      "m": "POST",
+      "p": "/api/migration/recycle",
       "auth": "token",
       "prefix": false
     },
@@ -1306,6 +1330,7 @@
       "coveredBy": [
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\migration-center.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\skills-registry.e2e.js"
       ]
@@ -1347,6 +1372,7 @@
       "coveredBy": [
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\migration-center.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\skills-registry.e2e.js"
       ]
@@ -2309,6 +2335,7 @@
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-tools.e2e.js",
+        "dev-harness\\migration-center.e2e.js",
         "dev-harness\\mission-driver.e2e.js",
         "dev-harness\\mission-index-gate.e2e.js",
         "dev-harness\\mission-result.e2e.js",
@@ -2423,7 +2450,7 @@
       "kind": "exact",
       "path": "/health",
       "file": "13-http-router.js",
-      "line": 2007,
+      "line": 2012,
       "handler": "startServerInner",
       "methods": [
         "*"
@@ -2436,9 +2463,78 @@
     },
     {
       "kind": "exact",
+      "path": "/api/migration/scan",
+      "file": "13b-api-domain-routes.js",
+      "line": 22,
+      "handler": "handleMigrationApiRoutes",
+      "methods": [
+        "GET"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\migration-center.browser.e2e.js",
+        "dev-harness\\migration-center.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/migration/apply",
+      "file": "13b-api-domain-routes.js",
+      "line": 26,
+      "handler": "handleMigrationApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\migration-center.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/migration/undo",
+      "file": "13b-api-domain-routes.js",
+      "line": 30,
+      "handler": "handleMigrationApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\migration-center.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
+      "path": "/api/migration/recycle",
+      "file": "13b-api-domain-routes.js",
+      "line": 34,
+      "handler": "handleMigrationApiRoutes",
+      "methods": [
+        "POST"
+      ],
+      "selfChecksToken": false,
+      "methodOverride": false,
+      "domain": "mcp/checkpoint-storage/steer",
+      "auth": "token",
+      "coveredBy": [
+        "dev-harness\\migration-center.e2e.js"
+      ]
+    },
+    {
+      "kind": "exact",
       "path": "/api/mcp/import-folder",
       "file": "13b-api-domain-routes.js",
-      "line": 12,
+      "line": 48,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "POST"
@@ -2455,7 +2551,7 @@
       "kind": "exact",
       "path": "/api/mcp/import-config/scan",
       "file": "13b-api-domain-routes.js",
-      "line": 60,
+      "line": 96,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "POST"
@@ -2472,7 +2568,7 @@
       "kind": "exact",
       "path": "/api/mcp/import-config/apply",
       "file": "13b-api-domain-routes.js",
-      "line": 72,
+      "line": 108,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "POST"
@@ -2492,7 +2588,7 @@
       "kind": "exact",
       "path": "/api/mcp/connectors",
       "file": "13b-api-domain-routes.js",
-      "line": 110,
+      "line": 146,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "GET"
@@ -2513,7 +2609,7 @@
       "kind": "exact",
       "path": "/api/mcp/connectors/health",
       "file": "13b-api-domain-routes.js",
-      "line": 120,
+      "line": 156,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "POST"
@@ -2532,7 +2628,7 @@
       "kind": "exact",
       "path": "/api/mcp/connectors/toggle",
       "file": "13b-api-domain-routes.js",
-      "line": 140,
+      "line": 176,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "POST"
@@ -2552,7 +2648,7 @@
       "kind": "exact",
       "path": "/api/mcp/connectors",
       "file": "13b-api-domain-routes.js",
-      "line": 153,
+      "line": 189,
       "handler": "handleMcpApiRoutes",
       "methods": [
         "DELETE"
@@ -2573,7 +2669,7 @@
       "kind": "exact",
       "path": "/api/storage/policy",
       "file": "13b-api-domain-routes.js",
-      "line": 168,
+      "line": 204,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2593,7 +2689,7 @@
       "kind": "exact",
       "path": "/api/storage/clean",
       "file": "13b-api-domain-routes.js",
-      "line": 180,
+      "line": 216,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2612,7 +2708,7 @@
       "kind": "exact",
       "path": "/api/checkpoints/rollback",
       "file": "13b-api-domain-routes.js",
-      "line": 195,
+      "line": 231,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2635,7 +2731,7 @@
       "kind": "exact",
       "path": "/api/session/rewind",
       "file": "13b-api-domain-routes.js",
-      "line": 226,
+      "line": 262,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2658,7 +2754,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 332,
+      "line": 368,
       "handler": "handleSteerApiRoute",
       "methods": [
         "POST"
@@ -2683,7 +2779,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 341,
+      "line": 377,
       "handler": "handleSteerApiRoute",
       "methods": [
         "DELETE"
@@ -2708,7 +2804,7 @@
       "kind": "exact",
       "path": "/api/audio/transcribe",
       "file": "13b-api-domain-routes.js",
-      "line": 400,
+      "line": 436,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2730,7 +2826,7 @@
       "kind": "exact",
       "path": "/api/audio/stream/sessions",
       "file": "13b-api-domain-routes.js",
-      "line": 404,
+      "line": 440,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2749,7 +2845,7 @@
       "kind": "prefix",
       "path": "/api/audio/stream/sessions/",
       "file": "13b-api-domain-routes.js",
-      "line": 407,
+      "line": 443,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2766,7 +2862,7 @@
       "kind": "prefix",
       "path": "/api/audio/stream/sessions/",
       "file": "13b-api-domain-routes.js",
-      "line": 410,
+      "line": 446,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "DELETE"
@@ -2783,7 +2879,7 @@
       "kind": "exact",
       "path": "/api/audio/correct",
       "file": "13b-api-domain-routes.js",
-      "line": 414,
+      "line": 450,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2801,7 +2897,7 @@
       "kind": "exact",
       "path": "/api/audio/warmup",
       "file": "13b-api-domain-routes.js",
-      "line": 418,
+      "line": 454,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2982,6 +3078,7 @@
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\migration-center.e2e.js",
         "dev-harness\\mission-driver.e2e.js",
         "dev-harness\\mission-index-gate.e2e.js",
         "dev-harness\\mission-result.e2e.js",
@@ -3192,6 +3289,7 @@
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\migration-center.e2e.js",
         "dev-harness\\mission-driver.e2e.js",
         "dev-harness\\mission-index-gate.e2e.js",
         "dev-harness\\mission-result.e2e.js",
@@ -3369,6 +3467,7 @@
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
+        "dev-harness\\migration-center.e2e.js",
         "dev-harness\\mission-start-race.e2e.js",
         "dev-harness\\mission-threads.e2e.js",
         "dev-harness\\multi-session-parallel.e2e.js",
@@ -4799,6 +4898,11 @@
       "file": "13-http-router.js",
       "line": 1679,
       "target": "handleSchedulerApiRoutes"
+    },
+    {
+      "file": "13b-api-domain-routes.js",
+      "line": 43,
+      "target": "handleMigrationApiRoutes"
     }
   ],
   "problems": [],

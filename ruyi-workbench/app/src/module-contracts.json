@@ -12,8 +12,11 @@
         "CONFIG_SCHEMA",
         "DEFAULT_PORT",
         "EventStreamHooks",
+        "INSTALL_REGISTRY_MAX",
+        "INSTALL_REGISTRY_SCHEMA",
         "LEGACY_API_ERROR_CODES",
         "MAX_BODY_BYTES",
+        "MigrationHooks",
         "OVERLAY_ID",
         "RUYI_EVENTS",
         "RUYI_EVENT_SUBSCRIBERS",
@@ -25,6 +28,7 @@
         "TOOL_TIER_RANK",
         "URL",
         "VERSION",
+        "agentCliHomes",
         "apiFailure",
         "appRoot",
         "appendUsageLedger",
@@ -43,11 +47,13 @@
         "exposeBundledPythonRuntime",
         "exposeVendorBinOnPath",
         "externalRoot",
+        "findRuyiPackageRootFor",
         "flushUsageLedgerSync",
         "fs",
         "fsp",
         "hashArgs",
         "http",
+        "installRegistryPath",
         "isPkg",
         "json",
         "makeId",
@@ -59,12 +65,17 @@
         "path",
         "pathToFileURL",
         "paths",
+        "readInstallRegistry",
         "readUsageRows",
         "readline",
+        "recordInstallLaunch",
+        "ruyiPackageInfo",
         "ruyiVendorBinDir",
         "safeJsonParse",
         "samePathEntry",
+        "samePathKey",
         "text",
+        "tildePath",
         "usageDayKey",
         "usageLedgerChain",
         "usageLedgerPending",
@@ -72,6 +83,13 @@
         "zlib"
       ],
       "requires": [
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "01-config.js",
           "symbol": "readConfig",
@@ -214,6 +232,7 @@
         "agentCliLauncherOk",
         "agentCliProbeSpawn",
         "agentCliProbeable",
+        "agentMcpImportSources",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -221,6 +240,7 @@
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
+        "classifyAgentMcpCandidate",
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
@@ -281,7 +301,9 @@
         "isBatchLauncher",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
+        "kimiMcpManagedIds",
         "lastGoodConfig",
+        "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
         "mergeAgentRole",
         "mutateConfig",
@@ -340,6 +362,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "apiFailure",
           "kinds": [
             "call"
@@ -383,6 +412,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "externalRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "findRuyiPackageRootFor",
           "kinds": [
             "call"
           ]
@@ -2794,6 +2830,13 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "filterMemoryForNativeCli",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "memoryGlobalDir",
           "kinds": [
             "call"
@@ -4379,6 +4422,11 @@
       "layer": "engine",
       "provides": [
         "ACC_MEMORY_IMPORT_SCHEMA",
+        "AGENT_INSTRUCTION_CHUNK_CHARS",
+        "AGENT_INSTRUCTION_CORE_PARTS",
+        "AGENT_INSTRUCTION_IMPORT_SCHEMA",
+        "AGENT_INSTRUCTION_MAX_BYTES",
+        "AGENT_INSTRUCTION_NATIVE_CLI",
         "CORE_MEMORY_CHAR_CAP",
         "CORE_MEMORY_MAX",
         "CORE_MEMORY_SUMMARY_CAP",
@@ -4401,6 +4449,11 @@
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
         "accMemoryImportMarker",
+        "agentInstructionChain",
+        "agentInstructionImportFile",
+        "agentInstructionMemoryId",
+        "agentInstructionSourceKeyOf",
+        "agentInstructionSources",
         "analyzeMemoryMaintenance",
         "applyMemoryRelationProposal",
         "buildCoreMemoryPromptSection",
@@ -4416,8 +4469,10 @@
         "draftMemoryFromSession",
         "effectiveMemorySelection",
         "extractMemoryRelationProposals",
+        "filterMemoryForNativeCli",
         "fmBool",
         "fmVal",
+        "inspectAgentInstructionEntries",
         "legacyAccMemoryCandidates",
         "legacyAccMemoryMigrationComplete",
         "listMemoryProjectGroups",
@@ -4450,6 +4505,7 @@
         "mutateMemoryUsageState",
         "parseMemoryDraft",
         "parseMemoryProposalDecision",
+        "planAgentInstructionEntries",
         "projectKeyForCwd",
         "proposeMemoryFromSession",
         "proposeMemoryFromSessionUnlocked",
@@ -4462,6 +4518,8 @@
         "rankMemoriesFused",
         "rankRelevantMemories",
         "rankRelevantMemoriesScored",
+        "readAgentInstructionSource",
+        "readAgentInstructionState",
         "readMemoryDir",
         "readMemoryItem",
         "readMemoryProposalState",
@@ -4469,19 +4527,34 @@
         "readMemoryUsageState",
         "readWorkbenchMemory",
         "recordMemoryProposalUsage",
+        "removeAgentInstructionEntries",
+        "renderAgentInstructionMemory",
         "resolveCoreMemoryState",
         "resolveEnabledMemoryEntries",
         "resolveMemoryPreflight",
         "resolveWorkbenchMemoryToolContext",
         "saveMemory",
+        "sha256Hex",
+        "splitAgentInstructionText",
+        "syncAgentInstructionImports",
+        "syncAgentInstructionImportsUnlocked",
         "toolMemoryProposalAlreadyPending",
         "touchMemoryUsage",
         "validateMemoryProposalSave",
+        "writeAgentInstructionEntries",
+        "writeAgentInstructionState",
         "writeMemoryMeta",
         "writeMemoryProposalState",
         "writeMemoryRelations"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
@@ -4585,6 +4658,13 @@
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "tildePath",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -8999,6 +9079,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "cp",
           "kinds": [
             "read"
@@ -9812,6 +9899,13 @@
           "symbol": "readline",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "recordInstallLaunch",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10810,6 +10904,13 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "syncAgentInstructionImports",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "validateMemoryProposalSave",
           "kinds": [
             "call"
@@ -11266,6 +11367,7 @@
         "handleAudioWarmup",
         "handleCheckpointApiRoutes",
         "handleMcpApiRoutes",
+        "handleMigrationApiRoutes",
         "handleSteerApiRoute",
         "maybeCompressImageAttachment",
         "maybeOcrImageAttachment",
@@ -11324,6 +11426,13 @@
           "symbol": "json",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18118,6 +18227,287 @@
         {
           "provider": "13s-scheduler.js",
           "symbol": "schedulerSaveTasks",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "13u-migration-center.js",
+      "layer": "transport",
+      "provides": [
+        "MIGRATION_BACKUP_TAG",
+        "MIGRATION_EXTERNAL_SOURCES",
+        "MIGRATION_LOG_SCHEMA",
+        "MIGRATION_SIZE_BUDGET_MS",
+        "MIGRATION_SIZE_FILE_CAP",
+        "MIGRATION_SIZE_TTL_MS",
+        "migrationAnalyzeValue",
+        "migrationApply",
+        "migrationBackup",
+        "migrationChain",
+        "migrationCollect",
+        "migrationCollectRefs",
+        "migrationCurrentRoot",
+        "migrationDir",
+        "migrationDirSize",
+        "migrationForgetPackage",
+        "migrationGetAt",
+        "migrationGetField",
+        "migrationHash",
+        "migrationImportMcp",
+        "migrationListPackages",
+        "migrationLogs",
+        "migrationMcpSummary",
+        "migrationPackageRunning",
+        "migrationPathInside",
+        "migrationPidAlive",
+        "migrationPromptKeys",
+        "migrationRecycle",
+        "migrationRememberPackages",
+        "migrationRewriteRefs",
+        "migrationScan",
+        "migrationScanMcp",
+        "migrationScanSkills",
+        "migrationSendToRecycleBin",
+        "migrationSerial",
+        "migrationServerItem",
+        "migrationSetField",
+        "migrationSizeCache",
+        "migrationStamp",
+        "migrationTomlReplace",
+        "migrationTomlSection",
+        "migrationUndo"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "agentCliHomes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "externalRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "findRuyiPackageRootFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "installRegistryPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MigrationHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "readInstallRegistry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ruyiPackageInfo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "tildePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "agentMcpImportSources",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "atomicWriteJson",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "classifyAgentMcpCandidate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "generateMcpConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "kimiMcpManagedIds",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "_parseTomlMcpServers",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "parseMcpConfigFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "safeUrlForDisplay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "sanitizeExternalMcpServer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "syncAgentInstructionImports",
           "kinds": [
             "call"
           ]

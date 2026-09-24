@@ -358,6 +358,282 @@ async function migrateLegacyAccMemory() {
   return { ok: true, source, imported, skipped };
 }
 
+// ============================================================================
+// W2 迁移中心 · 指令文件 → 核心记忆。本机其它 Agent CLI 的【全局】指令文件导成工作台全局记忆
+// (core:true、type convention),换到如意的用户不必把「我的规矩」再说一遍。
+//   · 来源:agentInstructionSources();每个来源取第一个非空文件(Codex 的 AGENTS.override.md 优先于
+//     AGENTS.md,与 Codex 自己的读取次序一致)。Kimi Code 的全局指令位置取自它自己的二进制里的读取逻辑
+//     ($KIMI_CODE_HOME/AGENTS.md,缺省 ~/.kimi-code/AGENTS.md)。
+//   · 拆分:核心胶囊每轮只放每条的摘要(≤520 字),所以按标题/段落把全文切成 ≤480 字的块,一块一条;每个来源
+//     最多 12 块进核心(约 6K 字,不挤占用户自己的核心席位),余下合成一条 core:false 的「其余部分」,并在
+//     第 12 条的摘要末尾注明去哪读。
+//   · 同步:sidecar <data>/memory/.agent-instructions-import-v1.json 记来源哈希与我们写下的每条文件哈希。
+//     来源变了:我们写的条目一字未动 → 自动重导;用户改过(文件哈希变了)→ 不覆盖,只标 sourceChanged。
+//     用户删掉任何一条(或在迁移中心点「移除」)→ 记 dismissed,不再自动导回(显式「导入」才解除)。
+//   · 去重:CLI 原生会读的那份(claude-md ↔ Claude Code、kimi-agents ↔ Kimi Code)在该 CLI 的回合不注入
+//     (filterMemoryForNativeCli,05 调用);provider 引擎照常注入。
+// ============================================================================
+const AGENT_INSTRUCTION_IMPORT_SCHEMA = 1;
+const AGENT_INSTRUCTION_MAX_BYTES = 200 * 1024;
+const AGENT_INSTRUCTION_CORE_PARTS = 12;
+const AGENT_INSTRUCTION_CHUNK_CHARS = 480;
+const AGENT_INSTRUCTION_NATIVE_CLI = Object.freeze({ 'claude-md': 'claude', 'kimi-agents': 'kimi' });
+let agentInstructionChain = Promise.resolve();
+
+function agentInstructionSources() {
+  const homes = agentCliHomes();
+  return [
+    { key: 'claude-md', tool: 'claude-code', label: 'Claude Code', nativeCli: 'claude', files: [path.join(homes.claude, 'CLAUDE.md')] },
+    { key: 'codex-agents', tool: 'codex', label: 'Codex', nativeCli: '', files: [path.join(homes.codex, 'AGENTS.override.md'), path.join(homes.codex, 'AGENTS.md')] },
+    { key: 'kimi-agents', tool: 'kimi', label: 'Kimi Code', nativeCli: 'kimi', files: [path.join(homes.kimi, 'AGENTS.md')] },
+    { key: 'gemini-md', tool: 'gemini', label: 'Gemini CLI', nativeCli: '', files: [path.join(homes.gemini, 'GEMINI.md')] },
+  ];
+}
+function agentInstructionImportFile() { return path.join(paths.memory, '.agent-instructions-import-v1.json'); }
+function agentInstructionMemoryId(key, n) { return 'agentmd-' + key + '-' + n; }
+function agentInstructionSourceKeyOf(id) {
+  const m = /^agentmd-([a-z]+-[a-z]+)-\d+$/.exec(String(id || ''));
+  return m ? m[1] : '';
+}
+// 某个 CLI 自己原生会读的那份导入条目,从该 CLI 回合的注入清单里拿掉。cliType 空 = 不过滤(provider 引擎)。
+function filterMemoryForNativeCli(entries, cliType) {
+  const list = Array.isArray(entries) ? entries : [];
+  const cli = String(cliType || '');
+  if (!cli) return list.slice();
+  return list.filter(e => !(e && e.scope === 'global' && AGENT_INSTRUCTION_NATIVE_CLI[agentInstructionSourceKeyOf(e.id)] === cli));
+}
+function sha256Hex(text) { return crypto.createHash('sha256').update(String(text), 'utf8').digest('hex'); }
+
+async function readAgentInstructionState() {
+  try {
+    const raw = safeJsonParse(await fsp.readFile(agentInstructionImportFile(), 'utf8'), null);
+    if (raw && raw.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && raw.sources && typeof raw.sources === 'object' && !Array.isArray(raw.sources)) return raw;
+  } catch { /* 首次 */ }
+  return { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} };
+}
+async function writeAgentInstructionState(state) {
+  await fsp.mkdir(paths.memory, { recursive: true });
+  await atomicWriteJson(agentInstructionImportFile(), { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, updatedAt: nowIso(), sources: state.sources });
+}
+
+// 取来源的第一个非空文件。返回 null(没有)/{ file, error }(过大、读不了)/{ file, text, hash }。
+async function readAgentInstructionSource(src) {
+  for (const file of src.files) {
+    let st;
+    try { st = await fsp.stat(file); } catch { continue; }
+    if (!st.isFile()) continue;
+    if (st.size > AGENT_INSTRUCTION_MAX_BYTES) return { file, error: 'too-large', size: st.size };
+    let text = '';
+    try { text = await fsp.readFile(file, 'utf8'); } catch { return { file, error: 'unreadable' }; }
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    text = text.replace(/\r\n?/g, '\n');
+    if (!text.trim()) continue; // 空文件不算(Codex:override 空 → 看 AGENTS.md)
+    return { file, text, hash: sha256Hex(text).slice(0, 32) };
+  }
+  return null;
+}
+
+// 全文 → 块。先按 #/##/### 标题切段(代码围栏里的 # 不算),相邻的小段合并到 ≤480 字(压平后),
+// 超长段再按空行切段落,段落还超长就按字数硬切。每块带所属标题,摘要里给续段补上下文。
+function splitAgentInstructionText(text) {
+  const CHUNK = AGENT_INSTRUCTION_CHUNK_CHARS;
+  const flat = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const sections = [];
+  let cur = { heading: '', lines: [] };
+  let inFence = false;
+  for (const line of String(text || '').split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+    const isHeading = !inFence && /^#{1,3}\s+\S/.test(line);
+    if (isHeading && cur.lines.some(l => l.trim())) { sections.push(cur); cur = { heading: '', lines: [] }; }
+    if (isHeading && !cur.heading) cur.heading = line.replace(/^#+\s+/, '').trim().slice(0, 60);
+    cur.lines.push(line);
+  }
+  if (cur.lines.some(l => l.trim())) sections.push(cur);
+  const chunks = [];
+  let acc = null;
+  const flush = () => { if (acc && acc.flat) chunks.push(acc); acc = null; };
+  for (const sec of sections) {
+    const body = sec.lines.join('\n').trim();
+    const f = flat(body);
+    if (!f) continue;
+    if (f.length <= CHUNK) {
+      if (acc && acc.flat.length + 1 + f.length <= CHUNK) { acc.body += '\n\n' + body; acc.flat += ' ' + f; }
+      else { flush(); acc = { heading: sec.heading, body, flat: f }; }
+      continue;
+    }
+    flush();
+    let p = null;
+    for (const para of body.split(/\n\s*\n/)) {
+      const pf = flat(para);
+      if (!pf) continue;
+      if (pf.length > CHUNK) {
+        if (p) { chunks.push(p); p = null; }
+        const raw = para.trim();
+        for (let i = 0; i < raw.length; i += CHUNK) {
+          const piece = raw.slice(i, i + CHUNK);
+          if (flat(piece)) chunks.push({ heading: sec.heading, body: piece.trim(), flat: flat(piece) });
+        }
+        continue;
+      }
+      if (p && p.flat.length + 1 + pf.length <= CHUNK) { p.body += '\n\n' + para.trim(); p.flat += ' ' + pf; }
+      else { if (p) chunks.push(p); p = { heading: sec.heading, body: para.trim(), flat: pf }; }
+    }
+    if (p) chunks.push(p);
+  }
+  flush();
+  return chunks;
+}
+
+// 一个来源 → 待写条目清单(纯函数:不落盘)。最多 12 条 core,余下合一条 core:false。
+function planAgentInstructionEntries(src, read, displayPath) {
+  const chunks = splitAgentInstructionText(read.text);
+  const coreChunks = chunks.slice(0, AGENT_INSTRUCTION_CORE_PARTS);
+  const rest = chunks.slice(AGENT_INSTRUCTION_CORE_PARTS);
+  const total = coreChunks.length + (rest.length ? 1 : 0);
+  const out = [];
+  coreChunks.forEach((c, i) => {
+    const n = i + 1;
+    let summary = (c.heading && !c.flat.startsWith('#') ? '〔' + c.heading + '〕' : '') + c.flat;
+    if (rest.length && n === coreChunks.length) summary = summary.slice(0, CORE_MEMORY_SUMMARY_CAP - 60) + ' …(余下部分见记忆 ' + agentInstructionMemoryId(src.key, total) + ')';
+    out.push({
+      id: agentInstructionMemoryId(src.key, n), core: true, part: n + '/' + total,
+      name: (src.label + ' 全局指令 · ' + (c.heading || ('第 ' + n + ' 段'))).slice(0, 120),
+      description: ('从 ' + displayPath + ' 导入的全局指令(第 ' + n + '/' + total + ' 段)').slice(0, 400),
+      coreSummary: summary.slice(0, CORE_MEMORY_SUMMARY_CAP), body: c.body,
+    });
+  });
+  if (rest.length) {
+    out.push({
+      id: agentInstructionMemoryId(src.key, total), core: false, part: total + '/' + total,
+      name: (src.label + ' 全局指令 · 其余部分').slice(0, 120),
+      description: ('从 ' + displayPath + ' 导入的全局指令(第 ' + total + '/' + total + ' 段,超出核心席位的其余部分)').slice(0, 400),
+      coreSummary: '', body: rest.map(c => c.body).join('\n\n'),
+    });
+  }
+  return out;
+}
+
+function renderAgentInstructionMemory(entry, src, read, importedAt) {
+  const lines = ['---', 'name: ' + fmVal(entry.name), 'description: ' + fmVal(entry.description), 'type: convention',
+    'createdAt: ' + importedAt, 'updatedAt: ' + importedAt, 'core: ' + String(entry.core), 'importance: normal',
+    'coreSummary: ' + fmVal(entry.coreSummary).slice(0, CORE_MEMORY_SUMMARY_CAP), 'sourceRunId: agent-instructions-import-v1',
+    'importSource: ' + src.key, 'importSourcePath: ' + fmVal(read.file), 'importSourceHash: ' + read.hash,
+    'importedAt: ' + importedAt, 'importPart: ' + entry.part, '---', '', String(entry.body || '').trim(), ''];
+  return lines.join('\n');
+}
+
+async function removeAgentInstructionEntries(key, record) {
+  const ids = new Set((record && Array.isArray(record.entries) ? record.entries : []).map(e => String(e && e.id || '')).filter(Boolean));
+  // 兜底:按 id 前缀把同来源的残留(上次写到一半的)也清掉。只动 agentmd-<key>- 开头的全局条目。
+  try { for (const f of await fsp.readdir(memoryGlobalDir())) { const id = f.replace(/\.md$/i, ''); if (f.toLowerCase().endsWith('.md') && agentInstructionSourceKeyOf(id) === key) ids.add(id); } } catch { /* 目录还没有 */ }
+  for (const id of ids) await deleteMemory(id, 'global', '').catch(() => {});
+  return ids.size;
+}
+
+async function writeAgentInstructionEntries(src, read, displayPath) {
+  const importedAt = nowIso();
+  const plan = planAgentInstructionEntries(src, read, displayPath);
+  await fsp.mkdir(memoryGlobalDir(), { recursive: true });
+  const entries = [];
+  for (const entry of plan) {
+    const content = renderAgentInstructionMemory(entry, src, read, importedAt);
+    await atomicWriteJson(path.join(memoryGlobalDir(), entry.id + '.md'), content);
+    entries.push({ id: entry.id, hash: sha256Hex(content).slice(0, 32), core: entry.core });
+  }
+  return { importedAt, entries };
+}
+
+// 我们写下的条目现在怎样:missing(被删了几条)/ modified(被改了几条)。
+async function inspectAgentInstructionEntries(record) {
+  let missing = 0, modified = 0;
+  for (const e of (record && Array.isArray(record.entries) ? record.entries : [])) {
+    let content = null;
+    try { content = await fsp.readFile(path.join(memoryGlobalDir(), String(e.id) + '.md'), 'utf8'); } catch { missing++; continue; }
+    if (sha256Hex(content).slice(0, 32) !== e.hash) modified++;
+  }
+  return { missing, modified };
+}
+
+// 同步入口(启动期、迁移中心 scan/apply 共用;整段串行化)。
+//   opts.auto     true = 按配置开关自动导入/自动重导(启动期与 scan);false = 只看不写(除非 import/dismiss 点名)
+//   opts.importKeys  显式导入(解除 dismissed、覆盖用户改动)
+//   opts.dismissKeys 显式移除(删条目 + 记 dismissed)
+// 返回 { ok, sources: [{ key, tool, label, file, displayPath, status, entries, coreEntries, importedAt, userModified, sourceChanged }] }
+//   status: absent | too-large | importable | imported | source-updated | dismissed
+function syncAgentInstructionImports(opts = {}) {
+  const job = agentInstructionChain.then(() => syncAgentInstructionImportsUnlocked(opts));
+  agentInstructionChain = job.catch(() => {});
+  return job;
+}
+async function syncAgentInstructionImportsUnlocked(opts) {
+  const auto = opts.auto === true;
+  const importKeys = new Set(Array.isArray(opts.importKeys) ? opts.importKeys.map(String) : []);
+  const dismissKeys = new Set(Array.isArray(opts.dismissKeys) ? opts.dismissKeys.map(String) : []);
+  const state = await readAgentInstructionState();
+  let dirty = false;
+  const out = [];
+  for (const src of agentInstructionSources()) {
+    const record = state.sources[src.key] || null;
+    const read = await readAgentInstructionSource(src);
+    const file = read ? read.file : src.files[src.files.length - 1];
+    const displayPath = tildePath(file);
+    const row = { key: src.key, tool: src.tool, label: src.label, nativeCli: src.nativeCli, file, displayPath, status: 'absent', entries: 0, coreEntries: 0, importedAt: '', userModified: false, sourceChanged: false };
+    if (dismissKeys.has(src.key)) {
+      await removeAgentInstructionEntries(src.key, record);
+      state.sources[src.key] = { key: src.key, file, sourceHash: read && read.hash ? read.hash : '', entries: [], dismissed: true, dismissedAt: nowIso() };
+      dirty = true;
+      logEvent({ kind: 'agent_instructions_dismiss', source: src.key });
+      out.push({ ...row, status: 'dismissed' });
+      continue;
+    }
+    if (read && read.error) {
+      out.push({ ...row, status: read.error === 'too-large' ? 'too-large' : 'absent', error: read.error });
+      continue;
+    }
+    const forced = importKeys.has(src.key);
+    if (record && record.dismissed && !forced) { out.push({ ...row, status: read ? 'dismissed' : 'absent' }); continue; }
+    if (record && !record.dismissed && Array.isArray(record.entries) && record.entries.length && !forced) {
+      const inspect = await inspectAgentInstructionEntries(record);
+      if (inspect.missing) {
+        // 用户在记忆面板里删了我们导入的条目 = 不要它了。记 dismissed,余下的条目留给用户自己处置。
+        state.sources[src.key] = { ...record, dismissed: true, dismissedAt: nowIso(), entries: [] };
+        dirty = true;
+        logEvent({ kind: 'agent_instructions_dismiss', source: src.key, reason: 'entry-deleted' });
+        out.push({ ...row, status: read ? 'dismissed' : 'absent' });
+        continue;
+      }
+      const userModified = inspect.modified > 0;
+      const sourceChanged = Boolean(read && read.hash !== record.sourceHash);
+      if (sourceChanged && !userModified && auto) {
+        await removeAgentInstructionEntries(src.key, record);
+        const written = await writeAgentInstructionEntries(src, read, displayPath);
+        state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
+        dirty = true;
+        logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: 'source-updated' });
+        out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt });
+        continue;
+      }
+      if (Boolean(record.sourceChanged) !== sourceChanged || Boolean(record.userModified) !== userModified) {
+        state.sources[src.key] = { ...record, sourceChanged, userModified };
+        dirty = true;
+      }
+      out.push({ ...row, status: sourceChanged ? 'source-updated' : 'imported', entries: record.entries.length,
+        coreEntries: record.entries.filter(e => e && e.core).length, importedAt: record.importedAt || '', userModified, sourceChanged, sourceMissing: !read });
+      continue;
+    }
+    if (!read) { out.push(row); continue; }
+    if (!auto && !forced) { out.push({ ...row, status: 'importable' }); continue; }
+    await removeAgentInstructionEntries(src.key, record);
+    const written = await writeAgentInstructionEntries(src, read, displayPath);
+    state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
+    dirty = true;
+    logEvent({ kind: 'agent_instructions_import', source: src.key, entries: written.entries.length, reason: forced ? 'explicit' : 'auto' });
+    out.push({ ...row, status: 'imported', entries: written.entries.length, coreEntries: written.entries.filter(e => e.core).length, importedAt: written.importedAt });
+  }
+  if (dirty) await writeAgentInstructionState(state);
+  return { ok: true, sources: out };
+}
+
 async function resolveWorkbenchMemoryToolContext(ctx) {
   const sid = safeSessionId((ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || '');
   let session = ctx && ctx.session;
