@@ -12,7 +12,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     「[代理完成通知」恰好出现一次、含 runId、且长度远小于节点 50k 字全文(信封上限)。
 //  D  agent_result({runId:'$RUN_ID', maxChars:5000}) → 有界切片(text 5000 / totalChars ≥ 50000 / truncated / nextOffset)。
 //  E  同步调用:tool_result 与持久化消息 toolCalls 里都是信封(nodes[].summary ≤1501、无 result 全文)。
-//  F  wait_agents 已取走终态信封 → 之后的回合不再重复注入(只投递一次的另一半)。
+//  F  一次投递的两种先后顺序(wave137 集成期竞态,用 fake 控时序):F1 节点慢 3s → wait 先取走 → 之后零通知;
+//     F2 节点瞬时、父回合先 powershell 睡 2s 再 wait → 迭代边界已注入完成通知 → wait 只回短回执(agent_envelope_receipt);
+//     F3 后续回合:F1 的 run 零通知、F2 的 run 恰好一条、无重复通知;账本每 run 恰好一份。
 //  G  后台任务条停止:长跑后台 run → POST /background/stop {id:'run:<runId>'} → 状态 stopped,失败/停止信封照投递。
 //  H  子代理事件层:子代理的 tool_use/tool_result 带 subagentId;活回合的 liveTail.tools 不含子代理工具(父实时工具列表零泄漏)。
 //  I  MCP 面:tools/list 无 spawn_agent、有 orchestrate_agents/wait_agents/agent_result;tools/call agent_result 经回环取到全文;
@@ -95,7 +97,10 @@ try {
       CMD_CHAT3: [{ text: '第三回合完成。' }],
       CMD_FETCH4: [{ name: 'agent_result', args: { runId: '$RUN_ID', maxChars: 5000 } }, { text: '已取全文片段。' }],
       CMD_SYNC5: [{ name: 'orchestrate_agents', args: { task: '快速同步分析', agentKey: 'fast', toolTier: 'read' } }, { text: '同步完成。' }],
-      CMD_WAIT6: [{ name: 'orchestrate_agents', args: { task: '快速后台分析', agentKey: 'fastbg', toolTier: 'read', background: true } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件。' }],
+      // F1(wait 先到):节点里 Start-Sleep 3 → wait_agents 开始等时 run 还活着。
+      CMD_WAIT6: [{ name: 'orchestrate_agents', args: { task: '慢速后台收件', agentKey: 'slowbg', toolTier: 'exec', background: true } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件。' }],
+      // F2(通知先到):节点瞬时完成;父回合先自己睡 2s(迭代边界在这之后把信封作通知注入)再 wait。
+      CMD_NOTICE6: [{ name: 'orchestrate_agents', args: { task: '瞬时后台收件', agentKey: 'instbg', toolTier: 'read', background: true } }, { name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 2; Write-Output parent-paused', timeoutMs: 20000 } }, { name: 'wait_agents', args: { timeoutMs: 20000 } }, { text: '已收件(通知先到)。' }],
       CMD_CHAT7: [{ text: '第七回合完成。' }],
       CMD_STOP8: [{ name: 'orchestrate_agents', args: { task: '超长后台分析', agentKey: 'long', toolTier: 'exec', background: true } }, { text: '已后台启动长任务。' }],
     },
@@ -103,9 +108,10 @@ try {
     subStepsByTask: {
       '慢速大产出分析': [{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 4; Write-Output slow-done', timeoutMs: 30000 } }],
       '超长后台分析': [{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 60; Write-Output long-done', timeoutMs: 90000 } }],
+      '慢速后台收件': [{ name: 'powershell_run', args: { command: 'Start-Sleep -Seconds 3; Write-Output slowbg-done', timeoutMs: 30000 } }],
     },
     subText: BIG,
-    subTextByTask: { '快速同步分析': '同步节点结论:' + 'S'.repeat(3000), '快速后台分析': '后台快节点结论。', 'MCP 快任务': 'MCP 节点结论。' },
+    subTextByTask: { '快速同步分析': '同步节点结论:' + 'S'.repeat(3000), '慢速后台收件': '后台慢节点结论。', '瞬时后台收件': '后台瞬时节点结论。', 'MCP 快任务': 'MCP 节点结论。' },
     parentText: '父回合完成。',
   });
   fake = cp.spawn(process.execPath, [path.join(HERE, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FAKE_PORT), FAKE_SUBAGENT_SCRIPT: script, FAKE_CAPTURE_DIR: CAP }, windowsHide: true });
@@ -195,17 +201,45 @@ try {
   const envJobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8')).filter(j => j.id === 'agent:' + envE.content.runId);
   ok(envJobs.length === 0, 'E a synchronous run does not also enter the background ledger (no double delivery)');
 
-  // ── F wait_agents 取走 → 不再注入 ──
+  // ── F 一次投递的两种先后顺序 ──
+  const noticesNaming = (req, id) => (req ? (req.messages || []) : []).filter(m => m.role === 'user' && /代理完成通知/.test(msgText(m)) && msgText(m).includes(String(id)));
+  // F1(wait 先到)
   const evF = await streamChat({ sessionId: sid, message: 'CMD_WAIT6 后台再来一个并收件', cwd: HOME });
   const waitRes = evF.find(e => e.type === 'tool_result' && !e.subagentId && e.content && Array.isArray(e.content.runs));
-  const runIdF = waitRes && waitRes.content.runs[0] && waitRes.content.runs[0].runId;
-  ok(waitRes && waitRes.content.settled === true && waitRes.content.runs[0].kind === 'agent_envelope' && waitRes.content.runs[0].status === 'succeeded', 'F wait_agents returns the terminal envelope');
-  await sleep(500);
-  const evF2 = await streamChat({ sessionId: sid, message: 'CMD_CHAT7 再聊', cwd: HOME });
-  ok(evF2.find(e => e.type === 'result' && e.ok === true), 'F follow-up turn ok');
+  const envF = waitRes && waitRes.content.runs[0];
+  const runIdF = envF && envF.runId;
+  ok(waitRes && waitRes.content.settled === true && envF.kind === 'agent_envelope' && envF.status === 'succeeded' && envF.nodes && envF.nodes[0] && /后台慢节点结论/.test(envF.nodes[0].summary || ''), 'F1 wait_agents started while the run was live → returns the full terminal envelope');
+  const reqF1 = lastParentRequestFor('CMD_WAIT6');
+  ok(reqF1 && noticesNaming(reqF1, runIdF).length === 0, 'F1 no completion notice for that run in the same turn (the wait took it first)');
+  // F2(通知先到)
+  const evF2b = await streamChat({ sessionId: sid, message: 'CMD_NOTICE6 后台瞬时任务,父先忙别的再收件', cwd: HOME });
+  const waitRes2 = evF2b.find(e => e.type === 'tool_result' && !e.subagentId && e.content && Array.isArray(e.content.runs));
+  const rcpt = waitRes2 && waitRes2.content.runs[0];
+  const runId6B = rcpt && rcpt.runId;
+  ok(evF2b.find(e => e.type === 'result' && e.ok === true) && /^run_/.test(runId6B || ''), 'F2 notice-first turn completes');
+  // 时序前提:父回合的 powershell_run 真的睡了 2s(工具存在且成功),否则「通知先到」的前提不成立。
+  const psUse = evF2b.find(e => e.type === 'tool_use' && !e.subagentId && e.name === 'powershell_run');
+  const psRes = psUse && evF2b.find(e => e.type === 'tool_result' && !e.subagentId && e.id === psUse.id);
+  const run6B = await jsonRequest('GET', `/api/agent-runs/${encodeURIComponent(runId6B)}?sessionId=${encodeURIComponent(sid)}`, null, auth).catch(() => null);
+  const r6 = run6B && run6B.run;
+  ok(psRes && psRes.content && psRes.content.ok === true && /parent-paused/.test(JSON.stringify(psRes.content)), 'F2 precondition: the parent powershell_run pause really ran — ' + String(JSON.stringify(psRes && psRes.content) || 'no powershell_run tool_result').slice(0, 200));
+  console.log('  F2 timing: run createdAt=' + (r6 && r6.createdAt) + ' completedAt=' + (r6 && r6.completedAt) + ' status=' + (r6 && r6.status) + ' | tool_use at index ' + evF2b.indexOf(psUse) + ', wait tool_result at index ' + evF2b.indexOf(waitRes2));
+  ok(rcpt && rcpt.kind === 'agent_envelope_receipt' && rcpt.delivered === 'already' && rcpt.status === 'succeeded' && !(rcpt.nodes && rcpt.nodes[0] && 'summary' in rcpt.nodes[0]) && /agent_result/.test(rcpt.note || ''), 'F2 wait_agents after the notice already landed returns a short receipt, not the envelope again — got ' + JSON.stringify(rcpt && { kind: rcpt.kind, delivered: rcpt.delivered }));
+  const reqF2 = lastParentRequestFor('CMD_NOTICE6');
+  const notices6B = noticesNaming(reqF2, runId6B);
+  const envelopeViaWait = rcpt && rcpt.kind === 'agent_envelope' ? 1 : 0;
+  ok(notices6B.length === 1 && notices6B.length + envelopeViaWait === 1, 'F2 exactly one delivery in that turn: notice=' + notices6B.length + ' + envelope-in-wait=' + envelopeViaWait);
+  // F3 后续回合
+  await sleep(300);
+  const evF3 = await streamChat({ sessionId: sid, message: 'CMD_CHAT7 再聊', cwd: HOME });
+  ok(evF3.find(e => e.type === 'result' && e.ok === true), 'F3 follow-up turn ok');
   const reqF = lastParentRequestFor('CMD_CHAT7');
-  const noticesF = reqF ? (reqF.messages || []).filter(m => m.role === 'user' && /代理完成通知/.test(msgText(m))) : [];
-  ok(noticesF.length === 1 && !noticesF.some(m => msgText(m).includes(runIdF)), 'F an envelope already collected by wait_agents is never injected again (only the first run notice remains)');
+  ok(reqF && noticesNaming(reqF, runIdF).length === 0, 'F3 the wait-first run is never injected later');
+  ok(reqF && noticesNaming(reqF, runId6B).length === 1, 'F3 the notice-first run still has exactly one notice (no second injection after the wait receipt)');
+  const allNoticesF = reqF ? (reqF.messages || []).filter(m => m.role === 'user' && /代理完成通知/.test(msgText(m))).map(msgText) : [];
+  ok(allNoticesF.length === 2 && new Set(allNoticesF).size === allNoticesF.length, 'F3 parent context carries exactly two distinct notices in total (first run + notice-first run)');
+  const jobsF = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
+  ok(jobsF.filter(j => j.id === 'agent:' + runIdF).length === 1 && jobsF.filter(j => j.id === 'agent:' + runId6B).length === 1, 'F3 the ledger holds exactly one envelope per run');
 
   // ── G 后台任务条停止 ──
   const evG = await streamChat({ sessionId: sid, message: 'CMD_STOP8 后台派个超长的', cwd: HOME });
@@ -251,7 +285,8 @@ try {
   ok(mcpLegacy.result && mcpLegacy.result.isError !== true && /agent_envelope/.test(legacyText) && /已并入 orchestrate_agents/.test(legacyText) && /MCP 节点结论/.test(legacyText), 'I MCP spawn_agent is translated into a single-node orchestrate run and returns an envelope with the merge note');
   const mcpWait = await rpc('tools/call', { name: 'wait_agents', arguments: { runIds: [runId], timeoutMs: 1000 } });
   const waitText = mcpWait.result && mcpWait.result.content && mcpWait.result.content[0] && mcpWait.result.content[0].text || '';
-  ok(mcpWait.result && /"settled":\s*true/.test(waitText) && /agent_envelope/.test(waitText), 'I MCP wait_agents loops back and returns envelopes');
+  // 第一个 run 的信封早在 C 段以完成通知送达过 → MCP 面的 wait 也只回短回执(同一套结算)。
+  ok(mcpWait.result && /"settled":\s*true/.test(waitText) && /agent_envelope_receipt/.test(waitText) && /"delivered":\s*"already"/.test(waitText), 'I MCP wait_agents loops back; an already-delivered run comes back as a short receipt');
 } catch (e) { fail++; console.log('ERROR ' + (e && e.stack || e)); }
 finally { killp(mcp); killp(wb); killp(fake); await sleep(300); fs.rmSync(HOME, { recursive: true, force: true }); }
 console.log('\nAGENT MODE V2 E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));

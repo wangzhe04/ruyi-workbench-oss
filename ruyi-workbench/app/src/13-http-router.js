@@ -314,7 +314,16 @@ async function agentWorkflowLoopbackRoute(req, res, kind) {
   };
   if (kind === 'wait') {
     const out = await waitForAgentRunResults(sessionId, body.runIds, body.timeoutMs == null ? 30000 : body.timeoutMs, null);
-    await markSession((out.runs || []).filter(r => r && r.runId && r.live !== true && AGENT_RUN_TERMINAL.has(String(r.status))).map(r => r.runId));
+    // 与 provider 回合同一套结算(settleWaitEnvelopes):通知先到 → 短回执;wait 先到 → 登记已读。
+    if (liveReg && liveReg.session) settleWaitEnvelopes(liveReg.session, out);
+    else {
+      const snapshot = await loadSession(sessionId);
+      if (snapshot) {
+        settleWaitEnvelopes(snapshot, out);
+        const marked = Array.isArray(snapshot.backgroundJobSeen) ? snapshot.backgroundJobSeen : [];
+        await mutateSession(sessionId, fresh => { fresh.backgroundJobSeen = [...new Set([...(Array.isArray(fresh.backgroundJobSeen) ? fresh.backgroundJobSeen : []), ...marked])].slice(-100); }, { writer: 'agent_envelope_delivered' }).catch(() => {});
+      }
+    }
     return send(res, json(out));
   }
   const out = await agentRunResultSlice({ sessionId, runId: body.runId, nodeId: body.nodeId, maxChars: body.maxChars, offset: body.offset });

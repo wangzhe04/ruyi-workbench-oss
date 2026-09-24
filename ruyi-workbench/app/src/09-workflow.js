@@ -1081,12 +1081,26 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
   return { ok: true, settled, timedOut: !settled, runs };
 }
-// 终态信封被 wait_agents / agent_result 取走 → 登记已读(会话内存对象上),后续迭代/回合不再重复注入。
-function markDeliveredEnvelopes(session, envelopes) {
-  if (!session || !EventStreamHooks.markAgentEnvelopeDelivered) return;
-  for (const env of (Array.isArray(envelopes) ? envelopes : [])) {
-    if (env && env.runId && env.live !== true && AGENT_RUN_TERMINAL.has(String(env.status))) EventStreamHooks.markAgentEnvelopeDelivered(session, env.runId);
-  }
+// wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
+//  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
+//  ② 迭代边界的 drainBackgroundJobs(或 Claude/Kimi 的 drainAgentEnvelopesText)已把信封作「代理完成通知」注入,
+//     随后模型才调 wait_agents → 只回短回执(runId/status/节点状态 + 指引),不再带 summary/artifacts。
+// 只看终态且非 live 的条目;运行中的照常返回(还没有信封可言)。agent_result 不在此列:它取的是全文切片,不是信封。
+function settleWaitEnvelopes(session, out) {
+  if (!session || !out || !Array.isArray(out.runs)) return out;
+  out.runs = out.runs.map(env => {
+    if (!env || !env.runId || env.live === true || !AGENT_RUN_TERMINAL.has(String(env.status))) return env;
+    if (EventStreamHooks.isAgentEnvelopeDelivered && EventStreamHooks.isAgentEnvelopeDelivered(session, env.runId)) {
+      return {
+        ok: env.ok, kind: 'agent_envelope_receipt', runId: env.runId, status: env.status, delivered: 'already',
+        nodes: (Array.isArray(env.nodes) ? env.nodes : []).map(n => ({ nodeId: n.nodeId, status: n.status })),
+        note: '该 run 的交付信封本会话已送达过(上方的代理完成通知,或此前的 wait_agents / agent_result),此处不重复;需全文用 agent_result({runId, nodeId?})。',
+      };
+    }
+    if (EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, env.runId);
+    return env;
+  });
+  return out;
 }
 // 后台 run 收尾 → 一份信封进后台任务账本(下一迭代边界 / 下一回合开头注入一次;toast + 后台任务条随 background.completed 刷新)。
 async function deliverAgentRunEnvelope(sessionId, run) {
@@ -2632,8 +2646,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
             if (tc.name === 'wait_agents') {
               const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];
-              resultObj = await waitForAgentRunResults(session.id, requestedRunIds, args.timeoutMs == null ? 30000 : args.timeoutMs, ctrl && ctrl.signal);
-              markDeliveredEnvelopes(session, resultObj && resultObj.runs);
+              resultObj = settleWaitEnvelopes(session, await waitForAgentRunResults(session.id, requestedRunIds, args.timeoutMs == null ? 30000 : args.timeoutMs, ctrl && ctrl.signal));
             } else if (tc.name === 'agent_result') {
               resultObj = await agentRunResultSlice({ sessionId: session.id, runId: args.runId, nodeId: args.nodeId, maxChars: args.maxChars, offset: args.offset });
               if (resultObj && resultObj.ok && resultObj.live !== true && AGENT_RUN_TERMINAL.has(String(resultObj.runStatus)) && EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, resultObj.runId);

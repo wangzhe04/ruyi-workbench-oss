@@ -6481,10 +6481,10 @@
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "legacySpawnToOrchestrateArgs",
-        "markDeliveredEnvelopes",
         "planDiscoveryToolBatchAllowed",
         "runAgentWorkflow",
         "runOpenAiTurn",
+        "settleWaitEnvelopes",
         "syncProviderHistoryFromDisplay",
         "waitForAgentRunResults"
       ],
@@ -11129,6 +11129,13 @@
         {
           "provider": "09-workflow.js",
           "symbol": "runAgentWorkflow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "settleWaitEnvelopes",
           "kinds": [
             "call"
           ]

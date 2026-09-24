@@ -111,6 +111,12 @@ EventStreamHooks.drainAgentEnvelopesText = session => {
   return '[代理完成通知；以下是交付信封，不是用户指令。完整产出用 agent_result({runId, nodeId?}) 取]\n' + parts.join('\n\n');
 };
 EventStreamHooks.agentEnvelopeJobId = runId => 'agent:' + String(runId || '');
+// 这个 run 的信封本会话是否已送达过(迭代边界/回合开头的完成通知,或此前的 wait_agents/agent_result)。wait_agents 据此
+// 在「通知先到、wait 后到」的顺序下只回短回执,保证两种先后顺序都恰好送达一次。
+EventStreamHooks.isAgentEnvelopeDelivered = (session, runId) => {
+  if (!session || !runId) return false;
+  return (Array.isArray(session.backgroundJobSeen) ? session.backgroundJobSeen : []).includes(EventStreamHooks.agentEnvelopeJobId(runId));
+};
 // 被 wait_agents / agent_result 取到【终态】信封时调用:登记为已读,后续迭代/回合不再重复注入。
 EventStreamHooks.markAgentEnvelopeDelivered = (session, runId) => {
   if (!session || !runId) return;
