@@ -125,6 +125,7 @@ export function createChatStaticRenderer(deps = {}) {
       approved: 'narrative.status.approved', rejected: 'narrative.status.rejected',
       answered: 'narrative.status.answered', cancelled: 'narrative.status.cancelled',
       running: 'status.running', done: 'status.done', error: 'status.error',
+      background: 'narrative.status.background', // 代理模式 v2:后台代理 run(回合收尾不标 cancelled)
       snapshot: 'narrative.status.snapshot', removed: 'narrative.status.removed',
       updated: 'narrative.status.updated',
     }[String(status || '')] || 'narrative.status.updated';
@@ -156,6 +157,46 @@ export function createChatStaticRenderer(deps = {}) {
     head.append(el('span', 'narrative-state-title', `${t(titleKey)}${detail ? ' · ' + detail : ''}`), narrativeStatePill(segment.status));
     card.append(head);
     if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
+    return card;
+  }
+  // 代理模式 v2:provider 编排的静态重绘 —— 工作流状态卡下挂交付信封(从同回合 toolCalls 里按 runId 找
+  // orchestrate_agents 的结果,信封是持久化进消息的唯一形状),每个节点一张折叠小卡:摘要 + 产物路径 + 错误。
+  function narrativeWorkflowCard(segment, tools) {
+    const card = narrativeSemanticCard(segment);
+    const runId = String(segment.workflowId || '');
+    let envelope = null;
+    for (const tc of (tools ? tools.values() : [])) {
+      const r = tc && tc.result;
+      if (r && typeof r === 'object' && r.kind === 'agent_envelope' && String(r.runId || '') === runId) { envelope = r; break; }
+    }
+    if (!envelope || !Array.isArray(envelope.nodes) || !envelope.nodes.length) return card;
+    const list = el('div', 'subagent-body');
+    for (const node of envelope.nodes) {
+      const ok = node.status === 'succeeded';
+      const bad = node.status === 'failed' || node.status === 'rejected' || node.status === 'blocked';
+      const d = el('details', `subagent-card ${ok ? 'sa-ok' : (bad ? 'sa-err' : '')}`);
+      d.open = bad;
+      const sum = el('summary', 'subagent-head');
+      const role = node.role ? ` · ${node.role}` : '';
+      sum.append(
+        el('span', 'sa-icon', '🤖'),
+        el('span', 'sa-title', `[${node.nodeId || node.agentKey || ''}]${role}`),
+        el('span', `sa-status ${ok ? 'ok' : (bad ? 'err' : '')}`, ok ? t('status.done') : (bad ? t('status.error') : String(node.status || ''))),
+      );
+      d.appendChild(sum);
+      const body = el('div', 'subagent-body');
+      if (node.summary) {
+        const wrap = el('div', 'sa-result');
+        wrap.appendChild(el('div', 'sa-result-label', t('chat.agentEnvelopeSummary')));
+        wrap.appendChild(el('pre', 'sa-result-text', String(node.summary)));
+        body.appendChild(wrap);
+      }
+      if (Array.isArray(node.artifacts) && node.artifacts.length) body.appendChild(el('div', 'sa-result-note', t('chat.agentEnvelopeArtifacts', { list: node.artifacts.join(', ') })));
+      if (node.error) body.appendChild(el('div', 'msg-error', String(node.error)));
+      d.appendChild(body);
+      list.appendChild(d);
+    }
+    card.appendChild(list);
     return card;
   }
   function buildNarrativeToolBatch(items) {
@@ -315,7 +356,8 @@ export function createChatStaticRenderer(deps = {}) {
         if (isKimiSnapshot && planId) kimiPlanCards.set(planId, { card, segment: normalizedSegment });
       }
       else if (segment.type === 'question') narrative.append(narrativeQuestionCard(segment));
-      else if (segment.type === 'permission' || segment.type === 'workflow' || segment.type === 'mission') narrative.append(narrativeSemanticCard(segment));
+      else if (segment.type === 'workflow') narrative.append(narrativeWorkflowCard(segment, tools)); // 代理模式 v2:工作流卡 + 信封摘要
+      else if (segment.type === 'permission' || segment.type === 'mission') narrative.append(narrativeSemanticCard(segment));
       else if (segment.type === 'note') narrative.append(el('div', 'msg-note', segment.text || ''));
       else if (segment.type === 'error') narrative.append(el('div', 'msg-error', segment.text || ''));
       else if (segment.type === 'subagent') {

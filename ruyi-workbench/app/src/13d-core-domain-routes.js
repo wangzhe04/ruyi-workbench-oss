@@ -2015,7 +2015,7 @@ function sessionBackgroundRunRows(sessionId) {
     const first = nodes[0] || {};
     rows.push({
       id: 'run:' + runId,
-      kind: run.kind === 'spawn_agent' ? 'agent' : 'run',
+      kind: (run.kind === 'spawn_agent' || nodes.length === 1) ? 'agent' : 'run', // 代理模式 v2:单节点 run 读作「代理」,多节点读作「班组」
       runId,
       sessionId: run.sessionId,
       name: String(run.title || first.task || first.id || runId).replace(/\s+/g, ' ').slice(0, 120),

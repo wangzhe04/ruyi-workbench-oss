@@ -1,7 +1,14 @@
 // 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background }) {
   let run, nodes, runId;
+  // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
+  // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
+  const isBackgroundRun = background === true || !!(existingRun && existingRun.background);
+  if (isBackgroundRun && typeof onEvent === 'function') {
+    const baseOnEvent = onEvent;
+    onEvent = evt => baseOnEvent(evt && typeof evt === 'object' && !evt.background ? { ...evt, background: true } : evt);
+  }
   const roleLibrary = new Map((await getAgentRoleLibrary(normalizeCwd(parentSession.cwd, config.defaultWorkspace), config)).map(role => [role.id, role]));
   let defaultRoute = {
     engine: parentEngine === 'claude' ? 'claude' : (provider ? 'openai' : 'claude'),
@@ -161,6 +168,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       // hash 恒等于服务器进程启动目录,跨工作区引用不拒,fail-open)。与 wfCwd 同源(normalizeCwd)。
       cwd: normalizeCwd(parentSession.cwd, config.defaultWorkspace),
       kind: String(runKind || 'orchestrate_agents'), title: String(runTitle || ''),
+      // 代理模式 v2:后台 run 与父回合 abort 解耦(调用方不传 ctrl),回合结束不杀;完成信封经后台任务账本投递一次。
+      background: isBackgroundRun,
       // 29b/29c: 首跑权限面存档(boot 自动恢复分级用 —— 恢复时 config.permissionMode 若比首跑更宽,自动续跑
       // 等于权限静默升级,必须降人工)+ 运营指标(interventions 干预计数 / failuresByClass 收尾聚合)。
       permissionModeAtLaunch: String(permModeOverride || config.permissionMode || ''), metrics: { interventions: {} }, replanPatches: [], replanBaseline: null, nodes };
@@ -627,7 +636,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const depNodes = node.dependsOn.map(dep => nodes.find(n => n.id === dep)).filter(Boolean);
       // 第28波(§28c):预算化上游上下文,取代旧 12000/dep + 32000 定长截断。预算=下游模型窗口的 35%(上游份额);
       // 逐依赖降级(全文→摘要→截断),放得下就给全文(judge/verify 类下游不丢证据)。Claude 引擎节点绕过 provider 手动窗口。
-      const dsWindow = (node.engine === 'claude') ? (contextWindowFromTable(node.model) || 200000) : providerContextWindow(provider, node.model);
+      // 代理模式 v2(56 号文 §1②):Claude 引擎节点的窗口与主会话同一条链(手填 → 名称表 → 1M 兜底),不再 200K 兜底。
+      const dsWindow = agentNodeContextWindow(node, provider, config);
       const upstreamBudgetTokens = Math.max(2000, Math.floor(dsWindow * 0.35));
       const priorText = buildUpstreamContext(depNodes, upstreamBudgetTokens);
       const deterministicGateModes = ['vote', 'dedupe', 'coverage', 'propagate'];
@@ -758,7 +768,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
               task: isolated ? `${effectiveTask}\n\n你正在隔离的 Git worktree 中工作。只修改当前工作目录，不要操作原工作区；完成后系统会生成待用户手动应用的提交。` : effectiveTask,
               displayTask: node.task, agentKey: node.id,
               dependsOn: (Array.isArray(node.reportedDependsOn) && node.reportedDependsOn.length) ? node.reportedDependsOn : node.dependsOn, toolTier: node.toolTier, maxIters: node.maxIters, model: node.model,
-              onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride,
+              onEvent: nodeEvent, subagentId: makeId('sub'), depth: 1, ctrl: nodeCtrl, permModeOverride, runId,
               // 116-2b:节点的工具迭代预算耗尽 → run_budget_tripped(收件箱的 budget 类)。
               onBudgetTripped: info => recordRunBudgetTrippedEvent(run, { ...info, nodeId: node.id }),
               getSteer: () => drainNodeSteers(node.id),
@@ -1029,38 +1039,27 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   };
 }
 
-// `spawn_agent{background:true}` returns a launch receipt immediately so the parent model can keep doing
-// useful work. The delegated node still runs through the persisted workflow runtime, therefore its result can
-// be collected in this turn or a later turn without relying on an in-memory promise. This reader always prefers
-// the live object (the disk snapshot is intentionally throttled while a node is running) and confines every id
-// to the current session's run directory.
+// 代理模式 v2:后台 run 的收件。`orchestrate_agents{background:true}` 立即回执,run 由持久化工作流运行时继续跑,
+// 结果可在本回合或之后任一回合收取,不依赖内存 promise。读取优先活对象(磁盘快照在节点运行期间有意节流),
+// 并把每个 id 限定在本会话的 run 目录。返回的是【交付信封】(buildAgentRunEnvelope),不是整份 run。
+const AGENT_RUN_TERMINAL = new Set(['succeeded', 'failed', 'partial', 'stopped', 'interrupted', 'cancelled']);
 async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   const runIds = [...new Set((Array.isArray(rawRunIds) ? rawRunIds : [])
     .map(id => safeSessionId(String(id || ''))).filter(Boolean))].slice(0, 16);
-  if (!runIds.length) return { ok: false, error: '没有可等待的后台 Agent runId', settled: true, timedOut: false, runs: [] };
+  if (!runIds.length) return { ok: false, error: '没有可等待的后台代理 runId', settled: true, timedOut: false, runs: [] };
   const waitMs = Math.min(60000, Math.max(0, Number(timeoutMs) || 0));
   const deadline = Date.now() + waitMs;
-  const readOne = async runId => {
-    const live = activeAgentRuns.get(runId);
-    if (live && live.run) {
-      if (live.run.sessionId !== sessionId) return null;
-      return { run: live.run, live: true };
-    }
-    try {
-      const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, runId), 'utf8'), null);
-      return run && run.sessionId === sessionId ? { run, live: false } : null;
-    } catch { return null; }
-  };
+  const readOne = runId => readAgentRunRecord(sessionId, runId);
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
     const settled = rows.every(row => row && !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
     await new Promise(resolve => {
-      let settled = false;
+      let done = false;
       const finish = () => {
-        if (settled) return;
-        settled = true;
+        if (done) return;
+        done = true;
         clearTimeout(timer);
         if (signal) signal.removeEventListener('abort', finish);
         resolve();
@@ -1072,19 +1071,37 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   }
   const runs = runIds.map((runId, index) => {
     const row = rows[index];
-    if (!row) return { runId, status: 'not_found', live: false, nodes: [] };
-    const run = row.run;
-    return {
-      runId, status: run.status || (row.live ? 'running' : 'unknown'), live: row.live,
-      nodes: (Array.isArray(run.nodes) ? run.nodes : []).map(node => ({
-        id: node.id, agentKey: node.agentKey || node.id, role: node.roleId || '', status: node.status,
-        result: String(node.result || '').slice(0, 24000), error: String(node.error || '').slice(0, 4000),
-      })),
-    };
+    if (!row) return { ok: false, kind: 'agent_envelope', runId, status: 'not_found', nodes: [], live: false };
+    const env = buildAgentRunEnvelope(row.run);
+    env.live = row.live === true;
+    if (row.live && !AGENT_RUN_TERMINAL.has(env.status)) env.status = 'running';
+    return env;
   });
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
   return { ok: true, settled, timedOut: !settled, runs };
 }
+// 终态信封被 wait_agents / agent_result 取走 → 登记已读(会话内存对象上),后续迭代/回合不再重复注入。
+function markDeliveredEnvelopes(session, envelopes) {
+  if (!session || !EventStreamHooks.markAgentEnvelopeDelivered) return;
+  for (const env of (Array.isArray(envelopes) ? envelopes : [])) {
+    if (env && env.runId && env.live !== true && AGENT_RUN_TERMINAL.has(String(env.status))) EventStreamHooks.markAgentEnvelopeDelivered(session, env.runId);
+  }
+}
+// 后台 run 收尾 → 一份信封进后台任务账本(下一迭代边界 / 下一回合开头注入一次;toast + 后台任务条随 background.completed 刷新)。
+async function deliverAgentRunEnvelope(sessionId, run) {
+  try {
+    const envelope = buildAgentRunEnvelope(run);
+    if (EventStreamHooks.notifyAgentRunEnvelope) EventStreamHooks.notifyAgentRunEnvelope(sessionId, run, envelope);
+  } catch (e) { logEvent({ kind: 'agent_envelope_deliver_error', sessionId, runId: run && run.id, error: String(e && e.message || e) }); }
+}
+// 旧 spawn_agent 调用 → 单节点 orchestrate 参数(dependsOn 在单节点里无意义,提示改为一次 orchestrate 的 nodes)。
+function legacySpawnToOrchestrateArgs(args) {
+  const a = args && typeof args === 'object' ? args : {};
+  const out = { task: a.task, background: a.background === true };
+  for (const k of ['role', 'agentKey', 'toolTier', 'maxIters', 'model', 'resources']) if (a[k] != null) out[k] = a[k];
+  return out;
+}
+const LEGACY_SPAWN_NOTE = 'spawn_agent 已并入 orchestrate_agents(本次已按单节点代理执行)。下次请直接调用 orchestrate_agents({task, role?, background?});多代理依赖请在同一次调用的 nodes 里用 dependsOn 表达。';
 
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
@@ -1169,7 +1186,7 @@ function syncProviderHistoryFromDisplay(session) {
 // nativeToolTier(...)=exec. Pure and exported so regressions can be tested without starting a provider turn.
 const PLAN_DISCOVERY_BLOCKED_TOOLS = new Set([
   'permission_prompt', 'todo_write', 'mission_update',
-  'propose_task', 'send_to_agent', 'spawn_agent', 'orchestrate_agents', 'wait_agents',
+  'propose_task', 'send_to_agent', 'orchestrate_agents', 'wait_agents',
 ]);
 function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
   const calls = Array.isArray(toolCalls) ? toolCalls.filter(Boolean) : [];
@@ -1451,7 +1468,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const enabledMemoryConflicts = enabledMemoryEntries.length ? await buildMemoryConflictMap(workingDir).catch(() => new Map()) : null;
   let sys = buildStableSystemPrompt(provider, model, workingDir, initialTools, false, config); // 51d C1b: 只稳定层(prefix-cache 友好),易变层走 turnVolatile
   let volatileExtras = ''; // 52c(51d C2): 920-945 附加提示移 user 侧(与 turnVolatile 合并),sys 纯稳定(prefix-cache 完整命中)
-  if (agentRoleMap.size && initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
+  if (agentRoleMap.size && initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     volatileExtras += '\n\n可用 Agent 角色：' + [...agentRoleMap.values()].map(r => `${r.id}(${r.description || r.label})`).join('；') + '。派发任务或 DAG 节点时优先填写 role，角色会约束模型、工具、MCP、权限与迭代预算。';
   }
   // v1.4.4: list saved/built-in workflow templates so orchestrate_agents' workflowId can actually be used
@@ -1461,13 +1478,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const workflows = await getAgentWorkflows(workingDir).catch(() => []);
     volatileExtras += buildOrchestrateHint(workflows);
   }
-  // 第30波:编排/spawn 可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型(spawn_agent
-  // 也有 model 字段,故门控同 9578 的两工具集,不只 orchestrate)。数据取 offlineModelList,零网络。
-  if (initialTools.some(t => t.function && (t.function.name === 'spawn_agent' || t.function.name === 'orchestrate_agents'))) {
+  // 第30波:编排可用时注入"可选模型 + 能力档位 + 按难度选型指引",让 AI 自主为不同节点选模型。数据取 offlineModelList,零网络。
+  if (initialTools.some(t => t.function && t.function.name === 'orchestrate_agents')) {
     volatileExtras += buildModelHint(config, provider); // 引擎分组:provider 供 openai 组模型
-  }
-  if (initialTools.some(t => t.function && t.function.name === 'spawn_agent')) {
-    volatileExtras += '\n\n子 Agent 并行规则：当主会话还有不依赖子任务结果的工作可做时，调用 spawn_agent 时设置 background:true，立即继续主线；需要汇总时再调用 wait_agents（可省略 runIds 以等待本回合启动的后台 Agent）。只有必须立刻取得结果时才同步等待。';
+    // 代理模式 v2:后台规则 + 信封契约(只改这段子代理/后台文字)。
+    volatileExtras += '\n\n代理并行规则：当主线还有不依赖代理结果的工作可做时，orchestrate_agents 设置 background:true 立即拿到 runId 继续主线；代理完成后交付信封会自动注入一次（也可 wait_agents 收件，可省略 runIds）。只有必须立刻取得结果时才同步等待。你收到的只是信封（每节点摘要与产物路径），需要全文时用 agent_result({runId, nodeId?})。单个代理直接写顶层 {task, role?, toolTier?, background?}。';
   }
   // v0.9-S5 (真流程 plan mode): when permissionMode==='plan' on the provider engine, append a TURN-LOCAL plan
   // instruction (not baked into buildProviderSystemPrompt — kept here so it never leaks into summary/identity
@@ -2021,22 +2036,67 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     return liveGate;
   };
-  // v0.9-S6 (子代理) turn-local state. spawn_agent calls emitted in ONE assistant tool batch are started
-  // together and awaited in their original tool_call order, so provider-history pairing stays deterministic
-  // while the delegated work actually overlaps. `subagentBatchCount` resets at the top of each assistant
-  // tool batch; excess calls are refused according to config.subagentMaxConcurrent.
-  // `subagentTotal` counts
-  // total sub-turns this whole turn and is capped by config.subagentMaxPerTurn (0 = feature disabled → the
-  // tool isn't even offered, so this path is unreachable at 0). `subDepth` is the depth we hand to runSubAgent.
-  let subagentBatchCount = 0, subagentTotal = 0;
-  const subagentFanoutMax = Math.min(8, Math.max(1, Number(config.subagentMaxConcurrent) || 2));
+  // 代理模式 v2 turn-local state。`subagentTotal` = 本回合经 orchestrate_agents 累计启动的节点数,上限
+  // config.subagentMaxPerTurn(旧 spawn_agent 的「每回合扇出预算」语义平移到 orchestrate;0 = 功能关 → 工具不 offer,
+  // 此路径不可达)。并发仍由 run.concurrency(= subagentMaxConcurrent)在工作流运行时内约束。
+  let subagentTotal = 0;
   const subagentTurnCap = Math.max(0, Number(config.subagentMaxPerTurn) || 0);
-  const subagentResults = new Map(); // agentKey -> completed result, available to later dependency stages
-  const reservedSubagentKeys = new Set();
-  // Background spawn runs survive the parent model's next iterations (and even the end of this chat turn)
+  // Background runs survive the parent model's next iterations (and even the end of this chat turn)
   // because their source of truth is the persisted Agent workflow. This turn-local index only supplies the
   // convenient wait_agents{} default when the model omits explicit runIds.
   const backgroundAgentRunIds = new Set();
+  // 代理模式 v2:回合内的单一启动入口。同步 → 阻塞到 run 结束,返回交付信封;background:true → 立即回执,run 与本
+  // 回合 abort 解耦(不传 ctrl)、事件只在本回合仍活着时转发(run 自己的事件日志始终落盘),完成信封经后台任务账本
+  // 恰好投递一次(下一迭代边界或下一回合开头)。
+  const launchOrchestrateFromTurn = async (args, onNestedEvent) => {
+    const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
+    const resolved = await resolveOrchestrateNodes(args, normalizeCwd(session.cwd, config.defaultWorkspace));
+    if (resolved.error) return { ok: false, error: resolved.error, startedCount: 0 };
+    const nodeCount = Array.isArray(resolved.nodes) ? resolved.nodes.length : 0;
+    if (subagentTurnCap > 0 && subagentTotal + nodeCount > subagentTurnCap) {
+      return { ok: false, error: `本回合代理数已达上限(${subagentTurnCap}):已启动 ${subagentTotal},本次请求 ${nodeCount}`, startedCount: 0 };
+    }
+    const background = args.background === true;
+    const runId = makeId('run');
+    const common = {
+      parentSession: session, provider, config, nodes: resolved.nodes, parentEngine: 'openai', parentModel: model,
+      permModeOverride: subPermMode,
+      // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限);每回合累计预算见上面 subagentTurnCap。
+      maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(args.context || '').trim(),
+      // 团队模式 v2: 回合内 orchestrate 一律关任务池(propose_task 不注册);持久化 launch 才走审批流。
+      poolPolicy: 'off', runIdOverride: runId, background,
+    };
+    const failedRun = error => ({ schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'orchestrate_agents', background, status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] });
+    if (background) {
+      backgroundAgentRunIds.add(runId);
+      subagentTotal += nodeCount;
+      // 事件只在【本回合】仍是活回合时进父流(关掉的 SSE 不写);run 自己的 progressLog/事件日志与 GET /api/agent-runs 是权威实时面。
+      const detachedOnEvent = evt => { if (activeChildren.get(session.id) === reg) onNestedEvent(evt); };
+      void runAgentWorkflow({ ...common, onEvent: detachedOnEvent, ctrl: null, onComplete: run => deliverAgentRunEnvelope(session.id, run) })
+        .then(async res => {
+          // 启动期被拒(校验失败等)时 run 文件不存在 → 补一份失败 run 并投递失败信封,wait_agents 才不会 not_found。
+          if (res && res.ok === false && !(Number(res.startedCount) > 0) && !activeAgentRuns.has(runId)) {
+            const rec = await readAgentRunRecord(session.id, runId);
+            if (!rec) { const fr = failedRun(String(res.error || '代理启动失败')); await saveAgentRun(fr).catch(() => {}); await deliverAgentRunEnvelope(session.id, fr); }
+          }
+        })
+        .catch(async e => {
+          activeAgentRuns.delete(runId);
+          const fr = failedRun((e && e.message) ? e.message : String(e));
+          await saveAgentRun(fr).catch(() => {});
+          await deliverAgentRunEnvelope(session.id, fr);
+        });
+      return {
+        ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean),
+        note: '代理已在后台运行;本回合可继续推进。完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。',
+      };
+    }
+    let completedRun = null;
+    const res = await runAgentWorkflow({ ...common, onEvent: onNestedEvent, ctrl, onComplete: async run => { completedRun = run; } });
+    subagentTotal += Math.max(0, Number(res && res.startedCount) || 0);
+    if (!completedRun) return { ok: false, error: (res && res.error) || '代理启动失败', runId: (res && res.runId) || runId, startedCount: 0 };
+    return buildAgentRunEnvelope(completedRun);
+  };
 
   // v1.0-S6 (B): failover-aware wrapper around openAiStreamOnce. For ONE logical API call it walks the
   // candidate endpoint sequence, advancing to the next candidate ONLY on a pre-first-byte failure
@@ -2396,135 +2456,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
         if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
-        subagentBatchCount = 0; // v0.9-S6: reset the per-assistant-batch spawn_agent fan-out counter
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
         // image messages here and FLUSH them after the for-loop, once every role:'tool' reply has been pushed.
         const pendingToolImages = []; // [{ toolCallId, note, parts:[{text},{image_url}…] }]
-        // Start the accepted spawn_agent calls before awaiting any one of them. Only spawn_agent participates:
-        // ordinary tools keep their historical serial ordering. Results are consumed below in original call
-        // order, preserving one contiguous assistant.tool_calls → role:'tool' block for strict providers.
-        const spawnDispatches = new Map();
-        const acceptedSpawns = [];
-        let projectedLoopSig = loopSig, projectedLoopCount = loopCount, projectedLoopAborted = false;
-        for (const stc of localToolCalls) {
-          if (!stc) continue;
-          const projectedSig = stc.name + ' ' + stc.rawArgs;
-          const projectedBare = String(stc.name || '').replace(/^.+?__/, '');
-          if (loopAbortExempt(projectedBare)) { /* 轮询原语: 不参与连击 */ }
-          else if (projectedSig === projectedLoopSig) projectedLoopCount += 1;
-          else { projectedLoopSig = projectedSig; projectedLoopCount = 1; }
-          if (projectedLoopCount >= LOOP_ABORT_AT && !loopAbortExempt(projectedBare) && !loopWarnOnly(projectedBare)) projectedLoopAborted = true;
-          // Do not speculatively launch work that the serial loop guard will refuse, or work positioned
-          // after the call that aborts the batch. This preserves the guard's no-side-effects guarantee.
-          if (projectedLoopAborted) continue;
-          if (stc.name !== 'spawn_agent') continue;
-          let sargs = {}; try { sargs = JSON.parse(stc.rawArgs || '{}'); } catch { sargs = {}; }
-          // spawn_agent is launched speculatively for real parallelism; its pre hook therefore belongs here,
-          // immediately before any promise/side effect starts. The serial consumer below sees the start map
-          // and does not dispatch the hook twice.
-          await notifyToolHookStart(stc, sargs, iter, 'agent_orchestration');
-          subagentBatchCount += 1;
-          if (subagentBatchCount > subagentFanoutMax) {
-            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, error: `子代理并发已达上限(${subagentFanoutMax}),请拆分为后续阶段` }), background: false });
-            continue;
-          }
-          if (subagentTotal >= subagentTurnCap) {
-            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, error: `本回合子代理数已达上限(${subagentTurnCap})` }), background: false });
-            continue;
-          }
-          const requestedKey = String(sargs.agentKey || '').trim().slice(0, 64);
-          const agentKey = requestedKey || `agent-${subagentTotal + 1}`;
-          const dependsOn = [...new Set((Array.isArray(sargs.dependsOn) ? sargs.dependsOn : [])
-            .map(v => String(v || '').trim().slice(0, 64)).filter(Boolean))].slice(0, 8);
-          if (!/^[A-Za-z0-9_-]{1,64}$/.test(agentKey)) {
-            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, error: `子代理标识无效: ${agentKey}` }), background: false });
-            continue;
-          }
-          if (reservedSubagentKeys.has(agentKey)) {
-            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, error: `子代理标识重复: ${agentKey}` }), background: false });
-            continue;
-          }
-          const missingDeps = dependsOn.filter(key => !subagentResults.has(key));
-          if (missingDeps.length) {
-            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, dependsOn, error: `依赖尚未完成: ${missingDeps.join(', ')}。请等待前序阶段返回后再派发` }), background: false });
-            continue;
-          }
-          const roleId = String(sargs.role || '').trim().toLowerCase();
-          const roleDefinition = roleId ? agentRoleMap.get(roleId) : null;
-          if (roleId && !roleDefinition) {
-            spawnDispatches.set(stc.id, { promise: Promise.resolve({ ok: false, agentKey, role: roleId, error: `Agent 角色不存在: ${roleId}` }), background: false });
-            continue;
-          }
-          reservedSubagentKeys.add(agentKey);
-          subagentTotal += 1;
-          const originalTask = String(sargs.task || '');
-          // 第28波(§28c):预算化上游上下文(与 DAG runNode 同一构建器),取代旧 12000/dep + 32000 定长截断。回合内 spawn 扇出
-          // 的前序结果无派生 summary,rung 从全文降级截断。预算=下游子代理模型窗口的 35%。
-          const spawnBudgetTokens = Math.max(2000, Math.floor(providerContextWindow(provider, sargs.model) * 0.35));
-          const dependencyText = buildUpstreamContext(dependsOn.map(key => {
-            const prior = subagentResults.get(key) || {};
-            return { id: key, status: prior.ok === false ? '失败' : '完成', result: prior.result, error: prior.error };
-          }), spawnBudgetTokens);
-          const effectiveTask = dependencyText
-            ? `${originalTask}\n\n以下是已完成的前序子代理结果，请基于它们继续，不要重新执行前序任务：\n\n${dependencyText}`
-            : originalTask;
-          // 52x: 子 agent 优先端点(config.subagentPreferredProvider,跨 provider)--设了用它,否则主 provider。
-          // 每批 spawn 现在交给同一个持久化工作流运行时：同步调用仍等待节点结果；background:true
-          // 只返回 run/node 收据，让父模型继续推进，稍后由 wait_agents 收件。两种模式因此共享工作台 DAG、
-          // 资源锁、重试/停止与崩溃恢复语义，不再维护一套仅聊天可见的旁路子回合。
-          const subProvider = (config.subagentPreferredProvider && (config.providers || []).find(p => p.id === config.subagentPreferredProvider)) || provider;
-          acceptedSpawns.push({
-            stc, sargs, agentKey, dependsOn, roleId, roleDefinition, subProvider, originalTask, effectiveTask,
-            background: sargs.background === true,
-            node: {
-              id: agentKey, task: effectiveTask, role: roleId || undefined, engine: 'openai', dependsOn: [], reportedDependsOn: dependsOn,
-              toolTier: sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read',
-              maxIters: sargs.maxIters || (roleDefinition && roleDefinition.budgets && roleDefinition.budgets.openai),
-              model: resolveNodeModel(sargs.model, roleDefinition && roleDefinition.models && roleDefinition.models.openai, sargs.toolTier || (roleDefinition && roleDefinition.toolTier) || 'read', 'openai', config, subProvider),
-              resources: sargs.resources, failurePolicy: 'continue',
-            },
-          });
-        }
-        if (acceptedSpawns.length) {
-          const spawnRunId = makeId('run');
-          const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
-          const spawnProvider = acceptedSpawns[0].subProvider || provider;
-          const spawnOnEvent = evt => {
-            // Once the parent response closes, the persisted run keeps progressing but must not write into a
-            // dead SSE stream. The workbench's Agent-run polling remains the authoritative live display.
-            if (activeChildren.get(session.id) === reg) onNestedEvent(evt);
-          };
-          const workflowPromise = runAgentWorkflow({
-            parentSession: session, provider: spawnProvider, config, nodes: acceptedSpawns.map(item => item.node),
-            onEvent: spawnOnEvent, ctrl, parentEngine: 'openai', parentModel: model,
-            permModeOverride: subPermMode, maxNodes: Math.max(acceptedSpawns.length, Number(config.agentWorkflowMaxNodes) || 0),
-            runIdOverride: spawnRunId, poolPolicy: 'off', runKind: 'spawn_agent', runTitle: '',
-          }).catch(async e => {
-            const error = (e && e.message) ? e.message : String(e);
-            activeAgentRuns.delete(spawnRunId);
-            const failedRun = { schemaVersion: 4, id: spawnRunId, sessionId: session.id, turnSeq: session.turnSeq, kind: 'spawn_agent', status: 'failed', createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error, nodes: [] };
-            await saveAgentRun(failedRun).catch(() => {});
-            return { ok: false, runId: spawnRunId, status: 'failed', startedCount: 0, results: [], error };
-          });
-          if (acceptedSpawns.some(item => item.background)) backgroundAgentRunIds.add(spawnRunId);
-          for (const item of acceptedSpawns) {
-            const promise = workflowPromise.then(workflow => {
-              const node = Array.isArray(workflow && workflow.results) ? workflow.results.find(row => row.id === item.agentKey) : null;
-              const result = node && node.status === 'succeeded'
-                ? { ok: true, result: node.result, iters: node.attempts, toolCalls: [], runId: spawnRunId, nodeId: item.agentKey }
-                : { ok: false, error: (node && node.error) || (workflow && workflow.error) || '子代理失败', result: node && node.result || undefined, iters: node && node.attempts, toolCalls: [], runId: spawnRunId, nodeId: item.agentKey };
-              const completed = { ...result, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' };
-              subagentResults.set(item.agentKey, completed);
-              if (item.background && EventStreamHooks.notifyBackgroundAgent) {
-                try { EventStreamHooks.notifyBackgroundAgent(session.id, spawnRunId, item.agentKey, completed); } catch { /* notification must not change the task result */ }
-              }
-              return completed;
-            });
-            spawnDispatches.set(item.stc.id, { promise, background: item.background, runId: spawnRunId, nodeId: item.agentKey, agentKey: item.agentKey, dependsOn: item.dependsOn, role: item.roleId || '' });
-          }
-        }
         // hb360 C1: read-tier 并行批 —— 整批全部是【原生只读工具】(无桥接/控制面/spawn/todo/mission/
         // 交互类)时入口并发预执行(单线程事件循环下的 I/O 并发),结果按 id 存表;下方串行循环走到通用
         // 分发时直接取预执行结果,事件/历史/hook/配对顺序与串行路径【逐字节一致】。
@@ -2537,7 +2473,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         let poolStrategy = null;   // 21-E2: 'parallel'(≤8 全量) | 'pool_read'(>8 有界并发) | null
         let poolQueueWaitMs = 0;   // 21-E2: pool 内资源锁排队总时长(串行/全量路径恒 0)
         if (localToolCalls.length > 1) {
-          const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
+          const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
           const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read');
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
@@ -2688,48 +2624,22 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             touch();
             continue;
           }
-          // v0.9-S6 (子代理): spawn_agent is special-cased HERE (like todo_write/bridge) because it needs the
-          // live provider/session/journal/onEvent closure to run a sub-turn. It never reaches the generic
-          // gate/dispatch below. Two guards, both enforced before running:
-          //  (1) configurable single-batch fan-out ceiling — config.subagentMaxConcurrent;
-          //      message; accepted calls were pre-launched above and therefore overlap;
-          //  (2) per-turn total cap — config.subagentMaxPerTurn (already ≥1 here, else the tool wasn't offered).
-          // A refused spawn still emits a tool_result (keeps assistant.tool_calls pairing valid) and continues.
-          let resultObj; // v0.9-S6: declared here so the spawn_agent branch and the normal dispatch share it
-          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents') {
-            if (tc.name === 'spawn_agent') {
-              const dispatch = spawnDispatches.get(tc.id);
-              if (!dispatch) resultObj = { ok: false, error: '子代理调度失败' };
-              else if (dispatch.background) {
-                resultObj = {
-                  ok: true, accepted: true, background: true, status: 'running',
-                  runId: dispatch.runId, nodeId: dispatch.nodeId, agentKey: dispatch.agentKey,
-                  dependsOn: dispatch.dependsOn || [], role: dispatch.role || '',
-                  note: '子 Agent 已在工作台后台运行；主会话可继续推进，需结果时调用 wait_agents。',
-                };
-              } else resultObj = await dispatch.promise;
-            } else if (tc.name === 'wait_agents') {
+          // 代理模式 v2:四个代理工具在这里特判(像 todo_write/bridge 一样需要活的 provider/session/onEvent 闭包),
+          // 不进下面的通用 gate/dispatch。orchestrate_agents 是唯一启动入口(旧 spawn_agent 翻译成单节点并附提示);
+          // wait_agents 收后台信封;agent_result 按需取全文(有界)。被拒的调用同样发 tool_result(保持配对)。
+          let resultObj; // declared here so the agent branch and the normal dispatch share it
+          if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
+            if (tc.name === 'wait_agents') {
               const requestedRunIds = Array.isArray(args.runIds) && args.runIds.length ? args.runIds : [...backgroundAgentRunIds];
               resultObj = await waitForAgentRunResults(session.id, requestedRunIds, args.timeoutMs == null ? 30000 : args.timeoutMs, ctrl && ctrl.signal);
+              markDeliveredEnvelopes(session, resultObj && resultObj.runs);
+            } else if (tc.name === 'agent_result') {
+              resultObj = await agentRunResultSlice({ sessionId: session.id, runId: args.runId, nodeId: args.nodeId, maxChars: args.maxChars, offset: args.offset });
+              if (resultObj && resultObj.ok && resultObj.live !== true && AGENT_RUN_TERMINAL.has(String(resultObj.runStatus)) && EventStreamHooks.markAgentEnvelopeDelivered) EventStreamHooks.markAgentEnvelopeDelivered(session, resultObj.runId);
             } else {
-              const subPermMode = (isProviderPlanMode && planApproved) ? 'bypass' : config.permissionMode;
-              const resolved = await resolveOrchestrateNodes(args, normalizeCwd(session.cwd, config.defaultWorkspace));
-              if (resolved.error) resultObj = { ok: false, error: resolved.error, startedCount: 0 };
-              else {
-                resultObj = await runAgentWorkflow({
-                  parentSession: session, provider, config, nodes: resolved.nodes, onEvent: onNestedEvent, ctrl,
-                  parentEngine: 'openai', parentModel: model,
-                  // 第23波(修 bug): 回合内 orchestrate 的【节点数上限】用 agentWorkflowMaxNodes(DAG 节点上限),不再用
-                  // subagentTurnCap(=subagentMaxPerTurn,那是 ad-hoc spawn_agent 的【每回合扇出预算】,概念不同)。此前二者
-                  // 被混用 → 一个 5 节点的内置模板在 subagentMaxPerTurn=4 的配置下被「节点数超出上限(4)」直接拒掉,而 UI/
-                  // Claude 的 launch 路径(用 agentWorkflowMaxNodes)却能跑。现两条路径口径一致。并发仍受 subagentMaxConcurrent 约束。
-                  permModeOverride: subPermMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText: String(args.context || '').trim(),
-                  // 团队模式 v2: 回合内 orchestrate 是同步阻塞在聊天回合里的临时 DAG——若开任务池,收尾宽限窗会把聊天回合
-                  // 卡住等审批(无自然审批时机)。故回合内 DAG 一律关任务池(propose_task 不注册);持久化 launch 才走审批流。
-                  poolPolicy: 'off',
-                });
-              }
-              subagentTotal += Math.max(0, Number(resultObj && resultObj.startedCount) || 0);
+              const legacy = tc.name === 'spawn_agent';
+              resultObj = await launchOrchestrateFromTurn(legacy ? legacySpawnToOrchestrateArgs(args) : args, onNestedEvent);
+              if (legacy && resultObj && typeof resultObj === 'object') resultObj.note = LEGACY_SPAWN_NOTE + (resultObj.note ? ' ' + resultObj.note : '');
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
@@ -2779,7 +2689,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const grantHit = consumeGrant(session, tc.name, args, 'native', workingDir);
             if (grantHit) { gate = 'allow'; onEvent({ type: 'autonomy_grant_consumed', grantId: grantHit.grantId, tool: grantHit.tool, tier: grantHit.tier, remaining: grantHit.remaining }); }
           }
-          // resultObj declared above (shared with the spawn_agent branch, which `continue`s before reaching here).
+          // resultObj declared above (shared with the agent-tools branch, which `continue`s before reaching here).
           if (gate === 'block') {
             resultObj = { ok: false, error: `blocked by permission mode '${config.permissionMode}' (${tier} tool)` };
           } else {

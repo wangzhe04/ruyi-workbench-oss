@@ -62,7 +62,7 @@ ok(/for \(const id of \(config\.knownModels \|\| \[\]\)\) if \(id\) ids\.push\(S
 // 三写入点都走 resolveNodeModel(engine 参)。
 ok(/const matProvider = engine === 'openai' \? \(defaultRoute\.provider \|\| provider\) : provider;/.test(src) && /engine, model: resolveNodeModel\(raw\.model, roleModel, explicitTier \|\| \(role && role\.toolTier\) \|\| 'read', engine, routeConfig, matProvider\)/.test(src), 'S 主 DAG 写入点使用预检后的默认路由解析模型(带 engine)');
 ok(/const poolModel = resolveNodeModel\(item\.model, poolRoleModel \|\| \(proposer && proposer\.model\), toolTier, engine, opts\.config, opts\.provider\);/.test(src), 'S 池物化用 resolveNodeModel');
-ok(/const subProvider = \(config\.subagentPreferredProvider/.test(src) && /model: resolveNodeModel\(sargs\.model, roleDefinition && roleDefinition\.models && roleDefinition\.models\.openai, sargs\.toolTier \|\| \(roleDefinition && roleDefinition\.toolTier\) \|\| 'read', 'openai', config, subProvider\)/.test(src), 'S spawn_agent 用子代理优先端点解析模型(engine=openai)');
+ok(/function singleAgentShorthandNode\(args\)/.test(src) && /if \(args\.model\) node\.model = args\.model;/.test(src), 'S 代理模式 v2:单代理简写透传 model,由主 DAG 写入点 resolveNodeModel 解析(旧 spawn 站点已删)');
 // propose_task model 通道。
 ok(/model: \{ type: 'string', description: '可选。为新节点按任务难易指定模型/.test(src) && /model: String\(args && args\.model \|\| ''\)\.trim\(\)\.slice\(0, 160\), \/\/ 第30波/.test(src), 'S propose_task model 通道(schema + item)');
 // 两引擎注入 buildModelHint(带 provider)+ Claude 侧索引信道(第35波 P2: stdin indexSecs)。

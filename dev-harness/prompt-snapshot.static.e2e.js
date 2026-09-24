@@ -24,7 +24,7 @@ const cwd = 'C:\\proj';
 const tools = [
   { function: { name: 'file_read', description: 'read', parameters: { type: 'object', properties: {} } } },
   { function: { name: 'tool_search', description: 'search', parameters: { type: 'object', properties: {} } } },
-  { function: { name: 'spawn_agent', description: 'spawn', parameters: { type: 'object', properties: {} } } },
+  { function: { name: 'orchestrate_agents', description: 'orchestrate', parameters: { type: 'object', properties: {} } } },
 ];
 const caps = { network: { online: true }, desktopMcp: { present: false, toolCount: 0 }, binaries: { git: true, rg: true }, provider: { vision: false } };
 const config = { enableToolRequiresProbe: false, subagentMaxConcurrent: 2, subagentMaxPerTurn: 4 };
@@ -46,7 +46,7 @@ ok(/上下文节流守则/.test(full) && /600 行/.test(full) && /线性通读/.
 ok(/todo_write/.test(full), 'L2 工具协议:todo_write 计划');
 // L3 能力层
 ok(/当前能力/.test(full) && /在线/.test(full) && /有 git/.test(full) && /有 ripgrep/.test(full), 'L3 能力层:网络+git+ripgrep');
-ok(/子代理编排/.test(full) && /spawn_agent/.test(full) && /dependsOn/.test(full), 'L3 能力层:子代理编排+dependsOn(spawn_agent offered)');
+ok(/子代理编排/.test(full) && /orchestrate_agents/.test(full) && /dependsOn/.test(full) && !/spawn_agent/.test(full), 'L3 能力层:子代理编排+dependsOn(orchestrate_agents offered;spawn_agent 已删)');
 // skills 层
 ok(/<skill-index>/.test(full) && /<\/skill-index>/.test(full), 'L4 skills 层:skill-index 围栏闭合');
 ok(/示例技能/.test(full) && /\[sk1\]/.test(full), 'L4 skills 层:技能名+[id](provider 引擎)');

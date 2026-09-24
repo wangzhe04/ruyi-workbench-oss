@@ -357,7 +357,8 @@ try {
   // 128f-⑬ +1 件：cli-probe-stall（C2 /api/status、C2b /health 两处就地豁免 —— 判的就是「没被同步探测钉住」，钉住时 ≥ 3 s）→ 24。
   // 133f +2 件：asr-warmup（C2 一处就地豁免 —— 热路径 13–15 ms 对界 800 ms）、composer-voice-warmup.browser（B1b／B11／C2／I3 四处就地豁免 ——
   // 界都取「一次完整加载」量级，失败形态是没走闸、多等一整个加载）→ 26。
-  const WALLCLOCK_OWNER_FILES = 26;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  // 137 W1 +1 件：agent-mode-v2（G 段「显式停止能中断在跑的长命令」一处就地豁免 —— 界 20 s，失败形态是等满 60 s 长命令）→ 27。
+  const WALLCLOCK_OWNER_FILES = 27;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];

@@ -1463,7 +1463,7 @@ function buildAgentTeamHint() {
   return [
     '<agent-team-mode>',
     'The user explicitly enabled Agent team mode for this turn. This is an execution contract, not a suggestion.',
-    'You MUST call orchestrate_agents at least once before producing the final answer. Calling spawn_agent does not satisfy this requirement. Do not answer directly, merely describe a team plan, or skip the tool because the request appears simple.',
+    'You MUST call orchestrate_agents at least once before producing the final answer (with nodes or a workflowId, not the single-agent shorthand). Do not answer directly, merely describe a team plan, or skip the tool because the request appears simple.',
     'First prefer a matching preset workflowId when one is available. If no preset fits, call orchestrate_agents with a minimal task-specific DAG/nodes plan.',
     'Preserve endpoint/model choices already pinned by a preset workflow node or configured Agent role. For ad-hoc nodes, omit providerId, engine, and model by default: the runtime first validates and uses the configured sub-agent preferred endpoint/model, then falls back to the endpoint/model serving the current conversation.',
     'Only override a node route when the user or task explicitly requires a different engine/model. A model appearing in the available-model list is not by itself a reason to override the configured preference.',
@@ -1840,10 +1840,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   lines.push(getPromptPack(config && config.locale).capability.line({ netStr, deskN, gitStr, rgStr }));
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
-  if (offeredNames.has('spawn_agent') || offeredNames.has('shell_start')) {
+  if (offeredNames.has('orchestrate_agents') || offeredNames.has('shell_start')) {
     lines.push(getPromptPack(config && config.locale).toolProtocol.asyncWork);
   }
-  if (offeredNames.has('spawn_agent')) {
+  if (offeredNames.has('orchestrate_agents')) {
     const concurrent = Math.max(1, Number(config && config.subagentMaxConcurrent) || 2);
     const total = Math.max(0, Number(config && config.subagentMaxPerTurn) || 0);
     lines.push(getPromptPack(config && config.locale).capability.subagentConcurrency({ concurrent, total }));

@@ -62,8 +62,10 @@ async function fetchOpenAiModels(provider, timeoutMs = 4000) {
 // passes none, preserving prior behavior):
 //   opts.tierFilter : 'read' | 'edit' | 'exec' — keep only tools at or below this native tier (used by
 //     runSubAgent to enforce toolTier: read=only read-tier, edit=read+edit, exec=all). Absent → no filter.
-//   opts.noSpawnAgent : true → never include spawn_agent (禁嵌套: sub-turns pass this). The top-level turn
-//     omits it and instead lets the subagentMaxPerTurn>0 check below decide.
+//   opts.noAgentTools : true → never include the agent tools orchestrate_agents / wait_agents / agent_result
+//     (禁嵌套: sub-turns pass this). The top-level turn omits it and lets the subagentMaxPerTurn>0 check decide.
+// 代理模式 v2:模型侧的三个代理工具(单一启动入口 + 收件 + 取全文)。offer 门、禁嵌套压制、按需装载分类共用这张表。
+const AGENT_TOOL_NAMES = new Set(['orchestrate_agents', 'wait_agents', 'agent_result']);
 function adaptiveMetaToolSchemas(includeInvoke = false) {
   const tools = [
     {
@@ -111,10 +113,11 @@ function buildOpenAiTools(config, caps, opts) {
   const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从本文件移出)
   const tierFilter = opts && opts.tierFilter;
   const maxRank = (tierFilter && tierFilter in tierRank) ? tierRank[tierFilter] : null; // null → no tier filter
-  const noSpawnAgent = !!(opts && opts.noSpawnAgent);
-  // v0.9-S6: spawn_agent is offered only when the feature is enabled (subagentMaxPerTurn>0) AND not
-  // explicitly suppressed (sub-turns pass noSpawnAgent → 禁嵌套). 0 = feature off → tool never registered.
-  const spawnAgentEnabled = !noSpawnAgent && Number(config.subagentMaxPerTurn) > 0;
+  const noAgentTools = !!(opts && opts.noAgentTools);
+  // 代理模式 v2:三个代理工具(orchestrate_agents 启动 / wait_agents 收件 / agent_result 取全文)只在功能开启
+  // (subagentMaxPerTurn>0,语义已平移到 orchestrate:本回合累计启动的节点数上限)且未被显式压制(子回合传
+  // noAgentTools → 禁嵌套)时 offer。0 = 功能关 → 三个工具都不注册。
+  const agentToolsEnabled = !noAgentTools && Number(config.subagentMaxPerTurn) > 0;
   // v0.8-S6: gate tools whose runtime requirements (TOOL_REQUIRES) are unmet by the capability matrix. The
   // testOnly entry only fires when config.enableToolRequiresProbe is set (see TOOL_REQUIRES note), so this
   // is inert in production until v0.9 populates the table. buildProviderSystemPrompt lists the filtered
@@ -123,8 +126,8 @@ function buildOpenAiTools(config, caps, opts) {
   for (const t of MCP_TOOLS) {
     if (t.name === 'list_tools' || t.name === 'tool_search' || t.name === 'tool_load' || t.name.startsWith('tool_invoke_')) continue;
     if (t.name === 'permission_prompt') continue;
-    if (t.name === 'request_user_input' && noSpawnAgent) continue;
-    if ((t.name === 'spawn_agent' || t.name === 'orchestrate_agents') && !spawnAgentEnabled) continue;
+    if (t.name === 'request_user_input' && noAgentTools) continue;
+    if (AGENT_TOOL_NAMES.has(t.name) && !agentToolsEnabled) continue;
     if (!allowCmd && (t.name === 'powershell_run' || t.name === 'script_run' || SHELL_TOOLS.has(t.name))) continue;
     if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
     // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
@@ -133,28 +136,16 @@ function buildOpenAiTools(config, caps, opts) {
     // 面之一(其余三面:MCP tools/list 桥、adaptive 目录、/api/status 工具清单)。fail-closed:调用方
     // 不显式传 opts.stewardSession 就一律不 offer,普通会话与子代理回合永远看不到 steward_*。
     if (isStewardToolName(t.name) && !(opts && opts.stewardSession === true)) continue;
-    // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. spawn_agent (exec)
-    // is already suppressed for sub-turns via noSpawnAgent, so it never survives an 'exec' sub-turn either.
+    // v0.9-S6: toolTier filter for sub-turns — drop any tool above the requested tier. orchestrate_agents (exec)
+    // is already suppressed for sub-turns via noAgentTools, so it never survives an 'exec' sub-turn either.
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
     if (caps && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
   }
-  // Provider-turn control plane for background spawn_agent runs. It is intentionally not part of MCP_TOOLS:
-  // the one-shot MCP child has no parent-turn closure, while persisted orchestrate_agents already owns its
-  // separate synchronous/async launch route. Top-level Provider turns can collect by explicit runId or, more
-  // conveniently, omit runIds to wait for the background agents launched earlier in the same turn.
-  if (spawnAgentEnabled) {
-    out.push({ type: 'function', function: {
-      name: 'wait_agents',
-      description: 'Collect results from background spawn_agent runs. Omit runIds to wait for every background Agent launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs and returns current persisted DAG state if work is still running.',
-      parameters: { type: 'object', properties: {
-        runIds: { type: 'array', items: { type: 'string' }, description: 'Optional spawn_agent runIds returned by background launch receipts (up to 16).' },
-        timeoutMs: { type: 'number', description: 'Maximum wait in milliseconds, 0..60000 (default 30000).' },
-      } },
-    } });
-  }
+  // 代理模式 v2:wait_agents / agent_result 现随 MCP_TOOLS 一起 offer(上面的 AGENT_TOOL_NAMES 门),不再在此手工追加 ——
+  // MCP 子进程侧靠 /api/agent-workflow/wait|result 回环,两面同一份 schema。
   // v1 技能体系: skill_read(provider 引擎, read tier)—— 仅在本会话有启用技能时注册(offer 条件由调用方传
-  // opts.skillsEnabled 决定,仿 spawn_agent 的 enable 门)。不入 MCP_TOOLS(否则会泄漏给 Claude CLI 且恒开)。
+  // opts.skillsEnabled 决定,仿代理工具的 enable 门)。不入 MCP_TOOLS(否则会泄漏给 Claude CLI 且恒开)。
   // 子代理不传 skillsEnabled → 不注册。dispatch 在 toolCall 的 'skill_read' 分支;tier 在 NATIVE_TOOL_TIER。
   if (opts && opts.skillsEnabled) {
     out.push({ type: 'function', function: {
@@ -167,7 +158,7 @@ function buildOpenAiTools(config, caps, opts) {
     } });
   }
   // 团队模式 v2 (A1): propose_task —— 子代理提案追加节点(元工具,provider 引擎,read tier)。仅在工作流子回合且池
-  // 策略非 off 时注册(offer 由调用方 opts.proposeTaskEnabled 门控,仿 skill_read/spawn_agent 的 enable 门)。不进
+  // 策略非 off 时注册(offer 由调用方 opts.proposeTaskEnabled 门控,仿 skill_read/代理工具的 enable 门)。不进
   // MCP_TOOLS(否则泄漏给 Claude CLI 且恒开)。dispatch 在 runSubAgentCore 的专用闭包分支,不走全局 toolCall。
   if (opts && opts.proposeTaskEnabled) {
     out.push({ type: 'function', function: {
@@ -283,9 +274,9 @@ const NATIVE_TOOL_TIER = {
   desktop_screenshot: 'exec', http_request: 'exec',
   // 127-114c③(26 号文 §3):读本地音频后出网转写 —— 用户文件内容离开本进程,与「文件出网」同档 exec。
   audio_transcribe: 'exec',
-  spawn_agent: 'exec', // v0.9-S6: delegating a sub-turn is the highest-privilege native act → exec tier
-  orchestrate_agents: 'exec',
+  orchestrate_agents: 'exec', // 代理模式 v2:委派子代理是最高特权的原生动作 → exec 档(旧 spawn_agent 已并入)
   wait_agents: 'read',
+  agent_result: 'read',
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
   shell_list: 'read', shell_start: 'exec', shell_send: 'exec', shell_poll: 'exec', shell_kill: 'exec',
 };
@@ -371,7 +362,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
-  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', skill_read: 'skills',
+  archive_zip: 'archive', archive_unzip: 'archive', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', skill_read: 'skills',
   mcp_list: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
   // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。
@@ -435,7 +426,8 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   desktop_screenshot: { capabilities: ['desktop.screen.capture'], aliases: ['桌面截图', '屏幕截图', 'take screenshot'] },
   office_open: { capabilities: ['office.document.open'], aliases: ['打开办公文档', '打开 excel word ppt pdf', 'open office document'] },
   orchestrate_agents: { capabilities: ['agent.workflow.orchestrate'], aliases: ['编排多个代理', '多代理工作流', 'orchestrate agents'] },
-  spawn_agent: { capabilities: ['agent.delegate'], aliases: ['派生子代理', '委派任务', 'delegate subagent'] },
+  wait_agents: { capabilities: ['agent.workflow.wait'], aliases: ['等待代理完成', '收代理结果', 'wait for agents'] },
+  agent_result: { capabilities: ['agent.workflow.result'], aliases: ['读取代理产出全文', '代理结果', 'read agent result'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
@@ -1549,16 +1541,16 @@ async function drainSteerQueue(reg, session, onEvent) {
   return items.length;
 }
 
-// v0.9-S6 (子代理): run a self-contained SUB-TURN for spawn_agent. It is a miniature of runOpenAiTurn's tool
-// loop, deliberately WITHOUT: plan mode, auto-compaction, steering, session.messages/providerHistory writes,
-// and (禁嵌套) spawn_agent in its own tool set. Key isolation properties:
+// v0.9-S6 (子代理): run a self-contained SUB-TURN for an orchestrate_agents node. It is a miniature of runOpenAiTurn's
+// tool loop, deliberately WITHOUT: plan mode, steering, session.messages/providerHistory writes, and (禁嵌套) the
+// agent tools in its own tool set. Key isolation properties:
 //   • independent `subHistory` — the sub-turn NEVER reads or writes the parent's session.providerHistory, so
-//     the parent's pairing铁律 is untouched (the parent sees exactly one spawn_agent tool_call ↔ one tool_result);
+//     the parent's pairing铁律 is untouched (the parent sees exactly one orchestrate_agents tool_call ↔ one envelope);
 //   • system prompt = a sub-agent identity variant + the SAME capability layers (reuse buildProviderSystemPrompt),
 //     with the first user message = the delegated task;
-//   • tool set filtered by toolTier (read/edit/exec) AND with spawn_agent suppressed (noSpawnAgent) — a
-//     sub-agent can therefore never spawn another sub-agent (double guard: the tool isn't offered here AND
-//     the loop below refuses a spawn_agent call if the model somehow emits one);
+//   • tool set filtered by toolTier (read/edit/exec) AND with the agent tools suppressed (noAgentTools) — a
+//     sub-agent can therefore never launch another sub-agent (double guard: the tools aren't offered here AND
+//     the loop below refuses such a call if the model somehow emits one);
 //   • independent iteration budget maxIters (clamped 1..300); model = model || provider.subagentModel || main model;
 //   • file tools run through the SAME journal ctx {sessionId, turnSeq} as the parent (the sub-turn is part of
 //     the parent turn), so a sub-agent's file_write is journaled under the parent's turnSeq — naturally;

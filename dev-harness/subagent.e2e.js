@@ -1,21 +1,23 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
-// E2E (v0.9-S6): 子代理 spawn_agent — 主回合内派子回合执行子任务,provider 引擎,离线 via fake-openai.
-// Ports 9009 (fake-openai) + 9010 (workbench). §0.9-S6 / 总纲 §4 A5 · §8 D4.
+// E2E (v0.9-S6 → 代理模式 v2): 子代理 — 主回合内经 orchestrate_agents(唯一启动入口;单代理写顶层简写
+// {task, toolTier}) 派子回合执行子任务,provider 引擎,离线 via fake-openai。
 //
 // fake 契约:FAKE_SUBAGENT_SCRIPT={parent:[…],sub:[…],subText?,parentText?} — 按请求 system 是否含子代理身份
-// 标记「子任务执行体」分流:父请求走 parent 剧本(含 spawn_agent tool_call)、子请求走 sub 剧本(含 file_write
+// 标记「子任务执行体」分流:父请求走 parent 剧本(含 orchestrate_agents tool_call)、子请求走 sub 剧本(含 file_write
 // 等,最后吐结论文本)。
 //
-// Scenarios:
-//  (a) 基本派生:父 spawn_agent{task,toolTier:'edit'} → 子回合 file_write x.txt → 断言 subagent start/end 事件对、
-//      子 tool_use/result 带 subagentId、x.txt 被创建、journal 有条目(同父 turnSeq)、父收到 spawn_agent 的
-//      tool_result 含子结论文本、turn ok。
-//  (b) 禁嵌套:子剧本尝试 spawn_agent → tool_result error「不可再派生」;x2.txt 仍写成(子回合继续)。
-//  (c) 单批次扇出上限:一条 assistant 消息 3 个 spawn_agent → 第 3 个 tool_result error「上限」。
+// Scenarios(代理模式 v2 改写:父收到的是【交付信封】,不再是子结论全文):
+//  (a) 基本派生:父 orchestrate_agents{task,toolTier:'edit'} → 子回合 file_write x.txt → 断言 subagent start/end 事件对、
+//      子 tool_use/result 带 subagentId、x.txt 被创建、journal 有条目(同父 turnSeq)、父收到信封(nodes[0].summary 含
+//      子结论、无 result/toolEvidence 全文)、turn ok。
+//  (a2) 一次调用内的依赖:nodes=[pro, summary(dependsOn pro)] → summary 在 pro 结束后才起,前序结论经 DAG 上游装配注入。
+//  (b) 禁嵌套:子剧本尝试 spawn_agent(旧名) → tool_result error「不可再派生」;x2.txt 仍写成(子回合继续)。
+//  (c) 每回合累计节点上限(subagentMaxPerTurn 语义平移到 orchestrate):5 节点 > 4 → 整次调用被拒「上限」;
+//      (c2) 改配置 6 后 5 节点全部启动,run.concurrency 跟随 subagentMaxConcurrent。
 //  (d) toolTier=read 的子回合尝试 file_write → 工具不在子工具集(模型看不到)→ 子回合没能写文件(r.txt 不存在)。
-//  (e) subagentMaxPerTurn:0 → spawn_agent 工具不在 buildOpenAiTools 产物里(meta.tools 计数少一 + 直接调
-//      /api/tools/spawn_agent 得 context-free 拒绝)。
+//  (e) subagentMaxPerTurn:0 → 三个代理工具都不在 buildOpenAiTools 产物里;直接调 /api/tools/spawn_agent 得
+//      「已并入 orchestrate_agents」的清晰拒绝;/api/tools/orchestrate_agents 得 context-free 拒绝。
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
@@ -42,7 +44,7 @@ function postJson(port, p, payload, headers) {
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('post timeout')); }); req.write(data); req.end();
   });
 }
-// Full-buffer stream: spawn_agent turns do NOT pause (unlike plan mode), so a plain buffered read suffices.
+// Full-buffer stream: agent turns do NOT pause (unlike plan mode), so a plain buffered read suffices.
 function streamChat(port, payload) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(payload);
@@ -73,6 +75,9 @@ function writeConfig(fakePort, subagentMaxPerTurn, permissionMode, subagentMaxCo
     defaultWorkspace: HOME, recentWorkspaces: [],
     subagentMaxPerTurn: subagentMaxPerTurn == null ? 4 : subagentMaxPerTurn,
     subagentMaxConcurrent: subagentMaxConcurrent == null ? 2 : subagentMaxConcurrent,
+    // 第23波的一次性迁移会把「恰为旧默认 4」的 subagentMaxPerTurn 抬到 32(01 normalizeConfig);本件的 (c) 要用 4 当真上限,
+    // 置迁移标记让 4 被视为用户有意设置。
+    subagentBudgetMigrated: true,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:' + fakePort, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
     activeProvider: 'fake',
   }, null, 2));
@@ -91,7 +96,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
   // Scenario (a): parent spawns ONE sub-agent (toolTier:'edit') that writes x.txt then concludes.
   const xTxt = path.join(HOME, 'x.txt');
   const scriptA = JSON.stringify({
-    parent: [{ name: 'spawn_agent', args: { task: '写个文件 x.txt', toolTier: 'edit' } }],
+    parent: [{ name: 'orchestrate_agents', args: { task: '写个文件 x.txt', toolTier: 'edit' } }],
     sub: [{ name: 'file_write', args: { path: xTxt, content: 'from-subagent' } }],
     subText: '子任务完成:已写入 x.txt。',
     parentText: '父回合:子任务已交办完成。',
@@ -125,14 +130,14 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     ok(subEnd && subEnd.id === (subStart && subStart.id), '(a) start/end share the same subagentId');
     ok(subEnd && subEnd.ok === true && subEnd.resultChars > 0, '(a) end event ok:true + resultChars>0');
 
-    // sub tool_use / tool_result carry subagentId; the parent spawn_agent tool_use does NOT.
+    // sub tool_use / tool_result carry subagentId; the parent orchestrate_agents tool_use does NOT.
     const subToolUse = ev1.find(e => e.type === 'tool_use' && e.subagentId && e.name === 'file_write');
     ok(!!subToolUse, '(a) sub-turn file_write tool_use tagged with subagentId');
     ok(subToolUse && subToolUse.subagentId === (subStart && subStart.id), '(a) sub tool_use subagentId matches start id');
     const subToolRes = ev1.find(e => e.type === 'tool_result' && e.subagentId);
     ok(subToolRes && subToolRes.isError !== true, '(a) sub-turn tool_result tagged + not an error');
-    const parentSpawnUse = ev1.find(e => e.type === 'tool_use' && e.name === 'spawn_agent' && !e.subagentId);
-    ok(!!parentSpawnUse, '(a) parent spawn_agent tool_use is NOT tagged with subagentId');
+    const parentSpawnUse = ev1.find(e => e.type === 'tool_use' && e.name === 'orchestrate_agents' && !e.subagentId);
+    ok(!!parentSpawnUse, '(a) parent orchestrate_agents tool_use is NOT tagged with subagentId');
 
     // x.txt written by the sub-turn on disk.
     ok(fs.existsSync(xTxt), '(a) sub-turn file_write EXECUTED (x.txt exists)');
@@ -141,19 +146,23 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const cp1 = await getJson(WB_PORT, '/api/checkpoints?sessionId=' + sid1, hdr);
     ok(cp1 && cp1.ok && Array.isArray(cp1.entries) && cp1.entries.some(e => (e.path || '').replace(/\\/g, '/').endsWith('x.txt')), '(a) journal has an x.txt entry (parent turnSeq)');
 
-    // parent received the spawn_agent tool_result containing the sub's conclusion text.
-    const parentSpawnRes = ev1.find(e => e.type === 'tool_result' && !e.subagentId && e.content && e.content.result != null);
-    ok(parentSpawnRes && parentSpawnRes.content && parentSpawnRes.content.ok === true && /x\.txt/.test(String(parentSpawnRes.content.result || '')), '(a) parent got spawn_agent tool_result with sub conclusion');
+    // parent received the DELIVERY ENVELOPE: bounded node summary carrying the sub's conclusion, no raw result/toolEvidence.
+    const parentSpawnRes = ev1.find(e => e.type === 'tool_result' && !e.subagentId && e.content && e.content.kind === 'agent_envelope');
+    const envNode = parentSpawnRes && parentSpawnRes.content.nodes && parentSpawnRes.content.nodes[0];
+    ok(parentSpawnRes && parentSpawnRes.content.ok === true && envNode && envNode.status === 'succeeded' && /x\.txt/.test(String(envNode.summary || '')), '(a) parent got the orchestrate_agents envelope with the sub conclusion summary');
+    ok(envNode && !('result' in envNode) && !('toolEvidence' in envNode) && !('progressLog' in envNode) && /agent_result/.test(parentSpawnRes.content.more || ''), '(a) envelope node has no raw result/toolEvidence/progressLog; points at agent_result');
     const res1 = ev1.find(e => e.type === 'result');
     ok(res1 && res1.ok === true, '(a) turn result ok');
 
-    // ── (a2) staged orchestration: first agent completes, then dependent summary starts with prior context ──
+    // ── (a2) dependent nodes in ONE orchestrate call: the dependent summary starts only after pro ends, with prior context injected ──
     killp(fake); await sleep(300);
     const capO = path.join(HOME, 'cap-orchestration');
     const scriptO = JSON.stringify({
       parent: [
-        { name: 'spawn_agent', args: { task: '先给出正方观点', agentKey: 'pro', toolTier: 'read' } },
-        { name: 'spawn_agent', args: { task: '总结前序观点', agentKey: 'summary', dependsOn: ['pro'], toolTier: 'read' } },
+        { name: 'orchestrate_agents', args: { nodes: [
+          { id: 'pro', task: '先给出正方观点', toolTier: 'read' },
+          { id: 'summary', task: '总结前序观点', dependsOn: ['pro'], toolTier: 'read' },
+        ] } },
       ],
       sub: [], subText: '前序观点结论。', parentText: '分阶段编排完成。',
     });
@@ -176,11 +185,11 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
         const system = { content: (body.messages || []).filter(m => m && (m.role === 'system' || m.role === 'user')).map(m => typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(p => p && p.text || '').join('\n') : '')).join('\n') };
         if (system && String(system.content || '').includes('子代理编排') && String(system.content || '').includes('dependsOn')) orchestrationPromptPresent = true;
         const users = (body.messages || []).filter(m => m && m.role === 'user').map(m => String(m.content || '')).join('\n');
-        if (users.includes('以下是已完成的前序子代理结果') && users.includes('前序观点结论')) priorContextInjected = true;
+        if (/### pro \(/.test(users) && users.includes('前序观点结论')) priorContextInjected = true; // DAG 上游装配(buildUpstreamContext)的小标题
       }
     } catch { /* assertion below reports failure */ }
     ok(priorContextInjected, '(a2) completed dependency conclusion is injected into the summary agent context');
-    ok(orchestrationPromptPresent, '(a2) parent prompt explains parallel stages and dependsOn orchestration');
+    ok(orchestrationPromptPresent, '(a2) parent prompt explains single-entry orchestration and dependsOn');
 
     // ── (a3) one-call persistent DAG: pro/con parallel, summary auto-unlocks without another parent decision ──
     killp(fake); await sleep(300);
@@ -280,11 +289,11 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const persistedR = rr.runs && rr.runs.find(run => run.nodes && run.nodes.some(n => n.id === 'desktop-a'));
     ok(persistedR && persistedR.schemaVersion === 4 && persistedR.nodes.every(n => Array.isArray(n.resources) && n.resources[0] === 'desktop'), '(a5) normalized resources persist in schema v4 run record');
 
-    // ── (b) nesting forbidden: sub tries spawn_agent → refused, but its file_write still runs ─────────────
+    // ── (b) nesting forbidden: sub tries the legacy spawn_agent name → refused, but its file_write still runs ──
     killp(fake); await sleep(300);
     const x2 = path.join(HOME, 'x2.txt');
     const scriptB = JSON.stringify({
-      parent: [{ name: 'spawn_agent', args: { task: '子任务再派生', toolTier: 'exec' } }],
+      parent: [{ name: 'orchestrate_agents', args: { task: '子任务再派生', toolTier: 'exec' } }],
       // sub tries to spawn_agent first (refused since not offered / defensive guard), then writes x2.txt, then concludes.
       sub: [{ name: 'spawn_agent', args: { task: '孙任务', toolTier: 'read' } }, { name: 'file_write', args: { path: x2, content: 'nested-guard' } }],
       subText: '子任务完成(嵌套被拒)。',
@@ -303,50 +312,43 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const subEnd2 = ev2.find(e => e.type === 'subagent' && e.state === 'end');
     ok(subEnd2 && subEnd2.ok === true, '(b) sub-turn still concluded ok');
 
-    // ── (c) single-batch fan-out cap: one assistant message with 3 spawn_agent → 3rd refused ─────────────
+    // ── (c) per-turn node cap (代理模式 v2:subagentMaxPerTurn 语义平移到 orchestrate):5 nodes > cap 4 → whole call refused ──
     killp(fake); await sleep(300);
+    const fiveNodes = ['任务1', '任务2', '任务3', '任务4', '任务5'].map((task, i) => ({ id: 'n' + (i + 1), task, toolTier: 'read' }));
     const scriptC = JSON.stringify({
-      // The parent's parallel batch of 3 spawn_agent is driven by FAKE_SUBAGENT_PARALLEL (below); the parent
-      // script here only supplies the final text. Each surviving sub-turn runs the `sub` script.
+      parent: [{ name: 'orchestrate_agents', args: { nodes: fiveNodes } }],
       sub: [{ name: 'file_write', args: { path: path.join(HOME, 'c.txt'), content: 'c' } }],
-      subText: '子任务 c 完成。',
+      subText: '子任务 c 完成。', parentText: '扇出完成。',
     });
-    // For the parallel batch we use a dedicated env FAKE_SUBAGENT_PARALLEL (emit N spawn_agent in ONE message).
-    const parallel = JSON.stringify([
-      { name: 'spawn_agent', args: { task: '任务1', toolTier: 'read' } },
-      { name: 'spawn_agent', args: { task: '任务2', toolTier: 'read' } },
-      { name: 'spawn_agent', args: { task: '任务3', toolTier: 'read' } },
-    ]);
-    fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptC, FAKE_SUBAGENT_PARALLEL: parallel });
+    fake = spawnFake({ FAKE_SUBAGENT_SCRIPT: scriptC });
     procs.push(fake);
     up = false; for (let i = 0; i < 30 && !up; i++) { await sleep(150); up = await fakeUp(FAKE_PORT); }
     ok(up, '(c) fake respawned');
     const c3 = await postJson(WB_PORT, '/api/sessions', { title: 'subagent fanout', cwd: HOME }, hdr);
     const sid3 = c3.body && c3.body.session && c3.body.session.id;
-    const ev3 = await streamChat(WB_PORT, { sessionId: sid3, message: '一次派三个子任务', cwd: HOME });
+    const ev3 = await streamChat(WB_PORT, { sessionId: sid3, message: '一次派五个子任务', cwd: HOME });
     const capRefused = ev3.find(e => e.type === 'tool_result' && !e.subagentId && e.content && e.content.ok === false && /上限/.test(String(e.content.error || '')));
-    ok(!!capRefused, '(c) the 3rd spawn_agent in one batch refused with «上限»');
+    ok(!!capRefused, '(c) 5 nodes over the per-turn cap of 4 → orchestrate_agents refused with «上限»');
     const startsC = ev3.filter(e => e.type === 'subagent' && e.state === 'start');
-    ok(startsC.length === 2, '(c) exactly 2 sub-turns actually started (3rd never ran) — got ' + startsC.length);
-    const firstEndC = ev3.findIndex(e => e.type === 'subagent' && e.state === 'end');
-    const secondStartC = ev3.findIndex((e, i) => i > ev3.findIndex(x => x.type === 'subagent' && x.state === 'start') && e.type === 'subagent' && e.state === 'start');
-    ok(secondStartC >= 0 && firstEndC > secondStartC,
-       '(c) both accepted sub-agents start before either ends (real overlap, not serial fan-out)');
+    ok(startsC.length === 0, '(c) no sub-turn started when the whole call is refused — got ' + startsC.length);
 
     const savedLimits = await postJson(WB_PORT, '/api/config', { subagentMaxConcurrent: 3, subagentMaxPerTurn: 6 }, hdr);
     ok(savedLimits.body && savedLimits.body.config && savedLimits.body.config.subagentMaxConcurrent === 3 && savedLimits.body.config.subagentMaxPerTurn === 6,
        '(c2) configurable sub-agent concurrency/turn limits persist through /api/config');
     const c3b = await postJson(WB_PORT, '/api/sessions', { title: 'subagent fanout configured', cwd: HOME }, hdr);
     const sid3b = c3b.body && c3b.body.session && c3b.body.session.id;
-    const ev3b = await streamChat(WB_PORT, { sessionId: sid3b, message: '按设置一次并行三个子任务', cwd: HOME });
+    const ev3b = await streamChat(WB_PORT, { sessionId: sid3b, message: '按设置一次并行五个子任务', cwd: HOME });
     const startsC3 = ev3b.filter(e => e.type === 'subagent' && e.state === 'start');
-    ok(startsC3.length === 3, '(c2) configured concurrency=3 launches all three agents (got ' + startsC3.length + ')');
+    ok(startsC3.length === 5, '(c2) per-turn cap 6 launches all five nodes (got ' + startsC3.length + ')');
+    const envC3 = ev3b.find(e => e.type === 'tool_result' && !e.subagentId && e.content && e.content.kind === 'agent_envelope');
+    const runC3 = envC3 && await getJson(WB_PORT, '/api/agent-runs/' + envC3.content.runId + '?sessionId=' + sid3b, hdr);
+    ok(runC3 && runC3.run && runC3.run.concurrency === 3, '(c2) run.concurrency follows subagentMaxConcurrent=3');
 
     // ── (d) toolTier=read → sub cannot see file_write → r.txt not written ─────────────────────────────────
     killp(fake); await sleep(300);
     const rTxt = path.join(HOME, 'r.txt');
     const scriptD = JSON.stringify({
-      parent: [{ name: 'spawn_agent', args: { task: '只读子任务', toolTier: 'read' } }],
+      parent: [{ name: 'orchestrate_agents', args: { task: '只读子任务', toolTier: 'read' } }],
       sub: [{ name: 'file_write', args: { path: rTxt, content: 'should-not-write' } }],
       subText: '只读子任务结束。',
     });
@@ -369,13 +371,13 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     writeConfig(FAKE_PORT, 4, 'plan'); // plan mode; readConfig re-reads per turn so no restart needed
     const fTxt = path.join(HOME, 'f-approved.txt');
     const scriptF = JSON.stringify({
-      parent: [{ name: 'spawn_agent', args: { task: '写 f-approved.txt', toolTier: 'exec' } }],
+      parent: [{ name: 'orchestrate_agents', args: { task: '写 f-approved.txt', toolTier: 'exec' } }],
       sub: [{ name: 'file_write', args: { path: fTxt, content: 'approved-exec-subagent' } }],
       subText: '子任务完成:已写入 f-approved.txt。',
       parentText: '父回合:已交办执行。',
     });
     // FAKE_PLAN_FIRST=1 → the FIRST parent request yields a PLAN: text (pause); after approval the follow-up
-    // parent request falls through to FAKE_SUBAGENT_SCRIPT and emits the spawn_agent tool_call.
+    // parent request falls through to FAKE_SUBAGENT_SCRIPT and emits the orchestrate_agents tool_call.
     fake = spawnFake({ FAKE_PLAN_FIRST: '1', FAKE_SUBAGENT_SCRIPT: scriptF });
     procs.push(fake);
     let upF = false; for (let i = 0; i < 30 && !upF; i++) { await sleep(150); upF = await fakeUp(FAKE_PORT); }
@@ -405,7 +407,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     killp(fake); await sleep(300);
     const gTxt = path.join(HOME, 'g-unapproved.txt');
     const scriptG = JSON.stringify({
-      parent: [{ name: 'spawn_agent', args: { task: '写 g-unapproved.txt', toolTier: 'exec' } }],
+      parent: [{ name: 'orchestrate_agents', args: { task: '写 g-unapproved.txt', toolTier: 'exec' } }],
       sub: [{ name: 'file_write', args: { path: gTxt, content: 'should-not-exist' } }],
       subText: '子任务完成。',
     });
@@ -430,7 +432,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     // Restore bypass config for scenario (e).
     killp(fake); await sleep(300);
 
-    // ── (e) subagentMaxPerTurn:0 → spawn_agent not in buildOpenAiTools; direct /api/tools call refused ────
+    // ── (e) subagentMaxPerTurn:0 → no agent tools in buildOpenAiTools; direct /api/tools calls refused ────
     killp(wb); await sleep(400);
     writeConfig(FAKE_PORT, 0); // disable the feature
     const scriptE = JSON.stringify({ parent: [{ text: '无子代理可用。' }], sub: [], subText: 'n/a' });
@@ -447,7 +449,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     const ev5 = await streamChat(WB_PORT, { sessionId: sid5, message: '看看有没有子代理工具', cwd: HOME });
     const metaE = ev5.find(e => e.type === 'meta');
     ok(!!metaE, '(e) meta event present');
-    // Inspect the captured request body: tools array must NOT contain spawn_agent.
+    // Inspect the captured request body: tools array must NOT contain any agent tool.
     const capDir = path.join(HOME, 'cap-e');
     let sawSpawnInTools = true;
     try {
@@ -455,13 +457,13 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
       if (files.length) {
         const body = JSON.parse(fs.readFileSync(path.join(capDir, files[0]), 'utf8'));
         const names = Array.isArray(body.tools) ? body.tools.map(t => t.function && t.function.name) : [];
-        sawSpawnInTools = names.includes('spawn_agent') || names.includes('orchestrate_agents');
+        sawSpawnInTools = names.includes('spawn_agent') || names.includes('orchestrate_agents') || names.includes('wait_agents') || names.includes('agent_result');
       } else { sawSpawnInTools = false; }
     } catch { sawSpawnInTools = false; }
     ok(sawSpawnInTools === false, '(e) agent delegation tools NOT in buildOpenAiTools when subagentMaxPerTurn:0');
-    // Direct /api/tools/spawn_agent → context-free refusal.
+    // Direct /api/tools/spawn_agent → clear "merged into orchestrate_agents" refusal (代理模式 v2).
     const direct = await postJson(WB_PORT, '/api/tools/spawn_agent', { task: 'x' }, hdrE);
-    ok(direct.body && direct.body.result && direct.body.result.ok === false && /仅在 provider 引擎/.test(direct.body.result.error || ''), '(e) direct /api/tools/spawn_agent → context-free refusal');
+    ok(direct.body && direct.body.result && direct.body.result.ok === false && /已并入 orchestrate_agents/.test(direct.body.result.error || '') && direct.body.result.replacedBy === 'orchestrate_agents', '(e) direct /api/tools/spawn_agent → «已并入 orchestrate_agents» refusal');
     const directDag = await postJson(WB_PORT, '/api/tools/orchestrate_agents', { nodes: [] }, hdrE);
     ok(directDag.body && directDag.body.result && directDag.body.result.ok === false && /OpenAI 对话回合|Claude CLI 工作台会话/.test(directDag.body.result.error || ''), '(e) direct /api/tools/orchestrate_agents → context-free refusal');
 
@@ -475,7 +477,7 @@ function fakeUp(port) { return new Promise(res => { const r = http.get({ host: '
     fs.writeFileSync(recoveryFile, JSON.stringify(recoveryRun, null, 2));
     const wbR = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
     procs.push(wbR);
-    // spawn_agent runs are now persisted too, so this boot reconciles more run snapshots than the legacy test.
+    // ad-hoc agent runs are persisted too, so this boot reconciles more run snapshots than the legacy test.
     // Keep the health window aligned with the suite's other restart-heavy cases instead of assuming a 6s disk.
     let hR = null; for (let i = 0; i < 100 && !hR; i++) { await sleep(150); hR = await health(WB_PORT); }
     const tokenR = await getToken(WB_PORT); const hdrR = { 'x-wcw-token': tokenR };

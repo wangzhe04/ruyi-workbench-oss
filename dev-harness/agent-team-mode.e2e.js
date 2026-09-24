@@ -106,7 +106,7 @@ function capturedUser() {
   ok(capped.length <= 8000 && capped.includes('<response-language-policy>'), 'language-policy compatibility wrapper keeps sub-agent prompts within the 8K cap');
   const teamPolicy = serverModule.buildAgentTeamHint();
   ok(teamPolicy.includes('MUST call orchestrate_agents at least once') &&
-    teamPolicy.includes('Calling spawn_agent does not satisfy this requirement') &&
+    teamPolicy.includes('not the single-agent shorthand') && // 代理模式 v2:spawn_agent 已删,合同改为「不接受单代理简写」
     teamPolicy.includes('configured sub-agent preferred endpoint/model') &&
     teamPolicy.includes('falls back to the endpoint/model serving the current conversation'),
   'Agent team policy requires Orchestrate Agent and declares the validated preference -> current conversation routing order');
@@ -160,7 +160,7 @@ function capturedUser() {
     clearCaptures();
     await stream({ sessionId: providerSession.id, message: 'research this topic', cwd: HOME, agentTeam: true }, headers);
     ok(!capturedSystem().includes('<agent-team-mode>') && capturedUser().includes('<agent-team-mode>'), 'OpenAI-compatible driver receives Agent team policy in the volatile user prefix');
-    ok(capturedUser().includes('MUST call orchestrate_agents at least once') && capturedUser().includes('Calling spawn_agent does not satisfy this requirement'),
+    ok(capturedUser().includes('MUST call orchestrate_agents at least once') && capturedUser().includes('not the single-agent shorthand'),
       'OpenAI-compatible Agent team turn receives the mandatory Orchestrate Agent contract');
     const providerMessages = capturedBodies().flatMap(body => body.messages || []);
     const providerUserMessages = providerMessages.filter(message => message.role === 'user').map(message => String(message.content || ''));

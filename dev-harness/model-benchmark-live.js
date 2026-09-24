@@ -156,7 +156,7 @@ const TASKS = [
   },
   {
     id: 'ruyi_subagent', category: 'ruyi', weight: 8, toolExpected: ['spawn_agent'],
-    prompt: '这是 Ruyi 子代理适配测试。你必须调用且只调用一次 spawn_agent；子任务为：读取 benchmark-results/fixtures/subagent_numbers.txt，计算所有整数之和，并只返回整数。拿到子代理结果后，你最终只回复该整数。不要自己读取文件，不要用其他工具。',
+    prompt: '这是 Ruyi 子代理适配测试。你必须调用且只调用一次 orchestrate_agents（顶层 task 单代理简写）；子任务为：读取 benchmark-results/fixtures/subagent_numbers.txt，计算所有整数之和，并只返回整数。拿到子代理结果后，你最终只回复该整数。不要自己读取文件，不要用其他工具。',
     score(text, run) {
       const n=(run.toolNames||[]).filter(x=>x==='spawn_agent').length; let s=0;if(n===1)s+=4;if(String(text).trim()==='116')s+=4;return {score:s,max:8};
     },

@@ -1203,35 +1203,14 @@ const MCP_TOOLS = [
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
     },
   },
-  // v0.9-S6 (子代理, L): spawn a self-contained SUB-TURN to carry out a delegated task, with its OWN
-  // isolated history + tool subset (toolTier) + iteration budget, returning only the final conclusion text.
-  // PROVIDER-ENGINE ONLY: it needs the live provider/session/journal/onEvent closure, so it is special-cased
-  // in runOpenAiTurn's tool loop (like todo_write/bridge) and NEVER reaches the context-free toolCall(). It
-  // is also filtered OUT of the Claude-CLI MCP surface (registered only when subagentMaxPerTurn>0 via
-  // buildOpenAiTools). Sub-turns do NOT get spawn_agent themselves (禁嵌套). Registered in MCP_TOOLS so the
-  // schema is shared; buildOpenAiTools decides whether to offer it.
-  {
-    name: 'spawn_agent',
-    description: 'Delegate a self-contained subtask to an isolated sub-agent. Every accepted spawn is projected into the persistent Workbench DAG. Set background:true when the parent can continue useful independent work: the call returns a runId/nodeId receipt immediately, and wait_agents collects the result later. Omit background (or set false) only when the result is required before the parent can proceed. Independent calls in the same assistant message run concurrently up to the configured stage limit. For dependent orchestration, assign stable agentKey values and use completed earlier-stage keys in dependsOn; their conclusions are injected automatically. Dependencies in the same batch are refused. toolTier: read (default) | edit | exec. Sub-agents cannot spawn further sub-agents.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        task: { type: 'string', description: 'the concrete task to delegate (a self-contained instruction)' },
-        role: { type: 'string', description: 'Agent role id from the role library, for example explorer, worker, reviewer, verifier' },
-        agentKey: { type: 'string', description: 'optional stable identifier for this sub-agent within the parent turn (for later dependsOn references)' },
-        dependsOn: { type: 'array', items: { type: 'string' }, description: 'agentKey values from completed earlier stages whose conclusions should be injected into this task' },
-        toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "tool access level for the sub-agent (default 'read')" },
-        maxIters: { type: 'number', description: 'sub-loop iteration budget (default 100, clamped 1..300)' },
-        model: { type: 'string', description: 'optional model id for the sub-turn (engine is openai), chosen by task difficulty (fast model for simple/bulk work, strong model for hard reasoning). Pick from the OpenAI models listed in the system prompt; a wrong/unknown id makes the sub-agent fail. Omit to use the default.' },
-        resources: { type: 'array', items: { type: 'string' }, description: 'resources held for the whole subtask. Examples: desktop, browser:default, file:C:\\project\\a.js, workspace:C:\\project. Prefix with read: for shared access.' },
-        background: { type: 'boolean', description: 'true = launch into the Workbench DAG and return immediately so the parent can continue in parallel; later call wait_agents. false/default = wait for this result synchronously.' },
-      },
-      required: ['task'],
-    },
-  },
+  // 代理模式 v2(2026-09-24):模型侧只有 orchestrate_agents 一个启动入口(旧 spawn_agent 已并入 —— 单代理写顶层
+  // 简写 {task, role?, toolTier?, background?} 即视为单节点;仍调 spawn_agent 的旧模型由运行时翻译成单节点并附提示)。
+  // 三种引擎一致:provider 回合内直跑;Claude/Kimi 经 MCP 子进程回环 /api/agent-workflow/launch。父会话【只】收
+  // 交付信封(runId/status/每节点 summary+artifacts/usage/more),全文按需用 agent_result 取;background:true 立即回执,
+  // 完成信封经后台任务账本恰好投递一次。子代理自身拿不到这三个工具(禁嵌套:07 buildOpenAiTools noAgentTools)。
   {
     name: 'orchestrate_agents',
-    description: "Run a persistent sub-agent DAG. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
+    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Three call shapes: (1) single agent — pass top-level {task, role?, toolTier?, model?, resources?} and it runs as a one-node run; (2) author `nodes` inline for a one-off DAG; (3) pass `workflowId` to reuse a saved/built-in template by id (ids listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since template node tasks are generic placeholders. Set background:true whenever you still have independent work to do: the call returns {runId, status:'running'} immediately, the run keeps going even after this turn ends, and its delivery envelope is injected into the conversation exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you must have the result before continuing. The result you receive is a bounded delivery envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; call agent_result({runId, nodeId?}) for the full text of a node. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -1280,10 +1259,44 @@ const MCP_TOOLS = [
             required: ['id', 'task'],
           },
         },
+        task: { type: 'string', description: 'single-agent shorthand: the concrete self-contained task. Mutually exclusive with nodes/workflowId; the runtime turns it into one node.' },
+        role: { type: 'string', description: 'single-agent shorthand: Agent role id (explorer, worker, reviewer, verifier, ...).' },
+        agentKey: { type: 'string', description: 'single-agent shorthand: optional stable node id, letters/numbers/_/- only.' },
+        toolTier: { type: 'string', enum: ['read', 'edit', 'exec'], description: "single-agent shorthand: tool access level (default 'read')." },
+        maxIters: { type: 'number', description: 'single-agent shorthand: iteration budget (default 100).' },
+        model: { type: 'string', description: 'single-agent shorthand: optional explicit model id; omit to use the configured sub-agent preference.' },
+        resources: { type: 'array', items: { type: 'string' }, description: 'single-agent shorthand: resources held for the whole task (desktop, browser:default, file:..., workspace:...; read: prefix for shared access).' },
+        background: { type: 'boolean', description: 'true = return {runId, status:"running"} immediately and keep working; the run survives the end of this turn and its envelope is delivered once on completion (or via wait_agents). false/default = block until the run finishes and return the envelope.' },
         providerId: { type: 'string', description: 'optional explicit OpenAI-compatible provider override. Omit by default so runtime routing can validate the configured sub-agent preference and safely fall back to the current conversation route.' },
         workflowId: { type: 'string', description: 'saved/built-in workflow id to launch instead of sending nodes' },
         context: { type: 'string', description: "this run's actual subject/task, prepended to every node's task — required in practice when workflowId is used, since template node tasks are generic placeholders" },
       },
+    },
+  },
+  // 代理模式 v2:收件与取全文。两面共享(provider 直跑 / MCP 子进程回环 /api/agent-workflow/wait|result)。
+  {
+    name: 'wait_agents',
+    description: 'Collect delivery envelopes from background agent runs. Omit runIds to wait for every background run launched in the current chat turn, or pass launch-receipt runIds (including from an earlier turn). Waits at most timeoutMs and returns the current bounded envelope (status may still be running). A terminal envelope returned here will not be re-injected later.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        runIds: { type: 'array', items: { type: 'string' }, description: 'Optional runIds from background launch receipts (up to 16).' },
+        timeoutMs: { type: 'number', description: 'Maximum wait in milliseconds, 0..60000 (default 30000).' },
+      },
+    },
+  },
+  {
+    name: 'agent_result',
+    description: 'Read the full text produced by an agent run node (the envelope only carries a bounded summary). Returns a bounded slice: {runId, nodeId, status, text, offset, totalChars, truncated}. Use offset to page through a long output. Omit nodeId for a single-node run.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        runId: { type: 'string', description: 'run id from the launch receipt or envelope' },
+        nodeId: { type: 'string', description: 'node id (agentKey); omit for a single-node run' },
+        maxChars: { type: 'number', description: 'max characters to return, 500..40000 (default 12000)' },
+        offset: { type: 'number', description: 'character offset to start from (default 0)' },
+      },
+      required: ['runId'],
     },
   },
 ];

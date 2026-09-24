@@ -2129,6 +2129,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -5057,6 +5064,7 @@
       "provides": [
         "ACTION_VIEW_MIN_CHARS",
         "ACTION_VIEW_TOOLS",
+        "AGENT_TOOL_NAMES",
         "BRIDGED_READ_PREFIXES",
         "BRIDGED_READ_TOOLS",
         "CLAUDE_PROGRESS_CHAR_STEP",
@@ -5588,6 +5596,13 @@
       "file": "08-agent-runs.js",
       "layer": "orchestration",
       "provides": [
+        "AGENT_ENVELOPE_ERROR_MAX",
+        "AGENT_ENVELOPE_NODE_SUMMARY_MAX",
+        "AGENT_ENVELOPE_STRUCTURED_MAX",
+        "AGENT_ENVELOPE_STRUCTURED_TOTAL_MAX",
+        "AGENT_ENVELOPE_TOTAL_SUMMARY_MAX",
+        "AGENT_RESULT_DEFAULT_CHARS",
+        "AGENT_RESULT_MAX_CHARS",
         "AGENT_RUN_EVENTS_PAGE_MAX",
         "AGENT_RUN_EVENTS_TAIL_BYTES",
         "AGENT_RUN_PERSIST_DEGRADED_AFTER",
@@ -5604,9 +5619,11 @@
         "NODE_WRITE_FAMILY",
         "QUALITY_GATE_OUTPUT_SCHEMA",
         "accumulateRunUsage",
+        "agentEnvelopeArtifacts",
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
+        "agentRunResultSlice",
         "agentRunSaveFailures",
         "agentWorkflowStatusText",
         "aggregateAgentVote",
@@ -5615,6 +5632,7 @@
         "appendAgentWorkflowSummaryToSession",
         "autoResumeInterruptedRuns",
         "balancedJsonSpan",
+        "buildAgentRunEnvelope",
         "buildNodeEvidenceCatalog",
         "buildOrchestrateHint",
         "buildUpstreamContext",
@@ -5625,6 +5643,7 @@
         "classifyRunResumeTier",
         "computeSchedulerStep",
         "computeWaveSeq",
+        "cutAtSentence",
         "dedupeAgentFindings",
         "deleteAgentWorkflow",
         "deriveNodeOutputs",
@@ -5654,6 +5673,7 @@
         "propagateAssignments",
         "purgeNodeEvidence",
         "readAgentRunEvents",
+        "readAgentRunRecord",
         "readPersonalAgentWorkflows",
         "readProjectAgentWorkflows",
         "recordAgentNodeProgress",
@@ -5668,6 +5688,7 @@
         "sanitizeAgentOutputSchema",
         "saveAgentRun",
         "saveAgentWorkflow",
+        "singleAgentShorthandNode",
         "structuredJsonCandidates",
         "structuredOfNode",
         "summarizeAgentWorkflowRun",
@@ -6371,11 +6392,16 @@
       "file": "09-workflow.js",
       "layer": "orchestration",
       "provides": [
+        "AGENT_RUN_TERMINAL",
+        "LEGACY_SPAWN_NOTE",
         "PLAN_DISCOVERY_BLOCKED_TOOLS",
         "appendDisplayMessagesToProviderHistory",
         "commonPrefixChars",
+        "deliverAgentRunEnvelope",
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
+        "legacySpawnToOrchestrateArgs",
+        "markDeliveredEnvelopes",
         "planDiscoveryToolBatchAllowed",
         "runAgentWorkflow",
         "runOpenAiTurn",
@@ -7414,6 +7440,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunResultSlice",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "agentRunSaveFailures",
           "kinds": [
             "read"
@@ -7436,6 +7469,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "appendAgentRunEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "buildAgentRunEnvelope",
           "kinds": [
             "call"
           ]
@@ -7604,6 +7644,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "readAgentRunRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "recordAgentNodeProgress",
           "kinds": [
             "call"
@@ -7744,6 +7791,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "agentNodeContextWindow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "appendPromptToLastUserMessage",
           "kinds": [
             "call"
@@ -7768,13 +7822,6 @@
           "symbol": "CompactionPlan",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "contextWindowFromTable",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -7932,6 +7979,7 @@
         "TOOL_RESULT_CAP",
         "_calibKey",
         "agentConversationContextMeta",
+        "agentNodeContextWindow",
         "aggregateSummaryCalls",
         "appendPromptToLastUserMessage",
         "applySummaryCallPolicy",
@@ -8639,6 +8687,7 @@
         "parseBingHtml",
         "parseCsv",
         "peekRgProbe",
+        "persistBackgroundJob",
         "probeRg",
         "probeRgAsync",
         "probeRgInfoSync",
@@ -9548,6 +9597,7 @@
         "PROXY_MODELS_CACHE_PATH",
         "START_ERROR_KINDS",
         "START_NOTICE",
+        "agentWorkflowLoopbackRoute",
         "applyConfigPatch",
         "buildModelHint",
         "consumeStartError",
@@ -10893,7 +10943,7 @@
         },
         {
           "provider": "08-agent-runs.js",
-          "symbol": "appendAgentWorkflowSummaryToSession",
+          "symbol": "agentRunResultSlice",
           "kinds": [
             "call"
           ]
@@ -10901,6 +10951,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "buildAgentRunEnvelope",
           "kinds": [
             "call"
           ]
@@ -10949,7 +11006,28 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "AGENT_RUN_TERMINAL",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "deliverAgentRunEnvelope",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
           "symbol": "runAgentWorkflow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "waitForAgentRunResults",
           "kinds": [
             "call"
           ]
@@ -21094,6 +21172,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunResultSlice",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "aggregateAgentVote",
           "kinds": [
             "read"
@@ -21115,6 +21200,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "buildAgentRunEnvelope",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "buildNodeEvidenceCatalog",
           "kinds": [
             "read"
@@ -21123,6 +21215,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "BUILTIN_AGENT_WORKFLOWS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "cutAtSentence",
           "kinds": [
             "read"
           ]
@@ -21290,6 +21389,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "singleAgentShorthandNode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "syncRunEventSeq",
           "kinds": [
             "read"
@@ -21318,7 +21424,21 @@
         },
         {
           "provider": "09-workflow.js",
+          "symbol": "legacySpawnToOrchestrateArgs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
           "symbol": "planDiscoveryToolBatchAllowed",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "09-workflow.js",
+          "symbol": "waitForAgentRunResults",
           "kinds": [
             "read"
           ]
@@ -21396,6 +21516,13 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "agentConversationContextMeta",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "agentNodeContextWindow",
           "kinds": [
             "read"
           ]

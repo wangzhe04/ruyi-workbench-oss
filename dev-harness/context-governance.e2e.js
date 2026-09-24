@@ -17,7 +17,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 console.log('\n── [S] 静态源锁 ──');
 // §28c:两处上游装配点都改用 buildUpstreamContext,旧 12000/32000 定长常量在装配点消失。
 ok(/const priorText = buildUpstreamContext\(depNodes, upstreamBudgetTokens\)/.test(src), 'S §28c DAG runNode 用 buildUpstreamContext');
-ok(/const dependencyText = buildUpstreamContext\(dependsOn\.map/.test(src), 'S §28c spawn_agent 站点用 buildUpstreamContext');
+ok(!/const dependencyText = buildUpstreamContext\(dependsOn\.map/.test(src) && /function singleAgentShorthandNode\(args\)/.test(src), 'S §28c 代理模式 v2:旧 spawn 站点已删,单代理简写走 DAG 同一条 buildUpstreamContext 链');
 ok(!/\.join\('\\n\\n'\)\.slice\(0, 32000\)/.test(src), 'S §28c 旧 join.slice(0,32000) 定长截断已消失');
 // §28b:节点完成派生四分。
 ok(/deriveNodeOutputs\(node\);/.test(src), 'S §28b runNode 完成调 deriveNodeOutputs');

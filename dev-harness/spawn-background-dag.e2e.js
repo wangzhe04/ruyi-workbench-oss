@@ -1,11 +1,11 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离——服务启动会从真机 ~/.claude.json 导入 MCP 并把 externalMcpServers 同步回真机 CLI 配置，两个方向都要断（见 lib 头注）
 (async () => {
 'use strict';
-// Background spawn regression:
-//  1) spawn_agent{background:true} returns before the child finishes;
+// Background agent regression (代理模式 v2:spawn_agent 已并入 orchestrate_agents,单代理写顶层简写):
+//  1) orchestrate_agents{task, background:true} returns a {runId, status:'running'} receipt before the child finishes;
 //  2) the parent executes an independent todo_write while the child is still live;
-//  3) wait_agents collects the result; and
-//  4) the same ad-hoc spawn is persisted in /api/agent-runs for the Workbench DAG.
+//  3) wait_agents collects the DELIVERY ENVELOPE (bounded node summary, not the raw node result); and
+//  4) the same ad-hoc launch is persisted in /api/agent-runs for the Workbench DAG with background:true.
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
 const http = require('http');
@@ -53,7 +53,7 @@ try {
   }, null, 2));
   const script = JSON.stringify({
     parent: [
-      { name: 'spawn_agent', args: { task: '慢速后台分析', agentKey: 'background-research', toolTier: 'read', background: true } },
+      { name: 'orchestrate_agents', args: { task: '慢速后台分析', agentKey: 'background-research', toolTier: 'read', background: true } },
       { name: 'todo_write', args: { items: [{ id: 'parent-work', text: '父会话独立推进', status: 'completed' }] } },
       { name: 'wait_agents', args: { timeoutMs: 10000 } },
     ],
@@ -65,7 +65,7 @@ try {
   let up = null; for (let i = 0; i < 80 && !up; i++) { await sleep(150); up = await health(); }
   ok(!!up, 'workbench starts');
   const auth = { 'x-wcw-token': await token() };
-  const created = await jsonRequest('POST', '/api/sessions', { title: 'background spawn DAG', cwd: HOME }, auth);
+  const created = await jsonRequest('POST', '/api/sessions', { title: 'background agent DAG', cwd: HOME }, auth);
   const sid = created && created.session && created.session.id;
   ok(!!sid, 'session created');
   const events = await streamChat({ sessionId: sid, message: '后台派一个慢任务，我先继续处理主线再汇总', cwd: HOME });
@@ -75,14 +75,24 @@ try {
   const parentWorkAt = events.findIndex(e => e.type === 'tool_result' && !e.subagentId && e.id === 'call_2');
   const childEndAt = events.findIndex(e => e.type === 'subagent' && e.state === 'end' && e.agentKey === 'background-research');
   const waitResult = events.find(e => e.type === 'tool_result' && !e.subagentId && e.id === 'call_3');
-  ok(receiptAt >= 0 && receipt.content.accepted === true && /^run_/.test(receipt.content.runId || ''), 'background spawn returns an immediate run receipt');
+  ok(receiptAt >= 0 && receipt.content.accepted === true && receipt.content.status === 'running' && /^run_/.test(receipt.content.runId || ''), 'background orchestrate_agents returns an immediate {runId, status:running} receipt');
   ok(childStartAt >= 0 && parentWorkAt > childStartAt && childEndAt > parentWorkAt, 'parent performs independent work while the child is still running');
-  ok(waitResult && waitResult.content && waitResult.content.settled === true && (waitResult.content.runs || []).some(run => (run.nodes || []).some(node => /后台子任务最终结论/.test(node.result || ''))), 'wait_agents collects the persisted child result');
+  ok(events[childStartAt] && events[childStartAt].background === true, 'background run events are tagged background:true (own card / not the parent activity bar)');
+  const waitRuns = (waitResult && waitResult.content && waitResult.content.runs) || [];
+  ok(waitResult && waitResult.content && waitResult.content.settled === true && waitRuns.length === 1 && waitRuns[0].kind === 'agent_envelope' && waitRuns[0].status === 'succeeded', 'wait_agents collects the delivery envelope (settled, succeeded)');
+  const node0 = waitRuns[0] && waitRuns[0].nodes && waitRuns[0].nodes[0];
+  ok(node0 && node0.nodeId === 'background-research' && /后台子任务最终结论/.test(node0.summary || '') && node0.summary.length <= 1501 && !('result' in node0) && !('toolEvidence' in node0), 'envelope node carries a bounded summary, no raw result/toolEvidence');
+  ok(waitRuns[0] && waitRuns[0].usage && typeof waitRuns[0].usage.durationMs === 'number' && /agent_result/.test(waitRuns[0].more || ''), 'envelope carries usage + the agent_result pointer');
   const listed = await jsonRequest('GET', `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, null, auth);
   const persisted = (listed.runs || []).find(run => run.id === (receipt && receipt.content && receipt.content.runId));
-  ok(persisted && persisted.kind === 'spawn_agent' && persisted.nodes.some(node => node.id === 'background-research') && persisted.status === 'succeeded', 'spawn_agent is persisted and visible to the Workbench DAG');
+  ok(persisted && persisted.kind === 'orchestrate_agents' && persisted.background === true && persisted.nodes.some(node => node.id === 'background-research') && persisted.status === 'succeeded', 'the ad-hoc background launch is persisted (kind orchestrate_agents, background:true) and visible to the Workbench DAG');
   const result = events.find(e => e.type === 'result');
   ok(result && result.ok === true, 'parent turn completes after collection');
+  // 只投递一次:wait_agents 已取走终态信封 → 账本里的完成回执被登记为已读,下一回合不再注入。
+  const sess = await jsonRequest('GET', `/api/sessions/${encodeURIComponent(sid)}`, null, auth);
+  const receiptRows = ((sess.session && sess.session.messages) || []).filter(m => m && m.backgroundJobId === 'agent:' + receipt.content.runId);
+  ok(receiptRows.length === 1, 'exactly one hidden agent receipt row lands in the session data plane');
+  ok(Array.isArray(sess.session.backgroundJobSeen) && sess.session.backgroundJobSeen.includes('agent:' + receipt.content.runId), 'envelope collected by wait_agents is marked delivered (no second injection later)');
 } catch (e) { fail++; console.log('ERROR ' + (e && e.stack || e)); }
 finally { killp(wb); killp(fake); await sleep(250); fs.rmSync(HOME, { recursive: true, force: true }); }
 console.log('\nSPAWN BACKGROUND DAG E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));

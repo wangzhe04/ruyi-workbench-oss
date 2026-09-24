@@ -100,6 +100,7 @@ function createTurnSegmentBuilder() {
       if (!key) return;
       if (evt.state === 'start' && !subagentSegments.has(key)) {
         const segment = { id: nextId(), type: 'subagent', toolCallId: key, status: 'running' };
+        if (evt.background === true) segment.background = true; // 代理模式 v2:后台 run 的节点,回合收尾不标 cancelled
         segments.push(segment); subagentSegments.set(key, segment);
       } else if (subagentSegments.has(key) && (evt.state === 'end' || evt.state === 'background')) {
         subagentSegments.get(key).status = evt.state === 'background' ? 'running' : (evt.ok === false ? 'error' : 'done');
@@ -204,6 +205,7 @@ function createTurnSegmentBuilder() {
         segment = { id: nextId(), type: 'workflow', workflowId, status: 'running', state: String(evt.state || 'running'), eventCount: 0 };
         segments.push(segment); workflowSegments.set(workflowId, segment);
       }
+      if (evt.background === true) segment.background = true; // 代理模式 v2:后台 run 与父回合解耦
       segment.eventCount += 1;
       segment.state = String(evt.state || segment.state || 'running');
       if (Number.isFinite(Number(evt.nodeCount))) segment.nodeCount = Number(evt.nodeCount);
@@ -297,11 +299,17 @@ function createTurnSegmentBuilder() {
   // workflow 段永远拿不到 tool_result/end 事件,会以 status:'running' 落盘并在刷新后永远显示「运行中」。
   // finalizeAll 在回合收尾 snapshot() 之前把这类悬空段诚实标终态 'cancelled'(前端 pill 词汇已有 cancelled),
   // 与 loadSession 的 healStalePendingSegments 同语义 -- 区别是这里在落盘前修,免去重进会话才修复的窗口。
+  // 代理模式 v2:后台代理 run(segment.background)与父回合解耦 —— 回合结束它仍在跑,不能标 cancelled;改标 'background'
+  // (静态重绘读作「后台运行」,真实终态看代理面板/后台任务条)。
   const finalizeAll = (reason) => {
     const note = String(reason || 'turn ended; in-flight tool was interrupted').slice(0, 200);
     let healed = 0;
     for (const seg of segments) {
       if (!seg || typeof seg !== 'object') continue;
+      if (seg.background === true && (seg.type === 'subagent' || seg.type === 'workflow')) {
+        if (seg.status === 'running' || seg.status === 'paused') seg.status = 'background';
+        continue;
+      }
       if ((seg.type === 'tool' || seg.type === 'subagent') && seg.status === 'running') {
         seg.status = 'cancelled'; seg.note = note; healed += 1;
       } else if (seg.type === 'workflow' && (seg.status === 'running' || seg.status === 'paused')) {

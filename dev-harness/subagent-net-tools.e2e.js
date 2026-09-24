@@ -65,9 +65,9 @@ const src = readServerSource();
     ok(/web_search: 'read', web_fetch: 'read'/.test(table), "⑤ web_search/web_fetch 保持 read 级(联网只读)");
     ok(/http_request: 'exec'/.test(table.replace(/\n/g, ' ')) || /http_request: 'exec'/.test(table), "⑤ http_request 保持 exec 级(任意方法/头的原始请求)");
     ok(/git_commit: 'exec'/.test(table), "⑤ git_commit 保持 exec 级(触发 hooks)");
-    ok(/spawn_agent: 'exec'/.test(table), "⑤ spawn_agent 保持 exec 级");
+    ok(/orchestrate_agents: 'exec'/.test(table) && !/spawn_agent:/.test(table), "⑤ orchestrate_agents 保持 exec 级(代理模式 v2:spawn_agent 已并入,不再单列)");
   }
-  ok(/noSpawnAgent: true/.test(src.slice(src.indexOf('async function runSubAgentCore('), src.indexOf('async function runSubAgentCore(') + 6000)), '⑤ 子回合仍禁嵌套 spawn_agent');
+  ok(/noAgentTools: true/.test(src.slice(src.indexOf('async function runSubAgentCore('), src.indexOf('async function runSubAgentCore(') + 6000)), '⑤ 子回合仍禁嵌套(noAgentTools:三个代理工具都不 offer)');
 }
 
 // ---- ⑥ bridgedToolTier 实跑(抽函数+依赖表) ----

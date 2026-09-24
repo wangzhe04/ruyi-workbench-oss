@@ -452,14 +452,15 @@ function appendUsageLedger(entry) {
       costTrusted: entry.costTrusted !== false, // false = plan-based / notional (kept out of real cost totals)
       estimated: entry.estimated === true,
       turnSeq: Number(entry.turnSeq) || 0,
-      // v1.4-OSS 用量看板(补): kind is three-valued — 'turn' (top-level chat turn), 'subagent' (an Agent 工作流/
-      // spawn_agent DAG node), or 'aux' (a non-turn helper call: 压缩摘要 / playbook 起草 等). Old rows without a
+      // v1.4-OSS 用量看板(补): kind is three-valued — 'turn' (top-level chat turn), 'subagent' (an Agent 工作流 /
+      // orchestrate_agents DAG node), or 'aux' (a non-turn helper call: 压缩摘要 / playbook 起草 等). Old rows without a
       // kind read as 'turn' (向后兼容). agentKey/subagentId are stamped only for sub-agent rows so the dashboard
       // can attribute a DAG node's spend; both truncated to a sane length.
       kind: entry.kind === 'subagent' ? 'subagent' : (entry.kind === 'aux' ? 'aux' : 'turn'),
     };
     if (entry.agentKey != null && String(entry.agentKey)) rec.agentKey = String(entry.agentKey).slice(0, 120);
     if (entry.subagentId != null && String(entry.subagentId)) rec.subagentId = String(entry.subagentId).slice(0, 120);
+    if (entry.runId != null && String(entry.runId)) rec.runId = String(entry.runId).slice(0, 120); // 代理模式 v2:代理 run 归属(subagent/aux 行)
     // v1.4-OSS 用量看板(补): optional note tags an aux row's sub-kind (e.g. 'compact' / 'playbook-draft'), ≤40 chars.
     if (entry.note != null && String(entry.note)) rec.note = String(entry.note).slice(0, 40);
     const line = JSON.stringify(rec) + '\n';

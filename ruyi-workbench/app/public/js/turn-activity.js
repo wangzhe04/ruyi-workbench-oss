@@ -281,6 +281,7 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
         break;
 
       case 'subagent': {
+        if (evt.background === true) break; // 代理模式 v2:后台 run 的节点不算父回合的编排阶段
         beginTurn(at);
         const id = String(evt.id || evt.subagentId || '');
         if (!id) break;
@@ -327,6 +328,7 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
       }
 
       case 'agent_workflow': {
+        if (evt.background === true) break; // 代理模式 v2:后台 run 与父回合解耦,活动条不显示「编排中」
         beginTurn(at);
         const workflowState = String(evt.state || '');
         if (workflowState === 'end') { state.workflow = null; break; }
@@ -341,6 +343,7 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
       }
 
       case 'compact': {
+        if (evt.subagentId) break; // 代理模式 v2:子代理自己的压缩不把父活动条卡在「压缩中」
         const phase = String(evt.phase || (evt.afterTokens != null ? 'completed' : 'running'));
         if (phase === 'completed' || phase === 'failed') { state.compact = null; break; }
         state.compact = {

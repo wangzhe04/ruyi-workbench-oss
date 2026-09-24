@@ -117,7 +117,7 @@ function discoveryResultNeedsPlan(msgs) {
     && !m.some(x => x && x.role === 'assistant' && /^\s*PLAN\s*[:：]/i.test(String(x.content || '')));
 }
 
-// v0.9-S6 FAKE_SUBAGENT_SCRIPT: 子代理 (spawn_agent) test scaffold. JSON `{parent:[…], sub:[…], subText?, parentText?}`.
+// v0.9-S6 FAKE_SUBAGENT_SCRIPT: 子代理 (orchestrate_agents) test scaffold. JSON `{parent:[…], sub:[…], subText?, parentText?}`.
 // Requests are ROUTED by whether the injected `system` message carries the sub-agent identity marker
 // (「子任务执行体」, which runSubAgent prepends): a match → the `sub` script (the delegated sub-turn), else the
 // `parent` script (the top-level turn). Each script is a list of steps stepped by the request's role:'tool'
@@ -135,6 +135,40 @@ try { const v = process.env.FAKE_SUBAGENT_SCRIPT; if (v) { const o = JSON.parse(
 let SUBAGENT_PARALLEL = null;
 try { const v = process.env.FAKE_SUBAGENT_PARALLEL; if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) SUBAGENT_PARALLEL = a; } } catch { SUBAGENT_PARALLEL = null; }
 const SUB_IDENTITY_MARKER = '子任务执行体';
+// 代理模式 v2(agent-mode-v2.e2e):多回合父剧本。SUBAGENT_SCRIPT.parentByMessage = { needle: [steps] } —— 按【最后一条
+// 人类 user 消息】(跳过以 '[' 开头的运行时注入通知)含哪个 needle 选父剧本,游标只数该条之后的 role:'tool'。
+// 没命中任何 needle → 回落到 parent 全历史计数(旧行为零漂移)。
+function parentScriptByMessage(msgs) {
+  const table = SUBAGENT_SCRIPT && SUBAGENT_SCRIPT.parentByMessage;
+  if (!table || typeof table !== 'object') return null;
+  let lastUser = -1;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (!m || m.role !== 'user') continue;
+    const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
+    if (text.trimStart().startsWith('[')) continue; // 运行时注入的通知(后台任务/代理信封),不是人类消息
+    lastUser = i; break;
+  }
+  if (lastUser < 0) return null;
+  const text = typeof msgs[lastUser].content === 'string' ? msgs[lastUser].content : JSON.stringify(msgs[lastUser].content || '');
+  for (const [needle, steps] of Object.entries(table)) {
+    if (Array.isArray(steps) && text.includes(needle)) return { steps, done: msgs.slice(lastUser + 1).filter(m => m && m.role === 'tool').length };
+  }
+  return null;
+}
+// 代理模式 v2:工具参数里的字面量 '$RUN_ID' 用历史里最近一条 role:'tool' 回执中的 runId 代入(fake 事先不知道 runId)。
+function substituteRunId(args, msgs) {
+  const raw = JSON.stringify(args || {});
+  if (!raw.includes('$RUN_ID')) return args;
+  let rid = '';
+  for (let i = msgs.length - 1; i >= 0 && !rid; i--) {
+    const m = msgs[i];
+    if (!m || m.role !== 'tool') continue;
+    const mm = String(m.content || '').match(/"runId":"(run_[A-Za-z0-9_-]+)"/);
+    if (mm) rid = mm[1];
+  }
+  return JSON.parse(raw.split('$RUN_ID').join(rid));
+}
 // 配对铁律(strict provider 仿真,第67波后):FAKE_STRICT_PAIRING=1 时,每个 /chat/completions 请求先过
 // DeepSeek 式配对校验 —— 凡 assistant 消息带 tool_calls,其【紧随其后】的消息必须对每个 tool_call_id
 // 各有一条 role:'tool',缺一即 400(措辞与 DeepSeek 线上一致)。驱动「孤儿 tool_calls 历史导致会话
@@ -680,6 +714,8 @@ const server = http.createServer((req, res) => {
           return;
         }
         let script = Array.isArray(sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) ? (sub ? SUBAGENT_SCRIPT.sub : SUBAGENT_SCRIPT.parent) : [];
+        let cursor = done;
+        if (!sub) { const byMsg = parentScriptByMessage(msgs); if (byMsg) { script = byMsg.steps; cursor = byMsg.done; } }
         const subUserText = sub ? (msgs || []).filter(m => m && m.role === 'user').map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')).join('\n') : '';
         if (sub && SUBAGENT_SCRIPT.subStepsByTask && typeof SUBAGENT_SCRIPT.subStepsByTask === 'object') {
           for (const [needle, value] of Object.entries(SUBAGENT_SCRIPT.subStepsByTask)) if (subUserText.includes(needle) && Array.isArray(value)) { script = value; break; }
@@ -715,11 +751,11 @@ const server = http.createServer((req, res) => {
             break;
           }
         }
-        const step = done < script.length ? script[done] : null;
+        const step = cursor < script.length ? script[cursor] : null;
         (async () => {
           if (step && step.name) {
-            // Emit ONE tool_call (spawn_agent for parent; file_write etc. for sub).
-            await emitOneToolCall(res, id, 'call_' + (done + 1), String(step.name), step.args || {}, 0);
+            // Emit ONE tool_call (orchestrate_agents for parent; file_write etc. for sub).
+            await emitOneToolCall(res, id, 'call_' + (cursor + 1), String(step.name), substituteRunId(step.args || {}, msgs), 0);
             if (STREAM_DELAY_MS) await sleep(STREAM_DELAY_MS);
             sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
           } else {

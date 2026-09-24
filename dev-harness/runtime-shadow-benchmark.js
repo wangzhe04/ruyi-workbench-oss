@@ -46,7 +46,7 @@ const retrievalCases = [
   ['desktop_screenshot', '截取当前桌面屏幕', 'take a desktop screenshot', 'desktop_screenshot maxWidth quality'],
   ['office_open', '打开 excel word ppt 或 pdf 文档', 'open an office document', 'office_open path application'],
   ['orchestrate_agents', '编排多个代理的工作流', 'orchestrate multiple agents', 'orchestrate_agents tasks dependencies'],
-  ['spawn_agent', '把子任务委派给子代理', 'delegate a task to a subagent', 'spawn_agent task toolTier'],
+  ['agent_result', '读取代理产出全文', 'read agent result', 'agent_result runId nodeId'],
   ['workbench_memory_read', '读取工作台保存的记忆', 'read workbench memory', 'workbench_memory_read id query'],
   ['workbench_memory_propose', '提议把经验保存为记忆', 'propose saving a memory', 'workbench_memory_propose content scope'],
 ].flatMap(([expected, ...queries]) => queries.map((query, variant) => ({ expected, query, variant: ['zh', 'en', 'mixed'][variant] })));

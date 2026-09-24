@@ -313,6 +313,7 @@ const TOOL_VERB_MAP = {
   code_review_scan: 'tools.verb.code_review_scan', codebase_symbol_search: 'tools.verb.codebase_symbol_search', data_profile: 'tools.verb.data_profile',
   debug_hypothesis: 'tools.verb.debug_hypothesis', dependency_inventory: 'tools.verb.dependency_inventory', docs_search: 'tools.verb.docs_search',
   file_list: 'tools.verb.file_list', file_read: 'tools.verb.file_read', file_search: 'tools.verb.file_search', frontend_audit: 'tools.verb.frontend_audit',
+  agent_result: 'tools.verb.agent_result', // 代理模式 v2:按需读代理产出全文
   glob: 'tools.verb.glob', list_tools: 'tools.verb.list_tools', mcp_configure: 'tools.verb.mcp_configure', mcp_list: 'tools.verb.mcp_list',
   mission_update: 'tools.verb.mission_update', observation_recall: 'tools.verb.observation_recall', office_open: 'tools.verb.office_open',
   orchestrate_agents: 'tools.verb.orchestrate_agents', permission_prompt: 'tools.verb.permission_prompt', project_snapshot: 'tools.verb.project_snapshot',
@@ -504,7 +505,7 @@ function workflowStatusLabel(status) {
 function handleAgentWorkflowEvent(evt, live) {
   var shouldAutoFocus = evt.action === 'start' || evt.action === 'resume';
   if (evt && evt.runId && typeof syncAgentRunsPolling === 'function') {
-    // OpenAI spawn_agent uses a separate persisted run; focus it as soon as the stream announces it.
+    // A provider-side orchestrate_agents run is a separate persisted run; focus it as soon as the stream announces it.
     if (shouldAutoFocus) {
       if (typeof wbState !== 'undefined' && wbState) {
         wbState.selectedRunId = String(evt.runId);
@@ -519,7 +520,9 @@ function handleAgentWorkflowEvent(evt, live) {
   if (evt.state === 'start') {
     const d = el('details', 'subagent-card'); d.open = true;
     const sum = el('summary', 'subagent-head');
-    sum.append(el('span', 'sa-icon', '🕸️'), el('span', 'sa-title', t('workflow.run.title', { count: evt.nodeCount || 0 })), el('span', 'sa-status', t('workflow.run.running', { count: evt.concurrency || 1 })));
+    const background = evt.background === true; // 代理模式 v2:后台 run —— 本回合不等待,卡片标后台样式
+    sum.append(el('span', 'sa-icon', '🕸️'), el('span', 'sa-title', t('workflow.run.title', { count: evt.nodeCount || 0 })), el('span', 'sa-status', background ? t('workflow.run.background', { count: evt.concurrency || 1 }) : t('workflow.run.running', { count: evt.concurrency || 1 })));
+    if (background) { d.classList.add('sa-background'); d.open = false; }
     d.appendChild(sum); const body = el('div', 'subagent-body', t('workflow.run.description')); d.appendChild(body);
     live.toolsWrap.appendChild(d);
     live.workflowCards.set(id, { d, status: sum.querySelector('.sa-status'), done: 0, total: Number(evt.nodeCount) || 0 });

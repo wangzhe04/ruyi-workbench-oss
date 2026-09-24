@@ -148,6 +148,8 @@ const LIVE_FULL_CHARS = 12000;
 const LIVE_TOOLS_MAX = 20;
 function appendLiveTail(reg, evt) {
   if (!reg || !evt) return;
+  // 代理模式 v2:子代理自己的工具事件(带 subagentId)不进父回合的实时工具列表与迭代计数 —— 它们只属于代理卡/代理面板。
+  if (evt.subagentId) return;
   const tail = reg.liveTail && typeof reg.liveTail === 'object' ? reg.liveTail : (reg.liveTail = { text: '', tool: '', updatedAt: '' });
   // 05/09 建的仍是 117l 那个三字段裸对象(本波不碰那两个文件),缺的字段在这里就地补齐 —— 累加器是
   // 唯一的写口,补在这里就不会有「某条路径的 reg 少个键」的形状分叉。

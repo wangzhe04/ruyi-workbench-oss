@@ -82,7 +82,7 @@ const bridgedPlanRoute = {
 ok(srv.planDiscoveryToolBatchAllowed([{ name: 'acc__read_file' }], bridgedPlanRoute, {}) === true &&
   srv.planDiscoveryToolBatchAllowed([{ name: 'acc__write_file' }], bridgedPlanRoute, {}) === false, 'plan discovery applies bridged-tool risk tiers');
 ok(srv.planDiscoveryToolBatchAllowed([{ name: 'file_read' }, { name: 'file_write' }], {}, {}) === false, 'plan discovery rejects a mixed read/write batch');
-ok(srv.planDiscoveryToolBatchAllowed([{ name: 'spawn_agent' }], {}, {}) === false && srv.planDiscoveryToolBatchAllowed([{ name: 'todo_write' }], {}, {}) === false, 'plan discovery blocks delegation and planning-metadata side effects');
+ok(srv.planDiscoveryToolBatchAllowed([{ name: 'orchestrate_agents' }], {}, {}) === false && srv.planDiscoveryToolBatchAllowed([{ name: 'todo_write' }], {}, {}) === false, 'plan discovery blocks delegation and planning-metadata side effects');
 ok(srv.planDiscoveryToolBatchAllowed([{ name: 'unknown_future_tool' }], {}, {}) === false, 'plan discovery fails closed for unknown tools');
 
 const claudeSrc = fs.readFileSync(path.join(SRC, '05-claude-engine.js'), 'utf8');

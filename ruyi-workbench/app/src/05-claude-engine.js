@@ -382,8 +382,11 @@ async function runClaudeTurn({
   }
   const currentUserEnvelope = `<current_user_message>\n${basePrompt}\n</current_user_message>`;
   const turnMemoryEnvelope = !slashCommand && memoryTurnCheck ? memoryTurnCheck + '\n\n' + currentUserEnvelope : currentUserEnvelope;
-  const assembledPrompt = (recoveryHistory || indexInjection || (!slashCommand && memoryTurnCheck))
-    ? [recoveryHistory, indexInjection, turnMemoryEnvelope].filter(Boolean).join('\n\n')
+  // 代理模式 v2:Claude/Kimi 没有 providerHistory 可在迭代边界注入 —— 后台代理的交付信封在下一回合开头拼进 prompt,
+  // 同一张已读表(11 drainAgentEnvelopesText),只投递一次;斜杠命令回合不拼。
+  const agentDeliveries = (!slashCommand && EventStreamHooks.drainAgentEnvelopesText) ? EventStreamHooks.drainAgentEnvelopesText(session) : '';
+  const assembledPrompt = (recoveryHistory || indexInjection || agentDeliveries || (!slashCommand && memoryTurnCheck))
+    ? [recoveryHistory, indexInjection, agentDeliveries, turnMemoryEnvelope].filter(Boolean).join('\n\n')
     : basePrompt;
   // Kimi ACP native slash commands must be the first content block exactly as entered. The separate
   // attachments field lets the ACP adapter retain file references/degrade safely without prefixing the

@@ -1742,9 +1742,11 @@ async function providerSummaryCall(provider, history, opts) {
 // Tokens from the response usage (prompt/completion, with input/output aliases); when the endpoint omits usage
 // they are ESTIMATED from the sent payload + the returned summary and flagged estimated:true. Both compact call
 // sites (manual runProviderCompact + auto maybeAutoCompact level-2) route through here. Fully defensive.
-function recordCompactUsage(session, provider, sc) {
+function recordCompactUsage(session, provider, sc, attribution) {
   try {
     if (!session || !provider || !sc || !sc.ok) return;
+    // 代理模式 v2:子代理压缩的 aux 行带 subagentId/runId 归属(仍计入会话总费用,但看板可区分主线与代理)。
+    const attr = attribution && typeof attribution === 'object' ? attribution : null;
     let inTok = 0, outTok = 0, estimated = false;
     const u = sc.usage;
     const uIn = u ? (Number(u.prompt_tokens != null ? u.prompt_tokens : u.input_tokens) || 0) : 0;
@@ -1761,6 +1763,8 @@ function recordCompactUsage(session, provider, sc) {
     appendUsageLedger({
       sessionId: session.id, engine: 'openai', provider: provider.id, model: ledgerModel,
       inTok, outTok, cachedInTok, cost, currency, estimated, turnSeq: session.turnSeq, kind: 'aux', note: 'compact',
+      ...(attr && attr.subagentId ? { subagentId: String(attr.subagentId) } : {}),
+      ...(attr && attr.runId ? { runId: String(attr.runId) } : {}),
     });
   } catch { /* accounting must never break compaction */ }
 }
@@ -1827,6 +1831,20 @@ function providerConversationContextWindow(config, provider, model) {
   const manual = configuredConversationWindow(config, 'openai', provider && provider.id, activeModel);
   // Keep learned provider caps authoritative even when a manual conversation limit is configured.
   return providerContextWindow(manual ? { ...provider, contextWindow: manual } : provider, activeModel);
+}
+
+// 代理模式 v2(56 号文 §1②):工作流节点的上下文窗口。Claude 引擎节点与主会话同一条链 —— 手填(conversation
+// override)→ 名称表 → 1M 兜底(CONTEXT_WINDOW_FALLBACK),不再 200K 兜底;openai 节点走 providerContextWindow
+// (手填 → 探测 → 表 → 兜底,含窗口超限学习)。纯函数,供 09 runNode 的上游预算与测试直调。
+function agentNodeContextWindow(node, provider, config) {
+  const engine = String(node && node.engine || 'openai');
+  if (engine === 'claude') {
+    const model = String(node && node.model || (config && config.model) || '').trim();
+    const manual = configuredConversationWindow(config, 'agent', 'claude', model);
+    if (manual > 0) return manual;
+    return resolveContextWindow(null, model).value;
+  }
+  return providerContextWindow(provider, node && node.model);
 }
 
 async function agentConversationContextMeta(config, session) {
@@ -2155,7 +2173,7 @@ const CompactionPlan = (() => {
 // splice】替换内容,绝不能重新赋值(否则闭包仍指旧数组,压缩对已发请求体静默失效)。evaporate 本就原地改 content,天然安全。
 // 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】,防摘要吞掉原始目标后跑偏。
 async function maybeCompactSubHistory(opts) {
-  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools } = opts || {};
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
@@ -2195,7 +2213,7 @@ async function maybeCompactSubHistory(opts) {
     if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
     subHistory.splice(0, subHistory.length, ...reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
     emit('summary', estimateHistoryTokens(withSys(subHistory)));
-    try { if (parentSession) recordCompactUsage(parentSession, summaryProvider, sc); } catch { /* 记账失败不阻断 */ }
+    try { if (parentSession) recordCompactUsage(parentSession, summaryProvider, sc, { subagentId, runId }); } catch { /* 记账失败不阻断 */ }
     return true;
   } catch { return false; }
 }

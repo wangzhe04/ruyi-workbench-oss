@@ -1197,10 +1197,11 @@ export function createChatStreamRuntime(deps = {}) {
         live.toolCards.set(evt.id, card);
         // v0.9-S6: a sub-turn's tool_use carries subagentId → nest it inside that sub-agent's card body (indented,
         // via toolCard reuse). No subagentId → the normal top-level tools wrap.
+        // 代理模式 v2:带 subagentId 却找不到子卡(卡已不在/事件迟到)时【不】画到父回合顶层 —— 子代理过程只属于它自己的卡。
         const subHost = evt.subagentId && live.subCards.get(evt.subagentId);
         if (subHost) {
           subHost.body.appendChild(card.d);
-        } else {
+        } else if (!evt.subagentId) {
           registerNarrativeTool(live, evt, card);
         }
         maybeScrollToBottom(); // EC-D 56: 工具卡入列也走粘性跟随(用户要"页面跟着滚动",上滑阅读时不打扰)
@@ -1358,6 +1359,15 @@ export function createChatStreamRuntime(deps = {}) {
         renderContextMeter(evt);
         break;
       case 'compact': {
+        // 代理模式 v2:子代理自己的压缩(带 subagentId)只更新它的卡片状态行 —— 不进父叙事、不改父电量表、不碰压缩指示条。
+        if (evt.subagentId) {
+          const subHost = live && live.subCards.get(String(evt.subagentId));
+          if (subHost && subHost.status) {
+            const tags = `${subHost.roleTag || ''}${subHost.tierTag || ''}${subHost.modelTag || ''}${subHost.driverTag || ''}${subHost.dependencyTag || ''}`;
+            subHost.status.textContent = (evt.afterTokens != null ? t('chat.agentCompacted') : t('chat.agentCompacting')) + tags;
+          }
+          break;
+        }
         const phase = evt.phase || (evt.afterTokens != null ? 'completed' : 'running');
         if (phase === 'started') {
           if (!compactState.active) beginCompactIndicator();
@@ -1519,6 +1529,12 @@ export function createChatStreamRuntime(deps = {}) {
       d.appendChild(body);
       live.toolsWrap.appendChild(d);
       live.subCards.set(id, { d, body, status: sum.querySelector('.sa-status'), tierTag, roleTag, modelTag, driverTag, dependencyTag });
+      if (evt.background === true) {
+        // 代理模式 v2:后台 run 的节点 —— 卡片标成后台样式;回合结束它照跑,结果经后台任务条/信封送达。
+        d.classList.add('sa-background');
+        const st = sum.querySelector('.sa-status');
+        if (st) { st.textContent = t('chat.agentBackground') + `${roleTag}${tierTag}${modelTag}${driverTag}${dependencyTag}`; st.classList.add('running'); }
+      }
       return;
     }
     if (evt.state === 'background') {

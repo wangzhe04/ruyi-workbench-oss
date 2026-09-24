@@ -473,7 +473,7 @@ async function markInterruptedAgentRuns() {
   }
 }
 
-async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped }) {
+async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped, runId }) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -487,8 +487,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     if (initBeat && initBeat.unref) initBeat.unref();
   };
   startInitBeat();
-  // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself run spawn_agent.
-  if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes spawn_agent */ }
+  // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself launch agents.
+  if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes the agent tools */ }
   // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
@@ -524,16 +524,16 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     ? requestedBudget
     : (requestedBudget > 300 ? requestedBudget : Number(budgetPolicy.hardLimit || 300));
 
-  // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT spawn_agent.
+  // Tool set: same capability gating as the parent, filtered to the requested tier, WITHOUT the agent tools (禁嵌套).
   const caps = await getCapabilities(config).catch(() => null);
   // 团队模式 v2 (A1/B1): propose_task/send_to_agent 仅在工作流子回合(闭包已注入)时注册。propose_task 还要池策略
-  // 非 off(runAgentWorkflow 在策略 off 时不传 proposeTask 闭包)。非工作流的 spawn_agent 子回合两者皆不注册。
+  // 非 off(runAgentWorkflow 在策略 off 时不传 proposeTask 闭包)。
   const proposeTaskEnabled = typeof proposeTask === 'function';
   const sendToAgentEnabled = typeof sendToAgent === 'function';
   // 117z-E2 提交①(§11.21.3):子代理没有「这一条线程」的会话头 —— 它跑在父回合的执行链里,自己
   // 不是一条会话。desktopOverride 显式传 null = 跟随全局 allowDesktopTools = 修前逐字行为。写成
   // 显式的 null 而不是省略,是为了让「子代理这一面【没有】会话级桌面覆盖」这件事在源码里可读可查。
-  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noSpawnAgent: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
+  let ownTools = buildOpenAiTools(config, caps, { tierFilter: tier, noAgentTools: true, proposeTaskEnabled, sendToAgentEnabled, noAdaptiveMeta: true, desktopOverride: null });
   // 第22波(开放子代理工具面): 桥接(外部/桌面 MCP)工具按 BRIDGED_TOOL_TIERS 分级参与所有层级——原先 read/edit
   // 一刀切不挂桥接面,read 级研究/审查类子代理连 ACC 的只读族(截图/OCR/查找/检查)都拿不到。现按 bridgedToolTier
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
@@ -722,7 +722,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       }
       // 第28波(§28a):迭代边界两级自动压缩(与主回合 9208 一一对应)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
-      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools });
+      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId });
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -805,7 +805,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             });
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length, ...CompactionPlan.reseed(plan, sc.summary));
-            if (parentSession) recordCompactUsage(parentSession, provider, sc);
+            if (parentSession) recordCompactUsage(parentSession, provider, sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
             subOk = true; subErr = '';
             iter--; continue;
           }
@@ -883,7 +883,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           let resultObj;
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
           // toolCall,那里拿不到 runtime/run),且已在上方豁免 role.openaiTools 白名单、此处不过 bridge/tier 判定(它们
-          // 本就是 read tier、非业务能力)。放在禁嵌套守卫之前,故永不会被误判为 spawn_agent(回归见 e2e 白名单豁免断言)。
+          // 本就是 read tier、非业务能力)。放在禁嵌套守卫之前,故永不会被误判为代理工具(回归见 e2e 白名单豁免断言)。
           if (tc.name === 'propose_task') {
             try { resultObj = (typeof proposeTask === 'function') ? await proposeTask(args) : { ok: false, error: '任务池在当前上下文不可用' }; }
             catch (e) { resultObj = { ok: false, error: (e && e.message) || String(e) }; }
@@ -892,8 +892,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             try { resultObj = (typeof sendToAgent === 'function') ? await sendToAgent(args) : { ok: false, error: 'Agent 邮箱在当前上下文不可用' }; }
             catch (e) { resultObj = { ok: false, error: (e && e.message) || String(e) }; }
             if (resultObj && resultObj.ok) onEvent({ type: 'subagent_mail_out', subagentId, target: String(args && (args.targetNodeKey != null ? args.targetNodeKey : args.target) || ''), text: String(args && (args.message != null ? args.message : args.text) || '') });
-          } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents') {
-            // 禁嵌套 double-guard: even though spawn_agent is not offered here, refuse it defensively.
+          } else if (tc.name === 'spawn_agent' || tc.name === 'orchestrate_agents' || tc.name === 'wait_agents' || tc.name === 'agent_result') {
+            // 禁嵌套 double-guard: even though the agent tools are not offered here, refuse them defensively
+            // (spawn_agent 仍列在这里:旧模型可能凭记忆调它,拒绝口径要一致)。
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
             const bridge = resolveBridge(bridgedRoute, tc.name);
@@ -959,7 +960,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
                 startToolBeat();
                 const toolResources = inferToolResources(tc.name, args, null, workingDir, ntier);
                 toolLease = await acquireResourceLease(resourceGroup || subagentId, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', subagentId, agentKey, resources: toolResources.map(r => r.label), blockers }));
-                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
+                // 代理模式 v2:把节点的 abort 信号交给工具 —— 显式停止(后台任务条/stop 动作)能中断在跑的长命令,而不是等它自然结束。
+                resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
               catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
               finally { stopToolBeat(); releaseResourceLease(toolLease); }
@@ -1057,7 +1059,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     appendUsageLedger({
       sessionId: parentSession && parentSession.id, engine: 'openai', provider: provider.id, model: subModel,
       inTok: subIn, outTok: subOut, cachedInTok, cost, currency, estimated, turnSeq: parentSession && parentSession.turnSeq,
-      kind: 'subagent', agentKey, subagentId,
+      kind: 'subagent', agentKey, subagentId, runId,
     });
     onEvent({ type: 'subagent_usage', id: subagentId, agentKey, inTok: subIn, outTok: subOut, cost, currency, estimated }); // 29c: 同 Claude 路径(两引擎对称)
   } catch { /* accounting must never break the sub-agent */ }
@@ -1735,10 +1737,29 @@ async function resolveAgentTeamRoute(config, currentProvider, currentEngine = 'o
 // this is what actually lets the model itself choose "run workflow X" mid-conversation; previously the
 // tool schema documented `workflowId` but neither in-turn dispatch path resolved it (args.nodes was
 // always undefined for a workflowId-only call, so it just failed with "nodes 必须是非空数组").
+// 代理模式 v2:单代理顶层简写 {task, role?, agentKey?, toolTier?, maxIters?, model?, resources?} → 单节点 DAG。
+// 旧 spawn_agent 的参数面原样落在这里(dependsOn 在单节点里无意义,忽略)。
+function singleAgentShorthandNode(args) {
+  const task = String(args && args.task || '').trim();
+  if (!task) return null;
+  const key = String(args.agentKey || '').trim().slice(0, 64);
+  const node = { id: /^[A-Za-z0-9_-]{1,64}$/.test(key) ? key : 'agent', task };
+  if (args.role) node.role = String(args.role).trim().toLowerCase();
+  if (args.toolTier) node.toolTier = args.toolTier;
+  if (args.maxIters != null) node.maxIters = args.maxIters;
+  if (args.model) node.model = args.model;
+  if (Array.isArray(args.resources)) node.resources = args.resources;
+  if (args.engine) node.engine = args.engine;
+  return node;
+}
 async function resolveOrchestrateNodes(args, cwd) {
   if (Array.isArray(args && args.nodes) && args.nodes.length) return { nodes: args.nodes, error: null };
   const workflowId = String((args && args.workflowId) || '').trim();
-  if (!workflowId) return { nodes: null, error: 'nodes 或 workflowId 必须提供其一' };
+  if (!workflowId) {
+    const single = singleAgentShorthandNode(args);
+    if (single) return { nodes: [single], error: null };
+    return { nodes: null, error: 'task(单代理简写)、nodes 或 workflowId 必须提供其一' };
+  }
   const workflow = (await getAgentWorkflows(cwd)).find(x => x.id === workflowId);
   if (!workflow) return { nodes: null, error: `未找到工作流: ${workflowId}` };
   return { nodes: workflow.nodes, error: null };
@@ -2095,6 +2116,117 @@ async function appendAgentWorkflowSummaryToSession(sessionId, run, opts = {}) {
     if (error && error.code === 'session.rewound_during_write') { logEvent({ kind: 'agent_workflow_summary_dropped', sessionId, runId: run.id, reason: error.code }); return; }
     throw error;
   }
+}
+// ── 代理模式 v2:交付信封与按需取全文 ─────────────────────────────────────────────────────────────
+// 父会话(模型可见上下文 + 持久化消息 + 界面)对一个代理 run 只收【一个交付信封】:runId/status/每节点的
+// {nodeId, agentKey, role, status, summary(按句截断)、artifacts、error?}/usage/more。不带 toolEvidence、progressLog、
+// gate 细节(压成一句 gateNote);有 outputSchema 的 structuredResult 带但限长。全文用 agent_result 取。
+const AGENT_ENVELOPE_NODE_SUMMARY_MAX = 1500;   // 单节点 summary 上限(字符)
+const AGENT_ENVELOPE_TOTAL_SUMMARY_MAX = 9000;  // 全部节点 summary 之和上限;超出按节点均摊收缩(下限 200)
+const AGENT_ENVELOPE_STRUCTURED_MAX = 2000;     // 单节点 structuredResult JSON 上限
+const AGENT_ENVELOPE_STRUCTURED_TOTAL_MAX = 4000; // 全部节点 structuredResult 之和上限;超出按节点均摊收缩(下限 300)
+const AGENT_ENVELOPE_ERROR_MAX = 400;
+const AGENT_RESULT_DEFAULT_CHARS = 12000;
+const AGENT_RESULT_MAX_CHARS = 40000;
+// 按句截断:优先在 max 之前最后一个句末标点/换行处切;找不到(或切点太靠前,<60%)才硬切,并加省略号。
+function cutAtSentence(text, max) {
+  const t = String(text == null ? '' : text);
+  const cap = Math.max(20, Number(max) || 0);
+  if (t.length <= cap) return t;
+  const head = t.slice(0, cap);
+  let cut = -1;
+  for (let i = head.length - 1; i >= 0; i--) {
+    const c = head.charCodeAt(i);
+    // 。！？；\n . ! ? ;
+    if (c === 0x3002 || c === 0xff01 || c === 0xff1f || c === 0xff1b || c === 10 || c === 46 || c === 33 || c === 63 || c === 59) { cut = i + 1; break; }
+  }
+  if (cut < Math.floor(cap * 0.6)) cut = cap;
+  return head.slice(0, cut).trimEnd() + '…';
+}
+function agentEnvelopeArtifacts(node) {
+  const out = [];
+  const seen = new Set();
+  const push = v => { const x = String(v || '').trim().slice(0, 240); if (x && !seen.has(x)) { seen.add(x); out.push(x); } };
+  if (Array.isArray(node && node.artifacts)) for (const a of node.artifacts) push(a && (a.ref || a.path || a));
+  if (node && node.isolation && node.isolation.path) push(node.isolation.path);
+  return out.slice(0, 20);
+}
+function buildAgentRunEnvelope(run, opts = {}) {
+  const nodes = Array.isArray(run && run.nodes) ? run.nodes : [];
+  const perNodeCap = Math.max(200, Math.min(AGENT_ENVELOPE_NODE_SUMMARY_MAX, nodes.length ? Math.floor(AGENT_ENVELOPE_TOTAL_SUMMARY_MAX / nodes.length) : AGENT_ENVELOPE_NODE_SUMMARY_MAX));
+  const perNodeStructuredCap = Math.max(300, Math.min(AGENT_ENVELOPE_STRUCTURED_MAX, nodes.length ? Math.floor(AGENT_ENVELOPE_STRUCTURED_TOTAL_MAX / nodes.length) : AGENT_ENVELOPE_STRUCTURED_MAX));
+  let toolCalls = 0;
+  const startedAt = Date.parse(String(run && run.createdAt || '')) || 0;
+  const endedAt = Date.parse(String(run && run.completedAt || '')) || (run && run.status === 'running' ? Date.now() : startedAt);
+  const rows = nodes.map(node => {
+    toolCalls += Math.max(0, Number(node && node.toolCalls) || 0);
+    // summary 取 deriveNodeOutputs 的精简结论(结构化 summary 优先),fullChars 如实报 node.result 的长度(存档全文,agent_result 取)。
+    const full = String(node.result || node.error || '');
+    const body = String(node.summary || full).replace(/\s+/g, ' ').trim();
+    const row = {
+      nodeId: node.id, agentKey: node.agentKey || node.id, role: node.roleId || node.role || '', engine: node.engine || 'openai',
+      status: node.status, summary: cutAtSentence(body, perNodeCap), artifacts: agentEnvelopeArtifacts(node),
+    };
+    if (node.degraded) row.degraded = true;
+    if (node.status === 'skipped' && node.skipReason) row.skipReason = String(node.skipReason).slice(0, 200);
+    if (node.error) row.error = String(node.error).slice(0, AGENT_ENVELOPE_ERROR_MAX);
+    if (node.gateVerdict || (node.gateResult && node.gateResult.verdict)) row.gateNote = 'verdict=' + String(node.gateVerdict || node.gateResult.verdict) + (Number.isFinite(Number(node.confidence)) ? ' (' + Number(node.confidence).toFixed(2) + ')' : '');
+    if (node.structuredResult && typeof node.structuredResult === 'object') {
+      let sj = ''; try { sj = JSON.stringify(node.structuredResult); } catch { sj = ''; }
+      if (sj) row.structuredResult = sj.length <= perNodeStructuredCap ? node.structuredResult : { truncated: true, preview: sj.slice(0, perNodeStructuredCap) };
+    }
+    if (full.length > row.summary.length) row.fullChars = full.length;
+    return row;
+  });
+  const usage = {
+    toolCalls,
+    tokens: { input: Number(run && run.usageTotals && run.usageTotals.inTok) || 0, output: Number(run && run.usageTotals && run.usageTotals.outTok) || 0 },
+    durationMs: Math.max(0, endedAt - startedAt),
+  };
+  if (Number(run && run.costUsd) > 0) usage.costUsd = Number(run.costUsd);
+  const status = String(run && run.status || 'unknown');
+  const env = {
+    ok: status === 'succeeded', kind: 'agent_envelope', runId: String(run && run.id || ''), status,
+    nodes: rows, usage,
+    more: '完整产出用 agent_result({runId' + (nodes.length > 1 ? ', nodeId' : '') + '}) 取',
+  };
+  if (run && run.background) env.background = true;
+  if (run && run.error) env.error = String(run.error).slice(0, AGENT_ENVELOPE_ERROR_MAX);
+  if (opts.note) env.note = String(opts.note);
+  return env;
+}
+// 读一个 run(优先进程内活对象,再磁盘),限定在本会话目录 —— 与 waitForAgentRunResults 同一条归属纪律。
+async function readAgentRunRecord(sessionId, runId) {
+  const rid = safeSessionId(String(runId || ''));
+  if (!rid) return null;
+  const live = activeAgentRuns.get(rid);
+  if (live && live.run) return live.run.sessionId === sessionId ? { run: live.run, live: true } : null;
+  try {
+    const run = safeJsonParse(await fsp.readFile(agentRunFile(sessionId, rid), 'utf8'), null);
+    return run && run.sessionId === sessionId ? { run, live: false } : null;
+  } catch { return null; }
+}
+// agent_result:有界切片。offset/maxChars 分页;单节点 run 可省 nodeId。
+async function agentRunResultSlice({ sessionId, runId, nodeId, maxChars, offset }) {
+  const rec = await readAgentRunRecord(sessionId, runId);
+  if (!rec) return { ok: false, error: 'agent run not found: ' + String(runId || '') };
+  const run = rec.run;
+  const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+  const wanted = String(nodeId || '').trim();
+  const node = wanted ? nodes.find(n => n && (n.id === wanted || n.agentKey === wanted)) : (nodes.length === 1 ? nodes[0] : null);
+  if (!node) return { ok: false, error: wanted ? ('node not found: ' + wanted) : ('run 有 ' + nodes.length + ' 个节点,请指定 nodeId'), runId: run.id, status: run.status, nodes: nodes.map(n => n && n.id).filter(Boolean) };
+  const full = String(node.result || node.error || '');
+  const cap = Math.max(500, Math.min(AGENT_RESULT_MAX_CHARS, Number(maxChars) || AGENT_RESULT_DEFAULT_CHARS));
+  const start = Math.max(0, Math.min(full.length, Math.round(Number(offset) || 0)));
+  const text = full.slice(start, start + cap);
+  const out = {
+    ok: true, runId: run.id, nodeId: node.id, runStatus: run.status, status: node.status, live: rec.live,
+    text, offset: start, returnedChars: text.length, totalChars: full.length, truncated: start + text.length < full.length,
+  };
+  if (out.truncated) out.nextOffset = start + text.length;
+  if (node.structuredResult && typeof node.structuredResult === 'object') out.structuredResult = node.structuredResult;
+  if (node.error) out.error = String(node.error).slice(0, 4000);
+  return out;
 }
 function recordAgentNodeProgress(run, node, evt) {
   if (!node || !evt || evt.type === 'raw_line') return;

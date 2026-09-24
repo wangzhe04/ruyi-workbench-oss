@@ -34,7 +34,7 @@ assert.strictEqual(server.shouldExtendToolIterationBudget({ currentLimit: 300, h
 
 const hint = server.buildAgentTeamHint();
 assert.match(hint, /MUST call orchestrate_agents at least once/);
-assert.match(hint, /Calling spawn_agent does not satisfy this requirement/);
+assert.match(hint, /not the single-agent shorthand/); // 代理模式 v2:spawn_agent 已并入 orchestrate_agents
 assert.match(hint, /matching preset workflowId/);
 assert.match(hint, /at least two execution nodes/);
 assert.match(hint, /never use that concern to skip the required orchestrate_agents call/);

@@ -101,9 +101,10 @@ async function up(port, p = '/health') { // 117q:预算 50×120ms=6s 小于本�
     const fake3 = cp.spawn(process.execPath, [path.join(__dirname, 'fake-openai.js')], { env: { ...process.env, FAKE_OPENAI_PORT: String(FP), FAKE_SUBAGENT_SCRIPT: JSON.stringify(ctxScript) }, windowsHide: true });
     ok(await up(FP, '/v1/models'), 'fake provider restarted for workflowId+context scenario');
     const ctxEvents = await stream(WP, { sessionId: sidD, message: 'run context workflow', cwd: HOME }, hdr);
-    const toolResult = ctxEvents.find(e => e.type === 'tool_result' && e.content && Array.isArray(e.content.results));
+    // 代理模式 v2:回合内 orchestrate 的 tool_result 是交付信封(nodes[].summary/structuredResult),不再是整份 results。
+    const toolResult = ctxEvents.find(e => e.type === 'tool_result' && e.content && e.content.kind === 'agent_envelope');
     ok(!!toolResult && toolResult.content.ok === true, 'orchestrate_agents({workflowId, context}) resolves and runs (was: "nodes 必须是非空数组")');
-    ok(!!toolResult && toolResult.content.results[0].status === 'succeeded' && JSON.parse(toolResult.content.results[0].result).summary === 'ok', 'the node only matched subTextByGood because CONTEXT_MARKER reached its prompt — context is actually injected');
+    ok(!!toolResult && toolResult.content.nodes[0].status === 'succeeded' && /"summary":\s*"ok"|summary.*ok/.test(JSON.stringify(toolResult.content.nodes[0].structuredResult || toolResult.content.nodes[0].summary)), 'the node only matched subTextByGood because CONTEXT_MARKER reached its prompt — context is actually injected (envelope carries the structured summary)');
     kill(fake3);
   } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
   console.log('\nAGENT WORKFLOW AUDIT FIXES E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
