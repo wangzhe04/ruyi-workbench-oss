@@ -30,6 +30,7 @@ namespace RuyiDesktop
     {
         public const int WM_GETMINMAXINFO = 0x0024;
         public const int WM_NCHITTEST = 0x0084;
+        public const int WM_NCACTIVATE = 0x0086;
         public const int WM_MOUSEWHEEL = 0x020A;
         public const int WM_MOUSEHWHEEL = 0x020E;
         public const int WM_DISPLAYCHANGE = 0x007E;
@@ -1303,6 +1304,15 @@ namespace RuyiDesktop
             if (m.Msg == 0x0083) // WM_NCCALCSIZE
             {
                 m.Result = IntPtr.Zero;
+                return;
+            }
+            if (m.Msg == Native.WM_NCACTIVATE)
+            {
+                // 无边框壳：非客户区已被 WM_NCCALCSIZE 清零，但激活状态切换（最大化时点开别的程序）时
+                // DefWindowProc 仍按旧式框架重画一圈非客户区——画在客户区边缘上，就是边缘的碎线/残影。
+                // lParam = -1：只更新激活状态、不重画非客户区（Chromium / Windows Terminal 同款做法）。
+                m.LParam = new IntPtr(-1);
+                base.WndProc(ref m);
                 return;
             }
             if (m.Msg == Native.WM_DPICHANGED)

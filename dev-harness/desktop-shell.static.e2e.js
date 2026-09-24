@@ -69,5 +69,13 @@ ok(/\/platform:x64/.test(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbe
     `114e Allow 只出现在「源判定通过」那一支（处理器里 put_State 恰好 ${allows} 处）`);
 }
 
+// 2026-09-24:最大化时点开别的程序,失焦重画旧式非客户区框架 → 客户区边缘碎线。lParam=-1 只改激活态不重画。
+{
+  const nc = (source.match(/if \(m\.Msg == Native\.WM_NCACTIVATE\)\s*\{[\s\S]*?\n\s*\}/) || [''])[0];
+  ok(/WM_NCACTIVATE\s*=\s*0x0086/.test(source), 'WM_NCACTIVATE 常量声明');
+  ok(/m\.LParam = new IntPtr\(-1\);\s*base\.WndProc\(ref m\);\s*return;/.test(nc),
+    'WM_NCACTIVATE 以 lParam=-1 交给 DefWindowProc(失焦不重画非客户区边框)');
+}
+
 console.log('\nDESKTOP SHELL STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);
