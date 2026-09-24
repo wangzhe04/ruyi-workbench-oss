@@ -231,8 +231,16 @@ async function runClaudeTurn({
   // 剩余段按 用户append>账本>语言政策 的顺序自然降级。
   let appendSys = '';
   const indexSecs = []; // P2: 稳定索引段收集器(stdin 注入,不进命令行)
+  // 145-W3:引擎运行环境说明(<ruyi-environment>,06 buildEngineEnvBrief 单一事实源)。排在用户 append 之后、
+  // 四层协议之前 —— 仍在无条件前缀里(降级一律从尾部切),用户 append 仍是最前段(cmdline-guard B4/C1)。
+  // 只随能力集合变(fingerprint 同则逐字节同),不打破 Claude 的系统提示前缀。rg 用进程级缓存的异步探测
+  // (启动时能力矩阵已预热;冷时是一发几十毫秒的异步 rg --version,不阻塞事件循环)。管家会话有自己的整套
+  // 身份,不给它这段。原来散在下面的 request_user_input 与「自适应工具加载」两句已并进这段,不再重复。
+  const envBrief = session.kind === 'steward' ? null
+    : await resolveEngineEnvBrief({ engine: agentCliType, config, session }).catch(() => null);
   {
     appendSys = String(config.appendSystemPrompt || '');
+    if (envBrief && envBrief.text) appendSys += `${appendSys ? '\n\n' : ''}${envBrief.text}`;
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.asyncWork}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
@@ -250,10 +258,13 @@ async function runClaudeTurn({
     // buildStableSystemPrompt;全仓 identityOnly=true 只有 06:997 与 10:1263 两个 provider 侧摘要调用,
     // capabilities.e2e 的身份泄漏守卫查的也是 provider 侧那条 system 首段,与本行无关。
     appendSys += `\n${getPromptPack(config && config.locale).answerShape}`;
-    if (interactive && config.includeWorkbenchMcp) {
+    // 145-W3:request_user_input(交互模式禁原生 AskUserQuestion)与「按需找工具 tool_search → tool_invoke_*」
+    // 两句已并进上面的 <ruyi-environment>(Kimi 版改用原生 AskUserQuestion,经 ACP 落到如意提问卡)。
+    // 管家会话不拿那段,两句照旧给它。
+    if (!envBrief && interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
-    if (config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
+    if (!envBrief && config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
       appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
     if (config.includeWorkbenchMcp) {
@@ -471,7 +482,7 @@ async function runClaudeTurn({
     if (args[i - 1] === '-p' || args[i - 1] === '--prompt') return `[prompt ${String(arg).length} chars]`;
     return redact(arg);
   });
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined, envBrief: envBrief ? envBrief.fingerprint : undefined });
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});

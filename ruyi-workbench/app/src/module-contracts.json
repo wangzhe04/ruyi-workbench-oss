@@ -17,6 +17,8 @@
         "OVERLAY_ID",
         "RUYI_EVENTS",
         "RUYI_EVENT_SUBSCRIBERS",
+        "RUYI_PATH_BEFORE_VENDOR",
+        "RUYI_VENDOR_BIN_ON_PATH",
         "SESSION_SCHEMA",
         "SKILL_ID_RE",
         "StringDecoder",
@@ -39,6 +41,7 @@
         "ensureDirs",
         "exePath",
         "exposeBundledPythonRuntime",
+        "exposeVendorBinOnPath",
         "externalRoot",
         "flushUsageLedgerSync",
         "fs",
@@ -58,7 +61,9 @@
         "paths",
         "readUsageRows",
         "readline",
+        "ruyiVendorBinDir",
         "safeJsonParse",
+        "samePathEntry",
         "text",
         "usageDayKey",
         "usageLedgerChain",
@@ -2722,6 +2727,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "resolveEngineEnvBrief",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "softwareEngineeringTaskProfile",
           "kinds": [
             "call"
@@ -3637,6 +3649,8 @@
         "CAP_PROBE_STALL_SLACK_MS",
         "CAP_PROBE_TIMEOUT_MS",
         "CAP_UNKNOWN_TTL_MS",
+        "ENGINE_BRIEF_CLOSE",
+        "ENGINE_BRIEF_OPEN",
         "ENGINE_TRANSCRIPT_ID_RE",
         "ERROR_CLASSES",
         "NETWORK_ANCHORS",
@@ -3647,6 +3661,7 @@
         "PROJECT_MEMORY_CAP",
         "REQ_METRICS",
         "REQ_METRICS_RECENT_MAX",
+        "RUYI_MCP_TOOL_PREFIX",
         "SERVICE_GUIDANCE_MAX",
         "SERVICE_INTENT_KEYWORDS",
         "STORAGE_ARCHIVE_TERMINAL",
@@ -3662,6 +3677,7 @@
         "TOOL_REQUIRES",
         "_capCache",
         "_capInflight",
+        "_engineBriefMemo",
         "appendMemorySection",
         "appendResponseLanguagePolicy",
         "appendTurnPolicies",
@@ -3669,6 +3685,7 @@
         "buildAgentTeamHint",
         "buildBrowserAutomationHint",
         "buildClaudeNativeAgentPolicy",
+        "buildEngineEnvBrief",
         "buildMetricsPayload",
         "buildOpsMetrics",
         "buildPlaybookIndexSection",
@@ -3693,6 +3710,7 @@
         "deleteUserPlaybook",
         "dirStat",
         "draftPlaybookFromSession",
+        "engineBriefFacts",
         "engineTranscriptCwd",
         "engineTranscriptKnown",
         "engineTranscriptLedgerChain",
@@ -3722,6 +3740,7 @@
         "probeAny",
         "probeDesktopMcp",
         "probeNetwork",
+        "providerEnvLines",
         "providerRawCompletion",
         "readDesktopAudit",
         "readPlaybooksFromDir",
@@ -3731,7 +3750,9 @@
         "reassertThreadBrief",
         "recordEngineTranscript",
         "recordRequestMetric",
+        "renderCliEnvBrief",
         "repairNodeJsonViaProvider",
+        "resolveEngineEnvBrief",
         "resolveToolIterationBudget",
         "sampleProcessRss",
         "saveUserPlaybook",
@@ -3918,6 +3939,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -4057,6 +4085,13 @@
           ]
         },
         {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "PROMPT_EN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06d-memory-domain.js",
           "symbol": "buildMemoryCheckPrompt",
           "kinds": [
@@ -4093,7 +4128,7 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "hasRg",
+          "symbol": "probeRgAsync",
           "kinds": [
             "call"
           ]
@@ -8548,6 +8583,7 @@
         "ZIP_MAX_SINGLE_FILE",
         "ZIP_MAX_TOTAL",
         "_rgProbe",
+        "_rgProbeInflight",
         "backgroundJobFile",
         "backgroundJobText",
         "backgroundShellCountsBySession",
@@ -8580,6 +8616,7 @@
         "gitStatus",
         "globToRegExp",
         "hasRg",
+        "hasRgAsync",
         "htmlFragmentToText",
         "httpGetGuarded",
         "httpRequest",
@@ -8594,11 +8631,17 @@
         "parseBaiduHtml",
         "parseBingHtml",
         "parseCsv",
+        "peekRgProbe",
         "probeRg",
+        "probeRgAsync",
+        "probeRgInfoSync",
         "readBackgroundJobs",
         "readIfExists",
         "readWebCache",
         "resolveGitCwd",
+        "rgExeName",
+        "rgProbeCandidates",
+        "rgProbeResolve",
         "runGit",
         "safeFromCodePoint",
         "searchFileContent",
@@ -8633,13 +8676,6 @@
         "zipCollectEntries"
       ],
       "requires": [
-        {
-          "provider": "00-boot.js",
-          "symbol": "appRoot",
-          "kinds": [
-            "call"
-          ]
-        },
         {
           "provider": "00-boot.js",
           "symbol": "cp",
@@ -8712,7 +8748,28 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "RUYI_PATH_BEFORE_VENDOR",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "ruyiVendorBinDir",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "samePathEntry",
           "kinds": [
             "call"
           ]
@@ -8776,6 +8833,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutable",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "existsExecutableAsync",
           "kinds": [
             "call"
           ]
@@ -9363,6 +9427,13 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "levenshtein",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "probeRgAsync",
           "kinds": [
             "call"
           ]
@@ -10948,14 +11019,14 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "hasRg",
+          "symbol": "killAllShellSessions",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "killAllShellSessions",
+          "symbol": "probeRgAsync",
           "kinds": [
             "call"
           ]
@@ -19485,6 +19556,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "buildEngineEnvBrief",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "buildMetricsPayload",
           "kinds": [
             "read"
@@ -19752,6 +19830,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "recordRequestMetric",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "resolveEngineEnvBrief",
           "kinds": [
             "read"
           ]
@@ -21663,6 +21748,20 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "parseBingHtml",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "peekRgProbe",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "probeRgAsync",
           "kinds": [
             "read"
           ]

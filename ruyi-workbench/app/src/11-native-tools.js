@@ -414,18 +414,76 @@ function isBinaryReadPath(p) {
 // normal system `rg` on PATH. Earlier builds only checked vendor-bin, so a perfectly usable ripgrep
 // installation was incorrectly shown as "missing". Cached for the process lifetime; absence still
 // falls back to the built-in JS scanner, so project search never becomes unavailable.
-let _rgProbe;
-function probeRg() {
+// 145-W3:探测结果带【来源】(env=RUYI_RG_PATH / bundled=随包 vendor-bin / system=系统 PATH),体检与
+// 引擎说明都读它。另记一个 shell 位:模型在终端里敲裸 rg 能不能找到 —— 00-boot 已把 vendor-bin 前置进
+// 进程 PATH,所以随包在就是 bundled,否则看前置之前的系统 PATH;RUYI_RG_PATH 只服务 file_search,不进 PATH。
+// 系统候选按【前置之前】的 PATH 逐目录找 rg 可执行文件(不用裸名 'rg':PATH 前置后裸名先解析到随包那份,
+// 分不出来源)。服务在跑时一律走异步探测(probeRgAsync),同步版只剩冷缓存兜底;/api/status 与能力矩阵
+// 修前每进程第一次都 spawnSync 一发 rg --version,把事件循环钉住。
+let _rgProbe;            // undefined = 没探过;否则 { path, source, shell } 或 null
+let _rgProbeInflight = null;
+function rgExeName() { return process.platform === 'win32' ? 'rg.exe' : 'rg'; }
+function rgProbeCandidates() {
+  const out = [];
+  const override = String(process.env.RUYI_RG_PATH || '').trim();
+  if (override) out.push({ command: override, source: 'env' });
+  const vendorDir = ruyiVendorBinDir();
+  if (vendorDir) out.push({ command: path.join(vendorDir, rgExeName()), source: 'bundled' });
+  for (const raw of RUYI_PATH_BEFORE_VENDOR.split(path.delimiter)) {
+    const dir = String(raw || '').trim().replace(/^"|"$/g, '');
+    if (!dir || !path.isAbsolute(dir) || (vendorDir && samePathEntry(dir, vendorDir))) continue;
+    out.push({ command: path.join(dir, rgExeName()), source: 'system' });
+  }
+  return out;
+}
+function rgProbeResolve(candidates, runs) {
+  const hit = source => candidates.find((c, i) => c.source === source && runs[i]);
+  const first = candidates.find((c, i) => runs[i]) || null;
+  const shellHit = hit('bundled') || hit('system');
+  return first ? { path: first.command, source: first.source, shell: shellHit ? shellHit.source : '' } : null;
+}
+async function probeRgAsync() {
   if (_rgProbe !== undefined) return _rgProbe;
-  const vendored = path.join(appRoot(), 'vendor-bin', process.platform === 'win32' ? 'rg.exe' : 'rg');
-  const candidates = [String(process.env.RUYI_RG_PATH || '').trim(), vendored, 'rg'].filter(Boolean);
-  _rgProbe = candidates.find(candidate => {
-    if (candidate !== 'rg' && !fs.existsSync(candidate)) return false;
-    try { return existsExecutable(candidate); } catch { return false; }
-  }) || null;
+  if (_rgProbeInflight) return _rgProbeInflight;
+  _rgProbeInflight = (async () => {
+    const candidates = rgProbeCandidates();
+    const runs = [];
+    let systemSeen = false;
+    for (const c of candidates) {
+      // 系统候选只认 PATH 上【第一个】存在的 rg(与 shell 的解析顺序一致),后面的不再探。
+      if (c.source === 'system' && systemSeen) { runs.push(false); continue; }
+      let exists = false;
+      try { exists = (await fsp.stat(c.command)).isFile(); } catch { exists = false; }
+      if (c.source === 'system' && exists) systemSeen = true;
+      runs.push(exists ? await existsExecutableAsync(c.command).catch(() => false) : false);
+    }
+    _rgProbe = rgProbeResolve(candidates, runs);
+    return _rgProbe;
+  })().finally(() => { _rgProbeInflight = null; });
+  return _rgProbeInflight;
+}
+// 冷缓存兜底(启动期/CLI 子命令)。服务在跑的请求路径请用 probeRgAsync / hasRgAsync。
+function probeRgInfoSync() {
+  if (_rgProbe !== undefined) return _rgProbe;
+  const candidates = rgProbeCandidates();
+  const runs = [];
+  let systemSeen = false;
+  for (const c of candidates) {
+    if (c.source === 'system' && systemSeen) { runs.push(false); continue; }
+    const exists = fs.existsSync(c.command);
+    if (c.source === 'system' && exists) systemSeen = true;
+    let ok = false;
+    if (exists) { try { ok = existsExecutable(c.command); } catch { ok = false; } }
+    runs.push(ok);
+  }
+  _rgProbe = rgProbeResolve(candidates, runs);
   return _rgProbe;
 }
+// 只读缓存,绝不触发探测:undefined = 还没探过(调用方按「未知」处理)。
+function peekRgProbe() { return _rgProbe; }
+function probeRg() { const info = probeRgInfoSync(); return info ? info.path : null; }
 function hasRg() { return !!probeRg(); }
+async function hasRgAsync() { return !!(await probeRgAsync()); }
 
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
@@ -504,7 +562,7 @@ async function searchFileContent(root, pattern, opts = {}) {
   const effOpts = norm.extraFlags ? { ...opts, extraFlags: norm.extraFlags } : opts;
   let results = null;
   // Fast path: ripgrep, if vendored. Failure/timeout → silent fallback to the JS scanner below.
-  if (hasRg()) {
+  if (await hasRgAsync()) {
     try {
       const viaRg = await searchFileContentRg(root, norm.pattern, effOpts);
       if (viaRg) results = viaRg;

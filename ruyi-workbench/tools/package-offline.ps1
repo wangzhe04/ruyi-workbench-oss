@@ -273,15 +273,17 @@ foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
 
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse
 
-# 可选 vendor 载荷(app/ 整树拷贝已带上,这里显式核对并出声):
-#   app/public/vendor/mermaid.min.js —— 聊天内 mermaid 图渲染(前端懒加载,缺失降级为代码块)
-#   app/vendor-bin/rg.exe            —— file_search 的 ripgrep 快路径(缺失回退 JS 扫描器)
-# 两者都是「缺失不阻塞、优雅降级」的设计,所以只告警不 fail。
+# Optional vendor payloads. The whole app/ tree copy above already carries them for EVERY variant
+# (slim and full alike); this block only checks and reports:
+#   app/public/vendor/mermaid.min.js -- mermaid diagrams in chat (lazy-loaded; absent = code block)
+#   app/vendor-bin/rg.exe            -- ripgrep: file_search fast path, and prepended to the server's
+#                                       PATH at boot so model shells can run rg (absent = JS scanner)
+# Both degrade gracefully when missing, so this warns instead of failing.
 foreach ($optionalVendor in @("app\public\vendor\mermaid.min.js", "app\vendor-bin\rg.exe")) {
   if (Test-Path -LiteralPath (Join-Path $stage $optionalVendor) -PathType Leaf) {
     Write-Host "Optional vendor payload included: $optionalVendor"
   } else {
-    Write-Warning "Optional vendor payload missing from Full package: $optionalVendor (feature degrades gracefully)"
+    Write-Warning "Optional vendor payload missing from package ${Variant}: $optionalVendor (feature degrades gracefully)"
   }
 }
 Copy-Item (Join-Path $root "resources") (Join-Path $stage "resources") -Recurse

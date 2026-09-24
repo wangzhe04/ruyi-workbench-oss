@@ -355,6 +355,7 @@ module.exports = {
   getPromptPack, // 116f: 提示词包选择器(locale 感知) — exposed for 静态锁直读 steward 段的分层预算
   buildStableSystemPrompt, // 51d C1a:稳定层(prefix-cache 友好)
   buildRuntimeIdentityFacts, // 108a:运行时身份事实(进程内恒定量,e2e 直测)
+  buildEngineEnvBrief, resolveEngineEnvBrief, probeRgAsync, peekRgProbe, // 145-W3:引擎运行环境说明 + rg 来源探测(静态件直测)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildPlaybookIndexSection, // 108b:Playbook 精简索引段(e2e 直测围栏/上限/尾行)
   buildResponseLanguagePolicy,

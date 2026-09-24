@@ -83,11 +83,18 @@ console.log('── D 段: 51d C1a 稳定/易变层拆分(prefix-cache 分层基
 const stable = srv.buildStableSystemPrompt(provider, model, cwd, tools, false);
 ok(/本地 AI 工作台/.test(stable) && /先读后改/.test(stable) && /工具批次/.test(stable), 'D1 stable 含身份+工具协议及合批规则(稳定层)');
 ok(!/当前能力/.test(stable) && !/桌面操控/.test(stable) && !/<skill-index>/.test(stable) && !/任务账本/.test(stable), 'D2 stable 不含 volatile 标记(能力/桌面/技能/账本)');
-ok(stable.length < 1800, 'D3 stable 长度 < 1800(稳定层轻量:身份+工具协议+provider;在 contextBudget 后新增授权边界并按 intentional snapshot 上调;108a 身份块新增运行时身份层后再次上调 1500->1800,got ' + stable.length + ')');
+ok(stable.length < 1800, 'D3 stable 长度 < 1800(稳定层轻量:身份+工具协议+provider;在 contextBudget 后新增授权边界并按 intentional snapshot 上调;108a 身份块新增运行时身份层后再次上调 1500->1800;145-W3 加 mermaid 成图一句后约 1640,闸不动,got ' + stable.length + ')');
+// 145-W3(引擎运行环境说明,intentional snapshot 更新):为什么改——用户要求各引擎的线程都知道自己在如意里、
+// 有什么能力;provider 这一路身份层/运行时身份层早已有,只缺「界面会把 mermaid 画成图」(版本级常量 -> 稳定层)
+// 与「当前权限档含义」(随配置变 -> 易变层),rg 那一格改为说清终端里能否直接敲 rg。三件都从 06 buildEngineEnvBrief
+// 同一张事实表出,Claude/Kimi 的 <ruyi-environment> 用的也是它(那两个变体由 engine-env-brief.static 钉)。
+ok(stable.includes('```mermaid') && /画成图/.test(stable), 'D3b 145-W3 stable 含 mermaid 成图一句(版本级常量,稳定层)');
+ok(!/<ruyi-environment>/.test(stable) && !/<ruyi-environment>/.test(full), 'D3c 145-W3 provider 不拿 CLI 的整段 <ruyi-environment>(身份不重复)');
 // buildVolatileParts 含 volatile 标记
 const volatile = srv.buildVolatileParts(provider, tools, caps, config, '', skillEntries, [], null);
 ok(/当前能力/.test(volatile) && /在线/.test(volatile), 'D4 volatile 含能力层');
 ok(/<skill-index>/.test(volatile), 'D5 volatile 含技能索引围栏');
+ok(/权限：当前是「每步都问」模式/.test(volatile) && !/权限：当前是/.test(stable), 'D5b 145-W3 当前权限档含义进易变层(夹具无 permissionMode -> 默认档),不进稳定层');
 ok(volatile.length > 100 && volatile.length < 5000, 'D6 volatile 长度合理(got ' + volatile.length + ')');
 // 向后兼容:buildProviderSystemPrompt(包装) = stable + volatile(文本不变)
 ok(full.length >= stable.length + volatile.length - 5, 'D7 包装=stable+volatile(向后兼容,full ' + full.length + ' >= stable ' + stable.length + ' + volatile ' + volatile.length + ')');

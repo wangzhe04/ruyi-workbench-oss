@@ -394,7 +394,8 @@ async function handleApi(req, res, pathname) {
       startNotice: START_NOTICE,
       // v0.8-S1: vendored-binary capability probe (additive). S6's capability matrix will formally own
       // this; the `rg` field is established here so file_search's fast-path status is observable now.
-      binaries: { rg: hasRg() },
+      // 145-W3:异步探测＋进程级缓存(修前 hasRg() 冷缓存在请求路径上 spawnSync rg --version);rgSource 加法字段。
+      binaries: await probeRgAsync().then(info => ({ rg: !!info, rgSource: info ? info.source : null })).catch(() => ({ rg: false, rgSource: null })),
       // v0.9-S1 (C6): expose the ERROR_CLASSES table top-level so the error-humanization UI renders zh/next
       // from the single server-side source of truth (result.errorClass keys into this) — no double-maintain.
       errorClasses: ERROR_CLASSES,
@@ -2492,6 +2493,9 @@ const DOCTOR_HEALTH_SEVERITY = Object.freeze({
     ready: 'ok', disabled: 'warn', 'not-installed': 'warn',
     'python-missing': 'warn', preparing: 'warn', unreachable: 'error',
   }),
+  // 145-W3:与前端 health-i18n.js 的同名两行逐字一致(search-ripgrep 的变体写在 detail 的来源前缀里)。
+  'search-ripgrep': Object.freeze({ bundled: 'ok', system: 'ok', env: 'ok', absent: 'warn' }),
+  'diagram-renderer': Object.freeze({ ok: 'ok', bad: 'warn' }),
 });
 // 文案目录。与 helpDocsDir()/staticBase() 同一口径:先看发布件外部目录,再回落打包内相对路径。
 function doctorLocaleCatalog(lang) {
@@ -2506,10 +2510,14 @@ function doctorLocaleCatalog(lang) {
   }
   return {};
 }
-// health 条目 -> 变体键。desktop-control 的变体写在 detail 的状态前缀里;其余项只有 ok/bad 两态。
+// health 条目 -> 变体键。desktop-control / search-ripgrep 的变体写在 detail 的状态前缀里;其余项只有 ok/bad 两态。
 function doctorHealthVariant(item) {
   if (!item) return 'bad';
   if (item.id === 'desktop-control') return String(item.detail || '').split(':')[0].trim() || 'not-installed';
+  if (item.id === 'search-ripgrep') {
+    const token = String(item.detail || '').split(':')[0].trim();
+    return Object.prototype.hasOwnProperty.call(DOCTOR_HEALTH_SEVERITY['search-ripgrep'], token) ? token : 'absent';
+  }
   return item.ok ? 'ok' : 'bad';
 }
 function doctorHealthSeverity(item) {

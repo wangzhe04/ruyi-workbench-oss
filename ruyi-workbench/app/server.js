@@ -92,6 +92,38 @@ function exposeBundledPythonRuntime() {
 
 const BUNDLED_PYTHON_RUNTIME = exposeBundledPythonRuntime();
 
+// 随包 ripgrep(app/vendor-bin/rg.exe)对模型开的每一个子进程都可见 —— 与上面随包 Python 同一个模具:
+// 进程级 PATH 前置一次,Claude/Kimi CLI、原生 shell_start/powershell_run/script_run、Kimi ACP 终端、
+// 子代理与 MCP stdio 子进程全部继承,不必在十几个 spawn 点各拼一遍 env。修前只有 file_search 快路径
+// 认得它,模型在终端里敲 rg 是 command not found。
+// 更糟的是修前 probeRg 找的是 appRoot()/vendor-bin —— appRoot() 是 server.js 的【上一级】(产品根),
+// 而 rg.exe 随仓/随包/随 overlay 都在 app/vendor-bin(与 staticBase() 的 app/public 同一个 app 目录),
+// 于是随包那份从来没被认出来过,体检上的「有 ripgrep」全靠用户自己 PATH 上碰巧有的 rg。
+// 只认这一个锚定目录 <外部根>/app/vendor-bin(源码运行时外部根就是 appRoot());它必须是真目录、
+// 不是符号链接/目录联接(同 05c 对 vendor-bin 的信任锚定口径)—— 工作区可控的路径绝不进 PATH。
+// 不碰 USE_BUILTIN_RIPGREP:Claude Code 默认用它自带的 rg,这里只是让 Bash 里的裸 rg 找得到。
+// RUYI_PATH_BEFORE_VENDOR 留住前置之前的 PATH,probeRg 靠它区分「系统装的 rg」与「随包的 rg」。
+function ruyiVendorBinDir() {
+  const dir = path.join(externalRoot(), 'app', 'vendor-bin');
+  try {
+    const st = fs.lstatSync(dir);
+    return st.isDirectory() && !st.isSymbolicLink() ? dir : '';
+  } catch { return ''; }
+}
+function samePathEntry(a, b) {
+  const norm = p => { const r = path.resolve(String(p || '').trim().replace(/^"|"$/g, '')); return process.platform === 'win32' ? r.toLowerCase() : r; };
+  try { return norm(a) === norm(b); } catch { return false; }
+}
+const RUYI_PATH_BEFORE_VENDOR = String(process.env.PATH || process.env.Path || '');
+function exposeVendorBinOnPath() {
+  const dir = ruyiVendorBinDir();
+  if (!dir) return '';
+  const rest = RUYI_PATH_BEFORE_VENDOR.split(path.delimiter).filter(entry => entry && !samePathEntry(entry, dir));
+  process.env.PATH = [dir, ...rest].join(path.delimiter);
+  return dir;
+}
+const RUYI_VENDOR_BIN_ON_PATH = exposeVendorBinOnPath();
+
 const paths = {
   data: dataRoot(),
   config: path.join(dataRoot(), 'config.json'),
@@ -13791,8 +13823,16 @@ async function runClaudeTurn({
   // 剩余段按 用户append>账本>语言政策 的顺序自然降级。
   let appendSys = '';
   const indexSecs = []; // P2: 稳定索引段收集器(stdin 注入,不进命令行)
+  // 145-W3:引擎运行环境说明(<ruyi-environment>,06 buildEngineEnvBrief 单一事实源)。排在用户 append 之后、
+  // 四层协议之前 —— 仍在无条件前缀里(降级一律从尾部切),用户 append 仍是最前段(cmdline-guard B4/C1)。
+  // 只随能力集合变(fingerprint 同则逐字节同),不打破 Claude 的系统提示前缀。rg 用进程级缓存的异步探测
+  // (启动时能力矩阵已预热;冷时是一发几十毫秒的异步 rg --version,不阻塞事件循环)。管家会话有自己的整套
+  // 身份,不给它这段。原来散在下面的 request_user_input 与「自适应工具加载」两句已并进这段,不再重复。
+  const envBrief = session.kind === 'steward' ? null
+    : await resolveEngineEnvBrief({ engine: agentCliType, config, session }).catch(() => null);
   {
     appendSys = String(config.appendSystemPrompt || '');
+    if (envBrief && envBrief.text) appendSys += `${appendSys ? '\n\n' : ''}${envBrief.text}`;
     appendSys += `${appendSys ? '\n\n' : ''}${getPromptPack(config && config.locale).toolProtocol.batching}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.asyncWork}`;
     appendSys += `\n${getPromptPack(config && config.locale).toolProtocol.questioning}`;
@@ -13810,10 +13850,13 @@ async function runClaudeTurn({
     // buildStableSystemPrompt;全仓 identityOnly=true 只有 06:997 与 10:1263 两个 provider 侧摘要调用,
     // capabilities.e2e 的身份泄漏守卫查的也是 provider 侧那条 system 首段,与本行无关。
     appendSys += `\n${getPromptPack(config && config.locale).answerShape}`;
-    if (interactive && config.includeWorkbenchMcp) {
+    // 145-W3:request_user_input(交互模式禁原生 AskUserQuestion)与「按需找工具 tool_search → tool_invoke_*」
+    // 两句已并进上面的 <ruyi-environment>(Kimi 版改用原生 AskUserQuestion,经 ACP 落到如意提问卡)。
+    // 管家会话不拿那段,两句照旧给它。
+    if (!envBrief && interactive && config.includeWorkbenchMcp) {
       appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
-    if (config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
+    if (!envBrief && config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
       appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
     if (config.includeWorkbenchMcp) {
@@ -14031,7 +14074,7 @@ async function runClaudeTurn({
     if (args[i - 1] === '-p' || args[i - 1] === '--prompt') return `[prompt ${String(arg).length} chars]`;
     return redact(arg);
   });
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined, envBrief: envBrief ? envBrief.fingerprint : undefined });
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -19498,7 +19541,7 @@ const ERROR_CLASSES = {
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
-// 3s timeout, cached 60s. binaries via existsExecutable / hasRg. desktopMcp present/toolCount from the
+// 3s timeout, cached 60s. binaries via existsExecutableAsync / probeRgAsync. desktopMcp present/toolCount from the
 // bridged-tool cache; optional{ocr,uia,cv2,playwright} via ONE bridged `diagnostics` call when an
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
@@ -19650,12 +19693,15 @@ async function getCapabilities(config, force) {
   const online = targets.length ? await probeAny(targets, CAP_PROBE_TIMEOUT_MS) : null;
 
   const desktop = await probeDesktopMcp(config);
+  // 145-W3:rg 与 git 同一条纪律 —— 异步探测(进程级缓存),修前 hasRg() 冷缓存时在回合入口 spawnSync。
+  const rgInfo = await probeRgAsync().catch(() => null);
 
   const value = {
     network: { online, checkedAt: nowIso() },
     provider: provider ? { id: provider.id, vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
     // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
-    binaries: { git: await existsExecutableAsync('git'), rg: hasRg() },
+    // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
+    binaries: { git: await existsExecutableAsync('git'), rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
     // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
     // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
     gitCli: await probeGitCliAsync(),
@@ -20805,12 +20851,16 @@ function parsePlaybookDraft(text) {
 }
 
 // ============================================================================
-// v0.8-S6 — Layered system prompt framework (§7.6). PROVIDER ENGINE ONLY.
-// The Claude CLI builds its own prompt and natively reads CLAUDE.md — the workbench cannot inject into it,
-// so the capability matrix is UI information for that engine, never a prompt. buildProviderSystemPrompt
-// assembles four layers: [identity] [capability] [project-memory] [provider]. The PRODUCT NAME NEVER enters
-// the prompt (the "running inside Win Claude Workbench" line was the real-world identity-bleed that made
-// deepseek-v4-pro claim to be Claude — see slice背景). Identity is pinned to the provider label + model.
+// v0.8-S6 — Layered system prompt framework (§7.6).
+// buildProviderSystemPrompt assembles the provider engine's layers: [identity] [runtime identity]
+// [tool protocol] [capability] [project-memory] [provider]. The Claude/Kimi CLIs build their own system
+// prompt and read CLAUDE.md natively; Ruyi reaches them through --append-system-prompt (Claude) or the
+// stdin instruction block (Kimi), and since 145-W3 both carry the per-engine environment brief built by
+// buildEngineEnvBrief below from the same capability facts. The product name DOES enter the prompt now
+// (108a runtime identity layer, 「如意 Ruyi」), but the identity is still pinned to the provider label +
+// model, and the provider-side text must never say "Claude" or the old product name "Workbench": the
+// historical "running inside Win Claude Workbench" line was the identity bleed that made deepseek-v4-pro
+// claim to be Claude (capabilities.e2e / prompt-snapshot D11b guard that).
 // ============================================================================
 const PROJECT_MEMORY_CAP = 16 * 1024; // 16KB cap on CLAUDE.md/AGENTS.md before truncation
 
@@ -21079,6 +21129,98 @@ function buildRuntimeIdentityFacts() {
     instanceId: OVERLAY_ID,
   };
 }
+
+// ── 145-W3 引擎运行环境说明(单一事实源)────────────────────────────────────────────────────────
+// 用户 2026-09-24:「根据不同引擎的线程设计不同的提示词,让 claude code 知道它是在如意工作台中、有什么能力」。
+// 修前只有 provider 引擎有完整的「你在如意里」说明;Claude/Kimi 只拿到零散的 MCP/工具加载/记忆提示。
+// 这里把事实收成一张表(facts),三个引擎各按自己的口径渲染,文字全在 06b 的 engineBrief:
+//   · facts 只取【能力集合】:引擎、语言包、版本与启动方式、MCP 是否接入、是否交互模式、编排是否开启、
+//     桌面控制(全局闸 + 会话级覆盖 + desktopMcp.enabled)、终端里的 rg 来源、权限档、是否管家代开。
+//     不含时间戳、端口、会话 id、联网状态这类每回合会变的东西 —— 同一能力集两次装配逐字节相同
+//     (fingerprint 同),Claude 的系统提示前缀与 Kimi 的 stdin 去重哈希都不会被它无端打破。
+//   · claude / kimi:整段 <ruyi-environment> 围栏,进 CLI 的附加指令。
+//   · provider:身份层与运行时身份层已经说过的不再重复 —— 稳定层只补 renderDiagram(常量),易变层补
+//     权限档、提问弹窗、管家代开三句(providerEnvLines),rg 并进既有能力行(见 buildVolatileParts)。
+const ENGINE_BRIEF_OPEN = '<ruyi-environment>';
+const ENGINE_BRIEF_CLOSE = '</ruyi-environment>';
+const RUYI_MCP_TOOL_PREFIX = 'mcp__win-claude-workbench__'; // 【存量兼容标识】MCP server id 仍是 win-claude-workbench
+const _engineBriefMemo = new Map();
+function engineBriefFacts({ engine, config, session, rg } = {}) {
+  const cfg = config || {};
+  const kind = engine === 'kimi' ? 'kimi' : ((engine === 'provider' || engine === 'openai') ? 'provider' : 'claude');
+  const runtime = buildRuntimeIdentityFacts();
+  const deskOverride = session && typeof session.desktopTools === 'boolean' ? session.desktopTools : null;
+  const allowDesk = deskOverride == null ? cfg.allowDesktopTools !== false : deskOverride;
+  const rgShell = rg && (rg.shell === 'bundled' || rg.shell === 'system') ? rg.shell : '';
+  return {
+    engine: kind,
+    locale: getPromptPack(cfg.locale) === PROMPT_EN ? 'en-US' : 'zh-CN',
+    version: runtime.version,
+    launchMode: runtime.launchMode,
+    mcp: kind !== 'provider' && cfg.includeWorkbenchMcp !== false,
+    interactive: kind === 'claude' && cfg.engineMode === 'interactive',
+    orchestrate: Number(cfg.subagentMaxPerTurn) > 0,
+    desktop: !!(cfg.desktopMcp && cfg.desktopMcp.enabled) && allowDesk,
+    rgShell,
+    permissionMode: PERMISSION_MODES.includes(cfg.permissionMode) ? cfg.permissionMode : 'default',
+    stewardOpened: !!(session && (session.createdBy === 'steward' || session.origin === 'steward')),
+  };
+}
+function renderCliEnvBrief(f) {
+  const pack = getPromptPack(f.locale);
+  const b = pack.engineBrief;
+  const lines = [ENGINE_BRIEF_OPEN];
+  lines.push(b.cliIdentity({ appName: APP_NAME, version: f.version, launchMode: f.launchMode, engineName: b.engineName[f.engine] }));
+  lines.push(b.nativeTools[f.engine]);
+  if (f.mcp) {
+    lines.push(b.mcpIntro({ prefix: RUYI_MCP_TOOL_PREFIX }));
+    lines.push(b.mcpMemory);
+    // Kimi 的原生提问经 ACP 落到如意的提问卡;Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools)。
+    lines.push(f.engine === 'kimi' ? b.askNative : b.mcpAsk + (f.interactive ? b.mcpAskNoNative : ''));
+    lines.push(b.mcpToolSearch);
+    if (f.orchestrate) lines.push(b.mcpOrchestrate);
+    lines.push(b.mcpSelfStatus);
+  } else if (f.engine === 'kimi') {
+    lines.push(b.askNative);
+  }
+  lines.push(f.desktop ? b.desktopOn : b.desktopOff);
+  lines.push(b.rgShell[f.rgShell || 'none']);
+  lines.push([b.renderMarkdown, b.renderDiagram].join(f.locale === 'en-US' ? ' ' : ''));
+  lines.push(b.workspace);
+  lines.push(b.permission(b.permissionModes[f.permissionMode] || b.permissionModes.default) + b.permissionRefusal);
+  lines.push(b.steward);
+  if (f.stewardOpened) lines.push(b.stewardOpened);
+  lines.push(ENGINE_BRIEF_CLOSE);
+  return lines.join('\n');
+}
+function providerEnvLines(f, offeredNames) {
+  const b = getPromptPack(f.locale).engineBrief;
+  const lines = [b.permission(b.permissionModes[f.permissionMode] || b.permissionModes.default)];
+  if (offeredNames && offeredNames.has('request_user_input')) lines.push(b.askProvider);
+  if (f.stewardOpened) lines.push(b.stewardOpened);
+  return lines;
+}
+// 返回 { text, lines, fingerprint, facts }。claude/kimi 用 text(整段围栏);provider 用 lines(易变层逐行)。
+function buildEngineEnvBrief(opts = {}) {
+  const facts = engineBriefFacts(opts);
+  const fingerprint = crypto.createHash('sha1').update(JSON.stringify(facts), 'utf8').digest('hex').slice(0, 12);
+  if (facts.engine === 'provider') {
+    return { text: '', lines: providerEnvLines(facts, opts.offeredNames), fingerprint, facts };
+  }
+  let text = _engineBriefMemo.get(fingerprint);
+  if (text === undefined) {
+    text = renderCliEnvBrief(facts);
+    if (_engineBriefMemo.size > 64) _engineBriefMemo.clear();
+    _engineBriefMemo.set(fingerprint, text);
+  }
+  return { text, lines: [], fingerprint, facts };
+}
+// CLI 装配入口:rg 走 11 的进程级缓存异步探测(05 不直接引用 11,免一条新的模块环边)。
+async function resolveEngineEnvBrief(opts = {}) {
+  const rg = opts.rg !== undefined ? opts.rg : await probeRgAsync().catch(() => null);
+  return buildEngineEnvBrief({ ...opts, rg });
+}
+
 function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config) {
   const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
   const modelName = String(model || '').trim() || '(未指定模型)';
@@ -21088,6 +21230,8 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
   lines.push(getPromptPack(config && config.locale).identity({ label, modelName, cwd }));
   // [运行时身份层] - 108a
   if (!identityOnly) lines.push(getPromptPack(config && config.locale).runtimeIdentity(buildRuntimeIdentityFacts()));
+  // [界面渲染] - 145-W3:mermaid 成图 / 本地图片(版本级常量,稳定层;Markdown 与代码块那半句身份层已说过)。
+  if (!identityOnly) lines.push(getPromptPack(config && config.locale).engineBrief.renderDiagram);
   if (hasTools) {
     // [工具协议层]
     lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
@@ -21119,7 +21263,9 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 // C1b 时移 user 侧;C1a 仍由 buildProviderSystemPrompt 包装进 system(行为零漂移)。
 // 108b: 末尾新增可选参数 playbookEntries(不动任何既有位置参数,旧调用点与快照夹具原样可用)。
 // 只有主回合调用方传它;子代理(08-agent-runs)不与用户对话,不传 -> 天然无 playbook 索引。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries) {
+// 145-W3: 末尾再加可选参数 envContext = { session }(不动任何既有位置参数)。传了会话头才认得出「管家代开」;
+// 不传时引擎说明的其余几句照常(权限档/提问弹窗)。
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -21127,7 +21273,9 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     : '联网状态未知';
   const deskN = (caps && caps.desktopMcp && Number(caps.desktopMcp.toolCount)) || 0;
   const gitStr = (caps && caps.binaries && caps.binaries.git) ? '有 git' : '无 git';
-  const rgStr = (caps && caps.binaries && caps.binaries.rg) ? '有 ripgrep 快搜' : '无 ripgrep（用内置搜索）';
+  // 145-W3:rg 那一格按能力矩阵的 rgShell 说清「终端里能不能直接敲 rg」(随包 vendor-bin 已前置进 PATH)。
+  const rgText = getPromptPack(config && config.locale).engineBrief.rgCapability;
+  const rgStr = (caps && caps.binaries && caps.binaries.rg) ? (caps.binaries.rgShell ? rgText.shell : rgText.fast) : rgText.none;
   lines.push(getPromptPack(config && config.locale).capability.line({ netStr, deskN, gitStr, rgStr }));
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
@@ -21186,6 +21334,12 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   if (config && config.outputStyle === 'concise') {
     lines.push(getPromptPack(config && config.locale).styleConcise);
   }
+  // [如意环境层] - 145-W3:与 Claude/Kimi 的 <ruyi-environment> 同一张事实表(buildEngineEnvBrief)。
+  // provider 这边只补身份层/工具协议层没说过的:当前权限档的含义、request_user_input 会弹提问卡、管家代开。
+  lines.push(...buildEngineEnvBrief({
+    engine: 'provider', config, session: envContext && envContext.session, offeredNames,
+    rg: { shell: caps && caps.binaries ? caps.binaries.rgShell : '' },
+  }).lines);
   // [项目层]
   if (projectMemory && projectMemory.text) {
     const note = projectMemory.truncated ? `（超过 16KB，已截断）` : '';
@@ -21233,10 +21387,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   return lines.join('\n');
 }
 // 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries) {
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext) {
   const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config);
   if (identityOnly) return stable;
-  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries);
+  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext);
   return volatile ? stable + '\n' + volatile : stable;
 }
 
@@ -21430,6 +21584,58 @@ const PROMPT_ZH = {
   // 不变);需要端口/路径/实例标识时引导模型调用自状态查询工具。
   runtimeIdentity: ({ appName, version, launchMode }) =>
     `运行环境：「${appName}」本地 AI 工作台 v${version}（${launchMode === 'exe' ? '打包 exe' : '源码 node'} 模式）。同一台机器可能装有多个版本，回答自身版本时以此为准，不要猜测；服务端口、安装位置、数据目录与实例标识不在此处，需要时用自状态查询工具获取。`,
+
+  // [引擎运行环境说明] - 145-W3(用户 2026-09-24「根据不同引擎的线程设计不同的提示词,让 claude code 知道它
+  // 是在如意工作台中、有什么能力」)。装配在 06 的 buildEngineEnvBrief(单一事实源:能力矩阵 + 会话元数据),
+  // 这里只放文字。三个变体:
+  //   · claude / kimi:整段进 CLI 的附加指令(Claude 走 --append-system-prompt,Kimi 走 stdin 的
+  //     ruyi-agent-cli-instructions 块),用 <ruyi-environment> 围栏;只随能力集合变(desktop / rg / 权限档 /
+  //     是否管家代开),同一能力集两次装配逐字节相同,不带时间戳、端口、会话 id。
+  //   · provider:不重复身份层与运行时身份层已有的话 —— 稳定层只补 renderDiagram 一句(版本级常量),
+  //     权限档 / 管家 / 提问弹窗这些进易变层,rg 并进既有的能力行。
+  // 文字纪律:不出现 % 与 !(Claude 经 claude.cmd 启动时整段过 cmd.exe);不写尖括号标签(fenceSafeSlice 会把它
+  // 当成悬空围栏切掉);只提 orchestrate_agents(spawn_agent 正在退役)。
+  engineBrief: {
+    cliIdentity: ({ appName, version, launchMode, engineName }) =>
+      `你是运行在「${appName}」本地 AI 工作台 v${version}（${launchMode === 'exe' ? '打包 exe' : '源码 node'} 模式）里、担任这条线程引擎的 ${engineName}。用户在如意的界面里和你对话：回复正文按 Markdown 渲染，工具调用显示成可折叠的卡片，权限确认与提问会弹窗；结论一定要写进回复正文，不要只留在工具输出里。`,
+    engineName: { claude: 'Claude Code', kimi: 'Kimi Code' },
+    nativeTools: {
+      claude: '工具分工：原生工具（Read、Edit、Write、Bash、Grep、Glob、Agent 等）是主力，读写文件、搜代码、跑命令都优先用它们；项目说明 CLAUDE.md 由你按原生方式读取，如意不重复注入。',
+      kimi: '工具分工：原生工具（Read、Write、Edit、Bash、Glob、Grep 等）是主力，读写文件、搜代码、跑命令都优先用它们；Bash 命令由如意代为执行，按当前权限弹窗或放行。',
+    },
+    mcpIntro: ({ prefix }) => `如意自己的能力以 MCP 工具提供（名字前缀 ${prefix}），原生工具做不到时再用：`,
+    mcpMemory: '· 工作台记忆：workbench_memory_list、workbench_memory_read、workbench_memory_propose（只提候选，用户确认后才写入）',
+    mcpAsk: '· 向用户提问：request_user_input（界面会弹出提问卡，用户点选的结果回到你这里）',
+    mcpAskNoNative: '；不要用原生 AskUserQuestion',
+    askNative: '· 向用户提问：用原生 AskUserQuestion，如意界面会弹出提问卡，用户点选的结果回到你这里',
+    mcpToolSearch: '· 按需找工具：先 tool_search，再按返回的档位用 tool_invoke_read、tool_invoke_edit 或 tool_invoke_exec 调用，不要用低档代理调高档工具（桌面、Office、浏览器与已接入的第三方 MCP 都从这里找）',
+    mcpOrchestrate: '· 多 Agent 编排：orchestrate_agents（一次提交整张依赖图，如意并行执行并持久化进度，也可以后台运行）',
+    mcpSelfStatus: '· 自查：workbench_self_status（端口、安装位置、当前模型与权限）',
+    desktopOn: '桌面控制：已开启，可以替用户操作屏幕、Office 与浏览器；每步操作后截图或读界面核对结果，再做下一步。',
+    desktopOff: '桌面控制：未开启。不要承诺替用户点屏幕或操作别的程序；确有需要就请用户到设置里打开。',
+    rgShell: {
+      bundled: '终端：ripgrep 可用（如意随包自带，已在 PATH 最前），命令行里可以直接用 rg 搜文件内容。',
+      system: '终端：ripgrep 可用（本机已安装），命令行里可以直接用 rg 搜文件内容。',
+      none: '终端：本机没有可用的 ripgrep，不要在命令行里调用 rg。',
+    },
+    renderMarkdown: '界面渲染：代码块按语言高亮（围栏上写明语言）。',
+    renderDiagram: '界面会把 ```mermaid 代码块直接画成图（流程图、时序图、甘特图、类图等）：要示意流程或结构时优先画 mermaid，不要用字符画；图片用 Markdown 图片语法引用本地文件即可显示。',
+    workspace: '工作区：当前工作目录就是这条线程的工作区，新文件默认放在这里；不要往工作区外写东西，除非用户明确要求。',
+    permission: ({ label, meaning }) => `权限：当前是「${label}」模式，${meaning}。`,
+    // provider 的工具协议层已有「权限拒绝代表当前决定」那一句,这半句只给 CLI 变体。
+    permissionRefusal: '用户拒绝某个操作就是他的决定，不要换工具或换写法绕过去。',
+    permissionModes: {
+      default: { label: '每步都问', meaning: '有副作用的操作都会先弹窗征得用户同意' },
+      acceptEdits: { label: '小改动自动做', meaning: '文件编辑自动放行，运行命令等敏感操作仍会弹窗询问' },
+      plan: { label: '先出计划', meaning: '先调查并给出完整计划，用户批准后才动手' },
+      auto: { label: '智能自动', meaning: '低风险操作自动执行，高风险操作仍会弹窗询问' },
+      bypass: { label: '全自动', meaning: '操作不再逐个询问；删除、对外发送、改系统设置这类后果大的事仍要先和用户确认' },
+    },
+    askProvider: '向用户提问用 request_user_input：如意界面会弹出提问卡，用户点选的结果回到你这里。',
+    steward: '管家：如意的管家会看着各条线程，常把你最终答复的开头转述给用户，所以第一段就写结论。',
+    stewardOpened: '这条线程是管家替用户开的：第一条消息开头是用户原话，后面附有管家补充的委托书。你的交付由管家转述给用户，结论、关键数字和产出文件名要写清楚；没做完就直说卡在哪一步。',
+    rgCapability: { shell: '有 ripgrep 快搜（终端里也可直接用 rg）', fast: '有 ripgrep 快搜', none: '无 ripgrep（用内置搜索）' },
+  },
 
   // [工具协议层] - hasTools 时注入
   toolProtocol: {
@@ -21731,6 +21937,49 @@ const PROMPT_EN = {
   // buildRuntimeIdentityFacts() for the 108c workbench_self_status tool.
   runtimeIdentity: ({ appName, version, launchMode }) =>
     `Runtime environment: "${appName}" local AI workbench v${version} (${launchMode === 'exe' ? 'packaged exe' : 'source (node)'} mode). Several versions may be installed on the same machine, so answer questions about your own version from these facts; do not guess. Service port, install location, data directory and instance id are not included here; use the self-status tool when you need them.`,
+
+  // 145-W3 engine environment brief - same keys/params as PROMPT_ZH.engineBrief (see the Chinese pack for
+  // the per-engine layout, the byte-stability contract and the no-percent/no-bang/no-angle-tag wording rules).
+  engineBrief: {
+    cliIdentity: ({ appName, version, launchMode, engineName }) =>
+      `You are ${engineName}, running as the engine of this thread inside "${appName}" local AI workbench v${version} (${launchMode === 'exe' ? 'packaged exe' : 'source (node)'} mode). The user talks to you through the Ruyi interface: reply text is rendered as Markdown, tool calls appear as collapsible cards, and permission checks and questions pop up as dialogs; always put conclusions in the reply text, never only in tool output.`,
+    engineName: { claude: 'Claude Code', kimi: 'Kimi Code' },
+    nativeTools: {
+      claude: 'Division of tools: your native tools (Read, Edit, Write, Bash, Grep, Glob, Agent, etc.) are the primary ones; prefer them for reading and writing files, searching code and running commands. Read the project CLAUDE.md natively; Ruyi does not inject it again.',
+      kimi: 'Division of tools: your native tools (Read, Write, Edit, Bash, Glob, Grep, etc.) are the primary ones; prefer them for reading and writing files, searching code and running commands. Ruyi executes your Bash commands on your behalf and applies the current permission mode.',
+    },
+    mcpIntro: ({ prefix }) => `Ruyi's own capabilities are MCP tools (name prefix ${prefix}); use them when native tools cannot do the job:`,
+    mcpMemory: '- Workbench memory: workbench_memory_list, workbench_memory_read, workbench_memory_propose (proposes a candidate only; it is saved after the user confirms)',
+    mcpAsk: '- Asking the user: request_user_input (the interface shows a question card and the user\'s choice comes back to you)',
+    mcpAskNoNative: '; do not use the native AskUserQuestion',
+    askNative: '- Asking the user: use the native AskUserQuestion; the Ruyi interface shows a question card and the user\'s choice comes back to you',
+    mcpToolSearch: '- Tools on demand: call tool_search first, then invoke the result with tool_invoke_read, tool_invoke_edit or tool_invoke_exec according to its returned tier; never use a lower-tier proxy for a higher-tier target (desktop, Office, browser and connected third-party MCP tools are all found this way)',
+    mcpOrchestrate: '- Multi-agent orchestration: orchestrate_agents (submit the whole dependency graph at once; Ruyi runs nodes in parallel, persists progress and can run it in the background)',
+    mcpSelfStatus: '- Self check: workbench_self_status (port, install location, current model and permission mode)',
+    desktopOn: 'Desktop control: enabled. You can operate the screen, Office and the browser for the user; after each step, take a screenshot or read the UI to verify before the next one.',
+    desktopOff: 'Desktop control: disabled. Do not promise to click the screen or drive other programs for the user; if it is really needed, ask the user to enable it in Settings.',
+    rgShell: {
+      bundled: 'Terminal: ripgrep is available (bundled with Ruyi, first on PATH), so you can run rg directly on the command line to search file contents.',
+      system: 'Terminal: ripgrep is available (installed on this machine), so you can run rg directly on the command line to search file contents.',
+      none: 'Terminal: no usable ripgrep on this machine; do not call rg on the command line.',
+    },
+    renderMarkdown: 'Interface rendering: code blocks are highlighted by language (tag the fence with it).',
+    renderDiagram: 'The interface draws ```mermaid code blocks as diagrams (flowcharts, sequence diagrams, Gantt charts, class diagrams, etc.): prefer a mermaid diagram over ASCII art when showing a flow or structure; images referenced with Markdown image syntax to local files are displayed.',
+    workspace: 'Workspace: the current working directory is this thread\'s workspace and new files go there by default; do not write outside it unless the user explicitly asks.',
+    permission: ({ label, meaning }) => `Permission: the current mode is "${label}": ${meaning}.`,
+    permissionRefusal: ' When the user rejects an action, that is their decision; do not route around it with another tool or another wording.',
+    permissionModes: {
+      default: { label: 'Ask every step', meaning: 'every action with side effects asks the user first' },
+      acceptEdits: { label: 'Accept edits', meaning: 'file edits are allowed automatically, while commands and other sensitive actions still ask' },
+      plan: { label: 'Plan first', meaning: 'investigate and present a complete plan; act only after the user approves it' },
+      auto: { label: 'Smart auto', meaning: 'low-risk actions run automatically, high-risk ones still ask' },
+      bypass: { label: 'Full auto', meaning: 'actions no longer ask one by one; still confirm with the user before consequential steps such as deleting data, sending anything outward or changing system settings' },
+    },
+    askProvider: 'To ask the user, use request_user_input: the Ruyi interface shows a question card and the user\'s choice comes back to you.',
+    steward: 'Steward: Ruyi\'s steward watches the threads and often relays the opening of your final reply to the user, so lead with the conclusion.',
+    stewardOpened: 'The steward opened this thread for the user: the first message starts with the user\'s own words, followed by the steward\'s brief. Your deliverable is relayed by the steward, so state the conclusion, key numbers and output file names clearly; if the work is unfinished, say which step it is stuck on.',
+    rgCapability: { shell: 'ripgrep fast search (rg also usable in the terminal)', fast: 'ripgrep fast search', none: 'no ripgrep (built-in search)' },
+  },
 
   toolProtocol: {
     intro: 'You have tools to read/list/search files, edit and write files, run PowerShell and scripts, inspect git, and more. Use them to actually check and modify the workspace; do not guess. Use absolute Windows paths (they default to the working directory).',
@@ -38280,18 +38529,76 @@ function isBinaryReadPath(p) {
 // normal system `rg` on PATH. Earlier builds only checked vendor-bin, so a perfectly usable ripgrep
 // installation was incorrectly shown as "missing". Cached for the process lifetime; absence still
 // falls back to the built-in JS scanner, so project search never becomes unavailable.
-let _rgProbe;
-function probeRg() {
+// 145-W3:探测结果带【来源】(env=RUYI_RG_PATH / bundled=随包 vendor-bin / system=系统 PATH),体检与
+// 引擎说明都读它。另记一个 shell 位:模型在终端里敲裸 rg 能不能找到 —— 00-boot 已把 vendor-bin 前置进
+// 进程 PATH,所以随包在就是 bundled,否则看前置之前的系统 PATH;RUYI_RG_PATH 只服务 file_search,不进 PATH。
+// 系统候选按【前置之前】的 PATH 逐目录找 rg 可执行文件(不用裸名 'rg':PATH 前置后裸名先解析到随包那份,
+// 分不出来源)。服务在跑时一律走异步探测(probeRgAsync),同步版只剩冷缓存兜底;/api/status 与能力矩阵
+// 修前每进程第一次都 spawnSync 一发 rg --version,把事件循环钉住。
+let _rgProbe;            // undefined = 没探过;否则 { path, source, shell } 或 null
+let _rgProbeInflight = null;
+function rgExeName() { return process.platform === 'win32' ? 'rg.exe' : 'rg'; }
+function rgProbeCandidates() {
+  const out = [];
+  const override = String(process.env.RUYI_RG_PATH || '').trim();
+  if (override) out.push({ command: override, source: 'env' });
+  const vendorDir = ruyiVendorBinDir();
+  if (vendorDir) out.push({ command: path.join(vendorDir, rgExeName()), source: 'bundled' });
+  for (const raw of RUYI_PATH_BEFORE_VENDOR.split(path.delimiter)) {
+    const dir = String(raw || '').trim().replace(/^"|"$/g, '');
+    if (!dir || !path.isAbsolute(dir) || (vendorDir && samePathEntry(dir, vendorDir))) continue;
+    out.push({ command: path.join(dir, rgExeName()), source: 'system' });
+  }
+  return out;
+}
+function rgProbeResolve(candidates, runs) {
+  const hit = source => candidates.find((c, i) => c.source === source && runs[i]);
+  const first = candidates.find((c, i) => runs[i]) || null;
+  const shellHit = hit('bundled') || hit('system');
+  return first ? { path: first.command, source: first.source, shell: shellHit ? shellHit.source : '' } : null;
+}
+async function probeRgAsync() {
   if (_rgProbe !== undefined) return _rgProbe;
-  const vendored = path.join(appRoot(), 'vendor-bin', process.platform === 'win32' ? 'rg.exe' : 'rg');
-  const candidates = [String(process.env.RUYI_RG_PATH || '').trim(), vendored, 'rg'].filter(Boolean);
-  _rgProbe = candidates.find(candidate => {
-    if (candidate !== 'rg' && !fs.existsSync(candidate)) return false;
-    try { return existsExecutable(candidate); } catch { return false; }
-  }) || null;
+  if (_rgProbeInflight) return _rgProbeInflight;
+  _rgProbeInflight = (async () => {
+    const candidates = rgProbeCandidates();
+    const runs = [];
+    let systemSeen = false;
+    for (const c of candidates) {
+      // 系统候选只认 PATH 上【第一个】存在的 rg(与 shell 的解析顺序一致),后面的不再探。
+      if (c.source === 'system' && systemSeen) { runs.push(false); continue; }
+      let exists = false;
+      try { exists = (await fsp.stat(c.command)).isFile(); } catch { exists = false; }
+      if (c.source === 'system' && exists) systemSeen = true;
+      runs.push(exists ? await existsExecutableAsync(c.command).catch(() => false) : false);
+    }
+    _rgProbe = rgProbeResolve(candidates, runs);
+    return _rgProbe;
+  })().finally(() => { _rgProbeInflight = null; });
+  return _rgProbeInflight;
+}
+// 冷缓存兜底(启动期/CLI 子命令)。服务在跑的请求路径请用 probeRgAsync / hasRgAsync。
+function probeRgInfoSync() {
+  if (_rgProbe !== undefined) return _rgProbe;
+  const candidates = rgProbeCandidates();
+  const runs = [];
+  let systemSeen = false;
+  for (const c of candidates) {
+    if (c.source === 'system' && systemSeen) { runs.push(false); continue; }
+    const exists = fs.existsSync(c.command);
+    if (c.source === 'system' && exists) systemSeen = true;
+    let ok = false;
+    if (exists) { try { ok = existsExecutable(c.command); } catch { ok = false; } }
+    runs.push(ok);
+  }
+  _rgProbe = rgProbeResolve(candidates, runs);
   return _rgProbe;
 }
+// 只读缓存,绝不触发探测:undefined = 还没探过(调用方按「未知」处理)。
+function peekRgProbe() { return _rgProbe; }
+function probeRg() { const info = probeRgInfoSync(); return info ? info.path : null; }
 function hasRg() { return !!probeRg(); }
+async function hasRgAsync() { return !!(await probeRgAsync()); }
 
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
@@ -38370,7 +38677,7 @@ async function searchFileContent(root, pattern, opts = {}) {
   const effOpts = norm.extraFlags ? { ...opts, extraFlags: norm.extraFlags } : opts;
   let results = null;
   // Fast path: ripgrep, if vendored. Failure/timeout → silent fallback to the JS scanner below.
-  if (hasRg()) {
+  if (await hasRgAsync()) {
     try {
       const viaRg = await searchFileContentRg(root, norm.pattern, effOpts);
       if (viaRg) results = viaRg;
@@ -41645,6 +41952,14 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const mermaidPresent = fs.existsSync(path.join(staticBase(), 'vendor', 'mermaid.min.js'));
   const vendorDetail = vendorOk ? 'marked + highlight.js present' : 'vendor/ missing (markdown will fall back to plain text)';
   push('vendor-libs', vendorOk, `${vendorDetail}; mermaid: ${mermaidPresent ? 'present' : 'absent (optional)'}`);
+  // 145-W3:随包的两件可选载荷各报一行人话。detail 以来源/状态词开头(与 desktop-control 同一个前缀约定,
+  // 前端 health-i18n.js 与 CLI doctor --human 靠它挑文案):ripgrep 是 env / bundled / system / absent;
+  // shell 段说模型在终端里敲裸 rg 能不能找到(RUYI_RG_PATH 只服务 file_search,不进 PATH)。
+  const rgInfo = await probeRgAsync().catch(() => null);
+  push('search-ripgrep', Boolean(rgInfo), rgInfo
+    ? `${rgInfo.source}: ${rgInfo.path}; shell: ${rgInfo.shell || 'none'}`
+    : 'absent: file_search falls back to the built-in scanner; no rg in shell');
+  push('diagram-renderer', mermaidPresent, mermaidPresent ? 'present: vendor/mermaid.min.js' : 'absent: mermaid blocks stay as code');
 
   // 118b: 桌面控制(ACC)可用性。沿用既有条目形状 {id, ok, detail};detail 以稳定状态标识开头,
   // 前端 health-i18n.js 与 CLI `doctor --human` 都靠它挑人话文案。
@@ -43520,7 +43835,8 @@ async function handleApi(req, res, pathname) {
       startNotice: START_NOTICE,
       // v0.8-S1: vendored-binary capability probe (additive). S6's capability matrix will formally own
       // this; the `rg` field is established here so file_search's fast-path status is observable now.
-      binaries: { rg: hasRg() },
+      // 145-W3:异步探测＋进程级缓存(修前 hasRg() 冷缓存在请求路径上 spawnSync rg --version);rgSource 加法字段。
+      binaries: await probeRgAsync().then(info => ({ rg: !!info, rgSource: info ? info.source : null })).catch(() => ({ rg: false, rgSource: null })),
       // v0.9-S1 (C6): expose the ERROR_CLASSES table top-level so the error-humanization UI renders zh/next
       // from the single server-side source of truth (result.errorClass keys into this) — no double-maintain.
       errorClasses: ERROR_CLASSES,
@@ -45618,6 +45934,9 @@ const DOCTOR_HEALTH_SEVERITY = Object.freeze({
     ready: 'ok', disabled: 'warn', 'not-installed': 'warn',
     'python-missing': 'warn', preparing: 'warn', unreachable: 'error',
   }),
+  // 145-W3:与前端 health-i18n.js 的同名两行逐字一致(search-ripgrep 的变体写在 detail 的来源前缀里)。
+  'search-ripgrep': Object.freeze({ bundled: 'ok', system: 'ok', env: 'ok', absent: 'warn' }),
+  'diagram-renderer': Object.freeze({ ok: 'ok', bad: 'warn' }),
 });
 // 文案目录。与 helpDocsDir()/staticBase() 同一口径:先看发布件外部目录,再回落打包内相对路径。
 function doctorLocaleCatalog(lang) {
@@ -45632,10 +45951,14 @@ function doctorLocaleCatalog(lang) {
   }
   return {};
 }
-// health 条目 -> 变体键。desktop-control 的变体写在 detail 的状态前缀里;其余项只有 ok/bad 两态。
+// health 条目 -> 变体键。desktop-control / search-ripgrep 的变体写在 detail 的状态前缀里;其余项只有 ok/bad 两态。
 function doctorHealthVariant(item) {
   if (!item) return 'bad';
   if (item.id === 'desktop-control') return String(item.detail || '').split(':')[0].trim() || 'not-installed';
+  if (item.id === 'search-ripgrep') {
+    const token = String(item.detail || '').split(':')[0].trim();
+    return Object.prototype.hasOwnProperty.call(DOCTOR_HEALTH_SEVERITY['search-ripgrep'], token) ? token : 'absent';
+  }
   return item.ok ? 'ok' : 'bad';
 }
 function doctorHealthSeverity(item) {
@@ -60017,6 +60340,7 @@ module.exports = {
   getPromptPack, // 116f: 提示词包选择器(locale 感知) — exposed for 静态锁直读 steward 段的分层预算
   buildStableSystemPrompt, // 51d C1a:稳定层(prefix-cache 友好)
   buildRuntimeIdentityFacts, // 108a:运行时身份事实(进程内恒定量,e2e 直测)
+  buildEngineEnvBrief, resolveEngineEnvBrief, probeRgAsync, peekRgProbe, // 145-W3:引擎运行环境说明 + rg 来源探测(静态件直测)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildPlaybookIndexSection, // 108b:Playbook 精简索引段(e2e 直测围栏/上限/尾行)
   buildResponseLanguagePolicy,

@@ -81,12 +81,19 @@ function healthIdsFromServer() {
     'health.summary.errors', 'health.summary.warnings', 'health.summary.open',
     'health.item.unknown.label', 'health.item.unknown.hint.ok', 'health.item.unknown.hint.bad',
   ]);
-  const variantsFor = id => (id === 'desktop-control' ? mod.DESKTOP_CONTROL_STATES.slice() : ['ok', 'bad']);
+  // 145-W3:变体写在 detail 前缀里的项不再只有 desktop-control(search-ripgrep 按来源分四态)——
+  // 从模块导出的 HEALTH_PREFIX_STATES 表枚举,与运行时 healthVariant 同一个事实源。
+  const prefixed = mod.HEALTH_PREFIX_STATES || { 'desktop-control': { states: mod.DESKTOP_CONTROL_STATES } };
+  const variantsFor = id => (prefixed[id] ? prefixed[id].states.slice() : ['ok', 'bad']);
+  // 前缀态里哪几个算「好」:严重度表判 ok 的那些(desktop-control 只有 ready;search-ripgrep 除 absent 外都是)。
+  const variantIsOk = (id, variant) => (prefixed[id]
+    ? mod.healthSeverity({ id, ok: true, detail: `${variant}: probe` }) === 'ok'
+    : variant === 'ok');
   for (const id of serverIds) {
     wanted.add(`health.item.${id}.label`);
     for (const variant of variantsFor(id)) {
       wanted.add(`health.item.${id}.hint.${variant}`);
-      const severity = mod.healthSeverity({ id, ok: variant === 'ok' || variant === 'ready', detail: `${variant}: probe` });
+      const severity = mod.healthSeverity({ id, ok: variantIsOk(id, variant), detail: `${variant}: probe` });
       if (severity !== 'ok' && Object.prototype.hasOwnProperty.call(mod.HEALTH_ACTIONS, id)) wanted.add(`health.item.${id}.next.${variant}`);
     }
   }
@@ -104,8 +111,9 @@ function healthIdsFromServer() {
   const nextTexts = [];
   for (const id of serverIds) {
     for (const variant of variantsFor(id)) {
-      const isOk = id === 'desktop-control' ? variant === 'ready' : variant === 'ok';
-      const detail = id === 'desktop-control' ? `${variant}: 42 desktop tools bridged` : `${id} probe detail`;
+      const isOk = variantIsOk(id, variant);
+      const detail = id === 'desktop-control' ? `${variant}: 42 desktop tools bridged`
+        : (prefixed[id] ? `${variant}: probe detail` : `${id} probe detail`);
       const info = mod.describeHealthItem({ id, ok: isOk, detail }, t);
       for (const [field, value] of Object.entries(info)) {
         if (field === 'severity') continue;
@@ -184,6 +192,19 @@ function healthIdsFromServer() {
   ok(serverTokens.length === mod.DESKTOP_CONTROL_STATES.length
     && serverTokens.every(token => mod.DESKTOP_CONTROL_STATES.includes(token)),
     `G1 desktop-control 状态词典前后端一致(${serverTokens.join(', ')})`);
+  // 145-W3:search-ripgrep 的来源词典三处一致 —— 前端状态表、CLI doctor 的严重度表、服务端 detail 前缀
+  // (来源词直接取自 probeRgAsync 的 source 字段 env/bundled/system,缺席写 absent:)。
+  const rgRow = routerSrc.match(/'search-ripgrep': Object\.freeze\(\{([^}]*)\}\)/);
+  const rgServerStates = rgRow ? [...rgRow[1].matchAll(/([a-z]+):\s*'/g)].map(m => m[1]) : [];
+  ok(Array.isArray(mod.SEARCH_RIPGREP_STATES) && rgServerStates.length === mod.SEARCH_RIPGREP_STATES.length
+    && rgServerStates.every(s => mod.SEARCH_RIPGREP_STATES.includes(s))
+    && /push\('search-ripgrep', Boolean\(rgInfo\), rgInfo\s*\?\s*`\$\{rgInfo\.source\}: /.test(dispatchSrc)
+    && dispatchSrc.includes("'absent: file_search falls back"),
+    `G1b search-ripgrep 来源词典前端/CLI doctor/服务端 detail 前缀一致(${rgServerStates.join(', ')})`);
+  ok(['bundled', 'system', 'env'].every(s => mod.healthSeverity({ id: 'search-ripgrep', ok: true, detail: s + ': x' }) === 'ok')
+    && mod.healthSeverity({ id: 'search-ripgrep', ok: false, detail: 'absent: x' }) === 'warn'
+    && mod.healthVariant({ id: 'search-ripgrep', ok: true, detail: 'weird: x' }) === 'absent',
+    'G1c search-ripgrep:有 rg(随包/系统/环境变量)=ok,缺席=warn(不挡主功能),认不出的前缀按缺席处理(不谎报就绪)');
   // 安装器日志只允许出现在注释里(说明「为什么不读它」);一旦落到代码行就是新造了跨组件路径耦合。
   const accLogInCode = dispatchSrc.split('\n').filter(line => line.includes('acc-install-latest') && !line.trim().startsWith('//'));
   ok(dispatchSrc.includes("push('desktop-control'") && dispatchSrc.includes('function desktopControlState(config')

@@ -92,6 +92,38 @@ function exposeBundledPythonRuntime() {
 
 const BUNDLED_PYTHON_RUNTIME = exposeBundledPythonRuntime();
 
+// 随包 ripgrep(app/vendor-bin/rg.exe)对模型开的每一个子进程都可见 —— 与上面随包 Python 同一个模具:
+// 进程级 PATH 前置一次,Claude/Kimi CLI、原生 shell_start/powershell_run/script_run、Kimi ACP 终端、
+// 子代理与 MCP stdio 子进程全部继承,不必在十几个 spawn 点各拼一遍 env。修前只有 file_search 快路径
+// 认得它,模型在终端里敲 rg 是 command not found。
+// 更糟的是修前 probeRg 找的是 appRoot()/vendor-bin —— appRoot() 是 server.js 的【上一级】(产品根),
+// 而 rg.exe 随仓/随包/随 overlay 都在 app/vendor-bin(与 staticBase() 的 app/public 同一个 app 目录),
+// 于是随包那份从来没被认出来过,体检上的「有 ripgrep」全靠用户自己 PATH 上碰巧有的 rg。
+// 只认这一个锚定目录 <外部根>/app/vendor-bin(源码运行时外部根就是 appRoot());它必须是真目录、
+// 不是符号链接/目录联接(同 05c 对 vendor-bin 的信任锚定口径)—— 工作区可控的路径绝不进 PATH。
+// 不碰 USE_BUILTIN_RIPGREP:Claude Code 默认用它自带的 rg,这里只是让 Bash 里的裸 rg 找得到。
+// RUYI_PATH_BEFORE_VENDOR 留住前置之前的 PATH,probeRg 靠它区分「系统装的 rg」与「随包的 rg」。
+function ruyiVendorBinDir() {
+  const dir = path.join(externalRoot(), 'app', 'vendor-bin');
+  try {
+    const st = fs.lstatSync(dir);
+    return st.isDirectory() && !st.isSymbolicLink() ? dir : '';
+  } catch { return ''; }
+}
+function samePathEntry(a, b) {
+  const norm = p => { const r = path.resolve(String(p || '').trim().replace(/^"|"$/g, '')); return process.platform === 'win32' ? r.toLowerCase() : r; };
+  try { return norm(a) === norm(b); } catch { return false; }
+}
+const RUYI_PATH_BEFORE_VENDOR = String(process.env.PATH || process.env.Path || '');
+function exposeVendorBinOnPath() {
+  const dir = ruyiVendorBinDir();
+  if (!dir) return '';
+  const rest = RUYI_PATH_BEFORE_VENDOR.split(path.delimiter).filter(entry => entry && !samePathEntry(entry, dir));
+  process.env.PATH = [dir, ...rest].join(path.delimiter);
+  return dir;
+}
+const RUYI_VENDOR_BIN_ON_PATH = exposeVendorBinOnPath();
+
 const paths = {
   data: dataRoot(),
   config: path.join(dataRoot(), 'config.json'),

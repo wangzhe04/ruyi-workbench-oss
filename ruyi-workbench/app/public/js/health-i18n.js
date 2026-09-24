@@ -26,6 +26,8 @@ export const HEALTH_ID_LABELS = Object.freeze({
   'vendor-libs': 'health.item.vendor-libs.label',
   'desktop-control': 'health.item.desktop-control.label',
   'overlay-integrity': 'health.item.overlay-integrity.label',
+  'search-ripgrep': 'health.item.search-ripgrep.label',
+  'diagram-renderer': 'health.item.diagram-renderer.label',
 });
 export const HEALTH_KNOWN_IDS = Object.freeze(Object.keys(HEALTH_ID_LABELS));
 
@@ -37,6 +39,13 @@ export const HEALTH_ALIAS_IDS = Object.freeze(['claude-cli']);
 export const DESKTOP_CONTROL_STATES = Object.freeze([
   'ready', 'disabled', 'not-installed', 'python-missing', 'preparing', 'unreachable',
 ]);
+// 145-W3:search-ripgrep 的来源同样写在 detail 前缀里(服务端 12-tool-dispatch.js computeHealth)。
+export const SEARCH_RIPGREP_STATES = Object.freeze(['bundled', 'system', 'env', 'absent']);
+// 变体写在 detail 前缀里的项 -> { 状态表, 认不出来时的保守回落 }。其余项只有 ok / bad 两态。
+export const HEALTH_PREFIX_STATES = Object.freeze({
+  'desktop-control': Object.freeze({ states: DESKTOP_CONTROL_STATES, fallback: 'not-installed' }),
+  'search-ripgrep': Object.freeze({ states: SEARCH_RIPGREP_STATES, fallback: 'absent' }),
+});
 
 // 严重度表。三档:ok=不用管;warn=可以更好,但主功能不受影响;error=会真的挡住用户,得处理。
 // 两个刻意的判断:
@@ -54,6 +63,9 @@ const HEALTH_SEVERITY = Object.freeze({
     ready: 'ok', disabled: 'warn', 'not-installed': 'warn',
     'python-missing': 'warn', preparing: 'warn', unreachable: 'error',
   }),
+  // 没有 ripgrep 不挡主功能(项目搜索退回内置扫描),但随包本该带着 -> warn;有就不管哪来的都是 ok。
+  'search-ripgrep': Object.freeze({ bundled: 'ok', system: 'ok', env: 'ok', absent: 'warn' }),
+  'diagram-renderer': Object.freeze({ ok: 'ok', bad: 'warn' }),
 });
 
 // 「怎么办」按下去到底发生什么。kind:'settings' 切设置页签(用户自己点那个页签时走的同一条 onclick);
@@ -64,6 +76,8 @@ export const HEALTH_ACTIONS = Object.freeze({
   'claude-cli': Object.freeze({ kind: 'settings', tab: 'providers' }),
   'data-writable': Object.freeze({ kind: 'manual', docId: 'user-guide', anchorKey: 'health.anchor.faq' }),
   'vendor-libs': Object.freeze({ kind: 'manual', docId: 'user-guide', anchorKey: 'health.anchor.faq' }),
+  'search-ripgrep': Object.freeze({ kind: 'manual', docId: 'user-guide', anchorKey: 'health.anchor.faq' }),
+  'diagram-renderer': Object.freeze({ kind: 'manual', docId: 'user-guide', anchorKey: 'health.anchor.faq' }),
   'overlay-integrity': Object.freeze({ kind: 'settings', tab: 'update' }),
   'desktop-control': Object.freeze({ kind: 'settings', tab: 'integrations' }),
 });
@@ -74,10 +88,15 @@ export function desktopControlStateOf(detail) {
   return DESKTOP_CONTROL_STATES.includes(token) ? token : 'not-installed';
 }
 
-// 条目 -> 文案变体。desktop-control 用状态标识,其余项只有 ok / bad 两态。
+// 条目 -> 文案变体。desktop-control / search-ripgrep 用 detail 前缀里的状态标识,其余项只有 ok / bad 两态。
 export function healthVariant(item) {
   if (!item) return 'bad';
   if (item.id === 'desktop-control') return desktopControlStateOf(item.detail);
+  const prefixed = HEALTH_PREFIX_STATES[item.id];
+  if (prefixed) {
+    const token = String(item.detail || '').split(':')[0].trim();
+    return prefixed.states.includes(token) ? token : prefixed.fallback;
+  }
   return item.ok ? 'ok' : 'bad';
 }
 

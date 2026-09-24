@@ -19,7 +19,8 @@ if (process.env.WCW_FAKE_ARGV_CAPTURE) { try { fs.writeFileSync(process.env.WCW_
 // buildClaudeCliEnv's config-driven overrides reached the spawned process instead of a stale OS value).
 if (process.env.WCW_FAKE_ENV_CAPTURE) {
   try {
-    const keys = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX'];
+    // 145-W3:PATH 也记下 —— 钉「随包 vendor-bin 前置进 CLI 子进程 PATH(Bash 里裸 rg 找得到)」。
+    const keys = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'PATH'];
     const snapshot = {}; for (const k of keys) snapshot[k] = process.env[k] ?? null;
     fs.writeFileSync(process.env.WCW_FAKE_ENV_CAPTURE, JSON.stringify(snapshot, null, 2));
   } catch { /* ignore */ }

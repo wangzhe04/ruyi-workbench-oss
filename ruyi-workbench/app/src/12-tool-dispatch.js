@@ -1555,6 +1555,14 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   const mermaidPresent = fs.existsSync(path.join(staticBase(), 'vendor', 'mermaid.min.js'));
   const vendorDetail = vendorOk ? 'marked + highlight.js present' : 'vendor/ missing (markdown will fall back to plain text)';
   push('vendor-libs', vendorOk, `${vendorDetail}; mermaid: ${mermaidPresent ? 'present' : 'absent (optional)'}`);
+  // 145-W3:随包的两件可选载荷各报一行人话。detail 以来源/状态词开头(与 desktop-control 同一个前缀约定,
+  // 前端 health-i18n.js 与 CLI doctor --human 靠它挑文案):ripgrep 是 env / bundled / system / absent;
+  // shell 段说模型在终端里敲裸 rg 能不能找到(RUYI_RG_PATH 只服务 file_search,不进 PATH)。
+  const rgInfo = await probeRgAsync().catch(() => null);
+  push('search-ripgrep', Boolean(rgInfo), rgInfo
+    ? `${rgInfo.source}: ${rgInfo.path}; shell: ${rgInfo.shell || 'none'}`
+    : 'absent: file_search falls back to the built-in scanner; no rg in shell');
+  push('diagram-renderer', mermaidPresent, mermaidPresent ? 'present: vendor/mermaid.min.js' : 'absent: mermaid blocks stay as code');
 
   // 118b: 桌面控制(ACC)可用性。沿用既有条目形状 {id, ok, detail};detail 以稳定状态标识开头,
   // 前端 health-i18n.js 与 CLI `doctor --human` 都靠它挑人话文案。

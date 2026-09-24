@@ -102,7 +102,7 @@ const ERROR_CLASSES = {
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
-// 3s timeout, cached 60s. binaries via existsExecutable / hasRg. desktopMcp present/toolCount from the
+// 3s timeout, cached 60s. binaries via existsExecutableAsync / probeRgAsync. desktopMcp present/toolCount from the
 // bridged-tool cache; optional{ocr,uia,cv2,playwright} via ONE bridged `diagnostics` call when an
 // ai-computer-control bridge exists (failure/absence → all false). Never throws. ──────────────────────────
 let _capCache = null; // { at, value }
@@ -254,12 +254,15 @@ async function getCapabilities(config, force) {
   const online = targets.length ? await probeAny(targets, CAP_PROBE_TIMEOUT_MS) : null;
 
   const desktop = await probeDesktopMcp(config);
+  // 145-W3:rg 与 git 同一条纪律 —— 异步探测(进程级缓存),修前 hasRg() 冷缓存时在回合入口 spawnSync。
+  const rgInfo = await probeRgAsync().catch(() => null);
 
   const value = {
     network: { online, checkedAt: nowIso() },
     provider: provider ? { id: provider.id, vision: provider.vision === true, reasoning: provider.reasoning === true } : null,
     // 128f-⑬:两发 git 探测改异步 —— 能力矩阵 60 s 一过期就在回合入口重算,同步那两发会钉住事件循环。
-    binaries: { git: await existsExecutableAsync('git'), rg: hasRg() },
+    // rgSource(加法字段):env / bundled / system;rgShell:模型在终端里敲裸 rg 找得到的那一份(bundled/system/'')。
+    binaries: { git: await existsExecutableAsync('git'), rg: !!rgInfo, rgSource: rgInfo ? rgInfo.source : null, rgShell: rgInfo ? rgInfo.shell : '' },
     // v1.0-S4: gitCli — a dedicated `git --version` probe (own 60s cache) that TOOL_REQUIRES reads to gate the
     // git tools. Kept separate from binaries.git (whose consumers/e2e shape must not change).
     gitCli: await probeGitCliAsync(),
@@ -1409,12 +1412,16 @@ function parsePlaybookDraft(text) {
 }
 
 // ============================================================================
-// v0.8-S6 — Layered system prompt framework (§7.6). PROVIDER ENGINE ONLY.
-// The Claude CLI builds its own prompt and natively reads CLAUDE.md — the workbench cannot inject into it,
-// so the capability matrix is UI information for that engine, never a prompt. buildProviderSystemPrompt
-// assembles four layers: [identity] [capability] [project-memory] [provider]. The PRODUCT NAME NEVER enters
-// the prompt (the "running inside Win Claude Workbench" line was the real-world identity-bleed that made
-// deepseek-v4-pro claim to be Claude — see slice背景). Identity is pinned to the provider label + model.
+// v0.8-S6 — Layered system prompt framework (§7.6).
+// buildProviderSystemPrompt assembles the provider engine's layers: [identity] [runtime identity]
+// [tool protocol] [capability] [project-memory] [provider]. The Claude/Kimi CLIs build their own system
+// prompt and read CLAUDE.md natively; Ruyi reaches them through --append-system-prompt (Claude) or the
+// stdin instruction block (Kimi), and since 145-W3 both carry the per-engine environment brief built by
+// buildEngineEnvBrief below from the same capability facts. The product name DOES enter the prompt now
+// (108a runtime identity layer, 「如意 Ruyi」), but the identity is still pinned to the provider label +
+// model, and the provider-side text must never say "Claude" or the old product name "Workbench": the
+// historical "running inside Win Claude Workbench" line was the identity bleed that made deepseek-v4-pro
+// claim to be Claude (capabilities.e2e / prompt-snapshot D11b guard that).
 // ============================================================================
 const PROJECT_MEMORY_CAP = 16 * 1024; // 16KB cap on CLAUDE.md/AGENTS.md before truncation
 
@@ -1683,6 +1690,98 @@ function buildRuntimeIdentityFacts() {
     instanceId: OVERLAY_ID,
   };
 }
+
+// ── 145-W3 引擎运行环境说明(单一事实源)────────────────────────────────────────────────────────
+// 用户 2026-09-24:「根据不同引擎的线程设计不同的提示词,让 claude code 知道它是在如意工作台中、有什么能力」。
+// 修前只有 provider 引擎有完整的「你在如意里」说明;Claude/Kimi 只拿到零散的 MCP/工具加载/记忆提示。
+// 这里把事实收成一张表(facts),三个引擎各按自己的口径渲染,文字全在 06b 的 engineBrief:
+//   · facts 只取【能力集合】:引擎、语言包、版本与启动方式、MCP 是否接入、是否交互模式、编排是否开启、
+//     桌面控制(全局闸 + 会话级覆盖 + desktopMcp.enabled)、终端里的 rg 来源、权限档、是否管家代开。
+//     不含时间戳、端口、会话 id、联网状态这类每回合会变的东西 —— 同一能力集两次装配逐字节相同
+//     (fingerprint 同),Claude 的系统提示前缀与 Kimi 的 stdin 去重哈希都不会被它无端打破。
+//   · claude / kimi:整段 <ruyi-environment> 围栏,进 CLI 的附加指令。
+//   · provider:身份层与运行时身份层已经说过的不再重复 —— 稳定层只补 renderDiagram(常量),易变层补
+//     权限档、提问弹窗、管家代开三句(providerEnvLines),rg 并进既有能力行(见 buildVolatileParts)。
+const ENGINE_BRIEF_OPEN = '<ruyi-environment>';
+const ENGINE_BRIEF_CLOSE = '</ruyi-environment>';
+const RUYI_MCP_TOOL_PREFIX = 'mcp__win-claude-workbench__'; // 【存量兼容标识】MCP server id 仍是 win-claude-workbench
+const _engineBriefMemo = new Map();
+function engineBriefFacts({ engine, config, session, rg } = {}) {
+  const cfg = config || {};
+  const kind = engine === 'kimi' ? 'kimi' : ((engine === 'provider' || engine === 'openai') ? 'provider' : 'claude');
+  const runtime = buildRuntimeIdentityFacts();
+  const deskOverride = session && typeof session.desktopTools === 'boolean' ? session.desktopTools : null;
+  const allowDesk = deskOverride == null ? cfg.allowDesktopTools !== false : deskOverride;
+  const rgShell = rg && (rg.shell === 'bundled' || rg.shell === 'system') ? rg.shell : '';
+  return {
+    engine: kind,
+    locale: getPromptPack(cfg.locale) === PROMPT_EN ? 'en-US' : 'zh-CN',
+    version: runtime.version,
+    launchMode: runtime.launchMode,
+    mcp: kind !== 'provider' && cfg.includeWorkbenchMcp !== false,
+    interactive: kind === 'claude' && cfg.engineMode === 'interactive',
+    orchestrate: Number(cfg.subagentMaxPerTurn) > 0,
+    desktop: !!(cfg.desktopMcp && cfg.desktopMcp.enabled) && allowDesk,
+    rgShell,
+    permissionMode: PERMISSION_MODES.includes(cfg.permissionMode) ? cfg.permissionMode : 'default',
+    stewardOpened: !!(session && (session.createdBy === 'steward' || session.origin === 'steward')),
+  };
+}
+function renderCliEnvBrief(f) {
+  const pack = getPromptPack(f.locale);
+  const b = pack.engineBrief;
+  const lines = [ENGINE_BRIEF_OPEN];
+  lines.push(b.cliIdentity({ appName: APP_NAME, version: f.version, launchMode: f.launchMode, engineName: b.engineName[f.engine] }));
+  lines.push(b.nativeTools[f.engine]);
+  if (f.mcp) {
+    lines.push(b.mcpIntro({ prefix: RUYI_MCP_TOOL_PREFIX }));
+    lines.push(b.mcpMemory);
+    // Kimi 的原生提问经 ACP 落到如意的提问卡;Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools)。
+    lines.push(f.engine === 'kimi' ? b.askNative : b.mcpAsk + (f.interactive ? b.mcpAskNoNative : ''));
+    lines.push(b.mcpToolSearch);
+    if (f.orchestrate) lines.push(b.mcpOrchestrate);
+    lines.push(b.mcpSelfStatus);
+  } else if (f.engine === 'kimi') {
+    lines.push(b.askNative);
+  }
+  lines.push(f.desktop ? b.desktopOn : b.desktopOff);
+  lines.push(b.rgShell[f.rgShell || 'none']);
+  lines.push([b.renderMarkdown, b.renderDiagram].join(f.locale === 'en-US' ? ' ' : ''));
+  lines.push(b.workspace);
+  lines.push(b.permission(b.permissionModes[f.permissionMode] || b.permissionModes.default) + b.permissionRefusal);
+  lines.push(b.steward);
+  if (f.stewardOpened) lines.push(b.stewardOpened);
+  lines.push(ENGINE_BRIEF_CLOSE);
+  return lines.join('\n');
+}
+function providerEnvLines(f, offeredNames) {
+  const b = getPromptPack(f.locale).engineBrief;
+  const lines = [b.permission(b.permissionModes[f.permissionMode] || b.permissionModes.default)];
+  if (offeredNames && offeredNames.has('request_user_input')) lines.push(b.askProvider);
+  if (f.stewardOpened) lines.push(b.stewardOpened);
+  return lines;
+}
+// 返回 { text, lines, fingerprint, facts }。claude/kimi 用 text(整段围栏);provider 用 lines(易变层逐行)。
+function buildEngineEnvBrief(opts = {}) {
+  const facts = engineBriefFacts(opts);
+  const fingerprint = crypto.createHash('sha1').update(JSON.stringify(facts), 'utf8').digest('hex').slice(0, 12);
+  if (facts.engine === 'provider') {
+    return { text: '', lines: providerEnvLines(facts, opts.offeredNames), fingerprint, facts };
+  }
+  let text = _engineBriefMemo.get(fingerprint);
+  if (text === undefined) {
+    text = renderCliEnvBrief(facts);
+    if (_engineBriefMemo.size > 64) _engineBriefMemo.clear();
+    _engineBriefMemo.set(fingerprint, text);
+  }
+  return { text, lines: [], fingerprint, facts };
+}
+// CLI 装配入口:rg 走 11 的进程级缓存异步探测(05 不直接引用 11,免一条新的模块环边)。
+async function resolveEngineEnvBrief(opts = {}) {
+  const rg = opts.rg !== undefined ? opts.rg : await probeRgAsync().catch(() => null);
+  return buildEngineEnvBrief({ ...opts, rg });
+}
+
 function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config) {
   const label = String((provider && provider.label) || (provider && provider.id) || '模型端点').trim();
   const modelName = String(model || '').trim() || '(未指定模型)';
@@ -1692,6 +1791,8 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
   lines.push(getPromptPack(config && config.locale).identity({ label, modelName, cwd }));
   // [运行时身份层] - 108a
   if (!identityOnly) lines.push(getPromptPack(config && config.locale).runtimeIdentity(buildRuntimeIdentityFacts()));
+  // [界面渲染] - 145-W3:mermaid 成图 / 本地图片(版本级常量,稳定层;Markdown 与代码块那半句身份层已说过)。
+  if (!identityOnly) lines.push(getPromptPack(config && config.locale).engineBrief.renderDiagram);
   if (hasTools) {
     // [工具协议层]
     lines.push(getPromptPack(config && config.locale).toolProtocol.intro);
@@ -1723,7 +1824,9 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
 // C1b 时移 user 侧;C1a 仍由 buildProviderSystemPrompt 包装进 system(行为零漂移)。
 // 108b: 末尾新增可选参数 playbookEntries(不动任何既有位置参数,旧调用点与快照夹具原样可用)。
 // 只有主回合调用方传它;子代理(08-agent-runs)不与用户对话,不传 -> 天然无 playbook 索引。
-function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries) {
+// 145-W3: 末尾再加可选参数 envContext = { session }(不动任何既有位置参数)。传了会话头才认得出「管家代开」;
+// 不传时引擎说明的其余几句照常(权限档/提问弹窗)。
+function buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext) {
   const lines = [];
   // [能力层]
   const netStr = caps && caps.network
@@ -1731,7 +1834,9 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     : '联网状态未知';
   const deskN = (caps && caps.desktopMcp && Number(caps.desktopMcp.toolCount)) || 0;
   const gitStr = (caps && caps.binaries && caps.binaries.git) ? '有 git' : '无 git';
-  const rgStr = (caps && caps.binaries && caps.binaries.rg) ? '有 ripgrep 快搜' : '无 ripgrep（用内置搜索）';
+  // 145-W3:rg 那一格按能力矩阵的 rgShell 说清「终端里能不能直接敲 rg」(随包 vendor-bin 已前置进 PATH)。
+  const rgText = getPromptPack(config && config.locale).engineBrief.rgCapability;
+  const rgStr = (caps && caps.binaries && caps.binaries.rg) ? (caps.binaries.rgShell ? rgText.shell : rgText.fast) : rgText.none;
   lines.push(getPromptPack(config && config.locale).capability.line({ netStr, deskN, gitStr, rgStr }));
   const toolRequiresEnabled = !!(config && config.enableToolRequiresProbe);
   const offeredNames = new Set((tools || []).map(t => t && t.function && t.function.name).filter(Boolean));
@@ -1790,6 +1895,12 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   if (config && config.outputStyle === 'concise') {
     lines.push(getPromptPack(config && config.locale).styleConcise);
   }
+  // [如意环境层] - 145-W3:与 Claude/Kimi 的 <ruyi-environment> 同一张事实表(buildEngineEnvBrief)。
+  // provider 这边只补身份层/工具协议层没说过的:当前权限档的含义、request_user_input 会弹提问卡、管家代开。
+  lines.push(...buildEngineEnvBrief({
+    engine: 'provider', config, session: envContext && envContext.session, offeredNames,
+    rg: { shell: caps && caps.binaries ? caps.binaries.rgShell : '' },
+  }).lines);
   // [项目层]
   if (projectMemory && projectMemory.text) {
     const note = projectMemory.truncated ? `（超过 16KB，已截断）` : '';
@@ -1837,10 +1948,10 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
   return lines.join('\n');
 }
 // 向后兼容包装(行为零漂移):identityOnly 时只 stable,否则 stable+volatile。
-function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries) {
+function buildProviderSystemPrompt(provider, model, cwd, tools, caps, config, projectMemory, identityOnly, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext) {
   const stable = buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, config);
   if (identityOnly) return stable;
-  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries);
+  const volatile = buildVolatileParts(provider, tools, caps, config, projectMemory, skillEntries, memoryEntries, mission, memoryConflicts, memoryCheck, playbookEntries, envContext);
   return volatile ? stable + '\n' + volatile : stable;
 }
 
