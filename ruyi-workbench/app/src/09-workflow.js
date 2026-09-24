@@ -1512,7 +1512,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (stewardPrompt && typeof stewardPrompt.stable === 'string' && stewardPrompt.stable) sys = stewardPrompt.stable;
   const turnVolatile = (stewardPrompt && typeof stewardPrompt.volatile === 'string')
     ? stewardPrompt.volatile
-    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries) + (volatileExtras ? '\n\n' + volatileExtras : '');
+    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.

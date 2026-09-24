@@ -1187,7 +1187,7 @@
                 <div class="field-block">
                   <label for="cfgSubagentMaxPerTurn" data-i18n="settings.advanced.subagentPerTurn">子代理每回合总数</label>
                   <input id="cfgSubagentMaxPerTurn" type="number" min="0" max="32" step="1" placeholder="32" />
-                  <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内 spawn_agent/orchestrate_agents 累计上限；设为 0 可关闭子代理。</p>
+                  <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内经 orchestrate_agents 累计启动的代理节点数上限；设为 0 可关闭代理。</p>
                 </div>
               </div>
             </section>
@@ -1559,7 +1559,7 @@
                 <div class="model-assign-row settings-expert-only" data-assign="subagent">
                   <div class="model-assign-label">
                     <label for="cfgSubagentPreferredProvider" data-i18n="settings.models.row.subagent">子代理</label>
-                    <p class="field-help muted" data-i18n="settings.models.row.subagentHint">拆出去的子任务（spawn_agent ／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。</p>
+                    <p class="field-help muted" data-i18n="settings.models.row.subagentHint">拆出去的子任务（orchestrate_agents 派出的代理／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。</p>
                   </div>
                   <div class="model-assign-pick">
                     <select id="cfgSubagentPreferredProvider" aria-label="子代理优先端点" data-i18n-attr="aria-label:settings.advanced.subagentPreferredProvider"></select>

@@ -1129,7 +1129,7 @@
   "settings.models.row.main": "Main model",
   "settings.models.row.stewardHint": "What the steward thinks and replies with. A cheaper model is fine.",
   "settings.models.row.subagent": "Sub-agents",
-  "settings.models.row.subagentHint": "Default for delegated sub-tasks (spawn_agent / workflow nodes). Leave the model empty to fall back to the role, the tier, then the main model.",
+  "settings.models.row.subagentHint": "Default for delegated sub-tasks (agents started by orchestrate_agents / workflow nodes). Leave the model empty to fall back to the role, the tier, then the main model.",
   "settings.models.row.compact": "Context compaction",
   "settings.models.row.compactHint": "Summarizes earlier turns when a conversation gets long. Follow = use the conversation's own engine (command-line engines use their native compaction). Also adjustable from the context meter popover.",
   "settings.models.row.compactProvider": "Compaction provider",

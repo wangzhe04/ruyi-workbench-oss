@@ -385,7 +385,9 @@ const srv = require(path.join(APP, 'server.js'));
 
 /* ═════════════ ④ 普通会话包零变化 ═════════════ */
 {
-  ok(srv.PROMPT_PACK_VERSION === '2026-w108-1', `④ PROMPT_PACK_VERSION 未 bump(新增 steward 段不改普通包;got ${srv.PROMPT_PACK_VERSION})`);
+  // 137 重钉:普通包文字在 137 波有意改动(引擎运行环境说明/代理模式 v2/管家工作区规则)并已 bump;
+  // 本条仍钉「管家段不单独 bump 普通包」—— 版本号只随普通包文字变。
+  ok(srv.PROMPT_PACK_VERSION === '2026-w137-1', `④ PROMPT_PACK_VERSION 为 137 波值(管家段不单独 bump 普通包;got ${srv.PROMPT_PACK_VERSION})`);
   const provider = { id: 'fake', label: 'Fake端点', model: 'fake-model' };
   const tools = [{ function: { name: 'file_read' } }, { function: { name: 'tool_search' } }];
   const stable = srv.buildStableSystemPrompt(provider, 'fake-model', 'C:\\proj', tools, false, {});

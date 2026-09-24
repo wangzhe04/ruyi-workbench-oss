@@ -21873,7 +21873,8 @@ function appendMemorySection(base, memSec, limit) {
 // 设计:文本逐字搬(与原内联一致,prompt-snapshot 断言中文标记不变->护栏绿)。带参数的层用模板函数
 // (params 白名单),无参数的用纯字符串。条件分支(hasTools/identityOnly/deskPresent/visionCap 等)留 JS 层。
 
-const PROMPT_PACK_VERSION = '2026-w108-1';
+// 137:按引擎的如意运行环境说明(W3)＋代理模式 v2 的子代理文字(W1)＋管家工作区规则(W7)改了普通包的文字 → bump。
+const PROMPT_PACK_VERSION = '2026-w137-1';
 
 // ── 128h-J13(41 号文 J13「各自按项目规则;本次显式要求优先」;47 号文 §4.2 B 第 3 条)──────────
 // 缺的是后半句:「本次显式要求优先于存下来的偏好」**在提示词里一个字都没有**。46 号文 D2 取证时
@@ -34399,7 +34400,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (stewardPrompt && typeof stewardPrompt.stable === 'string' && stewardPrompt.stable) sys = stewardPrompt.stable;
   const turnVolatile = (stewardPrompt && typeof stewardPrompt.volatile === 'string')
     ? stewardPrompt.volatile
-    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries) + (volatileExtras ? '\n\n' + volatileExtras : '');
+    : buildVolatileParts(provider, initialTools, caps, config, projectMemory, enabledSkillEntries, enabledMemoryEntries, session.mission, enabledMemoryConflicts, memoryPreflight.status, playbookEntries, { session }) + (volatileExtras ? '\n\n' + volatileExtras : '');
   // The request sends the volatile layer as the first user-message prefix for provider prefix-cache stability,
   // but context governance must still budget it. This layer can contain a 16KB project memory plus skill/memory
   // indexes, so omitting it here can delay compaction until the provider rejects the request.

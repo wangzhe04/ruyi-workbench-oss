@@ -1129,7 +1129,7 @@
   "settings.models.row.main": "对话主模型",
   "settings.models.row.stewardHint": "管家自己想事情、回你话用它；给它换个便宜点的也行。",
   "settings.models.row.subagent": "子代理",
-  "settings.models.row.subagentHint": "拆出去的子任务（spawn_agent ／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。",
+  "settings.models.row.subagentHint": "拆出去的子任务（orchestrate_agents 派出的代理／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。",
   "settings.models.row.compact": "上下文压缩",
   "settings.models.row.compactHint": "对话太长时用它把前文压成摘要。跟随 = 用当前对话自己的引擎（命令行引擎走原生压缩）。电量表弹层里也能改。",
   "settings.models.row.compactProvider": "压缩用的服务商",
