@@ -6,8 +6,10 @@
    button.settings-nav-label ＋ chevron 旋转与子钮淡入，reduced-motion 在末尾媒体查询关），
    长面板顶部新增段内锚点 chip 条（.settings-jumplist，JS 现建现换），stab-basic 十个
    field-block 归成四个 details.settings-fold 折叠分组（默认全开）。
-   契约（静态锁钉着）：#settingsTabs 里页签仍是 button[data-stab]、11 个面板仍是
-   .settings-tab#stab-* 且住在 #settingsBody 里；简易模式的隐藏规则在 ui-modes.css 原处。 */
+   契约（静态锁钉着）：#settingsTabs 里页签仍是 button[data-stab]、面板仍是
+   .settings-tab#stab-* 且住在 #settingsBody 里；简易模式的隐藏规则在 ui-modes.css 原处。
+   W6 设置重组：面板由 11 个变 13 个（新增权限与安全／用量与限额／模型分配，「MCP 运维」并进
+   「集成与 MCP」），本层补公用页分段 .settings-section、「模型分配」表与服务商保存条三族。 */
 
 /* ── 弹窗加宽：720 → 920（与 tool-pane.css 的 #settingsModal .modal 同特指度，本层后加载取胜） ── */
 #settingsModal .modal { width: min(920px, 94vw); }
@@ -225,6 +227,103 @@
 #settingsModal .settings-fold[open] > summary::before { transform: rotate(90deg); }
 #settingsModal .settings-fold[open] > summary { margin-bottom: var(--sp-2); }
 #settingsModal .settings-fold > summary:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+
+/* ── W6 设置重组：公用页（权限与安全／用量与限额／模型分配／集成与 MCP）的分段 ——
+   与管家页的 .steward-settings-group 同一个样子（上下留白 ＋ 细分隔线 ＋ 段标题贴顶），
+   两种段落在同一页里混排时读起来是一回事。 ── */
+#settingsModal .settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+#settingsModal .settings-section:last-child { border-bottom: none; }
+#settingsModal .settings-section .settings-subhead { margin: 0; }
+/* 段内的小标题（例如「花费」里的「月度成本预算」）：比段标题低一级。 */
+#settingsModal .settings-minor-head { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); }
+
+/* ── W6「模型分配」：一行 ＝ 左边这一行管什么 ＋ 右边「服务商 → 模型」两枚下拉（每行同一个组件）。
+   ≤640px 两栏收成一栏，下拉整行宽。 ── */
+#settingsModal .model-assign-list { display: flex; flex-direction: column; }
+#settingsModal .model-assign-row {
+  display: grid;
+  grid-template-columns: minmax(0, 13rem) minmax(0, 1fr);
+  column-gap: var(--sp-4);
+  row-gap: var(--sp-1);
+  align-items: center;
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--line);
+}
+#settingsModal .model-assign-list > .model-assign-row:first-child { border-top: none; }
+/* 标签与下拉同一行；说明独占第二行、横跨两栏 —— 挤在窄的左栏里会折成细长的一条。
+   .model-assign-label 只是标记上的分组（display:contents），网格按它的两个孩子排。 */
+#settingsModal .model-assign-label { display: contents; }
+#settingsModal .model-assign-label > label {
+  grid-column: 1;
+  grid-row: 1;
+  display: block;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+#settingsModal .model-assign-pick {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: center;
+}
+#settingsModal .model-assign-label > .field-help { grid-column: 1 / -1; grid-row: 2; margin: 0; font-size: var(--fs-xs); line-height: 1.5; }
+/* 「新线程默认引擎」是主模型那一行的附属行：不另起分隔线，标题降一级。 */
+#settingsModal .model-assign-sub { padding-top: 0; border-top: none; }
+#settingsModal .model-assign-sub .model-assign-label label { font-size: var(--fs-sm); font-weight: 500; color: var(--ink-2); }
+/* 强／快两档是一组：组头一行小标题 ＋ 一句说明，组内两行之间不再画线。 */
+#settingsModal .model-assign-group { padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+#settingsModal .model-assign-group-title { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); }
+#settingsModal .model-assign-group > .field-help { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); line-height: 1.5; }
+#settingsModal .model-assign-group .model-assign-row { border-top: none; padding-bottom: 0; }
+#settingsModal .model-assign-group + .model-assign-row { margin-top: var(--sp-3); }
+
+/* ── W6 服务商卡片的保存条：页脚不再有「保存」，保存键落在卡片正下方；有没存的改动时整条亮起。 ── */
+#settingsModal .prov-savebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel-2) 45%, transparent);
+}
+#settingsModal .prov-dirty-note { margin-inline-end: auto; font-size: var(--fs-sm); }
+#settingsModal .prov-savebar[data-dirty="true"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--accent-soft);
+}
+#settingsModal .prov-savebar[data-dirty="true"] .prov-dirty-note { color: var(--ink); }
+/* 导航上的「服务商」页签：有没存的改动时带一枚小圆点（关掉弹窗再打开也看得见，改动不会悄悄丢）。 */
+#settingsTabs button[data-stab="providers"][data-dirty="true"]::after {
+  content: "";
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-inline-start: var(--sp-1);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@media (max-width: 640px) {
+  #settingsModal .model-assign-row,
+  #settingsModal .model-assign-pick { grid-template-columns: minmax(0, 1fr); }
+  #settingsModal .model-assign-pick { grid-column: 1; grid-row: 2; }
+  #settingsModal .model-assign-label > .field-help { grid-column: 1; grid-row: 3; }
+}
 
 /* reduced-motion：折叠/展开的瞬间动效全关（状态变化本身保留，信息不减）。 */
 @media (prefers-reduced-motion: reduce) {

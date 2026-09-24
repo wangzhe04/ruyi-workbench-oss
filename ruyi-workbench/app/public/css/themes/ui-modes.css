@@ -34,19 +34,17 @@
 :root[data-ui-mode="simple"] .agent-runs-subnav { display: flex; gap: 12px; margin: 2px 0 8px; }
 /* v1.0-S2 (IA): 简易模式全局原始输出槽也隐藏（人人可用界面不冒原始 pre 文本）。 */
 :root[data-ui-mode="simple"] #toolOutput { display: none; }
-/* 设置弹窗按 uiMode 收敛 —— 简易模式保留「基础/服务商/联网搜索/体检」,隐藏含开发者字段
-   (MAX_THINKING_TOKENS / --max-turns / Overlay ID 等)的 Claude CLI / Agent 角色 / 集成 MCP / 高级 四个。
-   app.js switchSettingsTab 有配套 JS 兜底(非白名单页签落回「基础」),防隐藏页签的面板悬空显示。 */
+/* 设置弹窗按 uiMode 收敛 —— 简易模式隐藏含开发者字段(MAX_THINKING_TOKENS / CLI 参数 / Overlay ID 等)的
+   Agent CLI / Agent 角色 / 集成与 MCP / 高级 四个页签。
+   navigation-controls.js 的 SETTINGS_SIMPLE_TABS 是配套 JS 兜底(非白名单页签落回「基础」),两张表互补。
+   W6 设置重组:「MCP 运维」并进「集成与 MCP」(那一条随页签退役);「工具与集成」组里还有简易可见的「联网搜索」,
+   所以不再整组藏掉 —— 五组在简易模式下各有可见页签,不会留空组头(simple-mode.browser 的 S4c 量的就是这件事)。 */
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="claude"],
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="agents"],
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="integrations"],
-:root[data-ui-mode="simple"] #settingsTabs button[data-stab="mcp"],
 :root[data-ui-mode="simple"] #settingsTabs button[data-stab="advanced"] { display: none; }
-/* 123-S2 设置弹窗分组导航升级为可折叠二级菜单：简易模式下「集成」组的两枚页签
-   （integrations / mcp）都被上面那条藏掉，整个组容器一并隐藏 —— 否则竖排导航里会留下
-   一枚没有任何页签的空组头。其余四组在简易模式下各有可见页签（模型与服务组留
-   providers/network，系统组留 doctor/update），组头照常可用。 */
-:root[data-ui-mode="simple"] #settingsTabs .settings-nav-group[data-group="integrations"] { display: none; }
+/* W6：公用页(权限与安全 / 用量与限额 / 模型分配)简易模式可见;页内开发者向的那几行带 .settings-expert-only,简易模式收起。 */
+:root[data-ui-mode="simple"] #settingsModal .settings-expert-only { display: none; }
 /* Composer advanced buttons: 技能 折叠；#compactBtn 已移出 composer（入上下文弹层），此处不再需要藏它。
    📎 附件 和 发送 stay. */
 /* v3 (§B1): 简易模式技能入口【显示】—— 原先那条把简易模式技能按钮设为不可见的规则已删除。

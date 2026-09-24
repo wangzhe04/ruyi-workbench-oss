@@ -136,3 +136,55 @@ export function chatProviders(config) {
   const providers = config && Array.isArray(config.providers) ? config.providers : [];
   return providers.filter(p => p && !isSpeechOnlyProvider(p));
 }
+
+// W6 设置重组：键序无关的 JSON（两份配置「是不是同一个值」只看内容，不看服务端与浏览器谁先写了哪个键）。
+export function canonicalJson(value) {
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
+  if (value && typeof value === 'object') {
+    return '{' + Object.keys(value).filter(key => value[key] !== undefined).sort()
+      .map(key => JSON.stringify(key) + ':' + canonicalJson(value[key])).join(',') + '}';
+  }
+  return value === undefined ? 'null' : JSON.stringify(value);
+}
+
+// W6（设置重组，修「草稿过期会回滚」）：服务商卡片的草稿与别处写口的三方合并。纯函数，不改入参。
+//   base  = 草稿上一次与配置对齐时的那份 providers；draft = 用户正在编辑的那份；next = 配置的最新值。
+// 逐条服务商、逐个字段：用户没动过的字段（draft 与 base 一样）跟着 next 走，动过的留用户的 —— 线程头「设为新任务
+// 默认」、推理强度、删模型行、管家改配置这些写口改掉的字段，不会再被一份旧草稿整份盖回去。
+//   · 草稿里新加的（base 没有）原样保留；草稿里删掉的（base 有、draft 没有）不再补回来；
+//   · 别处删掉的（base 有、next 没有）：用户没动过就跟着删，动过就留着（以用户手上的为准）；
+//   · 别处新加的（base 与 draft 都没有）补在末尾；
+//   · serverOwned(p) 为真的条目（toolbox- 自动接入的）一律照 next，用户改不了、也撤不掉。
+// 返回 { providers, changed }：changed = 合出来的与 draft 不是同一个值。
+export function rebaseProvidersDraft(base, draft, next, { serverOwned = () => false } = {}) {
+  const list = value => (Array.isArray(value) ? value : []);
+  const clone = value => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
+  const same = (a, b) => canonicalJson(a) === canonicalJson(b);
+  const byId = value => new Map(list(value).filter(p => p && typeof p === 'object' && p.id).map(p => [String(p.id), p]));
+  const baseById = byId(base);
+  const nextById = byId(next);
+  const out = [];
+  const seen = new Set();
+  for (const item of list(draft)) {
+    if (!item || typeof item !== 'object' || !item.id) { out.push(clone(item)); continue; }
+    const id = String(item.id);
+    seen.add(id);
+    const fresh = nextById.get(id);
+    const was = baseById.get(id);
+    if (serverOwned(item)) { if (fresh) out.push(clone(fresh)); continue; }
+    if (!was) { out.push(clone(item)); continue; }
+    if (!fresh) { if (!same(item, was)) out.push(clone(item)); continue; }
+    const merged = {};
+    for (const key of new Set([...Object.keys(was), ...Object.keys(item), ...Object.keys(fresh)])) {
+      const pick = same(item[key], was[key]) ? fresh[key] : item[key];
+      if (pick !== undefined) merged[key] = clone(pick);
+    }
+    out.push(merged);
+  }
+  for (const [id, fresh] of nextById) {
+    if (seen.has(id)) continue;
+    if (baseById.has(id) && !serverOwned(fresh)) continue;
+    out.push(clone(fresh));
+  }
+  return { providers: out, changed: !same(out, draft) };
+}

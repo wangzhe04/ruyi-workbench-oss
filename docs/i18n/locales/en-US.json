@@ -645,6 +645,10 @@
   "onboarding.wizard.safety.acceptEdits.title": "Do not ask for file edits",
   "onboarding.wizard.safety.auto.description": "Never interrupts you, including deleting files and running commands. Highest risk; use it only for tasks you fully trust.",
   "onboarding.wizard.safety.auto.title": "Smart auto",
+  "onboarding.wizard.safety.autoConfirm.title": "Use \"Smart auto\"?",
+  "onboarding.wizard.safety.autoConfirm.body": "With it, AI edits files and runs commands on its own while you are away, without asking step by step. You can switch back any time under Settings → Permissions & safety.",
+  "onboarding.wizard.safety.autoConfirm.ok": "Yes, use Smart auto",
+  "onboarding.wizard.safety.autoConfirm.cancel": "Not now",
   "onboarding.wizard.safety.default.description": "Asks before every change. Safest, and the most clicking.",
   "onboarding.wizard.safety.default.title": "Ask me every time (default)",
   "onboarding.wizard.safety.hint": "This decides whether the AI asks before it acts. The default is the safest, and you can change it later.",
@@ -972,6 +976,7 @@
   "settings.asrFix.providerLabel": "LLM used for fixing",
   "settings.asrFix.followMain": "Follow the main model ({{name}})",
   "settings.asrFix.noMain": "main model is not an OpenAI-compatible endpoint, fixing unavailable",
+  "settings.asrFix.gotoAssign": "Choose the fixing model…",
   "settings.asrFix.defaultModel": "Provider's default model{{name}}",
   "settings.asrFix.hint.both": "Now: each finished sentence is re-listened by {{audio}}, then {{llm}} merges the two versions. Model thinking is disabled and the transcript is treated as data (instruction-like speech is never executed).",
   "settings.asrFix.hint.audio": "Now: each finished sentence is re-listened by {{audio}}.",
@@ -1019,6 +1024,7 @@
   "settings.browserTarget.system": "System default browser (recommended; preserve Workbench and reuse your sign-in)",
   "settings.chatEngine": "Conversation engine",
   "settings.agentCli.tab": "Agent CLI",
+  "settings.agentCli.current": "Settings for the command-line engine ({{name}}) itself. Which command-line engine to use is chosen under Model assignment.",
   "settings.agentCli.driver": "Agent CLI driver",
   "settings.newThreadEngine": "Default engine for new threads",
   "settings.newThreadEngine.last": "The last one you used",
@@ -1098,13 +1104,50 @@
   "settings.mainEngine.hintLast": "This is the global default: new threads that \"follow the last used\" fall back to it, as does everything else that needs a default; switching in a thread header only affects that thread. Threads opened by the steward always use an OpenAI-compatible endpoint, never an Agent CLI.",
   "settings.mainEngine.hintGlobal": "This is the global default: every new thread starts on it; switching in a thread header only affects that thread. Threads opened by the steward always use an OpenAI-compatible endpoint, never an Agent CLI.",
   "settings.mainEngine.toast": "Main model saved",
+  "settings.security.tab": "Permissions & safety",
+  "settings.security.hint": "Whether Ruyi asks before acting, and how long it waits for your reply. Changes save instantly; each thread can still be changed from its header.",
+  "settings.security.waitTitle": "How long to wait for you",
+  "settings.security.waitHint": "When a thread stops to ask for permission, or asks you a question, how long it waits. No limit = wait until you are back (factory setting); with a limit, a permission request is denied and a question counts as unanswered when time runs out.",
+  "settings.security.permissionTimeout": "Wait for a permission answer",
+  "settings.security.questionTimeout": "Wait for an answer to a question",
+  "settings.security.wait.none": "No limit (keep waiting)",
+  "settings.security.wait.seconds": "{{n}} seconds",
+  "settings.security.wait.minutes": "{{n}} minutes",
+  "settings.security.cliTitle": "Permission prompts in the command-line engine",
+  "settings.limits.tab": "Usage & limits",
+  "settings.limits.hint": "How much to spend, how much to run and how many at once, all on this page. Changes save instantly.",
+  "settings.limits.spendTitle": "Spending",
+  "settings.limits.usdNote": "These two daily caps are in US dollars (USD), whatever currency the monthly budget above uses.",
+  "settings.limits.turnsTitle": "Turns",
+  "settings.limits.parallelTitle": "Concurrency",
+  "settings.limits.workflowTitle": "Workflows & timeouts",
+  "settings.limits.turnIdle": "Treat a turn as stuck after this many idle minutes",
+  "settings.limits.turnIdleHint": "If a turn produces no events for this long, it is treated as stuck and ended. 1–60 minutes (default 10).",
+  "settings.models.tab": "Model assignment",
+  "settings.models.title": "Which model does what",
+  "settings.models.hint": "Each row covers one job and saves as soon as you pick. \"Follow\" means the row does not pick its own. Endpoints, keys and model lists live on the Providers tab.",
+  "settings.models.row.main": "Main model",
+  "settings.models.row.stewardHint": "What the steward thinks and replies with. A cheaper model is fine.",
+  "settings.models.row.subagent": "Sub-agents",
+  "settings.models.row.subagentHint": "Default for delegated sub-tasks (spawn_agent / workflow nodes). Leave the model empty to fall back to the role, the tier, then the main model.",
+  "settings.models.row.compact": "Context compaction",
+  "settings.models.row.compactHint": "Summarizes earlier turns when a conversation gets long. Follow = use the conversation's own engine (command-line engines use their native compaction). Also adjustable from the context meter popover.",
+  "settings.models.row.compactProvider": "Compaction provider",
+  "settings.models.row.asrFix": "Voice input · end-of-sentence fix",
+  "settings.models.row.asrFixHint": "Fixes typos after each sentence you dictate. Whether and how to fix is chosen under voice input on the Providers tab.",
+  "settings.models.cliOption": "{{name}} (command-line engine)",
+  "settings.models.providerDefault": "This provider's default model",
+  "settings.models.followModel": "(follow)",
+  "settings.models.compactFollow": "Follow the conversation's engine",
   "settings.general": "General",
   "settings.group.general": "General",
   "settings.group.steward": "Steward",
   "settings.group.models": "Models & Services",
-  "settings.group.integrations": "Integrations",
+  "settings.group.integrations": "Tools & integrations",
   "settings.group.system": "System",
   "settings.integrations": "Integrations and MCP",
+  "settings.integrations.desktopTitle": "Desktop control",
+  "settings.integrations.browserTitle": "Browser",
   "settings.integrations.hint": "Connect the desktop-control MCP (ai-computer-control) to the workbench for screenshots, window control, OCR, and more. Claude starts it through its CLI; native Provider engines use the built-in MCP client bridge.",
   "settings.language": "Language",
   "settings.language.auto": "Use system language",
@@ -1134,10 +1177,15 @@
   "settings.pricing.unavailablePlaceholder": "Leave blank to skip cost estimates",
   "settings.providers": "Model providers",
   "settings.providers.add": "+ Add Provider",
-  "settings.providers.hint": "After you select a Provider in the top bar, conversations connect directly to its streaming /chat/completions endpoint. Keys are stored only in local config.json.",
+  "settings.providers.save": "Save providers",
+  "settings.providers.discard": "Discard changes",
+  "settings.providers.dirty": "Provider cards have unsaved changes.",
+  "settings.providers.clean": "Save here after editing the cards; every other setting saves instantly.",
+  "settings.providers.saved": "Providers saved",
+  "settings.providers.hint": "Endpoints, keys and model lists for each provider. Which model does what is chosen under Model assignment. Keys are stored only in local config.json.",
   "settings.resumeClaude": "Automatically resume Claude sessions",
   "settings.resumeAgentCli": "Automatically resume Agent CLI sessions",
-  "settings.saveHint": "Steward, theme and reminder changes apply instantly; everything else takes effect after Save.",
+  "settings.saveHint": "Changes save instantly. For provider cards, press \"Save providers\" below the cards.",
   "settings.search.bing": "Bing Search API",
   "settings.search.bocha": "Bocha (Chinese Search API)",
   "settings.search.brave": "Brave Search API",
@@ -2650,6 +2698,8 @@
   ,"settings.steward.auto.exemptDelegationHint": "Only for threads in smart auto that the steward watches or that a scheduled task opened. Payments, shutting down or formatting, registry changes and sending mail always wait for you; after a thread reads web content it will not push or send out for you; at most 6 an hour, each with a stated reason, a receipt and a line in the action log. The steward cannot change this setting itself."
   ,"settings.steward.group.budget": "Model and budget"
   ,"settings.steward.group.budgetHint": "The steward's own turns cost money too. It follows your main endpoint by default, and you can give it a cheaper model."
+  ,"settings.steward.group.rhythm": "Pace & context"
+  ,"settings.steward.group.rhythmHint": "How often the steward looks, and how much conversation it keeps in mind. Its model is chosen under Model assignment; spending and turn caps live under Usage & limits."
   ,"settings.steward.providerId": "Provider for the steward"
   ,"settings.steward.providerFollow": "Follow the main endpoint"
   ,"settings.steward.providerSaved": "Saved value: {{value}}"
@@ -2760,7 +2810,7 @@
   ,"settings.steward.schedule.form.sessionId": "Which thread"
   ,"settings.steward.schedule.form.permission": "How far it may go on its own"
   ,"settings.steward.schedule.form.tier": "Which model tier"
-  ,"settings.steward.schedule.form.tierHint": "Which endpoint each tier uses is set above under \"Model for new threads\"; a tier left empty follows the main endpoint."
+  ,"settings.steward.schedule.form.tierHint": "Which endpoint each tier uses is set under Model assignment; a tier left empty follows the main endpoint."
   ,"settings.steward.schedule.form.submit": "Create it"
   ,"settings.steward.schedule.form.cancel": "Cancel"
   ,"settings.steward.schedule.form.failed": "Could not create it: {{reason}}"

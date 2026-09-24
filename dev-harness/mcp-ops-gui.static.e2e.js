@@ -26,12 +26,22 @@ let failures = 0;
 const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
 
 // ── index.html:页签 + 面板 + 容器/按钮 ──
-ok(html.includes('data-stab="mcp"'), 'M1 MCP 运维页签按钮在(index.html)');
-ok(html.includes('id="stab-mcp"'), 'M2 stab-mcp 面板在');
+// W6 设置重组翻面重钉（用户 2026-09-24「设置里的内容有点乱，把重复／类似的统一」）：「MCP 运维」不再是单独一页，
+// 连接器清单整段并进「集成与 MCP」（#stab-integrations，与桌面控制、浏览器、扩展组件同页），两枚「从文件夹导入」
+// 只留 #mcpImportBtn。钉的事实从「有一枚 mcp 页签」换成「连接器清单住在集成页里、旧页签与旧面板都不在了、
+// 第二枚导入按钮也不在了」—— 强度不降：多了两条反向判据。
+const integrationsStart = html.indexOf('<div class="settings-tab" id="stab-integrations">');
+const integrationsEnd = html.indexOf('<div class="settings-tab"', integrationsStart + 1);
+const integrationsPanel = integrationsStart >= 0 ? html.slice(integrationsStart, integrationsEnd > 0 ? integrationsEnd : html.length) : '';
+ok(html.includes('data-stab="integrations"') && !html.includes('data-stab="mcp"'), 'M1 连接器运维住「集成与 MCP」页签（旧的独立 mcp 页签已并掉）');
+ok(Boolean(integrationsPanel) && !html.includes('id="stab-mcp"'), 'M2 stab-integrations 面板在、stab-mcp 面板已不在');
 for (const id of ['mcpRefreshBtn', 'mcpImportBtn', 'mcpConnList', 'mcpListHint', 'mcpCompatBox']) {
-  ok(html.includes(`id="${id}"`), `M3 ${id} 在`);
+  ok(integrationsPanel.includes(`id="${id}"`), `M3 ${id} 在集成页里`);
 }
-ok(html.includes('data-i18n="settings.mcp.tab"') && html.includes('data-i18n="settings.mcp.title"') && html.includes('data-i18n="settings.mcp.hint"'), 'M4 页签/标题/提示走 data-i18n');
+ok(!html.includes('id="importMcpFolderBtn"') && (html.match(/id="mcpImportBtn"/g) || []).length === 1
+  && !html.includes('data-i18n="settings.externalMcpServer.import"'),
+  'M3b 「从文件夹导入 MCP」全页只剩一枚（#mcpImportBtn；修前集成页另有一枚 #importMcpFolderBtn 调同一个函数）');
+ok(integrationsPanel.includes('data-i18n="settings.mcp.title"') && integrationsPanel.includes('data-i18n="settings.mcp.hint"'), 'M4 标题/提示走 data-i18n');
 
 // ── settings operations module + app.js composition root ──
 for (const f of ['refreshMcpOps', 'renderMcpCompat', 'renderMcpConnList', 'mcpConnItemEl', 'mcpRetest', 'mcpToggle', 'mcpRemove', 'mcpHealthText', 'mcpHealthLampClass']) {
@@ -39,14 +49,15 @@ for (const f of ['refreshMcpOps', 'renderMcpCompat', 'renderMcpConnList', 'mcpCo
 }
 ok(appjs.includes("from './js/settings-operations.js'") && appjs.includes('createSettingsOperationsDomain')
   && appjs.includes('bindSettingsOperations();'), 'M5b app.js 仅保留模块组合与一次绑定');
-ok(navigation.includes("if (name === 'mcp') refreshMcpOps(false);"), 'M6 switchSettingsTab mcp hook 在(打开不 probe)');
+ok(navigation.includes("if (name === 'integrations') refreshMcpOps(false);") && /SETTINGS_TAB_ALIASES = Object\.freeze\(\{ mcp: 'integrations' \}\)/.test(navigation),
+  'M6 switchSettingsTab 在打开「集成与 MCP」时取清单(不 probe)；旧名 mcp 改投集成页');
 ok(/mcpRefreshBtn.{0,140}onclick = \(\) => refreshMcpOps\(true\)/.test(operations), 'M7 全部重测绑 refreshMcpOps(true)');
 ok(/mcpImportBtn[\s\S]{0,240}importMcpFromFolder/.test(operations), 'M8 导入按钮复用 importMcpFromFolder');
 ok(operations.includes("'/api/mcp/connectors'") && operations.includes("'/api/mcp/connectors/health'") && operations.includes("'/api/mcp/connectors/toggle'"), 'M9 operations 模块调 list/health/toggle 三条 API');
 ok(/api\('\/api\/mcp\/connectors', \{[\s\S]{0,100}method: 'POST',[\s\S]{0,100}headers: \{ 'x-http-method': 'DELETE' \}/.test(operations), 'M10 移除走 POST + x-http-method:DELETE');
 // 简易模式:mcp 不在 JS 白名单,CSS 隐藏页签按钮(开发者向功能不进人人可用界面)。
 ok(!/SETTINGS_SIMPLE_TABS = new Set\(\[[^\]]*'mcp'/.test(appjs), 'M11 简易模式白名单不含 mcp(JS 兜底)');
-ok(css.includes(':root[data-ui-mode="simple"] #settingsTabs button[data-stab="mcp"]'), 'M12 简易模式 CSS 隐藏 mcp 页签');
+ok(css.includes(':root[data-ui-mode="simple"] #settingsTabs button[data-stab="integrations"]'), 'M12 简易模式 CSS 隐藏「集成与 MCP」页签（连接器运维随它一起收起）');
 // 渲染纪律:连接器字段走 textContent(el 辅助),新块不用 innerHTML 拼接(配置串注入面)。
 const block = operations.slice(operations.indexOf('MCP 运维页签'));
 ok(block.length > 500 && !/\.innerHTML\s*=/.test(block), 'M13 55c 块零 innerHTML 赋值(textContent 渲染)');

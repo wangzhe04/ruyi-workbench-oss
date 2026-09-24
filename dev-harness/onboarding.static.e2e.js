@@ -307,7 +307,16 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     const api = async (url, init) => {
       const body = init && init.body ? JSON.parse(init.body) : null;
       calls.push({ url, body });
-      if (url === '/api/config') { state.config = { ...state.config, ...body }; return { ok: true, config: state.config }; }
+      if (url === '/api/config') {
+        // W6：照服务端 applyConfigPatch 那道门（116-3 B1）—— 切「全自动」缺 confirm:true 就 409 permission.confirm_required。
+        // 修前这个桩一律放行，于是「向导选智能自动必然 409」这件事在这一层永远看不见（缺陷②）。
+        if (body && body.permissionMode === 'auto' && body.confirm !== true) {
+          throw Object.assign(new Error('permission.confirm_required'), { code: 'permission.confirm_required', status: 409 });
+        }
+        const { confirm: _confirm, ...patch } = body || {};
+        state.config = { ...state.config, ...patch };
+        return { ok: true, config: state.config };
+      }
       if (url === '/api/provider/test') return overrides.testResult || { ok: true, models: [{ id: 'fake-model' }, { id: 'fake-reasoner' }] };
       return { ok: true };
     };
@@ -400,6 +409,31 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   await safetyCards[1].onclick();
   await flush();
   ok(host1.state.config.permissionMode === 'acceptEdits', 'D15 选安全档立即落 permissionMode');
+  // W6（缺陷②）：选「智能自动」先在本步就地确认，确认之后才带 confirm:true 落盘；取消 = 什么都不写。
+  // 修前：点下去直接 persist({ permissionMode:'auto' }) → 服务端 409（上面的桩照服务端那道门写），卡片却已标成选中。
+  {
+    const autoIndex = mod.ONBOARDING_SAFETY_MODES.indexOf('auto');
+    const configCalls = () => host1.calls.filter(c => c.url === '/api/config' && c.body && c.body.permissionMode === 'auto').length;
+    await findAll(backdrop, 'onboard-wiz-card')[autoIndex].onclick();
+    await flush();
+    const confirmBox = findOne(backdrop, 'onboard-wiz-safety-confirm');
+    ok(Boolean(confirmBox) && configCalls() === 0 && host1.state.config.permissionMode === 'acceptEdits'
+      && findAll(backdrop, 'onboard-wiz-card')[autoIndex].getAttribute('aria-checked') === 'false',
+      'D15b 点「智能自动」先就地展开确认，不落盘、卡片也不标成选中');
+    findOne(backdrop, 'onboard-wiz-safety-cancel').onclick();
+    await flush();
+    ok(findOne(backdrop, 'onboard-wiz-safety-confirm') === null && configCalls() === 0 && host1.state.config.permissionMode === 'acceptEdits',
+      'D15c 「再想想」收起确认，配置不变');
+    await findAll(backdrop, 'onboard-wiz-card')[autoIndex].onclick();
+    await flush();
+    await findOne(backdrop, 'onboard-wiz-safety-ok').onclick();
+    await flush();
+    const autoCall = host1.calls.filter(c => c.url === '/api/config' && c.body && c.body.permissionMode === 'auto').pop();
+    ok(host1.state.config.permissionMode === 'auto' && autoCall && autoCall.body.confirm === true
+      && findAll(backdrop, 'onboard-wiz-card')[autoIndex].getAttribute('aria-checked') === 'true'
+      && findOne(backdrop, 'onboard-wiz-safety-confirm') === null,
+      'D15d 确认之后带 confirm:true 落盘成功（桩照服务端的 409 门写），卡片标成选中、确认收起');
+  }
   findOne(backdrop, 'onboard-wiz-next').onclick();
   await flush();
   ok(findAll(backdrop, 'onboard-wiz-playbook').length === 3, 'D16 完成页三张 Playbook 卡');

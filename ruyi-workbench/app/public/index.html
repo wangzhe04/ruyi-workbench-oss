@@ -917,33 +917,39 @@
       <div class="modal" role="dialog" aria-modal="true" aria-label="设置" data-i18n-attr="aria-label:settings.title">
         <div class="modal-head"><h3 data-i18n="settings.title">设置</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-i18n-attr="aria-label:common.close" data-icon="close"></button></div>
         <!-- 123-S1 设置弹窗重设计：左侧竖排分组导航（#settingsTabs）＋ 右侧内容面板（#settingsBody），包进 .settings-main。 -->
-        <!-- 布局规则全部在新层 css/views/settings.css，旧规则一处没动；页签仍是 button[data-stab]、11 个面板仍在 #settingsBody， -->
+        <!-- 布局规则全部在新层 css/views/settings.css；页签仍是 button[data-stab]、面板仍是 #settingsBody 里的 .settings-tab#stab-*， -->
         <!-- 页签接线（navigation-controls.js switchSettingsTab）与简易模式隐藏（ui-modes.css）的契约不变。 -->
-        <!-- 123-S2：五枚分组标签升级为可折叠二级菜单 —— 每组一个 <section class="settings-nav-group">，组头是 -->
+        <!-- 123-S2：分组标签是可折叠二级菜单 —— 每组一个 <section class="settings-nav-group">，组头是 -->
         <!-- button.settings-nav-label（带 aria-expanded 与 chevron，【没有】data-stab，不是页签）；默认只展开「通用」， -->
-        <!-- 切页签自动展开其所在组，折叠态存 localStorage（wcw.settingsNavGroups），JS 全部纯新增在 navigation-controls.js。 -->
+        <!-- 切页签自动展开其所在组，折叠态存 localStorage（wcw.settingsNavGroups），JS 全部在 navigation-controls.js。 -->
+        <!-- W6 设置重组（用户 2026-09-24「设置里的内容有点乱，把重复／类似的统一成公用的设置」）：散在各页签的同类项收成公用页 —— -->
+        <!-- 「权限与安全」（全局默认权限从管家页搬来＋两条等待时限）、「用量与限额」（预算／花费上限／回合／并发）、「模型分配」 -->
+        <!-- （谁用哪个模型一张表，引擎三处选择合成一处）；「集成」与「MCP 运维」并成一页（#stab-integrations 的 id 不变）。 -->
+        <!-- 控件 id 一个没改，只挪了位置；除服务商卡片外全部改了就存（服务商卡片仍是草稿 ＋「保存服务商」）。 -->
         <div class="settings-main">
           <div class="tool-tabs settings-tabs" id="settingsTabs">
             <section class="settings-nav-group is-open" data-group="general">
               <button type="button" class="settings-nav-label" data-group="general" aria-expanded="true"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.general">通用</span></button>
               <button type="button" data-stab="basic" class="active" data-i18n="settings.general">基础</button>
+              <button type="button" data-stab="security" data-i18n="settings.security.tab">权限与安全</button>
+              <button type="button" data-stab="limits" data-i18n="settings.limits.tab">用量与限额</button>
             </section>
             <section class="settings-nav-group" data-group="steward">
               <button type="button" class="settings-nav-label" data-group="steward" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.steward">管家</span></button>
-              <!-- 117e：管家页签排在「基础」之后、「Agent CLI」之前（27 号文 §5 117e 行）。 -->
+              <!-- 117e：管家页签排在「通用」一组之后、「模型」一组之前（27 号文 §5 117e 行；W6 起通用组有三页）。 -->
               <button type="button" data-stab="steward" data-i18n="settings.steward.tab">管家</button>
             </section>
             <section class="settings-nav-group" data-group="models">
               <button type="button" class="settings-nav-label" data-group="models" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.models">模型与服务</span></button>
-              <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
+              <button type="button" data-stab="models" data-i18n="settings.models.tab">模型分配</button>
               <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
+              <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
               <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
-              <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
             </section>
             <section class="settings-nav-group" data-group="integrations">
-              <button type="button" class="settings-nav-label" data-group="integrations" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.integrations">集成</span></button>
-              <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成 / MCP</button>
-              <button type="button" data-stab="mcp" data-i18n="settings.mcp.tab">MCP 运维</button>
+              <button type="button" class="settings-nav-label" data-group="integrations" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.integrations">工具与集成</span></button>
+              <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
+              <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成与 MCP</button>
             </section>
             <section class="settings-nav-group" data-group="system">
               <button type="button" class="settings-nav-label" data-group="system" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.system">系统</span></button>
@@ -958,39 +964,8 @@
 
           <!-- ===== 基础 ===== -->
           <div class="settings-tab active" id="stab-basic">
-            <!-- 123-S2：基础页 10 个 field-block 归成 4 个可折叠分组（默认全展开），控件 id 与 data-i18n 一个没动。 -->
-            <!-- 133d（用户 2026-09-21「默认的对话主模型似乎没法在设置里改」）：顶栏模型 chip 在 121-K5 退役后，全局主端点／主模型再没有任何界面能改。 -->
-            <!-- 这一组就是那两个键（activeProvider ＋ 该端点的缺省 model／CLI 的 config.model）；选中即存，不进底部「保存」那份整体补丁。选项由 provider-settings.js 按 config 现填。 -->
-            <details class="settings-fold" id="settingsFoldEngine" open>
-            <summary><span data-i18n="settings.fold.engine">对话主模型</span></summary>
-            <div class="field-block">
-              <label for="cfgMainProvider" data-i18n="settings.mainEngine.provider">主端点与主模型</label>
-              <div class="asr-add-row">
-                <select id="cfgMainProvider"></select>
-                <select id="cfgMainModel" aria-labelledby="cfgMainProvider"></select>
-              </div>
-              <p id="mainEngineHint" class="field-help muted"></p>
-            </div>
-            </details>
-            <details class="settings-fold" id="settingsFoldWorkspace" open>
-            <summary><span data-i18n="settings.fold.workspace">工作区</span></summary>
-            <div class="field-block">
-              <label for="workspaceInput" data-i18n="settings.defaultWorkspace">默认工作文件夹</label>
-              <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
-            </div>
-            <div class="field-block">
-              <label data-i18n="settings.workspacePerm.title">工作区权限</label>
-              <div class="workspace-perm-add">
-                <input id="workspaceAddInput" type="text" placeholder="C:\path\to\another\project" />
-                <button type="button" id="workspaceAddBtn" class="btn btn-sm" data-i18n="settings.workspacePerm.add">添加工作区</button>
-              </div>
-              <div id="workspacePermList" class="workspace-perm-list"></div>
-              <div class="workspace-perm-actions">
-                <label class="check"><input type="checkbox" id="cfgAllowOutsideWorkspace" /> <span data-i18n="settings.workspacePerm.allowOutside">允许工作区外读写</span></label>
-              </div>
-              <p class="field-help muted" data-i18n="settings.workspacePerm.hint">工作区按优先级排序（首项为默认工作区）；每个工作区可单独开关读/写/执行权限。</p>
-            </div>
-            </details>
+            <!-- 123-S2：基础页的 field-block 归成可折叠分组（默认全展开），控件 id 与 data-i18n 一个没动。 -->
+            <!-- W6：「对话主模型」搬进「模型分配」，「月度成本预算」搬进「用量与限额」；本页只留界面、工作区、提醒与进程选项。 -->
             <details class="settings-fold" id="settingsFoldInterface" open>
             <summary><span data-i18n="settings.fold.interface">界面与语言</span></summary>
             <div class="field-block">
@@ -1027,6 +1002,25 @@
               </select>
               <p class="field-help muted" data-i18n="shell.settingHint">切换只改变本机界面，不迁移或改写任务与线程数据；可随时切回。</p>
               <p class="field-help muted" id="stewardShellModeHint" data-i18n="stewardShell.settingDisabledHint" hidden>要用管家壳，先在设置里打开管家。</p>
+            </div>
+            </details>
+            <details class="settings-fold" id="settingsFoldWorkspace" open>
+            <summary><span data-i18n="settings.fold.workspace">工作区</span></summary>
+            <div class="field-block">
+              <label for="workspaceInput" data-i18n="settings.defaultWorkspace">默认工作文件夹</label>
+              <input id="workspaceInput" type="text" placeholder="C:\path\to\project" />
+            </div>
+            <div class="field-block">
+              <label data-i18n="settings.workspacePerm.title">工作区权限</label>
+              <div class="workspace-perm-add">
+                <input id="workspaceAddInput" type="text" placeholder="C:\path\to\another\project" />
+                <button type="button" id="workspaceAddBtn" class="btn btn-sm" data-i18n="settings.workspacePerm.add">添加工作区</button>
+              </div>
+              <div id="workspacePermList" class="workspace-perm-list"></div>
+              <div class="workspace-perm-actions">
+                <label class="check"><input type="checkbox" id="cfgAllowOutsideWorkspace" /> <span data-i18n="settings.workspacePerm.allowOutside">允许工作区外读写</span></label>
+              </div>
+              <p class="field-help muted" data-i18n="settings.workspacePerm.hint">工作区按优先级排序（首项为默认工作区）；每个工作区可单独开关读/写/执行权限。</p>
             </div>
             </details>
             <details class="settings-fold" id="settingsFoldReminders" open>
@@ -1066,31 +1060,163 @@
               <label class="check"><input type="checkbox" id="cfgKillDisc" /> <span data-i18n="settings.stopTasksOnClose">关闭页面时同时结束正在运行的任务</span></label>
               <label class="check"><input type="checkbox" id="cfgKillPort" /> <span data-i18n="settings.takeOverPort">启动时接管被旧实例占用的端口</span></label>
             </div>
-            <hr class="settings-sep" />
-            <h4 class="settings-subhead" data-i18n="settings.monthlyBudget.title">月度成本预算（可选）</h4>
-            <p class="muted prov-hint" data-i18n="settings.monthlyBudget.hint">设置每月成本上限后，「用量」页签会显示进度；超出时给一条不阻断的软提示。留空 = 不设预算。金额只作估算参照，非实际扣费。</p>
-            <div class="field-grid">
-              <div class="field-block">
-                <label for="cfgUsageBudgetMonthly" data-i18n="settings.monthlyBudget.amount">每月预算金额</label>
-                <input id="cfgUsageBudgetMonthly" type="number" min="0" step="1" placeholder="如 200（留空 = 不设）" data-i18n-attr="placeholder:settings.monthlyBudget.amountPlaceholder" />
-              </div>
-              <div class="field-block">
-                <label for="cfgUsageBudgetCurrency" data-i18n="settings.currency">币种</label>
-                <select id="cfgUsageBudgetCurrency">
-                  <option value="CNY" data-i18n="settings.currency.CNY">人民币 ¥ (CNY)</option>
-                  <option value="USD" data-i18n="settings.currency.USD">美元 $ (USD)</option>
-                  <option value="EUR" data-i18n="settings.currency.EUR">欧元 € (EUR)</option>
-                  <option value="GBP" data-i18n="settings.currency.GBP">英镑 £ (GBP)</option>
-                  <option value="JPY" data-i18n="settings.currency.JPY">日元 ¥ (JPY)</option>
-                </select>
-              </div>
-            </div>
             </details>
           </div>
 
+          <!-- ===== 权限与安全（W6 新页，简易模式可见）===== -->
+          <!-- 全局默认权限（permissionMode）此前只住管家页 —— 不用管家的人也得去那儿改。整段 section 连 id 原样搬来， -->
+          <!-- 写口仍是 js/steward-settings.js 的 setDefaultPermission（切「全自动」就地二次确认 ＋ confirm:true），与顶栏盾牌写同一个键。 -->
+          <div class="settings-tab" id="stab-security">
+            <p class="muted prov-hint" data-i18n="settings.security.hint">如意动手之前要不要先问你、等你回话等多久。改了就生效；每条线程还可以在线程头上单独改。</p>
+            <section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="cfgStewardPermissionHeading">
+              <h4 id="cfgStewardPermissionHeading" class="settings-subhead" data-i18n="settings.steward.group.permission">新线程默认权限</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.permissionHint">新开的线程用这一档；每条线程随时可以单独改。管家替你答复的范围也由这一档决定。</p>
+              <div class="field-block">
+                <label for="cfgStewardDefaultPermission" data-i18n="settings.steward.defaultPermission">默认权限</label>
+                <select id="cfgStewardDefaultPermission"></select>
+                <p class="field-help muted" id="cfgStewardPermissionHint"></p>
+              </div>
+              <div class="steward-settings-confirm" id="cfgStewardPermissionConfirm" role="dialog" aria-labelledby="cfgStewardPermissionConfirmTitle" hidden>
+                <strong id="cfgStewardPermissionConfirmTitle"></strong>
+                <ul id="cfgStewardPermissionConfirmList"></ul>
+                <div class="steward-settings-confirm-actions">
+                  <button type="button" id="cfgStewardPermissionCancel" class="btn btn-sm" data-confirm="cancel"></button>
+                  <button type="button" id="cfgStewardPermissionOk" class="btn btn-sm" data-confirm="ok"></button>
+                </div>
+              </div>
+            </section>
+            <!-- permissionTimeoutMs／questionTimeoutMs 此前没有任何界面（56 号文 ⑦：0 = 不限时，是出厂值）。钳位只在服务端 normalizeConfig 做， -->
+            <!-- 下拉的候选由 provider-settings.js 按档位表现建；落盘值不在档位里时补一条「当前：…」占位，不静默改写。 -->
+            <section class="settings-section" id="settingsSecWait" aria-labelledby="settingsSecWaitHeading">
+              <h4 id="settingsSecWaitHeading" class="settings-subhead" data-i18n="settings.security.waitTitle">等你回话的时限</h4>
+              <p class="muted prov-hint" data-i18n="settings.security.waitHint">线程停下来问你要不要放行、或者向你提问时，最多等多久。不限时 = 一直等到你回来（出厂设置）；设了时限，到点权限请求按「拒绝」处理，提问按「没有回答」继续。</p>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgPermissionTimeout" data-i18n="settings.security.permissionTimeout">权限请求等多久</label>
+                  <select id="cfgPermissionTimeout"></select>
+                </div>
+                <div class="field-block">
+                  <label for="cfgQuestionTimeout" data-i18n="settings.security.questionTimeout">提问等多久</label>
+                  <select id="cfgQuestionTimeout"></select>
+                </div>
+              </div>
+            </section>
+            <section class="settings-section settings-expert-only" id="settingsSecCliPermission" data-agent-cli-only="claude" aria-labelledby="settingsSecCliPermissionHeading">
+              <h4 id="settingsSecCliPermissionHeading" class="settings-subhead" data-i18n="settings.security.cliTitle">命令行引擎的权限弹窗</h4>
+              <div class="field-row">
+                <label class="check"><input type="checkbox" id="cfgPermBridge" /> <span data-i18n="settings.permissionBridge">权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</span></label>
+              </div>
+            </section>
+          </div>
+
+          <!-- ===== 用量与限额（W6 新页，简易模式可见；专家项带 .settings-expert-only）===== -->
+          <!-- 钱、回合、并发三类上限此前散在基础／管家／Agent CLI／高级四页。管家那几格仍由 js/steward-settings.js 按 id 接线， -->
+          <!-- 其余由 provider-settings.js 的即存表接线；本页只是把它们放到一起。 -->
+          <div class="settings-tab" id="stab-limits">
+            <p class="muted prov-hint" data-i18n="settings.limits.hint">花多少、跑多少、同时跑几条，都在这一页；改了就生效。</p>
+            <section class="settings-section" id="settingsSecSpend" aria-labelledby="settingsSecSpendHeading">
+              <h4 id="settingsSecSpendHeading" class="settings-subhead" data-i18n="settings.limits.spendTitle">花费</h4>
+              <p class="settings-minor-head" data-i18n="settings.monthlyBudget.title">月度成本预算（可选）</p>
+              <p class="muted prov-hint" data-i18n="settings.monthlyBudget.hint">设置每月成本上限后，「用量」页签会显示进度；超出时给一条不阻断的软提示。留空 = 不设预算。金额只作估算参照，非实际扣费。</p>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgUsageBudgetMonthly" data-i18n="settings.monthlyBudget.amount">每月预算金额</label>
+                  <input id="cfgUsageBudgetMonthly" type="number" min="0" step="1" placeholder="如 200（留空 = 不设）" data-i18n-attr="placeholder:settings.monthlyBudget.amountPlaceholder" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgUsageBudgetCurrency" data-i18n="settings.currency">币种</label>
+                  <select id="cfgUsageBudgetCurrency">
+                    <option value="CNY" data-i18n="settings.currency.CNY">人民币 ¥ (CNY)</option>
+                    <option value="USD" data-i18n="settings.currency.USD">美元 $ (USD)</option>
+                    <option value="EUR" data-i18n="settings.currency.EUR">欧元 € (EUR)</option>
+                    <option value="GBP" data-i18n="settings.currency.GBP">英镑 £ (GBP)</option>
+                    <option value="JPY" data-i18n="settings.currency.JPY">日元 ¥ (JPY)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardMaxCostPerDay" data-i18n="settings.steward.maxCostPerDay">管家每天最多花（USD）</label>
+                  <input id="cfgStewardMaxCostPerDay" type="number" min="0" max="1000" step="0.5" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardGlobalMaxCostPerDay" data-i18n="settings.steward.globalMaxCostPerDay">全部线程每天最多花（USD）</label>
+                  <input id="cfgStewardGlobalMaxCostPerDay" type="number" min="0" max="10000" step="1" />
+                </div>
+              </div>
+              <p class="field-help muted" data-i18n="settings.limits.usdNote">这两条每日上限按美元（USD）计，与上面月度预算选的币种无关。</p>
+            </section>
+            <section class="settings-section" id="settingsSecTurns" aria-labelledby="settingsSecTurnsHeading">
+              <h4 id="settingsSecTurnsHeading" class="settings-subhead" data-i18n="settings.limits.turnsTitle">回合</h4>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgStewardMaxTurnsPerHour" data-i18n="settings.steward.maxTurnsPerHour">管家每小时最多跑几个回合</label>
+                  <input id="cfgStewardMaxTurnsPerHour" type="number" min="1" max="120" step="1" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgStewardGlobalMaxTurnsPerHour" data-i18n="settings.steward.globalMaxTurnsPerHour">全部线程每小时最多几个回合</label>
+                  <input id="cfgStewardGlobalMaxTurnsPerHour" type="number" min="1" max="2000" step="1" />
+                </div>
+              </div>
+              <!-- v1.6.3: Provider 工具预算采用 100/200/300 自适应策略。 -->
+              <div class="field-grid settings-expert-only">
+                <div class="field-block">
+                  <label for="cfgOpenaiMaxToolIterations" data-i18n="settings.advanced.maxToolIterations">单回合工具调用上限</label>
+                  <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="200" step="1" placeholder="100" />
+                  <p class="field-help muted" data-i18n="settings.advanced.maxToolIterations.hint">普通任务按此基础预算运行（默认 100）；长任务从 200 起步，有持续进展时最多自动续到 300。</p>
+                </div>
+                <div class="field-block" data-agent-cli-only="claude">
+                  <label for="cfgMaxTurns" data-i18n="settings.maxTurns">最大轮次 --max-turns</label>
+                  <input id="cfgMaxTurns" type="text" placeholder="留空=不限" data-i18n-attr="placeholder:settings.maxTurnsPlaceholder" />
+                </div>
+              </div>
+            </section>
+            <section class="settings-section" id="settingsSecParallel" aria-labelledby="settingsSecParallelHeading">
+              <h4 id="settingsSecParallelHeading" class="settings-subhead" data-i18n="settings.limits.parallelTitle">并发</h4>
+              <div class="field-block">
+                <label for="cfgStewardMaxParallelThreads" data-i18n="settings.steward.maxParallelThreads">同时最多跑几条线程</label>
+                <input id="cfgStewardMaxParallelThreads" type="number" min="1" max="32" step="1" />
+              </div>
+              <div class="field-grid settings-expert-only">
+                <div class="field-block">
+                  <label for="cfgSubagentMaxConcurrent" data-i18n="settings.advanced.subagentConcurrency">子代理每阶段并发数</label>
+                  <input id="cfgSubagentMaxConcurrent" type="number" min="1" max="8" step="1" placeholder="8" />
+                  <p class="field-help muted" data-i18n="settings.advanced.subagentConcurrency.hint">同一阶段可同时运行的子代理数，范围 1–8（默认 8，上限）。</p>
+                </div>
+                <div class="field-block">
+                  <label for="cfgSubagentMaxPerTurn" data-i18n="settings.advanced.subagentPerTurn">子代理每回合总数</label>
+                  <input id="cfgSubagentMaxPerTurn" type="number" min="0" max="32" step="1" placeholder="32" />
+                  <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内 spawn_agent/orchestrate_agents 累计上限；设为 0 可关闭子代理。</p>
+                </div>
+              </div>
+            </section>
+            <section class="settings-section settings-expert-only" id="settingsSecWorkflow" aria-labelledby="settingsSecWorkflowHeading">
+              <h4 id="settingsSecWorkflowHeading" class="settings-subhead" data-i18n="settings.limits.workflowTitle">工作流与时限</h4>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgAgentWorkflowMaxNodes" data-i18n="settings.advanced.workflowMaxNodes">Agent 工作流节点数上限</label>
+                  <input id="cfgAgentWorkflowMaxNodes" type="number" min="1" max="64" step="1" placeholder="48" />
+                  <p class="field-help muted" data-i18n="settings.advanced.workflowMaxNodes.hint">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–64（默认 48）。与上面的“每回合总数”是两个独立预算。</p>
+                </div>
+                <div class="field-block">
+                  <label for="cfgAgentNodeWrapUpMinutes" data-i18n="settings.advanced.agentNodeWrapUp">节点自动收尾（分钟）</label>
+                  <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="8" />
+                  <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长后，编排器会要求它停止扩展并立即总结；宽限期后仍未结束则只中止该节点。设为 0 可关闭。</p>
+                </div>
+              </div>
+              <!-- turnIdleTimeoutMs 此前没有界面：服务端钳 [1, 60] 分钟、出厂 10 分钟（01-config normalizeConfig）。 -->
+              <div class="field-block">
+                <label for="cfgTurnIdleMinutes" data-i18n="settings.limits.turnIdle">一个回合多久没动静算卡住（分钟）</label>
+                <input id="cfgTurnIdleMinutes" type="number" min="1" max="60" step="1" placeholder="10" />
+                <p class="field-help muted" data-i18n="settings.limits.turnIdleHint">回合里连续这么久收不到任何事件，就判定它卡住并结束这一回合。范围 1–60 分钟（默认 10）。</p>
+              </div>
+            </section>
+          </div>
+
           <!-- ===== 117e 管家（27 号文 §5 117e 行 / §8.6 权限的界面表达 / §4 记忆面板）===== -->
-          <!-- 八个 <section>（121-K7 加了「任务索引」与「定时任务」两组），控件 id 一律 cfgSteward* 前缀。骨架静态写死在这里； -->
-          <!-- js/steward-settings.js 只 createElement + textContent 填内容（零 innerHTML）。 -->
+          <!-- 控件 id 一律 cfgSteward* 前缀。骨架静态写死在这里；js/steward-settings.js 只 createElement + textContent 填内容（零 innerHTML）。 -->
+          <!-- W6：只留管家自己的事（开关、人设、自理动作、节奏与上下文、任务索引、定时、记忆、流水）。全局默认权限搬去「权限与安全」， -->
+          <!-- 花费／回合／并发上限搬去「用量与限额」，管家与新线程用的模型搬去「模型分配」—— id 与接线都没变，只是换了页。 -->
           <div class="settings-tab" id="stab-steward">
             <p id="cfgStewardNote" class="field-help steward-settings-note" role="status" aria-live="polite"></p>
 
@@ -1124,25 +1250,6 @@
               </div>
             </section>
 
-            <!-- ② 新线程默认权限 -->
-            <section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="cfgStewardPermissionHeading">
-              <h4 id="cfgStewardPermissionHeading" class="settings-subhead" data-i18n="settings.steward.group.permission">新线程默认权限</h4>
-              <p class="muted prov-hint" data-i18n="settings.steward.group.permissionHint">新开的线程用这一档；每条线程随时可以单独改。管家替你答复的范围也由这一档决定。</p>
-              <div class="field-block">
-                <label for="cfgStewardDefaultPermission" data-i18n="settings.steward.defaultPermission">默认权限</label>
-                <select id="cfgStewardDefaultPermission"></select>
-                <p class="field-help muted" id="cfgStewardPermissionHint"></p>
-              </div>
-              <div class="steward-settings-confirm" id="cfgStewardPermissionConfirm" role="dialog" aria-labelledby="cfgStewardPermissionConfirmTitle" hidden>
-                <strong id="cfgStewardPermissionConfirmTitle"></strong>
-                <ul id="cfgStewardPermissionConfirmList"></ul>
-                <div class="steward-settings-confirm-actions">
-                  <button type="button" id="cfgStewardPermissionCancel" class="btn btn-sm" data-confirm="cancel"></button>
-                  <button type="button" id="cfgStewardPermissionOk" class="btn btn-sm" data-confirm="ok"></button>
-                </div>
-              </div>
-            </section>
-
             <!-- ③ 管家可以自己做的事 -->
             <section class="steward-settings-group" id="cfgStewardGroupAuto" aria-labelledby="cfgStewardAutoHeading">
               <h4 id="cfgStewardAutoHeading" class="settings-subhead" data-i18n="settings.steward.group.auto">管家可以自己做的事</h4>
@@ -1170,20 +1277,10 @@
               <p class="field-help muted" data-i18n="settings.steward.auto.exemptDelegationHint">只对「智能自动」档、管家在看管或定时任务开的线程生效。支付、关机格式化、改注册表、发邮件这些底线项永远等你按；线程读过网页后不替你推送或外发；每小时最多 6 次，每次都要写理由、出回执、记进行动流水。这一项管家自己改不了。</p>
             </section>
 
-            <!-- ④ 模型与预算 -->
+            <!-- ④ 节奏与上下文（W6：原「模型与预算」—— 模型搬去「模型分配」、花费／回合／并发搬去「用量与限额」之后，留下的是管家自己的节奏）。 -->
             <section class="steward-settings-group" id="cfgStewardGroupBudget" aria-labelledby="cfgStewardBudgetHeading">
-              <h4 id="cfgStewardBudgetHeading" class="settings-subhead" data-i18n="settings.steward.group.budget">模型与预算</h4>
-              <p class="muted prov-hint" data-i18n="settings.steward.group.budgetHint">管家自己跑回合也花钱。默认跟随主端点，也可以给它换一个便宜模型。</p>
-              <div class="field-grid">
-                <div class="field-block">
-                  <label for="cfgStewardProviderId" data-i18n="settings.steward.providerId">管家用的服务商</label>
-                  <select id="cfgStewardProviderId"></select>
-                </div>
-                <div class="field-block">
-                  <label for="cfgStewardModel" data-i18n="settings.steward.model">管家用的模型</label>
-                  <select id="cfgStewardModel"></select>
-                </div>
-              </div>
+              <h4 id="cfgStewardBudgetHeading" class="settings-subhead" data-i18n="settings.steward.group.rhythm">节奏与上下文</h4>
+              <p class="muted prov-hint" data-i18n="settings.steward.group.rhythmHint">管家多久看一次、记多长的对话。它用哪个模型在「模型分配」里选，花费与回合上限在「用量与限额」里。</p>
               <div class="field-grid">
                 <div class="field-block">
                   <label for="cfgStewardPollMs" data-i18n="settings.steward.pollSeconds">多久看一次收件箱（秒）</label>
@@ -1194,39 +1291,13 @@
                   <input id="cfgStewardVisitIdle" type="number" min="5" max="1440" step="1" />
                 </div>
               </div>
-              <div class="field-grid">
-                <div class="field-block">
-                  <label for="cfgStewardMaxTurnsPerHour" data-i18n="settings.steward.maxTurnsPerHour">管家每小时最多跑几个回合</label>
-                  <input id="cfgStewardMaxTurnsPerHour" type="number" min="1" max="120" step="1" />
-                </div>
-                <div class="field-block">
-                  <label for="cfgStewardMaxCostPerDay" data-i18n="settings.steward.maxCostPerDay">管家每天最多花（USD）</label>
-                  <input id="cfgStewardMaxCostPerDay" type="number" min="0" max="1000" step="0.5" />
-                </div>
-              </div>
-              <div class="field-grid">
-                <div class="field-block">
-                  <label for="cfgStewardMaxParallelThreads" data-i18n="settings.steward.maxParallelThreads">同时最多跑几条线程</label>
-                  <input id="cfgStewardMaxParallelThreads" type="number" min="1" max="32" step="1" />
-                </div>
-                <div class="field-block">
-                  <label for="cfgStewardGlobalMaxTurnsPerHour" data-i18n="settings.steward.globalMaxTurnsPerHour">全部线程每小时最多几个回合</label>
-                  <input id="cfgStewardGlobalMaxTurnsPerHour" type="number" min="1" max="2000" step="1" />
-                </div>
-              </div>
-              <div class="field-grid">
-                <div class="field-block">
-                  <label for="cfgStewardGlobalMaxCostPerDay" data-i18n="settings.steward.globalMaxCostPerDay">全部线程每天最多花（USD）</label>
-                  <input id="cfgStewardGlobalMaxCostPerDay" type="number" min="0" max="10000" step="1" />
-                </div>
-                <div class="field-block">
-                  <label for="cfgStewardRetention" data-i18n="settings.steward.retention">和管家的对话保留多久</label>
-                  <select id="cfgStewardRetention">
-                    <option value="visit" data-i18n="settings.steward.retention.visit">只保留本次打开期间</option>
-                    <option value="24h" data-i18n="settings.steward.retention.24h">24 小时（默认）</option>
-                    <option value="forever" data-i18n="settings.steward.retention.forever">一直保留</option>
-                  </select>
-                </div>
+              <div class="field-block">
+                <label for="cfgStewardRetention" data-i18n="settings.steward.retention">和管家的对话保留多久</label>
+                <select id="cfgStewardRetention">
+                  <option value="visit" data-i18n="settings.steward.retention.visit">只保留本次打开期间</option>
+                  <option value="24h" data-i18n="settings.steward.retention.24h">24 小时（默认）</option>
+                  <option value="forever" data-i18n="settings.steward.retention.forever">一直保留</option>
+                </select>
               </div>
               <!-- 136（用户 2026-09-23「上下文太紧」）：管家上下文预算与触发系数。tokens 键管家自己改不了 -->
               <!-- （撞 06i 密钥兜底正则，forbidden），本来就只能在这里改——此前这里没有字段，是事实缺口。 -->
@@ -1241,36 +1312,10 @@
                 </div>
               </div>
               <p class="field-help muted" data-i18n="settings.steward.contextBudgetHint">管家每回合都要重读一遍对话；预算越大、成数越高，压缩越少触发、记得越久，但每回合更贵。触发线 ＝ min(预算, 模型窗口) × 成数。</p>
-              <!-- 116-5b（§11.8.5/§11.8.6）：线程自动摘要。放在「模型与预算」段而不是「自治」段——它不是一项管家的自治权，是一笔钱：开着就会在每一条还没有名字的新线程上多打一发。 -->
+              <!-- 116-5b（§11.8.5/§11.8.6）：线程自动摘要。它不是一项管家的自治权，是一笔钱：开着就会在每一条还没有名字的新线程上多打一发。 -->
               <!-- 也【不随管家总开关】：消费面一半在经典壳（会话列表与搜索结果），管家关着也该有名字。 -->
               <label class="check"><input type="checkbox" id="cfgStewardThreadBrief" /> <span data-i18n="settings.steward.threadBrief">自动给每条线程起名字</span></label>
               <p class="field-help muted" data-i18n="settings.steward.threadBriefHint">每开一条新线程，用管家的端点花一次小额调用生成一个短名字和一句概括，代替把你的整段原话当标题。经典壳的线程列表和搜索结果也用它。原话不会被改写（悬停仍看得到全文）。</p>
-            </section>
-
-            <!-- ④b 新开线程用什么模型（117l-A3，27 号文 §11.9：新线程默认端点与模型分复杂/简单两档） -->
-            <section class="steward-settings-group" id="cfgStewardGroupThreadModels" aria-labelledby="cfgStewardThreadModelsHeading">
-              <h4 id="cfgStewardThreadModelsHeading" class="settings-subhead" data-i18n="settings.steward.group.threadModels">新开线程用什么模型</h4>
-              <div class="field-grid">
-                <div class="field-block">
-                  <label for="cfgStewardStrongProviderId" data-i18n="settings.steward.threadModels.strongProvider">复杂任务 · 强模型服务商</label>
-                  <select id="cfgStewardStrongProviderId"></select>
-                </div>
-                <div class="field-block">
-                  <label for="cfgStewardStrongModel" data-i18n="settings.steward.threadModels.strongModel">复杂任务 · 强模型</label>
-                  <select id="cfgStewardStrongModel"></select>
-                </div>
-              </div>
-              <div class="field-grid">
-                <div class="field-block">
-                  <label for="cfgStewardFastProviderId" data-i18n="settings.steward.threadModels.fastProvider">简单任务 · 快速模型服务商</label>
-                  <select id="cfgStewardFastProviderId"></select>
-                </div>
-                <div class="field-block">
-                  <label for="cfgStewardFastModel" data-i18n="settings.steward.threadModels.fastModel">简单任务 · 快速模型</label>
-                  <select id="cfgStewardFastModel"></select>
-                </div>
-              </div>
-              <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。</p>
             </section>
 
             <!-- ④c 任务索引（121-K7，34 号文 §13.5 登记③／§4.1「噪音用窗口解决，不用能力解决」）。 -->
@@ -1395,7 +1440,7 @@
                       <option value="strong" data-i18n="settings.steward.schedule.tier.strong">复杂任务 · 强模型</option>
                       <option value="fast" data-i18n="settings.steward.schedule.tier.fast">简单任务 · 快速模型</option>
                     </select>
-                    <p class="field-help muted" data-i18n="settings.steward.schedule.form.tierHint">两档各用哪个端点，在上面「新开线程用什么模型」里定；那一档没配就跟随全局。</p>
+                    <p class="field-help muted" data-i18n="settings.steward.schedule.form.tierHint">两档各用哪个端点，在「模型分配」里定；那一档没配就跟随全局。</p>
                   </div>
                 </div>
                 <p class="field-help muted" id="cfgStewardScheduleFormError" role="status"></p>
@@ -1444,25 +1489,119 @@
             </section>
           </div>
 
+          <!-- ===== 模型分配（W6 新页，简易模式可见）===== -->
+          <!-- 「谁用哪个模型」此前散在基础页（主模型）、管家页（管家／强／快）、高级页（子代理）、电量表弹层（压缩）与语音区（改错）。 -->
+          <!-- 每一行同一个组件：左边服务商下拉由 js/model-catalog.js 的 fillProviderSelect（唯一的选项构建器）填，右边模型下拉走 -->
+          <!-- bindModelSelect；选中即存。主模型那一行把「用哪个命令行引擎」并了进来，下面紧跟「新线程默认引擎」—— 引擎三处合一处。 -->
+          <!-- 「句尾改错」那一行由 provider-settings.js 在运行时追加到本表末尾（index.html 对语音零静态标记，见 asr-config-ui.static）。 -->
+          <div class="settings-tab" id="stab-models">
+            <section class="settings-section model-assign" id="settingsSecModelAssign" aria-labelledby="modelAssignHeading">
+              <h4 id="modelAssignHeading" class="settings-subhead" data-i18n="settings.models.title">谁用哪个模型</h4>
+              <p class="muted prov-hint" data-i18n="settings.models.hint">每一行管一件事，选中即保存。「跟随」＝这一行不单独指定。服务商的地址、密钥与模型清单在「服务商」页里管。</p>
+              <div class="model-assign-list" id="modelAssignList">
+                <div class="model-assign-row" data-assign="main">
+                  <div class="model-assign-label">
+                    <label for="cfgMainProvider" data-i18n="settings.models.row.main">对话主模型</label>
+                    <p id="mainEngineHint" class="field-help muted"></p>
+                  </div>
+                  <div class="model-assign-pick">
+                    <select id="cfgMainProvider"></select>
+                    <select id="cfgMainModel" aria-labelledby="cfgMainProvider"></select>
+                  </div>
+                </div>
+                <!-- 123-N2：新线程默认引擎（last / global）。W6：从 Agent CLI 页搬来，与主模型同一处。 -->
+                <div class="model-assign-row model-assign-sub" data-assign="newThread">
+                  <div class="model-assign-label">
+                    <label for="cfgNewThreadEngine" data-i18n="settings.newThreadEngine">新线程默认引擎</label>
+                    <p id="newThreadEngineHint" class="field-help muted"></p>
+                  </div>
+                  <div class="model-assign-pick">
+                    <select id="cfgNewThreadEngine">
+                      <option value="last" data-i18n="settings.newThreadEngine.last">上次用的</option>
+                      <option value="global" data-i18n="settings.newThreadEngine.global">跟随全局设置</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="model-assign-row" data-assign="steward">
+                  <div class="model-assign-label">
+                    <label for="cfgStewardProviderId" data-i18n="settings.steward.model">管家用的模型</label>
+                    <p class="field-help muted" data-i18n="settings.models.row.stewardHint">管家自己想事情、回你话用它；给它换个便宜点的也行。</p>
+                  </div>
+                  <div class="model-assign-pick">
+                    <select id="cfgStewardProviderId" aria-label="管家用的服务商" data-i18n-attr="aria-label:settings.steward.providerId"></select>
+                    <select id="cfgStewardModel" aria-label="管家用的模型" data-i18n-attr="aria-label:settings.steward.model"></select>
+                  </div>
+                </div>
+                <!-- 117l-A3（27 号文 §11.9）：管家新开线程按复杂度分强／快两档。W6：组 id 保留在这一组两行的外壳上。 -->
+                <div class="model-assign-group" id="cfgStewardGroupThreadModels" role="group" aria-labelledby="cfgStewardThreadModelsHeading">
+                  <p id="cfgStewardThreadModelsHeading" class="model-assign-group-title" data-i18n="settings.steward.group.threadModels">新开线程用什么模型</p>
+                  <p class="field-help muted" data-i18n="settings.steward.threadModels.hint">管家新开线程时自己按任务复杂度选档：多步推理、写代码、长文用强模型；查一下、改一行、简单问答用快速模型。速查线程一律走快速模型。留空 = 跟随主端点。</p>
+                  <div class="model-assign-row" data-assign="strong">
+                    <div class="model-assign-label">
+                      <label for="cfgStewardStrongProviderId" data-i18n="settings.steward.threadModels.strongModel">复杂任务 · 强模型</label>
+                    </div>
+                    <div class="model-assign-pick">
+                      <select id="cfgStewardStrongProviderId" aria-label="复杂任务 · 强模型服务商" data-i18n-attr="aria-label:settings.steward.threadModels.strongProvider"></select>
+                      <select id="cfgStewardStrongModel" aria-label="复杂任务 · 强模型" data-i18n-attr="aria-label:settings.steward.threadModels.strongModel"></select>
+                    </div>
+                  </div>
+                  <div class="model-assign-row" data-assign="fast">
+                    <div class="model-assign-label">
+                      <label for="cfgStewardFastProviderId" data-i18n="settings.steward.threadModels.fastModel">简单任务 · 快速模型</label>
+                    </div>
+                    <div class="model-assign-pick">
+                      <select id="cfgStewardFastProviderId" aria-label="简单任务 · 快速模型服务商" data-i18n-attr="aria-label:settings.steward.threadModels.fastProvider"></select>
+                      <select id="cfgStewardFastModel" aria-label="简单任务 · 快速模型" data-i18n-attr="aria-label:settings.steward.threadModels.fastModel"></select>
+                    </div>
+                  </div>
+                </div>
+                <div class="model-assign-row settings-expert-only" data-assign="subagent">
+                  <div class="model-assign-label">
+                    <label for="cfgSubagentPreferredProvider" data-i18n="settings.models.row.subagent">子代理</label>
+                    <p class="field-help muted" data-i18n="settings.models.row.subagentHint">拆出去的子任务（spawn_agent ／工作流节点）默认用它；模型留空按角色、分级、主模型依次兜底。</p>
+                  </div>
+                  <div class="model-assign-pick">
+                    <select id="cfgSubagentPreferredProvider" aria-label="子代理优先端点" data-i18n-attr="aria-label:settings.advanced.subagentPreferredProvider"></select>
+                    <select id="cfgSubagentPreferredModel" aria-label="子代理优先模型" data-i18n-attr="aria-label:settings.advanced.subagentPreferredModel"></select>
+                  </div>
+                </div>
+                <div class="model-assign-row" data-assign="compact">
+                  <div class="model-assign-label">
+                    <label for="cfgCompactProviderId" data-i18n="settings.models.row.compact">上下文压缩</label>
+                    <p class="field-help muted" data-i18n="settings.models.row.compactHint">对话太长时用它把前文压成摘要。跟随 = 用当前对话自己的引擎（命令行引擎走原生压缩）。电量表弹层里也能改。</p>
+                  </div>
+                  <div class="model-assign-pick">
+                    <select id="cfgCompactProviderId" aria-label="压缩用的服务商" data-i18n-attr="aria-label:settings.models.row.compactProvider"></select>
+                    <select id="cfgCompactModel" aria-label="压缩模型" data-i18n-attr="aria-label:ctx.compact.label"></select>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ===== Providers ===== -->
+          <!-- W6：服务商卡片仍是草稿 ＋ 显式保存（地址、密钥、模型清单要一起改完才有意义）；保存键从弹窗页脚挪到卡片正下方， -->
+          <!-- 有没存的改动时亮起。别处（线程头、电量表、管家、模型分配）同时改了同一份 providers，保存前会先三方合并，不回滚。 -->
+          <div class="settings-tab" id="stab-providers">
+            <p class="muted prov-hint" data-i18n="settings.providers.hint">这里管每家服务商的地址、密钥和模型清单；谁用哪个模型在「模型分配」里选。密钥只保存在本机 config.json。</p>
+            <div id="providersList" class="providers-list"></div>
+            <div class="prov-add">
+              <select id="providerPresetSelect"></select>
+              <button type="button" id="addProviderBtn" class="file-label" data-i18n="settings.providers.add">+ 添加 Provider</button>
+            </div>
+            <div class="prov-savebar" id="providersSaveBar">
+              <span id="providersDirtyNote" class="muted prov-dirty-note" role="status" aria-live="polite"></span>
+              <button type="button" id="providersDiscardBtn" class="btn btn-sm" data-i18n="settings.providers.discard" disabled>放弃改动</button>
+              <button type="button" id="saveConfigBtn" class="primary" data-i18n="settings.providers.save" disabled>保存服务商</button>
+            </div>
+          </div>
+
           <!-- ===== Agent CLI (Claude Code / Kimi Code) ===== -->
+          <!-- W6：只留命令行引擎自己的项。「用哪个命令行引擎」并进了「模型分配」的主模型那一行（原 #cfgAgentCliType）， -->
+          <!-- --max-turns 去了「用量与限额」、权限弹窗桥接去了「权限与安全」、MCP 命令模式去了「集成与 MCP」。 -->
           <div class="settings-tab" id="stab-claude">
-            <div class="field-block">
-              <label for="cfgAgentCliType" data-i18n="settings.agentCli.driver">Agent CLI 驱动</label>
-              <select id="cfgAgentCliType">
-                <option value="claude">Claude Code</option>
-                <option value="kimi">Kimi Code</option>
-              </select>
-              <p id="agentCliCapabilityHint" class="field-help muted"></p>
-            </div>
-            <!-- 123-N2:新线程默认引擎。上面那项是「全局用哪个 Agent CLI」,这项是「新开一条线程时先摆成哪个引擎」—— 此前是同一件事(写死跟全局),用户要求拆开。 -->
-            <div class="field-block">
-              <label for="cfgNewThreadEngine" data-i18n="settings.newThreadEngine">新线程默认引擎</label>
-              <select id="cfgNewThreadEngine">
-                <option value="last" data-i18n="settings.newThreadEngine.last">上次用的</option>
-                <option value="global" data-i18n="settings.newThreadEngine.global">跟随全局设置</option>
-              </select>
-              <p id="newThreadEngineHint" class="field-help muted"></p>
-            </div>
+            <p id="agentCliCurrentHint" class="muted prov-hint"></p>
+            <p id="agentCliCapabilityHint" class="field-help muted"></p>
             <div class="field-block" data-agent-cli-path="claude">
               <label for="claudePathInput" data-i18n="settings.claudePath">Claude CLI 路径</label>
               <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" data-i18n-attr="placeholder:settings.claudePathPlaceholder" />
@@ -1494,34 +1633,17 @@
                 <label for="cfgThinkBudget" data-i18n="settings.thinkingBudget">思考预算 MAX_THINKING_TOKENS</label>
                 <input id="cfgThinkBudget" type="text" placeholder="留空=自适应(adaptive，推荐新模型)；填数字=固定预算(enabled)" data-i18n-attr="placeholder:settings.thinkingBudgetPlaceholder" />
               </div>
-              <div class="field-block" data-agent-cli-only="claude">
-                <label for="cfgMaxTurns" data-i18n="settings.maxTurns">最大轮次 --max-turns</label>
-                <input id="cfgMaxTurns" type="text" placeholder="留空=不限" data-i18n-attr="placeholder:settings.maxTurnsPlaceholder" />
-              </div>
             </div>
             <div class="field-block">
               <label for="cfgExtraArgs" data-i18n="settings.extraArgs">额外 CLI 参数 (每行一个)</label>
               <textarea id="cfgExtraArgs" rows="3" placeholder="--foo&#10;bar"></textarea>
             </div>
-            <div class="field-grid">
-              <div class="field-block" data-agent-cli-only="claude">
-                <label for="cfgEngineMode" data-i18n="settings.chatEngine">对话引擎</label>
-                <select id="cfgEngineMode">
-                  <option value="legacy" data-i18n="settings.engineMode.legacy">legacy（稳定，单向）</option>
-                  <option value="interactive" data-i18n="settings.engineMode.interactive">interactive（可触发提问弹窗/权限）</option>
-                </select>
-              </div>
-              <div class="field-block">
-                <label for="cfgMcpMode" data-i18n="settings.mcpCommandMode">MCP 命令模式</label>
-                <select id="cfgMcpMode">
-                  <option value="auto" data-i18n="settings.mcpMode.auto">auto（优先 node+server.js）</option>
-                  <option value="node">node</option>
-                  <option value="exe">exe</option>
-                </select>
-              </div>
-            </div>
-            <div class="field-row" data-agent-cli-only="claude">
-              <label class="check"><input type="checkbox" id="cfgPermBridge" /> <span data-i18n="settings.permissionBridge">权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）</span></label>
+            <div class="field-block" data-agent-cli-only="claude">
+              <label for="cfgEngineMode" data-i18n="settings.chatEngine">对话引擎</label>
+              <select id="cfgEngineMode">
+                <option value="legacy" data-i18n="settings.engineMode.legacy">legacy（稳定，单向）</option>
+                <option value="interactive" data-i18n="settings.engineMode.interactive">interactive（可触发提问弹窗/权限）</option>
+              </select>
             </div>
             <hr class="settings-sep" data-agent-cli-only="claude" />
             <h4 class="settings-subhead" data-agent-cli-only="claude" data-i18n="settings.anthropicEndpoint.title">第三方 Anthropic 兼容端点（Coding Plan）</h4>
@@ -1581,16 +1703,6 @@
             </div>
           </div>
 
-          <!-- ===== Providers ===== -->
-          <div class="settings-tab" id="stab-providers">
-            <p class="muted prov-hint" data-i18n="settings.providers.hint">把顶栏“引擎”切到某个 Provider 后，对话会直连它的 /chat/completions（原生流式）；密钥只保存在本机 config.json。</p>
-            <div id="providersList" class="providers-list"></div>
-            <div class="prov-add">
-              <select id="providerPresetSelect"></select>
-              <button type="button" id="addProviderBtn" class="file-label" data-i18n="settings.providers.add">+ 添加 Provider</button>
-            </div>
-          </div>
-
           <!-- ===== Agent roles ===== -->
           <div class="settings-tab" id="stab-agents">
             <p class="muted prov-hint" data-i18n="settings.agentRoles.hint">同一套角色可用于 OpenAI 兼容 API 和 Claude CLI。Claude 使用原生 --agents；项目中的 .claude/agents 也会自动识别并显示。</p>
@@ -1605,85 +1717,6 @@
             <p id="agentRoleScopeHint" class="field-help muted"></p>
             <div id="agentRoleEditorList" class="agent-role-editor-list"></div>
             <div id="nativeClaudeRoleList" class="native-claude-role-list"></div>
-          </div>
-
-          <!-- ===== 集成 / MCP ===== -->
-          <div class="settings-tab" id="stab-integrations">
-            <p class="muted prov-hint" data-i18n="settings.integrations.hint">将桌面控制 MCP（ai-computer-control）接入工作台，可用截图、控窗、OCR 等能力。Claude 引擎由 CLI 自行拉起；原生 Provider 引擎则由工作台内建 MCP 客户端桥接。</p>
-            <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgDesktopMcpEnabled" /> <span data-i18n="settings.enableDesktopMcp">启用桌面 MCP（ai-computer-control）</span></label>
-            </div>
-            <div class="field-block">
-              <label data-i18n="settings.detectionStatus">探测状态</label>
-              <div class="adv-row"><code id="cfgDesktopMcpStatus" class="adv-val">—</code></div>
-            </div>
-            <div class="field-block">
-              <label for="cfgBrowserMode" data-i18n="settings.browserTarget">浏览器目标</label>
-              <select id="cfgBrowserMode">
-                <option value="system" data-i18n="settings.browserTarget.system">系统默认浏览器（推荐，复用用户会话）</option>
-                <option value="managed" data-i18n="settings.browserTarget.managed">已安装的默认 Chromium 浏览器（DOM 自动化，会开独立窗口）</option>
-                <option value="custom" data-i18n="settings.browserTarget.custom">自定义 Chromium 可执行文件</option>
-                <option value="cdp" data-i18n="settings.browserTarget.cdp">连接现有浏览器 CDP 调试端口</option>
-                <option value="bundled" data-i18n="settings.browserTarget.bundled">内置 Chrome for Testing（隔离测试）</option>
-              </select>
-              <p class="field-help muted" data-i18n="settings.browserTarget.hint">默认浏览器模式通过截图、UIA/OCR 操控真实用户窗口；需要 DOM 级 browser_* 工具时再选择受控、CDP 或内置模式。</p>
-            </div>
-            <div class="field-grid">
-              <div class="field-block">
-                <label for="cfgBrowserExecutable" data-i18n="settings.browserExecutable">自定义浏览器路径（custom 模式）</label>
-                <input id="cfgBrowserExecutable" type="text" placeholder="C:\Program Files\...\chrome.exe" />
-              </div>
-              <div class="field-block">
-                <label for="cfgBrowserCdpUrl" data-i18n="settings.browserCdpUrl">CDP 地址（cdp 模式）</label>
-                <input id="cfgBrowserCdpUrl" type="text" placeholder="http://127.0.0.1:9222" />
-              </div>
-            </div>
-            <div class="field-block">
-              <label for="cfgDesktopMcpCommand" data-i18n="settings.commandOverride">命令覆盖（留空 = 自动探测）</label>
-              <input id="cfgDesktopMcpCommand" type="text" placeholder="留空自动探测；或 python / ai-computer-control.exe 完整路径" data-i18n-attr="placeholder:settings.commandOverridePlaceholder" />
-            </div>
-            <div class="field-grid">
-              <div class="field-block">
-                <label for="cfgDesktopMcpArgs" data-i18n="settings.arguments">参数（每行一个）</label>
-                <textarea id="cfgDesktopMcpArgs" rows="3" placeholder="-X&#10;utf8&#10;-m&#10;ai_computer_control.server"></textarea>
-              </div>
-              <div class="field-block">
-                <label for="cfgDesktopMcpCwd" data-i18n="settings.workingDirectory">工作目录 cwd（留空 = 自动）</label>
-                <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\\Users\\...\\ai-computer-control" />
-              </div>
-            </div>
-            <hr class="settings-sep" />
-            <div class="field-row">
-              <label class="check"><input type="checkbox" id="cfgBridgeExternal" /> <span data-i18n="settings.bridgeExternalMcp">把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）</span></label>
-            </div>
-            <hr class="settings-sep" />
-            <!-- v1.0.2 (G5c): 从文件夹导入外部 MCP。选文件夹 → 读其 ruyi-mcp.json 清单 → 导入 externalMcpServers。 -->
-            <div class="field-block">
-              <label data-i18n="settings.externalMcpServer">外部 MCP 服务</label>
-              <p class="field-help muted" data-i18n="settings.externalMcpServer.hint">从含 ruyi-mcp.json 清单的文件夹一键导入一个外部 MCP 服务。</p>
-              <button type="button" id="importMcpFolderBtn" class="file-label btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.externalMcpServer.import">从文件夹添加 MCP…</button>
-            </div>
-          </div>
-
-          <!-- ===== MCP 运维 (第55波 EC-C 55c): 统一连接器清单 + 健康灯 + 重测/启停/移除 ===== -->
-          <div class="settings-tab" id="stab-mcp">
-            <div class="settings-section-head">
-              <div>
-                <h4 class="settings-subhead" data-i18n="settings.mcp.title">MCP 连接器运维</h4>
-                <p class="muted prov-hint" data-i18n="settings.mcp.hint">查看全部连接器（内置桌面 / 用户导入 / drop-in 目录）的连接状态与失败原因，可重测、启停或移除，无需手改 JSON 配置。</p>
-              </div>
-            </div>
-            <div class="adv-row">
-              <button type="button" id="mcpRefreshBtn" class="file-label btn-ic" data-icon="refresh" data-icon-size="14" data-i18n="settings.mcp.refreshAll">全部重测</button>
-              <button type="button" id="mcpImportBtn" class="file-label btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.mcp.import">从文件夹导入 MCP…</button>
-            </div>
-            <p class="field-help muted" id="mcpListHint"> </p>
-            <div class="mcp-conn-list" id="mcpConnList"></div>
-            <hr class="settings-sep" />
-            <div class="field-block">
-              <label data-i18n="settings.mcp.compat">传输兼容性说明</label>
-              <div class="mcp-compat" id="mcpCompatBox"></div>
-            </div>
           </div>
 
           <!-- ===== 联网搜索 (v1.0-S3 B1) ===== -->
@@ -1710,6 +1743,89 @@
               <label for="cfgSearchApiKey" data-i18n="settings.apiKey">API 密钥</label>
               <input id="cfgSearchApiKey" type="password" autocomplete="off" placeholder="留空=不改动已保存的密钥" data-i18n-attr="placeholder:settings.apiKeyPlaceholder" />
             </div>
+          </div>
+
+          <!-- ===== 集成与 MCP ===== -->
+          <!-- W6：原「集成 / MCP」与「MCP 运维」两页并成一页（桌面控制 → 浏览器 → MCP 连接器 → 扩展组件），导入按钮只留一个 -->
+          <!-- （#mcpImportBtn，仍走 importMcpFromFolder）；MCP 命令模式从 Agent CLI 页搬来。面板 id #stab-integrations 不改： -->
+          <!-- 迁移中心（W2）在运行时往本面板末尾追加 id="migrationCenter" 的区块；扩展组件那一栏落在 #toolboxSettingsHost，在它之前。 -->
+          <div class="settings-tab" id="stab-integrations">
+            <section class="settings-section" id="settingsSecDesktop" aria-labelledby="settingsSecDesktopHeading">
+              <h4 id="settingsSecDesktopHeading" class="settings-subhead" data-i18n="settings.integrations.desktopTitle">桌面控制</h4>
+              <p class="muted prov-hint" data-i18n="settings.integrations.hint">将桌面控制 MCP（ai-computer-control）接入工作台，可用截图、控窗、OCR 等能力。Claude 引擎由 CLI 自行拉起；原生 Provider 引擎则由工作台内建 MCP 客户端桥接。</p>
+              <div class="field-row">
+                <label class="check"><input type="checkbox" id="cfgDesktopMcpEnabled" /> <span data-i18n="settings.enableDesktopMcp">启用桌面 MCP（ai-computer-control）</span></label>
+              </div>
+              <div class="field-block">
+                <label data-i18n="settings.detectionStatus">探测状态</label>
+                <div class="adv-row"><code id="cfgDesktopMcpStatus" class="adv-val">—</code></div>
+              </div>
+              <div class="field-block">
+                <label for="cfgDesktopMcpCommand" data-i18n="settings.commandOverride">命令覆盖（留空 = 自动探测）</label>
+                <input id="cfgDesktopMcpCommand" type="text" placeholder="留空自动探测；或 python / ai-computer-control.exe 完整路径" data-i18n-attr="placeholder:settings.commandOverridePlaceholder" />
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgDesktopMcpArgs" data-i18n="settings.arguments">参数（每行一个）</label>
+                  <textarea id="cfgDesktopMcpArgs" rows="3" placeholder="-X&#10;utf8&#10;-m&#10;ai_computer_control.server"></textarea>
+                </div>
+                <div class="field-block">
+                  <label for="cfgDesktopMcpCwd" data-i18n="settings.workingDirectory">工作目录 cwd（留空 = 自动）</label>
+                  <input id="cfgDesktopMcpCwd" type="text" placeholder="C:\\Users\\...\\ai-computer-control" />
+                </div>
+              </div>
+            </section>
+            <section class="settings-section" id="settingsSecBrowser" aria-labelledby="settingsSecBrowserHeading">
+              <h4 id="settingsSecBrowserHeading" class="settings-subhead" data-i18n="settings.integrations.browserTitle">浏览器</h4>
+              <div class="field-block">
+                <label for="cfgBrowserMode" data-i18n="settings.browserTarget">浏览器目标</label>
+                <select id="cfgBrowserMode">
+                  <option value="system" data-i18n="settings.browserTarget.system">系统默认浏览器（推荐，复用用户会话）</option>
+                  <option value="managed" data-i18n="settings.browserTarget.managed">已安装的默认 Chromium 浏览器（DOM 自动化，会开独立窗口）</option>
+                  <option value="custom" data-i18n="settings.browserTarget.custom">自定义 Chromium 可执行文件</option>
+                  <option value="cdp" data-i18n="settings.browserTarget.cdp">连接现有浏览器 CDP 调试端口</option>
+                  <option value="bundled" data-i18n="settings.browserTarget.bundled">内置 Chrome for Testing（隔离测试）</option>
+                </select>
+                <p class="field-help muted" data-i18n="settings.browserTarget.hint">默认浏览器模式通过截图、UIA/OCR 操控真实用户窗口；需要 DOM 级 browser_* 工具时再选择受控、CDP 或内置模式。</p>
+              </div>
+              <div class="field-grid">
+                <div class="field-block">
+                  <label for="cfgBrowserExecutable" data-i18n="settings.browserExecutable">自定义浏览器路径（custom 模式）</label>
+                  <input id="cfgBrowserExecutable" type="text" placeholder="C:\Program Files\...\chrome.exe" />
+                </div>
+                <div class="field-block">
+                  <label for="cfgBrowserCdpUrl" data-i18n="settings.browserCdpUrl">CDP 地址（cdp 模式）</label>
+                  <input id="cfgBrowserCdpUrl" type="text" placeholder="http://127.0.0.1:9222" />
+                </div>
+              </div>
+            </section>
+            <!-- 第55波 EC-C 55c：统一连接器清单 + 健康灯 + 重测/启停/移除。v1.0.2 (G5c) 的「从文件夹导入」只留这一枚。 -->
+            <section class="settings-section" id="settingsSecMcp" aria-labelledby="settingsSecMcpHeading">
+              <h4 id="settingsSecMcpHeading" class="settings-subhead" data-i18n="settings.mcp.title">MCP 连接器运维</h4>
+              <p class="muted prov-hint" data-i18n="settings.mcp.hint">查看全部连接器（内置桌面 / 用户导入 / drop-in 目录）的连接状态与失败原因，可重测、启停或移除，无需手改 JSON 配置。</p>
+              <div class="adv-row">
+                <button type="button" id="mcpRefreshBtn" class="file-label btn-ic" data-icon="refresh" data-icon-size="14" data-i18n="settings.mcp.refreshAll">全部重测</button>
+                <button type="button" id="mcpImportBtn" class="file-label btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.mcp.import">从文件夹导入 MCP…</button>
+              </div>
+              <p class="field-help muted" id="mcpListHint"> </p>
+              <div class="mcp-conn-list" id="mcpConnList"></div>
+              <div class="field-row">
+                <label class="check"><input type="checkbox" id="cfgBridgeExternal" /> <span data-i18n="settings.bridgeExternalMcp">把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）</span></label>
+              </div>
+              <div class="field-block">
+                <label for="cfgMcpMode" data-i18n="settings.mcpCommandMode">MCP 命令模式</label>
+                <select id="cfgMcpMode">
+                  <option value="auto" data-i18n="settings.mcpMode.auto">auto（优先 node+server.js）</option>
+                  <option value="node">node</option>
+                  <option value="exe">exe</option>
+                </select>
+              </div>
+              <div class="field-block">
+                <label data-i18n="settings.mcp.compat">传输兼容性说明</label>
+                <div class="mcp-compat" id="mcpCompatBox"></div>
+              </div>
+            </section>
+            <div id="toolboxSettingsHost"></div>
           </div>
 
           <!-- ===== 体检 ===== -->
@@ -1772,6 +1888,7 @@
           </div>
 
           <!-- ===== 高级 ===== -->
+          <!-- W6：只剩真高级项。子代理的端点／模型去了「模型分配」，回合／并发／工作流上限去了「用量与限额」。 -->
           <div class="settings-tab" id="stab-advanced">
             <div class="field-block">
               <label for="cfgToolLoadingMode" data-i18n="settings.advanced.toolLoadingMode">工具提示词装载</label>
@@ -1790,44 +1907,6 @@
                 <option value="65536" data-i18n="settings.advanced.summarySingleShot64">64K（激进）</option>
               </select>
               <p class="field-help muted" data-i18n="settings.advanced.summarySingleShotMax.hint">估算不超过此上限的摘要走单次调用，超出自动分块。实测 32K 单发约需 40–51 秒（22-S0 基线），远程摘要超时 180 秒；64K 档贴近超时线，慢模型有作废风险。仅在「摘要单发优先」实验开关开启时生效。</p>
-            </div>
-            <!-- v1.6.3: Provider 工具预算采用 100/200/300 自适应策略。 -->
-            <div class="field-block">
-              <label for="cfgOpenaiMaxToolIterations" data-i18n="settings.advanced.maxToolIterations">单回合工具调用上限</label>
-              <input id="cfgOpenaiMaxToolIterations" type="number" min="1" max="200" step="1" placeholder="100" />
-              <p class="field-help muted" data-i18n="settings.advanced.maxToolIterations.hint">普通任务按此基础预算运行（默认 100）；长任务从 200 起步，有持续进展时最多自动续到 300。</p>
-            </div>
-            <div class="field-grid">
-              <div class="field-block">
-                <label for="cfgSubagentMaxConcurrent" data-i18n="settings.advanced.subagentConcurrency">子代理每阶段并发数</label>
-                <input id="cfgSubagentMaxConcurrent" type="number" min="1" max="8" step="1" placeholder="8" />
-                <p class="field-help muted" data-i18n="settings.advanced.subagentConcurrency.hint">同一阶段可同时运行的子代理数，范围 1–8（默认 8，上限）。</p>
-              </div>
-              <div class="field-block">
-                <label for="cfgSubagentMaxPerTurn" data-i18n="settings.advanced.subagentPerTurn">子代理每回合总数</label>
-                <input id="cfgSubagentMaxPerTurn" type="number" min="0" max="32" step="1" placeholder="32" />
-                <p class="field-help muted" data-i18n="settings.advanced.subagentPerTurn.hint">单次对话回合内 spawn_agent/orchestrate_agents 累计上限；设为 0 可关闭子代理。</p>
-              </div>
-              <div class="field-block">
-                <label for="cfgSubagentPreferredProvider" data-i18n="settings.advanced.subagentPreferredProvider">子代理优先端点</label>
-                <select id="cfgSubagentPreferredProvider"></select>
-                <p class="field-help muted" data-i18n="settings.advanced.subagentPreferredProvider.hint">spawn_agent / 工作流节点的默认 Provider id（可跨端点）；留空则用当前主端点。复杂任务模型可经 spawn_agent.model 选同端点下别的模型（如 Pro 版）。</p>
-              </div>
-              <div class="field-block">
-                <label for="cfgSubagentPreferredModel" data-i18n="settings.advanced.subagentPreferredModel">子代理优先模型</label>
-                <select id="cfgSubagentPreferredModel"></select>
-                <p class="field-help muted" data-i18n="settings.advanced.subagentPreferredModel.hint">子代理默认模型 id；留空则按 角色 / 分级 / 主模型 兜底。</p>
-              </div>
-              <div class="field-block">
-                <label for="cfgAgentWorkflowMaxNodes" data-i18n="settings.advanced.workflowMaxNodes">Agent 工作流节点数上限</label>
-                <input id="cfgAgentWorkflowMaxNodes" type="number" min="1" max="64" step="1" placeholder="48" />
-                <p class="field-help muted" data-i18n="settings.advanced.workflowMaxNodes.hint">持久化 DAG 工作流（图形编辑器/模板）单次运行最多多少个节点，范围 1–64（默认 48）。与上面的“每回合总数”是两个独立预算。</p>
-              </div>
-              <div class="field-block">
-                <label for="cfgAgentNodeWrapUpMinutes" data-i18n="settings.advanced.agentNodeWrapUp">节点自动收尾（分钟）</label>
-                <input id="cfgAgentNodeWrapUpMinutes" type="number" min="0" max="120" step="1" placeholder="8" />
-                <p class="field-help muted" data-i18n="settings.advanced.agentNodeWrapUp.hint">单个模型节点运行超过该时长后，编排器会要求它停止扩展并立即总结；宽限期后仍未结束则只中止该节点。设为 0 可关闭。</p>
-              </div>
             </div>
             <div class="field-block">
               <label data-i18n="settings.advanced.dataDirectory">数据目录</label>
@@ -1890,14 +1969,14 @@
           </div>
         </div>
         </div><!-- /.settings-main（左导航 ＋ 右面板） -->
+        <!-- W6：页脚只剩状态与「关闭」—— 除服务商卡片外改了就存（保存成功在 #settingsStatus 闪一句），服务商卡片的保存键在卡片正下方。 -->
         <div class="modal-foot">
           <div class="settings-foot-status">
-            <span id="settingsStatus" class="muted"></span>
-            <p class="settings-save-hint muted" data-i18n="settings.saveHint">管家、主题与提醒即时生效；其余更改在点击「保存设置」后生效。</p>
+            <span id="settingsStatus" class="muted" role="status" aria-live="polite"></span>
+            <p class="settings-save-hint muted" data-i18n="settings.saveHint">改动即时保存；服务商卡片改完点卡片下方的「保存服务商」。</p>
           </div>
           <span class="composer-spacer"></span>
-          <button data-close-modal data-i18n="common.cancel">取消</button>
-          <button id="saveConfigBtn" class="primary" data-i18n="common.save">保存</button>
+          <button type="button" data-close-modal data-i18n="common.close">关闭</button>
         </div>
       </div>
     </div>

@@ -892,6 +892,20 @@ export function createOnboardingWizardDomain({
       const group = el('div', 'onboard-wiz-cards onboard-wiz-safety-cards');
       group.setAttribute('role', 'radiogroup');
       group.setAttribute('aria-label', t('onboarding.wizard.safety.title'));
+      // W6（缺陷②）：修前选「智能自动」直接 persist({ permissionMode:'auto' }) —— 服务端 applyConfigPatch 那道门
+      // （116-3 B1：切全自动缺 confirm:true 就 409 permission.confirm_required）把它挡回来，而卡片先被标成选中、
+      // 保存失败只剩一句 toast。现在：要二次确认的那一档先在本步里【就地】展开一段确认（与设置页、盾牌菜单同一条纪律：
+      // 不跳走、不叠第二层模态），点「确定」才带 confirm:true 落盘；落盘成功之后才把卡片标成选中。
+      // 本模块零 import（壳无关），「哪一档要确认」按服务端那张 PERMISSION_MODES_REQUIRING_CONFIRM 的前端投影写在这里。
+      const needsConfirm = mode => mode === 'auto';
+      const choose = async (mode, extra) => {
+        if (!(await persist({ permissionMode: mode, ...(extra || {}) }))) { render(); return false; }
+        wiz.permissionMode = mode;
+        wiz.pendingSafety = '';
+        render();
+        setMessage(t('onboarding.wizard.safety.saved', { name: t('onboarding.wizard.safety.' + mode + '.title') }), 'ok');
+        return true;
+      };
       for (const mode of ONBOARDING_SAFETY_MODES) {
         const selected = wiz.permissionMode === mode;
         const card = choiceCard({
@@ -899,10 +913,9 @@ export function createOnboardingWizardDomain({
           title: t('onboarding.wizard.safety.' + mode + '.title'),
           description: t('onboarding.wizard.safety.' + mode + '.description'),
           onSelect: async () => {
-            wiz.permissionMode = mode;
-            await persist({ permissionMode: mode });
-            render();
-            setMessage(t('onboarding.wizard.safety.saved', { name: t('onboarding.wizard.safety.' + mode + '.title') }), 'ok');
+            if (needsConfirm(mode) && wiz.permissionMode !== mode) { wiz.pendingSafety = mode; render(); return; }
+            wiz.pendingSafety = '';
+            await choose(mode);
           },
         });
         card.setAttribute('role', 'radio');
@@ -910,6 +923,23 @@ export function createOnboardingWizardDomain({
         group.append(card);
       }
       wrap.append(group);
+      if (wiz.pendingSafety && needsConfirm(wiz.pendingSafety)) {
+        const pending = wiz.pendingSafety;
+        const box = el('div', 'steward-settings-confirm onboard-wiz-safety-confirm');   // 就地确认的外观复用设置页那一族（steward-settings.css 全局类）
+        box.setAttribute('role', 'group');
+        box.append(el('strong', '', t('onboarding.wizard.safety.autoConfirm.title')));
+        box.append(el('p', 'onboard-wiz-step-hint muted', t('onboarding.wizard.safety.autoConfirm.body')));
+        const actions = el('div', 'steward-settings-confirm-actions');
+        const cancel = el('button', 'btn btn-sm onboard-wiz-safety-cancel', t('onboarding.wizard.safety.autoConfirm.cancel'));
+        cancel.type = 'button';
+        cancel.onclick = () => { wiz.pendingSafety = ''; render(); };
+        const ok = el('button', 'btn btn-sm primary onboard-wiz-safety-ok', t('onboarding.wizard.safety.autoConfirm.ok'));
+        ok.type = 'button';
+        ok.onclick = async () => { ok.disabled = true; await choose(pending, { confirm: true }); };
+        actions.append(cancel, ok);
+        box.append(actions);
+        wrap.append(box);
+      }
       return wrap;
     }
 

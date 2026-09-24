@@ -1,5 +1,5 @@
 'use strict';
-import { bindModelSelect } from './model-catalog.js';
+import { bindModelSelect, fillProviderSelect } from './model-catalog.js';
 
 import { toast } from './util.js';
 import {
@@ -49,6 +49,8 @@ import { confirmDanger } from './confirm-panel.js';
 //      管家可以自己做的事、模型与预算、新开线程用什么模型（117l-A3：强/快两档）、
 //      管家记得的关于你、行动流水；
 //   ② 管家壳头部右上角的两个常驻控件（§8.2）——盾牌（新线程默认权限）与一键停机／唤醒。
+// W6 设置重组：本模块接线的控件有几组换了页（id 一个没改，本模块按 id 找，不认识它们在哪一页）——
+// 全局默认权限去了「权限与安全」、花费／回合／并发上限去了「用量与限额」、管家与强／快两档的模型去了「模型分配」。
 // 两片共用一份判据：权限四档的档位表、人话键与「全自动」二次确认文案【全部从 steward-chips.js
 // import】（确认文案键与「哪一档要二次确认」的正身是 js/confirm-panel.js，那边定义、chips 就地
 // re-export），本模块【不定义第二份四档表】（静态锁看住：settings 里零 'acceptEdits' 之类的字面量枚举）。
@@ -747,28 +749,17 @@ export function createStewardSettingsDomain({
 
   // 117l-A3：三个 select 共用一份「providers + 『跟随主端点』」填充逻辑——管家自己的服务商、
   // 新开线程「强模型」的服务商、「快速模型」的服务商。savedId 由调用方各自传各自的落盘值；
-  // 不在列表里也不是空串时补一条「保存的值」占位（与原来 renderProviderSelect 的既有语义一致，
-  // 只是不再各自拼一份，本函数【只有一处定义】）。
+  // 不在列表里也不是空串时补一条「保存的值」占位（与原来 renderProviderSelect 的既有语义一致）。
+  // W6：三枚 select 随「模型分配」页搬家（id 与接线不变）；选项本身交给 model-catalog.js 的 fillProviderSelect ——
+  // 全设置页「服务商 ＋ 跟随」这件事只有那一个构建器（修前这里、基础页主端点、子代理、句尾改错各写一份）。
   function fillProviderOptions(select, savedId) {
-    if (!select) return;
     const providers = chatProviders(config());
-    const saved = String(savedId || '');
-    clear(select);
-    const follow = el('option', '', t('settings.steward.providerFollow'));
-    follow.value = '';
-    select.appendChild(follow);
-    for (const provider of providers) {
-      if (!provider || !provider.id) continue;
-      const option = el('option', '', String(provider.label || provider.id));
-      option.value = String(provider.id);
-      select.appendChild(option);
-    }
-    if (saved && !providers.some(provider => provider && provider.id === saved)) {
-      const stale = el('option', '', t('settings.steward.providerSaved', { value: saved }));
-      stale.value = saved;
-      select.appendChild(stale);
-    }
-    select.value = saved;
+    fillProviderSelect(select, {
+      providers,
+      value: String(savedId || ''),
+      follow: t('settings.steward.providerFollow'),
+      savedLabel: value => t('settings.steward.providerSaved', { value }),
+    });
   }
 
   function fillStewardModel(modelId, providerId, value) {

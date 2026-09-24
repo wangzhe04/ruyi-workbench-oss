@@ -741,7 +741,18 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   ③ 同文件 `.steward-board-sub` 加一条 `transition: opacity` 并新增 `.steward-board-sub.is-updating`
 //     （工具名换挡时的短促淡入淡出，行本身不再随每次工具调用插删）。
 // 算法自证：W5 分支上把三个文件换回 f8aecfcf 重算 = 2a787f60…（W4 之前的基线）；合进 wave137 后在 W4 之上重算，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = '455d4e255c8606eacc7c0d7c1535ecf6099de1e0cdf8bc3e92ae443ed97c40ce';
+// W6 设置重组重钉(前值 2a787f60…):零新增、零删除层,只改两个既有层 ——
+//   ① `css/views/settings.css`:公用页分段 .settings-section(与管家页 .steward-settings-group 同一个样子)＋段内小标题
+//      .settings-minor-head、「模型分配」表 .model-assign-*(一行 = 说明 ＋ 服务商/模型两枚下拉,≤640px 收成一栏)、
+//      服务商保存条 .prov-savebar(有没存的改动时亮起)与导航「服务商」页签上的未存小圆点;头注补一句事实;
+//   ② `css/themes/ui-modes.css`:「MCP 运维」页签随合并退役,那一条隐藏选择器删掉;「工具与集成」组里有简易可见的
+//      「联网搜索」,整组隐藏那一条删掉;新增 `.settings-expert-only` 在简易模式收起(公用页里开发者向的那几行)。
+//   主题令牌全走 var()/color-mix,零硬编码色,零新增动效。
+// 算法自证:把这两份 CSS 换回 HEAD(拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 HEAD 版本)重算
+// = 2a787f60…,与被替换的旧值逐字相同(先自证再替换);换回本刀的 CSS 再算得下面这个值。
+// 反向:改 CSS 之后、重钉之前 frontend-domains D51 与 live-full-text F3 双红(本刀快通道实测)。
+// wave137 合并:W6 的重钉建在 f8aecfcf 上;合进 wave137(已含 W4/W5 两次重钉)后按工作树整份重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '73f352d3983828f165c8c247fc8a260b66b7e614bfd53a1b99e378cdbfd954e9';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

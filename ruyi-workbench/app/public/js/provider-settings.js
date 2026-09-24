@@ -3,9 +3,11 @@
 // EC-D：运行时引擎状态、Provider 配置、设置保存与诊断领域。
 import { state } from './state.js';
 import { bindModelSelect, providerModels, agentModels, publishProviderModels, publishAgentModels, refreshModelSelects } from './model-catalog.js';
+import { fillProviderSelect } from './model-catalog.js';   // W6：「模型分配」每一行服务商下拉的唯一选项构建器
 
 import { api, apiErrorInfo } from './net.js';   // 107-S2：掩码闸的拒绝要按【码】分支，不按中文（否则又是一句「请求失败。」）
 import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders } from './util.js';
+import { canonicalJson, rebaseProvidersDraft } from './util.js';   // W6：服务商草稿的三方合并（修「草稿过期会回滚」）
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
 import { describeHealthItem, healthSummaryText, HEALTH_ACTIONS, HEALTH_ALIAS_IDS } from './health-i18n.js';
@@ -112,8 +114,16 @@ function followDesktopMcpProbe() {
     } finally { desktopProbeFollow = null; }
   })();
 }
+// W6：设置页改成「改了就存」之后，一发慢的 GET /api/status（体检页、导入 MCP 之后都会拉）若在几次即存【之后】才回来，
+// 会把 state.config 换回发请求那一刻的旧快照 —— 下一次即存的补丁（主模型写 providers[].model、管家两档合并
+// stewardThreadModels、工作区清单）就从这份旧值上构造，等于把刚存的改动又写回去（真浏览器件 settings-ia 抓到过）。
+// 判据：请求在飞期间有一次配置保存落了盘，就保留那次保存回包里的 config（它更新），状态其余字段照常换新。
+let configWriteSeq = 0;
 async function refreshStatus() {
-  state.status = await api('/api/status');
+  const seqAtRequest = configWriteSeq;
+  const fresh = await api('/api/status');
+  if (configWriteSeq !== seqAtRequest && state.config && fresh) fresh.config = state.config;
+  state.status = fresh;
   state.config = state.status.config || {};
   for (const provider of state.config.providers || []) provider.models = providerModels(provider);
   applyTheme(state.config.theme || 'dark');
@@ -214,9 +224,16 @@ function currentAgentCliPath() {
   const detectedKey = type === 'kimi' ? 'detectedKimiPath' : 'detectedClaudePath';
   return state.config?.[pathKey] || state.status?.[detectedKey] || '';
 }
+// W6：「用哪个命令行引擎」并进了「模型分配」的主模型那一行（原 #cfgAgentCliType 那枚选择器退役），所以这里按
+// 【全局】config.agentCliType 显隐 —— 设置页讲的是全局默认，不是正在看的那条线程（修前退回 currentAgentCliType()
+// 会跟着线程路由走）。命令行引擎页顶上那一行说明也在这里写（写的是哪一个、去哪儿换）。
+function settingsAgentCliType() {
+  const type = String((state.config && state.config.agentCliType) || 'claude');
+  return Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude';
+}
 function updateAgentCliSettingsVisibility() {
-  const selected = $('cfgAgentCliType');
-  const type = selected && Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, selected.value) ? selected.value : currentAgentCliType();
+  const type = settingsAgentCliType();
+  { const note = $('agentCliCurrentHint'); if (note) note.textContent = t('settings.agentCli.current', { name: AGENT_CLI_LABELS[type] }); }
   document.querySelectorAll('[data-agent-cli-path]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliPath !== type));
   document.querySelectorAll('[data-agent-cli-only]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliOnly !== type));
   const effort = $('cfgThinkingEffort');
@@ -251,61 +268,123 @@ function lastUsedEngineText() {
   const label = engineVisual(meta).label;
   return t('settings.newThreadEngine.lastIs', { p1: meta.model ? `${label} · ${meta.model}` : label });
 }
-// 133d（用户 2026-09-21「默认的对话主模型似乎没法在设置里改」）：基础页「对话主模型」—— 全局主端点（activeProvider）
+// 133d（用户 2026-09-21「默认的对话主模型似乎没法在设置里改」）：「对话主模型」—— 全局主端点（activeProvider）
 // 与主模型。顶栏 #modelChip 退役（121-K5）后这两个键再没有界面能改；线程头 chip 写的是会话级路由，不动它们。
-// 两枚选择器【选中即存】（与语音那几栏同模具），不进底部「保存」那份整体补丁：
-//   · 端点 = Agent CLI（值 ''，兼容用）或某个能对话的服务商（只做语音的、toolbox- 自动接入的不列）；
-//   · 模型 = 该服务商 models 里的一条（写进 providers[].model），CLI 时是 /api/status 的 models（写 config.model）。
-// 弹窗开着时 providersDraft 里那条的 model 也同步，否则底部「保存」会把旧草稿盖回去（addAsrModel 同一条教训）。
-function mainEngineCliLabel() {
-  const type = state.config && state.config.agentCliType === 'kimi' ? 'kimi' : 'claude';
-  return t('settings.mainEngine.cli', { name: AGENT_CLI_LABELS[type] });
+// 两枚选择器【选中即存】：
+//   · 引擎 = 两个命令行引擎之一，或某个能对话的服务商（只做语音的、toolbox- 自动接入的不列）；
+//   · 模型 = 该服务商 models 里的一条（写进 providers[].model），命令行引擎时是它自己的模型清单（写 config.model）。
+// W6（引擎三处合一处）：修前「用哪个命令行引擎」是 Agent CLI 页另一枚 #cfgAgentCliType（走页脚整份保存），与这里那一项
+// 「Agent CLI（兼容用）」、Agent CLI 页的「新线程默认引擎」三处各管一截。现在两个命令行引擎在这枚下拉里各是一项：
+// 选它 = 一次写 activeProvider:'' ＋ agentCliType ＋ config.model；「新线程默认引擎」就在这一行正下方。
+// 这一行随「模型分配」页搬家；服务商草稿不再需要在这里手动同步 —— saveConfigPartial 成功之后统一三方合并（见 syncProvidersDraft）。
+// 命令行两项的值带一个 US 分隔符前缀（fromCharCode(31) 构造，与 ASR_VALUE_SEP 同一条纪律），不会与任何服务商 id 撞车。
+const CLI_ENGINE_PREFIX = String.fromCharCode(31) + 'cli:';
+const cliEngineValue = type => CLI_ENGINE_PREFIX + type;
+function parseMainEngineValue(value) {
+  const raw = String(value || '');
+  if (raw.startsWith(CLI_ENGINE_PREFIX)) {
+    const type = raw.slice(CLI_ENGINE_PREFIX.length);
+    return { cli: Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude', providerId: '' };
+  }
+  return raw ? { cli: '', providerId: raw } : { cli: settingsAgentCliType(), providerId: '' };
 }
 function fillMainEngineSelects() {
   const provSel = $('cfgMainProvider'), modelSel = $('cfgMainModel'), hint = $('mainEngineHint');
   if (!provSel || !modelSel) return;
   const c = state.config || {};
-  const opt = (text, value) => { const o = el('option'); o.textContent = text; o.value = value; return o; };
   const cur = String(c.activeProvider || '');
   const pid = cur && cur !== 'claude-cli' ? cur : '';
-  provSel.textContent = '';
-  provSel.appendChild(opt(mainEngineCliLabel(), ''));
-  for (const p of chatProviders(c)) provSel.appendChild(opt(String(p.label || p.id), String(p.id)));
-  provSel.value = pid;
-  if (provSel.value !== pid) provSel.value = '';
+  fillProviderSelect(provSel, {
+    lead: Object.keys(AGENT_CLI_LABELS).map(type => ({ value: cliEngineValue(type), label: t('settings.models.cliOption', { name: AGENT_CLI_LABELS[type] }) })),
+    providers: chatProviders(c),
+    value: pid || cliEngineValue(settingsAgentCliType()),
+    savedLabel: value => t('settings.steward.providerSaved', { value }),
+  });
   const fillModels = () => {
-    const chosen = String(provSel.value || '');
-    const provider = () => (state.config.providers || []).find(p => p.id === chosen);
+    const pick = parseMainEngineValue(provSel.value);
+    const provider = () => (state.config.providers || []).find(p => p.id === pick.providerId);
+    // 换到另一个命令行引擎时，旧引擎的模型名对新引擎没有意义：清成它自己的缺省。
+    const sameCli = Boolean(pick.cli) && pick.cli === settingsAgentCliType();
     bindModelSelect(modelSel, {
       provider,
-      ...(chosen ? {} : { models: () => agentModels(state.config.agentCliType || 'claude', state.status?.models || []) }),
-      value: chosen ? provider()?.model || '' : state.config.model || '',
-      emptyLabel: () => t('settings.mainEngine.defaultModel'),
+      ...(pick.providerId ? {} : { models: () => agentModels(pick.cli, sameCli ? (state.status?.models || []) : []) }),
+      value: pick.providerId ? provider()?.model || '' : (sameCli ? state.config.model || '' : ''),
+      emptyLabel: () => t(pick.providerId ? 'settings.models.providerDefault' : 'settings.mainEngine.defaultModel'),
     });
   };
   fillModels();
-  const paintHint = () => { if (hint) hint.textContent = t(c.newThreadEngine === 'global' ? 'settings.mainEngine.hintGlobal' : 'settings.mainEngine.hintLast'); };
-  paintHint();
+  if (hint) hint.textContent = t(c.newThreadEngine === 'global' ? 'settings.mainEngine.hintGlobal' : 'settings.mainEngine.hintLast');
   provSel.onchange = () => { fillModels(); void setGlobalEngineDefault(provSel.value, modelSel.value); };
   modelSel.onchange = () => { void setGlobalEngineDefault(provSel.value, modelSel.value); };
 }
-async function setGlobalEngineDefault(providerId, modelId) {
-  const pid = String(providerId || ''), model = String(modelId || '');
+async function setGlobalEngineDefault(engineValue, modelId) {
+  const pick = parseMainEngineValue(engineValue);
+  const pid = pick.providerId, model = String(modelId || '');
   const patch = { activeProvider: pid };
-  const withModel = list => (Array.isArray(list) ? list : []).map(p => (p && p.id === pid ? { ...p, model } : p));
-  if (pid) patch.providers = withModel(state.config.providers); else patch.model = model;
+  if (pid) patch.providers = (Array.isArray(state.config.providers) ? state.config.providers : []).map(p => (p && p.id === pid ? { ...p, model } : p));
+  else { patch.model = model; patch.agentCliType = pick.cli; }
+  const cliChanged = !pid && pick.cli !== settingsAgentCliType();
+  // 修前页脚「保存」里的那一段原样搬来：全局命令行引擎换了、而正打开的这条线程走的就是命令行引擎 —— 这条线程跟着换。
+  // 判据必须在落盘【之前】取：没钉路由的线程会回落到全局，落盘之后再问就问成了新值。
+  const followOpened = cliChanged && Boolean(state.currentSession?.id && currentConversationRoute().engine === 'agent');
   const provSel = $('cfgMainProvider'), modelSel = $('cfgMainModel');
   if (provSel) provSel.disabled = true; if (modelSel) modelSel.disabled = true;
   const saved = await saveConfigPartial(patch);
   if (provSel) provSel.disabled = false; if (modelSel) modelSel.disabled = false;
   if (!saved) { fillMainEngineSelects(); return false; }
-  if (pid && state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) {
-    const draft = state.providersDraft.find(p => p.id === pid);
-    if (draft) draft.model = model;
+  if (cliChanged) {
+    updateAgentCliSettingsVisibility();
+    if (followOpened) await followOpenedAgentRoute(pick.cli);
+    void refreshModels();
   }
   updateEngineDependentUI();
   toast(t('settings.mainEngine.toast'), 'ok');
   return true;
+}
+async function followOpenedAgentRoute(type) {
+  if (!state.currentSession?.id) return;
+  const engineRoute = { engine: 'agent', agentCliType: type === 'kimi' ? 'kimi' : 'claude', model: currentModelId() };
+  try {
+    const result = await api(`/api/sessions/${encodeURIComponent(state.currentSession.id)}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'PATCH' }, body: JSON.stringify({ engineRoute }),
+    });
+    if (result?.session) state.currentSession = result.session;
+    else state.currentSession.engineRoute = engineRoute;
+  } catch (error) { toast(t('toast.saveFail', { p1: apiErrText(error) }), 'err'); }
+}
+// W6「模型分配」里 provider-settings 管的另两行：上下文压缩、子代理（管家三行归 steward-settings.js，句尾改错归语音那一段）。
+// 同一个组件：左边 fillProviderSelect、右边 bindModelSelect；服务商一换模型清空（＝那一家的缺省模型），选中即存。
+function bindAssignRow(provSel, modelSel, { providers, providerValue, modelValue, follow, followModelKey, onPick }) {
+  if (!provSel || !modelSel) return;
+  fillProviderSelect(provSel, { providers: providers(), value: providerValue, follow, savedLabel: value => t('settings.steward.providerSaved', { value }) });
+  const fillModels = value => bindModelSelect(modelSel, {
+    provider: () => providers().find(p => p && p.id === provSel.value) || null,
+    value, emptyLabel: () => t(provSel.value ? 'settings.models.providerDefault' : followModelKey),
+  });
+  fillModels(String(modelValue || ''));
+  provSel.onchange = () => { fillModels(''); void onPick({ provider: String(provSel.value || ''), model: '' }); };
+  modelSel.onchange = () => { void onPick({ provider: String(provSel.value || ''), model: String(modelSel.value || '') }); };
+}
+function fillCompactAssignRow() {
+  const c = state.config || {};
+  bindAssignRow($('cfgCompactProviderId'), $('cfgCompactModel'), {
+    // 与电量表弹层那一枚同一份候选（能对话、没停用的服务商）；两处写的是同一对键。
+    providers: () => chatProviders(state.config).filter(p => p.enabled !== false),
+    providerValue: c.compactProviderId, modelValue: c.compactModel,
+    follow: t('settings.models.compactFollow'), followModelKey: 'settings.models.followModel',
+    onPick: ({ provider, model }) => saveConfigPartial({ compactProviderId: provider, compactModel: provider ? model : '' }),
+  });
+}
+// 子代理那一行的选项与模型清单仍由 agent-roles.js 的 populateSubagentPreferenceSelects 建（D32 锁：那个函数归角色域），
+// 这里只接「选中即存」。服务商一换，模型【一并】写空 —— 不读模型下拉的当前值（那枚下拉与这里谁先被通知不确定）。
+let subagentRowWired = false;
+function wireSubagentAssignRow() {
+  if (subagentRowWired) return;
+  const provSel = $('cfgSubagentPreferredProvider'), modelSel = $('cfgSubagentPreferredModel');
+  if (!provSel || !modelSel) return;
+  subagentRowWired = true;
+  provSel.addEventListener('change', () => { void saveConfigPartial({ subagentPreferredProvider: String(provSel.value || '').trim().slice(0, 120), subagentPreferredModel: '' }); });
+  modelSel.addEventListener('change', () => { void saveConfigPartial({ subagentPreferredModel: String(modelSel.value || '').trim().slice(0, 160) }); });
 }
 // Human-readable name of the current engine: the provider's label (fallback id) or selected Agent CLI.
 function engineLabel() {
@@ -512,12 +591,17 @@ async function saveConfigPartial(patch) {
   try {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
     state.config = res.config;
+    configWriteSeq += 1;   // W6：在飞的 refreshStatus 回来时认得出「我那份 config 已经过期」（见 refreshStatus 头注）
     for (const provider of state.config.providers || []) provider.models = providerModels(provider);
     refreshModelSelects();
     // 117j B2（权限口径同步）：谁写全局配置都在这一处刷一次读面，不必给每个调用方各补一遍
     // （那正是当初漏掉三处的原因）。121-K5：要刷的那一面从退役的 #permChip 换成线程头那一组
     // chip —— 权限档与引擎路由的「跟随全局」显示值都是从 state.config 读出来的。
     onEngineConfigChanged();
+    // W6（修「草稿过期会回滚」）：同一个道理用在设置页的服务商草稿上 —— 推理强度、线程头「设为新任务默认」之外的
+    // 全局写口、删模型行、主模型、语音识别……都经这里，所以草稿在这一处统一对齐一次，不再逐个写口各补一段。
+    syncProvidersDraft(state.config.providers);
+    flashSettingsSaved();
     return true;
   } catch (e) {
     // 107-S2（46 号文 §5 ⑦b M5）：服务端拒绝了这一次保存，因为某条 Provider 的地址变了、而密钥框里
@@ -534,23 +618,143 @@ async function saveConfigPartial(patch) {
   }
 }
 
+/* ---------------- W6：服务商草稿（设置页唯一一处还要「改完再保存」的地方）---------------- */
+// 草稿三件事：
+//   · providersDraftBase  —— 草稿上一次与配置对齐时那份 providers 的快照（三方合并的共同祖先）；
+//   · providersDraftDirty —— 用户在卡片上真的动过（输入、增删卡片）；只有这种改动才需要「保存服务商」；
+//   · 对齐（syncProvidersDraft）—— 配置一变（任何写口经 saveConfigPartial、refreshStatus、打开设置），草稿干净就整份换成新值，
+//     草稿脏就三方合并（util.js 的 rebaseProvidersDraft）：用户没动过的字段跟新值走、动过的留用户的。
+// 修前（缺陷①）：推理强度、全局切模型、删模型行、线程头「设为新任务默认」这几个写口只改 config 不碰草稿，openModal 又在
+// fillSettings 之前摘 hidden（「弹窗隐藏才播种」恒为假）—— 草稿停在第一次打开设置时的样子，之后按页脚「保存」就把旧的
+// model／reasoningEffort／hiddenModels 整份写回去。草稿对象【就地】更新（卡片的输入回调抓着的就是它们），焦点在卡片里时不重画。
+const isToolboxProvider = p => Boolean(p && String(p.id || '').startsWith('toolbox-'));
+const cloneJson = value => JSON.parse(JSON.stringify(value));
+function adoptProvidersInPlace(current, next) {
+  const live = new Map((Array.isArray(current) ? current : []).filter(p => p && p.id).map(p => [String(p.id), p]));
+  return next.map(p => {
+    const same = p && p.id ? live.get(String(p.id)) : null;
+    if (!same || same === p) return p;
+    for (const key of Object.keys(same)) if (!Object.prototype.hasOwnProperty.call(p, key)) delete same[key];
+    Object.assign(same, p);
+    return same;
+  });
+}
+function seedProvidersDraft(providers) {
+  state.providersDraft = cloneJson(Array.isArray(providers) ? providers : []);
+  state.providersDraftBase = cloneJson(Array.isArray(providers) ? providers : []);
+  state.providersDraftDirty = false;
+}
+function providersListFocused() {
+  const box = $('providersList');
+  const active = document.activeElement;
+  return Boolean(box && active && active !== document.body && box.contains(active));
+}
+function syncProvidersDraft(nextProviders) {
+  if (state.providersDraftSeeded !== true || !Array.isArray(state.providersDraft) || !Array.isArray(nextProviders)) return false;
+  let changed = false;
+  if (state.providersDraftDirty !== true) {
+    changed = canonicalJson(state.providersDraft) !== canonicalJson(nextProviders);
+    if (changed) state.providersDraft = adoptProvidersInPlace(state.providersDraft, cloneJson(nextProviders));
+  } else {
+    const merged = rebaseProvidersDraft(state.providersDraftBase || [], state.providersDraft, nextProviders, { serverOwned: isToolboxProvider });
+    changed = merged.changed;
+    if (changed) state.providersDraft = adoptProvidersInPlace(state.providersDraft, merged.providers);
+  }
+  state.providersDraftBase = cloneJson(nextProviders);
+  if (changed && !providersListFocused()) renderProviders();
+  paintProvidersDirty();
+  return changed;
+}
+function markProvidersDirty() {
+  if (state.providersDraftSeeded !== true) return;
+  state.providersDraftDirty = true;
+  paintProvidersDirty();
+}
+// 保存条、导航页签上的小圆点与两枚按钮读同一个真值：草稿有没有用户动过、还没存的改动。
+function paintProvidersDirty() {
+  const dirty = state.providersDraftSeeded === true && state.providersDraftDirty === true;
+  const bar = $('providersSaveBar'); if (bar) bar.dataset.dirty = dirty ? 'true' : 'false';
+  const note = $('providersDirtyNote'); if (note) note.textContent = t(dirty ? 'settings.providers.dirty' : 'settings.providers.clean');
+  const save = $('saveConfigBtn'); if (save) save.disabled = !dirty;
+  const discard = $('providersDiscardBtn'); if (discard) discard.disabled = !dirty;
+  const tab = document.querySelector('#settingsTabs button[data-stab="providers"]');
+  if (tab) { if (dirty) tab.dataset.dirty = 'true'; else delete tab.dataset.dirty; }
+}
+function discardProvidersDraft() {
+  const providers = state.config && state.config.providers;
+  seedProvidersDraft(providers);
+  state.providersDraftSeeded = Array.isArray(providers);
+  renderProviders();
+  paintProvidersDirty();
+}
+let providersDraftUiWired = false;
+function wireProvidersDraftUi() {
+  if (providersDraftUiWired) return;
+  const box = $('providersList');
+  if (!box) return;
+  providersDraftUiWired = true;
+  // 事件委托：卡片会整张重画，监听挂在容器上。只认用户的输入／选择（程序回填下拉不派发事件）。
+  box.addEventListener('input', markProvidersDirty);
+  box.addEventListener('change', markProvidersDirty);
+  const discard = $('providersDiscardBtn');
+  if (discard) discard.onclick = () => discardProvidersDraft();
+}
+// 保存成功的轻量回执：设置弹窗开着时在页脚状态行闪一句（每一处「改了就存」共用这一句，不各自弹 toast）。
+let settingsSavedTimer = null;
+function flashSettingsSaved() {
+  const modal = $('settingsModal');
+  const bar = $('settingsStatus');
+  if (!modal || !bar || modal.classList.contains('hidden')) return;
+  bar.textContent = `${t('common.saved')} ✓`;
+  if (settingsSavedTimer) clearTimeout(settingsSavedTimer);
+  settingsSavedTimer = setTimeout(() => { settingsSavedTimer = null; if (bar.textContent === `${t('common.saved')} ✓`) bar.textContent = ''; }, 2000);
+}
+// 等你回话的两条时限（permissionTimeoutMs／questionTimeoutMs；0 = 不限时是出厂值）。档位只是候选：落盘值不在档位里（手改过
+// config.json、或管家改过）就补一条显示它本身，不静默改写；钳位只在服务端 normalizeConfig 做。
+const PERMISSION_WAIT_CHOICES = Object.freeze([0, 30000, 60000, 120000, 300000, 600000]);
+const QUESTION_WAIT_CHOICES = Object.freeze([0, 300000, 900000, 1800000, 3600000]);
+function waitChoiceLabel(ms) {
+  if (!(ms > 0)) return t('settings.security.wait.none');
+  return ms % 60000 === 0 ? t('settings.security.wait.minutes', { n: ms / 60000 }) : t('settings.security.wait.seconds', { n: Math.round(ms / 1000) });
+}
+function fillWaitSelect(id, choices, current) {
+  const select = $(id);
+  if (!select) return;
+  const value = Number(current) > 0 ? Math.round(Number(current)) : 0;
+  const values = choices.includes(value) ? [...choices] : [...choices, value].sort((a, b) => a - b);
+  select.replaceChildren(...values.map(ms => { const option = el('option', '', waitChoiceLabel(ms)); option.value = String(ms); return option; }));
+  select.value = String(value);
+}
+
 /* 第61波：Agent 角色设置与子代理偏好选择已拆入 ./js/agent-roles.js。 */
 function fillSettings() {
   const c = state.config;
+  // W6：fillSettings 会在弹窗开着时重入（打开、任一次 refreshStatus）。别处的控件都已「改了就存」，唯一会丢的是
+  // 【正在打字、还没失焦】的那一格 —— 回填前记下它，回填后原样放回去。
+  const focused = document.activeElement;
+  const keepTyping = focused && /^(INPUT|TEXTAREA)$/.test(focused.tagName) && !/^(checkbox|radio)$/.test(focused.type || '')
+    && $('settingsModal') && $('settingsModal').contains(focused) && !($('providersList') && $('providersList').contains(focused))
+    ? { node: focused, value: focused.value } : null;
+  bindInstantSettings();
+  wireProvidersDraftUi();
+  wireSubagentAssignRow();
   updateAgentTeamButton();
   $('workspaceInput').value = c.defaultWorkspace || '';
   renderWorkspacePerms(); // v2.7 workspace permissions
   { const el0 = $('cfgLocale'); if (el0) el0.value = ['auto', 'zh-CN', 'en-US'].includes(c.locale) ? c.locale : 'auto'; }
   { const el0 = $('cfgUiMode'); if (el0) el0.value = (c.uiMode === 'simple' ? 'simple' : 'pro'); } // v0.9-S1
   { const el0 = $('cfgOutputStyle'); if (el0) el0.value = (c.outputStyle === 'concise' ? 'concise' : 'detailed'); } // v0.9-S1
-  { const el0 = $('cfgAgentCliType'); if (el0) el0.value = ['claude', 'kimi'].includes(c.agentCliType) ? c.agentCliType : 'claude'; }
   $('claudePathInput').value = c.claudePath || state.status?.detectedClaudePath || '';
   $('kimiPathInput').value = c.kimiPath || state.status?.detectedKimiPath || '';
-  { const el0 = $('cfgAgentCliType'); if (el0 && !el0.dataset.agentCliWired) { el0.dataset.agentCliWired = '1'; el0.addEventListener('change', updateAgentCliSettingsVisibility); } }
+  // W6：权限与安全页的两条等待时限；用量与限额页的回合看门狗（turnIdleTimeoutMs，按分钟显示）。
+  fillWaitSelect('cfgPermissionTimeout', PERMISSION_WAIT_CHOICES, c.permissionTimeoutMs);
+  fillWaitSelect('cfgQuestionTimeout', QUESTION_WAIT_CHOICES, c.questionTimeoutMs);
+  { const el0 = $('cfgTurnIdleMinutes'); if (el0) el0.value = String(Math.max(1, Math.min(60, Math.round((Number(c.turnIdleTimeoutMs) || 600000) / 60000)))); }
+  try { fillCompactAssignRow(); } catch (err) { console.warn('compact assign row', err); }   // W6：模型分配 · 上下文压缩
   // 123-N2:新线程默认引擎(last/global)＋「上次用的」现在是什么。
   { const el0 = $('cfgNewThreadEngine'); if (el0) el0.value = c.newThreadEngine === 'global' ? 'global' : 'last'; }
   { const el0 = $('newThreadEngineHint'); if (el0) el0.textContent = lastUsedEngineText(); }
-  try { fillMainEngineSelects(); } catch (err) { console.warn('main engine selects', err); }   // 133d：基础页「对话主模型」
+  try { fillMainEngineSelects(); } catch (err) { console.warn('main engine selects', err); }   // 133d：「对话主模型」（W6 起在模型分配页）
   updateAgentCliSettingsVisibility();
   $('cfgPartial').checked = !!c.includePartialMessages;
   $('cfgBeta').checked = !!c.betaInterleavedThinking;
@@ -607,7 +811,7 @@ function fillSettings() {
   const dr = $('advDataRoot'); if (dr) dr.textContent = s.dataRoot || '';
   const av = $('advVersion'); if (av) av.textContent = 'v' + (s.version || '') + ' · ' + (s.launchMode || '');
   const ao = $('advOverlayId'); if (ao) ao.textContent = s.overlayId || '';
-  // 月度成本预算（基础 tab，简易模式可见）+ Claude 第三方端点可选单价（Claude CLI tab）。留空=不设/不估。
+  // 月度成本预算（W6 起在「用量与限额」页，简易模式可见）+ Claude 第三方端点可选单价（Agent CLI 页）。留空=不设/不估。
   { const b = c.usageBudget || {}; const m = $('cfgUsageBudgetMonthly'); if (m) m.value = (b.monthly === 0 || b.monthly) ? String(b.monthly) : ''; const cur = $('cfgUsageBudgetCurrency'); if (cur) cur.value = b.currency || 'CNY'; }
   { const cpr = c.claudePricing || {}; const pi = $('cfgClaudePriceIn'); if (pi) pi.value = (cpr.inputPerM === 0 || cpr.inputPerM) ? String(cpr.inputPerM) : ''; const po = $('cfgClaudePriceOut'); if (po) po.value = (cpr.outputPerM === 0 || cpr.outputPerM) ? String(cpr.outputPerM) : ''; const pc = $('cfgClaudePriceCurrency'); if (pc) pc.value = cpr.currency || 'CNY'; }
   populateProviderPresets();
@@ -615,6 +819,8 @@ function fillSettings() {
   // 与 117j 管家旁路同款保护:这里抛错不该带走后面的草稿播种与 renderProviders()。
   try { renderAsrSettings(); }
   catch (error) { console.warn('[asr] renderAsrSettings failed', error); }
+  try { renderAsrFixAssignRow(); }   // W6：模型分配 · 句尾改错那一行（同一层旁路保护）
+  catch (error) { console.warn('[asr] renderAsrFixAssignRow failed', error); }
   try { renderToolboxSettings(); }   // ruyi-toolbox 扩展组件一栏(没登记任何组件时整块不渲染)
   catch (error) { console.warn('[toolbox] renderToolboxSettings failed', error); }
   // 117j classic-2（经典壳回归审查 P1）：这两条是【管家壳的】旁路，谁抛错都不该把它后面的
@@ -630,12 +836,13 @@ function fillSettings() {
   // A8: fillSettings() 会被重入（openModal 打开设置页、以及任一次保存后的 refreshStatus）。若设置弹窗
   // 正开着，用户可能正在编辑某个 provider 草稿 —— 这里重新播种会把他没保存的编辑悄悄丢掉。
   // user may be mid-edit on a provider draft — re-seeding it here would silently discard their edits.
-  // Skip the draft replay + re-render while open; everything else (read-only-ish fields) is fine to set.
   // 2026-09-06 事故根因（对抗审查 P0-1）：navigation-controls 的 openModal 先摘 hidden 再调 fillSettings，
   // 「弹窗隐藏才播种」这条守卫在用户点开设置那一刻恒为假 —— 草稿只有被后台定时刷新碰巧播种过才有值。
-  // 从未播种时无论弹窗开合都播种（此时不可能有用户未保存的编辑可丢）；已播种且弹窗开着才跳过。
-  if (state.providersDraftSeeded !== true || $('settingsModal').classList.contains('hidden')) {
-    state.providersDraft = JSON.parse(JSON.stringify(c.providers || []));
+  // W6（缺陷①）：那道「已播种且弹窗开着就跳过」的守卫正是草稿过期的另一半 —— 跳过之后草稿就再也追不上别处的写口。
+  // 现在已播种时一律【对齐】（syncProvidersDraft：没动过就整份换新、动过就三方合并，用户的编辑一个字不丢）；
+  // 从未播种时照旧播种（此时不可能有用户未保存的编辑可丢）。
+  if (state.providersDraftSeeded !== true) {
+    seedProvidersDraft(c.providers);
     // 2026-09-06 事故：草稿从未由 config 播种（initial []）时被整份保存写成 providers: []，用户的五个
     // Provider 连同密钥被清空。此后 saveSettings 只在「草稿确实来自 config 或用户手动改过」时才上传
     // providers（见 providersDraftSeeded），否则省略该键让服务端保留现值。
@@ -650,15 +857,12 @@ function fillSettings() {
     renderProviders();
   } else if (Array.isArray(c.providers) && Array.isArray(state.providersDraft)) {
     // 2026-09-21：`toolbox-` 服务商归自动发现所有，用户在卡片上改不了它 —— 弹窗开着时也照 config 同步这几条
-    // （补上刚接入的、撤掉已停用的），别的卡片上没存的编辑原样保留（编辑值住在草稿对象上）。修前草稿是页面加载时的
-    // 快照，组件晚一两秒才接好的那条永远不在设置页里出现；服务端另有一道闸保证整份保存撤不掉它（13 applyConfigPatch）。
-    const isToolbox = p => Boolean(p && String(p.id || '').startsWith('toolbox-'));
-    const owned = c.providers.filter(isToolbox);
-    if (JSON.stringify(state.providersDraft.filter(isToolbox)) !== JSON.stringify(owned)) {
-      state.providersDraft = [...state.providersDraft.filter(p => !isToolbox(p)), ...JSON.parse(JSON.stringify(owned))];
-      renderProviders();
-    }
+    // （补上刚接入的、撤掉已停用的），别的卡片上没存的编辑原样保留（编辑值住在草稿对象上）。服务端另有一道闸保证
+    // 整份保存撤不掉它（13 applyConfigPatch）。W6：这一条并进了通用的对齐（rebaseProvidersDraft 的 serverOwned）。
+    syncProvidersDraft(c.providers);
   }
+  paintProvidersDirty();
+  if (keepTyping && keepTyping.node.value !== keepTyping.value) keepTyping.node.value = keepTyping.value;
 }
 // 114a(45 号文 §2 ①/§7): 设置页「语音识别」选择器 —— 服务商页签内,provider+模型一对,选中即存
 // (saveConfigPartial 部分补丁,与 compactProviderId 选择器同模具)。只列 models[].caps 含 'asr' 的模型;
@@ -847,6 +1051,8 @@ function asrFixHintText(mode, providerId) {
   if (useLlm) return t('settings.asrFix.hint.llm', { llm });
   return t('settings.asrFix.hint.none');
 }
+// W6：这一栏拆成两半 —— 「怎么改」（方式四选一）留在语音区；「改字用哪个大模型」是一次模型分配，搬进「模型分配」
+// 那张表的末行（renderAsrFixAssignRow，与其余几行同一个组件）。语音区这里留一句指路，点了直达那一行。
 function buildAsrFixBlock() {
   const block = el('div', 'field-block asr-fix-block');
   block.appendChild(el('label', '', t('settings.asrFix.title')));
@@ -856,36 +1062,69 @@ function buildAsrFixBlock() {
   modeSel.setAttribute('aria-label', t('settings.asrFix.title'));
   for (const m of ASR_FIX_MODES) modeSel.appendChild(opt(t('settings.asrFix.mode.' + m), m));
   modeSel.value = ASR_FIX_MODES.includes(cfg.asrFixMode) ? cfg.asrFixMode : 'auto';
-  const choices = asrProviderChoices();
-  const main = asrFixLlmProvider('');
-  const provSel = el('select', 'asr-fix-provider');
-  provSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
-  provSel.appendChild(opt(t('settings.asrFix.followMain', { name: main ? (main.label || main.id) : t('settings.asrFix.noMain') }), ''));
-  for (const p of choices) provSel.appendChild(opt(p.label || p.id, p.id));
-  provSel.value = String(cfg.asrFixProviderId || '');
-  if (provSel.value !== String(cfg.asrFixProviderId || '')) provSel.value = '';
-  const modelSel = el('select', 'asr-fix-model');
-  modelSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
-  const fillModels = () => bindModelSelect(modelSel, {
-    provider: () => asrFixLlmProvider(provSel.value),
-    value: cfg.asrFixModel || '', emptyLabel: () => t('settings.mainEngine.defaultModel'),
-  });
-  fillModels();
-  const hint = el('p', 'field-help muted', asrFixHintText(modeSel.value, provSel.value));
+  const hint = el('p', 'field-help muted', asrFixHintText(modeSel.value, cfg.asrFixProviderId));
   const save = async patch => {
-    modeSel.disabled = provSel.disabled = modelSel.disabled = true;
+    modeSel.disabled = true;
     const saved = await saveConfigPartial(patch);
-    modeSel.disabled = provSel.disabled = modelSel.disabled = false;
-    if (saved) { hint.textContent = asrFixHintText(modeSel.value, provSel.value); toast(t('settings.asrFix.toast'), 'ok'); }
+    modeSel.disabled = false;
+    if (saved) { hint.textContent = asrFixHintText(modeSel.value, (state.config || {}).asrFixProviderId); toast(t('settings.asrFix.toast'), 'ok'); }
     return saved;
   };
   modeSel.onchange = () => { void save({ asrFixMode: modeSel.value }); };
-  provSel.onchange = () => { cfg.asrFixModel = ''; fillModels(); void save({ asrFixProviderId: provSel.value, asrFixModel: '' }); };
-  modelSel.onchange = () => { void save({ asrFixModel: modelSel.value }); };
-  const row1 = el('div', 'asr-add-row'); row1.append(modeSel);
-  const row2 = el('div', 'asr-add-row'); row2.append(el('span', 'field-help', t('settings.asrFix.providerLabel')), provSel, modelSel);
-  block.append(row1, row2, hint);
+  const where = el('button', 'btn btn-sm asr-fix-goto', t('settings.asrFix.gotoAssign'));
+  where.type = 'button';
+  where.onclick = () => { switchSettingsTab('models', true); const row = $('modelAssignList') && $('modelAssignList').querySelector('[data-assign="asrFix"]'); if (row) { try { row.scrollIntoView({ block: 'center' }); } catch { /* 老宿主 */ } } };
+  const row1 = el('div', 'asr-add-row'); row1.append(modeSel, where);
+  block.append(row1, hint);
   return block;
+}
+// 「模型分配」表末行：句尾改错用哪个大模型（asrFixProviderId／asrFixModel）。index.html 对语音零静态标记（asr-config-ui.static
+// 钉着），所以这一行由本函数现建、只建一次，之后每次 fillSettings 只重填两枚下拉。候选口径不变：非命令行、非 toolbox- 的服务商。
+function renderAsrFixAssignRow() {
+  const list = $('modelAssignList');
+  if (!list) return;
+  let row = list.querySelector('[data-assign="asrFix"]');
+  if (!row) {
+    row = el('div', 'model-assign-row');
+    row.dataset.assign = 'asrFix';
+    const label = el('div', 'model-assign-label');
+    const title = el('label', '', t('settings.models.row.asrFix'));
+    const pick = el('div', 'model-assign-pick');
+    const provSel0 = el('select', 'asr-fix-provider');
+    provSel0.id = 'asrFixAssignProvider';   // 只给 <label for> 用；取节点一律经这一行的 querySelector（dom-contract 只认静态 id）
+    title.htmlFor = provSel0.id;
+    label.append(title, el('p', 'field-help muted', t('settings.models.row.asrFixHint')));
+    pick.append(provSel0, el('select', 'asr-fix-model'));
+    row.append(label, pick);
+    list.appendChild(row);
+  }
+  const cfg = state.config || {};
+  const provSel = row.querySelector('select.asr-fix-provider'), modelSel = row.querySelector('select.asr-fix-model');
+  if (!provSel || !modelSel) return;
+  row.querySelector('.model-assign-label label').textContent = t('settings.models.row.asrFix');
+  row.querySelector('.model-assign-label .field-help').textContent = t('settings.models.row.asrFixHint');
+  provSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
+  modelSel.setAttribute('aria-label', t('settings.asrFix.providerLabel'));
+  const main = asrFixLlmProvider('');
+  fillProviderSelect(provSel, {
+    providers: asrProviderChoices(), value: cfg.asrFixProviderId,
+    follow: t('settings.asrFix.followMain', { name: main ? (main.label || main.id) : t('settings.asrFix.noMain') }),
+    savedLabel: value => t('settings.steward.providerSaved', { value }),
+  });
+  const fillModels = value => bindModelSelect(modelSel, {
+    provider: () => asrFixLlmProvider(provSel.value),
+    value, emptyLabel: () => t(provSel.value ? 'settings.models.providerDefault' : 'settings.models.followModel'),
+  });
+  fillModels(String(cfg.asrFixModel || ''));
+  const save = async patch => {
+    provSel.disabled = modelSel.disabled = true;
+    const saved = await saveConfigPartial(patch);
+    provSel.disabled = modelSel.disabled = false;
+    if (saved) toast(t('settings.asrFix.toast'), 'ok');
+    return saved;
+  };
+  provSel.onchange = () => { fillModels(''); void save({ asrFixProviderId: provSel.value, asrFixModel: '' }); };
+  modelSel.onchange = () => { void save({ asrFixModel: modelSel.value }); };
 }
 // 133c（54 号文 §4；用户 2026-09-21「分几个轻度/重度的语音识别选项…这套设置选项确实有点复杂了」）：
 // 语音输入先选【档位】，逐项指定收进折叠的「高级」区。档位【不是新配置键】—— 由现有三对键推算（选档位＝一次写这几对键），
@@ -1032,7 +1271,8 @@ async function saveToolboxPatch(patch) {
   return true;
 }
 function renderToolboxSettings() {
-  const host = $('stab-mcp');
+  // W6：「MCP 运维」并进「集成与 MCP」之后，这一栏落在那一页的 #toolboxSettingsHost（迁移中心在它之后追加）。
+  const host = $('toolboxSettingsHost') || $('stab-integrations');
   const view = (state.status && state.status.toolbox) || null;
   const components = (view && Array.isArray(view.components)) ? view.components : [];
   if (!host || !components.length) { if (toolboxSettingsBlock) { toolboxSettingsBlock.remove(); toolboxSettingsBlock = null; } return; }
@@ -1131,7 +1371,7 @@ function renderWorkspacePerms() {
     for (const k of ['read', 'write', 'execute']) {
       const lab = el('label', 'check ws-perm-check');
       const cb = el('input'); cb.type = 'checkbox'; cb.checked = w[k] !== false;
-      cb.addEventListener('change', () => { const cur = state.config.workspaces[i]; if (cur) cur[k] = cb.checked; });
+      cb.addEventListener('change', () => { const cur = state.config.workspaces[i]; if (cur) cur[k] = cb.checked; void saveWorkspaces(); });
       lab.append(cb, el('span', '', t('settings.workspacePerm.' + k)));
       row.append(lab);
     }
@@ -1140,17 +1380,43 @@ function renderWorkspacePerms() {
     const down = el('button', 'icon-btn ws-perm-btn', '↓'); down.type = 'button'; down.title = t('settings.workspacePerm.down'); down.disabled = i === ws.length - 1;
     down.addEventListener('click', () => moveWorkspace(i, i + 1));
     const rm = el('button', 'icon-btn ws-perm-btn ws-perm-rm', '×'); rm.type = 'button'; rm.title = t('settings.workspacePerm.remove');
-    rm.addEventListener('click', () => { state.config.workspaces.splice(i, 1); syncPrimaryInput(); renderWorkspacePerms(); });
+    rm.addEventListener('click', () => { state.config.workspaces.splice(i, 1); syncPrimaryInput(); renderWorkspacePerms(); void saveWorkspaces(); });
     row.append(up, down, rm);
     list.append(row);
   });
   const outside = $('cfgAllowOutsideWorkspace'); if (outside) outside.checked = state.config.allowOutsideWorkspace === true;
+}
+// W6：工作区清单的每一个动作（勾选、挪位、删、加）改完就存。修前它们只改内存里的 state.config.workspaces、等页脚「保存」，
+// 期间顶部工作区选择器若也改了清单，页脚一存就把它盖回去（同键两路写）。补丁构造原样搬自修前的页脚保存。
+function workspacePatch() {
+  // v2.7: sync the primary workspace input into the workspace list (the input edits the highest-priority path).
+  const primaryPath = $('workspaceInput') ? $('workspaceInput').value.trim() : '';
+  const ws = Array.isArray(state.config.workspaces) ? state.config.workspaces.map(w => ({ path: String(w.path || ''), read: w.read !== false, write: w.write !== false, execute: w.execute !== false })) : [];
+  if (primaryPath) {
+    const idx = ws.findIndex(w => w.path.toLowerCase() === primaryPath.toLowerCase());
+    if (idx === 0) ws[0].path = primaryPath;
+    else if (idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
+    else ws.unshift({ path: primaryPath, read: true, write: true, execute: true });
+  }
+  state.config.workspaces = ws;
+  return {
+    defaultWorkspace: primaryPath,
+    workspaces: ws.map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false })),
+    allowOutsideWorkspace: $('cfgAllowOutsideWorkspace') ? $('cfgAllowOutsideWorkspace').checked : (state.config.allowOutsideWorkspace === true),
+  };
+}
+async function saveWorkspaces() {
+  const saved = await saveConfigPartial(workspacePatch());
+  renderWorkspacePerms();
+  try { renderWorkspacePicker(); } catch (error) { console.warn('[settings] renderWorkspacePicker failed', error); }
+  return saved;
 }
 function moveWorkspace(from, to) {
   const ws = state.config.workspaces; if (!Array.isArray(ws) || to < 0 || to >= ws.length) return;
   const [x] = ws.splice(from, 1); ws.splice(to, 0, x);
   if (from === 0 || to === 0) syncPrimaryInput();
   renderWorkspacePerms();
+  void saveWorkspaces();
 }
 async function addWorkspace() {
   const input = $('workspaceAddInput');
@@ -1166,115 +1432,42 @@ async function addWorkspace() {
   if (input) input.value = '';
   syncPrimaryInput();
   renderWorkspacePerms();
+  void saveWorkspaces();
 }
-async function saveSettings() {
-  const updateOpenedAgentRoute = Boolean(state.currentSession?.id && currentConversationRoute().engine === 'agent');
-  const requestedLocale = $('cfgLocale')?.value || state.config.locale || 'auto';
-  const resolvedLocale = await setLocale(requestedLocale);
-  // v2.7: sync the primary workspace input into the workspace list (the input edits the highest-priority path).
-  {
-    const primaryPath = $('workspaceInput').value.trim();
-    let ws = Array.isArray(state.config.workspaces) ? state.config.workspaces.map(w => ({ path: String(w.path || ''), read: w.read !== false, write: w.write !== false, execute: w.execute !== false })) : [];
-    if (primaryPath) {
-      const idx = ws.findIndex(w => w.path.toLowerCase() === primaryPath.toLowerCase());
-      if (idx === 0) ws[0].path = primaryPath;
-      else if (idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
-      else ws.unshift({ path: primaryPath, read: true, write: true, execute: true });
-    }
-    state.config.workspaces = ws;
-  }
-  const patch = {
-    defaultWorkspace: $('workspaceInput').value.trim(),
-    workspaces: (state.config.workspaces || []).map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false })),
-    allowOutsideWorkspace: $('cfgAllowOutsideWorkspace') ? $('cfgAllowOutsideWorkspace').checked : (state.config.allowOutsideWorkspace === true),
-    locale: resolvedLocale,
-    uiMode: $('cfgUiMode') ? $('cfgUiMode').value : (state.config.uiMode || 'pro'),           // v0.9-S1 (C1)
-    outputStyle: $('cfgOutputStyle') ? $('cfgOutputStyle').value : (state.config.outputStyle || 'detailed'), // v0.9-S1 (C1)
-    agentCliType: $('cfgAgentCliType') ? $('cfgAgentCliType').value : (state.config.agentCliType || 'claude'),
-    // 123-N2:新线程默认引擎。后端 normalizeConfig 再钳一次白名单(非法值回落 'last')。
-    newThreadEngine: $('cfgNewThreadEngine') ? $('cfgNewThreadEngine').value : (state.config.newThreadEngine || 'last'),
-    claudePath: $('claudePathInput').value.trim(),
-    kimiPath: $('kimiPathInput').value.trim(),
-    includePartialMessages: $('cfgPartial').checked,
-    betaInterleavedThinking: $('cfgBeta').checked,
-    autoResumeClaudeSessions: $('cfgResume').checked,
-    killOnDisconnect: $('cfgKillDisc').checked,
-    claudeThinkingEffort: $('cfgThinkingEffort') ? $('cfgThinkingEffort').value : (state.config.claudeThinkingEffort || ''),
-    thinkingBudget: $('cfgThinkBudget').value.trim(),
-    maxTurns: $('cfgMaxTurns').value.trim(),
-    extraClaudeArgs: $('cfgExtraArgs').value.split('\n').map(s => s.trim()).filter(Boolean),
-    mcpCommandMode: $('cfgMcpMode').value,
-    engineMode: $('cfgEngineMode').value,
-    permissionBridge: $('cfgPermBridge').checked,
-    discoverModelsFromProxy: $('cfgDiscoverModels').checked,
-    extraModels: $('cfgExtraModels').value.split('\n').map(s => s.trim()).filter(Boolean),
-    modelsApiBase: $('cfgModelsApiBase').value.trim(),
-    modelsApiKey: $('cfgModelsApiKey').value,
+// W6：修前的页脚「保存」一次提交约 45 个键 —— 整份表单快照。任何别处（线程头的思考强度、齿轮菜单的界面切换、向导的语言、
+// 工作区选择器）在弹窗开着期间改过的同一个键，都会被这份快照写回去；而页签之间切换（体检页会 refreshStatus）又会把
+// 还没保存的输入冲掉。现在除服务商卡片外，每个控件（或必须一起写的一组）一条补丁构造器，改了（change）就存。
+// 补丁构造器的内容原样搬自修前的页脚保存（钳位与缺省值一个没改）；after 是存成功之后要跟着刷的那一面。
+const lineList = id => ($(id) ? $(id).value.split('\n').map(s => s.trim()).filter(Boolean) : []);
+const clampedInt = (id, fallback, min, max) => {
+  const node = $(id);
+  const n = Math.round(Number(node ? node.value : NaN));
+  return Number.isFinite(n) && String(node ? node.value : '').trim() !== '' ? Math.max(min, Math.min(max, n)) : fallback;
+};
+const refreshAfterSave = () => refreshStatus();
+function claudeEndpointPatch() {
+  // 地址、密钥、鉴权方式一起写：服务端的掩码闸按「密钥会去的地址变没变」判（107-S2），拆开写会误判。
+  return {
+    modelsApiBase: $('cfgModelsApiBase') ? $('cfgModelsApiBase').value.trim() : '',
+    modelsApiKey: $('cfgModelsApiKey') ? $('cfgModelsApiKey').value : '',
     claudeAuthMode: $('cfgClaudeAuthMode') ? $('cfgClaudeAuthMode').value : (state.config.claudeAuthMode || 'auto'),
-    killPortOnStart: $('cfgKillPort') ? $('cfgKillPort').checked : (state.config.killPortOnStart !== false),
-    toolLoadingMode: $('cfgToolLoadingMode') ? $('cfgToolLoadingMode').value : (state.config.toolLoadingMode || 'auto'),
-    // 105f: 摘要单发上限;后端 sanitize 再钳 [8192,131072],UI 只出三档。
-    summarySingleShotMaxTokensV1: (() => {
-      const el0 = $('cfgSummarySingleShotMax');
-      const n = Math.round(Number(el0 ? el0.value : state.config.summarySingleShotMaxTokensV1));
-      return Number.isFinite(n) ? n : 32768;
-    })(),
-    // v1.6.3: 普通任务基础预算夹到 1..200；后端负责长任务与按进展续额。
-    openaiMaxToolIterations: (() => {
-      const el0 = $('cfgOpenaiMaxToolIterations');
-      if (!el0) return state.config.openaiMaxToolIterations || 100;
-      const n = Math.round(Number(el0.value));
-      if (!Number.isFinite(n)) return 100;
-      return Math.max(1, Math.min(200, n));
-    })(),
-    subagentMaxConcurrent: (() => {
-      const el0 = $('cfgSubagentMaxConcurrent');
-      const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxConcurrent));
-      return Number.isFinite(n) ? Math.max(1, Math.min(8, n)) : 8;
-    })(),
-    subagentMaxPerTurn: (() => {
-      const el0 = $('cfgSubagentMaxPerTurn');
-      const n = Math.round(Number(el0 ? el0.value : state.config.subagentMaxPerTurn));
-      return Number.isFinite(n) ? Math.max(0, Math.min(32, n)) : 32;
-    })(),
-    subagentPreferredProvider: (() => { const el0 = $('cfgSubagentPreferredProvider'); return String(el0 ? el0.value : state.config.subagentPreferredProvider || '').trim().slice(0, 120); })(),
-    subagentPreferredModel: (() => { const el0 = $('cfgSubagentPreferredModel'); return String(el0 ? el0.value : state.config.subagentPreferredModel || '').trim().slice(0, 160); })(),
-    agentWorkflowMaxNodes: (() => {
-      const el0 = $('cfgAgentWorkflowMaxNodes');
-      const n = Math.round(Number(el0 ? el0.value : state.config.agentWorkflowMaxNodes));
-      return Number.isFinite(n) ? Math.max(1, Math.min(64, n)) : 48;
-    })(),
-    agentNodeWrapUpMs: (() => {
-      const el0 = $('cfgAgentNodeWrapUpMinutes');
-      const n = Math.round(Number(el0 ? el0.value : (Number(state.config.agentNodeWrapUpMs) || 0) / 60000));
-      return Number.isFinite(n) ? Math.max(0, Math.min(120, n)) * 60000 : 480000;
-    })(),
-    // 2026-09-06 事故后的守门：草稿没被 config 播种过（页面加载时设置弹窗开着、或 fillSettings 半途
-    // 中断）就不上传 providers —— JSON.stringify 会省略 undefined，服务端 {...current, ...body} 保留现值。
-    // 用户在服务商页手动增删（renderProviders 只在播种后才画卡片）都会经过播种，不受影响。
-    providers: state.providersDraftSeeded === true ? (state.providersDraft || []) : undefined,
-    // v0.7d: desktop MCP + bridge switch. autodetect stays on so a blank command keeps auto-discovering.
-    desktopMcp: {
-      enabled: $('cfgDesktopMcpEnabled') ? $('cfgDesktopMcpEnabled').checked : true,
-      command: $('cfgDesktopMcpCommand') ? $('cfgDesktopMcpCommand').value.trim() : '',
-      args: $('cfgDesktopMcpArgs') ? $('cfgDesktopMcpArgs').value.split('\n').map(s => s.trim()).filter(Boolean) : [],
-      cwd: $('cfgDesktopMcpCwd') ? $('cfgDesktopMcpCwd').value.trim() : '',
-      autodetect: true,
-    },
-    browserAutomation: {
-      mode: $('cfgBrowserMode') ? $('cfgBrowserMode').value : 'system',
-      executable: $('cfgBrowserExecutable') ? $('cfgBrowserExecutable').value.trim() : '',
-      cdpUrl: $('cfgBrowserCdpUrl') ? $('cfgBrowserCdpUrl').value.trim() : 'http://127.0.0.1:9222',
-    },
-    bridgeExternalToolsToProvider: $('cfgBridgeExternal') ? $('cfgBridgeExternal').checked : true,
-    // v1.0-S3 (B1): 联网搜索。apiKey 走 providers 同款掩码回存——若框内仍是 ••••<last4> 掩码（用户没动它），
-    // 原样回传，后端 unmaskSecrets 会还原真 key；用户输入了新明文则原样提交。
-    searchBackend: {
-      type: $('cfgSearchType') ? $('cfgSearchType').value : ((state.config.searchBackend && state.config.searchBackend.type) || 'none'),
-      baseUrl: $('cfgSearchBaseUrl') ? $('cfgSearchBaseUrl').value.trim() : '',
-      apiKey: $('cfgSearchApiKey') ? $('cfgSearchApiKey').value : '',
-    },
-    // 月度成本预算：留空 → null（不设预算，用量看板不显进度）。后端接纳 {monthly,currency}。
+  };
+}
+const INSTANT_SETTINGS = Object.freeze([
+  // ── 基础 ──
+  { ids: ['cfgLocale'], patch: async () => ({ locale: await setLocale($('cfgLocale').value || 'auto') }), after: () => fillSettings() },
+  { ids: ['cfgUiMode'], patch: () => ({ uiMode: $('cfgUiMode').value === 'simple' ? 'simple' : 'pro' }), after: patch => applyUiMode(patch.uiMode) },   // v0.9-S1 (C1)
+  { ids: ['cfgOutputStyle'], patch: () => ({ outputStyle: $('cfgOutputStyle').value === 'concise' ? 'concise' : 'detailed' }) },
+  { ids: ['workspaceInput', 'cfgAllowOutsideWorkspace'], patch: () => workspacePatch(), after: () => { renderWorkspacePerms(); renderWorkspacePicker(); } },
+  { ids: ['cfgKillDisc'], patch: () => ({ killOnDisconnect: $('cfgKillDisc').checked }) },
+  { ids: ['cfgKillPort'], patch: () => ({ killPortOnStart: $('cfgKillPort').checked }) },
+  // ── 权限与安全（全局默认权限的写口在 steward-settings.js：切「全自动」要就地二次确认）──
+  { ids: ['cfgPermissionTimeout'], patch: () => ({ permissionTimeoutMs: Math.max(0, Number($('cfgPermissionTimeout').value) || 0) }) },
+  { ids: ['cfgQuestionTimeout'], patch: () => ({ questionTimeoutMs: Math.max(0, Number($('cfgQuestionTimeout').value) || 0) }) },
+  { ids: ['cfgPermBridge'], patch: () => ({ permissionBridge: $('cfgPermBridge').checked }) },
+  // ── 用量与限额（管家那几格的写口在 steward-settings.js）──
+  // 月度成本预算：留空 → null（不设预算，用量看板不显进度）。后端接纳 {monthly,currency}。
+  { ids: ['cfgUsageBudgetMonthly', 'cfgUsageBudgetCurrency'], patch: () => ({
     usageBudget: (() => {
       const m = $('cfgUsageBudgetMonthly'); const cur = $('cfgUsageBudgetCurrency');
       const v = m ? m.value.trim() : '';
@@ -1282,7 +1475,31 @@ async function saveSettings() {
       const n = Number(v);
       return { monthly: Number.isFinite(n) ? Math.max(0, n) : 0, currency: cur ? cur.value : 'CNY' };
     })(),
-    // Claude 第三方端点可选单价（次要）：两项皆空 → null。后端若支持 config.claudePricing 则据以估算成本。
+  }) },
+  // v1.6.3: 普通任务基础预算夹到 1..200；后端负责长任务与按进展续额。
+  { ids: ['cfgOpenaiMaxToolIterations'], patch: () => ({ openaiMaxToolIterations: clampedInt('cfgOpenaiMaxToolIterations', 100, 1, 200) }) },
+  { ids: ['cfgMaxTurns'], patch: () => ({ maxTurns: $('cfgMaxTurns').value.trim() }) },
+  { ids: ['cfgSubagentMaxConcurrent'], patch: () => ({ subagentMaxConcurrent: clampedInt('cfgSubagentMaxConcurrent', 8, 1, 8) }) },
+  { ids: ['cfgSubagentMaxPerTurn'], patch: () => ({ subagentMaxPerTurn: clampedInt('cfgSubagentMaxPerTurn', 32, 0, 32) }) },
+  { ids: ['cfgAgentWorkflowMaxNodes'], patch: () => ({ agentWorkflowMaxNodes: clampedInt('cfgAgentWorkflowMaxNodes', 48, 1, 64) }) },
+  { ids: ['cfgAgentNodeWrapUpMinutes'], patch: () => ({ agentNodeWrapUpMs: clampedInt('cfgAgentNodeWrapUpMinutes', 8, 0, 120) * 60000 }) },
+  { ids: ['cfgTurnIdleMinutes'], patch: () => ({ turnIdleTimeoutMs: clampedInt('cfgTurnIdleMinutes', 10, 1, 60) * 60000 }) },
+  // ── 模型分配（主模型、压缩、子代理、句尾改错各有自己的行内写口；这里只剩「新线程默认引擎」）──
+  // 123-N2:新线程默认引擎。后端 normalizeConfig 再钳一次白名单(非法值回落 'last')。
+  { ids: ['cfgNewThreadEngine'], patch: () => ({ newThreadEngine: $('cfgNewThreadEngine').value === 'global' ? 'global' : 'last' }), after: () => fillMainEngineSelects() },
+  // ── Agent CLI（命令行引擎）──
+  { ids: ['claudePathInput'], patch: () => ({ claudePath: $('claudePathInput').value.trim() }), after: refreshAfterSave },
+  { ids: ['kimiPathInput'], patch: () => ({ kimiPath: $('kimiPathInput').value.trim() }), after: refreshAfterSave },
+  { ids: ['cfgPartial'], patch: () => ({ includePartialMessages: $('cfgPartial').checked }) },
+  { ids: ['cfgBeta'], patch: () => ({ betaInterleavedThinking: $('cfgBeta').checked }) },
+  { ids: ['cfgResume'], patch: () => ({ autoResumeClaudeSessions: $('cfgResume').checked }) },
+  { ids: ['cfgThinkingEffort'], patch: () => ({ claudeThinkingEffort: $('cfgThinkingEffort').value }) },
+  { ids: ['cfgThinkBudget'], patch: () => ({ thinkingBudget: $('cfgThinkBudget').value.trim() }) },
+  { ids: ['cfgExtraArgs'], patch: () => ({ extraClaudeArgs: lineList('cfgExtraArgs') }) },
+  { ids: ['cfgEngineMode'], patch: () => ({ engineMode: $('cfgEngineMode').value }) },
+  { ids: ['cfgModelsApiBase', 'cfgModelsApiKey', 'cfgClaudeAuthMode'], patch: () => claudeEndpointPatch(), after: () => refreshModels() },
+  // Claude 第三方端点可选单价（次要）：两项皆空 → null。后端若支持 config.claudePricing 则据以估算成本。
+  { ids: ['cfgClaudePriceIn', 'cfgClaudePriceOut', 'cfgClaudePriceCurrency'], patch: () => ({
     claudePricing: (() => {
       const pi = $('cfgClaudePriceIn'), po = $('cfgClaudePriceOut'), pc = $('cfgClaudePriceCurrency');
       const iv = pi ? pi.value.trim() : '', ov = po ? po.value.trim() : '';
@@ -1292,21 +1509,92 @@ async function saveSettings() {
       if (ov !== '') { const n = Number(ov); if (Number.isFinite(n)) out.outputPerM = Math.max(0, n); }
       return out;
     })(),
-  };
-  if (!await saveConfigPartial(patch)) return;
-  if (updateOpenedAgentRoute && state.currentSession?.id) {
-    const engineRoute = { engine: 'agent', agentCliType: patch.agentCliType === 'kimi' ? 'kimi' : 'claude', model: currentModelId() };
-    try {
-      const result = await api(`/api/sessions/${encodeURIComponent(state.currentSession.id)}`, {
-        method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'PATCH' }, body: JSON.stringify({ engineRoute }),
-      });
-      if (result?.session) state.currentSession = result.session;
-      else state.currentSession.engineRoute = engineRoute;
-    } catch (error) { toast(t('toast.saveFail', { p1: apiErrText(error) }), 'err'); }
+  }) },
+  { ids: ['cfgDiscoverModels'], patch: () => ({ discoverModelsFromProxy: $('cfgDiscoverModels').checked }), after: () => refreshModels() },
+  { ids: ['cfgExtraModels'], patch: () => ({ extraModels: lineList('cfgExtraModels') }), after: () => refreshModels() },
+  // ── 联网搜索：apiKey 走 providers 同款掩码回存 —— 框内仍是 ••••<last4>（用户没动它）就原样回传，后端 unmaskSecrets 还原真 key。
+  { ids: ['cfgSearchType', 'cfgSearchBaseUrl', 'cfgSearchApiKey'], patch: () => ({
+    searchBackend: {
+      type: $('cfgSearchType') ? $('cfgSearchType').value : ((state.config.searchBackend && state.config.searchBackend.type) || 'none'),
+      baseUrl: $('cfgSearchBaseUrl') ? $('cfgSearchBaseUrl').value.trim() : '',
+      apiKey: $('cfgSearchApiKey') ? $('cfgSearchApiKey').value : '',
+    },
+  }) },
+  // ── 集成与 MCP。v0.7d: autodetect stays on so a blank command keeps auto-discovering. ──
+  { ids: ['cfgDesktopMcpEnabled', 'cfgDesktopMcpCommand', 'cfgDesktopMcpArgs', 'cfgDesktopMcpCwd'], patch: () => ({
+    desktopMcp: {
+      enabled: $('cfgDesktopMcpEnabled') ? $('cfgDesktopMcpEnabled').checked : true,
+      command: $('cfgDesktopMcpCommand') ? $('cfgDesktopMcpCommand').value.trim() : '',
+      args: lineList('cfgDesktopMcpArgs'),
+      cwd: $('cfgDesktopMcpCwd') ? $('cfgDesktopMcpCwd').value.trim() : '',
+      autodetect: true,
+    },
+  }), after: refreshAfterSave },
+  { ids: ['cfgBrowserMode', 'cfgBrowserExecutable', 'cfgBrowserCdpUrl'], patch: () => ({
+    browserAutomation: {
+      mode: $('cfgBrowserMode') ? $('cfgBrowserMode').value : 'system',
+      executable: $('cfgBrowserExecutable') ? $('cfgBrowserExecutable').value.trim() : '',
+      cdpUrl: $('cfgBrowserCdpUrl') ? $('cfgBrowserCdpUrl').value.trim() : 'http://127.0.0.1:9222',
+    },
+  }) },
+  { ids: ['cfgBridgeExternal'], patch: () => ({ bridgeExternalToolsToProvider: $('cfgBridgeExternal').checked }) },
+  { ids: ['cfgMcpMode'], patch: () => ({ mcpCommandMode: $('cfgMcpMode').value }) },
+  // ── 高级 ──
+  { ids: ['cfgToolLoadingMode'], patch: () => ({ toolLoadingMode: $('cfgToolLoadingMode').value === 'full' ? 'full' : 'auto' }) },
+  // 105f: 摘要单发上限;后端 sanitize 再钳 [8192,131072],UI 只出三档。
+  { ids: ['cfgSummarySingleShotMax'], patch: () => ({ summarySingleShotMaxTokensV1: clampedInt('cfgSummarySingleShotMax', 32768, 8192, 131072) }) },
+]);
+let instantSettingsBound = false;
+function bindInstantSettings() {
+  if (instantSettingsBound) return;
+  instantSettingsBound = true;
+  for (const entry of INSTANT_SETTINGS) {
+    for (const id of entry.ids) {
+      const node = $(id);
+      if (node) node.addEventListener('change', () => { void saveInstantSetting(entry); });
+    }
   }
-  $('settingsStatus').textContent = `${t('common.saved')} ✓`;
-  setTimeout(() => { $('settingsStatus').textContent = ''; }, 2000);
+}
+async function saveInstantSetting(entry) {
+  const patch = await entry.patch();
+  if (!patch) return false;
+  const saved = await saveConfigPartial(patch);
+  if (saved && typeof entry.after === 'function') {
+    try { await entry.after(patch); } catch (error) { console.warn('[settings] after-save failed', error); }
+  }
+  return saved;
+}
+// W6：只剩「保存服务商」（#saveConfigBtn，挪到了卡片正下方）。保存前先取一次最新配置、把草稿对齐上去 —— 别的写口（线程头
+// 「设为新任务默认」、管家改配置、另一个标签页）改 providers 时不一定经过本页的 saveConfigPartial，不对齐就会把它们回滚。
+// 对齐是三方合并：用户在卡片上改过的字段留用户的，没改过的跟最新值走。成功后草稿按落盘值重新播种、保存条回到干净。
+async function saveSettings() {
+  if (state.providersDraftSeeded === true && Array.isArray(state.providersDraft)) {
+    try {
+      const fresh = await api('/api/status');
+      const latest = fresh && fresh.config && Array.isArray(fresh.config.providers) ? fresh.config.providers : null;
+      if (latest) {
+        for (const provider of latest) provider.models = providerModels(provider);
+        syncProvidersDraft(latest);
+      }
+    } catch { /* 取不到最新值就按手上这份存：服务端仍有缩水备份与掩码闸兜底 */ }
+  }
+  const patch = {
+    // 2026-09-06 事故后的守门：草稿没被 config 播种过（页面加载时设置弹窗开着、或 fillSettings 半途
+    // 中断）就不上传 providers —— JSON.stringify 会省略 undefined，服务端 {...current, ...body} 保留现值。
+    // 用户在服务商页手动增删（renderProviders 只在播种后才画卡片）都会经过播种，不受影响。
+    providers: state.providersDraftSeeded === true ? (state.providersDraft || []) : undefined,
+  };
+  if (patch.providers === undefined) return false;
+  const button = $('saveConfigBtn');
+  if (button) button.disabled = true;
+  const saved = await saveConfigPartial(patch);
+  if (!saved) { paintProvidersDirty(); return false; }
+  seedProvidersDraft(state.config.providers);
+  renderProviders();
+  paintProvidersDirty();
+  toast(t('settings.providers.saved'), 'ok');
   await refreshStatus();
+  return true;
 }
 
 /* ---------------- Claude CLI third-party endpoint presets (Coding Plan) ---------------- */
@@ -1335,6 +1623,9 @@ function applyClaudeEndpointPreset() {
     $('cfgExtraModels').value = preset.models.filter(m => m.id).map(m => `${m.id}|${m.label || m.id}`).join('\n');
   }
   toast(t("toast.presetApplied", { p1: preset.label, p2: preset.defaultModelHint ? t('toast.presetHint', { m: preset.defaultModelHint }) : '' }), 'ok');
+  // W6：页脚整份保存退役之后，「应用预设」填进来的几格当场存（与手改这几格同一条即存路径）。地址换了而密钥框还是掩码时，
+  // 服务端掩码闸会拒绝并说清楚要重填哪一格 —— 这正是它该做的，不绕开。
+  void saveConfigPartial({ ...claudeEndpointPatch(), extraModels: lineList('cfgExtraModels') }).then(saved => { if (saved) void refreshModels(); });
 }
 /* ---------------- providers (native OpenAI-compatible engines) ---------------- */
 function populateProviderPresets() {
@@ -1359,6 +1650,7 @@ function addProviderFromPreset() {
   if (!draft) return;
   state.providersDraft.push(draft);
   renderProviders();
+  markProvidersDirty();   // W6：加了一张卡 = 有没存的改动，保存条亮起
 }
 // Provider 单价编辑器的受控币种清单；属于设置写模型，不随只读用量看板迁移。
 const PRICING_CURRENCIES = ['CNY', 'USD', 'EUR', 'GBP', 'JPY'];
@@ -1383,7 +1675,7 @@ function providerCard(p, idx) {
   const delBtn = el('button', 'file-label prov-del', t('common.delete')); delBtn.type = 'button';
   // A6: deleting a provider also drops its API key — confirm so a misclick can't silently lose it.
   // 对抗轮(reverify A):删卡时清 providerCapOpen 记忆,避免 id 复用时新卡继承旧卡折叠状态。
-  delBtn.onclick = () => { if (!confirm(t('provider.deleteConfirm', { name: p.label || p.id }))) return; state.providersDraft.splice(idx, 1); providerCapOpen.delete(p.id); renderProviders(); };
+  delBtn.onclick = () => { if (!confirm(t('provider.deleteConfirm', { name: p.label || p.id }))) return; state.providersDraft.splice(idx, 1); providerCapOpen.delete(p.id); renderProviders(); markProvidersDirty(); };
   head.append(labelIn, idTag, modChip, testBtn, delBtn);
 
   // v1.8.2 重构:把零散的「协议与能力」开关(reasoning / vision / apiStyle / serverWebSearch)从头部收进

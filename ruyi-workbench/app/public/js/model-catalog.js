@@ -74,3 +74,36 @@ export function bindModelSelect(select, options = {}) {
   selects.set(select, options);
   fillModelSelect(select, options, options.value ?? select.value);
 }
+
+// W6 设置重组：「模型分配」每一行左边那枚「服务商」下拉的【唯一】选项构建器（修前同一件事被写了四份：
+// 基础页主端点、管家三枚、子代理、句尾改错）。右边那枚模型下拉仍是上面的 bindModelSelect。
+//   providers  候选服务商（调用方按这一行的口径筛过：对话端点、非 toolbox- …）
+//   follow     首项「跟随…」的文案（给了才有这一项，值恒为 ''）
+//   lead       排在候选之前的固定项 [{ value, label }]（主模型那一行的命令行引擎）
+//   value      落盘值；不在候选里又非空时补一条「保存的值」占位（savedLabel 给文案）—— 绝不静默改写用户的盘
+export function fillProviderSelect(select, { providers = [], value = '', follow = null, lead = [], savedLabel = saved => saved } = {}) {
+  if (!select) return;
+  const doc = select.ownerDocument;
+  const option = (id, label) => {
+    const node = doc.createElement('option');
+    node.value = id; node.textContent = label; return node;
+  };
+  const nodes = [];
+  const known = new Set();
+  if (follow != null) { nodes.push(option('', typeof follow === 'function' ? follow() : String(follow))); known.add(''); }
+  for (const item of Array.isArray(lead) ? lead : []) {
+    if (!item) continue;
+    nodes.push(option(String(item.value), String(item.label)));
+    known.add(String(item.value));
+  }
+  for (const provider of Array.isArray(providers) ? providers : []) {
+    if (!provider || !provider.id || known.has(String(provider.id))) continue;
+    nodes.push(option(String(provider.id), String(provider.label || provider.id)));
+    known.add(String(provider.id));
+  }
+  const saved = String(value || '');
+  if (saved && !known.has(saved)) nodes.push(option(saved, savedLabel(saved)));
+  select.replaceChildren(...nodes);
+  select.value = saved;
+  if (select.value !== saved && select.options.length) select.value = select.options[0].value;
+}

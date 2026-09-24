@@ -131,11 +131,23 @@ ok(/t\('provider\.pricing\.help'\)/.test(src), '⑨ 单价说明使用 provider.
 ok(/prov-pricing/.test(src) && /card\.append\([^)]*priceB/.test(src), '⑨ 单价块并入 provider 卡片');
 
 // ───────────── ⑩ 预算 / Claude 单价配置（save/fill 双向）─────────────
-const stabBasic = between(html, 'id="stab-basic"', 'id="stab-claude"');
-ok(/id="cfgUsageBudgetMonthly"/.test(stabBasic) && /id="cfgUsageBudgetCurrency"/.test(stabBasic), '⑩ 月度预算配置在「基础」tab（简易可见）');
-const stabClaude = between(html, 'id="stab-claude"', 'id="stab-providers"');
+// W6 设置重组翻面重钉（用户 2026-09-24「把重复／类似的设置统一成公用设置」）：月度预算从「基础」搬进新的公用页
+// 「用量与限额」（与管家花费上限、回合、并发同页；简易模式照样可见 —— 该页在 SETTINGS_SIMPLE_TABS 里）。
+// 面板切片改成「本面板开头 → 下一个面板开头」，不再依赖两枚面板在 HTML 里谁挨着谁。
+const panelOf = id => {
+  const i = html.indexOf(`<div class="settings-tab" id="${id}">`);
+  if (i < 0) return '';
+  const j = html.indexOf('<div class="settings-tab"', i + 1);
+  return j < 0 ? html.slice(i) : html.slice(i, j);
+};
+const stabLimits = panelOf('stab-limits');
+ok(/id="cfgUsageBudgetMonthly"/.test(stabLimits) && /id="cfgUsageBudgetCurrency"/.test(stabLimits)
+  && !/id="cfgUsageBudgetMonthly"/.test(panelOf('stab-basic'))
+  && /SETTINGS_SIMPLE_TABS = new Set\(\[[^\]]*'limits'/.test(src),
+  '⑩ 月度预算配置在「用量与限额」tab（简易可见）');
+const stabClaude = panelOf('stab-claude');
 ok(/id="cfgClaudePriceIn"/.test(stabClaude) && /id="cfgClaudePriceOut"/.test(stabClaude), '⑩ Claude 第三方端点单价在「Claude CLI」tab');
-ok(/usageBudget:/.test(src) && /claudePricing:/.test(src), '⑩ saveSettings 提交 usageBudget / claudePricing');
+ok(/usageBudget:/.test(src) && /claudePricing:/.test(src), '⑩ 设置页（W6 起逐项即存）提交 usageBudget / claudePricing');
 ok(/c\.usageBudget/.test(src) && /c\.claudePricing/.test(src), '⑩ fillSettings 回填 usageBudget / claudePricing');
 
 // ───────────── ⑪ 空状态引导 + a11y + SVG round ─────────────

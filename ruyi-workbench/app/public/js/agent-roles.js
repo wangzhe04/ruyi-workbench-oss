@@ -1,5 +1,5 @@
 'use strict';
-import { bindModelSelect, providerModels, agentModels } from './model-catalog.js';
+import { bindModelSelect, providerModels, agentModels, fillProviderSelect } from './model-catalog.js';
 
 // EC-D 第61波：Agent 角色设置领域（库加载、草稿编辑、保存与子代理偏好选择）。
 import { state } from './state.js';
@@ -116,23 +116,13 @@ function populateSubagentPreferenceSelects(providerValue, modelValue) {
   const modelSel = $('cfgSubagentPreferredModel');
   if (!providerSel || !modelSel) return;
   const providers = chatProviders(state.config);   // 子代理要的是对话端点:只做语音的服务商不列
-  const preferredProvider = String(providerValue || '').trim();
-  providerSel.textContent = '';
-  const follow = el('option', '', t('settings.advanced.subagentPreferredProvider.followPrimary'));
-  follow.value = '';
-  providerSel.appendChild(follow);
-  for (const provider of providers) {
-    if (!provider || !provider.id) continue;
-    const option = el('option', '', provider.label || provider.id);
-    option.value = provider.id;
-    providerSel.appendChild(option);
-  }
-  if (preferredProvider && !providers.some(provider => provider && provider.id === preferredProvider)) {
-    const stale = el('option', '', t('settings.advanced.savedValue', { value: preferredProvider }));
-    stale.value = preferredProvider;
-    providerSel.appendChild(stale);
-  }
-  providerSel.value = preferredProvider;
+  // W6：选项由 model-catalog.js 的 fillProviderSelect 建（「模型分配」每一行的唯一构建器；修前这里是第四份手写）。
+  fillProviderSelect(providerSel, {
+    providers,
+    value: String(providerValue || '').trim(),
+    follow: t('settings.advanced.subagentPreferredProvider.followPrimary'),
+    savedLabel: value => t('settings.advanced.savedValue', { value }),
+  });
 
   bindModelSelect(modelSel, {
     provider: () => {

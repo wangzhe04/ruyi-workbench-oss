@@ -763,7 +763,11 @@ function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop'
 // 藏的页签就是一枚【死键】：看得见、点了静默落回「基础」。steward 与 update 正是漏的两枚，
 // 而管家总开关只住在管家页，于是「第一次把管家打开」在出厂默认（uiMode='simple'）下无路可走。
 // 互补关系由 uimode-style 的 S1b 机械看住（新增页签时忘了这里，那条断言会红）。
-const SETTINGS_SIMPLE_TABS = new Set(['basic', 'steward', 'providers', 'network', 'doctor', 'update']);
+// W6 设置重组：三枚公用页（权限与安全／用量与限额／模型分配）简易模式可见 —— 全局默认权限、月度预算与主模型
+// 本来就在简易可见的页里，搬家不能搬丢；页内开发者向的行由 .settings-expert-only 在 ui-modes.css 收起。
+const SETTINGS_SIMPLE_TABS = new Set(['basic', 'security', 'limits', 'steward', 'models', 'providers', 'network', 'doctor', 'update']);
+// W6：「MCP 运维」并进「集成与 MCP」。旧页签名（程序化入口、state._settingsTab 里记着的上一次）一律改投新家，不落空。
+const SETTINGS_TAB_ALIASES = Object.freeze({ mcp: 'integrations' });
 // 123-S2 设置弹窗左侧导航：五枚分组升级为可折叠二级菜单。全部纯新增 ——
 // 折叠态存 localStorage（wcw.* 前缀，与 stewardDetails 同一惯例），缺省只展开「通用」；
 // 切页签（含 openModal 恢复上次页签）自动展开其所在组并落盘；组头点击走一次事件委托，
@@ -816,14 +820,20 @@ function ensureSettingsNavWiring() {
 // 123-S2 长面板段内锚点 chip 条：从【已翻译的】段标题现取文案（零新增 i18n 键），每次切页签
 // 重建（语言切换后标签不会留在旧语言）。候选段：basic 的四个折叠分组 / steward 的九张
 // section / claude 的两枚段标题；缺 id 的段标题按「面板 id-sec-N」补一个确定性 id。
+// W6：三枚公用页与合并后的「集成与 MCP」也按段出锚点（段是 section.settings-section，权限页里还有一段搬来的
+// section.steward-settings-group）；只有一段的页（模型分配）不出（下面 targets.length < 2 自动跳过）。
+const SETTINGS_SECTION_SELECTOR = 'section.settings-section, section.steward-settings-group';
 const SETTINGS_JUMP_PANELS = Object.freeze({
   'stab-basic': 'details.settings-fold',
+  'stab-security': SETTINGS_SECTION_SELECTOR,
+  'stab-limits': SETTINGS_SECTION_SELECTOR,
   'stab-steward': 'section.steward-settings-group',
   'stab-claude': 'h4.settings-subhead',
+  'stab-integrations': SETTINGS_SECTION_SELECTOR,
 });
 function jumpTargetLabel(node) {
   if (node.matches('details.settings-fold')) return node.querySelector('summary')?.textContent.trim() || '';
-  if (node.matches('section.steward-settings-group')) return node.querySelector('h4')?.textContent.trim() || '';
+  if (node.matches(SETTINGS_SECTION_SELECTOR)) return node.querySelector('h4')?.textContent.trim() || '';
   return node.textContent.trim();
 }
 function buildSettingsJumpList(panelId) {
@@ -857,6 +867,7 @@ function buildSettingsJumpList(panelId) {
 // v1.5 (§1.2): 简易模式下,非白名单页签一律落回「基础」;force=true 供明确的开发者入口(如引导页
 // 「配置 Claude CLI」逃生门)绕过收敛,直达目标页签。
 function switchSettingsTab(name, force) {
+  if (Object.prototype.hasOwnProperty.call(SETTINGS_TAB_ALIASES, name)) name = SETTINGS_TAB_ALIASES[name];
   if (!force && document.documentElement.getAttribute('data-ui-mode') === 'simple' && !SETTINGS_SIMPLE_TABS.has(name)) name = 'basic';
   state._settingsTab = name;
   ensureSettingsNavWiring();        // 123-S2：首挂事件委托 ＋ 按 localStorage 还原各组折叠态
@@ -871,7 +882,7 @@ function switchSettingsTab(name, force) {
     renderRawEventSnapshot();
   }
   if (name === 'update') refreshOverlayStatus();
-  if (name === 'mcp') refreshMcpOps(false); // 55c:打开页签先取清单(不 probe);「全部重测」按钮才 probe=1
+  if (name === 'integrations') refreshMcpOps(false); // 55c:打开页签先取清单(不 probe);「全部重测」按钮才 probe=1。W6:连接器清单并进了「集成与 MCP」
 }
 
 /* 第58波：更新中心与 MCP 运维实现已拆入 ./js/settings-operations.js。 */

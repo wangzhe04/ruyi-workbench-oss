@@ -212,7 +212,9 @@ ok(!/state\.currentSession\?\.id\s*===\s*turnSessionId\)\s*for\s*\(const line/.t
   'background stream lines are not discarded while another session is visible');
 ok(!/data-ui-mode[^\n]+simple[^\n]+pct\s*<\s*0\.6/.test(src),
   'simple mode keeps context occupancy and compact entry visible after usage exists');
-ok(/<select id="cfgSubagentPreferredProvider">/.test(html) && /<select id="cfgSubagentPreferredModel">/.test(html)
+// W6 设置重组：两枚下拉搬进「模型分配」那张表，各带一个 aria-label（表里每行只有一枚可见标签）——
+// 钉的仍是「它们是 <select>、不是自由文本框」，标签里允许跟别的属性。
+ok(/<select id="cfgSubagentPreferredProvider"[\s>]/.test(html) && /<select id="cfgSubagentPreferredModel"[\s>]/.test(html)
   && !/<input id="cfgSubagentPreferred(?:Provider|Model)"/.test(html),
   'subagent preferred endpoint/model are controlled dropdowns, not free-text ids');
 ok(/class="settings-tab" id="stab-doctor"/.test(html) && !/id="tab-doctor"/.test(html) && !/id="openDoctorBtn"/.test(html),

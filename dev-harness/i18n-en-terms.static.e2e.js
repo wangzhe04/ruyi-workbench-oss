@@ -29,9 +29,8 @@ const ALLOWED = {
     '同上，引用同一个第三方 API 名 "Chat Completions"。',
   'onboarding.wizard.steward.modelPlaceholder':
     '"deepseek-chat" 是 DeepSeek 官方真实模型 ID（第三方专有名词），占位符必须给可复制的真实例子。',
-  'settings.providers.hint':
-    '"/chat/completions" 是 OpenAI 兼容协议的字面 REST 路径（第三方接口名，不可意译）；' +
-    '本键其余散文已把 "chats" 改成 "conversations"，只留这一处字面路径。',
+  // W6 设置重组：settings.providers.hint 整句重写（讲的是「这一页管什么、谁用哪个模型去哪儿选」），不再引用
+  // "/chat/completions" 那条字面路径，所以它的豁免随之撤掉 —— 不撤的话第②段会把它报成「名不副实」。
   'provider.asrProtocol.chatAudio':
     '107-A1：选项名要说清这条协议打的是哪个端点，"/chat/completions" 是 OpenAI 兼容协议的字面 REST 路径' +
     '（第三方接口名，不可意译）；与 provider.apiStyle.chat 同类。',

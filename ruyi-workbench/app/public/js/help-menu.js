@@ -27,15 +27,18 @@ export const LOG_TAIL_LINE_CHOICES = Object.freeze([100, 500, 2000]);
 // 上下文帮助:设置各页签 -> 手册小节。值是【文案键】而不是写死的标题字符串,中英各自对应本语言的
 // `##` 标题(与 118b 的 health.anchor.* 同一口径);静态锁会拿这些文案去两份手册里逐字比对,
 // 手册改了标题而这里没跟着改,门就红 -- 免得「?」静默退化成滚到文首。
+// W6 设置重组：新增三枚公用页（权限与安全／用量与限额／模型分配）都落「设置指南」那一节；「MCP 运维」并进了「集成与 MCP」。
 export const SETTINGS_TAB_HELP_ANCHORS = Object.freeze({
   basic: 'help.anchor.settings',
+  security: 'help.anchor.settings',
+  limits: 'help.anchor.settings',
   steward: 'help.anchor.settings',
+  models: 'help.anchor.settings',
   claude: 'help.anchor.settings',
   providers: 'help.anchor.settings',
   network: 'help.anchor.settings',
   agents: 'help.anchor.power',
   integrations: 'help.anchor.faq',
-  mcp: 'help.anchor.faq',
   doctor: 'help.anchor.faq',
   advanced: 'help.anchor.faq',
   update: 'help.anchor.faq',

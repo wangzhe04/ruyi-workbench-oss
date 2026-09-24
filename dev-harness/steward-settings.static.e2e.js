@@ -3,7 +3,7 @@
 
 // 第117波 117e 静态契约（27 号文 §5 117e 行／§8.6「权限的界面表达」／§4「面板」／§11.1 拍板 6·7）：
 // 管家设置页与壳头部两个常驻控件的机械口径。
-//   A 页签存在且顺序（基础 → 管家 → Agent CLI）、六组 <section> 与全部 cfgSteward* 控件 id；
+//   A 页签存在且顺序（W6 起：通用三页 → 管家 → 模型组）、八组 <section> 与全部 cfgSteward* 控件 id（W6 起分住四页）；
 //   B 四档表与全自动确认文案【从 steward-chips.js import】——settings 模块不定义第二份四档表；
 //   C 开关的启停顺序锚（打开：save → start；关闭：stop → save）；
 //   D 零 innerHTML、零计时器、`<a download>` 只用于记忆导出这一处；
@@ -50,14 +50,28 @@ const ok = (condition, label) => {
 
 // ─── A 页签顺序、六组 section、全部控件 id ────────────────────────────────────────
 const tabs = [...html.matchAll(/data-stab="([a-z]+)"/g)].map(match => match[1]);
-ok(tabs.indexOf('steward') === tabs.indexOf('basic') + 1 && tabs.indexOf('claude') === tabs.indexOf('steward') + 1,
-  `A1 页签顺序是「基础 → 管家 → Agent CLI」（实测 ${JSON.stringify(tabs.slice(0, 4))}）`);
+// W6 设置重组翻面重钉（用户 2026-09-24「设置里的内容有点乱，把重复／类似的统一成公用设置」）：「通用」一组从一页
+// 变成三页（基础／权限与安全／用量与限额），「模型」一组以「模型分配」打头。117e 钉的那条阅读顺序语义不变 ——
+// 管家页签紧跟「通用」一组、在「模型」一组（首页＝模型分配，Agent CLI 在同组）之前 —— 只是两侧邻居换了人。
+ok(JSON.stringify(tabs.slice(0, 3)) === JSON.stringify(['basic', 'security', 'limits'])
+  && tabs.indexOf('steward') === tabs.indexOf('limits') + 1 && tabs.indexOf('models') === tabs.indexOf('steward') + 1
+  && tabs.indexOf('claude') > tabs.indexOf('models'),
+  `A1 页签顺序是「基础 → 权限与安全 → 用量与限额 → 管家 → 模型分配 …（Agent CLI 在模型组里）」（实测 ${JSON.stringify(tabs.slice(0, 6))}）`);
 ok(/<div class="settings-tab" id="stab-steward">/.test(html), 'A2 #stab-steward 面板存在');
 
+// 面板切片：从本面板开头到【下一个】面板开头（W6 之后管家面板后面紧跟的是「模型分配」，不再是 Agent CLI）。
+const panelOf = id => {
+  const start = html.indexOf(`<div class="settings-tab" id="${id}">`);
+  const end = start >= 0 ? html.indexOf('<div class="settings-tab"', start + 1) : -1;
+  return start >= 0 ? html.slice(start, end > start ? end : html.length) : '';
+};
 const panelStart = html.indexOf('id="stab-steward"');
-const panelEnd = html.indexOf('<!-- ===== Agent CLI', panelStart);
-const panel = html.slice(panelStart, panelEnd);
-ok(panelStart > 0 && panelEnd > panelStart, 'A3 管家面板在 Agent CLI 面板之前，边界可定位');
+const panel = panelOf('stab-steward');
+const securityPanel = panelOf('stab-security');
+const limitsPanel = panelOf('stab-limits');
+const modelsPanel = panelOf('stab-models');
+ok(panelStart > 0 && panel.length > 0 && securityPanel && limitsPanel && modelsPanel,
+  'A3 管家面板与三枚公用页（权限与安全／用量与限额／模型分配）的边界都可定位');
 
 // 117l-A3 重钉：旧断言钉的是「117e 那一版」六组面板。117l-A3 在「模型与预算」之后插入第七组
 // 「新开线程用什么模型」（强/快两档，§11.9）——新契约是七组、顺序固定，不是放宽旧契约，是把新组
@@ -68,55 +82,73 @@ ok(panelStart > 0 && panelEnd > panelStart, 'A3 管家面板在 Agent CLI 面板
 // 136 翻面重钉（用户 2026-09-23「言行不够拟人」）：在「管家总开关」之后插入「管家人设」
 // （名字/口吻偏好，01-config 的 stewardPersonaName/stewardPersonaStyle）。人设是身份，跟着总开关走;
 // 新契约是十组、顺序固定，不是放宽旧契约（A4c companion 单独钉它的插入位置）。
-const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPersona', 'cfgStewardGroupPermission', 'cfgStewardGroupAuto',
-  'cfgStewardGroupBudget', 'cfgStewardGroupThreadModels', 'cfgStewardGroupIndex', 'cfgStewardGroupSchedule',
+// W6 翻面重钉：管家页只留管家自己的事，十组变八组 ——「新线程默认权限」整段（连 id）搬去「权限与安全」，
+// 「新开线程用什么模型」随「管家用的模型」一起搬去「模型分配」那张表；原「模型与预算」组（id 不变）只剩
+// 管家自己的节奏与上下文，花费／回合／并发三类上限去了「用量与限额」。新契约是八组、顺序固定，不是放宽旧契约：
+// 搬走的两组由下面 A4d 在新页里逐个钉住（id、aria-labelledby、所在页），一组都不许丢。
+const GROUP_IDS = ['cfgStewardGroupPower', 'cfgStewardGroupPersona', 'cfgStewardGroupAuto',
+  'cfgStewardGroupBudget', 'cfgStewardGroupIndex', 'cfgStewardGroupSchedule',
   'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'];
 const groupOrder = [...panel.matchAll(/<section class="steward-settings-group" id="(cfgStewardGroup[A-Za-z]+)"/g)].map(m => m[1]);
 ok(JSON.stringify(groupOrder) === JSON.stringify(GROUP_IDS),
-  `A4 十组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
-// A4c companion（136）：人设组必须紧跟「管家总开关」、「新线程默认权限」之前 —— 它是身份，
-// 不许插到预算或记忆旁边（那是事实与钱，不是它是谁）。
+  `A4 八组 <section> 齐全且顺序固定（实测 ${JSON.stringify(groupOrder)}）`);
+// A4c companion（136）：人设组必须紧跟「管家总开关」—— 它是身份，不许插到预算或记忆旁边（那是事实与钱，
+// 不是它是谁）。W6：其后原是「新线程默认权限」，那一组搬去了「权限与安全」，现在紧跟的是「管家可以自己做的事」。
 ok(groupOrder.indexOf('cfgStewardGroupPersona') === groupOrder.indexOf('cfgStewardGroupPower') + 1
-  && groupOrder.indexOf('cfgStewardGroupPermission') === groupOrder.indexOf('cfgStewardGroupPersona') + 1,
-  'A4c 136：「管家人设」紧跟「管家总开关」,其后是「新线程默认权限」');
-// A4b companion（117l-A3 新增）：新组必须紧跟在「模型与预算」之后、「管家记得的关于你」之前——
-// 不许插到别处（比如页尾或权限组旁边，那样会打散「预算相关的钱都聚在一起」这条既有阅读顺序）。
-// 121-K7 翻面：K7 的两组插在 ThreadModels 与 Memory 之间，所以 A4b 的后半从「紧挨着 Memory」
-// 改成「紧挨着 Index」，前半（紧跟 Budget）一个字不动 —— 钉的仍是那条阅读顺序：
-// 钱的三组连在一起 → 任务索引 → 定时任务 → 记忆 → 流水。
-ok(groupOrder.indexOf('cfgStewardGroupThreadModels') === groupOrder.indexOf('cfgStewardGroupBudget') + 1
-  && groupOrder.indexOf('cfgStewardGroupIndex') === groupOrder.indexOf('cfgStewardGroupThreadModels') + 1
+  && groupOrder.indexOf('cfgStewardGroupAuto') === groupOrder.indexOf('cfgStewardGroupPersona') + 1,
+  'A4c 136：「管家人设」紧跟「管家总开关」,其后是「管家可以自己做的事」');
+// A4b companion：阅读顺序 节奏与上下文 → 任务索引 → 定时任务 → 记忆 → 流水（W6 之前中间还夹着「新开线程用什么模型」）。
+ok(groupOrder.indexOf('cfgStewardGroupIndex') === groupOrder.indexOf('cfgStewardGroupBudget') + 1
   && groupOrder.indexOf('cfgStewardGroupSchedule') === groupOrder.indexOf('cfgStewardGroupIndex') + 1
   && groupOrder.indexOf('cfgStewardGroupMemory') === groupOrder.indexOf('cfgStewardGroupSchedule') + 1,
-  'A4b 117l-A3＋121-K7：「新开线程用什么模型」紧跟「模型与预算」，其后依次是「任务索引」「定时任务」「管家记得的关于你」');
+  'A4b 117l-A3＋121-K7＋W6：「节奏与上下文」之后依次是「任务索引」「定时任务」「管家记得的关于你」');
+// A4d（W6 新增）：搬走的两组在新家里原样在 —— 权限组仍是带 aria-labelledby 的 <section>、住「权限与安全」；
+// 强／快两档的组 id 住「模型分配」那张表里（是 role=group 的外壳，不再是一整段 section），且两页都不在管家页里。
+ok(new RegExp('<section class="steward-settings-group" id="cfgStewardGroupPermission" aria-labelledby="').test(securityPanel)
+  && /id="cfgStewardGroupThreadModels" role="group" aria-labelledby="cfgStewardThreadModelsHeading"/.test(modelsPanel)
+  && !/id="cfgStewardGroupPermission"|id="cfgStewardGroupThreadModels"/.test(panel),
+  'A4d W6：「新线程默认权限」整段住「权限与安全」、「新开线程用什么模型」住「模型分配」，管家页里都不再有');
 
 // 每一组都必须是真的 <section>（不是 div 冒充）且带 aria-labelledby（§8.8 无障碍）。
 ok(GROUP_IDS.every(id => new RegExp(`<section class="steward-settings-group" id="${id}" aria-labelledby="`).test(panel)),
   'A5 每组 <section> 都有 aria-labelledby');
 
+// W6：steward-settings.js 仍按 id 接线全部 cfgSteward* 控件（本模块不认识它们在哪一页），所以这张名单一个都没少，
+// 只是按【现住哪一页】分四段核：管家页／权限与安全／用量与限额／模型分配。
 const CONTROL_IDS = [
   'cfgStewardEnabled', 'cfgStewardShellBtn', 'cfgStewardStopBtn', 'cfgStewardRunState',
-  'cfgStewardDefaultPermission', 'cfgStewardPermissionHint', 'cfgStewardPermissionConfirm',
-  'cfgStewardPermissionConfirmList', 'cfgStewardPermissionCancel', 'cfgStewardPermissionOk',
   'cfgStewardAutoRetry', 'cfgStewardAutoResume', 'cfgStewardAutoRelay', 'cfgStewardAutoNewThread',
   // 127 波 2-quater B2：管家代批开关（顶层键 stewardExemptDelegationV1，住「管家可以自己做的事」组）。
   'cfgStewardExemptDelegation',
-  'cfgStewardProviderId', 'cfgStewardModel', 'cfgStewardPollMs', 'cfgStewardVisitIdle',
-  'cfgStewardMaxTurnsPerHour', 'cfgStewardMaxCostPerDay', 'cfgStewardMaxParallelThreads',
-  'cfgStewardGlobalMaxTurnsPerHour', 'cfgStewardGlobalMaxCostPerDay', 'cfgStewardRetention',
-  // 136：人设组两格（名字/口吻）与「模型与预算」组里的上下文预算两格（预算 token/触发系数）。
+  'cfgStewardPollMs', 'cfgStewardVisitIdle', 'cfgStewardRetention',
+  // 136：人设组两格（名字/口吻）与「节奏与上下文」组里的上下文预算两格（预算 token/触发系数）。
   // tokens 键在 06i 是 forbidden（密钥正则兜底）,管家自己改不了 —— 这个字段是它唯一的设置入口。
   'cfgStewardPersonaName', 'cfgStewardPersonaStyle', 'cfgStewardContextBudget', 'cfgStewardBudgetRatio',
-  // 117l-A3：新开线程「强模型」／「快速模型」两档，各自服务商 + 模型名。
-  'cfgStewardStrongProviderId', 'cfgStewardStrongModel', 'cfgStewardFastProviderId', 'cfgStewardFastModel',
   'cfgStewardMemoryPanel', 'cfgStewardMemoryRefreshBtn', 'cfgStewardMemoryExportBtn',
   'cfgStewardMemoryClearBtn', 'cfgStewardMemoryClearConfirm', 'cfgStewardMemoryClearInput',
   'cfgStewardMemoryClearCancel', 'cfgStewardMemoryClearOk',
   'cfgStewardDecisions', 'cfgStewardDecisionsThread', 'cfgStewardDecisionsDate',
   'cfgStewardDecisionsRefreshBtn', 'cfgStewardDecisionsMoreBtn', 'cfgStewardNote',
 ];
-const missingControls = CONTROL_IDS.filter(id => !new RegExp(`id="${id}"`).test(panel));
-ok(missingControls.length === 0, `A6 ${CONTROL_IDS.length} 个 cfgSteward* 控件都在面板里（缺: ${missingControls.join(',') || '无'}）`);
+const SECURITY_CONTROL_IDS = ['cfgStewardDefaultPermission', 'cfgStewardPermissionHint', 'cfgStewardPermissionConfirm',
+  'cfgStewardPermissionConfirmList', 'cfgStewardPermissionCancel', 'cfgStewardPermissionOk'];
+const LIMITS_CONTROL_IDS = ['cfgStewardMaxTurnsPerHour', 'cfgStewardMaxCostPerDay', 'cfgStewardMaxParallelThreads',
+  'cfgStewardGlobalMaxTurnsPerHour', 'cfgStewardGlobalMaxCostPerDay'];
+// 117l-A3：新开线程「强模型」／「快速模型」两档，各自服务商 + 模型名；以及管家自己的服务商与模型。
+const MODELS_CONTROL_IDS = ['cfgStewardProviderId', 'cfgStewardModel',
+  'cfgStewardStrongProviderId', 'cfgStewardStrongModel', 'cfgStewardFastProviderId', 'cfgStewardFastModel'];
+const missingIn = (ids, host) => ids.filter(id => !new RegExp(`id="${id}"`).test(host));
+const missingControls = [
+  ...missingIn(CONTROL_IDS, panel), ...missingIn(SECURITY_CONTROL_IDS, securityPanel),
+  ...missingIn(LIMITS_CONTROL_IDS, limitsPanel), ...missingIn(MODELS_CONTROL_IDS, modelsPanel),
+];
+const total = CONTROL_IDS.length + SECURITY_CONTROL_IDS.length + LIMITS_CONTROL_IDS.length + MODELS_CONTROL_IDS.length;
+ok(missingControls.length === 0 && total === 47,
+  `A6 ${total} 个 cfgSteward* 控件一个没少，各在自己的页里（管家 ${CONTROL_IDS.length}／权限 ${SECURITY_CONTROL_IDS.length}／限额 ${LIMITS_CONTROL_IDS.length}／模型 ${MODELS_CONTROL_IDS.length}；缺: ${missingControls.join(',') || '无'}）`);
+// 每个 id 全页只出现一次（搬家不许留下旧副本 —— 两枚同 id 的控件，按 id 接线的只会接到第一枚）。
+const duplicated = [...CONTROL_IDS, ...SECURITY_CONTROL_IDS, ...LIMITS_CONTROL_IDS, ...MODELS_CONTROL_IDS]
+  .filter(id => (html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1);
+ok(duplicated.length === 0, `A6b 每个 cfgSteward* 控件全页恰好一枚（重复: ${duplicated.join(',') || '无'}）`);
 // 控件命名纪律：面板里的 id 一律 cfgSteward 前缀（防日后混进不带前缀的散装 id）。
 const panelIds = [...panel.matchAll(/\sid="([A-Za-z0-9_]+)"/g)].map(m => m[1]);
 ok(panelIds.every(id => id.startsWith('cfgSteward')), `A7 面板内所有 id 都是 cfgSteward* 前缀（实测异类 ${panelIds.filter(id => !id.startsWith('cfgSteward')).join(',') || '无'}）`);
@@ -386,11 +418,13 @@ ok(count(settingsCode, /\bfetch\(/g) === 0, 'I3 零直调 fetch（一律经注�
 // ─── J 117l-A3：新开线程用什么模型（强/快两档）──────────────────────────────────
 const THREAD_MODEL_IDS = ['cfgStewardGroupThreadModels', 'cfgStewardThreadModelsHeading',
   'cfgStewardStrongProviderId', 'cfgStewardStrongModel', 'cfgStewardFastProviderId', 'cfgStewardFastModel'];
-const missingThreadModelIds = THREAD_MODEL_IDS.filter(id => !new RegExp(`id="${id}"`).test(panel));
-ok(missingThreadModelIds.length === 0, `J1 六个新 id 都在管家面板里（缺: ${missingThreadModelIds.join(',') || '无'}）`);
-const budgetIdx = panel.indexOf('id="cfgStewardGroupBudget"');
-const threadModelsIdx = panel.indexOf('id="cfgStewardGroupThreadModels"');
-ok(budgetIdx > 0 && threadModelsIdx > budgetIdx, 'J2 六个新 id 所在的组确实在 cfgStewardGroupBudget 之后');
+// W6 翻面重钉：这一组随「管家用的模型」一起搬进「模型分配」那张表（谁用哪个模型，一处看全）。
+const missingThreadModelIds = THREAD_MODEL_IDS.filter(id => !new RegExp(`id="${id}"`).test(modelsPanel));
+ok(missingThreadModelIds.length === 0, `J1 六个 id 都在「模型分配」页里（缺: ${missingThreadModelIds.join(',') || '无'}）`);
+const stewardRowIdx = modelsPanel.indexOf('id="cfgStewardProviderId"');
+const threadModelsIdx = modelsPanel.indexOf('id="cfgStewardGroupThreadModels"');
+ok(stewardRowIdx > 0 && threadModelsIdx > stewardRowIdx && modelsPanel.indexOf('id="cfgMainProvider"') < stewardRowIdx,
+  'J2 表里的顺序：对话主模型 → 管家用的模型 → 新开线程两档（钱与模型相关的几行挨着）');
 // fillProviderOptions 只有一处定义、三处调用（管家自己／强模型／快模型三个 select 共用同一份填充逻辑，
 // 不复制第二份）：字面量出现次数 = 1 处 `function fillProviderOptions(` + 3 处调用 = 4。
 ok(count(settingsCode, /function fillProviderOptions\(/g) === 1, 'J3 fillProviderOptions 只有一处定义');
@@ -406,8 +440,10 @@ const THREAD_MODEL_KEYS = [
 ];
 const missingThreadModelKeys = THREAD_MODEL_KEYS.filter(key => !(typeof zh[key] === 'string' && zh[key].length > 0 && typeof en[key] === 'string' && en[key].length > 0));
 ok(missingThreadModelKeys.length === 0, `J6 六个新 i18n 键 zh/en 都非空（缺: ${missingThreadModelKeys.join(',') || '无'}）`);
-ok(THREAD_MODEL_KEYS.every(key => panel.includes(`data-i18n="${key}"`)),
-  'J7 六个新键都在面板里以 data-i18n 挂上（不是孤儿翻译）');
+// W6：表里每一行只有一枚可见标签（服务商与模型两枚下拉的名字走 aria-label），所以「×× 服务商」那两个键
+// 挂在 data-i18n-attr 的 aria-label 上 —— 仍然是挂着的，不是孤儿翻译。
+ok(THREAD_MODEL_KEYS.every(key => modelsPanel.includes(`data-i18n="${key}"`) || modelsPanel.includes(`aria-label:${key}"`)),
+  'J7 六个键都在「模型分配」页里挂上（data-i18n 或 aria-label，不是孤儿翻译）');
 
 // ─── K F5a 图标集：头部两枚常驻控件（27 号文 §11.13.1「F 追加」／32 号文 §2.2 F5）──────
 // 这一组钉的是【哪件事必须成立】，不是「某个字面量还在不在」（32 号文 §4 纪律 4）：

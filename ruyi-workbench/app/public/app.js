@@ -1147,7 +1147,6 @@ function bindEvents() {
   $('saveConfigBtn').onclick = saveSettings;
   { const ap = $('addProviderBtn'); if (ap) ap.onclick = addProviderFromPreset; }
   { const cp0 = $('applyClaudeEndpointPresetBtn'); if (cp0) cp0.onclick = applyClaudeEndpointPreset; }
-  { const im = $('importMcpFolderBtn'); if (im) im.onclick = () => importMcpFromFolder(im); } // v1.0.2 (G5c)
   bindSettingsOperations(); // 第58波:更新中心 + MCP 运维的按钮接线由领域模块自持
   bindAgentRoles(); // 第61波：角色编辑与子代理偏好按钮由角色领域自持
   document.querySelectorAll('#settingsTabs button[data-stab]').forEach(b => { b.onclick = () => switchSettingsTab(b.dataset.stab); }); // 118d: 同排还有一个「?」按钮,只给真页签接线
