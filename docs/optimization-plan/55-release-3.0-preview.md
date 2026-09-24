@@ -44,7 +44,15 @@
 
 ## §4 打包与冒烟
 
-__PKG__
+包全部出自发布提交 `e9fb1450`（原生 PowerShell 跑，不在 Git Bash 里）。纪律照 46 号文 P1：起服务一律隔离家目录、随机端口、只停自己 `Start-Process -PassThru` 拿到的 PID；**没跑 `Start-Workbench.cmd`**（Full 的启动器会 `install.py --ensure` 往真实配置里登记 ACC）；`dist/overlay`（旧产物）先挪开、干跑后原样挪回；旧的 `dist/Ruyi.exe`（`652802e` 的构建中间物）先备份。
+
+- **发布干跑**（`release-dryrun.js`）：ALL PASS —— 版本三角 `3.0.0-preview.1` 四处一致、桌面壳编译、overlay 装配 209 个载荷文件 sha256 全量对账 0 差、`minHostVersion` 合法、Slim／Full 文件清单可复验。
+- **真打包**（带 `Ruyi.exe`，pkg 底包 v24.18.0 在本机缓存里，离线可打）：`Ruyi-v3.0.0-preview.1-slim.zip` **77.75 MB**、`Ruyi-v3.0.0-preview.1-full.zip` **775.31 MB**（2.8.0 那两份 73.33／770.88 MB，形状一致；Slim 多出的是随包的 mermaid 与 rg.exe）。Full 打包闸：ACC 离线载荷 **17,588 个文件完整性核验全过**。pkg 的两条告警（动态 require、仓外 `mcp/ai-computer-control` 路径）与 2.8.0 相同，是既有的已知项。
+- **`Ruyi-v3.0.0-preview.1-SHA256SUMS.txt`**（`sha256sum -c` 过）：
+  - full `c159623ec7dcb1afa3ff01f6b79e5e816f2b3da682fbe44dcf49817c42b343c7`
+  - slim `2f52d938a4f02c9b030a45499205035c8ba99090a2fa5358f531505263e2bb27`
+- **全新目录冒烟**（系统 `tar.exe` 解到临时目录）：Slim 自带 node、Slim `Ruyi.exe serve`、Full 自带 node，三种都 **1.8–2.5 s** 起来，`/health` 与 `/api/status` 都报 **`3.0.0-preview.1`**、`configSchema` 13、health 7 项、手册在包里。三种的 `desktop-control` 都是未就绪：Slim 本来就不带 ACC；Full 的 ACC 登记只在启动器里做，冒烟刻意没跑启动器。收工：无残留进程、临时目录已清。
+- **仍未做**：Full 在真实桌面双击启动器（会动真实配置，留给用户）。
 
 ## §5 3.0 门状态快照（2026-09-24，承 50 号文 §0 与审计 §3）
 
@@ -71,4 +79,11 @@ __PKG__
 
 ## §7 发布动作
 
-__PUBLISH__
+1. 发布提交 `e9fb1450`（代码＋文档）→ 本文档定稿提交（只改 `docs/`，不进两个 zip）→ 标签 `v3.0.0-preview.1` 打在定稿提交上，推 `master` 与标签（用户 2026-09-24 明确要求发布）。
+2. **GitHub Release 本体（pre-release＋三个资产）**：主会话这一侧的自动模式不允许读取本机 git 凭据去调 GitHub API（`gh` 也没装），所以这一步交给用户在本机跑一条命令 —— 它用的是 `git push` 同一份已登录凭据，**不需要再做两步验证**，可重入（断了再跑一次只补缺的资产、核大小）：
+
+```
+node dev-harness/publish-github-release.js --tag v3.0.0-preview.1 --title "如意 Ruyi Pretender 3.0 Preview 1 · v3.0.0-preview.1" --notes docs/release-notes/v3.0.0-preview.1.md --prerelease --asset ruyi-workbench/dist/Ruyi-v3.0.0-preview.1-slim.zip --asset ruyi-workbench/dist/Ruyi-v3.0.0-preview.1-full.zip --asset ruyi-workbench/dist/Ruyi-v3.0.0-preview.1-SHA256SUMS.txt
+```
+
+   发布后核对：Release 页标着 Pre-release、三个资产大小与本地一致（脚本最后逐个打 OK）、下载的 zip 与 SHA256SUMS 对得上。
