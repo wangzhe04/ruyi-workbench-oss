@@ -51,6 +51,7 @@ function makePackage(root, version) {
 // ---- fixtures -------------------------------------------------------------------------------------------
 write(path.join(HOME, '.claude', 'CLAUDE.md'), '# 我的规矩\n\n- CLAUDE_MD_MARKER 回答一律用中文\n- 改代码前先读相关文件\n');
 write(path.join(HOME, '.codex', 'AGENTS.md'), '# Codex 规则\n\nCODEX_AGENTS_MARKER 先写测试再改代码\n');
+write(path.join(HOME, '.gemini', 'GEMINI.md'), '# Gemini\n\nGEMINI_MD_MARKER\n');
 write(path.join(HOME, '.codex', 'config.toml'), 'model = "gpt-5"\n\n[mcp_servers.codex-fs]\ncommand = "node"\nargs = ["codex-fs.js"]\n');
 write(path.join(HOME, '.codex', 'skills', 'x-codex-skill', 'SKILL.md'), '---\nname: X Codex Skill\ndescription: CODEX_SKILL_MARKER 来自 Codex 的技能\n---\n\n# body\n');
 write(path.join(HOME, '.kimi-code', 'mcp.json'), JSON.stringify({ mcpServers: {
@@ -162,6 +163,7 @@ const apply = async body => request('POST', '/api/migration/apply', body);
     const instr = key => (s1.instructions || []).find(x => x.key === key) || {};
     ok(instr('claude-md').status === 'imported' && instr('codex-agents').status === 'imported' && instr('kimi-agents').status === 'absent',
       'B1 指令文件逐项状态(claude-md/codex-agents 已导入,kimi 无此文件)');
+    ok(instr('gemini-md').status === 'importable' && !fs.existsSync(path.join(memDir, 'agentmd-gemini-md-1.md')), 'B1b Gemini(非点名三家)只列为可导入,启动期不自动导');
     const mcpRow = (origin, id) => (s1.mcp.servers || []).find(x => x.origin === origin && x.id === id) || {};
     ok(mcpRow('codex', 'codex-fs').status === 'imported' && mcpRow('kimi', 'ruyi-managed').reason === 'ruyi-managed'
       && mcpRow('claude-code', 'old-bridge').reason === 'ruyi-self', 'B2 MCP 逐项状态与跳过原因');
@@ -216,6 +218,8 @@ const apply = async body => request('POST', '/api/migration/apply', body);
     const s4 = await scan();
     ok((s4.instructions.find(x => x.key === 'claude-md') || {}).status === 'dismissed' && !fs.existsSync(path.join(memDir, 'agentmd-claude-md-1.md')),
       'D5 记 dismissed,再扫描(自动同步)也不导回来');
+    const gem = await apply({ importInstructions: ['gemini-md'] });
+    ok(gem && gem.json && gem.json.ok && /GEMINI_MD_MARKER/.test(readText(path.join(memDir, 'agentmd-gemini-md-1.md'))), 'D6 Gemini 经迁移中心显式导入才进核心记忆');
 
     // ── E apply 改写 + 备份 + 日志;undo 还原 ──
     const ids = [refBridge.id, refAcc.id];

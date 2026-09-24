@@ -386,7 +386,8 @@ function agentInstructionSources() {
     { key: 'claude-md', tool: 'claude-code', label: 'Claude Code', nativeCli: 'claude', files: [path.join(homes.claude, 'CLAUDE.md')] },
     { key: 'codex-agents', tool: 'codex', label: 'Codex', nativeCli: '', files: [path.join(homes.codex, 'AGENTS.override.md'), path.join(homes.codex, 'AGENTS.md')] },
     { key: 'kimi-agents', tool: 'kimi', label: 'Kimi Code', nativeCli: 'kimi', files: [path.join(homes.kimi, 'AGENTS.md')] },
-    { key: 'gemini-md', tool: 'gemini', label: 'Gemini CLI', nativeCli: '', files: [path.join(homes.gemini, 'GEMINI.md')] },
+    // Gemini 不在用户点名的三家里(派单:可选):只列出、不在启动期自动导入;用户在迁移中心点「导入」才进核心记忆。
+    { key: 'gemini-md', tool: 'gemini', label: 'Gemini CLI', nativeCli: '', autoImport: false, files: [path.join(homes.gemini, 'GEMINI.md')] },
   ];
 }
 function agentInstructionImportFile() { return path.join(paths.memory, '.agent-instructions-import-v1.json'); }
@@ -622,7 +623,7 @@ async function syncAgentInstructionImportsUnlocked(opts) {
       continue;
     }
     if (!read) { out.push(row); continue; }
-    if (!auto && !forced) { out.push({ ...row, status: 'importable' }); continue; }
+    if ((!auto || src.autoImport === false) && !forced) { out.push({ ...row, status: 'importable' }); continue; }
     await removeAgentInstructionEntries(src.key, record);
     const written = await writeAgentInstructionEntries(src, read, displayPath);
     state.sources[src.key] = { key: src.key, file: read.file, sourceHash: read.hash, importedAt: written.importedAt, entries: written.entries, dismissed: false };
