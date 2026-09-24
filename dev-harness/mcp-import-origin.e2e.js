@@ -147,7 +147,8 @@ async function bootOnce(oldToken) {
     // W2:Kimi 现在也是来源 —— Kimi 同步只多了一件事:从 Kimi 导进来的(origin kimi)不写回、不接管;其余逐字不变。
     const kimi = src.slice(src.indexOf('async function syncMcpServersToKimi(config)'), src.indexOf('async function autoImportClaudeCodeMcp(config)'));
     const kimiOrigins = kimi.match(/origin/g) || [];
-    ok(kimi.length > 200 && /if \(item && item\.origin === 'kimi'\) delete generatedServers\[String\(item\.id\)\];/.test(kimi) && !/claude-code/.test(kimi),
+    ok(kimi.length > 200 && /if \(item && item\.origin === 'kimi'\) delete generatedServers\[String\(item\.id\)\];/.test(kimi)
+      && !/origin === 'claude-code'/.test(kimi) && !/origin === 'codex'/.test(kimi),
       's Kimi 同步只跳过 kimi 来源(从 Kimi 导进来的不写回),claude-code 来源照常同步(' + kimiOrigins.length + ' 处 origin)');
   } finally {
     kill(wb);

@@ -112,6 +112,8 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
     root.setAttribute('aria-labelledby', MIGRATION_CENTER_ID + 'Title');
     host.appendChild(el('hr', 'settings-sep'));
     host.appendChild(root);
+    // 标题当场就画:aria-labelledby 指向的 id 必须一挂上就在(a11y-lint A3),不能等第一次 scan 回来。
+    renderHead(root);
     return root;
   }
 
