@@ -242,7 +242,12 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
       const memoryTurnCheck = input.memoryTurnCheck;
       ${policySnippet}
       return { slashCommand, kimiNativeSlashCommand, recoveryHistory, historyRecoveryInjected, fullPrompt };
-    })`, { buildClaudeRecoveryHistory: () => 'claude-history' });
+    })`, {
+      buildClaudeRecoveryHistory: () => 'claude-history',
+      // 137 代理模式 v2:这段抽出来的策略里多了一行「下一回合拼入后台代理信封」(EventStreamHooks.drainAgentEnvelopesText)。
+      // 抽源件给「钩子未填充」的真实形态(00-boot 里是空对象,13r 加载后才填),斜杠命令分支本就短路不读它。
+      EventStreamHooks: {},
+    });
     const runPolicy = policy;
     const slashInput = { agentCliType: 'kimi', message: '  /compact now', summary: 'summary', override: 'override', recoverySource: [], basePrompt: '  /compact now\n<attached_files>', indexInjection: '', memoryTurnCheck: 'memory' };
     const kimiPolicy = runPolicy(slashInput);

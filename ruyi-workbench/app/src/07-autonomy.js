@@ -275,6 +275,7 @@ const NATIVE_TOOL_TIER = {
   // 127-114c③(26 号文 §3):读本地音频后出网转写 —— 用户文件内容离开本进程,与「文件出网」同档 exec。
   audio_transcribe: 'exec',
   orchestrate_agents: 'exec', // 代理模式 v2:委派子代理是最高特权的原生动作 → exec 档(旧 spawn_agent 已并入)
+  spawn_agent: 'exec', // 137 集成:兼容口仍在注册表(旧模型调它 → MCP 子进程翻译成单节点 orchestrate),档位必须与 orchestrate_agents 同为 exec,不能因缺声明落到低档
   wait_agents: 'read',
   agent_result: 'read',
   // v0.8-S2 shell session族: listing is read-only; start/send/poll/kill mutate state → exec.
@@ -362,7 +363,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
-  archive_zip: 'archive', archive_unzip: 'archive', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', skill_read: 'skills',
+  archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', skill_read: 'skills',
   mcp_list: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
   // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。

@@ -7177,6 +7177,13 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "filterMemoryForNativeCli",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "proposeMemoryRelation",
           "kinds": [
             "call"

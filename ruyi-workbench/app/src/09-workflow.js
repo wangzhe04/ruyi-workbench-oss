@@ -679,7 +679,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config).catch(() => ({
         entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
       }));
-      const nodeMemoryEntries = [...(nodeMemory.coreEntries || []), ...(nodeMemory.entries || [])];
+      // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。
+      const nodeMemoryEntries = filterMemoryForNativeCli([...(nodeMemory.coreEntries || []), ...(nodeMemory.entries || [])], node.engine === 'claude' ? 'claude' : '');
       const nodeMemoryConflicts = nodeMemoryEntries.length ? await buildMemoryConflictMap(wfCwd).catch(() => new Map()) : null;
       const memoryInstruction = [
         buildMemoryCheckPrompt(nodeMemory.status, config),

@@ -42,7 +42,7 @@ for (const n of names) {
     if (!/guardFileToolPath\(|guardDownloadDest\(/.test(src)) l3Bad.push(n);
   }
 }
-ok(names.length === 106, `L1 注册表 106 个工具(got ${names.length}; 第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97;129b 增三张只读清单 steward_{skills,providers,playbooks}:97→100;129d 增眼睛四件:100→104;129e 增 steward_thread_workspace:104→105;129f 增 steward_notify:105→106)`);
+ok(names.length === 107, `L1 注册表 107 个工具(got ${names.length}; 第 116 波 116c 新增 17 个 steward_* 管家工具:63→80;116-2a 增 steward_thread_permission:80→81;116-2b 增 steward_thread_note:81→82;116g 增 steward_missions:82→83;116h 增 steward_thread_prioritize:83→84;116-2e 增 steward_config_get/config_set/playbook_draft/skill_toggle/quick_ask:84→89;117m-A4 增 steward_thread_stop:89→90;123-M2 增六件定时任务 steward_schedule_{create,list,pause,resume,run_now,delete}:90→96;127-114c③ 增 audio_transcribe:96→97;129b 增三张只读清单 steward_{skills,providers,playbooks}:97→100;129d 增眼睛四件:100→104;129e 增 steward_thread_workspace:104→105;129f 增 steward_notify:105→106;137 代理模式 v2 增 agent_result:106→107(spawn_agent 留作兼容口仍在册))`);
 // 117m-A4 伴随断言(重钉一个数就补一条更强的):这个数必须与 facts.json 里现算的那一份【同源】,
 // 免得下一波只改一处数字就把三处锁哄过去(facts.json 由 facts-generate 从 TOOL_HANDLERS 重算)。
 ok(names.length === require(path.join(__dirname, '..', 'facts.json')).nativeTools,

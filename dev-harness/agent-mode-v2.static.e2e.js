@@ -40,7 +40,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
   const sub = srv.buildOpenAiTools({ subagentMaxPerTurn: 4 }, null, { noAgentTools: true }).map(t => t.function.name);
   ok(!sub.some(n => ['orchestrate_agents', 'wait_agents', 'agent_result'].includes(n)), '① noAgentTools(子回合)→ 三个代理工具都不 offer(禁嵌套)');
   const s07 = src('07-autonomy.js');
-  ok(!/spawn_agent: 'exec'/.test(s07) && /agent_result: 'read'/.test(s07) && /agent_result: 'agents'/.test(s07), '① 07 tier/pack 表:spawn_agent 退役,agent_result read 级、agents 包');
+  // 137 集成重钉:spawn_agent 的兼容口(旧模型调它 → 翻译成单节点 orchestrate)仍在 TOOL_HANDLERS 里,而 tool-dispatch L4
+  // 的安全不变量要求「每个注册工具都有 tier 与 pack 声明」—— 缺声明会让兼容口落到默认低档。「不 offer」由上面 ① 第一条钉。
+  ok(/spawn_agent: 'exec'/.test(s07) && /agent_result: 'read'/.test(s07) && /agent_result: 'agents'/.test(s07), '① 07 tier/pack 表:spawn_agent 兼容口仍 exec 级(不因缺声明落低档),agent_result read 级、agents 包');
   const s13 = src('13-http-router.js');
   ok(!/if \(t\.name === 'spawn_agent'\) return false;/.test(s13), '① 13 MCP tools/list 不再需要过滤 spawn_agent');
   ok(/pathname === '\/api\/agent-workflow\/wait'\) return agentWorkflowLoopbackRoute\(req, res, 'wait'\)/.test(s13) && /pathname === '\/api\/agent-workflow\/result'\) return agentWorkflowLoopbackRoute\(req, res, 'result'\)/.test(s13) && /async function agentWorkflowLoopbackRoute\(req, res, kind\)/.test(s13), '① 13 有 wait/result 回环路由(MCP 子进程用)');
