@@ -65,7 +65,9 @@ const src = readServerSource();
     ok(/web_search: 'read', web_fetch: 'read'/.test(table), "⑤ web_search/web_fetch 保持 read 级(联网只读)");
     ok(/http_request: 'exec'/.test(table.replace(/\n/g, ' ')) || /http_request: 'exec'/.test(table), "⑤ http_request 保持 exec 级(任意方法/头的原始请求)");
     ok(/git_commit: 'exec'/.test(table), "⑤ git_commit 保持 exec 级(触发 hooks)");
-    ok(/orchestrate_agents: 'exec'/.test(table) && !/spawn_agent:/.test(table), "⑤ orchestrate_agents 保持 exec 级(代理模式 v2:spawn_agent 已并入,不再单列)");
+    // 137 集成重钉:spawn_agent 兼容口仍在 TOOL_HANDLERS(tool-dispatch L4 要求每个注册工具有 tier),所以它还在表里;
+    // 本条守的是「委派子代理不落低档」—— 它在表里就必须与 orchestrate_agents 同为 exec(将来整个撤掉兼容口也照样绿)。
+    ok(/orchestrate_agents: 'exec'/.test(table) && (!/spawn_agent:/.test(table) || /spawn_agent: 'exec'/.test(table)), "⑤ orchestrate_agents 保持 exec 级;spawn_agent 兼容口若在表里也必须 exec(代理模式 v2)");
   }
   ok(/noAgentTools: true/.test(src.slice(src.indexOf('async function runSubAgentCore('), src.indexOf('async function runSubAgentCore(') + 6000)), '⑤ 子回合仍禁嵌套(noAgentTools:三个代理工具都不 offer)');
 }

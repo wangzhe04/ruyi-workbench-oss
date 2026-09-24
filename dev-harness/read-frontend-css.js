@@ -776,7 +776,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // readLayerPayload()）按【本分支起点 HEAD】重算，得到的值与上面那个前值逐字相同（自证通过）；随后按工作区
 // 重算得到下面这个值，提交后 HEAD 即工作区（32 号文 §4 纪律 4）。反向验证：删掉 steward-drawer.css 里
 // `.steward-drawer-title:focus-visible` 那一行 → 本值与实算不符，frontend-domains D51 与 live-full-text F3 双红。
-const LEGACY_STYLES_SHA256 = 'b3ac6fd5b61394708e2d2e9b134c807371986685412faf82bd6c208e0d654b5a';
+// 137 集成续钉(前值 b3ac6fd5…＝W4b):零新增、零删除层,只在 `css/views/steward-shell.css` 加一条 ≤480px 媒体查询 ——
+//   管家输入行录音/预热态让出「+」(W4b 让「@」与输入行同行后,390px 录音态输入框被挤到 106px,composer-voice.browser G5 红)。
+// 算法自证:把 steward-shell.css 换回 HEAD 重算 = b3ac6fd5…,与被替换的旧值逐字相同;换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = '7e2233128bfea738c7a2db0bb6aa76ead2a8fba13e666ca46325da32f8a630d6';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

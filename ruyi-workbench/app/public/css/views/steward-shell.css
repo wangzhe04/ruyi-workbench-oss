@@ -183,6 +183,13 @@
    输入行只要 200px 就与「@」同行：390px 下不再让「@」独占一行、输入框掉到第二行（实拍抓到的）。
    chip 一变长（命中／手选／另起一件），is-quiet 摘掉，520 那条原样接管。 */
 .steward-composer:has(> .steward-target.is-quiet) > .steward-composer-row { flex: 1 1 200px; }
+/* 137 集成：上一条让「@」与输入行同处一行后，390px 下录音/预热态麦克风变宽（36→58px，多出 m:ss），
+   输入框被挤到 106px，低于 composer-voice.browser G5 钉的 120px 可用下限。窄屏里录音/预热期间先让出「+」
+   （口述时用不到附件，停录即回来），输入框回到 ≥140px；宽屏不受影响。 */
+@media (max-width: 480px) {
+  .steward-composer-row:has(> #stewardComposerVoice[data-state="recording"]) > #stewardComposerPlus,
+  .steward-composer-row:has(> #stewardComposerVoice[data-state="warming"]) > #stewardComposerPlus { display: none; }
+}
 /* 121-K8（§2.10.2）：focus-within 才描主色边 —— 与工作台胶囊同一条规则、同一圈光晕。 */
 .steward-composer:focus-within {
   border-color: var(--accent);
