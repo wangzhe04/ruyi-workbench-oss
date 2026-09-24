@@ -1,6 +1,7 @@
 /* 135（用户 2026-09-23）：「等你处理」小窗——多条提问／权限排队时收在工作台右下角，
    显示件数、最久等了多久；展开后按线程分组，每条显示已等多久／还剩多久。
-   JS 在 js/prompt-queue.js：它只在工作台视角、且当前没有队列弹窗开着时露出（hidden 属性）。
+   JS 在 js/prompt-queue.js：工作台与管家两个视角都露出（2026-09-24 用户要求管家视角也看得到），
+   当前没有队列弹窗开着时才出现（hidden 属性）。
    层级 41：高于安静卡（40），低于顶栏（42）与模态背影（50）——弹窗开着时它本来就藏起来。
    右下角正好是输入框的发送键：JS 把 --prompt-dock-bottom 设成输入框上沿之上 8px（没有输入框就贴底）。
    它和安静卡、toast 同占右下角：body.has-prompt-dock 时把后两者往上让出小窗的高度。
@@ -18,7 +19,6 @@
   max-width: min(360px, calc(100vw - 2 * var(--sp-4)));
 }
 .prompt-dock[hidden] { display: none; }
-:root[data-shell-mode="steward"] .prompt-dock { display: none; }
 
 body.has-prompt-dock #quietCardHost { bottom: calc(var(--prompt-dock-bottom, var(--sp-5)) + 52px); }
 body.has-prompt-dock .toast-tray { bottom: calc(var(--prompt-dock-bottom, 18px) + 52px); }

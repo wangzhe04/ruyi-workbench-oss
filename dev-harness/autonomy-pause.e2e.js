@@ -54,9 +54,14 @@ const fireNext = () => { const live = timers.filter(x => !x.cleared).sort((a, b)
 // 改了产品代码就要回来核一遍源抽取的注入表,漏一个就是 ReferenceError 而不是断言红。
 // 这里用一张可控的表来喂它,下面 (5) 组就靠它量「换的只是等待窗口,不是判定」。
 const schedulerAskWait = new Map();
-const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention', 'runAutomaticInterventionDecision', 'schedulerAskWaitOverrideMs',
+// 2026-09-24:「等多久」的归一改走 04 的 promptWaitMs(0/缺省 = 不限时)。同一条纪律:注进来的是源里抽出来的
+// 【真函数】,不是桩 —— 本件各组传的都是显式 120000,真函数原样返回,定时行为一个字不变。
+const pwSrc = src.match(/const PROMPT_WAIT_UNLIMITED_MS = \d+;[\s\S]*?\nfunction promptWaitMs\(value, floorMs = 5000\) \{[\s\S]*?\n\}/);
+ok(!!pwSrc, 'P 源抽取 promptWaitMs(04:0/缺省 = 不限时)');
+const promptWaitMs = new Function(pwSrc[0] + '\nreturn promptWaitMs;')();
+const requestNativePermission = new Function('makeId', 'toolIsRevertible', 'pendingPermissions', 'setTimeout', 'clearTimeout', 'registerIntervention', 'settleIntervention', 'runAutomaticInterventionDecision', 'schedulerAskWaitOverrideMs', 'promptWaitMs',
   m[0] + '\nreturn requestNativePermission;')(makeId, toolIsRevertible, pending, setTimeoutF, clearTimeoutF, () => {}, () => {}, (_command, fallback) => fallback(),
-  sid => Number(schedulerAskWait.get(String(sid))) || 0);
+  sid => Number(schedulerAskWait.get(String(sid))) || 0, promptWaitMs);
 
 (async () => {
   const settle = p => Promise.race([p, sleep(0).then(() => '__pending__')]);

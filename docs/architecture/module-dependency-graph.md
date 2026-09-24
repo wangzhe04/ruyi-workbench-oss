@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 54 | 2609 | 2709 | 433 | 68 | 0 | 1 |
+| 54 | 2616 | 2712 | 434 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -23,7 +23,7 @@
 | 5 | `02-session-store.js` | foundation | 262 | 47 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 74 | 21 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 8 | `04-permission-runtime.js` | foundation | 119 | 34 | 7 |
+| 8 | `04-permission-runtime.js` | foundation | 123 | 34 | 7 |
 | 9 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
 | 10 | `04f-toolbox-services.js` | foundation | 25 | 13 | 3 |
 | 11 | `05-claude-engine.js` | engine | 67 | 108 | 15 |
@@ -40,7 +40,7 @@
 | 22 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 23 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
 | 24 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 25 | `07-autonomy.js` | orchestration | 91 | 61 | 13 |
+| 25 | `07-autonomy.js` | orchestration | 91 | 62 | 13 |
 | 26 | `08-agent-runs.js` | orchestration | 90 | 87 | 16 |
 | 27 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 28 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
@@ -54,7 +54,7 @@
 | 36 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 37 | `13d-core-domain-routes.js` | transport | 45 | 118 | 14 |
 | 38 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
-| 39 | `13i-steward-inbox.js` | transport | 69 | 24 | 7 |
+| 39 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
 | 40 | `13j-steward-tool-base.js` | transport | 76 | 22 | 6 |
 | 41 | `13k-steward-threads.js` | transport | 42 | 104 | 13 |
 | 42 | `13l-steward-ops.js` | transport | 36 | 102 | 17 |
@@ -63,7 +63,7 @@
 | 45 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
 | 46 | `13o-steward-runner-prompt.js` | transport | 19 | 54 | 14 |
 | 47 | `13p-steward-runner-actions.js` | transport | 29 | 46 | 10 |
-| 48 | `13q-steward-runner-turn.js` | transport | 25 | 63 | 17 |
+| 48 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 17 |
 | 49 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 50 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
 | 51 | `13s-scheduler.js` | transport | 46 | 33 | 7 |
@@ -190,7 +190,7 @@
 | `07-autonomy.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `observationRecallEnabled` |
 | `07-autonomy.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `settleIntervention`, `unprefixedBridgedName` |
 | `07-autonomy.js` | `03-bridge-guard.js` | backward | `existsExecutableAsync`, `normalizeCwd`, `pathWithinRoot` |
-| `07-autonomy.js` | `04-permission-runtime.js` | backward | `PermissionWaitHooks`, `killChildTree`, `logEvent`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
+| `07-autonomy.js` | `04-permission-runtime.js` | backward | `PermissionWaitHooks`, `killChildTree`, `logEvent`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `promptWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
 | `07-autonomy.js` | `05-claude-engine.js` | backward | `providerBaseWithV1` |
 | `07-autonomy.js` | `06-provider-engine.js` | backward | `appendResponseLanguagePolicy`, `toolRequirementsMet` |
 | `07-autonomy.js` | `06i-steward-core.js` | backward | `isStewardToolName`, `stewardToolPermanentlyExempt` |
@@ -355,6 +355,7 @@
 | `13i-steward-inbox.js` | `02-session-store.js` | backward | `readMissionChangesWithMeta`, `repairMissionChangeTornTail` |
 | `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText`, `stewardWatchedThread` |
+| `13i-steward-inbox.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
 | `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
 | `13j-steward-tool-base.js` | `00-boot.js` | backward | `fsp`, `nowIso`, `path`, `safeJsonParse`, `text` |
@@ -431,7 +432,7 @@
 | `13q-steward-runner-turn.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `fsp`, `nowIso`, `path` |
 | `13q-steward-runner-turn.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13q-steward-runner-turn.js` | `02-session-store.js` | backward | `loadSession`, `mutateSession`, `normalizeSessionEngineRoute` |
-| `13q-steward-runner-turn.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingQuestions` |
+| `13q-steward-runner-turn.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingQuestions`, `promptDeadlineIsReal` |
 | `13q-steward-runner-turn.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardOpenAiFallback`, `stewardPendingOneLine`, `stewardSanitizeText`, `stewardThreadEngineRoute`, `waitReasonFor` |
 | `13q-steward-runner-turn.js` | `06j-scheduler-core.js` | backward | `SchedulerHooks` |
 | `13q-steward-runner-turn.js` | `10-context-governance.js` | backward | `runSessionTurn` |

@@ -2,8 +2,9 @@
 'use strict';
 
 // 135（用户 2026-09-23「多个提问/权限弹窗依次排序、最小化到右下角、显示等待时长」）：
-// js/prompt-queue.js 的排队语义。纯函数部分直接断真值表；队列本体用假 openItem + 管家视角
-// （shellMode 返回 'steward' 时小窗不渲染，零 DOM），只看「弹了谁、没弹谁、谁出了队」。
+// js/prompt-queue.js 的排队语义。纯函数部分直接断真值表；队列本体用假 openItem + 一个【不露小窗】的视角
+// （零 DOM），只看「弹了谁、没弹谁、谁出了队」。2026-09-24 起管家视角也露小窗（用户要求），所以这里的
+// 「不渲染」视角从 'steward' 换成一个两壳之外的名字 —— 断言一条没动，换的只是夹具的前提。
 //
 // 钉住的六件事（每一条都对应修前的一处真毛病或一条拍板）：
 //   ① 同时来两条：只弹一个，第二条排队 —— 修前第二条提问会把第一条 __cancel 掉；
@@ -41,8 +42,8 @@ function makeQueue(mod, clock) {
   const queue = mod.createPromptQueue({
     api: null,                       // 不对账
     t: key => key,
-    el: () => { throw new Error('管家视角下不该渲染小窗'); },
-    shellMode: () => 'steward',
+    el: () => { throw new Error('这个视角下不该渲染小窗'); },
+    shellMode: () => 'no-dock',
     now: () => clock.now,
     doc: fakeDoc,
     openItem: (item, ctx) => {
@@ -179,5 +180,74 @@ describe('prompt-queue 队列本体', () => {
     queue.settle('a');
     assert.equal(handles.get('a').closed, true);
     assert.deepEqual(opened, ['a', 'b']);
+  });
+});
+
+// 2026-09-24（用户：「默认提问/权限改成无限久，超过一段时间之后（管家也没批的话）就自动最小化收起」）：
+//   ⑦ 截止时刻远在一周之外（后端「不限时」落在 ~24.8 天后）一律当「没有截止」：不显示倒计时、不置顶；
+//   ⑧ 弹出来的那一条 2 分钟没人碰 → 收进小窗（= 稍后处理），条目仍在队里、不替用户做决定；
+//   ⑨ 弹窗里有过点按／键入，就从那一刻重新计时。
+describe('prompt-queue 不限时与自动收起', () => {
+  const tick = () => new Promise(resolve => setTimeout(resolve, 1150));   // 队列的 1 s 计时器走一拍
+
+  it('⑦ promptDeadline：一周内的截止时刻原样保留，更远的与缺席的都归 0', async () => {
+    const { promptDeadline } = await load();
+    const now = 1_000_000;
+    assert.equal(promptDeadline(now + 60_000, now), now + 60_000);
+    assert.equal(promptDeadline(now + 7 * 24 * 3600 * 1000, now), now + 7 * 24 * 3600 * 1000);
+    assert.equal(promptDeadline(now + 2_147_000_000, now), 0, '不限时（~24.8 天）不是真截止');
+    assert.equal(promptDeadline(0, now), 0);
+    assert.equal(promptDeadline(undefined, now), 0);
+    const clock = { now };
+    const { queue } = makeQueue(await load(), clock);
+    queue.offer(perm('far', 's1', { deadlineAt: now + 2_147_000_000 }));
+    assert.equal(queue.list()[0].deadlineAt, 0, '入队时就归一，小窗与弹窗都不会画 596 小时的倒计时');
+    assert.equal(/remain/.test(queue.timeText('far')), false, '只剩「已等多久」');
+  });
+
+  it('⑧ 弹出 2 分钟没人碰：自动收进小窗，条目还在、新来的只进角标', async () => {
+    const mod = await load();
+    const clock = { now: 10_000 };
+    const { queue, opened, handles } = makeQueue(mod, clock);
+    queue.offer(perm('a', 's1', { requestedAt: 1 }));
+    assert.equal(queue.activeId(), 'a');
+    clock.now += 119_000;
+    await tick();
+    assert.equal(queue.activeId(), 'a', '不到 2 分钟不收');
+    clock.now += 2_000;
+    await tick();
+    assert.equal(queue.activeId(), '', '到点收起');
+    assert.equal(handles.get('a').closed, true);
+    assert.equal(queue.size(), 1, '只是收起，没有替用户决定');
+    queue.offer(perm('b', 's2', { requestedAt: 2 }));
+    assert.deepEqual(opened, ['a'], '收起之后新来的不再自动弹（与「稍后处理」同一个效果）');
+  });
+
+  it('⑨ 弹窗里点过／打过字：从那一刻重新计时', async () => {
+    const mod = await load();
+    const clock = { now: 10_000 };
+    const listeners = {};
+    const doc = () => ({
+      ...fakeDoc(),
+      addEventListener(type, fn) { (listeners[type] ||= []).push(fn); },
+    });
+    const opened = [];
+    const queue = mod.createPromptQueue({
+      api: null, t: key => key, el: () => { throw new Error('不该渲染'); }, shellMode: () => 'no-dock',
+      now: () => clock.now, doc,
+      openItem: (item) => { opened.push(item.id); return { close() {} }; },
+      allowToolForThread: async () => {},
+    });
+    liveQueues.push(queue);
+    queue.offer(perm('a', 's1', { requestedAt: 1 }));
+    clock.now += 100_000;
+    const inModal = { closest: sel => (sel === '.prompt-queue-modal' ? {} : null), tagName: 'BUTTON' };
+    for (const fn of listeners.pointerdown || []) fn({ target: inModal });
+    clock.now += 60_000;   // 距弹出 160 s，距最后一次点按 60 s
+    await tick();
+    assert.equal(queue.activeId(), 'a', '有人在处理就不收');
+    clock.now += 61_000;
+    await tick();
+    assert.equal(queue.activeId(), '', '停手满 2 分钟再收');
   });
 });

@@ -47,8 +47,10 @@ function defaultConfig() {
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
-    permissionTimeoutMs: 120000,  // how long a permission prompt waits before auto-deny
-    questionTimeoutMs: 600000,    // how long a request_user_input question waits; typing a long answer must not be cut short (UI heartbeat extends it while the modal is open)
+    // 2026-09-24 用户拍板:提问/权限默认【不限时】(0)—— 一直挂着等人处理,弹窗过一会儿自己收进右下角小窗。
+    // >0 为毫秒上限,到时权限按拒绝、提问按取消(老语义);定时任务派的无人值守回合另有自己的等待表(07)。
+    permissionTimeoutMs: 0,       // 0 = no limit; >0 = ms before a permission prompt auto-denies
+    questionTimeoutMs: 0,         // 0 = no limit; >0 = ms a request_user_input question waits (UI heartbeat extends it while open)
     // 第27f波:权限超时→存档暂停(opt-in,默认 false=保持"超时即拒杀"的安全默认,零行为变化)。开启后:无人值守(driverAuto)
     // 回合里权限弹窗超时【不再立即拒杀】,而是打检查点 + 通知 + 延长到 autonomyPauseTtlMs 的有界窗口等人决定;窗口内无决定
     // 则回落 deny(fail-closed,防通知未达时无声僵尸挂起)。改的是【超时默认路径】,故 security-sensitive、默认关。
@@ -784,9 +786,9 @@ function normalizeConfig(raw, opts = {}) {
   }
   // Clamp numeric timeouts to sane ranges (a non-numeric value must never disable the watchdog).
   const pt = Number(config.permissionTimeoutMs);
-  config.permissionTimeoutMs = Number.isFinite(pt) ? Math.min(600000, Math.max(5000, pt)) : 120000;
+  config.permissionTimeoutMs = Number.isFinite(pt) && pt > 0 ? Math.min(600000, Math.max(5000, pt)) : 0;   // 0 = 不限时
   const qt = Number(config.questionTimeoutMs);
-  config.questionTimeoutMs = Number.isFinite(qt) ? Math.min(3600000, Math.max(60000, qt)) : 600000;
+  config.questionTimeoutMs = Number.isFinite(qt) && qt > 0 ? Math.min(3600000, Math.max(60000, qt)) : 0;   // 0 = 不限时
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);

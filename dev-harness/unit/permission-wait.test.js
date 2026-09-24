@@ -27,10 +27,15 @@ const watchedHead = { id: SID, missionId: SID, stewardWatch: true };
 const userHead = { id: SID, missionId: SID };
 
 describe('权限请求等多久:permissionWaitMs', () => {
-  it('[W1] 缺省 = config.permissionTimeoutMs(钳 ≥5 s;缺省 120 s)', () => {
+  it('[W1] 缺省 = config.permissionTimeoutMs(钳 ≥5 s;缺省不限时)', () => {
     assert.strictEqual(srv.permissionWaitMs(SID, base, null), 120000);
-    assert.strictEqual(srv.permissionWaitMs(SID, {}, null), 120000);
-    assert.strictEqual(srv.permissionWaitMs(SID, null, null), 120000);
+    // 2026-09-24 用户拍板「默认提问/权限改成无限久」:缺省从 120 s 改成不限时(0)。落到定时器上是
+    // PROMPT_WAIT_UNLIMITED_MS(≈24.8 天,留出 CLI 那一侧 +10 s 的余量,不越 setTimeout 的 2^31-1 上限)。
+    // 修前这两行断的是 120000 —— 语义随拍板改,不是放宽。
+    assert.strictEqual(srv.permissionWaitMs(SID, {}, null), 2147000000);
+    assert.strictEqual(srv.permissionWaitMs(SID, null, null), 2147000000);
+    assert.strictEqual(srv.permissionWaitMs(SID, { permissionTimeoutMs: 0 }, null), 2147000000, '0 = 不限时');
+    assert.ok(2147000000 + 10000 < 2 ** 31 - 1, 'CLI 侧 +10 s 仍在 setTimeout 上限之内(越界会当场触发 = 立刻拒)');
     assert.strictEqual(srv.permissionWaitMs(SID, { permissionTimeoutMs: 1000 }, null), 5000);
   });
 

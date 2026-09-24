@@ -714,7 +714,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 整份再算得下面这个值。
 // 135c 续钉(前值 ac796a20…):只在载荷末尾新增一层 css/views/background-tray.css(线程内后台任务条)。
 // 算法自证同上:抠掉这一层重算 = 前值,逐字相同。
-const LEGACY_STYLES_SHA256 = 'abe014def4a8e477de446df3eb7c917d6c914004de0fd1368b0964f3f1cc0d65';
+// 2026-09-24 重钉(前值 abe014de…):零新增、零删除层,只改 `css/views/prompt-dock.css` —— 删掉
+//   `:root[data-shell-mode="steward"] .prompt-dock { display: none; }` 那一条并改头注(用户要求「等你处理」小窗
+//   管家视角里也看得到)。
+// 算法自证:把 prompt-dock.css 换回 HEAD 重算 = abe014de…,与被替换的旧值逐字相同;换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = '2a787f6019a726e4781c761c2f4c6e2662bf2b00b2495d9204bf91c4b5cb985e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

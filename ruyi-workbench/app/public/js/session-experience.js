@@ -948,13 +948,8 @@ function bindLiveEventStream() {
       for (const message of fresh) {
         if (known.has(message.backgroundJobId)) continue;
         current.push(message); known.add(message.backgroundJobId);
-        if (activeTurns.has(id) || state.streaming) {
-          const key = messageDomKey(message, current.length - 1, id);
-          const row = renderStaticMessage(message, key, messageRenderSignature(message, getLocale()));
-          if (row) $('messages')?.appendChild(row);
-        }
+        // 2026-09-24:回执只进数据面、不进对话流(同 visibleSessionMessageEntries 那道滤网),屏上没有东西要重画。
       }
-      if (!activeTurns.has(id) && !state.streaming) renderCurrentSession();
     })().catch(() => { /* durable receipt is restored when the session is opened again */ });
   });
   liveStreamConnected = typeof eventStream.isConnected === 'function' ? eventStream.isConnected() === true : false;

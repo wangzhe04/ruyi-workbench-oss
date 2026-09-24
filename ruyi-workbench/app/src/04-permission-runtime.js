@@ -256,8 +256,21 @@ const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, time
 //                  那一件要真的等得到人,120 s 就过期的话「留给你」是一句空话(45 号文 §9.6.5 (b):120.015 s 超时拒)。
 // **只改「等多久」,不改「等到了怎么判」**:到时照旧是拒(fail-closed),与定时任务那张表同一条子集律。
 const PermissionWaitHooks = {};
+// 2026-09-24「不限时」:配置 0(新默认)= 一直等。落到定时器上用一个【有限】的大数 —— setTimeout 超过
+// 2^31-1 ms 会当场触发(等于立刻拒),而 CLI 子进程那一侧(12)还要在它上面 +10 s 当 HTTP 预算,所以留足余量。
+// 界面按 PROMPT_DEADLINE_HORIZON_MS 判「这是不是一个真截止时刻」:超过一周的一律不显示倒计时。
+const PROMPT_WAIT_UNLIMITED_MS = 2147000000;   // ≈24.8 天,< 2^31-1 - 10 s
+const PROMPT_DEADLINE_HORIZON_MS = 7 * 24 * 3600 * 1000;
+function promptWaitMs(value, floorMs = 5000) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.min(PROMPT_WAIT_UNLIMITED_MS, Math.max(floorMs, n)) : PROMPT_WAIT_UNLIMITED_MS;
+}
+function promptDeadlineIsReal(deadlineAt, nowMs = Date.now()) {
+  const at = Number(deadlineAt);
+  return Number.isFinite(at) && at > 0 && at - nowMs <= PROMPT_DEADLINE_HORIZON_MS;
+}
 function permissionWaitMs(sessionId, config, sessionHead) {
-  const base = Math.max(5000, Number(config && config.permissionTimeoutMs) || 120000);
+  const base = promptWaitMs(config && config.permissionTimeoutMs);
   const sid = String(sessionId || '');
   try {
     const scheduled = typeof PermissionWaitHooks.scheduler === 'function' ? Number(PermissionWaitHooks.scheduler(sid)) : 0;
@@ -586,7 +599,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
       });
     }, entry.timeoutMs);
   };
-  entry.timeoutMs = Math.max(5000, Number(timeoutMs) || 600000);
+  entry.timeoutMs = promptWaitMs(timeoutMs);   // 0/缺省 = 不限时(见 promptWaitMs)
   entry.armTimeout();
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined, deadlineAt: entry.deadlineAt, timeoutMs: entry.timeoutMs });

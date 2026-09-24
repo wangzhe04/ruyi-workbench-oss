@@ -372,6 +372,29 @@ export function createStewardSettingsDomain({
     btn.setAttribute('aria-label', btn.title);
   }
 
+  // 二次确认就地展开在盾牌菜单里：文案就是 STEWARD_CONFIRM_KEYS 那一份，不复制第二份。
+  function showShieldConfirm(menu, mode) {
+    clear(menu);
+    const box = el('div', 'steward-chip-confirm');
+    box.appendChild(el('strong', '', t('stewardShell.permission.confirmTitle')));
+    const list = el('ul');
+    for (const key of STEWARD_CONFIRM_KEYS) list.appendChild(el('li', '', t(key)));
+    box.appendChild(list);
+    const actions = el('div', 'steward-chip-confirm-actions');
+    const cancel = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmCancel'));
+    cancel.type = 'button';
+    cancel.dataset.confirm = 'cancel';
+    cancel.onclick = () => closeShield();
+    const accept = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmOk'));
+    accept.type = 'button';
+    accept.dataset.confirm = 'ok';
+    accept.onclick = () => { closeShield(); setDefaultPermission(mode); };
+    actions.append(cancel, accept);
+    box.appendChild(actions);
+    menu.appendChild(box);
+    try { accept.focus(); } catch { /* 宿主没有 focus 的环境 */ }
+  }
+
   function toggleShield() {
     const menu = byId('stewardShieldMenu');
     const btn = byId('stewardShieldBtn');
@@ -390,12 +413,13 @@ export function createStewardSettingsDomain({
         el('span', 'steward-shield-option-hint', t(permissionHintKey(mode))),
       );
       option.onclick = () => {
-        closeShield();
+        // 2026-09-24 用户反馈：切「智能自动」跳去设置页再确认，不直观。改成就地在菜单里确认
+        // （与线程 chip 菜单的 showAutoConfirm 同一个模具、同一份五条文案）。
         if (STEWARD_PERMISSION_CONFIRM_MODES.includes(mode)) {
-          openSettingsTab(STEWARD_SETTINGS_TAB);
-          showPermissionConfirm(mode, accepted => setDefaultPermission(accepted), () => {});
+          showShieldConfirm(menu, mode);
           return;
         }
+        closeShield();
         setDefaultPermission(mode);
       };
       menu.appendChild(option);

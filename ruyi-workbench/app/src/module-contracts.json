@@ -1474,6 +1474,8 @@
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
         "OWN_TREE_KILL_PS",
+        "PROMPT_DEADLINE_HORIZON_MS",
+        "PROMPT_WAIT_UNLIMITED_MS",
         "PermissionWaitHooks",
         "REDACT_PATTERNS",
         "SENSITIVE_URL_PARAM_RE",
@@ -1554,6 +1556,8 @@
         "pendingQuestions",
         "permissionWaitMs",
         "probeMcpConnector",
+        "promptDeadlineIsReal",
+        "promptWaitMs",
         "redact",
         "registerUserQuestion",
         "requestUserQuestion",
@@ -5422,6 +5426,13 @@
           "symbol": "PermissionWaitHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "promptWaitMs",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12787,6 +12798,7 @@
         "STEWARD_MERGE_ACCUMULATE_KEYS",
         "STEWARD_MERGE_WINDOW_MS",
         "STEWARD_RUN_EVENT_PAGE",
+        "STEWARD_RUN_TERMINAL",
         "STEWARD_SEEN_MAX_KEYS",
         "STEWARD_SOURCE_EVENT_MAP",
         "STEWARD_SUMMARY_CHARS",
@@ -12801,6 +12813,7 @@
         "stewardCursorPath",
         "stewardDir",
         "stewardEventDedupeKey",
+        "stewardHeldTurnSessions",
         "stewardInboxPath",
         "stewardInboxRead",
         "stewardInboxRowDedupeKeys",
@@ -12830,6 +12843,7 @@
         "stewardRunTick",
         "stewardRuntime",
         "stewardSaveCursor",
+        "stewardThreadBackgroundBusy",
         "stewardTickOnce",
         "stopStewardInbox"
       ],
@@ -12979,6 +12993,13 @@
           "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "activeAgentRuns",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -16458,6 +16479,13 @@
           "symbol": "pendingQuestions",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "promptDeadlineIsReal",
+          "kinds": [
+            "call"
           ]
         },
         {

@@ -911,7 +911,7 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       resolve(decision);
     };
     // 128f-⑪:调用方传进来的 timeoutMs 已经是 permissionWaitMs 的结果(09／05b);定时那一格在这里再认一次是双保险。
-    const baseMs = schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000);
+    const baseMs = schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs);   // 0 = 不限时(04 promptWaitMs)
     // deadlineAt:13q 的 steward.deferred 要告诉用户「还等你多久」(存档暂停那一支延长后另算,见下)。
     const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
     if (pause && pause.enabled) {
@@ -986,7 +986,7 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
         settle({ decision: 'reject', note });
       });
       // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
-    }, schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000));
+    }, schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs));   // 0 = 不限时(04 promptWaitMs)
     pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }

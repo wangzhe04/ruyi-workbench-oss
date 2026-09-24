@@ -882,6 +882,27 @@ async function stewardReadTurnHead(sessionId) {
 // 而 13e 拼在 13i 之前,引用 13i 会是前向边。这里【不】留第二份实现,也不留同名薄封装:
 // 本文件下面那处 stewardCollectSessionTurn 直接调 06i 的那一份(后向边,已在依赖图里)。
 
+// 2026-09-24(用户:「线程没跑完交付就一直把进度同步给我」):回合收了、但这条线程还有后台活儿在跑
+// (后台命令 / 活着的子代理与班组 run)时,这一回合不算交付。按「回合还在跑」同一纪律不入箱、不推基线,
+// 等后台活儿全部落地后的那一轮再报【一次】—— 否则管家先报一遍「回合跑完了」(那一回合以工具调用收尾,
+// 没有收口的话,交付卡只能画「没取到原文」),后台跑完再被「班组收工」叫醒报第二遍。
+// 读的是进程内真值(11 的后台 shell 表经 EventStreamHooks 延迟绑定、07 的 activeAgentRuns),不读盘。
+const STEWARD_RUN_TERMINAL = new Set(['succeeded', 'failed', 'partial', 'stopped', 'cancelled', 'skipped']);
+function stewardThreadBackgroundBusy(sid) {
+  try {
+    const shells = EventStreamHooks.backgroundShells;
+    if (shells && typeof shells.rows === 'function' && shells.rows(sid).length) return true;
+  } catch { /* 读不到按没有:这道门管的是打扰纪律,fail-open 回到修前行为 */ }
+  for (const [, live] of activeAgentRuns) {
+    const run = live && live.run;
+    if (run && run.sessionId === sid && !STEWARD_RUN_TERMINAL.has(String(run.status || ''))) return true;
+  }
+  return false;
+}
+// 本轮因「后台活儿没完」按住回合报告的【被看管】线程。它们的班组 done 由那条迟到的回合报告一并交代,
+// 不再单独叫醒管家(failed / 预算触顶照报 —— 那是「有事要你知道」)。每轮 stewardCollectEvents 开头清空。
+const stewardHeldTurnSessions = new Set();
+
 // 返回本轮该为这条会话入箱的事件(至多一条)或 null;顺带维护它自己的游标。
 async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const stamp = String((row && row.sourceStamp) || '');
@@ -902,6 +923,14 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
     return null;
   }
   const watched = stewardWatchedThread(head, sid, missionId);
+  if (turnSeq > 0 && stewardThreadBackgroundBusy(sid)) {
+    // 同上一支:基线停在已报过的那一回合(首见退到上一回合;冷启动只建基线,不把老回合倒灌进箱),
+    // stamp 置空保证下一轮一定重读这个头。后台活儿跑完的那一轮 turnSeq > 基线,照常报一次。
+    const heldBaseline = known ? known.turnSeq : (stewardRuntime.cold ? turnSeq : Math.max(0, turnSeq - 1));
+    stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: heldBaseline, stamp: '' };
+    if (watched && turnSeq > heldBaseline) stewardHeldTurnSessions.add(sid);
+    return null;
+  }
   if (known == null) {
     // 首见。【不能】一律按「基线 = 当前 turnSeq」:速查线程从建到跑完只要几秒,而轮询 15 秒一轮 ——
     // 第一次看见它时回合早就结束了,按当前 turnSeq 建基线等于把唯一那条 done 永久吞掉(这正是本波
@@ -956,6 +985,7 @@ async function stewardCollectEvents() {
   const idleSessionIds = [];
   const activeRunIds = [];
   const nextPending = new Set();
+  stewardHeldTurnSessions.clear();
 
   // ── ⑤ 用户交接(121-K3,§4.4)。取走这一拍之前排进来的全部交接事件 —— 它不读盘、不走游标,
   //    排在最前是因为它发生得最早(用户按下开关的那一刻),排序器随后会按 at 再排一遍。
@@ -1065,6 +1095,9 @@ async function stewardCollectEvents() {
       for (const evt of (page && Array.isArray(page.events) ? page.events : [])) {
         maxSeq = Math.max(maxSeq, Number(evt.seq) || 0);
         const normalized = stewardNormalizeRunEvent(sid, missionId, runId, evt);
+        // 班组收工与本线程的回合报告是同一件事:回合报告这一轮就在箱里(turnEvt)或正被按住等后台落地时,
+        // done 不再单独叫醒管家(游标照推,事件视为已消费)。failed/budget 不受影响。
+        if (normalized && normalized.kind === 'done' && (turnEvt || stewardHeldTurnSessions.has(sid))) continue;
         if (normalized) events.push(normalized);
       }
       stewardRuntime.cursor.agentRuns[runId] = maxSeq;

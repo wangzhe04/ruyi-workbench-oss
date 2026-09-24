@@ -1260,9 +1260,14 @@ export function createStewardConversation({
 
   async function fillDeliverable(block, head, body, source) {
     let found = null;
-    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; }
-    catch { found = null; }   // 取不到与「这一回合没有正文」画同一句兜底：原件不在这儿，去 2.0 视窗看
+    let fetched = false;
+    try { const got = await loadDeliverable(source.sessionId, source.turnSeq); found = got ? got.deliverable : null; fetched = true; }
+    catch { found = null; }   // 取不到：画兜底一句，原件不在这儿，去 2.0 视窗看
     if (!block.isConnected && block.parentNode === null) return null;   // 这一行已经被清屏收走了
+    // 2026-09-24（用户：「每次带上『它交付的原文』『这一次没取到原文』，体验很差」）：信封取到了、
+    // 但这一回合没有可交付的正文（以工具调用收尾、还在等后台活儿）—— 那就是【没有交付】，不是
+    // 「没取到」。整块撤掉，不再垫一句道歉；线程卡上的「打开」仍在。取不到信封才画兜底。
+    if (fetched && (!found || !found.text.trim())) { block.remove(); return null; }
     const seq = (found && found.turnSeq) || source.turnSeq || 0;
     head.textContent = seq
       ? t('stewardShell.chat.deliverableHead', { seq })
@@ -1299,6 +1304,9 @@ export function createStewardConversation({
   // ※ 仍然挂在按语最后那一段的句尾（117s-C 的 S3c 钉着这条），浮层节点排在交付卡之后。
   function attachDeliverable(row, source) {
     if (!row || !source || !source.sessionId) return null;
+    // 2026-09-24：只有「某一回合跑完了」这类事件才有交付可言。交接、待决、班组收工这些事件没有回合号，
+    // 修前会退到「整条线程最后一条助手话」—— 把旧回合的话当成这一次的交付端上来，或者垫一句「没取到」。
+    if (!(Number(source.turnSeq) > 0)) return null;
     const block = el('div', 'steward-deliverable');
     block.dataset.sessionId = source.sessionId;
     if (source.turnSeq) block.dataset.turnSeq = String(source.turnSeq);

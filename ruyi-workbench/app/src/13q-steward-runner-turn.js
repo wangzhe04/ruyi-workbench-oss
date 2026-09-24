@@ -352,7 +352,8 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         sessionId: String(evt.sessionId || ''),
         interventionId,
         ask: String(payload.summary || payload.ask || ''),
-        deadlineAt: Number(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
+        // 不限时的请求没有截止时刻:给空串,前端就说「留给你」而不是「还等你 35000 分钟」。
+        deadlineAt: promptDeadlineIsReal(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
       });
     }
   }

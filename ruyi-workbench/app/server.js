@@ -1088,8 +1088,10 @@ function defaultConfig() {
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
     permissionBridge: true,       // route tool-permission prompts to the UI via --permission-prompt-tool (needs a non-bypass permission mode)
-    permissionTimeoutMs: 120000,  // how long a permission prompt waits before auto-deny
-    questionTimeoutMs: 600000,    // how long a request_user_input question waits; typing a long answer must not be cut short (UI heartbeat extends it while the modal is open)
+    // 2026-09-24 用户拍板:提问/权限默认【不限时】(0)—— 一直挂着等人处理,弹窗过一会儿自己收进右下角小窗。
+    // >0 为毫秒上限,到时权限按拒绝、提问按取消(老语义);定时任务派的无人值守回合另有自己的等待表(07)。
+    permissionTimeoutMs: 0,       // 0 = no limit; >0 = ms before a permission prompt auto-denies
+    questionTimeoutMs: 0,         // 0 = no limit; >0 = ms a request_user_input question waits (UI heartbeat extends it while open)
     // 第27f波:权限超时→存档暂停(opt-in,默认 false=保持"超时即拒杀"的安全默认,零行为变化)。开启后:无人值守(driverAuto)
     // 回合里权限弹窗超时【不再立即拒杀】,而是打检查点 + 通知 + 延长到 autonomyPauseTtlMs 的有界窗口等人决定;窗口内无决定
     // 则回落 deny(fail-closed,防通知未达时无声僵尸挂起)。改的是【超时默认路径】,故 security-sensitive、默认关。
@@ -1825,9 +1827,9 @@ function normalizeConfig(raw, opts = {}) {
   }
   // Clamp numeric timeouts to sane ranges (a non-numeric value must never disable the watchdog).
   const pt = Number(config.permissionTimeoutMs);
-  config.permissionTimeoutMs = Number.isFinite(pt) ? Math.min(600000, Math.max(5000, pt)) : 120000;
+  config.permissionTimeoutMs = Number.isFinite(pt) && pt > 0 ? Math.min(600000, Math.max(5000, pt)) : 0;   // 0 = 不限时
   const qt = Number(config.questionTimeoutMs);
-  config.questionTimeoutMs = Number.isFinite(qt) ? Math.min(3600000, Math.max(60000, qt)) : 600000;
+  config.questionTimeoutMs = Number.isFinite(qt) && qt > 0 ? Math.min(3600000, Math.max(60000, qt)) : 0;   // 0 = 不限时
   const it = Number(config.turnIdleTimeoutMs);
   config.turnIdleTimeoutMs = Number.isFinite(it) ? Math.min(3600000, Math.max(60000, it)) : 600000;
   const aw = Number(config.agentNodeWrapUpMs);
@@ -10678,8 +10680,21 @@ const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, time
 //                  那一件要真的等得到人,120 s 就过期的话「留给你」是一句空话(45 号文 §9.6.5 (b):120.015 s 超时拒)。
 // **只改「等多久」,不改「等到了怎么判」**:到时照旧是拒(fail-closed),与定时任务那张表同一条子集律。
 const PermissionWaitHooks = {};
+// 2026-09-24「不限时」:配置 0(新默认)= 一直等。落到定时器上用一个【有限】的大数 —— setTimeout 超过
+// 2^31-1 ms 会当场触发(等于立刻拒),而 CLI 子进程那一侧(12)还要在它上面 +10 s 当 HTTP 预算,所以留足余量。
+// 界面按 PROMPT_DEADLINE_HORIZON_MS 判「这是不是一个真截止时刻」:超过一周的一律不显示倒计时。
+const PROMPT_WAIT_UNLIMITED_MS = 2147000000;   // ≈24.8 天,< 2^31-1 - 10 s
+const PROMPT_DEADLINE_HORIZON_MS = 7 * 24 * 3600 * 1000;
+function promptWaitMs(value, floorMs = 5000) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.min(PROMPT_WAIT_UNLIMITED_MS, Math.max(floorMs, n)) : PROMPT_WAIT_UNLIMITED_MS;
+}
+function promptDeadlineIsReal(deadlineAt, nowMs = Date.now()) {
+  const at = Number(deadlineAt);
+  return Number.isFinite(at) && at > 0 && at - nowMs <= PROMPT_DEADLINE_HORIZON_MS;
+}
 function permissionWaitMs(sessionId, config, sessionHead) {
-  const base = Math.max(5000, Number(config && config.permissionTimeoutMs) || 120000);
+  const base = promptWaitMs(config && config.permissionTimeoutMs);
   const sid = String(sessionId || '');
   try {
     const scheduled = typeof PermissionWaitHooks.scheduler === 'function' ? Number(PermissionWaitHooks.scheduler(sid)) : 0;
@@ -11008,7 +11023,7 @@ function registerUserQuestion(sessionId, questionId, questions, onEvent, timeout
       });
     }, entry.timeoutMs);
   };
-  entry.timeoutMs = Math.max(5000, Number(timeoutMs) || 600000);
+  entry.timeoutMs = promptWaitMs(timeoutMs);   // 0/缺省 = 不限时(见 promptWaitMs)
   entry.armTimeout();
   pendingQuestions.set(id, entry);
   onEvent({ type: 'ask_user', id, questionId: id, toolUseId: sourceId || undefined, questions: normalized, context: questionContext || undefined, deadlineAt: entry.deadlineAt, timeoutMs: entry.timeoutMs });
@@ -23696,8 +23711,8 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['stewardMaxParallelThreads', '管家同时最多盯几条线程', 'Max threads the steward runs in parallel'],
   ['stewardGlobalMaxTurnsPerHour', '全部线程每小时合计最多跑几个回合', 'Global cap on thread turns per hour'],
   ['stewardGlobalMaxCostPerDay', '全部线程每天合计最多花多少钱', 'Global cap on daily spend across threads'],
-  ['permissionTimeoutMs', '线程等你批权限等多久,毫秒;到时按拒绝处理', 'How long a thread waits for a permission answer, ms; denied on timeout'],
-  ['questionTimeoutMs', '线程等你回答提问等多久,毫秒', 'How long a thread waits for an answer to its question, ms'],
+  ['permissionTimeoutMs', '线程等你批权限等多久,毫秒;0 = 不限时(默认),一直等到有人处理;设了上限则到时按拒绝处理', 'How long a thread waits for a permission answer, ms; 0 = no limit (default); with a limit it is denied on timeout'],
+  ['questionTimeoutMs', '线程等你回答提问等多久,毫秒;0 = 不限时(默认)', 'How long a thread waits for an answer to its question, ms; 0 = no limit (default)'],
   ['turnIdleTimeoutMs', '一回合多久没动静算卡住,毫秒', 'Idle time before a turn counts as stalled, ms'],
   ['autonomyPauseOnTimeout', '等超时后是否把线程暂停(而不是直接失败)', 'Pause the thread on timeout instead of failing it'],
   ['autonomyPauseTtlMs', '暂停多久后自动作废,毫秒', 'How long a paused thread stays resumable, ms'],
@@ -28031,7 +28046,7 @@ function requestNativePermission(sessionId, toolName, input, onEvent, timeoutMs,
       resolve(decision);
     };
     // 128f-⑪:调用方传进来的 timeoutMs 已经是 permissionWaitMs 的结果(09／05b);定时那一格在这里再认一次是双保险。
-    const baseMs = schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000);
+    const baseMs = schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs);   // 0 = 不限时(04 promptWaitMs)
     // deadlineAt:13q 的 steward.deferred 要告诉用户「还等你多久」(存档暂停那一支延长后另算,见下)。
     const entry = { resolve: settle, sessionId, timer: null, deadlineAt: Date.now() + baseMs };
     if (pause && pause.enabled) {
@@ -28106,7 +28121,7 @@ function requestPlanApproval(sessionId, markdown, onEvent, timeoutMs) {
         settle({ decision: 'reject', note });
       });
       // 123-M1:计划审批与权限请求同一条口径 —— 无人值守回合等 schedulerAskWaitMinutes,到时仍是【拒】。
-    }, schedulerAskWaitOverrideMs(sessionId) || Math.max(5000, Number(timeoutMs) || 120000));
+    }, schedulerAskWaitOverrideMs(sessionId) || promptWaitMs(timeoutMs));   // 0 = 不限时(04 promptWaitMs)
     pendingPlans.set(planId, { resolve: settle, sessionId, timer });
   });
 }
@@ -50429,6 +50444,27 @@ async function stewardReadTurnHead(sessionId) {
 // 而 13e 拼在 13i 之前,引用 13i 会是前向边。这里【不】留第二份实现,也不留同名薄封装:
 // 本文件下面那处 stewardCollectSessionTurn 直接调 06i 的那一份(后向边,已在依赖图里)。
 
+// 2026-09-24(用户:「线程没跑完交付就一直把进度同步给我」):回合收了、但这条线程还有后台活儿在跑
+// (后台命令 / 活着的子代理与班组 run)时,这一回合不算交付。按「回合还在跑」同一纪律不入箱、不推基线,
+// 等后台活儿全部落地后的那一轮再报【一次】—— 否则管家先报一遍「回合跑完了」(那一回合以工具调用收尾,
+// 没有收口的话,交付卡只能画「没取到原文」),后台跑完再被「班组收工」叫醒报第二遍。
+// 读的是进程内真值(11 的后台 shell 表经 EventStreamHooks 延迟绑定、07 的 activeAgentRuns),不读盘。
+const STEWARD_RUN_TERMINAL = new Set(['succeeded', 'failed', 'partial', 'stopped', 'cancelled', 'skipped']);
+function stewardThreadBackgroundBusy(sid) {
+  try {
+    const shells = EventStreamHooks.backgroundShells;
+    if (shells && typeof shells.rows === 'function' && shells.rows(sid).length) return true;
+  } catch { /* 读不到按没有:这道门管的是打扰纪律,fail-open 回到修前行为 */ }
+  for (const [, live] of activeAgentRuns) {
+    const run = live && live.run;
+    if (run && run.sessionId === sid && !STEWARD_RUN_TERMINAL.has(String(run.status || ''))) return true;
+  }
+  return false;
+}
+// 本轮因「后台活儿没完」按住回合报告的【被看管】线程。它们的班组 done 由那条迟到的回合报告一并交代,
+// 不再单独叫醒管家(failed / 预算触顶照报 —— 那是「有事要你知道」)。每轮 stewardCollectEvents 开头清空。
+const stewardHeldTurnSessions = new Set();
+
 // 返回本轮该为这条会话入箱的事件(至多一条)或 null;顺带维护它自己的游标。
 async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const stamp = String((row && row.sourceStamp) || '');
@@ -50449,6 +50485,14 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
     return null;
   }
   const watched = stewardWatchedThread(head, sid, missionId);
+  if (turnSeq > 0 && stewardThreadBackgroundBusy(sid)) {
+    // 同上一支:基线停在已报过的那一回合(首见退到上一回合;冷启动只建基线,不把老回合倒灌进箱),
+    // stamp 置空保证下一轮一定重读这个头。后台活儿跑完的那一轮 turnSeq > 基线,照常报一次。
+    const heldBaseline = known ? known.turnSeq : (stewardRuntime.cold ? turnSeq : Math.max(0, turnSeq - 1));
+    stewardRuntime.cursor.sessionTurns[sid] = { turnSeq: heldBaseline, stamp: '' };
+    if (watched && turnSeq > heldBaseline) stewardHeldTurnSessions.add(sid);
+    return null;
+  }
   if (known == null) {
     // 首见。【不能】一律按「基线 = 当前 turnSeq」:速查线程从建到跑完只要几秒,而轮询 15 秒一轮 ——
     // 第一次看见它时回合早就结束了,按当前 turnSeq 建基线等于把唯一那条 done 永久吞掉(这正是本波
@@ -50503,6 +50547,7 @@ async function stewardCollectEvents() {
   const idleSessionIds = [];
   const activeRunIds = [];
   const nextPending = new Set();
+  stewardHeldTurnSessions.clear();
 
   // ── ⑤ 用户交接(121-K3,§4.4)。取走这一拍之前排进来的全部交接事件 —— 它不读盘、不走游标,
   //    排在最前是因为它发生得最早(用户按下开关的那一刻),排序器随后会按 at 再排一遍。
@@ -50612,6 +50657,9 @@ async function stewardCollectEvents() {
       for (const evt of (page && Array.isArray(page.events) ? page.events : [])) {
         maxSeq = Math.max(maxSeq, Number(evt.seq) || 0);
         const normalized = stewardNormalizeRunEvent(sid, missionId, runId, evt);
+        // 班组收工与本线程的回合报告是同一件事:回合报告这一轮就在箱里(turnEvt)或正被按住等后台落地时,
+        // done 不再单独叫醒管家(游标照推,事件视为已消费)。failed/budget 不受影响。
+        if (normalized && normalized.kind === 'done' && (turnEvt || stewardHeldTurnSessions.has(sid))) continue;
         if (normalized) events.push(normalized);
       }
       stewardRuntime.cursor.agentRuns[runId] = maxSeq;
@@ -56888,7 +56936,8 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         sessionId: String(evt.sessionId || ''),
         interventionId,
         ask: String(payload.summary || payload.ask || ''),
-        deadlineAt: Number(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
+        // 不限时的请求没有截止时刻:给空串,前端就说「留给你」而不是「还等你 35000 分钟」。
+        deadlineAt: promptDeadlineIsReal(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
       });
     }
   }

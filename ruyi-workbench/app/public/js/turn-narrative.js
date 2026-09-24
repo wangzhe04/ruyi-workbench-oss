@@ -120,6 +120,10 @@ export function visibleSessionMessageEntries(messages, start = 0, options = {}) 
   const visible = [];
   for (let index = Math.max(0, Number(start) || 0); index < rows.length; index++) {
     const message = rows[index];
+    // 2026-09-24(用户:「后台任务完成后，会话中会多出显示很多内容，不用让用户看到」):后台任务完成回执
+    // (backgroundJobId 那条 system 行,带最多 6000 字输出)只留在数据里 —— 模型下一回合照样读得到
+    // (09 的 drainBackgroundJobs),完成时的 toast 与后台任务条照旧;对话流里不再画这一行。
+    if (message && message.backgroundJobId) continue;
     if (message && message.steered) {
       const turnSeq = Number(message.turnSeq);
       if ((hasLiveTurn && Number.isFinite(activeTurnSeq) && turnSeq === activeTurnSeq)

@@ -26,6 +26,20 @@ const RECONCILE_GRACE_MS = 8000;
 const TYPING_QUIET_MS = 2500;
 const MIN_RECONCILE_GAP_MS = 1000;
 const STEWARD_SESSION_ID = 'steward';
+// 2026-09-24(用户:「默认提问/权限改成无限久，超过一段时间之后（管家也没批的话）就自动最小化收起」):
+// 后端默认不限时,截止时刻落在 ~24.8 天后(04 PROMPT_WAIT_UNLIMITED_MS)。超过一周的截止时刻不算「真截止」——
+// 不显示倒计时、不参与「快超时置顶」。弹出来的那一条若 AUTO_MINIMIZE_MS 内没人碰(管家代批了会直接从队列
+// 撤掉,轮不到这一步),就收进右下角小窗,与用户按「稍后处理」同一个效果。
+const DEADLINE_HORIZON_MS = 7 * 24 * 3600 * 1000;
+const AUTO_MINIMIZE_MS = 120000;
+// 小窗在哪些视角里出现。修前只有工作台;用户要求管家视角里也看得到。
+const DOCK_SHELL_MODES = Object.freeze(['classic', 'steward']);
+
+// 纯函数:把截止时刻归一 —— 没有、或远在一周之外(不限时)一律当 0。
+export function promptDeadline(value, nowMs) {
+  const at = Number(value) || 0;
+  return at > 0 && at - Number(nowMs) <= DEADLINE_HORIZON_MS ? at : 0;
+}
 
 export function formatDuration(ms) {
   const total = Math.max(0, Math.floor(Number(ms) / 1000) || 0);
@@ -92,6 +106,7 @@ export function createPromptQueue({
   const timeCells = new Map();   // id -> { row, time }
   let ticker = null, reconcileTimer = null, reconciling = false;
   let lastTypingAt = 0;
+  let lastModalActivityAt = 0;   // 弹窗里的点按／键入:有人在处理就不自动收起
   let lastReconcileAt = 0;
 
   // 3.0 预览收口(quiet-card-typing D1/D5/D7):粘贴、输入法上屏、Input.insertText 不发 keydown,
@@ -103,6 +118,12 @@ export function createPromptQueue({
     };
     doc().addEventListener('keydown', markTyping, true);
     doc().addEventListener('input', markTyping, true);
+    const markModal = e => {
+      try { if (e.target && e.target.closest && e.target.closest('.prompt-queue-modal')) lastModalActivityAt = now(); } catch { /* ignore */ }
+    };
+    doc().addEventListener('pointerdown', markModal, true);
+    doc().addEventListener('keydown', markModal, true);
+    doc().addEventListener('input', markModal, true);
   } catch { /* 无 DOM 的测试环境 */ }
 
   // J04(36 号文 §2.2「焦点不动…不开弹层」):焦点停在一段没发出去的草稿上,就不算「空闲」——
@@ -134,7 +155,7 @@ export function createPromptQueue({
     const existing = items.get(id);
     if (existing) {
       // 同一条又来一次（重放／对账）：只补字段，不重排、不重弹。
-      if (!existing.deadlineAt && raw.deadlineAt) existing.deadlineAt = Number(raw.deadlineAt) || 0;
+      if (!existing.deadlineAt && raw.deadlineAt) existing.deadlineAt = promptDeadline(raw.deadlineAt, now());
       if (raw.payload) existing.payload = { ...raw.payload, ...existing.payload };
       if (!existing.title && raw.title) existing.title = String(raw.title);
       render();
@@ -145,7 +166,7 @@ export function createPromptQueue({
       type: raw.type === 'question' ? 'question' : 'permission',
       sessionId,
       requestedAt: Number(raw.requestedAt) || now(),
-      deadlineAt: Number(raw.deadlineAt) || 0,
+      deadlineAt: promptDeadline(raw.deadlineAt, now()),
       payload: raw.payload || {},
       title: String(raw.title || ''),
       addedAt: now(),
@@ -189,7 +210,8 @@ export function createPromptQueue({
     };
     const handle = openItem(item, ctx);
     if (!handle) { settle(id); return; }
-    active = { id, handle };
+    active = { id, handle, openedAt: now() };
+    lastModalActivityAt = 0;
     render();
   }
 
@@ -200,6 +222,16 @@ export function createPromptQueue({
     if (userAction) minimized = true;
     try { handle && handle.close && handle.close(); } catch { /* 已关 */ }
     render();
+  }
+
+  // 弹出来的那一条放着没人管:收进小窗(= 用户按「稍后处理」),不再抢着挡在屏幕中间。弹窗里有过点按／
+  // 键入就从那一刻重新计时;焦点停在一段没发出去的回答草稿上也不收。
+  function autoMinimize() {
+    if (!active) return;
+    const since = Math.max(Number(active.openedAt) || 0, lastModalActivityAt);
+    if (now() - since < AUTO_MINIMIZE_MS) return;
+    if (composingDraft()) return;
+    minimizeActive(true);
   }
 
   function pump() {
@@ -238,7 +270,7 @@ export function createPromptQueue({
         const current = items.get(id);
         if (current) {
           // 截止时刻以登记簿为准（存档暂停延长、提问心跳续期都只在那边）；提问取两边更晚的那个。
-          const next = Number(iv.deadlineAt) || 0;
+          const next = promptDeadline(iv.deadlineAt, now());
           if (next > 0) current.deadlineAt = current.type === 'question' ? Math.max(current.deadlineAt, next) : next;
           if (!current.title && iv.title) current.title = String(iv.title);
           continue;
@@ -274,6 +306,7 @@ export function createPromptQueue({
     if (ticker) return;
     ticker = setInterval(() => {
       if (!items.size) { clearInterval(ticker); ticker = null; return; }
+      autoMinimize();
       pump();
       render();
     }, 1000);
@@ -316,10 +349,15 @@ export function createPromptQueue({
     try {
       // 135c:输入框上沿若挂着「后台任务」那一枚,就再浮到它之上 —— 两枚都在右边,不许叠在一起。
       // (量整个 .bg-tray:它展开时面板也在里面,小窗得浮到面板之上。)
-      const trayChip = doc().querySelector('.chat-pane .bg-tray:not([hidden])');
-      const box = trayChip || doc().querySelector('.chat-pane .composer-box');
-      const r = box && box.getBoundingClientRect();
-      if (r && r.height > 0 && r.width > 0) bottom = Math.max(0, Math.round(window.innerHeight - r.top + 8));
+      // 管家视角没有 .chat-pane(藏着,量出来是 0),改量管家自己的输入框;右侧线程抽屉开着时它的底栏
+      // (「直接对这条线程说」)正好在小窗底下,先让它。取第一个真在屏上的。
+      const candidates = ['.chat-pane .bg-tray:not([hidden])', '.chat-pane .composer-box',
+        '.steward-drawer:not([hidden]) .steward-drawer-foot', '#stewardComposer'];
+      for (const selector of candidates) {
+        const box = doc().querySelector(selector);
+        const r = box && box.getBoundingClientRect();
+        if (r && r.height > 0 && r.width > 0) { bottom = Math.max(0, Math.round(window.innerHeight - r.top + 8)); break; }
+      }
     } catch { /* ignore */ }
     const value = bottom ? bottom + 'px' : '';
     if (doc().body.style.getPropertyValue('--prompt-dock-bottom') !== value) {
@@ -396,7 +434,7 @@ export function createPromptQueue({
   }
 
   function render() {
-    const show = items.size > 0 && !active && shellMode() === 'classic';
+    const show = items.size > 0 && !active && DOCK_SHELL_MODES.includes(shellMode());
     if (!show) {
       if (!items.size && dock?.contains(doc().activeElement)) doc().querySelector('#promptInput')?.focus();
       if (dock) { dock.hidden = true; doc().body.classList.remove('has-prompt-dock'); }
