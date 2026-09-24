@@ -365,6 +365,21 @@
   transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 .steward-target:hover { color: var(--ink); border-color: var(--glass-border-strong); }
+/* W4b（用户 2026-09-25 走查⑥「→如意 前缀 chip 含义不清」）：默认递给如意的那一态（.is-quiet，由
+   steward-composer.js 的 renderChip 写）收成一枚 26px 的安静「@」圆键 —— 缺省值不当信息印。
+   label 节点照旧写着「→ 如意」（读屏与既有断言读它），这里只是收起来、把「@」露出来；
+   一命中线程／手选／「另起一件」，is-quiet 就摘掉，chip 回到原来那身带字的皮。零新增过渡。 */
+.steward-target-at { display: none; font-size: var(--fs-sm); line-height: 1; }
+.steward-target.is-quiet {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+  color: var(--muted);
+  border-color: transparent;
+}
+.steward-target.is-quiet .steward-target-label { display: none; }
+.steward-target.is-quiet .steward-target-at { display: inline; }
+.steward-target.is-quiet:hover { color: var(--ink); background: var(--panel-2); border-color: transparent; }
 .steward-target.is-thread { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 .steward-target.is-picked { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .steward-target:focus-visible { outline: none; box-shadow: var(--ring); }

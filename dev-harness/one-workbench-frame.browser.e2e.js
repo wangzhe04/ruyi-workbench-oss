@@ -568,8 +568,12 @@ try {
     && wide.stage && wide.stage.x === 268 && wide.side && wide.side.w > 0
     && Math.abs((wide.stage.x + wide.stage.w) - wide.side.x) <= 1,
     `C2 1920 下三栏在位且首尾相接：左栏 ${wide.rail && wide.rail.w} ｜ 中栏 ${wide.stage && wide.stage.w} ｜ 右栏 ${wide.side && wide.side.w}`);
-  ok(wide.feed && wide.feed.w <= 880 && wide.feed.w >= 800,
-    `C2b 中栏内容读宽 ≤880（§7.1；实测 ${wide.feed && wide.feed.w}px，居中留白由 margin-inline:auto 给）`);
+  // W4b 重钉（用户 2026-09-25 走查③「右栏展开时对话贴左、收起时居中」）：读宽从 880 收成 720 —— 880 比右栏
+  // 展开时中栏能给的宽还大，展开态是铺满贴边、收起态才居中，两态看着是两种版式；720 在两态里都装得下，
+  // 于是永远是同一条居中的对话列（steward-shell.css 的 --steward-col-w，一个 token）。管家的话本来就 ≤680、
+  // 用户气泡 ≤520，正文一个字没被削。反向：把 --steward-col-w 改回 880px → 本条红。
+  ok(wide.feed && wide.feed.w === 720,
+    `C2b 中栏内容读宽 = 720（--steward-col-w；实测 ${wide.feed && wide.feed.w}px，居中留白由 margin-inline:auto 给，右栏展开／收起两态同宽）`);
   await setLens('classic');
   const wideClassic = await snap();
   ok(wideClassic.shellCols === wide.stewardCols,

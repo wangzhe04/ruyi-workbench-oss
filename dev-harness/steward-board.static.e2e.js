@@ -940,6 +940,33 @@ ok(/\.steward-board-pill\.has-icon \{ display: inline-flex;/.test(cssCode)
   }
 }
 
+/* ── T W4b（用户 2026-09-25「重新设计管家界面」第二轮：视觉与信息层级）────────────────────────
+   行为由 steward-shell-redesign.browser.e2e.js 在真浏览器里钉；本组只看住修法没被绕开。 */
+{
+  const en = JSON.parse(read('locales/en-US.json'));
+  // T1 一行状态：任务总数不印、为 0 的一档不说 —— 旧模板键退役，两条新键中英齐备，JS 只用新键。
+  ok(!/stewardShell\.board\.statusLine/.test(board) && !('stewardShell.board.statusLine' in zh) && !('stewardShell.board.statusLine' in en)
+    && /t\('stewardShell\.board\.statusRunning', \{ n: running \}\)/.test(board)
+    && /t\('stewardShell\.board\.statusNeedsYou', \{ n: waiting\.length \}\)/.test(board)
+    && /line\.textContent = parts\.join\(' · '\);/.test(board)
+    && ['stewardShell.board.statusRunning', 'stewardShell.board.statusNeedsYou', 'rail.justNow'].every(key => typeof zh[key] === 'string' && typeof en[key] === 'string'),
+    'T1 一行状态只说有的那一档（statusRunning／statusNeedsYou 用「 · 」连，旧的 statusLine 模板键退役，中英齐备）');
+  // T2 左栏行右侧的时间：60 秒内说「刚刚」，其余走全仓唯一那份 stewardAgoLabel（单独一条 import 行）。
+  ok(/^import \{ stewardAgoLabel \} from '\.\/steward-conversation\.js';$/m.test(board)
+    && /function railAgoLabel\(iso\) \{[\s\S]{0,400}if \(Date\.now\(\) - at < 60000\) return t\('rail\.justNow'\);[\s\S]{0,200}return stewardAgoLabel\(iso,/.test(board)
+    && /const ago = railAgoLabel\(row\.updatedAt\);/.test(board)
+    && /meta\.title = t\('stewardShell\.board\.updated', \{ elapsed: ago \}\);/.test(board),
+    'T2 行右侧只印相对时间（「刚刚」60 秒界线 ＋ stewardAgoLabel），整话「最后动静：…」退到 title');
+  // T3 紧凑密度收掉与组头重复的药丸与「我开的」人形 —— 只在 :not(.rail-board) 生效，且【不收】「已停工」。
+  const compact = css.match(/\.app-frame:not\(\.rail-board\) \.rail-list \.steward-board-thread-head > \.steward-board-pill\[data-state="running"\],[\s\S]*?\{ display: none; \}/);
+  ok(Boolean(compact)
+    && ['dispatching', 'needs_you', 'done', 'quick_ask'].every(state => compact[0].includes(`.steward-board-pill[data-state="${state}"]`))
+    && !compact[0].includes('data-state="stopped"')
+    && compact[0].includes('.rail-origin[data-origin="user"]')
+    && compact[0].split('\n').every(line => line.startsWith('.app-frame:not(.rail-board) .rail-list .steward-board-thread-head >')),
+    'T3 紧凑密度那组 display:none 只收 running／dispatching／needs_you／done／quick_ask 五档药丸与 user 来源，「已停工」照印，每条都钉在 :not(.rail-board) 下');
+}
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

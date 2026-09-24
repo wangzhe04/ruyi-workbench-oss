@@ -153,6 +153,12 @@ export function createStewardComposer({
     const active = Boolean(target || hint);   // 手选或自动命中，两者之一在，chip 上就有「东西可撤」
     chip.classList.toggle('is-thread', active);
     chip.classList.toggle('is-picked', Boolean(picked));
+    // W4b（用户 2026-09-25 走查⑥「→如意 前缀 chip 含义不清」）：没有任何东西可说的那一态（不是手选、
+    // 不是预判命中、也不是「另起一件／定时／会问你」那几种形态）就是【默认递给如意】——这时印一枚
+    // 「→ 如意」等于把缺省值当信息印出来。收成一枚安静的「@」圆键（样式层按 .is-quiet 换皮：label 收起、
+    // 「@」露出），它仍是同一枚按钮：点开候选、Tab 循环、输入 @ 三条路一个没动，aria-label 仍是「递给谁」。
+    // label 的 textContent 照旧写「→ 如意」—— 读屏与既有断言读的是它，换皮不换字。
+    chip.classList.toggle('is-quiet', !active && stewardTargetKey(routeKind) === 'stewardShell.compose.targetSteward');
     // 117r-D3 ③（用户第八轮走查②「匹配的没法删掉/关掉」）：修前 × 只在【手选】时才出——自动预判命中
     // 的「像是接着『X』」没有任何关闭出口。判据从「只看 picked」改成「有没有东西可撤」（手选或自动命中）。
     if (clear) clear.hidden = !active;
@@ -393,6 +399,10 @@ export function createStewardComposer({
     chip.setAttribute('aria-haspopup', 'listbox');
     chip.setAttribute('aria-expanded', 'false');
     chip.setAttribute('aria-label', t('stewardShell.compose.targetLabel'));
+    // W4b：默认态露出的那一枚「@」（is-quiet 时样式层显它、收 label）。纯装饰，可访问名在 chip 的 aria-label 上。
+    const at = el('span', 'steward-target-at', '@');
+    at.setAttribute('aria-hidden', 'true');
+    chip.appendChild(at);
     chip.appendChild(el('span', 'steward-target-label', t('stewardShell.compose.targetSteward')));
     const clear = el('span', 'steward-target-clear', '×');
     clear.hidden = true;

@@ -759,7 +759,24 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // W2 续钉(前值 2a787f60…):只在载荷末尾新增一层 css/views/migration.css(迁移中心区块 + 首启卡挂点),既有层零改动。
 // 算法自证:不登记这一层(CSS_ROUTES 里去掉它)重算 = 2a787f60…,与被替换的旧值逐字相同;登记后整份再算得下面这个值。
 // wave137 合并:W2 的续钉建在 f8aecfcf 上(新增 migration.css 层);合进 wave137(已含 W4/W5/W6 三次重钉)后按工作树整份重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '7d45633996358f0601792eb8e1fe38b227fac1abec96e118ef74dd3d4cc5e327';
+// W4b 重钉（前值即上面那个 7d456339…；用户 2026-09-25「重新设计管家界面」第二轮 —— 视觉与信息层级）：
+// **零新增、零删除层**（分组表一个字节没动），改了六个既有层：
+//   ① `css/layout.css`：顶栏新增 ≤640／≤480 两档容器查询（三格改 auto｜1fr｜auto；分段钮与盾牌只留字形、
+//      状态胶囊收起）—— 390px 下分段钮与右侧按钮重叠（走查⑧）；
+//   ② `css/views/steward-shell.css`：中栏读宽 880 → `--steward-col-w: 720px`（两态同一条居中列，走查③）；
+//      quiet 态输入行 200px 就与「@」同行；
+//   ③ `css/views/steward-avatar.css`：`.steward-presence-text::before` 那颗点整族退役（头像搬进对话流后
+//      兄弟选择器永远选不中、恒灰，与 #stewardPresenceDot 并排成「• • 空闲」，走查⑤）；
+//   ④ `css/views/steward-conversation.css`：递送 chip 的 `.is-quiet` 皮与 `.steward-target-at`（走查⑥）；
+//   ⑤ `css/views/steward-drawer.css`：标题 :focus-visible 不画环（走查①）、`.steward-drawer-tabs[hidden]`、
+//      元信息一行的「·」分隔与 user 来源不画、is-default 的 chip 收成无边小字、`.steward-drawer-say`
+//      （输入框＋圆形发送键）（走查④⑦）；
+//   ⑥ `css/views/steward-board.css`：紧凑密度收掉与组头重复的五态药丸与 user 来源（走查②）。
+// 算法自证：改动落盘之前先用拦截法（把 readFileSync 换成 `git show HEAD:<path>` 再跑本文件自己的
+// readLayerPayload()）按【本分支起点 HEAD】重算，得到的值与上面那个前值逐字相同（自证通过）；随后按工作区
+// 重算得到下面这个值，提交后 HEAD 即工作区（32 号文 §4 纪律 4）。反向验证：删掉 steward-drawer.css 里
+// `.steward-drawer-title:focus-visible` 那一行 → 本值与实算不符，frontend-domains D51 与 live-full-text F3 双红。
+const LEGACY_STYLES_SHA256 = 'b3ac6fd5b61394708e2d2e9b134c807371986685412faf82bd6c208e0d654b5a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

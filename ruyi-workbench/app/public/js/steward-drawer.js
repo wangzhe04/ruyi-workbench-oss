@@ -501,8 +501,27 @@ export function createStewardDrawer({
       agoNode.textContent = ago;
       agoNode.hidden = !ago;
     }
+    // W4b（W7 的读模型字段，用户 2026-09-24「管家需要把工作区和任务联系起来」）：这条线程所属事项的
+    // 工作区【名字】，安静地印在元信息一行里。只读行上的 missionWorkspace（13d 一处算出，
+    // {path,name,ruyiOwned}）；如意自己开的目录（ruyiOwned）不印 —— 用户不该感知它自建的文件夹；
+    // 【只印名字，不印路径】（路径进不了界面，与 §2.2 顶栏不印路径同一条纪律）。
+    const workspaceNode = byId('stewardDrawerWorkspace');
+    if (workspaceNode) {
+      const workspace = (missionRow && missionRow.missionWorkspace && typeof missionRow.missionWorkspace === 'object')
+        ? missionRow.missionWorkspace : null;
+      const name = workspace && workspace.ruyiOwned !== true ? String(workspace.name || '').trim() : '';
+      workspaceNode.textContent = name;
+      workspaceNode.title = name ? t('stewardShell.drawer.workspace', { name }) : '';
+      workspaceNode.hidden = !name;
+    }
     if (!acceptanceNode) return;
-    acceptanceNode.textContent = stewardAcceptanceText(missionRow, t, ACCEPTANCE_KEYS);
+    // W4b（走查④「信息层级重排」）：一条验收项都没有时【什么都不说】—— 左栏 K3 放宽口径之后大半是手工
+    // 开的线程，每一条都印「没有验收项」就是一句没有信息量的话常驻在卡头下面（§2.3「只在有话可说时出现」，
+    // 与左栏 missionFacts 同一条纪律）。判据仍只有 stewardAcceptanceText 那一份，这里只决定印不印。
+    const acceptance = (missionRow && missionRow.acceptance && typeof missionRow.acceptance === 'object') ? missionRow.acceptance : null;
+    const worthSaying = Number(acceptance && acceptance.total) > 0;
+    acceptanceNode.textContent = worthSaying ? stewardAcceptanceText(missionRow, t, ACCEPTANCE_KEYS) : '';
+    acceptanceNode.hidden = !worthSaying;
   }
 
   // 117k（用户走查④）：任务【容器】的名字就在行里 —— 116-5b 给 GET /api/missions 的每一行加了
@@ -580,6 +599,11 @@ export function createStewardDrawer({
       } catch { /* 无 CustomEvent 的宿主 */ }
     };
     host.appendChild(add);
+    // W4b（用户 2026-09-25 走查④「标题下方的事项 chip 与标题重复」）：单线程任务的页签行【整行不印】——
+    // 那唯一一枚页签与卡头的名字逐字相同，是把同一个名字印两遍。页签只在真有兄弟线程可切时出现；
+    // 「＋ 线程」随行一起收起 —— 给已有任务加兄弟线程的入口仍在左栏行的「⋯」里（§2.3 那条）。
+    // DOM 照建（[hidden] 只管显隐）：页签的 role／aria-selected 契约与既有断言读的是节点，不是像素。
+    host.hidden = missionRows.length < 2;
   }
 
   // ── ③ 线程头 = 那枚共用的线程卡头（117u-G1 / 27 号文 §11.15.3 D1）────────────────────
@@ -618,6 +642,10 @@ export function createStewardDrawer({
   function agoLabel(iso) {
     const at = String(iso || '');
     if (!at) return '';
+    // W4b（用户 2026-09-25 走查②「0 秒前说成刚刚」）：60 秒以内说「刚刚」，不让 Intl 吐「1秒钟前」——
+    // 与左栏行的 railAgoLabel 同一条 60 秒界线、同一个键；其余仍走 stewardAgoLabel 那一份实现。
+    const ms = Date.parse(at);
+    if (Number.isFinite(ms) && Date.now() - ms < 60000) return t('rail.justNow');
     const page = doc() && doc().documentElement ? doc().documentElement.lang : '';
     return stewardAgoLabel(at, page);
   }
@@ -1153,12 +1181,22 @@ export function createStewardDrawer({
   // 判据住在叶子 js/run-state.js（2.0 的 run 卡、3.0 的看板行与这里同一份），本处只喂本抽屉的快照。
   function pausableRun() { return pausableRunOf(snapshot); }
 
-  function renderFoot() {
+  function renderFoot(sections) {
     const pause = byId('stewardDrawerPauseBtn');
     const resume = byId('stewardDrawerResumeBtn');
     const action = runControlAction(pausableRun());
     if (pause) pause.hidden = action !== 'pause';
     if (resume) resume.hidden = action !== 'resume';
+    // W4b（用户 2026-09-25 走查④；口味「不要虚假按钮」）：「停止」只在【真有东西可停】时出现 ——
+    // 活回合在跑（isLive）、回合挂在提问/放行上（行上的 activeTurn）、或还在排队（renderStateSections
+    // 算好的 queued，116h 的 cancelQueuedTurn 就挂在同一条 /api/stop 上）。已收工的线程上一枚「停止」
+    // 是按下去什么都不会发生的按钮。判据全是现成的三个事实，不新认任何五态字面量。
+    const stop = byId('stewardDrawerStopBtn');
+    if (stop) {
+      const queued = Boolean(sections && sections.queued);
+      const activeTurn = Boolean(missionRow && missionRow.activeTurn === true);
+      stop.hidden = !(isLive() || activeTurn || queued);
+    }
   }
 
   // ── ⑤ 快切 chip 行：跟全局一样就不印 ────────────────────────────────────────
@@ -1197,11 +1235,11 @@ export function createStewardDrawer({
     renderAsk();
     renderLastSay();
     renderQuickReplies();
-    renderStateSections();
+    const sections = renderStateSections();
     renderRelay();
     renderActivity();
     renderAcceptance();
-    renderFoot();
+    renderFoot(sections);   // W4b：「停止」的显隐要读它算好的 queued，不在 renderFoot 里再判一遍排队
   }
 
   // ── 直连发话（§8.13「不经管家」）────────────────────────────────────────────
@@ -1642,6 +1680,17 @@ export function createStewardDrawer({
     if (primary) primary.classList.add('is-primary');
     const send = byId('stewardDrawerSendBtn');
     if (send) send.classList.remove('is-primary');
+    // W4b（用户 2026-09-25 走查④「底部输入框＋四个按钮，控件太多」）：「发给它」是那个输入框的发送键，
+    // 不是动作行的一员 —— 把它搬到输入框【旁边】（同一枚节点，id／字形／内层 span 的 data-i18n 一个字节
+    // 不动，既有接线按 id 查得到），动作行于是只剩「在工作台打开」一枚主动作 ＋ 按态出现的次动作 ＋「更多」。
+    // 搬一次就够（幂等守卫）；样式层按 .steward-drawer-say 摆成「输入框 ＋ 圆键」一行。
+    const input = byId('stewardDrawerInput');
+    if (input && send && input.parentNode && !input.parentNode.classList.contains('steward-drawer-say')) {
+      const say = el('div', 'steward-drawer-say');
+      input.parentNode.insertBefore(say, input);
+      say.appendChild(input);
+      say.appendChild(send);
+    }
     const buttons = STEWARD_DRAWER_FOOT_MORE_IDS.map(byId).filter(Boolean);
     const row = buttons.length ? buttons[0].parentNode : null;
     if (!row || !row.classList || !row.classList.contains('steward-drawer-foot-actions')) return null;

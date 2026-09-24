@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 149(精确 126 / 前缀 14 / 正则 9),ROUTE_AUTH 135 条,生成于 2026-09-24T19:42:13.384Z。
+> 判定点 149(精确 126 / 前缀 14 / 正则 9),ROUTE_AUTH 135 条,生成于 2026-09-24T20:06:56.452Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -93,7 +93,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js:1657 | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js:1689 | steward-conversation.static.e2e.js, vision-loop.e2e.js |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js:1703 | vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1723 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 144 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js:1723 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 145 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js:1741 | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 15 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js:2021 | — |
 
@@ -182,9 +182,9 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 177 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 178 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 177 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 178 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js:252 | — |
 | DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:297 | action-feedback.browser.e2e.js, agent-mode-v2.e2e.js, agent-roles.e2e.js 等 92 件 |

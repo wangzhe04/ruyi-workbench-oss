@@ -36,6 +36,10 @@ import { stewardThreadStateOf, stewardAcceptanceText } from './steward-drawer.js
 // 有人登记 —— 登记者只能是本模块（全仓唯一的 /api/missions 取数者），所以这一行多一个名字。
 import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThreadHueFor,
   stewardRegisterThreadMission } from './steward-conversation.js';
+// W4b（用户 2026-09-25「重新设计管家界面」）：左栏行右侧那句时间改说人话的「多久以前」（「刚刚」「3 分钟前」），
+// 与焦点卡元信息一行、对话流卡头【同一个】实现（stewardAgoLabel → Intl.RelativeTimeFormat）——修前印的是
+// elapsedLabel 的时长写法「0s 前有动静」。单开一条 import 行：上面那行被 steward-board.static 逐字钉着。
+import { stewardAgoLabel } from './steward-conversation.js';
 // 33 号文 §4（M3-a）：危险操作确认四套收一套。本看板的「停掉占用者」修前走原生 globalThis.confirm
 // （全站唯一跳出式浮层：不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套。
 // 单开一条 import 行是刻意的：steward-board.static D4 逐字钉着上面那两行 steward-drawer 导入的写法，
@@ -371,7 +375,6 @@ export function createStewardBoard({
       line.textContent = t('stewardShell.board.statusEmpty');
       return line.textContent;
     }
-    const missions = new Set(rows.map(row => String(row.missionId || row.sessionId))).size;
     const running = views.filter(view => view.state === 'running').length;
     // 计数与【名单】同一次 filter 算出来：右上那枚「去处理」要知道去哪一条，而计数源仍然只有这一处
     // （117l 的 needsYouCount 与顶栏那枚全局胶囊读的都是这条状态行的同一份事实，不新开第二个计数源）。
@@ -381,7 +384,13 @@ export function createStewardBoard({
     renderGlobalChip(running, waiting.length);
     sideCounts = { running, needsYou: waiting.length };   // 右栏窄条的徽标读同一次 filter 的结果
     renderSideStrip();
-    line.textContent = t('stewardShell.board.statusLine', { missions, running, needsYou: waiting.length });
+    // W4b（用户 2026-09-25 走查⑤「0 计数是噪声」）：一行状态只说【有】的那一档 —— 「2 条在跑 · 1 条等你」；
+    // 都是 0 就整行空着（:empty 收掉，头部只剩 presence 那一句「空闲」）。任务总数不再印：左栏栏头
+    // 那枚 #railCount 已经是它（同一件事不印两遍）。计数源仍然只有上面那一次 filter。
+    const parts = [];
+    if (running > 0) parts.push(t('stewardShell.board.statusRunning', { n: running }));
+    if (waiting.length > 0) parts.push(t('stewardShell.board.statusNeedsYou', { n: waiting.length }));
+    line.textContent = parts.join(' · ');
     return line.textContent;
   }
 
@@ -588,6 +597,17 @@ export function createStewardBoard({
       return text.length > RAIL_ASK_PREVIEW_CHARS ? `${text.slice(0, RAIL_ASK_PREVIEW_CHARS)}…` : text;
     }
     return '';
+  }
+
+  // W4b：左栏行右侧那句时间。60 秒以内说「刚刚」（修前是「0s 前有动静」），其余走全仓唯一那份
+  // 「多久以前」实现（stewardAgoLabel，与焦点卡元信息一行、对话流卡头同一句人话）；算不出来就不印。
+  // 「刚刚」这一档的判据只有这 60 秒一条，与 stewardAgoParts 的秒档同一条界线。
+  function railAgoLabel(iso) {
+    const at = Date.parse(String(iso || ''));
+    if (!Number.isFinite(at)) return '';
+    if (Date.now() - at < 60000) return t('rail.justNow');
+    const document_ = doc();
+    return stewardAgoLabel(iso, (document_ && document_.documentElement && document_.documentElement.lang) || '');
   }
 
   // 搜索（Ctrl+K）：框还是 2.0 那一个（#sessionSearch），过滤在这里。
@@ -940,9 +960,14 @@ export function createStewardBoard({
     // 真有人在问你时不印这枚：那枚「它在问你／它等你放行」说的是同一件事的更具体版本，两枚并排
     // 就是把一句话印两遍（§11.15.2 病 3 的同一个模具）。判据仍然只有 asksYou 那一个，零新增字面量。
     if (!asksPill) head.appendChild(statePill(threadState));
-    const elapsed = elapsedLabel(row.updatedAt, new Date());
     // B4：标题右侧只留「最后动静」—— 钱与验收线搬去了卡尾，不再与线程名争重心。
-    if (elapsed) head.appendChild(el('span', 'steward-board-meta', t('stewardShell.board.updated', { elapsed })));
+    // W4b：只印相对时间本身（「刚刚」「3 分钟前」，与焦点卡同一句），整话「最后动静：…」退到悬停。
+    const ago = railAgoLabel(row.updatedAt);
+    if (ago) {
+      const meta = el('span', 'steward-board-meta', ago);
+      meta.title = t('stewardShell.board.updated', { elapsed: ago });
+      head.appendChild(meta);
+    }
     item.appendChild(head);
 
     // §2.3「第二行只在有话可说时出现」：在跑＝正在调什么（读 row.liveTail，K2b 已让它实时）、

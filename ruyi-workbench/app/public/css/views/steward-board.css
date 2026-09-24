@@ -427,6 +427,22 @@
 .steward-board-thread-title:focus-visible { outline: none; box-shadow: var(--ring); }
 .steward-board-meta { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .steward-board-thread-head .steward-board-meta { margin-inline-start: auto; padding-inline-start: var(--sp-2); }
+/* W4b（用户 2026-09-25 走查②「『已收工』＋小人图标＋第二行右对齐的时间很碎」）：紧凑密度（268px）的行
+   收成【一行】—— 色点 · 名 · 右侧弱化的时间。两样在这一档不印：
+     · 与组头重复的五态药丸：行已经归在「在跑／排队／今天收工／更早／等你」那一组底下，行上再印一遍
+       「已收工」就是把组名印 N 遍。**只留「已停工」**（失败要看得见，2026-09-15 拍板：失败的可见性由
+       左栏药丸承担）；「它在问你」那枚金色 pill 不在此列（它说的是更具体的一件事）。
+     · 「我开的」那枚人形：左栏里大半是用户自己开的，它是缺省值不是信息；如意开的（环）与定时开的（钟）
+       才值得标出来。
+   都是【只收视觉】：节点照建、data-state／data-origin 照写（既有断言读的是它们），看板密度（440px，
+   .rail-board）与 ≤980 图标栏各自的规则一个字不动。第二行（.steward-board-sub）只属于在跑（工具行，
+   行高稳定语义见上）与等你（问句前 22 字），本条不碰它。 */
+.app-frame:not(.rail-board) .rail-list .steward-board-thread-head > .steward-board-pill[data-state="running"],
+.app-frame:not(.rail-board) .rail-list .steward-board-thread-head > .steward-board-pill[data-state="dispatching"],
+.app-frame:not(.rail-board) .rail-list .steward-board-thread-head > .steward-board-pill[data-state="needs_you"],
+.app-frame:not(.rail-board) .rail-list .steward-board-thread-head > .steward-board-pill[data-state="done"],
+.app-frame:not(.rail-board) .rail-list .steward-board-thread-head > .steward-board-pill[data-state="quick_ask"],
+.app-frame:not(.rail-board) .rail-list .steward-board-thread-head > .rail-origin[data-origin="user"] { display: none; }
 .steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 2px; }
 /* §2.3：多出来的那一行事实（验收 a/b · 线程数）只在【看板】密度印；紧凑密度下左栏只留主信息。 */
 .rail-list .steward-board-facts { display: none; }

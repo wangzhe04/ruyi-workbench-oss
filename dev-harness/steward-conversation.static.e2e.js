@@ -1232,6 +1232,24 @@ ok(count(conversation, /setInterval\(/g) === 1 && !/\.innerHTML/.test(conversati
     'AB6 每条徽标都带 kind 与态（判据面按 data-* 读，不必去抠文案）');
 }
 
+/* ── AC W4b（用户 2026-09-25 走查⑥「→如意 前缀 chip 含义不清」）：默认态收成「@」圆键 ────────────
+   行为由 steward-shell-redesign.browser.e2e.js 钉（F 组）；这里看住「换皮不换字」。 */
+{
+  const shellCss = read('css/views/steward-shell.css');
+  ok(/chip\.classList\.toggle\('is-quiet', !active && stewardTargetKey\(routeKind\) === 'stewardShell\.compose\.targetSteward'\);/.test(composer),
+    'AC1 只有「默认递给如意」那一态挂 is-quiet（手选／命中／另起一件／定时／会问你都不挂）');
+  ok(/const at = el\('span', 'steward-target-at', '@'\);\s*at\.setAttribute\('aria-hidden', 'true'\);/.test(composer)
+    && /chip\.appendChild\(el\('span', 'steward-target-label', t\('stewardShell\.compose\.targetSteward'\)\)\);/.test(composer),
+    'AC2 「@」是 aria-hidden 的装饰节点，label 仍照旧写「→ 如意」（读屏与既有断言读它）');
+  ok(/\.steward-target\.is-quiet \.steward-target-label \{ display: none; \}/.test(css)
+    && /\.steward-target\.is-quiet \.steward-target-at \{ display: inline; \}/.test(css)
+    && /\.steward-target-at \{ display: none;/.test(css),
+    'AC3 样式层按 is-quiet 换皮：label 收、@ 露；非 quiet 态 @ 不出');
+  ok(/\.steward-composer:has\(> \.steward-target\.is-quiet\) > \.steward-composer-row \{ flex: 1 1 200px; \}/.test(shellCss)
+    && /flex: 1 1 520px;/.test(shellCss),
+    'AC4 quiet 态输入行 200px 就与「@」同行（390px 不再让 @ 独占一行）；chip 一长仍是 117r-D3 那条 520 基准');
+}
+
 console.log(`\nSTEWARD CONVERSATION STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });

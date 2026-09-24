@@ -393,6 +393,31 @@
   .app-shell.tools-open .tool-pane { transform: none; }
   .app-side-toggle { display: inline-grid; }
 }
+/* W4b（用户 2026-09-25 走查⑧；W4 报告登记的既有问题）：390px 下顶栏的分段钮与右侧那组按钮重叠。
+   根在 `1fr auto 1fr`：左右两格恒等宽，右格要 ~215px 时左格也占 215，中格只剩负数，分段钮就压到
+   右侧按钮上。两档收口，内容一件不少：
+     ≤640  三格改成 `auto ｜ 1fr ｜ auto` —— 左格是空的，分段钮在剩下的那一格里居中（不再钉在视口正中，
+           这个宽度下也钉不住），右侧按钮各归各位；
+     ≤480  分段钮与盾牌只留字形（人话收成读屏文字，可访问名一个字不少），全局状态胶囊整枚收起
+           （在跑／等你的数左栏组头与管家头部那一行各有一份）。 */
+@container frame (max-width: 640px) {
+  .app-topbar { grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; }
+}
+@container frame (max-width: 480px) {
+  .lens-btn { padding-inline: 11px; }
+  .lens-btn > span,
+  .app-topbar .steward-shield-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .app-topbar .app-status-chip { display: none; }
+}
 @container frame (max-width: 980px) {
   /* 图标栏这一档比「看板密度」更硬：两条都写，且排在后面 —— 窄到这个份上时 440px 的密度
      没有意义（栏里连字都不印了）。 */

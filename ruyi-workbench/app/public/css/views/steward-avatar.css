@@ -129,33 +129,17 @@
 }
 
 /* 顶栏名字旁的一行状态文字（aria-live="polite" 与 avatar 的视觉状态同源，退化时唯一还在的信号，§8.1 原则 5）。
-   117i：按原型 .status 加一枚 6px 的状态点，颜色跟着 avatar 的 data-state 走（同一个真值，
-   不另起判据）；它与右边的一行状态按钮并排，合起来就是原型那一行「点 · 在干什么 · 有几件事」。 */
+   117i 曾在这里用 ::before 画一枚 6px 状态点、靠 `.steward-avatar[data-state] ~ .steward-header-text` 取色。
+   W4b（用户 2026-09-25 走查⑤「两颗点意义不明」）：那一族整段退役 —— 117j W2-3 之后头像跟着最新一条话走
+   （被搬进对话流），这条兄弟选择器从此永远选不中，那枚点就恒是灰的；而同一件事早有了真正的投影
+   #stewardPresenceDot（steward-shell.css，data-state 由 renderPresence 一处写）。两枚点并排就是用户看到的
+   「• • 空闲」。一处 presence、一处投影，这里只剩文字本身。 */
 .steward-presence-text {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
   font-size: var(--fs-sm);
   color: var(--muted);
-}
-.steward-presence-text::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--muted);
-}
-.steward-avatar[data-state="working"] ~ .steward-header-text .steward-presence-text::before,
-.steward-avatar[data-state="thinking"] ~ .steward-header-text .steward-presence-text::before,
-.steward-avatar[data-state="listening"] ~ .steward-header-text .steward-presence-text::before {
-  background: var(--accent);
-}
-.steward-avatar[data-state="waiting_you"] ~ .steward-header-text .steward-presence-text::before {
-  background: var(--gold);
-}
-.steward-avatar[data-state="error"] ~ .steward-header-text .steward-presence-text::before {
-  background: var(--danger);
 }
 
 @media (max-width: 390px) {

@@ -83,6 +83,19 @@
 }
 .steward-drawer-mission > * { flex: 0 0 auto; }
 .steward-drawer-mission [hidden] { display: none; }
+/* W4b：这一行现在最多四样（来源 · 相对时间 · 工作区名 · 验收 a/b），哪几样在场由 JS 的 [hidden] 说；
+   相邻两个【在场】的节点之间补一枚「·」—— 用兄弟选择器按在场判，不在 JS 里拼分隔符（分隔符不进
+   textContent，读屏不念「点」）。 */
+.steward-drawer-mission > :not([hidden]):not(.steward-drawer-origin[data-origin="user"]) ~ :not([hidden])::before {
+  content: "·";
+  margin-inline-end: var(--sp-2);
+  color: var(--line-2);
+}
+/* W4b（走查②「图标只在有意义时出现」，与左栏紧凑密度同一条）：「我开的」那枚人形是缺省值不是信息，
+   焦点卡的元信息一行同样不画它 —— 如意开的（环）与定时开的（钟）才标。只收视觉：节点与 data-origin
+   照写、[hidden] 不动（读屏的 aria-label 与既有断言读的是节点），上面的分隔符规则已把它排除在
+   「在场」之外，所以相对时间前面不会留一枚孤零零的「·」。 */
+.steward-drawer-origin[data-origin="user"] { display: none; }
 /* 来源图形（环／人形／钟）：与左栏行同一批字形、同一句悬停文案，色也同一档次级墨。 */
 .steward-drawer-origin {
   display: inline-flex;
@@ -105,6 +118,9 @@
   gap: var(--sp-2);
   min-width: 0;
 }
+/* W4b：单线程任务的页签行整行不印（那唯一一枚页签与卡头同名，见 steward-drawer.js renderTabs）。
+   上面那条 display:flex 是作者样式，会压过 UA 表的 [hidden]，所以必须显式收（本层第五处同款守卫）。 */
+.steward-drawer-tabs[hidden] { display: none; }
 .steward-drawer-tab {
   display: inline-flex;
   align-items: center;
@@ -163,6 +179,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* W4b（用户 2026-09-25 走查①「右栏线程标题一加载就带一个像输入框的焦点框」）：这枚 h2 是 tabindex=-1 的
+   【程序性焦点落点】（openThread 把焦点送到这里，读屏据此知道换了哪条线程）—— 键盘 Tab 永远走不到它，
+   所以 base.css 那圈 :focus-visible 光环在它身上不传达任何「你在哪」的信息，只像一个空输入框。
+   页面刚加载、还没有任何指针交互时浏览器把程序性聚焦也判成 :focus-visible，用户看到的就是那个框。
+   焦点本身照落（无障碍不变），只把这一枚的可见环收掉；其余真正可 Tab 到的控件一个不动。 */
+.steward-drawer-title:focus-visible { outline: none; box-shadow: none; }
 /* 121-K6b（§2.6）：「任务 › 线程」面包屑，只在多线程任务时出现。› 是 ::after 画的分隔符 ——
    分隔符不是内容，不该进 textContent（读屏念「任务名 大于号 线程名」是噪音）。
    与 K5 工作台线程头那一枚（.th-crumb）是同一条口径：一行读完，长了就省略号。 */
@@ -214,6 +236,25 @@
    做了不同的事。chip 本来就是「键 ＋ 值」两个节点，所以这条规则不需要 JS 分叉、不动 valueFor。
    上面那条 [hidden] 守卫留着：它是「整行都不印」那条退路的落点（renderChips 的注释写了怎么切）。 */
 .steward-drawer-chips.is-default .steward-chip-value { display: none; }
+/* W4b（用户 2026-09-25 走查④「权限／模型／引擎三枚 chip……减少同时出现的控件」）：跟全局一样的那一态
+   （.is-default）不再画三枚描边药丸 —— 三个没有值的标签框在一起，看着是三枚要人去按的控件、读着又是
+   三个没内容的系统词。收成一行安静小字「权限 · 模型 · 引擎」：仍是【同一批按钮】（117u-G3b 的裁决：
+   只收值不收控件 —— 这里连值都没收第二遍，只换皮），点开还是那张菜单，hover 才提墨。一旦有一档定过
+   （is-default 摘掉），三枚回到描边药丸并印出值 —— 于是只有【不同于全局】的设置才被视觉提起来。 */
+.steward-drawer-chips.is-default .steward-chip {
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  color: var(--muted);
+  border-color: transparent;
+  background: transparent;
+}
+.steward-drawer-chips.is-default .steward-chip:hover { color: var(--ink); border-color: transparent; }
+.steward-drawer-chips.is-default .steward-chip-wrap + .steward-chip-wrap::before {
+  content: "·";
+  margin-inline-end: var(--sp-2);
+  color: var(--line-2);
+}
 .steward-chip {
   display: inline-flex;
   align-items: center;
@@ -614,6 +655,33 @@
 .steward-drawer-input:focus { outline: none; border-color: var(--accent); }
 .steward-drawer-input:focus-visible { outline: none; box-shadow: var(--ring); }
 .steward-drawer-foot-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* W4b（用户 2026-09-25 走查④「底部输入框＋四个按钮」）：直连输入框与它的发送键排成【一行】——
+   「发给它」是这个框的发送键，不是动作行的一员（节点由 steward-drawer.js gradeFootActions 搬进
+   .steward-drawer-say，id／字形／内层 span 一个字节不动）。发送键收成 32px 圆键：字形可见、人话给读屏
+   （与主输入框那枚发送同一个形状语言），动作行于是只剩「在工作台打开」＋ 按态出现的次动作 ＋「更多」。 */
+.steward-drawer-say { display: flex; align-items: flex-end; gap: var(--sp-1); min-width: 0; }
+.steward-drawer-say .steward-drawer-input { flex: 1 1 auto; min-width: 0; }
+.steward-drawer-say .steward-drawer-btn {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--accent);
+}
+.steward-drawer-say .steward-drawer-btn .ic { width: 15px; height: 15px; }
+.steward-drawer-say .steward-drawer-btn > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 /* ⑪ 117u-G1（27 号文 §11.15.3 D3）：破坏性的「整单回退／交回管家」收进一枚默认收起的「更多」。
    summary 的皮直接借 body 那枚折叠的 .steward-drawer-more-summary（同一个类，不写第二份），
    本条只管把展开后的那两枚按钮摆成一行、并让「更多」自己贴到行尾去 —— 主动作在最左，最危险的

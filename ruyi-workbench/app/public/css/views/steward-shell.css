@@ -60,13 +60,19 @@
   overflow: hidden;
 }
 
-/* 中栏内容读宽（§7.1）：880px 居中，随窗口铺满，不再是居中玻璃卡。 */
+/* 中栏内容读宽（§7.1）：居中一列，随窗口铺满，不再是居中玻璃卡。
+   W4b（用户 2026-09-25 走查③「右栏展开时对话贴左、收起时居中」）：读宽从 880 收到 720 —— 880 比右栏
+   展开时中栏能给的宽（1440 下 780 − 48）还大，于是展开态是「铺满贴边」、收起态才是「居中一列」，两态
+   看着是两种版式。720 在两态里都装得下（1440 展开 732 可用），于是永远是【同一条居中的对话列】；
+   它也没有削掉任何正文：管家的话本来就 ≤680（.steward-msg），用户气泡 ≤520，只有头部与输入框跟着收。
+   宽度只有这一个 token，改它一处四行同变。 */
+.steward-shell { --steward-col-w: 720px; }
 .steward-header,
 .steward-feed,
 .steward-composer,
 .steward-status {
   width: 100%;
-  max-width: 880px;
+  max-width: var(--steward-col-w);
   margin-inline: auto;
 }
 
@@ -172,6 +178,11 @@
      倒推出来的：小于它就宁可整条换行（chip 独占第一行，回到 117r-D3 那个形状）。 */
   flex: 1 1 520px;
 }
+/* W4b：递送 chip 收成 26px 的「@」圆键（.is-quiet，见 steward-conversation.css）时，上面那条 520px 的
+   换行基准就没有对象了 —— 它防的是「chip 一长把输入框挤没」，而一枚 26px 的圆键挤不到谁。这一态让
+   输入行只要 200px 就与「@」同行：390px 下不再让「@」独占一行、输入框掉到第二行（实拍抓到的）。
+   chip 一变长（命中／手选／另起一件），is-quiet 摘掉，520 那条原样接管。 */
+.steward-composer:has(> .steward-target.is-quiet) > .steward-composer-row { flex: 1 1 200px; }
 /* 121-K8（§2.10.2）：focus-within 才描主色边 —— 与工作台胶囊同一条规则、同一圈光晕。 */
 .steward-composer:focus-within {
   border-color: var(--accent);

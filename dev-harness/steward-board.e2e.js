@@ -553,7 +553,10 @@ try {
   await waitForEval(cdp, `document.documentElement.getAttribute('data-shell-mode') === 'steward'`);
   // 124 还债①：多了「没人记过验收的那件」（空验收容器 ＋ 一条无账本线程），任务数 2 → 3。
   // 在跑／等你那两个数不动 —— 新那一件既没跑回合也没待决，它落的就是收工档。
-  const expectedLine = fill('stewardShell.board.statusLine', { missions: 3, running: 1, needsYou: 1 });
+  // W4b 重钉（用户 2026-09-25 走查⑤「两颗点意义不明，0 计数是噪声」）：一行状态不再印任务总数
+  // （左栏栏头 #railCount 已是它），只说【有】的那一档，两档用「 · 」连；都是 0 时整行空着。
+  // 本处两档都 >0，所以两段都在。反向：把 renderStatusLine 改回旧模板 → 本条红。
+  const expectedLine = `${fill('stewardShell.board.statusRunning', { n: 1 })} · ${fill('stewardShell.board.statusNeedsYou', { n: 1 })}`;
   const entered = await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
     return snapshot.statusLine === ${JSON.stringify(expectedLine)} ? snapshot : null;

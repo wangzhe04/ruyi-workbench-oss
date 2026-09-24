@@ -241,10 +241,14 @@ ok(/\.steward-drawer-chips\[hidden\] \{ display: none; \}/.test(cssCode)
   'E4c 抽屉 chip 行的 [hidden] 守卫在（display:flex 会盖掉 UA 规则），且 2.0 顶栏那一份不受牵连');
 // 117u-G3b：真正在干活的是这条 —— 收的是【值】那半个节点（.steward-chip-value），键那半与整个
 // 按钮都留着，所以「给这条线程单独定一档」的入口没被收走。同样只许作用于抽屉这一份。
+// W4b 重钉（用户 2026-09-25「重新设计管家界面」走查④）：is-default 那一态自此允许给整枚 chip 换皮
+// （收成一行安静小字，见 steward-drawer.css 那段注释），所以第三条从「不许有任何针对 .steward-chip 的规则」
+// 改成守它的【本意】——不许把键那半或整枚按钮 display:none（那才是「把入口收走」）。反向：给
+// `.steward-drawer-chips.is-default .steward-chip {` 那条加一句 display:none → 本条红。
 ok(/\.steward-drawer-chips\.is-default \.steward-chip-value \{ display: none; \}/.test(cssCode)
   && !/\.steward-chips\.is-default/.test(cssCode)
-  && !/\.steward-drawer-chips\.is-default \.steward-chip(-key)? \{/.test(cssCode),
-  'E4d 详情栏收的是 chip 的【值】那半，不是整个控件（键与按钮都还在，入口没丢）；2.0 顶栏那一份不受牵连');
+  && !/\.steward-drawer-chips\.is-default \.steward-chip(-key|-wrap)? \{[^}]*display: none/.test(cssCode),
+  'E4d 详情栏收的是 chip 的【值】那半，不是整个控件（键与按钮都还在、只许换皮不许 display:none，入口没丢）；2.0 顶栏那一份不受牵连');
 for (const name of ['acceptanceItems', 'activeAcceptanceIndex', 'taskProgress', 'elapsedLabel', 'describeTurnActivity', 'deriveMissionState']) {
   ok(!new RegExp(`function ${name}\\s*\\(`).test(drawerCode),
     `E5 抽屉不定义同名函数 ${name}（复制即失去「同一份判据」）`);
@@ -850,6 +854,34 @@ ok(/Array\.isArray\(data\.byModel\)/.test(chipsCode) && /data\.byModel : \[\]/.t
   && count(chipsCode, /api\('\/api\/usage/g) === 1
   && /'\/api\/usage\/summary\?range=all'/.test(chipsCode),
   `N5d 「常用」的唯一数据源是账本的 byModel（M1 那个维度），读它时自防「键可能不在」（usage-dashboard.js:80 同一写法）；全文件恰好一处 GET（实测 ${count(chipsCode, /api\('\/api\/usage/g)} 处），且拉的是 range=all —— 端点只有 today／week／month／all 四档，month 是【本自然月】，用它的话月初会把上个月用过的全判成没用过`);
+
+/* ── P W4b（用户 2026-09-25「重新设计管家界面」第二轮）：右栏的信息层级 ─────────────────────────
+   行为由 steward-shell-redesign.browser.e2e.js 在真浏览器里钉；本组只看住修法没被绕开。 */
+ok(/\.steward-drawer-title:focus-visible \{ outline: none; box-shadow: none; \}/.test(cssCode),
+  'P1 走查①：程序性聚焦的标题（tabindex=-1，Tab 走不到）不画焦点环 —— base.css 那圈 :focus-visible 在它身上只像个输入框');
+ok(/host\.hidden = missionRows\.length < 2;/.test(drawerCode) && /\.steward-drawer-tabs\[hidden\] \{ display: none; \}/.test(cssCode),
+  'P2 走查④：单线程任务的页签行整行不印（那唯一一枚与卡头同名），[hidden] 守卫在（display:flex 会盖掉 UA 规则）');
+ok(/function renderFoot\(sections\) \{[\s\S]{0,900}stop\.hidden = !\(isLive\(\) \|\| activeTurn \|\| queued\);/.test(drawerCode)
+  && /const sections = renderStateSections\(\);[\s\S]{0,200}renderFoot\(sections\);/.test(drawerCode)
+  && !/function renderFoot\(sections\) \{[\s\S]{0,900}'(running|dispatching|needs_you|done|stopped)'/.test(drawerCode),
+  'P3 走查④：「停止」只在真有东西可停时出现（isLive ／ 行上的 activeTurn ／ renderStateSections 算好的 queued 三个现成事实），不新认五态字面量');
+ok(/const say = el\('div', 'steward-drawer-say'\);[\s\S]{0,200}say\.appendChild\(input\);\s*say\.appendChild\(send\);/.test(drawerCode)
+  && /!input\.parentNode\.classList\.contains\('steward-drawer-say'\)/.test(drawerCode)
+  && /\.steward-drawer-say \{ display: flex; align-items: flex-end;/.test(cssCode),
+  'P4 走查④：「发给它」是输入框的发送键 —— 同一枚节点搬到输入框旁（幂等），动作行只剩主动作与按态出现的次动作');
+ok(/\.steward-drawer-chips\.is-default \.steward-chip \{[^}]*border-color: transparent;[^}]*\}/.test(cssCode)
+  && !/\.steward-drawer-chips\.is-default \.steward-chip \{[^}]*display: none/.test(cssCode),
+  'P5 走查④：跟全局一样的三枚 chip 收成无边小字（换皮不收控件，与 E4d 同一条纪律）');
+ok(/const worthSaying = Number\(acceptance && acceptance\.total\) > 0;/.test(drawerCode)
+  && /acceptanceNode\.hidden = !worthSaying;/.test(drawerCode),
+  'P6 走查④：没有验收项就不印那一格（判据仍只有 stewardAcceptanceText，这里只决定印不印）');
+ok(html.includes('id="stewardDrawerWorkspace" class="steward-drawer-pill" hidden')
+  && /const workspaceNode = byId\('stewardDrawerWorkspace'\);/.test(drawerCode)
+  && /workspace && workspace\.ruyiOwned !== true \? String\(workspace\.name \|\| ''\)\.trim\(\) : ''/.test(drawerCode)
+  && !/workspace\.path/.test(drawerCode),
+  'P7 走查⑦：元信息一行印工作区【名字】，ruyiOwned 的不印，路径一个字都不读（W7 的 missionWorkspace 只加字段，前端只读 name／ruyiOwned）');
+ok(/if \(Number\.isFinite\(ms\) && Date\.now\(\) - ms < 60000\) return t\('rail\.justNow'\);/.test(drawerCode),
+  'P8 走查②：焦点卡的「多久以前」60 秒内说「刚刚」，与左栏行同一条界线、同一个键');
 
 console.log(`\nSTEWARD DRAWER STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;

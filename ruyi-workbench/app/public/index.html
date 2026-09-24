@@ -762,7 +762,10 @@
                    aria-label="元信息" data-i18n-attr="aria-label:stewardShell.drawer.metaSection">
             <span id="stewardDrawerOrigin" class="steward-drawer-origin" hidden></span>
             <span id="stewardDrawerAgo" class="steward-drawer-pill" hidden></span>
-            <span id="stewardDrawerMissionAcceptance" class="steward-drawer-pill"></span>
+            <!-- W4b（W7 读模型的 missionWorkspace）：所属事项的工作区【名字】，只在不是如意自建目录时印；
+                 不印路径。文案与 hidden 都由 js/steward-drawer.js 的 renderMeta 写。 -->
+            <span id="stewardDrawerWorkspace" class="steward-drawer-pill" hidden></span>
+            <span id="stewardDrawerMissionAcceptance" class="steward-drawer-pill" hidden></span>
           </section>
           <!-- ③ 线程页签：同事项兄弟线程 ＋「＋ 线程」 -->
           <div id="stewardDrawerTabs" class="steward-drawer-tabs" role="tablist"

@@ -592,6 +592,20 @@ const ok = (condition, label) => {
       'I4b ③ 「已收工 · 最近动过 X 前」（修前从建会话算起，真机上是「用时 770h 35m」）');
   }
 
+  /* ── J：W4b（用户 2026-09-25 走查⑤「两颗点意义不明」）：一处 presence、一处投影 ────────────── */
+  {
+    const avatarCss = read('css/views/steward-avatar.css');
+    const layoutCss = read('css/layout.css');
+    ok(!/\.steward-presence-text::before/.test(avatarCss) && /\.steward-presence-dot \{/.test(shellCss),
+      'J1 头部的状态点只有 #stewardPresenceDot 一颗：steward-avatar.css 里那枚靠 ~ 兄弟选择器取色的 ::before（头像搬进对话流后永远选不中、恒灰）整族退役');
+    ok(/\.steward-shell \{ --steward-col-w: 720px; \}/.test(shellCss) && /max-width: var\(--steward-col-w\);/.test(shellCss) && !/max-width: 880px/.test(shellCss),
+      'J2 走查③：中栏读宽是一个 token（720，两态里都装得下，于是永远是同一条居中的对话列）');
+    ok(/@container frame \(max-width: 640px\) \{\s*\.app-topbar \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/.test(layoutCss)
+      && /@container frame \(max-width: 480px\) \{[\s\S]{0,600}\.lens-btn > span,\s*\.app-topbar \.steward-shield-label \{[\s\S]{0,300}clip-path: inset\(50%\);/.test(layoutCss)
+      && /@container frame \(max-width: 480px\) \{[\s\S]{0,900}\.app-topbar \.app-status-chip \{ display: none; \}/.test(layoutCss),
+      'J3 走查⑧：≤640 顶栏三格改 auto｜1fr｜auto，≤480 分段钮与盾牌只留字形（人话收成读屏文字，不删）、状态胶囊收起');
+  }
+
   console.log(`\nSTEWARD WALKTHROUGH STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
   process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });
