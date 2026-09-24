@@ -570,9 +570,14 @@ export function createStewardBoard({
   //     那条锁变成两处 —— §2.3 要的「第二行是等待原因」由那一行承担，不是再画一行。
   function railSubLine(row, state) {
     if (state === 'running') {
+      // 137x（用户 2026-09-24 「工具显示会让线程变大变小」）：服务端在工具收尾那一刻把 tail.tool
+      // 清成 ''（04-permission-runtime.js），若这里跟着回落成空串，paintRailLive 就会把这一行的
+      // <p> 摘掉、下一次工具开始时再插回来 —— 行高跟着每一次 tool_use/tool_result 抖一次。改成
+      // 有工具名给工具名、没有（刚起跑或两次工具之间的间隙）给中性占位，这一行只在【进/出运行态】
+      // 各变一次高度，不再随每次工具调用增删。
       const tail = (row && row.liveTail && typeof row.liveTail === 'object') ? row.liveTail : null;
       const tool = String((tail && tail.tool) || '');
-      if (!tool) return '';
+      if (!tool) return t('rail.liveRunning');
       const elapsed = elapsedLabel(String(tail.updatedAt || row.updatedAt || ''), new Date());
       return elapsed ? t('rail.liveTool', { tool, elapsed }) : tool;
     }
@@ -1729,6 +1734,12 @@ export function createStewardBoard({
       const head = host.querySelector('.steward-board-thread-head');
       if (head && head.nextSibling) host.insertBefore(line, head.nextSibling);
       else host.appendChild(line);
+    } else if (line.textContent !== text) {
+      // 137x：换的是【工具名】（比如 file_read 换成 bash），不是「有没有这一行」——那一半已经在
+      // railSubLine 里堵住了（在跑期间恒有文本）。直接 textContent 赋值观感生硬，加一次短促的透明度
+      // 过渡代替硬切换；行高不受影响，css/views/steward-board.css 的 .steward-board-sub.is-updating。
+      line.classList.add('is-updating');
+      requestAnimationFrame(() => line.classList.remove('is-updating'));
     }
     line.textContent = text;
     return true;

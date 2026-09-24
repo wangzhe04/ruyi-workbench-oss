@@ -2941,6 +2941,7 @@
   ,"rail.expand": "展开"
   ,"rail.collapse": "收起"
   ,"rail.liveTool": "{{tool}} · {{elapsed}}前有输出"
+  ,"rail.liveRunning": "运行中…"
   ,"rail.origin.steward": "如意开的"
   ,"rail.origin.user": "我开的"
   ,"rail.origin.schedule": "定时开的"

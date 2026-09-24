@@ -27,6 +27,14 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 确实在长(否则 S3/S4 是空断言)、S3 滚到中间等两拍原地不动、S4 在底部时继续跟随。
 // 为此夹具也改了:HOLD_MS 30s→45s,且挂住的那段窗口改成【持续吐字】(修前是干等,活文本一字不变,
 // paintLiveTurnNarrative 的签名判据整拍短路,S 组会变成空断言)。
+//
+// 137x(用户 2026-09-24「运行中的回合...显示本轮调用的所有工具的记录总结,导致看起来像回合结束了
+// 一样...最好给在运行中的回合左下角加个小动效」):B15 从「运行中必须有本轮记录索引卡」反过来钉成
+// 「运行中不许有」(那张卡读着就是回合结束的总结语气);新增 B18(运行中左下角有指示动效)与
+// D6/D7(回合结束后索引卡出现、指示动效消失)—— 两条状态在回合边界互换,合起来才是完整闭环。
+// 反向验证:把 chat-static-renderer.js 的 `!options.running` 判据去掉,B15 当场红(实测 turnRecords
+// 从 0 变回 ≥1);把 css/states/chat-live.css 新增的 `.message.live-turn .msg-main::before` 规则删掉,
+// B18 当场红(content 变回 'none')。两处改完都已还原,现在钉的是修好之后的样子。
 (async () => {
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
@@ -219,11 +227,20 @@ const READY = `(() => {
 })()`;
 
 // 屏幕快照:全部走 textContent / class,不碰任何模块私有状态。
+// 137x:补两个字段 —— dot(运行中左下角小动效,挂在 .msg-main::before 上,纯 CSS,只能用
+// getComputedStyle 探)与 realAssistantTurnRecords(落盘助手消息那份「本轮记录」索引卡)。
 const SNAP = `(() => {
   const box = document.getElementById('messages');
   const row = box ? box.querySelector('[data-live="1"]') : null;
   const text = (node, sel) => { const found = node ? node.querySelector(sel) : null; return found ? found.textContent.trim() : ''; };
+  const dotContent = el => {
+    const main = el ? el.querySelector('.msg-main') : null;
+    if (!main) return 'none';
+    try { return window.getComputedStyle(main, '::before').content; } catch (e) { return 'none'; }
+  };
   const session = window.state && window.state.currentSession;
+  const realRows = box ? [...box.querySelectorAll('.message.assistant:not(.live-turn)')] : [];
+  const lastReal = realRows.length ? realRows[realRows.length - 1] : null;
   return {
     shellMode: document.documentElement.getAttribute('data-shell-mode'),
     currentId: session ? String(session.id || '') : '',
@@ -248,6 +265,9 @@ const SNAP = `(() => {
     bodyHidden: row && row.querySelector('.live-turn-body') ? row.querySelector('.live-turn-body').hidden : null,
     msgRoles: session && Array.isArray(session.messages) ? session.messages.map(m => m && m.role) : [],
     intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
+    liveDot: dotContent(row),
+    realAssistantTurnRecords: lastReal ? lastReal.querySelectorAll('.turn-record').length : -1,
+    realAssistantDot: dotContent(lastReal),
   };
 })()`;
 
@@ -426,12 +446,19 @@ try {
     `B13 工具卡上那一行是真参数(与落盘消息的工具卡同一个截断口径;实测「${shaped && shaped.toolArg}」)`);
   ok(Boolean(shaped && shaped.toolStatus && shaped.toolStatus !== '运行中'),
     `B14 工具跑完后卡上是【完成】徽章 —— 结果没下发也照样能诚实标终态(实测「${shaped && shaped.toolStatus}」)`);
-  ok(Boolean(shaped && shaped.turnRecords >= 1),
-    `B15 「本回合工具」索引卡也在(与落盘消息同源;实测 ${shaped && shaped.turnRecords} 张)`);
+  // 137x(用户 2026-09-24「运行中的回合...显示本轮调用的所有工具的记录总结,导致看起来像回合结束了一样」):
+  // 「本回合工具」索引卡读着就是回合已经结束的总结语气,运行中不该出现——回合真结束后(D 组)才该有。
+  ok(shaped && shaped.turnRecords === 0,
+    `B15 运行中不出「本轮记录」索引卡 —— 那张卡读着像回合已经结束(实测 ${shaped && shaped.turnRecords} 张)`);
   ok(Boolean(shaped && shaped.bodyHidden === true),
     `B16 纯文本兜底那一块被藏起来了 —— 同一段话不会在屏幕上出现两遍(实测 hidden=${shaped && shaped.bodyHidden})`);
   ok(Boolean(shaped && shaped.narrativeText.includes(FIRST)),
     `B17 叙事里就是这一回合真流出来的话(实测「${shaped && shaped.narrativeText.slice(0, 40)}」)`);
+  // 137x:左下角运行中小动效——纯 CSS 挂在 .live-turn .msg-main::before 上,只能用 getComputedStyle 探。
+  // content !== 'none' 说明规则命中(未命中时浏览器报 'none');回合结束后这张卡本身就摘掉了,不需要
+  // 反着再问一遍「没有」——D 组改问【落盘那条真消息】没有这个点,才是「回合结束就消失」的完整闭环。
+  ok(Boolean(shaped && shaped.liveDot && shaped.liveDot !== 'none'),
+    `B18 运行中回合左下角有指示动效(实测 content=${shaped && shaped.liveDot})`);
 
   /* ═════════ S 117r-D4:去掉内滚动之后,视口不许跟着页面高度乱跳 ═════════ */
   // 用户第八轮走查④「2.0 视窗,为啥在运行时会显示这段对话是在一个框里,而不是普通 2.0 一样」。
@@ -557,6 +584,12 @@ try {
     return snapshot.intervals.filter(ms => ms === ${LIVE_TICK_MS}).length === 0 ? snapshot : null;
   })()`);
   ok(Boolean(stopped), 'D5 回合结束后表自己停了(零后台活动)');
+  // 137x:回合真结束、气泡换成落盘消息之后,「本轮记录」索引卡与左下角运行中动效各自走向相反的一次
+  // 状态变化 —— 索引卡这时候该出现了(B15 钉的是运行中不出),运行中动效该消失了(B18 钉的是运行中要有)。
+  ok(Boolean(settled && settled.realAssistantTurnRecords >= 1),
+    `D6 回合结束后「本轮记录」索引卡出现在落盘消息上(实测 ${settled && settled.realAssistantTurnRecords} 张)`);
+  ok(Boolean(settled && settled.realAssistantDot === 'none'),
+    `D7 回合结束后左下角运行中动效消失(实测 content=${settled && settled.realAssistantDot})`);
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;

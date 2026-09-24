@@ -468,7 +468,11 @@ export function createChatStaticRenderer(deps = {}) {
     for (const record of nativeAgents) {
       if (!narrativeResult || !narrativeResult.renderedNative.has(String(record && record.toolUseId || ''))) main.appendChild(renderStaticNativeAgent(record));
     }
-    if (narrativeResult) {
+    // 137x（用户 2026-09-24）：运行中的回合不出这张「本轮记录 · N 次工具调用」——它读着就是「回合结束」的
+    // 总结语气，管家开的线程在跑的时候(session-experience.js 的 paintLiveTurnNarrative 传 running:true)
+    // 每 3 秒/每条推送重画一次都会把它重画一遍，看着像是回合反复「结束」。回合真结束后(静态重渲染，
+    // options.running 缺省为假)照常显示，不影响历史消息。
+    if (narrativeResult && !options.running) {
       const record = turnToolIndexCard(narrativeResult.toolIndex, main);
       if (record) main.appendChild(record);
     }

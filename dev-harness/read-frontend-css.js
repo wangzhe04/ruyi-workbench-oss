@@ -732,7 +732,16 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证（同一条拦截法）：拦 fs.readFileSync 让本文件自己的 readLayerPayload() 去读 HEAD（`f8aecfcf`）的
 // git blob，同一份代码换数据源 —— 算得 2a787f60…，与被替换的旧值【逐字相同】；再按工作树算得下面这个值。
 // 反向验证：把 .steward-side-strip 的 [hidden] 守卫删掉 → frontend-domains D51 与 live-full-text F3 双红。
-const LEGACY_STYLES_SHA256 = '92571d5b6960172156e88c990b0e55a648b1fc6291bc7c53502cd312b5854723';
+// 137x 重钉(前值 92571d5b…＝上一条 W4 续钉,W5「线程视图三处体验」)：零新增、零删除层，三处有意改动 ——
+//   ① `css/states/chat-live.css` 顶部新增 `.message.live-turn .msg-main::before` 一条规则：运行中回合
+//     左下角的呼吸小圆点，挂在既有 .live-turn 类上，复用文件内已有的 breathe 关键帧；
+//   ② `css/views/steward-board.css` 的 `.steward-board-thread-head` 只加一段说明注释（flex-wrap 保留
+//     不动，理由写在注释里），`.rail-task-count`/`.steward-board-meta` 各加
+//     `font-variant-numeric: tabular-nums`（`.steward-board-meta` 再加 `white-space: nowrap`）；
+//   ③ 同文件 `.steward-board-sub` 加一条 `transition: opacity` 并新增 `.steward-board-sub.is-updating`
+//     （工具名换挡时的短促淡入淡出，行本身不再随每次工具调用插删）。
+// 算法自证：W5 分支上把三个文件换回 f8aecfcf 重算 = 2a787f60…（W4 之前的基线）；合进 wave137 后在 W4 之上重算，与被替换的旧值逐字相同；换回本刀的 CSS 再算得下面这个值。
+const LEGACY_STYLES_SHA256 = '455d4e255c8606eacc7c0d7c1535ecf6099de1e0cdf8bc3e92ae443ed97c40ce';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

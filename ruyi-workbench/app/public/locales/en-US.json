@@ -2941,6 +2941,7 @@
   ,"rail.expand": "Expand"
   ,"rail.collapse": "Collapse"
   ,"rail.liveTool": "{{tool}} · output {{elapsed}} ago"
+  ,"rail.liveRunning": "Running…"
   ,"rail.origin.steward": "Started by Ruyi"
   ,"rail.origin.user": "Started by you"
   ,"rail.origin.schedule": "Started on a schedule"

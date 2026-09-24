@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-24T18:43:13.002Z",
+  "generatedAt": "2026-09-24T18:49:09.041Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2286,6 +2286,7 @@
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
+        "dev-harness\\rail-tool-height.browser.e2e.js",
         "dev-harness\\read-pool.e2e.js",
         "dev-harness\\reject-attribution.e2e.js",
         "dev-harness\\responses-fake.e2e.js",
@@ -2961,6 +2962,7 @@
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
+        "dev-harness\\rail-tool-height.browser.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
@@ -3169,6 +3171,7 @@
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
+        "dev-harness\\rail-tool-height.browser.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler-ready-queue.e2e.js",
@@ -4546,6 +4549,7 @@
         "dev-harness\\event-stream.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\live-full-text.browser.e2e.js",
+        "dev-harness\\rail-tool-height.browser.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",

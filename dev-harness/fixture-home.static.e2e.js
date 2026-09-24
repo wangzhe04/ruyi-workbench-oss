@@ -125,7 +125,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 145-W3:新增 dev-harness/engine-env-runtime.e2e.js(两处带 RUYI_HOME 的 spawn —— provider 一台、fake Claude CLI 一台;
 // 第一行已 require self-isolate-home;fake-openai 不带 RUYI_HOME,不计入),158 -> 160 的来路就是它。
 // 同刀的 engine-env-brief.static 只 require server.js 读纯函数,零 spawn。
-const RUYI_HOME_SPAWN_SITES = 160;
+const RUYI_HOME_SPAWN_SITES = 161;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 

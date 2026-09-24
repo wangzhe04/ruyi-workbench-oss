@@ -137,7 +137,7 @@
 .rail-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 
 /* 任务行（多线程任务才有）：小计数 ＋ 折角。折角转 180° 表示展开，与展开容器同一个属性驱动。 */
-.rail-task-count { flex: 0 0 auto; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
+.rail-task-count { flex: 0 0 auto; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rail-chev {
   flex: 0 0 auto;
   width: 18px;
@@ -181,7 +181,9 @@
    （§2.10.1 三枚专用字形 originSteward／originUser／originSchedule，悬停出字），颜色一律次级墨色。 */
 .rail-origin[data-origin] { color: var(--muted); }
 
-/* 行的第二行（§2.3「只在有话可说时出现」）：一行，超出省略 —— 全文在焦点栏／抽屉里。 */
+/* 行的第二行（§2.3「只在有话可说时出现」）：一行，超出省略 —— 全文在焦点栏／抽屉里。
+   137x：在跑期间这一行【恒有文本】（railSubLine 不再回落成空串），只在真的进/出运行态时插删，
+   不随每次工具调用增删；.is-updating 是同一行换了个工具名时的短促透明度过渡，见 paintRailLive。 */
 .steward-board-sub {
   margin: 2px 0 0;
   font-size: var(--fs-xs);
@@ -189,8 +191,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 .steward-board-sub:empty { display: none; }
+.steward-board-sub.is-updating { opacity: .35; }
 
 /* 看板栏头里那枚「同时最多 ⟨n⟩」胶囊，以及三面共用的药丸与动作键。
    121-K4：它们从退役的看板浮层 toolbar 搬到左栏的 .rail-board-head；声明一个字没改
@@ -388,7 +392,11 @@
 .steward-board-thread-head {
   display: flex;
   /* 117l-B2 ②：390px 下这一行放不开时让它换行 —— 不换的话名字（唯一可收缩的那一项）会被
-     「它在问你」和右边那句时间挤到宽度 0，整个线程名从屏幕上消失（改前实测截图里就这样）。 */
+     「它在问你」和右边那句时间挤到宽度 0，整个线程名从屏幕上消失（改前实测截图里就这样）。
+     137x：核过这条 —— flex-wrap 保留不动（去掉会在窄栏重现上面那个真实回归，风险大于收益）；
+     「推送刷新时折行」这条疑点改从数字侧收敛，见下方 .steward-board-meta / .rail-task-count 的
+     font-variant-numeric:tabular-nums（时间数字换挡不再抖宽度）。真正的「线程变大变小」是
+     .steward-board-sub 随每次工具调用插删，已经在 railSubLine/paintRailLive 里堵住。 */
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
@@ -417,7 +425,7 @@
 }
 .steward-board-thread-title:hover { text-decoration: underline; }
 .steward-board-thread-title:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-board-meta { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); }
+.steward-board-meta { flex: 0 0 auto; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .steward-board-thread-head .steward-board-meta { margin-inline-start: auto; padding-inline-start: var(--sp-2); }
 .steward-board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: 2px; }
 /* §2.3：多出来的那一行事实（验收 a/b · 线程数）只在【看板】密度印；紧凑密度下左栏只留主信息。 */

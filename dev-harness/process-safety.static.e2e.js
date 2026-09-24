@@ -37,8 +37,8 @@ for (const f of files) {
 ok(offenders.length === 0, `① 测试框架里没有一处 taskkill /T 调用(实得 ${offenders.length}${offenders.length ? ':' + offenders.slice(0, 8).join(' ') : ''})`);
 
 const users = files.filter(f => /require\(['"][./]*(?:lib\/)?kill-own-tree['"]\)|require\(['"]\.\.\/lib\/kill-own-tree['"]\)/.test(fs.readFileSync(f, 'utf8')));
-const KILL_OWNERS = 261; // Added mermaid-viewer.browser (reviewed scoped cleanup); 145-W3 added engine-env-runtime (kills only its own two workbenches + fake provider).
-//   // codemod 250 件(含 run-all 的超时收尸)＋ kimi-acp-live-probe(手改)＋ 128e 新件 mcp-resource-config-mask ＋ 128d 公共夹具 lib/browser-fixture ＋ 128f-③ 新件 desktop-probe-status ＋ 128f-⑪ 新件 steward-deferred-permission ＋ 128f-⑬ 新件 cli-probe-stall ＋ 2026-09-21 新件 toolbox-discovery ＋ 134 新件 background-completion ＋ 133f 新件 asr-warmup;unit/kill-own-tree.test.js 走绝对路径不计
+const KILL_OWNERS = 262; // Added mermaid-viewer.browser (reviewed scoped cleanup); 145-W3 added engine-env-runtime (kills only its own two workbenches + fake provider). 137x W5 added rail-tool-height.browser (own killOwnTree cleanup).
+//   // codemod 250 件(含 run-all 的超时收尸)＋ kimi-acp-live-probe(手改)＋ 128e 新件 mcp-resource-config-mask ＋ 128d 公共夹具 lib/browser-fixture ＋ 128f-③ 新件 desktop-probe-status ＋ 128f-⑪ 新件 steward-deferred-permission ＋ 128f-⑬ 新件 cli-probe-stall ＋ 2026-09-21 新件 toolbox-discovery ＋ 134 新件 background-completion ＋ 133f 新件 asr-warmup ＋ 137x 新件 rail-tool-height.browser;unit/kill-own-tree.test.js 走绝对路径不计
 ok(users.length === KILL_OWNERS, `③ 用 killOwnTree 的文件数钉成 ${KILL_OWNERS}(实得 ${users.length});加减件请回来改这个数`);
 const runAll = fs.readFileSync(path.join(HARNESS, 'run-all.js'), 'utf8');
 ok(/killOwnTree\(child\)/.test(runAll) && !/taskkill \/F \/T/.test(runAll.replace(/\/\/.*$/gm, '')),
@@ -61,8 +61,8 @@ for (const f of cdpFiles) {
     if (!/this\.socket\.readyState !== 1/.test(window)) unguarded.push(`${rel(f)}:${i + 1}`);
   });
 }
-const CDP_OWNERS = 29; // Existing mermaid-viewer.browser client has the readyState guard.
-//   // 27 件各自复制的 ＋ 128d 公共夹具 lib/browser-fixture 那一份(新件一律用它,不再复制第 29 份)
+const CDP_OWNERS = 30; // 137x：新增 rail-tool-height.browser 自带的 CDP 客户端，带 readyState 闸(照抄 live-full-text.browser 同款)。
+//   // 27 件各自复制的 ＋ 128d 公共夹具 lib/browser-fixture 那一份(新件一律用它,不再复制第 29 份) ＋ 137x 新件 rail-tool-height.browser
 ok(cdpFiles.length === CDP_OWNERS, `③ 自带 CDP 客户端的件数钉成 ${CDP_OWNERS}(实得 ${cdpFiles.length})`);
 ok(unguarded.length === 0, `② 每个 CDP 客户端的 send() 在 socket.send 之前都有 readyState 闸(未设闸 ${unguarded.length}${unguarded.length ? ':' + unguarded.join(' ') : ''})`);
 

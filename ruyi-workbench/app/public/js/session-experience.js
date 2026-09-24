@@ -169,9 +169,31 @@ function setRailRenderer(render) {
   railRenderer = typeof render === 'function' ? render : null;
   return Boolean(railRenderer);
 }
+// 137x（用户 2026-09-24）：本页自己起的回合也要有「运行中」的左下角小动效(css/states/chat-live.css
+// 挂在 .live-turn 这枚已有类上——与管家开的临时卡共用同一枚类/同一份 CSS，见 buildLiveTurnCard)。
+// 那只气泡的壳(createLiveAssistantShell)与收尾(finalizeLive)都在 chat-stream-runtime.js 里
+// （本刀纪律：尽量不改那个文件——另一位执行者正并行改它），改从这里的既成事实拿信号：
+// renderSessions() 在那个文件里恰好卡在回合起(sendPrompt)/回合中途(会话元信息更新)/回合讫(finally,
+// activeTurns.delete 之后)三处都会调一次，够当「回合状态变了」的节拍用，不必另起观察者或计时器。
+// openSession() 里 mountActiveTurn 之后再补调一次——那条路径(切回一条仍在跑的会话)不经过
+// sendPrompt，回合起点不会自己触发 renderSessions()。
+function syncOwnTurnLiveIndicator() {
+  const box = $('messages');
+  if (!box) return;
+  const id = state.currentSession?.id || '';
+  const turn = id ? activeTurns.get(id) : null;
+  const liveRow = turn && turn.main && typeof turn.main.closest === 'function' ? turn.main.closest('.message') : null;
+  for (const row of box.querySelectorAll('.message[data-own-live="1"]')) {
+    if (row !== liveRow) { row.classList.remove('live-turn'); delete row.dataset.ownLive; }
+  }
+  if (liveRow && liveRow.isConnected && !liveRow.classList.contains('live-turn')) {
+    liveRow.classList.add('live-turn'); liveRow.dataset.ownLive = '1';
+  }
+}
 function renderSessions() {
   if (!railRenderer) return false;
   try { railRenderer(); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }
+  syncOwnTurnLiveIndicator();
   return true;
 }
 // 113b 的内容搜索结果快照：左栏的过滤要用它（命中的是【正文】，不是标题，所以子串过滤替代不了）。
@@ -245,6 +267,7 @@ async function openSession(id, opts = {}) {
   renderResumeBanner();
   syncStreamingUi();
   mountActiveTurn(id);
+  syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
   if (switchedSession && eventStream && typeof eventStream.sync === 'function') eventStream.sync(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
   // The global status denominator describes the new-session default. Resolve this session's pinned route
@@ -1072,17 +1095,20 @@ function paintLiveTurnCard(opts) {
 }
 // 117o-A7：把 liveTurn 画成 2.0 的样子。返回 false = 这一份账本画不出东西（调用方据此回落到纯文本）。
 // 唯一的渲染来源是 renderStaticMessage()：经典壳画一条【落盘助手消息】用的就是它，所以在途回合与
-// 回合结束后的那条真消息在结构上一模一样（思考块、过程记录组、工具卡、完成徽章、本回合工具索引）。
+// 回合结束后的那条真消息在结构上一模一样（思考块、过程记录组、工具卡、完成徽章）。
 // 组装出来的对象与落盘助手消息同形：{ role:'assistant', segments, toolCalls }。
 //   · readonly:true —— 在途回合没有「重跑 / 回退 / 复制这条」这些落盘消息才有的动作，也没有本轮变更；
 //   · idScope:'live' —— 工具卡的锚点 id 与落盘消息的不撞车；
+//   · running:true —— 137x：在途回合不出「本轮记录 · N 次工具调用」那张索引卡(chat-static-renderer.js
+//     的 turnToolIndexCard)——那张卡读着就是回合结束的总结语气，管家开的线程在跑的时候每 3 秒/每条
+//     推送重画一次，看着像回合反复「结束」。回合真结束后走静态重渲染(不传这个键)照常显示。
 //   · 只把它 .msg-main 里的正文搬过来，不搬它自己那一行引擎徽标头（这张卡有自己的标题行）。
 function paintLiveTurnNarrative(els, turn, segments) {
   const signature = liveTurnNarrativeSignature(turn, segments);
   if (els.narrativeSig === signature && els.narrative.firstChild) return true;
   const rendered = renderStaticMessage(
     { role: 'assistant', segments, toolCalls: Array.isArray(turn.toolCalls) ? turn.toolCalls : [] },
-    '', '', { readonly: true, idScope: 'live' },
+    '', '', { readonly: true, idScope: 'live', running: true },
   );
   const main = rendered && typeof rendered.querySelector === 'function' ? rendered.querySelector('.msg-main') : null;
   const nodes = main ? Array.from(main.children).filter(node => !node.classList.contains('msg-head')) : [];

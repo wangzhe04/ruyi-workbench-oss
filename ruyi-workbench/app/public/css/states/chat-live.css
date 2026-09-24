@@ -2,6 +2,24 @@
 .stream-cursor::after { content: '▌'; color: var(--accent); animation: blink 1s step-end infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 
+/* 137x（用户 2026-09-24）：运行中回合左下角的小动效 —— .live-turn 是管家开的临时卡
+   (session-experience.js 的 buildLiveTurnCard)与本页自己起的活动气泡
+   (session-experience.js 的 syncOwnTurnLiveIndicator)共用的运行态标记，纯 CSS 挂在这枚已有类上：
+   回合结束类一摘掉，圆点跟着消失，两条来源不用分别接线。absolute 定位在已有 position:relative 的
+   .msg-main 上（chat-primitives.css），不占文档流、不引起布局位移；prefers-reduced-motion 由
+   base.css 顶层的全局 animation:none 收敛成静止点，这里不重复声明媒体查询。 */
+.message.live-turn .msg-main::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: breathe 1.4s ease-in-out infinite;
+}
+
 /* thinking panel */
 .thinking { margin: 5px 0 2px; border: 0; border-left: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius: 0; background: transparent; }
 .thinking > summary { cursor: pointer; width: fit-content; max-width: 100%; min-height: 26px; padding: 3px 8px; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; user-select: none; list-style: none; transition: color var(--transition); }
