@@ -940,7 +940,7 @@
   "settings.asr.addProtocol": "Interface type",
   "settings.asr.addPlaceholder": "e.g. qwen3-asr-flash, whisper-1",
   "settings.asr.addButton": "Add and enable",
-  "settings.asr.addNeedFields": "Choose a provider, then enter a model name",
+  "settings.asr.addNeedFields": "Choose a provider, then pick a model from the list (if the speech model is missing, add it to that provider's model list first)",
   "settings.asr.addRealtime": "Models with \"realtime\" in the name are live-streaming models and do not work for voice input. Enter a non-realtime model, for example qwen3-asr-flash.",
   "settings.asr.added": "Speech recognition enabled: {{model}}",
   "settings.asr.noProvider": "Add a provider above first, then come back here to add a speech recognition model.",

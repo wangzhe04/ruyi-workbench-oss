@@ -940,7 +940,7 @@
   "settings.asr.addProtocol": "接口类型",
   "settings.asr.addPlaceholder": "例如 qwen3-asr-flash、whisper-1",
   "settings.asr.addButton": "添加并启用",
-  "settings.asr.addNeedFields": "先选服务商，再填模型名",
+  "settings.asr.addNeedFields": "先选服务商，再从下拉里选模型（清单里没有的语音模型，先加进该服务商卡片的模型清单）",
   "settings.asr.addRealtime": "名字带 realtime 的是实时流式型号，语音输入用不了。请填不带 realtime 的型号，例如 qwen3-asr-flash。",
   "settings.asr.added": "已添加并启用语音识别：{{model}}",
   "settings.asr.noProvider": "先在上面添加一个服务商，再回到这里添加语音识别模型。",

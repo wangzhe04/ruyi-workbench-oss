@@ -941,7 +941,8 @@ export function createStewardConversation({
       if (!response || response.ok !== true || (act.kind === 'tool' && (!result || typeof result.ok !== 'boolean'))) {
         showActProblem(actsRow, t('stewardShell.chat.actUnconfirmed'));
         // A lost receipt may follow a successful write: do not invite duplicates.
-        if (btn) { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); }
+        // 导航（open_thread）不写任何东西，没有「重复执行」可言 —— 按 117v-V1 ② 保持可点，让用户再试一次。
+        if (btn) { if (isNavigationAct(act)) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
         return;
       }
       if (result && result.ok === false) {
@@ -972,7 +973,7 @@ export function createStewardConversation({
       const invalid = ['invalid_request', 'not_allowed', 'not_found', 'payload_forbidden_key'].includes(code);
       showActProblem(actsRow, invalid ? stewardActErrorMessage(code, t) || t('stewardShell.chat.errUnavailableAct')
         : t('stewardShell.chat.actUnconfirmed'));
-      if (btn) { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); }
+      if (btn) { if (isNavigationAct(act) && !invalid) btn.disabled = false; else { btn.disabled = true; btn.classList.remove(STEWARD_PRIMARY_CLASS); } }
     }
   }
 

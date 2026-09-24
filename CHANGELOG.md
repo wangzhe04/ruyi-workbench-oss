@@ -3,18 +3,25 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## 未发布 · Unreleased
+## 如意 Ruyi Pretender 3.0 Preview 1 · v3.0.0-preview.1 · 2026-09-24 · 预览版
 
-<!-- 3.0 候选 · 发布日期占位（用户 2026-09-20 拍板：128／129 两波的用户可见变化并进 3.0，不单开 2.9 一节）。
-     **版本三角还没 bump**（package.json / 00-boot.js / facts.json / README 版本行仍是 2.8.0）——3.0 正名的三组门
-     （偿债波 ✅ / 128+ 既定项 / P4 收尾硬门）没走完之前不动它，见 docs/OPTIMIZATION-ROADMAP.md 的 Pretender 行。
-     发布那一刀再把下面这一行换成实际发布日、把本节标题改成
-     `## 如意 Ruyi Pretender 3.0 · v3.0.0 · <发布日> · …`。 -->
+<!-- 2026-09-24 用户要求发 3.0 预览版（pre-release）。本节即原「未发布 · Unreleased」节（128 波起的全部用户可见变化，
+     用户 2026-09-20 拍板并进 3.0，不单开 2.9）。**正式 3.0（v3.0.0）仍按 50 号文三组门**：预览版不宣告那三组门走完，
+     还差的人工终验见 55 号文。正式发布时把本节标题改成 `## 如意 Ruyi Pretender 3.0 · v3.0.0 · <发布日> · …`，
+     并把 preview 之后的变化并进来。 -->
 
-> **如意 Ruyi Pretender 3.0 候选 · 未发布 · 发布日期待填** —— 第 128 波（偿债波）与第 129 波（管家赋能收口）的用户可见变化。这两波的主线是两件事：**把地基上的裂缝补上**，以及**让管家从「只会说」变成「能自己看、能自己办，但每一步都说得出凭据」**。
-> **Ruyi Pretender 3.0 candidate · unreleased · release date TBD** — user-facing changes from wave 128 (debt repayment) and wave 129 (steward empowerment). Two themes: repairing cracks in the foundation, and moving the steward from "can only talk" to "can look and act on its own — while always able to show its grounds".
+> **如意 Ruyi Pretender 3.0 预览版 1 · 2026-09-24** —— 第 128 波（偿债波）起到第 136 波的用户可见变化。主线是两件事：**把地基上的裂缝补上**，以及**让管家从「只会说」变成「能自己看、能自己办，但每一步都说得出凭据」**。这是预览版：功能冻结、自动化全量回归与离线包冒烟已过；独立安全红队终审、真读屏与人因走查、Full 包真实桌面双击这几项人工终验留到正式版前（见 [55 号文](docs/optimization-plan/55-release-3.0-preview.md)）。上一个 GitHub Release 是 v2.6.2，2.7.0／2.8.0 的变化见下方各节，一并随本预览发布。
+> **Ruyi Pretender 3.0 Preview 1 · 2026-09-24** — user-facing changes from wave 128 (debt repayment) through wave 136. Two themes: repairing cracks in the foundation, and moving the steward from "can only talk" to "can look and act on its own — while always able to show its grounds". This is a pre-release: features are frozen and the full automated regression plus offline-package smoke tests pass; the human sign-offs (independent security red-team review, real screen-reader and human-factors walkthroughs, double-clicking the Full launcher on a real desktop) remain before 3.0 final. The last GitHub Release was v2.6.2; the 2.7.0 and 2.8.0 sections below ship as part of this preview.
 
 ### 中文
+
+#### 预览版收口：「等你处理」不再打断打字、收件箱快回来了（2026-09-24）
+
+- **打字时不会再被别的线程的提问弹窗打断**：输入框里有没发出去的草稿时，别的线程来的提问只进右下角「等你处理」小窗，不再自动弹成对话框抢走焦点；草稿发出去或焦点离开输入框后再弹。粘贴、输入法上屏也算「正在输入」。
+- **待处理列表在大量线程下快了约 8 倍**：此前每次刷新都要逐条读取所有待决线程的标题（数百条线程时每次约 0.3 秒），现在只读当前这一页。
+- **用 Kimi Code CLI 做引擎时，界面状态刷新快了约 1 秒**：此前每次刷新状态都要真起一趟 `kimi provider list` 查模型窗口（默认模型永远查不到缓存），现在最多每分钟查一次。
+- **管家消息里的「打开线程」按钮不会再无故失效**：回执丢失或网络抖一下时，这枚按钮保持可点，可以再试一次（它不改动任何东西）。
+- 添加语音识别模型时的提示改为「再从下拉里选模型」：清单里没有的语音模型，先加进该服务商卡片的模型清单再选。
 
 #### 管家更像熟人了：人设可配、口吻有样例、上下文预算可调（第 136 波，2026-09-24）
 
@@ -46,6 +53,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 #### 委托书界面重做；管家能改的设置从 40 个放到 124 个（第 132 波，2026-09-21）
 
+- （**注**：本条的委托书横幅已在 2026-09-22 整条退役，见上方「Mermaid 图表…委托书横幅退役」一节；下面第二条「第一条消息只印原话、补充折叠」保留至今。）
 - **委托书看得懂了**：管家开的线程，头部那条「委托书」展开后不再是一坨文本，而是目标、验收项、相关文件、偏好、约束五段列表；折叠行上直接写「验收 N 项」。
 - **第一条消息不再露出传输格式**：它的正文只印你的原话，管家补充收进气泡里一个可折叠的「管家补充的交办要点」，`<steward-brief>` 那种围栏标签不再上屏；「看原件」变成开关——点一下展开并定位，再点一下收回去，按钮跟着变「收起原件」。
 - **管家能改的设置多了三倍**：此前只有 40 个键能经管家改，其余 123 个一律「改不了」。现在 124 个键可改：31 个直接生效（界面、管家自己的节流与预算、各种等待时长、显示与启停整洁度），93 个由管家递一枚按钮、你按一下生效（端点与模型、引擎与上下文旋钮、并发上限、模型清单、调度器与安静卡、管家注意力面、用量预算……）。仍然绝不经管家的 39 个：密钥、数据目录与工作区围栏、命令与桌面工具放行、提示词注入面、代批开关、簿记。管家读设置时每个键都附一句「是什么、单位、范围」，改起来不用猜。
@@ -139,6 +147,14 @@ This file records user-facing release highlights; it does not replace the comple
 
 ### English
 
+#### Preview hardening: "waiting for you" no longer interrupts typing, and the inbox is fast again (2026-09-24)
+
+- **Questions from other threads no longer pop up while you are typing**: while the input box holds an unsent draft, they stay in the bottom-right "waiting for you" panel instead of opening a dialog and stealing focus; they open once the draft is sent or focus leaves the box. Paste and IME input now count as typing.
+- **The pending list is about 8x faster with many threads**: each refresh used to read the title of every thread with a pending item (about 0.3 s with hundreds of threads); now only the current page is read.
+- **About 1 s faster status refresh with the Kimi Code CLI engine**: every status refresh used to launch `kimi provider list` to look up the model window (the default model never hit the cache); now it runs at most once a minute.
+- **"Open thread" buttons in steward messages no longer go dead**: if a receipt is lost or the network blips, the button stays clickable so you can retry (it changes nothing).
+- The hint when adding a speech-recognition model now says to pick a model from the list; if the speech model is missing, add it to that provider's model list first.
+
 #### A more personal steward: configurable persona, voice examples, tunable context budget (wave 136, 2026-09-24)
 
 - **Configurable steward persona**: Settings · Steward gains a "Persona" group — give the steward a name and a tone preference (e.g. "livelier, occasional emoji"), injected into the steward's own prompt immediately. It only changes how the steward talks; no permission or rule changes.
@@ -169,6 +185,7 @@ This file records user-facing release highlights; it does not replace the comple
 
 #### Brief panel redesigned; steward-changeable settings go from 40 to 124 (wave 132, 2026-09-21)
 
+- (**Note**: the brief band described here was retired entirely on 2026-09-22 — see "Mermaid diagrams … brief band retired" above; the second bullet, first message shows only your words with additions folded, still holds.)
 - **The brief is readable now**: on steward-opened threads the "Brief" band expands into five lists (goal, acceptance, files and context, preferences, constraints) instead of a wall of text; the collapsed row shows "N acceptance items".
 - **The first message no longer leaks the transport format**: its bubble shows only your own words, with "what the steward added" folded inside it; the `<steward-brief>` fence tags are gone from the screen. "See original" is now a toggle — one click expands and scrolls, another click folds it back, and the button reads "Hide original" while open.
 - **Three times as many settings the steward can change**: previously 40 keys, with the other 123 flatly refused. Now 124 keys are changeable: 31 apply directly (UI, the steward's own throttles and budgets, wait timeouts, display and shutdown hygiene) and 93 arrive as a button the steward hands you and you press (endpoints and models, engine and context knobs, concurrency caps, model lists, scheduler and quiet-card timing, the steward's own attention span, usage budget…). Still never through the steward, 39 keys: secrets, data folders and workspace fences, command and desktop tool gates, prompt injection surfaces, the delegation switch, bookkeeping. Every readable key now comes with a one-line "what it is, unit, range" so the steward changes it knowingly.
@@ -260,15 +277,13 @@ The steward sometimes offered a button for a tool it cannot actually press, and 
 - **The steward composer's "+" works now**: it opens "Add file / Start something new"; files take the same upload path as the workbench and travel with the message to the steward. The box also grows with its content (up to about eight lines) instead of staying one line tall.
 - **Standard / Heavy no longer start slow and inaccurate**: the local recognition model (Qwen3-ASR) is not kept in GPU memory while idle, so the first use has to load it — 12 to 30 seconds in practice. During that time only the first-pass text appeared, the corrections queued up behind the load, and the machine stuttered. Clicking the microphone now checks that the model is ready first: if it is, recording starts right away; if not, the microphone shows a spinner and "Loading model 0:07", and recording only starts once the model is loaded (click again or press Esc to cancel; if you are not looking at this window when it finishes, the microphone is not opened for you). The Light level keeps its models resident, so it never had this wait.
 
-## 如意 Ruyi Escapade 2.8.0 · v2.8.0 · 发布日待填 · 会守时、说得准、听得懂
+## 如意 Ruyi Escapade 2.8.0 · v2.8.0 · 2026-09-19 打标签（未单独发 GitHub Release）· 会守时、说得准、听得懂
 
-<!-- 本节原本是「未发布 · Unreleased」，2026-09-20 因 3.0 候选节插到它上面而单独命名。
-     **发布日仍然待填，是有意的**：`v2.8.0` 标签已经打在 aa5f924 并推到远端，但这一节从未被人填过发布日，
-     两件事对不上。到底有没有对外发布（GitHub Release／分发过包）不是仓里能核实的事，
-     所以这里不擅自写一个日期 —— 由知道答案的人填，或者确认它一直只是候选。 -->
+<!-- 2026-09-24 核实：`v2.8.0` 标签打在 aa5f924（标签日 2026-09-19）；GitHub Releases 列表里最新一个是 v2.6.2，
+     2.7.0／2.8.0 都没有单独的 Release。本节内容随 v3.0.0-preview.1 一起对外发布。 -->
 
-> **如意 Ruyi Escapade 2.8.0 候选 · 未发布 · 发布日期待填** —— 第 123–127 波的用户可见变化，加上第 107 波发布批准点里改出来的几处。版本号 **2.8.0** 已定（新功能＋默认行为变化、`configSchema` 11 → 12（一次性开关迁移，见下）、无数据格式破坏）。
-> **Ruyi Escapade 2.8.0 candidate · unreleased · release date TBD** — user-facing changes from waves 123–127 plus what wave 107 (the release approval gate) changed along the way. The version number 2.8.0 is settled; the date is filled in by wave 107's R1/R2 cuts.
+> **如意 Ruyi Escapade 2.8.0** —— 第 123–127 波的用户可见变化，加上第 107 波发布批准点里改出来的几处（`configSchema` 11 → 12（一次性开关迁移，见下）、无数据格式破坏）。标签日 2026-09-19，未单独发 GitHub Release，随 3.0 预览版 1 一起发布。
+> **Ruyi Escapade 2.8.0** — user-facing changes from waves 123–127 plus what wave 107 (the release approval gate) changed along the way. Tagged 2026-09-19; never published as its own GitHub Release — it ships as part of 3.0 Preview 1.
 
 ### 中文
 

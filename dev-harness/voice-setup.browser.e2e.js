@@ -60,6 +60,9 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     /* ── V3 添加并启用 ── */
     const before = JSON.parse(fs.readFileSync(path.join(fx.home, 'config.json'), 'utf8'));
     const keyBefore = ((before.providers || []).find(p => p && p.id === 'fake') || {}).apiKey;
+    // 134(4ecd1ed) 起「模型名」是统一下拉,只能选服务商目录里有的:先像「刷新模型清单」那样把 fake-asr 发布进 fake 的目录,再选它。
+    await fx.evaluate(`(async () => { const m = await import('/js/model-catalog.js');
+      m.publishProviderModels(window.state.config.providers.find(p => p.id === 'fake'), [{ id: 'fake-asr' }]); return true; })()`);
     await fx.evaluate(`(() => {
       const block = document.querySelector('#stab-providers .asr-settings');
       block.querySelector('.asr-add-provider').value = 'fake';

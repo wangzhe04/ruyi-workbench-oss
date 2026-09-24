@@ -94,12 +94,29 @@ export function createPromptQueue({
   let lastTypingAt = 0;
   let lastReconcileAt = 0;
 
+  // 3.0 预览收口(quiet-card-typing D1/D5/D7):粘贴、输入法上屏、Input.insertText 不发 keydown,
+  // 只听 keydown 会把正在输入的人当成「空闲」—— input 事件一起算。
   try {
-    doc().addEventListener('keydown', e => {
+    const markTyping = e => {
       const tag = String(e.target && e.target.tagName || '');
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) lastTypingAt = now();
-    }, true);
+    };
+    doc().addEventListener('keydown', markTyping, true);
+    doc().addEventListener('input', markTyping, true);
   } catch { /* 无 DOM 的测试环境 */ }
+
+  // J04(36 号文 §2.2「焦点不动…不开弹层」):焦点停在一段没发出去的草稿上,就不算「空闲」——
+  // 停笔超过 TYPING_QUIET_MS 也一样。条目留在右下角小窗里,草稿发出去或焦点离开输入框后再自动弹。
+  function composingDraft() {
+    try {
+      const a = doc().activeElement;
+      if (!a) return false;
+      if (a.isContentEditable) return String(a.textContent || '').trim() !== '';
+      const tag = String(a.tagName || '');
+      const texty = tag === 'TEXTAREA' || (tag === 'INPUT' && /^(text|search|)$/i.test(String(a.type || '')));
+      return texty && String(a.value || '').trim() !== '';
+    } catch { return false; }
+  }
 
   function ordered() { return orderQueue([...items.values()], now()); }
 
@@ -189,6 +206,7 @@ export function createPromptQueue({
     if (active || minimized || !items.size) return;
     if (otherModalOpen()) return;
     if (now() - lastTypingAt < TYPING_QUIET_MS) return;
+    if (composingDraft()) return;
     const head = ordered()[0];
     if (head) openNow(head);
   }

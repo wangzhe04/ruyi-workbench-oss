@@ -451,6 +451,9 @@ try {
   // 两个探针真正上到页面上（与 steward-shell.e2e.js 的做法一致）。
   await cdp.evaluate('location.reload(); true');
   ok(Boolean(await waitForEval(cdp, READY)), 'A6 应用就绪（组合根绑完、status 到达）');
+  // 线程内后台任务条(a3c8c18)的常驻 1 s 计时器由 app.js 延后 1.5 s 起(setTimeout(() => backgroundTray.start(), 1500)),
+  // 就绪后立刻量基线会漏掉它、H2 把它误算成「残留的撤回倒计时」。等过这 1.5 s 再量。
+  await new Promise(r => setTimeout(r, 2000));
   const baseline = await cdp.evaluate('({ thousand: (window.__ruyiLiveIntervals()||[]).filter(ms => ms === 1000).length })');
 
   // ─── ① 进管家壳 → 新到访 ───────────────────────────────────────────────────────
@@ -1910,7 +1913,7 @@ try {
         window.__ruyiV1Calls.push(route);
         if (route === '/api/steward/visit') return { ok: true, newVisit: false, pending: [], visit: { startedAt: '2000-01-01T00:00:00.000Z' } };
         if (route === '/api/sessions/steward') return history;
-        if (route === '/api/steward/act') return { result: { ok: true } };
+        if (route === '/api/steward/act') return { ok: true }; // 真信封:顶层 ok(13q stewardRunAct);652802e 起前端按它认回执
         return envelopes[route.replace('/api/sessions/', '')] || null;
       },
       state: { config: { stewardEnabledV1: true } },

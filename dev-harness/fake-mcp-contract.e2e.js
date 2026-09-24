@@ -96,15 +96,15 @@ function mcpClient() {
 
   try {
     // ─────────────────────────── P1: 直连契约 ───────────────────────────
-    console.log('── P1 段: fake-mcp 直连(28 件清单 + 新契约逐件直调) ──');
+    console.log('── P1 段: fake-mcp 直连(29 件清单 + 新契约逐件直调) ──');
     const mcp = mcpClient();
     const init = await mcp.call('initialize', { protocolVersion: '2024-11-05' });
     ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'fake-mcp', 'P1 initialize → serverInfo fake-mcp');
     const list = await mcp.call('tools/list');
     const names = (list.result && list.result.tools || []).map(t => t.name).sort();
-    ok(names.length === 28, 'P1 tools/list 恰好 28 件(21 + 49b 新增 7 件生态工具) (got ' + names.length + ')');
-    const EXPECTED28 = ['add', 'chart_image', 'copy_file', 'delete_file', 'diagnostics', 'echo', 'edit_file', 'excel_beautify', 'excel_chart', 'fetch', 'get_clipboard_image', 'image_resize', 'memory_delete', 'memory_list', 'memory_read', 'memory_save', 'move_file', 'read_file', 'screenshot_full', 'sequential_thinking', 'slow_task', 'window_screenshot', 'write_docx', 'write_document', 'write_excel', 'write_file', 'write_pdf', 'write_pptx'].sort();
-    ok(JSON.stringify(names) === JSON.stringify(EXPECTED28), 'P1 28 件名集与契约清单一致');
+    ok(names.length === 29, 'P1 tools/list 恰好 29 件(21 + 49b 新增 7 件生态工具 + v1.9 ocr_image) (got ' + names.length + ')');
+    const EXPECTED29 = ['add', 'chart_image', 'copy_file', 'delete_file', 'diagnostics', 'echo', 'edit_file', 'excel_beautify', 'excel_chart', 'fetch', 'get_clipboard_image', 'image_resize', 'memory_delete', 'memory_list', 'memory_read', 'memory_save', 'move_file', 'ocr_image', 'read_file', 'screenshot_full', 'sequential_thinking', 'slow_task', 'window_screenshot', 'write_docx', 'write_document', 'write_excel', 'write_file', 'write_pdf', 'write_pptx'].sort();
+    ok(JSON.stringify(names) === JSON.stringify(EXPECTED29), 'P1 29 件名集与契约清单一致');
     ok((list.result.tools || []).every(t => t.inputSchema && t.inputSchema.type === 'object'), 'P1 每件都有 object inputSchema');
 
     const fx = path.join(TMP, 'p1');

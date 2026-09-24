@@ -1703,18 +1703,18 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       }
     }
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-    // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
-    // 只读【有待决的】那几条会话的头(每个 ~1 KB),取不到就留空,前端退回「未命名线程」。
-    const titleOf = new Map();
-    for (const sid of new Set(pending.map(p => p.sessionId))) {
-      const head = await readSessionHeadResilient(sid).catch(() => null);
-      titleOf.set(sid, String((head && head.title) || '').slice(0, 120));
-    }
-    for (const p of pending) p.title = titleOf.get(p.sessionId) || '';
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
+    // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
+    // 3.0 预览收口:此前在分页与 304 之前串行读【全部】待决会话的头,299 条会话时每请求 300–450 ms
+    // (mission-index-scale 收件箱热 P95 闸 250 ms 红);标题从不进 ETag,挪到分页之后响应不变。
+    const pageSids = [...new Set(paged.items.map(p => p.sessionId))];
+    const heads = await Promise.all(pageSids.map(sid => readSessionHeadResilient(sid).catch(() => null)));
+    const titleOf = new Map(pageSids.map((sid, i) => [sid, String((heads[i] && heads[i].title) || '').slice(0, 120)]));
+    for (const p of paged.items) p.title = titleOf.get(p.sessionId) || '';
     return send(res, json({
       ok: true,
       pending: paged.items,

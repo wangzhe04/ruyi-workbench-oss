@@ -31,9 +31,9 @@ const PORT_A = await getFreePort(), PORT_B = await getFreePort(), PORT_C = await
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function health(port) { return new Promise(res => { const r = http.get({ host: '127.0.0.1', port, path: '/health', timeout: 800 }, resp => { let b = ''; resp.on('data', c => (b += c)); resp.on('end', () => { try { res(JSON.parse(b)); } catch { res(null); } }); }); r.on('error', () => res(null)); r.on('timeout', () => { r.destroy(); res(null); }); }); }
-function getJson(port, p, headers) {
+function getJson(port, p, headers, timeoutMs) {
   return new Promise(resolve => {
-    const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 4000, headers: headers || {} }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, json: j, raw: b }); }); });
+    const r = http.get({ host: '127.0.0.1', port, path: p, timeout: timeoutMs || 4000, headers: headers || {} }, res => { let b = ''; res.on('data', c => (b += c)); res.on('end', () => { let j = null; try { j = JSON.parse(b); } catch { /* ignore */ } resolve({ status: res.statusCode, json: j, raw: b }); }); });
     r.on('error', () => resolve({ status: 0, json: null, raw: '' })); r.on('timeout', () => { r.destroy(); resolve({ status: 0, json: null, raw: '' }); });
   });
 }
@@ -341,7 +341,9 @@ function walk(dir, acc, skip) {
       ok(baseStdio && baseStdio.env.GITHUB_TOKEN === GH && baseRemote && baseRemote.headers.Authorization === 'Bearer ' + BEARER_VAL, '(f) fixture on disk carries the real env/header values');
 
       // ① GET /api/status:全文零明文;键名可见;值是掩码;args 显示脱敏;结构字段原样。
-      const st = await getJson(PORT_F, '/api/status');
+      // 本段首个 /api/status 撞的是冷探针(选了 Kimi CLI 时 --version + provider list 各 ~0.9 s,偶有桌面组件
+      // Python 探测同步插进来再 +2 s):本段验的是掩码不是延迟(延迟归 perf 闸),给冷启动一个现实的上限。
+      const st = await getJson(PORT_F, '/api/status', undefined, 15000);
       const sStdio = st.json && st.json.config ? findIn(st.json.config.externalMcpServers, 'hyg-stdio') : null;
       const sRemote = st.json && st.json.config ? findIn(st.json.config.externalMcpServers, 'hyg-remote') : null;
       ok(st.status === 200 && leaks(st.raw).length === 0, '(f①) GET /api/status body has 0 plaintext MCP secrets' + (leaks(st.raw).length ? ' (leaked ' + leaks(st.raw).join(',') + ')' : ''));

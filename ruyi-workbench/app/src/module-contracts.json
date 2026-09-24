@@ -15577,6 +15577,7 @@
         "stewardNormalizeActs",
         "stewardOverviewBlock",
         "stewardParseReply",
+        "stewardPersonaBlock",
         "stewardPreroute",
         "stewardPrerouteIndexRows",
         "stewardThreadDigestRows",

@@ -108,7 +108,7 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
   // ═══ [H] 真实历史抽取门(本机 checkpoints 存在时) ═══
   console.log('── [H] 真实历史抽取 ──');
   const SRC_ROOT = 'C:/Users/87179/.win-claude-workbench/checkpoints'; // 只读,绝不写入
-  let histFile = null, histSize = 0;
+  let histFile = null, histSize = 0; const histAll = [];
   try {
     if (fs.existsSync(SRC_ROOT)) {
       for (const d of fs.readdirSync(SRC_ROOT)) {
@@ -116,6 +116,7 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
         for (const f of fs.readdirSync(dir)) {
           if (!/^history-\d+\.json\.gz$/.test(f)) continue;
           const sz = fs.statSync(path.join(dir, f)).size;
+          histAll.push(path.join(dir, f));
           if (sz > histSize) { histSize = sz; histFile = path.join(dir, f); }
         }
       }
@@ -129,7 +130,18 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
       const text = hist.map(m => (typeof (m && m.content) === 'string' ? m.content : JSON.stringify((m && m.content) || ''))).join('\n');
       const hents = srv.extractSummaryEntities(text);
       ok(hents.length >= 4, 'H1 真实历史抽出 ≥minSamples 实体(' + hents.length + ' 个,源 ' + path.basename(histFile) + ')');
-      ok(hents.some(e => /^\d{4}-\d{2}-\d{2}$|^v?\d+\.\d+/.test(e) || e.includes('/') || e.includes(BS)), 'H2 真实实体含日期/版本/路径类');
+      // H2 看整份本机历史而不是「最大那一份」:单份内容由用户的日常使用决定(2026-09-22 起最大那份是一段
+      // 点任务栏的排查,最近 12 个实体全是坐标/句柄),拿它判抽取器对错是量具抽样问题。抽取器本身自 8ad459c 未变。
+      const DVP = e => /^\d{4}-\d{2}-\d{2}$|^v?\d+\.\d+/.test(e) || e.includes('/') || e.includes(BS);
+      let eligible = 0, withDvp = 0;
+      for (const hf of histAll) {
+        try {
+          const h = JSON.parse(zlib.gunzipSync(fs.readFileSync(hf)).toString('utf8'));
+          const es = srv.extractSummaryEntities(h.map(m => (typeof (m && m.content) === 'string' ? m.content : JSON.stringify((m && m.content) || ''))).join('\n'));
+          if (es.length >= 4) { eligible++; if (es.some(DVP)) withDvp++; }
+        } catch { /* 坏档不计入分母 */ }
+      }
+      ok(eligible > 0 && withDvp * 2 >= eligible, 'H2 真实实体含日期/版本/路径类(本机历史中过半成立:' + withDvp + '/' + eligible + ' 份)');
       const hSummary = '【目标】x\n【已确认的决定】无\n【未完成事项】无\n【当前执行状态】已完成:无;正在进行:无;阻塞:无;下一步:无\n【关键文件与上下文】\n' + hents.join('、');
       ok(srv.checkSummaryEntities(hSummary, hents).length === 0, 'H3 全量引用实体的摘要通过抽检');
       ok(srv.checkSummaryEntities(FLAWED, hents).length >= 1, 'H4 篡改摘要(不含真实实体)被标记缺失');

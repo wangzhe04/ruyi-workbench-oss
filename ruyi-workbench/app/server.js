@@ -23,7 +23,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL, pathToFileURL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '2.8.0'; // Escapade 2.8.0: 会守时、说得准、听得懂（123–127）＋发布批准点的安全修与缺陷修（107）
+const VERSION = '3.0.0-preview.1'; // Pretender 3.0 预览版 1（2026-09-24）：128 偿债波起到 136 波；正式 3.0.0 仍按 50 号文三组门（55 号文）
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -15757,7 +15757,7 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
 // operation-scoped for native compaction, and the documented wire transcript supplements ACP's usage update
 // with exact compaction/failure state. A separate ACP process is kept for the whole Ruyi turn so reverse RPC
 // (permissions/questions) and queued follow-up steering share one live native Kimi session.
-const kimiBridgeState = { child: null, port: 0, token: '', starting: null, signalHooked: false, modelWindows: new Map(), modelsAt: 0 };
+const kimiBridgeState = { child: null, port: 0, token: '', starting: null, signalHooked: false, modelWindows: new Map(), modelsAt: 0, modelsTriedAt: 0 };
 const { fileURLToPath } = require('url');
 
 function kimiCodeHome() {
@@ -15926,7 +15926,12 @@ async function kimiContextWindow(config, model) {
   const lower = id.toLowerCase();
   if (/k3-256k|kimi-for-coding/.test(lower)) return 262144;
   if (/(^|[\/-])k3$/.test(lower)) return 1048576;   // 含 'kimi-k3'：k3 的 256K 变体已在上一行拦走
-  if (Date.now() - kimiBridgeState.modelsAt > 60000 || !kimiBridgeState.modelWindows.has(id)) {
+  // 3.0 预览收口:修前条件是「超过 60 s 或当前 id 不在表里」—— 默认模型 id 是 ''、清单外的别名也永远不在表里,
+  // 于是每次 /api/status 都真起一趟 `kimi provider list --json`(实测 ~950 ms;探测失败也不记时间,照样每次起)。
+  // 现在按「上次尝试」节流:60 s 内全量不再探;当前 id 不在表里时最多 10 s 探一次。先记尝试时间再 await,并发请求不叠发。
+  const sinceTry = Date.now() - kimiBridgeState.modelsTriedAt;
+  if (sinceTry > 60000 || (!kimiBridgeState.modelWindows.has(id) && sinceTry > 10000)) {
+    kimiBridgeState.modelsTriedAt = Date.now();
     try {
       const discovered = await discoverKimiModels(config);
       if (discovered && Array.isArray(discovered.models)) {
@@ -48391,18 +48396,18 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       }
     }
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-    // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
-    // 只读【有待决的】那几条会话的头(每个 ~1 KB),取不到就留空,前端退回「未命名线程」。
-    const titleOf = new Map();
-    for (const sid of new Set(pending.map(p => p.sessionId))) {
-      const head = await readSessionHeadResilient(sid).catch(() => null);
-      titleOf.set(sid, String((head && head.title) || '').slice(0, 120));
-    }
-    for (const p of pending) p.title = titleOf.get(p.sessionId) || '';
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
+    // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
+    // 3.0 预览收口:此前在分页与 304 之前串行读【全部】待决会话的头,299 条会话时每请求 300–450 ms
+    // (mission-index-scale 收件箱热 P95 闸 250 ms 红);标题从不进 ETag,挪到分页之后响应不变。
+    const pageSids = [...new Set(paged.items.map(p => p.sessionId))];
+    const heads = await Promise.all(pageSids.map(sid => readSessionHeadResilient(sid).catch(() => null)));
+    const titleOf = new Map(pageSids.map((sid, i) => [sid, String((heads[i] && heads[i].title) || '').slice(0, 120)]));
+    for (const p of paged.items) p.title = titleOf.get(p.sessionId) || '';
     return send(res, json({
       ok: true,
       pending: paged.items,
