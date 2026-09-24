@@ -228,10 +228,16 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     const auxRows = readRecs().filter(r => r.kind === 'aux' && r.note === 'compact');
     ok(auxRows.length === 1, 'exactly 1 aux/compact row (got ' + auxRows.length + ')');
     const auxRow = auxRows[0];
+    // 代理模式 v2:上面那个 DAG 是无活回合的 launch → 完成信封进后台任务账本 → 下一回合注入 providerHistory 一条
+    // 「[代理完成通知」(含 runId/节点 id 等实体)。fake 的摘要稿是固定文本,实体核对(applySummaryEntityCheck)会发一次
+    // 修补稿并把 usage 聚合进同一条 aux 行(修补成本计入本次压缩台账,见 10 的注释)。所以这里按【行自己的 token】算价,
+    // 且要求 token 是 11/7 的整数倍(1 次或 1+1 次调用),而不是钉死 11/7。归属字段仍然为空(这是主线压缩,不是子代理的)。
+    const auxCalls = auxRow ? auxRow.inTok / 11 : 0;
+    const auxExpected = auxRow ? (auxRow.inTok * IN_PER_M + auxRow.outTok * OUT_PER_M) / 1e6 : 0;
     ok(auxRow && auxRow.engine === 'openai' && auxRow.provider === 'fake' && auxRow.model === 'fake-model'
-      && auxRow.inTok === 11 && auxRow.outTok === 7 && auxRow.currency === CUR && near(auxRow.cost, AUX_COST)
-      && auxRow.estimated === false && !auxRow.agentKey && !auxRow.subagentId,
-      'aux/compact row: fake/fake-model, 11/7, CNY cost=' + round6(AUX_COST) + ' (got ' + (auxRow && auxRow.cost) + ')');
+      && Number.isInteger(auxCalls) && auxCalls >= 1 && auxCalls <= 2 && auxRow.outTok === auxCalls * 7 && auxRow.currency === CUR && near(auxRow.cost, auxExpected)
+      && auxRow.estimated === false && !auxRow.agentKey && !auxRow.subagentId && !auxRow.runId,
+      'aux/compact row: fake/fake-model, k×11/k×7 (k=' + auxCalls + '), CNY cost=tokens×pricing=' + round6(auxExpected) + ' (got ' + (auxRow && auxRow.cost) + '), no agent attribution');
     const sumC = (await getJson(WB_PORT, '/api/usage/summary?range=today', hdr)).json;
     ok(sumC && Number(sumC.totals.auxCalls) === 1, 'totals.auxCalls === 1 after one compaction (got ' + (sumC && sumC.totals && sumC.totals.auxCalls) + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }

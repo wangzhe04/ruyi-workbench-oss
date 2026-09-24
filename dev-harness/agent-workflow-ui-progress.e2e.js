@@ -170,7 +170,12 @@ function runOf(r, runId) { return r && Array.isArray(r.runs) && r.runs.find(x =>
     const headRaw = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', `${sid}.json`), 'utf8'));
     const sessionMessages = Array.isArray(headRaw.messages) ? headRaw.messages
       : fs.readFileSync(path.join(HOME, 'sessions', `${sid}.messages.ndjson`), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
-    ok(sessionMessages.some(m => m && m.source === 'agent_workflow' && /UI progress workflow completed/.test(m.content || '')), 'workflow completion appends an assistant summary message to the session');
+    // 代理模式 v2:完成不再往对话追加整份「Agent 工作流已结束」助手消息(那条会被抄进模型上下文);改为一份交付信封进
+    // 后台任务账本(隐藏的数据面回执 + toast + 下一回合开头注入一次)。账本文件是权威落点(会话头合并发生在下次 load/save)。
+    const jobsFile = path.join(HOME, 'sessions', 'background-jobs', `${sid}.json`);
+    const agentJobs = fs.existsSync(jobsFile) ? JSON.parse(fs.readFileSync(jobsFile, 'utf8')).filter(j => j && j.id === 'agent:' + launched.runId) : [];
+    ok(agentJobs.length === 1 && agentJobs[0].kind === 'agent' && agentJobs[0].status === 'succeeded' && /UI progress workflow completed/.test(agentJobs[0].output || ''), 'workflow completion delivers exactly one agent envelope into the session background ledger (no assistant summary message)');
+    ok(!sessionMessages.some(m => m && m.source === 'agent_workflow'), 'no legacy agent_workflow assistant summary message is appended to the session');
     ok(toolRequests >= 1, 'fake provider actually exercised sub-agent tool progress');
 
     // ---- (C) Claude-engine node: persisted "生成中 · N 字" milestone + independent done entry ----
