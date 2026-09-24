@@ -688,6 +688,16 @@ function addMissionCostBucket(bucket, usage) {
 
 async function buildMissionAggregateRows(options = {}) {
   const includeArchived = options.includeArchived === true;
+  // W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):事项与线程的读模型把【工作区】带出去 ——
+  // 只加字段。事项的工作区 = 事项容器记着的那个(13k 在事项第一次有了工作区时记下),没有就取组里
+  // 最近动过的那条线程的目录。ruyiOwned 的判据单点在 06i 的 stewardRuyiOwnedPath(数据根里的、或如意
+  // 为任务开的而用户没收编的),要配置里那张表 —— 调用方有现成的就传 options.config,省一次读盘。
+  const wsConfig = (options.config && typeof options.config === 'object') ? options.config : await readConfig().catch(() => null);
+  const workspaceOf = cwd => {
+    const p = String(cwd || '').trim();
+    if (!p) return null;
+    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data) };
+  };
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
   const metas = await listSessions().catch(() => []);          // 管家会话已在 listSessions 里滤掉
@@ -765,6 +775,8 @@ async function buildMissionAggregateRows(options = {}) {
       permissionMode: meta.permissionMode || null,
       lastAssistantText: stewardSanitizeText(meta.summary || '').slice(0, 120),
       updatedAt: String(meta.updatedAt || ''),
+      cwd: String(meta.cwd || ''),   // W7:这条线程开在哪个目录(事项的 workspace 从这里派生)
+      workspace: workspaceOf(meta.cwd),
       // 116h(§8.10「排队可解释」):等待原因由 06i 的 waitReasonFor 单点判定,与 steward_thread_status /
       // 总览行 / steward_missions 同一函数同一形状。pending 用上面五态判据已经算好的那一份(少喂一次
       // 就会出现 116g 那种「看板与 thread_status 各说各话」);仲裁器一侧同步只读,开关关时恒为 null。
@@ -799,6 +811,9 @@ async function buildMissionAggregateRows(options = {}) {
       derived: !container,
       archivedAt: (container && container.archivedAt) || '',
       cwd: container ? container.cwd : '',
+      // W7:事项的工作区(见本函数头注)。cwd 仍是容器那一格的原值,语义一个字不改。
+      workspace: workspaceOf((container && container.cwd)
+        || ((group.threads.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0] || {}).cwd)),
       aggregateState: aggregateMissionState(group.threads.map(thread => thread.state)),
       threadCount: group.threads.length,
       threads: group.threads,
@@ -854,6 +869,8 @@ async function buildMissionAggregateRows(options = {}) {
     rows.map(row => [
       row.missionId, stewardThreadStateRank(row.aggregateState),
       row.threads.map(thread => [thread.sessionId, stewardThreadStateRank(thread.state)]),
+      // W7:工作区也进指纹 —— ruyiOwned 随配置里那张表变,而会话头与容器都没动。
+      row.workspace ? [row.workspace.path, row.workspace.ruyiOwned] : null,
     ]),
   ]);
   return { rows, rowBySessionId, stamp };
@@ -881,6 +898,7 @@ function overlayMissionAggregateFields(card, row) {
       budget: {}, cost: emptyMissionCostBucket(), derived: true,
       // 117h 第 0 步:没有聚合行 = 没有容器,事项标题就是这条线程自己的标题,目标与验收项如实为空。
       missionTitle: String(card.displayTitle || card.title || ''), goal: '', acceptanceItems: [],
+      missionWorkspace: null,   // W7:没有聚合行就没有事项级工作区;这条线程自己的目录仍在 card.cwd
       wait: waitReasonFor(
         { pending: (derived.sources && derived.sources.pendingTotal) || 0 },
         typeof StewardHooks.arbiterWait === 'function' ? StewardHooks.arbiterWait(card.sessionId) : null,
@@ -907,6 +925,8 @@ function overlayMissionAggregateFields(card, row) {
     goal: String(row.goal || ''),
     acceptanceItems: Array.isArray(row.acceptance.items) ? row.acceptance.items : [],
     wait: threadWait,
+    // W7:这条线程所属事项的工作区({path,name,ruyiOwned} 或 null)。只加字段;给 W4 的管家界面读。
+    missionWorkspace: row.workspace || null,
   });
 }
 

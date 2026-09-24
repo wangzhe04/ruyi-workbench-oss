@@ -3,7 +3,7 @@
 // EC-D：主题、界面密度、工作区选择与最近工作区领域。
 import { state } from './state.js';
 import { api } from './net.js';
-import { $, el, toast } from './util.js';
+import { $, el, toast, visibleFavoriteWorkspaces } from './util.js';
 import { t } from './i18n.js';
 
 export function createWorkspacePreferencesDomain({
@@ -204,8 +204,18 @@ async function submitPastedWorkspace(input, close) {
 /* ---------------- v2.7.2: 常用工作区优先级(对话页快速调整) ---------------- */
 // 「常用工作区」= config.workspaces(priority-ordered,index 0 = 默认/最高优先级,由后端 normalize 与
 // defaultWorkspace 同步)。这里提供对话页快速切换 + ↑↓/★ 调整优先级,与设置页「工作区权限」同一数据源。
-function favoriteList() {
+// W7(用户 2026-09-24「如意自己开的工作区,默认不显示在常用工作区中」):显示用 favoriteList(去掉如意
+// 自己的目录,判据见 util.js isRuyiOwnedWorkspace),保存用 allFavorites(整张表)—— 只在显示时过滤,
+// 保存整张表,否则藏起来的行会在下一次调整优先级时被删掉。服务端已把老版本塞进来的如意目录挪了出去,
+// 这里是第二道:数据目录里的路径一律不当常用工作区显示。
+function allFavorites() {
   return Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
+}
+function favoriteList() {
+  return visibleFavoriteWorkspaces(allFavorites(), {
+    dataRoot: (state.status && state.status.dataRoot) || '',
+    owned: state.config.stewardManagedWorkspaces,
+  });
 }
 function workspaceShortName(p) {
   const s = String(p || '');
@@ -221,15 +231,21 @@ function persistWorkspaces(ws, defaultPath) {
   renderWorkspacePicker();
 }
 // 上移/下移(调整优先级顺序);from/to 触碰 0 时 defaultWorkspace 同步(后端 normalize 同样兜底)。
+// from/to 是【显示列表】里的下标(↑↓ 只在相邻两行之间动);落到整张表上就是交换这两行的位置,
+// 中间夹着的隐藏行原地不动。
 function reorderFavorite(from, to) {
-  const ws = favoriteList();
-  if (!ws.length || from < 0 || from >= ws.length || to < 0 || to >= ws.length || from === to) return;
-  const [x] = ws.splice(from, 1); ws.splice(to, 0, x);
+  const visible = favoriteList();
+  if (!visible.length || from < 0 || from >= visible.length || to < 0 || to >= visible.length || from === to) return;
+  const ws = allFavorites();
+  const a = ws.indexOf(visible[from]);
+  const b = ws.indexOf(visible[to]);
+  if (a < 0 || b < 0) return;
+  [ws[a], ws[b]] = [ws[b], ws[a]];
   persistWorkspaces(ws, ws[0].path);
 }
 // 置顶 = 设为最高优先级(同时也是默认工作区)。
 function promoteFavorite(dir) {
-  const ws = favoriteList();
+  const ws = allFavorites();
   const idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir || '').toLowerCase());
   if (idx <= 0) return; // 已在首位或不存在
   const [x] = ws.splice(idx, 1); ws.unshift(x);

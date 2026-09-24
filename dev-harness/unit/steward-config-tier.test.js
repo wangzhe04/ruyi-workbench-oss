@@ -114,7 +114,10 @@ const EXPECTED = {
   claudePricing: 'confirm',
   // 136:触发线系数 —— 调高 = 管家每回合更贵,归「会花钱」;不含 Tokens 不撞密钥正则,故与其姊妹键不同档。
   stewardContextBudgetRatio: 'confirm',
-  // ── forbidden (39) 密钥、数据根与围栏、放行面、注入面、自我扩权、簿记与行为记录;含 Tokens 的三个键撞密钥正则 ─────────────────────────────
+  // ── forbidden (40) 密钥、数据根与围栏、放行面、注入面、自我扩权、簿记与行为记录;含 Tokens 的三个键撞密钥正则 ─────────────────────────────
+  // W7:stewardManagedWorkspaces(如意自己为任务开的文件夹那张表)与 workspaces 同属围栏 —— 它进管家的
+  // 已知工作区、cwd 校验与 steward_file_read 的可读根。管家能改它 = 能给自己登记一个可读可派的新目录。
+  stewardManagedWorkspaces: 'forbidden',
   configSchema: 'forbidden', configExplicitKeysV1: 'forbidden', version: 'forbidden', lastUsedEngineRoute: 'forbidden',
   claudePath: 'forbidden', kimiPath: 'forbidden', defaultWorkspace: 'forbidden', extraClaudeArgs: 'forbidden',
   allowCommandTools: 'forbidden', allowDesktopTools: 'forbidden', mcpCommandMode: 'forbidden', permissionBridge: 'forbidden',
@@ -191,7 +194,7 @@ ok(stewardConfigTierFor('someKeyNobodyEverDeclared') === 'forbidden', '① 未�
 // 而 workspaces / stewardWorkspaceRoot / defaultWorkspace 三个键本身仍然一个都改不了。
 // 单独钉是因为上面那张 EXPECTED 表是「有人加新键就红」的普查,普查绿了不等于这三个键被【点名】看住;
 // 而且新键 stewardWorkspaceRoot 靠 fail-closed 落档 —— 哪天有人手滑把它写进 free 表,只有这一条会红。
-for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace']) {
+for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace', 'stewardManagedWorkspaces']) {
   ok(stewardConfigTierFor(key) === 'forbidden', `⑤ 围栏键 ${key} -> forbidden(steward_config_set 改不了)`);
   ok(!STEWARD_CONFIG_TIERS.free.includes(key) && !STEWARD_CONFIG_TIERS.confirm.includes(key),
     `⑤ ${key} 不在 free / confirm 任何一张白名单里`);
@@ -222,6 +225,78 @@ for (const key of ['stewardWorkspaceRoot', 'workspaces', 'defaultWorkspace']) {
   ok(!('note' in ws({ path: home, note: 42 })), '⑤ 非字符串 note 不写字段');
   ok(ws({ path: home, note: 'n' }).read === true && ws({ path: home, note: 'n' }).write === true,
     '⑤ 加了 note 不影响 rwx 三个标志(反向保护)');
+}
+
+/* ═══════ ⑧ W7:如意自己开的文件夹那张表(stewardManagedWorkspaces)—— 清洗、迁出、收编 ═══════ */
+// 用户 2026-09-24:「如果是如意自己开的工作区,默认不显示在常用工作区中,不要让用户自己感知到」。
+// 真机形状:两条股票分析线程各在 ~/Ruyi 下开了一个文件夹,被追加进 workspaces[](= 常用工作区),
+// 而且行上的「Ruyi 自动开的」备注已经被前端保存剥掉了。本段钉:派生登记的那张表怎么清洗、老版本
+// 留在常用工作区里的行怎么挪回去(两种认法)、用户亲手加回去的怎么算他的(且不来回拉锯)。
+{
+  const norm = raw => normalizeConfig(raw).config;
+  const home = os.homedir();
+  const factory = path.join(home, 'Ruyi');
+  const custom = process.platform === 'win32' ? 'D:\\Work\\RuyiRoot' : '/srv/ruyi-root';
+  const userWs = process.platform === 'win32' ? 'D:\\Projects\\app' : '/srv/projects/app';
+  const row = p => ({ path: p, read: true, write: true, execute: true });
+  ok(Array.isArray(norm({}).stewardManagedWorkspaces) && norm({}).stewardManagedWorkspaces.length === 0, '⑧ 出厂是空表');
+  // 清洗:非绝对/空/非字符串丢掉;「复制为路径」的引号剥掉;大小写不同算同一行(adopted 合并);at 截 40。
+  {
+    const a = path.join(custom, 'A');
+    const got = norm({ stewardWorkspaceRoot: custom, stewardManagedWorkspaces: [
+      { path: `"${a}"`, at: '2026-09-24T00:00:00.000Z' }, { path: a.toUpperCase(), adopted: true }, { path: 'rel/dir' }, { path: '' }, 42, null,
+    ] }).stewardManagedWorkspaces;
+    ok(got.length === 1 && got[0].path === a && got[0].at === '2026-09-24T00:00:00.000Z' && got[0].adopted === true,
+      `⑧ 清洗:剥引号、去相对/空/非法、大小写合并且 adopted 合并(got ${JSON.stringify(got)})`);
+  }
+  // 帽子:超出从最老的一行起丢,最新的留下。
+  {
+    const many = Array.from({ length: 205 }, (_, i) => ({ path: path.join(custom, 'm' + i) }));
+    const got = norm({ stewardWorkspaceRoot: custom, stewardManagedWorkspaces: many }).stewardManagedWorkspaces;
+    ok(got.length === 200 && got[0].path === path.join(custom, 'm5') && got[199].path === path.join(custom, 'm204'),
+      `⑧ 帽子 200:丢最老的 5 行、最新的留下(got ${got.length} 行,首 ${got[0] && got[0].path})`);
+  }
+  // 迁出 ①:带老备注的行,不管根在哪,都从常用工作区挪回如意那张表;没备注的根外行原样留下。
+  {
+    const legacy = path.join(custom, '下周A股走势分析');
+    const cfg = norm({ stewardWorkspaceRoot: custom, workspaces: [row(userWs), { ...row(legacy), note: 'Ruyi 自动开的' }, row(path.join(custom, 'mine'))] });
+    ok(cfg.workspaces.map(w => w.path).join('|') === [userWs, path.join(custom, 'mine')].join('|'),
+      `⑧ 迁出①:带「Ruyi 自动开的」备注的行离开常用工作区,根改过时没备注的行原样留下(got ${JSON.stringify(cfg.workspaces.map(w => w.path))})`);
+    ok(cfg.stewardManagedWorkspaces.some(m => m.path === legacy && m.adopted !== true), '⑧ 迁出①:那一行进了如意那张表(未收编)');
+  }
+  // 迁出 ②:备注已被前端剥掉(真机那两行),但它是【出厂】Ruyi 根的直接子目录 → 也挪回去;孙目录不算。
+  {
+    const stripped = path.join(factory, '下周美股走势分析');
+    const deep = path.join(factory, 'proj', 'sub');
+    const cfg = norm({ workspaces: [row(home), row(stripped), row(deep)] });
+    ok(!cfg.workspaces.some(w => w.path === stripped) && cfg.stewardManagedWorkspaces.some(m => m.path === stripped),
+      `⑧ 迁出②:出厂根下的直接子目录(备注已剥)离开常用工作区、进如意那张表(got ${JSON.stringify(cfg.workspaces.map(w => w.path))})`);
+    ok(cfg.workspaces.some(w => w.path === deep), '⑧ 迁出②只认【直接】子目录:更深的目录是用户自己挑的,留下');
+    // 根被改过 → 按路径猜不作数(用户可能把根设成了自己项目的父目录)。
+    const cfgCustom = norm({ stewardWorkspaceRoot: custom, workspaces: [row(home), row(stripped), row(path.join(custom, 'x'))] });
+    ok(cfgCustom.workspaces.length === 3, `⑧ 迁出②只在根是出厂值时认;根改过就一行都不按路径猜(got ${cfgCustom.workspaces.length} 行)`);
+  }
+  // 第 0 行(默认工作区)永远不动,哪怕它带着老备注。
+  {
+    const first = path.join(custom, 'first');
+    const cfg = norm({ stewardWorkspaceRoot: custom, workspaces: [{ ...row(first), note: 'Ruyi 自动开的' }, row(userWs)] });
+    ok(cfg.workspaces[0].path === first && cfg.defaultWorkspace === first, '⑧ 第 0 行(默认工作区)永远不迁出');
+  }
+  // 收编:如意那张表里的目录又出现在常用工作区 = 用户亲手加回去的 → 留下,那一条标 adopted;再清洗一次不被挪走。
+  {
+    const managedDir = path.join(factory, '英伟达分析');
+    const once = norm({ workspaces: [row(home), row(managedDir)], stewardManagedWorkspaces: [{ path: managedDir, at: 'x' }] });
+    ok(once.workspaces.some(w => w.path === managedDir), '⑧ 收编:用户加回常用的如意目录留在常用工作区(以用户为准)');
+    ok(once.stewardManagedWorkspaces.find(m => m.path === managedDir).adopted === true, '⑧ 收编:如意那张表里对应的一条标 adopted:true');
+    const twice = norm(JSON.parse(JSON.stringify(once)));
+    ok(twice.workspaces.some(w => w.path === managedDir) && JSON.stringify(twice.stewardManagedWorkspaces) === JSON.stringify(once.stewardManagedWorkspaces),
+      '⑧ 收编之后再清洗一次:不被迁出②再挪走(两条迁移不来回拉锯),表逐字节不变');
+  }
+  // 反向保护:用户自己的目录一行都不动。
+  {
+    const cfg = norm({ stewardWorkspaceRoot: custom, workspaces: [row(home), row(userWs), { ...row(path.join(home, 'docs')), note: '股票资料' }] });
+    ok(cfg.workspaces.length === 3 && cfg.stewardManagedWorkspaces.length === 0, '⑧ 反向:没有如意痕迹的配置,两张表一个字不动');
+  }
 }
 
 /* ═══════ ⑥ 107-S1 ④（46 号文 §5 ⑦b H1）：confirm 族的 act 不许由模型命名 ═══════ */

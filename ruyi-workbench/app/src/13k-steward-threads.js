@@ -19,23 +19,33 @@
 
 // ── 117w-W1 提交①(27 号文 §11.19.4):cwd 校验先行 ──────────────────────────────────────
 // 病灶:thread_new / quick_ask 原先把 args.cwd 【原样透传】给 createSession(零校验),而 createSession
-// 的回落链是 `cwd || config.defaultWorkspace || os.homedir()`。今天没出事只因为管家读不到工作区表
-// (workspaces 在 06i 的 forbidden 清册里)所以从不传 cwd —— 一旦 §11.19.4 提交③ 把表喂进上下文,
-// 幻觉路径会被直接接受。所以校验先行:本提交零行为变化(管家本来就不传),但门先装上。
+// 的回落链是 `cwd || config.defaultWorkspace || os.homedir()`。校验先行:表外一律拒,不静默回落。
 //
-// 三态(与 §11.19.2 同一口径;提交② 已补上第 ① 态的派生,见下面的 stewardDeriveThreadCwd):
-//   ① 省略/空串 → 不传给 createSession,改为在 Ruyi 根下派生 <root>/<slug(标题)> 并登记进 workspaces[]。
-//   ② 归一化后 ∈ config.workspaces[].path → 用【表里那一行】的归一化值(不是调用方的写法)。
-//   ③ 其它任何值 → invalid_request。`~`、主目录、相对路径、只在 recentWorkspaces 里的路径,全在这一档。
-//      红线两条(§11.19.3):`~` 不是合法值(仓里自己的 03 cwdWarning 把主目录判成最高风险目标);
-//      recentWorkspaces 不进候选(打开过 ≠ 授权过)。【不静默回落】—— 回落等于把幻觉路径洗成默认工作区。
+// W7(用户 2026-09-24:「如果是如意自己开的工作区,默认不显示在常用工作区中,不要让用户自己感知到;
+// 然后管家需要把工作区和任务联系起来,有时候很多任务应该在特定工作区开的,管家会新开工作区」)
+// 把这一节从「三态」改成【一条选择顺序】,并把「表」扩成【已知工作区】。根因三条,如实记:
+//   ① 管家上下文里的候选表只给末段名(全路径是围栏信息),而这里的校验【只收绝对路径】—— 模型照表
+//      填回来的名字一律被当成相对路径拒掉,拒绝文案又教它「不确定就省掉 cwd」。于是它从来填不对任何
+//      一个 cwd,每件事都走省略 → 在 Ruyi 根下按标题新开一个文件夹(真机两条股票线程各开了一个)。
+//   ② 省略 cwd 时没有任何「沿用」:同一事项、接着某条线程的活,也照样按标题新开。
+//   ③ 新开的文件夹被追加进 workspaces[] —— 那张表就是界面上的「常用工作区」,用户于是看见一串
+//      自己没开过的文件夹。
+// 改法:
+//   · 已知工作区 = 用户的常用工作区(config.workspaces,第一行是默认)∪ 如意自己开的文件夹
+//     (config.stewardManagedWorkspaces)。每行有一个【名字】(06i stewardWorkspaceLabels:末段名,撞名
+//     往上多带一段),上下文里给的是名字,这里收名字,也收绝对路径。recentWorkspaces 仍不进(打开过 ≠ 授权过)。
+//   · 选择顺序(stewardResolveThreadCwd):① 明确给了 cwd → 用它;② 带了 missionId 且事项容器记着
+//     工作区 → 沿用;③ 带了 relatedSessionId → 沿用那条线程的目录;带了 missionId → 沿用同事项里最近一条
+//     线程的目录;④ 都没有 → 在 Ruyi 根下按标题新开一个文件夹,登记进如意自己那张表(不进常用工作区)。
+//     派生失败才落到 createSession 的回落链(用户默认工作区)。
+//   · 为什么第 ④ 步不是「用户默认工作区」(派单稿的写法):真机的默认工作区就是主目录根 —— 03 的
+//     cwdWarning 把它判成最高风险目标,13n 的同目录写锁又会让所有落在那儿的线程排成一队(40 号文 §8
+//     那次灌水 409 就是这么来的)。默认工作区仍在清单第一行、标着「默认」,活属于它就由管家点名。
 //
 // 归一化用仓里既有的那一份:01-config 清洗 workspaces 时用的 normalizeWorkspacePathString(剥
 // Windows「复制为路径」带的引号 + trim + 截 1000),外加 path.resolve 收斜杠与尾斜杠。两侧【同一个
-// 函数、同一个顺序】,否则表里的 `C:\a\` 与传入的 `C:/a` 会被判成两个东西。注意 normalizeWorkspacePathString
-// 自己【不做】path.resolve —— 表里存的就是用户敲进去的原样,所以 resolve 这一步两边都得补上。
-// 117w-W1 提交③:候选上限【读 06i 的 STEWARD_WORKSPACE_TABLE_MAX】,与 13o 的候选表投影同一个数字
-// (§11.19.7 裁决)。提交① 这里曾是自己的 8,而投影是 20 —— 见 06i 该常量处的注释。
+// 函数、同一个顺序】,否则表里的 `C:\a\` 与传入的 `C:/a` 会被判成两个东西。
+// 候选上限【读 06i 的 STEWARD_WORKSPACE_TABLE_MAX】,与 13o 的清单投影同一个数字(§11.19.7 裁决)。
 
 // 把一个工作区路径字符串折成可逐字比较的规范形;非绝对路径一律折成 ''(相对路径会被 path.resolve
 // 按【服务进程的 cwd】补全,那是一条无声的越权路,所以在这里就掐掉)。
@@ -53,41 +63,177 @@ function stewardFoldWorkspacePath(stewardWsPathCanon) {
   return process.platform === 'win32' ? String(stewardWsPathCanon).toLowerCase() : String(stewardWsPathCanon);
 }
 
-// 返回 { ok:true, cwd } —— cwd 为 undefined 表示「照旧不传」;或 { ok:false, fail } —— fail 是现成的稳定信封。
-// thread_new 与 quick_ask 两处【共用这一份】,不许各抄一遍(静态锁钉着出现次数)。
+// W7:已知工作区(同步、纯读配置)。用户的常用工作区在前(顺序即优先级),如意自己开的在后(新开的在前)。
+// 每行 { path(规范形), label, user, isDefault, write, note, owned }:owned = 如意自己开的、用户还没收编。
+// 管家上下文里的清单(13o)、这里的 cwd 校验、thread_status 等读模型的 workspace 名字,三处读同一份。
+function stewardKnownWorkspaces(stewardKnownConfig) {
+  const out = [];
+  const seen = new Set();
+  const defaultKey = stewardFoldWorkspacePath(stewardCanonWorkspacePath(stewardKnownConfig && stewardKnownConfig.defaultWorkspace));
+  const push = (row, extra) => {
+    const canon = stewardCanonWorkspacePath(row && row.path);
+    if (!canon) return;
+    const key = stewardFoldWorkspacePath(canon);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ path: canon, ...extra, isDefault: extra.user === true && key === defaultKey });
+  };
+  for (const row of (Array.isArray(stewardKnownConfig && stewardKnownConfig.workspaces) ? stewardKnownConfig.workspaces : [])) {
+    push(row, { user: true, write: !(row && row.write === false), note: String((row && row.note) || ''), owned: false });
+  }
+  const managed = Array.isArray(stewardKnownConfig && stewardKnownConfig.stewardManagedWorkspaces) ? stewardKnownConfig.stewardManagedWorkspaces : [];
+  for (let i = managed.length - 1; i >= 0; i--) {
+    const row = managed[i];
+    push(row, { user: false, write: true, note: '', owned: !(row && row.adopted === true) });
+  }
+  const labels = stewardWorkspaceLabels(out.map(row => row.path));
+  out.forEach((row, i) => { row.label = labels[i]; });
+  return out;
+}
+
+// 名字或绝对路径 → 已知工作区那一行(没有就 null)。名字按不分大小写比:06i 造名字时就是按不分大小写
+// 去撞车的,所以同一份清单里不会有两个只差大小写的名字。
+function stewardMatchKnownWorkspace(stewardMatchRaw, stewardMatchKnown) {
+  const raw = String(stewardMatchRaw == null ? '' : stewardMatchRaw).trim();
+  if (!raw) return null;
+  const known = Array.isArray(stewardMatchKnown) ? stewardMatchKnown : [];
+  const canon = stewardCanonWorkspacePath(raw);
+  if (canon) {
+    const key = stewardFoldWorkspacePath(canon);
+    return known.find(row => stewardFoldWorkspacePath(row.path) === key) || null;
+  }
+  const wanted = normalizeWorkspacePathString(raw).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  return wanted ? (known.find(row => String(row.label).toLowerCase() === wanted) || null) : null;
+}
+
+// 一条路径的【名字】(给读模型用):落在哪个已知工作区里就报那个工作区的名字(子目录也归它),
+// 不在任何一个里报末段名。owned 与 06i 的 stewardRuyiOwnedPath 同一口径(数据根里的也算如意的)。
+function stewardWorkspaceNameOf(stewardNameCwd, stewardNameConfig, stewardNameKnown) {
+  const canon = stewardCanonWorkspacePath(stewardNameCwd);
+  if (!canon) return null;
+  const known = Array.isArray(stewardNameKnown) ? stewardNameKnown : stewardKnownWorkspaces(stewardNameConfig);
+  const key = stewardFoldWorkspacePath(canon);
+  let best = null;
+  for (const row of known) {
+    const rowKey = stewardFoldWorkspacePath(row.path);
+    if (key === rowKey || key.startsWith(rowKey + path.sep) || key.startsWith(rowKey + '/')) {
+      if (!best || row.path.length > best.path.length) best = row;
+    }
+  }
+  return {
+    name: best ? best.label : (path.basename(canon) || canon),
+    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot()),
+  };
+}
+
+// 返回 { ok:true, cwd, label, owned } —— cwd 为 undefined 表示「没给」;或 { ok:false, fail } —— fail 是现成的稳定信封。
+// thread_new 与 quick_ask 两处【共用这一份】,不许各抄一遍(静态锁钉着出现次数)。13t 的定时任务也用它复核 workdir。
 function stewardValidateCwd(stewardCwdRaw, stewardCwdConfig) {
   const given = stewardCwdRaw == null ? '' : String(stewardCwdRaw);
-  if (!given.trim()) return { ok: true, cwd: undefined };          // ① 省略 → 行为与修前逐字节相同
-  const rows = Array.isArray(stewardCwdConfig && stewardCwdConfig.workspaces) ? stewardCwdConfig.workspaces : [];
-  const table = [];
-  for (const row of rows) {
-    const canon = stewardCanonWorkspacePath(row && row.path);
-    if (canon && !table.includes(canon)) table.push(canon);
-  }
-  const wanted = stewardCanonWorkspacePath(given);
-  const hit = wanted ? table.find(entry => stewardFoldWorkspacePath(entry) === stewardFoldWorkspacePath(wanted)) : '';
-  if (hit) return { ok: true, cwd: hit };                          // ② 表内 → 用表里那一行的归一化值
-  // ③ 其它 → 拒。人话说清「不在工作区表里」并列出表内候选的末段名(末段名足够让模型改对,又不泄露全路径)。
-  const names = table.slice(0, STEWARD_WORKSPACE_TABLE_MAX).map(entry => path.basename(entry) || entry);
-  const more = table.length > STEWARD_WORKSPACE_TABLE_MAX ? `,另有 ${table.length - STEWARD_WORKSPACE_TABLE_MAX} 个未列出` : '';
+  if (!given.trim()) return { ok: true, cwd: undefined };          // 没给 → 交给选择顺序的后几步
+  const known = stewardKnownWorkspaces(stewardCwdConfig);
+  const hit = stewardMatchKnownWorkspace(given, known);
+  if (hit) return { ok: true, cwd: hit.path, label: hit.label, owned: hit.owned };   // 名字或路径命中 → 用那一行的规范值
+  // 其它 → 拒。人话说清「不在已知工作区里」并列出名字(名字足够让模型改对,又不泄露全路径)。
+  const names = known.slice(0, STEWARD_WORKSPACE_TABLE_MAX).map(row => row.label);
+  const more = known.length > STEWARD_WORKSPACE_TABLE_MAX ? `,另有 ${known.length - STEWARD_WORKSPACE_TABLE_MAX} 个未列出` : '';
   const message = names.length
-    ? `cwd 不在工作区表里(不要自己编路径)。表里现有:${names.join('、')}${more}。要用别处请先请用户在设置里把那个文件夹加成工作区;不确定就【省掉 cwd】,不要重试同一个值。`
-    : 'cwd 不在工作区表里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。';
+    ? `cwd 不在已知工作区里(不要自己编路径)。现有:${names.join('、')}${more}。cwd 填其中一个的名字;要用别处请先请用户在设置里把那个文件夹加成工作区;跟哪个都不沾边就【省掉 cwd】,不要重试同一个值。`
+    : 'cwd 不在已知工作区里,而且现在一个工作区都没有登记。请【省掉 cwd】,不要重试同一个值。';
   return { ok: false, fail: stewardFail('invalid_request', message, { reason: 'cwd_not_in_workspaces' }) };
 }
 
+// W7:能不能【沿用】一条线程或一个事项的目录。三条:目录还在(沿用一个被删掉的目录,线程的工具会全部
+// 失败);不在数据根里(管家会话自己的 cwd 就是数据根 —— 落进去会和管家抢 13n 的同目录写锁;子代理
+// worktree 也在那儿,用完即删);是绝对路径。沿用【不要求】在已知工作区里:那个目录是用户或管家早先
+// 给那条线程定下的,03 已经把它当成那条线程的写根,新线程接着同一件事,只是站到同一块地上。
+async function stewardInheritableCwd(stewardInheritRaw) {
+  const canon = stewardCanonWorkspacePath(stewardInheritRaw);
+  if (!canon) return '';
+  const dataKey = stewardFoldWorkspacePath(stewardCanonWorkspacePath(dataRoot()));
+  const key = stewardFoldWorkspacePath(canon);
+  if (dataKey && (key === dataKey || key.startsWith(dataKey + path.sep) || key.startsWith(dataKey + '/'))) return '';
+  try {
+    const stat = await fsp.stat(canon);
+    if (!stat.isDirectory()) return '';
+  } catch { return ''; }
+  return canon;
+}
+
+// W7:cwd 的选择顺序(thread_new / quick_ask 共用;见本节头注)。返回
+//   { ok:true, cwd, source } —— source ∈ explicit / mission / related / mission_thread / new;
+//   cwd 为 undefined 时 source === 'new':调用方在 createSession 之后派生(要真线程 id 兜 slug)。
+//   { ok:false, fail } —— 给了但不合法的参数(表外 cwd、不存在的 relatedSessionId),不静默回落。
+async function stewardResolveThreadCwd(stewardResolveArgs, stewardResolveConfig, stewardResolveMissionId) {
+  const args = (stewardResolveArgs && typeof stewardResolveArgs === 'object') ? stewardResolveArgs : {};
+  // ① 明确给了。
+  const cwdCheck = stewardValidateCwd(args.cwd, stewardResolveConfig);
+  if (!cwdCheck.ok) return cwdCheck;
+  if (cwdCheck.cwd !== undefined) {
+    // 如意自己开的那个文件夹被人删了:原地建回来(路径是工作台自己派生、自己登记的;13t 的定时任务同一做法)。
+    // 用户的工作区不替他建 —— 那是他的地盘,修前也不查。
+    if (cwdCheck.owned) await fsp.mkdir(cwdCheck.cwd, { recursive: true }).catch(() => {});
+    return { ok: true, cwd: cwdCheck.cwd, source: 'explicit' };
+  }
+  const relatedRaw = args.relatedSessionId == null ? '' : String(args.relatedSessionId).trim();
+  const relatedId = relatedRaw ? safeSessionId(relatedRaw) : '';
+  if (relatedRaw && !relatedId) return { ok: false, fail: stewardFail('invalid_request', 'invalid relatedSessionId') };
+  let relatedHead = null;
+  if (relatedId) {
+    relatedHead = await stewardReadSessionHead(relatedId);
+    if (!relatedHead || !relatedHead.id || stewardRawKind(relatedHead) === 'steward') {
+      return { ok: false, fail: stewardFail('not_found', `relatedSessionId ${relatedId} 不是一条线程;不确定就省掉它,不要重试同一个值`, { reason: 'related_not_found' }) };
+    }
+  }
+  // ② 事项容器记着的工作区。
+  if (stewardResolveMissionId) {
+    const container = await readMissionContainer(stewardResolveMissionId).catch(() => null);
+    const fromMission = container ? await stewardInheritableCwd(container.cwd) : '';
+    if (fromMission) return { ok: true, cwd: fromMission, source: 'mission' };
+  }
+  // ③ 相关线程:点名的那一条优先,其次同事项里最近动过的那一条。
+  if (relatedHead) {
+    const fromRelated = await stewardInheritableCwd(relatedHead.cwd);
+    if (fromRelated) return { ok: true, cwd: fromRelated, source: 'related' };
+  }
+  if (stewardResolveMissionId) {
+    const metas = await listSessions().catch(() => []);
+    const siblings = metas
+      .filter(meta => meta && !sessionMetaIsSteward(meta) && (meta.missionId || meta.id) === stewardResolveMissionId)
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    for (const meta of siblings) {
+      const fromSibling = await stewardInheritableCwd(meta.cwd);
+      if (fromSibling) return { ok: true, cwd: fromSibling, source: 'mission_thread' };
+    }
+  }
+  // ④ 都没有 → 新开(调用方派生)。
+  return { ok: true, cwd: undefined, source: 'new' };
+}
+
+// W7:事项容器第一次有了工作区,就记下来(之后这个事项里新开的线程走选择顺序第 ② 步)。
+// 只在容器存在、且还没记过时写 —— 用户或早先那条线程定下的,不覆盖。失败吞掉:这是旁路记账,
+// 线程已经开成了,不能因为记不下事项的工作区就让整次调用失败。
+async function stewardRecordMissionWorkspace(stewardRecordMissionId, stewardRecordCwd) {
+  const id = safeSessionId(stewardRecordMissionId);
+  const cwd = stewardCanonWorkspacePath(stewardRecordCwd);
+  if (!id || !cwd) return false;
+  try {
+    return await withMissionContainerLock(id, async () => {
+      const current = await readMissionContainer(id);
+      if (!current || String(current.cwd || '').trim()) return false;
+      await writeMissionContainer(Object.assign({}, current, { cwd }));
+      return true;
+    });
+  } catch { return false; }
+}
+
 // ── 117w-W1 提交②(27 号文 §11.19.2「子工作区派生」)────────────────────────────────────────
-// 三态里的第 ② 态从「照旧回落 defaultWorkspace」改成【在 Ruyi 根下派生一条属于这条线程自己的
-// 子工作区】。病灶是用户看到的那句「同一个文件夹被占着」:出厂 defaultWorkspace 就是主目录,
-// 管家读不到工作区表所以从不传 cwd,于是十几条线程全挤在主目录根上 —— 而仓里自己的 03 cwdWarning
-// 恰恰把「cwd 落在主目录根」判成最高风险目标。
-//
-// 为什么不是「与工作区无关就用 `~`」(§11.19.3):① 那正是守卫警告的地方;② 「英伟达分析」这类
-// 研究线程要写报告、要存抓下来的数据,它需要一个自己的目录,而不是散在主目录里;③ 多留一个 `~`
-// 出口只会给幻觉一条合法的逃生路。
+// 选择顺序第 ④ 步:在 Ruyi 根下派生一条属于这条线程自己的子工作区。病灶是用户看到的那句「同一个
+// 文件夹被占着」:出厂 defaultWorkspace 就是主目录,十几条线程全挤在主目录根上 —— 而仓里自己的
+// 03 cwdWarning 恰恰把「cwd 落在主目录根」判成最高风险目标。
+// W7:派生出来的目录登记进如意自己那张表(stewardManagedWorkspaces),不再进常用工作区。
 const STEWARD_WORKSPACE_SLUG_MAX = 64;          // 目录名截到 64 字符(保留中文,只做文件系统安全处理)
 const STEWARD_WORKSPACE_DERIVE_TRIES = 50;      // 撞名后缀上限:slug、slug-2 … slug-50
-const STEWARD_WORKSPACE_DERIVE_NOTE = 'Ruyi 自动开的';   // 写进 workspaces[].note,用户一眼看出这行是谁加的
 
 // 标题 → 目录名。非法字符表【复用 04 的 sanitizeFsSegmentName】(提交② 把 makeAttachmentRecord 里
 // 那条内联正则抽成了函数),这里不另写第二份 —— 两处分叉的后果是「附件名安全、目录名不安全」。
@@ -112,9 +258,8 @@ function stewardWorkspaceSlug(stewardSlugTitle, stewardSlugSessionId) {
 // 撞名规则(§11.19.2):不存在 → 建它;已存在且【空】→ 直接复用(同一件事重开线程不该长出第二个
 // 空壳);已存在且【非空】→ 试 -2、-3…。同名的是文件、或读不动 → 换下一个后缀(开线程不该因为
 // 用户在 Ruyi 根下放了个同名文件就失败)。试满上限返回 dir:'' = 「没派生成」,调用方保持修前的回落链。
-// 返回值为什么带 created(117w-W1④ 小刀):建目录已经搬进 mutateConfig 的串行段(见下面的
-// stewardClaimDerivedWorkspace),失败回滚时只许删【本次新建】的那个目录 —— 复用来的空目录可能是
-// 用户自己建的,删它就是删用户的东西。
+// 返回值带 created(117w-W1④ 小刀):建目录在 mutateConfig 的串行段里,失败回滚时只许删【本次新建】
+// 的那个目录 —— 复用来的空目录可能是用户自己建的,删它就是删用户的东西。
 async function stewardDeriveWorkspaceDir(stewardDeriveRoot, stewardDeriveSlug) {
   for (let attempt = 1; attempt <= STEWARD_WORKSPACE_DERIVE_TRIES; attempt++) {
     const dir = path.join(stewardDeriveRoot, attempt === 1 ? stewardDeriveSlug : `${stewardDeriveSlug}-${attempt}`);
@@ -140,58 +285,50 @@ async function stewardDiscardDerivedWorkspaceDir(stewardDiscardDir) {
   try { await fsp.rmdir(stewardDiscardDir); } catch { /* 非空,或已经被别人删了 */ }
 }
 
-// 把派生出来的目录【帽检查 + 建目录 + 登记】做成一件事,整件坐在 mutateConfig 的串行段里。
-// 前身 stewardRegisterDerivedWorkspace 有三处病灶(27 号文 §11.19.9 债表,本刀要还的就是这三条):
-//  · 帽检查(在调用方、开线程之前)与 append(在这里)之间有一段窗口:两条线程在 63 行时同时过预检
-//    → 两次 append → 65 行 → 下一次 normalizeConfig 截一行 ——「目录建了、行没了」;
-//  · 建目录在登记【之前】,登记失败(或吞掉失败)那一刻目录已经躺在那儿了;
-//  · catch { return false } 把写失败吞了 —— 派生的成功不以「行落盘」为条件。
-// 收进同一个临界区之后口径只有一句:【要么行落盘,要么拒】。四步全在锁内,后到的线程重读的是
-// 【含先到者那一行】的表(01-config 的 mutateConfig 是「读 -> mutator -> 写」的唯一临界区),
-// 帽检查算的是真值,不是预检时那份可能已经过期的副本。
-// 【与派单稿的一处出入,如实记】派单写「占位成功后才建目录」,本实现是「同一临界区内先建目录、
-// 再 append 行、再落盘」。理由:反过来做的话,落盘失败要回滚的是【已经写进配置的那一行】,而那一行
-// 在两段临界区之间是别人读得到的中间态(表里有行、目录不存在,拿它当 cwd 会失败);同段内建目录
-// 只需在失败时删掉本次新建的那个空目录,不会留下任何别人看得见的中间态。不变量与派单同口径。
+// 把派生出来的目录【建目录 + 登记】做成一件事,整件坐在 mutateConfig 的串行段里(01-config 的
+// mutateConfig 是「读 -> mutator -> 写」的唯一临界区),口径只有一句:【要么行落盘,要么不算派生成】。
 // 为什么把文件 I/O 放进配置临界区:目录就一个,readdir/mkdir 是本地快操作;换来的是「占位与建目录
-// 之间不存在窗口」这一条不变量。撞名试满 50 个后缀仍是快路径,不构成实际阻塞源。
-// 返回:派生好的绝对路径,或 ''(根不可用/表满/撞名试满/写失败)。返回 '' 时调用方保持修前的回落链。
+// 之间不存在窗口」这一条不变量。
+// W7:登记的是 stewardManagedWorkspaces(如意自己那张表),不再往 workspaces[] 追加 —— 那张表就是
+// 用户的常用工作区。因此 117w-W1④ 那道「常用工作区表满了就拒开线程」的帽检查也一并退役:派生从此
+// 不占常用工作区的行;如意那张表满了由 01-config 从最老的一行起丢(STEWARD_MANAGED_WORKSPACES_CAP),
+// 新登记的这一行永远在尾部,不会被丢。
+// 返回:派生好的绝对路径,或 ''(撞名试满/写失败)。返回 '' 时调用方保持修前的回落链。
 async function stewardClaimDerivedWorkspace(stewardClaimRoot, stewardClaimSlug) {
   let builtDir = '';       // 本次 mkdir 出来的目录(回滚目标);复用已有空目录时永远留空
   let claimedDir = '';
   let claimedKey = '';
   let outcome = null;
+  const keyOf = row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path));
   try {
     outcome = await mutateConfig(async current => {
-      const rows = Array.isArray(current.workspaces) ? current.workspaces : [];
-      // ① 帽检查:与两个工具入口的预检共用同一份判据(预检到这一刻之间表可能被别的线程填满)。
-      if (stewardWorkspaceTableFull(current)) return { abort: 'table_full' };
-      // ② 占目录。占不到(撞名试满)= 拒,不留任何东西 —— 失败不建目录这条就落在这里。
+      // ① 占目录。占不到(撞名试满)= 不派生,不留任何东西。
       const claimed = await stewardDeriveWorkspaceDir(stewardClaimRoot, stewardClaimSlug);
       if (!claimed.dir) return { abort: 'no_dir' };
       claimedDir = claimed.dir;
       if (claimed.created) builtDir = claimed.dir;
       claimedKey = stewardFoldWorkspacePath(stewardCanonWorkspacePath(claimed.dir));
       if (!claimedKey) return { abort: 'no_dir' };
-      // 已经登记过(同一件事重开线程) -> 不写盘;但那一行【在盘上】,照样算派生成功(见下面的 landed)。
-      if (rows.some(row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path)) === claimedKey)) return { abort: 'exists' };
-      // ③ 追加在【末尾】。01-config 的清洗把 defaultWorkspace 与 workspaces[0].path 保持同步,
-      //    插在头上等于悄悄换掉用户的默认工作区。
-      // 这是工作台写自己的配置,不经 steward_config_set,所以不违反 workspaces 的 forbidden 档。
-      current.workspaces = rows.concat([{
-        path: claimed.dir, read: true, write: true, execute: true, note: STEWARD_WORKSPACE_DERIVE_NOTE,
-      }]);
+      // ② 已经登记过(同一件事重开线程复用了空目录;或用户早把它加进了常用)-> 不写盘,那一行在盘上。
+      const userRows = Array.isArray(current.workspaces) ? current.workspaces : [];
+      const managed = Array.isArray(current.stewardManagedWorkspaces) ? current.stewardManagedWorkspaces : [];
+      if (userRows.some(row => keyOf(row) === claimedKey) || managed.some(row => keyOf(row) === claimedKey)) return { abort: 'exists' };
+      // ③ 追加在如意那张表的【末尾】(= 最新;01-config 满员时从头部丢)。
+      // 这是工作台写自己的配置,不经 steward_config_set,所以不违反这张表的 forbidden 档。
+      current.stewardManagedWorkspaces = managed.concat([{ path: claimed.dir, at: nowIso() }]);
       return {};
     });
   } catch {
-    // ④ 落盘抛了(磁盘满/文件只读/降级期):行没落盘 —— 删掉本次新建的目录,拒。
+    // ④ 落盘抛了(磁盘满/文件只读/降级期):行没落盘 —— 删掉本次新建的目录,不算派生成。
     await stewardDiscardDerivedWorkspaceDir(builtDir);
     return '';
   }
-  // 成功判据是【写完之后那份配置里真有这一行】,不是 mutator 说了什么。下面这行杜绝「行被清洗截掉
-  // 而我们还以为派生成了」—— 那正是本刀要治的形状。
-  const landed = !!(outcome && claimedKey && Array.isArray(outcome.config && outcome.config.workspaces)
-    && outcome.config.workspaces.some(row => stewardFoldWorkspacePath(stewardCanonWorkspacePath(row && row.path)) === claimedKey));
+  // 成功判据是【写完之后那份配置里真有这一行】(两张表任一),不是 mutator 说了什么。
+  const cfg = outcome && outcome.config;
+  const landed = !!(cfg && claimedKey && [
+    ...(Array.isArray(cfg.workspaces) ? cfg.workspaces : []),
+    ...(Array.isArray(cfg.stewardManagedWorkspaces) ? cfg.stewardManagedWorkspaces : []),
+  ].some(row => keyOf(row) === claimedKey));
   if (!landed) {
     await stewardDiscardDerivedWorkspaceDir(builtDir);
     return '';
@@ -199,26 +336,7 @@ async function stewardClaimDerivedWorkspace(stewardClaimRoot, stewardClaimSlug) 
   return claimedDir;
 }
 
-// ── 117w-W1④(27 号文 §11.19.8 债表第一行):派生前的帽检查,fail-closed ────────────────
-// 病灶:01-config 对 workspaces[] 有行数上限(WORKSPACE_TABLE_CAP)。表已经满员时,派生仍然会
-// 建目录、仍然会 append 一行,而下一次 normalizeConfig 把那一行截掉 —— 目录建了、行没了,线程的
-// cwd 于是指向一个【表外】目录,再拿它当 cwd 会被上面的 stewardValidateCwd 拒。
-// 裁决:派生【之前】先算「追加后会不会超帽」,会超就拒开线程,不建目录、不写表。
-// 二者必居其一:要么行落盘,要么这条线程根本没开 —— 不许有中间态。
-// 保守之处如实记:表满时哪怕这条标题会【复用】表里已有的那一行(撞名复用、不会真 append),
-// 这里也一律拒。判「会不会复用」得先落地目录才知道,那正是要避免的顺序。
-// 三处调用:thread_new / quick_ask 在【开线程之前】各一次(下面的),加上 stewardClaimDerivedWorkspace
-// 串行段里的复检那一次(预检到占位之间表可能被别的线程填满)。共用这一份,与 stewardValidateCwd
-// 同一纪律,不许各抄一遍。
-function stewardWorkspaceTableFull(stewardCapConfig) {
-  const rows = Array.isArray(stewardCapConfig && stewardCapConfig.workspaces) ? stewardCapConfig.workspaces : [];
-  if (rows.length + 1 <= WORKSPACE_TABLE_CAP) return null;
-  return stewardFail('invalid_request',
-    `工作区表已满(${rows.length}/${WORKSPACE_TABLE_CAP}),开不了新线程:省掉 cwd 的线程要在 Ruyi 根下派生一个属于它自己的工作区,而表已经放不下这一行。请让用户到设置里删掉不用的工作区;或者这一次直接指定一个表里现成的 cwd。不要重试同一个调用。`,
-    { reason: 'workspace_table_full' });
-}
-
-// 三态第 ② 态的入口。返回派生好的绝对路径,或 ''(根不可用/表满/撞名试满/写失败)—— 返回 '' 时调用方
+// 选择顺序第 ④ 步的入口。返回派生好的绝对路径,或 ''(根不可用/撞名试满/写失败)—— 返回 '' 时调用方
 // 保持修前的回落链(createSession 的 `cwd || defaultWorkspace || homedir`),绝不拿一个假路径去跑。
 async function stewardDeriveThreadCwd(stewardDeriveTitle, stewardDeriveSessionId, stewardDeriveConfig) {
   const root = stewardCanonWorkspacePath(stewardDeriveConfig && stewardDeriveConfig.stewardWorkspaceRoot);
@@ -270,6 +388,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
     return missionTitles.get(missionId);
   };
   const results = [];
+  const knownForNames = stewardKnownWorkspaces(config);   // W7:结果行带工作区名字,整次调用只算一次清单
   for (const row of ranked) {
     if (results.length >= limit) break;
     const head = await stewardReadSessionHead(row.id);
@@ -294,6 +413,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
         ? deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true })
         : deriveStewardThreadState({ kind: 'mission' }));
     const missionId = (slice && slice.missionId) || (head && sessionMissionId(head)) || row.id;
+    const wsName = stewardWorkspaceNameOf(meta.cwd || (head && head.cwd), config, knownForNames);
     results.push({
       sessionId: row.id,
       missionId,
@@ -308,6 +428,8 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       lastAssistantText: stewardClipSay(meta.summary || (head && head.summary) || ''),
       updatedAt: String(meta.updatedAt || (head && head.updatedAt) || ''),
       score: Number(row.score) || 0,
+      // W7:它在哪个工作区里(已知工作区的名字;不在任何一个里给末段名)。只加字段,缺 cwd 时不出现。
+      ...(wsName ? { workspace: wsName.name } : {}),
     });
   }
   return { ok: true, query: q, results, indexed, ...(degraded ? { degraded } : {}) };
@@ -354,7 +476,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
   // 116g:这条线程属于哪个【事项】,以及那个事项整体是什么状态(由 06i 的 aggregateMissionState 单点
   // 纯函数按全部子线程五态算出;未归类事项 = 只有它自己一条线程,聚合态就等于自己的五态)。
   const missionOfThread = sessionMissionId(head) || sessionId;
-  const missionRow = (await buildMissionAggregateRows({ includeArchived: true }).catch(() => null) || { rows: [] })
+  const missionRow = (await buildMissionAggregateRows({ includeArchived: true, config }).catch(() => null) || { rows: [] })
     .rows.find(row => row.missionId === missionOfThread) || null;
   return {
     ok: true,
@@ -366,8 +488,13 @@ async function stewardImplThreadStatus(args, ctx, config) {
       aggregateState: missionRow ? missionRow.aggregateState : derived.state,
       threadCount: missionRow ? missionRow.threadCount : 1,
       derived: missionRow ? missionRow.derived : true,
+      // W7:事项的工作区(名字与出身,同本函数顶层的 workspace 口径)。
+      workspace: missionRow && missionRow.workspace ? stewardWorkspaceNameOf(missionRow.workspace.path, config) : null,
     },
     title: stewardSanitizeText(head.title || ''),
+    // W7:它在哪个工作区里 —— { name, ruyiOwned }(name 是已知工作区清单里的那个名字,可以原样填回
+    // steward_thread_new 的 cwd;ruyiOwned = 如意自己开的文件夹)。缺 cwd 时为 null。只加字段。
+    workspace: stewardWorkspaceNameOf(head.cwd, config),
     kind: rawKind,
     state: derived.state,
     stateLabel: derived.label,
@@ -641,30 +768,28 @@ async function stewardImplThreadNew(args, ctx, config) {
     : brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
   if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
-  // 117w-W1 ①:cwd 三态校验(见文件头的 stewardValidateCwd)。表外一律拒,不静默回落。
-  const cwdCheck = stewardValidateCwd(args.cwd, config);
-  if (!cwdCheck.ok) return cwdCheck.fail;
-  // 117w-W1④:省略 cwd = 待会儿要派生一行,表满就【在开线程之前】拒(见 stewardWorkspaceTableFull)。
-  // 位置在 createSession 之前:拒的是「开线程」,不是「开完再回滚」。
-  if (cwdCheck.cwd === undefined) {
-    const capFail = stewardWorkspaceTableFull(config);
-    if (capFail) return capFail;
-  }
+  // W7:cwd 选择顺序(见文件头 stewardResolveThreadCwd):明确给的 > 事项记着的 > 相关线程的 > 新开。
+  // 给了但不合法(已知工作区之外的 cwd、不存在的 relatedSessionId)一律拒,不静默回落;排在 createSession
+  // 之前:拒的是「开线程」,不是「开完再回滚」。
+  const cwdPick = await stewardResolveThreadCwd(args, config, requestedMissionId);
+  if (!cwdPick.ok) return cwdPick.fail;
 
   const session = await createSession({
     title: args.title ? String(args.title).slice(0, STEWARD_TITLE_MAX) : undefined,
-    cwd: cwdCheck.cwd,
+    cwd: cwdPick.cwd,
     // 121-K3(§4.1 来源三值):出身在 createSession 那一次写死。与下面的 createdBy 是两个字段、
     // 一个事实的两面 —— createdBy 是权限判据(桌面权限只开给管家自己开的线程),origin 是展示与
     // 索引口径(界面上的来源图形)。不合并成一个:前者是布尔语义的闸,后者要三值。
     origin: 'steward',
   });
-  // 117w-W1 ②:省略 cwd → 在 Ruyi 根下派生子工作区(三态的第 ② 态)。写在 createSession 之后是为了
-  // 拿到真线程 id(标题为空时 slug 要回落到它),改的是内存副本,跟着下面那一次 saveSession 一起落盘,
-  // 零额外写。派生不成(根不可用/撞名试满)就保持 createSession 刚落的回落值 = 修前行为。
-  if (cwdCheck.cwd === undefined) {
+  // 选择顺序第 ④ 步:在 Ruyi 根下派生子工作区,登记进如意自己那张表(不进常用工作区)。写在 createSession
+  // 之后是为了拿到真线程 id(标题为空时 slug 要回落到它),改的是内存副本,跟着下面那一次 saveSession
+  // 一起落盘,零额外写。派生不成(根不可用/撞名试满/写失败)就保持 createSession 刚落的回落值。
+  let cwdSource = cwdPick.source;
+  if (cwdPick.cwd === undefined) {
     const derivedCwd = await stewardDeriveThreadCwd(args.title, session.id, config);
     if (derivedCwd) session.cwd = derivedCwd;
+    else cwdSource = 'default';
   }
   session.kind = 'mission';                                   // 线程 = 任务线程(不是速问)
   session.launchedBy = 'steward';                             // 116-4:收件箱第四源的「管家关心」标
@@ -701,6 +826,9 @@ async function stewardImplThreadNew(args, ctx, config) {
   // 116g:显式指定了事项就写反向索引(事项文件不存在 = 「未归类」,missionIndexAdd 自身 no-op ——
   // 新会话的 missionId === sessionId 那条常规路径永远不会凭空建出一个事项文件)。
   if (requestedMissionId) await missionIndexAdd(requestedMissionId, session.id);
+  // W7:事项第一次有了工作区就记进事项容器(之后这个事项里开的线程走选择顺序第 ② 步)。
+  // 回落到默认工作区的那一次不记 —— 那不是谁选的,是派生失败的兜底。
+  if (requestedMissionId && cwdSource !== 'default') await stewardRecordMissionWorkspace(requestedMissionId, session.cwd);
 
   stewardLaunchTurn({
     sessionId: session.id,
@@ -719,6 +847,9 @@ async function stewardImplThreadNew(args, ctx, config) {
     args: {
       title: session.title, missionId: session.missionId, briefChars: composed.text.length,
       supplementChars: composed.supplement.length, truncated: composed.truncated, tier: tiered.tier,
+      // W7:目录是怎么选出来的(explicit/mission/related/mission_thread/new/default)——行动流水事后
+      // 答得出「为什么这条线程开在这儿」。只记来源不记全路径(决策日志也进管家的上下文)。
+      cwdSource,
       // 129h:跑过 playbook 的那一次,行动流水要看得出来是【哪一个】、正文有多长 ——
       // 「管家自己起了一条线程」与「管家按你存下的那个流程起了一条线程」是两件事。
       ...(pbResolved ? { playbookId: pbResolved.id, playbookChars: pbResolved.text.length } : {}),
@@ -731,6 +862,8 @@ async function stewardImplThreadNew(args, ctx, config) {
   });
   return {
     ok: true, sessionId: session.id, missionId: sessionMissionId(session), title: session.title,
+    // W7:开在哪个工作区(名字,不给全路径)、为什么开在那儿。
+    workspace: (stewardWorkspaceNameOf(session.cwd, config) || { name: '' }).name, cwdSource,
     briefTruncated: composed.truncated, tier: tiered.tier, engine: tiered.engine, undoRef,
     ...(pbResolved ? { playbook: { id: pbResolved.id, title: pbResolved.title, chars: pbResolved.text.length } } : {}),
   };
@@ -1051,11 +1184,14 @@ async function stewardImplThreadRename(args, ctx, config) {
 async function stewardImplThreadWorkspace(args, ctx, config) {
   const sessionId = safeSessionId(args && args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const want = String((args && args.cwd) || '').trim();
-  if (!want) return stewardFail('invalid_request', 'cwd is required');
+  const wantRaw = String((args && args.cwd) || '').trim();
+  if (!wantRaw) return stewardFail('invalid_request', 'cwd is required');
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session has no working folder to change');
+  // W7:与 thread_new 同一口径 —— 已知工作区清单里的【名字】也收(上下文里给的就是名字),先换成那一行的路径。
+  const knownHit = stewardMatchKnownWorkspace(wantRaw, stewardKnownWorkspaces(config));
+  const want = knownHit ? knownHit.path : wantRaw;
   // 围栏:只认已登记工作区(判据单点在 06i,与 steward_file_read 同一个函数)。
   const root = stewardWorkspaceRootFor(want, config);
   if (!root) {
@@ -1240,29 +1376,26 @@ async function stewardImplQuickAsk(args, ctx, config) {
   if (question.length > STEWARD_QUICK_QUESTION_CHARS) {
     return stewardFail('invalid_request', `question must be at most ${STEWARD_QUICK_QUESTION_CHARS} characters`);
   }
-  // 117w-W1 ①:与 thread_new 共用同一份 cwd 三态校验(见文件头的 stewardValidateCwd)。
-  // 排在配额之前:参数不合法不该烧掉本回合的速查名额(与上面 question 的两道校验同一位置)。
-  const quickCwdCheck = stewardValidateCwd(args.cwd, config);
-  if (!quickCwdCheck.ok) return quickCwdCheck.fail;
-  // 117w-W1④:与 thread_new 同一口径 —— 省略 cwd 且表已满就拒。同样排在配额【之前】:
-  // 开不成的线程不该烧掉本回合的速查名额。
-  if (quickCwdCheck.cwd === undefined) {
-    const quickCapFail = stewardWorkspaceTableFull(config);
-    if (quickCapFail) return quickCapFail;
-  }
+  // W7:与 thread_new 共用同一条 cwd 选择顺序(见文件头 stewardResolveThreadCwd;速查线程不进事项,
+  // 所以没有事项那两步)。排在配额之前:参数不合法不该烧掉本回合的速查名额。
+  const quickCwdPick = await stewardResolveThreadCwd(args, config, '');
+  if (!quickCwdPick.ok) return quickCwdPick.fail;
   if (!stewardTurnQuotaTake('quick_ask', ctx, STEWARD_QUICK_ASKS_PER_TURN)) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }
   const session = await createSession({
     title: question.slice(0, STEWARD_TITLE_MAX),
-    cwd: quickCwdCheck.cwd,
+    cwd: quickCwdPick.cwd,
     origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });
-  // 117w-W1 ②:与 thread_new 同一口径 —— 省略 cwd 就派生子工作区。速查线程的「标题」就是问题原话
-  // 的前 N 个字,slug 自己会截到 64;答完就收工的线程也照样给它一个自己的目录(它可能下载了东西)。
-  if (quickCwdCheck.cwd === undefined) {
+  // 选择顺序第 ④ 步:与 thread_new 同一口径。速查线程的「标题」就是问题原话的前 N 个字,slug 自己会
+  // 截到 64;答完就收工的线程也照样给它一个自己的目录(它可能下载了东西)—— 登记在如意自己那张表里,
+  // 不进用户的常用工作区。
+  let quickCwdSource = quickCwdPick.source;
+  if (quickCwdPick.cwd === undefined) {
     const quickDerivedCwd = await stewardDeriveThreadCwd(question, session.id, config);
     if (quickDerivedCwd) session.cwd = quickDerivedCwd;
+    else quickCwdSource = 'default';
   }
   session.kind = STEWARD_QUICK_KIND;
   // 116-5a:速查线程建出来时 title 是【问题原话的前 N 个字】,那不是「人给的名字」而恰恰是本波要
@@ -1304,14 +1437,17 @@ async function stewardImplQuickAsk(args, ctx, config) {
   const undoRef = { kind: 'thread_new', sessionId: session.id, rewindTargetTurnSeq: (Number(session.turnSeq) || 0) + 1 };
   stewardAppendDecision({
     tool: 'steward_quick_ask',
-    args: { chars: question.length, tier: quickTier.tier },
+    args: { chars: question.length, tier: quickTier.tier, cwdSource: quickCwdSource },
     targetSessionId: session.id,
     permissionMode: stewardThreadPermissionMode(session, config),
     mayAct: 'auto',
     undoRef,
     basis: stewardBasisOf(args),
   });
-  return { ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef };
+  return {
+    ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef,
+    workspace: (stewardWorkspaceNameOf(session.cwd, config) || { name: '' }).name, cwdSource: quickCwdSource,   // W7:同 thread_new
+  };
 }
 
 // ── 收件箱增强(13i 每轮落盘前调,经 StewardHooks 延迟绑定)──────────────────────────────────

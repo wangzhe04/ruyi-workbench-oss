@@ -360,10 +360,10 @@ async function schedulerCommitmentsSince(schedSinceFireSeq, schedNowMs) {
 //     表里有、磁盘上被人删了 → 原地把这个空文件夹建回来再复用(路径本来就是这里派生、表里授权过的那一个;
 //     不建的话线程的工具全在一个不存在的目录里失败);
 //   · 否则(首次触发 / 用户把那一行从表里删了)→ 照 thread_new 省略 cwd 的既有行为派生:在 Ruyi 根下按
-//     任务标题开文件夹并登记进候选表(stewardDeriveThreadCwd,建目录与登记是一件事),路径记进 task.workdir。
-//     **按任务固定,不按次派生**:每日任务第二次触发不会长出 `-2` 目录、也不会再占一行候选表(上限 64 行,
-//     与管家线程共用 —— 表满时派生返回空,等锁问题就复发了);
-//   · 表满 / 根不可用 / 派生失败 / 意外异常 → session.cwd 保持 createSession 落的 defaultWorkspace,回
+//     任务标题开文件夹并登记进如意自己那张表(stewardDeriveThreadCwd,建目录与登记是一件事;W7 起不进用户的常用工作区),路径记进 task.workdir。
+//     **按任务固定,不按次派生**:每日任务第二次触发不会长出 `-2` 目录、也不会在如意那张表里
+//     多登记一行;
+//   · 根不可用 / 派生失败 / 意外异常 → session.cwd 保持 createSession 落的 defaultWorkspace,回
 //     workdir:'fallback' 让 13s 记一条日志,触发本身照跑。
 // 为什么住这里:13s 直调 13k 会把 13k 拉进环;13t → 13k / 06i / 00-boot 都是既有的后向边,零新增边。
 // ────────────────────────────────────────────────────────────────────────────
@@ -401,7 +401,7 @@ async function schedulerPrepareThread(schedRow) {
         return { ...outcome, workdir: 'reused' };
       }
     }
-    if (stewardWorkspaceTableFull(config)) return fallback('table_full');
+    // W7:派生登记进如意自己那张表(不占常用工作区的行),「常用工作区表满」那道回落随之退役。
     if (!stewardCanonWorkspacePath(config.stewardWorkspaceRoot)) return fallback('no_root');
     const derived = await stewardDeriveThreadCwd(task.title, session.id, config);
     if (!derived) return fallback('derive_failed');

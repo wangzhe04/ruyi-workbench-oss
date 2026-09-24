@@ -319,40 +319,109 @@ function stewardOverviewBlock(rows, pack) {
   return out.join('\n');
 }
 
-// 117w-W1 提交③(27 号文 §11.19.2):工作区候选表的【只读投影】。
+// 117w-W1 提交③(27 号文 §11.19.2):工作区候选表的【只读投影】。W7 起升级成【已知工作区】清单。
 //
 // 为什么它必须存在:workspaces 在 06i 的 forbidden 清册里,管家从来读不到有哪些工作区,于是它从不
 // 传 cwd,一切落到默认工作区 —— 而出厂 defaultWorkspace 就是主目录。用户看到的「同一个文件夹被
-// 占着」是这么来的。提交① 装了门(表外一律拒),提交② 给了省略时的出路(派生),这一段给的是
-// 「有得可选」:没有它,管家永远不知道表里有什么,门与出路都用不上。
+// 占着」是这么来的。
+// W7(用户 2026-09-24「管家需要把工作区和任务联系起来,有时候很多任务应该在特定工作区开的,管家会
+// 新开工作区」):光有末段名不够 —— ① 校验只收绝对路径,模型照表填名字一律被拒;② 名字说不出「这个
+// 文件夹是干什么的」,模型没法把「帮我再跑一遍那个测试」对到某个仓库上。所以每行现在带:名字(cwd
+// 能原样填回去的那个值,13k stewardKnownWorkspaces 造、stewardMatchKnownWorkspace 收)、标记(默认 /
+// 只读 / 我开的 / 用户写的备注)、最近在那儿做过的几件事(线程显示名 + 所属事项)。
 //
 // 为什么它只能是投影:看得见 ≠ 改得了。三个键(workspaces / stewardWorkspaceRoot / defaultWorkspace)
 // 仍然全是 forbidden,steward_config_set 一个都改不了。两道闸不合成一道。
 //
-// 三条硬纪律(与 06b 那几行的头注同一份,谁改都要一起守):
-//   ① 只投影【末段名 + note + 只读标】。全路径不进(围栏信息),更不许出现 allowOutsideWorkspace /
+// 硬纪律(与 06b 那几行的头注同一份,谁改都要一起守):
+//   ① 只投影【名字 + 标记 + 线程名】。全路径不进(围栏信息),更不许出现 allowOutsideWorkspace /
 //      additionalDirectories 这类围栏字段 —— 管家看得见围栏开关就等于知道往哪推。
-//   ② 数据源只有 config.workspaces。recentWorkspaces 【不进表】:打开过 ≠ 授权过。
-//   ③ 预算与线程总览同一套写法:超出 STEWARD_WORKSPACE_TABLE_MAX 折叠成一句「另有 N 个未列出」,
-//      不截断 —— 截断会让模型以为表就那么长,折叠句让它知道「还有,问用户要」。
-//   ④「只读」标来自 write === false(§11.19.7 裁决:校验层先不拒,但要让管家看得见,免得它把
-//      写活派进一个只能读的文件夹)。判据写死 `=== false`:缺字段的老配置默认可写,不能反过来。
+//   ② 数据源只有 config.workspaces 与如意自己那张表(stewardManagedWorkspaces)。recentWorkspaces
+//      【不进】:打开过 ≠ 授权过。线程只用来【注解】已知工作区,落在已知工作区之外的线程不生出新行。
+//   ③ 预算:行数上限读 STEWARD_WORKSPACE_TABLE_MAX(与 13k 拒绝文案同一个数),另有 06i 的
+//      STEWARD_KNOWN_WORKSPACE_LIMITS(每行几条线程、线程名多长、一行多长、整块多长)。超出折叠成一句
+//      「另有 N 个未列出」,不截断 —— 截断会让模型以为清单就那么长。
+//   ④「只读」标来自 write === false(§11.19.7 裁决)。判据写死 `=== false`:缺字段的老配置默认可写。
+//
+// 排序:默认工作区永远第一行;其余按「最近在那儿干过活」的先后;从没干过活的排最后(用户的按表里的
+// 优先级,我开的按新到旧)。我开的文件夹若已经不在磁盘上、也没有线程,整行不出(那只是一条陈旧登记)。
+async function stewardKnownWorkspaceRows(config) {
+  const known = stewardKnownWorkspaces(config);
+  if (!known.length) return [];
+  const metas = await listSessions().catch(() => []);
+  const byPath = new Map(known.map(row => [stewardFoldWorkspacePath(row.path), { ...row, threads: [], lastActive: '' }]));
+  const keys = [...byPath.keys()].sort((a, b) => b.length - a.length);   // 最长前缀优先:子目录归最近的那个根
+  for (const meta of (Array.isArray(metas) ? metas : [])) {
+    if (!meta || sessionMetaIsSteward(meta)) continue;
+    const canon = stewardCanonWorkspacePath(meta.cwd);
+    if (!canon) continue;
+    const key = stewardFoldWorkspacePath(canon);
+    const owner = keys.find(k => key === k || key.startsWith(k + path.sep) || key.startsWith(k + '/'));
+    if (!owner) continue;
+    byPath.get(owner).threads.push(meta);
+  }
+  const missionTitles = new Map();
+  const missionTitleOf = async (missionId, sessionId) => {
+    if (!missionId || missionId === sessionId) return '';     // 未归类事项的标题就是线程标题,不重复说
+    if (!missionTitles.has(missionId)) {
+      const container = await readMissionContainer(missionId).catch(() => null);
+      missionTitles.set(missionId, container ? String(container.title || '') : '');
+    }
+    return missionTitles.get(missionId);
+  };
+  const rows = [];
+  for (const row of byPath.values()) {
+    row.threads.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    row.lastActive = row.threads.length ? String(row.threads[0].updatedAt || '') : '';
+    if (row.owned && !row.threads.length) {
+      const alive = await fsp.stat(row.path).then(stat => stat.isDirectory(), () => false);
+      if (!alive) continue;
+    }
+    const shown = [];
+    for (const meta of row.threads.slice(0, STEWARD_KNOWN_WORKSPACE_LIMITS.threadsPerRow)) {
+      shown.push({ title: sessionDisplayTitle(meta) || meta.title || '', missionTitle: await missionTitleOf(meta.missionId, meta.id) });
+    }
+    rows.push({ label: row.label, isDefault: row.isDefault, write: row.write, note: row.note, owned: row.owned, user: row.user, lastActive: row.lastActive, threads: shown });
+  }
+  const tail = row => (row.user ? 0 : 1);
+  rows.sort((a, b) => (Number(b.isDefault) - Number(a.isDefault))
+    || (Number(Boolean(b.lastActive)) - Number(Boolean(a.lastActive)))
+    || String(b.lastActive).localeCompare(String(a.lastActive))
+    || (tail(a) - tail(b)));
+  return rows;
+}
+
 function stewardWorkspaceTableBlock(stewardWorkspaceRows, pack) {
   const rows = Array.isArray(stewardWorkspaceRows) ? stewardWorkspaceRows : [];
+  const limits = STEWARD_KNOWN_WORKSPACE_LIMITS;
+  const clip = (value, max) => {
+    const s = stewardSanitizeText(String(value == null ? '' : value)).trim();
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  };
   const lines = [];
+  let used = 0;
   let folded = 0;
   for (const row of rows) {
-    const raw = String((row && row.path) || '').trim();
-    if (!raw) continue;
+    const name = stewardSanitizeText(String((row && row.label) || '')).trim();
+    if (!name) continue;
     if (lines.length >= STEWARD_WORKSPACE_TABLE_MAX) { folded += 1; continue; }
-    // 末段名:先剥尾部斜杠(`C:\work\` 的 basename 是 'work',但 `C:\` 的是空)—— 剥完为空就退回
-    // 原样(盘符根这类没有末段名的路径,写 `C:\` 比写空字符串诚实)。
-    const name = path.basename(raw.replace(/[\\/]+$/, '')) || raw;
-    lines.push(pack.steward.workspaceRow({
-      name: stewardSanitizeText(name),
-      note: stewardSanitizeText((row && row.note) || ''),
-      readOnly: !!(row && row.write === false),
-    }));
+    const tags = [];
+    if (row.isDefault === true) tags.push(pack.steward.workspaceTagDefault);
+    if (row.write === false) tags.push(pack.steward.workspaceTagReadOnly);
+    if (row.owned === true) tags.push(pack.steward.workspaceTagMine);
+    const note = clip(row.note, 40);
+    if (note) tags.push(note);
+    const threads = (Array.isArray(row.threads) ? row.threads : [])
+      .slice(0, limits.threadsPerRow)
+      .map(t => pack.steward.workspaceThread({ title: clip(t && t.title, limits.threadTitleChars), missionTitle: clip(t && t.missionTitle, limits.threadTitleChars) }))
+      .filter(Boolean);
+    // 一行太长就先少带几条线程(话题砍整条,不砍半句);连一条都不带还超,才截名字之外的尾巴。
+    let line = pack.steward.workspaceRow({ name, tags, threads });
+    while (line.length > limits.lineChars && threads.length) { threads.pop(); line = pack.steward.workspaceRow({ name, tags, threads }); }
+    if (line.length > limits.lineChars) line = line.slice(0, limits.lineChars - 1) + '…';
+    if (used + line.length + 1 > limits.totalChars) { folded += 1; continue; }
+    lines.push(line);
+    used += line.length + 1;
   }
   const out = [pack.steward.workspaceHeader, ...(lines.length ? lines : [pack.steward.workspaceEmpty])];
   if (folded > 0) out.push(pack.steward.workspaceFolded({ workspaces: folded }));
@@ -391,8 +460,9 @@ async function buildStewardSystemPrompt(session, config, ctx) {
   try { parts.push(await stewardMemoryBlock(session, config, pack)); } catch { /* 记忆是旁路增强,缺了照常开工 */ }
   // 117w-W1 提交③:工作区候选表。与总览【同一投放位置】(易变层,拼在第一条 user 消息前缀里),
   // 排在总览之前 —— 它是「你能把活派到哪」,总览是「活现在在哪」,选目录这一步在看进度之前。
-  // 纯同步、纯投影,数据就是刚读到的 config.workspaces,不发一次 IO。
-  try { parts.push(stewardWorkspaceTableBlock(config && config.workspaces, pack)); } catch { /* 同上 */ }
+  // W7:数据是已知工作区(常用工作区 ∪ 如意自己开的)+ 会话索引里各自最近的线程;读一次会话索引,
+  // 按需读出现过的事项容器(与总览同一种按需读法)。清单是旁路增强,读不到就整段照旧给空清单的写法。
+  try { parts.push(stewardWorkspaceTableBlock(await stewardKnownWorkspaceRows(config), pack)); } catch { /* 同上 */ }
   try { parts.push(stewardOverviewBlock(await stewardThreadDigestRows(config), pack)); } catch { /* 同上 */ }
   return { stable: pack.steward.stable, volatile: parts.filter(Boolean).join('\n\n') };
 }

@@ -24,12 +24,13 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  (K) 四门:普通会话在 buildOpenAiTools / adaptive 目录 / /api/status / MCP tools/list 四处都看不到 steward_*。
 //  (N) 117w-W1 提交①②(27 号文 §11.19.4)cwd 三态:表内 -> 用表里那一行的归一化值(斜杠/大小写两种
 //      写法各一次);其它 -> invalid_request 且不静默回落(表外 / `~` / 主目录 / 只在 recentWorkspaces
-//      里的 / 相对路径),thread_new 与 quick_ask 共用一份校验;省略 -> 提交② 起在 Ruyi 根下派生
-//      <root>/<slug(标题)> 并登记进 workspaces[] 末尾(带 note),撞名 -2、空目录复用、标题全非法字符
-//      回落 thread-<id>,外加「cwdWarning 对它静默 / defaultWorkspace 没被顶掉」两条反向保护。
-//  (P) 117w-W1④(§11.19.8 债表第一行)workspaces[] 的行数帽子 20 -> 64:63 行派生成功且第 64 行
-//      落盘;64 行时派生【拒开线程】(invalid_request / workspace_table_full)、不建目录、表不动
-//      —— 二者必居其一,不许「目录建了、行没了」;25 行的表经得过清洗,折叠句因此生产可达。
+//      里的 / 不是任何名字的相对路径),thread_new 与 quick_ask 共用一份校验;W7 起清单里的【名字】也收;
+//      省略 -> 在 Ruyi 根下派生 <root>/<slug(标题)> 并登记进 stewardManagedWorkspaces(W7:不再进
+//      workspaces[] 即常用工作区),撞名 -2、空目录复用、标题全非法字符回落 thread-<id>,外加
+//      「cwdWarning 对它静默 / defaultWorkspace 没被顶掉 / 常用工作区零如意目录」反向保护。
+//  (P) 117w-W1④ workspaces[] 的行数帽子 64 仍在;W7 起派生不占那张表 —— 满员时照常派生(修前拒开线程),
+//      并发派生两行都落进如意那张表、常用工作区一行不多;落盘失败不留目录;25 行的表折叠句生产可达。
+//  (O8)W7 清单每行带最近在那儿做过的线程与默认标,尾巴给出选目录顺序。
 //
 // 端口全部 getFreePort() 动态取(run-all 端口审计口径)。判定行:`STEWARD TOOLS E2E: ALL PASS`。
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
@@ -651,17 +652,22 @@ try {
     ok(omittedCwd !== effectiveDefault, 'N2b 省略 cwd 不再落在 defaultWorkspace 上(这一刀改掉的正是它)');
     ok(fs.existsSync(omittedCwd) && fs.statSync(omittedCwd).isDirectory(), 'N2c 派生出来的目录真的建出来了');
     {
-      const rows = readCfg().workspaces;
-      const last = rows[rows.length - 1];
-      ok(last && last.path === omittedCwd && last.note === 'Ruyi 自动开的'
-        && last.read === true && last.write === true && last.execute === true,
-        `N2d 派生目录登记进 workspaces[] 【末尾】且带 note(got ${JSON.stringify(last)})`);
-      ok(rows[0].path === HOME, 'N2e 派生追加在末尾,没有顶掉 workspaces[0](defaultWorkspace 的同步源)');
+      // W7 重钉(用户 2026-09-24「如意自己开的工作区,默认不显示在常用工作区中」):派生目录登记进
+      // 如意自己那张表 stewardManagedWorkspaces,【不再】追加进 workspaces[](那张表就是常用工作区)。
+      const cfg = readCfg();
+      const managed = cfg.stewardManagedWorkspaces || [];
+      const last = managed[managed.length - 1];
+      ok(last && last.path === omittedCwd && last.adopted !== true && typeof last.at === 'string' && last.at,
+        `N2d 派生目录登记进 stewardManagedWorkspaces【末尾】(带登记时刻、未收编;got ${JSON.stringify(last)})`);
+      ok(cfg.workspaces.length === 3 && cfg.workspaces[0].path === HOME && !cfg.workspaces.some(w => w.path === omittedCwd),
+        `N2e 常用工作区(workspaces[])一行没多,用户那三行原样(got ${JSON.stringify(cfg.workspaces.map(w => w.path))})`);
     }
     // N2f —— 派生出来的路径立刻就是【表内路径】:再传一次它,走的是三态的第 ② 态而不是被拒。
     const reuseDerived = await newThread(omittedCwd, 'reuse-derived');
     ok(reuseDerived && reuseDerived.ok === true && headOf(reuseDerived.sessionId).cwd === omittedCwd,
       'N2f 派生目录进表之后,把它当 cwd 传回来 -> 命中表内(闭环)');
+    ok(reuseDerived && reuseDerived.cwdSource === 'explicit' && reuseDerived.workspace === path.basename(omittedCwd),
+      `N2g 回执带 cwdSource:'explicit' 与工作区名字(got ${JSON.stringify(reuseDerived && [reuseDerived.cwdSource, reuseDerived.workspace])})`);
 
     // N3 —— 表内路径原样:线程 cwd 就是表里那一行。
     const inTable = await newThread(WS_ALPHA, 'alpha');
@@ -708,8 +714,17 @@ try {
       `N8 只在 recentWorkspaces 里的路径 -> invalid_request(打开过 ≠ 授权过;got ${JSON.stringify(recentOnly && recentOnly.error)})`);
 
     // N9 —— 相对路径:拒。放行等于让 path.resolve 按【服务进程的 cwd】补全,那是一条无声的越权路。
-    const relative = await newThread('ws-alpha', 'rel');
-    ok(relative && relative.ok === false && relative.error === 'invalid_request', 'N9 相对路径 -> invalid_request');
+    // W7 重钉:管家上下文里给的是工作区的【名字】(末段名),修前这里却只收绝对路径 —— 模型照清单
+    // 填回来的名字全被当成相对路径拒掉,于是它永远省掉 cwd、每件事都新开文件夹(根因①)。现在名字
+    // 是合法值:按已知工作区清单查表换成那一行的绝对路径(从不经 path.resolve,越权路仍然不存在);
+    // 不是任何一个名字的相对路径照旧拒。
+    const byName = await newThread('ws-alpha', 'rel');
+    ok(byName && byName.ok === true && headOf(byName.sessionId).cwd === WS_ALPHA,
+      `N9 清单里的名字(ws-alpha)-> 换成那个工作区的绝对路径(got ${byName && byName.ok ? headOf(byName.sessionId).cwd : JSON.stringify(byName)})`);
+    const byNameCase = await newThread('WS-Beta', 'rel-case');
+    ok(byNameCase && byNameCase.ok === true && headOf(byNameCase.sessionId).cwd === WS_BETA, 'N9b 名字不分大小写(清单造名字时就按不分大小写去撞车)');
+    const relative = await newThread('ws-alpha/sub', 'rel2');
+    ok(relative && relative.ok === false && relative.error === 'invalid_request', 'N9c 不是任何一个名字的相对路径 -> invalid_request');
 
     // N10 —— quick_ask 走【同一份】校验:同样的三态,同样的稳定信封。
     const qBad = await call('steward_quick_ask', { question: 'cwd 锁:表外', cwd: path.join(HOME, 'ws-not-registered') }, stewardCtx('cwd-q1'));
@@ -747,10 +762,10 @@ try {
     ok(dup3Cwd === omittedCwd,
       `N12 第一条目录清空后再开 -> 【复用】第一条,不长 -3(want ${omittedCwd};got ${dup3Cwd})`);
     ok(!fs.existsSync(path.join(RUYI_ROOT, 'cwd 锁 omit-3')), 'N12b 没有凭空长出 -3');
-    // N12c —— 复用不重复登记:workspaces 里 <slug> 那一行仍然只有一行。
+    // N12c —— 复用不重复登记:如意那张表里 <slug> 那一行仍然只有一行(W7:登记从 workspaces 搬到这张表)。
     {
-      const hits = readCfg().workspaces.filter(w => String(w.path).toLowerCase() === omittedCwd.toLowerCase());
-      ok(hits.length === 1, `N12c 复用同一个目录不重复登记进 workspaces(got ${hits.length} 行)`);
+      const hits = (readCfg().stewardManagedWorkspaces || []).filter(w => String(w.path).toLowerCase() === omittedCwd.toLowerCase());
+      ok(hits.length === 1, `N12c 复用同一个目录不重复登记进 stewardManagedWorkspaces(got ${hits.length} 行)`);
     }
     // N13 —— 标题整条都是非法字符(尖括号/冒号/引号/斜杠/竖线/问号/星号)→ slug 空 → 回落 thread-<id>。
     // 用【去掉 sess_ 前缀之后】的 8 位:id 是 sess_+16 位十六进制,直接切前 8 位只剩 3 位有效字符。
@@ -778,10 +793,13 @@ try {
       ok(cfg.defaultWorkspace === cfg.workspaces[0].path,
         `N14b defaultWorkspace 仍然等于 workspaces[0].path(${cfg.defaultWorkspace} / ${cfg.workspaces[0].path})`);
       ok(cfg.defaultWorkspace === HOME, 'N14c 派生了这么多次,用户的默认工作区一个字都没变');
-      ok(cfg.workspaces.filter(w => w.note === 'Ruyi 自动开的').every(w => String(w.path).startsWith(RUYI_ROOT)),
-        'N14d 带「Ruyi 自动开的」备注的行全都在 Ruyi 根下(没有给根外目录加备注)');
-      ok(cfg.workspaces.slice(0, 3).every(w => !('note' in w)),
-        'N14e 用户原有那三行没有被加上 note(只写新追加的那一行)');
+      // W7 重钉:派生了这么多次,常用工作区里【一行】如意的目录都没有(修前每次派生追加一行,这正是
+      // 用户在「常用工作区」里看见一串陌生文件夹的来源);派生目录全在如意那张表里、全在 Ruyi 根下。
+      ok(cfg.workspaces.length === 3 && !cfg.workspaces.some(w => String(w.path).startsWith(RUYI_ROOT)),
+        `N14d 常用工作区里零如意目录(got ${JSON.stringify(cfg.workspaces.map(w => w.path))})`);
+      ok((cfg.stewardManagedWorkspaces || []).length >= 5 && cfg.stewardManagedWorkspaces.every(w => String(w.path).startsWith(RUYI_ROOT + path.sep)),
+        `N14e 派生目录全在如意那张表里、全在 Ruyi 根下(got ${(cfg.stewardManagedWorkspaces || []).length} 行)`);
+      ok(cfg.workspaces.every(w => !('note' in w)), 'N14f 用户原有那三行没有被加上 note');
     }
   }
 
@@ -812,12 +830,12 @@ try {
     const built = await srv.buildStewardSystemPrompt(stewardSession, cfgNow(), {});
     const volatileText = String((built && built.volatile) || '');
     const stableText = String((built && built.stable) || '');
-    const tableBlock = (volatileText.split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+    const tableBlock = (volatileText.split('\n\n').find(seg => seg.includes('已知工作区(开线程时')) || '');
 
     ok(!!tableBlock, 'O1 管家上下文(易变层)里有工作区候选表');
     ok(tableBlock.includes('· ' + path.basename(WS_NOTE)) && tableBlock.includes('· ' + path.basename(WS_RO)),
       'O1b 表里逐行是路径的【末段名】');
-    ok(!stableText.includes('以下是你可以交给线程用的工作区'),
+    ok(!stableText.includes('已知工作区(开线程时'),
       'O1c 表在【易变层】,不在 stable —— stable 是版本级常量,吃前缀缓存,工作区是用户随时会改的东西');
 
     // O2 —— 只读标。write:false 的那一行标「只读」,可写的行不标(§11.19.7 裁决:校验层先不拒,
@@ -841,6 +859,16 @@ try {
     ok(!tableBlock.includes(path.basename(WS_HIDDEN)) && !volatileText.includes(path.basename(WS_HIDDEN)),
       'O4 只在 recentWorkspaces 里的目录不进表(打开过 ≠ 授权过)');
 
+    // O8 —— W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):每行带【最近在那儿做过的事】。
+    // (N) 段开的那些线程 cwd 都在 HOME 之下(ws-alpha / ws-beta / Ruyi/…),此刻的配置里只有 HOME
+    // 这一个根罩得住它们 → 它们按最长前缀归到 HOME 那一行;默认工作区标「默认」;选目录的规矩随清单一起给。
+    const homeRow = rowOf(path.basename(HOME));
+    ok(homeRow.startsWith('· ' + path.basename(HOME) + '(默认):「') && /「(cwd 锁 omit|英伟达分析)」/.test(homeRow),
+      `O8 默认工作区那一行标「默认」,并带着最近在那儿干过的线程名(got ${JSON.stringify(homeRow)})`);
+    ok((homeRow.match(/「/g) || []).length <= 3 * 2, 'O8b 每行最多 3 条线程(事项名另占引号,至多翻倍)');
+    ok(tableBlock.includes('relatedSessionId') && tableBlock.includes('missionId') && tableBlock.includes('不会出现在用户的常用工作区里'),
+      'O8c 清单尾巴给出选目录的顺序(点名 > 事项/相关线程 > 名字 > 新开)');
+
     // O5 —— 折叠。这里直接把 25 行喂给装配函数,验的是投影【自己】的预算行为(超出折叠、不截断),
     // 与配置层能不能存下 25 行无关。
     // 【117w-W1④ 更新】原注写「25 行经不过 normalizeConfig,生产路径上折叠句不可达」——那是帽子还
@@ -851,7 +879,7 @@ try {
       for (let i = 1; i <= 25; i++) many.push({ path: path.join(HOME, 'many-' + i), read: true, write: true, execute: true });
       const cfgMany = { ...(cfgNow()), workspaces: many };
       const builtMany = await srv.buildStewardSystemPrompt(stewardSession, cfgMany, {});
-      const blockMany = (String(builtMany.volatile).split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+      const blockMany = (String(builtMany.volatile).split('\n\n').find(seg => seg.includes('已知工作区(开线程时')) || '');
       const listed = blockMany.split('\n').filter(l => l.startsWith('· '));
       ok(listed.length === 20, `O5 表最多 20 行(got ${listed.length})`);
       ok(blockMany.includes('另有 5 个工作区未列出'),
@@ -880,9 +908,9 @@ try {
         title: '上限对齐', cwd: path.join(HOME, 'nowhere-at-all'), brief: { userText: '上限对齐' },
       }, stewardCtx('table-align'));
       const msg = String((rejected && rejected.message) || '');
-      const listedInMsg = (msg.split('表里现有:')[1] || '').split('。')[0].split(/[、,]/).filter(Boolean);
+      const listedInMsg = (msg.split('现有:')[1] || '').split('。')[0].split(/[、,]/).filter(Boolean);
       const builtAlign = await srv.buildStewardSystemPrompt(stewardSession, cfgNow(), {});
-      const blockAlign = (String(builtAlign.volatile).split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+      const blockAlign = (String(builtAlign.volatile).split('\n\n').find(seg => seg.includes('已知工作区(开线程时')) || '');
       const listedInTable = blockAlign.split('\n').filter(l => l.startsWith('· '));
       ok(rejected && rejected.ok === false, 'O6a 20 行表 + 表外 cwd 仍然被拒');
       ok(listedInMsg.length === listedInTable.length && listedInTable.length === 20,
@@ -905,7 +933,7 @@ try {
       ok(rejectedEmpty && rejectedEmpty.ok === false && rejectedEmpty.error === 'invalid_request'
         && rejectedEmpty.reason === 'cwd_not_in_workspaces',
         'O7b 表为空 + 表外 cwd -> 仍是同一个稳定信封');
-      ok(emptyMsg.includes('一个工作区都没有登记') && emptyMsg.includes('省掉 cwd') && !emptyMsg.includes('表里现有'),
+      ok(emptyMsg.includes('一个工作区都没有登记') && emptyMsg.includes('省掉 cwd') && !emptyMsg.includes('现有:'),
         `O7c 空表那支文案说清「一个都没有,请省掉 cwd」,不甩空清单(got ${JSON.stringify(emptyMsg)})`);
       // O7d —— 空表时候选表投影输出的是「还没有登记任何工作区」,不是一个只有表头的空壳。
       const builtEmpty = await srv.buildStewardSystemPrompt(stewardSession, emptyCfg, {});
@@ -950,7 +978,9 @@ try {
     capWrite(capRows(65));
     ok(capCfg().workspaces.length === 64, `P1b 65 行被截到 64(帽子仍在,只是抬高了;got ${capCfg().workspaces.length})`);
 
-    // P2 —— 63 行 + 省略 cwd:派生成功,第 64 行【落盘】。
+    // P2 —— 63 行 + 省略 cwd:派生成功。
+    // W7 重钉(事实变了):派生登记进如意自己那张表 stewardManagedWorkspaces,【不再】占常用工作区
+    // (workspaces[])的行 —— 所以这里断的是「常用工作区还是 63 行、派生目录在如意那张表里」。
     capWrite(capRows(63));
     const capOk = await call('steward_thread_new', {
       title: '帽子 63', brief: { userText: '帽子 63' },
@@ -961,41 +991,40 @@ try {
       `P2a 线程 cwd == <Ruyi 根>/<slug>(want ${path.join(RUYI_CAP_ROOT, '帽子 63')};got ${capDerived})`);
     ok(!!capDerived && fs.existsSync(capDerived), 'P2b 派生目录真的建出来了');
     {
-      const rows = capCfg().workspaces;
-      const last = rows[rows.length - 1];
-      ok(rows.length === 64 && String(last && last.path) === capDerived && (last && last.note) === 'Ruyi 自动开的',
-        `P2c 第 64 行【落盘】了,不是被帽子吞掉(表 ${rows.length} 行;末行 ${JSON.stringify(last)})`);
+      const cfg = capCfg();
+      const managed = cfg.stewardManagedWorkspaces || [];
+      ok(cfg.workspaces.length === 63 && managed.length === 1 && managed[0].path === capDerived,
+        `P2c 常用工作区仍是 63 行,派生目录登记在如意那张表里(常用 ${cfg.workspaces.length} 行;如意 ${JSON.stringify(managed)})`);
     }
 
-    // P3 —— 64 行 + 省略 cwd:fail-closed 拒开线程,目录不建、表不动。
+    // P3 —— 64 行(常用工作区满员)+ 省略 cwd:W7 起【照常派生】。修前这里 fail-closed 拒开线程
+    // (invalid_request / workspace_table_full),因为派生要往常用工作区里追加一行;现在派生不占那张表,
+    // 「表满就拒」没有对象了 —— 用户常用工作区满不满,与管家能不能给新活开个文件夹无关。
     capWrite(capRows(64));
     const CAP_FULL_TITLE = '帽子 64';
-    const capRefused = await call('steward_thread_new', {
+    const capFull = await call('steward_thread_new', {
       title: CAP_FULL_TITLE, brief: { userText: CAP_FULL_TITLE },
     }, stewardCtx('cap-64'));
-    ok(capRefused && capRefused.ok === false && capRefused.error === 'invalid_request'
-      && capRefused.reason === 'workspace_table_full',
-      `P3 表满 + 省略 cwd -> invalid_request / workspace_table_full(got ${JSON.stringify(capRefused && [capRefused.error, capRefused.reason])})`);
-    const capMsg = String((capRefused && capRefused.message) || '');
-    ok(capMsg.includes('工作区表已满(64/64)') && capMsg.includes('设置') && capMsg.includes('不要重试'),
-      `P3b 文案是人话:说清满员数、让用户去设置里清理、别重试(got ${JSON.stringify(capMsg)})`);
-    ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, CAP_FULL_TITLE)),
-      'P3c 目录【没有】建出来 —— 拒得干净,不留「目录建了、行没了」的残骸');
-    ok(!(capRefused && capRefused.sessionId), 'P3d 拒的是「开线程」,连 sessionId 都没有');
-    ok(capCfg().workspaces.length === 64, `P3e 表仍然是 64 行,一行没多(got ${capCfg().workspaces.length})`);
+    ok(capFull && capFull.ok === true && capHead(capFull.sessionId).cwd === path.join(RUYI_CAP_ROOT, CAP_FULL_TITLE),
+      `P3 常用工作区满员 + 省略 cwd -> 照常派生(got ${JSON.stringify(capFull && (capFull.error || capHead(capFull.sessionId).cwd))})`);
+    ok(capFull && capFull.reason !== 'workspace_table_full', 'P3b 反向:退役的 workspace_table_full 不再出现');
+    ok(capCfg().workspaces.length === 64, `P3c 常用工作区仍是 64 行,一行没多(got ${capCfg().workspaces.length})`);
+    ok((capCfg().stewardManagedWorkspaces || []).some(m => m.path === path.join(RUYI_CAP_ROOT, CAP_FULL_TITLE)), 'P3d 派生目录落在如意那张表里');
 
-    // P4 —— quick_ask 走同一份帽检查(不许各抄一遍)。
+    // P4 —— quick_ask 同一口径(不许各抄一遍)。
     const CAP_Q_TITLE = '帽子满了的速查';
-    const capQ = await call('steward_quick_ask', { question: CAP_Q_TITLE }, stewardCtx('cap-64q'));
-    ok(capQ && capQ.ok === false && capQ.error === 'invalid_request' && capQ.reason === 'workspace_table_full',
-      `P4 quick_ask 省略 cwd + 表满 -> 同一个稳定信封(got ${JSON.stringify(capQ && [capQ.error, capQ.reason])})`);
-    ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, CAP_Q_TITLE)), 'P4b quick_ask 那一路同样不建目录');
-    // P4c —— 帽子只挡【派生】,不挡「用表里现成的」:表满时显式给表内 cwd 照常开线程。
+    // 速查配额按「管家会话 id + 回合序号」记账;本件的 stewardCtx 不带 sessionId,前面 (N) 段的两条速查已经
+    // 用满了那个桶 —— 修前这一条在配额之前就被帽检查拒了,所以没撞上。给它一个自己的桶。
+    const capQ = await call('steward_quick_ask', { question: CAP_Q_TITLE }, { ...stewardCtx('cap-64q'), sessionId: 'cap-64q' });
+    ok(capQ && capQ.ok === true && capHead(capQ.sessionId).cwd === path.join(RUYI_CAP_ROOT, CAP_Q_TITLE),
+      `P4 quick_ask 省略 cwd + 常用工作区满员 -> 同样照常派生(got ${JSON.stringify(capQ && (capQ.error || capHead(capQ.sessionId).cwd))})`);
+    ok(capQ && capQ.cwdSource === 'new', `P4b 速查回执说清目录是新开的(got ${JSON.stringify(capQ && capQ.cwdSource)})`);
+    // P4c —— 显式给常用工作区里的 cwd 照常开线程。
     const capExplicit = await call('steward_thread_new', {
       title: '帽子满但指定 cwd', cwd: path.join(HOME, 'cap-1'), brief: { userText: 'x' },
     }, stewardCtx('cap-64x'));
     ok(capExplicit && capExplicit.ok === true && capHead(capExplicit.sessionId).cwd === path.join(HOME, 'cap-1'),
-      `P4c 表满 + 表内 cwd -> 照常开线程(帽子只挡派生;got ${JSON.stringify(capExplicit && capExplicit.error)})`);
+      `P4c 常用工作区满员 + 表内 cwd -> 照常开线程(got ${JSON.stringify(capExplicit && capExplicit.error)})`);
 
     // P5 —— 候选表的折叠句【生产可达】。走真 writeConfig(不是直接喂装配函数):修前 25 行经不过
     // 清洗、只剩 20,折叠句在生产形状下永远印不出来 —— O5 那一条是拿 25 行直喂装配函数验的,
@@ -1005,7 +1034,7 @@ try {
     ok(cap25.workspaces.length === 25, `P5 25 行的表【经得过 normalizeConfig】(got ${cap25.workspaces.length};修前 20)`);
     {
       const built25 = await srv.buildStewardSystemPrompt({ id: 'steward', kind: 'steward', providerHistory: [] }, cap25, {});
-      const block25 = (String(built25.volatile).split('\n\n').find(seg => seg.includes('以下是你可以交给线程用的工作区')) || '');
+      const block25 = (String(built25.volatile).split('\n\n').find(seg => seg.includes('已知工作区(开线程时')) || '');
       ok(block25.includes('另有 5 个工作区未列出'),
         `P5b 管家上下文里真的出现折叠句(got ${JSON.stringify(block25.split('\n').find(l => l.includes('未列出')) || '(没有折叠句)')})`);
       const listed25 = block25.split('\n').filter(l => l.startsWith('· '));
@@ -1021,13 +1050,10 @@ try {
       ok(cap64.defaultWorkspace === path.join(HOME, 'cap-1'), 'P6b 同步的是【第一行】,不是最后追加的那一行');
     }
 
-    // P7 —— 本刀的核心不变量(27 号文 §11.19.9 债表第一行):帽检查与占位建目录在【同一个串行段】,
-    // 两条线程同时派生不会把表顶到 65。
-    // 修前形状:两条线程在 63 行时同时过预检(两侧读到的都是 63 行) → 各自 append → 表 65 行 →
-    // 下一次 normalizeConfig 截掉一行 —— 被截掉那条线程的 cwd 指向【表外】目录,再用它当 cwd 会被拒。
-    // 这里用真并发直测(toolCall 同一个 tick 发出两条 thread_new,标题不同),断言四件事:
-    //   ① 表恰好 64 行;② 恰好一条线程拿到派生目录,另一条回落默认工作区且线程照常开;
-    //   ③ 落盘的就是那一条的行、note 对;④ 没落盘的那条【目录也没建出来】(零残骸)。
+    // P7 —— 并发派生(27 号文 §11.19.9 债表第一行的不变量,W7 重钉):建目录与登记仍在【同一个串行段】,
+    // 两条线程同时派生,两行都落盘、谁也不吞谁。修前这一条钉的是「63 行时并发派生,恰好一条拿到第 64 行、
+    // 另一条回落」—— 那是常用工作区帽子下的形状;W7 起派生不占常用工作区,帽子不再参与,剩下的不变量是
+    // 「并发写配置不丢行」(mutateConfig 是唯一临界区)与「常用工作区一行不多」。
     capWrite(capRows(63));
     {
       const RACE_A = '竞态甲';
@@ -1037,26 +1063,16 @@ try {
         call('steward_thread_new', { title: RACE_B, brief: { userText: RACE_B } }, stewardCtx('cap-race-b')),
       ]);
       ok(raceA && raceA.ok === true && raceB && raceB.ok === true,
-        `P7a 两条线程都开成了(派生失败只回落,不挡开线程;got ${JSON.stringify([raceA && raceA.error, raceB && raceB.error])})`);
-      const rows = capCfg().workspaces;
-      ok(rows.length === 64, `P7b 表恰好 64 行 —— 并发派生没把表顶到 65(got ${rows.length})`);
+        `P7a 两条线程都开成了(got ${JSON.stringify([raceA && raceA.error, raceB && raceB.error])})`);
+      const cfg = capCfg();
+      ok(cfg.workspaces.length === 63, `P7b 常用工作区仍是 63 行 —— 并发派生没往里写(got ${cfg.workspaces.length})`);
       const cwdA = raceA && raceA.ok ? capHead(raceA.sessionId).cwd : '';
       const cwdB = raceB && raceB.ok ? capHead(raceB.sessionId).cwd : '';
-      const derivedCount = (capInRoot(cwdA) ? 1 : 0) + (capInRoot(cwdB) ? 1 : 0);
-      ok(derivedCount === 1, `P7c 恰好一条线程拿到派生目录(甲 ${JSON.stringify(cwdA)} / 乙 ${JSON.stringify(cwdB)})`);
-      const wonCwd = capInRoot(cwdA) ? cwdA : cwdB;
-      const loserTitle = capInRoot(cwdA) ? RACE_B : RACE_A;
-      const loserCwd = capInRoot(cwdA) ? cwdB : cwdA;
-      const last = rows[rows.length - 1];
-      ok(String(last && last.path) === wonCwd && (last && last.note) === 'Ruyi 自动开的',
-        `P7d 落盘那行就是派生成功那条线程的目录(末行 ${JSON.stringify(last)})`);
-      ok(!capInRoot(loserCwd) && loserCwd === capDefaultWs(),
-        `P7e 另一条线程回落默认工作区 ${capDefaultWs()},没拿一个表外目录(got ${JSON.stringify(loserCwd)})`);
-      ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, loserTitle)),
-        `P7f 没落盘那条线程【没有留下目录】(帽检查在占目录之前;检查 ${path.join(RUYI_CAP_ROOT, loserTitle)})`);
-      const racedDirs = (fs.existsSync(RUYI_CAP_ROOT) ? fs.readdirSync(RUYI_CAP_ROOT) : [])
-        .filter(n => n === RACE_A || n === RACE_B);
-      ok(racedDirs.length === 1, `P7g Ruyi 根下这次只多了 1 个派生目录(got ${JSON.stringify(racedDirs)})`);
+      ok(cwdA === path.join(RUYI_CAP_ROOT, RACE_A) && cwdB === path.join(RUYI_CAP_ROOT, RACE_B),
+        `P7c 两条各拿到自己的派生目录(甲 ${JSON.stringify(cwdA)} / 乙 ${JSON.stringify(cwdB)})`);
+      const managedPaths = (cfg.stewardManagedWorkspaces || []).map(m => m.path);
+      ok(managedPaths.includes(cwdA) && managedPaths.includes(cwdB) && managedPaths.length === 2,
+        `P7d 两行都落在如意那张表里,一行没丢(got ${JSON.stringify(managedPaths)})`);
     }
 
     // P8 —— 第二条来路(同一债表下一行):占位之后的【落盘失败】不再被吞掉。
@@ -1083,7 +1099,7 @@ try {
       ok(!capInRoot(wfailCwd) && wfailCwd === capDefaultWs(),
         `P8b 线程回落默认工作区 ${capDefaultWs()},没拿那个没登记成的目录(got ${JSON.stringify(wfailCwd)})`);
       ok(!fs.existsSync(path.join(RUYI_CAP_ROOT, WRITE_FAIL_TITLE)), 'P8c 落盘失败 -> 刚建的目录被删掉,不留残骸');
-      ok(capCfg().workspaces.length === 3, `P8d 表还是 3 行(行没落盘也没多出来;got ${capCfg().workspaces.length})`);
+      ok(capCfg().workspaces.length === 3 && (capCfg().stewardManagedWorkspaces || []).length === 0, `P8d 两张表都没多出一行(行没落盘;常用 ${capCfg().workspaces.length} 行)`);
     }
   }
 

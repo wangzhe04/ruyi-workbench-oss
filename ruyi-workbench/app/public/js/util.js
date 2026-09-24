@@ -32,6 +32,24 @@ export const fileBasename = pathValue => {
   return value.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || value;
 };
 
+// W7(用户 2026-09-24「如意自己开的工作区,默认不显示在常用工作区中」):这个目录是不是如意自己的 ——
+// 落在数据目录里(管家会话自己的目录、子代理的临时工作树、上传与临时文件全在那儿),或者是如意为任务
+// 开的、用户还没亲手加进常用的(config.stewardManagedWorkspaces 里 adopted !== true 的那些)。
+// 判据与服务端 06i 的 stewardRuyiOwnedPath 同一口径:分隔符两种写法都认、不分大小写、前缀按整段比。
+const workspaceKey = value => String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+export function isRuyiOwnedWorkspace(pathValue, { dataRoot = '', owned = [] } = {}) {
+  const target = workspaceKey(pathValue);
+  if (!target) return false;
+  const root = workspaceKey(dataRoot);
+  if (root && (target === root || target.startsWith(root + '/'))) return true;
+  return (Array.isArray(owned) ? owned : []).some(row => row && row.adopted !== true && workspaceKey(row.path) === target);
+}
+// 「常用工作区」该显示哪几行:config.workspaces 去掉如意自己的。只管【显示】—— 保存时仍用整张表
+// (调用方负责),否则藏起来的行会在下一次保存时被删掉。
+export function visibleFavoriteWorkspaces(rows, ctx) {
+  return (Array.isArray(rows) ? rows : []).filter(row => row && String(row.path || '') && !isRuyiOwnedWorkspace(row.path, ctx));
+}
+
 // HTML 转义(XSS 安全渲染兜底)。
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));

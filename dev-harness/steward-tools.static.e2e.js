@@ -18,8 +18,8 @@
 //   ⑥ 五态判据与前端 public/js/mission-state.js 机械对账(分支顺序与关键字面量逐条相同)——
 //      06i 的服务端副本是抄写件,不是第二套状态机。
 //   ⑪ 117w-W1④:workspaces[] 的行数帽子一处定义(01-config WORKSPACE_TABLE_CAP)、清洗块两支
-//      循环各读一次、代码行零裸字面量;13k 的派生前帽检查一处实现两处调用,且都挂在「省略 cwd」
-//      那一支下(表内 cwd 不派生,不该被帽子挡)。
+//      循环各读一次、代码行零裸字面量;W7 起派生登记进 stewardManagedWorkspaces,13k 那道派生前
+//      帽检查退役(零残留),如意那张表满员从最老的一行起丢。
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -447,20 +447,26 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(codeLines.length === 0, '⑦ 06i 里 userPressed 只出现在契约注释,不出现在任何一行代码');
 }
 
-// ⑧ 117w-W1 提交①(27 号文 §11.19.4):cwd 校验【一处实现、两处调用】。
-// 被钉的事实:13k 里 thread_new 与 quick_ask 各自把 args.cwd 交给【同一个】stewardValidateCwd,
-// 而不是各抄一份判据(抄两份 = 迟早分叉,提交②③ 再改一处就漏一处)。
-// 计数口径按 §11.18.6 那个模具:定义签名与调用点【同形】的正则会假绿,所以这里
-//   (a) 分开数「function stewardValidateCwd(」恰好 1 次(定义唯一),
-//   (b) 数整名出现恰好 3 次(定义 1 + 调用 2),
-//   (c) 再把两个调用点【锚到各自的函数体里】—— 只数次数挡不住「两处调用都写在 thread_new 里」。
-// 另钉一条反向保护:修前那行原样透传(`cwd: args.cwd ? String(args.cwd)`)在 src 里必须零残留。
+// ⑧ 117w-W1 提交①(27 号文 §11.19.4):cwd 校验【一处实现】;W7 起再加一层【一条选择顺序、两处调用】。
+// 被钉的事实:
+//   (a) stewardValidateCwd 在 13k 只定义一次,13k 里只被【选择顺序】stewardResolveThreadCwd 调一次
+//       (thread_new / quick_ask 不再各自直调校验 —— 它们调的是选择顺序,校验是选择顺序的第 ① 步);
+//   (b) stewardResolveThreadCwd 只定义一次,thread_new 与 quick_ask 的函数体里【各恰好一处】调用 ——
+//       只数次数挡不住「两处调用都写在 thread_new 里」,所以锚到各自的函数体;
+//   (c) 选择顺序的第 ① 步就是校验 args.cwd(给了但不合法 → 拒,不静默回落);
+//   (d) 修前那行原样透传(`cwd: args.cwd ? String(args.cwd)`)在 src 里零残留;归一化复用 01 的那一份。
+// W7 重钉的理由:派单要求「管家不带 cwd 开线程时沿用事项/相关线程的工作区」,这一层判断必须两处
+// 工具共用一份(与修前「校验共用一份」同一条纪律),于是被钉的对象从「校验」上移到「选择顺序」。
 {
   const src13k = read('13k-steward-threads.js');
   const defs = (src13k.match(/function stewardValidateCwd\(/g) || []).length;
   ok(defs === 1, `⑧ stewardValidateCwd 只定义一次(got ${defs})`);
   const uses = (src13k.match(/stewardValidateCwd\(/g) || []).length;
-  ok(uses === 3, `⑧ stewardValidateCwd 整文件出现 3 次 = 定义 1 + 调用 2(got ${uses})`);
+  ok(uses === 2, `⑧ stewardValidateCwd 在 13k 出现 2 次 = 定义 1 + 选择顺序里调 1(got ${uses})`);
+  const pickDefs = (src13k.match(/async function stewardResolveThreadCwd\(/g) || []).length;
+  ok(pickDefs === 1, `⑧ stewardResolveThreadCwd 只定义一次(got ${pickDefs})`);
+  const pickUses = (src13k.match(/stewardResolveThreadCwd\(/g) || []).length;
+  ok(pickUses === 3, `⑧ stewardResolveThreadCwd 出现 3 次 = 定义 1 + 调用 2(got ${pickUses})`);
   // 函数体切片:从 `async function X(` 起到下一个顶格 `}` 为止(本文件的顶层函数都顶格收尾)。
   const bodyOf = (name) => {
     const start = src13k.indexOf(`async function ${name}(`);
@@ -470,11 +476,16 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   };
   const newBody = bodyOf('stewardImplThreadNew');
   const quickBody = bodyOf('stewardImplQuickAsk');
-  ok(newBody && quickBody, '⑧ 取到 stewardImplThreadNew / stewardImplQuickAsk 两个函数体');
-  const inNew = (newBody.match(/stewardValidateCwd\(args\.cwd, config\)/g) || []).length;
-  const inQuick = (quickBody.match(/stewardValidateCwd\(args\.cwd, config\)/g) || []).length;
-  ok(inNew === 1, `⑧ thread_new 函数体里恰好一处调用(got ${inNew})`);
-  ok(inQuick === 1, `⑧ quick_ask 函数体里恰好一处调用(got ${inQuick})`);
+  const pickBody = bodyOf('stewardResolveThreadCwd');
+  ok(newBody && quickBody && pickBody, '⑧ 取到 stewardImplThreadNew / stewardImplQuickAsk / stewardResolveThreadCwd 三个函数体');
+  const inNew = (newBody.match(/stewardResolveThreadCwd\(args, config, requestedMissionId\)/g) || []).length;
+  const inQuick = (quickBody.match(/stewardResolveThreadCwd\(args, config, ''\)/g) || []).length;
+  ok(inNew === 1, `⑧ thread_new 函数体里恰好一处调用选择顺序(带上 missionId;got ${inNew})`);
+  ok(inQuick === 1, `⑧ quick_ask 函数体里恰好一处调用选择顺序(速查不进事项;got ${inQuick})`);
+  ok(!/stewardValidateCwd\(/.test(newBody) && !/stewardValidateCwd\(/.test(quickBody),
+    '⑧ 两个工具入口不再各自直调校验(校验只在选择顺序里,不许绕开选择顺序另起一路)');
+  ok(/stewardValidateCwd\(args\.cwd, /.test(pickBody) && /if \(!cwdCheck\.ok\) return cwdCheck;/.test(pickBody),
+    '⑧ 选择顺序第 ① 步就是校验 args.cwd,不合法原样拒(不静默回落)');
   // 反向保护:修前那行原样透传不许留在任何 src 模块里。
   const passthrough = srcFiles.filter(f => /cwd:\s*args\.cwd\s*\?\s*String\(args\.cwd\)/.test(read(f)));
   ok(passthrough.length === 0, '⑧ 全 src 零「cwd: args.cwd ? String(args.cwd)」原样透传' + (passthrough.length ? ' → ' + passthrough.join(',') : ''));
@@ -548,36 +559,31 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(bareCaps.length === 0, '⑪ 清洗块代码行里零裸字面量帽子' + (bareCaps.length ? ' → ' + JSON.stringify(bareCaps) : ''));
   ok(!/\bWORKSPACE_TABLE_CAP\b\s*=\s*20\b/.test(src01), '⑪ 反向:常量没被悄悄改回 20');
 
-  // 派生前的帽检查:一处实现、三处调用(与 ⑧ 的 stewardValidateCwd 同一模具)。第三处是
-  // 117w-W1④ 小刀加的复检:占位(建目录 + append)与帽检查现在同处一个 mutateConfig 串行段,
-  // 预检时那份配置副本可能已经过期(另一条线程刚占了第 64 行)。
+  // W7 重钉:117w-W1④ 那道「派生前帽检查」(stewardWorkspaceTableFull,一处实现三处调用)【退役】。
+  // 理由(事实变了,不是放宽):派生出来的目录从这一刀起登记进如意自己那张表 stewardManagedWorkspaces,
+  // 不再往 workspaces[] 追加 —— 那张表就是用户的「常用工作区」(用户 2026-09-24:如意自己开的工作区
+  // 默认不显示在常用工作区中)。派生于是不再占常用工作区的行,「常用工作区满了就拒开线程」这件事
+  // 没有对象了;如意那张表满了由 01-config 从最老的一行起丢(用户看不见也清不了那张表,拒只会让管家卡死)。
+  // 下面钉的是新事实,并反向保护旧路不回来。
   const src13k = read('13k-steward-threads.js');
-  const capDefs = (src13k.match(/function stewardWorkspaceTableFull\(/g) || []).length;
-  ok(capDefs === 1, `⑪ stewardWorkspaceTableFull 只定义一次(got ${capDefs})`);
-  const capUses = (src13k.match(/stewardWorkspaceTableFull\(/g) || []).length;
-  ok(capUses === 4, `⑪ 整文件出现 4 次 = 定义 1 + 调用 3(两个工具入口的预检 + 串行段里的复检;got ${capUses})`);
-  const bodyOfCap = (name) => {
-    const start = src13k.indexOf(`async function ${name}(`);
-    if (start < 0) return '';
-    const end = src13k.indexOf('\n}\n', start);
-    return end < 0 ? src13k.slice(start) : src13k.slice(start, end);
-  };
-  const newBodyCap = bodyOfCap('stewardImplThreadNew');
-  const quickBodyCap = bodyOfCap('stewardImplQuickAsk');
-  ok((newBodyCap.match(/stewardWorkspaceTableFull\(config\)/g) || []).length === 1, '⑪ thread_new 函数体里恰好一处帽检查');
-  ok((quickBodyCap.match(/stewardWorkspaceTableFull\(config\)/g) || []).length === 1, '⑪ quick_ask 函数体里恰好一处帽检查');
-  // 帽检查读的是【同一个】常量,不是自己再写一个数。
-  const capFnStart = src13k.indexOf('function stewardWorkspaceTableFull(');
-  const capFnEnd = src13k.indexOf('\n}\n', capFnStart);
-  const capFnBody = capFnStart < 0 ? '' : src13k.slice(capFnStart, capFnEnd < 0 ? undefined : capFnEnd);
-  ok(/WORKSPACE_TABLE_CAP/.test(capFnBody), '⑪ 帽检查读 01-config 的 WORKSPACE_TABLE_CAP(不另写一个数)');
-  ok(/workspace_table_full/.test(capFnBody), '⑪ 帽满走【专属 reason】workspace_table_full,不与 cwd_not_in_workspaces 混为一谈');
-  // 反向保护:两个调用点都必须在【派生分支】里(cwd 省略才派生;给了表内 cwd 的线程不该被帽子挡)。
-  ok(/cwdCheck\.cwd === undefined\)\s*\{\s*\n\s*const capFail/.test(newBodyCap.replace(/\r/g, ''))
-    || /cwdCheck\.cwd === undefined[\s\S]{0,200}stewardWorkspaceTableFull\(config\)/.test(newBodyCap),
-    '⑪ thread_new 的帽检查挂在「省略 cwd」那一支下(表内 cwd 不派生,不该被挡)');
-  ok(/quickCwdCheck\.cwd === undefined[\s\S]{0,200}stewardWorkspaceTableFull\(config\)/.test(quickBodyCap),
-    '⑪ quick_ask 的帽检查同样挂在「省略 cwd」那一支下');
+  const retired = srcFiles.filter(f => /stewardWorkspaceTableFull|workspace_table_full/.test(read(f)));
+  ok(retired.length === 0, '⑪ 退役的帽检查在全 src 零残留(stewardWorkspaceTableFull / workspace_table_full)' + (retired.length ? ' → ' + retired.join(',') : ''));
+  const claimStart = src13k.indexOf('async function stewardClaimDerivedWorkspace(');
+  const claimEnd = src13k.indexOf('\n}\n', claimStart);
+  const claimBody = claimStart < 0 ? '' : src13k.slice(claimStart, claimEnd < 0 ? undefined : claimEnd);
+  ok(!!claimBody, '⑪ 取到 stewardClaimDerivedWorkspace 函数体');
+  ok(/current\.stewardManagedWorkspaces = /.test(claimBody), '⑪ 派生登记写的是如意自己那张表(stewardManagedWorkspaces)');
+  ok(!/current\.workspaces\s*=/.test(claimBody), '⑪ 反向:派生不再往 workspaces[](用户的常用工作区)里写任何一行');
+  ok(/await mutateConfig\(/.test(claimBody), '⑪ 建目录与登记仍在同一个 mutateConfig 串行段里(要么行落盘、要么不算派生成)');
+  // 如意那张表的帽子:01-config 一处定义,只在它自己的清洗函数里读。
+  const managedCapDefs = (src01.match(/const STEWARD_MANAGED_WORKSPACES_CAP = /g) || []).length;
+  ok(managedCapDefs === 1, `⑪ STEWARD_MANAGED_WORKSPACES_CAP 在 01-config 只定义一次(got ${managedCapDefs})`);
+  const managedFnStart = src01.indexOf('function normalizeStewardManagedWorkspaces(');
+  const managedFnEnd = src01.indexOf('\n}\n', managedFnStart);
+  const managedFn = managedFnStart < 0 ? '' : src01.slice(managedFnStart, managedFnEnd < 0 ? undefined : managedFnEnd);
+  ok(/\.slice\(-STEWARD_MANAGED_WORKSPACES_CAP\)/.test(managedFn), '⑪ 如意那张表满员时从最老的一行起丢(slice(-CAP)),不是拒');
+  ok((wsBlock.match(/normalizeStewardManagedWorkspaces\(config, clean\)/g) || []).length === 1,
+    '⑪ 清洗块在 `config.workspaces = clean` 落定之前调一次迁出/收编(常用工作区里不留如意的目录)');
 }
 
 // ── ⑫ 126-M02:「什么叫过期」只许有一个判据口 ─────────────────────────────────────────

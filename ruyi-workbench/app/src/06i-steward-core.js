@@ -56,6 +56,10 @@ const STEWARD_DIGEST_LIMITS = Object.freeze({ lastSayChars: 200, lineChars: 320,
 // 管家看多少行」(到访层的字数预算)。分开之后 21..64 行的表在【生产形状】下真的会折叠,13o 那句
 // 「…另有 N 个工作区未列出」从此可达、可测 —— 在此之前表最多 20 行,那句话永远印不出来。
 const STEWARD_WORKSPACE_TABLE_MAX = 20;
+// W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):到访层的「已知工作区」清单的预算。行数上限
+// 仍读 STEWARD_WORKSPACE_TABLE_MAX(与 13k 的拒绝文案同一个数);每行最多带 3 条最近的线程,线程名截
+// 24 字;整块另有 2400 字的总预算(与总览同一套写法:超出折叠成一句,不截断)。
+const STEWARD_KNOWN_WORKSPACE_LIMITS = Object.freeze({ threadsPerRow: 3, threadTitleChars: 24, lineChars: 260, totalChars: 2400 });
 
 // 线程权限档位 -> 五态/权限的人话映射(§11.2「诚实」与看板行人话展示共用同一套措辞)。
 const STEWARD_STATE_LABELS = Object.freeze({
@@ -1265,11 +1269,17 @@ function stewardSamePath(a, b) {
 }
 // 这个路径落在哪个【已登记工作区】里?返回那个根;不在任何一个里返回空串(fail-closed)。
 // 判据只认 config.workspaces —— **recentWorkspaces 不算**(打开过 ≠ 授权过,31 号文红线 2 的原话)。
+// W7:「已登记」= 用户的常用工作区 ∪ 如意自己为任务开的文件夹(config.stewardManagedWorkspaces)。
+// 后者从这一刀起不再追加进 workspaces[](那张表就是界面上的常用工作区),但它们仍是工作台自己建、
+// 自己登记过的目录 —— 管家照样能读里面的交付(steward_file_read)、能把线程挪进去(thread_workspace)。
 function stewardWorkspaceRootFor(rawPath, config) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
   const target = norm(rawPath);
   if (!target) return '';
-  const rows = Array.isArray(config && config.workspaces) ? config.workspaces : [];
+  const rows = [
+    ...(Array.isArray(config && config.workspaces) ? config.workspaces : []),
+    ...(Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : []),
+  ];
   for (const row of rows) {
     const root = String((row && row.path) || '');
     const key = norm(root);
@@ -1278,6 +1288,41 @@ function stewardWorkspaceRootFor(rawPath, config) {
     if (key && (target === key || target.startsWith(key + '/'))) return root;
   }
   return '';
+}
+// ── W7:工作区的【名字】与【出身】(两个纯函数,管家清单 / cwd 校验 / 事项读模型三处共用)────────────
+// 名字:给管家看、也收管家回填的那个短名。默认取末段名;两个工作区末段名撞了(大小写不计)就往上多带
+// 一段(`客户A/报告` 与 `客户B/报告`),还撞就再多带,直到分开或用完整路径。全路径不进管家上下文
+// (117w-W1 ③ 的纪律:它是围栏信息),而末段名撞车时模型分不清 —— 修前两处都是只给末段名、回填又
+// 只收绝对路径,于是模型【根本填不对】任何一个 cwd,只能省掉、让工作台再开一个新文件夹。
+// 入参是路径数组,返回同长度的名字数组(顺序对齐)。纯字符串运算,不碰文件系统。
+function stewardWorkspaceLabels(stewardLabelPaths) {
+  const list = Array.isArray(stewardLabelPaths) ? stewardLabelPaths.map(p => String(p == null ? '' : p)) : [];
+  const segs = list.map(p => p.replace(/[\\/]+/g, '/').replace(/\/+$/, '').split('/').filter(Boolean));
+  const depth = list.map(() => 1);
+  const labelOf = i => (segs[i].length ? segs[i].slice(-depth[i]).join('/') : list[i]) || list[i];
+  for (let round = 0; round < 64; round++) {
+    const groups = new Map();
+    list.forEach((_, i) => { const k = labelOf(i).toLowerCase(); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+    let grew = false;
+    for (const members of groups.values()) {
+      if (members.length < 2) continue;
+      for (const i of members) if (depth[i] < segs[i].length) { depth[i] += 1; grew = true; }
+    }
+    if (!grew) break;
+  }
+  return list.map((_, i) => labelOf(i));
+}
+// 出身:这个目录是不是【如意自己的】—— 落在数据根里(管家会话自己的 cwd、子代理 worktree、上传与临时
+// 目录全在那儿),或者是如意为任务开的、用户还没收编(adopted)的那种。用户亲手加进常用的一律不算。
+// dataRootPath 由调用方给(06i 不引用任何外部符号)。
+function stewardRuyiOwnedPath(rawPath, config, dataRootPath) {
+  const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+  const target = norm(rawPath);
+  if (!target) return false;
+  const root = norm(dataRootPath);
+  if (root && (target === root || target.startsWith(root + '/'))) return true;
+  const rows = Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
+  return rows.some(row => row && row.adopted !== true && norm(row.path) === target);
 }
 // 一条线程【自己在交付里列出来的】文件清单(02 的 mission.result.artifacts,封顶 50 条)。
 // 不是「它 cwd 里的任何文件」—— 那等于把线程的工作目录整个开给管家看。
@@ -1403,6 +1448,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
 const STEWARD_CONFIG_TIER_FORBIDDEN_NOTE = Object.freeze([
   'providers', 'searchBackend', 'modelsApiKey', 'claudeAuthMode',      // 密钥/token 值与认证(另有正则兜底)
   'defaultWorkspace', 'workspaces', 'recentWorkspaces', 'additionalDirectories', 'allowOutsideWorkspace', 'stewardWorkspaceRoot',
+  'stewardManagedWorkspaces',                                            // W7:如意自己开的文件夹那张表(进已知工作区与可读根)
   'claudePath', 'kimiPath', 'extraClaudeArgs', 'appendSystemPrompt', 'agentRoleOverrides', 'residentSkills',   // 命令行与提示词注入面
   'allowCommandTools', 'allowDesktopTools', 'desktopMcp', 'toolAllowRules', 'bridgedToolTiers',
   'mcpCommandMode', 'permissionBridge', 'autonomyAutoResume', 'bridgeExternalToolsToProvider', 'toolbox', 'autoImportClaudeCodeMcp',

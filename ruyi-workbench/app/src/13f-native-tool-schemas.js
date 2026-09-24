@@ -792,8 +792,9 @@ const MCP_TOOLS = [
         // 117s-A D2(27 号文 §11.13 ⑤a):修前这句写的是「线程标题;省略则由首条消息自动命名」,
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
-        missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。' },
-        cwd: { type: 'string', description: '可选,三态(与你上下文里那张工作区候选表同一口径):① 传【表里的路径】→ 就用它;② 省略 → 工作台在 Ruyi 根下按标题给这条线程开一个自己的工作文件夹,并加进那张表(认不出这件事该归哪个文件夹时就省略,这是正解);③ 其它任何值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
+        missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
+        cwd: { type: 'string', description: '可选。填你上下文里「已知工作区」清单中的【名字】(或它的完整路径)→ 就用那个工作区;活明显属于某个工作区时就填它。省略时工作台按顺序选:带了 missionId → 沿用那个事项的工作区;带了 relatedSessionId → 沿用那条线程的目录;都没有 → 在我自己的文件夹里给它新开一个(不会出现在用户的常用工作区里)。清单外的值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
+        relatedSessionId: { type: 'string', description: '可选。这件事是接着哪条线程的活(线程 id,来自总览或 steward_threads_search)。没给 cwd 时新线程就开在那条线程的目录里;id 不是一条线程会被拒(not_found)。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
         brief: {
           type: 'object', additionalProperties: false, required: ['userText'],
@@ -936,7 +937,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['sessionId', 'cwd'],
       properties: {
         sessionId: { type: 'string', description: '要改的线程 id。' },
-        cwd: { type: 'string', description: '新的工作目录,必须是工作区表里的路径(表就在你这一回合的上下文里)。' },
+        cwd: { type: 'string', description: '新的工作目录:填「已知工作区」清单里的名字或路径(清单就在你这一回合的上下文里)。' },
       },
     },
   },
@@ -1117,7 +1118,8 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
         question: { type: 'string', description: '要查的问题(用户原话优先,最多 1000 字符)。' },
-        cwd: { type: 'string', description: '可选,三态(与 steward_thread_new 同一口径):① 传【工作区候选表里的路径】→ 就用它;② 省略 → 工作台在 Ruyi 根下开一个给这次速查用的工作文件夹;③ 其它任何值一律拒(invalid_request),`~` 与主目录也拒 —— 不要自己编路径。' },
+        cwd: { type: 'string', description: '可选(与 steward_thread_new 同一口径):填「已知工作区」清单里的名字(或它的完整路径)→ 就在那儿查,问的是某个项目时就填它;省略且没给 relatedSessionId → 在我自己的文件夹里给这次速查新开一个(不进用户的常用工作区);清单外的值一律拒(invalid_request),`~` 与主目录也拒 —— 不要自己编路径。' },
+        relatedSessionId: { type: 'string', description: '可选。问的是哪条线程做过的东西(线程 id)。没给 cwd 时就在那条线程的目录里查。' },
         basis: { type: 'object', description: '可选。依据(收件箱事件 seq / 记忆条目 id),进决策日志。' },
       },
     },

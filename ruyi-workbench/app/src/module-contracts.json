@@ -196,6 +196,8 @@
         "PERMISSION_MODES_REQUIRING_CONFIRM",
         "PERMISSION_MODE_ALIASES",
         "RUNTIME",
+        "STEWARD_MANAGED_WORKSPACES_CAP",
+        "STEWARD_WORKSPACE_LEGACY_NOTE",
         "THREAD_INDEX_RECENT_DEFAULT",
         "THREAD_INDEX_RECENT_MAX",
         "THREAD_INDEX_RECENT_MIN",
@@ -286,6 +288,7 @@
         "normalizeAgentRole",
         "normalizeConfig",
         "normalizeDesktopPythonCandidate",
+        "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
         "originOk",
         "permissionModeFrom",
@@ -323,6 +326,7 @@
         "spawnCmdLineLength",
         "spawnProbeAsync",
         "staticBase",
+        "stewardManagedWorkspaceKey",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
@@ -4251,6 +4255,7 @@
         "STEWARD_EYES_CHARS",
         "STEWARD_ID_OPAQUE_RE",
         "STEWARD_ID_SESSION_RE",
+        "STEWARD_KNOWN_WORKSPACE_LIMITS",
         "STEWARD_LAST_SAY_CHARS",
         "STEWARD_MEMORY_KINDS",
         "STEWARD_MEMORY_LIMITS",
@@ -4336,6 +4341,7 @@
         "stewardPrerouteMemoryHit",
         "stewardPrerouteReason",
         "stewardPrerouteScoreThread",
+        "stewardRuyiOwnedPath",
         "stewardSamePath",
         "stewardSanitizeBlock",
         "stewardSanitizeText",
@@ -4353,6 +4359,7 @@
         "stewardTrimSayAtSentence",
         "stewardTurnTaint",
         "stewardWatchedThread",
+        "stewardWorkspaceLabels",
         "stewardWorkspaceRootFor",
         "threadOriginOf",
         "threadVisible",
@@ -12323,6 +12330,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardRuyiOwnedPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
@@ -13339,7 +13353,6 @@
       "layer": "transport",
       "provides": [
         "STEWARD_MEDIATED_PERMISSION_WAIT_MS",
-        "STEWARD_WORKSPACE_DERIVE_NOTE",
         "STEWARD_WORKSPACE_DERIVE_TRIES",
         "STEWARD_WORKSPACE_SLUG_MAX",
         "stewardAnswerBasisOf",
@@ -13366,22 +13379,34 @@
         "stewardImplThreadStatus",
         "stewardImplThreadWorkspace",
         "stewardImplThreadsSearch",
+        "stewardInheritableCwd",
+        "stewardKnownWorkspaces",
         "stewardLaunchTurn",
+        "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
+        "stewardRecordMissionWorkspace",
         "stewardRelayAutoAllowed",
         "stewardResolveAnswerBasis",
+        "stewardResolveThreadCwd",
         "stewardSeatedByUser",
         "stewardSeatedFail",
         "stewardToolCallLine",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
         "stewardValidateCwd",
-        "stewardWorkspaceSlug",
-        "stewardWorkspaceTableFull"
+        "stewardWorkspaceNameOf",
+        "stewardWorkspaceSlug"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
@@ -13443,13 +13468,6 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "WORKSPACE_TABLE_CAP",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -13531,6 +13549,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMetaIsSteward",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
           "kinds": [
             "call"
@@ -13546,6 +13571,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "withMissionContainerLock",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "writeMissionContainer",
           "kinds": [
             "call"
           ]
@@ -13762,6 +13801,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardRuyiOwnedPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSamePath",
           "kinds": [
             "call"
@@ -13812,6 +13858,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardWatchedThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWorkspaceLabels",
           "kinds": [
             "call"
           ]
@@ -14849,6 +14902,13 @@
         },
         {
           "provider": "13k-steward-threads.js",
+          "symbol": "stewardKnownWorkspaces",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
           "symbol": "stewardSeatedByUser",
           "kinds": [
             "call"
@@ -14864,6 +14924,13 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardTriggerOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardWorkspaceNameOf",
           "kinds": [
             "call"
           ]
@@ -15663,6 +15730,7 @@
         "stewardActConfirmValueText",
         "stewardActLabel",
         "stewardContextBudget",
+        "stewardKnownWorkspaceRows",
         "stewardMemoryBlock",
         "stewardMemoryVetoedBlock",
         "stewardNormalizeAct",
@@ -15677,6 +15745,13 @@
         "stewardWorkspaceTableBlock"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "path",
@@ -15707,6 +15782,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "listSessions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readMissionContainer",
           "kinds": [
             "call"
@@ -15715,6 +15797,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMetaIsSteward",
           "kinds": [
             "call"
           ]
@@ -15792,6 +15881,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_DIGEST_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_KNOWN_WORKSPACE_LIMITS",
           "kinds": [
             "read"
           ]
@@ -15932,6 +16028,27 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardThreadPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardCanonWorkspacePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardFoldWorkspacePath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardKnownWorkspaces",
           "kinds": [
             "call"
           ]
@@ -17853,13 +17970,6 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardValidateCwd",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13k-steward-threads.js",
-          "symbol": "stewardWorkspaceTableFull",
           "kinds": [
             "call"
           ]

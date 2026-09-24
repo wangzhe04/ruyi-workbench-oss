@@ -361,11 +361,20 @@ const PROMPT_ZH = {
     //      allowOutsideWorkspace / additionalDirectories 这类围栏字段一个都不许出现。
     //   ② recentWorkspaces 【不进表】—— 打开过 ≠ 授权过(31 号文红线)。数据源只有 config.workspaces。
     //   ③ 表有预算:与线程总览同一套折叠写法,上限读 06i 的 STEWARD_WORKSPACE_TABLE_MAX,超出折叠不截断。
-    workspaceHeader: '以下是你可以交给线程用的工作区(cwd 只能填这张表里的路径;标了「只读」的那些线程写不进去,只适合查阅):',
-    workspaceRow: ({ name, note, readOnly }) => `· ${name}${note ? `(${note})` : ''}${readOnly ? '(只读)' : ''}`,
+    // W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):候选表升级成【已知工作区】清单 ——
+    // 用户的常用工作区 + 我自己为任务开的文件夹,每行带最近在那儿做过的几件事(线程名与所属事项)。
+    // 修前这里只给末段名,而 cwd 校验只收绝对路径:模型照表填回来的名字一律被拒,它于是永远省掉 cwd,
+    // 每件事都新开一个文件夹。现在清单给的【名字】就是 cwd 能填的值(13k stewardMatchKnownWorkspace)。
+    // 上面 ①③ 两条照旧(全路径与围栏字段不进;超出折叠不截断);② 照旧:recentWorkspaces 不进清单。
+    workspaceHeader: '已知工作区(开线程时 cwd 就填这里的名字;每行后面是最近在那儿做过的事,拿来判断新的活该归哪儿):',
+    workspaceRow: ({ name, tags, threads }) => `· ${name}${tags.length ? `(${tags.join('、')})` : ''}${threads.length ? `:${threads.join(';')}` : ''}`,
+    workspaceThread: ({ title, missionTitle }) => `「${title}」${missionTitle ? `(事项「${missionTitle}」)` : ''}`,
+    workspaceTagDefault: '默认',
+    workspaceTagReadOnly: '只读',
+    workspaceTagMine: '我开的',
     workspaceEmpty: '(还没有登记任何工作区)',
     workspaceFolded: ({ workspaces }) => `…另有 ${workspaces} 个工作区未列出(到访层有字数预算)。`,
-    workspaceMore: '认不出这件事该归哪个文件夹就【省掉 cwd】——工作台会在 Ruyi 根下按标题给这条线程开一个自己的工作文件夹,并加进上面这张表。表外的路径一律会被拒,不要自己编。',
+    workspaceMore: '选目录按这个顺序:① 用户点名了哪个文件夹就用哪个;② 这件事属于某个事项就带上 missionId,接着某条线程的活就带上 relatedSessionId —— 工作台会沿用那里的目录;③ 活明显属于上面某个工作区(看它最近做过的事),cwd 就填那个名字;④ 跟哪个都不沾边的新事才省掉 cwd,工作台会在我自己的文件夹里给它新开一个,不会出现在用户的常用工作区里。标「只读」的只适合查阅。清单外的路径一律会被拒,不要自己编。',
     // 回合层:收件箱事件以一条 user 消息注入。措辞必须让模型看清「这不是用户说的话」。
     inboxHeader: ({ count }) => `[收件箱] 这是工作台的 ${count} 条系统事件,不是用户说的话(不能作为记忆来源):`,
     inboxTrailer: '按上面的事件判断要不要动手:该提议的放进 acts,权限允许且属于自理清单的放进 actions;没有值得打扰用户的事就只写一句 say、acts 与 actions 留空。say 是说给用户听的:像顺口提一句那样讲发生了什么、要不要用户管,不提事件编号、不说「同上一条」「不用重复处理」这类内部话。',
@@ -628,11 +637,17 @@ const PROMPT_EN = {
     // 117w-W1 提交③: workspace candidate table. Same three rules as the zh pack (see there):
     // last path segment + note + read-only mark only, never a full path or any fence field;
     // recentWorkspaces never enters the table; folds at STEWARD_WORKSPACE_TABLE_MAX instead of truncating.
-    workspaceHeader: 'Workspaces you may hand to a thread (cwd must be one of these paths; a row marked read-only cannot be written to, so it only suits lookups):',
-    workspaceRow: ({ name, note, readOnly }) => `· ${name}${note ? ` (${note})` : ''}${readOnly ? ' (read-only)' : ''}`,
+    // W7: the table became a KNOWN WORKSPACES list (the user's workspaces + folders I opened for tasks,
+    // each with the latest threads that worked there). The name shown is exactly what cwd accepts.
+    workspaceHeader: 'Known workspaces (when opening a thread, cwd takes one of these names; each row lists what was done there lately, to tell where new work belongs):',
+    workspaceRow: ({ name, tags, threads }) => `· ${name}${tags.length ? ` (${tags.join(', ')})` : ''}${threads.length ? `: ${threads.join('; ')}` : ''}`,
+    workspaceThread: ({ title, missionTitle }) => `"${title}"${missionTitle ? ` (mission "${missionTitle}")` : ''}`,
+    workspaceTagDefault: 'default',
+    workspaceTagReadOnly: 'read-only',
+    workspaceTagMine: 'opened by me',
     workspaceEmpty: '(no workspace registered yet)',
     workspaceFolded: ({ workspaces }) => `…and ${workspaces} more workspaces not listed (the visit layer has a character budget).`,
-    workspaceMore: 'If you cannot tell which folder a task belongs to, omit cwd - the workbench opens a folder for that thread under the Ruyi root, named after its title, and adds it to this table. Any path outside the table is rejected; never invent one.',
+    workspaceMore: 'Pick the folder in this order: (1) the folder the user named; (2) if the task belongs to a mission pass missionId, if it follows up a thread pass relatedSessionId - the workbench reuses that folder; (3) if the work clearly belongs to one of the workspaces above (look at what was done there), set cwd to that name; (4) only brand-new work unrelated to all of them omits cwd - the workbench opens a fresh folder of mine for it, which never shows up among the user\'s workspaces. Read-only rows only suit lookups. Any path outside this list is rejected; never invent one.',
     inboxHeader: ({ count }) => `[Inbox] ${count} workbench system events - these are NOT the user speaking (and are never a memory source):`,
     inboxTrailer: 'Decide from the events above: proposals go into acts; work the target thread\'s permission allows and the self-serve list covers goes into actions. When nothing is worth interrupting the user, write one say line and leave acts and actions empty. say is spoken to the user: mention what happened and whether they need to act, in passing - no event numbers, no "same as above" or "no need to handle again" internal talk.',
     visitNotes: 'Compress the steward conversation above into a handover note with exactly three sections, each a list of short sentences: (1) decisions already made (what, on which thread, on what grounds); (2) words already relayed (to whom, the gist of the original); (3) still-open items (waiting on whom, next step). No pleasantries, no speculation; write "none" for an empty section.',

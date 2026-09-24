@@ -666,11 +666,16 @@ async function stewardImplMemorySearch(args) {
 // 事项级状态只经 06i 的 aggregateMissionState 纯函数 —— 本文件【不】自己判定任何状态。
 async function stewardImplMissions(args, ctx, config) {
   const includeArchived = !!(args && args.includeArchived === true);
-  const aggregate = await buildMissionAggregateRows({ includeArchived }).catch(() => ({ rows: [] }));
+  const aggregate = await buildMissionAggregateRows({ includeArchived, config }).catch(() => ({ rows: [] }));
+  // W7:事项与线程都带上【工作区名字】(已知工作区清单里的那个名字,可以原样填回 steward_thread_new
+  // 的 cwd)。全路径照旧不给(围栏信息);显式白名单投影,不是把 13d 的行整份转出去。
+  const knownForNames = stewardKnownWorkspaces(config);
+  const nameOf = cwd => { const hit = stewardWorkspaceNameOf(cwd, config, knownForNames); return hit ? hit.name : ''; };
   const missions = aggregate.rows.map(row => {
     const mission = {
       missionId: row.missionId,
       title: stewardSanitizeText(row.title),
+      workspace: stewardSanitizeText(nameOf(row.workspace && row.workspace.path)),
       goal: stewardSanitizeText(row.goal).slice(0, 400),
       aggregateState: row.aggregateState,
       aggregateStateLabel: stewardStateLabel(row.aggregateState),
@@ -687,6 +692,7 @@ async function stewardImplMissions(args, ctx, config) {
         title: thread.title,
         state: thread.state,
         stateLabel: thread.stateLabel,
+        workspace: stewardSanitizeText(nameOf(thread.cwd)),   // W7:同上
         permissionMode: thread.permissionMode,
         lastAssistantText: thread.lastAssistantText,   // 13d 已按 §11.2 截到 120 字
         ...(thread.brief ? { brief: thread.brief } : {}),   // 116-5b:同 threads_search —— title 仍是原话,brief 多给的

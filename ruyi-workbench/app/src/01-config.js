@@ -379,6 +379,11 @@ function defaultConfig() {
     // 一眼找得到。它是主目录的【子目录】,不是主目录本身,所以 03 的 cwdWarning 对它静默。
     // 围栏类键:按 06i 的 fail-closed 语义自动落 forbidden(管家改不了它,用户在设置里能改)。
     stewardWorkspaceRoot: path.join(os.homedir(), 'Ruyi'),
+    // W7(用户 2026-09-24「如意自己开的工作区,默认不显示在常用工作区中,不要让用户自己感知到」):
+    // 如意为任务自己开的文件夹登记在这张表里,【不再】追加进 workspaces[](那张表就是界面上的「常用工作区」,
+    // 设置页与顶栏选择器都读它)。形状 [{ path, at, adopted? }]:adopted:true = 用户后来亲手把它加进了常用,
+    // 从此它归用户(以用户为准,见清洗块的「收编」一支)。管家的工作区清单与 cwd 校验把两张表合起来看。
+    stewardManagedWorkspaces: [],
     // 第 116 波 116a(27 号文 §11.3):管家收件箱轮询间隔(ms),clamp [5000,120000]。
     stewardPollMs: 15000,
     // 第 121 波 K3(34 号文 §4.1/§4.2「噪音用窗口解决,不用能力解决」):任务索引的「最近 N 条」窗口。
@@ -595,9 +600,16 @@ const WORKSPACE_NOTE_MAX = 80;
 // 抬到 64 的两条理由:① 派生根在 ~/Ruyi 下,是 Ruyi 自己的地盘,在那里放宽是有意的;
 // ② 06i 的 STEWARD_WORKSPACE_TABLE_MAX(候选表投影的行数上限)保持 20 不动 —— 表能长到 21..64
 // 行之后,13o 那句「…另有 N 个工作区未列出」才在【生产形状】下可达、可测。
-// 帽子只挡「表长到放不下」,不挡「派生」:13k 在派生【之前】自己算一次追加后会不会超帽,会超就
-// fail-closed 拒开线程(见 13k stewardWorkspaceTableFull),绝不允许目录建了而行落不下。
+// W7 起派生不再往 workspaces[] 追加(改登记进 stewardManagedWorkspaces),13k 那道「派生前帽检查」
+// 随之退役;64 保持不动 —— 存量用户的表可能已经长过 20,改回去会截掉他们的行。
 const WORKSPACE_TABLE_CAP = 64;
+// W7:如意自己开的文件夹那张表(stewardManagedWorkspaces)的行数上限。满了从【最老】的那一行起丢 ——
+// 不像 workspaces[] 那样拒开线程:这张表用户在界面上看不见、也清不了,拒只会让管家卡死。被挤掉的
+// 目录还在磁盘上,线程照常能用,只是不再出现在管家的已知工作区清单里。
+const STEWARD_MANAGED_WORKSPACES_CAP = 200;
+// 117w-W1 提交② 起派生行写进 workspaces[] 时带的备注。W7 起派生不再写 workspaces[],这个字面量只剩
+// 一个用处:认出【老版本】追加进常用工作区的那些行,把它们挪回如意自己那张表(清洗块的「迁出」一支)。
+const STEWARD_WORKSPACE_LEGACY_NOTE = 'Ruyi 自动开的';
 
 // 第 121 波 K3(34 号文 §4.1/§4.2):任务索引「最近 N 条」窗口的缺省与钳位区间。三个数只有这一份,
 // defaultConfig() 与下面的清洗块都读它们(stewardPollMs 那种「默认表与清洗块各写一遍字面量」的
@@ -616,6 +628,56 @@ function normalizeWorkspacePathString(value) {
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
   return s.slice(0, 1000);
+}
+
+// W7:如意自己开的文件夹那张表(stewardManagedWorkspaces)的清洗,外加它与常用工作区 workspaces[] 之间
+// 的两条迁移。只在 normalizeConfig 的工作区清洗块里调一次;wsRows 是那一块刚清洗完的常用工作区行。
+// 返回 { kept, managed }:kept 是留在常用工作区里的行(顺序不变),managed 是清洗后的如意那张表。
+//   · 迁出 —— 老版本(117w-W1 ② 起)把派生目录追加进了常用工作区,用户在「常用工作区」里看到一串
+//     自己没开过的文件夹(真机 2026-09-24:两条股票分析线程各留下一行)。认法两条,满足其一即挪回如意那张表:
+//     ① 行上还带着老备注「Ruyi 自动开的」;② 备注已经被前端保存时剥掉(顶栏与设置页存工作区只写
+//     path/read/write/execute 四个字段,真机那两行就是这样),但它是【出厂 Ruyi 根】的直接子目录。
+//     第 ② 条只在 stewardWorkspaceRoot 仍是出厂值时认 —— 用户把根改到自己的项目父目录时,那下面的
+//     子目录多半是他自己的项目,不能按路径猜。第 0 行(默认工作区)永远不动:用户把它设成了默认,就是他的。
+//   · 收编(以用户为准)—— 一个如意目录又出现在常用工作区里 = 用户亲手把它加了回去(W7 起工作台自己
+//     不再往常用工作区写任何一行),这一行留下,如意那张表里对应的条目标 adopted:true。迁出只认
+//     「不在如意那张表里」的行,所以收编过的行下一次读配置不会再被挪走(否则两条迁移会来回拉锯)。
+function stewardManagedWorkspaceKey(value) {
+  return String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+function normalizeStewardManagedWorkspaces(config, wsRows) {
+  const rawList = Array.isArray(config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
+  const managed = [];
+  const byKey = new Map();
+  for (const raw of rawList) {
+    const src = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw : (typeof raw === 'string' ? { path: raw } : null);
+    if (!src) continue;
+    const p = normalizeWorkspacePathString(src.path);
+    if (!p || !path.isAbsolute(p)) continue;
+    const key = stewardManagedWorkspaceKey(p);
+    const prev = byKey.get(key);
+    if (prev) { if (src.adopted === true) prev.adopted = true; continue; }
+    const entry = { path: p, at: typeof src.at === 'string' ? src.at.trim().slice(0, 40) : '' };
+    if (src.adopted === true) entry.adopted = true;
+    managed.push(entry);
+    byKey.set(key, entry);
+  }
+  const factoryRoot = path.join(os.homedir(), 'Ruyi');
+  const rootRaw = normalizeWorkspacePathString(config.stewardWorkspaceRoot);
+  const rootIsFactory = !rootRaw || !path.isAbsolute(rootRaw) || stewardManagedWorkspaceKey(rootRaw) === stewardManagedWorkspaceKey(factoryRoot);
+  const kept = [];
+  (Array.isArray(wsRows) ? wsRows : []).forEach((row, index) => {
+    const key = stewardManagedWorkspaceKey(row.path);
+    const known = byKey.get(key);
+    if (known) { known.adopted = true; kept.push(row); return; }
+    const underFactoryRoot = rootIsFactory && stewardManagedWorkspaceKey(path.dirname(row.path)) === stewardManagedWorkspaceKey(factoryRoot);
+    const legacy = index > 0 && path.isAbsolute(row.path) && (row.note === STEWARD_WORKSPACE_LEGACY_NOTE || underFactoryRoot);
+    if (!legacy) { kept.push(row); return; }
+    const entry = { path: row.path, at: '' };
+    managed.push(entry);
+    byKey.set(key, entry);
+  });
+  return { kept, managed: managed.slice(-STEWARD_MANAGED_WORKSPACES_CAP) };
 }
 
 // 123-N2:config.lastUsedEngineRoute 的【形状】清洗。见 normalizeConfig 里调用点上方那段头注 ——
@@ -1200,6 +1262,13 @@ function normalizeConfig(raw, opts = {}) {
       if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
       for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
       for (const s of seed) { pushWs({ path: s }); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
+    }
+    // W7:如意自己开的文件夹不留在常用工作区里(迁出),用户亲手加回去的算他的(收编)。见 normalizeStewardManagedWorkspaces。
+    {
+      const split = normalizeStewardManagedWorkspaces(config, clean);
+      clean.splice(0, clean.length, ...split.kept);
+      if (JSON.stringify(split.managed) !== JSON.stringify(config.stewardManagedWorkspaces)) { config.stewardManagedWorkspaces = split.managed; changed = true; }
+      else config.stewardManagedWorkspaces = split.managed;
     }
     if (JSON.stringify(clean) !== JSON.stringify(config.workspaces)) { config.workspaces = clean; changed = true; }
     else config.workspaces = clean;

@@ -34,10 +34,11 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      ④ existing-session 带 tier → 落盘的任务没有 tier。
 //  (W) S-b 每条任务自己的文件夹:① 手工线程在 defaultWorkspace 上跑慢回合(假引擎 SLOW 暗号)时触发定时任务
 //      → 定时线程拿到不同的 cwdKey、手工回合没完它已经 reconciled、全程 arbiterWait 为空(反向时这里读出
-//      「等锁：同一个文件夹被「手工慢线程」占着」);② 新文件夹在工作区候选表里、task.workdir 落盘;
-//      ③ 第二次触发复用同一个 workdir,没有 `-2` 目录、表不多一行;磁盘上被删了 → 原地建回、表不多一行;
-//      从表里删掉那一行 → 重新派生并重新登记;表满 → 回落 defaultWorkspace + scheduler_workdir_fallback、
-//      触发照常成功;④ target 仍拒 cwd,HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份
+//      「等锁：同一个文件夹被「手工慢线程」占着」);② 新文件夹登记在如意那张表(stewardManagedWorkspaces)
+//      里、task.workdir 落盘,W7 起用户的常用工作区一行不多;③ 第二次触发复用同一个 workdir,没有 `-2`
+//      目录、表不多一行;磁盘上被删了 → 原地建回、表不多一行;从表里删掉那一行 → 重新派生并重新登记;
+//      常用工作区满员 → W7 起照常派生(修前回落 defaultWorkspace + table_full,那条回落已退役);
+//      ④ target 仍拒 cwd,HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份
 //      (进程内 http 壳挂 srv.handleSchedulerApiRoutes,鉴权表由 scheduler-api.e2e 另钉);
 //      ⑤ 管家关着 → 不派生、任务没有 workdir、表不多一行。
 //
@@ -159,12 +160,15 @@ const call = (name, args, ctx) => srv.toolCall(name, args === null || args === u
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const configFile = path.join(HOME, 'config.json');
 const configOnDisk = () => { try { return JSON.parse(fs.readFileSync(configFile, 'utf8')); } catch { return {}; } };
-// 在【盘上现有那份】上打补丁:派生会往 workspaces[] 追加行,整份重写(writeConfig)会把它们抹掉。
+// 在【盘上现有那份】上打补丁:派生会往如意那张表(stewardManagedWorkspaces)追加行,整份重写(writeConfig)会把它们抹掉。
 function patchConfig(patch) {
   fs.writeFileSync(configFile, JSON.stringify({ ...configOnDisk(), ...patch }, null, 2), 'utf8');
 }
 const canonPath = p => path.resolve(String(p || '')).toLowerCase();
-const tableRows = () => (Array.isArray(configOnDisk().workspaces) ? configOnDisk().workspaces : []);
+// W7:派生登记的是如意自己那张表(stewardManagedWorkspaces),不再是 workspaces[](用户的常用工作区)。
+// tableRows / inTable 从此指那张表;favRows 是常用工作区,派生前后它一行都不该变。
+const tableRows = () => (Array.isArray(configOnDisk().stewardManagedWorkspaces) ? configOnDisk().stewardManagedWorkspaces : []);
+const favRows = () => (Array.isArray(configOnDisk().workspaces) ? configOnDisk().workspaces : []);
 const inTable = p => tableRows().some(row => row && canonPath(row.path) === canonPath(p));
 // 仲裁器的锁键口径(13n stewardArbiterCwdKey:resolve → realpath → win32 折小写 → sha1 前 12 位)。这里照算一遍只为
 // 把「两条线程的键不一样」打印成人能对的两个值;判据本身同时看 arbiterWait(真仲裁器)与回合先后。
@@ -583,6 +587,7 @@ try {
     ok(!!slowStarted && !manualDone, 'W0 前提:手工慢回合已经拿到写锁、正在模型那一步睡着');
 
     const rowsBefore = tableRows().length;
+    const favBefore = favRows().length;
     const created = await call('steward_schedule_create', {
       title: 'A股盘中巡检(2-ter 夹具)', schedule: { kind: 'daily', at: '14:00' }, payload: { kind: 'prompt', text: '按计划做一次盘中巡检' },
     }, stewardCtx());
@@ -615,7 +620,9 @@ try {
     ok(!!workdir && canonPath(workdir) === canonPath(schedHead.cwd) && canonPath(workdir).startsWith(canonPath(path.join(HOME, 'Ruyi')) + path.sep),
       `W3 ② task.workdir 落盘,且就是那条线程的 cwd(在 Ruyi 根下;实得 workdir=${workdir} cwd=${schedHead.cwd})`);
     ok(!!workdir && inTable(workdir) && tableRows().length === rowsBefore + 1 && fs.statSync(workdir).isDirectory(),
-      `W4 ② 新文件夹在工作区候选表里(表 ${rowsBefore} → ${tableRows().length} 行)且目录真的建了`);
+      `W4 ② 新文件夹登记在如意那张表里(表 ${rowsBefore} → ${tableRows().length} 行)且目录真的建了`);
+    ok(favRows().length === favBefore && !favRows().some(row => canonPath(row.path) === canonPath(workdir)),
+      `W4b W7:用户的常用工作区一行没多(${favBefore} → ${favRows().length} 行),定时任务的文件夹不出现在里面`);
     await manualTurn;
     ok(manualDone, 'W5 手工慢回合随后也跑完了(两条互不等待)');
 
@@ -634,7 +641,7 @@ try {
       && tableRows().length === rowsBefore + 1,
       `W7 目录被删、表里那行还在 → 原地建回、仍用它、表不多一行(实得 cwd=${head3.cwd} 存在=${fs.existsSync(workdir)} 表 ${tableRows().length} 行)`);
     // 用户把那一行从表里删了 → 不再认它,重新派生并重新登记(空目录复用,所以路径不变、行回来)。
-    patchConfig({ workspaces: tableRows().filter(row => canonPath(row.path) !== canonPath(workdir)) });
+    patchConfig({ stewardManagedWorkspaces: tableRows().filter(row => canonPath(row.path) !== canonPath(workdir)) });
     ok(!inTable(workdir), 'W8 前提:那一行已经不在候选表里');
     const ran4 = await call('steward_schedule_run_now', { id: taskId }, stewardCtx());
     const head4 = await headOf(sessionIdsOf(taskId).pop()) || {};
@@ -642,12 +649,14 @@ try {
     ok(ran4 && ran4.outcome === 'succeeded' && !!workdir4 && inTable(workdir4) && canonPath(head4.cwd) === canonPath(workdir4),
       `W9 ③ 表里没有了 → 重新派生、重新登记,线程用的是新登记的那一个(实得 workdir=${workdir4} 在表里=${inTable(workdir4)})`);
 
-    // 表满 → 回落 defaultWorkspace + 一条 scheduler_workdir_fallback,触发照常成功。
-    const savedRows = tableRows();
+    // 常用工作区满员(64 行)→ W7 起【照常派生】:派生登记在如意那张表里,不占常用工作区的行。
+    // 修前这里断的是「表满 → 回落 defaultWorkspace + scheduler_workdir_fallback(reason:table_full)」——
+    // 那条回落随 13k 的派生前帽检查一起退役(派生不再往常用工作区写,「表满」对它没有意义了)。
+    const savedFav = favRows();
     const fillers = [];
-    for (let i = 0; savedRows.length + fillers.length < 64; i++) fillers.push({ path: path.join(HOME, 'fill', 'f' + i), read: true, write: true, execute: true });
-    patchConfig({ workspaces: [...savedRows, ...fillers] });
-    ok(tableRows().length === 64, `W10 前提:候选表填满 64 行(实得 ${tableRows().length})`);
+    for (let i = 0; savedFav.length + fillers.length < 64; i++) fillers.push({ path: path.join(HOME, 'fill', 'f' + i), read: true, write: true, execute: true });
+    patchConfig({ workspaces: [...savedFav, ...fillers] });
+    ok(favRows().length === 64, `W10 前提:常用工作区填满 64 行(实得 ${favRows().length})`);
     const full = await call('steward_schedule_create', {
       title: '表满时的那条', schedule: { kind: 'daily', at: '14:30' }, payload: { kind: 'prompt', text: '随便说点什么' },
     }, stewardCtx());
@@ -655,13 +664,14 @@ try {
     const ranFull = await call('steward_schedule_run_now', { id: fullId }, stewardCtx());
     const fullSid = sessionIdsOf(fullId).pop();
     const fullHead = await headOf(fullSid) || {};
-    const fallbackRow = await waitFor(() => logRows('scheduler_workdir_fallback').find(r => r.taskId === fullId), 5000);
-    ok(ranFull && ranFull.outcome === 'succeeded' && canonPath(fullHead.cwd) === canonPath(WORK)
-      && !('workdir' in (taskOnDisk(fullId) || {})) && tableRows().length === 64,
-      `W11 表满 → 线程回落 defaultWorkspace、任务不记 workdir、触发照常成功(实得 outcome=${ranFull && ranFull.outcome} cwd=${fullHead.cwd} 表 ${tableRows().length} 行)`);
-    ok(!!fallbackRow && fallbackRow.reason === 'table_full' && fallbackRow.sessionId === fullSid,
-      `W12 表满回落留了一条 scheduler_workdir_fallback(reason:table_full;实得 ${JSON.stringify(fallbackRow)})`);
-    patchConfig({ workspaces: savedRows });
+    const fullWorkdir = (taskOnDisk(fullId) || {}).workdir || '';
+    ok(ranFull && ranFull.outcome === 'succeeded' && !!fullWorkdir && canonPath(fullHead.cwd) === canonPath(fullWorkdir)
+      && canonPath(fullWorkdir).startsWith(canonPath(path.join(HOME, 'Ruyi')) + path.sep) && inTable(fullWorkdir) && favRows().length === 64,
+      `W11 常用工作区满员 → 照常派生、任务记下 workdir、常用工作区仍 64 行(实得 outcome=${ranFull && ranFull.outcome} cwd=${fullHead.cwd} 常用 ${favRows().length} 行)`);
+    await sleep(200);
+    ok(!logRows('scheduler_workdir_fallback').some(r => r.taskId === fullId),
+      'W12 没有 scheduler_workdir_fallback(退役的 table_full 回落不再出现)');
+    patchConfig({ workspaces: savedFav });
 
     // ④ HTTP 新建 / PATCH 写不进 workdir;PATCH 保住服务端那一份;target 仍拒 cwd。
     const shim = http.createServer((req, res) => {
