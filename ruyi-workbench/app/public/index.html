@@ -706,6 +706,17 @@
            「现在这几件」已经退役两刀了，名字里再留着 Now 就是在指一块不存在的面。 -->
       <aside id="stewardSide" class="steward-side"
              aria-label="焦点" data-i18n-attr="aria-label:shell.focus" hidden>
+        <!-- 2026-09-24（用户：「右边的线程永远收不起来」）：右栏自己的开关。展开态是这条栏头上唯一
+             一枚钮（收起）；收起态整栏变成 44px 的窄条 —— 下面那枚 #stewardSideStrip 就是整条窄条，
+             点它展开，条上印「N 在跑」「M 等你」两枚徽标（数由 js/steward-board.js 的 renderSideStrip
+             写，仍读 renderStatusLine 那一次 filter 的产物）与收起期间管家换过焦点的一颗点。
+             三态（hidden／data-collapsed="1"／展开）都由 steward-board.js 的 syncNow 一处写；偏好记在
+             本机（wcw.stewardSideCollapsed）。文案由 JS 用 t() 写（含计数），故不挂 data-i18n-attr。 -->
+        <div class="steward-side-bar">
+          <button type="button" id="stewardSideToggleBtn" class="icon-btn steward-side-toggle"
+                  data-icon="panelRight" data-icon-size="15" aria-controls="stewardFocus" aria-expanded="true"></button>
+        </div>
+        <button type="button" id="stewardSideStrip" class="steward-side-strip" hidden></button>
         <div id="stewardFocus" class="steward-side-body"></div>
         <!-- 121-K7（§2.6 末条「接下来：定时任务最近两条」）：它是 #stewardFocus 的【兄弟】而不是
              子节点 —— steward-board.js 的 placeNowStacks 每一拍都把「其它在途」那一叠重新

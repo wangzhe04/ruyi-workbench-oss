@@ -1061,9 +1061,19 @@ export function createStewardConversation({
     return t('stewardShell.chat.actDone', { label: String(act.label || '') });
   }
 
+  // 2026-09-24（用户：「打开线程点击了会像没有反应一样……有按钮的话默认直接打开工作台里的对应线程」）：
+  // 用户按下的「打开」＝去工作台看这条线程（组合根注入的 openInWorkbench：切视角 ＋ openSession）。
+  // 修前它只派 steward:open-thread → 右栏换焦点；而管家回合一结束右栏早就停在这条上了（finishReply
+  // 的 focusThread），再点一次屏幕上什么都不动。事件路仍在：注入缺席时回落它（右栏／覆盖式抽屉接）。
+  // 管家【自己】换焦点走的仍是 focusThread（派 steward:focus-thread），不进工作台。
   function openThread(sessionId) {
-    const detail = { sessionId: String(sessionId || '') };
-    try { doc().dispatchEvent(new CustomEvent(STEWARD_OPEN_THREAD_EVENT, { detail })); } catch { /* 无 CustomEvent 的宿主 */ }
+    const id = String(sessionId || '');
+    if (!id) return '';
+    if (typeof openClassicWindow === 'function') {
+      try { void openClassicWindow(id); return id; } catch { /* 掉到下面那条既有通道 */ }
+    }
+    try { doc().dispatchEvent(new CustomEvent(STEWARD_OPEN_THREAD_EVENT, { detail: { sessionId: id } })); } catch { /* 无 CustomEvent 的宿主 */ }
+    return id;
   }
   function focusThread(sessionId) {
     const detail = { sessionId: String(sessionId || '') };
@@ -1248,13 +1258,12 @@ export function createStewardConversation({
     return task;
   }
 
+  // 「看全文」与卡头那枚图标钮：与「打开」同一个去处（openThread 里那一支 openClassicWindow，
+  // 缺席时回落抽屉／「现在这一件」，「看全文」就在标题旁边）。
   function fullTextOf(sessionId) {
     const id = String(sessionId || '');
     if (!id) return '';
-    if (typeof openClassicWindow === 'function') {
-      try { void openClassicWindow(id); return id; } catch { /* 掉到下面那条既有通道 */ }
-    }
-    openThread(id);   // 缺席时的回落：抽屉/「现在这一件」把它打开，「看全文」就在标题旁边
+    openThread(id);
     return id;
   }
 

@@ -5,7 +5,7 @@ import { createStewardConversation } from './steward-conversation.js';
 import { createStewardComposer } from './steward-composer.js';
 import { createStewardDrawer, STEWARD_NEW_THREAD_EVENT } from './steward-drawer.js';
 import { createStewardSettingsDomain } from './steward-settings.js';
-import { createStewardBoard } from './steward-board.js';
+import { createStewardBoard, STEWARD_FOCUS_THREAD_EVENT } from './steward-board.js';   // 2026-09-24：线程头「回到管家」派的焦点事件名从同一条 import 取（同一份登记，不另起第二条 import 行）
 import { createThreadHead } from './thread-head.js';
 import { createQuietCard } from './quiet-card.js';
 import { toast } from './util.js';   // 123-M2：安静卡「稍后」建不成那条 reminder 时的一句提示
@@ -463,6 +463,34 @@ export function createStewardShellDomain({
   // 121-K5：工作台视角的线程头（§2.5）。它接替 117g 的「2.0 视窗返回带」：不发取数请求，只读
   // state 与左栏已经取回来的那一行（迟绑定句柄 —— board 在它之后才构造），控件是同一份 chips 工厂。
   let boardHandle = null;
+  // 2026-09-24（用户：「打开线程……默认直接打开工作台里的对应线程」的另一半）：从工作台回来要有明显的
+  // 入口。线程头那枚「回到管家」＝切回管家视角 ＋ 把焦点落在【刚看的这条】（派 steward:focus-thread：
+  // 右栏展开着就换成它；用户收着右栏就只让窄条亮一下，不强行展开）。
+  // 视角属性可能在 View Transitions 的回调里才落地 —— 事件要等它落地再派（此刻派的话看板还在
+  // 工作台视角，syncNow 判「没接住」会把抽屉以覆盖式开在工作台上）。一次性观察者，落地即断开；
+  // 准入没过（applyShellMode 回落工作台）也断开，不留悬着的观察者。
+  function backToSteward(sessionId) {
+    const id = String(sessionId || '');
+    const fire = () => {
+      if (!id) return;
+      try { globalThis.document.dispatchEvent(new CustomEvent(STEWARD_FOCUS_THREAD_EVENT, { detail: { sessionId: id } })); }
+      catch { /* 无 CustomEvent 的宿主 */ }
+    };
+    if (isStewardMode()) { fire(); return 'steward'; }
+    const root = globalThis.document && globalThis.document.documentElement;
+    let watcher = null;
+    if (globalThis.MutationObserver && root) {
+      watcher = new MutationObserver(() => {
+        if (!isStewardMode()) return;
+        watcher.disconnect();
+        fire();
+      });
+      watcher.observe(root, { attributes: true, attributeFilter: ['data-shell-mode'] });
+    }
+    const mode = applyShellMode('steward');
+    if (mode !== 'steward' && watcher) watcher.disconnect();
+    return mode;
+  }
   const threadHead = createThreadHead({
     api, state, t,
     modelMenuExtras,
@@ -470,6 +498,7 @@ export function createStewardShellDomain({
     missionRowOf: sessionId => (boardHandle ? boardHandle.missionRowFor(sessionId) : null),
     refreshRows: () => (boardHandle ? boardHandle.refreshBoard() : Promise.resolve(0)),
     presenceState: () => presenceApi.current(),
+    backToSteward,   // 2026-09-24：线程头「回到管家」
   });
   // 117h：一行状态 → 看板 → 「现在这一件」。「现在这一件」不另起抽屉，直接把 117d 那一份换成
   // docked 挂法（drawer.setMount），所以这里把 drawer 子域整个交给它。

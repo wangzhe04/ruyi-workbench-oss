@@ -718,7 +718,21 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `:root[data-shell-mode="steward"] .prompt-dock { display: none; }` 那一条并改头注(用户要求「等你处理」小窗
 //   管家视角里也看得到)。
 // 算法自证:把 prompt-dock.css 换回 HEAD 重算 = abe014de…,与被替换的旧值逐字相同;换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = '2a787f6019a726e4781c761c2f4c6e2662bf2b00b2495d9204bf91c4b5cb985e';
+// 2026-09-24 W4 续钉（前值即上面那个 2a787f60…；用户：「右边的线程永远收不起来……打开线程点击了会像没有反应一样」）：
+// **零新增、零删除层**（分组表一个字节没动），只改了两个既有层 ——
+//   ① `css/views/steward-shell.css`：右栏收起态的列宽（`:has(> .steward-side[data-collapsed="1"])` →
+//      `--steward-strip-w` 44px，只在 `@container frame (min-width: 1181px)` 那一档 —— 与 layout.css §7.3
+//      的 ≤1180 抽屉带是同一条线的两面）；头部下沿多留一档（--sp-2 → --sp-3）、名字与状态行补 2px 行距。
+//   ② `css/views/steward-board.css`：右栏栏头开关（.steward-side-bar／.steward-side-toggle）、收起态的窄条
+//      （.steward-side-strip 一族：[hidden] 守卫、两枚 run／you 计数徽标、「有新动静」的鎏金点）、
+//      `[data-collapsed="1"]` 收起态（同一档容器查询里）、docked 抽屉 padding-top 收一档；
+//      117g 返回带那一族（.steward-return-*）随 121-K5 退役后零消费方，整族删除，位置由工作台线程头上的
+//      「回到管家」（.thread-head .th-steward .th-back-steward，鎏金描边小胶囊）接手；reduced-motion 关闭清单
+//      换成这两枚新钮。
+// 算法自证（同一条拦截法）：拦 fs.readFileSync 让本文件自己的 readLayerPayload() 去读 HEAD（`f8aecfcf`）的
+// git blob，同一份代码换数据源 —— 算得 2a787f60…，与被替换的旧值【逐字相同】；再按工作树算得下面这个值。
+// 反向验证：把 .steward-side-strip 的 [hidden] 守卫删掉 → frontend-domains D51 与 live-full-text F3 双红。
+const LEGACY_STYLES_SHA256 = '92571d5b6960172156e88c990b0e55a648b1fc6291bc7c53502cd312b5854723';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -344,6 +344,9 @@ export function createStewardDrawer({
   // 模块，也不动 steward-shell.js 里被静态锁逐字钉住的那一行构造调用）。
   let mountMode = 'overlay';      // 'overlay' | 'docked'（见 STEWARD_DRAWER_MOUNTS）
   let onClosed = () => {};        // 117h：关抽屉时告诉「现在这一件」它被关掉了
+  // 2026-09-24：宿主说「此刻别开」的门 —— 右栏被用户收起时，事件路（steward:open-thread／focus-thread）
+  // 不许把抽屉以覆盖式开出来。缺省恒开；判据只住看板一处（sideCollapsedActive），这里只问。
+  let openGate = () => true;
   let openClassicWindow = null;   // 117g/121-K5：统一的「在工作台打开」入口（切视角＋选中会话；返回带已退役）
   // 33 号文 §4「抽屉 /api/missions 改经看板 rows」：那一批 200 行不再由本模块自己拉。行的那位主人
   // 是看板（etag／304／解析全在它的 loadMissions 一处），本模块只读它刚取回来的快照，并能在需要
@@ -1682,8 +1685,9 @@ export function createStewardDrawer({
 
     const document_ = doc();
     if (document_) {
-      document_.addEventListener('steward:open-thread', event => { openThread(event && event.detail && event.detail.sessionId); });
-      document_.addEventListener('steward:focus-thread', event => { openThread(event && event.detail && event.detail.sessionId); });
+      // 2026-09-24：两条事件路先过 openGate —— 右栏收着时不开（看板那一侧只让窄条亮一颗点）。
+      document_.addEventListener('steward:open-thread', event => { if (openGate()) openThread(event && event.detail && event.detail.sessionId); });
+      document_.addEventListener('steward:focus-thread', event => { if (openGate()) openThread(event && event.detail && event.detail.sessionId); });
       document_.addEventListener('keydown', event => {
         if (event.key === 'Escape' && isOpen()) { event.stopPropagation(); closeDrawer({ focusComposer: true }); }
       });
@@ -1767,6 +1771,8 @@ export function createStewardDrawer({
     // 新依赖一律走 setter，不加构造参数）。
     setClassicWindow: handler => { openClassicWindow = typeof handler === 'function' ? handler : null; },
     setOnClosed: handler => { onClosed = typeof handler === 'function' ? handler : () => {}; },
+    // 2026-09-24：事件路的「此刻别开」门（右栏收起时）。同一条迟绑定纪律；判据住看板，这里只接。
+    setOpenGate: handler => { openGate = typeof handler === 'function' ? handler : () => true; },
     setEventStream, // 121-K2b：组合根那一条推送（同一条迟绑定纪律）
     // 33 号文 §4：事项行的那批行由看板注入（它才是唯一取数者）。传进来的形状是
     // { rows, refresh } 两个函数；缺一个就当作没注入 —— 本模块宁可手里没有行，也不自留第二处取数。

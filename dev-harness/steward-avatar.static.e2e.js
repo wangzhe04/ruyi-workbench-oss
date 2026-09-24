@@ -86,7 +86,11 @@ ok(JSON.stringify(importLines) === JSON.stringify([
   "import { createStewardSettingsDomain } from './steward-settings.js';",
   // 117g／117h（重钉来源：本波交付，27 号文 §5 117g／117h 行）：白名单加第六、七条 —— 一行状态与
   // 看板与「现在这一件」、2.0 视窗与返回带。形态仍然不变：本域内相对路径、零第三方库、零裸包名。
-  "import { createStewardBoard } from './steward-board.js';",
+  // 2026-09-24 重钉（用户：「打开线程……默认直接打开工作台里的对应线程」的回程）：这一条多带一个名字
+  // STEWARD_FOCUS_THREAD_EVENT —— 工作台线程头「回到管家」派的焦点事件名从【同一条】import 取
+  // （事件名的登记只有 steward-board.js 那一份；本仓已登记过「同模块两条 import 行绕开锁」是债，
+  // 所以不另起第二条）。形态仍然不变：本域内相对路径、零第三方库、零裸包名。
+  "import { createStewardBoard, STEWARD_FOCUS_THREAD_EVENT } from './steward-board.js';   // 2026-09-24：线程头「回到管家」派的焦点事件名从同一条 import 取（同一份登记，不另起第二条 import 行）",
   // 121-K5（34 号文 §2.5／§3）：「2.0 视窗与返回带」那一片（steward-classic-window.js）退役，
   // 位置由工作台线程头接手（一套 chip ＋「任务 › 线程」＋ 管家条）。形态仍然不变：本域内相对
   // 路径、零第三方库、零裸包名。

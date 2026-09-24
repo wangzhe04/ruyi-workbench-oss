@@ -66,6 +66,9 @@ export function createThreadHead({
   // #statusLine 的 title、上下文电量、composer 的引擎相关按钮）。它们的重画口都在组合根，
   // 所以这里只发一声，具体刷什么由组合根说（app.js 注入）。不传就是空操作。
   onSessionMetaChanged = () => {},
+  // 2026-09-24：「回到管家」—— 切回管家视角并把焦点落在这条线程上（实现住 steward-shell.js：
+  // 切视角仍只经 applyShellMode 一处写）。不注入就不画这枚钮（没有去处的按钮是假按钮）。
+  backToSteward = null,
 } = {}) {
   // 121 走查1-⑤：PATCH 回来的那一份是这条线程【最新】的会话头，而组合根手里那份还是打开线程
   // 时取的 —— 修前谁也没把它对上，于是「切了没生效」：后端与 chip 都是新的，中栏与状态行是旧的
@@ -206,7 +209,36 @@ export function createThreadHead({
       }
     }
     band.dataset.watched = watched ? '1' : '0';
+    renderBackToSteward(band);
     return key;
+  }
+
+  // 2026-09-24（用户：「或许有按钮的话默认直接打开工作台里的对应线程也行」的回程）：管家条末尾那枚
+  // 「回到管家」。它长在管家条里而不是顶栏 —— 顶栏分段钮是【全局视角开关】（切回管家不换焦点，
+  // §2.7「每个视角记住自己的现场」，one-workbench-frame K6 钉着）；这一枚说的是「回管家，看这条」，
+  // 两个语义两枚钮。零 innerHTML：一枚字形（lensSteward，avatar 的最简形）＋ 一句人话，建一次复用。
+  function renderBackToSteward(band) {
+    if (!band) return null;
+    let button = band.querySelector('.th-back-steward');
+    if (typeof backToSteward !== 'function') { if (button) button.remove(); return null; }
+    if (!button) {
+      const document_ = doc();
+      if (!document_) return null;
+      button = document_.createElement('button');
+      button.type = 'button';
+      button.className = 'th-back-steward';
+      button.id = 'threadBackToStewardBtn';
+      const glyph = icon('lensSteward', 13);
+      if (glyph) button.appendChild(glyph);
+      button.appendChild(document_.createElement('span'));
+      button.onclick = () => { try { backToSteward(currentId()); } catch { /* 视角切不过去由 shell-mode 自己回退 */ } };
+      band.appendChild(button);
+    }
+    const label = t('threadHead.backToSteward');
+    const text = button.querySelector('span');
+    if (text && text.textContent !== label) text.textContent = label;
+    if (button.title !== label) { button.title = label; button.setAttribute('aria-label', label); }
+    return button;
   }
 
   // ── 第一行：色条 ＋「任务 › 线程」＋ 五态 ＋ 来源 ──────────────────────────────

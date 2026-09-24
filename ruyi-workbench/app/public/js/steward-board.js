@@ -93,6 +93,13 @@ export const STEWARD_BOARD_POLL_MS_MIN = STEWARD_POLL_MS_MIN;
 const POLL_DUE_SLACK_MS = STEWARD_POLL_DUE_SLACK_MS;
 export const STEWARD_BOARD_POLL_MS_DEFAULT = STEWARD_POLL_MS_DEFAULT;
 export const STEWARD_NOW_MIN_WIDTH = 1000;
+// 2026-09-24（用户：「右边的线程永远收不起来」）：右栏【可收起】。三样事实，一处登记：
+//   · 本机偏好键 —— 收起是用户的选择，要活过刷新（读写都包 try/catch，本机存储不可用时当没收起）；
+//   · 窄条成立的最小宽度 —— 1181 是 css/layout.css §7.3「≤1180 右栏收成抽屉」那一档的对面：
+//     抽屉带里右栏由顶栏那枚「右栏」钮开合，收起偏好在那一档【不作数】（两套开合不叠在一起）；
+//   · 窄条上的两枚计数徽标读的仍是 renderStatusLine 那一次 filter 的产物（不新开第二个计数源）。
+export const STEWARD_SIDE_COLLAPSED_KEY = 'wcw.stewardSideCollapsed';
+export const STEWARD_SIDE_STRIP_MIN_WIDTH = 1181;
 // F3：右栏那两条「小行叠」的容器 id。它们【不在】 index.html 的静态骨架里（A5/A7 的纪律：
 // #stewardFocus 只是一个挂点），由本模块建出来并始终夹着抽屉那一份 —— 上面一条放焦点行之前的
 // 线程，下面一条放之后的。做成导出的冻结常量而不是两个散落字面量，静态锁才钉得住。
@@ -182,6 +189,11 @@ export function createStewardBoard({
   // 焦点事件那一刷跑完就清（verifyPinnedRow 的 finally）—— 见 currentFocusId 的头注。
   let pinnedUnverified = false;
   let suppressCloseRecord = false;  // 程序性关抽屉（窄屏／切壳）不该被记成用户「关掉」了这一件
+  // 2026-09-24 右栏可收起：用户的偏好（读一次本机存储）＋「收起期间管家聚焦过新线程」这一位。
+  // 后者只让窄条亮一颗点 —— 收起是用户说的「别占我这块屏」，管家换焦点不许把它顶开。
+  let sideCollapsedPref = readSideCollapsedPref();
+  let sideFresh = false;
+  let sideCounts = { running: 0, needsYou: 0 };   // 窄条徽标读的数，renderStatusLine 那一次 filter 的产物
   // 117m-A2：状态行那一次 filter 顺手留下的名单（等你的线程 id）。它是「N 条等你」这枚按钮的去处，
   // 也是「把等你的行排到最前」的判据 —— 两处都读它，不再数第二遍，也不新开第二个计数源。
   let needsYouIds = [];
@@ -354,6 +366,8 @@ export function createStewardBoard({
       needsYouIds = [];
       renderNeedsYouGo();
       renderGlobalChip(0, 0);
+      sideCounts = { running: 0, needsYou: 0 };
+      renderSideStrip();
       line.textContent = t('stewardShell.board.statusEmpty');
       return line.textContent;
     }
@@ -365,6 +379,8 @@ export function createStewardBoard({
     needsYouIds = waiting.map(view => String(view.sessionId));
     renderNeedsYouGo();
     renderGlobalChip(running, waiting.length);
+    sideCounts = { running, needsYou: waiting.length };   // 右栏窄条的徽标读同一次 filter 的结果
+    renderSideStrip();
     line.textContent = t('stewardShell.board.statusLine', { missions, running, needsYou: waiting.length });
     return line.textContent;
   }
@@ -971,8 +987,10 @@ export function createStewardBoard({
     actions.appendChild(boardButton('stewardShell.board.prioritize', () => prioritize(sessionId), { action: 'prioritize' }, 'up'));
     // 「停止」这一枚停的是【这条线程】，所以是实心方块；管家本人的停机在头部，那一枚是电源符。
     actions.appendChild(boardButton('stewardShell.board.stop', () => stopThread(sessionId), { action: 'stop' }, 'stop'));
-    actions.appendChild(boardButton('stewardShell.board.openThread', () => openThread(sessionId), { action: 'open' }, 'open'));
-    actions.appendChild(boardButton('stewardShell.board.classicView', () => openClassic(sessionId), { action: 'classic' }, 'lensWork'));
+    // 2026-09-24（用户：「有按钮的话默认直接打开工作台里的对应线程」）：菜单里的「打开」＝在工作台
+    // 打开这条线程（两视角同义，见 openInWorkbenchRow）。修前它与「在工作台打开」并排：一枚只换右栏
+    // 焦点、一枚才真的去工作台，「打开」按下去像没反应。右栏预览由【点行本身】承担，不再占一枚按钮。
+    actions.appendChild(boardButton('stewardShell.board.openThread', () => openInWorkbenchRow(sessionId), { action: 'open' }, 'lensWork'));
     // B5：「＋ 线程」从事项头右上角收进卡尾这一排次级动作 —— 它与「停止／优先／打开」同一档，
     // 不该是每张卡右上角唯一一枚常亮的按钮。挂哪一件由 renderMissionGroup 递进来（同一个分组键，
     // 本函数不自己再推一次）；没有事项可挂时落到空串，与空态那枚是同一条路（「另起一件」）。
@@ -1221,6 +1239,14 @@ export function createStewardBoard({
     try { await openClassicWindow(sessionId); } catch (error) { failNote(error); }
     return sessionId;
   }
+  // 行菜单里那枚「打开」：管家视角＝切到工作台并选中它（openInWorkbench 那一处实现），工作台视角＝
+  // 与点行同一条 openSession。两个视角里「打开这条线程」都只有一个意思 —— 中栏变成它。
+  function openInWorkbenchRow(sessionId) {
+    const id = String(sessionId || '');
+    if (!id) return '';
+    if (isStewardMode()) { void openClassic(id); return id; }
+    return openRow(id);
+  }
 
   // §2.3 点击语义：打开【这一条线程】。两视角两种「打开」——
   //   管家视角 = 换焦点（右栏那一份抽屉开在它上面，中栏的对话流不动）；
@@ -1243,12 +1269,20 @@ export function createStewardBoard({
   // syncNow 的头注里。
   function focusThread(sessionId) {
     pinnedId = String(sessionId || '');
-    if (!syncNow({ focusRequest: true }) && drawer && typeof drawer.openThread === 'function') drawer.openThread(pinnedId);
+    if (!syncNow({ focusRequest: true }) && drawer && typeof drawer.openThread === 'function') {
+      // 2026-09-24：右栏是用户【收起】的 → 不强行展开、也不退回覆盖式抽屉 —— 只让窄条亮一颗点
+      // （sideFresh），钉子照记：用户点开窄条时看到的就是这一条。窄屏（<1000）仍走覆盖式打开。
+      if (sideCollapsedActive()) { sideFresh = true; renderSideStrip(); }
+      else drawer.openThread(pinnedId);
+    }
     return pinnedId;
   }
   // 「打开」= 把右栏那一份抽屉钉到这一条上。121-K4：修前它还要把看板浮层收起来（不然浮层盖着
   // 自己要看的东西）与清掉「关掉」偏好，两件事都随浮层右栏退役。
+  // 2026-09-24：它是【用户明示要看这一条】的入口（点行、「去处理」、就地回答）—— 右栏收着就为他
+  // 打开；管家自己换焦点走的是 focusThread（那一路不展开）。
   function openThread(sessionId) {
+    if (sideCollapsedActive()) setSideCollapsed(false, { sync: false });   // 紧接着的 focusThread 会 syncNow
     return focusThread(sessionId);
   }
 
@@ -1272,6 +1306,98 @@ export function createStewardBoard({
   function wideEnough() {
     if (!globalThis.matchMedia) return true;
     return globalThis.matchMedia(`(min-width: ${STEWARD_NOW_MIN_WIDTH}px)`).matches;
+  }
+
+  // ── 2026-09-24：右栏可收起（用户：「右边的线程永远收不起来」）─────────────────────────────
+  // 三态，一处判：hidden（没有可看的：非管家视角／窄屏／没有焦点）· 收起（用户收的，只留 44px 窄条）·
+  // 展开。收起是【本机偏好】，活过刷新；但只在窄条成立的那一档（≥1181，见 STEWARD_SIDE_STRIP_MIN_WIDTH）
+  // 作数 —— 1000–1180 那一档右栏是顶栏「右栏」钮开合的滑出层，两套开合不叠在一起。
+  function readSideCollapsedPref() {
+    try { return globalThis.localStorage && globalThis.localStorage.getItem(STEWARD_SIDE_COLLAPSED_KEY) === '1'; }
+    catch { return false; }
+  }
+  function stripAllowed() {
+    if (!globalThis.matchMedia) return true;
+    return globalThis.matchMedia(`(min-width: ${STEWARD_SIDE_STRIP_MIN_WIDTH}px)`).matches;
+  }
+  function sideCollapsed() {
+    return sideCollapsedPref && stripAllowed();
+  }
+  // 「此刻右栏是用户收着的」：管家视角 ＋ 够宽 ＋ 偏好为收起。focusThread 与抽屉的事件门都问它。
+  function sideCollapsedActive() {
+    return isStewardMode() && wideEnough() && sideCollapsed();
+  }
+  // 唯一写口。展开那一下把「有新动静」的点擦掉；焦点管理：收起后开关钮随栏一起消失，焦点送到窄条上
+  // （键盘用户不落到 body）；展开时 syncNow 会把抽屉开回焦点那一条，焦点由抽屉自己接（标题）。
+  // sync:false 只给 openThread 用 —— 它紧接着就 focusThread（那一步自己 syncNow），先同步一次会把
+  // 抽屉先开在旧焦点上再换成新焦点，闪一下。
+  function setSideCollapsed(next, { persist = true, sync = true } = {}) {
+    const collapsed = Boolean(next);
+    sideCollapsedPref = collapsed;
+    if (!collapsed) sideFresh = false;
+    if (persist) {
+      try { globalThis.localStorage && globalThis.localStorage.setItem(STEWARD_SIDE_COLLAPSED_KEY, collapsed ? '1' : '0'); }
+      catch { /* 本机偏好不可用：这一程照样生效 */ }
+    }
+    if (!sync) return collapsed;
+    const shown = syncNow({ focusRequest: !collapsed });
+    if (collapsed) {
+      const strip = byId('stewardSideStrip');
+      if (strip && !strip.hidden && typeof strip.focus === 'function') strip.focus();
+    } else if (!shown) {
+      const toggle = byId('stewardSideToggleBtn');
+      if (toggle && typeof toggle.focus === 'function') toggle.focus();
+    }
+    return collapsed;
+  }
+  // 窄条：一枚字形 ＋「N 在跑」「M 等你」两枚徽标（只在 >0 时出现）＋ 收起期间有新焦点时的一颗点。
+  // 整条就是一枚按钮（点开＝展开），可访问名把数也念出来。签名没变就不重画（它每一拍都会被调到）。
+  let sideStripSignature = '';
+  function renderSideStrip() {
+    const strip = byId('stewardSideStrip');
+    const toggle = byId('stewardSideToggleBtn');
+    const collapsed = sideCollapsed();
+    if (toggle) {
+      const label = t(collapsed ? 'stewardShell.side.expand' : 'stewardShell.side.collapse');
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      toggle.title = label;
+      toggle.setAttribute('aria-label', label);
+    }
+    if (!strip) return '';
+    const parts = [];
+    if (sideCounts.running > 0) parts.push(t('rail.chip.running', { n: sideCounts.running }));
+    if (sideCounts.needsYou > 0) parts.push(t('rail.chip.needsYou', { n: sideCounts.needsYou }));
+    if (sideFresh) parts.push(t('stewardShell.side.fresh'));
+    const label = [t('stewardShell.side.expand'), ...parts].join(' · ');
+    strip.title = label;
+    strip.setAttribute('aria-label', label);
+    strip.dataset.fresh = sideFresh ? '1' : '';
+    const signature = JSON.stringify([sideCounts.running, sideCounts.needsYou, sideFresh]);
+    if (signature === sideStripSignature) return label;
+    sideStripSignature = signature;
+    clear(strip);
+    const glyph = icon('panelRight', 15);
+    if (glyph) strip.appendChild(glyph);
+    // 徽标的色档名沿用顶栏胶囊那两颗点的叫法（run／you，renderGlobalChip）：它们是【计数】的两档色，
+    // 不是五态字面量 —— 本模块的五态字面量账（B5／M6／N3 锁）一个字不加。
+    if (sideCounts.running > 0) {
+      const badge = el('span', 'steward-side-strip-badge num', String(sideCounts.running));
+      badge.dataset.tone = 'run';
+      badge.setAttribute('aria-hidden', 'true');
+      strip.appendChild(badge);
+    }
+    if (sideCounts.needsYou > 0) {
+      const badge = el('span', 'steward-side-strip-badge num', String(sideCounts.needsYou));
+      badge.dataset.tone = 'you';
+      badge.setAttribute('aria-hidden', 'true');
+      strip.appendChild(badge);
+    }
+    if (sideFresh) {
+      const dot = el('span', 'steward-side-strip-new');
+      dot.setAttribute('aria-hidden', 'true');
+      strip.appendChild(dot);
+    }
+    return label;
   }
 
   // ── F3：右栏那两条「小行叠」──────────────────────────────────────────────────────
@@ -1430,8 +1556,17 @@ export function createStewardBoard({
     // 这个变化取走之后，后面都是 304，洞就露出来了。本函数是焦点落地的唯一一处，所以在这里对账：焦点与左栏上次画的选中
     // 不一样就重画左栏（工作台视角那一侧 openRow 本来就会重画）。
     if (isStewardMode() && railRenderedSelected !== null && focusId !== railRenderedSelected) renderRail();
-    const show = isStewardMode() && wideEnough() && Boolean(focusId);
-    now.hidden = !show;
+    // 2026-09-24：三态。「有可看的」（管家视角 ＋ 够宽 ＋ 有焦点）之上再问一次用户偏好 ——
+    // 收起时那一栏不 hidden（窄条要在），但抽屉那一份照「没接住」处理：关掉 docked、回 overlay 挂法，
+    // 表也随之停（抽屉零后台活动的纪律不因为藏在 44px 后面就破例）。
+    const canShow = isStewardMode() && wideEnough() && Boolean(focusId);
+    const collapsed = canShow && sideCollapsed();
+    const show = canShow && !collapsed;
+    now.hidden = !canShow;
+    if (collapsed) now.dataset.collapsed = '1'; else delete now.dataset.collapsed;
+    const strip = byId('stewardSideStrip');
+    if (strip) strip.hidden = !collapsed;
+    renderSideStrip();
     if (!show) {
       // 程序性收起（窄屏／切壳／没有可看的线程）不是用户「关掉」，不落本机偏好。
       suppressCloseRecord = true;
@@ -1474,6 +1609,11 @@ export function createStewardBoard({
     // 那不是用户在说「我不看这一条了」，所以不清钉子。判据用现成的 isStewardMode()，不加状态。
     // 本件 K6 第一轮红的真正病根就在这里（leaveSteward 里那句 pinnedId = '' 只是它的同伙）。
     if (!isStewardMode()) { syncNow(); return false; }
+    // 2026-09-24（用户：「右边的线程永远收不起来」）：Esc／×／「交回管家」在常驻栏上＝【把右栏收起】
+    // （记本机偏好，syncNow 不会再按自动挑选把它顶回来）。修前这里只松开钉子、随即被自动挑选
+    // 换成另一条重新停靠 —— 用户看到的就是「关不掉」。窄条不成立的那一档（1000–1180 的抽屉带）
+    // 保留旧语义：松开钉子，焦点回落自动挑选。
+    if (stripAllowed()) { setSideCollapsed(true); return true; }
     pinnedId = '';
     syncNow();
     return true;
@@ -1693,6 +1833,16 @@ export function createStewardBoard({
       // 关掉 docked 那一份（×／Esc／「交回管家」）＝ 松开用户钉的焦点（见 closeNow 的头注）。
       drawer.setOnClosed(mount => { if (mount === 'docked' && !suppressCloseRecord) closeNow(); });
     }
+    if (drawer && typeof drawer.setOpenGate === 'function') {
+      // 2026-09-24：右栏被用户收着时，抽屉自己那两条事件路（steward:open-thread／focus-thread）不许把
+      // 它以覆盖式开出来 —— 那正是「收不起来」的另一半。判据只有 sideCollapsedActive 一处。
+      drawer.setOpenGate(() => !sideCollapsedActive());
+    }
+    // 右栏自己的开关：展开态是栏头那枚钮，收起态整条窄条就是一枚钮。两个都只调唯一那个写口。
+    const sideToggle = byId('stewardSideToggleBtn');
+    if (sideToggle) sideToggle.onclick = () => { setSideCollapsed(!sideCollapsedPref); };
+    const sideStrip = byId('stewardSideStrip');
+    if (sideStrip) sideStrip.onclick = () => { setSideCollapsed(false); };
     if (drawer && typeof drawer.setMissionRows === 'function') {
       // 33 号文 §4：抽屉的事项行不再由它自己拉 —— 行是本模块取回来的，读快照与「刷一趟」都从这里
       // 出去（与上面 setOnClosed 同一条迟绑定纪律，不动被静态锁钉住的构造行）。
@@ -1735,6 +1885,9 @@ export function createStewardBoard({
     if (globalThis.matchMedia) {
       try { globalThis.matchMedia(`(min-width: ${STEWARD_NOW_MIN_WIDTH}px)`).addEventListener('change', () => syncNow()); }
       catch { /* 老浏览器没有 addEventListener on MediaQueryList */ }
+      // 收起偏好只在窄条成立的那一档作数：跨过 1181 那条线时重判一次（进抽屉带＝按展开画；回来＝照偏好收）。
+      try { globalThis.matchMedia(`(min-width: ${STEWARD_SIDE_STRIP_MIN_WIDTH}px)`).addEventListener('change', () => syncNow()); }
+      catch { /* 同上 */ }
     }
     // 进管家视角：刷行＋仲裁面并起表（enterSteward）。
     // 121-K4：**工作台视角也要刷一次行** —— 左栏是两视角共用的同一份 DOM，行是它的全部内容；
@@ -1763,6 +1916,9 @@ export function createStewardBoard({
     enterSteward,
     closeNow,
     syncNow,
+    // 2026-09-24：右栏收起／展开的唯一写口与只读判据（真夹具与组合根都不必碰 localStorage 或 DOM 属性）。
+    setSideCollapsed,
+    isSideCollapsed: () => sideCollapsed(),
     // 117g：返回带要显示「事项名」，读的是本模块已经取回来的那一份行（不另发请求、不另存一份）。
     // 121-K5：返回带退役，接手的是工作台线程头 —— 它要的不止事项名（还有线程数、来源、管家盯
     // 没盯、谁坐着），所以这个只读句柄整行奉上。仍然是【同一份行】：线程头因此零取数。

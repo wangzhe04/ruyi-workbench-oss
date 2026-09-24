@@ -1,9 +1,9 @@
-/* 第117波 117h + 117g → 第121波 K4：一行状态 / 【左栏任务索引】/ 管家视角的右栏，
-   以及 2.0 视窗的顶部返回带。
+/* 第117波 117h + 117g → 第121波 K4：一行状态 / 【左栏任务索引】/ 管家视角的右栏（可收起），
+   以及工作台线程头上那枚「回到管家」（2026-09-24 接替退役的 2.0 视窗返回带）。
    本层只拥有这四组选择器，既不碰壳模式属性（那是 applyShellMode 的单一写入点），
    也不覆盖抽屉自己的区块样式 —— 右栏里那份抽屉就是【同一个】 #stewardDrawer 节点，
    本层只改它 docked 挂法下的定位（.steward-drawer[data-mount="docked"]）。
-   返回带的 DOM 在工作台视角的 main.chat-pane 里，样式归本层：它是管家壳的产物，不混进经典层。
+   「回到管家」的 DOM 在工作台视角的线程头里，样式归本层：它是管家壳的产物，不混进经典层。
    121-K4：看板浮层退役（行搬左栏、常开），右栏从 fixed 浮层变成外框栅格里的一列；
    左栏的两档密度（268／440px）与 ≤980 的图标栏都由 css/layout.css 的容器查询决定，本层只画行。 */
 
@@ -531,6 +531,65 @@
 .steward-side[hidden] { display: none; }
 .steward-side-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
+/* 2026-09-24（用户：「右边的线程永远收不起来」）：右栏【可收起】。三态由 steward-board.js 的 syncNow
+   一处写：[hidden]（没有可看的）／ [data-collapsed="1"]（用户收的，只留窄条）／ 展开。
+   栏头只有一枚开关钮，贴右上角 —— 不给这一栏起标题（用户口味：不要系统味标签）。 */
+.steward-side-bar {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--sp-1) var(--sp-2) 0;
+}
+.steward-side-toggle { width: 28px; height: 28px; }
+.steward-side-toggle .ic { width: 15px; height: 15px; }
+/* 窄条：整条就是一枚按钮（点开＝展开）。纵向排：字形在上，「N 在跑」「M 等你」两枚徽标在下，
+   收起期间管家换过焦点就多一颗鎏金的点（§2.10.3：鎏金只说「等你／新」）。零动画：轻提示不闪。 */
+.steward-side-strip {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 0;
+  padding: var(--sp-3) 0;
+  font: inherit;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.steward-side-strip[hidden] { display: none; }
+.steward-side-strip:hover { color: var(--ink); background: var(--panel-2); }
+.steward-side-strip:focus-visible { outline: none; box-shadow: inset var(--ring); }
+.steward-side-strip .ic { width: 15px; height: 15px; }
+.steward-side-strip-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  background: var(--panel-3);
+}
+/* 两档色与顶栏胶囊那两颗点同名同色（run＝青花蓝在跑，you＝鎏金等你）。 */
+.steward-side-strip-badge[data-tone="run"] { color: var(--accent); background: var(--accent-soft); }
+.steward-side-strip-badge[data-tone="you"] { color: var(--gold); background: var(--gold-soft); }
+.steward-side-strip-new { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+/* 收起态只在窄条成立的那一档（>1180；与 steward-shell.css 那条列宽规则、steward-board.js 的
+   STEWARD_SIDE_STRIP_MIN_WIDTH 同一个数）：栏头开关、焦点卡挂点与「接下来」都收起，DOM 一个节点不少。 */
+@container frame (min-width: 1181px) {
+  .steward-side[data-collapsed="1"] { width: var(--steward-strip-w, 44px); }
+  .steward-side[data-collapsed="1"] > .steward-side-bar,
+  .steward-side[data-collapsed="1"] > .steward-side-body,
+  .steward-side[data-collapsed="1"] > .steward-upnext { display: none; }
+}
+
 /* 121-K7（§2.6 末条「接下来」）：右栏最底下那一段 —— 定时任务最近两条。它是 .steward-side-body
    的【兄弟】（见 index.html 的头注：placeNowStacks 每一拍都把「其它在途」顶回 body 末尾），
    所以高度自持、不参与上面那条 flex:1。没有定时任务时整段 [hidden]，连上边那道线也不画。 */
@@ -642,49 +701,48 @@
   box-shadow: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  /* 2026-09-24：栏头那枚开关已经占了上面一档，卡头不再自己再留 16px。 */
+  padding-top: var(--sp-1);
 }
 /* 121-K4：steward-drawer.css 那条「抽屉开着就把整片管家壳向右挤 390px」的补白（它是居中舞台
    时代的让位手法）在栅格外框里是错的 —— 右栏已经是一列，中栏不该再缩一次。本层排在
    steward-drawer.css【之后】，同特指度覆盖它一次；抽屉自己那一层一个字没动（它归 K6）。 */
 :root[data-shell-mode="steward"] .app-views > .steward-shell[data-drawer="open"] { padding-right: 0; }
 
-/* ── ④ 2.0 视窗的返回带（117g）：经典壳 main.chat-pane 的第一个子元素 ─────────── */
-.steward-return-band {
-  display: flex;
-  flex-wrap: wrap;
+/* ── ④ 工作台线程头上的「回到管家」（2026-09-24）────────────────────────────────────
+   117g 的返回带（.steward-return-band 一族）随 121-K5 退役后零消费方（index.html／thread-head.js 里
+   只剩注释提到它），本刀整族删除；接手它位置的是这枚钮 —— 节点由 js/thread-head.js 建在管家条
+   .th-steward 的末尾（零 innerHTML）。它住在这一层而不是 chat-shell.css，与退役前的返回带同一条
+   归属纪律：它是管家壳的产物。长相：管家条里的一枚小胶囊 —— 字形（lensSteward，avatar 的最简形）
+   ＋ 两个字，鎏金描边不铺底（§2.10.3：鎏金＝如意的主动作，与左栏「另起一件」那一枚同族）。 */
+.thread-head .th-steward .th-back-steward {
+  display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  color: var(--ink);
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--line);
-}
-.steward-return-band[hidden] { display: none; }
-.steward-return-btn {
-  flex: 0 0 auto;
+  gap: 4px;
+  min-height: 0;
+  height: 22px;
+  padding: 0 var(--sp-2);
+  margin-inline-start: var(--sp-1);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
   color: var(--ink);
-  background: var(--panel);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  padding: var(--sp-1) var(--sp-2);
+  background: transparent;
+  border: 1px solid var(--gold-line);
+  border-radius: var(--r-pill);
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
-.steward-return-btn:hover { background: var(--panel-3); }
-.steward-return-btn:focus-visible { outline: none; box-shadow: var(--ring); }
-.steward-return-session { font-size: var(--fs-sm); color: var(--ink); }
-.steward-return-mission { font-size: var(--fs-sm); color: var(--muted); }
-.steward-return-mission[hidden] { display: none; }
-.steward-return-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-left: auto; }
+.thread-head .th-steward .th-back-steward .ic { color: var(--gold); }
+.thread-head .th-steward .th-back-steward:hover { background: var(--gold-soft); border-color: var(--gold); }
+.thread-head .th-steward .th-back-steward:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* 窄屏：看板铺满、返回带换行、「现在这一件」不常驻（抽屉回覆盖式，见 steward-drawer.css）。 */
+/* 窄屏：看板铺满、「现在这一件」不常驻（抽屉回覆盖式，见 steward-drawer.css）。 */
 @media (max-width: 390px) {
   /* 121-K4：窄屏那几条原来在调看板浮层与事项卡的位置，两者都已退役 —— 左栏在 ≤980 那一档
      由容器查询折成 56px 图标栏（layout.css），这里只剩「行内动作键铺满一行」这一条。 */
   .steward-board-actions .steward-board-btn { flex: 1 1 auto; }
-  .steward-return-chips { margin-left: 0; }
 }
 
 /* 动效可以没有，信息不能少（§8.1 原则 5）。 */
@@ -696,5 +754,7 @@
   .steward-board-maxwrap,
   .steward-board-thread,
   .steward-board-pill.is-asks-you,
-  .steward-return-btn { transition: none; }
+  /* 2026-09-24：右栏窄条与线程头「回到管家」那两枚新钮的过渡同样关掉。 */
+  .steward-side-strip,
+  .th-back-steward { transition: none; }
 }

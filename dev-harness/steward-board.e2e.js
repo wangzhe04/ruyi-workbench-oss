@@ -331,6 +331,12 @@ const BOARD = `(() => {
     drawerMount: drawer ? (drawer.dataset.mount || '') : '',
     drawerParent: drawer && drawer.parentElement ? drawer.parentElement.id : '',
     nowClosedPref: (() => { try { return localStorage.getItem('wcw.stewardNowClosed') || ''; } catch { return 'ERR'; } })(),
+    // 2026-09-24 右栏可收起：三态里的「收起」那一档（data-collapsed）、本机偏好、以及视角与工作台当前线程
+    // （行菜单「打开」现在去工作台，F 组要读得出「去了、选中了谁」）。
+    sideCollapsed: now ? (now.dataset.collapsed || '') : '',
+    sidePref: (() => { try { return localStorage.getItem('wcw.stewardSideCollapsed') || ''; } catch { return 'ERR'; } })(),
+    mode: document.documentElement.getAttribute('data-shell-mode') || '',
+    sessionTitle: text('sessionTitle'),
     intervals: window.__ruyiLiveIntervals ? window.__ruyiLiveIntervals() : [],
     // 117l-B2 ②（用户第五轮走查 2「这个限制界面优化美观一下」）：视觉那几件的可判定结果。
     // 全部读【计算样式】与公开属性，不看 CSS 源码（源码形状由 steward-board.static 的 I 组钉）。
@@ -675,8 +681,13 @@ try {
     `C9 跟随全局的行【不印】权限与模型（实测 A=${rowA && JSON.stringify(rowA.chips)} B=${rowB && JSON.stringify(rowB.chips)}）`);
   ok(Boolean(rowC) && JSON.stringify(rowC.chips) === JSON.stringify(['permission', 'model']),
     `C9b 定过会话级权限档的那一行【印】出紧凑快切 chip：权限＋模型（引擎收进模型菜单；实测 ${rowC && JSON.stringify(rowC.chips)}）`);
-  ok(Boolean(rowA) && ['prioritize', 'stop', 'open', 'classic'].every(action => rowA.actions.includes(action)),
-    `C10 行操作齐备（优先／停止／打开／2.0；实测 ${rowA && JSON.stringify(rowA.actions)}）`);
+  // 2026-09-24 重钉（用户：「有按钮的话默认直接打开工作台里的对应线程」）：菜单里「打开」自此就是
+  // 「在工作台打开」（两视角同义，见 steward-board.js 的 openInWorkbenchRow），原来并排的那枚
+  // 「在工作台打开」（data-action="classic"）是重复的一枚，随之退役 —— 翻面钉它【不在】。
+  // 右栏预览由点行本身承担（F2 钉着）。
+  ok(Boolean(rowA) && ['prioritize', 'stop', 'open'].every(action => rowA.actions.includes(action))
+    && !rowA.actions.includes('classic'),
+    `C10 行操作齐备（优先／停止／打开＝去工作台），不再有第二枚「在工作台打开」（实测 ${rowA && JSON.stringify(rowA.actions)}）`);
   // 117l D4（用户第四轮走查①）：只加不改 —— 真在问你的那一行多一枚 pill，其它行没有。
   ok(Boolean(rowA) && JSON.stringify(rowA.asksYou) === JSON.stringify([zh['stewardShell.board.asksYou']]),
     `C10b 挂着 question 待决的那一行有「它在问你」pill（实测 ${rowA && JSON.stringify(rowA.asksYou)}）`);
@@ -837,30 +848,52 @@ try {
   })()`);
   ok(Boolean(switched), 'E1 派发 steward:focus-thread 把「现在这一件」切到另一条（钉住，不再被自动挑选换走）');
 
-  // ── ⑦ 121-K4：「关掉」退役，抽屉的 × 只松开用户钉的焦点 ──────────────────────────
-  // 右栏是常驻的一列（§2.6），所以「把右栏收起来并记住」这件事不再存在 —— 那枚「关掉」与它的
-  // 本机偏好（wcw.stewardNowClosed）一起没了，否则存量用户会拿到一个右栏永远空着、且没有回头路的
-  // 死状态（原来把它请回来的唯一路径就是行上的「打开」）。抽屉自己那枚 × 仍在，语义收窄成
-  // 「松开我钉的这一条」：右栏不收起，焦点回落到自动挑选（等你＞在跑＞失败＞最近）。
+  // ── ⑦ 2026-09-24 重钉（用户：「右边的线程永远收不起来」）：×／Esc 在常驻栏上＝把右栏【收起】────
+  // 121-K4 时这里钉的是「× 只松开钉子、右栏不收起、随即按自动挑选重新停靠」—— 用户看到的正是
+  // 「关不掉」。现在：× → 右栏进「收起」那一档（data-collapsed="1"：只留 44px 窄条，抽屉那一份收摊、
+  // 表停），偏好记在 wcw.stewardSideCollapsed，syncNow 的每一拍都【不会】把它顶回来。
+  // 反向验证：把 closeNow 里 setSideCollapsed(true) 那一支去掉 → F1／F1d 当场红（右栏被自动挑选顶回）。
   await cdp.evaluate(`document.getElementById('stewardDrawerCloseBtn').click(), true`);
-  // 不等「抽屉藏起来」那一帧：closeNow 随即把同一份抽屉按【自动挑选】的焦点重新开在右栏里
-  // （常驻栏的语义就是「总有一件在眼前」），所以那一帧可能根本不出现。等它落定即可。
-  await sleep(600);
-  const closed = await cdp.evaluate(BOARD);
-  ok(closed && closed.nowHidden === false,
-    `F1 抽屉的 × 不再收起右栏（常驻的一列；实测 hidden=${closed && closed.nowHidden}）`);
-  ok(closed && closed.nowClosedPref === '',
-    `F1b 本机偏好里一个字都没写（wcw.stewardNowClosed 已随「关掉」退役；实测「${closed && closed.nowClosedPref}」）`);
-  ok(closed && closed.drawerParent === 'stewardFocus' && closed.drawerHidden === false,
-    `F1c 抽屉那一份仍在右栏里（焦点松开了那一钉、回落到自动挑选；实测 parent=${closed && closed.drawerParent} hidden=${closed && closed.drawerHidden}）`);
-  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${created.A}"] [data-action="open"]').click(), true`);
+  const collapsed = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.sideCollapsed === '1' ? snapshot : null;
+  })()`);
+  ok(Boolean(collapsed) && collapsed.nowHidden === false,
+    `F1 抽屉的 × 把右栏收成窄条（data-collapsed=1、栏本身不 hidden；实测 collapsed=「${collapsed && collapsed.sideCollapsed}」hidden=${collapsed && collapsed.nowHidden}）`);
+  ok(collapsed && collapsed.nowClosedPref === '' && collapsed.sidePref === '1',
+    `F1b 偏好只写 wcw.stewardSideCollapsed=1（浮层时代的 wcw.stewardNowClosed 仍然一个字都没写；实测 side=「${collapsed && collapsed.sidePref}」now=「${collapsed && collapsed.nowClosedPref}」）`);
+  ok(collapsed && collapsed.drawerHidden === true && collapsed.drawerParent === 'stewardShell' && collapsed.drawerMount === 'overlay',
+    `F1c 收起时抽屉那一份收摊（hidden、回 overlay 挂法 —— 藏在窄条后面也不许留一张表在跑；实测 hidden=${collapsed && collapsed.drawerHidden} parent=${collapsed && collapsed.drawerParent} mount=${collapsed && collapsed.drawerMount}）`);
+  // 等过看板一整拍（5 s 下限那一档 ＋ 余量）：修前 closeNow 之后 syncNow 会按自动挑选把抽屉顶回来。
+  await sleep(1500);
+  const stillCollapsed = await cdp.evaluate(BOARD);
+  ok(stillCollapsed && stillCollapsed.sideCollapsed === '1' && stillCollapsed.drawerHidden === true,
+    `F1d 收起之后 syncNow 的后续几拍没有把右栏顶回来（实测 collapsed=「${stillCollapsed && stillCollapsed.sideCollapsed}」drawerHidden=${stillCollapsed && stillCollapsed.drawerHidden}）`);
+  // 点行本身＝用户明示「要看这一条」：右栏为他展开，焦点钉到这一条（openRow → openThread → focusThread）。
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${created.A}"] .steward-board-thread-title').click(), true`);
   const reopened = await waitForEval(cdp, `(() => {
     const snapshot = ${BOARD};
-    return snapshot.nowHidden === false && snapshot.nowThread === ${JSON.stringify(THREAD_A)} ? snapshot : null;
+    return snapshot.nowHidden === false && snapshot.sideCollapsed === '' && snapshot.nowThread === ${JSON.stringify(THREAD_A)} ? snapshot : null;
   })()`);
-  ok(Boolean(reopened), 'F2 行上的「打开」把右栏的焦点钉到这一条（121-K4：右栏本来就在，钉的是焦点）');
-  ok(reopened && reopened.nowClosedPref === '' && reopened.groups.length > 0,
-    'F2b 「打开」一路上不写任何本机偏好；左栏照旧开着（没有「盖着自己要看的东西」那回事了）');
+  ok(Boolean(reopened), 'F2 点行标题把收起的右栏展开、焦点钉到这一条（右栏预览由点行承担，不再占一枚按钮）');
+  ok(reopened && reopened.sidePref === '0' && reopened.nowClosedPref === '' && reopened.groups.length > 0,
+    `F2b 展开写回偏好 0（不是删掉：刷新后仍按用户最后一次选择）；左栏照旧开着（实测 side=「${reopened && reopened.sidePref}」）`);
+  // 菜单里的「打开」＝去工作台看这条线程（用户 2026-09-24 原话「默认直接打开工作台里的对应线程」）。
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${created.A}"] [data-action="open"]').click(), true`);
+  const wentClassic = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.mode === 'classic' && snapshot.sessionTitle === ${JSON.stringify(THREAD_A)} && !document.documentElement.dataset.vt ? snapshot : null;
+  })()`);
+  ok(Boolean(wentClassic), `F3 行菜单里的「打开」切到工作台并选中这一条（实测 mode=${wentClassic && wentClassic.mode} title=「${wentClassic && wentClassic.sessionTitle}」）`);
+  ok(wentClassic && wentClassic.nowHidden === true,
+    `F3b 到了工作台，管家视角的右栏随视角一起收起（实测 hidden=${wentClassic && wentClassic.nowHidden}）`);
+  // 回到管家视角：焦点仍是 A（§2.7 每个视角记住自己的现场），右栏照偏好展开。
+  await cdp.evaluate(`document.querySelector('#lensSeg [data-lens="steward"]').click(), true`);
+  const backOnA = await waitForEval(cdp, `(() => {
+    const snapshot = ${BOARD};
+    return snapshot.mode === 'steward' && snapshot.nowHidden === false && snapshot.sideCollapsed === '' && snapshot.nowThread === ${JSON.stringify(THREAD_A)} ? snapshot : null;
+  })()`);
+  ok(Boolean(backOnA), `F3c 切回管家：右栏展开、焦点仍在 A（实测「${backOnA && backOnA.nowThread}」collapsed=「${backOnA && backOnA.sideCollapsed}」）`);
 
   // ── ⑥b 117r-D2（用户第八轮走查①「管家新开线程之后不会自动打开线程详情页了」）──────────
   // 造的是真正出问题的那个时序：线程在看板【已经取过一趟行之后】才建出来，所以它一定不在手里
@@ -996,11 +1029,13 @@ try {
   // 这不是为了好测才走的路，F1／F2 两条既有断言走的就是这条真实交互（× 关掉 → 行上「打开」请回来）。
   // 121-K4：那枚「关掉」随浮层右栏退役 —— 同一条真实交互现在是抽屉自己的 ×（closeDrawer 会
   // stopPolling，随后行上的「打开」再 startPolling，相位照样从这一刻重新起算）。
+  // 2026-09-24：× 现在把右栏【收起】（F1 钉着），请回来的那一下是【点行标题】（openRow → openThread：
+  // 展开 ＋ 钉焦点 ＋ startPolling）—— 行菜单里的「打开」自此去工作台（F3 钉着），不再是这条路。
   await cdp.evaluate(`document.getElementById('stewardDrawerCloseBtn').click(), true`);
-  await sleep(600);   // 同 F1：抽屉随即按自动焦点重开，不等「藏起来」那一帧
+  await waitForEval(cdp, `(() => { const s = ${BOARD}; return s.sideCollapsed === '1' && s.drawerHidden === true ? 1 : null; })()`);
   // 121-K4：左栏常开，不用先拉开。先等这一条线程的行真的渲染出来再点（不然 querySelector 拿到 null）。
-  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idE}"] [data-action="open"]')`);
-  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idE}"] [data-action="open"]').click(), true`);
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idE}"] .steward-board-thread-title')`);
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idE}"] .steward-board-thread-title').click(), true`);
   await sleep(1500);
   const settledE = await cdp.evaluate(BOARD);
   ok(settledE && settledE.nowThread === THREAD_E && settledE.nowState === zh['mission.state.done']
@@ -1055,8 +1090,9 @@ try {
   // 在事件流真的断掉之后重新走一遍同款交互，才是这条债真正要还的东西。
   const idF2 = await settleThread(THREAD_F2, workF2);
   ok(Boolean(idF2), `R8pre0 断连测试用的这一条【无账本、已跑完一个回合】线程就位（${idF2 || '失败'}）`);
-  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]')`);
-  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]').click(), true`);
+  // 2026-09-24：行菜单里的「打开」自此去工作台（F3）；把右栏钉到这一条的是行标题那一下（openRow → openThread）。
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF2}"] .steward-board-thread-title')`);
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF2}"] .steward-board-thread-title').click(), true`);
   const settledF2 = await waitForDrawer(THREAD_F2, zh['mission.state.done'], zh['stewardShell.drawer.lastSay'], '', 10000);
   ok(Boolean(settledF2.snapshot), `R8pre1 右栏（此刻仍连着）开在线程 F2 上，是「${zh['mission.state.done']}」那一帧——断连测试的干净起点`);
 
@@ -1099,9 +1135,11 @@ try {
   // R8：对着这条【右栏已经开着、事件流已经断连】的线程，再点一次行上的「打开」——
   // focusThread() 末尾的强刷（syncNow）走一发普通 HTTP GET，不经那条被挡住的 SSE 路由，
   // 断连时它是唯一能把这一帧救回来的路（32 号文 §5 记的那笔债的「断连」半，K2b 只还了「连着」半）。
-  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]')`);
+  // 2026-09-24：行菜单里的「打开」自此去工作台（F3），这条【不派事件的焦点路】现在是行标题那一下
+  // （openRow → openThread → focusThread，末尾同一处 syncNow({focusRequest:true}) 强刷）。
+  await waitForEval(cdp, `!!document.querySelector('.steward-board-thread[data-session-id="${idF2}"] .steward-board-thread-title')`);
   const clickedAt = Date.now();
-  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF2}"] [data-action="open"]').click(), true`);
+  await cdp.evaluate(`document.querySelector('.steward-board-thread[data-session-id="${idF2}"] .steward-board-thread-title').click(), true`);
   const flippedF2 = await waitForDrawer(THREAD_F2, zh['mission.state.running'], zh['stewardShell.drawer.liveSay'], '开工了', 30000);
   ok(Boolean(flippedF2.snapshot) && Date.now() - clickedAt <= 5000,
     `R8 断连时对【右栏已经开着的那条线程】再点一次行上的「打开」→ 5 s 内状态行由「${zh['mission.state.done']}」变「${zh['mission.state.running']}」、「${zh['stewardShell.drawer.lastSay']}」换成「${zh['stewardShell.drawer.liveSay']}」（实测 ${Date.now() - clickedAt}ms；事件流已断连，这一路走的是 syncNow 自己的 HTTP 强刷，不经推送——这才是 R8 真正要考的门）`);

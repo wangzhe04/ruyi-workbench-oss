@@ -36,6 +36,17 @@
 :root[data-shell-mode="steward"] .app-views > .steward-shell:has(> .steward-side[hidden]) {
   grid-template-columns: minmax(0, 1fr) 0;
 }
+/* 2026-09-24（用户：「右边的线程永远收不起来」）：右栏【可收起】—— 用户收起时那一格只留一条窄条
+   （宽度只有这一个 token，窄条本体在 steward-board.css 的 .steward-side 一族里读它）。判据仍然是右栏
+   自己的属性（data-collapsed 与 hidden 都由 steward-board.js 的 syncNow 一处写）。
+   只在窄条成立的那一档：≤1180 右栏是顶栏「右栏」钮开合的滑出层（layout.css §7.3），两套开合不叠在
+   一起 —— 这条容器查询与 steward-board.js 的 STEWARD_SIDE_STRIP_MIN_WIDTH 是同一个数。 */
+.steward-shell { --steward-strip-w: 44px; }
+@container frame (min-width: 1181px) {
+  :root[data-shell-mode="steward"] .app-views > .steward-shell:has(> .steward-side[data-collapsed="1"]) {
+    grid-template-columns: minmax(0, 1fr) var(--steward-strip-w);
+  }
+}
 
 /* 中栏：四行网格＝头部／对话／输入／状态。 */
 .steward-stage {
@@ -72,13 +83,15 @@
   align-items: center;
   gap: var(--sp-3);
   min-width: 0;
-  padding: var(--sp-5) 0 var(--sp-2);
+  /* 2026-09-24：头部下沿多留一档 —— 名字＋一行状态之后紧跟对话流的第一句，修前两者贴得只有 8px。 */
+  padding: var(--sp-5) 0 var(--sp-3);
 }
 .steward-header-text {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0 var(--sp-2);
+  /* 2026-09-24：名字与状态行之间补 2px 行距（原来纯靠行高，两行几乎叠在一起）。 */
+  gap: 2px var(--sp-2);
   flex: 1 1 auto;
   min-width: 0;
 }

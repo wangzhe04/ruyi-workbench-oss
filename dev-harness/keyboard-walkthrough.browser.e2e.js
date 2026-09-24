@@ -283,9 +283,10 @@ async function walk(fx, label) {
     ok(fast === before && fx.exceptions.length === exBefore, `K6b 连按两下 Ctrl+\`(背靠背)落回原视角、不冒未捕获异常(落点 ${fast};新增异常 ${fx.exceptions.length - exBefore}${fx.exceptions.length > exBefore ? ':' + fx.exceptions.slice(exBefore).join(' | ') : ''})`);
 
     /* ═════════ K7 管家视角:标题上 Enter 开焦点卡,Esc 把焦点送进输入框 ═════════ */
-    // 宽屏(本件 1440)下焦点卡是【常驻栏】(steward-drawer.js 121-K6b:docked 不存在「关」),所以 Esc 的语义是
-    // 「把焦点送回管家输入框、接着说话」(closeDrawer({ focusComposer: true }) 之后常驻栏按设计还在)。
-    // 本件钉的是键盘这条路走得通:Enter 让焦点卡换成这一条,Esc 之后焦点有去处、且是看得见的输入框。
+    // 宽屏(本件 1440)下焦点卡是【常驻栏】。2026-09-24 起 Esc 在它上面＝把右栏收成窄条并把焦点送回管家
+    // 输入框(closeDrawer({ focusComposer: true }) → closeNow → setSideCollapsed(true);收起的行为由
+    // steward-side-collapse.browser 与 steward-board.e2e F 组钉)。本件钉的是键盘这条路走得通:Enter 让焦点卡
+    // 换成这一条(右栏收着也会为这一下展开),Esc 之后焦点有去处、且是看得见的输入框。
     await fx.setLens('steward');
     await sleep(300);
     const focusedTitle = await ev(`(() => {

@@ -891,6 +891,55 @@ ok(/\.steward-board-pill\.has-icon \{ display: inline-flex;/.test(cssCode)
     'P6 missionStateSettled 的正身住在叶子里，看板只 import 不实现');
 }
 
+// ─── S 2026-09-24：右栏可收起（用户：「右边的线程永远收不起来」）＋「打开」去工作台 ────────────────
+// 行为由 steward-side-collapse.browser.e2e.js 与 steward-board.e2e.js F 组在真浏览器里跑；本组钉的是
+// 「修法本身没被后来的改动悄悄绕开」的几件结构事实：
+//   ① 偏好键与窄条阈值是导出常量（不是散落字面量），阈值与 layout.css §7.3 的 1180 是对面（1181）；
+//   ② syncNow 是三态的【唯一】写口（hidden／data-collapsed），别处不写 data-collapsed；
+//   ③ 抽屉自己那两条事件路先过 openGate（右栏收着时不以覆盖式开出来），门由看板注入、判据只住看板；
+//   ④ 骨架：开关钮与窄条都在 #stewardSide 里、窄条默认 hidden；样式层有 [hidden] 守卫与 [data-collapsed] 规则；
+//   ⑤ 行菜单里不再有第二枚「在工作台打开」（data-action="classic"），「打开」走 openInWorkbenchRow；
+//   ⑥ 本机偏好读写都包 try/catch（本机存储不可用不致命）。
+{
+  ok(mod.STEWARD_SIDE_COLLAPSED_KEY === 'wcw.stewardSideCollapsed' && mod.STEWARD_SIDE_STRIP_MIN_WIDTH === 1181
+    && /min-width: \$\{STEWARD_SIDE_STRIP_MIN_WIDTH\}px/.test(boardCode)
+    && /@container frame \(min-width: 1181px\)/.test(read('css/views/steward-shell.css'))
+    && /@container frame \(max-width: 1180px\)/.test(read('css/layout.css')),
+    'S1 偏好键与窄条阈值是导出常量；1181 与 layout.css §7.3 的 1180 是同一条线的两面');
+  ok(count(boardCode, /dataset\.collapsed = '1'/g) === 1 && count(boardCode, /now\.hidden = !canShow;/g) === 1
+    && !/data-collapsed/.test(drawerCode) && !/dataset\.collapsed/.test(drawerCode),
+    'S2 三态只由 syncNow 一处写（hidden ＋ data-collapsed），抽屉不碰它');
+  ok(/let openGate = \(\) => true;/.test(drawerCode)
+    && /addEventListener\('steward:open-thread', event => \{ if \(openGate\(\)\) openThread\(/.test(drawerCode)
+    && /addEventListener\('steward:focus-thread', event => \{ if \(openGate\(\)\) openThread\(/.test(drawerCode)
+    && /setOpenGate: handler =>/.test(drawerCode)
+    && /drawer\.setOpenGate\(\(\) => !sideCollapsedActive\(\)\);/.test(boardCode)
+    && count(boardCode, /function sideCollapsedActive\(\)/g) === 1,
+    'S3 抽屉两条事件路先过 openGate；门由看板迟绑定注入，判据 sideCollapsedActive 只住看板一处');
+  const sideMarkup = html.slice(html.indexOf('id="stewardSide"'), html.indexOf('</aside>', html.indexOf('id="stewardSide"')));
+  ok(/<button type="button" id="stewardSideToggleBtn" class="icon-btn steward-side-toggle"/.test(sideMarkup)
+    && /<button type="button" id="stewardSideStrip" class="steward-side-strip" hidden><\/button>/.test(sideMarkup)
+    && sideMarkup.indexOf('id="stewardSideStrip"') < sideMarkup.indexOf('id="stewardFocus"'),
+    'S4 开关钮与窄条住在 #stewardSide 里、窄条默认 hidden、都排在挂点 #stewardFocus 之前');
+  ok(/\.steward-side-strip\[hidden\] \{ display: none; \}/.test(cssCode)
+    && /\.steward-side\[data-collapsed="1"\] \{ width: var\(--steward-strip-w, 44px\); \}/.test(cssCode)
+    && /:has\(> \.steward-side\[data-collapsed="1"\]\)/.test(read('css/views/steward-shell.css'))
+    && /\.steward-side-strip,\s*\n\s*\.th-back-steward \{ transition: none; \}/.test(cssCode),
+    'S4b 样式层：窄条的 [hidden] 守卫、收起态宽度、列宽规则、reduced-motion 关过渡 —— 四样都在');
+  ok(!/'stewardShell\.board\.classicView'/.test(boardCode) && !/action: 'classic'/.test(boardCode)
+    && /boardButton\('stewardShell\.board\.openThread', \(\) => openInWorkbenchRow\(sessionId\), \{ action: 'open' \}, 'lensWork'\)/.test(boardCode)
+    && /function openInWorkbenchRow\(sessionId\)/.test(boardCode),
+    'S5 行菜单只剩一枚「打开」（去工作台），退役的「在工作台打开」不再长回来');
+  ok(/try \{ return globalThis\.localStorage && globalThis\.localStorage\.getItem\(STEWARD_SIDE_COLLAPSED_KEY\) === '1'; \}/.test(boardCode)
+    && /try \{ globalThis\.localStorage && globalThis\.localStorage\.setItem\(STEWARD_SIDE_COLLAPSED_KEY, collapsed \? '1' : '0'\); \}/.test(boardCode),
+    'S6 本机偏好读写都包 try/catch');
+  ok(/if \(stripAllowed\(\)\) \{ setSideCollapsed\(true\); return true; \}/.test(boardCode),
+    'S7 常驻栏上的 ×／Esc／「交回管家」＝收起右栏（closeNow 先问 stripAllowed；抽屉带那一档保留松钉子的旧语义）');
+  for (const key of ['stewardShell.side.collapse', 'stewardShell.side.expand', 'stewardShell.side.fresh', 'threadHead.backToSteward']) {
+    ok(typeof zh[key] === 'string' && typeof en[key] === 'string', `S8 文案键 ${key} 中英齐备`);
+  }
+}
+
 console.log(`\nSTEWARD BOARD STATIC E2E: ${fail ? `FAIL (${fail})` : 'ALL PASS'}`);
 process.exitCode = fail ? 1 : 0;
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 1; });
