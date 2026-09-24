@@ -208,16 +208,26 @@ async function kimiAcpSearchVendorRg(context) {
   const appRootRaw = path.resolve(String(root || ''));
   const appRootCanonical = await kimiAcpSearchCanonicalRoot(appRootRaw);
   if (!appRootCanonical) return null;
-  const vendorRootRaw = path.join(appRootRaw, 'vendor-bin');
-  // A vendored exception is only valid when vendor-bin is a real directory directly anchored under the
-  // canonical appRoot. A junction/symlink from appRoot/vendor-bin into a workspace must not become a trust
-  // escape hatch, even when the final rg file itself has a plausible basename.
+  // 145-W3: the bundled rg lives in appRoot/app/vendor-bin (the same app/ directory that holds server.js and
+  // public/; see 00-boot ruyiVendorBinDir). The old appRoot/vendor-bin existed in no layout, so this exception
+  // silently never matched. Only the location moved; every anchoring check below is kept and one is added
+  // (app/ itself must be a real directory, not a junction/symlink).
+  const appDirRaw = path.join(appRootRaw, 'app');
+  let appDirStat;
+  try { appDirStat = await fsp.lstat(appDirRaw); } catch { return null; }
+  if (!appDirStat || !appDirStat.isDirectory() || appDirStat.isSymbolicLink()) return null;
+  const vendorRootRaw = path.join(appDirRaw, 'vendor-bin');
+  // A vendored exception is only valid when vendor-bin is a real directory anchored under the canonical
+  // appRoot (as appRoot/app/vendor-bin). A junction/symlink from app or app/vendor-bin into a workspace must
+  // not become a trust escape hatch, even when the final rg file itself has a plausible basename.
   let vendorRootStat;
   try { vendorRootStat = await fsp.lstat(vendorRootRaw); } catch { return null; }
   if (!vendorRootStat || !vendorRootStat.isDirectory() || vendorRootStat.isSymbolicLink()) return null;
   const vendorRoot = await kimiAcpSearchCanonicalRoot(vendorRootRaw);
   if (!vendorRoot || !kimiAcpSearchWithin(vendorRoot, appRootCanonical)
-    || path.basename(vendorRoot).toLowerCase() !== 'vendor-bin') return null;
+    || path.basename(vendorRoot).toLowerCase() !== 'vendor-bin'
+    || path.basename(path.dirname(vendorRoot)).toLowerCase() !== 'app'
+    || !kimiAcpSearchPathEqual(path.dirname(path.dirname(vendorRoot)), appRootCanonical)) return null;
   const vendorPath = path.join(vendorRootRaw, kimiAcpSearchRgName());
   let vendorFileStat;
   try { vendorFileStat = await fsp.lstat(vendorPath); } catch { return null; }
@@ -280,7 +290,7 @@ async function kimiAcpSearchResolveTrustedRg(rawCommand, context) {
     const direct = await kimiAcpSearchRealFile(command);
     const directIsVendor = !!vendor && direct && kimiAcpSearchPathEqual(direct, vendor);
     // Apply the workspace/extra-root deny before every absolute-path trust source. The only exception is the
-    // strictly anchored appRoot/vendor-bin file returned above; an absolute PATH or RUYI_RG_PATH must not
+    // strictly anchored appRoot/app/vendor-bin file returned above; an absolute PATH or RUYI_RG_PATH must not
     // bypass the same canonical boundary merely because its basename is rg.
     if (direct && isDeniedByWorkspace(direct) && !directIsVendor) {
       return kimiAcpSearchDeny('rg-in-workspace', 'canonical rg is inside a workspace or extra root');

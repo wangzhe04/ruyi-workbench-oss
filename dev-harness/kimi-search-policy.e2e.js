@@ -111,7 +111,9 @@ async function main() {
   const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-kimi-search-policy-'));
   const workspace = path.join(root, 'workspace');
   const appRoot = path.join(root, 'app-root');
-  const vendorBin = path.join(appRoot, 'vendor-bin');
+  // 145-W3: the bundled rg really lives at appRoot/app/vendor-bin (same app/ dir as server.js); the old
+  // appRoot/vendor-bin anchor existed in no layout. See the anchor cases after the Grep checks below.
+  const vendorBin = path.join(appRoot, 'app', 'vendor-bin');
   const dataRoot = path.join(root, 'ruyi-data');
   const outside = path.join(root, 'outside');
   const fakeWorkspaceBin = path.join(workspace, 'bin');
@@ -172,6 +174,35 @@ async function main() {
     ], cwd: workspace }, context);
     assert.strictEqual(content.ok, true, 'content Grep allowlist accepts bounded context/type/multiline flags');
     assert.ok(content.args.includes('-C') && content.args.includes('3') && content.args.includes('--type'), 'content Grep flags are normalized');
+
+    // 145-W3 vendor anchor: only the real appRoot/app/vendor-bin is trusted; the old appRoot/vendor-bin location
+    // and junction/symlink redirections of app/ or app/vendor-bin stay untrusted (same strictness, new place).
+    const legacyVendorRg = path.join(appRoot, 'vendor-bin', rgName);
+    await fsp.mkdir(path.dirname(legacyVendorRg), { recursive: true });
+    await fsp.writeFile(legacyVendorRg, 'legacy location fixture\n', 'utf8');
+    if (process.platform !== 'win32') await fsp.chmod(legacyVendorRg, 0o755);
+    const legacy = await classify({ command: legacyVendorRg, args: nativeGlobArgs('*.js'), cwd: workspace }, context);
+    assert.ok(resultIsDenied(legacy, 'rg-untrusted'), 'legacy appRoot/vendor-bin is no longer a trust anchor');
+    const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+    // The redirect target is itself named app/vendor-bin, so only the link/containment checks (not a basename
+    // mismatch) can reject it.
+    const redirected = path.join(outside, 'elsewhere', 'app');
+    await fsp.mkdir(path.join(redirected, 'vendor-bin'), { recursive: true });
+    await fsp.writeFile(path.join(redirected, 'vendor-bin', rgName), 'redirected fixture\n', 'utf8');
+    if (process.platform !== 'win32') await fsp.chmod(path.join(redirected, 'vendor-bin', rgName), 0o755);
+    const appLinkRoot = path.join(root, 'app-root-linked-app');
+    await fsp.mkdir(appLinkRoot, { recursive: true });
+    await fsp.symlink(redirected, path.join(appLinkRoot, 'app'), linkType);
+    const classifyAppLink = loadClassifier({ dataRoot, appRoot: appLinkRoot });
+    const viaAppLink = await classifyAppLink({ command: path.join(appLinkRoot, 'app', 'vendor-bin', rgName), args: nativeGlobArgs('*.js'), cwd: workspace }, context);
+    assert.ok(viaAppLink && viaAppLink.ok === false, 'a junction/symlink at appRoot/app is not a trust anchor');
+    const vendorLinkRoot = path.join(root, 'app-root-linked-vendor');
+    await fsp.mkdir(path.join(vendorLinkRoot, 'app'), { recursive: true });
+    await fsp.symlink(path.join(redirected, 'vendor-bin'), path.join(vendorLinkRoot, 'app', 'vendor-bin'), linkType);
+    const classifyVendorLink = loadClassifier({ dataRoot, appRoot: vendorLinkRoot });
+    const viaVendorLink = await classifyVendorLink({ command: path.join(vendorLinkRoot, 'app', 'vendor-bin', rgName), args: nativeGlobArgs('*.js'), cwd: workspace }, context);
+    assert.ok(viaVendorLink && viaVendorLink.ok === false, 'a junction/symlink at appRoot/app/vendor-bin is not a trust anchor');
+    console.log('PASS vendor anchor: appRoot/app/vendor-bin trusted; legacy location and linked app/vendor-bin rejected');
 
     const cacheHome = path.join(root, 'kimi-home');
     const cacheRg = path.join(cacheHome, 'bin', rgName);
