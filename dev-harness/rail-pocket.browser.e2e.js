@@ -595,11 +595,14 @@ try {
     `J1 1181：右栏仍在栅格里（left=${at1181 && at1181.left} < 视口 ${at1181 && at1181.vw}），顶栏没有「右栏」钮`);
   // 换到抽屉态那一下 transform 是有过渡的（--dur-slow），量早了会读到半路上的位置
   // （K7 实测：220 ms 时 left=1168，差 12px 就是那一帧还没走完）。所以这里【等到位】再判。
+  // Windows CI 负载高时 2 s 内一帧都没出（left 停在起点 788）：量之前把右栏自己的过渡 finish() 到终点，
+  // 判的就是抽屉态的【终值】而不是动画帧率。
   let at1180 = await paneAt(1180);
   for (let i = 0; i < 40 && at1180 && at1180.left < at1180.vw - 1; i++) {
     await sleep(50);
     at1180 = await cdp.evaluate(`(() => {
       const pane = document.getElementById('toolPane');
+      if (pane && pane.getAnimations) pane.getAnimations().forEach(a => { try { a.finish(); } catch {} });
       const toggle = document.getElementById('appSideToggleBtn');
       const box = pane ? pane.getBoundingClientRect() : null;
       return { left: box ? Math.round(box.left) : -1, vw: Math.round(document.documentElement.clientWidth),
