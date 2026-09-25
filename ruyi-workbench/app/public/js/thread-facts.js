@@ -256,3 +256,15 @@ export function focusThreadFor(rows) {
   const pick = state => list.filter(row => row.state === state).sort(newest)[0] || null;
   return pick('needs_you') || pick('running') || list.slice().sort(newest)[0] || null;
 }
+
+// 线程在看板／抽屉页签上显示的名字。服务端 displayTitle 在索引行上拿不到首条原话，于是第一回合
+// 跑着的时候会原样给出后端占位 'New session'（走查实测：左栏「等你」里一行英文 New session，
+// 同一条线程标题栏却是「未命名线程」）。占位集合与服务端 02 isUntitledSessionTitle 逐字相同；
+// 本文件零 t()，本地化占位由调用方传进来。
+const UNTITLED_THREAD_TITLES = new Set(['New session', '新会话', 'New chat']);
+export function threadShownTitle(row, untitledLabel) {
+  const r = row && typeof row === 'object' ? row : {};
+  const shown = String(r.displayTitle || r.title || '').trim();
+  if (!shown || UNTITLED_THREAD_TITLES.has(shown)) return String(untitledLabel || r.sessionId || '');
+  return shown;
+}

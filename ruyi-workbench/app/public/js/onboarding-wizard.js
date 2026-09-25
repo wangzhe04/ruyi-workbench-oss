@@ -176,6 +176,17 @@ export function validateApiKeyShape(presetId, key) {
 }
 
 // Front-of-the-line base URL shape check. Same intent: catch 「粘贴了控制台首页地址」 before the request.
+// 向导再存一次时该复用的已有服务商：同一预设谱系（id 为 presetId 或 presetId-N，providerDraftFromPreset
+// 就是这么起号的）且地址相同（忽略首尾空白、末尾斜杠与大小写）。没有就返回 null，照旧新建一条。
+export function reusableProviderFor(providers, presetId, baseUrl) {
+  const id = String(presetId || '');
+  if (!id) return null;
+  const norm = value => String(value || '').trim().replace(/\/+$/, '').toLowerCase();
+  const target = norm(baseUrl);
+  const lineage = new RegExp('^' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(-\\d+)?$');
+  return asArray(providers).find(p => p && lineage.test(String(p.id || '')) && norm(p.baseUrl) === target) || null;
+}
+
 export function validateBaseUrlShape(url) {
   const raw = url == null ? '' : String(url);
   if (!raw.trim()) return { ok: false, code: 'urlEmpty' };
@@ -693,15 +704,19 @@ export function createOnboardingWizardDomain({
 
     // Build the provider entry with the SAME serializer the settings page uses, then overlay the three
     // fields the wizard collected. No second provider shape lives here.
+    // 重开向导、对同一个端点再存一次时，就地更新已有那一条（沿用它的 id），不再追加 local-2、local-3……
+    // 用户没重填密钥就原样回传掩码 —— 服务端 unmaskSecrets 按「同一 id、同一地址」还原真密钥，测试连接同理。
     function buildDraft() {
       const preset = currentPreset();
-      const existing = asArray(asObject(state.config).providers).map(p => p && p.id).filter(Boolean);
-      const draft = typeof providerDraftFromPreset === 'function'
-        ? providerDraftFromPreset(preset, existing)
-        : null;
+      const providers = asArray(asObject(state.config).providers);
+      const existing = providers.map(p => p && p.id).filter(Boolean);
+      const reuse = reusableProviderFor(providers, preset && preset.id, wiz.baseUrl);
+      const draft = reuse
+        ? { ...reuse, models: asArray(reuse.models).map(m => ({ ...m })) }
+        : (typeof providerDraftFromPreset === 'function' ? providerDraftFromPreset(preset, existing) : null);
       if (!draft) return null;
       draft.baseUrl = wiz.baseUrl;
-      draft.apiKey = wiz.apiKey;
+      if (!reuse || wiz.apiKey) draft.apiKey = wiz.apiKey;
       if (wiz.model) draft.model = wiz.model;
       if (wiz.models.length) {
         const seen = new Set(asArray(draft.models).map(m => m && m.id));
@@ -714,7 +729,10 @@ export function createOnboardingWizardDomain({
       const presetKey = currentPresetKey();
       const url = validateBaseUrlShape(wiz.baseUrl);
       if (!url.ok) { setMessage(t('onboarding.wizard.validate.' + url.code), 'err'); return null; }
-      const key = validateApiKeyShape(presetKey, wiz.apiKey);
+      // 同一端点已存过密钥（服务端回来的是掩码）且这次没重填：不逼用户再贴一遍，沿用已存的那把。
+      const saved = reusableProviderFor(asObject(state.config).providers, currentPreset() && currentPreset().id, wiz.baseUrl);
+      const keepsSavedKey = !String(wiz.apiKey || '').trim() && !!saved && String(saved.apiKey || '').startsWith('•');
+      const key = keepsSavedKey ? { ok: true, code: '', warn: '' } : validateApiKeyShape(presetKey, wiz.apiKey);
       if (!key.ok) { setMessage(t('onboarding.wizard.validate.' + key.code), 'err'); return null; }
       if (key.warn) setMessage(t('onboarding.wizard.validate.' + key.warn), 'warn');
       return buildDraft();

@@ -142,6 +142,19 @@ try {
   ok(await waitUp(), '工作台启动');
   const hdr = { 'x-wcw-token': await tokenOf() };
 
+  // 管家会话懒创建：第一次管家回合之前读它，回空历史而不是 404（修前每次加载页面控制台都有一条红色 404）。
+  // 读本身不许把会话建出来（「唯一合法的建立方式」仍是下面那一回合）；别的不存在的会话照旧 404。
+  {
+    ok(readStewardHead() === null, '前提:此刻管家会话尚未落盘');
+    const lazy = await request('GET', '/api/sessions/steward', undefined, hdr);
+    ok(lazy.status === 200 && lazy.json && lazy.json.ok === true && lazy.json.created === false
+      && lazy.json.session && lazy.json.session.id === 'steward' && Array.isArray(lazy.json.session.messages) && lazy.json.session.messages.length === 0,
+    `D0 管家会话未落盘时 GET 回 200 空历史、created:false(got ${lazy.status})`);
+    ok(readStewardHead() === null, 'D0b 读一次不会把管家会话建出来');
+    const missing = await request('GET', '/api/sessions/sess_0000000000000000', undefined, hdr);
+    ok(missing.status === 404, `D0c 别的不存在的会话照旧 404(got ${missing.status})`);
+  }
+
   // 先让管家自己跑一个回合 —— 这是【唯一】合法的管家会话建立方式,也给下面的 A2 造出目标。
   {
     const msg = await request('POST', '/api/steward/message', { message: '现在什么情况' }, hdr);

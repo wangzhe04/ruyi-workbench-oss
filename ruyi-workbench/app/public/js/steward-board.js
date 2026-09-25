@@ -2,7 +2,7 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
-import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled } from './thread-facts.js';
+import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, threadShownTitle } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -660,8 +660,10 @@ export function createStewardBoard({
     const button = byId('newSessionBtn');
     if (button) {
       const hint = t(lens === 'steward' ? 'rail.newTaskHint' : 'rail.newThreadHint');
+      // 无障碍名就用看得见的那几个字（「新线程」／「另起一件」），说明放 title 当描述读出。修前 aria-label
+      // 整个换成了说明句，用语音控制说「点新线程」点不到（WCAG 2.5.3 可见标签须在名字里）。
       button.title = hint;
-      button.setAttribute('aria-label', hint);
+      button.removeAttribute('aria-label');
       button.dataset.lens = lens;
       const wanted = RAIL_PLUS_ICONS[lens];
       if (button.dataset.icon !== wanted) {
@@ -913,7 +915,7 @@ export function createStewardBoard({
     // 116-5b(§11.8.5):显示名由服务端一处算好(13d buildMissionCard 的 displayTitle,判据在 02 的
     // sessionDisplayTitle),看板只读结果 —— 与本行的 stateLabel / wait.label 同一条纪律。
     // 原话挂 hover(它没被改写,仍是权威);没有摘要时 displayTitle 逐字等于 title,不挂重复的提示。
-    const title = el('button', 'steward-board-thread-title', String(row.displayTitle || row.title || sessionId));
+    const title = el('button', 'steward-board-thread-title', threadShownTitle({ ...row, sessionId }, t('session.untitled')));
     if (row.title && row.displayTitle && row.title !== row.displayTitle) title.title = String(row.title);
     title.type = 'button';
     // §2.3 点击语义：单线程任务行／线程行 → 打开它。管家视角＝换焦点（右栏那一份抽屉），

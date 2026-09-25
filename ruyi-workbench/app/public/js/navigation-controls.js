@@ -737,7 +737,8 @@ function openModal(id) {
   bd.classList.remove('hidden');
   if (id === 'settingsModal') { fillSettings(); switchSettingsTab(state._settingsTab || 'basic'); }
   const panel = bd.querySelector('.modal, .palette');
-  setTimeout(() => { focusFirstInteractive(panel)?.focus?.(); }, 0);
+  // 打开者若已把焦点放进弹层（如左栏「定时任务」直达某一段），就不再抢回页首第一个控件——抢回会把滚动拽回顶部。
+  setTimeout(() => { if (panel && panel.contains(document.activeElement)) return; focusFirstInteractive(panel)?.focus?.(); }, 0);
 }
 // 128d(keyboard-walkthrough K5):触发者可能已经看不见了 —— 齿轮菜单里的「设置」按下去菜单就收起,那一项跟着藏起来,
 // 往藏起来的节点上 focus() 是空操作,焦点于是掉到 body,键盘用户得从页首重新 Tab。退一步还给「拥有这张菜单的按钮」

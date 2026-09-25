@@ -48329,7 +48329,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
       const session = await loadSession(id);
-      if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : json({ ok: false, error: 'session not found' }, 404)); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」

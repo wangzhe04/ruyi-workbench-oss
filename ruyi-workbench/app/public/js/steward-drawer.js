@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel } from './thread-facts.js';
+import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, threadShownTitle } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -563,7 +563,7 @@ export function createStewardDrawer({
       const dot = el('span', 'steward-drawer-dot');
       dot.dataset.state = threadStateOf(row);
       // 116-5b:页签/标题/接力清单三处都读服务端算好的 displayTitle(缺席时逐字回落原话)。
-      tab.append(dot, el('span', 'steward-drawer-tab-title', String(row.displayTitle || row.title || row.sessionId)));
+      tab.append(dot, el('span', 'steward-drawer-tab-title', threadShownTitle(row, t('session.untitled'))));
       if (row.title && row.displayTitle && row.title !== row.displayTitle) tab.title = String(row.title);
       tab.onclick = () => { if (!selected) switchToThread(String(row.sessionId)); };
       // 117j copy-P3-4：正经 tablist 的键盘规矩 —— ←/→ 在页签间走，Home/End 跳首尾，环绕。

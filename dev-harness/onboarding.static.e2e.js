@@ -496,6 +496,32 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   findOne(backdrop3, 'onboard-wiz-skip') && findOne(backdrop3, 'onboard-wiz-skip').onclick();
   await flush();
 
+  // 重开向导、对同一端点再存一次：就地更新那一条，不追加 fakeco-2（真机走查：连存 5 次得到 local…local-5）。
+  // 服务端回给页面的是掩码，这里照样子把已存密钥换成掩码；不重填密钥时原样回传，由服务端按同 id 同地址还原。
+  host3.state.config.providers = host3.state.config.providers.map(p => ({ ...p, apiKey: '••••-key' }));
+  if (typeof backdrop3.__cancel === 'function') backdrop3.__cancel();
+  await flush();
+  const savesBefore = host3.calls.filter(c => c.url === '/api/config' && c.body && c.body.providers).length;
+  const backdrop3b = host3.domain.openOnboardingWizard();
+  await flush();
+  findOne(backdrop3b, 'onboard-wiz-next').onclick(); await flush();
+  findOne(backdrop3b, 'onboard-wiz-next').onclick(); await flush();
+  await findOne(backdrop3b, 'onboard-wiz-save').onclick();
+  await flush();
+  const resave = [...host3.calls].reverse().find(c => c.url === '/api/config' && c.body && c.body.providers);
+  ok(backdrop3b !== backdrop3 && host3.calls.filter(c => c.url === '/api/config' && c.body && c.body.providers).length === savesBefore + 1
+    && !!resave && resave.body.providers.length === 1 && resave.body.providers[0].id === 'fakeco' && resave.body.activeProvider === 'fakeco',
+    'D28b 同一端点再存一次：仍只有一条 fakeco，不新增 fakeco-2');
+  ok(!!resave && resave.body.providers[0].apiKey === '••••-key', 'D28c 没重填密钥时回传掩码（服务端据此保留原密钥），不把密钥清空');
+  if (typeof backdrop3b.__cancel === 'function') backdrop3b.__cancel();
+  await flush();
+  const pool = [{ id: 'local', baseUrl: 'http://127.0.0.1:11434/v1' }, { id: 'local-3', baseUrl: 'http://127.0.0.1:8911/v1/' }, { id: 'localhost-x', baseUrl: 'http://127.0.0.1:8911/v1' }];
+  ok(mod.reusableProviderFor(pool, 'local', 'HTTP://127.0.0.1:8911/v1') === pool[1]
+    && mod.reusableProviderFor(pool, 'local', 'http://127.0.0.1:9999/v1') === null
+    && mod.reusableProviderFor(pool, 'openai', 'http://127.0.0.1:11434/v1') === null
+    && mod.reusableProviderFor(pool, '', 'http://127.0.0.1:11434/v1') === null,
+  'D28d 复用判据：同谱系（id 或 id-N，不含 localhost-x 这种前缀撞名）＋同地址（忽略末尾斜杠与大小写）');
+
   // 失败路径:服务端人话 + 「怎么办」
   const host4 = makeHost({ testResult: { ok: false, error: { code: 'api.request_failed', params: {}, message: '密钥无效或无权限(HTTP 401)' }, errorClass: 'provider_misconfigured' } });
   const backdrop4 = host4.domain.openOnboardingWizard();

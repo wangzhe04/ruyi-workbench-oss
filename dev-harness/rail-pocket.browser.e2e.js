@@ -383,7 +383,14 @@ try {
     const doctorTab = document.querySelector('#settingsTabs button[data-stab="doctor"]');
     const usageTab = document.querySelector('.tool-pane .tool-tabs button[data-tab="usage"]');
     const visible = elm => Boolean(elm) && elm.offsetParent !== null;
+    // 「可见」只说明没被 display:none，走查实测三个入口都停在页首、目标段在 1957 px 之下也照样算「可见」。
+    // 这里再量一把真落点：段落顶边进了视口上半部分（或整段都在视口里），且焦点就在这一段里。
+    const landed = id => { const g = document.getElementById(id); if (!g) return false; const r = g.getBoundingClientRect();
+      return r.top >= 0 && (r.top < innerHeight * 0.6 || r.bottom <= innerHeight) && g.contains(document.activeElement); }; // 末段滚不到顶，整段在视口里也算
     return {
+      scheduleLanded: landed('cfgStewardGroupSchedule'),
+      memoryLanded: landed('cfgStewardGroupMemory'),
+      decisionsLanded: landed('cfgStewardGroupDecisions'),
       settingsOpen: Boolean(modal) && !modal.classList.contains('hidden'),
       stewardTabActive: Boolean(tab) && tab.classList.contains('active'),
       doctorTabActive: Boolean(doctorTab) && doctorTab.classList.contains('active'),
@@ -406,14 +413,17 @@ try {
   const onSchedule = await clickPocket('schedule');
   ok(Boolean(onSchedule) && onSchedule.settingsOpen && onSchedule.stewardTabActive && onSchedule.scheduleGroup,
     `B6 「定时任务」→ 设置·管家页的定时任务组可见（实测 ${JSON.stringify(onSchedule)}）`);
+  ok(Boolean(onSchedule) && onSchedule.scheduleLanded, `B6b 「定时任务」直接落到定时任务那一段（段顶进视口、焦点在段内；修前停在页首「管家总开关」）`);
   await closeSettings();
   const onDecisions = await clickPocket('decisions');
   ok(Boolean(onDecisions) && onDecisions.settingsOpen && onDecisions.stewardTabActive && onDecisions.decisionsGroup,
     `B7 「行动流水」→ 设置·管家页的行动流水组可见（实测 stewardTab=${onDecisions && onDecisions.stewardTabActive}）`);
+  ok(Boolean(onDecisions) && onDecisions.decisionsLanded, `B7b 「行动流水」直接落到行动流水那一段`);
   await closeSettings();
   const onMemory = await clickPocket('memory');
   ok(Boolean(onMemory) && onMemory.settingsOpen && onMemory.stewardTabActive && onMemory.memoryGroup,
     `B8 「记得的关于你」→ 设置·管家页的记忆组可见（实测 stewardTab=${onMemory && onMemory.stewardTabActive}）`);
+  ok(Boolean(onMemory) && onMemory.memoryLanded, `B8b 「记得的关于你」直接落到记忆那一段`);
   await closeSettings();
   const onDoctorSteward = await clickPocket('doctor');
   ok(Boolean(onDoctorSteward) && onDoctorSteward.settingsOpen && onDoctorSteward.doctorTabActive && onDoctorSteward.doctorPanelShown,
