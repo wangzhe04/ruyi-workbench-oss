@@ -3,7 +3,53 @@
 本文件记录面向用户的重要发行变化，不替代完整的 Git 提交历史。版本遵循 `ruyi-workbench/package.json`。
 This file records user-facing release highlights; it does not replace the complete Git history. Versions follow `ruyi-workbench/package.json`.
 
-## 如意 Ruyi Pretender 3.0 Preview 1 · v3.0.0-preview.1 · 2026-09-24 · 预览版
+## 如意 Ruyi Pretender 3.0 Preview 2 · v3.0.0-preview.2 · 2026-09-25 · 预览版
+
+<!-- 2026-09-25 用户要求重新打包并发 3.0 预览版 GitHub Release。v3.0.0-preview.1 只推了标签、从没建出 Release，
+     标签已在远端、不挪动，故本次以 preview.2 发布，Release 覆盖自 v2.6.2 以来的全部变化（本节＋下方 Preview 1、2.8.0、2.7.0 各节）。
+     第 137 波记录见 57 号文。正式 3.0 仍按 50 号文三组门。 -->
+
+> **如意 Ruyi Pretender 3.0 预览版 2 · 2026-09-25** —— 在预览版 1 之上的第 137 波：子代理不再污染主会话、从 Claude Code／Codex／Kimi 和老版本如意一键迁移、每种引擎都知道自己在如意里、管家界面重新设计、设置页重组。
+> **Ruyi Pretender 3.0 Preview 2 · 2026-09-25** — wave 137 on top of Preview 1: sub-agents no longer clutter the main conversation, one-click migration from Claude Code / Codex / Kimi and older Ruyi installs, every engine knows it runs inside Ruyi, a redesigned steward view, and reorganised settings.
+
+### 中文
+
+#### 子代理：新模式（第 137 波）
+- **子代理的过程不再带进主会话**：主会话只收到一份精简的交付结果（每个代理的结论、产出文件、用量），子代理的工具调用、上下文压缩都只留在它自己的卡片里；需要全文时模型用新工具 `agent_result` 按需取。此前子代理压缩会改写主会话的上下文电量表、工具调用会撑大主会话的工具列表、编排原文最多 6 万字进主会话上下文，这些都修了。
+- **只剩一个入口**：Spawn Agent 并入 Orchestrate Agent（单个代理也能一句话调用）；旧会话里的记录照常显示。
+- **后台运行**：代理可以在后台跑，主会话照常对话；跑完的结果只送达一次；线程输入框上方的后台任务条能看能停。
+- 工作流里 Claude 引擎节点的上下文上限与主会话一致（不再按 200K 兜底）。
+
+#### 迁移中心（第 137 波）
+- **启动时自动导入全局指令**：`~/.claude/CLAUDE.md`、Codex 与 Kimi 的 `AGENTS.md` 导入为如意的核心记忆；原文件改了自动跟着更新，你改过的那条不覆盖；Claude Code／Kimi 自己会读的那份不重复注入。
+- **MCP 与技能**：自动导入扩到 Claude Code、Codex、Kimi 三家；新增读取 Codex、Kimi 与 Claude Code 插件里的技能。
+- **老版本如意**：从各处配置里指向老安装包的路径认出老包（不管装在哪），一键改到新版（改前备份、可撤销）；删除老包只移进回收站。入口在「设置 · 集成与 MCP」，首次启动也会提示一次。
+
+#### 每种引擎都知道自己在如意里（第 137 波）
+- Claude Code 与 Kimi Code 线程各有一段「如意运行环境说明」：能用哪些如意工具、界面怎么显示、权限怎么走、管家会怎么转述。
+- **随包的 ripgrep 以前从没被用上**（查找路径错了一层），现在修好：模型在终端里能直接用 `rg`，文件搜索走快路径；体检多了「快速搜索」「图表渲染」两项。
+- 模型知道界面会把 ```mermaid 代码块画成图。
+
+#### 管家界面（第 137 波）
+- 右边的线程栏可以收起成一条窄栏，选择会记住，管家不会再自己把它弹开。
+- 「打开线程」直接跳到工作台里对应的线程；工作台线程头有「回到管家」。
+- 视觉减法：没有内容的状态不显示、左栏收工的线程一行放下、右栏只留一个主按钮、窄屏顶栏不再重叠。
+- 管家开线程时会沿用事项或相关线程所在的工作区，不再每件事都新开一个文件夹；如意自己开的文件夹不再出现在「常用工作区」里。
+
+#### 线程视图与设置（第 137 波）
+- 运行中的回合不再提前显示「本轮记录」总结卡；左下角有运行中的小动效；左侧线程列表不再随工具调用忽大忽小。
+- **设置页重组**：新增「模型分配」（原来散在 8 处的选模型合成一张表）、「权限与安全」（全局权限从管家页移来，可设权限／提问等多久）、「用量与限额」；MCP 相关三个页签合成一个。除服务商卡片外都是改了就存。
+- 修复：在别处改过的服务商设置可能被设置页的旧草稿写回去；向导里选「智能自动」保存失败；保存提示文案不准。
+
+### English
+
+- **Sub-agents, new mode.** The main conversation receives only a compact delivery envelope per agent (conclusion, output files, usage); sub-agent tool calls and compaction stay on the agent's own card, and the model can fetch full output with the new `agent_result` tool. Spawn Agent is merged into Orchestrate Agent. Agents can run in the background while you keep chatting; each result is delivered exactly once. Claude workflow nodes use the same context window as the main conversation.
+- **Migration center.** Global instruction files (`~/.claude/CLAUDE.md`, Codex and Kimi `AGENTS.md`) are imported as core memory at start-up and kept in sync; MCP auto-import now covers Claude Code, Codex and Kimi; Codex, Kimi and Claude Code plugin skills are read. Older Ruyi installs are detected from paths in your configs wherever they live, repointed with backup and undo, and can be moved to the Recycle Bin.
+- **Engine briefings.** Claude Code and Kimi Code threads get a Ruyi environment briefing. The bundled ripgrep was never found before (wrong lookup folder); it now works in the model's terminal and file search, and the health check reports it together with diagram rendering.
+- **Steward view.** The right thread panel collapses and stays collapsed; "Open thread" jumps to that thread in the workbench, with "Back to steward" on the thread header; a lighter layout. The steward reuses the workspace of the matter or related threads instead of creating a new folder each time, and folders Ruyi creates no longer appear in your common workspaces.
+- **Threads and settings.** Running turns no longer show the end-of-turn summary early and show a small running indicator; the left thread list no longer jumps in height. Settings gain Model assignment, Permissions & safety and Usage & limits pages; MCP pages are merged; most settings save on change. Fixed stale provider drafts overwriting changes, the onboarding "Smart auto" save failure, and an inaccurate save hint.
+
+## 如意 Ruyi Pretender 3.0 Preview 1 · v3.0.0-preview.1 · 2026-09-24 · 预览版（只打了标签，Release 随 Preview 2 一并发布）
 
 <!-- 2026-09-24 用户要求发 3.0 预览版（pre-release）。本节即原「未发布 · Unreleased」节（128 波起的全部用户可见变化，
      用户 2026-09-20 拍板并进 3.0，不单开 2.9）。**正式 3.0（v3.0.0）仍按 50 号文三组门**：预览版不宣告那三组门走完，
