@@ -138,8 +138,14 @@ function mcpSession(extraEnv) {
     const searchText = JSON.parse(search.result.content[0].text);
     ok(searchText.matches.some(m => m.name === 'file_write' && m.tier === 'edit'), 'Claude discovery returns hidden tool and exact risk tier');
     ok(!searchText.retrievalVersion && searchText.matches[0].name === 'file_write', '20-T1 Claude/MCP shadow leaves the client-visible legacy result unchanged');
-    const allShadowLogs = fs.readdirSync(path.join(HOME, 'logs')).filter(f => /^workbench-.*\.ndjson$/.test(f)).flatMap(f => fs.readFileSync(path.join(HOME, 'logs', f), 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } })).filter(Boolean);
-    const mcpShadow = allShadowLogs.find(row => row.kind === 'tool_retrieval_shadow' && row.engine === 'mcp');
+    // logEvent 走 createWriteStream，MCP 子进程回完 tools/call 之后那一行才异步落盘；Windows runner 磁盘慢时
+    // 立刻读常常还没写到。轮询至多 5 s 等它出现（判据一字不改，只是不再赌落盘时序）。
+    const readShadowLogs = () => fs.readdirSync(path.join(HOME, 'logs')).filter(f => /^workbench-.*\.ndjson$/.test(f)).flatMap(f => fs.readFileSync(path.join(HOME, 'logs', f), 'utf8').split(/\r?\n/).filter(Boolean).map(line => { try { return JSON.parse(line); } catch { return null; } })).filter(Boolean);
+    let mcpShadow = null;
+    for (let i = 0; i < 50 && !mcpShadow; i++) {
+      mcpShadow = readShadowLogs().find(row => row.kind === 'tool_retrieval_shadow' && row.engine === 'mcp') || null;
+      if (!mcpShadow) await new Promise(r => setTimeout(r, 100));
+    }
     ok(mcpShadow && mcpShadow.queryHash && mcpShadow.candidateTopTools.includes('file_write') && !JSON.stringify(mcpShadow).includes('"query"'), '20-T1 Claude/MCP path persists only redacted shadow comparison metadata');
     const mismatch = await compact.call('tools/call', { name: 'tool_invoke_read', arguments: { name: 'file_write', arguments: { path: TOOL_FILE, content: 'bad' } } });
     const mismatchText = JSON.parse(mismatch.result.content[0].text);

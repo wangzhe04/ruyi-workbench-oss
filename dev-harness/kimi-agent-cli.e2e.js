@@ -311,7 +311,8 @@ async function verifyKimiPlanFilePathGuard() {
     ok(!server.isKimiAcpPlanFilePath(path.join(sessionDir, 'agents', 'main', 'plans-evil', 'safe-plan.md'), context), 'lookalike plan directory cannot bypass the filesystem guard');
     ok(!server.isKimiAcpPlanFilePath(path.join(plansDir, '..', 'outside.md'), context), 'plan traversal cannot bypass the filesystem guard');
     ok(!server.isKimiAcpPlanFilePath(path.join(plansDir, 'not-markdown.txt'), context), 'non-plan files remain on the normal guarded path');
-    ok(await server.resolveKimiAcpPlanFilePath(path.join(plansDir, 'safe-plan.md'), context) === path.resolve(plansDir, 'safe-plan.md'), 'canonical active session plan path is accepted before the file exists');
+    // 产品返回的是 realpath 过的规范路径；Windows runner 的临时目录带 8.3 短名，期望值也得走 native realpath 展开成长名。
+    ok(await server.resolveKimiAcpPlanFilePath(path.join(plansDir, 'safe-plan.md'), context) === path.join(fs.realpathSync.native(plansDir), 'safe-plan.md'), 'canonical active session plan path is accepted before the file exists');
 
     const outside = escapes;
     fs.mkdirSync(path.join(outside, 'agents-target', 'main', 'plans'), { recursive: true });

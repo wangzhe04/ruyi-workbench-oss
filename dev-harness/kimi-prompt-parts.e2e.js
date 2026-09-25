@@ -16,7 +16,9 @@ const ok = (condition, label) => {
   else { failures++; console.log('FAIL ' + label); }
 };
 
-const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-prompt-parts-'));
+// Windows runner 的 TEMP 是 8.3 短名（C:\Users\RUNNER~1\…），而守卫里的 realpath 给的是长名（…\runneradmin\…）：
+// 根不先归一，within(长, 短) 永远不成立，两张图全被拒。native 版 realpath 会展开短名（JS 版不会）。
+const tempRoot = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-kimi-prompt-parts-')));
 const workspace = path.join(tempRoot, 'workspace');
 const uploads = path.join(tempRoot, 'uploads');
 const outside = path.join(tempRoot, 'outside');

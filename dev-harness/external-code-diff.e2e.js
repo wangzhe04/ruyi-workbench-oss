@@ -182,7 +182,8 @@ try {
     // The server deliberately hands the realpath (canonical long form) of the checkpoint path to the editor
     // (guardWorkspacePath resolves 8.3 short names / junctions). Compare canonical spellings, not raw strings.
     const samePath = (a, b) => {
-      try { return fs.realpathSync(a).toLowerCase() === fs.realpathSync(b).toLowerCase(); }
+      // .native：Windows runner 的 TEMP 是 8.3 短名，JS 版 realpathSync 不展开短名，产品给的却是长名。
+      try { return fs.realpathSync.native(a).toLowerCase() === fs.realpathSync.native(b).toLowerCase(); }
       catch { return false; }
     };
     const source = path.join(routeWs, 'sample.py');
