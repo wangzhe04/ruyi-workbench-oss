@@ -178,6 +178,23 @@ describe('测试浏览器 profile 范围（107-F9b）', () => {
     assert.equal(withRealHomeEnv('spawn', e, noReal), e, '没有 RUYI_REAL_* 可还原（直跑/旧 run-all）就不动');
   });
 
+  it('I 测试浏览器默认 zh-CN、不减少动态效果；件自己给了就不动；不是拉浏览器不动', () => {
+    const { withBrowserDefaults } = scopeLib;
+    const base = ['--headless=new', '--user-data-dir=C:/tmp/scope/p', 'http://127.0.0.1:1/'];
+    const a = withBrowserDefaults(['msedge.exe', base, { stdio: 'ignore' }]);
+    assert.deepEqual(a[1].slice(0, 3), base, '原有实参顺序不变');
+    assert.deepEqual(a[1].slice(3), ['--lang=zh-CN', '--accept-lang=zh-CN', '--force-prefers-no-reduced-motion'], '缺的三项补在末尾');
+    const dd = withBrowserDefaults(['node', ['-e', 'x', '--', '--user-data-dir=C:/tmp/scope/p']]);
+    assert.deepEqual(dd[1].slice(0, 4), ['-e', 'x', '--', '--user-data-dir=C:/tmp/scope/p'], '一律补在末尾(不是浏览器的程序也不会把它们当成自己的选项)');
+    assert.deepEqual(a[2], { stdio: 'ignore' }, 'options 原样');
+    const own = ['--lang=en-US', '--force-prefers-reduced-motion', ...base];
+    assert.deepEqual(withBrowserDefaults(['msedge.exe', own])[1], [...own, '--accept-lang=zh-CN'], '件自己给了 --lang / --force-prefers-* 就只补缺的那项');
+    const plain = ['node', ['-e', '1']];
+    assert.equal(withBrowserDefaults(plain), plain, '没有 --user-data-dir 一律不动');
+    const shell = ['"msedge.exe" --user-data-dir=x'];
+    assert.equal(withBrowserDefaults(shell), shell, '字符串命令形态不改');
+  });
+
   it('H 装上范围的夹具里：带 --user-data-dir 的子进程看见真机家，普通子进程仍是假家', () => {
     const scope = createScope(work);
     const inside = path.join(scope, 'ruyi-x-h', 'profile');

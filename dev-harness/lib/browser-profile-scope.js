@@ -131,6 +131,31 @@ function withRealHomeEnv(methodName, argv, env) {
   return next;
 }
 
+// 测试浏览器的两项默认显示环境，与开发机一致:界面语言 zh-CN、不减少动态效果。
+// CI(GitHub windows-2025 runner)是英文系统，且 Windows Server 默认关掉系统动画 → Edge 报
+// prefers-reduced-motion: reduce。前者让一批断言中文文案的件读到英文，后者让视图过渡与转圈动画按设计
+// 「零动画」—— 量的就不是产品本身了。件自己带了 --lang / --accept-lang / --force-prefers-* 就不动;
+// 需要「减少动态效果」的件用 CDP Emulation.setEmulatedMedia 现场设，优先级高于启动开关。
+const BROWSER_DEFAULT_FLAGS = Object.freeze([
+  { prefix: '--lang=', flag: '--lang=zh-CN' },
+  { prefix: '--accept-lang=', flag: '--accept-lang=zh-CN' },
+  { prefix: '--force-prefers-', flag: '--force-prefers-no-reduced-motion' },
+]);
+// 纯函数：只认 spawn-family 的「命令 + 实参数组」形态且数组里带 --user-data-dir= 的调用(即拉起测试浏览器)。
+function withBrowserDefaults(argv) {
+  const args = Array.isArray(argv[1]) ? argv[1] : null;
+  if (!args || !args.some(a => typeof a === 'string' && a.startsWith('--user-data-dir='))) return argv;
+  const missing = BROWSER_DEFAULT_FLAGS
+    .filter(({ prefix }) => !args.some(a => typeof a === 'string' && a.startsWith(prefix)))
+    .map(({ flag }) => flag);
+  if (!missing.length) return argv;
+  // 一律补在末尾：Chromium 不论位置都认 `--` 开头的开关(测试里拉浏览器从不带单独的 `--`)；补在前面的话，
+  // 被拉起的若不是浏览器(单测探针就是 `node -e … -- --user-data-dir=…`)会把它们当成自己的选项拒掉。
+  const next = argv.slice();
+  next[1] = [...args, ...missing];
+  return next;
+}
+
 // 夹具侧：装上范围。只在 run-all 注入了 SCOPE_ENV 的夹具进程里跑（见文件末尾）。
 function install(scope) {
   os.tmpdir = () => scope;
@@ -155,12 +180,12 @@ function install(scope) {
         process.stderr.write(lines.join('\n'));
         throw new Error('browser profile outside the per-test scope: ' + outside.join(', '));
       }
-      return original.apply(this, withRealHomeEnv(methodName, argv, process.env));
+      return original.apply(this, withRealHomeEnv(methodName, withBrowserDefaults(argv), process.env));
     };
   }
 }
 
-module.exports = { SCOPE_ENV, SCOPE_PREFIX, SCOPE_FILE, isInsideScope, profileDirsOf, createScope, reapScope, install, withRealHomeEnv };
+module.exports = { SCOPE_ENV, SCOPE_PREFIX, SCOPE_FILE, isInsideScope, profileDirsOf, createScope, reapScope, install, withRealHomeEnv, withBrowserDefaults };
 
 // 以 `--require` 装进夹具时：带着 run-all 注入的根才生效；直跑（没有这个变量）什么都不做。
 // run-all 自己 require 本文件只为拿常量与 createScope/reapScope —— 它自己的环境里没有这个变量，不会装。
