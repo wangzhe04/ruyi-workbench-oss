@@ -56,6 +56,24 @@ function snapshotProcessTable() {
   return parseProcessTable(r.stdout);
 }
 
+// Linux:同形的进程表取自 /proc/<pid>/stat。created 用第 22 列 starttime(开机以来的时钟滴答),
+// 与 Windows 的 FILETIME 一样只拿来比先后,所以 ownDescendants 原样复用。进程名在括号里、可能含空格与括号,
+// 按最后一个 ')' 切开再数列。
+function readProcStat(pid) {
+  try {
+    const stat = require('fs').readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    const tail = stat.slice(close + 2).split(' ');   // tail[0]=state(第 3 列) … tail[19]=starttime(第 22 列)
+    return { pid: Number(pid), ppid: Number(tail[1]), created: BigInt(tail[19]), name: stat.slice(stat.indexOf('(') + 1, close).toLowerCase() };
+  } catch { return null; }   // 读的当口进程退了
+}
+
+function snapshotProcessTableLinux() {
+  let entries;
+  try { entries = require('fs').readdirSync('/proc'); } catch { return null; }
+  return entries.filter(n => /^\d+$/.test(n)).map(readProcStat).filter(Boolean);
+}
+
 // 逐个杀子孙:动手前按 FILETIME 再核一次(Get-Process 的 StartTime 与 CreationDate 同源),对不上就跳过。
 function killVerified(list) {
   if (!list.length) return [];
@@ -74,8 +92,18 @@ function killOwnTree(child) {
     if (!child || !child.pid) return { killed: [], skipped: 'no-pid' };
     if (child.exitCode !== null || child.signalCode !== null) return { killed: [], skipped: 'root-exited' };
     if (process.platform !== 'win32') {
+      // 只杀进程组不够:测试多半不带 detached 起服务,-pid 落空后只剩根被杀,它拉起的组件/子服务成了孤儿
+      // (toolbox-discovery J1 就是这么红的)。有 /proc 就同 Windows 一样按「创建不早于父亲」往下认子孙。
+      const table = process.platform === 'linux' ? snapshotProcessTableLinux() : null;
+      const tree = table ? ownDescendants(table, child.pid) : { root: null, descendants: [] };
       try { process.kill(-child.pid, 'SIGKILL'); } catch { try { child.kill('SIGKILL'); } catch { /* 已退 */ } }
-      return { killed: [child.pid] };
+      const killed = [child.pid];
+      for (const d of tree.descendants.reverse()) {
+        const now = readProcStat(d.pid);   // 动手前再核一次启动时刻,号被复用就不杀
+        if (!now || now.created !== d.created) continue;
+        try { process.kill(d.pid, 'SIGKILL'); killed.push(d.pid); } catch { /* 已退 */ }
+      }
+      return { killed };
     }
     const table = snapshotProcessTable();
     const tree = table ? ownDescendants(table, child.pid) : { root: null, descendants: [] };

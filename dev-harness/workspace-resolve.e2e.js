@@ -247,7 +247,8 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
     ok(pfNoTok.status === 403, '⑤ pick-folder without token → 403');
     if (process.platform !== 'win32') {
       const pf = await reqJson(WB_PORT, 'POST', '/api/pick-folder', {}, hdr);
-      ok(pf.json && pf.json.ok === false && /Windows/.test(pf.json.error || '') && pf.json.hint, '⑤ (non-Windows) pick-folder → graceful degrade with hint');
+      const pfErr = pf.json && pf.json.error; // 统一错误信封后 error 是 {code,message},不再是裸串
+      ok(pf.json && pf.json.ok === false && /Windows/.test((pfErr && pfErr.message) || pfErr || '') && pf.json.hint, '⑤ (non-Windows) pick-folder → graceful degrade with hint');
     } else {
       console.log('SKIP ⑤ pick-folder live dialog (Windows headless — STA script code-reviewed; see delivery notes)');
     }

@@ -237,14 +237,15 @@ function scanRouterFile(fileName) {
 // ─────────────────────────────────────────────────────────────────────────────
 function coverageMap(points) {
   const HARNESS = path.join(ROOT, 'dev-harness');
+  // 清册里记 Windows 形相对路径(dev-harness\x.e2e.js):入库版本在 Windows 上生成,Linux 上重算也须逐字节一致。
   const files = [];
   for (const f of fs.readdirSync(HARNESS)) {
     // 自引用断环:本清册的静态门自身含有路径字面量(鉴权级别断言),计入覆盖会让每次重生成自漂移。
-    if (f.endsWith('.e2e.js') && f !== 'route-inventory.static.e2e.js') files.push(path.join('dev-harness', f));
+    if (f.endsWith('.e2e.js') && f !== 'route-inventory.static.e2e.js') files.push(path.win32.join('dev-harness', f));
   }
   const unitDir = path.join(HARNESS, 'unit');
-  if (fs.existsSync(unitDir)) for (const f of fs.readdirSync(unitDir)) if (f.endsWith('.test.js')) files.push(path.join('dev-harness', 'unit', f));
-  const contents = files.map(f => ({ f, text: fs.readFileSync(path.join(ROOT, f), 'utf8') }));
+  if (fs.existsSync(unitDir)) for (const f of fs.readdirSync(unitDir)) if (f.endsWith('.test.js')) files.push(path.win32.join('dev-harness', 'unit', f));
+  const contents = files.map(f => ({ f, text: fs.readFileSync(path.join(ROOT, ...f.split('\\')), 'utf8') }));
   const out = new Map();
   for (const p of points) {
     // 正则/前缀用静态前缀做检索针;精确用全路径。针太短(<8)宁可空也不误报。
@@ -405,7 +406,7 @@ function renderMarkdown(inv) {
     L.push('|---|---|---|---|---|---|');
     for (const p of points) {
       const auth = typeof p.auth === 'string' ? p.auth : Object.entries(p.auth).map(([m, a]) => `${m}:${a}`).join(' ');
-      const shown = p.coveredBy.slice(0, 3).map(f => path.basename(f));
+      const shown = p.coveredBy.slice(0, 3).map(f => path.win32.basename(f));
       const tests = p.coveredBy.length ? `${shown.join(', ')}${p.coveredBy.length > 3 ? ` 等 ${p.coveredBy.length} 件` : ''}` : '—';
       const self = p.selfChecksToken ? ' self' : '';
       const shownPath = p.suffix ? `${p.path}…${p.suffix}` : p.path;
