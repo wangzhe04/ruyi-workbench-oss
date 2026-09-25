@@ -112,6 +112,8 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/migration/apply', auth: 'token' },
   { m: 'POST', p: '/api/migration/undo', auth: 'token' },
   { m: 'POST', p: '/api/migration/recycle', auth: 'token' },
+  // W8:把外部技能整目录复制进 dataRoot/skills(写盘),token 级同 apply。
+  { m: 'POST', p: '/api/migration/skills/copy', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   // 127-A-S02:自然语言服务入口匹配 —— 只读计算(评既有清单,零持久化),与 GET /api/playbooks 同档
   // token-browser;必须排在下一条 /api/playbooks/ 前缀 token 规则【之前】,否则被它抢先吞成 token 级。

@@ -11,6 +11,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   M5 刷新页面后卡不再出现
 //   M6 打开设置 → 集成页签:区块渲染出 claude-md 那一行,状态「已导入」;老版本一栏说「没有发现」
 //   M7 整个过程页面零未捕获异常
+//   M8 (W8)技能组:~/.claude/skills/w8-browser-skill 一行默认不勾、「复制到如意」禁用;勾上 → 可点;点了 → 行状态
+//      变「已复制到如意」、结果就地显示(带撤销)、注册表里来源 user 且 copiedFrom=claude-code
 // 判定行:`MIGRATION CENTER BROWSER E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
@@ -35,6 +37,8 @@ const CARD = `(() => { const c = document.querySelector('#migrationCardHost .mig
       prepare: async f => {
         fs.mkdirSync(path.join(f.home, '.claude'), { recursive: true });
         fs.writeFileSync(path.join(f.home, '.claude', 'CLAUDE.md'), '# 我的规矩\n\nBROWSER_CLAUDE_MD_MARKER 回答一律用中文\n', 'utf8');
+        fs.mkdirSync(path.join(f.home, '.claude', 'skills', 'w8-browser-skill'), { recursive: true });
+        fs.writeFileSync(path.join(f.home, '.claude', 'skills', 'w8-browser-skill', 'SKILL.md'), '---\nname: w8-browser-skill\ndescription: W8 浏览器件\n---\n', 'utf8');
       },
     });
     const zh = await fx.evaluate(`(async () => (await fetch('/locales/zh-CN.json')).json())()`);
@@ -79,6 +83,25 @@ const CARD = `(() => { const c = document.querySelector('#migrationCardHost .mig
     ok(row && row.status === 'imported' && row.text === zh['migration.status.imported'], 'M6 集成页签里渲染出 claude-md 那一行,状态「已导入」' + (row ? '' : ' → 没渲染'));
     const noneText = await fx.evaluate(`(() => { const g = document.querySelector('#migrationCenter [data-group="packages"]'); return g ? g.textContent : ''; })()`);
     ok(noneText.includes(zh['migration.old.none']), 'M6b 老版本一栏如实说「没有发现」');
+
+    // W8 技能「复制到如意」:默认不勾 → 按钮禁用;勾上 → 可点;点了 → 行状态变 copied,结果就地显示
+    const SKROW = `document.querySelector('#migrationCenter .migration-row-skill[data-key="claude-code:w8-browser-skill"]')`;
+    const COPYBTN = `document.querySelector('#migrationCenter [data-migration-action="copy-skills"]')`;
+    const sk0 = await fx.waitForEval(`(() => { const r = ${SKROW}; const b = ${COPYBTN}; const cb = r && r.querySelector('input[type="checkbox"]');
+      return r && b && cb ? { status: r.dataset.status, checked: cb.checked, disabled: b.disabled, hint: (document.querySelector('#migrationCenter [data-group="skills"]') || {}).textContent || '' } : null; })()`, 400);
+    ok(sk0 && sk0.status === 'live' && sk0.checked === false && sk0.disabled === true, 'M8 技能行默认不勾,「复制到如意」按钮禁用' + (sk0 ? ' → ' + JSON.stringify({ ...sk0, hint: undefined }) : ' → 没渲染'));
+    ok(sk0 && sk0.hint.includes(zh['migration.import.skillsHint']), 'M8b 技能组提示说清「直接读取」与「复制到如意」的区别');
+    const sk1 = await fx.evaluate(`(() => { const cb = ${SKROW}.querySelector('input[type="checkbox"]'); cb.click(); return { checked: cb.checked, disabled: ${COPYBTN}.disabled }; })()`);
+    ok(sk1 && sk1.checked === true && sk1.disabled === false, 'M8c 勾上之后按钮可点');
+    await fx.evaluate(`(${COPYBTN}).click(), true`);
+    const sk2 = await fx.waitForEval(`(() => { const r = ${SKROW}; const res = document.querySelector('#migrationCenter [data-migration-result="skills"]');
+      return r && r.dataset.status === 'copied' && res ? { chip: (r.querySelector('.migration-chip') || {}).textContent || '', res: res.textContent, btn: ${COPYBTN}.disabled } : null; })()`, 400);
+    ok(sk2 && sk2.chip === zh['migration.status.copied'] && sk2.btn === true, 'M8d 复制后行状态变「已复制到如意」,按钮回到禁用' + (sk2 ? '' : ' → 没变'));
+    ok(sk2 && sk2.res.includes('w8-browser-skill') && Boolean(await fx.evaluate(`Boolean(document.querySelector('#migrationCenter [data-migration-action="undo-skill-copy"]'))`)),
+      'M8e 结果就地显示(带「撤销这次复制」)');
+    const skReg = await fx.request('GET', '/api/skills');
+    ok(((skReg && skReg.json && skReg.json.skills) || []).some(s => s.id === 'w8-browser-skill' && s.source === 'user' && s.copiedFrom === 'claude-code'),
+      'M8f 服务端确实落了副本(注册表里来源 user、copiedFrom=claude-code)');
 
     ok(fx.exceptions.length === 0, 'M7 页面零未捕获异常' + (fx.exceptions.length ? ' → ' + fx.exceptions.join(' | ') : ''));
   } catch (error) {

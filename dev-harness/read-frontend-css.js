@@ -779,7 +779,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 137 集成续钉(前值 b3ac6fd5…＝W4b):零新增、零删除层,只在 `css/views/steward-shell.css` 加一条 ≤480px 媒体查询 ——
 //   管家输入行录音/预热态让出「+」(W4b 让「@」与输入行同行后,390px 录音态输入框被挤到 106px,composer-voice.browser G5 红)。
 // 算法自证:把 steward-shell.css 换回 HEAD 重算 = b3ac6fd5…,与被替换的旧值逐字相同;换回本刀的 CSS 再算得下面这个值。
-const LEGACY_STYLES_SHA256 = '7e2233128bfea738c7a2db0bb6aa76ead2a8fba13e666ca46325da32f8a630d6';
+// W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改 `css/views/migration.css` 一层 ——
+//   迁移中心技能组「复制到如意」:状态 chip 选择器表加 copied(accent)与 copy-edited / conflict(gold),
+//   新增 `.migration-skill-result`(复制结果就地显示,纵向排版)。颜色全走既有 token,零新增动效。
+// 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 7e223312…,
+// 与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '5230d0febbbcb8bed4f7d9a75a1894eea2433a2a7275fc136251f2fced3a08ed';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

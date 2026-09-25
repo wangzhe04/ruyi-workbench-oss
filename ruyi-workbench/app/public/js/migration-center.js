@@ -10,6 +10,7 @@ import { confirmDanger } from './confirm-panel.js';
 //
 // 两块，一个面：
 //   ① 「从 Claude Code / Codex / Kimi 导入」：全局指令文件（导成核心记忆）、MCP、技能，逐项状态 + 一键导入；
+//      技能默认活读，W8 起可逐项勾选「复制到如意」（POST /api/migration/skills/copy，撤销走 /api/migration/undo）；
 //   ② 「老版本如意」：检测到的老包（版本 / 大小 / 最后启动）、还指着老包的引用（逐项勾选，默认全勾）、
 //      「全部改到新版」「撤销上次迁移」「移到回收站」。
 // 后端全在 /api/migration/*（13u，经 MigrationHooks 迟绑定）；本文件只渲染与转发，判据一个都不在这里。
@@ -36,6 +37,21 @@ const STATUS_KEYS = Object.freeze({
   skipped: 'migration.status.skipped',
   live: 'migration.status.live',
   running: 'migration.status.running',
+  copied: 'migration.status.copied',
+  'copy-edited': 'migration.status.copyEdited',
+  conflict: 'migration.status.conflict',
+});
+// 技能复制的逐项原因（服务端 migrationCopySkills 的 reason）→ 文案键。
+const SKILL_REASON_KEYS = Object.freeze({
+  'already-copied': 'migration.skill.reason.alreadyCopied',
+  conflict: 'migration.skill.conflictUser',
+  'too-large': 'migration.skill.reason.tooLarge',
+  'copy-edited': 'migration.skill.reason.copyEdited',
+  'no-skill-md': 'migration.skill.reason.noSkillMd',
+  'unknown-key': 'migration.skill.reason.unknown',
+  'invalid-key': 'migration.skill.reason.unknown',
+  unreadable: 'migration.skill.reason.failed',
+  'copy-failed': 'migration.skill.reason.failed',
 });
 const REASON_KEYS = Object.freeze({
   reserved: 'migration.reason.reserved',
@@ -100,6 +116,8 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
   let busy = false;
   let lastScan = null;
   const unchecked = new Set(); // 用户在预览里取消勾选的引用 id（默认全勾）
+  const pickedSkills = new Set(); // 勾了要「复制到如意」的技能行 key（默认不勾）
+  let skillResult = null; // 上一次复制的逐项结果（就地显示在技能组尾，带「撤销这次复制」）
 
   const panel = () => doc.getElementById(MIGRATION_MOUNT_PANEL_ID);
   function ensureMounted() {
@@ -243,19 +261,132 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
     }
     root.appendChild(mcp);
 
-    // 技能（活读，只报状态）
+    renderSkills(root, s);
+  }
+
+  // 技能（W8）：默认活读；逐项勾选后「复制到如意」，拷进如意自己的技能目录、与来源脱钩。
+  // 状态判据全在服务端（13u migrationSkillRow）；这里只决定哪几种状态能勾。
+  function renderSkills(root, s) {
+    const list = s.skills || [];
+    for (const k of [...pickedSkills]) if (!list.some(x => x.key === k && skillCopyable(x))) pickedSkills.delete(k);
     const skills = el('div', 'migration-group');
     skills.dataset.group = 'skills';
     skills.appendChild(el('div', 'migration-group-title', t('migration.import.skills')));
-    if (!(s.skills || []).length) skills.appendChild(el('p', 'field-help muted', t('migration.import.noSkills')));
+    if (!list.length) skills.appendChild(el('p', 'field-help muted', t('migration.import.noSkills')));
     else skills.appendChild(el('p', 'field-help muted', t('migration.import.skillsHint')));
-    for (const x of s.skills || []) {
+    const copyBtn = button(t('migration.skill.copy'), 'mini primary', () => { void copySkills(list); });
+    copyBtn.dataset.migrationAction = 'copy-skills';
+    const syncBtn = () => {
+      copyBtn.disabled = busy || pickedSkills.size === 0;
+      copyBtn.textContent = pickedSkills.size ? t('migration.skill.copyCount', { count: pickedSkills.size }) : t('migration.skill.copy');
+    };
+    const boxes = [];
+    for (const x of list) {
       const r = row('migration-row-skill');
       r.dataset.key = x.key;
-      r.append(rowText(x.name || x.id, migrationSourceText(x.source) + (x.plugin ? ' · ' + x.plugin : '')), statusChip('live'));
+      r.dataset.status = String(x.status || '');
+      const label = el('label', 'check migration-ref-check');
+      const cb = el('input');
+      cb.type = 'checkbox';
+      cb.dataset.skillKey = x.key;
+      cb.disabled = !skillCopyable(x);
+      cb.checked = !cb.disabled && pickedSkills.has(x.key);
+      cb.setAttribute('aria-label', t('migration.skill.pick', { name: x.name || x.id }));
+      cb.onchange = () => { if (cb.checked) pickedSkills.add(x.key); else pickedSkills.delete(x.key); syncBtn(); };
+      boxes.push({ cb, x });
+      label.append(cb, rowText(x.name || x.id, skillDetail(x)));
+      r.append(label, statusChip(x.status));
       skills.appendChild(r);
     }
+    if (list.length) {
+      const actions = el('div', 'migration-actions');
+      const allBtn = button(t('migration.skill.selectAll'), 'mini', () => {
+        // 「全选」只勾稳妥的两种（未复制、来源有更新）；副本被改过的要用户自己点，免得一键盖掉改动。
+        for (const { cb, x } of boxes) if (!cb.disabled && (x.status === 'live' || x.status === 'source-updated')) { cb.checked = true; pickedSkills.add(x.key); }
+        syncBtn();
+      });
+      allBtn.dataset.migrationAction = 'select-all-skills';
+      allBtn.disabled = !boxes.some(({ cb }) => !cb.disabled);
+      actions.append(allBtn, copyBtn);
+      skills.appendChild(actions);
+      syncBtn();
+    }
+    if (skillResult) skills.appendChild(renderSkillResult(skillResult));
     root.appendChild(skills);
+  }
+  function skillCopyable(x) {
+    return !x.tooLarge && (x.status === 'live' || x.status === 'source-updated' || x.status === 'copy-edited');
+  }
+  function skillDetail(x) {
+    const bits = [migrationSourceText(x.source) + (x.plugin ? ' · ' + x.plugin : '')];
+    if (x.displayPath) bits.push(x.displayPath);
+    if (x.status === 'conflict') bits.push(x.conflictWith && x.conflictWith !== 'user'
+      ? t('migration.skill.conflictCopy', { source: migrationSourceText(x.conflictWith) }) : t('migration.skill.conflictUser'));
+    else if (x.status === 'copy-edited') bits.push(t('migration.skill.copyEditedHint'));
+    else if (x.status === 'source-updated') bits.push(t('migration.skill.sourceUpdatedHint'));
+    else if (x.tooLarge) bits.push(t('migration.skill.tooLargeHint', { size: fmtBytes(x.bytes || 0), files: x.files || 0 }));
+    else if (x.status === 'live' && x.shadowedBy) bits.push(t('migration.skill.shadowed', { source: migrationSourceText(x.shadowedBy) }));
+    if (x.links) bits.push(t('migration.skill.links', { count: x.links }));
+    return bits.join(' · ');
+  }
+  async function copySkills(list) {
+    if (busy) return;
+    const chosen = list.filter(x => pickedSkills.has(x.key));
+    if (!chosen.length) return;
+    const edited = chosen.filter(x => x.status === 'copy-edited');
+    if (edited.length) {
+      const yes = await confirmDanger({ titleKey: 'migration.skill.overwriteTitle', bodyKey: 'migration.skill.overwriteBody',
+        listItems: edited.map(x => x.name || x.id), okKey: 'migration.skill.overwriteOk' });
+      if (!yes) return;
+    }
+    busy = true;
+    try {
+      const res = await api('/api/migration/skills/copy', { method: 'POST', body: JSON.stringify({ keys: chosen.map(x => x.key), overwrite: edited.length > 0 }) });
+      const names = new Map(chosen.map(x => [x.key, x.name || x.id]));
+      skillResult = { id: res.id || null, undone: false, items: (res.results || []).map(r => ({ ...r, name: names.get(r.key) || r.id || r.key })) };
+      pickedSkills.clear();
+      toast(res.copied ? t('migration.skill.toastCopied', { count: res.copied }) : t('migration.skill.toastNone'), res.copied ? 'ok' : '');
+    } catch (e) {
+      toast(errorText(e), 'error');
+    } finally { busy = false; }
+    await refresh_();
+  }
+  function renderSkillResult(r) {
+    const box = el('div', 'migration-skill-result');
+    box.setAttribute('role', 'status');
+    box.dataset.migrationResult = 'skills';
+    const done = r.items.filter(x => x.outcome === 'created' || x.outcome === 'updated');
+    const other = r.items.filter(x => !(x.outcome === 'created' || x.outcome === 'updated'));
+    if (r.undone) box.appendChild(el('p', 'field-help', r.undoLine || t('migration.skill.undone')));
+    else if (done.length) box.appendChild(el('p', 'field-help', t('migration.skill.resultCopied', { count: done.length, names: done.map(x => x.name).join(t('migration.card.sep')) })));
+    for (const x of r.undone ? [] : other) {
+      const line = el('p', 'field-help muted', t('migration.skill.resultSkipped', { name: x.name, reason: skillReasonText(x) }));
+      line.dataset.reason = String(x.reason || '');
+      box.appendChild(line);
+    }
+    if (r.id && !r.undone) {
+      const undo = button(t('migration.skill.undo'), 'mini', async () => {
+        if (busy) return;
+        busy = true;
+        try {
+          const res = await api('/api/migration/undo', { method: 'POST', body: JSON.stringify({ id: r.id }) });
+          const kept = (res.skills || []).filter(x => x.outcome === 'kept');
+          r.undone = true;
+          r.undoLine = kept.length ? t('migration.skill.undoneKept', { names: kept.map(x => x.id).join(t('migration.card.sep')) }) : t('migration.skill.undone');
+          toast(r.undoLine, 'ok');
+        } catch (e) { toast(errorText(e), 'error'); }
+        finally { busy = false; }
+        void refresh_();
+      });
+      undo.dataset.migrationAction = 'undo-skill-copy';
+      box.appendChild(undo);
+    }
+    return box;
+  }
+  function skillReasonText(x) {
+    const key = SKILL_REASON_KEYS[x.reason];
+    if (x.reason === 'conflict' && x.conflictWith && x.conflictWith !== 'user') return t('migration.skill.conflictCopy', { source: migrationSourceText(x.conflictWith) });
+    return key ? t(key) : String(x.reason || '');
   }
 
   function renderPackages(root, s) {

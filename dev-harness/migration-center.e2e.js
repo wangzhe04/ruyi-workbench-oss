@@ -18,6 +18,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   E  apply 改写且留备份、写迁移日志;undo 还原
 //   F  recycle:确认不符 400、当前包 409、正在运行 409、仍被引用 409;改完后钩子下真的挪走
 //   G  markSeen 后不再提示;token 门
+//   H  (W8)技能「复制到如意」:按来源逐目录列出(含被遮住的)与五种状态;整目录复制 + 来源记录;符号链接/联接不复制;
+//      注册表里变 user 且带 copiedFrom;来源变 → 可更新;副本改过 → 不带 overwrite 拒绝;同名用户技能/另一来源副本 → 拒绝;
+//      超 20 MB / 500 个文件拒绝;路径穿越 key 拒绝;撤销只删没改过的副本、撤销更新换回旧副本
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
 const { getFreePort } = require('./free-port.js');
@@ -266,6 +269,129 @@ const apply = async body => request('POST', '/api/migration/apply', body);
     write(path.join(HOME, '.kimi-code', 'AGENTS.md'), '# Kimi\n\nKIMI_AGENTS_MARKER\n');
     const s8 = await scan();
     ok(s8.prompt && s8.prompt.show === true && (s8.instructions.find(x => x.key === 'kimi-agents') || {}).status === 'imported', 'G3 出现新来源(Kimi 全局 AGENTS.md)→ 自动导入且再提示一次');
+
+    // ── H 技能「复制到如意」(W8)──
+    const CC = path.join(HOME, '.claude', 'skills');
+    const CX = path.join(HOME, '.codex', 'skills');
+    const KM = path.join(HOME, '.kimi-code', 'skills');
+    const USK = path.join(DATA, 'skills');
+    const OUTSIDE = path.join(ROOT, 'outside');
+    write(path.join(OUTSIDE, 'secret.txt'), 'OUTSIDE_SECRET_MARKER\n');
+    write(path.join(CC, 'w8-a', 'SKILL.md'), '---\nname: W8 A\ndescription: W8_A_MARKER\n---\n\n# a\n');
+    write(path.join(CC, 'w8-a', 'ref', 'notes.md'), 'NOTES_V1\n');
+    fs.symlinkSync(OUTSIDE, path.join(CC, 'w8-a', 'ext-link'), 'junction'); // 目录联接:Windows 无需特权
+    let fileLink = false;
+    try { fs.symlinkSync(path.join(OUTSIDE, 'secret.txt'), path.join(CC, 'w8-a', 'link.txt'), 'file'); fileLink = true; } catch { /* 无符号链接特权:只测联接 */ }
+    write(path.join(CX, 'w8-a', 'SKILL.md'), '---\nname: W8 A (codex)\ndescription: codex 同名\n---\n');
+    write(path.join(CX, 'w8-b', 'SKILL.md'), '---\nname: W8 B\ndescription: W8_B_MARKER\n---\n');
+    write(path.join(CX, 'w8-b', 'scripts', 'run.py'), 'print(1)\n');
+    write(path.join(CX, 'w8-b', 'scripts', 'deep', 'x.txt'), 'DEEP\n');
+    write(path.join(CC, 'w8-big', 'SKILL.md'), '# big\n');
+    fs.writeFileSync(path.join(CC, 'w8-big', 'blob.bin'), Buffer.alloc(21 * 1024 * 1024));
+    write(path.join(CC, 'w8-many', 'SKILL.md'), '# many\n');
+    for (let i = 0; i < 501; i++) write(path.join(CC, 'w8-many', 'f', i + '.txt'), String(i));
+    write(path.join(CC, 'w8-mine', 'SKILL.md'), '# 来源里的 mine\n');
+    write(path.join(USK, 'w8-mine', 'SKILL.md'), '# USER_OWN_MINE\n');
+    const copySkills = body => request('POST', '/api/migration/skills/copy', body);
+    const skillRows = async () => ((await scan()) || {}).skills || [];
+    const rowOf = (rows, key) => rows.find(x => x.key === key) || {};
+    const resOf = (r, key) => ((r && r.json && r.json.results) || []).find(x => x.key === key) || {};
+
+    const h1 = await skillRows();
+    ok(rowOf(h1, 'claude-code:w8-a').status === 'live' && rowOf(h1, 'codex:w8-b').status === 'live'
+      && rowOf(h1, 'codex:w8-a').status === 'live' && rowOf(h1, 'codex:w8-a').shadowedBy === 'claude-code',
+      'H1 按来源逐个目录列出(被同名遮住的 codex:w8-a 也列,且标明被 claude-code 那份遮住)');
+    ok(rowOf(h1, 'claude-code:w8-big').status === 'too-large' && rowOf(h1, 'claude-code:w8-many').status === 'too-large',
+      'H1b 超 20 MB / 超 500 个文件的技能判 too-large');
+    ok(rowOf(h1, 'claude-code:w8-mine').status === 'conflict' && rowOf(h1, 'claude-code:w8-mine').conflictWith === 'user',
+      'H1c dataRoot/skills 里已有用户自己的同名技能 → conflict');
+    ok(rowOf(h1, 'claude-code:w8-a').links >= (fileLink ? 2 : 1), 'H1d 行上报出会被跳过的符号链接/联接个数');
+
+    const c1 = await copySkills({ keys: ['claude-code:w8-a', 'codex:w8-b'] });
+    ok(c1 && c1.status === 200 && c1.json.ok && c1.json.copied === 2 && resOf(c1, 'claude-code:w8-a').outcome === 'created' && c1.json.id,
+      'H2 复制两项:都 created,写了迁移日志 id');
+    const recA = readJson(path.join(USK, 'w8-a', '.ruyi-import.json')) || {};
+    ok(readText(path.join(USK, 'w8-a', 'ref', 'notes.md')) === 'NOTES_V1\n' && fs.existsSync(path.join(USK, 'w8-b', 'scripts', 'deep', 'x.txt')),
+      'H2b 整目录连子目录资源一起复制');
+    ok(recA.schema === 1 && recA.source === 'claude-code' && path.resolve(recA.sourcePath) === path.resolve(CC, 'w8-a') && recA.plugin === ''
+      && /^\d{4}-/.test(recA.importedAt) && /^[0-9a-f]{64}$/.test(recA.sourceTreeHash) && recA.copyTreeHash === recA.sourceTreeHash,
+      'H2c 来源记录 .ruyi-import.json(schema/source/sourcePath/plugin/importedAt/两枚树哈希)');
+    ok(!fs.existsSync(path.join(USK, 'w8-a', 'ext-link')) && !fs.existsSync(path.join(USK, 'w8-a', 'link.txt'))
+      && !fs.readdirSync(path.join(USK, 'w8-a')).some(n => n.includes('secret')), 'H3 符号链接/联接没被复制,也没被跟随进去');
+    const sk = await request('GET', '/api/skills');
+    const skA = ((sk && sk.json && sk.json.skills) || []).find(s => s.id === 'w8-a' && s.kind === 'skill');
+    ok(skA && skA.source === 'user' && skA.copiedFrom === 'claude-code' && path.resolve(skA.dir) === path.resolve(USK, 'w8-a'),
+      'H4 注册表里 w8-a 来源变为 user,带 copiedFrom=claude-code');
+    const h5 = await skillRows();
+    ok(rowOf(h5, 'claude-code:w8-a').status === 'copied' && rowOf(h5, 'codex:w8-b').status === 'copied',
+      'H5 复制后外部行仍在列表里,状态 copied');
+    ok(rowOf(h5, 'codex:w8-a').status === 'conflict' && rowOf(h5, 'codex:w8-a').conflictWith === 'claude-code',
+      'H5b 同名另一来源(codex:w8-a)→ conflict(如意里那份是从 claude-code 复制的)');
+    const c2 = await copySkills({ keys: ['claude-code:w8-a', 'codex:w8-a'] });
+    ok(c2 && c2.json.copied === 0 && resOf(c2, 'claude-code:w8-a').reason === 'already-copied' && resOf(c2, 'codex:w8-a').reason === 'conflict'
+      && !c2.json.id && readJson(path.join(USK, 'w8-a', '.ruyi-import.json')).source === 'claude-code',
+      'H6 已复制的跳过;另一来源的同名被拒,不覆盖、不写日志');
+
+    write(path.join(CC, 'w8-a', 'ref', 'notes.md'), 'NOTES_V2\n');
+    ok(rowOf(await skillRows(), 'claude-code:w8-a').status === 'source-updated', 'H7 来源变了、副本没动 → source-updated');
+    const c3 = await copySkills({ keys: ['claude-code:w8-a'] });
+    ok(c3 && resOf(c3, 'claude-code:w8-a').outcome === 'updated' && readText(path.join(USK, 'w8-a', 'ref', 'notes.md')) === 'NOTES_V2\n'
+      && rowOf(await skillRows(), 'claude-code:w8-a').status === 'copied', 'H7b 一键更新成功,之后又是 copied');
+    const updateLogId = c3.json.id;
+
+    fs.appendFileSync(path.join(USK, 'w8-b', 'SKILL.md'), '\nUSER_EDIT_B\n', 'utf8');
+    ok(rowOf(await skillRows(), 'codex:w8-b').status === 'copy-edited', 'H8 副本被改过 → copy-edited');
+    const c4 = await copySkills({ keys: ['codex:w8-b'] });
+    ok(c4 && resOf(c4, 'codex:w8-b').reason === 'copy-edited' && /USER_EDIT_B/.test(readText(path.join(USK, 'w8-b', 'SKILL.md'))),
+      'H8b 不带 overwrite 拒绝,改动保留');
+
+    const c5 = await copySkills({ keys: ['claude-code:w8-mine'] });
+    ok(c5 && resOf(c5, 'claude-code:w8-mine').reason === 'conflict' && readText(path.join(USK, 'w8-mine', 'SKILL.md')) === '# USER_OWN_MINE\n'
+      && !fs.existsSync(path.join(USK, 'w8-mine', '.ruyi-import.json')), 'H9 用户自己的同名技能 → conflict 拒绝,原样不动');
+    const c6 = await copySkills({ keys: ['claude-code:w8-big', 'claude-code:w8-many'] });
+    ok(c6 && resOf(c6, 'claude-code:w8-big').reason === 'too-large' && resOf(c6, 'claude-code:w8-many').reason === 'too-large'
+      && !fs.existsSync(path.join(USK, 'w8-big')) && !fs.existsSync(path.join(USK, 'w8-many')), 'H10 超限拒绝,不落任何文件');
+    const evil = ['claude-code:..', 'claude-code:../../evil', 'claude-code:w8-a/../../../evil', 'codex:..\\..\\evil'];
+    const c7 = await copySkills({ keys: evil });
+    ok(c7 && evil.every(k => resOf(c7, k).reason === 'invalid-key') && c7.json.copied === 0 && !fs.existsSync(path.join(ROOT, 'evil')) && !fs.existsSync(path.join(DATA, 'evil')),
+      'H11 路径穿越 id 一律 invalid-key,什么都不写');
+    const c8 = await copySkills({ keys: [] });
+    ok(c8 && c8.status === 400 && c8.json.error.code === 'migration.keys_required', 'H11b 空 keys → 400');
+    const noTokCopy = await request('POST', '/api/migration/skills/copy', { keys: ['codex:w8-b'] }, '');
+    ok(noTokCopy && noTokCopy.status === 403, 'H11c 不带 token 的 copy 被 403');
+
+    // 撤销:同一次复制里,没改过的删掉、改过的保留并说明
+    write(path.join(KM, 'w8-c', 'SKILL.md'), '# c\n');
+    write(path.join(KM, 'w8-d', 'SKILL.md'), '# d\n');
+    const c9 = await copySkills({ keys: ['kimi:w8-c', 'kimi:w8-d'] });
+    ok(c9 && c9.json.copied === 2, 'H12 kimi 两项复制');
+    fs.appendFileSync(path.join(USK, 'w8-d', 'SKILL.md'), 'USER_EDIT_D\n', 'utf8');
+    const u1 = await request('POST', '/api/migration/undo', { id: c9.json.id });
+    const sk1 = (u1 && u1.json && u1.json.skills) || [];
+    ok(u1 && u1.json.ok && !fs.existsSync(path.join(USK, 'w8-c')) && /USER_EDIT_D/.test(readText(path.join(USK, 'w8-d', 'SKILL.md')))
+      && (sk1.find(x => x.id === 'w8-c') || {}).outcome === 'removed' && (sk1.find(x => x.id === 'w8-d') || {}).reason === 'edited',
+      'H12b 撤销只删没改过的副本(w8-c),改过的(w8-d)保留并说明 edited');
+    const sk2 = await request('GET', '/api/skills');
+    ok(((sk2 && sk2.json && sk2.json.skills) || []).some(s => s.id === 'w8-c' && s.source === 'kimi'), 'H12c 撤销后 w8-c 回到活读(来源 kimi)');
+    // 撤销「更新」:换回更新前的副本
+    const u2 = await request('POST', '/api/migration/undo', { id: updateLogId });
+    ok(u2 && u2.json.ok && ((u2.json.skills || [])[0] || {}).outcome === 'restored-previous' && readText(path.join(USK, 'w8-a', 'ref', 'notes.md')) === 'NOTES_V1\n'
+      && rowOf(await skillRows(), 'claude-code:w8-a').status === 'source-updated', 'H13 撤销一次更新 → 换回更新前的副本,状态回到 source-updated');
+    // 显式 overwrite 覆盖改过的副本(旧副本留底在迁移目录)
+    const c10 = await copySkills({ keys: ['codex:w8-b'], overwrite: true });
+    const skillBackups = (() => { try { return fs.readdirSync(path.join(DATA, 'migrations', 'skill-backups', c10.json.id)); } catch { return []; } })();
+    ok(c10 && resOf(c10, 'codex:w8-b').outcome === 'updated' && !/USER_EDIT_B/.test(readText(path.join(USK, 'w8-b', 'SKILL.md'))) && skillBackups.includes('w8-b'),
+      'H14 overwrite:true 才覆盖改过的副本,旧副本挪进 migrations/skill-backups/<id>/ 留底');
+    ok(!fs.readdirSync(USK).some(n => n.startsWith('.ruyi-copy-')), 'H15 技能目录里不留暂存目录');
+    // Claude Code 插件自带的技能:key 带插件名,来源记录记下 plugin
+    const PLUG = path.join(ROOT, 'plugins', 'p1');
+    write(path.join(HOME, '.claude', 'plugins', 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'p1@mk': [{ scope: 'user', installPath: PLUG }] } }));
+    write(path.join(PLUG, 'skills', 'w8-p', 'SKILL.md'), '# plugin skill\n');
+    const c11 = await copySkills({ keys: ['claude-plugin:p1@mk:w8-p'] });
+    const recP = readJson(path.join(USK, 'w8-p', '.ruyi-import.json')) || {};
+    const skP = (((await request('GET', '/api/skills')) || {}).json || {}).skills || [];
+    ok(c11 && resOf(c11, 'claude-plugin:p1@mk:w8-p').outcome === 'created' && recP.source === 'claude-plugin' && recP.plugin === 'p1@mk'
+      && skP.some(s => s.id === 'w8-p' && s.copiedFrom === 'claude-plugin' && s.copiedFromPlugin === 'p1@mk'), 'H16 插件技能复制:来源记录与注册表都记下插件名');
   } finally {
     try { killOwnTree(wb); } catch { /* already gone */ }
     await new Promise(resolve => provider.close(resolve));

@@ -61,10 +61,16 @@
   color: var(--muted);
 }
 .migration-chip-imported,
-.migration-chip-live { border-color: var(--accent); color: var(--accent); }
+.migration-chip-live,
+.migration-chip-copied { border-color: var(--accent); color: var(--accent); }
 .migration-chip-importable,
 .migration-chip-source-updated,
+.migration-chip-copy-edited,
+.migration-chip-conflict,
 .migration-chip-running { border-color: var(--gold-line); color: var(--gold); }
+/* W8：技能「复制到如意」的逐项结果，就地显示在技能组尾。 */
+.migration-skill-result { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); margin-top: var(--sp-2); }
+.migration-skill-result p { margin: 0; }
 
 @media (max-width: 640px) {
   #migrationCardHost { left: var(--sp-3); right: var(--sp-3); max-width: none; }

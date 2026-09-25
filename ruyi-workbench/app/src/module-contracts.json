@@ -18252,20 +18252,28 @@
       "layer": "transport",
       "provides": [
         "MIGRATION_BACKUP_TAG",
-        "MIGRATION_EXTERNAL_SOURCES",
         "MIGRATION_LOG_SCHEMA",
         "MIGRATION_SIZE_BUDGET_MS",
         "MIGRATION_SIZE_FILE_CAP",
         "MIGRATION_SIZE_TTL_MS",
+        "MIGRATION_SKILL_BACKUP_DIR",
+        "MIGRATION_SKILL_MAX_BYTES",
+        "MIGRATION_SKILL_MAX_DEPTH",
+        "MIGRATION_SKILL_MAX_FILES",
+        "MIGRATION_SKILL_STAGE_PREFIX",
         "migrationAnalyzeValue",
         "migrationApply",
         "migrationBackup",
         "migrationChain",
         "migrationCollect",
         "migrationCollectRefs",
+        "migrationCopyOneSkill",
+        "migrationCopySkills",
         "migrationCurrentRoot",
         "migrationDir",
         "migrationDirSize",
+        "migrationFileHash",
+        "migrationFileHashCache",
         "migrationForgetPackage",
         "migrationGetAt",
         "migrationGetField",
@@ -18273,6 +18281,7 @@
         "migrationImportMcp",
         "migrationListPackages",
         "migrationLogs",
+        "migrationLstat",
         "migrationMcpSummary",
         "migrationPackageRunning",
         "migrationPathInside",
@@ -18289,10 +18298,19 @@
         "migrationServerItem",
         "migrationSetField",
         "migrationSizeCache",
+        "migrationSkillKey",
+        "migrationSkillPublicRow",
+        "migrationSkillRow",
+        "migrationSkillRows",
+        "migrationSkillSources",
+        "migrationSkillTarget",
+        "migrationSkillTree",
         "migrationStamp",
         "migrationTomlReplace",
         "migrationTomlSection",
-        "migrationUndo"
+        "migrationTreeHash",
+        "migrationUndo",
+        "migrationUndoSkillCopy"
       ],
       "requires": [
         {
@@ -18405,6 +18423,13 @@
           "symbol": "samePathKey",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SKILL_ID_RE",
+          "kinds": [
+            "read"
           ]
         },
         {

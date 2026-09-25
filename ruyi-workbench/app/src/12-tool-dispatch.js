@@ -1646,6 +1646,25 @@ function parseSkillRequires(val) {
   return [...new Set(s.split(',').map(x => x.trim().replace(/^['"]|['"]$/g, '')).filter(r => PLAYBOOK_REQUIRES.includes(r)))];
 }
 
+// W8 迁移中心「复制到如意」:从外部 CLI 复制进 dataRoot/skills/<id>/ 的技能,目录里带一份来源记录
+// (schema 1:source / sourcePath / plugin / importedAt / sourceTreeHash / copyTreeHash,由 13u 写)。
+// 这里只负责读:坏的、超大的、来源不认识的一律当没有(副本照常是 user 技能,只是不显示「复制自」)。
+const SKILL_IMPORT_RECORD = '.ruyi-import.json';
+const SKILL_IMPORT_SOURCES = Object.freeze(['claude-code', 'codex', 'kimi', 'claude-plugin']);
+async function readSkillImportRecord(dir) {
+  let rec = null;
+  try {
+    const file = path.join(dir, SKILL_IMPORT_RECORD);
+    const st = await fsp.lstat(file);
+    if (!st.isFile() || st.size > 16 * 1024) return null;
+    rec = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+  } catch { return null; }
+  if (!rec || typeof rec !== 'object' || rec.schema !== 1 || !SKILL_IMPORT_SOURCES.includes(rec.source)) return null;
+  const str = v => (typeof v === 'string' ? v : '');
+  return { schema: 1, source: rec.source, plugin: str(rec.plugin).slice(0, 120), sourcePath: str(rec.sourcePath), importedAt: str(rec.importedAt),
+    sourceTreeHash: str(rec.sourceTreeHash), copyTreeHash: str(rec.copyTreeHash) };
+}
+
 // v1 技能体系: 扫描一个 base 目录下的 <id>/SKILL.md,解析成技能条目 Map<id, entry>。用户/项目技能共用。
 // frontmatter 范式仿 readClaudeProjectAgentRoles(name/description/requires);id=目录名,须过 SKILL_ID_RE(防穿越)。
 // 无 frontmatter 时 name 回退目录名、description 回退首个正文段(firstParaDesc)——与内置技能同回退策略。
@@ -1664,10 +1683,13 @@ async function readSkillDir(baseDir, source, caps) {
     const meta = docMeta(raw); // { name, description(含 firstParaDesc 回退) }
     const requires = parseSkillRequires(parseFrontmatter(raw).requires);
     const avail = evalPlaybookAvailability({ requires }, caps); // 复用 playbook 能力矩阵门控
+    // W8:user 源的技能若是从外部复制来的,带上「复制自哪里」(只读显示用,不影响优先级与任何判定)。
+    const copied = source === 'user' ? await readSkillImportRecord(dir) : null;
     out.set(id, {
       id, name: (meta.name || id).slice(0, 120), description: (meta.description || '').slice(0, 400), detail: docBody(raw),
       kind: 'skill', source, dir, insert: '/' + id, requires,
       available: avail.available, unavailableReason: avail.unavailableReason,
+      ...(copied ? { copiedFrom: copied.source, copiedFromPlugin: copied.plugin } : {}),
     });
   }
   return out;

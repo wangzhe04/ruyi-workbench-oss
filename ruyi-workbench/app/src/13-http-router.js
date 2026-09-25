@@ -687,6 +687,8 @@ async function handleApi(req, res, pathname) {
       id: e.id, name: e.name, description: e.description, detail: e.detail || '', kind: e.kind, type: e.kind,
       source: e.source, insert: e.insert, dir: e.dir, requires: e.requires,
       available: e.available, unavailableReason: e.unavailableReason,
+      // W8:从外部复制进如意的技能带「复制自」(技能库只读显示)。
+      ...(e.copiedFrom ? { copiedFrom: e.copiedFrom, copiedFromPlugin: e.copiedFromPlugin || '' } : {}),
       ...(e.kind === 'command' ? { prompt: e.prompt || '' } : {}),
       // Playbook 条目带上完整 playbook 对象(前端「技能库」的 Playbook 项直接走 openPlaybookModal 流程)。
       ...(e.kind === 'playbook' && e.playbook ? { playbook: e.playbook } : {}),

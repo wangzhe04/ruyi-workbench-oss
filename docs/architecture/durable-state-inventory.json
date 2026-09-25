@@ -2,9 +2,9 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 57,
+  "count": 59,
   "lifecycleCounts": {
-    "dedicated-exemption": 18,
+    "dedicated-exemption": 20,
     "external-exemption": 10,
     "regenerable-exemption": 7,
     "shared-lifecycle": 22
@@ -477,8 +477,8 @@
       "pattern": "<data>/migrations/<ts>.json",
       "owner": "13u-migration-center.js",
       "anchor": "'migrations'",
-      "schema": "object / schema 1 (files[{file,kind,backup,items[{serverId,action,changes,removed}]}], undoneAt)",
-      "writePrimitive": "atomicWriteJson once per apply; rewritten once on undo",
+      "schema": "object / schema 1 (files[{file,kind,backup,items[{serverId,action,changes,removed}]}], undoneAt; W8 adds type:skill-copy logs whose files[] are {kind:skill-copy,file:<data>/skills/<id>,backup,items[{key,id,source,plugin,action:created|updated,copyTreeHash}]} and undoResult.skills)",
+      "writePrimitive": "atomicWriteJson once per apply / skill copy; rewritten once on undo",
       "corruption": "unparsable log is skipped (that migration can no longer be undone from the UI; its backups remain)",
       "capacity": "newest 20 listed; one per apply",
       "cache": "none",
@@ -499,6 +499,34 @@
       "recovery": "copy back by hand",
       "lifecycle": "external-exemption",
       "exemptionReason": "insurance for edits to externally owned CLI configs"
+    },
+    {
+      "id": "skill-import-record",
+      "pattern": "<data>/skills/<id>/.ruyi-import.json",
+      "owner": "12-tool-dispatch.js",
+      "anchor": "'.ruyi-import.json'",
+      "schema": "object / schema 1 {source,sourcePath,plugin,importedAt,sourceTreeHash,copyTreeHash} (W8: skill copied from Claude Code / Codex / Kimi / a Claude Code plugin)",
+      "writePrimitive": "fsp.writeFile into the staging dir before the whole dir is renamed into place (13u migrationCopyOneSkill)",
+      "corruption": "unreadable / >16 KB / unknown source = no record: the skill stays a plain user skill (no \"copied from\" label) and the migration center reports that id as conflict (never overwritten)",
+      "capacity": "one per copied skill",
+      "cache": "none (read fresh by readSkillDir for user skills and by each migration scan)",
+      "recovery": "copy the skill again from the migration center (source-updated / overwrite)",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "provenance + content hashes that decide copied / source-updated / copy-edited; excluded from both tree hashes"
+    },
+    {
+      "id": "migration-skill-backups",
+      "pattern": "<data>/migrations/skill-backups/<ts>/<id>/",
+      "owner": "13u-migration-center.js",
+      "anchor": "'skill-backups'",
+      "schema": "verbatim previous copy of a user skill directory (including its .ruyi-import.json)",
+      "writePrimitive": "fsp.rename of the old <data>/skills/<id> when a copy is updated or overwritten",
+      "corruption": "read only by undo (renamed back when the current copy is unchanged since that update)",
+      "capacity": "one dir per updated skill per copy batch; the batch dir is removed when undo empties it",
+      "cache": "none",
+      "recovery": "rename back by hand",
+      "lifecycle": "dedicated-exemption",
+      "exemptionReason": "keeps an overwritten or updated skill copy recoverable"
     },
     {
       "id": "memory-proposals",

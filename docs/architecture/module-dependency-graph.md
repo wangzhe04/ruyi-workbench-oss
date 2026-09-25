@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 55 | 2753 | 2797 | 440 | 68 | 0 | 1 |
+| 55 | 2771 | 2798 | 440 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -68,7 +68,7 @@
 | 50 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
 | 51 | `13s-scheduler.js` | transport | 46 | 33 | 7 |
 | 52 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
-| 53 | `13u-migration-center.js` | transport | 42 | 33 | 6 |
+| 53 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
 | 54 | `14-main.js` | entrypoint | 1 | 608 | 39 |
 
 ## 模块边
@@ -470,7 +470,7 @@
 | `13t-steward-schedule.js` | `13k-steward-threads.js` | backward | `stewardCanonWorkspacePath`, `stewardDeriveThreadCwd`, `stewardUnattendedByModel`, `stewardValidateCwd` |
 | `13t-steward-schedule.js` | `13q-steward-runner-turn.js` | backward | `stewardEnsureOpenAiRoute` |
 | `13t-steward-schedule.js` | `13s-scheduler.js` | backward | `schedulerClockNow`, `schedulerEmitChanged`, `schedulerEnabled`, `schedulerEnsureTimer`, `schedulerFireOnce`, `schedulerLoad`, `schedulerReadFireRows`, `schedulerRuntime`, `schedulerSaveTasks` |
-| `13u-migration-center.js` | `00-boot.js` | backward | `MigrationHooks`, `VERSION`, `agentCliHomes`, `crypto`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `installRegistryPath`, `nowIso`, `os`, `path`, `paths`, `readInstallRegistry`, `ruyiPackageInfo`, `safeJsonParse`, `samePathKey`, `text`, `tildePath` |
+| `13u-migration-center.js` | `00-boot.js` | backward | `MigrationHooks`, `SKILL_ID_RE`, `VERSION`, `agentCliHomes`, `crypto`, `externalRoot`, `findRuyiPackageRootFor`, `fs`, `fsp`, `installRegistryPath`, `nowIso`, `os`, `path`, `paths`, `readInstallRegistry`, `ruyiPackageInfo`, `safeJsonParse`, `samePathKey`, `text`, `tildePath` |
 | `13u-migration-center.js` | `01-config.js` | backward | `agentMcpImportSources`, `atomicWriteJson`, `classifyAgentMcpCandidate`, `generateMcpConfig`, `kimiMcpManagedIds`, `mutateConfig`, `readConfig` |
 | `13u-migration-center.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `13u-migration-center.js` | `04-permission-runtime.js` | backward | `_parseTomlMcpServers`, `logEvent`, `parseMcpConfigFile`, `safeUrlForDisplay` |

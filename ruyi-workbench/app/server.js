@@ -922,6 +922,8 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/migration/apply', auth: 'token' },
   { m: 'POST', p: '/api/migration/undo', auth: 'token' },
   { m: 'POST', p: '/api/migration/recycle', auth: 'token' },
+  // W8:把外部技能整目录复制进 dataRoot/skills(写盘),token 级同 apply。
+  { m: 'POST', p: '/api/migration/skills/copy', auth: 'token' },
   { m: 'POST', p: '/api/playbooks/draft', auth: 'token' },
   // 127-A-S02:自然语言服务入口匹配 —— 只读计算(评既有清单,零持久化),与 GET /api/playbooks 同档
   // token-browser;必须排在下一条 /api/playbooks/ 前缀 token 规则【之前】,否则被它抢先吞成 token 级。
@@ -42824,6 +42826,25 @@ function parseSkillRequires(val) {
   return [...new Set(s.split(',').map(x => x.trim().replace(/^['"]|['"]$/g, '')).filter(r => PLAYBOOK_REQUIRES.includes(r)))];
 }
 
+// W8 迁移中心「复制到如意」:从外部 CLI 复制进 dataRoot/skills/<id>/ 的技能,目录里带一份来源记录
+// (schema 1:source / sourcePath / plugin / importedAt / sourceTreeHash / copyTreeHash,由 13u 写)。
+// 这里只负责读:坏的、超大的、来源不认识的一律当没有(副本照常是 user 技能,只是不显示「复制自」)。
+const SKILL_IMPORT_RECORD = '.ruyi-import.json';
+const SKILL_IMPORT_SOURCES = Object.freeze(['claude-code', 'codex', 'kimi', 'claude-plugin']);
+async function readSkillImportRecord(dir) {
+  let rec = null;
+  try {
+    const file = path.join(dir, SKILL_IMPORT_RECORD);
+    const st = await fsp.lstat(file);
+    if (!st.isFile() || st.size > 16 * 1024) return null;
+    rec = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
+  } catch { return null; }
+  if (!rec || typeof rec !== 'object' || rec.schema !== 1 || !SKILL_IMPORT_SOURCES.includes(rec.source)) return null;
+  const str = v => (typeof v === 'string' ? v : '');
+  return { schema: 1, source: rec.source, plugin: str(rec.plugin).slice(0, 120), sourcePath: str(rec.sourcePath), importedAt: str(rec.importedAt),
+    sourceTreeHash: str(rec.sourceTreeHash), copyTreeHash: str(rec.copyTreeHash) };
+}
+
 // v1 技能体系: 扫描一个 base 目录下的 <id>/SKILL.md,解析成技能条目 Map<id, entry>。用户/项目技能共用。
 // frontmatter 范式仿 readClaudeProjectAgentRoles(name/description/requires);id=目录名,须过 SKILL_ID_RE(防穿越)。
 // 无 frontmatter 时 name 回退目录名、description 回退首个正文段(firstParaDesc)——与内置技能同回退策略。
@@ -42842,10 +42863,13 @@ async function readSkillDir(baseDir, source, caps) {
     const meta = docMeta(raw); // { name, description(含 firstParaDesc 回退) }
     const requires = parseSkillRequires(parseFrontmatter(raw).requires);
     const avail = evalPlaybookAvailability({ requires }, caps); // 复用 playbook 能力矩阵门控
+    // W8:user 源的技能若是从外部复制来的,带上「复制自哪里」(只读显示用,不影响优先级与任何判定)。
+    const copied = source === 'user' ? await readSkillImportRecord(dir) : null;
     out.set(id, {
       id, name: (meta.name || id).slice(0, 120), description: (meta.description || '').slice(0, 400), detail: docBody(raw),
       kind: 'skill', source, dir, insert: '/' + id, requires,
       available: avail.available, unavailableReason: avail.unavailableReason,
+      ...(copied ? { copiedFrom: copied.source, copiedFromPlugin: copied.plugin } : {}),
     });
   }
   return out;
@@ -44983,6 +45007,8 @@ async function handleApi(req, res, pathname) {
       id: e.id, name: e.name, description: e.description, detail: e.detail || '', kind: e.kind, type: e.kind,
       source: e.source, insert: e.insert, dir: e.dir, requires: e.requires,
       available: e.available, unavailableReason: e.unavailableReason,
+      // W8:从外部复制进如意的技能带「复制自」(技能库只读显示)。
+      ...(e.copiedFrom ? { copiedFrom: e.copiedFrom, copiedFromPlugin: e.copiedFromPlugin || '' } : {}),
       ...(e.kind === 'command' ? { prompt: e.prompt || '' } : {}),
       // Playbook 条目带上完整 playbook 对象(前端「技能库」的 Playbook 项直接走 openPlaybookModal 流程)。
       ...(e.kind === 'playbook' && e.playbook ? { playbook: e.playbook } : {}),
@@ -46963,10 +46989,10 @@ function parseArgs(argv) {
 // 每个函数:命中自己域的路由则处理并 return true,否则 return false(调用处 fallthrough)。
 // 顺序与语义与原 handleApi 内联块完全一致;e2e 全量即回归网。
 
-// ── W2 迁移中心:/api/migration/scan|apply|undo|recycle ──────────────────────────────────────
-// 实现在 13u-migration-center.js(零入边),经 00-boot 的 MigrationHooks 迟绑定调进去。四条都是 token 级
+// ── W2 迁移中心:/api/migration/scan|apply|undo|recycle(W8 加 skills/copy)──────────────────────────────────────
+// 实现在 13u-migration-center.js(零入边),经 00-boot 的 MigrationHooks 迟绑定调进去。五条都是 token 级
 // (01b-route-auth):scan 回的是本机各处配置里的路径与指令文件摘要,apply/undo 会改写外部配置文件,
-// recycle 会把一个目录移进回收站(另要 body.confirm === body.root)。命中返回 true,否则 false。
+// recycle 会把一个目录移进回收站(另要 body.confirm === body.root),skills/copy 往 dataRoot/skills 写技能副本。命中返回 true,否则 false。
 async function handleMigrationApiRoutes(req, res, pathname) {
   const reply = result => {
     const r = result && typeof result === 'object' ? { ...result } : { ok: false, error: 'no-result' };
@@ -46993,6 +47019,11 @@ async function handleMigrationApiRoutes(req, res, pathname) {
   }
   if (req.method === 'POST' && pathname === '/api/migration/recycle') {
     const fn = hook('recycle'); if (!fn) return unavailable();
+    return reply(await fn((await readJsonBody(req)) || {}));
+  }
+  // W8:外部技能「复制到如意」(整目录拷进 dataRoot/skills/<id>/,附来源记录;撤销走上面的 /undo)。
+  if (req.method === 'POST' && pathname === '/api/migration/skills/copy') {
+    const fn = hook('copySkills'); if (!fn) return unavailable();
     return reply(await fn((await readJsonBody(req)) || {}));
   }
   return false;
@@ -61170,7 +61201,8 @@ Object.assign(SchedulerHooks, {
 //
 // 两件事,一个面:
 //   ① 从 Claude Code / Codex / Kimi Code 导入:全局指令文件(06d syncAgentInstructionImports,导成核心记忆)、
-//      MCP(01 classifyAgentMcpCandidate,与启动期自动导入同一个判据)、技能(12 loadSkillRegistry 活读)。
+//      MCP(01 classifyAgentMcpCandidate,与启动期自动导入同一个判据)、技能(12 loadSkillRegistry 活读;
+//      W8 起可逐项「复制到如意」,拷进 dataRoot/skills 后与来源脱钩,见下文技能一节)。
 //   ② 老版本如意 → 当前包:所有包共用一个数据根,配置/会话/记忆本来就是同一份;真正会断的是【别处存着的
 //      指向老包目录的绝对路径】(56 号文 §3.1 的实例:~/.claude.json 的 ai-computer-control 指着
 //      dist/Ruyi-v1.6.7-full/…/python.exe)。本模块只从「登记表 + 各处配置里的绝对路径」认老包,不全盘扫描;
@@ -61191,7 +61223,6 @@ const MIGRATION_BACKUP_TAG = '.bak-ruyi-migrate-';
 const MIGRATION_SIZE_BUDGET_MS = 6000;       // 一次扫描里算目录大小的总时间预算(超了就报「至少 X」)
 const MIGRATION_SIZE_FILE_CAP = 80000;       // 单个包最多数这么多个文件
 const MIGRATION_SIZE_TTL_MS = 10 * 60 * 1000;
-const MIGRATION_EXTERNAL_SOURCES = Object.freeze(['claude-code', 'codex', 'kimi', 'claude-plugin']);
 const migrationSizeCache = new Map();        // 包根键 -> { at, bytes, files, capped }
 let migrationChain = Promise.resolve();
 
@@ -61434,11 +61465,257 @@ async function migrationScanMcp(config) {
   }
   return { sources, servers, limit: 10, used: view.externalMcpServers.length };
 }
+// ── 技能:活读 vs「复制到如意」(W8)──────────────────────────────────────────────────────────
+// 活读:12 loadSkillRegistry 每次现读外部目录,来源删了技能也跟着没了。复制:整目录拷进 dataRoot/skills/<id>/,
+// 附来源记录 SKILL_IMPORT_RECORD(12),此后它就是 user 技能,与来源脱钩(优先级 user > 一切外部源)。
+// 扫描【按来源逐个目录读】,不走合并后的注册表 —— 复制后 user 那份会把外部同名那份盖掉,合并视图里外部行就没了。
+// 每行状态(判据只看内容哈希,不看 mtime):
+//   live           dataRoot/skills/<id> 不存在
+//   copied         它的来源记录指着【这一行】(source + plugin + sourcePath),且来源与副本都和复制时一样
+//   source-updated 来源变了、副本没被改过 → 可一键更新
+//   copy-edited    副本被用户改过 → 不覆盖,除非显式 overwrite:true
+//   conflict       dataRoot/skills/<id> 已存在但不是从这一行复制的(用户自己的同名技能、另一来源的副本、符号链接)
+//   too-large      来源超出单技能上限(还没复制过时)
+// 复制安全边界:只跟随真实文件与目录,符号链接/联接一律跳过不跟随;单技能 ≤ 20 MB / 500 个文件 / 16 层;
+// 目标恒为 path.resolve(paths.skills, id) 且必须是 paths.skills 的直接子目录;先拷进同卷暂存目录再整体改名换入。
+const MIGRATION_SKILL_MAX_BYTES = 20 * 1024 * 1024;
+const MIGRATION_SKILL_MAX_FILES = 500;
+const MIGRATION_SKILL_MAX_DEPTH = 16;
+const MIGRATION_SKILL_STAGE_PREFIX = '.ruyi-copy-';
+const MIGRATION_SKILL_BACKUP_DIR = 'skill-backups';
+const migrationFileHashCache = new Map(); // 绝对路径|大小|mtime -> sha256(扫描反复算哈希时只重读变过的文件)
+
+function migrationSkillKey(source, plugin, id) {
+  return source === 'claude-plugin' ? 'claude-plugin:' + plugin + ':' + id : source + ':' + id;
+}
+// 外部技能目录,优先级从低到高(与 12 loadSkillRegistry 同序;同名时后面的生效)。
+async function migrationSkillSources() {
+  const homes = agentCliHomes();
+  const out = [];
+  for (const d of await claudePluginSkillDirs()) out.push({ source: 'claude-plugin', plugin: d.plugin, baseDir: d.skillsDir });
+  out.push({ source: 'kimi', plugin: '', baseDir: path.join(homes.kimi, 'skills') });
+  out.push({ source: 'codex', plugin: '', baseDir: path.join(homes.codex, 'skills') });
+  out.push({ source: 'claude-code', plugin: '', baseDir: path.join(homes.claude, 'skills') });
+  return out;
+}
+// 走一棵技能目录树:只收真实文件(lstat),符号链接/联接计数后跳过、绝不跟随;超限即停(tooLarge)。
+// 顶层的来源记录不算内容(副本与来源按同一口径比哈希)。
+async function migrationSkillTree(root) {
+  const files = [];
+  let bytes = 0, links = 0;
+  const stack = [{ dir: root, rel: '', depth: 0 }];
+  while (stack.length) {
+    const cur = stack.pop();
+    let ents;
+    try { ents = await fsp.readdir(cur.dir, { withFileTypes: true }); } catch { return { error: 'unreadable', files, bytes, links }; }
+    for (const d of ents) {
+      if (!cur.rel && d.name === SKILL_IMPORT_RECORD) continue;
+      const abs = path.join(cur.dir, d.name);
+      const rel = cur.rel ? cur.rel + '/' + d.name : d.name;
+      let st;
+      try { st = await fsp.lstat(abs); } catch { continue; }
+      if (d.isSymbolicLink() || st.isSymbolicLink()) { links++; continue; }
+      if (st.isDirectory()) {
+        if (cur.depth + 1 > MIGRATION_SKILL_MAX_DEPTH) return { tooLarge: true, reason: 'too-deep', files, bytes, links };
+        stack.push({ dir: abs, rel, depth: cur.depth + 1 });
+        continue;
+      }
+      if (!st.isFile()) continue;
+      files.push({ rel, abs, size: st.size, mtimeMs: st.mtimeMs });
+      bytes += st.size;
+      if (files.length > MIGRATION_SKILL_MAX_FILES) return { tooLarge: true, reason: 'too-many-files', files, bytes, links };
+      if (bytes > MIGRATION_SKILL_MAX_BYTES) return { tooLarge: true, reason: 'too-many-bytes', files, bytes, links };
+    }
+  }
+  files.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+  return { files, bytes, links };
+}
+async function migrationFileHash(f) {
+  const k = f.abs + '|' + f.size + '|' + f.mtimeMs;
+  const hit = migrationFileHashCache.get(k);
+  if (hit) return hit;
+  const h = crypto.createHash('sha256').update(await fsp.readFile(f.abs)).digest('hex');
+  if (migrationFileHashCache.size > 5000) migrationFileHashCache.clear();
+  migrationFileHashCache.set(k, h);
+  return h;
+}
+// 树哈希 = 排序后的「相对路径 NUL 文件哈希」逐行。读不全/超限回 ''(与任何记录都不相等 → 判「变了」,方向安全)。
+async function migrationTreeHash(tree) {
+  if (!tree || tree.error || tree.tooLarge) return '';
+  const h = crypto.createHash('sha256');
+  try { for (const f of tree.files) h.update(f.rel + '\0' + await migrationFileHash(f) + '\n'); } catch { return ''; }
+  return h.digest('hex');
+}
+function migrationSkillTarget(id) {
+  if (!SKILL_ID_RE.test(String(id || ''))) return null;
+  const root = path.resolve(paths.skills);
+  const dest = path.resolve(root, String(id));
+  return samePathKey(path.dirname(dest)) === samePathKey(root) ? dest : null;
+}
+async function migrationLstat(p) { try { return await fsp.lstat(p); } catch { return null; } }
+
+// 一行的状态。内部字段(_dir 等)只在本模块里用,对外视图由 migrationSkillPublicRow 剥掉。
+async function migrationSkillRow(src, entry) {
+  const tree = await migrationSkillTree(entry.dir);
+  const row = {
+    key: migrationSkillKey(src.source, src.plugin, entry.id), id: entry.id, name: entry.name, source: src.source, plugin: src.plugin || '',
+    displayPath: tildePath(entry.dir), available: entry.available !== false,
+    tooLarge: Boolean(tree.tooLarge), bytes: tree.bytes, files: tree.files.length, links: tree.links,
+    status: 'live', conflictWith: '', sourceChanged: false, importedAt: '', _dir: entry.dir,
+  };
+  const dest = migrationSkillTarget(entry.id);
+  const st = dest ? await migrationLstat(dest) : null;
+  if (!st) { row.status = tree.tooLarge ? 'too-large' : 'live'; return row; }
+  if (st.isSymbolicLink() || !st.isDirectory()) { row.status = 'conflict'; row.conflictWith = 'user'; return row; }
+  const rec = await readSkillImportRecord(dest);
+  if (!rec || rec.source !== src.source || rec.plugin !== (src.plugin || '') || !rec.sourcePath || samePathKey(rec.sourcePath) !== samePathKey(entry.dir)) {
+    row.status = 'conflict'; row.conflictWith = rec ? rec.source : 'user';
+    return row;
+  }
+  row.importedAt = rec.importedAt;
+  const copyHash = await migrationTreeHash(await migrationSkillTree(dest));
+  const srcHash = await migrationTreeHash(tree);
+  row.sourceChanged = !srcHash || srcHash !== rec.sourceTreeHash;
+  row.status = !copyHash || copyHash !== rec.copyTreeHash ? 'copy-edited' : (row.sourceChanged ? 'source-updated' : 'copied');
+  return row;
+}
+async function migrationSkillRows(config) {
+  // caps 传 null:与改版前扫描同口径(不为一张迁移清单去探能力矩阵),也不给 13u 添一条到 06 的边。
+  const caps = null;
+  const rows = [];
+  for (const src of await migrationSkillSources()) {
+    for (const entry of (await readSkillDir(src.baseDir, src.source, caps)).values()) rows.push(await migrationSkillRow(src, entry));
+    if (rows.length >= 400) break;
+  }
+  // 同名时谁生效(只给看:活读那一行被谁盖住了)。user 目录里有同名 → 如意自己的那份生效。
+  const winner = new Map();
+  for (const r of rows) winner.set(r.id, r.key);
+  for (const r of rows) {
+    const userHas = r.status !== 'live' && r.status !== 'too-large';
+    const w = winner.get(r.id);
+    r.shadowedBy = userHas ? 'user' : (w !== r.key ? (rows.find(x => x.key === w) || {}).source || '' : '');
+  }
+  return rows;
+}
+function migrationSkillPublicRow(r) {
+  const out = {};
+  for (const [k, v] of Object.entries(r)) if (!k.startsWith('_')) out[k] = v;
+  return out;
+}
 async function migrationScanSkills(config) {
-  let registry = [];
-  try { registry = await loadSkillRegistry('', config, null); } catch { registry = []; }
-  return registry.filter(e => e && e.kind === 'skill' && MIGRATION_EXTERNAL_SOURCES.includes(e.source))
-    .map(e => ({ key: e.source + ':' + e.id, id: e.id, name: e.name, source: e.source, plugin: e.plugin || '', available: e.available !== false }));
+  return (await migrationSkillRows(config)).map(migrationSkillPublicRow);
+}
+
+// 把一行复制进 dataRoot/skills/<id>/。返回 { ok, action, copyTreeHash, backup } 或 { ok:false, reason }。
+async function migrationCopyOneSkill(row, ts) {
+  const dest = migrationSkillTarget(row.id);
+  if (!dest) return { ok: false, reason: 'invalid-key' };
+  const tree = await migrationSkillTree(row._dir);
+  if (tree.error) return { ok: false, reason: 'unreadable' };
+  if (tree.tooLarge) return { ok: false, reason: 'too-large' };
+  if (!tree.files.some(f => f.rel === 'SKILL.md')) return { ok: false, reason: 'no-skill-md' };
+  const root = path.dirname(dest);
+  await fsp.mkdir(root, { recursive: true });
+  const stage = path.join(root, MIGRATION_SKILL_STAGE_PREFIX + row.id + '-' + ts);
+  const stageKey = samePathKey(stage);
+  let backup = '';
+  try {
+    await fsp.mkdir(stage, { recursive: false });
+    for (const f of tree.files) {
+      const target = path.resolve(stage, ...f.rel.split('/'));
+      if (!migrationPathInside(samePathKey(target), stageKey) || samePathKey(target) === stageKey) throw new Error('path escaped stage');
+      await fsp.mkdir(path.dirname(target), { recursive: true });
+      await fsp.copyFile(f.abs, target, fs.constants.COPYFILE_EXCL);
+    }
+    // 记录的两枚哈希都按【拷进来的内容】算:复制途中来源又变了,下一次扫描会如实显示「来源已更新」。
+    const copyTreeHash = await migrationTreeHash(await migrationSkillTree(stage));
+    if (!copyTreeHash) throw new Error('copy unreadable');
+    const record = { schema: 1, source: row.source, sourcePath: row._dir, plugin: row.plugin || '', importedAt: nowIso(),
+      sourceTreeHash: copyTreeHash, copyTreeHash };
+    await fsp.writeFile(path.join(stage, SKILL_IMPORT_RECORD), JSON.stringify(record, null, 2) + '\n', 'utf8');
+    const existing = await migrationLstat(dest);
+    if (existing) {
+      if (existing.isSymbolicLink() || !existing.isDirectory()) throw new Error('target is not a directory');
+      // 旧副本整体挪进迁移目录留底(撤销时换回来),不就地覆盖。
+      const bdir = path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR, ts);
+      await fsp.mkdir(bdir, { recursive: true });
+      backup = path.join(bdir, row.id);
+      await fsp.rename(dest, backup);
+    }
+    await fsp.rename(stage, dest);
+    return { ok: true, action: existing ? 'updated' : 'created', copyTreeHash, backup, skippedLinks: tree.links };
+  } catch (e) {
+    await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
+    if (backup && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
+    return { ok: false, reason: 'copy-failed', detail: String((e && e.message) || e).slice(0, 200) };
+  }
+}
+
+// POST /api/migration/skills/copy {keys:[…], overwrite?:true}。请求合法就回 200 + 逐项结果(前端就地显示),
+// 至少复制了一项才写迁移日志(撤销走 /api/migration/undo,与改写老包引用共用同一本账)。
+async function migrationCopySkills(body) {
+  return migrationSerial(async () => {
+    const b = body && typeof body === 'object' ? body : {};
+    const keys = Array.isArray(b.keys) ? [...new Set(b.keys.map(k => String(k == null ? '' : k)))].slice(0, 200) : [];
+    if (!keys.length) return { ok: false, error: 'keys-required', status: 400 };
+    const overwrite = b.overwrite === true;
+    // 上一次崩在半路留下的暂存目录先清掉(它们不是技能:名字过不了 SKILL_ID_RE,注册表本来就不读)。
+    try {
+      for (const d of await fsp.readdir(paths.skills, { withFileTypes: true })) {
+        if (d.name.startsWith(MIGRATION_SKILL_STAGE_PREFIX)) await fsp.rm(path.join(paths.skills, d.name), { recursive: true, force: true }).catch(() => {});
+      }
+    } catch { /* 还没有 skills 目录 */ }
+    const config = await readConfig();
+    const rows = await migrationSkillRows(config);
+    const ts = migrationStamp();
+    const log = { schema: MIGRATION_LOG_SCHEMA, id: ts, type: 'skill-copy', createdAt: nowIso(), currentRoot: migrationCurrentRoot(), version: VERSION, files: [] };
+    const results = [];
+    for (const key of keys) {
+      const id = key.slice(key.lastIndexOf(':') + 1);
+      if (key.length > 300 || !SKILL_ID_RE.test(id)) { results.push({ key: key.slice(0, 120), outcome: 'rejected', reason: 'invalid-key' }); continue; }
+      const row = rows.find(r => r.key === key);
+      if (!row) { results.push({ key, id, outcome: 'rejected', reason: 'unknown-key' }); continue; }
+      const base = { key, id, source: row.source, plugin: row.plugin };
+      if (row.status === 'copied') { results.push({ ...base, outcome: 'skipped', reason: 'already-copied' }); continue; }
+      if (row.status === 'conflict') { results.push({ ...base, outcome: 'rejected', reason: 'conflict', conflictWith: row.conflictWith }); continue; }
+      if (row.status === 'too-large' || row.tooLarge) { results.push({ ...base, outcome: 'rejected', reason: 'too-large' }); continue; }
+      if (row.status === 'copy-edited' && !overwrite) { results.push({ ...base, outcome: 'rejected', reason: 'copy-edited' }); continue; }
+      const r = await migrationCopyOneSkill(row, ts);
+      if (!r.ok) { results.push({ ...base, outcome: 'rejected', reason: r.reason, detail: r.detail || '' }); continue; }
+      results.push({ ...base, outcome: r.action, skippedLinks: r.skippedLinks });
+      log.files.push({ file: migrationSkillTarget(row.id), kind: 'skill-copy', backup: r.backup,
+        items: [{ key, id: row.id, source: row.source, plugin: row.plugin, action: r.action, copyTreeHash: r.copyTreeHash }] });
+    }
+    const copied = log.files.length;
+    if (copied) {
+      await fsp.mkdir(migrationDir(), { recursive: true });
+      await atomicWriteJson(path.join(migrationDir(), ts + '.json'), log);
+      logEvent({ kind: 'migration_skill_copy', id: ts, copied, rejected: results.filter(r => r.outcome === 'rejected').length });
+    }
+    return { ok: true, id: copied ? ts : null, copied, results };
+  });
+}
+
+// 撤销一条技能复制:副本自复制后没被改过才动 —— 新建的删掉,更新的换回旧副本;改过的原样保留并说明。
+async function migrationUndoSkillCopy(f) {
+  const item = (f.items || [])[0] || {};
+  const dest = migrationSkillTarget(item.id);
+  if (!dest || samePathKey(dest) !== samePathKey(String(f.file || ''))) return { id: String(item.id || ''), outcome: 'kept', reason: 'invalid-log' };
+  const st = await migrationLstat(dest);
+  if (!st || st.isSymbolicLink() || !st.isDirectory()) return { id: item.id, outcome: 'kept', reason: 'gone' };
+  const rec = await readSkillImportRecord(dest);
+  const hash = await migrationTreeHash(await migrationSkillTree(dest));
+  if (!rec || !hash || hash !== item.copyTreeHash) return { id: item.id, outcome: 'kept', reason: 'edited' };
+  const backupRoot = samePathKey(path.join(migrationDir(), MIGRATION_SKILL_BACKUP_DIR));
+  const backup = f.backup && migrationPathInside(samePathKey(f.backup), backupRoot) ? f.backup : '';
+  const hasBackup = backup ? Boolean(await migrationLstat(backup)) : false;
+  await fsp.rm(dest, { recursive: true, force: true });
+  if (hasBackup) {
+    await fsp.rename(backup, dest);
+    await fsp.rmdir(path.dirname(backup)).catch(() => {}); // 这一批的留底目录空了就顺手收掉
+    return { id: item.id, outcome: 'restored-previous' };
+  }
+  return { id: item.id, outcome: 'removed' };
 }
 
 async function migrationLogs() {
@@ -61718,9 +61995,14 @@ async function migrationUndo(body) {
     if (!log) return { ok: false, error: 'no-migration-to-undo', status: 404 };
     if (log.undoneAt) return { ok: false, error: 'already-undone', status: 409 };
     let restored = 0, skipped = 0;
+    const skills = [];
     for (const f of log.files || []) {
       try {
-        if (f.kind === 'ruyi-config') {
+        if (f.kind === 'skill-copy') {
+          const r = await migrationUndoSkillCopy(f);
+          skills.push(r);
+          if (r.outcome === 'kept') skipped++; else restored++;
+        } else if (f.kind === 'ruyi-config') {
           await mutateConfig(async cfg => {
             const list = Array.isArray(cfg.externalMcpServers) ? cfg.externalMcpServers.slice() : [];
             for (const item of f.items || []) {
@@ -61777,10 +62059,10 @@ async function migrationUndo(body) {
       } catch { skipped++; }
     }
     log.undoneAt = nowIso();
-    log.undoResult = { restored, skipped };
+    log.undoResult = { restored, skipped, ...(skills.length ? { skills } : {}) };
     await atomicWriteJson(path.join(migrationDir(), log.id + '.json'), log);
     logEvent({ kind: 'migration_undo', id: log.id, restored, skipped });
-    return { ok: true, id: log.id, restored, skipped };
+    return { ok: true, id: log.id, restored, skipped, ...(skills.length ? { skills } : {}) };
   });
 }
 
@@ -61866,6 +62148,7 @@ Object.assign(MigrationHooks, {
   apply: migrationApply,
   undo: migrationUndo,
   recycle: migrationRecycle,
+  copySkills: migrationCopySkills,
 });
 
 async function main() {
