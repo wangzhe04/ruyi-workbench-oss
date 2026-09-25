@@ -238,6 +238,8 @@
 .ts-undo:hover:not(:disabled), .ts-undo-all:hover:not(:disabled) { color: var(--ink); background: var(--panel); border-color: var(--muted); }
 .ts-undo:disabled, .ts-undo-all:disabled { cursor: default; opacity: .7; }
 .ts-undo.done, .ts-undo-all.done { color: var(--ok-fg); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+span.ts-undo, span.ts-undo-all { cursor: default; }   /* 刷新后画的「已撤销」是状态，不是按钮 */
+.turn-summary-file.reverted .ts-path, .turn-summary-file.reverted .ts-op { opacity: .6; text-decoration: line-through; }
 
 /* v1.0.2 (G2): 消息尾部生成文件 chip 行 */
 .turn-artifacts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-25T17:16:21.760Z",
+  "generatedAt": "2026-09-25T23:46:51.715Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1099,6 +1099,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\onboarding-workspace.browser.e2e.js",
         "dev-harness\\workspace-resolve.e2e.js"
       ]
     },
@@ -1192,6 +1193,7 @@
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\toolbox-discovery.e2e.js",
+        "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\unit\\context-compact-trigger.test.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
@@ -2412,6 +2414,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\tool-loading.e2e.js",
         "dev-harness\\tools-v2.e2e.js",
+        "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\usage-accum.e2e.js",
         "dev-harness\\usage-claude-cached.e2e.js",
@@ -2695,7 +2698,7 @@
       "kind": "exact",
       "path": "/api/storage/policy",
       "file": "13b-api-domain-routes.js",
-      "line": 209,
+      "line": 234,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2715,7 +2718,7 @@
       "kind": "exact",
       "path": "/api/storage/clean",
       "file": "13b-api-domain-routes.js",
-      "line": 221,
+      "line": 246,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2734,7 +2737,7 @@
       "kind": "exact",
       "path": "/api/checkpoints/rollback",
       "file": "13b-api-domain-routes.js",
-      "line": 236,
+      "line": 261,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2757,7 +2760,7 @@
       "kind": "exact",
       "path": "/api/session/rewind",
       "file": "13b-api-domain-routes.js",
-      "line": 267,
+      "line": 293,
       "handler": "handleCheckpointApiRoutes",
       "methods": [
         "POST"
@@ -2780,7 +2783,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 373,
+      "line": 399,
       "handler": "handleSteerApiRoute",
       "methods": [
         "POST"
@@ -2805,7 +2808,7 @@
       "kind": "exact",
       "path": "/api/steer",
       "file": "13b-api-domain-routes.js",
-      "line": 382,
+      "line": 408,
       "handler": "handleSteerApiRoute",
       "methods": [
         "DELETE"
@@ -2830,7 +2833,7 @@
       "kind": "exact",
       "path": "/api/audio/transcribe",
       "file": "13b-api-domain-routes.js",
-      "line": 441,
+      "line": 467,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2852,7 +2855,7 @@
       "kind": "exact",
       "path": "/api/audio/stream/sessions",
       "file": "13b-api-domain-routes.js",
-      "line": 445,
+      "line": 471,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2871,7 +2874,7 @@
       "kind": "prefix",
       "path": "/api/audio/stream/sessions/",
       "file": "13b-api-domain-routes.js",
-      "line": 448,
+      "line": 474,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2888,7 +2891,7 @@
       "kind": "prefix",
       "path": "/api/audio/stream/sessions/",
       "file": "13b-api-domain-routes.js",
-      "line": 451,
+      "line": 477,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "DELETE"
@@ -2905,7 +2908,7 @@
       "kind": "exact",
       "path": "/api/audio/correct",
       "file": "13b-api-domain-routes.js",
-      "line": 455,
+      "line": 481,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -2923,7 +2926,7 @@
       "kind": "exact",
       "path": "/api/audio/warmup",
       "file": "13b-api-domain-routes.js",
-      "line": 459,
+      "line": 485,
       "handler": "handleAudioApiRoutes",
       "methods": [
         "POST"
@@ -3189,6 +3192,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",
@@ -3401,6 +3405,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-ledger.e2e.js",

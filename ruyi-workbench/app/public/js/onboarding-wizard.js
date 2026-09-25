@@ -220,6 +220,8 @@ export function createOnboardingWizardDomain({
   setLocale = async locale => locale,
   providerDraftFromPreset = null,
   pickWorkspace = async () => {},
+  // 走查 #8：原生选择器用不了（非 Windows、WinForms 起不来）时的兜底 —— 手填一个完整路径，设成默认工作文件夹。
+  setWorkspacePath = async () => {},
   openSettings = () => {},
   openPlaybook = () => {},
   onConfigChanged = () => {},
@@ -357,6 +359,8 @@ export function createOnboardingWizardDomain({
       messageKind: '',
       messageAction: null, // 118e: {label, onClick} for the in-app manual jump on a local-endpoint failure
       permissionMode: ONBOARDING_SAFETY_MODES.includes(config.permissionMode) ? config.permissionMode : 'default',
+      workspaceError: '',  // 走查 #8：选择器失败时就地显示的那句（服务端给的 hint 优先）
+      workspacePath: '',   // 手填框里的草稿（重画不丢）
     };
     const presets = asArray(state.status && state.status.providerPresets);
     if (presets.length) {
@@ -821,7 +825,15 @@ export function createOnboardingWizardDomain({
       zone.append(el('div', 'onboard-drop-icon', '\u{1F4C1}'));
       zone.append(el('div', 'onboard-drop-title', t('onboarding.drop.title')));
       zone.append(el('div', 'onboard-drop-sub', t('onboarding.drop.description')));
-      zone.onclick = async () => { await pickWorkspace(); render(); };
+      const pick = async () => {
+        const r = await pickWorkspace({ alsoDefault: true });
+        // 原因用服务端的 error（「仅支持 Windows」这类）—— 「去下面粘贴路径」这半句由文案自己说，不重复 hint。
+        wiz.workspaceError = r && r.ok === false ? String(r.error || r.hint || t('common.unknown')) : '';
+        render();
+        // render() 下一拍会把焦点给这一步的第一个控件；失败时要落在手填框上，所以也排在下一拍、且排在它后面。
+        if (wiz.workspaceError) setTimeout(() => { try { frame.body.querySelector('.onboard-wiz-path-input')?.focus(); } catch { /* 无 DOM */ } }, 0);
+      };
+      zone.onclick = pick;
       if (typeof zone.addEventListener === 'function') {
         zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragging'); });
         zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
@@ -830,8 +842,35 @@ export function createOnboardingWizardDomain({
       wrap.append(zone);
       const chooseBtn = el('button', 'file-label onboard-wiz-pick', t('onboarding.wizard.workspace.choose'));
       chooseBtn.type = 'button';
-      chooseBtn.onclick = async () => { await pickWorkspace(); render(); };
+      chooseBtn.onclick = pick;
       wrap.append(chooseBtn);
+      if (wiz.workspaceError) {
+        const err = el('p', 'onboard-wiz-note onboard-wiz-error', t('onboarding.wizard.workspace.pickFailed', { reason: wiz.workspaceError }));
+        if (typeof err.setAttribute === 'function') err.setAttribute('role', 'alert');
+        wrap.append(err);
+      }
+      // 手填兜底：常驻（不只在失败之后出现）—— 知道路径的人直接粘贴更快，选择器坏了的人也不会被卡死。
+      const pathRow = el('div', 'onboard-wiz-path');
+      const pathInput = el('input', 'onboard-wiz-path-input');
+      pathInput.type = 'text';
+      pathInput.value = wiz.workspacePath;
+      pathInput.placeholder = t('onboarding.wizard.workspace.pathPlaceholder');
+      if (typeof pathInput.setAttribute === 'function') pathInput.setAttribute('aria-label', t('onboarding.wizard.workspace.pathLabel'));
+      pathInput.oninput = () => { wiz.workspacePath = pathInput.value; };
+      const useBtn = el('button', 'btn btn-sm onboard-wiz-path-use', t('onboarding.wizard.workspace.pathUse'));
+      useBtn.type = 'button';
+      const usePath = async () => {
+        const raw = String(pathInput.value || '').trim().replace(/^["'“‘](.*)["'”’]$/, '$1').trim();
+        if (!raw) { pathInput.focus && pathInput.focus(); return; }
+        await setWorkspacePath(raw);
+        if (String(asObject(state.config).defaultWorkspace || '') === raw) { wiz.workspaceError = ''; wiz.workspacePath = ''; }
+        render();
+      };
+      useBtn.onclick = usePath;
+      pathInput.onkeydown = e => { if (e && e.key === 'Enter') { e.preventDefault && e.preventDefault(); usePath(); } };
+      pathRow.append(pathInput, useBtn);
+      wrap.append(el('p', 'onboard-wiz-note muted', t('onboarding.wizard.workspace.pathHint')));
+      wrap.append(pathRow);
       const current = String(asObject(state.config).defaultWorkspace || '');
       wrap.append(el('p', 'onboard-wiz-note muted', current
         ? t('onboarding.wizard.workspace.current', { path: current })

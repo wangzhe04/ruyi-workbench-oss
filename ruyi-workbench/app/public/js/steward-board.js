@@ -918,6 +918,7 @@ export function createStewardBoard({
     const title = el('button', 'steward-board-thread-title', threadShownTitle({ ...row, sessionId }, t('session.untitled')));
     if (row.title && row.displayTitle && row.title !== row.displayTitle) title.title = String(row.title);
     title.type = 'button';
+    head.title = title.textContent;   // ≤980 图标栏只剩一颗色点、标题收起：悬停色点说得出是哪一条（走查 #18）
     // §2.3 点击语义：单线程任务行／线程行 → 打开它。管家视角＝换焦点（右栏那一份抽屉），
     // 工作台视角＝openSession（中栏那条对话）。两视角同一份 DOM、两种打开法，见 openRow。
     title.onclick = () => openRow(sessionId);
@@ -1071,6 +1072,7 @@ export function createStewardBoard({
     head.appendChild(threadDot());
     const title = el('button', 'steward-board-thread-title', group.title);
     title.type = 'button';
+    head.title = String(group.title || '');   // 同上：图标栏里悬停色点说得出是哪一件任务
     // 多线程任务行：点它是【展开／收起】（§2.3 点击语义第二条），不是打开某一条 —— 任务不是线程。
     title.onclick = () => toggleTask(group.missionId, !open);
     head.appendChild(title);

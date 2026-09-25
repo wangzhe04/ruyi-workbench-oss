@@ -784,7 +784,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   新增 `.migration-skill-result`(复制结果就地显示,纵向排版)。颜色全走既有 token,零新增动效。
 // 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 7e223312…,
 // 与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '5230d0febbbcb8bed4f7d9a75a1894eea2433a2a7275fc136251f2fced3a08ed';
+// 体验走查 A 批重钉(前值 5230d0fe…＝W8 重钉):零新增、零删除层,只在两层末尾加规则 ——
+//   ① `css/states/chat-live.css`:「本轮变更」卡刷新后画的「已撤销」是状态不是按钮(span 不给手形)、已撤销那一行
+//      路径与 op 淡出加删除线(#14);② `css/components/onboarding.css`:向导工作文件夹一步的选择器失败原因
+//      (--danger-fg)与手填路径一行(#8)。颜色全走既有 token,零新增动效。
+// 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 5230d0fe…,
+// 与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '5c61b291e6db0a731703e019f03f137a87973c856b00a4af526f21c0dab67088';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

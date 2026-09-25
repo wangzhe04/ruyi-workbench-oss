@@ -29,6 +29,9 @@
 .onboard-wiz-step-title { margin: 0; font-size: var(--fs-lg); }
 .onboard-wiz-step-hint { margin: 0; font-size: var(--fs-sm); line-height: 1.6; }
 .onboard-wiz-note { margin: 0; font-size: var(--fs-xs); line-height: 1.6; word-break: break-all; }
+.onboard-wiz-error { color: var(--danger-fg); }   /* 选择器没打开：就地说清原因（走查 #8） */
+.onboard-wiz-path { display: flex; gap: var(--sp-2); align-items: center; }
+.onboard-wiz-path-input { flex: 1; min-width: 0; }
 .onboard-wiz-field { display: flex; flex-direction: column; gap: var(--sp-1); }
 .onboard-wiz-field > label { font-size: var(--fs-sm); color: var(--ink-2); }
 

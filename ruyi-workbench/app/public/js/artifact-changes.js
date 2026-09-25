@@ -428,10 +428,11 @@ export function createArtifactChangesDomain({
     const turnSeq = Number(entry.turnSeq);
     const entrySeq = Number(entry.entrySeq);
     const body = el('div', 'confirm-body');
-    body.append(el('p', '', t('changes.confirmRollbackBody', {
-      path: fileBasename(fullPath),
-      turn: turnSeq || 0,
-    })));
+    // 按 op 说实话：撤销「新建」＝删除这个文件，撤销「删除」＝把它找回来；只有「修改」才是恢复到改动前。
+    const bodyText = entry.op === 'create' ? t('changes.revert.confirm.create', { path: fileBasename(fullPath) })
+      : entry.op === 'delete' ? t('changes.revert.confirm.delete', { path: fileBasename(fullPath) })
+      : t('changes.confirmRollbackBody', { path: fileBasename(fullPath), turn: turnSeq || 0 });
+    body.append(el('p', '', bodyText));
     const foot = el('div', 'confirm-foot');
     const cancel = el('button', '', t('common.cancel'));
     const confirm = el('button', 'primary', t('changes.revert'));
