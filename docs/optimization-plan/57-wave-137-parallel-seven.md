@@ -110,3 +110,9 @@
 - 打包（原生 PowerShell）：Slim 78.11 MB；Full 775.52 MB（ACC 17,588 文件完整性全过）。**坑**：Full 带 `-SkipExeBuild` 会少 Ruyi.exe（737 MB），须不带该开关重打。
 - SHA256SUMS：full `286c800ba3f5a68b71c6bd2f4140570856073eb48492b7847873808d8ed6dcee`、slim `911749e4b3c9d15cf335702f349d20b5e760281b6474755716d6a413e2c431d2`（sha256sum -c 过）。
 - 全新目录冒烟（系统 tar.exe 解包；USERPROFILE/HOME/RUYI_HOME 全隔离、随机端口、只停自己的进程；不跑 Start-Workbench.cmd）：slim/full × 自带 node/Ruyi.exe 四种 1.8–3.1 s 起来，版本均为 3.0.0-preview.2，`binaries.rgSource=bundled`。
+
+## §8 发布后两刀（2026-09-25，master 未随包发布）
+
+- **W8「复制到如意」（Opus，ca4db21d）**：用户问 Claude Code／Codex 原生技能会不会成为如意原生技能——原来是活读不复制。迁移中心技能组逐来源列出（含被同名遮住的），五种状态 live／copied／source-updated／copy-edited／conflict（另 too-large）；`POST /api/migration/skills/copy` 整目录复制进 dataRoot/skills 并写来源记录，只拷真实文件（链接/联接跳过）、20 MB／500 文件／16 层上限、暂存后整体换入、覆盖前旧副本留底；撤销复用迁移日志，只还原没被再改过的副本。技能库显示「复制自 …」。反向验证 26 处全红。
+- **W9 系统提示词审查（Fable，提交在 master）**：调研 Anthropic／OpenAI／Gemini CLI／Codex／OpenHands 等公开提示词与指南，得 15 条原则（只借原则不抄原文）。改：管家 stable 去掉自相矛盾的填表体、契约补「四个键每次都写全」＋「说到做到」（没调工具不说已办）；provider 稳定层与 CLI 共用段补「改完用工具核实」「何时问、能查先查、两三步不成再问」「只说查证过的事，做不到直说」，onDemand 压缩。PROMPT_PACK_VERSION → 2026-w138-1；steward-runner.static ③ 英文 stable 闸 1050→1250 tok（中文仍 ≤1050）。**真模型 A/B（deepseek-v4-flash，15 场景×2 轮）新 89/96 对旧 92/96，差异在噪声内**——旧提示词在该 harness 下本就守契约，38 号文那条病未复现；本刀价值是提示词口径与既有兜底判据对齐，不是测得的分数提升。花费约 ¥0.52。
+- 合并后第三轮全量（`--parallel 8`）：**399 pass / 3 fail / 0 flaky / 402 ran**，3 红即本机缺 realhist-fixtures 的既有环境红，真回归 0；`--fast` 79/79；55 模块／440 边。未另发 Release（v3.0.0-preview.2 不含这两刀）。
