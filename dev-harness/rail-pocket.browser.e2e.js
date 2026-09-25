@@ -431,6 +431,31 @@ try {
     `B8 「记得的关于你」→ 设置·管家页的记忆组可见（实测 stewardTab=${onMemory && onMemory.stewardTabActive}）`);
   ok(Boolean(onMemory) && onMemory.memoryLanded, `B8b 「记得的关于你」直接落到记忆那一段`);
   await closeSettings();
+  // B7c 慢机器复现（Windows CI 上 B7b 的真根）：三块列表的请求还没回包就点「行动流水」。落点那一刻列表都空着，
+  // 回包之后列表画出来、段落被挤下去／撑长，末段就停在视口下半截。这里在页面里把那三块列表的回包压 900 ms
+  // （/api/steward/state 不压：管家抽屉的启动也等它，压了抽屉会晚开、把焦点拿走 —— 那是另一件事）。
+  await cdp.send('Page.reload', { ignoreCache: true });
+  ok(Boolean(await waitForEval(cdp, READY)), 'B7c0 重载之后口袋重新画出四项');
+  await cdp.evaluate(`(() => {
+    const orig = window.fetch;
+    window.fetch = function (input) {
+      const url = String((input && input.url) || input);
+      const p = orig.apply(this, arguments);
+      return /\\/api\\/(steward\\/(memory|decisions)|scheduler\\/tasks)/.test(url) ? p.then(r => new Promise(res => setTimeout(() => res(r), 900))) : p;
+    };
+    return true;
+  })()`);
+  await clickPocket('decisions');
+  await sleep(1800);   // 900 ms 回包 ＋ 重画
+  const slowDecisions = await cdp.evaluate(`(() => {
+    const g = document.getElementById('cfgStewardGroupDecisions'); if (!g) return null;
+    const r = g.getBoundingClientRect();
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), ih: innerHeight, focusIn: g.contains(document.activeElement), active: (document.activeElement && (document.activeElement.id || document.activeElement.tagName)) || "",
+      rows: document.querySelectorAll('#cfgStewardSchedule tr, #cfgStewardSchedule li, #cfgStewardDecisions tr').length };
+  })()`);
+  ok(Boolean(slowDecisions) && slowDecisions.focusIn && slowDecisions.top >= 0 && (slowDecisions.top < slowDecisions.ih * 0.6 || slowDecisions.bottom <= slowDecisions.ih),
+    `B7c 列表晚到之后「行动流水」仍停在那一段（实测 ${JSON.stringify(slowDecisions)}）`);
+  await closeSettings();
   const onDoctorSteward = await clickPocket('doctor');
   ok(Boolean(onDoctorSteward) && onDoctorSteward.settingsOpen && onDoctorSteward.doctorTabActive && onDoctorSteward.doctorPanelShown,
     `B9 管家视角「体检 · 用量」→ 设置的体检页（§7.2 两视角两条路的管家那一条；实测 doctorTab=${onDoctorSteward && onDoctorSteward.doctorTabActive}）`);

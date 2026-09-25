@@ -1329,10 +1329,10 @@ export function createStewardSettingsDomain({
   function openPanel(section) {
     openSettingsTab(STEWARD_SETTINGS_TAB);
     fillStewardSettings();
-    refreshRunState();
-    if (!memoryLoaded) loadMemory();
-    if (!decisionsLoaded) loadDecisions();
-    if (!scheduleLoaded) loadSchedule();
+    const loads = [refreshRunState()];
+    if (!memoryLoaded) loads.push(loadMemory());
+    if (!decisionsLoaded) loads.push(loadDecisions());
+    if (!scheduleLoaded) loads.push(loadSchedule());
     const targetId = PANEL_SECTIONS[String(section || '')] || '';
     const target = targetId ? byId(targetId) : null;
     // 焦点跟到目标段落（preventScroll），openModal 随后那一拍看见焦点已在弹层里就不再抢回页首——
@@ -1346,6 +1346,11 @@ export function createStewardSettingsDomain({
       if (!first && typeof target.setAttribute === 'function' && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
       const landing = first || target;
       if (typeof landing.focus === 'function') { try { landing.focus({ preventScroll: true }); } catch { /* ignore */ } }
+      // 三块列表与运行态是异步加载的：落点那一刻它们还空着，回包画出来之后段落被挤下去／撑长，末段（行动流水）
+      // 会停在视口下半截。全部落定时焦点还在这一段里（用户没去别处）就再对一次位。
+      void Promise.allSettled(loads).then(() => {
+        if (globalThis.document && target.contains(globalThis.document.activeElement)) target.scrollIntoView({ block: 'start' });
+      });
     }
     return section || '';
   }
