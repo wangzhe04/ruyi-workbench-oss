@@ -432,8 +432,8 @@ try {
   ok(Boolean(onMemory) && onMemory.memoryLanded, `B8b 「记得的关于你」直接落到记忆那一段`);
   await closeSettings();
   // B7c 慢机器复现（Windows CI 上 B7b 的真根）：三块列表的请求还没回包就点「行动流水」。落点那一刻列表都空着，
-  // 回包之后列表画出来、段落被挤下去／撑长，末段就停在视口下半截。这里在页面里把那三块列表的回包压 900 ms
-  // （/api/steward/state 不压：管家抽屉的启动也等它，压了抽屉会晚开、把焦点拿走 —— 那是另一件事）。
+  // 回包之后列表画出来、段落被挤下去／撑长，末段就停在视口下半截。这里在页面里把那三块列表与 /api/steward/state
+  // 的回包压 900 ms —— 管家抽屉的启动也等 state，压了它抽屉就晚开：修前它会把焦点从设置页拽到抽屉标题上（Windows CI 实测）。
   await cdp.send('Page.reload', { ignoreCache: true });
   ok(Boolean(await waitForEval(cdp, READY)), 'B7c0 重载之后口袋重新画出四项');
   await cdp.evaluate(`(() => {
@@ -441,7 +441,7 @@ try {
     window.fetch = function (input) {
       const url = String((input && input.url) || input);
       const p = orig.apply(this, arguments);
-      return /\\/api\\/(steward\\/(memory|decisions)|scheduler\\/tasks)/.test(url) ? p.then(r => new Promise(res => setTimeout(() => res(r), 900))) : p;
+      return /\\/api\\/(steward\\/(memory|decisions|state)|scheduler\\/tasks)/.test(url) ? p.then(r => new Promise(res => setTimeout(() => res(r), 900))) : p;
     };
     return true;
   })()`);
