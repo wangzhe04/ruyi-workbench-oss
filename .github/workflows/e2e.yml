@@ -66,10 +66,20 @@ jobs:
         run: python -X utf8 tests/run_all.py --ci
       # 第46波46f (D1): facts.json 的 accTools 与活注册表对账(无 venv 环境下静态 e2e 只能验形状,
       # 活对账由本步承担)。
+      # 用 python 当 shell:原先 pwsh 里的内联 `python -c "…"` 会把 f-string 的 {…} 当 ScriptBlock 拒掉,Python 根本没跑。
       - name: facts.json accTools reconciliation
         working-directory: ${{ github.workspace }}
+        shell: python
+        env:
+          PYTHONUTF8: '1'
         run: |
-          python -X utf8 -c "import sys, json; sys.path.insert(0, 'mcp/ai-computer-control/src'); import ai_computer_control.server as s; live = len(s.mcp._tool_manager.list_tools()); facts = json.load(open('facts.json', encoding='utf-8')); assert facts['accTools'] == live, f\"facts.accTools({facts['accTools']}) != live registry({live}) — 跑 node dev-harness/facts-generate.js 刷新\"; print('accTools reconciled:', live)"
+          import sys, json
+          sys.path.insert(0, 'mcp/ai-computer-control/src')
+          import ai_computer_control.server as s
+          live = len(s.mcp._tool_manager.list_tools())
+          facts = json.load(open('facts.json', encoding='utf-8'))
+          assert facts['accTools'] == live, f"facts.accTools({facts['accTools']}) != live registry({live}) — 跑 node dev-harness/facts-generate.js 刷新"
+          print('accTools reconciled:', live)
 
   # 第49波49e (E4): ubuntu 静态+进程内件 job —— Windows 是主战场,但纯静态/进程内检查
   # 不该绑死在 Windows runner:Linux 跑一遍既防"悄悄写了 Windows-only 假设进静态件",
