@@ -169,7 +169,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       `B6 读屏播报了「正在加载」,屏上有一句 toast 说明白(实得播报 ${JSON.stringify(bWarm.announcements.slice(b0.announcements.length))})`);
     await shot('1-warming');
     const tReady = Date.now();
-    ok(Boolean(await waitState('recording', 200)), 'B7 装好后自动进录音态(不用再点)');
+    ok(Boolean(await waitState('recording', 400)), 'B7 装好后自动进录音态(不用再点)');   // Windows CI 高负载时实测过 200 拍(约 8 s)内仍停在 starting；判据不变，只把等的上限放宽
     const loadWait = Date.now() - tClick;
     ok(loadWait >= LOAD_MS - 200, `B7b 是【等到装好才】开录的(自点击 ${loadWait} ms ≥ 加载 ${LOAD_MS} ms)`);
     const bRec = await probe();
