@@ -518,8 +518,12 @@ ok(/function askOptionReplies\(\) \{[\s\S]{0,320}return quickRepliesFor\(\{ pend
 ok(/if \(sessionId === id\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer)
   && /function userIsTyping\(\)/.test(drawer)
   && /return active\.isContentEditable === true;/.test(drawer)
-  && /const wantFocus = opts && opts\.focus === true \? true : \(opts && opts\.focus === false \? false : !userIsTyping\(\)\);/.test(drawer),
+  && /const wantFocus = opts && opts\.focus === true \? true : \(opts && opts\.focus === false \? false : !userIsTyping\(\) && !focusInOtherDialog\(\)\);/.test(drawer),
   'J7 焦点在【loading 闸落下之后】才给问答框，且只在用户没在输入框里打字时才移焦（§13.7 ⑨）');
+// 重钉 J7（收紧，不是放宽）：自动打开时再多一道 —— 焦点在【别的】开着的模态弹层里（设置页的下拉／按钮）也不移。
+// Windows CI 实测：慢机器上抽屉晚开，把左栏直达设置·行动流水的焦点拽到抽屉标题上（rail-pocket B7c 复现）。
+ok(/function focusInOtherDialog\(\) \{[\s\S]{0,260}active\.closest\('\[role="dialog"\]\[aria-modal="true"\]'\)[\s\S]{0,120}!dialog\.closest\('#stewardDrawer'\)/.test(drawer),
+  'J7d 焦点在别的模态弹层里（不是抽屉自己）时，自动打开抽屉不移焦');
 // 117m-A2 **重钉 J7b**（语义是「焦点从只认输入框放到第一个可操作控件」，不是放宽）。
 // 旧断言逐字钉着 `if (!section || section.hidden || !input` —— permission／plan／pool 的卡片
 // 【没有】输入框（renderAsk 把自由输入整块隐藏了：那三类是按一下的事）。只认输入框的话，

@@ -98,10 +98,15 @@ function fixtureChildEnv(opts) {
   const options = opts || {};
   const home = options.perTest ? fixtureHomeDirPerTest() : fixtureHomeDir();
   const { local, roaming } = fakeAppDataDirs();
+  const base = options.baseEnv || process.env;
   const env = {
-    ...(options.baseEnv || process.env),
+    ...base,
     USERPROFILE: home, HOME: home, RUYI_REAL_HOME: REAL_HOME,
     LOCALAPPDATA: local, APPDATA: roaming,
+    // 真机的两个应用数据目录另存一份 —— 只给测试浏览器用(lib/browser-profile-scope.js 在拉起浏览器时还原),
+    // 夹具与它起的服务照旧只看见假的那一对。
+    RUYI_REAL_LOCALAPPDATA: base.RUYI_REAL_LOCALAPPDATA || base.LOCALAPPDATA || '',
+    RUYI_REAL_APPDATA: base.RUYI_REAL_APPDATA || base.APPDATA || '',
   };
   return options.perTest ? { env, home } : env;
 }

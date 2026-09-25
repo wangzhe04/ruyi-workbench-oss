@@ -1329,18 +1329,28 @@ export function createStewardSettingsDomain({
   function openPanel(section) {
     openSettingsTab(STEWARD_SETTINGS_TAB);
     fillStewardSettings();
-    refreshRunState();
-    if (!memoryLoaded) loadMemory();
-    if (!decisionsLoaded) loadDecisions();
-    if (!scheduleLoaded) loadSchedule();
+    const loads = [refreshRunState()];
+    if (!memoryLoaded) loads.push(loadMemory());
+    if (!decisionsLoaded) loads.push(loadDecisions());
+    if (!scheduleLoaded) loads.push(loadSchedule());
     const targetId = PANEL_SECTIONS[String(section || '')] || '';
     const target = targetId ? byId(targetId) : null;
     // 焦点跟到目标段落（preventScroll），openModal 随后那一拍看见焦点已在弹层里就不再抢回页首——
     // 修前它把焦点给页首第一个控件，滚动随之被拽回「管家总开关」，三个左栏入口都落在顶上。
     if (target && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ block: 'start' });
-      const first = target.querySelector && target.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (first && typeof first.focus === 'function') { try { first.focus({ preventScroll: true }); } catch { /* ignore */ } }
+      // 只挑可用且看得见的控件（加载中的下拉是 disabled，focus() 落空，焦点就又被 openModal 拽回页首）；
+      // 一个都没有就把焦点落在段落本身（tabindex=-1，只作程序性落点，Tab 走不到）。
+      const candidates = target.querySelectorAll ? [...target.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')] : [];
+      const first = candidates.find(node => !node.disabled && node.offsetParent !== null);
+      if (!first && typeof target.setAttribute === 'function' && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+      const landing = first || target;
+      if (typeof landing.focus === 'function') { try { landing.focus({ preventScroll: true }); } catch { /* ignore */ } }
+      // 三块列表与运行态是异步加载的：落点那一刻它们还空着，回包画出来之后段落被挤下去／撑长，末段（行动流水）
+      // 会停在视口下半截。全部落定时焦点还在这一段里（用户没去别处）就再对一次位。
+      void Promise.allSettled(loads).then(() => {
+        if (globalThis.document && target.contains(globalThis.document.activeElement)) target.scrollIntoView({ block: 'start' });
+      });
     }
     return section || '';
   }

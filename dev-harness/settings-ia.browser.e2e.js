@@ -253,6 +253,35 @@ const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'provid
     await switchTab('basic');
     ok(await pick('#cfgUiMode', 'pro') && Boolean(await waitConfig(c => c.uiMode === 'pro')), 'S7h 切回专家档');
 
+    /* ═════════ S9 保存在飞时刷新状态，不许把主模型下拉画回上一家 ═════════ */
+    // 慢机器上 S2b 的真根：切主模型那次保存还没回包，一发 GET /api/status 先回来带着旧配置，fillSettings()
+    // 按旧值重画设置页，下拉停在上一家、保存回包后也没人再画。这里用 CDP Fetch 把那次 POST 扣在请求阶段
+    // （服务端还没收到 → 状态回的一定是旧配置），期间点体检页的「重新体检」触发 refreshStatus，再放行。
+    await switchTab('models');
+    const beforeS9 = (await status()).activeProvider;
+    const targetS9 = beforeS9 === 'qwen' ? 'fake' : 'qwen';
+    let heldS9 = null;
+    fx.cdp.on('Fetch.requestPaused', p => {
+      if (!heldS9 && p.request && p.request.method === 'POST') { heldS9 = p.requestId; return; }
+      fx.cdp.send('Fetch.continueRequest', { requestId: p.requestId }).catch(() => {});
+    });
+    await fx.cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/config*', requestStage: 'Request' }] });
+    ok(await pick('#cfgMainProvider', targetS9), `S9a 主模型换到「${targetS9}」`);
+    for (let i = 0; i < 100 && !heldS9; i++) await sleep(50);
+    ok(Boolean(heldS9), 'S9b 那次保存被扣在请求阶段（服务端还没收到）');
+    await ev(`(() => { window.__s9Status = window.state.status; document.getElementById('refreshDoctorBtn').click(); return true; })()`);
+    ok(Boolean(await fx.waitForEval(`window.state.status !== window.__s9Status ? 1 : null`, 150)), 'S9c 保存在飞期间，一次状态刷新回来了');
+    if (heldS9) await fx.cdp.send('Fetch.continueRequest', { requestId: heldS9 });
+    await fx.cdp.send('Fetch.disable');
+    ok(Boolean(await waitConfig(c => c.activeProvider === targetS9)), 'S9d 放行后那次保存落了盘');
+    const s9 = await fx.waitForEval(`(() => {
+      const prov = document.getElementById('cfgMainProvider');
+      if (!prov || prov.disabled) return null;
+      return { prov: prov.value, active: window.state.config.activeProvider };
+    })()`, 150);
+    ok(Boolean(s9) && s9.active === targetS9 && s9.prov === targetS9,
+      `S9e 主模型下拉与落盘一致，没被在飞期间的旧状态画回「${beforeS9}」（实测下拉 ${s9 && s9.prov}，配置 ${s9 && s9.active}）`);
+
     /* ═════════ S8 干净 ═════════ */
     ok(fx.exceptions.length === 0, `S8a 页面没有未捕获异常（${fx.exceptions.slice(0, 3).join(' | ') || '无'}）`);
     ok(fx.consoleErrors.length === 0, `S8b 页面没有 console.error（${fx.consoleErrors.slice(0, 3).join(' | ') || '无'}）`);

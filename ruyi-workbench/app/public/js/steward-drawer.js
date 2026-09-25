@@ -1587,6 +1587,15 @@ export function createStewardDrawer({
     if (tag === 'textarea' || tag === 'input') return true;
     return active.isContentEditable === true;
   }
+  // 焦点在【别的】开着的模态弹层里（设置页等，含其中的下拉／按钮）：自动打开抽屉同样不许把焦点拿走 ——
+  // 慢机器上抽屉晚开，会把刚从左栏直达设置某一段的焦点（和滚动）拽到抽屉标题上。
+  function focusInOtherDialog() {
+    const document_ = doc();
+    const active = document_ && document_.activeElement;
+    if (!active || typeof active.closest !== 'function') return false;
+    const dialog = active.closest('[role="dialog"][aria-modal="true"]');
+    return Boolean(dialog) && !dialog.closest('#stewardDrawer');
+  }
 
   let loading = false;
   // 128f-④（Brief §4.2 第 23 条「从工作台切回管家，焦点卡标题闪一下『读取中…』」）：抽屉离开管家视角即收摊，回来
@@ -1604,7 +1613,7 @@ export function createStewardDrawer({
   async function openThread(nextId, opts = {}) {
     const id = String(nextId || '');
     if (!id) return;
-    const wantFocus = opts && opts.focus === true ? true : (opts && opts.focus === false ? false : !userIsTyping());
+    const wantFocus = opts && opts.focus === true ? true : (opts && opts.focus === false ? false : !userIsTyping() && !focusInOtherDialog());
     const drawer = byId('stewardDrawer');
     const shell = byId('stewardShell');
     if (!drawer) return;

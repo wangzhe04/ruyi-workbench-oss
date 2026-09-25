@@ -55,6 +55,13 @@ function postStream(port, payload, timeoutMs) {
   // 选 history-25 而不是最大快照:它仍是完整真实历史,且有一条边界外 60K file_search 观察；
   // reducer 后约缩到 4K，可稳定制造「L1 足够、无需 L2」的窗口，同时把真实 API 输入控制在约 60K tokens。
   const SNAP = path.join(HERE, 'realhist-fixtures', 'checkpoints', 'sess_fe3de15dfc3b8354', 'history-25.json.gz');
+  // realhist-fixtures/ 不随开源仓发布 → 缺失时整件 SKIP 退出 0(不红)。
+  if (!fs.existsSync(SNAP)) {
+    console.log('SKIP 全部 realhist-fixtures history-25 不在当前环境(需要外部数据)');
+    fs.rmSync(HOME, { recursive: true, force: true });
+    console.log('\nREPLAY(' + PROVIDER + '): SKIP');
+    return;
+  }
   const raw = JSON.parse(zlib.gunzipSync(fs.readFileSync(SNAP)).toString('utf8'));
   const toolNames = new Map();
   for (const m of raw) if (m && m.role === 'assistant' && Array.isArray(m.tool_calls)) for (const tc of m.tool_calls) if (tc && tc.id && tc.function) toolNames.set(String(tc.id), String(tc.function.name || ''));

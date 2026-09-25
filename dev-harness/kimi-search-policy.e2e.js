@@ -108,7 +108,8 @@ function nativeGrepArgs(pattern, searchPath) {
 
 async function main() {
   assert.ok(!/\b(?:cp\.)?spawn\s*\(/.test(source), 'classifier fragment does not spawn processes');
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-kimi-search-policy-'));
+  // Windows runner 的 TEMP 是 8.3 短名；沙箱守卫拿 realpath 长名去比 context 里的短名根会全拒。临时根先归一成长名。
+  const root = await fsp.realpath(await fsp.mkdtemp(path.join(os.tmpdir(), 'ruyi-kimi-search-policy-')));
   const workspace = path.join(root, 'workspace');
   const appRoot = path.join(root, 'app-root');
   // 145-W3: the bundled rg really lives at appRoot/app/vendor-bin (same app/ dir as server.js); the old

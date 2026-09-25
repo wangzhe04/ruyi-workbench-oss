@@ -378,6 +378,12 @@ try {
     if (!node) return null;
     node.click();
     await new Promise(r => setTimeout(r, 120));
+    // 慢机器上弹层开合与状态刷新都可能晚几拍：最多再等 1.5 s，等三段之一真的落到位（体检那一条不开管家页，不等）。
+    const landedAny = () => ['cfgStewardGroupSchedule', 'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'].some(id => {
+      const g = document.getElementById(id); if (!g) return false; const r = g.getBoundingClientRect();
+      return r.top >= 0 && (r.top < innerHeight * 0.6 || r.bottom <= innerHeight) && g.contains(document.activeElement);
+    });
+    if (${JSON.stringify(id)} !== 'doctor') for (let i = 0; i < 15 && !landedAny(); i++) await new Promise(r => setTimeout(r, 100));
     const modal = document.getElementById('settingsModal');
     const tab = document.querySelector('#settingsTabs button[data-stab="steward"]');
     const doctorTab = document.querySelector('#settingsTabs button[data-stab="doctor"]');
@@ -425,6 +431,31 @@ try {
     `B8 「记得的关于你」→ 设置·管家页的记忆组可见（实测 stewardTab=${onMemory && onMemory.stewardTabActive}）`);
   ok(Boolean(onMemory) && onMemory.memoryLanded, `B8b 「记得的关于你」直接落到记忆那一段`);
   await closeSettings();
+  // B7c 慢机器复现（Windows CI 上 B7b 的真根）：三块列表的请求还没回包就点「行动流水」。落点那一刻列表都空着，
+  // 回包之后列表画出来、段落被挤下去／撑长，末段就停在视口下半截。这里在页面里把那三块列表与 /api/steward/state
+  // 的回包压 900 ms —— 管家抽屉的启动也等 state，压了它抽屉就晚开：修前它会把焦点从设置页拽到抽屉标题上（Windows CI 实测）。
+  await cdp.send('Page.reload', { ignoreCache: true });
+  ok(Boolean(await waitForEval(cdp, READY)), 'B7c0 重载之后口袋重新画出四项');
+  await cdp.evaluate(`(() => {
+    const orig = window.fetch;
+    window.fetch = function (input) {
+      const url = String((input && input.url) || input);
+      const p = orig.apply(this, arguments);
+      return /\\/api\\/(steward\\/(memory|decisions|state)|scheduler\\/tasks)/.test(url) ? p.then(r => new Promise(res => setTimeout(() => res(r), 900))) : p;
+    };
+    return true;
+  })()`);
+  await clickPocket('decisions');
+  await sleep(1800);   // 900 ms 回包 ＋ 重画
+  const slowDecisions = await cdp.evaluate(`(() => {
+    const g = document.getElementById('cfgStewardGroupDecisions'); if (!g) return null;
+    const r = g.getBoundingClientRect();
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), ih: innerHeight, focusIn: g.contains(document.activeElement), active: (document.activeElement && (document.activeElement.id || document.activeElement.tagName)) || "",
+      rows: document.querySelectorAll('#cfgStewardSchedule tr, #cfgStewardSchedule li, #cfgStewardDecisions tr').length };
+  })()`);
+  ok(Boolean(slowDecisions) && slowDecisions.focusIn && slowDecisions.top >= 0 && (slowDecisions.top < slowDecisions.ih * 0.6 || slowDecisions.bottom <= slowDecisions.ih),
+    `B7c 列表晚到之后「行动流水」仍停在那一段（实测 ${JSON.stringify(slowDecisions)}）`);
+  await closeSettings();
   const onDoctorSteward = await clickPocket('doctor');
   ok(Boolean(onDoctorSteward) && onDoctorSteward.settingsOpen && onDoctorSteward.doctorTabActive && onDoctorSteward.doctorPanelShown,
     `B9 管家视角「体检 · 用量」→ 设置的体检页（§7.2 两视角两条路的管家那一条；实测 doctorTab=${onDoctorSteward && onDoctorSteward.doctorTabActive}）`);
@@ -447,9 +478,9 @@ try {
   const proTabs = await cdp.evaluate(rowsOfTabs);
   ok(Boolean(proTabs) && proTabs.visible === 7 && proTabs.rows <= 2,
     `F1 专家档：右栏 ${proTabs && proTabs.width}px 里七枚页签 ${proTabs && proTabs.rows} 行（§13.13 K8 登记②：折三行归本刀；判据 ≤2）`);
-  await cdp.evaluate(`(() => { document.documentElement.setAttribute('data-ui-mode', 'simple'); return true; })()`);
-  await sleep(120);
-  const simpleTabs = await cdp.evaluate(rowsOfTabs);
+  // 设属性与量放在同一次同步求值里：分两拍的话，应用自己的状态刷新（applyUiMode 按配置写回 pro）可能恰好落在
+  // 中间，量到的就是专家档的 7 枚（CI 上实测过一次「看得见的 7 枚」）。
+  const simpleTabs = await cdp.evaluate(`(() => { document.documentElement.setAttribute('data-ui-mode', 'simple'); return ${rowsOfTabs}; })()`);
   ok(Boolean(simpleTabs) && simpleTabs.visible === 5 && simpleTabs.rows <= 2,
     `F2 精简档：看得见的 ${simpleTabs && simpleTabs.visible} 枚排 ${simpleTabs && simpleTabs.rows} 行（判据 ≤2）`);
   await cdp.evaluate(`(() => { document.documentElement.setAttribute('data-ui-mode', 'pro'); return true; })()`);
@@ -589,11 +620,14 @@ try {
     `J1 1181：右栏仍在栅格里（left=${at1181 && at1181.left} < 视口 ${at1181 && at1181.vw}），顶栏没有「右栏」钮`);
   // 换到抽屉态那一下 transform 是有过渡的（--dur-slow），量早了会读到半路上的位置
   // （K7 实测：220 ms 时 left=1168，差 12px 就是那一帧还没走完）。所以这里【等到位】再判。
+  // Windows CI 负载高时 2 s 内一帧都没出（left 停在起点 788）：量之前把右栏自己的过渡 finish() 到终点，
+  // 判的就是抽屉态的【终值】而不是动画帧率。
   let at1180 = await paneAt(1180);
   for (let i = 0; i < 40 && at1180 && at1180.left < at1180.vw - 1; i++) {
     await sleep(50);
     at1180 = await cdp.evaluate(`(() => {
       const pane = document.getElementById('toolPane');
+      if (pane && pane.getAnimations) pane.getAnimations().forEach(a => { try { a.finish(); } catch {} });
       const toggle = document.getElementById('appSideToggleBtn');
       const box = pane ? pane.getBoundingClientRect() : null;
       return { left: box ? Math.round(box.left) : -1, vw: Math.round(document.documentElement.clientWidth),

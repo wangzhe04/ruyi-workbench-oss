@@ -2109,7 +2109,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     const listUrl = new URL(req.url, 'http://x');
     const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
-    const runs = await listAgentRuns(sessionId);
+    const liveBefore = [...activeAgentRuns.keys()]; let runs = await listAgentRuns(sessionId); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await listAgentRuns(sessionId);   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.

@@ -85,6 +85,77 @@ function reapScope(scope, reaper) {
   return count;
 }
 
+// 测试浏览器用真机的家目录环境。run-all 给每件夹具一份全新的空家（USERPROFILE/HOME）与一对假
+// LOCALAPPDATA/APPDATA（fixture-home.js，122 §2.7 / 123-M3），夹具里 spawn 的 Edge 原样继承。
+// CI 取证（GitHub windows-2025 runner，同一镜像同一 Node）：run 220 还能连上 CDP，run 221 起四十来件
+// 浏览器件全部「进程活着、/json/list 15 s 一直不回话」—— 两次之间测试框架唯一的环境变化就是 956b025a
+// 「每件独立临时家」。浏览器的数据已经由 --user-data-dir 隔离在本件的根里，它并不读如意的配置，
+// 所以把这四个变量还给它不削弱隔离；夹具进程与它起的服务照旧用假家。
+const REAL_HOME_ENV_MAP = Object.freeze({
+  USERPROFILE: 'RUYI_REAL_HOME', HOME: 'RUYI_REAL_HOME',
+  LOCALAPPDATA: 'RUYI_REAL_LOCALAPPDATA', APPDATA: 'RUYI_REAL_APPDATA',
+});
+function realHomeEnvFor(env) {
+  const out = {};
+  for (const [key, source] of Object.entries(REAL_HOME_ENV_MAP)) {
+    const value = env && env[source];
+    if (typeof value === 'string' && value) out[key] = value;
+  }
+  return out;
+}
+// 纯函数：给一次拉起浏览器的 spawn-family 实参补上 options.env（其余实参原样）。只认 argv 里带
+// --user-data-dir= 的调用；认不出 options 的位置就原样返回，宁可不改也不改错。
+function withRealHomeEnv(methodName, argv, env) {
+  const real = realHomeEnvFor(env);
+  if (!Object.keys(real).length || !profileDirsOf(argv).length) return argv;
+  const shellForm = methodName === 'exec' || methodName === 'execSync';
+  const at = shellForm ? 1 : (Array.isArray(argv[1]) ? 2 : 1);
+  // 浏览器用不着如意的数据家变量；留着它们，fixture-home-guard 会把「带 RUYI_HOME 却指回真机家」当越界拦下。
+  const browserEnv = base => {
+    const out = { ...base, ...real };
+    delete out.RUYI_HOME;
+    delete out.WIN_CLAUDE_WORKBENCH_HOME;
+    return out;
+  };
+  const next = argv.slice();
+  const current = next[at];
+  if (current && typeof current === 'object' && !Array.isArray(current)) {
+    next[at] = { ...current, env: browserEnv(current.env || env) };
+  } else if (current === undefined) {
+    next[at] = { env: browserEnv(env) };
+  } else if (typeof current === 'function') {
+    next.splice(at, 0, { env: browserEnv(env) });
+  } else {
+    return argv;
+  }
+  return next;
+}
+
+// 测试浏览器的两项默认显示环境，与开发机一致:界面语言 zh-CN、不减少动态效果。
+// CI(GitHub windows-2025 runner)是英文系统，且 Windows Server 默认关掉系统动画 → Edge 报
+// prefers-reduced-motion: reduce。前者让一批断言中文文案的件读到英文，后者让视图过渡与转圈动画按设计
+// 「零动画」—— 量的就不是产品本身了。件自己带了 --lang / --accept-lang / --force-prefers-* 就不动;
+// 需要「减少动态效果」的件用 CDP Emulation.setEmulatedMedia 现场设，优先级高于启动开关。
+const BROWSER_DEFAULT_FLAGS = Object.freeze([
+  { prefix: '--lang=', flag: '--lang=zh-CN' },
+  { prefix: '--accept-lang=', flag: '--accept-lang=zh-CN' },
+  { prefix: '--force-prefers-', flag: '--force-prefers-no-reduced-motion' },
+]);
+// 纯函数：只认 spawn-family 的「命令 + 实参数组」形态且数组里带 --user-data-dir= 的调用(即拉起测试浏览器)。
+function withBrowserDefaults(argv) {
+  const args = Array.isArray(argv[1]) ? argv[1] : null;
+  if (!args || !args.some(a => typeof a === 'string' && a.startsWith('--user-data-dir='))) return argv;
+  const missing = BROWSER_DEFAULT_FLAGS
+    .filter(({ prefix }) => !args.some(a => typeof a === 'string' && a.startsWith(prefix)))
+    .map(({ flag }) => flag);
+  if (!missing.length) return argv;
+  // 一律补在末尾：Chromium 不论位置都认 `--` 开头的开关(测试里拉浏览器从不带单独的 `--`)；补在前面的话，
+  // 被拉起的若不是浏览器(单测探针就是 `node -e … -- --user-data-dir=…`)会把它们当成自己的选项拒掉。
+  const next = argv.slice();
+  next[1] = [...args, ...missing];
+  return next;
+}
+
 // 夹具侧：装上范围。只在 run-all 注入了 SCOPE_ENV 的夹具进程里跑（见文件末尾）。
 function install(scope) {
   os.tmpdir = () => scope;
@@ -109,12 +180,12 @@ function install(scope) {
         process.stderr.write(lines.join('\n'));
         throw new Error('browser profile outside the per-test scope: ' + outside.join(', '));
       }
-      return original.apply(this, argv);
+      return original.apply(this, withRealHomeEnv(methodName, withBrowserDefaults(argv), process.env));
     };
   }
 }
 
-module.exports = { SCOPE_ENV, SCOPE_PREFIX, SCOPE_FILE, isInsideScope, profileDirsOf, createScope, reapScope, install };
+module.exports = { SCOPE_ENV, SCOPE_PREFIX, SCOPE_FILE, isInsideScope, profileDirsOf, createScope, reapScope, install, withRealHomeEnv, withBrowserDefaults };
 
 // 以 `--require` 装进夹具时：带着 run-all 注入的根才生效；直跑（没有这个变量）什么都不做。
 // run-all 自己 require 本文件只为拿常量与 createScope/reapScope —— 它自己的环境里没有这个变量，不会装。
