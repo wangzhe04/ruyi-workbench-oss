@@ -118,11 +118,17 @@ function followDesktopMcpProbe() {
 // 会把 state.config 换回发请求那一刻的旧快照 —— 下一次即存的补丁（主模型写 providers[].model、管家两档合并
 // stewardThreadModels、工作区清单）就从这份旧值上构造，等于把刚存的改动又写回去（真浏览器件 settings-ia 抓到过）。
 // 判据：请求在飞期间有一次配置保存落了盘，就保留那次保存回包里的 config（它更新），状态其余字段照常换新。
+// 补一种:保存【还在飞】(没回包)时状态先回来 —— 修前只认「已落盘」那一种,于是旧快照照样换进 state.config,
+// 下面 fillSettings() 又按旧值重画设置页:主模型下拉被画回上一家,保存回包之后也没人再画(settings-ia S2b
+// 在慢机器上稳定复现:下拉停在 fake、配置里已是 qwen)。在飞期间保留当前 state.config,也不重画设置页 ——
+// 页上此刻显示的就是用户刚选的值,那次保存回包会把 state.config 换成服务端的新值。
 let configWriteSeq = 0;
+let configWritesInFlight = 0;
 async function refreshStatus() {
   const seqAtRequest = configWriteSeq;
   const fresh = await api('/api/status');
-  if (configWriteSeq !== seqAtRequest && state.config && fresh) fresh.config = state.config;
+  const writeRaced = configWriteSeq !== seqAtRequest || configWritesInFlight > 0;
+  if (writeRaced && state.config && fresh) fresh.config = state.config;
   state.status = fresh;
   state.config = state.status.config || {};
   for (const provider of state.config.providers || []) provider.models = providerModels(provider);
@@ -133,7 +139,7 @@ async function refreshStatus() {
   // 权限／模型／引擎由线程头那一组 chip 画（会话级），新任务的两个默认值在盾牌与模型菜单里改。
   onEngineConfigChanged();
   updateEngineDependentUI();
-  fillSettings();
+  if (configWritesInFlight === 0) fillSettings();
   renderStatusLine();
   renderStartNotice(); // 118c: 启动提示条(上次启动失败 / 本次改用端口)
   renderDoctor();
@@ -588,6 +594,7 @@ function keepModelCaps(next, previous) {
   return out;
 }
 async function saveConfigPartial(patch) {
+  configWritesInFlight += 1;
   try {
     const res = await api('/api/config', { method: 'POST', body: JSON.stringify(patch) });
     state.config = res.config;
@@ -615,6 +622,8 @@ async function saveConfigPartial(patch) {
     }
     toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err');
     return false;
+  } finally {
+    configWritesInFlight -= 1;
   }
 }
 

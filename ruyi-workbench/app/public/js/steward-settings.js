@@ -1339,8 +1339,13 @@ export function createStewardSettingsDomain({
     // 修前它把焦点给页首第一个控件，滚动随之被拽回「管家总开关」，三个左栏入口都落在顶上。
     if (target && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ block: 'start' });
-      const first = target.querySelector && target.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if (first && typeof first.focus === 'function') { try { first.focus({ preventScroll: true }); } catch { /* ignore */ } }
+      // 只挑可用且看得见的控件（加载中的下拉是 disabled，focus() 落空，焦点就又被 openModal 拽回页首）；
+      // 一个都没有就把焦点落在段落本身（tabindex=-1，只作程序性落点，Tab 走不到）。
+      const candidates = target.querySelectorAll ? [...target.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')] : [];
+      const first = candidates.find(node => !node.disabled && node.offsetParent !== null);
+      if (!first && typeof target.setAttribute === 'function' && !target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+      const landing = first || target;
+      if (typeof landing.focus === 'function') { try { landing.focus({ preventScroll: true }); } catch { /* ignore */ } }
     }
     return section || '';
   }

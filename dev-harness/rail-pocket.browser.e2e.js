@@ -378,6 +378,12 @@ try {
     if (!node) return null;
     node.click();
     await new Promise(r => setTimeout(r, 120));
+    // 慢机器上弹层开合与状态刷新都可能晚几拍：最多再等 1.5 s，等三段之一真的落到位（体检那一条不开管家页，不等）。
+    const landedAny = () => ['cfgStewardGroupSchedule', 'cfgStewardGroupMemory', 'cfgStewardGroupDecisions'].some(id => {
+      const g = document.getElementById(id); if (!g) return false; const r = g.getBoundingClientRect();
+      return r.top >= 0 && (r.top < innerHeight * 0.6 || r.bottom <= innerHeight) && g.contains(document.activeElement);
+    });
+    if (${JSON.stringify(id)} !== 'doctor') for (let i = 0; i < 15 && !landedAny(); i++) await new Promise(r => setTimeout(r, 100));
     const modal = document.getElementById('settingsModal');
     const tab = document.querySelector('#settingsTabs button[data-stab="steward"]');
     const doctorTab = document.querySelector('#settingsTabs button[data-stab="doctor"]');
@@ -447,9 +453,9 @@ try {
   const proTabs = await cdp.evaluate(rowsOfTabs);
   ok(Boolean(proTabs) && proTabs.visible === 7 && proTabs.rows <= 2,
     `F1 专家档：右栏 ${proTabs && proTabs.width}px 里七枚页签 ${proTabs && proTabs.rows} 行（§13.13 K8 登记②：折三行归本刀；判据 ≤2）`);
-  await cdp.evaluate(`(() => { document.documentElement.setAttribute('data-ui-mode', 'simple'); return true; })()`);
-  await sleep(120);
-  const simpleTabs = await cdp.evaluate(rowsOfTabs);
+  // 设属性与量放在同一次同步求值里：分两拍的话，应用自己的状态刷新（applyUiMode 按配置写回 pro）可能恰好落在
+  // 中间，量到的就是专家档的 7 枚（CI 上实测过一次「看得见的 7 枚」）。
+  const simpleTabs = await cdp.evaluate(`(() => { document.documentElement.setAttribute('data-ui-mode', 'simple'); return ${rowsOfTabs}; })()`);
   ok(Boolean(simpleTabs) && simpleTabs.visible === 5 && simpleTabs.rows <= 2,
     `F2 精简档：看得见的 ${simpleTabs && simpleTabs.visible} 枚排 ${simpleTabs && simpleTabs.rows} 行（判据 ≤2）`);
   await cdp.evaluate(`(() => { document.documentElement.setAttribute('data-ui-mode', 'pro'); return true; })()`);
