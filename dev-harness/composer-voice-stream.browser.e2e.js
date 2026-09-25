@@ -27,18 +27,19 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 const FAKE_STREAM = `
 const http = require('http'), crypto = require('crypto');
 const port = Number(process.env.FAKE_STREAM_PORT || 0);
-const sessions = new Map(); let deleted = 0;
+const sessions = new Map(); let deleted = 0, lastChunks = 0, hold = false;
 http.createServer((req, res) => {
   const j = (code, body) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(body === undefined ? '' : JSON.stringify(body)); };
-  if (req.url === '/health') return j(200, { ok: true, component: 'fake-stream-component', version: '0.0.1', loaded: true, sessions: sessions.size, deleted });
+  if (req.url === '/hold') { hold = true; return j(200, { hold }); }   // 测试点「结束」前叫停收口：尾句只由 finish 给出
+  if (req.url === '/health') return j(200, { ok: true, component: 'fake-stream-component', version: '0.0.1', loaded: true, sessions: sessions.size, deleted, chunks: lastChunks });
   const m = req.url.match(/^\\/v1\\/stream\\/sessions(?:\\/([0-9a-f]{32})(?:\\/(audio|finish))?)?$/);
   if (!m) return j(404, { error: { message: 'no', type: 'not_found' } });
   let chunks = []; req.on('data', c => chunks.push(c)); req.on('end', () => {
     const body = Buffer.concat(chunks);
-    if (req.method === 'POST' && !m[1]) { const id = crypto.randomBytes(16).toString('hex'); sessions.set(id, { bytes: 0, chunks: 0, finals: 0, lastEnd: 0 }); return j(200, { id, sampleRate: 16000 }); }
+    if (req.method === 'POST' && !m[1]) { const id = crypto.randomBytes(16).toString('hex'); sessions.set(id, { bytes: 0, chunks: 0, finals: 0, lastEnd: 0 }); hold = false; return j(200, { id, sampleRate: 16000 }); }
     const s = sessions.get(m[1]); if (!s) return j(404, { error: { message: 'unknown', type: 'unknown_session' } });
     if (req.method === 'DELETE') { sessions.delete(m[1]); deleted += 1; res.writeHead(204); return res.end(); }
-    if (m[2] === 'audio') { s.bytes += body.length; s.chunks += 1; const finals = []; if (s.chunks % 3 === 0) { s.finals += 1; finals.push({ text: '句' + s.finals, startMs: s.lastEnd, endMs: Math.round(s.bytes / 32) }); s.lastEnd = Math.round(s.bytes / 32); } return j(200, { partial: 'p' + s.bytes, finals }); }
+    if (m[2] === 'audio') { s.bytes += body.length; s.chunks += 1; lastChunks = s.chunks; const finals = []; if (!hold && s.chunks % 3 === 0) { s.finals += 1; finals.push({ text: '句' + s.finals, startMs: s.lastEnd, endMs: Math.round(s.bytes / 32) }); s.lastEnd = Math.round(s.bytes / 32); } return j(200, { partial: 'p' + s.bytes, finals }); }
     if (m[2] === 'finish') { sessions.delete(m[1]); return j(200, { finals: [{ text: '尾句', startMs: s.lastEnd, endMs: Math.round(s.bytes / 32) }] }); }
     j(404, { error: { message: 'no', type: 'not_found' } });
   });
@@ -137,6 +138,19 @@ http.createServer((req, res) => {
     const WAIT_VALUE = re => `(() => { const box = document.getElementById('promptInput'); return ${re}.test(box.value) ? box.value : null; })()`;
     const WAIT_STATE = wanted => `(() => { const b = document.getElementById('composerVoiceBtn'); return b && b.dataset.state === ${JSON.stringify(wanted)} ? b.dataset.state : null; })()`;
     const VALUE = `document.getElementById('promptInput').value`;
+    // 点「结束」的时机：尾句要 ≥ 300 ms 音频才跑第二遍（COMPOSER_VOICE_CORRECT_MIN_MS）。假组件每 3 块（750 ms）收口一句；
+    // 以前按「看到定稿后 300 ms」/「固定 1.8 s」点，Windows CI 上尾巴落在 300 ms 线附近（或结束那一块正好凑满 3 块又收口一句、
+    // 尾巴为 0），尾句时有时无第二遍。现在：等到收口后至少又送了 1 块（尾巴 ≥ 250 ms），叫假组件停止收口（/hold），
+    // 再过 150 ms 点 —— 尾句 ≥ 400 ms、且只由 finish 给出。判据一字不改。
+    const waitTailWindow = async () => {
+      for (let i = 0; i < 200; i++) {
+        const h = await request(streamPort, 'GET', '/health');
+        if (h && h.json && h.json.chunks % 3 === 1) break;
+        await sleep(20);
+      }
+      await request(streamPort, 'POST', '/hold');
+      await sleep(150);
+    };
     const clickMic = () => fx.evaluate(`(document.getElementById('composerVoiceBtn').click(), true)`);
 
     await fx.evaluate(`(document.querySelector('#lensSeg [data-lens="classic"]') || { click() {} }).click(), true`);
@@ -157,7 +171,7 @@ http.createServer((req, res) => {
     // 在「一句刚定稿、下一句的临时文字刚出现」之后约 300 ms 点结束:尾巴那一句约 550–650 ms 音频 —— 够第二遍跑(≥ 300 ms),
     // 又赶在假组件下一次收口(每 3 块 = 750 ms)之前,所以 finish 收到的尾句一定有音频可校正。
     ok(Boolean(await fx.waitForEval(WAIT_VALUE('/(句\\d+|bytes=\\d+) ?p\\d+后缀$/'), 300)), 'B3b 下一句的临时文字接在定稿句后面');
-    await sleep(300);
+    await waitTailWindow();
     await clickMic();
     const done = await fx.waitForEval(`(() => { const b = document.getElementById('composerVoiceBtn'); const box = document.getElementById('promptInput'); return b.dataset.state === 'idle' && !/p\\d+/.test(box.value) ? box.value : null; })()`, 400);
     // 尾句的第二遍在 Windows CI 上实测过 1.5 s 还没落地（值里还是「尾句」）：先等它真的落地再判，
@@ -185,6 +199,7 @@ http.createServer((req, res) => {
     ok(Boolean(firstFinal), `C1 第一句已定稿并被换成回显(实得 ${JSON.stringify(firstFinal)})`);
     await fx.evaluate(`(() => { const box = document.getElementById('promptInput'); box.value = box.value.replace('[fake-asr]', '[FAKE-asr]'); box.setSelectionRange(box.value.length, box.value.length); box.dispatchEvent(new Event('input', { bubbles: true })); return box.value; })()`);
     await sleep(1800);
+    await waitTailWindow();
     await clickMic();
     await fx.waitForEval(WAIT_STATE('idle'), 400);
     // 与 B4 同一种等法：等尾句的第二遍真的落地（值里不再有占位/临时文字），而不是赌固定 1.5 s ——
