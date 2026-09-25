@@ -16,8 +16,10 @@ offline_wheels/
 /mcp/ai-computer-control/build/
 /mcp/ai-computer-control/build_offline/
 
-# Tooling / local state
-.claude/
+# Tooling / local state(云端会话钩子与共享设置入库,其余本地状态照旧忽略)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 
 # Local campaign drafts and generated marketing assets
 /docs/marketing/

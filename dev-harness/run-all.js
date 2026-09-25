@@ -23,6 +23,16 @@ const os = require('os');
 const { pruneStaleFixtureDirs } = require('./lib/temp-janitor'); // 129i:夹具残留的扫地工(判据与纪律都在那个文件里)
 
 const HARNESS = __dirname;
+// 非 Windows 下各件 detached 自成进程组,终端的 Ctrl-C 不再自动传到它们 —— 自己转发,免得中断后留一地服务。
+const LIVE_GROUPS = new Set();
+if (process.platform !== 'win32') {
+  for (const sig of ['SIGINT', 'SIGTERM']) {
+    process.once(sig, () => {
+      for (const pgid of LIVE_GROUPS) { try { process.kill(-pgid, 'SIGKILL'); } catch { /* 已退 */ } }
+      process.exit(130);
+    });
+  }
+}
 const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 ~15s,留 8x 余量
 // Wall-clock performance gates measure the product, not contention from three unrelated Edge/server
 // tests. They still belong to the complete suite, but run alone after parallel functional buckets.
@@ -287,7 +297,11 @@ function runOne(file) {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: childEnv,
+      // 非 Windows:每件自成一个进程组。件退出后组里还活着的(没收干净的 server.js/假组件)按组一把收掉,
+      // 不然它们挂到 init 下成孤儿,越积越多、抢 CPU 与端口(Linux 容器一次全量曾留下 ~55 个)。
+      detached: process.platform !== 'win32',
     });
+    if (process.platform !== 'win32' && child.pid) LIVE_GROUPS.add(child.pid);
     let stdout = '', stderr = '', timedOut = false;
     child.stdout.on('data', d => (stdout += d));
     child.stderr.on('data', d => (stderr += d));
@@ -304,6 +318,10 @@ function runOne(file) {
     }, timeoutFor(file));
     child.on('close', code => {
       clearTimeout(timer);
+      if (process.platform !== 'win32') {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* 组里已经没人了 */ }
+        LIVE_GROUPS.delete(child.pid);
+      }
       // Edge utility processes can escape the child tree. Reap them before the next case, otherwise a long
       // serial run eventually exhausts process and handle resources.
       // 107-F9b: reap ONLY this case's scope. The unscoped form matched every Ruyi test browser on the
