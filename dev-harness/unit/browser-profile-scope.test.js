@@ -148,6 +148,52 @@ describe('测试浏览器 profile 范围（107-F9b）', () => {
     assert.ok(perCase.length >= 1, '每件收尾按本件的根收尸（reapBrowserScope(browserScope, stopRuyiTestBrowsers)）');
     assert.ok(/\['--require', FIXTURE_GUARD, \.\.\.scopeArgs, full\]/.test(src), '开浏览器的件以 --require 装上 browser-profile-scope');
   });
+
+  it('G 拉起测试浏览器时家目录四个变量还原成真机的（纯函数：只认带 --user-data-dir 的调用，options 位置认不准就不改）', () => {
+    const { withRealHomeEnv } = scopeLib;
+    const env = { USERPROFILE: 'C:/fake', HOME: 'C:/fake', LOCALAPPDATA: 'C:/fakeL', APPDATA: 'C:/fakeR', PATH: 'p',
+      RUYI_REAL_HOME: 'C:/Users/me', RUYI_REAL_LOCALAPPDATA: 'C:/Users/me/AppData/Local', RUYI_REAL_APPDATA: 'C:/Users/me/AppData/Roaming' };
+    const real = { USERPROFILE: 'C:/Users/me', HOME: 'C:/Users/me', LOCALAPPDATA: 'C:/Users/me/AppData/Local', APPDATA: 'C:/Users/me/AppData/Roaming' };
+    const browserArgs = ['--headless=new', '--user-data-dir=C:/tmp/scope/p', 'http://127.0.0.1:1/'];
+    const a = withRealHomeEnv('spawn', ['msedge.exe', browserArgs, { windowsHide: true, stdio: 'ignore' }], env);
+    assert.equal(a[2].windowsHide, true, '原有 options 保留');
+    for (const k of Object.keys(real)) assert.equal(a[2].env[k], real[k], `${k} 还原成真机的`);
+    assert.equal(a[2].env.PATH, 'p', '其余环境原样继承');
+    const withData = withRealHomeEnv('spawn', ['msedge.exe', browserArgs, { env: { ...env, RUYI_HOME: 'C:/fake/.ruyi', WIN_CLAUDE_WORKBENCH_HOME: 'C:/fake/.w' } }], env);
+    assert.ok(!('RUYI_HOME' in withData[2].env) && !('WIN_CLAUDE_WORKBENCH_HOME' in withData[2].env),
+      '浏览器环境里去掉如意的数据家变量（否则 fixture-home-guard 会把「带 RUYI_HOME 却是真机家」拦下）');
+    const b = withRealHomeEnv('spawn', ['msedge.exe', browserArgs], env);
+    assert.equal(b[2].env.USERPROFILE, 'C:/Users/me', '没给 options 时补一个');
+    const cb = () => {};
+    const c = withRealHomeEnv('execFile', ['msedge.exe', browserArgs, cb], env);
+    assert.equal(c[2].env.APPDATA, 'C:/Users/me/AppData/Roaming', '回调前插入 options');
+    assert.equal(c[3], cb, '回调原样留在最后');
+    const d = withRealHomeEnv('exec', ['"msedge.exe" --user-data-dir="C:/tmp/scope/p"', { cwd: 'x' }], env);
+    assert.equal(d[1].cwd, 'x', 'exec 形态的 options 在第二个实参');
+    assert.equal(d[1].env.HOME, 'C:/Users/me');
+    const plain = ['node', ['-e', '1'], { env: { USERPROFILE: 'C:/fake' } }];
+    assert.equal(withRealHomeEnv('spawn', plain, env), plain, '不是拉浏览器（没有 --user-data-dir）一律不动');
+    const noReal = { USERPROFILE: 'C:/fake' };
+    const e = ['msedge.exe', browserArgs, {}];
+    assert.equal(withRealHomeEnv('spawn', e, noReal), e, '没有 RUYI_REAL_* 可还原（直跑/旧 run-all）就不动');
+  });
+
+  it('H 装上范围的夹具里：带 --user-data-dir 的子进程看见真机家，普通子进程仍是假家', () => {
+    const scope = createScope(work);
+    const inside = path.join(scope, 'ruyi-x-h', 'profile');
+    const script = `
+      const cp = require('child_process');
+      const show = "process.stdout.write(process.env.USERPROFILE + '|' + process.env.LOCALAPPDATA)";
+      const viaBrowser = cp.spawnSync(process.execPath, ['-e', show, '--', '--user-data-dir=' + process.env.PROBE_PROFILE], { encoding: 'utf8', windowsHide: true }).stdout;
+      const viaPlain = cp.spawnSync(process.execPath, ['-e', show], { encoding: 'utf8', windowsHide: true }).stdout;
+      process.stdout.write('PROBE ' + JSON.stringify({ viaBrowser, viaPlain }) + '\\n');
+    `;
+    const p = probe(script, { scope, extraEnv: { PROBE_PROFILE: inside, USERPROFILE: 'FAKE_HOME', LOCALAPPDATA: 'FAKE_LOCAL', RUYI_HOME: path.join(work, 'fake-ruyi-home'),
+      RUYI_REAL_HOME: 'REAL_HOME_X', RUYI_REAL_LOCALAPPDATA: 'REAL_LOCAL_X' } });
+    assert.ok(p.out, `探针要交回读数（status=${p.status} stderr=${p.stderr.slice(-300)}）`);
+    assert.equal(p.out.viaBrowser, 'REAL_HOME_X|REAL_LOCAL_X', '测试浏览器拿到真机家');
+    assert.equal(p.out.viaPlain, 'FAKE_HOME|FAKE_LOCAL', '夹具起的其它子进程（服务等）照旧是假家');
+  });
 });
 
 process.on('exit', () => { try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* best-effort */ } });
