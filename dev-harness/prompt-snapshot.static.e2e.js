@@ -44,6 +44,9 @@ ok(/tool_search/.test(full) && /按需装载/.test(full), 'L2 工具协议:tool_
 ok(/工具选用优先级/.test(full), 'L2 工具协议:选用优先级(现成工具优先,终端兜底)');
 ok(/上下文节流守则/.test(full) && /600 行/.test(full) && /线性通读/.test(full), 'L2 工具协议:上下文节流守则(分段读+读取预算,防撑爆上下文)');
 ok(/todo_write/.test(full), 'L2 工具协议:todo_write 计划');
+// 138(W9 提示词审查):三处新纪律,钉语义要素(容许润色)。反向已验:HEAD 的旧包对这三条全红。
+ok(/改完用工具核实/.test(full) && /没核实过的不说已完成/.test(full), 'L2 138 工具协议:改完用工具核实、没核实过的不说已完成(此前只有代码任务的 softwareEngineering 包有验证要求)');
+ok(/何时问用户/.test(full) && /能查到的先查/.test(full) && /查两三步/.test(full), 'L2 138 工具协议:何时问(答案会改变做法且现场查不到才问;能查先查,查两三步不成再问)');
 // L3 能力层
 ok(/当前能力/.test(full) && /在线/.test(full) && /有 git/.test(full) && /有 ripgrep/.test(full), 'L3 能力层:网络+git+ripgrep');
 ok(/子代理编排/.test(full) && /orchestrate_agents/.test(full) && /dependsOn/.test(full) && !/spawn_agent/.test(full), 'L3 能力层:子代理编排+dependsOn(orchestrate_agents offered;spawn_agent 已删)');
@@ -204,6 +207,12 @@ ok(!/任务账本/.test(volatileNoMission),
   'V4b 无 mission 账本时易变层无账本层(steward_thread_new 只竖 kind、不建账本,故 mission 层也够不到)');
 ok(!/\$\{|（）/.test(zhPack.answerShape) && !/\$\{/.test(enPack.answerShape),
   'V5 规则是常量文字,不含模板插值(跨进程逐字节恒定,前缀缓存与 budget-guard 的前提)');
+// 138(W9):「只说查证过的事」挂在 answerShape 上 —— 它是每条会话(含 CLI 的 append)都拿得到的唯一常量层;
+// 中英同义,且英文包的 rules / questioning 也同步了(不是只改中文那一份)。反向已验:旧包三条全红。
+ok(/只说查证过的事/.test(zhPack.answerShape) && /Say only what you verified/i.test(enPack.answerShape),
+  'V6 138 answerShape 中英都补了「只说查证过的事」(没跑过的验证不说通过、没做完的不说做完、做不到的直说)');
+ok(/never call unverified work done/i.test(enPack.toolProtocol.rules) && /When to ask the user/i.test(enPack.toolProtocol.questioning),
+  'V6b 138 英文包的 rules(改完核实)与 questioning(何时问)同步改了');
 
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

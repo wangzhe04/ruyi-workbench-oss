@@ -208,8 +208,14 @@ const srv = require(path.join(APP, 'server.js'));
   // 实测),few-shot 对照样例才管得住 —— 三组【好/坏】样例约 +90 tok(zh 879→967 / en 894→1009)。
   // 样例住 stable 不住 rules:它是版本级常量,吃前缀缓存,零每回合成本;rules 闸(860)不动,
   // 「不缓存层不许比缓存层贵」的关系仍在(860 < 1050)。再要加 stable 内容,先压缩,别再把抬闸当默认动作。
+  // 138(W9 提示词审查):1050 → 1250。先压缩了(「职责」那行并进第一句、按钮枚举压短、英文两行各砍一截),
+  // 再加的是【契约 few-shot】:「四个键每次都写全」+「说到做到」+ 一个完整的 JSON 例子 —— 38 号文取证的病根
+  // (快档模型只回 say、一个工具没调却说「已经递过去了」)此前只有服务端兜底,提示词侧一个字都没有。
+  // 例子住 stable 与 136 的口吻样例同一条理由(版本级常量,吃前缀缓存)。实测 zh 1045 / en 1201 tok:中文仍在
+  // 旧闸 1050 内,超的只有英文 —— 3.6 字符/tok 的尺子对英文天然贵三成,同一段话英文比中文多 150 tok 是尺子的
+  // 性质不是内容多。rules 闸 860 不动,关系仍是 860 < 1250。
   const tok = srv.estimateTextTokens;
-  const STABLE_BUDGET_TOKENS = 1050;
+  const STABLE_BUDGET_TOKENS = 1250;
   ok(typeof tok === 'function', '③ 129a 尺子在(estimateTextTokens 已导出;拿不到 = 下面几条在比空气)');
   ok(Math.round(tok('测试')) > 0 && Math.round(tok('abcdefghij')) > 0, '③ 129a 尺子自检:中英文都量得出非零 token');
   ok(Math.round(tok(zh.stable)) <= STABLE_BUDGET_TOKENS,
@@ -227,6 +233,16 @@ const srv = require(path.join(APP, 'server.js'));
     ok(onlyStyle.includes('更活泼') && !onlyStyle.includes('「」'),
       '③ 136 personaBlock 只给口吻时不出空名字引号(两键皆空时 13o 整段不装配)');
   }
+  // ── 138(W9 提示词审查):契约 few-shot 与「说到做到」。钉语义要素不钉整句;反向已验:HEAD 的旧包
+  // (2026-w137-1,scratchpad 里按 git show 导出后直跑同一组正则)四条全红。
+  ok(/四个键每次都写全/.test(zh.stable) && /All four keys every time/i.test(en.stable),
+    '③ 138 中英稳定层都写明「四个键每次都写全」(13o 契约兜底判的正是缺 why,提示词侧同一口径)');
+  ok(/说到做到/.test(zh.stable) && /Words match deeds/i.test(en.stable),
+    '③ 138 中英稳定层都有「说到做到」(say 里的完成时陈述必须有同回合的工具调用或 actions 背书)');
+  ok(/"actions":\[\{"tool":"steward_thread_continue"/.test(zh.stable) && /"actions":\[\{"tool":"steward_thread_continue"/.test(en.stable),
+    '③ 138 两包各带一个完整 JSON 例子,例子的 actions 里真的装着 steward_thread_continue(38 号文那条病的正样本)');
+  ok(!/职责:看\(/.test(zh.stable) && !/^My job:/m.test(en.stable),
+    '③ 138 电报体「职责:看(…)、递(…)」行已并进第一句(提示词自己不再示范填表体)');
   for (const [label, pack] of [['中文', zh], ['英文', en]]) {
     ok(/say/.test(pack.stable) && /acts/.test(pack.stable) && /actions/.test(pack.stable) && /why/.test(pack.stable),
       `③ ${label}稳定层写明四字段输出契约`);
@@ -387,7 +403,9 @@ const srv = require(path.join(APP, 'server.js'));
 {
   // 137 重钉:普通包文字在 137 波有意改动(引擎运行环境说明/代理模式 v2/管家工作区规则)并已 bump;
   // 本条仍钉「管家段不单独 bump 普通包」—— 版本号只随普通包文字变。
-  ok(srv.PROMPT_PACK_VERSION === '2026-w137-1', `④ PROMPT_PACK_VERSION 为 137 波值(管家段不单独 bump 普通包;got ${srv.PROMPT_PACK_VERSION})`);
+  // 138 重钉:W9 提示词审查同时改了普通包(toolProtocol.rules / questioning / onDemand / answerShape)与管家 stable,
+  // 普通包文字变了所以 bump 是对的;钉的口径不变 —— 只改管家段时这个值不许动。
+  ok(srv.PROMPT_PACK_VERSION === '2026-w138-1', `④ PROMPT_PACK_VERSION 为 138 波值(普通包文字随 W9 审查改过;管家段不单独 bump 普通包;got ${srv.PROMPT_PACK_VERSION})`);
   const provider = { id: 'fake', label: 'Fake端点', model: 'fake-model' };
   const tools = [{ function: { name: 'file_read' } }, { function: { name: 'tool_search' } }];
   const stable = srv.buildStableSystemPrompt(provider, 'fake-model', 'C:\\proj', tools, false, {});
