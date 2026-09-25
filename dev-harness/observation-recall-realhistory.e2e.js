@@ -59,6 +59,13 @@ function treeHash(root) {
 }
 
 (async () => {
+  // realhist-fixtures/ 是本机真实会话的只读副本,不随开源仓发布 → 缺失时整件 SKIP 退出 0(不红)。
+  if (!fs.existsSync(FIXTURES)) {
+    console.log('SKIP 全部 realhist-fixtures/checkpoints 不在当前环境(需要外部数据)');
+    fs.rmSync(HOME, { recursive: true, force: true });
+    console.log('\nREAL-HISTORY E2E: SKIP');
+    return;
+  }
   // ═══ [0] 源目录清单(复制前快照) ═══
   const copiedSids = fs.readdirSync(FIXTURES).filter(s => fs.existsSync(path.join(SRC_ROOT, s)));
   const srcBefore = {};

@@ -24,8 +24,8 @@ LANG=zh_CN.UTF-8 RUYI_E2E_BROWSER=/tmp/chromium-ruyi node dev-harness/run-all.js
 
 `RUYI_E2E_BROWSER` 不设时依次找 Edge/Chrome/Chromium 的常见安装位置(见 `lib/browser-path.js`)。
 2026-09 在 4 核 Linux 容器里实测:402 件里 366 过。其余多数是**按设计只在 Windows 成立**的件(PowerShell 会话、
-`.cmd` 启动器、资源管理器、`C:\` 路径、像素基线),外加两件依赖未随开源仓发布的 `realhist-fixtures/`;
-root 身份下「只读文件写不进去」一类断言也不成立。Linux 上的红不等于 Windows 回归,以 Windows CI 为准。
+`.cmd` 启动器、资源管理器、`C:\` 路径、像素基线);root 身份下「只读文件写不进去」一类断言也不成立。
+依赖未随开源仓发布的 `realhist-fixtures/` 的件在夹具缺失时打印 `SKIP` 并退出 0(整件或只跳那一节)。Linux 上的红不等于 Windows 回归,以 Windows CI 为准。
 
 第54波的回合叙事视觉门禁可单独运行 `node dev-harness\dom-screenshot.e2e.js`；它调用系统 Edge/Chrome 截取明暗主题，并与 `visual-baselines/workbench-shell-v2.json` 的低分辨率感知网格比较。只有确认视觉变更是预期行为时才使用 `--update` 更新基线。
 

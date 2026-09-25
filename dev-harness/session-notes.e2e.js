@@ -128,17 +128,21 @@ const SUMMARY_EN = [
   console.log('── [H] 真实历史摘要外置 ──');
   const HIST_SID = 'notes-realhistory';
   const histPath = path.join(HERE, 'realhist-fixtures', 'checkpoints', 'sess_fe3de15dfc3b8354', 'history-25.json.gz');
-  const hist = JSON.parse(zlib.gunzipSync(fs.readFileSync(histPath)).toString('utf8'));
-  const historicalSummary = String(hist[0] && hist[0].content || '').replace(/^\(以下是此前对话的压缩摘要\)\s*/, '');
-  ok(historicalSummary.includes('【已确认的决定】') && historicalSummary.includes('【未完成事项】')
-    && historicalSummary.includes('【关键文件与上下文】'), 'H1 fixture 首条消息是项目真实五节 L2 摘要');
-  srv.maybeWriteSessionNotes({ id: HIST_SID, turnSeq: 25 }, historicalSummary, cfgOn);
-  await new Promise(r => setTimeout(r, 300));
-  const histNotes = await srv.readSessionNotes(HIST_SID);
-  ok(!!histNotes && histNotes.includes('M2 实现') && histNotes.includes('abstainThreshold')
-    && histNotes.includes('14-m2-deterministic-nodes.md'), 'H2 真实摘要的决定/未完成项/关键文件均写入 notes');
-  ok(histNotes && !histNotes.includes('【目标】') && !histNotes.includes('【当前执行状态】'),
-    'H3 真实摘要仍只外置三节，不混入目标/叙事状态');
+  if (!fs.existsSync(histPath)) {
+    console.log('SKIP H1-H3 realhist fixture 不在当前环境(需要外部数据)');
+  } else {
+    const hist = JSON.parse(zlib.gunzipSync(fs.readFileSync(histPath)).toString('utf8'));
+    const historicalSummary = String(hist[0] && hist[0].content || '').replace(/^\(以下是此前对话的压缩摘要\)\s*/, '');
+    ok(historicalSummary.includes('【已确认的决定】') && historicalSummary.includes('【未完成事项】')
+      && historicalSummary.includes('【关键文件与上下文】'), 'H1 fixture 首条消息是项目真实五节 L2 摘要');
+    srv.maybeWriteSessionNotes({ id: HIST_SID, turnSeq: 25 }, historicalSummary, cfgOn);
+    await new Promise(r => setTimeout(r, 300));
+    const histNotes = await srv.readSessionNotes(HIST_SID);
+    ok(!!histNotes && histNotes.includes('M2 实现') && histNotes.includes('abstainThreshold')
+      && histNotes.includes('14-m2-deterministic-nodes.md'), 'H2 真实摘要的决定/未完成项/关键文件均写入 notes');
+    ok(histNotes && !histNotes.includes('【目标】') && !histNotes.includes('【当前执行状态】'),
+      'H3 真实摘要仍只外置三节，不混入目标/叙事状态');
+  }
 
   // ═══ [R] 跨进程:notes 跨重启可读回 ═══
   console.log('── [R] 跨进程读回 ──');

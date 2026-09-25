@@ -41,8 +41,8 @@ node dev-harness/<改动相关>.e2e.js             # 单件:末行 ... E2E: ALL 
   用 `HOME=<临时目录>` 起可避免污染数据目录。页面带 SSE 长连接,Playwright 等 `load` 而不是 `networkidle`。
 - 全量回归:`LANG=zh_CN.UTF-8 node dev-harness/run-all.js --parallel 4`(4 核约 25–30 分钟,放后台跑)。
 - **Linux 上全量不会全绿,这是预期。** 2026-09 实测 402 件约 366 过。剩下的主要是:
-  PowerShell 会话、`.cmd` 启动器、资源管理器、`C:\` 路径、像素基线;`observation-recall-*` 依赖未随开源仓发布的
-  `realhist-fixtures/`;root 身份下「只读文件写不进去」一类断言。**判断回归要和改动前的同环境基线比**,
+  PowerShell 会话、`.cmd` 启动器、资源管理器、`C:\` 路径、像素基线;root 身份下「只读文件写不进去」一类断言。
+  依赖未随开源仓发布的 `realhist-fixtures/` 的件(`observation-recall-*`、`session-notes` 的 [H] 等)缺夹具时 SKIP、不红。**判断回归要和改动前的同环境基线比**,
   不要把这些当成自己改坏的;最终以 Windows CI(`.github/workflows/e2e.yml` 的 `e2e` job)为准。
 - `mcp/ai-computer-control`(ACC)依赖 pywin32/pyautogui 与真桌面,云端装不上、测不了,改它只能靠 Windows CI。
 - 发布打包(`package:offline*`、`build:desktop`)是 PowerShell 脚本,只在 Windows 上跑。
