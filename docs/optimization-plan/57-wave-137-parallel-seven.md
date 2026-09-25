@@ -102,3 +102,11 @@
 - 未扫：桌面/开始菜单快捷方式、定时任务命令、toolbox 登记里的老包路径。
 - 不做：`agent_stop` 工具（后台任务条已能停）；W6 未删的无用 locale 键（减少冲突，后续清）。
 - 3.0 正式版的门（50/55 号文）不因本波改变。
+
+## §7 发布：v3.0.0-preview.2（2026-09-25）
+
+- 用户 2026-09-25「commit push、重新打包、端到端验证、发布 3.0 preview 的 GitHub Release」。经 API 核实 **v3.0.0-preview.1 只推了标签、从没建出 Release**（最新 Release 仍是 v2.6.2）；远端标签不挪动，改发 **v3.0.0-preview.2**，Release 覆盖自 v2.6.2 以来全部变化。
+- 发布提交：版本三角 3.0.0-preview.2、CHANGELOG 新节、README 横幅、`docs/release-notes/v3.0.0-preview.2.md`。`release-dryrun` ALL PASS（212 载荷 sha256 0 差、桌面壳编译）；`--fast` 79/79。
+- 打包（原生 PowerShell）：Slim 78.11 MB；Full 775.52 MB（ACC 17,588 文件完整性全过）。**坑**：Full 带 `-SkipExeBuild` 会少 Ruyi.exe（737 MB），须不带该开关重打。
+- SHA256SUMS：full `286c800ba3f5a68b71c6bd2f4140570856073eb48492b7847873808d8ed6dcee`、slim `911749e4b3c9d15cf335702f349d20b5e760281b6474755716d6a413e2c431d2`（sha256sum -c 过）。
+- 全新目录冒烟（系统 tar.exe 解包；USERPROFILE/HOME/RUYI_HOME 全隔离、随机端口、只停自己的进程；不跑 Start-Workbench.cmd）：slim/full × 自带 node/Ruyi.exe 四种 1.8–3.1 s 起来，版本均为 3.0.0-preview.2，`binaries.rgSource=bundled`。
