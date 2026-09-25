@@ -1335,7 +1335,13 @@ export function createStewardSettingsDomain({
     if (!scheduleLoaded) loadSchedule();
     const targetId = PANEL_SECTIONS[String(section || '')] || '';
     const target = targetId ? byId(targetId) : null;
-    if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' });
+    // 焦点跟到目标段落（preventScroll），openModal 随后那一拍看见焦点已在弹层里就不再抢回页首——
+    // 修前它把焦点给页首第一个控件，滚动随之被拽回「管家总开关」，三个左栏入口都落在顶上。
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'start' });
+      const first = target.querySelector && target.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (first && typeof first.focus === 'function') { try { first.focus({ preventScroll: true }); } catch { /* ignore */ } }
+    }
     return section || '';
   }
 

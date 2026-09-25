@@ -142,15 +142,26 @@ async function selfTest(fx) {
   ok(blind.length === 0, `A0 尺子自检:种下的七条违规逐条被认出(没认出的规则 ${blind.length ? blind.join(' ') : '无'})`);
 }
 
+// 左栏「＋」钮：无障碍名必须包含看得见的那几个字（WCAG 2.5.3）。修前 aria-label 整个换成说明句
+// 「开一条线程，自成一个任务」，用语音控制说「点新线程」点不到。
+async function plusLabelInName(fx, scene) {
+  const r = await fx.evaluate(`(() => { const b = document.getElementById('newSessionBtn'); const l = document.getElementById('newSessionBtnLabel');
+    return b && l ? { visible: l.textContent.trim(), ariaLabel: b.getAttribute('aria-label') } : null; })()`);
+  ok(Boolean(r) && Boolean(r.visible) && (r.ariaLabel == null || r.ariaLabel.includes(r.visible)),
+    `A8 ${scene}:左栏「＋」钮的无障碍名包含可见文字（可见「${r && r.visible}」，aria-label ${JSON.stringify(r && r.ariaLabel)}）`);
+}
+
 async function scenes(fx, mode) {
   await fx.cdp.send('Accessibility.enable');
   await selfTest(fx);
   ok(Boolean(await fx.setLens('steward')), `A0 ${mode}:管家视角`);
   await sleep(400);
   await audit(fx, `${mode}·管家视角`);
+  await plusLabelInName(fx, `${mode}·管家视角`);
   ok(Boolean(await fx.setLens('classic')), `A0 ${mode}:工作台视角`);
   await sleep(400);
   await audit(fx, `${mode}·工作台视角`);
+  await plusLabelInName(fx, `${mode}·工作台视角`);
   await fx.evaluate(`(() => { document.getElementById('appGearBtn').click(); document.getElementById('openSettingsBtn').click(); return true; })()`);
   ok(Boolean(await fx.waitForEval(`(() => !document.getElementById('settingsModal').classList.contains('hidden') ? 1 : null)()`, 100)), `A0 ${mode}:设置弹窗打开`);
   await sleep(300);

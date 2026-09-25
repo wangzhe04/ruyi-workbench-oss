@@ -252,3 +252,23 @@ describe('missionStateSettled —— 收工了没有', () => {
     for (const value of ['', null, undefined, 'DONE', 'finished', 0]) assert.equal(missionStateSettled(value), false);
   });
 });
+
+describe('threadShownTitle —— 看板／抽屉页签上的线程名', () => {
+  it('后端未命名占位换成调用方给的本地化占位（第一回合时左栏曾印出英文 New session）', async () => {
+    const { threadShownTitle } = await loadModule();
+    for (const raw of ['New session', '新会话', 'New chat', '', '   ']) {
+      assert.equal(threadShownTitle({ displayTitle: raw, title: raw, sessionId: 'sess_1' }, '未命名线程'), '未命名线程');
+    }
+  });
+  it('有名字就照原样；displayTitle 优先，缺席回落 title', async () => {
+    const { threadShownTitle } = await loadModule();
+    assert.equal(threadShownTitle({ displayTitle: '一季度销售小结', title: 'New session' }, '未命名线程'), '一季度销售小结');
+    assert.equal(threadShownTitle({ title: '帮我分析 sales.csv' }, '未命名线程'), '帮我分析 sales.csv');
+    assert.equal(threadShownTitle({ displayTitle: 'New session:续', title: 'x' }, '未命名线程'), 'New session:续');
+  });
+  it('没给本地化占位时回落 sessionId；坏入参不抛', async () => {
+    const { threadShownTitle } = await loadModule();
+    assert.equal(threadShownTitle({ title: 'New session', sessionId: 'sess_9' }), 'sess_9');
+    assert.equal(threadShownTitle(null, '未命名线程'), '未命名线程');
+  });
+});
