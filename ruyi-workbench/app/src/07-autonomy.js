@@ -1062,7 +1062,7 @@ function actionTargetMeta(toolName, args) {
   const name = String(toolName || '');
   const pathKey = input.path || input.source || input.destination || input.dest || input.output || input.output_path || input.root || '';
   if (/^(script_run|file_)/.test(name) && pathKey) {
-    return { kind: 'path', basename: path.basename(String(pathKey)) };
+    return { kind: 'path', basename: path.win32.basename(String(pathKey)) }; // win32:模型给的是 Windows 路径,\ 与 / 都认,非 Windows 主机上也只取尾段
   }
   if (name === 'powershell_run') {
     const cmd = String(input.command || '');
@@ -1071,7 +1071,7 @@ function actionTargetMeta(toolName, args) {
   if (/^tool_invoke_/.test(name)) {
     return { kind: 'proxy', basename: String(input.name || '') };
   }
-  return { kind: 'path', basename: pathKey ? path.basename(String(pathKey)) : '' };
+  return { kind: 'path', basename: pathKey ? path.win32.basename(String(pathKey)) : '' };
 }
 
 function buildActionEnvelope(toolName, args, rawArgs) {

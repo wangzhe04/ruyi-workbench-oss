@@ -11,6 +11,22 @@ node dev-harness\openai-engine.e2e.js
 # 每件自成一体:spawn fake-openai/fake-mcp + workbench,断言,taskkill 清理,exit 0=全绿。
 ```
 
+### 在 Linux / 云端容器里跑(非主战场,但可用)
+
+服务端本身在 Linux 上直接起(`node ruyi-workbench/app/server.js serve`),界面可用。回归套件是 Windows 优先的,
+在 Linux 上这样跑能得到最多的有效信号:
+
+```bash
+# 以 root 跑的容器里 Chromium 需要 --no-sandbox;界面断言多为中文,让浏览器与进程都用 zh-CN。
+printf '#!/bin/sh\nexec /path/to/chromium --no-sandbox --lang=zh-CN "$@"\n' > /tmp/chromium-ruyi && chmod +x /tmp/chromium-ruyi
+LANG=zh_CN.UTF-8 RUYI_E2E_BROWSER=/tmp/chromium-ruyi node dev-harness/run-all.js --parallel 4
+```
+
+`RUYI_E2E_BROWSER` 不设时依次找 Edge/Chrome/Chromium 的常见安装位置(见 `lib/browser-path.js`)。
+2026-09 在 4 核 Linux 容器里实测:402 件里 366 过。其余多数是**按设计只在 Windows 成立**的件(PowerShell 会话、
+`.cmd` 启动器、资源管理器、`C:\` 路径、像素基线),外加两件依赖未随开源仓发布的 `realhist-fixtures/`;
+root 身份下「只读文件写不进去」一类断言也不成立。Linux 上的红不等于 Windows 回归,以 Windows CI 为准。
+
 第54波的回合叙事视觉门禁可单独运行 `node dev-harness\dom-screenshot.e2e.js`；它调用系统 Edge/Chrome 截取明暗主题，并与 `visual-baselines/workbench-shell-v2.json` 的低分辨率感知网格比较。只有确认视觉变更是预期行为时才使用 `--update` 更新基线。
 
 运行时优化 shadow 有两层无外部依赖测试：`node dev-harness\runtime-shadow-benchmark.js` 用真实 native catalog 跑基础 60 条工具查询、20 条长 observation 与 30 条失败分类样本；`node dev-harness\runtime-shadow-adversarial.js` 再扩为检索误召回/歧义/typo/顺序确定性/1,000 项 catalog 压测、observation 保护误判/非法 JSON/幂等/5 MiB 载荷，以及写操作 transport ambiguity/指纹碰撞。结果分别写到被 git 忽略的 `dev-harness/ab-results/runtime-shadow-latest.json` 与 `runtime-shadow-adversarial-latest.json`。两件都不代表批准主动检索、主动 observation reducer 或自动重试；后者发现产品阻断项时仍可 exit 0，只有 shadow 行为等价、隐私或 fail-safe 不变量破坏才 exit 非零。F1 真实数据用 `node dev-harness\runtime-failure-report.js <RUYI_HOME>` 按最新分类器版本单独过门；分类器升级时可先运行 `node dev-harness\runtime-failure-replay.js <RUYI_HOME>`，它只输出新旧类别聚合和安全计数，不输出或改写原始工具结果。
