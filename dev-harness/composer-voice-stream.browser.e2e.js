@@ -160,7 +160,10 @@ http.createServer((req, res) => {
     await sleep(300);
     await clickMic();
     const done = await fx.waitForEval(`(() => { const b = document.getElementById('composerVoiceBtn'); const box = document.getElementById('promptInput'); return b.dataset.state === 'idle' && !/p\\d+/.test(box.value) ? box.value : null; })()`, 400);
-    await sleep(1500);   // 第二遍与误触发的发送都会在这一拍里落地
+    // 尾句的第二遍在 Windows CI 上实测过 1.5 s 还没落地（值里还是「尾句」）：先等它真的落地再判，
+    // 判据一字不改；等满仍没落地就按当时的值断言。之后照旧留 1.5 s 给误触发的发送（B7）。
+    await fx.waitForEval(`(() => { const v = document.getElementById('promptInput').value; return /句\\d|尾句|p\\d+/.test(v) ? null : v; })()`, 400);
+    await sleep(1500);   // 误触发的发送（若有）会在这一拍里落地
     const b1 = await fx.evaluate(PROBE);
     const doneValue = await fx.evaluate(VALUE);
     const echoes = (doneValue || '').match(/\[fake-asr\] model=whisper-1/g) || [];
