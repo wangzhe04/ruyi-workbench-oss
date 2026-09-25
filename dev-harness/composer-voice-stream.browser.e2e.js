@@ -184,7 +184,10 @@ http.createServer((req, res) => {
     await sleep(1800);
     await clickMic();
     await fx.waitForEval(WAIT_STATE('idle'), 400);
-    await sleep(1500);
+    // 与 B4 同一种等法：等尾句的第二遍真的落地（值里不再有占位/临时文字），而不是赌固定 1.5 s ——
+    // Windows CI 上实测过一次到点时尾句还是「尾句」。判据一字不改；等满仍没落地就按当时的值断言。
+    await fx.waitForEval(`(() => { const v = document.getElementById('promptInput').value; return /句\\d|尾句|p\\d+/.test(v) ? null : v; })()`, 400);
+    await sleep(300);   // 误触发的第二遍（若有）也在这一拍里落地
     const cValue = await fx.evaluate(VALUE);
     ok(cValue.startsWith('[FAKE-asr]') && !/p\d+/.test(cValue) && !/句\d|尾句/.test(cValue) && (cValue.match(/\[fake-asr\]/g) || []).length >= 1,
       `C2 被用户改过的那一句一个字不动;后面的句子照样接上、照样被第二遍换成回显(每句各管各的段)(实得 ${JSON.stringify(cValue)})`);
