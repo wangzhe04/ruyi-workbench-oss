@@ -650,6 +650,12 @@ try {
     `E1 ≤980 图标栏：四枚按钮与字形还在、短词的盒子 0×0（§7.3；实测 ${JSON.stringify(narrow.map(i => [i.box, i.labelBox]))}）`);
   ok(narrow.every(item => item.title.length > 0),
     'E2 收起字之后可访问名仍在 title 上（图标不作唯一信号，F5a 纪律）');
+  // 走查 #18：图标栏里每一行只剩一颗色点、标题收起 —— 悬停那颗点（行头）要说得出是哪一条。
+  const dots = await cdp.evaluate(`[...document.querySelectorAll('#railList .steward-board-thread-head')]
+    .filter(h => h.getBoundingClientRect().width > 0)
+    .map(h => ({ title: h.title, name: (h.querySelector('.steward-board-thread-title') || {}).textContent || '' }))`);
+  ok(Array.isArray(dots) && dots.length > 0 && dots.every(d => d.title && d.title === d.name),
+    `E3 ≤980 每颗色点悬停都说得出是哪一条（行头 title＝显示名；实测 ${JSON.stringify(dots)}）`);
   await cdp.send('Emulation.clearDeviceMetricsOverride');
   await sleep(250);
 

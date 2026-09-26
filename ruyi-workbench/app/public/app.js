@@ -915,7 +915,7 @@ const {
   updateSkillBadge: () => updateSkillBadge(), updateEngineDependentUI: () => updateEngineDependentUI(),
   renderStaticMessage: (...args) => renderStaticMessage(...args),
   latestUsage: session => latestUsage(session),
-  pickWorkspaceNative: () => pickWorkspaceNative(),
+  pickWorkspaceNative: opts => pickWorkspaceNative(opts), setWorkspace: (dir, opts) => setWorkspace(dir, opts),   // 向导：选不了就手填（走查 #8）
   playbookDisplayName,
   playbookDisplayDescription,
   playbookDisplayUnavailableReason,

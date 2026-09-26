@@ -82,6 +82,9 @@ const STOP = `(() => {
     key: node.id ? '#' + node.id : desc + '@' + [...document.querySelectorAll('*')].indexOf(node),   // 有 id 的按 id 认(重画挪不动它)
     indicator: indicator || 'none',
     inView: b.width > 1 && b.height > 1 && b.bottom > 0 && b.right > 0 && b.top < root.clientHeight && b.left < root.clientWidth,
+    // 取证（Windows CI 上「更多」偶发量成 0 宽、根因未明）：量不到尺寸时把当时的样式与所在行／外框的类名带回来。
+    diag: (b.width > 1 && b.height > 1) ? '' : JSON.stringify({ display: getComputedStyle(node).display, row: (node.closest('.steward-board-thread') || {}).className || '',
+      frame: (document.querySelector('.app-frame') || {}).className || '', hoverNone: matchMedia('(hover: none)').matches, vw: root.clientWidth, rect: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)] }),
     composer: node.id === 'stewardComposerInput',
   };
 })()`;
@@ -131,7 +134,8 @@ async function walk(fx, label) {
   if (weak.length) console.log(`NOTE ${label}:只有底色/字色变化(弱)的站:${weak.map(s => s.desc).join('、')}`);
   ok(stops.length >= 15, `K1a ${label}:Tab 走得出东西(${stops.length} 站)`);
   ok(noIndicator.length === 0, `K1 ${label}:每一站焦点都看得见(看不见的 ${noIndicator.length} 站${noIndicator.length ? ':' + noIndicator.map(s => s.desc).slice(0, 12).join('、') : ''})`);
-  ok(outOfView.length === 0, `K1b ${label}:每一站都在视口里(在外面的 ${outOfView.length} 站${outOfView.length ? ':' + outOfView.map(s => s.desc).slice(0, 8).join('、') : ''})`);
+  for (const s of outOfView) if (s.diag) console.log(`NOTE ${label}:量不到尺寸的一站 ${s.desc} ${s.diag}`);
+  ok(outOfView.length === 0, `K1b ${label}:每一站都在视口里(在外面的 ${outOfView.length} 站${outOfView.length ? ':' + outOfView.map(s => s.desc + (s.diag ? ' ' + s.diag : '')).slice(0, 8).join('、') : ''})`);
   ok(wrapped, `K2 ${label}:Tab 能绕回第一站(没有键盘陷阱;${WALK_MAX} 下内${wrapped ? '' : '没'}绕回)`);
   return stops;
 }

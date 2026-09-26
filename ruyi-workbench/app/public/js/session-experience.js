@@ -8,7 +8,7 @@ import { icon } from './icons.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
 // 118d: registerOnboardingWizard 把本壳持有的唯一实例登记给帮助菜单复用(同 registerHelpViewer 口径)。
-import { createOnboardingWizardDomain, registerOnboardingWizard, shouldShowOnboarding } from './onboarding-wizard.js';
+import { createOnboardingWizardDomain, registerOnboardingWizard, shouldShowOnboarding, providerKeyOptional } from './onboarding-wizard.js';
 // 118a-fix: 应用内手册阅读器。与向导同一口径:模块壳无关,由本壳注入环境依赖后持有唯一实例。
 import { createHelpViewerDomain, registerHelpViewer } from './help-viewer.js';
 // 118b: 体检项的人话映射(纯函数)。首跑卡的「体检摘要」与设置页的体检行读同一张表。
@@ -24,6 +24,7 @@ import {
   weightedMessageTailStart,
 } from './turn-narrative.js';
 import { ARTIFACT_KIND_ICON } from './artifact-changes.js';
+import { confirmDanger } from './confirm-panel.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
@@ -66,6 +67,7 @@ export function createSessionExperienceDomain({
   renderStaticMessage = () => null,
   latestUsage = () => null,
   pickWorkspaceNative = async () => '',
+  setWorkspace = async () => {},
   playbookDisplayName = playbook => String(playbook && playbook.title || ''),
   playbookDisplayDescription = playbook => String(playbook && playbook.desc || ''),
   playbookDisplayUnavailableReason = () => '',
@@ -94,7 +96,8 @@ const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
   getLocale,
   setLocale,
   providerDraftFromPreset,
-  pickWorkspace: () => pickWorkspaceNative(),
+  pickWorkspace: opts => pickWorkspaceNative(opts),
+  setWorkspacePath: dir => setWorkspace(dir, { alsoDefault: true }),
   openSettings: tab => { openModal('settingsModal'); switchSettingsTab(tab || 'basic', true); },
   openPlaybook: playbook => openPlaybookModal(playbook),
   openHelpViewer: (...args) => openHelpViewer(...args), // 118a-fix: 完成页「打开手册」走应用内阅读器
@@ -496,12 +499,15 @@ async function submitGrant(ev) {
 // Renders message.turnSummary (static) or a live turn_summary event: a low-key card listing files changed
 // (path + op) and a command count. When nothing changed AND no commands ran, shows the reassurance line
 // 「本次未改动任何文件」(C5/C6 seed). Returns a DOM node.
+// 撤销一个文件时按它这一轮的 op 选确认说法：新建 → 撤销＝删除；删除 → 撤销＝找回；其余 → 恢复到改动前。
+function revertConfirmName(op) { return op === 'create' ? 'revertFileCreate' : op === 'delete' ? 'revertFileDelete' : 'revertFileModify'; }
 function turnSummaryCard(summary) {
   const s = summary || {};
   const files = Array.isArray(s.filesChanged) ? s.filesChanged : [];
   const commands = Number(s.commands) || 0;
   const turnSeq = Number(s.turnSeq);
-  const hasRevertible = files.some(f => f && f.revertible);
+  const hasRevertible = files.some(f => f && f.revertible && !f.reverted);   // f.reverted：服务端撤销时记在这一轮上（刷新后照实画）
+  const allReverted = files.length > 0 && files.every(f => !f || !f.revertible || f.reverted) && files.some(f => f && f.reverted);
   const card = el('div', 'turn-summary');
   const head = el('div', 'turn-summary-head');
   head.append(el('span', '', t('changes.title')));
@@ -509,8 +515,10 @@ function turnSummaryCard(summary) {
   // there is at least one revertible file AND we know the turnSeq (static or live event both carry it).
   if (hasRevertible && Number.isFinite(turnSeq)) {
     const undoAll = el('button', 'ts-undo-all', t('changes.revertTurn'));
-    undoAll.onclick = () => { if (!confirm(t('changes.revertTurn.confirm'))) return; rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel')); };
+    undoAll.onclick = async () => { if (!await confirmDanger({ name: 'revertTurn' })) return; rollbackTurn(turnSeq, undefined, undoAll, t('changes.turnLabel')); };
     head.append(undoAll);
+  } else if (allReverted) {
+    head.append(el('span', 'ts-undo-all done', t('changes.revert.done')));
   }
   card.append(head);
   const body = el('div', 'turn-summary-body');
@@ -525,9 +533,12 @@ function turnSummaryCard(summary) {
       row.append(el('span', `ts-op ${op}`, opLabel), el('span', 'ts-path', f.path || ''));
       // v0.8-S4b: per-file 「撤销」— rolls back a single entry (turnSeq + entrySeq). Only for revertible
       // files that carry an entrySeq (journal-driven). Non-revertible files show nothing extra.
-      if (f.revertible && Number.isFinite(turnSeq) && Number.isFinite(Number(f.entrySeq))) {
+      if (f.reverted) {
+        row.classList.add('reverted');
+        row.append(el('span', 'ts-undo done', t('changes.revert.done')));
+      } else if (f.revertible && Number.isFinite(turnSeq) && Number.isFinite(Number(f.entrySeq))) {
         const undo = el('button', 'ts-undo', t('changes.revert'));
-        undo.onclick = () => { if (!confirm(t('changes.revert.confirm', { path: f.path || '' }))) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || ''); };
+        undo.onclick = async () => { if (!await confirmDanger({ name: revertConfirmName(op), bodyParams: { path: fileBasename(f.path || '') } })) return; rollbackTurn(turnSeq, Number(f.entrySeq), undo, f.path || ''); };
         row.append(undo);
       }
       body.append(row);
@@ -546,7 +557,7 @@ function turnSummaryCard(summary) {
 // 文件名 + 两个小按钮(打开 / 📂 定位),走 POST /api/file/reveal。无 artifacts → 返回 null(调用处不追加)。
 // 文件名一律 textContent(el 内部)——XSS 红线:artifacts 来自模型/文件系统。
 function turnArtifactChips(summary) {
-  const arts = summary && Array.isArray(summary.artifacts) ? summary.artifacts.filter(a => a && a.path) : [];
+  const arts = summary && Array.isArray(summary.artifacts) ? summary.artifacts.filter(a => a && a.path && !a.reverted) : [];   // 撤掉的新建文件已经不在了
   if (!arts.length) return null;
   const wrap = el('div', 'turn-artifacts');
   // de-dup by path, keep first (newest-in-turn insertion order preserved).
@@ -1604,7 +1615,7 @@ function buildEmptyCTA() {
     }
   } else {
     const p = activeProviderObj();
-    if (p && !(p.apiKey && String(p.apiKey).trim())) {
+    if (p && !(p.apiKey && String(p.apiKey).trim()) && !providerKeyOptional(p)) {   // 本地端点（ollama／lmstudio／127.0.0.1…）本来就不要密钥：不催
       const b = el('button', 'primary empty-cta', t('emptyState.configureProviderKey', { provider: p.label || p.id }));
       b.onclick = () => { openModal('settingsModal'); switchSettingsTab('providers'); };
       return b;

@@ -132,6 +132,13 @@ async function waitFakeDown() { for (let i = 0; i < 50; i++) { if (!await fakeRe
     ok(rb1.reverted.some(r => r.op === 'create'), '(b) reverted list includes the create op');
     const rb1b = (await postJson(WB_PORT, '/api/checkpoints/rollback', { sessionId: sid, turnSeq: 1 }, { 'x-wcw-token': token })).body;
     ok(rb1b.ok === false && rb1b.error?.code === 'api.request_failed' && rb1b.error?.message === 'no entries', '(b) re-rolling turn 1 returns the structured idempotency error');
+    // (b2) 撤销状态落在那一轮的 turnSummary 上：刷新／重开时「本轮变更」卡据此画「已撤销」、产物 chip 不再给已删的新建文件「打开」。
+    const sess1 = (await getJson(WB_PORT, '/api/sessions/' + sid)).body.session;
+    const tsMsg = (sess1.messages || []).find(m => m && m.role === 'assistant' && m.turnSummary && Number(m.turnSummary.turnSeq) === 1);
+    const fcAfter = tsMsg && (tsMsg.turnSummary.filesChanged || []).find(f => f.path === target);
+    ok(fcAfter && fcAfter.reverted === true && typeof fcAfter.revertedAt === 'string', '(b2) persisted turnSummary marks a.txt reverted:true (got ' + JSON.stringify(fcAfter) + ')');
+    const artAfter = tsMsg && (tsMsg.turnSummary.artifacts || []).find(a => a.path === target);
+    ok(!artAfter || artAfter.reverted === true, '(b2) the created-then-reverted artifact is marked reverted (got ' + JSON.stringify(artAfter) + ')');
 
     // ============ (c) turn 2 recreate (v2), turn 3 edit (v3); roll back only turn 3 → v2 restored ============
     // Driven via /api/tools direct calls with an EXPLICIT turnSeq (the spec's "fake-openai + /api/tools 直

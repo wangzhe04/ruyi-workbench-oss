@@ -87,6 +87,12 @@ export const CONFIRM_TEXT = Object.freeze({
     okKey: 'common.confirm',
     cancelKey: 'common.cancel',
   }),
+  // 「本轮变更」的撤销（聊天里那张卡与右栏「变更」页签共用）。修前用浏览器原生 confirm（标题是「127.0.0.1:xxxx 显示」，
+  // 像钓鱼框），且「撤销新建」也写「恢复到改动前的内容」—— 实际是把文件删掉。正文按那条改动的 op 分三种说法。
+  revertTurn: Object.freeze({ titleKey: 'changes.revertTurn.confirmTitle', bodyKey: 'changes.revertTurn.confirm', okKey: 'changes.revertTurn', cancelKey: 'common.cancel' }),
+  revertFileCreate: Object.freeze({ titleKey: 'changes.revert.confirmTitle', bodyKey: 'changes.revert.confirm.create', okKey: 'changes.revert', cancelKey: 'common.cancel' }),
+  revertFileModify: Object.freeze({ titleKey: 'changes.revert.confirmTitle', bodyKey: 'changes.revert.confirm', okKey: 'changes.revert', cancelKey: 'common.cancel' }),
+  revertFileDelete: Object.freeze({ titleKey: 'changes.revert.confirmTitle', bodyKey: 'changes.revert.confirm.delete', okKey: 'changes.revert', cancelKey: 'common.cancel' }),
   // 权限切「全自动」：chips 菜单内与设置页两处共用（那两处保持就地形态，理由见各自文件）。
   permissionAuto: Object.freeze({
     titleKey: 'stewardShell.permission.confirmTitle',

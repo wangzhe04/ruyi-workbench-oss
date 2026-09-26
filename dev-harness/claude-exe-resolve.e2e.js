@@ -28,6 +28,10 @@ function makeNpmLayout(name) {
   fs.writeFileSync(path.join(dir, 'claude.cmd'), '@"%~dp0\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe" %*\r\n');
   const exe = path.join(exeDir, 'claude.exe');
   fs.copyFileSync(process.execPath, exe); // node.exe 副本:`--version` 退出 0,探测通过
+  // 先把这份刚拷出来的 exe 跑一次(宽超时)再交给被测的解析器:Windows 上新落地的 80 MB exe 第一次执行要过一遍
+  // Defender 扫描,并行桶负载高时会超过解析器那一发 --version 的 4 s 上限 → 当成「解析不出」并记进缓存,A1/A5/A6/A7
+  // 连红(PR #4 CI 两跑都是这个样子,master 同一份代码同一镜像是绿的)。本件量的是「shim → 真身」的解析,不是杀毒延迟。
+  if (process.platform === 'win32') { try { cp.spawnSync(exe, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 60000 }); } catch { /* 预热失败就照常交给解析器 */ } }
   return { dir, shim: path.join(dir, 'claude.cmd'), exe };
 }
 const L1 = makeNpmLayout('npm-a');   // 绝对路径解析用

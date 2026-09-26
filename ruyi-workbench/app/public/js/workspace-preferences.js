@@ -164,14 +164,23 @@ async function setWorkspace(dir, { alsoDefault = false } = {}) {
   toast(t('workspace.switch.success', { directory: dir }), 'ok');
 }
 // Native folder dialog → on success, switch the workspace. Shared by the picker popover's 浏览 button.
-async function pickWorkspaceNative() {
+// 返回 { ok, path?, cancelled?, error?, hint? } —— 向导据此就地说清「为什么没弹出来、该怎么办」并露出手填框
+// （走查 #8：修前失败只有一闪而过的 toast，被向导弹层盖着，看起来就是「点了没反应」）。
+async function pickWorkspaceNative({ alsoDefault = false } = {}) {
   toast(t('workspace.picker.opening'), '');
   let r;
   try { r = await api('/api/pick-folder', { method: 'POST', body: '{}' }); }
-  catch (e) { toast(t('workspace.picker.failed', { reason: apiErrText(e) }), 'err'); return; }
-  if (!r || !r.ok) { toast(t('workspace.picker.failed', { reason: `${(r && r.error) || t('common.unknown')}${r && r.hint ? ' (' + r.hint + ')' : ''}` }), 'err'); return; }
-  if (r.cancelled) return; // silent — user backed out
-  if (r.path) await setWorkspace(r.path);
+  catch (e) { toast(t('workspace.picker.failed', { reason: apiErrText(e) }), 'err'); return { ok: false, error: apiErrText(e) }; }
+  if (!r || !r.ok) {
+    // 服务端把错误包成 {code, message} 信封：取人话那一句（修前 toast 里是「[object Object]」）。
+    const raw = r && r.error;
+    const error = typeof raw === 'string' ? raw : (raw && typeof raw.message === 'string' ? raw.message : '');
+    toast(t('workspace.picker.failed', { reason: `${error || t('common.unknown')}${r && r.hint ? ' (' + r.hint + ')' : ''}` }), 'err');
+    return { ok: false, error, hint: String((r && r.hint) || '') };
+  }
+  if (r.cancelled) return { ok: true, cancelled: true }; // silent — user backed out
+  if (r.path) await setWorkspace(r.path, { alsoDefault });
+  return { ok: true, path: r.path || '' };
 }
 // v1.0.2 (G6): 顶栏工作文件夹选择器点击 → 小 popover:「浏览文件夹…」(原生选择器,主力) + 「或粘贴文件夹路径」
 // 输入框(兜底,视觉次要)。粘贴路径:前端仅初查非空 + 看起来是绝对路径,然后走现有 setWorkspace(带 cwd 护栏);

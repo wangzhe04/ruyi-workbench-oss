@@ -204,6 +204,31 @@ async function handleMcpApiRoutes(req, res, pathname) {
   return false;
 }
 
+// 撤销状态落到那一轮的 turnSummary 上（按轮号＋解析后的绝对路径对上）：刷新／重开之后「本轮变更」卡与产物 chip
+// 照实画「已撤销」，不再给一枚点了也撤不动的「撤销」、也不再给一个已经被删掉的新建文件的「打开」。
+// 旁路写入：失败不影响撤销本身（文件已经回滚、索引已经移除），最坏是卡片仍可点、点了回「没有可撤销的改动」。
+async function markTurnSummaryReverted(sessionId, turnSeq, reverted) {
+  const list = (Array.isArray(reverted) ? reverted : []).filter(r => r && r.path);
+  const revertedPaths = new Set(list.map(r => path.resolve(String(r.path))));
+  const removedPaths = new Set(list.filter(r => r.op === 'create').map(r => path.resolve(String(r.path))));   // 撤掉的是「新建」→ 文件已删，产物 chip 不再给「打开」
+  if (!revertedPaths.size || !Number.isFinite(turnSeq)) return;
+  const at = nowIso();
+  await mutateSession(sessionId, fresh => {
+    let touched = false;
+    for (const m of (Array.isArray(fresh.messages) ? fresh.messages : [])) {
+      const ts = m && m.role === 'assistant' && m.turnSummary;
+      if (!ts || Number(ts.turnSeq) !== turnSeq) continue;
+      for (const f of (Array.isArray(ts.filesChanged) ? ts.filesChanged : [])) {
+        if (f && f.path && !f.reverted && revertedPaths.has(path.resolve(String(f.path)))) { f.reverted = true; f.revertedAt = at; touched = true; }
+      }
+      for (const a of (Array.isArray(ts.artifacts) ? ts.artifacts : [])) {
+        if (a && a.path && !a.reverted && removedPaths.has(path.resolve(String(a.path)))) { a.reverted = true; touched = true; }
+      }
+    }
+    return touched ? {} : { abort: true };
+  }, { writer: 'checkpoint_rollback_mark' });
+}
+
 // ── checkpoint·storage 域:/api/storage/policy|clean、/api/checkpoints/rollback、/api/session/rewind ──
 async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/storage/policy') {
@@ -258,6 +283,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
           filesFailed: Array.isArray(rollback.failed) ? rollback.failed.length : 0,
         },
       });
+      await markTurnSummaryReverted(sessionId, Number(body.turnSeq), rollback.reverted).catch(() => {});
     }
     return send(res, json(rollback));
   }

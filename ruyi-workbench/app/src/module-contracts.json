@@ -11383,6 +11383,7 @@
         "handleMcpApiRoutes",
         "handleMigrationApiRoutes",
         "handleSteerApiRoute",
+        "markTurnSummaryReverted",
         "maybeCompressImageAttachment",
         "maybeOcrImageAttachment",
         "maybeTranscribeAudioAttachment",
@@ -11564,6 +11565,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalRollback",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]

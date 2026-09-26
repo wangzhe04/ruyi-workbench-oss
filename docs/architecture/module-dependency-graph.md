@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 55 | 2771 | 2798 | 440 | 68 | 0 | 1 |
+| 55 | 2772 | 2799 | 440 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -50,7 +50,7 @@
 | 32 | `12-tool-dispatch.js` | tools | 33 | 81 | 14 |
 | 33 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 34 | `13-http-router.js` | transport | 65 | 230 | 24 |
-| 35 | `13b-api-domain-routes.js` | transport | 35 | 56 | 7 |
+| 35 | `13b-api-domain-routes.js` | transport | 36 | 57 | 7 |
 | 36 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 37 | `13d-core-domain-routes.js` | transport | 45 | 119 | 14 |
 | 38 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
@@ -299,7 +299,7 @@
 | `13-http-router.js` | `13s-scheduler.js` | forward | `handleSchedulerApiRoutes`, `startScheduler`, `stopScheduler` |
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
-| `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `rewindSession`, `saveSession` |
+| `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
 | `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `ToolboxHooks`, `activeChildren`, `buildMcpConnectorInventory`, `collectBridgedTools`, `getBridgedClient`, `hasPendingQuestionForSession`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `scanMcpSources` |
 | `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `asrFixMessages`, `asrFixModeOf`, `asrFixSanity`, `maskExternalMcpServerForDisplay`, `providerFixCompletion`, `resolveAsrFixProvider`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
