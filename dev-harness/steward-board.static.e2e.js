@@ -329,8 +329,13 @@ ok(JSON.stringify(drawerMod.STEWARD_DRAWER_MOUNTS) === JSON.stringify(['overlay'
   && /drawer\.setMount\('docked'\);/.test(board) && /drawer\.setMount\('overlay'\);/.test(board),
   'E2 「现在这一件」= 同一个抽屉换 docked 挂法（挂法是抽屉导出的冻结枚举）');
 ok(/const host = next === 'docked' \? byId\('stewardFocus'\) : byId\('stewardShell'\);/.test(drawer)
-  && /if \(host && drawer\.parentNode !== host\) host\.appendChild\(drawer\);/.test(drawer),
+  && /if \(host && drawer\.parentNode !== host\) \{/.test(drawer) && /\n      host\.appendChild\(drawer\);\n/.test(drawer),
   'E3 换挂法就是把【同一个】 #stewardDrawer 节点搬到另一个父节点下');
+// 走查续（steward-shell-redesign A0）：搬节点会把抽屉里的焦点丢回 body —— 同一个 steward:focus-thread 里抽屉先聚焦标题、
+// 看板随后 setMount 换挂法。搬之前记住、搬完还回去；E3 因此从「一行 appendChild」重钉成块形。
+ok(/const keep = active && active !== drawer && drawer\.contains\(active\) \? active : null;/.test(drawer)
+  && /keep\.focus\(\{ preventScroll: true \}\)/.test(drawer),
+  'E3b 换挂法前后抽屉里的焦点不丢（搬之前记住、搬完原地还回去、不滚动）');
 // 121-K6b **重钉 E4**（§2.6／§13.7 ③「抽屉内部『关掉』语义」）：两态收成一态 —— docked 是常驻
 // 焦点栏，不存在「关」也就不存在模态；overlay 只剩一种可达情形（窄到右栏摆不下，syncNow 的
 // wideEnough 是唯一那道宽度门），那一态恒是模态。原来 applyModal 里还自己判一次宽度，那是浮层
