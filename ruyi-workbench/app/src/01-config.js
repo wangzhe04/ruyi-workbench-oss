@@ -3397,9 +3397,6 @@ function staticBase() {
   return path.join(__dirname, 'public');
 }
 
-function staticEtag(body) {
-  return '"' + crypto.createHash('sha1').update(body).digest('base64url').slice(0, 27) + '"';
-}
 async function serveStatic(urlPath, req) {
   const base = staticBase();
   const rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
@@ -3422,17 +3419,8 @@ async function serveStatic(urlPath, req) {
     const body = await fsp.readFile(full);
     // v1.0.2 返修二:静态资产此前【零缓存头】—— 浏览器可能沿用缓存的旧 app.js/styles.css,用户换了新包
     // 却仍跑旧前端,一切修复"看起来都没修"(真机反馈坐实的怀疑路径)。产品模型是 overlay 增量更新,
-    // 静态资产必须即时生效。
-    // 体验走查 #22:no-store 虽然即时,却让 Chromium/WebView2 对这 60 多个脚本模块【每次】重传、重新编译
-    // (no-store 的脚本不进 V8 字节码缓存)。改成 no-cache ＋ 内容哈希 ETag:每次加载仍向这里确认一遍(换包
-    // 即生效,语义不变),没变的回 304,浏览器沿用缓存副本与它的字节码缓存。哈希按内容算,overlay 换了同样
-    // 大小、同一秒写下的文件也认得出来。
-    const etag = staticEtag(body);
-    const inm = req && req.headers && req.headers['if-none-match'];
-    if (inm && String(inm).split(',').some(v => v.trim() === etag)) {
-      return { status: 304, headers: { etag, 'cache-control': 'no-cache' }, body: '' };
-    }
-    return { status: 200, headers: { 'content-type': contentTypeFor(full), 'cache-control': 'no-cache', etag }, body };
+    // 静态资产必须即时生效:与 index.html 一致,一律 no-store(本地回环,重取零网络成本)。
+    return { status: 200, headers: { 'content-type': contentTypeFor(full), 'cache-control': 'no-store' }, body };
   } catch {
     return text('Not found', 404);
   }

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 55 | 2779 | 2800 | 440 | 68 | 0 | 1 |
+| 55 | 2778 | 2800 | 440 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -18,7 +18,7 @@
 | 0 | `00-boot.js` | bootstrap | 75 | 7 | 4 |
 | 1 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 2 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
-| 3 | `01-config.js` | foundation | 170 | 39 | 8 |
+| 3 | `01-config.js` | foundation | 169 | 39 | 8 |
 | 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 5 | `02-session-store.js` | foundation | 265 | 47 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 74 | 21 | 5 |

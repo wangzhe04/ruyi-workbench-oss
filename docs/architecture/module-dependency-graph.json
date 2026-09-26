@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 55,
-    "providedSymbols": 2779,
+    "providedSymbols": 2778,
     "requiredSymbols": 2800,
     "edges": 440,
     "forwardEdges": 68,
@@ -388,7 +388,6 @@
         "spawnCmdLineLength",
         "spawnProbeAsync",
         "staticBase",
-        "staticEtag",
         "stewardManagedWorkspaceKey",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
@@ -461,8 +460,7 @@
           ],
           "lines": [
             1633,
-            2782,
-            3401
+            2782
           ]
         },
         {
@@ -569,8 +567,8 @@
             2118,
             2203,
             3320,
-            3419,
-            3422
+            3416,
+            3419
           ]
         },
         {
@@ -727,9 +725,9 @@
             3381,
             3395,
             3397,
+            3403,
             3406,
-            3409,
-            3500
+            3488
           ]
         },
         {
@@ -750,7 +748,7 @@
             3268,
             3285,
             3294,
-            3500
+            3488
           ]
         },
         {
@@ -793,8 +791,8 @@
             1861,
             3336,
             3337,
-            3409,
-            3437
+            3406,
+            3425
           ]
         },
         {
@@ -805,7 +803,7 @@
           ],
           "lines": [
             2647,
-            3459
+            3447
           ]
         },
         {
@@ -827,7 +825,7 @@
             "read"
           ],
           "lines": [
-            3473
+            3461
           ]
         },
         {
@@ -847,7 +845,7 @@
             "call"
           ],
           "lines": [
-            3409
+            3406
           ]
         },
         {

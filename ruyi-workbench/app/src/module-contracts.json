@@ -348,7 +348,6 @@
         "spawnCmdLineLength",
         "spawnProbeAsync",
         "staticBase",
-        "staticEtag",
         "stewardManagedWorkspaceKey",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
