@@ -140,12 +140,23 @@ export function describeHealthItem(item, t) {
   return { label: translate(HEALTH_ID_LABELS[id]), hint, next: nextResolved, severity };
 }
 
-// 摘要红点用的计数。别名项不重复计。
+// 体验走查 #16：【可选组件】没装／没开／缺运行环境是用户的选择（精简包、用不着桌面控制），不是待办 ——
+// 体检页里那一行照旧写「可以更好」，但不进摘要计数，于是左栏「体检」、齿轮「设置」都不再为它常挂一个「1」。
+// 装过、开着却连不上（unreachable）仍是 error，照常计。
+export const HEALTH_OPTIONAL_ABSENT = Object.freeze({
+  'desktop-control': Object.freeze(['not-installed', 'disabled', 'python-missing']),
+});
+function optionalAbsent(item) {
+  const variants = HEALTH_OPTIONAL_ABSENT[item && item.id];
+  return Boolean(variants) && variants.includes(healthVariant(item));
+}
+
+// 摘要红点用的计数。别名项不重复计；可选组件缺席不计（见上）。
 export function summarizeHealth(health) {
   let errors = 0;
   let warnings = 0;
   for (const item of Array.isArray(health) ? health : []) {
-    if (!item || HEALTH_ALIAS_IDS.includes(item.id)) continue;
+    if (!item || HEALTH_ALIAS_IDS.includes(item.id) || optionalAbsent(item)) continue;
     const severity = healthSeverity(item);
     if (severity === 'error') errors += 1;
     else if (severity === 'warn') warnings += 1;

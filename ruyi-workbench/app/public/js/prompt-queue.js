@@ -106,6 +106,7 @@ export function createPromptQueue({
   const timeCells = new Map();   // id -> { row, time }
   let ticker = null, reconcileTimer = null, reconciling = false;
   let lastTypingAt = 0;
+  let lastTypingTarget = null;   // 体验走查 #5：刚打过字的那个框 —— 已经发出去（框空了）就不算「正在打字」
   let lastModalActivityAt = 0;   // 弹窗里的点按／键入:有人在处理就不自动收起
   let lastReconcileAt = 0;
 
@@ -114,7 +115,7 @@ export function createPromptQueue({
   try {
     const markTyping = e => {
       const tag = String(e.target && e.target.tagName || '');
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) lastTypingAt = now();
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) { lastTypingAt = now(); lastTypingTarget = e.target; }
     };
     doc().addEventListener('keydown', markTyping, true);
     doc().addEventListener('input', markTyping, true);
@@ -141,6 +142,15 @@ export function createPromptQueue({
 
   function ordered() { return orderQueue([...items.values()], now()); }
 
+  // 体验走查 #5：修前「2.5 s 内按过键」一律当正在打字 —— 用户刚按回车发出一句话、回合马上来要权限，弹窗要白等
+  // 2.5 s（看起来就是「不弹」）。框里已经空了（发出去了）就不是在打字；框里还有字才让。
+  function fieldHasText(target) {
+    try {
+      if (!target) return false;
+      if (target.isContentEditable) return String(target.textContent || '').trim() !== '';
+      return String(target.value || '').trim() !== '';
+    } catch { return false; }
+  }
   function otherModalOpen() {
     try {
       return [...doc().querySelectorAll('.modal-backdrop')].some(m => !m.classList.contains('hidden') && !m.classList.contains('prompt-queue-modal'));
@@ -237,7 +247,7 @@ export function createPromptQueue({
   function pump() {
     if (active || minimized || !items.size) return;
     if (otherModalOpen()) return;
-    if (now() - lastTypingAt < TYPING_QUIET_MS) return;
+    if (now() - lastTypingAt < TYPING_QUIET_MS && fieldHasText(lastTypingTarget)) return;
     if (composingDraft()) return;
     const head = ordered()[0];
     if (head) openNow(head);

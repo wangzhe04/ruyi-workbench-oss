@@ -107,7 +107,7 @@ const onboardingWizard = registerOnboardingWizard(createOnboardingWizardDomain({
   onFinished: () => applyShellMode('steward'),
 }));
 // 「开始引导」/「重新打开引导」共用的入口。设置页按钮由组合根注入本函数。
-function openOnboardingWizard() { return onboardingWizard.openOnboardingWizard(); }
+function openOnboardingWizard(options) { return onboardingWizard.openOnboardingWizard(options || {}); }   // options.startStep：管家「先接一个模型」卡直达引擎那一步
 function groupKey(iso) {
   const d = new Date(iso); const now = new Date();
   const days = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 86400000);
@@ -1516,7 +1516,9 @@ function buildPlaybookSection() {
   const sec = el('div', 'pb-section');
   sec.appendChild(el('div', 'pb-section-title', t('skills.group.playbooks')));
   const grid = el('div', 'pb-grid');
-  for (const pb of cards) grid.appendChild(buildPlaybookCard(pb));
+  // 体验走查 #19：用不了（需要配置／离线）的卡不隐藏（C2：给一行原因），但排到能用的后面 —— 首屏留给点了就能跑的。
+  const ordered = [...cards.filter(pb => pb.available !== false), ...cards.filter(pb => pb.available === false)];
+  for (const pb of ordered) grid.appendChild(buildPlaybookCard(pb));
   sec.appendChild(grid);
   return sec;
 }

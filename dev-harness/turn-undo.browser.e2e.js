@@ -15,7 +15,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //     点确认 → 文件真的没了、按钮变「已撤销」；
 //   C 刷新页面、重开线程 → 卡片上那一行画「已撤销」（不是可点的按钮）、「撤销整轮」也不再可点、
 //     产物 chip 不再给已经删掉的 report.md 一个「打开」。
-//   E（走查 #9）本机端点（127.0.0.1、没填密钥）时，工作台空状态不再催「填写 … 密钥」。
+//   E（走查 #9）本机端点（127.0.0.1、没填密钥）时，工作台空状态不再催「填写 … 密钥」；
+//   E2（走查 #19）用不了的「一键任务」卡排在能用的后面。
 // 反向验证：把 session-experience.js 里 f.reverted 那一支删掉 → C1 当场红；把 confirmDanger 换回 confirm → B1 红。
 //
 // 判定行：`TURN UNDO BROWSER E2E: ALL PASS`。
@@ -85,6 +86,11 @@ function runTurn(port, token, sessionId, message, cwd) {
     })()`, 300);
     ok(Boolean(empty) && empty.key === '' && !/密钥/.test(empty.cta),
       `E1 本机端点、密钥为空：空状态不催「填写 … 密钥」（实测 ${JSON.stringify(empty)}）`);
+    // E2（走查 #19）：用不了的「一键任务」卡（需要配置／离线）排在能用的后面，不占首屏位置。
+    const cards = await fx.evaluate(`[...document.querySelectorAll('.empty-state .pb-grid .pb-card')].map(c => c.classList.contains('unavailable') ? 0 : 1)`);
+    const firstUnavailable = cards.indexOf(0);
+    ok(cards.length > 0 && (firstUnavailable < 0 || cards.slice(firstUnavailable).every(v => v === 0)),
+      `E2 用不了的一键任务卡都排在能用的后面（实测 ${JSON.stringify(cards)}）`);
     const openThread = () => fx.evaluate(`(() => {
       const item = [...document.querySelectorAll('#railList .steward-board-thread')].find(node => node.textContent.includes(${JSON.stringify(THREAD)}));
       if (!item) return false;

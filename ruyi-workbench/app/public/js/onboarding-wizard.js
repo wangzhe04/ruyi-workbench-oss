@@ -47,6 +47,12 @@ export const LOCAL_MODELS_ANCHOR_KEY = 'help.anchor.localModels';
 
 // True when a blank API key is normal for this preset: any local endpoint (the free-form 'local' choice)
 // plus the two zero-config local presets. Pure, so both shells and the steward can ask the same question.
+// 两个文件夹路径是不是同一个（Windows 不分大小写、尾部斜杠不算）。纯函数，只用于提示，不是安全判据。
+export function sameFolder(a, b) {
+  const norm = p => String(p || '').trim().replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+  return Boolean(norm(a)) && norm(a) === norm(b);
+}
+
 export function presetAllowsEmptyKey(presetId) {
   const id = String(presetId || '');
   return id === 'local' || KEY_OPTIONAL_PRESET_IDS.includes(id);
@@ -132,7 +138,10 @@ export function onboardingStepsFor(config) {
   const c = asObject(config);
   const providers = asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p));   // 自动接入的本地语音识别不是对话引擎:不能让它把「配置引擎」这一步标成已完成
   const engineReady = providers.length > 0 || Boolean(c.claudePath) || Boolean(c.kimiPath);
-  const workspaceReady = asArray(c.recentWorkspaces).length > 0 || Boolean(c.defaultWorkspace);
+  // 走查 #10：defaultWorkspace 永远有值（缺省＝整个用户目录）、permissionMode 缺省就是 'default' —— 拿它们判「做过了」
+  // 等于新装第一秒就把「文件夹」「安全档」画成绿的。改成要有真凭据：选过文件夹（recentWorkspaces）或整套向导走完过。
+  const completed = Boolean(asObject(c.onboarding).completedAt);
+  const workspaceReady = asArray(c.recentWorkspaces).length > 0 || (completed && Boolean(c.defaultWorkspace));
   const doneFlag = {
     language: typeof c.locale === 'string' && c.locale !== '' && c.locale !== 'auto',
     engine: engineReady,
@@ -142,7 +151,7 @@ export function onboardingStepsFor(config) {
     // 有着落（与 engine 同一条判据，不给「留空」硬造一个新字段来记「他真的看过了」）。
     steward: engineReady,
     workspace: workspaceReady,
-    safety: typeof c.permissionMode === 'string' && c.permissionMode !== '',
+    safety: typeof c.permissionMode === 'string' && c.permissionMode !== '' && (completed || c.permissionMode !== 'default'),
     done: Boolean(asObject(c.onboarding).completedAt),
   };
   return ONBOARDING_STEP_IDS.map((id, index) => ({
@@ -427,7 +436,9 @@ export function createOnboardingWizardDomain({
       // Step rail (decorative; the counter carries the same information for screen readers).
       const railItems = ids.map(id => {
         const def = steps.find(s => s.id === id);
-        const dot = el('span', 'onboard-wiz-rail-item' + (id === stepId ? ' current' : '') + (def && def.done ? ' done' : ''), t(STEP_META[id].shortKey));
+        // 走查 #10：只有【这一趟已经走过】且真配好了的步骤才画绿；当前与后面的步骤不预先画成「已完成」。
+        const passed = ids.indexOf(id) < wiz.step;
+        const dot = el('span', 'onboard-wiz-rail-item' + (id === stepId ? ' current' : '') + (passed && def && def.done ? ' done' : ''), t(STEP_META[id].shortKey));
         return dot;
       });
       frame.rail.replaceChildren(...railItems);
@@ -441,10 +452,14 @@ export function createOnboardingWizardDomain({
 
     function buildFoot(stepId) {
       const nodes = [];
-      const skip = el('button', 'ghost onboard-wiz-skip', t('onboarding.wizard.skip'));
-      skip.type = 'button';
-      skip.onclick = () => frame.cancel();
-      nodes.push(skip);
+      // 走查 #10：「退出引导」（整个向导以后再走，设置里能重开）与服务商那一步的「这一步先跳过」分开说；最后一步不再给它。
+      if (stepId !== 'done') {
+        const skip = el('button', 'ghost onboard-wiz-skip', t('onboarding.wizard.skip'));
+        skip.type = 'button';
+        skip.title = t('onboarding.wizard.skipTitle');
+        skip.onclick = () => frame.cancel();
+        nodes.push(skip);
+      }
       nodes.push(el('span', 'onboard-wiz-foot-spacer'));
       if (wiz.step > 0) {
         const back = el('button', 'file-label onboard-wiz-back', t('onboarding.wizard.back'));
@@ -585,7 +600,7 @@ export function createOnboardingWizardDomain({
     /* ③ provider (API key only, advanced folded) */
     function buildProviderStep() {
       const wrap = el('div', 'onboard-wiz-step onboard-wiz-provider');
-      wrap.append(el('h4', 'onboard-wiz-step-title', t('onboarding.wizard.provider.title')));
+      wrap.append(el('h4', 'onboard-wiz-step-title', t(wiz.engineChoice === 'local' ? 'onboarding.wizard.provider.titleLocal' : 'onboarding.wizard.provider.title')));   // 本机服务不要密钥：标题别写「填入 API Key」
       wrap.append(el('p', 'onboard-wiz-step-hint muted', wiz.engineChoice === 'local'
         ? t('onboarding.wizard.provider.localHint')
         : t('onboarding.wizard.provider.hint')));
@@ -872,6 +887,26 @@ export function createOnboardingWizardDomain({
       wrap.append(el('p', 'onboard-wiz-note muted', t('onboarding.wizard.workspace.pathHint')));
       wrap.append(pathRow);
       const current = String(asObject(state.config).defaultWorkspace || '');
+      // 走查 #7：默认工作文件夹就是整个用户目录（读／写／执行全开），而这一步的文案说「AI 只在这个文件夹里干活」。
+      // 醒目提示一句，并给一枚「用一个专用文件夹」：服务端建（或复用）「文档\如意工作区」，再走同一条设默认的路。
+      const home = String(asObject(state.status).homeDir || '');
+      if (home && sameFolder(current, home)) {
+        const warn = el('div', 'onboard-wiz-warn');
+        warn.append(el('p', 'onboard-wiz-note', t('onboarding.wizard.workspace.homeWarning')));
+        const dedicated = el('button', 'primary onboard-wiz-dedicated', t('onboarding.wizard.workspace.useDedicated'));
+        dedicated.type = 'button';
+        dedicated.onclick = async () => {
+          dedicated.disabled = true;
+          try {
+            const r = await api('/api/workspace/dedicated', { method: 'POST', body: '{}' });
+            if (r && r.ok && r.path) await setWorkspacePath(String(r.path));
+            else wiz.workspaceError = String((r && r.error) || t('common.unknown'));
+          } catch (error) { wiz.workspaceError = apiErrText(error); }
+          render();
+        };
+        warn.append(dedicated);
+        wrap.append(warn);
+      }
       wrap.append(el('p', 'onboard-wiz-note muted', current
         ? t('onboarding.wizard.workspace.current', { path: current })
         : t('onboarding.wizard.workspace.none')));

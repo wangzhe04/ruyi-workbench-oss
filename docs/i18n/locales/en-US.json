@@ -636,12 +636,13 @@
   "onboarding.wizard.provider.saveAndNext": "Save and continue",
   "onboarding.wizard.provider.saved": "Saved and set as the active engine: {{name}}",
   "onboarding.wizard.provider.showKey": "Show or hide the key",
-  "onboarding.wizard.provider.skipStep": "Skip for now, configure later in Settings",
+  "onboarding.wizard.provider.skipStep": "Skip this step",
   "onboarding.wizard.provider.test": "Test connection",
   "onboarding.wizard.provider.testSuccess": "Connected. Found {{count}} models; pick one under Advanced.",
   "onboarding.wizard.provider.testSuccessNoModels": "Connected. The endpoint returned no model list, so type a model name under Advanced.",
   "onboarding.wizard.provider.testing": "Testing...",
   "onboarding.wizard.provider.title": "Fill in the API key",
+  "onboarding.wizard.provider.titleLocal": "Connect a local model service",
   "onboarding.wizard.provider.whatNow": "What to do: {{next}}",
   "onboarding.wizard.reopen": "Reopen the setup guide",
   "onboarding.wizard.reopenHint": "Forgot how to configure something? You can walk through the guide again at any time.",
@@ -662,7 +663,8 @@
   "onboarding.wizard.safety.title": "Choose a safety profile",
   "onboarding.wizard.saveFailed": "Could not save: {{reason}}",
   "onboarding.wizard.settingsLabel": "Setup guide",
-  "onboarding.wizard.skip": "Maybe later",
+  "onboarding.wizard.skip": "Exit setup",
+  "onboarding.wizard.skipTitle": "Finish setup another time; you can reopen it any time from Settings › Other",
   "onboarding.wizard.skipped": "Guide skipped. Reopen it any time from Settings and then Basics.",
   "onboarding.wizard.start": "Start the guide",
   "onboarding.wizard.startHint": "Six steps, a few minutes, and you are ready to work. You can leave at any point.",
@@ -699,6 +701,8 @@
   "onboarding.wizard.workspace.current": "Current: {{path}}",
   "onboarding.wizard.workspace.hint": "The AI works only inside this folder, and you can change it at any time.",
   "onboarding.wizard.workspace.none": "No folder chosen yet",
+  "onboarding.wizard.workspace.homeWarning": "Your working folder is your whole user folder, which lets the AI read, change and run commands across far too much. A dedicated folder is safer.",
+  "onboarding.wizard.workspace.useDedicated": "Use a dedicated folder (Documents\\如意工作区)",
   "onboarding.wizard.workspace.pickFailed": "The folder picker couldn't open: {{reason}}. You can paste the folder's full path below instead.",
   "onboarding.wizard.workspace.pathHint": "Or paste the folder's full path (for example D:\\Work\\Reports):",
   "onboarding.wizard.workspace.pathLabel": "Full path of the working folder",
@@ -786,6 +790,17 @@
   "permission.request.intent": "{{engine}} wants to run:",
   "permission.request.title": "Tool permission request · {{engine}}",
   "permission.revertible": "✓ This action can be reverted with one click",
+  "permission.plain.write": "Write the file “{{file}}” ({{lines}} lines)",
+  "permission.plain.edit": "Change part of the file “{{file}}” to:",
+  "permission.plain.delete": "Delete the file “{{file}}”",
+  "permission.plain.move": "Move “{{from}}” to {{to}}",
+  "permission.plain.copy": "Copy “{{from}}” to {{to}}",
+  "permission.plain.command": "Run this command in a terminal:",
+  "permission.plain.script": "Run a {{language}} script:",
+  "permission.plain.download": "Download from {{url}} and save it as “{{file}}”",
+  "permission.plain.onFile": "{{verb}}: “{{file}}”",
+  "permission.plain.more": "…{{count}} more lines",
+  "permission.plain.techDetails": "Technical details",
   "permission.revoke": "Revoke",
   "permission.revoke.failed": "Could not revoke: {{reason}}",
   "permission.revokeAll": "Revoke all grants",
@@ -2083,6 +2098,18 @@
   "narrative.status.paused": "Paused",
   "narrative.status.allowed": "Allowed",
   "narrative.status.denied": "Denied",
+  "narrative.reason.turn.stopped": "The turn was stopped before this was answered",
+  "narrative.reason.turn.disconnected": "The turn ended when the page disconnected, before this was answered",
+  "narrative.reason.turn.ended": "The turn has ended; this no longer needs an answer",
+  "narrative.reason.turn.cancelled": "The turn was cancelled",
+  "narrative.reason.turn.deleted": "The thread was deleted",
+  "narrative.reason.turn.rewind": "The conversation was rewound to before this",
+  "narrative.reason.turn.superseded": "A newer turn took over",
+  "narrative.reason.turn.scheduler_timeout": "The scheduled task hit its time limit and the turn ended",
+  "narrative.reason.turn.steward-stop": "The steward stopped this turn",
+  "narrative.reason.turn.steward-preempt": "The steward gave way to something more urgent",
+  "narrative.reason.sessionEnded": "The thread has ended",
+  "narrative.reason.kimiCancelled": "Kimi cancelled this on its side",
   "narrative.status.approved": "Approved",
   "narrative.status.rejected": "Rejected",
   "narrative.status.answered": "Answered",
@@ -2576,6 +2603,10 @@
   ,"stewardShell.presence.sleeping": "The steward is stopped"
   ,"stewardShell.chat.thinking": "Thinking…"
   ,"stewardShell.chat.greeting": "Welcome back."
+  ,"stewardShell.chat.needModel": "I'm not connected to a model yet, so I can't reply."
+  ,"stewardShell.chat.needModelHow": "Connect one first (about 5 minutes): a local Ollama / LM Studio, or a key for a hosted service. Then just tell me what you need done."
+  ,"stewardShell.chat.connectModel": "Connect a model"
+  ,"stewardShell.chat.engineNeedsOpenAi": "The steward needs an OpenAI-compatible model service to reply; your main model runs through a command-line engine. You can let the steward use the service below on its own."
   ,"stewardShell.chat.digest": "{{count}} things happened while you were away:"
   ,"stewardShell.chat.digestNone": "Nothing new while you were away."
   ,"stewardShell.digest.commitment.upcoming": "Scheduled tasks firing within 24 hours: {{count}}"
@@ -2637,6 +2668,7 @@
   ,"stewardShell.chat.listSeparator": ", "
   ,"stewardShell.chat.openSettings": "Open settings"
   ,"stewardShell.compose.placeholder": "Say something to Ruyi"
+  ,"stewardShell.compose.needModel": "Connect a model first so the steward can reply"
   ,"stewardShell.compose.placeholderChange": "Tell me what to change"
   ,"stewardShell.compose.targetLabel": "Hand to"
   ,"stewardShell.compose.targetSteward": "→ Ruyi"

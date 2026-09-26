@@ -581,8 +581,8 @@ function capGapCount(caps) {
   if (!caps) return 0;
   let n = 0;
   if (caps.provider && caps.network && caps.network.online === false) n += 1; // active endpoint unreachable
-  const deskEnabled = !!(state.config && state.config.desktopMcp && state.config.desktopMcp.enabled);
-  if (deskEnabled && caps.desktopMcp && caps.desktopMcp.present === false) n += 1; // desktop bridge configured but absent
+  // 体验走查 #16：桌面控制缺席不再在这里另记一笔 —— 它归体检一处提醒（且可选组件缺席不计，见 health-i18n.js
+  // HEALTH_OPTIONAL_ABSENT）。修前同一件事在「体检」「设置」「能力矩阵」三处各挂一个「1」、颜色还不一样。
   return n;
 }
 function renderCapBadge() {

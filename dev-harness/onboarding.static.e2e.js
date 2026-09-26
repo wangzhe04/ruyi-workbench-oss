@@ -94,7 +94,9 @@ ok(settingsOpsSrc.includes("$('reopenOnboardingBtn')") && settingsOpsSrc.include
 // 注进去的仍然必须是组合根自己那一个 openOnboardingWizard 实例，不是各注一个新的。
 ok(appSrc.includes('openOnboarding: () => openOnboardingWizard()')
   && /^\s*openOnboardingWizard,$/m.test(appSrc)
-  && sessionSrc.includes('function openOnboardingWizard() { return onboardingWizard.openOnboardingWizard(); }'),
+  // 重钉（体验走查 #1）：入口多收一个 options（管家「先接一个模型」卡要直达引擎那一步：{ startStep: 'engine' }），
+  // 仍是同一个实例原样转交 —— 判据要守的「全仓只有这一个」一字没松。
+  && sessionSrc.includes('function openOnboardingWizard(options) { return onboardingWizard.openOnboardingWizard(options || {}); }'),
   'F6 组合根把经典壳导出的那一个向导入口注入设置运维域（全仓只有这一个实例）');
 ok(indexHtml.includes('id="reopenOnboardingBtn"') && indexHtml.includes('data-i18n="onboarding.wizard.reopen"'),
   'F7 index.html 设置基础页含可重开入口且文案走 i18n');

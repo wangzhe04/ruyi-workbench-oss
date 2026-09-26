@@ -14,6 +14,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //      焦点落到手填框上；（Windows 上选择器是真的，这两条只在非 Windows 跑 —— 那里接口必然回 ok:false）
 //   W3 粘贴一个带引号的完整路径、按「用这个文件夹」→ 成为默认工作文件夹（config.defaultWorkspace）、
 //      向导里「当前：…」换成它、那句原因消失。
+//   W4（走查 #7）默认工作文件夹就是整个用户目录时，这一步醒目提示，并给一枚「用一个专用文件夹」—— 点它建出
+//      「如意工作区」并设成默认；
+//   W5（走查 #10）向导走到第二步时，后面那几步（管家／文件夹／安全）不预先画成「已完成」；
+//   W6（走查 #10）最后一步没有「退出引导」；整个向导的退出与服务商那一步的「这一步先跳过」说法分开。
 // 判定行：`ONBOARDING WORKSPACE BROWSER E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
@@ -25,12 +29,24 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 (async () => {
   let fx = null;
   try {
-    fx = await startBrowserFixture({ ok, prefix: 'ruyi-onboard-ws-' });
+    // 不给 defaultWorkspace：服务端缺省就是整个用户目录（夹具里 HOME＝fx.home）—— 与走查 #7 的现场一致。
+    fx = await startBrowserFixture({ ok, prefix: 'ruyi-onboard-ws-', config: { defaultWorkspace: undefined } });
     const target = path.join(fx.root, 'my-folder');
     fs.mkdirSync(target, { recursive: true });
 
     await fx.evaluate(`(document.getElementById('reopenOnboardingBtn').click(), true)`);
     ok(Boolean(await fx.waitForEval(`document.querySelector('.onboard-wiz-next') ? 1 : null`, 200)), 'W0 向导打开了');
+    // W5：先往前走一步（到「引擎」），此刻后面的步骤一格都不许是绿的。
+    await fx.evaluate(`(document.querySelector('.onboard-wiz-next').click(), true)`);
+    await sleep(250);
+    const rail = await fx.evaluate(`(() => {
+      const items = [...document.querySelectorAll('.onboard-wiz-rail-item')];
+      const cur = items.findIndex(n => n.classList.contains('current'));
+      return { cur, doneAhead: items.filter((n, i) => i >= cur && n.classList.contains('done')).map(n => n.textContent),
+        skip: (document.querySelector('.onboard-wiz-skip') || {}).textContent || '' };
+    })()`);
+    ok(rail && rail.cur === 1 && rail.doneAhead.length === 0, `W5 走到第二步时，当前与后面的步骤不预先画成「已完成」（实测 ${JSON.stringify(rail)}）`);
+    ok(rail && rail.skip === '退出引导', `W6a 整个向导的退出叫「退出引导」（实测 ${JSON.stringify(rail && rail.skip)}）`);
     for (let i = 0; i < 8; i++) {
       const at = await fx.evaluate(`Boolean(document.querySelector('.onboard-wiz-workspace'))`);
       if (at) break;
@@ -45,6 +61,20 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       return { input: Boolean(input), label: input ? input.getAttribute('aria-label') : '', use: Boolean(w.querySelector('.onboard-wiz-path-use')) };
     })()`, 200);
     ok(Boolean(step) && step.input && step.use && Boolean(step.label), `W1 这一步常驻一个手填框和「用这个文件夹」（实测 ${JSON.stringify(step)}）`);
+
+    const warn = await fx.evaluate(`(() => {
+      const w = document.querySelector('.onboard-wiz-workspace .onboard-wiz-warn');
+      return w ? { text: w.textContent, btn: Boolean(w.querySelector('.onboard-wiz-dedicated')), dw: window.state.config.defaultWorkspace, home: window.state.status && window.state.status.homeDir } : null;
+    })()`);
+    ok(Boolean(warn) && warn.btn && /整个用户目录/.test(warn.text), `W4 工作文件夹＝整个用户目录：醒目提示并给「用一个专用文件夹」（实测 ${JSON.stringify(warn)}）`);
+    await fx.evaluate(`(document.querySelector('.onboard-wiz-workspace .onboard-wiz-dedicated').click(), true)`);
+    const dedicated = await fx.waitForEval(`(() => {
+      const dw = String(window.state.config.defaultWorkspace || '');
+      return /如意工作区$/.test(dw) && !document.querySelector('.onboard-wiz-workspace .onboard-wiz-warn') ? dw : null;
+    })()`, 300);
+    ok(Boolean(dedicated) && fs.existsSync(dedicated), `W4b 点它：建出「如意工作区」、设成默认、提示消失（实测 ${dedicated}）`);
+    const again = await fx.request('POST', '/api/workspace/dedicated', {});
+    ok(again && again.json && again.json.ok === true && again.json.path === dedicated, `W4c POST /api/workspace/dedicated 再调一次：复用同一个文件夹（实测 ${JSON.stringify(again && again.json)}）`);
 
     if (process.platform !== 'win32') {
       await fx.evaluate(`(document.querySelector('.onboard-wiz-workspace .onboard-wiz-pick').click(), true)`);
@@ -78,6 +108,14 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       if (saved !== target) await sleep(100);
     }
     ok(saved === target, `W3b 落盘：config.json 的 defaultWorkspace 就是它（实测 ${saved}）`);
+    // W6：走到最后一步，那里不再给「退出引导」。
+    for (let i = 0; i < 6; i++) {
+      if (await fx.evaluate(`Boolean(document.querySelector('.onboard-wiz-finish'))`)) break;
+      await fx.evaluate(`((document.querySelector('.onboard-wiz-next') || document.querySelector('.onboard-wiz-skipstep')).click(), true)`);
+      await sleep(250);
+    }
+    const last = await fx.evaluate(`({ finish: Boolean(document.querySelector('.onboard-wiz-finish')), skip: Boolean(document.querySelector('.onboard-wiz-skip')) })`);
+    ok(last.finish && !last.skip, `W6 最后一步只有「完成」，没有「退出引导」（实测 ${JSON.stringify(last)}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;

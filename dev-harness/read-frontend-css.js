@@ -790,7 +790,14 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      (--danger-fg)与手填路径一行(#8)。颜色全走既有 token,零新增动效。
 // 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 5230d0fe…,
 // 与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '5c61b291e6db0a731703e019f03f137a87973c856b00a4af526f21c0dab67088';
+// 体验走查 B 批续钉(前值 5c61b291…＝A 批重钉):零新增、零删除层,只在 `css/components/onboarding.css` 末尾加一条
+//   `.onboard-wiz-warn`(工作文件夹＝整个用户目录时的醒目提示框,#7)。颜色走既有 warn 三件套 token,零新增动效。
+// 算法自证:同上(HEAD 重算 = 5c61b291…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+// 体验走查 D 批续钉(前值 35623679…＝B 批续钉):零新增、零删除层,改两层 ——
+//   ① `css/layout.css`:齿轮菜单里破坏性的「清理历史」前加一道分隔线(`.app-gear-sep`)、危险色(`.gear-danger`)(#21);
+//   ② `css/views/steward-conversation.css`:首跑示例常驻可见边框、字用正文色,长得像按钮(#19)。
+// 算法自证:同上(HEAD 重算 = 35623679…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '79e72661f119fb4156aedfa5883493b0183449d2f3b34155af6038f080676543';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

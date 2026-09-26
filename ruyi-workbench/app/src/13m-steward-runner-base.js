@@ -244,17 +244,17 @@ function stewardResolveRoute(config) {
   if (explicitId) {
     const provider = (cfg.providers || []).find(p => p && p.id === explicitId);
     if (!provider) {
-      return { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家端点 ${explicitId} 不在 Provider 列表里,请到设置里改` };
+      return { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家要用的模型服务「${explicitId}」已经不在了,请到设置 › 管家里重新挑一个` };
     }
     const route = normalizeSessionEngineRoute({ engine: 'openai', providerId: explicitId, model: String(cfg.stewardModel || '').trim() || provider.model || '' });
-    return route ? { ok: true, route } : { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家端点 ${explicitId} 无法解析成 OpenAI 兼容路由` };
+    return route ? { ok: true, route } : { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家要用的模型服务「${explicitId}」不是 OpenAI 兼容的,请到设置 › 管家里换一个` };
   }
   // 跟随主端点。CLI 引擎(Claude / Kimi)在本切片不支持:管家回合的事件流与工具协议要另接一套,
   // 属 116-2。fail-closed 返回稳定信封,而不是悄悄换成别的端点跑起来。
   const route = sessionEngineRouteFromConfig(cfg);
   if (!route || route.engine !== 'openai') {
     const engine = route ? (route.agentCliType || 'claude') : 'none';
-    return { ok: false, error: 'steward.unsupported_engine', engine, message: `管家本版只支持 OpenAI 兼容端点,当前主端点是 ${engine};请在设置里为管家单独指定一个 OpenAI 兼容端点(stewardProviderId)` };
+    return { ok: false, error: 'steward.unsupported_engine', engine, message: (engine === 'none' || !(cfg.providers || []).some(p => p && (!p.type || String(p.type).startsWith('openai')))) ? '还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行)' : `管家要用一个 OpenAI 兼容的模型服务才能回话,现在的主模型走的是命令行引擎(${engine === 'kimi' ? 'Kimi Code' : 'Claude Code'})。请到设置 › 管家里给它单独挑一个` };   // 走查 #1:不出配置键名
   }
   const model = String(cfg.stewardModel || '').trim();
   return { ok: true, route: model ? { ...route, model } : route };

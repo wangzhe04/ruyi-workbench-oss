@@ -199,6 +199,10 @@ const writeConfig = stewardEnabledV1 => fs.writeFileSync(configFile, JSON.string
   defaultWorkspace: ROOT,
   includeWorkbenchMcp: false,
   stewardEnabledV1,
+  // 体验走查 #1 之后：一个模型都没接时管家输入框是置灰的（先接模型才能说话）。本件量的是头像态与输入框的
+  // 交互（F1 要往输入框里打字），所以给一个【不会被真调用】的 OpenAI 兼容端点 —— 本件不发任何一轮回合。
+  activeProvider: 'fake',
+  providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9', apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
 }), 'utf8');
 writeConfig(false);
 

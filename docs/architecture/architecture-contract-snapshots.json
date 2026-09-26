@@ -449,11 +449,11 @@
     ]
   },
   "routing": {
-    "decisionPoints": 150,
+    "decisionPoints": 151,
     "problems": 0,
-    "routeAuthEntries": 136,
-    "routeAuthSha256": "a7544dfeeddc9b3c10c63fca4aefbf0933ca7464874adcc2118a5c4837836474",
-    "runtimeRouteAuthSha256": "cac85006b87a5b4ea79e4543294beddeea6fe664a2669b49f806815559594fb2",
+    "routeAuthEntries": 137,
+    "routeAuthSha256": "a7a70c19dfafcc3681a8d77f18d582d9697f8636e19986dbc1c7461f2654178b",
+    "runtimeRouteAuthSha256": "e626061814d60b8e20f6dd01228b5eb877727285b74144eebe2fffef3956c949",
     "warnings": 0
   },
   "schema": 1

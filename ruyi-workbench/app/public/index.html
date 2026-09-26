@@ -46,7 +46,7 @@
       // 第50波:三态(light/dark/system)—— system 档预绘即按 prefers-color-scheme 解析,防闪。
       (function () {
         try {
-          var t = localStorage.getItem('wcw.theme') || 'dark';
+          var t = localStorage.getItem('wcw.theme') || 'system';   // 体验走查 #17：新装跟随系统
           if (t === 'system') t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
           if (t !== 'light') t = 'dark';
           document.documentElement.setAttribute('data-theme', t);
@@ -155,14 +155,14 @@
                  #uiModeToggle／#capBadge）本来就以 display:none 住在同一个菜单里。于是把三枚
                  载体【显出来】当菜单项用（文案由 navigation-controls.js 的 syncMoreMenuLabels
                  写进各自的 .mm-label），#moreMenuBtn 与 openMoreMenu() 整个退役。
-                 顺序＝设置／帮助／快捷键／清理历史／主题／界面／能力矩阵，每项一枚 role="menuitem"。 -->
+                 顺序＝设置／帮助／快捷键／主题／界面／能力矩阵 ‖ 清理历史（体验走查 #21：破坏性那一项隔开放最后），
+                 每项一枚 role="menuitem"。 -->
             <div id="appGearMenu" class="app-gear-menu" role="menu" hidden>
               <button id="openSettingsBtn" class="ghost btn-ic" data-icon="settings" role="menuitem"><span data-i18n="navigation.settings">设置</span></button>
               <!-- 118d: 常驻帮助入口。聚合使用手册 / 管理员手册 / 重新打开引导 / 查看日志 / 打开数据目录，
                    每一项都是应用内的真动作，不显示任何路径。旁边的 #helpBtn 仍只管快捷键弹层。 -->
               <button id="helpMenuBtn" class="ghost btn-ic" data-icon="ledger" aria-haspopup="menu" role="menuitem" title="帮助" data-i18n-attr="title:help.menu.title"><span data-i18n="help.menu.title">帮助</span></button>
               <button id="helpBtn" class="ghost btn-ic" data-icon="help" role="menuitem" title="快捷键 (?)" aria-label="快捷键" data-i18n-attr="title:navigation.help;aria-label:navigation.help"><span data-i18n="navigation.shortcuts">快捷键</span></button>
-              <button id="bulkCleanupBtn" class="ghost btn-ic" data-icon="trash" role="menuitem"><span data-i18n="session.bulkCleanup">清理历史</span></button>
               <!-- 主题／界面：图标由 applyTheme／applyUiMode 的 iconTextBtn 换（它会清空按钮内容），
                    所以文案不写死在这里，由 syncMoreMenuLabels() 每次补出 .mm-label（见 navigation-controls.js）。 -->
               <button id="themeToggle" class="ghost btn-ic" role="menuitem" title="切换深/浅色" aria-label="切换深/浅色" data-i18n-attr="title:navigation.switchTheme;aria-label:navigation.switchTheme" data-icon="theme"></button>
@@ -176,6 +176,10 @@
                 <span class="mm-label" data-i18n="capability.matrix">能力矩阵</span>
                 <span class="cap-gaps hidden"></span>
               </button>
+              <!-- 体验走查 #21：「清理历史」是破坏性操作，不和「快捷键」「主题」并排 —— 挪到最后、隔一道分隔线、用危险色。
+                   按钮本身（id、i18n、handler）一个没动，只换了位置。 -->
+              <hr class="app-gear-sep" role="separator">
+              <button id="bulkCleanupBtn" class="ghost btn-ic gear-danger" data-icon="trash" role="menuitem"><span data-i18n="session.bulkCleanup">清理历史</span></button>
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@
 // EC-D：动态模态、AskUser、权限确认、计划决策与工作流事件卡领域。
 import { state } from './state.js';
 import { api } from './net.js';
-import { $, el, toast } from './util.js';
+import { $, el, toast, fileBasename } from './util.js';
 import { icon } from './icons.js';
 import { t } from './i18n.js';
 // 32 号文 §4（M2-a）：模态原语（背影／焦点陷阱／焦点归还／__cancel）落在叶子 js/modal.js，
@@ -369,6 +369,24 @@ function handlePermissionRequest(evt, streamSessionId) {
 // 事件流里看到了结果(permission_decision / question_answer):不论是谁、在哪儿决定的,出队。
 function settlePrompt(id) { promptQueue.settle(id); }
 
+// 体验走查 #12：修前弹窗正文是「file_write」＋ 整段 JSON 参数（右侧还被截断）—— 那是给程序员看的。先用一句人话说清
+// 「要干什么、对哪个文件」，要写入的内容给个预览；原始工具名与 JSON 收进「技术详情」（精简档默认收起，专业档默认展开）。
+// 只认得的几种给人话；认不出的回 null，正文照旧只有人话动词＋技术详情（不编造）。
+const PERMISSION_PREVIEW_MAX_LINES = 12;
+function permissionPlainSummary(tool, input) {
+  const i = input && typeof input === 'object' ? input : {};
+  const file = p => fileBasename(String(p || '')) || String(p || '');
+  const lineCount = text => { const v = String(text ?? '').replace(/\r?\n$/, ''); return v ? v.split(/\r?\n/).length : 0; };   // 末尾那个换行不算一行
+  if (tool === 'file_write' && i.path) return { text: t('permission.plain.write', { file: file(i.path), lines: lineCount(i.content) }), preview: String(i.content ?? '') };
+  if (tool === 'file_edit' && i.path) return { text: t('permission.plain.edit', { file: file(i.path) }), preview: i.newText != null ? String(i.newText) : '' };
+  if (tool === 'file_delete' && i.path) return { text: t('permission.plain.delete', { file: file(i.path) }), preview: '' };
+  if ((tool === 'file_move' || tool === 'file_copy') && (i.from || i.to)) return { text: t(tool === 'file_move' ? 'permission.plain.move' : 'permission.plain.copy', { from: file(i.from), to: String(i.to || '') }), preview: '' };
+  if (tool === 'powershell_run' && i.command) return { text: t('permission.plain.command'), preview: String(i.command) };
+  if (tool === 'script_run' && i.code) return { text: t('permission.plain.script', { language: String(i.language || '') }), preview: String(i.code) };
+  if (tool === 'http_download' && i.url) return { text: t('permission.plain.download', { url: String(i.url), file: file(i.dest) }), preview: '' };
+  if (i.path) return { text: t('permission.plain.onFile', { verb: humanizeToolName(tool), file: file(i.path) }), preview: '' };
+  return null;
+}
 function renderPermissionModal(item, ctx) {
   const evt = item.payload;
   const sid = item.sessionId;
@@ -389,15 +407,29 @@ function renderPermissionModal(item, ctx) {
   badge.append(el('span', 'perm-tier-dot'), el('span', '', tierMeta.label));
   titleRow.append(badge);
   body.append(titleRow);
-  body.appendChild(el('div', 's-title perm-rawname', tool));
+  const plain = permissionPlainSummary(tool, evt.input);
+  if (plain) body.appendChild(el('p', 'perm-plain', plain.text));
   // Revertibility line — the decision-moment trust signal (B3). Uses the event's `revertible` field
   // (server truth); the front-end does NOT re-implement the tier→revertible table.
   const revLine = el('div', `perm-revert ${revertible ? 'yes' : 'no'}`,
     revertible ? t('permission.revertible') : t('permission.notRevertible'));
   body.append(revLine);
-  const pre = el('pre'); pre.style.cssText = 'background:var(--code-bg);border-radius:6px;padding:8px;max-height:200px;overflow:auto;font-family:var(--mono);font-size:var(--fs-sm)';
+  const preStyle = 'background:var(--code-bg);border-radius:6px;padding:8px;max-height:200px;overflow:auto;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre-wrap;word-break:break-word';
+  if (plain && plain.preview) {
+    const lines = plain.preview.split(/\r?\n/);
+    const preview = el('pre', 'perm-preview'); preview.style.cssText = preStyle;
+    preview.textContent = lines.slice(0, PERMISSION_PREVIEW_MAX_LINES).join('\n') + (lines.length > PERMISSION_PREVIEW_MAX_LINES ? '\n' + t('permission.plain.more', { count: lines.length - PERMISSION_PREVIEW_MAX_LINES }) : '');
+    body.appendChild(preview);
+  }
+  const tech = document.createElement('details');
+  tech.className = 'perm-tech';
+  tech.open = document.documentElement.getAttribute('data-ui-mode') === 'pro' && !plain;   // 认得的动作：人话已经说清，技术详情收起
+  tech.appendChild(el('summary', '', t('permission.plain.techDetails')));
+  tech.appendChild(el('div', 's-title perm-rawname', tool));
+  const pre = el('pre'); pre.style.cssText = preStyle;
   pre.textContent = (() => { try { return JSON.stringify(evt.input, null, 2); } catch { return String(evt.input); } })();
-  body.appendChild(pre);
+  tech.appendChild(pre);
+  body.appendChild(tech);
   // "本次会话自动允许" — session-scoped, always available. A secondary "永久" box appears only for
   // read/edit tier (never exec/desktop) → persists into config.toolAllowRules.
   const sessWrap = el('label', 'check');

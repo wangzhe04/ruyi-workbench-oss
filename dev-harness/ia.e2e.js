@@ -127,7 +127,8 @@ const appTopbar = between(html, '<header class="app-topbar" id="appTopbar">', '<
 const gearMenu = between(appTopbar, '<div id="appGearMenu" class="app-gear-menu" role="menu" hidden>', '</div>');
 const gearItemIds = (gearMenu.match(/<button[^>]*\brole="menuitem"[^>]*>/g) || [])
   .map(tag => (tag.match(/ id="([^"]+)"/) || [])[1] || '');
-const GEAR_ITEMS = ['openSettingsBtn', 'helpMenuBtn', 'helpBtn', 'bulkCleanupBtn', 'themeToggle', 'uiModeToggle', 'capBadge'];
+// 重钉（体验走查 #21，用户 2026-09-25「全按你建议的来」）：破坏性的「清理历史」挪到最后、隔一道分隔线；仍是一层七项。
+const GEAR_ITEMS = ['openSettingsBtn', 'helpMenuBtn', 'helpBtn', 'themeToggle', 'uiModeToggle', 'capBadge', 'bulkCleanupBtn'];
 ok(/id="threadChips"/.test(topbar) && /id="stewardShieldBtn"/.test(appTopbar)
   && (html.match(/ id="moreMenuBtn"/g) || []).length === 0
   && (html.match(/ id="threadChips"/g) || []).length === 1

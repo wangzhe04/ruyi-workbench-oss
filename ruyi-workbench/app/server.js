@@ -899,6 +899,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/audio/warmup', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
+  { m: 'POST', p: '/api/workspace/dedicated', auth: 'token' },  // 体验走查 #7:建（或复用）专用工作文件夹「文档\如意工作区」
   { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)
   { m: 'POST', p: '/api/plan/decision', auth: 'token' },
   { m: 'POST', p: '/api/steer', auth: 'token' },
@@ -1252,7 +1253,7 @@ function defaultConfig() {
     allowCommandTools: true,
     allowDesktopTools: true,
     // --- v0.3 additions ---
-    theme: 'dark',
+    theme: 'system',   // 体验走查 #17:新装跟随系统(修前强制深色;存过 dark/light 的老用户不受影响)
     // UI language preference. `auto` is resolved to the browser language on first successful UI boot,
     // then persisted as a concrete supported locale so later launches do not unexpectedly change language.
     locale: 'auto',
@@ -1261,7 +1262,7 @@ function defaultConfig() {
     claudeThinkingEffort: '',     // '' inherits the CLI config; otherwise passed via --effort
     betaInterleavedThinking: false, // adds --betas interleaved-thinking (probe first; may be rejected by older CLI)
     mcpCommandMode: 'auto',       // auto | node | exe — which command the generated MCP config points at
-    killOnDisconnect: true,       // taskkill the claude child when the UI aborts/disconnects
+    killOnDisconnect: false,      // 体验走查 #4:刷新／关窗／断网不再结束回合(待决的权限与提问留在服务端,页面回来接着等;停止走「停止」键)
     killPortOnStart: true,        // on startup, if the port is held by a STALE workbench, free it and retry
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)
@@ -44713,7 +44714,7 @@ async function handleApi(req, res, pathname) {
       configSchema: CONFIG_SCHEMA, // v0.8-S0: surfaced top-level so clients/tests don't dig into config
       overlayId: OVERLAY_ID,
       launchMode: LAUNCH_MODE,
-      dataRoot: paths.data,
+      dataRoot: paths.data, homeDir: os.homedir(),   // homeDir:体验走查 #7,向导据此判「工作文件夹是不是整个用户目录」
       exePath: exePath(),
       // v1.0-S9 exe 改名 Ruyi.exe;双名兼容探测——先探新名,再探旧名(兼容窗口:存量安装/旧 launcher,建议 v2.0 收口)。
       exePresent: fs.existsSync(path.join(externalRoot(), 'Ruyi.exe')) || fs.existsSync(path.join(externalRoot(), 'WinClaudeWorkbench.exe')),
@@ -44841,6 +44842,15 @@ async function handleApi(req, res, pathname) {
   // POST /api/pick-folder — pop the native Windows folder picker (STA WinForms). Token-gated. 120s.
   if (req.method === 'POST' && pathname === '/api/pick-folder') {
     return send(res, json(await DesktopShell.pickFolder()));
+  }
+  // 体验走查 #7: POST /api/workspace/dedicated —— 默认工作文件夹是整个用户目录(读/写/执行全开)时,向导给一枚
+  // 「用一个专用文件夹」:建(已有就复用)「文档\如意工作区」(没有「文档」就放在用户目录下)并回它的路径。
+  // 只建这一个固定名字的目录,不收任何路径参数;设成默认工作区仍走前端既有的 setWorkspace(带护栏)。
+  if (req.method === 'POST' && pathname === '/api/workspace/dedicated') {
+    const docs = path.join(os.homedir(), 'Documents');
+    const dir = path.join(fs.existsSync(docs) ? docs : os.homedir(), '如意工作区');
+    try { await fsp.mkdir(dir, { recursive: true }); } catch (e) { return send(res, json({ ok: false, error: String(e && e.message || e) }, 500)); }
+    return send(res, json({ ok: true, path: dir }));
   }
   // 第53波 EC-B(53d): POST /api/pick-file - 原生文件选择器(OpenFileDialog,选 overlay zip 等)。token 级。
   if (req.method === 'POST' && pathname === '/api/pick-file') {
@@ -56154,17 +56164,17 @@ function stewardResolveRoute(config) {
   if (explicitId) {
     const provider = (cfg.providers || []).find(p => p && p.id === explicitId);
     if (!provider) {
-      return { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家端点 ${explicitId} 不在 Provider 列表里,请到设置里改` };
+      return { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家要用的模型服务「${explicitId}」已经不在了,请到设置 › 管家里重新挑一个` };
     }
     const route = normalizeSessionEngineRoute({ engine: 'openai', providerId: explicitId, model: String(cfg.stewardModel || '').trim() || provider.model || '' });
-    return route ? { ok: true, route } : { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家端点 ${explicitId} 无法解析成 OpenAI 兼容路由` };
+    return route ? { ok: true, route } : { ok: false, error: 'steward.unsupported_engine', engine: explicitId, message: `管家要用的模型服务「${explicitId}」不是 OpenAI 兼容的,请到设置 › 管家里换一个` };
   }
   // 跟随主端点。CLI 引擎(Claude / Kimi)在本切片不支持:管家回合的事件流与工具协议要另接一套,
   // 属 116-2。fail-closed 返回稳定信封,而不是悄悄换成别的端点跑起来。
   const route = sessionEngineRouteFromConfig(cfg);
   if (!route || route.engine !== 'openai') {
     const engine = route ? (route.agentCliType || 'claude') : 'none';
-    return { ok: false, error: 'steward.unsupported_engine', engine, message: `管家本版只支持 OpenAI 兼容端点,当前主端点是 ${engine};请在设置里为管家单独指定一个 OpenAI 兼容端点(stewardProviderId)` };
+    return { ok: false, error: 'steward.unsupported_engine', engine, message: (engine === 'none' || !(cfg.providers || []).some(p => p && (!p.type || String(p.type).startsWith('openai')))) ? '还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行)' : `管家要用一个 OpenAI 兼容的模型服务才能回话,现在的主模型走的是命令行引擎(${engine === 'kimi' ? 'Kimi Code' : 'Claude Code'})。请到设置 › 管家里给它单独挑一个` };   // 走查 #1:不出配置键名
   }
   const model = String(cfg.stewardModel || '').trim();
   return { ok: true, route: model ? { ...route, model } : route };

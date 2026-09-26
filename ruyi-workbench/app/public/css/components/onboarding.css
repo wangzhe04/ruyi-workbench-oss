@@ -32,6 +32,7 @@
 .onboard-wiz-error { color: var(--danger-fg); }   /* 选择器没打开：就地说清原因（走查 #8） */
 .onboard-wiz-path { display: flex; gap: var(--sp-2); align-items: center; }
 .onboard-wiz-path-input { flex: 1; min-width: 0; }
+.onboard-wiz-warn { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--warn); border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); }   /* 工作文件夹＝整个用户目录（走查 #7） */
 .onboard-wiz-field { display: flex; flex-direction: column; gap: var(--sp-1); }
 .onboard-wiz-field > label { font-size: var(--fs-sm); color: var(--ink-2); }
 
