@@ -37,7 +37,7 @@ for (const f of files) {
 ok(offenders.length === 0, `① 测试框架里没有一处 taskkill /T 调用(实得 ${offenders.length}${offenders.length ? ':' + offenders.slice(0, 8).join(' ') : ''})`);
 
 const users = files.filter(f => /require\(['"][./]*(?:lib\/)?kill-own-tree['"]\)|require\(['"]\.\.\/lib\/kill-own-tree['"]\)/.test(fs.readFileSync(f, 'utf8')));
-const KILL_OWNERS = 264; // Added mermaid-viewer.browser (reviewed scoped cleanup); 145-W3 added engine-env-runtime (kills only its own two workbenches + fake provider). 137x W5 added rail-tool-height.browser (own killOwnTree cleanup). 137 W1 added agent-mode-v2.e2e. 137 W2 added migration-center.e2e.
+const KILL_OWNERS = 265; // 体验走查 #22 added static-revalidate.e2e (kills only its own serve child). Added mermaid-viewer.browser (reviewed scoped cleanup); 145-W3 added engine-env-runtime (kills only its own two workbenches + fake provider). 137x W5 added rail-tool-height.browser (own killOwnTree cleanup). 137 W1 added agent-mode-v2.e2e. 137 W2 added migration-center.e2e.
 //   // codemod 250 件(含 run-all 的超时收尸)＋ kimi-acp-live-probe(手改)＋ 128e 新件 mcp-resource-config-mask ＋ 128d 公共夹具 lib/browser-fixture ＋ 128f-③ 新件 desktop-probe-status ＋ 128f-⑪ 新件 steward-deferred-permission ＋ 128f-⑬ 新件 cli-probe-stall ＋ 2026-09-21 新件 toolbox-discovery ＋ 134 新件 background-completion ＋ 133f 新件 asr-warmup ＋ 137x 新件 rail-tool-height.browser ＋ 137 新件 agent-mode-v2 ＋ 137 新件 migration-center;unit/kill-own-tree.test.js 走绝对路径不计
 ok(users.length === KILL_OWNERS, `③ 用 killOwnTree 的文件数钉成 ${KILL_OWNERS}(实得 ${users.length});加减件请回来改这个数`);
 const runAll = fs.readFileSync(path.join(HARNESS, 'run-all.js'), 'utf8');
