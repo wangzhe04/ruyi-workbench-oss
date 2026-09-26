@@ -1332,10 +1332,9 @@ export function createStewardSettingsDomain({
     for (const node of tab.querySelectorAll(':scope > .is-only')) node.classList.remove('is-only');
     target.classList.add('is-only');
     tab.dataset.only = section;
-    let bar = byId('stewardOnlyBar');
+    let bar = tab.querySelector(':scope > .steward-only-bar');   // 动态节点:不用字面量 id(dom-contract ① 要求字面量 id 都在 index.html 里)
     if (!bar) {
       bar = el('div', 'steward-only-bar');
-      bar.id = 'stewardOnlyBar';
       tab.insertBefore(bar, tab.firstChild);
     }
     clear(bar);

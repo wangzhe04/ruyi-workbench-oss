@@ -30305,6 +30305,12 @@ function appendAgentRunEvent(run, evt) {
     cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
   } catch { /* 取证辅助,不阻断执行 */ }
 }
+// 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
+// 事件日志里 —— 修前追加链不等,终稿可能先落(autonomy-resume H2 在 Windows CI 上偶发「事件链缺 run_end」)。
+function flushAgentRunEvents(runId) {
+  const chain = agentRunEventChains.get(String(runId || ''));
+  return chain ? chain.catch(() => {}) : Promise.resolve();
+}
 
 // ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
 // 背景(27 号文 §11.6「116b 登记的缺口」):subagent_no_progress / loop_recovery / 节点级工具迭代
@@ -34012,6 +34018,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     run.metrics.failuresByClass[cls] = (run.metrics.failuresByClass[cls] || 0) + 1;
   }
   appendAgentRunEvent(run, { type: 'run_end', data: { status: run.status, failed: failed.length } }); // 25.3(先增 seq 再终稿落盘)
+  await flushAgentRunEvents(run.id);   // run_end 先落,终稿后落:看到终态的读者一定也看得到 run_end
   await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 终稿写失败时结果仍应回给调用方(onComplete/回合),磁盘状态由降级横幅兜底
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
   if (typeof onComplete === 'function') await onComplete(run).catch(() => {});

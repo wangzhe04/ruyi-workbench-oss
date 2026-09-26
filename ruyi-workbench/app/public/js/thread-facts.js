@@ -226,9 +226,12 @@ export function missionStateSettled(value) {
 }
 
 // 走查 #4 收尾：「停下了、没做完」（失败、断开、被叫停）不能再和「今天收工」排在一起 —— 那一组名说的是
-// 「做完了」，用户看一眼就放心走了。与 missionStateSettled 同一处折算，看板照旧零五态字面量。
-export function missionStateUnfinished(value) {
-  return value === 'stopped';
+// 「做完了」，用户看一眼就放心走了。判据【不是】五态里的 stopped：它还包着「有账本、没结章、此刻没在跑」的
+// 闲置线程和事实未知的普通聊天（Windows CI 的 one-workbench-frame G3 抓到：修前「今天跑完的 C」被分进
+// 「今天没做完」）。唯一硬事实是卡片上的最后一回合（13d buildMissionCard 投影的 lastTurn）：失败或被中断。
+export function threadLastTurnFailed(row) {
+  const last = row && row.lastTurn;
+  return Boolean(last && (last.ok === false || last.aborted === true));
 }
 
 // 124 还债④（40 号文 §8.5 ④）：这个函数原住 steward-board.js。走查② 把右栏那一份改成「最近发生的

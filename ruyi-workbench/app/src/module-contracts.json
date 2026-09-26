@@ -5738,6 +5738,7 @@
         "evaluateWorkflowCondition",
         "evidenceDedup",
         "findingHandledItems",
+        "flushAgentRunEvents",
         "formatNodeEvidencePrompt",
         "getAgentWorkflows",
         "getEvidenceSet",
@@ -7640,6 +7641,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "evalWaitCondition",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "flushAgentRunEvents",
           "kinds": [
             "call"
           ]

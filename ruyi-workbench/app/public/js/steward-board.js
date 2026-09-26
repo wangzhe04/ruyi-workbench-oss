@@ -2,7 +2,7 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
-import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, missionStateUnfinished, threadShownTitle } from './thread-facts.js';
+import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -139,10 +139,10 @@ export const RAIL_ASK_PREVIEW_CHARS = 22;
 // 经 13d 投影到行上的 aggregateState），本函数只回答「这个态 ＋ 这个时间 该排进哪一组」。
 //   等你 = needs_you；在跑 = running；排队 = dispatching（还没有任何执行痕迹的那一档）；
 //   其余（done / stopped / quick_ask）按【最后动静是不是今天】分「今天收工」与「更早」。
-// 走查 #4 收尾：今天停下、没做完的那些（失败／断开／被叫停）单列「今天没做完」，排在收工之前 ——
+// 走查 #4 收尾：今天停下、没做完的那些（最后一回合失败／断开／被叫停）单列「今天没做完」，排在收工之前 ——
 // 以前它们混在「今天收工」里，用户以为做完了。仍不自造 failed 态：判据是 thread-facts 的
-// missionStateUnfinished（同一个 stopped 折算），更早的照旧归「更早」。
-export function railGroupFor(aggregateState, updatedAt, now = new Date()) {
+// threadLastTurnFailed（卡片上的最后一回合事实），更早的照旧归「更早」。
+export function railGroupFor(aggregateState, updatedAt, now = new Date(), lastTurnFailed = false) {
   const state = String(aggregateState || '');
   if (state === 'needs_you') return 'needs_you';
   if (state === 'running') return 'running';
@@ -154,7 +154,9 @@ export function railGroupFor(aggregateState, updatedAt, now = new Date()) {
     && at.getMonth() === today.getMonth()
     && at.getDate() === today.getDate();
   if (!sameDay) return 'earlier';
-  return missionStateUnfinished(state) ? 'unfinished' : 'doneToday';
+  // 判据是「这一件里有线程的最后一回合失败／被中断」（调用方按 thread-facts 的 threadLastTurnFailed 逐行判好传进来），
+  // 不是聚合态 stopped —— 那一档还包着聊完了的普通聊天与闲置线程。
+  return lastTurnFailed === true ? 'unfinished' : 'doneToday';
 }
 
 // ── 焦点线程：判据已搬到 thread-facts.js（124 还债④，40 号文 §8.5 ④）──────────
@@ -1162,7 +1164,7 @@ export function createStewardBoard({
     const selected = railSelectedId();
     const buckets = new Map(RAIL_GROUP_KEYS.map(key => [key, []]));
     const now = new Date();
-    for (const group of groups) buckets.get(railGroupFor(group.aggregateState, group.updatedAt, now)).push(group);
+    for (const group of groups) buckets.get(railGroupFor(group.aggregateState, group.updatedAt, now, group.rows.some(threadLastTurnFailed))).push(group);
     let printed = 0;
     for (const key of RAIL_GROUP_KEYS) {
       const list = buckets.get(key);

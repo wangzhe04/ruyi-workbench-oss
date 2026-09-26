@@ -158,6 +158,10 @@ async function walk(fx, label) {
         }
       },
     });
+    // 「更多」偶发 0 宽的根（Windows CI 取证：焦点确实在它上面，所在行却没命中 :focus-within → display:none）：
+    // 页面【没有系统焦点】时 Chromium 不让 :focus／:focus-within 生效，而 CI 上并行开着好几个无头浏览器，窗口焦点会被
+    // 别的件抢走。这里量的是「键盘用户看得见焦点」，前提是页面有焦点 —— 用 CDP 的焦点模拟把这个前提钉住。
+    await fx.cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
     const ev = expr => fx.evaluate(expr);
     const active = () => ev(`(() => { const n = document.activeElement; return n ? (n.id || n.tagName) : ''; })()`);
 

@@ -18,15 +18,19 @@ const today = new Date(2026, 8, 26, 9, 30, 0).toISOString();
 const lastWeek = new Date(2026, 8, 19, 9, 30, 0).toISOString();
 
 describe('railGroupFor —— 今天停下的不再算「今天收工」', () => {
-  it('今天 stopped → 今天没做完；今天 done / quick_ask → 今天收工', async () => {
+  it('今天、且有线程最后一回合失败／中断 → 今天没做完；今天 done / quick_ask / 闲置 stopped → 今天收工', async () => {
     const { railGroupFor } = await loadModule();
-    assert.equal(railGroupFor('stopped', today, now), 'unfinished');
+    assert.equal(railGroupFor('stopped', today, now, true), 'unfinished');
+    // 聚合态 stopped 还包着聊完了的普通聊天（quick_ask 按聚合规则落到 stopped）与闲置线程 —— 不是没做完
+    // （Windows CI 的 one-workbench-frame G3 抓到：修前「今天跑完的 C」被分进了「今天没做完」）。
+    assert.equal(railGroupFor('stopped', today, now, false), 'doneToday');
+    assert.equal(railGroupFor('stopped', today, now), 'doneToday');
     assert.equal(railGroupFor('done', today, now), 'doneToday');
     assert.equal(railGroupFor('quick_ask', today, now), 'doneToday');
   });
   it('更早停下的与更早做完的一样归「更早」', async () => {
     const { railGroupFor } = await loadModule();
-    assert.equal(railGroupFor('stopped', lastWeek, now), 'earlier');
+    assert.equal(railGroupFor('stopped', lastWeek, now, true), 'earlier');
     assert.equal(railGroupFor('done', lastWeek, now), 'earlier');
   });
   it('在动的三态不看时间', async () => {
@@ -34,6 +38,14 @@ describe('railGroupFor —— 今天停下的不再算「今天收工」', () =>
     assert.equal(railGroupFor('needs_you', lastWeek, now), 'needs_you');
     assert.equal(railGroupFor('running', lastWeek, now), 'running');
     assert.equal(railGroupFor('dispatching', lastWeek, now), 'queued');
+  });
+  it('threadLastTurnFailed 只认卡片上的最后一回合事实', async () => {
+    const { threadLastTurnFailed } = await import(pathToFileURL(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/thread-facts.js')).href);
+    assert.equal(threadLastTurnFailed({ lastTurn: { ok: false } }), true);
+    assert.equal(threadLastTurnFailed({ lastTurn: { ok: true, aborted: true } }), true);
+    assert.equal(threadLastTurnFailed({ lastTurn: { ok: true } }), false);
+    assert.equal(threadLastTurnFailed({}), false);
+    assert.equal(threadLastTurnFailed(null), false);
   });
   it('组的顺序：没做完排在收工之前，每组都有文案', async () => {
     const { RAIL_GROUP_KEYS } = await loadModule();

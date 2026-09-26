@@ -2149,7 +2149,9 @@ export function createStewardConversation({
     const input = byId('stewardComposerInput');
     if (input) {
       input.disabled = !ready;
-      input.placeholder = t(ready ? 'stewardShell.compose.placeholder' : 'stewardShell.compose.needModel');
+      const key = ready ? 'stewardShell.compose.placeholder' : 'stewardShell.compose.needModel';
+      input.placeholder = t(key);
+      input.setAttribute('data-i18n-attr', 'placeholder:' + key);   // 语言包晚到、重新套用 data-i18n-attr 时不把「先接模型」写回默认句（N2 偶发的根）
     }
     const send = byId('stewardComposerSend');
     if (send) send.disabled = !ready;
