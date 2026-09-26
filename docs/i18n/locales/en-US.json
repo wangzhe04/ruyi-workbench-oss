@@ -3155,6 +3155,7 @@
   ,"rail.group.needsYou": "Waiting on you"
   ,"rail.group.running": "Running"
   ,"rail.group.queued": "Queued"
+  ,"rail.group.unfinished": "Stopped today"
   ,"rail.group.doneToday": "Wrapped up today"
   ,"rail.group.earlier": "Earlier"
   ,"rail.newTask": "Start a task"

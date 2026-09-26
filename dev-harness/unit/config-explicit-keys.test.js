@@ -216,3 +216,20 @@ test('[M] 迁移造出来的值(raw 里没有的键)在迁移那一次读就落�
   assert.equal(second.workspaces.length, 1, '第二次读(schema 已是 13,播种不再跑)工作区表还在');
   assert.equal(second.workspaces[0].path, ws);
 });
+
+// [N] 体验走查 #4:killOnDisconnect 缺省翻成 false。<13 的整份老文件盘上写着当年的默认 true —— 那不是用户的
+// 选择,不能被推断成显式键冻住;13 的稀疏文件里用户显式设过的 true 照旧尊重。
+test('[N] killOnDisconnect:老整份文件里的 true 跟随新默认,显式设过的不动', async () => {
+  assert.equal(DEFAULTS.killOnDisconnect, false, '前提:新默认是 false');
+  const legacy = normalizeConfig(fullOldFile({ killOnDisconnect: true }));
+  assert.equal(legacy.config.killOnDisconnect, false, 'schema 12 盘上的 true 是当年默认 → 跟随新默认');
+  assert.ok(!legacy.config.configExplicitKeysV1.includes('killOnDisconnect'), '不记成显式键');
+  assert.ok(!Object.prototype.hasOwnProperty.call(legacy.persisted, 'killOnDisconnect'), '不落盘');
+  const chosen = normalizeConfig({ configSchema: 13, killOnDisconnect: true, configExplicitKeysV1: ['killOnDisconnect'] });
+  assert.equal(chosen.config.killOnDisconnect, true, '新格式里显式设过的 true 不动');
+  const chosenLegacy = normalizeConfig({ ...fullOldFile({ killOnDisconnect: true }), configExplicitKeysV1: ['killOnDisconnect'] });
+  assert.equal(chosenLegacy.config.killOnDisconnect, true, '降级往返后显式键还在的也不动');
+  reset();
+  writeDisk(fullOldFile({ killOnDisconnect: true }));
+  assert.equal((await readConfig()).killOnDisconnect, false, '读盘那一路同样生效');
+});

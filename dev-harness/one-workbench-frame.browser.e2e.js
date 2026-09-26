@@ -711,7 +711,7 @@ try {
     `G2 同一件任务里在跑的 B 跟着那一件走（态 ${stateOf(created.B)}，组 ${groupOf(created.B)}）—— 组是按【任务】分的，不按线程`);
   ok(groupOf(created.C) === 'doneToday', `G3 今天跑完的 C 自成一件，落在「今天收工」（实测 ${groupOf(created.C)}）`);
   const keys = grouped.groups.map(section => section.key);
-  const order = ['needs_you', 'running', 'queued', 'doneToday', 'earlier'];
+  const order = ['needs_you', 'running', 'queued', 'unfinished', 'doneToday', 'earlier'];   // 走查 #4：今天停下的单列「今天没做完」
   ok(keys.every((key, index) => order.indexOf(key) >= 0 && (index === 0 || order.indexOf(key) > order.indexOf(keys[index - 1]))),
     `G4 组的顺序就是 §2.3 那五组的顺序（空组不印；实测 ${keys.join(' → ')}）`);
 

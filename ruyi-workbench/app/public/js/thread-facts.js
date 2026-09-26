@@ -225,6 +225,12 @@ export function missionStateSettled(value) {
   return value === 'done' || value === 'stopped';
 }
 
+// 走查 #4 收尾：「停下了、没做完」（失败、断开、被叫停）不能再和「今天收工」排在一起 —— 那一组名说的是
+// 「做完了」，用户看一眼就放心走了。与 missionStateSettled 同一处折算，看板照旧零五态字面量。
+export function missionStateUnfinished(value) {
+  return value === 'stopped';
+}
+
 // 124 还债④（40 号文 §8.5 ④）：这个函数原住 steward-board.js。走查② 把右栏那一份改成「最近发生的
 // 那一件」之后，服务端 13q stewardVisit 里还留着自己那一份挑选式（`rows.find(needs_you) ||
 // rows.find(running) || rows[0]`，且 rows 的排序把 dispatching 顶到了「其余」之前）—— **同一个问题
