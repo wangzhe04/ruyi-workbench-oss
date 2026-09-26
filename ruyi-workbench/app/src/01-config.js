@@ -33,7 +33,7 @@ function defaultConfig() {
     allowCommandTools: true,
     allowDesktopTools: true,
     // --- v0.3 additions ---
-    theme: 'dark',
+    theme: 'system',   // 体验走查 #17:新装跟随系统(修前强制深色;存过 dark/light 的老用户不受影响)
     // UI language preference. `auto` is resolved to the browser language on first successful UI boot,
     // then persisted as a concrete supported locale so later launches do not unexpectedly change language.
     locale: 'auto',
@@ -42,7 +42,7 @@ function defaultConfig() {
     claudeThinkingEffort: '',     // '' inherits the CLI config; otherwise passed via --effort
     betaInterleavedThinking: false, // adds --betas interleaved-thinking (probe first; may be rejected by older CLI)
     mcpCommandMode: 'auto',       // auto | node | exe — which command the generated MCP config points at
-    killOnDisconnect: true,       // taskkill the claude child when the UI aborts/disconnects
+    killOnDisconnect: false,      // 体验走查 #4:刷新／关窗／断网不再结束回合(待决的权限与提问留在服务端,页面回来接着等;停止走「停止」键)
     killPortOnStart: true,        // on startup, if the port is held by a STALE workbench, free it and retry
     // --- v0.4 additions (interactive engine + permission bridge) ---
     engineMode: 'interactive',    // legacy (stdin closed, safe) | interactive (stdin kept open: AskUserQuestion + permission bridge)

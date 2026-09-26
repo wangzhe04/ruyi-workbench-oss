@@ -156,8 +156,21 @@ export function createChatStaticRenderer(deps = {}) {
     const head = el('div', 'narrative-state-head');
     head.append(el('span', 'narrative-state-title', `${t(titleKey)}${detail ? ' · ' + detail : ''}`), narrativeStatePill(segment.status));
     card.append(head);
-    if (segment.note) card.append(el('div', 'narrative-state-note', segment.note));
+    if (segment.note) card.append(el('div', 'narrative-state-note', narrativeReasonText(segment.note)));
     return card;
+  }
+  // 体验走查 #4：服务端收尾时给待决权限／提问记的原因是英文代号（04 stopSession 的 `turn ${reason}` 等），
+  // 修前原样上屏（「已拒绝 · turn disconnected」）。认得的代号换成人话；认不出的照原样（不吞掉信息）。
+  function narrativeReasonText(note) {
+    const raw = String(note || '').trim();
+    const turn = raw.match(/^turn ([a-z_-]+)$/);
+    const key = turn ? `narrative.reason.turn.${turn[1]}`
+      : raw === 'session ended' ? 'narrative.reason.sessionEnded'
+      : raw === 'Ruyi turn cancelled' ? 'narrative.reason.turn.cancelled'
+      : /^Kimi cancelled the /.test(raw) ? 'narrative.reason.kimiCancelled' : '';
+    if (!key) return raw;
+    const text = t(key);
+    return text && text !== key && text !== `[${key}]` ? text : raw;
   }
   // 代理模式 v2:provider 编排的静态重绘 —— 工作流状态卡下挂交付信封(从同回合 toolCalls 里按 runId 找
   // orchestrate_agents 的结果,信封是持久化进消息的唯一形状),每个节点一张折叠小卡:摘要 + 产物路径 + 错误。

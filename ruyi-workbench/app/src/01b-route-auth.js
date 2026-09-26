@@ -89,6 +89,7 @@ const ROUTE_AUTH = [
   { m: 'POST', p: '/api/audio/warmup', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
+  { m: 'POST', p: '/api/workspace/dedicated', auth: 'token' },  // 体验走查 #7:建（或复用）专用工作文件夹「文档\如意工作区」
   { m: 'POST', p: '/api/pick-file', auth: 'token' },  // 第53波 EC-B(53d):原生文件选择器(选 overlay zip)
   { m: 'POST', p: '/api/plan/decision', auth: 'token' },
   { m: 'POST', p: '/api/steer', auth: 'token' },

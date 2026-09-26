@@ -547,6 +547,7 @@ export function createStewardShellDomain({
   // syncPolling 同一路信号(data-shell-mode 的属性变化)，但各自独立观察 —— 轮询门控那一条的形状
   // 被静态锁逐字钉住，不能把两件事塞进同一个回调里。
   function syncConversation() {
+    conversation.syncEngineGate();   // 走查 #1：没模型时输入框置灰；刚接上时把「已到访」复位，下一句 ensureVisit 重新到访
     if (isStewardMode()) conversation.ensureVisit();
     else { conversation.resetConversation(); composer.resetComposer(); }
   }

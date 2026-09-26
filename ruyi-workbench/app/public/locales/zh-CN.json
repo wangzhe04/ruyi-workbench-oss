@@ -636,12 +636,13 @@
   "onboarding.wizard.provider.saveAndNext": "保存并继续",
   "onboarding.wizard.provider.saved": "已保存并设为当前引擎：{{name}}",
   "onboarding.wizard.provider.showKey": "显示或隐藏密钥",
-  "onboarding.wizard.provider.skipStep": "先跳过，稍后在设置里配",
+  "onboarding.wizard.provider.skipStep": "这一步先跳过",
   "onboarding.wizard.provider.test": "测试连接",
   "onboarding.wizard.provider.testSuccess": "连接成功，发现 {{count}} 个模型，可在「高级」里挑一个",
   "onboarding.wizard.provider.testSuccessNoModels": "连接成功；服务端没有返回模型清单，可在「高级」里手填模型名",
   "onboarding.wizard.provider.testing": "正在测试…",
   "onboarding.wizard.provider.title": "填入 API Key",
+  "onboarding.wizard.provider.titleLocal": "连接本机的模型服务",
   "onboarding.wizard.provider.whatNow": "怎么办：{{next}}",
   "onboarding.wizard.reopen": "重新打开引导",
   "onboarding.wizard.reopenHint": "忘了怎么配？随时可以再走一遍新手引导。",
@@ -662,7 +663,8 @@
   "onboarding.wizard.safety.title": "选一个安全档",
   "onboarding.wizard.saveFailed": "保存失败：{{reason}}",
   "onboarding.wizard.settingsLabel": "新手引导",
-  "onboarding.wizard.skip": "以后再说",
+  "onboarding.wizard.skip": "退出引导",
+  "onboarding.wizard.skipTitle": "整个引导以后再走；随时可以在「设置 › 其他」里重新打开",
   "onboarding.wizard.skipped": "已跳过引导，可在「设置 → 基础」里随时重新打开",
   "onboarding.wizard.start": "开始引导",
   "onboarding.wizard.startHint": "六步、几分钟，配好就能干活；中途可以随时退出。",
@@ -699,6 +701,8 @@
   "onboarding.wizard.workspace.current": "当前：{{path}}",
   "onboarding.wizard.workspace.hint": "AI 只在这个文件夹里干活，随时可换。",
   "onboarding.wizard.workspace.none": "还没有选择文件夹",
+  "onboarding.wizard.workspace.homeWarning": "现在的工作文件夹是你整个用户目录：AI 能读、改、在里面跑命令的范围太大了。建议换成一个专用文件夹。",
+  "onboarding.wizard.workspace.useDedicated": "用一个专用文件夹（文档\\如意工作区）",
   "onboarding.wizard.workspace.pickFailed": "文件夹选择器没能打开：{{reason}}。可以在下面直接粘贴文件夹的完整路径。",
   "onboarding.wizard.workspace.pathHint": "也可以直接粘贴文件夹的完整路径（例如 D:\\工作\\报告）：",
   "onboarding.wizard.workspace.pathLabel": "工作文件夹的完整路径",
@@ -786,6 +790,17 @@
   "permission.request.intent": "{{engine}} 想执行：",
   "permission.request.title": "工具权限请求 · {{engine}}",
   "permission.revertible": "✓ 此操作可一键撤销",
+  "permission.plain.write": "写入文件「{{file}}」（{{lines}} 行）",
+  "permission.plain.edit": "修改文件「{{file}}」里的一段内容，改成：",
+  "permission.plain.delete": "删除文件「{{file}}」",
+  "permission.plain.move": "把「{{from}}」挪到 {{to}}",
+  "permission.plain.copy": "把「{{from}}」复制到 {{to}}",
+  "permission.plain.command": "在终端里运行这条命令：",
+  "permission.plain.script": "运行一段 {{language}} 脚本：",
+  "permission.plain.download": "从 {{url}} 下载，存成「{{file}}」",
+  "permission.plain.onFile": "{{verb}}：「{{file}}」",
+  "permission.plain.more": "……还有 {{count}} 行",
+  "permission.plain.techDetails": "技术详情",
   "permission.revoke": "撤销",
   "permission.revoke.failed": "撤销失败：{{reason}}",
   "permission.revokeAll": "撤销全部授权",
@@ -2083,6 +2098,18 @@
   "narrative.status.paused": "已暂停",
   "narrative.status.allowed": "已允许",
   "narrative.status.denied": "已拒绝",
+  "narrative.reason.turn.stopped": "回合被停止了，这一问没来得及回答",
+  "narrative.reason.turn.disconnected": "页面断开时回合被结束了，这一问没来得及回答",
+  "narrative.reason.turn.ended": "回合已经结束，这一问不再需要回答",
+  "narrative.reason.turn.cancelled": "回合被取消了",
+  "narrative.reason.turn.deleted": "线程被删除了",
+  "narrative.reason.turn.rewind": "对话被撤回到这之前了",
+  "narrative.reason.turn.superseded": "被新的一轮接替了",
+  "narrative.reason.turn.scheduler_timeout": "定时任务到了时限，回合被结束了",
+  "narrative.reason.turn.steward-stop": "管家把这一轮停下了",
+  "narrative.reason.turn.steward-preempt": "管家把这一轮让给了更要紧的事",
+  "narrative.reason.sessionEnded": "线程已经结束",
+  "narrative.reason.kimiCancelled": "Kimi 那一侧取消了这一问",
   "narrative.status.approved": "已批准",
   "narrative.status.rejected": "已驳回",
   "narrative.status.answered": "已回答",
@@ -2576,6 +2603,10 @@
   ,"stewardShell.presence.sleeping": "管家已停机"
   ,"stewardShell.chat.thinking": "正在思考…"
   ,"stewardShell.chat.greeting": "你回来了。"
+  ,"stewardShell.chat.needModel": "我还没接上能用的模型，暂时回不了话。"
+  ,"stewardShell.chat.needModelHow": "先接一个模型（大约 5 分钟）：本机的 Ollama／LM Studio，或者一个云端服务的密钥都可以。接好之后就能直接跟我说要办的事。"
+  ,"stewardShell.chat.connectModel": "接一个模型"
+  ,"stewardShell.chat.engineNeedsOpenAi": "管家要用一个 OpenAI 兼容的模型服务才能回话，现在的主模型走的是命令行引擎。可以让管家单独用下面这个服务。"
   ,"stewardShell.chat.digest": "你不在的这段时间里有 {{count}} 件事："
   ,"stewardShell.chat.digestNone": "你不在的这段时间里没有新事。"
   ,"stewardShell.digest.commitment.upcoming": "24 小时内要触发的定时任务：{{count}} 件"
@@ -2637,6 +2668,7 @@
   ,"stewardShell.chat.listSeparator": "、"
   ,"stewardShell.chat.openSettings": "去设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么"
+  ,"stewardShell.compose.needModel": "先接一个模型，管家才能回话"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改"
   ,"stewardShell.compose.targetLabel": "递给谁"
   ,"stewardShell.compose.targetSteward": "→ 如意"

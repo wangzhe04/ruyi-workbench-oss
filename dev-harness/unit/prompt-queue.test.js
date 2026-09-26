@@ -223,6 +223,29 @@ describe('prompt-queue 不限时与自动收起', () => {
     assert.deepEqual(opened, ['a'], '收起之后新来的不再自动弹（与「稍后处理」同一个效果）');
   });
 
+  it('⑩ 刚发出一句话（框空了）不算「正在打字」：权限马上弹；框里还有字才让（体验走查 #5）', async () => {
+    const mod = await load();
+    const clock = { now: 1000 };
+    const listeners = {};
+    const doc = () => ({ ...fakeDoc(), addEventListener(type, fn) { (listeners[type] ||= []).push(fn); } });
+    const opened = [];
+    const queue = mod.createPromptQueue({
+      api: null, t: key => key, el: () => { throw new Error('no dock'); }, shellMode: () => 'no-dock',
+      now: () => clock.now, doc,
+      openItem: item => { opened.push(item.id); return { close() {} }; },
+      allowToolForThread: async () => {},
+    });
+    liveQueues.push(queue);
+    const type = value => (listeners.input || []).forEach(fn => fn({ target: { tagName: 'TEXTAREA', value } }));
+    type('');                           // 回车发出去之后框是空的
+    queue.offer(perm('p1', 's1'));
+    assert.deepEqual(opened, ['p1'], '框空了：不等 2.5 s，立刻弹');
+    queue.settle('p1');
+    type('还没写完的草稿');             // 框里还有字 = 真在打字
+    queue.offer(perm('p2', 's1'));
+    assert.deepEqual(opened, ['p1'], '框里有字：先不抢');
+  });
+
   it('⑨ 弹窗里点过／打过字：从那一刻重新计时', async () => {
     const mod = await load();
     const clock = { now: 10_000 };

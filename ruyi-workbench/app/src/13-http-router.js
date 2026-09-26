@@ -373,7 +373,7 @@ async function handleApi(req, res, pathname) {
       configSchema: CONFIG_SCHEMA, // v0.8-S0: surfaced top-level so clients/tests don't dig into config
       overlayId: OVERLAY_ID,
       launchMode: LAUNCH_MODE,
-      dataRoot: paths.data,
+      dataRoot: paths.data, homeDir: os.homedir(),   // homeDir:体验走查 #7,向导据此判「工作文件夹是不是整个用户目录」
       exePath: exePath(),
       // v1.0-S9 exe 改名 Ruyi.exe;双名兼容探测——先探新名,再探旧名(兼容窗口:存量安装/旧 launcher,建议 v2.0 收口)。
       exePresent: fs.existsSync(path.join(externalRoot(), 'Ruyi.exe')) || fs.existsSync(path.join(externalRoot(), 'WinClaudeWorkbench.exe')),
@@ -501,6 +501,15 @@ async function handleApi(req, res, pathname) {
   // POST /api/pick-folder — pop the native Windows folder picker (STA WinForms). Token-gated. 120s.
   if (req.method === 'POST' && pathname === '/api/pick-folder') {
     return send(res, json(await DesktopShell.pickFolder()));
+  }
+  // 体验走查 #7: POST /api/workspace/dedicated —— 默认工作文件夹是整个用户目录(读/写/执行全开)时,向导给一枚
+  // 「用一个专用文件夹」:建(已有就复用)「文档\如意工作区」(没有「文档」就放在用户目录下)并回它的路径。
+  // 只建这一个固定名字的目录,不收任何路径参数;设成默认工作区仍走前端既有的 setWorkspace(带护栏)。
+  if (req.method === 'POST' && pathname === '/api/workspace/dedicated') {
+    const docs = path.join(os.homedir(), 'Documents');
+    const dir = path.join(fs.existsSync(docs) ? docs : os.homedir(), '如意工作区');
+    try { await fsp.mkdir(dir, { recursive: true }); } catch (e) { return send(res, json({ ok: false, error: String(e && e.message || e) }, 500)); }
+    return send(res, json({ ok: true, path: dir }));
   }
   // 第53波 EC-B(53d): POST /api/pick-file - 原生文件选择器(OpenFileDialog,选 overlay zip 等)。token 级。
   if (req.method === 'POST' && pathname === '/api/pick-file') {

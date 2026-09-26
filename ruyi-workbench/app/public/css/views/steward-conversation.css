@@ -269,9 +269,11 @@
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: 500;
-  color: var(--muted);
+  /* 体验走查 #19：修前透明边框＋灰字，看起来像一句普通文字、不像能点的东西。现在常驻一道边框、字用正文色 ——
+     它是一枚「点一下把这句话放进输入框」的按钮，就该长得像按钮。 */
+  color: var(--ink-2);
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
   border-radius: var(--r-pill);
   padding: 0 var(--sp-3);
   cursor: pointer;

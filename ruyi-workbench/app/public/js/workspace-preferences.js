@@ -33,10 +33,10 @@ function applyTheme(theme) {
   // Deterministic visual-regression entry point. It affects only this page load and never broadens the
   // persisted three-state preference contract.
   const forced = themeOverrideFromUrl();
-  const pref = forced || (theme === 'light' || theme === 'system' ? theme : 'dark');
+  const pref = forced || (theme === 'light' || theme === 'dark' ? theme : 'system');   // 体验走查 #17：没存过／未知值＝跟随系统
   const eff = effectiveTheme(pref);
   // v1.0.2 (F5): 同 applyUiMode —— 值未变不重写 data-theme,避免 config 到达后与预绘同值时的无谓重排。
-  // 主题预绘(index.html)默认 'dark',与 server defaultConfig().theme 一致,新装机无闪;此处仅回写 localStorage。
+  // 主题预绘(index.html)默认 'system',与 server defaultConfig().theme 一致(体验走查 #17),新装机无闪;此处仅回写 localStorage。
   if (document.documentElement.getAttribute('data-theme') !== eff) document.documentElement.setAttribute('data-theme', eff);
   $('hljs-dark').disabled = eff !== 'dark';
   $('hljs-light').disabled = eff === 'dark';
@@ -59,7 +59,7 @@ function applyTheme(theme) {
   if (!forced) { try { localStorage.setItem('wcw.theme', pref); } catch { /* ignore */ } }
 }
 function toggleTheme() {
-  const cur = (() => { try { return localStorage.getItem('wcw.theme') || 'dark'; } catch { return 'dark'; } })();
+  const cur = (() => { try { return localStorage.getItem('wcw.theme') || 'system'; } catch { return 'system'; } })();
   const next = cur === 'dark' ? 'light' : cur === 'light' ? 'system' : 'dark';
   applyTheme(next);
   saveConfigPartial({ theme: next });

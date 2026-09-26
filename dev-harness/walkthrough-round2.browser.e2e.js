@@ -11,7 +11,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //     ——【号文写的是 renderDigest，执行者证伪】：全新 HOME 第一次到访走的是 renderFirstRun
 //     （没有待决、没有焦点、摘要为空 → enterVisit 的 `nothing` 分支），renderDigest 一次都不跑；
 //     只钉 renderDigest 等于这枚按钮对新装的人不存在。所以两条路都挂、两条路都钉：
-//     B2 是首跑那条，B5 是刷新之后（同一个到访窗口里 newVisit!==true → renderDigest）那条。
+//     B2 是首跑那条，B5 是刷新之后（同一个到访窗口里 newVisit!==true）那条 —— 体验走查 #2 之后，一件事都
+//     没有时这一支也画首跑那条（不再对新装的人说「你回来了」），B5 随之重钉。
 //   C chip 菜单文字不横向裁切（§2.11）：权限 chip 菜单里每个 .steward-chip-option-label／-hint
 //     的 scrollWidth ≤ clientWidth。病根是 base.css 那条全局 `button { white-space: nowrap }`
 //     被 .steward-chip-option（它是个 <button>）继承。反向删 white-space:normal → C 组红。
@@ -57,7 +58,8 @@ const POLL_MS = 120000;                 // 兜底节拍拉满：本件不测节�
 const SHELL_MODE_KEY = 'wcw.shellMode'; // shell-mode.js SHELL_MODE_STORAGE_KEY
 const HOLD_MS = 1500;                   // E 组扣住 /api/status 多久
 const SETTLE_MS = 2000;                 // 放行之后再观察多久（号文：2 s）
-const GEAR_ITEMS = ['openSettingsBtn', 'helpMenuBtn', 'helpBtn', 'bulkCleanupBtn', 'themeToggle', 'uiModeToggle', 'capBadge'];
+// 重钉（体验走查 #21，用户 2026-09-25「全按你建议的来」）：破坏性的「清理历史」挪到最后、隔一道分隔线；仍是一层七项。
+const GEAR_ITEMS = ['openSettingsBtn', 'helpMenuBtn', 'helpBtn', 'themeToggle', 'uiModeToggle', 'capBadge', 'bulkCleanupBtn'];
 
 function request(port, method, pathname, body, token, timeoutMs = 30000) {
   return new Promise(resolve => {
@@ -405,8 +407,11 @@ try {
     const probe = ${ONBOARD_PROBE};
     return probe.feed && probe.total ? probe : null;
   })()`, 400) || await cdp.evaluate(ONBOARD_PROBE);
-  ok(digestRun && digestRun.onboarding === 1 && digestRun.visible === 1 && digestRun.gotIt === 1 && !digestRun.intro,
-    `B5 同一个到访窗口里刷新走的是【另一支】renderDigest（有「知道了」、没有三个例子），按钮仍在（实测 ${JSON.stringify(digestRun && digestRun.texts)}）`);
+  // 重钉 B5（体验走查 #2，用户 2026-09-25「全按你建议的来」）：修前同一个到访窗口里刷新走 renderDigest，
+  // 全新安装的人被问候「你回来了。你不在的这段时间里没有新事」。现在一件事、一条线程都没有时这一支也画首跑
+  // 那条（自我介绍 ＋ 例子），**不出「知道了」**；B5 原本要守的那件事一字没松 ——「开始引导」刷新之后仍在、看得见。
+  ok(digestRun && digestRun.onboarding === 1 && digestRun.visible === 1 && digestRun.gotIt === 0 && digestRun.intro,
+    `B5 同一个到访窗口里刷新：全新安装仍是首跑那条（自我介绍、没有「你回来了」「知道了」），「开始引导」仍在（实测 ${JSON.stringify(digestRun && digestRun.texts)}）`);
 
   // 把「向导走完了」写进 config（用户真走完向导时 markOnboarding 写的就是这三个字段）。
   const marked = await request(appPort, 'POST', '/api/config',

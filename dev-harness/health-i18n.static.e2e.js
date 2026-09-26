@@ -145,6 +145,12 @@ function healthIdsFromServer() {
   const summary = mod.healthSummaryText([{ id: 'data-writable', ok: false, detail: 'EPERM' }], t);
   ok(summary && summary.tone === 'error' && /1/.test(summary.text), 'C3 摘要文案按最重的一档取语气 (' + (summary && summary.text) + ')');
   ok(mod.healthSummaryText([{ id: 'mcp-target', ok: true, detail: 'x' }], t) === null, 'C4 无待办时摘要返回 null(不渲染恒亮徽标)');
+  // 体验走查 #16：可选组件（桌面控制）没装／没开／缺运行环境不进摘要计数；装了却连不上仍是 error、照常计。
+  ok(['not-installed', 'disabled', 'python-missing'].every(v => mod.summarizeHealth([{ id: 'desktop-control', ok: false, detail: v + ': x' }]).total === 0)
+    && mod.healthSummaryText([{ id: 'desktop-control', ok: false, detail: 'python-missing: x' }], t) === null,
+    'C5 可选组件缺席（没装／没开／缺运行环境）不计入摘要，不挂常亮的「1」');
+  ok(mod.summarizeHealth([{ id: 'desktop-control', ok: false, detail: 'unreachable: x' }]).errors === 1,
+    'C6 桌面控制装了却连不上仍计为 error');
 
   /* ═══════════ ④ UX 红线:next 里不许有路径与命令行 ═══════════ */
   const forbidden = [/\\/, /\/docs\//, /\bnode\s/i, /\bnpm\s/i, /powershell/i, /cmd\.exe/i, /[A-Za-z]:\//];

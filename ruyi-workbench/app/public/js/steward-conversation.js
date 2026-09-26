@@ -87,6 +87,18 @@ export function stewardOnboardingPending(config) {
   if (record.completedAt) return false;
   return record.skipped !== true;
 }
+// 体验走查 #1：管家此刻有没有一个能回话的模型。与服务端 13m stewardResolveRoute 同一判据的前端镜像：
+// 显式挑了管家端点 → 它得在（对话）端点列表里；否则跟随主端点 → 主端点得是列表里的一个 OpenAI 兼容端点
+// （不是命令行引擎、不是 'claude-cli' 哨兵）。纯函数：没有能用的模型时管家首页换成「先接一个模型」卡、
+// 输入框置灰并说明原因 —— 修前能直接发话，第一句就失败，报的还是带配置键名的开发者语言。
+export function stewardEngineReady(config) {
+  const cfg = config && typeof config === 'object' ? config : {};
+  const providers = chatProviders(cfg);
+  const explicit = String(cfg.stewardProviderId || '').trim();
+  if (explicit) return providers.some(p => p && p.id === explicit);
+  const active = String(cfg.activeProvider || '').trim();
+  return Boolean(active) && active !== 'claude-cli' && providers.some(p => p && p.id === active);
+}
 export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';   // 117d 抽屉接这一个
 export const STEWARD_FOCUS_THREAD_EVENT = 'steward:focus-thread'; // 117h「现在这一件」接这一个
 // 121-K4-3（34 号文 §2.4「频道条退役」）：F2 那条「只看 · 全部 · 各条线程 · 管家本人」的 chip 条
@@ -922,7 +934,7 @@ export function createStewardConversation({
     // 落定：开向导（组合根注入的那一个，与工作台空态那枚「开始引导」是同一个入口），不发请求、
     // 不落回执 —— 向导自己就是回执，关掉之后按钮该还在（没配完就还该有）。
     if (act.kind === STEWARD_ONBOARDING_ACT) {
-      try { openOnboardingWizard && openOnboardingWizard(); } catch { /* 向导打不开不该掀翻对话流 */ }
+      try { openOnboardingWizard && openOnboardingWizard(stewardEngineReady(state && state.config) ? {} : { startStep: 'engine' }); } catch { /* 向导打不开不该掀翻对话流 */ }   // 还没接模型：直接从「用哪种引擎」那一步开始
       return;
     }
     // 107-S1 ④（46 号文 §5 ⑦b H1）：**confirm 族按下去之前先问一次**。判据是服务端挂的
@@ -2078,6 +2090,7 @@ export function createStewardConversation({
   async function enterVisit() {
     if (visitBusy) return null;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return null;
+    if (!syncEngineGate()) { renderEngineGate(); return null; }
     visitBusy = true;
     try {
       const visit = await api('/api/steward/visit', { method: 'POST', body: JSON.stringify({}) });
@@ -2096,15 +2109,17 @@ export function createStewardConversation({
       clearFeed();
       lastRenderedAt = '';   // 117j W2-4：整屏重画,水位跟着归零——下面的 renderHistorySince 会把它重新推上去
       let rendered = 0;
+      const nothing = !pending.length && !visitFocusOf(visit)
+        && !((visit.digest && Array.isArray(visit.digest.items) ? visit.digest.items : []).length);
       if (visit.newVisit === true) {
-        const nothing = !pending.length && !visitFocusOf(visit)
-          && !((visit.digest && Array.isArray(visit.digest.items) ? visit.digest.items : []).length);
         if (nothing) renderFirstRun();
         else { renderDigest(visit); renderPending(pending); }
         rendered = 1;
       } else {
         rendered = renderHistorySince(messages, visitStartedAt);
-        if (!rendered) { renderDigest(visit); rendered = 1; }
+        // 走查 #2：一条线程、一件事都没有（全新安装、走完向导回来）时不说「你回来了。没有新事」—— 那是对老用户说的；
+        // 这里仍是首跑那条自我介绍 ＋ 示例 ＋ 引导入口。
+        if (!rendered) { if (nothing) renderFirstRun(); else renderDigest(visit); rendered = 1; }
       }
       return visit;
     } catch (error) {
@@ -2122,6 +2137,38 @@ export function createStewardConversation({
   // 一次「进壳」只到访一次。config 每次刷新都会重跑准入判定（provider-settings 的 fillSettings →
   // syncStewardShellAvailability），若那条路径直接调 enterVisit()，正在进行的对话会被反复清屏重画。
   let entered = false;
+  // 走查 #1：没有能回话的模型时，到访之前先挡一道 —— 画「先接一个模型」卡、输入框置灰说明原因（enterVisit 开头）。
+  // 每次 config 刷新 steward-shell 的 syncConversation 都先调一次 syncEngineGate：接上了就把「已到访」复位，
+  // 紧接着那一句 ensureVisit 重新到访（ensureVisit／resetConversation 两个函数体一字不动，I7／I9 锁）。
+  let engineGated = false;
+  function syncEngineGate() {
+    // 服务端洗过的 config 恒带 providers 数组；没有这一项＝config 还没到（或宿主只给了一份最小 config）→ 不知道，就不挡
+    // （挡错了比不挡更糟：输入框被锁死。真没模型时服务端那句兜底照样说人话）。
+    const cfg = state && state.config;
+    const ready = !(cfg && Array.isArray(cfg.providers)) || stewardEngineReady(cfg);
+    const input = byId('stewardComposerInput');
+    if (input) {
+      input.disabled = !ready;
+      input.placeholder = t(ready ? 'stewardShell.compose.placeholder' : 'stewardShell.compose.needModel');
+    }
+    const send = byId('stewardComposerSend');
+    if (send) send.disabled = !ready;
+    if (ready && engineGated) { engineGated = false; entered = false; }   // 接上了：下面那一拍重新到访
+    return ready;
+  }
+  function renderEngineGate() {
+    engineGated = true;
+    clearFeed();
+    // 已经有一个 OpenAI 兼容端点、只是主模型走命令行：沿用既有那一支（「让管家用 X」一键改）。
+    if (firstOpenAiProvider()) {
+      showEngineProblem(async () => { syncEngineGate(); await ensureVisit(); }, { message: t('stewardShell.chat.engineNeedsOpenAi') });
+      return;
+    }
+    const row = appendSteward(t('stewardShell.chat.needModel'), '');
+    if (!row) return;
+    row.appendChild(el('p', 'steward-say', t('stewardShell.chat.needModelHow')));
+    renderActs(row, [{ kind: STEWARD_ONBOARDING_ACT, label: t('stewardShell.chat.connectModel'), primary: true }]);
+  }
   function ensureVisit() {
     if (entered) return null;
     entered = true;
@@ -2253,6 +2300,7 @@ export function createStewardConversation({
     setPickTargetHandler,
     enterVisit,
     ensureVisit,
+    syncEngineGate,   // 走查 #1：config 每次刷新由 steward-shell 先调它，再调 ensureVisit
     resetConversation,
     sendToSteward,
     handOff,

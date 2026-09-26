@@ -241,6 +241,8 @@
    的注释）整条删除。#capBadge 自己还有一枚 .hidden：那是「能力探针还没回来」的态，
    renderCapBadge 拿到结果就摘掉，与本条无关。 */
 .app-gear-menu > #capBadge { gap: 8px; }
+.app-gear-sep { height: 1px; margin: 4px 6px; border: 0; background: var(--line); }   /* 体验走查 #21：破坏性操作与普通项隔开 */
+.app-gear-menu > .gear-danger { color: var(--danger-fg); }
 .app-gear-menu > #capBadge .mm-label { flex: 1; }
 
 /* ============================ 左栏：任务索引（§2.3） ============================ */
