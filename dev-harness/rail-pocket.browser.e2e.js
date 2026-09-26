@@ -405,6 +405,8 @@ try {
       scheduleGroup: visible(document.getElementById('cfgStewardGroupSchedule')),
       memoryGroup: visible(document.getElementById('cfgStewardGroupMemory')),
       decisionsGroup: visible(document.getElementById('cfgStewardGroupDecisions')),
+      powerGroup: visible(document.getElementById('cfgStewardGroupPower')),
+      onlyBar: (document.getElementById('stewardOnlyBar') || {}).textContent || '',
       usageTabSelected: Boolean(usageTab) && usageTab.getAttribute('aria-selected') === 'true',
       usageSectionActive: Boolean(document.querySelector('#tab-usage.active')),
       lens: document.documentElement.getAttribute('data-shell-mode') || '',
@@ -420,6 +422,26 @@ try {
   ok(Boolean(onSchedule) && onSchedule.settingsOpen && onSchedule.stewardTabActive && onSchedule.scheduleGroup,
     `B6 「定时任务」→ 设置·管家页的定时任务组可见（实测 ${JSON.stringify(onSchedule)}）`);
   ok(Boolean(onSchedule) && onSchedule.scheduleLanded, `B6b 「定时任务」直接落到定时任务那一段（段顶进视口、焦点在段内；修前停在页首「管家总开关」）`);
+  // 走查 #6：左栏入口打开的是「只看这一块」—— 其余段落收起，顶上一条说明 ＋「显示全部」。
+  ok(Boolean(onSchedule) && !onSchedule.powerGroup && !onSchedule.memoryGroup && !onSchedule.decisionsGroup
+    && onSchedule.onlyBar.includes('只看') && onSchedule.onlyBar.includes('显示全部管家设置'),
+    `B6c 只看「定时任务」：其余段落收起、顶上有说明与「显示全部」（实测 ${JSON.stringify(onSchedule && { power: onSchedule.powerGroup, memory: onSchedule.memoryGroup, bar: onSchedule.onlyBar })}）`);
+  const showAll = await cdp.evaluate(`(() => {
+    const btn = document.querySelector('#stewardOnlyBar .steward-only-all'); if (!btn) return null;
+    btn.click();
+    const visible = elm => Boolean(elm) && elm.offsetParent !== null;
+    return { power: visible(document.getElementById('cfgStewardGroupPower')), memory: visible(document.getElementById('cfgStewardGroupMemory')), bar: Boolean(document.getElementById('stewardOnlyBar')) };
+  })()`);
+  ok(Boolean(showAll) && showAll.power && showAll.memory && !showAll.bar, `B6d 点「显示全部管家设置」→ 整页回来（实测 ${JSON.stringify(showAll)}）`);
+  await closeSettings();
+  await clickPocket('schedule');
+  const afterSwitch = await cdp.evaluate(`(() => {
+    document.querySelector('#settingsTabs button[data-stab="security"]').click();
+    document.querySelector('#settingsTabs button[data-stab="steward"]').click();
+    const visible = elm => Boolean(elm) && elm.offsetParent !== null;
+    return { power: visible(document.getElementById('cfgStewardGroupPower')), bar: Boolean(document.getElementById('stewardOnlyBar')) };
+  })()`);
+  ok(Boolean(afterSwitch) && afterSwitch.power && !afterSwitch.bar, `B6e 切走再切回「管家」页签 → 整页（「只看」只活到下一次切页签；实测 ${JSON.stringify(afterSwitch)}）`);
   await closeSettings();
   const onDecisions = await clickPocket('decisions');
   ok(Boolean(onDecisions) && onDecisions.settingsOpen && onDecisions.stewardTabActive && onDecisions.decisionsGroup,

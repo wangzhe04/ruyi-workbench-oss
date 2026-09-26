@@ -2671,6 +2671,8 @@
   ,"stewardShell.chat.providerSwitched": "Now using “{{provider}}”"
   ,"stewardShell.chat.listSeparator": ", "
   ,"stewardShell.chat.openSettings": "Open settings"
+  ,"stewardShell.settings.onlyTitle": "Showing only “{{name}}”"
+  ,"stewardShell.settings.showAll": "Show all steward settings"
   ,"stewardShell.compose.placeholder": "Say something to Ruyi"
   ,"stewardShell.compose.needModel": "Connect a model first so the steward can reply"
   ,"stewardShell.compose.placeholderChange": "Tell me what to change"

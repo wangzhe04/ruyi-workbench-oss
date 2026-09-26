@@ -871,6 +871,7 @@ function switchSettingsTab(name, force) {
   if (Object.prototype.hasOwnProperty.call(SETTINGS_TAB_ALIASES, name)) name = SETTINGS_TAB_ALIASES[name];
   if (!force && document.documentElement.getAttribute('data-ui-mode') === 'simple' && !SETTINGS_SIMPLE_TABS.has(name)) name = 'basic';
   state._settingsTab = name;
+  { const sw = $('stab-steward'); if (sw && sw.dataset.only) { delete sw.dataset.only; const bar = $('stewardOnlyBar'); if (bar) bar.remove(); } }   // 走查 #6：「只看这一块」只活到下一次切页签／重开设置
   ensureSettingsNavWiring();        // 123-S2：首挂事件委托 ＋ 按 localStorage 还原各组折叠态
   openSettingsNavGroupFor(name);    // 123-S2：切到哪个页签就展开它所在的组（含 openModal 恢复上次页签）
   buildSettingsJumpList(`stab-${name}`); // 123-S2：长面板顶部重建段内锚点 chip 条（无候选段的面板自动跳过）

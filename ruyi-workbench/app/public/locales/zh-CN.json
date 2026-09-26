@@ -2671,6 +2671,8 @@
   ,"stewardShell.chat.providerSwitched": "已改用「{{provider}}」"
   ,"stewardShell.chat.listSeparator": "、"
   ,"stewardShell.chat.openSettings": "去设置"
+  ,"stewardShell.settings.onlyTitle": "只看「{{name}}」"
+  ,"stewardShell.settings.showAll": "显示全部管家设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么"
   ,"stewardShell.compose.needModel": "先接一个模型，管家才能回话"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改"

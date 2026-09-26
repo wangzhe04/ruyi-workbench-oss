@@ -360,3 +360,13 @@
   .steward-memory-btn,
   .steward-decision-btn { transition: none; }
 }
+
+/* 走查 #6：左栏入口打开的「只看这一块」—— 管家页只留目标段落（与状态行），其余收起。 */
+#stab-steward[data-only] > :not(.is-only):not(.steward-only-bar):not(#cfgStewardNote) { display: none; }
+#stab-steward[data-only] > .is-only { border-bottom: none; }
+.steward-only-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 12px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 8px; color: var(--ink-2);
+}
+.steward-only-title { font-weight: 600; color: var(--ink); }
