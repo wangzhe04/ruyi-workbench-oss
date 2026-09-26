@@ -64,11 +64,13 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       document.querySelector('.onboard-wiz-workspace .onboard-wiz-path-use').click();
       return true;
     })()`);
+    // 比「文件夹名」而不是整条路径：Windows 上服务端会把 8.3 短名（RUNNER~1）等归一化，整条逐字比会假红。
     const done = await fx.waitForEval(`(() => {
       const w = document.querySelector('.onboard-wiz-workspace');
-      if (!w || window.state.config.defaultWorkspace !== ${JSON.stringify(target)}) return null;
-      return { current: w.textContent.includes(${JSON.stringify(target)}), error: Boolean(w.querySelector('.onboard-wiz-error')) };
-    })()`, 300);
+      if (!w || !/[\\\\/]my-folder$/.test(String(window.state.config.defaultWorkspace || ''))) return null;
+      const r = { current: w.textContent.includes('my-folder'), error: Boolean(w.querySelector('.onboard-wiz-error')) };
+      return r.current && !r.error ? r : null;   // state 先变、保存回包后才重画：等屏幕上那一版
+    })()`, 300) || await fx.evaluate(`(() => { const w = document.querySelector('.onboard-wiz-workspace'); return w ? { current: w.textContent.includes('my-folder'), error: Boolean(w.querySelector('.onboard-wiz-error')), dw: window.state.config.defaultWorkspace } : null; })()`);
     ok(Boolean(done) && done.current && !done.error, `W3 粘贴带引号的完整路径 → 成为默认工作文件夹、原因那句消失（实测 ${JSON.stringify(done)}）`);
     let saved = '';
     for (let i = 0; i < 50 && saved !== target; i++) {
