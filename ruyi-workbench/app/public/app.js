@@ -621,6 +621,8 @@ const {
   turnToolAnchorId,
   usageLine,
   wrapPreWithCopy,
+  humanizeToolName: name => humanizeToolName(name),
+  decidePermission: (requestId, behavior) => { void decide(requestId, behavior); settlePrompt(requestId); },   // 走查 #5：卡上就地决定
 });
 
 window.addEventListener('i18n:change', () => {

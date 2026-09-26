@@ -90,10 +90,23 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       `P4 原始工具名与 JSON 收在默认收起的「技术详情」里（实测 open=${modal && modal.techOpen}）`);
     ok(Boolean(modal) && !/file_write/.test(modal.outside), 'P5 技术详情之外看不到 file_write');
 
-    await fx.evaluate(`(() => { const m = document.querySelector('.modal-backdrop.permission-modal'); [...m.querySelectorAll('button')].find(b => b.classList.contains('primary')).click(); return true; })()`);
+    // 走查 #5：按「稍后处理」把弹窗收起 → 对话里那张待决卡就地给「允许／拒绝」，卡头说人话动词、不印 file_write。
+    await fx.evaluate(`(() => { const m = document.querySelector('.modal-backdrop.permission-modal'); [...m.querySelectorAll('button')].find(b => /稍后处理/.test(b.textContent || '')).click(); return true; })()`);
+    const inline = await fx.waitForEval(`(() => {
+      if (document.querySelector('.modal-backdrop.permission-modal:not(.hidden)')) return null;
+      const card = document.querySelector('.narrative-permission');
+      const actions = card && card.querySelector('.narrative-perm-actions');
+      if (!actions) return null;
+      return { head: (card.querySelector('.narrative-state-title') || {}).textContent || '', buttons: [...actions.querySelectorAll('button')].map(b => b.textContent) };
+    })()`, 100);
+    ok(Boolean(inline) && inline.buttons.join('/') === '允许/拒绝' && !/file_write/.test(inline.head),
+      `P5b 弹窗收起后，对话里的待决卡就地给「允许／拒绝」、卡头说人话（实测 ${JSON.stringify(inline)}）`);
+    await fx.evaluate(`(() => { [...document.querySelectorAll('.narrative-permission .narrative-perm-actions button')].find(b => b.classList.contains('primary')).click(); return true; })()`);
     let written = false;
     for (let i = 0; i < 100 && !written; i++) { written = fs.existsSync(target); if (!written) await sleep(100); }
-    ok(written, 'P6 点「允许」→ report.md 真的写出来了');
+    ok(written, 'P6 在对话卡上点「允许」→ report.md 真的写出来了');
+    const settledCard = await fx.waitForEval(`(() => { const c = document.querySelector('.narrative-permission'); return c && !c.querySelector('.narrative-perm-actions') ? (c.querySelector('.narrative-state-pill') || {}).textContent || 'x' : null; })()`, 100);
+    ok(Boolean(settledCard), `P6b 决定之后卡上的按钮收起、改成结果（实测 ${settledCard}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;
