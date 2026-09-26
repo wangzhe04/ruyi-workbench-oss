@@ -797,7 +797,14 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   ① `css/layout.css`:齿轮菜单里破坏性的「清理历史」前加一道分隔线(`.app-gear-sep`)、危险色(`.gear-danger`)(#21);
 //   ② `css/views/steward-conversation.css`:首跑示例常驻可见边框、字用正文色,长得像按钮(#19)。
 // 算法自证:同上(HEAD 重算 = 35623679…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '79e72661f119fb4156aedfa5883493b0183449d2f3b34155af6038f080676543';
+// 体验走查 #6 续钉(前值 79e72661…＝D 批续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-settings.css`:左栏入口打开的「只看这一块」(`#stab-steward[data-only]` 收起其余段落、
+//   `.steward-only-bar` 说明条 ＋「显示全部」)。颜色走既有 line/ink token,零新增动效。
+// 算法自证:同上(HEAD 重算 = 79e72661…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+// 体验走查 #5 续钉(前值 b8f38cb4…＝#6 续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-narrative.css`:对话里待决权限卡就地的「允许／拒绝」按钮行(`.narrative-perm-actions`)。
+// 算法自证:同上(HEAD 重算 = b8f38cb4…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '22f8eb528753b328dbe1bc5bd5b4f348faff6b6cb6d640b4b406db2d0c2eb027';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

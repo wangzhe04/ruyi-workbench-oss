@@ -2252,6 +2252,12 @@ function normalizeConfig(raw, opts = {}) {
       if (config[key] === false && !rawExplicit.has(key)) { config[key] = true; changed = true; }
     }
   }
+  // 体验走查 #4:killOnDisconnect 缺省翻成 false(刷新／关窗不再结束回合)。schema 13 的稀疏文件里没碰过它的
+  // 用户本来就不存这个键,自动吃到新默认;只有 <13 的整份老文件盘上写着当年的默认 true,下面那段推断会把它
+  // 当成「用户改过」冻住。老文件里的 true 就是当年的默认,不是选择 —— 这里按默认处理。显式键照旧不动。
+  if (incomingConfigSchema < 13 && config.killOnDisconnect === true && !rawExplicit.has('killOnDisconnect')) {
+    config.killOnDisconnect = false; changed = true;
+  }
   { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
     const n = Number(config.summarySingleShotMaxTokensV1);
     const clamped = Number.isFinite(n) ? Math.min(131072, Math.max(8192, Math.round(n))) : 32768;
@@ -5324,6 +5330,7 @@ function bumpMissionChangeSeq(sessionId, payload = {}) {
     missionChangeSeqHighWater.set(sid, revision);
     head.mission.changeSeq = revision;
     head.mission.updatedAt = nowIso();
+    bumpSessionDiskWriteSeq(sid);   // 头被改写:在此之前读到头的装载不得再回写旧副本
     await atomicWriteJson(sessionPath(sid), JSON.stringify(head, null, 2));
     const normalized = normalizeMissionChangePayload(payload);
     await appendMissionChangeRecord(sid, {
@@ -5744,6 +5751,13 @@ function sessionLineHash(line) {
 // bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。
 // 内存占用 16B/行,万行会话 ≈ 160KB,可忽略;进程重启后由 loadSession 重建。
 const sessionBodyState = new Map();
+// 进程内「这条会话被写过几次盘」:saveSession 落盘前后各 +1。loadSession 开读时记下它,读完后仍相等才说明
+// 这一眼期间没有写者 —— 只有那时才许把读到的正文状态交给 sessionBodyState、把补齐默认字段后的副本回写、
+// 截断撕裂尾行。否则拿旧快照去做这三件事,都会把并发 save 刚写进去的消息盖掉/截掉(Windows CI 上
+// session-head-read 那条「并发 save 后只剩 1 条」就是这么丢的)。
+const sessionDiskWriteSeq = new Map();
+function bumpSessionDiskWriteSeq(id) { sessionDiskWriteSeq.set(id, (sessionDiskWriteSeq.get(id) || 0) + 1); }
+function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
 // 读一个 NDJSON 正文文件。返回 { entries, hashes } | null(文件缺失) | { corrupt:true }(中间行坏)。
 // 崩溃语义:写入侧永远「整行 + 尾随 \n」一次 append,所以【无 \n 终结的尾行 = 撕裂】(append 崩溃中途,
 // 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
@@ -5769,8 +5783,9 @@ async function readSessionBodyFile(p) {
     goodBytes += Buffer.byteLength(line, 'utf8') + 1;
     lineEndBytes.push(goodBytes);
   }
-  if (torn) await fsp.truncate(p, goodBytes).catch(() => {}); // 截断失败 → 下次 load 再试,不阻塞读取
-  return { entries, hashes, lineEndBytes };
+  // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
+  // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
+  return { entries, hashes, lineEndBytes, tornAt: torn ? goodBytes : null };
 }
 // 快路径判定:entries 的前 persistedHashes.length 行逐行 hash 全等 → 返回 {appendLines, appendHashes, allHashes};
 // 否则(前缀变/缩短/无状态)返回 null → 调用方全量重写。注意:必须逐行重算 hash,不能只比长度+尾行 ——
@@ -6442,6 +6457,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
+  bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
@@ -7894,6 +7910,7 @@ async function readSessionHeadResilient(id) {
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
 async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
+  const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
   try {
     raw = await fsp.readFile(sessionPath(id), 'utf8');
@@ -7923,7 +7940,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
     // 计数当指纹：saveSession 每次落头都会推 updatedAt（nowIso），所以它变了就一定有写者插进来过。
     // 读不到头（正被原子替换的那一瞬）同样按「别动手」处理 —— 破坏性动作绝不建立在一次可疑的读上。
-    if (bodyBad() || countsDiffer()) {
+    const torn = () => (msg && msg.tornAt != null) || (prov && prov.tornAt != null);
+    if (bodyBad() || countsDiffer() || torn()) {   // 只有要动手(截断/隔离)时才需要确认没有写者
       // 先问最硬的那个信号：**本进程此刻正在给这条会话写盘吗**。saveSession 的 per-id 写链就是
       // 权威答案 —— 链在跑，说明「正文已落、头还没落」这个中间态是【预期内】的，不是崩溃残留。
       // 等它跑完再重读一次，头与正文自然对齐，一个字都不用删。
@@ -7937,6 +7955,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       }
       const again = await readSessionHeadResilient(id);
       const moved = !again
+        || sessionDiskWriteSeqOf(id) !== writeSeqAtRead
         || String(again.updatedAt || '') !== String(parsed.updatedAt || '')
         || again.messageCount !== parsed.messageCount
         || again.providerHistoryCount !== parsed.providerHistoryCount;
@@ -7969,6 +7988,10 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
       return null;
     }
+    // 撕裂尾行截断(从 readSessionBodyFile 挪到这里):到这一步已确认没有写者,半行是崩溃残留而非正在 append。
+    for (const [body, file] of [[msg, bp.messages], [prov, bp.provider]]) {
+      if (body.tornAt != null) await fsp.truncate(file, body.tornAt).catch(() => {}); // 失败 → 下次 load 再试
+    }
     // 未提交尾巴截断:不物理截断的话,磁盘上多出的行会在下次快路径 append 后「复活」进会话。
     for (const [body, count, file] of [[msg, parsed.messageCount, bp.messages], [prov, parsed.providerHistoryCount, bp.provider]]) {
       if (Number.isInteger(count) && body.entries.length > count) {
@@ -7979,7 +8002,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     }
     parsed.messages = msg.entries;
     parsed.providerHistory = prov.entries;
-    sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
+    // 读完到这里期间有人落过盘 → 这份 hash 已旧,交出去会让下一次快路径按旧前缀 append(重复行/丢行)。
+    // 写者自己会把准确的状态放进来,这里什么都不放。
+    if (sessionDiskWriteSeqOf(id) === writeSeqAtRead) sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
     // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
     await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -8016,8 +8041,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-    await saveSession(session).catch(() => {});
-  } else if (changed || healed) await saveSession(session).catch(() => {});
+    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
+  } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
   if (session.mission && typeof session.mission === 'object') {
@@ -8199,6 +8224,13 @@ async function saveSession(session, opts) {
       });
       return { dropped: true, staleGen: saveGen, highWater };
     }
+    // 装载回写(补默认字段/懒迁移)只在「装载那一眼之后没人写过」时才落:否则它拿的是旧副本,会把刚落盘的
+    // 消息整份盖回去。比较在链内做 —— 进程内所有写者都串在这条链上,这里看到的计数就是权威答案。
+    if (opts && Number.isInteger(opts.ifUnwrittenSince) && sessionDiskWriteSeqOf(id) !== opts.ifUnwrittenSince) {
+      logEvent({ kind: 'session_superseded_save_dropped', sessionId: id, writer: String(opts.writer || ''), messageCount: messages.length });
+      return { dropped: true, superseded: true };
+    }
+    bumpSessionDiskWriteSeq(id);
     try { await writeSessionToDisk(); }
     catch (werr) {
       // 撤回那一存自己没落上:盘上仍是旧代数,把水位退回去(只退自己抬的那一格;期间又有更新的撤回
@@ -8208,7 +8240,7 @@ async function saveSession(session, opts) {
         else sessionRewindGenHighWater.delete(id);
       }
       throw werr;
-    }
+    } finally { bumpSessionDiskWriteSeq(id); }   // 落盘前后各一次:读在写的任何一段都能察觉
     return null;
   });
   sessionWriteChains.set(id, thisWrite);
@@ -13632,7 +13664,18 @@ function startToolboxService(component) {
     const t0 = Date.now();
     // 还活着就不动:自己起的看子进程,接管来的再探一次。
     if (entry.state === 'running') {
-      if (entry.owned ? (entry.child && entry.child.exitCode === null) : (await toolboxProbe(entry.port, svc.health, svc.component)) === 'ours') return entry;
+      if (!entry.owned && (await toolboxProbe(entry.port, svc.health, svc.component)) === 'ours') return entry;
+      // 自己起的:子进程还在【且端口上真有人】才算活着。Windows 上 venv 的 python.exe 是启动器,真解释器(/health 报的
+      // 那个 pid)死了之后启动器的 exit 要晚一拍才到 —— 修前这一拍里只看 exitCode,认定「还活着」不去重起,转写被转发到
+      // 一个没人听的端口(toolbox-discovery I1 在 Windows CI 上偶发 502 的根)。只认「端口已经空了」这一种死法:
+      // 端口还被占着、只是探活没及时回(可能正忙着转写)的,照旧当活着,绝不误杀。
+      if (entry.owned && entry.child && entry.child.exitCode === null) {
+        if ((await toolboxProbe(entry.port, svc.health, svc.component)) !== 'down') return entry;
+        const stale = entry.child;
+        logEvent({ kind: 'toolbox_service', action: 'stale-child', id: component.id, pid: entry.pid, port: entry.port });
+        entry.child = null;                 // 旧子进程的 exit 回调据此认出自己已不是现任,不再改状态
+        toolboxKillTree(stale, false);      // 残留的启动器连同它的树一起收掉,别留孤儿
+      }
     }
     entry.error = ''; entry.stderrTail = ''; entry.stopping = false;
     const first = await toolboxProbe(svc.port, svc.health, svc.component);
@@ -24068,9 +24111,24 @@ function stewardClipSay(value) {
   const raw = stewardSanitizeText(value);
   return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
 }
+// 走查 #12:权限待决的一句人话(管家的「等你」行、抽屉、总览都读 stewardPendingOneLine 这一个来源)。
+// 常用工具说清要对哪个文件做什么;认不出的工具才退回工具名 —— 总比「edit 级」这种档位黑话好懂。
+const STEWARD_PERMISSION_VERBS = Object.freeze({
+  file_write: '写入文件', file_edit: '修改文件', file_delete: '删除文件', file_move: '移动文件', file_copy: '复制文件',
+  powershell_run: '运行一条命令', script_run: '运行一段脚本', http_download: '下载文件',
+});
+function stewardPermissionPlain(iv) {
+  const tool = String((iv && iv.toolName) || '');
+  const input = iv && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : {};
+  const target = input.path || input.from || input.dest || '';
+  const name = target ? stewardSanitizeText(String(target).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '') : '';   // 不借 00-boot 的 path(会多一条循环边)
+  const verb = STEWARD_PERMISSION_VERBS[tool];
+  if (verb) return name ? `${verb}「${name}」` : verb;
+  return name ? `用「${stewardSanitizeText(tool || '?')}」处理「${name}」` : `使用工具「${stewardSanitizeText(tool || '?')}」`;
+}
 function stewardPendingOneLine(iv) {
   const type = String((iv && iv.type) || '');
-  if (type === 'permission') return `工具 ${stewardSanitizeText(iv.toolName || '?')}(${stewardSanitizeText(iv.tier || 'exec')} 级)等待放行`;
+  if (type === 'permission') return '等你放行:' + stewardPermissionPlain(iv);   // 走查 #12:不再印「工具 file_write(edit 级)」
   if (type === 'question') {
     const first = (Array.isArray(iv && iv.questions) ? iv.questions : [])[0];
     return stewardClipSay((first && (first.question || first.title)) || '等待你回答');
@@ -30235,6 +30293,12 @@ function appendAgentRunEvent(run, evt) {
     cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
   } catch { /* 取证辅助,不阻断执行 */ }
 }
+// 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
+// 事件日志里 —— 修前追加链不等,终稿可能先落(autonomy-resume H2 在 Windows CI 上偶发「事件链缺 run_end」)。
+function flushAgentRunEvents(runId) {
+  const chain = agentRunEventChains.get(String(runId || ''));
+  return chain ? chain.catch(() => {}) : Promise.resolve();
+}
 
 // ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
 // 背景(27 号文 §11.6「116b 登记的缺口」):subagent_no_progress / loop_recovery / 节点级工具迭代
@@ -33942,6 +34006,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     run.metrics.failuresByClass[cls] = (run.metrics.failuresByClass[cls] || 0) + 1;
   }
   appendAgentRunEvent(run, { type: 'run_end', data: { status: run.status, failed: failed.length } }); // 25.3(先增 seq 再终稿落盘)
+  await flushAgentRunEvents(run.id);   // run_end 先落,终稿后落:看到终态的读者一定也看得到 run_end
   await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 终稿写失败时结果仍应回给调用方(onComplete/回合),磁盘状态由降级横幅兜底
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
   if (typeof onComplete === 'function') await onComplete(run).catch(() => {});

@@ -1032,6 +1032,12 @@ function normalizeConfig(raw, opts = {}) {
       if (config[key] === false && !rawExplicit.has(key)) { config[key] = true; changed = true; }
     }
   }
+  // 体验走查 #4:killOnDisconnect 缺省翻成 false(刷新／关窗不再结束回合)。schema 13 的稀疏文件里没碰过它的
+  // 用户本来就不存这个键,自动吃到新默认;只有 <13 的整份老文件盘上写着当年的默认 true,下面那段推断会把它
+  // 当成「用户改过」冻住。老文件里的 true 就是当年的默认,不是选择 —— 这里按默认处理。显式键照旧不动。
+  if (incomingConfigSchema < 13 && config.killOnDisconnect === true && !rawExplicit.has('killOnDisconnect')) {
+    config.killOnDisconnect = false; changed = true;
+  }
   { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
     const n = Number(config.summarySingleShotMaxTokensV1);
     const clamped = Number.isFinite(n) ? Math.min(131072, Math.max(8192, Math.round(n))) : 32768;

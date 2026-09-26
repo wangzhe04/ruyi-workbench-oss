@@ -521,7 +521,7 @@ try {
       await sleep(120);
     }
     ok(!!(permRow && permRow.asksYou && permRow.asksYou.kind === 'permission'
-      && permRow.asksYou.text === '工具 script_run(exec 级)等待放行'
+      && permRow.asksYou.text === '等你放行:运行一段脚本'
       && permRow.asksYou.toolName === 'script_run' && permRow.asksYou.tier === 'exec' && permRow.asksYou.revertible === false),
       `I2c 挂着 permission 的看板行也带 asksYou(kind='permission' + 人话 + toolName/tier/revertible)(got ${JSON.stringify(permRow && permRow.asksYou)})`);
   }
@@ -700,7 +700,7 @@ try {
     ]);
     const perm = await call('steward_thread_status', { sessionId: SID_PERM });
     ok(!!(perm && perm.asksYou && perm.asksYou.kind === 'permission' && perm.asksYou.interventionId === 'perm_a1'
-      && /script_run/.test(String(perm.asksYou.text || '')) && /exec/.test(String(perm.asksYou.text || ''))
+      && /运行一段脚本/.test(String(perm.asksYou.text || '')) && !/script_run|exec 级/.test(String(perm.asksYou.text || ''))
       && perm.asksYou.toolName === 'script_run' && perm.asksYou.tier === 'exec' && perm.asksYou.revertible === false),
       `I6a permission 待决 → asksYou.kind='permission' + stewardPendingOneLine 的原话 + toolName/tier/revertible(got ${JSON.stringify(perm && perm.asksYou)})`);
     const plan = await call('steward_thread_status', { sessionId: SID_PLAN });
@@ -716,10 +716,10 @@ try {
       && both.asksYou.interventionId === 'question_b1' && /走 A 还是走 B/.test(String(both.asksYou.text || ''))),
       `I6d 优先级固定:question 压过 permission,且 question 一支照旧带 questionId(got ${JSON.stringify(both && both.asksYou)})`);
     // 「人话只有一个来源」的正面证据:permission 那一句逐字等于 06i 的 stewardPendingOneLine。
-    ok(!!(perm && perm.asksYou && perm.asksYou.text === '工具 script_run(exec 级)等待放行'),
+    ok(!!(perm && perm.asksYou && perm.asksYou.text === '等你放行:运行一段脚本'),
       `I6e permission 的人话逐字来自 stewardPendingOneLine 单点(got ${JSON.stringify(perm && perm.asksYou && perm.asksYou.text)})`);
     // pending 数组与五态字段照旧(只加不改)。
-    ok(!!(perm && Array.isArray(perm.pending) && perm.pending.length === 1 && perm.pending[0].summary === '工具 script_run(exec 级)等待放行'
+    ok(!!(perm && Array.isArray(perm.pending) && perm.pending.length === 1 && perm.pending[0].summary === '等你放行:运行一段脚本'
       && perm.state && perm.stateLabel),
       'I6f pending 摘要与五态字段照旧在(只加不改)');
   }

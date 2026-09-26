@@ -31,6 +31,15 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 let WB_PORT = 0, TOKEN = '';
 
+// 假启动器:与 Windows venv 的 python.exe 同形 —— 真服务是它的子进程;收到终止信号就转给子进程;子进程退了它还要晚
+// 2.5 秒才退(真机上那一拍更短,但窗口同一个)。
+const FAKE_LAUNCHER = `
+const cp = require('child_process');
+const [script, ...rest] = process.argv.slice(2);
+const child = cp.spawn(process.execPath, [script, ...rest], { stdio: 'inherit' });
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => { try { child.kill(sig); } catch {} setTimeout(() => process.exit(0), 200); });
+child.on('exit', code => setTimeout(() => process.exit(code == null ? 1 : code), 2500));
+`;
 // 假组件:按登记约定 §2.2 行事 —— 端口以环境变量为准、/health 回 component、Whisper 形转写回显、把收到的环境写进一个文件供断言。
 const FAKE_SERVICE = `
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -80,7 +89,9 @@ function register(id, patch) {
   fs.mkdirSync(COMPONENTS, { recursive: true });
   const base = {
     schema: 1, id, kind: 'service', name: '假语音识别组件', version: '0.0.1',
-    run: { command: process.execPath, args: [path.join(FAKE_DIR, 'service.js'), '--flag'], cwd: FAKE_DIR, env: { FAKE_EXTRA: 'from-manifest' } },
+    // I1 的真根(Windows CI 偶发 502):venv 的 python.exe 是启动器,/health 报的是它的子进程。这里照样摆一层启动器,
+    // 让「真服务死了、启动器晚一拍才退」在每个平台上都成立 —— 修前这一拍里如意认定组件还活着、不去重起。
+    run: { command: process.execPath, args: [path.join(FAKE_DIR, 'launcher.js'), path.join(FAKE_DIR, 'service.js'), '--flag'], cwd: FAKE_DIR, env: { FAKE_EXTRA: 'from-manifest' } },
     service: { port: 0, portEnv: 'FAKE_ASR_PORT', health: '/health', component: 'fake-asr-component', unload: '/v1/unload' },
     // 133:多尺寸清单(约定 §2.2 可选字段)—— 缺省那份 + 一份「大的」,各带设置页要显示的 label
     provides: [{ type: 'asr', basePath: '/v1', model: 'fake-local-asr', protocol: 'transcriptions', models: [{ id: 'fake-local-asr', label: '小的（约 2 GB 显存）' }, { id: 'fake-local-asr-big', label: '大的（约 5 GB 显存）' }] }, { type: 'time-travel', basePath: '/v9', model: 'x' }],
@@ -144,6 +155,7 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
   try {
     fs.mkdirSync(FAKE_DIR, { recursive: true });
     fs.writeFileSync(path.join(FAKE_DIR, 'service.js'), FAKE_SERVICE);
+    fs.writeFileSync(path.join(FAKE_DIR, 'launcher.js'), FAKE_LAUNCHER);
     fs.writeFileSync(path.join(FAKE_DIR, 'mcp-stub.js'), 'setTimeout(() => {}, 3000);');   // 不说 MCP 话的占位:断言的是「进了清单」
     fs.writeFileSync(path.join(FAKE_DIR, 'stream.js'), FAKE_STREAM);
     WB_PORT = await getFreePort();

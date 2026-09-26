@@ -39,6 +39,11 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       `N1 没接模型：管家首页是「先接一个模型」卡（实测 ${JSON.stringify(gate && { acts: gate.acts, text: gate.text.slice(0, 80) })}）`);
     ok(gate && gate.disabled === true && /先接一个模型/.test(gate.placeholder),
       `N2 输入框置灰、占位说清原因（实测 disabled=${gate && gate.disabled} placeholder=${JSON.stringify(gate && gate.placeholder)}）`);
+    // N2b（Windows CI 首跑红过一次：disabled=true 但占位还是默认那句）：语言包晚到时会按 data-i18n-attr 把全页重新套一遍，
+    // 修前它把「先接一个模型」写回默认句。这里确定性地重新套一遍再量。
+    const reapplied = await fx.evaluate(`import('/js/i18n.js').then(m => { m.applyTranslations(document); const i = document.getElementById('stewardComposerInput'); return { disabled: i.disabled, placeholder: i.placeholder }; })`);
+    ok(reapplied && reapplied.disabled === true && /先接一个模型/.test(reapplied.placeholder),
+      `N2b 语言包重新套用之后占位仍说清原因（实测 ${JSON.stringify(reapplied)}）`);
     ok(gate && !/stewardProviderId/.test(gate.text) && !/claude/i.test(gate.text),
       'N3 不出配置键名，也不出用户没选过的「claude」');
 

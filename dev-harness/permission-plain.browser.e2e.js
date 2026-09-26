@@ -17,7 +17,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   P4 原始工具名与 JSON 收在「技术详情」里、默认收起；
 //   P5 收起的技术详情之外，看不到 file_write 这种标识；
 //   P6 点「允许」→ 文件真的写出来；
-//   P7 新装的 config.killOnDisconnect 是 false。
+//   P7 新装的 config.killOnDisconnect 是 false；
+//   P8/P9 普通模式下上下文计量与线程头下那一行也说人话（走查 #12 的另两处）。
 // 判定行：`PERMISSION PLAIN BROWSER E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +48,17 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     await fx.waitForEval(`document.documentElement.getAttribute('data-shell-mode') === 'classic' ? 1 : null`);
     await fx.evaluate(`(document.getElementById('newSessionBtn') || { click() {} }).click(), true`);
     await sleep(800);
+    // 走查 #12 的另两处：普通模式下上下文计量与线程头下那一行都说人话，数字与整条路径留在悬停提示里。
+    const plainBits = await fx.waitForEval(`(() => {
+      const meter = document.querySelector('#contextMeter .ctx-text');
+      const meta = document.getElementById('sessionMeta');
+      if (!meter || !meta || !meta.textContent) return null;
+      return { meter: meter.textContent, meterTitle: document.getElementById('contextMeter').title, meta: meta.textContent, metaTitle: meta.title };
+    })()`, 100);
+    ok(Boolean(plainBits) && plainBits.meter === '对话余量充足' && !/—|\/ \d|未开始/.test(plainBits.meter) && /上限/.test(plainBits.meterTitle),
+      `P8 普通模式的上下文计量说人话「对话余量充足」，读数留在悬停提示里（实测 ${JSON.stringify(plainBits && { meter: plainBits.meter })}）`);
+    ok(Boolean(plainBits) && /^在「[^」]+」里干活$/.test(plainBits.meta) && plainBits.metaTitle && plainBits.meta.length < plainBits.metaTitle.length + 8 && !/[\\/]/.test(plainBits.meta),
+      `P9 线程头下那一行只说文件夹名，整条路径在悬停提示里（实测 ${JSON.stringify(plainBits && { meta: plainBits.meta, title: plainBits.metaTitle })}）`);
     const sentAt = Date.now();
     await fx.evaluate(`(() => {
       const i = document.getElementById('promptInput');
@@ -78,10 +90,23 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       `P4 原始工具名与 JSON 收在默认收起的「技术详情」里（实测 open=${modal && modal.techOpen}）`);
     ok(Boolean(modal) && !/file_write/.test(modal.outside), 'P5 技术详情之外看不到 file_write');
 
-    await fx.evaluate(`(() => { const m = document.querySelector('.modal-backdrop.permission-modal'); [...m.querySelectorAll('button')].find(b => b.classList.contains('primary')).click(); return true; })()`);
+    // 走查 #5：按「稍后处理」把弹窗收起 → 对话里那张待决卡就地给「允许／拒绝」，卡头说人话动词、不印 file_write。
+    await fx.evaluate(`(() => { const m = document.querySelector('.modal-backdrop.permission-modal'); [...m.querySelectorAll('button')].find(b => /稍后处理/.test(b.textContent || '')).click(); return true; })()`);
+    const inline = await fx.waitForEval(`(() => {
+      if (document.querySelector('.modal-backdrop.permission-modal:not(.hidden)')) return null;
+      const card = document.querySelector('.narrative-permission');
+      const actions = card && card.querySelector('.narrative-perm-actions');
+      if (!actions) return null;
+      return { head: (card.querySelector('.narrative-state-title') || {}).textContent || '', buttons: [...actions.querySelectorAll('button')].map(b => b.textContent) };
+    })()`, 100);
+    ok(Boolean(inline) && inline.buttons.join('/') === '允许/拒绝' && !/file_write/.test(inline.head),
+      `P5b 弹窗收起后，对话里的待决卡就地给「允许／拒绝」、卡头说人话（实测 ${JSON.stringify(inline)}）`);
+    await fx.evaluate(`(() => { [...document.querySelectorAll('.narrative-permission .narrative-perm-actions button')].find(b => b.classList.contains('primary')).click(); return true; })()`);
     let written = false;
     for (let i = 0; i < 100 && !written; i++) { written = fs.existsSync(target); if (!written) await sleep(100); }
-    ok(written, 'P6 点「允许」→ report.md 真的写出来了');
+    ok(written, 'P6 在对话卡上点「允许」→ report.md 真的写出来了');
+    const settledCard = await fx.waitForEval(`(() => { const c = document.querySelector('.narrative-permission'); return c && !c.querySelector('.narrative-perm-actions') ? (c.querySelector('.narrative-state-pill') || {}).textContent || 'x' : null; })()`, 100);
+    ok(Boolean(settledCard), `P6b 决定之后卡上的按钮收起、改成结果（实测 ${settledCard}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;

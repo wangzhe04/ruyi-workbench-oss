@@ -106,6 +106,89 @@ describe('loadSession：并发写盘时绝不做破坏性动作', () => {
   });
 });
 
+describe('loadSession：装载那一眼之后有人写过盘，就不许拿旧副本做任何写动作（确定性复现）', () => {
+  // 上面那条「不变量断言」没有牙；Windows CI 上它偶发红（after.messages 1 vs 2），根因是另外两条路：
+  //   ① 新会话第一次被装载时 normalizeSession 会补默认字段（todos/skills/memories…）→ 装载拿【读到的旧副本】
+  //      回写一次。回写若排在并发 save 之后入链，就把刚落盘的消息整份盖回去；
+  //   ② 读正文时见到「无换行结尾的尾行」就地截断 —— 可 Windows 上并发读能看到 append 写了一半的行，
+  //      截掉的正是正在落盘的那一条。
+  // 这里用注入的延迟把两条竞态卡到必现，修前两条都红。
+  const freshTwoTurnSession = async () => {
+    const s = await srv.createSession({ title: '竞态', cwd: root });
+    s.messages = [{ role: 'user', content: '1', createdAt: new Date().toISOString() }];
+    s.providerHistory = [{ role: 'user', content: '1' }];
+    await srv.saveSession(s);
+    s.messages.push({ role: 'assistant', content: '2', createdAt: new Date().toISOString() });
+    s.providerHistory.push({ role: 'assistant', content: '2' });
+    return s;
+  };
+  const diskCount = id => JSON.parse(fs.readFileSync(headPath(id), 'utf8')).messageCount;
+  const bodyLines = id => fs.readFileSync(path.join(sessionsDir, id + '.messages.ndjson'), 'utf8').split('\n').length - 1;
+
+  it('⑤ 装载的补字段回写排在并发 save 之后 → 被丢弃，不把第 2 条盖掉', async () => {
+    const s = await freshTwoTurnSession();
+    const orig = fsp.unlink;
+    let armed = true;
+    // 装载读完头与正文后会先清 .v1bak 再回写：在这里停 150ms，让并发 save 整个跑完。
+    fsp.unlink = async function (p) {
+      if (armed && String(p).endsWith(s.id + '.json.v1bak')) { armed = false; await new Promise(r => setTimeout(r, 150)); }
+      return orig.apply(this, arguments);
+    };
+    try {
+      const racing = srv.loadSession(s.id);
+      await new Promise(r => setTimeout(r, 20));
+      await srv.saveSession(s);
+      await racing;
+    } finally { fsp.unlink = orig; }
+    assert.equal(diskCount(s.id), 2, '头上的计数被装载回写成了旧的 1');
+    assert.equal(bodyLines(s.id), 2, '正文被装载回写重写成了 1 行');
+    const after = await srv.loadSession(s.id);
+    assert.equal(after && after.messages.length, 2);
+    // 再存一轮：装载若把旧 hash 交给了 sessionBodyState，这一存会按旧前缀 append（重复/丢行）。
+    after.messages.push({ role: 'user', content: '3', createdAt: new Date().toISOString() });
+    after.providerHistory.push({ role: 'user', content: '3' });
+    await srv.saveSession(after);
+    const again = await srv.loadSession(s.id);
+    assert.deepEqual(again.messages.map(m => m.content), ['1', '2', '3']);
+  });
+
+  it('⑥ 读到 append 写了一半的行（Windows 上会发生）→ 不截断，等写完再读', async () => {
+    const s = await freshTwoTurnSession();
+    await srv.loadSession(s.id);                 // 先让补字段回写跑掉，这一条只测截断
+    const orig = fsp.appendFile;
+    let armed = true, racing = null;
+    // 把正文 append 拆成两半、中间停 100ms 并在这一刻发起一次装载 —— 它读到的正是半行。
+    fsp.appendFile = async function (p, data) {
+      if (armed && String(p).endsWith(s.id + '.messages.ndjson')) {
+        armed = false;
+        const text = String(data), cut = Math.floor(text.length / 2);
+        await orig.call(this, p, text.slice(0, cut), 'utf8');
+        racing = srv.loadSession(s.id);
+        await new Promise(r => setTimeout(r, 100));
+        return orig.call(this, p, text.slice(cut), 'utf8');
+      }
+      return orig.apply(this, arguments);
+    };
+    try { await srv.saveSession(s); await racing; }
+    finally { fsp.appendFile = orig; }
+    assert.ok(racing, '注入没有触发（快路径没有 append？）');
+    assert.equal(bodyLines(s.id), 2, '正在 append 的那一行被当成撕裂尾行截掉了');
+    const after = await srv.loadSession(s.id);
+    assert.ok(after, '会话不得被判损坏隔离');
+    assert.deepEqual(after.messages.map(m => m.content), ['1', '2']);
+  });
+
+  it('⑦ 真正的崩溃残留（没有写者时的半行）仍然截断', async () => {
+    const s = await freshTwoTurnSession();
+    await srv.saveSession(s);
+    fs.appendFileSync(path.join(sessionsDir, s.id + '.messages.ndjson'), '{"role":"user","cont', 'utf8');
+    const after = await srv.loadSession(s.id);
+    assert.equal(after && after.messages.length, 2);
+    assert.equal(bodyLines(s.id), 2);
+    assert.ok(fs.readFileSync(path.join(sessionsDir, s.id + '.messages.ndjson'), 'utf8').endsWith('\n'), '半行应被截掉');
+  });
+});
+
 describe('两道守卫的源码锁（把「不许在并发写盘时动手」钉住，防回改）', () => {
   const store = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'src', '02-session-store.js'), 'utf8');
   const routes = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'src', '13d-core-domain-routes.js'), 'utf8');

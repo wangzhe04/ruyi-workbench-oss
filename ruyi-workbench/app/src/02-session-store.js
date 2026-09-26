@@ -295,6 +295,7 @@ function bumpMissionChangeSeq(sessionId, payload = {}) {
     missionChangeSeqHighWater.set(sid, revision);
     head.mission.changeSeq = revision;
     head.mission.updatedAt = nowIso();
+    bumpSessionDiskWriteSeq(sid);   // 头被改写:在此之前读到头的装载不得再回写旧副本
     await atomicWriteJson(sessionPath(sid), JSON.stringify(head, null, 2));
     const normalized = normalizeMissionChangePayload(payload);
     await appendMissionChangeRecord(sid, {
@@ -715,6 +716,13 @@ function sessionLineHash(line) {
 // bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。
 // 内存占用 16B/行,万行会话 ≈ 160KB,可忽略;进程重启后由 loadSession 重建。
 const sessionBodyState = new Map();
+// 进程内「这条会话被写过几次盘」:saveSession 落盘前后各 +1。loadSession 开读时记下它,读完后仍相等才说明
+// 这一眼期间没有写者 —— 只有那时才许把读到的正文状态交给 sessionBodyState、把补齐默认字段后的副本回写、
+// 截断撕裂尾行。否则拿旧快照去做这三件事,都会把并发 save 刚写进去的消息盖掉/截掉(Windows CI 上
+// session-head-read 那条「并发 save 后只剩 1 条」就是这么丢的)。
+const sessionDiskWriteSeq = new Map();
+function bumpSessionDiskWriteSeq(id) { sessionDiskWriteSeq.set(id, (sessionDiskWriteSeq.get(id) || 0) + 1); }
+function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
 // 读一个 NDJSON 正文文件。返回 { entries, hashes } | null(文件缺失) | { corrupt:true }(中间行坏)。
 // 崩溃语义:写入侧永远「整行 + 尾随 \n」一次 append,所以【无 \n 终结的尾行 = 撕裂】(append 崩溃中途,
 // 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
@@ -740,8 +748,9 @@ async function readSessionBodyFile(p) {
     goodBytes += Buffer.byteLength(line, 'utf8') + 1;
     lineEndBytes.push(goodBytes);
   }
-  if (torn) await fsp.truncate(p, goodBytes).catch(() => {}); // 截断失败 → 下次 load 再试,不阻塞读取
-  return { entries, hashes, lineEndBytes };
+  // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
+  // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
+  return { entries, hashes, lineEndBytes, tornAt: torn ? goodBytes : null };
 }
 // 快路径判定:entries 的前 persistedHashes.length 行逐行 hash 全等 → 返回 {appendLines, appendHashes, allHashes};
 // 否则(前缀变/缩短/无状态)返回 null → 调用方全量重写。注意:必须逐行重算 hash,不能只比长度+尾行 ——
@@ -1413,6 +1422,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
+  bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
   sessionDesktopToolsOverrides.delete(id);   // 117z-E2 提交①: 同上(桌面覆盖绝不能被同名新会话继承)
@@ -2865,6 +2875,7 @@ async function readSessionHeadResilient(id) {
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
 async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
+  const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
   try {
     raw = await fsp.readFile(sessionPath(id), 'utf8');
@@ -2894,7 +2905,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
     // 计数当指纹：saveSession 每次落头都会推 updatedAt（nowIso），所以它变了就一定有写者插进来过。
     // 读不到头（正被原子替换的那一瞬）同样按「别动手」处理 —— 破坏性动作绝不建立在一次可疑的读上。
-    if (bodyBad() || countsDiffer()) {
+    const torn = () => (msg && msg.tornAt != null) || (prov && prov.tornAt != null);
+    if (bodyBad() || countsDiffer() || torn()) {   // 只有要动手(截断/隔离)时才需要确认没有写者
       // 先问最硬的那个信号：**本进程此刻正在给这条会话写盘吗**。saveSession 的 per-id 写链就是
       // 权威答案 —— 链在跑，说明「正文已落、头还没落」这个中间态是【预期内】的，不是崩溃残留。
       // 等它跑完再重读一次，头与正文自然对齐，一个字都不用删。
@@ -2908,6 +2920,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       }
       const again = await readSessionHeadResilient(id);
       const moved = !again
+        || sessionDiskWriteSeqOf(id) !== writeSeqAtRead
         || String(again.updatedAt || '') !== String(parsed.updatedAt || '')
         || again.messageCount !== parsed.messageCount
         || again.providerHistoryCount !== parsed.providerHistoryCount;
@@ -2940,6 +2953,10 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       await fsp.rename(sessionPath(id), sessionPath(id) + '.corrupt').catch(() => {});
       return null;
     }
+    // 撕裂尾行截断(从 readSessionBodyFile 挪到这里):到这一步已确认没有写者,半行是崩溃残留而非正在 append。
+    for (const [body, file] of [[msg, bp.messages], [prov, bp.provider]]) {
+      if (body.tornAt != null) await fsp.truncate(file, body.tornAt).catch(() => {}); // 失败 → 下次 load 再试
+    }
     // 未提交尾巴截断:不物理截断的话,磁盘上多出的行会在下次快路径 append 后「复活」进会话。
     for (const [body, count, file] of [[msg, parsed.messageCount, bp.messages], [prov, parsed.providerHistoryCount, bp.provider]]) {
       if (Number.isInteger(count) && body.entries.length > count) {
@@ -2950,7 +2967,9 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     }
     parsed.messages = msg.entries;
     parsed.providerHistory = prov.entries;
-    sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
+    // 读完到这里期间有人落过盘 → 这份 hash 已旧,交出去会让下一次快路径按旧前缀 append(重复行/丢行)。
+    // 写者自己会把准确的状态放进来,这里什么都不放。
+    if (sessionDiskWriteSeqOf(id) === writeSeqAtRead) sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
     // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
     await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -2987,8 +3006,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-    await saveSession(session).catch(() => {});
-  } else if (changed || healed) await saveSession(session).catch(() => {});
+    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
+  } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
   if (session.mission && typeof session.mission === 'object') {
@@ -3170,6 +3189,13 @@ async function saveSession(session, opts) {
       });
       return { dropped: true, staleGen: saveGen, highWater };
     }
+    // 装载回写(补默认字段/懒迁移)只在「装载那一眼之后没人写过」时才落:否则它拿的是旧副本,会把刚落盘的
+    // 消息整份盖回去。比较在链内做 —— 进程内所有写者都串在这条链上,这里看到的计数就是权威答案。
+    if (opts && Number.isInteger(opts.ifUnwrittenSince) && sessionDiskWriteSeqOf(id) !== opts.ifUnwrittenSince) {
+      logEvent({ kind: 'session_superseded_save_dropped', sessionId: id, writer: String(opts.writer || ''), messageCount: messages.length });
+      return { dropped: true, superseded: true };
+    }
+    bumpSessionDiskWriteSeq(id);
     try { await writeSessionToDisk(); }
     catch (werr) {
       // 撤回那一存自己没落上:盘上仍是旧代数,把水位退回去(只退自己抬的那一格;期间又有更新的撤回
@@ -3179,7 +3205,7 @@ async function saveSession(session, opts) {
         else sessionRewindGenHighWater.delete(id);
       }
       throw werr;
-    }
+    } finally { bumpSessionDiskWriteSeq(id); }   // 落盘前后各一次:读在写的任何一段都能察觉
     return null;
   });
   sessionWriteChains.set(id, thisWrite);

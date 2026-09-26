@@ -1326,6 +1326,28 @@ export function createStewardSettingsDomain({
     decisions: 'cfgStewardGroupDecisions',
     index: 'cfgStewardGroupIndex',
   });
+  // 走查 #6：左栏三个入口各自是一块「独立面板」—— 管家页只留那一段，其余收起，顶上一条说明 ＋「显示全部」。
+  // 不再把人扔进 3000 多 px 的整页里找。切页签（switchSettingsTab）或再次打开设置时自动回到整页。
+  function showOnlySection(tab, target, section) {
+    for (const node of tab.querySelectorAll(':scope > .is-only')) node.classList.remove('is-only');
+    target.classList.add('is-only');
+    tab.dataset.only = section;
+    let bar = tab.querySelector(':scope > .steward-only-bar');   // 动态节点:不用字面量 id(dom-contract ① 要求字面量 id 都在 index.html 里)
+    if (!bar) {
+      bar = el('div', 'steward-only-bar');
+      tab.insertBefore(bar, tab.firstChild);
+    }
+    clear(bar);
+    const labelId = target.getAttribute('aria-labelledby');
+    const heading = labelId ? byId(labelId) : null;
+    bar.appendChild(el('span', 'steward-only-title', t('stewardShell.settings.onlyTitle', { name: heading ? heading.textContent.trim() : '' })));
+    bar.appendChild(button('ghost steward-only-all', t('stewardShell.settings.showAll'), () => {
+      delete tab.dataset.only;
+      target.classList.remove('is-only');
+      bar.remove();
+      target.scrollIntoView({ block: 'start' });
+    }));
+  }
   function openPanel(section) {
     openSettingsTab(STEWARD_SETTINGS_TAB);
     fillStewardSettings();
@@ -1337,6 +1359,8 @@ export function createStewardSettingsDomain({
     const target = targetId ? byId(targetId) : null;
     // 焦点跟到目标段落（preventScroll），openModal 随后那一拍看见焦点已在弹层里就不再抢回页首——
     // 修前它把焦点给页首第一个控件，滚动随之被拽回「管家总开关」，三个左栏入口都落在顶上。
+    const tab = byId('stab-steward');
+    if (tab && target && section !== 'index') showOnlySection(tab, target, String(section));   // 「线程索引」不是左栏入口，照旧整页定位
     if (target && typeof target.scrollIntoView === 'function') {
       target.scrollIntoView({ block: 'start' });
       // 只挑可用且看得见的控件（加载中的下拉是 disabled，focus() 落空，焦点就又被 openModal 拽回页首）；

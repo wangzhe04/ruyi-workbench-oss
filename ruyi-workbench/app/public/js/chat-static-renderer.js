@@ -27,6 +27,8 @@ export function createChatStaticRenderer(deps = {}) {
     turnToolAnchorId,
     usageLine,
     wrapPreWithCopy,
+    humanizeToolName = name => name,   // 走查 #5/#12:待决权限卡说人话动词、就地给「允许／拒绝」
+    decidePermission = null,
   } = deps;
   // Formatting is synchronous in marked/sanitizer/highlight.js. Beyond this bounded size, keep the raw
   // source as selectable plain text so one answer cannot monopolize dragging/scrolling at settle/re-entry.
@@ -145,7 +147,7 @@ export function createChatStaticRenderer(deps = {}) {
       mission: 'narrative.mission',
     }[type] || 'narrative.event';
     let detail = '';
-    if (type === 'permission') detail = segment.toolName || '';
+    if (type === 'permission') detail = segment.toolName ? humanizeToolName(segment.toolName) : '';
     else if (type === 'workflow') {
       const total = Number(segment.nodeCount) || 0;
       detail = total ? t('narrative.workflowNodes', { count: total }) : '';
@@ -157,6 +159,19 @@ export function createChatStaticRenderer(deps = {}) {
     head.append(el('span', 'narrative-state-title', `${t(titleKey)}${detail ? ' · ' + detail : ''}`), narrativeStatePill(segment.status));
     card.append(head);
     if (segment.note) card.append(el('div', 'narrative-state-note', narrativeReasonText(segment.note)));
+    // 走查 #5：弹窗被关掉之后，对话里只剩一张「等待决定」的折叠卡，要自己去找右下角的小胶囊。待决时就地给两枚按钮，
+    // 与弹窗走同一条 decide（结果事件到了，这张卡会被整张重画成「已允许／已拒绝」，按钮随之消失）。
+    if (type === 'permission' && String(segment.status || '') === 'pending' && segment.requestId && typeof decidePermission === 'function') {
+      const actions = el('div', 'narrative-perm-actions');
+      const allow = el('button', 'primary', t('permission.allow'));
+      const deny = el('button', '', t('permission.deny'));
+      for (const [btn, behavior] of [[allow, 'allow'], [deny, 'deny']]) {
+        btn.type = 'button';
+        btn.addEventListener('click', () => { allow.disabled = true; deny.disabled = true; decidePermission(String(segment.requestId), behavior); });
+      }
+      actions.append(allow, deny);
+      card.append(actions);
+    }
     return card;
   }
   // 体验走查 #4：服务端收尾时给待决权限／提问记的原因是英文代号（04 stopSession 的 `turn ${reason}` 等），

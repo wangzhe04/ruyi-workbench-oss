@@ -78,7 +78,18 @@ function startToolboxService(component) {
     const t0 = Date.now();
     // 还活着就不动:自己起的看子进程,接管来的再探一次。
     if (entry.state === 'running') {
-      if (entry.owned ? (entry.child && entry.child.exitCode === null) : (await toolboxProbe(entry.port, svc.health, svc.component)) === 'ours') return entry;
+      if (!entry.owned && (await toolboxProbe(entry.port, svc.health, svc.component)) === 'ours') return entry;
+      // 自己起的:子进程还在【且端口上真有人】才算活着。Windows 上 venv 的 python.exe 是启动器,真解释器(/health 报的
+      // 那个 pid)死了之后启动器的 exit 要晚一拍才到 —— 修前这一拍里只看 exitCode,认定「还活着」不去重起,转写被转发到
+      // 一个没人听的端口(toolbox-discovery I1 在 Windows CI 上偶发 502 的根)。只认「端口已经空了」这一种死法:
+      // 端口还被占着、只是探活没及时回(可能正忙着转写)的,照旧当活着,绝不误杀。
+      if (entry.owned && entry.child && entry.child.exitCode === null) {
+        if ((await toolboxProbe(entry.port, svc.health, svc.component)) !== 'down') return entry;
+        const stale = entry.child;
+        logEvent({ kind: 'toolbox_service', action: 'stale-child', id: component.id, pid: entry.pid, port: entry.port });
+        entry.child = null;                 // 旧子进程的 exit 回调据此认出自己已不是现任,不再改状态
+        toolboxKillTree(stale, false);      // 残留的启动器连同它的树一起收掉,别留孤儿
+      }
     }
     entry.error = ''; entry.stderrTail = ''; entry.stopping = false;
     const first = await toolboxProbe(svc.port, svc.health, svc.component);

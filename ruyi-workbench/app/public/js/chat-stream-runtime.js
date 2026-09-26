@@ -99,7 +99,7 @@ export function createChatStreamRuntime(deps = {}) {
     renderResumeBanner,
     renderSessions,
     renderStaticMessage,
-    renderStepBar,
+    renderStepBar, paintSessionMeta = () => {},   // 走查 #12:线程头下那一行(util.js 注入)
     safeStringify,
     scrollMessagesToBottom,
     settleLiveThinking,
@@ -722,7 +722,7 @@ export function createChatStreamRuntime(deps = {}) {
         // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
         // answer a second time and causes the characteristic end-of-stream stall.
         $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('session.untitled') : r.session.title.trim();
-        $('sessionMeta').textContent = r.session?.cwd || '';
+        paintSessionMeta($('sessionMeta'), r.session);
         renderStepBar(r.session && r.session.todos);
         renderMissionBar(r.session && r.session.mission);
         renderContextMeter(latestUsage(r.session));

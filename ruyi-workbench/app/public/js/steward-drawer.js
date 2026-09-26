@@ -1565,7 +1565,17 @@ export function createStewardDrawer({
     mountMode = next;
     drawer.dataset.mount = next;
     const host = next === 'docked' ? byId('stewardFocus') : byId('stewardShell');
-    if (host && drawer.parentNode !== host) host.appendChild(drawer);
+    if (host && drawer.parentNode !== host) {
+      // 搬节点会把里面的焦点丢回 body：同一个 steward:focus-thread 里抽屉先把标题聚焦、看板随后 syncNow → setMount
+      // 换挂法，键盘用户的焦点就此没了（steward-shell-redesign A0 抓到的时序）。搬之前记住、搬完原地还回去（不滚动）。
+      const document_ = doc();
+      const active = document_ && document_.activeElement;
+      const keep = active && active !== drawer && drawer.contains(active) ? active : null;
+      host.appendChild(drawer);
+      if (keep && keep.isConnected && document_.activeElement !== keep && typeof keep.focus === 'function') {
+        try { keep.focus({ preventScroll: true }); } catch { /* 还不回去就算了：不能因此让换挂法失败 */ }
+      }
+    }
     applyModal();
     return mountMode;
   }

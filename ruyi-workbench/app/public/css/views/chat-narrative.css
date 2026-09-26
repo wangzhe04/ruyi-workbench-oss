@@ -28,6 +28,7 @@
   color: var(--warn-fg); background: var(--warn-bg); border-color: color-mix(in srgb, var(--warn) 38%, transparent); }
 .narrative-state-note { margin-top: 5px; color: var(--muted); font-size: var(--fs-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
 .narrative-permission { border-left-color: var(--warn); }
+.narrative-perm-actions { display: flex; gap: 8px; margin-top: 8px; }   /* 走查 #5：待决权限就地「允许／拒绝」 */
 .narrative-mission { border-left-color: var(--ok); }
 .narrative-located { outline: none; animation: narrative-locate 1.35s ease-out; box-shadow: var(--ring); }
 @keyframes narrative-locate { 0%, 45% { background: color-mix(in srgb, var(--accent) 18%, var(--panel-2)); } 100% { background: var(--panel-2); } }

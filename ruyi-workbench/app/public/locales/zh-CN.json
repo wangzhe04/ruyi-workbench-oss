@@ -916,6 +916,7 @@
   "session.messageCount.other": "{{count}} 条",
   "session.new": "新线程",
   "session.untitled": "未命名线程",
+  "session.meta.folder": "在「{{name}}」里干活",
   "session.noMatch": "没有匹配的线程",
   "session.pin": "置顶",
   "session.pinned": "置顶",
@@ -2310,6 +2311,9 @@
   "ctx.compact.toastReset": "已恢复当前引擎的原生压缩",
   "ctx.noUsage": "未开始",
   "ctx.noUsageHint": "当前线程尚无上下文用量；点击可提前选择上下文上限。",
+  "ctx.plain.empty": "对话余量充足",
+  "ctx.plain.used": "对话已用 {{pct}}%",
+  "ctx.plain.hint": "一条线程能记住的内容有上限；快满时，较早的内容会自动压缩成摘要。",
   "session.name": "线程名称",
   "chat.resultTooLong": "结果过长，仅显示前 100,000 个字符。",
   "chat.first200Lines": "（仅显示前 200 行）",
@@ -2667,6 +2671,8 @@
   ,"stewardShell.chat.providerSwitched": "已改用「{{provider}}」"
   ,"stewardShell.chat.listSeparator": "、"
   ,"stewardShell.chat.openSettings": "去设置"
+  ,"stewardShell.settings.onlyTitle": "只看「{{name}}」"
+  ,"stewardShell.settings.showAll": "显示全部管家设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么"
   ,"stewardShell.compose.needModel": "先接一个模型，管家才能回话"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改"
@@ -3155,6 +3161,7 @@
   ,"rail.group.needsYou": "等你"
   ,"rail.group.running": "在跑"
   ,"rail.group.queued": "排队"
+  ,"rail.group.unfinished": "今天没做完"
   ,"rail.group.doneToday": "今天收工"
   ,"rail.group.earlier": "更早"
   ,"rail.newTask": "另起一件"

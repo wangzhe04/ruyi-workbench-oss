@@ -1030,6 +1030,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     run.metrics.failuresByClass[cls] = (run.metrics.failuresByClass[cls] || 0) + 1;
   }
   appendAgentRunEvent(run, { type: 'run_end', data: { status: run.status, failed: failed.length } }); // 25.3(先增 seq 再终稿落盘)
+  await flushAgentRunEvents(run.id);   // run_end 先落,终稿后落:看到终态的读者一定也看得到 run_end
   await saveAgentRun(run).catch(() => {});   // 对抗轮修: 非致命 —— 终稿写失败时结果仍应回给调用方(onComplete/回合),磁盘状态由降级横幅兜底
   onEvent({ type: 'agent_workflow', state: 'end', id: runId, status: run.status, succeeded: nodes.length - failed.length, failed: failed.length });
   if (typeof onComplete === 'function') await onComplete(run).catch(() => {});
