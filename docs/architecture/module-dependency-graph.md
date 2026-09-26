@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 55 | 2772 | 2799 | 440 | 68 | 0 | 1 |
+| 55 | 2777 | 2799 | 440 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -20,7 +20,7 @@
 | 2 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
 | 3 | `01-config.js` | foundation | 169 | 39 | 8 |
 | 4 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
-| 5 | `02-session-store.js` | foundation | 262 | 47 | 12 |
+| 5 | `02-session-store.js` | foundation | 265 | 47 | 12 |
 | 6 | `03-bridge-guard.js` | foundation | 74 | 21 | 5 |
 | 7 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 8 | `04-permission-runtime.js` | foundation | 123 | 34 | 7 |
@@ -34,7 +34,7 @@
 | 16 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 17 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 18 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 19 | `06i-steward-core.js` | engine | 149 | 0 | 0 |
+| 19 | `06i-steward-core.js` | engine | 151 | 0 | 0 |
 | 20 | `06d-memory-domain.js` | engine | 125 | 36 | 10 |
 | 21 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 22 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |

@@ -3,7 +3,7 @@
 // EC-D：会话侧栏、任务/授权状态、历史渲染、空态与 Playbook 领域。
 import { state, MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { api } from './net.js';
-import { $, el, autoGrow, fileBasename, toast, chatProviders } from './util.js';
+import { $, el, autoGrow, fileBasename, toast, chatProviders, paintSessionMeta } from './util.js';
 import { icon } from './icons.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
@@ -1171,7 +1171,7 @@ function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
   $('sessionTitle').textContent = isUntitledTitle(session?.title) ? t('session.untitled') : session.title.trim(); // 121-K8（§13.7 ⑤）：未命名线程的回落不再是 navigation.workbench「工作台」——那是视角名，印在线程标题上等于说「这条线程叫工作台」
-  $('sessionMeta').textContent = session ? (session.cwd || '') : '';
+  paintSessionMeta($('sessionMeta'), session);
   renderWorkspacePicker(); // v0.9-S3 (C3): keep the top-bar picker in sync with this session's cwd
   updateSkillBadge(); // v1 技能体系: 会话切换时刷新 composer 技能徽标(已启用技能数)
   renderStepBar(session && session.todos); // v0.8-S3: show the task-list bar if this session has todos

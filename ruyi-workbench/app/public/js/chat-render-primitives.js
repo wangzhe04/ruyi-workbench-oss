@@ -829,6 +829,7 @@ export function createChatRenderPrimitives(deps = {}) {
     }
     return null;
   }
+  function ctxPlainMode() { return document.documentElement.getAttribute('data-ui-mode') === 'simple'; }
   function renderContextMeter(u) {
     const box = $('contextMeter');
     if (!box) return;
@@ -840,9 +841,11 @@ export function createChatRenderPrimitives(deps = {}) {
       const win = ctxWindow();
       const fill = box.querySelector('.batt-fill');
       if (fill) fill.setAttribute('width', '17.80');
-      box.querySelector('.ctx-text').textContent = `— / ${fmtTokens(win)} · ${t('ctx.noUsage')}`;
+      // 体验走查 #12：普通模式不给「— / 1M · 未开始」这种读数，说一句人话；数字留在悬停提示里。
+      const plain = ctxPlainMode();
+      box.querySelector('.ctx-text').textContent = plain ? t('ctx.plain.empty') : `— / ${fmtTokens(win)} · ${t('ctx.noUsage')}`;
       box.classList.remove('hidden', 'warn', 'crit');
-      box.title = `${t('ctx.noUsageHint')}\n${t('ctx.tooltip.srcAuto', { src: ctxWindowSourceLabel() })}`;
+      box.title = `${plain ? t('ctx.plain.hint') + '\n' : ''}${t('ctx.noUsageHint')}\n${t('ctx.tooltip.srcAuto', { src: ctxWindowSourceLabel() })}`;
       return;
     }
     state.shownUsage = u;
@@ -861,9 +864,12 @@ export function createChatRenderPrimitives(deps = {}) {
     // 自动压缩回落、真实 usage 校正都走 350ms ease-out,不再「数字猛跳」。
     const txt = box.querySelector('.ctx-text');
     const estMark = u.estimated === true;
+    const plain = ctxPlainMode();
     const paint = shownN => {
       const p = win > 0 ? shownN / win : 0;
-      txt.textContent = `${estMark ? '≈' : ''}${fmtTokens(Math.round(shownN))} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${Math.round(p * 100)}%`;
+      txt.textContent = plain
+        ? t('ctx.plain.used', { pct: Math.min(100, Math.round(p * 100)) })
+        : `${estMark ? '≈' : ''}${fmtTokens(Math.round(shownN))} / ${fmtTokens(win)}${locked ? ' 🔒' : ''} · ${Math.round(p * 100)}%`;
     };
     if (box._ctxTween) { cancelAnimationFrame(box._ctxTween); box._ctxTween = null; }
     const targetN = Math.max(0, Math.round(n));
@@ -887,7 +893,7 @@ export function createChatRenderPrimitives(deps = {}) {
     const srcHint = locked
       ? t('ctx.tooltip.locked', { win: win.toLocaleString() })
       : t('ctx.tooltip.srcAuto', { src: srcLabel }) + (srcLabel === t('ctx.sourceLabel.guessed') ? ' ' + t('ctx.tooltip.srcGuessed') : '');
-    box.title = t('ctx.tooltip.summary', { n: n.toLocaleString(), win: win.toLocaleString() }) + '\n' +
+    box.title = (plain ? t('ctx.plain.hint') + '\n' : '') + t('ctx.tooltip.summary', { n: n.toLocaleString(), win: win.toLocaleString() }) + '\n' +
       t('ctx.tooltip.usageLine', { input: g.input_tokens || 0, cacheRead: g.cache_read_input_tokens || 0, cacheWrite: g.cache_creation_input_tokens || 0, output: g.output_tokens || 0 }) + '\n' + srcHint;
     box.classList.remove('hidden');
   }

@@ -17,7 +17,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   P4 原始工具名与 JSON 收在「技术详情」里、默认收起；
 //   P5 收起的技术详情之外，看不到 file_write 这种标识；
 //   P6 点「允许」→ 文件真的写出来；
-//   P7 新装的 config.killOnDisconnect 是 false。
+//   P7 新装的 config.killOnDisconnect 是 false；
+//   P8/P9 普通模式下上下文计量与线程头下那一行也说人话（走查 #12 的另两处）。
 // 判定行：`PERMISSION PLAIN BROWSER E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +48,17 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     await fx.waitForEval(`document.documentElement.getAttribute('data-shell-mode') === 'classic' ? 1 : null`);
     await fx.evaluate(`(document.getElementById('newSessionBtn') || { click() {} }).click(), true`);
     await sleep(800);
+    // 走查 #12 的另两处：普通模式下上下文计量与线程头下那一行都说人话，数字与整条路径留在悬停提示里。
+    const plainBits = await fx.waitForEval(`(() => {
+      const meter = document.querySelector('#contextMeter .ctx-text');
+      const meta = document.getElementById('sessionMeta');
+      if (!meter || !meta || !meta.textContent) return null;
+      return { meter: meter.textContent, meterTitle: document.getElementById('contextMeter').title, meta: meta.textContent, metaTitle: meta.title };
+    })()`, 100);
+    ok(Boolean(plainBits) && plainBits.meter === '对话余量充足' && !/—|\/ \d|未开始/.test(plainBits.meter) && /上限/.test(plainBits.meterTitle),
+      `P8 普通模式的上下文计量说人话「对话余量充足」，读数留在悬停提示里（实测 ${JSON.stringify(plainBits && { meter: plainBits.meter })}）`);
+    ok(Boolean(plainBits) && /^在「[^」]+」里干活$/.test(plainBits.meta) && plainBits.metaTitle && plainBits.meta.length < plainBits.metaTitle.length + 8 && !/[\\/]/.test(plainBits.meta),
+      `P9 线程头下那一行只说文件夹名，整条路径在悬停提示里（实测 ${JSON.stringify(plainBits && { meta: plainBits.meta, title: plainBits.metaTitle })}）`);
     const sentAt = Date.now();
     await fx.evaluate(`(() => {
       const i = document.getElementById('promptInput');

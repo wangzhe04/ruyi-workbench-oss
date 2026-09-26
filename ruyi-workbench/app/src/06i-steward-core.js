@@ -1184,9 +1184,24 @@ function stewardClipSay(value) {
   const raw = stewardSanitizeText(value);
   return raw.length > STEWARD_LAST_SAY_CHARS ? raw.slice(0, STEWARD_LAST_SAY_CHARS) + '…' : raw;
 }
+// 走查 #12:权限待决的一句人话(管家的「等你」行、抽屉、总览都读 stewardPendingOneLine 这一个来源)。
+// 常用工具说清要对哪个文件做什么;认不出的工具才退回工具名 —— 总比「edit 级」这种档位黑话好懂。
+const STEWARD_PERMISSION_VERBS = Object.freeze({
+  file_write: '写入文件', file_edit: '修改文件', file_delete: '删除文件', file_move: '移动文件', file_copy: '复制文件',
+  powershell_run: '运行一条命令', script_run: '运行一段脚本', http_download: '下载文件',
+});
+function stewardPermissionPlain(iv) {
+  const tool = String((iv && iv.toolName) || '');
+  const input = iv && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : {};
+  const target = input.path || input.from || input.dest || '';
+  const name = target ? stewardSanitizeText(String(target).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '') : '';   // 不借 00-boot 的 path(会多一条循环边)
+  const verb = STEWARD_PERMISSION_VERBS[tool];
+  if (verb) return name ? `${verb}「${name}」` : verb;
+  return name ? `用「${stewardSanitizeText(tool || '?')}」处理「${name}」` : `使用工具「${stewardSanitizeText(tool || '?')}」`;
+}
 function stewardPendingOneLine(iv) {
   const type = String((iv && iv.type) || '');
-  if (type === 'permission') return `工具 ${stewardSanitizeText(iv.toolName || '?')}(${stewardSanitizeText(iv.tier || 'exec')} 级)等待放行`;
+  if (type === 'permission') return '等你放行:' + stewardPermissionPlain(iv);   // 走查 #12:不再印「工具 file_write(edit 级)」
   if (type === 'question') {
     const first = (Array.isArray(iv && iv.questions) ? iv.questions : [])[0];
     return stewardClipSay((first && (first.question || first.title)) || '等待你回答');

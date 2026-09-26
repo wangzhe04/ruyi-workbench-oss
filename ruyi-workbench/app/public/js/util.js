@@ -6,7 +6,7 @@
 //
 // 依赖:仅浏览器原生 DOM API + 全局 marked/hljs(经典 vendor 脚本先于 module 加载,仍是全局)。
 // i18n 为单向依赖：本模块只读取当前 locale，i18n 本身不依赖 util，故无循环。
-import { getLocale } from './i18n.js';
+import { getLocale, t } from './i18n.js';
 
 // 按 id 取元素 / 造元素(全站两大高频 helper)。
 export const $ = id => document.getElementById(id);
@@ -187,4 +187,15 @@ export function rebaseProvidersDraft(base, draft, next, { serverOwned = () => fa
     out.push(clone(fresh));
   }
   return { providers: out, changed: !same(out, draft) };
+}
+
+// 体验走查 #12:线程头下面那一行。专业模式照旧印整条工作目录;普通模式只说「在「文件夹名」里干活」——
+// 整条路径（常常是一长串临时目录）对非程序员是噪声,留在悬停提示里,要看的人一指就有。
+export function paintSessionMeta(node, session) {
+  if (!node) return;
+  const cwd = session && typeof session.cwd === 'string' ? session.cwd : '';
+  const plain = document.documentElement.getAttribute('data-ui-mode') === 'simple';
+  const name = cwd ? fileBasename(cwd.replace(/[\\/]+$/, '')) : '';
+  node.textContent = plain && name ? t('session.meta.folder', { name }) : cwd;
+  node.title = cwd;
 }

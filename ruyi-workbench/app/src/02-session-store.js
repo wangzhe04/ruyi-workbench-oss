@@ -2906,7 +2906,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     // 计数当指纹：saveSession 每次落头都会推 updatedAt（nowIso），所以它变了就一定有写者插进来过。
     // 读不到头（正被原子替换的那一瞬）同样按「别动手」处理 —— 破坏性动作绝不建立在一次可疑的读上。
     const torn = () => (msg && msg.tornAt != null) || (prov && prov.tornAt != null);
-    if (bodyBad() || countsDiffer() || torn() || sessionDiskWriteSeqOf(id) !== writeSeqAtRead) {
+    if (bodyBad() || countsDiffer() || torn()) {   // 只有要动手(截断/隔离)时才需要确认没有写者
       // 先问最硬的那个信号：**本进程此刻正在给这条会话写盘吗**。saveSession 的 per-id 写链就是
       // 权威答案 —— 链在跑，说明「正文已落、头还没落」这个中间态是【预期内】的，不是崩溃残留。
       // 等它跑完再重读一次，头与正文自然对齐，一个字都不用删。

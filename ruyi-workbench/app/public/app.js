@@ -10,7 +10,7 @@
 //   · net.js    —— token 读取 + 带鉴权头的 api() 封装
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
-import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow } from './js/util.js';
+import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta } from './js/util.js';
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
@@ -350,6 +350,7 @@ const {
   autoGrow,
   cliMissingCard: (...args) => cliMissingCard(...args),
   compactNarrativeProcessRuns: (...args) => compactNarrativeProcessRuns(...args),
+  paintSessionMeta,
   createTurnActivity, // 112c: 回合活动状态机(chat-stream-runtime 全篇零 import,按既有纪律由这里注入)
   describeTurnActivity,
   currentEngineMeta: () => currentEngineMeta(),
