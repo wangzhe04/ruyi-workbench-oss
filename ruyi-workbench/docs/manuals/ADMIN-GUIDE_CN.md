@@ -97,15 +97,15 @@ Windows 10 / 11（或 Windows Server）；Node ≥ 20（打包 exe 自带运行�
 `activeProvider` 为空或 `'claude-cli'`（默认）。spawn 内网 `claude` CLI，走 `stream-json`。相关配置：
 
 - **`claudePath`**：CLI 可执行文件路径（留空则自动探测常见位置）。
-- **第三方端点 / 密钥（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）**：v1.4.4 起这三项**同时**决定两件事——① 模型清单发现（`GET /v1/models`）；② 实际 spawn 的 `claude` 子进程本身的环境变量（`buildClaudeCliEnv`，见 §2.1.1「环境变量干扰与优先级」）。baseUrl 取值优先级：`config.modelsApiBase` → 继承的 `ANTHROPIC_BASE_URL` → `ANTHROPIC_BASE`；密钥按 `claudeAuthMode` 精确二选一写入 `ANTHROPIC_AUTH_TOKEN`（`bearer`，如 Ark Coding Plan）或 `ANTHROPIC_API_KEY`（`x-api-key`，Anthropic 官方协议），`auto` 两者都发。在工作台设置 → Claude CLI 里改这三项**立即对下一轮对话生效**，无需 `setx`、无需重启终端。探测失败自动回退到内置模型清单。
+- **第三方端点 / 密钥（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）**：v1.4.4 起这三项**同时**决定两件事——① 模型清单发现（`GET /v1/models`）；② 实际 spawn 的 `claude` 子进程本身的环境变量（`buildClaudeCliEnv`，见 §2.1.1「环境变量干扰与优先级」）。baseUrl 取值优先级：`config.modelsApiBase` → 继承的 `ANTHROPIC_BASE_URL` → `ANTHROPIC_BASE`；密钥按 `claudeAuthMode` 精确二选一写入 `ANTHROPIC_AUTH_TOKEN`（`bearer`，多数第三方 Coding Plan）或 `ANTHROPIC_API_KEY`（`x-api-key`，Anthropic 官方协议），`auto` 两者都发。在工作台设置 → Claude CLI 里改这三项**立即对下一轮对话生效**，无需 `setx`、无需重启终端。探测失败自动回退到内置模型清单。
 - **`engineMode`**：`legacy`（stdin 关闭，单向，稳定）｜ `interactive`（stdin 常开，支持 AskUserQuestion 提问弹窗与权限桥接）。
 - MCP 工具由 CLI 原生发现调用（工作台经 `mcp-config` / `install` 把自身 MCP 写进 CLI 配置）。
 
-#### 2.1.1 接入第三方 Anthropic 兼容端点（以火山方舟 Ark Coding Plan 为例）
+#### 2.1.1 接入第三方 Anthropic 兼容端点
 
-Claude Code CLI 原生支持通过环境变量切换 API 端点。除 Anthropic 官方端点外，任何 **Anthropic 兼容协议**端点均可接入——典型场景是[火山方舟（Volcengine Ark）Coding Plan](https://www.volcengine.com/docs/82379/1928261)，国内直连、按月订阅，支持 doubao-seed / minimax / glm / deepseek / kimi 等模型。
+Claude Code CLI 原生支持通过环境变量切换 API 端点。除 Anthropic 官方端点外，任何 **Anthropic 兼容协议**端点均可接入——典型场景是各厂商的按月订阅 Coding Plan。工作台**不内置任何厂商预设**：端点地址、鉴权方式、模型名一律以你所用厂商的官方文档为准，下文用占位值 `https://api.example.com/anthropic` 示意。
 
-**前置条件**：Node.js ≥ 18（工作台本身要求 ≥ 20，已满足）· Git for Windows（Claude Code 在 Windows 上的前置依赖）· 已订阅 Ark Coding Plan 并获取 API Key（`ark-` 前缀）。
+**前置条件**：Node.js ≥ 18（工作台本身要求 ≥ 20，已满足）· Git for Windows（Claude Code 在 Windows 上的前置依赖）· 已从端点厂商处获取 API Key。
 
 **第一步 · 安装 Claude Code CLI**
 
@@ -120,43 +120,43 @@ claude.cmd --version    # 显示版本号即安装成功
 
 Claude Code CLI 通过三个环境变量指向第三方端点：
 
-| 环境变量 | 说明 | Ark Coding Plan 取值 |
+| 环境变量 | 说明 | 示例取值 |
 |---|---|---|
-| `ANTHROPIC_BASE_URL` | API 端点根地址 | `https://ark.cn-beijing.volces.com/api/coding` |
-| `ANTHROPIC_AUTH_TOKEN` | Bearer 认证令牌 | `ark-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `ANTHROPIC_MODEL` | 默认模型 | `ark-code-latest`（控制台管理）或具体模型名 |
+| `ANTHROPIC_BASE_URL` | API 端点根地址 | `https://api.example.com/anthropic`（以厂商文档为准） |
+| `ANTHROPIC_AUTH_TOKEN` | Bearer 认证令牌 | 你的 API Key |
+| `ANTHROPIC_MODEL` | 默认模型 | 厂商给出的模型名（可留空，由厂商控制台决定） |
 
-> **`ANTHROPIC_AUTH_TOKEN` vs `ANTHROPIC_API_KEY`**：Ark 使用 Bearer Token 认证（`Authorization: Bearer <key>`），对应 `ANTHROPIC_AUTH_TOKEN`；而 `ANTHROPIC_API_KEY` 走 `x-api-key` 头，是 Anthropic 官方协议。**Ark Coding Plan 必须用 `ANTHROPIC_AUTH_TOKEN`**，用 `ANTHROPIC_API_KEY` 会导致 401。
+> **`ANTHROPIC_AUTH_TOKEN` vs `ANTHROPIC_API_KEY`**：`ANTHROPIC_AUTH_TOKEN` 走 Bearer Token 认证（`Authorization: Bearer <key>`），多数第三方 Coding Plan 用这个；`ANTHROPIC_API_KEY` 走 `x-api-key` 头，是 Anthropic 官方协议。按厂商文档二选一，选错通常表现为 401。
 
 持久化设置（对新终端 / 进程生效）：
 
 ```powershell
-setx ANTHROPIC_BASE_URL "https://ark.cn-beijing.volces.com/api/coding"
-setx ANTHROPIC_AUTH_TOKEN "ark-你的API Key"
-setx ANTHROPIC_MODEL "ark-code-latest"
+setx ANTHROPIC_BASE_URL "https://api.example.com/anthropic"
+setx ANTHROPIC_AUTH_TOKEN "你的API Key"
+setx ANTHROPIC_MODEL "厂商给出的模型名"
 ```
 
 当前会话即时生效（补充 `$env:` 赋值，用于立即测试）：
 
 ```powershell
-$env:ANTHROPIC_BASE_URL = "https://ark.cn-beijing.volces.com/api/coding"
-$env:ANTHROPIC_AUTH_TOKEN = "ark-你的API Key"
-$env:ANTHROPIC_MODEL = "ark-code-latest"
+$env:ANTHROPIC_BASE_URL = "https://api.example.com/anthropic"
+$env:ANTHROPIC_AUTH_TOKEN = "你的API Key"
+$env:ANTHROPIC_MODEL = "厂商给出的模型名"
 ```
 
-> **不要用** `https://ark.cn-beijing.volces.com/api/v3`：该 Base URL 是标准 API 按量调用，不消耗 Coding Plan 额度，会产生额外费用。Coding Plan 专属端点是 `/api/coding`。
+> **注意**：不少厂商的「按量 API」与「Coding Plan」是两个不同的 Base URL，填错不会报错，但会按量计费、不消耗套餐额度。以厂商 Coding Plan 文档给出的地址为准。
 
 **第二步（备选，v1.4.4 起推荐）· 工作台前端一键配置**
 
-以上 `setx` 步骤现在是可选的。打开工作台 → 设置 → Claude CLI →「第三方 Anthropic 兼容端点（Coding Plan）」，预设选「火山方舟 Ark Coding Plan」→ 应用预设（自动填好 Base URL、鉴权方式选 Bearer Token、模型清单预置 `ark-code-latest` / `doubao-seed-2.0-code`）→ 填入密钥 → 保存。
+以上 `setx` 步骤现在是可选的。打开工作台 → 设置 → Claude CLI →「第三方 Anthropic 兼容端点（Coding Plan）」，预设选「自定义」→ 按厂商文档填 Base URL、鉴权方式（多为 Bearer Token）、可选的模型清单 → 填入密钥 → 保存。
 
-这三个字段（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）会直接覆盖下一轮对话时 `claude` 子进程收到的 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`（或 `ANTHROPIC_API_KEY`），无需重启工作台或终端，也不再依赖继承的 OS 环境变量——**这修复了「改了模型/端点、实际对话还是老值」的已知问题**：只要在顶栏「模型」里选或输入一个具体模型名（如 `doubao-seed-2.0-code`），保存后立即对下一轮生效；留空则沿用 `ark-code-latest`，由 [Ark 控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement) 统一管理。
+这三个字段（`modelsApiBase` / `modelsApiKey` / `claudeAuthMode`）会直接覆盖下一轮对话时 `claude` 子进程收到的 `ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`（或 `ANTHROPIC_API_KEY`），无需重启工作台或终端，也不再依赖继承的 OS 环境变量——**这修复了「改了模型/端点、实际对话还是老值」的已知问题**：只要在顶栏「模型」里选或输入一个具体模型名，保存后立即对下一轮生效；留空则沿用端点的默认模型（通常由厂商控制台管理）。
 
 无 UI 的无人值守部署（如后台服务）仍可继续用下面的 `setx` 手动方式，两者本质等价——工作台配置项优先于继承的 OS 环境变量（细节见下方「环境变量干扰与优先级」）。
 
 **第三步 · 检查用户级 settings.json**
 
-Claude Code 的用户级配置文件 `~/.claude/settings.json` 中的 `env.ANTHROPIC_BASE_URL` 优先级高于环境变量。**如果该文件存在且 `env.ANTHROPIC_BASE_URL` 指向 Anthropic 官方（`https://api.anthropic.com`），需改为 Ark 端点**；如果文件不存在或未设该字段，则无需创建——环境变量已生效。
+Claude Code 的用户级配置文件 `~/.claude/settings.json` 中的 `env.ANTHROPIC_BASE_URL` 优先级高于环境变量。**如果该文件存在且 `env.ANTHROPIC_BASE_URL` 指向 Anthropic 官方（`https://api.anthropic.com`），需改为你的第三方端点**；如果文件不存在或未设该字段，则无需创建——环境变量已生效。
 
 ```powershell
 Test-Path "$env:USERPROFILE\.claude\settings.json"
@@ -166,8 +166,8 @@ Test-Path "$env:USERPROFILE\.claude\settings.json"
 **第四步 · 验证 CLI 连通**
 
 ```powershell
-claude.cmd -p "Reply with exactly: ARK_OK"
-# 输出 ARK_OK 即认证成功
+claude.cmd -p "Reply with exactly: ENDPOINT_OK"
+# 输出 ENDPOINT_OK 即认证成功
 ```
 
 **第五步 · 绑定到工作台**
@@ -195,18 +195,18 @@ claude mcp list                    # 应显示: win-claude-workbench - ✔ Conne
 node app\server.js doctor          # 应显示: claudeWorks: true
 ```
 
-在工作台 UI 顶栏点击「引擎」切到 Claude CLI 即可使用。模型可直接在顶栏「模型」下拉里热切（也可在设置 → Claude CLI → 第三方端点里指定具体模型名，如 `doubao-seed-2.0-code`）——两者保存后立即对下一轮生效。若不指定具体模型（留空/`ark-code-latest`），则由 [Ark 控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement) 统一管理当前实际使用的模型。
+在工作台 UI 顶栏点击「引擎」切到 Claude CLI 即可使用。模型可直接在顶栏「模型」下拉里热切（也可在设置 → Claude CLI → 第三方端点里指定具体模型名）——两者保存后立即对下一轮生效。若不指定具体模型，则由端点厂商的控制台决定当前实际使用的模型。
 
 **排障速查**
 
 | 症状 | 处理 |
 |---|---|
 | `claude` 命令报 PowerShell 执行策略错误 | 用 `claude.cmd` 替代；或在工作台设置中填 `claude.cmd` 全路径 |
-| 401 认证失败 | 在工作台设置 → Claude CLI 里把「鉴权方式」明确选成 Bearer Token（对应 Ark `ANTHROPIC_AUTH_TOKEN`）或 x-api-key（对应官方 `ANTHROPIC_API_KEY`），不要用 `auto` 二选一都发；确认 API Key 以 `ark-` 开头且未过期 |
+| 401 认证失败 | 在工作台设置 → Claude CLI 里把「鉴权方式」明确选成 Bearer Token（对应 `ANTHROPIC_AUTH_TOKEN`）或 x-api-key（对应官方 `ANTHROPIC_API_KEY`），不要用 `auto` 二选一都发；确认 API Key 未过期、属于该端点 |
 | `mcp add-json` 报 Invalid input | 改用 `claude mcp add`（非 JSON 版），见上方第五步 |
-| 改了模型/端点，实际对话还是旧值（如一直是 `ark-code-latest`） | v1.4.4 之前的已知问题：`modelsApiBase`/`modelsApiKey` 只喂给了模型清单探测，没写进真正对话的子进程环境变量，纯靠继承的 OS `setx` 值。升级后这三个字段（连同 `model`）会覆盖继承值、随每轮对话生效，不再需要重启工作台或终端；若仍未生效，检查是否被下面「高风险」表里的 `settings.json` 项覆盖 |
-| settings.json 覆盖了环境变量 | 检查 `~/.claude/settings.json` 中 `env.ANTHROPIC_BASE_URL`，若指向官方则改为 Ark 端点——这是 CLI 自身的用户级配置文件，优先级高于工作台注入的环境变量 |
-| CLI 走了 Bedrock / Vertex 而非 Ark | 工作台一旦配置了 `modelsApiBase`（无论手动 `setx` 还是前端预设）就会自动清空 `CLAUDE_CODE_USE_BEDROCK`/`CLAUDE_CODE_USE_VERTEX`；若仍无效，检查是否在 `settings.json` 里另外设置了这两个变量 |
+| 改了模型/端点，实际对话还是旧值 | v1.4.4 之前的已知问题：`modelsApiBase`/`modelsApiKey` 只喂给了模型清单探测，没写进真正对话的子进程环境变量，纯靠继承的 OS `setx` 值。升级后这三个字段（连同 `model`）会覆盖继承值、随每轮对话生效，不再需要重启工作台或终端；若仍未生效，检查是否被下面「高风险」表里的 `settings.json` 项覆盖 |
+| settings.json 覆盖了环境变量 | 检查 `~/.claude/settings.json` 中 `env.ANTHROPIC_BASE_URL`，若指向官方则改为你的第三方端点——这是 CLI 自身的用户级配置文件，优先级高于工作台注入的环境变量 |
+| CLI 走了 Bedrock / Vertex 而非第三方端点 | 工作台一旦配置了 `modelsApiBase`（无论手动 `setx` 还是前端设置）就会自动清空 `CLAUDE_CODE_USE_BEDROCK`/`CLAUDE_CODE_USE_VERTEX`；若仍无效，检查是否在 `settings.json` 里另外设置了这两个变量 |
 | `claudePath` 探测到错误的 CLI | 检查是否设了 `CLAUDE_CLI_PATH` 环境变量（探测优先级最高），有则删除或改为正确路径 |
 
 **环境变量干扰与优先级（维护必读）**
@@ -219,7 +219,7 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 
 任何一项留空，则该项继续沿用继承的环境变量（未配置=行为不变）。workbench 另外注入 `WIN_CLAUDE_WORKBENCH_HOME` 和（如有配置）`MAX_THINKING_TOKENS` / `WCW_PERMISSION_TIMEOUT_MS`。
 
-以下用户级环境变量仍可能干扰 Ark 端点配置，**若走纯手动 `setx` 路径（未在工作台前端填写对应字段），修改或排查时必须逐一检查**——凡是在工作台设置里已经配置了对应字段的，下表前两项由 `buildClaudeCliEnv` 自动处理，无需手动排查：
+以下用户级环境变量仍可能干扰第三方端点配置，**若走纯手动 `setx` 路径（未在工作台前端填写对应字段），修改或排查时必须逐一检查**——凡是在工作台设置里已经配置了对应字段的，下表前两项由 `buildClaudeCliEnv` 自动处理，无需手动排查：
 
 **高风险（直接覆盖端点 / 认证）**
 
@@ -227,8 +227,8 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 |---|---|---|
 | `CLAUDE_CODE_USE_BEDROCK` | 设为 `1` 时 Claude CLI 改走 AWS Bedrock，**完全忽略** `ANTHROPIC_BASE_URL`（工作台配置了 `modelsApiBase` 时会自动清空此变量） | `[Environment]::GetEnvironmentVariable('CLAUDE_CODE_USE_BEDROCK','User')` |
 | `CLAUDE_CODE_USE_VERTEX` | 设为 `1` 时改走 Google Vertex AI，同上（同样会被自动清空） | `[Environment]::GetEnvironmentVariable('CLAUDE_CODE_USE_VERTEX','User')` |
-| `ANTHROPIC_API_KEY` | 与 `ANTHROPIC_AUTH_TOKEN` 同时存在时，CLI 可能用错认证方式（Ark 要求 Bearer Token，不是 `x-api-key` 头）——工作台配置了 `modelsApiKey` + `claudeAuthMode` 时会自动清空冲突的一侧 | `[Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User')` |
-| `~/.claude/settings.json` → `env.ANTHROPIC_BASE_URL` | settings.json 优先级**高于**环境变量（包括工作台的覆盖），若指向 `https://api.anthropic.com` 会覆盖 Ark | `Test-Path "$env:USERPROFILE\.claude\settings.json"` |
+| `ANTHROPIC_API_KEY` | 与 `ANTHROPIC_AUTH_TOKEN` 同时存在时，CLI 可能用错认证方式（Bearer Token 端点不认 `x-api-key` 头）——工作台配置了 `modelsApiKey` + `claudeAuthMode` 时会自动清空冲突的一侧 | `[Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User')` |
+| `~/.claude/settings.json` → `env.ANTHROPIC_BASE_URL` | settings.json 优先级**高于**环境变量（包括工作台的覆盖），若指向 `https://api.anthropic.com` 会覆盖你的第三方端点 | `Test-Path "$env:USERPROFILE\.claude\settings.json"` |
 
 **中风险（干扰路径 / 模型发现）**
 
@@ -259,7 +259,7 @@ foreach ($v in $vars) {
 }
 ```
 
-> **维护铁律**：修改 Ark 端点配置后，如果 CLI 行为异常，**先跑上面的排查命令**，再检查 `~/.claude/settings.json`。绝大多数「配置对了但 CLI 不走 Ark」的问题，都是某个用户级环境变量或 settings.json 在暗中覆盖。
+> **维护铁律**：修改第三方端点配置后，如果 CLI 行为异常，**先跑上面的排查命令**，再检查 `~/.claude/settings.json`。绝大多数「配置对了但 CLI 不走第三方端点」的问题，都是某个用户级环境变量或 settings.json 在暗中覆盖。
 
 ### 2.2 引擎 B · OpenAI 兼容 Provider
 
@@ -323,7 +323,7 @@ foreach ($v in $vars) {
 **成本可信度分级(诚实计费核心)**：
 
 - **Anthropic 官方直连**（`config.modelsApiBase` 为空且未经 env 指向第三方）：CLI 自报的 `total_cost_usd` 作 notional USD 记账，`costTrusted:true`。
-- **第三方 Coding Plan**（`modelsApiBase` 或 OS 环境 `ANTHROPIC_BASE_URL` 指向如火山方舟 Ark 等端点）：其 CLI 成本按 Anthropic 计价、对该厂商无意义，故 `costTrusted:false`、标注「计划内计费」，**不计入真实花费合计**——只记 token 数。
+- **第三方 Coding Plan**（`modelsApiBase` 或 OS 环境 `ANTHROPIC_BASE_URL` 指向第三方端点）：其 CLI 成本按 Anthropic 计价、对该厂商无意义，故 `costTrusted:false`、标注「计划内计费」，**不计入真实花费合计**——只记 token 数。
 - **OpenAI 兼容 Provider**：仅当 `provider.pricing {inputPerM, outputPerM, currency}` 配了单价才算成本，否则只记 token。
 - `config.claudePricing {inputPerM, outputPerM, currency}`：给 Claude 引擎配单价后，任何端点都按 token×单价出可信成本。
 

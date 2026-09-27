@@ -2,7 +2,7 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
-import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
+import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
@@ -131,7 +131,7 @@ export const STEWARD_OPEN_THREAD_EVENT = 'steward:open-thread';
 
 // ── 121-K4 左栏：五组与「这一件该落在哪一组」（34 号文 §2.3）──────────────────────
 // 顺序即屏幕上的顺序（最需要你的在最上面），别重排。
-export const RAIL_GROUP_KEYS = Object.freeze(['needs_you', 'running', 'queued', 'unfinished', 'doneToday', 'earlier']);
+export const RAIL_GROUP_KEYS = Object.freeze(['needs_you', 'running', 'queued', 'fresh', 'unfinished', 'doneToday', 'earlier']);
 // 等你那一行的问句在左栏只印前 22 字（§2.3 原话），全文在焦点栏／抽屉里。
 export const RAIL_ASK_PREVIEW_CHARS = 22;
 
@@ -150,11 +150,12 @@ function boardEmptyKey(cfg) {
   return ready ? 'stewardShell.board.statusEmpty' : 'stewardShell.board.statusEmptyNoModel';
 }
 
-export function railGroupFor(aggregateState, updatedAt, now = new Date(), lastTurnFailed = false) {
+// 走查 U2：一件里全是用户自己新开、还没开口的空线程（thread-facts 的 threadIsBlank）→「新开的」，不进「排队」。
+export function railGroupFor(aggregateState, updatedAt, now = new Date(), lastTurnFailed = false, allBlank = false) {
   const state = String(aggregateState || '');
   if (state === 'needs_you') return 'needs_you';
   if (state === 'running') return 'running';
-  if (state === 'dispatching') return 'queued';
+  if (state === 'dispatching') return allBlank === true ? 'fresh' : 'queued';
   const at = updatedAt ? new Date(updatedAt) : null;
   if (!at || Number.isNaN(at.getTime())) return 'earlier';
   const today = now instanceof Date && !Number.isNaN(now.getTime()) ? now : new Date();
@@ -474,11 +475,12 @@ export function createStewardBoard({
     needs_you: 'rail.group.needsYou',
     running: 'rail.group.running',
     queued: 'rail.group.queued',
+    fresh: 'rail.group.fresh',
     unfinished: 'rail.group.unfinished',
     doneToday: 'rail.group.doneToday',
     earlier: 'rail.group.earlier',
   });
-  // 「更早」默认折叠（§2.3）；其余四组默认展开。用户点过就记在这一程里（不落本机偏好）。
+  // 「更早」默认折叠（§2.3）；其余各组默认展开。用户点过就记在这一程里（不落本机偏好）。
   const railGroupClosed = new Map([['earlier', true]]);
   const railTaskOpenById = new Map();   // missionId -> 用户显式点过的展开状态（没点过就按默认判）
 
@@ -1172,7 +1174,7 @@ export function createStewardBoard({
     const selected = railSelectedId();
     const buckets = new Map(RAIL_GROUP_KEYS.map(key => [key, []]));
     const now = new Date();
-    for (const group of groups) buckets.get(railGroupFor(group.aggregateState, group.updatedAt, now, group.rows.some(threadLastTurnFailed))).push(group);
+    for (const group of groups) buckets.get(railGroupFor(group.aggregateState, group.updatedAt, now, group.rows.some(threadLastTurnFailed), group.rows.length > 0 && group.rows.every(threadIsBlank))).push(group);
     let printed = 0;
     for (const key of RAIL_GROUP_KEYS) {
       const list = buckets.get(key);

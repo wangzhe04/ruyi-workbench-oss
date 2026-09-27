@@ -89,11 +89,17 @@ const schedulerRuntime = {
   loaded: false,
   timer: null,
   generation: 0,        // stopScheduler 自增;在途 tick 发现代际变了就尽快退出
-  ticking: false,       // 全局并发 1 的第一道闸(第二道是 fire 循环里的 await 串行)
+  ticking: false,       // tick 重入闸(防同一个定时器触发两次并发 tick,不再是「等全部到点任务跑完」的闸)
   tasks: [],
   fireSeq: 0,
   globalRuns: { date: '', count: 0 },
   lateQueue: [],        // [{ taskId, dueMs }] —— 启动恢复排的补跑,只排一次(29 号文 §4「只补一次」)
+  // C18 已知债修复(见 schedulerDispatchFire 与 schedulerTick 头注):某条任务的回合还没收尾(在跑,
+  // 或在 13n 仲裁器里排队/等锁)期间,它的 id 留在这张表里 —— 只活在本进程,tick 据此跳过它,
+  // 不再靠「await 到它收尾才看下一条」来防重派单。与 task.state.inFlightRunId(落盘、跨重启认)
+  // 双保险:后者在 schedulerFireOnce 的登记段【同步】写下,只覆盖「登记成功之后」那一段;
+  // 这张表在【调用前】就写下,连「登记之前」的一小段窗口(比如撞上限的 skipped 分支)也一起挡住。
+  inFlightTaskIds: new Set(),
   // 启动恢复【只认装载那一刻盘上就有的那些任务】。为什么需要这个集合:调度器起在 boot 探针段
   // (listen 之后 500 ms,见 13-http-router 那一行的理由),而六条 API 在 listen 那一刻就活了 ——
   // 用户/e2e 完全可能在这 500 ms 里建一条任务并把时钟拨过它。那条任务【不是「错过」的】:
@@ -506,10 +512,12 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       }
     };
     let timedOut = false;
-    // 已知债(127 波 2-ter 登记,不在本刀修):回合在仲裁器里等锁/等并发位时,这里的 await 一直挂着,
-    // schedulerRuntime.ticking 也就一直是 true —— 整个调度器跟着停摆(别的任务到点也不触发);而超时
-    // 计时器调的 stopSession 只认活回合,【排队中】的那一条不会被出队。S-b 让定时线程不再与
-    // defaultWorkspace 上的手工线程抢同一把锁,大幅缓解但没有根治(并发位满 / 预算触顶仍会这样等)。
+    // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
+    // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
+    // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
+    // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
+    // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
+    // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
     const timer = setTimeout(() => {
       timedOut = true;
       try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
@@ -601,8 +609,23 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
 }
 
 // ── tick ────────────────────────────────────────────────────────────────────
-// 全局并发 1:`ticking` 挡住重入,循环里的 await 让同一拍里到点的多条任务【串行】跑完 ——
-// 第二条落 registered 的时候第一条一定已经 reconciled 了(§3.2 判据)。
+// C18(code-review 已知债修复,127 波 2-ter 曾登记「等锁期间整个调度器停摆」、13s:509-512 头注 ——
+// 见 schedulerFireOnce 里那一段):派单即返回,不等它收尾。旧写法在这里 `await schedulerFireOnce(...)`,
+// 于是一条任务的回合只要在 13n 仲裁器里排队(并发位满 / 同 cwd 写锁 / 预算)或者本身跑得慢,
+// 同一拍里排在它后面的其它到点任务【连派单都派不出去】—— 不是「跟着变慢」,是「压根没被尝试」。
+// 现在 for/while 循环体只管调用 schedulerDispatchFire(不 await 它),真正的登记 / 派单 / 收尾仍在
+// schedulerFireOnce 内部完成,只是不再拿一条任务的完成来做另一条任务能不能开始的闸门。
+function schedulerDispatchFire(task, mode, dueMs) {
+  schedulerRuntime.inFlightTaskIds.add(task.id);
+  schedulerFireOnce(task, mode, dueMs)
+    .catch(e => {
+      schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
+      try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError, taskId: task.id }); } catch { /* ignore */ }
+    })
+    .then(() => { schedulerRuntime.inFlightTaskIds.delete(task.id); });
+}
+// `ticking` 只挡「同一个定时器触发两次并发 tick」的重入 —— 不再是「等全部到点任务跑完」的闸,
+// 派单全走 schedulerDispatchFire,tick 本体现在是一段纯同步的派单决策(见上)。
 async function schedulerTick() {
   if (schedulerRuntime.ticking) return;
   schedulerRuntime.ticking = true;
@@ -613,18 +636,19 @@ async function schedulerTick() {
       if (generation !== schedulerRuntime.generation) return;
       const queued = schedulerRuntime.lateQueue.shift();
       const task = schedulerRuntime.tasks.find(row => row.id === queued.taskId);
-      if (!task || !task.state.enabled || task.state.inFlightRunId) continue;
-      await schedulerFireOnce(task, 'late', queued.dueMs);
+      if (!task || !task.state.enabled || task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      schedulerDispatchFire(task, 'late', queued.dueMs);
     }
-    // ② 到点的任务。按 nextFireAt 升序 —— 同一拍里两条都到点时,先到的先跑。
+    // ② 到点的任务。按 nextFireAt 升序派单 —— 同一拍里两条都到点时,先到的先派单,但谁先【收尾】
+    // 不再由派单顺序决定(哪条的回合先跑完,哪条先 reconciled)。
     const now = schedulerClockNow();
     const due = schedulerRuntime.tasks
-      .filter(task => task.state.enabled && !task.state.inFlightRunId && task.state.nextFireAt
-        && Date.parse(task.state.nextFireAt) <= now)
+      .filter(task => task.state.enabled && !task.state.inFlightRunId && !schedulerRuntime.inFlightTaskIds.has(task.id)
+        && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
       .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
     for (const task of due) {
       if (generation !== schedulerRuntime.generation) return;
-      await schedulerFireOnce(task, 'ontime', Date.parse(task.state.nextFireAt));
+      schedulerDispatchFire(task, 'ontime', Date.parse(task.state.nextFireAt));
     }
   } catch (e) {
     schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);

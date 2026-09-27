@@ -322,15 +322,15 @@ function flushUsageLedgerSync() {
 
 // Resolve the ledger source + cost-trust for a Claude CLI turn. modelsApiBase EMPTY = Anthropic direct ->
 // source 'claude-cli', CLI total_cost_usd usable as a NOTIONAL USD estimate. NON-EMPTY = a third-party
-// Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) whose CLI-reported cost is computed with
+// Anthropic-compatible endpoint (e.g. a vendor Coding Plan) whose CLI-reported cost is computed with
 // ANTHROPIC pricing and is therefore WRONG for that vendor (and often a flat monthly plan) -> record tokens
 // only, cost null, costTrusted false, and tag the source by its known preset id (else host) so grouping stays
-// honest (Claude 官方 vs Ark 等). Runs at turn time, so CLAUDE_ENDPOINT_PRESETS (declared later) is available.
+// honest (Claude 官方 vs 第三方端点). Runs at turn time, so CLAUDE_ENDPOINT_PRESETS (declared later) is available.
 function claudeLedgerSource(config) {
   let base = (config && typeof config.modelsApiBase === 'string') ? config.modelsApiBase.trim() : '';
   // v1.4-OSS 用量看板(补): 当 config.modelsApiBase 为空时,CLI 子进程仍会继承 OS 环境里的 ANTHROPIC_BASE_URL /
   // ANTHROPIC_BASE(effectiveAnthropicEnv 只在 modelsApiBase 非空时覆盖它们,否则原样穿透)。纯用环境变量把
-  // Claude CLI 路由到第三方(Ark 等)时,CLI 报的 total_cost_usd 仍按 Anthropic 计价、对该厂商不可信 —— 据此把
+  // Claude CLI 路由到第三方端点时,CLI 报的 total_cost_usd 仍按 Anthropic 计价、对该厂商不可信 —— 据此把
   // costTrusted 判为 false,与显式 modelsApiBase 的第三方路径一致。
   if (!base) base = String(process.env.ANTHROPIC_BASE_URL || process.env.ANTHROPIC_BASE || '').trim();
   if (!base) return { provider: 'claude-cli', costTrusted: true };

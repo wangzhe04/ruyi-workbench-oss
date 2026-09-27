@@ -17,7 +17,7 @@
 
 **Skills 体系 v1(v1.5)**：四源技能注册表(内置 toolkit / 用户 `dataRoot/skills` / 项目 `.ruyi/skills/<id>/SKILL.md` / Playbook 并入)，会话级启用(上限 8)，跨引擎渐进注入——system prompt 只放紧凑索引，provider 引擎经 `skill_read` 工具按需拉全文，Claude 引擎经 `--append-system-prompt` + 自带 Read 展开。
 
-**成本 / 用量看板(v1.5)**：诚实计费——区分 Anthropic 官方 / 第三方 Coding Plan(如火山方舟 Ark)/ OpenAI provider，分币种记账不强制换算，第三方端点标注「计划内计费」不计入真实花费；工作流子代理、自动/手动压缩、Playbook 起草等全部烧 token 路径均入账，月度预算告警。
+**成本 / 用量看板(v1.5)**：诚实计费——区分 Anthropic 官方 / 第三方 Coding Plan/ OpenAI provider，分币种记账不强制换算，第三方端点标注「计划内计费」不计入真实花费；工作流子代理、自动/手动压缩、Playbook 起草等全部烧 token 路径均入账，月度预算告警。
 
 **中英界面**：设置中支持跟随系统、简体中文和英文。语言资源随包发布；高频动态反馈和 API 错误通过稳定错误码本地化，详细契约见 [`../docs/i18n/README.md`](../docs/i18n/README.md)。
 

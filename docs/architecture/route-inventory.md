@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 151(精确 128 / 前缀 14 / 正则 9),ROUTE_AUTH 137 条,生成于 2026-09-27T05:53:56.649Z。
+> 判定点 151(精确 128 / 前缀 14 / 正则 9),ROUTE_AUTH 137 条,生成于 2026-09-27T09:01:17.769Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -173,20 +173,20 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:759 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 9 件 |
-| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:768 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 9 件 |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:788 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:832 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
-| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:846 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
-| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:870 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
+| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:783 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 9 件 |
+| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js:792 | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 9 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:812 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js:856 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
+| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js:870 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
+| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js:894 | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 5 件 |
 
 ## session(6)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 181 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:210 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 182 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js:216 | session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 181 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js:228 | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 182 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js:238 | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js:252 | — |
 | DELETE/GET/PATCH/POST | `/api/sessions/` | prefix | token-browser | 13d-core-domain-routes.js:297 | action-feedback.browser.e2e.js, agent-mode-v2.e2e.js, agent-roles.e2e.js 等 92 件 |

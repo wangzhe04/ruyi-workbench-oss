@@ -358,7 +358,9 @@ try {
   // 133f +2 件：asr-warmup（C2 一处就地豁免 —— 热路径 13–15 ms 对界 800 ms）、composer-voice-warmup.browser（B1b／B11／C2／I3 四处就地豁免 ——
   // 界都取「一次完整加载」量级，失败形态是没走闸、多等一整个加载）→ 26。
   // 137 W1 +1 件：agent-mode-v2（G 段「显式停止能中断在跑的长命令」一处就地豁免 —— 界 20 s，失败形态是等满 60 s 长命令）→ 27。
-  const WALLCLOCK_OWNER_FILES = 27;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  // C18 +1 件:scheduler(E 组新断言「fastElapsedMs < SLOWTURN_MS」一处就地豁免 —— 界取慢任务人为延迟的整段
+  // 3000ms,判的是「同拍里排在慢任务后面的任务不再被它拖到界满」,不是量噪声)→ 28。
+  const WALLCLOCK_OWNER_FILES = 28;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];

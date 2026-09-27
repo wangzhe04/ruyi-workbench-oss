@@ -584,7 +584,7 @@
   "onboarding.engine.advancedClaude": "高级：我有 Agent CLI",
   "onboarding.engine.configureClaude": "配置 Agent CLI →",
   "onboarding.engine.configureKey.action": "去配置 API Key",
-  "onboarding.engine.configureKey.description": "推荐 DeepSeek —— 注册即得免费额度，几分钟就能用起来。",
+  "onboarding.engine.configureKey.description": "填一个 OpenAI 兼容服务的地址和密钥，几分钟就能用起来。",
   "onboarding.engine.configureKey.title": "配置 API Key 即可开始",
   "onboarding.engine.notReady": "请先配置一个 AI 引擎",
   "onboarding.engine.providerFallback": "Provider",
@@ -689,7 +689,7 @@
   "onboarding.wizard.steward.custom": "另挑一个",
   "onboarding.wizard.steward.customHint": "填一个模型名，通常是同一个服务商里更便宜的那一档。",
   "onboarding.wizard.steward.modelLabel": "模型名",
-  "onboarding.wizard.steward.modelPlaceholder": "比如 deepseek-chat",
+  "onboarding.wizard.steward.modelPlaceholder": "服务商给的模型名",
   "onboarding.wizard.steward.saved": "管家改用「{{model}}」。",
   "onboarding.wizard.steward.savedFollow": "管家跟随主端点。",
   "onboarding.wizard.title": "欢迎向导",
@@ -864,11 +864,11 @@
   "provider.defaultModel": "默认",
   "provider.deleteConfirm": "删除 Provider「{{name}}」？其 API 密钥将一并移除",
   "provider.displayNamePlaceholder": "显示名",
-  "provider.empty": "未配置 Provider。下方选模板（DeepSeek / 通义千问 / 自定义）添加，再填密钥。",
+  "provider.empty": "未配置 Provider。下方选模板（自定义 / 本机 Ollama、LM Studio）添加，再填地址和密钥。",
   "provider.engineModel": "引擎与模型",
   "provider.model": "模型",
   "provider.manualModels": "手动模型 ID（每行一个）",
-  "provider.manualModelsPlaceholder": "ark-code-latest\ngpt-4.1",
+  "provider.manualModelsPlaceholder": "model-id-1\nmodel-id-2",
   "provider.manualModelsHint": "适用于端点无法列出模型的情况。测试连接发现的模型会追加，不会删除这里的条目。在模型菜单里移除过的模型，重新在这里填一行即可恢复。",
   "provider.modelCount.one": "{{count}} 个模型",
   "provider.modelCount.other": "{{count}} 个模型",
@@ -1041,7 +1041,7 @@
   "settings.authMode": "鉴权方式",
   "settings.authMode.apiKey": "x-api-key（ANTHROPIC_API_KEY，Anthropic 官方协议）",
   "settings.authMode.auto": "自动（两种请求头都发，兼容大多数端点）",
-  "settings.authMode.bearer": "Bearer Token（ANTHROPIC_AUTH_TOKEN，如 Ark Coding Plan）",
+  "settings.authMode.bearer": "Bearer Token（ANTHROPIC_AUTH_TOKEN，第三方 Coding Plan 常用）",
   "settings.betaThinking": "交错思维 beta（仅老 CLI 需要；新模型请勿勾）",
   "settings.bridgeExternalMcp": "把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）",
   "settings.browserCdpUrl": "CDP 地址（cdp 模式）",
@@ -1320,7 +1320,7 @@
   "settings.permissionBridge": "权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）",
   "settings.permissions": "安全与权限",
   "settings.preset": "预设",
-  "settings.pricing.hint": "若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。",
+  "settings.pricing.hint": "若上方端点是第三方 Coding Plan，此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。",
   "settings.pricing.input": "输入单价（每百万 token，可选）",
   "settings.pricing.output": "输出单价（每百万 token，可选）",
   "settings.pricing.unavailablePlaceholder": "留空 = 不估算成本",
@@ -2529,6 +2529,7 @@
   "mission.state.needs_you": "需要你",
   "mission.state.done": "已收工",
   "mission.state.stopped": "已停工",
+  "mission.state.blank": "还没开始",
   "mission.state.quick_ask": "速查"
   ,"ask.contextLabel": "提问背景"
   ,"provider.pricing.cachedInputPerM": "缓存命中 / 百万"
@@ -3168,6 +3169,7 @@
   ,"rail.group.needsYou": "等你"
   ,"rail.group.running": "在跑"
   ,"rail.group.queued": "排队"
+  ,"rail.group.fresh": "新开的"
   ,"rail.group.unfinished": "今天没做完"
   ,"rail.group.doneToday": "今天收工"
   ,"rail.group.earlier": "更早"
@@ -3333,8 +3335,6 @@
   ,"layout.rightResizeHandle.aria": "拖动调整右栏宽度,双击切换档位"
   ,"memory.modal.title": "工作台记忆"
   ,"memory.modal.intro": "「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前线程。"
-  ,"provider.preset.dashscope.label": "Qwen / DashScope (通义千问)"
-  ,"provider.preset.glm.label": "GLM / 智谱 (Zhipu)"
   ,"provider.preset.ollama.label": "Ollama (本机模型,免 Key)"
   ,"provider.preset.lmstudio.label": "LM Studio (本机模型,免 Key)"
   ,"provider.preset.openaiCompatible.label": "自定义 (OpenAI 兼容 / 内网自建)"
@@ -3342,4 +3342,20 @@
   ,"tool.changes": "改动"
   ,"tool.usage": "用量"
   ,"common.launchMode": "启动"
+  ,"agentWorkflow.template.debate-and-judge.title": "正反辩论 → 裁决"
+  ,"agentWorkflow.template.debate-and-judge.description": "正反双方并行分析，由 Reviewer 交叉审查并给出可核验的裁决。"
+  ,"agentWorkflow.template.implement-review-fix-test.title": "编码实现 → 独立审查 → 定向修复 → 验收"
+  ,"agentWorkflow.template.implement-review-fix-test.description": "Coder 完成代码与针对性自测，Reviewer 独立审查；仅对确认的问题定向修复，最后由 Verifier 按验收标准复核。适合可拆成实现与独立复核的代码任务；单一、不可分的长改动不必使用团队。"
+  ,"agentWorkflow.template.deep-research.title": "深度研究 → 核验 → 综述"
+  ,"agentWorkflow.template.deep-research.description": "拆解问题 → 双镜头并行联网检索(事实/观点) → 对抗式事实核验(剔除无据主张、去重) → 只依据已核验发现写带引用的结构化综述。适合需要可靠、可追溯结论的调研。模型建议:并行检索(research_*)可用快模型广撒网;核验(verify)与综述(synthesize)建议在编辑器为其指派更强模型,因为它们决定结论的可信度。"
+  ,"agentWorkflow.template.design-and-decide.title": "需求 → 多方案 → 选型 → 落地清单"
+  ,"agentWorkflow.template.design-and-decide.description": "拆清需求与评价维度 → 并行产出三种不同取向的候选方案 → 按权重打分横向选型 → 输出可执行落地清单。适合技术选型、架构决策、方案权衡。模型建议:方案生成(option_*)可用快模型广撒网;选型(decide)与落地清单(rollout)建议指派更强模型,它们承担权衡与决策质量。"
+  ,"agentWorkflow.template.codebase-audit.title": "代码审计:多维并行 → 核验 → 修复排期"
+  ,"agentWorkflow.template.codebase-audit.description": "建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。审计全程优先用 codebase_symbol_search 检索符号的真实定义/引用,以文件:行证据为准,勿凭名称相似下结论。"
+  ,"agentWorkflow.template.debug-root-cause.title": "Bug 定位:复现 → 假设 → 验证 → 根因修复"
+  ,"agentWorkflow.template.debug-root-cause.description": "系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪(排除法) → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与\"修根因而非症状\"最吃推理。verify 用 debug_hypothesis 追踪假设证伪状态,确保每个假设都被排除或证实,勿只验证一条就下结论。"
+  ,"agentWorkflow.template.doc-from-scratch.title": "文档生成:提纲 → 分节撰写 → 核验 → 统稿"
+  ,"agentWorkflow.template.doc-from-scratch.description": "从零产出高质量文档/报告:定提纲与受众 → 并行撰写各章节 → 事实与一致性核验 → 统稿润色并落盘。适合技术文档、方案书、调研报告。模型建议:分节撰写(draft_*)可用快模型提产量;提纲(outline)、核验(factcheck)、统稿(finalize)建议指派更强模型,它们决定结构与成稿质量。"
+  ,"agentWorkflow.template.data-insights.title": "数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察"
+  ,"agentWorkflow.template.data-insights.description": "对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。探查用 data_profile 做机器级数据画像(规模/列类型/缺失/离群),不要靠目测。"
 }

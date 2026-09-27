@@ -458,6 +458,11 @@
      漏了「字形 span ＋ 文字」这种节点；改按文字节点量之后当场抓到）。
      这一条 0,3,0 压过它，且只在这一档生效。 */
   .task-rail .steward-board-pill.has-icon { display: none; }
+  /* 走查 U17：这一档每行只留【一颗】色点 —— 下面那颗居中的 ::after。行头原有的 8px 小点与行尾「⋯」
+     修前也还在（一行两颗同色点＋一枚省略号）。「⋯」在 steward-board.css 里按 hover／focus-within／
+     is-actions-open 放出来（0,4,0 且后加载），这里要 0,5,0 才压得住。 */
+  .task-rail .steward-tcard-dot { display: none; }
+  .task-rail .rail-list .steward-board-thread .steward-board-more.icon-btn { display: none; }
   /* 色点＝任务（色号由 data-thread-hue 那一张登记表发，见 steward-conversation.css 的
      --thread-color —— 这一档也不新造第二种颜色）。 */
   .task-rail .steward-board-thread-head::after {

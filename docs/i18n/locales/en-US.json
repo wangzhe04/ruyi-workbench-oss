@@ -584,7 +584,7 @@
   "onboarding.engine.advancedClaude": "Advanced: I have an Agent CLI",
   "onboarding.engine.configureClaude": "Configure Agent CLI →",
   "onboarding.engine.configureKey.action": "Configure API key",
-  "onboarding.engine.configureKey.description": "DeepSeek is recommended: create an account to get free credit and get started in minutes.",
+  "onboarding.engine.configureKey.description": "Enter the address and API key of any OpenAI-compatible service and you are ready in minutes.",
   "onboarding.engine.configureKey.title": "Configure an API key to get started",
   "onboarding.engine.notReady": "Configure an AI engine first",
   "onboarding.engine.providerFallback": "Provider",
@@ -689,7 +689,7 @@
   "onboarding.wizard.steward.custom": "Pick another one",
   "onboarding.wizard.steward.customHint": "Enter a model name, usually the cheaper tier from the same provider.",
   "onboarding.wizard.steward.modelLabel": "Model name",
-  "onboarding.wizard.steward.modelPlaceholder": "e.g. deepseek-chat",
+  "onboarding.wizard.steward.modelPlaceholder": "the model name your provider gives you",
   "onboarding.wizard.steward.saved": "The steward now uses \"{{model}}\".",
   "onboarding.wizard.steward.savedFollow": "The steward follows the main endpoint.",
   "onboarding.wizard.title": "Welcome guide",
@@ -864,11 +864,11 @@
   "provider.defaultModel": "Default",
   "provider.deleteConfirm": "Delete Provider “{{name}}”? Its API key will also be removed.",
   "provider.displayNamePlaceholder": "Display name",
-  "provider.empty": "No providers configured. Add one from a template below (DeepSeek / Tongyi Qianwen / Custom), then enter its API key.",
+  "provider.empty": "No providers configured. Add one from a template below (Custom, or local Ollama / LM Studio), then enter its address and API key.",
   "provider.engineModel": "Engine and model",
   "provider.model": "Model",
   "provider.manualModels": "Manual model IDs (one per line)",
-  "provider.manualModelsPlaceholder": "ark-code-latest\ngpt-4.1",
+  "provider.manualModelsPlaceholder": "model-id-1\nmodel-id-2",
   "provider.manualModelsHint": "Use this when the endpoint cannot list models. Connection tests add discovered models without deleting these entries. To restore a model you removed in the model menu, type its ID here again.",
   "provider.modelCount.one": "{{count}} model",
   "provider.modelCount.other": "{{count}} models",
@@ -1041,7 +1041,7 @@
   "settings.authMode": "Authentication method",
   "settings.authMode.apiKey": "x-api-key (ANTHROPIC_API_KEY, Anthropic's official protocol)",
   "settings.authMode.auto": "Automatic (send both headers for broad endpoint compatibility)",
-  "settings.authMode.bearer": "Bearer Token (ANTHROPIC_AUTH_TOKEN, for example Ark Coding Plan)",
+  "settings.authMode.bearer": "Bearer Token (ANTHROPIC_AUTH_TOKEN, common for third-party Coding Plans)",
   "settings.betaThinking": "Interleaved-thinking beta (needed only by older CLIs; do not enable for new models)",
   "settings.bridgeExternalMcp": "Bridge external MCP tools to native Provider engines too (when disabled, Providers use only built-in workbench tools)",
   "settings.browserCdpUrl": "CDP endpoint (cdp mode)",
@@ -1320,7 +1320,7 @@
   "settings.permissionBridge": "Bridge permission prompts (--permission-prompt-tool; requires a non-bypass permission mode)",
   "settings.permissions": "Safety and permissions",
   "settings.preset": "Preset",
-  "settings.pricing.hint": "If the endpoint above is a third-party Coding Plan, such as Ark, these prices are only for cost estimates when the backend supports them. Plan-included usage normally shows token consumption only; subscription billing is not usage-based billing, so do not treat it as an actual charge.",
+  "settings.pricing.hint": "If the endpoint above is a third-party Coding Plan, these prices are only for cost estimates when the backend supports them. By default, plan usage shows token consumption only; subscription billing is not pay-as-you-go spending, so do not treat it as actual cost.",
   "settings.pricing.input": "Input price (per million tokens, optional)",
   "settings.pricing.output": "Output price (per million tokens, optional)",
   "settings.pricing.unavailablePlaceholder": "Leave blank to skip cost estimates",
@@ -2529,6 +2529,7 @@
   "mission.state.needs_you": "Needs you",
   "mission.state.done": "Done",
   "mission.state.stopped": "Stopped",
+  "mission.state.blank": "Not started",
   "mission.state.quick_ask": "Lookup"
   ,"ask.contextLabel": "Question context"
   ,"provider.pricing.cachedInputPerM": "Cached input / million"
@@ -3168,6 +3169,7 @@
   ,"rail.group.needsYou": "Waiting on you"
   ,"rail.group.running": "Running"
   ,"rail.group.queued": "Queued"
+  ,"rail.group.fresh": "New"
   ,"rail.group.unfinished": "Stopped today"
   ,"rail.group.doneToday": "Wrapped up today"
   ,"rail.group.earlier": "Earlier"
@@ -3333,8 +3335,6 @@
   ,"layout.rightResizeHandle.aria": "Drag to resize the right panel, double-click to cycle widths"
   ,"memory.modal.title": "Workbench memory"
   ,"memory.modal.intro": "“Workbench memory” saves your personal experience, project conventions, and lessons; it travels with the workbench. This differs from “project memory (CLAUDE.md)”, which travels with the code repository. Enabled memories are injected into the current thread as reference material."
-  ,"provider.preset.dashscope.label": "Qwen / DashScope (Tongyi Qianwen)"
-  ,"provider.preset.glm.label": "GLM / Zhipu"
   ,"provider.preset.ollama.label": "Ollama (local models, no key needed)"
   ,"provider.preset.lmstudio.label": "LM Studio (local models, no key needed)"
   ,"provider.preset.openaiCompatible.label": "Custom (OpenAI-compatible / self-hosted)"
@@ -3342,4 +3342,20 @@
   ,"tool.changes": "Changes"
   ,"tool.usage": "Usage"
   ,"common.launchMode": "Launched via"
+  ,"agentWorkflow.template.debate-and-judge.title": "Debate (Pro vs Con) → Verdict"
+  ,"agentWorkflow.template.debate-and-judge.description": "Pro and con sides analyze in parallel; a Reviewer cross-examines both and delivers a verifiable verdict."
+  ,"agentWorkflow.template.implement-review-fix-test.title": "Implement → Independent Review → Targeted Fix → Acceptance"
+  ,"agentWorkflow.template.implement-review-fix-test.description": "The Coder implements the change with targeted self-tests; a Reviewer independently reviews it; only confirmed issues get a targeted fix; finally a Verifier checks it against acceptance criteria. Good for code tasks that split cleanly into implementation and independent review; skip the team for a single, indivisible long change."
+  ,"agentWorkflow.template.deep-research.title": "Deep Research → Verify → Synthesize"
+  ,"agentWorkflow.template.deep-research.description": "Break the question down → parallel web research through two lenses (facts / perspectives) → adversarial fact-checking (drop unsupported claims, dedupe) → write a structured, cited synthesis based only on verified findings. Good for research that needs reliable, traceable conclusions. Model tip: the parallel research steps (research_*) can use a fast model to cast a wide net; assign a stronger model to verify and synthesize in the editor, since they determine how trustworthy the conclusions are."
+  ,"agentWorkflow.template.design-and-decide.title": "Requirements → Multiple Options → Decision → Rollout Checklist"
+  ,"agentWorkflow.template.design-and-decide.description": "Clarify requirements and evaluation criteria → produce three candidate options in parallel, each taking a different direction → score and compare them by weighted criteria → output an actionable rollout checklist. Good for technology selection, architecture decisions, and trade-off analysis. Model tip: the option-generation steps (option_*) can use a fast model to cast a wide net; assign a stronger model to decide and to build the rollout checklist, since they carry the weight of the trade-off and decision quality."
+  ,"agentWorkflow.template.codebase-audit.title": "Codebase Audit: Parallel Dimensions → Verify → Fix Backlog"
+  ,"agentWorkflow.template.codebase-audit.description": "Map the codebase → audit it along three dimensions in parallel (correctness / security / performance & maintainability) → read and verify each finding in person to remove false positives → produce a fix backlog prioritized by severity × value. The audit is read-only and never changes code. Model tip: the parallel audit steps (audit_*) can use a mid-tier model; assign a stronger model to verify and to build the backlog, to keep false positives down and priorities accurate. Throughout the audit, prefer codebase_symbol_search to look up a symbol's real definition and references, and conclude from file:line evidence rather than name similarity."
+  ,"agentWorkflow.template.debug-root-cause.title": "Bug Hunt: Reproduce → Hypothesize → Verify → Root-Cause Fix"
+  ,"agentWorkflow.template.debug-root-cause.description": "Systematically track down a stubborn bug: confirm a minimal reproduction → propose root-cause hypotheses along two independent directions in parallel → test each one experimentally (process of elimination) → lock in the root cause and apply a minimal fix. Model tip: the reproduce and hypothesize steps (hypo_*) can use a fast model; assign a stronger model to verify and fix, since pinning down the root cause and \"fixing the cause, not the symptom\" demands the most reasoning. The verify step uses debug_hypothesis to track each hypothesis’s falsification status, making sure every hypothesis is either ruled out or confirmed rather than concluding after testing just one."
+  ,"agentWorkflow.template.doc-from-scratch.title": "Document from Scratch: Outline → Section Drafts → Fact-Check → Final Pass"
+  ,"agentWorkflow.template.doc-from-scratch.description": "Produce a high-quality document or report from scratch: define the outline and audience → draft the sections in parallel → fact-check and check consistency → polish into a final pass and save it. Good for technical documentation, proposals, and research reports. Model tip: the section-drafting steps (draft_*) can use a fast model for throughput; assign a stronger model to the outline, fact-check, and final pass, since they determine the structure and quality of the finished document."
+  ,"agentWorkflow.template.data-insights.title": "Data Insights: Profile → Plan → Multi-Angle Analysis → Verify → Insights"
+  ,"agentWorkflow.template.data-insights.description": "Systematically analyze data, logs, or metrics: profile the data → define the analysis plan and conventions → analyze along two parallel tracks (main line + cross-cutting/anomalies) → adversarially verify to drop unsound conclusions → synthesize an insights report. Model tip: the profiling/analysis steps (analyst) can use a mid-tier model; assign a stronger model to the plan, verify, and insights-synthesis steps. The analysis steps read data and run read-only scripts, so grant them enough tool permission (analyst needs the exec tier). The profile step uses data_profile for a machine-level data profile (row/column scale, types, missing rates, outliers) — don't rely on eyeballing a few rows."
 }

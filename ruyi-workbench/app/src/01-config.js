@@ -78,7 +78,7 @@ function defaultConfig() {
     modelsApiBase: '',            // base URL override (else ANTHROPIC_BASE_URL / ANTHROPIC_BASE env) — also
                                    // drives the ACTUAL Claude CLI child's ANTHROPIC_BASE_URL (buildClaudeCliEnv)
     modelsApiKey: '',             // auth override (else ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY env) — ditto
-    claudeAuthMode: 'auto',       // 'auto' | 'bearer' (ANTHROPIC_AUTH_TOKEN, e.g. Ark Coding Plan) | 'x-api-key'
+    claudeAuthMode: 'auto',       // 'auto' | 'bearer' (ANTHROPIC_AUTH_TOKEN, 第三方 Coding Plan 常用) | 'x-api-key'
                                    // (ANTHROPIC_API_KEY, Anthropic official) — see buildClaudeCliEnv
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
@@ -2655,7 +2655,7 @@ function isKimiCodingEndpoint(base) {
   }
 }
 
-// Third-party Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) config → env overrides.
+// Third-party Anthropic-compatible endpoint (e.g. a vendor Coding Plan) config → env overrides.
 // Only returns keys the user actually configured in modelsApiBase/modelsApiKey/model — an unconfigured
 // field leaves whatever the OS/shell env already has untouched, so an install with no third-party setup
 // behaves exactly as before. Config wins over a stale inherited env var so a hot model/endpoint switch in

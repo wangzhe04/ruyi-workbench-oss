@@ -52,7 +52,7 @@ claude mcp add-json win-claude-workbench "{...}" -s user
 >   mcp
 > ```
 >
-> 详细配置步骤（含第三方 Anthropic 兼容端点接入）见管理员手册 [§2.1.1](manuals/ADMIN-GUIDE_CN.md#211-接入第三方-anthropic-兼容端点以火山方舟-ark-coding-plan-为例)。
+> 详细配置步骤（含第三方 Anthropic 兼容端点接入）见管理员手册 [§2.1.1](manuals/ADMIN-GUIDE_CN.md#211-接入第三方-anthropic-兼容端点)。
 
 如果自动注册失败，手动导入：
 

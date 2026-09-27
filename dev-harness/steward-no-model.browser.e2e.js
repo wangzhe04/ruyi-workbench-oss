@@ -15,7 +15,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   N5 接上一个端点（写 config）并刷新 → 卡片消失、输入框可用、回到首跑那条自我介绍；
 //   N6 服务端那句兜底也说人话：/api/steward/message 在没模型时回的 message 不含配置键名；
 //   N8/N9 管家页开着时模型掉线又接回：当场换成「先接一个模型」卡，接回后重新到访（代码走查 C15）；
-//   N10 管家视角下提示条不压右栏、点击穿透（走查 U13）。
+//   N10 管家视角下提示条不压右栏、点击穿透（走查 U13）；N11 用户新开的空线程落「新开的」不落「排队」（走查 U2）。
 // 判定行：`STEWARD NO MODEL BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 
@@ -117,6 +117,18 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     ok(Boolean(toastBox) && toastBox.pe === 'none' && toastBox.right < toastBox.vw - 100 && toastBox.bottom <= toastBox.vh - 90
       && (toastBox.sideLeft === null || toastBox.right <= toastBox.sideLeft),
       `N10 管家视角：提示条不压右栏、点击穿透（实测 ${JSON.stringify(toastBox)}）`);
+    // N11（走查 U2）：用户自己新开、还没开口的空线程不是「排队」：左栏落「新开的」，右栏不挂「在排队」那一段与插队／并发上限。
+    // 反向验证：stewardThreadStateOf 里去掉 threadIsBlank 那一句 → 落回「排队」、⑧ 那一段露出来，N11 红。
+    const blank = await fx.request('POST', '/api/sessions', { title: '空线程探针' });
+    const blankId = blank && blank.json && blank.json.session && blank.json.session.id;
+    const railProbe = `(() => { const row = document.querySelector('#railList .steward-board-thread[data-session-id="${blankId}"]');
+      const group = row && row.closest('.rail-group'); return group ? group.dataset.group : null; })()`;
+    const blankGroup = await fx.waitForEval(railProbe, 300) || await fx.evaluate(railProbe);
+    await fx.evaluate(`(document.querySelector('#railList .steward-board-thread[data-session-id="${blankId}"]') || { click() {} }).click(), true`);
+    const drawer = await fx.waitForEval(`(() => { const s = document.getElementById('stewardDrawerState'); const q = document.getElementById('stewardDrawerQueue');
+      return s && s.textContent.trim() ? { state: s.textContent.trim(), queueHidden: !q || q.hidden } : null; })()`, 100);
+    ok(Boolean(blankId) && blankGroup === 'fresh' && drawer && drawer.state === '还没开始' && drawer.queueHidden === true,
+      `N11 空线程落「新开的」、态是「还没开始」、没有排队那一段（实测 组=${blankGroup} ${JSON.stringify(drawer)}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;
