@@ -2980,6 +2980,10 @@ async function readFileTail(file, maxBytes) {
 // below only centralizes the lifecycle that small workbench-owned JSON stores were independently rebuilding:
 // schema admission, sanitization, corruption quarantine, bounded collections, serialized atomic writes and
 // an explicit process cache/invalidation contract.
+// 架构还债批 2 B3:新写的小 JSON 存储一律用它(不再各自手写 read/parse/schema/隔离/原子写那一套)。两个可选项
+// 让「坏了就当空」一族的存量存储能逐字节不变地迁进来:
+//   quarantine: false —— 坏文件/读不动/错 schema 静默回落默认值,原文件留在原处、不复制成 .corrupt(onCorrupt 仍照常调,corruptPath 为空串);
+//   read()           —— readSync 的异步版(fsp.readFile),同一套 prepare/回落/缓存规则,给本来就在 async 路径上的存储用。
 const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
   function cloneJson(value) {
     if (value === undefined) return undefined;
@@ -3021,6 +3025,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     const schemaKey = String(options.schemaKey || 'schema');
     const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
     const cacheEnabled = options.cache !== false;
+    const quarantineEnabled = options.quarantine !== false;
     let cached = null;
     let hasCache = false;
     let writeChain = Promise.resolve();
@@ -3056,8 +3061,8 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 
     function quarantine(error) {
       const file = filePath();
-      const corruptPath = file + '.corrupt';
-      try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ }
+      const corruptPath = quarantineEnabled ? file + '.corrupt' : ''; // '' = quarantine:false, nothing was copied
+      if (quarantineEnabled) { try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ } }
       if (typeof options.onCorrupt === 'function') {
         try { options.onCorrupt(error, { id, file, corruptPath }); } catch { /* diagnostics never block recovery */ }
       }
@@ -3069,10 +3074,30 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
-        if (!(error && error.code === 'ENOENT')) quarantine(error);
-        value = freshDefault();
+        value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
+      return value;
+    }
+
+    function recover(error) {
+      if (!(error && error.code === 'ENOENT')) quarantine(error);
+      return freshDefault();
+    }
+
+    async function read() {
+      if (cacheEnabled && hasCache) return cached;
+      let value;
+      try {
+        value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
+      } catch (error) {
+        value = recover(error);
+      }
+      if (cacheEnabled) {
+        // A write that was enqueued while this read awaited the disk already advanced the cache: keep the newer value.
+        if (hasCache) return cached;
+        cached = value; hasCache = true;
+      }
       return value;
     }
 
@@ -3098,7 +3123,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       hasCache = false;
     }
 
-    return { id, readSync, write, invalidate, filePath };
+    return { id, readSync, read, write, invalidate, filePath };
   }
 
   return { create, applyCapacity };
@@ -25503,11 +25528,23 @@ async function deleteMemory(id, scope, cwd) {
 // 稳定 hash id + 不覆盖已有文件使中途失败可安全重试，原 ACC 文件始终保留不改。
 const ACC_MEMORY_IMPORT_SCHEMA = 1;
 function accMemoryImportMarker() { return path.join(paths.memory, '.acc-memory-import-v1.json'); }
+// 架构还债批 2 B3:完成标记走 DurableJsonStore(01),盘上字节与恢复口径与手写版逐字节相同:
+//   · 缺失 / 读不动 / 不是 JSON / 根不是对象 / schema 不是 1(含缺 schema)= 「还没做完」,幂等导入下次重跑;
+//     坏文件原样留着、不复制成 .corrupt(quarantine:false),不记事件 —— 与手写版一样安静;
+//   · 不缓存(cache:false):04 拼 ACC 的环境变量时每次都同步重读盘(测试与迁移中心会删它);
+//   · 写:mkdir memory 目录 + atomicWriteJson(pretty JSON),键序就是调用方给的那份。
+const accMemoryImportStore = DurableJsonStore.create({
+  id: 'acc-memory-import-marker',
+  file: () => accMemoryImportMarker(),
+  schemaVersion: ACC_MEMORY_IMPORT_SCHEMA,
+  cache: false,
+  quarantine: false,
+  defaultValue: () => ({ schema: ACC_MEMORY_IMPORT_SCHEMA }),
+  // 缺 schema 的也不认(prepare 只拒「有且不等」,缺的这一半在这里拒)—— 手写版判的是 marker.schema === 1。
+  sanitize: value => (value.schema === ACC_MEMORY_IMPORT_SCHEMA ? value : { schema: ACC_MEMORY_IMPORT_SCHEMA }),
+});
 function legacyAccMemoryMigrationComplete() {
-  try {
-    const marker = safeJsonParse(fs.readFileSync(accMemoryImportMarker(), 'utf8'), null);
-    return !!(marker && marker.schema === ACC_MEMORY_IMPORT_SCHEMA && marker.status === 'complete');
-  } catch { return false; }
+  try { return accMemoryImportStore.readSync().status === 'complete'; } catch { return false; }
 }
 function legacyAccMemoryCandidates() {
   const candidates = [];
@@ -25526,8 +25563,7 @@ async function migrateLegacyAccMemory() {
     try { const st = await fsp.stat(candidate); if (st.isFile()) { source = candidate; break; } } catch { /* try next standard location */ }
   }
   if (!source) {
-    await fsp.mkdir(paths.memory, { recursive: true });
-    await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'no-source', imported: 0, skipped: 0, completedAt: nowIso() });
+    await accMemoryImportStore.write({ schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'no-source', imported: 0, skipped: 0, completedAt: nowIso() });
     return { ok: true, imported: 0, skipped: 0, noSource: true };
   }
   let store;
@@ -25561,8 +25597,7 @@ async function migrateLegacyAccMemory() {
     if (!saved.ok) return { ok: false, error: saved.error || 'failed to import legacy ACC memory', source, imported, skipped };
     imported++;
   }
-  await fsp.mkdir(paths.memory, { recursive: true });
-  await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'imported', source, imported, skipped, completedAt: nowIso() });
+  await accMemoryImportStore.write({ schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'imported', source, imported, skipped, completedAt: nowIso() });
   logEvent({ kind: 'acc_memory_import_complete', source, imported, skipped });
   return { ok: true, source, imported, skipped };
 }
@@ -25600,6 +25635,22 @@ function agentInstructionSources() {
   ];
 }
 function agentInstructionImportFile() { return path.join(paths.memory, '.agent-instructions-import-v1.json'); }
+// 架构还债批 2 B3:所有权 sidecar 走 DurableJsonStore(01),盘上字节与恢复口径与手写版逐字节相同:
+//   · 缺失 / 读不动 / 不是 JSON / 根不是对象 / schema 不是 1(含缺 schema)/ sources 不是普通对象 = 空表
+//     { schema:1, sources:{} };坏文件原样留着、不复制成 .corrupt(quarantine:false),不记事件;
+//   · 合格的文件原样读回(含 updatedAt 与任何多余的键),不缓存(每次同步都重读盘);
+//   · 写:mkdir memory 目录 + atomicWriteJson,形状固定 { schema, updatedAt, sources }。
+//   读-改-写的串行仍由 agentInstructionChain 负责(整段同步是一个临界区),store 自己的写链只是再串一层。
+const agentInstructionImportStore = DurableJsonStore.create({
+  id: 'agent-instructions-import',
+  file: () => agentInstructionImportFile(),
+  schemaVersion: AGENT_INSTRUCTION_IMPORT_SCHEMA,
+  cache: false,
+  quarantine: false,
+  defaultValue: () => ({ schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} }),
+  sanitize: value => (value.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && value.sources && typeof value.sources === 'object' && !Array.isArray(value.sources)
+    ? value : { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} }),
+});
 function agentInstructionMemoryId(key, n) { return 'agentmd-' + key + '-' + n; }
 function agentInstructionSourceKeyOf(id) {
   const m = /^agentmd-([a-z]+-[a-z]+)-\d+$/.exec(String(id || ''));
@@ -25615,15 +25666,10 @@ function filterMemoryForNativeCli(entries, cliType) {
 function sha256Hex(text) { return crypto.createHash('sha256').update(String(text), 'utf8').digest('hex'); }
 
 async function readAgentInstructionState() {
-  try {
-    const raw = safeJsonParse(await fsp.readFile(agentInstructionImportFile(), 'utf8'), null);
-    if (raw && raw.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && raw.sources && typeof raw.sources === 'object' && !Array.isArray(raw.sources)) return raw;
-  } catch { /* 首次 */ }
-  return { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} };
+  return agentInstructionImportStore.read();
 }
 async function writeAgentInstructionState(state) {
-  await fsp.mkdir(paths.memory, { recursive: true });
-  await atomicWriteJson(agentInstructionImportFile(), { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, updatedAt: nowIso(), sources: state.sources });
+  await agentInstructionImportStore.write({ schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, updatedAt: nowIso(), sources: state.sources });
 }
 
 // 取来源的第一个非空文件。返回 null(没有)/{ file, error }(过大、读不了)/{ file, text, hash }。

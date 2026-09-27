@@ -4534,8 +4534,10 @@
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
         "accMemoryImportMarker",
+        "accMemoryImportStore",
         "agentInstructionChain",
         "agentInstructionImportFile",
+        "agentInstructionImportStore",
         "agentInstructionMemoryId",
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
@@ -4670,13 +4672,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -4757,6 +4752,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {

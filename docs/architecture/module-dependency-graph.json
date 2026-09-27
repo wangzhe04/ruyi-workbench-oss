@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 57,
-    "providedSymbols": 2803,
+    "providedSymbols": 2805,
     "requiredSymbols": 2869,
     "edges": 452,
     "forwardEdges": 68,
@@ -4588,8 +4588,10 @@
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
         "accMemoryImportMarker",
+        "accMemoryImportStore",
         "agentInstructionChain",
         "agentInstructionImportFile",
+        "agentInstructionImportStore",
         "agentInstructionMemoryId",
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
@@ -4724,13 +4726,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -4811,6 +4806,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24556,7 +24558,6 @@
         "cachedInputTokensFromUsage",
         "computeProviderCost",
         "crypto",
-        "fs",
         "fsp",
         "makeId",
         "neutralizeFenceTag",
@@ -24574,6 +24575,7 @@
       "from": "06d-memory-domain.js",
       "to": "01-config.js",
       "symbols": [
+        "DurableJsonStore",
         "atomicWriteJson",
         "readConfig",
         "safeSessionId"

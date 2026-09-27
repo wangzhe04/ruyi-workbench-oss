@@ -1741,6 +1741,10 @@ async function readFileTail(file, maxBytes) {
 // below only centralizes the lifecycle that small workbench-owned JSON stores were independently rebuilding:
 // schema admission, sanitization, corruption quarantine, bounded collections, serialized atomic writes and
 // an explicit process cache/invalidation contract.
+// 架构还债批 2 B3:新写的小 JSON 存储一律用它(不再各自手写 read/parse/schema/隔离/原子写那一套)。两个可选项
+// 让「坏了就当空」一族的存量存储能逐字节不变地迁进来:
+//   quarantine: false —— 坏文件/读不动/错 schema 静默回落默认值,原文件留在原处、不复制成 .corrupt(onCorrupt 仍照常调,corruptPath 为空串);
+//   read()           —— readSync 的异步版(fsp.readFile),同一套 prepare/回落/缓存规则,给本来就在 async 路径上的存储用。
 const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
   function cloneJson(value) {
     if (value === undefined) return undefined;
@@ -1782,6 +1786,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     const schemaKey = String(options.schemaKey || 'schema');
     const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
     const cacheEnabled = options.cache !== false;
+    const quarantineEnabled = options.quarantine !== false;
     let cached = null;
     let hasCache = false;
     let writeChain = Promise.resolve();
@@ -1817,8 +1822,8 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 
     function quarantine(error) {
       const file = filePath();
-      const corruptPath = file + '.corrupt';
-      try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ }
+      const corruptPath = quarantineEnabled ? file + '.corrupt' : ''; // '' = quarantine:false, nothing was copied
+      if (quarantineEnabled) { try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ } }
       if (typeof options.onCorrupt === 'function') {
         try { options.onCorrupt(error, { id, file, corruptPath }); } catch { /* diagnostics never block recovery */ }
       }
@@ -1830,10 +1835,30 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
-        if (!(error && error.code === 'ENOENT')) quarantine(error);
-        value = freshDefault();
+        value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
+      return value;
+    }
+
+    function recover(error) {
+      if (!(error && error.code === 'ENOENT')) quarantine(error);
+      return freshDefault();
+    }
+
+    async function read() {
+      if (cacheEnabled && hasCache) return cached;
+      let value;
+      try {
+        value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
+      } catch (error) {
+        value = recover(error);
+      }
+      if (cacheEnabled) {
+        // A write that was enqueued while this read awaited the disk already advanced the cache: keep the newer value.
+        if (hasCache) return cached;
+        cached = value; hasCache = true;
+      }
       return value;
     }
 
@@ -1859,7 +1884,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       hasCache = false;
     }
 
-    return { id, readSync, write, invalidate, filePath };
+    return { id, readSync, read, write, invalidate, filePath };
   }
 
   return { create, applyCapacity };

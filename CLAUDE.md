@@ -16,6 +16,9 @@
 ## 写新代码先找现成的(都有测试钉着,别再手写一份)
 
 - 按 key 串行的写链:`runKeyedChain(map, key, work)`(00-boot)。
+- 新的小 JSON 存储(工作台自己拥有的单文件 JSON)用 `DurableJsonStore.create`(01-config):schema、清洗、坏文件隔离、
+  容量、串行原子写、进程缓存都在里面;「坏了就当空、不留 .corrupt」的用 `quarantine: false`,async 路径用 `read()`。
+  先例:10 的 context-calibration、06d 的两个导入标记;清册 `durable-state-inventory` 要同步登记。
 - 接口失败:`apiFailure(code, params, message, status)`;会话两句常见失败 `apiSessionIdInvalid()` / `apiSessionNotFound()`。
   裸串 `json({ ok:false, error:'…' })` 有只减不增的上限(`unit/api-error-helpers.test.js`)。
 - 线程五态:有卡片走 `stewardThreadStateFromCard`,只有会话头走 `stewardThreadStateFromHead`(06i),不要手拼证据键。

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 57 | 2803 | 2869 | 452 | 68 | 0 | 1 |
+| 57 | 2805 | 2869 | 452 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -36,7 +36,7 @@
 | 18 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 19 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
 | 20 | `06i-steward-core.js` | engine | 152 | 0 | 0 |
-| 21 | `06d-memory-domain.js` | engine | 125 | 36 | 10 |
+| 21 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
 | 22 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 23 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 24 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
@@ -167,8 +167,8 @@
 | `06b-prompt-registry.js` | `00-boot.js` | backward | `text` |
 | `06c-agent-loop-hooks.js` | `00-boot.js` | backward | `makeId` |
 | `06c-agent-loop-hooks.js` | `04-permission-runtime.js` | backward | `logEvent`, `redact` |
-| `06d-memory-domain.js` | `00-boot.js` | backward | `SKILL_ID_RE`, `agentCliHomes`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fs`, `fsp`, `makeId`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text`, `tildePath` |
-| `06d-memory-domain.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
+| `06d-memory-domain.js` | `00-boot.js` | backward | `SKILL_ID_RE`, `agentCliHomes`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text`, `tildePath` |
+| `06d-memory-domain.js` | `01-config.js` | backward | `DurableJsonStore`, `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `06d-memory-domain.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryIndexCharCap`, `memoryRelevanceMax`, `memoryVectorRecallEnabled` |
 | `06d-memory-domain.js` | `02-session-store.js` | backward | `loadSession` |
 | `06d-memory-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |

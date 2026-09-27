@@ -444,6 +444,7 @@
       "filePath",
       "id",
       "invalidate",
+      "read",
       "readSync",
       "write"
     ]

@@ -436,13 +436,13 @@
       "owner": "06d-memory-domain.js",
       "anchor": "'.acc-memory-import-v1.json'",
       "schema": "object / schema 1",
-      "writePrimitive": "atomicWriteJson",
-      "corruption": "missing reruns idempotent import",
+      "writePrimitive": "DurableJsonStore (quarantine:false, cache:false) -> atomicWriteJson",
+      "corruption": "missing, unreadable, non-JSON, non-object or schema other than 1 = not done: the idempotent import reruns; the bad file is left in place (no .corrupt copy, no event)",
       "capacity": "one record",
-      "cache": "none",
+      "cache": "none (cache:false: every read re-reads the file synchronously)",
       "recovery": "repeat idempotent import",
       "lifecycle": "shared-lifecycle",
-      "exemptionReason": "shared atomic marker"
+      "exemptionReason": "shared atomic marker; 架构还债批 2 B3 moved it onto DurableJsonStore byte-for-byte"
     },
     {
       "id": "agent-instructions-import",
@@ -450,13 +450,13 @@
       "owner": "06d-memory-domain.js",
       "anchor": "'.agent-instructions-import-v1.json'",
       "schema": "object / schema 1 (sources.<key>: file/sourceHash/importedAt/entries[{id,hash,core}]/dismissed/sourceChanged/userModified)",
-      "writePrimitive": "atomicWriteJson inside a serialized chain",
-      "corruption": "wrong schema or unreadable = empty (re-imports only what is still absent; entry-file hashes gate every overwrite)",
+      "writePrimitive": "DurableJsonStore (quarantine:false, cache:false) -> atomicWriteJson, called inside the agentInstructionChain read-modify-write section",
+      "corruption": "wrong schema or unreadable = empty (re-imports only what is still absent; entry-file hashes gate every overwrite); the bad file is left in place (no .corrupt copy, no event)",
       "capacity": "one record per instruction source (4)",
-      "cache": "none",
+      "cache": "none (cache:false: every sync re-reads the file)",
       "recovery": "delete it: the next sync re-imports sources whose agentmd-* entries are missing",
       "lifecycle": "shared-lifecycle",
-      "exemptionReason": "ownership proof for imported agentmd-* memories: without it a user edit could be silently overwritten"
+      "exemptionReason": "ownership proof for imported agentmd-* memories: without it a user edit could be silently overwritten; 架构还债批 2 B3 moved it onto DurableJsonStore byte-for-byte"
     },
     {
       "id": "install-registry",
