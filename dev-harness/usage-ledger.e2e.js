@@ -193,13 +193,13 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
 
     // ⑦ corrupt line + ⑧ third-party Claude (planBased, costTrusted:false) row appended to the CURRENT month.
     fs.appendFileSync(LEDGER, 'not-json{{{ broken line\n');
-    fs.appendFileSync(LEDGER, JSON.stringify({ ts: new Date().toISOString(), sessionId: s2, engine: 'claude', provider: 'ark-coding-plan', model: 'ark-code-latest', inTok: 100, outTok: 50, cost: null, currency: null, costTrusted: false, estimated: false, turnSeq: 1 }) + '\n');
+    fs.appendFileSync(LEDGER, JSON.stringify({ ts: new Date().toISOString(), sessionId: s2, engine: 'claude', provider: 'claude-endpoint:coding.example.com', model: 'vendor-code-latest', inTok: 100, outTok: 50, cost: null, currency: null, costTrusted: false, estimated: false, turnSeq: 1 }) + '\n');
     sum = (await getJson(WB_PORT, '/api/usage/summary?range=month', hdr)).json;
     ok(sum && sum.totals.turns === 4, 'corrupt line skipped; planBased claude row counted (turns=4)');
     ok(sum && sum.totals.planBasedTurns === 1, 'planBasedTurns=1 (the ark row)');
     ok(sum && near(sum.totals.costsByCurrency[CUR], round6(2 * PER_TURN)), 'planBased cost stays OUT of costsByCurrency (still 2×perTurn)');
-    const ark = sum && sum.byProvider.find(p => p.provider === 'ark-coding-plan');
-    ok(ark && ark.turns === 1 && /Ark/.test(ark.label || ''), 'ark source labelled from CLAUDE_ENDPOINT_PRESETS (' + (ark && ark.label) + ')');
+    const ark = sum && sum.byProvider.find(p => p.provider === 'claude-endpoint:coding.example.com');
+    ok(ark && ark.turns === 1 && ark.label === 'claude-endpoint:coding.example.com', 'third-party endpoint labelled by its host tag — no vendor presets (' + (ark && ark.label) + ')');
     ok(ark && ark.planBased === true, 'ark entry planBased=true (front-end badges 计划内计费)');
     const pProv2 = sum && sum.byProvider.find(p => p.provider === 'priced');
     ok(pProv2 && pProv2.planBased === false, 'priced entry planBased=false (real cost shown)');
@@ -272,7 +272,7 @@ function readLedgerLines() { try { return fs.readFileSync(LEDGER, 'utf8').split(
     ok(allPriced && monPriced && allPriced.turns === monPriced.turns + 1 && allPriced.inTok === monPriced.inTok + 1000,
       '⑪ 历史行被聚合:range=all 的 priced/fake-model 比 range=month 多 2020-01 那一回合');
     // 沿用四个既有维度的同一套口径:planBased 推导 + costsByCurrency 分桶 + 缓存输入。
-    const arkM = findM(allSum, 'ark-coding-plan', 'ark-code-latest');
+    const arkM = findM(allSum, 'claude-endpoint:coding.example.com', 'vendor-code-latest');
     ok(arkM && arkM.planBased === true && Object.keys(arkM.costsByCurrency || {}).length === 0, '⑪ byModel 沿用 finishGroup:计划内计费行 planBased=true 且不进 costsByCurrency');
     ok(monPriced && monPriced.planBased === false && monPriced.cachedInTok === 2 * CACHED_TOKENS && near((monPriced.costsByCurrency || {})[CUR], round6(2 * PER_TURN)),
       '⑪ byModel 复用同一套成本/缓存口径(priced/fake-model 本月 = 2×perTurn)');

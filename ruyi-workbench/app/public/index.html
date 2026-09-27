@@ -1664,7 +1664,7 @@
             <div class="field-grid" data-agent-cli-only="claude">
               <div class="field-block">
                 <label for="cfgModelsApiBase" data-i18n="settings.endpointBaseUrl">端点 Base URL（留空=沿用系统环境变量 ANTHROPIC_BASE_URL）</label>
-                <input id="cfgModelsApiBase" type="text" placeholder="https://ark.cn-beijing.volces.com/api/coding" />
+                <input id="cfgModelsApiBase" type="text" placeholder="https://api.example.com/anthropic" />
               </div>
               <div class="field-block">
                 <label for="cfgModelsApiKey" data-i18n="settings.endpointApiKey">端点密钥（留空=沿用系统环境变量）</label>
@@ -1674,7 +1674,7 @@
                 <label for="cfgClaudeAuthMode" data-i18n="settings.authMode">鉴权方式</label>
                 <select id="cfgClaudeAuthMode">
                   <option value="auto" data-i18n="settings.authMode.auto">自动（两种请求头都发，兼容大多数端点）</option>
-                  <option value="bearer" data-i18n="settings.authMode.bearer">Bearer Token（ANTHROPIC_AUTH_TOKEN，如 Ark Coding Plan）</option>
+                  <option value="bearer" data-i18n="settings.authMode.bearer">Bearer Token（ANTHROPIC_AUTH_TOKEN，第三方 Coding Plan 常用）</option>
                   <option value="x-api-key" data-i18n="settings.authMode.apiKey">x-api-key（ANTHROPIC_API_KEY，Anthropic 官方协议）</option>
                 </select>
               </div>
@@ -1699,7 +1699,7 @@
                 </select>
               </div>
             </div>
-            <p class="muted prov-hint" data-agent-cli-only="claude" data-i18n="settings.pricing.hint">若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。</p>
+            <p class="muted prov-hint" data-agent-cli-only="claude" data-i18n="settings.pricing.hint">若上方端点是第三方 Coding Plan，此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。</p>
             <hr class="settings-sep" data-agent-cli-only="claude" />
             <h4 class="settings-subhead" data-agent-cli-only="claude" data-i18n="settings.modelDiscovery">模型清单发现</h4>
             <div class="field-row" data-agent-cli-only="claude">

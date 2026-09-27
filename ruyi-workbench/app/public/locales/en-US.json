@@ -584,7 +584,7 @@
   "onboarding.engine.advancedClaude": "Advanced: I have an Agent CLI",
   "onboarding.engine.configureClaude": "Configure Agent CLI →",
   "onboarding.engine.configureKey.action": "Configure API key",
-  "onboarding.engine.configureKey.description": "DeepSeek is recommended: create an account to get free credit and get started in minutes.",
+  "onboarding.engine.configureKey.description": "Enter the address and API key of any OpenAI-compatible service and you are ready in minutes.",
   "onboarding.engine.configureKey.title": "Configure an API key to get started",
   "onboarding.engine.notReady": "Configure an AI engine first",
   "onboarding.engine.providerFallback": "Provider",
@@ -689,7 +689,7 @@
   "onboarding.wizard.steward.custom": "Pick another one",
   "onboarding.wizard.steward.customHint": "Enter a model name, usually the cheaper tier from the same provider.",
   "onboarding.wizard.steward.modelLabel": "Model name",
-  "onboarding.wizard.steward.modelPlaceholder": "e.g. deepseek-chat",
+  "onboarding.wizard.steward.modelPlaceholder": "the model name your provider gives you",
   "onboarding.wizard.steward.saved": "The steward now uses \"{{model}}\".",
   "onboarding.wizard.steward.savedFollow": "The steward follows the main endpoint.",
   "onboarding.wizard.title": "Welcome guide",
@@ -864,11 +864,11 @@
   "provider.defaultModel": "Default",
   "provider.deleteConfirm": "Delete Provider “{{name}}”? Its API key will also be removed.",
   "provider.displayNamePlaceholder": "Display name",
-  "provider.empty": "No providers configured. Add one from a template below (DeepSeek / Tongyi Qianwen / Custom), then enter its API key.",
+  "provider.empty": "No providers configured. Add one from a template below (Custom, or local Ollama / LM Studio), then enter its address and API key.",
   "provider.engineModel": "Engine and model",
   "provider.model": "Model",
   "provider.manualModels": "Manual model IDs (one per line)",
-  "provider.manualModelsPlaceholder": "ark-code-latest\ngpt-4.1",
+  "provider.manualModelsPlaceholder": "model-id-1\nmodel-id-2",
   "provider.manualModelsHint": "Use this when the endpoint cannot list models. Connection tests add discovered models without deleting these entries. To restore a model you removed in the model menu, type its ID here again.",
   "provider.modelCount.one": "{{count}} model",
   "provider.modelCount.other": "{{count}} models",
@@ -1041,7 +1041,7 @@
   "settings.authMode": "Authentication method",
   "settings.authMode.apiKey": "x-api-key (ANTHROPIC_API_KEY, Anthropic's official protocol)",
   "settings.authMode.auto": "Automatic (send both headers for broad endpoint compatibility)",
-  "settings.authMode.bearer": "Bearer Token (ANTHROPIC_AUTH_TOKEN, for example Ark Coding Plan)",
+  "settings.authMode.bearer": "Bearer Token (ANTHROPIC_AUTH_TOKEN, common for third-party Coding Plans)",
   "settings.betaThinking": "Interleaved-thinking beta (needed only by older CLIs; do not enable for new models)",
   "settings.bridgeExternalMcp": "Bridge external MCP tools to native Provider engines too (when disabled, Providers use only built-in workbench tools)",
   "settings.browserCdpUrl": "CDP endpoint (cdp mode)",
@@ -1320,7 +1320,7 @@
   "settings.permissionBridge": "Bridge permission prompts (--permission-prompt-tool; requires a non-bypass permission mode)",
   "settings.permissions": "Safety and permissions",
   "settings.preset": "Preset",
-  "settings.pricing.hint": "If the endpoint above is a third-party Coding Plan, such as Ark, these prices are only for cost estimates when the backend supports them. Plan-included usage normally shows token consumption only; subscription billing is not usage-based billing, so do not treat it as an actual charge.",
+  "settings.pricing.hint": "If the endpoint above is a third-party Coding Plan, these prices are only for cost estimates when the backend supports them. By default, plan usage shows token consumption only; subscription billing is not pay-as-you-go spending, so do not treat it as actual cost.",
   "settings.pricing.input": "Input price (per million tokens, optional)",
   "settings.pricing.output": "Output price (per million tokens, optional)",
   "settings.pricing.unavailablePlaceholder": "Leave blank to skip cost estimates",
@@ -3333,8 +3333,6 @@
   ,"layout.rightResizeHandle.aria": "Drag to resize the right panel, double-click to cycle widths"
   ,"memory.modal.title": "Workbench memory"
   ,"memory.modal.intro": "“Workbench memory” saves your personal experience, project conventions, and lessons; it travels with the workbench. This differs from “project memory (CLAUDE.md)”, which travels with the code repository. Enabled memories are injected into the current thread as reference material."
-  ,"provider.preset.dashscope.label": "Qwen / DashScope (Tongyi Qianwen)"
-  ,"provider.preset.glm.label": "GLM / Zhipu"
   ,"provider.preset.ollama.label": "Ollama (local models, no key needed)"
   ,"provider.preset.lmstudio.label": "LM Studio (local models, no key needed)"
   ,"provider.preset.openaiCompatible.label": "Custom (OpenAI-compatible / self-hosted)"

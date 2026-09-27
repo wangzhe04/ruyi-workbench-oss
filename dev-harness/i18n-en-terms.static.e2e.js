@@ -27,8 +27,7 @@ const ALLOWED = {
     '"Chat Completions" 是 OpenAI 兼容 Provider 的官方 API 风格名（第三方专有名词，不可意译）。',
   'provider.apiStyle.hint':
     '同上，引用同一个第三方 API 名 "Chat Completions"。',
-  'onboarding.wizard.steward.modelPlaceholder':
-    '"deepseek-chat" 是 DeepSeek 官方真实模型 ID（第三方专有名词），占位符必须给可复制的真实例子。',
+  // 厂商预设删除(2026-09-27):onboarding.wizard.steward.modelPlaceholder 不再举 "deepseek-chat" 为例,豁免撤掉。
   // W6 设置重组：settings.providers.hint 整句重写（讲的是「这一页管什么、谁用哪个模型去哪儿选」），不再引用
   // "/chat/completions" 那条字面路径，所以它的豁免随之撤掉 —— 不撤的话第②段会把它报成「名不副实」。
   'provider.asrProtocol.chatAudio':

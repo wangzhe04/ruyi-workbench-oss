@@ -322,15 +322,15 @@ function flushUsageLedgerSync() {
 
 // Resolve the ledger source + cost-trust for a Claude CLI turn. modelsApiBase EMPTY = Anthropic direct ->
 // source 'claude-cli', CLI total_cost_usd usable as a NOTIONAL USD estimate. NON-EMPTY = a third-party
-// Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) whose CLI-reported cost is computed with
+// Anthropic-compatible endpoint (e.g. a vendor Coding Plan) whose CLI-reported cost is computed with
 // ANTHROPIC pricing and is therefore WRONG for that vendor (and often a flat monthly plan) -> record tokens
 // only, cost null, costTrusted false, and tag the source by its known preset id (else host) so grouping stays
-// honest (Claude 官方 vs Ark 等). Runs at turn time, so CLAUDE_ENDPOINT_PRESETS (declared later) is available.
+// honest (Claude 官方 vs 第三方端点). Runs at turn time, so CLAUDE_ENDPOINT_PRESETS (declared later) is available.
 function claudeLedgerSource(config) {
   let base = (config && typeof config.modelsApiBase === 'string') ? config.modelsApiBase.trim() : '';
   // v1.4-OSS 用量看板(补): 当 config.modelsApiBase 为空时,CLI 子进程仍会继承 OS 环境里的 ANTHROPIC_BASE_URL /
   // ANTHROPIC_BASE(effectiveAnthropicEnv 只在 modelsApiBase 非空时覆盖它们,否则原样穿透)。纯用环境变量把
-  // Claude CLI 路由到第三方(Ark 等)时,CLI 报的 total_cost_usd 仍按 Anthropic 计价、对该厂商不可信 —— 据此把
+  // Claude CLI 路由到第三方端点时,CLI 报的 total_cost_usd 仍按 Anthropic 计价、对该厂商不可信 —— 据此把
   // costTrusted 判为 false,与显式 modelsApiBase 的第三方路径一致。
   if (!base) base = String(process.env.ANTHROPIC_BASE_URL || process.env.ANTHROPIC_BASE || '').trim();
   if (!base) return { provider: 'claude-cli', costTrusted: true };
@@ -1298,7 +1298,7 @@ function defaultConfig() {
     modelsApiBase: '',            // base URL override (else ANTHROPIC_BASE_URL / ANTHROPIC_BASE env) — also
                                    // drives the ACTUAL Claude CLI child's ANTHROPIC_BASE_URL (buildClaudeCliEnv)
     modelsApiKey: '',             // auth override (else ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY env) — ditto
-    claudeAuthMode: 'auto',       // 'auto' | 'bearer' (ANTHROPIC_AUTH_TOKEN, e.g. Ark Coding Plan) | 'x-api-key'
+    claudeAuthMode: 'auto',       // 'auto' | 'bearer' (ANTHROPIC_AUTH_TOKEN, 第三方 Coding Plan 常用) | 'x-api-key'
                                    // (ANTHROPIC_API_KEY, Anthropic official) — see buildClaudeCliEnv
     // --- v0.5: multi-provider engine (native OpenAI-compatible: DeepSeek / DashScope / local vLLM/Ollama) ---
     activeProvider: '',           // '' | 'claude-cli' -> Anthropic via the claude CLI (default). Else a providers[].id -> native engine.
@@ -3875,7 +3875,7 @@ function isKimiCodingEndpoint(base) {
   }
 }
 
-// Third-party Anthropic-compatible endpoint (e.g. 火山方舟 Ark Coding Plan) config → env overrides.
+// Third-party Anthropic-compatible endpoint (e.g. a vendor Coding Plan) config → env overrides.
 // Only returns keys the user actually configured in modelsApiBase/modelsApiKey/model — an unconfigured
 // field leaves whatever the OS/shell env already has untouched, so an install with no third-party setup
 // behaves exactly as before. Config wins over a stale inherited env var so a hot model/endpoint switch in
@@ -15091,67 +15091,8 @@ async function runClaudeTurn({
 
 // Built-in provider templates the Settings UI can offer as "add from preset".
 const PROVIDER_PRESETS = [
-  {
-    id: 'deepseek', label: 'DeepSeek', type: 'openai-compat',
-    // v1.7: baseUrl 保持官方 Responses API 文档给的根地址(api.deepseek.com,无 /v1 段——chat 走 providerBaseWithV1
-    // 补 /v1;responses 走 providerResponsesBase 不加 /v1,与官方 OpenAI SDK 示例逐字节一致)。
-    // contextWindow 留空,由模型级表/上游探测解析；这样 deepseek-v4→1M,旧版 deepseek→128K,
-    // 且不会因为 Provider 级手工值把不同代际模型统一误限。
-    // v1.7-对抗轮(P1-1):defaultModel 用 deepseek-v4-flash —— 官方 Responses API 目前【仅支持 v4-flash】,
-    // v4-pro 将于 2026-08 初上线(官方文档明示)。预设默认组合必须可用:flash + responses ✓。v4-pro 上线后
-    // 用户在设置里切模型即可(不预设 pro,避免用户开箱即命中官方暂不支持的组合)。
-    baseUrl: 'https://api.deepseek.com', reasoning: true, defaultModel: 'deepseek-v4-flash',
-    // v1.7: apiStyle 供本预设模板声明协议偏好(默认 chat;可切 'responses' 走 DeepSeek 新增的 Responses API,
-    // 专为 Codex/agent 工具循环设计)。addProviderFromPreset 会把它带入草稿。
-    apiStyle: 'responses',
-    // v1.8.2: serverWebSearch —— 本预设声明支持 DeepSeek Responses 的【服务端 web_search 工具】
-    // ({type:'web_search'},服务端执行)。开启后工作台把本地 web_search function 工具映射为服务端工具;
-    // 关闭(=其它 provider/端点默认)则保持本地 builtin/searxng/bing… 保底搜索(开箱即用,不依赖供应商)。
-    serverWebSearch: true,
-    // v1.4-OSS 用量看板: a reasonable DEFAULT price prefill (元/百万 token, CNY) — user-editable in 设置.
-    // v1.7 更新为官方现行价:v4-flash 1/2、v4-pro 3/6,缓存命中输入 0.02/0.025(元/百万 token)。
-    // 用模型级覆盖区分 flash/pro;默认行只兜底 deepseek-chat/reasoner 等别名。价格会漂移,配置是事实源。
-    pricing: {
-      inputPerM: 2, outputPerM: 8, currency: 'CNY',
-      models: [
-        { model: 'deepseek-v4-flash', inputPerM: 1, outputPerM: 2, cachedInputPerM: 0.02 },
-        { model: 'deepseek-v4-pro', inputPerM: 3, outputPerM: 6, cachedInputPerM: 0.025 },
-      ],
-    },
-
-    models: [
-      { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
-      { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
-      { id: 'deepseek-chat', label: 'deepseek-chat (别名)' },
-      { id: 'deepseek-reasoner', label: 'deepseek-reasoner (别名)' },
-    ],
-  },
-  {
-    id: 'dashscope', label: 'Qwen / DashScope (通义千问)', type: 'openai-compat',
-    // 不设置 Provider 级 contextWindow：qwen-plus/qwen-flash 可达 1M, qwen-turbo 128K, qwen-max 32K，
-    // 留空才能让模型级表按当前选择自动取值；端点若返回 context_window 则探测优先。
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', reasoning: true, defaultModel: 'qwen-plus',
-
-    models: [
-      { id: 'qwen-max', label: 'Qwen-Max' },
-      { id: 'qwen-plus', label: 'Qwen-Plus' },
-      { id: 'qwen-turbo', label: 'Qwen-Turbo' },
-      { id: 'qwen-max-latest', label: 'Qwen-Max (latest)' },
-    ],
-  },
-  {
-    id: 'glm', label: 'GLM / 智谱 (Zhipu)', type: 'openai-compat',
-    // GLM 不同代际窗口不同(4.5≈128K, 4.6/4.7/5≈202K, 5.2/5.3 在本地端点为 1M)，
-    // 不设置 Provider 级值，避免切模型后沿用错误上限。
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4', reasoning: true, defaultModel: 'glm-4.6',
-
-    models: [
-      { id: 'glm-4.6', label: 'GLM-4.6' },
-      { id: 'glm-4.5', label: 'GLM-4.5' },
-      { id: 'glm-4-plus', label: 'GLM-4-Plus' },
-      { id: 'glm-4-flash', label: 'GLM-4-Flash (免费)' },
-    ],
-  },
+  // 用户 2026-09-27:厂商预设(DeepSeek / 通义千问 / 智谱 / 火山方舟)一律不内置 —— 服务商由用户自己填地址与密钥
+  // (「自定义」一条),本机的 Ollama / LM Studio 只是本机端口、不绑厂商,保留。已经配好的 providers[] 不受影响。
   // 118e 本地零配置预设。两条都指向本机回环端口,【不需要 API Key】:装好 Ollama / LM Studio 并把服务
   // 跑起来,选中预设点「测试连接」就能探到 /v1/models 并回填模型列表。
   // keyOptional 是【模板级 UI 提示位】(与 CLAUDE_ENDPOINT_PRESETS 的 authKeyHint/defaultModelHint 同类):
@@ -15181,16 +15122,7 @@ const PROVIDER_PRESETS = [
 // docs/manuals/ADMIN-GUIDE_CN.md §2.1.1. `authKeyHint`/`defaultModelHint` are UI-only placeholders (never
 // a real secret) — apiKey always stays whatever the user types.
 const CLAUDE_ENDPOINT_PRESETS = [
-  {
-    id: 'ark-coding-plan', label: '火山方舟 Ark Coding Plan', baseUrl: 'https://ark.cn-beijing.volces.com/api/coding',
-    authMode: 'bearer', authKeyHint: 'ark-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
-    defaultModel: 'ark-code-latest', defaultModelHint: '留空/ark-code-latest = 由 Ark 控制台管理当前模型',
-    models: [
-      { id: '', label: '默认（Ark 控制台管理，即 ark-code-latest）' },
-      { id: 'ark-code-latest', label: 'ark-code-latest（同上，显式写出）' },
-      { id: 'doubao-seed-2.0-code', label: 'Doubao-Seed 2.0 Code（豆包，直接指定，不受控制台切换影响）' },
-    ],
-  },
+  // 用户 2026-09-27:火山方舟 Ark Coding Plan 预设已删(厂商预设一律不内置),只留「自定义」。
   {
     id: 'anthropic-compatible', label: '自定义（其它 Anthropic 兼容 / 内网自建端点）',
     baseUrl: '', authMode: 'auto', authKeyHint: '', defaultModel: '', defaultModelHint: '', models: [],
@@ -44909,9 +44841,9 @@ async function handleApi(req, res, pathname) {
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
       models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
-      providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (DeepSeek/DashScope/custom)
+      providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (local Ollama/LM Studio + custom; no vendor presets)
       toolbox: typeof ToolboxHooks.statusView === 'function' ? ToolboxHooks.statusView(config) : { autoDiscover: false, components: [] },   // ruyi-toolbox 已登记的组件与各自状态(只读视图;命令不出进程)
-      claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (Ark Coding Plan/custom)
+      claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (custom only; no vendor presets)
       detectedClaudePath: detectClaudePath(),
       detectedKimiPath: detectKimiPath(),
       agentCliDrivers: Object.values(AGENT_CLI_TYPES).map(d => ({ ...d, path: selectedAgentCli({ ...config, agentCliType: d.id }).detected })),

@@ -264,18 +264,18 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   ok(mod.onboardingStepsFor({ locale: 'auto' })[0].done === false, 'B5 locale=auto 不算已选语言');
 
   /* ③ 前置校验 */
-  ok(mod.validateApiKeyShape('deepseek', '').ok === false && mod.validateApiKeyShape('deepseek', '').code === 'keyEmpty', 'C1 空 key 被拦');
+  ok(mod.validateApiKeyShape('openai-compatible', '').ok === false && mod.validateApiKeyShape('openai-compatible', '').code === 'keyEmpty', 'C1 空 key 被拦');
   ok(mod.validateApiKeyShape('local', '').ok === true, 'C2 本地端点允许空 key');
-  ok(mod.validateApiKeyShape('deepseek', 'sk-abc def123').code === 'keyWhitespace', 'C3 含空格 -> keyWhitespace');
-  ok(mod.validateApiKeyShape('deepseek', 'sk-abc\ndef123').code === 'keyWhitespace', 'C4 含换行 -> keyWhitespace');
-  ok(mod.validateApiKeyShape('deepseek', '\u2022\u2022\u2022\u20221234').code === 'keyMasked', 'C5 遮盖值 -> keyMasked');
-  ok(mod.validateApiKeyShape('deepseek', 'sk-abc').code === 'keyTooShort', 'C6 过短 -> keyTooShort');
-  ok(mod.validateApiKeyShape('deepseek', 'sk-' + 'a'.repeat(600)).code === 'keyTooLong', 'C7 过长 -> keyTooLong');
-  ok(mod.validateApiKeyShape('deepseek', 'sk-1234567890').ok === true && mod.validateApiKeyShape('deepseek', 'sk-1234567890').warn === '',
+  ok(mod.validateApiKeyShape('openai-compatible', 'sk-abc def123').code === 'keyWhitespace', 'C3 含空格 -> keyWhitespace');
+  ok(mod.validateApiKeyShape('openai-compatible', 'sk-abc\ndef123').code === 'keyWhitespace', 'C4 含换行 -> keyWhitespace');
+  ok(mod.validateApiKeyShape('openai-compatible', '\u2022\u2022\u2022\u20221234').code === 'keyMasked', 'C5 遮盖值 -> keyMasked');
+  ok(mod.validateApiKeyShape('openai-compatible', 'sk-abc').code === 'keyTooShort', 'C6 过短 -> keyTooShort');
+  ok(mod.validateApiKeyShape('openai-compatible', 'sk-' + 'a'.repeat(600)).code === 'keyTooLong', 'C7 过长 -> keyTooLong');
+  ok(mod.validateApiKeyShape('openai-compatible', 'sk-1234567890').ok === true && mod.validateApiKeyShape('openai-compatible', 'sk-1234567890').warn === '',
     'C8 正常 sk- key 通过且无提示');
-  ok(mod.validateApiKeyShape('deepseek', 'abcdefghij').ok === true && mod.validateApiKeyShape('deepseek', 'abcdefghij').warn === 'keyPrefixWarning',
+  ok(mod.validateApiKeyShape('openai-compatible', 'abcdefghij').ok === true && mod.validateApiKeyShape('openai-compatible', 'abcdefghij').warn === 'keyPrefixWarning',
     'C9 非 sk- 前缀只提示不拦(自建端点合法)');
-  ok(mod.validateApiKeyShape('glm', 'abcdefghij').warn === '', 'C10 非 sk- 家族(GLM)不做前缀提示');
+  ok(mod.validateApiKeyShape('glm', 'abcdefghij').warn === '', 'C10 非 sk- 家族(其它 id)不做前缀提示');
   ok(mod.validateBaseUrlShape('').code === 'urlEmpty', 'C11 空地址 -> urlEmpty');
   ok(mod.validateBaseUrlShape('api.deepseek.com').code === 'urlScheme', 'C12 缺协议 -> urlScheme');
   ok(mod.validateBaseUrlShape('http://127.0.0.1:11434 /v1').code === 'urlSpace', 'C13 含空格 -> urlSpace');
@@ -284,20 +284,20 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   // 118e 本地零配置预设(只加断言,不改既有口径)。
   ok(mod.KEY_OPTIONAL_PRESET_IDS.join(',') === 'ollama,lmstudio', 'C15 免 Key 预设 = ollama + lmstudio');
   ok(mod.presetAllowsEmptyKey('ollama') === true && mod.presetAllowsEmptyKey('lmstudio') === true
-    && mod.presetAllowsEmptyKey('local') === true && mod.presetAllowsEmptyKey('deepseek') === false,
+    && mod.presetAllowsEmptyKey('local') === true && mod.presetAllowsEmptyKey('openai-compatible') === false,
     'C16 presetAllowsEmptyKey 只对本地端点与两个本机预设放行');
   ok(mod.validateApiKeyShape('ollama', '').ok === true && mod.validateApiKeyShape('lmstudio', '').ok === true
-    && mod.validateApiKeyShape('deepseek', '').ok === false,
+    && mod.validateApiKeyShape('openai-compatible', '').ok === false,
     'C17 两个本机预设允许空 Key,云端预设照旧要求填');
   ok(mod.localEndpointDownKey('ollama') === 'onboarding.wizard.provider.localDown.ollama'
     && mod.localEndpointDownKey('lmstudio') === 'onboarding.wizard.provider.localDown.lmstudio'
-    && mod.localEndpointDownKey('deepseek') === '' && mod.localEndpointDownKey('local') === '',
+    && mod.localEndpointDownKey('openai-compatible') === '' && mod.localEndpointDownKey('local') === '',
     'C18 只有本机预设有「没在跑」的人话,云端端点仍用服务端那句');
   ok(mod.isLocalEndpointUrl('http://127.0.0.1:11434/v1') === true && mod.isLocalEndpointUrl('http://localhost:1234/v1') === true
     && mod.isLocalEndpointUrl('https://api.deepseek.com') === false && mod.isLocalEndpointUrl('') === false,
     'C19 isLocalEndpointUrl 认回环地址,不认云端域名');
   ok(mod.providerKeyOptional({ id: 'ollama-2', baseUrl: 'http://127.0.0.1:11434/v1' }) === true
-    && mod.providerKeyOptional({ id: 'deepseek', baseUrl: 'https://api.deepseek.com' }) === false,
+    && mod.providerKeyOptional({ id: 'openai-compatible', baseUrl: 'https://api.deepseek.com' }) === false,
     'C20 设置页判定认 <id>-2 去重副本,也认手搭的本机端点');
 
   /* ④ DOM 桩行为 */

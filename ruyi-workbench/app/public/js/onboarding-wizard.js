@@ -179,7 +179,7 @@ export function validateApiKeyShape(presetId, key) {
   if (raw.length > 512) return { ok: false, code: 'keyTooLong', warn: '' };
   // Non-blocking nudge: most hosted OpenAI-compatible vendors issue sk-prefixed keys. A local or
   // custom endpoint may legitimately use anything, so this never blocks the flow.
-  const wantsSkPrefix = preset === 'deepseek' || preset === 'openai' || preset === 'openai-compatible';
+  const wantsSkPrefix = preset === 'openai' || preset === 'openai-compatible';
   const warn = wantsSkPrefix && !raw.startsWith('sk-') ? 'keyPrefixWarning' : '';
   return { ok: true, code: '', warn };
 }
@@ -383,10 +383,13 @@ export function createOnboardingWizardDomain({
       workspacePath: '',   // 手填框里的草稿（重画不丢）
     };
     const presets = asArray(state.status && state.status.providerPresets);
-    if (presets.length) {
-      wiz.presetId = presets[0].id;
-      wiz.baseUrl = presets[0].baseUrl || '';
-      wiz.model = presets[0].defaultModel || '';
+    // 用户 2026-09-27：不再内置厂商预设。云端一支默认落在第一条【要密钥】的模板上（即「自定义」，地址由用户填），
+    // 不再是列表第一条 —— 那现在是本机的 Ollama。
+    const cloudPreset = presets.find(p => p && !p.keyOptional) || presets[0] || null;
+    if (cloudPreset) {
+      wiz.presetId = cloudPreset.id;
+      wiz.baseUrl = cloudPreset.baseUrl || '';
+      wiz.model = cloudPreset.defaultModel || '';
     }
     // opts.startStep opens directly on one step id (a settings deep link, or 117 resuming a conversation
     // mid-checklist). An unknown id simply starts at the beginning.
@@ -568,7 +571,7 @@ export function createOnboardingWizardDomain({
           wiz.apiKey = '';
           wiz.model = '';
         } else if (choice === 'cloud') {
-          const preset = presets[0];
+          const preset = cloudPreset;
           wiz.presetId = preset ? preset.id : '';
           wiz.baseUrl = preset ? (preset.baseUrl || '') : '';
           wiz.model = preset ? (preset.defaultModel || '') : '';
@@ -673,12 +676,12 @@ export function createOnboardingWizardDomain({
       // Advanced: base URL + model. Auto-open for the local choice, where the address IS the decision, and
       // after a successful probe (118e), when the freshly discovered model list is what the user must pick from.
       const advanced = el('details', 'onboard-wiz-details onboard-wiz-advanced');
-      advanced.open = wiz.engineChoice === 'local' || wiz.models.length > 0;
+      advanced.open = wiz.engineChoice === 'local' || wiz.models.length > 0 || !currentPreset().baseUrl;   // 「自定义」没有预填地址：地址就是要填的那一项
       advanced.append(el('summary', '', t('onboarding.wizard.provider.advanced')));
       const urlInput = el('input', 'onboard-wiz-baseurl');
       urlInput.type = 'text';
       urlInput.value = wiz.baseUrl;
-      urlInput.placeholder = LOCAL_ENDPOINT_EXAMPLE;
+      urlInput.placeholder = wiz.engineChoice === 'local' ? LOCAL_ENDPOINT_EXAMPLE : 'https://api.example.com/v1';
       urlInput.oninput = () => { wiz.baseUrl = urlInput.value.trim(); wiz.tested = false; };
       advanced.append(fieldBlock(t('onboarding.wizard.provider.baseUrl'), urlInput));
       const modelHost = el('div', 'onboard-wiz-model-host');
@@ -725,7 +728,7 @@ export function createOnboardingWizardDomain({
       if (wiz.engineChoice === 'local') {
         return { id: 'local', label: t('onboarding.wizard.engine.local.title'), baseUrl: wiz.baseUrl, defaultModel: wiz.model, models: [] };
       }
-      return presets[0] || { id: 'openai-compatible', label: 'OpenAI', baseUrl: wiz.baseUrl, defaultModel: wiz.model, models: [] };
+      return cloudPreset || { id: 'openai-compatible', label: 'OpenAI', baseUrl: wiz.baseUrl, defaultModel: wiz.model, models: [] };
     }
     // The id the pure validators reason about: a selected preset id, else the free-form local marker.
     function currentPresetKey() {

@@ -131,7 +131,7 @@
 
 | 能力 | 说明 | 详解 |
 |------|------|------|
-| 双引擎对话 | 任意 OpenAI 兼容端点与 Claude CLI 随时切换,跨引擎上下文续接;DeepSeek 预设可选 Responses API 协议 | [§1](#1-双引擎任意模型端点都能开工) |
+| 双引擎对话 | 任意 OpenAI 兼容端点与 Claude CLI 随时切换,跨引擎上下文续接;OpenAI 兼容端点可选 Responses API 协议 | [§1](#1-双引擎任意模型端点都能开工) |
 | 原生工具环 | 82 个内置工具:文件/终端/搜索/Git/联网/编排,按 read/edit/exec 三级分档 | [§2](#2-原生工具环82-个内置工具) |
 | 工具合批与分阶段 | 参数确定且互不依赖的工具在一次模型响应中合批；存在结果依赖时按阶段等待再继续，减少无效模型往返 | [§2](#2-原生工具环82-个内置工具) |
 | 结构化交互提问 | 单选、多选、自由输入及“选项＋其他回答”；稳定选项 ID、说明卡与送达确认，双引擎共用 | [§1](#1-双引擎任意模型端点都能开工) |
@@ -155,7 +155,7 @@
 
 ### 1. 双引擎:任意模型端点都能开工
 
-- **OpenAI 兼容引擎(原生)**:直连 HTTP + SSE 流式,带完整原生工具循环。内置四组预设:**DeepSeek / 通义千问 DashScope / 智谱 GLM / 自定义**(内网 vLLM、Ollama、one-api 网关均可)。DeepSeek 预设默认走官方 **Responses API** 协议(`apiStyle=responses`,服务端工具循环),其它预设走 Chat Completions;主回合/子代理/摘要/Playbook/JSON 修复全链路跟随所选协议。多 Provider 并存,顶栏一键切换模型。
+- **OpenAI 兼容引擎(原生)**:直连 HTTP + SSE 流式,带完整原生工具循环。不内置厂商预设:**自定义**(任意 OpenAI 兼容地址,内网 vLLM、one-api 网关均可)+ 本机 **Ollama / LM Studio**(免 Key)。协议可选 Chat Completions 或 **Responses API**(`apiStyle=responses`,服务端工具循环);主回合/子代理/摘要/Playbook/JSON 修复全链路跟随所选协议。多 Provider 并存,顶栏一键切换模型。
 - **Agent CLI 引擎(可选)**:可选择 Claude Code 或 Kimi Code。Claude 支持实时转向、权限桥接与原生 Agent；Kimi 走官方 ACP（JSON-RPC/NDJSON）驱动，桥接原生工具事件、Ruyi 审批和原生计划事件；ACP `request_permission` 走单选，`elicitation/form` 可走多选；Ruyi DAG 中的 Claude CLI 节点仍由 Claude Code 执行。
 - **工具提示词智能按需**:默认先按任务装载相关工具包,缺少能力时由 AI 搜索并增量装载；OpenAI 兼容引擎在下一次工具循环加入具体 schema，Claude CLI 通过分级代理调用隐藏工具。简单问题不再反复携带整套约 140 个工具；设置 → 高级可切回“全部常驻”兼容模式。[设计与本机 A/B](ruyi-workbench/docs/TOOL-LOADING_CN.md)
 - **跨引擎续接**:同一会话里从 DeepSeek 切到 Claude(或反向),历史自动嫁接,不断上下文。
@@ -271,7 +271,7 @@ Escapade 2.4 会明确引导两种调用方式：参数已确定且互不依赖�
 ### 8. 用量与成本看板:诚实计账
 
 - **分币种逐笔记账**,绝不强行换算汇率;给服务商填了单价才估成本,没填就只显示 token,并明确标注「等价估算(非实际扣费)」。
-- 第三方 Coding Plan(如火山方舟 Ark)标注「计划内计费」,**不计入真实花费**——不虚报你没花的钱。
+- 第三方 Coding Plan 标注「计划内计费」,**不计入真实花费**——不虚报你没花的钱。
 - **所有烧 token 的路径全入账**:工作流子代理回合、自动/手动压缩、Playbook 起草……看板上「对话轮次」直接标出「其中工作流子代理 N 回合」。
 - 按 **引擎 / 服务商 / 会话** 三维拆分,支持今天/本周/本月/全部;可设月度软预算,超了告警不拦人。
 
@@ -300,7 +300,7 @@ node .\app\server.js serve --open
 
 1. **选工作文件夹**:把文件夹拖进来(或点击选择)。AI 的文件操作被限制在工作区内,数据目录敏感文件另有硬拒绝。
 2. **接一个模型**(二选一,或都要):
-   - **OpenAI 兼容端点**(推荐新手):设置 → 服务商 → 选 DeepSeek/通义/智谱预设或自定义,填 Base URL + API 密钥 → 「测试连接」变绿即可。国产模型注册即得免费额度,几分钟能用起来;内网 vLLM/Ollama 填内网地址即可。
+   - **OpenAI 兼容端点**(推荐新手):设置 → 服务商 → 选「自定义」,填服务商给的 Base URL + API 密钥 → 「测试连接」变绿即可。国产模型注册即得免费额度,几分钟能用起来;内网 vLLM/Ollama 填内网地址即可。
    - **Agent CLI**(可选):Claude Code 与 Kimi Code 均可自动探测，也可在 设置 → Agent CLI 选择驱动并指定路径。安装 Kimi Code 可运行 `npm install -g @moonshot-ai/kimi-code`，随后运行 `kimi` 并用 `/login` 登录。
 3. **说一句人话**:比如「帮我分析一下工作区里的 销售数据.csv,给出结论,并把完整报告写成 Markdown」。你会看到:思考过程 → 工具卡片(读文件/写文件)→ 结构化结论 → 本轮变更(带撤销按钮)→ 本轮消耗。
 
@@ -482,7 +482,7 @@ Both scores are reported: HarnessBench Combined = Outcome × Process × Security
 
 ### Capabilities (current master) · Escapade
 
-Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers; the DeepSeek preset defaults to the **Responses API** protocol with server-side tool loops, other presets use Chat Completions) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **107 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in; DeepSeek Responses can run search server-side via a per-provider toggle) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · a user-facing six-tab workspace pane with low-level runners moved out of the primary UI · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **416 e2e cases** (409 default; 7 live API/desktop probes are opt-in), plus 83 unit suites and 17 ACC smoke groups.
+Dual-engine chat with structured `request_user_input` prompts (single choice, multiple choice, free text, and choices plus a custom answer; delivery-acknowledged across Claude CLI and OpenAI-compatible providers; each provider can use Chat Completions or the **Responses API** protocol with server-side tool loops) · **tool batching and staged dependencies** (independent fixed-argument calls share one model response; result-dependent work waits for the next stage) · **107 native built-in tools** (read/edit/exec tiers) · desktop/Office control (screenshot / OCR / UIA / keyboard-mouse / window / browser / Office / PDF — bundled ACC MCP v1.9.1, 108 tools, optional) · multi-agent orchestration (DAG workflows, **8 built-in templates**, **9 node roles**, **5 quality-gate modes**, graphical editor, live monitor canvas, intent-triggered auto-orchestration, plus a one-turn **Agent team** composer toggle shared by both drivers) · **team mode** (shared task pool with propose→approve→materialize, agent mailbox, directed steering of a running node) · **semantic anti-stall** (result-fingerprint no-progress detection, warn-first no-abort, exploratory-tool lenient threshold) · **intelligent interruption & recovery** (between-tools batch-boundary interrupt, pairing-safe refusal completion, loop-guard pause with user-triggered resume) · **prompt layering & i18n** (system prompt split into byte-stable anchor layer + volatile layer injected into first user message for prefix-cache friendliness; bilingual prompts loaded per UI language via `06b-prompt-registry.js`) · trust layer (file checkpoints + conversation rewind as a pair, 5 permission modes × 3 tool tiers, full audit timeline) · Skills registry (four sources, progressive injection across both engines) · cross-session workbench memory (draft-then-confirm) · Playbooks · web search (8 backends incl. a zero-config built-in; DeepSeek Responses can run search server-side via a per-provider toggle) with SSRF defenses · honest cost/usage dashboard (per-currency, sub-agents and compaction all metered) · a user-facing six-tab workspace pane with low-level runners moved out of the primary UI · localization runtime and dual catalogs for Simplified Chinese and English. The repository contains **416 e2e cases** (409 default; 7 live API/desktop probes are opt-in), plus 83 unit suites and 17 ACC smoke groups.
 
 ### Detailed documentation
 
@@ -507,7 +507,7 @@ cd ruyi-workbench
 node .\app\server.js serve --open
 ```
 
-First launch walks you through picking a workspace folder and configuring a provider (DeepSeek preset recommended; on-prem vLLM/Ollama work too). The optional Agent CLI engine supports Claude Code and Kimi Code and coexists with providers. Data dir defaults to `~/.win-claude-workbench`; override with `RUYI_HOME`.
+First launch walks you through picking a workspace folder and configuring a provider (any OpenAI-compatible address and key; local Ollama/LM Studio need no key). The optional Agent CLI engine supports Claude Code and Kimi Code and coexists with providers. Data dir defaults to `~/.win-claude-workbench`; override with `RUYI_HOME`.
 
 ### Desktop control (optional)
 

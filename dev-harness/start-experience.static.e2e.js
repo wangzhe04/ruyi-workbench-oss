@@ -41,6 +41,12 @@ ok(presetBlock.includes("id: 'ollama'") && presetBlock.includes("baseUrl: 'http:
   '① PROVIDER_PRESETS 有 ollama 预设,指向 http://127.0.0.1:11434/v1');
 ok(presetBlock.includes("id: 'lmstudio'") && presetBlock.includes("baseUrl: 'http://127.0.0.1:1234/v1'"),
   '① PROVIDER_PRESETS 有 lmstudio 预设,指向 http://127.0.0.1:1234/v1');
+// 用户 2026-09-27:厂商预设一律不内置 —— 只剩本机两条 + 「自定义」,没有任何写死的厂商地址。
+const endpointBlock = engineSrc.slice(engineSrc.indexOf('const CLAUDE_ENDPOINT_PRESETS = ['), engineSrc.indexOf('\n];', engineSrc.indexOf('const CLAUDE_ENDPOINT_PRESETS = [')));
+const idsOf = block => (block.match(/\bid: '([^']+)'/g) || []).map(m => m.slice(5, -1)).sort().join(',');
+ok(idsOf(presetBlock) === 'lmstudio,ollama,openai-compatible', `① PROVIDER_PRESETS 只有本机两条 + 自定义(实际 ${idsOf(presetBlock)})`);
+ok(idsOf(endpointBlock) === 'anthropic-compatible', `① CLAUDE_ENDPOINT_PRESETS 只有自定义(实际 ${idsOf(endpointBlock)})`);
+ok(!/baseUrl: 'https?:\/\/(?!127\.0\.0\.1)/.test(presetBlock + endpointBlock), '① 预设里没有写死的厂商地址(只允许本机 127.0.0.1)');
 // 形状照抄既有条目:type/reasoning/defaultModel/models 一个不缺,defaultModel 与 models 刻意留空
 // (本机装了哪些模型只有探测才知道)。
 const localEntries = presetBlock.split(/\n  \{/).filter(chunk => /id: '(ollama|lmstudio)'/.test(chunk));

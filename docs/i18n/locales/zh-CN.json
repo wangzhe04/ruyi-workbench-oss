@@ -584,7 +584,7 @@
   "onboarding.engine.advancedClaude": "高级：我有 Agent CLI",
   "onboarding.engine.configureClaude": "配置 Agent CLI →",
   "onboarding.engine.configureKey.action": "去配置 API Key",
-  "onboarding.engine.configureKey.description": "推荐 DeepSeek —— 注册即得免费额度，几分钟就能用起来。",
+  "onboarding.engine.configureKey.description": "填一个 OpenAI 兼容服务的地址和密钥，几分钟就能用起来。",
   "onboarding.engine.configureKey.title": "配置 API Key 即可开始",
   "onboarding.engine.notReady": "请先配置一个 AI 引擎",
   "onboarding.engine.providerFallback": "Provider",
@@ -689,7 +689,7 @@
   "onboarding.wizard.steward.custom": "另挑一个",
   "onboarding.wizard.steward.customHint": "填一个模型名，通常是同一个服务商里更便宜的那一档。",
   "onboarding.wizard.steward.modelLabel": "模型名",
-  "onboarding.wizard.steward.modelPlaceholder": "比如 deepseek-chat",
+  "onboarding.wizard.steward.modelPlaceholder": "服务商给的模型名",
   "onboarding.wizard.steward.saved": "管家改用「{{model}}」。",
   "onboarding.wizard.steward.savedFollow": "管家跟随主端点。",
   "onboarding.wizard.title": "欢迎向导",
@@ -864,11 +864,11 @@
   "provider.defaultModel": "默认",
   "provider.deleteConfirm": "删除 Provider「{{name}}」？其 API 密钥将一并移除",
   "provider.displayNamePlaceholder": "显示名",
-  "provider.empty": "未配置 Provider。下方选模板（DeepSeek / 通义千问 / 自定义）添加，再填密钥。",
+  "provider.empty": "未配置 Provider。下方选模板（自定义 / 本机 Ollama、LM Studio）添加，再填地址和密钥。",
   "provider.engineModel": "引擎与模型",
   "provider.model": "模型",
   "provider.manualModels": "手动模型 ID（每行一个）",
-  "provider.manualModelsPlaceholder": "ark-code-latest\ngpt-4.1",
+  "provider.manualModelsPlaceholder": "model-id-1\nmodel-id-2",
   "provider.manualModelsHint": "适用于端点无法列出模型的情况。测试连接发现的模型会追加，不会删除这里的条目。在模型菜单里移除过的模型，重新在这里填一行即可恢复。",
   "provider.modelCount.one": "{{count}} 个模型",
   "provider.modelCount.other": "{{count}} 个模型",
@@ -1041,7 +1041,7 @@
   "settings.authMode": "鉴权方式",
   "settings.authMode.apiKey": "x-api-key（ANTHROPIC_API_KEY，Anthropic 官方协议）",
   "settings.authMode.auto": "自动（两种请求头都发，兼容大多数端点）",
-  "settings.authMode.bearer": "Bearer Token（ANTHROPIC_AUTH_TOKEN，如 Ark Coding Plan）",
+  "settings.authMode.bearer": "Bearer Token（ANTHROPIC_AUTH_TOKEN，第三方 Coding Plan 常用）",
   "settings.betaThinking": "交错思维 beta（仅老 CLI 需要；新模型请勿勾）",
   "settings.bridgeExternalMcp": "把外部 MCP 工具也桥接给原生 Provider 引擎（关闭则 Provider 只用工作台自有工具）",
   "settings.browserCdpUrl": "CDP 地址（cdp 模式）",
@@ -1320,7 +1320,7 @@
   "settings.permissionBridge": "权限弹窗桥接（--permission-prompt-tool；需非 bypass 权限模式）",
   "settings.permissions": "安全与权限",
   "settings.preset": "预设",
-  "settings.pricing.hint": "若上方端点是第三方 Coding Plan（如火山方舟 Ark），此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。",
+  "settings.pricing.hint": "若上方端点是第三方 Coding Plan，此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。",
   "settings.pricing.input": "输入单价（每百万 token，可选）",
   "settings.pricing.output": "输出单价（每百万 token，可选）",
   "settings.pricing.unavailablePlaceholder": "留空 = 不估算成本",
@@ -3333,8 +3333,6 @@
   ,"layout.rightResizeHandle.aria": "拖动调整右栏宽度,双击切换档位"
   ,"memory.modal.title": "工作台记忆"
   ,"memory.modal.intro": "「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前线程。"
-  ,"provider.preset.dashscope.label": "Qwen / DashScope (通义千问)"
-  ,"provider.preset.glm.label": "GLM / 智谱 (Zhipu)"
   ,"provider.preset.ollama.label": "Ollama (本机模型,免 Key)"
   ,"provider.preset.lmstudio.label": "LM Studio (本机模型,免 Key)"
   ,"provider.preset.openaiCompatible.label": "自定义 (OpenAI 兼容 / 内网自建)"
