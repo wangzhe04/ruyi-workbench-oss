@@ -417,8 +417,11 @@ try {
     const snapshot = ${SHELL_SNAPSHOT};
     return snapshot.avatarState === 'listening' && snapshot.focused === 'stewardComposerInput' ? snapshot : null;
   })()`);
+  // 红的时候把实况带出来:头像态优先级里 sleeping / thinking / error / waiting_you 都压过 listening(steward-presence.js
+  // derivePresence),Windows CI 偶发 F1+F2 同红时要分得清是哪一态卡住、焦点又在哪。
+  const f1Seen = listening ? null : await cdp.evaluate(`(() => { const s = ${SHELL_SNAPSHOT}; return { avatarState: s.avatarState, focused: s.focused, mode: s.mode }; })()`).catch(() => null);
   ok(listening && listening.avatarState === 'listening',
-    'F1 输入框聚焦并输入非空文本后，头像态变为 listening(117a 的禁用占位在 117b 改为可聚焦，仅测这一态)');
+    'F1 输入框聚焦并输入非空文本后，头像态变为 listening(117a 的禁用占位在 117b 改为可聚焦，仅测这一态)' + (f1Seen ? `(实况 ${JSON.stringify(f1Seen)})` : ''));
 
   await cdp.evaluate(`(() => {
     const input = document.getElementById('stewardComposerInput');
@@ -431,7 +434,8 @@ try {
     const snapshot = ${SHELL_SNAPSHOT};
     return snapshot.avatarState === 'idle' ? snapshot : null;
   })()`);
-  ok(backIdle && backIdle.avatarState === 'idle', 'F2 清空文本并失焦后，头像态回到 idle');
+  const f2Seen = backIdle ? null : await cdp.evaluate(`(() => { const s = ${SHELL_SNAPSHOT}; return { avatarState: s.avatarState, focused: s.focused }; })()`).catch(() => null);
+  ok(backIdle && backIdle.avatarState === 'idle', 'F2 清空文本并失焦后，头像态回到 idle' + (f2Seen ? `(实况 ${JSON.stringify(f2Seen)})` : ''));
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;
