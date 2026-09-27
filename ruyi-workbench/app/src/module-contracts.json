@@ -751,6 +751,7 @@
         "irreversibleToolKind",
         "isBridgedWriteTool",
         "isProviderToolArgsObject",
+        "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
         "ivCacheKey",
         "journalBytesAdjust",
@@ -838,6 +839,7 @@
         "readSessionHeadResilient",
         "readSessionIndex",
         "readSessionNotes",
+        "rebaseStaleSessionBody",
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
         "recordMissionBudgetTrippedChange",
@@ -892,6 +894,7 @@
         "stewardWatchNoteFrom",
         "stopMissionAgentRuns",
         "transitionInterventionState",
+        "truncateSessionBody",
         "unprefixedBridgedName",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
@@ -12489,6 +12492,13 @@
         },
         {
           "provider": "06f-autonomy-grants.js",
+          "symbol": "CLI_TOOL_TIER",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06f-autonomy-grants.js",
           "symbol": "consumeGrant",
           "kinds": [
             "call"
@@ -19368,6 +19378,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readInterventions",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "readInterventionsWithMeta",
           "kinds": [
             "read"
@@ -19404,6 +19421,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "registerIntervention",
           "kinds": [
             "read"
           ]
@@ -19488,6 +19512,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "setSessionIndexRebuildScanHookForTest",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "transitionInterventionState",
           "kinds": [
             "read"
           ]
@@ -21643,6 +21674,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "appendAgentRunEvent",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
           "kinds": [
             "read"
@@ -21700,6 +21738,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "evaluateWorkflowCondition",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "flushAgentRunEvents",
           "kinds": [
             "read"
           ]
@@ -21812,6 +21857,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "resolveAgentTeamRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "runSubAgentCore",
           "kinds": [
             "read"
           ]

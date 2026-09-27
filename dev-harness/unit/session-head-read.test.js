@@ -187,6 +187,47 @@ describe('loadSession：装载那一眼之后有人写过盘，就不许拿旧�
     assert.equal(bodyLines(s.id), 2);
     assert.ok(fs.readFileSync(path.join(sessionsDir, s.id + '.messages.ndjson'), 'utf8').endsWith('\n'), '半行应被截掉');
   });
+
+  // ⑧⑨：截断本身失败（Windows 上杀软/索引器持锁的 EPERM）。修前 .catch 吞掉失败、仍交出 bodiesOk:true，
+  // 下次快路径接在残留后面 append：⑧ 新行焊进半行，整条会话被判损坏隔离；⑨ 旧的未提交尾巴留在
+  // 真消息前面，下一次截断按行数量出来的位置正好截掉用户那条真消息。
+  const withTruncateFailing = async (file, fn) => {
+    const orig = fsp.truncate;
+    fsp.truncate = async (p, len) => {
+      if (String(p) === file) { const e = new Error('EPERM: simulated lock'); e.code = 'EPERM'; throw e; }
+      return orig(p, len);
+    };
+    try { return await fn(); } finally { fsp.truncate = orig; }
+  };
+
+  it('⑧ 撕裂尾行截不掉 → 下一次保存全量重写，会话不被隔离', async () => {
+    const s = await freshTwoTurnSession();
+    await srv.saveSession(s);
+    const file = path.join(sessionsDir, s.id + '.messages.ndjson');
+    fs.appendFileSync(file, '{"role":"assistant","content":"CRASHED-MID-WR', 'utf8');
+    const loaded = await withTruncateFailing(file, () => srv.loadSession(s.id));
+    assert.equal(loaded && loaded.messages.length, 2);
+    loaded.messages.push({ role: 'user', content: '3' });
+    await srv.saveSession(loaded);
+    const after = await srv.loadSession(s.id);
+    assert.ok(after, '会话被判损坏隔离了（新行焊进了没截掉的半行）');
+    assert.deepEqual(after.messages.map(m => m.content), ['1', '2', '3']);
+    assert.ok(!fs.readFileSync(file, 'utf8').includes('CRASHED'), '残留半行应随全量重写消失');
+  });
+
+  it('⑨ 未提交尾巴截不掉 → 下一次保存全量重写，真消息不被截掉', async () => {
+    const s = await freshTwoTurnSession();
+    await srv.saveSession(s);
+    const file = path.join(sessionsDir, s.id + '.messages.ndjson');
+    fs.appendFileSync(file, JSON.stringify({ role: 'user', content: 'STALE-UNCOMMITTED' }) + '\n', 'utf8');
+    const loaded = await withTruncateFailing(file, () => srv.loadSession(s.id));
+    assert.deepEqual(loaded.messages.map(m => m.content), ['1', '2']);
+    loaded.messages.push({ role: 'user', content: 'REAL-NEW' });
+    await srv.saveSession(loaded);
+    const after = await srv.loadSession(s.id);
+    assert.deepEqual(after.messages.map(m => m.content), ['1', '2', 'REAL-NEW']);
+    assert.ok(!fs.readFileSync(file, 'utf8').includes('STALE-UNCOMMITTED'));
+  });
 });
 
 describe('两道守卫的源码锁（把「不许在并发写盘时动手」钉住，防回改）', () => {

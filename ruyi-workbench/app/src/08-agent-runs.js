@@ -60,9 +60,12 @@ function appendAgentRunEvent(run, evt) {
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
 // 事件日志里 —— 修前追加链不等,终稿可能先落(autonomy-resume H2 在 Windows CI 上偶发「事件链缺 run_end」)。
-function flushAgentRunEvents(runId) {
+// 有上限(5s):磁盘真卡住(网络盘/杀软持锁)时不能把整条 run 的收尾一起卡死 —— 那时终稿照落,事件晚到而已。
+function flushAgentRunEvents(runId, maxWaitMs = 5000) {
   const chain = agentRunEventChains.get(String(runId || ''));
-  return chain ? chain.catch(() => {}) : Promise.resolve();
+  if (!chain) return Promise.resolve();
+  let timer = null;
+  return Promise.race([chain.catch(() => {}), new Promise(resolve => { timer = setTimeout(resolve, maxWaitMs); })]).finally(() => clearTimeout(timer));
 }
 
 // ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
@@ -503,7 +506,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
-    return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };
+    stopInitBeat(); return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };   // 修前心跳不停:每秒一次、一直重写 run 快照
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';

@@ -15,6 +15,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //     点确认 → 文件真的没了、按钮变「已撤销」；
 //   C 刷新页面、重开线程 → 卡片上那一行画「已撤销」（不是可点的按钮）、「撤销整轮」也不再可点、
 //     产物 chip 不再给已经删掉的 report.md 一个「打开」。
+//   D（代码走查 C6／走查 U9）整轮撤销只撤回了一部分 → 如实说；撤回的那几行当场改成「已撤销」；
 //   E（走查 #9）本机端点（127.0.0.1、没填密钥）时，工作台空状态不再催「填写 … 密钥」；
 //   E2（走查 #19）用不了的「一键任务」卡排在能用的后面。
 // 反向验证：把 session-experience.js 里 f.reverted 那一支删掉 → C1 当场红；把 confirmDanger 换回 confirm → B1 红。
@@ -28,6 +29,7 @@ const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 const THREAD = '撤销走查线程';
+const THREAD2 = '部分撤销线程';
 
 function runTurn(port, token, sessionId, message, cwd) {
   return new Promise(resolve => {
@@ -58,6 +60,13 @@ function runTurn(port, token, sessionId, message, cwd) {
         await f.request('POST', '/api/config', { providers: cfg.providers });
       },
       provider: async ctx => {
+        const lastUser = [...ctx.messages].reverse().find(m => m && m.role === 'user');
+        if (/改两个文件/.test(String(lastUser && lastUser.content || ''))) {
+          const tools = ctx.messages.slice(ctx.messages.lastIndexOf(lastUser)).filter(m => m && m.role === 'tool').length;
+          if (tools === 0) { ctx.toolCall('file_write', { path: path.join(workDir, 'big.log'), content: 'short\n' }); return; }
+          if (tools === 1) { ctx.toolCall('file_write', { path: path.join(workDir, 'note.md'), content: '# note\n' }); return; }
+          ctx.text('改好了。'); ctx.stop(); return;
+        }
         if (!ctx.answered) { ctx.toolCall('file_write', { path: path.join(workDir, 'report.md'), content: '# 报告\n一行\n' }); return; }
         ctx.text('写好了。'); ctx.stop();
       },
@@ -91,8 +100,8 @@ function runTurn(port, token, sessionId, message, cwd) {
     const firstUnavailable = cards.indexOf(0);
     ok(cards.length > 0 && (firstUnavailable < 0 || cards.slice(firstUnavailable).every(v => v === 0)),
       `E2 用不了的一键任务卡都排在能用的后面（实测 ${JSON.stringify(cards)}）`);
-    const openThread = () => fx.evaluate(`(() => {
-      const item = [...document.querySelectorAll('#railList .steward-board-thread')].find(node => node.textContent.includes(${JSON.stringify(THREAD)}));
+    const openThread = (title = THREAD) => fx.evaluate(`(() => {
+      const item = [...document.querySelectorAll('#railList .steward-board-thread')].find(node => node.textContent.includes(${JSON.stringify(title)}));
       if (!item) return false;
       item.querySelector('.steward-board-thread-title').click();
       return true;
@@ -152,6 +161,38 @@ function runTurn(port, token, sessionId, message, cwd) {
       `C1 刷新后那一行画「已撤销」，不是一枚可点的「撤销」（实测 ${JSON.stringify(after)}）`);
     ok(Boolean(after) && !after.undoAllBtn, 'C2 刷新后「撤销整轮」不再可点（这一轮已经没有可撤的文件）');
     ok(Boolean(after) && !after.chip, 'C3 产物 chip 不再给已经删掉的 report.md 一个「打开」');
+
+    /* ═════════ D 整轮撤销只撤回了一部分（代码走查 C6 / 走查 U9） ═════════ */
+    // big.log 改前 6MB，超过留底上限 → 撤不回；note.md 是新建的 → 撤得回。修前：按钮写「已撤销」、提示说成功，
+    // 逐个文件的「撤销」按钮也还挂着（再点报「撤销失败」）。
+    const big = path.join(fx.work, 'big.log'), note = path.join(fx.work, 'note.md');
+    fs.writeFileSync(big, 'x'.repeat(6 * 1024 * 1024));
+    const created2 = await fx.request('POST', '/api/sessions', { title: THREAD2, cwd: fx.work });
+    const sid2 = created2 && created2.json && (created2.json.session ? created2.json.session.id : created2.json.id);
+    ok(await runTurn(fx.appPort, fx.token, sid2, '改两个文件', fx.work) && fs.existsSync(note) && fs.statSync(big).size < 100, 'D0 第二个线程的回合改了两个文件');
+    await fx.waitForEval(`[...document.querySelectorAll('#railList .steward-board-thread')].some(n => n.textContent.includes(${JSON.stringify(THREAD2)})) ? 1 : null`, 300);
+    await openThread(THREAD2);
+    await fx.waitForEval(`document.querySelector('.turn-summary button.ts-undo-all') && [...document.querySelectorAll('.turn-summary-file')].some(r => r.textContent.includes('note.md')) ? 1 : null`, 300);
+    await fx.evaluate(`(document.querySelector('.turn-summary button.ts-undo-all').click(), true)`);
+    await fx.waitForEval(`document.querySelector('.modal-backdrop.confirm-panel [data-confirm="ok"]') ? 1 : null`, 200);
+    await fx.evaluate(`(document.querySelector('.modal-backdrop.confirm-panel [data-confirm="ok"]').click(), true)`);
+    const partial = await fx.waitForEval(`(() => {
+      const toast = [...document.querySelectorAll('#toastTray .toast')].map(n => n.textContent).find(x => /没能撤回/.test(x));
+      if (!toast) return null;
+      const card = [...document.querySelectorAll('.turn-summary')].find(c => c.textContent.includes('note.md'));
+      const row = name => [...card.querySelectorAll('.turn-summary-file')].find(r => r.textContent.includes(name));
+      return {
+        toast, head: (card.querySelector('.ts-undo-all') || {}).textContent || '',
+        noteDone: Boolean(row('note.md').querySelector('.ts-undo.done')) && !row('note.md').querySelector('button.ts-undo'),
+        bigText: row('big.log').textContent,
+      };
+    })()`, 200);
+    ok(Boolean(partial) && /撤回了 1 个文件，另有 1 个没能撤回/.test(partial.toast) && /没有留底/.test(partial.toast),
+      `D1 一部分撤不回 → 如实说撤回了几个、几个没撤回、为什么（实测 ${JSON.stringify(partial && partial.toast)}）`);
+    ok(Boolean(partial) && partial.head === '部分已撤销', `D2 「撤销整轮」改成「部分已撤销」，不说「已撤销」（实测 ${JSON.stringify(partial && partial.head)}）`);
+    ok(Boolean(partial) && partial.noteDone, 'D3 撤回了的 note.md 那一行当场改成「已撤销」，不再挂着可点的「撤销」');
+    ok(Boolean(partial) && !/已撤销/.test(partial.bigText) && !fs.existsSync(note) && fs.statSync(big).size < 100,
+      `D4 撤不回的 big.log 那一行不说「已撤销」；note.md 真的删了、big.log 没被动（实测 ${JSON.stringify(partial && { bigText: partial.bigText, note: fs.existsSync(note), big: fs.statSync(big).size })}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;

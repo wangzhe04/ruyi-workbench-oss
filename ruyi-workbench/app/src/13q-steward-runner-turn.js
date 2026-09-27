@@ -504,7 +504,7 @@ async function stewardArchiveConversation(config, startedAt) {
       fresh.autoCompactWatermark = 0;
       kept = fresh.messages.length;
       return undefined;
-    }, { writer: 'steward_archive', expectGen: baseGen });
+    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true } });   // 有意截短:不让 saveSession 当旧副本补回
     truncated = Boolean(written && written.ok);
   } catch { truncated = false; }
   if (!truncated) {
