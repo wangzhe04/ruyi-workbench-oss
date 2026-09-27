@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 56,
-    "providedSymbols": 2800,
-    "requiredSymbols": 2852,
+    "providedSymbols": 2802,
+    "requiredSymbols": 2853,
     "edges": 446,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -223,6 +223,7 @@
         "CONFIG_BOOKKEEPING_KEYS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
+        "CONFIG_MIGRATIONS",
         "DESKTOP_PYTHON_DISK_CACHE_FILE",
         "DESKTOP_PYTHON_DISK_MISS_CACHE_MS",
         "DESKTOP_PYTHON_IMPORT_PROBE",
@@ -254,6 +255,7 @@
         "agentCliProbeSpawn",
         "agentCliProbeable",
         "agentMcpImportSources",
+        "applyConfigMigrations",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -19042,6 +19044,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "CONFIG_MIGRATIONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "read"
@@ -28443,6 +28452,7 @@
       "symbols": [
         "AGENT_CLI_TYPES",
         "BUILTIN_AGENT_ROLES",
+        "CONFIG_MIGRATIONS",
         "DurableJsonStore",
         "PERMISSION_MODES",
         "PERMISSION_MODES_REQUIRING_CONFIRM",

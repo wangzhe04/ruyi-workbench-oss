@@ -1999,6 +1999,94 @@ function finalizeConfigExplicitKeys(config, explicit) {
     .slice(0, CONFIG_EXPLICIT_KEY_MAX);
 }
 
+// ── 一次性 schema 迁移表(架构还债批 2 B1) ─────────────────────────────────────────────────────────
+// normalizeConfig 里按读进来的 configSchema 判的一次性迁移,原先与字段级校验交错在同一个函数体里;现在按 to
+// 升序登记在这张表里,由 normalizeConfig 在【唯一一个固定点】调 applyConfigMigrations(对 fromSchema < to 的逐条
+// 按表序执行)。那个点的位置由迁移的输入决定,移动它之前逐条核对下面每条的「读」:
+//   · 在它之前:迁移读到的键都已做完字段级校验 —— engineMode 的 print→legacy 别名与枚举兜底、严格布尔循环
+//     (字符串 "false" 这类脏值先被压成 false 再迁)、defaultWorkspace(恒非空)与 recentWorkspaces 的清洗;
+//   · 在它之后:工作区表那一段(to:10 把种子行放进 config.workspaces,由那一段统一清洗、去重、截断、拆出
+//     如意自管文件夹),以及落盘前的显式键推断(旧格式读看全部键 —— 迁移造出的值必须在那一次落盘)。
+// 每条都守 128a 的规矩:ctx.rawExplicit 里的键是用户明确设过的,不迁 —— schema 号可能被旧版写回去过,显式键集合
+// 活得过降级。apply 只改 config,返回「动了没有」;normalizeConfig 末尾按「落盘投影 ≠ raw」重算 changed。
+// 不在表里的「迁移」:subagentBudgetMigrated / searchBackendMigrated 两条按各自的标记键判(不看 schema 号),
+// Kimi 旧模型别名与 permissionMode 别名是每读必过的幂等改写 —— 它们留在 normalizeConfig 原处。
+// unit/config-migrations.test.js 钉:to 严格升序且各出现一次、不超过 CONFIG_SCHEMA、函数体里不再有 `< N` 阶梯。
+const CONFIG_MIGRATIONS = Object.freeze([
+  Object.freeze({
+    to: 9,
+    // Schema 9 makes interactive the effective default for upgraded installs too. Older configs could
+    // indefinitely retain legacy/print even though new installs already defaulted to interactive, leaving the
+    // composer advertising a steer action that the live CLI process could not accept. Migrate once; after the
+    // schema stamp, a user may still explicitly switch back to legacy from Settings and that choice is retained.
+    // 读:engineMode(已过校验:'print' 已折成 'legacy',野值已兜成 'interactive' —— 所以原先「raw 为 legacy/print」
+    // 在这里恰好等价于「此刻为 legacy」;名单仍写两个,与迁移的原意同形)。
+    apply(config, ctx) {
+      if (ctx.rawExplicit.has('engineMode') || !['legacy', 'print'].includes(config.engineMode)) return false;
+      config.engineMode = 'interactive';
+      return true;
+    },
+  }),
+  Object.freeze({
+    to: 10,
+    // v2.7 工作区权限:清洗后一条可用工作区都没有的老配置,从 defaultWorkspace + recentWorkspaces 播种,
+    // 让存量安装对它已经信任的每个文件夹保持读/写/执行。读:workspaces(原始行)、defaultWorkspace、
+    // recentWorkspaces(后两者已清洗)。「可用」与工作区表那一段 pushWs 的收录条件同一口径(非数组对象且
+    // path 规整后非空);一条都没有时原始行本来就一条也进不了表,整张换成种子行,由那一段按原样去重、截断。
+    apply(config) {
+      const rows = Array.isArray(config.workspaces) ? config.workspaces : [];
+      if (rows.some(r => r && typeof r === 'object' && !Array.isArray(r) && normalizeWorkspacePathString(r.path))) return false;
+      const seed = [];
+      if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
+      for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
+      config.workspaces = seed.map(s => ({ path: s }));
+      return true;
+    },
+  }),
+  Object.freeze({
+    to: 12,
+    // 107-T1(46 号文 §5): 126-111b/111d/111e 三个开关在 2.8.0 翻成默认开 —— 但【光翻 defaultConfig 没用】。
+    // normalizeConfig 是 { ...defaultConfig(), ...raw },raw 永远赢;而旧版 readConfig 只要 changed 为真就把【整份
+    // 合并后的配置】落盘,于是当年那批默认值被原样冻在盘上 —— 所有写过一次 config.json 的安装(= 全部
+    // 存量用户)盘上都实打实写着 false,新默认一个也吃不到。故走 schema 阶梯做一次性迁移。
+    // 【必须写 = true,不能 delete】:delete 之后 normalizeConfig 这一趟返回的 config 里这三个键是 undefined,
+    // 而判定函数一律是 `=== true` —— 当前这条命的进程里三个开关全是关的(要等下一次读配置才生效)。
+    // 判据在 unit/config-schema-12-migration.test.js 的 [A],它断的是 === true,delete 当场红。
+    // 读:三个开关(已过严格布尔循环:非布尔脏值比如字符串 "false" 先被压成 false,再统一迁移)。
+    // 只迁一次 —— 落盘时 configSchema 被盖成当前值,用户在 2.8.0 之后自己关掉的那些,升级不会再动。
+    // 128a(Brief §4.2 第 24 条,P1 实测):降级到 2.7.0 会把 configSchema 写回 11,回来时这道迁移又跑一遍,
+    // 把用户在新版里显式关掉的开关重新打开。2.7.0 保留不认识的顶层键 ⇒ configExplicitKeysV1 活过降级,schema 号
+    // 活不过 —— 所以按显式键判:在集合里的键是用户明确设过的,不迁。
+    apply(config, ctx) {
+      let moved = false;
+      for (const key of ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1']) {
+        if (config[key] === false && !ctx.rawExplicit.has(key)) { config[key] = true; moved = true; }
+      }
+      return moved;
+    },
+  }),
+  Object.freeze({
+    to: 13,
+    // 体验走查 #4:killOnDisconnect 缺省翻成 false(刷新／关窗不再结束回合)。schema 13 的稀疏文件里没碰过它的
+    // 用户本来就不存这个键,自动吃到新默认;只有 <13 的整份老文件盘上写着当年的默认 true,落盘前的显式键推断会把它
+    // 当成「用户改过」冻住。老文件里的 true 就是当年的默认,不是选择 —— 这里按默认处理。显式键照旧不动。
+    // 读:killOnDisconnect(没有字段级校验,只认 === true)。
+    apply(config, ctx) {
+      if (config.killOnDisconnect !== true || ctx.rawExplicit.has('killOnDisconnect')) return false;
+      config.killOnDisconnect = false;
+      return true;
+    },
+  }),
+]);
+// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合 }。返回是否有迁移动过 config。
+function applyConfigMigrations(config, ctx) {
+  let moved = false;
+  for (const migration of CONFIG_MIGRATIONS) {
+    if (ctx.fromSchema < migration.to && migration.apply(config, ctx)) moved = true;
+  }
+  return moved;
+}
+
 // Fold older config files onto the current schema. Returns { config, changed, persisted }.
 //   config    —— 整份内存视图(defaults ＋ 盘上),全部消费方读它;
 //   persisted —— 该落盘的投影(128a);changed ＝ 投影与传进来的 raw 不同(＝该写盘)。
@@ -2070,15 +2158,8 @@ function normalizeConfig(raw, opts = {}) {
     config.locale = 'auto';
     changed = true;
   }
-  // Schema 9 makes interactive the effective default for upgraded installs too. Older configs could
-  // indefinitely retain legacy/print even though new installs already defaulted to interactive, leaving the
-  // composer advertising a steer action that the live CLI process could not accept. Migrate once; after the
-  // schema stamp, a user may still explicitly switch back to legacy from Settings and that choice is retained.
-  // 128a:显式设过 engineMode 的(configExplicitKeysV1 里有它)不迁 —— schema 号可能被旧版写回去过。
-  if (incomingConfigSchema < 9 && !rawExplicit.has('engineMode') && ['legacy', 'print'].includes(config.engineMode)) {
-    config.engineMode = 'interactive';
-    changed = true;
-  } else if (config.engineMode === 'print') {
+  // engineMode 字段级校验。schema<9 的「legacy/print → interactive」一次性迁移在 CONFIG_MIGRATIONS(to:9)。
+  if (config.engineMode === 'print') {
     config.engineMode = 'legacy'; // tolerate the historical internal alias
     changed = true;
   } else if (!['legacy', 'interactive'].includes(config.engineMode)) {
@@ -2257,30 +2338,8 @@ function normalizeConfig(raw, opts = {}) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
-  // 107-T1(46 号文 §5): 126-111b/111d/111e 三个开关在 2.8.0 翻成默认开 —— 但【光翻 defaultConfig 没用】。
-  // 上面 :591 是 { ...defaultConfig(), ...raw },raw 永远赢;而 readConfig 只要 changed 为真就把【整份
-  // 合并后的配置】落盘,于是当年那批默认值被原样冻在盘上 —— 所有写过一次 config.json 的安装(= 全部
-  // 存量用户)盘上都实打实写着 false,新默认一个也吃不到。故走 incomingConfigSchema 阶梯做一次性迁移。
-  // 【必须写 = true,不能 delete】:delete 之后本函数这一趟返回的 config 里这三个键是 undefined,
-  // 而判定函数一律是 `=== true` —— 当前这条命的进程里三个开关全是关的(要等下一次读配置才生效)。
-  // 判据在 unit/config-schema-12-migration.test.js 的 [A],它断的是 === true,delete 当场红。
-  // 放在严格布尔循环【之后】:非布尔脏值(比如字符串 "false")先被压成 false,再统一迁移。
-  // 只迁一次 —— 落盘时 configSchema 被盖成 12(见下文 config.configSchema = CONFIG_SCHEMA),用户在
-  // 2.8.0 之后自己关掉的那些,升级不会再动。
-  // 128a(Brief §4.2 第 24 条,P1 实测):降级到 2.7.0 会把 configSchema 写回 11,回来时这道迁移又跑一遍,
-  // 把用户在新版里显式关掉的开关重新打开。2.7.0 保留不认识的顶层键 ⇒ configExplicitKeysV1 活过降级,schema 号
-  // 活不过 —— 所以按显式键判:在集合里的键是用户明确设过的,不迁。
-  if (incomingConfigSchema < 12) {
-    for (const key of ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1']) {
-      if (config[key] === false && !rawExplicit.has(key)) { config[key] = true; changed = true; }
-    }
-  }
-  // 体验走查 #4:killOnDisconnect 缺省翻成 false(刷新／关窗不再结束回合)。schema 13 的稀疏文件里没碰过它的
-  // 用户本来就不存这个键,自动吃到新默认;只有 <13 的整份老文件盘上写着当年的默认 true,下面那段推断会把它
-  // 当成「用户改过」冻住。老文件里的 true 就是当年的默认,不是选择 —— 这里按默认处理。显式键照旧不动。
-  if (incomingConfigSchema < 13 && config.killOnDisconnect === true && !rawExplicit.has('killOnDisconnect')) {
-    config.killOnDisconnect = false; changed = true;
-  }
+  // schema<12 的三开关翻开(107-T1)与 schema<13 的 killOnDisconnect 翻关在 CONFIG_MIGRATIONS(to:12 / to:13),
+  // 它们在上面这个严格布尔循环【之后】跑(脏值先压成 false 再迁),见 applyConfigMigrations 的调用点。
   { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
     const n = Number(config.summarySingleShotMaxTokensV1);
     const clamped = Number.isFinite(n) ? Math.min(131072, Math.max(8192, Math.round(n))) : 32768;
@@ -2501,10 +2560,13 @@ function normalizeConfig(raw, opts = {}) {
     if (JSON.stringify(clean) !== JSON.stringify(config.onboarding)) { config.onboarding = clean; changed = true; }
     else config.onboarding = clean;
   }
+  // 一次性 schema 迁移的唯一调用点(见 CONFIG_MIGRATIONS 头注):被迁移读到的键到这里都已完成字段级校验,
+  // 而下面的工作区表那一段要消费 to:10 播进来的种子。
+  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit })) changed = true;
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
-  // from defaultWorkspace + recentWorkspaces so an existing install keeps read/write/execute on every folder
-  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
+  // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
+  // leaves the seed rows in config.workspaces for this block to cleanse. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
   // capped at WORKSPACE_TABLE_CAP rows (117w-W1④ raised it 20 -> 64; see that constant for why).
   // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
   {
@@ -2527,12 +2589,6 @@ function normalizeConfig(raw, opts = {}) {
       clean.push(entry);
     };
     for (const e of rawArr) { pushWs(e); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
-    if (!clean.length && incomingConfigSchema < 10) {
-      const seed = [];
-      if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
-      for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
-      for (const s of seed) { pushWs({ path: s }); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
-    }
     // W7:如意自己开的文件夹不留在常用工作区里(迁出),用户亲手加回去的算他的(收编)。见 normalizeStewardManagedWorkspaces。
     {
       const split = normalizeStewardManagedWorkspaces(config, clean);
@@ -2840,7 +2896,7 @@ function normalizeConfig(raw, opts = {}) {
   // (手改 config.json、旧版本写下的整份配置)。等于默认又不在集合里的键不落盘 —— 而且第一次读就清掉,
   // 否则下次默认一变,它们会被这条规则误认成「手改」、又冻住。
   // 旧格式(schema < 当前,含全新安装与降级往返)那一次读要看【全部】键,不只看 raw 里出现过的:上面那些
-  // `incomingConfigSchema < N` 的迁移会给 raw 里【没有】的键造出值(例如 <10 从 defaultWorkspace 给工作区表
+  // CONFIG_MIGRATIONS 里的一次性迁移会给 raw 里【没有】的键造出值(例如 to:10 从 defaultWorkspace 给工作区表
   // 播种),而 schema 一抬到当前,它们再也不会跑 —— 这一次不落盘,造出来的值就永远丢了(128a 第一轮全量逮到:
   // 工作区表被清空,管家开线程一律 invalid_request)。当前格式的文件只看 raw 里的键(手改)。
   const explicit = new Set(rawExplicit);
@@ -62630,7 +62686,7 @@ module.exports = {
   killChildTree, // 128i:发出去就算的那一支(14 处调用点的旧形状)—— exposed for unit/kill-own-process-tree.test.js [R2]
   killOwnProcessTree, // 128i:收尸只认自己的子孙 —— exposed for unit/kill-own-process-tree.test.js(dry 模式钉判据、真进程钉收尸)
   killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
-  normalizeConfig,
+  normalizeConfig, CONFIG_MIGRATIONS, // 架构还债批 2 B1:一次性 schema 迁移表(unit/config-migrations.test.js 钉顺序与金样)
   // 128a:读-改-写整条环 exposed for unit/config-explicit-keys.test.js(真读盘、真写盘,临时 HOME)。
   readConfig,
   mutateConfig,

@@ -553,8 +553,16 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(!!wsBlock, '⑪ 取到 01-config 的 workspaces 清洗块');
   // 只看【代码行】:块注释里为了讲清来历会写「20 -> 64」,那不是帽子。
   const wsCode = wsBlock.split(/\r?\n/).filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line));
+  // 架构还债批 2 B1:播种那一支搬进了 CONFIG_MIGRATIONS 的 to:10 —— 它只把种子行放进 config.workspaces,
+  // 与原始行走【同一支】循环、同一个帽子;所以清洗块里现在只剩一处读,而迁移那一条里不许另立帽子。
   const capReads = wsCode.filter(line => line.includes('WORKSPACE_TABLE_CAP')).length;
-  ok(capReads === 2, `⑪ 清洗块的两支循环各读一次同一个常量(got ${capReads})`);
+  ok(capReads === 1, `⑪ 清洗块唯一那支循环读一次同一个常量(原始行与 to:10 种子行共用,got ${capReads})`);
+  const migStart = src01.indexOf('const CONFIG_MIGRATIONS = ');
+  const seedStart = migStart < 0 ? -1 : src01.indexOf('to: 10,', migStart);
+  const seedEnd = seedStart < 0 ? -1 : src01.indexOf('to: 12,', seedStart);
+  const seedCode = (seedStart < 0 || seedEnd < 0) ? '' : src01.slice(seedStart, seedEnd).split(/\r?\n/).filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n');
+  ok(!!seedCode && /config\.workspaces = seed\./.test(seedCode), '⑪ 取到 CONFIG_MIGRATIONS 的 to:10 播种条,它把种子行交给清洗块');
+  ok(!!seedCode && !/WORKSPACE_TABLE_CAP|\.length >= \d|\.slice\(0,/.test(seedCode), '⑪ to:10 播种条不另立帽子(截断只在清洗块那一处)');
   const bareCaps = wsCode.filter(line => /clean\.length >= \d/.test(line));
   ok(bareCaps.length === 0, '⑪ 清洗块代码行里零裸字面量帽子' + (bareCaps.length ? ' → ' + JSON.stringify(bareCaps) : ''));
   ok(!/\bWORKSPACE_TABLE_CAP\b\s*=\s*20\b/.test(src01), '⑪ 反向:常量没被悄悄改回 20');
