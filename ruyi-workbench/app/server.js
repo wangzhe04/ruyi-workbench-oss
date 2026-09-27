@@ -197,6 +197,12 @@ function apiFailure(code, params = {}, message = '', status = 400) {
   }, status);
 }
 
+// 架构还债批 1 #7:按 sessionId 操作的路由最常见的两句失败。修前 40 余处各自手写裸串
+// json({ ok:false, error:'invalid sessionId' }, 400) / 'session not found' 404,靠上面那张遗留映射表
+// 兜底翻成稳定码 —— 拼错一个字就悄悄落成 api.request_failed。出参与遗留写法逐字节相同(code/params/message 同序)。
+function apiSessionIdInvalid() { return apiFailure('session.id_invalid', {}, 'invalid sessionId', 400); }
+function apiSessionNotFound() { return apiFailure('session.not_found', {}, 'session not found', 404); }
+
 function text(data, status = 200, headers = {}) {
   return {
     status,
@@ -44749,7 +44755,7 @@ async function agentWorkflowLoopbackRoute(req, res, kind) {
   const body = await readJsonBody(req);
   if (!(tokenMatches(body.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
   const sessionId = safeSessionId(body.sessionId);
-  if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+  if (!sessionId) return send(res, apiSessionIdInvalid());
   const liveReg = activeChildren.get(sessionId);
   const markSession = async runIds => {
     if (!EventStreamHooks.markAgentEnvelopeDelivered || !runIds.length) return;
@@ -44911,7 +44917,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/playbooks/draft') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json(await draftPlaybookFromSession(sessionId)));
   }
   // POST /api/playbooks — save a user playbook (normalized; token-gated). Body = the playbook object.
@@ -45189,7 +45195,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/memories') {
     const body = await readJsonBody(req);
     const session = await loadSession(String(body && body.sessionId || '')).catch(() => null);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
@@ -45199,7 +45205,7 @@ async function handleApi(req, res, pathname) {
     const writeMemoryFields = async fields => {
       try {
         const written = await mutateSession(session.id, fresh => { Object.assign(fresh, fields); }, { writer: 'session_memories' });
-        if (!written.session) { send(res, json({ ok: false, error: 'session not found' }, 404)); return true; }
+        if (!written.session) { send(res, apiSessionNotFound()); return true; }
       } catch (error) {
         if (error && error.code === 'session.rewound_during_write') { send(res, apiFailure(error.code, {}, error.message, 409)); return true; }
         throw error;
@@ -45271,14 +45277,14 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json(await proposeMemoryFromSession(sessionId)));
   }
   // POST /api/memory/proposal/decision —— 只有用户在卡片上保存/忽略时落候选状态；仍不替用户写记忆。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/decision') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const r = await decideMemoryProposal(sessionId, String(body && body.proposalId || ''), String(body && body.decision || ''));
     return send(res, json(r, r.ok ? 200 : 404));
   }
@@ -45287,7 +45293,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/apply') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (!pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
@@ -45298,7 +45304,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json(await draftMemoryFromSession(sessionId)));
   }
   // POST /api/memory/migrate {id, fromKey, cwd} —— 迁移一条项目记忆到当前 cwd 的项目组。
@@ -45444,7 +45450,7 @@ async function handleApi(req, res, pathname) {
     // /api/chat/answer — deliberately NOT in needsToken (commander's amendment) to stay consistent.
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(String(body.sessionId || ''));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     return send(res, json(await runProviderCompact(sessionId)));
   }
@@ -45452,7 +45458,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const storedConfig = await readConfig();
     const sessionId = safeSessionId(String(body.sessionId || ''));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     // Native Kimi compaction and external summary reseeding both mutate the same session a live turn
     // owns. Enforce the UI's no-overlap rule at the API boundary to avoid last-writer-wins data loss.
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
@@ -45470,9 +45476,9 @@ async function handleApi(req, res, pathname) {
     if (config.agentCliType !== 'kimi') return send(res, json({ ok: false, error: '当前不是 Kimi Code 接入' }, 400));
     const u = new URL(req.url, 'http://x');
     const sessionId = safeSessionId(String(u.searchParams.get('sessionId') || ''));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const session = await loadSession(sessionId).catch(() => null);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
     if (!status.ok) return send(res, json(status, 400));
     const usage = applyKimiStatusToSession(session, status);
@@ -45489,7 +45495,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const items = normalizeTodoItems(body.items);
     // 128b:mutateSession —— 撤回插在读与存之间时在新读的副本上重放,不被闸静默丢掉还回 ok。
     let written;
@@ -45498,7 +45504,7 @@ async function handleApi(req, res, pathname) {
       if (error && error.code === 'session.rewound_during_write') return send(res, apiFailure(error.code, {}, error.message, 409));
       throw error;
     }
-    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!written.session) return send(res, apiSessionNotFound());
     const reg = activeChildren.get(sessionId);
     if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
     return send(res, json({ ok: true, count: items.length }));
@@ -45510,9 +45516,9 @@ async function handleApi(req, res, pathname) {
     const bodyTokenOk = tokenMatches(bodyOrQ.token);
     if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(bodyOrQ.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     let session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     if (req.method === 'GET') return send(res, json({ ok: true, mission: session.mission || null }));
     // 128b:check／start／update 都走 mutateSession 落盘;撞上撤回回 409 稳定码,不回成功、不记变更流水。
     const rewoundReply = error => send(res, apiFailure(error.code, {}, error.message, 409));
@@ -45552,7 +45558,7 @@ async function handleApi(req, res, pathname) {
         if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
         throw error;
       }
-      if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      if (!written.session) return send(res, apiSessionNotFound());
       session = written.session;
       if (session.mission) {
         const resultAfter = String(session.mission.result && session.mission.result.status || '');
@@ -45594,7 +45600,7 @@ async function handleApi(req, res, pathname) {
       if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
       throw error;
     }
-    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!written.session) return send(res, apiSessionNotFound());
     if (!written.ok && written.value === 'no_mission') return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
     session = written.session;
     if (action === 'start') logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
@@ -45645,16 +45651,16 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const q = Object.fromEntries(new URL(req.url, 'http://x').searchParams);
     const sessionId = safeSessionId(q.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json({ ok: true, grants: listGrantsView(sessionId), activeRun: activeDriverRuns.get(sessionId) || null }));
   }
   if (req.method === 'POST' && pathname === '/api/autonomy/grant') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const norm = normalizeGrant(body, session, config, Date.now());
     if (!norm.ok) return send(res, json({ ok: false, error: norm.error }, 400));
@@ -45680,7 +45686,7 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     let n = 0;
     if (body.all === true) n = revokeAllGrants(sessionId, 'ui-revoke-all');
     else if (body.grantId) n = revokeGrant(sessionId, String(body.grantId)) ? 1 : 0;
@@ -45697,9 +45703,9 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const reg = activeChildren.get(sessionId);
     const provider = resolveProvider(config, body.providerId)
@@ -45795,7 +45801,7 @@ async function handleApi(req, res, pathname) {
     // sends the token, so it is unaffected; only tokenless local processes are refused.
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId')); // F4
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const entries = await journalReadIndex(sessionId);
     // v1.4.1: 附上每条目当前磁盘大小(改动后状态),前端可显示「原 X → 现 Y」的大小变化 + 判定是否值得看 diff。
     const enriched = await Promise.all(entries.map(async e => {
@@ -45818,13 +45824,13 @@ async function handleApi(req, res, pathname) {
     const hasEntrySeq = body && body.entrySeq !== undefined && body.entrySeq !== null && body.entrySeq !== '';
     const entrySeq = hasEntrySeq ? Number(body.entrySeq) : null;
     const action = body && body.action === 'open' ? 'open' : 'diff';
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (!Number.isInteger(turnSeq) || turnSeq < 0 || (hasEntrySeq && (!Number.isInteger(entrySeq) || entrySeq < 0))) {
       return send(res, apiFailure('checkpoint.reference_invalid', {}, 'invalid turnSeq or entrySeq', 400));
     }
     if (action === 'open' && !hasEntrySeq) return send(res, apiFailure('checkpoint.reference_invalid', {}, 'entrySeq is required for open', 400));
     const session = await loadSession(sessionId);
-    if (!session) return send(res, apiFailure('session.not_found', {}, 'session not found', 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const turnEntries = (await journalReadIndex(sessionId))
       .filter(e => e && Number(e.turnSeq) === turnSeq)
@@ -45885,7 +45891,7 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const q = new URL(req.url, 'http://x').searchParams;
     const sessionId = safeSessionId(q.get('sessionId'));
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const turnSeq = Number(q.get('turnSeq')), entrySeq = Number(q.get('entrySeq'));
     if (!Number.isInteger(turnSeq) || !Number.isInteger(entrySeq) || turnSeq < 0 || entrySeq < 0) {
       return send(res, apiFailure('checkpoint.reference_invalid', {}, 'invalid turnSeq or entrySeq', 400));
@@ -47381,7 +47387,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/checkpoints/rollback') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4: consume only well-formed ids
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.turnSeq === undefined || body.turnSeq === null) return send(res, json({ ok: false, error: 'turnSeq is required' }, 400));
     // F1: refuse rollback while a turn is live for this session — same guard/wording as /api/session/rewind.
     // The three index.json writers (journalRecord / journalGc / journalRollback) all do an unlocked
@@ -47413,7 +47419,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/rewind') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
     return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
   }
@@ -47530,7 +47536,7 @@ async function handleSteerApiRoute(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId);
     // Mirror POST normalization: callers can cancel text that POST accepted after stripping a spoofed prefix.
     const text = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
@@ -48432,7 +48438,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     if (bg) {
       if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
       const sid = safeSessionId(decodeURIComponent(bg[1]));
-      if (!sid) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (!sid) return send(res, apiSessionIdInvalid());
       if (req.method === 'GET' && !bg[2]) {
         const shells = EventStreamHooks.backgroundShells;
         const items = (shells ? shells.rows(sid) : []).concat(sessionBackgroundRunRows(sid));
@@ -48469,7 +48475,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
       const session = await loadSession(id);
-      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : json({ ok: false, error: 'session not found' }, 404)); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
@@ -48603,7 +48609,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
           'giving a thread desktop tools requires an explicit confirm:true (it can see your screen and press keys while you are away)', 409));
       }
       const session = await updateSessionMeta(id, body);
-      if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      if (!session) return send(res, apiSessionNotFound());
       const patchedConfig = await readConfig();
       // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
       if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
@@ -49207,12 +49213,12 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && /^\/api\/missions\/[^/]+\/changes$/.test(pathname)) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(pathname.split('/')[3]);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const query = new URL(req.url, 'http://x').searchParams;
     const after = Number(query.get('after'));
     if (!Number.isSafeInteger(after) || after < 0) return send(res, json({ ok: false, error: 'after must be a non-negative integer' }, 400));
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     // 117m-A3(用户第六轮走查④「交办台点开,显示报错」):线程 kind:'mission' 而 mission:null 是【合法状态】
     // —— 管家刚开的线程还没有任何变更账本。修前这里 404 'mission not found',而交办台详情是一个
     // Promise.all(详情 + 两次 changes),一挂就把整块面板换成错误卡(用户截图里那张)。把「还没有变更」
@@ -49250,7 +49256,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && /^\/api\/missions\/[^/]+\/control$/.test(pathname)) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(pathname.split('/')[3]);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const body = await readJsonBody(req);
     const result = await missionControlCommand(sessionId, body && body.action, body && body.prompt);
     return send(res, json(result.body, result.status));
@@ -49259,7 +49265,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
     // 124-P1:详情自此带着【事项容器】那一套验收项(「人工复核」那一档),容器是另一份文件,
@@ -49273,7 +49279,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId) + '-' + missionContainerAcceptanceStamp(container)) : '';
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const runs = await listAgentRuns(sessionId).catch(() => []);
 
     // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
@@ -49813,7 +49819,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     if (body.action === 'compact') {
       const sessionId = safeSessionId(body.sessionId);
-      if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (!sessionId) return send(res, apiSessionIdInvalid());
       return send(res, json(await compactInterventionJournal(sessionId, { force: true })));
     }
     if (body.action === 'rebuild') {
@@ -49915,7 +49921,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
     const interventions = slice ? slice.interventions : [];
@@ -49984,7 +49990,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();
@@ -62357,6 +62363,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,

@@ -30,6 +30,8 @@
         "VERSION",
         "agentCliHomes",
         "apiFailure",
+        "apiSessionIdInvalid",
+        "apiSessionNotFound",
         "appRoot",
         "appendUsageLedger",
         "buildUsageSummary",
@@ -9794,6 +9796,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "APP_NAME",
           "kinds": [
             "read"
@@ -11455,6 +11471,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
           "kinds": [
             "call"
@@ -12004,6 +12027,20 @@
         {
           "provider": "00-boot.js",
           "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
           "kinds": [
             "call"
           ]
@@ -18642,6 +18679,20 @@
         "main"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "read"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "appendUsageLedger",

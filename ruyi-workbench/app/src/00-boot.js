@@ -197,6 +197,12 @@ function apiFailure(code, params = {}, message = '', status = 400) {
   }, status);
 }
 
+// 架构还债批 1 #7:按 sessionId 操作的路由最常见的两句失败。修前 40 余处各自手写裸串
+// json({ ok:false, error:'invalid sessionId' }, 400) / 'session not found' 404,靠上面那张遗留映射表
+// 兜底翻成稳定码 —— 拼错一个字就悄悄落成 api.request_failed。出参与遗留写法逐字节相同(code/params/message 同序)。
+function apiSessionIdInvalid() { return apiFailure('session.id_invalid', {}, 'invalid sessionId', 400); }
+function apiSessionNotFound() { return apiFailure('session.not_found', {}, 'session not found', 404); }
+
 function text(data, status = 200, headers = {}) {
   return {
     status,

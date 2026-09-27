@@ -261,7 +261,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     if (bg) {
       if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
       const sid = safeSessionId(decodeURIComponent(bg[1]));
-      if (!sid) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (!sid) return send(res, apiSessionIdInvalid());
       if (req.method === 'GET' && !bg[2]) {
         const shells = EventStreamHooks.backgroundShells;
         const items = (shells ? shells.rows(sid) : []).concat(sessionBackgroundRunRows(sid));
@@ -298,7 +298,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
       const session = await loadSession(id);
-      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : json({ ok: false, error: 'session not found' }, 404)); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
@@ -432,7 +432,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
           'giving a thread desktop tools requires an explicit confirm:true (it can see your screen and press keys while you are away)', 409));
       }
       const session = await updateSessionMeta(id, body);
-      if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      if (!session) return send(res, apiSessionNotFound());
       const patchedConfig = await readConfig();
       // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
       if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
@@ -1036,12 +1036,12 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && /^\/api\/missions\/[^/]+\/changes$/.test(pathname)) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(pathname.split('/')[3]);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const query = new URL(req.url, 'http://x').searchParams;
     const after = Number(query.get('after'));
     if (!Number.isSafeInteger(after) || after < 0) return send(res, json({ ok: false, error: 'after must be a non-negative integer' }, 400));
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     // 117m-A3(用户第六轮走查④「交办台点开,显示报错」):线程 kind:'mission' 而 mission:null 是【合法状态】
     // —— 管家刚开的线程还没有任何变更账本。修前这里 404 'mission not found',而交办台详情是一个
     // Promise.all(详情 + 两次 changes),一挂就把整块面板换成错误卡(用户截图里那张)。把「还没有变更」
@@ -1079,7 +1079,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && /^\/api\/missions\/[^/]+\/control$/.test(pathname)) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(pathname.split('/')[3]);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const body = await readJsonBody(req);
     const result = await missionControlCommand(sessionId, body && body.action, body && body.prompt);
     return send(res, json(result.body, result.status));
@@ -1088,7 +1088,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
     // 124-P1:详情自此带着【事项容器】那一套验收项(「人工复核」那一档),容器是另一份文件,
@@ -1102,7 +1102,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId) + '-' + missionContainerAcceptanceStamp(container)) : '';
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const runs = await listAgentRuns(sessionId).catch(() => []);
 
     // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
@@ -1642,7 +1642,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     if (body.action === 'compact') {
       const sessionId = safeSessionId(body.sessionId);
-      if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (!sessionId) return send(res, apiSessionIdInvalid());
       return send(res, json(await compactInterventionJournal(sessionId, { force: true })));
     }
     if (body.action === 'rebuild') {
@@ -1744,7 +1744,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
     const interventions = slice ? slice.interventions : [];
@@ -1813,7 +1813,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();

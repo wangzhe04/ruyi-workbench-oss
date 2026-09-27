@@ -261,7 +261,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/checkpoints/rollback') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4: consume only well-formed ids
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.turnSeq === undefined || body.turnSeq === null) return send(res, json({ ok: false, error: 'turnSeq is required' }, 400));
     // F1: refuse rollback while a turn is live for this session — same guard/wording as /api/session/rewind.
     // The three index.json writers (journalRecord / journalGc / journalRollback) all do an unlocked
@@ -293,7 +293,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/rewind') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
     return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
   }
@@ -410,7 +410,7 @@ async function handleSteerApiRoute(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId);
     // Mirror POST normalization: callers can cancel text that POST accepted after stripping a spoofed prefix.
     const text = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
