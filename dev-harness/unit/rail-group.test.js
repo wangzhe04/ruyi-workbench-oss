@@ -39,6 +39,24 @@ describe('railGroupFor —— 今天停下的不再算「今天收工」', () =>
     assert.equal(railGroupFor('running', lastWeek, now), 'running');
     assert.equal(railGroupFor('dispatching', lastWeek, now), 'queued');
   });
+  it('走查 U2：一件里全是用户新开、还没开口的空线程 → 「新开的」，不进「排队」', async () => {
+    const { railGroupFor } = await loadModule();
+    assert.equal(railGroupFor('dispatching', today, now, false, true), 'fresh');
+    assert.equal(railGroupFor('dispatching', today, now, false, false), 'queued');
+    assert.equal(railGroupFor('running', today, now, false, true), 'running');
+  });
+  it('threadIsBlank 只认卡片硬事实：出身 user、无账本、没跑过、没在跑、没被仲裁器扣着', async () => {
+    const { threadIsBlank } = await import(pathToFileURL(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/thread-facts.js')).href);
+    const blank = { origin: 'user', status: 'none', turnSeq: 0, runCount: 0, activeTurn: false, lastTurn: null, wait: null };
+    assert.equal(threadIsBlank(blank), true);
+    assert.equal(threadIsBlank({ ...blank, wait: { reason: 'user' } }), true);
+    assert.equal(threadIsBlank({ ...blank, origin: 'steward' }), false, '管家交办的线程照旧是「交办中／排队」');
+    assert.equal(threadIsBlank({ ...blank, status: 'active' }), false, '有账本 = 立了单');
+    assert.equal(threadIsBlank({ ...blank, turnSeq: 1 }), false);
+    assert.equal(threadIsBlank({ ...blank, activeTurn: true }), false);
+    assert.equal(threadIsBlank({ ...blank, wait: { reason: 'slot' } }), false, '仲裁器扣着 = 真在排队');
+    assert.equal(threadIsBlank(null), false);
+  });
   it('threadLastTurnFailed 只认卡片上的最后一回合事实', async () => {
     const { threadLastTurnFailed } = await import(pathToFileURL(path.resolve(__dirname, '../../ruyi-workbench/app/public/js/thread-facts.js')).href);
     assert.equal(threadLastTurnFailed({ lastTurn: { ok: false } }), true);
@@ -49,10 +67,12 @@ describe('railGroupFor —— 今天停下的不再算「今天收工」', () =>
   });
   it('组的顺序：没做完排在收工之前，每组都有文案', async () => {
     const { RAIL_GROUP_KEYS } = await loadModule();
-    assert.deepEqual([...RAIL_GROUP_KEYS], ['needs_you', 'running', 'queued', 'unfinished', 'doneToday', 'earlier']);
+    assert.deepEqual([...RAIL_GROUP_KEYS], ['needs_you', 'running', 'queued', 'fresh', 'unfinished', 'doneToday', 'earlier']);
     const zh = require('../../ruyi-workbench/app/public/locales/zh-CN.json');
     const en = require('../../ruyi-workbench/app/public/locales/en-US.json');
     assert.equal(zh['rail.group.unfinished'], '今天没做完');
     assert.ok(en['rail.group.unfinished'] && !/session|chat/i.test(en['rail.group.unfinished']));
+    for (const key of RAIL_GROUP_KEYS) assert.ok(key === 'needs_you' || zh[`rail.group.${key}`], `rail.group.${key} 缺中文`);
+    assert.ok(zh['rail.group.fresh'] && en['rail.group.fresh'] && zh['mission.state.blank'] && en['mission.state.blank']);
   });
 });

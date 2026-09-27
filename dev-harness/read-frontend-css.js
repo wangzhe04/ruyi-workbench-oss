@@ -808,7 +808,10 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `css/components/tool-pane.css`:提示条 `.toast-tray` 点击穿透(pointer-events:none),管家视角下改到中栏输入框上方居中
 //   (修前「引导完成」那条压着右栏底部的「停止」)。
 // 算法自证:同上(HEAD 重算 = 22f8eb52…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '3afc1cb2eda329c17b550db83b319b43dd16a467cb5ae260d68d80471e1b99a7';
+// 走查 U17 续钉(前值 3afc1cb2…＝走查 U13 续钉):零新增、零删除层,改一层 ——
+//   `css/layout.css`:980px 图标栏每行只留居中那一颗色点 —— 收起行头 8px 小点(`.steward-tcard-dot`)与行尾「⋯」。
+// 算法自证:同上(HEAD 重算 = 3afc1cb2…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '62741739fa1dd5b9b6eaf0f1795f3bfa2b165fede3d2e86fe5474dfce21eef6f';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

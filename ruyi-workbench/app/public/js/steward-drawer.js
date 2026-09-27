@@ -5,7 +5,7 @@ import './mission-state.js';
 // 所以 net.js 这边要的不再是 authHeaders 而是 apiErrorInfo —— relay 的失败是 409 的结构化信封
 // （propose_required / steward.busy），直接 String() 会把整个 JSON 打进抽屉那行小字。
 import { apiErrorInfo } from './net.js';
-import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, threadShownTitle } from './thread-facts.js';
+import { acceptanceItems, acceptanceRecorded, activeAcceptanceIndex, taskProgress, elapsedLabel, threadIsBlank, threadShownTitle } from './thread-facts.js';
 import { describeTurnActivity } from './turn-activity.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
@@ -299,7 +299,9 @@ export async function stewardThreadStop({ api, sessionId }) {
 export function stewardThreadStateOf(card) {
   const missionState = globalThis.MissionState;
   if (!card || !missionState || typeof missionState.fromCard !== 'function') return '';
-  return String(missionState.fromCard(card).state || '');
+  const state = String(missionState.fromCard(card).state || '');
+  // 走查 U2：用户自己开的空线程不是「交办中」—— 显示层单列一档 blank（「还没开始」），判据见 thread-facts。
+  return state === 'dispatching' && threadIsBlank(card) ? 'blank' : state;
 }
 
 // 121-K6b（34 号文 §7.2／§2.6，§13.11 登记的那笔债）：`stewardCostText` 与它印在元信息那一行的

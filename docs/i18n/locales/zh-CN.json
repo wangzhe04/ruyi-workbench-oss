@@ -2529,6 +2529,7 @@
   "mission.state.needs_you": "需要你",
   "mission.state.done": "已收工",
   "mission.state.stopped": "已停工",
+  "mission.state.blank": "还没开始",
   "mission.state.quick_ask": "速查"
   ,"ask.contextLabel": "提问背景"
   ,"provider.pricing.cachedInputPerM": "缓存命中 / 百万"
@@ -3168,6 +3169,7 @@
   ,"rail.group.needsYou": "等你"
   ,"rail.group.running": "在跑"
   ,"rail.group.queued": "排队"
+  ,"rail.group.fresh": "新开的"
   ,"rail.group.unfinished": "今天没做完"
   ,"rail.group.doneToday": "今天收工"
   ,"rail.group.earlier": "更早"

@@ -2529,6 +2529,7 @@
   "mission.state.needs_you": "Needs you",
   "mission.state.done": "Done",
   "mission.state.stopped": "Stopped",
+  "mission.state.blank": "Not started",
   "mission.state.quick_ask": "Lookup"
   ,"ask.contextLabel": "Question context"
   ,"provider.pricing.cachedInputPerM": "Cached input / million"
@@ -3168,6 +3169,7 @@
   ,"rail.group.needsYou": "Waiting on you"
   ,"rail.group.running": "Running"
   ,"rail.group.queued": "Queued"
+  ,"rail.group.fresh": "New"
   ,"rail.group.unfinished": "Stopped today"
   ,"rail.group.doneToday": "Wrapped up today"
   ,"rail.group.earlier": "Earlier"

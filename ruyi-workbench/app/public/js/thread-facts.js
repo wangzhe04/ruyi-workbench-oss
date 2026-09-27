@@ -234,6 +234,17 @@ export function threadLastTurnFailed(row) {
   return Boolean(last && (last.ok === false || last.aborted === true));
 }
 
+// 走查 U2：用户自己新开、还一句话没说的空线程。五态判据（mission-state.js）把「立了单、还没有任何执行
+// 痕迹」叫 dispatching（交办中／左栏「排队」）—— 那说的是管家交办下去、等着开跑的活；用户自己开的空线程
+// 没人交办、也没在排队（修前右栏还给它挂「在排队，还没轮到它」＋插队／并发上限），它在等的是用户开口。
+// 判据只读卡片上的硬事实：出身 user、没有账本、没跑过回合、此刻没在跑、仲裁器没扣着它。
+export function threadIsBlank(row) {
+  if (!row || String(row.origin || '') !== 'user' || String(row.status || '') !== 'none') return false;
+  if (row.activeTurn === true || Number(row.turnSeq) > 0 || Number(row.runCount) > 0 || row.lastTurn) return false;
+  const reason = String((row.wait && row.wait.reason) || '');
+  return !reason || reason === 'user';
+}
+
 // 124 还债④（40 号文 §8.5 ④）：这个函数原住 steward-board.js。走查② 把右栏那一份改成「最近发生的
 // 那一件」之后，服务端 13q stewardVisit 里还留着自己那一份挑选式（`rows.find(needs_you) ||
 // rows.find(running) || rows[0]`，且 rows 的排序把 dispatching 顶到了「其余」之前）—— **同一个问题
