@@ -2322,33 +2322,36 @@ function parseClaudeEvent(evt) {
 }
 
 // v2.8: normalize Kimi Code's OpenAI-shaped stream-json rows into the internal event vocabulary.
+// 架构还债批 3 A:这是 Kimi 那一份 CLI 适配器(05 AGENT_CLI_ADAPTERS.kimi.parseEvent)的解析器本体。
+function parseKimiStreamJsonEvent(evt) {
+  if (!evt || typeof evt !== 'object') return [{ kind: 'unknown', raw: evt }];
+  if (evt.role === 'meta') {
+    if (evt.type === 'session.resume_hint' && (evt.session_id || evt.sessionId)) {
+      return [{ kind: 'init', sessionId: evt.session_id || evt.sessionId, subtype: evt.type }];
+    }
+    if (evt.type === 'turn.step.retrying') {
+      return [{ kind: 'diagnostic', text: `Kimi 正在重试(${evt.next_attempt || '?'} / ${evt.max_attempts || '?'})：${evt.error_message || evt.error_name || ''}` }];
+    }
+    return [];
+  }
+  if (evt.role === 'assistant') {
+    const out = [];
+    if (typeof evt.content === 'string' && evt.content) out.push({ kind: 'text', text: evt.content, partial: false });
+    for (const call of (Array.isArray(evt.tool_calls) ? evt.tool_calls : [])) {
+      const fn = call && call.function || {};
+      let input = fn.arguments;
+      if (typeof input === 'string') input = safeJsonParse(input, input);
+      out.push({ kind: 'tool_use', id: call.id, name: fn.name || '', input });
+    }
+    return out;
+  }
+  if (evt.role === 'tool') return [{ kind: 'tool_result', id: evt.tool_call_id, content: evt.content, isError: false }];
+  return [{ kind: 'unknown', raw: evt }];
+}
+// 按驱动名分派的兼容出口(e2e 直测它):主回合不再经过这里,而是直接问 05 的 CLI 适配器(adapter.parseEvent)。
 function parseAgentCliEvent(evt, driver = 'claude') {
   if (driver === 'claude') return parseClaudeEvent(evt);
-  if (!evt || typeof evt !== 'object') return [{ kind: 'unknown', raw: evt }];
-  if (driver === 'kimi') {
-    if (evt.role === 'meta') {
-      if (evt.type === 'session.resume_hint' && (evt.session_id || evt.sessionId)) {
-        return [{ kind: 'init', sessionId: evt.session_id || evt.sessionId, subtype: evt.type }];
-      }
-      if (evt.type === 'turn.step.retrying') {
-        return [{ kind: 'diagnostic', text: `Kimi 正在重试(${evt.next_attempt || '?'} / ${evt.max_attempts || '?'})：${evt.error_message || evt.error_name || ''}` }];
-      }
-      return [];
-    }
-    if (evt.role === 'assistant') {
-      const out = [];
-      if (typeof evt.content === 'string' && evt.content) out.push({ kind: 'text', text: evt.content, partial: false });
-      for (const call of (Array.isArray(evt.tool_calls) ? evt.tool_calls : [])) {
-        const fn = call && call.function || {};
-        let input = fn.arguments;
-        if (typeof input === 'string') input = safeJsonParse(input, input);
-        out.push({ kind: 'tool_use', id: call.id, name: fn.name || '', input });
-      }
-      return out;
-    }
-    if (evt.role === 'tool') return [{ kind: 'tool_result', id: evt.tool_call_id, content: evt.content, isError: false }];
-    return [{ kind: 'unknown', raw: evt }];
-  }
+  if (driver === 'kimi') return parseKimiStreamJsonEvent(evt);
   return [{ kind: 'unknown', raw: evt }];
 }
 

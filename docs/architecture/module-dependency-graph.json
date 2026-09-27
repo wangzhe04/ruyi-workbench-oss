@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 62,
-    "providedSymbols": 2805,
-    "requiredSymbols": 2895,
+    "providedSymbols": 2808,
+    "requiredSymbols": 2899,
     "edges": 491,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1875,6 +1875,7 @@
         "parseAgentCliEvent",
         "parseClaudeEvent",
         "parseClaudeTaskNotification",
+        "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
         "pendingPermissions",
         "pendingPlans",
@@ -2358,6 +2359,7 @@
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
+        "AGENT_CLI_ADAPTERS",
         "ASR_FIX_CONTEXT",
         "ASR_FIX_CONTEXT_MAX",
         "ASR_FIX_HARDEN",
@@ -2372,6 +2374,7 @@
         "PROVIDER_REASONING_EFFORTS",
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
+        "agentCliAdapter",
         "applyProviderReasoningEffort",
         "asrChatContentText",
         "asrFixContextTail",
@@ -2896,7 +2899,14 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "parseAgentCliEvent",
+          "symbol": "parseClaudeEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "parseKimiStreamJsonEvent",
           "kinds": [
             "call"
           ]
@@ -20574,6 +20584,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "parseKimiStreamJsonEvent",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "parseMcpConfigFile",
           "kinds": [
             "read"
@@ -20708,6 +20725,20 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "AGENT_CLI_ADAPTERS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "read"
           ]
@@ -24409,7 +24440,8 @@
         "lastSuccessfulClaudeModel",
         "logEvent",
         "nativeClaudeAgentResultInfo",
-        "parseAgentCliEvent",
+        "parseClaudeEvent",
+        "parseKimiStreamJsonEvent",
         "permissionWaitMs",
         "redact",
         "registerUserQuestion",
@@ -29383,6 +29415,7 @@
         "nativeClaudeAgentResultInfo",
         "parseAgentCliEvent",
         "parseClaudeTaskNotification",
+        "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
         "permissionWaitMs",
         "probeMcpConnector",
@@ -29424,6 +29457,8 @@
       "from": "14-main.js",
       "to": "05-claude-engine.js",
       "symbols": [
+        "AGENT_CLI_ADAPTERS",
+        "agentCliAdapter",
         "applyProviderReasoningEffort",
         "asrFixMessages",
         "asrFixSanity",

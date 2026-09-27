@@ -259,7 +259,10 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
     ok(claudePolicy.kimiNativeSlashCommand === false && claudePolicy.recoveryHistory.includes('summary') && claudePolicy.historyRecoveryInjected === true, 'Claude slash recovery behavior remains on its original path');
     const regularClaudePolicy = runPolicy({ ...slashInput, agentCliType: 'claude', message: 'continue normally', summary: '', override: null });
     ok(regularClaudePolicy.recoveryHistory === 'claude-history', 'Claude non-slash recovery history remains available');
-    const kimiBranch = engine.slice(engine.indexOf("  if (agentCliType === 'kimi' && !fakeClaude)"), engine.indexOf('\n  // cmd8191', engine.indexOf("  if (agentCliType === 'kimi' && !fakeClaude)")));
+    // 架构还债批 3 A:ACP 接管那一支改为问 CLI 适配器(AGENT_CLI_ADAPTERS.kimi.runPreparedTurn → runKimiAcpTurnPrepared),锚跟着换。
+    const acpAnchor = '  if (adapter.runPreparedTurn && !fakeClaude)';
+    ok(engine.indexOf(acpAnchor) >= 0 && /runPreparedTurn: context => runKimiAcpTurnPrepared\(context\)/.test(engine), '05 Kimi adapter hands the prepared turn to the ACP bridge');
+    const kimiBranch = engine.slice(engine.indexOf(acpAnchor), engine.indexOf('\n  // cmd8191', engine.indexOf(acpAnchor)));
     ok(/session, message, attachments,/.test(kimiBranch) && /kimiNativeSlashCommand/.test(kimiBranch), '05 passes attachments and kimiNativeSlashCommand to the ACP bridge');
   } catch (error) {
     failures++;

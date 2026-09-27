@@ -242,6 +242,8 @@ module.exports = {
   invalidateAgentCliPathCaches,
   syncMcpServersToKimi,
   parseAgentCliEvent,
+  parseKimiStreamJsonEvent,
+  AGENT_CLI_ADAPTERS, agentCliAdapter, // 架构还债批 3 A:CLI 适配器 —— exposed for unit/agent-cli-adapters.test.js(方法集同构 + 金样)
   providerReasoningEffort,
   applyProviderReasoningEffort,
   buildClaudeCliEnv,

@@ -1837,6 +1837,7 @@
         "parseAgentCliEvent",
         "parseClaudeEvent",
         "parseClaudeTaskNotification",
+        "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
         "pendingPermissions",
         "pendingPlans",
@@ -2312,6 +2313,7 @@
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
+        "AGENT_CLI_ADAPTERS",
         "ASR_FIX_CONTEXT",
         "ASR_FIX_CONTEXT_MAX",
         "ASR_FIX_HARDEN",
@@ -2326,6 +2328,7 @@
         "PROVIDER_REASONING_EFFORTS",
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
+        "agentCliAdapter",
         "applyProviderReasoningEffort",
         "asrChatContentText",
         "asrFixContextTail",
@@ -2850,7 +2853,14 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "parseAgentCliEvent",
+          "symbol": "parseClaudeEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "parseKimiStreamJsonEvent",
           "kinds": [
             "call"
           ]
@@ -20440,6 +20450,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "parseKimiStreamJsonEvent",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "parseMcpConfigFile",
           "kinds": [
             "read"
@@ -20574,6 +20591,20 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "AGENT_CLI_ADAPTERS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "read"
           ]
