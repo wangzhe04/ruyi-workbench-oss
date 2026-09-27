@@ -69,7 +69,7 @@ export function createSettingsOperationsDomain({
     try {
       const result = await api('/api/pick-file', {
         method: 'POST',
-        body: JSON.stringify({ filter: 'Zip 包 (*.zip)|*.zip|所有文件|*.*' }),
+        body: JSON.stringify({ filter: t('settings.update.zipFilter') }),
       });
       if (!result || result.cancelled) return;
       if (!result.ok) {

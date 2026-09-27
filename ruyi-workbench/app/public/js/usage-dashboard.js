@@ -93,7 +93,7 @@ function renderUsage(data) {
     const line = el('div', 'muted usage-ops-line');
     const bits = [t('usage.opsInterventions', { days: ops.days, count: ops.interventions.total })];
     if (ops.missions.started > 0) bits.push(t('usage.opsMissions', { count: ops.missions.started, rate: (ops.missions.budgetOverrunRate * 100).toFixed(0) + '%' }));
-    line.textContent = '🛠 ' + bits.join(' ｜ ');
+    line.textContent = '🛠 ' + bits.join(t('usage.opsSeparator'));
     host.appendChild(line);
   }
   if (byEngine.length) host.appendChild(usageGroup(t('usage.group.engine'), byEngine, 'engine'));
@@ -156,7 +156,7 @@ function usageGroup(title, list, kind) {
   wrap.appendChild(el('div', 'usage-group-title', title));
   const rows = list.map(e => ({ e, tok: (Number(e.inTok) || 0) + (Number(e.outTok) || 0) }));
   const max = Math.max(1, ...rows.map(r => r.tok));
-  const names = rows.map(r => usageEntryName(r.e, kind) + ' ' + t('usage.tokenCount', { count: fmtTokens(r.tok) })).join('；');
+  const names = rows.map(r => usageEntryName(r.e, kind) + ' ' + t('usage.tokenCount', { count: fmtTokens(r.tok) })).join(t('usage.group.nameSeparator'));
   wrap.appendChild(el('p', 'sr-only', t('usage.group.summary', { title, count: rows.length, names })));
   const bars = el('div', 'usage-bars');
   for (const r of rows) bars.appendChild(usageBar(r.e, r.tok, max, kind));

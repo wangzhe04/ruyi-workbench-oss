@@ -7,7 +7,7 @@ import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadF
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
 // 注释）。所以这里接过来的是 chipsWorthPrinting 本身，而不再是 resolveEngineRoute —— 本模块自此
 // 连「会话级 ＞ 全局回落」都不认识，更长不出第二套。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）与轮询常量也只有那一条；121-K2b：连接时的兜底节拍同源
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS, createPollLifecycle } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：note 写手（写 #stewardBoardNote）与轮询常量也只有那一条；121-K2b：连接时的兜底节拍同源；轮询生命周期（启停／门控）同一份
 // F5a（27 号文 §11.13.1「F 追加」）：动作与五态的字形都取自 icons.js 那一张表。
 // missionStateIcon 是【纯派生】（五态值 → 字形名），不是第二份五态枚举 —— 本模块仍然只把
 // threadStateOf() 的返回值原样递进去，`needs_you`/`'stopped'` 的字面量计数一个没变（M6 锁）。
@@ -92,7 +92,7 @@ import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream
 
 // 33 号文 §4「轮询常量收进叶子」：下限 5000／容差 250／默认 15000 这三个值原来与 steward-shell /
 // steward-drawer 两处逐字相同，现在只有 steward-chips.js 一个来源。导出的本地名字没改 —— 锁钉的
-// 是值（导出的 STEWARD_BOARD_POLL_MS_MIN 仍是 5000）与 pollTick／startPolling 的函数体。
+// 是值（导出的 STEWARD_BOARD_POLL_MS_MIN 仍是 5000）与 pollTick 的函数体、起表那一处（createPollLifecycle 的 arm）。
 export const STEWARD_BOARD_POLL_MS_MIN = STEWARD_POLL_MS_MIN;
 // 同 steward-drawer.js：setInterval 会比标称早几毫秒回来，不留容差就会整整推迟一拍。
 const POLL_DUE_SLACK_MS = STEWARD_POLL_DUE_SLACK_MS;
@@ -1827,25 +1827,21 @@ export function createStewardBoard({
     await refreshBoard();
   }
 
-  let pollTimer = 0;
-  function stopPolling() {
-    if (!pollTimer) return;
-    clearInterval(pollTimer);
-    pollTimer = 0;
-  }
-  function startPolling() {
-    if (pollTimer) return;
+  // 幂等启停与门控走 steward-chips.js 的 createPollLifecycle（壳层／抽屉同一份）；起表时不先拉 ——
+  // 首趟由 enterSteward 的 await refreshBoard() 负责。计时器本身仍只在这里起、在这里清。
+  const polling = createPollLifecycle({
+    shouldRun: () => isStewardMode() && !(doc() && doc().hidden),
     // 表走下限，节拍由 pollTick 自己按「有没有在跑的线程」判（见那里的头注）。
-    pollTimer = setInterval(() => { void pollTick(); }, STEWARD_BOARD_POLL_MS_MIN);
-  }
+    arm: () => setInterval(() => { void pollTick(); }, STEWARD_BOARD_POLL_MS_MIN),
+    disarm: timer => clearInterval(timer),
+  });
   // 唯一入口：还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
   // 121-K2b（§6.2）：「看板关着不刷」那道门【删掉】了。它本来的道理是「看不见就别烧请求」，
   // 代价写在 32 号文 §5：看板一关，状态行那句「N 个事项 · A 条在跑，B 条等你」与「现在这一件」
   // 就停在关上的那一帧（两者都【一直可见】，不随看板收起）。K4 之后左栏永远开着，这道门连
   // 「看不见」这个前提都不成立了。烧的请求也回不来：连接正常时这一拍 30 s 才拉一次（pollTick）。
   function syncPolling() {
-    if (isStewardMode() && !(doc() && doc().hidden)) startPolling();
-    else stopPolling();
+    polling.sync();
   }
 
   // 切到工作台视角：右栏收起、焦点松开、计时器清干净。
@@ -1860,7 +1856,7 @@ export function createStewardBoard({
     // 钉子该松开的两种情形各自已有归口，不在这里：用户就地关掉焦点栏走 closeNow()（那是显式的
     // 「松开」），而行里再也找不到它时 currentFocusId() 自己回落到自动挑选。
     syncNow();      // 仍要跑：show 的第一个条件就是 isStewardMode()，所以这一下把右栏收起
-    stopPolling();
+    polling.stop();
     renderRail();
     return true;
   }

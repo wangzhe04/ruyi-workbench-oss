@@ -193,7 +193,9 @@ const ok = (condition, label) => {
   {
     // 三个模块统一：表按各自的 5s 下限起，真要不要拉由每一拍自己判。动态换表会多一处 clearInterval
     // 或多一个 start/stop 调用点，撞上 steward-avatar.static C2a 与 steward-drawer.static C1/C3b。
-    ok(/pollTimer = setInterval\(pollSlice, STEWARD_DRAWER_POLL_MS_MIN\);/.test(drawer),
+    // 轮询生命周期收编（前端架构债第一批）重钉 E1／E2／E3 的前半句：起表那一处从 `pollTimer = setInterval(…)`
+    // 搬进 createPollLifecycle 的 arm（steward-chips.js 一份），周期参数一个字没动。
+    ok(/arm: \(\) => setInterval\(pollSlice, STEWARD_DRAWER_POLL_MS_MIN\),/.test(drawer),
       'E1 抽屉的表按 5s 下限起');
     // 121-K2b（34 号文 §6.2／§6.4）**重钉 E1b／E2／E3**：三处 due 都多了最外面一档 —— 事件流连着时
     // 它们只是【兜底心跳】（STEWARD_POLL_MS_CONNECTED＝30 s，常量仍只有 steward-chips.js 那一份），
@@ -206,10 +208,10 @@ const ok = (condition, label) => {
     // 当拍都重拉事项切片。钉的是「边沿变化那一拍重拉」这件事，不再钉旧的一行写法。
     ok(/const nowLive = isLive\(\);\s*\n\s*if \(wasLive !== nowLive\) await loadMissionSlice\(\);/.test(drawer),
       'E1c 回合刚结束（live 真→假）当拍把事项行与快照一并重拉 —— 「已收工」要立刻看见');
-    ok(/pollTimer = setInterval\(\(\) => \{ void pollTick\(\); \}, STEWARD_BOARD_POLL_MS_MIN\);/.test(board)
+    ok(/arm: \(\) => setInterval\(\(\) => \{ void pollTick\(\); \}, STEWARD_BOARD_POLL_MS_MIN\),/.test(board)
       && /const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(anyThreadRunning\(\) \? STEWARD_BOARD_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(board),
       'E2 看板同一条节拍纪律');
-    ok(/pollTimer = setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\);/.test(shell)
+    ok(/arm: \(\) => setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\),/.test(shell)
       && /const due = streamConnected \? STEWARD_POLL_MS_CONNECTED : \(stewardPollFast\(\) \? STEWARD_POLL_MS_MIN : pollIntervalMs\(\)\);/.test(shell),
       'E3 壳层状态轮询同一条节拍纪律');
     // 121-K2b 新钉（§6.4 的三条语义）：四处兜底轮询的「连接时那一档」是【同一个常量】，而且它

@@ -155,8 +155,14 @@ ok(setIntervalSites === 1 && clearIntervalSites === 1,
   'C2a 全文件恰好一处 setInterval、一处 clearInterval(不会散落出第二套计时)');
 // 117j W2-4 重钉：表按 5s 下限起（不再等于 config.stewardPollMs），真要不要拉由 pollStewardTick
 // 自己判。「setInterval 只住在 startPolling 里」这条契约本身一个字没变，变的只是它的两个参数。
-ok(/function startPolling\(\) \{\s*if \(pollTimer\) return;\s*pollStewardState\(\);\s*pollTimer = setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\);\s*\}/.test(stewardShell),
-  'C2b setInterval 只住在 startPolling 里');
+// 轮询生命周期收编（前端架构债第一批）重钉 C2b／C2c／C2d／C3c：三处手写的 pollTimer ＋ startPolling／
+// stopPolling／syncPolling 收成 steward-chips.js 的 createPollLifecycle 一份。钉的事一个字没变：
+// ① setInterval 只住在起表那一处（现在是交给工厂的 arm），且起表前先当场拉一次（onStart）；
+// ② clearInterval 只住在停表那一处（disarm）；③ 唯一入口 syncPolling 的门控先判 isStewardMode()
+// 与页面可见；④ 工厂自己的启停语义（幂等、先 onStart 再 arm、停表归零）由下面 C2g 真跑一遍验证。
+const shellPollingDecl = /const polling = createPollLifecycle\(\{\s*shouldRun: \(\) => isStewardMode\(\) && !\(globalThis\.document && globalThis\.document\.hidden\),\s*onStart: pollStewardState,\s*arm: \(\) => setInterval\(pollStewardTick, STEWARD_POLL_MS_MIN\),\s*disarm: timer => clearInterval\(timer\),\s*\}\);/;
+ok(shellPollingDecl.test(stewardShell),
+  'C2b setInterval 只住在起表那一处（createPollLifecycle 的 arm，5 s 下限起表），起表前先 onStart 当场拉一次');
 // 121-K2b（34 号文 §6.2／§6.4）**重钉 C2b2**：这一拍多了最外面一档 —— 事件流连着时它只是兜底
 // 心跳（STEWARD_POLL_MS_CONNECTED＝30 s，常量在 steward-chips.js 那一份），断开才回到今天那两档
 // （真有事在跑 5 s，否则 config.stewardPollMs）。被钉的两件事一个字没变：①「表按下限起、真要不要拉
@@ -168,12 +174,45 @@ ok(/function pollStewardTick\(\) \{\s*const due = streamConnected \? STEWARD_POL
 // 121-K2b 新钉：连接状态【只改 due，不改启停】—— syncPolling 的三重门控里一个 streamConnected 都
 // 没有（否则「连着就不开表」会把兜底本身也关掉，推送漏一帧就永远追不回来）。
 ok(!/function syncPolling\(\)[\s\S]{0,200}streamConnected/.test(stewardShell)
+  && !/shouldRun: [^\n]*streamConnected/.test(stewardShell)
   && /eventStream\.on\('steward\.say', \(\) => \{ if \(isStewardMode\(\)\) pollStewardState\(\); \}\);/.test(stewardShell),
   'C2b3 事件流只改节拍不改启停：syncPolling 的门控零 streamConnected；steward.say 到达走的是既有那一处状态拉取（零新请求路）');
-ok(/function stopPolling\(\) \{\s*if \(!pollTimer\) return;\s*clearInterval\(pollTimer\);\s*pollTimer = 0;\s*\}/.test(stewardShell),
-  'C2c clearInterval 只住在 stopPolling 里');
-ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(globalThis\.document && globalThis\.document\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);\s*\}/.test(stewardShell),
-  'C2d 唯一入口 syncPolling 先判 isStewardMode()(与页面可见性)才决定启停，非管家模式恒 stopPolling');
+ok(/disarm: timer => clearInterval\(timer\),/.test(stewardShell)
+  && (stewardShell.match(/\bpolling\.(start|stop)\(\)/g) || []).length === 0,
+  'C2c clearInterval 只住在停表那一处（createPollLifecycle 的 disarm），本文件零直调 polling.start()/polling.stop()');
+ok(/function syncPolling\(\) \{\s*polling\.sync\(\);\s*\}/.test(stewardShell)
+  && /shouldRun: \(\) => isStewardMode\(\) && !\(globalThis\.document && globalThis\.document\.hidden\),/.test(stewardShell),
+  'C2d 唯一入口 syncPolling 先判 isStewardMode()(与页面可见性)才决定启停，非管家模式恒停表');
+{
+  // C2g：工厂本身的启停语义真跑一遍（不止钉字面）——与三处手写版逐条等价：
+  // 幂等起表（已在跑不重起、不重复 onStart）、先 onStart 再 arm、门控为否即停表且计时器句柄归零、
+  // 停表幂等（没在跑不调 disarm）、门控为真时 sync 即起表。
+  const chipsMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'steward-chips.js')).href);
+  const log = [];
+  let gate = true;
+  let nextHandle = 0;
+  const lifecycle = chipsMod.createPollLifecycle({
+    shouldRun: () => gate,
+    onStart: () => log.push('onStart'),
+    arm: () => { nextHandle += 1; log.push('arm:' + nextHandle); return nextHandle; },
+    disarm: handle => log.push('disarm:' + handle),
+  });
+  lifecycle.sync(); lifecycle.sync(); lifecycle.start();
+  const afterStart = log.join(',');
+  gate = false; lifecycle.sync(); lifecycle.sync(); lifecycle.stop();
+  const afterStop = log.join(',');
+  gate = true; lifecycle.sync();
+  const afterRestart = log.join(',');
+  const noOnStart = chipsMod.createPollLifecycle({ shouldRun: () => true, arm: () => 7, disarm: () => {} });
+  noOnStart.sync();
+  ok(afterStart === 'onStart,arm:1'
+    && afterStop === 'onStart,arm:1,disarm:1'
+    && afterRestart === 'onStart,arm:1,disarm:1,onStart,arm:2'
+    && lifecycle.isRunning() === true && noOnStart.isRunning() === true
+    && Object.isFrozen(lifecycle)
+    && !/setInterval\(|setTimeout\(/.test(read('js/steward-chips.js')),
+    `C2g createPollLifecycle：幂等起表、先 onStart 再 arm、门控为否即停表归零、停表幂等、onStart 可缺省；chips 自己仍零计时器（实测 ${afterRestart}）`);
+}
 ok(apiCallSites === 1 && !/\bfetch\(/.test(stewardShell),
   'C3a 全文件恰好一处 api() 调用、零直调 fetch(轮询之外零请求，一律经注入的 api())');
 // 117l-B2 ①（用户第五轮走查 1）：头像那记「点一下」是一次性类 + animationend，不是新的后台活动。
@@ -187,8 +226,16 @@ ok(/function nudgeAvatar\(\) \{/.test(stewardShell)
   'C2f nudge 是显式的一次性口子，不写进 presenceInputs(derivePresence 是纯投影，不该有「播过没有」的记忆)');
 ok(/function pollStewardState\(\) \{\s*if \(typeof api !== 'function'\) return;\s*Promise\.resolve\(api\('\/api\/steward\/state'\)\)/.test(stewardShell),
   'C3b 唯一的 api() 调用住在 pollStewardState 里，目标就是状态轮询端点');
-ok(/function startPolling\(\) \{[\s\S]{0,80}pollStewardState\(\);/.test(stewardShell),
-  'C3c pollStewardState 只被 startPolling 调用(不会绕开门控单独发请求)');
+{
+  // 剥掉注释再数调用点（头注里写着「pollStewardState()（全文件唯一那处请求调用点…）」）。
+  const shellCodeC3c = stewardShell.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const directCalls = (shellCodeC3c.match(/pollStewardState\(\)/g) || []).length;
+  ok(/onStart: pollStewardState,/.test(shellCodeC3c)
+    && directCalls === 3
+    && /function pollStewardTick\(\) \{[\s\S]{0,260}?pollStewardState\(\);\s*\}/.test(shellCodeC3c)
+    && /eventStream\.on\('steward\.say', \(\) => \{ if \(isStewardMode\(\)\) pollStewardState\(\); \}\);/.test(shellCodeC3c),
+    `C3c pollStewardState 只由起表那一刻（onStart）、门控内的节拍 pollStewardTick 与 isStewardMode() 守着的 steward.say 调用(不会绕开门控单独发请求；实测定义＋直调 ${directCalls})`);
+}
 ok(/if \(!dependenciesReady\) setStatusText\('stewardShell\.recovery\.dependency'\);/.test(stewardShell)
   && /else if \(!stewardShellDomReady\(\)\) setStatusText\('stewardShell\.recovery\.missingShell'\);/.test(stewardShell)
   && /else setStatusText\('stewardShell\.recovery\.disabled'\);/.test(stewardShell),

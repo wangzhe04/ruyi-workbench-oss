@@ -12,7 +12,7 @@ import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream
 // 117u-G3（§11.15.7）：chipsWorthPrinting 是【看板与本文件共用】的那一份「跟全局一样吗」判据。
 // 它住在 steward-chips.js 而不是看板里，正是因为本文件不能反向 import 看板（steward-board.js 已经
 // import 本文件）—— 详见那边的函数头注释。本文件不自己比对任何会话字段。
-import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫、note 写手与轮询常量也只有那一条
+import { createQuickSwitchChips, doc, byId, el, clear, chipsWorthPrinting, bindEnterToSubmit, writeNote, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS, createPollLifecycle } from './steward-chips.js';   // 117n-M1：DOM 基础件复用（doc/byId/el/clear 不再本地重复）；33 号文 §4：回车发送的守卫、note 写手与轮询常量也只有那一条
 // F5a（27 号文 §11.13.1「F 追加」）：状态药丸里那枚字形。missionStateIcon 是【纯派生】
 // （五态值 → 字形名），不是第二份五态枚举 —— 谁处在哪一态仍然只由 mission-state.js 判，
 // 本文件也仍然一个五态字面量都没有（它只把 threadStateOf 的返回值原样递进去）。
@@ -59,8 +59,8 @@ import { readScheduleTasks, upcomingSchedules, scheduleWhenLabel, UP_NEXT_LIMIT 
 //   · 快切   → steward-chips.js 的 createQuickSwitchChips（117g 的 2.0 顶栏与 117h 的看板行 mount 同一个工厂）。
 //     本文件【不自己实现权限档的 PATCH】——线程权限只有 steward-chips.js 一个写口。
 //
-// 轮询纪律（延续 117b 的 C2a，本文件自己那一份）：全文件恰好一处 setInterval（startPolling）与一处
-// clearInterval（stopPolling），唯一入口 syncPolling() 先判「抽屉开着 && 管家模式 && 页面可见」，
+// 轮询纪律（延续 117b 的 C2a，本文件自己那一份）：全文件恰好一处 setInterval（arm）与一处
+// clearInterval（disarm，二者交给 steward-chips.js 的 createPollLifecycle），唯一入口 syncPolling() 先判「抽屉开着 && 管家模式 && 页面可见」，
 // 任一为否即停。触发点：抽屉开关、data-shell-mode 的 MutationObserver、visibilitychange。
 //
 // 「不经管家」（§8.13）：你可以说与底部输入框直接对线程说话 —— 117l D2 起【一律走 POST
@@ -1522,21 +1522,18 @@ export function createStewardDrawer({
     return true;
   }
 
-  let pollTimer = 0;
-  function stopPolling() {
-    if (!pollTimer) return;
-    clearInterval(pollTimer);
-    pollTimer = 0;
-  }
-  function startPolling() {
-    if (pollTimer) return;
+  // 幂等启停与门控走 steward-chips.js 的 createPollLifecycle（壳层／看板同一份）；起表时不先拉 ——
+  // 首趟由 openThread 的 refreshOnce 负责。计时器本身仍只在这里起、在这里清。
+  const polling = createPollLifecycle({
+    // 唯一门控：抽屉开着 且 还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
+    shouldRun: () => isOpen() && isStewardMode() && !(doc() && doc().hidden),
     // 表走下限，节拍由 pollSlice 自己按「有没有在跑的回合」判（见那里的头注）。
-    pollTimer = setInterval(pollSlice, STEWARD_DRAWER_POLL_MS_MIN);
-  }
-  // 唯一入口：抽屉开着 且 还在管家模式 且 页面可见 —— 任一为否立刻停表（零后台活动）。
+    arm: () => setInterval(pollSlice, STEWARD_DRAWER_POLL_MS_MIN),
+    disarm: timer => clearInterval(timer),
+  });
+  // 唯一入口：别处一律不直接调 polling.start/polling.stop（关抽屉那一处停表除外）。
   function syncPolling() {
-    if (isOpen() && isStewardMode() && !(doc() && doc().hidden)) startPolling();
-    else stopPolling();
+    polling.sync();
   }
 
   // ── 开关 ────────────────────────────────────────────────────────────────────
@@ -1675,7 +1672,7 @@ export function createStewardDrawer({
     // syncNow 一次、本模块的视角观察者一次），第二次手上已经没有线程了 —— 【不许】拿空值把刚记下的那一帧冲掉。
     { const frame = captureFrame(); if (frame) lastFrame = frame; }
     sessionId = '';
-    stopPolling();
+    polling.stop();
     // 117h：docked 那一份被关掉 = 用户「关掉」了「现在这一件」（Esc 与 × 也算），本机偏好由
     // steward-board.js 记；抽屉自己不认识 localStorage。
     if (wasOpen) { try { onClosed(mountMode); } catch { /* 宿主收摊失败不该把抽屉留在半开 */ } }

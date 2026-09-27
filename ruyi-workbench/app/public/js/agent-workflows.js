@@ -160,7 +160,7 @@ async function openWorkflowEditor(initialId) {
     const nodes=draft.nodes, ids=new Set(nodes.map(n=>n.id)), problems=[], bad=new Set(), seen=new Set();
     for(const n of nodes){ if(seen.has(n.id)){ problems.push(t('workflow.canvas.duplicateNodeId')+n.id); bad.add(n.id); } seen.add(n.id); }
     for(const n of nodes){ if(!String(n.task||'').trim()){ problems.push(t('workflow.canvas.problemPrefix',{id:n.id})+t('workflow.canvas.emptyTask')); bad.add(n.id); } }
-    for(const n of nodes){ for(const d of n.dependsOn||[]){ if(!ids.has(d)){ problems.push(t('workflow.canvas.problemPrefix',{id:n.id})+t('workflow.canvas.missingDep')+d+'」'); bad.add(n.id); } } }
+    for(const n of nodes){ for(const d of n.dependsOn||[]){ if(!ids.has(d)){ problems.push(t('workflow.canvas.problemPrefix',{id:n.id})+t('workflow.canvas.missingDep')+d+t('workflow.canvas.missingDepEnd')); bad.add(n.id); } } }
     const color=new Map(); let cyc=false;
     const dfs=id=>{ color.set(id,1); const n=nodes.find(x=>x.id===id); for(const d of (n&&n.dependsOn||[]).filter(x=>ids.has(x))){ const c=color.get(d)||0; if(c===1){ cyc=true; bad.add(id); bad.add(d); } else if(c===0) dfs(d); } color.set(id,2); };
     for(const n of nodes){ if((color.get(n.id)||0)===0) dfs(n.id); }
@@ -313,7 +313,7 @@ async function openWorkflowEditor(initialId) {
   addBtn.onclick=()=>{flushInspector();snapshot();let i=draft.nodes.length+1,id=`step_${i}`;while(draft.nodes.some(x=>x.id===id))id=`step_${++i}`;draft.nodes.push({id,task:t('workflow.describeTask'),role:'worker',dependsOn:[],failurePolicy:'block',position:{x:60+(i%3)*250,y:80+Math.floor(i/3)*150}});selectedId=id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();};
   deleteBtn.onclick=()=>{
     if(draft.nodes.length<=1)return toast(t("toast.wfKeepOne"),'err');
-    if(!confirm(`删除节点「${selectedId}」？其依赖它的运行条件/循环停止条件将被清除（可用 Ctrl+Z 撤销）。`))return;   // 对抗轮 P3: 原文案称"不可撤销"与 snapshot/undo 实现矛盾
+    if(!confirm(t('workflow.editor.deleteNodeConfirm',{id:String(selectedId)})))return;   // 对抗轮 P3: 原文案称"不可撤销"与 snapshot/undo 实现矛盾
     snapshot();const deadId=selectedId;
     draft.nodes=draft.nodes.filter(x=>x.id!==deadId);
     const cleared=clearWorkflowNodeRef(deadId);
@@ -405,7 +405,7 @@ async function agentRunAction(runId, action, extra) {
 // prompt() 交互（右栏 agent-runs tab 的「插话」按钮仍是 3 参调用）。两条路径共用同一 steer_node action 与 toast。
 async function steerAgentNode(runId, nodeId, nodeStatus, presetText, engine) {
   const sid = state.currentSession?.id; if (!sid) return;
-  const hint = `对节点 ${nodeId} 插话（运行中节点会立即接收，排队节点在启动时接收）：`;
+  const hint = t('workflow.steerPrompt', { nodeId: String(nodeId) });
   const text = (presetText != null ? presetText : (prompt(hint) || '')).trim();
   if (!text) return;
   try {
@@ -488,7 +488,7 @@ function renderAgentRuns(runs) {
       if (runningNode && rlast && rlast.text) {
         const live = el('div', 'ar-agg-live');
         live.appendChild(el('span', 'ar-agg-live-dot'));
-        live.appendChild(el('span', 'ar-agg-live-text num', `${runningNode.id}：${rlast.text}`));
+        live.appendChild(el('span', 'ar-agg-live-text num', t('workflow.agg.liveLine', { id: String(runningNode.id), text: rlast.text })));
         sum.appendChild(live);
       }
     }
@@ -638,7 +638,7 @@ function renderAgentRuns(runs) {
       if (verdict || (node.confidence != null && Number.isFinite(Number(node.confidence)))) {
         const g = el('div', 'wf-node-gate');
         if (verdict) g.appendChild(el('span', `wf-gate-verdict gv-${String(verdict).toLowerCase()}`, t('workflow.meta.verdict', { verdict })));
-        if (node.confidence != null && Number.isFinite(Number(node.confidence))) g.appendChild(el('span', 'wf-gate-conf', `置信度 ${(Number(node.confidence) * 100).toFixed(0)}%`));
+        if (node.confidence != null && Number.isFinite(Number(node.confidence))) g.appendChild(el('span', 'wf-gate-conf', t('workflow.meta.confidence', { pct: (Number(node.confidence) * 100).toFixed(0) })));
         body.appendChild(g);
       }
       // ── 资源锁 chip（§2.3）：等待中高亮 blocker。 ──

@@ -318,53 +318,31 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // aria-label/option 文案挪出「只建一次」分支，加了几行头注解释为什么——见该函数头注）——352 在插入点
     // 之前不动，其余九条整体 +7（逐行 byte 比对过：与位移前的 1121/1450/1484/1494/1521/1525/1556/
     // 1589/1590 逐字相同，是位移不是新增，同上面各次先例）。
-    352: '进程状态 tooltip：117q-B3a 登记，待另刀（P1-7 范围外）',
-    1128: '工具面板里的调试回显（模型=/权限=），不是常规用户文案：117q-B3a 登记，待另刀',
-    1457: '「已按你的补充意见继续」提示：117q-B3a 登记，待另刀',
+    // 前端架构债第一批（i18n 收口）：上面登记的九处子代理卡／进程状态／调试回显／补充意见文案已全部改走 t()
+    // （status.processState、chat.subagent.*、chat.meta.modelPermission、chat.planNoteContinued），登记随之撤掉；
+    // 只剩下面这一条正则词表（它匹配的是 SSE 文本，不是渲染给用户的文案）。行号未动（改动都在原行内）。
     1491: '正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
-    1501: '子代理卡状态行「生成中 · N 字」：117q-B3a 登记，待另刀',
-    1528: '子代理卡依赖标签「依赖 ...」：117q-B3a 登记，待另刀',
-    1532: '子代理卡状态「执行中…」：117q-B3a 登记，待另刀',
-    1563: '子代理卡重试状态「重试中 n/m」：117q-B3a 登记，待另刀',
-    1596: '子代理卡「后台执行中」状态：117q-B3a 登记，待另刀',
-    1597: '子代理卡「✓ 完成 · N 字结论」状态：117q-B3a 登记，待另刀',
   },
-  'workbench.js': {
-    531: '工作流节点 aria-label「节点 N · 状态(点击定位到监控卡)」：117q-B3a 登记，待另刀',
-    561: '工作流节点判定标签「判定 X」：117q-B3a 登记，待另刀',
-    562: '工作流节点置信度标签：117q-B3a 登记，待另刀',
-    567: '工作流节点依赖标签「← 依赖 ...」：117q-B3a 登记，待另刀',
-  },
+  // 前端架构债第一批：节点 aria-label／判定／置信度／依赖四处已改走 t()（workflow.node.ariaLabel、
+  // workflow.detail.verdict、workflow.meta.confidence、workflow.node.dependsOn），白名单清空。
+  'workbench.js': {},
   'agent-roles.js': {},
-  'navigation-controls.js': {
-    // 32 号文 §4（M1-a）：模型弹层本体搬进 model-menu.js（两壳共用），本文件整体 -51 行 —— 两条登记
-    // 行号随之下移。逐条核对过内容没变（仍是 ctx-pop 的「已用 N / 上限 M」那行与用量文本刷新点），
-    // 是位移不是新增（同 117s-G 那次 +41 的先例）。
-    // 32 号文 §4（M1-b）：浮层原语 popover/closePopover 搬进 js/popover.js，本文件再 -43 行 ——
-    // 两条登记行号再次纯位移（同一条先例：内容逐条比对过，仍是那两处 ctx-pop 用量文本）。
-    // 32 号文 §4（M1-b 续）：setEngineModel 加 opts.scope、openModelChipPopover 加 opts 透传，本文件 +10
-    // 行 —— 两条登记行号再 +10（逐行 byte 比对过：415/531 与位移前的 405/521 逐字相同，纯位移）。
-    // 121-K5（34 号文 §3.1）：renderModelChip（23 行）与 openModelChipPopover（84 行）随顶栏那枚
-    // #modelChip 一起退役，换进来的是 modelMenuExtras（68 行）—— 本文件净 -35 行，两条登记行号
-    // 随之 415→380、531→496（逐行 byte 比对过：内容仍是那两处 ctx-pop 的「已用 N / 上限 M」文本，
-    // 是位移不是新增，同 M1-a／M1-b 两次的先例）。
-    // 124 走查（用户 2026-09-14 两条小修）：本文件在 300 行前后插入 deleteProviderModel／
-    // providerModelIdSet（+45）、modelMenuExtras 的 route 分岔与「刷新不关菜单」（+15）、两段说明
-    // （+3），合计 +63 行 —— 两条登记行号随之整体 +63（逐行 byte 比对过：内容仍是那两处 ctx-pop
-    // 的「已用 N / 上限 M」文本，是位移不是新增，同 M1-a／M1-b 与 117s-G 的先例）。
-    // 顺带修正一处陈旧：HEAD 上这两个键（380/496）就已比真实命中（389/505）小 9 行，本波按当前
-    // 源码逐条重钉为 452/568（判据本身一个字没改）。
-    // 再次纯位移重钉（判据一字未改，同历次先例）：当前源码真实命中在 453/562 —— 用量行渲染点
-    // +1、用量文本刷新点 -6；逐字核对内容仍是那两处 ctx-pop 的「已用 N / 上限 M」文本，是位移不是新增。
-    453: '上下文用量弹层「已用/上限」行：117q-B3a 登记，待另刀（P1-7 范围外，压缩模型选择器本身已修）',
-    562: '同上，另一处用量文本刷新点：117q-B3a 登记，待另刀',
-  },
+  // 前端架构债第一批：ctx-pop 用量行的两处（渲染点与 Kimi 状态刷新点）已改走 t('ctx.pop.usage')／
+  // t('ctx.pop.usageUnknown')，白名单清空（此前的行号位移史见 git log）。
+  'navigation-controls.js': {},
 });
+// 前端架构债第一批（i18n 收口）新增扫描面（纯新增，白名单一律为空）：本批把这些文件里剩下的硬编码中文
+// 全部改走 t()／tCount()，这里把它们也纳入「代码行零中文」的门，防止回潮。
+const CJK_CLEANED_FILES = ['agent-workflows.js', 'artifact-changes.js', 'chat-render-primitives.js',
+  'chat-static-renderer.js', 'session-experience.js', 'settings-operations.js', 'usage-dashboard.js',
+  'steward-settings.js', 'turn-activity.js'];
 const CJK_SCAN_TARGETS = [
   ['chat-stream-runtime.js', chatStreamSrc],
   ['workbench.js', workbenchSrc],
   ['agent-roles.js', agentRolesSrc],
   ['navigation-controls.js', navSrc],
+  ...CJK_CLEANED_FILES.map(name => [name, read(PUBLIC, 'js', name)]),
+  ['app.js', appSrc],
 ];
 for (const [name, source] of CJK_SCAN_TARGETS) {
   const allowed = ALLOWED_CJK_CODE[name] || {};
