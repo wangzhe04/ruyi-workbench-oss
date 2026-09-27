@@ -25,6 +25,8 @@
 - 新增 exec 档内建工具:决定进不进不可逆账(02 `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
 - 新模块默认挂在依赖环外:需要调用后加载的模块时走 `*Hooks` 延迟绑定(先例 06j / 13t)。
   强连通分量的规模有上限(`module-dependency-graph.static.e2e.js`)。
+- 往 `14-main.js` 的 `module.exports` 加名字前先写直调它的测试:每个导出都须被 `dev-harness/` 或 `ruyi-workbench/tools/`
+  引用,总数只减不增(`unit/export-surface.test.js`;刻意的公共接口登记进它的 `PUBLIC_API` 并写理由)。
 
 ## 提交前的快速检查(与 CI 同序)
 

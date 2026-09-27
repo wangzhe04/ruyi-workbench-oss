@@ -5,8 +5,8 @@
   "summary": {
     "modules": 62,
     "providedSymbols": 2808,
-    "requiredSymbols": 2899,
-    "edges": 491,
+    "requiredSymbols": 2826,
+    "edges": 486,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -19357,13 +19357,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "SESSION_SCHEMA",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01-config.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -19470,20 +19463,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "invalidateAgentCliPathCaches",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "invalidateClaudePathCache",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "mutateConfig",
           "kinds": [
             "read"
@@ -19542,13 +19521,6 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "selectedAgentCli",
           "kinds": [
             "read"
           ]
@@ -19912,13 +19884,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "foldMissionChangeJournalText",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "invalidateSessionIndex",
           "kinds": [
             "read"
@@ -19989,28 +19954,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "MISSION_CONTAINER_SCHEMA",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "missionAttachThread",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionChangeFilePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionDetachThread",
           "kinds": [
             "read"
           ]
@@ -20053,20 +19997,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readInterventions",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readInterventionsWithMeta",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readMissionChangesWithMeta",
           "kinds": [
             "read"
           ]
@@ -20199,13 +20129,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "workspaceBaselineIsCodePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "writeSessionNotes",
           "kinds": [
             "read"
@@ -20262,13 +20185,6 @@
         },
         {
           "provider": "02f-turn-effect-kinds.js",
-          "symbol": "isBridgedWriteTool",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02f-turn-effect-kinds.js",
           "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
           "kinds": [
             "read"
@@ -20277,13 +20193,6 @@
         {
           "provider": "02f-turn-effect-kinds.js",
           "symbol": "TURN_SUMMARY_FILE_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02f-turn-effect-kinds.js",
-          "symbol": "unprefixedBridgedName",
           "kinds": [
             "read"
           ]
@@ -20298,13 +20207,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "AUTOEXEC_DENYLIST",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "BRIDGED_WRITE_AUDIT_EXEMPT",
           "kinds": [
             "read"
           ]
@@ -20367,13 +20269,6 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "fileAllowedRoots",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "guardFileToolPath",
           "kinds": [
             "read"
@@ -20381,21 +20276,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "guardWorkspaceExecute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "guardWorkspacePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "normalizeAutoexecPath",
           "kinds": [
             "read"
           ]
@@ -20423,35 +20304,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "readFilePreview",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "resolvePreferredCodeEditor",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "resolveWorkspace",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "workspaceWriteRoots",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-desktop-shell.js",
-          "symbol": "DesktopShell",
           "kinds": [
             "read"
           ]
@@ -20584,13 +20437,6 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "parseKimiStreamJsonEvent",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "parseMcpConfigFile",
           "kinds": [
             "read"
@@ -20647,21 +20493,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "scanMcpDropIns",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "scanMcpSources",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-visual-pipeline.js",
-          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -20697,13 +20529,6 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "providerCompletionUrl",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerPostJsonOnce",
           "kinds": [
             "read"
           ]
@@ -20829,13 +20654,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "compactKimiNative",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "consumeKimiAcpApproval",
           "kinds": [
             "read"
@@ -20844,13 +20662,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "isKimiAcpPlanFilePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpConcreteEditGuard",
           "kinds": [
             "read"
           ]
@@ -20899,13 +20710,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpNativeWindowsPathToPosixPath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "kimiAcpPermissionToolCall",
           "kinds": [
             "read"
@@ -20921,20 +20725,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiAcpSuccessfulEnterPlanMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpToolTier",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpToolUpdateSucceeded",
           "kinds": [
             "read"
           ]
@@ -20976,13 +20766,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "readKimiWireRuntime",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "resolveKimiAcpPlanFilePath",
           "kinds": [
             "read"
@@ -20991,13 +20774,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "runKimiCompact",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "stopKimiServer",
           "kinds": [
             "read"
           ]
@@ -21019,13 +20795,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "appendTurnPolicies",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "auditSummaryFor",
           "kinds": [
             "read"
           ]
@@ -21082,13 +20851,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "buildProviderSystemPrompt",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "buildResponseLanguagePolicy",
           "kinds": [
             "read"
           ]
@@ -21158,13 +20920,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "collectAudit",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "collectStorageStats",
           "kinds": [
             "read"
@@ -21207,20 +20962,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "isLongToolTask",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "loadAllPlaybooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "matchServiceEntry",
           "kinds": [
             "read"
@@ -21236,13 +20977,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "maybeWriteThreadBrief",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "NETWORK_ANCHORS",
           "kinds": [
             "read"
           ]
@@ -21306,13 +21040,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "providerRawCompletion",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "readProjectMemory",
           "kinds": [
             "read"
           ]
@@ -21480,13 +21207,6 @@
         },
         {
           "provider": "06d-memory-domain.js",
-          "symbol": "effectiveMemorySelection",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
           "symbol": "extractMemoryRelationProposals",
           "kinds": [
             "read"
@@ -21537,13 +21257,6 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "memoryProposalSimilarity",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
-          "symbol": "memorySearchTerms",
           "kinds": [
             "read"
           ]
@@ -21837,20 +21550,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_MEMORY_LIMITS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_PERMISSION_MODE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PERMISSION_RANK",
           "kinds": [
             "read"
@@ -21872,13 +21571,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_QUICK_KIND",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
@@ -21887,13 +21579,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_TITLE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_THREAD_STATES",
           "kinds": [
             "read"
           ]
@@ -21949,13 +21634,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardExemptAbsoluteDeleteTarget",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptDelegationVerdict",
           "kinds": [
             "read"
@@ -21971,13 +21649,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptHits",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardExemptIndirectConstruction",
           "kinds": [
             "read"
           ]
@@ -22033,13 +21704,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardMemoryTerms",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "stewardOpenAiFallback",
           "kinds": [
             "read"
@@ -22055,13 +21719,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardPlaybookMissingInputs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardSanitizeBlock",
           "kinds": [
             "read"
           ]
@@ -22243,20 +21900,6 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_ON_FAILURE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_ON_MISSED",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_OUTCOMES",
           "kinds": [
             "read"
@@ -22264,42 +21907,7 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_PAYLOAD_KINDS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_PHASES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_SCHEDULE_KINDS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_TARGET_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_THREAD_TIERS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SchedulerHooks",
           "kinds": [
             "read"
           ]
@@ -22397,13 +22005,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "estimateToolSchemaTokens",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
           "kinds": [
             "read"
@@ -22460,13 +22061,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "readProjectAgentRoles",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "requestNativePermission",
           "kinds": [
             "read"
@@ -22503,13 +22097,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "agentRunResultSlice",
           "kinds": [
             "read"
           ]
@@ -22733,13 +22320,6 @@
         },
         {
           "provider": "08-agent-runs.js",
-          "symbol": "sanitizeAgentOutputSchema",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
           "symbol": "saveAgentWorkflow",
           "kinds": [
             "read"
@@ -22797,34 +22377,6 @@
         {
           "provider": "09-workflow.js",
           "symbol": "waitForAgentRunResults",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "applyReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "proposeReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "rollbackReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "validateReplanPatch",
           "kinds": [
             "read"
           ]
@@ -22894,13 +22446,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "applySummaryCallPolicy",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
           "kinds": [
             "read"
@@ -22958,13 +22503,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "COMPACT_RESEED_TAIL_MAX_TOKENS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "compactHistoryFromSession",
           "kinds": [
             "read"
           ]
@@ -23112,13 +22650,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "mergeSessionNotes",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "MODEL_CONTEXT_TABLE",
           "kinds": [
             "read"
           ]
@@ -23286,13 +22817,6 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "builtinSearch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
           "symbol": "classifyFetchError",
           "kinds": [
             "read"
@@ -23411,20 +22935,6 @@
           ]
         },
         {
-          "provider": "11-native-tools.js",
-          "symbol": "zipCollectEntries",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "12-tool-dispatch.js",
-          "symbol": "buildWorkbenchSelfStatus",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13-http-router.js",
           "symbol": "doctor",
           "kinds": [
@@ -23460,22 +22970,8 @@
           ]
         },
         {
-          "provider": "13d-core-domain-routes.js",
-          "symbol": "agentRunActionCommand",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13e-pretender-index.js",
-          "symbol": "pretenderIndexPath",
           "kinds": [
             "read"
           ]
@@ -23575,13 +23071,6 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "ensureStewardSession",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
           "kinds": [
             "read"
           ]
@@ -29140,7 +28629,6 @@
         "CONFIG_SCHEMA",
         "EventStreamHooks",
         "RUYI_EVENTS",
-        "SESSION_SCHEMA",
         "apiSessionIdInvalid",
         "apiSessionNotFound",
         "appendUsageLedger",
@@ -29172,8 +28660,6 @@
         "ensureDesktopMcpWarm",
         "generateMcpConfig",
         "generateSessionMcpConfig",
-        "invalidateAgentCliPathCaches",
-        "invalidateClaudePathCache",
         "mutateConfig",
         "normalizeConfig",
         "pickPython",
@@ -29183,7 +28669,6 @@
         "readConfig",
         "readFileTail",
         "resolveClaudeLauncher",
-        "selectedAgentCli",
         "syncMcpServersToKimi"
       ],
       "direction": "backward"
@@ -29259,7 +28744,6 @@
       "symbols": [
         "BRIDGED_WRITE_PATH_ARGS",
         "MISSION_CONTAINER_MAX_FILES",
-        "MISSION_CONTAINER_SCHEMA",
         "buildTurnSummary",
         "bumpMissionChangeSeq",
         "captureWorkspaceTurnBaseline",
@@ -29272,7 +28756,6 @@
         "detectDanglingTurn",
         "flushSessionIndex",
         "flushSessionIndexSync",
-        "foldMissionChangeJournalText",
         "invalidateSessionIndex",
         "isUntitledSessionTitle",
         "journalGc",
@@ -29283,16 +28766,12 @@
         "listSessions",
         "loadSession",
         "missionAttachThread",
-        "missionChangeFilePath",
-        "missionDetachThread",
         "missionMergeInto",
         "missionSplitThreads",
         "mutateSession",
         "normalizeSession",
         "patchMissionContainer",
         "readInterventions",
-        "readInterventionsWithMeta",
-        "readMissionChangesWithMeta",
         "readMissionContainer",
         "readSessionHeadResilient",
         "readSessionNotes",
@@ -29311,7 +28790,6 @@
         "setSessionIndexRebuildScanHookForTest",
         "transitionInterventionState",
         "updateSessionMeta",
-        "workspaceBaselineIsCodePath",
         "writeSessionNotes"
       ],
       "direction": "backward"
@@ -29349,9 +28827,7 @@
       "symbols": [
         "IRREVERSIBLE_NATIVE_KIND",
         "TURN_SUMMARY_COMMAND_TOOLS",
-        "TURN_SUMMARY_FILE_TOOLS",
-        "isBridgedWriteTool",
-        "unprefixedBridgedName"
+        "TURN_SUMMARY_FILE_TOOLS"
       ],
       "direction": "backward"
     },
@@ -29360,7 +28836,6 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "AUTOEXEC_DENYLIST",
-        "BRIDGED_WRITE_AUDIT_EXEMPT",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
         "buildBrowserOpenSpawn",
@@ -29370,26 +28845,12 @@
         "classifyCodeEditorExecutable",
         "cwdWarning",
         "executableFromAssociationCommand",
-        "fileAllowedRoots",
         "guardFileToolPath",
-        "guardWorkspaceExecute",
         "guardWorkspacePath",
-        "normalizeAutoexecPath",
         "pathWithinAnyRoot",
         "pathWithinRoot",
         "providerIsLocal",
-        "readFilePreview",
-        "resolvePreferredCodeEditor",
-        "resolveWorkspace",
-        "workspaceWriteRoots"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "04-desktop-shell.js",
-      "symbols": [
-        "DesktopShell"
+        "resolveWorkspace"
       ],
       "direction": "backward"
     },
@@ -29415,7 +28876,6 @@
         "nativeClaudeAgentResultInfo",
         "parseAgentCliEvent",
         "parseClaudeTaskNotification",
-        "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
         "permissionWaitMs",
         "probeMcpConnector",
@@ -29424,16 +28884,7 @@
         "resolveExternalMcpServers",
         "safeMcpInventory",
         "safeUrlForDisplay",
-        "scanMcpDropIns",
         "scanMcpSources"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "04-visual-pipeline.js",
-      "symbols": [
-        "VisualPipeline"
       ],
       "direction": "backward"
     },
@@ -29446,7 +28897,6 @@
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
-        "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
         "withTransientRetry"
@@ -29478,31 +28928,24 @@
       "from": "14-main.js",
       "to": "05b-kimi-bridge.js",
       "symbols": [
-        "compactKimiNative",
         "consumeKimiAcpApproval",
         "isKimiAcpPlanFilePath",
-        "kimiAcpConcreteEditGuard",
         "kimiAcpFreshActualForOperation",
         "kimiAcpInferConcreteToolInput",
         "kimiAcpModeOptionFromActivated",
         "kimiAcpNativeBashWrapperCandidate",
         "kimiAcpNativeBashWrapperTexts",
         "kimiAcpNativeShellQuote",
-        "kimiAcpNativeWindowsPathToPosixPath",
         "kimiAcpPermissionToolCall",
         "kimiAcpSessionRestoreMethods",
         "kimiAcpSuccessfulEnterPlanMode",
-        "kimiAcpToolTier",
-        "kimiAcpToolUpdateSucceeded",
         "kimiAcpUnknownSessionError",
         "kimiSessionStatus",
         "parseKimiWireAgentEvents",
         "parseKimiWireCompaction",
         "prepareKimiAcpSpawn",
-        "readKimiWireRuntime",
         "resolveKimiAcpPlanFilePath",
         "runKimiCompact",
-        "stopKimiServer",
         "watchKimiWire"
       ],
       "direction": "backward"
@@ -29513,12 +28956,10 @@
       "symbols": [
         "CAP_UNKNOWN_TTL_MS",
         "ERROR_CLASSES",
-        "NETWORK_ANCHORS",
         "TOOL_ITERATION_BUDGETS",
         "TOOL_REQUIRES",
         "appendResponseLanguagePolicy",
         "appendTurnPolicies",
-        "auditSummaryFor",
         "buildAgentTeamHint",
         "buildBrowserAutomationHint",
         "buildClaudeNativeAgentPolicy",
@@ -29527,7 +28968,6 @@
         "buildPlaybookIndexSection",
         "buildPromptTaskContext",
         "buildProviderSystemPrompt",
-        "buildResponseLanguagePolicy",
         "buildRuntimeIdentityFacts",
         "buildSoftwareEngineeringPolicy",
         "buildStableSystemPrompt",
@@ -29536,14 +28976,11 @@
         "clampAppendWithSkills",
         "claudeProjectDirKey",
         "claudeProjectsRoot",
-        "collectAudit",
         "collectStorageStats",
         "evalPlaybookAvailability",
         "fenceSafeSlice",
         "getCapabilities",
         "invalidateCapabilityCache",
-        "isLongToolTask",
-        "loadAllPlaybooks",
         "matchServiceEntry",
         "maybeRecordStorageTrend",
         "maybeWriteThreadBrief",
@@ -29556,7 +28993,6 @@
         "peekCapabilities",
         "probeAny",
         "providerRawCompletion",
-        "readProjectMemory",
         "readStorageTrend",
         "recordEngineTranscript",
         "recordRequestMetric",
@@ -29599,7 +29035,6 @@
         "buildMemoryPromptSection",
         "confirmMemoryRelation",
         "deleteMemoryRelation",
-        "effectiveMemorySelection",
         "extractMemoryRelationProposals",
         "legacyAccMemoryMigrationComplete",
         "listMemoryRelations",
@@ -29608,7 +29043,6 @@
         "memoryProposalIsDuplicate",
         "memoryProposalPrefilter",
         "memoryProposalSimilarity",
-        "memorySearchTerms",
         "migrateLegacyAccMemory",
         "parseMemoryProposalDecision",
         "proposeMemoryFromSession",
@@ -29665,15 +29099,11 @@
         "STEWARD_EXEMPT_NAME_CARVEOUTS",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
         "STEWARD_MEMORY_KINDS",
-        "STEWARD_MEMORY_LIMITS",
-        "STEWARD_PERMISSION_MODE",
         "STEWARD_PERMISSION_RANK",
         "STEWARD_PREROUTE_DEFAULTS",
         "STEWARD_QUICK_ANSWER_CHARS",
-        "STEWARD_QUICK_KIND",
         "STEWARD_SESSION_ID",
         "STEWARD_SESSION_TITLE",
-        "STEWARD_THREAD_STATES",
         "STEWARD_WAIT_LABELS",
         "STEWARD_WAIT_REASONS",
         "StewardHooks",
@@ -29688,22 +29118,18 @@
         "stewardAssemblePlaybookPrompt",
         "stewardClipSay",
         "stewardConfigTierFor",
-        "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptDelegationVerdict",
         "stewardExemptExcerpt",
         "stewardExemptHits",
-        "stewardExemptIndirectConstruction",
         "stewardExemptReason",
         "stewardExemptRiskNote",
         "stewardExemptScanInput",
         "stewardHumanizeIds",
         "stewardMayAct",
         "stewardMayTightenTo",
-        "stewardMemoryTerms",
         "stewardOpenAiFallback",
         "stewardPermissionRank",
         "stewardPlaybookMissingInputs",
-        "stewardSanitizeBlock",
         "stewardStoppedTarget",
         "stewardTaintToolCall",
         "stewardTaintToolName",
@@ -29730,15 +29156,8 @@
         "SCHEDULER_FIRE_MODES",
         "SCHEDULER_FORBIDDEN_PAYLOAD_KEYS",
         "SCHEDULER_LIMITS",
-        "SCHEDULER_ON_FAILURE",
-        "SCHEDULER_ON_MISSED",
         "SCHEDULER_OUTCOMES",
-        "SCHEDULER_PAYLOAD_KINDS",
-        "SCHEDULER_PHASES",
-        "SCHEDULER_SCHEDULE_KINDS",
-        "SCHEDULER_TARGET_MODES",
         "SCHEDULER_THREAD_TIERS",
-        "SchedulerHooks",
         "describeSchedule",
         "missedOccurrence",
         "nextFireAt",
@@ -29767,14 +29186,12 @@
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
-        "estimateToolSchemaTokens",
         "fetchOpenAiModels",
         "finalizeAgentWorktree",
         "getAgentRoleLibrary",
         "nativeToolGate",
         "openAiStreamOnce",
         "readClaudeProjectAgentRoles",
-        "readProjectAgentRoles",
         "requestNativePermission",
         "responsesHistoryWithCompleteToolPairs",
         "saveProjectAgentRoles",
@@ -29790,7 +29207,6 @@
       "symbols": [
         "BUILTIN_AGENT_WORKFLOWS",
         "QUALITY_GATE_OUTPUT_SCHEMA",
-        "agentRunResultSlice",
         "aggregateAgentVote",
         "aggregateCoverage",
         "appendAgentRunEvent",
@@ -29820,7 +29236,6 @@
         "resolveAgentTeamRoute",
         "runSubAgentCore",
         "runWorkspaceHash",
-        "sanitizeAgentOutputSchema",
         "saveAgentWorkflow",
         "singleAgentShorthandNode",
         "syncRunEventSeq",
@@ -29837,17 +29252,6 @@
         "legacySpawnToOrchestrateArgs",
         "planDiscoveryToolBatchAllowed",
         "waitForAgentRunResults"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "09b-replan-ledger.js",
-      "symbols": [
-        "applyReplanPatch",
-        "proposeReplanPatch",
-        "rollbackReplanPatch",
-        "validateReplanPatch"
       ],
       "direction": "backward"
     },
@@ -29871,11 +29275,9 @@
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CompactionPlan",
-        "MODEL_CONTEXT_TABLE",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
         "appendPromptToLastUserMessage",
-        "applySummaryCallPolicy",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
         "buildSummaryFactTableMessages",
@@ -29883,7 +29285,6 @@
         "calibratedEstimate",
         "checkSummaryEntities",
         "chunkHistoryByBudget",
-        "compactHistoryFromSession",
         "configuredConversationWindow",
         "contextWindowFromTable",
         "contextWindowOverrideKey",
@@ -29934,7 +29335,6 @@
       "from": "14-main.js",
       "to": "11-native-tools.js",
       "symbols": [
-        "builtinSearch",
         "classifyFetchError",
         "crc32",
         "embeddedIpv4FromV6",
@@ -29951,16 +29351,7 @@
         "webFetch",
         "webFetchFailMessage",
         "webSearch",
-        "writeWebCache",
-        "zipCollectEntries"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "12-tool-dispatch.js",
-      "symbols": [
-        "buildWorkbenchSelfStatus"
+        "writeWebCache"
       ],
       "direction": "backward"
     },
@@ -29978,18 +29369,9 @@
     },
     {
       "from": "14-main.js",
-      "to": "13d-core-domain-routes.js",
-      "symbols": [
-        "agentRunActionCommand"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
       "to": "13e-pretender-index.js",
       "symbols": [
         "getPretenderProjectionIndex",
-        "pretenderIndexPath",
         "warmPretenderProjectionIndex"
       ],
       "direction": "backward"
@@ -30031,7 +29413,6 @@
       "from": "14-main.js",
       "to": "13m-steward-runner-base.js",
       "symbols": [
-        "STEWARD_INBOX_DELIVERABLE_CHARS",
         "STEWARD_INBOX_MESSAGE_CHARS",
         "STEWARD_SAY_CEILING",
         "STEWARD_SAY_TARGET",
