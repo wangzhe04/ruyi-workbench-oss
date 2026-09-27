@@ -189,6 +189,23 @@
       "requires": []
     },
     {
+      "file": "01d-win-cmdline.js",
+      "layer": "foundation",
+      "provides": [
+        "CMD_EXE_LINE_LIMIT",
+        "CMD_LINE_QUOTE_MARGIN",
+        "CMD_LINE_SAFE_BUDGET",
+        "DIRECT_SPAWN_LINE_BUDGET",
+        "batchSafeSpawn",
+        "cmdLineBudgetFor",
+        "cmdLineBudgetSeam",
+        "isBatchLauncher",
+        "quoteWinArg",
+        "spawnCmdLineLength"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
@@ -199,9 +216,6 @@
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_PERMISSION_MODE_MAP",
         "CLAUDE_THINKING_EFFORTS",
-        "CMD_EXE_LINE_LIMIT",
-        "CMD_LINE_QUOTE_MARGIN",
-        "CMD_LINE_SAFE_BUDGET",
         "CONFIG_BOOKKEEPING_KEYS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
@@ -213,7 +227,6 @@
         "DESKTOP_PYTHON_MISS_CACHE_MS",
         "DESKTOP_PYTHON_OK_CACHE_MS",
         "DESKTOP_PYTHON_PROBE_TIMEOUT_MS",
-        "DIRECT_SPAWN_LINE_BUDGET",
         "DurableJsonStore",
         "PERMISSION_MODES",
         "PERMISSION_MODES_REQUIRING_CONFIRM",
@@ -242,7 +255,6 @@
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
-        "batchSafeSpawn",
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
@@ -250,8 +262,6 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
-        "cmdLineBudgetFor",
-        "cmdLineBudgetSeam",
         "commandForSelfMcp",
         "configCanonicalJson",
         "configComparableValue",
@@ -304,7 +314,6 @@
         "invalidateAgentCliPathCaches",
         "invalidateClaudePathCache",
         "isAskUserTool",
-        "isBatchLauncher",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
         "kimiMcpManagedIds",
@@ -329,7 +338,6 @@
         "probeAgentCliLauncherRemembered",
         "probeDesktopPython",
         "probeDesktopPythonAsync",
-        "quoteWinArg",
         "readBody",
         "readConfig",
         "readConfigPrev",
@@ -351,7 +359,6 @@
         "serveStatic",
         "sessionPath",
         "sessionWriteChains",
-        "spawnCmdLineLength",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
@@ -527,6 +534,20 @@
           "symbol": "ROUTE_AUTH",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1412,13 +1433,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1427,6 +1441,13 @@
         {
           "provider": "01-config.js",
           "symbol": "spawnProbeAsync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
           ]
@@ -1769,13 +1790,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "detectDesktopMcp",
           "kinds": [
             "call"
@@ -1812,6 +1826,13 @@
         {
           "provider": "01-config.js",
           "symbol": "selectedAgentCli",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
           ]
@@ -1931,7 +1952,7 @@
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01d-win-cmdline.js",
           "symbol": "batchSafeSpawn",
           "kinds": [
             "call",
@@ -2289,34 +2310,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "CMD_EXE_LINE_LIMIT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CMD_LINE_QUOTE_MARGIN",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetSeam",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -2345,13 +2338,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "isBatchLauncher",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
           "kinds": [
             "call"
@@ -2360,13 +2346,6 @@
         {
           "provider": "01-config.js",
           "symbol": "probeAgentCliLauncher",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "quoteWinArg",
           "kinds": [
             "call"
           ]
@@ -2394,13 +2373,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "syncMcpServersToKimi",
           "kinds": [
             "call"
@@ -2409,6 +2381,55 @@
         {
           "provider": "01-config.js",
           "symbol": "writeToChild",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "CMD_EXE_LINE_LIMIT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "CMD_LINE_QUOTE_MARGIN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetSeam",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "quoteWinArg",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
           "kinds": [
             "call"
           ]
@@ -5579,13 +5600,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
           "kinds": [
             "call"
@@ -5603,13 +5617,6 @@
           "symbol": "CLAUDE_PERMISSION_MODE_MAP",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -5662,13 +5669,6 @@
           ]
         },
         {
-          "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "01c-runtime-flags.js",
           "symbol": "appendOnlyToolSchemasEnabled",
           "kinds": [
@@ -5678,6 +5678,27 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
           "kinds": [
             "call"
           ]
@@ -19017,13 +19038,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "buildClaudeCliEnv",
           "kinds": [
             "read"
@@ -19032,13 +19046,6 @@
         {
           "provider": "01-config.js",
           "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
           "kinds": [
             "read"
           ]
@@ -19206,13 +19213,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "quoteWinArg",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call",
@@ -19243,13 +19243,6 @@
         {
           "provider": "01-config.js",
           "symbol": "selectedAgentCli",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
           "kinds": [
             "read"
           ]
@@ -19453,6 +19446,34 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "quoteWinArg",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
           "kinds": [
             "read"
           ]
