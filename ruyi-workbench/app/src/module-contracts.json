@@ -708,6 +708,31 @@
       "requires": []
     },
     {
+      "file": "02d-session-overrides.js",
+      "layer": "foundation",
+      "provides": [
+        "applySessionDesktopToolsOverride",
+        "applySessionPermissionModeOverride",
+        "liveSessionPermissionMode",
+        "normalizeSessionDesktopTools",
+        "normalizeSessionPermissionMode",
+        "sessionDesktopToolsOf",
+        "sessionDesktopToolsOverrides",
+        "sessionEngineRouteOverrides",
+        "sessionPermissionModeOf",
+        "sessionPermissionModeOverrides"
+      ],
+      "requires": [
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "02-session-store.js",
       "layer": "foundation",
       "provides": [
@@ -766,9 +791,7 @@
         "appendIntervention",
         "appendMissionChangeRecord",
         "applyMissionUpdate",
-        "applySessionDesktopToolsOverride",
         "applySessionMetaPatch",
-        "applySessionPermissionModeOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
         "asResultObject",
@@ -841,7 +864,6 @@
         "listMissionContainerIds",
         "listMissionContainers",
         "listSessions",
-        "liveSessionPermissionMode",
         "loadSession",
         "loadSessionV1Backup",
         "markInterruptedInterventions",
@@ -883,9 +905,7 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeSession",
-        "normalizeSessionDesktopTools",
         "normalizeSessionEngineRoute",
-        "normalizeSessionPermissionMode",
         "normalizeTodoItems",
         "noteMissionMembership",
         "overlayUnflushedSessionIndex",
@@ -922,13 +942,10 @@
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
-        "sessionDesktopToolsOf",
-        "sessionDesktopToolsOverrides",
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
         "sessionEngineRouteFromConfig",
-        "sessionEngineRouteOverrides",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
         "sessionIndexFlushTimer",
@@ -947,8 +964,6 @@
         "sessionNotesPath",
         "sessionNotesWriteChains",
         "sessionObjectIsStale",
-        "sessionPermissionModeOf",
-        "sessionPermissionModeOverrides",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "setSessionIndexRebuildScanHookForTest",
@@ -1158,16 +1173,65 @@
         },
         {
           "provider": "01e-permission-modes.js",
-          "symbol": "PERMISSION_MODES",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionDesktopToolsOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "normalizeSessionDesktopTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "normalizeSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOverrides",
           "kinds": [
             "read"
           ]
         },
         {
-          "provider": "01e-permission-modes.js",
-          "symbol": "resolvePermissionMode",
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOf",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOverrides",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -6237,13 +6301,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -6287,6 +6344,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "call"
           ]
@@ -7064,13 +7128,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "call"
@@ -7155,13 +7212,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -7170,6 +7220,20 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -12705,13 +12769,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -12755,6 +12812,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -13863,13 +13927,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "applySessionPermissionModeOverride",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "foldTurnSummaries",
           "kinds": [
             "call"
@@ -13878,6 +13935,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "repairMissionChangeTornTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -14134,13 +14198,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -14162,13 +14219,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionPermissionModeOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
           "kinds": [
             "call"
@@ -14184,6 +14234,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOf",
           "kinds": [
             "call"
           ]
@@ -19697,13 +19761,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "read"
@@ -19978,6 +20035,13 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "read"
           ]

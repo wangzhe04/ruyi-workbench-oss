@@ -5156,22 +5156,7 @@ function createTurnSegmentBuilder() {
   return { consume, snapshot, liveSnapshot, createBatchId, finalizeAll };
 }
 
-// ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
-// 背景:旧格式把整个 messages+providerHistory 塞进单个 <id>.json,saveSession 每轮全量序列化+原子重写
-// —— 写放大 O(会话总历史)/轮:5MB 会话 = 每轮重写 5MB。v2 拆分为:
-//   <id>.json              「头」:全部标量/小字段 + messageCount/providerHistoryCount + storageVersion:2(小,每次重写)
-//   <id>.messages.ndjson   展示消息正文,一行一条 JSON,append-only
-//   <id>.provider.ndjson   provider 引擎历史正文,同上
-// 快路径(saveSession):两个数组只在尾部增长 → 每文件一次 append,O(增量)/轮。
-// 慢路径(全量重写正文):任何前缀变化自动触发 —— rewind(slice)/compaction(reseed)/pop/蒸发改写。
-// 检测机制【不靠调用方自觉打标记】:进程内状态表存每行的 sha1-16 hash,save 时前缀逐行重算比对;
-// 任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写 —— 失配只可能损失性能,不可能丢数据。
-// 崩溃语义:头是提交点(正文先写、头后写)。append 崩溃中途 → 无 \n 终结的撕裂尾行,读取时物理截断;
-// append 完成但头写未完成 → 正文比头声明的多出「未提交尾巴」,读取时按头计数截断;慢路径(全量重写)
-// 崩溃 → .prevbody 快照(重写前旧正文)恢复与旧头重新配对;正文比头声明的短 / 中间行损坏且无快照可退
-// = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
-// 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
-const SESSION_STORAGE_VERSION = 2;
+// 02d-session-overrides.js - 架构还债批 3·B: 从 02-session-store.js 搬出的会话级内存覆盖表(引擎路由/权限档/桌面工具的 live-turn stale-save guard;纯搬家,零行为变更)。
 const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
 // 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
 // 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
@@ -5241,6 +5226,24 @@ function applySessionDesktopToolsOverride(session) {
   if (value === null) delete session.desktopTools; else session.desktopTools = value;
   return session;
 }
+
+// ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
+// 背景:旧格式把整个 messages+providerHistory 塞进单个 <id>.json,saveSession 每轮全量序列化+原子重写
+// —— 写放大 O(会话总历史)/轮:5MB 会话 = 每轮重写 5MB。v2 拆分为:
+//   <id>.json              「头」:全部标量/小字段 + messageCount/providerHistoryCount + storageVersion:2(小,每次重写)
+//   <id>.messages.ndjson   展示消息正文,一行一条 JSON,append-only
+//   <id>.provider.ndjson   provider 引擎历史正文,同上
+// 快路径(saveSession):两个数组只在尾部增长 → 每文件一次 append,O(增量)/轮。
+// 慢路径(全量重写正文):任何前缀变化自动触发 —— rewind(slice)/compaction(reseed)/pop/蒸发改写。
+// 检测机制【不靠调用方自觉打标记】:进程内状态表存每行的 sha1-16 hash,save 时前缀逐行重算比对;
+// 任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写 —— 失配只可能损失性能,不可能丢数据。
+// 崩溃语义:头是提交点(正文先写、头后写)。append 崩溃中途 → 无 \n 终结的撕裂尾行,读取时物理截断;
+// append 完成但头写未完成 → 正文比头声明的多出「未提交尾巴」,读取时按头计数截断;慢路径(全量重写)
+// 崩溃 → .prevbody 快照(重写前旧正文)恢复与旧头重新配对;正文比头声明的短 / 中间行损坏且无快照可退
+// = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
+// 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
+const SESSION_STORAGE_VERSION = 2;
+// 架构还债批 3·B: 会话级内存覆盖表(sessionEngineRouteOverrides/权限档/桌面工具)与其归一、应用函数抽至 02d-session-overrides.js。
 
 function sessionBodyPaths(id) {
   return {

@@ -113,7 +113,8 @@ generated into `docs/architecture/module-dependency-graph.{json,md}`.
   `01-config` (defaults and `normalizeConfig`), `01b-route-auth` (the deny-by-default `ROUTE_AUTH` table),
   `01c-runtime-flags`, `01d-win-cmdline` (`.cmd` wrapping and the cmd8191 line budget), `01e-permission-modes`
   (permission-mode tables, the three-layer resolver and agent-role normalization), `02-session-store`,
-  `02c-turn-segments` (the ordered-turn protocol).
+  `02c-turn-segments` (the ordered-turn protocol), `02d-session-overrides` (the in-memory per-session
+  engine-route / permission-mode / desktop-tools overrides).
 - **03–04** gates and peripherals: `03-bridge-guard` (attachment prompts, the exec gate and effective working
   directory), `04-permission-runtime` (permissions, the `REDACT_PATTERNS` table, the MCP connector write path),
   `04-desktop-shell`, `04-visual-pipeline`.

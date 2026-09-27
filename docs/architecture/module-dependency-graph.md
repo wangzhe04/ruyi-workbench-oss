@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 59 | 2805 | 2875 | 472 | 68 | 0 | 1 |
+| 60 | 2805 | 2883 | 480 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -22,58 +22,59 @@
 | 4 | `01e-permission-modes.js` | foundation | 10 | 0 | 0 |
 | 5 | `01-config.js` | foundation | 153 | 45 | 10 |
 | 6 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
-| 7 | `02-session-store.js` | foundation | 268 | 48 | 13 |
-| 8 | `03-bridge-guard.js` | foundation | 78 | 21 | 6 |
-| 9 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 10 | `04-permission-runtime.js` | foundation | 123 | 34 | 8 |
-| 11 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
-| 12 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
-| 13 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
-| 14 | `05-claude-engine.js` | engine | 65 | 115 | 18 |
-| 15 | `05b-kimi-bridge.js` | engine | 119 | 68 | 12 |
-| 16 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
-| 17 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 18 | `06-provider-engine.js` | engine | 130 | 53 | 13 |
-| 19 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
-| 20 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 21 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 22 | `06i-steward-core.js` | engine | 152 | 0 | 0 |
-| 23 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
-| 24 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
-| 25 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 26 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 27 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 28 | `06k-config-patch.js` | engine | 1 | 20 | 7 |
-| 29 | `07-autonomy.js` | orchestration | 92 | 64 | 15 |
-| 30 | `08-agent-runs.js` | orchestration | 104 | 91 | 17 |
-| 31 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 32 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
-| 33 | `09-workflow.js` | orchestration | 15 | 221 | 23 |
-| 34 | `10-context-governance.js` | orchestration | 135 | 79 | 16 |
-| 35 | `11-native-tools.js` | tools | 105 | 32 | 5 |
-| 36 | `12-tool-dispatch.js` | tools | 33 | 81 | 14 |
-| 37 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 38 | `13-http-router.js` | transport | 64 | 229 | 25 |
-| 39 | `13b-api-domain-routes.js` | transport | 36 | 58 | 7 |
-| 40 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 41 | `13d-core-domain-routes.js` | transport | 45 | 123 | 15 |
-| 42 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
-| 43 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
-| 44 | `13j-steward-tool-base.js` | transport | 76 | 22 | 7 |
-| 45 | `13k-steward-threads.js` | transport | 46 | 110 | 14 |
-| 46 | `13l-steward-ops.js` | transport | 36 | 104 | 18 |
-| 47 | `13g-steward.js` | transport | 12 | 66 | 9 |
-| 48 | `13m-steward-runner-base.js` | transport | 42 | 14 | 5 |
-| 49 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
-| 50 | `13o-steward-runner-prompt.js` | transport | 20 | 61 | 14 |
-| 51 | `13p-steward-runner-actions.js` | transport | 29 | 46 | 10 |
-| 52 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 17 |
-| 53 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
-| 54 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
-| 55 | `13s-scheduler.js` | transport | 47 | 33 | 8 |
-| 56 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
-| 57 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
-| 58 | `14-main.js` | entrypoint | 1 | 636 | 42 |
+| 7 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
+| 8 | `02-session-store.js` | foundation | 258 | 55 | 14 |
+| 9 | `03-bridge-guard.js` | foundation | 78 | 21 | 6 |
+| 10 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
+| 11 | `04-permission-runtime.js` | foundation | 123 | 34 | 8 |
+| 12 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
+| 13 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
+| 14 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
+| 15 | `05-claude-engine.js` | engine | 65 | 115 | 18 |
+| 16 | `05b-kimi-bridge.js` | engine | 119 | 68 | 12 |
+| 17 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
+| 18 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 19 | `06-provider-engine.js` | engine | 130 | 53 | 13 |
+| 20 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
+| 21 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 22 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
+| 23 | `06i-steward-core.js` | engine | 152 | 0 | 0 |
+| 24 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
+| 25 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
+| 26 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
+| 27 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
+| 28 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
+| 29 | `06k-config-patch.js` | engine | 1 | 20 | 7 |
+| 30 | `07-autonomy.js` | orchestration | 92 | 64 | 15 |
+| 31 | `08-agent-runs.js` | orchestration | 104 | 91 | 18 |
+| 32 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
+| 33 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
+| 34 | `09-workflow.js` | orchestration | 15 | 221 | 24 |
+| 35 | `10-context-governance.js` | orchestration | 135 | 79 | 16 |
+| 36 | `11-native-tools.js` | tools | 105 | 32 | 5 |
+| 37 | `12-tool-dispatch.js` | tools | 33 | 81 | 14 |
+| 38 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
+| 39 | `13-http-router.js` | transport | 64 | 229 | 25 |
+| 40 | `13b-api-domain-routes.js` | transport | 36 | 58 | 7 |
+| 41 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 42 | `13d-core-domain-routes.js` | transport | 45 | 123 | 16 |
+| 43 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
+| 44 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
+| 45 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
+| 46 | `13k-steward-threads.js` | transport | 46 | 110 | 15 |
+| 47 | `13l-steward-ops.js` | transport | 36 | 104 | 18 |
+| 48 | `13g-steward.js` | transport | 12 | 66 | 9 |
+| 49 | `13m-steward-runner-base.js` | transport | 42 | 14 | 5 |
+| 50 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
+| 51 | `13o-steward-runner-prompt.js` | transport | 20 | 61 | 14 |
+| 52 | `13p-steward-runner-actions.js` | transport | 29 | 46 | 10 |
+| 53 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 17 |
+| 54 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
+| 55 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
+| 56 | `13s-scheduler.js` | transport | 47 | 33 | 8 |
+| 57 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
+| 58 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
+| 59 | `14-main.js` | entrypoint | 1 | 636 | 43 |
 
 ## 模块边
 
@@ -95,7 +96,8 @@
 | `01-config.js` | `07-autonomy.js` | forward | `TOOL_PACK_DESCRIPTIONS`, `claudePermissionMode`, `getAgentRoleLibrary`, `nativeToolTier` |
 | `02-session-store.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `SESSION_SCHEMA`, `SKILL_ID_RE`, `crypto`, `ensureDirs`, `fs`, `fsp`, `makeId`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `02-session-store.js` | `01-config.js` | backward | `atomicWriteJson`, `mutateConfig`, `readConfig`, `readFileTail`, `safeSessionId`, `selectedAgentCli`, `sessionPath`, `sessionWriteChains` |
-| `02-session-store.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES`, `resolvePermissionMode` |
+| `02-session-store.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
+| `02-session-store.js` | `02d-session-overrides.js` | backward | `applySessionDesktopToolsOverride`, `applySessionPermissionModeOverride`, `normalizeSessionDesktopTools`, `normalizeSessionPermissionMode`, `sessionDesktopToolsOverrides`, `sessionEngineRouteOverrides`, `sessionPermissionModeOf`, `sessionPermissionModeOverrides` |
 | `02-session-store.js` | `03-bridge-guard.js` | forward | `pathWithinRoot`, `realpathForContainment` |
 | `02-session-store.js` | `04-desktop-shell.js` | forward | `DesktopShell` |
 | `02-session-store.js` | `04-permission-runtime.js` | forward | `activeChildren`, `logEvent`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `stopSession`, `turnSettlers` |
@@ -106,6 +108,7 @@
 | `02-session-store.js` | `08-agent-runs.js` | forward | `appendAgentRunEvent`, `bumpRunIntervention`, `listAgentRuns`, `saveAgentRun` |
 | `02-session-store.js` | `11-native-tools.js` | forward | `runGit` |
 | `02-session-store.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
+| `02d-session-overrides.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
 | `03-bridge-guard.js` | `00-boot.js` | backward | `URL`, `cp`, `crypto`, `dataRoot`, `fs`, `fsp`, `os`, `path`, `zlib` |
 | `03-bridge-guard.js` | `01-config.js` | backward | `readConfig`, `spawnProbeAsync` |
 | `03-bridge-guard.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
@@ -225,7 +228,8 @@
 | `08-agent-runs.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
 | `08-agent-runs.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readFileTail`, `safeSessionId` |
 | `08-agent-runs.js` | `01c-runtime-flags.js` | backward | `estimateBucketsEnabled` |
-| `08-agent-runs.js` | `02-session-store.js` | backward | `MISSION_STALL_SIGNAL_WINDOW_MS`, `bridgedWriteRelativePathArg`, `liveSessionPermissionMode`, `missionSignalThrottleAllow`, `mutateSession`, `providerHistoryToolCalls`, `readInterventions`, `registerIntervention`, `settleIntervention` |
+| `08-agent-runs.js` | `02-session-store.js` | backward | `MISSION_STALL_SIGNAL_WINDOW_MS`, `bridgedWriteRelativePathArg`, `missionSignalThrottleAllow`, `mutateSession`, `providerHistoryToolCalls`, `readInterventions`, `registerIntervention`, `settleIntervention` |
+| `08-agent-runs.js` | `02d-session-overrides.js` | backward | `liveSessionPermissionMode` |
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd` |
 | `08-agent-runs.js` | `04-permission-runtime.js` | backward | `collectBridgedTools`, `getBridgedClient`, `logEvent`, `redact`, `resolveBridge` |
 | `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `providerCompletionUrl`, `providerRequestHeaders`, `withTransientRetry` |
@@ -242,8 +246,9 @@
 | `09-workflow.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `neutralizeFenceTag`, `nowIso`, `safeJsonParse`, `text` |
 | `09-workflow.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `09-workflow.js` | `01c-runtime-flags.js` | backward | `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `sessionNotesInjectEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
-| `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `liveSessionPermissionMode`, `loadSession`, `mergeMissionBeforeSave`, `normalizeTodoItems`, `providerHistoryToolCalls`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `recordMissionBudgetTrippedChange`, `recordMissionStalledChange`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `sessionDesktopToolsOf`, `settleIntervention` |
+| `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `mergeMissionBeforeSave`, `normalizeTodoItems`, `providerHistoryToolCalls`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `recordMissionBudgetTrippedChange`, `recordMissionStalledChange`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `settleIntervention` |
 | `09-workflow.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
+| `09-workflow.js` | `02d-session-overrides.js` | backward | `liveSessionPermissionMode`, `sessionDesktopToolsOf` |
 | `09-workflow.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `buildAttachmentPrompt`, `cwdWarning`, `journalBridgedWrite`, `normalizeCwd`, `preflightWriteBoundary` |
 | `09-workflow.js` | `04-permission-runtime.js` | backward | `activeChildren`, `appendLiveTail`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingPermissionForSession`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `lastAssistantEngine`, `logEvent`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `resolveBridge`, `stopSession` |
 | `09-workflow.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
@@ -339,7 +344,8 @@
 | `13d-core-domain-routes.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `tokenMatches`, `tokenOk` |
 | `13d-core-domain-routes.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13d-core-domain-routes.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `resolvePermissionMode` |
-| `13d-core-domain-routes.js` | `02-session-store.js` | backward | `buildMissionAcceptanceProjection`, `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listMissionContainers`, `listSessions`, `loadSession`, `missionAttachThread`, `missionContainerAcceptanceStamp`, `missionControlCommand`, `missionControlView`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `patchMissionContainer`, `readInterventions`, `readMissionChangesWithMeta`, `readMissionContainer`, `readMissionSessionHead`, `readSessionHeadResilient`, `registerIntervention`, `saveSession`, `sessionBodyPaths`, `sessionBriefOf`, `sessionDesktopToolsOf`, `sessionDisplayTitle`, `sessionKind`, `sessionMeta`, `sessionMissionId`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
+| `13d-core-domain-routes.js` | `02-session-store.js` | backward | `buildMissionAcceptanceProjection`, `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listMissionContainers`, `listSessions`, `loadSession`, `missionAttachThread`, `missionContainerAcceptanceStamp`, `missionControlCommand`, `missionControlView`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `patchMissionContainer`, `readInterventions`, `readMissionChangesWithMeta`, `readMissionContainer`, `readMissionSessionHead`, `readSessionHeadResilient`, `registerIntervention`, `saveSession`, `sessionBodyPaths`, `sessionBriefOf`, `sessionDisplayTitle`, `sessionKind`, `sessionMeta`, `sessionMissionId`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
+| `13d-core-domain-routes.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf` |
 | `13d-core-domain-routes.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
 | `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `runAutomaticInterventionDecision` |
 | `13d-core-domain-routes.js` | `06f-autonomy-grants.js` | backward | `CLI_TOOL_TIER`, `consumeGrant` |
@@ -391,7 +397,8 @@
 | `13j-steward-tool-base.js` | `00-boot.js` | backward | `fsp`, `nowIso`, `path`, `safeJsonParse`, `text` |
 | `13j-steward-tool-base.js` | `01-config.js` | backward | `atomicWriteJson`, `readFileTail`, `safeSessionId`, `sessionPath` |
 | `13j-steward-tool-base.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
-| `13j-steward-tool-base.js` | `02-session-store.js` | backward | `applySessionPermissionModeOverride`, `foldTurnSummaries`, `repairMissionChangeTornTail` |
+| `13j-steward-tool-base.js` | `02-session-store.js` | backward | `foldTurnSummaries`, `repairMissionChangeTornTail` |
+| `13j-steward-tool-base.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride` |
 | `13j-steward-tool-base.js` | `06d-memory-domain.js` | backward | `cleanMemoryDate`, `projectKeyForCwd` |
 | `13j-steward-tool-base.js` | `06i-steward-core.js` | backward | `STEWARD_CONFIG_SECRET_PATTERN`, `STEWARD_EXEMPT_DELEGATION_WINDOW_MS`, `STEWARD_MEMORY_KINDS`, `STEWARD_MEMORY_LIMITS`, `STEWARD_NOTIFY_WINDOW_MS`, `stewardSanitizeText` |
 | `13j-steward-tool-base.js` | `13i-steward-inbox.js` | backward | `stewardDir` |
@@ -399,7 +406,8 @@
 | `13k-steward-threads.js` | `01-config.js` | backward | `mutateConfig`, `normalizeWorkspacePathString`, `safeSessionId` |
 | `13k-steward-threads.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13k-steward-threads.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES` |
-| `13k-steward-threads.js` | `02-session-store.js` | backward | `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `saveSession`, `sessionBriefOf`, `sessionDesktopToolsOf`, `sessionDisplayTitle`, `sessionMetaIsSteward`, `sessionMissionId`, `sessionPermissionModeOf`, `updateSessionMeta`, `withMissionContainerLock`, `writeMissionContainer` |
+| `13k-steward-threads.js` | `02-session-store.js` | backward | `createSession`, `listSessions`, `loadSession`, `missionIndexAdd`, `readInterventions`, `readMissionContainer`, `saveSession`, `sessionBriefOf`, `sessionDisplayTitle`, `sessionMetaIsSteward`, `sessionMissionId`, `updateSessionMeta`, `withMissionContainerLock`, `writeMissionContainer` |
+| `13k-steward-threads.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf`, `sessionPermissionModeOf` |
 | `13k-steward-threads.js` | `04-permission-runtime.js` | backward | `PermissionWaitHooks`, `activeChildren`, `logEvent`, `redact`, `sanitizeFsSegmentName` |
 | `13k-steward-threads.js` | `06-provider-engine.js` | backward | `listPlaybooksWithAvailability` |
 | `13k-steward-threads.js` | `06d-memory-domain.js` | backward | `memoryIsExpired` |
@@ -515,8 +523,9 @@
 | `14-main.js` | `01c-runtime-flags.js` | backward | `appendOnlyToolSchemasEnabled`, `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `evaporateBudgetBoundaryEnabled`, `execResultCacheEnabled`, `execResultCacheMaxEntries`, `historyReadDedupEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
 | `14-main.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn`, `cmdLineBudgetFor`, `quoteWinArg`, `spawnCmdLineLength` |
 | `14-main.js` | `01e-permission-modes.js` | backward | `BUILTIN_AGENT_ROLES`, `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `normalizeAgentRole`, `resolvePermissionMode` |
-| `14-main.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `IRREVERSIBLE_NATIVE_KIND`, `MISSION_CONTAINER_MAX_FILES`, `MISSION_CONTAINER_SCHEMA`, `TURN_SUMMARY_COMMAND_TOOLS`, `TURN_SUMMARY_FILE_TOOLS`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `collectBridgedWriteTarget`, `collectBridgedWriteTargets`, `compactInterventionJournal`, `configForSessionEngineRoute`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `flushSessionIndex`, `flushSessionIndexSync`, `foldMissionChangeJournalText`, `inferSessionEngineRoute`, `invalidateSessionIndex`, `isBridgedWriteTool`, `isUntitledSessionTitle`, `journalGc`, `journalGcProbe`, `journalRecord`, `kindForPath`, `listMissionContainers`, `listSessions`, `liveSessionPermissionMode`, `loadSession`, `missionAttachThread`, `missionChangeFilePath`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `mutateSession`, `normalizeSession`, `normalizeSessionEngineRoute`, `patchMissionContainer`, `readInterventions`, `readInterventionsWithMeta`, `readMissionChangesWithMeta`, `readMissionContainer`, `readSessionHeadResilient`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `registerIntervention`, `repairMissionChangeTornTail`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `rewindSession`, `saveSession`, `sessionBodyPaths`, `sessionDisplayTitle`, `sessionEngineRouteFromConfig`, `sessionMeta`, `sessionNotesPath`, `sessionObjectIsStale`, `setSessionIndexRebuildScanHookForTest`, `transitionInterventionState`, `unprefixedBridgedName`, `updateSessionMeta`, `workspaceBaselineIsCodePath`, `writeSessionNotes` |
+| `14-main.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `IRREVERSIBLE_NATIVE_KIND`, `MISSION_CONTAINER_MAX_FILES`, `MISSION_CONTAINER_SCHEMA`, `TURN_SUMMARY_COMMAND_TOOLS`, `TURN_SUMMARY_FILE_TOOLS`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `collectBridgedWriteTarget`, `collectBridgedWriteTargets`, `compactInterventionJournal`, `configForSessionEngineRoute`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `flushSessionIndex`, `flushSessionIndexSync`, `foldMissionChangeJournalText`, `inferSessionEngineRoute`, `invalidateSessionIndex`, `isBridgedWriteTool`, `isUntitledSessionTitle`, `journalGc`, `journalGcProbe`, `journalRecord`, `kindForPath`, `listMissionContainers`, `listSessions`, `loadSession`, `missionAttachThread`, `missionChangeFilePath`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `mutateSession`, `normalizeSession`, `normalizeSessionEngineRoute`, `patchMissionContainer`, `readInterventions`, `readInterventionsWithMeta`, `readMissionChangesWithMeta`, `readMissionContainer`, `readSessionHeadResilient`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `registerIntervention`, `repairMissionChangeTornTail`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `rewindSession`, `saveSession`, `sessionBodyPaths`, `sessionDisplayTitle`, `sessionEngineRouteFromConfig`, `sessionMeta`, `sessionNotesPath`, `sessionObjectIsStale`, `setSessionIndexRebuildScanHookForTest`, `transitionInterventionState`, `unprefixedBridgedName`, `updateSessionMeta`, `workspaceBaselineIsCodePath`, `writeSessionNotes` |
 | `14-main.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
+| `14-main.js` | `02d-session-overrides.js` | backward | `liveSessionPermissionMode` |
 | `14-main.js` | `03-bridge-guard.js` | backward | `AUTOEXEC_DENYLIST`, `BRIDGED_WRITE_AUDIT_EXEMPT`, `auditBridgedWriteCoverage`, `bridgedOfficeScriptGate`, `buildBrowserOpenSpawn`, `buildCodeEditorSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `classifyCodeEditorExecutable`, `cwdWarning`, `executableFromAssociationCommand`, `fileAllowedRoots`, `guardFileToolPath`, `guardWorkspaceExecute`, `guardWorkspacePath`, `normalizeAutoexecPath`, `pathWithinAnyRoot`, `pathWithinRoot`, `providerIsLocal`, `readFilePreview`, `resolvePreferredCodeEditor`, `resolveWorkspace`, `workspaceWriteRoots` |
 | `14-main.js` | `04-desktop-shell.js` | backward | `DesktopShell` |
 | `14-main.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `McpHttpClient`, `McpStdioClient`, `activeChildren`, `buildMcpConnectorInventory`, `classifyMcpError`, `clearPendingPermissions`, `collectBridgedTools`, `configureMcpFromTool`, `hasPendingPermissionForSession`, `invalidateMcpDropInCache`, `killAllMcpClients`, `killChildTree`, `killOwnProcessTree`, `makeAttachmentRecord`, `nativeClaudeAgentResultInfo`, `parseAgentCliEvent`, `parseClaudeTaskNotification`, `parseMcpConfigFile`, `permissionWaitMs`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory`, `safeUrlForDisplay`, `scanMcpDropIns`, `scanMcpSources` |
