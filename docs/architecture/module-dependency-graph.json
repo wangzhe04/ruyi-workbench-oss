@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 55,
-    "providedSymbols": 2792,
-    "requiredSymbols": 2827,
-    "edges": 440,
+    "modules": 56,
+    "providedSymbols": 2800,
+    "requiredSymbols": 2852,
+    "edges": 446,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2103,8 +2103,27 @@
       ]
     },
     {
-      "file": "05-claude-engine.js",
+      "file": "04h-provider-http.js",
       "order": 11,
+      "layer": "foundation",
+      "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
+      "provides": [
+        "abortableDelay",
+        "providerApiBase",
+        "providerBaseWithV1",
+        "providerCallIsTransient",
+        "providerCompletionUrl",
+        "providerPostJsonOnce",
+        "providerRequestHeaders",
+        "providerResponsesBase",
+        "providerSseAsCompletion",
+        "withTransientRetry"
+      ],
+      "requires": []
+    },
+    {
+      "file": "05-claude-engine.js",
+      "order": 12,
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
@@ -2146,7 +2165,6 @@
         "mcpEntryIsRemote",
         "mcpEntryTrimmed",
         "mcpSecretValueOrCleared",
-        "providerBaseWithV1",
         "providerFixCompletion",
         "providerLaunchUrls",
         "providerLaunchVectorKey",
@@ -2154,7 +2172,6 @@
         "providerMaskedUrlFields",
         "providerModelCaps",
         "providerReasoningEffort",
-        "providerResponsesBase",
         "providerVectorNotWidened",
         "resolveAsrFixProvider",
         "resolveAsrProvider",
@@ -2703,6 +2720,34 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05b-kimi-bridge.js",
           "symbol": "maybeAutoCompactAgentSession",
           "kinds": [
@@ -2958,7 +3003,7 @@
     },
     {
       "file": "05b-kimi-bridge.js",
-      "order": 12,
+      "order": 13,
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
@@ -3568,7 +3613,7 @@
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "order": 13,
+      "order": 14,
       "layer": "engine",
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器",
       "provides": [
@@ -3703,7 +3748,7 @@
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "order": 14,
+      "order": 15,
       "layer": "engine",
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级",
       "provides": [
@@ -3758,7 +3803,7 @@
     },
     {
       "file": "06-provider-engine.js",
-      "order": 15,
+      "order": 16,
       "layer": "engine",
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks",
       "provides": [
@@ -4168,6 +4213,34 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -4177,20 +4250,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "applyProviderReasoningEffort",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerBaseWithV1",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
           "kinds": [
             "call"
           ]
@@ -4255,7 +4314,7 @@
     },
     {
       "file": "06b-prompt-registry.js",
-      "order": 16,
+      "order": 17,
       "layer": "engine",
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)",
       "provides": [
@@ -4278,7 +4337,7 @@
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "order": 17,
+      "order": 18,
       "layer": "engine",
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine",
       "provides": [
@@ -4310,7 +4369,7 @@
     },
     {
       "file": "06h-retrieval-index.js",
-      "order": 18,
+      "order": 19,
       "layer": "engine",
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用",
       "provides": [
@@ -4333,7 +4392,7 @@
     },
     {
       "file": "06i-steward-core.js",
-      "order": 19,
+      "order": 20,
       "layer": "engine",
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)",
       "provides": [
@@ -4494,7 +4553,7 @@
     },
     {
       "file": "06d-memory-domain.js",
-      "order": 20,
+      "order": 21,
       "layer": "engine",
       "note": "第104波：跨会话记忆、提议、关系图与检索",
       "provides": [
@@ -4881,7 +4940,7 @@
     },
     {
       "file": "06e-mission-domain.js",
-      "order": 21,
+      "order": 22,
       "layer": "engine",
       "note": "第104波：Mission 提示摘要与 until-done 驱动",
       "provides": [
@@ -4992,7 +5051,7 @@
     },
     {
       "file": "06f-autonomy-grants.js",
-      "order": 22,
+      "order": 23,
       "layer": "engine",
       "note": "第104波：自治授权签发、消费、撤销与预检",
       "provides": [
@@ -5111,7 +5170,7 @@
     },
     {
       "file": "06g-resource-leases.js",
-      "order": 23,
+      "order": 24,
       "layer": "engine",
       "note": "第104波：Agent 资源归一化、冲突检测与租约",
       "provides": [
@@ -5172,7 +5231,7 @@
     },
     {
       "file": "06j-scheduler-core.js",
-      "order": 24,
+      "order": 25,
       "layer": "engine",
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)",
       "provides": [
@@ -5225,7 +5284,7 @@
     },
     {
       "file": "07-autonomy.js",
-      "order": 25,
+      "order": 26,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -5674,8 +5733,22 @@
           ]
         },
         {
-          "provider": "05-claude-engine.js",
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
           "kinds": [
             "call"
           ]
@@ -5761,7 +5834,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 26,
+      "order": 27,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -6138,22 +6211,43 @@
           ]
         },
         {
-          "provider": "05-claude-engine.js",
-          "symbol": "applyProviderReasoningEffort",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCallIsTransient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
+          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "call"
           ]
@@ -6491,7 +6585,7 @@
     },
     {
       "file": "09b-replan-ledger.js",
-      "order": 27,
+      "order": 28,
       "layer": "orchestration",
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -6537,7 +6631,7 @@
     },
     {
       "file": "09d-token-estimation.js",
-      "order": 28,
+      "order": 29,
       "layer": "orchestration",
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -6571,7 +6665,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 29,
+      "order": 30,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -7111,6 +7205,27 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerApiBase",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -7120,20 +7235,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "applyProviderReasoningEffort",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerBaseWithV1",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
           "kinds": [
             "call"
           ]
@@ -8137,7 +8238,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 30,
+      "order": 31,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -8665,22 +8766,29 @@
           ]
         },
         {
-          "provider": "05-claude-engine.js",
-          "symbol": "activeOpenAiProvider",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
+          "symbol": "activeOpenAiProvider",
           "kinds": [
             "call"
           ]
@@ -8829,7 +8937,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 31,
+      "order": 32,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -9168,7 +9276,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 32,
+      "order": 33,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -9778,7 +9886,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 33,
+      "order": 34,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -9796,7 +9904,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 34,
+      "order": 35,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -11502,7 +11610,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 35,
+      "order": 36,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -11954,7 +12062,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 36,
+      "order": 37,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -12059,7 +12167,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 37,
+      "order": 38,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -12975,7 +13083,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 38,
+      "order": 39,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -13257,7 +13365,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 39,
+      "order": 40,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -13514,7 +13622,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 40,
+      "order": 41,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -13754,7 +13862,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 41,
+      "order": 42,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -14580,7 +14688,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 42,
+      "order": 43,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -15354,7 +15462,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 43,
+      "order": 44,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -15842,7 +15950,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 44,
+      "order": 45,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -15992,7 +16100,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 45,
+      "order": 46,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -16142,7 +16250,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 46,
+      "order": 47,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -16599,7 +16707,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 47,
+      "order": 48,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -16960,7 +17068,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 48,
+      "order": 49,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -17444,7 +17552,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 49,
+      "order": 50,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -17785,7 +17893,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 50,
+      "order": 51,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -17922,7 +18030,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 51,
+      "order": 52,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -18210,7 +18318,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 52,
+      "order": 53,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -18484,7 +18592,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 53,
+      "order": 54,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -18792,7 +18900,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 54,
+      "order": 55,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -20180,6 +20288,69 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "abortableDelay",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerApiBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCallIsTransient",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerResponsesBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "applyProviderReasoningEffort",
           "kinds": [
@@ -20210,6 +20381,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "maskSecrets",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "providerFixCompletion",
           "kinds": [
             "read"
           ]
@@ -20728,6 +20906,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "probeAny",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "providerRawCompletion",
           "kinds": [
             "read"
           ]
@@ -21862,6 +22047,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "openAiStreamOnce",
           "kinds": [
             "read"
           ]
@@ -23757,6 +23949,17 @@
     },
     {
       "from": "05-claude-engine.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "providerBaseWithV1",
+        "providerCompletionUrl",
+        "providerPostJsonOnce",
+        "providerRequestHeaders"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
       "to": "05b-kimi-bridge.js",
       "symbols": [
         "maybeAutoCompactAgentSession",
@@ -24125,12 +24328,21 @@
     },
     {
       "from": "06-provider-engine.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "providerBaseWithV1",
+        "providerCompletionUrl",
+        "providerPostJsonOnce",
+        "providerRequestHeaders"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06-provider-engine.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "activeOpenAiProvider",
-        "applyProviderReasoningEffort",
-        "providerBaseWithV1",
-        "providerResponsesBase"
+        "applyProviderReasoningEffort"
       ],
       "direction": "backward"
     },
@@ -24524,9 +24736,11 @@
     },
     {
       "from": "07-autonomy.js",
-      "to": "05-claude-engine.js",
+      "to": "04h-provider-http.js",
       "symbols": [
-        "providerBaseWithV1"
+        "providerBaseWithV1",
+        "providerRequestHeaders",
+        "withTransientRetry"
       ],
       "direction": "backward"
     },
@@ -24665,11 +24879,21 @@
     },
     {
       "from": "08-agent-runs.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "providerBaseWithV1",
+        "providerCallIsTransient",
+        "providerCompletionUrl",
+        "providerRequestHeaders",
+        "withTransientRetry"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "08-agent-runs.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "applyProviderReasoningEffort",
-        "providerBaseWithV1",
-        "providerResponsesBase",
         "resolveProvider"
       ],
       "direction": "backward"
@@ -24915,12 +25139,20 @@
     },
     {
       "from": "09-workflow.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "providerApiBase",
+        "providerCompletionUrl",
+        "providerRequestHeaders"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "activeOpenAiProvider",
         "applyProviderReasoningEffort",
-        "providerBaseWithV1",
-        "providerResponsesBase",
         "resolveProvider",
         "stripUrlUserinfo"
       ],
@@ -25276,11 +25508,19 @@
     },
     {
       "from": "10-context-governance.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "providerBaseWithV1",
+        "providerCompletionUrl",
+        "providerRequestHeaders"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "10-context-governance.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "activeOpenAiProvider",
-        "providerBaseWithV1",
-        "providerResponsesBase",
         "runClaudeTurn"
       ],
       "direction": "backward"
@@ -28446,6 +28686,22 @@
     },
     {
       "from": "14-main.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "abortableDelay",
+        "providerApiBase",
+        "providerBaseWithV1",
+        "providerCallIsTransient",
+        "providerCompletionUrl",
+        "providerPostJsonOnce",
+        "providerRequestHeaders",
+        "providerResponsesBase",
+        "withTransientRetry"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
       "to": "05-claude-engine.js",
       "symbols": [
         "applyProviderReasoningEffort",
@@ -28453,6 +28709,7 @@
         "asrFixSanity",
         "maskSecrets",
         "maskedSecretConflicts",
+        "providerFixCompletion",
         "providerLaunchVectorKey",
         "providerReasoningEffort",
         "resolveAsrFixProvider",
@@ -28543,6 +28800,7 @@
         "parseThreadBrief",
         "peekCapabilities",
         "probeAny",
+        "providerRawCompletion",
         "readProjectMemory",
         "readStorageTrend",
         "recordEngineTranscript",
@@ -28759,6 +29017,7 @@
         "finalizeAgentWorktree",
         "getAgentRoleLibrary",
         "nativeToolGate",
+        "openAiStreamOnce",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
         "requestNativePermission",
@@ -29221,7 +29480,6 @@
     "07-autonomy.js->02-session-store.js",
     "07-autonomy.js->03-bridge-guard.js",
     "07-autonomy.js->04-permission-runtime.js",
-    "07-autonomy.js->05-claude-engine.js",
     "07-autonomy.js->06-provider-engine.js",
     "07-autonomy.js->08-agent-runs.js",
     "07-autonomy.js->09d-token-estimation.js",

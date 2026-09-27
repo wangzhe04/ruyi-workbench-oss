@@ -1435,12 +1435,8 @@ function summaryResponseFailureDetail(payload) {
 async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal, config) {
   const respStyle = provider && provider.apiStyle === 'responses';
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers.authorization = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle); // 04h:端点 URL 与请求头原语(与补全/流式请求同一份)
+  const headers = providerRequestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage

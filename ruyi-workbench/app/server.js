@@ -14036,6 +14036,126 @@ ToolboxHooks.statusView = toolboxStatusView;
 ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;
 ToolboxHooks.healthForProvider = toolboxHealthForProvider;
 
+// ── 架构还债批 2 · A:OpenAI 兼容服务商 HTTP 路径的原语只有这一个住处 ─────────────────────────────────────
+// 修前这套东西散在五个模块:端点 URL 归一化住在 CLI 引擎文件(05),请求头(content-type + Bearer + 自定义头)
+// 在 05/06/07/08/09/10 各手写一份,非流式补全的「fetch + 超时 AbortController + 读回体」在 05 与 06 各一份,
+// 子代理的瞬时错误重试(08)与 Claude CLI 子代理的重试(07)各写一个 while/for 循环、各带一份可被中止的退避睡眠。
+// 这里只收【原语】,纯搬家、逐字节同形:同样的 URL、同样的头(键序也同)、同样的请求体、同样的错误文本。
+// 拼提示词/解析业务回体的外壳仍留在各自的模块里(它们依赖 05/06/07 的提示词与协议翻译,挪到这里会造前向边)。
+//
+// 为什么排在 04f 之后、05 之前:所有消费者(05/06/06d/07/08/09/10)都在它后面,全是后向边;而它自己
+// 【零出边】—— 不引用任何其他模块的顶层符号(连 redact/logEvent 都不引用:脱敏留给调用方,回体原样交回),
+// 所以进不了任何环,也不扩大既有唯一 SCC。往这里加东西时守住这一条:需要别的模块的符号,就留在调用方做。
+
+// Normalize a provider base URL to the OpenAI "/v1" level so we can append /chat/completions or /models.
+// Keeps an existing /vN (or /compatible-mode/v1) segment; otherwise appends /v1.
+function providerBaseWithV1(baseUrl) {
+  const b = String(baseUrl || '').trim().replace(/\/+$/, '');
+  if (!b) return '';
+  if (/\/v\d+$/i.test(b)) return b;
+  return b + '/v1';
+}
+// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
+// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
+// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
+// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
+// 与 chat 的保留策略对称)。
+function providerResponsesBase(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '');
+}
+// 按协议取端点 base:responses → 原样 base;chat → 归一到 /vN。修前五处各写一遍这个三元式。
+function providerApiBase(baseUrl, responses) {
+  return responses ? providerResponsesBase(baseUrl) : providerBaseWithV1(baseUrl);
+}
+// 补全端点的完整 URL:base 为空 → ''(调用方据此报「provider base URL is not set」)。
+function providerCompletionUrl(baseUrl, responses) {
+  const base = providerApiBase(baseUrl, responses);
+  return base ? base + (responses ? '/responses' : '/chat/completions') : '';
+}
+// 出站请求头:content-type、再 Bearer(apiKey 去空白;空 key = keyOptional 端点,不带 authorization)、
+// 最后自定义头(providers[].extraHeaders)整份覆盖 —— 自定义头里写了 authorization 就以它为准。键序即插入序。
+// (语音转写 05 transcribeAudioViaProvider 是 multipart、头序与 key 口径都不同,不走这里。)
+function providerRequestHeaders(provider) {
+  const headers = { 'content-type': 'application/json' };
+  const key = String((provider && provider.apiKey) || '').trim();
+  if (key) headers['authorization'] = 'Bearer ' + key;
+  if (provider && provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  return headers;
+}
+// 有的端点／代理不理 stream:false 照样回 SSE:把 data: 行里的 delta 拼起来当一份非流式回体,别白白当成空。
+function providerSseAsCompletion(raw) {
+  let content = '', usage = null;
+  for (const line of String(raw || '').split('\n')) {
+    const t = line.trim();
+    if (!t.startsWith('data:')) continue;
+    const payload = t.slice(5).trim();
+    if (!payload || payload === '[DONE]') continue;
+    let ev = null; try { ev = JSON.parse(payload); } catch { ev = null; }
+    if (!ev) continue;
+    const d = ev.choices && ev.choices[0] && ev.choices[0].delta;
+    if (d && typeof d.content === 'string') content += d.content;
+    if (ev.usage && typeof ev.usage === 'object') usage = ev.usage;
+  }
+  return { choices: [{ message: { content } }], usage };
+}
+// 非流式一次性 POST:超时由 AbortController 管(计时覆盖读回体),回体整段读成文本再试 JSON。
+// 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
+// (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
+// sseFallback:回体不是 JSON 但像 SSE 时拼成 chat 形回体(只有 05 的改字开这个口,06 修前就不认 SSE)。
+async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback }) {
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
+    let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }
+    if (sseFallback && !parsed && /(^|\n)data:/.test(raw)) parsed = providerSseAsCompletion(raw);
+    return { res, status: res ? res.status : undefined, ok: Boolean(res && res.ok), raw, parsed };
+  } catch (e) {
+    return { threw: true, error: e };
+  } finally { if (timer) clearTimeout(timer); }
+}
+
+// ── 瞬时错误重试策略(一份) ─────────────────────────────────────────────────────────────────────────────
+// OpenAI 路径的「瞬时」口径(修前写在 08 子代理循环里):首字节前的连接/TLS 失败(openAiStreamOnce 结构化交回的
+// transportError)、网关不可用 502/503/504(failoverStatus)、限流 429。流式已开始后的错误 openAiStreamOnce 直接抛出,
+// 根本到不了这里 —— 防重放是结构性的,不靠这个判据。
+function providerCallIsTransient(call) {
+  const he0 = String((call && call.httpError) || '');
+  const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
+  return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429));
+}
+// 可被中止截断的退避睡眠。与修前两份手写逐字同形:signal 已经 aborted 时监听器永不触发,睡满整段
+// (两处调用方都在睡前/睡后自己查中止,这个细节不能在这里「顺手修好」,否则事件时序会变)。
+function abortableDelay(ms, signal) {
+  return new Promise(r => {
+    const t = setTimeout(r, ms);
+    if (signal) signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
+  });
+}
+// 有界重试骨架。每一轮:先查 isAborted(真 → 立即交回 { aborted:true });再 attempt;再 classify 裁决:
+//   'retry' —— 可重试的瞬时失败:未超 maxRetries 就 retries+1、onRetry(result, retries)、睡 backoffMs(retries) 后重来;
+//              超了就按终局交回;
+//   'again' —— 立即、不计数、不睡地重来一次(08 的「工具被拒 → 去掉工具再打一次」,由 classify 自己保证只给一次);
+//   其他   —— 终局,原样交回。
+// retries 从 0 计;backoffMs 收到的是本次重试的序号(1 起),所以 08 的 min(2000, 250·n) 与 07 的 min(2000, 300·attempt)
+// 都能原样表达。classify 收到 { retries }(本次 attempt 之前已用掉的重试数),07 据此还原它的 attempt 序号。
+// 不吞异常:attempt 抛出(流式中途失败)原样上抛,不重试。
+async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, signal, isAborted, onRetry, delay }) {
+  const pause = typeof delay === 'function' ? delay : abortableDelay;
+  let retries = 0, result;
+  for (;;) {
+    if (typeof isAborted === 'function' && isAborted()) return { aborted: true, result, retries };
+    result = await attempt({ retries });
+    const verdict = classify(result, { retries });
+    if (verdict === 'again') continue;
+    if (verdict !== 'retry' || retries >= maxRetries) return { aborted: false, result, retries };
+    retries += 1;
+    if (typeof onRetry === 'function') onRetry(result, retries);
+    await pause(backoffMs(retries), signal);
+  }
+}
+
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
@@ -15841,22 +15961,7 @@ function sanitizeExternalMcpServer(raw) {
   };
 }
 
-// Normalize a provider base URL to the OpenAI "/v1" level so we can append /chat/completions or /models.
-// Keeps an existing /vN (or /compatible-mode/v1) segment; otherwise appends /v1.
-function providerBaseWithV1(baseUrl) {
-  const b = String(baseUrl || '').trim().replace(/\/+$/, '');
-  if (!b) return '';
-  if (/\/v\d+$/i.test(b)) return b;
-  return b + '/v1';
-}
-// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
-// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
-// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
-// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
-// 与 chat 的保留策略对称)。
-function providerResponsesBase(baseUrl) {
-  return String(baseUrl || '').trim().replace(/\/+$/, '');
-}
+// providerBaseWithV1 / providerResponsesBase 已迁往 04h-provider-http.js(架构还债批 2·A:服务商 HTTP 原语的唯一住处)。
 // v1.0 收官安全加固(对抗复核 PLAUSIBLE·minor):从 URL 剥掉 basic-auth userinfo(https://user:pass@host)。
 // failover 事件的 from/to 与审计会回显端点 base;若管理员把凭据塞进 baseUrl,明文会漏进前端与 NDJSON 审计。
 // 用于「显示/日志/粘住键」的 base,不用于真正发起请求的 chatUrl(后者需保留 userinfo 完成认证)。
@@ -15880,7 +15985,7 @@ function activeOpenAiProvider(config) {
 // ⑤ 的 audio_transcribe 原生工具(12)三方共用。apiKey 不出本进程、120s 超时、回体 8KB 上限、无 usage
 // 保守估算标 estimated,这套纪律抄第二份迟早分叉(一边补了超时一边没补)。落在 05 是因为两个消费面
 // (12 工具派发、13b 域路由)都【已有】到 05 的依赖边 —— 落这里零新增模块边(12→13b 反而是一条新增
-// 前向边);且 resolveProvider/providerBaseWithV1 本就住本文件。两函数不碰 req/res,失败回 { failure }。
+// 前向边);且 resolveProvider 本就住本文件(providerBaseWithV1 在 04h,更早加载)。两函数不碰 req/res,失败回 { failure }。
 function resolveAsrProvider(config) {
   const asrProviderId = String(config.asrProviderId || '').trim();
   const asrModel = String(config.asrModel || '').trim();
@@ -15997,49 +16102,24 @@ function asrFixSanity(input, output) {
 //  ① 模型由调用方指定;② 不带身份系统提示;③ temperature 0、max_tokens 400、超时 20 s(句尾后一秒内要落地的事);
 //  ④ 显式关思考(thinking:{type:'disabled'} + enable_thinking:false)—— flash 系模型缺省思考,预算被隐藏推理吃光、正文为空(52 号文 §3 实测);
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
+// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;这里只留提示词形状与回体取字。
 async function providerFixCompletion(provider, model, messages) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const url = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  const url = providerCompletionUrl(provider.baseUrl, respStyle);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider);
   const system = messages.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
   const user = messages.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
   const build = plain => (respStyle
     ? { model, instructions: system, input: user, stream: false, max_output_tokens: 400, ...(plain ? {} : { reasoning: { effort: 'minimal' } }) }
     : { model, messages, stream: false, temperature: 0, max_tokens: 400, ...(plain ? {} : { thinking: { type: 'disabled' }, enable_thinking: false }) });
   const once = async bodyObj => {
-    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 20000) : null;
-    try {
-      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
-      let raw = ''; try { raw = await res.text(); } catch { raw = ''; }
-      let j = null; try { j = JSON.parse(raw); } catch { j = null; }
-      // 有的端点／代理不理 stream:false 照样回 SSE:把 data: 行里的 delta 拼起来当一份非流式回体,别白白当成空。
-      if (!j && /(^|\n)data:/.test(raw)) {
-        let content = '', usage = null;
-        for (const line of raw.split('\n')) {
-          const t = line.trim();
-          if (!t.startsWith('data:')) continue;
-          const payload = t.slice(5).trim();
-          if (!payload || payload === '[DONE]') continue;
-          let ev = null; try { ev = JSON.parse(payload); } catch { ev = null; }
-          if (!ev) continue;
-          const d = ev.choices && ev.choices[0] && ev.choices[0].delta;
-          if (d && typeof d.content === 'string') content += d.content;
-          if (ev.usage && typeof ev.usage === 'object') usage = ev.usage;
-        }
-        j = { choices: [{ message: { content } }], usage };
-      }
-      return { status: res.status, ok: Boolean(res.ok), j };
-    } catch (e) {
-      return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') };
-    } finally { if (timer) clearTimeout(timer); }
+    // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
+    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
+    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') }; }
+    return { status: r.status, ok: r.ok, j: r.parsed };
   };
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));
@@ -20940,17 +21020,13 @@ async function draftPlaybookFromSession(sessionId) {
 // v1.7: follows the provider's apiStyle — Responses protocol uses instructions+input and reads output_text.
 async function providerRawCompletion(provider, history) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。URL/请求头/一次 POST 的原语在 04h。
+  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
   }
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   // Responses 没有 chat/completions 的多 system-message 通道；把调用方追加的 system/developer
   // 规则折进 instructions，否则 JSON 修复器/记忆审稿人的严格协议会被 buildResponsesInputItems 丢弃。
@@ -20964,34 +21040,30 @@ async function providerRawCompletion(provider, history) {
     : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
-  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 60000) : null;
-  try {
-    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
-    if (!res || !res.ok) {
-      let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
-    }
-    const j = await res.json().catch(() => null);
-    let content = '';
-    if (respStyle) {
-      // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
-      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
-        if (item && item.type === 'message' && Array.isArray(item.content)) {
-          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
-        }
+  // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
+  if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
+  if (!r.res || !r.ok) {
+    const d = r.raw;
+    return { ok: false, error: `HTTP ${r.res ? r.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+  }
+  const j = r.parsed;
+  let content = '';
+  if (respStyle) {
+    // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
+    for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+      if (item && item.type === 'message' && Array.isArray(item.content)) {
+        for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
       }
-    } else {
-      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-      content = String((msg && msg.content) || '');
     }
-    content = content.trim();
-    if (!content) return { ok: false, error: 'provider returned an empty completion' };
-    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
-    return { ok: true, content, usage: (j && j.usage) || null, model };
-  } catch (e) {
-    return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') };
-  } finally { if (timer) clearTimeout(timer); }
+  } else {
+    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+    content = String((msg && msg.content) || '');
+  }
+  content = content.trim();
+  if (!content) return { ok: false, error: 'provider returned an empty completion' };
+  // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
+  return { ok: true, content, usage: (j && j.usage) || null, model };
 }
 
 // ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────
@@ -28176,10 +28248,7 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
 async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   const base = providerBaseWithV1(provider && provider.baseUrl);
   if (!base || typeof fetch !== 'function') return { ok: false, error: base ? 'fetch unavailable' : 'no base URL', models: [] };
-  const key = String((provider && provider.apiKey) || '').trim();
-  const headers = { 'content-type': 'application/json' };
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider && provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头,与补全请求同一份
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
@@ -30193,47 +30262,61 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
   let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      if (killed) break;
-      const res = await runOnce();
-      try {
-        // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
-        // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
-        // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
-        // billable this attempt.
-        const ru = res.resultUsage;
-        const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
-        const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
-        else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-          ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+    // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
+    // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
+    // 裁决;重试前发 retry 事件,再睡 min(2000, 300·attempt)(可被中止截断)。attempt = 本次之前已用掉的重试数 + 1。
+    let okText = null, okToolCalls = 0, retryReason = '';
+    await withTransientRetry({
+      maxRetries: MAX_ATTEMPTS - 1,
+      isAborted: () => killed,
+      signal: ctrl && ctrl.signal,
+      // Bounded backoff an abort can cut short (the same abortableDelay as runSubAgentCore's transient-retry sleep).
+      backoffMs: attempt => Math.min(2000, 300 * attempt),
+      attempt: async () => {
+        const res = await runOnce();
+        try {
+          // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
+          // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
+          // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
+          // billable this attempt.
+          const ru = res.resultUsage;
+          const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
+          const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+          }
+          if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
+        } catch { /* never let accounting break the attempt */ }
+        return res;
+      },
+      classify: (res, { retries }) => {
+        const attempt = retries + 1;
+        const finalText = (res.resultText || res.assistantText).trim();
+        const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
+        if (ok) { okText = finalText; okToolCalls = res.toolCallCount; return 'done'; }
+        lastFinalText = finalText; lastToolCalls = res.toolCallCount;
+        lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
+        const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
+        if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) return 'stop';
+        // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
+        // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
+        if (cls.reason === 'over_window') {
+          const raw = String(task || '');
+          if (overWindowShrunk || raw.length <= 60000) return 'stop';
+          overWindowShrunk = true;
+          taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
         }
-        if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
-      } catch { /* never let accounting break the attempt */ }
-      const finalText = (res.resultText || res.assistantText).trim();
-      const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
-      if (ok) {
-        onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-        return { ok: true, result: finalText, iters: 1, toolCalls: res.toolCallCount };
-      }
-      lastFinalText = finalText; lastToolCalls = res.toolCallCount;
-      lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
-      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
-      if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
-      // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
-      // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
-      if (cls.reason === 'over_window') {
-        const raw = String(task || '');
-        if (overWindowShrunk || raw.length <= 60000) break;
-        overWindowShrunk = true;
-        taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
-      }
-      onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
-      // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
-      await new Promise(r => {
-        const t = setTimeout(r, Math.min(2000, 300 * attempt));
-        if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-      });
+        retryReason = cls.reason;
+        return 'retry';
+      },
+      onRetry: (res, attempt) => {
+        onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: retryReason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
+      },
+    });
+    if (okText !== null) {
+      onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: okText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+      return { ok: true, result: okText, iters: 1, toolCalls: okToolCalls };
     }
     if (!killed && lastFinalText.trim().length >= 80 && lastToolCalls > 0) {
       onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, degraded: true, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
@@ -30777,8 +30860,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = subApiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (subApiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+  const chatUrl = providerCompletionUrl(provider.baseUrl, subApiStyle === 'responses'); // 04h:端点 URL 原语(与父回合同一份)
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -30864,10 +30946,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
@@ -31015,26 +31094,23 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // pre-first-byte transient failures a bounded number of times with backoff, and honor toolsRejected by
       // retrying once without tools. Mid-stream errors are NOT retried (防重放, matching the parent turn -
       // openAiStreamOnce lets those propagate to the catch below).
-      let call = null, giveUp = false, transientAttempts = 0;
+      // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
+      // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
-      while (true) {
-        if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
-        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
-        if (call.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; continue; }
-        const he0 = String(call.httpError || '');
-        const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
-        const transient = call.transportError || call.failoverStatus || status0 === 429;
-        if (transient && transientAttempts < 3) {
-          transientAttempts += 1;
-          await new Promise(r => {
-            const t = setTimeout(r, Math.min(2000, 250 * transientAttempts));
-            if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-          });
-          continue;
-        }
-        break;
-      }
-      if (giveUp) break;
+      const sent = await withTransientRetry({
+        maxRetries: 3,
+        isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
+        signal: ctrl && ctrl.signal,
+        backoffMs: n => Math.min(2000, 250 * n),
+        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream }),
+        classify: c => {
+          if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
+          return providerCallIsTransient(c) ? 'retry' : 'done';
+        },
+      });
+      if (sent.aborted) { subOk = false; subErr = '已中止'; break; }
+      const call = sent.result;
       // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (transient retry above, but no multi-endpoint
       // failover). openAiStreamOnce returns a pre-first-byte transport failure structurally instead of
       // throwing; the loop above already folded transportError into httpError for its own retry decision, and
@@ -34304,8 +34380,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
   // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
   const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = apiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+  const base = providerApiBase(provider.baseUrl, apiStyle === 'responses'); // 04h:端点 URL 原语(显示用 base 见 meta 事件)
+  const chatUrl = providerCompletionUrl(provider.baseUrl, apiStyle === 'responses');
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
@@ -34319,8 +34395,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = apiStyle === 'responses' ? providerResponsesBase(raw) : providerBaseWithV1(raw);
-      const u = b ? b + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+      const b = providerApiBase(raw, apiStyle === 'responses');
+      const u = providerCompletionUrl(raw, apiStyle === 'responses');
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -34557,10 +34633,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头;每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -37613,12 +37686,8 @@ function summaryResponseFailureDetail(payload) {
 async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal, config) {
   const respStyle = provider && provider.apiStyle === 'responses';
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers.authorization = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle); // 04h:端点 URL 与请求头原语(与补全/流式请求同一份)
+  const headers = providerRequestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage
@@ -62366,6 +62435,10 @@ module.exports = {
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
+  // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
+  // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
+  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerPostJsonOnce, providerRawCompletion, providerFixCompletion,
+  providerCallIsTransient, abortableDelay, withTransientRetry, openAiStreamOnce,
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
   asrFixSanity,
