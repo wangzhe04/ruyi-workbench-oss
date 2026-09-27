@@ -197,12 +197,31 @@ function apiFailure(code, params = {}, message = '', status = 400) {
   }, status);
 }
 
+// 架构还债批 1 #7:按 sessionId 操作的路由最常见的两句失败。修前 40 余处各自手写裸串
+// json({ ok:false, error:'invalid sessionId' }, 400) / 'session not found' 404,靠上面那张遗留映射表
+// 兜底翻成稳定码 —— 拼错一个字就悄悄落成 api.request_failed。出参与遗留写法逐字节相同(code/params/message 同序)。
+function apiSessionIdInvalid() { return apiFailure('session.id_invalid', {}, 'invalid sessionId', 400); }
+function apiSessionNotFound() { return apiFailure('session.not_found', {}, 'session not found', 404); }
+
 function text(data, status = 200, headers = {}) {
   return {
     status,
     headers: { 'content-type': 'text/plain; charset=utf-8', ...headers },
     body: data,
   };
+}
+
+// 按 key 串行的写链(架构还债批 1 #3):同一个 key 上的 work 一个接一个跑,前一个失败不挡后一个;
+// 链尾结算后(成功或失败)若仍是自己就从 map 里摘掉,不留长寿条目。返回的就是这一次 work 的 promise ——
+// 调用方要结果就 await 它,要吞错就自己 catch(helper 只保证链本身不产生未处理的拒绝)。
+// 修前 02 / 08 里七处各自手写同一段 previous.catch().then(work) → set → 自清;需要额外收尾动作的
+// (appendIntervention 的推送与压缩计数、saveSession 的在飞快照)仍然手写,不走这里。
+function runKeyedChain(chains, key, work) {
+  const previous = chains.get(key) || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  chains.set(key, current);
+  current.then(() => {}, () => {}).then(() => { if (chains.get(key) === current) chains.delete(key); });
+  return current;
 }
 
 function safeJsonParse(raw, fallback = null) {
@@ -5155,14 +5174,10 @@ async function writeSessionNotes(id, markdown) {
   if (body.length > SESSION_NOTES_MAX_CHARS) {
     body = body.slice(0, SESSION_NOTES_MAX_CHARS) + `\n\n<!-- truncated: exceeded ${SESSION_NOTES_MAX_CHARS} chars -->\n`;
   }
-  const prev = sessionNotesWriteChains.get(file) || Promise.resolve();
-  const next = prev.catch(() => {}).then(async () => {
+  return runKeyedChain(sessionNotesWriteChains, file, async () => {
     await fsp.mkdir(paths.sessions, { recursive: true }); // 旁车写不依赖 server 启动期建目录
     await atomicWriteJson(file, body);                    // 字符串直写,同 25.1 md 先例
   });
-  sessionNotesWriteChains.set(file, next);
-  next.catch(() => {}).finally(() => { if (sessionNotesWriteChains.get(file) === next) sessionNotesWriteChains.delete(file); });
-  return next;
 }
 async function readSessionNotes(id) {
   try { return await fsp.readFile(sessionNotesPath(id), 'utf8'); }
@@ -5276,15 +5291,11 @@ function appendMissionChangeRecord(sessionId, record) {
   const sid = String(sessionId || '');
   if (!sid) return Promise.resolve();
   const file = missionChangeFilePath(sid);
-  const previous = missionChangeWriteChains.get(sid) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  return runKeyedChain(missionChangeWriteChains, sid, async () => {
     await repairMissionChangeTornTail(file);
     await fsp.appendFile(file, JSON.stringify(record) + '\n', 'utf8');
     markPretenderIndexDirty(sid, 'source');
   });
-  missionChangeWriteChains.set(sid, current);
-  current.finally(() => { if (missionChangeWriteChains.get(sid) === current) missionChangeWriteChains.delete(sid); }).catch(() => {});
-  return current;
 }
 function foldMissionChangeJournalText(txt, currentRevision = 0) {
   const records = [];
@@ -5560,8 +5571,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
   const sid = String(sessionId || '');
   if (!sid) return { ok: false, skipped: 'invalid_session' };
   const file = interventionFilePath(sid);
-  const previous = interventionWriteChains.get(sid) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  return runKeyedChain(interventionWriteChains, sid, async () => {
     let txt = '';
     try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
     const folded = foldInterventionJournalText(txt);
@@ -5578,9 +5588,6 @@ async function compactInterventionJournal(sessionId, opts = {}) {
       bytesBefore: folded.bytes, bytesAfter: Buffer.byteLength(payload, 'utf8'),
     };
   });
-  interventionWriteChains.set(sid, current);
-  try { return await current; }
-  finally { if (interventionWriteChains.get(sid) === current) interventionWriteChains.delete(sid); }
 }
 // boot 终态化:进程重启后,内存 Map 清空,但磁盘上可能留有 pending Intervention(上次生命周期注册后未结算 --
 // 进程被杀时超时 timer/clearPending 来不及跑)。与 markInterruptedAgentRuns(08:357)对称:重启 = 上次生命周期
@@ -5637,11 +5644,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
   if (!sid || !id) return { ok: false, reason: 'bad_args' };
   // per-ivId 串行:同一 ivId 的并发转换排队,第二个读到第一个的终态 -> already_terminal(version_conflict 不会误判)
   const key = ivCacheKey(sid, id);
-  const prev = interventionTransitionLocks.get(key) || Promise.resolve();
-  const next = prev.catch(() => {}).then(() => runTransition());
-  interventionTransitionLocks.set(key, next);
-  next.then(() => { if (interventionTransitionLocks.get(key) === next) interventionTransitionLocks.delete(key); }, () => { if (interventionTransitionLocks.get(key) === next) interventionTransitionLocks.delete(key); });
-  return next;
+  return runKeyedChain(interventionTransitionLocks, key, () => runTransition());
 
   async function runTransition() {
     const crashAt = String(opts.crashAt || '');
@@ -8510,12 +8513,7 @@ function journalBytesAdjust(delta) {
 const journalWriteChains = new Map(); // sessionId -> Promise
 
 async function withJournalWriteLock(sessionId, work) {
-  const key = String(sessionId || '');
-  const previous = journalWriteChains.get(key) || Promise.resolve();
-  const current = previous.catch(() => {}).then(work);
-  journalWriteChains.set(key, current);
-  try { return await current; }
-  finally { if (journalWriteChains.get(key) === current) journalWriteChains.delete(key); }
+  return runKeyedChain(journalWriteChains, String(sessionId || ''), work);
 }
 
 function journalDir(sessionId) { return path.join(paths.checkpoints, String(sessionId)); }
@@ -9434,12 +9432,7 @@ async function readMissionContainer(missionId) {
 // 每事项一条写链(先例:02 的 sessionWriteChains)。读-改-写全部在链内做,防两个路由并发把 sessionIds 写丢。
 const missionContainerChains = new Map();
 function withMissionContainerLock(missionId, work) {
-  const id = String(missionId || '');
-  const previous = missionContainerChains.get(id) || Promise.resolve();
-  const current = previous.catch(() => {}).then(work);
-  missionContainerChains.set(id, current);
-  current.then(() => {}, () => {}).then(() => { if (missionContainerChains.get(id) === current) missionContainerChains.delete(id); });
-  return current;
+  return runKeyedChain(missionContainerChains, String(missionId || ''), work);
 }
 
 async function writeMissionContainer(record) {
@@ -23884,6 +23877,26 @@ function stewardThreadStateFromCard(card) {
   });
 }
 
+// 会话头(head)适配器 —— 没有投影卡片时按会话头现算五态的【唯一】喂法(架构还债批 1 #1)。
+// 修前 13d(事项聚合②支)、13k(thread_status)、13o(总览)、13r(事件流)四处各自手写同一组证据键,
+// 其中 autoMode / resultStatus / ledgerless / lastTurnFailed 四个键逐字相同;新增一个证据键要改四处且无人对账。
+// 这里只收【从会话头就能读出来】的那几个键;因调用面而异的(kind / pending / activeTurn / runCount)由 extra 递进来。
+// 117p-S2:无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;
+// 不许拿 milestonesTotal === 0 之类的近似顶替。head 为 null 与「读不出会话头」同义,各键按缺省归一。
+function stewardThreadStateFromHead(head, extra) {
+  const h = (head && typeof head === 'object') ? head : {};
+  const mission = h.mission || null;
+  const last = h.stewardLastTurn || null;
+  return deriveStewardThreadState({
+    autoMode: mission && mission.autoMode,
+    resultStatus: (mission && mission.result && mission.result.status) || '',
+    turnSeq: h.turnSeq,
+    ledgerless: !mission,
+    lastTurnFailed: !!(last && (last.ok === false || last.aborted === true)),
+    ...((extra && typeof extra === 'object') ? extra : {}),
+  });
+}
+
 // 事项级聚合状态(§3.1)。**这是全仓唯一的事项状态定义** —— 入参是子线程五态字符串数组,规则:
 //   任一 needs_you → needs_you;否则全部 done → done;否则任一 running → running;
 //   否则任一 dispatching → dispatching;否则 stopped;空数组 → dispatching。
@@ -30322,10 +30335,7 @@ function appendAgentRunEvent(run, evt) {
     const rec = JSON.stringify({ seq: run.eventSeq, ts: nowIso(), runId: run.id, ...evt }) + '\n';
     const dir = agentRunDir(run.sessionId);
     const file = agentRunEventsFile(run.sessionId, run.id);
-    const prev = agentRunEventChains.get(run.id) || Promise.resolve();
-    const cur = prev.catch(() => {}).then(() => fsp.mkdir(dir, { recursive: true })).then(() => fsp.appendFile(file, rec, 'utf8'));
-    agentRunEventChains.set(run.id, cur);
-    cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
+    runKeyedChain(agentRunEventChains, run.id, () => fsp.mkdir(dir, { recursive: true }).then(() => fsp.appendFile(file, rec, 'utf8')));
   } catch { /* 取证辅助,不阻断执行 */ }
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
@@ -30497,8 +30507,7 @@ async function saveAgentRun(run) {
   if (wasDegraded) run.persistenceDegraded = false;
   run.updatedAt = nowIso();
   const snapshot = JSON.stringify(run, null, 2);
-  const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  await runKeyedChain(agentRunWriteChains, run.id, async () => {
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
@@ -30537,9 +30546,6 @@ async function saveAgentRun(run) {
       throw e;
     }
   });
-  agentRunWriteChains.set(run.id, current);
-  try { await current; }
-  finally { if (agentRunWriteChains.get(run.id) === current) agentRunWriteChains.delete(run.id); }
 }
 async function listAgentRuns(sessionId) {
   const dir = agentRunDir(sessionId);
@@ -44749,7 +44755,7 @@ async function agentWorkflowLoopbackRoute(req, res, kind) {
   const body = await readJsonBody(req);
   if (!(tokenMatches(body.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
   const sessionId = safeSessionId(body.sessionId);
-  if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+  if (!sessionId) return send(res, apiSessionIdInvalid());
   const liveReg = activeChildren.get(sessionId);
   const markSession = async runIds => {
     if (!EventStreamHooks.markAgentEnvelopeDelivered || !runIds.length) return;
@@ -44911,7 +44917,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/playbooks/draft') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json(await draftPlaybookFromSession(sessionId)));
   }
   // POST /api/playbooks — save a user playbook (normalized; token-gated). Body = the playbook object.
@@ -45189,7 +45195,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/memories') {
     const body = await readJsonBody(req);
     const session = await loadSession(String(body && body.sessionId || '')).catch(() => null);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
     const registry = await loadMemoryRegistry(cwd).catch(() => []);
@@ -45199,7 +45205,7 @@ async function handleApi(req, res, pathname) {
     const writeMemoryFields = async fields => {
       try {
         const written = await mutateSession(session.id, fresh => { Object.assign(fresh, fields); }, { writer: 'session_memories' });
-        if (!written.session) { send(res, json({ ok: false, error: 'session not found' }, 404)); return true; }
+        if (!written.session) { send(res, apiSessionNotFound()); return true; }
       } catch (error) {
         if (error && error.code === 'session.rewound_during_write') { send(res, apiFailure(error.code, {}, error.message, 409)); return true; }
         throw error;
@@ -45271,14 +45277,14 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json(await proposeMemoryFromSession(sessionId)));
   }
   // POST /api/memory/proposal/decision —— 只有用户在卡片上保存/忽略时落候选状态；仍不替用户写记忆。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/decision') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const r = await decideMemoryProposal(sessionId, String(body && body.proposalId || ''), String(body && body.decision || ''));
     return send(res, json(r, r.ok ? 200 : 404));
   }
@@ -45287,7 +45293,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/apply') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (!pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
@@ -45298,7 +45304,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json(await draftMemoryFromSession(sessionId)));
   }
   // POST /api/memory/migrate {id, fromKey, cwd} —— 迁移一条项目记忆到当前 cwd 的项目组。
@@ -45444,7 +45450,7 @@ async function handleApi(req, res, pathname) {
     // /api/chat/answer — deliberately NOT in needsToken (commander's amendment) to stay consistent.
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(String(body.sessionId || ''));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     return send(res, json(await runProviderCompact(sessionId)));
   }
@@ -45452,7 +45458,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     const storedConfig = await readConfig();
     const sessionId = safeSessionId(String(body.sessionId || ''));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     // Native Kimi compaction and external summary reseeding both mutate the same session a live turn
     // owns. Enforce the UI's no-overlap rule at the API boundary to avoid last-writer-wins data loss.
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
@@ -45470,9 +45476,9 @@ async function handleApi(req, res, pathname) {
     if (config.agentCliType !== 'kimi') return send(res, json({ ok: false, error: '当前不是 Kimi Code 接入' }, 400));
     const u = new URL(req.url, 'http://x');
     const sessionId = safeSessionId(String(u.searchParams.get('sessionId') || ''));
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const session = await loadSession(sessionId).catch(() => null);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
     if (!status.ok) return send(res, json(status, 400));
     const usage = applyKimiStatusToSession(session, status);
@@ -45489,7 +45495,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const items = normalizeTodoItems(body.items);
     // 128b:mutateSession —— 撤回插在读与存之间时在新读的副本上重放,不被闸静默丢掉还回 ok。
     let written;
@@ -45498,7 +45504,7 @@ async function handleApi(req, res, pathname) {
       if (error && error.code === 'session.rewound_during_write') return send(res, apiFailure(error.code, {}, error.message, 409));
       throw error;
     }
-    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!written.session) return send(res, apiSessionNotFound());
     const reg = activeChildren.get(sessionId);
     if (reg && reg.onEvent) { try { reg.onEvent({ type: 'todo', items }); } catch { /* stream gone */ } }
     return send(res, json({ ok: true, count: items.length }));
@@ -45510,9 +45516,9 @@ async function handleApi(req, res, pathname) {
     const bodyTokenOk = tokenMatches(bodyOrQ.token);
     if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(bodyOrQ.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     let session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     if (req.method === 'GET') return send(res, json({ ok: true, mission: session.mission || null }));
     // 128b:check／start／update 都走 mutateSession 落盘;撞上撤回回 409 稳定码,不回成功、不记变更流水。
     const rewoundReply = error => send(res, apiFailure(error.code, {}, error.message, 409));
@@ -45552,7 +45558,7 @@ async function handleApi(req, res, pathname) {
         if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
         throw error;
       }
-      if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      if (!written.session) return send(res, apiSessionNotFound());
       session = written.session;
       if (session.mission) {
         const resultAfter = String(session.mission.result && session.mission.result.status || '');
@@ -45594,7 +45600,7 @@ async function handleApi(req, res, pathname) {
       if (error && error.code === 'session.rewound_during_write') return rewoundReply(error);
       throw error;
     }
-    if (!written.session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!written.session) return send(res, apiSessionNotFound());
     if (!written.ok && written.value === 'no_mission') return send(res, json({ ok: false, error: '当前会话没有活动任务账本;请先 action:start' }, 400));
     session = written.session;
     if (action === 'start') logEvent({ kind: 'mission_start', sessionId, trusted, autoMode: session.mission.autoMode }); // 29c: 预算超支率的分母
@@ -45645,16 +45651,16 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const q = Object.fromEntries(new URL(req.url, 'http://x').searchParams);
     const sessionId = safeSessionId(q.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     return send(res, json({ ok: true, grants: listGrantsView(sessionId), activeRun: activeDriverRuns.get(sessionId) || null }));
   }
   if (req.method === 'POST' && pathname === '/api/autonomy/grant') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const norm = normalizeGrant(body, session, config, Date.now());
     if (!norm.ok) return send(res, json({ ok: false, error: norm.error }, 400));
@@ -45680,7 +45686,7 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     let n = 0;
     if (body.all === true) n = revokeAllGrants(sessionId, 'ui-revoke-all');
     else if (body.grantId) n = revokeGrant(sessionId, String(body.grantId)) ? 1 : 0;
@@ -45697,9 +45703,9 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const reg = activeChildren.get(sessionId);
     const provider = resolveProvider(config, body.providerId)
@@ -45795,7 +45801,7 @@ async function handleApi(req, res, pathname) {
     // sends the token, so it is unaffected; only tokenless local processes are refused.
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(new URL(req.url, 'http://x').searchParams.get('sessionId')); // F4
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const entries = await journalReadIndex(sessionId);
     // v1.4.1: 附上每条目当前磁盘大小(改动后状态),前端可显示「原 X → 现 Y」的大小变化 + 判定是否值得看 diff。
     const enriched = await Promise.all(entries.map(async e => {
@@ -45818,13 +45824,13 @@ async function handleApi(req, res, pathname) {
     const hasEntrySeq = body && body.entrySeq !== undefined && body.entrySeq !== null && body.entrySeq !== '';
     const entrySeq = hasEntrySeq ? Number(body.entrySeq) : null;
     const action = body && body.action === 'open' ? 'open' : 'diff';
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (!Number.isInteger(turnSeq) || turnSeq < 0 || (hasEntrySeq && (!Number.isInteger(entrySeq) || entrySeq < 0))) {
       return send(res, apiFailure('checkpoint.reference_invalid', {}, 'invalid turnSeq or entrySeq', 400));
     }
     if (action === 'open' && !hasEntrySeq) return send(res, apiFailure('checkpoint.reference_invalid', {}, 'entrySeq is required for open', 400));
     const session = await loadSession(sessionId);
-    if (!session) return send(res, apiFailure('session.not_found', {}, 'session not found', 404));
+    if (!session) return send(res, apiSessionNotFound());
     const config = await readConfig();
     const turnEntries = (await journalReadIndex(sessionId))
       .filter(e => e && Number(e.turnSeq) === turnSeq)
@@ -45885,7 +45891,7 @@ async function handleApi(req, res, pathname) {
     if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
     const q = new URL(req.url, 'http://x').searchParams;
     const sessionId = safeSessionId(q.get('sessionId'));
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const turnSeq = Number(q.get('turnSeq')), entrySeq = Number(q.get('entrySeq'));
     if (!Number.isInteger(turnSeq) || !Number.isInteger(entrySeq) || turnSeq < 0 || entrySeq < 0) {
       return send(res, apiFailure('checkpoint.reference_invalid', {}, 'invalid turnSeq or entrySeq', 400));
@@ -47381,7 +47387,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/checkpoints/rollback') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4: consume only well-formed ids
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.turnSeq === undefined || body.turnSeq === null) return send(res, json({ ok: false, error: 'turnSeq is required' }, 400));
     // F1: refuse rollback while a turn is live for this session — same guard/wording as /api/session/rewind.
     // The three index.json writers (journalRecord / journalGc / journalRollback) all do an unlocked
@@ -47413,7 +47419,7 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/session/rewind') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body.sessionId); // F4
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (body.targetTurnSeq === undefined || body.targetTurnSeq === null) return send(res, apiFailure('request.field_required', { field: 'targetTurnSeq' }, 'targetTurnSeq is required', 400));
     return send(res, json(await rewindSession(sessionId, body.targetTurnSeq, !!body.rollbackFiles)));
   }
@@ -47530,7 +47536,7 @@ async function handleSteerApiRoute(req, res, pathname) {
     const sessionId = safeSessionId(body.sessionId);
     // Mirror POST normalization: callers can cancel text that POST accepted after stripping a spoofed prefix.
     const text = String(body.text || '').trim().slice(0, 2000).replace(/^(\s*\[用户插话\]\s*)+/, '').trim();
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     if (!text) return send(res, apiFailure('request.field_required', { field: 'text' }, 'text is required', 400));
     const reg = activeChildren.get(sessionId);
     if (!reg) return send(res, json({ ok: false, error: '当前没有进行中的回合' }));
@@ -48432,7 +48438,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     if (bg) {
       if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
       const sid = safeSessionId(decodeURIComponent(bg[1]));
-      if (!sid) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (!sid) return send(res, apiSessionIdInvalid());
       if (req.method === 'GET' && !bg[2]) {
         const shells = EventStreamHooks.backgroundShells;
         const items = (shells ? shells.rows(sid) : []).concat(sessionBackgroundRunRows(sid));
@@ -48469,7 +48475,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
       const session = await loadSession(id);
-      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : json({ ok: false, error: 'session not found' }, 404)); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
@@ -48603,7 +48609,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
           'giving a thread desktop tools requires an explicit confirm:true (it can see your screen and press keys while you are away)', 409));
       }
       const session = await updateSessionMeta(id, body);
-      if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+      if (!session) return send(res, apiSessionNotFound());
       const patchedConfig = await readConfig();
       // 审计:权限档是安全面,每一次改动都要能事后对账(谁、哪条线程、从哪档到哪档、生效档是什么)。
       if (body && Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
@@ -48914,18 +48920,12 @@ async function buildMissionAggregateRows(options = {}) {
     else if (meta.kind === 'mission') {
       const head = await readMissionSessionHead(meta.id);
       threadLedger = !!(head && head.mission);
-      derived = deriveStewardThreadState({
+      // 会话头这一支与 13k thread_status / 13o 总览 / 13r 事件流同一个适配器(06i stewardThreadStateFromHead)。
+      derived = stewardThreadStateFromHead(head, {
         kind: 'mission',
-        autoMode: head && head.mission && head.mission.autoMode,
-        resultStatus: (head && head.mission && head.mission.result && head.mission.result.status) || '',
         pending: await missionPendingCounts(meta.id, [], null).catch(() => null),
         activeTurn: activeChildren.has(meta.id),
         runCount: 0,
-        turnSeq: head && head.turnSeq,
-        // 117p-S2:与 13g thread_status / 13h 总览同一条投影 —— 无账本判据只认「头上没有 mission 容器」,
-        // 与卡片侧 card.status === 'none' 同义;不许拿 milestonesTotal === 0 之类的近似顶替。
-        ledgerless: !(head && head.mission),
-        lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     } else derived = deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true });
     // 124 还债①：组级两个事实在这一处累计（前端不再自己推）——
@@ -49213,12 +49213,12 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && /^\/api\/missions\/[^/]+\/changes$/.test(pathname)) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(pathname.split('/')[3]);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const query = new URL(req.url, 'http://x').searchParams;
     const after = Number(query.get('after'));
     if (!Number.isSafeInteger(after) || after < 0) return send(res, json({ ok: false, error: 'after must be a non-negative integer' }, 400));
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     // 117m-A3(用户第六轮走查④「交办台点开,显示报错」):线程 kind:'mission' 而 mission:null 是【合法状态】
     // —— 管家刚开的线程还没有任何变更账本。修前这里 404 'mission not found',而交办台详情是一个
     // Promise.all(详情 + 两次 changes),一挂就把整块面板换成错误卡(用户截图里那张)。把「还没有变更」
@@ -49256,7 +49256,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && /^\/api\/missions\/[^/]+\/control$/.test(pathname)) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(pathname.split('/')[3]);
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const body = await readJsonBody(req);
     const result = await missionControlCommand(sessionId, body && body.action, body && body.prompt);
     return send(res, json(result.body, result.status));
@@ -49265,7 +49265,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
     // 124-P1:详情自此带着【事项容器】那一套验收项(「人工复核」那一档),容器是另一份文件,
@@ -49279,7 +49279,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     const etag = indexed ? pretenderEtag('mission', indexed.revision + '-' + pretenderLiveOverlayRevision(sessionId) + '-' + missionContainerAcceptanceStamp(container)) : '';
     if (etag && pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     const session = await loadSession(sessionId);
-    if (!session) return send(res, json({ ok: false, error: 'session not found' }, 404));
+    if (!session) return send(res, apiSessionNotFound());
     const runs = await listAgentRuns(sessionId).catch(() => []);
 
     // 验收投影(124-P1):里程碑计数与 items 形状一个字不动,另带「这条是谁判的」四态、机器检查的
@@ -49819,7 +49819,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     if (body.action === 'compact') {
       const sessionId = safeSessionId(body.sessionId);
-      if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+      if (!sessionId) return send(res, apiSessionIdInvalid());
       return send(res, json(await compactInterventionJournal(sessionId, { force: true })));
     }
     if (body.action === 'rebuild') {
@@ -49921,7 +49921,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
-    if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
     const interventions = slice ? slice.interventions : [];
@@ -49990,7 +49990,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const body = await readJsonBody(req);
     if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
     const sessionId = safeSessionId(body.sessionId);
-    if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
+    if (!sessionId) return send(res, apiSessionIdInvalid());
     const reg = activeChildren.get(sessionId);
     if (!reg || !reg.onEvent) return send(res, apiFailure('question.no_active_turn', {}, 'no active UI stream to prompt', 409));
     const config = await readConfig();
@@ -53305,14 +53305,11 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const card = slice ? overlayMissionCard(slice) : null;
   const derived = card
     ? stewardThreadStateFromCard(card)
-    : deriveStewardThreadState({
+    : stewardThreadStateFromHead(head, {   // 会话头证据键由 06i 适配器统一读(与 13d / 13o / 13r 同一个)
       kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',   // 116-3 P1-5,判据同 threads_search
-      autoMode: head.mission && head.mission.autoMode,
-      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
       activeTurn: activeChildren.has(sessionId),
       runCount: 0,
-      turnSeq: head.turnSeq, ledgerless: !head.mission, lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)), // 117p-S2(§8.3):无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;13g 行闸所迫挤一行,释义见 06i/13d 同名键注释
     });
 
   const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');
@@ -57033,19 +57030,12 @@ async function stewardThreadDigestRows(config) {
     const card = slice.card ? overlayMissionCard(slice) : null;
     const derived = card
       ? stewardThreadStateFromCard(card)
-      : deriveStewardThreadState({
+      : stewardThreadStateFromHead(head, {   // 会话头证据键与 13d / 13k / 13r 同一个适配器(06i)
         // 116-3 P1-5:只有【管家自己用 steward_quick_ask 开的】速查线程才是 quick_ask。
         // 判据与 13g 的 threads_search / thread_status 同一个函数(13h -> 13g 是后向边),
         // 不再用「非 mission 即 quick_ask」那个把普通对话也一并打上标签的兜底。
         kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',
-        autoMode: head.mission && head.mission.autoMode,
-        resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
         activeTurn: activeChildren.has(sid),
-        turnSeq: head.turnSeq,
-        // 117p-S2:与 13g thread_status / 13d 事项聚合同一个喂法 —— 无账本判据只认
-        // 「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义。
-        ledgerless: !head.mission,
-        lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const settled = derived.state === 'done' || derived.state === 'stopped';
@@ -59766,17 +59756,12 @@ async function eventStreamEmitThreadState(sessionId, opts = {}) {
     const head = await readMissionSessionHead(sid).catch(() => null);
     if (!head || !head.id) return;                       // 会话已删/读不出来:不编一个状态出来
     const pending = await missionPendingCounts(sid, [], null).catch(() => null);
-    const derived = deriveStewardThreadState({
+    // 与 13d 的②支同一个会话头适配器(06i stewardThreadStateFromHead)。
+    const derived = stewardThreadStateFromHead(head, {
       kind: 'mission',
-      autoMode: head.mission && head.mission.autoMode,
-      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending,
       activeTurn: activeChildren.has(sid),
       runCount: 0,
-      turnSeq: head.turnSeq,
-      // 与 13d 的②支逐字一致:无账本判据只认「头上没有 mission 容器」。
-      ledgerless: !head.mission,
-      lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
     });
     // `wait` = 这条线程此刻有几件在等你。与五态的 needs_you 判据同源(pendingTotal > 0),
     // 不是第二个计数口径。
@@ -62378,6 +62363,9 @@ if (require.main === module) {
 }
 
 module.exports = {
+  apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
+  IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
+  runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
   asrFixSanity,
@@ -62851,6 +62839,7 @@ module.exports = {
   STEWARD_THREAD_STATES,
   deriveStewardThreadState,
   stewardThreadStateFromCard,
+  stewardThreadStateFromHead,   // 架构还债批 1 #1:会话头 → 五态证据的唯一适配器(unit/steward-head-adapter.test.js)
   // 第116波116g(§3.1 事项跨会话升格): 事项级聚合状态的唯一定义(纯函数,unit 穷举真值表)。
   aggregateMissionState,
   // 117s-A D1(§11.13 ③):行序的状态秩(纯函数,单测/e2e 直测)。

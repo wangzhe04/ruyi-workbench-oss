@@ -10,6 +10,18 @@
   CI 用 `build.js --check` 拒绝陈旧产物。
 - 前端 `ruyi-workbench/app/public/` 无框架、无构建。
 - `dev-harness/` 是离线 e2e 与假件;`dev-harness/unit/*.test.js` 是 `node --test` 快通道。
+- 新写 e2e 不要再手抄 `ok()`/失败计数/判定行和假 provider:用 `dev-harness/lib/harness.js`(`createRunner`)与
+  `dev-harness/lib/fake-openai-provider.js`(`startFakeProvider` + `textFrames`/`toolCallFrames`/`usageFrame`),用法见两个文件头注与 CONTRIBUTING.md。
+
+## 写新代码先找现成的(都有测试钉着,别再手写一份)
+
+- 按 key 串行的写链:`runKeyedChain(map, key, work)`(00-boot)。
+- 接口失败:`apiFailure(code, params, message, status)`;会话两句常见失败 `apiSessionIdInvalid()` / `apiSessionNotFound()`。
+  裸串 `json({ ok:false, error:'…' })` 有只减不增的上限(`unit/api-error-helpers.test.js`)。
+- 线程五态:有卡片走 `stewardThreadStateFromCard`,只有会话头走 `stewardThreadStateFromHead`(06i),不要手拼证据键。
+- 新增 exec 档内建工具:决定进不进不可逆账(02 `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
+- 新模块默认挂在依赖环外:需要调用后加载的模块时走 `*Hooks` 延迟绑定(先例 06j / 13t)。
+  强连通分量的规模有上限(`module-dependency-graph.static.e2e.js`)。
 
 ## 提交前的快速检查(与 CI 同序)
 

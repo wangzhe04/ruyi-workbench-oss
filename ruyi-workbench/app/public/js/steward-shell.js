@@ -9,7 +9,7 @@ import { createStewardBoard, STEWARD_FOCUS_THREAD_EVENT } from './steward-board.
 import { createThreadHead } from './thread-head.js';
 import { createQuietCard } from './quiet-card.js';
 import { toast } from './util.js';   // 123-M2：安静卡「稍后」建不成那条 reminder 时的一句提示
-import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源
+import { stewardEscapeStack, byId, STEWARD_POLL_MS_MIN, STEWARD_POLL_MS_DEFAULT, STEWARD_POLL_MS_CONNECTED, STEWARD_POLL_DUE_SLACK_MS as POLL_DUE_SLACK_MS, createPollLifecycle } from './steward-chips.js';   // 117j UX-F3：Esc 逐层的唯一监听点；33 号文 §4：轮询常量（下限/默认/容差）也只有那一份；121-K2b：事件流连着时的兜底节拍同源；轮询生命周期（启停／门控）同一份
 // 33 号文 §4「`steward-shell.js:92,105,108`」：壳模式本机偏好只有一份定义，byId 只有
 // steward-chips.js 那一份 —— 本文件两者都不再自带。121-K1（34 号文 §8.2）：那份定义随交办台退役
 // 从 preview-shell.js 搬到叶子 js/shell-mode.js，本文件只改 import 来源，取法一个字未变。
@@ -34,9 +34,9 @@ import { SHELL_MODE_STORAGE_KEY } from './shell-mode.js';
 //
 // 117b 新增的唯一后台活动——avatar 的 GET /api/steward/state 轮询——受严格的模式门控（27 号文 §3.4
 // 红线「开关关时零后台活动」的延伸：这里收紧成「非管家模式时零后台活动」）：
-//   · 本文件只有一处 setInterval（startPolling）与一处 clearInterval（stopPolling），两者只经
-//     syncPolling() 调用，而 syncPolling() 的第一件事永远是 isStewardMode() 判定 —— 判定为否就
-//     stopPolling()，不会有任何计时器存活。
+//   · 本文件只有一处 setInterval（交给 createPollLifecycle 的 arm）与一处 clearInterval（disarm），
+//     两者只经 syncPolling() 调用，而 syncPolling() 的门控（shouldRun）第一件事永远是 isStewardMode()
+//     判定 —— 判定为否就停表，不会有任何计时器存活。
 //   · syncPolling() 的触发点：①MutationObserver 盯着 documentElement 的 data-shell-mode 属性
 //     （谁改的都算——select、「回到经典」按钮、fail-closed 回退、未来任何新入口，零遗漏）；
 //     ②document 的 visibilitychange（标签页隐藏即暂停，见回来即恢复，若仍在管家模式）；
@@ -56,7 +56,7 @@ export const STEWARD_SHELL_SLOT_IDS = Object.freeze([
 // (config 已经 clamp 过一次，这里只防「配置还没到达/被清空」时退回 15000 默认值)。
 // 33 号文 §4「轮询常量收进叶子」：这三个值原来与 steward-board / steward-drawer 两处逐字相同，
 // 现在只有 steward-chips.js 一个来源，从上面那条已有的 import 取。本地名字一个没改 —— 锁钉的是
-// startPolling／pollStewardTick 的函数体与 clamp 写法，这一项收的是值不是名字。
+// 起表那一处（createPollLifecycle 的 arm）、pollStewardTick 的函数体与 clamp 写法，这一项收的是值不是名字。
 
 // 骨架齐备 = 同级容器在，且四个空位都在。纯 DOM 判定，无副作用，测试与 UI 共用同一口径。
 export function stewardShellDomReady(doc = globalThis.document) {
@@ -337,22 +337,18 @@ export function createStewardShellDomain({
     return true;
   }
 
-  let pollTimer = 0;
-  function stopPolling() {
-    if (!pollTimer) return;
-    clearInterval(pollTimer);
-    pollTimer = 0;
-  }
-  function startPolling() {
-    if (pollTimer) return;
-    pollStewardState();
-    pollTimer = setInterval(pollStewardTick, STEWARD_POLL_MS_MIN);
-  }
+  // 起表那一刻先当场拉一次（onStart），再按 5 s 下限起表；幂等启停与门控由 steward-chips.js 的
+  // createPollLifecycle 统一实现（看板／抽屉同一份），计时器本身仍只在这里起、在这里清。
+  const polling = createPollLifecycle({
+    shouldRun: () => isStewardMode() && !(globalThis.document && globalThis.document.hidden),
+    onStart: pollStewardState,
+    arm: () => setInterval(pollStewardTick, STEWARD_POLL_MS_MIN),
+    disarm: timer => clearInterval(timer),
+  });
   // 唯一入口：轮询该开该关只由这一个判定决定——管家模式 且 页面可见。本文件别处一律不直接调
-  // startPolling/stopPolling，只调 syncPolling（源码正则锚，见 dev-harness/steward-avatar.static.e2e.js）。
+  // polling.start/polling.stop，只调 syncPolling（源码正则锚，见 dev-harness/steward-avatar.static.e2e.js）。
   function syncPolling() {
-    if (isStewardMode() && !(globalThis.document && globalThis.document.hidden)) startPolling();
-    else stopPolling();
+    polling.sync();
   }
 
   // typing 由输入框驱动 + 轮询/属性变化的两个触发点各接一次，绑定完立刻按当前实况刷一次

@@ -483,8 +483,9 @@ export function describeTurnActivity(snapshot, t) {
   } else if (phase === 'waiting_resource') {
     severity = 'warn';
     const wait = snapshot.resourceWait || {};
-    const resources = (wait.resources || []).join('、');
-    const blockers = (wait.blockers || []).join('、');
+    const listSeparator = typeof t === 'function' ? t('common.listSeparator') : '、';   // 未注入 t 时照旧用顿号（translate 的兜底会把键名本身印出来）
+    const resources = (wait.resources || []).join(listSeparator);
+    const blockers = (wait.blockers || []).join(listSeparator);
     action = blockers
       ? translate('turnActivity.waiting.resourceBlocked', { p1: resources, p2: blockers })
       : translate('turnActivity.waiting.resource', { p1: resources });

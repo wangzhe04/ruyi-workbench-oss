@@ -449,14 +449,11 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const card = slice ? overlayMissionCard(slice) : null;
   const derived = card
     ? stewardThreadStateFromCard(card)
-    : deriveStewardThreadState({
+    : stewardThreadStateFromHead(head, {   // 会话头证据键由 06i 适配器统一读(与 13d / 13o / 13r 同一个)
       kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',   // 116-3 P1-5,判据同 threads_search
-      autoMode: head.mission && head.mission.autoMode,
-      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
       activeTurn: activeChildren.has(sessionId),
       runCount: 0,
-      turnSeq: head.turnSeq, ledgerless: !head.mission, lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)), // 117p-S2(§8.3):无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;13g 行闸所迫挤一行,释义见 06i/13d 同名键注释
     });
 
   const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');

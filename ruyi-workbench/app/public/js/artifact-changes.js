@@ -146,7 +146,7 @@ export function createArtifactChangesDomain({
       return before ? t('changes.sizeDelete', { size: before }) : t('changes.sizeDeleted');
     }
     if (before && current) return `${before} → ${current}`;
-    return before ? `原 ${before}` : '';
+    return before ? t('changes.sizeBefore', { size: before }) : '';
   }
 
   function isTextishPath(pathValue) {
@@ -404,7 +404,7 @@ export function createArtifactChangesDomain({
       return;
     }
     const diff = crudeLineDiff(diffData.before || '', diffData.after || '');
-    box.append(el('div', 'cdiff-note muted', `+${diff.added.length} 行 / −${diff.removed.length} 行`));
+    box.append(el('div', 'cdiff-note muted', t('changes.lineDelta', { added: diff.added.length, removed: diff.removed.length })));
     const body = el('div', 'cdiff-body');
     const addLine = (className, gutter, text) => {
       const line = el('div', 'cdiff-line ' + className);

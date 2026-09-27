@@ -255,7 +255,7 @@ export function writeNote(id, text) {
 // 下限 5000（与 01-config 的 stewardPollMs 同一 clamp）、容差 250（setInterval 会比标称早几毫秒
 // 回来，不留容差就会整整推迟一拍）、默认 15000（配置还没到达时的兜底）。三者都以 chips.js 为既有
 // 依赖，收进来不新增任何模块依赖边。三处的【本地名字】刻意保留（STEWARD_DRAWER_POLL_MS_MIN 等）：
-// 三把逐字锁钉的是 startPolling／pollStewardTick／pollSlice／pollTick 的函数体与 clamp 写法，
+// 三把逐字锁钉的是 pollStewardTick／pollSlice／pollTick 的函数体、起表那一处与 clamp 写法，
 // 改名等于把锁全钉红；这一项收的是【值】不是名字 —— 本模块是这组数字的唯一来源。
 export const STEWARD_POLL_MS_MIN = 5000;
 export const STEWARD_POLL_MS_DEFAULT = 15000;
@@ -266,6 +266,34 @@ export const STEWARD_POLL_DUE_SLACK_MS = 250;
 // 这个数只有这一份：四个消费者（壳层／看板／抽屉／2.0 在途卡）都从本叶子 import，不各写一遍。
 // 表（setInterval 的周期）一个字没动 —— 变的只是每一拍自己判「该不该拉」的那个 due。
 export const STEWARD_POLL_MS_CONNECTED = 30000;
+
+// 轮询生命周期（壳层状态／看板／抽屉三处共用）：三个模块原来各手写一份逐字同形的
+// `let pollTimer = 0` ＋ startPolling／stopPolling／syncPolling —— 幂等启停、唯一门控、停表后归零。
+// 收成这一份之后，三处的差异只剩真正不同的那几样，各自当参数传进来：
+//   · shouldRun —— 门控（壳层／看板：管家模式 && 页面可见；抽屉多一条「抽屉开着」）；
+//   · onStart   —— 起表那一刻要不要先拉一次（只有壳层要：pollStewardState 当场一次，再起表）；
+//   · arm／disarm —— 表本身。**计时器仍由调用方起**：setInterval／clearInterval 各自在三个模块里恰好
+//     一处（F1／C1／C2a 那几把锁钉的纪律不变），本模块照旧零 setInterval／setTimeout（chip 不轮询）。
+// 节拍（due、事件流连着时的 30 s 兜底、容差）不在这里：那是每一拍 tick 自己判的，三处的判据与水位
+// 各不相同（壳层回包才推水位、抽屉拉之前就推），所以留在各自模块里原样不动。
+export function createPollLifecycle({ shouldRun, arm, disarm, onStart = null }) {
+  let timer = 0;
+  function stop() {
+    if (!timer) return;
+    disarm(timer);
+    timer = 0;
+  }
+  function start() {
+    if (timer) return;
+    if (onStart) onStart();
+    timer = arm();
+  }
+  function sync() {
+    if (shouldRun()) start();
+    else stop();
+  }
+  return Object.freeze({ start, stop, sync, isRunning: () => Boolean(timer) });
+}
 
 // 33 号文 §4「Enter/isComposing 守卫 ×3 抽 bindEnterToSubmit」：管家壳里「回车发送」的规矩原本在
 // 三处各写一遍（composer 一处、抽屉底部输入框与问答框各一处），三份逐字同形。这里收成一处判据：

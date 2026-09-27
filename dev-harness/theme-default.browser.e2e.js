@@ -15,9 +15,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   T4 显式存过 'dark' 的人：系统浅色也仍是深色（不改老用户）。
 // 判定行：`THEME DEFAULT BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
+const { createRunner } = require('./lib/harness');
 
-let fail = 0;
-const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
+const t = createRunner('THEME DEFAULT BROWSER');
+const { ok } = t;
 
 (async () => {
   let fx = null;
@@ -46,11 +47,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     ok(t4 === 'dark', `T4 存过 dark 的人：系统浅色也仍是深色（实测 ${t4}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
-    fail++;
-    console.log('FAIL fatal: ' + (error && error.stack || error));
+    t.fail('fatal: ' + (error && error.stack || error));
   } finally {
-    if (fx) await fx.close({ keepRoot: fail > 0 });
+    if (fx) await fx.close({ keepRoot: t.failures > 0 });
   }
-  console.log('\nTHEME DEFAULT BROWSER E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
-  process.exit(fail ? 1 : 0);
+  t.done({ exit: true });
 })();

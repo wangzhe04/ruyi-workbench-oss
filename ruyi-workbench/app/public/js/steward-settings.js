@@ -619,7 +619,7 @@ export function createStewardSettingsDomain({
       const categories = (Array.isArray(delegation.categories) ? delegation.categories : [])
         .map(key => (EXEMPT_CATEGORY_KEYS[String(key)] ? t(EXEMPT_CATEGORY_KEYS[String(key)]) : String(key)))
         .filter(Boolean);
-      parts.push(t('settings.steward.decisions.basisDelegation', { categories: categories.join('、'), note: String(delegation.riskNote || '') }));
+      parts.push(t('settings.steward.decisions.basisDelegation', { categories: categories.join(t('common.listSeparator')), note: String(delegation.riskNote || '') }));
     }
     return parts.join(' · ');
   }

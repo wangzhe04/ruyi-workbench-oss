@@ -135,14 +135,19 @@ ok(count(drawer, /setInterval\(/g) === 1 && count(drawer, /clearInterval\(/g) ==
   `C1 steward-drawer.js 恰好一处 setInterval 与一处 clearInterval（实测 ${count(drawer, /setInterval\(/g)}／${count(drawer, /clearInterval\(/g)}）`);
 ok(count(drawer, /setTimeout\(/g) === 0 && count(chips, /setInterval\(|setTimeout\(/g) === 0,
   'C2 抽屉零 setTimeout；chip 模块零计时器（它不轮询，数据由宿主喂）');
-ok(/function syncPolling\(\) \{\s*if \(isOpen\(\) && isStewardMode\(\) && !\(doc\(\) && doc\(\)\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);/.test(drawer),
+// 轮询生命周期收编（前端架构债第一批）重钉 C3／C3b／C5：pollTimer ＋ startPolling／stopPolling 收进
+// steward-chips.js 的 createPollLifecycle（启停语义由 steward-shell.static C2g 真跑钉着）。判据一字未变：
+// 门控仍是这三条；起表只经 syncPolling（零直调 polling.start()），停表只有「门控为否」与「关抽屉」两路。
+ok(/const polling = createPollLifecycle\(\{\s*shouldRun: \(\) => isOpen\(\) && isStewardMode\(\) && !\(doc\(\) && doc\(\)\.hidden\),\s*arm: \(\) => setInterval\(pollSlice, STEWARD_DRAWER_POLL_MS_MIN\),\s*disarm: timer => clearInterval\(timer\),\s*\}\);/.test(drawerCode)
+  && /function syncPolling\(\) \{\s*polling\.sync\(\);\s*\}/.test(drawerCode),
   'C3 唯一入口 syncPolling 的门控是「抽屉开着 && 管家模式 && 页面可见」，任一为否即停表');
-ok(count(drawer, /startPolling\(\)/g) === 2 && count(drawer, /stopPolling\(\)/g) === 3,
-  `C3b startPolling/stopPolling 只由 syncPolling 与关抽屉调用（实测 ${count(drawer, /startPolling\(\)/g)}／${count(drawer, /stopPolling\(\)/g)}）`);
+ok(count(drawerCode, /polling\.start\(\)/g) === 0 && count(drawerCode, /polling\.stop\(\)/g) === 1
+  && count(drawerCode, /polling\.sync\(\)/g) === 1 && count(drawerCode, /\bstartPolling\b|\bstopPolling\b|\bpollTimer\b/g) === 0,
+  `C3b 起表只由 syncPolling、停表只由 syncPolling 与关抽屉（实测 start ${count(drawerCode, /polling\.start\(\)/g)}／stop ${count(drawerCode, /polling\.stop\(\)/g)}／sync ${count(drawerCode, /polling\.sync\(\)/g)}）`);
 ok(/document_\.addEventListener\('visibilitychange', syncPolling\);/.test(drawer)
   && /attributeFilter: \['data-shell-mode'\]/.test(drawer),
   'C4 触发点是 visibilitychange 与 data-shell-mode 的 MutationObserver（谁改的都算）');
-ok(/function closeDrawer\(\{ focusComposer = false \} = \{\}\) \{[\s\S]*?stopPolling\(\);/.test(drawer),
+ok(/function closeDrawer\(\{ focusComposer = false \} = \{\}\) \{[\s\S]*?polling\.stop\(\);/.test(drawer),
   'C5 关抽屉即停表（不留「抽屉关着还在刷」的计时器）');
 ok(mod.STEWARD_DRAWER_POLL_MS_MIN === 5000
   && /Math\.max\(STEWARD_DRAWER_POLL_MS_MIN, raw\)/.test(drawer),

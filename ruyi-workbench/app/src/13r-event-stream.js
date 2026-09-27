@@ -109,17 +109,12 @@ async function eventStreamEmitThreadState(sessionId, opts = {}) {
     const head = await readMissionSessionHead(sid).catch(() => null);
     if (!head || !head.id) return;                       // 会话已删/读不出来:不编一个状态出来
     const pending = await missionPendingCounts(sid, [], null).catch(() => null);
-    const derived = deriveStewardThreadState({
+    // 与 13d 的②支同一个会话头适配器(06i stewardThreadStateFromHead)。
+    const derived = stewardThreadStateFromHead(head, {
       kind: 'mission',
-      autoMode: head.mission && head.mission.autoMode,
-      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending,
       activeTurn: activeChildren.has(sid),
       runCount: 0,
-      turnSeq: head.turnSeq,
-      // 与 13d 的②支逐字一致:无账本判据只认「头上没有 mission 容器」。
-      ledgerless: !head.mission,
-      lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
     });
     // `wait` = 这条线程此刻有几件在等你。与五态的 needs_you 判据同源(pendingTotal > 0),
     // 不是第二个计数口径。

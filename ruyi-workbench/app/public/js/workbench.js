@@ -539,7 +539,7 @@ function wbBuildNode(run, node, p) {
   card.dataset.runId = run.id; card.dataset.nodeId = node.id; card.dataset.fk = `n:${node.id}`;
   card.style.left = `${p.x}px`; card.style.top = `${p.y}px`;
   card.setAttribute('role', 'button'); card.tabIndex = 0;
-  card.setAttribute('aria-label', `节点 ${node.id} · ${agentRunStatusLabel(disp)}(点击定位到监控卡)`);
+  card.setAttribute('aria-label', t('workflow.node.ariaLabel', { id: String(node.id), status: agentRunStatusLabel(disp) }));
   // 头:状态徽标 + 标题(id·角色) + 引擎徽标
   const hd = el('div', 'wb-node-hd');
   hd.appendChild(el('span', 'wb-badge', agentStatusIcon(disp)));
@@ -569,13 +569,13 @@ function wbBuildNode(run, node, p) {
   else if (Number.isFinite(Number(node.maxIters))) { budgetLabel = t('workflow.budget.iter'); budgetCur = Number(node.iters) || 0; budgetMax = Number(node.maxIters) || 0; }
   if (verdict) {
     const v = String(verdict).toLowerCase();
-    foot.appendChild(el('span', `wb-verdict ${v === 'pass' ? 'pass' : 'fail'}`, `判定 ${verdict}`));
-    if (node.confidence != null && Number.isFinite(Number(node.confidence))) foot.appendChild(el('span', 'wb-foot-label num', `置信度 ${(Number(node.confidence) * 100).toFixed(0)}%`));
+    foot.appendChild(el('span', `wb-verdict ${v === 'pass' ? 'pass' : 'fail'}`, t('workflow.detail.verdict', { verdict })));
+    if (node.confidence != null && Number.isFinite(Number(node.confidence))) foot.appendChild(el('span', 'wb-foot-label num', t('workflow.meta.confidence', { pct: (Number(node.confidence) * 100).toFixed(0) })));
   } else if (budgetMax > 0) {
     const bar = el('div', 'wb-bar'); const i = el('i'); i.style.width = `${Math.max(0, Math.min(100, Math.round((budgetCur / budgetMax) * 100)))}%`; bar.appendChild(i); foot.appendChild(bar);
     foot.appendChild(el('span', 'wb-foot-label num', `${budgetLabel} ${budgetCur}/${budgetMax}`));
   } else {
-    const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? `← 依赖 ${node.dependsOn.join(', ')}` : agentRunStatusLabel(disp);
+    const deps = Array.isArray(node.dependsOn) && node.dependsOn.length ? t('workflow.node.dependsOn', { deps: node.dependsOn.join(', ') }) : agentRunStatusLabel(disp);
     foot.appendChild(el('span', 'wb-foot-label', deps));
   }
   card.appendChild(foot);
@@ -867,7 +867,7 @@ function wbPoolBody(run) {
       }
       box.appendChild(card);
     } else {
-      box.appendChild(el('div', 'wb-pool-decided', `${poolStatusLabel(item.status)}${item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : ''}：${String(item.task || '').replace(/s+/g, ' ').slice(0, 40)}`));
+      box.appendChild(el('div', 'wb-pool-decided', t('workflow.pool.decidedRow', { status: poolStatusLabel(item.status), node: item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '', task: String(item.task || '').replace(/s+/g, ' ').slice(0, 40) })));
     }
   }
   return box;

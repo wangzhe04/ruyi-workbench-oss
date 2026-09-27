@@ -30,6 +30,8 @@
         "VERSION",
         "agentCliHomes",
         "apiFailure",
+        "apiSessionIdInvalid",
+        "apiSessionNotFound",
         "appRoot",
         "appendUsageLedger",
         "buildUsageSummary",
@@ -69,6 +71,7 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
         "safeJsonParse",
@@ -987,6 +990,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -4418,6 +4428,7 @@
         "stewardThreadArtifactFiles",
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
+        "stewardThreadStateFromHead",
         "stewardThreadStateRank",
         "stewardToolPermanentlyExempt",
         "stewardTrimSayAtSentence",
@@ -5857,6 +5868,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -9778,6 +9796,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "APP_NAME",
           "kinds": [
             "read"
@@ -11439,6 +11471,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
           "kinds": [
             "call"
@@ -11988,6 +12027,20 @@
         {
           "provider": "00-boot.js",
           "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
           "kinds": [
             "call"
           ]
@@ -12597,6 +12650,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "call"
           ]
@@ -14096,6 +14156,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "call"
           ]
@@ -16111,13 +16178,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "deriveStewardThreadState",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "isStewardToolName",
           "kinds": [
             "call"
@@ -16196,6 +16256,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "call"
           ]
@@ -17706,16 +17773,16 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "deriveStewardThreadState",
+          "symbol": "STEWARD_SESSION_ID",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_SESSION_ID",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -18614,6 +18681,20 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionNotFound",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
           "kinds": [
             "read"
@@ -18664,6 +18745,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
           "kinds": [
             "read"
           ]
@@ -19252,6 +19340,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "IRREVERSIBLE_NATIVE_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "isBridgedWriteTool",
           "kinds": [
             "read"
@@ -19540,6 +19635,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "transitionInterventionState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
           "kinds": [
             "read"
           ]
@@ -21297,6 +21406,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "read"
           ]

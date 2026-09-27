@@ -115,7 +115,7 @@ export function createChatStaticRenderer(deps = {}) {
     const questions = Array.isArray(segment.questions) ? segment.questions : [];
     const labels = questions.map(q => q && (q.question || q.prompt || q.label)).filter(Boolean);
     const title = el('div', 'narrative-state-head');
-    title.append(el('span', '', labels.length ? `${t('chat.questionSegment')}：${labels.join(' / ')}` : t('chat.questionSegment')), narrativeStatePill(segment.status));
+    title.append(el('span', '', labels.length ? t('chat.questionSegmentLabeled', { label: t('chat.questionSegment'), questions: labels.join(' / ') }) : t('chat.questionSegment')), narrativeStatePill(segment.status));
     card.append(title);
     if (segment.answerSummary) card.append(el('div', 'narrative-state-note', segment.answerSummary));
     return card;

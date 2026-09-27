@@ -349,7 +349,7 @@ export function createChatStreamRuntime(deps = {}) {
     const dot = document.querySelector('#modelChip .mc-dot');
     if (!dot) return;
     dot.className = 'mc-dot' + (state_ ? ` ${state_}` : ' idle');
-    dot.title = `${engineLabel()} 进程状态：${state_ || 'idle'}`;
+    dot.title = t('status.processState', { engine: engineLabel(), state: state_ || 'idle' });
   }
   // Send⇄Stop same-position toggle (§4.3). While streaming, #sendBtn becomes "■ 停止" (danger) wired to
   // stopTurn; otherwise it is "发送 ▷" (primary) wired to sendPrompt. The old topbar #stopBtn is gone.
@@ -1125,7 +1125,7 @@ export function createChatStreamRuntime(deps = {}) {
         const memoryLine = !mc ? '' : (!mc.enabled
           ? '\n' + t('memory.check.disabled')
           : (!mc.checked ? '\n' + t('memory.check.unavailable') : '\n' + t('memory.check.done', { candidates: mc.candidateCount || 0, matches: mc.matchCount || 0, project: mc.projectMatches || 0, global: mc.globalMatches || 0 })));
-        appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n模型=${evt.model} 权限=${evt.permissionMode}${memoryLine}`);
+        appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n${t('chat.meta.modelPermission', { model: String(evt.model), permission: String(evt.permissionMode) })}${memoryLine}`);
         // v0.8-S0 cwd guardrail: warn once per turn when the working dir is the user's home/Desktop/
         // Documents/Downloads root (acting on everything the user owns is the highest-risk misfire).
         if (evt.cwdWarning && live && !live.cwdWarned) {
@@ -1454,7 +1454,7 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       case 'plan_note':
         // The user attached a note when approving (修改意见). Show it as a muted interjection so the flow reads.
-        if (evt.text) appendMsgNote(live && live.narrative ? live.narrative : main, live, `已按你的补充意见继续：${evt.text}`);
+        if (evt.text) appendMsgNote(live && live.narrative ? live.narrative : main, live, t('chat.planNoteContinued', { text: evt.text }));
         break;
       case 'plan_decision':
         // The interactive plan card settles synchronously after the decision POST. The stream event exists so
@@ -1498,7 +1498,7 @@ export function createChatStreamRuntime(deps = {}) {
       // v1.4.6 (C): keyed by subagentId (not id); refresh the sub-card head with the streamed-text milestone
       // so a long tool-less Claude sub-turn shows "生成中 · N 字" instead of a silent stall until the ✓/✗.
       const host = live.subCards.get(evt.subagentId);
-      if (host && host.status) host.status.textContent = `${evt.note || `生成中 · ${Number(evt.chars) || 0} 字`}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+      if (host && host.status) host.status.textContent = `${evt.note || t('chat.subagent.generating', { chars: Number(evt.chars) || 0 })}${host.roleTag || ''}${host.tierTag || ''}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
       return;
     }
     if (evt.type === 'subagent_no_progress' || evt.type === 'adaptive_tool_budget') {
@@ -1525,11 +1525,11 @@ export function createChatStreamRuntime(deps = {}) {
       const modelTag = evt.model ? ` · ${evt.model}` : '';
       const driverTag = evt.native && evt.engine === 'claude' ? t('chat.claudeNative') : '';
       const keyTag = evt.agentKey ? `[${evt.agentKey}] ` : '';
-      const dependencyTag = Array.isArray(evt.dependsOn) && evt.dependsOn.length ? ` · 依赖 ${evt.dependsOn.join(', ')}` : '';
+      const dependencyTag = Array.isArray(evt.dependsOn) && evt.dependsOn.length ? t('chat.subagent.dependsOn', { deps: evt.dependsOn.join(', ') }) : '';
       sum.append(
         el('span', 'sa-icon', '🤖'),
         el('span', 'sa-title', `${keyTag}${t('chat.subtask',{desc:taskShort||t('chat.noDescription')})}`),
-        el('span', 'sa-status', `执行中…${roleTag}${tierTag}${modelTag}${driverTag}${dependencyTag}`),
+        el('span', 'sa-status', `${t('chat.subagent.running')}${roleTag}${tierTag}${modelTag}${driverTag}${dependencyTag}`),
       );
       d.appendChild(sum);
       const body = el('div', 'subagent-body');
@@ -1560,7 +1560,7 @@ export function createChatStreamRuntime(deps = {}) {
       // v1.4.5: a Claude/CLI sub-agent's transient failure is being retried inline (bounded). Surface it
       // on the card head so the user sees "retrying" rather than a silent stall before the final ✓/✗.
       const host = live.subCards.get(id);
-      if (host && host.status) host.status.textContent = `重试中 ${evt.attempt || ''}/${evt.maxAttempts || ''} · ${(String(evt.error || evt.reason || '')).slice(0, 80)}`;
+      if (host && host.status) host.status.textContent = t('chat.subagent.retrying', { attempt: evt.attempt || '', max: evt.maxAttempts || '', reason: (String(evt.error || evt.reason || '')).slice(0, 80) });
       return;
     }
     if (evt.state === 'end') {
@@ -1593,8 +1593,8 @@ export function createChatStreamRuntime(deps = {}) {
       if (host.status) {
         const chars = Number(evt.resultChars) || 0;
         host.status.textContent = backgroundAck
-          ? `后台执行中 · 已交给 Claude CLI${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`
-          : `${ok ? '✓ 完成' : t('status.failed')} · ${chars} 字结论${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
+          ? `${t('chat.subagent.backgroundHandedOff')}${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`
+          : `${ok ? t('chat.subagent.done') : t('status.failed')} · ${t('chat.subagent.resultChars', { chars })}${host.roleTag || ''}${host.tierTag}${host.modelTag || ''}${host.driverTag || ''}${host.dependencyTag || ''}`;
         host.status.classList.remove('running', 'ok', 'err');
         host.status.classList.add(backgroundAck ? 'running' : (ok ? 'ok' : 'err'));
       }

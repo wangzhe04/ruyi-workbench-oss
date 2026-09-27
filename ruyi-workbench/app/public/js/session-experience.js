@@ -303,7 +303,7 @@ function renderStepBar(todos) {
   const sum = $('stepBarSummary');
   if (sum) {
     sum.innerHTML = '';
-    sum.append(el('span', 'sb-count', `已完成 ${done}/${items.length}`));
+    sum.append(el('span', 'sb-count', t('stepBar.progress', { done, total: items.length })));
     if (current && current.text) { sum.append(document.createTextNode(' · ')); sum.append(el('span', 'sb-cur', current.text)); }
   }
   const list = $('stepBarList');

@@ -5,7 +5,7 @@ import { state } from './state.js';
 import { api } from './net.js';
 import { $, el, escapeHtml, autoGrow, toast } from './util.js';
 import { icon } from './icons.js';
-import { t } from './i18n.js';
+import { t, tCount } from './i18n.js';
 
 export function createSkillsMemoryDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -704,7 +704,7 @@ function renderMemoryList() {
     const arr = Array.isArray(session.memories) ? session.memories : [];
     const ghosts = arr.filter(m => m && m.id && !regKeys.has(((m.scope === 'global') ? 'global' : 'project') + ':' + m.id));
     if (ghosts.length) {
-      list.appendChild(el('div', 'skill-group-title', `已失效 · ${ghosts.length}`));
+      list.appendChild(el('div', 'skill-group-title', t('memory.ghostGroup', { count: ghosts.length })));
       for (const g of ghosts) list.appendChild(buildMemoryGhostRow(g));
     }
   }
@@ -869,7 +869,7 @@ function buildOtherProjectRow(p) {
   const it = el('div', 'skill-item');
   const head = el('div', 'skill-head');
   head.appendChild(el('span', 'skill-name', p.label || p.projectKey));
-  head.appendChild(el('span', 'skill-type', `${p.count} 条`));
+  head.appendChild(el('span', 'skill-type', tCount('memory.otherProjectCount', p.count)));
   const btn = el('button', 'skill-toggle', t('memory.migrateToCurrent'));
   btn.onclick = e => { e.stopPropagation(); migrateGroupToCurrent(p); };
   head.appendChild(btn);
@@ -984,10 +984,10 @@ async function migrateGroupToCurrent(p) {
     }
   }
   const parts = [];
-  if (okCount) parts.push(`迁移 ${okCount} 条`);
-  if (conflictCount) parts.push(`${conflictCount} 条冲突跳过`);
-  if (errCount) parts.push(`${errCount} 条失败`);
-  toast(parts.length ? parts.join('，') : t('memory.noMigratable'), okCount ? 'ok' : 'err');
+  if (okCount) parts.push(t('memory.migrateResult.migrated', { count: okCount }));
+  if (conflictCount) parts.push(t('memory.migrateResult.conflicts', { count: conflictCount }));
+  if (errCount) parts.push(t('memory.migrateResult.failed', { count: errCount }));
+  toast(parts.length ? parts.join(t('memory.migrateResult.separator')) : t('memory.noMigratable'), okCount ? 'ok' : 'err');
   await refreshMemoryViews();
 }
 // 从当前会话起草(provider 引擎):draft → 编辑弹窗 → 保存。

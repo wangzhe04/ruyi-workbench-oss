@@ -358,7 +358,12 @@ ok(count(board, /setTimeout\(/g) === 0, 'F2 看板零 setTimeout');
 // 省下来的请求由新的一档节拍还回去：连接正常时这一拍 30 s 才拉一次（见下面 F3b）。
 // 反向验证：把 isBoardOpen() && 加回去 → 本条与 event-stream-client.browser 的「看板收起后左栏仍
 // 在 ≤1 s 内跟上」双红。
-ok(/function syncPolling\(\) \{\s*if \(isStewardMode\(\) && !\(doc\(\) && doc\(\)\.hidden\)\) startPolling\(\);\s*else stopPolling\(\);/.test(board)
+// 轮询生命周期收编（前端架构债第一批）重钉 F3：门控从 syncPolling 函数体搬进 createPollLifecycle 的
+// shouldRun（启停语义由 steward-chips.js 那一份统一实现，steward-shell.static C2g 真跑钉着）。判据一字未变：
+// 门控恰好是「管家模式 && 页面可见」，唯一入口 syncPolling 只转给 polling.sync()，本文件零直调 polling.start()。
+ok(/const polling = createPollLifecycle\(\{\s*shouldRun: \(\) => isStewardMode\(\) && !\(doc\(\) && doc\(\)\.hidden\),\s*arm: \(\) => setInterval\(\(\) => \{ void pollTick\(\); \}, STEWARD_BOARD_POLL_MS_MIN\),\s*disarm: timer => clearInterval\(timer\),\s*\}\);/.test(boardCode)
+  && /function syncPolling\(\) \{\s*polling\.sync\(\);\s*\}/.test(boardCode)
+  && count(boardCode, /polling\.start\(\)/g) === 0
   && !/isBoardOpen\(\) && isStewardMode\(\)/.test(boardCode),
   'F3 唯一入口 syncPolling 的门控是「管家模式 && 页面可见」，任一为否即停表（121-K2b：「看板关着不刷」那道门已删）');
 // 121-K2b 新钉（§6.4 的三条语义之二）：兜底轮询【存在】，且事件流连着时节拍 ≥30 s。
@@ -391,10 +396,11 @@ ok(count(boardCode, /if \(seq !== missionsLoadSeq\) return missionsLoadLatest;/g
 //      （「＋」的两义、选中态、点击语义），而切到管家那一路第一件事是 await refreshBoard()，
 //      于是修前切过去的第一帧左栏还写着「新线程」（one-workbench-frame.browser 的 H0 实测到）；
 //   ② leaveSteward 不再清 pinnedId（§2.7「管家视角记住自己的焦点线程」）。
-// 「收摊」这件事本身一个字没松：stopPolling() 仍在 leaveSteward 里，门控仍是 F3 那一条。
+// 「收摊」这件事本身一个字没松：停表（生命周期收编后是 polling.stop()）仍在 leaveSteward 里，门控仍是 F3 那一条。
 // 反向验证：把 renderRail() 从回调里去掉 → H0 红；把 pinnedId = '' 加回 leaveSteward → K6 红。
-ok(/function leaveSteward\(\) \{[\s\S]*?stopPolling\(\);/.test(board)
-  && !/function leaveSteward\(\) \{[\s\S]*?pinnedId = '';[\s\S]*?stopPolling\(\);/.test(board)
+ok(/function leaveSteward\(\) \{[\s\S]*?polling\.stop\(\);/.test(board)
+  && count(boardCode, /polling\.stop\(\)/g) === 1
+  && !/function leaveSteward\(\) \{[\s\S]*?pinnedId = '';[\s\S]*?polling\.stop\(\);/.test(board)
   && /new MutationObserver\(\(\) => \{\s*renderRail\(\);\s*if \(isStewardMode\(\)\) void enterSteward\(\); else leaveSteward\(\);\s*\}\)/.test(board),
   'F4 切离管家模式即收摊（谁改的 data-shell-mode 都算），且切换的第一帧左栏就已经按新视角画过一遍；出视角不动用户钉的焦点');
 ok(mod.STEWARD_BOARD_POLL_MS_MIN === 5000 && /Math\.max\(STEWARD_BOARD_POLL_MS_MIN, raw\)/.test(board),

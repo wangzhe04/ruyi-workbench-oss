@@ -7,11 +7,12 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { createRunner } = require('./lib/harness');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP = path.join(ROOT, 'ruyi-workbench', 'app');
-let fail = 0;
-const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
+const t = createRunner('MANIFEST RANGES STATIC');
+const { ok } = t;
 
 const man = JSON.parse(fs.readFileSync(path.join(APP, 'src', 'manifest.json'), 'utf8'));
 ok(Array.isArray(man.modules) && man.modules.length > 0, 'manifest.modules 非空');
@@ -31,5 +32,4 @@ for (const m of man.modules) {
 const totalLines = built.split('\n').length;
 ok(Math.abs(prevEnd - totalLines) <= 1, `末模块 endLine(${prevEnd}) 覆盖产物末尾(${totalLines})`);
 
-console.log('\nMANIFEST RANGES STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
-process.exit(fail ? 1 : 0);
+t.done({ exit: true });

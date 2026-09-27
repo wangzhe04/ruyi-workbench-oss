@@ -759,7 +759,7 @@ export function createStewardConversation({
   function appendAttachLine(row, attachments) {
     if (!row) return row;
     const names = (Array.isArray(attachments) ? attachments : []).map(a => String((a && a.name) || '')).filter(Boolean);
-    if (names.length) row.appendChild(el('p', 'steward-attach-line', t('stewardShell.chat.attached', { names: names.join('、') })));
+    if (names.length) row.appendChild(el('p', 'steward-attach-line', t('stewardShell.chat.attached', { names: names.join(t('stewardShell.chat.listSeparator')) })));
     return row;
   }
 

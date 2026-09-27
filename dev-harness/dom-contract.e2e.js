@@ -221,7 +221,13 @@ ok(/class="settings-tab" id="stab-doctor"/.test(html) && !/id="tab-doctor"/.test
   'diagnostics lives inside Settings and is removed from the lower-left/tool-pane duplicates');
 ok(/window\.open\('', '_blank'/.test(src) && /change-diff-standalone/.test(src),
   'change diff opens in a dedicated window/tab with an inline fallback');
-ok(/isNativeClaudeBackgroundAck\(evt\)/.test(src) && /sa-background/.test(src) && /后台执行中/.test(src),
+// 前端架构债第一批（i18n 收口）：「后台执行中 · 已交给 Claude CLI」从源码字面量搬进目录键
+// chat.subagent.backgroundHandedOff。判据不变且更紧：回执分支（backgroundAck 为真）渲染的是这枚键，
+// 而它的中文仍然说「后台执行中」（不是「✓ 完成」）。
+const zhCatalog = JSON.parse(fs.readFileSync(path.join(PUB, 'locales', 'zh-CN.json'), 'utf8'));
+ok(/isNativeClaudeBackgroundAck\(evt\)/.test(src) && /sa-background/.test(src)
+  && /backgroundAck\s*\?\s*`\$\{t\('chat\.subagent\.backgroundHandedOff'\)\}/.test(src)
+  && /后台执行中/.test(zhCatalog['chat.subagent.backgroundHandedOff'] || ''),
   'native Claude background launch acknowledgements are not mislabeled as completed');
 const chatStreamSource = fs.readFileSync(path.join(PUB, 'js', 'chat-stream-runtime.js'), 'utf8');
 const bgAckStart = chatStreamSource.indexOf('function isNativeClaudeBackgroundAck(');

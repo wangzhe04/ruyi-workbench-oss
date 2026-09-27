@@ -599,7 +599,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (inp != null || out != null) parts.push(`<b>${u.estimated ? t('common.about') : ''}↑${fmtTokens(inp ?? 0)} ↓${fmtTokens(out ?? 0)}</b>`);
     if (u.durationMs != null) parts.push(`<b>${(u.durationMs / 1000).toFixed(1)}s</b>`);
     if (u.costUsd != null) parts.push(`<b>$${Number(u.costUsd).toFixed(4)}</b>`);
-    if (u.numTurns != null) parts.push(`${u.numTurns} 轮`);
+    if (u.numTurns != null) parts.push(tCount('chat.usageTurnCount', u.numTurns));
     let html = parts.join(' · ');
     // Trailing muted engine name from the message meta, or the current engine when rendered live.
     const engName = engineVisual(meta || currentEngineMeta()).label;
@@ -1031,14 +1031,14 @@ export function createChatRenderPrimitives(deps = {}) {
     if (!sid || targetTurnSeq == null) { toast(t("toast.rewindNoTurn"), 'err'); return; }
     const { turns, fileCount } = rewindImpact(msg);
     const body = el('div');
-    body.append(el('p', '', `回到这条消息之前?将删除之后的 ${turns} 轮对话。`));
+    body.append(el('p', '', t('chat.rewindConfirm', { turns })));
     const preview = el('div', 'rewind-preview'); preview.textContent = (msg.content || '').slice(0, 300);
     body.append(preview);
     let fileBox = null;
     if (fileCount > 0) {
       const wrap = el('label', 'check');
       fileBox = document.createElement('input'); fileBox.type = 'checkbox'; fileBox.checked = true; // default-on when M>0
-      wrap.append(fileBox, document.createTextNode(` 同时撤销这些轮次的文件改动(${fileCount} 个文件)`));
+      wrap.append(fileBox, document.createTextNode(t('chat.rewindFileCheck', { fileCount })));
       body.append(wrap);
     }
     const foot = el('div'); foot.style.cssText = 'display:flex;gap:8px';
@@ -1061,9 +1061,9 @@ export function createChatRenderPrimitives(deps = {}) {
         if (r.lastUserText != null) { $('promptInput').value = r.lastUserText; autoGrow($('promptInput')); $('promptInput').focus(); }
         const reverted = (r.filesReverted || []).length;
         const failed = (r.filesFailed || []).length;
-        let m = `已回溯,删除 ${r.removedTurns || 0} 条消息`;
-        if (reverted) m += ` · 撤销 ${reverted} 个文件`;
-        if (failed) m += ` · ${failed} 个未能撤销`;
+        let m = t('chat.rewindToast', { removed: r.removedTurns || 0 });
+        if (reverted) m += t('chat.rewindToastFiles', { reverted });
+        if (failed) m += t('chat.rewindToastFailed', { failed });
         toast(m, failed ? '' : 'ok');
       } catch (e) { modal.close(); toast(t("toast.rewindFail", { p1: apiErrText(e) }), 'err'); }
     };

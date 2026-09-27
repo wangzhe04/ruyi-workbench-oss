@@ -776,7 +776,7 @@ function flashWorkspacePicker() {
 // dynamic-modal helper) — a lightweight, dismissible sheet. Default action = switch the current session cwd.
 function confirmWorkspaceSwitch(name, dir) {
   const body = el('div', 'ws-confirm');
-  body.appendChild(el('p', 'ws-confirm-q', `将工作目录切换到「${name}」？`));
+  body.appendChild(el('p', 'ws-confirm-q', t('workspace.switchConfirmQuestion', { name: String(name) })));
   body.appendChild(el('code', 'ws-confirm-path', dir)); // textContent via el → XSS-safe
   const defWrap = el('label', 'ws-confirm-def');
   const defChk = el('input'); defChk.type = 'checkbox';
@@ -793,7 +793,7 @@ function confirmWorkspaceSwitch(name, dir) {
 // Multiple candidates → a chooser list (score-ranked, server already sorted DESC). Click one to switch.
 function chooseWorkspaceMatch(name, matches) {
   const body = el('div', 'ws-confirm');
-  body.appendChild(el('p', 'ws-confirm-q', `找到多个名为「${name}」的文件夹，请选择：`));
+  body.appendChild(el('p', 'ws-confirm-q', t('workspace.multipleMatches', { name: String(name) })));
   const list = el('div', 'ws-match-list');
   for (const m of matches) {
     const item = el('button', 'ws-match-item');

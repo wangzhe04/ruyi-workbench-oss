@@ -923,6 +923,26 @@ function stewardThreadStateFromCard(card) {
   });
 }
 
+// 会话头(head)适配器 —— 没有投影卡片时按会话头现算五态的【唯一】喂法(架构还债批 1 #1)。
+// 修前 13d(事项聚合②支)、13k(thread_status)、13o(总览)、13r(事件流)四处各自手写同一组证据键,
+// 其中 autoMode / resultStatus / ledgerless / lastTurnFailed 四个键逐字相同;新增一个证据键要改四处且无人对账。
+// 这里只收【从会话头就能读出来】的那几个键;因调用面而异的(kind / pending / activeTurn / runCount)由 extra 递进来。
+// 117p-S2:无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;
+// 不许拿 milestonesTotal === 0 之类的近似顶替。head 为 null 与「读不出会话头」同义,各键按缺省归一。
+function stewardThreadStateFromHead(head, extra) {
+  const h = (head && typeof head === 'object') ? head : {};
+  const mission = h.mission || null;
+  const last = h.stewardLastTurn || null;
+  return deriveStewardThreadState({
+    autoMode: mission && mission.autoMode,
+    resultStatus: (mission && mission.result && mission.result.status) || '',
+    turnSeq: h.turnSeq,
+    ledgerless: !mission,
+    lastTurnFailed: !!(last && (last.ok === false || last.aborted === true)),
+    ...((extra && typeof extra === 'object') ? extra : {}),
+  });
+}
+
 // 事项级聚合状态(§3.1)。**这是全仓唯一的事项状态定义** —— 入参是子线程五态字符串数组,规则:
 //   任一 needs_you → needs_you;否则全部 done → done;否则任一 running → running;
 //   否则任一 dispatching → dispatching;否则 stopped;空数组 → dispatching。

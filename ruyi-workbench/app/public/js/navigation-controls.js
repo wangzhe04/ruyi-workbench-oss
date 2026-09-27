@@ -450,7 +450,7 @@ function openContextPopover() {
     const manual = ctxWindowManual();
     const srcLabel = ctxWindowSourceLabel();
     const pct = win > 0 && used != null ? Math.round((used / win) * 100) : 0;
-    wrap.appendChild(el('div', 'ctx-pop-row ctx-pop-usage', used != null ? `已用 ${fmtTokens(used)} / 上限 ${fmtTokens(win)} · ${pct}%` : `上限 ${fmtTokens(win)}（暂无用量数据）`));
+    wrap.appendChild(el('div', 'ctx-pop-row ctx-pop-usage', used != null ? t('ctx.pop.usage', { used: fmtTokens(used), limit: fmtTokens(win), pct }) : t('ctx.pop.usageUnknown', { limit: fmtTokens(win) })));
     // Percent bar in the meter color.
     const bar = el('div', 'ctx-pop-bar'); const barIn = el('div', 'ctx-pop-bar-in');
     barIn.style.width = Math.max(0, Math.min(100, pct)) + '%';
@@ -559,7 +559,7 @@ function openContextPopover() {
       const usedNow = ctxTokensOf(r.usage), winNow = ctxWindow();
       const pctNow = winNow > 0 && usedNow != null ? Math.round((usedNow / winNow) * 100) : 0;
       const row = handle.node.querySelector('.ctx-pop-usage');
-      if (row) row.textContent = usedNow != null ? `已用 ${fmtTokens(usedNow)} / 上限 ${fmtTokens(winNow)} · ${pctNow}%` : `上限 ${fmtTokens(winNow)}（暂无用量数据）`;
+      if (row) row.textContent = usedNow != null ? t('ctx.pop.usage', { used: fmtTokens(usedNow), limit: fmtTokens(winNow), pct: pctNow }) : t('ctx.pop.usageUnknown', { limit: fmtTokens(winNow) });
       const bar = handle.node.querySelector('.ctx-pop-bar-in');
       if (bar) { bar.style.width = Math.max(0, Math.min(100, pctNow)) + '%'; bar.style.background = pctNow >= 90 ? 'var(--danger)' : (pctNow >= 70 ? 'var(--warn)' : 'var(--ok)'); }
     }).catch(() => {});
