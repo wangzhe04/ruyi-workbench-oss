@@ -430,14 +430,14 @@ function renderPermissionModal(item, ctx) {
   pre.textContent = (() => { try { return JSON.stringify(evt.input, null, 2); } catch { return String(evt.input); } })();
   tech.appendChild(pre);
   body.appendChild(tech);
-  // "本次会话自动允许" — session-scoped, always available. A secondary "永久" box appears only for
-  // read/edit tier (never exec/desktop) → persists into config.toolAllowRules.
-  const sessWrap = el('label', 'check');
+  // "本次线程自动允许" 与 "永久" 两个勾选都只给 read/edit 档(与收件坞「都允许」、永久规则同一条线)。
+  // 执行档(命令/脚本/桌面)不给:按工具名放行等于这条线程里之后任何【不同】的命令都静默执行。
   const sessBox = document.createElement('input'); sessBox.type = 'checkbox';
-  sessWrap.append(sessBox, document.createTextNode(' ' + t('permission.allowSession')));
-  body.appendChild(sessWrap);
   let permBox = null;
   if (tier === 'read' || tier === 'edit') {
+    const sessWrap = el('label', 'check');
+    sessWrap.append(sessBox, document.createTextNode(' ' + t('permission.allowSession')));
+    body.appendChild(sessWrap);
     const permWrap = el('label', 'check perm-persist');
     permBox = document.createElement('input'); permBox.type = 'checkbox';
     permWrap.append(permBox, document.createTextNode(' ' + t('permission.allowPersistent')));
@@ -459,8 +459,26 @@ function renderPermissionModal(item, ctx) {
   modal.backdrop.dataset.sessionId = sid;
   modal.backdrop.dataset.interventionId = String(evt.requestId || '');
   attachQueueStatus(modal, item);
-  deny.onclick = () => { decide(evt.requestId, 'deny', { message: t('permission.request.denied') }); ctx.done(); };
-  allow.onclick = () => {
+  // 等后端回话再关:修前点了就关,申请其实已超时(404)也像是成功了。已经不在等待 → 说清楚再关;
+  // 其它失败(网络、落盘失败 503)→ 弹窗留着、按钮恢复,可以再点。
+  let deciding = false;
+  const submit = async (behavior, extra) => {
+    if (deciding) return false;
+    deciding = true; deny.disabled = true; allow.disabled = true;
+    try {
+      await api('/api/permission/decision', { method: 'POST', body: JSON.stringify({ requestId: evt.requestId, behavior, ...(extra || {}) }) });
+      ctx.done();
+      return true;
+    } catch (e) {
+      if (e && e.status === 404) { toast(t('permission.request.gone'), 'err'); ctx.done(); return false; }
+      toast(apiErrText(e), 'err');
+      deciding = false; deny.disabled = false; allow.disabled = false;
+      return false;
+    }
+  };
+  deny.onclick = () => { void submit('deny', { message: t('permission.request.denied') }); };
+  allow.onclick = async () => {
+    if (!await submit('allow', sessBox.checked ? { scope: 'session' } : undefined)) return;
     if (sessBox.checked) {
       sessionAllowAdd(sid, tool);
       // 同一线程里已经排着的同一工具申请:勾了「本次会话自动允许」就一并放行,不再一个个弹。
@@ -478,7 +496,6 @@ function renderPermissionModal(item, ctx) {
       saveConfigPartial({ toolAllowRules: rules });
       toast(t('permission.alwaysAllowed', { tool: humanizeToolName(tool) }), 'ok');
     }
-    decide(evt.requestId, 'allow', sessBox.checked ? { scope: 'session' } : undefined); ctx.done();
   };
   return modal;
 }

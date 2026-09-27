@@ -71,6 +71,9 @@ ok(/const grantHit = consumeGrant\(\{ id: sessionId \}, String\(body\.toolName \
 // 还钉住它【吃到了工具名与入参】且 auto 档判 allow 时不得再弹一次窗。
 ok(src.includes("const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});"),
   'S4 CLI 桥的闸门判定吃到工具名与入参(与原生主 gate 同口径)');
+// 代码走查 C5：CLI 报的是 Claude 名(Edit/Write/Bash)。修前按原生表查，一律落成 exec —— 「改文件不问」档在 CLI 引擎下不生效、弹窗徽标也错。
+ok(/const bridgeTier = Object\.prototype\.hasOwnProperty\.call\(CLI_TOOL_TIER, /.test(src) && !/const bridgeTier = nativeToolTier\(/.test(src),
+  'S4c CLI 桥的档位先查 CLI 表(Edit→edit、Read→read)，认不出的才回落原生表');
 ok(src.includes("if (bridgeGate === 'ask') {")
   && src.indexOf("consumeGrant({ id: sessionId }") > src.indexOf("if (bridgeGate === 'ask') {"),
   'S4 CLI 桥消耗前复检闸门天花板(P3 对称；只降 ask，plan 的 block 永不放行)');

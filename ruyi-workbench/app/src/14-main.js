@@ -249,7 +249,7 @@ module.exports = {
   normalizeStoragePolicy,
   collectStorageStats,
   storageSweep,
-  readAgentRunEvents,
+  readAgentRunEvents, appendAgentRunEvent, flushAgentRunEvents, runSubAgentCore,
   // 第40波:boot 恢复并发化 + syncRunEventSeq 尾窗化 — exposed for e2e(尾窗/全读回落/池语义直测)。
   syncRunEventSeq,
   mapPool,
@@ -318,7 +318,7 @@ module.exports = {
   sessionDisplayTitle,
   // 117j 收尾:会话头的【带瞬时重试】读取。Windows 的 rename 替换会开一个 ENOENT 窗口,
   // 单发 readFile 会把「正在被原子替换」误判成「不存在」。exposed for unit/session-head-read.test.js。
-  readSessionHeadResilient,
+  readSessionHeadResilient, registerIntervention, transitionInterventionState, readInterventions,
   maybeWriteThreadBrief,
   parseThreadBrief,
   detectDanglingTurn,

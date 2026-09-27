@@ -528,6 +528,7 @@ function turnSummaryCard(summary) {
     for (const f of files) {
       if (!f) continue;
       const row = el('div', 'turn-summary-file');
+      row.dataset.path = String(f.path || '');   // rollbackTurn 按它把撤掉的那几行就地改成「已撤销」
       const op = (f.op === 'create' || f.op === 'modify' || f.op === 'delete') ? f.op : 'unknown';
       const opLabel = op === 'create' ? t('changes.create') : op === 'modify' ? t('changes.modify') : op === 'delete' ? t('changes.delete') : t('common.unknown');
       row.append(el('span', `ts-op ${op}`, opLabel), el('span', 'ts-path', f.path || ''));
@@ -673,6 +674,22 @@ function cliMissingCard() {
   return card;
 }
 
+// 撤掉的那几行就地改成「已撤销」；这张卡上再没有可撤的文件时，「撤销整轮」也收起。
+function markSummaryRowsReverted(card, reverted) {
+  if (!card) return;
+  const paths = new Set(reverted.map(x => String(x && x.path || '')));
+  for (const row of card.querySelectorAll('.turn-summary-file')) {
+    if (!paths.has(row.dataset.path || '')) continue;
+    row.classList.add('reverted');
+    const undo = row.querySelector('button.ts-undo');
+    if (undo) undo.replaceWith(el('span', 'ts-undo done', t('changes.revert.done')));
+  }
+  const all = card.querySelector('button.ts-undo-all');
+  if (all && !all.disabled && !card.querySelector('button.ts-undo')) all.replaceWith(el('span', 'ts-undo-all done', t('changes.revert.done')));
+}
+function revertFailureReason(reason) {
+  return /too large/i.test(String(reason || '')) ? t('changes.revert.reason.tooLarge') : String(reason || t('common.unknown'));
+}
 // v0.8-S4b: roll back a turn (entrySeq omitted) or a single file (entrySeq given). On success the button
 // becomes 「已撤销」+ disabled; on failure a toast surfaces the error. Uses api() (carries the UI token).
 async function rollbackTurn(turnSeq, entrySeq, btn, label) {
@@ -685,12 +702,20 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
     const r = await api('/api/checkpoints/rollback', { method: 'POST', body: JSON.stringify(payload) });
     if (!r || !r.ok) {
       if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
-      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? r.failed[0].reason : t('common.unknown')) }), 'err');
+      toast(t('changes.revert.failed', { reason: (r && r.error) || (r && r.failed && r.failed.length ? revertFailureReason(r.failed[0].reason) : t('common.unknown')) }), 'err');
       return;
     }
-    if (btn) { btn.textContent = t('changes.revert.done'); btn.classList.add('done'); btn.disabled = true; }
-    try { refreshToolPane(); } catch { /* 128f-⑫：右栏「变更」页签开着的话，刚撤掉的那几处要当场消失 */ }
+    // 代码走查 C6：撤回了一部分（比如改前内容太大没留底）时服务端仍回 ok:true ＋ failed[]。修前只看 ok，
+    // 按钮写「已撤销」、提示也说成功；整轮撤完后逐个文件的「撤销」按钮也还在，再点就报「撤销失败」。
+    const failed = Array.isArray(r.failed) ? r.failed : [];
     const n = (r.reverted || []).length;
+    markSummaryRowsReverted(btn && btn.closest ? btn.closest('.turn-summary') : null, r.reverted || []);
+    if (btn) { btn.textContent = failed.length ? t('changes.revert.partialDone') : t('changes.revert.done'); btn.classList.add('done'); btn.disabled = true; }
+    try { refreshToolPane(); } catch { /* 128f-⑫：右栏「变更」页签开着的话，刚撤掉的那几处要当场消失 */ }
+    if (failed.length) {
+      toast(t('changes.revert.partial', { reverted: n, failed: failed.length, reason: revertFailureReason(failed[0].reason) }), 'err');
+      return;
+    }
     toast(t('changes.reverted', { label: `${label}${n ? ` (${t('changes.fileCount', { count: n })})` : ''}` }), 'ok');
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }

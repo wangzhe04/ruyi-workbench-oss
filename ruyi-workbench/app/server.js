@@ -5439,8 +5439,12 @@ function appendIntervention(sessionId, record) {
   const prev = interventionWriteChains.get(sid) || Promise.resolve();
   const next = prev.catch(() => {}).then(async () => {
     try { await repairMissionChangeTornTail(file); } catch { /* best-effort repair; a failed repair leaves the torn tail for the next append to retry (117q-B6fix) */ }
-    await fsp.appendFile(file, line, 'utf8');
+    for (let attempt = 0; ; attempt++) {   // Windows 瞬时锁有界重试;仍失败就抛给下面的 catch → next 解析为 undefined(= 没落盘)
+      try { await fsp.appendFile(file, line, 'utf8'); break; }
+      catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
+    }
     markPretenderIndexDirty(sid, 'source'); // 75c: authority changed; materialized view is disposable
+    return true;
   }).catch(() => {});
   interventionWriteChains.set(sid, next);
   next.then(() => {
@@ -5454,7 +5458,7 @@ function appendIntervention(sessionId, record) {
     interventionAppendCounts.set(sid, count);
     if (count % 128 === 0) void compactInterventionJournal(sid).catch(() => {});
   });
-  return next; // 75a-2: expose write promise so transitionInterventionState can await (authoritative write-before-advance)
+  return next; // 75a-2: expose write promise so transitionInterventionState can await (authoritative write-before-advance); resolves true only when the row landed
 }
 // 注册一个 pending Intervention。type: 'permission'|'question'|'plan'|'pool'(71b)。ivId 复用 requestId/questionId/planId/poolId(执行权威源的同一 id)。
 function registerIntervention(sessionId, type, ivId, extra) {
@@ -5691,7 +5695,12 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
       ...(opts.idempotencyKey ? { idempotencyKey: String(opts.idempotencyKey) } : {}),
       ...(opts.decisionFingerprint ? { decisionFingerprint: String(opts.decisionFingerprint) } : {}),
     };
-    await appendIntervention(sid, applyingRec);
+    // 「执行中」没落盘就不执行:否则重启时账上仍是 pending,会把已经执行过的动作报成「因重启取消」。
+    // 缓存不动(仍是 pending),用户可以再点一次。
+    if (await appendIntervention(sid, applyingRec) !== true) {
+      logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'applying' });
+      return { ok: false, reason: 'persist_failed', status: curStatus, interventionVersion: curVer };
+    }
     interventionRecordCache.set(ivCacheKey(sid, id), applyingRec);
     if (crashAt === 'after_applying') throw new Error('__cas_crash:after_applying');
     // 4. 执行 action(75b 契约路径在此 resolve promise / 跑工具;75a-2 测试可空)
@@ -5726,7 +5735,8 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
       ...(dynamicExtra || {}),
       ...(response && typeof response === 'object' ? { decisionResponse: response } : {}),
     };
-    await appendIntervention(sid, termRec);
+    // 动作已经执行,终态没落盘也收不回:记一笔;盘上停在 applying,重启时如实标 indeterminate(见头注)。
+    if (await appendIntervention(sid, termRec) !== true) logEvent({ kind: 'intervention_persist_failed', sessionId: sid, interventionId: id, phase: 'terminal' });
     interventionRecordCache.set(ivCacheKey(sid, id), termRec);
     bumpMissionChangeSeq(sid, {
       type: 'intervention_resolved',
@@ -5822,6 +5832,33 @@ function serializeSessionBody(entries) {
   return { lines, hashes };
 }
 function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
+// entries 是否为 persistedHashes 的【严格】前缀（更短且逐行 hash 相同）。
+function isStrictSessionBodyPrefix(entries, persistedHashes) {
+  if (!persistedHashes || entries.length >= persistedHashes.length) return false;
+  const ser = serializeSessionBody(entries);
+  return !!ser && ser.hashes.every((h, i) => h === persistedHashes[i]);
+}
+// saveSession 写链内调用（见调用点注释）。只在消息是严格前缀时动手；providerHistory 只在它也是严格前缀
+// 时一并补齐 —— 它会被合法地缩短（被停止的回合弹掉悬空的 user 行、压缩），消息更短才是
+// 「这是一份旧副本」的证据。就地往调用方的数组里补，返回 true 表示补过（头计数要重算）。
+async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) {
+  if (!isStrictSessionBodyPrefix(messages, state.msgHashes)) return false;
+  const disk = await readSessionBodyFile(bp.messages);
+  if (!disk || disk.corrupt || disk.hashes.length !== state.msgHashes.length
+    || disk.hashes[disk.hashes.length - 1] !== state.msgHashes[state.msgHashes.length - 1]) return false;
+  const addedMessages = disk.entries.length - messages.length;
+  messages.push(...disk.entries.slice(messages.length));
+  let addedProvider = 0;
+  if (isStrictSessionBodyPrefix(providerHistory, state.provHashes)) {
+    const prov = await readSessionBodyFile(bp.provider);
+    if (prov && !prov.corrupt && prov.hashes.length === state.provHashes.length) {
+      addedProvider = prov.entries.length - providerHistory.length;
+      providerHistory.push(...prov.entries.slice(providerHistory.length));
+    }
+  }
+  logEvent({ kind: 'session_stale_copy_rebased', sessionId: id, addedMessages, addedProvider });
+  return true;
+}
 
 // ===== PF2: session metadata index (sessions/index.json) =====================================================
 // listSessions used to JSON.parse EVERY session file in full just to show 7 sidebar fields, and saveSession
@@ -7897,6 +7934,19 @@ async function readSessionHeadResilient(id) {
     }
   }
 }
+// 正文截断同款有界重试(Windows 上杀软/索引器短暂持锁的 EPERM/EBUSY)。仍失败就如实返回 false:
+// 调用方据此不交出 bodiesOk:true —— 否则下次快路径会接在没截掉的残留后面 append,把新行焊进
+// 半行(整条会话随后被判损坏隔离),或让旧的未提交尾巴留在真消息前面、下次截断反而截掉真消息。
+async function truncateSessionBody(file, len) {
+  for (let attempt = 0; ; attempt++) {
+    try { await fsp.truncate(file, len); return true; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT' || !SESSION_HEAD_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return false;
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
+}
 
 // 117j 收尾（实证定位的一条真 bug，会【删数据】）：本函数下面两个动作都是破坏性的 ——
 // 「未提交尾巴」物理截断正文、以及把头与正文一起隔离成 .corrupt。它们的判据是「头声明的行数 vs
@@ -7989,14 +8039,15 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       return null;
     }
     // 撕裂尾行截断(从 readSessionBodyFile 挪到这里):到这一步已确认没有写者,半行是崩溃残留而非正在 append。
+    let truncatedOk = true;   // 任何一刀没落地 → 盘上正文与内存不符,只许走全量重写(见 truncateSessionBody)
     for (const [body, file] of [[msg, bp.messages], [prov, bp.provider]]) {
-      if (body.tornAt != null) await fsp.truncate(file, body.tornAt).catch(() => {}); // 失败 → 下次 load 再试
+      if (body.tornAt != null && !await truncateSessionBody(file, body.tornAt)) truncatedOk = false;
     }
     // 未提交尾巴截断:不物理截断的话,磁盘上多出的行会在下次快路径 append 后「复活」进会话。
     for (const [body, count, file] of [[msg, parsed.messageCount, bp.messages], [prov, parsed.providerHistoryCount, bp.provider]]) {
       if (Number.isInteger(count) && body.entries.length > count) {
         const cut = count > 0 ? body.lineEndBytes[count - 1] : 0;
-        await fsp.truncate(file, cut).catch(() => {});
+        if (!await truncateSessionBody(file, cut)) truncatedOk = false;
         body.entries.length = count; body.hashes.length = count;
       }
     }
@@ -8004,7 +8055,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     parsed.providerHistory = prov.entries;
     // 读完到这里期间有人落过盘 → 这份 hash 已旧,交出去会让下一次快路径按旧前缀 append(重复行/丢行)。
     // 写者自己会把准确的状态放进来,这里什么都不放。
-    if (sessionDiskWriteSeqOf(id) === writeSeqAtRead) sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
+    if (!truncatedOk) sessionBodyState.set(id, { msgHashes: null, provHashes: null, bodiesOk: false });
+    else if (sessionDiskWriteSeqOf(id) === writeSeqAtRead) sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
     // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
     await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -8092,6 +8144,7 @@ async function loadSessionV1Backup(id) {
 //     要知道「我的改动没落上」的调用方传它:updateSessionMeta 据此在新读的副本上重放补丁;rewindSession
 //     据此如实回「被更新的撤回顶掉」,不说 ok:true。
 //   · opts.writer —— 只进丢弃日志,事后对账「是谁拿着旧副本来写」。
+//   · opts.shrinkBody —— 有意把消息截成原来的前缀(管家归档)。不传时,消息是盘上正文严格前缀的写被当成旧副本、先补齐尾巴再写。
 // 撤回那一存抬代数(同步;只由 saveSession 在入链那一拍调)。返回 { gen, prevHighWater } 供落盘失败时退水位;
 // 返回 null = 没资格抬:撤回自己手里那份也得是「最新一代」—— 它若是在另一次撤回【之前】读出来的(两次撤回
 // 交错:这一次先读、另一次先落盘),它算出来的截断建在旧正文上,落下去会把另一次撤回删掉的消息带回来。
@@ -8173,6 +8226,13 @@ async function saveSession(session, opts) {
       session.__v1bakPending = false;
     }
     const state = sessionBodyState.get(id);
+    // 旧副本补齐：调用方手里的消息是盘上正文的【严格前缀】（更短、逐行相同）= 它装载之后别的写者又追加过，
+    // 它自己并没有删消息（有意删的只有撤回 rewindBump 与管家归档 opts.shrinkBody）。以前这里走慢路径，用旧数组
+    // 整份重写 —— 别人刚追加的消息全丢。现在先把盘上多出来的尾巴补进它的数组再写：两边的改动都留下。
+    if (state && state.bodiesOk && !rewindBump && !(opts && opts.shrinkBody) && await rebaseStaleSessionBody(id, bp, state, messages, providerHistory)) {
+      payload = buildHeadPayload();
+      metaSnapshot = sessionMeta(session);
+    }
     const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msgHashes) : null;
     const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.provHashes) : null;
     let nextMsgHashes, nextProvHashes;
@@ -30295,9 +30355,12 @@ function appendAgentRunEvent(run, evt) {
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
 // 事件日志里 —— 修前追加链不等,终稿可能先落(autonomy-resume H2 在 Windows CI 上偶发「事件链缺 run_end」)。
-function flushAgentRunEvents(runId) {
+// 有上限(5s):磁盘真卡住(网络盘/杀软持锁)时不能把整条 run 的收尾一起卡死 —— 那时终稿照落,事件晚到而已。
+function flushAgentRunEvents(runId, maxWaitMs = 5000) {
   const chain = agentRunEventChains.get(String(runId || ''));
-  return chain ? chain.catch(() => {}) : Promise.resolve();
+  if (!chain) return Promise.resolve();
+  let timer = null;
+  return Promise.race([chain.catch(() => {}), new Promise(resolve => { timer = setTimeout(resolve, maxWaitMs); })]).finally(() => clearTimeout(timer));
 }
 
 // ── 116-2b:班组运行的停滞/预算信号 → 两个新的 run 事件 type ──────────────────────────────
@@ -30738,7 +30801,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
-    return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };
+    stopInitBeat(); return { ok: false, error: '子代理无法启动:provider 端点或模型未配置', iters: 0, toolCalls: 0 };   // 修前心跳不停:每秒一次、一直重写 run 快照
   }
   const requestedTier = toolTier || (role && role.toolTier);
   const tier = (requestedTier === 'edit' || requestedTier === 'exec') ? requestedTier : 'read';
@@ -49445,6 +49508,7 @@ function mapInterventionTransitionFailure(result) {
   if (reason === 'not_pending') {
     return interventionCommandFailure(reason, 409, { status: result.status || '' }, 'intervention is already being applied');
   }
+  if (reason === 'persist_failed') return interventionCommandFailure(reason, 503, {}, 'could not record the decision on disk; nothing was applied, try again');
   return interventionCommandFailure(reason, 409, {
     ...(result && result.runId ? { runId: result.runId } : {}),
   }, String(result && result.message || 'intervention cannot be delivered'));
@@ -49977,7 +50041,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 「无法自动撤销」(correct: CLI-native edits don't pass through toolCall → aren't journaled).
     // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
-    const bridgeTier = nativeToolTier(String(body.toolName || ''));
+    const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
     // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
     const bridgeMode = String(config.permissionMode || '');
     const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
@@ -50071,6 +50135,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       source: 'legacy_permission',
       contractRequest: false,
     });
+    if (result.status === 503) return send(res, json({ ok: false, error: 'could not record the decision on disk; nothing was applied, try again' }, 503));
     if (result.status !== 200) return send(res, json({ ok: false, error: 'unknown or expired request' }, 404));
     return send(res, json({ ok: true }));
   }
@@ -58744,7 +58809,7 @@ async function stewardArchiveConversation(config, startedAt) {
       fresh.autoCompactWatermark = 0;
       kept = fresh.messages.length;
       return undefined;
-    }, { writer: 'steward_archive', expectGen: baseGen });
+    }, { writer: 'steward_archive', expectGen: baseGen, saveOpts: { shrinkBody: true } });   // 有意截短:不让 saveSession 当旧副本补回
     truncated = Boolean(written && written.ok);
   } catch { truncated = false; }
   if (!truncated) {
@@ -62523,7 +62588,7 @@ module.exports = {
   normalizeStoragePolicy,
   collectStorageStats,
   storageSweep,
-  readAgentRunEvents,
+  readAgentRunEvents, appendAgentRunEvent, flushAgentRunEvents, runSubAgentCore,
   // 第40波:boot 恢复并发化 + syncRunEventSeq 尾窗化 — exposed for e2e(尾窗/全读回落/池语义直测)。
   syncRunEventSeq,
   mapPool,
@@ -62592,7 +62657,7 @@ module.exports = {
   sessionDisplayTitle,
   // 117j 收尾:会话头的【带瞬时重试】读取。Windows 的 rename 替换会开一个 ENOENT 窗口,
   // 单发 readFile 会把「正在被原子替换」误判成「不存在」。exposed for unit/session-head-read.test.js。
-  readSessionHeadResilient,
+  readSessionHeadResilient, registerIntervention, transitionInterventionState, readInterventions,
   maybeWriteThreadBrief,
   parseThreadBrief,
   detectDanglingTurn,

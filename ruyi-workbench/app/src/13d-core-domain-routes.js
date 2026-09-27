@@ -1313,6 +1313,7 @@ function mapInterventionTransitionFailure(result) {
   if (reason === 'not_pending') {
     return interventionCommandFailure(reason, 409, { status: result.status || '' }, 'intervention is already being applied');
   }
+  if (reason === 'persist_failed') return interventionCommandFailure(reason, 503, {}, 'could not record the decision on disk; nothing was applied, try again');
   return interventionCommandFailure(reason, 409, {
     ...(result && result.runId ? { runId: result.runId } : {}),
   }, String(result && result.message || 'intervention cannot be delivered'));
@@ -1845,7 +1846,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 「无法自动撤销」(correct: CLI-native edits don't pass through toolCall → aren't journaled).
     // 第27波:CLI 桥授权书消耗点。命中直接 allow —— 连 permission_request 事件都不发(免弹窗静默放行)。工具名按 CLI
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
-    const bridgeTier = nativeToolTier(String(body.toolName || ''));
+    const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
     // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
     const bridgeMode = String(config.permissionMode || '');
     const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
@@ -1939,6 +1940,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       source: 'legacy_permission',
       contractRequest: false,
     });
+    if (result.status === 503) return send(res, json({ ok: false, error: 'could not record the decision on disk; nothing was applied, try again' }, 503));
     if (result.status !== 200) return send(res, json({ ok: false, error: 'unknown or expired request' }, 404));
     return send(res, json({ ok: true }));
   }
