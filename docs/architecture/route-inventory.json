@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-27T08:59:25.999Z",
+  "generatedAt": "2026-09-27T09:01:17.769Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -4782,7 +4782,7 @@
       "kind": "exact",
       "path": "/api/scheduler/tasks",
       "file": "13s-scheduler.js",
-      "line": 759,
+      "line": 783,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "GET"
@@ -4807,7 +4807,7 @@
       "kind": "exact",
       "path": "/api/scheduler/tasks",
       "file": "13s-scheduler.js",
-      "line": 768,
+      "line": 792,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "POST"
@@ -4833,7 +4833,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)$",
       "path": "/api/scheduler/tasks/:taskId",
       "file": "13s-scheduler.js",
-      "line": 788,
+      "line": 812,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "*"
@@ -4855,7 +4855,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)$",
       "path": "/api/scheduler/tasks/:taskId",
       "file": "13s-scheduler.js",
-      "line": 832,
+      "line": 856,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "*"
@@ -4877,7 +4877,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/run-now$",
       "path": "/api/scheduler/tasks/:taskId/run-now",
       "file": "13s-scheduler.js",
-      "line": 846,
+      "line": 870,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "POST"
@@ -4899,7 +4899,7 @@
       "pattern": "^\\/api\\/scheduler\\/tasks\\/([^/]+)\\/runs$",
       "path": "/api/scheduler/tasks/:taskId/runs",
       "file": "13s-scheduler.js",
-      "line": 870,
+      "line": 894,
       "handler": "handleSchedulerApiRoutes",
       "methods": [
         "GET"

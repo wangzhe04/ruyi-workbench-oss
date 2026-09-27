@@ -17763,6 +17763,7 @@
         "schedulerClockNow",
         "schedulerDayKey",
         "schedulerDir",
+        "schedulerDispatchFire",
         "schedulerEmitChanged",
         "schedulerEnabled",
         "schedulerEnsureTimer",

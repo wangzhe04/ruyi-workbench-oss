@@ -1,6 +1,7 @@
 require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自隔离（见 lib 头注）
 'use strict';
-// E2E(第123波 M1 §3.2):定时任务调度器 —— tick、四段触发、并发 1、熔断、上限、两类载荷、无人值守 ask。
+// E2E(第123波 M1 §3.2;C18 code-review 已知债修复补测):定时任务调度器 —— tick、四段触发、
+// 单条慢/排队任务不拖住同拍其它到点任务、熔断、上限、两类载荷、无人值守 ask。
 //
 // 用户触发:「每个工作日 18:00 生成周报草稿」「明天九点提醒我」。到点这件事一年只发生几百次,
 // 靠真等是等不到的 —— 所以本件全程走 §3.4 的**假时钟**(WCW_SCHEDULER_CLOCK_FILE:文件里写一个
@@ -15,7 +16,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //                 触发后 nextRunAt 变空(once 没有下一次);再拨时钟不再触发。
 //   C daily    —— 连推两天 -> 两次;第二次的 dueAt 比第一次晚 24 小时(本地墙钟同一时刻)。
 //   D cron     —— `*/1 * * * *` 每分钟一次。
-//   E 并发 1   —— 两条任务同一刻到点:第二条的 registered.seq > 第一条的 reconciled.seq(串行)。
+//   E C18 修复 —— 两条任务同一刻到点,其中一条的回合人为跑得很慢:另一条(reminder,不调模型)
+//                 必须在慢的那条完成前就 reconciled —— tick 不再因为一条任务的回合慢/排队,
+//                 就连派单都派不出同一拍里排在它后面的其它到点任务;慢的那条最终仍会自己跑完。
 //   F 熔断     —— 连败 3 次 -> enabled 变 false,fires 最后一行带 tripped。
 //   G 上限     —— maxRunsPerDay:1 的 cron,第二次到点记 skipped/task_daily_cap,不起回合。
 //   H reminder —— 不调模型:会话数不变、用量台账为空、fires 里 outcome succeeded。
@@ -39,6 +42,7 @@ const WORK = path.join(HOME, 'workspace');
 const CLOCK = path.join(HOME, 'clock.txt');
 const TICK_MS = 150;
 const ASK_WAIT_MS = 900;
+const SLOWTURN_MS = 3000;   // E 组:一条任务的回合人为拖慢这么久,同拍另一条不该被它拖住
 const MINUTE = 60000;
 const HOUR = 3600000;
 const DAY = 24 * HOUR;
@@ -129,6 +133,9 @@ function startProvider(port) {
     const userText = messages.filter(m => m && m.role === 'user').map(m => String(m.content || '')).join(' ');
     const toolDone = messages.some(m => m && m.role === 'tool');
     if (userText.includes('BOOM')) { res.writeHead(500, { 'content-type': 'application/json' }); return res.end('{"error":{"message":"boom"}}'); }
+    // C18 补测(E 组)用的暗号:人为拖慢这一次模型请求,模拟「回合跑得慢/在排队」——
+    // 不需要真的接上 13n 仲裁器,拖慢 HTTP 往返本身就是 schedulerFireOnce 里那个长 await 的来源。
+    if (userText.includes('SLOWTURN')) await sleep(SLOWTURN_MS);
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
     const id = 'chatcmpl-sched';
     res.write('data: ' + JSON.stringify({ id, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] }) + '\n\n');
@@ -305,18 +312,30 @@ function startProvider(port) {
       `D2 拨过三分钟 -> 三次(实测 ${reconciledOf(firesRows(), cronId).length})`);
     await request(WB_PORT, 'DELETE', '/api/scheduler/tasks/' + cronId, null, token);
 
-    /* ═════════ E 并发 1(两条同刻到点串行)═════════ */
-    const eA = (await create({ title: '同刻甲', schedule: { kind: 'cron', expr: '*/5 * * * *' }, payload: { kind: 'reminder', text: 'a' } })).json.task;
-    const eB = (await create({ title: '同刻乙', schedule: { kind: 'cron', expr: '*/5 * * * *' }, payload: { kind: 'reminder', text: 'b' } })).json.task;
-    ok(eA.nextRunAt === eB.nextRunAt, 'E1 两条任务的下次触发时刻逐字相同(同刻到点)');
-    clock = Date.parse(eA.nextRunAt) + 1000; setClock(clock);
-    rows = await waitFires(r => reconciledOf(r, eA.id).length >= 1 && reconciledOf(r, eB.id).length >= 1);
-    const seqOf = (taskId, phase) => (rows.filter(r => r.taskId === taskId && r.phase === phase)[0] || {}).seq;
-    const firstDone = Math.min(seqOf(eA.id, 'reconciled'), seqOf(eB.id, 'reconciled'));
-    const secondStart = Math.max(seqOf(eA.id, 'registered'), seqOf(eB.id, 'registered'));
-    ok(Number.isFinite(firstDone) && Number.isFinite(secondStart) && secondStart > firstDone,
-      `E2 全局并发 1:后一条 registered(seq ${secondStart})排在前一条 reconciled(seq ${firstDone})之后`);
-    for (const t of [eA, eB]) await request(WB_PORT, 'DELETE', '/api/scheduler/tasks/' + t.id, null, token);
+    /* ═════════ E C18 修复:一条慢/排队的回合不拖住同拍其它到点任务 ═════════ */
+    // eSlow 的回合真的会在 fake provider 里睡 SLOWTURN_MS(见 startProvider);eFast 是 reminder,
+    // 根本不调模型,理应几乎瞬间 reconciled。旧代码里 tick 逐条 `await schedulerFireOnce`,
+    // eSlow 排在 eFast 前面时会把 eFast 的派单一起堵到 SLOWTURN_MS 之后(见本文件 git history 的
+    // 红面证据);修复后 tick 只管派单不等收尾,两条各自独立跑完。
+    const eSlow = (await create({ title: '同刻甲(慢)', schedule: { kind: 'cron', expr: '*/5 * * * *' }, payload: { kind: 'prompt', text: 'SLOWTURN 慢慢处理' } })).json.task;
+    const eFast = (await create({ title: '同刻乙(快提醒)', schedule: { kind: 'cron', expr: '*/5 * * * *' }, payload: { kind: 'reminder', text: 'b' } })).json.task;
+    ok(eSlow.nextRunAt === eFast.nextRunAt, 'E1 两条任务的下次触发时刻逐字相同(同刻到点)');
+    clock = Date.parse(eSlow.nextRunAt) + 1000; setClock(clock);
+    const eStartedAt = Date.now();
+    // 预算给 SLOWTURN_MS 的一半:旧代码下 eFast 要等 eSlow 的整段回合(≥SLOWTURN_MS)才会被【派单】,
+    // 这个预算内必然等不到;修复后 eFast 不依赖模型,预算内理应早早 reconciled。
+    const fastRows = await waitFires(r => reconciledOf(r, eFast.id).length >= 1, Math.round(SLOWTURN_MS / 2));
+    const fastElapsedMs = Date.now() - eStartedAt;
+    // 墙钟上界豁免:界取慢任务人为延迟的整段(SLOWTURN_MS=3000ms),快任务走的是不调模型的 reminder 分支,
+    // 正常实得几十到几百毫秒;修前的失败形态是被堵到 SLOWTURN_MS 之后才 reconciled(已用红面证据钉过),
+    // 界宽到「不可能是调度噪声」的量级,不是在量真实耗时。
+    ok(reconciledOf(fastRows, eFast.id).length >= 1 && fastElapsedMs < SLOWTURN_MS,
+      `E2 C18:同拍里排在慢任务后面的快任务(reminder)在慢任务(${SLOWTURN_MS}ms)完成前就已 reconciled` +
+      `(实测耗时 ${fastElapsedMs}ms;fires 里 eFast reconciled 行数 ${reconciledOf(fastRows, eFast.id).length})`);
+    const slowRows = await waitFires(r => reconciledOf(r, eSlow.id).length >= 1, SLOWTURN_MS + 8000);
+    const slowRun = reconciledOf(slowRows, eSlow.id)[0];
+    ok(!!slowRun && slowRun.outcome === 'succeeded', `E3 慢任务最终自己也跑完了,只是不再挡道(实测 ${slowRun && slowRun.outcome})`);
+    for (const t of [eSlow, eFast]) await request(WB_PORT, 'DELETE', '/api/scheduler/tasks/' + t.id, null, token);
 
     /* ═════════ I prompt 起真回合 ═════════ */
     const promptRes = await create({
