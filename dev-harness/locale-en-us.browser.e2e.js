@@ -22,10 +22,12 @@ let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 const cjk = value => typeof value === 'string' && /[一-鿿]/.test(value);
 
-// 扫描白名单：这两处的中文来自服务端 05-claude-engine.js 的字面量数据（预置 Agent 工作流模板全文、
-// 品牌名「火山方舟」），不是本刀 i18n 改动的范围 —— 翻译整份工作流模板（含喂给模型的任务提示词）
-// 是另一件独立的活，硬约束「不轻易碰 app/src」下不在本刀里做。真出现新的、不在这张表里的中文才算红。
-const ALLOWED_SUBSTRINGS = ['Built-in ·', '火山方舟 Ark Coding Plan'];
+// 扫描白名单：内置多智能体工作流模板（08-agent-runs.js 的 BUILTIN_AGENT_WORKFLOWS）的 title/
+// description 此前是服务端字面量中文，en-US 下原样露出，靠 'Built-in ·' 放行；现已改为经
+// workflowTemplateLabel(util.js) 按 id 查 agentWorkflow.template.<id>.title/.description 显示，
+// 白名单条目随之撤掉——喂给模型的任务提示词（node.task）仍是中文，但那不在可见 UI 文字范围内，
+// 不会被这条扫描命中。剩下这一条是品牌名「火山方舟」，与工作流模板无关，继续保留。
+const ALLOWED_SUBSTRINGS = ['火山方舟 Ark Coding Plan'];
 
 (async () => {
   let fxA = null;
@@ -88,6 +90,18 @@ const ALLOWED_SUBSTRINGS = ['Built-in ·', '火山方舟 Ark Coding Plan'];
     ok(plural.one === '1 file', `U15 changes.fileCount 单数是 "1 file"（实测 ${JSON.stringify(plural.one)}）`);
     ok(plural.two === '2 files', `U15 changes.fileCount 复数仍是 "N files"（实测 ${JSON.stringify(plural.two)}）`);
 
+    // U17：内置多智能体工作流模板（08-agent-runs.js 的 BUILTIN_AGENT_WORKFLOWS）此前 title/description
+    // 是服务端字面量中文，en-US 下原样露出（靠头部 ALLOWED_SUBSTRINGS 的 'Built-in ·' 放行）；现经
+    // workflowTemplateLabel(util.js) 按 id 查 agentWorkflow.template.<id>.title 显示 —— 顶栏「工作流模板」
+    // 下拉（#workflowQuickSelect）在 boot() 里由 loadAgentWorkflows() 异步填充，等它至少有一项。
+    await fxA.waitForEval(`document.querySelectorAll('#workflowQuickSelect option').length > 0 ? 1 : null`, 300);
+    const wfOptions = await fxA.evaluate(`[...document.querySelectorAll('#workflowQuickSelect option')].map(o => ({ value: o.value, text: o.textContent }))`);
+    ok(wfOptions.length > 0, `U17 工作流模板下拉已加载内置模板（实测 ${wfOptions.length} 项）`);
+    ok(wfOptions.every(o => !cjk(o.text)), `U17 en-US 下工作流模板下拉零中文残留（实测 ${JSON.stringify(wfOptions)}）`);
+    const debateOpt = wfOptions.find(o => o.value === 'debate-and-judge');
+    ok(Boolean(debateOpt) && debateOpt.text === 'Built-in · Debate (Pro vs Con) → Verdict',
+      `U17 debate-and-judge 模板标题已译（实测 ${JSON.stringify(debateOpt)}）`);
+
     // 上面 ALLOWED_SUBSTRINGS 放行的「设置页懒建内容 refreshStatus() 早于 setLocale 落定那一次
     // 建出来的初值」到底会不会自愈 —— 不能只靠头注断言，真打开设置页核实一次：openSettingsBtn 的
     // click() 走 navigation-controls.js 的 openModal('settingsModal') -> fillSettings()，
@@ -107,14 +121,19 @@ const ALLOWED_SUBSTRINGS = ['Built-in ·', '火山方舟 Ark Coding Plan'];
     fxB = await startBrowserFixture({ ok, prefix: 'ruyi-locale-en-us-b-' });
     // 管家首跑那段自我介绍＋三个例子先在中文下画出来（Windows CI 上它曾早于 setLocale 落定、停在中文）。
     await fxB.waitForEval(`document.querySelectorAll('#stewardFeed .steward-example').length === 3 ? 1 : null`, 300);
+    // U17 zh-CN 基线：workflowTemplateLabel(util.js) 按 id 查不到就照旧显示服务端给的中文原文 —— 切语言
+    // 前先核一次内置模板标题仍是改动前那句一字不差的中文，防止翻译表把 zh-CN 也悄悄接管了。
+    await fxB.waitForEval(`document.querySelectorAll('#workflowQuickSelect option').length > 0 ? 1 : null`, 300);
     const before = await fxB.evaluate(`(() => ({
       stopBtn: (document.getElementById('stewardStopBtn') || {}).textContent || '',
       presence: (document.getElementById('stewardPresenceText') || {}).textContent || '',
       intro: [...document.querySelectorAll('#stewardFeed .steward-say, #stewardFeed .steward-example')].map(n => n.textContent).join(' | '),
+      debateTemplate: (document.querySelector('#workflowQuickSelect option[value="debate-and-judge"]') || {}).textContent || '',
     }))()`);
     ok(cjk(before.intro), `U14c 切语言前基线：管家首跑自我介绍是中文（实测 ${JSON.stringify(before.intro.slice(0, 60))}）`);
     ok(cjk(before.stopBtn), `U16 切语言前基线：停机键是中文（实测 ${JSON.stringify(before.stopBtn)}）`);
     ok(cjk(before.presence), `U16 切语言前基线：管家状态点是中文（实测 ${JSON.stringify(before.presence)}）`);
+    ok(before.debateTemplate === '内置 · 正反辩论 → 裁决', `U17 zh-CN 下内置工作流模板标题仍是原文中文（实测 ${JSON.stringify(before.debateTemplate)}）`);
 
     const saved = await fxB.request('POST', '/api/config', { locale: 'en-US' });
     ok(Boolean(saved && saved.status === 200), 'U16 POST /api/config 切 locale 成功');

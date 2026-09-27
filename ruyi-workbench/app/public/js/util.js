@@ -153,6 +153,24 @@ export function presetDisplayLabel(namespace, preset) {
   return translated === `[${key}]` ? (preset.label || preset.id) : translated;
 }
 
+// 内置多智能体工作流模板(08-agent-runs.js 的 BUILTIN_AGENT_WORKFLOWS)的 title/description 是后端
+// 字面量中文,不过 i18n 管线,en-US 下原样露出。同 presetDisplayLabel 的查法:只对 tpl.builtin===true
+// 的模板按 id 查一份可选翻译键(agentWorkflow.template.<id>.title/.description),查不到就照旧显示服务端
+// 给的字符串——个人/项目自建的工作流(source 非 builtin,哪怕 id 恰好撞了内置模板的 id)永远走服务端原文,
+// 不会被这份翻译表意外接管。agent-workflows.js 的模板选择器、快速运行弹层、toast 与编辑器载入共用同一份查法。
+export function workflowTemplateLabel(tpl) {
+  if (!tpl) return { title: '', description: '' };
+  if (!tpl.builtin) return { title: tpl.title || tpl.id || '', description: tpl.description || '' };
+  const titleKey = `agentWorkflow.template.${tpl.id}.title`;
+  const descKey = `agentWorkflow.template.${tpl.id}.description`;
+  const translatedTitle = t(titleKey);
+  const translatedDesc = t(descKey);
+  return {
+    title: translatedTitle === `[${titleKey}]` ? (tpl.title || tpl.id || '') : translatedTitle,
+    description: translatedDesc === `[${descKey}]` ? (tpl.description || '') : translatedDesc,
+  };
+}
+
 // W6 设置重组：键序无关的 JSON（两份配置「是不是同一个值」只看内容，不看服务端与浏览器谁先写了哪个键）。
 export function canonicalJson(value) {
   if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';

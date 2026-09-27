@@ -3,7 +3,7 @@
 // EC-D：Agent 工作流编辑、运行监控与 Workbench 适配领域。
 import { state } from './state.js';
 import { api, wcwToken } from './net.js';
-import { $, el, fmtTokens, toast, stewardShortTitle } from './util.js';   // 33 号文 §4：业务名的截短走 util.js 的唯一口径（码点安全，不再 slice 切半代理对）
+import { $, el, fmtTokens, toast, stewardShortTitle, workflowTemplateLabel } from './util.js';   // 33 号文 §4：业务名的截短走 util.js 的唯一口径（码点安全，不再 slice 切半代理对）
 import { t } from './i18n.js';
 import { createWorkbenchDomain } from './workbench.js';
 // 32 号文 §4（M2-b）：pause/resume 的判据与文案键搬进叶子 js/run-state.js —— 2.0 这张 run 卡与
@@ -28,20 +28,29 @@ export function createAgentWorkflowsDomain({
 } = {}) {
 let agentWorkflowLibrary = [];
 function cloneWorkflow(value) { return JSON.parse(JSON.stringify(value || {})); }
-async function loadAgentWorkflows() {
-  try { const r = await api(`/api/agent-workflows?cwd=${encodeURIComponent(currentWorkspace())}`); agentWorkflowLibrary = r.workflows || []; }
-  catch { agentWorkflowLibrary = []; }
+// 模板标题现经 workflowTemplateLabel 按当前 locale 查表(见 util.js 头注)——这颗下拉是常驻顶栏控件,不像
+// 编辑器弹层那样每次现开现建,若不在 i18n:change 上重画,boot() 里 initI18n('auto') 先落定、bootData()
+// 里这发 loadAgentWorkflows() 的 fetch 回来更早、随后才 setLocale(configuredLocale) 那半拍竞态窗口
+// (与 stewardFeed 首跑自我介绍、settings 弹层同款,见各自头注)会把它定格在旧语言,且没有下一次重建的机会。
+// 拆出纯渲染半部分(不重新拉取)供 i18n:change 复用,避免每次切语言都多打一次 /api/agent-workflows。
+function renderWorkflowQuickSelect() {
   const select = $('workflowQuickSelect'); if (!select) return;
   const previous = select.value; select.textContent = '';
   for (const wf of agentWorkflowLibrary) {
     const o = document.createElement('option');
     o.value = wf.id;
     const sourceKey = wf.source === 'builtin' ? 'workflow.source.builtin' : wf.source === 'project' ? 'workflow.source.project' : 'workflow.source.personal';
-    o.textContent = t(sourceKey) + ' · ' + wf.title;
+    o.textContent = t(sourceKey) + ' · ' + workflowTemplateLabel(wf).title;
     select.appendChild(o);
   }
   if (agentWorkflowLibrary.some(x => x.id === previous)) select.value = previous;
 }
+async function loadAgentWorkflows() {
+  try { const r = await api(`/api/agent-workflows?cwd=${encodeURIComponent(currentWorkspace())}`); agentWorkflowLibrary = r.workflows || []; }
+  catch { agentWorkflowLibrary = []; }
+  renderWorkflowQuickSelect();
+}
+try { globalThis.addEventListener('i18n:change', () => renderWorkflowQuickSelect()); } catch { /* 无 window(单测)时不挂 */ }
 async function launchAgentWorkflow(workflow, context) {
   if (!state.currentSession?.id) await newSession();
   const wf = workflow || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value); if (!wf) return toast(t('workflow.selectRequired'), 'err');
@@ -50,7 +59,7 @@ async function launchAgentWorkflow(workflow, context) {
     if (context && context.trim()) body.context = context.trim();
     const r = await api('/api/agent-workflow/launch', { method: 'POST', body: JSON.stringify(body) });
     if (!r || (!r.ok && !r.runId)) throw new Error(r && r.error || t('chat.startFailed'));
-    toast(t('workflow.started', { title: wf.title }), 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
+    toast(t('workflow.started', { title: workflowTemplateLabel(wf).title }), 'ok'); switchTab('agent-runs'); await loadAgentRuns(true);
   } catch (e) { toast(t('workflow.start.failed', { reason: apiErrText(e) }), 'err'); }
 }
 // Quick "运行模板" launch, from the dropdown in the Agent 工作流 tab. Unlike the graphical editor's own
@@ -60,14 +69,15 @@ async function launchAgentWorkflow(workflow, context) {
 function launchAgentWorkflowFromQuickSelect() {
   const wf = agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value);
   if (!wf) return toast(t('workflow.selectRequired'), 'err');
+  const label = workflowTemplateLabel(wf);
   const body = el('div');
-  body.append(el('p', 'muted', t('workflow.quickRun.description', { title: wf.title })));
+  body.append(el('p', 'muted', t('workflow.quickRun.description', { title: label.title })));
   const ctx = document.createElement('textarea'); ctx.rows = 4; ctx.placeholder = t('workflow.quickRun.contextPlaceholder');
   body.appendChild(workflowField(t('workflow.quickRun.contextLabel'), ctx));
   const foot = el('div', 'modal-actions');
   const cancel = el('button', '', t('common.cancel')); const run = el('button', 'primary', t('workflow.start'));
   foot.append(cancel, run);
-  const modal = buildModal(t('workflow.quickRun.title', { title: wf.title }), body, foot);
+  const modal = buildModal(t('workflow.quickRun.title', { title: label.title }), body, foot);
   cancel.onclick = () => modal.close();
   run.onclick = async () => { const context = ctx.value; modal.close(); await launchAgentWorkflow(wf, context); };
 }
@@ -89,7 +99,9 @@ function parseWorkflowConditionText(text) {
 }
 async function openWorkflowEditor(initialId) {
   await loadAgentWorkflows();
-  let draft = initialId === '__blank' ? workflowBlank() : cloneWorkflow(agentWorkflowLibrary.find(x => x.id === initialId) || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value) || workflowBlank());
+  const sourceWf = initialId === '__blank' ? null : (agentWorkflowLibrary.find(x => x.id === initialId) || agentWorkflowLibrary.find(x => x.id === $('workflowQuickSelect')?.value) || null);
+  let draft = initialId === '__blank' ? workflowBlank() : (sourceWf ? cloneWorkflow(sourceWf) : workflowBlank());
+  if (sourceWf) { const label = workflowTemplateLabel(sourceWf); draft.title = label.title; draft.description = label.description; }
   draft.source = draft.source === 'project' ? 'project' : 'personal'; let selectedId = draft.nodes[0] && draft.nodes[0].id;
   let connectFromId = '';
   let selectedEdge = null;
@@ -105,7 +117,7 @@ async function openWorkflowEditor(initialId) {
   const meta = el('div', 'workflow-meta'); const idInput = document.createElement('input'); idInput.value = draft.id; const titleInput = document.createElement('input'); titleInput.value = draft.title; const descInput = document.createElement('input'); descInput.value = draft.description || '';
   const scopeSelect = document.createElement('select'); for (const [v, key] of [['personal','workflow.source.personal'],['project','workflow.source.project']]) { const o=document.createElement('option');o.value=v;o.textContent=t(key);scopeSelect.appendChild(o); } scopeSelect.value=draft.source;
   meta.append(workflowField(t('workflow.editor.id'), idInput), workflowField(t('workflow.editor.name'), titleInput), workflowField(t('workflow.editor.description'), descInput), workflowField(t('workflow.editor.scope'), scopeSelect)); body.appendChild(meta);
-  const toolbar = el('div', 'workflow-editor-toolbar'); const templateSelect = document.createElement('select'); for (const wf of agentWorkflowLibrary) { const o=document.createElement('option');o.value=wf.id;const sourceKey=wf.source === 'builtin' ? 'workflow.source.builtin' : wf.source === 'project' ? 'workflow.source.project' : 'workflow.source.personal';o.textContent=t(sourceKey) + ' · ' + wf.title;templateSelect.appendChild(o); } templateSelect.value=draft.id;
+  const toolbar = el('div', 'workflow-editor-toolbar'); const templateSelect = document.createElement('select'); for (const wf of agentWorkflowLibrary) { const o=document.createElement('option');o.value=wf.id;const sourceKey=wf.source === 'builtin' ? 'workflow.source.builtin' : wf.source === 'project' ? 'workflow.source.project' : 'workflow.source.personal';o.textContent=t(sourceKey) + ' · ' + workflowTemplateLabel(wf).title;templateSelect.appendChild(o); } templateSelect.value=draft.id;
   const nodeSelect = document.createElement('select'); nodeSelect.title = t('workflow.canvas.quickSelect');
   const loadBtn=el('button','mini workflow-btn',t('workflow.editor.editSelected')), blankBtn=el('button','mini workflow-btn',t('workflow.editor.newBlank')), addBtn=el('button','mini workflow-btn',t('workflow.editor.addNode')), connectBtn=el('button','mini workflow-btn',t('workflow.editor.connect')), edgeDeleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteEdge')), deleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteNode')); const _tbGroup=(...els)=>{const g=el('div','wf-tb-group');g.append(...els);return g;}; toolbar.append(_tbGroup(templateSelect,loadBtn,blankBtn),el('div','wf-tb-sep'),_tbGroup(nodeSelect,addBtn,deleteBtn),el('div','wf-tb-sep'),_tbGroup(connectBtn,edgeDeleteBtn)); body.appendChild(toolbar);
   const layout=el('div','workflow-editor-layout'), graph=el('div','workflow-graph'), inspector=el('div','workflow-inspector'); layout.append(graph,inspector); body.appendChild(layout);
@@ -291,7 +303,7 @@ async function openWorkflowEditor(initialId) {
     apply.onclick=doApplyNode; commitSelectedNode=doApplyNode;
     inspector.appendChild(apply);
   }
-  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast(t('workflow.editor.loaded'),'');};
+  loadBtn.onclick=()=>{const wf=agentWorkflowLibrary.find(x=>x.id===templateSelect.value);if(!wf)return;undoStack.length=0;draft=cloneWorkflow(wf);draft.source=wf.source==='project'?'project':'personal';const label=workflowTemplateLabel(wf);draft.title=label.title;draft.description=label.description;idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast(t('workflow.editor.loaded'),'');};
   blankBtn.onclick=()=>{undoStack.length=0;draft=workflowBlank();idInput.value=draft.id;titleInput.value=draft.title;descInput.value=draft.description||'';scopeSelect.value=draft.source;selectedId=draft.nodes[0]?.id;selectedEdge=null;resetConnectMode();renderGraph();renderInspector();toast(t('workflow.editor.blankCreated'),'ok');};
   forkBtn.onclick=()=>{undoStack.length=0;selectedEdge=null;forkWorkflowDraft();renderGraph();renderInspector();};
   nodeSelect.onchange=()=>{if(selectedId!==nodeSelect.value)flushInspector();selectedId=nodeSelect.value;selectedEdge=null;renderGraph();renderInspector();};
