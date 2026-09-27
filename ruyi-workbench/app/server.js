@@ -1237,6 +1237,156 @@ function memoryFixedSelectionMax(config) { return memoryLimit(config, 'memoryFix
 function memoryIndexCharCap(config) { return memoryLimit(config, 'memoryIndexCharCapV1', 500, 100000, 6000); }
 
 
+// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;纯搬家,零行为变更)。
+// Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
+// (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
+// through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
+function isBatchLauncher(command) {
+  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(String(command || ''));
+}
+function quoteWinArg(a) {
+  a = String(a);
+  if (a === '') return '""';
+  if (!/[\s"^&|<>()%!]/.test(a)) return a;
+  return '"' + a.replace(/"/g, '""') + '"';
+}
+// Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
+function batchSafeSpawn(command, args) {
+  if (!isBatchLauncher(command)) return { command, args, opts: {} };
+  const comspec = process.env.ComSpec || 'cmd.exe';
+  const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
+  return { command: comspec, args: ['/d', '/s', '/c', line], opts: { windowsVerbatimArguments: true } };
+}
+
+// ============================================================================
+// cmd8191 防线(技能索引把 Claude CLI 命令行顶爆事故的根治): Windows 上 .cmd/.bat 启动器(claude.cmd)经
+// cmd.exe /d /s /c 执行,cmd 对整条命令行有 8191 字符硬上限 —— 超限直接报「命令行太长。」退出码 1,claude
+// 进程根本没启动。历史上 --append-system-prompt 钳 8000、--agents 钳 6000,两个各自合理的局部钳制相加
+// (14000)远超整行预算 —— 局部钳制 ≠ 全局不变量。这里的防线把不变量收拢到一个汇合点:组装完 args 后用与
+// batchSafeSpawn【严格同构】的构造核算整行长度,超限走确定性降级阶梯(见 runClaudeTurn 组装段)。
+const CMD_EXE_LINE_LIMIT = 8191;          // cmd.exe /c 命令行硬上限(文档值)
+const CMD_LINE_SAFE_BUDGET = 7900;        // 整行(含 comspec 路径与 /d /s /c 前缀)安全预算,留本地化/引号余量
+const DIRECT_SPAWN_LINE_BUDGET = 32000;   // 直启(.exe/node)走 CreateProcess,上限 32767
+const CMD_LINE_QUOTE_MARGIN = 48;         // quoteWinArg 引号翻倍等二阶效应的预留
+// Off-by-default 测试缝: 强制预算值并让长度核算一律走 cmd 公式(即使启动器不是 .cmd)——e2e 借此在
+// WCW_FAKE_CLAUDE(node 直启)下精确演练降级阶梯,无需真实 cmd.exe。
+function cmdLineBudgetSeam() {
+  const v = Number(process.env.WCW_CLAUDE_CMDLINE_BUDGET);
+  return Number.isFinite(v) && v > 200 ? Math.floor(v) : 0;
+}
+// 本次 spawn 适用的整行字符预算;0 = 不设防(非 Windows: execve 上限 ~2MB,无 cmd 路径,保持行为逐字节不变)。
+function cmdLineBudgetFor(command) {
+  const seam = cmdLineBudgetSeam();
+  if (seam) return Math.min(seam, CMD_EXE_LINE_LIMIT);
+  if (process.platform !== 'win32') return 0;
+  return isBatchLauncher(command) ? CMD_LINE_SAFE_BUDGET : DIRECT_SPAWN_LINE_BUDGET;
+}
+// 与 batchSafeSpawn 的行构造严格同构(改 batchSafeSpawn 必须同步改这里;e2e 有断言)。核算的就是 cmd.exe
+// 实际解析的那一整行: "<comspec>" /d /s /c "<quoted join>"。测试缝开启时一律走 cmd 公式(模拟包装)。
+function spawnCmdLineLength(command, args) {
+  if (isBatchLauncher(command) || cmdLineBudgetSeam()) {
+    const comspec = process.env.ComSpec || 'cmd.exe';
+    const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"';
+    return `${comspec} /d /s /c ${line}`.length;
+  }
+  // 直启粗估(Node 自行 quoting): 只用于 32K 量级的宽松判断,无需精确。
+  return String(command).length + args.reduce((n, a) => n + String(a).length + 3, 1);
+}
+
+// 01e-permission-modes.js - 架构还债批 3·B: 从 01-config.js 搬出的权限档表、三层权限解析与 Agent 角色归一(纯搬家,零行为变更)。
+const PERMISSION_MODES = ['default', 'acceptEdits', 'plan', 'auto', 'bypass'];
+const AGENT_ROLE_PERMISSION_MODES = ['inherit', 'default', 'acceptEdits', 'dontAsk', 'bypass', 'plan', 'auto'];
+// v1.4.3: Canonical mapping from workbench-internal mode names to Claude CLI mode names.
+// 'bypass' -> 'bypassPermissions'; 'auto' is a CLI-native name (no alias needed).
+// Used by BOTH the --permission-mode flag construction AND syncClaudeCliSettings (single source of truth).
+const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'default', acceptEdits: 'acceptEdits', plan: 'plan', auto: 'auto', dontAsk: 'dontAsk' };
+// Accept these CLI-native names as aliases when loading config (so users / external tools that write
+// 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
+const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
+// 116-2a(27 号文 §8.6「任何地方切到全自动都要二次确认」):需要二次确认才能【切到】的档。
+// 这是「服务端的那一半」——UI 弹窗是另一半,但服务端不能只信 UI:任何调用方(含脚本/管家/117 壳)
+// 想把某条线程放到全自动,都必须显式带 confirm:true。收紧与清除不在此列(二次确认防的是「不知不觉
+// 被放开」,不是防止用户收紧)。含 CLI 原生内部名 bypassPermissions,即使它不在 PERMISSION_MODES 里
+// (白名单会先把它挡成 400)——名单按语义列全,不依赖另一张表的取值范围。
+const PERMISSION_MODES_REQUIRING_CONFIRM = Object.freeze(['auto', 'bypass', 'bypassPermissions']);
+
+// 116-2a(27 号文 §3.3「线程权限即管家边界」):权限档的三层解析。纯函数,零副作用,零 I/O。
+// 优先级【固定】,高 → 低:
+//   ① 请求级临时覆盖(第 78 波:交办确认卡为「这一单当前执行链」收紧,绝不回写任何持久化);
+//   ② 会话级 session.permissionMode(116-2a 新增的会话头可选字段;不写 = 跟随全局,故没有「显式
+//      等于全局」与「未设」之分的歧义 —— UI 的权限 chip 靠这个区分「这条线程自己定了档」与「跟着走」);
+//   ③ 全局 config.permissionMode(§3.3「新线程用全局默认权限」)。
+// 每一层都【只认 PERMISSION_MODES 白名单】,非法/缺失一律【静默】回落到下一层(与第 78 波的原语义
+// 逐字一致:不报错、不回写、不影响其余层)。三层全空 → 'default'(normalizeConfig 已保证全局档合法,
+// 这个兜底只在传了个裸对象/半截 config 的调用方身上生效)。
+// 入参三项都既接受「对象」(读它的 .permissionMode)也接受「字符串」(就是档本身),这样测试可以直接
+// 喂三个字符串,而 runSessionTurn 可以直接喂 body.permissionMode / session / config。
+function permissionModeFrom(value) {
+  if (value == null) return '';
+  const raw = (typeof value === 'object') ? value.permissionMode : value;
+  const mode = raw == null ? '' : String(raw);
+  return PERMISSION_MODES.includes(mode) ? mode : '';
+}
+function resolvePermissionMode(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  return permissionModeFrom(src.request)
+    || permissionModeFrom(src.session)
+    || permissionModeFrom(src.config)
+    || 'default';
+}
+const BUILTIN_AGENT_ROLES = Object.freeze([
+  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
+  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
+  { id: 'coder', label: 'Coder', description: '面向代码实现、调试和测试闭环的工程角色。', prompt: '你是 Coder。负责把明确的软件任务落实为可验证的代码：先阅读相关实现、测试和项目约束，定位最小且完整的改动面；遵循现有架构与风格实施，不做无关重构；补充或更新能复现问题、证明行为的测试，运行与风险相称的检查。遇到失败先诊断根因并迭代修复，不把未验证的改动宣称为完成。最后报告修改、测试结果与仍存在的风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 150, claude: 150 }, color: 'green' },
+  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
+  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
+  // 第23波: 新增 5 个角色,覆盖「规划 → 研究 → 批判 → 综合 → 数据分析」的常见协作分工,并据此拓宽内置模板。
+  { id: 'planner', label: 'Planner', description: '把复杂任务拆解为清晰的计划/设计，不实现。', prompt: '你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'teal' },
+  { id: 'researcher', label: 'Researcher', description: '联网检索并阅读来源，产出有来源支撑的发现。', prompt: '你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'cyan' },
+  { id: 'critic', label: 'Critic', description: '对抗式审查：主动找漏洞、反例和无据主张。', prompt: '你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'red' },
+  { id: 'synthesizer', label: 'Synthesizer', description: '把多个上游结果综合成连贯、结构化的成稿。', prompt: '你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。默认只产出文本，不改文件（需要落盘时按节点指派的工具面执行）。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'amber' },
+  { id: 'analyst', label: 'Analyst', description: '分析数据/日志/指标，跑必要脚本，产出发现。', prompt: '你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'indigo' },
+]);
+
+function normalizeAgentRole(raw, opts = {}) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const id = String(raw.id || raw.name || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+  if (!id) return null;
+  const strArr = (value, max = 64) => [...new Set((Array.isArray(value) ? value : []).filter(v => typeof v === 'string').map(v => v.trim()).filter(Boolean))].slice(0, max);
+  const models0 = raw.models && typeof raw.models === 'object' ? raw.models : {};
+  const budgets0 = raw.budgets && typeof raw.budgets === 'object' ? raw.budgets : {};
+  const permissionMode = AGENT_ROLE_PERMISSION_MODES.includes(raw.permissionMode) ? raw.permissionMode : 'inherit';
+  const role = {
+    id,
+    label: String(raw.label || raw.name || id).trim().slice(0, 80) || id,
+    description: String(raw.description || '').trim().slice(0, 500),
+    prompt: String(raw.prompt || raw.systemPrompt || '').trim().slice(0, 8000),
+    toolTier: ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : 'read',
+    models: {
+      openai: String(models0.openai != null ? models0.openai : (raw.openaiModel || '')).trim().slice(0, 160),
+      claude: String(models0.claude != null ? models0.claude : (raw.claudeModel || 'inherit')).trim().slice(0, 160) || 'inherit',
+    },
+    openaiTools: strArr(raw.openaiTools || (raw.tools && raw.driver !== 'claude' ? raw.tools : []), 128),
+    claudeTools: strArr(raw.claudeTools || (raw.driver === 'claude' ? raw.tools : []), 128),
+    mcpServers: strArr(raw.mcpServers, 32),
+    permissionMode,
+    budgets: {
+      openai: Math.min(300, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),
+      claude: Math.min(300, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 100))) || 100)),
+    },
+    isolation: raw.isolation === 'worktree' ? 'worktree' : 'none',
+    color: String(raw.color || '').trim().slice(0, 32),
+  };
+  if (opts.source) role.source = opts.source;
+  if (opts.builtin) role.builtin = true;
+  return role;
+}
+function mergeAgentRole(base, override, source) {
+  const merged = normalizeAgentRole({ ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } }, { source: source || override.source || base.source, builtin: !!base.builtin });
+  if (merged && base.builtin) merged.builtin = true;
+  return merged;
+}
+
 function defaultConfig() {
   return {
     configSchema: CONFIG_SCHEMA,
@@ -1738,99 +1888,8 @@ function defaultConfig() {
   };
 }
 
-const PERMISSION_MODES = ['default', 'acceptEdits', 'plan', 'auto', 'bypass'];
+// 架构还债批 3·B: 权限档表(PERMISSION_MODES 等)、resolvePermissionMode 与 Agent 角色归一抽至 01e-permission-modes.js。
 const CLAUDE_THINKING_EFFORTS = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
-const AGENT_ROLE_PERMISSION_MODES = ['inherit', 'default', 'acceptEdits', 'dontAsk', 'bypass', 'plan', 'auto'];
-// v1.4.3: Canonical mapping from workbench-internal mode names to Claude CLI mode names.
-// 'bypass' -> 'bypassPermissions'; 'auto' is a CLI-native name (no alias needed).
-// Used by BOTH the --permission-mode flag construction AND syncClaudeCliSettings (single source of truth).
-const CLAUDE_PERMISSION_MODE_MAP = { bypass: 'bypassPermissions', default: 'default', acceptEdits: 'acceptEdits', plan: 'plan', auto: 'auto', dontAsk: 'dontAsk' };
-// Accept these CLI-native names as aliases when loading config (so users / external tools that write
-// 'bypassPermissions' directly into config.json are not silently reset to 'bypass').
-const PERMISSION_MODE_ALIASES = { bypassPermissions: 'bypass' };
-// 116-2a(27 号文 §8.6「任何地方切到全自动都要二次确认」):需要二次确认才能【切到】的档。
-// 这是「服务端的那一半」——UI 弹窗是另一半,但服务端不能只信 UI:任何调用方(含脚本/管家/117 壳)
-// 想把某条线程放到全自动,都必须显式带 confirm:true。收紧与清除不在此列(二次确认防的是「不知不觉
-// 被放开」,不是防止用户收紧)。含 CLI 原生内部名 bypassPermissions,即使它不在 PERMISSION_MODES 里
-// (白名单会先把它挡成 400)——名单按语义列全,不依赖另一张表的取值范围。
-const PERMISSION_MODES_REQUIRING_CONFIRM = Object.freeze(['auto', 'bypass', 'bypassPermissions']);
-
-// 116-2a(27 号文 §3.3「线程权限即管家边界」):权限档的三层解析。纯函数,零副作用,零 I/O。
-// 优先级【固定】,高 → 低:
-//   ① 请求级临时覆盖(第 78 波:交办确认卡为「这一单当前执行链」收紧,绝不回写任何持久化);
-//   ② 会话级 session.permissionMode(116-2a 新增的会话头可选字段;不写 = 跟随全局,故没有「显式
-//      等于全局」与「未设」之分的歧义 —— UI 的权限 chip 靠这个区分「这条线程自己定了档」与「跟着走」);
-//   ③ 全局 config.permissionMode(§3.3「新线程用全局默认权限」)。
-// 每一层都【只认 PERMISSION_MODES 白名单】,非法/缺失一律【静默】回落到下一层(与第 78 波的原语义
-// 逐字一致:不报错、不回写、不影响其余层)。三层全空 → 'default'(normalizeConfig 已保证全局档合法,
-// 这个兜底只在传了个裸对象/半截 config 的调用方身上生效)。
-// 入参三项都既接受「对象」(读它的 .permissionMode)也接受「字符串」(就是档本身),这样测试可以直接
-// 喂三个字符串,而 runSessionTurn 可以直接喂 body.permissionMode / session / config。
-function permissionModeFrom(value) {
-  if (value == null) return '';
-  const raw = (typeof value === 'object') ? value.permissionMode : value;
-  const mode = raw == null ? '' : String(raw);
-  return PERMISSION_MODES.includes(mode) ? mode : '';
-}
-function resolvePermissionMode(input) {
-  const src = (input && typeof input === 'object') ? input : {};
-  return permissionModeFrom(src.request)
-    || permissionModeFrom(src.session)
-    || permissionModeFrom(src.config)
-    || 'default';
-}
-const BUILTIN_AGENT_ROLES = Object.freeze([
-  { id: 'explorer', label: 'Explorer', description: '快速探索代码、文档和现状，不修改文件。', prompt: '你是 Explorer。先建立准确的项目地图，查找相关文件、约束和风险；只读，不修改，不执行有副作用的操作。输出简洁、可引用的发现。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'blue' },
-  { id: 'worker', label: 'Worker', description: '按明确任务实现改动并完成基础验证。', prompt: '你是 Worker。严格围绕交办任务实施，先理解现状再修改；保持改动聚焦，运行必要验证，最后报告改动、验证和遗留风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'green' },
-  { id: 'coder', label: 'Coder', description: '面向代码实现、调试和测试闭环的工程角色。', prompt: '你是 Coder。负责把明确的软件任务落实为可验证的代码：先阅读相关实现、测试和项目约束，定位最小且完整的改动面；遵循现有架构与风格实施，不做无关重构；补充或更新能复现问题、证明行为的测试，运行与风险相称的检查。遇到失败先诊断根因并迭代修复，不把未验证的改动宣称为完成。最后报告修改、测试结果与仍存在的风险。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: [], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 150, claude: 150 }, color: 'green' },
-  { id: 'reviewer', label: 'Reviewer', description: '独立审查实现的正确性、安全性和回归风险。', prompt: '你是 Reviewer。以证据为准独立审查，不代替实现者辩护。优先找会导致错误、数据损坏、安全问题和缺失测试的具体缺陷；给出文件位置和可执行建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'orange' },
-  { id: 'verifier', label: 'Verifier', description: '运行测试并核验结果，不擅自修改产品代码。', prompt: '你是 Verifier。根据验收标准运行测试、检查日志和产物，区分已验证事实与推断。不要修改产品代码；若失败，给出最小复现、实际结果和预期结果。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'purple' },
-  // 第23波: 新增 5 个角色,覆盖「规划 → 研究 → 批判 → 综合 → 数据分析」的常见协作分工,并据此拓宽内置模板。
-  { id: 'planner', label: 'Planner', description: '把复杂任务拆解为清晰的计划/设计，不实现。', prompt: '你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'teal' },
-  { id: 'researcher', label: 'Researcher', description: '联网检索并阅读来源，产出有来源支撑的发现。', prompt: '你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'cyan' },
-  { id: 'critic', label: 'Critic', description: '对抗式审查：主动找漏洞、反例和无据主张。', prompt: '你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'red' },
-  { id: 'synthesizer', label: 'Synthesizer', description: '把多个上游结果综合成连贯、结构化的成稿。', prompt: '你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。默认只产出文本，不改文件（需要落盘时按节点指派的工具面执行）。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'amber' },
-  { id: 'analyst', label: 'Analyst', description: '分析数据/日志/指标，跑必要脚本，产出发现。', prompt: '你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'indigo' },
-]);
-
-function normalizeAgentRole(raw, opts = {}) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const id = String(raw.id || raw.name || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
-  if (!id) return null;
-  const strArr = (value, max = 64) => [...new Set((Array.isArray(value) ? value : []).filter(v => typeof v === 'string').map(v => v.trim()).filter(Boolean))].slice(0, max);
-  const models0 = raw.models && typeof raw.models === 'object' ? raw.models : {};
-  const budgets0 = raw.budgets && typeof raw.budgets === 'object' ? raw.budgets : {};
-  const permissionMode = AGENT_ROLE_PERMISSION_MODES.includes(raw.permissionMode) ? raw.permissionMode : 'inherit';
-  const role = {
-    id,
-    label: String(raw.label || raw.name || id).trim().slice(0, 80) || id,
-    description: String(raw.description || '').trim().slice(0, 500),
-    prompt: String(raw.prompt || raw.systemPrompt || '').trim().slice(0, 8000),
-    toolTier: ['read', 'edit', 'exec'].includes(raw.toolTier) ? raw.toolTier : 'read',
-    models: {
-      openai: String(models0.openai != null ? models0.openai : (raw.openaiModel || '')).trim().slice(0, 160),
-      claude: String(models0.claude != null ? models0.claude : (raw.claudeModel || 'inherit')).trim().slice(0, 160) || 'inherit',
-    },
-    openaiTools: strArr(raw.openaiTools || (raw.tools && raw.driver !== 'claude' ? raw.tools : []), 128),
-    claudeTools: strArr(raw.claudeTools || (raw.driver === 'claude' ? raw.tools : []), 128),
-    mcpServers: strArr(raw.mcpServers, 32),
-    permissionMode,
-    budgets: {
-      openai: Math.min(300, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),
-      claude: Math.min(300, Math.max(1, Math.round(Number(budgets0.claude != null ? budgets0.claude : (raw.maxTurns || 100))) || 100)),
-    },
-    isolation: raw.isolation === 'worktree' ? 'worktree' : 'none',
-    color: String(raw.color || '').trim().slice(0, 32),
-  };
-  if (opts.source) role.source = opts.source;
-  if (opts.builtin) role.builtin = true;
-  return role;
-}
-function mergeAgentRole(base, override, source) {
-  const merged = normalizeAgentRole({ ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } }, { source: source || override.source || base.source, builtin: !!base.builtin });
-  if (merged && base.builtin) merged.builtin = true;
-  return merged;
-}
 
 // Windows Explorer's "Copy as path" includes wrapping quotes. The picker already strips them for new UI
 // input, but older configs can retain both C:\\x and "C:\\x" as distinct recent/favorite entries. Clean at
@@ -3565,60 +3624,7 @@ function classifyAgentMcpCandidate(raw, origin, view, managedKimi) {
   return { status: 'importable', reason: '' };
 }
 
-// Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
-// (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
-// through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
-function isBatchLauncher(command) {
-  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(String(command || ''));
-}
-function quoteWinArg(a) {
-  a = String(a);
-  if (a === '') return '""';
-  if (!/[\s"^&|<>()%!]/.test(a)) return a;
-  return '"' + a.replace(/"/g, '""') + '"';
-}
-// Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
-function batchSafeSpawn(command, args) {
-  if (!isBatchLauncher(command)) return { command, args, opts: {} };
-  const comspec = process.env.ComSpec || 'cmd.exe';
-  const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"'; // outer quotes stripped by /s
-  return { command: comspec, args: ['/d', '/s', '/c', line], opts: { windowsVerbatimArguments: true } };
-}
-
-// ============================================================================
-// cmd8191 防线(技能索引把 Claude CLI 命令行顶爆事故的根治): Windows 上 .cmd/.bat 启动器(claude.cmd)经
-// cmd.exe /d /s /c 执行,cmd 对整条命令行有 8191 字符硬上限 —— 超限直接报「命令行太长。」退出码 1,claude
-// 进程根本没启动。历史上 --append-system-prompt 钳 8000、--agents 钳 6000,两个各自合理的局部钳制相加
-// (14000)远超整行预算 —— 局部钳制 ≠ 全局不变量。这里的防线把不变量收拢到一个汇合点:组装完 args 后用与
-// batchSafeSpawn【严格同构】的构造核算整行长度,超限走确定性降级阶梯(见 runClaudeTurn 组装段)。
-const CMD_EXE_LINE_LIMIT = 8191;          // cmd.exe /c 命令行硬上限(文档值)
-const CMD_LINE_SAFE_BUDGET = 7900;        // 整行(含 comspec 路径与 /d /s /c 前缀)安全预算,留本地化/引号余量
-const DIRECT_SPAWN_LINE_BUDGET = 32000;   // 直启(.exe/node)走 CreateProcess,上限 32767
-const CMD_LINE_QUOTE_MARGIN = 48;         // quoteWinArg 引号翻倍等二阶效应的预留
-// Off-by-default 测试缝: 强制预算值并让长度核算一律走 cmd 公式(即使启动器不是 .cmd)——e2e 借此在
-// WCW_FAKE_CLAUDE(node 直启)下精确演练降级阶梯,无需真实 cmd.exe。
-function cmdLineBudgetSeam() {
-  const v = Number(process.env.WCW_CLAUDE_CMDLINE_BUDGET);
-  return Number.isFinite(v) && v > 200 ? Math.floor(v) : 0;
-}
-// 本次 spawn 适用的整行字符预算;0 = 不设防(非 Windows: execve 上限 ~2MB,无 cmd 路径,保持行为逐字节不变)。
-function cmdLineBudgetFor(command) {
-  const seam = cmdLineBudgetSeam();
-  if (seam) return Math.min(seam, CMD_EXE_LINE_LIMIT);
-  if (process.platform !== 'win32') return 0;
-  return isBatchLauncher(command) ? CMD_LINE_SAFE_BUDGET : DIRECT_SPAWN_LINE_BUDGET;
-}
-// 与 batchSafeSpawn 的行构造严格同构(改 batchSafeSpawn 必须同步改这里;e2e 有断言)。核算的就是 cmd.exe
-// 实际解析的那一整行: "<comspec>" /d /s /c "<quoted join>"。测试缝开启时一律走 cmd 公式(模拟包装)。
-function spawnCmdLineLength(command, args) {
-  if (isBatchLauncher(command) || cmdLineBudgetSeam()) {
-    const comspec = process.env.ComSpec || 'cmd.exe';
-    const line = '"' + [command, ...args].map(quoteWinArg).join(' ') + '"';
-    return `${comspec} /d /s /c ${line}`.length;
-  }
-  // 直启粗估(Node 自行 quoting): 只用于 32K 量级的宽松判断,无需精确。
-  return String(command).length + args.reduce((n, a) => n + String(a).length + 3, 1);
-}
+// 架构还债批 3·B: .cmd/.bat 包装(batchSafeSpawn)与 cmd8191 整行预算抽至 01d-win-cmdline.js。
 
 // ============================================================================
 // P1(cmd8191 根治): npm 版 Claude Code 的 claude.cmd 只是 4 行 shim —— 内容即转发到同目录
@@ -5150,22 +5156,7 @@ function createTurnSegmentBuilder() {
   return { consume, snapshot, liveSnapshot, createBatchId, finalizeAll };
 }
 
-// ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
-// 背景:旧格式把整个 messages+providerHistory 塞进单个 <id>.json,saveSession 每轮全量序列化+原子重写
-// —— 写放大 O(会话总历史)/轮:5MB 会话 = 每轮重写 5MB。v2 拆分为:
-//   <id>.json              「头」:全部标量/小字段 + messageCount/providerHistoryCount + storageVersion:2(小,每次重写)
-//   <id>.messages.ndjson   展示消息正文,一行一条 JSON,append-only
-//   <id>.provider.ndjson   provider 引擎历史正文,同上
-// 快路径(saveSession):两个数组只在尾部增长 → 每文件一次 append,O(增量)/轮。
-// 慢路径(全量重写正文):任何前缀变化自动触发 —— rewind(slice)/compaction(reseed)/pop/蒸发改写。
-// 检测机制【不靠调用方自觉打标记】:进程内状态表存每行的 sha1-16 hash,save 时前缀逐行重算比对;
-// 任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写 —— 失配只可能损失性能,不可能丢数据。
-// 崩溃语义:头是提交点(正文先写、头后写)。append 崩溃中途 → 无 \n 终结的撕裂尾行,读取时物理截断;
-// append 完成但头写未完成 → 正文比头声明的多出「未提交尾巴」,读取时按头计数截断;慢路径(全量重写)
-// 崩溃 → .prevbody 快照(重写前旧正文)恢复与旧头重新配对;正文比头声明的短 / 中间行损坏且无快照可退
-// = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
-// 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
-const SESSION_STORAGE_VERSION = 2;
+// 02d-session-overrides.js - 架构还债批 3·B: 从 02-session-store.js 搬出的会话级内存覆盖表(引擎路由/权限档/桌面工具的 live-turn stale-save guard;纯搬家,零行为变更)。
 const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
 // 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
 // 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
@@ -5235,6 +5226,177 @@ function applySessionDesktopToolsOverride(session) {
   if (value === null) delete session.desktopTools; else session.desktopTools = value;
   return session;
 }
+
+// 02e-session-engine-route.js - 架构还债批 3·B: 从 02-session-store.js 搬出的会话引擎路由归一与推断(纯函数;123-N2 的「记/读上一次用的引擎」仍在 02;纯搬家,零行为变更)。
+// Conversation engine/model selection belongs to the session, not to whichever global selector was
+// touched most recently. The global config remains the default for NEW sessions; existing sessions keep
+// this compact route descriptor and the turn dispatcher overlays it onto a request-local config copy.
+function normalizeSessionEngineRoute(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const model = String(raw.model || '').trim().slice(0, 256);
+  if (raw.engine === 'openai') {
+    const providerId = String(raw.providerId || '').trim().slice(0, 128);
+    return providerId ? { engine: 'openai', providerId, model } : null;
+  }
+  if (raw.engine === 'agent' || raw.engine === 'claude') {
+    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
+    return { engine: 'agent', agentCliType, model };
+  }
+  return null;
+}
+
+function sessionEngineRouteFromConfig(config) {
+  const cfg = config && typeof config === 'object' ? config : {};
+  const providerId = String(cfg.activeProvider || '').trim();
+  if (providerId && providerId !== 'claude-cli') {
+    const provider = (cfg.providers || []).find(item => item && item.id === providerId);
+    return normalizeSessionEngineRoute({ engine: 'openai', providerId, model: provider && provider.model });
+  }
+  return normalizeSessionEngineRoute({ engine: 'agent', agentCliType: cfg.agentCliType, model: cfg.model });
+}
+
+function inferSessionEngineRoute(session) {
+  const explicit = normalizeSessionEngineRoute(session && session.engineRoute);
+  if (explicit) return explicit;
+  const messages = Array.isArray(session && session.messages) ? session.messages : [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.role !== 'assistant') continue;
+    const inferred = message.engine === 'openai' || message.providerId
+      ? normalizeSessionEngineRoute({ engine: 'openai', providerId: message.providerId, model: message.model })
+      : normalizeSessionEngineRoute({ engine: 'agent', agentCliType: message.agentCliType, model: message.model });
+    if (inferred) return inferred;
+  }
+  return null;
+}
+
+function configForSessionEngineRoute(config, session) {
+  const route = inferSessionEngineRoute(session);
+  if (!route) return config;
+  if (route.engine === 'openai') {
+    const providers = (config.providers || []).map(provider => provider && provider.id === route.providerId
+      ? { ...provider, model: route.model || provider.model || '' }
+      : provider);
+    return { ...config, activeProvider: route.providerId, providers };
+  }
+  return {
+    ...config,
+    activeProvider: '',
+    agentCliType: route.agentCliType,
+    model: route.model,
+  };
+}
+
+// 02f-turn-effect-kinds.js - 架构还债批 3·B: 从 02-session-store.js 搬出的回合摘要工具分类表与不可逆操作账分类(纯数据+纯函数;buildTurnSummary 仍在 02;纯搬家,零行为变更)。
+const TURN_SUMMARY_FILE_TOOLS = new Set(['file_write', 'file_edit', 'file_delete']);
+const TURN_SUMMARY_COMMAND_TOOLS = new Set(['powershell_run', 'script_run', 'shell_send']);
+
+// v0.9-S4: keys a bridged/creation tool result may use to report a file it produced (ACC document creation,
+// screenshot tools, office bridges all echo one of these). Harvested into turn_summary.artifacts alongside
+// this turn's journal `create` entries. Purely a hint source — never a security boundary (the preview
+// endpoint re-checks every path against the allowed roots regardless of how it entered a summary).
+const ARTIFACT_OUTPUT_PATH_KEYS = ['output_path', 'outputPath', 'saved_path', 'savedPath'];
+// v1.5-W1.5: ACC(官方原生 MCP)的写族文档工具返回 {success:true, path:...} —— 裸 `path` 不在
+// ARTIFACT_OUTPUT_PATH_KEYS 里(读类工具 read_document/file_info 也回 path,加进去会把「读过的文件」误登记
+// 为产物)。所以对 bridged 工具改用「工具名限定的 path 收割」:仅当工具名匹配写族时,才把结果里的字符串
+// `path` 当产物。这是对已装 旧版 ACC(未回 output_path)的兼容层;新版 ACC 已同时回 output_path,走上面的
+// 通用键即可。判定纯按名字前缀 + 结果 success:true,不做 I/O。裸名(去 serverId__ 前缀)参与匹配。
+// 明确写族名(ACC 与常见 office bridge):write_document/write_excel/write_pdf/write_docx。
+const ARTIFACT_BRIDGED_WRITE_NAMES = new Set(['write_docx', 'write_excel', 'write_pdf', 'write_document']);
+// 前缀写族:名字以这些开头的 bridged 工具也算「产出文件」(create_*/export_*/save_*/write_*)。
+const ARTIFACT_BRIDGED_WRITE_PREFIXES = ['write_', 'create_', 'export_', 'save_'];
+// 去掉 bridged 工具的 serverId__ 前缀,取裸工具名(collectBridgedTools 用 `${prefix}__${toolName}` 拼接)。
+function unprefixedBridgedName(name) {
+  const s = String(name || '');
+  const i = s.lastIndexOf('__');
+  return i >= 0 ? s.slice(i + 2) : s;
+}
+function isBridgedWriteTool(name) {
+  const bare = unprefixedBridgedName(name);
+  if (ARTIFACT_BRIDGED_WRITE_NAMES.has(bare)) return true;
+  return ARTIFACT_BRIDGED_WRITE_PREFIXES.some(p => bare.startsWith(p));
+}
+// Workbench tools whose effect we can attribute precisely; anything the claude CLI runs OUTSIDE this set
+// (native Edit/Write/Bash, which never reach toolCall) only counts as a command.
+const TURN_SUMMARY_KNOWN_TOOLS = new Set([
+  ...TURN_SUMMARY_FILE_TOOLS, ...TURN_SUMMARY_COMMAND_TOOLS,
+  'todo_write', 'file_read', 'file_list', 'file_search', 'glob', 'project_snapshot', 'git_status',
+  'git_diff', 'git_log', 'git_commit', // v1.0-S4 git 工具族
+  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search', 'codebase_symbol_search',
+  'shell_start', 'shell_poll', 'shell_kill', 'shell_list', 'http_request', 'browser_open', 'office_open',
+  'desktop_screenshot', 'keyboard_send_keys', 'permission_prompt',
+  // v1.1-W2 (T1): 新五工具是内建可撤销工具(journal 驱动) —— 归入 KNOWN 集合,故 claude 引擎不会把它们误计为「命令」。
+  // 它们产生的 journal 条目由 buildTurnSummary 的 journalEntries 叠加为 filesChanged(revertible:true)。
+  'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download',
+]);
+// ── 第72波(EC-E 切片三):不可逆操作正向账 ─────────────────────────────────────────────────
+// toolIsRevertible 是名字级承诺 + journal 缺位这个负信号;exec/desktop/network 类操作天然不在变更清单,
+// 此前只有一个 commands 计数 —— 「这个任务到底干过哪些撤不掉的事」无处可查。本账在回合摘要里正向记录
+// 每一条【有副作用且无 journal 快照】的工具调用:{kind, name, detail, ok}。
+// 收录判据(与权限系统同一风险分级,不另立启发式):
+//  - 内建:nativeToolTier(name)==='exec' 且非可撤销(journal 族已被 toolIsRevertible 覆盖)且非编排元工具;
+//  - 桥接:bridgedToolTier 默认即 'exec'(未知一律最严)——只收显式已知会留副作用的族,防把未知 MCP 的
+//    只读调用误记为不可逆(谎报比漏报更糟:用户会不再信任账);未命中白名单的桥接 exec 不记账(不谎称账全);
+//  - claude 引擎未知名:CLI 原生工具不过 toolCall —— Bash 族/Edit/Write 直落盘无 journal(08:238 注),记账;
+//    其余未知名保持原样只进 commands 计数。
+// 注意:exec 命令【结果失败也记账】(ok:false)——命令已跑,副作用可能已发生;与文件工具「失败=未改动」不同。
+const IRREVERSIBLE_NATIVE_KIND = {
+  powershell_run: 'exec', script_run: 'exec', shell_start: 'exec', shell_send: 'exec', shell_kill: 'exec',
+  git_commit: 'exec', mcp_configure: 'exec',
+  keyboard_send_keys: 'desktop', browser_open: 'desktop', office_open: 'desktop', desktop_screenshot: 'desktop',
+  http_request: 'network',
+};
+// 桥接(exec 默认)里的已知副作用族 → kind;未列出的桥接 exec 工具不记账(见上「不谎称账全」)。
+const IRREVERSIBLE_BRIDGED_KIND = {
+  run_command: 'exec', kill_process: 'exec', launch_application: 'exec',
+  mouse_click: 'desktop', mouse_move: 'desktop', mouse_drag: 'desktop', mouse_scroll: 'desktop', scroll_at: 'desktop',
+  type_text: 'desktop', press_key: 'desktop', hotkey: 'desktop', key_down: 'desktop', key_up: 'desktop',
+  set_clipboard: 'desktop', set_clipboard_image: 'desktop', close_window: 'desktop', move_window: 'desktop',
+  resize_window: 'desktop', minimize_window: 'desktop', maximize_window: 'desktop', set_window_topmost: 'desktop',
+  message_box: 'desktop', show_notification: 'desktop', beep: 'desktop', play_sound: 'desktop', notify_attention: 'desktop',
+  browser_open: 'network', fetch: 'network',
+};
+const CLAUDE_IRREVERSIBLE_KIND = {
+  Bash: 'exec', BashOutput: 'exec', KillBash: 'exec', KillShell: 'exec',
+  Edit: 'exec', Write: 'exec', MultiEdit: 'exec', NotebookEdit: 'exec', // CLI 直落盘,工作台无 journal(08:238)
+};
+const IRREVERSIBLE_LEDGER_MAX = 50;
+function irreversibleToolKind(name) {
+  const n = String(name || '');
+  if (Object.prototype.hasOwnProperty.call(IRREVERSIBLE_NATIVE_KIND, n)) return IRREVERSIBLE_NATIVE_KIND[n];
+  if (Object.prototype.hasOwnProperty.call(CLAUDE_IRREVERSIBLE_KIND, n)) return CLAUDE_IRREVERSIBLE_KIND[n];
+  const bare = unprefixedBridgedName(n);
+  if (bare !== n && Object.prototype.hasOwnProperty.call(IRREVERSIBLE_BRIDGED_KIND, bare)) return IRREVERSIBLE_BRIDGED_KIND[bare];
+  return '';
+}
+// 账条 detail:从 input 里挑最有辨识度的字段(command/url/path/text),截断 120 字符;全工具调用正文
+// 本就存在会话里,无新增暴露面。
+function irreversibleDetail(input) {
+  const o = (input && typeof input === 'object') ? input : {};
+  for (const k of ['command', 'cmd', 'code', 'script', 'url', 'path', 'text', 'name', 'pid']) {
+    if (typeof o[k] === 'string' && o[k].trim()) return o[k].replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (typeof o[k] === 'number' && Number.isFinite(o[k])) return String(o[k]);
+  }
+  return '';
+}
+
+// ===== v1.9 会话存储 v2(head JSON + append-only NDJSON 正文)=====================================
+// 背景:旧格式把整个 messages+providerHistory 塞进单个 <id>.json,saveSession 每轮全量序列化+原子重写
+// —— 写放大 O(会话总历史)/轮:5MB 会话 = 每轮重写 5MB。v2 拆分为:
+//   <id>.json              「头」:全部标量/小字段 + messageCount/providerHistoryCount + storageVersion:2(小,每次重写)
+//   <id>.messages.ndjson   展示消息正文,一行一条 JSON,append-only
+//   <id>.provider.ndjson   provider 引擎历史正文,同上
+// 快路径(saveSession):两个数组只在尾部增长 → 每文件一次 append,O(增量)/轮。
+// 慢路径(全量重写正文):任何前缀变化自动触发 —— rewind(slice)/compaction(reseed)/pop/蒸发改写。
+// 检测机制【不靠调用方自觉打标记】:进程内状态表存每行的 sha1-16 hash,save 时前缀逐行重算比对;
+// 任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写 —— 失配只可能损失性能,不可能丢数据。
+// 崩溃语义:头是提交点(正文先写、头后写)。append 崩溃中途 → 无 \n 终结的撕裂尾行,读取时物理截断;
+// append 完成但头写未完成 → 正文比头声明的多出「未提交尾巴」,读取时按头计数截断;慢路径(全量重写)
+// 崩溃 → .prevbody 快照(重写前旧正文)恢复与旧头重新配对;正文比头声明的短 / 中间行损坏且无快照可退
+// = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
+// 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
+const SESSION_STORAGE_VERSION = 2;
+// 架构还债批 3·B: 会话级内存覆盖表(sessionEngineRouteOverrides/权限档/桌面工具)与其归一、应用函数抽至 02d-session-overrides.js。
 
 function sessionBodyPaths(id) {
   return {
@@ -6632,32 +6794,7 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
   return { ok: true, deleted, deletedCount: deleted.length, skipped, purgedAssociated: Boolean(purgeAssociated) };
 }
 
-// Conversation engine/model selection belongs to the session, not to whichever global selector was
-// touched most recently. The global config remains the default for NEW sessions; existing sessions keep
-// this compact route descriptor and the turn dispatcher overlays it onto a request-local config copy.
-function normalizeSessionEngineRoute(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const model = String(raw.model || '').trim().slice(0, 256);
-  if (raw.engine === 'openai') {
-    const providerId = String(raw.providerId || '').trim().slice(0, 128);
-    return providerId ? { engine: 'openai', providerId, model } : null;
-  }
-  if (raw.engine === 'agent' || raw.engine === 'claude') {
-    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
-    return { engine: 'agent', agentCliType, model };
-  }
-  return null;
-}
-
-function sessionEngineRouteFromConfig(config) {
-  const cfg = config && typeof config === 'object' ? config : {};
-  const providerId = String(cfg.activeProvider || '').trim();
-  if (providerId && providerId !== 'claude-cli') {
-    const provider = (cfg.providers || []).find(item => item && item.id === providerId);
-    return normalizeSessionEngineRoute({ engine: 'openai', providerId, model: provider && provider.model });
-  }
-  return normalizeSessionEngineRoute({ engine: 'agent', agentCliType: cfg.agentCliType, model: cfg.model });
-}
+// 架构还债批 3·B: 会话引擎路由的纯函数(normalizeSessionEngineRoute/sessionEngineRouteFromConfig/inferSessionEngineRoute/configForSessionEngineRoute)抽至 02e-session-engine-route.js。
 
 // ── 123-N2「新线程默认上一次用的引擎」(用户 2026-09-13 真机原话:「现在新开线程会默认开 Kimi
 // code cli,我希望改成默认上一次用的或者别的方式,不要设定死」)────────────────────────────────
@@ -6735,38 +6872,6 @@ function newSessionEngineRoute(config, explicitRoute, initialMessages, sessionId
     to: fromGlobal,
   });
   return fromGlobal;
-}
-
-function inferSessionEngineRoute(session) {
-  const explicit = normalizeSessionEngineRoute(session && session.engineRoute);
-  if (explicit) return explicit;
-  const messages = Array.isArray(session && session.messages) ? session.messages : [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (!message || message.role !== 'assistant') continue;
-    const inferred = message.engine === 'openai' || message.providerId
-      ? normalizeSessionEngineRoute({ engine: 'openai', providerId: message.providerId, model: message.model })
-      : normalizeSessionEngineRoute({ engine: 'agent', agentCliType: message.agentCliType, model: message.model });
-    if (inferred) return inferred;
-  }
-  return null;
-}
-
-function configForSessionEngineRoute(config, session) {
-  const route = inferSessionEngineRoute(session);
-  if (!route) return config;
-  if (route.engine === 'openai') {
-    const providers = (config.providers || []).map(provider => provider && provider.id === route.providerId
-      ? { ...provider, model: route.model || provider.model || '' }
-      : provider);
-    return { ...config, activeProvider: route.providerId, providers };
-  }
-  return {
-    ...config,
-    activeProvider: '',
-    agentCliType: route.agentCliType,
-    model: route.model,
-  };
 }
 
 // v0.8-S0: fold an older/partial session onto the current schema. Mirrors normalizeConfig's shape:
@@ -7620,8 +7725,7 @@ async function evaluateMissionCheck(check, cwd) {
 //  - file_write → op create/modify; file_edit → modify; file_delete → delete; path=input.path
 //  - powershell_run/script_run/shell_send (and, for the claude engine, any non-workbench-file tool) → commands+1
 //  - artifacts is always [] (field established for C4/v0.9).
-const TURN_SUMMARY_FILE_TOOLS = new Set(['file_write', 'file_edit', 'file_delete']);
-const TURN_SUMMARY_COMMAND_TOOLS = new Set(['powershell_run', 'script_run', 'shell_send']);
+// 架构还债批 3·B: 回合摘要的工具分类表(TURN_SUMMARY_*/ARTIFACT_OUTPUT_PATH_KEYS/桥接写族判定)与不可逆操作账分类(IRREVERSIBLE_*/irreversibleToolKind/irreversibleDetail)抽至 02f-turn-effect-kinds.js。
 // v0.9-S4 (C4): classify an artifact by file-name suffix. img/md/csv/txt/html/xlsx/docx/pdf → distinct
 // kinds (drive the gallery's per-kind preview branch); everything else → 'other'. Extension-only (no I/O).
 const ARTIFACT_IMG_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg']);
@@ -7636,94 +7740,6 @@ function kindForPath(p) {
   if (ext === 'docx') return 'docx';
   if (ext === 'pdf') return 'pdf';
   return 'other';
-}
-// v0.9-S4: keys a bridged/creation tool result may use to report a file it produced (ACC document creation,
-// screenshot tools, office bridges all echo one of these). Harvested into turn_summary.artifacts alongside
-// this turn's journal `create` entries. Purely a hint source — never a security boundary (the preview
-// endpoint re-checks every path against the allowed roots regardless of how it entered a summary).
-const ARTIFACT_OUTPUT_PATH_KEYS = ['output_path', 'outputPath', 'saved_path', 'savedPath'];
-// v1.5-W1.5: ACC(官方原生 MCP)的写族文档工具返回 {success:true, path:...} —— 裸 `path` 不在
-// ARTIFACT_OUTPUT_PATH_KEYS 里(读类工具 read_document/file_info 也回 path,加进去会把「读过的文件」误登记
-// 为产物)。所以对 bridged 工具改用「工具名限定的 path 收割」:仅当工具名匹配写族时,才把结果里的字符串
-// `path` 当产物。这是对已装 旧版 ACC(未回 output_path)的兼容层;新版 ACC 已同时回 output_path,走上面的
-// 通用键即可。判定纯按名字前缀 + 结果 success:true,不做 I/O。裸名(去 serverId__ 前缀)参与匹配。
-// 明确写族名(ACC 与常见 office bridge):write_document/write_excel/write_pdf/write_docx。
-const ARTIFACT_BRIDGED_WRITE_NAMES = new Set(['write_docx', 'write_excel', 'write_pdf', 'write_document']);
-// 前缀写族:名字以这些开头的 bridged 工具也算「产出文件」(create_*/export_*/save_*/write_*)。
-const ARTIFACT_BRIDGED_WRITE_PREFIXES = ['write_', 'create_', 'export_', 'save_'];
-// 去掉 bridged 工具的 serverId__ 前缀,取裸工具名(collectBridgedTools 用 `${prefix}__${toolName}` 拼接)。
-function unprefixedBridgedName(name) {
-  const s = String(name || '');
-  const i = s.lastIndexOf('__');
-  return i >= 0 ? s.slice(i + 2) : s;
-}
-function isBridgedWriteTool(name) {
-  const bare = unprefixedBridgedName(name);
-  if (ARTIFACT_BRIDGED_WRITE_NAMES.has(bare)) return true;
-  return ARTIFACT_BRIDGED_WRITE_PREFIXES.some(p => bare.startsWith(p));
-}
-// Workbench tools whose effect we can attribute precisely; anything the claude CLI runs OUTSIDE this set
-// (native Edit/Write/Bash, which never reach toolCall) only counts as a command.
-const TURN_SUMMARY_KNOWN_TOOLS = new Set([
-  ...TURN_SUMMARY_FILE_TOOLS, ...TURN_SUMMARY_COMMAND_TOOLS,
-  'todo_write', 'file_read', 'file_list', 'file_search', 'glob', 'project_snapshot', 'git_status',
-  'git_diff', 'git_log', 'git_commit', // v1.0-S4 git 工具族
-  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search', 'codebase_symbol_search',
-  'shell_start', 'shell_poll', 'shell_kill', 'shell_list', 'http_request', 'browser_open', 'office_open',
-  'desktop_screenshot', 'keyboard_send_keys', 'permission_prompt',
-  // v1.1-W2 (T1): 新五工具是内建可撤销工具(journal 驱动) —— 归入 KNOWN 集合,故 claude 引擎不会把它们误计为「命令」。
-  // 它们产生的 journal 条目由 buildTurnSummary 的 journalEntries 叠加为 filesChanged(revertible:true)。
-  'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download',
-]);
-// ── 第72波(EC-E 切片三):不可逆操作正向账 ─────────────────────────────────────────────────
-// toolIsRevertible 是名字级承诺 + journal 缺位这个负信号;exec/desktop/network 类操作天然不在变更清单,
-// 此前只有一个 commands 计数 —— 「这个任务到底干过哪些撤不掉的事」无处可查。本账在回合摘要里正向记录
-// 每一条【有副作用且无 journal 快照】的工具调用:{kind, name, detail, ok}。
-// 收录判据(与权限系统同一风险分级,不另立启发式):
-//  - 内建:nativeToolTier(name)==='exec' 且非可撤销(journal 族已被 toolIsRevertible 覆盖)且非编排元工具;
-//  - 桥接:bridgedToolTier 默认即 'exec'(未知一律最严)——只收显式已知会留副作用的族,防把未知 MCP 的
-//    只读调用误记为不可逆(谎报比漏报更糟:用户会不再信任账);未命中白名单的桥接 exec 不记账(不谎称账全);
-//  - claude 引擎未知名:CLI 原生工具不过 toolCall —— Bash 族/Edit/Write 直落盘无 journal(08:238 注),记账;
-//    其余未知名保持原样只进 commands 计数。
-// 注意:exec 命令【结果失败也记账】(ok:false)——命令已跑,副作用可能已发生;与文件工具「失败=未改动」不同。
-const IRREVERSIBLE_NATIVE_KIND = {
-  powershell_run: 'exec', script_run: 'exec', shell_start: 'exec', shell_send: 'exec', shell_kill: 'exec',
-  git_commit: 'exec', mcp_configure: 'exec',
-  keyboard_send_keys: 'desktop', browser_open: 'desktop', office_open: 'desktop', desktop_screenshot: 'desktop',
-  http_request: 'network',
-};
-// 桥接(exec 默认)里的已知副作用族 → kind;未列出的桥接 exec 工具不记账(见上「不谎称账全」)。
-const IRREVERSIBLE_BRIDGED_KIND = {
-  run_command: 'exec', kill_process: 'exec', launch_application: 'exec',
-  mouse_click: 'desktop', mouse_move: 'desktop', mouse_drag: 'desktop', mouse_scroll: 'desktop', scroll_at: 'desktop',
-  type_text: 'desktop', press_key: 'desktop', hotkey: 'desktop', key_down: 'desktop', key_up: 'desktop',
-  set_clipboard: 'desktop', set_clipboard_image: 'desktop', close_window: 'desktop', move_window: 'desktop',
-  resize_window: 'desktop', minimize_window: 'desktop', maximize_window: 'desktop', set_window_topmost: 'desktop',
-  message_box: 'desktop', show_notification: 'desktop', beep: 'desktop', play_sound: 'desktop', notify_attention: 'desktop',
-  browser_open: 'network', fetch: 'network',
-};
-const CLAUDE_IRREVERSIBLE_KIND = {
-  Bash: 'exec', BashOutput: 'exec', KillBash: 'exec', KillShell: 'exec',
-  Edit: 'exec', Write: 'exec', MultiEdit: 'exec', NotebookEdit: 'exec', // CLI 直落盘,工作台无 journal(08:238)
-};
-const IRREVERSIBLE_LEDGER_MAX = 50;
-function irreversibleToolKind(name) {
-  const n = String(name || '');
-  if (Object.prototype.hasOwnProperty.call(IRREVERSIBLE_NATIVE_KIND, n)) return IRREVERSIBLE_NATIVE_KIND[n];
-  if (Object.prototype.hasOwnProperty.call(CLAUDE_IRREVERSIBLE_KIND, n)) return CLAUDE_IRREVERSIBLE_KIND[n];
-  const bare = unprefixedBridgedName(n);
-  if (bare !== n && Object.prototype.hasOwnProperty.call(IRREVERSIBLE_BRIDGED_KIND, bare)) return IRREVERSIBLE_BRIDGED_KIND[bare];
-  return '';
-}
-// 账条 detail:从 input 里挑最有辨识度的字段(command/url/path/text),截断 120 字符;全工具调用正文
-// 本就存在会话里,无新增暴露面。
-function irreversibleDetail(input) {
-  const o = (input && typeof input === 'object') ? input : {};
-  for (const k of ['command', 'cmd', 'code', 'script', 'url', 'path', 'text', 'name', 'pid']) {
-    if (typeof o[k] === 'string' && o[k].trim()) return o[k].replace(/\s+/g, ' ').trim().slice(0, 120);
-    if (typeof o[k] === 'number' && Number.isFinite(o[k])) return String(o[k]);
-  }
-  return '';
 }
 // Best-effort: coerce a tool result into a plain object. Handles (a) an object already; (b) a JSON string;
 // (c) an MCP content array [{type:'text',text:'{...}'}] (the shape the Claude CLI reports for workbench
@@ -13285,33 +13301,36 @@ function parseClaudeEvent(evt) {
 }
 
 // v2.8: normalize Kimi Code's OpenAI-shaped stream-json rows into the internal event vocabulary.
+// 架构还债批 3 A:这是 Kimi 那一份 CLI 适配器(05 AGENT_CLI_ADAPTERS.kimi.parseEvent)的解析器本体。
+function parseKimiStreamJsonEvent(evt) {
+  if (!evt || typeof evt !== 'object') return [{ kind: 'unknown', raw: evt }];
+  if (evt.role === 'meta') {
+    if (evt.type === 'session.resume_hint' && (evt.session_id || evt.sessionId)) {
+      return [{ kind: 'init', sessionId: evt.session_id || evt.sessionId, subtype: evt.type }];
+    }
+    if (evt.type === 'turn.step.retrying') {
+      return [{ kind: 'diagnostic', text: `Kimi 正在重试(${evt.next_attempt || '?'} / ${evt.max_attempts || '?'})：${evt.error_message || evt.error_name || ''}` }];
+    }
+    return [];
+  }
+  if (evt.role === 'assistant') {
+    const out = [];
+    if (typeof evt.content === 'string' && evt.content) out.push({ kind: 'text', text: evt.content, partial: false });
+    for (const call of (Array.isArray(evt.tool_calls) ? evt.tool_calls : [])) {
+      const fn = call && call.function || {};
+      let input = fn.arguments;
+      if (typeof input === 'string') input = safeJsonParse(input, input);
+      out.push({ kind: 'tool_use', id: call.id, name: fn.name || '', input });
+    }
+    return out;
+  }
+  if (evt.role === 'tool') return [{ kind: 'tool_result', id: evt.tool_call_id, content: evt.content, isError: false }];
+  return [{ kind: 'unknown', raw: evt }];
+}
+// 按驱动名分派的兼容出口(e2e 直测它):主回合不再经过这里,而是直接问 05 的 CLI 适配器(adapter.parseEvent)。
 function parseAgentCliEvent(evt, driver = 'claude') {
   if (driver === 'claude') return parseClaudeEvent(evt);
-  if (!evt || typeof evt !== 'object') return [{ kind: 'unknown', raw: evt }];
-  if (driver === 'kimi') {
-    if (evt.role === 'meta') {
-      if (evt.type === 'session.resume_hint' && (evt.session_id || evt.sessionId)) {
-        return [{ kind: 'init', sessionId: evt.session_id || evt.sessionId, subtype: evt.type }];
-      }
-      if (evt.type === 'turn.step.retrying') {
-        return [{ kind: 'diagnostic', text: `Kimi 正在重试(${evt.next_attempt || '?'} / ${evt.max_attempts || '?'})：${evt.error_message || evt.error_name || ''}` }];
-      }
-      return [];
-    }
-    if (evt.role === 'assistant') {
-      const out = [];
-      if (typeof evt.content === 'string' && evt.content) out.push({ kind: 'text', text: evt.content, partial: false });
-      for (const call of (Array.isArray(evt.tool_calls) ? evt.tool_calls : [])) {
-        const fn = call && call.function || {};
-        let input = fn.arguments;
-        if (typeof input === 'string') input = safeJsonParse(input, input);
-        out.push({ kind: 'tool_use', id: call.id, name: fn.name || '', input });
-      }
-      return out;
-    }
-    if (evt.role === 'tool') return [{ kind: 'tool_result', id: evt.tool_call_id, content: evt.content, isError: false }];
-    return [{ kind: 'unknown', raw: evt }];
-  }
+  if (driver === 'kimi') return parseKimiStreamJsonEvent(evt);
   return [{ kind: 'unknown', raw: evt }];
 }
 
@@ -14243,6 +14262,172 @@ async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, si
   }
 }
 
+// ============================================================================
+// 架构还债批 3 A:Agent CLI 适配器。runClaudeTurn 是 Claude Code 与 Kimi Code 两个命令行引擎共用的唯一回合骨架;
+// 凡是「这一家 CLI 怎么做」的决定(命令行参数、续接旗标、子进程环境、事件解析、回合后用量、原生子代理……)
+// 都问这里的适配器,骨架本身不再写 `agentCliType === 'claude' | 'kimi'`。加第三个 CLI = 在这张表里加一项
+// (再在 01 AGENT_CLI_TYPES 登记标签/路径键),骨架不用动。两个适配器的方法集必须逐项相同
+// (unit/agent-cli-adapters.test.js 钉着方法集与各方法的金样输出)。
+//
+// 接口(ctx 形状见各方法;可选钩子取 null 表示「这一家没有这一步」,骨架据此跳过而不是空跑一次 await):
+//   id                              与 AGENT_CLI_TYPES 的键相同
+//   interactive(config)             是否走 stream-json 持续输入(stdin 保持打开,可插话/答题)
+//   slashCommandVerbatim            斜杠命令是否必须原样作为首个输入块(不拼恢复历史/索引/记忆)
+//   buildArgs(ctx)            async 回合主参数(续接/--add-dir/额外参数之外的全部;可能落盘 MCP 配置)
+//   resumeArgs(nativeSessionId)     续接原生会话的参数
+//   extraArgs(config)               用户配置的额外 CLI 参数(排在尾部参数最后)
+//   prepareSpawn(command, args)     起子进程的最终 { command, args, opts }(.cmd 走 cmd.exe、npm 入口直启等)
+//   cmdLineBudget(command)          整行命令长度预算(0 = 不设防,提示词不走命令行时就是 0)
+//   appendSystemPromptFlag          追加系统提示的命令行旗标;'' = 改走 stdin 的 <ruyi-agent-cli-instructions> 段
+//   runPreparedTurn(context)        null | 自有传输层接管本回合(Kimi = ACP,见 05b);fake 缝下不接管
+//   buildAgentDefinitions(cwd, config, budget)  async 原生子代理角色定义 { definitions, roles, omitted }
+//   buildEnv(config, common)        子进程环境(common = 骨架共有的那几项,插在 CLI 自己的覆盖项之前)
+//   beforeSpawn(config, onEvent)    null | async 起进程前把配置同步给 CLI 自己的设置文件
+//   thinkingEffortLabel(config)     meta 事件里的思考强度显示值
+//   watchSideChannel(session, onEvent)  回合期间旁路观察(返回停止函数;Kimi = wire 日志里的压缩/子代理事件)
+//   promptViaStdin                  非交互模式下提示词是否从 stdin 一次写入
+//   isNativeAgentTool(name)         该工具调用是否走原生子代理续跑协议
+//   parseEvent(evt)                 一行 stdout JSON → 内部事件表(init/text/thinking/tool_use/…)
+//   isResumeMissingError(stderr)    非零退出且 stderr 表明续接目标丢失 → 去掉续接自动重试一次
+//   syncPostTurnUsage(session, config, onEvent)  null | async 回合后向 CLI 取权威用量(替换流内用量)
+//   recordTurnUsage(ctx)            回合用量记账(月度用量看板)
+// ============================================================================
+const AGENT_CLI_ADAPTERS = Object.freeze({
+  claude: Object.freeze({
+    id: 'claude',
+    interactive: config => config.engineMode === 'interactive',
+    slashCommandVerbatim: false,
+    async buildArgs({ config, session, basePrompt, attachments, interactive }) {
+      const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+      if (interactive) args.push('--input-format', 'stream-json');
+      if (config.includePartialMessages) args.push('--include-partial-messages');
+      if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
+      if (config.includeWorkbenchMcp) {
+        const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
+        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
+        // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
+        // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
+        if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
+      }
+      // cmd8191 防线: --agents 的推送延后到 runClaudeTurn 的「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
+      // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
+      if (config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto') {
+        // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
+        args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
+      }
+      // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
+      // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
+      // --permission-mode is the forward-compatible, officially documented way to set the session mode.
+      // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
+      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
+      // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
+      const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+      if (cliPermMode) args.push('--permission-mode', cliPermMode);
+      if (config.model) args.push('--model', config.model);
+      if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
+      if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+      return args;
+    },
+    resumeArgs: nativeSessionId => ['--resume', nativeSessionId],
+    extraArgs: config => (Array.isArray(config.extraClaudeArgs) ? config.extraClaudeArgs : []),
+    // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
+    prepareSpawn: (command, args) => prepareAgentCliSpawn('claude', command, args),
+    cmdLineBudget: command => cmdLineBudgetFor(command),
+    appendSystemPromptFlag: '--append-system-prompt',
+    runPreparedTurn: null,
+    buildAgentDefinitions: (workingDir, config, budget) => buildClaudeAgentDefinitions(workingDir, config, budget),
+    // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
+    // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
+    // reaches this child instead of silently deferring to whatever the OS shell happened to export.
+    buildEnv(config, common) {
+      const env = { ...effectiveAnthropicEnv(config), ...common };
+      if (config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
+      return env;
+    },
+    beforeSpawn: null,
+    thinkingEffortLabel: config => config.claudeThinkingEffort || 'default',
+    watchSideChannel: () => () => {},
+    promptViaStdin: true,
+    // Only Claude's Agent/Task tools follow the native sub-agent continuation protocol in runClaudeTurn.
+    isNativeAgentTool: name => name === 'Agent' || name === 'Task',
+    parseEvent: evt => parseClaudeEvent(evt),
+    isResumeMissingError: stderrText => isClaudeResumeMissingError(stderrText),
+    syncPostTurnUsage: null,
+    // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
+    // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
+    // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
+    // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
+    // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
+    recordTurnUsage({ session, config, usage, billInMax, billOutMax }) {
+      if (usage && usage.usage) {
+        const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+        // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
+        // 两项相加,读法与 runClaudeTurn 的 msg_usage 分支(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,
+        // 只读一项会漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
+        // 「缓存输入 tokens」那一栏对 Claude 会话恒为空(06/08/09 走 provider 侧则一直有值)。
+        // 【费用计算不受影响】:Claude 引擎走 claudeCostFields → CLI 自带的 costUsd(或 config.claudePricing 整体
+        // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
+        // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
+        const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
+        // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
+        appendUsageLedger({
+          sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
+          inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
+        });
+      } else if (billInMax > 0 || billOutMax > 0) {
+        // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
+        // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
+        // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
+        // P2-18: 这条估算兜底路径没有 result 帧,拿不到 cache_read/cache_creation 字段,cachedInTok 缺失按 0
+        // (与上面「读+创建两项相加,缺失按 0」同一口径,费用计算同样不受影响 —— 见上面那条注释)。
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
+        appendUsageLedger({
+          sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
+          inTok: billInMax, outTok: billOutMax, cachedInTok: 0, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
+        });
+      }
+    },
+  }),
+  kimi: Object.freeze({
+    id: 'kimi',
+    interactive: () => false,
+    // Kimi ACP native slash commands must be the first content block exactly as entered.
+    slashCommandVerbatim: true,
+    // Kimi runs through its ACP stdio server (see 05b) rather than the legacy one-shot
+    // `kimi -p --output-format stream-json` surface, so it contributes no lead arguments here.
+    buildArgs: async () => [],
+    resumeArgs: nativeSessionId => ['--session', nativeSessionId],
+    extraArgs: () => [],
+    prepareSpawn: (command, args) => prepareAgentCliSpawn('kimi', command, args),
+    // ACP carries the prompt over stdin as JSON-RPC, so Windows' command-line ceiling is irrelevant to Kimi.
+    cmdLineBudget: () => 0,
+    appendSystemPromptFlag: '',
+    runPreparedTurn: context => runKimiAcpTurnPrepared(context),
+    buildAgentDefinitions: async () => ({ definitions: {}, roles: [], omitted: [] }),
+    buildEnv: (config, common) => ({ ...process.env, ...common }),
+    async beforeSpawn(config, onEvent) {
+      if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
+      await syncKimiTurnPreferences(config).catch(error => onEvent({ type: 'stderr', text: `[Kimi 设置同步] ${(error && error.message) || error}` }));
+    },
+    thinkingEffortLabel: () => 'cli-managed',
+    watchSideChannel: (session, onEvent) => (session.claudeSessionId
+      ? watchKimiWire(session.claudeSessionId, onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
+      : () => {}),
+    promptViaStdin: false,
+    // Kimi may expose a same-named tool, but its stream-json tool lifecycle is already self-contained.
+    isNativeAgentTool: () => false,
+    parseEvent: evt => parseKimiStreamJsonEvent(evt),
+    isResumeMissingError: () => false,
+    // Kimi's stream-json result has no usage frame. Pull the session's exact post-turn occupancy and persist
+    // it on the assistant row so reopening Ruyi cannot fall back to a stale Claude reading.
+    syncPostTurnUsage: (session, config, onEvent) => (session.claudeSessionId ? syncKimiSessionUsage(session, config, onEvent) : Promise.resolve(null)),
+    recordTurnUsage: () => {},
+  }),
+});
+// selectedAgentCli(01) 已把未知类型归到 claude;这里同一口径兜底。
+function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[type] || AGENT_CLI_ADAPTERS.claude; }
+
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
@@ -14263,13 +14448,14 @@ async function runClaudeTurn({
   const config = turnConfig || await readConfig();
   const cliDriver = selectedAgentCli(config);
   const agentCliType = cliDriver.id;
+  const adapter = agentCliAdapter(agentCliType);   // 架构还债批 3 A:本回合一切「这一家 CLI 怎么做」都问它
   const agentCliLabel = cliDriver.label;
   const claude = cliDriver.path;
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   let workspaceTurnBaseline = _workspaceBaseline;
   const promptTaskContext = buildPromptTaskContext(message, session);
   const slashCommand = String(message || '').trim().startsWith('/');
-  const kimiNativeSlashCommand = agentCliType === 'kimi' && slashCommand;
+  const kimiNativeSlashCommand = adapter.slashCommandVerbatim && slashCommand;   // 名字沿用(ACP 上下文键同名);语义 = 斜杠命令原样首块
   const currentClaudeModel = String(config.model || '');
   const currentResumeRouteKey = claudeResumeRouteKey(config);
   let resumeResetReason = '';
@@ -14384,39 +14570,10 @@ async function runClaudeTurn({
   // orphan a child (unkillable pid) or last-write-wins clobber the session file with a concurrent turn.
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
-  const interactive = agentCliType === 'claude' && config.engineMode === 'interactive';
-  // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
-  const usePermissionBridge = agentCliType === 'claude' && config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto';
+  const interactive = adapter.interactive(config);
 
-  // Kimi runs through its ACP stdio server (see 05b) rather than the legacy one-shot
-  // `kimi -p --output-format stream-json` surface. Keep this argument builder Claude-only.
-  const args = agentCliType === 'claude' ? ['-p', '--output-format', 'stream-json', '--verbose'] : [];
-  if (agentCliType === 'claude' && interactive) args.push('--input-format', 'stream-json');
-  if (agentCliType === 'claude' && config.includePartialMessages) args.push('--include-partial-messages');
-  if (agentCliType === 'claude' && config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
-  if (agentCliType === 'claude' && config.includeWorkbenchMcp) {
-    const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
-    args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
-    // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
-    // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
-    if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
-  }
-  // cmd8191 防线: --agents 的推送延后到下方「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
-  if (usePermissionBridge) {
-    // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
-    args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
-  }
-  // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
-  // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
-  // --permission-mode is the forward-compatible, officially documented way to set the session mode.
-  // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
-  // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
-  // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
-  const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-  if (agentCliType === 'claude' && cliPermMode) args.push('--permission-mode', cliPermMode);
-  if (agentCliType === 'claude' && config.model) args.push('--model', config.model);
-  if (agentCliType === 'claude' && config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  if (agentCliType === 'claude' && config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+  // 回合主参数(输出格式/MCP/权限/模型/思考强度……)由适配器给;--agents 的推送延后到下方「预算核算与降级阶梯」。
+  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive });
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
@@ -14426,7 +14583,7 @@ async function runClaudeTurn({
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
   const tailArgs = [];
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
-    tailArgs.push(agentCliType === 'kimi' ? '--session' : '--resume', session.claudeSessionId);
+    tailArgs.push(...adapter.resumeArgs(session.claudeSessionId));
   }
   if (workingDir) tailArgs.push('--add-dir', workingDir);
   // v2 跨会话记忆(C1 评审修订): 启用记忆时把记忆目录加入 --add-dir,使非 bypass 权限模式主回合 Read 可达;
@@ -14444,7 +14601,7 @@ async function runClaudeTurn({
   if (Array.isArray(config.additionalDirectories)) {
     for (const dir of config.additionalDirectories) { if (dir && dir !== workingDir) tailArgs.push('--add-dir', dir); }
   }
-  if (agentCliType === 'claude' && Array.isArray(config.extraClaudeArgs)) tailArgs.push(...config.extraClaudeArgs);
+  tailArgs.push(...adapter.extraArgs(config));
 
   // cmd8191 防线: 整行预算核算。fake 缝(node 直启)不受 cmd 限制,除非 WCW_CLAUDE_CMDLINE_BUDGET 测试缝强制。
   // 阶梯顺序: ① append 先拿预算(块内 fits-or-drop 自然兑现 用户append>技能>记忆>账本>编排>语言政策);
@@ -14452,11 +14609,11 @@ async function runClaudeTurn({
   // ③ 组装后整行复核(引号翻倍等二阶效应的最终闸口)仍超 → 砍 --agents → 围栏安全裁 append → 告警但绝不硬失败。
   const preflightLaunch = fakeClaude
     ? { command: process.execPath, args: [fakeClaude], opts: {} }
-    : prepareAgentCliSpawn(agentCliType, claude, []);
+    : adapter.prepareSpawn(claude, []);
   const guardCmd = preflightLaunch.command;
   const guardPrefixArgs = preflightLaunch.args;
-  // ACP carries the prompt over stdin as JSON-RPC, so Windows' command-line ceiling is irrelevant to Kimi.
-  const guardBudget = agentCliType === 'kimi' ? 0 : cmdLineBudgetFor(guardCmd);
+  // 提示词不走命令行的 CLI(Kimi ACP 走 stdin JSON-RPC)预算为 0 = 不设防。
+  const guardBudget = adapter.cmdLineBudget(guardCmd);
   const cmdlineGuard = { budget: guardBudget, degraded: [], lineLen: 0 };
   const FLAG_APPEND_ALLOWANCE = '--append-system-prompt'.length + 1 + CMD_LINE_QUOTE_MARGIN;
   const FLAG_AGENTS_ALLOWANCE = '--agents'.length + 1 + CMD_LINE_QUOTE_MARGIN;
@@ -14597,7 +14754,7 @@ async function runClaudeTurn({
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
     // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
     appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true, promptTaskContext) : '';
-    if (appendSys && agentCliType === 'claude') args.push('--append-system-prompt', appendSys);
+    if (appendSys && adapter.appendSystemPromptFlag) args.push(adapter.appendSystemPromptFlag, appendSys);
     else if (appendSys) indexSecs.push(`<ruyi-agent-cli-instructions>\n${appendSys}\n</ruyi-agent-cli-instructions>`);
   }
 
@@ -14640,12 +14797,13 @@ async function runClaudeTurn({
   // slash with Ruyi recovery, history, memory, or index context.
   const fullPrompt = kimiNativeSlashCommand ? String(message == null ? '' : message) : assembledPrompt;
 
-  if (agentCliType === 'kimi' && !fakeClaude) {
+  // 自有传输层的 CLI(Kimi = ACP stdio,见 05b)从这里接管本回合;fake 缝仍走下面的 spawn 骨架。
+  if (adapter.runPreparedTurn && !fakeClaude) {
     const additionalDirectories = [];
     for (let i = 0; i < tailArgs.length - 1; i++) {
       if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
     }
-    return runKimiAcpTurnPrepared({
+    return adapter.runPreparedTurn({
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
       additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
@@ -14659,13 +14817,11 @@ async function runClaudeTurn({
     const appendArgLen = appendSys ? quoteWinArg(appendSys).length + FLAG_APPEND_ALLOWANCE : 0;
     agentsBudget = Math.max(0, Math.min(6000, guardBudget - fixedLen - appendArgLen - FLAG_AGENTS_ALLOWANCE));
   }
-  const claudeAgentLibrary = agentCliType === 'claude'
-    ? await buildClaudeAgentDefinitions(workingDir, config, agentsBudget)
-    : { definitions: {}, roles: [], omitted: [] };
-  if (agentCliType === 'claude' && Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
+  const claudeAgentLibrary = await adapter.buildAgentDefinitions(workingDir, config, agentsBudget);
+  if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
   else if (claudeAgentLibrary.omitted.length) cmdlineGuard.degraded.push('agents-dropped');
   args.push(...tailArgs);
-  // Claude consumes the prompt from stdin. Kimi branched into ACP above.
+  // The prompt goes over stdin (interactive envelope / adapter.promptViaStdin below). Kimi branched into ACP above.
 
   // cmd8191 防线③: 整行复核 —— 任何情况下绝不让整行越过预算(引号翻倍等二阶效应的最终闸口)。
   if (guardBudget > 0) {
@@ -14673,8 +14829,8 @@ async function runClaudeTurn({
     for (let g = 0; g < 6 && lineLen > guardBudget; g++) {
       const ai = args.indexOf('--agents');
       if (ai >= 0) { args.splice(ai, 2); if (!cmdlineGuard.degraded.includes('agents-dropped')) cmdlineGuard.degraded.push('agents-dropped'); }
-      else if (agentCliType === 'claude') {
-        const pi = args.indexOf('--append-system-prompt');
+      else if (adapter.appendSystemPromptFlag) {
+        const pi = args.indexOf(adapter.appendSystemPromptFlag);
         if (pi < 0) break;
         const over = lineLen - guardBudget;
         const trimmed = fenceSafeSlice(args[pi + 1], Math.max(0, String(args[pi + 1]).length - over - CMD_LINE_QUOTE_MARGIN));
@@ -14702,11 +14858,8 @@ async function runClaudeTurn({
     }
   }
 
-  // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
-  // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
-  // reaches this child instead of silently deferring to whatever the OS shell happened to export.
-  const env = { ...(agentCliType === 'claude' ? effectiveAnthropicEnv(config) : process.env), WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
-  if (agentCliType === 'claude' && config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
+  // 子进程环境由适配器给(Claude:effectiveAnthropicEnv 叠第三方端点/模型 + MAX_THINKING_TOKENS;Kimi:process.env)。
+  const env = adapter.buildEnv(config, { WIN_CLAUDE_WORKBENCH_HOME: paths.data }); // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
@@ -14714,14 +14867,10 @@ async function runClaudeTurn({
   env.WCW_PORT = String(RUNTIME.port);
   env.WCW_HOST = RUNTIME.host;
   env.WCW_TOKEN = RUNTIME.token;
-  if (agentCliType === 'kimi') {
-    if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
-    await syncKimiTurnPreferences(config).catch(error => onEvent({ type: 'stderr', text: `[Kimi 设置同步] ${(error && error.message) || error}` }));
-  }
+  if (adapter.beforeSpawn) await adapter.beforeSpawn(config, onEvent);
 
-  // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
-    : prepareAgentCliSpawn(agentCliType, claude, args);
+    : adapter.prepareSpawn(claude, args);
   const spawnCmd = spawn.command;
   const spawnArgs = spawn.args;
   const spawnOpts = spawn.opts;
@@ -14732,7 +14881,7 @@ async function runClaudeTurn({
     if (args[i - 1] === '-p' || args[i - 1] === '--prompt') return `[prompt ${String(arg).length} chars]`;
     return redact(arg);
   });
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined, envBrief: envBrief ? envBrief.fingerprint : undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: adapter.thinkingEffortLabel(config), permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined, envBrief: envBrief ? envBrief.fingerprint : undefined });
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -14756,9 +14905,7 @@ async function runClaudeTurn({
   activeChildren.set(session.id, reg);
   RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
-  const stopKimiWireWatch = agentCliType === 'kimi' && session.claudeSessionId
-    ? watchKimiWire(session.claudeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
-    : () => {};
+  const stopSideChannelWatch = adapter.watchSideChannel(session, reg.onEvent);
 
   // Watchdog: if the child goes idle for too long (e.g. never emits `result`, or blocks on an
   // unanswered prompt), end the turn so the HTTP stream and process can't hang forever.
@@ -14912,7 +15059,7 @@ async function runClaudeTurn({
     // stream-json input: send the user turn as a JSON envelope, keep stdin OPEN for tool_result /
     // AskUserQuestion answers written via /api/chat/answer. Closed when the turn's `result` arrives.
     child.stdin.write(JSON.stringify(buildUserEnvelope(fullPrompt)) + '\n', 'utf8');
-  } else if (agentCliType === 'claude') {
+  } else if (adapter.promptViaStdin) {
     child.stdin.write(fullPrompt, 'utf8');
     child.stdin.end();
   } else child.stdin.end();
@@ -14943,9 +15090,8 @@ async function runClaudeTurn({
       else if (!pendingDeltaThinking) { thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
     } else if (ev.kind === 'tool_use') {
       toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
-      // Only Claude's Agent/Task tools follow the native sub-agent continuation protocol below.
-      // Kimi may expose a same-named tool, but its stream-json tool lifecycle is already self-contained.
-      const isNativeAgent = agentCliType === 'claude' && (ev.name === 'Agent' || ev.name === 'Task');
+      // Only the adapter's native agent tools (Claude Agent/Task) follow the sub-agent continuation protocol below.
+      const isNativeAgent = adapter.isNativeAgentTool(ev.name);
       if (isNativeAgent) {
         const roleId = String(ev.input && (ev.input.subagent_type || ev.input.agent || ev.input.role) || 'general-purpose');
         const role = claudeAgentLibrary.roles.find(r => r.id === roleId);
@@ -15066,7 +15212,7 @@ async function runClaudeTurn({
       return;
     }
     reg.lastEventAt = Date.now();
-    for (const ev of parseAgentCliEvent(evt, agentCliType)) handleNormalized(ev);
+    for (const ev of adapter.parseEvent(evt)) handleNormalized(ev);
     // Reset per-message delta dedup after each whole assistant message so a later whole-only
     // message isn't suppressed by an earlier message's partials.
     if (evt.type === 'assistant' || evt.role === 'assistant') { pendingDeltaText = false; pendingDeltaThinking = false; }
@@ -15083,7 +15229,7 @@ async function runClaudeTurn({
   });
   clearInterval(watchdog);
   clearInterval(nativeAgentProgressTimer);
-  stopKimiWireWatch();
+  stopSideChannelWatch();
   stdoutFeeder.flush();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
@@ -15117,8 +15263,8 @@ async function runClaudeTurn({
   // Reactive fallback for legacy/unknown bindings and externally moved/deleted transcripts. Retry the
   // SAME logical turn once without --resume: the user message/turnSeq were already persisted above, so the
   // retry skips that mutation and reuses the pre-turn recovery history instead of duplicating the prompt.
-  const resumeTranscriptMissing = agentCliType === 'claude' && resumeActive && exit.code !== 0 && !wasStopped
-    && !assistantText.trim() && toolCalls.length === 0 && isClaudeResumeMissingError(stderrTrimmed);
+  const resumeTranscriptMissing = resumeActive && exit.code !== 0 && !wasStopped
+    && !assistantText.trim() && toolCalls.length === 0 && adapter.isResumeMissingError(stderrTrimmed);
   if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
     session.claudeSessionId = null;
     delete session.claudeSessionModel;
@@ -15137,11 +15283,10 @@ async function runClaudeTurn({
   // 第35波 P2: 进程根本没启动(spawn error 或 cmd 拒绝执行)→ prompt 未送达,原生 transcript 不含本轮注入的索引
   // → 清注入 hash,下轮(同内容也会)重注。abort/watchdog 杀不在此列:prompt 已写入 stdin,transcript 已含索引。
   if ((exit.code === -1 && exit.error) || cmdLineOverflow) session.injectedIndexHash = null;
-  // Kimi's stream-json result has no usage frame. Pull the session's exact post-turn occupancy and persist
-  // it on the assistant row so reopening Ruyi cannot fall back to a stale Claude reading.
-  if (agentCliType === 'kimi' && session.claudeSessionId) {
-    const kimiUsage = await syncKimiSessionUsage(session, config, onEvent).catch(() => null);
-    if (kimiUsage) usage = kimiUsage;
+  // 回合后向 CLI 取权威用量(Kimi:stream-json 结果帧没有用量,见适配器),拿到就替换流内用量。
+  if (adapter.syncPostTurnUsage) {
+    const postTurnUsage = await adapter.syncPostTurnUsage(session, config, onEvent).catch(() => null);
+    if (postTurnUsage) usage = postTurnUsage;
   }
   const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrTrimmed ? (cmdLineOverflow
     ? `[启动守卫] ${agentCliLabel} CLI 未能启动:Windows 命令行超过长度限制。临时规避:减少启用的技能、缩短自定义系统提示,或改用原生可执行文件。\n原始错误:${redact(stderrTrimmed)}`
@@ -15213,39 +15358,8 @@ async function runClaudeTurn({
   await saveSession(session);
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
-  // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
-  // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
-  // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
-  // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
-  // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
-  if (agentCliType === 'claude' && usage && usage.usage) {
-    const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
-    // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
-    // 两项相加,读法与本文件 761 行(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,只读一项会
-    // 漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
-    // 「缓存输入 tokens」那一栏对 Claude 会话恒为空(06/08/09 走 provider 侧则一直有值)。
-    // 【费用计算不受影响】:Claude 引擎走 claudeCostFields → CLI 自带的 costUsd(或 config.claudePricing 整体
-    // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
-    // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
-    const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
-    // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
-    const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
-    appendUsageLedger({
-      sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
-    });
-  } else if (agentCliType === 'claude' && (billInMax > 0 || billOutMax > 0)) {
-    // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
-    // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
-    // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
-    // P2-18: 这条估算兜底路径没有 result 帧,拿不到 cache_read/cache_creation 字段,cachedInTok 缺失按 0
-    // (与上面「读+创建两项相加,缺失按 0」同一口径,费用计算同样不受影响 —— 见上面那条注释)。
-    const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
-    appendUsageLedger({
-      sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok: billInMax, outTok: billOutMax, cachedInTok: 0, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
-    });
-  }
+  // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。
+  adapter.recordTurnUsage({ session, config, usage, billInMax, billOutMax });
   const claudeTurnOk = exit.code === 0 && !wasStopped;
   if (session.mission) await bumpMissionChangeSeq(session.id, {
     type: claudeTurnOk || wasStopped ? 'progress' : 'failure',
@@ -62566,7 +62680,7 @@ module.exports = {
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
   // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
   // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
-  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerPostJsonOnce, providerRawCompletion, providerFixCompletion,
+  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerRawCompletion, providerFixCompletion,
   providerCallIsTransient, abortableDelay, withTransientRetry, openAiStreamOnce,
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
@@ -62634,7 +62748,6 @@ module.exports = {
   summarySingleShotCap,
   summarySingleShotReserveTokens,
   resolveSummaryCallPolicy,
-  applySummaryCallPolicy,
   // 105g(4.3 首项): map-reduce 全局事实表 — exposed for e2e 白盒契约(开关唯一判定点/注入消息构建)。
   summaryFactTableEnabled,
   summaryFactTableCap,
@@ -62668,11 +62781,9 @@ module.exports = {
   agentNodeContextWindow,
   buildAgentRunEnvelope,
   cutAtSentence,
-  agentRunResultSlice,
   singleAgentShorthandNode,
   legacySpawnToOrchestrateArgs,
   waitForAgentRunResults,
-  compactHistoryFromSession,
   parseKimiWireCompaction,
   parseKimiWireAgentEvents,
   isKimiAcpPlanFilePath,
@@ -62682,24 +62793,17 @@ module.exports = {
   kimiAcpModeOptionFromActivated,
   kimiAcpFreshActualForOperation,
   kimiAcpInferConcreteToolInput,
-  kimiAcpToolTier,
   consumeKimiAcpApproval,
-  kimiAcpToolUpdateSucceeded,
   kimiAcpSuccessfulEnterPlanMode,
   kimiAcpNativeShellQuote,
-  kimiAcpNativeWindowsPathToPosixPath,
   kimiAcpNativeBashWrapperTexts,
   kimiAcpNativeBashWrapperCandidate,
   kimiAcpPermissionToolCall,
-  kimiAcpConcreteEditGuard,
   prepareKimiAcpSpawn,
   createTurnSegmentBuilder,
   watchKimiWire,
   kimiSessionStatus,
   runKimiCompact,
-  compactKimiNative,
-  readKimiWireRuntime,
-  stopKimiServer,
   // 20-T1/20-C1/20-F1 runtime optimization pure primitives. Exported for offline replay/e2e; the master
   // shadow switch only measures candidates, while production behavior remains behind strict active flags.
   searchToolCatalog,
@@ -62722,10 +62826,7 @@ module.exports = {
   contextWindowFromTable,
   extractContextLength,
   fetchOpenAiModels,
-  MODEL_CONTEXT_TABLE,
   CONTEXT_WINDOW_FALLBACK,
-  VisualPipeline,
-  DesktopShell,
   // v2.6.2 压缩标记合并 + token 读数 — exposed for e2e direct units(合并/门槛/滞回/尾零回归)。
   fmtTokensServer,
   openCompactMarker,
@@ -62745,7 +62846,6 @@ module.exports = {
   buildBrowserAutomationHint,
   buildToolCustomizationHint,
   // v1.1-W2 (T2): MCP drop-in scan — exposed for mcp-config e2e (invalidate cache after fixturing folders).
-  scanMcpDropIns,
   invalidateMcpDropInCache,
   collectBridgedTools,
   adaptiveCatalogForMcp, // 105a: exposed for e2e 直测(observation_recall 目录门)
@@ -62764,13 +62864,12 @@ module.exports = {
   readConfig,
   mutateConfig,
   AGENT_CLI_TYPES,
-  selectedAgentCli,
   detectKimiPath,
   probeAgentCliLauncher,
   prepareAgentCliSpawn,
-  invalidateAgentCliPathCaches,
   syncMcpServersToKimi,
   parseAgentCliEvent,
+  AGENT_CLI_ADAPTERS, agentCliAdapter, // 架构还债批 3 A:CLI 适配器 —— exposed for unit/agent-cli-adapters.test.js(方法集同构 + 金样)
   providerReasoningEffort,
   applyProviderReasoningEffort,
   buildClaudeCliEnv,
@@ -62817,12 +62916,7 @@ module.exports = {
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
   getPretenderProjectionIndex,
   warmPretenderProjectionIndex,
-  pretenderIndexPath,
   compactInterventionJournal,
-  readInterventionsWithMeta,
-  missionChangeFilePath,
-  foldMissionChangeJournalText,
-  readMissionChangesWithMeta,
   bumpMissionChangeSeq,
   sessionBodyPaths,
   // 117q-B6(30 号文 P2-10/P2-11):尾窗读原语 + 撕裂尾修复合一 — exposed for e2e 字节级直测
@@ -62837,7 +62931,6 @@ module.exports = {
   clampAppendWithSkills,
   normalizeAgentRole,
   getAgentRoleLibrary,
-  readProjectAgentRoles,
   readClaudeProjectAgentRoles,
   saveProjectAgentRoles,
   buildClaudeAgentDefinitions,
@@ -62902,7 +62995,6 @@ module.exports = {
   buildEngineEnvBrief, resolveEngineEnvBrief, probeRgAsync, peekRgProbe, // 145-W3:引擎运行环境说明 + rg 来源探测(静态件直测)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildPlaybookIndexSection, // 108b:Playbook 精简索引段(e2e 直测围栏/上限/尾行)
-  buildResponseLanguagePolicy,
   buildAgentTeamHint,
   buildClaudeNativeAgentPolicy,
   softwareEngineeringTaskProfile,
@@ -62911,7 +63003,6 @@ module.exports = {
   planDiscoveryToolBatchAllowed,
   appendTurnPolicies,
   appendResponseLanguagePolicy,
-  isLongToolTask,
   resolveToolIterationBudget,
   shouldExtendToolIterationBudget,
   TOOL_ITERATION_BUDGETS,
@@ -62921,7 +63012,6 @@ module.exports = {
   unregisterAgentLoopHook: AgentLoopHooks.unregisterAgentLoopHook,
   listAgentLoopHooks: AgentLoopHooks.listAgentLoopHooks,
   dispatchAgentLoopHooks: AgentLoopHooks.dispatchAgentLoopHooks,
-  makeAgentLoopTraceId: AgentLoopHooks.makeAgentLoopTraceId,
   summarizeAgentLoopToolResult: AgentLoopHooks.summarizeAgentLoopToolResult,
   // 第116波116a(27号文§11.3): 管家(Steward)引擎侧纯函数与延迟绑定命名空间 — exposed for e2e/单测。
   StewardHooks,
@@ -63025,20 +63115,16 @@ module.exports = {
   // 删数据的绝对目标、confirm 族的确认清单。单测直测;act 的服务端标签与确认行经 stewardNormalizeAct
   // 的真路径(管家回合 / 降级按钮)在 e2e 里读。
   STEWARD_EXEMPT_EXCERPT_CHARS,
-  stewardExemptIndirectConstruction,
-  stewardExemptAbsoluteDeleteTarget,
   stewardActConfirmSpec,
   stewardNormalizeAct,
   stewardActLabel,
   isStewardToolName,
-  stewardSanitizeBlock,
   buildStewardBrief,
   // 129h:两个纯函数 —— 占位组装与「哪些参数没给值」。导出只为单测直测
   // (unit/steward-playbook-run.test.js 拿前端那份 assemblePlaybookPrompt 与它逐例对照)。
   stewardAssemblePlaybookPrompt,
   stewardPlaybookMissingInputs,
   STEWARD_BRIEF_LIMITS,
-  STEWARD_THREAD_STATES,
   deriveStewardThreadState,
   stewardThreadStateFromCard,
   stewardThreadStateFromHead,   // 架构还债批 1 #1:会话头 → 五态证据的唯一适配器(unit/steward-head-adapter.test.js)
@@ -63047,20 +63133,16 @@ module.exports = {
   // 117s-A D1(§11.13 ③):行序的状态秩(纯函数,单测/e2e 直测)。
   stewardThreadStateRank,
   STEWARD_MEMORY_KINDS,
-  STEWARD_MEMORY_LIMITS,
-  stewardMemoryTerms,
   stewardTermJaccard,
   // 第116波116-2e(27号文§3.5「如意设置」行): steward_config_* 的三级分级(allowlist + fail-closed)。
   //   exposed for 单测 unit/steward-config-tier.test.js —— 它拿 Object.keys(normalizeConfig({}).config)
   //   遍历默认表的每一个键,要求逐个落到 free/confirm/forbidden 三级之一,不许漏。
   STEWARD_CONFIG_TIERS,
   stewardConfigTierFor,
-  STEWARD_QUICK_KIND,
   STEWARD_QUICK_ANSWER_CHARS,
   // 117s-H1(27 号文 §11.13.3「交付进箱」): 交付正文的三个预算 —— e2e 直接拿它们断言,
   //   数字只许有一份(06i 一份、13h 两份),测试不再自带字面量。
   STEWARD_DELIVERABLE_CHARS,
-  STEWARD_INBOX_DELIVERABLE_CHARS,
   STEWARD_INBOX_MESSAGE_CHARS,
   // 第116波116g: 事项容器(02 持久化面)—— e2e 直测反向索引、损坏隔离与四个归属操作的幂等。
   readMissionContainer,
@@ -63068,16 +63150,13 @@ module.exports = {
   createMissionContainer,
   patchMissionContainer,
   missionAttachThread,
-  missionDetachThread,
   missionMergeInto,
   missionSplitThreads,
   MISSION_CONTAINER_MAX_FILES,
-  MISSION_CONTAINER_SCHEMA,
   // 第116波116f(27号文§11.3): 管家回合运行器与到访 — 会话单例常量、回合入口、到访、输出契约解析器
   // 与两个分叉入口(提示词/预算)。exposed for e2e 直测;09/10/13g 侧一律经 StewardHooks 触达。
   STEWARD_SESSION_ID,
   STEWARD_SESSION_TITLE,
-  STEWARD_PERMISSION_MODE,
   runStewardTurn,
   // 第117波117m-A1: 熔断判据本体 — exposed for e2e 直测(小时窗只节流 trigger!=='user' 的自主回合)。
   stewardCircuitCheck,
@@ -63090,8 +63169,6 @@ module.exports = {
   // 116-pre(27号文§8.12/§11.3): 递话预判端点的装配层 — exposed for e2e 直测(缓存命中/未命中两路径)。
   stewardPreroute,
   // 116c: 班组动作核心(从 POST /api/agent-runs/:id 路由零行为抽出)与 108c 自状态装配 — e2e 直测等价性。
-  agentRunActionCommand,
-  buildWorkbenchSelfStatus,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,
@@ -63101,15 +63178,12 @@ module.exports = {
   toolPackForName,
   buildToolCatalog,
   createToolLoadingState,
-  estimateToolSchemaTokens,
   adaptiveMetaToolSchemas,
   generateSessionMcpConfig,
-  readProjectMemory,
   toolRequirementsMet,
   TOOL_REQUIRES,
   ERROR_CLASSES,
   CONFIG_SCHEMA,
-  SESSION_SCHEMA,
   PERMISSION_MODES,
   ROUTE_AUTH,
   // v0.9-S2: playbooks — exposed for e2e direct unit testing (normalize / availability / draft-parse).
@@ -63117,7 +63191,6 @@ module.exports = {
   evalPlaybookAvailability,
   matchServiceEntry, // 127-⑧:服务入口整体序(可用 > 需配置 > 未知 > 暂无模板)的进程内单测
   parsePlaybookDraft,
-  loadAllPlaybooks,
   // v0.9-S3 (C3): workspace-by-fingerprint — exposed for e2e direct unit testing of the resolver.
   resolveWorkspace,
   // PF1: checkpoint GC size-cap cache — exposed for e2e (assert no per-write full sweep + still purges over-cap).
@@ -63129,9 +63202,6 @@ module.exports = {
   // v0.9-S4 (C4): artifacts kind classifier + preview path-safety + summary builder — exposed for e2e units.
   kindForPath,
   buildTurnSummary,
-  // v1.5-W1.5: ACC 写族收割判定 — exposed for e2e 直接单测(工具名前缀 + 去前缀逻辑)。
-  isBridgedWriteTool,
-  unprefixedBridgedName,
   // v1.5-W1.5 (T3): bridged 写族路径提取 — exposed for e2e 直接单测(args→目标路径+op)。
   collectBridgedWriteTarget,
   // v1.2-B: 多目标路径提取(move/copy 两条式)+ 机制性防漏审计 — exposed for checkpoint-coverage e2e 直测。
@@ -63140,21 +63210,15 @@ module.exports = {
   BRIDGED_WRITE_PATH_ARGS,
   // v1.2: 终端命令内联手写 Office 的桥接分发软闸 — exposed for e2e 直接单测。
   bridgedOfficeScriptGate,
-  BRIDGED_WRITE_AUDIT_EXEMPT,
-  fileAllowedRoots,
-  workspaceWriteRoots,
   pathWithinRoot,
   pathWithinAnyRoot,
-  readFilePreview,
   // v1.0.2-S3: reveal-in-explorer path guard + spawn-argv builder — exposed for e2e 单测护栏逻辑。
   guardWorkspacePath,
   buildRevealSpawn,
   // Native code-editor handoff + exact turn baselines — exposed for offline regression tests.
   executableFromAssociationCommand,
   classifyCodeEditorExecutable,
-  resolvePreferredCodeEditor,
   buildCodeEditorSpawn,
-  workspaceBaselineIsCodePath,
   captureWorkspaceTurnBaseline,
   reconcileWorkspaceTurnBaseline,
   // v1.4.6-S2/S3: shell-free open-spawn argv builders + native file-tool workspace boundary guard + local
@@ -63162,14 +63226,9 @@ module.exports = {
   buildOpenSpawn,
   buildBrowserOpenSpawn,
   guardFileToolPath,
-  guardWorkspaceExecute,
   providerIsLocal,
   // 第31波B(L1): autoexec denylist + 路径归一 — exposed for shell-sandbox e2e 直接单测。
   AUTOEXEC_DENYLIST,
-  normalizeAutoexecPath,
-  // v0.9-S8: audit-center aggregation — exposed for e2e direct unit testing.
-  collectAudit,
-  auditSummaryFor,
   // v0.9-S9: web_search / web_fetch — SSRF guard + main-text extraction + cache (exposed for e2e direct units).
   ssrfCheck,
   embeddedIpv4FromV6, // v0.9 F1: IPv4-mapped IPv6 extraction — exposed for the ssrf-hardening e2e direct unit.
@@ -63189,12 +63248,9 @@ module.exports = {
   zipWrite,
   zipReadCentralDir,
   zipReadEntryData,
-  zipCollectEntries,
   guardDownloadDest,
   probeAny,
   networkAnchors,
-  NETWORK_ANCHORS,
-  builtinSearch,
   parseBingHtml,
   parseBaiduHtml,
   // Resource-aware DAG scheduler primitives (pure normalization/conflict checks plus lease integration tests).
@@ -63206,7 +63262,6 @@ module.exports = {
   acquireResourceLease,
   releaseResourceLease,
   resourceBlockers,
-  sanitizeAgentOutputSchema,
   parseStructuredAgentOutput,
   repairJson, // v1.5 (Judge JSON 修复): 零依赖修复器 — exposed for judge-json-repair e2e 直接单测。
   validateAgentJsonSchema,
@@ -63240,9 +63295,7 @@ module.exports = {
   buildMemoryPromptSection,
   buildCoreMemoryPromptSection,
   buildMemoryCheckPrompt,
-  memorySearchTerms,
   rankRelevantMemories,
-  effectiveMemorySelection,
   resolveMemoryPreflight,
   resolveCoreMemoryState,
   listMemoryRelations,
@@ -63275,12 +63328,6 @@ module.exports = {
   // 107-S2:掩码回传的启动向量闸(providers/searchBackend/modelsApiKey 的密钥会去哪几个地址)- exposed for e2e 直测。
   maskedSecretConflicts,
   providerLaunchVectorKey,
-  invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
-  // R5(16-r5-replan-ledger.md): 可审查重规划提案 - exposed for e2e 直测(机器校验/生成)。
-  validateReplanPatch,
-  proposeReplanPatch,
-  applyReplanPatch,
-  rollbackReplanPatch,
   // Responses strict pairing adapter — exposed for e2e: shallow-copy repair must not mutate persisted history.
   responsesHistoryWithCompleteToolPairs,
   buildResponsesInputItems,
@@ -63294,13 +63341,7 @@ module.exports = {
   describeSchedule,
   occurrenceKey,
   missedOccurrence,
-  SCHEDULER_SCHEDULE_KINDS,
-  SCHEDULER_PAYLOAD_KINDS,
-  SCHEDULER_TARGET_MODES,
-  SCHEDULER_ON_MISSED,
-  SCHEDULER_ON_FAILURE,
   SCHEDULER_FIRE_MODES,
-  SCHEDULER_PHASES,
   SCHEDULER_OUTCOMES,
   SCHEDULER_FORBIDDEN_PAYLOAD_KEYS,
   SCHEDULER_LIMITS,
@@ -63319,6 +63360,5 @@ module.exports = {
   handleSchedulerApiRoutes,
   // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
   //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
-  SchedulerHooks,
   stewardVisitDigest,
 };

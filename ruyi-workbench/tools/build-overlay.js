@@ -18,8 +18,9 @@ const payload = path.join(outRoot, 'payload');
 
 // Files that land in the deployed folder (path relative to deployed root == relative to `root`).
 // 第43波: src 模块清单改 manifest.json 驱动(单一真相 —— 增删模块不用同步两处;43e 对抗轮裁决)。
-// 第43波(freshness): 打包前强制「产物 == 拼接(src)」—— 陈旧产物进发行包是静默事故,此处拦截。
-cp.execFileSync(process.execPath, [path.join(root, 'app', 'build.js'), '--check'], { stdio: 'inherit' });
+// 第43波(freshness): 打包前强制「产物 == 拼接(src)」—— 陈旧产物进发行包是静默事故,main() 第一步拦截。
+// 架构还债批 3·D:载荷三张表经 module.exports 给静态锁直读(overlay-payload-lock 等不再拿正则抠源码);
+// 只有直接运行本脚本才装配,被 require 时零副作用。
 const srcModules = JSON.parse(fs.readFileSync(path.join(root, 'app', 'src', 'manifest.json'), 'utf8')).modules
   .map(m => 'app/src/' + (typeof m === 'string' ? m : m.file));
 const PAYLOAD_FILES = [
@@ -255,29 +256,36 @@ function copy(src, dst) {
   fs.copyFileSync(src, dst);
 }
 
-fs.rmSync(outRoot, { recursive: true, force: true });
-fs.mkdirSync(payload, { recursive: true });
+function main() {
+  cp.execFileSync(process.execPath, [path.join(root, 'app', 'build.js'), '--check'], { stdio: 'inherit' });
 
-for (const rel of PAYLOAD_FILES) {
-  const src = path.join(root, rel);
-  if (!fs.existsSync(src)) { console.error(`MISSING payload file: ${rel}`); process.exit(1); }
-  copy(src, path.join(payload, rel));
-}
-let optionalShipped = 0;
-for (const rel of OPTIONAL_PAYLOAD_FILES) {
-  const src = path.join(root, rel);
-  if (!fs.existsSync(src)) { console.log(`optional payload absent (feature degrades gracefully): ${rel}`); continue; }
-  copy(src, path.join(payload, rel));
-  optionalShipped += 1;
-}
-for (const rel of OVERLAY_FILES) {
-  const src = path.join(root, rel);
-  if (!fs.existsSync(src)) { console.error(`MISSING overlay file: ${rel}`); process.exit(1); }
-  copy(src, path.join(outRoot, path.basename(rel)));
+  fs.rmSync(outRoot, { recursive: true, force: true });
+  fs.mkdirSync(payload, { recursive: true });
+
+  for (const rel of PAYLOAD_FILES) {
+    const src = path.join(root, rel);
+    if (!fs.existsSync(src)) { console.error(`MISSING payload file: ${rel}`); process.exit(1); }
+    copy(src, path.join(payload, rel));
+  }
+  let optionalShipped = 0;
+  for (const rel of OPTIONAL_PAYLOAD_FILES) {
+    const src = path.join(root, rel);
+    if (!fs.existsSync(src)) { console.log(`optional payload absent (feature degrades gracefully): ${rel}`); continue; }
+    copy(src, path.join(payload, rel));
+    optionalShipped += 1;
+  }
+  for (const rel of OVERLAY_FILES) {
+    const src = path.join(root, rel);
+    if (!fs.existsSync(src)) { console.error(`MISSING overlay file: ${rel}`); process.exit(1); }
+    copy(src, path.join(outRoot, path.basename(rel)));
+  }
+
+  // Generate the manifest over the payload.
+  cp.execFileSync(process.execPath, [path.join(root, 'tools', 'gen-manifest.js'), payload, version, `overlay-${version}`, pkgVersion], { stdio: 'inherit' });
+
+  console.log(`Overlay assembled at ${outRoot}`);
+  console.log(`Payload files: ${PAYLOAD_FILES.length} (+${optionalShipped} optional)`);
 }
 
-// Generate the manifest over the payload.
-cp.execFileSync(process.execPath, [path.join(root, 'tools', 'gen-manifest.js'), payload, version, `overlay-${version}`, pkgVersion], { stdio: 'inherit' });
-
-console.log(`Overlay assembled at ${outRoot}`);
-console.log(`Payload files: ${PAYLOAD_FILES.length} (+${optionalShipped} optional)`);
+module.exports = { PAYLOAD_FILES, OPTIONAL_PAYLOAD_FILES, OVERLAY_FILES };
+if (require.main === module) main();

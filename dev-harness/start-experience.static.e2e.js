@@ -13,6 +13,8 @@
 // 判定行:`START EXPERIENCE STATIC E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
+const { constBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
@@ -33,16 +35,20 @@ const docsLocales = {
   'en-US': readJson(path.join(ROOT, 'docs', 'i18n', 'locales', 'en-US.json')),
 };
 
+(async () => {
 /* ═══════════════ ① 118e:两个本地预设的服务端事实源 ═══════════════ */
 
 const engineSrc = read(WB, 'app', 'src', '05-claude-engine.js');
-const presetBlock = engineSrc.slice(engineSrc.indexOf('const PROVIDER_PRESETS = ['), engineSrc.indexOf('\n];', engineSrc.indexOf('const PROVIDER_PRESETS = [')));
+// 架构还债批 3·D:服务端两张预设表未导出(只经状态接口下发),仍读源码,但改用公共切片按括号配对取整条声明
+// (修前按「下一个 \n];」截,表尾一加注释或改缩进就截错);前端那一半(KEY_OPTIONAL_PRESET_IDS)改 import 模块直读。
+const presetBlock = constBlock(engineSrc, 'PROVIDER_PRESETS');
+ok(presetBlock.length > 200, '① 切到 PROVIDER_PRESETS 整条声明(切不到 = 下面几条对空串恒真/恒假)');
 ok(presetBlock.includes("id: 'ollama'") && presetBlock.includes("baseUrl: 'http://127.0.0.1:11434/v1'"),
   '① PROVIDER_PRESETS 有 ollama 预设,指向 http://127.0.0.1:11434/v1');
 ok(presetBlock.includes("id: 'lmstudio'") && presetBlock.includes("baseUrl: 'http://127.0.0.1:1234/v1'"),
   '① PROVIDER_PRESETS 有 lmstudio 预设,指向 http://127.0.0.1:1234/v1');
 // 用户 2026-09-27:厂商预设一律不内置 —— 只剩本机两条 + 「自定义」,没有任何写死的厂商地址。
-const endpointBlock = engineSrc.slice(engineSrc.indexOf('const CLAUDE_ENDPOINT_PRESETS = ['), engineSrc.indexOf('\n];', engineSrc.indexOf('const CLAUDE_ENDPOINT_PRESETS = [')));
+const endpointBlock = constBlock(engineSrc, 'CLAUDE_ENDPOINT_PRESETS');
 const idsOf = block => (block.match(/\bid: '([^']+)'/g) || []).map(m => m.slice(5, -1)).sort().join(',');
 ok(idsOf(presetBlock) === 'lmstudio,ollama,openai-compatible', `① PROVIDER_PRESETS 只有本机两条 + 自定义(实际 ${idsOf(presetBlock)})`);
 ok(idsOf(endpointBlock) === 'anthropic-compatible', `① CLAUDE_ENDPOINT_PRESETS 只有自定义(实际 ${idsOf(endpointBlock)})`);
@@ -57,8 +63,8 @@ ok(localEntries.length === 2 && localEntries.every(chunk =>
 // PROVIDER_PRESETS 里带 keyOptional 的 id 必须与前端纯函数的 KEY_OPTIONAL_PRESET_IDS 逐字相等。
 const keyOptionalIds = [...presetBlock.matchAll(/id: '([a-z0-9-]+)'[\s\S]{0,400}?keyOptional: true/g)].map(m => m[1]);
 const wizardSrc = read(PUBLIC, 'js', 'onboarding-wizard.js');
-const declaredIds = (wizardSrc.match(/KEY_OPTIONAL_PRESET_IDS = Object\.freeze\(\[([^\]]*)\]\)/) || [, ''])[1]
-  .split(',').map(s => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
+const wizardMod = await import(pathToFileURL(path.join(PUBLIC, 'js', 'onboarding-wizard.js')).href);
+const declaredIds = [...(wizardMod.KEY_OPTIONAL_PRESET_IDS || [])];
 ok(keyOptionalIds.length === 2 && declaredIds.join(',') === keyOptionalIds.join(','),
   `① 服务端 keyOptional 预设(${keyOptionalIds.join(', ')})与前端 KEY_OPTIONAL_PRESET_IDS(${declaredIds.join(', ')})逐字一致`);
 
@@ -225,3 +231,4 @@ ok(/帮助/.test(readme) && /Help/.test(readme), '⑥ 出问题指向应用内�
 
 console.log('\nSTART EXPERIENCE STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
 process.exit(fail ? 1 : 0);
+})().catch(err => { console.log('FAIL ' + (err && err.stack || err)); console.log('\nSTART EXPERIENCE STATIC E2E: FAIL (1)'); process.exit(1); });

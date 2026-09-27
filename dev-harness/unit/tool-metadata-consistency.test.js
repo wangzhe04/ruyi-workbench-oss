@@ -1,7 +1,7 @@
 'use strict';
 // 架构还债批 1 #9:按工具名分类的表与工具注册表(TOOL_HANDLERS + NATIVE_TOOL_TIER)对账。
 // tool-dispatch.e2e 的 L4/L5 已钉住 TOOL_HANDLERS ↔ NATIVE_TOOL_PACKS ↔ NATIVE_TOOL_TIER;这里补上此前无人对账的几张:
-//   [M1] 不可逆操作账(02 IRREVERSIBLE_NATIVE_KIND)的每个名字都是真工具、且风险档是 exec。
+//   [M1] 不可逆操作账(02f-turn-effect-kinds IRREVERSIBLE_NATIVE_KIND)的每个名字都是真工具、且风险档是 exec。
 //   [M2] 每个 exec 档内建工具要么进账、要么在下面那张「不进账」清单里写明理由 ——
 //        新增一个有副作用的 exec 工具却忘了决定它进不进账,这里当场红(修前是静默漏记)。
 //   [M3] 回合摘要的两张表(改了哪些文件 / 跑了哪些命令)只收真工具,档位对得上(文件 = edit,命令 = exec)。
@@ -19,7 +19,7 @@ const { TOOL_HANDLERS, NATIVE_TOOL_TIER, IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_
 const handlers = Object.keys(TOOL_HANDLERS);
 const tierOf = name => NATIVE_TOOL_TIER[name];
 
-// exec 档却【有意】不进不可逆账的内建工具,以及理由(判据见 02 IRREVERSIBLE_* 头注)。
+// exec 档却【有意】不进不可逆账的内建工具,以及理由(判据见 02f-turn-effect-kinds IRREVERSIBLE_* 头注)。
 const EXEC_NOT_LEDGERED = {
   tool_invoke_exec: '元工具:真正被调用的那个工具按自己的名字进账',
   permission_prompt: '只向用户发问,自身没有副作用',
@@ -47,7 +47,7 @@ test('[M2] 每个 exec 档内建工具都明确决定过进不进账', () => {
   const undecided = handlers.filter(n => tierOf(n) === 'exec'
     && !Object.prototype.hasOwnProperty.call(IRREVERSIBLE_NATIVE_KIND, n)
     && !Object.prototype.hasOwnProperty.call(EXEC_NOT_LEDGERED, n));
-  assert.deepEqual(undecided, [], '新的 exec 工具:进不可逆账(02 IRREVERSIBLE_NATIVE_KIND)或在本文件 EXEC_NOT_LEDGERED 写明理由');
+  assert.deepEqual(undecided, [], '新的 exec 工具:进不可逆账(02f-turn-effect-kinds IRREVERSIBLE_NATIVE_KIND)或在本文件 EXEC_NOT_LEDGERED 写明理由');
   for (const name of Object.keys(EXEC_NOT_LEDGERED)) {
     assert.equal(tierOf(name), 'exec', `EXEC_NOT_LEDGERED 里的 ${name} 已不是 exec 档,清单该删了`);
   }

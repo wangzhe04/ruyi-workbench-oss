@@ -314,3 +314,71 @@
 - [ ] `run-all.js --fast` 与 `--parallel 4` 全绿。
 - [ ] `git diff --stat` 只含第 4 节允许的文件集合。
 - [ ] commit 信息符合 `refactor(structure): 110-<序> split <源> -> <目标> (pure move, zero behavior)` 格式。
+
+---
+
+## 11. Agent CLI 适配器与剩余的引擎分叉清单（架构还债批 3 A）
+
+`runClaudeTurn`（`05-claude-engine.js`）是 Claude Code CLI 与 Kimi Code CLI 共用的唯一回合骨架。原来它在一个函数体里
+按 `agentCliType === 'claude' | 'kimi'` 分叉约 30 处；现在骨架只问 `05` 顶部的 `AGENT_CLI_ADAPTERS[agentCliType]`，
+函数体里不再有按 CLI 类型的比较（`dev-harness/unit/agent-cli-adapters.test.js` [G] 钉着）。
+
+**适配器接口**（两家逐项同构，[S] 钉方法集；可选钩子取 `null` 表示「这一家没有这一步」）：
+`id`、`interactive(config)`、`slashCommandVerbatim`、`buildArgs(ctx)`、`resumeArgs(id)`、`extraArgs(config)`、
+`prepareSpawn(command, args)`、`cmdLineBudget(command)`、`appendSystemPromptFlag`、`runPreparedTurn(context)|null`、
+`buildAgentDefinitions(cwd, config, budget)`、`buildEnv(config, common)`、`beforeSpawn(config, onEvent)|null`、
+`thinkingEffortLabel(config)`、`watchSideChannel(session, onEvent)`、`promptViaStdin`、`isNativeAgentTool(name)`、
+`parseEvent(evt)`、`isResumeMissingError(stderr)`、`syncPostTurnUsage(session, config, onEvent)|null`、`recordTurnUsage(ctx)`。
+Kimi 的 stream-json 解析器本体拆成 `04` 的 `parseKimiStreamJsonEvent`；`parseAgentCliEvent(evt, driver)` 留作按名分派的兼容出口。
+
+**加第三个 agent CLI 时，`runClaudeTurn` 不用动；下面这些 `05` 之外的分叉仍要逐个过一遍。** 行号为本节写入时的位置
+（函数名是稳定锚）。分两类：A 类按 CLI 类型（claude / kimi）分叉，第三家一定要碰；B 类按引擎族（CLI 族 `claude`/`agent`
+对 provider 族 `openai`）分叉，只要新 CLI 仍归在 CLI 族里大多不用改，但其中标了「实指 Claude Code」的几处其实只认 Claude CLI。
+
+### 11.1 A 类：按 CLI 类型分叉（第三家必须碰）
+
+| 位置 | 所在函数 | 决定了什么 |
+|---|---|---|
+| `01-config.js:2577` | `AGENT_CLI_TYPES` | CLI 类型登记表（id/标签/路径配置键）；适配器表的键必须与它相同（单测 [S]） |
+| `01-config.js:2610` | `agentCliInstallCandidates` | 各 CLI 的默认安装位置候选（只有 kimi 有表，其余返回空） |
+| `01-config.js:2651` | `selectedAgentCli` | 路径探测：`claude` 走 `detectClaudePath`，**其余一律走 Kimi 的探测** |
+| `01-config.js:2678` | `prepareAgentCliSpawn` | kimi 的 npm 垫片改用 Node 直启入口（避 cmd.exe 8191 上限）；其余走 `batchSafeSpawn` |
+| `01-config.js:706-707` | `sanitizeLastUsedEngineRoute` | 记住的上次引擎路由：`agentCliType` 非 `kimi` 一律改写成 `claude`（第三家会被静默改掉） |
+| `02-session-store.js:1493-1494` | `normalizeSessionEngineRoute` | 会话级引擎路由：同上，非 `kimi` 一律归 `claude` |
+| `01-config.js:905` | `normalizeConfig` | Kimi 旧的裸模型名迁移到 `kimi-code/` 别名 |
+| `01-config.js:2125` / `:2172` / `:2319` | `syncMcpServersToClaude` / `syncMcpServersToKimi` / `classifyAgentMcpCandidate` | MCP 双向同步与导入按来源 `origin: 'kimi'` 区分（如意同步过去的条目不导回） |
+| `06k-config-patch.js:141-145` | `applyConfigPatch` | 改配置后把 MCP 清单推进 Kimi 的 `mcp.json`（切走 kimi 时清掉如意的条目） |
+| `13-http-router.js:1976` | `startServerInner` | 启动时同上的 Kimi MCP 同步 |
+| `04-permission-runtime.js:2353-2354` | `parseAgentCliEvent` | 兼容出口的按名分派（主回合已改走 `adapter.parseEvent`，只剩 e2e 直测用它） |
+| `05b-kimi-bridge.js:327` / `:346` / `:360` | `maybeAutoCompactAgentSession` | 回合前自动压缩：kimi 走原生压缩（Server API），其余走外部摘要重播 |
+| `06-provider-engine.js:1703` / `:1714` | `engineBriefFacts` | `<ruyi-environment>` 事实集按 `kimi` / provider / 其余=claude 三分；交互模式只认 claude |
+| `06-provider-engine.js:1732` / `:1736` | `renderCliEnvBrief` | 环境说明文本：kimi 用原生 AskUserQuestion（ACP 落到如意提问卡），claude 走 MCP 提问 |
+| `06d-memory-domain.js:390` / `:426` | `AGENT_INSTRUCTION_NATIVE_CLI` / `filterMemoryForNativeCli` | 哪个 CLI 原生读哪份全局指令文件（导成的记忆在该 CLI 回合里去重） |
+| `10-context-governance.js:1853` / `:1863` | `agentConversationContextMeta` | 上下文窗口：kimi 走 Server API 探测；旧用量行按 `agentCliType` 归属 |
+| `13-http-router.js:267` / `:436` | `handleApi`（`/api/status`、`/api/models`） | 模型清单：kimi 走 `kimiModelList` / `discoverKimiModels`，其余走 Anthropic 口径 |
+| `13-http-router.js:887` / `:894` | `handleApi`（`/api/agent/compact`、`/api/kimi/status`） | 手动压缩：kimi 原生压缩，claude 拒绝（提示用原生 `/compact`）；Kimi 专属状态接口 |
+| `13b-api-domain-routes.js:345` / `:356` / `:418` | `steerSessionCore` / `handleSteerApiRoute` | 插话按活回合登记的 `reg.kind`（`kimi-acp` 走 ACP 队列，`claude` 即时写 stdin、不可撤回） |
+| `ruyi-workbench/app/public/js/*.js`（6 个文件约 32 处） | `AGENT_CLI_LABELS`、`currentEngineMeta().agentCliType === 'kimi'` 等 | 前端的标签、思考强度选项、Kimi 状态刷新与压缩入口 |
+
+### 11.2 B 类：按引擎族分叉（CLI 族 vs provider 族）
+
+| 位置 | 所在函数 | 决定了什么 |
+|---|---|---|
+| `10-context-governance.js:2656` | `runSessionTurn` | 回合分派：有 provider 走 `runOpenAiTurn`，否则走 `runClaudeTurn`（两家 CLI 同签名） |
+| `08-agent-runs.js:1090` | `runSubAgent` | **实指 Claude Code**：DAG 节点 `engine: 'claude'` 一律经 `07` `runClaudeSubAgentOnce` 起 Claude CLI，没有 Kimi 子代理路径 |
+| `08-agent-runs.js:306` | `classifyNodeResumeRisk` | **实指 Claude Code**：按角色 `claudeTools` 白名单判节点续跑风险 |
+| `01-config.js:575-576` | `normalizeAgentRole` | **实指 Claude Code**：角色工具表按 `driver` 分 `claudeTools` / `openaiTools` |
+| `08-agent-runs.js:1633` / `:1695` / `:2286` / `:2318` / `:2327` | `normalizeAgentWorkflow` / `resolveAgentTeamRoute` / `nodeDeliveryEligibility` / `materializePoolItem` | 工作流节点引擎只认 `claude` / `openai`；角色模型按 `models.claude` / `models.openai` 取 |
+| `09-workflow.js:14` / `:66` / `:144-145` / `:683` / `:687` | `runAgentWorkflow` | 节点默认引擎、引擎归一、角色模型、节点记忆去重与记忆段口径 |
+| `09-workflow.js:1186` | `syncProviderHistoryFromDisplay` | 跨引擎续接：上一条助手消息来自 CLI 族时补齐 provider 历史 |
+| `09b-replan-ledger.js:142` | `applyReplanPatch` | 重规划补丁新节点的引擎归一 |
+| `10-context-governance.js:1837` | `agentNodeContextWindow` | CLI 族节点的上下文窗口走会话同链（手填 → 名称表 → 兜底） |
+| `13-http-router.js:1135-1136` / `:2198` | `handleApi`（`/api/agent-workflow/launch`）/ `tierModelForNode` | 父回合引擎推断（`reg.kind === 'claude'`）；CLI 族节点不按档位挑模型 |
+| `02-session-store.js:2623` | `buildTurnSummary` | CLI 族原生工具（不经如意分发）一律计为命令 |
+| `04-permission-runtime.js:2463` / `:2529` | `lastSuccessfulClaudeModel` / `claudeProviderTailSince` | 续接绑定的模型、跨引擎断档的补齐切片（按 `engine: 'claude'` 或旧 `source: 'claude-cli'`） |
+| `06-provider-engine.js:1957` | `buildSkillsPromptSection` | 技能索引措辞按引擎族 |
+| `06d-memory-domain.js:1265` | `buildMemoryPromptSection` | 记忆段里的读文件工具名（CLI 族 `Read`，provider `file_read`） |
+| `06e-mission-domain.js:15` | `buildMissionPromptSection` | 两支取值相同的三元（历史遗留，无实际分叉） |
+| `00-boot.js:465` / `:588` | `appendUsageLedger` / `buildUsageSummary` | 用量账的引擎归一只认 `claude` / `openai` |
+| `13j-steward-tool-base.js:156` | `stewardEngineOf` | 管家看到的线程引擎：provider 记 `openai`，CLI 族原样透传 `agentCliType` |
+| `13m-steward-runner-base.js:255` | `stewardResolveRoute` | 管家回合只支持 provider 族，CLI 族返回 `steward.unsupported_engine` |

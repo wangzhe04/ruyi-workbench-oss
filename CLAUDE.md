@@ -22,9 +22,14 @@
 - 接口失败:`apiFailure(code, params, message, status)`;会话两句常见失败 `apiSessionIdInvalid()` / `apiSessionNotFound()`。
   裸串 `json({ ok:false, error:'…' })` 有只减不增的上限(`unit/api-error-helpers.test.js`)。
 - 线程五态:有卡片走 `stewardThreadStateFromCard`,只有会话头走 `stewardThreadStateFromHead`(06i),不要手拼证据键。
-- 新增 exec 档内建工具:决定进不进不可逆账(02 `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
+- 新增 exec 档内建工具:决定进不进不可逆账(02f `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
 - 新模块默认挂在依赖环外:需要调用后加载的模块时走 `*Hooks` 延迟绑定(先例 06j / 13t)。
   强连通分量的规模有上限(`module-dependency-graph.static.e2e.js`)。
+- 往 `14-main.js` 的 `module.exports` 加名字前先写直调它的测试:每个导出都须被 `dev-harness/` 或 `ruyi-workbench/tools/`
+  引用,总数只减不增(`unit/export-surface.test.js`;刻意的公共接口登记进它的 `PUBLIC_API` 并写理由)。
+- 静态锁先断言运行时的值(`require(server.js)` / `import()` public/js 模块 / `require` tools 脚本),只有结构性判据才读源码,
+  读时用 `dev-harness/lib/source-slice.js` 的 `constBlock`/`functionBlock`/`bracedBlock`/`sliceBlock`,别手写 `[\s\S]*?` 切片
+  (清册与分类见 `docs/architecture/source-text-locks.md`)。
 
 ## 提交前的快速检查(与 CI 同序)
 

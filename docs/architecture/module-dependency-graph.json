@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 57,
-    "providedSymbols": 2805,
-    "requiredSymbols": 2869,
-    "edges": 452,
+    "modules": 62,
+    "providedSymbols": 2808,
+    "requiredSymbols": 2826,
+    "edges": 486,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -205,21 +205,53 @@
       "requires": []
     },
     {
-      "file": "01-config.js",
+      "file": "01d-win-cmdline.js",
       "order": 3,
+      "layer": "foundation",
+      "note": "架构还债批 3·B: 从 01-config.js 搬出 Windows 命令行包装与整行长度预算(isBatchLauncher/quoteWinArg/batchSafeSpawn/CMD_*/cmdLineBudget*/spawnCmdLineLength;纯函数零出边,不进任何环;纯搬家,零行为变更)",
+      "provides": [
+        "CMD_EXE_LINE_LIMIT",
+        "CMD_LINE_QUOTE_MARGIN",
+        "CMD_LINE_SAFE_BUDGET",
+        "DIRECT_SPAWN_LINE_BUDGET",
+        "batchSafeSpawn",
+        "cmdLineBudgetFor",
+        "cmdLineBudgetSeam",
+        "isBatchLauncher",
+        "quoteWinArg",
+        "spawnCmdLineLength"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01e-permission-modes.js",
+      "order": 4,
+      "layer": "foundation",
+      "note": "架构还债批 3·B: 从 01-config.js 搬出权限档表/三层权限解析/内置 Agent 角色与归一(PERMISSION_MODES/AGENT_ROLE_PERMISSION_MODES/CLAUDE_PERMISSION_MODE_MAP/PERMISSION_MODE_ALIASES/PERMISSION_MODES_REQUIRING_CONFIRM/permissionModeFrom/resolvePermissionMode/BUILTIN_AGENT_ROLES/normalizeAgentRole/mergeAgentRole;纯函数零出边,不进任何环;纯搬家,零行为变更)",
+      "provides": [
+        "AGENT_ROLE_PERMISSION_MODES",
+        "BUILTIN_AGENT_ROLES",
+        "CLAUDE_PERMISSION_MODE_MAP",
+        "PERMISSION_MODES",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
+        "PERMISSION_MODE_ALIASES",
+        "mergeAgentRole",
+        "normalizeAgentRole",
+        "permissionModeFrom",
+        "resolvePermissionMode"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01-config.js",
+      "order": 5,
       "layer": "foundation",
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH",
       "provides": [
         "AGENT_CLI_TYPES",
-        "AGENT_ROLE_PERMISSION_MODES",
-        "BUILTIN_AGENT_ROLES",
         "CLAUDEPATH_CACHE_MS",
         "CLAUDE_NPM_EXE_REL",
-        "CLAUDE_PERMISSION_MODE_MAP",
         "CLAUDE_THINKING_EFFORTS",
-        "CMD_EXE_LINE_LIMIT",
-        "CMD_LINE_QUOTE_MARGIN",
-        "CMD_LINE_SAFE_BUDGET",
         "CONFIG_BOOKKEEPING_KEYS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
@@ -231,11 +263,7 @@
         "DESKTOP_PYTHON_MISS_CACHE_MS",
         "DESKTOP_PYTHON_OK_CACHE_MS",
         "DESKTOP_PYTHON_PROBE_TIMEOUT_MS",
-        "DIRECT_SPAWN_LINE_BUDGET",
         "DurableJsonStore",
-        "PERMISSION_MODES",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
-        "PERMISSION_MODE_ALIASES",
         "RUNTIME",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
@@ -260,7 +288,6 @@
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
-        "batchSafeSpawn",
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
@@ -268,8 +295,6 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
-        "cmdLineBudgetFor",
-        "cmdLineBudgetSeam",
         "commandForSelfMcp",
         "configCanonicalJson",
         "configComparableValue",
@@ -322,22 +347,18 @@
         "invalidateAgentCliPathCaches",
         "invalidateClaudePathCache",
         "isAskUserTool",
-        "isBatchLauncher",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
         "kimiMcpManagedIds",
         "lastGoodConfig",
         "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
-        "mergeAgentRole",
         "mutateConfig",
-        "normalizeAgentRole",
         "normalizeConfig",
         "normalizeDesktopPythonCandidate",
         "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
         "originOk",
-        "permissionModeFrom",
         "persistableConfig",
         "pickPython",
         "pickPythonAsync",
@@ -347,7 +368,6 @@
         "probeAgentCliLauncherRemembered",
         "probeDesktopPython",
         "probeDesktopPythonAsync",
-        "quoteWinArg",
         "readBody",
         "readConfig",
         "readConfigPrev",
@@ -360,7 +380,6 @@
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
-        "resolvePermissionMode",
         "safeSessionId",
         "sanitizeLastUsedEngineRoute",
         "selectedAgentCli",
@@ -369,7 +388,6 @@
         "serveStatic",
         "sessionPath",
         "sessionWriteChains",
-        "spawnCmdLineLength",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
@@ -548,6 +566,48 @@
           ]
         },
         {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODE_ALIASES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
           "kinds": [
@@ -663,7 +723,7 @@
     },
     {
       "file": "02c-turn-segments.js",
-      "order": 4,
+      "order": 6,
       "layer": "foundation",
       "note": "110-3b: 从 02-session-store.js 搬出回合分段构建器 createTurnSegmentBuilder(纯搬家,零行为变更)",
       "provides": [
@@ -672,21 +732,77 @@
       "requires": []
     },
     {
-      "file": "02-session-store.js",
-      "order": 5,
+      "file": "02d-session-overrides.js",
+      "order": 7,
       "layer": "foundation",
-      "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志",
+      "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话级内存覆盖表(sessionEngineRouteOverrides/sessionPermissionModeOverrides/sessionDesktopToolsOverrides)及其归一、读形与应用函数;唯一出边是 01e-permission-modes(PERMISSION_MODES),不进任何环;纯搬家,零行为变更",
+      "provides": [
+        "applySessionDesktopToolsOverride",
+        "applySessionPermissionModeOverride",
+        "liveSessionPermissionMode",
+        "normalizeSessionDesktopTools",
+        "normalizeSessionPermissionMode",
+        "sessionDesktopToolsOf",
+        "sessionDesktopToolsOverrides",
+        "sessionEngineRouteOverrides",
+        "sessionPermissionModeOf",
+        "sessionPermissionModeOverrides"
+      ],
+      "requires": [
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "02e-session-engine-route.js",
+      "order": 8,
+      "layer": "foundation",
+      "note": "架构还债批 3·B: 从 02-session-store.js 搬出会话引擎路由的纯函数(normalizeSessionEngineRoute/sessionEngineRouteFromConfig/inferSessionEngineRoute/configForSessionEngineRoute;123-N2 读写 config 的三件留在 02);零出边,不进任何环;纯搬家,零行为变更",
+      "provides": [
+        "configForSessionEngineRoute",
+        "inferSessionEngineRoute",
+        "normalizeSessionEngineRoute",
+        "sessionEngineRouteFromConfig"
+      ],
+      "requires": []
+    },
+    {
+      "file": "02f-turn-effect-kinds.js",
+      "order": 9,
+      "layer": "foundation",
+      "note": "架构还债批 3·B: 从 02-session-store.js 搬出回合摘要的工具分类表(TURN_SUMMARY_FILE_TOOLS/TURN_SUMMARY_COMMAND_TOOLS/TURN_SUMMARY_KNOWN_TOOLS/ARTIFACT_OUTPUT_PATH_KEYS/ARTIFACT_BRIDGED_WRITE_*/unprefixedBridgedName/isBridgedWriteTool)与不可逆操作账分类(IRREVERSIBLE_NATIVE_KIND/IRREVERSIBLE_BRIDGED_KIND/CLAUDE_IRREVERSIBLE_KIND/IRREVERSIBLE_LEDGER_MAX/irreversibleToolKind/irreversibleDetail);零出边,不进任何环;纯搬家,零行为变更",
       "provides": [
         "ARTIFACT_BRIDGED_WRITE_NAMES",
         "ARTIFACT_BRIDGED_WRITE_PREFIXES",
-        "ARTIFACT_IMG_EXTS",
         "ARTIFACT_OUTPUT_PATH_KEYS",
-        "BRIDGED_WRITE_PATH_ARGS",
         "CLAUDE_IRREVERSIBLE_KIND",
-        "INTERVENTION_TERMINAL",
         "IRREVERSIBLE_BRIDGED_KIND",
         "IRREVERSIBLE_LEDGER_MAX",
         "IRREVERSIBLE_NATIVE_KIND",
+        "TURN_SUMMARY_COMMAND_TOOLS",
+        "TURN_SUMMARY_FILE_TOOLS",
+        "TURN_SUMMARY_KNOWN_TOOLS",
+        "irreversibleDetail",
+        "irreversibleToolKind",
+        "isBridgedWriteTool",
+        "unprefixedBridgedName"
+      ],
+      "requires": []
+    },
+    {
+      "file": "02-session-store.js",
+      "order": 10,
+      "layer": "foundation",
+      "note": "会话存储 v2(head+NDJSON 正文)/索引/load-save/checkpoint journal/日志",
+      "provides": [
+        "ARTIFACT_IMG_EXTS",
+        "BRIDGED_WRITE_PATH_ARGS",
+        "INTERVENTION_TERMINAL",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -720,9 +836,6 @@
         "STEWARD_WATCH_NOTE_MAX",
         "TODO_MAX_ITEMS",
         "TODO_MAX_TEXT",
-        "TURN_SUMMARY_COMMAND_TOOLS",
-        "TURN_SUMMARY_FILE_TOOLS",
-        "TURN_SUMMARY_KNOWN_TOOLS",
         "WORKSPACE_BASELINE_DEFAULT_BUDGET_MS",
         "WORKSPACE_BASELINE_EXTS",
         "WORKSPACE_BASELINE_MAX_FILES",
@@ -732,9 +845,7 @@
         "appendIntervention",
         "appendMissionChangeRecord",
         "applyMissionUpdate",
-        "applySessionDesktopToolsOverride",
         "applySessionMetaPatch",
-        "applySessionPermissionModeOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
         "asResultObject",
@@ -753,7 +864,6 @@
         "collectBridgedWriteTarget",
         "collectBridgedWriteTargets",
         "compactInterventionJournal",
-        "configForSessionEngineRoute",
         "createMissionContainer",
         "createSession",
         "deleteSession",
@@ -768,7 +878,6 @@
         "foldTurnSummaries",
         "followupAcceptanceCriterion",
         "healStalePendingSegments",
-        "inferSessionEngineRoute",
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
@@ -776,9 +885,6 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
-        "irreversibleDetail",
-        "irreversibleToolKind",
-        "isBridgedWriteTool",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -807,7 +913,6 @@
         "listMissionContainerIds",
         "listMissionContainers",
         "listSessions",
-        "liveSessionPermissionMode",
         "loadSession",
         "loadSessionV1Backup",
         "markInterruptedInterventions",
@@ -849,9 +954,6 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeSession",
-        "normalizeSessionDesktopTools",
-        "normalizeSessionEngineRoute",
-        "normalizeSessionPermissionMode",
         "normalizeTodoItems",
         "noteMissionMembership",
         "overlayUnflushedSessionIndex",
@@ -888,13 +990,9 @@
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
-        "sessionDesktopToolsOf",
-        "sessionDesktopToolsOverrides",
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
-        "sessionEngineRouteFromConfig",
-        "sessionEngineRouteOverrides",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
         "sessionIndexFlushTimer",
@@ -913,8 +1011,6 @@
         "sessionNotesPath",
         "sessionNotesWriteChains",
         "sessionObjectIsStale",
-        "sessionPermissionModeOf",
-        "sessionPermissionModeOverrides",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "setSessionIndexRebuildScanHookForTest",
@@ -924,7 +1020,6 @@
         "stopMissionAgentRuns",
         "transitionInterventionState",
         "truncateSessionBody",
-        "unprefixedBridgedName",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
         "waitMissionTurnSettled",
@@ -1082,13 +1177,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1097,13 +1185,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readFileTail",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -1134,6 +1215,153 @@
           "symbol": "sessionWriteChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionDesktopToolsOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "normalizeSessionDesktopTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "normalizeSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "ARTIFACT_OUTPUT_PATH_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_LEDGER_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "irreversibleDetail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "irreversibleToolKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "isBridgedWriteTool",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_KNOWN_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "unprefixedBridgedName",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1287,7 +1515,7 @@
     },
     {
       "file": "03-bridge-guard.js",
-      "order": 6,
+      "order": 11,
       "layer": "foundation",
       "note": "桥接写族覆盖审计/工作区护栏",
       "provides": [
@@ -1436,13 +1664,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1451,6 +1672,13 @@
         {
           "provider": "01-config.js",
           "symbol": "spawnProbeAsync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
           ]
@@ -1498,7 +1726,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
@@ -1522,7 +1750,7 @@
     },
     {
       "file": "04-visual-pipeline.js",
-      "order": 7,
+      "order": 12,
       "layer": "foundation",
       "note": "第104波：Provider 附件与桌面截图视觉历史管线（隔离命名空间）",
       "provides": [
@@ -1547,7 +1775,7 @@
     },
     {
       "file": "04-permission-runtime.js",
-      "order": 8,
+      "order": 13,
       "layer": "foundation",
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
@@ -1647,6 +1875,7 @@
         "parseAgentCliEvent",
         "parseClaudeEvent",
         "parseClaudeTaskNotification",
+        "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
         "pendingPermissions",
         "pendingPlans",
@@ -1797,13 +2026,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "detectDesktopMcp",
           "kinds": [
             "call"
@@ -1840,6 +2062,13 @@
         {
           "provider": "01-config.js",
           "symbol": "selectedAgentCli",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
           ]
@@ -1918,7 +2147,7 @@
     },
     {
       "file": "04-desktop-shell.js",
-      "order": 9,
+      "order": 14,
       "layer": "foundation",
       "note": "第104波：Windows 进程执行、原生选择器与 Explorer reveal（隔离命名空间）",
       "provides": [
@@ -1961,7 +2190,7 @@
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01d-win-cmdline.js",
           "symbol": "batchSafeSpawn",
           "kinds": [
             "call",
@@ -1980,7 +2209,7 @@
     },
     {
       "file": "04f-toolbox-services.js",
-      "order": 10,
+      "order": 15,
       "layer": "foundation",
       "note": "ruyi-toolbox 服务类组件：拉起／探活／接成能力端点／回收（登记读取与 MCP 并入住 04）",
       "provides": [
@@ -2107,7 +2336,7 @@
     },
     {
       "file": "04h-provider-http.js",
-      "order": 11,
+      "order": 16,
       "layer": "foundation",
       "note": "架构还债批 2·A:OpenAI 兼容服务商 HTTP 原语的唯一住处(端点 URL 归一化/请求头/非流式 POST/瞬时错误重试骨架;自 05/06/07/08/09/10 纯搬家,零出边故不进任何环)",
       "provides": [
@@ -2126,10 +2355,11 @@
     },
     {
       "file": "05-claude-engine.js",
-      "order": 12,
+      "order": 17,
       "layer": "engine",
       "note": "runClaudeTurn/stream-json 解析/spawn 环境/权限桥接线",
       "provides": [
+        "AGENT_CLI_ADAPTERS",
         "ASR_FIX_CONTEXT",
         "ASR_FIX_CONTEXT_MAX",
         "ASR_FIX_HARDEN",
@@ -2144,6 +2374,7 @@
         "PROVIDER_REASONING_EFFORTS",
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
+        "agentCliAdapter",
         "applyProviderReasoningEffort",
         "asrChatContentText",
         "asrFixContextTail",
@@ -2318,41 +2549,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CMD_EXE_LINE_LIMIT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CMD_LINE_QUOTE_MARGIN",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetSeam",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -2381,13 +2577,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "isBatchLauncher",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
           "kinds": [
             "call"
@@ -2396,13 +2585,6 @@
         {
           "provider": "01-config.js",
           "symbol": "probeAgentCliLauncher",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "quoteWinArg",
           "kinds": [
             "call"
           ]
@@ -2430,13 +2612,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "syncMcpServersToKimi",
           "kinds": [
             "call"
@@ -2447,6 +2622,62 @@
           "symbol": "writeToChild",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "CMD_EXE_LINE_LIMIT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "CMD_LINE_QUOTE_MARGIN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetSeam",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "quoteWinArg",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -2668,7 +2899,14 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "parseAgentCliEvent",
+          "symbol": "parseClaudeEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "parseKimiStreamJsonEvent",
           "kinds": [
             "call"
           ]
@@ -3006,7 +3244,7 @@
     },
     {
       "file": "05b-kimi-bridge.js",
-      "order": 13,
+      "order": 18,
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
@@ -3616,7 +3854,7 @@
     },
     {
       "file": "05c-kimi-search-policy.js",
-      "order": 14,
+      "order": 19,
       "layer": "engine",
       "note": "Kimi ACP 原生只读 Grep/Glob 安全分类器",
       "provides": [
@@ -3751,7 +3989,7 @@
     },
     {
       "file": "05d-kimi-prompt-parts.js",
-      "order": 15,
+      "order": 20,
       "layer": "engine",
       "note": "Kimi ACP 本回合提示词/图片 ContentBlock 安全降级",
       "provides": [
@@ -3806,7 +4044,7 @@
     },
     {
       "file": "06-provider-engine.js",
-      "order": 16,
+      "order": 21,
       "layer": "engine",
       "note": "provider 引擎助手/能力探测/metrics/转录 GC/存储管家/playbooks",
       "provides": [
@@ -4105,13 +4343,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -4129,6 +4360,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -4317,7 +4555,7 @@
     },
     {
       "file": "06b-prompt-registry.js",
-      "order": 17,
+      "order": 22,
       "layer": "engine",
       "note": "第51波51c-b(04 Phase B):提示词外置 i18n registry(PROMPT_PACK_VERSION + PROMPT_ZH 中文包,Phase1 中文版骨架)",
       "provides": [
@@ -4340,7 +4578,7 @@
     },
     {
       "file": "06c-agent-loop-hooks.js",
-      "order": 18,
+      "order": 23,
       "layer": "engine",
       "note": "第75d波 Escapade Harness 小迭代:Agent Loop 只读生命周期钩子、故障隔离与 trace spine",
       "provides": [
@@ -4372,7 +4610,7 @@
     },
     {
       "file": "06h-retrieval-index.js",
-      "order": 19,
+      "order": 24,
       "layer": "engine",
       "note": "113a:离线检索原语(特征哈希向量/TF-IDF/余弦/RRF),记忆召回与会话搜索共用",
       "provides": [
@@ -4395,7 +4633,7 @@
     },
     {
       "file": "06i-steward-core.js",
-      "order": 20,
+      "order": 25,
       "layer": "engine",
       "note": "第116波116a:管家(Steward)引擎侧纯函数与延迟绑定命名空间 StewardHooks(不实现,契约声明)",
       "provides": [
@@ -4556,7 +4794,7 @@
     },
     {
       "file": "06d-memory-domain.js",
-      "order": 21,
+      "order": 26,
       "layer": "engine",
       "note": "第104波：跨会话记忆、提议、关系图与检索",
       "provides": [
@@ -4945,7 +5183,7 @@
     },
     {
       "file": "06e-mission-domain.js",
-      "order": 22,
+      "order": 27,
       "layer": "engine",
       "note": "第104波：Mission 提示摘要与 until-done 驱动",
       "provides": [
@@ -5056,7 +5294,7 @@
     },
     {
       "file": "06f-autonomy-grants.js",
-      "order": 23,
+      "order": 28,
       "layer": "engine",
       "note": "第104波：自治授权签发、消费、撤销与预检",
       "provides": [
@@ -5175,7 +5413,7 @@
     },
     {
       "file": "06g-resource-leases.js",
-      "order": 24,
+      "order": 29,
       "layer": "engine",
       "note": "第104波：Agent 资源归一化、冲突检测与租约",
       "provides": [
@@ -5236,7 +5474,7 @@
     },
     {
       "file": "06j-scheduler-core.js",
-      "order": 25,
+      "order": 30,
       "layer": "engine",
       "note": "第123波 M1(37 号文 §3.1;设计权威 29 号文 §3):定时任务纯函数内核 —— normalizeSchedulerTask / nextFireAt / parseCronExpr / describeSchedule / occurrenceKey / missedOccurrence(零 I/O、零全局状态、时间全由入参喂)",
       "provides": [
@@ -5289,7 +5527,7 @@
     },
     {
       "file": "06k-config-patch.js",
-      "order": 26,
+      "order": 31,
       "layer": "engine",
       "note": "架构还债批 2 B2: 从 13-http-router.js 搬出 applyConfigPatch(配置补丁落盘与副作用;纯搬家,零行为变更),经 01 的 ConfigPatchHooks 调用、零入边",
       "provides": [
@@ -5347,13 +5585,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "syncAgentRolesToClaude",
           "kinds": [
             "call"
@@ -5381,6 +5612,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "rememberLastUsedEngineRoute",
           "kinds": [
@@ -5388,7 +5626,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
@@ -5440,7 +5678,7 @@
     },
     {
       "file": "07-autonomy.js",
-      "order": 27,
+      "order": 32,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -5645,35 +5883,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
           "kinds": [
             "call"
           ]
@@ -5708,28 +5918,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "mergeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
           "kinds": [
             "call"
           ]
@@ -5744,6 +5933,55 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "mergeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
           "kinds": [
             "call"
           ]
@@ -5791,7 +6029,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
@@ -5990,7 +6228,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 28,
+      "order": 33,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -6249,13 +6487,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -6299,6 +6530,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "call"
           ]
@@ -6741,7 +6979,7 @@
     },
     {
       "file": "09b-replan-ledger.js",
-      "order": 29,
+      "order": 34,
       "layer": "orchestration",
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -6787,7 +7025,7 @@
     },
     {
       "file": "09d-token-estimation.js",
-      "order": 30,
+      "order": 35,
       "layer": "orchestration",
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -6821,7 +7059,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 31,
+      "order": 36,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -7082,13 +7320,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "call"
@@ -7173,13 +7404,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -7188,6 +7412,20 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -8394,7 +8632,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 32,
+      "order": 37,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -8636,13 +8874,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "permissionModeFrom",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -8651,13 +8882,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -8761,8 +8985,15 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
+          "provider": "01e-permission-modes.js",
+          "symbol": "permissionModeFrom",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -8770,13 +9001,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "createSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "inferSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -8818,13 +9042,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "readSessionNotes",
           "kinds": [
             "call"
@@ -8853,13 +9070,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -8875,6 +9085,34 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -9093,7 +9331,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 33,
+      "order": 38,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -9432,7 +9670,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 34,
+      "order": 39,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -10042,7 +10280,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 35,
+      "order": 40,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -10060,7 +10298,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 36,
+      "order": 41,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -10391,13 +10629,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "ConfigPatchHooks",
           "kinds": [
             "read"
@@ -10492,20 +10723,6 @@
           "symbol": "mutateConfig",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -10642,6 +10859,27 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "applyMissionUpdate",
           "kinds": [
@@ -10651,13 +10889,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "bumpMissionChangeSeq",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -10777,6 +11008,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "workspaceBaselinePathKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -11737,7 +11975,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 37,
+      "order": 42,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -12189,7 +12427,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 38,
+      "order": 43,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -12294,7 +12532,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 39,
+      "order": 44,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -12459,20 +12697,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -12481,13 +12705,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12523,6 +12740,27 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "sessionSearchIndexEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12739,13 +12977,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -12789,6 +13020,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -13210,7 +13448,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 40,
+      "order": 45,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -13492,7 +13730,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 41,
+      "order": 46,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -13749,7 +13987,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 42,
+      "order": 47,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -13882,13 +14120,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -13902,8 +14133,8 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
-          "symbol": "applySessionPermissionModeOverride",
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -13918,6 +14149,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "repairMissionChangeTornTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -13989,7 +14227,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 43,
+      "order": 48,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -14099,13 +14337,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -14116,6 +14347,13 @@
           "symbol": "sessionSearchIndexEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14176,13 +14414,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -14204,13 +14435,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionPermissionModeOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
           "kinds": [
             "call"
@@ -14226,6 +14450,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOf",
           "kinds": [
             "call"
           ]
@@ -14815,7 +15053,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 44,
+      "order": 49,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -14929,16 +15167,16 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15589,7 +15827,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 45,
+      "order": 50,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -16077,7 +16315,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 46,
+      "order": 51,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -16155,20 +16393,20 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
@@ -16227,7 +16465,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 47,
+      "order": 52,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -16377,7 +16615,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 48,
+      "order": 53,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -16834,7 +17072,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 49,
+      "order": 54,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -17195,7 +17433,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 50,
+      "order": 55,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -17290,7 +17528,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
           "symbol": "normalizeSessionEngineRoute",
           "kinds": [
             "call"
@@ -17679,7 +17917,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 51,
+      "order": 56,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -18020,7 +18258,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 52,
+      "order": 57,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -18157,7 +18395,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 53,
+      "order": 58,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -18296,13 +18534,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -18320,6 +18551,13 @@
           "symbol": "send",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18445,7 +18683,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 54,
+      "order": 59,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -18719,7 +18957,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 55,
+      "order": 60,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -19027,7 +19265,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 56,
+      "order": 61,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -19119,13 +19357,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "SESSION_SCHEMA",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01-config.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -19141,28 +19372,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "buildClaudeCliEnv",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
           "kinds": [
             "read"
           ]
@@ -19253,20 +19463,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "invalidateAgentCliPathCaches",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "invalidateClaudePathCache",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "mutateConfig",
           "kinds": [
             "read"
@@ -19274,28 +19470,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "normalizeConfig",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
           "kinds": [
             "read"
           ]
@@ -19330,13 +19505,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "quoteWinArg",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call",
@@ -19353,27 +19521,6 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "selectedAgentCli",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
           "kinds": [
             "read"
           ]
@@ -19582,6 +19729,69 @@
           ]
         },
         {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "quoteWinArg",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "BRIDGED_WRITE_PATH_ARGS",
           "kinds": [
@@ -19632,13 +19842,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "createMissionContainer",
           "kinds": [
             "read"
@@ -19681,35 +19884,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "foldMissionChangeJournalText",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "inferSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "invalidateSessionIndex",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "IRREVERSIBLE_NATIVE_KIND",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "isBridgedWriteTool",
           "kinds": [
             "read"
           ]
@@ -19765,13 +19940,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "read"
@@ -19786,28 +19954,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "MISSION_CONTAINER_SCHEMA",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "missionAttachThread",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionChangeFilePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionDetachThread",
           "kinds": [
             "read"
           ]
@@ -19842,13 +19989,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "patchMissionContainer",
           "kinds": [
             "read"
@@ -19857,20 +19997,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readInterventions",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readInterventionsWithMeta",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readMissionChangesWithMeta",
           "kinds": [
             "read"
           ]
@@ -19961,13 +20087,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionMeta",
           "kinds": [
             "read"
@@ -20003,35 +20122,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "TURN_SUMMARY_FILE_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "unprefixedBridgedName",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "workspaceBaselineIsCodePath",
           "kinds": [
             "read"
           ]
@@ -20051,6 +20142,62 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_NATIVE_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "auditBridgedWriteCoverage",
           "kinds": [
@@ -20060,13 +20207,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "AUTOEXEC_DENYLIST",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "BRIDGED_WRITE_AUDIT_EXEMPT",
           "kinds": [
             "read"
           ]
@@ -20129,13 +20269,6 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "fileAllowedRoots",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "guardFileToolPath",
           "kinds": [
             "read"
@@ -20143,21 +20276,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "guardWorkspaceExecute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "guardWorkspacePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "normalizeAutoexecPath",
           "kinds": [
             "read"
           ]
@@ -20185,35 +20304,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "readFilePreview",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "resolvePreferredCodeEditor",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "resolveWorkspace",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "workspaceWriteRoots",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-desktop-shell.js",
-          "symbol": "DesktopShell",
           "kinds": [
             "read"
           ]
@@ -20402,21 +20493,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "scanMcpDropIns",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "scanMcpSources",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-visual-pipeline.js",
-          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -20458,13 +20535,6 @@
         },
         {
           "provider": "04h-provider-http.js",
-          "symbol": "providerPostJsonOnce",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
           "symbol": "providerRequestHeaders",
           "kinds": [
             "read"
@@ -20480,6 +20550,20 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "AGENT_CLI_ADAPTERS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "read"
           ]
@@ -20570,13 +20654,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "compactKimiNative",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "consumeKimiAcpApproval",
           "kinds": [
             "read"
@@ -20585,13 +20662,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "isKimiAcpPlanFilePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpConcreteEditGuard",
           "kinds": [
             "read"
           ]
@@ -20640,13 +20710,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpNativeWindowsPathToPosixPath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "kimiAcpPermissionToolCall",
           "kinds": [
             "read"
@@ -20662,20 +20725,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiAcpSuccessfulEnterPlanMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpToolTier",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpToolUpdateSucceeded",
           "kinds": [
             "read"
           ]
@@ -20717,13 +20766,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "readKimiWireRuntime",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "resolveKimiAcpPlanFilePath",
           "kinds": [
             "read"
@@ -20732,13 +20774,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "runKimiCompact",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "stopKimiServer",
           "kinds": [
             "read"
           ]
@@ -20760,13 +20795,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "appendTurnPolicies",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "auditSummaryFor",
           "kinds": [
             "read"
           ]
@@ -20823,13 +20851,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "buildProviderSystemPrompt",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "buildResponseLanguagePolicy",
           "kinds": [
             "read"
           ]
@@ -20899,13 +20920,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "collectAudit",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "collectStorageStats",
           "kinds": [
             "read"
@@ -20948,20 +20962,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "isLongToolTask",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "loadAllPlaybooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "matchServiceEntry",
           "kinds": [
             "read"
@@ -20977,13 +20977,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "maybeWriteThreadBrief",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "NETWORK_ANCHORS",
           "kinds": [
             "read"
           ]
@@ -21047,13 +21040,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "providerRawCompletion",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "readProjectMemory",
           "kinds": [
             "read"
           ]
@@ -21221,13 +21207,6 @@
         },
         {
           "provider": "06d-memory-domain.js",
-          "symbol": "effectiveMemorySelection",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
           "symbol": "extractMemoryRelationProposals",
           "kinds": [
             "read"
@@ -21278,13 +21257,6 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "memoryProposalSimilarity",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
-          "symbol": "memorySearchTerms",
           "kinds": [
             "read"
           ]
@@ -21578,20 +21550,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_MEMORY_LIMITS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_PERMISSION_MODE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PERMISSION_RANK",
           "kinds": [
             "read"
@@ -21613,13 +21571,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_QUICK_KIND",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
@@ -21628,13 +21579,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_TITLE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_THREAD_STATES",
           "kinds": [
             "read"
           ]
@@ -21690,13 +21634,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardExemptAbsoluteDeleteTarget",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptDelegationVerdict",
           "kinds": [
             "read"
@@ -21712,13 +21649,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptHits",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardExemptIndirectConstruction",
           "kinds": [
             "read"
           ]
@@ -21774,13 +21704,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardMemoryTerms",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "stewardOpenAiFallback",
           "kinds": [
             "read"
@@ -21796,13 +21719,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardPlaybookMissingInputs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardSanitizeBlock",
           "kinds": [
             "read"
           ]
@@ -21984,20 +21900,6 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_ON_FAILURE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_ON_MISSED",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_OUTCOMES",
           "kinds": [
             "read"
@@ -22005,42 +21907,7 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_PAYLOAD_KINDS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_PHASES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_SCHEDULE_KINDS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_TARGET_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_THREAD_TIERS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SchedulerHooks",
           "kinds": [
             "read"
           ]
@@ -22138,13 +22005,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "estimateToolSchemaTokens",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
           "kinds": [
             "read"
@@ -22201,13 +22061,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "readProjectAgentRoles",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "requestNativePermission",
           "kinds": [
             "read"
@@ -22244,13 +22097,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "agentRunResultSlice",
           "kinds": [
             "read"
           ]
@@ -22474,13 +22320,6 @@
         },
         {
           "provider": "08-agent-runs.js",
-          "symbol": "sanitizeAgentOutputSchema",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
           "symbol": "saveAgentWorkflow",
           "kinds": [
             "read"
@@ -22538,34 +22377,6 @@
         {
           "provider": "09-workflow.js",
           "symbol": "waitForAgentRunResults",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "applyReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "proposeReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "rollbackReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "validateReplanPatch",
           "kinds": [
             "read"
           ]
@@ -22635,13 +22446,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "applySummaryCallPolicy",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
           "kinds": [
             "read"
@@ -22699,13 +22503,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "COMPACT_RESEED_TAIL_MAX_TOKENS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "compactHistoryFromSession",
           "kinds": [
             "read"
           ]
@@ -22853,13 +22650,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "mergeSessionNotes",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "MODEL_CONTEXT_TABLE",
           "kinds": [
             "read"
           ]
@@ -23027,13 +22817,6 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "builtinSearch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
           "symbol": "classifyFetchError",
           "kinds": [
             "read"
@@ -23152,20 +22935,6 @@
           ]
         },
         {
-          "provider": "11-native-tools.js",
-          "symbol": "zipCollectEntries",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "12-tool-dispatch.js",
-          "symbol": "buildWorkbenchSelfStatus",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13-http-router.js",
           "symbol": "doctor",
           "kinds": [
@@ -23201,22 +22970,8 @@
           ]
         },
         {
-          "provider": "13d-core-domain-routes.js",
-          "symbol": "agentRunActionCommand",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13e-pretender-index.js",
-          "symbol": "pretenderIndexPath",
           "kinds": [
             "read"
           ]
@@ -23316,13 +23071,6 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "ensureStewardSession",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
           "kinds": [
             "read"
           ]
@@ -23566,6 +23314,26 @@
     },
     {
       "from": "01-config.js",
+      "to": "01d-win-cmdline.js",
+      "symbols": [
+        "batchSafeSpawn",
+        "isBatchLauncher"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01-config.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "CLAUDE_PERMISSION_MODE_MAP",
+        "PERMISSION_MODES",
+        "PERMISSION_MODE_ALIASES",
+        "normalizeAgentRole"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "01-config.js",
       "to": "03-bridge-guard.js",
       "symbols": [
         "existsExecutableAsync",
@@ -23650,16 +23418,63 @@
       "from": "02-session-store.js",
       "to": "01-config.js",
       "symbols": [
-        "PERMISSION_MODES",
         "atomicWriteJson",
         "mutateConfig",
         "readConfig",
         "readFileTail",
-        "resolvePermissionMode",
         "safeSessionId",
         "selectedAgentCli",
         "sessionPath",
         "sessionWriteChains"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "applySessionDesktopToolsOverride",
+        "applySessionPermissionModeOverride",
+        "normalizeSessionDesktopTools",
+        "normalizeSessionPermissionMode",
+        "sessionDesktopToolsOverrides",
+        "sessionEngineRouteOverrides",
+        "sessionPermissionModeOf",
+        "sessionPermissionModeOverrides"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
+        "inferSessionEngineRoute",
+        "normalizeSessionEngineRoute",
+        "sessionEngineRouteFromConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "02-session-store.js",
+      "to": "02f-turn-effect-kinds.js",
+      "symbols": [
+        "ARTIFACT_OUTPUT_PATH_KEYS",
+        "IRREVERSIBLE_LEDGER_MAX",
+        "TURN_SUMMARY_COMMAND_TOOLS",
+        "TURN_SUMMARY_FILE_TOOLS",
+        "TURN_SUMMARY_KNOWN_TOOLS",
+        "irreversibleDetail",
+        "irreversibleToolKind",
+        "isBridgedWriteTool",
+        "unprefixedBridgedName"
       ],
       "direction": "backward"
     },
@@ -23755,6 +23570,14 @@
       "direction": "forward"
     },
     {
+      "from": "02d-session-overrides.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "03-bridge-guard.js",
       "to": "00-boot.js",
       "symbols": [
@@ -23774,9 +23597,16 @@
       "from": "03-bridge-guard.js",
       "to": "01-config.js",
       "symbols": [
-        "batchSafeSpawn",
         "readConfig",
         "spawnProbeAsync"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "03-bridge-guard.js",
+      "to": "01d-win-cmdline.js",
+      "symbols": [
+        "batchSafeSpawn"
       ],
       "direction": "backward"
     },
@@ -23789,7 +23619,14 @@
         "journalDir",
         "journalRecord",
         "journalSessionCtx",
-        "kindForPath",
+        "kindForPath"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "03-bridge-guard.js",
+      "to": "02f-turn-effect-kinds.js",
+      "symbols": [
         "unprefixedBridgedName"
       ],
       "direction": "backward"
@@ -23824,7 +23661,7 @@
     },
     {
       "from": "04-desktop-shell.js",
-      "to": "01-config.js",
+      "to": "01d-win-cmdline.js",
       "symbols": [
         "batchSafeSpawn"
       ],
@@ -23866,13 +23703,20 @@
       "from": "04-permission-runtime.js",
       "to": "01-config.js",
       "symbols": [
-        "batchSafeSpawn",
         "detectDesktopMcp",
         "ensureDesktopMcpWarm",
         "generateMcpConfig",
         "mutateConfig",
         "readConfig",
         "selectedAgentCli"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "04-permission-runtime.js",
+      "to": "01d-win-cmdline.js",
+      "symbols": [
+        "batchSafeSpawn"
       ],
       "direction": "backward"
     },
@@ -23991,26 +23835,40 @@
       "from": "05-claude-engine.js",
       "to": "01-config.js",
       "symbols": [
-        "CLAUDE_PERMISSION_MODE_MAP",
-        "CMD_EXE_LINE_LIMIT",
-        "CMD_LINE_QUOTE_MARGIN",
         "RUNTIME",
         "buildUserEnvelope",
-        "cmdLineBudgetFor",
-        "cmdLineBudgetSeam",
         "decodeClaudeCliText",
         "effectiveAnthropicEnv",
         "generateSessionMcpConfig",
         "isAskUserTool",
-        "isBatchLauncher",
         "prepareAgentCliSpawn",
         "probeAgentCliLauncher",
-        "quoteWinArg",
         "readConfig",
         "selectedAgentCli",
-        "spawnCmdLineLength",
         "syncMcpServersToKimi",
         "writeToChild"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
+      "to": "01d-win-cmdline.js",
+      "symbols": [
+        "CMD_EXE_LINE_LIMIT",
+        "CMD_LINE_QUOTE_MARGIN",
+        "cmdLineBudgetFor",
+        "cmdLineBudgetSeam",
+        "isBatchLauncher",
+        "quoteWinArg",
+        "spawnCmdLineLength"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "CLAUDE_PERMISSION_MODE_MAP"
       ],
       "direction": "backward"
     },
@@ -24071,7 +23929,8 @@
         "lastSuccessfulClaudeModel",
         "logEvent",
         "nativeClaudeAgentResultInfo",
-        "parseAgentCliEvent",
+        "parseClaudeEvent",
+        "parseKimiStreamJsonEvent",
         "permissionWaitMs",
         "redact",
         "registerUserQuestion",
@@ -24419,11 +24278,18 @@
       "from": "06-provider-engine.js",
       "to": "01-config.js",
       "symbols": [
-        "PERMISSION_MODES",
         "RUNTIME",
         "atomicWriteJson",
         "readConfig",
         "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06-provider-engine.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES"
       ],
       "direction": "backward"
     },
@@ -24792,7 +24658,6 @@
       "to": "01-config.js",
       "symbols": [
         "ConfigPatchHooks",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
         "invalidateAgentCliPathCaches",
         "mutateConfig",
         "syncAgentRolesToClaude",
@@ -24804,9 +24669,24 @@
     },
     {
       "from": "06k-config-patch.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES_REQUIRING_CONFIRM"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
       "to": "02-session-store.js",
       "symbols": [
-        "rememberLastUsedEngineRoute",
+        "rememberLastUsedEngineRoute"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
         "sessionEngineRouteFromConfig"
       ],
       "direction": "backward"
@@ -24863,20 +24743,13 @@
       "from": "07-autonomy.js",
       "to": "01-config.js",
       "symbols": [
-        "BUILTIN_AGENT_ROLES",
-        "CLAUDE_PERMISSION_MODE_MAP",
         "atomicWriteJson",
-        "batchSafeSpawn",
         "buildUserEnvelope",
-        "cmdLineBudgetFor",
         "decodeClaudeCliText",
         "detectClaudePath",
         "effectiveAnthropicEnv",
         "generateAgentNodeMcpConfig",
-        "mergeAgentRole",
-        "normalizeAgentRole",
-        "safeSessionId",
-        "spawnCmdLineLength"
+        "safeSessionId"
       ],
       "direction": "backward"
     },
@@ -24891,6 +24764,27 @@
     },
     {
       "from": "07-autonomy.js",
+      "to": "01d-win-cmdline.js",
+      "symbols": [
+        "batchSafeSpawn",
+        "cmdLineBudgetFor",
+        "spawnCmdLineLength"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "07-autonomy.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "BUILTIN_AGENT_ROLES",
+        "CLAUDE_PERMISSION_MODE_MAP",
+        "mergeAgentRole",
+        "normalizeAgentRole"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "07-autonomy.js",
       "to": "02-session-store.js",
       "symbols": [
         "BRIDGED_WRITE_PATH_ARGS",
@@ -24898,7 +24792,14 @@
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
         "saveSession",
-        "settleIntervention",
+        "settleIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "07-autonomy.js",
+      "to": "02f-turn-effect-kinds.js",
+      "symbols": [
         "unprefixedBridgedName"
       ],
       "direction": "backward"
@@ -25040,13 +24941,20 @@
       "symbols": [
         "MISSION_STALL_SIGNAL_WINDOW_MS",
         "bridgedWriteRelativePathArg",
-        "liveSessionPermissionMode",
         "missionSignalThrottleAllow",
         "mutateSession",
         "providerHistoryToolCalls",
         "readInterventions",
         "registerIntervention",
         "settleIntervention"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "08-agent-runs.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "liveSessionPermissionMode"
       ],
       "direction": "backward"
     },
@@ -25262,7 +25170,6 @@
         "finalizeMissionAfterTurn",
         "isUntitledSessionTitle",
         "journalReadIndex",
-        "liveSessionPermissionMode",
         "loadSession",
         "mergeMissionBeforeSave",
         "normalizeTodoItems",
@@ -25275,7 +25182,6 @@
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
         "saveSession",
-        "sessionDesktopToolsOf",
         "settleIntervention"
       ],
       "direction": "backward"
@@ -25285,6 +25191,15 @@
       "to": "02c-turn-segments.js",
       "symbols": [
         "createTurnSegmentBuilder"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "liveSessionPermissionMode",
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -25637,10 +25552,8 @@
       "to": "01-config.js",
       "symbols": [
         "DurableJsonStore",
-        "permissionModeFrom",
         "readConfig",
-        "readJsonBody",
-        "resolvePermissionMode"
+        "readJsonBody"
       ],
       "direction": "backward"
     },
@@ -25667,25 +25580,41 @@
     },
     {
       "from": "10-context-governance.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "permissionModeFrom",
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "10-context-governance.js",
       "to": "02-session-store.js",
       "symbols": [
-        "configForSessionEngineRoute",
         "createSession",
-        "inferSessionEngineRoute",
         "journalBytesAdjust",
         "journalDir",
         "journalGc",
         "loadSession",
         "mutateSession",
-        "normalizeSessionEngineRoute",
         "readSessionNotes",
         "rememberLastUsedEngineRoute",
         "repairProviderHistoryPairing",
         "saveSession",
-        "sessionEngineRouteFromConfig",
         "sessionObjectIsStale",
         "withJournalWriteLock",
         "writeSessionNotes"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "10-context-governance.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
+        "configForSessionEngineRoute",
+        "inferSessionEngineRoute",
+        "normalizeSessionEngineRoute",
+        "sessionEngineRouteFromConfig"
       ],
       "direction": "backward"
     },
@@ -26087,9 +26016,7 @@
       "to": "01-config.js",
       "symbols": [
         "AGENT_CLI_TYPES",
-        "BUILTIN_AGENT_ROLES",
         "ConfigPatchHooks",
-        "PERMISSION_MODES",
         "RUNTIME",
         "atomicWriteJson",
         "authorizeRoute",
@@ -26107,7 +26034,6 @@
         "hostAllowed",
         "mcpConfigFilePath",
         "mutateConfig",
-        "normalizeAgentRole",
         "prepareAgentCliSpawn",
         "readConfig",
         "readJsonBody",
@@ -26138,12 +26064,21 @@
     },
     {
       "from": "13-http-router.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "BUILTIN_AGENT_ROLES",
+        "PERMISSION_MODES",
+        "normalizeAgentRole"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
       "to": "02-session-store.js",
       "symbols": [
         "MISSION_MAX_TEXT",
         "applyMissionUpdate",
         "bumpMissionChangeSeq",
-        "configForSessionEngineRoute",
         "evaluateMissionCheck",
         "flushSessionIndexSync",
         "invalidateSessionIndex",
@@ -26160,6 +26095,14 @@
         "saveSession",
         "workspaceBaselineIsCodePath",
         "workspaceBaselinePathKey"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13-http-router.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
+        "configForSessionEngineRoute"
       ],
       "direction": "backward"
     },
@@ -26605,12 +26548,9 @@
       "from": "13d-core-domain-routes.js",
       "to": "01-config.js",
       "symbols": [
-        "PERMISSION_MODES",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
         "atomicWriteJson",
         "readConfig",
         "readJsonBody",
-        "resolvePermissionMode",
         "safeSessionId",
         "send",
         "tokenMatches",
@@ -26623,6 +26563,16 @@
       "to": "01c-runtime-flags.js",
       "symbols": [
         "sessionSearchIndexEnabled"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13d-core-domain-routes.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
+        "resolvePermissionMode"
       ],
       "direction": "backward"
     },
@@ -26660,7 +26610,6 @@
         "saveSession",
         "sessionBodyPaths",
         "sessionBriefOf",
-        "sessionDesktopToolsOf",
         "sessionDisplayTitle",
         "sessionKind",
         "sessionMeta",
@@ -26668,6 +26617,14 @@
         "settleIntervention",
         "transitionInterventionState",
         "updateSessionMeta"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13d-core-domain-routes.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -27255,7 +27212,6 @@
       "symbols": [
         "atomicWriteJson",
         "readFileTail",
-        "resolvePermissionMode",
         "safeSessionId",
         "sessionPath"
       ],
@@ -27263,11 +27219,26 @@
     },
     {
       "from": "13j-steward-tool-base.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13j-steward-tool-base.js",
       "to": "02-session-store.js",
       "symbols": [
-        "applySessionPermissionModeOverride",
         "foldTurnSummaries",
         "repairMissionChangeTornTail"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13j-steward-tool-base.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "applySessionPermissionModeOverride"
       ],
       "direction": "backward"
     },
@@ -27318,7 +27289,6 @@
       "from": "13k-steward-threads.js",
       "to": "01-config.js",
       "symbols": [
-        "PERMISSION_MODES",
         "mutateConfig",
         "normalizeWorkspacePathString",
         "safeSessionId"
@@ -27335,6 +27305,14 @@
     },
     {
       "from": "13k-steward-threads.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13k-steward-threads.js",
       "to": "02-session-store.js",
       "symbols": [
         "createSession",
@@ -27345,14 +27323,21 @@
         "readMissionContainer",
         "saveSession",
         "sessionBriefOf",
-        "sessionDesktopToolsOf",
         "sessionDisplayTitle",
         "sessionMetaIsSteward",
         "sessionMissionId",
-        "sessionPermissionModeOf",
         "updateSessionMeta",
         "withMissionContainerLock",
         "writeMissionContainer"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13k-steward-threads.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf",
+        "sessionPermissionModeOf"
       ],
       "direction": "backward"
     },
@@ -27522,9 +27507,16 @@
       "to": "01-config.js",
       "symbols": [
         "ConfigPatchHooks",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
         "normalizeConfig",
         "safeSessionId"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13l-steward-ops.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES_REQUIRING_CONFIRM"
       ],
       "direction": "backward"
     },
@@ -27740,8 +27732,15 @@
       "to": "02-session-store.js",
       "symbols": [
         "loadSession",
+        "saveSession"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13m-steward-runner-base.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
         "normalizeSessionEngineRoute",
-        "saveSession",
         "sessionEngineRouteFromConfig"
       ],
       "direction": "backward"
@@ -28132,7 +28131,14 @@
       "to": "02-session-store.js",
       "symbols": [
         "loadSession",
-        "mutateSession",
+        "mutateSession"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
         "normalizeSessionEngineRoute"
       ],
       "direction": "backward"
@@ -28368,11 +28374,18 @@
       "from": "13s-scheduler.js",
       "to": "01-config.js",
       "symbols": [
-        "PERMISSION_MODES",
         "atomicWriteJson",
         "readConfig",
         "readJsonBody",
         "send"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13s-scheduler.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "PERMISSION_MODES"
       ],
       "direction": "backward"
     },
@@ -28616,7 +28629,6 @@
         "CONFIG_SCHEMA",
         "EventStreamHooks",
         "RUYI_EVENTS",
-        "SESSION_SCHEMA",
         "apiSessionIdInvalid",
         "apiSessionNotFound",
         "appendUsageLedger",
@@ -28634,15 +28646,10 @@
       "to": "01-config.js",
       "symbols": [
         "AGENT_CLI_TYPES",
-        "BUILTIN_AGENT_ROLES",
         "CONFIG_MIGRATIONS",
         "DurableJsonStore",
-        "PERMISSION_MODES",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
         "autoImportClaudeCodeMcp",
-        "batchSafeSpawn",
         "buildClaudeCliEnv",
-        "cmdLineBudgetFor",
         "decodeClaudeCliText",
         "defaultConfig",
         "desktopMcpFromInstalledRoot",
@@ -28653,22 +28660,15 @@
         "ensureDesktopMcpWarm",
         "generateMcpConfig",
         "generateSessionMcpConfig",
-        "invalidateAgentCliPathCaches",
-        "invalidateClaudePathCache",
         "mutateConfig",
-        "normalizeAgentRole",
         "normalizeConfig",
         "pickPython",
         "pickPythonAsync",
         "prepareAgentCliSpawn",
         "probeAgentCliLauncher",
-        "quoteWinArg",
         "readConfig",
         "readFileTail",
         "resolveClaudeLauncher",
-        "resolvePermissionMode",
-        "selectedAgentCli",
-        "spawnCmdLineLength",
         "syncMcpServersToKimi"
       ],
       "direction": "backward"
@@ -28717,31 +28717,46 @@
     },
     {
       "from": "14-main.js",
+      "to": "01d-win-cmdline.js",
+      "symbols": [
+        "batchSafeSpawn",
+        "cmdLineBudgetFor",
+        "quoteWinArg",
+        "spawnCmdLineLength"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "BUILTIN_AGENT_ROLES",
+        "PERMISSION_MODES",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
+        "normalizeAgentRole",
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
       "to": "02-session-store.js",
       "symbols": [
         "BRIDGED_WRITE_PATH_ARGS",
-        "IRREVERSIBLE_NATIVE_KIND",
         "MISSION_CONTAINER_MAX_FILES",
-        "MISSION_CONTAINER_SCHEMA",
-        "TURN_SUMMARY_COMMAND_TOOLS",
-        "TURN_SUMMARY_FILE_TOOLS",
         "buildTurnSummary",
         "bumpMissionChangeSeq",
         "captureWorkspaceTurnBaseline",
         "collectBridgedWriteTarget",
         "collectBridgedWriteTargets",
         "compactInterventionJournal",
-        "configForSessionEngineRoute",
         "createMissionContainer",
         "createSession",
         "deleteSession",
         "detectDanglingTurn",
         "flushSessionIndex",
         "flushSessionIndexSync",
-        "foldMissionChangeJournalText",
-        "inferSessionEngineRoute",
         "invalidateSessionIndex",
-        "isBridgedWriteTool",
         "isUntitledSessionTitle",
         "journalGc",
         "journalGcProbe",
@@ -28749,20 +28764,14 @@
         "kindForPath",
         "listMissionContainers",
         "listSessions",
-        "liveSessionPermissionMode",
         "loadSession",
         "missionAttachThread",
-        "missionChangeFilePath",
-        "missionDetachThread",
         "missionMergeInto",
         "missionSplitThreads",
         "mutateSession",
         "normalizeSession",
-        "normalizeSessionEngineRoute",
         "patchMissionContainer",
         "readInterventions",
-        "readInterventionsWithMeta",
-        "readMissionChangesWithMeta",
         "readMissionContainer",
         "readSessionHeadResilient",
         "readSessionNotes",
@@ -28775,15 +28784,12 @@
         "saveSession",
         "sessionBodyPaths",
         "sessionDisplayTitle",
-        "sessionEngineRouteFromConfig",
         "sessionMeta",
         "sessionNotesPath",
         "sessionObjectIsStale",
         "setSessionIndexRebuildScanHookForTest",
         "transitionInterventionState",
-        "unprefixedBridgedName",
         "updateSessionMeta",
-        "workspaceBaselineIsCodePath",
         "writeSessionNotes"
       ],
       "direction": "backward"
@@ -28798,10 +28804,38 @@
     },
     {
       "from": "14-main.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "liveSessionPermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "02e-session-engine-route.js",
+      "symbols": [
+        "configForSessionEngineRoute",
+        "inferSessionEngineRoute",
+        "normalizeSessionEngineRoute",
+        "sessionEngineRouteFromConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "02f-turn-effect-kinds.js",
+      "symbols": [
+        "IRREVERSIBLE_NATIVE_KIND",
+        "TURN_SUMMARY_COMMAND_TOOLS",
+        "TURN_SUMMARY_FILE_TOOLS"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
       "to": "03-bridge-guard.js",
       "symbols": [
         "AUTOEXEC_DENYLIST",
-        "BRIDGED_WRITE_AUDIT_EXEMPT",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
         "buildBrowserOpenSpawn",
@@ -28811,26 +28845,12 @@
         "classifyCodeEditorExecutable",
         "cwdWarning",
         "executableFromAssociationCommand",
-        "fileAllowedRoots",
         "guardFileToolPath",
-        "guardWorkspaceExecute",
         "guardWorkspacePath",
-        "normalizeAutoexecPath",
         "pathWithinAnyRoot",
         "pathWithinRoot",
         "providerIsLocal",
-        "readFilePreview",
-        "resolvePreferredCodeEditor",
-        "resolveWorkspace",
-        "workspaceWriteRoots"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "04-desktop-shell.js",
-      "symbols": [
-        "DesktopShell"
+        "resolveWorkspace"
       ],
       "direction": "backward"
     },
@@ -28864,16 +28884,7 @@
         "resolveExternalMcpServers",
         "safeMcpInventory",
         "safeUrlForDisplay",
-        "scanMcpDropIns",
         "scanMcpSources"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "04-visual-pipeline.js",
-      "symbols": [
-        "VisualPipeline"
       ],
       "direction": "backward"
     },
@@ -28886,7 +28897,6 @@
         "providerBaseWithV1",
         "providerCallIsTransient",
         "providerCompletionUrl",
-        "providerPostJsonOnce",
         "providerRequestHeaders",
         "providerResponsesBase",
         "withTransientRetry"
@@ -28897,6 +28907,8 @@
       "from": "14-main.js",
       "to": "05-claude-engine.js",
       "symbols": [
+        "AGENT_CLI_ADAPTERS",
+        "agentCliAdapter",
         "applyProviderReasoningEffort",
         "asrFixMessages",
         "asrFixSanity",
@@ -28916,31 +28928,24 @@
       "from": "14-main.js",
       "to": "05b-kimi-bridge.js",
       "symbols": [
-        "compactKimiNative",
         "consumeKimiAcpApproval",
         "isKimiAcpPlanFilePath",
-        "kimiAcpConcreteEditGuard",
         "kimiAcpFreshActualForOperation",
         "kimiAcpInferConcreteToolInput",
         "kimiAcpModeOptionFromActivated",
         "kimiAcpNativeBashWrapperCandidate",
         "kimiAcpNativeBashWrapperTexts",
         "kimiAcpNativeShellQuote",
-        "kimiAcpNativeWindowsPathToPosixPath",
         "kimiAcpPermissionToolCall",
         "kimiAcpSessionRestoreMethods",
         "kimiAcpSuccessfulEnterPlanMode",
-        "kimiAcpToolTier",
-        "kimiAcpToolUpdateSucceeded",
         "kimiAcpUnknownSessionError",
         "kimiSessionStatus",
         "parseKimiWireAgentEvents",
         "parseKimiWireCompaction",
         "prepareKimiAcpSpawn",
-        "readKimiWireRuntime",
         "resolveKimiAcpPlanFilePath",
         "runKimiCompact",
-        "stopKimiServer",
         "watchKimiWire"
       ],
       "direction": "backward"
@@ -28951,12 +28956,10 @@
       "symbols": [
         "CAP_UNKNOWN_TTL_MS",
         "ERROR_CLASSES",
-        "NETWORK_ANCHORS",
         "TOOL_ITERATION_BUDGETS",
         "TOOL_REQUIRES",
         "appendResponseLanguagePolicy",
         "appendTurnPolicies",
-        "auditSummaryFor",
         "buildAgentTeamHint",
         "buildBrowserAutomationHint",
         "buildClaudeNativeAgentPolicy",
@@ -28965,7 +28968,6 @@
         "buildPlaybookIndexSection",
         "buildPromptTaskContext",
         "buildProviderSystemPrompt",
-        "buildResponseLanguagePolicy",
         "buildRuntimeIdentityFacts",
         "buildSoftwareEngineeringPolicy",
         "buildStableSystemPrompt",
@@ -28974,14 +28976,11 @@
         "clampAppendWithSkills",
         "claudeProjectDirKey",
         "claudeProjectsRoot",
-        "collectAudit",
         "collectStorageStats",
         "evalPlaybookAvailability",
         "fenceSafeSlice",
         "getCapabilities",
         "invalidateCapabilityCache",
-        "isLongToolTask",
-        "loadAllPlaybooks",
         "matchServiceEntry",
         "maybeRecordStorageTrend",
         "maybeWriteThreadBrief",
@@ -28994,7 +28993,6 @@
         "peekCapabilities",
         "probeAny",
         "providerRawCompletion",
-        "readProjectMemory",
         "readStorageTrend",
         "recordEngineTranscript",
         "recordRequestMetric",
@@ -29037,7 +29035,6 @@
         "buildMemoryPromptSection",
         "confirmMemoryRelation",
         "deleteMemoryRelation",
-        "effectiveMemorySelection",
         "extractMemoryRelationProposals",
         "legacyAccMemoryMigrationComplete",
         "listMemoryRelations",
@@ -29046,7 +29043,6 @@
         "memoryProposalIsDuplicate",
         "memoryProposalPrefilter",
         "memoryProposalSimilarity",
-        "memorySearchTerms",
         "migrateLegacyAccMemory",
         "parseMemoryProposalDecision",
         "proposeMemoryFromSession",
@@ -29103,15 +29099,11 @@
         "STEWARD_EXEMPT_NAME_CARVEOUTS",
         "STEWARD_EXEMPT_TOOL_PATTERNS",
         "STEWARD_MEMORY_KINDS",
-        "STEWARD_MEMORY_LIMITS",
-        "STEWARD_PERMISSION_MODE",
         "STEWARD_PERMISSION_RANK",
         "STEWARD_PREROUTE_DEFAULTS",
         "STEWARD_QUICK_ANSWER_CHARS",
-        "STEWARD_QUICK_KIND",
         "STEWARD_SESSION_ID",
         "STEWARD_SESSION_TITLE",
-        "STEWARD_THREAD_STATES",
         "STEWARD_WAIT_LABELS",
         "STEWARD_WAIT_REASONS",
         "StewardHooks",
@@ -29126,22 +29118,18 @@
         "stewardAssemblePlaybookPrompt",
         "stewardClipSay",
         "stewardConfigTierFor",
-        "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptDelegationVerdict",
         "stewardExemptExcerpt",
         "stewardExemptHits",
-        "stewardExemptIndirectConstruction",
         "stewardExemptReason",
         "stewardExemptRiskNote",
         "stewardExemptScanInput",
         "stewardHumanizeIds",
         "stewardMayAct",
         "stewardMayTightenTo",
-        "stewardMemoryTerms",
         "stewardOpenAiFallback",
         "stewardPermissionRank",
         "stewardPlaybookMissingInputs",
-        "stewardSanitizeBlock",
         "stewardStoppedTarget",
         "stewardTaintToolCall",
         "stewardTaintToolName",
@@ -29168,15 +29156,8 @@
         "SCHEDULER_FIRE_MODES",
         "SCHEDULER_FORBIDDEN_PAYLOAD_KEYS",
         "SCHEDULER_LIMITS",
-        "SCHEDULER_ON_FAILURE",
-        "SCHEDULER_ON_MISSED",
         "SCHEDULER_OUTCOMES",
-        "SCHEDULER_PAYLOAD_KINDS",
-        "SCHEDULER_PHASES",
-        "SCHEDULER_SCHEDULE_KINDS",
-        "SCHEDULER_TARGET_MODES",
         "SCHEDULER_THREAD_TIERS",
-        "SchedulerHooks",
         "describeSchedule",
         "missedOccurrence",
         "nextFireAt",
@@ -29205,14 +29186,12 @@
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
-        "estimateToolSchemaTokens",
         "fetchOpenAiModels",
         "finalizeAgentWorktree",
         "getAgentRoleLibrary",
         "nativeToolGate",
         "openAiStreamOnce",
         "readClaudeProjectAgentRoles",
-        "readProjectAgentRoles",
         "requestNativePermission",
         "responsesHistoryWithCompleteToolPairs",
         "saveProjectAgentRoles",
@@ -29228,7 +29207,6 @@
       "symbols": [
         "BUILTIN_AGENT_WORKFLOWS",
         "QUALITY_GATE_OUTPUT_SCHEMA",
-        "agentRunResultSlice",
         "aggregateAgentVote",
         "aggregateCoverage",
         "appendAgentRunEvent",
@@ -29258,7 +29236,6 @@
         "resolveAgentTeamRoute",
         "runSubAgentCore",
         "runWorkspaceHash",
-        "sanitizeAgentOutputSchema",
         "saveAgentWorkflow",
         "singleAgentShorthandNode",
         "syncRunEventSeq",
@@ -29275,17 +29252,6 @@
         "legacySpawnToOrchestrateArgs",
         "planDiscoveryToolBatchAllowed",
         "waitForAgentRunResults"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "09b-replan-ledger.js",
-      "symbols": [
-        "applyReplanPatch",
-        "proposeReplanPatch",
-        "rollbackReplanPatch",
-        "validateReplanPatch"
       ],
       "direction": "backward"
     },
@@ -29309,11 +29275,9 @@
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CompactionPlan",
-        "MODEL_CONTEXT_TABLE",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
         "appendPromptToLastUserMessage",
-        "applySummaryCallPolicy",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
         "buildSummaryFactTableMessages",
@@ -29321,7 +29285,6 @@
         "calibratedEstimate",
         "checkSummaryEntities",
         "chunkHistoryByBudget",
-        "compactHistoryFromSession",
         "configuredConversationWindow",
         "contextWindowFromTable",
         "contextWindowOverrideKey",
@@ -29372,7 +29335,6 @@
       "from": "14-main.js",
       "to": "11-native-tools.js",
       "symbols": [
-        "builtinSearch",
         "classifyFetchError",
         "crc32",
         "embeddedIpv4FromV6",
@@ -29389,16 +29351,7 @@
         "webFetch",
         "webFetchFailMessage",
         "webSearch",
-        "writeWebCache",
-        "zipCollectEntries"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
-      "to": "12-tool-dispatch.js",
-      "symbols": [
-        "buildWorkbenchSelfStatus"
+        "writeWebCache"
       ],
       "direction": "backward"
     },
@@ -29416,18 +29369,9 @@
     },
     {
       "from": "14-main.js",
-      "to": "13d-core-domain-routes.js",
-      "symbols": [
-        "agentRunActionCommand"
-      ],
-      "direction": "backward"
-    },
-    {
-      "from": "14-main.js",
       "to": "13e-pretender-index.js",
       "symbols": [
         "getPretenderProjectionIndex",
-        "pretenderIndexPath",
         "warmPretenderProjectionIndex"
       ],
       "direction": "backward"
@@ -29469,7 +29413,6 @@
       "from": "14-main.js",
       "to": "13m-steward-runner-base.js",
       "symbols": [
-        "STEWARD_INBOX_DELIVERABLE_CHARS",
         "STEWARD_INBOX_MESSAGE_CHARS",
         "STEWARD_SAY_CEILING",
         "STEWARD_SAY_TARGET",
@@ -29593,7 +29536,6 @@
     "03-bridge-guard.js->04-permission-runtime.js",
     "03-bridge-guard.js->05-claude-engine.js",
     "04-desktop-shell.js->00-boot.js",
-    "04-desktop-shell.js->01-config.js",
     "04-desktop-shell.js->04-permission-runtime.js",
     "04-permission-runtime.js->00-boot.js",
     "04-permission-runtime.js->01-config.js",

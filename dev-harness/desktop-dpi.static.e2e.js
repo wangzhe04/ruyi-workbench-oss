@@ -6,7 +6,8 @@ const path = require('path');
 
 const file = path.join(__dirname, '..', 'ruyi-workbench', 'desktop', 'RuyiDesktop.cs');
 const source = fs.readFileSync(file, 'utf8');
-const overlayBuilder = fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷表读打包器运行时的那份数组(require 零副作用),不再正则匹配源码字面量。
+const overlayPayload = require(path.join(__dirname, '..', 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES;
 
 assert.match(source, /WM_DPICHANGED/);
 assert.match(source, /WM_DISPLAYCHANGE/);
@@ -16,7 +17,7 @@ assert.match(source, /private void EnsureWindowVisible\(\)/);
 assert.match(source, /ActivateShellWindow\(\)[\s\S]{0,600}EnsureWindowVisible\(\)/);
 assert.match(source, /m\.Msg == Native\.WM_DPICHANGED[\s\S]{0,1200}SetBounds\(safe\.X, safe\.Y, safe\.Width, safe\.Height\)/);
 assert.match(source, /m\.Msg == Native\.WM_DISPLAYCHANGE[\s\S]{0,900}EnsureWindowVisible\(\)/);
-assert.match(overlayBuilder, /'RuyiDesktop\.exe'/);
-assert.match(overlayBuilder, /'WebView2Loader\.dll'/);
+assert.ok(overlayPayload.includes('RuyiDesktop.exe'), 'overlay payload ships RuyiDesktop.exe');
+assert.ok(overlayPayload.includes('WebView2Loader.dll'), 'overlay payload ships WebView2Loader.dll');
 
 console.log('DESKTOP DPI STATIC E2E: ALL PASS');

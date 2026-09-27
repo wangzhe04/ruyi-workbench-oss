@@ -189,19 +189,47 @@
       "requires": []
     },
     {
+      "file": "01d-win-cmdline.js",
+      "layer": "foundation",
+      "provides": [
+        "CMD_EXE_LINE_LIMIT",
+        "CMD_LINE_QUOTE_MARGIN",
+        "CMD_LINE_SAFE_BUDGET",
+        "DIRECT_SPAWN_LINE_BUDGET",
+        "batchSafeSpawn",
+        "cmdLineBudgetFor",
+        "cmdLineBudgetSeam",
+        "isBatchLauncher",
+        "quoteWinArg",
+        "spawnCmdLineLength"
+      ],
+      "requires": []
+    },
+    {
+      "file": "01e-permission-modes.js",
+      "layer": "foundation",
+      "provides": [
+        "AGENT_ROLE_PERMISSION_MODES",
+        "BUILTIN_AGENT_ROLES",
+        "CLAUDE_PERMISSION_MODE_MAP",
+        "PERMISSION_MODES",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
+        "PERMISSION_MODE_ALIASES",
+        "mergeAgentRole",
+        "normalizeAgentRole",
+        "permissionModeFrom",
+        "resolvePermissionMode"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
         "AGENT_CLI_TYPES",
-        "AGENT_ROLE_PERMISSION_MODES",
-        "BUILTIN_AGENT_ROLES",
         "CLAUDEPATH_CACHE_MS",
         "CLAUDE_NPM_EXE_REL",
-        "CLAUDE_PERMISSION_MODE_MAP",
         "CLAUDE_THINKING_EFFORTS",
-        "CMD_EXE_LINE_LIMIT",
-        "CMD_LINE_QUOTE_MARGIN",
-        "CMD_LINE_SAFE_BUDGET",
         "CONFIG_BOOKKEEPING_KEYS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
@@ -213,11 +241,7 @@
         "DESKTOP_PYTHON_MISS_CACHE_MS",
         "DESKTOP_PYTHON_OK_CACHE_MS",
         "DESKTOP_PYTHON_PROBE_TIMEOUT_MS",
-        "DIRECT_SPAWN_LINE_BUDGET",
         "DurableJsonStore",
-        "PERMISSION_MODES",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
-        "PERMISSION_MODE_ALIASES",
         "RUNTIME",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
@@ -242,7 +266,6 @@
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
-        "batchSafeSpawn",
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
@@ -250,8 +273,6 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
-        "cmdLineBudgetFor",
-        "cmdLineBudgetSeam",
         "commandForSelfMcp",
         "configCanonicalJson",
         "configComparableValue",
@@ -304,22 +325,18 @@
         "invalidateAgentCliPathCaches",
         "invalidateClaudePathCache",
         "isAskUserTool",
-        "isBatchLauncher",
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
         "kimiMcpManagedIds",
         "lastGoodConfig",
         "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
-        "mergeAgentRole",
         "mutateConfig",
-        "normalizeAgentRole",
         "normalizeConfig",
         "normalizeDesktopPythonCandidate",
         "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
         "originOk",
-        "permissionModeFrom",
         "persistableConfig",
         "pickPython",
         "pickPythonAsync",
@@ -329,7 +346,6 @@
         "probeAgentCliLauncherRemembered",
         "probeDesktopPython",
         "probeDesktopPythonAsync",
-        "quoteWinArg",
         "readBody",
         "readConfig",
         "readConfigPrev",
@@ -342,7 +358,6 @@
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
-        "resolvePermissionMode",
         "safeSessionId",
         "sanitizeLastUsedEngineRoute",
         "selectedAgentCli",
@@ -351,7 +366,6 @@
         "serveStatic",
         "sessionPath",
         "sessionWriteChains",
-        "spawnCmdLineLength",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
@@ -530,6 +544,48 @@
           ]
         },
         {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODE_ALIASES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
           "kinds": [
@@ -652,19 +708,69 @@
       "requires": []
     },
     {
-      "file": "02-session-store.js",
+      "file": "02d-session-overrides.js",
+      "layer": "foundation",
+      "provides": [
+        "applySessionDesktopToolsOverride",
+        "applySessionPermissionModeOverride",
+        "liveSessionPermissionMode",
+        "normalizeSessionDesktopTools",
+        "normalizeSessionPermissionMode",
+        "sessionDesktopToolsOf",
+        "sessionDesktopToolsOverrides",
+        "sessionEngineRouteOverrides",
+        "sessionPermissionModeOf",
+        "sessionPermissionModeOverrides"
+      ],
+      "requires": [
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "02e-session-engine-route.js",
+      "layer": "foundation",
+      "provides": [
+        "configForSessionEngineRoute",
+        "inferSessionEngineRoute",
+        "normalizeSessionEngineRoute",
+        "sessionEngineRouteFromConfig"
+      ],
+      "requires": []
+    },
+    {
+      "file": "02f-turn-effect-kinds.js",
       "layer": "foundation",
       "provides": [
         "ARTIFACT_BRIDGED_WRITE_NAMES",
         "ARTIFACT_BRIDGED_WRITE_PREFIXES",
-        "ARTIFACT_IMG_EXTS",
         "ARTIFACT_OUTPUT_PATH_KEYS",
-        "BRIDGED_WRITE_PATH_ARGS",
         "CLAUDE_IRREVERSIBLE_KIND",
-        "INTERVENTION_TERMINAL",
         "IRREVERSIBLE_BRIDGED_KIND",
         "IRREVERSIBLE_LEDGER_MAX",
         "IRREVERSIBLE_NATIVE_KIND",
+        "TURN_SUMMARY_COMMAND_TOOLS",
+        "TURN_SUMMARY_FILE_TOOLS",
+        "TURN_SUMMARY_KNOWN_TOOLS",
+        "irreversibleDetail",
+        "irreversibleToolKind",
+        "isBridgedWriteTool",
+        "unprefixedBridgedName"
+      ],
+      "requires": []
+    },
+    {
+      "file": "02-session-store.js",
+      "layer": "foundation",
+      "provides": [
+        "ARTIFACT_IMG_EXTS",
+        "BRIDGED_WRITE_PATH_ARGS",
+        "INTERVENTION_TERMINAL",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -698,9 +804,6 @@
         "STEWARD_WATCH_NOTE_MAX",
         "TODO_MAX_ITEMS",
         "TODO_MAX_TEXT",
-        "TURN_SUMMARY_COMMAND_TOOLS",
-        "TURN_SUMMARY_FILE_TOOLS",
-        "TURN_SUMMARY_KNOWN_TOOLS",
         "WORKSPACE_BASELINE_DEFAULT_BUDGET_MS",
         "WORKSPACE_BASELINE_EXTS",
         "WORKSPACE_BASELINE_MAX_FILES",
@@ -710,9 +813,7 @@
         "appendIntervention",
         "appendMissionChangeRecord",
         "applyMissionUpdate",
-        "applySessionDesktopToolsOverride",
         "applySessionMetaPatch",
-        "applySessionPermissionModeOverride",
         "archiveMissionContainer",
         "archiveMissionResult",
         "asResultObject",
@@ -731,7 +832,6 @@
         "collectBridgedWriteTarget",
         "collectBridgedWriteTargets",
         "compactInterventionJournal",
-        "configForSessionEngineRoute",
         "createMissionContainer",
         "createSession",
         "deleteSession",
@@ -746,7 +846,6 @@
         "foldTurnSummaries",
         "followupAcceptanceCriterion",
         "healStalePendingSegments",
-        "inferSessionEngineRoute",
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
@@ -754,9 +853,6 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
-        "irreversibleDetail",
-        "irreversibleToolKind",
-        "isBridgedWriteTool",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -785,7 +881,6 @@
         "listMissionContainerIds",
         "listMissionContainers",
         "listSessions",
-        "liveSessionPermissionMode",
         "loadSession",
         "loadSessionV1Backup",
         "markInterruptedInterventions",
@@ -827,9 +922,6 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeSession",
-        "normalizeSessionDesktopTools",
-        "normalizeSessionEngineRoute",
-        "normalizeSessionPermissionMode",
         "normalizeTodoItems",
         "noteMissionMembership",
         "overlayUnflushedSessionIndex",
@@ -866,13 +958,9 @@
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
-        "sessionDesktopToolsOf",
-        "sessionDesktopToolsOverrides",
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
-        "sessionEngineRouteFromConfig",
-        "sessionEngineRouteOverrides",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
         "sessionIndexFlushTimer",
@@ -891,8 +979,6 @@
         "sessionNotesPath",
         "sessionNotesWriteChains",
         "sessionObjectIsStale",
-        "sessionPermissionModeOf",
-        "sessionPermissionModeOverrides",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "setSessionIndexRebuildScanHookForTest",
@@ -902,7 +988,6 @@
         "stopMissionAgentRuns",
         "transitionInterventionState",
         "truncateSessionBody",
-        "unprefixedBridgedName",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
         "waitMissionTurnSettled",
@@ -1060,13 +1145,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1075,13 +1153,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readFileTail",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -1112,6 +1183,153 @@
           "symbol": "sessionWriteChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionDesktopToolsOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "normalizeSessionDesktopTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "normalizeSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionEngineRouteOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "ARTIFACT_OUTPUT_PATH_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_LEDGER_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "irreversibleDetail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "irreversibleToolKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "isBridgedWriteTool",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_KNOWN_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "unprefixedBridgedName",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1412,13 +1630,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1427,6 +1638,13 @@
         {
           "provider": "01-config.js",
           "symbol": "spawnProbeAsync",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
           ]
@@ -1474,7 +1692,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
@@ -1619,6 +1837,7 @@
         "parseAgentCliEvent",
         "parseClaudeEvent",
         "parseClaudeTaskNotification",
+        "parseKimiStreamJsonEvent",
         "parseMcpConfigFile",
         "pendingPermissions",
         "pendingPlans",
@@ -1769,13 +1988,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "detectDesktopMcp",
           "kinds": [
             "call"
@@ -1812,6 +2024,13 @@
         {
           "provider": "01-config.js",
           "symbol": "selectedAgentCli",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
           "kinds": [
             "call"
           ]
@@ -1931,7 +2150,7 @@
           ]
         },
         {
-          "provider": "01-config.js",
+          "provider": "01d-win-cmdline.js",
           "symbol": "batchSafeSpawn",
           "kinds": [
             "call",
@@ -2094,6 +2313,7 @@
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
+        "AGENT_CLI_ADAPTERS",
         "ASR_FIX_CONTEXT",
         "ASR_FIX_CONTEXT_MAX",
         "ASR_FIX_HARDEN",
@@ -2108,6 +2328,7 @@
         "PROVIDER_REASONING_EFFORTS",
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
+        "agentCliAdapter",
         "applyProviderReasoningEffort",
         "asrChatContentText",
         "asrFixContextTail",
@@ -2282,41 +2503,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CMD_EXE_LINE_LIMIT",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CMD_LINE_QUOTE_MARGIN",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetSeam",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -2345,13 +2531,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "isBatchLauncher",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "prepareAgentCliSpawn",
           "kinds": [
             "call"
@@ -2360,13 +2539,6 @@
         {
           "provider": "01-config.js",
           "symbol": "probeAgentCliLauncher",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "quoteWinArg",
           "kinds": [
             "call"
           ]
@@ -2394,13 +2566,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "syncMcpServersToKimi",
           "kinds": [
             "call"
@@ -2411,6 +2576,62 @@
           "symbol": "writeToChild",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "CMD_EXE_LINE_LIMIT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "CMD_LINE_QUOTE_MARGIN",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetSeam",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "quoteWinArg",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -2632,7 +2853,14 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "parseAgentCliEvent",
+          "symbol": "parseClaudeEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "parseKimiStreamJsonEvent",
           "kinds": [
             "call"
           ]
@@ -4061,13 +4289,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -4085,6 +4306,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5283,13 +5511,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "syncAgentRolesToClaude",
           "kinds": [
             "call"
@@ -5317,6 +5538,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "rememberLastUsedEngineRoute",
           "kinds": [
@@ -5324,7 +5552,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
@@ -5579,35 +5807,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "buildUserEnvelope",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
           "kinds": [
             "call"
           ]
@@ -5642,28 +5842,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "mergeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
           "kinds": [
             "call"
           ]
@@ -5678,6 +5857,55 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "mergeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
           "kinds": [
             "call"
           ]
@@ -5725,7 +5953,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
@@ -6181,13 +6409,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -6231,6 +6452,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
           "kinds": [
             "call"
           ]
@@ -7008,13 +7236,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "call"
@@ -7099,13 +7320,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -7114,6 +7328,20 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -8560,13 +8788,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "permissionModeFrom",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -8575,13 +8796,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -8685,8 +8899,15 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
+          "provider": "01e-permission-modes.js",
+          "symbol": "permissionModeFrom",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -8694,13 +8915,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "createSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "inferSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -8742,13 +8956,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "readSessionNotes",
           "kinds": [
             "call"
@@ -8777,13 +8984,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -8799,6 +8999,34 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -10307,13 +10535,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "ConfigPatchHooks",
           "kinds": [
             "read"
@@ -10408,20 +10629,6 @@
           "symbol": "mutateConfig",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -10558,6 +10765,27 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "applyMissionUpdate",
           "kinds": [
@@ -10567,13 +10795,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "bumpMissionChangeSeq",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -10693,6 +10914,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "workspaceBaselinePathKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -12369,20 +12597,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -12391,13 +12605,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12433,6 +12640,27 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "sessionSearchIndexEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12649,13 +12877,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -12699,6 +12920,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -13786,13 +14014,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -13806,8 +14027,8 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
-          "symbol": "applySessionPermissionModeOverride",
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -13822,6 +14043,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "repairMissionChangeTornTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -14001,13 +14229,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -14018,6 +14239,13 @@
           "symbol": "sessionSearchIndexEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14078,13 +14306,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionDesktopToolsOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
@@ -14106,13 +14327,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionPermissionModeOf",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
           "kinds": [
             "call"
@@ -14128,6 +14342,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeMissionContainer",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOf",
           "kinds": [
             "call"
           ]
@@ -14829,16 +15057,16 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -16051,20 +16279,20 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
@@ -17178,7 +17406,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
           "symbol": "normalizeSessionEngineRoute",
           "kinds": [
             "call"
@@ -18178,13 +18406,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -18202,6 +18423,13 @@
           "symbol": "send",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18995,13 +19223,6 @@
           ]
         },
         {
-          "provider": "00-boot.js",
-          "symbol": "SESSION_SCHEMA",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "01-config.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -19017,28 +19238,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "batchSafeSpawn",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "buildClaudeCliEnv",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "cmdLineBudgetFor",
           "kinds": [
             "read"
           ]
@@ -19129,20 +19329,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "invalidateAgentCliPathCaches",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "invalidateClaudePathCache",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "mutateConfig",
           "kinds": [
             "read"
@@ -19150,28 +19336,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "normalizeConfig",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
           "kinds": [
             "read"
           ]
@@ -19206,13 +19371,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "quoteWinArg",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call",
@@ -19229,27 +19387,6 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "selectedAgentCli",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "spawnCmdLineLength",
           "kinds": [
             "read"
           ]
@@ -19458,6 +19595,69 @@
           ]
         },
         {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "cmdLineBudgetFor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "quoteWinArg",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "BRIDGED_WRITE_PATH_ARGS",
           "kinds": [
@@ -19508,13 +19708,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "createMissionContainer",
           "kinds": [
             "read"
@@ -19557,35 +19750,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "foldMissionChangeJournalText",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "inferSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "invalidateSessionIndex",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "IRREVERSIBLE_NATIVE_KIND",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "isBridgedWriteTool",
           "kinds": [
             "read"
           ]
@@ -19641,13 +19806,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "liveSessionPermissionMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "read"
@@ -19662,28 +19820,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "MISSION_CONTAINER_SCHEMA",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "missionAttachThread",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionChangeFilePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "missionDetachThread",
           "kinds": [
             "read"
           ]
@@ -19718,13 +19855,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "patchMissionContainer",
           "kinds": [
             "read"
@@ -19733,20 +19863,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readInterventions",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readInterventionsWithMeta",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "readMissionChangesWithMeta",
           "kinds": [
             "read"
           ]
@@ -19837,13 +19953,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionMeta",
           "kinds": [
             "read"
@@ -19879,35 +19988,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "TURN_SUMMARY_FILE_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "unprefixedBridgedName",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "workspaceBaselineIsCodePath",
           "kinds": [
             "read"
           ]
@@ -19927,6 +20008,62 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_NATIVE_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "auditBridgedWriteCoverage",
           "kinds": [
@@ -19936,13 +20073,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "AUTOEXEC_DENYLIST",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "BRIDGED_WRITE_AUDIT_EXEMPT",
           "kinds": [
             "read"
           ]
@@ -20005,13 +20135,6 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "fileAllowedRoots",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "guardFileToolPath",
           "kinds": [
             "read"
@@ -20019,21 +20142,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "guardWorkspaceExecute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "guardWorkspacePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "normalizeAutoexecPath",
           "kinds": [
             "read"
           ]
@@ -20061,35 +20170,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "readFilePreview",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "resolvePreferredCodeEditor",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
           "symbol": "resolveWorkspace",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "workspaceWriteRoots",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-desktop-shell.js",
-          "symbol": "DesktopShell",
           "kinds": [
             "read"
           ]
@@ -20278,21 +20359,7 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "scanMcpDropIns",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "scanMcpSources",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-visual-pipeline.js",
-          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -20334,13 +20401,6 @@
         },
         {
           "provider": "04h-provider-http.js",
-          "symbol": "providerPostJsonOnce",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
           "symbol": "providerRequestHeaders",
           "kinds": [
             "read"
@@ -20356,6 +20416,20 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "AGENT_CLI_ADAPTERS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "read"
           ]
@@ -20446,13 +20520,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "compactKimiNative",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "consumeKimiAcpApproval",
           "kinds": [
             "read"
@@ -20461,13 +20528,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "isKimiAcpPlanFilePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpConcreteEditGuard",
           "kinds": [
             "read"
           ]
@@ -20516,13 +20576,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpNativeWindowsPathToPosixPath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "kimiAcpPermissionToolCall",
           "kinds": [
             "read"
@@ -20538,20 +20591,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiAcpSuccessfulEnterPlanMode",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpToolTier",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiAcpToolUpdateSucceeded",
           "kinds": [
             "read"
           ]
@@ -20593,13 +20632,6 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
-          "symbol": "readKimiWireRuntime",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
           "symbol": "resolveKimiAcpPlanFilePath",
           "kinds": [
             "read"
@@ -20608,13 +20640,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "runKimiCompact",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "stopKimiServer",
           "kinds": [
             "read"
           ]
@@ -20636,13 +20661,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "appendTurnPolicies",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "auditSummaryFor",
           "kinds": [
             "read"
           ]
@@ -20699,13 +20717,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "buildProviderSystemPrompt",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "buildResponseLanguagePolicy",
           "kinds": [
             "read"
           ]
@@ -20775,13 +20786,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "collectAudit",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "collectStorageStats",
           "kinds": [
             "read"
@@ -20824,20 +20828,6 @@
         },
         {
           "provider": "06-provider-engine.js",
-          "symbol": "isLongToolTask",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "loadAllPlaybooks",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
           "symbol": "matchServiceEntry",
           "kinds": [
             "read"
@@ -20853,13 +20843,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "maybeWriteThreadBrief",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "NETWORK_ANCHORS",
           "kinds": [
             "read"
           ]
@@ -20923,13 +20906,6 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "providerRawCompletion",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06-provider-engine.js",
-          "symbol": "readProjectMemory",
           "kinds": [
             "read"
           ]
@@ -21097,13 +21073,6 @@
         },
         {
           "provider": "06d-memory-domain.js",
-          "symbol": "effectiveMemorySelection",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
           "symbol": "extractMemoryRelationProposals",
           "kinds": [
             "read"
@@ -21154,13 +21123,6 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "memoryProposalSimilarity",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06d-memory-domain.js",
-          "symbol": "memorySearchTerms",
           "kinds": [
             "read"
           ]
@@ -21454,20 +21416,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_MEMORY_LIMITS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_PERMISSION_MODE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_PERMISSION_RANK",
           "kinds": [
             "read"
@@ -21489,13 +21437,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_QUICK_KIND",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
@@ -21504,13 +21445,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_SESSION_TITLE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_THREAD_STATES",
           "kinds": [
             "read"
           ]
@@ -21566,13 +21500,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardExemptAbsoluteDeleteTarget",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "stewardExemptDelegationVerdict",
           "kinds": [
             "read"
@@ -21588,13 +21515,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardExemptHits",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardExemptIndirectConstruction",
           "kinds": [
             "read"
           ]
@@ -21650,13 +21570,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "stewardMemoryTerms",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "stewardOpenAiFallback",
           "kinds": [
             "read"
@@ -21672,13 +21585,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardPlaybookMissingInputs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardSanitizeBlock",
           "kinds": [
             "read"
           ]
@@ -21860,20 +21766,6 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_ON_FAILURE",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_ON_MISSED",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_OUTCOMES",
           "kinds": [
             "read"
@@ -21881,42 +21773,7 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_PAYLOAD_KINDS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_PHASES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_SCHEDULE_KINDS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SCHEDULER_TARGET_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_THREAD_TIERS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
-          "symbol": "SchedulerHooks",
           "kinds": [
             "read"
           ]
@@ -22014,13 +21871,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "estimateToolSchemaTokens",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
           "kinds": [
             "read"
@@ -22077,13 +21927,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "readProjectAgentRoles",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "requestNativePermission",
           "kinds": [
             "read"
@@ -22120,13 +21963,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
-          "symbol": "agentRunResultSlice",
           "kinds": [
             "read"
           ]
@@ -22350,13 +22186,6 @@
         },
         {
           "provider": "08-agent-runs.js",
-          "symbol": "sanitizeAgentOutputSchema",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "08-agent-runs.js",
           "symbol": "saveAgentWorkflow",
           "kinds": [
             "read"
@@ -22414,34 +22243,6 @@
         {
           "provider": "09-workflow.js",
           "symbol": "waitForAgentRunResults",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "applyReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "proposeReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "rollbackReplanPatch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "09b-replan-ledger.js",
-          "symbol": "validateReplanPatch",
           "kinds": [
             "read"
           ]
@@ -22511,13 +22312,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "applySummaryCallPolicy",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
           "kinds": [
             "read"
@@ -22575,13 +22369,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "COMPACT_RESEED_TAIL_MAX_TOKENS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "compactHistoryFromSession",
           "kinds": [
             "read"
           ]
@@ -22729,13 +22516,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "mergeSessionNotes",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "MODEL_CONTEXT_TABLE",
           "kinds": [
             "read"
           ]
@@ -22903,13 +22683,6 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "builtinSearch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
           "symbol": "classifyFetchError",
           "kinds": [
             "read"
@@ -23028,20 +22801,6 @@
           ]
         },
         {
-          "provider": "11-native-tools.js",
-          "symbol": "zipCollectEntries",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "12-tool-dispatch.js",
-          "symbol": "buildWorkbenchSelfStatus",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13-http-router.js",
           "symbol": "doctor",
           "kinds": [
@@ -23077,22 +22836,8 @@
           ]
         },
         {
-          "provider": "13d-core-domain-routes.js",
-          "symbol": "agentRunActionCommand",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13e-pretender-index.js",
-          "symbol": "pretenderIndexPath",
           "kinds": [
             "read"
           ]
@@ -23192,13 +22937,6 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "ensureStewardSession",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "13m-steward-runner-base.js",
-          "symbol": "STEWARD_INBOX_DELIVERABLE_CHARS",
           "kinds": [
             "read"
           ]

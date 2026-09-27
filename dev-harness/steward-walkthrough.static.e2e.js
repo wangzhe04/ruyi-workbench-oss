@@ -7,7 +7,7 @@
 //
 //   A W2-1 管家开了线程就直接展示：只认【已执行】的 actions，不认降级成按钮的 acts。
 //   B W2-2 候选列表开合：[hidden] 守卫（根因）、点外面收起、按标题去重。
-//   C W2-3 头像跟着话走：搬的是同一个节点、三个销毁点都先 park、头部有 6px 状态点。
+//   C W2-3 头像跟着话走：搬的是同一个节点、四个销毁点都先 park、头部有 6px 状态点。
 //   D W2-4 收件箱回合实时进对话流：走 116-4 的 ?since= 增量，只认 trigger==='inbox'。
 //   E W2-5 刷新节拍：三个计时器统一「表按 5s 下限起，真要不要拉由这一拍自己判」。
 //   F 第二批（UX-F1/F2/F5、copy-P1-1、classic-1/2、B2、copy-P3-3）：确认闸、文案分支、口径同步。
@@ -123,9 +123,11 @@ const ok = (condition, label) => {
       'C2 move：搬的是同一个节点，不复制 SVG（presence 的 data-state/.pulse/.shake 因此原样生效）');
     ok(!/createElement\('svg'\)|cloneNode/.test(conversation),
       'C2b 对话流里零 SVG 复制、零 cloneNode（历史消息的小圆点由 CSS 画）');
-    // 三个销毁点：feed 整清、流失败移除那一行、熔断/引擎不支持移除那一行。少一个，头像就会被一起销毁。
+    // 四个销毁点：feed 整清、流失败移除那一行、熔断/引擎不支持移除那一行、首跑那一行随语言切换重画(走查 U14 引入,
+    // 修前漏了 park —— 运行时切语言后头像跟着被删,locale-en-us U14d 钉行为)。少一个，头像就会被一起销毁。
     const parkSites = (conversation.match(/parkAvatar\(\);/g) || []).length;
-    ok(parkSites === 3, `C3 三个销毁点各 park 一次（实测 ${parkSites}）—— 漏一个头像就跟着那一行没了，之后 presence 再也画不出来`);
+    ok(parkSites === 4, `C3 四个销毁点各 park 一次（实测 ${parkSites}）—— 漏一个头像就跟着那一行没了，之后 presence 再也画不出来`);
+    ok(/parkAvatar\(\);[^\n]*\n\s*firstRunRow\.remove\(\);/.test(conversation), 'C3 首跑那一行随语言重画之前先 park');
     ok(/parkAvatar\(\);[^\n]*\n\s*while \(feed\.firstChild\) feed\.removeChild\(feed\.firstChild\);/.test(conversation),
       'C3b clearFeed 里 park 排在清空之前');
     ok(/if \(kind === 'ruyi'\) row\.appendChild\(el\('span', 'steward-avslot'\)\);/.test(conversation),

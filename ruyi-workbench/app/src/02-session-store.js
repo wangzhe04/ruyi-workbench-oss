@@ -14,75 +14,7 @@
 // = 真损坏 → v1bak 回退(迁移期)或隔离为 .corrupt(与旧单文件损坏同纪律)。
 // 迁移:legacy <id>.json 首次 load 时原样备份 <id>.json.v1bak 再落 v2;v2 下次成功读取后自动删 v1bak。
 const SESSION_STORAGE_VERSION = 2;
-const sessionEngineRouteOverrides = new Map(); // live-turn stale-save guard for UI route changes
-// 116-2a(27 号文 §3.3/§8.6 线程权限就地快切):会话级权限档的内存权威副本 —— 与上面那张 engineRoute
-// 覆盖表同款「live-turn stale-save guard」。值为档名,或 ''(= 用户清除了会话级设置,回落全局)。
-// 为什么需要它:活回合手里那份会话内存副本是回合开始时的快照,不带用户刚切的权限档;它的收尾 save
-// 会把整个会话头写回「没有该字段」的样子。loadSession / saveSession 两侧都应用这张表,任何顺序下
-// 快切都不会被回合的陈旧副本吞掉,也让「点开即换、立即生效」对所有读者(含还没落盘的那一刻)成立。
-// 表为空时全部应用点都是零操作 —— 没有设过会话级权限的会话(含全部存量会话)行为逐字节不变。
-const sessionPermissionModeOverrides = new Map();
-// 会话头 permissionMode 的白名单归一:''/null/非法值一律归成 ''(= 清除会话级设置,回落全局默认)。
-function normalizeSessionPermissionMode(value) {
-  const mode = value == null ? '' : String(value);
-  return PERMISSION_MODES.includes(mode) ? mode : '';
-}
-// 会话级权限档的读形:合法则返回档名,否则 null(【不】在这里填全局值 —— 见 sessionMeta 的注释)。
-function sessionPermissionModeOf(o) {
-  const mode = normalizeSessionPermissionMode(o && o.permissionMode);
-  return mode || null;
-}
-// 把内存覆盖表盖到一个会话对象/会话头上(装载时与落盘前各一次)。没有条目就原样返回。
-function applySessionPermissionModeOverride(session) {
-  const id = session && session.id;
-  if (!id || !sessionPermissionModeOverrides.has(id)) return session;
-  const mode = sessionPermissionModeOverrides.get(id);
-  if (mode) session.permissionMode = mode; else delete session.permissionMode;
-  return session;
-}
-// 117m-A1(用户第六轮走查②;27 号文 §3.3/§8.6):活回合中途改档,闸门要读【此刻】的会话级档,
-// 而不是回合开始时的那个快照。修前 10-context-governance 在回合开始时把三层解析成一个不可变快照
-// (resolvePermissionMode(request > session > config)),09/08 全程读它 —— 上面 sessionMetaDeferChains
-// 的设计注释 ② 自称「permissionMode 先进内存覆盖表…对所有读者立刻是新值」,但 09 的闸门从来没读过
-// 这张表,那句话对活回合从未成立。后果是用户在最该收紧/放宽的那几分钟里改档等于没改(放宽只是费
-// token,反过来「想临时收紧」失效则是安全问题)。
-// 本函数【只读】,不碰延后落盘那条链;档位仍然只有 PATCH 一个写口。
-// '' = 用户清了会话级设置(回落全局),此时返回 null 让调用方继续用它自己的解析结果 —— 中途「清除」
-// 要到下一个回合才生效。这是有意的保守取舍:清除是回落全局,方向不定,不在活回合里替用户猜。
-function liveSessionPermissionMode(id) {
-  const mode = sessionPermissionModeOverrides.get(String(id || ''));
-  return mode ? mode : null;
-}
-
-// ── 117z-E2 提交①(27 号文 §11.21.3):会话级【桌面工具】覆盖 ───────────────────────────────
-// 修前 `allowDesktopTools` 是【全局唯一】的一把闸(07-autonomy:99),在 buildOpenAiTools 的注册层
-// 决定桌面工具要不要提供给模型;没有任何会话级覆盖。本波加的是【另一把钥匙】,不动那把全局闸:
-//   · session.desktopTools === true   -> 这条线程拿得到桌面工具(与全局值无关);
-//   · session.desktopTools === false  -> 这条线程拿不到(与全局值无关);
-//   · 缺席 / null                     -> 跟随全局 allowDesktopTools(= 全部存量会话的行为逐字节不变)。
-// 三态而不是布尔:两态分不出「这条线程自己定了」与「跟着全局走」,与 permissionMode 的 chip 同一条
-// 理由(见 sessionMeta 里那段注释)。
-function normalizeSessionDesktopTools(value) {
-  if (value === true) return true;
-  if (value === false) return false;
-  return null;   // null/''/缺席/任何野值 -> 跟随全局(fail-open 到【修前行为】,不是 fail-open 到放行)
-}
-// 读形:true / false / null(null = 没设过会话级覆盖)。
-function sessionDesktopToolsOf(o) {
-  return normalizeSessionDesktopTools(o && o.desktopTools);
-}
-// 与 sessionPermissionModeOverrides 同款「live-turn stale-save guard」:活回合手里那份会话内存副本是
-// 回合开始时的快照,不带刚写下的覆盖值;它的收尾 save 会把整个会话头写回「没有该字段」的样子。
-// loadSession / saveSession 两侧都盖一次,任何顺序下这次改动都不会被回合的陈旧副本吞掉。
-// 表为空时全部应用点都是零操作 —— 没设过会话级桌面覆盖的会话(含全部存量会话)行为逐字节不变。
-const sessionDesktopToolsOverrides = new Map();   // id -> true | false | null(null = 清除,回落全局)
-function applySessionDesktopToolsOverride(session) {
-  const id = session && session.id;
-  if (!id || !sessionDesktopToolsOverrides.has(id)) return session;
-  const value = sessionDesktopToolsOverrides.get(id);
-  if (value === null) delete session.desktopTools; else session.desktopTools = value;
-  return session;
-}
+// 架构还债批 3·B: 会话级内存覆盖表(sessionEngineRouteOverrides/权限档/桌面工具)与其归一、应用函数抽至 02d-session-overrides.js。
 
 function sessionBodyPaths(id) {
   return {
@@ -1480,32 +1412,7 @@ async function bulkDeleteUnpinnedSessions({ preserveSessionId, purgeAssociated =
   return { ok: true, deleted, deletedCount: deleted.length, skipped, purgedAssociated: Boolean(purgeAssociated) };
 }
 
-// Conversation engine/model selection belongs to the session, not to whichever global selector was
-// touched most recently. The global config remains the default for NEW sessions; existing sessions keep
-// this compact route descriptor and the turn dispatcher overlays it onto a request-local config copy.
-function normalizeSessionEngineRoute(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const model = String(raw.model || '').trim().slice(0, 256);
-  if (raw.engine === 'openai') {
-    const providerId = String(raw.providerId || '').trim().slice(0, 128);
-    return providerId ? { engine: 'openai', providerId, model } : null;
-  }
-  if (raw.engine === 'agent' || raw.engine === 'claude') {
-    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
-    return { engine: 'agent', agentCliType, model };
-  }
-  return null;
-}
-
-function sessionEngineRouteFromConfig(config) {
-  const cfg = config && typeof config === 'object' ? config : {};
-  const providerId = String(cfg.activeProvider || '').trim();
-  if (providerId && providerId !== 'claude-cli') {
-    const provider = (cfg.providers || []).find(item => item && item.id === providerId);
-    return normalizeSessionEngineRoute({ engine: 'openai', providerId, model: provider && provider.model });
-  }
-  return normalizeSessionEngineRoute({ engine: 'agent', agentCliType: cfg.agentCliType, model: cfg.model });
-}
+// 架构还债批 3·B: 会话引擎路由的纯函数(normalizeSessionEngineRoute/sessionEngineRouteFromConfig/inferSessionEngineRoute/configForSessionEngineRoute)抽至 02e-session-engine-route.js。
 
 // ── 123-N2「新线程默认上一次用的引擎」(用户 2026-09-13 真机原话:「现在新开线程会默认开 Kimi
 // code cli,我希望改成默认上一次用的或者别的方式,不要设定死」)────────────────────────────────
@@ -1583,38 +1490,6 @@ function newSessionEngineRoute(config, explicitRoute, initialMessages, sessionId
     to: fromGlobal,
   });
   return fromGlobal;
-}
-
-function inferSessionEngineRoute(session) {
-  const explicit = normalizeSessionEngineRoute(session && session.engineRoute);
-  if (explicit) return explicit;
-  const messages = Array.isArray(session && session.messages) ? session.messages : [];
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (!message || message.role !== 'assistant') continue;
-    const inferred = message.engine === 'openai' || message.providerId
-      ? normalizeSessionEngineRoute({ engine: 'openai', providerId: message.providerId, model: message.model })
-      : normalizeSessionEngineRoute({ engine: 'agent', agentCliType: message.agentCliType, model: message.model });
-    if (inferred) return inferred;
-  }
-  return null;
-}
-
-function configForSessionEngineRoute(config, session) {
-  const route = inferSessionEngineRoute(session);
-  if (!route) return config;
-  if (route.engine === 'openai') {
-    const providers = (config.providers || []).map(provider => provider && provider.id === route.providerId
-      ? { ...provider, model: route.model || provider.model || '' }
-      : provider);
-    return { ...config, activeProvider: route.providerId, providers };
-  }
-  return {
-    ...config,
-    activeProvider: '',
-    agentCliType: route.agentCliType,
-    model: route.model,
-  };
 }
 
 // v0.8-S0: fold an older/partial session onto the current schema. Mirrors normalizeConfig's shape:
@@ -2468,8 +2343,7 @@ async function evaluateMissionCheck(check, cwd) {
 //  - file_write → op create/modify; file_edit → modify; file_delete → delete; path=input.path
 //  - powershell_run/script_run/shell_send (and, for the claude engine, any non-workbench-file tool) → commands+1
 //  - artifacts is always [] (field established for C4/v0.9).
-const TURN_SUMMARY_FILE_TOOLS = new Set(['file_write', 'file_edit', 'file_delete']);
-const TURN_SUMMARY_COMMAND_TOOLS = new Set(['powershell_run', 'script_run', 'shell_send']);
+// 架构还债批 3·B: 回合摘要的工具分类表(TURN_SUMMARY_*/ARTIFACT_OUTPUT_PATH_KEYS/桥接写族判定)与不可逆操作账分类(IRREVERSIBLE_*/irreversibleToolKind/irreversibleDetail)抽至 02f-turn-effect-kinds.js。
 // v0.9-S4 (C4): classify an artifact by file-name suffix. img/md/csv/txt/html/xlsx/docx/pdf → distinct
 // kinds (drive the gallery's per-kind preview branch); everything else → 'other'. Extension-only (no I/O).
 const ARTIFACT_IMG_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg']);
@@ -2484,94 +2358,6 @@ function kindForPath(p) {
   if (ext === 'docx') return 'docx';
   if (ext === 'pdf') return 'pdf';
   return 'other';
-}
-// v0.9-S4: keys a bridged/creation tool result may use to report a file it produced (ACC document creation,
-// screenshot tools, office bridges all echo one of these). Harvested into turn_summary.artifacts alongside
-// this turn's journal `create` entries. Purely a hint source — never a security boundary (the preview
-// endpoint re-checks every path against the allowed roots regardless of how it entered a summary).
-const ARTIFACT_OUTPUT_PATH_KEYS = ['output_path', 'outputPath', 'saved_path', 'savedPath'];
-// v1.5-W1.5: ACC(官方原生 MCP)的写族文档工具返回 {success:true, path:...} —— 裸 `path` 不在
-// ARTIFACT_OUTPUT_PATH_KEYS 里(读类工具 read_document/file_info 也回 path,加进去会把「读过的文件」误登记
-// 为产物)。所以对 bridged 工具改用「工具名限定的 path 收割」:仅当工具名匹配写族时,才把结果里的字符串
-// `path` 当产物。这是对已装 旧版 ACC(未回 output_path)的兼容层;新版 ACC 已同时回 output_path,走上面的
-// 通用键即可。判定纯按名字前缀 + 结果 success:true,不做 I/O。裸名(去 serverId__ 前缀)参与匹配。
-// 明确写族名(ACC 与常见 office bridge):write_document/write_excel/write_pdf/write_docx。
-const ARTIFACT_BRIDGED_WRITE_NAMES = new Set(['write_docx', 'write_excel', 'write_pdf', 'write_document']);
-// 前缀写族:名字以这些开头的 bridged 工具也算「产出文件」(create_*/export_*/save_*/write_*)。
-const ARTIFACT_BRIDGED_WRITE_PREFIXES = ['write_', 'create_', 'export_', 'save_'];
-// 去掉 bridged 工具的 serverId__ 前缀,取裸工具名(collectBridgedTools 用 `${prefix}__${toolName}` 拼接)。
-function unprefixedBridgedName(name) {
-  const s = String(name || '');
-  const i = s.lastIndexOf('__');
-  return i >= 0 ? s.slice(i + 2) : s;
-}
-function isBridgedWriteTool(name) {
-  const bare = unprefixedBridgedName(name);
-  if (ARTIFACT_BRIDGED_WRITE_NAMES.has(bare)) return true;
-  return ARTIFACT_BRIDGED_WRITE_PREFIXES.some(p => bare.startsWith(p));
-}
-// Workbench tools whose effect we can attribute precisely; anything the claude CLI runs OUTSIDE this set
-// (native Edit/Write/Bash, which never reach toolCall) only counts as a command.
-const TURN_SUMMARY_KNOWN_TOOLS = new Set([
-  ...TURN_SUMMARY_FILE_TOOLS, ...TURN_SUMMARY_COMMAND_TOOLS,
-  'todo_write', 'file_read', 'file_list', 'file_search', 'glob', 'project_snapshot', 'git_status',
-  'git_diff', 'git_log', 'git_commit', // v1.0-S4 git 工具族
-  'dependency_inventory', 'code_review_scan', 'frontend_audit', 'claude_md_audit', 'docs_search', 'codebase_symbol_search',
-  'shell_start', 'shell_poll', 'shell_kill', 'shell_list', 'http_request', 'browser_open', 'office_open',
-  'desktop_screenshot', 'keyboard_send_keys', 'permission_prompt',
-  // v1.1-W2 (T1): 新五工具是内建可撤销工具(journal 驱动) —— 归入 KNOWN 集合,故 claude 引擎不会把它们误计为「命令」。
-  // 它们产生的 journal 条目由 buildTurnSummary 的 journalEntries 叠加为 filesChanged(revertible:true)。
-  'file_move', 'file_copy', 'archive_zip', 'archive_unzip', 'http_download',
-]);
-// ── 第72波(EC-E 切片三):不可逆操作正向账 ─────────────────────────────────────────────────
-// toolIsRevertible 是名字级承诺 + journal 缺位这个负信号;exec/desktop/network 类操作天然不在变更清单,
-// 此前只有一个 commands 计数 —— 「这个任务到底干过哪些撤不掉的事」无处可查。本账在回合摘要里正向记录
-// 每一条【有副作用且无 journal 快照】的工具调用:{kind, name, detail, ok}。
-// 收录判据(与权限系统同一风险分级,不另立启发式):
-//  - 内建:nativeToolTier(name)==='exec' 且非可撤销(journal 族已被 toolIsRevertible 覆盖)且非编排元工具;
-//  - 桥接:bridgedToolTier 默认即 'exec'(未知一律最严)——只收显式已知会留副作用的族,防把未知 MCP 的
-//    只读调用误记为不可逆(谎报比漏报更糟:用户会不再信任账);未命中白名单的桥接 exec 不记账(不谎称账全);
-//  - claude 引擎未知名:CLI 原生工具不过 toolCall —— Bash 族/Edit/Write 直落盘无 journal(08:238 注),记账;
-//    其余未知名保持原样只进 commands 计数。
-// 注意:exec 命令【结果失败也记账】(ok:false)——命令已跑,副作用可能已发生;与文件工具「失败=未改动」不同。
-const IRREVERSIBLE_NATIVE_KIND = {
-  powershell_run: 'exec', script_run: 'exec', shell_start: 'exec', shell_send: 'exec', shell_kill: 'exec',
-  git_commit: 'exec', mcp_configure: 'exec',
-  keyboard_send_keys: 'desktop', browser_open: 'desktop', office_open: 'desktop', desktop_screenshot: 'desktop',
-  http_request: 'network',
-};
-// 桥接(exec 默认)里的已知副作用族 → kind;未列出的桥接 exec 工具不记账(见上「不谎称账全」)。
-const IRREVERSIBLE_BRIDGED_KIND = {
-  run_command: 'exec', kill_process: 'exec', launch_application: 'exec',
-  mouse_click: 'desktop', mouse_move: 'desktop', mouse_drag: 'desktop', mouse_scroll: 'desktop', scroll_at: 'desktop',
-  type_text: 'desktop', press_key: 'desktop', hotkey: 'desktop', key_down: 'desktop', key_up: 'desktop',
-  set_clipboard: 'desktop', set_clipboard_image: 'desktop', close_window: 'desktop', move_window: 'desktop',
-  resize_window: 'desktop', minimize_window: 'desktop', maximize_window: 'desktop', set_window_topmost: 'desktop',
-  message_box: 'desktop', show_notification: 'desktop', beep: 'desktop', play_sound: 'desktop', notify_attention: 'desktop',
-  browser_open: 'network', fetch: 'network',
-};
-const CLAUDE_IRREVERSIBLE_KIND = {
-  Bash: 'exec', BashOutput: 'exec', KillBash: 'exec', KillShell: 'exec',
-  Edit: 'exec', Write: 'exec', MultiEdit: 'exec', NotebookEdit: 'exec', // CLI 直落盘,工作台无 journal(08:238)
-};
-const IRREVERSIBLE_LEDGER_MAX = 50;
-function irreversibleToolKind(name) {
-  const n = String(name || '');
-  if (Object.prototype.hasOwnProperty.call(IRREVERSIBLE_NATIVE_KIND, n)) return IRREVERSIBLE_NATIVE_KIND[n];
-  if (Object.prototype.hasOwnProperty.call(CLAUDE_IRREVERSIBLE_KIND, n)) return CLAUDE_IRREVERSIBLE_KIND[n];
-  const bare = unprefixedBridgedName(n);
-  if (bare !== n && Object.prototype.hasOwnProperty.call(IRREVERSIBLE_BRIDGED_KIND, bare)) return IRREVERSIBLE_BRIDGED_KIND[bare];
-  return '';
-}
-// 账条 detail:从 input 里挑最有辨识度的字段(command/url/path/text),截断 120 字符;全工具调用正文
-// 本就存在会话里,无新增暴露面。
-function irreversibleDetail(input) {
-  const o = (input && typeof input === 'object') ? input : {};
-  for (const k of ['command', 'cmd', 'code', 'script', 'url', 'path', 'text', 'name', 'pid']) {
-    if (typeof o[k] === 'string' && o[k].trim()) return o[k].replace(/\s+/g, ' ').trim().slice(0, 120);
-    if (typeof o[k] === 'number' && Number.isFinite(o[k])) return String(o[k]);
-  }
-  return '';
 }
 // Best-effort: coerce a tool result into a plain object. Handles (a) an object already; (b) a JSON string;
 // (c) an MCP content array [{type:'text',text:'{...}'}] (the shape the Claude CLI reports for workbench

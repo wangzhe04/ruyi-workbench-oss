@@ -41,7 +41,9 @@ const indexHtml = read('index.html');
 const styleManifest = read('styles.css');
 const chatStyleManifest = read('css/views/chat.css');
 const layeredCss = readFrontendCss();
-const overlayBuilder = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 
 let failures = 0;
 function ok(condition, label) {
@@ -115,8 +117,8 @@ ok(!/\.innerHTML\s*=/.test(artifactChanges) && !/\.innerHTML\s*=/.test(observabi
   'D13 两个新领域模块零 innerHTML 赋值');
 ok(app.includes('refreshLocalizedArtifactChanges();')
   && app.includes('refreshLocalizedObservability();'), 'D14 locale 变更通过窄接口重绘领域视图');
-ok(overlayBuilder.includes("'app/public/js/artifact-changes.js'")
-  && overlayBuilder.includes("'app/public/js/operations-observability.js'"), 'D15 两个领域模块均进入 overlay 载荷');
+ok(overlayPayload.has('app/public/js/artifact-changes.js')
+  && overlayPayload.has('app/public/js/operations-observability.js'), 'D15 两个领域模块均进入 overlay 载荷');
 ok(app.includes("from './js/file-browser.js'")
   && app.includes('createFileBrowserDomain({')
   && app.includes('bindFileBrowser();'), 'D16 app.js 组合文件浏览域并统一绑定');
@@ -138,7 +140,7 @@ ok(fileBrowser.includes("frame.setAttribute('sandbox', '')")
   && (fileBrowser.match(/\.innerHTML\s*=/g) || []).length === 1
   && fileBrowser.includes('markdown.innerHTML = renderMarkdown(text);'), 'D19 HTML 空 sandbox + Markdown 唯一受控 innerHTML');
 ok(!/function (fetchDirLevel|fileTreeRow|loadFileTree|renderFilePreviewInto|renderTextPreview|renderCsvTable|mentionFile)\(/.test(app)
-  && overlayBuilder.includes("'app/public/js/file-browser.js'"), 'D20 文件实现离开 app.js 且进入 overlay 载荷');
+  && overlayPayload.has('app/public/js/file-browser.js'), 'D20 文件实现离开 app.js 且进入 overlay 载荷');
 
 ok(agentWorkflows.includes("from './workbench.js'")
   && agentWorkflows.includes('createWorkbenchDomain({')
@@ -166,7 +168,7 @@ ok(agentWorkflows.includes('isWorkbenchCanvasView()')
   'D24 工作流轮询层仅通过窄接口读取画布态与标记断连');
 ok((workbench.match(/\.innerHTML\s*=/g) || []).length === 0,
   'D25 Workbench 域保持零 innerHTML 赋值');
-ok(overlayBuilder.includes("'app/public/js/workbench.js'"),
+ok(overlayPayload.has('app/public/js/workbench.js'),
   'D26 Workbench 域进入 overlay 载荷');
 
 ok(app.includes("from './js/usage-dashboard.js'")
@@ -215,8 +217,8 @@ ok(agentRoles.includes("api(`/api/agent-roles?cwd=")
   'D34 Agent 角色 GET/POST 与页签懒加载契约齐');
 ok(!/\.innerHTML\s*=/.test(usageDashboard) && !/\.innerHTML\s*=/.test(agentRoles),
   'D35 用量与 Agent 角色领域保持零 innerHTML 赋值');
-ok(overlayBuilder.includes("'app/public/js/usage-dashboard.js'")
-  && overlayBuilder.includes("'app/public/js/agent-roles.js'"),
+ok(overlayPayload.has('app/public/js/usage-dashboard.js')
+  && overlayPayload.has('app/public/js/agent-roles.js'),
   'D36 两个第61波领域模块均进入 overlay 载荷');
 
 const wave62Domains = [
@@ -233,7 +235,7 @@ const wave62Domains = [
   ['workspace-preferences.js', workspacePreferences, ['applyTheme', 'currentWorkspace', 'pickWorkspace']],
 ];
 for (const [file, source, functions] of wave62Domains) {
-  ok(app.includes(`from './js/${file}'`) && overlayBuilder.includes(`'app/public/js/${file}'`),
+  ok(app.includes(`from './js/${file}'`) && overlayPayload.has(`app/public/js/${file}`),
     `D37 ${file} 已组合并进入 overlay`);
   for (const name of functions) {
     ok(source.includes(`function ${name}(`) || source.includes(`async function ${name}(`),
@@ -299,9 +301,9 @@ ok(!/function (messageShell|thinkingPanel|toolCard|renderContextMeter|renderStat
   // 118b(SPEC §6 重钉): 组合根补上 navigation-controls 漏注入的 fillSettings(1 行修复,详见 E9 处说明)。
   // 1239/1240 已无余量,按纪律上调到整数余量 1280,断言其余不变(聊天函数正则依旧防实现回灌)。
   'D45 聊天实现离开 app.js 且组合根低于 1240 行（118b 重钉护栏 1240→1280）');
-ok(overlayBuilder.includes("'app/public/js/chat-render-primitives.js'")
-  && overlayBuilder.includes("'app/public/js/chat-static-renderer.js'")
-  && overlayBuilder.includes("'app/public/js/chat-stream-runtime.js'"),
+ok(overlayPayload.has('app/public/js/chat-render-primitives.js')
+  && overlayPayload.has('app/public/js/chat-static-renderer.js')
+  && overlayPayload.has('app/public/js/chat-stream-runtime.js'),
   'D46 三层聊天子域均进入 overlay 载荷');
 const indexCssRoutes = [...indexHtml.matchAll(/<link rel="stylesheet" href="\/(css\/[^"]+\.css)"/g)].map(match => match[1]);
 const manifestCssRoutes = [...styleManifest.matchAll(/@import url\("\/(css\/[^"]+\.css)"\);/g)].map(match => match[1]);
@@ -309,8 +311,8 @@ ok(JSON.stringify(indexCssRoutes) === JSON.stringify(CSS_ROUTES),
   'D47 index.html 按既定级联顺序直接加载全部 CSS 层');
 ok(JSON.stringify(manifestCssRoutes) === JSON.stringify(CSS_ROUTES),
   'D48 styles.css 兼容清单与直接加载顺序一致');
-ok(CSS_ROUTES.every(route => overlayBuilder.includes(`'app/public/${route}'`))
-  && CSS_COMPAT_ROUTES.every(route => overlayBuilder.includes(`'app/public/${route}'`))
+ok(CSS_ROUTES.every(route => overlayPayload.has(`app/public/${route}`))
+  && CSS_COMPAT_ROUTES.every(route => overlayPayload.has(`app/public/${route}`))
   && CSS_ROUTES.every(route => fs.existsSync(path.join(PUBLIC, ...route.split('/')))),
   'D49 CSS 层磁盘文件与 overlay 载荷完整');
 ok(layeredCss.includes(':root[data-theme="dark"]')

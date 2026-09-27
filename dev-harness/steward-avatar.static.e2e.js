@@ -19,7 +19,9 @@ const styles = read('styles.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
 const stewardBoard = read('js/steward-board.js');
-const overlay = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 const readFrontendCss = fs.readFileSync(path.join(__dirname, 'read-frontend-css.js'), 'utf8');
 
 let fail = 0;
@@ -208,7 +210,7 @@ ok(styles.includes('@import url("/css/views/steward-avatar.css");')
   'H1 styles.css @import 与 index.html 直链同步收录 steward-avatar.css');
 ok(readFrontendCss.includes("'css/views/steward-avatar.css',"),
   'H2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-avatar.css');
-ok(overlay.includes("'app/public/css/views/steward-avatar.css'") && overlay.includes("'app/public/js/steward-presence.js'"),
+ok(overlayPayload.has('app/public/css/views/steward-avatar.css') && overlayPayload.has('app/public/js/steward-presence.js'),
   'H3 离线包清单收录 steward-avatar.css 与 steward-presence.js');
 
 // ─── I 117m-A3：线程级「等你」真的进头像（needsYouCount 修前是个死字段）──────

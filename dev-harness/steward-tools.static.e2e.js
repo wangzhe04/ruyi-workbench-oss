@@ -23,6 +23,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { functionBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP = path.join(ROOT, 'ruyi-workbench', 'app');
@@ -123,7 +124,6 @@ const src13h = read('13h-steward-runner.js');
 // 117 波 T2(32 号文 §5):13h 拆成六个文件(纯搬家)。①c/①d 要的那两张登记表(STEWARD_ACTION_HOOKS
 // 与 STEWARD_TOOL_LABELS)随共享常量块搬进 13m;⑦ 的 userPressed 三处分落 13m(注释)/13q(唯一置 true)
 // /13h(act 路由那段「不置」的注释)。故这两组判据改读确切的那个文件与整族,期望值一字未改。
-const src13m = read('13m-steward-runner-base.js');   // 117m-A4 ①c/①d:ACTION_HOOKS 与人话标签的登记面(T2 后住这里)
 const STEWARD_RUNNER_FAMILY = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-steward-runner-prompt.js',
   '13p-steward-runner-actions.js', '13q-steward-runner-turn.js', '13h-steward-runner.js'];
 
@@ -154,10 +154,20 @@ ok(Object.keys(srv.TOOL_HANDLERS).length === 107, `① 注册表总数 107(代�
 const stopPrimitives = expected.filter(n => /_stop$/.test(n));
 ok(JSON.stringify(stopPrimitives) === JSON.stringify(['steward_thread_stop']),
   `①b 决策族里恰好【一个】线程级停止原语(多一个 = 两条停机路径,少一个 = 管家又只能拿 run_action 凑;got ${JSON.stringify(stopPrimitives)})`);
-const hooksBlock = src13m.slice(src13m.indexOf('const STEWARD_ACTION_HOOKS'), src13m.indexOf('const STEWARD_DECIDE_LABELS'));
-ok(/steward_thread_stop: 'threadStop'/.test(hooksBlock),
+// 架构还债批 3·D:「在不在 STEWARD_ACTION_HOOKS 里」改问运行时 —— stewardNormalizeAct 正是按这张表决定
+// 一枚 act 按钮画不画得出来(①g 钉的产出侧闸),画得出来 ⇔ 表里有它的实现。修前是把
+// `const STEWARD_ACTION_HOOKS` 到 `const STEWARD_DECIDE_LABELS` 之间的源码切下来再按 `tool:` 正则找,
+// 两张表挪个位置、合成一张或换个声明写法,锁就切错或切空。定时任务 create 另要过一遍真实的任务校验,
+// 给它一份合法参数(与降级按钮真带的形状同构)。
+const ACT_PROBE_ARGS = {
+  steward_schedule_create: { title: '静态锁探针', schedule: { kind: 'daily', at: '09:00' }, payload: { kind: 'reminder', text: '探针' } },
+};
+const actable = tool => !!srv.stewardNormalizeAct({ kind: 'tool', tool, args: ACT_PROBE_ARGS[tool] || {} });
+// 人话标签 = 不是兜底的「去做」、也没把内部 id 吐出来。
+const humanLabel = tool => { const label = String(srv.stewardActLabel(tool, {}) || ''); return !!label && label !== '去做' && !label.includes(tool); };
+ok(actable('steward_thread_stop'),
   '①c steward_thread_stop 登记进 13h 族的 STEWARD_ACTION_HOOKS(不在表里 = 用户亲手按那枚按钮时 not_allowed)');
-ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
+ok(srv.stewardActLabel('steward_thread_stop', {}) === '暂停这条线程',
   '①d STEWARD_TOOL_LABELS 有它的人话标签(※ 脚注与降级按钮不许吐 steward_thread_stop 这个内部 id)');
 
 /* ═════════════ ①e act 表的机械锁(124 走查;同一个坑第三次)═════════════
@@ -191,12 +201,8 @@ ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
     `①e0 每个管家工具都经 stewardToolHandler 注册恰一次(got ${toolFns.length} / 期望 ${STEWARD_TOOLS.length})`);
   const bodyOf = fn => {
     for (const f of srcFiles) {
-      const s = read(f);
-      const at = s.search(new RegExp('(?:async )?function ' + fn + '\\('));
-      if (at < 0) continue;
-      const rest = s.slice(at);
-      const end = rest.indexOf('\n}\n');
-      return end < 0 ? rest : rest.slice(0, end);
+      const body = functionBlock(read(f), fn);
+      if (body) return body;
     }
     return '';
   };
@@ -205,7 +211,7 @@ ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
   const proposers = toolFns.filter(row => bodyOf(row.fn).includes("'propose_required'")).map(row => row.tool);
   ok(proposers.length >= 8,
     `①e2 会回 propose_required 的管家工具至少 8 个(推导链没断;got ${proposers.length})`);
-  const unreachable = proposers.filter(tool => !new RegExp('\\b' + tool + ':').test(hooksBlock));
+  const unreachable = proposers.filter(tool => !actable(tool));
   ok(unreachable.length === 0,
     `①e 凡会回 propose_required 的工具都在 STEWARD_ACTION_HOOKS 里(否则「管家提了按钮、按下去报错」;got ${JSON.stringify(unreachable)})`);
 }
@@ -216,10 +222,10 @@ ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
    act 按钮(acts 不经这张表过滤),所以它们要的是这条显式断言。 */
 {
   const writeSchedule = ['create', 'pause', 'resume', 'run_now', 'delete'].map(s => 'steward_schedule_' + s);
-  const missing = writeSchedule.filter(tool => !new RegExp('\\b' + tool + ':').test(hooksBlock));
+  const missing = writeSchedule.filter(tool => !actable(tool));
   ok(missing.length === 0, `①f 五个写类定时任务工具都在 act 表里(got missing ${JSON.stringify(missing)})`);
-  ok(!/\bsteward_schedule_list:/.test(hooksBlock), '①f2 只读的 steward_schedule_list 不进 act 表');
-  const noLabel = writeSchedule.filter(tool => !new RegExp(tool + ": '").test(src13m));
+  ok(!actable('steward_schedule_list'), '①f2 只读的 steward_schedule_list 不进 act 表');
+  const noLabel = writeSchedule.filter(tool => !humanLabel(tool));
   ok(noLabel.length === 0, `①f3 五个都有人话标签(按钮上不吐内部 id;got ${JSON.stringify(noLabel)})`);
 }
 
@@ -232,12 +238,13 @@ ok(/steward_thread_stop: '暂停这条线程'/.test(src13m),
    以后谁新增工具,用户都看不到一枚按下去必报错的按钮。
    判据钉【行为所在的那个函数】,不是「这个字出现过」:必须在 stewardNormalizeAct 的函数体里。 */
 {
-  const src13o = read('13o-steward-runner-prompt.js');
-  const at = src13o.search(/function stewardNormalizeAct\(/);
-  const body = at < 0 ? '' : src13o.slice(at, at + 2600);
-  ok(at >= 0, '①g0 找得到 stewardNormalizeAct(找不到 = 本条静默失效)');
-  ok(/STEWARD_ACTION_HOOKS\[tool\]/.test(body),
-    '①g acts 归一化时按 STEWARD_ACTION_HOOKS 过滤(不在表里的工具不许变成按钮 —— 否则「按下去报错」)');
+  // 批 3·D:①g 改成行为 —— 真调 stewardNormalizeAct:只读工具(不在表里)画不出按钮,写类工具照常画。
+  // ①g2 的审计落在异步日志流里,静态件里读不回来,仍钉在函数体上(公共切片取整个函数,不再按 2600 字截)。
+  const body = functionBlock(read('13o-steward-runner-prompt.js'), 'stewardNormalizeAct');
+  ok(body.length > 200, '①g0 找得到 stewardNormalizeAct(找不到 = 本条静默失效)');
+  const readOnlyActs = ['steward_threads_search', 'steward_schedule_list', 'steward_skills'].filter(actable);
+  ok(readOnlyActs.length === 0 && actable('steward_thread_new'),
+    `①g acts 归一化时按 STEWARD_ACTION_HOOKS 过滤(不在表里的工具不许变成按钮 —— 否则「按下去报错」;漏网 ${JSON.stringify(readOnlyActs)})`);
   ok(/steward_act_undeliverable/.test(body),
     '①g2 丢掉时记一条审计(这件事修前在界面上是静默失败,至少要数得出来)');
 }
@@ -427,9 +434,7 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
     `⑦ 落点逐名对账:13l 两处(设置族与内容管理族)+ 13k 一处(桌面放宽);got ${JSON.stringify(readerTally)}`);
   {
     const src13k = read('13k-steward-threads.js');
-    const start = src13k.indexOf('async function stewardImplThreadPermission(');
-    const end = start < 0 ? -1 : src13k.indexOf('\n}\n', start);
-    const body = start < 0 ? '' : (end < 0 ? src13k.slice(start) : src13k.slice(start, end));
+    const body = functionBlock(src13k, 'stewardImplThreadPermission');
     ok(/ctx\.userPressed !== true/.test(body),
       '⑦ 13k 那一处就写在 stewardImplThreadPermission 的函数体里(不是散在别的线程族工具上)');
     ok(/if \(wantDesktop === true\) \{/.test(body) && body.indexOf('wantDesktop === true') < body.indexOf('ctx.userPressed'),
@@ -467,13 +472,8 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   ok(pickDefs === 1, `⑧ stewardResolveThreadCwd 只定义一次(got ${pickDefs})`);
   const pickUses = (src13k.match(/stewardResolveThreadCwd\(/g) || []).length;
   ok(pickUses === 3, `⑧ stewardResolveThreadCwd 出现 3 次 = 定义 1 + 调用 2(got ${pickUses})`);
-  // 函数体切片:从 `async function X(` 起到下一个顶格 `}` 为止(本文件的顶层函数都顶格收尾)。
-  const bodyOf = (name) => {
-    const start = src13k.indexOf(`async function ${name}(`);
-    if (start < 0) return '';
-    const end = src13k.indexOf('\n}\n', start);
-    return end < 0 ? src13k.slice(start) : src13k.slice(start, end);
-  };
+  // 函数体切片:公共切片按括号配对取整个函数(批 3·D;修前按「下一个顶格 }」截)。
+  const bodyOf = (name) => functionBlock(src13k, name);
   const newBody = bodyOf('stewardImplThreadNew');
   const quickBody = bodyOf('stewardImplQuickAsk');
   const pickBody = bodyOf('stewardResolveThreadCwd');
@@ -524,9 +524,7 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
 // 渲染成空串,这一条也会红。
 {
   const src13o = read('13o-steward-runner-prompt.js');
-  const start = src13o.indexOf('function stewardWorkspaceTableBlock(');
-  const end = src13o.indexOf('\n}\n', start);
-  const body = start < 0 ? '' : src13o.slice(start, end < 0 ? undefined : end);
+  const body = functionBlock(src13o, 'stewardWorkspaceTableBlock');
   ok(!!body, '⑩ 取到 stewardWorkspaceTableBlock 函数体');
   for (const fence of ['allowOutsideWorkspace', 'additionalDirectories', 'recentWorkspaces', 'defaultWorkspace', 'apiKey']) {
     ok(!body.includes(fence), `⑩ 投影函数体里零「${fence}」`);
@@ -576,9 +574,7 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   const src13k = read('13k-steward-threads.js');
   const retired = srcFiles.filter(f => /stewardWorkspaceTableFull|workspace_table_full/.test(read(f)));
   ok(retired.length === 0, '⑪ 退役的帽检查在全 src 零残留(stewardWorkspaceTableFull / workspace_table_full)' + (retired.length ? ' → ' + retired.join(',') : ''));
-  const claimStart = src13k.indexOf('async function stewardClaimDerivedWorkspace(');
-  const claimEnd = src13k.indexOf('\n}\n', claimStart);
-  const claimBody = claimStart < 0 ? '' : src13k.slice(claimStart, claimEnd < 0 ? undefined : claimEnd);
+  const claimBody = functionBlock(src13k, 'stewardClaimDerivedWorkspace');
   ok(!!claimBody, '⑪ 取到 stewardClaimDerivedWorkspace 函数体');
   ok(/current\.stewardManagedWorkspaces = /.test(claimBody), '⑪ 派生登记写的是如意自己那张表(stewardManagedWorkspaces)');
   ok(!/current\.workspaces\s*=/.test(claimBody), '⑪ 反向:派生不再往 workspaces[](用户的常用工作区)里写任何一行');
@@ -586,9 +582,7 @@ for (const name of ['file_read', 'git_status', 'todo_write']) {
   // 如意那张表的帽子:01-config 一处定义,只在它自己的清洗函数里读。
   const managedCapDefs = (src01.match(/const STEWARD_MANAGED_WORKSPACES_CAP = /g) || []).length;
   ok(managedCapDefs === 1, `⑪ STEWARD_MANAGED_WORKSPACES_CAP 在 01-config 只定义一次(got ${managedCapDefs})`);
-  const managedFnStart = src01.indexOf('function normalizeStewardManagedWorkspaces(');
-  const managedFnEnd = src01.indexOf('\n}\n', managedFnStart);
-  const managedFn = managedFnStart < 0 ? '' : src01.slice(managedFnStart, managedFnEnd < 0 ? undefined : managedFnEnd);
+  const managedFn = functionBlock(src01, 'normalizeStewardManagedWorkspaces');
   ok(/\.slice\(-STEWARD_MANAGED_WORKSPACES_CAP\)/.test(managedFn), '⑪ 如意那张表满员时从最老的一行起丢(slice(-CAP)),不是拒');
   ok((wsBlock.match(/normalizeStewardManagedWorkspaces\(config, clean\)/g) || []).length === 1,
     '⑪ 清洗块在 `config.workspaces = clean` 落定之前调一次迁出/收编(常用工作区里不留如意的目录)');

@@ -34,7 +34,7 @@ const THINKING_NARRATIVE_BOUNDARY_TYPES = new Set([
 // updates to already-rendered cards out of this decision: they may arrive between two thinking deltas without
 // representing a new step in the conversation. A positive list also makes future UI-only event additions safe
 // by default. Keep this aligned with the events that insert a new narrative item below.
-function isThinkingNarrativeBoundary(evt) {
+export function isThinkingNarrativeBoundary(evt) { // 批 3·D:导出只为 thinking-boundary.static 直测(不再 vm 切源码)
   const type = String(evt?.type || '');
   if (!type) return false;
   if (type === 'subagent') return evt.state === 'start';

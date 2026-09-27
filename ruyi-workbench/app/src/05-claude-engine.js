@@ -1,3 +1,169 @@
+// ============================================================================
+// 架构还债批 3 A:Agent CLI 适配器。runClaudeTurn 是 Claude Code 与 Kimi Code 两个命令行引擎共用的唯一回合骨架;
+// 凡是「这一家 CLI 怎么做」的决定(命令行参数、续接旗标、子进程环境、事件解析、回合后用量、原生子代理……)
+// 都问这里的适配器,骨架本身不再写 `agentCliType === 'claude' | 'kimi'`。加第三个 CLI = 在这张表里加一项
+// (再在 01 AGENT_CLI_TYPES 登记标签/路径键),骨架不用动。两个适配器的方法集必须逐项相同
+// (unit/agent-cli-adapters.test.js 钉着方法集与各方法的金样输出)。
+//
+// 接口(ctx 形状见各方法;可选钩子取 null 表示「这一家没有这一步」,骨架据此跳过而不是空跑一次 await):
+//   id                              与 AGENT_CLI_TYPES 的键相同
+//   interactive(config)             是否走 stream-json 持续输入(stdin 保持打开,可插话/答题)
+//   slashCommandVerbatim            斜杠命令是否必须原样作为首个输入块(不拼恢复历史/索引/记忆)
+//   buildArgs(ctx)            async 回合主参数(续接/--add-dir/额外参数之外的全部;可能落盘 MCP 配置)
+//   resumeArgs(nativeSessionId)     续接原生会话的参数
+//   extraArgs(config)               用户配置的额外 CLI 参数(排在尾部参数最后)
+//   prepareSpawn(command, args)     起子进程的最终 { command, args, opts }(.cmd 走 cmd.exe、npm 入口直启等)
+//   cmdLineBudget(command)          整行命令长度预算(0 = 不设防,提示词不走命令行时就是 0)
+//   appendSystemPromptFlag          追加系统提示的命令行旗标;'' = 改走 stdin 的 <ruyi-agent-cli-instructions> 段
+//   runPreparedTurn(context)        null | 自有传输层接管本回合(Kimi = ACP,见 05b);fake 缝下不接管
+//   buildAgentDefinitions(cwd, config, budget)  async 原生子代理角色定义 { definitions, roles, omitted }
+//   buildEnv(config, common)        子进程环境(common = 骨架共有的那几项,插在 CLI 自己的覆盖项之前)
+//   beforeSpawn(config, onEvent)    null | async 起进程前把配置同步给 CLI 自己的设置文件
+//   thinkingEffortLabel(config)     meta 事件里的思考强度显示值
+//   watchSideChannel(session, onEvent)  回合期间旁路观察(返回停止函数;Kimi = wire 日志里的压缩/子代理事件)
+//   promptViaStdin                  非交互模式下提示词是否从 stdin 一次写入
+//   isNativeAgentTool(name)         该工具调用是否走原生子代理续跑协议
+//   parseEvent(evt)                 一行 stdout JSON → 内部事件表(init/text/thinking/tool_use/…)
+//   isResumeMissingError(stderr)    非零退出且 stderr 表明续接目标丢失 → 去掉续接自动重试一次
+//   syncPostTurnUsage(session, config, onEvent)  null | async 回合后向 CLI 取权威用量(替换流内用量)
+//   recordTurnUsage(ctx)            回合用量记账(月度用量看板)
+// ============================================================================
+const AGENT_CLI_ADAPTERS = Object.freeze({
+  claude: Object.freeze({
+    id: 'claude',
+    interactive: config => config.engineMode === 'interactive',
+    slashCommandVerbatim: false,
+    async buildArgs({ config, session, basePrompt, attachments, interactive }) {
+      const args = ['-p', '--output-format', 'stream-json', '--verbose'];
+      if (interactive) args.push('--input-format', 'stream-json');
+      if (config.includePartialMessages) args.push('--include-partial-messages');
+      if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
+      if (config.includeWorkbenchMcp) {
+        const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
+        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
+        // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
+        // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
+        if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
+      }
+      // cmd8191 防线: --agents 的推送延后到 runClaudeTurn 的「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
+      // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
+      if (config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto') {
+        // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
+        args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
+      }
+      // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
+      // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
+      // --permission-mode is the forward-compatible, officially documented way to set the session mode.
+      // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
+      // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
+      // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
+      const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+      if (cliPermMode) args.push('--permission-mode', cliPermMode);
+      if (config.model) args.push('--model', config.model);
+      if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
+      if (config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+      return args;
+    },
+    resumeArgs: nativeSessionId => ['--resume', nativeSessionId],
+    extraArgs: config => (Array.isArray(config.extraClaudeArgs) ? config.extraClaudeArgs : []),
+    // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
+    prepareSpawn: (command, args) => prepareAgentCliSpawn('claude', command, args),
+    cmdLineBudget: command => cmdLineBudgetFor(command),
+    appendSystemPromptFlag: '--append-system-prompt',
+    runPreparedTurn: null,
+    buildAgentDefinitions: (workingDir, config, budget) => buildClaudeAgentDefinitions(workingDir, config, budget),
+    // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
+    // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
+    // reaches this child instead of silently deferring to whatever the OS shell happened to export.
+    buildEnv(config, common) {
+      const env = { ...effectiveAnthropicEnv(config), ...common };
+      if (config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
+      return env;
+    },
+    beforeSpawn: null,
+    thinkingEffortLabel: config => config.claudeThinkingEffort || 'default',
+    watchSideChannel: () => () => {},
+    promptViaStdin: true,
+    // Only Claude's Agent/Task tools follow the native sub-agent continuation protocol in runClaudeTurn.
+    isNativeAgentTool: name => name === 'Agent' || name === 'Task',
+    parseEvent: evt => parseClaudeEvent(evt),
+    isResumeMissingError: stderrText => isClaudeResumeMissingError(stderrText),
+    syncPostTurnUsage: null,
+    // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
+    // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
+    // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
+    // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
+    // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
+    recordTurnUsage({ session, config, usage, billInMax, billOutMax }) {
+      if (usage && usage.usage) {
+        const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+        // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
+        // 两项相加,读法与 runClaudeTurn 的 msg_usage 分支(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,
+        // 只读一项会漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
+        // 「缓存输入 tokens」那一栏对 Claude 会话恒为空(06/08/09 走 provider 侧则一直有值)。
+        // 【费用计算不受影响】:Claude 引擎走 claudeCostFields → CLI 自带的 costUsd(或 config.claudePricing 整体
+        // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
+        // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
+        const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
+        // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
+        appendUsageLedger({
+          sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
+          inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
+        });
+      } else if (billInMax > 0 || billOutMax > 0) {
+        // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
+        // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
+        // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
+        // P2-18: 这条估算兜底路径没有 result 帧,拿不到 cache_read/cache_creation 字段,cachedInTok 缺失按 0
+        // (与上面「读+创建两项相加,缺失按 0」同一口径,费用计算同样不受影响 —— 见上面那条注释)。
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
+        appendUsageLedger({
+          sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
+          inTok: billInMax, outTok: billOutMax, cachedInTok: 0, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
+        });
+      }
+    },
+  }),
+  kimi: Object.freeze({
+    id: 'kimi',
+    interactive: () => false,
+    // Kimi ACP native slash commands must be the first content block exactly as entered.
+    slashCommandVerbatim: true,
+    // Kimi runs through its ACP stdio server (see 05b) rather than the legacy one-shot
+    // `kimi -p --output-format stream-json` surface, so it contributes no lead arguments here.
+    buildArgs: async () => [],
+    resumeArgs: nativeSessionId => ['--session', nativeSessionId],
+    extraArgs: () => [],
+    prepareSpawn: (command, args) => prepareAgentCliSpawn('kimi', command, args),
+    // ACP carries the prompt over stdin as JSON-RPC, so Windows' command-line ceiling is irrelevant to Kimi.
+    cmdLineBudget: () => 0,
+    appendSystemPromptFlag: '',
+    runPreparedTurn: context => runKimiAcpTurnPrepared(context),
+    buildAgentDefinitions: async () => ({ definitions: {}, roles: [], omitted: [] }),
+    buildEnv: (config, common) => ({ ...process.env, ...common }),
+    async beforeSpawn(config, onEvent) {
+      if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
+      await syncKimiTurnPreferences(config).catch(error => onEvent({ type: 'stderr', text: `[Kimi 设置同步] ${(error && error.message) || error}` }));
+    },
+    thinkingEffortLabel: () => 'cli-managed',
+    watchSideChannel: (session, onEvent) => (session.claudeSessionId
+      ? watchKimiWire(session.claudeSessionId, onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
+      : () => {}),
+    promptViaStdin: false,
+    // Kimi may expose a same-named tool, but its stream-json tool lifecycle is already self-contained.
+    isNativeAgentTool: () => false,
+    parseEvent: evt => parseKimiStreamJsonEvent(evt),
+    isResumeMissingError: () => false,
+    // Kimi's stream-json result has no usage frame. Pull the session's exact post-turn occupancy and persist
+    // it on the assistant row so reopening Ruyi cannot fall back to a stale Claude reading.
+    syncPostTurnUsage: (session, config, onEvent) => (session.claudeSessionId ? syncKimiSessionUsage(session, config, onEvent) : Promise.resolve(null)),
+    recordTurnUsage: () => {},
+  }),
+});
+// selectedAgentCli(01) 已把未知类型归到 claude;这里同一口径兜底。
+function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[type] || AGENT_CLI_ADAPTERS.claude; }
+
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
@@ -18,13 +184,14 @@ async function runClaudeTurn({
   const config = turnConfig || await readConfig();
   const cliDriver = selectedAgentCli(config);
   const agentCliType = cliDriver.id;
+  const adapter = agentCliAdapter(agentCliType);   // 架构还债批 3 A:本回合一切「这一家 CLI 怎么做」都问它
   const agentCliLabel = cliDriver.label;
   const claude = cliDriver.path;
   const workingDir = normalizeCwd(cwd || session.cwd, config.defaultWorkspace);
   let workspaceTurnBaseline = _workspaceBaseline;
   const promptTaskContext = buildPromptTaskContext(message, session);
   const slashCommand = String(message || '').trim().startsWith('/');
-  const kimiNativeSlashCommand = agentCliType === 'kimi' && slashCommand;
+  const kimiNativeSlashCommand = adapter.slashCommandVerbatim && slashCommand;   // 名字沿用(ACP 上下文键同名);语义 = 斜杠命令原样首块
   const currentClaudeModel = String(config.model || '');
   const currentResumeRouteKey = claudeResumeRouteKey(config);
   let resumeResetReason = '';
@@ -139,39 +306,10 @@ async function runClaudeTurn({
   // orphan a child (unkillable pid) or last-write-wins clobber the session file with a concurrent turn.
   if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
 
-  const interactive = agentCliType === 'claude' && config.engineMode === 'interactive';
-  // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
-  const usePermissionBridge = agentCliType === 'claude' && config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto';
+  const interactive = adapter.interactive(config);
 
-  // Kimi runs through its ACP stdio server (see 05b) rather than the legacy one-shot
-  // `kimi -p --output-format stream-json` surface. Keep this argument builder Claude-only.
-  const args = agentCliType === 'claude' ? ['-p', '--output-format', 'stream-json', '--verbose'] : [];
-  if (agentCliType === 'claude' && interactive) args.push('--input-format', 'stream-json');
-  if (agentCliType === 'claude' && config.includePartialMessages) args.push('--include-partial-messages');
-  if (agentCliType === 'claude' && config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
-  if (agentCliType === 'claude' && config.includeWorkbenchMcp) {
-    const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
-    args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
-    // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
-    // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
-    if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
-  }
-  // cmd8191 防线: --agents 的推送延后到下方「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
-  if (usePermissionBridge) {
-    // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
-    args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
-  }
-  // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
-  // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
-  // --permission-mode is the forward-compatible, officially documented way to set the session mode.
-  // The syncClaudeCliSettings() call (on config save) also writes permissions.defaultMode to
-  // ~/.claude/settings.json so the mode persists even if a CLI version ignores the flag.
-  // v1.4.3: use the unified CLAUDE_PERMISSION_MODE_MAP for all modes
-  const cliPermMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-  if (agentCliType === 'claude' && cliPermMode) args.push('--permission-mode', cliPermMode);
-  if (agentCliType === 'claude' && config.model) args.push('--model', config.model);
-  if (agentCliType === 'claude' && config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  if (agentCliType === 'claude' && config.maxTurns) args.push('--max-turns', String(config.maxTurns));
+  // 回合主参数(输出格式/MCP/权限/模型/思考强度……)由适配器给;--agents 的推送延后到下方「预算核算与降级阶梯」。
+  const args = await adapter.buildArgs({ config, session, basePrompt, attachments, interactive });
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
@@ -181,7 +319,7 @@ async function runClaudeTurn({
   // (就是原来跟在 append 块后面的 --resume / --add-dir / extraClaudeArgs,内容不变,仅提前收集、最后统一 push。)
   const tailArgs = [];
   if (config.autoResumeClaudeSessions && session.claudeSessionId) {
-    tailArgs.push(agentCliType === 'kimi' ? '--session' : '--resume', session.claudeSessionId);
+    tailArgs.push(...adapter.resumeArgs(session.claudeSessionId));
   }
   if (workingDir) tailArgs.push('--add-dir', workingDir);
   // v2 跨会话记忆(C1 评审修订): 启用记忆时把记忆目录加入 --add-dir,使非 bypass 权限模式主回合 Read 可达;
@@ -199,7 +337,7 @@ async function runClaudeTurn({
   if (Array.isArray(config.additionalDirectories)) {
     for (const dir of config.additionalDirectories) { if (dir && dir !== workingDir) tailArgs.push('--add-dir', dir); }
   }
-  if (agentCliType === 'claude' && Array.isArray(config.extraClaudeArgs)) tailArgs.push(...config.extraClaudeArgs);
+  tailArgs.push(...adapter.extraArgs(config));
 
   // cmd8191 防线: 整行预算核算。fake 缝(node 直启)不受 cmd 限制,除非 WCW_CLAUDE_CMDLINE_BUDGET 测试缝强制。
   // 阶梯顺序: ① append 先拿预算(块内 fits-or-drop 自然兑现 用户append>技能>记忆>账本>编排>语言政策);
@@ -207,11 +345,11 @@ async function runClaudeTurn({
   // ③ 组装后整行复核(引号翻倍等二阶效应的最终闸口)仍超 → 砍 --agents → 围栏安全裁 append → 告警但绝不硬失败。
   const preflightLaunch = fakeClaude
     ? { command: process.execPath, args: [fakeClaude], opts: {} }
-    : prepareAgentCliSpawn(agentCliType, claude, []);
+    : adapter.prepareSpawn(claude, []);
   const guardCmd = preflightLaunch.command;
   const guardPrefixArgs = preflightLaunch.args;
-  // ACP carries the prompt over stdin as JSON-RPC, so Windows' command-line ceiling is irrelevant to Kimi.
-  const guardBudget = agentCliType === 'kimi' ? 0 : cmdLineBudgetFor(guardCmd);
+  // 提示词不走命令行的 CLI(Kimi ACP 走 stdin JSON-RPC)预算为 0 = 不设防。
+  const guardBudget = adapter.cmdLineBudget(guardCmd);
   const cmdlineGuard = { budget: guardBudget, degraded: [], lineLen: 0 };
   const FLAG_APPEND_ALLOWANCE = '--append-system-prompt'.length + 1 + CMD_LINE_QUOTE_MARGIN;
   const FLAG_AGENTS_ALLOWANCE = '--agents'.length + 1 + CMD_LINE_QUOTE_MARGIN;
@@ -352,7 +490,7 @@ async function runClaudeTurn({
     // segment for the user-facing response-language policy, even when the user configured no custom prompt.
     // appendLimit<=0(预算耗尽)时整段跳过 —— appendTurnPolicies 的 limit<=0 语义是「不限」,绝不可传入。
     appendSys = appendLimit > 0 ? appendTurnPolicies(appendSys, config, agentTeam, appendLimit, true, promptTaskContext) : '';
-    if (appendSys && agentCliType === 'claude') args.push('--append-system-prompt', appendSys);
+    if (appendSys && adapter.appendSystemPromptFlag) args.push(adapter.appendSystemPromptFlag, appendSys);
     else if (appendSys) indexSecs.push(`<ruyi-agent-cli-instructions>\n${appendSys}\n</ruyi-agent-cli-instructions>`);
   }
 
@@ -395,12 +533,13 @@ async function runClaudeTurn({
   // slash with Ruyi recovery, history, memory, or index context.
   const fullPrompt = kimiNativeSlashCommand ? String(message == null ? '' : message) : assembledPrompt;
 
-  if (agentCliType === 'kimi' && !fakeClaude) {
+  // 自有传输层的 CLI(Kimi = ACP stdio,见 05b)从这里接管本回合;fake 缝仍走下面的 spawn 骨架。
+  if (adapter.runPreparedTurn && !fakeClaude) {
     const additionalDirectories = [];
     for (let i = 0; i < tailArgs.length - 1; i++) {
       if (tailArgs[i] === '--add-dir') additionalDirectories.push(tailArgs[++i]);
     }
-    return runKimiAcpTurnPrepared({
+    return adapter.runPreparedTurn({
       session, message, attachments, onEvent, config, cliDriver, agentCliLabel, claude, workingDir, fullPrompt,
       additionalDirectories, turnStartedAt, turnSegments, activeTraceId, currentClaudeModel,
       currentResumeRouteKey, historyRecoveryInjected, indexInjection, indexPayloadHash, memoryPreflight,
@@ -414,13 +553,11 @@ async function runClaudeTurn({
     const appendArgLen = appendSys ? quoteWinArg(appendSys).length + FLAG_APPEND_ALLOWANCE : 0;
     agentsBudget = Math.max(0, Math.min(6000, guardBudget - fixedLen - appendArgLen - FLAG_AGENTS_ALLOWANCE));
   }
-  const claudeAgentLibrary = agentCliType === 'claude'
-    ? await buildClaudeAgentDefinitions(workingDir, config, agentsBudget)
-    : { definitions: {}, roles: [], omitted: [] };
-  if (agentCliType === 'claude' && Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
+  const claudeAgentLibrary = await adapter.buildAgentDefinitions(workingDir, config, agentsBudget);
+  if (Object.keys(claudeAgentLibrary.definitions).length) args.push('--agents', JSON.stringify(claudeAgentLibrary.definitions));
   else if (claudeAgentLibrary.omitted.length) cmdlineGuard.degraded.push('agents-dropped');
   args.push(...tailArgs);
-  // Claude consumes the prompt from stdin. Kimi branched into ACP above.
+  // The prompt goes over stdin (interactive envelope / adapter.promptViaStdin below). Kimi branched into ACP above.
 
   // cmd8191 防线③: 整行复核 —— 任何情况下绝不让整行越过预算(引号翻倍等二阶效应的最终闸口)。
   if (guardBudget > 0) {
@@ -428,8 +565,8 @@ async function runClaudeTurn({
     for (let g = 0; g < 6 && lineLen > guardBudget; g++) {
       const ai = args.indexOf('--agents');
       if (ai >= 0) { args.splice(ai, 2); if (!cmdlineGuard.degraded.includes('agents-dropped')) cmdlineGuard.degraded.push('agents-dropped'); }
-      else if (agentCliType === 'claude') {
-        const pi = args.indexOf('--append-system-prompt');
+      else if (adapter.appendSystemPromptFlag) {
+        const pi = args.indexOf(adapter.appendSystemPromptFlag);
         if (pi < 0) break;
         const over = lineLen - guardBudget;
         const trimmed = fenceSafeSlice(args[pi + 1], Math.max(0, String(args[pi + 1]).length - over - CMD_LINE_QUOTE_MARGIN));
@@ -457,11 +594,8 @@ async function runClaudeTurn({
     }
   }
 
-  // v1.4.4: effectiveAnthropicEnv overlays the config-driven third-party endpoint/model (modelsApiBase/
-  // modelsApiKey/claudeAuthMode/model) onto process.env, so a frontend change to any of those actually
-  // reaches this child instead of silently deferring to whatever the OS shell happened to export.
-  const env = { ...(agentCliType === 'claude' ? effectiveAnthropicEnv(config) : process.env), WIN_CLAUDE_WORKBENCH_HOME: paths.data }; // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
-  if (agentCliType === 'claude' && config.thinkingBudget) env.MAX_THINKING_TOKENS = String(config.thinkingBudget);
+  // 子进程环境由适配器给(Claude:effectiveAnthropicEnv 叠第三方端点/模型 + MAX_THINKING_TOKENS;Kimi:process.env)。
+  const env = adapter.buildEnv(config, { WIN_CLAUDE_WORKBENCH_HOME: paths.data }); // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
@@ -469,14 +603,10 @@ async function runClaudeTurn({
   env.WCW_PORT = String(RUNTIME.port);
   env.WCW_HOST = RUNTIME.host;
   env.WCW_TOKEN = RUNTIME.token;
-  if (agentCliType === 'kimi') {
-    if (config.includeWorkbenchMcp) await syncMcpServersToKimi(config);
-    await syncKimiTurnPreferences(config).catch(error => onEvent({ type: 'stderr', text: `[Kimi 设置同步] ${(error && error.message) || error}` }));
-  }
+  if (adapter.beforeSpawn) await adapter.beforeSpawn(config, onEvent);
 
-  // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
-    : prepareAgentCliSpawn(agentCliType, claude, args);
+    : adapter.prepareSpawn(claude, args);
   const spawnCmd = spawn.command;
   const spawnArgs = spawn.args;
   const spawnOpts = spawn.opts;
@@ -487,7 +617,7 @@ async function runClaudeTurn({
     if (args[i - 1] === '-p' || args[i - 1] === '--prompt') return `[prompt ${String(arg).length} chars]`;
     return redact(arg);
   });
-  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: agentCliType === 'claude' ? (config.claudeThinkingEffort || 'default') : 'cli-managed', permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined, envBrief: envBrief ? envBrief.fingerprint : undefined });
+  onEvent({ type: 'meta', command: fakeClaude ? `node ${path.basename(fakeClaude)} (fake)` : claude, args: metaArgs, cwd: workingDir, model: config.model || '(default)', thinkingEffort: adapter.thinkingEffortLabel(config), permissionMode: config.permissionMode, historyRecoveryInjected, indexInjected: Boolean(indexInjection), indexHash: indexPayloadHash || undefined, memoryCheck: memoryPreflight.status, resumeResetReason: resumeResetReason || undefined, resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt), agentRoles: claudeAgentLibrary.roles.map(r => ({ id: r.id, label: r.label, source: r.source })), agentRolesOmitted: claudeAgentLibrary.omitted, agentDriver: `${agentCliType}-native`, agentCliType, agentCliLabel, experimental: Boolean(cliDriver.experimental), cwdWarning: cwdWarn || undefined, cmdlineGuard: cmdlineGuard.degraded.length ? { budget: cmdlineGuard.budget, lineLen: cmdlineGuard.lineLen, degraded: cmdlineGuard.degraded } : undefined, envBrief: envBrief ? envBrief.fingerprint : undefined });
   logEvent({ kind: 'turn_start', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude', model: config.model || 'default', promptPack: PROMPT_PACK_VERSION, promptPolicies: { softwareEngineering: softwareEngineeringTaskProfile(promptTaskContext) }, memoryCheck: memoryPreflight.status, promptLen: fullPrompt.length, attachments: (attachments || []).length, fake: Boolean(fakeClaude), resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt) });
 
   await fsp.mkdir(workingDir, { recursive: true }).catch(() => {});
@@ -511,9 +641,7 @@ async function runClaudeTurn({
   activeChildren.set(session.id, reg);
   RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // 121-K2a:回合此刻起是「在跑」(§6.3 指标 a)
   onEvent({ type: 'process', state: 'running', pid: child.pid, interactive });
-  const stopKimiWireWatch = agentCliType === 'kimi' && session.claudeSessionId
-    ? watchKimiWire(session.claudeSessionId, reg.onEvent, session.kimiContextStatus && session.kimiContextStatus.contextWindow)
-    : () => {};
+  const stopSideChannelWatch = adapter.watchSideChannel(session, reg.onEvent);
 
   // Watchdog: if the child goes idle for too long (e.g. never emits `result`, or blocks on an
   // unanswered prompt), end the turn so the HTTP stream and process can't hang forever.
@@ -667,7 +795,7 @@ async function runClaudeTurn({
     // stream-json input: send the user turn as a JSON envelope, keep stdin OPEN for tool_result /
     // AskUserQuestion answers written via /api/chat/answer. Closed when the turn's `result` arrives.
     child.stdin.write(JSON.stringify(buildUserEnvelope(fullPrompt)) + '\n', 'utf8');
-  } else if (agentCliType === 'claude') {
+  } else if (adapter.promptViaStdin) {
     child.stdin.write(fullPrompt, 'utf8');
     child.stdin.end();
   } else child.stdin.end();
@@ -698,9 +826,8 @@ async function runClaudeTurn({
       else if (!pendingDeltaThinking) { thinkingText += ev.text; onEvent({ type: 'thinking_delta', text: ev.text }); }
     } else if (ev.kind === 'tool_use') {
       toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
-      // Only Claude's Agent/Task tools follow the native sub-agent continuation protocol below.
-      // Kimi may expose a same-named tool, but its stream-json tool lifecycle is already self-contained.
-      const isNativeAgent = agentCliType === 'claude' && (ev.name === 'Agent' || ev.name === 'Task');
+      // Only the adapter's native agent tools (Claude Agent/Task) follow the sub-agent continuation protocol below.
+      const isNativeAgent = adapter.isNativeAgentTool(ev.name);
       if (isNativeAgent) {
         const roleId = String(ev.input && (ev.input.subagent_type || ev.input.agent || ev.input.role) || 'general-purpose');
         const role = claudeAgentLibrary.roles.find(r => r.id === roleId);
@@ -821,7 +948,7 @@ async function runClaudeTurn({
       return;
     }
     reg.lastEventAt = Date.now();
-    for (const ev of parseAgentCliEvent(evt, agentCliType)) handleNormalized(ev);
+    for (const ev of adapter.parseEvent(evt)) handleNormalized(ev);
     // Reset per-message delta dedup after each whole assistant message so a later whole-only
     // message isn't suppressed by an earlier message's partials.
     if (evt.type === 'assistant' || evt.role === 'assistant') { pendingDeltaText = false; pendingDeltaThinking = false; }
@@ -838,7 +965,7 @@ async function runClaudeTurn({
   });
   clearInterval(watchdog);
   clearInterval(nativeAgentProgressTimer);
-  stopKimiWireWatch();
+  stopSideChannelWatch();
   stdoutFeeder.flush();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
@@ -872,8 +999,8 @@ async function runClaudeTurn({
   // Reactive fallback for legacy/unknown bindings and externally moved/deleted transcripts. Retry the
   // SAME logical turn once without --resume: the user message/turnSeq were already persisted above, so the
   // retry skips that mutation and reuses the pre-turn recovery history instead of duplicating the prompt.
-  const resumeTranscriptMissing = agentCliType === 'claude' && resumeActive && exit.code !== 0 && !wasStopped
-    && !assistantText.trim() && toolCalls.length === 0 && isClaudeResumeMissingError(stderrTrimmed);
+  const resumeTranscriptMissing = resumeActive && exit.code !== 0 && !wasStopped
+    && !assistantText.trim() && toolCalls.length === 0 && adapter.isResumeMissingError(stderrTrimmed);
   if (resumeTranscriptMissing && !_resumeRecoveryAttempt) {
     session.claudeSessionId = null;
     delete session.claudeSessionModel;
@@ -892,11 +1019,10 @@ async function runClaudeTurn({
   // 第35波 P2: 进程根本没启动(spawn error 或 cmd 拒绝执行)→ prompt 未送达,原生 transcript 不含本轮注入的索引
   // → 清注入 hash,下轮(同内容也会)重注。abort/watchdog 杀不在此列:prompt 已写入 stdin,transcript 已含索引。
   if ((exit.code === -1 && exit.error) || cmdLineOverflow) session.injectedIndexHash = null;
-  // Kimi's stream-json result has no usage frame. Pull the session's exact post-turn occupancy and persist
-  // it on the assistant row so reopening Ruyi cannot fall back to a stale Claude reading.
-  if (agentCliType === 'kimi' && session.claudeSessionId) {
-    const kimiUsage = await syncKimiSessionUsage(session, config, onEvent).catch(() => null);
-    if (kimiUsage) usage = kimiUsage;
+  // 回合后向 CLI 取权威用量(Kimi:stream-json 结果帧没有用量,见适配器),拿到就替换流内用量。
+  if (adapter.syncPostTurnUsage) {
+    const postTurnUsage = await adapter.syncPostTurnUsage(session, config, onEvent).catch(() => null);
+    if (postTurnUsage) usage = postTurnUsage;
   }
   const finalText = assistantText.trim() || (stdoutNoise.trim()) || (stderrTrimmed ? (cmdLineOverflow
     ? `[启动守卫] ${agentCliLabel} CLI 未能启动:Windows 命令行超过长度限制。临时规避:减少启用的技能、缩短自定义系统提示,或改用原生可执行文件。\n原始错误:${redact(stderrTrimmed)}`
@@ -968,39 +1094,8 @@ async function runClaudeTurn({
   await saveSession(session);
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
   RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
-  // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
-  // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
-  // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
-  // (third-party, unpriced) tokens with cost null + costTrusted false (its CLI total_cost_usd is Anthropic-
-  // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
-  if (agentCliType === 'claude' && usage && usage.usage) {
-    const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
-    // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
-    // 两项相加,读法与本文件 761 行(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,只读一项会
-    // 漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
-    // 「缓存输入 tokens」那一栏对 Claude 会话恒为空(06/08/09 走 provider 侧则一直有值)。
-    // 【费用计算不受影响】:Claude 引擎走 claudeCostFields → CLI 自带的 costUsd(或 config.claudePricing 整体
-    // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
-    // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
-    const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
-    // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
-    const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
-    appendUsageLedger({
-      sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
-    });
-  } else if (agentCliType === 'claude' && (billInMax > 0 || billOutMax > 0)) {
-    // v1.4-OSS 用量看板(补): NO result frame (Stop / idle-kill) — the turn still burned real tokens. Record a
-    // conservative ESTIMATED row from the per-message billing max (与子代理兜底对称). There is no CLI cost frame
-    // here, so pass NaN → claudeCostFields yields cost:null unless config.claudePricing can price the tokens.
-    // P2-18: 这条估算兜底路径没有 result 帧,拿不到 cache_read/cache_creation 字段,cachedInTok 缺失按 0
-    // (与上面「读+创建两项相加,缺失按 0」同一口径,费用计算同样不受影响 —— 见上面那条注释)。
-    const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, billInMax, billOutMax, NaN);
-    appendUsageLedger({
-      sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
-      inTok: billInMax, outTok: billOutMax, cachedInTok: 0, cost, currency, costTrusted, estimated: true, turnSeq: session.turnSeq,
-    });
-  }
+  // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。
+  adapter.recordTurnUsage({ session, config, usage, billInMax, billOutMax });
   const claudeTurnOk = exit.code === 0 && !wasStopped;
   if (session.mission) await bumpMissionChangeSeq(session.id, {
     type: claudeTurnOk || wasStopped ? 'progress' : 'failure',

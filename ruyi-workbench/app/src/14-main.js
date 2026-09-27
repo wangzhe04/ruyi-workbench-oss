@@ -37,7 +37,7 @@ module.exports = {
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
   // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
   // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
-  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerPostJsonOnce, providerRawCompletion, providerFixCompletion,
+  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerRawCompletion, providerFixCompletion,
   providerCallIsTransient, abortableDelay, withTransientRetry, openAiStreamOnce,
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
@@ -105,7 +105,6 @@ module.exports = {
   summarySingleShotCap,
   summarySingleShotReserveTokens,
   resolveSummaryCallPolicy,
-  applySummaryCallPolicy,
   // 105g(4.3 首项): map-reduce 全局事实表 — exposed for e2e 白盒契约(开关唯一判定点/注入消息构建)。
   summaryFactTableEnabled,
   summaryFactTableCap,
@@ -139,11 +138,9 @@ module.exports = {
   agentNodeContextWindow,
   buildAgentRunEnvelope,
   cutAtSentence,
-  agentRunResultSlice,
   singleAgentShorthandNode,
   legacySpawnToOrchestrateArgs,
   waitForAgentRunResults,
-  compactHistoryFromSession,
   parseKimiWireCompaction,
   parseKimiWireAgentEvents,
   isKimiAcpPlanFilePath,
@@ -153,24 +150,17 @@ module.exports = {
   kimiAcpModeOptionFromActivated,
   kimiAcpFreshActualForOperation,
   kimiAcpInferConcreteToolInput,
-  kimiAcpToolTier,
   consumeKimiAcpApproval,
-  kimiAcpToolUpdateSucceeded,
   kimiAcpSuccessfulEnterPlanMode,
   kimiAcpNativeShellQuote,
-  kimiAcpNativeWindowsPathToPosixPath,
   kimiAcpNativeBashWrapperTexts,
   kimiAcpNativeBashWrapperCandidate,
   kimiAcpPermissionToolCall,
-  kimiAcpConcreteEditGuard,
   prepareKimiAcpSpawn,
   createTurnSegmentBuilder,
   watchKimiWire,
   kimiSessionStatus,
   runKimiCompact,
-  compactKimiNative,
-  readKimiWireRuntime,
-  stopKimiServer,
   // 20-T1/20-C1/20-F1 runtime optimization pure primitives. Exported for offline replay/e2e; the master
   // shadow switch only measures candidates, while production behavior remains behind strict active flags.
   searchToolCatalog,
@@ -193,10 +183,7 @@ module.exports = {
   contextWindowFromTable,
   extractContextLength,
   fetchOpenAiModels,
-  MODEL_CONTEXT_TABLE,
   CONTEXT_WINDOW_FALLBACK,
-  VisualPipeline,
-  DesktopShell,
   // v2.6.2 压缩标记合并 + token 读数 — exposed for e2e direct units(合并/门槛/滞回/尾零回归)。
   fmtTokensServer,
   openCompactMarker,
@@ -216,7 +203,6 @@ module.exports = {
   buildBrowserAutomationHint,
   buildToolCustomizationHint,
   // v1.1-W2 (T2): MCP drop-in scan — exposed for mcp-config e2e (invalidate cache after fixturing folders).
-  scanMcpDropIns,
   invalidateMcpDropInCache,
   collectBridgedTools,
   adaptiveCatalogForMcp, // 105a: exposed for e2e 直测(observation_recall 目录门)
@@ -235,13 +221,12 @@ module.exports = {
   readConfig,
   mutateConfig,
   AGENT_CLI_TYPES,
-  selectedAgentCli,
   detectKimiPath,
   probeAgentCliLauncher,
   prepareAgentCliSpawn,
-  invalidateAgentCliPathCaches,
   syncMcpServersToKimi,
   parseAgentCliEvent,
+  AGENT_CLI_ADAPTERS, agentCliAdapter, // 架构还债批 3 A:CLI 适配器 —— exposed for unit/agent-cli-adapters.test.js(方法集同构 + 金样)
   providerReasoningEffort,
   applyProviderReasoningEffort,
   buildClaudeCliEnv,
@@ -288,12 +273,7 @@ module.exports = {
   // 第75c波:可重建 Mission/Intervention 索引与无损 journal 压缩原语。
   getPretenderProjectionIndex,
   warmPretenderProjectionIndex,
-  pretenderIndexPath,
   compactInterventionJournal,
-  readInterventionsWithMeta,
-  missionChangeFilePath,
-  foldMissionChangeJournalText,
-  readMissionChangesWithMeta,
   bumpMissionChangeSeq,
   sessionBodyPaths,
   // 117q-B6(30 号文 P2-10/P2-11):尾窗读原语 + 撕裂尾修复合一 — exposed for e2e 字节级直测
@@ -308,7 +288,6 @@ module.exports = {
   clampAppendWithSkills,
   normalizeAgentRole,
   getAgentRoleLibrary,
-  readProjectAgentRoles,
   readClaudeProjectAgentRoles,
   saveProjectAgentRoles,
   buildClaudeAgentDefinitions,
@@ -373,7 +352,6 @@ module.exports = {
   buildEngineEnvBrief, resolveEngineEnvBrief, probeRgAsync, peekRgProbe, // 145-W3:引擎运行环境说明 + rg 来源探测(静态件直测)
   buildVolatileParts, // 51d C1a:易变层(C1b 移 user 侧)
   buildPlaybookIndexSection, // 108b:Playbook 精简索引段(e2e 直测围栏/上限/尾行)
-  buildResponseLanguagePolicy,
   buildAgentTeamHint,
   buildClaudeNativeAgentPolicy,
   softwareEngineeringTaskProfile,
@@ -382,7 +360,6 @@ module.exports = {
   planDiscoveryToolBatchAllowed,
   appendTurnPolicies,
   appendResponseLanguagePolicy,
-  isLongToolTask,
   resolveToolIterationBudget,
   shouldExtendToolIterationBudget,
   TOOL_ITERATION_BUDGETS,
@@ -392,7 +369,6 @@ module.exports = {
   unregisterAgentLoopHook: AgentLoopHooks.unregisterAgentLoopHook,
   listAgentLoopHooks: AgentLoopHooks.listAgentLoopHooks,
   dispatchAgentLoopHooks: AgentLoopHooks.dispatchAgentLoopHooks,
-  makeAgentLoopTraceId: AgentLoopHooks.makeAgentLoopTraceId,
   summarizeAgentLoopToolResult: AgentLoopHooks.summarizeAgentLoopToolResult,
   // 第116波116a(27号文§11.3): 管家(Steward)引擎侧纯函数与延迟绑定命名空间 — exposed for e2e/单测。
   StewardHooks,
@@ -496,20 +472,16 @@ module.exports = {
   // 删数据的绝对目标、confirm 族的确认清单。单测直测;act 的服务端标签与确认行经 stewardNormalizeAct
   // 的真路径(管家回合 / 降级按钮)在 e2e 里读。
   STEWARD_EXEMPT_EXCERPT_CHARS,
-  stewardExemptIndirectConstruction,
-  stewardExemptAbsoluteDeleteTarget,
   stewardActConfirmSpec,
   stewardNormalizeAct,
   stewardActLabel,
   isStewardToolName,
-  stewardSanitizeBlock,
   buildStewardBrief,
   // 129h:两个纯函数 —— 占位组装与「哪些参数没给值」。导出只为单测直测
   // (unit/steward-playbook-run.test.js 拿前端那份 assemblePlaybookPrompt 与它逐例对照)。
   stewardAssemblePlaybookPrompt,
   stewardPlaybookMissingInputs,
   STEWARD_BRIEF_LIMITS,
-  STEWARD_THREAD_STATES,
   deriveStewardThreadState,
   stewardThreadStateFromCard,
   stewardThreadStateFromHead,   // 架构还债批 1 #1:会话头 → 五态证据的唯一适配器(unit/steward-head-adapter.test.js)
@@ -518,20 +490,16 @@ module.exports = {
   // 117s-A D1(§11.13 ③):行序的状态秩(纯函数,单测/e2e 直测)。
   stewardThreadStateRank,
   STEWARD_MEMORY_KINDS,
-  STEWARD_MEMORY_LIMITS,
-  stewardMemoryTerms,
   stewardTermJaccard,
   // 第116波116-2e(27号文§3.5「如意设置」行): steward_config_* 的三级分级(allowlist + fail-closed)。
   //   exposed for 单测 unit/steward-config-tier.test.js —— 它拿 Object.keys(normalizeConfig({}).config)
   //   遍历默认表的每一个键,要求逐个落到 free/confirm/forbidden 三级之一,不许漏。
   STEWARD_CONFIG_TIERS,
   stewardConfigTierFor,
-  STEWARD_QUICK_KIND,
   STEWARD_QUICK_ANSWER_CHARS,
   // 117s-H1(27 号文 §11.13.3「交付进箱」): 交付正文的三个预算 —— e2e 直接拿它们断言,
   //   数字只许有一份(06i 一份、13h 两份),测试不再自带字面量。
   STEWARD_DELIVERABLE_CHARS,
-  STEWARD_INBOX_DELIVERABLE_CHARS,
   STEWARD_INBOX_MESSAGE_CHARS,
   // 第116波116g: 事项容器(02 持久化面)—— e2e 直测反向索引、损坏隔离与四个归属操作的幂等。
   readMissionContainer,
@@ -539,16 +507,13 @@ module.exports = {
   createMissionContainer,
   patchMissionContainer,
   missionAttachThread,
-  missionDetachThread,
   missionMergeInto,
   missionSplitThreads,
   MISSION_CONTAINER_MAX_FILES,
-  MISSION_CONTAINER_SCHEMA,
   // 第116波116f(27号文§11.3): 管家回合运行器与到访 — 会话单例常量、回合入口、到访、输出契约解析器
   // 与两个分叉入口(提示词/预算)。exposed for e2e 直测;09/10/13g 侧一律经 StewardHooks 触达。
   STEWARD_SESSION_ID,
   STEWARD_SESSION_TITLE,
-  STEWARD_PERMISSION_MODE,
   runStewardTurn,
   // 第117波117m-A1: 熔断判据本体 — exposed for e2e 直测(小时窗只节流 trigger!=='user' 的自主回合)。
   stewardCircuitCheck,
@@ -561,8 +526,6 @@ module.exports = {
   // 116-pre(27号文§8.12/§11.3): 递话预判端点的装配层 — exposed for e2e 直测(缓存命中/未命中两路径)。
   stewardPreroute,
   // 116c: 班组动作核心(从 POST /api/agent-runs/:id 路由零行为抽出)与 108c 自状态装配 — e2e 直测等价性。
-  agentRunActionCommand,
-  buildWorkbenchSelfStatus,
   // 第41波(41a/41b): 表驱动工具注册表 — exposed for e2e(guard 声明化行为锁内省 + 分发行为直测)。
   TOOL_HANDLERS,
   NATIVE_TOOL_TIER,
@@ -572,15 +535,12 @@ module.exports = {
   toolPackForName,
   buildToolCatalog,
   createToolLoadingState,
-  estimateToolSchemaTokens,
   adaptiveMetaToolSchemas,
   generateSessionMcpConfig,
-  readProjectMemory,
   toolRequirementsMet,
   TOOL_REQUIRES,
   ERROR_CLASSES,
   CONFIG_SCHEMA,
-  SESSION_SCHEMA,
   PERMISSION_MODES,
   ROUTE_AUTH,
   // v0.9-S2: playbooks — exposed for e2e direct unit testing (normalize / availability / draft-parse).
@@ -588,7 +548,6 @@ module.exports = {
   evalPlaybookAvailability,
   matchServiceEntry, // 127-⑧:服务入口整体序(可用 > 需配置 > 未知 > 暂无模板)的进程内单测
   parsePlaybookDraft,
-  loadAllPlaybooks,
   // v0.9-S3 (C3): workspace-by-fingerprint — exposed for e2e direct unit testing of the resolver.
   resolveWorkspace,
   // PF1: checkpoint GC size-cap cache — exposed for e2e (assert no per-write full sweep + still purges over-cap).
@@ -600,9 +559,6 @@ module.exports = {
   // v0.9-S4 (C4): artifacts kind classifier + preview path-safety + summary builder — exposed for e2e units.
   kindForPath,
   buildTurnSummary,
-  // v1.5-W1.5: ACC 写族收割判定 — exposed for e2e 直接单测(工具名前缀 + 去前缀逻辑)。
-  isBridgedWriteTool,
-  unprefixedBridgedName,
   // v1.5-W1.5 (T3): bridged 写族路径提取 — exposed for e2e 直接单测(args→目标路径+op)。
   collectBridgedWriteTarget,
   // v1.2-B: 多目标路径提取(move/copy 两条式)+ 机制性防漏审计 — exposed for checkpoint-coverage e2e 直测。
@@ -611,21 +567,15 @@ module.exports = {
   BRIDGED_WRITE_PATH_ARGS,
   // v1.2: 终端命令内联手写 Office 的桥接分发软闸 — exposed for e2e 直接单测。
   bridgedOfficeScriptGate,
-  BRIDGED_WRITE_AUDIT_EXEMPT,
-  fileAllowedRoots,
-  workspaceWriteRoots,
   pathWithinRoot,
   pathWithinAnyRoot,
-  readFilePreview,
   // v1.0.2-S3: reveal-in-explorer path guard + spawn-argv builder — exposed for e2e 单测护栏逻辑。
   guardWorkspacePath,
   buildRevealSpawn,
   // Native code-editor handoff + exact turn baselines — exposed for offline regression tests.
   executableFromAssociationCommand,
   classifyCodeEditorExecutable,
-  resolvePreferredCodeEditor,
   buildCodeEditorSpawn,
-  workspaceBaselineIsCodePath,
   captureWorkspaceTurnBaseline,
   reconcileWorkspaceTurnBaseline,
   // v1.4.6-S2/S3: shell-free open-spawn argv builders + native file-tool workspace boundary guard + local
@@ -633,14 +583,9 @@ module.exports = {
   buildOpenSpawn,
   buildBrowserOpenSpawn,
   guardFileToolPath,
-  guardWorkspaceExecute,
   providerIsLocal,
   // 第31波B(L1): autoexec denylist + 路径归一 — exposed for shell-sandbox e2e 直接单测。
   AUTOEXEC_DENYLIST,
-  normalizeAutoexecPath,
-  // v0.9-S8: audit-center aggregation — exposed for e2e direct unit testing.
-  collectAudit,
-  auditSummaryFor,
   // v0.9-S9: web_search / web_fetch — SSRF guard + main-text extraction + cache (exposed for e2e direct units).
   ssrfCheck,
   embeddedIpv4FromV6, // v0.9 F1: IPv4-mapped IPv6 extraction — exposed for the ssrf-hardening e2e direct unit.
@@ -660,12 +605,9 @@ module.exports = {
   zipWrite,
   zipReadCentralDir,
   zipReadEntryData,
-  zipCollectEntries,
   guardDownloadDest,
   probeAny,
   networkAnchors,
-  NETWORK_ANCHORS,
-  builtinSearch,
   parseBingHtml,
   parseBaiduHtml,
   // Resource-aware DAG scheduler primitives (pure normalization/conflict checks plus lease integration tests).
@@ -677,7 +619,6 @@ module.exports = {
   acquireResourceLease,
   releaseResourceLease,
   resourceBlockers,
-  sanitizeAgentOutputSchema,
   parseStructuredAgentOutput,
   repairJson, // v1.5 (Judge JSON 修复): 零依赖修复器 — exposed for judge-json-repair e2e 直接单测。
   validateAgentJsonSchema,
@@ -711,9 +652,7 @@ module.exports = {
   buildMemoryPromptSection,
   buildCoreMemoryPromptSection,
   buildMemoryCheckPrompt,
-  memorySearchTerms,
   rankRelevantMemories,
-  effectiveMemorySelection,
   resolveMemoryPreflight,
   resolveCoreMemoryState,
   listMemoryRelations,
@@ -746,12 +685,6 @@ module.exports = {
   // 107-S2:掩码回传的启动向量闸(providers/searchBackend/modelsApiKey 的密钥会去哪几个地址)- exposed for e2e 直测。
   maskedSecretConflicts,
   providerLaunchVectorKey,
-  invalidateClaudePathCache, // v1.0-S7 (perf): force a fresh claude-CLI probe after an install/settings save
-  // R5(16-r5-replan-ledger.md): 可审查重规划提案 - exposed for e2e 直测(机器校验/生成)。
-  validateReplanPatch,
-  proposeReplanPatch,
-  applyReplanPatch,
-  rollbackReplanPatch,
   // Responses strict pairing adapter — exposed for e2e: shallow-copy repair must not mutate persisted history.
   responsesHistoryWithCompleteToolPairs,
   buildResponsesInputItems,
@@ -765,13 +698,7 @@ module.exports = {
   describeSchedule,
   occurrenceKey,
   missedOccurrence,
-  SCHEDULER_SCHEDULE_KINDS,
-  SCHEDULER_PAYLOAD_KINDS,
-  SCHEDULER_TARGET_MODES,
-  SCHEDULER_ON_MISSED,
-  SCHEDULER_ON_FAILURE,
   SCHEDULER_FIRE_MODES,
-  SCHEDULER_PHASES,
   SCHEDULER_OUTCOMES,
   SCHEDULER_FORBIDDEN_PAYLOAD_KEYS,
   SCHEDULER_LIMITS,
@@ -790,6 +717,5 @@ module.exports = {
   handleSchedulerApiRoutes,
   // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
   //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
-  SchedulerHooks,
   stewardVisitDigest,
 };

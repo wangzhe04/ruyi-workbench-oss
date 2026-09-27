@@ -155,7 +155,8 @@ const src = readServerSource();
   const claudeEnd = src.indexOf('async function runOpenAiTurn(');
   const claudeRegion = claudeStart >= 0 && claudeEnd > claudeStart ? src.slice(claudeStart, claudeEnd) : '';
   const apStart = claudeRegion.indexOf("let appendSys = '';");
-  const apEnd = claudeRegion.indexOf("if (appendSys && agentCliType === 'claude')");
+  // 架构还债批 3 A:装配块的收尾一行改为问 CLI 适配器(adapter.appendSystemPromptFlag = '--append-system-prompt'),锚跟着换。
+  const apEnd = claudeRegion.indexOf('if (appendSys && adapter.appendSystemPromptFlag)');
   const appendBlock = apStart >= 0 && apEnd > apStart ? claudeRegion.slice(apStart, apEnd) : '';
   ok(appendBlock.length > 0, 'G 抓到 CLI 侧 appendSys 装配块(它就是 --append-system-prompt 的载荷来源)');
   // 只看【代码行】:注释里提一句 answerShape 不算注入(反向验证时踩到过 —— 把那一行换成一句带
