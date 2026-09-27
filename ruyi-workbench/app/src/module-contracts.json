@@ -206,6 +206,7 @@
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
         "CONFIG_MIGRATIONS",
+        "ConfigPatchHooks",
         "DESKTOP_PYTHON_DISK_CACHE_FILE",
         "DESKTOP_PYTHON_DISK_MISS_CACHE_MS",
         "DESKTOP_PYTHON_IMPORT_PROBE",
@@ -5223,6 +5224,155 @@
       "requires": []
     },
     {
+      "file": "06k-config-patch.js",
+      "layer": "engine",
+      "provides": [
+        "applyConfigPatch"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "invalidateAgentCliPathCaches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncAgentRolesToClaude",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncClaudeCliSettings",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncMcpServersToClaude",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncMcpServersToKimi",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "rememberLastUsedEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflictMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflicts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "unmaskSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "07-autonomy.js",
       "layer": "orchestration",
       "provides": [
@@ -9847,7 +9997,6 @@
         "START_ERROR_KINDS",
         "START_NOTICE",
         "agentWorkflowLoopbackRoute",
-        "applyConfigPatch",
         "buildModelHint",
         "consumeStartError",
         "discoverKimiModels",
@@ -10163,6 +10312,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "contentTypeFor",
           "kinds": [
             "call"
@@ -10240,13 +10396,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "invalidateAgentCliPathCaches",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
@@ -10269,13 +10418,6 @@
         {
           "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
           "kinds": [
             "read"
           ]
@@ -10534,21 +10676,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "rememberLastUsedEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -10815,13 +10943,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "unmaskProviders",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "unmaskSecrets",
           "kinds": [
             "call"
           ]
@@ -14692,6 +14813,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "normalizeConfig",
           "kinds": [
             "call"
@@ -15043,13 +15171,6 @@
         {
           "provider": "12-tool-dispatch.js",
           "symbol": "buildWorkbenchSelfStatus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13-http-router.js",
-          "symbol": "applyConfigPatch",
           "kinds": [
             "call"
           ]

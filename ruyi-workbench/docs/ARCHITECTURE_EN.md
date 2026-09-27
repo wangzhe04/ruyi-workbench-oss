@@ -121,7 +121,9 @@ generated into `docs/architecture/module-dependency-graph.{json,md}`.
   `ERROR_CLASSES`, playbooks and service classification), `06b-prompt-registry`, `06c`–`06h` (agent hooks, memory,
   missions, commissions, resource leases, retrieval indexes), `06i-steward-core` (steward pure functions: tiers,
   permanent-exemption criteria, the delegation gates), `06j-scheduler-core` (plan parsing, catch-up and crash
-  recovery).
+  recovery), `06k-config-patch` (`applyConfigPatch`, the config-patch write path and its side effects: masked-secret
+  conflicts, toolbox- provider ownership, providers-shrink backup, CLI / agent-role / MCP sync; shared by
+  `POST /api/config` and the steward's `steward_config_set` through `ConfigPatchHooks`).
 - **07–12** turns and tools: `07-autonomy` (tool tiers and permission gates), `08-agent-runs`, `09-workflow` with
   `09b` / `09d`, `10-context-governance` (two-level automatic compaction and the wave-111 switch decision points),
   `11-native-tools`, `12-tool-dispatch` (the `TOOL_HANDLERS` registry).

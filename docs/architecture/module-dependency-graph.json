@@ -3,10 +3,10 @@
   "generatedFrom": "ruyi-workbench/app/src/manifest.json + module source",
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
-    "modules": 56,
-    "providedSymbols": 2802,
-    "requiredSymbols": 2853,
-    "edges": 446,
+    "modules": 57,
+    "providedSymbols": 2803,
+    "requiredSymbols": 2869,
+    "edges": 452,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -224,6 +224,7 @@
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
         "CONFIG_MIGRATIONS",
+        "ConfigPatchHooks",
         "DESKTOP_PYTHON_DISK_CACHE_FILE",
         "DESKTOP_PYTHON_DISK_MISS_CACHE_MS",
         "DESKTOP_PYTHON_IMPORT_PROBE",
@@ -5285,8 +5286,159 @@
       "requires": []
     },
     {
-      "file": "07-autonomy.js",
+      "file": "06k-config-patch.js",
       "order": 26,
+      "layer": "engine",
+      "note": "架构还债批 2 B2: 从 13-http-router.js 搬出 applyConfigPatch(配置补丁落盘与副作用;纯搬家,零行为变更),经 01 的 ConfigPatchHooks 调用、零入边",
+      "provides": [
+        "applyConfigPatch"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "invalidateAgentCliPathCaches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncAgentRolesToClaude",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncClaudeCliSettings",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncMcpServersToClaude",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncMcpServersToKimi",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "rememberLastUsedEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflictMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflicts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "unmaskSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "07-autonomy.js",
+      "order": 27,
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
@@ -5836,7 +5988,7 @@
     },
     {
       "file": "08-agent-runs.js",
-      "order": 27,
+      "order": 28,
       "layer": "orchestration",
       "note": "run 事件日志/恢复分级/runSubAgentCore",
       "provides": [
@@ -6587,7 +6739,7 @@
     },
     {
       "file": "09b-replan-ledger.js",
-      "order": 28,
+      "order": 29,
       "layer": "orchestration",
       "note": "110-4a: 节点续点与重规划补丁账本(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -6633,7 +6785,7 @@
     },
     {
       "file": "09d-token-estimation.js",
-      "order": 29,
+      "order": 30,
       "layer": "orchestration",
       "note": "110-4b: token 估算与分桶簇(自 09-workflow.js 纯搬家)",
       "provides": [
@@ -6667,7 +6819,7 @@
     },
     {
       "file": "09-workflow.js",
-      "order": 30,
+      "order": 31,
       "layer": "orchestration",
       "note": "调度器/launchPersistedAgentRun/runOpenAiTurn",
       "provides": [
@@ -8240,7 +8392,7 @@
     },
     {
       "file": "10-context-governance.js",
-      "order": 31,
+      "order": 32,
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
@@ -8939,7 +9091,7 @@
     },
     {
       "file": "11-native-tools.js",
-      "order": 32,
+      "order": 33,
       "layer": "tools",
       "note": "shell 会话/git 族/web_search/归档族/桌面桥",
       "provides": [
@@ -9278,7 +9430,7 @@
     },
     {
       "file": "12-tool-dispatch.js",
-      "order": 33,
+      "order": 34,
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
@@ -9888,7 +10040,7 @@
     },
     {
       "file": "13f-native-tool-schemas.js",
-      "order": 34,
+      "order": 35,
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
@@ -9906,7 +10058,7 @@
     },
     {
       "file": "13-http-router.js",
-      "order": 35,
+      "order": 36,
       "layer": "transport",
       "note": "handleApi 全路由(49f 起 MCP/checkpoint/steer 三组域路由抽出至 13b)",
       "provides": [
@@ -9929,7 +10081,6 @@
         "START_ERROR_KINDS",
         "START_NOTICE",
         "agentWorkflowLoopbackRoute",
-        "applyConfigPatch",
         "buildModelHint",
         "consumeStartError",
         "discoverKimiModels",
@@ -10245,6 +10396,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "contentTypeFor",
           "kinds": [
             "call"
@@ -10322,13 +10480,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "invalidateAgentCliPathCaches",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
@@ -10351,13 +10502,6 @@
         {
           "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
           "kinds": [
             "read"
           ]
@@ -10616,21 +10760,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "rememberLastUsedEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -10897,13 +11027,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "unmaskProviders",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "unmaskSecrets",
           "kinds": [
             "call"
           ]
@@ -11612,7 +11735,7 @@
     },
     {
       "file": "13b-api-domain-routes.js",
-      "order": 36,
+      "order": 37,
       "layer": "transport",
       "note": "第49波49f(A1): handleApi 域分组拆分第一批 — MCP/checkpoint·storage/steer 三组域路由",
       "provides": [
@@ -12064,7 +12187,7 @@
     },
     {
       "file": "13c-overlay-routes.js",
-      "order": 37,
+      "order": 38,
       "layer": "transport",
       "note": "第53波 EC-B(53b):overlay 离线更新 API 编排层(precheck/apply/rollback/status,编排 Manage-Overlay.ps1 受测核心)",
       "provides": [
@@ -12169,7 +12292,7 @@
     },
     {
       "file": "13d-core-domain-routes.js",
-      "order": 38,
+      "order": 39,
       "layer": "transport",
       "note": "第65波 EC-D 收口:session CRUD、question/permission/plan 干预、Agent Run 查询/事件/控制三组后端域路由",
       "provides": [
@@ -13085,7 +13208,7 @@
     },
     {
       "file": "13e-pretender-index.js",
-      "order": 39,
+      "order": 40,
       "layer": "transport",
       "note": "第75c波 Pretender Mission/Intervention 可重建物化索引、revision cursor、ETag 与规模门",
       "provides": [
@@ -13367,7 +13490,7 @@
     },
     {
       "file": "13i-steward-inbox.js",
-      "order": 40,
+      "order": 41,
       "layer": "transport",
       "note": "第116波116b(116-2e 拆分):管家收件箱轮询器/三源增量归一化/游标(零行为搬家自 13g 前半)",
       "provides": [
@@ -13624,7 +13747,7 @@
     },
     {
       "file": "13j-steward-tool-base.js",
-      "order": 41,
+      "order": 42,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家工具面共享底座 —— 共享常量/稳定信封/会话头读取/决策日志/记忆存储/读预算/派活原语(零行为搬家自 13g)",
       "provides": [
@@ -13864,7 +13987,7 @@
     },
     {
       "file": "13k-steward-threads.js",
-      "order": 42,
+      "order": 43,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家线程族工具 thread_*/quick_ask/threads_search 与收件箱行增强(零行为搬家自 13g)",
       "provides": [
@@ -14690,7 +14813,7 @@
     },
     {
       "file": "13l-steward-ops.js",
-      "order": 43,
+      "order": 44,
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
@@ -14786,6 +14909,13 @@
           "symbol": "usageDayKey",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -15147,13 +15277,6 @@
         },
         {
           "provider": "13-http-router.js",
-          "symbol": "applyConfigPatch",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13-http-router.js",
           "symbol": "setSessionSkillsCore",
           "kinds": [
             "call"
@@ -15464,7 +15587,7 @@
     },
     {
       "file": "13g-steward.js",
-      "order": 44,
+      "order": 45,
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
@@ -15952,7 +16075,7 @@
     },
     {
       "file": "13m-steward-runner-base.js",
-      "order": 45,
+      "order": 46,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家回合运行器共享底座 —— 落盘面与回合层常量/写工具白名单/运行时内存态/停机唤醒/管家会话单例(零行为搬家自 13h)",
       "provides": [
@@ -16102,7 +16225,7 @@
     },
     {
       "file": "13n-steward-arbiter.js",
-      "order": 46,
+      "order": 47,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):116h 线程间仲裁 —— 并发位/同 cwd 写锁/预算/可解释排队/饥饿提升(零行为搬家自 13h)",
       "provides": [
@@ -16252,7 +16375,7 @@
     },
     {
       "file": "13o-steward-runner-prompt.js",
-      "order": 47,
+      "order": 48,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
@@ -16709,7 +16832,7 @@
     },
     {
       "file": "13p-steward-runner-actions.js",
-      "order": 48,
+      "order": 49,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):actions 执行与降级/116-2b 自理动作/id 人话化/熔断/收件箱消息装配(零行为搬家自 13h)",
       "provides": [
@@ -17070,7 +17193,7 @@
     },
     {
       "file": "13q-steward-runner-turn.js",
-      "order": 49,
+      "order": 50,
       "layer": "transport",
       "note": "第117波 T2(32 号文 §5 拆分):回合入口 runStewardTurn/收件箱去抖驱动/到访与归档/117l D2 递话通道/acts 落定(零行为搬家自 13h)",
       "provides": [
@@ -17554,7 +17677,7 @@
     },
     {
       "file": "13h-steward-runner.js",
-      "order": 50,
+      "order": 51,
       "layer": "transport",
       "note": "第116波116f(117波 T2 拆分):管家回合运行器族的 StewardHooks 注册表、/api/steward/{visit,message,act,arbiter} 路由、运行器状态与 thread_prioritize/thread_stop 两个工具实现(其余实现已前移至 13m/13n/13o/13p/13q)",
       "provides": [
@@ -17895,7 +18018,7 @@
     },
     {
       "file": "13r-event-stream.js",
-      "order": 51,
+      "order": 52,
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
@@ -18032,7 +18155,7 @@
     },
     {
       "file": "13s-scheduler.js",
-      "order": 52,
+      "order": 53,
       "layer": "transport",
       "note": "第123波 M1(37 号文 §3.2/§3.3/§3.4;设计权威 29 号文 §4):定时任务调度器 —— tick 与四段触发、启动恢复(错过补一次/崩溃记 unknown)、上限与熔断、六条 /api/scheduler/tasks 路由、假时钟与崩溃钩子四个测试旗",
       "provides": [
@@ -18320,7 +18443,7 @@
     },
     {
       "file": "13t-steward-schedule.js",
-      "order": 53,
+      "order": 54,
       "layer": "transport",
       "note": "第123波 M2(37 号文 §3.5;设计权威 29 号文 §5/§8/§10):定时任务的管家面 —— 六个 steward_schedule_* 工具(沿 13g 门控壳)、reminder 出箱的 SchedulerHooks 两个回调、回来摘要的承诺三项读口。零入边(消费者只看 StewardHooks/SchedulerHooks),故不进任何环",
       "provides": [
@@ -18594,7 +18717,7 @@
     },
     {
       "file": "13u-migration-center.js",
-      "order": 54,
+      "order": 55,
       "layer": "transport",
       "note": "W2 迁移中心(56 号文 §3):从 Claude Code / Codex / Kimi 导入(指令文件→核心记忆、MCP、技能)与老版本如意→当前包(登记表+各处配置里的绝对路径认老包、备份后改写、按日志撤销、只移进回收站)。零入边(13b 路由经 00-boot 的 MigrationHooks 迟绑定),故不进任何环",
       "provides": [
@@ -18902,7 +19025,7 @@
     },
     {
       "file": "14-main.js",
-      "order": 55,
+      "order": 56,
       "layer": "entrypoint",
       "note": "main()/module.exports",
       "provides": [
@@ -24652,6 +24775,68 @@
       "direction": "backward"
     },
     {
+      "from": "06k-config-patch.js",
+      "to": "00-boot.js",
+      "symbols": [
+        "fsp",
+        "os",
+        "path",
+        "paths"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
+      "to": "01-config.js",
+      "symbols": [
+        "ConfigPatchHooks",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
+        "invalidateAgentCliPathCaches",
+        "mutateConfig",
+        "syncAgentRolesToClaude",
+        "syncClaudeCliSettings",
+        "syncMcpServersToClaude",
+        "syncMcpServersToKimi"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
+      "to": "02-session-store.js",
+      "symbols": [
+        "rememberLastUsedEngineRoute",
+        "sessionEngineRouteFromConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
+      "to": "04-permission-runtime.js",
+      "symbols": [
+        "ToolboxHooks",
+        "logEvent"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
+      "to": "05-claude-engine.js",
+      "symbols": [
+        "maskedSecretConflictMessage",
+        "maskedSecretConflicts",
+        "unmaskSecrets"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06k-config-patch.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "StewardHooks"
+      ],
+      "direction": "backward"
+    },
+    {
       "from": "07-autonomy.js",
       "to": "00-boot.js",
       "symbols": [
@@ -25901,8 +26086,8 @@
       "symbols": [
         "AGENT_CLI_TYPES",
         "BUILTIN_AGENT_ROLES",
+        "ConfigPatchHooks",
         "PERMISSION_MODES",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
         "RUNTIME",
         "atomicWriteJson",
         "authorizeRoute",
@@ -25918,7 +26103,6 @@
         "externalServerJs",
         "generateMcpConfig",
         "hostAllowed",
-        "invalidateAgentCliPathCaches",
         "mcpConfigFilePath",
         "mutateConfig",
         "normalizeAgentRole",
@@ -25971,9 +26155,7 @@
         "normalizeMission",
         "normalizeTodoItems",
         "recordMissionCheckResult",
-        "rememberLastUsedEngineRoute",
         "saveSession",
-        "sessionEngineRouteFromConfig",
         "workspaceBaselineIsCodePath",
         "workspaceBaselinePathKey"
       ],
@@ -26039,8 +26221,7 @@
         "maskedSecretConflicts",
         "resolveProvider",
         "sanitizeProvider",
-        "unmaskProviders",
-        "unmaskSecrets"
+        "unmaskProviders"
       ],
       "direction": "backward"
     },
@@ -27338,6 +27519,7 @@
       "from": "13l-steward-ops.js",
       "to": "01-config.js",
       "symbols": [
+        "ConfigPatchHooks",
         "PERMISSION_MODES_REQUIRING_CONFIRM",
         "normalizeConfig",
         "safeSessionId"
@@ -27459,7 +27641,6 @@
       "from": "13l-steward-ops.js",
       "to": "13-http-router.js",
       "symbols": [
-        "applyConfigPatch",
         "setSessionSkillsCore"
       ],
       "direction": "backward"

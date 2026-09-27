@@ -1051,7 +1051,7 @@ async function stewardImplConfigSet(args, ctx, config) {
     return stewardFail('steward.forbidden', `these keys can never be changed through the steward: ${forbidden.join(', ')}`, { keys: forbidden });
   }
   // 116-3 P2-12(§8.6):把全局默认权限切到「全自动」是一条【专门】要求二次确认的动作,不是任意
-  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、13 的 applyConfigPatch 共用
+  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、06k 的 applyConfigPatch 共用
   // 同一张 PERMISSION_MODES_REQUIRING_CONFIRM 与同一个 `permission.confirm_required` 码。
   // 外层信封仍是 propose_required —— 13h 只对这个码做「降级成一个按钮」,换成别的码用户就再也
   // 按不到那个按钮了;专门口径放在 reason 与人话里(界面按 reason 取 §8.6 那五条文案)。
@@ -1106,7 +1106,7 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
   // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
   patch.confirm = true;
-  const next = await applyConfigPatch(patch);
+  const next = await ConfigPatchHooks.applyConfigPatch(patch); // 06k 填入(见 01 的 ConfigPatchHooks)
   const maskedNext = maskProviders(next);
   const applied = {};
   for (const key of keys) applied[key] = maskedNext[key];
