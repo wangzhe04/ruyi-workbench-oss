@@ -21,7 +21,13 @@ node dev-harness\repo-hygiene.e2e.js
 - **全绿为过**:每件末行打印 `... E2E: ALL PASS`,进程 `exit 0`。
 - **实弹件可跳过**:`deepseek-live` / `deepseek-tools`(真密钥)、`desktop-bridge-live`(真桌面 MCP)、`desktop-mcp-smoke`(已装 ACC 的 Python 环境)等需外部条件,常规离线回归中跳过。每件文件头部注释写明了它断言的边界与所需条件。
 
-写新 e2e 的自查:临时 `HOME`(tmpdir)、健康轮询起服务(别裸 sleep)、`finally` 里 `taskkill /T /F` 清理 fake + workbench、逐条 `PASS/FAIL <label>`、`process.exit(fail?1:0)`、跑两遍确认无端口/临时目录残留导致的偶发。
+写新 e2e 的自查:临时 `HOME`(tmpdir)、健康轮询起服务(别裸 sleep)、`finally` 里用 `dev-harness/lib/kill-own-tree.js` 的 `killOwnTree` 清理 fake + workbench(不写 `taskkill /T`、不裸 `child.kill()`)、逐条 `PASS/FAIL <label>`、`process.exit(fail?1:0)`、跑两遍确认无端口/临时目录残留导致的偶发。
+
+新件的样板用公共件,别再各抄一份:
+
+- **断言计数与判定行**:`dev-harness/lib/harness.js` 的 `createRunner('NAME')` → `ok(cond, label)` / `fail(label)` / `done()`。打印口径就是 `run-all.js` 解析的那一套(`PASS <label>`、`FAIL <label>`、末行 `NAME E2E: ALL PASS` 或 `FAIL (n)`、退出码)。
+- **假 OpenAI 兼容 provider**:`dev-harness/lib/fake-openai-provider.js` 的 `startFakeProvider({ handler })`,配 `textFrames` / `toolCallFrames` / `usageFrame` 造 SSE 帧;返回 `{ port, url, requests, close() }`。默认由系统分配端口(不占 8700–9199 审计带);沿用写死端口时把字面量留在 `*.e2e.js` 里经 `{ port }` 传入。按环境变量切模式的独立进程版仍是 `dev-harness/fake-openai.js`。
+- 参考件:`agent-node-wrapup.e2e.js`、`agent-parent-heartbeat.e2e.js`、`agent-workflow-budget-finalizer.e2e.js`、`agent-workflow-transient-repro.e2e.js`(两者都用)、`manifest-ranges.static.e2e.js`、`theme-default.browser.e2e.js`(只用 harness)。
 
 ## ai-computer-control(桌面控制 MCP)开发
 
@@ -54,6 +60,6 @@ Ruyi is an offline-first, air-gap-oriented local AI workbench. A few **hard cons
 4. **Windows 10/11 is a first-class target** for paths, encoding, processes, and console code pages.
 5. **Behavior changes must ship/update an e2e** in `dev-harness/`. Assertions are add-only in meaning — assert new fields, don't delete old assertions.
 
-Run the suite **serially** (fixed ports): `node dev-harness\<name>.e2e.js`; passing prints `... E2E: ALL PASS` and exits 0. Live tests need your own key/desktop/Python and are skipped by default.
+Run the suite **serially** (fixed ports): `node dev-harness\<name>.e2e.js`; passing prints `... E2E: ALL PASS` and exits 0. Live tests need your own key/desktop/Python and are skipped by default. New tests should use `dev-harness/lib/harness.js` (`createRunner` → `ok`/`fail`/`done`) for PASS/FAIL lines and the verdict, and `dev-harness/lib/fake-openai-provider.js` (`startFakeProvider` + `textFrames`/`toolCallFrames`/`usageFrame`) instead of a hand-rolled fake provider.
 
 For ACC (`mcp/ai-computer-control/`): `pip install -e`, run `tests/smoke_*.py`; any new file-mutating tool **must** be registered in the `BRIDGED_WRITE_PATH_ARGS` snapshot table (`checkpoint-coverage.e2e.js` enforces this — a missing entry turns the test red). Add new MCPs the drop-in way via `mcp/` (see [`mcp/README.md`](./mcp/README.md)) — no workbench code changes needed. PRs: small, with verification evidence; Chinese or English both welcome.

@@ -10,57 +10,40 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 
+const { createRunner } = require('./lib/harness');
+const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
+
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-parent-heartbeat');
 const FP = 9167, WP = 9168, IDLE_MS = 3000;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-let failures = 0;
-const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
-const sockets = new Set();
-const sse = (res, obj) => res.write('data: ' + JSON.stringify(obj) + '\n\n');
-function finish(res) { res.write('data: [DONE]\n\n'); res.end(); }
-function textFrame(res, text, done) {
-  sse(res, { id: 'chatcmpl-heartbeat', choices: [{ index: 0, delta: { content: text }, finish_reason: null }] });
-  if (done) { sse(res, { id: 'chatcmpl-heartbeat', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }); finish(res); }
-}
-function toolFrame(res, task) {
-  sse(res, { id: 'chatcmpl-heartbeat', choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_team', type: 'function', function: { name: 'orchestrate_agents', arguments: JSON.stringify({ nodes: [{ id: 'coder', role: 'coder', task, toolTier: 'read' }] }) } }] }, finish_reason: null }] });
-  sse(res, { id: 'chatcmpl-heartbeat', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
-  finish(res);
-}
-const fake = http.createServer((req, res) => {
-  if (req.method === 'GET' && req.url.includes('/v1/models')) {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ data: [{ id: 'fake-model' }] }));
+const t = createRunner('AGENT PARENT HEARTBEAT');
+const { ok } = t;
+const FRAME_ID = { id: 'chatcmpl-heartbeat' };
+// 脚本化假 provider(lib/fake-openai-provider)。端口字面量 FP 留在本件里 —— 端口审计只扫 *.e2e.js。
+function handleChat(req) {
+  const messages = req.messages;
+  const sys = String((messages.find(m => m && m.role === 'system') || {}).content || '');
+  const users = messages.filter(m => m && m.role === 'user').map(m => String(m.content || '')).join('\n');
+  req.open();
+  if (sys.includes('你是子任务执行体')) {
+    if (users.includes('HANG_NODE')) return undefined; // real silence: both watchdogs must remain effective
+    let n = 0;
+    const timer = setInterval(() => {
+      n++;
+      req.sse({ id: 'chatcmpl-heartbeat', choices: [{ index: 0, delta: { content: `chunk-${n} ` }, finish_reason: null }] });
+      if (n === 9) { clearInterval(timer); req.sse({ id: 'chatcmpl-heartbeat', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }); req.end(); }
+    }, 700); // >5s total, crossing the parent's watchdog tick while bytes keep arriving
+    // IncomingMessage `close` also fires after a normally consumed request body; only the response lifecycle
+    // tells us the streaming client has actually gone away.
+    req.res.on('close', () => clearInterval(timer));
+    return undefined;
   }
-  if (req.method !== 'POST' || !req.url.includes('/chat/completions')) { res.writeHead(404); return res.end(); }
-  let raw = '';
-  req.on('data', c => { raw += c; });
-  req.on('end', () => {
-    let body = {}; try { body = JSON.parse(raw); } catch {}
-    const messages = Array.isArray(body.messages) ? body.messages : [];
-    const sys = String((messages.find(m => m && m.role === 'system') || {}).content || '');
-    const users = messages.filter(m => m && m.role === 'user').map(m => String(m.content || '')).join('\n');
-    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
-    if (sys.includes('你是子任务执行体')) {
-      if (users.includes('HANG_NODE')) return; // real silence: both watchdogs must remain effective
-      let n = 0;
-      const timer = setInterval(() => {
-        n++;
-        textFrame(res, `chunk-${n} `, n === 9);
-        if (n === 9) clearInterval(timer);
-      }, 700); // >5s total, crossing the parent's watchdog tick while bytes keep arriving
-      // IncomingMessage `close` also fires after a normally consumed request body; only the response lifecycle
-      // tells us the streaming client has actually gone away.
-      res.on('close', () => clearInterval(timer));
-      return;
-    }
-    const hasToolResult = messages.some(m => m && m.role === 'tool' && m.tool_call_id === 'call_team');
-    if (hasToolResult) return textFrame(res, 'parent completed after team result', true);
-    return toolFrame(res, users.includes('hang') ? 'HANG_NODE' : 'ACTIVE_STREAM_NODE');
-  });
-});
-fake.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
+  const hasToolResult = messages.some(m => m && m.role === 'tool' && m.tool_call_id === 'call_team');
+  if (hasToolResult) return textFrames('parent completed after team result', FRAME_ID);
+  const task = users.includes('hang') ? 'HANG_NODE' : 'ACTIVE_STREAM_NODE';
+  return toolCallFrames('orchestrate_agents', { nodes: [{ id: 'coder', role: 'coder', task, toolTier: 'read' }] }, 'call_team', FRAME_ID);
+}
 
 function get(port, route) {
   return new Promise(resolve => {
@@ -94,7 +77,7 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch {} 
     subagentMaxPerTurn: 8, subagentMaxConcurrent: 2, agentWorkflowMaxNodes: 16,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FP}`, apiKey: 'k', model: 'fake-model' }], activeProvider: 'fake',
   }));
-  await new Promise(resolve => fake.listen(FP, '127.0.0.1', resolve));
+  const fake = await startFakeProvider({ port: FP, handler: handleChat });
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, windowsHide: true, env: { ...process.env, RUYI_HOME: HOME, WCW_TURN_IDLE_MS: String(IDLE_MS), WCW_AGENT_WORKFLOW_IDLE_MS: String(IDLE_MS) } });
   try {
     let healthy = false; for (let i = 0; i < 300 && !healthy; i++) { await sleep(120); healthy = !!(await get(WP, '/health')); } // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
@@ -121,7 +104,7 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch {} 
     ok(hungEvents.some(e => e.type === 'agent_workflow' && e.state === 'end' && e.status === 'failed'), 'silent workflow returns a failed terminal result instead of hanging forever');
     ok(hungEvents.some(e => e.type === 'result'), 'parent receives the workflow result and completes its own turn');
   } finally {
-    kill(wb); for (const s of sockets) s.destroy(); await new Promise(resolve => fake.close(resolve));
+    kill(wb); await fake.close();
   }
-  process.exit(failures ? 1 : 0);
+  t.done({ exit: true });
 })().catch(e => { console.error(e); process.exit(2); });

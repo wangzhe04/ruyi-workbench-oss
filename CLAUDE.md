@@ -10,6 +10,8 @@
   CI 用 `build.js --check` 拒绝陈旧产物。
 - 前端 `ruyi-workbench/app/public/` 无框架、无构建。
 - `dev-harness/` 是离线 e2e 与假件;`dev-harness/unit/*.test.js` 是 `node --test` 快通道。
+- 新写 e2e 不要再手抄 `ok()`/失败计数/判定行和假 provider:用 `dev-harness/lib/harness.js`(`createRunner`)与
+  `dev-harness/lib/fake-openai-provider.js`(`startFakeProvider` + `textFrames`/`toolCallFrames`/`usageFrame`),用法见两个文件头注与 CONTRIBUTING.md。
 
 ## 写新代码先找现成的(都有测试钉着,别再手写一份)
 

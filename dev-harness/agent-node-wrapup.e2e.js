@@ -13,66 +13,43 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 const { getFreePort } = require('./free-port.js');
+const { createRunner } = require('./lib/harness');
+const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const FAKE_CLAUDE = path.join(WB, 'tools', 'fake-claude.js');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-node-wrapup');
 const CLAUDE_CAPTURE = path.join(HOME, 'claude-wrapup.jsonl');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-let failures = 0;
-const ok = (value, label) => value ? console.log('PASS ' + label) : (failures++, console.error('FAIL ' + label));
-const sockets = new Set();
+const t = createRunner('AGENT NODE WRAP-UP');
+const { ok } = t;
 const capturedBodies = [];
+const FRAME_ID = { id: 'wrapup' };
 
-function sse(res, obj) { res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
-function finish(res) { res.write('data: [DONE]\n\n'); res.end(); }
-function emitText(res, text) {
-  sse(res, { id: 'wrapup', choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }] });
-  sse(res, { id: 'wrapup', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
-  finish(res);
-}
-function emitTool(res) {
-  sse(res, { id: 'wrapup', choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_probe', type: 'function', function: { name: 'file_read', arguments: JSON.stringify({ path: path.join(HOME, 'probe.txt') }) } }] }, finish_reason: null }] });
-  sse(res, { id: 'wrapup', choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
-  finish(res);
-}
 function messageText(messages) { return JSON.stringify(messages || []); }
 function isSubRequest(messages) {
   const sys = String(((messages || []).find(m => m && m.role === 'system') || {}).content || '');
   return sys.includes('子任务执行体');
 }
-function createFakeProvider() {
-  return http.createServer((req, res) => {
-    if (req.method === 'GET' && req.url.includes('/v1/models')) {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      return res.end(JSON.stringify({ data: [{ id: 'fake-model' }] }));
-    }
-    if (req.method !== 'POST' || !req.url.includes('/chat/completions')) { res.writeHead(404); return res.end(); }
-    let raw = '';
-    req.on('data', chunk => { raw += chunk; });
-    req.on('end', () => {
-      let body = {}; try { body = JSON.parse(raw); } catch {}
-      const messages = Array.isArray(body.messages) ? body.messages : [];
-      const text = messageText(messages);
-      capturedBodies.push(text);
-      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
-      if (!isSubRequest(messages)) return emitText(res, 'parent');
-      if (text.includes('WRAP_IGNORE')) {
-        let n = 0;
-        const timer = setInterval(() => {
-          n += 1;
-          sse(res, { id: 'wrapup', choices: [{ index: 0, delta: { content: '.' }, finish_reason: null }] });
-        }, 100);
-        res.on('close', () => clearInterval(timer));
-        return;
-      }
-      if (text.includes('WRAP_COOPERATE')) {
-        if (text.includes('[编排者插话]') && text.includes('停止扩展范围')) return emitText(res, 'cooperative wrap-up complete');
-        return setTimeout(() => emitTool(res), 700);
-      }
-      return emitText(res, 'fast sibling complete');
-    });
-  });
+// 脚本化假 provider(lib/fake-openai-provider):按请求内容分支,帧形状由 lib 的 textFrames/toolCallFrames 给。
+function handleChat(req) {
+  const messages = req.messages;
+  const text = messageText(messages);
+  capturedBodies.push(text);
+  req.open();
+  if (!isSubRequest(messages)) return textFrames('parent', FRAME_ID);
+  if (text.includes('WRAP_IGNORE')) {
+    const timer = setInterval(() => {
+      req.sse({ id: 'wrapup', choices: [{ index: 0, delta: { content: '.' }, finish_reason: null }] });
+    }, 100);
+    req.res.on('close', () => clearInterval(timer));
+    return undefined; // 自己接管:永远不收尾,等工作台的收尾宽限期把它掐掉
+  }
+  if (text.includes('WRAP_COOPERATE')) {
+    if (text.includes('[编排者插话]') && text.includes('停止扩展范围')) return textFrames('cooperative wrap-up complete', FRAME_ID);
+    return sleep(700).then(() => toolCallFrames('file_read', { path: path.join(HOME, 'probe.txt') }, 'call_probe', FRAME_ID));
+  }
+  return textFrames('fast sibling complete', FRAME_ID);
 }
 function get(port, route, headers = {}) {
   return new Promise(resolve => {
@@ -100,19 +77,17 @@ function isTerminal(status) { return ['succeeded', 'failed', 'partial', 'stopped
 function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch {} }
 
 (async () => {
-  const FP = await getFreePort(), WP = await getFreePort();
+  const WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'probe.txt'), 'probe', 'utf8');
+  const fake = await startFakeProvider({ handler: handleChat });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 9, permissionMode: 'bypass', defaultWorkspace: HOME,
     agentNodeWrapUpMs: 60000, subagentMaxConcurrent: 2, agentWorkflowMaxNodes: 16,
-    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FP}`, apiKey: 'k', model: 'fake-model' }],
+    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model' }],
     activeProvider: 'fake',
   }));
-  const fake = createFakeProvider();
-  fake.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
-  await new Promise(resolve => fake.listen(FP, '127.0.0.1', resolve));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], {
     cwd: WB, windowsHide: true,
     env: {
@@ -166,10 +141,8 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch {} 
     ok(claudeCapture.includes('[编排者插话]') && claudeCapture.includes('停止扩展范围'), 'Claude stdin capture contains the orchestrator wrap-up envelope');
   } finally {
     kill(wb);
-    for (const socket of sockets) { try { socket.destroy(); } catch {} }
-    await new Promise(resolve => fake.close(resolve));
+    await fake.close();
     fs.rmSync(HOME, { recursive: true, force: true });
   }
-  console.log('\nAGENT NODE WRAP-UP E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
-  process.exitCode = failures ? 1 : 0;
+  t.done();
 })().catch(error => { console.error(error && error.stack || error); process.exitCode = 2; });

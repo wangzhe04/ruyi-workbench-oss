@@ -16,51 +16,39 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 const { getFreePort } = require('./free-port.js');
+const { createRunner } = require('./lib/harness');
+const { startFakeProvider, textFrames } = require('./lib/fake-openai-provider');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-transient-repro');
-const FP = await getFreePort(), WP = await getFreePort();
+const WP = await getFreePort();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-let failures = 0;
-const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
+const t = createRunner('AGENT WORKFLOW TRANSIENT REPRO');
+const { ok } = t;
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch {} }
 
-// Inline fake provider: 503 on the FIRST sub-agent request, then a clean quality-JSON success.
+// Scripted fake provider (lib/fake-openai-provider): 503 on the FIRST sub-agent request, then a clean quality-JSON success.
 // A sub-agent request is identified by its system prompt carrying the 子任务执行体 identity marker.
 const GOOD = JSON.stringify({ verdict: 'pass', confidence: 0.9, summary: 'verified', findings: [] });
 let subHits = 0, parentHits = 0;
-const fake = http.createServer((req, res) => {
-  if (req.method === 'GET' && req.url.includes('/v1/models')) {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ data: [{ id: 'fake-model' }] }));
-  }
-  if (req.method === 'POST' && req.url.includes('/chat/completions')) {
-    let body = ''; req.on('data', c => body += c); req.on('end', () => {
-      let parsed = {}; try { parsed = JSON.parse(body); } catch {}
-      const sys = JSON.stringify(parsed.messages || []).toLowerCase();
-      const isSub = sys.includes('子任务执行体');
-      if (isSub) {
-        subHits += 1;
-        if (subHits === 1) {
-          // transient gateway blip - the parent turn would failover/retry; the sub-agent path does not.
-          res.writeHead(503, { 'content-type': 'application/json' });
-          return res.end(JSON.stringify({ error: { message: 'transient 503 (gateway)', type: 'server_error' } }));
-        }
-      } else {
-        parentHits += 1;
+const fake = await startFakeProvider({
+  handler(req) {
+    const sys = JSON.stringify(req.messages).toLowerCase();
+    const isSub = sys.includes('子任务执行体');
+    if (isSub) {
+      subHits += 1;
+      if (subHits === 1) {
+        // transient gateway blip - the parent turn would failover/retry; the sub-agent path does not.
+        return { status: 503, json: { error: { message: 'transient 503 (gateway)', type: 'server_error' } } };
       }
-      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
-      const content = isSub ? GOOD : 'workflow launched';
-      const sse = o => res.write('data: ' + JSON.stringify(o) + '\n\n');
-      sse({ choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
-      sse({ choices: [{ index: 0, delta: { content }, finish_reason: null }] });
-      sse({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
-      res.end();
-    });
-    return;
-  }
-  res.writeHead(404); res.end();
+    } else {
+      parentHits += 1;
+    }
+    // done:false —— 与修前的内联假件同形:流末不发 [DONE],直接 end。
+    return { frames: textFrames(isSub ? GOOD : 'workflow launched'), done: false };
+  },
 });
+const FP = fake.port;
 
 function get(port, p, headers = {}) {
   return new Promise(resolve => {
@@ -87,7 +75,6 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
   const qualitySchema = { type: 'object', required: ['verdict', 'confidence', 'summary', 'findings'], properties: { verdict: { type: 'string', enum: ['pass', 'fail', 'uncertain'] }, confidence: { type: 'number', minimum: 0, maximum: 1 }, summary: { type: 'string' }, findings: { type: 'array', items: { type: 'object' } } } };
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, subagentMaxPerTurn: 12, subagentMaxConcurrent: 4, providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FP}`, apiKey: 'k', model: 'fake-model' }], activeProvider: 'fake' }));
 
-  await new Promise(r => fake.listen(FP, '127.0.0.1', r));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME }, windowsHide: true });
   try {
     ok(await up(WP), 'workbench starts');
@@ -115,10 +102,9 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
     ok(pnode && pnode.iters === 1,
       'a no-tool conclusion still records the successful provider iteration (iters=1)');
   } finally {
-    kill(wb); fake.close(); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
+    kill(wb); await fake.close(); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true });
   }
-  console.log('\nAGENT WORKFLOW TRANSIENT REPRO: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
-  process.exitCode = failures ? 1 : 0;
+  t.done();
 })().catch(e => { console.error(e.stack || e); process.exitCode = 1; });
 
 })().catch(e => { console.error(e && e.stack || e); process.exitCode = 1; });

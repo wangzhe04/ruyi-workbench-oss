@@ -15,66 +15,40 @@ const http = require('http');
 const cp = require('child_process');
 
 const { getFreePort } = require('./free-port.js');
+const { createRunner } = require('./lib/harness');
+const { startFakeProvider, textFrames, toolCallFrames } = require('./lib/fake-openai-provider');
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const HOME = path.join(os.tmpdir(), 'ruyi-agent-budget-finalizer');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-let failures = 0;
-const ok = (v, label) => { if (v) console.log('PASS ' + label); else { failures++; console.error('FAIL ' + label); } };
+const t = createRunner('AGENT WORKFLOW BUDGET FINALIZER');
+const { ok } = t;
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch {} }
-function sse(res, obj) { res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
 function countToolMsgs(msgs) { return (msgs || []).filter(m => m && m.role === 'tool').length; }
 function isSubRequest(msgs) {
   const sys = String(((msgs || []).find(m => m && m.role === 'system') || {}).content || '');
   return sys.includes('子任务执行体') || sys.includes('瀛愪换鍔℃墽琛屼綋');
 }
-function emitToolCall(res, id, callId, filePath) {
-  const args = JSON.stringify({ path: filePath });
-  sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant', content: null, tool_calls: [{ index: 0, id: callId, type: 'function', function: { name: 'file_read', arguments: args } }] }, finish_reason: null }] });
-  sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
-  res.write('data: [DONE]\n\n');
-  res.end();
-}
-function emitText(res, id, text) {
-  sse(res, { id, choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
-  sse(res, { id, choices: [{ index: 0, delta: { content: text }, finish_reason: null }] });
-  sse(res, { id, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
-  res.write('data: [DONE]\n\n');
-  res.end();
-}
 
 let subToolRequests = 0;
 let subFinalizerRequests = 0;
 const GOOD = JSON.stringify({ verdict: 'pass', confidence: 0.91, summary: 'budget finalizer produced a valid conclusion', findings: [] });
-const fake = http.createServer((req, res) => {
-  if (req.method === 'GET' && req.url.includes('/v1/models')) {
-    res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify({ data: [{ id: 'fake-model' }] }));
+const FRAME_ID = { id: 'chatcmpl-budget-finalizer' };
+// 脚本化假 provider(lib/fake-openai-provider):子代理带工具时一直要工具,工具预算耗尽后的无工具收尾请求回结论 JSON。
+function handleChat(req) {
+  const msgs = req.messages;
+  const hasTools = req.tools.length > 0;
+  const isSub = isSubRequest(msgs);
+  if (isSub && hasTools) {
+    subToolRequests += 1;
+    return toolCallFrames('file_read', { path: path.join(HOME, 'evidence.txt') }, 'call_' + subToolRequests, FRAME_ID);
   }
-  if (req.method === 'POST' && req.url.includes('/chat/completions')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      let parsed = {}; try { parsed = JSON.parse(body); } catch {}
-      const id = 'chatcmpl-budget-finalizer';
-      const msgs = Array.isArray(parsed.messages) ? parsed.messages : [];
-      const hasTools = Array.isArray(parsed.tools) && parsed.tools.length > 0;
-      const isSub = isSubRequest(msgs);
-      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
-      if (isSub && hasTools) {
-        subToolRequests += 1;
-        return emitToolCall(res, id, 'call_' + subToolRequests, path.join(HOME, 'evidence.txt'));
-      }
-      if (isSub && !hasTools && countToolMsgs(msgs) >= 2) {
-        subFinalizerRequests += 1;
-        return emitText(res, id, GOOD);
-      }
-      emitText(res, id, isSub ? 'unexpected sub response' : 'workflow launched');
-    });
-    return;
+  if (isSub && !hasTools && countToolMsgs(msgs) >= 2) {
+    subFinalizerRequests += 1;
+    return textFrames(GOOD, FRAME_ID);
   }
-  res.writeHead(404); res.end();
-});
+  return textFrames(isSub ? 'unexpected sub response' : 'workflow launched', FRAME_ID);
+}
 
 function get(port, p, headers = {}) {
   return new Promise(resolve => {
@@ -97,21 +71,21 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
   for (let i = 0; i < 300; i++) { if (await get(port, '/health')) return true; await sleep(120); } return false; }
 
 (async () => {
-  const FP = await getFreePort(), WP = await getFreePort();
+  const WP = await getFreePort();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(HOME, { recursive: true });
   fs.writeFileSync(path.join(HOME, 'evidence.txt'), 'evidence for the verifier node');
+  const fake = await startFakeProvider({ handler: handleChat });
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 7,
     permissionMode: 'bypass',
     defaultWorkspace: HOME,
     subagentMaxPerTurn: 12,
     subagentMaxConcurrent: 4,
-    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FP}`, apiKey: 'k', model: 'fake-model' }],
+    providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model' }],
     activeProvider: 'fake',
   }));
 
-  await new Promise(r => fake.listen(FP, '127.0.0.1', r));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WP)], { cwd: WB, env: { ...process.env, RUYI_HOME: HOME }, windowsHide: true });
   try {
     ok(await up(WP), 'workbench starts');
@@ -136,10 +110,9 @@ async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实�
       'DAG node succeeds with structured output instead of failing at the iteration limit');
   } finally {
     kill(wb);
-    fake.close();
+    await fake.close();
     await sleep(200);
     fs.rmSync(HOME, { recursive: true, force: true });
   }
-  console.log('\nAGENT WORKFLOW BUDGET FINALIZER: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
-  process.exitCode = failures ? 1 : 0;
+  t.done();
 })().catch(e => { console.error(e.stack || e); process.exitCode = 1; });
