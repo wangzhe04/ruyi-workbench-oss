@@ -205,6 +205,19 @@ function text(data, status = 200, headers = {}) {
   };
 }
 
+// 按 key 串行的写链(架构还债批 1 #3):同一个 key 上的 work 一个接一个跑,前一个失败不挡后一个;
+// 链尾结算后(成功或失败)若仍是自己就从 map 里摘掉,不留长寿条目。返回的就是这一次 work 的 promise ——
+// 调用方要结果就 await 它,要吞错就自己 catch(helper 只保证链本身不产生未处理的拒绝)。
+// 修前 02 / 08 里七处各自手写同一段 previous.catch().then(work) → set → 自清;需要额外收尾动作的
+// (appendIntervention 的推送与压缩计数、saveSession 的在飞快照)仍然手写,不走这里。
+function runKeyedChain(chains, key, work) {
+  const previous = chains.get(key) || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  chains.set(key, current);
+  current.then(() => {}, () => {}).then(() => { if (chains.get(key) === current) chains.delete(key); });
+  return current;
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse(raw);
@@ -5155,14 +5168,10 @@ async function writeSessionNotes(id, markdown) {
   if (body.length > SESSION_NOTES_MAX_CHARS) {
     body = body.slice(0, SESSION_NOTES_MAX_CHARS) + `\n\n<!-- truncated: exceeded ${SESSION_NOTES_MAX_CHARS} chars -->\n`;
   }
-  const prev = sessionNotesWriteChains.get(file) || Promise.resolve();
-  const next = prev.catch(() => {}).then(async () => {
+  return runKeyedChain(sessionNotesWriteChains, file, async () => {
     await fsp.mkdir(paths.sessions, { recursive: true }); // 旁车写不依赖 server 启动期建目录
     await atomicWriteJson(file, body);                    // 字符串直写,同 25.1 md 先例
   });
-  sessionNotesWriteChains.set(file, next);
-  next.catch(() => {}).finally(() => { if (sessionNotesWriteChains.get(file) === next) sessionNotesWriteChains.delete(file); });
-  return next;
 }
 async function readSessionNotes(id) {
   try { return await fsp.readFile(sessionNotesPath(id), 'utf8'); }
@@ -5276,15 +5285,11 @@ function appendMissionChangeRecord(sessionId, record) {
   const sid = String(sessionId || '');
   if (!sid) return Promise.resolve();
   const file = missionChangeFilePath(sid);
-  const previous = missionChangeWriteChains.get(sid) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  return runKeyedChain(missionChangeWriteChains, sid, async () => {
     await repairMissionChangeTornTail(file);
     await fsp.appendFile(file, JSON.stringify(record) + '\n', 'utf8');
     markPretenderIndexDirty(sid, 'source');
   });
-  missionChangeWriteChains.set(sid, current);
-  current.finally(() => { if (missionChangeWriteChains.get(sid) === current) missionChangeWriteChains.delete(sid); }).catch(() => {});
-  return current;
 }
 function foldMissionChangeJournalText(txt, currentRevision = 0) {
   const records = [];
@@ -5560,8 +5565,7 @@ async function compactInterventionJournal(sessionId, opts = {}) {
   const sid = String(sessionId || '');
   if (!sid) return { ok: false, skipped: 'invalid_session' };
   const file = interventionFilePath(sid);
-  const previous = interventionWriteChains.get(sid) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  return runKeyedChain(interventionWriteChains, sid, async () => {
     let txt = '';
     try { txt = await fsp.readFile(file, 'utf8'); } catch { return { ok: true, compacted: false, rowsBefore: 0, rowsAfter: 0, bytesBefore: 0, bytesAfter: 0 }; }
     const folded = foldInterventionJournalText(txt);
@@ -5578,9 +5582,6 @@ async function compactInterventionJournal(sessionId, opts = {}) {
       bytesBefore: folded.bytes, bytesAfter: Buffer.byteLength(payload, 'utf8'),
     };
   });
-  interventionWriteChains.set(sid, current);
-  try { return await current; }
-  finally { if (interventionWriteChains.get(sid) === current) interventionWriteChains.delete(sid); }
 }
 // boot 终态化:进程重启后,内存 Map 清空,但磁盘上可能留有 pending Intervention(上次生命周期注册后未结算 --
 // 进程被杀时超时 timer/clearPending 来不及跑)。与 markInterruptedAgentRuns(08:357)对称:重启 = 上次生命周期
@@ -5637,11 +5638,7 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
   if (!sid || !id) return { ok: false, reason: 'bad_args' };
   // per-ivId 串行:同一 ivId 的并发转换排队,第二个读到第一个的终态 -> already_terminal(version_conflict 不会误判)
   const key = ivCacheKey(sid, id);
-  const prev = interventionTransitionLocks.get(key) || Promise.resolve();
-  const next = prev.catch(() => {}).then(() => runTransition());
-  interventionTransitionLocks.set(key, next);
-  next.then(() => { if (interventionTransitionLocks.get(key) === next) interventionTransitionLocks.delete(key); }, () => { if (interventionTransitionLocks.get(key) === next) interventionTransitionLocks.delete(key); });
-  return next;
+  return runKeyedChain(interventionTransitionLocks, key, () => runTransition());
 
   async function runTransition() {
     const crashAt = String(opts.crashAt || '');
@@ -8510,12 +8507,7 @@ function journalBytesAdjust(delta) {
 const journalWriteChains = new Map(); // sessionId -> Promise
 
 async function withJournalWriteLock(sessionId, work) {
-  const key = String(sessionId || '');
-  const previous = journalWriteChains.get(key) || Promise.resolve();
-  const current = previous.catch(() => {}).then(work);
-  journalWriteChains.set(key, current);
-  try { return await current; }
-  finally { if (journalWriteChains.get(key) === current) journalWriteChains.delete(key); }
+  return runKeyedChain(journalWriteChains, String(sessionId || ''), work);
 }
 
 function journalDir(sessionId) { return path.join(paths.checkpoints, String(sessionId)); }
@@ -9434,12 +9426,7 @@ async function readMissionContainer(missionId) {
 // 每事项一条写链(先例:02 的 sessionWriteChains)。读-改-写全部在链内做,防两个路由并发把 sessionIds 写丢。
 const missionContainerChains = new Map();
 function withMissionContainerLock(missionId, work) {
-  const id = String(missionId || '');
-  const previous = missionContainerChains.get(id) || Promise.resolve();
-  const current = previous.catch(() => {}).then(work);
-  missionContainerChains.set(id, current);
-  current.then(() => {}, () => {}).then(() => { if (missionContainerChains.get(id) === current) missionContainerChains.delete(id); });
-  return current;
+  return runKeyedChain(missionContainerChains, String(missionId || ''), work);
 }
 
 async function writeMissionContainer(record) {
@@ -30342,10 +30329,7 @@ function appendAgentRunEvent(run, evt) {
     const rec = JSON.stringify({ seq: run.eventSeq, ts: nowIso(), runId: run.id, ...evt }) + '\n';
     const dir = agentRunDir(run.sessionId);
     const file = agentRunEventsFile(run.sessionId, run.id);
-    const prev = agentRunEventChains.get(run.id) || Promise.resolve();
-    const cur = prev.catch(() => {}).then(() => fsp.mkdir(dir, { recursive: true })).then(() => fsp.appendFile(file, rec, 'utf8'));
-    agentRunEventChains.set(run.id, cur);
-    cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
+    runKeyedChain(agentRunEventChains, run.id, () => fsp.mkdir(dir, { recursive: true }).then(() => fsp.appendFile(file, rec, 'utf8')));
   } catch { /* 取证辅助,不阻断执行 */ }
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
@@ -30517,8 +30501,7 @@ async function saveAgentRun(run) {
   if (wasDegraded) run.persistenceDegraded = false;
   run.updatedAt = nowIso();
   const snapshot = JSON.stringify(run, null, 2);
-  const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  await runKeyedChain(agentRunWriteChains, run.id, async () => {
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
@@ -30557,9 +30540,6 @@ async function saveAgentRun(run) {
       throw e;
     }
   });
-  agentRunWriteChains.set(run.id, current);
-  try { await current; }
-  finally { if (agentRunWriteChains.get(run.id) === current) agentRunWriteChains.delete(run.id); }
 }
 async function listAgentRuns(sessionId) {
   const dir = agentRunDir(sessionId);
@@ -62377,6 +62357,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
   asrFixSanity,

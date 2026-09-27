@@ -205,6 +205,19 @@ function text(data, status = 200, headers = {}) {
   };
 }
 
+// 按 key 串行的写链(架构还债批 1 #3):同一个 key 上的 work 一个接一个跑,前一个失败不挡后一个;
+// 链尾结算后(成功或失败)若仍是自己就从 map 里摘掉,不留长寿条目。返回的就是这一次 work 的 promise ——
+// 调用方要结果就 await 它,要吞错就自己 catch(helper 只保证链本身不产生未处理的拒绝)。
+// 修前 02 / 08 里七处各自手写同一段 previous.catch().then(work) → set → 自清;需要额外收尾动作的
+// (appendIntervention 的推送与压缩计数、saveSession 的在飞快照)仍然手写,不走这里。
+function runKeyedChain(chains, key, work) {
+  const previous = chains.get(key) || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  chains.set(key, current);
+  current.then(() => {}, () => {}).then(() => { if (chains.get(key) === current) chains.delete(key); });
+  return current;
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse(raw);

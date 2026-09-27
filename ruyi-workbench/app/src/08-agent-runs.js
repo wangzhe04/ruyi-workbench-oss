@@ -52,10 +52,7 @@ function appendAgentRunEvent(run, evt) {
     const rec = JSON.stringify({ seq: run.eventSeq, ts: nowIso(), runId: run.id, ...evt }) + '\n';
     const dir = agentRunDir(run.sessionId);
     const file = agentRunEventsFile(run.sessionId, run.id);
-    const prev = agentRunEventChains.get(run.id) || Promise.resolve();
-    const cur = prev.catch(() => {}).then(() => fsp.mkdir(dir, { recursive: true })).then(() => fsp.appendFile(file, rec, 'utf8'));
-    agentRunEventChains.set(run.id, cur);
-    cur.catch(() => {}).finally(() => { if (agentRunEventChains.get(run.id) === cur) agentRunEventChains.delete(run.id); });
+    runKeyedChain(agentRunEventChains, run.id, () => fsp.mkdir(dir, { recursive: true }).then(() => fsp.appendFile(file, rec, 'utf8')));
   } catch { /* 取证辅助,不阻断执行 */ }
 }
 // 等这条 run 已排队的事件都落盘(失败吞掉:事件是取证,不阻断)。终稿落盘前调:读者看到 status=succeeded 时 run_end 必已在
@@ -227,8 +224,7 @@ async function saveAgentRun(run) {
   if (wasDegraded) run.persistenceDegraded = false;
   run.updatedAt = nowIso();
   const snapshot = JSON.stringify(run, null, 2);
-  const previous = agentRunWriteChains.get(run.id) || Promise.resolve();
-  const current = previous.catch(() => {}).then(async () => {
+  await runKeyedChain(agentRunWriteChains, run.id, async () => {
     const dir = agentRunDir(run.sessionId);
     await fsp.mkdir(dir, { recursive: true });
     // 25.1: 写体收编 atomicWriteJson —— 旧手写版的 rename 重试参数(8 次,15→155ms;UI 每 ~2s 轮询读者持
@@ -267,9 +263,6 @@ async function saveAgentRun(run) {
       throw e;
     }
   });
-  agentRunWriteChains.set(run.id, current);
-  try { await current; }
-  finally { if (agentRunWriteChains.get(run.id) === current) agentRunWriteChains.delete(run.id); }
 }
 async function listAgentRuns(sessionId) {
   const dir = agentRunDir(sessionId);

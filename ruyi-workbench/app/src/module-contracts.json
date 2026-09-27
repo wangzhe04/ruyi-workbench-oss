@@ -69,6 +69,7 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
         "safeJsonParse",
@@ -987,6 +988,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -5858,6 +5866,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18679,6 +18694,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
           "kinds": [
             "read"
           ]
