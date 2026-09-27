@@ -26,8 +26,8 @@ const cjk = value => typeof value === 'string' && /[一-鿿]/.test(value);
 // description 此前是服务端字面量中文，en-US 下原样露出，靠 'Built-in ·' 放行；现已改为经
 // workflowTemplateLabel(util.js) 按 id 查 agentWorkflow.template.<id>.title/.description 显示，
 // 白名单条目随之撤掉——喂给模型的任务提示词（node.task）仍是中文，但那不在可见 UI 文字范围内，
-// 不会被这条扫描命中。剩下这一条是品牌名「火山方舟」，与工作流模板无关，继续保留。
-const ALLOWED_SUBSTRINGS = ['火山方舟 Ark Coding Plan'];
+// 不会被这条扫描命中。原先剩下的品牌名「火山方舟 Ark Coding Plan」随厂商预设一起删掉（2026-09-27），白名单清空。
+const ALLOWED_SUBSTRINGS = [];
 
 (async () => {
   let fxA = null;
