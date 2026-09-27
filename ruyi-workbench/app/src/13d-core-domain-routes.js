@@ -743,18 +743,12 @@ async function buildMissionAggregateRows(options = {}) {
     else if (meta.kind === 'mission') {
       const head = await readMissionSessionHead(meta.id);
       threadLedger = !!(head && head.mission);
-      derived = deriveStewardThreadState({
+      // 会话头这一支与 13k thread_status / 13o 总览 / 13r 事件流同一个适配器(06i stewardThreadStateFromHead)。
+      derived = stewardThreadStateFromHead(head, {
         kind: 'mission',
-        autoMode: head && head.mission && head.mission.autoMode,
-        resultStatus: (head && head.mission && head.mission.result && head.mission.result.status) || '',
         pending: await missionPendingCounts(meta.id, [], null).catch(() => null),
         activeTurn: activeChildren.has(meta.id),
         runCount: 0,
-        turnSeq: head && head.turnSeq,
-        // 117p-S2:与 13g thread_status / 13h 总览同一条投影 —— 无账本判据只认「头上没有 mission 容器」,
-        // 与卡片侧 card.status === 'none' 同义;不许拿 milestonesTotal === 0 之类的近似顶替。
-        ledgerless: !(head && head.mission),
-        lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     } else derived = deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true });
     // 124 还债①：组级两个事实在这一处累计（前端不再自己推）——

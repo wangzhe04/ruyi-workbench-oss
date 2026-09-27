@@ -4418,6 +4418,7 @@
         "stewardThreadArtifactFiles",
         "stewardThreadEngineRoute",
         "stewardThreadStateFromCard",
+        "stewardThreadStateFromHead",
         "stewardThreadStateRank",
         "stewardToolPermanentlyExempt",
         "stewardTrimSayAtSentence",
@@ -12603,6 +12604,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateRank",
           "kinds": [
             "call"
@@ -14096,6 +14104,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "call"
           ]
@@ -16111,13 +16126,6 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "deriveStewardThreadState",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
           "symbol": "isStewardToolName",
           "kinds": [
             "call"
@@ -16196,6 +16204,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "call"
           ]
@@ -17706,16 +17721,16 @@
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "deriveStewardThreadState",
+          "symbol": "STEWARD_SESSION_ID",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
           "provider": "06i-steward-core.js",
-          "symbol": "STEWARD_SESSION_ID",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
-            "read"
+            "call"
           ]
         },
         {
@@ -21297,6 +21312,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardThreadStateFromCard",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadStateFromHead",
           "kinds": [
             "read"
           ]

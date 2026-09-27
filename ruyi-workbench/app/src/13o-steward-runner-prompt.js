@@ -138,19 +138,12 @@ async function stewardThreadDigestRows(config) {
     const card = slice.card ? overlayMissionCard(slice) : null;
     const derived = card
       ? stewardThreadStateFromCard(card)
-      : deriveStewardThreadState({
+      : stewardThreadStateFromHead(head, {   // 会话头证据键与 13d / 13k / 13r 同一个适配器(06i)
         // 116-3 P1-5:只有【管家自己用 steward_quick_ask 开的】速查线程才是 quick_ask。
         // 判据与 13g 的 threads_search / thread_status 同一个函数(13h -> 13g 是后向边),
         // 不再用「非 mission 即 quick_ask」那个把普通对话也一并打上标签的兜底。
         kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',
-        autoMode: head.mission && head.mission.autoMode,
-        resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
         activeTurn: activeChildren.has(sid),
-        turnSeq: head.turnSeq,
-        // 117p-S2:与 13g thread_status / 13d 事项聚合同一个喂法 —— 无账本判据只认
-        // 「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义。
-        ledgerless: !head.mission,
-        lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const settled = derived.state === 'done' || derived.state === 'stopped';

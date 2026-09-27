@@ -23884,6 +23884,26 @@ function stewardThreadStateFromCard(card) {
   });
 }
 
+// 会话头(head)适配器 —— 没有投影卡片时按会话头现算五态的【唯一】喂法(架构还债批 1 #1)。
+// 修前 13d(事项聚合②支)、13k(thread_status)、13o(总览)、13r(事件流)四处各自手写同一组证据键,
+// 其中 autoMode / resultStatus / ledgerless / lastTurnFailed 四个键逐字相同;新增一个证据键要改四处且无人对账。
+// 这里只收【从会话头就能读出来】的那几个键;因调用面而异的(kind / pending / activeTurn / runCount)由 extra 递进来。
+// 117p-S2:无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;
+// 不许拿 milestonesTotal === 0 之类的近似顶替。head 为 null 与「读不出会话头」同义,各键按缺省归一。
+function stewardThreadStateFromHead(head, extra) {
+  const h = (head && typeof head === 'object') ? head : {};
+  const mission = h.mission || null;
+  const last = h.stewardLastTurn || null;
+  return deriveStewardThreadState({
+    autoMode: mission && mission.autoMode,
+    resultStatus: (mission && mission.result && mission.result.status) || '',
+    turnSeq: h.turnSeq,
+    ledgerless: !mission,
+    lastTurnFailed: !!(last && (last.ok === false || last.aborted === true)),
+    ...((extra && typeof extra === 'object') ? extra : {}),
+  });
+}
+
 // 事项级聚合状态(§3.1)。**这是全仓唯一的事项状态定义** —— 入参是子线程五态字符串数组,规则:
 //   任一 needs_you → needs_you;否则全部 done → done;否则任一 running → running;
 //   否则任一 dispatching → dispatching;否则 stopped;空数组 → dispatching。
@@ -48914,18 +48934,12 @@ async function buildMissionAggregateRows(options = {}) {
     else if (meta.kind === 'mission') {
       const head = await readMissionSessionHead(meta.id);
       threadLedger = !!(head && head.mission);
-      derived = deriveStewardThreadState({
+      // 会话头这一支与 13k thread_status / 13o 总览 / 13r 事件流同一个适配器(06i stewardThreadStateFromHead)。
+      derived = stewardThreadStateFromHead(head, {
         kind: 'mission',
-        autoMode: head && head.mission && head.mission.autoMode,
-        resultStatus: (head && head.mission && head.mission.result && head.mission.result.status) || '',
         pending: await missionPendingCounts(meta.id, [], null).catch(() => null),
         activeTurn: activeChildren.has(meta.id),
         runCount: 0,
-        turnSeq: head && head.turnSeq,
-        // 117p-S2:与 13g thread_status / 13h 总览同一条投影 —— 无账本判据只认「头上没有 mission 容器」,
-        // 与卡片侧 card.status === 'none' 同义;不许拿 milestonesTotal === 0 之类的近似顶替。
-        ledgerless: !(head && head.mission),
-        lastTurnFailed: !!(head && head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     } else derived = deriveStewardThreadState({ kind: 'quick_ask', factsUnknown: true });
     // 124 还债①：组级两个事实在这一处累计（前端不再自己推）——
@@ -53305,14 +53319,11 @@ async function stewardImplThreadStatus(args, ctx, config) {
   const card = slice ? overlayMissionCard(slice) : null;
   const derived = card
     ? stewardThreadStateFromCard(card)
-    : deriveStewardThreadState({
+    : stewardThreadStateFromHead(head, {   // 会话头证据键由 06i 适配器统一读(与 13d / 13o / 13r 同一个)
       kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',   // 116-3 P1-5,判据同 threads_search
-      autoMode: head.mission && head.mission.autoMode,
-      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending: await missionPendingCounts(sessionId, [], null).catch(() => null),
       activeTurn: activeChildren.has(sessionId),
       runCount: 0,
-      turnSeq: head.turnSeq, ledgerless: !head.mission, lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)), // 117p-S2(§8.3):无账本判据只认「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义;13g 行闸所迫挤一行,释义见 06i/13d 同名键注释
     });
 
   const rawPending = (await readInterventions(sessionId).catch(() => [])).filter(iv => iv && iv.status === 'pending');
@@ -57033,19 +57044,12 @@ async function stewardThreadDigestRows(config) {
     const card = slice.card ? overlayMissionCard(slice) : null;
     const derived = card
       ? stewardThreadStateFromCard(card)
-      : deriveStewardThreadState({
+      : stewardThreadStateFromHead(head, {   // 会话头证据键与 13d / 13k / 13r 同一个适配器(06i)
         // 116-3 P1-5:只有【管家自己用 steward_quick_ask 开的】速查线程才是 quick_ask。
         // 判据与 13g 的 threads_search / thread_status 同一个函数(13h -> 13g 是后向边),
         // 不再用「非 mission 即 quick_ask」那个把普通对话也一并打上标签的兜底。
         kind: stewardQuickThread(head) ? 'quick_ask' : 'mission',
-        autoMode: head.mission && head.mission.autoMode,
-        resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
         activeTurn: activeChildren.has(sid),
-        turnSeq: head.turnSeq,
-        // 117p-S2:与 13g thread_status / 13d 事项聚合同一个喂法 —— 无账本判据只认
-        // 「头上没有 mission 容器」,与卡片侧 card.status === 'none' 同义。
-        ledgerless: !head.mission,
-        lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
       });
     const updatedMs = Date.parse(String(head.updatedAt || ''));
     const settled = derived.state === 'done' || derived.state === 'stopped';
@@ -59766,17 +59770,12 @@ async function eventStreamEmitThreadState(sessionId, opts = {}) {
     const head = await readMissionSessionHead(sid).catch(() => null);
     if (!head || !head.id) return;                       // 会话已删/读不出来:不编一个状态出来
     const pending = await missionPendingCounts(sid, [], null).catch(() => null);
-    const derived = deriveStewardThreadState({
+    // 与 13d 的②支同一个会话头适配器(06i stewardThreadStateFromHead)。
+    const derived = stewardThreadStateFromHead(head, {
       kind: 'mission',
-      autoMode: head.mission && head.mission.autoMode,
-      resultStatus: (head.mission && head.mission.result && head.mission.result.status) || '',
       pending,
       activeTurn: activeChildren.has(sid),
       runCount: 0,
-      turnSeq: head.turnSeq,
-      // 与 13d 的②支逐字一致:无账本判据只认「头上没有 mission 容器」。
-      ledgerless: !head.mission,
-      lastTurnFailed: !!(head.stewardLastTurn && (head.stewardLastTurn.ok === false || head.stewardLastTurn.aborted === true)),
     });
     // `wait` = 这条线程此刻有几件在等你。与五态的 needs_you 判据同源(pendingTotal > 0),
     // 不是第二个计数口径。
@@ -62851,6 +62850,7 @@ module.exports = {
   STEWARD_THREAD_STATES,
   deriveStewardThreadState,
   stewardThreadStateFromCard,
+  stewardThreadStateFromHead,   // 架构还债批 1 #1:会话头 → 五态证据的唯一适配器(unit/steward-head-adapter.test.js)
   // 第116波116g(§3.1 事项跨会话升格): 事项级聚合状态的唯一定义(纯函数,unit 穷举真值表)。
   aggregateMissionState,
   // 117s-A D1(§11.13 ③):行序的状态秩(纯函数,单测/e2e 直测)。
