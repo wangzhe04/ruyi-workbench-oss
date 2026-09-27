@@ -31,7 +31,6 @@
     "03-bridge-guard.js->04-permission-runtime.js",
     "03-bridge-guard.js->05-claude-engine.js",
     "04-desktop-shell.js->00-boot.js",
-    "04-desktop-shell.js->01-config.js",
     "04-desktop-shell.js->04-permission-runtime.js",
     "04-permission-runtime.js->00-boot.js",
     "04-permission-runtime.js->01-config.js",

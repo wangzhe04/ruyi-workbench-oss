@@ -22,7 +22,7 @@
 - 接口失败:`apiFailure(code, params, message, status)`;会话两句常见失败 `apiSessionIdInvalid()` / `apiSessionNotFound()`。
   裸串 `json({ ok:false, error:'…' })` 有只减不增的上限(`unit/api-error-helpers.test.js`)。
 - 线程五态:有卡片走 `stewardThreadStateFromCard`,只有会话头走 `stewardThreadStateFromHead`(06i),不要手拼证据键。
-- 新增 exec 档内建工具:决定进不进不可逆账(02 `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
+- 新增 exec 档内建工具:决定进不进不可逆账(02f `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
 - 新模块默认挂在依赖环外:需要调用后加载的模块时走 `*Hooks` 延迟绑定(先例 06j / 13t)。
   强连通分量的规模有上限(`module-dependency-graph.static.e2e.js`)。
 - 往 `14-main.js` 的 `module.exports` 加名字前先写直调它的测试:每个导出都须被 `dev-harness/` 或 `ruyi-workbench/tools/`
