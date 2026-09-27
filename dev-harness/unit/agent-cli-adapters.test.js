@@ -134,7 +134,9 @@ test('[E] 子进程环境金样', () => {
       ANTHROPIC_BASE_URL: 'https://proxy.example.test/v1', ANTHROPIC_AUTH_TOKEN: 'sk-1', ANTHROPIC_API_KEY: '', ANTHROPIC_MODEL: 'test-model-a',
       CLAUDE_CODE_USE_BEDROCK: '', CLAUDE_CODE_USE_VERTEX: '', MAX_THINKING_TOKENS: '2048', WIN_CLAUDE_WORKBENCH_HOME: 'H:\\data', CLAUDE_CODE_SUBAGENT_MODEL: undefined,
     });
-    assert.equal(bearer.PATH, process.env.PATH, '其余键原样继承');
+    // Windows 的 process.env 大小写不敏感(真键名通常是 Path),拷贝成普通对象后只认真键名 —— 按真键名比。
+    const pathKey = Object.keys(process.env).find(key => key.toUpperCase() === 'PATH') || 'PATH';
+    assert.equal(bearer[pathKey], process.env[pathKey], '其余键原样继承');
     const xkey = claude.buildEnv({ modelsApiBase: 'https://gw.example.test', modelsApiKey: 'sk-2', claudeAuthMode: 'x-api-key', model: 'm-2' }, common);
     assert.deepEqual(pick(xkey, KEYS.slice(0, 7)), {
       ANTHROPIC_BASE_URL: 'https://gw.example.test', ANTHROPIC_AUTH_TOKEN: '', ANTHROPIC_API_KEY: 'sk-2', ANTHROPIC_MODEL: 'm-2',
