@@ -605,7 +605,7 @@ export function createStewardConversation({
   //
   // **搬走之前必须先送回头部**：feed 一清（clearFeed）或某一行被移除（流失败的两处 removeChild）时，
   // 头像若还在那一行里就会跟着被销毁 —— 之后 byId('stewardAvatar') 恒 null，presence 再也画不出来。
-  // 这是本条改动唯一的真陷阱，所以 park 在三个销毁点各调一次。
+  // 这是本条改动唯一的真陷阱，所以 park 在每个销毁点各调一次(clearFeed、流失败的两处、首跑那一行随语言重画)。
   function parkAvatar() {
     const avatar = byId('stewardAvatar');
     const header = byId('stewardHeader');
@@ -1930,6 +1930,7 @@ export function createStewardConversation({
   try {
     globalThis.addEventListener('i18n:change', () => {
       if (!firstRunRow || !firstRunRow.isConnected || firstRunRow.parentNode.lastElementChild !== firstRunRow) return;
+      parkAvatar();   // W2-3 陷阱：头像此刻就住在这一行里，不先送回头部会跟着被删(第四个销毁点)
       firstRunRow.remove();
       firstRunRow = null;
       renderFirstRun();

@@ -146,8 +146,13 @@ const ALLOWED_SUBSTRINGS = [];
       presence: (document.getElementById('stewardPresenceText') || {}).textContent || '',
       intro: [...document.querySelectorAll('#stewardFeed .steward-say, #stewardFeed .steward-example')].map(n => n.textContent).join(' | '),
       examples: document.querySelectorAll('#stewardFeed .steward-example').length,
+      avatar: Boolean(document.getElementById('stewardAvatar')),
+      avatarState: (document.getElementById('stewardAvatar') || { dataset: {} }).dataset.state || '',
     }))()`);
     ok(!cjk(after.intro) && after.examples === 3, `U14c 运行时切语言后管家首跑自我介绍与例子跟着换成英文、不重复（实测 ${JSON.stringify(after.intro.slice(0, 80))}，例子 ${after.examples} 个）`);
+    // 重画首跑那一行时头像正住在这一行里(头像跟着最新一条管家的话走):不先 parkAvatar() 就会跟着被删,
+    // 此后 #stewardAvatar 恒 null、头像态再也画不出来(Windows CI 上 steward-shell F1/F2 时有时无的根因)。
+    ok(after.avatar === true && Boolean(after.avatarState), `U14d 运行时切语言重画首跑那一行后管家头像仍在、态照常画(实测 avatar=${after.avatar} state=${JSON.stringify(after.avatarState)})`);
     ok(!cjk(after.stopBtn), `U16 运行时切语言后「一键停机」按钮不停在旧中文（实测 ${JSON.stringify(after.stopBtn)}）`);
     ok(!cjk(after.presence), `U16 运行时切语言后管家状态点文案不停在旧中文（实测 ${JSON.stringify(after.presence)}）`);
 
