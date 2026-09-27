@@ -19340,6 +19340,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "IRREVERSIBLE_NATIVE_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "isBridgedWriteTool",
           "kinds": [
             "read"
@@ -19628,6 +19635,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "transitionInterventionState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
           "kinds": [
             "read"
           ]
