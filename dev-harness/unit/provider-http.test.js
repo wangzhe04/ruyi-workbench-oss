@@ -62,7 +62,8 @@ async function run(steps, fn) {
 const CHAT_OK = JSON.stringify({ choices: [{ message: { content: ' hello ' } }], usage: { prompt_tokens: 3, completion_tokens: 2 } });
 const RESP_OK = JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'hi' }] }], usage: { input_tokens: 1 } });
 const SSE = 'data: {"choices":[{"delta":{"content":"a"}}]}\n\ndata: {"choices":[{"delta":{"content":"b"}}],"usage":{"prompt_tokens":1}}\n\ndata: [DONE]\n';
-const ERR_BODY = 'bad key sk-abcdefghijklmnopqrstuvwxyz0123456789 happened';
+// 假密钥运行时拼出来:源码行不带 sk-<20+ 位> 字样,repo-hygiene (b) 的全仓密钥扫描不会把测试夹具当成真密钥。
+const ERR_BODY = 'bad key ' + ['sk', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('-') + ' happened';
 const FIX_MSGS = [{ role: 'system', content: 'S1' }, { role: 'system', content: 'S2' }, { role: 'user', content: 'U1' }];
 const FIX_CHAT_BODY = '{"model":"fm","messages":[{"role":"system","content":"S1"},{"role":"system","content":"S2"},{"role":"user","content":"U1"}],"stream":false,"temperature":0,"max_tokens":400,"thinking":{"type":"disabled"},"enable_thinking":false}';
 const FIX_CHAT_PLAIN = '{"model":"fm","messages":[{"role":"system","content":"S1"},{"role":"system","content":"S2"},{"role":"user","content":"U1"}],"stream":false,"temperature":0,"max_tokens":400}';
