@@ -10,7 +10,11 @@ function sanitizeFsSegmentName(fsSegmentRaw) {
 async function makeAttachmentRecord(input) {
   await ensureDirs();
   const id = makeId('file');
-  const safeName = sanitizeFsSegmentName(path.basename(input.name || 'upload.bin'));
+  // 代码走查 C8:名字按 Windows 形取文件名(认 \ 与 /);非字符串、空、「.」「..」、全是点和空格(Windows 会吃掉
+  // 结尾的点与空格)一律回落 upload.bin。修前「..」会写到目录本身上:EISDIR 500、报错带出数据目录绝对路径。
+  const rawName = typeof input.name === 'string' ? input.name : '';
+  let safeName = sanitizeFsSegmentName(path.win32.basename(rawName)).replace(/[. ]+$/, '').slice(0, 200);
+  if (!safeName || /^[. ]*$/.test(safeName)) safeName = 'upload.bin';
   const targetDir = path.join(paths.uploads, id);
   await fsp.mkdir(targetDir, { recursive: true });
   const target = path.join(targetDir, safeName);
@@ -18,7 +22,8 @@ async function makeAttachmentRecord(input) {
     ? String(input.data).split(',').pop()
     : String(input.data || '');
   const buffer = Buffer.from(base64, 'base64');
-  await fsp.writeFile(target, buffer);
+  try { await fsp.writeFile(target, buffer); }
+  catch (error) { await fsp.rm(targetDir, { recursive: true, force: true }).catch(() => {}); throw error; }   // 不留空的 uploads/<id>/
 
   let textPreview = '';
   // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。

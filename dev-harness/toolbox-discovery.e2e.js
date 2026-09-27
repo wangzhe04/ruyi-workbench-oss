@@ -12,7 +12,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   F 停用／总开关:进程被停、服务商条目撤走;再启用又回来
 //   G 坏登记文件一律当没装:相对路径、id 与文件名不符、不认识的 schema、命令不存在
 //   H MCP 类:并进外部 MCP 清单,内部 id toolbox-<id>
-//   I 崩了就地再起:杀掉组件进程之后再转写,如意自己把它拉起来
+//   I 崩了就地再起:杀掉组件进程之后再转写,如意自己把它拉起来;I2 一直起不来 → 冷却期内不每次都重新拉起
 //   J 如意退出,自己拉起的组件跟着没
 // 判定行:`TOOLBOX DISCOVERY E2E: ALL PASS`。
 const { killOwnTree } = require('./lib/kill-own-tree');
@@ -43,6 +43,7 @@ child.on('exit', code => setTimeout(() => process.exit(code == null ? 1 : code),
 // 假组件:按登记约定 §2.2 行事 —— 端口以环境变量为准、/health 回 component、Whisper 形转写回显、把收到的环境写进一个文件供断言。
 const FAKE_SERVICE = `
 const http = require('http'), fs = require('fs'), path = require('path');
+if (fs.existsSync(path.join(__dirname, 'crash-on-start'))) { fs.appendFileSync(path.join(__dirname, 'crash-starts.log'), process.pid + '\\n'); process.exit(3); }   // I2:起不来的组件
 const port = Number(process.env.FAKE_ASR_PORT || 0);
 fs.writeFileSync(path.join(__dirname, 'env-' + process.pid + '.json'), JSON.stringify({ port, parent: process.env.RUYI_TOOLBOX_PARENT_PID || '', extra: process.env.FAKE_EXTRA || '', argv: process.argv.slice(2) }));
 let unloads = 0;
@@ -286,6 +287,18 @@ const envFiles = () => fs.readdirSync(FAKE_DIR).filter(f => /^env-\d+\.json$/.te
     const t2 = await transcribe();
     const h2 = await health(P1);
     ok(t2.status === 200 && Boolean(h2) && h2.pid !== pidBefore, `I1 组件进程被杀之后再转写:如意就地把它重新拉起来、转写成功(旧 pid ${pidBefore} → 新 pid ${h2 && h2.pid},转写 ${t2.status})`);
+    // I2(代码走查 C12):组件一直起不来 → 起失败一次之后进冷却,下一次转写不再重新拉起、白等一趟。
+    fs.writeFileSync(path.join(FAKE_DIR, 'crash-on-start'), '1');
+    try { process.kill(h2.pid); } catch { /* ignore */ }
+    await waitFor(async () => !(await health(P1)), 8000);
+    const crashStarts = () => { try { return fs.readFileSync(path.join(FAKE_DIR, 'crash-starts.log'), 'utf8').split('\n').filter(Boolean).length; } catch { return 0; } };
+    const t3 = await transcribe();
+    const n1 = crashStarts();
+    const t3b = await transcribe();
+    const n2 = crashStarts();
+    ok(t3.status !== 200 && n1 === 1 && t3b.status !== 200 && n2 === 1,
+      `I2 组件起不来:第一次转写拉起一次(失败),紧接着再转写不再重新拉起(起动次数 ${n1} → ${n2},转写 ${t3.status}/${t3b.status})`);
+    fs.rmSync(path.join(FAKE_DIR, 'crash-on-start'), { force: true });
 
     /* ── C 不替用户做主 ── */
     await saveConfig({ asrProviderId: '', asrModel: '' });

@@ -402,14 +402,21 @@ export function createChatStreamRuntime(deps = {}) {
     if (!delivery) {
       delivery = el('select', 'steer-delivery-mode');
       delivery.id = 'steerDeliveryMode';
-      delivery.setAttribute('aria-label', t('chat.steerDelivery'));
       for (const mode of ['queue', 'interrupt']) {
         const option = document.createElement('option');
-        option.value = mode; option.textContent = t('chat.steerDelivery.' + mode);
+        option.value = mode;
         delivery.appendChild(option);
       }
       btn.before(delivery);
     }
+    // U14 走查：这枚 select 只建一次(上面那段),它的 aria-label 与两个 option 文案如果也焊在
+    // 「只建一次」那个分支里，赶上还没等到 setLocale(en-US) 落定就先建好的那一拍(冷启动/开局
+    // 就是 en-US 的场景最容易撞上)，就会一直停在建它那一刻的语言 —— updateSendBtn() 本来每次
+    // 输入/切换时都会跑，这里挪出来跟着一起刷新，零额外监听就治好。typeof 兜底：foreign-turn-composer
+    // 那份单测用一个不含 setAttribute/options 的极简桩子占位 $('steerDeliveryMode')（它测的是
+    // 别的事，不关心这枚 select），生产环境里 el() 建出来的永远是真元素。
+    if (typeof delivery.setAttribute === 'function') delivery.setAttribute('aria-label', t('chat.steerDelivery'));
+    if (delivery.options) for (const option of delivery.options) option.textContent = t('chat.steerDelivery.' + option.value);
     const engine = activeTurns.get(state.currentSession?.id)?.engine || (isProviderMode() ? 'openai' : 'claude');
     delivery.hidden = !steer || engine !== 'openai';
     if (!steer) delivery.value = 'queue';

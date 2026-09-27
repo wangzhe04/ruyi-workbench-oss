@@ -286,7 +286,8 @@ console.log('── (C) P1-8 游标损坏 ──');
     runChild(budgetHome);
     ok(budgetRows() === 1, `D1 第一轮:预算触顶入箱一次(got ${budgetRows()})`);
     const cursor = JSON.parse(fs.readFileSync(path.join(budgetHome, 'steward', 'cursor-v1.json'), 'utf8'));
-    ok(Array.isArray(cursor.sources.budgetSeen) && cursor.sources.budgetSeen.includes(sid),
+    // 代码走查 C7:键从「会话 id」改成「会话 id + \u0000 + 这一次用尽的时刻」(任务重启后再次用尽要能再提醒)。
+    ok(Array.isArray(cursor.sources.budgetSeen) && cursor.sources.budgetSeen.some(k => String(k).split('\u0000')[0] === sid),
       `D2 去重键落进游标 sources.budgetSeen(修前这个字段根本不存在;got ${JSON.stringify(cursor.sources.budgetSeen)})`);
 
     // 把那条记录挤出 2000 行的重建窗口 —— 内存去重集合从此看不见它。

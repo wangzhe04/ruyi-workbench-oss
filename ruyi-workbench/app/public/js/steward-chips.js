@@ -474,6 +474,12 @@ export function rerenderAllQuickSwitchChips() {
   for (const peer of LIVE_CHIPS) { try { peer.rerender(); } catch { /* 一份画不出来不该拖住其余 */ } }
   return LIVE_CHIPS.size;
 }
+// U14/U16 走查：运行时切语言（不刷新页面）时，屏上已经建好的每一份 chip（线程头／焦点栏／
+// 左栏看板行……）都要跟着重画一遍 kind 标签与当前值，不然停在切语言前那一刻的语言。本模块只在
+// 【加载时】挂这一次（不是每个 createQuickSwitchChips() 实例各挂一次）——听的是 i18n.js setLocale
+// 末尾派的那一发全局 i18n:change，与 rail-pocket.js／composer-voice.js 同一条路；LIVE_CHIPS 登记表
+// 本来就是给「一处改、全体重画」用的（见上面 128f-⑫ 头注），这里只是多一个触发源。
+try { globalThis.addEventListener('i18n:change', () => { rerenderAllQuickSwitchChips(); }); } catch { /* ignore */ }
 
 export function createQuickSwitchChips({
   api = async () => null,
@@ -995,7 +1001,15 @@ export function createQuickSwitchChips({
 
   function render() {
     for (const [kind, chip] of chips) {
-      chip.value.textContent = valueFor(kind);
+      const value = valueFor(kind);
+      chip.value.textContent = value;
+      // U15 走查：英文档位/模型名常比中文长（如 "Ask me every step" vs 「每步都问」），窄栏里
+      // .steward-chip-value 的 ellipsis(css/views/steward-drawer.css)会把它截断成「…」——补一个
+      // title 兜底,鼠标悬停能看到完整值,不必先展开菜单才知道选的是哪一个。
+      chip.value.title = value;
+      // U14 走查：kind 标签跟着一起刷新（见 buildChip 头注）——render() 本来就在换会话／改档位／
+      // rerenderAllQuickSwitchChips() 时被调用，不必为它另起一条监听。
+      if (chip.keyLabel && chip.labelKey) chip.keyLabel.textContent = t(chip.labelKey);
       chip.button.disabled = !sessionId;
       chip.button.classList.toggle('is-pinned', kind === 'permission' && Boolean(session && session.permissionMode));
     }
@@ -1009,7 +1023,8 @@ export function createQuickSwitchChips({
     button.setAttribute('aria-haspopup', 'true');
     button.setAttribute('aria-expanded', 'false');
     const value = el('span', 'steward-chip-value');
-    button.append(el('span', 'steward-chip-key', t(labelKey)), value);
+    const keyLabel = el('span', 'steward-chip-key', t(labelKey));
+    button.append(keyLabel, value);
     button.onclick = () => toggleMenu(kind);
     // 128f-⑤（Brief §4.2 第 21 条「模型菜单首开会挪位」）：「常用」要的用量事实在【有意图】的那一刻就去拉 ——
     // 指针进来、按下、焦点落上 —— 不等菜单打开。修前开了才拉，约 140 ms 后到货、整段下挪约 43 px；指针悬停
@@ -1045,7 +1060,11 @@ export function createQuickSwitchChips({
     };
     menu.hidden = true;
     wrap.append(button, menu);
-    chips.set(kind, { button, value, menu });
+    // U14 走查：kind 标签（权限／模型／引擎）是 mount() 那一刻用 t(labelKey) 焊死的 —— 布防在
+    // 应用早期先起（可能还没等到 setLocale(en-US) 落定就画完了），从此没人再叫它重算。keyLabel
+    // 与 labelKey 一起存进 chips，render() 里跟着值一起刷新，才能吃到 rerenderAllQuickSwitchChips()
+    // /i18n:change 那条既有的重画通道（下面模块级只挂一次，见文件尾）。
+    chips.set(kind, { button, value, menu, keyLabel, labelKey });
     return wrap;
   }
 

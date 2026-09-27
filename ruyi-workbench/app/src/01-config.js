@@ -635,6 +635,10 @@ function normalizeWorkspacePathString(value) {
     if (!pair) break;
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
+  // 代码走查 C14:去掉结尾分隔符(盘符根 C:\ 与单独的 / 保留)—— 修前带不带结尾「\」存成两条常用文件夹。
+  const stripped = s.replace(/[\\/]+$/, '');
+  if (stripped && !/^[A-Za-z]:$/.test(stripped)) s = stripped;
+  else if (s) s = s.slice(0, stripped.length + 1);
   return s.slice(0, 1000);
 }
 
@@ -3364,7 +3368,8 @@ async function readBody(req) {
 async function readJsonBody(req) {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
-  return JSON.parse(raw);
+  try { return JSON.parse(raw); }
+  catch { throw Object.assign(new Error('request body is not valid JSON'), { statusCode: 400, apiCode: 'api.bad_json' }); }   // C17:客户端的错,回 400 不回 500
 }
 
 function send(res, response) {
@@ -3374,7 +3379,7 @@ function send(res, response) {
 
 function sendError(res, err) {
   const status = err.statusCode || 500;
-  send(res, apiFailure('api.internal_error', {}, err.message || String(err), status));
+  send(res, apiFailure(err.apiCode || 'api.internal_error', {}, err.message || String(err), status));
 }
 
 function contentTypeFor(file) {
@@ -3446,8 +3451,14 @@ function originOk(req) {
   const host = req.headers.host || `${RUNTIME.host}:${RUNTIME.port}`;
   try { return new URL(origin).host === host; } catch { return false; }
 }
+// 代码走查 C16:比较 token 用定长时间比较(=== 在第一个不同字符处就返回,理论上可逐字符测时)。
+function tokenMatches(candidate) {
+  if (!RUNTIME.token || typeof candidate !== 'string') return false;
+  const a = Buffer.from(candidate, 'utf8'), b = Buffer.from(String(RUNTIME.token), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 function tokenOk(req) {
-  return Boolean(RUNTIME.token) && req.headers['x-wcw-token'] === RUNTIME.token;
+  return tokenMatches(req.headers['x-wcw-token']);
 }
 // 第33波:声明式 auth 路由表 + deny-by-default(治 S0 教训 opt-in 名单根因 + 第29波 backlog #0 GET 面)。
 // authorizeRoute 对 handleApi 每个路由按 ROUTE_AUTH first-match 判定鉴权级别;未匹配 -> 拒(403)。

@@ -278,7 +278,7 @@
             </div>
             <div class="topbar-actions">
               <!-- v0.9-S3 (C3): 常驻工作文件夹选择器。显示当前会话 cwd 短名 + 完整路径 title;点击弹原生选择器。 -->
-              <button id="workspacePicker" class="workspace-picker" title="工作文件夹" aria-label="选择工作文件夹">
+              <button id="workspacePicker" class="workspace-picker" title="工作文件夹" aria-label="选择工作文件夹" data-i18n-attr="aria-label:workspace.select">
                 <span class="wp-icon" aria-hidden="true" data-icon="folder" data-icon-size="15"></span>
                 <span class="wp-name">工作台</span>
               </button>
@@ -320,7 +320,7 @@
 
         <!-- UI v3 P3a: 中栏主视图 Tab(对话 | 工作台)。data-main-view 状态机切中栏内容;工作台在有活动 run
              时亮点标(.has-activity 显 .wb-mv-dot)。tab 点击 wire 到 switchMainView(见 app.js P3a 模块)。 -->
-        <div class="wb-mainview-tabs" role="tablist" aria-label="中栏主视图">
+        <div class="wb-mainview-tabs" role="tablist" aria-label="中栏主视图" data-i18n-attr="aria-label:navigation.mainViewTabs">
           <button id="mainViewTabChat" class="wb-mv-tab active" role="tab" aria-selected="true" data-main-view="chat" data-i18n="navigation.conversation">对话</button>
           <button id="mainViewTabCanvas" class="wb-mv-tab" role="tab" aria-selected="false" data-main-view="canvas"><span data-i18n="navigation.crew">班组</span><span class="wb-mv-dot" aria-hidden="true"></span></button>
           <span class="wb-mv-spacer"></span>
@@ -332,70 +332,70 @@
             <span class="mission-bar-icon" aria-hidden="true" data-icon="task" data-icon-size="15"></span>
             <span id="missionBarSummary" class="mission-bar-summary"></span>
             <span id="missionBarMode" class="mission-bar-mode"></span>
-            <button id="missionStopBtn" class="mini mission-bar-stop hidden" title="停止自动推进">停止</button>
+            <button id="missionStopBtn" class="mini mission-bar-stop hidden" title="停止自动推进" data-i18n-attr="title:mission.stop.title" data-i18n="common.stop">停止</button>
           </div>
           <ul id="missionBarList" class="mission-bar-list"></ul>
         </div>
 
         <!-- 第27波:自主性授权书抽屉。默认隐藏,有活动授权或用户展开时显示。授权书 = 现有权限的严格子集缓存,
              只把范围内的 ask 弹窗就地降为 allow;签发唯 header token,exec 纯内存进程重启即清。 -->
-        <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书" data-testid="autonomyBar">
+        <div id="autonomyBar" class="autonomy-bar hidden" role="region" aria-label="自主性授权书" data-i18n-attr="aria-label:autonomy.title" data-testid="autonomyBar">
           <div class="autonomy-bar-head">
             <span class="autonomy-bar-icon" aria-hidden="true" data-icon="shield" data-icon-size="15"></span>
-            <span class="autonomy-bar-title">自主性授权书</span>
+            <span class="autonomy-bar-title" data-i18n="autonomy.title">自主性授权书</span>
             <span id="autonomyBarCount" class="autonomy-bar-count"></span>
-            <button id="autonomyIssueToggle" class="mini" title="签发新授权(仅本机 UI 可签)">+ 新建</button>
-            <button id="autonomyRevokeAll" class="mini autonomy-revoke-all hidden" title="撤销本线程全部授权">全部撤销</button>
+            <button id="autonomyIssueToggle" class="mini" title="签发新授权(仅本机 UI 可签)" data-i18n-attr="title:autonomy.issueTitle" data-i18n="autonomy.issueNew">+ 新建</button>
+            <button id="autonomyRevokeAll" class="mini autonomy-revoke-all hidden" title="撤销本线程全部授权" data-i18n-attr="title:autonomy.revokeAllTitle" data-i18n="autonomy.revokeAllButton">全部撤销</button>
           </div>
           <ul id="autonomyBarList" class="autonomy-bar-list"></ul>
           <!-- 签发表单(默认折叠)。反疲劳:无"全工具/全工作区/无限次"预设;exec 高危样式 + 二次确认。 -->
           <form id="autonomyIssueForm" class="autonomy-issue hidden" autocomplete="off">
             <div class="autonomy-issue-row">
-              <label>工具
+              <label><span data-i18n="autonomy.form.tool">工具</span>
                 <select id="agTool">
-                  <option value="file_write">写文件 file_write(edit)</option>
-                  <option value="file_edit">改文件 file_edit(edit)</option>
-                  <option value="file_read">读文件 file_read(read)</option>
-                  <option value="powershell_run">运行 PowerShell 命令 powershell_run(exec)</option>
+                  <option value="file_write" data-i18n="autonomy.form.tool.fileWrite">写文件 file_write(edit)</option>
+                  <option value="file_edit" data-i18n="autonomy.form.tool.fileEdit">改文件 file_edit(edit)</option>
+                  <option value="file_read" data-i18n="autonomy.form.tool.fileRead">读文件 file_read(read)</option>
+                  <option value="powershell_run" data-i18n="autonomy.form.tool.powershellRun">运行 PowerShell 命令 powershell_run(exec)</option>
                   <option value="Edit">Claude·Edit(edit)</option>
                   <option value="Write">Claude·Write(edit)</option>
                   <option value="Bash">Claude·Bash(exec)</option>
                 </select>
               </label>
-              <label>范围
+              <label><span data-i18n="autonomy.form.scope">范围</span>
                 <select id="agScope">
-                  <option value="run">本次运行内(run)</option>
-                  <option value="session">整条线程(session)</option>
+                  <option value="run" data-i18n="autonomy.form.scope.run">本次运行内(run)</option>
+                  <option value="session" data-i18n="autonomy.form.scope.session">整条线程(session)</option>
                 </select>
               </label>
             </div>
-            <label class="autonomy-issue-field ag-file-only">路径 glob(逗号分隔,相对工作区根;留空=整个工作区)
+            <label class="autonomy-issue-field ag-file-only"><span data-i18n="autonomy.form.pathGlob">路径 glob(逗号分隔,相对工作区根;留空=整个工作区)</span>
               <input id="agGlob" type="text" placeholder="src/**, docs/*.md" />
             </label>
-            <label class="autonomy-issue-field ag-exec-only hidden">允许的命令前缀 cmdAllow(逗号分隔,锚定前缀;exec 必填)
+            <label class="autonomy-issue-field ag-exec-only hidden"><span data-i18n="autonomy.form.cmdAllow">允许的命令前缀 cmdAllow(逗号分隔,锚定前缀;exec 必填)</span>
               <input id="agCmd" type="text" placeholder="npm run build, npm test" />
             </label>
             <div class="autonomy-issue-row">
-              <label>次数上限
+              <label><span data-i18n="autonomy.form.maxUses">次数上限</span>
                 <input id="agMaxUses" type="number" min="1" max="200" value="10" />
               </label>
-              <label>时长
+              <label><span data-i18n="autonomy.form.duration">时长</span>
                 <select id="agTtl">
-                  <option value="900000">15 分钟</option>
-                  <option value="1800000">30 分钟</option>
-                  <option value="3600000" selected>1 小时</option>
-                  <option value="10800000">3 小时</option>
+                  <option value="900000" data-i18n="autonomy.form.duration.15m">15 分钟</option>
+                  <option value="1800000" data-i18n="autonomy.form.duration.30m">30 分钟</option>
+                  <option value="3600000" selected data-i18n="autonomy.form.duration.1h">1 小时</option>
+                  <option value="10800000" data-i18n="autonomy.form.duration.3h">3 小时</option>
                 </select>
               </label>
               <label class="ag-exec-only hidden autonomy-net">
-                <input id="agNet" type="checkbox" /> 允许联网(默认禁,慎用)
+                <input id="agNet" type="checkbox" /> <span data-i18n="autonomy.form.allowNet">允许联网(默认禁,慎用)</span>
               </label>
             </div>
             <div id="agDryRun" class="autonomy-dryrun"></div>
             <div class="autonomy-issue-actions">
-              <button type="button" id="agPreview" class="mini">预览命中</button>
-              <button type="submit" id="agSubmit" class="mini primary">签发</button>
-              <button type="button" id="agCancel" class="mini">取消</button>
+              <button type="button" id="agPreview" class="mini" data-i18n="autonomy.form.preview">预览命中</button>
+              <button type="submit" id="agSubmit" class="mini primary" data-i18n="autonomy.form.submit">签发</button>
+              <button type="button" id="agCancel" class="mini" data-i18n="common.cancel">取消</button>
             </div>
           </form>
         </div>
@@ -419,13 +419,13 @@
                 <circle fill="var(--brand-au)" cx="19.4" cy="3.4" r="1.5"/>
               </svg>
             </div>
-            <h2>直接开始工作</h2>
-            <p>发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。</p>
+            <h2 data-i18n="emptyState.title">直接开始工作</h2>
+            <p data-i18n="emptyState.description">发送需求、拖入文件、选择项目目录。对话与本机工具会交给当前引擎处理。</p>
             <div class="starters" id="starters"></div>
           </div>
         </section>
 
-        <button id="jumpLatest" class="jump-latest hidden" title="回到最新" aria-label="回到最新" data-icon="down"></button>
+        <button id="jumpLatest" class="jump-latest hidden" title="回到最新" aria-label="回到最新" data-i18n-attr="title:chat.jumpLatest;aria-label:chat.jumpLatest" data-icon="down"></button>
 
         <section class="composer">
           <div id="dropHint" class="drop-hint hidden" data-i18n="onboarding.drop.title">松开：文件→附件，文件夹→设为工作目录</div>
@@ -442,7 +442,7 @@
               <button id="composerMoreBtn" class="file-label btn-ic" title="更多" aria-label="更多操作" aria-haspopup="menu" data-i18n-attr="title:common.more;aria-label:common.more" data-icon="plus" data-testid="composerMoreBtn"></button>
               <button id="agentTeamBtn" class="file-label agent-team-btn" type="button" aria-pressed="false" title="Agent 团队" aria-label="Agent 团队" data-testid="agentTeamBtn"></button>
               <button id="skillBtn" class="file-label btn-ic" title="技能库：启用技能 / 命令 / 一键任务 (/)" aria-label="技能库" data-i18n-attr="title:skills.button.title;aria-label:skills.title"></button>
-              <label class="file-label composer-file btn-ic" title="添加文件" data-icon="paperclip">
+              <label class="file-label composer-file btn-ic" title="添加文件" data-i18n-attr="title:composer.attachFile" data-icon="paperclip">
                 <input id="fileInput" type="file" multiple />
               </label>
               <button id="sendBtn" class="primary btn-ic composer-send" data-icon="send" data-testid="sendBtn">发送</button>
@@ -451,7 +451,7 @@
           <!-- v1.0-S2 (IA): #compactBtn 移出 .composer-actions（composer 减负）→ 入上下文用量弹层的「立即压缩」。
                保留 id + handler，openContextPopover 打开时把该按钮挪进弹层、关闭时挪回此 host（平时 hidden）。 -->
           <div id="compactBtnHost" class="hidden">
-            <button id="compactBtn" class="file-label btn-ic" title="压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间" data-icon="compress" data-icon-size="14"><span>压缩</span></button>
+            <button id="compactBtn" class="file-label btn-ic" title="压缩上下文：让 Claude 概括并压缩对话历史（/compact），释放上下文空间" data-i18n-attr="title:chat.compactContextClaude" data-icon="compress" data-icon-size="14"><span data-i18n="common.compress">压缩</span></button>
           </div>
         </section>
 
@@ -460,12 +460,12 @@
              P3b:.wb-main 网格承「只读 DAG 画布 + 右侧三段折叠上下文板(选中详情/任务池审批/邮箱)」;
              <1180 右板收为抽屉(#wbSide.open + #wbSideBackdrop 从右滑出)。内容全部由 app.js el()/textContent
              渲染(XSS 安全);数据复用 /api/agent-runs 2s 轮询。 -->
-        <section id="workbenchView" class="wb-view" aria-label="班组画布">
-          <div id="wbRunbar" class="wb-runbar" role="tablist" aria-label="运行选择"></div>
+        <section id="workbenchView" class="wb-view" aria-label="班组画布" data-i18n-attr="aria-label:navigation.crewCanvas">
+          <div id="wbRunbar" class="wb-runbar" role="tablist" aria-label="运行选择" data-i18n-attr="aria-label:navigation.runSelector"></div>
           <div class="wb-main">
             <div id="wbCanvasWrap" class="wb-canvas-wrap"></div>
             <div id="wbSideBackdrop" class="wb-side-backdrop" hidden></div>
-            <aside id="wbSide" class="wb-side" aria-label="上下文板"></aside>
+            <aside id="wbSide" class="wb-side" aria-label="上下文板" data-i18n-attr="aria-label:navigation.contextBoard"></aside>
           </div>
           <div id="wbUsage" class="wb-usage"></div>
         </section>
@@ -484,10 +484,10 @@
         <div class="tool-tabs" role="tablist" aria-label="工作区视图" data-i18n-attr="aria-label:tool.workspaceViews">
           <button type="button" role="tab" aria-selected="true" data-tab="files" class="active"><span class="tool-tab-mark" aria-hidden="true">▤</span><span data-i18n="tool.files">文件</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="artifacts"><span class="tool-tab-mark" aria-hidden="true">◇</span><span data-i18n="tool.artifacts">产物</span></button>
-          <button type="button" role="tab" aria-selected="false" data-tab="changes"><span class="tool-tab-mark" aria-hidden="true">±</span><span data-i18n="changes.title">改动</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="changes"><span class="tool-tab-mark" aria-hidden="true">±</span><span data-i18n="tool.changes">改动</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="memory"><span class="tool-tab-mark" aria-hidden="true">◉</span><span data-i18n="memory.toolbox.tab">记忆</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="agent-runs"><span class="tool-tab-mark" aria-hidden="true">⊙</span><span data-i18n="workflow.shortTitle">工作流</span></button>
-          <button type="button" role="tab" aria-selected="false" data-tab="usage"><span class="tool-tab-mark" aria-hidden="true">∿</span><span data-i18n="usage.title">用量</span></button>
+          <button type="button" role="tab" aria-selected="false" data-tab="usage"><span class="tool-tab-mark" aria-hidden="true">∿</span><span data-i18n="tool.usage">用量</span></button>
           <button type="button" role="tab" aria-selected="false" data-tab="audit"><span class="tool-tab-mark" aria-hidden="true">◷</span><span data-i18n="tool.activity">记录</span></button>
         </div>
 
@@ -529,7 +529,7 @@
                面向所有用户(simple 模式可见)。撤销整轮请用对话里的「本轮变更」卡。 -->
           <div class="debug-head">
             <label data-i18n="tool.revertibleChanges">可回撤的文件变更</label>
-            <button id="changesRefreshBtn" class="mini">刷新</button>
+            <button id="changesRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
           </div>
           <p class="changes-hint muted" data-i18n="tool.revertibleChanges.hint">AI 用文件工具或桌面控制写文件后会出现在这里。撤销整轮请用对话里的「本轮变更」卡。</p>
           <div id="changesList" class="changes-list"></div>
@@ -566,16 +566,16 @@
         <section class="tool-section" id="tab-agent-runs">
           <div class="debug-head">
             <label data-i18n="workflow.title">Agent 工作流</label>
-            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary" data-testid="workflowEditorBtn">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini">刷新</button></div>
+            <div class="row-actions"><button id="workflowEditorBtn" class="mini primary" data-testid="workflowEditorBtn" data-i18n="workflow.editorButton">新建 / 编辑</button><button id="agentRunsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button></div>
           </div>
           <!-- v3 (§B2): 简易模式「AI 工作」聚合入口 —— 顶部两个 mini 链接切到隐藏的「用量 / 审计」页签
                (专家模式它们是常驻页签;本行由 CSS 仅在简易模式显示)。switchTab 不拦这两个 tab,点击即切。 -->
           <div class="agent-runs-subnav">
             <button type="button" id="usageMiniLink" class="link-mini" data-i18n="usage.title">用量</button>
-            <button type="button" id="auditMiniLink" class="link-mini">审计</button>
+            <button type="button" id="auditMiniLink" class="link-mini" data-i18n="audit.miniLinkLabel">审计</button>
           </div>
           <div class="workflow-quick-run"><select id="workflowQuickSelect" aria-label="工作流模板" data-i18n-attr="aria-label:workflow.templateSelector"></select><button id="workflowQuickRunBtn" class="mini" data-i18n="workflow.runTemplate">运行模板</button></div>
-          <p class="changes-hint muted">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>
+          <p class="changes-hint muted" data-i18n="workflow.tabDescription">从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。</p>
           <div id="agentRunsList" class="agent-runs-list"></div>
         </section>
 
@@ -586,16 +586,16 @@
                source dropdown + type text box (both filter the already-fetched list client-side). Loads once
                when the tab opens (no polling — the audit view must be quiet). -->
           <div class="debug-head">
-            <label>审计时间线</label>
-            <button id="auditRefreshBtn" class="mini">刷新</button>
+            <label data-i18n="audit.title">审计时间线</label>
+            <button id="auditRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
           </div>
           <div class="audit-filters">
             <select id="auditSourceFilter" class="mini-select">
-              <option value="">全部来源</option>
-              <option value="workbench">工作台</option>
-              <option value="desktop">桌面</option>
+              <option value="" data-i18n="audit.allSources">全部来源</option>
+              <option value="workbench" data-i18n="audit.source.workbench">工作台</option>
+              <option value="desktop" data-i18n="audit.source.desktop">桌面</option>
             </select>
-            <input id="auditTypeFilter" type="text" class="mini-input" placeholder="按类型过滤（如 turn_start）" />
+            <input id="auditTypeFilter" type="text" class="mini-input" placeholder="按类型过滤（如 turn_start）" data-i18n-attr="placeholder:audit.typeFilterPlaceholder" />
           </div>
           <div id="auditList" class="audit-list"></div>
         </section>
@@ -605,18 +605,18 @@
                GET /api/usage/summary?range=…(默认 month)，打开页签时才拉取。成本按币种分组，不强制换算；
                第三方 Coding Plan(计划内计费)只显 token，不伪造金额。常驻组页签(简易模式亦可见)。 -->
           <div class="debug-head">
-            <label>用量与成本</label>
+            <label data-i18n="usage.title">用量与成本</label>
             <div class="row-actions">
-              <div class="usage-range" role="tablist" aria-label="统计范围">
-                <button type="button" class="usage-range-btn" data-range="today" role="tab" aria-selected="false">今天</button>
-                <button type="button" class="usage-range-btn" data-range="week" role="tab" aria-selected="false">本周</button>
-                <button type="button" class="usage-range-btn active" data-range="month" role="tab" aria-selected="true">本月</button>
-                <button type="button" class="usage-range-btn" data-range="all" role="tab" aria-selected="false">全部</button>
+              <div class="usage-range" role="tablist" aria-label="统计范围" data-i18n-attr="aria-label:usage.rangeAria">
+                <button type="button" class="usage-range-btn" data-range="today" role="tab" aria-selected="false" data-i18n="session.today">今天</button>
+                <button type="button" class="usage-range-btn" data-range="week" role="tab" aria-selected="false" data-i18n="session.thisWeek">本周</button>
+                <button type="button" class="usage-range-btn active" data-range="month" role="tab" aria-selected="true" data-i18n="usage.range.month">本月</button>
+                <button type="button" class="usage-range-btn" data-range="all" role="tab" aria-selected="false" data-i18n="usage.range.all">全部</button>
               </div>
-              <button id="usageRefreshBtn" class="mini">刷新</button>
+              <button id="usageRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
             </div>
           </div>
-          <p class="changes-hint muted">按币种汇总各引擎 / 服务商 / 线程的用量。成本是按量计价的<strong>等价估算</strong>（非实际扣费）；给服务商填了单价才有成本，计划内（订阅）计费只显 token。</p>
+          <p class="changes-hint muted"><span data-i18n="usage.tabHint.pre">按币种汇总各引擎 / 服务商 / 线程的用量。成本是按量计价的</span><strong data-i18n="usage.tabHint.strong">等价估算</strong><span data-i18n="usage.tabHint.post">（非实际扣费）；给服务商填了单价才有成本，计划内（订阅）计费只显 token。</span></p>
           <div id="usagePanel" class="usage-panel" aria-live="polite"></div>
         </section>
 
@@ -627,7 +627,7 @@
       <!-- v3 (§2.7 P2): 右栏三档宽拖拽手柄。贴 tool-pane 左缘(CSS right:var(--right-w)),pointer 拖到阈值吸附
            340/480/全屏,双击循环切档;桌面栅格档专属(窄屏由 CSS 隐藏)。JS 绑定见 initRightResize()。 -->
       <div id="rightResizeHandle" class="right-resize-handle" role="separator" aria-orientation="vertical"
-           tabindex="0" aria-label="拖动调整右栏宽度,双击切换档位" title="拖动调整右栏宽度 · 双击切档"></div>
+           tabindex="0" aria-label="拖动调整右栏宽度,双击切换档位" title="拖动调整右栏宽度 · 双击切档" data-i18n-attr="aria-label:layout.rightResizeHandle.aria;title:layout.rightResizeHandle.title"></div>
       </div><!-- /.app-shell（工作台视角：中栏 .chat-pane ＋ 右栏 .tool-pane 两列） -->
     <!-- 第117波 117a：管家壳与 .app-shell 是【同级】容器。121-K1：一台两视，两个视角长期并存，
          显隐只由 :root[data-shell-mode] 的 CSS 属性选择器决定，JS 只在 applyShellMode 一处写这个属性。
@@ -2008,9 +2008,9 @@
 
     <!-- ============ WORKBENCH MEMORY PANEL (v2 跨线程记忆) ============ -->
     <div class="modal-backdrop hidden" id="memoryModal">
-      <div class="modal" role="dialog" aria-modal="true" aria-label="工作台记忆">
-        <div class="modal-head"><h3>工作台记忆</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-icon="close"></button></div>
-        <div class="memory-intro muted">「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前线程。</div>
+      <div class="modal" role="dialog" aria-modal="true" aria-label="工作台记忆" data-i18n-attr="aria-label:memory.modal.title">
+        <div class="modal-head"><h3 data-i18n="memory.modal.title">工作台记忆</h3><button class="icon-btn" data-close-modal aria-label="关闭" data-i18n-attr="aria-label:common.close" data-icon="close"></button></div>
+        <div class="memory-intro muted" data-i18n="memory.modal.intro">「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前线程。</div>
         <div class="modal-body"><div id="memoryList" class="skill-list"></div></div>
       </div>
     </div>

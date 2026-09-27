@@ -64,7 +64,8 @@
   "capability.view": "View capability matrix",
   "capability.visionInput": "Vision input",
   "changes.collapse": "Collapse",
-  "changes.commandCount": "{{count}} commands",
+  "changes.commandCount.one": "{{count}} command",
+  "changes.commandCount.other": "{{count}} commands",
   "changes.commandNotRevertible": "Commands and terminal operations cannot be reverted automatically",
   "changes.confirmRollbackBody": "This will restore {{path}} to its content before Turn {{turn}}; the current content will be overwritten.",
   "changes.confirmRollbackTitle": "Confirm rollback",
@@ -76,7 +77,8 @@
   "changes.diffUnavailable": "Cannot read diff: {{err}}",
   "changes.empty": "No files were changed in this turn",
   "changes.emptyHint": "No revertible file changes in this thread yet. AI file tools or ACC writes will appear here.",
-  "changes.fileCount": "{{count}} files",
+  "changes.fileCount.one": "{{count}} file",
+  "changes.fileCount.other": "{{count}} files",
   "changes.loadFailed": "Failed to load changes: ",
   "changes.loadingDiff": "Loading diff…",
   "changes.modify": "Modified",
@@ -577,7 +579,7 @@
   "navigation.uiMode.simple": "Interface: Simple",
   "navigation.workbench": "Workbench",
   "onboarding.description": "First, choose a workspace folder, then describe what you want to do.",
-  "onboarding.drop.description": "Choose a folder as the AI workspace. It can access only the files in that folder.",
+  "onboarding.drop.description": "Choose a folder as the AI workspace. It works in that folder and only changes files inside it.",
   "onboarding.drop.title": "Drop a folder here, or select one",
   "onboarding.engine.advancedClaude": "Advanced: I have an Agent CLI",
   "onboarding.engine.configureClaude": "Configure Agent CLI →",
@@ -3088,6 +3090,7 @@
   ,"stewardShell.board.needsYouGo": "Go handle it"
   ,"stewardShell.board.needsYouGoHint": "{{n}} waiting on you — go straight there"
   ,"stewardShell.board.statusEmpty": "Nothing on yet — just tell me what you want done"
+  ,"stewardShell.board.statusEmptyNoModel": "Nothing on yet — connect a model first, then just tell me what you want done"
   ,"stewardShell.board.maxParallelLabel": "At most"
   ,"stewardShell.board.maxParallelHint": "How many threads may run at once (1-32). Takes effect immediately."
   ,"stewardShell.board.maxParallelSaved": "At most {{n}} at a time — in effect now."
@@ -3285,4 +3288,58 @@
   ,"stewardShell.chat.errInvalidAct": "This action has missing details or an expired time. Please clarify what should happen."
   ,"stewardShell.chat.errUnavailableAct": "This action is unavailable. Please tell me what you need done."
   ,"stewardShell.chat.actUnconfirmed": "No execution receipt was received. Check the result before trying again to avoid duplicates."
+  ,"navigation.mainViewTabs": "Main view tabs"
+  ,"mission.stop.title": "Stop automatic progress"
+  ,"autonomy.title": "Autonomy grants"
+  ,"autonomy.issueTitle": "Issue a new grant (only signable from this local UI)"
+  ,"autonomy.issueNew": "+ New"
+  ,"autonomy.revokeAllTitle": "Revoke all grants for this thread"
+  ,"autonomy.revokeAllButton": "Revoke all"
+  ,"autonomy.form.tool": "Tool"
+  ,"autonomy.form.tool.fileWrite": "Write file file_write(edit)"
+  ,"autonomy.form.tool.fileEdit": "Edit file file_edit(edit)"
+  ,"autonomy.form.tool.fileRead": "Read file file_read(read)"
+  ,"autonomy.form.tool.powershellRun": "Run PowerShell command powershell_run(exec)"
+  ,"autonomy.form.scope": "Scope"
+  ,"autonomy.form.scope.run": "This run only (run)"
+  ,"autonomy.form.scope.session": "The entire thread"
+  ,"autonomy.form.pathGlob": "Path glob (comma-separated, relative to workspace root; empty = entire workspace)"
+  ,"autonomy.form.cmdAllow": "Allowed command prefixes cmdAllow (comma-separated, anchored prefix; required for exec)"
+  ,"autonomy.form.maxUses": "Max uses"
+  ,"autonomy.form.duration": "Duration"
+  ,"autonomy.form.duration.15m": "15 minutes"
+  ,"autonomy.form.duration.30m": "30 minutes"
+  ,"autonomy.form.duration.1h": "1 hour"
+  ,"autonomy.form.duration.3h": "3 hours"
+  ,"autonomy.form.allowNet": "Allow network access (off by default, use with caution)"
+  ,"autonomy.form.preview": "Preview matches"
+  ,"autonomy.form.submit": "Issue"
+  ,"chat.jumpLatest": "Jump to latest"
+  ,"navigation.crewCanvas": "Crew canvas"
+  ,"navigation.runSelector": "Run selector"
+  ,"navigation.contextBoard": "Context board"
+  ,"workflow.editorButton": "New / Edit"
+  ,"audit.miniLinkLabel": "Audit"
+  ,"workflow.tabDescription": "Run from a template, or build a DAG visually; supports conditions, loops, quality gates, and failure policies."
+  ,"audit.allSources": "All sources"
+  ,"audit.typeFilterPlaceholder": "Filter by type (e.g. turn_start)"
+  ,"usage.range.month": "This month"
+  ,"usage.range.all": "All"
+  ,"usage.rangeAria": "Date range"
+  ,"usage.tabHint.pre": "Summarized by currency across engines, providers, and threads. Cost is a usage-based"
+  ,"usage.tabHint.strong": "equivalent estimate"
+  ,"usage.tabHint.post": " (not an actual charge); cost only appears once a provider has a configured unit price, and subscription-billed usage shows tokens only."
+  ,"layout.rightResizeHandle.title": "Drag to resize the right panel · double-click to cycle widths"
+  ,"layout.rightResizeHandle.aria": "Drag to resize the right panel, double-click to cycle widths"
+  ,"memory.modal.title": "Workbench memory"
+  ,"memory.modal.intro": "“Workbench memory” saves your personal experience, project conventions, and lessons; it travels with the workbench. This differs from “project memory (CLAUDE.md)”, which travels with the code repository. Enabled memories are injected into the current thread as reference material."
+  ,"provider.preset.dashscope.label": "Qwen / DashScope (Tongyi Qianwen)"
+  ,"provider.preset.glm.label": "GLM / Zhipu"
+  ,"provider.preset.ollama.label": "Ollama (local models, no key needed)"
+  ,"provider.preset.lmstudio.label": "LM Studio (local models, no key needed)"
+  ,"provider.preset.openaiCompatible.label": "Custom (OpenAI-compatible / self-hosted)"
+  ,"claudeEndpoint.preset.anthropicCompatible.label": "Custom (other Anthropic-compatible / self-hosted endpoint)"
+  ,"tool.changes": "Changes"
+  ,"tool.usage": "Usage"
+  ,"common.launchMode": "Launched via"
 }

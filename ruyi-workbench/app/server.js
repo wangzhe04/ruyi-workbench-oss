@@ -1855,6 +1855,10 @@ function normalizeWorkspacePathString(value) {
     if (!pair) break;
     s = s.slice(pair[0].length, s.length - pair[1].length).trim();
   }
+  // 代码走查 C14:去掉结尾分隔符(盘符根 C:\ 与单独的 / 保留)—— 修前带不带结尾「\」存成两条常用文件夹。
+  const stripped = s.replace(/[\\/]+$/, '');
+  if (stripped && !/^[A-Za-z]:$/.test(stripped)) s = stripped;
+  else if (s) s = s.slice(0, stripped.length + 1);
   return s.slice(0, 1000);
 }
 
@@ -4584,7 +4588,8 @@ async function readBody(req) {
 async function readJsonBody(req) {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
-  return JSON.parse(raw);
+  try { return JSON.parse(raw); }
+  catch { throw Object.assign(new Error('request body is not valid JSON'), { statusCode: 400, apiCode: 'api.bad_json' }); }   // C17:客户端的错,回 400 不回 500
 }
 
 function send(res, response) {
@@ -4594,7 +4599,7 @@ function send(res, response) {
 
 function sendError(res, err) {
   const status = err.statusCode || 500;
-  send(res, apiFailure('api.internal_error', {}, err.message || String(err), status));
+  send(res, apiFailure(err.apiCode || 'api.internal_error', {}, err.message || String(err), status));
 }
 
 function contentTypeFor(file) {
@@ -4666,8 +4671,14 @@ function originOk(req) {
   const host = req.headers.host || `${RUNTIME.host}:${RUNTIME.port}`;
   try { return new URL(origin).host === host; } catch { return false; }
 }
+// 代码走查 C16:比较 token 用定长时间比较(=== 在第一个不同字符处就返回,理论上可逐字符测时)。
+function tokenMatches(candidate) {
+  if (!RUNTIME.token || typeof candidate !== 'string') return false;
+  const a = Buffer.from(candidate, 'utf8'), b = Buffer.from(String(RUNTIME.token), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 function tokenOk(req) {
-  return Boolean(RUNTIME.token) && req.headers['x-wcw-token'] === RUNTIME.token;
+  return tokenMatches(req.headers['x-wcw-token']);
 }
 // 第33波:声明式 auth 路由表 + deny-by-default(治 S0 教训 opt-in 名单根因 + 第29波 backlog #0 GET 面)。
 // authorizeRoute 对 handleApi 每个路由按 ROUTE_AUTH first-match 判定鉴权级别;未匹配 -> 拒(403)。
@@ -10286,6 +10297,9 @@ function normalizeGuardPath(p) {
 }
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
+// 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
+const OUTSIDE_WORKSPACE_WRITE_ERROR = '这个位置在工作文件夹外面,没有写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
+const OUTSIDE_WORKSPACE_READ_ERROR = '这个位置在工作文件夹外面,当前用的不是本机模型,没有读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';
@@ -10334,14 +10348,29 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });
-    return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界写已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+    return { ok: false, code: 'not-allowed', error: OUTSIDE_WORKSPACE_WRITE_ERROR };
   }
   if (providerIsLocal(config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'allow-local', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
   logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'deny-remote', pathLen: abs.length });
-  return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界读在非本地模型下已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+  return { ok: false, code: 'not-allowed', error: OUTSIDE_WORKSPACE_READ_ERROR };
+}
+// 走查 U5:要改文件的原生工具,在弹权限窗【之前】先过一遍写边界。修前先问「允许写入 report.md」,
+// 用户点了允许,工具才报越界 —— 卡片上「已允许」紧跟着「出错」。只查【写】的那几个参数(file_copy 的 from 是读);
+// 路径解析与各工具 handler 一致(path.resolve)。返回 null = 放行去问;否则是与 handler 同形的失败结果。
+const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
+async function preflightWriteBoundary(toolName, args, ctx) {
+  const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
+  if (!keys || !args || typeof args !== 'object') return null;
+  for (const k of keys) {
+    if (typeof args[k] !== 'string' || !args[k].trim()) continue;
+    const p = path.resolve(args[k]);
+    const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
+    if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
+  }
+  return null;
 }
 // v2.7 (workspace permissions): exec gate. A configured workspace with execute === false denies the exec-tier
 // command/shell tools (powershell_run / script_run / shell_*) when their effective cwd resolves inside it.
@@ -10864,7 +10893,11 @@ function sanitizeFsSegmentName(fsSegmentRaw) {
 async function makeAttachmentRecord(input) {
   await ensureDirs();
   const id = makeId('file');
-  const safeName = sanitizeFsSegmentName(path.basename(input.name || 'upload.bin'));
+  // 代码走查 C8:名字按 Windows 形取文件名(认 \ 与 /);非字符串、空、「.」「..」、全是点和空格(Windows 会吃掉
+  // 结尾的点与空格)一律回落 upload.bin。修前「..」会写到目录本身上:EISDIR 500、报错带出数据目录绝对路径。
+  const rawName = typeof input.name === 'string' ? input.name : '';
+  let safeName = sanitizeFsSegmentName(path.win32.basename(rawName)).replace(/[. ]+$/, '').slice(0, 200);
+  if (!safeName || /^[. ]*$/.test(safeName)) safeName = 'upload.bin';
   const targetDir = path.join(paths.uploads, id);
   await fsp.mkdir(targetDir, { recursive: true });
   const target = path.join(targetDir, safeName);
@@ -10872,7 +10905,8 @@ async function makeAttachmentRecord(input) {
     ? String(input.data).split(',').pop()
     : String(input.data || '');
   const buffer = Buffer.from(base64, 'base64');
-  await fsp.writeFile(target, buffer);
+  try { await fsp.writeFile(target, buffer); }
+  catch (error) { await fsp.rm(targetDir, { recursive: true, force: true }).catch(() => {}); throw error; }   // 不留空的 uploads/<id>/
 
   let textPreview = '';
   // v1.9:svg 是文本(矢量图源码)进 textPreview;像素图(png/jpg/…)不进,打 kind:'image' 走图片预处理。
@@ -13789,9 +13823,16 @@ function startToolboxService(component) {
     Object.assign(entry, { state: 'failed', error: spawnError || (child.exitCode !== null ? 'exit ' + child.exitCode : 'health-timeout') });
     logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, pid: entry.pid, reason: entry.error });
     return entry;
-  })().finally(() => { entry.starting = null; });
+  })().finally(() => {
+    entry.starting = null;
+    if (entry.state === 'failed') { entry.failures = (entry.failures || 0) + 1; entry.failedAt = Date.now(); }
+    else if (entry.state === 'running') entry.failures = 0;
+  });
   return entry.starting;
 }
+// 起失败之后的冷却:15 s 起、每失败一次翻倍、封顶 5 分钟。只管「转写前就地再起」这一路(ensureToolboxServiceForProvider);
+// 设置页的显式启动与对账照旧立刻起。修前每按一次麦克风都重新拉起一遍,一直起不来的组件每次都让用户白等最长 20 s。
+function toolboxRetryCooldownMs(failures) { return Math.min(300000, 15000 * 2 ** Math.max(0, (Number(failures) || 1) - 1)); }
 
 function stopToolboxService(id, sync) {
   const entry = toolboxServices.get(id);
@@ -13921,6 +13962,7 @@ async function ensureToolboxServiceForProvider(providerId) {
   const component = enabledToolboxComponents(config).find(c => c.kind === 'service' && toolboxProviderId(c.id) === id);
   if (!component) return;
   const before = toolboxServices.get(component.id);
+  if (before && before.state === 'failed' && before.failures > 0 && Date.now() - (before.failedAt || 0) < toolboxRetryCooldownMs(before.failures)) return;
   const portBefore = before ? before.port : component.service.port;
   const entry = await startToolboxService(component).catch(() => null);
   if (entry && entry.state === 'running' && entry.port !== portBefore) await syncToolboxProviders().catch(() => {});
@@ -24738,6 +24780,7 @@ function threadOriginOf(head) {
 // 当跨模块符号,起个没在更早模块出现过的名字比省几个字符重要。
 function threadVisible(head, input) {
   if (!head || typeof head !== 'object') return false;
+  if (head.kind === 'steward' || String(head.id || '') === STEWARD_SESSION_ID) return false;   // 走查 U3:管家自己的会话不是线程,「今天有动静」也不进左栏
   const src = (input && typeof input === 'object') ? input : {};
   if (src.watched === true) return true;
   if (src.inFlight === true) return true;
@@ -35747,7 +35790,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (gate === 'block') {
             resultObj = { ok: false, error: `blocked by permission mode '${config.permissionMode}' (${tier} tool)` };
           } else {
-            if (gate === 'ask') {
+            if (gate === 'ask' && !bridge) resultObj = (await preflightWriteBoundary(tc.name, args, { session, config, workingDir })) || undefined;   // 走查 U5:越界的写不弹窗
+            if (gate === 'ask' && !resultObj) {
               // 第27f波:仅【无人值守(driverAuto)+ 用户 opt-in】时启用超时→存档暂停;否则维持"超时即拒杀"安全默认。
               const pauseOpts = (config.autonomyPauseOnTimeout && driverAuto) ? {
                 enabled: true, ttlMs: config.autonomyPauseTtlMs,
@@ -44771,7 +44815,7 @@ async function applyConfigPatch(rawBody) {
 // 投递,后续回合不再重复注入;活回合在跑就登记在它的内存会话上(回合结束落盘),否则读-改-存一次。
 async function agentWorkflowLoopbackRoute(req, res, kind) {
   const body = await readJsonBody(req);
-  if (!((RUNTIME.token && body.token === RUNTIME.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
+  if (!(tokenMatches(body.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
   const sessionId = safeSessionId(body.sessionId);
   if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
   const liveReg = activeChildren.get(sessionId);
@@ -45511,7 +45555,7 @@ async function handleApi(req, res, pathname) {
     // the persist here. Body-token authenticated (same pattern as /api/permission/request). Validates →
     // loadSession → session.todos = items → saveSession → if a live turn owns this session, emit `todo`.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId); // F4
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const items = normalizeTodoItems(body.items);
@@ -45531,7 +45575,7 @@ async function handleApi(req, res, pathname) {
   //    的 mission_update 工具 loopback,同 /api/todo 纪律)。action: start(全量设)/update(合并)/stop/check(跑验收)。──
   if (pathname === '/api/mission') {
     const bodyOrQ = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://x').searchParams) : await readJsonBody(req);
-    const bodyTokenOk = RUNTIME.token && bodyOrQ.token === RUNTIME.token;
+    const bodyTokenOk = tokenMatches(bodyOrQ.token);
     if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(bodyOrQ.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
@@ -45719,7 +45763,7 @@ async function handleApi(req, res, pathname) {
     // 'claude' (a native one-shot `claude` CLI spawn, runClaudeSubAgentOnce) via runAgentWorkflow's
     // per-node engine resolution, so a Claude-CLI-only setup no longer needs a Provider configured at all.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const session = await loadSession(sessionId);
@@ -48832,7 +48876,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       pending: ms.filter(x => !x || x.status === 'pending').length,
       budget: mm.budget || { maxAutoTurns: 0, maxTokens: 0 },
       spent: mm.spent || { autoTurns: 0, tokens: 0 },
-      budgetExhausted: Boolean(mm.budgetExhaustedAt),
+      budgetExhausted: Boolean(mm.budgetExhaustedAt), budgetExhaustedAt: String(mm.budgetExhaustedAt || ''),   // 后者给管家收件箱当去重键:任务重启后再次用尽是新的一件事
       // 第72波:结果章存根(列表卡片只带状态+时间,明细走详情快照 result)
       result: (mm.result && typeof mm.result === 'object') ? { status: mm.result.status || '', finishedAt: mm.result.finishedAt || '' } : null,
     },
@@ -49134,7 +49178,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     // 116g:只加字段 —— 行仍然是【线程行】(每个 mission 会话一张卡),既有字段与顺序逐字节不变,
     // 追加的是这条线程所属【事项】的聚合事实(aggregateState/threadCount/acceptance/cost/budget/derived)。
     const aggregate = await buildMissionAggregateRows();
-    const missions = index.sessions.filter(row => row.card)
+    const missions = index.sessions.filter(row => row.card && String(row.sessionId || '') !== STEWARD_SESSION_ID)   // 走查 U3:管家自己的会话不是任务,不进左栏
       .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
     // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
     // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
@@ -50012,7 +50056,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
     // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
+    if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
     const sessionId = safeSessionId(body.sessionId);
     if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
     const reg = activeChildren.get(sessionId);
@@ -50026,7 +50070,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/permission/request') {
     // Called by the permission-bridge MCP tool (loopback). Holds until the UI decides or times out.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const config = await readConfig();
     const sessionId = String(body.sessionId || '');
     const reg = activeChildren.get(sessionId);
@@ -51299,7 +51343,7 @@ function stewardIsoAt(value) {
 }
 
 // 去重键 = sessionId + kind + runId + seq(§11.3「去重键 sessionId+kind+seq」;needs_you 的 seq
-// 位就是 interventionId,budget 的 seq 位是常量 'exhausted' —— 二者都是各自源的稳定游标)。
+// 位就是 interventionId,budget 的 seq 位是 'exhausted@<用尽时刻>' —— 二者都是各自源的稳定游标)。
 function stewardEventDedupeKey(evt) {
   const e = (evt && typeof evt === 'object') ? evt : {};
   return [String(e.sessionId || ''), String(e.kind || ''), String(e.runId || ''), String(e.seq)].join('\u0000');
@@ -51480,7 +51524,7 @@ function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
     sessionId: String(sessionId || ''),
     missionId: String(missionId || sessionId || ''),
     runId: '',
-    seq: 'exhausted',
+    seq: mission.budgetExhaustedAt ? 'exhausted@' + String(mission.budgetExhaustedAt) : 'exhausted',   // 带用尽时刻:任务重启后再次用尽是新的一行
     at: stewardIsoAt(mission.updatedAt || c.updatedAt),
     payload: {
       source: 'projection',
@@ -51916,7 +51960,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
   // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
   const activeSet = new Set(activeSessionIds);
-  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(sid => activeSet.has(sid)).slice(0, STEWARD_CURSOR_MAX_SESSIONS);
+  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(key => activeSet.has(String(key).split('\u0000')[0])).slice(0, STEWARD_CURSOR_MAX_SESSIONS);   // 键 = 会话 id(+ \u0000 + 用尽时刻)
   stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
   // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
   const sessionTurns = {};
@@ -52097,9 +52141,16 @@ async function stewardCollectEvents() {
 
     // ── 预算触顶(一次性持久标记) ──
     // 116-3 P1-9:去重键进游标(与 pendingIds 同款持久化),不再只靠内存 seen 集合的 2000 行尾窗。
+    // 代码走查 C7:键是「会话 + 这一次用尽的时刻」。修前只按会话 id 去重,任务重启后再次用尽永远不再提醒。
+    // 旧游标里的裸会话 id 认作「当前这一次已经提醒过」,换成新键(升级时不重复提醒)。
     const budgetEvt = stewardNormalizeBudgetExhausted(sid, missionId, card);
-    if (budgetEvt && !stewardRuntime.cursor.budgetSeen.has(sid)) {
-      stewardRuntime.cursor.budgetSeen.add(sid);
+    // 卡片还没带上用尽时刻(升级前落盘的索引切片)时,旧键原样留着、照样当「已提醒」,等带上了再换。
+    const exhaustedAt = String((card && card.mission && card.mission.budgetExhaustedAt) || '');
+    const budgetKey = sid + '\u0000' + exhaustedAt;
+    const budgetSeen = stewardRuntime.cursor.budgetSeen;
+    if (budgetEvt && budgetSeen.has(sid)) { if (exhaustedAt) { budgetSeen.delete(sid); budgetSeen.add(budgetKey); } }
+    else if (budgetEvt && !budgetSeen.has(budgetKey)) {
+      budgetSeen.add(budgetKey);
       events.push(budgetEvt);
     }
 
@@ -62657,7 +62708,7 @@ module.exports = {
   sessionDisplayTitle,
   // 117j 收尾:会话头的【带瞬时重试】读取。Windows 的 rename 替换会开一个 ENOENT 窗口,
   // 单发 readFile 会把「正在被原子替换」误判成「不存在」。exposed for unit/session-head-read.test.js。
-  readSessionHeadResilient, registerIntervention, transitionInterventionState, readInterventions,
+  readSessionHeadResilient, registerIntervention, transitionInterventionState, readInterventions, makeAttachmentRecord, threadVisible,
   maybeWriteThreadBrief,
   parseThreadBrief,
   detectDanglingTurn,

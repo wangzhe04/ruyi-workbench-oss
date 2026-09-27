@@ -228,7 +228,7 @@ function stewardIsoAt(value) {
 }
 
 // 去重键 = sessionId + kind + runId + seq(§11.3「去重键 sessionId+kind+seq」;needs_you 的 seq
-// 位就是 interventionId,budget 的 seq 位是常量 'exhausted' —— 二者都是各自源的稳定游标)。
+// 位就是 interventionId,budget 的 seq 位是 'exhausted@<用尽时刻>' —— 二者都是各自源的稳定游标)。
 function stewardEventDedupeKey(evt) {
   const e = (evt && typeof evt === 'object') ? evt : {};
   return [String(e.sessionId || ''), String(e.kind || ''), String(e.runId || ''), String(e.seq)].join('\u0000');
@@ -409,7 +409,7 @@ function stewardNormalizeBudgetExhausted(sessionId, missionId, card) {
     sessionId: String(sessionId || ''),
     missionId: String(missionId || sessionId || ''),
     runId: '',
-    seq: 'exhausted',
+    seq: mission.budgetExhaustedAt ? 'exhausted@' + String(mission.budgetExhaustedAt) : 'exhausted',   // 带用尽时刻:任务重启后再次用尽是新的一行
     at: stewardIsoAt(mission.updatedAt || c.updatedAt),
     payload: {
       source: 'projection',
@@ -845,7 +845,7 @@ async function stewardSaveCursor(activeSessionIds, activeRunIds) {
   // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
   // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
   const activeSet = new Set(activeSessionIds);
-  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(sid => activeSet.has(sid)).slice(0, STEWARD_CURSOR_MAX_SESSIONS);
+  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(key => activeSet.has(String(key).split('\u0000')[0])).slice(0, STEWARD_CURSOR_MAX_SESSIONS);   // 键 = 会话 id(+ \u0000 + 用尽时刻)
   stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
   // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
   const sessionTurns = {};
@@ -1026,9 +1026,16 @@ async function stewardCollectEvents() {
 
     // ── 预算触顶(一次性持久标记) ──
     // 116-3 P1-9:去重键进游标(与 pendingIds 同款持久化),不再只靠内存 seen 集合的 2000 行尾窗。
+    // 代码走查 C7:键是「会话 + 这一次用尽的时刻」。修前只按会话 id 去重,任务重启后再次用尽永远不再提醒。
+    // 旧游标里的裸会话 id 认作「当前这一次已经提醒过」,换成新键(升级时不重复提醒)。
     const budgetEvt = stewardNormalizeBudgetExhausted(sid, missionId, card);
-    if (budgetEvt && !stewardRuntime.cursor.budgetSeen.has(sid)) {
-      stewardRuntime.cursor.budgetSeen.add(sid);
+    // 卡片还没带上用尽时刻(升级前落盘的索引切片)时,旧键原样留着、照样当「已提醒」,等带上了再换。
+    const exhaustedAt = String((card && card.mission && card.mission.budgetExhaustedAt) || '');
+    const budgetKey = sid + '\u0000' + exhaustedAt;
+    const budgetSeen = stewardRuntime.cursor.budgetSeen;
+    if (budgetEvt && budgetSeen.has(sid)) { if (exhaustedAt) { budgetSeen.delete(sid); budgetSeen.add(budgetKey); } }
+    else if (budgetEvt && !budgetSeen.has(budgetKey)) {
+      budgetSeen.add(budgetKey);
       events.push(budgetEvt);
     }
 

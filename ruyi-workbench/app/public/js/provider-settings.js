@@ -6,7 +6,7 @@ import { bindModelSelect, providerModels, agentModels, publishProviderModels, pu
 import { fillProviderSelect } from './model-catalog.js';   // W6：「模型分配」每一行服务商下拉的唯一选项构建器
 
 import { api, apiErrorInfo } from './net.js';   // 107-S2：掩码闸的拒绝要按【码】分支，不按中文（否则又是一句「请求失败。」）
-import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders } from './util.js';
+import { $, el, escapeHtml, autoGrow, setStatus, setStatusDetail, toast, chatProviders, presetDisplayLabel } from './util.js';
 import { canonicalJson, rebaseProvidersDraft } from './util.js';   // W6：服务商草稿的三方合并（修「草稿过期会回滚」）
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118b: 体检项 id -> 人话(label/hint/next/severity)的唯一映射表,以及「怎么办」的落点定义。
@@ -1615,7 +1615,7 @@ function populateClaudeEndpointPresets() {
   const previous = sel.value;
   sel.innerHTML = '';
   const presets = (state.status && state.status.claudeEndpointPresets) || [];
-  for (const p of presets) { const o = el('option'); o.value = p.id; o.textContent = p.label || p.id; sel.appendChild(o); }
+  for (const p of presets) { const o = el('option'); o.value = p.id; o.textContent = presetDisplayLabel('claudeEndpoint', p); sel.appendChild(o); }
   if (presets.some(p => p.id === previous)) sel.value = previous;
 }
 function applyClaudeEndpointPreset() {
@@ -1631,7 +1631,7 @@ function applyClaudeEndpointPreset() {
   if (preset.models && preset.models.length) {
     $('cfgExtraModels').value = preset.models.filter(m => m.id).map(m => `${m.id}|${m.label || m.id}`).join('\n');
   }
-  toast(t("toast.presetApplied", { p1: preset.label, p2: preset.defaultModelHint ? t('toast.presetHint', { m: preset.defaultModelHint }) : '' }), 'ok');
+  toast(t("toast.presetApplied", { p1: presetDisplayLabel('claudeEndpoint', preset), p2: preset.defaultModelHint ? t('toast.presetHint', { m: preset.defaultModelHint }) : '' }), 'ok');
   // W6：页脚整份保存退役之后，「应用预设」填进来的几格当场存（与手改这几格同一条即存路径）。地址换了而密钥框还是掩码时，
   // 服务端掩码闸会拒绝并说清楚要重填哪一格 —— 这正是它该做的，不绕开。
   void saveConfigPartial({ ...claudeEndpointPatch(), extraModels: lineList('cfgExtraModels') }).then(saved => { if (saved) void refreshModels(); });
@@ -1641,7 +1641,7 @@ function populateProviderPresets() {
   const sel = $('providerPresetSelect'); if (!sel) return;
   sel.innerHTML = '';
   const presets = (state.status && state.status.providerPresets) || [];
-  for (const p of presets) { const o = el('option'); o.value = p.id; o.textContent = p.label || p.id; sel.appendChild(o); }
+  for (const p of presets) { const o = el('option'); o.value = p.id; o.textContent = presetDisplayLabel('provider', p); sel.appendChild(o); }
 }
 function addProviderFromPreset() {
   const sel = $('providerPresetSelect'); if (!sel) return;
@@ -2135,7 +2135,7 @@ function renderDoctor() {
     line.append(el('span', 'health-summary-dot', '●'), el('span', 'health-summary-text', summary.text));
     panel.appendChild(line);
   }
-  panel.appendChild(healthRow(true, t('common.version'), `v${s.version} · 启动=${s.launchMode} · overlay=${s.overlayId}`));
+  panel.appendChild(healthRow(true, t('common.version'), `v${s.version} · ${t('common.launchMode')}=${s.launchMode} · overlay=${s.overlayId}`));
   for (const h of items) panel.appendChild(healthItemRow(h));
   renderHealthEntryBadge();
 }

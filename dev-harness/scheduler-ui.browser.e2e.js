@@ -364,6 +364,31 @@ try {
   const runB = ((snapB.rows.find(r => r.taskId === firstId) || {}).runs || [])[0] || {};
   ok(runB.mode === 'ontime' && String(runB.text).includes(zh['scheduler.mode.ontime']),
     `B4 那一行的触发模式是「${zh['scheduler.mode.ontime']}」（实得 mode=${runB.mode} 文案「${runB.text}」）`);
+  // B5（代码走查 C13）：「最近几次」快速点两下 = 收起。取回来得慢的那一趟回来之后不得把面板重新打开。
+  await cdp.evaluate(`(async () => {
+    const q = () => document.querySelector('#cfgStewardSchedule .steward-schedule-row[data-task-id="${firstId}"]');
+    const btn = () => [...q().querySelectorAll('.steward-schedule-act')].find(node => node.textContent === ${JSON.stringify(zh['settings.steward.schedule.runs'])});
+    const host = () => q().querySelector('.steward-schedule-runs');
+    for (let i = 0; i < 3 && !host().hidden; i++) { btn().click(); await new Promise(r => setTimeout(r, 300)); }   // 先回到收起态
+    const orig = window.fetch.bind(window);
+    window.__runsFetches = 0;
+    window.fetch = (url, opts) => {
+      if (!String(url).includes('/runs?')) return orig(url, opts);
+      window.__runsFetches += 1;
+      return new Promise(r => setTimeout(r, 600)).then(() => orig(url, opts));
+    };
+    btn().click();   // 展开：请求要 600ms 才回来
+    await new Promise(r => setTimeout(r, 100));
+    btn().click();   // 没等回来就收起
+    setTimeout(() => { window.fetch = orig; }, 1500);
+    return true;
+  })()`);
+  await sleep(1500);
+  const b5 = await cdp.evaluate(`(() => {
+    const host = document.querySelector('#cfgStewardSchedule .steward-schedule-row[data-task-id="${firstId}"] .steward-schedule-runs');
+    return host ? { hidden: host.hidden, rows: host.querySelectorAll('li').length, fetches: window.__runsFetches } : null;
+  })()`);
+  ok(Boolean(b5) && b5.fetches === 1 && b5.hidden === true && b5.rows === 0, `B5 快速点两下「最近几次」→ 面板保持收起，晚到的结果不把它重新打开（实得 ${JSON.stringify(b5)}）`);
 
   /* ═════════ C/D 崩溃后的 unknown 与错过之后的补跑 ═════════ */
   // 两条新任务：U 用来造 J11（登记之后进程死掉），L 用来造 J10（错过一个时点之后重启补跑）。

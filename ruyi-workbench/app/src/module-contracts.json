@@ -353,6 +353,7 @@
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
         "syncMcpServersToKimi",
+        "tokenMatches",
         "tokenOk",
         "writeConfig",
         "writeConfigAtomic",
@@ -1264,6 +1265,8 @@
         "OFFICE_WRITER_LIB_RE",
         "OS_CRITICAL_ROOTS",
         "OS_CRITICAL_ROOT_FILES",
+        "OUTSIDE_WORKSPACE_READ_ERROR",
+        "OUTSIDE_WORKSPACE_WRITE_ERROR",
         "PREVIEW_IMAGE_MAX",
         "PREVIEW_IMG_MIME",
         "PREVIEW_TEXT_EXTS",
@@ -1276,6 +1279,7 @@
         "WORKSPACE_DIR_TIMEOUT_MS",
         "WORKSPACE_MATCH_THRESHOLD",
         "WORKSPACE_RESOLVE_BUDGET_MS",
+        "WRITE_PATH_ARGS",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
@@ -1313,6 +1317,7 @@
         "normalizeGuardPath",
         "pathWithinAnyRoot",
         "pathWithinRoot",
+        "preflightWriteBoundary",
         "probeGitCli",
         "probeGitCliAsync",
         "providerIsLocal",
@@ -1955,6 +1960,7 @@
         "toolboxProbe",
         "toolboxProviderId",
         "toolboxReconcileChain",
+        "toolboxRetryCooldownMs",
         "toolboxServices",
         "toolboxStatusView",
         "toolboxUnloadForProvider",
@@ -6884,6 +6890,13 @@
           ]
         },
         {
+          "provider": "03-bridge-guard.js",
+          "symbol": "preflightWriteBoundary",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04-permission-runtime.js",
           "symbol": "activeChildren",
           "kinds": [
@@ -10220,6 +10233,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "tokenMatches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "tokenOk",
           "kinds": [
             "call"
@@ -12100,13 +12120,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "RUNTIME",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -12115,6 +12128,13 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "tokenMatches",
           "kinds": [
             "call"
           ]
@@ -19805,6 +19825,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "makeAttachmentRecord",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "MCP_COMPAT_MATRIX",
           "kinds": [
             "read"
@@ -21297,6 +21324,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTurnTaint",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "threadVisible",
           "kinds": [
             "read"
           ]

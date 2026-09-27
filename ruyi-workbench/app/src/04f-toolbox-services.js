@@ -143,9 +143,16 @@ function startToolboxService(component) {
     Object.assign(entry, { state: 'failed', error: spawnError || (child.exitCode !== null ? 'exit ' + child.exitCode : 'health-timeout') });
     logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, pid: entry.pid, reason: entry.error });
     return entry;
-  })().finally(() => { entry.starting = null; });
+  })().finally(() => {
+    entry.starting = null;
+    if (entry.state === 'failed') { entry.failures = (entry.failures || 0) + 1; entry.failedAt = Date.now(); }
+    else if (entry.state === 'running') entry.failures = 0;
+  });
   return entry.starting;
 }
+// 起失败之后的冷却:15 s 起、每失败一次翻倍、封顶 5 分钟。只管「转写前就地再起」这一路(ensureToolboxServiceForProvider);
+// 设置页的显式启动与对账照旧立刻起。修前每按一次麦克风都重新拉起一遍,一直起不来的组件每次都让用户白等最长 20 s。
+function toolboxRetryCooldownMs(failures) { return Math.min(300000, 15000 * 2 ** Math.max(0, (Number(failures) || 1) - 1)); }
 
 function stopToolboxService(id, sync) {
   const entry = toolboxServices.get(id);
@@ -275,6 +282,7 @@ async function ensureToolboxServiceForProvider(providerId) {
   const component = enabledToolboxComponents(config).find(c => c.kind === 'service' && toolboxProviderId(c.id) === id);
   if (!component) return;
   const before = toolboxServices.get(component.id);
+  if (before && before.state === 'failed' && before.failures > 0 && Date.now() - (before.failedAt || 0) < toolboxRetryCooldownMs(before.failures)) return;
   const portBefore = before ? before.port : component.service.port;
   const entry = await startToolboxService(component).catch(() => null);
   if (entry && entry.state === 'running' && entry.port !== portBefore) await syncToolboxProviders().catch(() => {});

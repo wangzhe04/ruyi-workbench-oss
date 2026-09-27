@@ -685,7 +685,8 @@ export function createStewardDrawer({
     // 116-5b:显示名优先(GET /api/sessions/:id 的信封带出的那一个,判据在 02 的 sessionDisplayTitle);
     // 拿不到就退回今天的两级回落。原话挂 hover。
     if (titleNode) {
-      const name = String(displayTitle || (session && session.title) || (missionRow && missionRow.displayTitle) || (missionRow && missionRow.title) || '');
+      const rawName = String(displayTitle || (session && session.title) || (missionRow && missionRow.displayTitle) || (missionRow && missionRow.title) || '');
+      const name = rawName ? threadShownTitle({ displayTitle: rawName }, t('session.untitled')) : '';   // 走查 U4：与左栏同一句「未命名线程」
       // 117k：读到之前不拿内部 id 冒充名字（用户看得见 sess_xxxxxxxx 是纯泄漏）。
       titleNode.textContent = name || (loading ? t('stewardShell.drawer.loading') : sessionId);
       const raw = String((session && session.title) || (missionRow && missionRow.title) || '');

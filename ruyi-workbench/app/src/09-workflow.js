@@ -2708,7 +2708,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (gate === 'block') {
             resultObj = { ok: false, error: `blocked by permission mode '${config.permissionMode}' (${tier} tool)` };
           } else {
-            if (gate === 'ask') {
+            if (gate === 'ask' && !bridge) resultObj = (await preflightWriteBoundary(tc.name, args, { session, config, workingDir })) || undefined;   // 走查 U5:越界的写不弹窗
+            if (gate === 'ask' && !resultObj) {
               // 第27f波:仅【无人值守(driverAuto)+ 用户 opt-in】时启用超时→存档暂停;否则维持"超时即拒杀"安全默认。
               const pauseOpts = (config.autonomyPauseOnTimeout && driverAuto) ? {
                 enabled: true, ttlMs: config.autonomyPauseTtlMs,

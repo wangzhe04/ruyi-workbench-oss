@@ -21,6 +21,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   E openThread 不抢输入区焦点（§13.7 ⑨）：光标在管家输入框里时，推送换焦点后 activeElement 不变
 //   F 四面 data-thread-hue 相同（对话流卡头／焦点卡／左栏行／左栏看板密度行），
 //     且同一任务的两条线程同色（§5：色号按任务，线程继承任务色）
+//   H 未命名线程的焦点卡标题是「未命名线程」，不印服务端默认名（走查 U4）
 //   G dispatchAcceptanceMilestones 接线（§13.3 ①）：管家开出一条新线程之后，那条线程的
 //     /api/mission 里 milestones 非空（反向：注释掉 ensureAcceptanceLedger 那一句 → 本组红）
 //
@@ -766,6 +767,14 @@ try {
   const goal = String((ledger && ledger.json && ledger.json.mission && ledger.json.mission.goal) || '');
   ok(goal.indexOf(LEDGER_PROMPT) >= 0 && !milestones.some(m => String(m.desc || '').indexOf(LEDGER_PROMPT) >= 0),
     `G2 目标是用户原话、验收另行措辞（不是把任务再抄一遍；实测 goal「${goal}」）`);
+
+  /* ═════════ H 未命名线程（走查 U4） ═════════ */
+  // 服务端给新线程的默认名是「New session」。修前焦点卡标题直接印它，左栏却写「未命名线程」。
+  const blank = await request(appPort, 'POST', '/api/sessions', { title: '', cwd: queueWork }, token);
+  const blankId = blank && blank.json && (blank.json.session ? blank.json.session.id : blank.json.id);
+  await cdp.evaluate(`document.dispatchEvent(new CustomEvent('steward:focus-thread', { detail: { sessionId: ${JSON.stringify(String(blankId || ''))} } })), true`);
+  const onBlank = await waitForEval(cdp, `(() => { const snapshot = ${CARD}; return snapshot.focusId === ${JSON.stringify(String(blankId || ''))} && snapshot.title && !/读取中/.test(snapshot.title) ? snapshot : null; })()`);
+  ok(Boolean(onBlank) && onBlank.title === '未命名线程', `H1 未命名线程的焦点卡标题与左栏同一句「未命名线程」，不印「New session」（实测「${onBlank && onBlank.title}」）`);
 } catch (error) {
   fail += 1;
   console.log('ERROR ' + (error && error.stack ? error.stack : error));

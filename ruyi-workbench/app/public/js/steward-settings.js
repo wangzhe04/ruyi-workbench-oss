@@ -872,12 +872,17 @@ export function createStewardSettingsDomain({
     const row = root ? root.querySelector(`#cfgStewardSchedule .steward-schedule-row[data-task-id="${CSS.escape(String(taskId))}"]`) : null;
     return row ? row.querySelector('.steward-schedule-runs') : null;
   }
+  // 代码走查 C13：每次点击领一张号。取回来的时候号已经不是最新的（这期间用户又点过：收起了、或换了一条）
+  // 就什么都不画 —— 修前快速点两下，旧请求回来会把用户刚收起的面板重新打开。表重画不领号，照旧认回来。
+  let runsTicket = 0;
   async function toggleRuns(taskId, host) {
+    const ticket = ++runsTicket;
     if (scheduleOpenRuns === taskId) { scheduleOpenRuns = ''; host.hidden = true; clear(host); return 0; }
     scheduleOpenRuns = taskId;
     clear(host);
     host.hidden = false;
     const response = await call(`${SCHEDULE_TASKS_PATH}/${encodeURIComponent(taskId)}/runs?limit=${SCHEDULE_RUNS_LIMIT}`);
+    if (ticket !== runsTicket) return 0;
     const live = liveRunsHost(taskId, host);
     if (!live) return 0;                 // 那一条整个没了（被删）：没有落点，也就没什么可画
     scheduleOpenRuns = taskId;           // 重画把它清空过，重新认回来
@@ -1326,6 +1331,23 @@ export function createStewardSettingsDomain({
     decisions: 'cfgStewardGroupDecisions',
     index: 'cfgStewardGroupIndex',
   });
+  // U16 走查：运行时切语言（不刷新页面）时，「只看『xxx』」这条提示条是当时那一次 showOnlySection
+  // 用 t() 焊死的字面量，之后没人再叫它重算，于是停在旧语言。onlyBarRef 记住「现在正显示哪一块的
+  // 提示条」，i18n:change 来了就照原样重画一遍（同一个 bar 节点、同一个 target，只是文案换新）。
+  let onlyBarRef = null;
+  function paintOnlyBar(tab, target, bar) {
+    clear(bar);
+    const labelId = target.getAttribute('aria-labelledby');
+    const heading = labelId ? byId(labelId) : null;
+    bar.appendChild(el('span', 'steward-only-title', t('stewardShell.settings.onlyTitle', { name: heading ? heading.textContent.trim() : '' })));
+    bar.appendChild(button('ghost steward-only-all', t('stewardShell.settings.showAll'), () => {
+      delete tab.dataset.only;
+      target.classList.remove('is-only');
+      bar.remove();
+      target.scrollIntoView({ block: 'start' });
+      onlyBarRef = null;
+    }));
+  }
   // 走查 #6：左栏三个入口各自是一块「独立面板」—— 管家页只留那一段，其余收起，顶上一条说明 ＋「显示全部」。
   // 不再把人扔进 3000 多 px 的整页里找。切页签（switchSettingsTab）或再次打开设置时自动回到整页。
   function showOnlySection(tab, target, section) {
@@ -1337,16 +1359,8 @@ export function createStewardSettingsDomain({
       bar = el('div', 'steward-only-bar');
       tab.insertBefore(bar, tab.firstChild);
     }
-    clear(bar);
-    const labelId = target.getAttribute('aria-labelledby');
-    const heading = labelId ? byId(labelId) : null;
-    bar.appendChild(el('span', 'steward-only-title', t('stewardShell.settings.onlyTitle', { name: heading ? heading.textContent.trim() : '' })));
-    bar.appendChild(button('ghost steward-only-all', t('stewardShell.settings.showAll'), () => {
-      delete tab.dataset.only;
-      target.classList.remove('is-only');
-      bar.remove();
-      target.scrollIntoView({ block: 'start' });
-    }));
+    onlyBarRef = { tab, target, bar };
+    paintOnlyBar(tab, target, bar);
   }
   function openPanel(section) {
     openSettingsTab(STEWARD_SETTINGS_TAB);
@@ -1378,6 +1392,19 @@ export function createStewardSettingsDomain({
     }
     return section || '';
   }
+
+  // U16 走查：运行时切语言（不刷新页面）时，「一键停机」按钮与定时任务空态/「只看」提示条都是
+  // 上一次数据到达那一刻用 t() 焊死的字面量 —— 之后没人再叫它们重算，停在旧语言。听 i18n.js
+  // setLocale 末尾派的那一发全局 i18n:change（§ i18n.js 头注，rail-pocket.js／composer-voice.js
+  // 已经在用同一条路），把还有效的那几处就地重画一遍：数据不重新拉，只换文案。
+  try {
+    globalThis.addEventListener('i18n:change', () => {
+      renderRunState();
+      renderShield();
+      if (scheduleLoaded) renderSchedule(scheduleRows);
+      if (onlyBarRef && onlyBarRef.bar && onlyBarRef.bar.isConnected) paintOnlyBar(onlyBarRef.tab, onlyBarRef.target, onlyBarRef.bar);
+    });
+  } catch { /* ignore */ }
 
   return Object.freeze({
     bindStewardSettings,

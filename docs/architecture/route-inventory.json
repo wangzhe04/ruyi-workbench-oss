@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-27T04:45:05.745Z",
+  "generatedAt": "2026-09-27T05:53:56.649Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1197,6 +1197,7 @@
         "dev-harness\\i18n.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
+        "dev-harness\\locale-en-us.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
         "dev-harness\\onboard.e2e.js",
@@ -3146,6 +3147,7 @@
         "dev-harness\\observation-recall-replay.e2e.js",
         "dev-harness\\observation-recall.e2e.js",
         "dev-harness\\onboard.e2e.js",
+        "dev-harness\\onboarding-workspace.browser.e2e.js",
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",
@@ -3360,6 +3362,7 @@
         "dev-harness\\observation-recall-replay.e2e.js",
         "dev-harness\\observation-recall.e2e.js",
         "dev-harness\\onboard.e2e.js",
+        "dev-harness\\onboarding-workspace.browser.e2e.js",
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\orchestrate-model-select.e2e.js",
         "dev-harness\\orchestration-blindspots.e2e.js",

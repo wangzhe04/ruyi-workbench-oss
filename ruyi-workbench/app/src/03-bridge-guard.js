@@ -580,6 +580,9 @@ function normalizeGuardPath(p) {
 }
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
+// 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
+const OUTSIDE_WORKSPACE_WRITE_ERROR = '这个位置在工作文件夹外面,没有写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
+const OUTSIDE_WORKSPACE_READ_ERROR = '这个位置在工作文件夹外面,当前用的不是本机模型,没有读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';
@@ -628,14 +631,29 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny', pathLen: abs.length });
-    return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界写已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+    return { ok: false, code: 'not-allowed', error: OUTSIDE_WORKSPACE_WRITE_ERROR };
   }
   if (providerIsLocal(config)) {
     logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'allow-local', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
   logEvent({ kind: 'workspace_boundary', tool, op: 'read', decision: 'deny-remote', pathLen: abs.length });
-  return { ok: false, code: 'not-allowed', error: '路径不在允许的工作区内(越界读在非本地模型下已拒绝);如确需跨工作区,请在设置中开启 allowOutsideWorkspace' };
+  return { ok: false, code: 'not-allowed', error: OUTSIDE_WORKSPACE_READ_ERROR };
+}
+// 走查 U5:要改文件的原生工具,在弹权限窗【之前】先过一遍写边界。修前先问「允许写入 report.md」,
+// 用户点了允许,工具才报越界 —— 卡片上「已允许」紧跟着「出错」。只查【写】的那几个参数(file_copy 的 from 是读);
+// 路径解析与各工具 handler 一致(path.resolve)。返回 null = 放行去问;否则是与 handler 同形的失败结果。
+const WRITE_PATH_ARGS = Object.freeze({ file_write: ['path'], file_edit: ['path'], file_delete: ['path'], file_move: ['from', 'to'], file_copy: ['to'] });
+async function preflightWriteBoundary(toolName, args, ctx) {
+  const keys = Object.prototype.hasOwnProperty.call(WRITE_PATH_ARGS, toolName) ? WRITE_PATH_ARGS[toolName] : null;
+  if (!keys || !args || typeof args !== 'object') return null;
+  for (const k of keys) {
+    if (typeof args[k] !== 'string' || !args[k].trim()) continue;
+    const p = path.resolve(args[k]);
+    const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
+    if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
+  }
+  return null;
 }
 // v2.7 (workspace permissions): exec gate. A configured workspace with execute === false denies the exec-tier
 // command/shell tools (powershell_run / script_run / shell_*) when their effective cwd resolves inside it.

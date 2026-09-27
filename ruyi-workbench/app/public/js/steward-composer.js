@@ -387,6 +387,24 @@ export function createStewardComposer({
     const input = byId('stewardComposerInput'); if (input) input.focus();
   }
 
+  // U14/U16 走查：chip／picker／「+」／发送键这几处的 aria-label／title 都是 buildComposer()
+  // 建这枚节点【那一次】用 t() 焊死的静态文案（不像 renderChip() 里那句会跟着 target/picked 状态
+  // 变——它们本身就不依赖状态，纯粹是控件的固定无障碍名/提示）。买家早的那一拍如果还没等到
+  // setLocale(en-US) 落定（冷启动就是 en-US，或运行时切语言不刷新页面），就会一直停在建它那一刻
+  // 的语言。抽成一个可重复调用的函数，buildComposer() 建完调一次，i18n:change 来了再调一次
+  // （见文件尾的监听），不必假装这几处「反正状态一变就会重画」。
+  function relabelComposerChrome() {
+    const chip = byId('stewardTarget');
+    if (chip) chip.setAttribute('aria-label', t('stewardShell.compose.targetLabel'));
+    const picker = byId('stewardTargetPicker');
+    if (picker) picker.setAttribute('aria-label', t('stewardShell.compose.pick'));
+    const plus = byId('stewardComposerPlus');
+    if (plus) { plus.title = t('stewardShell.compose.plus'); plus.setAttribute('aria-label', t('stewardShell.compose.plus')); }
+    const send = byId('stewardComposerSend');
+    if (send) { send.title = t('stewardShell.compose.send'); send.setAttribute('aria-label', t('stewardShell.compose.send')); }
+  }
+  try { globalThis.addEventListener('i18n:change', () => { relabelComposerChrome(); renderChip(); }); } catch { /* ignore */ }
+
   // ── 装配：chip / picker / 「+」浮层 / 附件托盘，全部 createElement，零 innerHTML ─────────
   function buildComposer() {
     const composer = byId('stewardComposer');

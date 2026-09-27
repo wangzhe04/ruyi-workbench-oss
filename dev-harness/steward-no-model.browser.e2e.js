@@ -13,7 +13,9 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   N3 卡片与页面上都不出现配置键名（stewardProviderId）与用户没选过的「claude」；
 //   N4 点「接一个模型」→ 向导打开、直接落在「用哪种引擎」那一步；
 //   N5 接上一个端点（写 config）并刷新 → 卡片消失、输入框可用、回到首跑那条自我介绍；
-//   N6 服务端那句兜底也说人话：/api/steward/message 在没模型时回的 message 不含配置键名。
+//   N6 服务端那句兜底也说人话：/api/steward/message 在没模型时回的 message 不含配置键名；
+//   N8/N9 管家页开着时模型掉线又接回：当场换成「先接一个模型」卡，接回后重新到访（代码走查 C15）；
+//   N10 管家视角下提示条不压右栏、点击穿透（走查 U13）。
 // 判定行：`STEWARD NO MODEL BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 
@@ -46,6 +48,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       `N2b 语言包重新套用之后占位仍说清原因（实测 ${JSON.stringify(reapplied)}）`);
     ok(gate && !/stewardProviderId/.test(gate.text) && !/claude/i.test(gate.text),
       'N3 不出配置键名，也不出用户没选过的「claude」');
+    // N1b（走查 U12）：没接模型时左栏空态也别说「直接说你想做什么」—— 输入框是灰的，说了发不出去。
+    const railEmpty = await fx.waitForEval(`(() => { const n = document.querySelector('.steward-board-empty-say'); return n && n.textContent ? n.textContent : null; })()`, 200);
+    ok(Boolean(railEmpty) && /先接一个模型/.test(railEmpty), `N1b 没接模型：左栏空态先说「先接一个模型」（实测 ${JSON.stringify(railEmpty)}）`);
 
     await fx.evaluate(`(() => { const b = [...document.querySelectorAll('#stewardFeed .steward-act')].find(n => n.textContent.trim() === '接一个模型'); b && b.click(); return true; })()`);
     const wizard = await fx.waitForEval(`(() => {
@@ -84,6 +89,34 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     })()`);
     ok(chip && chip.tag === 'BUTTON' && chip.border !== '0px' && chip.alpha > 0 && chip.cursor === 'pointer',
       `N7 首跑示例长得像按钮：可见边框、手形光标（实测 ${JSON.stringify(chip)}）`);
+    // N8/N9（代码走查 C15）：管家页开着的时候模型掉线又接回来 —— 不切视角、不刷新页面，只是配置刷新了一次。
+    // 修前：掉线时只把输入框置灰、不画「先接一个模型」卡；接回来之后也不重新到访（到访门一直关着）。
+    const refreshConfig = () => fx.evaluate(`(() => { const b = document.querySelector('#settingsTabs button[data-stab="doctor"]'); b && b.click(); return Boolean(b); })()`);
+    const offline = await fx.request('POST', '/api/config', { activeProvider: '', providers: [] });
+    ok(Boolean(offline && offline.status === 200), `N8a 把端点撤掉（HTTP ${offline && offline.status}）`);
+    await refreshConfig();
+    const gated = await fx.waitForEval(`(() => { const p = ${PROBE}; return p.acts.includes('接一个模型') ? p : null; })()`, 300) || await fx.evaluate(PROBE);
+    ok(gated && gated.acts.includes('接一个模型') && gated.disabled === true,
+      `N8 管家页开着时模型掉线 → 当场换成「先接一个模型」卡、输入框置灰（实测 ${JSON.stringify(gated && { acts: gated.acts, disabled: gated.disabled })}）`);
+    await fx.request('POST', '/api/config', {
+      activeProvider: 'fake',
+      providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${fx.providerPort}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }],
+    });
+    await refreshConfig();
+    const back = await fx.waitForEval(`(() => { const p = ${PROBE}; return !p.acts.includes('接一个模型') && p.disabled === false && p.examples === 3 ? p : null; })()`, 300) || await fx.evaluate(PROBE);
+    ok(back && !back.acts.includes('接一个模型') && back.disabled === false && back.examples === 3,
+      `N9 接回来 → 卡片撤掉、重新到访、输入框可用（实测 ${JSON.stringify(back && { acts: back.acts, disabled: back.disabled, examples: back.examples })}）`);
+    // N10（走查 U13）：管家视角下提示条不压右栏（修前「引导完成」压着右栏底部的「停止」），而且点击穿过去。
+    const toastBox = await fx.evaluate(`import('/js/util.js').then(m => {
+      m.toast('提示条位置探针');
+      const tray = document.getElementById('toastTray');
+      const side = document.getElementById('stewardSide');
+      const t = tray.getBoundingClientRect(), s = side ? side.getBoundingClientRect() : null;
+      return { pe: getComputedStyle(tray).pointerEvents, right: t.right, bottom: t.bottom, vw: innerWidth, vh: innerHeight, sideLeft: s && s.width ? s.left : null };
+    })`);
+    ok(Boolean(toastBox) && toastBox.pe === 'none' && toastBox.right < toastBox.vw - 100 && toastBox.bottom <= toastBox.vh - 90
+      && (toastBox.sideLeft === null || toastBox.right <= toastBox.sideLeft),
+      `N10 管家视角：提示条不压右栏、点击穿透（实测 ${JSON.stringify(toastBox)}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;

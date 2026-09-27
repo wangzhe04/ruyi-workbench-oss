@@ -120,13 +120,22 @@ function renderWorkspacePicker() {
   // v2.7.2: 文件面板常用工作区 chips 与顶栏选择器同步刷新(boot/会话切换/工作区变更均经此)。
   renderWorkspaceFavChips();
 }
+// 代码走查 C14:同一个文件夹带不带结尾的「\」、用「\」还是「/」都是同一个(Windows 不分大小写)。修前只比小写,
+// 粘贴一个带结尾斜杠的路径就多出一条重复的常用文件夹。存的时候去掉结尾分隔符(盘符根 C:\ 与 / 保留)。
+const folderKey = p => String(p || '').trim().replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
+function trimFolderPath(p) {
+  const s = String(p || '').trim();
+  const stripped = s.replace(/[\\/]+$/, '');
+  if (!stripped || /^[A-Za-z]:$/.test(stripped)) return s.slice(0, stripped.length + 1);
+  return stripped;
+}
 // LRU-insert a path at the front of config.recentWorkspaces (≤10, de-duped case-insensitively).
 // Persistence is deliberately owned by setWorkspace, which writes recentWorkspaces + favorite workspaces in
 // one POST. The old two-fire-and-forget-write path could race and resurrect the stale favorite list on restart.
 function pushRecentWorkspace(p) {
   if (!p) return [];
   const prev = Array.isArray(state.config.recentWorkspaces) ? state.config.recentWorkspaces : [];
-  const filtered = prev.filter(w => String(w).toLowerCase() !== String(p).toLowerCase());
+  const filtered = prev.filter(w => folderKey(w) !== folderKey(p));
   const next = [p, ...filtered].slice(0, 10);
   state.config.recentWorkspaces = next;
   return next;
@@ -135,17 +144,22 @@ function pushRecentWorkspace(p) {
 // refreshes the picker and the file tree (if its tab is showing). When alsoDefault is true, also writes
 // config.defaultWorkspace (the 「设为默认工作区」 secondary option).
 async function setWorkspace(dir, { alsoDefault = false } = {}) {
+  dir = trimFolderPath(dir);
   if (!dir) return;
-  if (!state.currentSession) await newSession();
-  try {
-    await patchSession(state.currentSession.id, { cwd: dir });
-  } catch (e) { toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err'); return; }
+  // 走查 U1：还没有线程时（首跑引导「用一个专用文件夹」就是这样）选文件夹 = 以后新线程的默认文件夹。
+  // 修前这里先建一条空线程再改它的文件夹 —— 新用户一进来就有一条「排队」的空线程，管家还说「你回来了」。
+  if (!state.currentSession) alsoDefault = true;
+  else {
+    try {
+      await patchSession(state.currentSession.id, { cwd: dir });
+    } catch (e) { toast(t('workspace.switch.failed', { reason: apiErrText(e) }), 'err'); return; }
+  }
   const recent = pushRecentWorkspace(dir);
   // Browsing/pasting a folder is also the natural "add favorite" action in this picker. Keep the existing
   // primary first and append a new folder; only the explicit alsoDefault path promotes it to index 0.
   const ws = (Array.isArray(state.config.workspaces) ? state.config.workspaces : [])
     .map(w => ({ path: w.path, read: w.read !== false, write: w.write !== false, execute: w.execute !== false }));
-  let idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir).toLowerCase());
+  let idx = ws.findIndex(w => folderKey(w.path) === folderKey(dir));
   if (idx < 0) { ws.push({ path: dir, read: true, write: true, execute: true }); idx = ws.length - 1; }
   if (alsoDefault && idx > 0) { const [x] = ws.splice(idx, 1); ws.unshift(x); }
   const defaultWorkspace = alsoDefault ? dir : (ws[0]?.path || state.config.defaultWorkspace || dir);
@@ -255,7 +269,7 @@ function reorderFavorite(from, to) {
 // 置顶 = 设为最高优先级(同时也是默认工作区)。
 function promoteFavorite(dir) {
   const ws = allFavorites();
-  const idx = ws.findIndex(w => String(w.path).toLowerCase() === String(dir || '').toLowerCase());
+  const idx = ws.findIndex(w => folderKey(w.path) === folderKey(dir));
   if (idx <= 0) return; // 已在首位或不存在
   const [x] = ws.splice(idx, 1); ws.unshift(x);
   persistWorkspaces(ws, x.path);
@@ -270,7 +284,7 @@ function renderFavoritesInto() {
     if (!ws.length) { list.append(el('div', 'wp-fav-empty', t('workspace.favorites.empty'))); return; }
     ws.forEach((w, i) => {
       const p = String(w.path || ''); if (!p) return;
-      const row = el('div', 'wp-fav-item' + (p.toLowerCase() === String(cur || '').toLowerCase() ? ' current' : ''));
+      const row = el('div', 'wp-fav-item' + (folderKey(p) === folderKey(cur) ? ' current' : ''));
       row.title = p;
       const rank = el('span', 'wp-fav-rank', String(i + 1));
       const name = el('span', 'wp-fav-name', workspaceShortName(p));
@@ -302,7 +316,7 @@ function renderWorkspaceFavChips() {
   if (!ws.length) return;
   ws.forEach(w => {
     const p = String(w.path || ''); if (!p) return;
-    const chip = el('button', 'ws-fav-chip' + (p.toLowerCase() === String(cur || '').toLowerCase() ? ' current' : ''), workspaceShortName(p));
+    const chip = el('button', 'ws-fav-chip' + (folderKey(p) === folderKey(cur) ? ' current' : ''), workspaceShortName(p));
     chip.type = 'button'; chip.title = p;
     chip.onclick = () => setWorkspace(p);
     box.append(chip);

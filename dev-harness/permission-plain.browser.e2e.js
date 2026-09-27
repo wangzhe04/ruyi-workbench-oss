@@ -19,12 +19,15 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   P6 点「允许」→ 文件真的写出来；
 //   P7 新装的 config.killOnDisconnect 是 false；
 //   P8/P9 普通模式下上下文计量与线程头下那一行也说人话（走查 #12 的另两处）；
-//   P10/P10a 「本次线程自动允许」只给改文件档，执行档不给；P11 申请已经不在等待 → 弹窗如实说明再关。
+//   P10/P10a 「本次线程自动允许」只给改文件档，执行档不给；P11 申请已经不在等待 → 弹窗如实说明再关；
+//   U5/U7 写工作文件夹外面：不弹权限窗，报错说人话、不印配置键名；U8 本轮变更只印文件名。
 // 判定行：`PERMISSION PLAIN BROWSER E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 
+const os = require('os');
+const OUTSIDE_FILE = path.join(os.tmpdir(), 'ruyi-u5-outside-' + process.pid, 'report.md');
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
@@ -37,6 +40,11 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       config: { permissionMode: 'default', uiMode: 'simple', killOnDisconnect: undefined },
       provider: async ctx => {
         const lastUser = [...ctx.messages].reverse().find(m => m && m.role === 'user');
+        if (/写到外面/.test(String(lastUser && lastUser.content || ''))) {
+          const last = ctx.messages[ctx.messages.length - 1];
+          if (!last || last.role !== 'tool') { ctx.toolCall('file_write', { path: OUTSIDE_FILE, content: 'x\n' }); return; }
+          ctx.text('外面写不了。'); ctx.stop(); return;
+        }
         if (/跑个命令/.test(String(lastUser && lastUser.content || ''))) {
           const last = ctx.messages[ctx.messages.length - 1];
           if (!last || last.role !== 'tool') { ctx.toolCall('powershell_run', { command: 'Get-Date' }); return; }
@@ -116,10 +124,33 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     ok(written, 'P6 在对话卡上点「允许」→ report.md 真的写出来了');
     const settledCard = await fx.waitForEval(`(() => { const c = document.querySelector('.narrative-permission'); return c && !c.querySelector('.narrative-perm-actions') ? (c.querySelector('.narrative-state-pill') || {}).textContent || 'x' : null; })()`, 100);
     ok(Boolean(settledCard), `P6b 决定之后卡上的按钮收起、改成结果（实测 ${settledCard}）`);
+    // 走查 U8：普通模式下「本轮变更」那一行只印文件名，整条路径在悬停提示里。
+    const tsPath = await fx.waitForEval(`(() => { const n = document.querySelector('.turn-summary-file .ts-path'); return n ? { text: n.textContent, title: n.title } : null; })()`, 200);
+    ok(Boolean(tsPath) && tsPath.text === 'report.md' && tsPath.title === target, `U8 本轮变更只印文件名、整条路径在悬停提示里（实测 ${JSON.stringify(tsPath)}）`);
+
+    // 走查 U5/U7：写工作文件夹外面的文件 —— 不弹权限窗（修前先问「允许写入」，批准后才报越界）；报错说人话、不印配置键名。
+    await fx.waitForEval(`document.getElementById('messages') && document.getElementById('messages').textContent.includes('写好了') ? 1 : null`, 100);
+    await sleep(800);   // 回合收尾（写盘、状态回到空闲）要一拍；太快发下一句会被当成排队插话
+    await fx.evaluate(`(() => {
+      window.__permModalSeen = 0;
+      new MutationObserver(() => { if (document.querySelector('.modal-backdrop.permission-modal')) window.__permModalSeen += 1; }).observe(document.body, { childList: true, subtree: true });
+      const i = document.getElementById('promptInput');
+      i.focus(); i.value = '写到外面'; i.dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('sendBtn').click();
+      return true;
+    })()`);
+    const outside = await fx.waitForEval(`(() => {
+      const m = document.getElementById('messages');
+      if (!m || !m.textContent.includes('外面写不了')) return null;
+      return { modal: window.__permModalSeen, text: m.textContent };
+    })()`, 200);
+    if (!outside) console.log('# 诊断 U5', JSON.stringify(await fx.evaluate(`({ modal: window.__permModalSeen, text: (document.getElementById('messages') || {}).textContent.slice(-600) })`)));
+    ok(Boolean(outside) && outside.modal === 0 && !fs.existsSync(OUTSIDE_FILE), `U5 写工作文件夹外面：不弹权限窗、文件没写出来（实测 弹窗 ${outside && outside.modal} 次）`);
+    ok(Boolean(outside) && /工作文件夹外面/.test(outside.text) && !/allowOutsideWorkspace/.test(outside.text),
+      'U7 越界报错说人话、说清去哪儿改，不印配置键名 allowOutsideWorkspace');
 
     // 代码走查 C3：执行档（命令/脚本）不给「本次线程自动允许」—— 按工具名放行等于之后任何【不同】的命令都静默执行。
     // 代码走查 C9：弹窗等后端回话再关；申请已经不在等待（404）→ 说清楚再关，不假装成功。
-    await fx.waitForEval(`document.getElementById('messages') && document.getElementById('messages').textContent.includes('写好了') ? 1 : null`, 100);
     await sleep(500);
     await fx.evaluate(`(() => {
       const i = document.getElementById('promptInput');

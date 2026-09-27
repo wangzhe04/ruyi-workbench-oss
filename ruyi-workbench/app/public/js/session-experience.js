@@ -531,7 +531,10 @@ function turnSummaryCard(summary) {
       row.dataset.path = String(f.path || '');   // rollbackTurn 按它把撤掉的那几行就地改成「已撤销」
       const op = (f.op === 'create' || f.op === 'modify' || f.op === 'delete') ? f.op : 'unknown';
       const opLabel = op === 'create' ? t('changes.create') : op === 'modify' ? t('changes.modify') : op === 'delete' ? t('changes.delete') : t('common.unknown');
-      row.append(el('span', `ts-op ${op}`, opLabel), el('span', 'ts-path', f.path || ''));
+      // 走查 U8：普通模式只印文件名，整条路径放悬停提示；专业模式照旧印全路径。
+      const pathNode = el('span', 'ts-path', document.documentElement.getAttribute('data-ui-mode') === 'pro' ? (f.path || '') : (fileBasename(f.path || '') || f.path || ''));
+      if (f.path) pathNode.title = f.path;
+      row.append(el('span', `ts-op ${op}`, opLabel), pathNode);
       // v0.8-S4b: per-file 「撤销」— rolls back a single entry (turnSeq + entrySeq). Only for revertible
       // files that carry an entrySeq (journal-driven). Non-revertible files show nothing extra.
       if (f.reverted) {
@@ -545,8 +548,8 @@ function turnSummaryCard(summary) {
       body.append(row);
     }
     const bits = [];
-    if (files.length) bits.push(t('changes.fileCount', { count: files.length }));
-    if (commands) bits.push(t('changes.commandCount', { count: commands }));
+    if (files.length) bits.push(tCount('changes.fileCount', files.length));
+    if (commands) bits.push(tCount('changes.commandCount', commands));
     if (bits.length) body.append(el('div', 'turn-summary-cmds', bits.join(' · ')));
     // commands can't be auto-undone — say so, once, when any command ran (C6/B3 discipline).
     if (commands > 0) body.append(el('div', 'turn-summary-warn', `⚠ ${t('changes.commandNotRevertible')}`));
@@ -716,7 +719,7 @@ async function rollbackTurn(turnSeq, entrySeq, btn, label) {
       toast(t('changes.revert.partial', { reverted: n, failed: failed.length, reason: revertFailureReason(failed[0].reason) }), 'err');
       return;
     }
-    toast(t('changes.reverted', { label: `${label}${n ? ` (${t('changes.fileCount', { count: n })})` : ''}` }), 'ok');
+    toast(t('changes.reverted', { label: `${label}${n ? ` (${tCount('changes.fileCount', n)})` : ''}` }), 'ok');
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = entrySeq === undefined ? t('changes.revertTurn') : t('changes.revert'); }
     toast(t('changes.revert.failed', { reason: apiErrText(e) }), 'err');
