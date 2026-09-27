@@ -115,7 +115,8 @@ generated into `docs/architecture/module-dependency-graph.{json,md}`.
   (permission-mode tables, the three-layer resolver and agent-role normalization), `02-session-store`,
   `02c-turn-segments` (the ordered-turn protocol), `02d-session-overrides` (the in-memory per-session
   engine-route / permission-mode / desktop-tools overrides), `02e-session-engine-route` (session engine-route
-  normalization and inference).
+  normalization and inference), `02f-turn-effect-kinds` (turn-summary tool tables and the irreversible-ledger
+  kinds).
 - **03–04** gates and peripherals: `03-bridge-guard` (attachment prompts, the exec gate and effective working
   directory), `04-permission-runtime` (permissions, the `REDACT_PATTERNS` table, the MCP connector write path),
   `04-desktop-shell`, `04-visual-pipeline`.

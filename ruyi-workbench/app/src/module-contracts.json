@@ -744,19 +744,33 @@
       "requires": []
     },
     {
-      "file": "02-session-store.js",
+      "file": "02f-turn-effect-kinds.js",
       "layer": "foundation",
       "provides": [
         "ARTIFACT_BRIDGED_WRITE_NAMES",
         "ARTIFACT_BRIDGED_WRITE_PREFIXES",
-        "ARTIFACT_IMG_EXTS",
         "ARTIFACT_OUTPUT_PATH_KEYS",
-        "BRIDGED_WRITE_PATH_ARGS",
         "CLAUDE_IRREVERSIBLE_KIND",
-        "INTERVENTION_TERMINAL",
         "IRREVERSIBLE_BRIDGED_KIND",
         "IRREVERSIBLE_LEDGER_MAX",
         "IRREVERSIBLE_NATIVE_KIND",
+        "TURN_SUMMARY_COMMAND_TOOLS",
+        "TURN_SUMMARY_FILE_TOOLS",
+        "TURN_SUMMARY_KNOWN_TOOLS",
+        "irreversibleDetail",
+        "irreversibleToolKind",
+        "isBridgedWriteTool",
+        "unprefixedBridgedName"
+      ],
+      "requires": []
+    },
+    {
+      "file": "02-session-store.js",
+      "layer": "foundation",
+      "provides": [
+        "ARTIFACT_IMG_EXTS",
+        "BRIDGED_WRITE_PATH_ARGS",
+        "INTERVENTION_TERMINAL",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
@@ -790,9 +804,6 @@
         "STEWARD_WATCH_NOTE_MAX",
         "TODO_MAX_ITEMS",
         "TODO_MAX_TEXT",
-        "TURN_SUMMARY_COMMAND_TOOLS",
-        "TURN_SUMMARY_FILE_TOOLS",
-        "TURN_SUMMARY_KNOWN_TOOLS",
         "WORKSPACE_BASELINE_DEFAULT_BUDGET_MS",
         "WORKSPACE_BASELINE_EXTS",
         "WORKSPACE_BASELINE_MAX_FILES",
@@ -842,9 +853,6 @@
         "interventionTransitionLocks",
         "interventionWriteChains",
         "invalidateSessionIndex",
-        "irreversibleDetail",
-        "irreversibleToolKind",
-        "isBridgedWriteTool",
         "isProviderToolArgsObject",
         "isStrictSessionBodyPrefix",
         "isUntitledSessionTitle",
@@ -980,7 +988,6 @@
         "stopMissionAgentRuns",
         "transitionInterventionState",
         "truncateSessionBody",
-        "unprefixedBridgedName",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
         "waitMissionTurnSettled",
@@ -1258,6 +1265,69 @@
         {
           "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "ARTIFACT_OUTPUT_PATH_KEYS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_LEDGER_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "irreversibleDetail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "irreversibleToolKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "isBridgedWriteTool",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_KNOWN_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
           ]
@@ -1622,7 +1692,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
@@ -5873,7 +5943,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
           "kinds": [
             "call"
@@ -19712,20 +19782,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "IRREVERSIBLE_NATIVE_KIND",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "isBridgedWriteTool",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "isUntitledSessionTitle",
           "kinds": [
             "read"
@@ -19992,27 +20048,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "TURN_SUMMARY_FILE_TOOLS",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "unprefixedBridgedName",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "updateSessionMeta",
           "kinds": [
             "read"
@@ -20070,6 +20105,41 @@
         {
           "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "IRREVERSIBLE_NATIVE_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "isBridgedWriteTool",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_COMMAND_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "TURN_SUMMARY_FILE_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "unprefixedBridgedName",
           "kinds": [
             "read"
           ]
