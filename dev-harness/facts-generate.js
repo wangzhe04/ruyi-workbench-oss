@@ -86,6 +86,9 @@ const facts = {
   tokenBootstrap: static_.tokenBootstrap,
   liveProbes: static_.liveProbes,
 };
+// 除 generatedAt 外与旧文件逐字段一致时沿用旧时间戳:重跑生成器不产生纯时间戳噪声(架构还债批 2)。
+const withoutStamp = obj => JSON.stringify({ ...obj, generatedAt: null });
+if (typeof prev.generatedAt === 'string' && withoutStamp(prev) === withoutStamp(facts)) facts.generatedAt = prev.generatedAt;
 fs.writeFileSync(FACTS_PATH, JSON.stringify(facts, null, 2) + '\n');
 console.log('# facts.json 已生成:');
 for (const [k, v] of Object.entries(facts)) if (!k.startsWith('_')) console.log(`#   ${k}: ${v}`);

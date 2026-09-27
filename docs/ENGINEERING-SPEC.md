@@ -266,6 +266,10 @@
 必须按序手跑；第 4、5 两步的「无参 = 只读，`--write` = 写」与第 2 步「`--write` = 写，`--check` = 只读」
 两套命名习惯并存，不要凭直觉假设某个生成器不传参数就是安全的只读校验。
 
+生成物不记 `app/src` 行号（架构还债批 2）：依赖图按「提供方 + 符号 + 调用/读取」记引用，路由清册按「文件 + 所在顶层函数名」
+记判定点与委派行。纯增删注释／空行后整条链重跑不产生任何 diff（`dev-harness/unit/generated-artifacts-line-stable.test.js`
+在临时副本上平移行号实证）；`route-inventory.js` 与 `facts-generate.js` 在内容不变时沿用旧 `generatedAt`。
+
 ---
 
 ## 9. 明确不做

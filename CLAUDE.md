@@ -38,11 +38,12 @@ node dev-harness/<改动相关>.e2e.js             # 单件:末行 ... E2E: ALL 
 | 生成物 | 重算 | 对应静态门 |
 |---|---|---|
 | `docs/architecture/route-inventory.{json,md}` | `node dev-harness/route-inventory.js` | `route-inventory.static.e2e.js` |
-| `docs/architecture/module-dependency-graph.json` | `node dev-harness/module-dependency-graph.js --write` | `module-dependency-graph.static.e2e.js` |
+| `docs/architecture/module-dependency-graph.{json,md}`、`app/src/module-contracts.json` | `node dev-harness/module-dependency-graph.js --write` | `module-dependency-graph.static.e2e.js` |
 | `facts.json` | `node dev-harness/facts-generate.js` | `facts.static.e2e.js` |
 
-这些生成物记着 `app/src` 的**行号**:小改动尽量不增删行(注释写在已有行尾),就不用连带重算几千行。
-只有 `generatedAt` 时间戳变化时不要提交生成物。
+生成物**不记 `app/src` 行号**(锚是模块/符号/路由/所在顶层函数名),增删注释或空行不会让它们漂移,放心加注释;
+只有符号、跨模块引用、路由/鉴权或 handler 归属真变了才需要重算(`unit/generated-artifacts-line-stable.test.js` 钉着这条)。
+`route-inventory` 与 `facts` 在内容不变时沿用旧 `generatedAt`,重跑不会产生纯时间戳 diff。
 
 ## 在云端(Linux 容器)开发
 

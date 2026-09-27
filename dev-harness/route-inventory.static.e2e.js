@@ -11,7 +11,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { computeInventory, canonical, authFirstMatch, JSON_PATH, MD_PATH } = require('./route-inventory.js');
+const { computeInventory, canonical, renderMarkdown, withStableTimestamp, authFirstMatch, JSON_PATH, MD_PATH } = require('./route-inventory.js');
 
 const ROOT = path.resolve(__dirname, '..');
 let fail = 0;
@@ -33,6 +33,14 @@ if (committed) {
     'route-inventory.json 与源码重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)');
 }
 ok(fs.existsSync(MD_PATH), 'docs/architecture/route-inventory.md 存在(人读表随 JSON 一起生成)');
+// 架构还债批 2:清册不再记 app/src 行号(锚 = 文件 + handler 函数名),人读表也就能逐字节锁住了 ——
+// 以提交件的 generatedAt 重渲染,必须与提交的 .md 一致(只改 JSON 不改 MD、或手改 MD 都会红)。
+if (committed && fs.existsSync(MD_PATH)) {
+  ok(fs.readFileSync(MD_PATH, 'utf8') === renderMarkdown(withStableTimestamp(inv, committed)),
+    'route-inventory.md 与重算逐字节一致(漂移则跑 node dev-harness/route-inventory.js)');
+}
+const lineFields = JSON.stringify(committed || {}).match(/"line"\s*:/g) || [];
+ok(lineFields.length === 0, `route-inventory.json 不含 app/src 行号字段(实得 ${lineFields.length} 处;行号入库会让加一行注释就漂移)`);
 
 // (2) deny-by-default:未知路由首配必须落空(authorizeRoute 落空即 403)。
 ok(authFirstMatch(inv.routeAuth, 'GET', '/api/__definitely-unknown-route__') === null

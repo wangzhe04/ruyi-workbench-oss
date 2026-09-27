@@ -22,6 +22,12 @@ const checked = cp.spawnSync(process.execPath, [path.join(__dirname, 'module-dep
 });
 ok(checked.status === 0, '103b generated contract and human/machine graphs match source byte-for-byte');
 if (checked.status !== 0) console.log(String(checked.stdout || '') + String(checked.stderr || ''));
+// 架构还债批 2:提交件不记 app/src 行号(加一行注释就要重算几万行的根因)。两份 JSON 生成物里都不许出现行号字段。
+for (const rel of ['docs/architecture/module-dependency-graph.json', 'ruyi-workbench/app/src/module-contracts.json']) {
+  const text = fs.readFileSync(path.join(ROOT, ...rel.split('/')), 'utf8');
+  const hits = text.match(/"lines?"\s*:/g) || [];
+  ok(hits.length === 0, `${rel} 不含行号字段(实得 ${hits.length} 处)`);
+}
 
 const graph = buildGraph();
 const manifest = JSON.parse(fs.readFileSync(path.join(SRC, 'manifest.json'), 'utf8'));

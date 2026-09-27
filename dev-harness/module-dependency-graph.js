@@ -11,13 +11,18 @@
 //   node dev-harness/module-dependency-graph.js --write
 //   node dev-harness/module-dependency-graph.js --check
 //   node dev-harness/module-dependency-graph.js --bootstrap-policy  # maintainer-only baseline creation
+//
+// Line-number free (architecture-debt batch 2): the committed graph/contract/markdown carry no app/src line
+// numbers. A `requires` entry is identified by provider + symbol + kinds, so adding or removing a comment or
+// blank line anywhere in src leaves every artifact byte-identical; only a changed symbol, reference or module
+// edge needs --write. (Token line numbers still exist inside the tokenizer; they never reach an artifact.)
+// buildGraph({ srcDir }) scans another copy of app/src - used by the line-stability unit test.
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'ruyi-workbench', 'app', 'src');
 const DOCS = path.join(ROOT, 'docs', 'architecture');
-const MANIFEST_PATH = path.join(SRC, 'manifest.json');
 const CONTRACT_PATH = path.join(SRC, 'module-contracts.json');
 const POLICY_PATH = path.join(SRC, 'module-dependency-policy.json');
 const GRAPH_PATH = path.join(DOCS, 'module-dependency-graph.json');
@@ -380,15 +385,16 @@ function stronglyConnectedComponents(moduleNames, edges) {
 
 function edgeKey(edge) { return `${edge.from}->${edge.to}`; }
 
-function buildGraph() {
-  const manifest = readJson(MANIFEST_PATH);
+function buildGraph(opts = {}) {
+  const srcDir = opts.srcDir || SRC;
+  const manifest = readJson(path.join(srcDir, 'manifest.json'));
   const entries = manifest.modules.map((item, index) => ({
     file: typeof item === 'string' ? item : item.file,
     index,
     note: typeof item === 'string' ? '' : String(item.note || ''),
   }));
   const analyses = entries.map(entry => {
-    const source = fs.readFileSync(path.join(SRC, entry.file), 'utf8');
+    const source = fs.readFileSync(path.join(srcDir, entry.file), 'utf8');
     const tokens = tokenize(source);
     return { ...entry, layer: moduleLayer(entry.file), tokens, ...declarationInfo(tokens) };
   });
@@ -396,7 +402,7 @@ function buildGraph() {
   for (const analysis of analyses) {
     for (const symbol of analysis.provides) {
       if (!providers.has(symbol.name)) providers.set(symbol.name, []);
-      providers.get(symbol.name).push({ file: analysis.file, line: symbol.line, kind: symbol.kind });
+      providers.get(symbol.name).push({ file: analysis.file, kind: symbol.kind });
     }
   }
   const duplicates = [...providers.entries()]
@@ -420,9 +426,8 @@ function buildGraph() {
       if (isMemberAccessSkip(analysis.tokens, i)) continue;
       const map = requirements.get(analysis.file);
       const key = `${owner.file}\0${token.value}`;
-      const existing = map.get(key) || { provider: owner.file, symbol: token.value, kinds: new Set(), lines: new Set() };
+      const existing = map.get(key) || { provider: owner.file, symbol: token.value, kinds: new Set() };
       existing.kinds.add(next === '(' || (previous === 'new' && next === '(') ? 'call' : 'read');
-      existing.lines.add(token.line);
       map.set(key, existing);
     }
   }
@@ -436,7 +441,6 @@ function buildGraph() {
       provider: item.provider,
       symbol: item.symbol,
       kinds: [...item.kinds].sort(),
-      lines: [...item.lines].sort((a, b) => a - b),
     })).sort((a, b) => a.provider.localeCompare(b.provider) || a.symbol.localeCompare(b.symbol)),
   }));
   const edgeMap = new Map();
@@ -537,11 +541,17 @@ function policyViolations(graph, policy) {
   };
 }
 
+// The three committed artifacts as strings (contract, machine graph, human graph).
+function renderArtifacts(graph) {
+  return { contract: stableJson(buildContract(graph)), graph: stableJson(graph), markdown: buildMarkdown(graph) };
+}
+
 function generatedArtifacts(graph) {
+  const out = renderArtifacts(graph);
   return new Map([
-    [CONTRACT_PATH, stableJson(buildContract(graph))],
-    [GRAPH_PATH, stableJson(graph)],
-    [MARKDOWN_PATH, buildMarkdown(graph)],
+    [CONTRACT_PATH, out.contract],
+    [GRAPH_PATH, out.graph],
+    [MARKDOWN_PATH, out.markdown],
   ]);
 }
 
@@ -586,6 +596,6 @@ function main() {
 if (require.main === module) main();
 
 module.exports = {
-  buildGraph, buildContract, buildPolicy, buildMarkdown, policyViolations, tokenize, declarationInfo,
+  buildGraph, buildContract, buildPolicy, buildMarkdown, renderArtifacts, policyViolations, tokenize, declarationInfo,
   precededByRestDots, isMemberAccessSkip,
 };
