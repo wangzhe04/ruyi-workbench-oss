@@ -733,6 +733,17 @@
       ]
     },
     {
+      "file": "02e-session-engine-route.js",
+      "layer": "foundation",
+      "provides": [
+        "configForSessionEngineRoute",
+        "inferSessionEngineRoute",
+        "normalizeSessionEngineRoute",
+        "sessionEngineRouteFromConfig"
+      ],
+      "requires": []
+    },
+    {
       "file": "02-session-store.js",
       "layer": "foundation",
       "provides": [
@@ -810,7 +821,6 @@
         "collectBridgedWriteTarget",
         "collectBridgedWriteTargets",
         "compactInterventionJournal",
-        "configForSessionEngineRoute",
         "createMissionContainer",
         "createSession",
         "deleteSession",
@@ -825,7 +835,6 @@
         "foldTurnSummaries",
         "followupAcceptanceCriterion",
         "healStalePendingSegments",
-        "inferSessionEngineRoute",
         "inflightSessionIndex",
         "interventionAppendCounts",
         "interventionFilePath",
@@ -905,7 +914,6 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeSession",
-        "normalizeSessionEngineRoute",
         "normalizeTodoItems",
         "noteMissionMembership",
         "overlayUnflushedSessionIndex",
@@ -945,7 +953,6 @@
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
-        "sessionEngineRouteFromConfig",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
         "sessionIndexFlushTimer",
@@ -1232,6 +1239,27 @@
           "symbol": "sessionPermissionModeOverrides",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -5444,7 +5472,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
@@ -8806,21 +8834,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "createSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "inferSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -8862,13 +8876,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "readSessionNotes",
           "kinds": [
             "call"
@@ -8897,13 +8904,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -8919,6 +8919,34 @@
         {
           "provider": "02-session-store.js",
           "symbol": "writeSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -10693,13 +10721,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "evaluateMissionCheck",
           "kinds": [
             "call"
@@ -10813,6 +10834,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "workspaceBaselinePathKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
           "kinds": [
             "call"
           ]
@@ -16171,20 +16199,20 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
@@ -17298,7 +17326,7 @@
           ]
         },
         {
-          "provider": "02-session-store.js",
+          "provider": "02e-session-engine-route.js",
           "symbol": "normalizeSessionEngineRoute",
           "kinds": [
             "call"
@@ -19628,13 +19656,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "configForSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "createMissionContainer",
           "kinds": [
             "read"
@@ -19678,13 +19699,6 @@
         {
           "provider": "02-session-store.js",
           "symbol": "foldMissionChangeJournalText",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "inferSessionEngineRoute",
           "kinds": [
             "read"
           ]
@@ -19831,13 +19845,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "normalizeSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "patchMissionContainer",
           "kinds": [
             "read"
@@ -19950,13 +19957,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionMeta",
           "kinds": [
             "read"
@@ -20042,6 +20042,34 @@
         {
           "provider": "02d-session-overrides.js",
           "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "configForSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "inferSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "normalizeSessionEngineRoute",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02e-session-engine-route.js",
+          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "read"
           ]
