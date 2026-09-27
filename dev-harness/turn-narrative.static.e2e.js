@@ -1,14 +1,20 @@
 'use strict';
+require('./lib/self-isolate-home.js'); // 本件 require 产物 server.js 取 createTurnSegmentBuilder;直跑时家目录自隔离
 
 const fs = require('fs');
-const vm = require('vm');
+const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
-// 110-3b: createTurnSegmentBuilder 已搬至 02c-turn-segments.js,vm 片段来源随之改为该文件
-// (02c 只含该构建器,故终点即文件末尾)。只改读取来源,断言与期望值一字未改。
-const store = read('ruyi-workbench/app/src/02c-turn-segments.js');
+// 110-3b: createTurnSegmentBuilder 已搬至 02c-turn-segments.js。
+// 架构还债批 3·D:修前从 02c 的 `function createTurnSegmentBuilder()` 切到文件末尾进 vm 跑 —— 02c 里再添一个
+// 函数、或构建器挪回别的模块,切片就带进无关代码或切空。它本来就经 14-main 导出,现在直接取产物里的那一个;
+// 断言与期望值一字未改。
+const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-turn-narrative-'));
+process.env.WIN_CLAUDE_WORKBENCH_HOME = process.env.WIN_CLAUDE_WORKBENCH_HOME || home;
+process.env.RUYI_HOME = process.env.RUYI_HOME || home;
+const { createTurnSegmentBuilder } = require(path.join(ROOT, 'ruyi-workbench', 'app', 'server.js'));
 const claude = read('ruyi-workbench/app/src/05-claude-engine.js');
 const provider = read('ruyi-workbench/app/src/09-workflow.js');
 const app = [
@@ -30,12 +36,8 @@ function ok(condition, label) {
   else { console.error('FAIL ' + label); failed += 1; }
 }
 
-const start = store.indexOf('function createTurnSegmentBuilder()');
-const end = store.length;
-ok(start >= 0 && end > start, 'N1 TurnSegmentBuilder 在 session store');
-const context = {};
-vm.runInNewContext(store.slice(start, end) + '\nthis.createTurnSegmentBuilder = createTurnSegmentBuilder;', context);
-const builder = context.createTurnSegmentBuilder();
+ok(typeof createTurnSegmentBuilder === 'function', 'N1 TurnSegmentBuilder 在 session store(产物导出)');
+const builder = createTurnSegmentBuilder();
 const batch = builder.createBatchId('openai');
 builder.consume({ type: 'assistant_delta', text: '先说明。' });
 builder.consume({ type: 'tool_use', id: 'a', name: 'file_read', batchId: batch });
@@ -47,14 +49,14 @@ const segments = builder.snapshot();
 ok(segments.map(segment => segment.type).join(',') === 'text,tool,tool,text', 'N2 文本→工具→工具→文本顺序持久化');
 ok(segments[1].batchId === segments[2].batchId && segments[1].status === 'done' && segments[2].status === 'done', 'N3 同响应工具共享 batchId 且结果回填');
 
-const planBuilder = context.createTurnSegmentBuilder();
+const planBuilder = createTurnSegmentBuilder();
 planBuilder.consume({ type: 'assistant_delta', text: 'PLAN: do it' });
 planBuilder.consume({ type: 'plan', planId: 'p1', markdown: 'PLAN: do it' });
 ok(planBuilder.snapshot().map(segment => segment.type).join(',') === 'plan', 'N4 plan 语义段替换重复文本');
 planBuilder.consume({ type: 'plan_decision', planId: 'p1', decision: 'approve', note: '先跑测试' });
 ok(planBuilder.snapshot()[0].status === 'approved' && planBuilder.snapshot()[0].note === '先跑测试', 'N4b plan 决定状态持久化');
 
-const stateBuilder = context.createTurnSegmentBuilder();
+const stateBuilder = createTurnSegmentBuilder();
 stateBuilder.consume({ type: 'permission_request', requestId: 'perm1', toolName: 'file_write', tier: 'edit', revertible: true });
 stateBuilder.consume({ type: 'permission_decision', requestId: 'perm1', behavior: 'allow' });
 stateBuilder.consume({ type: 'ask_user', questionId: 'q1', questions: [{ question: '继续吗？' }] });
@@ -120,3 +122,4 @@ if (failed) {
   process.exit(1);
 }
 console.log('\nTURN NARRATIVE STATIC E2E: ALL PASS');
+try { fs.rmSync(home, { recursive: true, force: true }); } catch { /* best-effort */ }

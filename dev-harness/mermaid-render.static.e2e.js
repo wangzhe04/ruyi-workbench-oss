@@ -75,9 +75,10 @@ const notices = read('THIRD-PARTY-NOTICES.md');
 ok(/\|\s*mermaid\s*\|/.test(notices) && notices.includes('mermaid-js/mermaid') && /\|\s*MIT\s*\|/.test(notices),
   'C4 THIRD-PARTY-NOTICES 有 mermaid 行(MIT + 上游地址)');
 ok(notices.includes('mermaid.min.js'), 'C5 通知条目点名 mermaid.min.js 文件');
-const overlay = read('ruyi-workbench/tools/build-overlay.js');
-ok(overlay.includes("'app/public/js/mermaid-runtime.js'"), 'C6 运行时模块进入 overlay 载荷');
-ok(overlay.includes("'app/public/vendor/mermaid.min.js'"), 'C7 可选 vendor 登记在 OPTIONAL_PAYLOAD_FILES');
+// 架构还债批 3·D:载荷登记读打包器运行时的那两张表(require 零副作用),不再在源码里找字面量。
+const overlayTables = require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'));
+ok(overlayTables.PAYLOAD_FILES.includes('app/public/js/mermaid-runtime.js'), 'C6 运行时模块进入 overlay 载荷');
+ok(overlayTables.OPTIONAL_PAYLOAD_FILES.includes('app/public/vendor/mermaid.min.js'), 'C7 可选 vendor 登记在 OPTIONAL_PAYLOAD_FILES');
 const narrativeCss = fs.readFileSync(path.join(PUBLIC, 'css', 'views', 'chat-narrative.css'), 'utf8');
 for (const selector of ['.mermaid-block', '.mermaid-view', '.mermaid-tools', '.mermaid-hint']) {
   ok(narrativeCss.includes(selector), `C8 chat-narrative.css 含 ${selector} 样式`);

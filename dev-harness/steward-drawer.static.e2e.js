@@ -27,7 +27,9 @@ const css = read('css/views/steward-drawer.css');
 const styles = read('styles.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
-const overlay = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 const readFrontendCss = fs.readFileSync(path.join(__dirname, 'read-frontend-css.js'), 'utf8');
 
 // 注释里要写清「零 innerHTML」「不自己实现 PATCH permissionMode」这些纪律本身，所以扫禁词与扫危险
@@ -355,9 +357,9 @@ ok(styles.includes('@import url("/css/views/steward-drawer.css");')
   'G1 styles.css @import 与 index.html 直链同步收录 steward-drawer.css');
 ok(readFrontendCss.includes("'css/views/steward-drawer.css',"),
   'G2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-drawer.css');
-ok(overlay.includes("'app/public/css/views/steward-drawer.css'")
-  && overlay.includes("'app/public/js/steward-drawer.js'")
-  && overlay.includes("'app/public/js/steward-chips.js'"),
+ok(overlayPayload.has('app/public/css/views/steward-drawer.css')
+  && overlayPayload.has('app/public/js/steward-drawer.js')
+  && overlayPayload.has('app/public/js/steward-chips.js'),
   'G3 离线包清单收录 117d 的三个新文件');
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(cssCode), 'G4 抽屉层 CSS 全部使用主题/语义 token，无硬编码色值');
 ok(/@media \(prefers-reduced-motion: reduce\) \{/.test(cssCode) && /transition: none;/.test(cssCode),

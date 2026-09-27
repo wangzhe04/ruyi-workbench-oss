@@ -43,7 +43,9 @@ const viewerSrc = read(PUBLIC, 'js', 'help-viewer.js');
 const wizardSrc = read(PUBLIC, 'js', 'onboarding-wizard.js');
 const sessionSrc = read(PUBLIC, 'js', 'session-experience.js');
 const providerSrc = read(PUBLIC, 'js', 'provider-settings.js');
-const overlayBuilder = read(WB, 'tools', 'build-overlay.js');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 const onboardingCss = read(PUBLIC, 'css', 'components', 'onboarding.css');
 const locales = {
   'zh-CN': readJson(path.join(PUBLIC, 'locales', 'zh-CN.json')),
@@ -201,7 +203,7 @@ ok(menuSrc.includes("api(logTailRequestPath(select.value))") && menuSrc.includes
   '③ 日志面板三件套:应用内看内容 + 复制全部(内容) + 打开日志目录(真动作)');
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(menuSrc), '③ help-menu.js 零 innerHTML');
 ok(!/^import\s/m.test(menuSrc), '③ help-menu.js 零 import(壳无关工厂,环境依赖全注入)');
-ok(overlayBuilder.includes("'app/public/js/help-menu.js'"), '③ overlay 离线载荷登记 help-menu.js');
+ok(overlayPayload.has('app/public/js/help-menu.js'), '③ overlay 离线载荷登记 help-menu.js');
 ok(onboardingCss.includes('.help-menu-item') && onboardingCss.includes('.settings-tab-help') && onboardingCss.includes('.help-logs-pre')
   && onboardingCss.includes('@media (max-width: 520px)'),
   '③ 118d 样式落在已注册的 onboarding.css 层内(含窄屏收敛),不新开样式表');

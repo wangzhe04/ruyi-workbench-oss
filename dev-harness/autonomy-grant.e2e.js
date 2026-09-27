@@ -2,6 +2,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 (async () => {
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const { readServerSource } = require('./src-reader');
+const { functionBlock, sliceBlock } = require('./lib/source-slice.js');
 const { getFreePort } = require('./free-port.js');
 // E2E: 第27波「自主性授权书(Autonomy Grant)」(AUTONOMY-PLAN §27)。
 // 端口: WB 9116(已登记 dev-harness/README)。无需 fake provider(授权书路由不触发模型)。
@@ -15,6 +16,9 @@ const { getFreePort } = require('./free-port.js');
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
+// 架构还债批 3·D:AUTOEXEC_DENYLIST / hashArgs / pathWithinRoot 三者都经 14-main 导出,直接取产物里的那一份
+// (修前是正则抠源码再 new Function 求值);授权书核心块与 globToRegExp 未导出,仍源抽取。
+const srv = require(SERVER);
 const WB_PORT = await getFreePort();
 const HOME = path.join(os.tmpdir(), 'wcw-autonomy-grant-e2e');
 const WS = path.join(HOME, 'ws');
@@ -92,13 +96,13 @@ ok(!/consumeGrant/.test(subCore), 'S5 子代理执行体【无】consumeGrant(R-
 // S6 exec 永不持久:saveSession / normalizeConfig 体内【不】触碰 autonomyGrants。
 // 122 波合并（36 号文 §5.4）：saveSession 的签名从 (session) 变成 (session, opts)（§2.4 写链内合并旗子），
 // 定位正则放宽到可选第二参；判据本身（体内不触碰 autonomyGrants）一个字不动。
-const saveSessionBody = (src.match(/async function saveSession\(session(?:, opts)?\) \{[\s\S]*?\n\}/) || [''])[0];
+const saveSessionBody = functionBlock(src, 'saveSession');
 ok(saveSessionBody.length > 100 && !/autonomyGrants/.test(saveSessionBody), 'S6 saveSession 不落 autonomyGrants(不进会话文件)');
-const normConfigBody = (src.match(/function normalizeConfig\(raw\) \{[\s\S]*?\n\}\nfunction/) || [''])[0];
-ok(!/autonomyGrants/.test(normConfigBody), 'S6 normalizeConfig 不含 autonomyGrants(不进 config)');
+const normConfigBody = functionBlock(src, 'normalizeConfig');
+ok(normConfigBody.length > 100 && !/autonomyGrants/.test(normConfigBody), 'S6 normalizeConfig 不含 autonomyGrants(不进 config)');
 
 // S7 不进 digest/系统提示:任务账本 digest 与系统提示构建体内【无】grant 字段泄漏。
-const missionDigest = (src.match(/function buildMissionPromptSection\([\s\S]*?\n\}/) || [''])[0];
+const missionDigest = functionBlock(src, 'buildMissionPromptSection');
 ok(missionDigest.length > 50 && !/autonomyGrant|grantRoot|cmdAllow/.test(missionDigest), 'S7 任务账本 digest 不含授权书字段(不进上下文)');
 
 // S8 红线#4:签发路径禁 spawn_agent/orchestrate_agents(grantIssueTierInfo 返 null)。
@@ -116,13 +120,16 @@ for (const lit of [
   '/(^|[\\\\/])\\.github[\\\\/]workflows[\\\\/]/i',
   '/(^|[\\\\/])\\.gitlab-ci\\.yml$/i',
   '/(^|[\\\\/])Jenkinsfile$/i',
-]) ok(src.includes(lit), 'S9 03 AUTOEXEC_DENYLIST 含条目 ' + lit);
-ok(/^  AUTOEXEC_DENYLIST,$/m.test(src), 'S9 AUTOEXEC_DENYLIST 经 14-main 导出(导出关系不漂移)');
+]) ok(Array.isArray(srv.AUTOEXEC_DENYLIST) && srv.AUTOEXEC_DENYLIST.some(re => String(re) === lit), 'S9 03 AUTOEXEC_DENYLIST 含条目 ' + lit);
+ok(Array.isArray(srv.AUTOEXEC_DENYLIST) && srv.AUTOEXEC_DENYLIST.length >= 9 && srv.AUTOEXEC_DENYLIST.every(re => re instanceof RegExp),
+  'S9 AUTOEXEC_DENYLIST 经 14-main 导出(导出关系不漂移)');
 
 // S10 117q-B2:06f 授权书层拒止表 = 整条 .git/ + 03 表取并集(派生,不再自维护 CI 条目副本)。
 ok(src.includes('const GRANT_EDIT_AUTOEXEC_DENY = [\n  /(^|[\\\\/])\\.git[\\\\/]/i, ...AUTOEXEC_DENYLIST,\n];'),
   'S10 06f GRANT_EDIT_AUTOEXEC_DENY = [整条 .git/, ...AUTOEXEC_DENYLIST](并集字面量钉死)');
-const grantBlock = (src.match(/const autonomyGrants = new Map\(\);[\s\S]*?\nfunction listGrantsView\(sessionId\) \{[\s\S]*?\n\}/) || [''])[0];
+// 授权书核心块 = 从 autonomyGrants 声明到 listGrantsView 函数结束(公共切片;批 3·D)。
+const grantBlockOf = () => { const tail = functionBlock(src, 'listGrantsView'); return tail ? sliceBlock(src, 'const autonomyGrants = new Map();', tail, { inclusive: true }) : ''; };
+const grantBlock = grantBlockOf();
 ok(grantBlock.length > 1000
   && !/\.github\[\\\\\/\]workflows/.test(grantBlock)
   && !/\\\.gitlab-ci\\\.yml\$/.test(grantBlock)
@@ -134,14 +141,12 @@ ok(grantBlock.length > 1000
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 console.log('\n── [P] 纯逻辑源抽取(new Function 实跑)──');
 
-// 抽真 globToRegExp / pathWithinRoot(保真,不重写)。
-const gm = src.match(/function globToRegExp\(glob\) \{[\s\S]*?\n\}/);
-const globToRegExp = new Function(gm[0] + '\nreturn globToRegExp;')();
-const pm = src.match(/function pathWithinRoot\(target, root\) \{[\s\S]*?\n\}/);
-const pathWithinRoot = new Function('path', pm[0] + '\nreturn pathWithinRoot;')(path);
+// 抽真 globToRegExp(未导出,保真不重写);pathWithinRoot 取产物导出的那一个。
+const globToRegExp = new Function(functionBlock(src, 'globToRegExp') + '\nreturn globToRegExp;')();
+const pathWithinRoot = srv.pathWithinRoot;
 
 // 抽授权书核心块(autonomyGrants 声明 → listGrantsView 结束)。
-const mm = src.match(/const autonomyGrants = new Map\(\);[\s\S]*?\nfunction listGrantsView\(sessionId\) \{[\s\S]*?\n\}/);
+const mm = grantBlock ? [grantBlock] : null;
 ok(!!mm, 'P 源抽取授权书核心块');
 if (!mm) { console.log('\nAUTONOMY-GRANT E2E: FAIL (源抽取失败)'); process.exit(1); }
 
@@ -157,17 +162,15 @@ let _idc = 0; const makeId = pfx => pfx + '_' + (++_idc);
 const crypto = require('crypto');
 
 
-// 抽 03 工具层 AUTOEXEC_DENYLIST(117q-B2 起 06f 的 GRANT_EDIT_AUTOEXEC_DENY 派生自它,授权书块运行需要这个符号)。
-const am = src.match(/const AUTOEXEC_DENYLIST = \[[\s\S]*?\n\];/);
-ok(!!am, 'P 源抽取 AUTOEXEC_DENYLIST(03 工具层表字面量)');
-if (!am) { console.log('\nAUTONOMY-GRANT E2E: FAIL (AUTOEXEC_DENYLIST 抽取失败)'); process.exit(1); }
-const AUTOEXEC_DENYLIST = new Function(am[0] + '\nreturn AUTOEXEC_DENYLIST;')();
+// 03 工具层 AUTOEXEC_DENYLIST(117q-B2 起 06f 的 GRANT_EDIT_AUTOEXEC_DENY 派生自它,授权书块运行需要这个符号)。
+const AUTOEXEC_DENYLIST = srv.AUTOEXEC_DENYLIST;
+ok(Array.isArray(AUTOEXEC_DENYLIST), 'P 取到 AUTOEXEC_DENYLIST(03 工具层表,产物导出)');
+if (!Array.isArray(AUTOEXEC_DENYLIST)) { console.log('\nAUTONOMY-GRANT E2E: FAIL (AUTOEXEC_DENYLIST 未导出)'); process.exit(1); }
 
-// 抽真 hashArgs(00-boot.js,117q-B7(P2-16)单一事实源;consumeGrant 现在调它算 argsHash,不再手写 sha1 字面量)。
-const hm = src.match(/function hashArgs\(args\) \{[\s\S]*?\n\}/);
-ok(!!hm, 'P 源抽取 hashArgs(00-boot.js 单一事实源,保真不重写)');
-if (!hm) { console.log('\nAUTONOMY-GRANT E2E: FAIL (hashArgs 抽取失败)'); process.exit(1); }
-const hashArgs = new Function('crypto', hm[0] + '\nreturn hashArgs;')(crypto);
+// 真 hashArgs(00-boot.js,117q-B7(P2-16)单一事实源;consumeGrant 现在调它算 argsHash,不再手写 sha1 字面量)。
+const hashArgs = srv.hashArgs;
+ok(typeof hashArgs === 'function', 'P 取到 hashArgs(00-boot.js 单一事实源,产物导出)');
+if (typeof hashArgs !== 'function') { console.log('\nAUTONOMY-GRANT E2E: FAIL (hashArgs 未导出)'); process.exit(1); }
 
 const factory = new Function(
   'NATIVE_TOOL_TIER', 'nativeToolTier', 'globToRegExp', 'isSensitiveDataPath', 'pathWithinRoot', 'normalizeCwd', 'makeId', 'crypto', 'logEvent', 'path', 'AUTOEXEC_DENYLIST', 'hashArgs',

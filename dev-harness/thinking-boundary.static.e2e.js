@@ -2,19 +2,19 @@
 
 // Regression contract for live-thinking segmentation. The provider emits context_estimate between deltas;
 // it updates only the meter and must never manufacture a second thinking panel.
+// 架构还债批 3·D:修前用 indexOf('const THINKING_NARRATIVE_BOUNDARY_TYPES') 到
+// indexOf('\n\nexport function createChatStreamRuntime') 切一段源码进 vm 跑 —— 中间插一个 helper、
+// 调一下两者顺序或空行,切片就断。现在 import 前端模块本身(chat-stream-runtime.js 零 import,Node 直接可载),
+// 断言的是浏览器里跑的同一个函数。
 const assert = require('assert');
-const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
+const { pathToFileURL } = require('url');
 
 const file = path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'js', 'chat-stream-runtime.js');
-const source = fs.readFileSync(file, 'utf8');
-const start = source.indexOf('const THINKING_NARRATIVE_BOUNDARY_TYPES');
-const end = source.indexOf('\n\nexport function createChatStreamRuntime', start);
-assert(start >= 0 && end > start, 'thinking-boundary helper is present and extractable');
-const sandbox = {};
-vm.runInNewContext(source.slice(start, end) + '\nthis.boundary = isThinkingNarrativeBoundary;', sandbox);
-const boundary = sandbox.boundary;
+
+(async () => {
+const { isThinkingNarrativeBoundary: boundary } = await import(pathToFileURL(file).href);
+assert(typeof boundary === 'function', 'thinking-boundary helper is exported by chat-stream-runtime.js');
 
 function countThinkingPanels(events) {
   let active = false;
@@ -52,3 +52,4 @@ assert.equal(boundary({ type: 'agent_workflow', state: 'running' }), true, 'work
 assert.equal(boundary({ type: 'unknown_future_telemetry' }), false, 'unknown telemetry is safe by default');
 
 console.log('THINKING BOUNDARY STATIC E2E: ALL PASS');
+})().catch(err => { console.error(err && err.stack || err); console.log('THINKING BOUNDARY STATIC E2E: FAIL (1)'); process.exit(1); });

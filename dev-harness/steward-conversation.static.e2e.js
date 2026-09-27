@@ -29,7 +29,9 @@ const css = read('css/views/steward-conversation.css');
 const styles = read('styles.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
-const overlay = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 const readFrontendCss = fs.readFileSync(path.join(__dirname, 'read-frontend-css.js'), 'utf8');
 
 // 注释里要写清楚「零 innerHTML」「界面不出现『速问』」这些纪律本身，所以扫禁词与扫危险 API 时
@@ -247,9 +249,9 @@ ok(styles.includes('@import url("/css/views/steward-conversation.css");')
   'H1 styles.css @import 与 index.html 直链同步收录 steward-conversation.css');
 ok(readFrontendCss.includes("'css/views/steward-conversation.css',"),
   'H2 read-frontend-css.js 的 CSS_PAYLOAD_GROUPS 收录 steward-conversation.css');
-ok(overlay.includes("'app/public/css/views/steward-conversation.css'")
-  && overlay.includes("'app/public/js/steward-conversation.js'")
-  && overlay.includes("'app/public/js/steward-composer.js'"),
+ok(overlayPayload.has('app/public/css/views/steward-conversation.css')
+  && overlayPayload.has('app/public/js/steward-conversation.js')
+  && overlayPayload.has('app/public/js/steward-composer.js'),
   'H3 离线包清单收录 117c 的三个新文件');
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'H4 对话层 CSS 全部使用主题/语义 token，无硬编码色值');
 ok(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.steward-typing-dot \{ animation: none;/.test(css),

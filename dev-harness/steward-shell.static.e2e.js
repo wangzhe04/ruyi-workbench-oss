@@ -27,7 +27,9 @@ const css = read('css/views/steward-shell.css');
 const styles = read('styles.css');
 const zh = JSON.parse(read('locales/zh-CN.json'));
 const en = JSON.parse(read('locales/en-US.json'));
-const overlay = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 
 let fail = 0;
 const ok = (condition, label) => {
@@ -286,8 +288,8 @@ ok(zhKeys.every(key => !/Pretender|3\.0/.test(String(zh[key])))
   'E2 管家壳文案不提前暴露内部代号与保留大版本号');
 ok(['stewardShell.recovery.disabled', 'stewardShell.recovery.missingShell', 'stewardShell.recovery.dependency']
   .every(key => zhKeys.includes(key)), 'E3 三条 fail-closed 原因文案都在目录里');
-ok(overlay.includes("'app/public/js/steward-shell.js'")
-  && overlay.includes("'app/public/css/views/steward-shell.css'"), 'E4 管家壳 JS/CSS 进入 overlay 载荷');
+ok(overlayPayload.has('app/public/js/steward-shell.js')
+  && overlayPayload.has('app/public/css/views/steward-shell.css'), 'E4 管家壳 JS/CSS 进入 overlay 载荷');
 ok(styles.includes('@import url("/css/views/steward-shell.css");')
   && html.includes('<link rel="stylesheet" href="/css/views/steward-shell.css" />'),
   'E5 兼容样式清单与直载 CSS 同步');

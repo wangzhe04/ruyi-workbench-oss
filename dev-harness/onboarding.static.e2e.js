@@ -40,7 +40,9 @@ const indexHtml = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
 const stylesManifest = fs.readFileSync(path.join(PUBLIC, 'styles.css'), 'utf8');
 const cssSrc = fs.readFileSync(path.join(PUBLIC, 'css', 'components', 'onboarding.css'), 'utf8');
 const cssHarness = fs.readFileSync(path.join(__dirname, 'read-frontend-css.js'), 'utf8');
-const overlayBuilder = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'), 'utf8');
+// 架构还债批 3·D:载荷登记断言读打包器运行时遍历的那份数组(build-overlay.js 被 require 时零副作用),
+// 不再在打包器源码里找 'app/…' 字面量(表改成派生或换引号就静默失明)。
+const overlayPayload = new Set(require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js')).PAYLOAD_FILES);
 
 /* ═══════════ ⑤ 零 innerHTML(源码级) ═══════════ */
 ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(moduleSrc),
@@ -64,7 +66,7 @@ ok(!/\.innerHTML\s*=|insertAdjacentHTML|document\.write/.test(helpViewerSrc),
 ok(!/^import\s/m.test(helpViewerSrc) && helpViewerSrc.includes('renderMarkdownInto')
   && !/clipboard/i.test(helpViewerSrc),
   'E7 阅读器零 import、markdown 只经注入的 renderMarkdownInto 落 DOM、零剪贴板出口');
-ok(overlayBuilder.includes("'app/public/js/help-viewer.js'"), 'E8 overlay 离线载荷含手册阅读器模块');
+ok(overlayPayload.has('app/public/js/help-viewer.js'), 'E8 overlay 离线载荷含手册阅读器模块');
 ok(/\.help-viewer-toc-link\s*\{/.test(cssSrc) && /\.modal\.help-viewer\s*\{/.test(cssSrc)
   && cssSrc.includes('@media (max-width: 720px)'),
   'E9 阅读器样式在已注册的 onboarding.css 层内(含窄屏单栏收敛),不新增样式层');
@@ -118,7 +120,7 @@ ok(/chip\.onclick = \(\) => \{ openModal\('settingsModal'\); switchSettingsTab\(
 ok(indexHtml.includes('<link rel="stylesheet" href="/css/components/onboarding.css" />'), 'G1 index.html 已加载新样式层');
 ok(stylesManifest.includes('@import url("/css/components/onboarding.css");'), 'G2 styles.css 兼容清单同步');
 ok(cssHarness.includes("'css/components/onboarding.css'"), 'G3 CSS 载荷组清单登记新层');
-ok(overlayBuilder.includes("'app/public/css/components/onboarding.css'") && overlayBuilder.includes("'app/public/js/onboarding-wizard.js'"),
+ok(overlayPayload.has('app/public/css/components/onboarding.css') && overlayPayload.has('app/public/js/onboarding-wizard.js'),
   'G4 overlay 离线载荷含新模块与新样式层');
 ok(/\.onboard-wiz-card\s*\{/.test(cssSrc) && /\.onboard-wiz-rail\s*\{/.test(cssSrc) && /\.onboard-wiz-status\s*\{/.test(cssSrc),
   'G5 样式层含卡片/步骤条/状态行规则');

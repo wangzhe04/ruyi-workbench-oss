@@ -10,30 +10,41 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { bracedBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..', 'ruyi-workbench');
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
 
+// 架构还债批 3·D:载荷表直接 require 打包器本身(build-overlay.js 被 require 时零副作用,只导出三张表)——
+// 修前是 /const PAYLOAD_FILES = \[([\s\S]*?)\];/ 抠源码再逐条正则取字面量,表一改写法(拆常量、改引号、
+// 换成派生)就静默切空或漏条。现在拿到的就是打包器运行时遍历的那一份数组(含 manifest 驱动的 src 模块)。
+const overlay = require(path.join(ROOT, 'tools', 'build-overlay.js'));
 const boSrc = fs.readFileSync(path.join(ROOT, 'tools', 'build-overlay.js'), 'utf8');
-// 重建载荷清单:字面条目 + manifest 驱动的 src 模块(与 build-overlay.js:21-22 同构)。
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'app', 'src', 'manifest.json'), 'utf8'));
 const srcModules = manifest.modules.map(m => 'app/src/' + (typeof m === 'string' ? m : m.file));
-const arrayBlock = (boSrc.match(/const PAYLOAD_FILES = \[([\s\S]*?)\];/) || [])[1] || '';
-const literals = [...arrayBlock.matchAll(/'((?:app|Start|resources|tools)\/[^']+|Start-Workbench\.cmd)'/g)].map(m => m[1]);
-const payload = new Set([...literals, ...srcModules]);
-ok(literals.length > 10 && srcModules.length > 5, `载荷清单可重建(字面 ${literals.length} + src 模块 ${srcModules.length})`);
+const literals = overlay.PAYLOAD_FILES.filter(f => !srcModules.includes(f));
+const payload = new Set(overlay.PAYLOAD_FILES);
+ok(literals.length > 10 && srcModules.length > 5 && srcModules.every(f => payload.has(f)),
+  `载荷清单可重建(字面 ${literals.length} + src 模块 ${srcModules.length},manifest 的每个模块都在表里)`);
 
 // 109a: 可选载荷(OPTIONAL_PAYLOAD_FILES)。上游 MIT 发布物由维护者手工放入 vendor/,
 // 前端懒加载且缺失时降级,所以它「已登记」但「可以不在磁盘上」:参与 ③ 的登记判定,不进 ② 的存在判定。
-const optionalBlock = (boSrc.match(/const OPTIONAL_PAYLOAD_FILES = \[([\s\S]*?)\];/) || [])[1] || '';
-const optional = new Set([...optionalBlock.matchAll(/'(app\/[^']+)'/g)].map(m => m[1]));
+const optional = new Set(overlay.OPTIONAL_PAYLOAD_FILES);
 ok(optional.has('app/public/vendor/mermaid.min.js'), '109a 可选 vendor mermaid 已登记(文件缺失不阻塞打包)');
 ok([...optional].every(f => !payload.has(f)), '109a 可选载荷不与必需载荷重复');
-ok(/OPTIONAL_PAYLOAD_FILES[\s\S]{0,600}fs\.existsSync\(src\)/.test(boSrc), '109a 打包器对可选载荷做存在性跳过而非报错');
+// 打包循环是行为而非数据,仍是文本锁(装配一次要写 dist/,不在静态件里跑);用公共切片取那一个循环体。
+const optionalLoop = bracedBlock(boSrc, 'for (const rel of OPTIONAL_PAYLOAD_FILES)');
+ok(/if \(!fs\.existsSync\(src\)\) \{[^\n]*continue; \}/.test(optionalLoop) && !/process\.exit/.test(optionalLoop),
+  '109a 打包器对可选载荷做存在性跳过而非报错');
 
-// ② 每条载荷在磁盘存在。
-const missingOnDisk = [...payload].filter(f => !fs.existsSync(path.join(ROOT, f)));
+// ② 每条载荷在磁盘存在。桌面壳两件是 Windows 上 build-desktop.ps1 的编译/拷贝产物(release-dryrun ①.5 先编译
+// 再装配),源码树里本来就没有 —— 修前的字面量正则只认 app/|resources/|tools/ 开头,把它俩静默漏在判据外;
+// 现在显式登记,且根目录下只许出现这两件(再多一件没登记的根目录条目 = 红)。
+const DESKTOP_BUILD_OUTPUTS = ['RuyiDesktop.exe', 'WebView2Loader.dll'];
+const rootLevel = [...payload].filter(f => !/^(app|resources|tools)\//.test(f));
+ok(rootLevel.every(f => DESKTOP_BUILD_OUTPUTS.includes(f)), '② 根目录载荷只有桌面壳两件编译产物' + (rootLevel.length ? '(实得 ' + rootLevel.join(', ') + ')' : ''));
+const missingOnDisk = [...payload].filter(f => !DESKTOP_BUILD_OUTPUTS.includes(f) && !fs.existsSync(path.join(ROOT, f)));
 ok(missingOnDisk.length === 0, '② 载荷表每条在磁盘存在' + (missingOnDisk.length ? '(缺: ' + missingOnDisk.join(', ') + ')' : ''));
 
 // ACP 的 loader/register 是标准 npm 直连启动的运行时依赖；只要漏出 overlay，离线包就会静默退回
