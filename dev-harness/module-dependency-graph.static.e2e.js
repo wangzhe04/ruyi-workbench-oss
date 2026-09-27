@@ -32,6 +32,13 @@ ok(graph.modules.length === manifest.modules.length && graph.modules.every((modu
 ok(graph.duplicateProvides.length === 0, '103b no duplicate top-level provides');
 ok(violations.cycles.length === 0, '103b no cycle edge above the reviewed debt ceiling');
 ok(violations.forward.length === 0, '103b no forward/order-layer edge above the reviewed debt ceiling');
+// 架构还债批 1:环边已有逐条审过的上限,但「被卷进同一个强连通分量的模块数」没有 —— 往白名单里补一条边就可能把
+// 一个本来干净的模块拖进大环。这里给 SCC 的规模也钉一个只降不升的上限(2026-09-27 实数:1 个 SCC、32 个模块)。
+// 新模块默认挂在环外(零入边、经 *Hooks 延迟绑定,先例 06j-scheduler-core / 13t-steward-schedule);拆掉环以后把上限往下调。
+const SCC_MAX_COUNT = 1, SCC_MAX_MEMBERS = 32;
+const sccSizes = graph.stronglyConnectedComponents.map(component => component.length);
+ok(sccSizes.length <= SCC_MAX_COUNT && sccSizes.every(size => size <= SCC_MAX_MEMBERS),
+  `SCC 规模不超过上限(${SCC_MAX_COUNT} 个 / 每个 ≤ ${SCC_MAX_MEMBERS} 个模块;实测 ${JSON.stringify(sccSizes)})`);
 
 // Scanner adversarial: declarations in comments/strings are ignored, template interpolation remains visible,
 // and multi-declarator/destructuring bindings become provides. This protects the contract mechanism itself.
