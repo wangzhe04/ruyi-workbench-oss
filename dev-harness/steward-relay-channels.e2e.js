@@ -36,6 +36,7 @@ const { getFreePort } = require('./free-port.js');
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-relay-'));
+const RELAY_PERM_WS = path.join(HOME, 'ws', 'relay-perm');   // (B) permission 通道那条线程的工作文件夹
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };
@@ -94,7 +95,9 @@ const providerServer = http.createServer(async (req, res) => {
     return done();
   }
   if (/PERM/.test(lastUser) && !messages.some(m => m && m.role === 'tool')) {
-    const args = JSON.stringify({ path: 'relay-perm.txt', content: 'hi' });
+    // 绝对路径、落在 B 段那条线程自己的工作文件夹里 —— 走查 U5 之后,越界的写在弹权限窗之前就被挡掉(不再挂待决);
+    // 修前这里写的是相对路径(按服务进程的 cwd 解析,本来就在工作区外,批准之后也会被拒)。
+    const args = JSON.stringify({ path: path.join(RELAY_PERM_WS, 'relay-perm.txt'), content: 'hi' });
     sse({ choices: [{ index: 0, delta: { role: 'assistant', tool_calls: [{ index: 0, id: 'call_relay_perm', type: 'function', function: { name: 'file_write', arguments: '' } }] }, finish_reason: null }] });
     sse({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, function: { arguments: args } }] }, finish_reason: null }] });
     sse({ choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] });
@@ -213,8 +216,8 @@ try {
   // 每条线程一个【独立】工作文件夹:116h 的仲裁器对同 cwd 的写者是互斥的(cwd-write 锁),
   // 一条挂在提问上的线程会把同目录的后来者永远挡在队列里 —— 那不是本件要测的东西。
   let wsSeq = 0;
-  const newThread = async title => {
-    const cwd = path.join(HOME, 'ws', 'w' + (++wsSeq));
+  const newThread = async (title, fixedCwd) => {
+    const cwd = fixedCwd || path.join(HOME, 'ws', 'w' + (++wsSeq));
     fs.mkdirSync(cwd, { recursive: true });
     const created = await request('POST', '/api/sessions', { title, cwd }, hdr);
     return created.json && created.json.session && created.json.session.id;
@@ -295,7 +298,7 @@ try {
   /* ═════════ (B) permission 通道:不代答 ═════════ */
   console.log('── (B) permission 通道:有 permission 待决时不代答 ──');
   {
-    const sid = await newThread('要批准的线程');
+    const sid = await newThread('要批准的线程', RELAY_PERM_WS);
     // 真实路径:线程调 file_write(edit 档)→ permissionMode 'default' 下挂成一条【活】permission 待决。
     // 合成一条旁路账 pending 是不够的:递话通道只认内存里真有人在等的那种(见 stewardRelayChannelFor 头注)。
     fireTurn(sid, 'PERM 写个文件');

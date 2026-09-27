@@ -804,7 +804,11 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 体验走查 #5 续钉(前值 b8f38cb4…＝#6 续钉):零新增、零删除层,改一层 ——
 //   `css/views/chat-narrative.css`:对话里待决权限卡就地的「允许／拒绝」按钮行(`.narrative-perm-actions`)。
 // 算法自证:同上(HEAD 重算 = b8f38cb4…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '22f8eb528753b328dbe1bc5bd5b4f348faff6b6cb6d640b4b406db2d0c2eb027';
+// 走查 U13 续钉(前值 22f8eb52…＝体验走查 #5 续钉):零新增、零删除层,改一层 ——
+//   `css/components/tool-pane.css`:提示条 `.toast-tray` 点击穿透(pointer-events:none),管家视角下改到中栏输入框上方居中
+//   (修前「引导完成」那条压着右栏底部的「停止」)。
+// 算法自证:同上(HEAD 重算 = 22f8eb52…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '3afc1cb2eda329c17b550db83b319b43dd16a467cb5ae260d68d80471e1b99a7';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

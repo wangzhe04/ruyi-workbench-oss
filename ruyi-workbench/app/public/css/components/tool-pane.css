@@ -381,7 +381,9 @@ kbd { background: var(--panel-2); border: 1px solid var(--line-2); border-bottom
 .drawer-backdrop { display: none; }
 
 /* toasts */
-.toast-tray { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+.toast-tray { position: fixed; bottom: 18px; right: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; pointer-events: none; } /* 走查 U13：提示条是纯文字，点击穿过去（修前盖住下面的按钮，点不到） */
+/* 走查 U13：管家视角右栏底部是「在工作台打开／停止」那一行，提示条改到中栏输入框上方居中，不再压着它。 */
+:root[data-shell-mode="steward"] .toast-tray { right: auto; left: 50%; bottom: 96px; transform: translateX(-50%); align-items: center; }
 .toast { background: var(--glass-bg-2); border: 1px solid var(--glass-border); border-left: 3px solid var(--accent);
   -webkit-backdrop-filter: var(--glass-blur-1); backdrop-filter: var(--glass-blur-1); /* 第50波:浮层族,blur-1 防多 toast 叠爆预算 */ border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 10px 14px; font-size: var(--fs-md); max-width: 340px; animation: slidein var(--dur-base) var(--ease-out); }
 .toast.err { border-left-color: var(--danger); }

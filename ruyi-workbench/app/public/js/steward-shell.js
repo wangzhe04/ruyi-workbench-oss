@@ -371,6 +371,11 @@ export function createStewardShellDomain({
         .observe(globalThis.document.documentElement, { attributes: true, attributeFilter: ['data-shell-mode'] });
     }
     if (globalThis.document) globalThis.document.addEventListener('visibilitychange', syncPolling);
+    // U16 走查：运行时切语言（不刷新页面）时，「空闲」这类五态人话字面量是 renderPresence() 在
+    // 上一次状态变化那一刻算好焊死的，presenceInputs 没变就再也不会重算 —— 于是停在旧语言。
+    // i18n.js 的 setLocale 在 applyTranslations() 之后派一发全局 i18n:change（§ i18n.js 头注），
+    // 这里听它重画一次：presenceState 没变但 label 会用新 activeLocale 重算，字面量因此跟上。
+    try { globalThis.addEventListener('i18n:change', () => { renderPresence(); }); } catch { /* ignore */ }
     renderPresence();
     syncPolling();
   }

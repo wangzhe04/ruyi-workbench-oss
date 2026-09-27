@@ -637,7 +637,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       pending: ms.filter(x => !x || x.status === 'pending').length,
       budget: mm.budget || { maxAutoTurns: 0, maxTokens: 0 },
       spent: mm.spent || { autoTurns: 0, tokens: 0 },
-      budgetExhausted: Boolean(mm.budgetExhaustedAt),
+      budgetExhausted: Boolean(mm.budgetExhaustedAt), budgetExhaustedAt: String(mm.budgetExhaustedAt || ''),   // 后者给管家收件箱当去重键:任务重启后再次用尽是新的一件事
       // 第72波:结果章存根(列表卡片只带状态+时间,明细走详情快照 result)
       result: (mm.result && typeof mm.result === 'object') ? { status: mm.result.status || '', finishedAt: mm.result.finishedAt || '' } : null,
     },
@@ -939,7 +939,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     // 116g:只加字段 —— 行仍然是【线程行】(每个 mission 会话一张卡),既有字段与顺序逐字节不变,
     // 追加的是这条线程所属【事项】的聚合事实(aggregateState/threadCount/acceptance/cost/budget/derived)。
     const aggregate = await buildMissionAggregateRows();
-    const missions = index.sessions.filter(row => row.card)
+    const missions = index.sessions.filter(row => row.card && String(row.sessionId || '') !== STEWARD_SESSION_ID)   // 走查 U3:管家自己的会话不是任务,不进左栏
       .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
     // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
     // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
@@ -1817,7 +1817,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // Called by request_user_input in the per-session Claude MCP child. Hold the tool call until the UI
     // answers, then return a normal MCP tool result. Provider turns use the same registry in-process.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
+    if (!tokenMatches(body.token)) return send(res, apiFailure('auth.token_invalid', {}, 'bad token', 403));
     const sessionId = safeSessionId(body.sessionId);
     if (!sessionId) return send(res, apiFailure('session.id_invalid', {}, 'invalid sessionId', 400));
     const reg = activeChildren.get(sessionId);
@@ -1831,7 +1831,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/permission/request') {
     // Called by the permission-bridge MCP tool (loopback). Holds until the UI decides or times out.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const config = await readConfig();
     const sessionId = String(body.sessionId || '');
     const reg = activeChildren.get(sessionId);

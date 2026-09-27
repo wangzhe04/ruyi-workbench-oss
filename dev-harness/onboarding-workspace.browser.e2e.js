@@ -17,7 +17,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   W4（走查 #7）默认工作文件夹就是整个用户目录时，这一步醒目提示，并给一枚「用一个专用文件夹」—— 点它建出
 //      「如意工作区」并设成默认；
 //   W5（走查 #10）向导走到第二步时，后面那几步（管家／文件夹／安全）不预先画成「已完成」；
-//   W6（走查 #10）最后一步没有「退出引导」；整个向导的退出与服务商那一步的「这一步先跳过」说法分开。
+//   W6（走查 #10）最后一步没有「退出引导」；整个向导的退出与服务商那一步的「这一步先跳过」说法分开；
+//   W7（走查 U1）选文件夹不为它凭空建一条空线程；W8（走查 U11）本机服务那一支的步骤计数行不写「填入 API Key」。
 // 判定行：`ONBOARDING WORKSPACE BROWSER E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +48,12 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     })()`);
     ok(rail && rail.cur === 1 && rail.doneAhead.length === 0, `W5 走到第二步时，当前与后面的步骤不预先画成「已完成」（实测 ${JSON.stringify(rail)}）`);
     ok(rail && rail.skip === '退出引导', `W6a 整个向导的退出叫「退出引导」（实测 ${JSON.stringify(rail && rail.skip)}）`);
+    // W8（走查 U11）：选「本机的模型服务」→ 下一步的步骤计数行不写「填入 API Key」（本机服务不要密钥）。
+    await fx.evaluate(`(document.querySelectorAll('.onboard-wiz-engine .onboard-wiz-card')[1].click(), true)`);
+    await sleep(150);
+    await fx.evaluate(`(document.querySelector('.onboard-wiz-next').click(), true)`);
+    const counter = await fx.waitForEval(`(() => { const c = document.querySelector('.onboard-wiz-counter'); return c && /3/.test(c.textContent) ? c.textContent : null; })()`, 200);
+    ok(Boolean(counter) && !/API Key/i.test(counter) && /本机/.test(counter), `W8 本机服务那一支，步骤计数行不写「填入 API Key」（实测 ${JSON.stringify(counter)}）`);
     for (let i = 0; i < 8; i++) {
       const at = await fx.evaluate(`Boolean(document.querySelector('.onboard-wiz-workspace'))`);
       if (at) break;
@@ -116,6 +123,11 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     }
     const last = await fx.evaluate(`({ finish: Boolean(document.querySelector('.onboard-wiz-finish')), skip: Boolean(document.querySelector('.onboard-wiz-skip')) })`);
     ok(last.finish && !last.skip, `W6 最后一步只有「完成」，没有「退出引导」（实测 ${JSON.stringify(last)}）`);
+    // W7（走查 U1）：向导里选文件夹不为它凭空建一条空线程 —— 修前新用户一进来就有一条「排队」的空线程，管家还说「你回来了」。
+    const listed = await fx.request('GET', '/api/sessions');
+    const rows = Array.isArray(listed && listed.json) ? listed.json : ((listed && listed.json && (listed.json.sessions || listed.json.items)) || []);
+    const threads = rows.filter(r => r && String(r.id || '') !== 'steward');
+    ok(threads.length === 0, `W7 走完文件夹这一步，一条线程都没有被建出来（实测 ${threads.length} 条：${JSON.stringify(threads.map(r => r.title))}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;

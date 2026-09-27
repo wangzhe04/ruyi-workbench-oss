@@ -181,7 +181,8 @@ async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.
       r.on('error', e => resolve({ status: 0, body: String((e && e.message) || e) }));
       r.end(raw);
     });
-    ok(bad.status === 500, `⑤b 写坏的请求体漏到顶层 → 500(实 ${bad.status}:${bad.body.slice(0, 120)})`);
+    // 代码走查 C17:写坏的请求体是客户端的错 → 400 + api.bad_json(修前 500 api.internal_error)。仍然走顶层、仍然进日志。
+    ok(bad.status === 400 && /api\.bad_json/.test(bad.body), `⑤b 写坏的请求体漏到顶层 → 400 api.bad_json(实 ${bad.status}:${bad.body.slice(0, 120)})`);
     let hit = null;
     for (let i = 0; i < 30 && !hit; i++) {
       const tail = await request('GET', '/api/logs/tail?lines=50');
@@ -189,7 +190,7 @@ async function up() { // 117q:预算 60×150ms=9s 小于本机冷启动实测 4.
         .find(rec => rec && rec.kind === 'http_unhandled' && rec.path === '/api/sessions') || null;
       if (!hit) await sleep(100);
     }
-    ok(Boolean(hit) && hit.method === 'POST' && hit.status === 500 && hit.name === 'SyntaxError' && Array.isArray(hit.stack) && hit.stack.length > 0,
+    ok(Boolean(hit) && hit.method === 'POST' && hit.status === 400 && Array.isArray(hit.stack) && hit.stack.length > 0,
       `⑤b「看日志」里有一条 http_unhandled:方法／路径(不带查询串)／状态／错误名／栈(${JSON.stringify(hit).slice(0, 220)})`);
     const tailAll = (await request('GET', '/api/logs/tail?lines=400')).raw;
     ok(!tailAll.includes('sk-canary-') && !tailAll.includes('canary-query'),

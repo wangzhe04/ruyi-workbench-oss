@@ -243,6 +243,17 @@ export function createOnboardingWizardDomain({
   openHelpViewer = () => {},
 } = {}) {
 
+  // U14 走查：provider preset 卡片标题直接印服务端 label 字面量，几条带中文描述的
+  // （"自定义 (OpenAI 兼容 / 内网自建)"／通义千问／智谱／本机模型这几处）在 en-US 下会照原样露出。
+  // 与 provider-settings.js 的 populateProviderPresets 同一份查法（那边走 util.js 的
+  // presetDisplayLabel；本模块按「零 import」纪律自己重复这几行，不建立新的模块依赖）。
+  function presetTitle(preset) {
+    if (!preset) return '';
+    const key = `provider.preset.${String(preset.id || '').replace(/[-_](\w)/g, (_, c) => c.toUpperCase())}.label`;
+    const translated = t(key);
+    return translated === `[${key}]` ? (preset.label || preset.id) : translated;
+  }
+
   /* ---------------- persistence ---------------- */
   // The single config write path used by every step. Mirrors provider-settings' saveConfigPartial (POST
   // /api/config merges a partial patch, the response is the normalized config) so the wizard never keeps
@@ -431,7 +442,7 @@ export function createOnboardingWizardDomain({
       const meta = STEP_META[stepId];
       frame.modal.setAttribute('aria-label', t('onboarding.wizard.title'));
       frame.counter.textContent = t('onboarding.wizard.stepCounter', {
-        current: wiz.step + 1, total: ids.length, title: t(meta.titleKey),
+        current: wiz.step + 1, total: ids.length, title: t(stepId === 'provider' && wiz.engineChoice === 'local' ? 'onboarding.wizard.provider.titleLocal' : meta.titleKey),   // 走查 U11：本机服务那一支，步骤计数行也别写「填入 API Key」
       });
       // Step rail (decorative; the counter carries the same information for screen readers).
       const railItems = ids.map(id => {
@@ -614,7 +625,7 @@ export function createOnboardingWizardDomain({
         for (const preset of visiblePresets) {
           cards.append(choiceCard({
             selected: wiz.presetId === preset.id,
-            title: preset.label || preset.id,
+            title: presetTitle(preset),
             description: preset.baseUrl || t('onboarding.wizard.provider.noBaseUrl'),
             extra: preset.keyOptional ? t('onboarding.wizard.provider.noKeyNeeded') : (preset.defaultModel || ''),
             onSelect: () => {

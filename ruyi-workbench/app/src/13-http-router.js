@@ -302,7 +302,7 @@ async function applyConfigPatch(rawBody) {
 // 投递,后续回合不再重复注入;活回合在跑就登记在它的内存会话上(回合结束落盘),否则读-改-存一次。
 async function agentWorkflowLoopbackRoute(req, res, kind) {
   const body = await readJsonBody(req);
-  if (!((RUNTIME.token && body.token === RUNTIME.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
+  if (!(tokenMatches(body.token) || tokenOk(req))) return send(res, json({ ok: false, error: 'bad token' }, 403));
   const sessionId = safeSessionId(body.sessionId);
   if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
   const liveReg = activeChildren.get(sessionId);
@@ -1042,7 +1042,7 @@ async function handleApi(req, res, pathname) {
     // the persist here. Body-token authenticated (same pattern as /api/permission/request). Validates →
     // loadSession → session.todos = items → saveSession → if a live turn owns this session, emit `todo`.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId); // F4
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const items = normalizeTodoItems(body.items);
@@ -1062,7 +1062,7 @@ async function handleApi(req, res, pathname) {
   //    的 mission_update 工具 loopback,同 /api/todo 纪律)。action: start(全量设)/update(合并)/stop/check(跑验收)。──
   if (pathname === '/api/mission') {
     const bodyOrQ = req.method === 'GET' ? Object.fromEntries(new URL(req.url, 'http://x').searchParams) : await readJsonBody(req);
-    const bodyTokenOk = RUNTIME.token && bodyOrQ.token === RUNTIME.token;
+    const bodyTokenOk = tokenMatches(bodyOrQ.token);
     if (!tokenOk(req) && !bodyTokenOk) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const sessionId = safeSessionId(bodyOrQ.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
@@ -1250,7 +1250,7 @@ async function handleApi(req, res, pathname) {
     // 'claude' (a native one-shot `claude` CLI spawn, runClaudeSubAgentOnce) via runAgentWorkflow's
     // per-node engine resolution, so a Claude-CLI-only setup no longer needs a Provider configured at all.
     const body = await readJsonBody(req);
-    if (!RUNTIME.token || body.token !== RUNTIME.token) return send(res, json({ ok: false, error: 'bad token' }, 403));
+    if (!tokenMatches(body.token)) return send(res, json({ ok: false, error: 'bad token' }, 403));
     const sessionId = safeSessionId(body.sessionId);
     if (!sessionId) return send(res, json({ ok: false, error: 'invalid sessionId' }, 400));
     const session = await loadSession(sessionId);

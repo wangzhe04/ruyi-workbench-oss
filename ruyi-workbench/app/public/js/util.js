@@ -137,6 +137,22 @@ export function chatProviders(config) {
   return providers.filter(p => p && !isSpeechOnlyProvider(p));
 }
 
+// U14 走查：Provider/Claude 端点预设的 label 是后端 05-claude-engine.js 里的字面量（不过 i18n
+// 管线），其中几条带中文描述（"自定义 (OpenAI 兼容 / 内网自建)"／通义千问／智谱／本机模型这几处）
+// 在 en-US 下仍会照原样露出。不改后端（硬约束：app/src 之外也不轻易碰它），前端按 preset id 查一份
+// 可选的翻译键（provider.preset.<id>.label / claudeEndpoint.preset.<id>.label），命中就替换显示，
+// 查不到（多数预设本来就是纯品牌名，如 DeepSeek／Ark Coding Plan）就照旧显示服务端给的 label。
+// provider-settings.js 与 onboarding-wizard.js 的预设卡片/下拉共用同一份查法。
+function camelizePresetId(id) {
+  return String(id || '').replace(/[-_](\w)/g, (_, c) => c.toUpperCase());
+}
+export function presetDisplayLabel(namespace, preset) {
+  if (!preset) return '';
+  const key = `${namespace}.preset.${camelizePresetId(preset.id)}.label`;
+  const translated = t(key);
+  return translated === `[${key}]` ? (preset.label || preset.id) : translated;
+}
+
 // W6 设置重组：键序无关的 JSON（两份配置「是不是同一个值」只看内容，不看服务端与浏览器谁先写了哪个键）。
 export function canonicalJson(value) {
   if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';

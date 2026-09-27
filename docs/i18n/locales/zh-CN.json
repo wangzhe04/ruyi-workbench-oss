@@ -64,7 +64,8 @@
   "capability.view": "查看能力矩阵",
   "capability.visionInput": "视觉输入",
   "changes.collapse": "收起",
-  "changes.commandCount": "{{count}} 条命令",
+  "changes.commandCount.one": "{{count}} 条命令",
+  "changes.commandCount.other": "{{count}} 条命令",
   "changes.commandNotRevertible": "命令/终端操作无法自动撤销",
   "changes.confirmRollbackBody": "将把 {{path}} 恢复到第 {{turn}} 轮修改前的内容，当前内容会被覆盖。",
   "changes.confirmRollbackTitle": "确认回撤",
@@ -76,7 +77,8 @@
   "changes.diffUnavailable": "无法读取改动:{{err}}",
   "changes.empty": "本次未改动任何文件",
   "changes.emptyHint": "本线程还没有可回撤的文件变更。AI 用文件工具或 ACC 写文件后会出现在这里。",
-  "changes.fileCount": "{{count}} 个文件",
+  "changes.fileCount.one": "{{count}} 个文件",
+  "changes.fileCount.other": "{{count}} 个文件",
   "changes.loadFailed": "加载变更记录失败：",
   "changes.loadingDiff": "加载改动…",
   "changes.modify": "修改",
@@ -577,7 +579,7 @@
   "navigation.uiMode.simple": "界面：精简",
   "navigation.workbench": "工作台",
   "onboarding.description": "第一步：选一个工作文件夹，然后描述你要做的事。",
-  "onboarding.drop.description": "选一个文件夹作为 AI 的工作区，它只会看到这里面的东西",
+  "onboarding.drop.description": "选一个文件夹作为 AI 的工作区：它在这里面干活，改文件只改这里面的",
   "onboarding.drop.title": "把文件夹拖进来，或点击选择",
   "onboarding.engine.advancedClaude": "高级：我有 Agent CLI",
   "onboarding.engine.configureClaude": "配置 Agent CLI →",
@@ -3088,6 +3090,7 @@
   ,"stewardShell.board.needsYouGo": "去处理"
   ,"stewardShell.board.needsYouGoHint": "{{n}} 条等着你，点这里直接过去"
   ,"stewardShell.board.statusEmpty": "还没有任务，直接说你想做什么"
+  ,"stewardShell.board.statusEmptyNoModel": "还没有任务。先接一个模型，就可以直接说你想做什么"
   ,"stewardShell.board.maxParallelLabel": "同时最多"
   ,"stewardShell.board.maxParallelHint": "同时最多几条线程在跑（1–32），改完立即生效"
   ,"stewardShell.board.maxParallelSaved": "同时最多 {{n}} 条，已经生效。"
@@ -3285,4 +3288,58 @@
   ,"stewardShell.chat.errInvalidAct": "这项操作的信息不完整或时间已失效，需要重新确认具体内容。"
   ,"stewardShell.chat.errUnavailableAct": "这项操作当前无法执行，请直接告诉我你要处理什么。"
   ,"stewardShell.chat.actUnconfirmed": "没有收到执行回执，暂时不能确认是否成功。请先核实结果，避免重复执行。"
+  ,"navigation.mainViewTabs": "中栏主视图"
+  ,"mission.stop.title": "停止自动推进"
+  ,"autonomy.title": "自主性授权书"
+  ,"autonomy.issueTitle": "签发新授权(仅本机 UI 可签)"
+  ,"autonomy.issueNew": "+ 新建"
+  ,"autonomy.revokeAllTitle": "撤销本线程全部授权"
+  ,"autonomy.revokeAllButton": "全部撤销"
+  ,"autonomy.form.tool": "工具"
+  ,"autonomy.form.tool.fileWrite": "写文件 file_write(edit)"
+  ,"autonomy.form.tool.fileEdit": "改文件 file_edit(edit)"
+  ,"autonomy.form.tool.fileRead": "读文件 file_read(read)"
+  ,"autonomy.form.tool.powershellRun": "运行 PowerShell 命令 powershell_run(exec)"
+  ,"autonomy.form.scope": "范围"
+  ,"autonomy.form.scope.run": "本次运行内(run)"
+  ,"autonomy.form.scope.session": "整条线程(session)"
+  ,"autonomy.form.pathGlob": "路径 glob(逗号分隔,相对工作区根;留空=整个工作区)"
+  ,"autonomy.form.cmdAllow": "允许的命令前缀 cmdAllow(逗号分隔,锚定前缀;exec 必填)"
+  ,"autonomy.form.maxUses": "次数上限"
+  ,"autonomy.form.duration": "时长"
+  ,"autonomy.form.duration.15m": "15 分钟"
+  ,"autonomy.form.duration.30m": "30 分钟"
+  ,"autonomy.form.duration.1h": "1 小时"
+  ,"autonomy.form.duration.3h": "3 小时"
+  ,"autonomy.form.allowNet": "允许联网(默认禁,慎用)"
+  ,"autonomy.form.preview": "预览命中"
+  ,"autonomy.form.submit": "签发"
+  ,"chat.jumpLatest": "回到最新"
+  ,"navigation.crewCanvas": "班组画布"
+  ,"navigation.runSelector": "运行选择"
+  ,"navigation.contextBoard": "上下文板"
+  ,"workflow.editorButton": "新建 / 编辑"
+  ,"audit.miniLinkLabel": "审计"
+  ,"workflow.tabDescription": "从模板运行，或图形化创建 DAG；支持条件、循环、质量门和失败策略。"
+  ,"audit.allSources": "全部来源"
+  ,"audit.typeFilterPlaceholder": "按类型过滤（如 turn_start）"
+  ,"usage.range.month": "本月"
+  ,"usage.range.all": "全部"
+  ,"usage.rangeAria": "统计范围"
+  ,"usage.tabHint.pre": "按币种汇总各引擎 / 服务商 / 线程的用量。成本是按量计价的"
+  ,"usage.tabHint.strong": "等价估算"
+  ,"usage.tabHint.post": "（非实际扣费）；给服务商填了单价才有成本，计划内（订阅）计费只显 token。"
+  ,"layout.rightResizeHandle.title": "拖动调整右栏宽度 · 双击切档"
+  ,"layout.rightResizeHandle.aria": "拖动调整右栏宽度,双击切换档位"
+  ,"memory.modal.title": "工作台记忆"
+  ,"memory.modal.intro": "「工作台记忆」保存你的个人经验、项目惯例与教训，随工作台走；与「项目记忆（CLAUDE.md）」不同——后者随代码仓库走。启用的记忆会作为参考资料注入当前线程。"
+  ,"provider.preset.dashscope.label": "Qwen / DashScope (通义千问)"
+  ,"provider.preset.glm.label": "GLM / 智谱 (Zhipu)"
+  ,"provider.preset.ollama.label": "Ollama (本机模型,免 Key)"
+  ,"provider.preset.lmstudio.label": "LM Studio (本机模型,免 Key)"
+  ,"provider.preset.openaiCompatible.label": "自定义 (OpenAI 兼容 / 内网自建)"
+  ,"claudeEndpoint.preset.anthropicCompatible.label": "自定义（其它 Anthropic 兼容 / 内网自建端点）"
+  ,"tool.changes": "改动"
+  ,"tool.usage": "用量"
+  ,"common.launchMode": "启动"
 }

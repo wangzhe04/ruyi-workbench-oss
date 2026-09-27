@@ -22,7 +22,7 @@ import { icon } from './icons.js';
 import { stewardShortTitle, chatProviders } from './util.js';   // chatProviders:兜底取端点时不把只做语音的服务商当对话端点
 // 121-K6b（34 号文 §13.3 ①）：新任务的验收里程碑生产者。全仓只有这一份（thread-facts.js 是纯函数
 // 叶子，零 DOM 零 fetch），本文件只在「这一回合真开出了一条新线程」那一刻调它一次。
-import { dispatchAcceptanceMilestones, focusThreadFor } from './thread-facts.js';   // 124 还债④：焦点线程的判据与看板同一份（§8.5 ④）
+import { dispatchAcceptanceMilestones, focusThreadFor, threadShownTitle } from './thread-facts.js';   // 124 还债④：焦点线程的判据与看板同一份（§8.5 ④）
 // 107-S1 ④（46 号文 §5 ⑦b H1）：管家给的 confirm 族按钮（改设置／改技能／给线程开桌面）在 POST 之前
 // 必须先得到用户明确的「是」。确认件走全仓那一份 confirmDanger（背影／Tab 焦点陷阱／焦点归还／Esc／
 // 点背影都在它里面，33 号文 §4 的「四套收一套」），本文件不自己搭第二个模态。
@@ -1888,8 +1888,8 @@ export function createStewardConversation({
       acts.push({
         kind: 'open_thread', sessionId: String(focus.sessionId), primary: true,
         // UX-F5：按钮全文与线程名分开带 —— 回执读后者。
-        sessionTitle: String(focus.title || focus.sessionId),
-        label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(focus.title || focus.sessionId) }),
+        sessionTitle: String(threadShownTitle(focus, t('session.untitled'))),   // 走查 U4：服务端默认名「New session」不直接印出来，与左栏同一句「未命名线程」
+        label: t('stewardShell.chat.openFocus', { title: stewardShortTitle(threadShownTitle(focus, t('session.untitled'))) }),
       });
     }
     // 122-L1b（§2.13）：向导还没走完就在问候行下多一枚「开始引导」。位置在「知道了」之前
@@ -1924,9 +1924,21 @@ export function createStewardConversation({
   }
 
   // 首次：一句自我介绍 ＋ 三个可点例子（点了即填入输入框，不自动发送，§8.9 第一条）。
+  // 走查 U14：到访可能早于 setLocale(config.locale) 落定（Windows 上实测），这一段就停在默认语言。
+  // 它还是对话里最后一行时，语言一变就原样重画一遍；对话已经往下走了就不动（不改历史）。
+  let firstRunRow = null;
+  try {
+    globalThis.addEventListener('i18n:change', () => {
+      if (!firstRunRow || !firstRunRow.isConnected || firstRunRow.parentNode.lastElementChild !== firstRunRow) return;
+      firstRunRow.remove();
+      firstRunRow = null;
+      renderFirstRun();
+    });
+  } catch { /* 无 window（单测）时不挂 */ }
   function renderFirstRun() {
     const row = appendSteward(t('stewardShell.chat.intro'), '');
     if (!row) return;
+    firstRunRow = row;
     const box = el('div', 'steward-examples');
     for (const key of ['stewardShell.chat.example1', 'stewardShell.chat.example2', 'stewardShell.chat.example3']) {
       const text = t(key);
@@ -2156,6 +2168,7 @@ export function createStewardConversation({
     const send = byId('stewardComposerSend');
     if (send) send.disabled = !ready;
     if (ready && engineGated) { engineGated = false; entered = false; }   // 接上了：下面那一拍重新到访
+    if (!ready && entered && !engineGated) entered = false;   // 代码走查 C15：看着的时候掉线 → 下一拍重进，画「先接模型」卡（engineGated 随之置上，接上后才会重新到访）
     return ready;
   }
   function renderEngineGate() {

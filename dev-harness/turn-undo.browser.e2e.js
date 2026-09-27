@@ -16,6 +16,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   C 刷新页面、重开线程 → 卡片上那一行画「已撤销」（不是可点的按钮）、「撤销整轮」也不再可点、
 //     产物 chip 不再给已经删掉的 report.md 一个「打开」。
 //   D（代码走查 C6／走查 U9）整轮撤销只撤回了一部分 → 如实说；撤回的那几行当场改成「已撤销」；
+//   T（走查 U10）工作文件夹包含如意的数据目录时，文件树里不列出它；
 //   E（走查 #9）本机端点（127.0.0.1、没填密钥）时，工作台空状态不再催「填写 … 密钥」；
 //   E2（走查 #19）用不了的「一键任务」卡排在能用的后面。
 // 反向验证：把 session-experience.js 里 f.reverted 那一支删掉 → C1 当场红；把 confirmDanger 换回 confirm → B1 红。
@@ -193,6 +194,23 @@ function runTurn(port, token, sessionId, message, cwd) {
     ok(Boolean(partial) && partial.noteDone, 'D3 撤回了的 note.md 那一行当场改成「已撤销」，不再挂着可点的「撤销」');
     ok(Boolean(partial) && !/已撤销/.test(partial.bigText) && !fs.existsSync(note) && fs.statSync(big).size < 100,
       `D4 撤不回的 big.log 那一行不说「已撤销」；note.md 真的删了、big.log 没被动（实测 ${JSON.stringify(partial && { bigText: partial.bigText, note: fs.existsSync(note), big: fs.statSync(big).size })}）`);
+
+    /* ═════════ T 文件树不露如意自己的数据目录（走查 U10） ═════════ */
+    // 夹具的数据目录就是 fx.home；把一条线程的工作文件夹设成它的上一级（等价于「工作文件夹 = 整个用户目录」）。
+    const THREAD3 = '文件树线程';
+    await fx.request('POST', '/api/sessions', { title: THREAD3, cwd: fx.root });
+    await fx.waitForEval(`[...document.querySelectorAll('#railList .steward-board-thread')].some(n => n.textContent.includes(${JSON.stringify(THREAD3)})) ? 1 : null`, 300);
+    await openThread(THREAD3);
+    await fx.waitForEval(`window.state && window.state.currentSession && window.state.currentSession.title === ${JSON.stringify(THREAD3)} ? 1 : null`, 200);
+    await fx.evaluate(`(document.querySelector('.tool-pane .tool-tabs button[data-tab="files"]') || { click() {} }).click(), true`);
+    await fx.evaluate(`(document.getElementById('fileTreeRefreshBtn') || { click() {} }).click(), true`);
+    const treeNames = await fx.waitForEval(`(() => {
+      const names = [...document.querySelectorAll('#fileTree .ftree-name')].map(n => n.textContent);
+      return names.includes('work') ? names : null;
+    })()`, 200);
+    if (!treeNames) console.log('# 诊断 T1', JSON.stringify(await fx.evaluate(`({ cur: window.state.currentSession && [window.state.currentSession.title, window.state.currentSession.cwd], tab: Boolean(document.querySelector('.tool-pane .tool-tabs button[data-tab="files"]')), tabs: [...document.querySelectorAll('[data-tab]')].map(b => b.dataset.tab), tree: (document.getElementById('fileTree') || {}).textContent, root: (document.getElementById('fileTreeRoot') || {}).textContent })`)));
+    ok(Boolean(treeNames) && !treeNames.includes(path.basename(fx.home)) && treeNames.includes('work'),
+      `T1 工作文件夹包含如意的数据目录时，文件树里不列出它（实测 ${JSON.stringify(treeNames)}）`);
     ok(fx.exceptions.length === 0, `F1 零未捕获异常（${JSON.stringify(fx.exceptions)}）`);
   } catch (error) {
     fail++;

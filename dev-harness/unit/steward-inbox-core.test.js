@@ -216,7 +216,7 @@ ok(iv('permission', { status: 'allowed' }) === null || stewardNormalizePendingIn
 {
   const card = { updatedAt: AT, mission: { budgetExhausted: true, updatedAt: AT, budget: { maxAutoTurns: 5, maxTokens: 100 }, spent: { autoTurns: 5, tokens: 99 } } };
   const evt = stewardNormalizeBudgetExhausted('session_d', 'session_d', card);
-  ok(evt && evt.kind === 'budget' && evt.seq === 'exhausted', 'budgetExhausted -> budget(seq 位 = exhausted,每个事项一次性)');
+  ok(evt && evt.kind === 'budget' && /^exhausted/.test(evt.seq), 'budgetExhausted -> budget(seq 位 = exhausted[@用尽时刻],每次用尽一次)');
   ok(evt.payload.autoTurns === 5 && evt.payload.maxAutoTurns === 5, 'budget payload 带用量/上限');
   ok(stewardNormalizeBudgetExhausted('s', 's', { mission: { budgetExhausted: false } }) === null, '未触顶 -> 丢弃');
   ok(stewardNormalizeBudgetExhausted('s', 's', null) === null, '无 card -> 丢弃');

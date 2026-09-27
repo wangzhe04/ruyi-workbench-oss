@@ -220,5 +220,15 @@ const stateOnCard = /item\.dataset\.state = threadState/.test(rowFn);   // 五�
 ok(quickBadgeSibling && stateSignalInHead && stateOnCard,
   `⑤ 五态信号仍在(徽标是并列的兄弟,不替换它;实测 徽标兄弟=${quickBadgeSibling} 头上有五态=${stateSignalInHead} 卡上记五态=${stateOnCard})`);
 
+// ⑥(走查 U3):管家自己的会话「今天有动静」也不进索引 —— 修前它以「如意管家」一条任务出现在左栏。
+{
+  const now = Date.now();
+  const fresh = new Date(now - 60 * 1000).toISOString();
+  const stewardHidden = srv.threadVisible({ id: 'steward', kind: 'steward', updatedAt: fresh }, { now, recent: true, inFlight: true })
+    || srv.threadVisible({ id: 'steward', updatedAt: fresh }, { now });
+  const userShown = srv.threadVisible({ id: 'sess_u3', kind: 'chat', updatedAt: fresh }, { now });
+  ok(!stewardHidden && userShown, `⑥ 管家自己的会话不可见、今天有动静的普通线程可见(实测 管家=${stewardHidden} 普通=${userShown})`);
+}
+
 console.log(fail ? `THREAD STATE QUICK KIND UNIT: ${fail} FAILURE(S)` : 'THREAD STATE QUICK KIND UNIT: ALL PASS');
 process.exit(fail ? 1 : 0);

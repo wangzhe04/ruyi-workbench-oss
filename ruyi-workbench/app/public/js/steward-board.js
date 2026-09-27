@@ -40,6 +40,7 @@ import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThre
 // 与焦点卡元信息一行、对话流卡头【同一个】实现（stewardAgoLabel → Intl.RelativeTimeFormat）——修前印的是
 // elapsedLabel 的时长写法「0s 前有动静」。单开一条 import 行：上面那行被 steward-board.static 逐字钉着。
 import { stewardAgoLabel } from './steward-conversation.js';
+import { stewardEngineReady } from './steward-conversation.js';   // 走查 U12：空态按「接没接模型」说两种话
 // 33 号文 §4（M3-a）：危险操作确认四套收一套。本看板的「停掉占用者」修前走原生 globalThis.confirm
 // （全站唯一跳出式浮层：不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套。
 // 单开一条 import 行是刻意的：steward-board.static D4 逐字钉着上面那两行 steward-drawer 导入的写法，
@@ -142,6 +143,13 @@ export const RAIL_ASK_PREVIEW_CHARS = 22;
 // 走查 #4 收尾：今天停下、没做完的那些（最后一回合失败／断开／被叫停）单列「今天没做完」，排在收工之前 ——
 // 以前它们混在「今天收工」里，用户以为做完了。仍不自造 failed 态：判据是 thread-facts 的
 // threadLastTurnFailed（卡片上的最后一回合事实），更早的照旧归「更早」。
+// 走查 U12：还没接模型时，空态别说「直接说你想做什么」—— 那一刻输入框是灰的，说了也发不出去。
+// config 还没到（没有 providers 数组）按「接上了」算，与 steward-conversation 的挡板同一条判据。
+function boardEmptyKey(cfg) {
+  const ready = !(cfg && Array.isArray(cfg.providers)) || stewardEngineReady(cfg);
+  return ready ? 'stewardShell.board.statusEmpty' : 'stewardShell.board.statusEmptyNoModel';
+}
+
 export function railGroupFor(aggregateState, updatedAt, now = new Date(), lastTurnFailed = false) {
   const state = String(aggregateState || '');
   if (state === 'needs_you') return 'needs_you';
@@ -376,7 +384,7 @@ export function createStewardBoard({
       renderGlobalChip(0, 0);
       sideCounts = { running: 0, needsYou: 0 };
       renderSideStrip();
-      line.textContent = t('stewardShell.board.statusEmpty');
+      line.textContent = t(boardEmptyKey(state && state.config));
       return line.textContent;
     }
     const running = views.filter(view => view.state === 'running').length;
@@ -1156,7 +1164,7 @@ export function createStewardBoard({
       // 117l-B2 ②（用户第五轮走查 2）：空态是「一句话 ＋ 一个出口」。搜索没命中时说的是另一句
       // （既有键 session.noMatch），不把「还没有任务」这句假话印给一个正在搜索的人。
       const empty = el('div', 'steward-board-empty');
-      empty.appendChild(el('p', 'steward-board-empty-say', t(filter ? 'session.noMatch' : 'stewardShell.board.statusEmpty')));
+      empty.appendChild(el('p', 'steward-board-empty-say', t(filter ? 'session.noMatch' : boardEmptyKey(state && state.config))));
       if (!filter) empty.appendChild(boardButton('stewardShell.board.newThread', () => newThread(''), { newThread: '1' }));
       host.appendChild(empty);
       return 0;

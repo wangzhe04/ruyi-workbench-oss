@@ -1751,6 +1751,7 @@ function threadOriginOf(head) {
 // 当跨模块符号,起个没在更早模块出现过的名字比省几个字符重要。
 function threadVisible(head, input) {
   if (!head || typeof head !== 'object') return false;
+  if (head.kind === 'steward' || String(head.id || '') === STEWARD_SESSION_ID) return false;   // 走查 U3:管家自己的会话不是线程,「今天有动静」也不进左栏
   const src = (input && typeof input === 'object') ? input : {};
   if (src.watched === true) return true;
   if (src.inFlight === true) return true;
