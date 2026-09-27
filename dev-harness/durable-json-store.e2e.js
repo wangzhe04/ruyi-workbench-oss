@@ -69,6 +69,32 @@ const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
     ok(!recovered.entries.bad && recovered.entries.good.score === 4, 'sanitizer removes malformed entries during recovery write');
     store.invalidate();
     ok(store.readSync().entries.good.score === 4, 'store remains readable after corruption recovery');
+
+    // 架构还债批 2 B3:两个可选项 —— quarantine:false(坏了就当空、原文件原样留着、不复制 .corrupt)与异步 read()。
+    const quietFile = path.join(HOME, 'quiet.json');
+    const quietEvents = [];
+    const quiet = srv.DurableJsonStore.create({
+      id: 'quiet', file: quietFile, schemaVersion: 1, cache: false, quarantine: false,
+      defaultValue: () => ({ schema: 1, items: {} }),
+      onCorrupt: (error, info) => quietEvents.push(info.corruptPath),
+    });
+    fs.writeFileSync(quietFile, '{"schema":1,');
+    ok(Object.keys(quiet.readSync().items).length === 0 && !fs.existsSync(quietFile + '.corrupt') && fs.readFileSync(quietFile, 'utf8') === '{"schema":1,',
+      'quarantine:false recovers to defaults and leaves the bad file in place without a .corrupt copy');
+    ok(quietEvents.length === 1 && quietEvents[0] === '', 'quarantine:false still reports through onCorrupt, with an empty corruptPath');
+    ok(Object.keys((await quiet.read()).items).length === 0 && !fs.existsSync(quietFile + '.corrupt'), 'async read() follows the same recovery path');
+    fs.writeFileSync(quietFile, JSON.stringify({ schema: 1, items: { a: 1 } }));
+    ok((await quiet.read()).items.a === 1, 'async read() with cache:false re-reads the file every time');
+    fs.writeFileSync(quietFile, JSON.stringify({ schema: 2, items: { a: 1 } }));
+    ok(Object.keys((await quiet.read()).items).length === 0 && !fs.existsSync(quietFile + '.corrupt'), 'quarantine:false: a wrong schema reads as defaults, nothing copied');
+    ok(!fs.existsSync(path.join(HOME, 'missing-quiet.json')) && Object.keys((await srv.DurableJsonStore.create({ id: 'm', file: path.join(HOME, 'missing-quiet.json'), quarantine: false, defaultValue: () => ({ items: {} }) }).read()).items).length === 0,
+      'async read() of a missing file returns defaults without writing');
+    const cachedFile = path.join(HOME, 'cached.json');
+    const cachedStore = srv.DurableJsonStore.create({ id: 'cached', file: cachedFile, schemaVersion: 1, defaultValue: () => ({ schema: 1, items: {} }) });
+    const pendingRead = cachedStore.read();
+    const pendingWrite = cachedStore.write({ schema: 1, items: { w: 1 } });
+    ok((await pendingRead).items.w === 1, 'async read() does not replace a newer write-through cache with the older disk snapshot');
+    await pendingWrite;
   } finally {
     fs.rmSync(HOME, { recursive: true, force: true });
   }

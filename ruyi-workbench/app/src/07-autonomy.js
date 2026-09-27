@@ -2,10 +2,7 @@
 async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   const base = providerBaseWithV1(provider && provider.baseUrl);
   if (!base || typeof fetch !== 'function') return { ok: false, error: base ? 'fetch unavailable' : 'no base URL', models: [] };
-  const key = String((provider && provider.apiKey) || '').trim();
-  const headers = { 'content-type': 'application/json' };
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider && provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头,与补全请求同一份
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
@@ -2019,47 +2016,61 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
   let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      if (killed) break;
-      const res = await runOnce();
-      try {
-        // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
-        // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
-        // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
-        // billable this attempt.
-        const ru = res.resultUsage;
-        const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
-        const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
-        else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-          ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+    // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
+    // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
+    // 裁决;重试前发 retry 事件,再睡 min(2000, 300·attempt)(可被中止截断)。attempt = 本次之前已用掉的重试数 + 1。
+    let okText = null, okToolCalls = 0, retryReason = '';
+    await withTransientRetry({
+      maxRetries: MAX_ATTEMPTS - 1,
+      isAborted: () => killed,
+      signal: ctrl && ctrl.signal,
+      // Bounded backoff an abort can cut short (the same abortableDelay as runSubAgentCore's transient-retry sleep).
+      backoffMs: attempt => Math.min(2000, 300 * attempt),
+      attempt: async () => {
+        const res = await runOnce();
+        try {
+          // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
+          // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
+          // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
+          // billable this attempt.
+          const ru = res.resultUsage;
+          const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
+          const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+          }
+          if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
+        } catch { /* never let accounting break the attempt */ }
+        return res;
+      },
+      classify: (res, { retries }) => {
+        const attempt = retries + 1;
+        const finalText = (res.resultText || res.assistantText).trim();
+        const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
+        if (ok) { okText = finalText; okToolCalls = res.toolCallCount; return 'done'; }
+        lastFinalText = finalText; lastToolCalls = res.toolCallCount;
+        lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
+        const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
+        if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) return 'stop';
+        // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
+        // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
+        if (cls.reason === 'over_window') {
+          const raw = String(task || '');
+          if (overWindowShrunk || raw.length <= 60000) return 'stop';
+          overWindowShrunk = true;
+          taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
         }
-        if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
-      } catch { /* never let accounting break the attempt */ }
-      const finalText = (res.resultText || res.assistantText).trim();
-      const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
-      if (ok) {
-        onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-        return { ok: true, result: finalText, iters: 1, toolCalls: res.toolCallCount };
-      }
-      lastFinalText = finalText; lastToolCalls = res.toolCallCount;
-      lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
-      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
-      if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
-      // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
-      // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
-      if (cls.reason === 'over_window') {
-        const raw = String(task || '');
-        if (overWindowShrunk || raw.length <= 60000) break;
-        overWindowShrunk = true;
-        taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
-      }
-      onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
-      // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
-      await new Promise(r => {
-        const t = setTimeout(r, Math.min(2000, 300 * attempt));
-        if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-      });
+        retryReason = cls.reason;
+        return 'retry';
+      },
+      onRetry: (res, attempt) => {
+        onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: retryReason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
+      },
+    });
+    if (okText !== null) {
+      onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: okText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+      return { ok: true, result: okText, iters: 1, toolCalls: okToolCalls };
     }
     if (!killed && lastFinalText.trim().length >= 80 && lastToolCalls > 0) {
       onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, degraded: true, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });

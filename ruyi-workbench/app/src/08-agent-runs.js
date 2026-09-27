@@ -494,8 +494,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = subApiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (subApiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+  const chatUrl = providerCompletionUrl(provider.baseUrl, subApiStyle === 'responses'); // 04h:端点 URL 原语(与父回合同一份)
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -581,10 +580,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
@@ -732,26 +728,23 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // pre-first-byte transient failures a bounded number of times with backoff, and honor toolsRejected by
       // retrying once without tools. Mid-stream errors are NOT retried (防重放, matching the parent turn -
       // openAiStreamOnce lets those propagate to the catch below).
-      let call = null, giveUp = false, transientAttempts = 0;
+      // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
+      // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
-      while (true) {
-        if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
-        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
-        if (call.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; continue; }
-        const he0 = String(call.httpError || '');
-        const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
-        const transient = call.transportError || call.failoverStatus || status0 === 429;
-        if (transient && transientAttempts < 3) {
-          transientAttempts += 1;
-          await new Promise(r => {
-            const t = setTimeout(r, Math.min(2000, 250 * transientAttempts));
-            if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-          });
-          continue;
-        }
-        break;
-      }
-      if (giveUp) break;
+      const sent = await withTransientRetry({
+        maxRetries: 3,
+        isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
+        signal: ctrl && ctrl.signal,
+        backoffMs: n => Math.min(2000, 250 * n),
+        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream }),
+        classify: c => {
+          if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
+          return providerCallIsTransient(c) ? 'retry' : 'done';
+        },
+      });
+      if (sent.aborted) { subOk = false; subErr = '已中止'; break; }
+      const call = sent.result;
       // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (transient retry above, but no multi-endpoint
       // failover). openAiStreamOnce returns a pre-first-byte transport failure structurally instead of
       // throwing; the loop above already folded transportError into httpError for its own retry decision, and

@@ -35,6 +35,10 @@ module.exports = {
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
+  // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
+  // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
+  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerPostJsonOnce, providerRawCompletion, providerFixCompletion,
+  providerCallIsTransient, abortableDelay, withTransientRetry, openAiStreamOnce,
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
   asrFixSanity,
@@ -226,7 +230,7 @@ module.exports = {
   killChildTree, // 128i:发出去就算的那一支(14 处调用点的旧形状)—— exposed for unit/kill-own-process-tree.test.js [R2]
   killOwnProcessTree, // 128i:收尸只认自己的子孙 —— exposed for unit/kill-own-process-tree.test.js(dry 模式钉判据、真进程钉收尸)
   killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
-  normalizeConfig,
+  normalizeConfig, CONFIG_MIGRATIONS, // 架构还债批 2 B1:一次性 schema 迁移表(unit/config-migrations.test.js 钉顺序与金样)
   // 128a:读-改-写整条环 exposed for unit/config-explicit-keys.test.js(真读盘、真写盘,临时 HOME)。
   readConfig,
   mutateConfig,

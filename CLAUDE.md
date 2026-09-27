@@ -16,6 +16,9 @@
 ## 写新代码先找现成的(都有测试钉着,别再手写一份)
 
 - 按 key 串行的写链:`runKeyedChain(map, key, work)`(00-boot)。
+- 新的小 JSON 存储(工作台自己拥有的单文件 JSON)用 `DurableJsonStore.create`(01-config):schema、清洗、坏文件隔离、
+  容量、串行原子写、进程缓存都在里面;「坏了就当空、不留 .corrupt」的用 `quarantine: false`,async 路径用 `read()`。
+  先例:10 的 context-calibration、06d 的两个导入标记;清册 `durable-state-inventory` 要同步登记。
 - 接口失败:`apiFailure(code, params, message, status)`;会话两句常见失败 `apiSessionIdInvalid()` / `apiSessionNotFound()`。
   裸串 `json({ ok:false, error:'…' })` 有只减不增的上限(`unit/api-error-helpers.test.js`)。
 - 线程五态:有卡片走 `stewardThreadStateFromCard`,只有会话头走 `stewardThreadStateFromHead`(06i),不要手拼证据键。
@@ -38,11 +41,12 @@ node dev-harness/<改动相关>.e2e.js             # 单件:末行 ... E2E: ALL 
 | 生成物 | 重算 | 对应静态门 |
 |---|---|---|
 | `docs/architecture/route-inventory.{json,md}` | `node dev-harness/route-inventory.js` | `route-inventory.static.e2e.js` |
-| `docs/architecture/module-dependency-graph.json` | `node dev-harness/module-dependency-graph.js --write` | `module-dependency-graph.static.e2e.js` |
+| `docs/architecture/module-dependency-graph.{json,md}`、`app/src/module-contracts.json` | `node dev-harness/module-dependency-graph.js --write` | `module-dependency-graph.static.e2e.js` |
 | `facts.json` | `node dev-harness/facts-generate.js` | `facts.static.e2e.js` |
 
-这些生成物记着 `app/src` 的**行号**:小改动尽量不增删行(注释写在已有行尾),就不用连带重算几千行。
-只有 `generatedAt` 时间戳变化时不要提交生成物。
+生成物**不记 `app/src` 行号**(锚是模块/符号/路由/所在顶层函数名),增删注释或空行不会让它们漂移,放心加注释;
+只有符号、跨模块引用、路由/鉴权或 handler 归属真变了才需要重算(`unit/generated-artifacts-line-stable.test.js` 钉着这条)。
+`route-inventory` 与 `facts` 在内容不变时沿用旧 `generatedAt`,重跑不会产生纯时间戳 diff。
 
 ## 在云端(Linux 容器)开发
 

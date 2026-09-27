@@ -20,6 +20,11 @@
 //
 // 用法: node dev-harness/route-inventory.js          # 重算并覆写 docs/architecture/route-inventory.{json,md}
 //       node dev-harness/route-inventory.js --check  # 只校验不写文件(静态门用;也可直接 require computeInventory)
+//
+// 行号不入库(架构还债批 2):提交件里不记 app/src 的行号 —— 判定点/委派行以「文件 + 所在顶层函数名(handler)」
+// 为锚,顺序按文件内出现先后。于是在源码里增删一行注释/空行不会让清册漂移,只有路由/鉴权/handler 归属真的变了
+// 才需要重生成。行号只留在不入库的诊断里(problems 的 stderr 文案、未登记正则路由的报错)。
+// generatedAt:重生成时若除时间戳外内容未变,沿用提交件里的旧时间戳 —— 重跑生成器不产生纯时间戳噪声。
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -180,8 +185,8 @@ function methodsFromText(text) {
   return [...wire].sort();
 }
 
-function scanRouterFile(fileName) {
-  const text = fs.readFileSync(path.join(SRC, fileName), 'utf8');
+function scanRouterFile(fileName, srcDir = SRC) {
+  const text = fs.readFileSync(path.join(srcDir, fileName), 'utf8');
   const lines = text.split('\n');
   const points = [];
   const delegations = [];
@@ -194,7 +199,7 @@ function scanRouterFile(fileName) {
     // 域路由委派行(handleApi -> 域 handler),记录为域入口。
     const dm = line.match(/await\s+(handle[A-Za-z]+ApiRoutes?|handleSteerApiRoute)\s*\(/);
     if (dm && !/^(async\s+)?function/.test(trimmed)) {
-      delegations.push({ file: fileName, line: i + 1, target: dm[1] });
+      delegations.push({ file: fileName, handler: enclosingFunction(lines, i), target: dm[1], line: i + 1 });
     }
 
     let point = null;
@@ -222,7 +227,7 @@ function scanRouterFile(fileName) {
     points.push({
       ...point,
       file: fileName,
-      line: i + 1,
+      line: i + 1, // 只用于文件内排序与不入库的诊断文案;computeInventory 出口处剥掉
       handler: enclosingFunction(lines, i),
       methods,
       selfChecksToken: /tokenOk\(req\)/.test(block), // handler 内 token 自查(表为主、自查兜底纵深)
@@ -299,8 +304,9 @@ function crossCheck(routeAuth, points) {
     if (p.kind !== 'exact') continue;
     for (const m of p.methods) {
       const k = m + ' ' + p.path;
-      if (seen.has(k)) warnings.push(`重复精确判定点: ${k} (${seen.get(k)} 与 ${p.file}:${p.line})`);
-      else seen.set(k, `${p.file}:${p.line}`);
+      // 告警会进提交件:以「文件#handler」为锚,不写行号(见文件头「行号不入库」)。
+      if (seen.has(k)) warnings.push(`重复精确判定点: ${k} (${seen.get(k)} 与 ${p.file}#${p.handler})`);
+      else seen.set(k, `${p.file}#${p.handler}`);
     }
   }
   const authSeen = new Set();
@@ -318,14 +324,18 @@ function domainOf(point) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 主计算:全部数据派生自源码,结果按 (file,line) 排序保证字节稳定。
+// 主计算:全部数据派生自源码,结果按 (file, 文件内出现先后) 排序保证字节稳定;行号只作排序键,不出现在结果里。
+// opts.srcDir:扫另一份 app/src(行号稳定性单测用临时副本);缺省即仓内 app/src。
 // ─────────────────────────────────────────────────────────────────────────────
-function computeInventory() {
-  const routeAuth = parseRouteAuth(fs.readFileSync(path.join(SRC, ROUTE_AUTH_FILE), 'utf8'));
+function withoutLine({ line, ...rest }) { return rest; }
+
+function computeInventory(opts = {}) {
+  const srcDir = opts.srcDir || SRC;
+  const routeAuth = parseRouteAuth(fs.readFileSync(path.join(srcDir, ROUTE_AUTH_FILE), 'utf8'));
   const allPoints = [];
   const allDelegations = [];
   for (const f of ROUTER_FILES) {
-    const { points, delegations } = scanRouterFile(f);
+    const { points, delegations } = scanRouterFile(f, srcDir);
     allPoints.push(...points);
     allDelegations.push(...delegations);
   }
@@ -375,8 +385,8 @@ function computeInventory() {
       warnings: warnings.length,
     },
     routeAuth,
-    decisionPoints: allPoints,
-    delegations: allDelegations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line),
+    decisionPoints: allPoints.map(withoutLine),
+    delegations: allDelegations.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line).map(withoutLine),
     problems,
     warnings,
   };
@@ -410,7 +420,7 @@ function renderMarkdown(inv) {
       const tests = p.coveredBy.length ? `${shown.join(', ')}${p.coveredBy.length > 3 ? ` 等 ${p.coveredBy.length} 件` : ''}` : '—';
       const self = p.selfChecksToken ? ' self' : '';
       const shownPath = p.suffix ? `${p.path}…${p.suffix}` : p.path;
-      L.push(`| ${p.methods.join('/')} | \`${shownPath}\` | ${p.kind} | ${auth}${self} | ${p.file}:${p.line} | ${tests} |`);
+      L.push(`| ${p.methods.join('/')} | \`${shownPath}\` | ${p.kind} | ${auth}${self} | ${p.file} · \`${p.handler}\` | ${tests} |`);
     }
     L.push('');
   }
@@ -422,7 +432,7 @@ function renderMarkdown(inv) {
   }
   L.push('## 域路由委派(handleApi → 域 handler)');
   L.push('');
-  for (const d of inv.delegations) L.push(`- ${d.file}:${d.line} → \`${d.target}\``);
+  for (const d of inv.delegations) L.push(`- ${d.file} · \`${d.handler}\` → \`${d.target}\``);
   L.push('');
   return L.join('\n');
 }
@@ -433,6 +443,18 @@ function canonical(inv) {
   return JSON.stringify(rest, null, 2) + '\n';
 }
 
+function readCommitted() {
+  try { return JSON.parse(fs.readFileSync(JSON_PATH, 'utf8')); } catch { return null; }
+}
+
+// 内容(剥 generatedAt 后)与提交件一致时沿用提交件的 generatedAt:重跑生成器得到逐字节相同的 JSON 与 MD。
+function withStableTimestamp(inv, committed) {
+  if (committed && typeof committed.generatedAt === 'string' && canonical(committed) === canonical(inv)) {
+    return { ...inv, generatedAt: committed.generatedAt };
+  }
+  return inv;
+}
+
 function main() {
   const checkOnly = process.argv.includes('--check');
   const inv = computeInventory();
@@ -441,23 +463,29 @@ function main() {
     console.error(`\n路由清册交叉校验 FAIL(${inv.problems.length}):鉴权表与 handler 判定点已漂移`);
     process.exit(1);
   }
+  const committedInv = readCommitted();
   if (checkOnly) {
-    let committed = '';
-    try { committed = canonical(JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'))); } catch { committed = ''; }
+    const committed = committedInv ? canonical(committedInv) : '';
     if (committed !== canonical(inv)) {
       console.error('route-inventory.json 与源码重算不一致 —— 跑 node dev-harness/route-inventory.js 重新生成');
+      process.exit(1);
+    }
+    const md = fs.existsSync(MD_PATH) ? fs.readFileSync(MD_PATH, 'utf8') : '';
+    if (md !== renderMarkdown(withStableTimestamp(inv, committedInv))) {
+      console.error('route-inventory.md 与 JSON 重渲染不一致 —— 跑 node dev-harness/route-inventory.js 重新生成');
       process.exit(1);
     }
     console.log(`route-inventory --check OK(${inv.summary.decisionPoints} 判定点 / ${inv.summary.routeAuthEntries} 鉴权行,双向校验无漂移)`);
     return;
   }
+  const out = withStableTimestamp(inv, committedInv);
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  fs.writeFileSync(JSON_PATH, JSON.stringify(inv, null, 2) + '\n');
-  fs.writeFileSync(MD_PATH, renderMarkdown(inv));
+  fs.writeFileSync(JSON_PATH, JSON.stringify(out, null, 2) + '\n');
+  fs.writeFileSync(MD_PATH, renderMarkdown(out));
   console.log(`# route-inventory 已生成: ${inv.summary.decisionPoints} 判定点(exact ${inv.summary.byKind.exact}/prefix ${inv.summary.byKind.prefix}/regex ${inv.summary.byKind.regex}),ROUTE_AUTH ${inv.summary.routeAuthEntries} 条,未覆盖判定点 ${inv.summary.uncoveredPoints},告警 ${inv.summary.warnings}`);
   for (const w of inv.warnings) console.log('#   warn: ' + w);
 }
 
 if (require.main === module) main();
 
-module.exports = { computeInventory, canonical, authFirstMatch, parseRouteAuth, JSON_PATH, MD_PATH };
+module.exports = { computeInventory, canonical, renderMarkdown, withStableTimestamp, authFirstMatch, parseRouteAuth, JSON_PATH, MD_PATH };

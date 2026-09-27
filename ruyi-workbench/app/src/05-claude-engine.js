@@ -1803,22 +1803,7 @@ function sanitizeExternalMcpServer(raw) {
   };
 }
 
-// Normalize a provider base URL to the OpenAI "/v1" level so we can append /chat/completions or /models.
-// Keeps an existing /vN (or /compatible-mode/v1) segment; otherwise appends /v1.
-function providerBaseWithV1(baseUrl) {
-  const b = String(baseUrl || '').trim().replace(/\/+$/, '');
-  if (!b) return '';
-  if (/\/v\d+$/i.test(b)) return b;
-  return b + '/v1';
-}
-// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
-// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
-// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
-// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
-// 与 chat 的保留策略对称)。
-function providerResponsesBase(baseUrl) {
-  return String(baseUrl || '').trim().replace(/\/+$/, '');
-}
+// providerBaseWithV1 / providerResponsesBase 已迁往 04h-provider-http.js(架构还债批 2·A:服务商 HTTP 原语的唯一住处)。
 // v1.0 收官安全加固(对抗复核 PLAUSIBLE·minor):从 URL 剥掉 basic-auth userinfo(https://user:pass@host)。
 // failover 事件的 from/to 与审计会回显端点 base;若管理员把凭据塞进 baseUrl,明文会漏进前端与 NDJSON 审计。
 // 用于「显示/日志/粘住键」的 base,不用于真正发起请求的 chatUrl(后者需保留 userinfo 完成认证)。
@@ -1842,7 +1827,7 @@ function activeOpenAiProvider(config) {
 // ⑤ 的 audio_transcribe 原生工具(12)三方共用。apiKey 不出本进程、120s 超时、回体 8KB 上限、无 usage
 // 保守估算标 estimated,这套纪律抄第二份迟早分叉(一边补了超时一边没补)。落在 05 是因为两个消费面
 // (12 工具派发、13b 域路由)都【已有】到 05 的依赖边 —— 落这里零新增模块边(12→13b 反而是一条新增
-// 前向边);且 resolveProvider/providerBaseWithV1 本就住本文件。两函数不碰 req/res,失败回 { failure }。
+// 前向边);且 resolveProvider 本就住本文件(providerBaseWithV1 在 04h,更早加载)。两函数不碰 req/res,失败回 { failure }。
 function resolveAsrProvider(config) {
   const asrProviderId = String(config.asrProviderId || '').trim();
   const asrModel = String(config.asrModel || '').trim();
@@ -1959,49 +1944,24 @@ function asrFixSanity(input, output) {
 //  ① 模型由调用方指定;② 不带身份系统提示;③ temperature 0、max_tokens 400、超时 20 s(句尾后一秒内要落地的事);
 //  ④ 显式关思考(thinking:{type:'disabled'} + enable_thinking:false)—— flash 系模型缺省思考,预算被隐藏推理吃光、正文为空(52 号文 §3 实测);
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
+// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;这里只留提示词形状与回体取字。
 async function providerFixCompletion(provider, model, messages) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const url = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  const url = providerCompletionUrl(provider.baseUrl, respStyle);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider);
   const system = messages.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
   const user = messages.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
   const build = plain => (respStyle
     ? { model, instructions: system, input: user, stream: false, max_output_tokens: 400, ...(plain ? {} : { reasoning: { effort: 'minimal' } }) }
     : { model, messages, stream: false, temperature: 0, max_tokens: 400, ...(plain ? {} : { thinking: { type: 'disabled' }, enable_thinking: false }) });
   const once = async bodyObj => {
-    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 20000) : null;
-    try {
-      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
-      let raw = ''; try { raw = await res.text(); } catch { raw = ''; }
-      let j = null; try { j = JSON.parse(raw); } catch { j = null; }
-      // 有的端点／代理不理 stream:false 照样回 SSE:把 data: 行里的 delta 拼起来当一份非流式回体,别白白当成空。
-      if (!j && /(^|\n)data:/.test(raw)) {
-        let content = '', usage = null;
-        for (const line of raw.split('\n')) {
-          const t = line.trim();
-          if (!t.startsWith('data:')) continue;
-          const payload = t.slice(5).trim();
-          if (!payload || payload === '[DONE]') continue;
-          let ev = null; try { ev = JSON.parse(payload); } catch { ev = null; }
-          if (!ev) continue;
-          const d = ev.choices && ev.choices[0] && ev.choices[0].delta;
-          if (d && typeof d.content === 'string') content += d.content;
-          if (ev.usage && typeof ev.usage === 'object') usage = ev.usage;
-        }
-        j = { choices: [{ message: { content } }], usage };
-      }
-      return { status: res.status, ok: Boolean(res.ok), j };
-    } catch (e) {
-      return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') };
-    } finally { if (timer) clearTimeout(timer); }
+    // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
+    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
+    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') }; }
+    return { status: r.status, ok: r.ok, j: r.parsed };
   };
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));

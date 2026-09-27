@@ -101,8 +101,10 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   // 同日第六条（日志 config_providers_shrunk lost:['toolbox-asr-shim']）：设置页整份保存带的是页面加载时的草稿快照，晚一两秒才自动
   // 接入的 toolbox- 服务商不在里面，一次保存就把它撤掉、语音识别选择随即被清空。锁两头：服务端以现值为准（改不了、造不出、撤不掉），
   // 前端弹窗开着时也把这几条照 config 同步进草稿。行为在 toolbox-discovery.e2e K1/K2 真跑。
-  assert.ok(src13.includes('const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);') && src13.includes('merged.providers = [...foreign, ...owned];'),
-    '13: applyConfigPatch 里 toolbox- 服务商以现值为准（自动发现所有的前缀）');
+  // 架构还债批 2 B2:applyConfigPatch 从 13-http-router.js 原样搬进了配置域的 06k-config-patch.js,锁跟着落点走。
+  const src06k = fs.readFileSync(path.join(APP, 'src', '06k-config-patch.js'), 'utf8');
+  assert.ok(src06k.includes('const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);') && src06k.includes('merged.providers = [...foreign, ...owned];'),
+    '06k: applyConfigPatch 里 toolbox- 服务商以现值为准（自动发现所有的前缀）');
   assert.ok(providersJs.includes("} else if (Array.isArray(c.providers) && Array.isArray(state.providersDraft)) {"), '前端: fillSettings 弹窗开着时同步 toolbox- 服务商进草稿');
 }
 // 130（51 号文；用户拍板：校正默认静默替换、只做麦克风）：流式路的两个纯函数真跑。

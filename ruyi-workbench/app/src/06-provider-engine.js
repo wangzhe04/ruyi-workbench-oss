@@ -1106,17 +1106,13 @@ async function draftPlaybookFromSession(sessionId) {
 // v1.7: follows the provider's apiStyle — Responses protocol uses instructions+input and reads output_text.
 async function providerRawCompletion(provider, history) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。URL/请求头/一次 POST 的原语在 04h。
+  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
   }
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   // Responses 没有 chat/completions 的多 system-message 通道；把调用方追加的 system/developer
   // 规则折进 instructions，否则 JSON 修复器/记忆审稿人的严格协议会被 buildResponsesInputItems 丢弃。
@@ -1130,34 +1126,30 @@ async function providerRawCompletion(provider, history) {
     : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
-  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 60000) : null;
-  try {
-    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
-    if (!res || !res.ok) {
-      let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
-    }
-    const j = await res.json().catch(() => null);
-    let content = '';
-    if (respStyle) {
-      // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
-      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
-        if (item && item.type === 'message' && Array.isArray(item.content)) {
-          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
-        }
+  // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
+  if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
+  if (!r.res || !r.ok) {
+    const d = r.raw;
+    return { ok: false, error: `HTTP ${r.res ? r.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+  }
+  const j = r.parsed;
+  let content = '';
+  if (respStyle) {
+    // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
+    for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+      if (item && item.type === 'message' && Array.isArray(item.content)) {
+        for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
       }
-    } else {
-      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-      content = String((msg && msg.content) || '');
     }
-    content = content.trim();
-    if (!content) return { ok: false, error: 'provider returned an empty completion' };
-    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
-    return { ok: true, content, usage: (j && j.usage) || null, model };
-  } catch (e) {
-    return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') };
-  } finally { if (timer) clearTimeout(timer); }
+  } else {
+    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+    content = String((msg && msg.content) || '');
+  }
+  content = content.trim();
+  if (!content) return { ok: false, error: 'provider returned an empty completion' };
+  // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
+  return { ok: true, content, usage: (j && j.usage) || null, model };
 }
 
 // ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────

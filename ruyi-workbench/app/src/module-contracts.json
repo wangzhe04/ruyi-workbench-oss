@@ -205,6 +205,8 @@
         "CONFIG_BOOKKEEPING_KEYS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
+        "CONFIG_MIGRATIONS",
+        "ConfigPatchHooks",
         "DESKTOP_PYTHON_DISK_CACHE_FILE",
         "DESKTOP_PYTHON_DISK_MISS_CACHE_MS",
         "DESKTOP_PYTHON_IMPORT_PROBE",
@@ -236,6 +238,7 @@
         "agentCliProbeSpawn",
         "agentCliProbeable",
         "agentMcpImportSources",
+        "applyConfigMigrations",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -2071,6 +2074,23 @@
       ]
     },
     {
+      "file": "04h-provider-http.js",
+      "layer": "foundation",
+      "provides": [
+        "abortableDelay",
+        "providerApiBase",
+        "providerBaseWithV1",
+        "providerCallIsTransient",
+        "providerCompletionUrl",
+        "providerPostJsonOnce",
+        "providerRequestHeaders",
+        "providerResponsesBase",
+        "providerSseAsCompletion",
+        "withTransientRetry"
+      ],
+      "requires": []
+    },
+    {
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
@@ -2112,7 +2132,6 @@
         "mcpEntryIsRemote",
         "mcpEntryTrimmed",
         "mcpSecretValueOrCleared",
-        "providerBaseWithV1",
         "providerFixCompletion",
         "providerLaunchUrls",
         "providerLaunchVectorKey",
@@ -2120,7 +2139,6 @@
         "providerMaskedUrlFields",
         "providerModelCaps",
         "providerReasoningEffort",
-        "providerResponsesBase",
         "providerVectorNotWidened",
         "resolveAsrFixProvider",
         "resolveAsrProvider",
@@ -2666,6 +2684,34 @@
           "symbol": "ToolboxHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -4126,6 +4172,34 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -4135,20 +4209,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "applyProviderReasoningEffort",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerBaseWithV1",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
           "kinds": [
             "call"
           ]
@@ -4474,8 +4534,10 @@
         "MEMORY_TYPES",
         "MEMORY_USAGE_TOUCH_MS",
         "accMemoryImportMarker",
+        "accMemoryImportStore",
         "agentInstructionChain",
         "agentInstructionImportFile",
+        "agentInstructionImportStore",
         "agentInstructionMemoryId",
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
@@ -4610,13 +4672,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "fs",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -4697,6 +4752,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5164,6 +5226,155 @@
       "requires": []
     },
     {
+      "file": "06k-config-patch.js",
+      "layer": "engine",
+      "provides": [
+        "applyConfigPatch"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "os",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "invalidateAgentCliPathCaches",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncAgentRolesToClaude",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncClaudeCliSettings",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncMcpServersToClaude",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncMcpServersToKimi",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "rememberLastUsedEngineRoute",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflictMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "maskedSecretConflicts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "unmaskSecrets",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "07-autonomy.js",
       "layer": "orchestration",
       "provides": [
@@ -5612,8 +5823,22 @@
           ]
         },
         {
-          "provider": "05-claude-engine.js",
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
           "kinds": [
             "call"
           ]
@@ -6074,22 +6299,43 @@
           ]
         },
         {
-          "provider": "05-claude-engine.js",
-          "symbol": "applyProviderReasoningEffort",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCallIsTransient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
+          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "call"
           ]
@@ -7041,6 +7287,27 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerApiBase",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -7050,20 +7317,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "applyProviderReasoningEffort",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerBaseWithV1",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
           "kinds": [
             "call"
           ]
@@ -8593,22 +8846,29 @@
           ]
         },
         {
-          "provider": "05-claude-engine.js",
-          "symbol": "activeOpenAiProvider",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
+          "provider": "04h-provider-http.js",
           "symbol": "providerBaseWithV1",
           "kinds": [
             "call"
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
-          "symbol": "providerResponsesBase",
+          "symbol": "activeOpenAiProvider",
           "kinds": [
             "call"
           ]
@@ -9739,7 +9999,6 @@
         "START_ERROR_KINDS",
         "START_NOTICE",
         "agentWorkflowLoopbackRoute",
-        "applyConfigPatch",
         "buildModelHint",
         "consumeStartError",
         "discoverKimiModels",
@@ -10055,6 +10314,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "contentTypeFor",
           "kinds": [
             "call"
@@ -10132,13 +10398,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "invalidateAgentCliPathCaches",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "mcpConfigFilePath",
           "kinds": [
             "call"
@@ -10161,13 +10420,6 @@
         {
           "provider": "01-config.js",
           "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
           "kinds": [
             "read"
           ]
@@ -10426,21 +10678,7 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "rememberLastUsedEngineRoute",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "saveSession",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "sessionEngineRouteFromConfig",
           "kinds": [
             "call"
           ]
@@ -10707,13 +10945,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "unmaskProviders",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "unmaskSecrets",
           "kinds": [
             "call"
           ]
@@ -14584,6 +14815,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "ConfigPatchHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "normalizeConfig",
           "kinds": [
             "call"
@@ -14935,13 +15173,6 @@
         {
           "provider": "12-tool-dispatch.js",
           "symbol": "buildWorkbenchSelfStatus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13-http-router.js",
-          "symbol": "applyConfigPatch",
           "kinds": [
             "call"
           ]
@@ -18814,6 +19045,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "CONFIG_MIGRATIONS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "read"
@@ -20060,6 +20298,69 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "abortableDelay",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerApiBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCallIsTransient",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerResponsesBase",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "applyProviderReasoningEffort",
           "kinds": [
@@ -20090,6 +20391,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "maskSecrets",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "providerFixCompletion",
           "kinds": [
             "read"
           ]
@@ -20608,6 +20916,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "probeAny",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "providerRawCompletion",
           "kinds": [
             "read"
           ]
@@ -21742,6 +22057,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "openAiStreamOnce",
           "kinds": [
             "read"
           ]

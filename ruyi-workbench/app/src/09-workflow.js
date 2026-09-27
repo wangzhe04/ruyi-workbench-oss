@@ -1284,8 +1284,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
   // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
   const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = apiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+  const base = providerApiBase(provider.baseUrl, apiStyle === 'responses'); // 04h:端点 URL 原语(显示用 base 见 meta 事件)
+  const chatUrl = providerCompletionUrl(provider.baseUrl, apiStyle === 'responses');
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
@@ -1299,8 +1299,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = apiStyle === 'responses' ? providerResponsesBase(raw) : providerBaseWithV1(raw);
-      const u = b ? b + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+      const b = providerApiBase(raw, apiStyle === 'responses');
+      const u = providerCompletionUrl(raw, apiStyle === 'responses');
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -1537,10 +1537,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头;每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);

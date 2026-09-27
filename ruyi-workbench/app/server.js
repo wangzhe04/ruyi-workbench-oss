@@ -1999,6 +1999,94 @@ function finalizeConfigExplicitKeys(config, explicit) {
     .slice(0, CONFIG_EXPLICIT_KEY_MAX);
 }
 
+// ── 一次性 schema 迁移表(架构还债批 2 B1) ─────────────────────────────────────────────────────────
+// normalizeConfig 里按读进来的 configSchema 判的一次性迁移,原先与字段级校验交错在同一个函数体里;现在按 to
+// 升序登记在这张表里,由 normalizeConfig 在【唯一一个固定点】调 applyConfigMigrations(对 fromSchema < to 的逐条
+// 按表序执行)。那个点的位置由迁移的输入决定,移动它之前逐条核对下面每条的「读」:
+//   · 在它之前:迁移读到的键都已做完字段级校验 —— engineMode 的 print→legacy 别名与枚举兜底、严格布尔循环
+//     (字符串 "false" 这类脏值先被压成 false 再迁)、defaultWorkspace(恒非空)与 recentWorkspaces 的清洗;
+//   · 在它之后:工作区表那一段(to:10 把种子行放进 config.workspaces,由那一段统一清洗、去重、截断、拆出
+//     如意自管文件夹),以及落盘前的显式键推断(旧格式读看全部键 —— 迁移造出的值必须在那一次落盘)。
+// 每条都守 128a 的规矩:ctx.rawExplicit 里的键是用户明确设过的,不迁 —— schema 号可能被旧版写回去过,显式键集合
+// 活得过降级。apply 只改 config,返回「动了没有」;normalizeConfig 末尾按「落盘投影 ≠ raw」重算 changed。
+// 不在表里的「迁移」:subagentBudgetMigrated / searchBackendMigrated 两条按各自的标记键判(不看 schema 号),
+// Kimi 旧模型别名与 permissionMode 别名是每读必过的幂等改写 —— 它们留在 normalizeConfig 原处。
+// unit/config-migrations.test.js 钉:to 严格升序且各出现一次、不超过 CONFIG_SCHEMA、函数体里不再有 `< N` 阶梯。
+const CONFIG_MIGRATIONS = Object.freeze([
+  Object.freeze({
+    to: 9,
+    // Schema 9 makes interactive the effective default for upgraded installs too. Older configs could
+    // indefinitely retain legacy/print even though new installs already defaulted to interactive, leaving the
+    // composer advertising a steer action that the live CLI process could not accept. Migrate once; after the
+    // schema stamp, a user may still explicitly switch back to legacy from Settings and that choice is retained.
+    // 读:engineMode(已过校验:'print' 已折成 'legacy',野值已兜成 'interactive' —— 所以原先「raw 为 legacy/print」
+    // 在这里恰好等价于「此刻为 legacy」;名单仍写两个,与迁移的原意同形)。
+    apply(config, ctx) {
+      if (ctx.rawExplicit.has('engineMode') || !['legacy', 'print'].includes(config.engineMode)) return false;
+      config.engineMode = 'interactive';
+      return true;
+    },
+  }),
+  Object.freeze({
+    to: 10,
+    // v2.7 工作区权限:清洗后一条可用工作区都没有的老配置,从 defaultWorkspace + recentWorkspaces 播种,
+    // 让存量安装对它已经信任的每个文件夹保持读/写/执行。读:workspaces(原始行)、defaultWorkspace、
+    // recentWorkspaces(后两者已清洗)。「可用」与工作区表那一段 pushWs 的收录条件同一口径(非数组对象且
+    // path 规整后非空);一条都没有时原始行本来就一条也进不了表,整张换成种子行,由那一段按原样去重、截断。
+    apply(config) {
+      const rows = Array.isArray(config.workspaces) ? config.workspaces : [];
+      if (rows.some(r => r && typeof r === 'object' && !Array.isArray(r) && normalizeWorkspacePathString(r.path))) return false;
+      const seed = [];
+      if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
+      for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
+      config.workspaces = seed.map(s => ({ path: s }));
+      return true;
+    },
+  }),
+  Object.freeze({
+    to: 12,
+    // 107-T1(46 号文 §5): 126-111b/111d/111e 三个开关在 2.8.0 翻成默认开 —— 但【光翻 defaultConfig 没用】。
+    // normalizeConfig 是 { ...defaultConfig(), ...raw },raw 永远赢;而旧版 readConfig 只要 changed 为真就把【整份
+    // 合并后的配置】落盘,于是当年那批默认值被原样冻在盘上 —— 所有写过一次 config.json 的安装(= 全部
+    // 存量用户)盘上都实打实写着 false,新默认一个也吃不到。故走 schema 阶梯做一次性迁移。
+    // 【必须写 = true,不能 delete】:delete 之后 normalizeConfig 这一趟返回的 config 里这三个键是 undefined,
+    // 而判定函数一律是 `=== true` —— 当前这条命的进程里三个开关全是关的(要等下一次读配置才生效)。
+    // 判据在 unit/config-schema-12-migration.test.js 的 [A],它断的是 === true,delete 当场红。
+    // 读:三个开关(已过严格布尔循环:非布尔脏值比如字符串 "false" 先被压成 false,再统一迁移)。
+    // 只迁一次 —— 落盘时 configSchema 被盖成当前值,用户在 2.8.0 之后自己关掉的那些,升级不会再动。
+    // 128a(Brief §4.2 第 24 条,P1 实测):降级到 2.7.0 会把 configSchema 写回 11,回来时这道迁移又跑一遍,
+    // 把用户在新版里显式关掉的开关重新打开。2.7.0 保留不认识的顶层键 ⇒ configExplicitKeysV1 活过降级,schema 号
+    // 活不过 —— 所以按显式键判:在集合里的键是用户明确设过的,不迁。
+    apply(config, ctx) {
+      let moved = false;
+      for (const key of ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1']) {
+        if (config[key] === false && !ctx.rawExplicit.has(key)) { config[key] = true; moved = true; }
+      }
+      return moved;
+    },
+  }),
+  Object.freeze({
+    to: 13,
+    // 体验走查 #4:killOnDisconnect 缺省翻成 false(刷新／关窗不再结束回合)。schema 13 的稀疏文件里没碰过它的
+    // 用户本来就不存这个键,自动吃到新默认;只有 <13 的整份老文件盘上写着当年的默认 true,落盘前的显式键推断会把它
+    // 当成「用户改过」冻住。老文件里的 true 就是当年的默认,不是选择 —— 这里按默认处理。显式键照旧不动。
+    // 读:killOnDisconnect(没有字段级校验,只认 === true)。
+    apply(config, ctx) {
+      if (config.killOnDisconnect !== true || ctx.rawExplicit.has('killOnDisconnect')) return false;
+      config.killOnDisconnect = false;
+      return true;
+    },
+  }),
+]);
+// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合 }。返回是否有迁移动过 config。
+function applyConfigMigrations(config, ctx) {
+  let moved = false;
+  for (const migration of CONFIG_MIGRATIONS) {
+    if (ctx.fromSchema < migration.to && migration.apply(config, ctx)) moved = true;
+  }
+  return moved;
+}
+
 // Fold older config files onto the current schema. Returns { config, changed, persisted }.
 //   config    —— 整份内存视图(defaults ＋ 盘上),全部消费方读它;
 //   persisted —— 该落盘的投影(128a);changed ＝ 投影与传进来的 raw 不同(＝该写盘)。
@@ -2070,15 +2158,8 @@ function normalizeConfig(raw, opts = {}) {
     config.locale = 'auto';
     changed = true;
   }
-  // Schema 9 makes interactive the effective default for upgraded installs too. Older configs could
-  // indefinitely retain legacy/print even though new installs already defaulted to interactive, leaving the
-  // composer advertising a steer action that the live CLI process could not accept. Migrate once; after the
-  // schema stamp, a user may still explicitly switch back to legacy from Settings and that choice is retained.
-  // 128a:显式设过 engineMode 的(configExplicitKeysV1 里有它)不迁 —— schema 号可能被旧版写回去过。
-  if (incomingConfigSchema < 9 && !rawExplicit.has('engineMode') && ['legacy', 'print'].includes(config.engineMode)) {
-    config.engineMode = 'interactive';
-    changed = true;
-  } else if (config.engineMode === 'print') {
+  // engineMode 字段级校验。schema<9 的「legacy/print → interactive」一次性迁移在 CONFIG_MIGRATIONS(to:9)。
+  if (config.engineMode === 'print') {
     config.engineMode = 'legacy'; // tolerate the historical internal alias
     changed = true;
   } else if (!['legacy', 'interactive'].includes(config.engineMode)) {
@@ -2257,30 +2338,8 @@ function normalizeConfig(raw, opts = {}) {
     const b = config[key] === true;
     if (b !== config[key]) { config[key] = b; changed = true; }
   }
-  // 107-T1(46 号文 §5): 126-111b/111d/111e 三个开关在 2.8.0 翻成默认开 —— 但【光翻 defaultConfig 没用】。
-  // 上面 :591 是 { ...defaultConfig(), ...raw },raw 永远赢;而 readConfig 只要 changed 为真就把【整份
-  // 合并后的配置】落盘,于是当年那批默认值被原样冻在盘上 —— 所有写过一次 config.json 的安装(= 全部
-  // 存量用户)盘上都实打实写着 false,新默认一个也吃不到。故走 incomingConfigSchema 阶梯做一次性迁移。
-  // 【必须写 = true,不能 delete】:delete 之后本函数这一趟返回的 config 里这三个键是 undefined,
-  // 而判定函数一律是 `=== true` —— 当前这条命的进程里三个开关全是关的(要等下一次读配置才生效)。
-  // 判据在 unit/config-schema-12-migration.test.js 的 [A],它断的是 === true,delete 当场红。
-  // 放在严格布尔循环【之后】:非布尔脏值(比如字符串 "false")先被压成 false,再统一迁移。
-  // 只迁一次 —— 落盘时 configSchema 被盖成 12(见下文 config.configSchema = CONFIG_SCHEMA),用户在
-  // 2.8.0 之后自己关掉的那些,升级不会再动。
-  // 128a(Brief §4.2 第 24 条,P1 实测):降级到 2.7.0 会把 configSchema 写回 11,回来时这道迁移又跑一遍,
-  // 把用户在新版里显式关掉的开关重新打开。2.7.0 保留不认识的顶层键 ⇒ configExplicitKeysV1 活过降级,schema 号
-  // 活不过 —— 所以按显式键判:在集合里的键是用户明确设过的,不迁。
-  if (incomingConfigSchema < 12) {
-    for (const key of ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'runtimeReseedTailUnitsV1']) {
-      if (config[key] === false && !rawExplicit.has(key)) { config[key] = true; changed = true; }
-    }
-  }
-  // 体验走查 #4:killOnDisconnect 缺省翻成 false(刷新／关窗不再结束回合)。schema 13 的稀疏文件里没碰过它的
-  // 用户本来就不存这个键,自动吃到新默认;只有 <13 的整份老文件盘上写着当年的默认 true,下面那段推断会把它
-  // 当成「用户改过」冻住。老文件里的 true 就是当年的默认,不是选择 —— 这里按默认处理。显式键照旧不动。
-  if (incomingConfigSchema < 13 && config.killOnDisconnect === true && !rawExplicit.has('killOnDisconnect')) {
-    config.killOnDisconnect = false; changed = true;
-  }
+  // schema<12 的三开关翻开(107-T1)与 schema<13 的 killOnDisconnect 翻关在 CONFIG_MIGRATIONS(to:12 / to:13),
+  // 它们在上面这个严格布尔循环【之后】跑(脏值先压成 false 再迁),见 applyConfigMigrations 的调用点。
   { // 105f: 单发估算上限 —— JSON number,clamp [8192, 131072],缺省 32768(与 rules singleShotCap 同界)。
     const n = Number(config.summarySingleShotMaxTokensV1);
     const clamped = Number.isFinite(n) ? Math.min(131072, Math.max(8192, Math.round(n))) : 32768;
@@ -2501,10 +2560,13 @@ function normalizeConfig(raw, opts = {}) {
     if (JSON.stringify(clean) !== JSON.stringify(config.onboarding)) { config.onboarding = clean; changed = true; }
     else config.onboarding = clean;
   }
+  // 一次性 schema 迁移的唯一调用点(见 CONFIG_MIGRATIONS 头注):被迁移读到的键到这里都已完成字段级校验,
+  // 而下面的工作区表那一段要消费 to:10 播进来的种子。
+  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit })) changed = true;
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
-  // from defaultWorkspace + recentWorkspaces so an existing install keeps read/write/execute on every folder
-  // it already trusts. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
+  // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
+  // leaves the seed rows in config.workspaces for this block to cleanse. Cleanse: trimmed string path (≤1000), boolean flags, case-insensitive de-dupe,
   // capped at WORKSPACE_TABLE_CAP rows (117w-W1④ raised it 20 -> 64; see that constant for why).
   // defaultWorkspace is kept in sync with the highest-priority (first) workspace for backward compat.
   {
@@ -2527,12 +2589,6 @@ function normalizeConfig(raw, opts = {}) {
       clean.push(entry);
     };
     for (const e of rawArr) { pushWs(e); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
-    if (!clean.length && incomingConfigSchema < 10) {
-      const seed = [];
-      if (typeof config.defaultWorkspace === 'string' && config.defaultWorkspace.trim()) seed.push(config.defaultWorkspace);
-      for (const w of (Array.isArray(config.recentWorkspaces) ? config.recentWorkspaces : [])) if (typeof w === 'string') seed.push(w);
-      for (const s of seed) { pushWs({ path: s }); if (clean.length >= WORKSPACE_TABLE_CAP) break; }
-    }
     // W7:如意自己开的文件夹不留在常用工作区里(迁出),用户亲手加回去的算他的(收编)。见 normalizeStewardManagedWorkspaces。
     {
       const split = normalizeStewardManagedWorkspaces(config, clean);
@@ -2840,7 +2896,7 @@ function normalizeConfig(raw, opts = {}) {
   // (手改 config.json、旧版本写下的整份配置)。等于默认又不在集合里的键不落盘 —— 而且第一次读就清掉,
   // 否则下次默认一变,它们会被这条规则误认成「手改」、又冻住。
   // 旧格式(schema < 当前,含全新安装与降级往返)那一次读要看【全部】键,不只看 raw 里出现过的:上面那些
-  // `incomingConfigSchema < N` 的迁移会给 raw 里【没有】的键造出值(例如 <10 从 defaultWorkspace 给工作区表
+  // CONFIG_MIGRATIONS 里的一次性迁移会给 raw 里【没有】的键造出值(例如 to:10 从 defaultWorkspace 给工作区表
   // 播种),而 schema 一抬到当前,它们再也不会跑 —— 这一次不落盘,造出来的值就永远丢了(128a 第一轮全量逮到:
   // 工作区表被清空,管家开线程一律 invalid_request)。当前格式的文件只看 raw 里的键(手改)。
   const explicit = new Set(rawExplicit);
@@ -2924,6 +2980,10 @@ async function readFileTail(file, maxBytes) {
 // below only centralizes the lifecycle that small workbench-owned JSON stores were independently rebuilding:
 // schema admission, sanitization, corruption quarantine, bounded collections, serialized atomic writes and
 // an explicit process cache/invalidation contract.
+// 架构还债批 2 B3:新写的小 JSON 存储一律用它(不再各自手写 read/parse/schema/隔离/原子写那一套)。两个可选项
+// 让「坏了就当空」一族的存量存储能逐字节不变地迁进来:
+//   quarantine: false —— 坏文件/读不动/错 schema 静默回落默认值,原文件留在原处、不复制成 .corrupt(onCorrupt 仍照常调,corruptPath 为空串);
+//   read()           —— readSync 的异步版(fsp.readFile),同一套 prepare/回落/缓存规则,给本来就在 async 路径上的存储用。
 const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
   function cloneJson(value) {
     if (value === undefined) return undefined;
@@ -2965,6 +3025,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
     const schemaKey = String(options.schemaKey || 'schema');
     const schemaVersion = Number.isFinite(options.schemaVersion) ? options.schemaVersion : null;
     const cacheEnabled = options.cache !== false;
+    const quarantineEnabled = options.quarantine !== false;
     let cached = null;
     let hasCache = false;
     let writeChain = Promise.resolve();
@@ -3000,8 +3061,8 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 
     function quarantine(error) {
       const file = filePath();
-      const corruptPath = file + '.corrupt';
-      try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ }
+      const corruptPath = quarantineEnabled ? file + '.corrupt' : ''; // '' = quarantine:false, nothing was copied
+      if (quarantineEnabled) { try { fsModule.copyFileSync(file, corruptPath); } catch { /* best effort: original remains untouched */ } }
       if (typeof options.onCorrupt === 'function') {
         try { options.onCorrupt(error, { id, file, corruptPath }); } catch { /* diagnostics never block recovery */ }
       }
@@ -3013,10 +3074,30 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
-        if (!(error && error.code === 'ENOENT')) quarantine(error);
-        value = freshDefault();
+        value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
+      return value;
+    }
+
+    function recover(error) {
+      if (!(error && error.code === 'ENOENT')) quarantine(error);
+      return freshDefault();
+    }
+
+    async function read() {
+      if (cacheEnabled && hasCache) return cached;
+      let value;
+      try {
+        value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
+      } catch (error) {
+        value = recover(error);
+      }
+      if (cacheEnabled) {
+        // A write that was enqueued while this read awaited the disk already advanced the cache: keep the newer value.
+        if (hasCache) return cached;
+        cached = value; hasCache = true;
+      }
       return value;
     }
 
@@ -3042,7 +3123,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       hasCache = false;
     }
 
-    return { id, readSync, write, invalidate, filePath };
+    return { id, readSync, read, write, invalidate, filePath };
   }
 
   return { create, applyCapacity };
@@ -3180,6 +3261,12 @@ function mutateConfig(mutator) {
   configMutateChain = run.then(() => {}, () => {});
   return run;
 }
+
+// 架构还债批 2 B2:配置补丁的落盘与副作用 applyConfigPatch 住在 06k-config-patch.js(它要调 02 / 05 / 06i 的
+// 同步原语,放在 01 里会造出 01->02、01->06i 两条新前向边)。两个调用方(13 的 POST /api/config、13l 的
+// steward_config_set)经这个命名空间调,不直接引用 06k 的符号 —— 否则 06k 会被卷进唯一的大 SCC。
+//   applyConfigPatch(rawBody) -> Promise<next>(06k 加载时填入;契约见 06k 里那个函数的头注)
+const ConfigPatchHooks = {};
 
 // v1.4.3: Sync workbench settings to ~/.claude/settings.json so the Claude CLI's own config stays
 // aligned with what the user selected in the Ruyi UI. This is a MERGE: existing keys are preserved.
@@ -14036,6 +14123,126 @@ ToolboxHooks.statusView = toolboxStatusView;
 ToolboxHooks.asrSelectionChanged = onAsrSelectionChanged;
 ToolboxHooks.healthForProvider = toolboxHealthForProvider;
 
+// ── 架构还债批 2 · A:OpenAI 兼容服务商 HTTP 路径的原语只有这一个住处 ─────────────────────────────────────
+// 修前这套东西散在五个模块:端点 URL 归一化住在 CLI 引擎文件(05),请求头(content-type + Bearer + 自定义头)
+// 在 05/06/07/08/09/10 各手写一份,非流式补全的「fetch + 超时 AbortController + 读回体」在 05 与 06 各一份,
+// 子代理的瞬时错误重试(08)与 Claude CLI 子代理的重试(07)各写一个 while/for 循环、各带一份可被中止的退避睡眠。
+// 这里只收【原语】,纯搬家、逐字节同形:同样的 URL、同样的头(键序也同)、同样的请求体、同样的错误文本。
+// 拼提示词/解析业务回体的外壳仍留在各自的模块里(它们依赖 05/06/07 的提示词与协议翻译,挪到这里会造前向边)。
+//
+// 为什么排在 04f 之后、05 之前:所有消费者(05/06/06d/07/08/09/10)都在它后面,全是后向边;而它自己
+// 【零出边】—— 不引用任何其他模块的顶层符号(连 redact/logEvent 都不引用:脱敏留给调用方,回体原样交回),
+// 所以进不了任何环,也不扩大既有唯一 SCC。往这里加东西时守住这一条:需要别的模块的符号,就留在调用方做。
+
+// Normalize a provider base URL to the OpenAI "/v1" level so we can append /chat/completions or /models.
+// Keeps an existing /vN (or /compatible-mode/v1) segment; otherwise appends /v1.
+function providerBaseWithV1(baseUrl) {
+  const b = String(baseUrl || '').trim().replace(/\/+$/, '');
+  if (!b) return '';
+  if (/\/v\d+$/i.test(b)) return b;
+  return b + '/v1';
+}
+// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
+// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
+// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
+// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
+// 与 chat 的保留策略对称)。
+function providerResponsesBase(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '');
+}
+// 按协议取端点 base:responses → 原样 base;chat → 归一到 /vN。修前五处各写一遍这个三元式。
+function providerApiBase(baseUrl, responses) {
+  return responses ? providerResponsesBase(baseUrl) : providerBaseWithV1(baseUrl);
+}
+// 补全端点的完整 URL:base 为空 → ''(调用方据此报「provider base URL is not set」)。
+function providerCompletionUrl(baseUrl, responses) {
+  const base = providerApiBase(baseUrl, responses);
+  return base ? base + (responses ? '/responses' : '/chat/completions') : '';
+}
+// 出站请求头:content-type、再 Bearer(apiKey 去空白;空 key = keyOptional 端点,不带 authorization)、
+// 最后自定义头(providers[].extraHeaders)整份覆盖 —— 自定义头里写了 authorization 就以它为准。键序即插入序。
+// (语音转写 05 transcribeAudioViaProvider 是 multipart、头序与 key 口径都不同,不走这里。)
+function providerRequestHeaders(provider) {
+  const headers = { 'content-type': 'application/json' };
+  const key = String((provider && provider.apiKey) || '').trim();
+  if (key) headers['authorization'] = 'Bearer ' + key;
+  if (provider && provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  return headers;
+}
+// 有的端点／代理不理 stream:false 照样回 SSE:把 data: 行里的 delta 拼起来当一份非流式回体,别白白当成空。
+function providerSseAsCompletion(raw) {
+  let content = '', usage = null;
+  for (const line of String(raw || '').split('\n')) {
+    const t = line.trim();
+    if (!t.startsWith('data:')) continue;
+    const payload = t.slice(5).trim();
+    if (!payload || payload === '[DONE]') continue;
+    let ev = null; try { ev = JSON.parse(payload); } catch { ev = null; }
+    if (!ev) continue;
+    const d = ev.choices && ev.choices[0] && ev.choices[0].delta;
+    if (d && typeof d.content === 'string') content += d.content;
+    if (ev.usage && typeof ev.usage === 'object') usage = ev.usage;
+  }
+  return { choices: [{ message: { content } }], usage };
+}
+// 非流式一次性 POST:超时由 AbortController 管(计时覆盖读回体),回体整段读成文本再试 JSON。
+// 不抛:fetch/读体之外的异常以 { threw:true, error } 交回,由调用方按自己的口径出错误文本
+// (05 的改字是 'timeout (20s)',06 的起草是 'draft request timed out (60s)',两者都不许在这里被统一掉)。
+// sseFallback:回体不是 JSON 但像 SSE 时拼成 chat 形回体(只有 05 的改字开这个口,06 修前就不认 SSE)。
+async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback }) {
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined });
+    let raw = ''; if (res) { try { raw = await res.text(); } catch { raw = ''; } }
+    let parsed = null; try { parsed = JSON.parse(raw); } catch { parsed = null; }
+    if (sseFallback && !parsed && /(^|\n)data:/.test(raw)) parsed = providerSseAsCompletion(raw);
+    return { res, status: res ? res.status : undefined, ok: Boolean(res && res.ok), raw, parsed };
+  } catch (e) {
+    return { threw: true, error: e };
+  } finally { if (timer) clearTimeout(timer); }
+}
+
+// ── 瞬时错误重试策略(一份) ─────────────────────────────────────────────────────────────────────────────
+// OpenAI 路径的「瞬时」口径(修前写在 08 子代理循环里):首字节前的连接/TLS 失败(openAiStreamOnce 结构化交回的
+// transportError)、网关不可用 502/503/504(failoverStatus)、限流 429。流式已开始后的错误 openAiStreamOnce 直接抛出,
+// 根本到不了这里 —— 防重放是结构性的,不靠这个判据。
+function providerCallIsTransient(call) {
+  const he0 = String((call && call.httpError) || '');
+  const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
+  return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429));
+}
+// 可被中止截断的退避睡眠。与修前两份手写逐字同形:signal 已经 aborted 时监听器永不触发,睡满整段
+// (两处调用方都在睡前/睡后自己查中止,这个细节不能在这里「顺手修好」,否则事件时序会变)。
+function abortableDelay(ms, signal) {
+  return new Promise(r => {
+    const t = setTimeout(r, ms);
+    if (signal) signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
+  });
+}
+// 有界重试骨架。每一轮:先查 isAborted(真 → 立即交回 { aborted:true });再 attempt;再 classify 裁决:
+//   'retry' —— 可重试的瞬时失败:未超 maxRetries 就 retries+1、onRetry(result, retries)、睡 backoffMs(retries) 后重来;
+//              超了就按终局交回;
+//   'again' —— 立即、不计数、不睡地重来一次(08 的「工具被拒 → 去掉工具再打一次」,由 classify 自己保证只给一次);
+//   其他   —— 终局,原样交回。
+// retries 从 0 计;backoffMs 收到的是本次重试的序号(1 起),所以 08 的 min(2000, 250·n) 与 07 的 min(2000, 300·attempt)
+// 都能原样表达。classify 收到 { retries }(本次 attempt 之前已用掉的重试数),07 据此还原它的 attempt 序号。
+// 不吞异常:attempt 抛出(流式中途失败)原样上抛,不重试。
+async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, signal, isAborted, onRetry, delay }) {
+  const pause = typeof delay === 'function' ? delay : abortableDelay;
+  let retries = 0, result;
+  for (;;) {
+    if (typeof isAborted === 'function' && isAborted()) return { aborted: true, result, retries };
+    result = await attempt({ retries });
+    const verdict = classify(result, { retries });
+    if (verdict === 'again') continue;
+    if (verdict !== 'retry' || retries >= maxRetries) return { aborted: false, result, retries };
+    retries += 1;
+    if (typeof onRetry === 'function') onRetry(result, retries);
+    await pause(backoffMs(retries), signal);
+  }
+}
+
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
@@ -15841,22 +16048,7 @@ function sanitizeExternalMcpServer(raw) {
   };
 }
 
-// Normalize a provider base URL to the OpenAI "/v1" level so we can append /chat/completions or /models.
-// Keeps an existing /vN (or /compatible-mode/v1) segment; otherwise appends /v1.
-function providerBaseWithV1(baseUrl) {
-  const b = String(baseUrl || '').trim().replace(/\/+$/, '');
-  if (!b) return '';
-  if (/\/v\d+$/i.test(b)) return b;
-  return b + '/v1';
-}
-// v1.7-对抗轮(open-risk):Responses API 端点 URL —— 官方 OpenAI SDK 示例 base_url 就是
-// `https://api.deepseek.com`(无 /v1),SDK 直接拼 `/responses`。为与官方逐字节一致(且不依赖
-// "/v1/responses 是否被接受"这一无官方明文的事实),responses 走【原样 baseUrl + /responses】,
-// 只有 chat 走 providerBaseWithV1。若用户 baseUrl 自带 /vN 段则原样保留(拼出 /vN/responses,
-// 与 chat 的保留策略对称)。
-function providerResponsesBase(baseUrl) {
-  return String(baseUrl || '').trim().replace(/\/+$/, '');
-}
+// providerBaseWithV1 / providerResponsesBase 已迁往 04h-provider-http.js(架构还债批 2·A:服务商 HTTP 原语的唯一住处)。
 // v1.0 收官安全加固(对抗复核 PLAUSIBLE·minor):从 URL 剥掉 basic-auth userinfo(https://user:pass@host)。
 // failover 事件的 from/to 与审计会回显端点 base;若管理员把凭据塞进 baseUrl,明文会漏进前端与 NDJSON 审计。
 // 用于「显示/日志/粘住键」的 base,不用于真正发起请求的 chatUrl(后者需保留 userinfo 完成认证)。
@@ -15880,7 +16072,7 @@ function activeOpenAiProvider(config) {
 // ⑤ 的 audio_transcribe 原生工具(12)三方共用。apiKey 不出本进程、120s 超时、回体 8KB 上限、无 usage
 // 保守估算标 estimated,这套纪律抄第二份迟早分叉(一边补了超时一边没补)。落在 05 是因为两个消费面
 // (12 工具派发、13b 域路由)都【已有】到 05 的依赖边 —— 落这里零新增模块边(12→13b 反而是一条新增
-// 前向边);且 resolveProvider/providerBaseWithV1 本就住本文件。两函数不碰 req/res,失败回 { failure }。
+// 前向边);且 resolveProvider 本就住本文件(providerBaseWithV1 在 04h,更早加载)。两函数不碰 req/res,失败回 { failure }。
 function resolveAsrProvider(config) {
   const asrProviderId = String(config.asrProviderId || '').trim();
   const asrModel = String(config.asrModel || '').trim();
@@ -15997,49 +16189,24 @@ function asrFixSanity(input, output) {
 //  ① 模型由调用方指定;② 不带身份系统提示;③ temperature 0、max_tokens 400、超时 20 s(句尾后一秒内要落地的事);
 //  ④ 显式关思考(thinking:{type:'disabled'} + enable_thinking:false)—— flash 系模型缺省思考,预算被隐藏推理吃光、正文为空(52 号文 §3 实测);
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
+// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;这里只留提示词形状与回体取字。
 async function providerFixCompletion(provider, model, messages) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const url = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  const url = providerCompletionUrl(provider.baseUrl, respStyle);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider);
   const system = messages.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
   const user = messages.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
   const build = plain => (respStyle
     ? { model, instructions: system, input: user, stream: false, max_output_tokens: 400, ...(plain ? {} : { reasoning: { effort: 'minimal' } }) }
     : { model, messages, stream: false, temperature: 0, max_tokens: 400, ...(plain ? {} : { thinking: { type: 'disabled' }, enable_thinking: false }) });
   const once = async bodyObj => {
-    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 20000) : null;
-    try {
-      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
-      let raw = ''; try { raw = await res.text(); } catch { raw = ''; }
-      let j = null; try { j = JSON.parse(raw); } catch { j = null; }
-      // 有的端点／代理不理 stream:false 照样回 SSE:把 data: 行里的 delta 拼起来当一份非流式回体,别白白当成空。
-      if (!j && /(^|\n)data:/.test(raw)) {
-        let content = '', usage = null;
-        for (const line of raw.split('\n')) {
-          const t = line.trim();
-          if (!t.startsWith('data:')) continue;
-          const payload = t.slice(5).trim();
-          if (!payload || payload === '[DONE]') continue;
-          let ev = null; try { ev = JSON.parse(payload); } catch { ev = null; }
-          if (!ev) continue;
-          const d = ev.choices && ev.choices[0] && ev.choices[0].delta;
-          if (d && typeof d.content === 'string') content += d.content;
-          if (ev.usage && typeof ev.usage === 'object') usage = ev.usage;
-        }
-        j = { choices: [{ message: { content } }], usage };
-      }
-      return { status: res.status, ok: Boolean(res.ok), j };
-    } catch (e) {
-      return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') };
-    } finally { if (timer) clearTimeout(timer); }
+    // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
+    const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
+    if (r.threw) { const e = r.error; return { status: 0, ok: false, j: null, error: (e && e.name === 'AbortError') ? 'timeout (20s)' : ((e && e.message) || 'request failed') }; }
+    return { status: r.status, ok: r.ok, j: r.parsed };
   };
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));
@@ -20940,17 +21107,13 @@ async function draftPlaybookFromSession(sessionId) {
 // v1.7: follows the provider's apiStyle — Responses protocol uses instructions+input and reads output_text.
 async function providerRawCompletion(provider, history) {
   const respStyle = provider && provider.apiStyle === 'responses';
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
+  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。URL/请求头/一次 POST 的原语在 04h。
+  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
   }
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   // Responses 没有 chat/completions 的多 system-message 通道；把调用方追加的 system/developer
   // 规则折进 instructions，否则 JSON 修复器/记忆审稿人的严格协议会被 buildResponsesInputItems 丢弃。
@@ -20964,34 +21127,30 @@ async function providerRawCompletion(provider, history) {
     : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
-  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
-  const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, 60000) : null;
-  try {
-    const res = await fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(bodyObj), signal: ctrl ? ctrl.signal : undefined });
-    if (!res || !res.ok) {
-      let d = ''; if (res) { try { d = await res.text(); } catch { /* ignore */ } }
-      return { ok: false, error: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
-    }
-    const j = await res.json().catch(() => null);
-    let content = '';
-    if (respStyle) {
-      // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
-      for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
-        if (item && item.type === 'message' && Array.isArray(item.content)) {
-          for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
-        }
+  // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
+  const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
+  if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }
+  if (!r.res || !r.ok) {
+    const d = r.raw;
+    return { ok: false, error: `HTTP ${r.res ? r.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
+  }
+  const j = r.parsed;
+  let content = '';
+  if (respStyle) {
+    // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
+    for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
+      if (item && item.type === 'message' && Array.isArray(item.content)) {
+        for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
       }
-    } else {
-      const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-      content = String((msg && msg.content) || '');
     }
-    content = content.trim();
-    if (!content) return { ok: false, error: 'provider returned an empty completion' };
-    // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
-    return { ok: true, content, usage: (j && j.usage) || null, model };
-  } catch (e) {
-    return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') };
-  } finally { if (timer) clearTimeout(timer); }
+  } else {
+    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
+    content = String((msg && msg.content) || '');
+  }
+  content = content.trim();
+  if (!content) return { ok: false, error: 'provider returned an empty completion' };
+  // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
+  return { ok: true, content, usage: (j && j.usage) || null, model };
 }
 
 // ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────
@@ -25369,11 +25528,23 @@ async function deleteMemory(id, scope, cwd) {
 // 稳定 hash id + 不覆盖已有文件使中途失败可安全重试，原 ACC 文件始终保留不改。
 const ACC_MEMORY_IMPORT_SCHEMA = 1;
 function accMemoryImportMarker() { return path.join(paths.memory, '.acc-memory-import-v1.json'); }
+// 架构还债批 2 B3:完成标记走 DurableJsonStore(01),盘上字节与恢复口径与手写版逐字节相同:
+//   · 缺失 / 读不动 / 不是 JSON / 根不是对象 / schema 不是 1(含缺 schema)= 「还没做完」,幂等导入下次重跑;
+//     坏文件原样留着、不复制成 .corrupt(quarantine:false),不记事件 —— 与手写版一样安静;
+//   · 不缓存(cache:false):04 拼 ACC 的环境变量时每次都同步重读盘(测试与迁移中心会删它);
+//   · 写:mkdir memory 目录 + atomicWriteJson(pretty JSON),键序就是调用方给的那份。
+const accMemoryImportStore = DurableJsonStore.create({
+  id: 'acc-memory-import-marker',
+  file: () => accMemoryImportMarker(),
+  schemaVersion: ACC_MEMORY_IMPORT_SCHEMA,
+  cache: false,
+  quarantine: false,
+  defaultValue: () => ({ schema: ACC_MEMORY_IMPORT_SCHEMA }),
+  // 缺 schema 的也不认(prepare 只拒「有且不等」,缺的这一半在这里拒)—— 手写版判的是 marker.schema === 1。
+  sanitize: value => (value.schema === ACC_MEMORY_IMPORT_SCHEMA ? value : { schema: ACC_MEMORY_IMPORT_SCHEMA }),
+});
 function legacyAccMemoryMigrationComplete() {
-  try {
-    const marker = safeJsonParse(fs.readFileSync(accMemoryImportMarker(), 'utf8'), null);
-    return !!(marker && marker.schema === ACC_MEMORY_IMPORT_SCHEMA && marker.status === 'complete');
-  } catch { return false; }
+  try { return accMemoryImportStore.readSync().status === 'complete'; } catch { return false; }
 }
 function legacyAccMemoryCandidates() {
   const candidates = [];
@@ -25392,8 +25563,7 @@ async function migrateLegacyAccMemory() {
     try { const st = await fsp.stat(candidate); if (st.isFile()) { source = candidate; break; } } catch { /* try next standard location */ }
   }
   if (!source) {
-    await fsp.mkdir(paths.memory, { recursive: true });
-    await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'no-source', imported: 0, skipped: 0, completedAt: nowIso() });
+    await accMemoryImportStore.write({ schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'no-source', imported: 0, skipped: 0, completedAt: nowIso() });
     return { ok: true, imported: 0, skipped: 0, noSource: true };
   }
   let store;
@@ -25427,8 +25597,7 @@ async function migrateLegacyAccMemory() {
     if (!saved.ok) return { ok: false, error: saved.error || 'failed to import legacy ACC memory', source, imported, skipped };
     imported++;
   }
-  await fsp.mkdir(paths.memory, { recursive: true });
-  await atomicWriteJson(accMemoryImportMarker(), { schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'imported', source, imported, skipped, completedAt: nowIso() });
+  await accMemoryImportStore.write({ schema: ACC_MEMORY_IMPORT_SCHEMA, status: 'complete', result: 'imported', source, imported, skipped, completedAt: nowIso() });
   logEvent({ kind: 'acc_memory_import_complete', source, imported, skipped });
   return { ok: true, source, imported, skipped };
 }
@@ -25466,6 +25635,22 @@ function agentInstructionSources() {
   ];
 }
 function agentInstructionImportFile() { return path.join(paths.memory, '.agent-instructions-import-v1.json'); }
+// 架构还债批 2 B3:所有权 sidecar 走 DurableJsonStore(01),盘上字节与恢复口径与手写版逐字节相同:
+//   · 缺失 / 读不动 / 不是 JSON / 根不是对象 / schema 不是 1(含缺 schema)/ sources 不是普通对象 = 空表
+//     { schema:1, sources:{} };坏文件原样留着、不复制成 .corrupt(quarantine:false),不记事件;
+//   · 合格的文件原样读回(含 updatedAt 与任何多余的键),不缓存(每次同步都重读盘);
+//   · 写:mkdir memory 目录 + atomicWriteJson,形状固定 { schema, updatedAt, sources }。
+//   读-改-写的串行仍由 agentInstructionChain 负责(整段同步是一个临界区),store 自己的写链只是再串一层。
+const agentInstructionImportStore = DurableJsonStore.create({
+  id: 'agent-instructions-import',
+  file: () => agentInstructionImportFile(),
+  schemaVersion: AGENT_INSTRUCTION_IMPORT_SCHEMA,
+  cache: false,
+  quarantine: false,
+  defaultValue: () => ({ schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} }),
+  sanitize: value => (value.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && value.sources && typeof value.sources === 'object' && !Array.isArray(value.sources)
+    ? value : { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} }),
+});
 function agentInstructionMemoryId(key, n) { return 'agentmd-' + key + '-' + n; }
 function agentInstructionSourceKeyOf(id) {
   const m = /^agentmd-([a-z]+-[a-z]+)-\d+$/.exec(String(id || ''));
@@ -25481,15 +25666,10 @@ function filterMemoryForNativeCli(entries, cliType) {
 function sha256Hex(text) { return crypto.createHash('sha256').update(String(text), 'utf8').digest('hex'); }
 
 async function readAgentInstructionState() {
-  try {
-    const raw = safeJsonParse(await fsp.readFile(agentInstructionImportFile(), 'utf8'), null);
-    if (raw && raw.schema === AGENT_INSTRUCTION_IMPORT_SCHEMA && raw.sources && typeof raw.sources === 'object' && !Array.isArray(raw.sources)) return raw;
-  } catch { /* 首次 */ }
-  return { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, sources: {} };
+  return agentInstructionImportStore.read();
 }
 async function writeAgentInstructionState(state) {
-  await fsp.mkdir(paths.memory, { recursive: true });
-  await atomicWriteJson(agentInstructionImportFile(), { schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, updatedAt: nowIso(), sources: state.sources });
+  await agentInstructionImportStore.write({ schema: AGENT_INSTRUCTION_IMPORT_SCHEMA, updatedAt: nowIso(), sources: state.sources });
 }
 
 // 取来源的第一个非空文件。返回 null(没有)/{ file, error }(过大、读不了)/{ file, text, hash }。
@@ -28172,14 +28352,163 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   return { ok: true, task };
 }
 
+// ============================================================================
+// 架构还债批 2 B2:配置补丁的落盘与副作用 —— 配置域的业务规则,不是传输层的事。
+//
+// applyConfigPatch 原先住在 13-http-router.js:掩码密钥冲突检测、toolbox- 服务商归属、服务商缩水自动备份 +
+// 审计事件、Claude CLI / agent roles / MCP 同步触发,全是配置域的规矩;13l 的 steward_config_set 为了走同一条
+// 落盘路径,只能回头伸进路由文件里调它。现在它住在这里,路由层只剩 body 解析与错误翻译。
+//
+// 为什么是一个排在 06j 之后的独立模块、而不是塞进 01-config.js:
+//   · 它要调 02(rememberLastUsedEngineRoute / sessionEngineRouteFromConfig)、05(掩码三件)、06i(StewardHooks):
+//     放在 01 里就是 01->02、01->06i 两条新前向边;放在这里全是后向边。
+//   · 两个调用方(13、13l)若直接引用 applyConfigPatch,本模块就会经 13 -> 06k -> 01 被卷进唯一的大 SCC(已在
+//     上限 32)。所以调用方经 01 的 ConfigPatchHooks 调(与 06j / 13t 同一个模具),本模块零入边、不进任何环。
+// ============================================================================
+
+// 第 116 波 116-2e:POST /api/config 的落盘与全部副作用,零行为抽出为 applyConfigPatch(body)。
+// 为什么抽:`steward_config_set`(§3.5「如意设置」行)必须经【同一个落盘函数】写入 —— 116h 的
+// arbiterRefresh、Claude CLI settings 同步、agent roles 同步、MCP 同步都挂在这条路径上,管家走
+// 另一条路就会静默漏掉它们(「改了上限要等下一条线程跑完才生效」正是这种漏的样子)。
+// 入参 body = 用户/管家提交的 patch(未 normalize);返回 writeConfig 之后已 normalize 的 next。
+// 路由层(13 的 POST /api/config)只剩 body 解析与错误翻译、掩码回包;13l 的 steward_config_set 同样调它。
+// 架构还债批 2 B2:从 13-http-router.js 原样搬到这里(同名、同行为)。两个调用方都经 01 的 ConfigPatchHooks 调,
+// 不直接引用本模块的符号 —— 本模块因此零入边、挂在唯一大 SCC 之外(见文件头)。
+async function applyConfigPatch(rawBody) {
+  // 116-3 B1(会话/权限口径子审查):把全局默认权限切到「全自动」此前【没有服务端门】——
+  // §8.6 那条二次确认只由界面出,任何别的调用方(脚本、117 壳、管家自己)一个 POST 就能把全局
+  // 默认档改成 auto/bypass。13d 的 PATCH /api/sessions/:id 早就有这道门(同一张
+  // PERMISSION_MODES_REQUIRING_CONFIRM、同一个 permission.confirm_required 错误码),这里补齐另一半。
+  // `confirm` 是请求级信号不是配置键,判完就从 patch 里剥掉,绝不能跟着 merged 落进 config.json。
+  const raw = (rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)) ? rawBody : {};
+  const confirmed = raw.confirm === true;
+  const body = { ...raw };
+  delete body.confirm;
+  if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
+    const requested = body.permissionMode == null ? '' : String(body.permissionMode);
+    if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested) && !confirmed) {
+      throw Object.assign(new Error('switching the global default to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)'), {
+        code: 'permission.confirm_required', statusCode: 409, permissionMode: requested,
+      });
+    }
+  }
+  // 117n-M2:整段「读 current -> merge -> 落盘」搬进 mutateConfig 的临界区。外部契约与顺序不变
+  // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
+  //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
+  const patched = await mutateConfig(async (current) => {
+    const merged = { ...current, ...body };
+    // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
+    // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
+    // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
+    // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
+    // 107-S0:modelsApiKey 也在 GET /api/status 里掩码下发了,设置页把掩码原样回传 —— 同一处还原,否则一次保存就把
+    // 真密钥写成「••••末四位」。
+    // 107-S0b:externalMcpServers 的 env／headers／args 也在 GET /api/status(与 steward_config_get)里掩码下发了 ——
+    // 调用方原样回传时同一处按 id＋键名还原;不还原的话残留掩码会被 sanitize 那道闸清空,等于一次保存抹掉连接器密钥。
+    // 107-S2(46 号文 §5 ⑦b M5):启动向量闸。掩码回传只有在「密钥会去的地址一个都没变」时才算
+    // 「用户没动这个框」;地址变了(或压根没有同 id 那一条)就整份拒绝、零写入,并如实告诉用户要重填
+    // 哪几条的密钥 —— 不静默把旧密钥贴到新端点上(那是 M5 的洞),也不静默清空(那是用户看不见的丢失)。
+    // 判据在 05 的 maskedSecretConflicts;它与 unmaskSecrets 读的是【同一份 current】(都在这个临界区里),
+    // 所以不存在「检查用的是旧快照、落盘用的是新快照」那一类竞态。
+    const conflicts = maskedSecretConflicts(body, current);
+    if (conflicts.length) {
+      throw Object.assign(new Error(maskedSecretConflictMessage(conflicts)), {
+        code: 'config.masked_secret_vector_changed', statusCode: 409, conflicts,
+      });
+    }
+    // 107-S2:modelsApiBase 也进这一组 —— 它自己可能带凭据(`?api_key=…`),下发时被 safeUrlForDisplay
+    // 遮过,原样回传要对回真值;不写回的话一次保存就把它写成脱敏形(且 normalizeConfig 那道闸会清空它)。
+    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
+      || (body && typeof body.modelsApiKey === 'string') || (body && typeof body.modelsApiBase === 'string')
+      || (body && Array.isArray(body.externalMcpServers))) {
+      const restored = unmaskSecrets(body, current);
+      if (Array.isArray(body.providers)) merged.providers = restored.providers;
+      if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
+      if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
+      if (typeof body.modelsApiBase === 'string') merged.modelsApiBase = restored.modelsApiBase;
+      if (Array.isArray(body.externalMcpServers)) merged.externalMcpServers = restored.externalMcpServers;
+    }
+    // 2026-09-21(用户真机,日志 config_providers_shrunk lost:['toolbox-asr-shim']):`toolbox-` 前缀的服务商归自动发现所有 ——
+    // 04f syncToolboxProviders 增删它们,走 mutateConfig 不经这里。设置页整份保存上传的是一份【草稿快照】:页面加载时播种,
+    // 而 toolbox 组件要晚一两秒才起好、才把自己的条目写进配置;快照里没有它,一次保存就把它撤掉,normalizeConfig 随即把
+    // 指着它的语音识别选择清空 —— 用户看到的是「本地语音识别突然没了、设置里也不见、再配也配不上」。所以来件里的
+    // toolbox- 条目一律以【现值】为准:改不了、造不出、也撤不掉(现值有、来件没有的补回末尾,位置照 04f)。
+    // 停用／卸载才是撤走它的正途,那条路(04f)不经过本函数。只在来件真带了 providers 时做,别的保存一字不动。
+    if (Array.isArray(body.providers) && Array.isArray(merged.providers)) {
+      const isToolbox = p => Boolean(p && typeof p === 'object' && String(p.id || '').startsWith('toolbox-'));
+      const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);
+      const foreign = merged.providers.filter(p => !isToolbox(p));
+      if (owned.length || foreign.length !== merged.providers.length) merged.providers = [...foreign, ...owned];
+    }
+    // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
+    if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
+      merged.knownModels = [...(merged.knownModels || []), body.model];
+    }
+    // 2026-09-06 事故(用户的五个 Provider 连同密钥被一次整份保存写成 providers: [])后的服务端保险:
+    // 现值有 Provider、来件要把它清成空数组时,先把当前 config 原样另存一份(config.json.bak-providers-
+    // <时间戳>,与既有 config.json.bak-<日期> 同一目录同一命名族),并记一条审计事件。【不拦截】——
+    // 逐个删除到最后一个也是合法的 [],这里只保证永远有得救。备份失败不阻塞写入。
+    // 设置弹窗子审查追加：不只「清空」，任何【缩水】（现值里某个 id 在来件里没了）都先备份——用户以为在
+    // 原有列表上加一条、实际把整份换成只剩一条，正是那种既不为空也没告警的丢法。
+    if (Array.isArray(current.providers) && current.providers.length > 0 && Array.isArray(merged.providers)) {
+      const nextIds = new Set(merged.providers.map(p => String((p && p.id) || '')));
+      const lost = current.providers.map(p => String((p && p.id) || '')).filter(id => id && !nextIds.has(id));
+      if (lost.length) {
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupName = `config.json.bak-providers-${stamp}`;
+        try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
+        logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
+      }
+    }
+    return { next: merged, value: current };
+  });
+  const next = patched.config;
+  const current = patched.value; // 落盘前那一份(锁内读到的),下面的三路同步判「改没改」要用它
+  // 133(用户 2026-09-21「切走了大模型就立刻从显存里卸掉」):整段识别的选择换了(换模型／换服务商／关掉)→ 04f 去打
+  // 原来那个组件的 unload 路。fire-and-forget:保存的回包不等它;没登记 unload 路的组件只靠自己的空闲卸载。
+  if (typeof ToolboxHooks.asrSelectionChanged === 'function') void ToolboxHooks.asrSelectionChanged(current, next).catch(() => {});
+  // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
+  // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
+  // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。
+  if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
+  if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
+    invalidateAgentCliPathCaches();
+  }
+  // 123-N2 合并复核（主会话）：用户在设置里改全局引擎（activeProvider／agentCliType／model）也是一次
+  // 【显式选择】，要成为「上次用的」—— 否则改完全局、新开一条线程，仍跟着改之前的那一路走
+  // （agent-team-mode.e2e 合并后串行必红：切回 Claude 驱动后新会话仍走上一轮的 fake 端点）。
+  // 只在这三个键真的在 body 里时记；与现值相同则 rememberLastUsedEngineRoute 自己短路不落盘。
+  // 【await 而不是 void】：保存请求回 200 之前记录就得落盘——调用方（设置页、e2e）改完全局马上
+  // 新开线程是常见序列，fire-and-forget 会让那条新线程仍跟着上一路走（本机实测 agent-team-mode 就这么红）。
+  if (body && ['activeProvider', 'agentCliType', 'model'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
+    await rememberLastUsedEngineRoute(sessionEngineRouteFromConfig(next), next);
+  }
+  // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
+  if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
+    await syncClaudeCliSettings(next);
+  }
+  if (body && (Object.prototype.hasOwnProperty.call(body, 'agentRoleOverrides') || Object.prototype.hasOwnProperty.call(body, 'permissionMode'))) {
+    await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
+  }
+  if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
+    await syncMcpServersToClaude(next);
+    if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
+  }
+  if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
+    if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
+    else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
+  }
+  return next;
+}
+
+// 加载即登记:13 / 13l 只经这个键调(见 01 的 ConfigPatchHooks)。
+ConfigPatchHooks.applyConfigPatch = applyConfigPatch;
+
 // Best-effort model list from a provider's OpenAI-style GET /models. Never throws.
 async function fetchOpenAiModels(provider, timeoutMs = 4000) {
   const base = providerBaseWithV1(provider && provider.baseUrl);
   if (!base || typeof fetch !== 'function') return { ok: false, error: base ? 'fetch unavailable' : 'no base URL', models: [] };
-  const key = String((provider && provider.apiKey) || '').trim();
-  const headers = { 'content-type': 'application/json' };
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider && provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头,与补全请求同一份
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
@@ -30193,47 +30522,61 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
   let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      if (killed) break;
-      const res = await runOnce();
-      try {
-        // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
-        // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
-        // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
-        // billable this attempt.
-        const ru = res.resultUsage;
-        const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
-        const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-        if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
-        else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-          ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+    // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
+    // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
+    // 裁决;重试前发 retry 事件,再睡 min(2000, 300·attempt)(可被中止截断)。attempt = 本次之前已用掉的重试数 + 1。
+    let okText = null, okToolCalls = 0, retryReason = '';
+    await withTransientRetry({
+      maxRetries: MAX_ATTEMPTS - 1,
+      isAborted: () => killed,
+      signal: ctrl && ctrl.signal,
+      // Bounded backoff an abort can cut short (the same abortableDelay as runSubAgentCore's transient-retry sleep).
+      backoffMs: attempt => Math.min(2000, 300 * attempt),
+      attempt: async () => {
+        const res = await runOnce();
+        try {
+          // FIELD-LEVEL source select (保守语义): trust the result frame's usage only when a field is actually
+          // populated (>0). A result frame carrying an empty usage:{} must NOT record a bogus 0 — fall back to
+          // this attempt's msg_usage max (帧内已去重) and flag the row estimated. Zero on both sides = nothing
+          // billable this attempt.
+          const ru = res.resultUsage;
+          const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
+          const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+          }
+          if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
+        } catch { /* never let accounting break the attempt */ }
+        return res;
+      },
+      classify: (res, { retries }) => {
+        const attempt = retries + 1;
+        const finalText = (res.resultText || res.assistantText).trim();
+        const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
+        if (ok) { okText = finalText; okToolCalls = res.toolCallCount; return 'done'; }
+        lastFinalText = finalText; lastToolCalls = res.toolCallCount;
+        lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
+        const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
+        if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) return 'stop';
+        // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
+        // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
+        if (cls.reason === 'over_window') {
+          const raw = String(task || '');
+          if (overWindowShrunk || raw.length <= 60000) return 'stop';
+          overWindowShrunk = true;
+          taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
         }
-        if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
-      } catch { /* never let accounting break the attempt */ }
-      const finalText = (res.resultText || res.assistantText).trim();
-      const ok = !killed && res.exitCode === 0 && res.resultOk && !!finalText;
-      if (ok) {
-        onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: finalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
-        return { ok: true, result: finalText, iters: 1, toolCalls: res.toolCallCount };
-      }
-      lastFinalText = finalText; lastToolCalls = res.toolCallCount;
-      lastErr = killed ? '节点已中止或空闲超时' : (String(res.stderrText || '').trim().slice(0, 2000) || finalText || `claude 退出码 ${res.exitCode}`);
-      const cls = classifyClaudeSubagentFailure({ killed, exitCode: res.exitCode, stderrText: res.stderrText, assistantText: res.assistantText, toolCallCount: res.toolCallCount, gotResult: res.gotResult, resultOk: res.resultOk, resultText: res.resultText });
-      if (killed || !cls.retry || attempt >= MAX_ATTEMPTS) break;
-      // 45c:over_window → 缩载后新鲜重试(一次性 spawn 无 resume,超窗 = 任务载荷本身过大;cap 60K 字符)。
-      // 45f P3-7:任务本就不超 60K 时缩无可缩(超窗根因是系统提示/schema),重试必败 —— 不再白烧一次 spawn。
-      if (cls.reason === 'over_window') {
-        const raw = String(task || '');
-        if (overWindowShrunk || raw.length <= 60000) break;
-        overWindowShrunk = true;
-        taskForAttempt = raw.slice(0, 60000) + `\n\n…(原任务 ${raw.length} 字符,上次因上下文超限失败已截断;请聚焦完成可达部分)`;
-      }
-      onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: cls.reason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
-      // Bounded backoff an abort can cut short (mirrors runSubAgentCore's transient-retry sleep).
-      await new Promise(r => {
-        const t = setTimeout(r, Math.min(2000, 300 * attempt));
-        if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-      });
+        retryReason = cls.reason;
+        return 'retry';
+      },
+      onRetry: (res, attempt) => {
+        onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: attempt + 1, maxAttempts: MAX_ATTEMPTS, reason: retryReason, error: String(res.stderrText || '').trim().slice(0, 500) || `claude 退出码 ${res.exitCode}` });
+      },
+    });
+    if (okText !== null) {
+      onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, resultChars: okText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
+      return { ok: true, result: okText, iters: 1, toolCalls: okToolCalls };
     }
     if (!killed && lastFinalText.trim().length >= 80 && lastToolCalls > 0) {
       onEvent({ type: 'subagent', id: subagentId, state: 'end', ok: true, degraded: true, resultChars: lastFinalText.length, task: String(displayTask != null ? displayTask : task || ''), tookMs: Date.now() - started, agentKey, dependsOn: dependsOn || [], roleId: role && role.id || '', roleLabel: role && role.label || '', model: subModel || 'inherit', engine: 'claude' });
@@ -30777,8 +31120,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
   // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
   const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = subApiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (subApiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+  const chatUrl = providerCompletionUrl(provider.baseUrl, subApiStyle === 'responses'); // 04h:端点 URL 原语(与父回合同一份)
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -30864,10 +31206,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
@@ -31015,26 +31354,23 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       // pre-first-byte transient failures a bounded number of times with backoff, and honor toolsRejected by
       // retrying once without tools. Mid-stream errors are NOT retried (防重放, matching the parent turn -
       // openAiStreamOnce lets those propagate to the catch below).
-      let call = null, giveUp = false, transientAttempts = 0;
+      // 架构还债批 2·A:骨架与瞬时判据走 04h(withTransientRetry + providerCallIsTransient,与 07 的 CLI 子代理同一份骨架)。
+      // 口径原样:每次发出前查中止;工具被拒 → 去掉工具立即再打一次(不计数、不睡);瞬时失败至多重试 3 次,
+      // 第 n 次重试前睡 min(2000, 250·n)(可被中止截断);其余结果原样交给下面的分类。
       stopInitBeat(); // A3-fix: 首个模型调用即将发出,initBeat 让位给 openAiStreamOnce 的流式 touch / 工具心跳
-      while (true) {
-        if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; giveUp = true; break; }
-        call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
-        if (call.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; continue; }
-        const he0 = String(call.httpError || '');
-        const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
-        const transient = call.transportError || call.failoverStatus || status0 === 429;
-        if (transient && transientAttempts < 3) {
-          transientAttempts += 1;
-          await new Promise(r => {
-            const t = setTimeout(r, Math.min(2000, 250 * transientAttempts));
-            if (ctrl && ctrl.signal) ctrl.signal.addEventListener('abort', () => { clearTimeout(t); r(); }, { once: true });
-          });
-          continue;
-        }
-        break;
-      }
-      if (giveUp) break;
+      const sent = await withTransientRetry({
+        maxRetries: 3,
+        isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
+        signal: ctrl && ctrl.signal,
+        backoffMs: n => Math.min(2000, 250 * n),
+        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream }),
+        classify: c => {
+          if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
+          return providerCallIsTransient(c) ? 'retry' : 'done';
+        },
+      });
+      if (sent.aborted) { subOk = false; subErr = '已中止'; break; }
+      const call = sent.result;
       // v1.0-S6 (B): the sub-turn runs on a SINGLE endpoint (transient retry above, but no multi-endpoint
       // failover). openAiStreamOnce returns a pre-first-byte transport failure structurally instead of
       // throwing; the loop above already folded transportError into httpError for its own retry decision, and
@@ -34304,8 +34640,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
   // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
   const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = apiStyle === 'responses' ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+  const base = providerApiBase(provider.baseUrl, apiStyle === 'responses'); // 04h:端点 URL 原语(显示用 base 见 meta 事件)
+  const chatUrl = providerCompletionUrl(provider.baseUrl, apiStyle === 'responses');
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
@@ -34319,8 +34655,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = apiStyle === 'responses' ? providerResponsesBase(raw) : providerBaseWithV1(raw);
-      const u = b ? b + (apiStyle === 'responses' ? '/responses' : '/chat/completions') : '';
+      const b = providerApiBase(raw, apiStyle === 'responses');
+      const u = providerCompletionUrl(raw, apiStyle === 'responses');
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -34557,10 +34893,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers['authorization'] = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头;每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -37613,12 +37946,8 @@ function summaryResponseFailureDetail(payload) {
 async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal, config) {
   const respStyle = provider && provider.apiStyle === 'responses';
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
-  const base = respStyle ? providerResponsesBase(provider.baseUrl) : providerBaseWithV1(provider.baseUrl);
-  const chatUrl = base ? base + (respStyle ? '/responses' : '/chat/completions') : '';
-  const headers = { 'content-type': 'application/json' };
-  const key = String(provider.apiKey || '').trim();
-  if (key) headers.authorization = 'Bearer ' + key;
-  if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
+  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle); // 04h:端点 URL 与请求头原语(与补全/流式请求同一份)
+  const headers = providerRequestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage
@@ -44615,138 +44944,7 @@ async function setSessionSkillsCore(sessionId, skills) {
   return { ok: true, skills: cleaned };
 }
 
-// 第 116 波 116-2e:POST /api/config 的落盘与全部副作用,零行为抽出为 applyConfigPatch(body)。
-// 为什么抽:`steward_config_set`(§3.5「如意设置」行)必须经【同一个落盘函数】写入 —— 116h 的
-// arbiterRefresh、Claude CLI settings 同步、agent roles 同步、MCP 同步都挂在这条路径上,管家走
-// 另一条路就会静默漏掉它们(「改了上限要等下一条线程跑完才生效」正是这种漏的样子)。
-// 入参 body = 用户/管家提交的 patch(未 normalize);返回 writeConfig 之后已 normalize 的 next。
-// 路由层只剩 body 解析与掩码回包;13g 的 steward_config_set 调它(13g 在 13 之后,是后向边)。
-async function applyConfigPatch(rawBody) {
-  // 116-3 B1(会话/权限口径子审查):把全局默认权限切到「全自动」此前【没有服务端门】——
-  // §8.6 那条二次确认只由界面出,任何别的调用方(脚本、117 壳、管家自己)一个 POST 就能把全局
-  // 默认档改成 auto/bypass。13d 的 PATCH /api/sessions/:id 早就有这道门(同一张
-  // PERMISSION_MODES_REQUIRING_CONFIRM、同一个 permission.confirm_required 错误码),这里补齐另一半。
-  // `confirm` 是请求级信号不是配置键,判完就从 patch 里剥掉,绝不能跟着 merged 落进 config.json。
-  const raw = (rawBody && typeof rawBody === 'object' && !Array.isArray(rawBody)) ? rawBody : {};
-  const confirmed = raw.confirm === true;
-  const body = { ...raw };
-  delete body.confirm;
-  if (Object.prototype.hasOwnProperty.call(body, 'permissionMode')) {
-    const requested = body.permissionMode == null ? '' : String(body.permissionMode);
-    if (PERMISSION_MODES_REQUIRING_CONFIRM.includes(requested) && !confirmed) {
-      throw Object.assign(new Error('switching the global default to full-auto requires an explicit confirm:true (it can change files and run commands while you are away)'), {
-        code: 'permission.confirm_required', statusCode: 409, permissionMode: requested,
-      });
-    }
-  }
-  // 117n-M2:整段「读 current -> merge -> 落盘」搬进 mutateConfig 的临界区。外部契约与顺序不变
-  // (确认门仍在读之前、三路同步仍在写之后),变的只是这段临界区不再能被并发的另一次配置改动
-  //  穿插 —— 此前 /api/config 与 storage/policy、agent-roles、连接器启停彼此吞字段。
-  const patched = await mutateConfig(async (current) => {
-    const merged = { ...current, ...body };
-    // F2 (安全·防掩码覆盖): if the payload carries providers[] or searchBackend, any apiKey still the mask
-    // (`••••…`) means the UI round-tripped the masked value from GET /api/status — restore the real key
-    // from the same-id provider (or on-disk searchBackend) before persisting, so a save never wipes the
-    // stored key. unmaskSecrets covers BOTH secret sites in one pass (v0.9-S9).
-    // 107-S0:modelsApiKey 也在 GET /api/status 里掩码下发了,设置页把掩码原样回传 —— 同一处还原,否则一次保存就把
-    // 真密钥写成「••••末四位」。
-    // 107-S0b:externalMcpServers 的 env／headers／args 也在 GET /api/status(与 steward_config_get)里掩码下发了 ——
-    // 调用方原样回传时同一处按 id＋键名还原;不还原的话残留掩码会被 sanitize 那道闸清空,等于一次保存抹掉连接器密钥。
-    // 107-S2(46 号文 §5 ⑦b M5):启动向量闸。掩码回传只有在「密钥会去的地址一个都没变」时才算
-    // 「用户没动这个框」;地址变了(或压根没有同 id 那一条)就整份拒绝、零写入,并如实告诉用户要重填
-    // 哪几条的密钥 —— 不静默把旧密钥贴到新端点上(那是 M5 的洞),也不静默清空(那是用户看不见的丢失)。
-    // 判据在 05 的 maskedSecretConflicts;它与 unmaskSecrets 读的是【同一份 current】(都在这个临界区里),
-    // 所以不存在「检查用的是旧快照、落盘用的是新快照」那一类竞态。
-    const conflicts = maskedSecretConflicts(body, current);
-    if (conflicts.length) {
-      throw Object.assign(new Error(maskedSecretConflictMessage(conflicts)), {
-        code: 'config.masked_secret_vector_changed', statusCode: 409, conflicts,
-      });
-    }
-    // 107-S2:modelsApiBase 也进这一组 —— 它自己可能带凭据(`?api_key=…`),下发时被 safeUrlForDisplay
-    // 遮过,原样回传要对回真值;不写回的话一次保存就把它写成脱敏形(且 normalizeConfig 那道闸会清空它)。
-    if ((body && Array.isArray(body.providers)) || (body && body.searchBackend && typeof body.searchBackend === 'object')
-      || (body && typeof body.modelsApiKey === 'string') || (body && typeof body.modelsApiBase === 'string')
-      || (body && Array.isArray(body.externalMcpServers))) {
-      const restored = unmaskSecrets(body, current);
-      if (Array.isArray(body.providers)) merged.providers = restored.providers;
-      if (body.searchBackend && typeof body.searchBackend === 'object') merged.searchBackend = restored.searchBackend;
-      if (typeof body.modelsApiKey === 'string') merged.modelsApiKey = restored.modelsApiKey;
-      if (typeof body.modelsApiBase === 'string') merged.modelsApiBase = restored.modelsApiBase;
-      if (Array.isArray(body.externalMcpServers)) merged.externalMcpServers = restored.externalMcpServers;
-    }
-    // 2026-09-21(用户真机,日志 config_providers_shrunk lost:['toolbox-asr-shim']):`toolbox-` 前缀的服务商归自动发现所有 ——
-    // 04f syncToolboxProviders 增删它们,走 mutateConfig 不经这里。设置页整份保存上传的是一份【草稿快照】:页面加载时播种,
-    // 而 toolbox 组件要晚一两秒才起好、才把自己的条目写进配置;快照里没有它,一次保存就把它撤掉,normalizeConfig 随即把
-    // 指着它的语音识别选择清空 —— 用户看到的是「本地语音识别突然没了、设置里也不见、再配也配不上」。所以来件里的
-    // toolbox- 条目一律以【现值】为准:改不了、造不出、也撤不掉(现值有、来件没有的补回末尾,位置照 04f)。
-    // 停用／卸载才是撤走它的正途,那条路(04f)不经过本函数。只在来件真带了 providers 时做,别的保存一字不动。
-    if (Array.isArray(body.providers) && Array.isArray(merged.providers)) {
-      const isToolbox = p => Boolean(p && typeof p === 'object' && String(p.id || '').startsWith('toolbox-'));
-      const owned = (Array.isArray(current.providers) ? current.providers : []).filter(isToolbox);
-      const foreign = merged.providers.filter(p => !isToolbox(p));
-      if (owned.length || foreign.length !== merged.providers.length) merged.providers = [...foreign, ...owned];
-    }
-    // Remember an explicitly-chosen model so it persists in the list even if the proxy later drops it.
-    if (body && typeof body.model === 'string' && body.model && !(merged.knownModels || []).includes(body.model)) {
-      merged.knownModels = [...(merged.knownModels || []), body.model];
-    }
-    // 2026-09-06 事故(用户的五个 Provider 连同密钥被一次整份保存写成 providers: [])后的服务端保险:
-    // 现值有 Provider、来件要把它清成空数组时,先把当前 config 原样另存一份(config.json.bak-providers-
-    // <时间戳>,与既有 config.json.bak-<日期> 同一目录同一命名族),并记一条审计事件。【不拦截】——
-    // 逐个删除到最后一个也是合法的 [],这里只保证永远有得救。备份失败不阻塞写入。
-    // 设置弹窗子审查追加：不只「清空」，任何【缩水】（现值里某个 id 在来件里没了）都先备份——用户以为在
-    // 原有列表上加一条、实际把整份换成只剩一条，正是那种既不为空也没告警的丢法。
-    if (Array.isArray(current.providers) && current.providers.length > 0 && Array.isArray(merged.providers)) {
-      const nextIds = new Set(merged.providers.map(p => String((p && p.id) || '')));
-      const lost = current.providers.map(p => String((p && p.id) || '')).filter(id => id && !nextIds.has(id));
-      if (lost.length) {
-        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const backupName = `config.json.bak-providers-${stamp}`;
-        try { await fsp.copyFile(paths.config, path.join(path.dirname(paths.config), backupName)); } catch { /* 备份失败不阻塞写入 */ }
-        logEvent({ kind: merged.providers.length === 0 ? 'config_providers_cleared' : 'config_providers_shrunk', before: current.providers.length, after: merged.providers.length, lost, backup: backupName });
-      }
-    }
-    return { next: merged, value: current };
-  });
-  const next = patched.config;
-  const current = patched.value; // 落盘前那一份(锁内读到的),下面的三路同步判「改没改」要用它
-  // 133(用户 2026-09-21「切走了大模型就立刻从显存里卸掉」):整段识别的选择换了(换模型／换服务商／关掉)→ 04f 去打
-  // 原来那个组件的 unload 路。fire-and-forget:保存的回包不等它;没登记 unload 路的组件只靠自己的空闲卸载。
-  if (typeof ToolboxHooks.asrSelectionChanged === 'function') void ToolboxHooks.asrSelectionChanged(current, next).catch(() => {});
-  // 116h(27 号文 §8.10「并发上限就地可调,改完立即生效,不需重启」):配置落盘后立刻唤醒线程仲裁器
-  // 的队列 —— 仲裁器每次唤醒都重读配置(不缓存),但唤醒本身只由「入队/释放/插队」触发,没有这一行
-  // 的话调大上限要等下一条线程跑完才生效。队列为空(含管家关着)时是无操作。
-  if (typeof StewardHooks.arbiterRefresh === 'function') { try { StewardHooks.arbiterRefresh(); } catch { /* best-effort */ } }
-  if (body && ['agentCliType', 'claudePath', 'kimiPath'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
-    invalidateAgentCliPathCaches();
-  }
-  // 123-N2 合并复核（主会话）：用户在设置里改全局引擎（activeProvider／agentCliType／model）也是一次
-  // 【显式选择】，要成为「上次用的」—— 否则改完全局、新开一条线程，仍跟着改之前的那一路走
-  // （agent-team-mode.e2e 合并后串行必红：切回 Claude 驱动后新会话仍走上一轮的 fake 端点）。
-  // 只在这三个键真的在 body 里时记；与现值相同则 rememberLastUsedEngineRoute 自己短路不落盘。
-  // 【await 而不是 void】：保存请求回 200 之前记录就得落盘——调用方（设置页、e2e）改完全局马上
-  // 新开线程是常见序列，fire-and-forget 会让那条新线程仍跟着上一路走（本机实测 agent-team-mode 就这么红）。
-  if (body && ['activeProvider', 'agentCliType', 'model'].some(k => Object.prototype.hasOwnProperty.call(body, k))) {
-    await rememberLastUsedEngineRoute(sessionEngineRouteFromConfig(next), next);
-  }
-  // v1.4.3: keep ~/.claude/ in sync — settings.json + agent roles + MCP servers
-  if (body && (Object.prototype.hasOwnProperty.call(body, 'permissionMode') || Object.prototype.hasOwnProperty.call(body, 'model') || Object.prototype.hasOwnProperty.call(body, 'thinkingBudget') || Object.prototype.hasOwnProperty.call(body, 'appendSystemPrompt'))) {
-    await syncClaudeCliSettings(next);
-  }
-  if (body && (Object.prototype.hasOwnProperty.call(body, 'agentRoleOverrides') || Object.prototype.hasOwnProperty.call(body, 'permissionMode'))) {
-    await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
-  }
-  if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
-    await syncMcpServersToClaude(next);
-    if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
-  }
-  if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
-    if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
-    else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
-  }
-  return next;
-}
+// 架构还债批 2 B2:POST /api/config 的落盘与全部副作用 applyConfigPatch 搬到 06k-config-patch.js(配置域),本文件只剩 body 解析与错误翻译。
 
 // 代理模式 v2:MCP 子进程(Claude/Kimi)的 wait_agents / agent_result 回环。鉴权同 launch(body.token = 进程 token,
 // 01b 登记为 body-token),handler 内另接受 UI 头 token(管理面/测试直调)。终态信封在此登记已读 —— 这次返回就是
@@ -45025,7 +45223,7 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req);
     let next = null;
     try {
-      next = await applyConfigPatch(body);
+      next = await ConfigPatchHooks.applyConfigPatch(body); // 06k 填入(见 01 的 ConfigPatchHooks 头注)
     } catch (error) {
       // 116-3 B1:切全局默认权限到「全自动」缺 confirm:true -> 409,错误码与 13d 的线程级 PATCH 同一个。
       if (error && error.code === 'permission.confirm_required') {
@@ -55498,7 +55696,7 @@ async function stewardImplConfigSet(args, ctx, config) {
     return stewardFail('steward.forbidden', `these keys can never be changed through the steward: ${forbidden.join(', ')}`, { keys: forbidden });
   }
   // 116-3 P2-12(§8.6):把全局默认权限切到「全自动」是一条【专门】要求二次确认的动作,不是任意
-  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、13 的 applyConfigPatch 共用
+  // confirm 键共用的通用按钮语义。判定与错误口径与 13d 的线程级 PATCH、06k 的 applyConfigPatch 共用
   // 同一张 PERMISSION_MODES_REQUIRING_CONFIRM 与同一个 `permission.confirm_required` 码。
   // 外层信封仍是 propose_required —— 13h 只对这个码做「降级成一个按钮」,换成别的码用户就再也
   // 按不到那个按钮了;专门口径放在 reason 与人话里(界面按 reason 取 §8.6 那五条文案)。
@@ -55553,7 +55751,7 @@ async function stewardImplConfigSet(args, ctx, config) {
   // 它是请求级信号不是配置键:applyConfigPatch 判完就把它剥掉,绝不会进 config.json;放在
   // keys/probe/before 三处算完【之后】才塞,免得它被当成一个待写的配置键。
   patch.confirm = true;
-  const next = await applyConfigPatch(patch);
+  const next = await ConfigPatchHooks.applyConfigPatch(patch); // 06k 填入(见 01 的 ConfigPatchHooks)
   const maskedNext = maskProviders(next);
   const applied = {};
   for (const key of keys) applied[key] = maskedNext[key];
@@ -62366,6 +62564,10 @@ module.exports = {
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
+  // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
+  // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
+  providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerPostJsonOnce, providerRawCompletion, providerFixCompletion,
+  providerCallIsTransient, abortableDelay, withTransientRetry, openAiStreamOnce,
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
   asrFixSanity,
@@ -62557,7 +62759,7 @@ module.exports = {
   killChildTree, // 128i:发出去就算的那一支(14 处调用点的旧形状)—— exposed for unit/kill-own-process-tree.test.js [R2]
   killOwnProcessTree, // 128i:收尸只认自己的子孙 —— exposed for unit/kill-own-process-tree.test.js(dry 模式钉判据、真进程钉收尸)
   killAllMcpClients, // 55a:e2e 直测探针后清理 spawn 的 fake-mcp 子进程(避免 unref 子进程泄漏)
-  normalizeConfig,
+  normalizeConfig, CONFIG_MIGRATIONS, // 架构还债批 2 B1:一次性 schema 迁移表(unit/config-migrations.test.js 钉顺序与金样)
   // 128a:读-改-写整条环 exposed for unit/config-explicit-keys.test.js(真读盘、真写盘,临时 HOME)。
   readConfig,
   mutateConfig,

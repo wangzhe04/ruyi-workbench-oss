@@ -226,15 +226,22 @@ try {
     for (let i = 0; i < 40; i++) { after = await get('/api/steward/arbiter'); if (after && after.maxParallel === 9) break; await sleep(150); }
     ok(after && after.maxParallel === 9,
       `G3 服务端仲裁上限即时变成 9(改上限不必重启;got ${after && after.maxParallel})`);
-    ok(/StewardHooks\.arbiterRefresh/.test(fs.readFileSync(path.join(WB, 'app', 'src', '13-http-router.js'), 'utf8').split('async function applyConfigPatch')[1].split('\nasync function handleApi')[0]),
+    // 架构还债批 2 B2:applyConfigPatch 从 13-http-router.js 原样搬进了配置域的 06k-config-patch.js(同名同行为),
+    // 两个调用方经 01 的 ConfigPatchHooks 调。G4 跟着落点走;G4b 钉「路由那边真的只剩调用、没有留一份副本」。
+    ok(/StewardHooks\.arbiterRefresh/.test(fs.readFileSync(path.join(WB, 'app', 'src', '06k-config-patch.js'), 'utf8').split('async function applyConfigPatch')[1].split('\nConfigPatchHooks.applyConfigPatch = applyConfigPatch;')[0]),
       'G4 源码单点:arbiterRefresh 就挂在 applyConfigPatch 里(路由与管家共用同一条落盘路径)');
+    {
+      const routerSrc = fs.readFileSync(path.join(WB, 'app', 'src', '13-http-router.js'), 'utf8');
+      ok(!/function applyConfigPatch\(/.test(routerSrc) && (routerSrc.match(/await ConfigPatchHooks\.applyConfigPatch\(body\)/g) || []).length === 1,
+        'G4b 路由层只剩一处经 ConfigPatchHooks 的调用,不另留一份 applyConfigPatch');
+    }
     // 117 波 T1(32 号文 §2.1)重钉:steward_config_set 的实现随拆分搬进了 13l-steward-ops.js
     // (纯搬家,逐字节不变)。原来钉的是「13g 这个文件里有这一行」—— 钉的是落点;改成钉
     // 「整个 13g 族里恰好一处走 applyConfigPatch」:跟着搬家走,而且比原来严 —— 原来只要有就绿,
     // 现在族里再冒出第二条落盘路径也红。
     const stewardFamilySrc = ['13g-steward.js', '13j-steward-tool-base.js', '13k-steward-threads.js', '13l-steward-ops.js']
       .map(f => fs.readFileSync(path.join(WB, 'app', 'src', f), 'utf8')).join('\n');
-    ok((stewardFamilySrc.match(/await applyConfigPatch\(patch\)/g) || []).length === 1,
+    ok((stewardFamilySrc.match(/await (?:ConfigPatchHooks\.)?applyConfigPatch\(patch\)/g) || []).length === 1,
       'G5 源码单点:steward_config_set 走 applyConfigPatch,不另写落盘(13g 族里恰好一处)');
   }
 } catch (e) {
