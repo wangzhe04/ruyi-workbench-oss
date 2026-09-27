@@ -134,7 +134,8 @@ const profile = path.join(os.tmpdir(), 'wcw-dom-smoke-profile-' + PORT);
       // 引擎路由现算。121-K5：判据从退役的 #modelChip 的 title 换成它 —— 钉的事实一个字没变：
       // JS boot ＋ API ＋ 渲染这一整条链活着。
       const chipHost = dom.match(/<div id="threadChips"[\s\S]*?<\/div>\s*<div id="contextMeter"/);
-      const engineChip = chipHost && chipHost[0].match(/data-chip="engine"[\s\S]*?<span class="steward-chip-value">([^<]*)</);
+      // 走查 U15:芯片的值带上了 title(英文长值被省略号截断时悬停能看全),span 上多一个属性 —— 正则放宽到允许属性。
+      const engineChip = chipHost && chipHost[0].match(/data-chip="engine"[\s\S]*?<span class="steward-chip-value"[^>]*>([^<]*)</);
       ok(!!engineChip && /Claude (?:CLI|Code)|Kimi/.test(engineChip[1]),
         'C1 线程头那组 chip 已按 /api/status 渲染引擎标签(engine="' + (engineChip && engineChip[1]) + '") = JS boot + API + 渲染全活');
       ok(dom.includes('提示词、计划或问题') || dom.includes('placeholder="描述你要做的事') || /placeholder="[^"]{4,}"/.test(dom.match(/id="promptInput"[^>]*/)?.[0] || ''),

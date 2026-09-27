@@ -105,10 +105,14 @@ const ALLOWED_SUBSTRINGS = ['Built-in ·', '火山方舟 Ark Coding Plan'];
 
     // ══════════ 夹具 B：开局 zh-CN，运行时切到 en-US（不刷新页面） ══════════
     fxB = await startBrowserFixture({ ok, prefix: 'ruyi-locale-en-us-b-' });
+    // 管家首跑那段自我介绍＋三个例子先在中文下画出来（Windows CI 上它曾早于 setLocale 落定、停在中文）。
+    await fxB.waitForEval(`document.querySelectorAll('#stewardFeed .steward-example').length === 3 ? 1 : null`, 300);
     const before = await fxB.evaluate(`(() => ({
       stopBtn: (document.getElementById('stewardStopBtn') || {}).textContent || '',
       presence: (document.getElementById('stewardPresenceText') || {}).textContent || '',
+      intro: [...document.querySelectorAll('#stewardFeed .steward-say, #stewardFeed .steward-example')].map(n => n.textContent).join(' | '),
     }))()`);
+    ok(cjk(before.intro), `U14c 切语言前基线：管家首跑自我介绍是中文（实测 ${JSON.stringify(before.intro.slice(0, 60))}）`);
     ok(cjk(before.stopBtn), `U16 切语言前基线：停机键是中文（实测 ${JSON.stringify(before.stopBtn)}）`);
     ok(cjk(before.presence), `U16 切语言前基线：管家状态点是中文（实测 ${JSON.stringify(before.presence)}）`);
 
@@ -121,7 +125,10 @@ const ALLOWED_SUBSTRINGS = ['Built-in ·', '火山方舟 Ark Coding Plan'];
     const after = await fxB.evaluate(`(() => ({
       stopBtn: (document.getElementById('stewardStopBtn') || {}).textContent || '',
       presence: (document.getElementById('stewardPresenceText') || {}).textContent || '',
+      intro: [...document.querySelectorAll('#stewardFeed .steward-say, #stewardFeed .steward-example')].map(n => n.textContent).join(' | '),
+      examples: document.querySelectorAll('#stewardFeed .steward-example').length,
     }))()`);
+    ok(!cjk(after.intro) && after.examples === 3, `U14c 运行时切语言后管家首跑自我介绍与例子跟着换成英文、不重复（实测 ${JSON.stringify(after.intro.slice(0, 80))}，例子 ${after.examples} 个）`);
     ok(!cjk(after.stopBtn), `U16 运行时切语言后「一键停机」按钮不停在旧中文（实测 ${JSON.stringify(after.stopBtn)}）`);
     ok(!cjk(after.presence), `U16 运行时切语言后管家状态点文案不停在旧中文（实测 ${JSON.stringify(after.presence)}）`);
 

@@ -47,7 +47,8 @@ function between(hay, startNeedle, endNeedle) {
 // ───────────── ① 用量页签注册 + 面板容器 ─────────────
 const toolTabs = between(html, '<div class="tool-tabs"', '</div>');
 ok(!!toolTabs, '① 找到 .tool-tabs 块');
-ok(/data-tab="usage"[^>]*>[\s\S]*?data-i18n="usage\.title"[^>]*>用量</.test(toolTabs),
+// 走查 U15:页签用短标签 tool.usage(英文 "Usage");usage.title 是面板标题「用量与成本」,放进页签在英文下被截断。
+ok(/data-tab="usage"[^>]*>[\s\S]*?data-i18n="tool\.usage"[^>]*>用量</.test(toolTabs),
   '① 存在 data-tab="usage" 且使用本地化文案「用量」');
 {
   const tabs = [...toolTabs.matchAll(/data-tab="([a-z-]+)"/g)].map(match => match[1]);

@@ -10298,8 +10298,8 @@ function normalizeGuardPath(p) {
 // ctx may be null (the one-shot MCP child passes none): then config is read from disk and session is absent,
 // so dataRoot still bounds it. Returns { ok:true, absPath } or { ok:false, code:'not-allowed', error }.
 // 走查 U7:越界报错说人话、说清去哪儿改,不印配置键名(它也会原样出现在对话卡上)。
-const OUTSIDE_WORKSPACE_WRITE_ERROR = '这个位置在工作文件夹外面,没有写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
-const OUTSIDE_WORKSPACE_READ_ERROR = '这个位置在工作文件夹外面,当前用的不是本机模型,没有读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
+const OUTSIDE_WORKSPACE_WRITE_ERROR = '这个位置在工作文件夹外面,已拒绝写入。要允许改工作文件夹外的文件,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
+const OUTSIDE_WORKSPACE_READ_ERROR = '这个位置在工作文件夹外面,当前用的不是本机模型,已拒绝读取。要允许,请在「设置 › 基础 › 工作区权限」勾选「允许工作区外读写」';
 async function guardFileToolPath(rawPath, ctx, opts) {
   const write = !!(opts && opts.write);
   const tool = (opts && opts.tool) || 'file';

@@ -1924,9 +1924,21 @@ export function createStewardConversation({
   }
 
   // 首次：一句自我介绍 ＋ 三个可点例子（点了即填入输入框，不自动发送，§8.9 第一条）。
+  // 走查 U14：到访可能早于 setLocale(config.locale) 落定（Windows 上实测），这一段就停在默认语言。
+  // 它还是对话里最后一行时，语言一变就原样重画一遍；对话已经往下走了就不动（不改历史）。
+  let firstRunRow = null;
+  try {
+    globalThis.addEventListener('i18n:change', () => {
+      if (!firstRunRow || !firstRunRow.isConnected || firstRunRow.parentNode.lastElementChild !== firstRunRow) return;
+      firstRunRow.remove();
+      firstRunRow = null;
+      renderFirstRun();
+    });
+  } catch { /* 无 window（单测）时不挂 */ }
   function renderFirstRun() {
     const row = appendSteward(t('stewardShell.chat.intro'), '');
     if (!row) return;
+    firstRunRow = row;
     const box = el('div', 'steward-examples');
     for (const key of ['stewardShell.chat.example1', 'stewardShell.chat.example2', 'stewardShell.chat.example3']) {
       const text = t(key);
