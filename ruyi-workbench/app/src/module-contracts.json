@@ -206,15 +206,29 @@
       "requires": []
     },
     {
+      "file": "01e-permission-modes.js",
+      "layer": "foundation",
+      "provides": [
+        "AGENT_ROLE_PERMISSION_MODES",
+        "BUILTIN_AGENT_ROLES",
+        "CLAUDE_PERMISSION_MODE_MAP",
+        "PERMISSION_MODES",
+        "PERMISSION_MODES_REQUIRING_CONFIRM",
+        "PERMISSION_MODE_ALIASES",
+        "mergeAgentRole",
+        "normalizeAgentRole",
+        "permissionModeFrom",
+        "resolvePermissionMode"
+      ],
+      "requires": []
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
         "AGENT_CLI_TYPES",
-        "AGENT_ROLE_PERMISSION_MODES",
-        "BUILTIN_AGENT_ROLES",
         "CLAUDEPATH_CACHE_MS",
         "CLAUDE_NPM_EXE_REL",
-        "CLAUDE_PERMISSION_MODE_MAP",
         "CLAUDE_THINKING_EFFORTS",
         "CONFIG_BOOKKEEPING_KEYS",
         "CONFIG_EXPLICIT_KEY_MAX",
@@ -228,9 +242,6 @@
         "DESKTOP_PYTHON_OK_CACHE_MS",
         "DESKTOP_PYTHON_PROBE_TIMEOUT_MS",
         "DurableJsonStore",
-        "PERMISSION_MODES",
-        "PERMISSION_MODES_REQUIRING_CONFIRM",
-        "PERMISSION_MODE_ALIASES",
         "RUNTIME",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
@@ -320,15 +331,12 @@
         "lastGoodConfig",
         "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
-        "mergeAgentRole",
         "mutateConfig",
-        "normalizeAgentRole",
         "normalizeConfig",
         "normalizeDesktopPythonCandidate",
         "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
         "originOk",
-        "permissionModeFrom",
         "persistableConfig",
         "pickPython",
         "pickPythonAsync",
@@ -350,7 +358,6 @@
         "resolveClaudeLauncher",
         "resolveClaudeLauncherAsync",
         "resolveKimiNpmEntry",
-        "resolvePermissionMode",
         "safeSessionId",
         "sanitizeLastUsedEngineRoute",
         "selectedAgentCli",
@@ -548,6 +555,34 @@
           "symbol": "isBatchLauncher",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODE_ALIASES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -1081,13 +1116,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -1096,13 +1124,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readFileTail",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -1133,6 +1154,20 @@
           "symbol": "sessionWriteChains",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -2303,13 +2338,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -2432,6 +2460,13 @@
           "symbol": "spawnCmdLineLength",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -4082,13 +4117,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -4106,6 +4134,13 @@
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5304,13 +5339,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "syncAgentRolesToClaude",
           "kinds": [
             "call"
@@ -5335,6 +5363,13 @@
           "symbol": "syncMcpServersToKimi",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5607,20 +5642,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
@@ -5643,20 +5664,6 @@
         {
           "provider": "01-config.js",
           "symbol": "generateAgentNodeMcpConfig",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "mergeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
           "kinds": [
             "call"
           ]
@@ -5699,6 +5706,34 @@
         {
           "provider": "01d-win-cmdline.js",
           "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "CLAUDE_PERMISSION_MODE_MAP",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "mergeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
           "kinds": [
             "call"
           ]
@@ -8581,13 +8616,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "permissionModeFrom",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -8596,13 +8624,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -8701,6 +8722,20 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "summarySingleShotEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "permissionModeFrom",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -10328,13 +10363,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "ConfigPatchHooks",
           "kinds": [
             "read"
@@ -10429,20 +10457,6 @@
           "symbol": "mutateConfig",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -10576,6 +10590,27 @@
           "symbol": "observationRecallEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -12390,20 +12425,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -12412,13 +12433,6 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12454,6 +12468,27 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "sessionSearchIndexEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -13807,13 +13842,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -13822,6 +13850,13 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -14022,13 +14057,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -14039,6 +14067,13 @@
           "symbol": "sessionSearchIndexEnabled",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14850,16 +14885,16 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18199,13 +18234,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "readConfig",
           "kinds": [
             "call"
@@ -18223,6 +18251,13 @@
           "symbol": "send",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -19045,13 +19080,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "BUILTIN_AGENT_ROLES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "CONFIG_MIGRATIONS",
           "kinds": [
             "read"
@@ -19157,28 +19185,7 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "normalizeAgentRole",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "normalizeConfig",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
           "kinds": [
             "read"
           ]
@@ -19229,13 +19236,6 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "resolvePermissionMode",
           "kinds": [
             "read"
           ]
@@ -19474,6 +19474,41 @@
         {
           "provider": "01d-win-cmdline.js",
           "symbol": "spawnCmdLineLength",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "BUILTIN_AGENT_ROLES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "normalizeAgentRole",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "PERMISSION_MODES_REQUIRING_CONFIRM",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "read"
           ]
