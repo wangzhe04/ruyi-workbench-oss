@@ -350,7 +350,7 @@ MCP 清单同步的四种切换，以及下表迁走的调用点不再与 CLI �
 **加第三个 agent CLI**：在 `01f` 登记一项（标签、路径配置键、装机候选、路径探测、起进程、MCP 清单同步），在 `05` 给一份适配器
 （回合骨架的 21 项加四个回合外能力）。两张表的键集合与成员集合由上面两件单测钉着，缺一项就红。另外还要补的是数据，
 不是分叉：`06b` 两份提示词包里 `engineBrief.engineName` / `engineBrief.nativeTools` 以该 CLI 的 id 为键的两句；
-如果它原生读某个全局指令文件，在 `06d` `agentInstructionSources` / `AGENT_INSTRUCTION_NATIVE_CLI` 里登记一行；前端见 11.1 末行。
+如果它原生读某个全局指令文件，在 `06d` `agentInstructionSources` / `AGENT_INSTRUCTION_NATIVE_CLI` 里登记一行；前端见 11.1 末行（`public/js/agent-cli-registry.js`）。
 下面 11.1 记的是批 4 之后每个 A 类位置的去向。B 类按引擎族（CLI 族 `claude`/`agent` 对 provider 族 `openai`）分叉，
 只要新 CLI 仍归在 CLI 族里大多不用改，但其中标了「实指 Claude Code」的几处其实只认 Claude CLI。
 
@@ -378,7 +378,7 @@ MCP 清单同步的四种切换，以及下表迁走的调用点不再与 CLI �
 | `13` `handleApi`（`/api/kimi/status`） | Kimi 专属状态接口 | **保留**：路由本身只为 Kimi 存在，拒绝非 Kimi 是它的契约 |
 | `13b` `steerSessionCore` / `handleSteerApiRoute` | 插话按活回合登记的 `reg.kind` 分派 | **保留**：`reg.kind` 是活回合的传输层（`claude` = 骨架的 stream-json stdin 子进程，任何走骨架的 CLI 都登记成它，包括 fake 缝下的 Kimi；`kimi-acp` = Kimi 的 `runPreparedTurn` 自己登记；`openai` = provider），不是 CLI 类型。第三家走骨架不用碰；自带传输层（`runPreparedTurn`）时要登记自己的 `reg.kind` 并在这里加一支。`steering-claude.e2e.js` 按源码顺序钉着这三支 |
 | `13m` `stewardResolveRoute` | 管家不支持 CLI 引擎时的提示里写哪家 CLI | 按登记项 `label` 说（修前 `=== 'kimi' ? 'Kimi Code' : 'Claude Code'`） |
-| `ruyi-workbench/app/public/js/*.js`（6 个文件约 32 处） | `AGENT_CLI_LABELS`、`currentEngineMeta().agentCliType === 'kimi'` 等 | **未动**（前端另有负责人）：标签、思考强度选项、Kimi 状态刷新与压缩入口 |
+| 前端 `public/js/*.js`（修前 6 个文件约 32 处） | 标签、头像字母、路径键、思考强度候选、压缩入口、Kimi 状态刷新、旧用量行认领 | 收进 `public/js/agent-cli-registry.js` 的 `AGENT_CLI_REGISTRY` / `agentCliMeta`，调用点只问表、不再与 `'kimi'` 字面量比较；第三家 = 加一行（键集与 `AGENT_CLI_TYPES` 相同、字段齐全、其余 `public/js` 零字面量分叉，由 `unit/agent-cli-registry-frontend.test.js` 钉住）。表外仍要碰：`index.html` 设置页的 CLI 路径输入框（`data-agent-cli-path`）及 `provider-settings.js` 回填/即存那两行；`onboarding-wizard.js` 的 `engineReady`（锁死零 import，逐个列 `claudePath`/`kimiPath`） |
 
 ### 11.2 B 类：按引擎族分叉（CLI 族 vs provider 族）
 
