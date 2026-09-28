@@ -138,11 +138,11 @@ async function applyConfigPatch(rawBody) {
   }
   if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
     await syncMcpServersToClaude(next);
-    if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
+    await syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true });
   }
+  // 选中的 CLI 若从用户配置读 MCP(登记表 syncMcpManifest),推一次;从这样一家切走时把如意接管的条目清掉(见 01)。
   if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
-    if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
-    else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
+    await syncAgentCliMcpManifests(next, current);
   }
   return next;
 }

@@ -254,7 +254,7 @@ function stewardResolveRoute(config) {
   const route = sessionEngineRouteFromConfig(cfg);
   if (!route || route.engine !== 'openai') {
     const engine = route ? (route.agentCliType || 'claude') : 'none';
-    return { ok: false, error: 'steward.unsupported_engine', engine, message: (engine === 'none' || !(cfg.providers || []).some(p => p && (!p.type || String(p.type).startsWith('openai')))) ? '还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行)' : `管家要用一个 OpenAI 兼容的模型服务才能回话,现在的主模型走的是命令行引擎(${engine === 'kimi' ? 'Kimi Code' : 'Claude Code'})。请到设置 › 管家里给它单独挑一个` };   // 走查 #1:不出配置键名
+    return { ok: false, error: 'steward.unsupported_engine', engine, message: (engine === 'none' || !(cfg.providers || []).some(p => p && (!p.type || String(p.type).startsWith('openai')))) ? '还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行)' : `管家要用一个 OpenAI 兼容的模型服务才能回话,现在的主模型走的是命令行引擎(${AGENT_CLI_TYPES[normalizeAgentCliType(engine)].label})。请到设置 › 管家里给它单独挑一个` };   // 走查 #1:不出配置键名
   }
   const model = String(cfg.stewardModel || '').trim();
   return { ok: true, route: model ? { ...route, model } : route };

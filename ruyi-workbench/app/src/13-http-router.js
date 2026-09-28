@@ -1973,7 +1973,7 @@ async function startServerInner(opts) {
     if (typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
     void ensureDesktopMcpWarm(config).then(() => {
       void syncMcpServersToClaude(config).catch(() => {});
-      if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
+      void syncAgentCliMcpManifests(config).catch(() => {});   // 选中的 CLI 若从用户配置读 MCP(Kimi),推一次(01)
       // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
       void getCapabilities(config).catch(() => {});
       void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});

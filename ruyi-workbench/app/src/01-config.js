@@ -613,7 +613,7 @@ function sanitizeLastUsedEngineRoute(rawRoute) {
     return providerId ? { engine: 'openai', providerId, model } : null;
   }
   if (rawRoute.engine === 'agent' || rawRoute.engine === 'claude') {
-    return { engine: 'agent', agentCliType: rawRoute.agentCliType === 'kimi' ? 'kimi' : 'claude', model };
+    return { engine: 'agent', agentCliType: normalizeAgentCliType(rawRoute.agentCliType), model };
   }
   return null;
 }
@@ -779,8 +779,8 @@ function normalizeConfig(raw, opts = {}) {
     config[CONFIG_GIVEN_CLAUDE_PATH] = given;
     config.claudePath = resolveClaudeLauncher(given);
   }
-  if (!['claude', 'kimi'].includes(config.agentCliType)) {
-    config.agentCliType = 'claude';
+  if (!isAgentCliType(config.agentCliType)) {
+    config.agentCliType = AGENT_CLI_DEFAULT_TYPE;
     changed = true;
   }
   // 123-N2:新线程缺省引擎的两个字段。
@@ -2053,6 +2053,21 @@ async function syncMcpServersToClaude(config) {
   } catch { /* non-fatal */ }
 }
 
+// 架构还债批 4:把如意的 MCP 清单推给「从自己的用户配置文件读 MCP」的 CLI —— 登记表(01f)各项的 syncMcpManifest
+// (现在只有 Kimi 真推;Claude 每回合走 --mcp-config 命令行参数,它的钩子是空操作)。修前 06k 与 13 各写一份 `=== 'kimi'`,现在三处都调这一个:
+//   · 13 startServerInner 启动预热:syncAgentCliMcpManifests(config) —— 只推选中的那家;
+//   · 06k applyConfigPatch 改了 externalMcpServers:(next, null, { requireWorkbenchMcp: true }) —— 工作台 MCP 开着才推;
+//   · 06k applyConfigPatch 改了 agentCliType / includeWorkbenchMcp:(next, current) —— 选中的那家推一次;从某一家切走时,
+//     对被切走的那家用 includeWorkbenchMcp:false 再推一次,把如意接管的条目清掉(还原成接管前的样子)。
+// 先推选中的、再清切走的;两步都 await(各家同步函数自己吞错,失败不阻断配置保存)。
+async function syncAgentCliMcpManifests(config, previousConfig = null, { requireWorkbenchMcp = false } = {}) {
+  const selected = AGENT_CLI_TYPES[normalizeAgentCliType(config && config.agentCliType)];
+  if (!requireWorkbenchMcp || config.includeWorkbenchMcp) await selected.syncMcpManifest(AGENT_CLI_HOST, config);
+  if (!previousConfig) return;
+  const previous = AGENT_CLI_TYPES[normalizeAgentCliType(previousConfig.agentCliType)];
+  if (previous.id !== selected.id) await previous.syncMcpManifest(AGENT_CLI_HOST, { ...config, includeWorkbenchMcp: false });
+}
+
 // v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
 // per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
 // user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
@@ -2427,12 +2442,14 @@ function detectClaudePath() {
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
 function invalidateClaudePathCache() { _claudePathProbe = null; _cliProbeGeneration += 1; }
 
-// v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
-// session/API compatibility, while selecting a protocol-specific launcher here. Kimi uses the official
-// interactive ACP JSON-RPC stream (including reverse permission/question requests).
-const AGENT_CLI_TYPES = Object.freeze({
-  claude: { id: 'claude', label: 'Claude Code', pathKey: 'claudePath', detectedKey: 'detectedClaudePath', streaming: true, interactive: true, mcp: 'argument' },
-  kimi: { id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: true, interactive: true, mcp: 'user-config' },
+// Agent CLI 类型登记表 AGENT_CLI_TYPES 与归一 normalizeAgentCliType / isAgentCliType 在 01f-agent-cli-types.js(零出边,
+// 02e 也要用)。登记项里要用本模块实现的钩子,经下面这个宿主拿 —— 01f 自己不引用 01 的符号。
+const AGENT_CLI_HOST = Object.freeze({
+  detectClaudePath: () => detectClaudePath(),
+  detectFromInstallCandidates: type => detectAgentCliPath(type),
+  resolveKimiNpmEntry: command => resolveKimiNpmEntry(command),
+  bundledNodeExe: () => bundledNodeExe(),
+  syncMcpServersToKimi: config => syncMcpServersToKimi(config),
 });
 let _agentCliPathProbe = new Map(); // type -> { at, value }
 
@@ -2460,16 +2477,8 @@ async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探�
   } catch { return false; }
 }
 function agentCliInstallCandidates(type) {
-  const env = process.env;
-  const home = os.homedir();
-  const npmDir = home && path.join(home, 'AppData', 'Roaming', 'npm');
-  if (type === 'kimi') return [
-    env.KIMI_CLI_PATH, 'kimi.cmd', 'kimi.exe', 'kimi',
-    npmDir && path.join(npmDir, 'kimi.cmd'),
-    home && path.join(home, '.local', 'bin', 'kimi.exe'),
-    home && path.join(home, '.local', 'bin', 'kimi'),
-  ].filter(Boolean);
-  return [];
+  if (!isAgentCliType(type)) return [];
+  return AGENT_CLI_TYPES[type].installCandidates({ env: process.env, home: os.homedir(), join: (...parts) => path.join(...parts) });
 }
 function agentCliProbeable(candidate) {
   // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
@@ -2502,9 +2511,8 @@ function detectAgentCliPath(type) {
 }
 function detectKimiPath() { return detectAgentCliPath('kimi'); }
 function selectedAgentCli(config) {
-  const type = config && AGENT_CLI_TYPES[config.agentCliType] ? config.agentCliType : 'claude';
-  const meta = AGENT_CLI_TYPES[type];
-  const detected = type === 'claude' ? detectClaudePath() : detectKimiPath();
+  const meta = AGENT_CLI_TYPES[normalizeAgentCliType(config && config.agentCliType)];
+  const detected = meta.detectPath(AGENT_CLI_HOST);
   return { ...meta, path: String(config && config[meta.pathKey] || detected || ''), detected };
 }
 function resolveKimiNpmEntry(command) {
@@ -2529,19 +2537,10 @@ function resolveKimiNpmEntry(command) {
   ];
   return entries.find(candidate => fs.existsSync(candidate)) || '';
 }
+// 未登记的类型同 selectedAgentCli 口径归到 claude(即 batchSafeSpawn)。
 function prepareAgentCliSpawn(type, command, args) {
   const argv = Array.isArray(args) ? args : [];
-  if (type === 'kimi') {
-    // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
-    // and launch with Node directly, matching the Claude shim escape hatch's intent. This also handles
-    // PowerShell's `kimi.ps1` shim, so a saved terminal launcher behaves the same as `kimi.cmd`.
-    const entry = resolveKimiNpmEntry(command);
-    const nodeExe = bundledNodeExe();
-    // In a packaged release process.execPath is Ruyi.exe, not Node. The offline packages deliberately ship
-    // runtime/node/node.exe; use that runtime so the same direct-entry launch works in both source and ZIP builds.
-    if (entry && nodeExe) return { command: nodeExe, args: [entry, ...argv], opts: {} };
-  }
-  return batchSafeSpawn(command, argv);
+  return AGENT_CLI_TYPES[normalizeAgentCliType(type)].prepareSpawn(AGENT_CLI_HOST, command, argv);
 }
 // 128f-⑬:健康检查那一项「选中的 CLI 起不起得来」。修前 computeHealth 每一次都【同步】跑一遍「<cli> --version」、不记忆 ——
 // 而 /api/status 每换一次线程就调一次(session-experience openSession),于是换线程这个动作每次都把整个服务钉住一次
