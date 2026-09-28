@@ -12,20 +12,22 @@ const ROOT = path.resolve(HERE, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
 const SERVER = path.join(WB, 'app', 'server.js');
 const README = path.join(ROOT, 'README.md');
+const README_EN = path.join(ROOT, 'README_EN.md');   // 2026-09 起英文版是一份独立的完整 README
 
 let failures = 0;
 function ok(cond, label) { if (cond) console.log('PASS ' + label); else { failures++; console.log('FAIL ' + label); } }
 
 const pkg = require(path.join(WB, 'package.json'));
 const readme = fs.readFileSync(README, 'utf8');
+const readmeEn = fs.readFileSync(README_EN, 'utf8');
 const src = readServerSource();
 
 // ── A) README 门面版本号 === package.json 主次版本，或中英两处都明确标为当前 master ──
 {
   const minor = pkg.version.split('.').slice(0, 2).join('.'); // '1.6.0' -> '1.6'
-  const labels = readme.match(/核心能力一览\(v([\d.]+)\)|Capabilities \(v([\d.]+)\)/g) || [];
+  const labels = (readme + '\n' + readmeEn).match(/核心能力一览\(v([\d.]+)\)|Capabilities \(v([\d.]+)\)/g) || [];
   const currentMaster = /核心能力一览（当前 master）/.test(readme)
-    && /Capabilities \(current master\)/.test(readme);
+    && /Capabilities \(current master\)/.test(readmeEn);
   ok(labels.length >= 2 || currentMaster, 'A README 中英能力标题使用同一版本轴（version 或 current master）');
   const bad = labels.filter(l => { const m = l.match(/v([\d.]+)/); return !m || m[1] !== minor; });
   ok(bad.length === 0, 'A README 能力版本标签 === package.json 主次版本 v' + minor + (bad.length ? '(不符: ' + bad.join(', ') + ')' : ''));
@@ -35,7 +37,7 @@ const src = readServerSource();
 // ── B) README 声明的 e2e 数不得超过实际件数(支持精确值与旧式 NNN+) ──
 {
   const actual = fs.readdirSync(HERE).filter(f => f.endsWith('.e2e.js')).length;
-  const claims = [...readme.matchAll(/(?<![%\d])(\d+)\+?\s*(?:项\s*)?(?:离线\s*)?e2e(?:\s+cases)?/gi)].map(m => Number(m[1]));
+  const claims = [...(readme + '\n' + readmeEn).matchAll(/(?<![%\d])(\d+)\+?\s*(?:项\s*)?(?:离线\s*)?e2e(?:\s+cases)?/gi)].map(m => Number(m[1]));
   ok(claims.length >= 1, 'B README 含可机器核对的 e2e 声明(找到 ' + claims.length + ' 处)');
   const inflated = claims.filter(n => n > actual);
   ok(inflated.length === 0, 'B README e2e 声明数 ≤ 实际 ' + actual + ' 件(虚高: ' + JSON.stringify(inflated) + ')');
