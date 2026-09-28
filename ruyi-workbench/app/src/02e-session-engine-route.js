@@ -10,7 +10,8 @@ function normalizeSessionEngineRoute(raw) {
     return providerId ? { engine: 'openai', providerId, model } : null;
   }
   if (raw.engine === 'agent' || raw.engine === 'claude') {
-    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
+    // 登记过的 CLI 类型原样保留,其余归 claude(01f normalizeAgentCliType;修前是 `=== 'kimi' ? 'kimi' : 'claude'`)。
+    const agentCliType = normalizeAgentCliType(raw.agentCliType);
     return { engine: 'agent', agentCliType, model };
   }
   return null;

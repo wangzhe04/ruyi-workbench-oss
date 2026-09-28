@@ -16,6 +16,8 @@ import { openSharedHelpDoc } from './help-viewer.js';
 // 118e: 本机零配置预设(Ollama / LM Studio)的三条纯判定 -- 免 Key、探测失败的人话、手册小节锚点。
 // 事实源在 onboarding-wizard.js(零 import 的纯函数层),设置页与向导共用同一口径,不各写一份。
 import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONBOARDING_MANUAL_DOC_ID } from './onboarding-wizard.js';
+// 每个 Agent CLI 的知识（品牌名、路径键、思考强度档位、头像字母……）只问这一张登记表（ENGINEERING-SPEC §11.1）。
+import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -179,7 +181,7 @@ function normalizeConversationRoute(raw) {
     return providerId ? { engine: 'openai', providerId, model } : null;
   }
   if (raw.engine === 'agent' || raw.engine === 'claude') {
-    return { engine: 'agent', agentCliType: raw.agentCliType === 'kimi' ? 'kimi' : 'claude', model };
+    return { engine: 'agent', agentCliType: normalizeAgentCliType(raw.agentCliType), model };
   }
   return null;
 }
@@ -200,7 +202,7 @@ function currentConversationRoute() {
     const provider = (state.config?.providers || []).find(item => item && item.id === providerId);
     return { engine: 'openai', providerId, model: String(provider?.model || '') };
   }
-  return { engine: 'agent', agentCliType: state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude', model: String(state.config?.model || '') };
+  return { engine: 'agent', agentCliType: normalizeAgentCliType(state.config?.agentCliType), model: String(state.config?.model || '') };
 }
 // The model id currently in effect for the opened conversation. Global config is only the fallback used
 // before a session exists; switching sessions restores that session's pinned route.
@@ -216,41 +218,36 @@ function activeProviderObj() {
   const route = currentConversationRoute();
   return (state.config.providers || []).find(p => p.id === route.providerId) || null;
 }
-const AGENT_CLI_LABELS = { claude: 'Claude Code', kimi: 'Kimi Code' };
 function currentAgentCliType() {
-  const type = String(currentConversationRoute().agentCliType || state.config?.agentCliType || 'claude');
-  return Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude';
+  return normalizeAgentCliType(String(currentConversationRoute().agentCliType || state.config?.agentCliType || AGENT_CLI_DEFAULT_ID));
 }
 function currentAgentCliLabel() {
-  return AGENT_CLI_LABELS[currentAgentCliType()];
+  return agentCliMeta(currentAgentCliType()).label;
 }
 function currentAgentCliPath() {
-  const type = currentAgentCliType();
-  const pathKey = type === 'kimi' ? 'kimiPath' : 'claudePath';
-  const detectedKey = type === 'kimi' ? 'detectedKimiPath' : 'detectedClaudePath';
+  const { pathKey, detectedKey } = agentCliMeta(currentAgentCliType());
   return state.config?.[pathKey] || state.status?.[detectedKey] || '';
 }
 // W6：「用哪个命令行引擎」并进了「模型分配」的主模型那一行（原 #cfgAgentCliType 那枚选择器退役），所以这里按
 // 【全局】config.agentCliType 显隐 —— 设置页讲的是全局默认，不是正在看的那条线程（修前退回 currentAgentCliType()
 // 会跟着线程路由走）。命令行引擎页顶上那一行说明也在这里写（写的是哪一个、去哪儿换）。
 function settingsAgentCliType() {
-  const type = String((state.config && state.config.agentCliType) || 'claude');
-  return Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude';
+  return normalizeAgentCliType(String((state.config && state.config.agentCliType) || AGENT_CLI_DEFAULT_ID));
 }
 function updateAgentCliSettingsVisibility() {
   const type = settingsAgentCliType();
-  { const note = $('agentCliCurrentHint'); if (note) note.textContent = t('settings.agentCli.current', { name: AGENT_CLI_LABELS[type] }); }
+  { const note = $('agentCliCurrentHint'); if (note) note.textContent = t('settings.agentCli.current', { name: agentCliMeta(type).label }); }
   document.querySelectorAll('[data-agent-cli-path]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliPath !== type));
   document.querySelectorAll('[data-agent-cli-only]').forEach(node => node.classList.toggle('hidden', node.dataset.agentCliOnly !== type));
   const effort = $('cfgThinkingEffort');
   if (effort) {
-    const supported = type === 'kimi' ? new Set(['', 'low', 'high', 'max']) : null;
+    const supported = agentCliMeta(type).settingsThinkingEfforts;   // null = 全部档位可用
     for (const option of effort.options) {
-      const unavailable = Boolean(supported && !supported.has(option.value));
+      const unavailable = Boolean(supported && !supported.includes(option.value));
       option.disabled = unavailable;
       option.hidden = unavailable;
     }
-    if (supported && !supported.has(effort.value)) effort.value = '';
+    if (supported && !supported.includes(effort.value)) effort.value = '';
   }
   const hint = $('agentCliCapabilityHint');
   if (hint) hint.textContent = t(`settings.agentCli.hint.${type}`);
@@ -268,8 +265,8 @@ function lastUsedEngineText() {
     const p = (c.providers || []).find(item => item && item.id === raw.providerId) || null;
     meta = { engine: 'openai', providerId: String(raw.providerId), providerLabel: (p && (p.label || p.id)) || String(raw.providerId), model: String(raw.model || '') };
   } else {
-    const type = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
-    meta = { engine: 'claude', agentCliType: type, agentCliLabel: AGENT_CLI_LABELS[type], model: String(raw.model || '') };
+    const cli = agentCliMeta(raw.agentCliType);
+    meta = { engine: 'claude', agentCliType: cli.id, agentCliLabel: cli.label, model: String(raw.model || '') };
   }
   const label = engineVisual(meta).label;
   return t('settings.newThreadEngine.lastIs', { p1: meta.model ? `${label} · ${meta.model}` : label });
@@ -290,7 +287,7 @@ function parseMainEngineValue(value) {
   const raw = String(value || '');
   if (raw.startsWith(CLI_ENGINE_PREFIX)) {
     const type = raw.slice(CLI_ENGINE_PREFIX.length);
-    return { cli: Object.prototype.hasOwnProperty.call(AGENT_CLI_LABELS, type) ? type : 'claude', providerId: '' };
+    return { cli: normalizeAgentCliType(type), providerId: '' };
   }
   return raw ? { cli: '', providerId: raw } : { cli: settingsAgentCliType(), providerId: '' };
 }
@@ -301,7 +298,7 @@ function fillMainEngineSelects() {
   const cur = String(c.activeProvider || '');
   const pid = cur && cur !== 'claude-cli' ? cur : '';
   fillProviderSelect(provSel, {
-    lead: Object.keys(AGENT_CLI_LABELS).map(type => ({ value: cliEngineValue(type), label: t('settings.models.cliOption', { name: AGENT_CLI_LABELS[type] }) })),
+    lead: AGENT_CLI_IDS.map(type => ({ value: cliEngineValue(type), label: t('settings.models.cliOption', { name: agentCliMeta(type).label }) })),
     providers: chatProviders(c),
     value: pid || cliEngineValue(settingsAgentCliType()),
     savedLabel: value => t('settings.steward.providerSaved', { value }),
@@ -349,7 +346,7 @@ async function setGlobalEngineDefault(engineValue, modelId) {
 }
 async function followOpenedAgentRoute(type) {
   if (!state.currentSession?.id) return;
-  const engineRoute = { engine: 'agent', agentCliType: type === 'kimi' ? 'kimi' : 'claude', model: currentModelId() };
+  const engineRoute = { engine: 'agent', agentCliType: normalizeAgentCliType(type), model: currentModelId() };
   try {
     const result = await api(`/api/sessions/${encodeURIComponent(state.currentSession.id)}`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-http-method': 'PATCH' }, body: JSON.stringify({ engineRoute }),
@@ -414,8 +411,8 @@ function engineVisual(meta) {
   meta = meta || {};
   if (meta.engine === 'claude' || (!meta.engine && !meta.providerId)) {
     const type = meta.agentCliType || currentAgentCliType();
-    const label = meta.agentCliLabel || AGENT_CLI_LABELS[type] || 'Agent CLI';
-    return { letter: type === 'kimi' ? 'K' : 'C', colorVar: 'var(--accent)', label }; // Agent CLI drivers share the local-engine color family.
+    const label = meta.agentCliLabel || knownAgentCliMeta(type)?.label || 'Agent CLI';
+    return { letter: agentCliMeta(type).avatarLetter, colorVar: 'var(--accent)', label }; // Agent CLI drivers share the local-engine color family.
   }
   const id = String(meta.providerId || '').toLowerCase();
   const label = meta.providerLabel || meta.providerId || 'provider';
@@ -475,7 +472,7 @@ async function refreshModels(announce, context = {}) {
         const provider = (state.config.providers || []).find(p => p.id === r.provider);
         if (provider && requestedEndpoint?.id === provider.id && requestedEndpoint.baseUrl === provider.baseUrl && requestedEndpoint.apiKey === provider.apiKey) publishProviderModels(provider, fresh, state.providersDraft || []);
       } else if (state.status) {
-        publishAgentModels(r.agentCliType || 'claude', fresh);
+        publishAgentModels(r.agentCliType || AGENT_CLI_DEFAULT_ID, fresh);
         if (!routeSessionId || state.currentSession?.id === routeSessionId) state.status.models = fresh;
       }
       onEngineConfigChanged();

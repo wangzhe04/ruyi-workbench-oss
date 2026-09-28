@@ -119,7 +119,8 @@ function getJson(pathname, token, timeoutMs) {
     ok(bootStart > 0 && listenAt > bootStart, 's 定位到 boot 段与 listenWithFallback');
     const beforeListen = src.slice(bootStart, listenAt);
     const afterListen = src.slice(listenAt);
-    for (const name of ['syncMcpServersToClaude(config)', 'syncMcpServersToKimi(config)', 'getCapabilities(config)']) {
+    // 架构还债批 4:启动时的 Kimi MCP 同步收进 01 syncAgentCliMcpManifests(按 CLI 登记表推给从用户配置读 MCP 的那一家)。
+    for (const name of ['syncMcpServersToClaude(config)', 'syncAgentCliMcpManifests(config)', 'getCapabilities(config)']) {
       ok(!beforeListen.includes(name) && afterListen.includes(name), `s boot 段 listen 之前不再调 ${name}，挪到了 listen 之后`);
     }
     ok(!/await generateMcpConfig\(config\.mcpCommandMode\)/.test(beforeListen)

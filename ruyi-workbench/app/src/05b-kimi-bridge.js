@@ -315,21 +315,25 @@ async function replaceSessionObject(target, fresh) {
   Object.assign(target, fresh);
 }
 
-// Called before an Agent CLI turn. Kimi uses its authoritative status; Claude can opt into an external
-// model and uses the latest measured CLI usage. The default Claude path remains Claude's own auto-compact.
-async function maybeAutoCompactAgentSession(session, config, agentCliType, onEvent) {
+// Called before an Agent CLI turn. A CLI with a native status surface (adapter.contextStatus; Kimi) uses its
+// authoritative status; Claude can opt into an external model and uses the latest measured CLI usage. The
+// default Claude path remains Claude's own auto-compact.
+// 架构还债批 4:第三个参数由 CLI 类型名改成该 CLI 的适配器(05 runClaudeTurn 传入;05b 不反向引用 05 的符号)。
+async function maybeAutoCompactAgentSession(session, config, cliAdapter, onEvent) {
+  const nativeStatus = cliAdapter.contextStatus;
+  const nativeCompact = cliAdapter.nativeCompact;
   try {
     const threshold = Number(config.autoCompactThreshold) || 0.8;
     if (config.compactProviderId) {
       let used = lastSessionContextTokens(session);
-      const contextMeta = await agentConversationContextMeta({ ...config, agentCliType }, session);
+      const contextMeta = await agentConversationContextMeta({ ...config, agentCliType: cliAdapter.id }, session);
       let limit = contextMeta.contextWindow;
-      if (agentCliType === 'kimi' && session.claudeSessionId) {
-        const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
+      if (nativeStatus && session.claudeSessionId) {
+        const status = await nativeStatus.read(config, session);
         if (status.ok) {
           used = status.contextTokens;
           if (contextMeta.contextWindowSource !== 'manual' && status.contextWindow > 0) limit = status.contextWindow;
-          applyKimiStatusToSession(session, status);
+          nativeStatus.apply(session, status);
         }
       }
       if (used > 0 && limit > 0 && used >= threshold * limit) {
@@ -343,21 +347,21 @@ async function maybeAutoCompactAgentSession(session, config, agentCliType, onEve
       }
       return false;
     }
-    if (agentCliType !== 'kimi' || !session.claudeSessionId) return false;
-    const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
+    if (!nativeStatus || !nativeCompact || !session.claudeSessionId) return false;
+    const status = await nativeStatus.read(config, session);
     if (!status.ok) return false;
-    applyKimiStatusToSession(session, status);
-    onEvent({ type: 'usage', ...kimiUsageFromStatus(status) });
+    nativeStatus.apply(session, status);
+    onEvent({ type: 'usage', ...nativeStatus.usage(status) });
     if (status.contextWindow > 0 && status.contextTokens >= threshold * status.contextWindow) {
-      const result = await runKimiCompact(session.id, config, 'auto', onEvent);
-      if (!result.ok) { onEvent({ type: 'compact', mode: 'kimi-native', phase: 'failed', error: result.error }); return false; }
+      const result = await nativeCompact.run(session.id, config, 'auto', onEvent);
+      if (!result.ok) { onEvent({ type: 'compact', mode: nativeCompact.mode, phase: 'failed', error: result.error }); return false; }
       const fresh = await loadSession(session.id);
       await replaceSessionObject(session, fresh);
       return true;
     }
     return false;
   } catch (error) {
-    try { onEvent({ type: 'compact', mode: agentCliType === 'kimi' ? 'kimi-native' : 'external-summary', phase: 'failed', error: (error && error.message) || String(error) }); } catch { /* ignore */ }
+    try { onEvent({ type: 'compact', mode: nativeCompact ? nativeCompact.mode : 'external-summary', phase: 'failed', error: (error && error.message) || String(error) }); } catch { /* ignore */ }
     return false;
   }
 }

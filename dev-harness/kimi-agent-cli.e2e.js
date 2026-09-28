@@ -127,7 +127,9 @@ const sessionUi = fs.readFileSync(path.join(WB, 'app', 'public', 'js', 'session-
 // （那类锁只要一做 i18n 就必然假红），改钉「选择器还在 + 那个默认名走的是 t() 键」，
 // 并补 D0b 把「键在四份 locale 里都解析得出」钉住 —— 比修前更严：修前只保证中文串出现过，
 // 现在保证 zh/en 两语、public/docs 四份都真的有值，英文界面不会退化成 [key] 或中文。）
-ok(/compactProviderId/.test(navigation) && /t\('ctx\.compact\.defaultKimi'\)/.test(navigation)
+// ENGINEERING-SPEC §11.1 再重钉：缺省名的 i18n 键搬进了前端 Agent CLI 登记表的 compactDefaultLabelKey（Kimi 那一行的键
+// 在下面 async 段按运行时断言 = ctx.compact.defaultKimi）；这里钉调用点仍经 t() 取那一行的键、不写字面量。
+ok(/compactProviderId/.test(navigation) && /t\(agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.compactDefaultLabelKey\)/.test(navigation)
   && !/默认（Kimi 原生压缩）/.test(navigation),
   'context panel exposes universal compaction-model selector');
 {
@@ -145,16 +147,23 @@ ok(/compactProviderId/.test(navigation) && /t\('ctx\.compact\.defaultKimi'\)/.te
   }
   ok(missing.length === 0, `D0b ctx.compact.defaultKimi 在四份 locale 里都有值（缺：${missing.join(', ') || '无'}）`);
 }
-ok(/\/api\/agent\/compact/.test(streamUi) && !/sendPrompt\('\/compact'\)[\s\S]{0,120}agentCliType === 'kimi'/.test(streamUi), 'Kimi manual compact routes to native API instead of prompt text');
-ok(/isProviderMode\(\) \|\| currentEngineMeta\(\)\.agentCliType !== 'kimi'/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
-ok(/handle && !isProviderMode\(\) && currentEngineMeta\(\)\.agentCliType === 'kimi'/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');
+// ENGINEERING-SPEC §11.1 重钉：「哪个 CLI 走哪条压缩路、有没有原生状态接口」搬进了前端 Agent CLI 登记表
+// （js/agent-cli-registry.js，值在下面 async 段按运行时断言：kimi 走 server-api + /api/kimi/status）。这里钉的仍是
+// 调用点的结构：/compact 回合只给登记为 slash-command 的 CLI；两处状态刷新都先挡 provider 模式、再问登记表的 statusEndpoint。
+ok(/\/api\/agent\/compact/.test(streamUi)
+  && /!isProviderMode\(\) && agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.nativeCompact === 'slash-command' && !state\.config\?\.compactProviderId\) \{[\s\S]{0,240}sendPrompt\('\/compact'\)/.test(streamUi),
+  'Kimi manual compact routes to native API instead of prompt text');
+ok(/isProviderMode\(\) \|\| !agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.statusEndpoint/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
+ok(/handle && !isProviderMode\(\) && agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.statusEndpoint/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');
 ok(/case 'tool_use_update'/.test(streamUi) && /card\.inp\.textContent/.test(streamUi), 'live Kimi tool input updates refresh the existing Ruyi tool card');
 const engine = fs.readFileSync(path.join(WB, 'app', 'src', '05-claude-engine.js'), 'utf8');
 // W6 设置重组翻面重钉：「用哪个命令行引擎」那枚静态 <select id="cfgAgentCliType">（带 <option value="kimi">）退役，
 // 并进「模型分配」主模型下拉 —— 两个命令行引擎由 AGENT_CLI_LABELS 现建成两项（选 Kimi Code = 写 agentCliType:kimi）。
 // 钉的仍是「设置里能选到 Kimi」：标签表里有它、主模型下拉按这张表建命令行那两项、Agent CLI 页签还在。
-ok(/const AGENT_CLI_LABELS = \{ claude: 'Claude Code', kimi: 'Kimi Code' \};/.test(ui)
-  && /lead: Object\.keys\(AGENT_CLI_LABELS\)\.map\(type => \(\{ value: cliEngineValue\(type\)/.test(ui)
+// ENGINEERING-SPEC §11.1 重钉：标签表搬进前端 Agent CLI 登记表（kimi 行的 label 在下面 async 段按运行时断言），
+// 主模型下拉按登记表的 AGENT_CLI_IDS 现建命令行那几项。
+ok(/from '\.\/agent-cli-registry\.js'/.test(ui)
+  && /lead: AGENT_CLI_IDS\.map\(type => \(\{ value: cliEngineValue\(type\)/.test(ui)
   && /id="cfgMainProvider"/.test(html) && /settings\.agentCli\.tab/.test(html),
   'settings exposes Agent CLI selector with Kimi');
 ok(/detectedKimiPath/.test(ui) && /currentAgentCliLabel/.test(ui), 'frontend readiness and labels follow selected driver');
@@ -360,6 +369,18 @@ async function verifyKimiPlanFilePathGuard() {
 }
 
 (async () => {
+  {
+    // 前端 Agent CLI 登记表的 Kimi 那一行（上面源码锁的运行时一半）：设置里能选到它、手动压缩走原生 API、有原生状态接口。
+    const registry = await import(pathToFileURL(path.join(WB, 'app', 'public', 'js', 'agent-cli-registry.js')).href);
+    const kimiRow = registry.AGENT_CLI_REGISTRY.kimi;
+    ok(Boolean(kimiRow) && kimiRow.label === 'Kimi Code' && registry.AGENT_CLI_IDS.includes('kimi'), 'frontend Agent CLI registry lists Kimi Code');
+    ok(kimiRow?.nativeCompact === 'server-api' && registry.AGENT_CLI_REGISTRY.claude?.nativeCompact === 'slash-command',
+      'frontend registry: Kimi compacts through the native API, Claude through its /compact turn');
+    ok(kimiRow?.compactDefaultLabelKey === 'ctx.compact.defaultKimi' && !/默认（Kimi 原生压缩）/.test(JSON.stringify(registry.AGENT_CLI_REGISTRY)),
+      'frontend registry: the Kimi compaction default name is the ctx.compact.defaultKimi i18n key');
+    ok(kimiRow?.statusEndpoint === '/api/kimi/status' && registry.AGENT_CLI_REGISTRY.claude?.statusEndpoint === '',
+      'frontend registry: only Kimi refreshes native usage from /api/kimi/status');
+  }
   await verifyKimiPlanFilePathGuard();
   const resumeCaps = server.kimiAcpSessionRestoreMethods({ sessionCapabilities: { resume: {} }, loadSession: true });
   const loadCaps = server.kimiAcpSessionRestoreMethods({ sessionCapabilities: { resume: false }, loadSession: true });

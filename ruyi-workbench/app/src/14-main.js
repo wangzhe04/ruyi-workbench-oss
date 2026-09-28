@@ -221,7 +221,7 @@ module.exports = {
   readConfig,
   mutateConfig,
   AGENT_CLI_TYPES,
-  detectKimiPath,
+  normalizeAgentCliType, syncAgentCliMcpManifests, // 架构还债批 4:CLI 类型归一与 MCP 清单同步 —— exposed for unit/agent-cli-registry.test.js
   probeAgentCliLauncher,
   prepareAgentCliSpawn,
   syncMcpServersToKimi,
@@ -260,7 +260,6 @@ module.exports = {
   sessionMeta, // 116-2a: 侧栏/索引同源的元数据读形(含会话级 permissionMode 与派生 effectivePermissionMode)
   normalizeSessionEngineRoute,
   sessionEngineRouteFromConfig,
-  inferSessionEngineRoute,
   configForSessionEngineRoute,
   saveSession,
   deleteSession,

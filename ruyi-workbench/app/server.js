@@ -1387,6 +1387,75 @@ function mergeAgentRole(base, override, source) {
   return merged;
 }
 
+// 01f-agent-cli-types.js - 架构还债批 4: Agent CLI 类型登记表(从 01-config.js 搬出并扩成唯一登记处)与 CLI 类型归一。
+// v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
+// session/API compatibility, while selecting a protocol-specific launcher here. Kimi uses the official
+// interactive ACP JSON-RPC stream (including reverse permission/question requests).
+//
+// 加第三个 agent CLI = 在这里登记一项 + 在 05 AGENT_CLI_ADAPTERS 给一份适配器(unit/agent-cli-adapters 钉两张表键集合相同、
+// 各项成员齐全)。这里放 01/02 层就要用到的「这一家是谁、装在哪、怎么起」;回合与回合外能力(模型清单、原生压缩、
+// 上下文探测、环境说明……)在 05 的适配器上。
+//
+// 本模块零出边、不进依赖环:02e 的会话路由归一与 01 的配置归一都要问「这是不是一个登记过的 CLI」,而 02e 够不着 01
+// (引用 01 会把它拽进 SCC)。所以登记项里要用 01 实现的钩子(路径探测、npm 入口、MCP 同步)都经第一个参数 cliHost
+// 拿(01 的 AGENT_CLI_HOST),不直接引用 01 的符号;装机候选只吃 { env, home, join } 三样,纯函数。
+//
+// 每项成员:
+//   id / label / pathKey / detectedKey / streaming / interactive / mcp   数据(经 /api/status 的 agentCliDrivers 原样下发)
+//   installCandidates({ env, home, join })   默认安装位置候选(按序探测;Claude 有自己的启动器解析,为空)
+//   detectPath(cliHost)                      自动探测到的启动器路径('' = 没找到)
+//   prepareSpawn(cliHost, command, argv)     起子进程的 { command, args, opts }(.cmd 走 cmd.exe、npm 垫片改 Node 直启……)
+//   syncMcpManifest(cliHost, config) async   把如意的 MCP 清单推进这家 CLI 自己的用户配置(走命令行参数的 CLI 给空操作)
+// 函数成员在 JSON 里自然消失,所以 /api/status 下发的形状与只有数据成员时逐字节相同 —— 钩子一律是函数,
+// 不用 null 表示「没有这一步」(null 会出现在下发的 JSON 里)。
+const AGENT_CLI_DEFAULT_TYPE = 'claude';
+const AGENT_CLI_TYPES = Object.freeze({
+  claude: Object.freeze({
+    id: 'claude', label: 'Claude Code', pathKey: 'claudePath', detectedKey: 'detectedClaudePath', streaming: true, interactive: true, mcp: 'argument',
+    installCandidates: () => [],
+    detectPath: cliHost => cliHost.detectClaudePath(),
+    // Route the real CLI through cmd.exe when it's a .cmd/.bat (fixes "spawn EINVAL" on modern Node).
+    prepareSpawn: (cliHost, command, argv) => batchSafeSpawn(command, argv),
+    // Claude 每回合经 --mcp-config 拿如意的 MCP 配置(05 适配器 buildArgs),没有用户配置文件要推。
+    syncMcpManifest: async () => {},
+  }),
+  kimi: Object.freeze({
+    id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: true, interactive: true, mcp: 'user-config',
+    installCandidates({ env, home, join }) {
+      const npmDir = home && join(home, 'AppData', 'Roaming', 'npm');
+      return [
+        env.KIMI_CLI_PATH, 'kimi.cmd', 'kimi.exe', 'kimi',
+        npmDir && join(npmDir, 'kimi.cmd'),
+        home && join(home, '.local', 'bin', 'kimi.exe'),
+        home && join(home, '.local', 'bin', 'kimi'),
+      ].filter(Boolean);
+    },
+    detectPath: cliHost => cliHost.detectFromInstallCandidates('kimi'),
+    prepareSpawn(cliHost, command, argv) {
+      // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
+      // and launch with Node directly, matching the Claude shim escape hatch's intent. This also handles
+      // PowerShell's `kimi.ps1` shim, so a saved terminal launcher behaves the same as `kimi.cmd`.
+      const entry = cliHost.resolveKimiNpmEntry(command);
+      const nodeExe = cliHost.bundledNodeExe();
+      // In a packaged release process.execPath is Ruyi.exe, not Node. The offline packages deliberately ship
+      // runtime/node/node.exe; use that runtime so the same direct-entry launch works in both source and ZIP builds.
+      if (entry && nodeExe) return { command: nodeExe, args: [entry, ...argv], opts: {} };
+      return batchSafeSpawn(command, argv);
+    },
+    syncMcpManifest: (cliHost, config) => cliHost.syncMcpServersToKimi(config),
+  }),
+});
+
+// 「这是不是一个登记过的 CLI 类型」—— 只认登记表自己的键(不认 toString / constructor 这类原型链上的名字)。
+function isAgentCliType(value) {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(AGENT_CLI_TYPES, value);
+}
+// 全仓唯一的 CLI 类型归一:登记过的原样返回,其余(缺失、空串、野值、非字符串)一律回落 fallback(默认 claude)。
+// 修前各处写的是 `x === 'kimi' ? 'kimi' : 'claude'`,第三家会被静默改写成 claude。
+function normalizeAgentCliType(value, fallback = AGENT_CLI_DEFAULT_TYPE) {
+  return isAgentCliType(value) ? value : fallback;
+}
+
 function defaultConfig() {
   return {
     configSchema: CONFIG_SCHEMA,
@@ -2002,7 +2071,7 @@ function sanitizeLastUsedEngineRoute(rawRoute) {
     return providerId ? { engine: 'openai', providerId, model } : null;
   }
   if (rawRoute.engine === 'agent' || rawRoute.engine === 'claude') {
-    return { engine: 'agent', agentCliType: rawRoute.agentCliType === 'kimi' ? 'kimi' : 'claude', model };
+    return { engine: 'agent', agentCliType: normalizeAgentCliType(rawRoute.agentCliType), model };
   }
   return null;
 }
@@ -2168,8 +2237,8 @@ function normalizeConfig(raw, opts = {}) {
     config[CONFIG_GIVEN_CLAUDE_PATH] = given;
     config.claudePath = resolveClaudeLauncher(given);
   }
-  if (!['claude', 'kimi'].includes(config.agentCliType)) {
-    config.agentCliType = 'claude';
+  if (!isAgentCliType(config.agentCliType)) {
+    config.agentCliType = AGENT_CLI_DEFAULT_TYPE;
     changed = true;
   }
   // 123-N2:新线程缺省引擎的两个字段。
@@ -3442,6 +3511,21 @@ async function syncMcpServersToClaude(config) {
   } catch { /* non-fatal */ }
 }
 
+// 架构还债批 4:把如意的 MCP 清单推给「从自己的用户配置文件读 MCP」的 CLI —— 登记表(01f)各项的 syncMcpManifest
+// (现在只有 Kimi 真推;Claude 每回合走 --mcp-config 命令行参数,它的钩子是空操作)。修前 06k 与 13 各写一份 `=== 'kimi'`,现在三处都调这一个:
+//   · 13 startServerInner 启动预热:syncAgentCliMcpManifests(config) —— 只推选中的那家;
+//   · 06k applyConfigPatch 改了 externalMcpServers:(next, null, { requireWorkbenchMcp: true }) —— 工作台 MCP 开着才推;
+//   · 06k applyConfigPatch 改了 agentCliType / includeWorkbenchMcp:(next, current) —— 选中的那家推一次;从某一家切走时,
+//     对被切走的那家用 includeWorkbenchMcp:false 再推一次,把如意接管的条目清掉(还原成接管前的样子)。
+// 先推选中的、再清切走的;两步都 await(各家同步函数自己吞错,失败不阻断配置保存)。
+async function syncAgentCliMcpManifests(config, previousConfig = null, { requireWorkbenchMcp = false } = {}) {
+  const selected = AGENT_CLI_TYPES[normalizeAgentCliType(config && config.agentCliType)];
+  if (!requireWorkbenchMcp || config.includeWorkbenchMcp) await selected.syncMcpManifest(AGENT_CLI_HOST, config);
+  if (!previousConfig) return;
+  const previous = AGENT_CLI_TYPES[normalizeAgentCliType(previousConfig.agentCliType)];
+  if (previous.id !== selected.id) await previous.syncMcpManifest(AGENT_CLI_HOST, { ...config, includeWorkbenchMcp: false });
+}
+
 // v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
 // per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
 // user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
@@ -3816,12 +3900,14 @@ function detectClaudePath() {
 // installed the CLI). Exported for the doctor/status path — a no-op if never called.
 function invalidateClaudePathCache() { _claudePathProbe = null; _cliProbeGeneration += 1; }
 
-// v2.8: the historical "Claude engine" is now an Agent CLI host. Keep claudePath and the engine id for
-// session/API compatibility, while selecting a protocol-specific launcher here. Kimi uses the official
-// interactive ACP JSON-RPC stream (including reverse permission/question requests).
-const AGENT_CLI_TYPES = Object.freeze({
-  claude: { id: 'claude', label: 'Claude Code', pathKey: 'claudePath', detectedKey: 'detectedClaudePath', streaming: true, interactive: true, mcp: 'argument' },
-  kimi: { id: 'kimi', label: 'Kimi Code', pathKey: 'kimiPath', detectedKey: 'detectedKimiPath', streaming: true, interactive: true, mcp: 'user-config' },
+// Agent CLI 类型登记表 AGENT_CLI_TYPES 与归一 normalizeAgentCliType / isAgentCliType 在 01f-agent-cli-types.js(零出边,
+// 02e 也要用)。登记项里要用本模块实现的钩子,经下面这个宿主拿 —— 01f 自己不引用 01 的符号。
+const AGENT_CLI_HOST = Object.freeze({
+  detectClaudePath: () => detectClaudePath(),
+  detectFromInstallCandidates: type => detectAgentCliPath(type),
+  resolveKimiNpmEntry: command => resolveKimiNpmEntry(command),
+  bundledNodeExe: () => bundledNodeExe(),
+  syncMcpServersToKimi: config => syncMcpServersToKimi(config),
 });
 let _agentCliPathProbe = new Map(); // type -> { at, value }
 
@@ -3849,16 +3935,8 @@ async function probeAgentCliLauncherAsync(command) {   // 128f-⑬:后台重探�
   } catch { return false; }
 }
 function agentCliInstallCandidates(type) {
-  const env = process.env;
-  const home = os.homedir();
-  const npmDir = home && path.join(home, 'AppData', 'Roaming', 'npm');
-  if (type === 'kimi') return [
-    env.KIMI_CLI_PATH, 'kimi.cmd', 'kimi.exe', 'kimi',
-    npmDir && path.join(npmDir, 'kimi.cmd'),
-    home && path.join(home, '.local', 'bin', 'kimi.exe'),
-    home && path.join(home, '.local', 'bin', 'kimi'),
-  ].filter(Boolean);
-  return [];
+  if (!isAgentCliType(type)) return [];
+  return AGENT_CLI_TYPES[type].installCandidates({ env: process.env, home: os.homedir(), join: (...parts) => path.join(...parts) });
 }
 function agentCliProbeable(candidate) {
   // Explicit/absolute candidates must exist; bare commands are resolved by the launcher/PATH.
@@ -3891,9 +3969,8 @@ function detectAgentCliPath(type) {
 }
 function detectKimiPath() { return detectAgentCliPath('kimi'); }
 function selectedAgentCli(config) {
-  const type = config && AGENT_CLI_TYPES[config.agentCliType] ? config.agentCliType : 'claude';
-  const meta = AGENT_CLI_TYPES[type];
-  const detected = type === 'claude' ? detectClaudePath() : detectKimiPath();
+  const meta = AGENT_CLI_TYPES[normalizeAgentCliType(config && config.agentCliType)];
+  const detected = meta.detectPath(AGENT_CLI_HOST);
   return { ...meta, path: String(config && config[meta.pathKey] || detected || ''), detected };
 }
 function resolveKimiNpmEntry(command) {
@@ -3918,19 +3995,10 @@ function resolveKimiNpmEntry(command) {
   ];
   return entries.find(candidate => fs.existsSync(candidate)) || '';
 }
+// 未登记的类型同 selectedAgentCli 口径归到 claude(即 batchSafeSpawn)。
 function prepareAgentCliSpawn(type, command, args) {
   const argv = Array.isArray(args) ? args : [];
-  if (type === 'kimi') {
-    // npm's shim goes through cmd.exe (8191-char ceiling). Resolve its deterministic package-relative entry
-    // and launch with Node directly, matching the Claude shim escape hatch's intent. This also handles
-    // PowerShell's `kimi.ps1` shim, so a saved terminal launcher behaves the same as `kimi.cmd`.
-    const entry = resolveKimiNpmEntry(command);
-    const nodeExe = bundledNodeExe();
-    // In a packaged release process.execPath is Ruyi.exe, not Node. The offline packages deliberately ship
-    // runtime/node/node.exe; use that runtime so the same direct-entry launch works in both source and ZIP builds.
-    if (entry && nodeExe) return { command: nodeExe, args: [entry, ...argv], opts: {} };
-  }
-  return batchSafeSpawn(command, argv);
+  return AGENT_CLI_TYPES[normalizeAgentCliType(type)].prepareSpawn(AGENT_CLI_HOST, command, argv);
 }
 // 128f-⑬:健康检查那一项「选中的 CLI 起不起得来」。修前 computeHealth 每一次都【同步】跑一遍「<cli> --version」、不记忆 ——
 // 而 /api/status 每换一次线程就调一次(session-experience openSession),于是换线程这个动作每次都把整个服务钉住一次
@@ -5239,7 +5307,8 @@ function normalizeSessionEngineRoute(raw) {
     return providerId ? { engine: 'openai', providerId, model } : null;
   }
   if (raw.engine === 'agent' || raw.engine === 'claude') {
-    const agentCliType = raw.agentCliType === 'kimi' ? 'kimi' : 'claude';
+    // 登记过的 CLI 类型原样保留,其余归 claude(01f normalizeAgentCliType;修前是 `=== 'kimi' ? 'kimi' : 'claude'`)。
+    const agentCliType = normalizeAgentCliType(raw.agentCliType);
     return { engine: 'agent', agentCliType, model };
   }
   return null;
@@ -14266,8 +14335,10 @@ async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, si
 // 架构还债批 3 A:Agent CLI 适配器。runClaudeTurn 是 Claude Code 与 Kimi Code 两个命令行引擎共用的唯一回合骨架;
 // 凡是「这一家 CLI 怎么做」的决定(命令行参数、续接旗标、子进程环境、事件解析、回合后用量、原生子代理……)
 // 都问这里的适配器,骨架本身不再写 `agentCliType === 'claude' | 'kimi'`。加第三个 CLI = 在这张表里加一项
-// (再在 01 AGENT_CLI_TYPES 登记标签/路径键),骨架不用动。两个适配器的方法集必须逐项相同
+// (再在 01f AGENT_CLI_TYPES 登记标签/路径键/装机候选/起进程),骨架不用动。两个适配器的方法集必须逐项相同
 // (unit/agent-cli-adapters.test.js 钉着方法集与各方法的金样输出)。
+// 架构还债批 4:05 之后的模块(05b 回合前自动压缩、06 环境说明、10 上下文窗口、13 模型清单与手动压缩)按 CLI 类型
+// 的决定也收成这里的能力成员(下面「回合外能力」一段),各处经 agentCliAdapter(type) 取,不再与 'kimi' 字面量比较。
 //
 // 接口(ctx 形状见各方法;可选钩子取 null 表示「这一家没有这一步」,骨架据此跳过而不是空跑一次 await):
 //   id                              与 AGENT_CLI_TYPES 的键相同
@@ -14291,6 +14362,15 @@ async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, si
 //   isResumeMissingError(stderr)    非零退出且 stderr 表明续接目标丢失 → 去掉续接自动重试一次
 //   syncPostTurnUsage(session, config, onEvent)  null | async 回合后向 CLI 取权威用量(替换流内用量)
 //   recordTurnUsage(ctx)            回合用量记账(月度用量看板)
+// 回合外能力(05 之后的模块经 agentCliAdapter(type) 取):
+//   nativeAskUserQuestion           原生提问工具经协议落到如意的提问卡(环境说明据此不再教它走 MCP 提问)
+//   modelCatalog.offline(config)    设置页模型下拉的即时离线清单(/api/status)
+//   modelCatalog.discover(config) async  /api/models 的整份应答(向 CLI 或端点现取)
+//   contextStatus                   null | CLI 自己报上下文占用:probeWindow(config, model) async 窗口探测(10)、
+//                                   read(config, session) async 读原生会话状态、apply(session, status) 落到会话并返回用量行、
+//                                   usage(status) 状态 → 用量行(05b 回合前自动压缩)
+//   nativeCompact                   null | CLI 原生压缩:mode(压缩事件的 mode 名)、run(sessionId, config, trigger, onEvent) async
+//                                   (05b 回合前自动压缩、13 /api/agent/compact 手动压缩;null = 只能走外部摘要重播)
 // ============================================================================
 const AGENT_CLI_ADAPTERS = Object.freeze({
   claude: Object.freeze({
@@ -14353,6 +14433,15 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     parseEvent: evt => parseClaudeEvent(evt),
     isResumeMissingError: stderrText => isClaudeResumeMissingError(stderrText),
     syncPostTurnUsage: null,
+    // Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools),提问走如意的 MCP 工具。
+    nativeAskUserQuestion: false,
+    modelCatalog: Object.freeze({
+      offline: config => offlineModelList(config),
+      discover: async config => ({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(config)) }),
+    }),
+    // Claude 的上下文占用来自流内用量帧;没有可查询的原生状态面,也没有可从外部触发的原生压缩(用户在 CLI 里打 /compact)。
+    contextStatus: null,
+    nativeCompact: null,
     // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
     // Cost precedence: (1) config.claudePricing if the user set it (tokens×price -> a meaningful estimate for
     // BOTH direct + third-party endpoints); (2) else, for Anthropic-direct only, the CLI's notional USD; (3) else
@@ -14423,10 +14512,31 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     // it on the assistant row so reopening Ruyi cannot fall back to a stale Claude reading.
     syncPostTurnUsage: (session, config, onEvent) => (session.claudeSessionId ? syncKimiSessionUsage(session, config, onEvent) : Promise.resolve(null)),
     recordTurnUsage: () => {},
+    // Kimi 的原生提问经 ACP 落到如意的提问卡。
+    nativeAskUserQuestion: true,
+    // Kimi's `--model` values are aliases from `kimi provider list --json`; the offline form never lists Claude knownModels.
+    modelCatalog: Object.freeze({
+      offline: config => kimiModelList(config),
+      async discover(config) {
+        const discovered = await discoverKimiModels(config);
+        return { ...discovered, engine: 'claude', agentCliType: 'kimi', proxyCount: discovered.discoveredCount || 0 };
+      },
+    }),
+    // Kimi exposes authoritative context usage and native compaction through its local Server API (05b).
+    contextStatus: Object.freeze({
+      probeWindow: (config, model) => kimiContextWindow(config, model),
+      read: (config, session) => kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel),
+      apply: (session, status) => applyKimiStatusToSession(session, status),
+      usage: status => kimiUsageFromStatus(status),
+    }),
+    nativeCompact: Object.freeze({
+      mode: 'kimi-native',
+      run: (sessionId, config, trigger, onEvent) => runKimiCompact(sessionId, config, trigger, onEvent),
+    }),
   }),
 });
-// selectedAgentCli(01) 已把未知类型归到 claude;这里同一口径兜底。
-function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[type] || AGENT_CLI_ADAPTERS.claude; }
+// 未登记的类型同 selectedAgentCli(01) 口径归到 claude(01f normalizeAgentCliType)。
+function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
 async function runClaudeTurn({
   session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
@@ -14462,7 +14572,7 @@ async function runClaudeTurn({
   // Kimi exposes authoritative context usage through its local Server API. Check it before each turn so
   // Ruyi's configured threshold is proactive and visible. An explicitly-selected universal compaction
   // model applies the same preflight to Claude/Kimi and creates a summary reseed boundary when needed.
-  if (!_resumeRecoveryAttempt) await maybeAutoCompactAgentSession(session, config, agentCliType, onEvent).catch(() => false);
+  if (!_resumeRecoveryAttempt) await maybeAutoCompactAgentSession(session, config, adapter, onEvent).catch(() => false);
   // Proactive compatibility gate. This catches the two common deterministic failures without paying
   // for a doomed CLI spawn: (1) cwd changed, so Claude will search a different projects/<cwd> bucket;
   // (2) model/vendor route changed, so the old native branch is no longer a safe continuation target.
@@ -16794,21 +16904,25 @@ async function replaceSessionObject(target, fresh) {
   Object.assign(target, fresh);
 }
 
-// Called before an Agent CLI turn. Kimi uses its authoritative status; Claude can opt into an external
-// model and uses the latest measured CLI usage. The default Claude path remains Claude's own auto-compact.
-async function maybeAutoCompactAgentSession(session, config, agentCliType, onEvent) {
+// Called before an Agent CLI turn. A CLI with a native status surface (adapter.contextStatus; Kimi) uses its
+// authoritative status; Claude can opt into an external model and uses the latest measured CLI usage. The
+// default Claude path remains Claude's own auto-compact.
+// 架构还债批 4:第三个参数由 CLI 类型名改成该 CLI 的适配器(05 runClaudeTurn 传入;05b 不反向引用 05 的符号)。
+async function maybeAutoCompactAgentSession(session, config, cliAdapter, onEvent) {
+  const nativeStatus = cliAdapter.contextStatus;
+  const nativeCompact = cliAdapter.nativeCompact;
   try {
     const threshold = Number(config.autoCompactThreshold) || 0.8;
     if (config.compactProviderId) {
       let used = lastSessionContextTokens(session);
-      const contextMeta = await agentConversationContextMeta({ ...config, agentCliType }, session);
+      const contextMeta = await agentConversationContextMeta({ ...config, agentCliType: cliAdapter.id }, session);
       let limit = contextMeta.contextWindow;
-      if (agentCliType === 'kimi' && session.claudeSessionId) {
-        const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
+      if (nativeStatus && session.claudeSessionId) {
+        const status = await nativeStatus.read(config, session);
         if (status.ok) {
           used = status.contextTokens;
           if (contextMeta.contextWindowSource !== 'manual' && status.contextWindow > 0) limit = status.contextWindow;
-          applyKimiStatusToSession(session, status);
+          nativeStatus.apply(session, status);
         }
       }
       if (used > 0 && limit > 0 && used >= threshold * limit) {
@@ -16822,21 +16936,21 @@ async function maybeAutoCompactAgentSession(session, config, agentCliType, onEve
       }
       return false;
     }
-    if (agentCliType !== 'kimi' || !session.claudeSessionId) return false;
-    const status = await kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel);
+    if (!nativeStatus || !nativeCompact || !session.claudeSessionId) return false;
+    const status = await nativeStatus.read(config, session);
     if (!status.ok) return false;
-    applyKimiStatusToSession(session, status);
-    onEvent({ type: 'usage', ...kimiUsageFromStatus(status) });
+    nativeStatus.apply(session, status);
+    onEvent({ type: 'usage', ...nativeStatus.usage(status) });
     if (status.contextWindow > 0 && status.contextTokens >= threshold * status.contextWindow) {
-      const result = await runKimiCompact(session.id, config, 'auto', onEvent);
-      if (!result.ok) { onEvent({ type: 'compact', mode: 'kimi-native', phase: 'failed', error: result.error }); return false; }
+      const result = await nativeCompact.run(session.id, config, 'auto', onEvent);
+      if (!result.ok) { onEvent({ type: 'compact', mode: nativeCompact.mode, phase: 'failed', error: result.error }); return false; }
       const fresh = await loadSession(session.id);
       await replaceSessionObject(session, fresh);
       return true;
     }
     return false;
   } catch (error) {
-    try { onEvent({ type: 'compact', mode: agentCliType === 'kimi' ? 'kimi-native' : 'external-summary', phase: 'failed', error: (error && error.message) || String(error) }); } catch { /* ignore */ }
+    try { onEvent({ type: 'compact', mode: nativeCompact ? nativeCompact.mode : 'external-summary', phase: 'failed', error: (error && error.message) || String(error) }); } catch { /* ignore */ }
     return false;
   }
 }
@@ -21815,7 +21929,8 @@ const RUYI_MCP_TOOL_PREFIX = 'mcp__win-claude-workbench__'; // 【存量兼容�
 const _engineBriefMemo = new Map();
 function engineBriefFacts({ engine, config, session, rg } = {}) {
   const cfg = config || {};
-  const kind = engine === 'kimi' ? 'kimi' : ((engine === 'provider' || engine === 'openai') ? 'provider' : 'claude');
+  // 登记过的 CLI 类型原样;provider 族归 provider;其余(缺失/野值)归默认 CLI(claude)。修前是 `=== 'kimi'` 三分。
+  const kind = isAgentCliType(engine) ? engine : ((engine === 'provider' || engine === 'openai') ? 'provider' : AGENT_CLI_DEFAULT_TYPE);
   const runtime = buildRuntimeIdentityFacts();
   const deskOverride = session && typeof session.desktopTools === 'boolean' ? session.desktopTools : null;
   const allowDesk = deskOverride == null ? cfg.allowDesktopTools !== false : deskOverride;
@@ -21826,7 +21941,7 @@ function engineBriefFacts({ engine, config, session, rg } = {}) {
     version: runtime.version,
     launchMode: runtime.launchMode,
     mcp: kind !== 'provider' && cfg.includeWorkbenchMcp !== false,
-    interactive: kind === 'claude' && cfg.engineMode === 'interactive',
+    interactive: kind !== 'provider' && agentCliAdapter(kind).interactive(cfg),
     orchestrate: Number(cfg.subagentMaxPerTurn) > 0,
     desktop: !!(cfg.desktopMcp && cfg.desktopMcp.enabled) && allowDesk,
     rgShell,
@@ -21835,6 +21950,7 @@ function engineBriefFacts({ engine, config, session, rg } = {}) {
   };
 }
 function renderCliEnvBrief(f) {
+  const askNative = agentCliAdapter(f.engine).nativeAskUserQuestion;   // 原生提问是否落到如意提问卡(适配器能力)
   const pack = getPromptPack(f.locale);
   const b = pack.engineBrief;
   const lines = [ENGINE_BRIEF_OPEN];
@@ -21844,11 +21960,11 @@ function renderCliEnvBrief(f) {
     lines.push(b.mcpIntro({ prefix: RUYI_MCP_TOOL_PREFIX }));
     lines.push(b.mcpMemory);
     // Kimi 的原生提问经 ACP 落到如意的提问卡;Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools)。
-    lines.push(f.engine === 'kimi' ? b.askNative : b.mcpAsk + (f.interactive ? b.mcpAskNoNative : ''));
+    lines.push(askNative ? b.askNative : b.mcpAsk + (f.interactive ? b.mcpAskNoNative : ''));
     lines.push(b.mcpToolSearch);
     if (f.orchestrate) lines.push(b.mcpOrchestrate);
     lines.push(b.mcpSelfStatus);
-  } else if (f.engine === 'kimi') {
+  } else if (askNative) {
     lines.push(b.askNative);
   }
   lines.push(f.desktop ? b.desktopOn : b.desktopOff);
@@ -24071,9 +24187,23 @@ function buildStewardBrief(brief) {
 
 // ── 线程五态(§3.3/§11.2)。来源:ruyi-workbench/app/public/js/mission-state.js 的 deriveMissionState /
 // fromCard —— 那是浏览器端唯一权威判据,服务端不得另起状态机。此处是【判据逐条抄写】的服务端纯函数
-// 副本(前端文件是 UMD 模块,服务端产物是单文件拼接,拉不进来;抄写后由 steward-tools.static.e2e.js
-// 机械对账两边的分支顺序与关键字面量)。改判据必须两边同改。
+// 副本(前端文件是 UMD 模块,服务端产物是单文件拼接、还要进 pkg 快照,拉不进来)。
+// 架构还债批 4:判据从一串 if/else 换成与前端 RULES【同 id、同顺序】的判定表,两份抄写件由
+// dev-harness/unit/thread-state-differential.test.js 在整张证据网格上逐格比对输出(state/sources/label)
+// 钉住 —— 不再按源码字面量对账。改判据必须两边同改。
 const STEWARD_THREAD_STATES = Object.freeze(['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask']);
+// 判定表:自上而下【第一条命中】的规则决定状态,顺序即优先级;各条的理由见 mission-state.js RULES 的逐条注释。
+// 117p-S2 的无账本分支(ledgerless_ran)排在 untouched 之后、兜底之前;账缺席(lastTurn 为 null)按成功算。
+const STEWARD_THREAD_STATE_RULES = Object.freeze([
+  { id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },
+  { id: 'pending', state: 'needs_you', when: s => s.pendingTotal > 0 },
+  { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
+  { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+  { id: 'untouched', state: 'dispatching',
+    when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
+  { id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },
+  { id: 'fallback', state: 'stopped', when: () => true },
+].map(Object.freeze));
 function stewardPendingTotal(p) {
   const o = (p && typeof p === 'object') ? p : {};
   return (Number(o.permissions) || 0) + (Number(o.questions) || 0) + (Number(o.plans) || 0) + (Number(o.pool) || 0);
@@ -24107,17 +24237,8 @@ function deriveStewardThreadState(n) {
     // 而不是「这是一条速查线程」。速查这个身份仍然在,它活在 kind 上(看板行上的徽标读它)。
     factsUnknown: input.factsUnknown === true,
   };
-  let state;
-  if (src.factsUnknown) state = 'quick_ask';
-  else if (src.pendingTotal > 0) state = 'needs_you';
-  else if (src.resultStatus === 'complete') state = 'done';
-  else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
-  else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
-  // 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
-  // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
-  // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
-  else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
-  else state = 'stopped';
+  const rule = STEWARD_THREAD_STATE_RULES.find(r => r.when(src));
+  const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
 }
 // 投影卡片(13e overlayMissionCard 的输出,与 /api/missions 下发的 card 同形)适配器 —— 逐条对应
@@ -28606,11 +28727,11 @@ async function applyConfigPatch(rawBody) {
   }
   if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
     await syncMcpServersToClaude(next);
-    if (next.agentCliType === 'kimi' && next.includeWorkbenchMcp) await syncMcpServersToKimi(next);
+    await syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true });
   }
+  // 选中的 CLI 若从用户配置读 MCP(登记表 syncMcpManifest),推一次;从这样一家切走时把如意接管的条目清掉(见 01)。
   if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
-    if (next.agentCliType === 'kimi') await syncMcpServersToKimi(next);
-    else if (current.agentCliType === 'kimi') await syncMcpServersToKimi({ ...next, includeWorkbenchMcp: false });
+    await syncAgentCliMcpManifests(next, current);
   }
   return next;
 }
@@ -38475,8 +38596,10 @@ async function agentConversationContextMeta(config, session) {
   const manualModel = String(config && config.model || '').trim();
   let contextWindow = configuredConversationWindow(config, 'agent', agentCliType, manualModel);
   let contextWindowSource = contextWindow ? 'manual' : '';
-  if (!contextWindow && agentCliType === 'kimi') {
-    try { contextWindow = await kimiContextWindow(config, model); } catch { /* fall through to name table */ }
+  // CLI 自己能报上下文窗口(适配器 contextStatus;Kimi = Server API 探测)时先问它;未登记的类型归 claude,不探测。
+  const nativeStatus = agentCliAdapter(agentCliType).contextStatus;
+  if (!contextWindow && nativeStatus) {
+    try { contextWindow = await nativeStatus.probeWindow(config, model); } catch { /* fall through to name table */ }
     if (contextWindow > 0) contextWindowSource = 'probe';
   }
   if (!contextWindow) {
@@ -45158,7 +45281,7 @@ async function handleApi(req, res, pathname) {
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
-      models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
+      models: agentCliAdapter(conversationConfig.agentCliType).modelCatalog.offline(conversationConfig), // instant offline list for the requested conversation route (per-CLI adapter, 05)
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (local Ollama/LM Studio + custom; no vendor presets)
       toolbox: typeof ToolboxHooks.statusView === 'function' ? ToolboxHooks.statusView(config) : { autoDiscover: false, components: [] },   // ruyi-toolbox 已登记的组件与各自状态(只读视图;命令不出进程)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (custom only; no vendor presets)
@@ -45327,11 +45450,8 @@ async function handleApi(req, res, pathname) {
       for (const m of (live.models || [])) add(m.id, m.label, m.contextLength);
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }
-    if (modelsConfig.agentCliType === 'kimi') {
-      const discovered = await discoverKimiModels(modelsConfig);
-      return send(res, json({ ...discovered, engine: 'claude', agentCliType: 'kimi', proxyCount: discovered.discoveredCount || 0 }));
-    }
-    return send(res, json({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(modelsConfig)) }));
+    // Agent CLI 路由:整份应答由该 CLI 的适配器给(05 modelCatalog.discover;Kimi 问 CLI 自己,Claude 走 Anthropic 口径)。
+    return send(res, json(await agentCliAdapter(modelsConfig.agentCliType).modelCatalog.discover(modelsConfig)));
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
@@ -45776,10 +45896,12 @@ async function handleApi(req, res, pathname) {
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     const compactSession = await loadSession(sessionId);
     const config = compactSession ? configForSessionEngineRoute(storedConfig, compactSession) : storedConfig;
+    // 没选通用压缩模型时,只有带原生压缩的 CLI(适配器 nativeCompact;Kimi)能从这里压;Claude 请用户在 CLI 里打 /compact。
+    const nativeCompact = agentCliAdapter(config.agentCliType).nativeCompact;
     const result = config.compactProviderId
       ? await runAgentExternalCompact(sessionId, config, 'manual')
-      : (config.agentCliType === 'kimi'
-        ? await runKimiCompact(sessionId, config, 'manual')
+      : (nativeCompact
+        ? await nativeCompact.run(sessionId, config, 'manual')
         : { ok: false, error: 'Claude 默认压缩请使用原生 /compact；或先选择通用压缩模型' });
     return send(res, json(result, result.ok ? 200 : 400));
   }
@@ -46867,7 +46989,7 @@ async function startServerInner(opts) {
     if (typeof ToolboxHooks.reconcile === 'function') void ToolboxHooks.reconcile().catch(() => {});
     void ensureDesktopMcpWarm(config).then(() => {
       void syncMcpServersToClaude(config).catch(() => {});
-      if (config.agentCliType === 'kimi') void syncMcpServersToKimi(config).catch(() => {});
+      void syncAgentCliMcpManifests(config).catch(() => {});   // 选中的 CLI 若从用户配置读 MCP(Kimi),推一次(01)
       // G1: 预热能力矩阵。首个用户回合或子代理调用 getCapabilities 时命中 60s 缓存,冷启动不再吃满探测耗时。
       void getCapabilities(config).catch(() => {});
       void generateMcpConfig(config.mcpCommandMode).then(p => { console.log(`MCP config: ${p}`); }).catch(() => {});
@@ -56596,7 +56718,7 @@ function stewardResolveRoute(config) {
   const route = sessionEngineRouteFromConfig(cfg);
   if (!route || route.engine !== 'openai') {
     const engine = route ? (route.agentCliType || 'claude') : 'none';
-    return { ok: false, error: 'steward.unsupported_engine', engine, message: (engine === 'none' || !(cfg.providers || []).some(p => p && (!p.type || String(p.type).startsWith('openai')))) ? '还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行)' : `管家要用一个 OpenAI 兼容的模型服务才能回话,现在的主模型走的是命令行引擎(${engine === 'kimi' ? 'Kimi Code' : 'Claude Code'})。请到设置 › 管家里给它单独挑一个` };   // 走查 #1:不出配置键名
+    return { ok: false, error: 'steward.unsupported_engine', engine, message: (engine === 'none' || !(cfg.providers || []).some(p => p && (!p.type || String(p.type).startsWith('openai')))) ? '还没接上能用的模型,管家暂时回不了话。先在向导或设置里接一个模型(本机或云端都行)' : `管家要用一个 OpenAI 兼容的模型服务才能回话,现在的主模型走的是命令行引擎(${AGENT_CLI_TYPES[normalizeAgentCliType(engine)].label})。请到设置 › 管家里给它单独挑一个` };   // 走查 #1:不出配置键名
   }
   const model = String(cfg.stewardModel || '').trim();
   return { ok: true, route: model ? { ...route, model } : route };
@@ -62864,7 +62986,7 @@ module.exports = {
   readConfig,
   mutateConfig,
   AGENT_CLI_TYPES,
-  detectKimiPath,
+  normalizeAgentCliType, syncAgentCliMcpManifests, // 架构还债批 4:CLI 类型归一与 MCP 清单同步 —— exposed for unit/agent-cli-registry.test.js
   probeAgentCliLauncher,
   prepareAgentCliSpawn,
   syncMcpServersToKimi,
@@ -62903,7 +63025,6 @@ module.exports = {
   sessionMeta, // 116-2a: 侧栏/索引同源的元数据读形(含会话级 permissionMode 与派生 effectivePermissionMode)
   normalizeSessionEngineRoute,
   sessionEngineRouteFromConfig,
-  inferSessionEngineRoute,
   configForSessionEngineRoute,
   saveSession,
   deleteSession,

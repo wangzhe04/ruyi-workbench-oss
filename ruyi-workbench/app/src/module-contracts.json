@@ -223,10 +223,29 @@
       "requires": []
     },
     {
+      "file": "01f-agent-cli-types.js",
+      "layer": "foundation",
+      "provides": [
+        "AGENT_CLI_DEFAULT_TYPE",
+        "AGENT_CLI_TYPES",
+        "isAgentCliType",
+        "normalizeAgentCliType"
+      ],
+      "requires": [
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "01-config.js",
       "layer": "foundation",
       "provides": [
-        "AGENT_CLI_TYPES",
+        "AGENT_CLI_HOST",
         "CLAUDEPATH_CACHE_MS",
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_THINKING_EFFORTS",
@@ -369,6 +388,7 @@
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
+        "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
@@ -586,6 +606,34 @@
           ]
         },
         {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_DEFAULT_TYPE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_TYPES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "isAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
           "kinds": [
@@ -741,7 +789,15 @@
         "normalizeSessionEngineRoute",
         "sessionEngineRouteFromConfig"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
     },
     {
       "file": "02f-turn-effect-kinds.js",
@@ -2635,6 +2691,13 @@
           ]
         },
         {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "buildTurnSummary",
           "kinds": [
@@ -2944,6 +3007,34 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
+          "symbol": "applyKimiStatusToSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiContextWindow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiSessionStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiUsageFromStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
           "symbol": "maybeAutoCompactAgentSession",
           "kinds": [
             "call"
@@ -2952,6 +3043,13 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "runKimiAcpTurnPrepared",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "runKimiCompact",
           "kinds": [
             "call"
           ]
@@ -3190,6 +3288,34 @@
         {
           "provider": "13-http-router.js",
           "symbol": "buildModelHint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "discoverKimiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "discoverModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "kimiModelList",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "offlineModelList",
           "kinds": [
             "call"
           ]
@@ -4316,6 +4442,20 @@
           ]
         },
         {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_DEFAULT_TYPE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "isAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
@@ -4430,6 +4570,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "call"
           ]
@@ -4648,6 +4795,7 @@
         "STEWARD_TAINT_TOOL_NAMES",
         "STEWARD_THREAD_STATES",
         "STEWARD_THREAD_STATE_ORDER",
+        "STEWARD_THREAD_STATE_RULES",
         "STEWARD_TOOL_PREFIX",
         "STEWARD_WAIT_LABELS",
         "STEWARD_WAIT_REASONS",
@@ -5511,6 +5659,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "syncAgentCliMcpManifests",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "syncAgentRolesToClaude",
           "kinds": [
             "call"
@@ -5526,13 +5681,6 @@
         {
           "provider": "01-config.js",
           "symbol": "syncMcpServersToClaude",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "syncMcpServersToKimi",
           "kinds": [
             "call"
           ]
@@ -9103,14 +9251,14 @@
         },
         {
           "provider": "05-claude-engine.js",
-          "symbol": "runClaudeTurn",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiContextWindow",
+          "provider": "05-claude-engine.js",
+          "symbol": "runClaudeTurn",
           "kinds": [
             "call"
           ]
@@ -10507,13 +10655,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "AGENT_CLI_TYPES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
@@ -10696,6 +10837,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "syncAgentCliMcpManifests",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "syncAgentRolesToClaude",
           "kinds": [
             "call"
@@ -10711,13 +10859,6 @@
         {
           "provider": "01-config.js",
           "symbol": "syncMcpServersToClaude",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "syncMcpServersToKimi",
           "kinds": [
             "call"
           ]
@@ -10781,6 +10922,13 @@
         {
           "provider": "01e-permission-modes.js",
           "symbol": "PERMISSION_MODES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_TYPES",
           "kinds": [
             "read"
           ]
@@ -11123,6 +11271,13 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "CLAUDE_ENDPOINT_PRESETS",
           "kinds": [
             "read"
@@ -11187,13 +11342,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiSessionStatus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "runKimiCompact",
           "kinds": [
             "call"
           ]
@@ -16271,6 +16419,20 @@
           ]
         },
         {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_TYPES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
@@ -19224,13 +19386,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "AGENT_CLI_TYPES",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "autoImportClaudeCodeMcp",
           "kinds": [
             "read"
@@ -19288,13 +19443,6 @@
         {
           "provider": "01-config.js",
           "symbol": "detectDesktopMcpAsync",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "detectKimiPath",
           "kinds": [
             "read"
           ]
@@ -19387,6 +19535,13 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "syncAgentCliMcpManifests",
           "kinds": [
             "read"
           ]
@@ -19653,6 +19808,20 @@
         {
           "provider": "01e-permission-modes.js",
           "symbol": "resolvePermissionMode",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_TYPES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "normalizeAgentCliType",
           "kinds": [
             "read"
           ]
@@ -20017,13 +20186,6 @@
         {
           "provider": "02e-session-engine-route.js",
           "symbol": "configForSessionEngineRoute",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "02e-session-engine-route.js",
-          "symbol": "inferSessionEngineRoute",
           "kinds": [
             "read"
           ]

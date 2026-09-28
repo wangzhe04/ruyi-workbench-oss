@@ -141,7 +141,10 @@ const src06i = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'src', '
 const srcFront = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'public', 'js', 'mission-state.js'), 'utf8');
 const src13d = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'src', '13d-core-domain-routes.js'), 'utf8');
 
-ok(src06i.includes("if (src.factsUnknown) state = 'quick_ask';") && srcFront.includes("if (src.factsUnknown) state = 'quick_ask';"),
+// 架构还债批 4 重钉:两份抄写件的分支链换成同 id 判定表,第 0 条守卫从 if 行变成表的第 0 行;
+// 被钉的事实(第 0 条读 factsUnknown、两边逐字同一行)不变。整表同态由 thread-state-differential.test.js 钉。
+const GUARD_ROW = "{ id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },";
+ok(src06i.includes(GUARD_ROW) && srcFront.includes(GUARD_ROW),
   '④ 两份抄写件的第 0 条守卫逐字同一行(读 factsUnknown)');
 ok(!/src\.kind === 'quick_ask'/.test(src06i) && !/src\.kind === 'quick_ask'/.test(srcFront),
   '④ 「kind 是 quick_ask 就短路」那条逃生舱在两份抄写件里一处都不剩(反向钉:不许有人把它加回来)');

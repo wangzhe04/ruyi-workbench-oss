@@ -15,6 +15,8 @@
 //   [U] 用量记账金样:有结果帧 → 真实行(cachedInTok = 读 + 创建);无结果帧 → 估算行;都没有 → 不记;Kimi 不记。
 //   [M] 其余决定:交互模式、斜杠原样、stdin 送提示、原生子代理工具、续接丢失判定、思考强度显示、旁路观察、回合后用量。
 //   [G] 骨架形状:runClaudeTurn 函数体里不再出现按 CLI 类型分叉的比较。
+// 架构还债批 4 给适配器加了四个回合外能力成员(nativeAskUserQuestion / modelCatalog / contextStatus / nativeCompact),
+// [S] 同样钉它们的形状;它们的金样与 05 之外调用点的形状锁在 unit/agent-cli-registry.test.js。
 // 金样由抽适配器前(基线提交)的 runClaudeTurn 行为得出:抽取期间另用差分脚本把新旧两份 server.js 各跑 34 个回合
 // (拦截 spawn,逐项比较命令/参数/环境/stdin/事件流/落盘消息/用量账/Kimi 设置文件),归一化后逐字节相同。
 const { test } = require('node:test');
@@ -39,6 +41,14 @@ const INTERFACE = {
   runPreparedTurn: 'optional', buildAgentDefinitions: 'function', buildEnv: 'function', beforeSpawn: 'optional',
   thinkingEffortLabel: 'function', watchSideChannel: 'function', promptViaStdin: 'boolean', isNativeAgentTool: 'function',
   parseEvent: 'function', isResumeMissingError: 'function', syncPostTurnUsage: 'optional', recordTurnUsage: 'function',
+  // 架构还债批 4:回合外能力(05 之后的模块经 agentCliAdapter 取;金样见 unit/agent-cli-registry.test.js [C])。
+  nativeAskUserQuestion: 'boolean', modelCatalog: 'capability', contextStatus: 'optional-capability', nativeCompact: 'optional-capability',
+};
+// 能力成员是冻结的小对象,各自的成员集合固定。
+const CAPABILITIES = {
+  modelCatalog: { offline: 'function', discover: 'function' },
+  contextStatus: { probeWindow: 'function', read: 'function', apply: 'function', usage: 'function' },
+  nativeCompact: { mode: 'string', run: 'function' },
 };
 
 test('[S] 两个适配器方法集逐项相同,且与登记的接口清单、AGENT_CLI_TYPES 对齐', () => {
@@ -51,7 +61,11 @@ test('[S] 两个适配器方法集逐项相同,且与登记的接口清单、AGE
     for (const [key, kind] of Object.entries(INTERFACE)) {
       const value = adapter[key];
       if (kind === 'optional') assert.ok(value === null || typeof value === 'function', `${id}.${key} 是 null 或函数`);
-      else assert.equal(typeof value, kind, `${id}.${key} 是 ${kind}`);
+      else if (kind === 'capability' || (kind === 'optional-capability' && value !== null)) {
+        assert.ok(value && typeof value === 'object' && Object.isFrozen(value), `${id}.${key} 是冻结对象`);
+        assert.deepEqual(Object.keys(value).sort(), Object.keys(CAPABILITIES[key]).sort(), `${id}.${key} 的成员集合`);
+        for (const [member, memberKind] of Object.entries(CAPABILITIES[key])) assert.equal(typeof value[member], memberKind, `${id}.${key}.${member} 是 ${memberKind}`);
+      } else if (kind !== 'optional-capability') assert.equal(typeof value, kind, `${id}.${key} 是 ${kind}`);
     }
   }
   assert.ok(Object.isFrozen(AGENT_CLI_ADAPTERS));

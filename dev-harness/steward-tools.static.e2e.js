@@ -23,7 +23,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { functionBlock } = require('./lib/source-slice.js');
+const { functionBlock, constBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const APP = path.join(ROOT, 'ruyi-workbench', 'app');
@@ -316,39 +316,25 @@ ok(/session\.kind === 'steward'/.test(src13g), "⑤ 13g 身份判定读【显式
 
 /* ═════════════ ⑥ 五态判据与前端 mission-state.js 机械对账 ═════════════ */
 
-const frontSrc = fs.readFileSync(path.join(APP, 'public', 'js', 'mission-state.js'), 'utf8');
-const BRANCHES = [
-  // 117r-D5 重钉(逐对交代):这一条原来钉的是 "=== 'quick_ask') state = 'quick_ask';",
-  // 也就是第 0 条守卫「kind 是 quick_ask 就短路」。D5 把它换成「调用方有没有这条线程的事实」
-  // (factsUnknown,默认有事实)—— 速查是一个 kind、不是一个 state,被短路掉的整台五态机器
-  // 正是「在跑/在等你/跑完的速查线程都只会说速查中」的根因。断言的【意图】(两份抄写件的第 0 条
-  // 分支逐字相同、且排在最前)一个字没变,变的只是那一行的字面量。
-  // 伴随的更强断言在下面 BRANCH_GONE:除了钉住新守卫在两边逐字相同,还【反向】钉住旧守卫在两份
-  // 抄写件里一处都不剩 —— 原来那一条只钉了「有」,钉不住有人把旧逃生舱悄悄加回来并存。
-  "if (src.factsUnknown) state = 'quick_ask';",
-  "pendingTotal > 0) state = 'needs_you';",
-  "resultStatus === 'complete') state = 'done';",
-  "autoMode === 'until-done' || src.liveRuns > 0) state = 'running';",
-  "src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';",
-  // 117p-S2(30 号文 §8.3):无账本线程分支,位置钉在 dispatching 之后、stopped 兜底之前。
-  "else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';",
-  "else state = 'stopped';",
-];
-let branchBad = [];
-for (const b of BRANCHES) if (!(frontSrc.includes(b) && src06i.includes(b))) branchBad.push(b);
-ok(branchBad.length === 0, '⑥ 06i 的五态分支与 public/js/mission-state.js 逐条相同(抄写件,非第二套状态机)' + (branchBad.length ? ' → ' + JSON.stringify(branchBad) : ''));
-// 117r-D5 伴随断言(比被它替换掉的那一条更强):旧逃生舱在两份抄写件里一处都不剩。
-// 只钉「新守卫在」挡不住有人把 `if (src.kind === 'quick_ask') state = 'quick_ask';` 加回来并存 ——
-// 那样一条速查线程又会在第 0 条被劫走,而 BRANCHES 那张表照样全绿。
-const BRANCH_GONE = "src.kind === 'quick_ask'";
-ok(!frontSrc.includes(BRANCH_GONE) && !src06i.includes(BRANCH_GONE),
-  "⑥ 「kind 是 quick_ask 就短路」那条旧逃生舱在两份抄写件里一处都不剩(速查是 kind 不是 state)");
+// 架构还债批 4 重钉(逐对交代):两份抄写件从一串 if/else 换成【同 id、同顺序】的判定表,这里原来
+// 那张 BRANCHES(七条分支源码逐字相同 + 出现顺序单调)切不到了 —— 分支已不再是一行行字面量。
+// 被钉的事实(两份抄写件同判据、同优先级、非第二套状态机)改由 unit/thread-state-differential.test.js
+// 在整张证据网格上逐格比对【运行时输出】钉住,比逐字对账更强:改了判据却恰好没动那几行字面量的错法
+// 从此也会红。本处只留运行时的抽样与两条结构性事实。
+const MissionStateFront = require(path.join(APP, 'public', 'js', 'mission-state.js'));
+const src06iRules = constBlock(src06i, 'STEWARD_THREAD_STATE_RULES');
+ok(src06iRules.length > 200 && JSON.stringify([...src06iRules.matchAll(/\bid: '([a-z_]+)'/g)].map(m => m[1])) === JSON.stringify(MissionStateFront.RULE_IDS),
+  '⑥ 06i 的五态判定表与 public/js/mission-state.js 的 RULES 同 id、同顺序(抄写件,非第二套状态机)');
+// 117r-D5 伴随断言,改成运行时:「kind 是 quick_ask 就短路」那条旧逃生舱在两份抄写件里都不在 ——
+// 一条在跑的速查线程两边都说 running,一条有待决的速查线程两边都说 needs_you。
+for (const [input, want] of [
+  [{ kind: 'quick_ask', activeTurn: true, ledgerless: true, turnSeq: 1 }, 'running'],
+  [{ kind: 'quick_ask', pending: { questions: 1 } }, 'needs_you'],
+]) {
+  const a = srv.deriveStewardThreadState(input).state, b = MissionStateFront.deriveMissionState(input).state;
+  ok(a === want && b === want, `⑥ 速查是 kind 不是 state:${JSON.stringify(input)} 两边都是 ${want}(服务端 ${a} / 前端 ${b})`);
+}
 ok(/来源:ruyi-workbench\/app\/public\/js\/mission-state\.js/.test(src06i), '⑥ 06i 注明抄写来源(改判据必须两边同改)');
-// 分支顺序也要一致:两份源码里 6 个分支的出现顺序必须完全相同。
-const orderOf = text => BRANCHES.map(b => text.indexOf(b));
-const frontOrder = orderOf(frontSrc), coreOrder = orderOf(src06i);
-const monotonic = arr => arr.every((v, i) => i === 0 || (v > arr[i - 1]));
-ok(monotonic(frontOrder) && monotonic(coreOrder), '⑥ 两份源码里五态分支的出现顺序一致(顺序即判定优先级)');
 
 /* ═════════════ 附:永久豁免正则与委托书纯函数 ═════════════ */
 

@@ -117,7 +117,10 @@ const src13d = fs.readFileSync(path.join(repo, 'ruyi-workbench', 'app', 'src', '
 ok(!/turnSeq:\s*0\s*,/.test(src06i) && !/turnSeq:\s*0\s*(,|\/\/)/.test(srcFront),
   '④ 两份抄写件里都不再出现硬编码 turnSeq: 0');
 ok(src06i.includes('ledgerless') && srcFront.includes('ledgerless'), '④ 两份抄写件都出现 ledgerless 判据');
-ok(src06i.includes("src.ledgerless && src.turnSeq > 0") && srcFront.includes("src.ledgerless && src.turnSeq > 0"),
+// 架构还债批 4 重钉(本段「只加不改」的唯一例外,逐对交代):分支链换成同 id 判定表,无账本分支
+// 从 else-if 行变成表里 ledgerless_ran 那一行;被钉的事实(两边都有、逐字同一行)一个字没变。
+const LEDGERLESS_ROW = "{ id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },";
+ok(src06i.includes(LEDGERLESS_ROW) && srcFront.includes(LEDGERLESS_ROW),
   '④ 两份抄写件都带无账本线程分支(逐字同一行)');
 // buildMissionCard 真的产出 turnSeq 与 lastTurn(函数体区间内断言,不数全文件):
 const cardFn = src13d.slice(src13d.indexOf('async function buildMissionCard'));

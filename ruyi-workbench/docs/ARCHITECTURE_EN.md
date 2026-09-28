@@ -112,7 +112,8 @@ generated into `docs/architecture/module-dependency-graph.{json,md}`.
 - **00–02** boot and persistence: `00-boot` (constants, `CONFIG_SCHEMA`, `SESSION_SCHEMA`, port budget),
   `01-config` (defaults and `normalizeConfig`), `01b-route-auth` (the deny-by-default `ROUTE_AUTH` table),
   `01c-runtime-flags`, `01d-win-cmdline` (`.cmd` wrapping and the cmd8191 line budget), `01e-permission-modes`
-  (permission-mode tables, the three-layer resolver and agent-role normalization), `02-session-store`,
+  (permission-mode tables, the three-layer resolver and agent-role normalization), `01f-agent-cli-types`
+  (the agent-CLI registry `AGENT_CLI_TYPES` and the single CLI-type normalizer `normalizeAgentCliType`), `02-session-store`,
   `02c-turn-segments` (the ordered-turn protocol), `02d-session-overrides` (the in-memory per-session
   engine-route / permission-mode / desktop-tools overrides), `02e-session-engine-route` (session engine-route
   normalization and inference), `02f-turn-effect-kinds` (turn-summary tool tables and the irreversible-ledger

@@ -1700,7 +1700,8 @@ const RUYI_MCP_TOOL_PREFIX = 'mcp__win-claude-workbench__'; // 【存量兼容�
 const _engineBriefMemo = new Map();
 function engineBriefFacts({ engine, config, session, rg } = {}) {
   const cfg = config || {};
-  const kind = engine === 'kimi' ? 'kimi' : ((engine === 'provider' || engine === 'openai') ? 'provider' : 'claude');
+  // 登记过的 CLI 类型原样;provider 族归 provider;其余(缺失/野值)归默认 CLI(claude)。修前是 `=== 'kimi'` 三分。
+  const kind = isAgentCliType(engine) ? engine : ((engine === 'provider' || engine === 'openai') ? 'provider' : AGENT_CLI_DEFAULT_TYPE);
   const runtime = buildRuntimeIdentityFacts();
   const deskOverride = session && typeof session.desktopTools === 'boolean' ? session.desktopTools : null;
   const allowDesk = deskOverride == null ? cfg.allowDesktopTools !== false : deskOverride;
@@ -1711,7 +1712,7 @@ function engineBriefFacts({ engine, config, session, rg } = {}) {
     version: runtime.version,
     launchMode: runtime.launchMode,
     mcp: kind !== 'provider' && cfg.includeWorkbenchMcp !== false,
-    interactive: kind === 'claude' && cfg.engineMode === 'interactive',
+    interactive: kind !== 'provider' && agentCliAdapter(kind).interactive(cfg),
     orchestrate: Number(cfg.subagentMaxPerTurn) > 0,
     desktop: !!(cfg.desktopMcp && cfg.desktopMcp.enabled) && allowDesk,
     rgShell,
@@ -1720,6 +1721,7 @@ function engineBriefFacts({ engine, config, session, rg } = {}) {
   };
 }
 function renderCliEnvBrief(f) {
+  const askNative = agentCliAdapter(f.engine).nativeAskUserQuestion;   // 原生提问是否落到如意提问卡(适配器能力)
   const pack = getPromptPack(f.locale);
   const b = pack.engineBrief;
   const lines = [ENGINE_BRIEF_OPEN];
@@ -1729,11 +1731,11 @@ function renderCliEnvBrief(f) {
     lines.push(b.mcpIntro({ prefix: RUYI_MCP_TOOL_PREFIX }));
     lines.push(b.mcpMemory);
     // Kimi 的原生提问经 ACP 落到如意的提问卡;Claude 交互模式禁了原生 AskUserQuestion(--disallowedTools)。
-    lines.push(f.engine === 'kimi' ? b.askNative : b.mcpAsk + (f.interactive ? b.mcpAskNoNative : ''));
+    lines.push(askNative ? b.askNative : b.mcpAsk + (f.interactive ? b.mcpAskNoNative : ''));
     lines.push(b.mcpToolSearch);
     if (f.orchestrate) lines.push(b.mcpOrchestrate);
     lines.push(b.mcpSelfStatus);
-  } else if (f.engine === 'kimi') {
+  } else if (askNative) {
     lines.push(b.askNative);
   }
   lines.push(f.desktop ? b.desktopOn : b.desktopOff);

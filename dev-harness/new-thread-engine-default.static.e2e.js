@@ -65,7 +65,8 @@ ok(/\{ ids: \['cfgNewThreadEngine'\], patch: \(\) => \(\{ newThreadEngine: \$\('
   '② 即存:INSTANT_SETTINGS 里有 cfgNewThreadEngine 那一条(选中即存,不再等页脚「保存」)');
 // W6:命令行引擎合进主模型下拉之后,选它要一次写 activeProvider:'' ＋ agentCliType(不再有第二个写口)。
 ok(/else \{ patch\.model = model; patch\.agentCliType = pick\.cli; \}/.test(appjs)
-  && /lead: Object\.keys\(AGENT_CLI_LABELS\)\.map\(type => \(\{ value: cliEngineValue\(type\)/.test(appjs),
+  // ENGINEERING-SPEC §11.1:命令行那几项按前端 Agent CLI 登记表(js/agent-cli-registry.js)的 AGENT_CLI_IDS 现建,每个 CLI 一项。
+  && /lead: AGENT_CLI_IDS\.map\(type => \(\{ value: cliEngineValue\(type\)/.test(appjs),
   '② 主模型下拉把两个命令行引擎各列成一项,选中即一次写 activeProvider＋agentCliType＋model');
 ok(/\$\('newThreadEngineHint'\)[\s\S]{0,120}\.textContent\s*=/.test(appjs),
   '③ 说明行走 textContent(零 innerHTML)');
