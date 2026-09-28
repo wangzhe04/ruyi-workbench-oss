@@ -213,6 +213,7 @@ const {
 const {
   activeProviderObj,
   addProviderFromPreset,
+  addTemplateFromPrompt,
   applyClaudeEndpointPreset,
   currentEngineMeta,
   currentModelId,
