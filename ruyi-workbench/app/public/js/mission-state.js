@@ -38,6 +38,33 @@
     return (Number(o.permissions) || 0) + (Number(o.questions) || 0) + (Number(o.plans) || 0) + (Number(o.pool) || 0);
   }
 
+  // 判定表(架构还债批 4):自上而下【第一条命中】的规则决定状态,顺序即优先级。
+  // 服务端 06i-steward-core.js 的 STEWARD_THREAD_STATE_RULES 是本表的抄写件(服务端产物是单文件拼接、
+  // 打包进 pkg,拉不进本文件):两边的规则 id、顺序与判据逐条相同,由
+  // dev-harness/unit/thread-state-differential.test.js 在【整张证据网格】上逐格比对两份输出钉住 ——
+  // 改判据必须两边同改,少改一边那件测试就红。
+  const RULES = [
+    // 0. 事实未知的逃生舱:调用方明说「我没有这条线程的事实」时,不硬套五态(概念稿风险 #1 的
+    // 落点仍在,只是判据从 kind 换成了 factsUnknown —— 117r-D5,理由见下面那条证据键的注释)。
+    { id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },
+    // 1. 需要你:有未决 Intervention 永远最先亮(鎏金)——哪怕任务同时在跑/已停,等你拿主意是最高打扰级。
+    { id: 'pending', state: 'needs_you', when: s => s.pendingTotal > 0 },
+    // 2. 已收工:结果章 complete(72波持久化盖章,全部里程碑 done 的权威记录)。
+    { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
+    // 3. 进行中:活回合 / until-done 驱动中 / 有未暂停的活 run —— 有权威活证据才算在干,不靠猜。
+    { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+    // 4. 交办中:立了单但还没有任何执行痕迹(无 run、无回合、无里程碑完成)——刚交办待启动。
+    { id: 'untouched', state: 'dispatching',
+      when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
+    // 4b. 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
+    // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
+    // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
+    { id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },
+    // 5. 已停工:其余一切 —— 结果章 stopped / 预算耗尽(supervised 待命)/ 用户停驱(idle)——诚实:活没在干。
+    { id: 'fallback', state: 'stopped', when: () => true },
+  ];
+  const RULE_IDS = RULES.map(r => r.id);
+
   // 归一化输入(卡片与详情快照都可适配进来,见 fromCard/fromSnapshot):
   //   { kind, autoMode, budgetExhausted, resultStatus, pending, activeTurn, liveRuns, runCount, turnSeq,
   //     milestonesTotal, milestonesDone, ledgerless, lastTurnFailed }
@@ -69,24 +96,8 @@
       // 而不是「这是一条速查线程」。速查这个身份仍然在,它活在 kind 上(看板行上的徽标读它)。
       factsUnknown: n.factsUnknown === true,
     };
-    let state;
-    // 0. 事实未知的逃生舱:调用方明说「我没有这条线程的事实」时,不硬套五态(概念稿风险 #1 的
-    // 落点仍在,只是判据从 kind 换成了 factsUnknown —— 117r-D5,理由见上面那条证据键的注释)。
-    if (src.factsUnknown) state = 'quick_ask';
-    // 1. 需要你:有未决 Intervention 永远最先亮(鎏金)——哪怕任务同时在跑/已停,等你拿主意是最高打扰级。
-    else if (src.pendingTotal > 0) state = 'needs_you';
-    // 2. 已收工:结果章 complete(72波持久化盖章,全部里程碑 done 的权威记录)。
-    else if (src.resultStatus === 'complete') state = 'done';
-    // 3. 进行中:活回合 / until-done 驱动中 / 有未暂停的活 run —— 有权威活证据才算在干,不靠猜。
-    else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
-    // 4. 交办中:立了单但还没有任何执行痕迹(无 run、无回合、无里程碑完成)——刚交办待启动。
-    else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
-    // 4b. 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
-    // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
-    // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
-    else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
-    // 5. 已停工:其余一切 —— 结果章 stopped / 预算耗尽(supervised 待命)/ 用户停驱(idle)——诚实:活没在干。
-    else state = 'stopped';
+    const rule = RULES.find(r => r.when(src));
+    const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
     return { state, label: LABELS[state] || state, sources: src };
   }
 
@@ -139,5 +150,5 @@
     });
   }
 
-  return { STATES, LABELS, deriveMissionState, fromCard, fromSnapshot };
+  return { STATES, LABELS, RULE_IDS, deriveMissionState, fromCard, fromSnapshot };
 });

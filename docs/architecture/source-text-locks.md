@@ -19,7 +19,7 @@
 3. **转换时判据不许放松。** 每一处转换都做过反向验证：临时把不变式弄坏，确认测试变红，再恢复原样。证据见下面第 1 节。
    转换前后各件的 PASS 条数相同或更多（见第 1.2 节），没有删掉任何一条断言。
 
-## 1. 已转成运行时断言(20 件)
+## 1. 已转成运行时断言(21 件)
 
 | 文件 | 断言的不变式 | 修前怎么拿 | 现在从哪拿 |
 |---|---|---|---|
@@ -40,6 +40,7 @@
 | `subagent-net-tools.e2e` ②⑤⑥ | explorer/reviewer/verifier 三个角色能联网；联网工具的档位不变；`bridgedToolTier` 的分级 | 逐行正则抠角色行；切 `const NATIVE_TOOL_TIER = {…};` 的文本；把函数和两张依赖表拼进 `new Function` | 产物导出的 `BUILTIN_AGENT_ROLES`、`NATIVE_TOOL_TIER`、`bridgedToolTier` |
 | `autonomy-grant.e2e` S9 与 [P] 的三个依赖 | `AUTOEXEC_DENYLIST` 的九个条目都在，而且确实导出了；授权书块跑在真的 `hashArgs`/`pathWithinRoot`/`AUTOEXEC_DENYLIST` 上 | 在源码里 `includes` 正则字面量，再用 `/^  AUTOEXEC_DENYLIST,$/m` 查导出行；三个依赖都是正则抠出来再 `new Function` | 产物导出的 `AUTOEXEC_DENYLIST`（逐条比 `String(re)`）、`hashArgs`、`pathWithinRoot` |
 | `start-experience.static` ①(前端那一半) | 服务端 keyOptional 预设和前端 `KEY_OPTIONAL_PRESET_IDS` 逐字一致 | 用正则抠 `Object.freeze([...])` 的内容 | `import('public/js/onboarding-wizard.js')` 的 `KEY_OPTIONAL_PRESET_IDS`。服务端那一半见第 3 节 |
+| `steward-tools.static` ⑥(批 4) | 服务端 06i 与前端 `mission-state.js` 的五态判据相同、优先级相同 | 七条 if/else 分支源码在两个文件里逐字 `includes`，再比出现位置单调 | 两边改成同 id 判定表；`unit/thread-state-differential.test.js` 在三万多格证据网格上逐格比对 `deriveStewardThreadState`/`deriveMissionState` 与两个 `fromCard` 的运行时输出，并与改表前的分支链同态。⑥ 只留规则 id 顺序这一条结构判据 |
 | `turn-narrative.static` N1–N4d | 回合叙事分段器的顺序、批次、plan、权限、提问等行为 | 从 02c 的 `function createTurnSegmentBuilder()` 切到文件末尾，放进 vm 跑 | 产物导出的 `createTurnSegmentBuilder` |
 
 ### 1.1 反向验证记录

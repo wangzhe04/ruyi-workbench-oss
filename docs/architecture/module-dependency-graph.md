@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 62 | 2808 | 2826 | 486 | 68 | 0 | 1 |
+| 62 | 2809 | 2826 | 486 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -40,7 +40,7 @@
 | 22 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 23 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 24 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 25 | `06i-steward-core.js` | engine | 152 | 0 | 0 |
+| 25 | `06i-steward-core.js` | engine | 153 | 0 | 0 |
 | 26 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
 | 27 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 28 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |

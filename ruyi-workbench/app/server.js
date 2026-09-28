@@ -24071,9 +24071,23 @@ function buildStewardBrief(brief) {
 
 // ── 线程五态(§3.3/§11.2)。来源:ruyi-workbench/app/public/js/mission-state.js 的 deriveMissionState /
 // fromCard —— 那是浏览器端唯一权威判据,服务端不得另起状态机。此处是【判据逐条抄写】的服务端纯函数
-// 副本(前端文件是 UMD 模块,服务端产物是单文件拼接,拉不进来;抄写后由 steward-tools.static.e2e.js
-// 机械对账两边的分支顺序与关键字面量)。改判据必须两边同改。
+// 副本(前端文件是 UMD 模块,服务端产物是单文件拼接、还要进 pkg 快照,拉不进来)。
+// 架构还债批 4:判据从一串 if/else 换成与前端 RULES【同 id、同顺序】的判定表,两份抄写件由
+// dev-harness/unit/thread-state-differential.test.js 在整张证据网格上逐格比对输出(state/sources/label)
+// 钉住 —— 不再按源码字面量对账。改判据必须两边同改。
 const STEWARD_THREAD_STATES = Object.freeze(['dispatching', 'running', 'needs_you', 'done', 'stopped', 'quick_ask']);
+// 判定表:自上而下【第一条命中】的规则决定状态,顺序即优先级;各条的理由见 mission-state.js RULES 的逐条注释。
+// 117p-S2 的无账本分支(ledgerless_ran)排在 untouched 之后、兜底之前;账缺席(lastTurn 为 null)按成功算。
+const STEWARD_THREAD_STATE_RULES = Object.freeze([
+  { id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },
+  { id: 'pending', state: 'needs_you', when: s => s.pendingTotal > 0 },
+  { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
+  { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+  { id: 'untouched', state: 'dispatching',
+    when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
+  { id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },
+  { id: 'fallback', state: 'stopped', when: () => true },
+].map(Object.freeze));
 function stewardPendingTotal(p) {
   const o = (p && typeof p === 'object') ? p : {};
   return (Number(o.permissions) || 0) + (Number(o.questions) || 0) + (Number(o.plans) || 0) + (Number(o.pool) || 0);
@@ -24107,17 +24121,8 @@ function deriveStewardThreadState(n) {
     // 而不是「这是一条速查线程」。速查这个身份仍然在,它活在 kind 上(看板行上的徽标读它)。
     factsUnknown: input.factsUnknown === true,
   };
-  let state;
-  if (src.factsUnknown) state = 'quick_ask';
-  else if (src.pendingTotal > 0) state = 'needs_you';
-  else if (src.resultStatus === 'complete') state = 'done';
-  else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
-  else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
-  // 117p-S2:无账本线程(没有里程碑、没有结果章、没有班组)跑过回合且此刻没在跑 -> 已收工;
-  // 末回合 ok:false 或 aborted -> 已停工;账缺席(lastTurn 为 null)按成功算,与 13i 的
-  // @sessionTurn 解析器「账缺席一律 done」同口径。有账本的 2.0 任务单语义一个字不变。
-  else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
-  else state = 'stopped';
+  const rule = STEWARD_THREAD_STATE_RULES.find(r => r.when(src));
+  const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
 }
 // 投影卡片(13e overlayMissionCard 的输出,与 /api/missions 下发的 card 同形)适配器 —— 逐条对应

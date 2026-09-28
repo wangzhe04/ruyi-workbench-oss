@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 62,
-    "providedSymbols": 2808,
+    "providedSymbols": 2809,
     "requiredSymbols": 2826,
     "edges": 486,
     "forwardEdges": 68,
@@ -4710,6 +4710,7 @@
         "STEWARD_TAINT_TOOL_NAMES",
         "STEWARD_THREAD_STATES",
         "STEWARD_THREAD_STATE_ORDER",
+        "STEWARD_THREAD_STATE_RULES",
         "STEWARD_TOOL_PREFIX",
         "STEWARD_WAIT_LABELS",
         "STEWARD_WAIT_REASONS",
