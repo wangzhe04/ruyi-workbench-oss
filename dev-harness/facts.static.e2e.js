@@ -86,8 +86,11 @@ const nonLiveInSkip = skipFiles.filter(f => !/live/i.test(f) && !LIVE_WHITELIST.
 ok(nonLiveInSkip.length === 0, `SKIP 集每条都是 live probe(非 live 混入: ${nonLiveInSkip.join(', ') || '无'})`);
 
 // README 门面口径软锁:README 提到 ACC 工具数时必须与 facts 一致(防 99/100 双口径复发)。
+// README 拆成中文 README.md 与英文 README_EN.md 两份完整文件(2026-09 README 重写):两份都查,
+// 中文的数字判据在 README.md 上找、英文的在 README_EN.md 上找 —— 哪一份没跟上都红。
 const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
-const accMentions = [...readme.matchAll(/(\d+)\s*个?(?:桌面| )?工具/g)].map(m => Number(m[1]));
+const readmeEn = fs.readFileSync(path.join(ROOT, 'README_EN.md'), 'utf8');
+const accMentions = [...readme.matchAll(/(\d+)\s*个?(?:桌面| )?工具/g), ...readmeEn.matchAll(/(\d+)\s*(?:ACC |desktop )?tools/g)].map(m => Number(m[1]));
 const accClaimsOk = !accMentions.includes(99) && !accMentions.includes(98);
 ok(accClaimsOk, `README 无过时 ACC 工具数口径(99/98 绝迹;现行 ${facts.accTools})`);
 
@@ -100,22 +103,24 @@ ok(accClaimsOk, `README 无过时 ACC 工具数口径(99/98 绝迹;现行 ${fact
 // 是绿的:实测 README 写着「48 组 unit suite」而 facts 已经是 49,这三条照样全过。锁写松了比没有锁
 // 更糟 —— 它给的是假的把握。收紧成:**数字必须贴着它声称在数的那个词**,而且每一处都要对上。
 // (本会话第四次同一族:锁要钉住判据本身,不是「这几个字/这个数出现过」。)
-function readmeCounts(label, patterns) {
+function readmeCounts(file, text, label, patterns) {
   const hits = [];
-  for (const re of patterns) for (const m of readme.matchAll(re)) hits.push({ text: m[0].trim(), n: Number(m[1]) });
-  ok(hits.length > 0, `README 里扫得到「${label}」的说法（实得 ${hits.length} 处；扫不到 = 本条静默失效）`);
+  for (const re of patterns) for (const m of text.matchAll(re)) hits.push({ text: m[0].trim(), n: Number(m[1]) });
+  ok(hits.length > 0, `${file} 里扫得到「${label}」的说法（实得 ${hits.length} 处；扫不到 = 本条静默失效）`);
   return hits;
 }
-for (const [label, value, patterns] of [
-  ['原生工具数', facts.nativeTools, [/([0-9]+)\s*个原生工具/g, /\*\*([0-9]+) native built-in tools\*\*/g]],
-  ['e2e 总数', facts.e2eCount, [/([0-9]+)\s*项\s*e2e/g, /\*\*([0-9]+) e2e cases\*\*/g]],
-  ['unit suite 数', facts.unitSuites, [/([0-9]+)\s*组\s*unit suite/g, /plus ([0-9]+) unit suites/g]],
+for (const [label, value, zhPatterns, enPatterns] of [
+  ['原生工具数', facts.nativeTools, [/([0-9]+)\s*个原生工具/g], [/\*\*([0-9]+) native built-in tools\*\*/g]],
+  ['e2e 总数', facts.e2eCount, [/([0-9]+)\s*项\s*e2e/g], [/\*\*([0-9]+) e2e cases\*\*/g]],
+  ['unit suite 数', facts.unitSuites, [/([0-9]+)\s*组\s*unit suite/g], [/plus ([0-9]+) unit suites/g]],
 ]) {
-  const hits = readmeCounts(label, patterns);
-  const wrong = hits.filter(h => h.n !== value);
-  ok(wrong.length === 0,
-    `README 里每一处「${label}」都与 facts 一致(现行 ${value}，实得 ${hits.length} 处)` +
-    (wrong.length ? `；对不上的：${wrong.map(h => h.text).join('、')}` : ''));
+  for (const [file, text, patterns] of [['README.md', readme, zhPatterns], ['README_EN.md', readmeEn, enPatterns]]) {
+    const hits = readmeCounts(file, text, label, patterns);
+    const wrong = hits.filter(h => h.n !== value);
+    ok(wrong.length === 0,
+      `${file} 里每一处「${label}」都与 facts 一致(现行 ${value}，实得 ${hits.length} 处)` +
+      (wrong.length ? `；对不上的：${wrong.map(h => h.text).join('、')}` : ''));
+  }
 }
 
 

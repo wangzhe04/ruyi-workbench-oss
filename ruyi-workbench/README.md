@@ -1,83 +1,60 @@
-# 如意 Ruyi —— 本地 AI 全能工作台
+# 如意 Ruyi —— 工作台本体
 
-一个 clean-room 的 Windows 本地工作台，把 Agent CLI（Claude Code / Kimi Code）或任意 OpenAI 兼容端点包成桌面工作台体验：对话、附件、项目目录、文件操作、PowerShell、脚本、浏览器/Office 交接、截图，以及可被 Agent CLI 调用的 MCP 工具。有网没网都能正常运行，非程序员也可安全使用。
+这个目录是如意工作台的应用本体：Node 后端、原生 JS 前端、桌面壳、内置资源与打包工具。
+**项目介绍、界面截图、能力一览与快速上手见仓库根目录的 [README](../README.md)（English: [README_EN](../README_EN.md)）。**
 
-> **项目门面(含界面截图、功能详解、同类对比、快速开始)见仓库根 [README](../README.md);界面截图在 [`../docs/screenshots/`](../docs/screenshots/)。**
+## 目录
 
-> **关于品牌**：本项目原名 **Win Claude Workbench**，自 v0.8 起更名为 **如意 Ruyi**。改名是开源发布的法务考量——项目名含 "Claude" 存在**商标风险**，且旧系统提示词里「running inside Win Claude Workbench」一句曾导致 provider 模型**身份错认**（provider 模型自称「我是 Claude」）。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
-> **兼容性**：目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）。为不破坏存量接入，以下**存量兼容标识有意保持不变**（建议下一个大版本收口）：MCP server id `win-claude-workbench`（已写进用户 `.mcp.json`）、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`（`RUYI_HOME` 优先，旧变量继续识别）。子进程 MCP 配置注入的仍是旧变量名（值=已解析的数据目录），故存量 `.mcp.json` 照常工作。
+| 路径 | 内容 |
+|---|---|
+| `app/src/` | 后端源码：63 个有序模块，顺序记在 `app/src/manifest.json` |
+| `app/server.js` | 后端运行产物：`node app/build.js` 把 `app/src/` 拼接成这一个文件，**零 npm 运行时依赖**；改代码只改 `app/src/`，再重建 |
+| `app/public/` | 前端：`index.html`、`app.js` 组合根、`js/` 下的原生 ES 模块、分层 CSS、`locales/` 中英语言包；无框架、无构建 |
+| `desktop/` | WinForms + WebView2 桌面壳 `RuyiDesktop.exe` 的源码与构建脚本 |
+| `resources/` | 内置 Playbook、Claude Code 离线插件市场 `plugins/win-workbench-offline`（`offline-toolkit` 技能集）、安装与启动脚本 |
+| `config/` | 配置示例与出厂默认值 |
+| `docs/` | 用户手册、管理员手册、架构、离线部署、源码审阅、技能目录 |
+| `tools/` | 离线打包 `package-offline.ps1`、overlay 增量升级、开发脚手架 |
+| `Start-Workbench.cmd` | 发布包里的双击启动器（有桌面壳时以独立窗口打开） |
 
-**多引擎(v0.5+)**：Agent CLI 可选 Claude Code 或 Kimi Code；另支持 **OpenAI 兼容 provider**（DeepSeek / 通义千问 DashScope / 智谱 GLM / 内网 vLLM·Ollama 等），直连 HTTP + SSE 流式，带原生工具循环。在设置里可随时切换 Agent CLI 与 provider。
-
-**桌面 MCP 桥接(v0.7d+)**：可自动探测本机的 `ai-computer-control` 桌面控制 MCP（及其它自定义 stdio MCP），把它们同时供给 Claude CLI 与 provider 引擎。v1.6.1 起默认按任务装载工具提示词：provider 可在循环中增量加入 schema，Claude CLI 通过风险分级代理发现/调用隐藏工具；“全部常驻”兼容模式仍可在高级设置启用。v1.6.2 增加安全的批量历史清理。v1.6.3 增加 Claude CLI / OpenAI 兼容引擎通用的一次性“Agent 团队”编排开关；Provider 原生工具循环按普通/长任务采用 100/200/300 的进展自适应预算，两种引擎的 Agent 节点显式预算上限均提升到 300。v1.6.4 让两种引擎的父回合都能感知子 Agent/DAG 的真实流式进度，避免活跃团队任务被误判为空闲超时；并新增 Coder 角色，强化编码、调试与审查模板。v1.6.5 固定 ACC 完整离线包采用有 `winsdk` wheel 的 Python 3.12，并在打包时执行断网安装回放。v1.6.6 会把当前 ACC 源码覆盖到嵌入式运行时并重算完整性清单，确保 OCR 字节兼容性修复在首次启动后真正生效。
-
-压缩包内还包含一个本地 Claude Code marketplace：`resources\plugins\win-workbench-offline`。其中的 `offline-toolkit` 复刻了常用插件/skill 的离线能力，包括代码审查、前端审计、本地文档上下文、提交说明、CLAUDE.md 管理、API 调试、CI 复现、安全检查、插件开发和发布打包提示词。
-
-**多 Agent 编排 + 团队模式(v1.4→v1.5)**：DAG 工作流、质量门、资源租约防死锁、Git worktree 隔离、实时监控。v1.5 团队模式在此之上增加：**共享任务池**(子代理 `propose_task` 提案→审批→物化为普通 DAG 节点，运行时嵌套委派的可观测替代)、**Agent 邮箱**(`send_to_agent` 节点间单向异步消息，与用户插话分池)、**定向插话**(运行中对指定 OpenAI 引擎节点 `steer_node`)、**跨会话工作台记忆**(`dataRoot/memory` 按项目分组、起草-确认入库、围栏渐进注入)。
-
-**Skills 体系 v1(v1.5)**：四源技能注册表(内置 toolkit / 用户 `dataRoot/skills` / 项目 `.ruyi/skills/<id>/SKILL.md` / Playbook 并入)，会话级启用(上限 8)，跨引擎渐进注入——system prompt 只放紧凑索引，provider 引擎经 `skill_read` 工具按需拉全文，Claude 引擎经 `--append-system-prompt` + 自带 Read 展开。
-
-**成本 / 用量看板(v1.5)**：诚实计费——区分 Anthropic 官方 / 第三方 Coding Plan/ OpenAI provider，分币种记账不强制换算，第三方端点标注「计划内计费」不计入真实花费；工作流子代理、自动/手动压缩、Playbook 起草等全部烧 token 路径均入账，月度预算告警。
-
-**中英界面**：设置中支持跟随系统、简体中文和英文。语言资源随包发布；高频动态反馈和 API 错误通过稳定错误码本地化，详细契约见 [`../docs/i18n/README.md`](../docs/i18n/README.md)。
-
-## 快速启动
+## 运行
 
 ```powershell
-node .\app\server.js serve --open
+node .\app\server.js serve --open     # 只监听 127.0.0.1，默认端口 8765，被占自动顺延
+node .\app\server.js doctor           # 体检：引擎、依赖、端口、数据目录
+node .\app\server.js mcp-config       # 输出工作台 MCP 配置
+node .\app\server.js install          # 把工作台 MCP 注册进本机 Claude Code
+node .\app\server.js mcp              # 以 stdio MCP server 方式运行
 ```
 
-打包后：
+需要 Windows 10/11 与 Node.js ≥ 20，不需要 `npm install`（`package.json` 里的 devDependencies 只给打包单体 exe 用）。
+数据目录默认 `~/.win-claude-workbench`，可用 `RUYI_HOME` 覆盖。
+
+## 打包
 
 ```powershell
-.\Ruyi.exe serve --open
+npm run package:offline          # Full：含桌面控制 ACC、CPython 3.12 与 OCR（从已校验缓存生成）
+npm run package:offline:full:fresh   # 同上，但联网重建 ACC 运行时
+npm run package:offline:slim     # Slim：不含桌面控制
+npm run build:desktop            # 构建 RuyiDesktop.exe 桌面壳
 ```
 
-## 常用命令
-
-```powershell
-.\Ruyi.exe doctor
-.\Ruyi.exe mcp-config
-.\Ruyi.exe install
-.\Ruyi.exe mcp
-```
-
-## 离线包
-
-```powershell
-npm.cmd install
-powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1
-# 包含 ACC 的真正完整离线包（构建机需联网一次）
-powershell -ExecutionPolicy Bypass -File .\tools\package-offline.ps1 -SkipExeBuild -IncludeAcc -BuildAccOffline -Variant offline-full-acc
-```
-
-标记为 Full 的包必须同时满足以下硬要求：固定使用 CPython 3.12 与
-`winsdk==1.0.0b10` 的 `cp312-win_amd64` wheel；embedded runtime 必须能实际导入
-`winsdk.windows.media.ocr` 及其 imaging/streams/globalization 投影；wheel 与运行时文件必须全部进入
-`offline-manifest.json` 的 SHA-256 清单。任一条件不满足，打包脚本会拒绝生成 Full ZIP。
-
-输出：
-
-```text
-dist\Ruyi-offline.zip
-```
+名字里带 Full 的包必须同时满足：CPython 3.12、`winsdk` 的 cp312 wheel、嵌入式运行时能实际导入 OCR 投影、全部文件进入
+`offline-manifest.json` 的 SHA-256 清单；任何一条不满足，打包脚本拒绝生成。增量 overlay 升级见 [`tools/APPLY-OVERLAY.md`](tools/APPLY-OVERLAY.md)。
 
 ## 文档
 
-- 用户手册：[English](docs/manuals/USER-GUIDE_EN.md) · [中文](docs/manuals/USER-GUIDE_CN.md)
-- 管理员手册：[English](docs/manuals/ADMIN-GUIDE_EN.md) · [中文](docs/manuals/ADMIN-GUIDE_CN.md)
-- 架构说明：[English](docs/ARCHITECTURE_EN.md) · [中文](docs/ARCHITECTURE_CN.md)
-- 离线部署：[English](docs/OFFLINE_DEPLOYMENT_EN.md) · [中文](docs/OFFLINE_DEPLOYMENT_CN.md)
-- 源码审阅：[English](docs/SOURCE_REVIEW_EN.md) · [中文](docs/SOURCE_REVIEW_CN.md)
-- 多语言契约：[English](../docs/i18n/README_EN.md) · [中文](../docs/i18n/README.md)
-- 迭代记录与验收：[`../docs/OPTIMIZATION-ROADMAP.md`](../docs/OPTIMIZATION-ROADMAP.md)
+- 用户手册：[中文](docs/manuals/USER-GUIDE_CN.md) · [English](docs/manuals/USER-GUIDE_EN.md)
+- 管理员手册（部署、引擎、安全边界、计费、回归）：[中文](docs/manuals/ADMIN-GUIDE_CN.md) · [English](docs/manuals/ADMIN-GUIDE_EN.md)
+- 架构说明：[中文](docs/ARCHITECTURE_CN.md) · [English](docs/ARCHITECTURE_EN.md)
+- 离线部署：[中文](docs/OFFLINE_DEPLOYMENT_CN.md) · [English](docs/OFFLINE_DEPLOYMENT_EN.md)
+- 源码审阅（clean-room 依据）：[中文](docs/SOURCE_REVIEW_CN.md) · [English](docs/SOURCE_REVIEW_EN.md)
+- 技能与一键任务目录：[中文](docs/SKILLS-CATALOG_CN.md)
+- 工作流模型规范：[中文](docs/MODEL-WORKFLOW-SPEC_CN.md) · [English](docs/MODEL-WORKFLOW-SPEC_EN.md)
 
-## Clean-room 声明
+## 品牌与兼容标识
 
-本项目为 **clean-room 独立实现**：**不含** Anthropic 泄露源码、**不分发**官方 Claude CLI、**不复制**第三方插件源码，也不假设公网可用。你需要在内网机器上提供自己的 Claude CLI（或配置任意 OpenAI 兼容端点），然后通过 UI 设置路径或运行安装脚本注册 MCP。随包前端静态库（marked / highlight.js 及主题）的许可义务见仓库根 [`../THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)；本体在 [Apache-2.0](../LICENSE) 下发布。
+本项目原名 **Win Claude Workbench**，v0.8 起更名 **如意 Ruyi**，目录与可执行文件已改名（`ruyi-workbench/`、`Ruyi.exe`，启动脚本仍识别旧的 `WinClaudeWorkbench.exe`）。
+为不破坏已有接入，MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`（`RUYI_HOME` 优先）有意保持不变。
 
-详细文档见：
-
-- `docs\SOURCE_REVIEW_CN.md`
-- `docs\ARCHITECTURE_CN.md`
-- `docs\OFFLINE_DEPLOYMENT_CN.md`
+本项目是 clean-room 独立实现：不含 Anthropic 泄露源码，不分发官方 Claude Code，不复制第三方插件源码；随包前端静态库的许可见 [`../THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)，本体按 [Apache-2.0](../LICENSE) 发布。

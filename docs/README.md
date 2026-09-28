@@ -6,7 +6,7 @@ operational commitments.
 
 | Audience | English | 中文 |
 |---|---|---|
-| Product overview and quick start | [Repository README](../README.md#english) | [仓库 README](../README.md) |
+| Product overview and quick start | [Repository README](../README_EN.md) | [仓库 README](../README.md) |
 | Everyday users | [User Guide](../ruyi-workbench/docs/manuals/USER-GUIDE_EN.md) | [用户手册](../ruyi-workbench/docs/manuals/USER-GUIDE_CN.md) |
 | Administrators | [Administrator Guide](../ruyi-workbench/docs/manuals/ADMIN-GUIDE_EN.md) | [管理员手册](../ruyi-workbench/docs/manuals/ADMIN-GUIDE_CN.md) |
 | Offline deployment | [Offline Deployment](../ruyi-workbench/docs/OFFLINE_DEPLOYMENT_EN.md) | [离线部署说明](../ruyi-workbench/docs/OFFLINE_DEPLOYMENT_CN.md) |

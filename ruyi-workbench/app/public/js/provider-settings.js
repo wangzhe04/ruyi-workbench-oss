@@ -2241,7 +2241,7 @@ function saveTemplates(t) { try { localStorage.setItem('wcw.templates', JSON.str
 function addTemplateFromPrompt() {
   const text = $('promptInput').value.trim(); if (!text) { toast(t("toast.inputEmpty"), 'err'); return; }
   const name = prompt(t('mcp.templateName'), text.slice(0, 24)); if (!name) return;
-  const t = getTemplates(); t.push({ name, text }); saveTemplates(t); toast(t("toast.templateSaved"), 'ok');
+  const list = getTemplates(); list.push({ name, text }); saveTemplates(list); toast(t("toast.templateSaved"), 'ok');
 }
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
 
@@ -2251,6 +2251,7 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
   return Object.freeze({
     activeProviderObj,
     addProviderFromPreset,
+    addTemplateFromPrompt,   // 命令面板「把当前输入存为模板」(navigation-controls 经组合根取它;修前漏导出,一按就 ReferenceError)
     applyClaudeEndpointPreset,
     currentEngineMeta,
     currentModelId,

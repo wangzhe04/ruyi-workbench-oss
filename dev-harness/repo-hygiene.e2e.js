@@ -130,6 +130,7 @@ function walk(dir, acc, skip) {
   const activeDocs = [
     path.join(ROOT, 'DEV-README.md'),
     path.join(ROOT, 'README.md'),
+    path.join(ROOT, 'README_EN.md'),
     path.join(WB, 'README.md'),
     path.join(WB, 'docs', 'ARCHITECTURE_CN.md'),
     path.join(ROOT, 'docs', 'WCW-v0.8-v1.0-Roadmap-Design-Spec.md'),
