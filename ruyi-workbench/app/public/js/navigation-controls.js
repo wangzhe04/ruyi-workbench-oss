@@ -15,6 +15,8 @@ import { popover, popoverAnchor } from './popover.js';
 import { createHelpMenuDomain } from './help-menu.js';
 import { openSharedHelpDoc } from './help-viewer.js';
 import { openSharedOnboarding } from './onboarding-wizard.js';
+// 每个 Agent CLI 的思考强度档位、压缩缺省项文案、原生用量接口只问这一张登记表（ENGINEERING-SPEC §11.1）。
+import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_THINKING_EFFORT_VALUES, agentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 
 export function createNavigationControlsDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -173,14 +175,13 @@ function renderPalette() {
 //   · 删模型行（deleteCustomModel ／ deleteProviderModel）
 //   · 刷新模型列表、管理服务商…
 // 三者经本文件末尾导出的 modelMenuExtras 挂进 chips 模型菜单的尾部（组合根一处接线）。
-const CLAUDE_THINKING_EFFORTS_UI = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
 const PROVIDER_REASONING_EFFORTS_UI = ['', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 function activeProvider() {
   const id = isProviderMode() ? String(currentEngineMeta().providerId || '') : '';
   return id && id !== 'claude-cli' ? (state.config?.providers || []).find(p => p.id === id) || null : null;
 }
 async function setClaudeThinkingEffort(value) {
-  const effort = CLAUDE_THINKING_EFFORTS_UI.includes(value) ? value : '';
+  const effort = AGENT_CLI_THINKING_EFFORT_VALUES.includes(value) ? value : '';
   const previous = state.config?.claudeThinkingEffort || '';
   if (effort === previous) return true;
   state.config.claudeThinkingEffort = effort;
@@ -227,9 +228,11 @@ async function setEngineModel(providerId, modelId, opts = {}) {
   const pid = providerId || '';
   const previousRoute = state.currentSession?.engineRoute ? { ...state.currentSession.engineRoute } : null;
   const agentMeta = currentEngineMeta();
+  // 路由上是非缺省 CLI 就用它，否则落到全局那一个（修前逐字：路由是 kimi → kimi；否则全局是 kimi → kimi；否则 claude）。
+  const routeCli = normalizeAgentCliType(agentMeta.agentCliType), globalCli = normalizeAgentCliType(state.config?.agentCliType);
   const engineRoute = pid && pid !== 'claude-cli'
     ? { engine: 'openai', providerId: pid, model: modelId || '' }
-    : { engine: 'agent', agentCliType: agentMeta.agentCliType === 'kimi' ? 'kimi' : (state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude'), model: modelId || '' };
+    : { engine: 'agent', agentCliType: routeCli !== AGENT_CLI_DEFAULT_ID ? routeCli : globalCli, model: modelId || '' };
   // 全局 config 的装配：只有 scope==='global' 才做（会话级选择只活在 engineRoute 里，不动新会话默认值）。
   let patch = null;
   if (scope === 'global') {
@@ -376,7 +379,7 @@ function appendEffortControl(container, close) {
   const select = el('select', 'mc-effort-select');
   const values = providerMode
     ? PROVIDER_REASONING_EFFORTS_UI
-    : (state.config?.agentCliType === 'kimi' ? ['', 'low', 'medium', 'high', 'max'] : CLAUDE_THINKING_EFFORTS_UI);
+    : agentCliMeta(state.config?.agentCliType).thinkingEfforts;
   const keyOf = value => (providerMode ? `provider.reasoningEffort.${value || 'default'}` : `thinkingEffort.${value || 'default'}`);
   for (const value of values) {
     const option = el('option');
@@ -488,7 +491,7 @@ function openContextPopover() {
     const compactLabel = el('label', 'ctx-compact-model-label muted', t('ctx.compact.label'));
     const compactSelect = el('select', 'ctx-compact-model');
     const defaultName = isProviderMode() ? t('ctx.compact.defaultProvider')
-      : (currentEngineMeta().agentCliType === 'kimi' ? t('ctx.compact.defaultKimi') : t('ctx.compact.defaultClaude'));
+      : t(agentCliMeta(currentEngineMeta().agentCliType).compactDefaultLabelKey);
     const selectedProvider = String(state.config?.compactProviderId || '');
     const selectedModel = String(state.config?.compactModel || '');
     bindModelSelect(compactSelect, {
@@ -547,11 +550,11 @@ function openContextPopover() {
     });
     obs.observe(document.body, { childList: true });
   }
-  // Existing Kimi sessions may predate usage synchronization. Refresh the authoritative native status
+  // Existing Kimi sessions (any CLI whose registry row has a statusEndpoint) may predate usage synchronization. Refresh the authoritative native status
   // whenever the meter is opened and patch both the battery and this popover without requiring a restart.
-  if (handle && !isProviderMode() && currentEngineMeta().agentCliType === 'kimi' && state.currentSession?.id) {
+  if (handle && !isProviderMode() && agentCliMeta(currentEngineMeta().agentCliType).statusEndpoint && state.currentSession?.id) {
     const sid = state.currentSession.id;
-    api(`/api/kimi/status?sessionId=${encodeURIComponent(sid)}`).then(r => {
+    api(`${agentCliMeta(currentEngineMeta().agentCliType).statusEndpoint}?sessionId=${encodeURIComponent(sid)}`).then(r => {
       if (!r || !r.ok || !r.usage || state.currentSession?.id !== sid) return;
       state.shownUsage = r.usage;
       updateContextMeter();

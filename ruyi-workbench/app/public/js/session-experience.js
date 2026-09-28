@@ -4,6 +4,8 @@
 import { state, MSG_WINDOW_STEP, MSG_WINDOW_TAIL, MSG_WINDOW_THRESHOLD } from './state.js';
 import { api } from './net.js';
 import { $, el, autoGrow, fileBasename, toast, chatProviders, paintSessionMeta } from './util.js';
+// 每个 Agent CLI 的品牌名、路径键、原生用量接口只问这一张登记表（ENGINEERING-SPEC §11.1）。
+import { agentCliMeta } from './agent-cli-registry.js';
 import { icon } from './icons.js';
 import { getLocale, setLocale, t, tCount } from './i18n.js';
 // 118a: 壳无关欢迎向导。经典壳与预览壳引用同一个模块;provider 序列化复用设置页的同一实现。
@@ -885,10 +887,10 @@ function refreshKimiContextForSession(session) {
   // `agentCliType` is only the fallback Agent driver. While an OpenAI-compatible Provider is active,
   // its compacted providerHistory is authoritative; a late Kimi status response must not restore the
   // pre-compaction numerator over the freshly reloaded Provider usage row.
-  if (!session || isProviderMode() || currentEngineMeta().agentCliType !== 'kimi' || !session.id) return;
+  if (!session || isProviderMode() || !agentCliMeta(currentEngineMeta().agentCliType).statusEndpoint || !session.id) return;
   const sid = session.id;
   const seq = ++kimiContextRefreshSeq;
-  api(`/api/kimi/status?sessionId=${encodeURIComponent(sid)}`).then(result => {
+  api(`${agentCliMeta(currentEngineMeta().agentCliType).statusEndpoint}?sessionId=${encodeURIComponent(sid)}`).then(result => {
     if (seq !== kimiContextRefreshSeq || state.currentSession?.id !== sid || !result?.ok || !result.usage) return;
     state.shownUsage = result.usage;
     renderContextMeter(result.usage);
@@ -1377,11 +1379,9 @@ function isFirstRun() {
 // v1.0-S3 (A3): 从 state 派生「AI 引擎是否就绪」。就绪来源二选一：所选 Agent CLI 被检出/已配置路径，或已配置任一 provider。
 // 返回 { ready, name } —— name 是就绪引擎的人话名（供绿点行显示）。做成小函数，不嵌进模板。
 function engineReadiness() {
-  const cliType = state.config?.agentCliType === 'kimi' ? 'kimi' : 'claude';
-  const cliReady = cliType === 'kimi'
-    ? !!(state.config?.kimiPath || state.status?.detectedKimiPath)
-    : !!(state.config?.claudePath || state.status?.detectedClaudePath);
-  const cliLabel = cliType === 'kimi' ? 'Kimi Code' : 'Claude Code';
+  const cli = agentCliMeta(state.config?.agentCliType);
+  const cliReady = !!(state.config?.[cli.pathKey] || state.status?.[cli.detectedKey]);
+  const cliLabel = cli.label;
   const providers = chatProviders(state.config);   // 「已经有对话引擎了吗」:自动接入的本地语音识别不算
   const providerReady = providers.length > 0;
   if (isProviderMode()) {
@@ -1635,9 +1635,9 @@ function assemblePlaybookPrompt(pb, values) {
 // The single conditional call-to-action for the empty state (§4.7), or null when everything's healthy.
 function buildEmptyCTA() {
   if (!isProviderMode()) {
-    const kimi = state.config?.agentCliType === 'kimi';
-    const detected = kimi ? state.status?.detectedKimiPath : state.status?.detectedClaudePath;
-    const configured = kimi ? state.config?.kimiPath : state.config?.claudePath;
+    const cli = agentCliMeta(state.config?.agentCliType);
+    const detected = state.status?.[cli.detectedKey];
+    const configured = state.config?.[cli.pathKey];
     if (!detected && !configured) {
       const b = el('button', 'primary empty-cta', t('emptyState.configureClaude'));
       b.onclick = () => { openModal('settingsModal'); switchSettingsTab('claude', true); };

@@ -39,6 +39,8 @@ export function createChatRenderPrimitives(deps = {}) {
     $,
     api,
     apiErrText,
+    // Agent CLI 登记表的查询函数（js/agent-cli-registry.js 的 agentCliMeta）。本模块零 import，由组合根注入。
+    agentCliMeta,
     autoGrow,
     buildModal,
     currentEngineMeta,
@@ -731,7 +733,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (meta.engine === 'openai' || meta.providerId || (typeof isProviderMode === 'function' && isProviderMode())) {
       return { engine: 'openai', providerId: String(meta.providerId || state.config?.activeProvider || ''), model };
     }
-    return { engine: 'agent', agentCliType: (meta.agentCliType || state.config?.agentCliType) === 'kimi' ? 'kimi' : 'claude', model };
+    return { engine: 'agent', agentCliType: agentCliMeta(meta.agentCliType || state.config?.agentCliType).id, model };
   }
   function sameContextModel(a, b) {
     const left = String(a || '').trim().toLowerCase(), right = String(b || '').trim().toLowerCase();
@@ -753,7 +755,7 @@ export function createChatRenderPrimitives(deps = {}) {
         && String(usage.contextAgentCliType || '') === route.agentCliType
         && sameContextModel(usage.contextModel, route.model);
     }
-    if (route.engine === 'agent' && route.agentCliType === 'kimi' && /^(kimi-native|kimi-wire)$/.test(String(usage.source || ''))) {
+    if (route.engine === 'agent' && agentCliMeta(route.agentCliType).legacyUsageSources.includes(String(usage.source || ''))) {
       return sameContextModel(usage.model, route.model);
     }
     // Backward compatibility for sessions written before route-tagged usage existed. New rows are always
@@ -777,7 +779,7 @@ export function createChatRenderPrimitives(deps = {}) {
       if (route.engine !== 'agent' || String(usage.contextAgentCliType || '') !== route.agentCliType || !sameContextModel(usage.contextModel, route.model)) return null;
       return { value, source: 'usage' };
     }
-    if (route.engine === 'agent' && route.agentCliType === 'kimi' && /^(kimi-native|kimi-wire)$/.test(String(usage.source || '')) && sameContextModel(usage.model, route.model)) {
+    if (route.engine === 'agent' && agentCliMeta(route.agentCliType).legacyUsageSources.includes(String(usage.source || '')) && sameContextModel(usage.model, route.model)) {
       return { value, source: 'usage' };
     }
     return null;

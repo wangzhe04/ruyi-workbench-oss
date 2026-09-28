@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-28T14:18:35.586Z",
+  "generatedAt": "2026-09-28T14:29:33.279Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -31,7 +31,7 @@
       "token",
       "token-browser"
     ],
-    "uncoveredPoints": 9,
+    "uncoveredPoints": 8,
     "problems": 0,
     "warnings": 0
   },
@@ -1737,7 +1737,9 @@
       "methodOverride": false,
       "domain": "core-inline",
       "auth": "token-browser",
-      "coveredBy": []
+      "coveredBy": [
+        "dev-harness\\kimi-agent-cli.e2e.js"
+      ]
     },
     {
       "kind": "exact",

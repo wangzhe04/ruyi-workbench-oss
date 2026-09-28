@@ -1,6 +1,6 @@
 'use strict';
 // Real source, isolated storage, no model requests: conversation trigger != summarizer input budget.
-const { test, after } = require('node:test');
+const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
@@ -13,6 +13,11 @@ const srv = require(path.join(app, 'server.js'));
 const { readServerSource } = require('../src-reader');
 const source = readServerSource();
 after(() => fs.rmSync(root, { recursive: true, force: true }));
+// 前端 Agent CLI 登记表（ES 模块）：chat-render-primitives 这个零 import 工厂经 deps.agentCliMeta 拿它，这里注入真表。
+let agentCliRegistry = null;
+before(async () => {
+  agentCliRegistry = await import(require('url').pathToFileURL(path.join(app, 'public/js/agent-cli-registry.js')).href);
+});
 
 function extract(name) {
   const match = source.match(new RegExp(`^(?:async )?function ${name}\\([^\\n]*\\) \\{[\\s\\S]*?^\\}`, 'm'));
@@ -203,7 +208,7 @@ function frontend(config = configFor(), legacy = {}) {
     return { contextWindowResolved: { value: 1000000, source: 'fallback', engine: 'agent', agentCliType: 'claude', model: state.config.model } };
   };
   const ui = load('chat-render-primitives.js', 'createChatRenderPrimitives')({
-    state, api, currentModelId: () => state.config.model, isProviderMode: () => !!state.config.activeProvider,
+    state, api, agentCliMeta: agentCliRegistry.agentCliMeta, currentModelId: () => state.config.model, isProviderMode: () => !!state.config.activeProvider,
   });
   return { state, ui, api, calls, storage, load };
 }

@@ -6,6 +6,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { pathToFileURL } = require('url');
+const { functionBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -243,8 +245,13 @@ function planCard(host) { return host.querySelector('.kimi-plan-snapshot'); }
 assert.match(streamSource, /case 'kimi_plan_snapshot'/);
 assert.match(toolSource, /evt && evt\.type === 'kimi_plan_snapshot'/);
 assert.match(toolSource, /setComposerHint\(t\('plan\.awaitingApproval'\)\)/);
-assert.match(navigationSource, /state\.config\?\.agentCliType === 'kimi' \? \['', 'low', 'medium', 'high', 'max'\]/);
-assert.doesNotMatch(navigationSource, /agentCliType === 'kimi'[^\n]*off/);
+// ENGINEERING-SPEC §11.1：Kimi 的思考强度候选搬进了前端 Agent CLI 登记表（值在文件末尾按运行时断言）。
+// 这里只钉结构：模型菜单的强度下拉按【全局】config.agentCliType 问登记表那一行的 thinkingEfforts。
+{
+  const effortControl = functionBlock(navigationSource, 'appendEffortControl');
+  assert.ok(effortControl.length > 200, 'appendEffortControl sliced');
+  assert.match(effortControl, /agentCliMeta\(state\.config\?\.agentCliType\)\.thinkingEfforts/);
+}
 for (const key of ['plan.kimiSnapshot.heading', 'plan.kimiSnapshot.path', 'narrative.status.snapshot', 'narrative.status.removed']) {
   assert.ok(zh[key] && en[key], `locale key ${key}`);
 }
@@ -335,4 +342,11 @@ const staticLargeBody = planCard(staticLargeRow).querySelector('.plan-card-body'
 assert.ok(staticLargeBody.classList.contains('plain'), 'static large snapshot uses plain-text fallback');
 assert.strictEqual(staticLargeBody.textContent.length, huge.length, 'static large snapshot preserves bounded raw text');
 
-console.log('KIMI PLAN UI STATIC E2E: ALL PASS');
+(async () => {
+  // 修前钉的是 navigation-controls.js 里那一句字面量：Kimi 的强度候选逐项是 ['', low, medium, high, max]，且没有 off。
+  // 现在断言登记表的运行时值（判据不放松：逐项相等 + 不含 off）。
+  const registry = await import(pathToFileURL(path.join(ROOT, 'ruyi-workbench/app/public/js/agent-cli-registry.js')).href);
+  assert.deepStrictEqual([...registry.agentCliMeta('kimi').thinkingEfforts], ['', 'low', 'medium', 'high', 'max'], 'Kimi thinking-effort options');
+  assert.ok(!registry.agentCliMeta('kimi').thinkingEfforts.includes('off'), 'Kimi has no off effort');
+  console.log('KIMI PLAN UI STATIC E2E: ALL PASS');
+})().catch(error => { console.error(error); process.exit(1); });

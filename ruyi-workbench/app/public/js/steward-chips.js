@@ -34,6 +34,8 @@ import { buildModelMenuRow, MODEL_MENU_CLASSES } from './model-menu.js';
 // 它 —— 容器、类名、data-kind、role、[hidden] 与「就地在 .steward-chip-wrap 里」一个字不改。
 import { popover, closePopover } from './popover.js';
 import { chatProviders } from './util.js';   // 纯函数:只做语音的服务商不进引擎菜单
+// Agent CLI 的品牌名与「有哪几个 CLI」只问这一张登记表（ENGINEERING-SPEC §11.1；与 provider-settings.js 同源）。
+import { AGENT_CLI_IDS, agentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 33 号文 §4（M3-a）：确认类知识（§8.6 那五条文案键 + 「哪一档要二次确认」的判据数据）的
 // 【唯一登记表】住在危险操作确认的共用件 js/confirm-panel.js。本模块只从那边取，再 re-export
 // 维持 117d 起的公开面（settings 与经典壳仍从本模块 import 同名导出，拿到的是同一个数组对象）。
@@ -102,8 +104,6 @@ export { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES };
 // 「会话级档位」与「切全自动要 confirm:true」两道门，没有「有活回合就拒」——切换不打断任何东西。
 export const STEWARD_SWITCH_NOTE_KINDS = Object.freeze(['model', 'engine']);
 export const STEWARD_SWITCH_NOTE_KEY = 'stewardShell.chips.switchTakesEffect';
-// Agent CLI 的品牌名（不是文案，两个语言下逐字相同），与 navigation-controls.js 的同名表同源。
-const AGENT_CLI_LABELS = Object.freeze({ claude: 'Claude Code', kimi: 'Kimi Code' });
 
 // 121-K6a（34 号文 §13.8 K5 登记③）：本文件曾经导出的两个「切全自动要不要二次确认」判据函数
 // （117j classic-1 立的）是给经典壳顶栏权限下拉（#permSelect）用的。121-K5 把那条下拉连同
@@ -129,7 +129,7 @@ export function resolveEngineRoute(session, config) {
     return { engine: 'openai', providerId: String(raw.providerId), model: String(raw.model || '') };
   }
   if (raw && (raw.engine === 'agent' || raw.engine === 'claude')) {
-    return { engine: 'agent', agentCliType: raw.agentCliType === 'kimi' ? 'kimi' : 'claude', model: String(raw.model || '') };
+    return { engine: 'agent', agentCliType: normalizeAgentCliType(raw.agentCliType), model: String(raw.model || '') };
   }
   const cfg = config && typeof config === 'object' ? config : {};
   const providerId = String(cfg.activeProvider || '').trim();
@@ -137,7 +137,7 @@ export function resolveEngineRoute(session, config) {
     const provider = (cfg.providers || []).find(item => item && item.id === providerId) || null;
     return { engine: 'openai', providerId, model: String((provider && provider.model) || '') };
   }
-  return { engine: 'agent', agentCliType: cfg.agentCliType === 'kimi' ? 'kimi' : 'claude', model: String(cfg.model || '') };
+  return { engine: 'agent', agentCliType: normalizeAgentCliType(cfg.agentCliType), model: String(cfg.model || '') };
 }
 
 // 117u-G3（27 号文 §11.15.7；用户 2026-09-09「这个也不印默认值吧」）：这条会话的权限与模型
@@ -705,10 +705,8 @@ export function createQuickSwitchChips({
 
   // ── 引擎菜单 ──────────────────────────────────────────────────────────────────
   function engineOptions() {
-    const options = [
-      { key: 'agent:claude', label: AGENT_CLI_LABELS.claude, route: { engine: 'agent', agentCliType: 'claude', model: '' } },
-      { key: 'agent:kimi', label: AGENT_CLI_LABELS.kimi, route: { engine: 'agent', agentCliType: 'kimi', model: '' } },
-    ];
+    // 每个登记的命令行引擎一项（登记顺序），key 形如 'agent:<id>'。
+    const options = AGENT_CLI_IDS.map(id => ({ key: 'agent:' + id, label: agentCliMeta(id).label, route: { engine: 'agent', agentCliType: id, model: '' } }));
     for (const provider of chatProviders(config())) {
       if (!provider || !provider.id) continue;
       options.push({
@@ -756,7 +754,7 @@ export function createQuickSwitchChips({
     }
     const models = agentModels(route.agentCliType, state?.status?.models || []);
     const group = 'agent:' + route.agentCliType;
-    const groupLabel = AGENT_CLI_LABELS[route.agentCliType] || AGENT_CLI_LABELS.claude;
+    const groupLabel = agentCliMeta(route.agentCliType).label;
     return models
       .map(model => ({ id: String(model && model.id || ''), label: String((model && (model.label || model.id)) || t('stewardShell.chips.modelDefault')), group, groupLabel }));
   }
@@ -1022,7 +1020,7 @@ export function createQuickSwitchChips({
         const provider = (config().providers || []).find(item => item && item.id === route.providerId) || null;
         return String((provider && (provider.label || provider.id)) || route.providerId);
       }
-      return AGENT_CLI_LABELS[route.agentCliType] || AGENT_CLI_LABELS.claude;
+      return agentCliMeta(route.agentCliType).label;
     }
     return route.model || t('stewardShell.chips.modelDefault');
   }

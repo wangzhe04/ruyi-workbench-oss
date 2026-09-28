@@ -47,6 +47,8 @@ export function createChatStreamRuntime(deps = {}) {
     $,
     api,
     apiErrText,
+    // Agent CLI 登记表的查询函数（js/agent-cli-registry.js 的 agentCliMeta）。本模块零 import，由组合根注入。
+    agentCliMeta,
     appendToolOutput,
     authHeaders,
     autoGrow,
@@ -585,7 +587,7 @@ export function createChatStreamRuntime(deps = {}) {
     if (compactState.active) return; // F3⑥ 进行中再点=忽略
     if (state.streaming) { toast(t("toast.compactWaitTurn"), ''); return; }
     if (!state.currentSession || !(state.currentSession.messages || []).length) { toast(t("toast.compactEmpty"), ''); return; }
-    if (!isProviderMode() && currentEngineMeta().agentCliType !== 'kimi' && !state.config?.compactProviderId) {
+    if (!isProviderMode() && agentCliMeta(currentEngineMeta().agentCliType).nativeCompact === 'slash-command' && !state.config?.compactProviderId) {
       // Claude 模式:/compact 是流式回合。开指示,sendPrompt 走完流后 setStreaming(false) 会调 endCompactIndicator。
       beginCompactIndicator();
       toast(t("toast.compactRequested"), 'ok');
@@ -671,8 +673,8 @@ export function createChatStreamRuntime(deps = {}) {
     const turnEngine = isProviderMode() ? 'openai' : 'claude';
     const turnMeta = currentEngineMeta();
     const turnState = { abort: turnAbort, startedAt: Date.now(), initialTurnSeq: Number(state.currentSession?.turnSeq) || 0, message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
-      engine: turnEngine, agentCliType: turnMeta.agentCliType || 'claude',
-      claudeInteractive: turnEngine !== 'claude' || turnMeta.agentCliType === 'kimi' || state.config.engineMode === 'interactive' };
+      engine: turnEngine, agentCliType: agentCliMeta(turnMeta.agentCliType).id,
+      claudeInteractive: turnEngine !== 'claude' || agentCliMeta(turnMeta.agentCliType).alwaysInteractive || state.config.engineMode === 'interactive' };
     activeTurns.set(turnSessionId, turnState);
     // 112c: 新回合 = 状态机清零重开(状态条只反映当前打开的会话)。
     if (turnActivity && state.currentSession?.id === turnSessionId) {
@@ -1120,7 +1122,7 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       case 'meta': {
         // Engine-aware prefix: provider turns show the provider label, claude turns show 'claude'.
-        const engTag = evt.engine === 'openai' ? (evt.providerLabel || 'provider') : (evt.agentCliLabel || (evt.agentCliType === 'kimi' ? 'Kimi Code' : 'claude'));
+        const engTag = evt.engine === 'openai' ? (evt.providerLabel || 'provider') : (evt.agentCliLabel || agentCliMeta(evt.agentCliType).eventTag);
         const mc = evt.memoryCheck;
         const memoryLine = !mc ? '' : (!mc.enabled
           ? '\n' + t('memory.check.disabled')
@@ -1396,7 +1398,7 @@ export function createChatStreamRuntime(deps = {}) {
             const meta = currentEngineMeta() || {};
             const routeUsage = meta.engine === 'openai' || meta.providerId
               ? { contextEngine: 'openai', contextProviderId: String(meta.providerId || ''), contextModel: String(meta.model || '') }
-              : { contextEngine: 'agent', contextAgentCliType: meta.agentCliType === 'kimi' ? 'kimi' : 'claude', contextModel: String(meta.model || '') };
+              : { contextEngine: 'agent', contextAgentCliType: agentCliMeta(meta.agentCliType).id, contextModel: String(meta.model || '') };
             renderContextMeter({ ...previous, ...routeUsage, contextTokens: Number(evt.afterTokens), contextWindow: Number(evt.contextWindow) || previous.contextWindow });
           }
           endCompactIndicator();

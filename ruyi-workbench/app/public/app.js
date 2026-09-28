@@ -31,6 +31,8 @@ import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
 import { createWorkspacePreferencesDomain } from './js/workspace-preferences.js';
 import { createChatRenderPrimitives } from './js/chat-render-primitives.js';
+// Agent CLI 登记表（ENGINEERING-SPEC §11.1）：两个零 import 工厂（渲染原语／流运行时）经 deps.agentCliMeta 拿它。
+import { agentCliMeta } from './js/agent-cli-registry.js';
 import { renderMermaidBlocks } from './js/mermaid-runtime.js';
 import { createChatStaticRenderer } from './js/chat-static-renderer.js';
 import { createChatStreamRuntime } from './js/chat-stream-runtime.js';
@@ -293,6 +295,7 @@ const {
   $,
   api,
   apiErrText,
+  agentCliMeta,
   autoGrow,
   buildModal: (...args) => buildModal(...args),
   currentEngineMeta: () => currentEngineMeta(),
@@ -344,6 +347,7 @@ const {
   $,
   api,
   apiErrText,
+  agentCliMeta,
   activeTurnUserIsPersisted,
   appendToolOutput: (...args) => appendToolOutput(...args),
   authHeaders,
