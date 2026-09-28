@@ -2691,6 +2691,13 @@
           ]
         },
         {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "normalizeAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "buildTurnSummary",
           "kinds": [
@@ -3000,6 +3007,34 @@
         },
         {
           "provider": "05b-kimi-bridge.js",
+          "symbol": "applyKimiStatusToSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiContextWindow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiSessionStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "kimiUsageFromStatus",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
           "symbol": "maybeAutoCompactAgentSession",
           "kinds": [
             "call"
@@ -3008,6 +3043,13 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "runKimiAcpTurnPrepared",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05b-kimi-bridge.js",
+          "symbol": "runKimiCompact",
           "kinds": [
             "call"
           ]
@@ -3246,6 +3288,34 @@
         {
           "provider": "13-http-router.js",
           "symbol": "buildModelHint",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "discoverKimiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "discoverModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "kimiModelList",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13-http-router.js",
+          "symbol": "offlineModelList",
           "kinds": [
             "call"
           ]
@@ -4372,6 +4442,20 @@
           ]
         },
         {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "AGENT_CLI_DEFAULT_TYPE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01f-agent-cli-types.js",
+          "symbol": "isAgentCliType",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
@@ -4486,6 +4570,13 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "call"
           ]
@@ -9160,14 +9251,14 @@
         },
         {
           "provider": "05-claude-engine.js",
-          "symbol": "runClaudeTurn",
+          "symbol": "agentCliAdapter",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "kimiContextWindow",
+          "provider": "05-claude-engine.js",
+          "symbol": "runClaudeTurn",
           "kinds": [
             "call"
           ]
@@ -11180,6 +11271,13 @@
         },
         {
           "provider": "05-claude-engine.js",
+          "symbol": "agentCliAdapter",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
           "symbol": "CLAUDE_ENDPOINT_PRESETS",
           "kinds": [
             "read"
@@ -11244,13 +11342,6 @@
         {
           "provider": "05b-kimi-bridge.js",
           "symbol": "kimiSessionStatus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05b-kimi-bridge.js",
-          "symbol": "runKimiCompact",
           "kinds": [
             "call"
           ]

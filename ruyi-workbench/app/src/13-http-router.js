@@ -264,7 +264,7 @@ async function handleApi(req, res, pathname) {
         const cap = p ? learnedWindowCap(p.id, model) : 0;
         return { value: cap ? Math.min(r.value, cap) : r.value, source: r.source, provider: p ? p.id : '', model, learnedCap: cap || undefined };
       })(),
-      models: conversationConfig.agentCliType === 'kimi' ? kimiModelList(conversationConfig) : offlineModelList(conversationConfig), // instant offline list for the requested conversation route
+      models: agentCliAdapter(conversationConfig.agentCliType).modelCatalog.offline(conversationConfig), // instant offline list for the requested conversation route (per-CLI adapter, 05)
       providerPresets: PROVIDER_PRESETS, // v0.5: built-in OpenAI-compatible provider templates (local Ollama/LM Studio + custom; no vendor presets)
       toolbox: typeof ToolboxHooks.statusView === 'function' ? ToolboxHooks.statusView(config) : { autoDiscover: false, components: [] },   // ruyi-toolbox 已登记的组件与各自状态(只读视图;命令不出进程)
       claudeEndpointPresets: CLAUDE_ENDPOINT_PRESETS, // v1.4.4: third-party Anthropic-compatible endpoint templates for the Claude CLI engine (custom only; no vendor presets)
@@ -433,11 +433,8 @@ async function handleApi(req, res, pathname) {
       for (const m of (live.models || [])) add(m.id, m.label, m.contextLength);
       return send(res, json({ ok: true, engine: 'openai', provider: provider.id, models: [...seen.values()], proxyCount: (live.models || []).length }));
     }
-    if (modelsConfig.agentCliType === 'kimi') {
-      const discovered = await discoverKimiModels(modelsConfig);
-      return send(res, json({ ...discovered, engine: 'claude', agentCliType: 'kimi', proxyCount: discovered.discoveredCount || 0 }));
-    }
-    return send(res, json({ ok: true, engine: 'claude', agentCliType: 'claude', ...(await discoverModels(modelsConfig)) }));
+    // Agent CLI 路由:整份应答由该 CLI 的适配器给(05 modelCatalog.discover;Kimi 问 CLI 自己,Claude 走 Anthropic 口径)。
+    return send(res, json(await agentCliAdapter(modelsConfig.agentCliType).modelCatalog.discover(modelsConfig)));
   }
   if (req.method === 'POST' && pathname === '/api/config') {
     const body = await readJsonBody(req);
@@ -882,10 +879,12 @@ async function handleApi(req, res, pathname) {
     if (activeChildren.has(sessionId)) return send(res, json({ ok: false, error: '回合进行中，请先停止或等待完成' }, 409));
     const compactSession = await loadSession(sessionId);
     const config = compactSession ? configForSessionEngineRoute(storedConfig, compactSession) : storedConfig;
+    // 没选通用压缩模型时,只有带原生压缩的 CLI(适配器 nativeCompact;Kimi)能从这里压;Claude 请用户在 CLI 里打 /compact。
+    const nativeCompact = agentCliAdapter(config.agentCliType).nativeCompact;
     const result = config.compactProviderId
       ? await runAgentExternalCompact(sessionId, config, 'manual')
-      : (config.agentCliType === 'kimi'
-        ? await runKimiCompact(sessionId, config, 'manual')
+      : (nativeCompact
+        ? await nativeCompact.run(sessionId, config, 'manual')
         : { ok: false, error: 'Claude 默认压缩请使用原生 /compact；或先选择通用压缩模型' });
     return send(res, json(result, result.ok ? 200 : 400));
   }

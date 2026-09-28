@@ -6,6 +6,7 @@
 //   [N] 归一:normalizeAgentCliType / 会话路由 / 上次引擎路由 / 配置 / 适配器查找 / 起进程,对一张输入表
 //       (两个真类型、缺失、空串、大小写错、第三家名字、原型链名字、非字符串)与修前 `=== 'kimi' ? 'kimi' : 'claude'`
 //       的输出逐项相同 —— 「非 kimi 一律当 claude」这个口径现在由登记表给,输出不变。
+//   [C] 适配器回合外能力:环境说明(06)的引擎分类与交互标志、原生提问、离线模型清单、原生上下文状态、原生压缩。
 //   [M] MCP 清单同步收成一个入口 syncAgentCliMcpManifests:选中 Kimi 推、切走时清、Claude 不碰 Kimi 的文件、
 //       requireWorkbenchMcp 时工作台 MCP 关着不推(真写临时 KIMI_CODE_HOME)。
 //   [G] 迁走的调用点不再与 CLI 类型字面量比较(结构性判据,按 source-slice 切函数/路由块读逻辑全文)。
@@ -23,7 +24,7 @@ process.env.KIMI_CODE_HOME = kimiHome;
 const app = path.resolve(__dirname, '../../ruyi-workbench/app');
 const srv = require(path.join(app, 'server.js'));
 const { readServerSource } = require('../src-reader');
-const { functionBlock } = require('../lib/source-slice');
+const { functionBlock, bracedBlock } = require('../lib/source-slice');
 const { AGENT_CLI_TYPES, AGENT_CLI_ADAPTERS, agentCliAdapter, normalizeAgentCliType } = srv;
 
 // 修前各处的口径(01 sanitizeLastUsedEngineRoute / 02 normalizeSessionEngineRoute / 01 normalizeConfig / 05 agentCliAdapter)。
@@ -95,6 +96,7 @@ test('[N] CLI 类型归一:对输入表与修前逐项相同', () => {
   // 原型链上的名字:修前 normalizeConfig / 会话路由都归 claude(`=== 'kimi'` / includes);归一器只认登记表自己的键。
   for (const value of PROTOTYPE_NAMES) {
     assert.equal(normalizeAgentCliType(value), 'claude', `normalizeAgentCliType(${value})`);
+    assert.equal(agentCliAdapter(value), AGENT_CLI_ADAPTERS.claude, `agentCliAdapter(${value}) 不会拿到原型上的东西`);
     assert.equal(srv.normalizeSessionEngineRoute({ engine: 'agent', agentCliType: value }).agentCliType, 'claude');
     assert.equal(srv.normalizeConfig({ agentCliType: value }).config.agentCliType, 'claude');
   }
@@ -106,6 +108,48 @@ test('[N] CLI 类型归一:对输入表与修前逐项相同', () => {
   // fallback 参数:调用方可以要一个别的兜底(例如「空 = 不认识」)。
   assert.equal(normalizeAgentCliType('codex', ''), '');
   assert.equal(normalizeAgentCliType('kimi', ''), 'kimi');
+});
+
+test('[C] 适配器回合外能力:环境说明、原生提问、模型清单、原生上下文状态与压缩', () => {
+  const pack = srv.getPromptPack('zh-CN').engineBrief;
+  // 环境说明(06 engineBriefFacts):登记过的 CLI 原样、provider 族归 provider、其余归 claude;交互标志只随适配器的 interactive。
+  const kindOf = engine => srv.buildEngineEnvBrief({ engine, config: { engineMode: 'interactive' } }).facts;
+  for (const [engine, kind] of [['claude', 'claude'], ['kimi', 'kimi'], ['provider', 'provider'], ['openai', 'provider'], [undefined, 'claude'], ['codex', 'claude'], ['toString', 'claude']]) {
+    const facts = kindOf(engine);
+    assert.equal(facts.engine, kind, `engineBriefFacts(${engine}).engine`);
+    assert.equal(facts.interactive, kind === 'claude', `engineBriefFacts(${engine}).interactive`);
+  }
+  assert.equal(srv.buildEngineEnvBrief({ engine: 'claude', config: { engineMode: 'legacy' } }).facts.interactive, false);
+  assert.equal(AGENT_CLI_ADAPTERS.claude.nativeAskUserQuestion, false);
+  assert.equal(AGENT_CLI_ADAPTERS.kimi.nativeAskUserQuestion, true);
+  for (const includeWorkbenchMcp of [true, false]) {
+    const kimiText = srv.buildEngineEnvBrief({ engine: 'kimi', config: { includeWorkbenchMcp } }).text.split('\n');
+    const claudeText = srv.buildEngineEnvBrief({ engine: 'claude', config: { includeWorkbenchMcp, engineMode: 'interactive' } }).text.split('\n');
+    assert.ok(kimiText.includes(pack.askNative), `Kimi 原生提问落到提问卡(MCP ${includeWorkbenchMcp})`);
+    assert.ok(!claudeText.includes(pack.askNative), `Claude 不说原生提问(MCP ${includeWorkbenchMcp})`);
+    assert.equal(claudeText.includes(pack.mcpAsk + pack.mcpAskNoNative), includeWorkbenchMcp, 'Claude 交互模式走 MCP 提问且禁原生');
+  }
+  // 离线模型清单:Kimi 只列自己的默认项与当前选择,不混入 Claude 的 knownModels。
+  assert.deepEqual(AGENT_CLI_ADAPTERS.kimi.modelCatalog.offline({ model: 'kimi-code/k3', knownModels: ['claude-x'] }),
+    [{ id: '', label: '默认 (Kimi 配置)' }, { id: 'kimi-code/k3', label: 'kimi-code/k3 (当前选择)' }]);
+  const claudeModels = AGENT_CLI_ADAPTERS.claude.modelCatalog.offline({ model: 'my-model', knownModels: ['known-a'] });
+  assert.ok(claudeModels.some(m => m.id === 'known-a') && claudeModels.some(m => m.id === 'my-model' && m.label === 'my-model (自定义)'));
+  assert.ok(!claudeModels.some(m => m.label === '默认 (Kimi 配置)'));
+  for (const adapter of Object.values(AGENT_CLI_ADAPTERS)) assert.equal(typeof adapter.modelCatalog.discover, 'function');
+  // 原生上下文状态与原生压缩:Claude 都没有(回合前压缩只走外部摘要;手动压缩提示用 /compact),Kimi 都有。
+  assert.equal(AGENT_CLI_ADAPTERS.claude.contextStatus, null);
+  assert.equal(AGENT_CLI_ADAPTERS.claude.nativeCompact, null);
+  assert.equal(AGENT_CLI_ADAPTERS.kimi.nativeCompact.mode, 'kimi-native');
+  const status = { ok: true, contextTokens: 1234, contextWindow: 262144, model: 'kimi-code/k3' };
+  const usage = AGENT_CLI_ADAPTERS.kimi.contextStatus.usage(status);
+  assert.equal(usage.contextAgentCliType, 'kimi');
+  assert.equal(usage.source, 'kimi-native');
+  assert.equal(usage.contextWindow, 262144);
+  const session = { messages: [{ role: 'user', content: 'q' }, { role: 'assistant', content: 'a' }] };
+  assert.deepEqual(AGENT_CLI_ADAPTERS.kimi.contextStatus.apply(session, status), usage);
+  assert.deepEqual(session.messages[1].usage, usage, '状态落到最后一条助手消息的用量行');
+  assert.equal(session.kimiContextStatus.contextTokens, 1234);
+  assert.equal(AGENT_CLI_ADAPTERS.kimi.contextStatus.apply(session, { ok: false }), null);
 });
 
 test('[M] MCP 清单同步一个入口:选中推、切走清、Claude 不碰、工作台 MCP 关着不推', async () => {
@@ -148,8 +192,15 @@ test('[G] 迁走的调用点不再与 CLI 类型字面量比较', () => {
     selectedAgentCli: functionBlock(src, 'selectedAgentCli'),
     prepareAgentCliSpawn: functionBlock(src, 'prepareAgentCliSpawn'),
     syncAgentCliMcpManifests: functionBlock(src, 'syncAgentCliMcpManifests'),
+    agentCliAdapter: functionBlock(src, 'agentCliAdapter'),
+    maybeAutoCompactAgentSession: functionBlock(src, 'maybeAutoCompactAgentSession'),
+    engineBriefFacts: functionBlock(src, 'engineBriefFacts'),
+    renderCliEnvBrief: functionBlock(src, 'renderCliEnvBrief'),
+    agentConversationContextMeta: functionBlock(src, 'agentConversationContextMeta'),
     applyConfigPatch: functionBlock(src, 'applyConfigPatch'),
     startServerInner: functionBlock(src, 'startServerInner'),
+    'route /api/models': bracedBlock(src, "if (req.method === 'GET' && pathname === '/api/models')"),
+    'route /api/agent/compact': bracedBlock(src, "if (req.method === 'POST' && pathname === '/api/agent/compact')"),
   };
   for (const [name, block] of Object.entries(blocks)) {
     assert.ok(block.length > 60, `切到 ${name}`);
@@ -159,6 +210,10 @@ test('[G] 迁走的调用点不再与 CLI 类型字面量比较', () => {
   const normalizeConfig = code(functionBlock(src, 'normalizeConfig'));
   assert.ok(normalizeConfig.includes('if (!isAgentCliType(config.agentCliType)) {'));
   assert.doesNotMatch(normalizeConfig, /\[\s*'claude'\s*,\s*'kimi'\s*\]/);
+  // /api/status 的即时模型清单一行。
+  const statusModels = code(src).split('\n').filter(line => /^\s*models: .*conversationConfig/.test(line));
+  assert.equal(statusModels.length, 1);
+  assert.match(statusModels[0], /agentCliAdapter\(conversationConfig\.agentCliType\)\.modelCatalog\.offline\(conversationConfig\)/);
   // 改配置与启动预热两处的 Kimi MCP 同步都收进 01 syncAgentCliMcpManifests(按登记表推),不再直调 Kimi 的同步函数。
   for (const name of ['applyConfigPatch', 'startServerInner']) {
     assert.doesNotMatch(code(blocks[name]), /(?<![.\w])syncMcpServersToKimi\(/, `${name} 不直调 syncMcpServersToKimi`);

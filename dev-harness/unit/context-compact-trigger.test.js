@@ -45,7 +45,21 @@ function agentTrigger(extra = {}) {
     ...extra,
   };
   const run = vm.runInNewContext(`${extract('lastSessionContextTokens')}\n${extract('replaceSessionObject')}\n${extract('maybeAutoCompactAgentSession')}\nmaybeAutoCompactAgentSession`, context);
-  return { calls, events, run: (session, config, type = 'claude') => run(session, config, type, e => events.push(e)) };
+  // 架构还债批 4:第三个参数是该 CLI 的适配器(05 AGENT_CLI_ADAPTERS)。用真适配器,只把「原生状态/原生压缩」两项能力
+  // 换成走本沙箱里的桩(与修前直接桩 kimiSessionStatus / applyKimiStatusToSession 的口径相同)。
+  const adapterFor = type => {
+    const real = srv.agentCliAdapter(type);
+    return {
+      ...real,
+      contextStatus: real.contextStatus && {
+        ...real.contextStatus,
+        read: (config, session) => context.kimiSessionStatus(config, session.claudeSessionId, session.claudeSessionModel),
+        apply: (session, status) => context.applyKimiStatusToSession(session, status),
+      },
+      nativeCompact: real.nativeCompact && { ...real.nativeCompact, run: async () => assert.fail('native compaction is not expected in these cases') },
+    };
+  };
+  return { calls, events, run: (session, config, type = 'claude') => run(session, config, adapterFor(type), e => events.push(e)) };
 }
 
 test('241K/1M with a 128K local summarizer does not compact or mutate the session', async () => {
