@@ -22,6 +22,11 @@
 - 接口失败:`apiFailure(code, params, message, status)`;会话两句常见失败 `apiSessionIdInvalid()` / `apiSessionNotFound()`。
   裸串 `json({ ok:false, error:'…' })` 有只减不增的上限(`unit/api-error-helpers.test.js`)。
 - 线程五态:有卡片走 `stewardThreadStateFromCard`,只有会话头走 `stewardThreadStateFromHead`(06i),不要手拼证据键。
+  改判据要两边同改:06i `STEWARD_THREAD_STATE_RULES` 与 `public/js/mission-state.js` 的 `RULES` 是同 id、同顺序的判定表,
+  `unit/thread-state-differential.test.js` 在整张证据网格上逐格比对两边输出。
+- 按 agent CLI(Claude Code / Kimi Code)分叉的知识只住三张表:`01f` `AGENT_CLI_TYPES`(标签、路径、装机候选、起进程、MCP 清单同步)、
+  `05` `AGENT_CLI_ADAPTERS`(回合骨架与模型清单、原生压缩、上下文探测等能力)、前端 `public/js/agent-cli-registry.js`。
+  归一一律 `normalizeAgentCliType`,不要再写 `x === 'kimi' ? 'kimi' : 'claude'`(`unit/agent-cli-registry*.test.js` 会红)。
 - 新增 exec 档内建工具:决定进不进不可逆账(02f `IRREVERSIBLE_NATIVE_KIND`),否则 `unit/tool-metadata-consistency.test.js` 会红。
 - 新模块默认挂在依赖环外:需要调用后加载的模块时走 `*Hooks` 延迟绑定(先例 06j / 13t)。
   强连通分量的规模有上限(`module-dependency-graph.static.e2e.js`)。
