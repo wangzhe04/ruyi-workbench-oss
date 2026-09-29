@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3050 | 2915 | 511 | 68 | 0 | 1 |
+| 66 | 3056 | 2916 | 511 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 129 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 133 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
@@ -64,7 +64,7 @@
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 48 | `13d-core-domain-routes.js` | transport | 51 | 124 | 16 |
-| 49 | `13e-pretender-index.js` | transport | 53 | 33 | 8 |
+| 49 | `13e-pretender-index.js` | transport | 55 | 34 | 8 |
 | 50 | `13i-steward-inbox.js` | transport | 72 | 26 | 8 |
 | 51 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
 | 52 | `13k-steward-threads.js` | transport | 46 | 111 | 15 |
@@ -390,7 +390,7 @@
 | `13d-core-domain-routes.js` | `09-workflow.js` | backward | `launchPersistedAgentRun` |
 | `13d-core-domain-routes.js` | `09b-replan-ledger.js` | backward | `applyReplanPatch` |
 | `13d-core-domain-routes.js` | `13e-pretender-index.js` | forward | `emptyMissionUsage`, `getPretenderProjectionIndex`, `overlayMissionCard`, `paginatePretenderProjection`, `pretenderEtag`, `pretenderHash`, `pretenderIndexMeta`, `pretenderIndexRuntime`, `pretenderLiveOverlayRevision`, `pretenderNotModified` |
-| `13e-pretender-index.js` | `00-boot.js` | backward | `EventStreamHooks`, `URL`, `apiFailure`, `crypto`, `forEachUsageRow`, `fs`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse` |
+| `13e-pretender-index.js` | `00-boot.js` | backward | `EventStreamHooks`, `URL`, `apiFailure`, `crypto`, `forEachUsageRow`, `fs`, `fsp`, `nowIso`, `path`, `paths`, `safeJsonParse`, `usageLedgerChangesSince` |
 | `13e-pretender-index.js` | `01-config.js` | backward | `THREAD_INDEX_RECENT_DEFAULT`, `THREAD_INDEX_RECENT_MAX`, `THREAD_INDEX_RECENT_MIN`, `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath` |
 | `13e-pretender-index.js` | `02-session-store.js` | backward | `compactInterventionJournal`, `interventionFilePath`, `readInterventionsWithMeta`, `sessionKind`, `sessionMissionId` |
 | `13e-pretender-index.js` | `04-permission-runtime.js` | backward | `activeChildren` |

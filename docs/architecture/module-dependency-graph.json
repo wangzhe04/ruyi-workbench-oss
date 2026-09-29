@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3050,
-    "requiredSymbols": 2915,
+    "providedSymbols": 3056,
+    "requiredSymbols": 2916,
     "edges": 511,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -47,6 +47,7 @@
         "USAGE_CACHE_ROW_BYTES",
         "USAGE_CACHE_YIELD_LINES",
         "USAGE_CACHE_YIELD_ROWS",
+        "USAGE_CHANGE_LOG_MAX",
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
@@ -122,6 +123,7 @@
         "spawnDetachedChecked",
         "text",
         "tildePath",
+        "usageColsSessionIds",
         "usageColumns",
         "usageColumnsAppend",
         "usageColumnsDictMemo",
@@ -137,10 +139,12 @@
         "usageLedgerCacheDisabled",
         "usageLedgerCacheStats",
         "usageLedgerChain",
+        "usageLedgerChangesSince",
         "usageLedgerPending",
         "usageMonthFullParse",
         "usageMonthIncremental",
         "usageNextCheck",
+        "usageNoteChange",
         "usageParseTail",
         "usageRangeLowerMs",
         "usageSplitComplete",
@@ -14229,6 +14233,7 @@
         "pretenderNotModified",
         "pretenderNoteSourcesScan",
         "pretenderRecentSessionIds",
+        "pretenderRunVerify",
         "pretenderScheduleVerify",
         "pretenderSessionSourceStamp",
         "pretenderSessionsDirStamp",
@@ -14244,7 +14249,8 @@
         "schedulePretenderPersist",
         "validatePretenderIndex",
         "warmPretenderProjectionIndex",
-        "writePretenderIndexFile"
+        "writePretenderIndexFile",
+        "writePretenderIndexFileNow"
       ],
       "requires": [
         {
@@ -14320,6 +14326,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageLedgerChangesSince",
           "kinds": [
             "call"
           ]
@@ -27896,7 +27909,8 @@
         "nowIso",
         "path",
         "paths",
-        "safeJsonParse"
+        "safeJsonParse",
+        "usageLedgerChangesSince"
       ],
       "direction": "backward"
     },

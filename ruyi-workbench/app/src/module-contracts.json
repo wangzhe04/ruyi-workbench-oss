@@ -35,6 +35,7 @@
         "USAGE_CACHE_ROW_BYTES",
         "USAGE_CACHE_YIELD_LINES",
         "USAGE_CACHE_YIELD_ROWS",
+        "USAGE_CHANGE_LOG_MAX",
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
@@ -110,6 +111,7 @@
         "spawnDetachedChecked",
         "text",
         "tildePath",
+        "usageColsSessionIds",
         "usageColumns",
         "usageColumnsAppend",
         "usageColumnsDictMemo",
@@ -125,10 +127,12 @@
         "usageLedgerCacheDisabled",
         "usageLedgerCacheStats",
         "usageLedgerChain",
+        "usageLedgerChangesSince",
         "usageLedgerPending",
         "usageMonthFullParse",
         "usageMonthIncremental",
         "usageNextCheck",
+        "usageNoteChange",
         "usageParseTail",
         "usageRangeLowerMs",
         "usageSplitComplete",
@@ -14119,6 +14123,7 @@
         "pretenderNotModified",
         "pretenderNoteSourcesScan",
         "pretenderRecentSessionIds",
+        "pretenderRunVerify",
         "pretenderScheduleVerify",
         "pretenderSessionSourceStamp",
         "pretenderSessionsDirStamp",
@@ -14134,7 +14139,8 @@
         "schedulePretenderPersist",
         "validatePretenderIndex",
         "warmPretenderProjectionIndex",
-        "writePretenderIndexFile"
+        "writePretenderIndexFile",
+        "writePretenderIndexFileNow"
       ],
       "requires": [
         {
@@ -14210,6 +14216,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageLedgerChangesSince",
           "kinds": [
             "call"
           ]

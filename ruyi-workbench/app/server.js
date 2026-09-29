@@ -799,7 +799,24 @@ const usageLedgerCache = {
   dict: [], dictIndex: new Map(), dictObjectIndex: new Map(),
   chain: Promise.resolve(),
   stats: { refreshes: 0, fullParses: 0, incrementalParses: 0, bytesParsed: 0 },
+  // 变更日志:每次刷新里哪些会话的行变了(整月重读 / 删月份记为 all)。13e 按它只刷那几条会话的用量 ——
+  // 本进程追加的与外部写进来的一视同仁,不再靠源指纹猜(审查轮:外部写账与本进程追加同时发生时会被漏掉)。
+  changeSeq: 0,
+  changeLog: [],                // { seq, all, ids: Set<string> },最多 USAGE_CHANGE_LOG_MAX 条
+  changeFloor: 0,               // 早于这个序号的日志已丢弃,问得更早的一律答 all
 };
+const USAGE_CHANGE_LOG_MAX = 512;
+function usageNoteChange(all, ids) {
+  if (!all && (!ids || !ids.size)) return;
+  usageLedgerCache.changeSeq += 1;
+  usageLedgerCache.changeLog.push({ seq: usageLedgerCache.changeSeq, all: Boolean(all), ids: ids || new Set() });
+  while (usageLedgerCache.changeLog.length > USAGE_CHANGE_LOG_MAX) usageLedgerCache.changeFloor = usageLedgerCache.changeLog.shift().seq;
+}
+function usageColsSessionIds(cols, from, into) {
+  if (!cols) return into;
+  for (let i = from; i < cols.n; i++) into.add(String(usageLedgerCache.dict[cols.sessionId[i]]));
+  return into;
+}
 function usageLedgerCacheDisabled() { return process.env.RUYI_USAGE_CACHE === '0'; }
 // 对象 / 数组值(只可能来自外部写坏的行)按内容去重:原样交给消费方的是同内容的第一份实例 —— typeof、String()
 // 的结果都不变,而按引用去重会让每一行都在字典里新占一格、永不回收。
@@ -968,10 +985,14 @@ async function usageMonthIncremental(file, entry, st) {
 async function refreshUsageLedgerCacheNow() {
   usageLedgerCache.stats.refreshes += 1;
   let files = [];
-  try { files = await fsp.readdir(paths.usage); } catch { usageLedgerCache.months.clear(); return []; }
+  try { files = await fsp.readdir(paths.usage); } catch {
+    if (usageLedgerCache.months.size) usageNoteChange(true);
+    usageLedgerCache.months.clear();
+    return [];
+  }
   const order = files.filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort();   // 与 readUsageRows 同一次序
   const present = new Set(order);
-  for (const name of [...usageLedgerCache.months.keys()]) if (!present.has(name)) usageLedgerCache.months.delete(name);
+  for (const name of [...usageLedgerCache.months.keys()]) if (!present.has(name)) { usageLedgerCache.months.delete(name); usageNoteChange(true); }
   for (const name of order) {
     const file = path.join(paths.usage, name);
     try {
@@ -980,9 +1001,22 @@ async function refreshUsageLedgerCacheNow() {
       if (entry && entry.size === st.size && entry.mtimeMs === st.mtimeMs) continue;
       // 同尺寸只换了 mtime = 原地改写(追加一定变长)→ 整月重读
       const commit = entry && st.ino === entry.ino && st.size > entry.size && st.size >= entry.committed ? await usageMonthIncremental(file, entry, st).catch(() => null) : null;
-      if (commit) usageLedgerCache.months.set(name, commit());
-      else usageLedgerCache.months.set(name, await usageMonthFullParse(file, st));
-    } catch { usageLedgerCache.months.delete(name); }   // 读不了的月份与修前一样当它不存在
+      if (commit) {
+        const before = entry.cols.n;
+        const next = commit();
+        usageLedgerCache.months.set(name, next);
+        const ids = usageColsSessionIds(entry.tail, 0, usageColsSessionIds(next.cols, before, new Set()));
+        usageNoteChange(false, usageColsSessionIds(next.tail, 0, ids));
+      } else {
+        const next = await usageMonthFullParse(file, st);
+        usageLedgerCache.months.set(name, next);
+        // 新出现的月份只牵涉它自己那些行的会话;已有月份被整份重读(截短、改写)就当全部都可能变了
+        if (entry) usageNoteChange(true);
+        else usageNoteChange(false, usageColsSessionIds(next.tail, 0, usageColsSessionIds(next.cols, 0, new Set())));
+      }
+    } catch {   // 读不了的月份与修前一样当它不存在
+      if (usageLedgerCache.months.delete(name)) usageNoteChange(true);
+    }
   }
   return order;
 }
@@ -1057,6 +1091,21 @@ class UsageRowView {
     this.currency = undefined; this.kind = undefined; this.note = undefined;
   }
   get ts() { return this.tsRaw !== undefined ? this.tsRaw : new Date(this.tsMs).toISOString(); }
+}
+// 自 seq 之后账本变过哪些会话(先刷新一次缓存)。seq 为 null / 早于日志下限 → all。返回的 seq 是刷新之后的当前序号。
+async function usageLedgerChangesSince(seq) {
+  if (usageLedgerCacheDisabled()) return { seq: 0, all: true, sessionIds: new Set() };
+  try { await refreshUsageLedgerCache(); } catch { /* 刷新失败:按当前已知的回答 */ }
+  const current = usageLedgerCache.changeSeq;
+  if (seq == null || !Number.isFinite(seq) || seq < usageLedgerCache.changeFloor) return { seq: current, all: true, sessionIds: new Set() };
+  const sessionIds = new Set();
+  let all = false;
+  for (const entry of usageLedgerCache.changeLog) {
+    if (entry.seq <= seq) continue;
+    if (entry.all) { all = true; break; }
+    for (const id of entry.ids) sessionIds.add(id);
+  }
+  return { seq: current, all, sessionIds };
 }
 function usageLedgerCacheStats() {
   let rows = 0, residentBytes = 0;
@@ -52506,7 +52555,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + (index.missionsUsageRevision || '') + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,
@@ -53863,15 +53912,18 @@ const pretenderIndexRuntime = {
   // 性能批 P2:
   //   headMtimes —— 每条会话头文件的 mtime(每次给会话算源指纹时顺手记下)。「最近 N 条」窗口从这里排,
   //     不再每次刷新都把 sessions 目录里每个头文件 stat 一遍。
-  //   verifyDue / lastVerifyAt / verifyTimer —— 目录变了只比对文件名单(一次 readdir),已有文件被外部原地替换
+  //   verifyScan / lastVerifyAt / verifyTimer —— 目录变了只比对文件名单(一次 readdir),已有文件被外部原地替换
   //     这一种由后台低频全量校验兜住(PRETENDER_VERIFY_MS 一次,不在请求路径上)。
   //   persistTimer —— 增量刷新后的落盘合并成一次延迟写(冷重建仍立即落盘)。
   headMtimes: new Map(),
-  verifyDue: false,
+  verifyScan: null,             // 后台校验在建索引链之外先扫好的 { sources, dirStamp },建索引时只做比对
   lastVerifyAt: 0,
   verifyTimer: null,
+  knownMasks: new Map(),        // 会话 id -> 文件组成(1 = 会话头,2 = Intervention journal),名单比对的基准
+  usageSeq: null,               // 已吸收到的用量账变更序号(00-boot usageLedgerChangesSince);null = 基准未知,下一次整份对账
   persistTimer: null,
-  writing: false,
+  writers: 0,
+  writeChain: Promise.resolve(),
   sliceBytes: new WeakMap(),
   counters: { fullSourceScans: 0, nameDiffScans: 0, sliceBuilds: 0, persists: 0 },
 };
@@ -53950,22 +54002,25 @@ async function pretenderSessionSourceStamp(sessionId) {
 }
 
 // sessions 目录里「有会话头或有 Intervention journal」的会话 id(一次 readdir,不 stat)。
+// 返回 id -> 文件组成(1 = 会话头,2 = Intervention journal)。审查轮:只比 id 的话,已有会话头的会话后来才长出
+// journal(外部登记了一条待决)这一种会漏;比文件组成就能在这一次读里看见。
 async function pretenderListSourceIds() {
   let files = [];
   try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
-  const idSet = new Set();
+  const masks = new Map();
   for (const file of files) {
-    if (/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) idSet.add(file.slice(0, -5));
-    else if (/^sess_[A-Za-z0-9_-]+\.interventions\.ndjson$/.test(file)) idSet.add(file.slice(0, -'.interventions.ndjson'.length));
+    if (/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) { const id = file.slice(0, -5); masks.set(id, (masks.get(id) || 0) | 1); }
+    else if (/^sess_[A-Za-z0-9_-]+\.interventions\.ndjson$/.test(file)) { const id = file.slice(0, -'.interventions.ndjson'.length); masks.set(id, (masks.get(id) || 0) | 2); }
   }
-  return idSet;
+  return masks;
 }
 
 async function scanPretenderSessionSources() {
   pretenderIndexRuntime.counters.fullSourceScans += 1;
-  const idSet = await pretenderListSourceIds();
-  for (const sid of [...pretenderIndexRuntime.headMtimes.keys()]) if (!idSet.has(sid)) pretenderIndexRuntime.headMtimes.delete(sid);
-  const ids = [...idSet].sort();
+  const masks = await pretenderListSourceIds();
+  pretenderIndexRuntime.knownMasks = masks;
+  for (const sid of [...pretenderIndexRuntime.headMtimes.keys()]) if (!masks.has(sid)) pretenderIndexRuntime.headMtimes.delete(sid);
+  const ids = [...masks.keys()].sort();
   const sources = {};
   let cursor = 0;
   const workers = Array.from({ length: Math.min(16, Math.max(1, ids.length)) }, async () => {
@@ -54151,6 +54206,8 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
   sessions.sort((a, b) => pretenderCompareCodeUnits(String(a.sessionId), String(b.sessionId)));
   const missionRows = sessions.filter(row => row.card);
   const missionsRevision = pretenderHash(missionRows.map(row => [row.missionId, row.cardRevision || row.missionRevision]));
+  // 只进 ETag、不进分页游标:列表行上的费用来自切片用量,用量变了要换 ETag,但不该让翻到一半的分页 409(审查轮)。
+  const missionsUsageRevision = pretenderHash(missionRows.map(row => row.missionRevision || ''));
   const interventionsRevision = pretenderHash(sessions.map(row => [row.sessionId, row.interventionRevision]));
   const revision = pretenderHash([missionsRevision, interventionsRevision]);
   const degradedSessions = sessions.filter(row => row.integrity && row.integrity.degraded).map(row => row.sessionId);
@@ -54158,6 +54215,7 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
     schemaVersion: PRETENDER_INDEX_SCHEMA,
     revision,
     missionsRevision,
+    missionsUsageRevision,
     interventionsRevision,
     builtAt: nowIso(),
     buildReason,
@@ -54172,10 +54230,16 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
   return value;
 }
 
-async function writePretenderIndexFile(value) {
+// 所有写盘串在一条链上(审查轮:冷重建的立即写与延迟写交错时,旧的那份可能最后落地)。
+function writePretenderIndexFile(value) {
+  const run = pretenderIndexRuntime.writeChain.then(() => writePretenderIndexFileNow(value));
+  pretenderIndexRuntime.writeChain = run.catch(() => false);
+  return run;
+}
+async function writePretenderIndexFileNow(value) {
   const file = pretenderIndexPath();
-  // writing:改名落盘到记下新 diskStamp 之间,盘上那份与 diskStamp 对不上是我们自己造成的,别当成「用户动了缓存」。
-  pretenderIndexRuntime.writing = true;
+  // writers:改名落盘到记下新 diskStamp 之间,盘上那份与 diskStamp 对不上是我们自己造成的,别当成「用户动了缓存」。
+  pretenderIndexRuntime.writers += 1;
   try {
     await fsp.mkdir(path.dirname(file), { recursive: true });
     // 性能批 P2:紧凑 JSON(索引是可删缓存、没人读它;atomicWriteJson 缺省的两格缩进让 7 MB 的索引多出四成字节与序列化时间)
@@ -54187,7 +54251,7 @@ async function writePretenderIndexFile(value) {
     // Cache write failure never compromises authority or blocks reads. Keep the current in-memory projection.
     pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
     return false;
-  } finally { pretenderIndexRuntime.writing = false; }
+  } finally { pretenderIndexRuntime.writers -= 1; }
 }
 // 冷重建(索引缺失/损坏/显式重建)立即落盘 —— 「坏索引读一次就原子重建回盘上」是既有承诺。
 async function persistPretenderIndex(value) {
@@ -54207,18 +54271,28 @@ async function flushPretenderPersist() {
   while (pretenderIndexRuntime.building) await pretenderIndexRuntime.building.catch(() => {});
   const value = pretenderIndexRuntime.value;
   if (!value || pretenderIndexRuntime.persisted) return;
+  // 数据目录已经被删了(清数据、测试收尾)就别再把它建回来(审查轮)
+  if (!fs.existsSync(paths.sessions)) return;
   const ok = await writePretenderIndexFile(value);
   if (pretenderIndexRuntime.value === value) pretenderIndexRuntime.persisted = ok;
   else schedulePretenderPersist();   // 写的期间又刷新过:下一拍再写最新那一份
 }
-// 后台低频全量校验:到点只把 verifyDue 置上,再在后台走一次 getPretenderProjectionIndex(与建索引同一条串行链)。
+// 后台低频全量校验:到点先在链外扫好,再走一次 getPretenderProjectionIndex 做比对。
+// 全量扫描(逐条 stat)在建索引链之外先做 —— 扫描期间来的请求不必排在它后面(审查轮);建索引时只拿结果做比对。
+async function pretenderRunVerify() {
+  pretenderIndexRuntime.lastVerifyAt = Date.now();
+  if (!fs.existsSync(paths.sessions)) return null;
+  const dirStamp = await pretenderSessionsDirStamp();
+  const sources = await scanPretenderSessionSources();
+  pretenderIndexRuntime.verifyScan = { sources, dirStamp };
+  return getPretenderProjectionIndex();
+}
 function pretenderScheduleVerify() {
-  if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyDue) return;
+  if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyScan) return;
   const wait = Math.max(0, pretenderIndexRuntime.lastVerifyAt + PRETENDER_VERIFY_MS - Date.now());
   pretenderIndexRuntime.verifyTimer = setTimeout(() => {
     pretenderIndexRuntime.verifyTimer = null;
-    pretenderIndexRuntime.verifyDue = true;
-    void getPretenderProjectionIndex().catch(() => {});
+    void pretenderRunVerify().catch(() => {});
   }, wait);
   if (pretenderIndexRuntime.verifyTimer.unref) pretenderIndexRuntime.verifyTimer.unref();
 }
@@ -54274,15 +54348,21 @@ async function refreshPretenderIndexSlices(base, dirtyIds, usageIds, reason) {
 // 性能批 P2:账本变了(上次落盘之后又跑过回合)只重算每片的用量事实,不再把每条会话从盘上整份重建 ——
 // 修前这是启动时最常见的一种「全量重建」(退出前最后几轮的用量还没随索引落盘)。
 // 与 buildPretenderSessionSlice 里同一套算法:missionRevision = hash({cardRevision, usage}),revision = hash([missionRevision, interventionRevision])。
-async function refreshPretenderUsageFacts(base, reason) {
-  const usageMap = await buildMissionUsageMap();
+// sessionIds(可选):只对这几条会话重算(用量账变更日志说只有它们变了)。一片都没变就原样返回 base。
+async function refreshPretenderUsageFacts(base, reason, sessionIds = null) {
+  const usageMap = await buildMissionUsageMap(sessionIds);
+  let changed = false;
   const sessions = base.sessions.map(row => {
+    if (sessionIds && !sessionIds.has(row.sessionId)) return row;
     const usage = usageMap.get(row.sessionId) || emptyMissionUsage();
     if (JSON.stringify(usage) === JSON.stringify(row.usage)) return row;
+    changed = true;
     const missionRevision = pretenderHash({ cardRevision: row.cardRevision, usage });
     return { ...row, usage, missionRevision, revision: pretenderHash([missionRevision, row.interventionRevision]) };
   });
-  return finalizePretenderIndex(sessions, { ...(base.sources || {}) }, await pretenderUsageSourceStamp(), reason);
+  const usageStamp = await pretenderUsageSourceStamp();
+  if (!changed && usageStamp === base.usageStamp) return base;
+  return finalizePretenderIndex(sessions, { ...(base.sources || {}) }, usageStamp, reason);
 }
 
 function pretenderChangedSourceIds(before, after) {
@@ -54296,7 +54376,7 @@ async function buildOrLoadPretenderIndex() {
   // User deleted/replaced/corrupted the cache while the process was live: discard memory and prove rebuild.
   // 性能批 P2:判据是「盘上那份不再是我们最后一次写 / 读到的那份」(diskStamp),不再要求 persisted —— 增量刷新改成
   // 延迟落盘之后,等写的那一秒里用户删了缓存,照样丢内存、从权威源重建(修前每次刷新都立即落盘,persisted 恒真)。
-  if (pretenderIndexRuntime.value && !pretenderIndexRuntime.writing && pretenderIndexRuntime.diskStamp
+  if (pretenderIndexRuntime.value && pretenderIndexRuntime.writers === 0 && pretenderIndexRuntime.diskStamp
     && currentDiskStamp !== pretenderIndexRuntime.diskStamp) {
     pretenderIndexRuntime.value = null;
   }
@@ -54308,29 +54388,31 @@ async function buildOrLoadPretenderIndex() {
   // 指纹变了、或者变得太新(还在一边写一边读的窗口里)-> 看一眼目录,真有差异才按差异刷【那几片】。
   // 性能批 P2:「看一眼」从「每条会话 2 次 stat + 1 次 readdir」降成【一次 readdir 比对名单】—— 目录 mtime 在
   // 本进程每次原子落盘会话头时都会变,修前每次落盘后的下一次读都付一整遍全量扫描(2000 条会话约 300 ms)。
-  // 新出现 / 消失的会话照旧在这一次读里就刷好(K3 的保证不变);已有文件被外部原地替换这一种,由后台全量校验
-  // (PRETENDER_VERIFY_MS 一次)兜住。本进程自己的写口本来就打脏页,不靠这一步。
+  // 新出现 / 消失的会话、已有会话新长出(或没了)journal,照旧在这一次读里就刷好(K3 的保证不变,比的是每条会话的
+  // 文件组成);只有「外部原地替换 / 改写已有文件」这一种(名单与组成都不变),由后台全量校验兜住 —— 目录变过之后
+  // 最多 PRETENDER_VERIFY_MS 看见。本进程自己的写口本来就打脏页,MCP 子进程写会话回环到主进程,都不靠这一步。
   const dirStamp = await pretenderSessionsDirStamp();
-  if (pretenderIndexRuntime.value && pretenderIndexRuntime.verifyDue) {
-    pretenderIndexRuntime.verifyDue = false;
-    pretenderIndexRuntime.lastVerifyAt = Date.now();
+  const verifyScan = pretenderIndexRuntime.verifyScan;
+  pretenderIndexRuntime.verifyScan = null;
+  if (pretenderIndexRuntime.value && verifyScan) {
     const base = pretenderIndexRuntime.value;
-    const sources = await scanPretenderSessionSources();
-    pretenderNoteSourcesScan(dirStamp);
-    let next = base;
-    if (!sameSourceMap(base.sources, sources)) next = await refreshPretenderIndexSlices(base, pretenderChangedSourceIds(base.sources, sources), new Set(), 'sources_verify');
-    // 顺带把用量事实整份对一遍(用量账有缓存,30 万行几十毫秒):兜住「外部改账与本进程追加恰好同时发生」那一种。
-    const verified = await refreshPretenderUsageFacts(next, 'sources_verify');
-    if (verified.revision !== base.revision || next !== base) { pretenderIndexRuntime.value = verified; pretenderIndexRuntime.persisted = false; }
+    pretenderNoteSourcesScan(verifyScan.dirStamp);
+    if (!sameSourceMap(base.sources, verifyScan.sources)) {
+      pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, pretenderChangedSourceIds(base.sources, verifyScan.sources), new Set(), 'sources_verify');
+      pretenderIndexRuntime.persisted = false;
+    }
   } else if (pretenderIndexRuntime.value && !pretenderSourcesTrusted(dirStamp)) {
     const base = pretenderIndexRuntime.value;
     pretenderIndexRuntime.counters.nameDiffScans += 1;
-    const ids = await pretenderListSourceIds();
+    const masks = await pretenderListSourceIds();
     pretenderNoteSourcesScan(dirStamp);
-    const known = base.sources || {};
+    const known = pretenderIndexRuntime.knownMasks;
     const changed = new Set();
-    for (const id of ids) if (!Object.prototype.hasOwnProperty.call(known, id)) changed.add(id);
-    for (const id of Object.keys(known)) if (!ids.has(id)) changed.add(id);
+    for (const [id, mask] of masks) if (known.get(id) !== mask) changed.add(id);
+    for (const id of known.keys()) if (!masks.has(id)) changed.add(id);
+    // 索引里有、名单基准里没有的(不该发生,防御):也按名单对一遍
+    for (const id of Object.keys(base.sources || {})) if (!masks.has(id)) changed.add(id);
+    pretenderIndexRuntime.knownMasks = masks;
     if (changed.size) {
       pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, changed, new Set(), 'sources_dir_changed');
       pretenderIndexRuntime.persisted = false;   // 变过就得重新落盘(下面统一那一处写)
@@ -54345,6 +54427,9 @@ async function buildOrLoadPretenderIndex() {
     const sources = await scanPretenderSessionSources();
     pretenderNoteSourcesScan(dirStamp);
     pretenderIndexRuntime.lastVerifyAt = Date.now();
+    // 用量基准:先取变更序号、再算源指纹 —— 两者之间追加进来的行会让指纹对不上,走整份对账,不会漏。
+    const usageBaseline = await usageLedgerChangesSince(Number.MAX_SAFE_INTEGER);
+    pretenderIndexRuntime.usageSeq = usageBaseline.seq;
     const usageStamp = await pretenderUsageSourceStamp();
     if (!disk) {
       // 121-K0b(病根在此):原来的空目录守卫只长在 warmPretenderProjectionIndex 里,只护 boot 那一次
@@ -54374,11 +54459,13 @@ async function buildOrLoadPretenderIndex() {
     }
   }
 
-  // 用量账被外部改过(不是本进程的追加 —— 那些都打了 usage 脏页、刷新后会更新 usageStamp):只重算用量事实。
-  // 修前索引一旦进了内存,外部写账【永远】看不见(只在启动读盘那一次比 usageStamp);每次读多付几个 stat。
-  if (value && !cold && pretenderIndexRuntime.usageDirty.size === 0) {
-    const usageStamp = await pretenderUsageSourceStamp();
-    if (usageStamp !== value.usageStamp) value = await refreshPretenderUsageFacts(value, 'usage_source_changed');
+  // 用量账变了哪些会话(00-boot 的变更日志,本进程追加与外部写进来的一视同仁):只重算那几片的用量事实。
+  // 修前索引一旦进了内存,外部写账【永远】看不见(只在启动读盘那一次比 usageStamp)。冷重建刚从整份账算过,跳过。
+  if (value && !cold) {
+    const change = await usageLedgerChangesSince(pretenderIndexRuntime.usageSeq);
+    if (change.all) value = await refreshPretenderUsageFacts(value, 'usage_source_changed');
+    else if (change.sessionIds.size) value = await refreshPretenderUsageFacts(value, 'usage_source_changed', change.sessionIds);
+    pretenderIndexRuntime.usageSeq = change.seq;
   }
 
   const forceFull = pretenderIndexRuntime.fullDirty;
@@ -54387,7 +54474,11 @@ async function buildOrLoadPretenderIndex() {
   const usageIds = new Set(pretenderIndexRuntime.usageDirty);
   pretenderIndexRuntime.dirtySessions.clear();
   pretenderIndexRuntime.usageDirty.clear();
-  if (forceFull) { value = await rebuildPretenderIndexFull('explicit_rebuild'); cold = true; }
+  if (forceFull) {
+    pretenderIndexRuntime.usageSeq = (await usageLedgerChangesSince(Number.MAX_SAFE_INTEGER)).seq;   // 基准先取,再整份算
+    value = await rebuildPretenderIndexFull('explicit_rebuild');
+    cold = true;
+  }
   else if (dirtyIds.size) value = await refreshPretenderIndexSlices(value, dirtyIds, usageIds, usageIds.size ? 'usage_dirty' : 'source_dirty');
 
   if (value !== pretenderIndexRuntime.value || !pretenderIndexRuntime.persisted) {
@@ -54401,7 +54492,7 @@ async function buildOrLoadPretenderIndex() {
 // 测试直调(unit/pretender-index-incremental):计数、立即走一次后台校验、立即落盘。不改任何行为。
 const pretenderIndexTestHooks = {
   stats: () => ({ ...pretenderIndexRuntime.counters, persisted: pretenderIndexRuntime.persisted }),
-  verifyNow: () => { pretenderIndexRuntime.verifyDue = true; return getPretenderProjectionIndex(); },
+  verifyNow: () => pretenderRunVerify(),
   flushPersist: () => flushPretenderPersist(),
 };
 

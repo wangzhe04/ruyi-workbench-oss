@@ -799,7 +799,24 @@ const usageLedgerCache = {
   dict: [], dictIndex: new Map(), dictObjectIndex: new Map(),
   chain: Promise.resolve(),
   stats: { refreshes: 0, fullParses: 0, incrementalParses: 0, bytesParsed: 0 },
+  // 变更日志:每次刷新里哪些会话的行变了(整月重读 / 删月份记为 all)。13e 按它只刷那几条会话的用量 ——
+  // 本进程追加的与外部写进来的一视同仁,不再靠源指纹猜(审查轮:外部写账与本进程追加同时发生时会被漏掉)。
+  changeSeq: 0,
+  changeLog: [],                // { seq, all, ids: Set<string> },最多 USAGE_CHANGE_LOG_MAX 条
+  changeFloor: 0,               // 早于这个序号的日志已丢弃,问得更早的一律答 all
 };
+const USAGE_CHANGE_LOG_MAX = 512;
+function usageNoteChange(all, ids) {
+  if (!all && (!ids || !ids.size)) return;
+  usageLedgerCache.changeSeq += 1;
+  usageLedgerCache.changeLog.push({ seq: usageLedgerCache.changeSeq, all: Boolean(all), ids: ids || new Set() });
+  while (usageLedgerCache.changeLog.length > USAGE_CHANGE_LOG_MAX) usageLedgerCache.changeFloor = usageLedgerCache.changeLog.shift().seq;
+}
+function usageColsSessionIds(cols, from, into) {
+  if (!cols) return into;
+  for (let i = from; i < cols.n; i++) into.add(String(usageLedgerCache.dict[cols.sessionId[i]]));
+  return into;
+}
 function usageLedgerCacheDisabled() { return process.env.RUYI_USAGE_CACHE === '0'; }
 // 对象 / 数组值(只可能来自外部写坏的行)按内容去重:原样交给消费方的是同内容的第一份实例 —— typeof、String()
 // 的结果都不变,而按引用去重会让每一行都在字典里新占一格、永不回收。
@@ -968,10 +985,14 @@ async function usageMonthIncremental(file, entry, st) {
 async function refreshUsageLedgerCacheNow() {
   usageLedgerCache.stats.refreshes += 1;
   let files = [];
-  try { files = await fsp.readdir(paths.usage); } catch { usageLedgerCache.months.clear(); return []; }
+  try { files = await fsp.readdir(paths.usage); } catch {
+    if (usageLedgerCache.months.size) usageNoteChange(true);
+    usageLedgerCache.months.clear();
+    return [];
+  }
   const order = files.filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort();   // 与 readUsageRows 同一次序
   const present = new Set(order);
-  for (const name of [...usageLedgerCache.months.keys()]) if (!present.has(name)) usageLedgerCache.months.delete(name);
+  for (const name of [...usageLedgerCache.months.keys()]) if (!present.has(name)) { usageLedgerCache.months.delete(name); usageNoteChange(true); }
   for (const name of order) {
     const file = path.join(paths.usage, name);
     try {
@@ -980,9 +1001,22 @@ async function refreshUsageLedgerCacheNow() {
       if (entry && entry.size === st.size && entry.mtimeMs === st.mtimeMs) continue;
       // 同尺寸只换了 mtime = 原地改写(追加一定变长)→ 整月重读
       const commit = entry && st.ino === entry.ino && st.size > entry.size && st.size >= entry.committed ? await usageMonthIncremental(file, entry, st).catch(() => null) : null;
-      if (commit) usageLedgerCache.months.set(name, commit());
-      else usageLedgerCache.months.set(name, await usageMonthFullParse(file, st));
-    } catch { usageLedgerCache.months.delete(name); }   // 读不了的月份与修前一样当它不存在
+      if (commit) {
+        const before = entry.cols.n;
+        const next = commit();
+        usageLedgerCache.months.set(name, next);
+        const ids = usageColsSessionIds(entry.tail, 0, usageColsSessionIds(next.cols, before, new Set()));
+        usageNoteChange(false, usageColsSessionIds(next.tail, 0, ids));
+      } else {
+        const next = await usageMonthFullParse(file, st);
+        usageLedgerCache.months.set(name, next);
+        // 新出现的月份只牵涉它自己那些行的会话;已有月份被整份重读(截短、改写)就当全部都可能变了
+        if (entry) usageNoteChange(true);
+        else usageNoteChange(false, usageColsSessionIds(next.tail, 0, usageColsSessionIds(next.cols, 0, new Set())));
+      }
+    } catch {   // 读不了的月份与修前一样当它不存在
+      if (usageLedgerCache.months.delete(name)) usageNoteChange(true);
+    }
   }
   return order;
 }
@@ -1057,6 +1091,21 @@ class UsageRowView {
     this.currency = undefined; this.kind = undefined; this.note = undefined;
   }
   get ts() { return this.tsRaw !== undefined ? this.tsRaw : new Date(this.tsMs).toISOString(); }
+}
+// 自 seq 之后账本变过哪些会话(先刷新一次缓存)。seq 为 null / 早于日志下限 → all。返回的 seq 是刷新之后的当前序号。
+async function usageLedgerChangesSince(seq) {
+  if (usageLedgerCacheDisabled()) return { seq: 0, all: true, sessionIds: new Set() };
+  try { await refreshUsageLedgerCache(); } catch { /* 刷新失败:按当前已知的回答 */ }
+  const current = usageLedgerCache.changeSeq;
+  if (seq == null || !Number.isFinite(seq) || seq < usageLedgerCache.changeFloor) return { seq: current, all: true, sessionIds: new Set() };
+  const sessionIds = new Set();
+  let all = false;
+  for (const entry of usageLedgerCache.changeLog) {
+    if (entry.seq <= seq) continue;
+    if (entry.all) { all = true; break; }
+    for (const id of entry.ids) sessionIds.add(id);
+  }
+  return { seq: current, all, sessionIds };
 }
 function usageLedgerCacheStats() {
   let rows = 0, residentBytes = 0;

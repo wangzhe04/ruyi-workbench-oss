@@ -1027,7 +1027,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + (index.missionsUsageRevision || '') + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,

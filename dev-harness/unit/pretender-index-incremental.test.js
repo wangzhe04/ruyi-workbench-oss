@@ -7,6 +7,11 @@
 //   [I5] 外部往用量账追加:下一次读的用量就对(修前索引进了内存后永远看不见外部写账)
 //   [I6] 增量刷新的落盘被合并延迟:读路径上不写盘,flush 之后盘上那份与内存同修订号
 //   [I7] 落盘还挂着时用户删了缓存文件:下一次读丢内存、从权威源重建(buildReason missing_index)
+//   审查轮复现过、在此钉住的:
+//   [I8] 外部写账(会话 B)与本进程追加(会话 A)同时发生:两边的用量下一次读都对(修前 B 永远停在旧值)
+//   [I9] 已有会话头的会话外部新长出 journal(登记了一条待决):下一次读就在索引里(修前要等后台校验)
+//   [I10] 用量变了,只进 ETag 的 missionsUsageRevision 跟着变(列表上的费用不会被 304 挡住)
+//   [I11] 数据目录被删了而落盘还挂着:不会把它建回来
 const { test, after, before } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -127,4 +132,37 @@ test('[I6][I7] 增量刷新延迟落盘;挂起时删缓存 → 从权威源重�
   assert.equal(rebuilt.buildReason, 'missing_index', '丢内存、从权威源重建');
   assert.ok(fs.existsSync(indexFile), '冷重建立即落盘');
   assert.match(cardText(rebuilt, 8), /goal 8 v2/);
+});
+
+test('[I8][I10] 外部写账与本进程追加同时发生:两边用量都对;missionsUsageRevision 跟着变', async () => {
+  const before = await srv.getPretenderProjectionIndex();
+  const a0 = slice(before, 10).usage.turns, b0 = slice(before, 11).usage.turns;
+  fs.appendFileSync(path.join(usageDir, '2026-01.jsonl'), usageRow(11, 3) + '\n');   // 外部:B
+  srv.appendUsageLedger({ ts: '2026-01-06T00:00:00.000Z', sessionId: sid(10), engine: 'openai', provider: 'p', model: 'm', inTok: 4, outTok: 1, cost: 0.001, currency: 'USD', kind: 'aux', note: 'x' });
+  await new Promise(r => setTimeout(r, 200));   // 追加链是 fire-and-forget
+  const after = await srv.getPretenderProjectionIndex();
+  assert.equal(slice(after, 10).usage.turns, a0 + 1, '本进程追加的 A');
+  assert.equal(slice(after, 11).usage.turns, b0 + 1, '外部写进来的 B');
+  assert.notEqual(after.missionsUsageRevision, before.missionsUsageRevision, '用量变了,ETag 用的修订号跟着变');
+  assert.equal(after.missionsRevision, before.missionsRevision, '分页游标用的修订号不动(翻到一半不 409)');
+});
+
+test('[I9] 已有会话头的会话外部新长出 journal:下一次读就在索引里', async () => {
+  await srv.getPretenderProjectionIndex();
+  const iv = { id: 'iv_ext_1', type: 'permission', sessionId: sid(12), requestedAt: '2026-01-07T00:00:00.000Z', status: 'pending', toolName: 'Bash', tier: 'exec' };
+  fs.writeFileSync(path.join(sessionsDir, sid(12) + '.interventions.ndjson'), JSON.stringify(iv) + '\n');
+  const index = await srv.getPretenderProjectionIndex();
+  assert.ok((slice(index, 12).interventions || []).some(row => row.id === 'iv_ext_1'), '新 journal 当次可见');
+});
+
+test('[I11] 数据目录被删而落盘还挂着:不把它建回来', async () => {
+  const s = await srv.loadSession(sid(13));
+  s.mission.goal = 'goal 13 v2';
+  s.mission.changeSeq += 1;
+  await srv.saveSession(s);
+  await srv.getPretenderProjectionIndex();
+  assert.equal(hooks.stats().persisted, false, '有一份待落盘');
+  fs.rmSync(sessionsDir, { recursive: true, force: true });
+  await hooks.flushPersist();
+  assert.ok(!fs.existsSync(sessionsDir), 'sessions 目录没被建回来');
 });
