@@ -119,7 +119,8 @@ function capturesContaining(dir, needle) {
     ok(tmpSites === 5, 'B 手写 tmp 写点=5(白名单豁免;实 ' + tmpSites + ')');
     ok(!/dest \+ '\.' \+ process\.pid \+ '\.tmp'/.test(src), 'B saveAgentRun 旧 pid-only tmp 模式已清零');
     ok(/AGENT_RUN_PERSIST_DEGRADED_AFTER = 3/.test(src) && /AGENT_RUN_PERSIST_PAUSE_AFTER = 8/.test(src), 'B 持久化退化阈值常量在(3/8)');
-    ok(/runs\[i\]\s*=\s*\{\s*\.\.\.JSON\.parse\(JSON\.stringify\(live\.run\)\),\s*live:\s*true/.test(src),
+    // hunt2-http:digest 视图(只读标量、不外发)浅展开,完整视图照旧深拷贝。
+    ok(/runs\[i\]\s*=\s*\{\s*\.\.\.\(digestView \? live\.run : JSON\.parse\(JSON\.stringify\(live\.run\)\)\),\s*live:\s*true/.test(src),
       'B GET /api/agent-runs 以完整 live 快照叠加进度与 persistenceDegraded');
     ok(/function appendAgentRunEvent\(run, evt\)/.test(src) && (src.match(/appendAgentRunEvent\(/g) || []).length >= 10, 'B 事件日志助手 + ≥10 发射点');
     ok(/op === 'skip'\) continue/.test(src), 'B 幂等跳过不进本轮变更清单');
