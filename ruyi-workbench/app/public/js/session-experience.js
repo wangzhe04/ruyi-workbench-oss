@@ -1208,6 +1208,17 @@ function restoreOpenDetails(host, open) {
     if (open.has(openDetailsKey(node, seen))) node.open = true;
   }
 }
+// perf: keep rows that are already in place (never move them through a fragment / replaceChildren, which detaches every reused row
+// and makes the engine drop and rebuild its layout). New/moved rows are inserted, stale children removed.
+function reconcileMessageChildren(box, wanted) {
+  const keep = new Set(wanted);
+  let cur = box.firstChild;
+  for (const node of wanted) {
+    while (cur && cur !== node && !keep.has(cur)) { const next = cur.nextSibling; box.removeChild(cur); cur = next; }
+    if (cur === node) cur = cur.nextSibling; else box.insertBefore(node, cur);
+  }
+  while (cur) { const next = cur.nextSibling; box.removeChild(cur); cur = next; }
+}
 function renderCurrentSession() {
   const session = state.currentSession;
   state.shownUsage = null;
@@ -1245,8 +1256,8 @@ function renderCurrentSession() {
   // (repeatable to full). It sits above the first rendered message so earlier turns become reachable — this
   // is what keeps rewind/checkpoint targets on off-screen messages recoverable (click up until they render).
   const existing = new Map(Array.from(box.querySelectorAll('[data-message-key]')).map(row => [row.dataset.messageKey, row]));
-  const fragment = document.createDocumentFragment();
-  if (start > 0) fragment.appendChild(buildLoadEarlierButton(start));
+  const nodes = [];
+  if (start > 0) nodes.push(buildLoadEarlierButton(start));
   // EC-D 56/56b: 插话已作为 segment 内嵌在助手回合 narrative 内时,跳过其独立 user 行防重复。
   //   ① 活动 live turn(已内嵌 live;turn 结束 activeTurns.delete 后 liveForSession 空 -> 此条失效);
   //   ② 助手回合 segments 已含 steer 段(刷新后静态内嵌,56b)-> 跳过独立行。
@@ -1264,19 +1275,19 @@ function renderCurrentSession() {
     // 132a（53 号文 §1.2）：委托书线程的【第一条】消息 —— 气泡正文只印用户原话，管家补充收进一个折叠块（见 decorateCommissionedFirstMessage）。
     // 行是按 renderSignature 复用的，所以这一步必须幂等；改的是显示层，消息本身一个字没动。
     decorateCommissionedFirstMessage(row, m, i, session);
-    fragment.appendChild(row);
+    nodes.push(row);
   }
   const optimisticPersisted = activeTurnUserIsPersisted(msgs, liveForSession);
-  if (liveForSession?.optimisticUserRow && !optimisticPersisted) fragment.appendChild(liveForSession.optimisticUserRow);
+  if (liveForSession?.optimisticUserRow && !optimisticPersisted) nodes.push(liveForSession.optimisticUserRow);
   // Locale/config refreshes may legitimately call this while the current turn is streaming. Keep its live
   // keyed shell attached instead of reproducing the old "innerHTML clears the answer in progress" failure.
   const activeRow = activeTurns.get(session.id)?.live?.narrative?.closest('.message');
-  if (activeRow && activeRow.isConnected) fragment.appendChild(activeRow);
+  if (activeRow && activeRow.isConnected) nodes.push(activeRow);
   // 117m-A5：在途回合的临时气泡挂在会话末尾。它不是消息，上面那一圈窗口化／签名复用逻辑一个字没改，
   // state.currentSession.messages 也一个字没多 —— 回合结束后 liveTurnVisible() 转假，它就自己不见了。
-  if (liveTurnVisible()) fragment.appendChild(buildLiveTurnCard());
+  if (liveTurnVisible()) nodes.push(buildLiveTurnCard());
   else liveTurnCardEls = null;
-  box.replaceChildren(fragment);
+  reconcileMessageChildren(box, nodes);
   settleLog();
   restoreScrollAnchor(box, anchor || { atBottom: true });
   renderContextMeter(latestUsage(session));

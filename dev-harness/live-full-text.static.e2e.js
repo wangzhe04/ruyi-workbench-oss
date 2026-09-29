@@ -141,8 +141,8 @@ ok(!/messages\.push\(/.test(experienceCode) && !/currentSession\.messages\s*=/.t
     'D8 守卫本身还在(气泡被整份重绘换掉时仍返回 false 让调用方重绘)');
   ok(!/innerHTML/.test(body), 'D7 刷新也走 textContent');
 }
-ok(/if \(liveTurnVisible\(\)\) fragment\.appendChild\(buildLiveTurnCard\(\)\);/.test(experience),
-  'D8 气泡挂在会话末尾(renderCurrentSession 的 fragment 尾巴)');
+ok(/if \(liveTurnVisible\(\)\) nodes\.push\(buildLiveTurnCard\(\)\);/.test(experience),
+  'D8 气泡挂在会话末尾(renderCurrentSession 待挂行列表的尾巴;原位协调见 reconcileMessageChildren)');
 ok(/!session\.messages\?\.length && !liveForSession && !liveTurnVisible\(\)/.test(experience),
   'D9 一条落盘消息都没有但回合在跑时不落空态(否则空态把气泡整个吞掉)');
 
