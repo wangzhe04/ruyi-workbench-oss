@@ -325,6 +325,7 @@
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_THINKING_EFFORTS",
         "CONFIG_BOOKKEEPING_KEYS",
+        "CONFIG_CACHE_MIN_AGE_MS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
         "CONFIG_MIGRATIONS",
@@ -369,13 +370,18 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
+        "cloneConfigSnapshot",
         "commandForSelfMcp",
         "configCanonicalJson",
         "configComparableValue",
         "configDegraded",
         "configDirsEnsuredFor",
         "configExplicitKeysOf",
+        "configFileStamp",
         "configMutateChain",
+        "configReadCache",
+        "configReadCacheLookup",
+        "configReadCacheStore",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
@@ -1150,8 +1156,10 @@
         "sessionDisplayTitle",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
+        "sessionIndexFileStamp",
         "sessionIndexFlushTimer",
         "sessionIndexLatestWrite",
+        "sessionIndexMemo",
         "sessionIndexPath",
         "sessionIndexRebuildScanHook",
         "sessionIndexRebuildsActive",
@@ -13219,6 +13227,9 @@
         "refreshSessionSearchIndex",
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
+        "sessionEnvelopeEtag",
+        "sessionEnvelopeLiveParts",
+        "sessionEnvelopeStamp",
         "sessionMessageText",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
@@ -13376,6 +13387,13 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionPath",
           "kinds": [
             "call"
           ]
@@ -13689,6 +13707,20 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
@@ -13777,6 +13809,13 @@
           "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {

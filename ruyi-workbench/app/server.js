@@ -3863,6 +3863,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
 async function writeConfigAtomic(data) {
+  configReadCache = null;   // 进程内写:读缓存立刻作废(写完后再作废一次,见下)。文件戳本来也会变,这是显式的第二道保险
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
@@ -3875,7 +3876,8 @@ async function writeConfigAtomic(data) {
     return atomicWriteJson(paths.config, data);
   });
   configWriteChain = thisWrite;
-  await thisWrite;
+  try { await thisWrite; }
+  finally { configReadCache = null; }   // 写在飞的这段时间里别的读者可能按旧戳填过缓存:落盘之后再清一次
 }
 async function readConfigPrev() {
   try {
@@ -3896,6 +3898,7 @@ let lastGoodConfig = null;
 // 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
 // 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
+// (后续:已按上面「加 mtime 失效」重做,见下方 configReadCache —— 文件戳失效 + 近期改动不入缓存 + 命中给深拷贝。)
 // hunt2-P10:readConfig 全仓 ~135 处调用,修前每一次都 ensureDirs()(14 个 mkdir)。目录只需在每个数据根上
 // 建一次:按 paths.data 记一笔,换根(测试 / 迁移)时重建。只省 readConfig 这一处 —— saveSession、writeConfig
 // 等写口仍然各自 ensureDirs(),运行中目录被删也能在下一次写时补回来。建目录失败不记,下次再试。
@@ -3906,8 +3909,57 @@ async function ensureDirsForConfigRead() {
   await ensureDirs();
   configDirsEnsuredFor = root;
 }
+// readConfig 读缓存(perf):~45 个调用点、85 KB 的配置每次 ~10 ms(parse + normalizeConfig 占大头,读盘本身很快),
+// 而配置几乎从不变。【上一版缓存被回退】的原因见上面 48b 那段:e2e 直接写 config.json 拿不到、别名被调用方改脏。
+// 这一版把两条根因都堵上,而不是绕开:
+//   · 失效靠【文件戳】而不是「只有 writeConfig 才失效」:key = 路径 + size + mtimeNs + ino(+ 家目录,归一化会用到)。
+//     e2e 或用户手改 config.json → 戳变 → 下一次读就重读重归一化;进程内写(writeConfigAtomic)前后再显式清一次。
+//   · 文件系统时间戳有粗粒度(Windows/FAT 十几 ms 到 2 s),同尺寸的原地改写可能撞戳 —— 所以【刚改过的文件不入缓存】
+//     (git 的 racy-timestamp 同款):读的这一刻 mtime 距今不足 CONFIG_CACHE_MIN_AGE_MS 就只读不存。配置在这段窗口里
+//     照旧每次重读(与修前逐字节同),窗口过后才开始命中;窗口之后再发生的改写,mtime 必然比戳老的那一刻新,不会撞。
+//   · 戳要在读盘【之前】取:取戳与读之间文件被换掉,存下的是「旧戳 + 新内容」,下次戳对不上 → 只会多读一次;反过来取会
+//     存成「新戳 + 旧内容」= 陈旧命中。
+//   · 归一化的输出里还有【运行时输入】不在文件里:detectClaudePath/detectKimiPath 的探测结果(60 s 过期后台重探)、
+//     resolveClaudeLauncher 的解析结果(Windows 上 claude.cmd → claude.exe)。命中时重取这三样,与填缓存时不一致就当未命中
+//     (顺带保住「每次读配置都会碰一下探测记忆、过期则触发后台重探」这个旧副作用)。
+//   · 调用方会就地改返回值(mutateConfig 的 mutator 就是),所以缓存里只放一份没人拿过的快照,每次命中给一份深拷贝
+//     (structuredClone + 手补 Symbol 键 CONFIG_GIVEN_CLAUDE_PATH,structuredClone 不带 Symbol)。拷贝失败一律当未命中。
+//   · 只缓存「干净读」:读盘成功、JSON 合法、不是从 .prev 恢复、归一化没有要回写的迁移(changed=false)。降级/恢复/迁移
+//     路径全部照旧走完整流程(它们有写盘或降级状态副作用)。
+const CONFIG_CACHE_MIN_AGE_MS = 2500;
+let configReadCache = null;   // { key, claudeProbe, kimiProbe, snapshot }
+async function configFileStamp() {
+  try {
+    const st = await fsp.stat(paths.config, { bigint: true });
+    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+  } catch { return null; }
+}
+function cloneConfigSnapshot(config) {
+  const copy = structuredClone(config);
+  copy[CONFIG_GIVEN_CLAUDE_PATH] = config[CONFIG_GIVEN_CLAUDE_PATH];
+  return copy;
+}
+function configReadCacheLookup(stamp) {
+  const cache = configReadCache;
+  if (!cache || !stamp || cache.key !== stamp.key) return null;
+  try {
+    if (detectClaudePath() !== cache.claudeProbe || detectKimiPath() !== cache.kimiProbe) return null;
+    if (resolveClaudeLauncher(cache.snapshot[CONFIG_GIVEN_CLAUDE_PATH]) !== cache.snapshot.claudePath) return null;
+    return cloneConfigSnapshot(cache.snapshot);
+  } catch { configReadCache = null; return null; }
+}
+function configReadCacheStore(stamp, config) {
+  configReadCache = null;
+  if (!stamp || (Date.now() - stamp.mtimeMs) < CONFIG_CACHE_MIN_AGE_MS) return;   // 刚改过(或时钟在未来):不信戳
+  try {
+    configReadCache = { key: stamp.key, claudeProbe: detectClaudePath(), kimiProbe: detectKimiPath(), snapshot: cloneConfigSnapshot(config) };
+  } catch { configReadCache = null; }
+}
 async function readConfig() {
   await ensureDirsForConfigRead();
+  const stamp = await configFileStamp();   // 必须在读盘之前取(见 configReadCache 头注)
+  const cached = configReadCacheLookup(stamp);
+  if (cached) { configDegraded = false; return cached; }
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
@@ -3938,6 +3990,7 @@ async function readConfig() {
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
   if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
+  else if (!readError) configReadCacheStore(stamp, config);   // 干净读才缓存;存的是深拷贝,返回给调用方的 config 仍归调用方
   return config;
 }
 
@@ -7045,12 +7098,32 @@ async function readSessionIndex() {
     return Array.isArray(arr) ? arr : null;
   } catch { return null; }
 }
+// 索引的【内存镜像】(perf):flushSessionIndex 每个 200 ms 去抖窗口都要「读 → 解析 → 合并 → 整份写」一遍 index.json
+// (3000 条会话 ≈ 1.3 MB,每次 ~25 ms,回合进行中每个窗口都在跑)。我们自己刚写下的那份内容就是合并后的 map,
+// 下一窗口再读回来解析一遍纯属重复。这里把「刚写下的 map + 写完后立刻取的文件戳」留在内存里:下一次 flush 先取当前文件戳,
+// 与镜像的戳相同 = 磁盘上仍是我们写的那一份,直接在镜像 map 上合并,跳过读与解析;戳不同(外部改写/被 invalidate/被
+// listSessions 重建覆盖/flushSessionIndexSync 写过/文件不在)一律作废镜像走原来的读盘路径。戳 = 路径 + size + mtimeNs + ino
+// (写入是 tmp + rename,每次换 inode)。只有 flushSessionIndex 那一处产生镜像;所有别的写口都不给 map → 镜像作废。
+// 镜像只在 withSessionIndexLock 里读写(与索引写同一把锁),无并发。
+let sessionIndexMemo = null;   // { stamp, map }
+async function sessionIndexFileStamp() {
+  try {
+    const st = await fsp.stat(sessionIndexPath(), { bigint: true });
+    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ino}`;
+  } catch { return null; }
+}
 // Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
-async function writeSessionIndex(entries) {
+// 第二参 map(可选)= 这份 entries 对应的合并结果,给了就登记成内存镜像(见 sessionIndexMemo)。
+async function writeSessionIndex(entries, map = null) {
+  sessionIndexMemo = null;   // 写之前先作废:写到一半失败/被别的写口接着覆盖,镜像都不该再被信
   await fsp.mkdir(paths.sessions, { recursive: true });
   await atomicWriteJson(sessionIndexPath(), entries);   // 25.1 收编
+  if (map) {
+    const stamp = await sessionIndexFileStamp();
+    if (stamp) sessionIndexMemo = { stamp, map };
+  }
 }
-async function invalidateSessionIndex() { await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+async function invalidateSessionIndex() { sessionIndexMemo = null; await fsp.unlink(sessionIndexPath()).catch(() => {}); }
 // Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
 // tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
 let sessionIndexChain = Promise.resolve();
@@ -7116,11 +7189,19 @@ async function flushSessionIndex() {
   try {
     await withSessionIndexLock(async () => {
       try {
-        const index = await readSessionIndex();
-        if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
-        const map = new Map(index.map(e => [String(e && e.id), e]));
+        // 镜像命中(文件戳与我们上次写完时一致)就不读盘不解析,直接在镜像 map 上合并;否则走原来的读盘路径。
+        const stamp = await sessionIndexFileStamp();
+        let map = null;
+        if (stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp) map = sessionIndexMemo.map;
+        else {
+          sessionIndexMemo = null;
+          const index = await readSessionIndex();
+          if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
+          map = new Map(index.map(e => [String(e && e.id), e]));
+        }
+        sessionIndexMemo = null;   // 下面要就地改 map:改到一半失败它就是脏的,写成功后 writeSessionIndex 再登记回来
         for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
-        await writeSessionIndex([...map.values()]);
+        await writeSessionIndex([...map.values()], map);
       } catch { await invalidateSessionIndex(); }
     }).catch(() => {});
   } finally {
@@ -52006,6 +52087,111 @@ async function searchSessionsByContent(query, limit) {
   };
 }
 
+// GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
+// 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
+// 慢路径整份重写是 rename 换 inode)+ 后台任务账本的 size/mtime/ino(loadSession 会把它合并进 messages)。
+// 头是提交点(saveSession 正文先落、头后落,且每次都推 updatedAt),所以「头哈希 + 正文戳」不变 = 盘上没有新提交。
+// 任何一步读不到(legacy 单文件会话没有正文文件、瞬时锁、会话不存在)一律返回 null → 调用方不发 ETag、走原来的无条件全量,
+// 与修前逐字节一致。
+async function sessionEnvelopeStamp(id) {
+  if (safeSessionId(id) === null) return null;
+  try {
+    const bp = sessionBodyPaths(id);
+    const [head, msg, prov, jobs] = await Promise.all([
+      fsp.readFile(sessionPath(id)),
+      fsp.stat(bp.messages),
+      fsp.stat(bp.provider),
+      // 路径与 11-native-tools.js 的 backgroundJobFile 同一处约定(sessions/background-jobs/<id>.json)。这里不直接引用它:13d 引 11
+      // 会新增一条循环边(module-dependency-graph 的债务上限锁着);e2e session-get-etag 的 F 段写一份账本、断言标签会变,钉住这份约定不漂移。
+      fsp.stat(path.join(paths.sessions, 'background-jobs', id + '.json')).catch(() => null),
+    ]);
+    const fileStamp = st => `${st.size}:${st.mtimeMs}:${st.ino}`;
+    return crypto.createHash('sha1').update(head).digest('hex') + '|' + fileStamp(msg) + '|' + fileStamp(prov) + '|' + (jobs ? fileStamp(jobs) : '-');
+  } catch { return null; }
+}
+// 标签 = 盘上戳 + 装载会改变响应的全部【内存】输入:活态四件(见 sessionEnvelopeLiveParts)、会话级权限档/桌面工具覆盖表
+// (loadSession 会把它们盖到返回的会话对象上)、垂死回合收尾窗口(turnSettlers:窗口内 loadSession 不做残留 pending 叙事段的
+// 惰性清理,出窗后同一份盘面装载出的会话就不同了)、以及 ?since 参数(管家会话的尾巴切片,响应体不同)。
+function sessionEnvelopeEtag(id, stamp, liveParts, sinceRaw) {
+  const overrides = [
+    sessionPermissionModeOverrides.has(id) ? [sessionPermissionModeOverrides.get(id)] : null,
+    sessionDesktopToolsOverrides.has(id) ? [sessionDesktopToolsOverrides.get(id)] : null,
+  ];
+  return pretenderEtag('session', pretenderHash([stamp, overrides, turnSettlers.has(id), liveParts, sinceRaw == null ? null : String(sinceRaw)]));
+}
+// 会话信封上【只来自内存】的那几样(活回合标志 / liveTail / liveTurn / 递话通道):GET /api/sessions/:id 的 200 体与
+// 条件 GET 的 ETag 共用这一份取样 —— 判据只写一处,响应里放了什么,ETag 就带什么(sessionEnvelopeEtag 直接哈希它)。
+// 纯同步只读:不碰盘、不改 reg。取样逻辑与注释原样搬自路由体(只是从内联挪成函数,一个字没动)。
+function sessionEnvelopeLiveParts(id) {
+  // 运行中豁免:活回合/活 agent run 在跑时,见路由体里 resumable 那一段。
+  let live = activeChildren.has(id);
+  if (!live) {
+    for (const runtime of activeAgentRuns.values()) {
+      if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
+    }
+  }
+  // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
+  // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
+  // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
+  // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
+  // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
+  // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
+  // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
+  // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
+  // tools 里还有工具调用 id,都不该出现在信封上。
+  const liveReg = activeChildren.get(id);
+  const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
+    ? {
+      text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
+      full: String(liveReg.liveTail.full || ''),
+      truncated: Boolean(liveReg.liveTail.truncated),
+      startedAt: String(liveReg.liveTail.startedAt || ''),
+      iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
+      tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
+        name: String((row && row.name) || '').slice(0, 80),
+        status: String((row && row.status) || ''),
+        startedAt: String((row && row.startedAt) || ''),
+        endedAt: String((row && row.endedAt) || ''),
+      })),
+    }
+    : null;
+  // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
+  // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
+  // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
+  // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
+  // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
+  // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
+  // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
+  // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
+  // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
+  const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
+    ? liveReg.liveSegments.liveSnapshot()
+    : null;
+  const liveTurn = liveNarrative
+    ? {
+      segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
+      toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
+      truncated: Boolean(liveNarrative.truncated),
+      startedAt: liveTail ? liveTail.startedAt : '',
+      iterations: liveTail ? liveTail.iterations : 0,
+    }
+    : null;
+  // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
+  // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
+  // queued > steer > turn,
+  // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
+  // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
+  // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
+  // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
+  // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
+  // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
+  const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
+  const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
+    ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
+    : null;
+  return { live, liveTail, liveTurn, relay };
+}
+
 async function handleSessionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/sessions') {
     return send(res, json({ ok: true, sessions: await listSessions() }));
@@ -52097,18 +52283,28 @@ async function handleSessionApiRoutes(req, res, pathname) {
   if (pathname.startsWith('/api/sessions/')) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
+      // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
+      // 正文并逐行 sha1(18 MB 会话 250–350 ms)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
+      // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
+      // 装载期间若有写者落盘,下一次比对必然不等 → 只会多回一次 200,绝不会拿旧标签配新内容(只可能多刷新,不会漏刷新)。
+      // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
+      // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
+      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      const envelopeStamp = await sessionEnvelopeStamp(id);
+      if (envelopeStamp) {
+        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, sessionEnvelopeLiveParts(id), sinceRaw);
+        if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
+      }
       const session = await loadSession(id);
       if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
       // 横幅,故 live 会话直接返回不悬挂。
-      let live = activeChildren.has(id);
-      if (!live) {
-        for (const runtime of activeAgentRuns.values()) {
-          if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
-        }
-      }
+      const liveParts = sessionEnvelopeLiveParts(id);
+      const { live, liveTail, liveTurn, relay } = liveParts;
+      // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
+      const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
       // isLive() 第一判据是 `resumable && resumable.live === true`,而这个活回合分支修前没有
       // `live` 键,那条判据从没走通过,一直静默回落到「事项行五态 === 'running'」——挂在
@@ -52118,59 +52314,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const resumable = live
         ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0, live: true }
         : detectDanglingTurn(session);
-      // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
-      // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
-      // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
-      // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
-      // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
-      // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
-      // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
-      // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
-      // tools 里还有工具调用 id,都不该出现在信封上。
-      const liveReg = activeChildren.get(id);
-      const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
-        ? {
-          text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
-          full: String(liveReg.liveTail.full || ''),
-          truncated: Boolean(liveReg.liveTail.truncated),
-          startedAt: String(liveReg.liveTail.startedAt || ''),
-          iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
-          tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
-            name: String((row && row.name) || '').slice(0, 80),
-            status: String((row && row.status) || ''),
-            startedAt: String((row && row.startedAt) || ''),
-            endedAt: String((row && row.endedAt) || ''),
-          })),
-        }
-        : null;
-      // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
-      // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
-      // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
-      // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
-      // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
-      // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
-      // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
-      // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
-      // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
-      const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
-        ? liveReg.liveSegments.liveSnapshot()
-        : null;
-      const liveTurn = liveNarrative
-        ? {
-          segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
-          toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
-          truncated: Boolean(liveNarrative.truncated),
-          startedAt: liveTail ? liveTail.startedAt : '',
-          iterations: liveTail ? liveTail.iterations : 0,
-        }
-        : null;
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
       // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
       // 纪律：① 只对管家会话生效 —— 别的会话有自己的分页语义，不在本波范围；② 不带 since 的旧调用
       // 逐字节不变（没有这个参数就走原路，一行都不改）；③ 只切 messages 的尾巴，其余字段原样带出，
       // 前端拿到的仍是同一个形状；④ 不改会话对象本身（浅拷贝），loadSession 的返回值不许被路由改写。
-      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
       const sinceMs = sinceRaw ? Date.parse(String(sinceRaw)) : NaN;
       if (Number.isFinite(sinceMs)) {
         const all = Array.isArray(session.messages) ? session.messages : [];
@@ -52178,25 +52327,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
       }
-      // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
-      // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
-      // queued > steer > turn,
-      // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
-      // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
-      // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
-      // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
-      // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
-      // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
-      const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
-      const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
-        ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
-        : null;
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -63921,6 +64057,11 @@ RUYI_EVENTS.subscribe((name, payload) => {
   // spawnSync 子进程,子进程存盘 8 次重试全撞上)。推迟一拍的代价是这一帧晚一个 tick。
   if (name === 'thread.state') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid); }); return; }
   // 128f-⑫:会话头落盘(02 saveSession)—— 只在这一行看得见的东西变了才推(见 eventStreamEmitThreadState 头注)。
+  // (perf 复盘,别再试一遍:「零 SSE 客户端时跳过这一趟现算」看着白赚 —— 每次 saveSession 省一次读头 + 读待决账本 —— 但【不能】加
+  //  `if (!eventStreamClients.size) return`。这一趟不只是发帧:它还(a)把这一帧塞进 200 条的断线补发环 eventStreamRing —— 客户端
+  //  断线的那几秒里(此刻连接数恰好是 0)发生的 thread.state 要靠环补发给带 Last-Event-ID 重连回来的它(event-stream.e2e D 段;
+  //  0 客户端时跳过 = 重连后漏帧,左栏那一行要等下一拍轮询);(b)更新 eventStreamLastRowSig 去重签名 —— 断线期间不更新,重连后
+  //  第一发 touched 会拿旧签名比,可能多推也可能把「变回旧值」的那一帧吞掉。所以这里的代价是有意保留的。)
   if (name === 'thread.touched') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid, { onlyIfChanged: true }); }); return; }
   // 128f-⑫:线程删掉了。修前删除一帧都不派(02 deleteSession),而且就算派了 thread.state,这边读不出会话头也会
   // 丢掉它(上面「会话已删/读不出来」那一支)—— 于是左栏那一行要等下一拍轮询(管家视角 15 s)或用户点别处才消失。

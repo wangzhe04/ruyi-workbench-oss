@@ -86,6 +86,47 @@ export async function api(path, options = {}) {
   return res.json();
 }
 
+// 条件 GET(perf):api.conditional(path[, options]) —— 给轮询用。GET /api/sessions/:id 每 3 s(直播回合)/ 5–30 s(管家抽屉)
+// 被轮询,而服务端装载整份会话(18 MB 的会话 250–350 ms)且 providerHistory 前端从不读。服务端在响应上给 ETag、
+// 带 If-None-Match 来且没变就回 304(不装载会话、无正文);这里按 path 记下最近一次的 ETag + 已解析的响应,304 时
+// 直接回那份记下的响应 —— 连 JSON.parse 也省了。返回的是【顶层浅拷贝 + notModified:true】:调用方可以据此跳过重画,
+// 也不会把标记写脏缓存里那份;里面的 session 仍是同一个引用(304 = 与上次拿到的内容逐字相同)。
+// 只记最近 CONDITIONAL_CACHE_MAX 个 path(一份大会话的解析结果动辄几十 MB,不能随浏览过的会话无界增长);
+// 服务端没给 ETag(旧服务/读不到盘戳的会话)就不记,行为与无条件 api() 完全一致。非 2xx 抛错的形状与 api() 相同。
+const CONDITIONAL_CACHE_MAX = 2;
+const conditionalCache = new Map();   // path -> { etag, payload };Map 插入序 = 最近使用序(命中时重新插入)
+async function apiConditional(path, options = {}) {
+  const fetchOptions = { ...options };
+  const hit = conditionalCache.get(path);
+  if (hit) fetchOptions.headers = { ...(fetchOptions.headers || {}), 'if-none-match': hit.etag };
+  const res = await apiRaw(path, fetchOptions);
+  if (res.status === 304 && hit) {
+    conditionalCache.delete(path); conditionalCache.set(path, hit);
+    return { ...hit.payload, notModified: true };
+  }
+  if (!res.ok) {
+    conditionalCache.delete(path);
+    const err = new Error((await res.text()) || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.path = path;
+    throw err;
+  }
+  const payload = await res.json();
+  const etag = res.headers.get('etag') || '';
+  conditionalCache.delete(path);
+  if (etag) {
+    conditionalCache.set(path, { etag, payload });
+    while (conditionalCache.size > CONDITIONAL_CACHE_MAX) conditionalCache.delete(conditionalCache.keys().next().value);
+  }
+  return payload;
+}
+// 挂成 api 的属性而不是新导出/新参数:调用方本来就拿着(或被注入了)api,`typeof api.conditional === 'function'` 就是能力探测 ——
+// 注入的是测试里的假 api(没有这个属性)时调用方回落到普通 api(),不用再往组合根一路多传一个函数。
+// api() 自己的函数体一个字没动(static 锁钉着「403 换 token 重放只有 apiRaw 一份,api() 复用它」;条件 GET 同样只经 apiRaw)。
+api.conditional = apiConditional;
+// 测试口:清掉条件 GET 的记忆(单测在同一进程里换服务/换会话时用)。
+export function resetConditionalApiCache() { conditionalCache.clear(); }
+
 // v1.0.2 (G2/G5c): api() throws with the response body text on an HTTP error (400/403/404). Handlers that
 // return {ok:false,error} at those statuses want the human `error` — pull it out of the (usually JSON) text.
 // The server P2 error contract is additive during migration:

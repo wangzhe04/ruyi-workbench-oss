@@ -903,12 +903,32 @@ async function readSessionIndex() {
     return Array.isArray(arr) ? arr : null;
   } catch { return null; }
 }
+// 索引的【内存镜像】(perf):flushSessionIndex 每个 200 ms 去抖窗口都要「读 → 解析 → 合并 → 整份写」一遍 index.json
+// (3000 条会话 ≈ 1.3 MB,每次 ~25 ms,回合进行中每个窗口都在跑)。我们自己刚写下的那份内容就是合并后的 map,
+// 下一窗口再读回来解析一遍纯属重复。这里把「刚写下的 map + 写完后立刻取的文件戳」留在内存里:下一次 flush 先取当前文件戳,
+// 与镜像的戳相同 = 磁盘上仍是我们写的那一份,直接在镜像 map 上合并,跳过读与解析;戳不同(外部改写/被 invalidate/被
+// listSessions 重建覆盖/flushSessionIndexSync 写过/文件不在)一律作废镜像走原来的读盘路径。戳 = 路径 + size + mtimeNs + ino
+// (写入是 tmp + rename,每次换 inode)。只有 flushSessionIndex 那一处产生镜像;所有别的写口都不给 map → 镜像作废。
+// 镜像只在 withSessionIndexLock 里读写(与索引写同一把锁),无并发。
+let sessionIndexMemo = null;   // { stamp, map }
+async function sessionIndexFileStamp() {
+  try {
+    const st = await fsp.stat(sessionIndexPath(), { bigint: true });
+    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ino}`;
+  } catch { return null; }
+}
 // Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
-async function writeSessionIndex(entries) {
+// 第二参 map(可选)= 这份 entries 对应的合并结果,给了就登记成内存镜像(见 sessionIndexMemo)。
+async function writeSessionIndex(entries, map = null) {
+  sessionIndexMemo = null;   // 写之前先作废:写到一半失败/被别的写口接着覆盖,镜像都不该再被信
   await fsp.mkdir(paths.sessions, { recursive: true });
   await atomicWriteJson(sessionIndexPath(), entries);   // 25.1 收编
+  if (map) {
+    const stamp = await sessionIndexFileStamp();
+    if (stamp) sessionIndexMemo = { stamp, map };
+  }
 }
-async function invalidateSessionIndex() { await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+async function invalidateSessionIndex() { sessionIndexMemo = null; await fsp.unlink(sessionIndexPath()).catch(() => {}); }
 // Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
 // tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
 let sessionIndexChain = Promise.resolve();
@@ -974,11 +994,19 @@ async function flushSessionIndex() {
   try {
     await withSessionIndexLock(async () => {
       try {
-        const index = await readSessionIndex();
-        if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
-        const map = new Map(index.map(e => [String(e && e.id), e]));
+        // 镜像命中(文件戳与我们上次写完时一致)就不读盘不解析,直接在镜像 map 上合并;否则走原来的读盘路径。
+        const stamp = await sessionIndexFileStamp();
+        let map = null;
+        if (stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp) map = sessionIndexMemo.map;
+        else {
+          sessionIndexMemo = null;
+          const index = await readSessionIndex();
+          if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
+          map = new Map(index.map(e => [String(e && e.id), e]));
+        }
+        sessionIndexMemo = null;   // 下面要就地改 map:改到一半失败它就是脏的,写成功后 writeSessionIndex 再登记回来
         for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
-        await writeSessionIndex([...map.values()]);
+        await writeSessionIndex([...map.values()], map);
       } catch { await invalidateSessionIndex(); }
     }).catch(() => {});
   } finally {

@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3075,
-    "requiredSymbols": 2924,
+    "providedSymbols": 3086,
+    "requiredSymbols": 2928,
     "edges": 512,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -351,6 +351,7 @@
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_THINKING_EFFORTS",
         "CONFIG_BOOKKEEPING_KEYS",
+        "CONFIG_CACHE_MIN_AGE_MS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
         "CONFIG_MIGRATIONS",
@@ -395,13 +396,18 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
+        "cloneConfigSnapshot",
         "commandForSelfMcp",
         "configCanonicalJson",
         "configComparableValue",
         "configDegraded",
         "configDirsEnsuredFor",
         "configExplicitKeysOf",
+        "configFileStamp",
         "configMutateChain",
+        "configReadCache",
+        "configReadCacheLookup",
+        "configReadCacheStore",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
@@ -1186,8 +1192,10 @@
         "sessionDisplayTitle",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
+        "sessionIndexFileStamp",
         "sessionIndexFlushTimer",
         "sessionIndexLatestWrite",
+        "sessionIndexMemo",
         "sessionIndexPath",
         "sessionIndexRebuildScanHook",
         "sessionIndexRebuildsActive",
@@ -13327,6 +13335,9 @@
         "refreshSessionSearchIndex",
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
+        "sessionEnvelopeEtag",
+        "sessionEnvelopeLiveParts",
+        "sessionEnvelopeStamp",
         "sessionMessageText",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
@@ -13484,6 +13495,13 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionPath",
           "kinds": [
             "call"
           ]
@@ -13797,6 +13815,20 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
@@ -13885,6 +13917,13 @@
           "symbol": "runAutomaticInterventionDecision",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -27767,6 +27806,7 @@
         "readJsonBody",
         "safeSessionId",
         "send",
+        "sessionPath",
         "tokenMatches",
         "tokenOk"
       ],
@@ -27838,7 +27878,9 @@
       "from": "13d-core-domain-routes.js",
       "to": "02d-session-overrides.js",
       "symbols": [
-        "sessionDesktopToolsOf"
+        "sessionDesktopToolsOf",
+        "sessionDesktopToolsOverrides",
+        "sessionPermissionModeOverrides"
       ],
       "direction": "backward"
     },
@@ -27865,7 +27907,8 @@
         "permissionWaitMs",
         "redact",
         "requestUserQuestion",
-        "runAutomaticInterventionDecision"
+        "runAutomaticInterventionDecision",
+        "turnSettlers"
       ],
       "direction": "backward"
     },

@@ -212,6 +212,11 @@ RUYI_EVENTS.subscribe((name, payload) => {
   // spawnSync 子进程,子进程存盘 8 次重试全撞上)。推迟一拍的代价是这一帧晚一个 tick。
   if (name === 'thread.state') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid); }); return; }
   // 128f-⑫:会话头落盘(02 saveSession)—— 只在这一行看得见的东西变了才推(见 eventStreamEmitThreadState 头注)。
+  // (perf 复盘,别再试一遍:「零 SSE 客户端时跳过这一趟现算」看着白赚 —— 每次 saveSession 省一次读头 + 读待决账本 —— 但【不能】加
+  //  `if (!eventStreamClients.size) return`。这一趟不只是发帧:它还(a)把这一帧塞进 200 条的断线补发环 eventStreamRing —— 客户端
+  //  断线的那几秒里(此刻连接数恰好是 0)发生的 thread.state 要靠环补发给带 Last-Event-ID 重连回来的它(event-stream.e2e D 段;
+  //  0 客户端时跳过 = 重连后漏帧,左栏那一行要等下一拍轮询);(b)更新 eventStreamLastRowSig 去重签名 —— 断线期间不更新,重连后
+  //  第一发 touched 会拿旧签名比,可能多推也可能把「变回旧值」的那一帧吞掉。所以这里的代价是有意保留的。)
   if (name === 'thread.touched') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid, { onlyIfChanged: true }); }); return; }
   // 128f-⑫:线程删掉了。修前删除一帧都不派(02 deleteSession),而且就算派了 thread.state,这边读不出会话头也会
   // 丢掉它(上面「会话已删/读不出来」那一支)—— 于是左栏那一行要等下一拍轮询(管家视角 15 s)或用户点别处才消失。
