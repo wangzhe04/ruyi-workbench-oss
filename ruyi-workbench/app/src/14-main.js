@@ -722,4 +722,10 @@ module.exports = {
   // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
   //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
   stewardVisitDigest,
+  // 性能批(GET /api/missions 聚合装配 + GET /api/agent-runs?view=digest 摘要缓存):unit/poll-path-caches.test.js 直调
+  //   两个装配/列举函数、用 saveAgentRun 验「进程内写即作废」,并读确定性计数器(perfCounters)断言「没重算 / 没重读」。
+  buildMissionAggregateRows,
+  listAgentRunDigests,
+  saveAgentRun,
+  perfCounters: { missionAggregate: missionAggregateStats, agentRunDigest: agentRunDigestStats },
 };

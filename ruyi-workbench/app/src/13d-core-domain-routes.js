@@ -739,6 +739,8 @@ function addMissionCostBucket(bucket, usage) {
   return bucket;
 }
 
+// 测试用确定性计数(不靠墙钟):workspaceComputed = 真正跑了一次「工作区归属判定」的次数(同 cwd 一次装配内只算一次)。
+const missionAggregateStats = { workspaceComputed: 0 };
 async function buildMissionAggregateRows(options = {}) {
   const includeArchived = options.includeArchived === true;
   // W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):事项与线程的读模型把【工作区】带出去 ——
@@ -746,11 +748,25 @@ async function buildMissionAggregateRows(options = {}) {
   // 最近动过的那条线程的目录。ruyiOwned 的判据单点在 06i 的 stewardRuyiOwnedPath(数据根里的、或如意
   // 为任务开的而用户没收编的),要配置里那张表 —— 调用方有现成的就传 options.config,省一次读盘。
   const wsConfig = (options.config && typeof options.config === 'object') ? options.config : await readConfig().catch(() => null);
+  // 性能:2000 条线程只有寥寥几个不同的 cwd,而 stewardRuyiOwnedPath(逐字符归一 + 数据根前缀比较)与
+  // dataRootAliases()(取数据根、比对别名)此前在【每条线程 + 每个事项组】各算一遍,一次 GET /api/missions
+  // 约 4000 次,占去 37% CPU。本次装配内 wsConfig / paths.data / 别名都是定值,所以别名提到函数头只取一次,
+  // 并按 cwd 记下 { name, ruyiOwned }(纯函数,同 cwd 同答案);每次仍返回【新对象】,调用方改它不会串行。
+  const dataRootPath = paths.data;
+  const dataRootAliasList = dataRootAliases();
+  const workspaceMemo = new Map();   // 修剪后的 cwd -> { name, ruyiOwned }
   const workspaceOf = cwd => {
     const p = String(cwd || '').trim();
     if (!p) return null;
-    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data, dataRootAliases()) };
+    let known = workspaceMemo.get(p);
+    if (!known) {
+      known = { name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, dataRootPath, dataRootAliasList) };
+      workspaceMemo.set(p, known);
+      missionAggregateStats.workspaceComputed += 1;
+    }
+    return { path: p, name: known.name, ruyiOwned: known.ruyiOwned };
   };
+  const overlayAt = nowIso();   // 一次装配只取一次「叠加时刻」:每行各取一次是 2000 次 Date + toISOString,而它们本就是同一个请求
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
   const metas = await listSessions().catch(() => []);          // 管家会话已在 listSessions 里滤掉
@@ -774,7 +790,7 @@ async function buildMissionAggregateRows(options = {}) {
     if (container && container.archivedAt && !includeArchived) continue;
     const group = ensure(missionId, container);
     const slice = slices.get(meta.id) || null;
-    const card = slice ? overlayMissionCard(slice) : null;
+    const card = slice ? overlayMissionCard(slice, overlayAt) : null;
     // 五态的三条取值路径,与 13g steward_thread_status 逐字一致(同一条线程在看板与管家里必须同色):
     //   ① 有投影卡片 -> fromCard(与 /api/missions 的卡片同源);
     //   ② 没卡片但是 mission 会话(投影还没赶上这条新会话)-> 按会话头现算,入参与 thread_status 相同
@@ -986,8 +1002,9 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     // 116g:只加字段 —— 行仍然是【线程行】(每个 mission 会话一张卡),既有字段与顺序逐字节不变,
     // 追加的是这条线程所属【事项】的聚合事实(aggregateState/threadCount/acceptance/cost/budget/derived)。
     const aggregate = await buildMissionAggregateRows();
+    const overlayAt = nowIso();   // 与聚合装配同理:整张列表共用一个叠加时刻,不再逐行取一次
     const missions = index.sessions.filter(row => row.card && String(row.sessionId || '') !== STEWARD_SESSION_ID)   // 走查 U3:管家自己的会话不是任务,不进左栏
-      .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
+      .map(row => overlayMissionAggregateFields(overlayMissionCard(row, overlayAt), aggregate.rowBySessionId.get(row.sessionId)));
     // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
     // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
     // 那两处排序,但那一份是给 steward_missions 工具面消费的;**看板真正吃的是这一行**,所以三处
@@ -2192,13 +2209,15 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     const listUrl = new URL(req.url, 'http://x');
     const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
-    const liveBefore = [...activeAgentRuns.keys()]; let runs = await listAgentRuns(sessionId); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await listAgentRuns(sessionId);   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
+    // digest 视图只要标量:走按 mtime+size 缓存的 listAgentRunDigests(08),未变的 run 文件零读盘;完整视图照旧读全量。
+    const digestView = listUrl.searchParams.get('view') === 'digest';
+    const readRuns = () => (digestView ? listAgentRunDigests(sessionId) : listAgentRuns(sessionId));
+    const liveBefore = [...activeAgentRuns.keys()]; let runs = await readRuns(); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await readRuns();   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.
     // digest(每 2s 轮询)只从这里读标量、不外发也不改对象:浅展开即与深拷贝读到的值逐字段相同,
     // 省掉每个 live run 整份节点/结果/progressLog 的 JSON 往返。完整视图照旧深拷贝(对象要外发)。
-    const digestView = listUrl.searchParams.get('view') === 'digest';
     for (let i = 0; i < runs.length; i += 1) {
       const live = activeAgentRuns.get(runs[i].id);
       if (!live || !live.run) continue;
@@ -2209,19 +2228,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
     // 权威状态源,digest 只是"该不该去拉"的信号。
     if (digestView) {
-      const digest = runs.map(r => {
-        const live = activeAgentRuns.get(r.id);
-        const mem = live && live.run ? live.run : null;
-        return {
-          id: r.id, status: mem ? mem.status : r.status, eventSeq: Number((mem || r).eventSeq) || 0,
-          updatedAt: (mem || r).updatedAt || '', createdAt: r.createdAt || '', completedAt: (mem || r).completedAt || '',
-          nodeCount: Array.isArray((mem || r).nodes) ? (mem || r).nodes.length : 0,
-          poolPending: ((mem || r).taskPool || []).filter(p => p && p.status === 'proposed').length,
-          live: !!live, paused: !!(live && live.paused), persistenceDegraded: !!(mem && mem.persistenceDegraded) || r.persistenceDegraded === true,
-          resumeTier: (mem || r).resumeTier || '', pendingReview: !!(mem || r).pendingReview,
-          anyRunning: Array.isArray((mem || r).nodes) && (mem || r).nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
-        };
-      });
+      // runs 此刻是磁盘摘要(live 且有内存对象的已被上面换成 live.run 的浅展开);逐行装配见 08 agentRunDigestRow。
+      const digest = runs.map(r => agentRunDigestRow(r, activeAgentRuns.get(r.id)));
       return send(res, json({ ok: true, view: 'digest', runs: digest }));
     }
     return send(res, json({ ok: true, runs }));
@@ -2308,6 +2316,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
+      agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});

@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3063,
-    "requiredSymbols": 2916,
-    "edges": 511,
+    "providedSymbols": 3070,
+    "requiredSymbols": 2924,
+    "edges": 512,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -6888,6 +6888,7 @@
         "AGENT_ENVELOPE_TOTAL_SUMMARY_MAX",
         "AGENT_RESULT_DEFAULT_CHARS",
         "AGENT_RESULT_MAX_CHARS",
+        "AGENT_RUN_DIGEST_CACHE_MAX",
         "AGENT_RUN_EVENTS_PAGE_MAX",
         "AGENT_RUN_EVENTS_TAIL_BYTES",
         "AGENT_RUN_PERSIST_DEGRADED_AFTER",
@@ -6905,6 +6906,10 @@
         "QUALITY_GATE_OUTPUT_SCHEMA",
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
+        "agentRunDigestCache",
+        "agentRunDigestRow",
+        "agentRunDigestShadow",
+        "agentRunDigestStats",
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
@@ -6942,6 +6947,7 @@
         "getAgentWorkflows",
         "getEvidenceSet",
         "indexNodeEvidence",
+        "listAgentRunDigests",
         "listAgentRuns",
         "mapPool",
         "markInterruptedAgentRuns",
@@ -13303,6 +13309,7 @@
         "interventionDecisionFingerprint",
         "lastMissionRunProgress",
         "mapInterventionTransitionFailure",
+        "missionAggregateStats",
         "missionCardStatus",
         "missionContainerFailure",
         "missionContainerHttpStatus",
@@ -14050,6 +14057,20 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestCache",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "agentRunEventsFile",
           "kinds": [
             "call"
@@ -14072,6 +14093,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "computeWaveSeq",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "listAgentRunDigests",
           "kinds": [
             "call"
           ]
@@ -23026,6 +23054,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "aggregateAgentVote",
           "kinds": [
             "read"
@@ -23138,6 +23173,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "listAgentRunDigests",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "mapPool",
           "kinds": [
             "read"
@@ -23237,6 +23279,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "runWorkspaceHash",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "saveAgentRun",
           "kinds": [
             "read"
           ]
@@ -23890,6 +23939,20 @@
           "symbol": "startServer",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "buildMissionAggregateRows",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "missionAggregateStats",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -27857,10 +27920,13 @@
       "from": "13d-core-domain-routes.js",
       "to": "08-agent-runs.js",
       "symbols": [
+        "agentRunDigestCache",
+        "agentRunDigestRow",
         "agentRunEventsFile",
         "appendAgentRunEvent",
         "bumpRunIntervention",
         "computeWaveSeq",
+        "listAgentRunDigests",
         "listAgentRuns",
         "materializePoolItem",
         "nodeDeliveryEligibility",
@@ -30401,6 +30467,7 @@
       "symbols": [
         "BUILTIN_AGENT_WORKFLOWS",
         "QUALITY_GATE_OUTPUT_SCHEMA",
+        "agentRunDigestStats",
         "aggregateAgentVote",
         "aggregateCoverage",
         "appendAgentRunEvent",
@@ -30416,6 +30483,7 @@
         "formatNodeEvidencePrompt",
         "getAgentWorkflows",
         "indexNodeEvidence",
+        "listAgentRunDigests",
         "mapPool",
         "markInterruptedAgentRuns",
         "normalizeAgentGate",
@@ -30430,6 +30498,7 @@
         "resolveAgentTeamRoute",
         "runSubAgentCore",
         "runWorkspaceHash",
+        "saveAgentRun",
         "saveAgentWorkflow",
         "singleAgentShorthandNode",
         "syncRunEventSeq",
@@ -30558,6 +30627,15 @@
         "parseArgs",
         "startMcp",
         "startServer"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "14-main.js",
+      "to": "13d-core-domain-routes.js",
+      "symbols": [
+        "buildMissionAggregateRows",
+        "missionAggregateStats"
       ],
       "direction": "backward"
     },

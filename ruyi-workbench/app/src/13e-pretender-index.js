@@ -737,7 +737,8 @@ function pretenderIndexMeta(index) {
   };
 }
 
-function overlayMissionCard(slice) {
+// overlayAt:批量调用方(GET /api/missions、聚合装配)传入同一个「叠加时刻」,省掉逐行 nowIso();不传则各取各的(其余调用方不变)。
+function overlayMissionCard(slice, overlayAt) {
   const card = slice && slice.card;
   if (!card) return null;
   const liveRuns = [];
@@ -795,7 +796,7 @@ function overlayMissionCard(slice) {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,
       liveOverlay: activeTurn || liveRuns.length > 0,
-      overlayAt: nowIso(),
+      overlayAt: overlayAt || nowIso(),
     },
   };
 }

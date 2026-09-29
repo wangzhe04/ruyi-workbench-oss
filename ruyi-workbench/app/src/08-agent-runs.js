@@ -233,7 +233,9 @@ async function saveAgentRun(run) {
     // 永久钉进最后一份快照(run 已结束,再无下一次写),UI 对一个完好收尾的 run 永远亮红横幅。
     // 先乐观清、写失败在 catch 里按计数恢复,则任何一次成功写落盘的都是干净旗标。
     try {
-      await atomicWriteJson(agentRunFile(run.sessionId, run.id), snapshot);
+      const runFile = agentRunFile(run.sessionId, run.id);
+      await atomicWriteJson(runFile, snapshot);
+      agentRunDigestCache.delete(runFile); // digest 摘要缓存:进程内写成功即作废该文件条目(见 listAgentRunDigests 头注)
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       // 128f-⑫:班组的状态真的换了(跑着/暂停/等池/收尾……)才派一发 —— 左栏行上的「暂停／继续」、焦点栏的班组段读的
       // 都是落盘这一份摘要,而它不经过会话头(13r「会话头落盘即碰一下」那一路盖不到)。节点每一步也会存一次,
@@ -275,6 +277,79 @@ async function listAgentRuns(sessionId) {
     } catch { /* skip corrupt/incomplete records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+// ── digest 轮询的磁盘摘要缓存(性能) ─────────────────────────────────────────────────────────────
+// GET /api/agent-runs?view=digest 每 ~2s 被前端轮询,而 listAgentRuns 会把该会话【每个 run 快照】整份读盘 +
+// JSON.parse 只为取十几个标量(单个终态 run 的 nodes/result/progressLog 动辄 1MB,30 个 run 一次 400-800ms CPU)。
+// 这里按【文件】缓存「digest 用得到的标量」:键 = 绝对路径,失效判据 = mtimeMs + size + ino(三者任一变就重读)。
+//   · 先 stat 后 read:stat 与 read 之间若被 atomicWriteJson 的 rename 换了新文件,缓存里存的是【新内容 + 旧戳】,
+//     下一拍 stat 到新戳与缓存不符就重读 —— 顶多多读一次,绝不会把旧内容钉在新戳下(反过来先 read 后 stat 才会)。
+//   · saveAgentRun 在进程内写成功后立刻 delete 该文件的条目:同毫秒同大小的连写(mtime 粒度粗的文件系统)也不会读到旧摘要。
+//   · 只缓存标量(见 agentRunDigestShadow),不留整份 run 对象;条目数封顶,满了整表清空(下一拍自然重建)。
+//   · 完整视图/其它 listAgentRuns 调用方不走这里,仍读全量,行为不变。
+// agentRunDigestStats 是给测试数「读了几个 run 文件」的确定性计数(不靠墙钟)。
+const AGENT_RUN_DIGEST_CACHE_MAX = 4096;
+const agentRunDigestCache = new Map(); // 绝对文件路径 -> { mtimeMs, size, ino, shadow|null }
+const agentRunDigestStats = { reads: 0, hits: 0 };
+// 磁盘快照里 digest 视图会读到的全部字段(与 13d handleAgentRunApiRoutes 的 digest 逐字段同口径);
+// 取值表达式与旧的「(mem || r).xxx」写法一字不差,所以磁盘态的 digest 行与修前逐字节相同。
+function agentRunDigestShadow(run) {
+  return Object.freeze({
+    id: run.id, status: run.status, eventSeq: Number(run.eventSeq) || 0,
+    updatedAt: run.updatedAt || '', createdAt: run.createdAt || '', completedAt: run.completedAt || '',
+    nodeCount: Array.isArray(run.nodes) ? run.nodes.length : 0,
+    poolPending: Array.isArray(run.taskPool) ? run.taskPool.filter(p => p && p.status === 'proposed').length : 0,
+    persistenceDegraded: run.persistenceDegraded === true,
+    resumeTier: run.resumeTier || '', pendingReview: !!run.pendingReview,
+    anyRunning: Array.isArray(run.nodes) && run.nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
+  });
+}
+// 与 listAgentRuns 同枚举、同过滤、同排序(createdAt 降序,同值保持 readdir 序),只是返回摘要而非整份 run。
+async function listAgentRunDigests(sessionId) {
+  const dir = agentRunDir(sessionId);
+  let files = []; try { files = await fsp.readdir(dir); } catch { return []; }
+  const out = [];
+  for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
+    const full = path.join(dir, file);
+    try {
+      const st = await fsp.stat(full);
+      const hit = agentRunDigestCache.get(full);
+      if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size && hit.ino === st.ino) {
+        agentRunDigestStats.hits += 1;
+        if (hit.shadow) out.push(hit.shadow);
+        continue;
+      }
+      agentRunDigestStats.reads += 1;
+      const run = safeJsonParse(await fsp.readFile(full, 'utf8'), null);
+      const shadow = run ? agentRunDigestShadow(run) : null;   // 坏/空快照也记一笔(同戳不再重读),与 listAgentRuns 一样跳过
+      if (agentRunDigestCache.size >= AGENT_RUN_DIGEST_CACHE_MAX && !agentRunDigestCache.has(full)) agentRunDigestCache.clear();
+      agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, size: st.size, ino: st.ino, shadow });
+      if (shadow) out.push(shadow);
+    } catch { agentRunDigestCache.delete(full); /* skip corrupt/incomplete records */ }
+  }
+  return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+// digest 一行:live 且有内存对象的 run 以【内存】为准(快照节流 1.5s,磁盘恒旧),否则用磁盘摘要。
+// r 是 listAgentRunDigests 的摘要,或路由把 live.run 浅展开叠上 live/paused 之后的对象;键序即下发序。
+function agentRunDigestRow(r, live) {
+  const mem = live && live.run ? live.run : null;
+  if (!mem) {
+    return {
+      id: r.id, status: r.status, eventSeq: r.eventSeq, updatedAt: r.updatedAt, createdAt: r.createdAt, completedAt: r.completedAt,
+      nodeCount: r.nodeCount, poolPending: r.poolPending,
+      live: !!live, paused: !!(live && live.paused), persistenceDegraded: r.persistenceDegraded,
+      resumeTier: r.resumeTier, pendingReview: r.pendingReview, anyRunning: r.anyRunning,
+    };
+  }
+  return {
+    id: r.id, status: mem.status, eventSeq: Number(mem.eventSeq) || 0,
+    updatedAt: mem.updatedAt || '', createdAt: r.createdAt || '', completedAt: mem.completedAt || '',
+    nodeCount: Array.isArray(mem.nodes) ? mem.nodes.length : 0,
+    poolPending: (mem.taskPool || []).filter(p => p && p.status === 'proposed').length,
+    live: true, paused: !!live.paused, persistenceDegraded: !!mem.persistenceDegraded || r.persistenceDegraded === true,
+    resumeTier: mem.resumeTier || '', pendingReview: !!mem.pendingReview,
+    anyRunning: Array.isArray(mem.nodes) && mem.nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
+  };
 }
 // ============================================================================
 // 第29波(§29b 自动恢复分级):节点续跑危险度。纯函数,只看持久化字段,不碰运行时。红线(AUTONOMY-PLAN §6):
