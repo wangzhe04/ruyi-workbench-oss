@@ -15,6 +15,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *   F 304 不装载会话:盘上放一份假的残留快照(.prevbody,loadSession 装载时会顺手清掉),304 之后它还在,全量 200 之后它没了;
  *     头一变(PATCH 标题)→ 200 + 新标签;
  *   G 没有 If-None-Match / 标签对不上 → 与修前一样的 200 全量;不存在的会话仍是 404(不发 ETag)。
+ *   L ?view=live(经典壳看别处起的回合时每条 thread.live 推送一发):回合在跑 → 轻量信封(view:'live'、无历史、
+ *     liveTail/resumable.live 与全量那份相同、字节数远小于全量);回合收尾后 → 落回整份会话(与不带参数的全量同形)。
  */
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
@@ -79,6 +81,7 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     const token = (html.match(/name="wcw-token"\s+content="([a-f0-9]+)"/) || [])[1];
     const auth = { 'x-wcw-token': token };
     const get = (id, extra = {}) => request(WP, 'GET', `/api/sessions/${encodeURIComponent(id)}`, { headers: { ...auth, ...extra } });
+    const getLive = id => request(WP, 'GET', `/api/sessions/${encodeURIComponent(id)}?view=live`, { headers: auth });
     const patch = (id, body) => request(WP, 'POST', `/api/sessions/${encodeURIComponent(id)}`, { headers: { ...auth, 'x-http-method': 'PATCH' }, body });
     // 一个回合:发 /api/chat/stream,读到流结束(hold 模式下由测试端收尾 provider 才会结束)。
     const turn = (sessionId, message) => request(WP, 'POST', '/api/chat/stream', { headers: auth, body: { sessionId, message, cwd: HOME } });
@@ -139,6 +142,19 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     ok(!!live2, 'D4 provider 吐出新文本 → liveTail 变了 → 标签变、200');
     ok(live2 && live2.json.liveTail && String(live2.json.liveTail.full || '').includes('streaming-partial-text'), 'D5 体里 liveTail.full 是新文本');
 
+    // ── L ?view=live:回合在跑时只回在跑部分 ─────────────────────────────────────
+    const lite = await getLive(sid);
+    const full = await get(sid);
+    ok(lite.status === 200 && lite.json && lite.json.ok === true && lite.json.view === 'live', 'L1 回合在跑 → ?view=live 回轻量信封(view:\'live\')');
+    ok(lite.json && lite.json.session && lite.json.session.id === sid && lite.json.session.messages === undefined && lite.json.session.providerHistory === undefined,
+      'L2 轻量信封不带历史(session 只有标量,没有 messages / providerHistory)');
+    ok(lite.json && lite.json.resumable && lite.json.resumable.live === true && full.json.resumable.live === true, 'L3 resumable.live === true(与全量那份一致)');
+    ok(lite.json && JSON.stringify(lite.json.liveTail) === JSON.stringify(full.json.liveTail) && JSON.stringify(lite.json.liveTurn) === JSON.stringify(full.json.liveTurn),
+      'L4 liveTail / liveTurn 与全量那份逐字相同');
+    ok(lite.json && lite.json.session.messageCount === full.json.session.messages.length && lite.json.resumable.turnSeq === full.json.resumable.turnSeq,
+      `L5 标量与全量那份对得上(messageCount ${lite.json && lite.json.session.messageCount} / ${full.json.session.messages.length})`);
+    ok(lite.text.length * 2 < full.text.length, `L6 字节数远小于全量(${lite.text.length} / ${full.text.length})`);
+
     // ── E 活回合中途改权限档:只进内存覆盖表,头文件不变,标签也必须变 ───────────────
     const headFile = path.join(HOME, 'sessions', sid + '.json');
     const headBefore = fs.readFileSync(headFile, 'utf8');
@@ -164,6 +180,10 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     ok(!!ended, 'D6 回合收尾 → 标签变、200、liveTail 键消失、resumable.live 不再是 true');
     ok(ended && ended.json.session.messages.length > afterAppend.json.session.messages.length, 'D7 体里是回合收尾落盘的新消息');
     ok(ended && ended.json.session.permissionMode === 'plan', 'D8 延后落盘的权限档随回合收尾落到了头上');
+    const liteEnded = await getLive(sid);
+    ok(liteEnded.status === 200 && liteEnded.json.view === undefined && Array.isArray(liteEnded.json.session.messages)
+      && liteEnded.json.session.messages.length === ended.json.session.messages.length && liteEnded.json.resumable.live !== true,
+      'L7 回合收尾后 ?view=live 落回整份会话(前端「换上来」那一支拿的就是它)');
     // 回合收尾后还有延后落盘(权限档覆盖表清空、收尾窗口关闭)—— 标签会随之再动几次,这是「多刷新、不漏刷新」的方向。
     // 稳态 = 连续两次无条件 GET 拿到同一个标签;到了稳态,带这个标签的条件 GET 必须是 304(不是永远追不上的标签)。
     let settledEtag = '';

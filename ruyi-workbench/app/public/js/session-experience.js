@@ -1061,7 +1061,8 @@ async function refreshLiveTurn() {
   let res = null;
   // 条件 GET:这一拍每 3 s(直播回合、推送断开时)/ 每条 thread.live·thread.state 推送各来一发,服务端每次装载整份会话。
   // 带 If-None-Match:没变就是 304,net.js 回上一次那份解析结果(res.notModified === true),下面照常吃信封。
-  try { res = await (typeof api.conditional === 'function' ? api.conditional : api)(`/api/sessions/${encodeURIComponent(id)}`); } catch { res = null; }
+  // ?view=live:回合还在跑时服务端只回在跑部分(不带历史);回合已收尾就回整份会话,下面「换上来」那一支正好用它。
+  try { res = await (typeof api.conditional === 'function' ? api.conditional : api)(`/api/sessions/${encodeURIComponent(id)}?view=live`); } catch { res = null; }
   if (!res || !res.ok || state.currentSession?.id !== id) { syncLivePolling(); return; }
   const wasLive = liveTurnVisible();
   captureLiveTurn(id, res);
@@ -1069,8 +1070,8 @@ async function refreshLiveTurn() {
     if (!paintLiveTurnCard()) renderCurrentSession(); // 气泡不在 DOM 上（刚切回来）才重绘一次
   } else if (wasLive && !state.streaming && !activeTurns.has(id)) {
     // 要把整份会话换上来的这一支必须拿【刚读的】那份:304 回的 res.session 是上一拍的旧引用(期间可能被本地改过/换过),
-    // 与信封无关,信封才是 304 保证「没变」的那部分。所以撞上 304 就无条件重读一发。
-    if (res.notModified) {
+    // 与信封无关,信封才是 304 保证「没变」的那部分。所以撞上 304 就无条件重读一发;轻量信封(view:'live')里没有会话本身,同理。
+    if (res.notModified || res.view === 'live') {
       try { res = await api(`/api/sessions/${encodeURIComponent(id)}`); } catch { res = null; }
       if (!res || !res.ok || state.currentSession?.id !== id || state.streaming || activeTurns.has(id)) { syncLivePolling(); return; }
     }
