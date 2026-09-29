@@ -1744,10 +1744,20 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
       return value;
+    }
+
+    // hunt2-P8:什么样的读失败算「已定论」—— 文件不存在(ENOENT)、内容坏(JSON 语法错)、形状/版本/清洗/校验
+    // 不过(EDURABLE_*)。只有这些才隔离 + 用默认值 + 进缓存。EBUSY/EACCES/EMFILE 这类是【这一次】没读到,
+    // 不是文件坏了:修前也当损坏处理,拷一份 .corrupt、把默认值钉进进程缓存 —— 此后本进程每次读都拿默认值,
+    // 下一次写再把默认值落盘,好好的文件就这么被一次瞬时锁冲掉了。现在只给本次调用一份默认值,下次照常读盘。
+    function readErrorIsSettled(error) {
+      const code = String((error && error.code) || '');
+      return code === 'ENOENT' || code.startsWith('EDURABLE_') || error instanceof SyntaxError;
     }
 
     function recover(error) {
@@ -1761,6 +1771,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
       if (cacheEnabled) {
@@ -1809,7 +1820,12 @@ async function writeConfigAtomic(data) {
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
-    try { await fsp.copyFile(paths.config, `${paths.config}.prev`); } catch { /* 首次写入或不可读 */ }
+    // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
+    // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
+    try {
+      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
+      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
     return atomicWriteJson(paths.config, data);
   });
   configWriteChain = thisWrite;
@@ -1834,8 +1850,18 @@ let lastGoodConfig = null;
 // 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
 // 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
-async function readConfig() {
+// hunt2-P10:readConfig 全仓 ~135 处调用,修前每一次都 ensureDirs()(14 个 mkdir)。目录只需在每个数据根上
+// 建一次:按 paths.data 记一笔,换根(测试 / 迁移)时重建。只省 readConfig 这一处 —— saveSession、writeConfig
+// 等写口仍然各自 ensureDirs(),运行中目录被删也能在下一次写时补回来。建目录失败不记,下次再试。
+let configDirsEnsuredFor = '';
+async function ensureDirsForConfigRead() {
+  const root = String(paths.data || '');
+  if (root && configDirsEnsuredFor === root) return;
   await ensureDirs();
+  configDirsEnsuredFor = root;
+}
+async function readConfig() {
+  await ensureDirsForConfigRead();
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
@@ -3220,10 +3246,33 @@ async function generateMcpConfig(mode) {
   return configPath;
 }
 
+// hunt2-P9:每会话 / 每子代理节点的 MCP 配置(workbench.mcp.<id>.json)里有 loopback token 与外部 MCP 的 env,
+// 修前从不删除 —— 删会话只删会话本身,子代理节点那一份更是跑完就没人管,generated/ 里无界堆积带密钥的文件。
+// 删会话时 02 deleteSession 顺手删对应那份;这里再按年龄兜底:每次起引擎都会重写自己那份(mtime 刷新),
+// 超过 SESSION_MCP_CONFIG_MAX_AGE_MS 没被重写的就是没人再用的。每进程只扫一次,失败静默(旁路清理)。
+const SESSION_MCP_CONFIG_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+let sessionMcpConfigSweepDone = false;
+async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
+  let removed = 0;
+  let names = [];
+  try { names = await fsp.readdir(paths.generated); } catch { return removed; }
+  for (const name of names) {
+    // 只认 workbench.mcp.<id>.json;共享的 workbench.mcp.json 不在此列。
+    if (!/^workbench\.mcp\.[A-Za-z0-9_-]{1,64}\.json$/.test(name)) continue;
+    const file = path.join(paths.generated, name);
+    try {
+      const st = await fsp.stat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SESSION_MCP_CONFIG_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
 async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   await ensureDirs();
+  if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);

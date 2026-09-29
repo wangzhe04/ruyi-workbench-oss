@@ -95,6 +95,34 @@ const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
     const pendingWrite = cachedStore.write({ schema: 1, items: { w: 1 } });
     ok((await pendingRead).items.w === 1, 'async read() does not replace a newer write-through cache with the older disk snapshot');
     await pendingWrite;
+
+    // hunt2-P8:瞬时读失败(EBUSY/EACCES:Windows 上杀软/备份软件短暂持锁)不是损坏 —— 修前也拷 .corrupt、
+    // 把默认值钉进进程缓存,此后本进程一直读到默认值、下一次写再把默认值落盘。现在:本次给默认值,不隔离、
+    // 不报 onCorrupt、不进缓存,下一次照常读盘。同步与异步两条读路都钉。
+    const lockedFile = path.join(HOME, 'locked.json');
+    const lockedEvents = [];
+    fs.writeFileSync(lockedFile, JSON.stringify({ schema: 1, items: { keep: 1 } }));
+    const locked = srv.DurableJsonStore.create({
+      id: 'locked', file: lockedFile, schemaVersion: 1,
+      defaultValue: () => ({ schema: 1, items: {} }),
+      onCorrupt: error => lockedEvents.push(error.code || error.name),
+    });
+    const busy = () => Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' });
+    const origReadFileSync = fs.readFileSync;
+    fs.readFileSync = function (p, ...rest) { if (String(p) === lockedFile) throw busy(); return origReadFileSync.call(this, p, ...rest); };
+    let transientSync;
+    try { transientSync = locked.readSync(); } finally { fs.readFileSync = origReadFileSync; }
+    ok(Object.keys(transientSync.items).length === 0, 'transient sync read error: this call gets defaults');
+    ok(!fs.existsSync(lockedFile + '.corrupt') && lockedEvents.length === 0, 'transient sync read error: no .corrupt copy, no onCorrupt report');
+    ok(locked.readSync().items.keep === 1, 'transient sync read error: defaults were not cached — the next read sees the real file');
+    locked.invalidate();
+    const origReadFile = fs.promises.readFile;
+    fs.promises.readFile = async function (p, ...rest) { if (String(p) === lockedFile) throw busy(); return origReadFile.call(this, p, ...rest); };
+    let transientAsync;
+    try { transientAsync = await locked.read(); } finally { fs.promises.readFile = origReadFile; }
+    ok(Object.keys(transientAsync.items).length === 0 && !fs.existsSync(lockedFile + '.corrupt') && lockedEvents.length === 0,
+      'transient async read error: defaults for this call only, nothing quarantined');
+    ok((await locked.read()).items.keep === 1, 'transient async read error: the next read() sees the real file');
   } finally {
     fs.rmSync(HOME, { recursive: true, force: true });
   }

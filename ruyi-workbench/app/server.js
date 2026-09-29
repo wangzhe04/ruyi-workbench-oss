@@ -3326,10 +3326,20 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
       return value;
+    }
+
+    // hunt2-P8:什么样的读失败算「已定论」—— 文件不存在(ENOENT)、内容坏(JSON 语法错)、形状/版本/清洗/校验
+    // 不过(EDURABLE_*)。只有这些才隔离 + 用默认值 + 进缓存。EBUSY/EACCES/EMFILE 这类是【这一次】没读到,
+    // 不是文件坏了:修前也当损坏处理,拷一份 .corrupt、把默认值钉进进程缓存 —— 此后本进程每次读都拿默认值,
+    // 下一次写再把默认值落盘,好好的文件就这么被一次瞬时锁冲掉了。现在只给本次调用一份默认值,下次照常读盘。
+    function readErrorIsSettled(error) {
+      const code = String((error && error.code) || '');
+      return code === 'ENOENT' || code.startsWith('EDURABLE_') || error instanceof SyntaxError;
     }
 
     function recover(error) {
@@ -3343,6 +3353,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
       if (cacheEnabled) {
@@ -3391,7 +3402,12 @@ async function writeConfigAtomic(data) {
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
-    try { await fsp.copyFile(paths.config, `${paths.config}.prev`); } catch { /* 首次写入或不可读 */ }
+    // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
+    // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
+    try {
+      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
+      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
     return atomicWriteJson(paths.config, data);
   });
   configWriteChain = thisWrite;
@@ -3416,8 +3432,18 @@ let lastGoodConfig = null;
 // 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
 // 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
-async function readConfig() {
+// hunt2-P10:readConfig 全仓 ~135 处调用,修前每一次都 ensureDirs()(14 个 mkdir)。目录只需在每个数据根上
+// 建一次:按 paths.data 记一笔,换根(测试 / 迁移)时重建。只省 readConfig 这一处 —— saveSession、writeConfig
+// 等写口仍然各自 ensureDirs(),运行中目录被删也能在下一次写时补回来。建目录失败不记,下次再试。
+let configDirsEnsuredFor = '';
+async function ensureDirsForConfigRead() {
+  const root = String(paths.data || '');
+  if (root && configDirsEnsuredFor === root) return;
   await ensureDirs();
+  configDirsEnsuredFor = root;
+}
+async function readConfig() {
+  await ensureDirsForConfigRead();
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
@@ -4802,10 +4828,33 @@ async function generateMcpConfig(mode) {
   return configPath;
 }
 
+// hunt2-P9:每会话 / 每子代理节点的 MCP 配置(workbench.mcp.<id>.json)里有 loopback token 与外部 MCP 的 env,
+// 修前从不删除 —— 删会话只删会话本身,子代理节点那一份更是跑完就没人管,generated/ 里无界堆积带密钥的文件。
+// 删会话时 02 deleteSession 顺手删对应那份;这里再按年龄兜底:每次起引擎都会重写自己那份(mtime 刷新),
+// 超过 SESSION_MCP_CONFIG_MAX_AGE_MS 没被重写的就是没人再用的。每进程只扫一次,失败静默(旁路清理)。
+const SESSION_MCP_CONFIG_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+let sessionMcpConfigSweepDone = false;
+async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
+  let removed = 0;
+  let names = [];
+  try { names = await fsp.readdir(paths.generated); } catch { return removed; }
+  for (const name of names) {
+    // 只认 workbench.mcp.<id>.json;共享的 workbench.mcp.json 不在此列。
+    if (!/^workbench\.mcp\.[A-Za-z0-9_-]{1,64}\.json$/.test(name)) continue;
+    const file = path.join(paths.generated, name);
+    try {
+      const st = await fsp.stat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SESSION_MCP_CONFIG_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
 async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   await ensureDirs();
+  if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);
@@ -6247,9 +6296,21 @@ function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
 // 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
 // 容忍:否则磁盘上留着半行,下次快路径 append 会接在撕裂字节之后,把新的真消息焊进坏行 → 中间坏行 →
 // 整个会话被判 corrupt 隔离(真丢数据)。中间空行/坏行一律 corrupt(不应发生,发生即数据事故)。
+// hunt2-P3:只有 ENOENT 才是「文件缺失」(null)。EBUSY/EPERM/EACCES(Windows 杀软/索引器短暂持锁)、
+// EMFILE/ENFILE(句柄一时耗尽)这类读失败先有界重试;仍失败回 { unreadable:true } —— 修前一律 null,
+// loadSession 把它当「正文丢了」,整条会话连头带正文改名 .corrupt(一次瞬时锁 = 会话从列表里消失)。
+const SESSION_BODY_READ_TRANSIENT = new Set(['EPERM', 'EBUSY', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN']);
 async function readSessionBodyFile(p) {
   let txt;
-  try { txt = await fsp.readFile(p, 'utf8'); } catch { return null; }
+  for (let attempt = 0; ; attempt++) {
+    try { txt = await fsp.readFile(p, 'utf8'); break; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT') return null;
+      if (!SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return { unreadable: true, code: code || 'EREAD' };
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
   const lines = txt.split('\n');
   const entries = [], hashes = [], lineEndBytes = [];
   let goodBytes = 0; // 已确认好行的 utf8 字节数(含每行结尾 \n),撕裂截断点
@@ -6318,14 +6379,14 @@ function isStrictSessionBodyPrefix(entries, persistedHashes) {
 async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) {
   if (!isStrictSessionBodyPrefix(messages, state.msgHashes)) return false;
   const disk = await readSessionBodyFile(bp.messages);
-  if (!disk || disk.corrupt || disk.hashes.length !== state.msgHashes.length
+  if (!disk || disk.corrupt || disk.unreadable || disk.hashes.length !== state.msgHashes.length
     || disk.hashes[disk.hashes.length - 1] !== state.msgHashes[state.msgHashes.length - 1]) return false;
   const addedMessages = disk.entries.length - messages.length;
   messages.push(...disk.entries.slice(messages.length));
   let addedProvider = 0;
   if (isStrictSessionBodyPrefix(providerHistory, state.provHashes)) {
     const prov = await readSessionBodyFile(bp.provider);
-    if (prov && !prov.corrupt && prov.hashes.length === state.provHashes.length) {
+    if (prov && !prov.corrupt && !prov.unreadable && prov.hashes.length === state.provHashes.length) {
       addedProvider = prov.entries.length - providerHistory.length;
       providerHistory.push(...prov.entries.slice(providerHistory.length));
     }
@@ -6862,15 +6923,25 @@ async function updateSessionMeta(id, patch) {
   return updateSessionMetaAttempt(id, patch, 0);
 }
 async function updateSessionMetaAttempt(id, patch, replayDepth) {
-  const session = await loadSession(id);
-  if (!session) return null; // missing/corrupt — caller maps to 404
   const p = (patch && typeof patch === 'object') ? patch : {};
-  applySessionMetaPatch(session, p);
   const watchNote = stewardWatchNoteFrom(p);
-  // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
-  if (!activeChildren.has(id) && !turnSettlers.has(id)) {
-    try { await saveSession(session, { throwIfStale: true, writer: 'session_meta' }); }
-    catch (error) {
+  // hunt2-P4:读-改-存进 mutateSession 同一条 per-id 链(与它互斥,见 withSessionMutateLock 头注)。
+  // 链内只做这一次 load→patch→save;撤回重放的递归与延后通道都在链【外】,不会自己等自己。
+  const step = await withSessionMutateLock(id, async () => {
+    const loaded = await loadSession(id);
+    if (!loaded) return { session: null };
+    applySessionMetaPatch(loaded, p);
+    // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
+    if (activeChildren.has(id) || turnSettlers.has(id)) return { session: loaded, deferred: true };
+    try { await saveSession(loaded, { throwIfStale: true, writer: 'session_meta' }); }
+    catch (error) { return { session: loaded, error }; }
+    return { session: loaded };
+  });
+  const session = step.session;
+  if (!session) return null; // missing/corrupt — caller maps to 404
+  if (!step.deferred) {
+    if (step.error) {
+      const error = step.error;
       if (!(error && error.code === 'SESSION_STALE_SAVE') || replayDepth >= SESSION_META_STALE_REPLAYS) throw error;
       // 107-F7b:从头再走一遍(重新 load、重新判活回合),而不是只在原地重试 save —— 撤回之后可能已经
       // 起了新回合,那时补丁该走下面那条延后通道,不能拿新副本去跟活回合抢写。
@@ -6896,22 +6967,27 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
       ]);
       if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
     }
-    let fresh = await loadSession(id).catch(() => null);
-    if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
-    applySessionMetaPatch(fresh, p);
-    // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
-    // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
-    // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
-    for (let attempt = 0; ; attempt++) {
-      try { await saveSession(fresh, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
-      catch (error) {
-        if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
-        logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
-        fresh = await loadSession(id).catch(() => null);
-        if (!fresh) return;
-        applySessionMetaPatch(fresh, p);
+    // hunt2-P4:settle 已在上面(链外)等过;读-改-存这一段进 per-id 读改写链,与 mutateSession 互斥。
+    const fresh = await withSessionMutateLock(id, async () => {
+      let copy = await loadSession(id).catch(() => null);
+      if (!copy) return null;                 // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
+      applySessionMetaPatch(copy, p);
+      // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
+      // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
+      // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
+      for (let attempt = 0; ; attempt++) {
+        try { await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
+        catch (error) {
+          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
+          logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
+          copy = await loadSession(id).catch(() => null);
+          if (!copy) return null;
+          applySessionMetaPatch(copy, p);
+        }
       }
-    }
+      return copy;
+    });
+    if (!fresh) return;
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
     // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
@@ -6936,11 +7012,46 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   return session;
 }
 
+// hunt2-P2:删除墓碑。id → 删除那一刻(ms)。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
+// 手里还攥着旧会话对象的旁路写者)会在 unlink 之后把头与正文整份写回 —— 会话「复活」,列表里又出现、GET 200。
+// saveSession 在【写链内】查墓碑:createdAt 不晚于删除时刻的对象 = 删除之前就存在的那条会话的副本,整次写丢弃。
+// 用 createdAt 而不是「有墓碑就拒」:固定 id 的会话(管家 STEWARD_SESSION_ID)删掉后会以同一个 id 重建,
+// 新对象的 createdAt 晚于删除时刻,照常落盘;createSession 另外显式清墓碑。条目只活在本进程(重启后没有
+// 在飞的旧对象),有上限防长驻进程无界增长。
+const SESSION_DELETE_TOMBSTONE_MAX = 5000;
+const SESSION_DELETE_SETTLE_TIMEOUT_MS = 8000;   // 与 rewindSession 等垂死回合 settle 的窗口同值
+const sessionDeleteTombstones = new Map();
+function markSessionDeleted(id) {
+  sessionDeleteTombstones.delete(id);
+  sessionDeleteTombstones.set(id, Date.now());
+  while (sessionDeleteTombstones.size > SESSION_DELETE_TOMBSTONE_MAX) sessionDeleteTombstones.delete(sessionDeleteTombstones.keys().next().value);
+}
+function sessionSaveIsTombstoned(session) {
+  const deletedAt = sessionDeleteTombstones.get(session && session.id);
+  if (deletedAt === undefined) return false;
+  const createdMs = Date.parse(String((session && session.createdAt) || ''));
+  return !Number.isFinite(createdMs) || createdMs <= deletedAt;
+}
 // Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
 // the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
 async function deleteSession(id, { purgeAssociated = false } = {}) {
+  // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
+  // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
+  markSessionDeleted(id);
   stopSession(id, 'deleted');
+  {
+    const settler = turnSettlers.get(id);
+    if (settler && settler.promise) {
+      const settled = await Promise.race([
+        settler.promise.then(() => true, () => true),
+        new Promise(r => { const t = setTimeout(() => r(false), SESSION_DELETE_SETTLE_TIMEOUT_MS); if (t.unref) t.unref(); }),
+      ]);
+      if (!settled) logEvent({ kind: 'session_delete_settle_timeout', sessionId: id });
+    }
+    const inFlight = sessionWriteChains.get(id);
+    if (inFlight) await inFlight.catch(() => {});
+  }
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   // 116g:删线程 = 从它所在事项的反向索引里摘掉。**必须在删会话头之前读**(头没了就不知道它属于谁)。
   // 漏掉这一步不会让读模型说错话(读侧一律与会话头对账,死 id 天然不进任何视图),但会让事项文件里
@@ -6965,6 +7076,9 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(bp.provider + '.prevbody').catch(() => {}),
     fsp.unlink(interventionFilePath(id)).catch(() => {}),
     fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
+    // hunt2-P9:会话笔记旁车与每会话 MCP 配置(内含 loopback token 与外部 MCP 的 env)同属这条会话的数据载体。
+    fsp.unlink(sessionNotesPath(id)).catch(() => {}),
+    proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
@@ -8291,10 +8405,14 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   if (safeSessionId(id) === null) return null; // 不合形的 id 就是「没有这个会话」(sessionPath 会拒绝拼路径)
   const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
-  try {
-    raw = await fsp.readFile(sessionPath(id), 'utf8');
-  } catch {
-    return null; // ENOENT etc.
+  // hunt2-P3:头读撞上瞬时锁(EBUSY/EPERM/EACCES)先有界重试,别把「一时读不到」答成「会话不存在」。
+  for (let attempt = 0; ; attempt++) {
+    try { raw = await fsp.readFile(sessionPath(id), 'utf8'); break; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT' || !SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return null;
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
   }
   let parsed;
   try {
@@ -8309,6 +8427,13 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     const bp = sessionBodyPaths(id);
     let msg = await readSessionBodyFile(bp.messages);
     let prov = await readSessionBodyFile(bp.provider);
+    // hunt2-P3:正文【在但读不出来】(重试过仍被锁/句柄耗尽)不是「正文丢了」—— 下面的判据会把它当缺失,
+    // 走 v1bak 回退或整条隔离成 .corrupt。这一趟诚实地不给结果,盘上什么都不动,下次读自然恢复。
+    const unreadable = b => !!(b && b.unreadable);
+    if (unreadable(msg) || unreadable(prov)) {
+      logEvent({ kind: 'session_body_unreadable', sessionId: id, code: String((unreadable(msg) ? msg : prov).code || '') });
+      return null;
+    }
     // 头是提交点:正文行数【少于】头声明 = 已提交数据丢失,与 corrupt 同级;【多于】头声明 = 崩溃于
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
     const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
@@ -8355,6 +8480,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       await fsp.rename(pp, bp.provider).catch(() => {});
       msg = await readSessionBodyFile(bp.messages);
       prov = await readSessionBodyFile(bp.provider);
+      if (unreadable(msg) || unreadable(prov)) return null;   // hunt2-P3:同上,读不出来就不动手
     }
     if (bodyBad()) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
@@ -8602,6 +8728,12 @@ async function saveSession(session, opts) {
     sessionBodyState.set(id, { msgHashes: nextMsgHashes, provHashes: nextProvHashes, bodiesOk: true });
   };
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // hunt2-P2:删除墓碑闸。同撤回代数闸,必须在【链内】看:删除可能发生在这次 save 入链之后、执行之前
+    // (被停回合的收尾存正是这么排的)。删除之前就存在的会话对象一律不许再落盘(见 sessionDeleteTombstones 头注)。
+    if (sessionSaveIsTombstoned(session)) {
+      logEvent({ kind: 'session_deleted_save_dropped', sessionId: id, writer: String((opts && opts.writer) || ''), messageCount: messages.length });
+      return { dropped: true, deleted: true };
+    }
     // 107-F7b:撤回代数闸。必须在【链内】比:高水位可能在这次写入链之后、执行之前才被抬高(撤回那一存
     // 排在我后面入链、却抬水位在我执行之前)。对象代数低于高水位 = 撤回之前的快照,整次写丢弃 ——
     // 正文与头都不写、不动 sessionBodyState(它仍如实描述盘上的正文),下面的索引/投影刷新也一并跳过。
@@ -8645,7 +8777,8 @@ async function saveSession(session, opts) {
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
   if (dropped) {
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
-    if (opts && opts.throwIfStale) {
+    // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
+    if (opts && opts.throwIfStale && !dropped.deleted) {
       throw Object.assign(new Error('stale session save dropped: this copy was loaded before a rewind'), {
         code: 'SESSION_STALE_SAVE', staleGen: dropped.staleGen, highWater: dropped.highWater,
       });
@@ -8685,31 +8818,47 @@ function sessionRewoundError(id, writer) {
     code: 'session.rewound_during_write', statusCode: 409, sessionId: id, writer,
   });
 }
+// hunt2-P4:同一会话的「load → 改 → save」整段按 id 串行。修前两路并发的 mutateSession(todo 与技能、
+// 记忆与 backgroundJobSeen……)各自读到同一份旧头、各改各的字段、后存者整份盖掉先存者 —— 撤回闸管不到这种
+// 同代数的丢失更新(实测 20/20 丢一边)。saveSession 自己的 per-id 写链只串「写」,串不了「读-改-写」。
+// 不会死锁的理由(改这里之前先读):
+//   · 链内只做 loadSession / mutator / saveSession。loadSession 只会【等】写链(sessionWriteChains)、
+//     saveSession 只会【排进】写链,写链里跑的只有落盘,从不回头等这条链 —— 两条链之间只有单向等待;
+//   · 活回合的收尾存直接走 saveSession,不进这条链,所以回合永远不必等这里;这条链也从不等回合 settle
+//     (updateSessionMeta 的延后通道在【进链之前】等 settle);
+//   · 约定:mutator 里不得再对【同一个 id】调 mutateSession / updateSessionMeta(会自己等自己)。
+//     现有调用方的 mutator 都是纯内存改动加至多一次只读 I/O(unit/session-mutate.test.js 的 [M6] 钉并发)。
+const sessionMutateChains = new Map();
+function withSessionMutateLock(id, work) {
+  return runKeyedChain(sessionMutateChains, String(id == null ? '' : id), work);
+}
 async function mutateSession(id, mutator, opts = {}) {
-  const writer = String((opts && opts.writer) || 'mutate_session');
-  const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
-  for (let attempt = 0; ; attempt++) {
-    const session = await loadSession(id);
-    if (!session) return { ok: false, missing: true, session: null, value: undefined };
-    if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
-      logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
-      throw sessionRewoundError(id, writer);
-    }
-    const decision = await mutator(session, { attempt });
-    const d = (decision && typeof decision === 'object') ? decision : {};
-    if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
-    try {
-      await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
-      return { ok: true, session, value: d.value, attempts: attempt + 1 };
-    } catch (error) {
-      if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
-      if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
-        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+  return withSessionMutateLock(id, async () => {
+    const writer = String((opts && opts.writer) || 'mutate_session');
+    const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
+    for (let attempt = 0; ; attempt++) {
+      const session = await loadSession(id);
+      if (!session) return { ok: false, missing: true, session: null, value: undefined };
+      if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
+        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
         throw sessionRewoundError(id, writer);
       }
-      logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+      const decision = await mutator(session, { attempt });
+      const d = (decision && typeof decision === 'object') ? decision : {};
+      if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
+      try {
+        await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
+        return { ok: true, session, value: d.value, attempts: attempt + 1 };
+      } catch (error) {
+        if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+        if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
+          logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+          throw sessionRewoundError(id, writer);
+        }
+        logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+      }
     }
-  }
+  });
 }
 // 一份内存里的会话对象是不是撤回之前读出来的(驱动器、旁车写入用它判「还该不该接着干」)。
 function sessionObjectIsStale(session) {
@@ -8726,6 +8875,7 @@ function isUntitledSessionTitle(title) {
 
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
+  sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
   // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
@@ -62100,6 +62250,9 @@ const SCHEDULER_FIRES_TAIL_BYTES = 1024 * 1024;
 const SCHEDULER_RUNS_LIMIT_DEFAULT = 5;
 const SCHEDULER_RUNS_LIMIT_MAX = 50;
 const SCHEDULER_TITLE_IN_FIRE_MAX = 120;
+// hunt2-P5:tick 里「迟到多少仍算准点」。生产 tick 30 s,再留出事件循环一时被占、NTP 小幅校时的余量;
+// 超过它才是「错过」(机器睡眠/休眠唤醒、时钟大跳),交给 onMissed/graceMinutes 判。
+const SCHEDULER_ONTIME_SLACK_MS = 5 * 60000;
 
 // ── 测试旗(§3.4)────────────────────────────────────────────────────────────
 // 口径与仓里既有的测试缝逐字同款(05-claude-engine 的 WCW_FAKE_CLAUDE、06g 的
@@ -62165,6 +62318,10 @@ const schedulerRuntime = {
   // 不区分的话它会被 missedOccurrence 认成错过、以 mode:'late' 补跑 —— 界面上就成了「补跑」,
   // 而事实是准时。(实测:scheduler.e2e 的 B3 当场红成「succeeded/late」。)
   loadedFromDisk: new Set(),
+  // hunt2-P6:盘上归一化不过 / 没有 id / 超出 maxTasks 的行。不调度、不上 API,只在写盘时原样带回去 ——
+  // 修前装载时跳过、下一次写盘就把它们永久删掉(注释写着「不静默改写用户的定义」,写盘却静默删了)。
+  opaqueTasks: [],
+  startDeferred: false, // hunt2-P6:startScheduler 撞上读不出来的任务表而没起来(路由闸装载成功后补起)
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -62205,8 +62362,20 @@ function schedulerNotify(schedHookName, schedRow) {
 async function schedulerReadTasksFile() {
   const file = schedulerTasksPath();
   let text = '';
-  try { text = await fsp.readFile(file, 'utf8'); }
-  catch { return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true }; }
+  // hunt2-P6:只有 ENOENT 才是「还没有任务表」。修前任何读失败(Windows 上杀软/备份软件短暂持锁的
+  // EBUSY/EPERM、句柄耗尽)都答成 missing:true,调度器按空表装载 —— 下一次 schedulerSaveTasks 就把
+  // 用户整张任务表冲成空的。瞬时错误先有界重试,仍失败回 unreadable:schedulerLoad 不置 loaded、不许写盘。
+  for (let attempt = 0; ; attempt++) {
+    try { text = await fsp.readFile(file, 'utf8'); break; }
+    catch (e) {
+      const code = String((e && e.code) || '');
+      if (code === 'ENOENT') return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true };
+      if (!['EBUSY', 'EPERM', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN'].includes(code) || attempt >= 4) {
+        return { tasks: [], globalRuns: { date: '', count: 0 }, missing: false, unreadable: true, code: code || 'EREAD' };
+      }
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
   let parsed = null;
   try { parsed = JSON.parse(text); } catch { parsed = null; }
   if (!parsed || parsed.schema !== SCHEDULER_TASKS_SCHEMA || !Array.isArray(parsed.tasks)) {
@@ -62227,11 +62396,17 @@ async function schedulerReadTasksFile() {
 // 写盘。**零任务时也要写**(用户刚把最后一条删掉,那份空表就是事实);但 startScheduler 在
 // schedulerEnabledV1 关时压根不会走到这里(红线⑤:关着一个字节都不写)。
 function schedulerSaveTasks() {
+  // hunt2-P6:没装载成功(任务表存在却读不出来)就不许写 —— 此刻内存里的空表不是事实,写下去就是删用户的任务。
+  if (!schedulerRuntime.loaded) {
+    try { logEvent({ kind: 'scheduler_save_refused', reason: 'not_loaded' }); } catch { /* ignore */ }
+    return Promise.resolve();
+  }
   const payload = {
     schema: SCHEDULER_TASKS_SCHEMA,
     updatedAt: new Date(schedulerClockNow()).toISOString(),
     globalRuns: schedulerRuntime.globalRuns,
-    tasks: schedulerRuntime.tasks,
+    // hunt2-P6:装载时归一化不过的行原样写回(见 schedulerLoad),不因为「这一版读不懂」就从盘上消失。
+    tasks: [...schedulerRuntime.tasks, ...schedulerRuntime.opaqueTasks],
   };
   const next = schedulerTasksChain.catch(() => {}).then(async () => {
     await fsp.mkdir(schedulerDir(), { recursive: true });
@@ -62304,15 +62479,22 @@ async function schedulerLoad() {
   if (schedulerRuntime.loaded) return;
   const now = schedulerClockNow();
   const file = await schedulerReadTasksFile();
+  if (file.unreadable) {
+    // hunt2-P6:不置 loaded —— 路由闸据此答 503、写盘被拒;下一次路由请求会再试着装载。
+    schedulerRuntime.lastError = 'tasks-v1.json 暂时读不出来(' + file.code + '),调度器未装载,任务表原样保留';
+    try { logEvent({ kind: 'scheduler_tasks_unreadable', code: file.code }); } catch { /* ignore */ }
+    return null;
+  }
   const tasks = [];
+  const opaque = [];
   for (const rawTask of file.tasks) {
     const normalized = normalizeSchedulerTask(rawTask, now);
-    if (!normalized.ok) continue;                       // 坏行跳过(不静默改写用户的定义)
-    if (!normalized.task.id) continue;                  // 没有 id 的行不该在盘上,跳过
+    // 坏行 / 没有 id 的行 / 超出上限的行:不调度,但原样留着写回去(不静默改写用户的定义)。
+    if (!normalized.ok || !normalized.task.id || tasks.length >= SCHEDULER_LIMITS.maxTasks) { opaque.push(rawTask); continue; }
     tasks.push(schedulerRestorePersistedState(normalized.task, rawTask));
-    if (tasks.length >= SCHEDULER_LIMITS.maxTasks) break;
   }
   schedulerRuntime.tasks = tasks;
+  schedulerRuntime.opaqueTasks = opaque;
   schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
   schedulerRuntime.globalRuns = file.globalRuns;
   // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
@@ -62331,6 +62513,29 @@ async function schedulerLoad() {
   schedulerRuntime.attempts = attempts;
   schedulerRuntime.loaded = true;
   return rows;
+}
+
+// 一个错过的时点按策略【不补】:记一行 reconciled/skipped(mode:'late')并通知。启动恢复与 tick(hunt2-P5)共用。
+async function schedulerRecordMissedSkip(task, missed, now) {
+  const reason = missed.withinGrace ? 'policy_skip' : 'grace_expired';
+  await schedulerAppendFire({
+    taskId: task.id,
+    title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+    occurrenceKey: missed.occurrenceKey,
+    dueAt: new Date(missed.dueMs).toISOString(),
+    runId: '',
+    executionGeneration: 0,
+    mode: 'late',
+    phase: 'reconciled',
+    outcome: 'skipped',
+    error: reason,
+  });
+  void schedulerNotify('onSchedulerNotice', {
+    kind: 'skipped', taskId: task.id, title: task.title,
+    occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
+    reason,
+  });
+  schedulerEmitChanged(task.id, 'reconciled', 'skipped');
 }
 
 // 启动恢复(§3.2)。两件事,顺序不能反:
@@ -62399,24 +62604,7 @@ async function schedulerRecover(schedFireRows) {
     if (missed.runLate) {
       schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
     } else {
-      await schedulerAppendFire({
-        taskId: task.id,
-        title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
-        occurrenceKey: missed.occurrenceKey,
-        dueAt: new Date(missed.dueMs).toISOString(),
-        runId: '',
-        executionGeneration: 0,
-        mode: 'late',
-        phase: 'reconciled',
-        outcome: 'skipped',
-        error: missed.withinGrace ? 'policy_skip' : 'grace_expired',
-      });
-      void schedulerNotify('onSchedulerNotice', {
-        kind: 'skipped', taskId: task.id, title: task.title,
-        occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
-        reason: missed.withinGrace ? 'policy_skip' : 'grace_expired',
-      });
-      schedulerEmitChanged(task.id, 'reconciled', 'skipped');
+      await schedulerRecordMissedSkip(task, missed, now);
     }
     // 两条路都推进 nextFireAt ——「补跑只补一次」由 lateQueue 保证,不靠「还留着旧时点」。
     const nextMs = nextFireAt(task.schedule, now);
@@ -62704,10 +62892,27 @@ async function schedulerTick() {
       .filter(task => task.state.enabled && !task.state.inFlightRunId && !schedulerRuntime.inFlightTaskIds.has(task.id)
         && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
       .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
+    let skippedAny = false;
     for (const task of due) {
       if (generation !== schedulerRuntime.generation) return;
+      // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
+      if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      // hunt2-P5:进程一直活着、但机器睡过去/时钟跳过去的那一类「错过」,修前 tick 一律当准点跑
+      // (onMissed:'skip' 与 graceMinutes 只在启动恢复里生效;实测晚 11 小时仍记 ontime)。
+      // 迟到在 SCHEDULER_ONTIME_SLACK_MS 之内是 tick 粒度的正常抖动,照旧准点;超过它才按与启动恢复
+      // 同一套判据(missedOccurrence):宽限内且 run-once-late → 以 late 补跑一次;否则记 skipped、推进。
+      const missed = missedOccurrence(task, now);
+      if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
+        if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
+        const nextMs = nextFireAt(task.schedule, now);
+        task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+        await schedulerRecordMissedSkip(task, missed, now);
+        skippedAny = true;
+        continue;
+      }
       schedulerDispatchFire(task, 'ontime', Date.parse(task.state.nextFireAt));
     }
+    if (skippedAny) await schedulerSaveTasks();
   } catch (e) {
     schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
     try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError }); } catch { /* ignore */ }
@@ -62739,6 +62944,13 @@ async function startScheduler(schedConfig) {
   schedulerRuntime.started = true;
   schedulerRuntime.generation += 1;
   const rows = await schedulerLoad();
+  if (!schedulerRuntime.loaded) {
+    // hunt2-P6:任务表在却读不出来 —— 不恢复、不起 interval(恢复会写盘)。退回「未启动」,路由闸下次装载成功时再起。
+    schedulerRuntime.started = false;
+    schedulerRuntime.startDeferred = true;
+    return false;
+  }
+  schedulerRuntime.startDeferred = false;
   await schedulerRecover(rows);
   schedulerEnsureTimer();
   // 起完就先跑一拍(不等第一个 30 s):补跑队列与「服务没开着的时候刚好到点」都该立刻见效。
@@ -62834,6 +63046,12 @@ async function schedulerRouteGate(req, res) {
     return '';
   }
   await schedulerLoad();
+  if (!schedulerRuntime.loaded) {
+    send(res, apiFailure('scheduler.unavailable', {}, 'the scheduler task table exists but could not be read; nothing was changed', 503));
+    return '';
+  }
+  // hunt2-P6:启动那一刻读失败而没起来的调度器,在这里装载成功后补起(startScheduler 自己幂等)。
+  if (schedulerRuntime.startDeferred && !schedulerRuntime.started) await startScheduler(config);
   return schedulerLocaleOf(req);
 }
 
@@ -62875,7 +63093,9 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     let body = {};
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
-    const current = schedulerRuntime.tasks[index];
+    // 读 body 期间表可能变过(并发 DELETE):按 id 重新找,不拿旧下标。
+    const current = schedulerRuntime.tasks.find(task => task.id === id);
+    if (!current) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
     // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
     // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
@@ -62904,11 +63124,16 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     normalized.task.state.inFlightRunId = current.state.inFlightRunId;
     // 从熔断里被重新打开:连败计数清零,否则下一次失败立刻再熔断。
     if (normalized.task.state.enabled && !current.state.enabled) normalized.task.state.consecutiveFailures = 0;
-    schedulerRuntime.tasks[index] = normalized.task;
+    // hunt2-P1:【原地】换内容,不换对象。在飞的 schedulerFireOnce 攥着的就是 current 这个对象 —— 修前这里
+    // 换成新对象,在飞那一次收尾时把 inFlightRunId 清在已经不在表里的旧对象上,表里的新对象永远带着一个
+    // 不会被清的 inFlightRunId(run-now 永远 409、tick 永远跳过,落盘后重启还会被当成崩溃残留)。
+    // 在飞那一次此后读 task.state 拿到的是这里的新 state(已带着 inFlightRunId),收尾照常清掉它。
+    for (const key of Object.keys(current)) if (!Object.prototype.hasOwnProperty.call(normalized.task, key)) delete current[key];
+    Object.assign(current, normalized.task);
     await schedulerSaveTasks();
     schedulerEnsureTimer();
     schedulerEmitChanged(id, 'updated', '');
-    return send(res, json({ ok: true, task: schedulerPublicTask(normalized.task, locale) }));
+    return send(res, json({ ok: true, task: schedulerPublicTask(current, locale) }));
   }
 
   if ((req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))
@@ -62936,8 +63161,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (task.state.inFlightRunId) {
       return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
     }
-    if (schedulerRuntime.ticking) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'the scheduler is busy with another task (global concurrency is 1)', 409));
+    if (schedulerRuntime.inFlightTaskIds.has(task.id)) {
+      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
     }
     // 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
     // occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,
@@ -62945,10 +63170,12 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     // 往后挪到第一个没被用过的毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
     let manualDueMs = schedulerClockNow();
     while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
-    schedulerRuntime.ticking = true;
+    // hunt2-P10:修前这里整段拿着 ticking(tick 重入闸),手动那一次的回合跑多久,其它任务就多久派不出单
+    // (tick 一进来就 return)。现在只挡【这一条任务】:inFlightTaskIds 与 tick 的派单共用同一张表。
+    schedulerRuntime.inFlightTaskIds.add(task.id);
     let outcome = '';
     try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-    finally { schedulerRuntime.ticking = false; }
+    finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
     return send(res, json({ ok: true, outcome, task: schedulerPublicTask(task, locale) }));
   }
 

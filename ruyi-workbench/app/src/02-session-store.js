@@ -655,9 +655,21 @@ function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
 // 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
 // 容忍:否则磁盘上留着半行,下次快路径 append 会接在撕裂字节之后,把新的真消息焊进坏行 → 中间坏行 →
 // 整个会话被判 corrupt 隔离(真丢数据)。中间空行/坏行一律 corrupt(不应发生,发生即数据事故)。
+// hunt2-P3:只有 ENOENT 才是「文件缺失」(null)。EBUSY/EPERM/EACCES(Windows 杀软/索引器短暂持锁)、
+// EMFILE/ENFILE(句柄一时耗尽)这类读失败先有界重试;仍失败回 { unreadable:true } —— 修前一律 null,
+// loadSession 把它当「正文丢了」,整条会话连头带正文改名 .corrupt(一次瞬时锁 = 会话从列表里消失)。
+const SESSION_BODY_READ_TRANSIENT = new Set(['EPERM', 'EBUSY', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN']);
 async function readSessionBodyFile(p) {
   let txt;
-  try { txt = await fsp.readFile(p, 'utf8'); } catch { return null; }
+  for (let attempt = 0; ; attempt++) {
+    try { txt = await fsp.readFile(p, 'utf8'); break; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT') return null;
+      if (!SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return { unreadable: true, code: code || 'EREAD' };
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
   const lines = txt.split('\n');
   const entries = [], hashes = [], lineEndBytes = [];
   let goodBytes = 0; // 已确认好行的 utf8 字节数(含每行结尾 \n),撕裂截断点
@@ -726,14 +738,14 @@ function isStrictSessionBodyPrefix(entries, persistedHashes) {
 async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) {
   if (!isStrictSessionBodyPrefix(messages, state.msgHashes)) return false;
   const disk = await readSessionBodyFile(bp.messages);
-  if (!disk || disk.corrupt || disk.hashes.length !== state.msgHashes.length
+  if (!disk || disk.corrupt || disk.unreadable || disk.hashes.length !== state.msgHashes.length
     || disk.hashes[disk.hashes.length - 1] !== state.msgHashes[state.msgHashes.length - 1]) return false;
   const addedMessages = disk.entries.length - messages.length;
   messages.push(...disk.entries.slice(messages.length));
   let addedProvider = 0;
   if (isStrictSessionBodyPrefix(providerHistory, state.provHashes)) {
     const prov = await readSessionBodyFile(bp.provider);
-    if (prov && !prov.corrupt && prov.hashes.length === state.provHashes.length) {
+    if (prov && !prov.corrupt && !prov.unreadable && prov.hashes.length === state.provHashes.length) {
       addedProvider = prov.entries.length - providerHistory.length;
       providerHistory.push(...prov.entries.slice(providerHistory.length));
     }
@@ -1270,15 +1282,25 @@ async function updateSessionMeta(id, patch) {
   return updateSessionMetaAttempt(id, patch, 0);
 }
 async function updateSessionMetaAttempt(id, patch, replayDepth) {
-  const session = await loadSession(id);
-  if (!session) return null; // missing/corrupt — caller maps to 404
   const p = (patch && typeof patch === 'object') ? patch : {};
-  applySessionMetaPatch(session, p);
   const watchNote = stewardWatchNoteFrom(p);
-  // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
-  if (!activeChildren.has(id) && !turnSettlers.has(id)) {
-    try { await saveSession(session, { throwIfStale: true, writer: 'session_meta' }); }
-    catch (error) {
+  // hunt2-P4:读-改-存进 mutateSession 同一条 per-id 链(与它互斥,见 withSessionMutateLock 头注)。
+  // 链内只做这一次 load→patch→save;撤回重放的递归与延后通道都在链【外】,不会自己等自己。
+  const step = await withSessionMutateLock(id, async () => {
+    const loaded = await loadSession(id);
+    if (!loaded) return { session: null };
+    applySessionMetaPatch(loaded, p);
+    // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
+    if (activeChildren.has(id) || turnSettlers.has(id)) return { session: loaded, deferred: true };
+    try { await saveSession(loaded, { throwIfStale: true, writer: 'session_meta' }); }
+    catch (error) { return { session: loaded, error }; }
+    return { session: loaded };
+  });
+  const session = step.session;
+  if (!session) return null; // missing/corrupt — caller maps to 404
+  if (!step.deferred) {
+    if (step.error) {
+      const error = step.error;
       if (!(error && error.code === 'SESSION_STALE_SAVE') || replayDepth >= SESSION_META_STALE_REPLAYS) throw error;
       // 107-F7b:从头再走一遍(重新 load、重新判活回合),而不是只在原地重试 save —— 撤回之后可能已经
       // 起了新回合,那时补丁该走下面那条延后通道,不能拿新副本去跟活回合抢写。
@@ -1304,22 +1326,27 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
       ]);
       if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
     }
-    let fresh = await loadSession(id).catch(() => null);
-    if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
-    applySessionMetaPatch(fresh, p);
-    // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
-    // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
-    // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
-    for (let attempt = 0; ; attempt++) {
-      try { await saveSession(fresh, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
-      catch (error) {
-        if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
-        logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
-        fresh = await loadSession(id).catch(() => null);
-        if (!fresh) return;
-        applySessionMetaPatch(fresh, p);
+    // hunt2-P4:settle 已在上面(链外)等过;读-改-存这一段进 per-id 读改写链,与 mutateSession 互斥。
+    const fresh = await withSessionMutateLock(id, async () => {
+      let copy = await loadSession(id).catch(() => null);
+      if (!copy) return null;                 // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
+      applySessionMetaPatch(copy, p);
+      // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
+      // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
+      // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
+      for (let attempt = 0; ; attempt++) {
+        try { await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
+        catch (error) {
+          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
+          logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
+          copy = await loadSession(id).catch(() => null);
+          if (!copy) return null;
+          applySessionMetaPatch(copy, p);
+        }
       }
-    }
+      return copy;
+    });
+    if (!fresh) return;
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
     // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
@@ -1344,11 +1371,46 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   return session;
 }
 
+// hunt2-P2:删除墓碑。id → 删除那一刻(ms)。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
+// 手里还攥着旧会话对象的旁路写者)会在 unlink 之后把头与正文整份写回 —— 会话「复活」,列表里又出现、GET 200。
+// saveSession 在【写链内】查墓碑:createdAt 不晚于删除时刻的对象 = 删除之前就存在的那条会话的副本,整次写丢弃。
+// 用 createdAt 而不是「有墓碑就拒」:固定 id 的会话(管家 STEWARD_SESSION_ID)删掉后会以同一个 id 重建,
+// 新对象的 createdAt 晚于删除时刻,照常落盘;createSession 另外显式清墓碑。条目只活在本进程(重启后没有
+// 在飞的旧对象),有上限防长驻进程无界增长。
+const SESSION_DELETE_TOMBSTONE_MAX = 5000;
+const SESSION_DELETE_SETTLE_TIMEOUT_MS = 8000;   // 与 rewindSession 等垂死回合 settle 的窗口同值
+const sessionDeleteTombstones = new Map();
+function markSessionDeleted(id) {
+  sessionDeleteTombstones.delete(id);
+  sessionDeleteTombstones.set(id, Date.now());
+  while (sessionDeleteTombstones.size > SESSION_DELETE_TOMBSTONE_MAX) sessionDeleteTombstones.delete(sessionDeleteTombstones.keys().next().value);
+}
+function sessionSaveIsTombstoned(session) {
+  const deletedAt = sessionDeleteTombstones.get(session && session.id);
+  if (deletedAt === undefined) return false;
+  const createdMs = Date.parse(String((session && session.createdAt) || ''));
+  return !Number.isFinite(createdMs) || createdMs <= deletedAt;
+}
 // Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
 // the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
 async function deleteSession(id, { purgeAssociated = false } = {}) {
+  // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
+  // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
+  markSessionDeleted(id);
   stopSession(id, 'deleted');
+  {
+    const settler = turnSettlers.get(id);
+    if (settler && settler.promise) {
+      const settled = await Promise.race([
+        settler.promise.then(() => true, () => true),
+        new Promise(r => { const t = setTimeout(() => r(false), SESSION_DELETE_SETTLE_TIMEOUT_MS); if (t.unref) t.unref(); }),
+      ]);
+      if (!settled) logEvent({ kind: 'session_delete_settle_timeout', sessionId: id });
+    }
+    const inFlight = sessionWriteChains.get(id);
+    if (inFlight) await inFlight.catch(() => {});
+  }
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   // 116g:删线程 = 从它所在事项的反向索引里摘掉。**必须在删会话头之前读**(头没了就不知道它属于谁)。
   // 漏掉这一步不会让读模型说错话(读侧一律与会话头对账,死 id 天然不进任何视图),但会让事项文件里
@@ -1373,6 +1435,9 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(bp.provider + '.prevbody').catch(() => {}),
     fsp.unlink(interventionFilePath(id)).catch(() => {}),
     fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
+    // hunt2-P9:会话笔记旁车与每会话 MCP 配置(内含 loopback token 与外部 MCP 的 env)同属这条会话的数据载体。
+    fsp.unlink(sessionNotesPath(id)).catch(() => {}),
+    proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
@@ -2699,10 +2764,14 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   if (safeSessionId(id) === null) return null; // 不合形的 id 就是「没有这个会话」(sessionPath 会拒绝拼路径)
   const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
-  try {
-    raw = await fsp.readFile(sessionPath(id), 'utf8');
-  } catch {
-    return null; // ENOENT etc.
+  // hunt2-P3:头读撞上瞬时锁(EBUSY/EPERM/EACCES)先有界重试,别把「一时读不到」答成「会话不存在」。
+  for (let attempt = 0; ; attempt++) {
+    try { raw = await fsp.readFile(sessionPath(id), 'utf8'); break; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT' || !SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return null;
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
   }
   let parsed;
   try {
@@ -2717,6 +2786,13 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     const bp = sessionBodyPaths(id);
     let msg = await readSessionBodyFile(bp.messages);
     let prov = await readSessionBodyFile(bp.provider);
+    // hunt2-P3:正文【在但读不出来】(重试过仍被锁/句柄耗尽)不是「正文丢了」—— 下面的判据会把它当缺失,
+    // 走 v1bak 回退或整条隔离成 .corrupt。这一趟诚实地不给结果,盘上什么都不动,下次读自然恢复。
+    const unreadable = b => !!(b && b.unreadable);
+    if (unreadable(msg) || unreadable(prov)) {
+      logEvent({ kind: 'session_body_unreadable', sessionId: id, code: String((unreadable(msg) ? msg : prov).code || '') });
+      return null;
+    }
     // 头是提交点:正文行数【少于】头声明 = 已提交数据丢失,与 corrupt 同级;【多于】头声明 = 崩溃于
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
     const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
@@ -2763,6 +2839,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       await fsp.rename(pp, bp.provider).catch(() => {});
       msg = await readSessionBodyFile(bp.messages);
       prov = await readSessionBodyFile(bp.provider);
+      if (unreadable(msg) || unreadable(prov)) return null;   // hunt2-P3:同上,读不出来就不动手
     }
     if (bodyBad()) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
@@ -3010,6 +3087,12 @@ async function saveSession(session, opts) {
     sessionBodyState.set(id, { msgHashes: nextMsgHashes, provHashes: nextProvHashes, bodiesOk: true });
   };
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // hunt2-P2:删除墓碑闸。同撤回代数闸,必须在【链内】看:删除可能发生在这次 save 入链之后、执行之前
+    // (被停回合的收尾存正是这么排的)。删除之前就存在的会话对象一律不许再落盘(见 sessionDeleteTombstones 头注)。
+    if (sessionSaveIsTombstoned(session)) {
+      logEvent({ kind: 'session_deleted_save_dropped', sessionId: id, writer: String((opts && opts.writer) || ''), messageCount: messages.length });
+      return { dropped: true, deleted: true };
+    }
     // 107-F7b:撤回代数闸。必须在【链内】比:高水位可能在这次写入链之后、执行之前才被抬高(撤回那一存
     // 排在我后面入链、却抬水位在我执行之前)。对象代数低于高水位 = 撤回之前的快照,整次写丢弃 ——
     // 正文与头都不写、不动 sessionBodyState(它仍如实描述盘上的正文),下面的索引/投影刷新也一并跳过。
@@ -3053,7 +3136,8 @@ async function saveSession(session, opts) {
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
   if (dropped) {
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
-    if (opts && opts.throwIfStale) {
+    // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
+    if (opts && opts.throwIfStale && !dropped.deleted) {
       throw Object.assign(new Error('stale session save dropped: this copy was loaded before a rewind'), {
         code: 'SESSION_STALE_SAVE', staleGen: dropped.staleGen, highWater: dropped.highWater,
       });
@@ -3093,31 +3177,47 @@ function sessionRewoundError(id, writer) {
     code: 'session.rewound_during_write', statusCode: 409, sessionId: id, writer,
   });
 }
+// hunt2-P4:同一会话的「load → 改 → save」整段按 id 串行。修前两路并发的 mutateSession(todo 与技能、
+// 记忆与 backgroundJobSeen……)各自读到同一份旧头、各改各的字段、后存者整份盖掉先存者 —— 撤回闸管不到这种
+// 同代数的丢失更新(实测 20/20 丢一边)。saveSession 自己的 per-id 写链只串「写」,串不了「读-改-写」。
+// 不会死锁的理由(改这里之前先读):
+//   · 链内只做 loadSession / mutator / saveSession。loadSession 只会【等】写链(sessionWriteChains)、
+//     saveSession 只会【排进】写链,写链里跑的只有落盘,从不回头等这条链 —— 两条链之间只有单向等待;
+//   · 活回合的收尾存直接走 saveSession,不进这条链,所以回合永远不必等这里;这条链也从不等回合 settle
+//     (updateSessionMeta 的延后通道在【进链之前】等 settle);
+//   · 约定:mutator 里不得再对【同一个 id】调 mutateSession / updateSessionMeta(会自己等自己)。
+//     现有调用方的 mutator 都是纯内存改动加至多一次只读 I/O(unit/session-mutate.test.js 的 [M6] 钉并发)。
+const sessionMutateChains = new Map();
+function withSessionMutateLock(id, work) {
+  return runKeyedChain(sessionMutateChains, String(id == null ? '' : id), work);
+}
 async function mutateSession(id, mutator, opts = {}) {
-  const writer = String((opts && opts.writer) || 'mutate_session');
-  const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
-  for (let attempt = 0; ; attempt++) {
-    const session = await loadSession(id);
-    if (!session) return { ok: false, missing: true, session: null, value: undefined };
-    if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
-      logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
-      throw sessionRewoundError(id, writer);
-    }
-    const decision = await mutator(session, { attempt });
-    const d = (decision && typeof decision === 'object') ? decision : {};
-    if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
-    try {
-      await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
-      return { ok: true, session, value: d.value, attempts: attempt + 1 };
-    } catch (error) {
-      if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
-      if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
-        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+  return withSessionMutateLock(id, async () => {
+    const writer = String((opts && opts.writer) || 'mutate_session');
+    const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
+    for (let attempt = 0; ; attempt++) {
+      const session = await loadSession(id);
+      if (!session) return { ok: false, missing: true, session: null, value: undefined };
+      if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
+        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
         throw sessionRewoundError(id, writer);
       }
-      logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+      const decision = await mutator(session, { attempt });
+      const d = (decision && typeof decision === 'object') ? decision : {};
+      if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
+      try {
+        await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
+        return { ok: true, session, value: d.value, attempts: attempt + 1 };
+      } catch (error) {
+        if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+        if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
+          logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+          throw sessionRewoundError(id, writer);
+        }
+        logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+      }
     }
-  }
+  });
 }
 // 一份内存里的会话对象是不是撤回之前读出来的(驱动器、旁车写入用它判「还该不该接着干」)。
 function sessionObjectIsStale(session) {
@@ -3134,6 +3234,7 @@ function isUntitledSessionTitle(title) {
 
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
+  sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
   // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,

@@ -42,6 +42,9 @@ const SCHEDULER_FIRES_TAIL_BYTES = 1024 * 1024;
 const SCHEDULER_RUNS_LIMIT_DEFAULT = 5;
 const SCHEDULER_RUNS_LIMIT_MAX = 50;
 const SCHEDULER_TITLE_IN_FIRE_MAX = 120;
+// hunt2-P5:tick 里「迟到多少仍算准点」。生产 tick 30 s,再留出事件循环一时被占、NTP 小幅校时的余量;
+// 超过它才是「错过」(机器睡眠/休眠唤醒、时钟大跳),交给 onMissed/graceMinutes 判。
+const SCHEDULER_ONTIME_SLACK_MS = 5 * 60000;
 
 // ── 测试旗(§3.4)────────────────────────────────────────────────────────────
 // 口径与仓里既有的测试缝逐字同款(05-claude-engine 的 WCW_FAKE_CLAUDE、06g 的
@@ -107,6 +110,10 @@ const schedulerRuntime = {
   // 不区分的话它会被 missedOccurrence 认成错过、以 mode:'late' 补跑 —— 界面上就成了「补跑」,
   // 而事实是准时。(实测:scheduler.e2e 的 B3 当场红成「succeeded/late」。)
   loadedFromDisk: new Set(),
+  // hunt2-P6:盘上归一化不过 / 没有 id / 超出 maxTasks 的行。不调度、不上 API,只在写盘时原样带回去 ——
+  // 修前装载时跳过、下一次写盘就把它们永久删掉(注释写着「不静默改写用户的定义」,写盘却静默删了)。
+  opaqueTasks: [],
+  startDeferred: false, // hunt2-P6:startScheduler 撞上读不出来的任务表而没起来(路由闸装载成功后补起)
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -147,8 +154,20 @@ function schedulerNotify(schedHookName, schedRow) {
 async function schedulerReadTasksFile() {
   const file = schedulerTasksPath();
   let text = '';
-  try { text = await fsp.readFile(file, 'utf8'); }
-  catch { return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true }; }
+  // hunt2-P6:只有 ENOENT 才是「还没有任务表」。修前任何读失败(Windows 上杀软/备份软件短暂持锁的
+  // EBUSY/EPERM、句柄耗尽)都答成 missing:true,调度器按空表装载 —— 下一次 schedulerSaveTasks 就把
+  // 用户整张任务表冲成空的。瞬时错误先有界重试,仍失败回 unreadable:schedulerLoad 不置 loaded、不许写盘。
+  for (let attempt = 0; ; attempt++) {
+    try { text = await fsp.readFile(file, 'utf8'); break; }
+    catch (e) {
+      const code = String((e && e.code) || '');
+      if (code === 'ENOENT') return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true };
+      if (!['EBUSY', 'EPERM', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN'].includes(code) || attempt >= 4) {
+        return { tasks: [], globalRuns: { date: '', count: 0 }, missing: false, unreadable: true, code: code || 'EREAD' };
+      }
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
   let parsed = null;
   try { parsed = JSON.parse(text); } catch { parsed = null; }
   if (!parsed || parsed.schema !== SCHEDULER_TASKS_SCHEMA || !Array.isArray(parsed.tasks)) {
@@ -169,11 +188,17 @@ async function schedulerReadTasksFile() {
 // 写盘。**零任务时也要写**(用户刚把最后一条删掉,那份空表就是事实);但 startScheduler 在
 // schedulerEnabledV1 关时压根不会走到这里(红线⑤:关着一个字节都不写)。
 function schedulerSaveTasks() {
+  // hunt2-P6:没装载成功(任务表存在却读不出来)就不许写 —— 此刻内存里的空表不是事实,写下去就是删用户的任务。
+  if (!schedulerRuntime.loaded) {
+    try { logEvent({ kind: 'scheduler_save_refused', reason: 'not_loaded' }); } catch { /* ignore */ }
+    return Promise.resolve();
+  }
   const payload = {
     schema: SCHEDULER_TASKS_SCHEMA,
     updatedAt: new Date(schedulerClockNow()).toISOString(),
     globalRuns: schedulerRuntime.globalRuns,
-    tasks: schedulerRuntime.tasks,
+    // hunt2-P6:装载时归一化不过的行原样写回(见 schedulerLoad),不因为「这一版读不懂」就从盘上消失。
+    tasks: [...schedulerRuntime.tasks, ...schedulerRuntime.opaqueTasks],
   };
   const next = schedulerTasksChain.catch(() => {}).then(async () => {
     await fsp.mkdir(schedulerDir(), { recursive: true });
@@ -246,15 +271,22 @@ async function schedulerLoad() {
   if (schedulerRuntime.loaded) return;
   const now = schedulerClockNow();
   const file = await schedulerReadTasksFile();
+  if (file.unreadable) {
+    // hunt2-P6:不置 loaded —— 路由闸据此答 503、写盘被拒;下一次路由请求会再试着装载。
+    schedulerRuntime.lastError = 'tasks-v1.json 暂时读不出来(' + file.code + '),调度器未装载,任务表原样保留';
+    try { logEvent({ kind: 'scheduler_tasks_unreadable', code: file.code }); } catch { /* ignore */ }
+    return null;
+  }
   const tasks = [];
+  const opaque = [];
   for (const rawTask of file.tasks) {
     const normalized = normalizeSchedulerTask(rawTask, now);
-    if (!normalized.ok) continue;                       // 坏行跳过(不静默改写用户的定义)
-    if (!normalized.task.id) continue;                  // 没有 id 的行不该在盘上,跳过
+    // 坏行 / 没有 id 的行 / 超出上限的行:不调度,但原样留着写回去(不静默改写用户的定义)。
+    if (!normalized.ok || !normalized.task.id || tasks.length >= SCHEDULER_LIMITS.maxTasks) { opaque.push(rawTask); continue; }
     tasks.push(schedulerRestorePersistedState(normalized.task, rawTask));
-    if (tasks.length >= SCHEDULER_LIMITS.maxTasks) break;
   }
   schedulerRuntime.tasks = tasks;
+  schedulerRuntime.opaqueTasks = opaque;
   schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
   schedulerRuntime.globalRuns = file.globalRuns;
   // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
@@ -273,6 +305,29 @@ async function schedulerLoad() {
   schedulerRuntime.attempts = attempts;
   schedulerRuntime.loaded = true;
   return rows;
+}
+
+// 一个错过的时点按策略【不补】:记一行 reconciled/skipped(mode:'late')并通知。启动恢复与 tick(hunt2-P5)共用。
+async function schedulerRecordMissedSkip(task, missed, now) {
+  const reason = missed.withinGrace ? 'policy_skip' : 'grace_expired';
+  await schedulerAppendFire({
+    taskId: task.id,
+    title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+    occurrenceKey: missed.occurrenceKey,
+    dueAt: new Date(missed.dueMs).toISOString(),
+    runId: '',
+    executionGeneration: 0,
+    mode: 'late',
+    phase: 'reconciled',
+    outcome: 'skipped',
+    error: reason,
+  });
+  void schedulerNotify('onSchedulerNotice', {
+    kind: 'skipped', taskId: task.id, title: task.title,
+    occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
+    reason,
+  });
+  schedulerEmitChanged(task.id, 'reconciled', 'skipped');
 }
 
 // 启动恢复(§3.2)。两件事,顺序不能反:
@@ -341,24 +396,7 @@ async function schedulerRecover(schedFireRows) {
     if (missed.runLate) {
       schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
     } else {
-      await schedulerAppendFire({
-        taskId: task.id,
-        title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
-        occurrenceKey: missed.occurrenceKey,
-        dueAt: new Date(missed.dueMs).toISOString(),
-        runId: '',
-        executionGeneration: 0,
-        mode: 'late',
-        phase: 'reconciled',
-        outcome: 'skipped',
-        error: missed.withinGrace ? 'policy_skip' : 'grace_expired',
-      });
-      void schedulerNotify('onSchedulerNotice', {
-        kind: 'skipped', taskId: task.id, title: task.title,
-        occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
-        reason: missed.withinGrace ? 'policy_skip' : 'grace_expired',
-      });
-      schedulerEmitChanged(task.id, 'reconciled', 'skipped');
+      await schedulerRecordMissedSkip(task, missed, now);
     }
     // 两条路都推进 nextFireAt ——「补跑只补一次」由 lateQueue 保证,不靠「还留着旧时点」。
     const nextMs = nextFireAt(task.schedule, now);
@@ -646,10 +684,27 @@ async function schedulerTick() {
       .filter(task => task.state.enabled && !task.state.inFlightRunId && !schedulerRuntime.inFlightTaskIds.has(task.id)
         && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
       .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
+    let skippedAny = false;
     for (const task of due) {
       if (generation !== schedulerRuntime.generation) return;
+      // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
+      if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      // hunt2-P5:进程一直活着、但机器睡过去/时钟跳过去的那一类「错过」,修前 tick 一律当准点跑
+      // (onMissed:'skip' 与 graceMinutes 只在启动恢复里生效;实测晚 11 小时仍记 ontime)。
+      // 迟到在 SCHEDULER_ONTIME_SLACK_MS 之内是 tick 粒度的正常抖动,照旧准点;超过它才按与启动恢复
+      // 同一套判据(missedOccurrence):宽限内且 run-once-late → 以 late 补跑一次;否则记 skipped、推进。
+      const missed = missedOccurrence(task, now);
+      if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
+        if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
+        const nextMs = nextFireAt(task.schedule, now);
+        task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+        await schedulerRecordMissedSkip(task, missed, now);
+        skippedAny = true;
+        continue;
+      }
       schedulerDispatchFire(task, 'ontime', Date.parse(task.state.nextFireAt));
     }
+    if (skippedAny) await schedulerSaveTasks();
   } catch (e) {
     schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
     try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError }); } catch { /* ignore */ }
@@ -681,6 +736,13 @@ async function startScheduler(schedConfig) {
   schedulerRuntime.started = true;
   schedulerRuntime.generation += 1;
   const rows = await schedulerLoad();
+  if (!schedulerRuntime.loaded) {
+    // hunt2-P6:任务表在却读不出来 —— 不恢复、不起 interval(恢复会写盘)。退回「未启动」,路由闸下次装载成功时再起。
+    schedulerRuntime.started = false;
+    schedulerRuntime.startDeferred = true;
+    return false;
+  }
+  schedulerRuntime.startDeferred = false;
   await schedulerRecover(rows);
   schedulerEnsureTimer();
   // 起完就先跑一拍(不等第一个 30 s):补跑队列与「服务没开着的时候刚好到点」都该立刻见效。
@@ -776,6 +838,12 @@ async function schedulerRouteGate(req, res) {
     return '';
   }
   await schedulerLoad();
+  if (!schedulerRuntime.loaded) {
+    send(res, apiFailure('scheduler.unavailable', {}, 'the scheduler task table exists but could not be read; nothing was changed', 503));
+    return '';
+  }
+  // hunt2-P6:启动那一刻读失败而没起来的调度器,在这里装载成功后补起(startScheduler 自己幂等)。
+  if (schedulerRuntime.startDeferred && !schedulerRuntime.started) await startScheduler(config);
   return schedulerLocaleOf(req);
 }
 
@@ -817,7 +885,9 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     let body = {};
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
-    const current = schedulerRuntime.tasks[index];
+    // 读 body 期间表可能变过(并发 DELETE):按 id 重新找,不拿旧下标。
+    const current = schedulerRuntime.tasks.find(task => task.id === id);
+    if (!current) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
     // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
     // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
@@ -846,11 +916,16 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     normalized.task.state.inFlightRunId = current.state.inFlightRunId;
     // 从熔断里被重新打开:连败计数清零,否则下一次失败立刻再熔断。
     if (normalized.task.state.enabled && !current.state.enabled) normalized.task.state.consecutiveFailures = 0;
-    schedulerRuntime.tasks[index] = normalized.task;
+    // hunt2-P1:【原地】换内容,不换对象。在飞的 schedulerFireOnce 攥着的就是 current 这个对象 —— 修前这里
+    // 换成新对象,在飞那一次收尾时把 inFlightRunId 清在已经不在表里的旧对象上,表里的新对象永远带着一个
+    // 不会被清的 inFlightRunId(run-now 永远 409、tick 永远跳过,落盘后重启还会被当成崩溃残留)。
+    // 在飞那一次此后读 task.state 拿到的是这里的新 state(已带着 inFlightRunId),收尾照常清掉它。
+    for (const key of Object.keys(current)) if (!Object.prototype.hasOwnProperty.call(normalized.task, key)) delete current[key];
+    Object.assign(current, normalized.task);
     await schedulerSaveTasks();
     schedulerEnsureTimer();
     schedulerEmitChanged(id, 'updated', '');
-    return send(res, json({ ok: true, task: schedulerPublicTask(normalized.task, locale) }));
+    return send(res, json({ ok: true, task: schedulerPublicTask(current, locale) }));
   }
 
   if ((req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))
@@ -878,8 +953,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (task.state.inFlightRunId) {
       return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
     }
-    if (schedulerRuntime.ticking) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'the scheduler is busy with another task (global concurrency is 1)', 409));
+    if (schedulerRuntime.inFlightTaskIds.has(task.id)) {
+      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
     }
     // 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
     // occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,
@@ -887,10 +962,12 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     // 往后挪到第一个没被用过的毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
     let manualDueMs = schedulerClockNow();
     while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
-    schedulerRuntime.ticking = true;
+    // hunt2-P10:修前这里整段拿着 ticking(tick 重入闸),手动那一次的回合跑多久,其它任务就多久派不出单
+    // (tick 一进来就 return)。现在只挡【这一条任务】:inFlightTaskIds 与 tick 的派单共用同一张表。
+    schedulerRuntime.inFlightTaskIds.add(task.id);
     let outcome = '';
     try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-    finally { schedulerRuntime.ticking = false; }
+    finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
     return send(res, json({ ok: true, outcome, task: schedulerPublicTask(task, locale) }));
   }
 

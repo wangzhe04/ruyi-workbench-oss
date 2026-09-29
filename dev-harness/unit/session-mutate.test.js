@@ -12,6 +12,10 @@
 //   [M5] mutator 返回 { abort } ⇒ 不写,value 带回。
 //   [D1] 任务驱动器手里的对象是撤回之前读出来的 ⇒ 一个回合都不起(修前:照起,每一存都被静默丢掉)。
 //   [D2] 对照:对象不陈旧时驱动器照常起回合。
+//   [M6] hunt2-P4:同一会话上并发的 mutateSession(各改各的头字段)⇒ 两边的改动【都在】(修前 20/20 丢一边:
+//        各自读到同一份旧头、后存者整份盖掉先存者)。updateSessionMeta 与 mutateSession 并发同样不丢。
+//   [M7] hunt2-P4 不死锁:读改写链与 saveSession 自己的写链、与「活回合」那种直接 saveSession 的写者交错
+//        (mutator 里还夹着一次直接 saveSession),全部在限时内完成,且各自的改动都落盘。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -21,7 +25,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-session-mutate-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = root;
 process.env.RUYI_HOME = root;
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
-const { createSession, loadSession, saveSession, mutateSession, sessionObjectIsStale, runMissionDriver } = srv;
+const { createSession, loadSession, saveSession, mutateSession, updateSessionMeta, sessionObjectIsStale, runMissionDriver } = srv;
 
 async function freshSession(messages = 4) {
   const msgs = [];
@@ -88,6 +92,51 @@ test('[M5] abort ⇒ 不写', async () => {
   assert.equal(r.ok, false);
   assert.equal(r.value, 'why');
   assert.ok(!((await loadSession(id)).todos || []).some(t => t.content === 'no'));
+});
+
+test('[M6] 并发 mutateSession / updateSessionMeta 各改各的字段 ⇒ 改动都在', async () => {
+  const id = await freshSession();
+  let lost = 0;
+  for (let i = 0; i < 20; i++) {
+    await Promise.all([
+      mutateSession(id, x => { x.todos = [{ content: 't' + i, status: 'pending' }]; }, { writer: 'todo' }),
+      mutateSession(id, x => { x.skills = [{ id: 'sk' + i, source: '' }]; }, { writer: 'skills' }),
+      updateSessionMeta(id, { title: 'title-' + i }),
+    ]);
+    const r = await loadSession(id);
+    const okT = r.todos && r.todos[0] && r.todos[0].content === 't' + i;
+    const okS = r.skills && r.skills[0] && r.skills[0].id === 'sk' + i;
+    const okM = r.title === 'title-' + i;
+    if (!(okT && okS && okM)) lost += 1;
+  }
+  assert.equal(lost, 0, `并发读改写丢了 ${lost}/20 轮`);
+});
+
+test('[M7] 读改写链与写链、与直接 saveSession 的写者交错不死锁', async () => {
+  const id = await freshSession(4);
+  const live = await loadSession(id);           // 「活回合」手里那份:只走 saveSession,不进读改写链
+  const work = [];
+  for (let i = 0; i < 10; i++) {
+    work.push(mutateSession(id, async x => {
+      // mutator 内夹一次对同一会话的直接 saveSession(撤回 / 旁路写者就是这么插进来的,见 [M2])
+      if (i % 3 === 0) { const other = await loadSession(id); other.memories = ['m' + i]; await saveSession(other); }
+      x.todos = [{ content: 'k' + i, status: 'pending' }];
+    }, { writer: 'test' }));
+    live.messages.push({ role: 'assistant', content: 'live' + i });
+    work.push(saveSession(live));
+    work.push(updateSessionMeta(id, { title: 'n' + i }));
+  }
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('deadlock: 10 s 内没跑完')), 10000); });
+  try { await Promise.race([Promise.all(work), timeout]); } finally { clearTimeout(timer); }
+  // 「活回合」那份对象的头字段是旧的,它与读改写谁后落盘谁赢(那是活回合一侧既有守卫的事,不归这里);
+  // 这里只钉:全部跑完之后两条链都还通,再来一发读改写与元数据补丁照常落盘。
+  await mutateSession(id, x => { x.todos = [{ content: 'after', status: 'pending' }]; }, { writer: 'test' });
+  await updateSessionMeta(id, { title: 'after' });
+  const disk = await loadSession(id);
+  assert.deepEqual(disk.todos, [{ content: 'after', status: 'pending' }]);
+  assert.equal(disk.title, 'after');
+  assert.ok(disk.messages.some(m => m.content === 'live9'), '活回合那一侧的消息也在');
 });
 
 function driverMission() {

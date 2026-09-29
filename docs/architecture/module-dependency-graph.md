@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 2944 | 2890 | 509 | 68 | 0 | 1 |
+| 66 | 2959 | 2890 | 509 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -22,12 +22,12 @@
 | 4 | `01d-win-cmdline.js` | foundation | 10 | 0 | 0 |
 | 5 | `01e-permission-modes.js` | foundation | 10 | 1 | 1 |
 | 6 | `01f-agent-cli-types.js` | foundation | 4 | 1 | 1 |
-| 7 | `01-config.js` | foundation | 155 | 52 | 12 |
+| 7 | `01-config.js` | foundation | 160 | 52 | 12 |
 | 8 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 14 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 240 | 68 | 16 |
+| 12 | `02-session-store.js` | foundation | 248 | 68 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 78 | 23 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 144 | 36 | 9 |
@@ -77,7 +77,7 @@
 | 59 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 18 |
 | 60 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 61 | `13r-event-stream.js` | transport | 23 | 17 | 6 |
-| 62 | `13s-scheduler.js` | transport | 47 | 34 | 8 |
+| 62 | `13s-scheduler.js` | transport | 49 | 34 | 8 |
 | 63 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
 | 64 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
 | 65 | `14-main.js` | entrypoint | 1 | 570 | 42 |
