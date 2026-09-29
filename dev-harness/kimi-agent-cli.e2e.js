@@ -253,7 +253,9 @@ function stream(port, body, onEvent) {
       res.on('end', () => resolve(events));
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(new Error('stream timeout')); });
+    // Windows CI 上偶发首跑 30 s 无事件(PR #15 / #17 的 flaky 名单):报错里带上是哪一个场景、最后收到了哪几种事件,
+    // 下一次出现就能直接看出卡在哪一步,而不是只剩一行 stream timeout。
+    req.on('timeout', () => { req.destroy(new Error(`stream timeout (30 s without data): message=${JSON.stringify(body && body.message)} events=${events.length} last=${JSON.stringify(events.slice(-5).map(e => e && e.type))}`)); });
     req.end(raw);
   });
 }

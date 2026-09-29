@@ -98,9 +98,10 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
     ok(!!(fnM && pwM), 'P1#2 isSensitiveDataPath + pathWithinRoot 可抽取');
     if (fnM && pwM) {
       const D = path.join('C:', 'data');
-      // isSensitiveDataPath 依赖 dataRoot()、_dataRootReal(module let)、pathWithinRoot、path —— 注入/本地声明。
-      const make = new Function('path', 'dataRoot', 'let _dataRootReal = null;\n' + pwM[0] + '\n' + fnM[0] + '\nreturn isSensitiveDataPath;');
-      const sens = make(path, () => D);
+      // isSensitiveDataPath 依赖 dataRoot()、dataRootAliases()(3.0 迁移后旧目录名的联接)、_dataRootReal(module let)、
+      // pathWithinRoot、path —— 注入/本地声明。
+      const make = new Function('path', 'dataRoot', 'dataRootAliases', 'let _dataRootReal = null;\n' + pwM[0] + '\n' + fnM[0] + '\nreturn isSensitiveDataPath;');
+      const sens = make(path, () => D, () => []);
       ok(sens(path.join(D, 'config.json')) === true, 'P1#2 config.json(明文 provider 密钥)拒');
       ok(sens(path.join(D, 'runtime.json')) === true, 'P1#2 runtime.json(明文 WCW_TOKEN)拒 ← 对抗轮补漏');
       ok(sens(path.join(D, 'sessions', 's1.json')) === true, 'P1#2 sessions/ 完整 transcript 拒');
@@ -110,10 +111,15 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
       ok(sens(path.join(D, 'checkpoints', 'c.gz')) === false, 'P1#2 checkpoints/ 内容 允许');
       // realpath 对称: 注入一个把 junction 根 L 解析到真实根 D 的 _dataRootReal,验证以真实根表达的敏感文件仍被命中。
       const L = path.join('C:', 'link');
-      const make2 = new Function('path', 'dataRoot', 'let _dataRootReal = ' + JSON.stringify(D) + ';\n' + pwM[0] + '\n' + fnM[0] + '\nreturn isSensitiveDataPath;');
-      const sens2 = make2(path, () => L); // 词法根=L(junction),realpath 根=D
+      const make2 = new Function('path', 'dataRoot', 'dataRootAliases', 'let _dataRootReal = ' + JSON.stringify(D) + ';\n' + pwM[0] + '\n' + fnM[0] + '\nreturn isSensitiveDataPath;');
+      const sens2 = make2(path, () => L, () => []); // 词法根=L(junction),realpath 根=D
       ok(sens2(path.join(D, 'config.json')) === true, 'P1#2 junction 部署: 以 realpath 后根表达的 config.json 仍拒 ← 对抗轮补漏');
       ok(sens2(path.join(L, 'config.json')) === true, 'P1#2 junction 部署: 以词法根表达的 config.json 仍拒(双根前缀)');
+      // 3.0 数据目录改名:旧目录名 ~/.win-claude-workbench 是指回新目录的联接(dataRootAliases),经它的词法路径同样拒。
+      const A = path.join('C:', 'legacy-alias');
+      const sens3 = make(path, () => D, () => [A]);
+      ok(sens3(path.join(A, 'config.json')) === true && sens3(path.join(A, 'sessions', 's.json')) === true, 'P1#2 3.0 改名: 经旧目录名联接(dataRootAliases)的词法路径同样拒');
+      ok(sens3(path.join(A, 'uploads', 'u.png')) === false, 'P1#2 3.0 改名: 经旧目录名的 uploads/ 产物照样允许');
     }
   }
 
