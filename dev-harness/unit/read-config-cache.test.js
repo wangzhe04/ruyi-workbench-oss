@@ -7,6 +7,8 @@
 //   [C4] 外部改写:换内容/换大小/同大小换 mtime,下一次读都看得见(戳变即失效);
 //   [C5] racy 保护:刚写下的文件不入缓存 —— 同大小、同 mtime 的原地二次改写也读得到(戳完全相同也不会陈旧命中);
 //   [C6] 进程内写(mutateConfig → writeConfig → writeConfigAtomic):写完立刻读到新值。
+//   [C7] 同大小原地改写后把 mtime【还原】成原值(cp -p / rsync -t / robocopy /COPY:DAT 的形状):size、mtime、ino 全不变,
+//        只有 ctime 变 —— 也必须读到新值(审查轮复现过:修前一直返回旧配置,下一次 mutateConfig 还会把旧值写回去)。
 'use strict';
 
 const assert = require('assert');
@@ -112,6 +114,20 @@ describe('readConfig 读缓存', () => {
     writeRaw(raw => { raw.appendSystemPrompt = 'b-longer-value'; });   // 与上一值等长
     ageFile(90);
     assert.strictEqual((await srv.readConfig()).appendSystemPrompt, 'b-longer-value');
+  });
+
+  it('[C7] 同大小改写并还原 mtime:仍读到新值', async () => {
+    writeRaw(raw => { raw.appendSystemPrompt = 'c-longer-value'; });
+    await settle();
+    const oldTimes = fs.statSync(cfgFile);
+    const stable = configReads;
+    await srv.readConfig();
+    assert.strictEqual(configReads, stable, '前提:此刻是命中态');
+    await new Promise(r => setTimeout(r, 20));
+    writeRaw(raw => { raw.appendSystemPrompt = 'd-longer-value'; });   // 与上一值等长
+    fs.utimesSync(cfgFile, oldTimes.atime, oldTimes.mtime);            // mtime 还原成改写前那一刻
+    assert.strictEqual(fs.statSync(cfgFile).mtimeMs, oldTimes.mtimeMs, '前提:mtime 与改写前逐位相同');
+    assert.strictEqual((await srv.readConfig()).appendSystemPrompt, 'd-longer-value');
   });
 
   it('[C5] racy 保护:刚写下的文件不入缓存 —— 同大小、同 mtime 的原地二次改写也读得到', async () => {

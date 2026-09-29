@@ -50,8 +50,10 @@ const pretenderIndexRuntime = {
   verifyTimer: null,
   knownMasks: new Map(),        // 会话 id -> 文件组成(1 = 会话头,2 = Intervention journal),名单比对的基准
   usageSeq: null,               // 已吸收到的用量账变更序号(00-boot usageLedgerChangesSince);null = 基准未知,下一次整份对账
-  // ownMarks —— 本进程写口打脏页的累计次数;ownMarksAtScan —— 上一次看目录(名单比对或全量扫描)时的值。
-  //   目录指纹变了、而这期间本进程一次脏页都没打:这次变化只可能来自外部(导入 / 手工编辑 / 夹具原地替换),
+  // ownMarks —— 本进程写口打脏页的累计次数;ownMarksAtScan —— 上一次看目录(名单比对或全量扫描)时的
+  //   pretenderOwnWriteSeq()(脏页次数 + 01 的 sessionsDirOwnWriteSeq:会话索引、搜索索引这类不打脏页、但同样落在
+  //   sessions 目录里的原子写 —— 审查轮复现过:漏掉它们时每次落盘后的下一次读都多付一遍全量扫描)。
+  //   目录指纹变了、而这期间本进程一次都没写过:这次变化只可能来自外部(导入 / 手工编辑 / 夹具原地替换),
   //   当次就做一遍全量比对(121-K3 的「下一次读就看得见」逐字保住);有本进程写入时照旧只比名单。
   ownMarks: 0,
   ownMarksAtScan: 0,
@@ -92,8 +94,9 @@ function pretenderSourcesTrusted(dirStamp) {
 function pretenderNoteSourcesScan(dirStamp) {
   pretenderIndexRuntime.sourcesDirStamp = dirStamp;
   pretenderIndexRuntime.sourcesScannedAt = Date.now();
-  pretenderIndexRuntime.ownMarksAtScan = pretenderIndexRuntime.ownMarks;
+  pretenderIndexRuntime.ownMarksAtScan = pretenderOwnWriteSeq();
 }
+function pretenderOwnWriteSeq() { return pretenderIndexRuntime.ownMarks + sessionsDirOwnWriteSeq; }
 
 function pretenderIndexPath() {
   return path.join(paths.sessions, PRETENDER_INDEX_DIR, PRETENDER_INDEX_FILE);
@@ -421,7 +424,7 @@ async function pretenderRunVerify() {
   const dirStamp = await pretenderSessionsDirStamp();
   const sources = await scanPretenderSessionSources();
   pretenderIndexRuntime.verifyScan = { sources, dirStamp };
-  return getPretenderProjectionIndex();
+  return getPretenderProjectionIndexShared();   // 自己这次构建不再武装下一轮:没人读时后台校验就停下,不空转
 }
 function pretenderScheduleVerify() {
   if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyScan) return;
@@ -540,7 +543,7 @@ async function buildOrLoadPretenderIndex() {
       pretenderIndexRuntime.persisted = false;
     }
   } else if (pretenderIndexRuntime.value && pretenderIndexRuntime.sourcesDirStamp !== dirStamp
-    && pretenderIndexRuntime.ownMarks === pretenderIndexRuntime.ownMarksAtScan) {
+    && pretenderOwnWriteSeq() === pretenderIndexRuntime.ownMarksAtScan) {
     const base = pretenderIndexRuntime.value;
     const sources = await scanPretenderSessionSources();
     pretenderNoteSourcesScan(dirStamp);
@@ -565,7 +568,6 @@ async function buildOrLoadPretenderIndex() {
       pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, changed, new Set(), 'sources_dir_changed');
       pretenderIndexRuntime.persisted = false;   // 变过就得重新落盘(下面统一那一处写)
     }
-    pretenderScheduleVerify();
   }
 
   let value = pretenderIndexRuntime.value;
@@ -639,12 +641,20 @@ async function buildOrLoadPretenderIndex() {
 
 // 测试直调(unit/pretender-index-incremental):计数、立即走一次后台校验、立即落盘。不改任何行为。
 const pretenderIndexTestHooks = {
-  stats: () => ({ ...pretenderIndexRuntime.counters, persisted: pretenderIndexRuntime.persisted }),
+  stats: () => ({ ...pretenderIndexRuntime.counters, persisted: pretenderIndexRuntime.persisted, verifyArmed: Boolean(pretenderIndexRuntime.verifyTimer) }),
   verifyNow: () => pretenderRunVerify(),
   flushPersist: () => flushPretenderPersist(),
 };
 
+// 审查轮:后台校验由【每一次真实读取】武装(PRETENDER_VERIFY_MS 一轮),不再只在「目录变过」之后武装一次 ——
+// 修前原地改写已有文件(目录 mtime 不动)永远不会被看见,校验跑过一次之后也不再重来。
+// 校验自己触发的那次构建走 getPretenderProjectionIndexShared,不武装:页面关了、没人读,后台就不再扫。
 async function getPretenderProjectionIndex() {
+  const index = await getPretenderProjectionIndexShared();
+  if (pretenderIndexRuntime.value) pretenderScheduleVerify();
+  return index;
+}
+async function getPretenderProjectionIndexShared() {
   if (pretenderIndexRuntime.building) return pretenderIndexRuntime.building;
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;

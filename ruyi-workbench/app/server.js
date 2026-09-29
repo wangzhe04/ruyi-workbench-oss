@@ -3634,6 +3634,14 @@ function normalizeConfig(raw, opts = {}) {
 
 // 110-2b: 运行时开关判定函数抽至 01c-runtime-flags.js。
 
+// 本进程落进 sessions 目录【本层】的原子写次数(会话头、会话索引、搜索索引……)。13e 投影索引据此区分
+// 「目录 mtime 变了是自己写的」还是外部改动(外部改动当次做全量比对,自己写的只比名单)。写前、写后各记一次:
+// 临时文件落下与 rename 各改一次目录 mtime,两次之间来的读也得认得出是自己。
+let sessionsDirOwnWriteSeq = 0;
+function noteSessionsDirOwnWrite(file) {
+  if (paths && paths.sessions && path.dirname(String(file || '')) === paths.sessions) sessionsDirOwnWriteSeq += 1;
+}
+
 // ============================================================================
 // 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
@@ -3644,22 +3652,27 @@ function normalizeConfig(raw, opts = {}) {
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
-  const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-  const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
-  // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
-  // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-  try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
-  catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
-  const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
-  for (let attempt = 0; ; attempt++) {
-    try { await fsp.rename(tmpPath, finalPath); return; }
-    catch (e) {
-      const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
-      if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
-      try { await fsp.unlink(tmpPath); } catch { /* best-effort tmp cleanup */ }
-      throw e;
+  // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
+  const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
+  noteOwn(finalPath);
+  try {
+    const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
+    // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
+    // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
+    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.rename(tmpPath, finalPath); return; }
+      catch (e) {
+        const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
+        if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
+        try { await fsp.unlink(tmpPath); } catch { /* best-effort tmp cleanup */ }
+        throw e;
+      }
     }
-  }
+  } finally { noteOwn(finalPath); }
 }
 
 // 117q-B6(30 号文 P2-10):「读文件末尾 N 字节」原语【统一入口】。此前四处独立手写同一套动作
@@ -3931,7 +3944,8 @@ let configReadCache = null;   // { key, claudeProbe, kimiProbe, snapshot }
 async function configFileStamp() {
   try {
     const st = await fsp.stat(paths.config, { bigint: true });
-    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+    // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
+    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
   } catch { return null; }
 }
 function cloneConfigSnapshot(config) {
@@ -7245,6 +7259,7 @@ function flushSessionIndexSync() {
     try {
       fs.writeFileSync(tmpPath, JSON.stringify([...map.values()], null, 2), 'utf8');
       fs.renameSync(tmpPath, finalPath);
+      noteSessionsDirOwnWrite(finalPath);   // 13e:这次目录变化是自己写的
     } catch (e) { try { fs.unlinkSync(tmpPath); } catch { /* best-effort */ } throw e; }
   } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
 }
@@ -10126,7 +10141,9 @@ async function journalGc(sessionId, knownIndex) {
     if (!needSweep) return; // fast path: confidently under budget, no sweep
     // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
     // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
-    // (真要删东西)时照旧同步等它做完,上限依旧是硬的。每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
+    // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
+    // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
+    // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
     const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (overBudget) await journalGlobalSweepOnce();
     else void journalGlobalSweepOnce();
@@ -25988,12 +26005,16 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 //      retrievalVector 的累加次序因此不变),不再每次重新分词;
 //   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。
 // 每个调用点各持一份(会话搜索、记忆召回),互不干扰。
-function createRetrievalCorpusCache() {
+// opts.maxTerms:词表上限(超了整份重来),缺省 200 万;只有单测会调小它来触发重置。
+function createRetrievalCorpusCache(opts = {}) {
+  const maxTerms = Number(opts && opts.maxTerms) > 0 ? Number(opts.maxTerms) : 2000000;
   const vocab = new Map();          // term -> id
   const termOf = [];                // id -> term
   const termHash = [];              // id -> fnv1a32(term)
   const docs = new Map();           // doc id -> { text, ids: Uint32Array, counts: Uint32Array }
   let last = null;                  // { ids, texts, corpus }
+  let generation = 0;               // 词表整份重来一次 +1:挂起中的异步装配据此作废重算(审查轮)
+  let buildChain = Promise.resolve();
   const termId = term => {
     let id = vocab.get(term);
     if (id === undefined) { id = termOf.length; vocab.set(term, id); termOf.push(term); termHash.push(fnv1a32(term)); }
@@ -26046,9 +26067,11 @@ function createRetrievalCorpusCache() {
   };
   // 装配(df 与向量)写成生成器:每算完一篇的向量 yield 一次。同步调用方一口气跑完,异步调用方隔几篇让一次事件循环 ——
   // 两条路径是同一份代码,结果相同。
+  // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长。每次装配开始前查一次。
+  const maybeReset = () => {
+    if (termOf.length > maxTerms) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; generation += 1; }
+  };
   function* assemble(documents) {
-    // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长
-    if (termOf.length > 2000000) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; }
     const ids = [], texts = [];
     for (const doc of documents || []) {
       if (!doc || !doc.id) continue;
@@ -26057,8 +26080,12 @@ function createRetrievalCorpusCache() {
     }
     if (last && last.ids.length === ids.length && last.ids.every((id, i) => id === ids[i] && last.texts[i] === texts[i])) return last.corpus;
     const entries = ids.map((id, i) => docTerms(id, texts[i]));
-    const keep = new Set(ids);
-    for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    // 不在这一批里的缓存条目只在超出上限时才清(审查轮:两批文档交替查询 —— 例如两个工作区的记忆召回 —— 每次都清掉
+    // 另一批,等于没有缓存)。上限按当前批的 4 倍、至少 2000 篇,内存仍有界。
+    if (docs.size > Math.max(2000, ids.length * 4)) {
+      const keep = new Set(ids);
+      for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    }
     const dfById = new Map();
     for (const entry of entries) for (let k = 0; k < entry.ids.length; k++) dfById.set(entry.ids[k], (dfById.get(entry.ids[k]) || 0) + 1);
     const docCount = entries.length;
@@ -26071,21 +26098,35 @@ function createRetrievalCorpusCache() {
     return corpus;
   }
   const corpusFor = function corpusFor(documents) {
+    maybeReset();
     const run = assemble(documents);
     let step = run.next();
     while (!step.done) step = run.next();
     return step.value;
   };
   // 异步版:先分片分词(prepare),装配时每 200 篇让一次。
-  corpusFor.build = async documents => {
-    await prepare(documents);
-    const run = assemble(documents);
-    let step = run.next(), n = 0;
-    while (!step.done) {
-      if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
-      step = run.next();
+  // 审查轮:同一份缓存上的异步装配一次只跑一个(串在 buildChain 上)—— 两个并发装配交错时,后一个触发的词表重置会让
+  // 前一个挂起中的生成器拿旧词号配新哈希表,算出错的向量。同步的 corpusFor 插进来重置了词表也一样:让出回来发现代数变了就整份重算。
+  const buildNow = async documents => {
+    for (;;) {
+      maybeReset();
+      const gen = generation;
+      await prepare(documents);
+      if (gen !== generation) continue;
+      const run = assemble(documents);
+      let step = run.next(), n = 0;
+      while (!step.done && gen === generation) {
+        if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
+        if (gen !== generation) break;
+        step = run.next();
+      }
+      if (step.done && gen === generation) return step.value;
     }
-    return step.value;
+  };
+  corpusFor.build = documents => {
+    const run = buildChain.then(() => buildNow(documents));
+    buildChain = run.catch(() => {});
+    return run;
   };
   corpusFor.prepare = prepare;
   return corpusFor;
@@ -33632,6 +33673,7 @@ async function saveAgentRun(run) {
     try {
       const runFile = agentRunFile(run.sessionId, run.id);
       await atomicWriteJson(runFile, snapshot);
+      agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(runFile); // digest 摘要缓存:进程内写成功即作废该文件条目(见 listAgentRunDigests 头注)
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       // 128f-⑫:班组的状态真的换了(跑着/暂停/等池/收尾……)才派一发 —— 左栏行上的「暂停／继续」、焦点栏的班组段读的
@@ -33686,7 +33728,10 @@ async function listAgentRuns(sessionId) {
 //   · 完整视图/其它 listAgentRuns 调用方不走这里,仍读全量,行为不变。
 // agentRunDigestStats 是给测试数「读了几个 run 文件」的确定性计数(不靠墙钟)。
 const AGENT_RUN_DIGEST_CACHE_MAX = 4096;
-const agentRunDigestCache = new Map(); // 绝对文件路径 -> { mtimeMs, size, ino, shadow|null }
+const agentRunDigestCache = new Map(); // 绝对文件路径 -> { mtimeMs, ctimeMs, size, ino, shadow|null }
+// 进程内每写 / 删一个 run 文件 +1。列举时 stat 之前记下,填缓存之前比一眼:期间有写就不填(审查轮:ino 恒 0、mtime 粒度粗的
+// 文件系统上,「stat → 写者 rename + delete 条目 → 列举把旧内容 set 进去」会把旧摘要钉在新戳下,直到下一次写)。
+let agentRunDigestWriteSeq = 0;
 const agentRunDigestStats = { reads: 0, hits: 0 };
 // 磁盘快照里 digest 视图会读到的全部字段(与 13d handleAgentRunApiRoutes 的 digest 逐字段同口径);
 // 取值表达式与旧的「(mem || r).xxx」写法一字不差,所以磁盘态的 digest 行与修前逐字节相同。
@@ -33709,9 +33754,10 @@ async function listAgentRunDigests(sessionId) {
   for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
     const full = path.join(dir, file);
     try {
+      const writeSeq = agentRunDigestWriteSeq;
       const st = await fsp.stat(full);
       const hit = agentRunDigestCache.get(full);
-      if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size && hit.ino === st.ino) {
+      if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
         agentRunDigestStats.hits += 1;
         if (hit.shadow) out.push(hit.shadow);
         continue;
@@ -33720,7 +33766,7 @@ async function listAgentRunDigests(sessionId) {
       const run = safeJsonParse(await fsp.readFile(full, 'utf8'), null);
       const shadow = run ? agentRunDigestShadow(run) : null;   // 坏/空快照也记一笔(同戳不再重读),与 listAgentRuns 一样跳过
       if (agentRunDigestCache.size >= AGENT_RUN_DIGEST_CACHE_MAX && !agentRunDigestCache.has(full)) agentRunDigestCache.clear();
-      agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, size: st.size, ino: st.ino, shadow });
+      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow });
       if (shadow) out.push(shadow);
     } catch { agentRunDigestCache.delete(full); /* skip corrupt/incomplete records */ }
   }
@@ -51974,7 +52020,8 @@ async function refreshSessionSearchIndex(metas) {
   if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  const wrote = await atomicWriteJson(sessionSearchIndexPath(), payload).then(() => true, () => false);
+  // 性能批 C1:紧凑 JSON(3000 条会话时带缩进写出来有 34 MB,每次会话有变都整份重写一遍)
+  const wrote = await atomicWriteJson(sessionSearchIndexPath(), JSON.stringify(payload)).then(() => true, () => false);
   if (wrote) {
     try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
   }
@@ -52015,6 +52062,19 @@ function sessionSearchSnippet(unit, terms) {
 //      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
 //   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
 //      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
+// 性能批 C1:会话搜索每敲一个字就查一次。语料(分词、df、向量)与每篇的「小写 + 空白折叠」都按条目缓存 ——
+// 条目在会话没变时是同一个对象(refreshSessionSearchIndex 原样复用),结果与逐次现算逐位相同。
+let sessionSearchCorpusCache = null;
+const sessionSearchHayMemo = new WeakMap();   // 条目对象 -> { unit, hay }
+function sessionSearchHayOf(entry) {
+  const hit = sessionSearchHayMemo.get(entry);
+  if (hit && hit.unit === entry.unit) return hit.hay;
+  // 查询词(retrievalTerms 产出的)不含空白,所以在折叠过空白的文本里 includes 与在原文里结果相同;
+  // 整句 phrase 本来就是在折叠后的文本里比。一份就够两用。
+  const hay = String(entry.unit).toLowerCase().replace(/\s+/g, ' ');
+  sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
+  return hay;
+}
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
@@ -52031,8 +52091,13 @@ async function searchSessionsByContent(query, limit) {
   const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
   const needed = Math.max(1, Math.ceil(terms.length / 2));
   const scores = new Map();
+  // 性能批 C1:首次(或会话大批变化后)要给几千篇现算小写 + 折叠,先分片预热、每 100 篇让一次事件循环
+  for (let i = 0; i < documents.length; i++) {
+    sessionSearchHayOf(entries[documents[i].id]);
+    if (i % 100 === 99) await new Promise(resolve => setImmediate(resolve));
+  }
   for (const doc of documents) {
-    const hay = doc.text.toLowerCase();
+    const hay = sessionSearchHayOf(entries[doc.id]);
     const meta = byId.get(doc.id) || {};
     const brief = sessionBriefOf(meta);
     const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
@@ -52043,7 +52108,7 @@ async function searchSessionsByContent(query, limit) {
       const weight = Math.min(12, Math.max(2, term.length));
       score += titleHay.includes(term) ? weight * 2 : weight;
     }
-    const exact = phrase.length >= 2 && hay.replace(/\s+/g, ' ').includes(phrase);
+    const exact = phrase.length >= 2 && hay.includes(phrase);
     if (!exact && matched < needed) continue;
     if (exact) score += 30;
     if (terms.length && matched === terms.length) score += 10;
@@ -52051,7 +52116,8 @@ async function searchSessionsByContent(query, limit) {
   }
   const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
 
-  const corpus = buildRetrievalCorpus(documents);
+  if (!sessionSearchCorpusCache) sessionSearchCorpusCache = createRetrievalCorpusCache();
+  const corpus = await sessionSearchCorpusCache.build(documents);
   const vector = rankRetrievalCorpus(corpus, q);
   const top = vector.length ? vector[0].score : 0;
   const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
@@ -52290,9 +52356,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
       // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
       const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      // 审查轮:活态在盘上戳【之前】取。反过来(先戳后活态)时,两次取样之间「落盘 + 活态翻转」可能拼出一个等于客户端手上旧标签的
+      // 组合(旧盘 + 新活态),回一次不该回的 304;先取活态,竞态最多多回一次 200。
+      const preLive = sessionEnvelopeLiveParts(id);
       const envelopeStamp = await sessionEnvelopeStamp(id);
       if (envelopeStamp) {
-        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, sessionEnvelopeLiveParts(id), sinceRaw);
+        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
       const session = await loadSession(id);
@@ -54203,6 +54272,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
+      agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
@@ -54289,8 +54359,10 @@ const pretenderIndexRuntime = {
   verifyTimer: null,
   knownMasks: new Map(),        // 会话 id -> 文件组成(1 = 会话头,2 = Intervention journal),名单比对的基准
   usageSeq: null,               // 已吸收到的用量账变更序号(00-boot usageLedgerChangesSince);null = 基准未知,下一次整份对账
-  // ownMarks —— 本进程写口打脏页的累计次数;ownMarksAtScan —— 上一次看目录(名单比对或全量扫描)时的值。
-  //   目录指纹变了、而这期间本进程一次脏页都没打:这次变化只可能来自外部(导入 / 手工编辑 / 夹具原地替换),
+  // ownMarks —— 本进程写口打脏页的累计次数;ownMarksAtScan —— 上一次看目录(名单比对或全量扫描)时的
+  //   pretenderOwnWriteSeq()(脏页次数 + 01 的 sessionsDirOwnWriteSeq:会话索引、搜索索引这类不打脏页、但同样落在
+  //   sessions 目录里的原子写 —— 审查轮复现过:漏掉它们时每次落盘后的下一次读都多付一遍全量扫描)。
+  //   目录指纹变了、而这期间本进程一次都没写过:这次变化只可能来自外部(导入 / 手工编辑 / 夹具原地替换),
   //   当次就做一遍全量比对(121-K3 的「下一次读就看得见」逐字保住);有本进程写入时照旧只比名单。
   ownMarks: 0,
   ownMarksAtScan: 0,
@@ -54331,8 +54403,9 @@ function pretenderSourcesTrusted(dirStamp) {
 function pretenderNoteSourcesScan(dirStamp) {
   pretenderIndexRuntime.sourcesDirStamp = dirStamp;
   pretenderIndexRuntime.sourcesScannedAt = Date.now();
-  pretenderIndexRuntime.ownMarksAtScan = pretenderIndexRuntime.ownMarks;
+  pretenderIndexRuntime.ownMarksAtScan = pretenderOwnWriteSeq();
 }
+function pretenderOwnWriteSeq() { return pretenderIndexRuntime.ownMarks + sessionsDirOwnWriteSeq; }
 
 function pretenderIndexPath() {
   return path.join(paths.sessions, PRETENDER_INDEX_DIR, PRETENDER_INDEX_FILE);
@@ -54660,7 +54733,7 @@ async function pretenderRunVerify() {
   const dirStamp = await pretenderSessionsDirStamp();
   const sources = await scanPretenderSessionSources();
   pretenderIndexRuntime.verifyScan = { sources, dirStamp };
-  return getPretenderProjectionIndex();
+  return getPretenderProjectionIndexShared();   // 自己这次构建不再武装下一轮:没人读时后台校验就停下,不空转
 }
 function pretenderScheduleVerify() {
   if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyScan) return;
@@ -54779,7 +54852,7 @@ async function buildOrLoadPretenderIndex() {
       pretenderIndexRuntime.persisted = false;
     }
   } else if (pretenderIndexRuntime.value && pretenderIndexRuntime.sourcesDirStamp !== dirStamp
-    && pretenderIndexRuntime.ownMarks === pretenderIndexRuntime.ownMarksAtScan) {
+    && pretenderOwnWriteSeq() === pretenderIndexRuntime.ownMarksAtScan) {
     const base = pretenderIndexRuntime.value;
     const sources = await scanPretenderSessionSources();
     pretenderNoteSourcesScan(dirStamp);
@@ -54804,7 +54877,6 @@ async function buildOrLoadPretenderIndex() {
       pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, changed, new Set(), 'sources_dir_changed');
       pretenderIndexRuntime.persisted = false;   // 变过就得重新落盘(下面统一那一处写)
     }
-    pretenderScheduleVerify();
   }
 
   let value = pretenderIndexRuntime.value;
@@ -54878,12 +54950,20 @@ async function buildOrLoadPretenderIndex() {
 
 // 测试直调(unit/pretender-index-incremental):计数、立即走一次后台校验、立即落盘。不改任何行为。
 const pretenderIndexTestHooks = {
-  stats: () => ({ ...pretenderIndexRuntime.counters, persisted: pretenderIndexRuntime.persisted }),
+  stats: () => ({ ...pretenderIndexRuntime.counters, persisted: pretenderIndexRuntime.persisted, verifyArmed: Boolean(pretenderIndexRuntime.verifyTimer) }),
   verifyNow: () => pretenderRunVerify(),
   flushPersist: () => flushPretenderPersist(),
 };
 
+// 审查轮:后台校验由【每一次真实读取】武装(PRETENDER_VERIFY_MS 一轮),不再只在「目录变过」之后武装一次 ——
+// 修前原地改写已有文件(目录 mtime 不动)永远不会被看见,校验跑过一次之后也不再重来。
+// 校验自己触发的那次构建走 getPretenderProjectionIndexShared,不武装:页面关了、没人读,后台就不再扫。
 async function getPretenderProjectionIndex() {
+  const index = await getPretenderProjectionIndexShared();
+  if (pretenderIndexRuntime.value) pretenderScheduleVerify();
+  return index;
+}
+async function getPretenderProjectionIndexShared() {
   if (pretenderIndexRuntime.building) return pretenderIndexRuntime.building;
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;
@@ -56363,9 +56443,10 @@ async function stewardInboxRead(opts) {
 let stewardInboxCountsMemo = null;   // { key, byKind, inboxSeq }
 async function stewardInboxCounts() {
   const file = stewardInboxPath();
-  let key = '';
+  let key = '', size = 0;
   try {
     const st = await fsp.stat(file);
+    size = st.size;
     key = [file, st.size, st.mtimeMs, st.ino].join('|');
   } catch { /* 文件不存在:下面按空箱子算,不进备忘 */ }
   if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) return stewardInboxCountsMemo;
@@ -56378,7 +56459,9 @@ async function stewardInboxCounts() {
     if (Object.prototype.hasOwnProperty.call(byKind, row.kind)) byKind[row.kind] += 1;
   }
   const counts = { key, byKind, inboxSeq };
-  stewardInboxCountsMemo = key ? counts : null;
+  // 文件非空却一行都没读出来:多半是这一次读撞上瞬时锁(stewardReadInboxText 吞掉错误回空串;Windows 杀软 / 索引器
+  // 常见),别把「空箱子」记进备忘 —— 否则文件不再变就一直报零(审查轮复现过)。下一次照旧重读。
+  stewardInboxCountsMemo = key && (size === 0 || rows.length > 0) ? counts : null;
   return counts;
 }
 

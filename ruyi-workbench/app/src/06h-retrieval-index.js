@@ -173,12 +173,16 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
 //      retrievalVector 的累加次序因此不变),不再每次重新分词;
 //   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。
 // 每个调用点各持一份(会话搜索、记忆召回),互不干扰。
-function createRetrievalCorpusCache() {
+// opts.maxTerms:词表上限(超了整份重来),缺省 200 万;只有单测会调小它来触发重置。
+function createRetrievalCorpusCache(opts = {}) {
+  const maxTerms = Number(opts && opts.maxTerms) > 0 ? Number(opts.maxTerms) : 2000000;
   const vocab = new Map();          // term -> id
   const termOf = [];                // id -> term
   const termHash = [];              // id -> fnv1a32(term)
   const docs = new Map();           // doc id -> { text, ids: Uint32Array, counts: Uint32Array }
   let last = null;                  // { ids, texts, corpus }
+  let generation = 0;               // 词表整份重来一次 +1:挂起中的异步装配据此作废重算(审查轮)
+  let buildChain = Promise.resolve();
   const termId = term => {
     let id = vocab.get(term);
     if (id === undefined) { id = termOf.length; vocab.set(term, id); termOf.push(term); termHash.push(fnv1a32(term)); }
@@ -231,9 +235,11 @@ function createRetrievalCorpusCache() {
   };
   // 装配(df 与向量)写成生成器:每算完一篇的向量 yield 一次。同步调用方一口气跑完,异步调用方隔几篇让一次事件循环 ——
   // 两条路径是同一份代码,结果相同。
+  // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长。每次装配开始前查一次。
+  const maybeReset = () => {
+    if (termOf.length > maxTerms) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; generation += 1; }
+  };
   function* assemble(documents) {
-    // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长
-    if (termOf.length > 2000000) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; }
     const ids = [], texts = [];
     for (const doc of documents || []) {
       if (!doc || !doc.id) continue;
@@ -242,8 +248,12 @@ function createRetrievalCorpusCache() {
     }
     if (last && last.ids.length === ids.length && last.ids.every((id, i) => id === ids[i] && last.texts[i] === texts[i])) return last.corpus;
     const entries = ids.map((id, i) => docTerms(id, texts[i]));
-    const keep = new Set(ids);
-    for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    // 不在这一批里的缓存条目只在超出上限时才清(审查轮:两批文档交替查询 —— 例如两个工作区的记忆召回 —— 每次都清掉
+    // 另一批,等于没有缓存)。上限按当前批的 4 倍、至少 2000 篇,内存仍有界。
+    if (docs.size > Math.max(2000, ids.length * 4)) {
+      const keep = new Set(ids);
+      for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    }
     const dfById = new Map();
     for (const entry of entries) for (let k = 0; k < entry.ids.length; k++) dfById.set(entry.ids[k], (dfById.get(entry.ids[k]) || 0) + 1);
     const docCount = entries.length;
@@ -256,21 +266,35 @@ function createRetrievalCorpusCache() {
     return corpus;
   }
   const corpusFor = function corpusFor(documents) {
+    maybeReset();
     const run = assemble(documents);
     let step = run.next();
     while (!step.done) step = run.next();
     return step.value;
   };
   // 异步版:先分片分词(prepare),装配时每 200 篇让一次。
-  corpusFor.build = async documents => {
-    await prepare(documents);
-    const run = assemble(documents);
-    let step = run.next(), n = 0;
-    while (!step.done) {
-      if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
-      step = run.next();
+  // 审查轮:同一份缓存上的异步装配一次只跑一个(串在 buildChain 上)—— 两个并发装配交错时,后一个触发的词表重置会让
+  // 前一个挂起中的生成器拿旧词号配新哈希表,算出错的向量。同步的 corpusFor 插进来重置了词表也一样:让出回来发现代数变了就整份重算。
+  const buildNow = async documents => {
+    for (;;) {
+      maybeReset();
+      const gen = generation;
+      await prepare(documents);
+      if (gen !== generation) continue;
+      const run = assemble(documents);
+      let step = run.next(), n = 0;
+      while (!step.done && gen === generation) {
+        if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
+        if (gen !== generation) break;
+        step = run.next();
+      }
+      if (step.done && gen === generation) return step.value;
     }
-    return step.value;
+  };
+  corpusFor.build = documents => {
+    const run = buildChain.then(() => buildNow(documents));
+    buildChain = run.catch(() => {});
+    return run;
   };
   corpusFor.prepare = prepare;
   return corpusFor;

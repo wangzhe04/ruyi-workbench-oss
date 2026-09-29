@@ -1050,6 +1050,7 @@ function flushSessionIndexSync() {
     try {
       fs.writeFileSync(tmpPath, JSON.stringify([...map.values()], null, 2), 'utf8');
       fs.renameSync(tmpPath, finalPath);
+      noteSessionsDirOwnWrite(finalPath);   // 13e:这次目录变化是自己写的
     } catch (e) { try { fs.unlinkSync(tmpPath); } catch { /* best-effort */ } throw e; }
   } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
 }
@@ -3931,7 +3932,9 @@ async function journalGc(sessionId, knownIndex) {
     if (!needSweep) return; // fast path: confidently under budget, no sweep
     // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
     // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
-    // (真要删东西)时照旧同步等它做完,上限依旧是硬的。每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
+    // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
+    // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
+    // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
     const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (overBudget) await journalGlobalSweepOnce();
     else void journalGlobalSweepOnce();

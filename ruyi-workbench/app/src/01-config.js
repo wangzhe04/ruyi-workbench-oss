@@ -1588,6 +1588,14 @@ function normalizeConfig(raw, opts = {}) {
 
 // 110-2b: 运行时开关判定函数抽至 01c-runtime-flags.js。
 
+// 本进程落进 sessions 目录【本层】的原子写次数(会话头、会话索引、搜索索引……)。13e 投影索引据此区分
+// 「目录 mtime 变了是自己写的」还是外部改动(外部改动当次做全量比对,自己写的只比名单)。写前、写后各记一次:
+// 临时文件落下与 rename 各改一次目录 mtime,两次之间来的读也得认得出是自己。
+let sessionsDirOwnWriteSeq = 0;
+function noteSessionsDirOwnWrite(file) {
+  if (paths && paths.sessions && path.dirname(String(file || '')) === paths.sessions) sessionsDirOwnWriteSeq += 1;
+}
+
 // ============================================================================
 // 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
@@ -1598,22 +1606,27 @@ function normalizeConfig(raw, opts = {}) {
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
-  const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-  const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
-  // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
-  // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-  try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
-  catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
-  const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
-  for (let attempt = 0; ; attempt++) {
-    try { await fsp.rename(tmpPath, finalPath); return; }
-    catch (e) {
-      const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
-      if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
-      try { await fsp.unlink(tmpPath); } catch { /* best-effort tmp cleanup */ }
-      throw e;
+  // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
+  const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
+  noteOwn(finalPath);
+  try {
+    const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
+    // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
+    // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
+    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.rename(tmpPath, finalPath); return; }
+      catch (e) {
+        const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
+        if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
+        try { await fsp.unlink(tmpPath); } catch { /* best-effort tmp cleanup */ }
+        throw e;
+      }
     }
-  }
+  } finally { noteOwn(finalPath); }
 }
 
 // 117q-B6(30 号文 P2-10):「读文件末尾 N 字节」原语【统一入口】。此前四处独立手写同一套动作
@@ -1885,7 +1898,8 @@ let configReadCache = null;   // { key, claudeProbe, kimiProbe, snapshot }
 async function configFileStamp() {
   try {
     const st = await fsp.stat(paths.config, { bigint: true });
-    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+    // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
+    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
   } catch { return null; }
 }
 function cloneConfigSnapshot(config) {

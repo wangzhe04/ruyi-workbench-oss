@@ -361,6 +361,7 @@
         "applyConfigMigrations",
         "assertSessionIdForPath",
         "atomicWriteJson",
+        "atomicWriteJsonInner",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
         "buildClaudeCliEnv",
@@ -442,6 +443,7 @@
         "normalizeDesktopPythonCandidate",
         "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
+        "noteSessionsDirOwnWrite",
         "originOk",
         "persistableConfig",
         "pickPython",
@@ -473,6 +475,7 @@
         "sessionMcpConfigSweepDone",
         "sessionPath",
         "sessionWriteChains",
+        "sessionsDirOwnWriteSeq",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
@@ -1346,6 +1349,13 @@
         {
           "provider": "01-config.js",
           "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "noteSessionsDirOwnWrite",
           "kinds": [
             "call"
           ]
@@ -6832,6 +6842,7 @@
         "agentRunDigestRow",
         "agentRunDigestShadow",
         "agentRunDigestStats",
+        "agentRunDigestWriteSeq",
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
@@ -13231,6 +13242,9 @@
         "sessionEnvelopeLiveParts",
         "sessionEnvelopeStamp",
         "sessionMessageText",
+        "sessionSearchCorpusCache",
+        "sessionSearchHayMemo",
+        "sessionSearchHayOf",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
         "sessionSearchRowIsNoise",
@@ -13834,7 +13848,7 @@
         },
         {
           "provider": "06h-retrieval-index.js",
-          "symbol": "buildRetrievalCorpus",
+          "symbol": "createRetrievalCorpusCache",
           "kinds": [
             "call"
           ]
@@ -13998,6 +14012,13 @@
           "symbol": "agentRunDigestRow",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestWriteSeq",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14179,6 +14200,7 @@
         "finishMissionUsage",
         "flushPretenderPersist",
         "getPretenderProjectionIndex",
+        "getPretenderProjectionIndexShared",
         "markPretenderIndexDirty",
         "overlayMissionCard",
         "paginatePretenderProjection",
@@ -14196,6 +14218,7 @@
         "pretenderLiveOverlayRevision",
         "pretenderNotModified",
         "pretenderNoteSourcesScan",
+        "pretenderOwnWriteSeq",
         "pretenderRecentSessionIds",
         "pretenderRunVerify",
         "pretenderScheduleVerify",
@@ -14327,6 +14350,13 @@
           "symbol": "sessionPath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionsDirOwnWriteSeq",
+          "kinds": [
+            "read"
           ]
         },
         {

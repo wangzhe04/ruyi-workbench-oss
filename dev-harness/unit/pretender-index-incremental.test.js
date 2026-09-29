@@ -13,6 +13,9 @@
 //   [I9] 已有会话头的会话外部新长出 journal(登记了一条待决):下一次读就在索引里(修前要等后台校验)
 //   [I10] 用量变了,只进 ETag 的 missionsUsageRevision 跟着变(列表上的费用不会被 304 挡住)
 //   [I11] 数据目录被删了而落盘还挂着:不会把它建回来
+//   [I13] 后台校验由每次读取武装(目录没变也一样),校验跑完之后下一次读重新武装 —— 修前只在目录变过后武装一次,
+//         「原地改写已有文件、目录 mtime 不动」永远看不见
+//   [I12] 本进程落盘之后会话索引(index.json)延迟刷写又动了一次目录:下一次读仍只比名单,不当成外部改动全量扫描
 const { test, after, before } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -175,6 +178,36 @@ test('[I9] 已有会话头的会话外部新长出 journal:下一次读就在索
   fs.writeFileSync(path.join(sessionsDir, sid(12) + '.interventions.ndjson'), JSON.stringify(iv) + '\n');
   const index = await srv.getPretenderProjectionIndex();
   assert.ok((slice(index, 12).interventions || []).some(row => row.id === 'iv_ext_1'), '新 journal 当次可见');
+});
+
+test('[I13] 后台校验由每次读取武装;原地改写(目录不动)在校验后可见', async () => {
+  await hooks.verifyNow();
+  await srv.getPretenderProjectionIndex();
+  assert.equal(hooks.stats().verifyArmed, true, '一次普通读取之后校验已武装(不依赖目录变化)');
+  const file = path.join(sessionsDir, sid(15) + '.json');
+  const h = head(15, 'goal 15 rewritten in place');
+  fs.writeFileSync(file, JSON.stringify(h));   // 原地改写:同一个 inode,目录 mtime 不动
+  const verified = await hooks.verifyNow();
+  assert.match(cardText(verified, 15), /rewritten in place/, '校验之后可见');
+  await srv.getPretenderProjectionIndex();
+  assert.equal(hooks.stats().verifyArmed, true, '校验跑完、下一次读取重新武装');
+});
+
+test('[I12] 会话索引延迟刷写动了目录:仍认得是自己写的,不全量扫描', async () => {
+  await srv.listSessions();                     // 建起 index.json(之后每次落盘约 200 ms 后刷写一次)
+  await srv.getPretenderProjectionIndex();
+  for (let round = 0; round < 2; round++) {
+    const s = await srv.loadSession(sid(14));
+    s.mission.goal = 'goal 14 round ' + round;
+    s.mission.changeSeq += 1;
+    await srv.saveSession(s);
+    await srv.getPretenderProjectionIndex();    // 落盘后紧跟的一次读(推送驱动),落在索引刷写之前
+    const before = hooks.stats();
+    await new Promise(r => setTimeout(r, 600)); // 等会话索引刷写(tmp + rename 改了目录 mtime,不打脏页)
+    const index = await srv.getPretenderProjectionIndex();
+    assert.equal(hooks.stats().fullSourceScans, before.fullSourceScans, '自己写的会话索引不算外部改动');
+    assert.match(cardText(index, 14), new RegExp('goal 14 round ' + round));
+  }
 });
 
 test('[I11] 数据目录被删而落盘还挂着:不把它建回来', async () => {

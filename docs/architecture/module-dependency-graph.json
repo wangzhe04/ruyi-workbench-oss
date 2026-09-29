@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3086,
-    "requiredSymbols": 2928,
+    "providedSymbols": 3095,
+    "requiredSymbols": 2931,
     "edges": 512,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -387,6 +387,7 @@
         "applyConfigMigrations",
         "assertSessionIdForPath",
         "atomicWriteJson",
+        "atomicWriteJsonInner",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
         "buildClaudeCliEnv",
@@ -468,6 +469,7 @@
         "normalizeDesktopPythonCandidate",
         "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
+        "noteSessionsDirOwnWrite",
         "originOk",
         "persistableConfig",
         "pickPython",
@@ -499,6 +501,7 @@
         "sessionMcpConfigSweepDone",
         "sessionPath",
         "sessionWriteChains",
+        "sessionsDirOwnWriteSeq",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
@@ -1382,6 +1385,13 @@
         {
           "provider": "01-config.js",
           "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "noteSessionsDirOwnWrite",
           "kinds": [
             "call"
           ]
@@ -6918,6 +6928,7 @@
         "agentRunDigestRow",
         "agentRunDigestShadow",
         "agentRunDigestStats",
+        "agentRunDigestWriteSeq",
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
@@ -13339,6 +13350,9 @@
         "sessionEnvelopeLiveParts",
         "sessionEnvelopeStamp",
         "sessionMessageText",
+        "sessionSearchCorpusCache",
+        "sessionSearchHayMemo",
+        "sessionSearchHayOf",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
         "sessionSearchRowIsNoise",
@@ -13942,7 +13956,7 @@
         },
         {
           "provider": "06h-retrieval-index.js",
-          "symbol": "buildRetrievalCorpus",
+          "symbol": "createRetrievalCorpusCache",
           "kinds": [
             "call"
           ]
@@ -14106,6 +14120,13 @@
           "symbol": "agentRunDigestRow",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestWriteSeq",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14289,6 +14310,7 @@
         "finishMissionUsage",
         "flushPretenderPersist",
         "getPretenderProjectionIndex",
+        "getPretenderProjectionIndexShared",
         "markPretenderIndexDirty",
         "overlayMissionCard",
         "paginatePretenderProjection",
@@ -14306,6 +14328,7 @@
         "pretenderLiveOverlayRevision",
         "pretenderNotModified",
         "pretenderNoteSourcesScan",
+        "pretenderOwnWriteSeq",
         "pretenderRecentSessionIds",
         "pretenderRunVerify",
         "pretenderScheduleVerify",
@@ -14437,6 +14460,13 @@
           "symbol": "sessionPath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionsDirOwnWriteSeq",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -24497,6 +24527,7 @@
         "assertSessionIdForPath",
         "atomicWriteJson",
         "mutateConfig",
+        "noteSessionsDirOwnWrite",
         "readConfig",
         "readFileTail",
         "safeSessionId",
@@ -27925,7 +27956,7 @@
       "from": "13d-core-domain-routes.js",
       "to": "06h-retrieval-index.js",
       "symbols": [
-        "buildRetrievalCorpus",
+        "createRetrievalCorpusCache",
         "rankRetrievalCorpus",
         "retrievalTerms"
       ],
@@ -27970,6 +28001,7 @@
       "symbols": [
         "agentRunDigestCache",
         "agentRunDigestRow",
+        "agentRunDigestWriteSeq",
         "agentRunEventsFile",
         "appendAgentRunEvent",
         "bumpRunIntervention",
@@ -28045,7 +28077,8 @@
         "atomicWriteJson",
         "readConfig",
         "safeSessionId",
-        "sessionPath"
+        "sessionPath",
+        "sessionsDirOwnWriteSeq"
       ],
       "direction": "backward"
     },

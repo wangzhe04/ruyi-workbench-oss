@@ -235,6 +235,7 @@ async function saveAgentRun(run) {
     try {
       const runFile = agentRunFile(run.sessionId, run.id);
       await atomicWriteJson(runFile, snapshot);
+      agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(runFile); // digest 摘要缓存:进程内写成功即作废该文件条目(见 listAgentRunDigests 头注)
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       // 128f-⑫:班组的状态真的换了(跑着/暂停/等池/收尾……)才派一发 —— 左栏行上的「暂停／继续」、焦点栏的班组段读的
@@ -289,7 +290,10 @@ async function listAgentRuns(sessionId) {
 //   · 完整视图/其它 listAgentRuns 调用方不走这里,仍读全量,行为不变。
 // agentRunDigestStats 是给测试数「读了几个 run 文件」的确定性计数(不靠墙钟)。
 const AGENT_RUN_DIGEST_CACHE_MAX = 4096;
-const agentRunDigestCache = new Map(); // 绝对文件路径 -> { mtimeMs, size, ino, shadow|null }
+const agentRunDigestCache = new Map(); // 绝对文件路径 -> { mtimeMs, ctimeMs, size, ino, shadow|null }
+// 进程内每写 / 删一个 run 文件 +1。列举时 stat 之前记下,填缓存之前比一眼:期间有写就不填(审查轮:ino 恒 0、mtime 粒度粗的
+// 文件系统上,「stat → 写者 rename + delete 条目 → 列举把旧内容 set 进去」会把旧摘要钉在新戳下,直到下一次写)。
+let agentRunDigestWriteSeq = 0;
 const agentRunDigestStats = { reads: 0, hits: 0 };
 // 磁盘快照里 digest 视图会读到的全部字段(与 13d handleAgentRunApiRoutes 的 digest 逐字段同口径);
 // 取值表达式与旧的「(mem || r).xxx」写法一字不差,所以磁盘态的 digest 行与修前逐字节相同。
@@ -312,9 +316,10 @@ async function listAgentRunDigests(sessionId) {
   for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
     const full = path.join(dir, file);
     try {
+      const writeSeq = agentRunDigestWriteSeq;
       const st = await fsp.stat(full);
       const hit = agentRunDigestCache.get(full);
-      if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size && hit.ino === st.ino) {
+      if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
         agentRunDigestStats.hits += 1;
         if (hit.shadow) out.push(hit.shadow);
         continue;
@@ -323,7 +328,7 @@ async function listAgentRunDigests(sessionId) {
       const run = safeJsonParse(await fsp.readFile(full, 'utf8'), null);
       const shadow = run ? agentRunDigestShadow(run) : null;   // 坏/空快照也记一笔(同戳不再重读),与 listAgentRuns 一样跳过
       if (agentRunDigestCache.size >= AGENT_RUN_DIGEST_CACHE_MAX && !agentRunDigestCache.has(full)) agentRunDigestCache.clear();
-      agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, size: st.size, ino: st.ino, shadow });
+      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow });
       if (shadow) out.push(shadow);
     } catch { agentRunDigestCache.delete(full); /* skip corrupt/incomplete records */ }
   }

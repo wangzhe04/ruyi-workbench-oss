@@ -3,6 +3,8 @@
 //   [R1] 随机文档集合 + 随机增 / 删 / 改 / 换序 / 同文不同实例,每一步 corpusFor(docs) 与 buildRetrievalCorpus(docs)
 //        的 ids、docCount、df、每篇向量逐位相等,rankRetrievalCorpus 的结果也相等
 //   [R2] 文档集合没变 → 直接复用同一份语料(不重算);改一篇 → 只重新分词那一篇
+//   [R3] 同一份缓存上并发两次异步装配(.build),其中一次触发词表整份重置:两份结果都与现算逐位相同
+//        (审查轮复现过:修前挂起中的那一次拿旧词号配新哈希表,向量是错的)
 // 06h 是自足的纯函数模块(不引用别的模块),整份在 vm 里执行,拿到的就是产物里的同一份代码。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -54,4 +56,27 @@ test('[R2] 集合没变整份复用;改一篇只重新分词那一篇', () => {
     assert.equal(tokenized, 1, '只重新分词改过的那一篇');
     assert.deepEqual(plain(next), plain(buildRetrievalCorpus(docs)));
   } finally { ctx.retrievalTermCounts = origin; }
+});
+
+test('[R3] 异步装配挂起时词表被整份重置:结果仍与现算逐位相同;并发两次异步装配也相同', async () => {
+  const actx = vm.createContext({ setImmediate });
+  vm.runInContext(source + '\n;globalThis.__api = { buildRetrievalCorpus, createRetrievalCorpusCache };', actx);
+  const api = actx.__api;
+  const r = rng(7);
+  const vocabText = n => Array.from({ length: n }, () => 'w' + Math.floor(r() * 5000)).join(' ');
+  const docsA = Array.from({ length: 450 }, (_, i) => ({ id: 'a' + i, text: vocabText(6) }));   // 向量循环每 200 篇让一次
+  const docsB = Array.from({ length: 40 }, (_, i) => ({ id: 'b' + i, text: vocabText(30) }));
+  const refA = plain(api.buildRetrievalCorpus(docsA));
+  const refB = plain(api.buildRetrievalCorpus(docsB));
+  const cache = api.createRetrievalCorpusCache({ maxTerms: 60 });
+  // ① 确定性构造:A 的异步装配停在向量循环的让出点上,此时同步装配一次 B(词表超上限 → 整份重置)
+  const pa = cache.build(docsA);
+  await new Promise(resolve => setImmediate(resolve));   // A 此刻挂在第 200 篇之后的让出点
+  const syncB = cache(docsB);
+  assert.deepEqual(plain(await pa), refA, 'A 与现算相同(修前:挂起的装配拿旧词号配新哈希表)');
+  assert.deepEqual(plain(syncB), refB, 'B 与现算相同');
+  // ② 并发两次异步装配
+  const [a, b] = await Promise.all([cache.build(docsA), cache.build(docsB)]);
+  assert.deepEqual(plain(a), refA);
+  assert.deepEqual(plain(b), refB);
 });

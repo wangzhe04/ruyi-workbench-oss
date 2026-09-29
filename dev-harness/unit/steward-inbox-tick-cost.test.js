@@ -12,6 +12,8 @@
 //   [T3] 有真变化(用户交接入箱)的那一拍照常写游标、照常入箱 —— 「不写」不是「写不出」
 //   [S1] stewardInboxState 在 inbox 文件没变时不重读文件;追加(外部写、tick 写)之后的结果与
 //        「独立按行解析整份文件」的参考值逐项相等;返回的 byKind 是拷贝,改它污染不了下一次
+//   [S2] 读 inbox 撞上一次瞬时锁(EBUSY,Windows 杀软 / 索引器常见):那一次报零可以,但不许把「空箱子」记进备忘 ——
+//        文件没再变,下一次也得读出真值(审查轮复现过:修前一直报零,直到文件下次变化)
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
@@ -213,3 +215,35 @@ test('[S1] stewardInboxState:文件没变不重读;追加之后与独立解析�
 });
 
 process.on('exit', () => { try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best-effort */ } });
+
+test('[S2] 读 inbox 撞上瞬时锁:不把空结果记进备忘,下一次读出真值', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-steward-inbox-ebusy-'));
+  try {
+    const script = path.join(home, 'ebusy-child.js');
+    fs.writeFileSync(script, String.raw`
+const fs = require('fs'), path = require('path'), fsp = require('fs/promises');
+const [, , server, home] = process.argv;
+process.env.RUYI_HOME = home;
+const srv = require(server);
+(async () => {
+  const dir = path.join(home, 'steward'); fs.mkdirSync(dir, { recursive: true });
+  const rows = [1, 2, 3].map(i => JSON.stringify({ inboxSeq: i, kind: 'needs_you', sessionId: 'sess_x' + i, missionId: 'm', runId: '', seq: 1, at: new Date().toISOString(), payload: {}, count: 1 }));
+  fs.writeFileSync(path.join(dir, 'inbox-v1.ndjson'), rows.join('\n') + '\n');
+  const orig = fsp.readFile; let fail = 1;
+  fsp.readFile = function (p, ...rest) {
+    if (fail > 0 && /inbox-v1\.ndjson$/.test(String(p))) { fail -= 1; const e = new Error('EBUSY'); e.code = 'EBUSY'; return Promise.reject(e); }
+    return orig.call(fsp, p, ...rest);
+  };
+  const cfg = { stewardEnabledV1: true };
+  const first = await srv.StewardHooks.inboxState(cfg);
+  fsp.readFile = orig;
+  const second = await srv.StewardHooks.inboxState(cfg);
+  process.stdout.write(JSON.stringify({ first: first.counts.byKind.needs_you, second: second.counts.byKind.needs_you }));
+  process.exit(0);
+})();
+`);
+    const out = JSON.parse(cp.execFileSync(process.execPath, [script, SERVER, home], { encoding: 'utf8', env: { ...process.env, RUYI_HOME: home } }));
+    assert.equal(out.first, 0, '撞锁的那一次读不出东西(前提成立)');
+    assert.equal(out.second, 3, '文件没变,下一次仍读出真值');
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});

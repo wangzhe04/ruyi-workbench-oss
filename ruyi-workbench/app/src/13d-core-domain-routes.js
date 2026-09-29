@@ -143,7 +143,8 @@ async function refreshSessionSearchIndex(metas) {
   if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  const wrote = await atomicWriteJson(sessionSearchIndexPath(), payload).then(() => true, () => false);
+  // 性能批 C1:紧凑 JSON(3000 条会话时带缩进写出来有 34 MB,每次会话有变都整份重写一遍)
+  const wrote = await atomicWriteJson(sessionSearchIndexPath(), JSON.stringify(payload)).then(() => true, () => false);
   if (wrote) {
     try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
   }
@@ -184,6 +185,19 @@ function sessionSearchSnippet(unit, terms) {
 //      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
 //   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
 //      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
+// 性能批 C1:会话搜索每敲一个字就查一次。语料(分词、df、向量)与每篇的「小写 + 空白折叠」都按条目缓存 ——
+// 条目在会话没变时是同一个对象(refreshSessionSearchIndex 原样复用),结果与逐次现算逐位相同。
+let sessionSearchCorpusCache = null;
+const sessionSearchHayMemo = new WeakMap();   // 条目对象 -> { unit, hay }
+function sessionSearchHayOf(entry) {
+  const hit = sessionSearchHayMemo.get(entry);
+  if (hit && hit.unit === entry.unit) return hit.hay;
+  // 查询词(retrievalTerms 产出的)不含空白,所以在折叠过空白的文本里 includes 与在原文里结果相同;
+  // 整句 phrase 本来就是在折叠后的文本里比。一份就够两用。
+  const hay = String(entry.unit).toLowerCase().replace(/\s+/g, ' ');
+  sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
+  return hay;
+}
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
@@ -200,8 +214,13 @@ async function searchSessionsByContent(query, limit) {
   const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
   const needed = Math.max(1, Math.ceil(terms.length / 2));
   const scores = new Map();
+  // 性能批 C1:首次(或会话大批变化后)要给几千篇现算小写 + 折叠,先分片预热、每 100 篇让一次事件循环
+  for (let i = 0; i < documents.length; i++) {
+    sessionSearchHayOf(entries[documents[i].id]);
+    if (i % 100 === 99) await new Promise(resolve => setImmediate(resolve));
+  }
   for (const doc of documents) {
-    const hay = doc.text.toLowerCase();
+    const hay = sessionSearchHayOf(entries[doc.id]);
     const meta = byId.get(doc.id) || {};
     const brief = sessionBriefOf(meta);
     const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
@@ -212,7 +231,7 @@ async function searchSessionsByContent(query, limit) {
       const weight = Math.min(12, Math.max(2, term.length));
       score += titleHay.includes(term) ? weight * 2 : weight;
     }
-    const exact = phrase.length >= 2 && hay.replace(/\s+/g, ' ').includes(phrase);
+    const exact = phrase.length >= 2 && hay.includes(phrase);
     if (!exact && matched < needed) continue;
     if (exact) score += 30;
     if (terms.length && matched === terms.length) score += 10;
@@ -220,7 +239,8 @@ async function searchSessionsByContent(query, limit) {
   }
   const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
 
-  const corpus = buildRetrievalCorpus(documents);
+  if (!sessionSearchCorpusCache) sessionSearchCorpusCache = createRetrievalCorpusCache();
+  const corpus = await sessionSearchCorpusCache.build(documents);
   const vector = rankRetrievalCorpus(corpus, q);
   const top = vector.length ? vector[0].score : 0;
   const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
@@ -459,9 +479,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
       // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
       const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      // 审查轮:活态在盘上戳【之前】取。反过来(先戳后活态)时,两次取样之间「落盘 + 活态翻转」可能拼出一个等于客户端手上旧标签的
+      // 组合(旧盘 + 新活态),回一次不该回的 304;先取活态,竞态最多多回一次 200。
+      const preLive = sessionEnvelopeLiveParts(id);
       const envelopeStamp = await sessionEnvelopeStamp(id);
       if (envelopeStamp) {
-        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, sessionEnvelopeLiveParts(id), sinceRaw);
+        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
       const session = await loadSession(id);
@@ -2372,6 +2395,7 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
+      agentRunDigestWriteSeq += 1;
       agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。

@@ -16,6 +16,8 @@
 //       [B3] 某个 run 文件被改写(大小变)→ 恰好重读这一份,摘要跟着变;
 //       [B4] 经 saveAgentRun 的进程内写入 → 恰好重读这一份(条目被作废,而不是等戳变);
 //       [B5] 坏快照跳过、删掉的文件消失、非 run 文件名不进列表 —— 与 listAgentRuns 同口径。
+//       [B6] ino 恒 0、mtime 粒度粗的文件系统上(FAT/exFAT/SMB 的形状),列举读到旧内容的同时进程内写者落了新内容:
+//            下一次轮询拿到的是新摘要(审查轮复现过:修前旧摘要被钉在新戳下,直到下一次写)。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -201,3 +203,29 @@ test('[B] 会话没有 agent-runs 目录 → 空列表,不抛', async () => {
 });
 
 process.on('exit', () => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });
+
+test('[B6] 粗粒度 mtime + ino 0:列举与进程内写交错,下一次轮询是新摘要', async () => {
+  const sid = 'sess_digest_race01', rid = 'run_abc1';
+  const mk = status => ({ id: rid, sessionId: sid, status, eventSeq: 1, createdAt: '2026-01-01T00:00:00.000Z', nodes: [] });
+  await saveAgentRun(mk('running'));
+  const runFile = path.join(root, 'agent-runs', sid, rid + '.json');
+  const origStat = fsp.stat, origRead = fsp.readFile;
+  let interleave = true;
+  fsp.stat = async function (p, ...rest) {
+    const st = await origStat.call(fsp, p, ...rest);
+    if (String(p) === runFile) { st.ino = 0; st.mtimeMs = 1700000000000; st.ctimeMs = 1700000000000; }   // 戳恒定
+    return st;
+  };
+  fsp.readFile = async function (p, ...rest) {
+    const data = await origRead.call(fsp, p, ...rest);   // 列举读到的是旧内容
+    if (interleave && String(p) === runFile) { interleave = false; await saveAgentRun(mk('stopped')); }   // 写者此刻落新内容(同尺寸)
+    return data;
+  };
+  try {
+    const first = await listAgentRunDigests(sid);
+    const second = await listAgentRunDigests(sid);
+    assert.equal(JSON.parse(fs.readFileSync(runFile, 'utf8')).status, 'stopped', '前提:盘上已是新内容');
+    assert.equal(first[0].status, 'running', '交错的那一次读到旧内容(前提成立)');
+    assert.equal(second[0].status, 'stopped', '下一次轮询是新摘要');
+  } finally { fsp.stat = origStat; fsp.readFile = origRead; }
+});

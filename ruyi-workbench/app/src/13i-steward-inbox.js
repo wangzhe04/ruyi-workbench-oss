@@ -1302,9 +1302,10 @@ async function stewardInboxRead(opts) {
 let stewardInboxCountsMemo = null;   // { key, byKind, inboxSeq }
 async function stewardInboxCounts() {
   const file = stewardInboxPath();
-  let key = '';
+  let key = '', size = 0;
   try {
     const st = await fsp.stat(file);
+    size = st.size;
     key = [file, st.size, st.mtimeMs, st.ino].join('|');
   } catch { /* 文件不存在:下面按空箱子算,不进备忘 */ }
   if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) return stewardInboxCountsMemo;
@@ -1317,7 +1318,9 @@ async function stewardInboxCounts() {
     if (Object.prototype.hasOwnProperty.call(byKind, row.kind)) byKind[row.kind] += 1;
   }
   const counts = { key, byKind, inboxSeq };
-  stewardInboxCountsMemo = key ? counts : null;
+  // 文件非空却一行都没读出来:多半是这一次读撞上瞬时锁(stewardReadInboxText 吞掉错误回空串;Windows 杀软 / 索引器
+  // 常见),别把「空箱子」记进备忘 —— 否则文件不再变就一直报零(审查轮复现过)。下一次照旧重读。
+  stewardInboxCountsMemo = key && (size === 0 || rows.length > 0) ? counts : null;
   return counts;
 }
 
