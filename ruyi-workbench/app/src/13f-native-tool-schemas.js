@@ -559,12 +559,12 @@ const MCP_TOOLS = [
   // loopback/私网/元数据/协议) — an untrusted url can never reach an internal endpoint.
   {
     name: 'web_search',
-    description: 'Search the web via the configured search backend (searxng/bing/brave/custom). Returns {results:[{title,url,snippet}]}. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
+    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha). Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
     inputSchema: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'the search query' },
-        maxResults: { type: 'number', description: 'max results to return (default 5, clamped 1..20)' },
+        maxResults: { type: 'number', description: 'max results to return (default 8, clamped 1..20)' },
       },
       required: ['query'],
     },

@@ -1880,81 +1880,218 @@ function webFetchFailMessage(got) {
 
 // v1.1-W1a (T3): strip tags + decode entities + collapse whitespace from an HTML fragment → a plain snippet.
 // Truncated to ≤300 chars. Defensive: any input coerces to a string first.
+// 行内标签(高亮词 em / strong、span、a …)直接去掉不补空格 —— 修前一律换成空格,中文摘要里每个高亮词两边都多出空格。
 function htmlFragmentToText(frag) {
-  return decodeEntities(String(frag == null ? '' : frag).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 300);
+  return decodeEntities(String(frag == null ? '' : frag).replace(/<\/?(?:em|strong|b|i|u|span|a|font|mark|small|sup|sub)\b[^>]*>/gi, '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 300);
 }
-// v1.1-W1a (T3): parse Bing (cn.bing.com) result HTML. Each hit is an <li class="b_algo"> block; title+url
-// live in its <h2><a href="…">…</a></h2>, the snippet in a <p> (often class b_lineclamp*/b_caption). Regex
-// string-scan (no DOM lib — zero deps). Fully defensive: a markup change yields fewer/zero results, never a
-// throw. Returns [{title,url,snippet,source:'bing'}].
+// ── 内置免费搜索(builtin:Bing CN 为主、百度补充)的解析与合并 ────────────────────────────────────────────
+// 2026-09 排查「搜不准、不全、搜到垃圾」的根因,都在这一段:
+//   · 百度:`\bresult\b` 把 `result-op`(百度自家的「大家还在搜 / 视频 / 图片」卡片)也匹配进来,广告块也没滤 —— 垃圾结果;
+//     摘要取到第一个闭合标签就停(常常停在第一个高亮关键词 </em>)—— 摘要不全;网址全是 baidu.com/link?url= 跳转链接,
+//     真实网址其实就在容器的 mu 属性里;
+//   · Bing:块里没有 <h2> 时退回「块里第一个链接」,把相关搜索、底部广告的链接当成结果;ck/a 跳转链接没解码;
+//     每块切到下一个 b_algo 为止,最后一块会吞进分页、相关搜索、底部广告;
+//   · 合并:只在 Bing 一条都没有时才问百度、不去重、不翻页;英文查询也走国内版;遇到人机验证页只说「没有结果」。
+// 现在:按元素配平切块、只认标题链接、解开跳转、滤广告与自家卡片;中文查询两个引擎并发取、交错合并去重,不够再翻页;
+// 与查询零重合的结果排到最后;被人机验证拦下时如实说明并给出换后端的建议。
+const SEARCH_CJK_RE = /[㐀-鿿豈-﫿]/;
+// 去掉 script / style / noscript 与注释:它们的内容会被 htmlFragmentToText 当成正文(摘要里冒出 CSS / JS)。
+function stripHtmlNoise(html) {
+  return String(html == null ? '' : html).replace(/<(script|style|noscript)\b[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
+}
+function htmlClassTokens(openTag) {
+  const m = /\bclass\s*=\s*"([^"]*)"/i.exec(String(openTag || ''));
+  return m ? m[1].split(/\s+/).filter(Boolean) : [];
+}
+function htmlAttr(openTag, name) {
+  const m = new RegExp('\\s' + name + '\\s*=\\s*"([^"]*)"', 'i').exec(String(openTag || ''));
+  return m ? decodeEntities(m[1]) : '';
+}
+// 起始于 at 的那个元素的内层 HTML(按同名标签配平;不配平时取到文档末尾,调用方再按下一块的起点截)。
+function htmlElementInner(html, at) {
+  const head = /^<([a-zA-Z][\w-]*)\b[^>]*>/.exec(html.slice(at, at + 4000));
+  if (!head) return '';
+  const tag = head[1].toLowerCase();
+  const bodyStart = at + head[0].length;
+  const re = new RegExp('<(/?)' + tag + '\\b[^>]*>', 'gi');
+  re.lastIndex = bodyStart;
+  let depth = 1, m;
+  while ((m = re.exec(html))) {
+    if (m[1]) { depth -= 1; if (depth === 0) return html.slice(bodyStart, m.index); }
+    else if (!/\/>$/.test(m[0])) depth += 1;
+  }
+  return html.slice(bodyStart);
+}
+// 找出所有「开标签的 class 满足 pred」的元素,返回 [{ openTag, inner }];inner 截在下一块起点之前(防不配平时吞掉后文)。
+function htmlBlocksByClass(html, tagName, pred) {
+  const re = new RegExp('<' + tagName + '\\b[^>]*>', 'gi');
+  const hits = [];
+  let m;
+  while ((m = re.exec(html))) if (pred(htmlClassTokens(m[0]), m[0])) hits.push({ at: m.index, openTag: m[0] });
+  return hits.map((h, i) => {
+    const inner = htmlElementInner(html, h.at);
+    const limit = i + 1 < hits.length ? hits[i + 1].at - (h.at + h.openTag.length) : inner.length;
+    return { openTag: h.openTag, inner: inner.slice(0, Math.max(0, limit)) };
+  });
+}
+// Bing 的点击跟踪链接 https://www.bing.com/ck/a?…&u=a1<base64url 原网址>… → 原网址。解不开就原样返回。
+function decodeBingRedirect(url) {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)bing\.com$/i.test(u.hostname) || !/^\/ck\/a/i.test(u.pathname)) return url;
+    const raw = u.searchParams.get('u') || '';
+    if (!raw.startsWith('a1')) return url;
+    const decoded = Buffer.from(raw.slice(2).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return /^https?:\/\/[^\s]+$/i.test(decoded) ? decoded : url;
+  } catch { return url; }
+}
+function searchSnippetText(fragment) {
+  return htmlFragmentToText(String(fragment || '').replace(/<span[^>]*class="[^"]*algoSlug_icon[^"]*"[^>]*>[\s\S]*?<\/span>/gi, ' '))
+    .replace(/^(?:网页|Web)\s+/, '');
+}
+// Parse Bing (cn.bing.com) result HTML → [{title,url,snippet,source:'bing'}]. 只认 <li class="b_algo"> 里 <h2> 的那条链接;
+// 广告(b_ad* / b_adSlug)、Bing 自家页面(图片 / 视频 / 相关搜索)不收。markup 变了只会少结果,绝不抛。
 function parseBingHtml(html, limit) {
   const out = [];
-  const s = String(html || '');
-  // Split on the algo blocks; each chunk after the first starts inside one b_algo <li>.
-  const blocks = s.split(/<li[^>]*class="[^"]*\bb_algo\b[^"]*"[^>]*>/i).slice(1);
-  for (const block of blocks) {
+  const s = stripHtmlNoise(html);
+  for (const block of htmlBlocksByClass(s, 'li', cls => cls.includes('b_algo'))) {
     if (out.length >= limit) break;
-    // First anchor inside an <h2> is the title/url. Fall back to the first anchor with an http(s) href.
-    let m = /<h2[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) m = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) continue;
-    const url = decodeEntities(m[1]).trim();
-    const title = htmlFragmentToText(m[2]);
+    const inner = block.inner;
+    if (htmlClassTokens(block.openTag).some(c => /^b_ad/.test(c)) || /\bb_adSlug\b|\bb_adurl\b/.test(inner)) continue;
+    const h2 = /<h2\b[^>]*>([\s\S]*?)<\/h2>/i.exec(inner);
+    const a = h2 && /<a\b[^>]*\shref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(h2[1]);
+    if (!a) continue;
+    const url = decodeBingRedirect(decodeEntities(a[1]).trim());
+    const title = htmlFragmentToText(a[2]);
     if (!/^https?:\/\//i.test(url) || !title) continue;
-    // Snippet: prefer a <p> (Bing caption); else the first div with a caption-ish class.
-    let sm = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(block);
-    if (!sm) sm = /<div[^>]*class="[^"]*b_caption[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
-    const snippet = sm ? htmlFragmentToText(sm[1]) : '';
+    try { if (/(^|\.)bing\.com$/i.test(new URL(url).hostname)) continue; } catch { continue; }
+    const capAt = inner.search(/<div\b[^>]*class="[^"]*\bb_caption\b[^"]*"[^>]*>/i);
+    const scope = capAt >= 0 ? inner.slice(capAt) : inner.replace(h2[0], ' ');
+    const p = /<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(scope);
+    let snippet = p ? searchSnippetText(p[1]) : '';
+    if (!snippet) snippet = searchSnippetText(inner.replace(h2[0], ' ').replace(/<cite\b[\s\S]*?<\/cite>/gi, ' ').replace(/<div\b[^>]*class="[^"]*\b(?:b_attribution|b_tpcn|tpcn)\b[\s\S]*?<\/div>/gi, ' '));
     out.push({ title, url, snippet, source: 'bing' });
   }
   return out;
 }
-// v1.1-W1a (T3): parse 百度 (www.baidu.com/s) result HTML. Each hit is a <div class="result c-container …">
-// block; the title anchor is its first <h3><a href="…">…</a> (百度 hands back a redirect link — 照收). The
-// snippet is best-effort from a content div/span. Defensive; returns [{title,url,snippet,source:'baidu'}].
+// Parse 百度 (www.baidu.com/s) result HTML → [{title,url,snippet,source:'baidu'}]. 只认 class 里同时有 result 与 c-container
+// 两个【完整】类名的块(result-op 是百度自家的聚合卡片,不收);广告(ec_* / tuiguang / 「广告」标)不收。网址优先取容器的
+// mu 属性(真实网址),没有才用标题上的跳转链接。
 function parseBaiduHtml(html, limit) {
   const out = [];
-  const s = String(html || '');
-  const blocks = s.split(/<div[^>]*class="[^"]*\bresult\b[^"]*\bc-container\b[^"]*"[^>]*>/i).slice(1);
-  for (const block of blocks) {
+  const s = stripHtmlNoise(html);
+  for (const block of htmlBlocksByClass(s, 'div', cls => cls.includes('result') && cls.includes('c-container'))) {
     if (out.length >= limit) break;
-    let m = /<h3[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) m = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) continue;
-    const url = decodeEntities(m[1]).trim();
-    const title = htmlFragmentToText(m[2]);
-    if (!url || !title) continue;
-    // Snippet: 百度's abstract lives in a span/div with a content-ish class; fall back to the first <p>.
-    let sm = /<[^>]*class="[^"]*(?:content-right|c-abstract|content_right)[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i.exec(block);
-    if (!sm) sm = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(block);
-    const snippet = sm ? htmlFragmentToText(sm[1]) : '';
+    const inner = block.inner;
+    const cls = htmlClassTokens(block.openTag);
+    if (cls.some(c => /^(?:ec_|EC_)|tuiguang/i.test(c)) || /data-tuiguang|>\s*广告\s*</.test(inner)) continue;
+    const h3 = /<h3\b[^>]*>([\s\S]*?)<\/h3>/i.exec(inner);
+    const a = /<a\b[^>]*\shref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(h3 ? h3[1] : inner);
+    if (!a) continue;
+    const mu = htmlAttr(block.openTag, 'mu');
+    const url = /^https?:\/\//i.test(mu) ? mu.trim() : decodeEntities(a[1]).trim();
+    const title = htmlFragmentToText(a[2]);
+    if (!url || !title || /^(?:相关搜索|大家还在搜|其他人还搜了)/.test(title)) continue;
+    const rest = h3 ? inner.replace(h3[0], ' ') : inner;
+    const absAt = rest.search(/<(?:span|div)\b[^>]*class="[^"]*(?:content-right|c-abstract|c-span-last)[^"]*"[^>]*>/i);
+    let snippet = absAt >= 0 ? htmlFragmentToText(htmlElementInner(rest, absAt)) : '';
+    if (!snippet) { const p = /<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(rest); snippet = p ? htmlFragmentToText(p[1]) : ''; }
+    if (!snippet) snippet = htmlFragmentToText(rest);
     out.push({ title, url, snippet, source: 'baidu' });
   }
   return out;
 }
-// v1.1-W1a (T3): the builtin no-key search. Bing CN first; if it errors or returns <1 result, fall back to
-// 百度. Both空 → ok:true with an empty list + a note (an empty result set is NOT an error). baseUrlOverride
-// (admin-trusted) replaces the Bing root for e2e; when set, the 百度 fallback is skipped so a fake server
-// deterministically owns the whole path. GET requests use the realistic browser headers (T1).
-async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs) {
+// 被人机验证 / 反爬页拦下(不是「没有结果」):Bing 的 captcha 页、百度安全验证页。
+function searchPageBlocked(html) {
+  const s = String(html || '');
+  return /\bb_captcha\b|\/challengepic|id="b_captcha"|百度安全验证|wappass\.baidu\.com|安全验证[^<]{0,20}<\/title>/i.test(s);
+}
+// 去重键:协议、www.、末尾斜杠、#锚点、utm_* 跟踪参数都不算区别。
+function searchResultKey(url) {
+  try {
+    const u = new URL(url);
+    for (const k of [...u.searchParams.keys()]) if (/^utm_|^spm$|^from$/i.test(k)) u.searchParams.delete(k);
+    const q = u.searchParams.toString();
+    return u.hostname.toLowerCase().replace(/^www\./, '') + u.pathname.replace(/\/+$/, '') + (q ? '?' + q : '');
+  } catch { return String(url || '').toLowerCase(); }
+}
+// 查询词:英文 / 数字词(≥2 字符)+ 中文二元组。用来把与查询零重合的结果排到最后(常见的是被引擎硬塞的无关推荐)。
+function searchQueryTerms(query) {
+  const q = String(query || '').toLowerCase();
+  const words = (q.match(/[a-z0-9][a-z0-9._+#-]*/g) || []).filter(w => w.length >= 2);
+  const grams = [];
+  for (const run of (q.match(/[㐀-鿿豈-﫿]+/g) || [])) {
+    if (run.length === 1) grams.push(run);
+    for (let i = 0; i + 1 < run.length; i++) grams.push(run.slice(i, i + 2));
+  }
+  return [...new Set([...words, ...grams])];
+}
+function mergeSearchResults(query, lists, maxResults) {
+  const terms = searchQueryTerms(query);
+  // 同一页面在两个引擎里都出现时:名次按先出现的那处算,内容留排在前面的引擎那条(Bing 的网址是原网址,百度的可能带跟踪参数)。
+  const preferred = new Map();
+  lists.forEach((list, li) => list.forEach(r => {
+    const key = searchResultKey(r.url);
+    if (!preferred.has(key) || preferred.get(key).li > li) preferred.set(key, { r, li });
+  }));
+  const seen = new Set();
+  const merged = [];
+  const longest = Math.max(0, ...lists.map(l => l.length));
+  for (let i = 0; i < longest; i++) {
+    for (const list of lists) {
+      const r = list[i];
+      if (!r) continue;
+      const key = searchResultKey(r.url);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(preferred.get(key).r);
+    }
+  }
+  const text = r => (r.title + ' ' + r.snippet + ' ' + r.url).toLowerCase();
+  const relevant = terms.length ? merged.filter(r => terms.some(t => text(r).includes(t))) : merged;
+  const rest = terms.length ? merged.filter(r => !relevant.includes(r)) : [];
+  return [...relevant, ...rest].slice(0, maxResults);
+}
+// v1.1-W1a (T3) 起的内置免 key 搜索。baseUrlOverride(管理端可信)替换 Bing 根地址(e2e 用),此时不外连真百度,
+// 除非另给 baiduBaseUrlOverride(同样是管理端可信的替换根)。GET 用逼真的浏览器请求头(T1)。
+async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baiduBaseUrlOverride) {
   const enc = encodeURIComponent(query);
+  const cjk = SEARCH_CJK_RE.test(query);
   const bingRoot = baseUrlOverride || 'https://cn.bing.com';
-  const bingUrl = `${bingRoot}/search?q=${enc}&count=${maxResults}`;
-  let bingResults = [];
-  try {
-    const r = await httpRequest({ url: bingUrl, headers: browserHeaders(), timeoutMs, maxBodyChars: 800000 });
-    if (r.ok && typeof r.body === 'string') bingResults = parseBingHtml(r.body, maxResults);
-  } catch { /* fall through to 百度 */ }
-  if (bingResults.length >= 1) { markNetworkOnline(); return { ok: true, results: bingResults.slice(0, maxResults), backend: 'builtin', engine: 'bing' }; }
-  // baseUrl override present → the operator/e2e redirected the engine; do NOT leak to the real 百度.
-  if (baseUrlOverride) return { ok: true, results: [], backend: 'builtin', engine: 'bing', note: 'Bing 未返回结果(已覆写引擎地址,跳过百度兜底)' };
-  // Fallback: 百度.
-  let baiduResults = [];
-  try {
-    const r = await httpRequest({ url: `https://www.baidu.com/s?wd=${enc}&rn=${maxResults}`, headers: browserHeaders(), timeoutMs, maxBodyChars: 800000 });
-    if (r.ok && typeof r.body === 'string') baiduResults = parseBaiduHtml(r.body, maxResults);
-  } catch { /* both empty → note below */ }
-  if (baiduResults.length >= 1) { markNetworkOnline(); return { ok: true, results: baiduResults.slice(0, maxResults), backend: 'builtin', engine: 'baidu' }; }
+  const baiduRoot = baiduBaseUrlOverride || (baseUrlOverride ? '' : 'https://www.baidu.com');
+  const fetchPage = async (url, parse) => {
+    try {
+      const r = await httpRequest({ url, headers: browserHeaders(), timeoutMs, maxBodyChars: 1200000 });
+      if (!r.ok || typeof r.body !== 'string') return { results: [], failed: true };
+      return { results: parse(r.body), blocked: searchPageBlocked(r.body) };
+    } catch { return { results: [], failed: true }; }
+  };
+  // 纯英文查询走 Bing 国际版结果(ensearch=1),中文查询走国内版。
+  const bingUrl = first => `${bingRoot}/search?q=${enc}${cjk ? '' : '&ensearch=1'}${first > 1 ? '&first=' + first : ''}`;
+  const bingP = fetchPage(bingUrl(1), h => parseBingHtml(h, 20));
+  // 中文查询两个引擎并发取(百度的中文覆盖面补 Bing);英文查询只在 Bing 不够时才问百度。
+  const baiduUrl = `${baiduRoot}/s?wd=${enc}&rn=${Math.min(20, Math.max(10, maxResults))}`;
+  const baiduEarly = baiduRoot && cjk ? fetchPage(baiduUrl, h => parseBaiduHtml(h, 20)) : null;
+  const bing = await bingP;
+  let bingResults = bing.results;
+  const enough = list => mergeSearchResults(query, list, maxResults).length >= maxResults;
+  if (!enough([bingResults]) && bingResults.length >= 8) {
+    const more = await fetchPage(bingUrl(bingResults.length + 1), h => parseBingHtml(h, 20));
+    bingResults = bingResults.concat(more.results);
+  }
+  let baidu = baiduEarly ? await baiduEarly : { results: [] };
+  if (!baiduEarly && baiduRoot && !enough([bingResults])) baidu = await fetchPage(baiduUrl, h => parseBaiduHtml(h, 20));
+  const results = mergeSearchResults(query, [bingResults, baidu.results], maxResults);
+  const engines = [bingResults.length ? 'bing' : '', results.some(r => r.source === 'baidu') ? 'baidu' : ''].filter(Boolean);
+  if (results.length) {
+    markNetworkOnline();
+    return { ok: true, results, backend: 'builtin', engine: engines.join('+') || 'bing' };
+  }
+  if (bing.blocked || baidu.blocked) {
+    return { ok: true, results: [], backend: 'builtin', blocked: true,
+      note: '搜索引擎返回了人机验证页(反爬拦截),这次拿不到结果;稍后再试,或到 设置→搜索后端 换成 tavily / 博查 / searxng 等接口型后端' };
+  }
+  if (!baiduRoot) return { ok: true, results: [], backend: 'builtin', engine: 'bing', note: 'Bing 未返回结果(已覆写引擎地址,跳过百度兜底)' };
   return { ok: true, results: [], backend: 'builtin', note: '两个引擎都未返回结果' };
 }
 
@@ -1962,7 +2099,8 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs) {
 // → NOT SSRF-checked (see note atop this section). Returns {ok, results:[{title,url,snippet}], backend}.
 async function webSearch(args, config) {
   const query = String(args && args.query || '').trim();
-  const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 5));
+  // 缺省 8 条(修前 5 条):内置搜索是抓网页,前几条常被百科 / 问答聚合占住,5 条经常不够把问题答全;结果只是短摘要,多几条不贵。
+  const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   if (!query) return { ok: false, error: 'query is required', backend };
@@ -1976,7 +2114,8 @@ async function webSearch(args, config) {
     // (a shape change collapses to [] rather than throwing). Results are JSON text only — the front-end renders
     // them via textContent, so no XSS surface. baseUrl override (admin-trusted, 同 searxng 先例) redirects the
     // Bing root for e2e determinism; when set, the 百度 fallback is skipped (the fake server owns both paths).
-    if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs);
+    // sb.baiduBaseUrl:只给 e2e 用的百度根地址替换(直接传进 webSearch 的配置对象里;normalizeConfig 不保留它)。
+    if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, ''));
     if (backend === 'searxng') {
       if (!baseUrl) return { ok: false, error: 'searxng baseUrl 未配置', backend };
       const u = `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json`;
