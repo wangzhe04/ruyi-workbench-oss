@@ -151,7 +151,8 @@ ok(/compactProviderId/.test(navigation) && /t\(agentCliMeta\(currentEngineMeta\(
 // （js/agent-cli-registry.js，值在下面 async 段按运行时断言：kimi 走 server-api + /api/kimi/status）。这里钉的仍是
 // 调用点的结构：/compact 回合只给登记为 slash-command 的 CLI；两处状态刷新都先挡 provider 模式、再问登记表的 statusEndpoint。
 ok(/\/api\/agent\/compact/.test(streamUi)
-  && /!isProviderMode\(\) && agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.nativeCompact === 'slash-command' && !state\.config\?\.compactProviderId\) \{[\s\S]{0,240}sendPrompt\('\/compact'\)/.test(streamUi),
+  && /!isProviderMode\(\) && agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.nativeCompact === 'slash-command' && !state\.config\?\.compactProviderId\) \{[\s\S]{0,900}sendPrompt\('\/compact'\)/.test(streamUi),
+  // 窗口 240→900:找 bug 波给这段加了「sendPrompt 没起回合就收指示条」的兜底与注释(判据不变,只是字多了)。
   'Kimi manual compact routes to native API instead of prompt text');
 ok(/isProviderMode\(\) \|\| !agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.statusEndpoint/.test(sessionUi), 'Kimi status refresh cannot overwrite active Provider compaction usage');
 ok(/handle && !isProviderMode\(\) && agentCliMeta\(currentEngineMeta\(\)\.agentCliType\)\.statusEndpoint/.test(navigation), 'opening the Provider context popover cannot trigger a late Kimi usage overwrite');

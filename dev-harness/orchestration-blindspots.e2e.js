@@ -245,7 +245,10 @@ async function waitFor(label, fn, tries = 120, gap = 250) {
     const blocked = [r1, r2].find(r => r && r.ok === false);
     console.log('  [resume×2] r1.ok:', r1 && r1.ok, '| r2.ok:', r2 && r2.ok, '| blocked err:', blocked && blocked.error);
     ok(oks >= 1, 'S4 并发双 resume 至少一个放行 (got ' + oks + ')');
-    ok(!blocked || /已在运行/.test(blocked.error || ''), 'S4 若有被拦者必是「已在运行」(cold 路径拒;warm 路径 ok 属合法) (got ' + (blocked && blocked.error) + ')');
+    // 错误是标准信封 { code, params, message }(apiFailure 归一),不是裸串 —— 修前这条分支从来走不到(重复 resume 在登记前
+    // 退出也照样回 accepted),找 bug 波让它如实回错之后才第一次真的被断言到。
+    const blockedText = blocked ? (typeof blocked.error === 'string' ? blocked.error : String((blocked.error && blocked.error.message) || '')) : '';
+    ok(!blocked || /已在运行/.test(blockedText), 'S4 若有被拦者必是「已在运行」(cold 路径拒;warm 路径 ok 属合法) (got ' + blockedText + ')');
     // 等被放行的 resume 跑完(loop-guard 再次中止),然后数事件流里的 run_resumed。
     await waitFor('resumed run terminal again', async () => {
       const rr = await get(WP, `/api/agent-runs?sessionId=${encodeURIComponent(sid)}`, hdr);
