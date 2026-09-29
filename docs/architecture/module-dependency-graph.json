@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 64,
-    "providedSymbols": 2831,
-    "requiredSymbols": 2846,
+    "providedSymbols": 2833,
+    "requiredSymbols": 2842,
     "edges": 500,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -7082,20 +7082,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "CompactionPlan",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "evaporateHistory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -7117,13 +7103,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "providerSummaryCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "recordCompactUsage",
           "kinds": [
             "call"
@@ -7131,7 +7110,21 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "runForcedOverflowCompaction",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "truncateToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "writeHistorySnapshot",
           "kinds": [
             "call"
           ]
@@ -8679,20 +8672,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "CompactionPlan",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "evaporateHistory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "historyStartsWithCompactionSummary",
           "kinds": [
             "call"
@@ -8708,13 +8687,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "maybeAutoCompact",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "measureObservationReductionShadow",
           "kinds": [
             "call"
           ]
@@ -8742,14 +8714,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "providerSummaryCall",
+          "symbol": "recordCompactUsage",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "recordCompactUsage",
+          "symbol": "runForcedOverflowCompaction",
           "kinds": [
             "call"
           ]
@@ -8908,6 +8880,8 @@
         "resolveContextWindow",
         "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
+        "runAutoCompaction",
+        "runForcedOverflowCompaction",
         "runProviderCompact",
         "runSessionTurn",
         "singleSummaryCall",
@@ -25351,14 +25325,13 @@
       "from": "08-agent-runs.js",
       "to": "10-context-governance.js",
       "symbols": [
-        "CompactionPlan",
-        "evaporateHistory",
         "isContextOverflowError",
         "maybeCompactSubHistory",
         "noteWindowOvershoot",
-        "providerSummaryCall",
         "recordCompactUsage",
-        "truncateToolResult"
+        "runForcedOverflowCompaction",
+        "truncateToolResult",
+        "writeHistorySnapshot"
       ],
       "direction": "forward"
     },
@@ -25742,21 +25715,18 @@
       "from": "09-workflow.js",
       "to": "10-context-governance.js",
       "symbols": [
-        "CompactionPlan",
         "agentNodeContextWindow",
         "appendPromptToLastUserMessage",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
-        "evaporateHistory",
         "historyStartsWithCompactionSummary",
         "isContextOverflowError",
         "maybeAutoCompact",
-        "measureObservationReductionShadow",
         "noteEstimateSample",
         "noteWindowOvershoot",
         "providerContextWindow",
-        "providerSummaryCall",
         "recordCompactUsage",
+        "runForcedOverflowCompaction",
         "truncateToolResult",
         "upsertCompactMarker",
         "writeHistorySnapshot"

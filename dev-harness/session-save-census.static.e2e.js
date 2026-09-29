@@ -22,7 +22,7 @@ const CENSUS = {
   '06e-mission-domain.js': 5,    // 驱动器自存(拿着聊天流那份对象;撤回后由 sessionObjectIsStale 收手)
   '07-autonomy.js': 1,           // steer 排空(回合自存)
   '09-workflow.js': 10,          // runOpenAiTurn 自存
-  '10-context-governance.js': 3, // maybeAutoCompact(回合自存);两个手动压缩已改走 mutateSession
+  '10-context-governance.js': 1, // maybeAutoCompact(回合自存,L1 / L2 / L2 失败保 L1 三个出口并成一处);两个手动压缩已改走 mutateSession
   '13-http-router.js': 1,        // Kimi 状态那个 GET 回写用量读数(低风险,丢了下次再读)
   '13b-api-domain-routes.js': 1, // 插话路由往活回合那份对象里追加(回合自存)
   '13d-core-domain-routes.js': 1,// 权限暂停计时器的纯重写
@@ -87,7 +87,7 @@ ok(/throwIfStale:\s*true/.test(mutate) && /expectGen/.test(mutate) && /session\.
 
 // ④ 旁车与驱动器过撤回闸。
 ok(/sessionObjectIsStale\(session\)/.test(fnBody('10-context-governance.js', 'function maybeWriteSessionNotes(')), '④ 会话笔记旁车:陈旧对象不写');
-ok(/sessionObjectIsStale\(session\)\s*\?\s*''\s*:\s*await writeHistorySnapshot\(/.test(read('10-context-governance.js')), '④ 历史快照:陈旧对象不写');
+ok(/sessionObjectIsStale\(session\)\s*\?\s*''\s*:\s*(?:await\s+)?writeHistorySnapshot\(/.test(read('10-context-governance.js')), '④ 历史快照:陈旧对象不写');
 ok(/sessionObjectIsStale\(session\)/.test(fnBody('06e-mission-domain.js', 'async function runMissionDriver(')), '④ 任务驱动器:陈旧对象收手');
 
 // ⑤ 撤回相关的码有稳定码与人话(Brief §4.2 第 18 条)。

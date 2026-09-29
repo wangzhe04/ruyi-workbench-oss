@@ -124,8 +124,8 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 {
   const s10 = src('10-context-governance.js');
   ok(/function recordCompactUsage\(session, provider, sc, attribution\)/.test(s10) && /attr && attr\.subagentId \? \{ subagentId/.test(s10) && /attr && attr\.runId \? \{ runId/.test(s10), '⑤ recordCompactUsage 带 subagentId/runId 归属');
-  ok(/recordCompactUsage\(parentSession, summaryProvider, sc, \{ subagentId, runId \}\)/.test(s10), '⑤ 子代理自动压缩记账带归属');
-  ok(/recordCompactUsage\(parentSession, provider, sc, \{ subagentId, runId \}\)/.test(src('08-agent-runs.js')), '⑤ 子代理 forced_400 压缩记账带归属');
+  ok(/recordCompactUsage\(parentSession, r\.summaryProvider, r\.sc, \{ subagentId, runId \}\)/.test(s10), '⑤ 子代理自动压缩记账带归属');
+  ok(/recordCompactUsage\(parentSession, provider, forced\.sc, \{ subagentId, runId \}\)/.test(src('08-agent-runs.js')), '⑤ 子代理 forced_400 压缩记账带归属');
   ok(/rec\.runId = String\(entry\.runId\)\.slice\(0, 120\)/.test(src('00-boot.js')), '⑤ 00 appendUsageLedger 保留 runId');
   ok(/kind: 'subagent', agentKey, subagentId, runId,/.test(src('08-agent-runs.js')), '⑤ 子代理主行也带 runId');
 }

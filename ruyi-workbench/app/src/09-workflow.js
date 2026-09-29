@@ -2270,33 +2270,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // ③ L1-only 重试置 skipAutoCompactOnce,下一迭代不再白跑一次 L2(P2-5)。
         if (!contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
-          logEvent({ kind: 'auto_compact', mode: 'forced_400', sessionId: session.id, beforeTokens: estBeforeCall, error: String(call.httpError).slice(0, 200) });
-          if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
-            try {
-              const shadow = measureObservationReductionShadow(session.providerHistory);
-              onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', mode: 'forced_400', ...shadow });
-              logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
-            } catch { /* shadow evaluation must never block forced compaction */ }
-          }
-          const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => '');
-          const ev = evaporateHistory(session.providerHistory, {
-            config, rawRefPrefix,
-            onReduced: meta => {
-              onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
-              logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
-            },
+          // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
+          const forced = await runForcedOverflowCompaction({
+            history: session.providerHistory, scope: 'main', provider, model, config,
+            snapshot: () => writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => ''),
+            onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
+            summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
+            beforeTokens: estBeforeCall, error: call.httpError,
           });
-          const sc = await providerSummaryCall(provider, session.providerHistory, {
-            config,
-            auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
-          });
-          if (sc.ok) {
-            const plan = CompactionPlan.create({
-              scope: 'main', trigger: 'forced_400', history: session.providerHistory,
-              provider, model, config, conversationWindow: true,
-            });
-            session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
-            recordCompactUsage(session, provider, sc);
+          if (forced.level === 2) {
+            session.providerHistory = forced.reseeded;
+            recordCompactUsage(session, provider, forced.sc);
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
@@ -2308,10 +2292,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
-          if (ev > 0) {
+          if (forced.level === 1) {
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
             upsertCompactMarker(session, {
-              kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: ev,
+              kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
               beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });

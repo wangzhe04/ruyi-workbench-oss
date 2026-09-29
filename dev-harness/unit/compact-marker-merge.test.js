@@ -146,7 +146,7 @@ function autoCompactHarness(estimates) {
     upsertCompactMarker, openCompactMarker, COMPACT_MARKER_MIN_SAVED_TOKENS,
     nowIso: () => new Date().toISOString(),
   };
-  const run = vm.runInNewContext(`${extract('maybeAutoCompact')}\nmaybeAutoCompact`, ctx);
+  const run = vm.runInNewContext(`${extract('runAutoCompaction')}\n${extract('maybeAutoCompact')}\nmaybeAutoCompact`, ctx);
   const provider = { id: 'p', model: 'm' };
   const config = { autoCompactThreshold: 0.8 };
   const turn = (session, sys = 'sys') => run(session, provider, sys, config, e => events.push(e), 'm', []);

@@ -31678,6 +31678,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let subOk = true, subErr = '';
   let subOverWindow = false;
   let overWindowRetried = false; // 45c:over-window 强压重试,每子回合仅一次 // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  // 与主回合同一套压缩簿记(10 runAutoCompaction / runForcedOverflowCompaction):滞回水位、强压重试成功才落窗口学习(45f P1-1)、
+  // 强压只靠 L1 之后下一迭代跳过自动压缩(45f P2-5)。
+  const subCompactState = { watermark: 0 };
+  let pendingOvershootLearn = 0, skipAutoCompactOnce = false;
   // 第32波: sub-agent savepoint——每次工具调用批次成功后存快照,传输/超时失败时自动从检查点恢复续跑(不重做已完成的工具调用)。
   let savepoint = null;         // { subHistory, resultText, iter, iters, toolCallCount } | null
   let checkpointRestored = false; // 仅恢复一次(防无限重试循环)
@@ -31745,9 +31749,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'subagent_mail_in', subagentId, sender: m.sender, text: m.text });
         }
       }
-      // 第28波(§28a):迭代边界两级自动压缩(与主回合 9208 一一对应)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
+      // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
-      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId });
+      if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
+      else await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState });
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -31794,6 +31799,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: 1, maxAttempts: 2, reason: 'checkpoint-resume' });
           subOk = true; subErr = '';
           savepoint = null; // 仅恢复一次
+          subCompactState.watermark = 0; // 历史换回了检查点那一份,旧水位不再对应
           continue;
         }
         subOk = false;
@@ -31808,35 +31814,42 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           overWindowRetried = true;
           const estNow = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]);
-          noteWindowOvershoot(provider.id, subModel, estNow); // 45d(b)
-          onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
-          const ev = evaporateHistory(subHistory);
-          const sc = await providerSummaryCall(provider, subHistory, {
-            config,
-            auxCtx: {
-              ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
-              ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}),
-              ...(subagentId ? { subagentId: String(subagentId) } : {}),
-              trigger: 'subagent_forced_400',
-            },
+          const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
+          const parentTurn = parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {};
+          // 快照 → L1 蒸发 → L2 摘要重播种,与主回合走同一个内核。快照只写带内容哈希的文件名(见 maybeCompactSubHistory)。
+          const forced = await runForcedOverflowCompaction({
+            history: subHistory, scope: 'subagent', provider, model: subModel, config,
+            snapshot: () => (parentId && config.runtimeObservationReducerV1 === true
+              ? writeHistorySnapshot(parentId, parentSession.turnSeq, subHistory, true).catch(() => '')
+              : ''),
+            onEvent, eventFields: { subagentId },
+            logFields: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}) },
+            summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subagent_forced_400' },
+            beforeTokens: estNow, error: he,
           });
-          if (sc.ok) {
-            const plan = CompactionPlan.create({
-              scope: 'subagent', trigger: 'forced_400', history: subHistory,
-              provider, model: subModel, config,
-            });
+          if (forced.level === 2) {
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
-            subHistory.splice(0, subHistory.length, ...CompactionPlan.reseed(plan, sc.summary));
-            if (parentSession) recordCompactUsage(parentSession, provider, sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
+            subHistory.splice(0, subHistory.length, ...forced.reseeded);
+            if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
+            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
+            subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
           }
-          if (ev > 0) { subOk = true; subErr = ''; iter--; continue; } // L2 失败但 L1 有斩获,试最后一次
+          if (forced.level === 1) { // L2 失败但 L1 有斩获,试最后一次;下一迭代跳过自动压缩(几秒前 L2 刚失败过)
+            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            skipAutoCompactOnce = true;
+            subOk = true; subErr = '';
+            iter--; continue;
+          }
         }
         subErr = isOverWindow ? '子任务上下文超限' : he;
         subOverWindow = isOverWindow;
         break;
       }
+      // 45f P1-1(与主回合同):窗口学习只在强压重试【成功】后落账 —— 证明确实是超窗,误判不再永久压窗。
+      if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, subModel, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       if (call.toolCalls && call.toolCalls.length) {
@@ -36027,33 +36040,17 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // ③ L1-only 重试置 skipAutoCompactOnce,下一迭代不再白跑一次 L2(P2-5)。
         if (!contextRetried && isContextOverflowError(call.httpError)) {
           contextRetried = true;
-          logEvent({ kind: 'auto_compact', mode: 'forced_400', sessionId: session.id, beforeTokens: estBeforeCall, error: String(call.httpError).slice(0, 200) });
-          if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
-            try {
-              const shadow = measureObservationReductionShadow(session.providerHistory);
-              onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', mode: 'forced_400', ...shadow });
-              logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
-            } catch { /* shadow evaluation must never block forced compaction */ }
-          }
-          const rawRefPrefix = await writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => '');
-          const ev = evaporateHistory(session.providerHistory, {
-            config, rawRefPrefix,
-            onReduced: meta => {
-              onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
-              logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
-            },
+          // 快照 → L1 蒸发 → L2 摘要重播种,与子代理走同一个内核(10 runForcedOverflowCompaction)。
+          const forced = await runForcedOverflowCompaction({
+            history: session.providerHistory, scope: 'main', provider, model, config,
+            snapshot: () => writeHistorySnapshot(session.id, session.turnSeq, session.providerHistory, config.runtimeObservationReducerV1 === true).catch(() => ''),
+            onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
+            summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
+            beforeTokens: estBeforeCall, error: call.httpError,
           });
-          const sc = await providerSummaryCall(provider, session.providerHistory, {
-            config,
-            auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
-          });
-          if (sc.ok) {
-            const plan = CompactionPlan.create({
-              scope: 'main', trigger: 'forced_400', history: session.providerHistory,
-              provider, model, config, conversationWindow: true,
-            });
-            session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
-            recordCompactUsage(session, provider, sc);
+          if (forced.level === 2) {
+            session.providerHistory = forced.reseeded;
+            recordCompactUsage(session, provider, forced.sc);
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
@@ -36065,10 +36062,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
-          if (ev > 0) {
+          if (forced.level === 1) {
             onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
             upsertCompactMarker(session, {
-              kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: ev,
+              kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
               beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
@@ -37617,7 +37614,7 @@ function evaporateHistory(history, opts) {
   // 有理由的:runtime-optimization.static 会把本段源码原样切出来 new Function 跑,函数体里一旦
   // 出现跨模块符号,那件就炸(第一版就是这么红的)——**让它保持无开关、可切片**,顺带也保证了
   // 「开关关时 boundaryBudget 恒为 0、走的就是上面那条老边界」这件事在调用点一眼可查。
-  // 给不出预算的两个调用点是 forced-400 那两条(09-workflow 主回合、08-agent-runs 子代理):
+  // 给不出预算的是 forced-400 那条(10 runForcedOverflowCompaction,主回合与子代理共用):
   // 那里没有现成的 budget,而 25 号文 §1.2 的 111a 只要求主回合与子代理的自动压缩两条路,
   // forced-400 属 111b 的范围。这是有意留的边界,不是漏。
   const boundaryBudget = Number(opts && opts.boundaryBudget);
@@ -39010,55 +39007,166 @@ const CompactionPlan = (() => {
   return Object.freeze({ create, reseed, snapshot });
 })();
 
-// 第28波(§28a):子代理回合的两级自动压缩 —— 对齐主回合 maybeAutoCompact,复用同款原语(evaporateHistory / L2 摘要内核
-// providerSummaryCall / recentTurnsBoundary / recordCompactUsage)。此前 subHistory 单调增长无压缩(server.js 自认遗留),
-// 长跑子代理大工具结果撑爆窗口 → 400 → 节点失败。返回是否压缩过;never throw(压缩绝不阻断子回合)。
+// ── 上下文压缩的共用内核:主回合与子代理同一份判据与步骤 ─────────────────────────────────────────────────
+// 修前子代理那份(第 28 波 maybeCompactSubHistory、第 45 波 45c 的强压重试)是照主回合另写的,此后主回合陆续加的几件
+// 没跟过去:滞回水位(45f:估算贴着预算线抖动时每迭代白蒸发、白付一次 L2 摘要)、L1 之前的历史快照与观察缩减视图
+// (105a:被蒸发的工具结果带 rawRef,模型能用 observation_recall 取回原件 —— 子代理拿得到这个工具,却从来拿不到 rawRef)、
+// observation_reduced / auto_compact 日志与影子测量;强压重试那条路上,子代理蒸发时不带 config(开关全不认)、
+// 事件先于结果发出(零成果也报「压缩了」)、窗口学习在重试之前就落账(主回合 45f P1-1 早改成重试成功才落)、
+// L1-only 重试之后下一迭代照样白跑一次 L2(主回合 45f P2-5 早跳过了)。
+// 现在两边都走下面两个内核,只在「这件事本来就该不同」的地方分叉,由调用方给:
+//   预算口径(管家会话另有预算)、L2 重播种计划的 scope(子代理钉住原始 task)、快照写到哪(主回合写本会话;
+//   子代理写父会话、且只写带内容哈希的那种文件名,不覆盖父回合同一回合号的安全网快照)、结果怎么装回历史
+//   (主回合换数组;子代理原地 splice —— subHistory 是被 buildBody 等闭包引用的 const)、UI 压缩标记与存盘、摘要费用归属。
+//
+// runAutoCompaction(ctx) —— 迭代边界的两级自动压缩。ctx:
+//   history                 要压缩的历史(L1 原地改;L2 不动它,重播种结果经返回值交回,由调用方装回)
+//   scope                   'main' | 'subagent'(CompactionPlan 的 scope)
+//   provider / model / sys / tools / config
+//   budget / window         预算与窗口(调用方算好 —— 管家会话的预算不是普通那份)
+//   watermark               上次成功压缩后的估算(滞回水位);缺 / 0 = 没有
+//   snapshot()              async,L1 之前写历史快照,返回 rawRefPrefix('' = 不写 / 写失败)
+//   onEvent / eventFields   事件出口;eventFields 并进每个 compact / observation_* 事件(子代理带 subagentId)
+//   logFields               并进每条 logEvent(sessionId / turnSeq / subagentId)
+//   onLevel1({ evaporated, before, after })   L1 做了事之后、写日志之前调一次(主回合在这里写 UI 压缩标记)
+//   summaryAuxCtx / promptOverride / planOpts L2 摘要的台账上下文、提示词覆盖(管家)、重播种计划的额外参数
+// 返回 { compacted, level: 0|1|2, before, watermark?, reseeded?, sc?, summaryProvider?, before2?, after2? }。
+// 调用方负责兜 try/catch(压缩绝不阻断回合)。
+async function runAutoCompaction(ctx) {
+  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {} } = ctx;
+  // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
+  // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
+  // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
+  const rearmMargin = Math.max(2000, Math.round(window * 0.02));
+  const wm = Number(watermark);
+  const armedBudget = Number.isFinite(wm) && wm > 0 ? Math.max(budget, wm + rearmMargin) : budget;
+  const sysMsg = { role: 'system', content: String(sys || '') };
+  const estimate = () => calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算(含 tools 口径)
+  const before = estimate();
+  if (before <= armedBudget) return { compacted: false, level: 0, before }; // under budget / still in hysteresis → nothing to do
+
+  if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
+    try {
+      const shadow = measureObservationReductionShadow(history);
+      onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', ...eventFields, ...shadow });
+      logEvent({ kind: 'observation_reduction_shadow', ...logFields, ...shadow });
+    } catch { /* shadow evaluation must never change the compaction path */ }
+  }
+
+  // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
+  const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
+
+  let compacted = false;
+  // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
+  const evaporated = evaporateHistory(history, {
+    config, rawRefPrefix,
+    boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, // 126-111a:开关是在这儿把的门
+    dedupeReads: historyReadDedupEnabled(config), // 126-111e:同上,开关在调用点把门
+    onReduced: meta => {
+      onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...eventFields, ...meta });
+      logEvent({ kind: 'observation_reduced', ...logFields, ...meta });
+    },
+  });
+  if (evaporated > 0) {
+    const after1 = estimate();
+    onEvent({ type: 'compact', mode: 'evaporate', ...eventFields, beforeTokens: before, afterTokens: after1 });
+    if (typeof onLevel1 === 'function') onLevel1({ evaporated, before, after: after1 });
+    logEvent({ kind: 'auto_compact', mode: 'evaporate', ...logFields, beforeTokens: before, afterTokens: after1, evaporated });
+    compacted = true;
+    if (after1 <= budget) return { compacted, level: 1, before, watermark: after1 }; // level 1 was enough
+  }
+
+  // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
+  const before2 = estimate();
+  const compactTarget = resolveCompactionProvider(config, provider);
+  const summaryProvider = compactTarget.provider || provider;
+  const sc = await providerSummaryCall(summaryProvider, history, {
+    model: compactTarget.model,
+    config,
+    auxCtx: summaryAuxCtx,
+    ...(promptOverride ? { promptOverride } : {}),
+  });
+  if (!sc || !sc.ok) {
+    // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
+    logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
+    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
+  }
+  const plan = CompactionPlan.create({ scope, trigger: 'auto', history, provider, model, config, ...planOpts });
+  const reseeded = CompactionPlan.reseed(plan, sc.summary);
+  // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
+  // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
+  // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
+  if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
+  const after2 = estimateHistoryTokens([sysMsg, ...reseeded], '', tools);
+  onEvent({ type: 'compact', mode: 'summary', ...eventFields, beforeTokens: before2, afterTokens: after2 });
+  logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
+  return { compacted: true, level: 2, before, before2, after2, watermark: after2, reseeded, sc, summaryProvider };
+}
+
+// runForcedOverflowCompaction(ctx) —— 服务端判定超窗(context 类 400)后的强压:快照 → L1 蒸发 → L2 摘要重播种,
+// 由调用方重试同一次调用(每回合 / 每子回合只一次)。与自动压缩不同:没有预算判定(服务端已经说超了)、蒸发不按预算算
+// 边界(evaporateHistory 头注:forced-400 属 111b 的范围,不给 boundaryBudget)、摘要直接用会话自己的服务商。ctx:
+//   history / scope / provider / model / config / snapshot / onEvent / eventFields / logFields / summaryAuxCtx(同上)
+//   beforeTokens / error    写进 forced_400 日志
+// 返回 { level: 0|1|2, evaporated, reseeded?, sc? }:2 = 摘要重播种成功(调用方装回历史、记账、重试,重试成功才落窗口学习);
+// 1 = 只有 L1 蒸发有斩获(调用方重试最后一次,并跳过下一迭代的自动压缩 —— 几秒前 L2 刚失败过);0 = 零成果(不许虚报压缩)。
+async function runForcedOverflowCompaction(ctx) {
+  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error } = ctx;
+  logEvent({ kind: 'auto_compact', mode: 'forced_400', ...logFields, beforeTokens, error: String(error || '').slice(0, 200) });
+  if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
+    try {
+      const shadow = measureObservationReductionShadow(history);
+      onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', mode: 'forced_400', ...eventFields, ...shadow });
+      logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', ...logFields, ...shadow });
+    } catch { /* shadow evaluation must never block forced compaction */ }
+  }
+  const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
+  const evaporated = evaporateHistory(history, {
+    config, rawRefPrefix,
+    onReduced: meta => {
+      onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...eventFields, ...meta });
+      logEvent({ kind: 'observation_reduced', ...logFields, ...meta });
+    },
+  });
+  const sc = await providerSummaryCall(provider, history, { config, auxCtx: summaryAuxCtx });
+  if (sc && sc.ok) {
+    const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
+    return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
+  }
+  return { level: evaporated > 0 ? 1 : 0, evaporated };
+}
+
+// 子代理回合的两级自动压缩(第 28 波 §28a;现与主回合共用 runAutoCompaction)。返回是否压缩过;never throw(压缩绝不阻断子回合)。
 // 【关键实现坑】subHistory 是 runSubAgentCore 里的 const,被 buildBody/markUsage/finalizer 闭包引用 —— L2 重播种必须【原地
 // splice】替换内容,绝不能重新赋值(否则闭包仍指旧数组,压缩对已发请求体静默失效)。evaporate 本就原地改 content,天然安全。
-// 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】,防摘要吞掉原始目标后跑偏。
+// 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】(CompactionPlan 的
+// subagent scope 把它并进摘要 user 消息),防摘要吞掉原始目标后跑偏。
+// state:runSubAgentCore 持有的 { watermark } —— 滞回水位跨迭代留在子回合里(子代理没有会话头可存)。
 async function maybeCompactSubHistory(opts) {
-  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId } = opts || {};
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
-    const budget = budgetPlan.budget;
-    const withSys = h => [{ role: 'system', content: String(sys || '') }, ...h];
-    const before = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a):校准后估算判预算(45f P3-3:子代理实际带 tools,估算口径必须含)
-    if (before <= budget) return false;                          // append-only 到下次跨阈,与主回合同
-    // L1 蒸发(逐字复用):把最近 2 个 assistant 回合之前的 role:'tool' 内容改写为占位。原地、幂等、配对安全。
-    // 126-111a:开关开时改按 token 预算算保护区(与主回合同一个判据口、同一份规则数)。子代理这条路
-    // 25 号文 §1.2 明写「同步」,所以和主回合一起改;开关关时 opts 里这两个字段一点作用都没有。
-    const evaporated = evaporateHistory(subHistory, { config, boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, dedupeReads: historyReadDedupEnabled(config) });
-    const after1 = calibratedEstimate(provider, subModel, withSys(subHistory), tools); // 45d(a) 同上含 tools
-    const emit = (mode, after) => { try { if (onEvent) onEvent({ type: 'compact', mode, subagentId, beforeTokens: before, afterTokens: after }); } catch { /* stream gone */ } };
-    if (evaporated > 0 && after1 <= budget) { emit('evaporate', after1); return true; }
-    // L2 摘要重播种(仍超预算):复用共用摘要内核。失败 → 保留 L1、不中断子回合(镜像主回合)。
-    const compactTarget = resolveCompactionProvider(config, provider);
-    const summaryProvider = compactTarget.provider || provider;
-    const sc = await providerSummaryCall(summaryProvider, subHistory, {
-      model: compactTarget.model,
-      config,
-      auxCtx: {
-        ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
-        ...(subagentId ? { subagentId: String(subagentId) } : {}),
-        trigger: 'subturn_auto_L2',
-      },
+    const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
+    const r = await runAutoCompaction({
+      history: subHistory, scope: 'subagent', provider, model: subModel, sys, tools, config,
+      budget: budgetPlan.budget, window: budgetPlan.window, watermark: state && state.watermark,
+      // 快照写进父会话的 checkpoints,但只写带内容哈希的文件名(观察缩减开着时才用得上 rawRef):不带哈希的
+      // history-<回合>.json.gz 是父回合同一回合号的安全网快照,子代理不许覆盖它。
+      snapshot: () => (parentId && config.runtimeObservationReducerV1 === true
+        ? writeHistorySnapshot(parentId, parentSession.turnSeq, subHistory, true).catch(() => '')
+        : ''),
+      onEvent: typeof onEvent === 'function' ? e => { try { onEvent(e); } catch { /* stream gone */ } } : () => {},
+      eventFields: { subagentId },
+      logFields: { ...(parentId ? { sessionId: parentId } : {}), ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) },
+      summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subturn_auto_L2' },
     });
-    if (!sc || !sc.ok) { if (evaporated > 0) { emit('evaporate', after1); return true; } return false; }
-    const plan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
-    // task0 已钉进 summary user；若整个短历史都落入尾部，不能只过滤 task0 后留下 assistant-first
-    // 的片段（会破交替契约），因此改为不保留这段尾部。
-    // 钉住原始 task【并入】摘要 user 消息(而非单列)——避免 [task0-user, summary-user] 两条连续 user 破坏部分 provider 的
-    // 交替契约;kept 以 user 边界起切,故 reseed 天然 user→assistant→user… 交替。
-    const reseeded = CompactionPlan.reseed(plan, sc.summary);
-    // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
-    // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
-    // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
-    if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
-    subHistory.splice(0, subHistory.length, ...reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
-    emit('summary', estimateHistoryTokens(withSys(subHistory)));
-    try { if (parentSession) recordCompactUsage(parentSession, summaryProvider, sc, { subagentId, runId }); } catch { /* 记账失败不阻断 */ }
-    return true;
+    if (r.level === 2) {
+      subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
+      try { if (parentSession) recordCompactUsage(parentSession, r.summaryProvider, r.sc, { subagentId, runId }); } catch { /* 记账失败不阻断 */ }
+    }
+    if (r.compacted && state) state.watermark = r.watermark;
+    return r.compacted;
   } catch { return false; }
 }
 
@@ -39151,85 +39259,27 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       try { stewardBudget = Number(StewardHooks.contextBudget(session, config, window)) || 0; } catch { stewardBudget = 0; }
     }
     const budget = stewardBudget > 0 ? stewardBudget : budgetPlan.budget;
-    // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
-    // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
-    // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
-    const rearmMargin = Math.max(2000, Math.round(window * 0.02));
-    const wm = Number(session.autoCompactWatermark);
-    const armedBudget = Number.isFinite(wm) && wm > 0 ? Math.max(budget, wm + rearmMargin) : budget;
-    const sysMsg = { role: 'system', content: String(sys || '') };
-    const before = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a):校准后估算判预算
-    if (before <= armedBudget) return false; // under budget / still in hysteresis → nothing to do
-
-    if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
-      try {
-        const shadow = measureObservationReductionShadow(history);
-        onEvent({ type: 'observation_reduction_shadow', source: 'runtime-shadow', ...shadow });
-        logEvent({ kind: 'observation_reduction_shadow', sessionId: session.id, turnSeq: session.turnSeq, ...shadow });
-      } catch { /* shadow evaluation must never change the compaction path */ }
-    }
-
-    // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
-    // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
-    const rawRefPrefix = sessionObjectIsStale(session) ? '' : await writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true);
-
-    let compacted = false;
-    // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
-    const evaporated = evaporateHistory(history, {
-      config, rawRefPrefix,
-      boundaryBudget: evaporateBudgetBoundaryEnabled(config) ? budget : 0, // 126-111a:开关是在这儿把的门
-      dedupeReads: historyReadDedupEnabled(config), // 126-111e:同上,开关在调用点把门
-      onReduced: meta => {
-        onEvent({ type: 'observation_reduced', source: 'runtime-v1', ...meta });
-        logEvent({ kind: 'observation_reduced', sessionId: session.id, turnSeq: session.turnSeq, ...meta });
-      },
-    });
-    if (evaporated > 0) {
-      const after1 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
-      onEvent({ type: 'compact', mode: 'evaporate', beforeTokens: before, afterTokens: after1 });
-      upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', evaporated, saved: before - after1, beforeTokens: before, afterTokens: after1 });
-      logEvent({ kind: 'auto_compact', mode: 'evaporate', sessionId: session.id, beforeTokens: before, afterTokens: after1, evaporated });
-      compacted = true;
-      if (after1 <= budget) { session.autoCompactWatermark = after1; await saveSession(session).catch(() => {}); return true; } // level 1 was enough
-    }
-
-    // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
-    const before2 = calibratedEstimate(provider, model, [sysMsg, ...history], tools); // 45d(a)
-    const compactTarget = resolveCompactionProvider(config, provider);
-    const summaryProvider = compactTarget.provider || provider;
-    const sc = await providerSummaryCall(summaryProvider, history, {
-      model: compactTarget.model,
-      config,
-      auxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
+    const r = await runAutoCompaction({
+      history, scope: 'main', provider, model, sys, tools, config, budget, window, watermark: session.autoCompactWatermark,
+      // 128b:撤回之前读出来的那份(垂死回合)不写快照 —— 快照按回合号落名,撤回之后的会话迟早会再走到同一个回合号。
+      snapshot: () => (sessionObjectIsStale(session) ? '' : writeHistorySnapshot(session.id, session.turnSeq, history, config.runtimeObservationReducerV1 === true)),
+      onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
+      onLevel1: ({ evaporated, before, after }) => upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', evaporated, saved: before - after, beforeTokens: before, afterTokens: after }),
+      summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'auto_L2' },
       // 116f(§11.2):管家会话的 L2 摘要 prompt 换成 06b 的 steward.visitNotes(只留「已做的决定 /
-      // 递出去的话 / 未完成事项」三节)。普通会话不传该键,摘要内核逐字节走原路径。
-      ...(stewardBudget > 0 && typeof StewardHooks.visitNotesPrompt === 'function'
-        ? { promptOverride: String(StewardHooks.visitNotesPrompt(config) || '') }
-        : {}),
+      // 递出去的话 / 未完成事项」三节)。普通会话不传,摘要内核逐字节走原路径。
+      promptOverride: stewardBudget > 0 && typeof StewardHooks.visitNotesPrompt === 'function' ? String(StewardHooks.visitNotesPrompt(config) || '') : '',
+      // 116f: 重播种计划与判预算用同一个预算口径(管家的尾预算不能按普通会话那份大预算算,否则压完仍旧超管家自己的线)。
+      planOpts: { conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) },
     });
-    if (!sc.ok) {
-      // Level-2 failed (network/timeout). Keep the level-1 result and continue the turn — do NOT abort.
-      logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: false, error: sc.error });
-      if (compacted) { session.autoCompactWatermark = calibratedEstimate(provider, model, [sysMsg, ...history], tools); await saveSession(session).catch(() => {}); }
-      return compacted;
+    if (r.level === 2) {
+      recordCompactUsage(session, r.summaryProvider, r.sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
+      maybeWriteSessionNotes(session, r.sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
+      session.providerHistory = r.reseeded;
+      upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
-    recordCompactUsage(session, summaryProvider, sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
-    maybeWriteSessionNotes(session, sc.summary, config); // 105b: 状态三节外置到 session-notes.md,显式关时零副作用
-    // 116f: 重播种计划与判预算用同一个预算口径(管家的尾预算不能按普通会话那份大预算算,否则
-    // 压完仍旧超管家自己的线)。stewardBudget === 0 时这个键不传,与本切片之前逐字节一致。
-    const plan = CompactionPlan.create({ scope: 'main', trigger: 'auto', history, provider, model, config, conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) });
-    session.providerHistory = CompactionPlan.reseed(plan, sc.summary);
-    // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
-    // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
-    // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
-    if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(session.providerHistory); } catch { /* 同上 */ } }
-    const after2 = estimateHistoryTokens([sysMsg, ...session.providerHistory], '', tools);
-    onEvent({ type: 'compact', mode: 'summary', beforeTokens: before2, afterTokens: after2 });
-    upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: before2, afterTokens: after2 });
-    logEvent({ kind: 'auto_compact', mode: 'summary', sessionId: session.id, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
-    session.autoCompactWatermark = after2;
-    await saveSession(session).catch(() => {});
-    return true;
+    if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session).catch(() => {}); }
+    return r.compacted;
   } catch (e) {
     // Compaction is best-effort; a failure must never break the turn.
     try { logEvent({ kind: 'auto_compact', sessionId: session && session.id, ok: false, error: (e && e.message) || String(e) }); } catch { /* ignore */ }
