@@ -3901,45 +3901,61 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
-    journalGcProbe.fullScans++;
-    journalGcSinceScan = 0;
-    journalSweeping++;
-    const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
-    try {
-      // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
-      // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
-      // purge decision is always made against real bytes, never the estimate.
-      const root = paths.checkpoints;
-      const names = await fsp.readdir(root).catch(() => []);
-      const dirs = [];
-      let total = 0;
-      for (const name of names) {
-        const p = path.join(root, name);
-        const st = await fsp.stat(p).catch(() => null);
-        if (!st || !st.isDirectory()) continue;
-        const size = await dirSize(p);
-        total += size;
-        dirs.push({ p, size, mtime: st.mtimeMs });
-      }
-      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
-        dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
-        for (const d of dirs) {
-          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-          await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
-          total -= d.size;
-        }
-      }
-      // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
-      // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
-      // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
-      // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
-      const windowDelta = journalDeltaDuringSweep - deltaMark;
-      journalGlobalBytes = Math.max(0, total + windowDelta);
-    } finally {
-      journalSweeping--;
-      if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
-    }
+    // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
+    // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
+    // (真要删东西)时照旧同步等它做完,上限依旧是硬的。每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
+    const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
+    if (overBudget) await journalGlobalSweepOnce();
+    else void journalGlobalSweepOnce();
   } catch { /* silent */ }
+}
+
+let journalSweepInFlight = null;
+function journalGlobalSweepOnce() {
+  if (!journalSweepInFlight) {
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+  }
+  return journalSweepInFlight;
+}
+async function journalGlobalSweep() {
+  journalGcProbe.fullScans++;
+  journalGcSinceScan = 0;
+  journalSweeping++;
+  const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
+  try {
+    // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
+    // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
+    // purge decision is always made against real bytes, never the estimate.
+    const root = paths.checkpoints;
+    const names = await fsp.readdir(root).catch(() => []);
+    const dirs = [];
+    let total = 0;
+    for (const name of names) {
+      const p = path.join(root, name);
+      const st = await fsp.stat(p).catch(() => null);
+      if (!st || !st.isDirectory()) continue;
+      const size = await dirSize(p);
+      total += size;
+      dirs.push({ p, size, mtime: st.mtimeMs });
+    }
+    if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+      dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      for (const d of dirs) {
+        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
+        total -= d.size;
+      }
+    }
+    // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
+    // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
+    // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
+    // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
+    const windowDelta = journalDeltaDuringSweep - deltaMark;
+    journalGlobalBytes = Math.max(0, total + windowDelta);
+  } finally {
+    journalSweeping--;
+    if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
+  }
 }
 
 // Sum the byte size of a directory tree (best-effort; errors count as 0).

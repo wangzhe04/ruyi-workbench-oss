@@ -164,3 +164,114 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
   scored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
   return limit > 0 ? scored.slice(0, limit) : scored;
 }
+
+// ── 性能批 C1:可复用的语料缓存 ────────────────────────────────────────────────────────────────────────
+// buildRetrievalCorpus 每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
+// 3000 条会话 × 8 KB 的单元要 6–7 秒、整段占住事件循环;记忆召回每条用户消息也调一次。
+// 缓存两层,结果与 buildRetrievalCorpus 逐位相同(同一批文档、同一顺序 → 同一 df、同一向量):
+//   ① 每篇文档的词频按「文本没变」复用 —— 存成全局词表里的词号数组 + 次数数组(保留首次出现的次序,
+//      retrievalVector 的累加次序因此不变),不再每次重新分词;
+//   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。
+// 每个调用点各持一份(会话搜索、记忆召回),互不干扰。
+function createRetrievalCorpusCache() {
+  const vocab = new Map();          // term -> id
+  const termOf = [];                // id -> term
+  const termHash = [];              // id -> fnv1a32(term)
+  const docs = new Map();           // doc id -> { text, ids: Uint32Array, counts: Uint32Array }
+  let last = null;                  // { ids, texts, corpus }
+  const termId = term => {
+    let id = vocab.get(term);
+    if (id === undefined) { id = termOf.length; vocab.set(term, id); termOf.push(term); termHash.push(fnv1a32(term)); }
+    return id;
+  };
+  const docTerms = (id, text) => {
+    const hit = docs.get(id);
+    if (hit && hit.text === text) return hit;
+    const counts = retrievalTermCounts(text);
+    const entry = { text, ids: new Uint32Array(counts.size), counts: new Uint32Array(counts.size) };
+    let k = 0;
+    for (const [term, count] of counts) { entry.ids[k] = termId(term); entry.counts[k] = count; k++; }
+    docs.set(id, entry);
+    return entry;
+  };
+  // 与 retrievalVector 同一算式、同一迭代次序(词按首次出现的次序、raw 按桶首次出现的次序)。
+  const vectorOf = (entry, dfById, docCount) => {
+    const raw = new Map();
+    for (let k = 0; k < entry.ids.length; k++) {
+      const tid = entry.ids[k];
+      const hash = termHash[tid];
+      const dim = hash % RETRIEVAL_DIMS;
+      const sign = (hash >>> 16) & 1 ? -1 : 1;
+      const seen = dfById.get(tid) || 0;
+      const weight = (1 + Math.log(entry.counts[k])) * Math.log(1 + (Math.max(1, docCount) + 1) / (seen + 1));
+      raw.set(dim, (raw.get(dim) || 0) + sign * weight);
+    }
+    let norm = 0;
+    for (const value of raw.values()) norm += value * value;
+    norm = Math.sqrt(norm);
+    const vector = {};
+    if (!(norm > 0)) return vector;
+    for (const [dim, value] of raw) {
+      const scaled = value / norm;
+      if (scaled !== 0) vector[dim] = scaled;
+    }
+    return vector;
+  };
+  // 异步预热:把还没分过词的文档分词进缓存,每 50 篇让一次事件循环(3000 篇 × 8 KB 首次要几秒,不能一口气占住主线程)。
+  // 之后再调 corpusFor 就只剩 df 与向量。结果不变 —— 只是把同一份分词提前、分片做了。
+  const prepare = async documents => {
+    let sinceYield = 0;
+    for (const doc of documents || []) {
+      if (!doc || !doc.id) continue;
+      const hit = docs.get(String(doc.id));
+      if (hit && hit.text === doc.text) continue;
+      docTerms(String(doc.id), doc.text);
+      if (++sinceYield >= 50) { sinceYield = 0; await new Promise(resolve => setImmediate(resolve)); }
+    }
+  };
+  // 装配(df 与向量)写成生成器:每算完一篇的向量 yield 一次。同步调用方一口气跑完,异步调用方隔几篇让一次事件循环 ——
+  // 两条路径是同一份代码,结果相同。
+  function* assemble(documents) {
+    // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长
+    if (termOf.length > 2000000) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; }
+    const ids = [], texts = [];
+    for (const doc of documents || []) {
+      if (!doc || !doc.id) continue;
+      ids.push(String(doc.id));
+      texts.push(doc.text);
+    }
+    if (last && last.ids.length === ids.length && last.ids.every((id, i) => id === ids[i] && last.texts[i] === texts[i])) return last.corpus;
+    const entries = ids.map((id, i) => docTerms(id, texts[i]));
+    const keep = new Set(ids);
+    for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    const dfById = new Map();
+    for (const entry of entries) for (let k = 0; k < entry.ids.length; k++) dfById.set(entry.ids[k], (dfById.get(entry.ids[k]) || 0) + 1);
+    const docCount = entries.length;
+    const df = new Map();
+    for (const [tid, n] of dfById) df.set(termOf[tid], n);
+    const vectors = [];
+    for (const entry of entries) { vectors.push(vectorOf(entry, dfById, docCount)); yield; }
+    const corpus = { ids, vectors, df, docCount };
+    last = { ids, texts, corpus };
+    return corpus;
+  }
+  const corpusFor = function corpusFor(documents) {
+    const run = assemble(documents);
+    let step = run.next();
+    while (!step.done) step = run.next();
+    return step.value;
+  };
+  // 异步版:先分片分词(prepare),装配时每 200 篇让一次。
+  corpusFor.build = async documents => {
+    await prepare(documents);
+    const run = assemble(documents);
+    let step = run.next(), n = 0;
+    while (!step.done) {
+      if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
+      step = run.next();
+    }
+    return step.value;
+  };
+  corpusFor.prepare = prepare;
+  return corpusFor;
+}

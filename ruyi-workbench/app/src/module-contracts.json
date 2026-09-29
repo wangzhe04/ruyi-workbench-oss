@@ -1044,6 +1044,8 @@
         "journalGcProbe",
         "journalGcSinceScan",
         "journalGlobalBytes",
+        "journalGlobalSweep",
+        "journalGlobalSweepOnce",
         "journalIndexPath",
         "journalNextEntrySeq",
         "journalReadIndex",
@@ -1055,6 +1057,7 @@
         "journalResolveTurnSeq",
         "journalRollback",
         "journalSessionCtx",
+        "journalSweepInFlight",
         "journalSweeping",
         "journalWriteChains",
         "journalWriteIndex",
@@ -5179,6 +5182,7 @@
         "RETRIEVAL_TEXT_CAP",
         "buildRetrievalCorpus",
         "buildRetrievalDf",
+        "createRetrievalCorpusCache",
         "fnv1a32",
         "rankRetrievalCorpus",
         "reciprocalRankFusion",
@@ -5429,6 +5433,8 @@
         "memoryProposalSemanticKey",
         "memoryProposalSimilarity",
         "memoryProposalStateFile",
+        "memoryRecallCorpus",
+        "memoryRecallCorpusCache",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
@@ -5718,7 +5724,7 @@
         },
         {
           "provider": "06h-retrieval-index.js",
-          "symbol": "buildRetrievalCorpus",
+          "symbol": "createRetrievalCorpusCache",
           "kinds": [
             "call"
           ]
@@ -7579,6 +7585,7 @@
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
         "classifyTextForEstimate",
+        "countCjkCodeUnits",
         "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",

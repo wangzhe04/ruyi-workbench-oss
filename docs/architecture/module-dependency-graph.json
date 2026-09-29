@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3056,
+    "providedSymbols": 3063,
     "requiredSymbols": 2916,
     "edges": 511,
     "forwardEdges": 68,
@@ -1080,6 +1080,8 @@
         "journalGcProbe",
         "journalGcSinceScan",
         "journalGlobalBytes",
+        "journalGlobalSweep",
+        "journalGlobalSweepOnce",
         "journalIndexPath",
         "journalNextEntrySeq",
         "journalReadIndex",
@@ -1091,6 +1093,7 @@
         "journalResolveTurnSeq",
         "journalRollback",
         "journalSessionCtx",
+        "journalSweepInFlight",
         "journalSweeping",
         "journalWriteChains",
         "journalWriteIndex",
@@ -5247,6 +5250,7 @@
         "RETRIEVAL_TEXT_CAP",
         "buildRetrievalCorpus",
         "buildRetrievalDf",
+        "createRetrievalCorpusCache",
         "fnv1a32",
         "rankRetrievalCorpus",
         "reciprocalRankFusion",
@@ -5501,6 +5505,8 @@
         "memoryProposalSemanticKey",
         "memoryProposalSimilarity",
         "memoryProposalStateFile",
+        "memoryRecallCorpus",
+        "memoryRecallCorpusCache",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
@@ -5790,7 +5796,7 @@
         },
         {
           "provider": "06h-retrieval-index.js",
-          "symbol": "buildRetrievalCorpus",
+          "symbol": "createRetrievalCorpusCache",
           "kinds": [
             "call"
           ]
@@ -7669,6 +7675,7 @@
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
         "classifyTextForEstimate",
+        "countCjkCodeUnits",
         "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",
@@ -25605,7 +25612,7 @@
       "from": "06d-memory-domain.js",
       "to": "06h-retrieval-index.js",
       "symbols": [
-        "buildRetrievalCorpus",
+        "createRetrievalCorpusCache",
         "rankRetrievalCorpus",
         "reciprocalRankFusion"
       ],

@@ -10043,45 +10043,61 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
-    journalGcProbe.fullScans++;
-    journalGcSinceScan = 0;
-    journalSweeping++;
-    const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
-    try {
-      // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
-      // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
-      // purge decision is always made against real bytes, never the estimate.
-      const root = paths.checkpoints;
-      const names = await fsp.readdir(root).catch(() => []);
-      const dirs = [];
-      let total = 0;
-      for (const name of names) {
-        const p = path.join(root, name);
-        const st = await fsp.stat(p).catch(() => null);
-        if (!st || !st.isDirectory()) continue;
-        const size = await dirSize(p);
-        total += size;
-        dirs.push({ p, size, mtime: st.mtimeMs });
-      }
-      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
-        dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
-        for (const d of dirs) {
-          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-          await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
-          total -= d.size;
-        }
-      }
-      // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
-      // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
-      // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
-      // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
-      const windowDelta = journalDeltaDuringSweep - deltaMark;
-      journalGlobalBytes = Math.max(0, total + windowDelta);
-    } finally {
-      journalSweeping--;
-      if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
-    }
+    // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
+    // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
+    // (真要删东西)时照旧同步等它做完,上限依旧是硬的。每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
+    const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
+    if (overBudget) await journalGlobalSweepOnce();
+    else void journalGlobalSweepOnce();
   } catch { /* silent */ }
+}
+
+let journalSweepInFlight = null;
+function journalGlobalSweepOnce() {
+  if (!journalSweepInFlight) {
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+  }
+  return journalSweepInFlight;
+}
+async function journalGlobalSweep() {
+  journalGcProbe.fullScans++;
+  journalGcSinceScan = 0;
+  journalSweeping++;
+  const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
+  try {
+    // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
+    // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
+    // purge decision is always made against real bytes, never the estimate.
+    const root = paths.checkpoints;
+    const names = await fsp.readdir(root).catch(() => []);
+    const dirs = [];
+    let total = 0;
+    for (const name of names) {
+      const p = path.join(root, name);
+      const st = await fsp.stat(p).catch(() => null);
+      if (!st || !st.isDirectory()) continue;
+      const size = await dirSize(p);
+      total += size;
+      dirs.push({ p, size, mtime: st.mtimeMs });
+    }
+    if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+      dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      for (const d of dirs) {
+        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
+        total -= d.size;
+      }
+    }
+    // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
+    // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
+    // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
+    // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
+    const windowDelta = journalDeltaDuringSweep - deltaMark;
+    journalGlobalBytes = Math.max(0, total + windowDelta);
+  } finally {
+    journalSweeping--;
+    if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
+  }
 }
 
 // Sum the byte size of a directory tree (best-effort; errors count as 0).
@@ -25883,6 +25899,117 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
   return limit > 0 ? scored.slice(0, limit) : scored;
 }
 
+// ── 性能批 C1:可复用的语料缓存 ────────────────────────────────────────────────────────────────────────
+// buildRetrievalCorpus 每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
+// 3000 条会话 × 8 KB 的单元要 6–7 秒、整段占住事件循环;记忆召回每条用户消息也调一次。
+// 缓存两层,结果与 buildRetrievalCorpus 逐位相同(同一批文档、同一顺序 → 同一 df、同一向量):
+//   ① 每篇文档的词频按「文本没变」复用 —— 存成全局词表里的词号数组 + 次数数组(保留首次出现的次序,
+//      retrievalVector 的累加次序因此不变),不再每次重新分词;
+//   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。
+// 每个调用点各持一份(会话搜索、记忆召回),互不干扰。
+function createRetrievalCorpusCache() {
+  const vocab = new Map();          // term -> id
+  const termOf = [];                // id -> term
+  const termHash = [];              // id -> fnv1a32(term)
+  const docs = new Map();           // doc id -> { text, ids: Uint32Array, counts: Uint32Array }
+  let last = null;                  // { ids, texts, corpus }
+  const termId = term => {
+    let id = vocab.get(term);
+    if (id === undefined) { id = termOf.length; vocab.set(term, id); termOf.push(term); termHash.push(fnv1a32(term)); }
+    return id;
+  };
+  const docTerms = (id, text) => {
+    const hit = docs.get(id);
+    if (hit && hit.text === text) return hit;
+    const counts = retrievalTermCounts(text);
+    const entry = { text, ids: new Uint32Array(counts.size), counts: new Uint32Array(counts.size) };
+    let k = 0;
+    for (const [term, count] of counts) { entry.ids[k] = termId(term); entry.counts[k] = count; k++; }
+    docs.set(id, entry);
+    return entry;
+  };
+  // 与 retrievalVector 同一算式、同一迭代次序(词按首次出现的次序、raw 按桶首次出现的次序)。
+  const vectorOf = (entry, dfById, docCount) => {
+    const raw = new Map();
+    for (let k = 0; k < entry.ids.length; k++) {
+      const tid = entry.ids[k];
+      const hash = termHash[tid];
+      const dim = hash % RETRIEVAL_DIMS;
+      const sign = (hash >>> 16) & 1 ? -1 : 1;
+      const seen = dfById.get(tid) || 0;
+      const weight = (1 + Math.log(entry.counts[k])) * Math.log(1 + (Math.max(1, docCount) + 1) / (seen + 1));
+      raw.set(dim, (raw.get(dim) || 0) + sign * weight);
+    }
+    let norm = 0;
+    for (const value of raw.values()) norm += value * value;
+    norm = Math.sqrt(norm);
+    const vector = {};
+    if (!(norm > 0)) return vector;
+    for (const [dim, value] of raw) {
+      const scaled = value / norm;
+      if (scaled !== 0) vector[dim] = scaled;
+    }
+    return vector;
+  };
+  // 异步预热:把还没分过词的文档分词进缓存,每 50 篇让一次事件循环(3000 篇 × 8 KB 首次要几秒,不能一口气占住主线程)。
+  // 之后再调 corpusFor 就只剩 df 与向量。结果不变 —— 只是把同一份分词提前、分片做了。
+  const prepare = async documents => {
+    let sinceYield = 0;
+    for (const doc of documents || []) {
+      if (!doc || !doc.id) continue;
+      const hit = docs.get(String(doc.id));
+      if (hit && hit.text === doc.text) continue;
+      docTerms(String(doc.id), doc.text);
+      if (++sinceYield >= 50) { sinceYield = 0; await new Promise(resolve => setImmediate(resolve)); }
+    }
+  };
+  // 装配(df 与向量)写成生成器:每算完一篇的向量 yield 一次。同步调用方一口气跑完,异步调用方隔几篇让一次事件循环 ——
+  // 两条路径是同一份代码,结果相同。
+  function* assemble(documents) {
+    // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长
+    if (termOf.length > 2000000) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; }
+    const ids = [], texts = [];
+    for (const doc of documents || []) {
+      if (!doc || !doc.id) continue;
+      ids.push(String(doc.id));
+      texts.push(doc.text);
+    }
+    if (last && last.ids.length === ids.length && last.ids.every((id, i) => id === ids[i] && last.texts[i] === texts[i])) return last.corpus;
+    const entries = ids.map((id, i) => docTerms(id, texts[i]));
+    const keep = new Set(ids);
+    for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    const dfById = new Map();
+    for (const entry of entries) for (let k = 0; k < entry.ids.length; k++) dfById.set(entry.ids[k], (dfById.get(entry.ids[k]) || 0) + 1);
+    const docCount = entries.length;
+    const df = new Map();
+    for (const [tid, n] of dfById) df.set(termOf[tid], n);
+    const vectors = [];
+    for (const entry of entries) { vectors.push(vectorOf(entry, dfById, docCount)); yield; }
+    const corpus = { ids, vectors, df, docCount };
+    last = { ids, texts, corpus };
+    return corpus;
+  }
+  const corpusFor = function corpusFor(documents) {
+    const run = assemble(documents);
+    let step = run.next();
+    while (!step.done) step = run.next();
+    return step.value;
+  };
+  // 异步版:先分片分词(prepare),装配时每 200 篇让一次。
+  corpusFor.build = async documents => {
+    await prepare(documents);
+    const run = assemble(documents);
+    let step = run.next(), n = 0;
+    while (!step.done) {
+      if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
+      step = run.next();
+    }
+    return step.value;
+  };
+  corpusFor.prepare = prepare;
+  return corpusFor;
+}
+
 // ============================================================================
 // 第 116 波 116a(27 号文 §11.3):工作台管家(Steward)引擎侧核心——纯函数与延迟绑定命名空间。
 //
@@ -29732,6 +29859,13 @@ function memoryRetrievalKey(entry) {
 const MEMORY_FUSION_SCOPE_BONUS = 0.0006;
 const MEMORY_FUSION_TYPE_BONUS = 0.0004;
 
+// 性能批 C1:记忆召回的语料缓存(每条用户消息都会召回一次;记忆库不变时不再逐条重新分词)。
+let memoryRecallCorpusCache = null;
+function memoryRecallCorpus(documents) {
+  if (!memoryRecallCorpusCache) memoryRecallCorpusCache = createRetrievalCorpusCache();
+  return memoryRecallCorpusCache(documents);
+}
+
 function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const entries = (Array.isArray(registry) ? registry : []).filter(entry => entry && entry.id);
   if (!entries.length) return [];
@@ -29744,7 +29878,8 @@ function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const lexicalScored = rankRelevantMemoriesScored(entries, query);
   const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
   const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
-  const corpus = buildRetrievalCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
+  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与 buildRetrievalCorpus 逐位相同)
+  const corpus = memoryRecallCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
   const vectorRanking = rankRetrievalCorpus(corpus, query).map(row => row.id);
 
   // 两层都没命中（空 query / 全不相干）就原样走词法层结果，不自己造候选。
@@ -35829,9 +35964,21 @@ const CJK_RE = /[\u2E80-\u9FFF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF
 // 镜像无多配置歧义;默认 false = 两桶逐字节不变。
 let estimateBucketsV1On = false;
 function setEstimateBucketsV1(on) { estimateBucketsV1On = on === true; }
+// 性能批 C2:CJK_RE 命中数的等价计数。修前 str.match(CJK_RE) 给每个汉字分配一个字符串,每回合至少估两次整段历史,
+// 400 万汉字要 230 ms。CJK_RE 不带 u 标志、按 UTF-16 码元匹配,几个区间都不含代理区(D800–DFFF),所以逐码元比区间
+// 与之逐个相同(unit/token-estimate-cjk 在全部 65536 个码元与随机串上比对)。
+function countCjkCodeUnits(str) {
+  let n = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c < 0x2E80) continue;
+    if (c <= 0x9FFF || (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xF900 && c <= 0xFAFF) || (c >= 0xFE30 && c <= 0xFE4F) || (c >= 0xFF00 && c <= 0xFFEF)) n++;
+  }
+  return n;
+}
 function estimateTextTokens(str) {
   if (typeof str !== 'string' || !str) return 0;
-  const cjk = (str.match(CJK_RE) || []).length;
+  const cjk = countCjkCodeUnits(str);
   const ascii = str.length - cjk;
   // 105e: 开关关 = 现状两桶,同样的输入同样的输出(逐字节一致);开时先分类再套桶因子。
   if (!estimateBucketsV1On) return ascii / 3.6 + cjk / 1.5;

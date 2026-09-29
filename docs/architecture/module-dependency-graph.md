@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3056 | 2916 | 511 | 68 | 0 | 1 |
+| 66 | 3063 | 2916 | 511 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,7 +27,7 @@
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 14 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 254 | 68 | 16 |
+| 12 | `02-session-store.js` | foundation | 257 | 68 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 78 | 23 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 145 | 36 | 9 |
@@ -43,9 +43,9 @@
 | 25 | `06-provider-engine.js` | engine | 130 | 55 | 16 |
 | 26 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 27 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 28 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
+| 28 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
 | 29 | `06i-steward-core.js` | engine | 154 | 0 | 0 |
-| 30 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
+| 30 | `06d-memory-domain.js` | engine | 129 | 36 | 10 |
 | 31 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 32 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 33 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
@@ -54,7 +54,7 @@
 | 36 | `07-autonomy.js` | orchestration | 89 | 65 | 17 |
 | 37 | `08-agent-runs.js` | orchestration | 104 | 90 | 19 |
 | 38 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 39 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
+| 39 | `09d-token-estimation.js` | orchestration | 11 | 2 | 2 |
 | 40 | `09-workflow.js` | orchestration | 16 | 219 | 25 |
 | 41 | `10-context-governance.js` | orchestration | 137 | 80 | 17 |
 | 42 | `11-native-tools.js` | tools | 119 | 33 | 5 |
@@ -214,7 +214,7 @@
 | `06d-memory-domain.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider` |
 | `06d-memory-domain.js` | `06-provider-engine.js` | backward | `providerRawCompletion` |
 | `06d-memory-domain.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
-| `06d-memory-domain.js` | `06h-retrieval-index.js` | backward | `buildRetrievalCorpus`, `rankRetrievalCorpus`, `reciprocalRankFusion` |
+| `06d-memory-domain.js` | `06h-retrieval-index.js` | backward | `createRetrievalCorpusCache`, `rankRetrievalCorpus`, `reciprocalRankFusion` |
 | `06e-mission-domain.js` | `00-boot.js` | backward | `neutralizeFenceTag`, `nowIso`, `text` |
 | `06e-mission-domain.js` | `02-session-store.js` | backward | `MISSION_MAX_TEXT`, `MISSION_STALL_LIMIT`, `evaluateMissionCheck`, `maybeFinalizeMission`, `missionProgressDigest`, `recordMissionCheckResult`, `saveSession`, `sessionObjectIsStale` |
 | `06e-mission-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
