@@ -86,9 +86,11 @@
         "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
+        "safeDecodeURIComponent",
         "safeJsonParse",
         "samePathEntry",
         "samePathKey",
+        "spawnDetachedChecked",
         "text",
         "tildePath",
         "usageDayKey",
@@ -1740,6 +1742,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call"
@@ -2304,6 +2313,14 @@
           "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call",
             "read"
           ]
         },
@@ -3895,6 +3912,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
           "kinds": [
             "call"
           ]
@@ -9129,6 +9153,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
           "kinds": [
             "call"
@@ -9236,6 +9267,20 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
           "kinds": [
             "call"
           ]
@@ -10151,6 +10196,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -10935,6 +10987,13 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13056,6 +13115,13 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18641,6 +18707,7 @@
       "file": "13r-event-stream.js",
       "layer": "transport",
       "provides": [
+        "EVENT_STREAM_CLIENTS_MAX",
         "EVENT_STREAM_HEARTBEAT_MS",
         "EVENT_STREAM_LIVE_SESSIONS_MAX",
         "EVENT_STREAM_LIVE_THROTTLE_MS",
@@ -18665,6 +18732,13 @@
         "stewardPresenceSnapshot"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
@@ -18696,6 +18770,13 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
           "kinds": [
             "call"
           ]
@@ -18886,6 +18967,13 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -19723,6 +19811,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
           "kinds": [
             "read"
           ]

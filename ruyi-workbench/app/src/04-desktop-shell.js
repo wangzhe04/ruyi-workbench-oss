@@ -1,4 +1,4 @@
-const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn) => {
+const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn) => {
   const fs = fsModule;
   const fsp = fspModule;
   const path = pathModule;
@@ -6,6 +6,8 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   const cp = cpModule;
   const killChildTree = killTreeFn;
   const batchSafeSpawn = batchSpawnFn;
+  // 分离式启动带 'error' 监听(见 00-boot spawnDetachedChecked):explorer.exe 起不来时不再是 uncaughtException。
+  const spawnDetachedChecked = spawnDetachedFn;
   // v1.0.1 编码修复:Windows 子进程(powershell/cmd/git/python…)在中文系统默认按 OEM 代码页(GBK/cp936)
   // 输出,而非 UTF-8。此前 runProcess 按 UTF-8 逐块 toString → 中文全乱码(GBK 字节 c2a6c9bd… 被读成「¦ɽ」)。
   // 修法:累积原始字节,收尾时智能解码——先按 UTF-8 解;若出现替换符(�,说明不是合法 UTF-8),退回 GBK。
@@ -170,14 +172,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       child.on('exit', cleanup);
       child.on('error', () => { // powershell missing → fall back to a plain (possibly-behind) explorer open
         cleanup();
-        try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); } catch { /* give up */ }
+        try { spawnDetachedChecked('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }); } catch { /* give up */ }
       });
       child.unref();
       return true;
     } catch (e) {
       fsp.unlink(tmpFile).catch(() => {});
       // Synchronous spawn failure → last-ditch direct explorer (opens, may be behind the browser).
-      try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); return true; } catch { return false; }
+      try { spawnDetachedChecked('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }); return true; } catch { return false; }
     }
   }
 
@@ -263,4 +265,4 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     return { ok: true, cancelled: true };
   }
   return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, revealInExplorer, pickFolder, pickFile });
-})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn);
+})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked);

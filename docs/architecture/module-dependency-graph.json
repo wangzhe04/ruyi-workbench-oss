@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2941,
-    "requiredSymbols": 2877,
+    "providedSymbols": 2944,
+    "requiredSymbols": 2890,
     "edges": 509,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -98,9 +98,11 @@
         "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
+        "safeDecodeURIComponent",
         "safeJsonParse",
         "samePathEntry",
         "samePathKey",
+        "spawnDetachedChecked",
         "text",
         "tildePath",
         "usageDayKey",
@@ -1778,6 +1780,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call"
@@ -2348,6 +2357,14 @@
           "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call",
             "read"
           ]
         },
@@ -3951,6 +3968,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
           "kinds": [
             "call"
           ]
@@ -9223,6 +9247,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
           "kinds": [
             "call"
@@ -9330,6 +9361,20 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
           "kinds": [
             "call"
           ]
@@ -10249,6 +10294,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
             "read"
@@ -11037,6 +11089,13 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13164,6 +13223,13 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18775,6 +18841,7 @@
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
+        "EVENT_STREAM_CLIENTS_MAX",
         "EVENT_STREAM_HEARTBEAT_MS",
         "EVENT_STREAM_LIVE_SESSIONS_MAX",
         "EVENT_STREAM_LIVE_THROTTLE_MS",
@@ -18799,6 +18866,13 @@
         "stewardPresenceSnapshot"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
@@ -18830,6 +18904,13 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
           "kinds": [
             "call"
           ]
@@ -19022,6 +19103,13 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -19865,6 +19953,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
           "kinds": [
             "read"
           ]
@@ -24170,6 +24265,7 @@
         "fsp",
         "os",
         "path",
+        "spawnDetachedChecked",
         "zlib"
       ],
       "direction": "backward"
@@ -24236,7 +24332,8 @@
         "fs",
         "fsp",
         "os",
-        "path"
+        "path",
+        "spawnDetachedChecked"
       ],
       "direction": "backward"
     },
@@ -24742,6 +24839,7 @@
         "pathToFileURL",
         "paths",
         "safeJsonParse",
+        "spawnDetachedChecked",
         "text"
       ],
       "direction": "backward"
@@ -26233,6 +26331,7 @@
       "to": "00-boot.js",
       "symbols": [
         "URL",
+        "apiSessionIdInvalid",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
         "computeProviderCost",
@@ -26254,7 +26353,9 @@
       "symbols": [
         "DurableJsonStore",
         "readConfig",
-        "readJsonBody"
+        "readJsonBody",
+        "safeSessionId",
+        "send"
       ],
       "direction": "backward"
     },
@@ -26508,6 +26609,7 @@
         "path",
         "paths",
         "safeJsonParse",
+        "spawnDetachedChecked",
         "text"
       ],
       "direction": "backward"
@@ -26708,6 +26810,7 @@
         "readline",
         "recordInstallLaunch",
         "safeJsonParse",
+        "spawnDetachedChecked",
         "text",
         "zlib"
       ],
@@ -27259,6 +27362,7 @@
         "nowIso",
         "path",
         "paths",
+        "safeDecodeURIComponent",
         "safeJsonParse",
         "text"
       ],
@@ -29031,6 +29135,7 @@
         "EventStreamHooks",
         "RUYI_EVENTS",
         "URL",
+        "apiFailure",
         "nowIso"
       ],
       "direction": "backward"
@@ -29039,7 +29144,8 @@
       "from": "13r-event-stream.js",
       "to": "01-config.js",
       "symbols": [
-        "safeSessionId"
+        "safeSessionId",
+        "send"
       ],
       "direction": "backward"
     },
@@ -29095,6 +29201,7 @@
         "nowIso",
         "path",
         "paths",
+        "safeDecodeURIComponent",
         "text"
       ],
       "direction": "backward"
@@ -29366,7 +29473,8 @@
         "flushUsageLedgerSync",
         "hashArgs",
         "neutralizeFenceTag",
-        "runKeyedChain"
+        "runKeyedChain",
+        "spawnDetachedChecked"
       ],
       "direction": "backward"
     },

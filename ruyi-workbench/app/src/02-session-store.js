@@ -3136,14 +3136,19 @@ async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
+  // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
+  // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
+  // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。
+  const safeTitle = typeof title === 'string' && title.trim() ? title.slice(0, 200) : undefined;
+  const safeCwd = typeof cwd === 'string' && cwd.trim() ? cwd : undefined;
   const session = {
     id,
     schemaVersion: SESSION_SCHEMA,
     turnSeq: 0,
-    title: title || 'New session',
+    title: safeTitle || 'New session',
     summary: '',
     pinned: false,
-    cwd: cwd || config.defaultWorkspace || os.homedir(),
+    cwd: safeCwd || config.defaultWorkspace || os.homedir(),
     createdAt: nowIso(),
     updatedAt: nowIso(),
     claudeSessionId: null,
@@ -3169,7 +3174,7 @@ async function createSession({ title, cwd, origin, engineRoute }) {
     // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
     // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:
     // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
-    ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
+    ...(isUntitledSessionTitle(safeTitle) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
   // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),

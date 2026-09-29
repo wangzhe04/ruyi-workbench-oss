@@ -1643,7 +1643,22 @@ async function handleApi(req, res, pathname) {
         if (s) ctx.session = s;
       } catch { /* degrade gracefully */ }
     }
-    return send(res, json({ ok: true, result: await toolCall(name, body, ctx) }));
+    // 未知工具名是 404,不是服务端故障(修前 toolCall 抛「Unknown tool」→ 500 + http_unhandled;
+    // 原型链上的名字如 constructor 更会在 entry.handler 上抛 TypeError)。
+    if (!Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name)) {
+      return send(res, apiFailure('tool.unknown', { name }, `Unknown tool: ${name}`, 404));
+    }
+    let result;
+    try { result = await toolCall(name, body, ctx); }
+    catch (error) {
+      // 工具自己抛的普通 Error(「pattern is required」「url must start with http://」、ENOENT 之类)是这次调用
+      // 的参数/对象有问题 → 400 tool.failed。编程错误(TypeError/ReferenceError…)与自带状态码的照旧交给顶层:
+      // 500 + http_unhandled 日志,真 bug 不被 400 掩掉。
+      const programming = error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError || error instanceof RangeError;
+      if (!error || programming || error.statusCode) throw error;
+      return send(res, apiFailure('tool.failed', { name }, String(error.message || error), 400));
+    }
+    return send(res, json({ ok: true, result }));
   }
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
@@ -2022,7 +2037,9 @@ async function startServerInner(opts) {
     process.exit(1);
   });
   if (opts.open) {
-    cp.spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+    // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。
+    spawnDetachedChecked('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' })
+      .then(started => { if (!started.ok) { try { console.error(`--open: 无法自动打开浏览器(${started.error}),请手动访问 ${url}`); } catch { /* ignore */ } } });
   }
 }
 

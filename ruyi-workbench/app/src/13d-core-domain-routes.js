@@ -310,7 +310,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const bg = /^\/api\/sessions\/([^/]+)\/background(\/output|\/stop)?$/.exec(pathname);
     if (bg) {
       if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-      const sid = safeSessionId(decodeURIComponent(bg[1]));
+      const sid = safeSessionId(safeDecodeURIComponent(bg[1]));   // 坏编码(%zz)→ null → 400,不再 URIError 500
       if (!sid) return send(res, apiSessionIdInvalid());
       if (req.method === 'GET' && !bg[2]) {
         const shells = EventStreamHooks.backgroundShells;
@@ -507,6 +507,9 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, json({ ok: true, session, sessionMeta: sessionMeta(session, patchedConfig) }));
     }
     if (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE')) {
+      // 列表只发布 safeSessionId 合法的 id(02 重建索引的判据),不合法的 id 不可能是一条会话:先回 400,
+      // 不再对它跑 stopSession / revokeAllGrants / 一串 unlink,再回一个假的 ok:true。
+      if (!safeSessionId(id)) return send(res, apiSessionIdInvalid());
       return send(res, json(await deleteSession(id)));
     }
   }
@@ -2166,16 +2169,19 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.
+    // digest(每 2s 轮询)只从这里读标量、不外发也不改对象:浅展开即与深拷贝读到的值逐字段相同,
+    // 省掉每个 live run 整份节点/结果/progressLog 的 JSON 往返。完整视图照旧深拷贝(对象要外发)。
+    const digestView = listUrl.searchParams.get('view') === 'digest';
     for (let i = 0; i < runs.length; i += 1) {
       const live = activeAgentRuns.get(runs[i].id);
       if (!live || !live.run) continue;
-      runs[i] = { ...JSON.parse(JSON.stringify(live.run)), live: true, paused: !!live.paused };
+      runs[i] = { ...(digestView ? live.run : JSON.parse(JSON.stringify(live.run))), live: true, paused: !!live.paused };
     }
     // 第29波(§29a): digest 轻量视图 —— 增量客户端每 tick 只拉这份 run 级标量做变更探测(eventSeq/status/
     // updatedAt),不再每 2s 重传全部节点(单节点 result≤24KB + roleSnapshot 8KB prompt,历史终态 run 每 tick
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
     // 权威状态源,digest 只是"该不该去拉"的信号。
-    if (listUrl.searchParams.get('view') === 'digest') {
+    if (digestView) {
       const digest = runs.map(r => {
         const live = activeAgentRuns.get(r.id);
         const mem = live && live.run ? live.run : null;

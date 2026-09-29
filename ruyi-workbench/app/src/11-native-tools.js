@@ -212,6 +212,9 @@ function shellStart(args, config, ctx = {}) {
   } catch (e) {
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
+  // shell_send 往一个刚关了 stdin 的子进程里写 → 异步 EPIPE 落在 stdin 的 'error' 上(try/catch 接不住),
+  // 没监听者就是 uncaughtException;吸收即可,子进程状态由 exit/close 收尾。
+  if (child.stdin) child.stdin.on('error', () => {});
   const now = Date.now();
   // 135c(线程内后台任务条):记下命令原文供界面显示 —— 先过 04 的 redact(与权限弹窗/审计同一张表),压成一行、裁 200。
   const commandShown = command ? redact(command).replace(/\s+/g, ' ').trim().slice(0, 200) : '';

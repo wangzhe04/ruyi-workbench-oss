@@ -120,7 +120,9 @@ function bridgedOfficeScriptGate(bridgedName, args) {
 }
 
 function normalizeCwd(cwd, fallback) {
-  const base = cwd || fallback || os.homedir();
+  // cwd 多直接取自请求体:非字符串(数字/对象)当没传,否则 path.resolve 抛 TypeError → 500(/api/memory* 等)。
+  const pick = v => (typeof v === 'string' && v ? v : '');
+  const base = pick(cwd) || pick(fallback) || os.homedir();
   return path.resolve(base);
 }
 
@@ -849,8 +851,9 @@ async function launchCodeEditor(spawnSpec) {
     return true;
   }
   try {
-    cp.spawn(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
-    return true;
+    // 编辑器 exe 可能已卸载/被拦:ENOENT 是异步 'error',要等到 spawn/error 才知道成没成,否则调用方的失败分支永远走不到。
+    const started = await spawnDetachedChecked(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' });
+    return started.ok;
   } catch { return false; }
 }
 

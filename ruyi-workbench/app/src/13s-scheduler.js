@@ -811,7 +811,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
   if ((req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH'))
       && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     let body = {};
@@ -855,7 +856,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
   if ((req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))
       && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     schedulerRuntime.tasks.splice(index, 1);
@@ -869,7 +871,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
 
   if (req.method === 'POST' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/run-now$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const task = schedulerRuntime.tasks.find(row => row.id === id);
     if (!task) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     if (task.state.inFlightRunId) {
@@ -893,7 +896,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
 
   if (req.method === 'GET' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/runs$/)) {
     if (!(await schedulerRouteGate(req, res))) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const query = new URL(req.url, 'http://127.0.0.1').searchParams;
     // **先取原值再转数字**:`Number(query.get('limit'))` 在没带这个参数时是 Number(null) === 0,
     // 而 0 会被 Number.isFinite 认成「用户真给了一个数」,再钳进 [1,50] 就变成 limit=1 ——

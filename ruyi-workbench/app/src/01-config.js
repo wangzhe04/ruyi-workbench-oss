@@ -3292,6 +3292,12 @@ function isAskUserTool(name) {
 }
 
 async function readBody(req) {
+  // 声明长度已超总闸就不必先缓冲 128 MB 再拒(同 readAudioBody 的预检);提前回 413 后客户端可能还在续传,
+  // 连接随即被拆,req 上迟到的 error/aborted 挂空接吞掉。apiCode 让 413 不再被 sendError 报成 api.internal_error。
+  req.on('error', () => {});
+  if (Number(req.headers && req.headers['content-length'] || 0) > MAX_BODY_BYTES) {
+    throw Object.assign(new Error('Request body too large'), { statusCode: 413, apiCode: 'api.body_too_large' });
+  }
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
@@ -3299,6 +3305,7 @@ async function readBody(req) {
     if (total > MAX_BODY_BYTES) {
       const err = new Error('Request body too large');
       err.statusCode = 413;
+      err.apiCode = 'api.body_too_large';
       throw err;
     }
     chunks.push(chunk);
@@ -3309,8 +3316,12 @@ async function readBody(req) {
 async function readJsonBody(req) {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
-  try { return JSON.parse(raw); }
+  let value;
+  try { value = JSON.parse(raw); }
   catch { throw Object.assign(new Error('request body is not valid JSON'), { statusCode: 400, apiCode: 'api.bad_json' }); }   // C17:客户端的错,回 400 不回 500
+  // 合法 JSON 但不是对象(null / 数组 / 字符串 / 数字):按空体处理。约 30 个 handler 直接读 body.xxx,
+  // 请求体是 `null` 时就是 TypeError → 500 + http_unhandled 日志;没有任何路由收顶层数组或标量。
+  return (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
 }
 
 function send(res, response) {

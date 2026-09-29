@@ -1143,7 +1143,9 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
       // v1.4.6-S2: same cmd.exe injection fix as browser_open — direct explorer.exe spawn, no shell.
       const s = buildOpenSpawn(target);
-      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // 启动失败(ENOENT/EPERM…)是异步 'error' 事件:等到 spawn/error 再回话,不再先报「opened」再把服务带崩。
+      const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+      if (!started.ok) return { ok: false, error: `无法启动打开程序 ${s.command}:${started.error}`, target };
       return { ok: true, opened: target };
   } },
 };
@@ -1209,7 +1211,9 @@ const NETWORK_TOOL_HANDLERS = {
       // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
       // default-browser executable is available; folders keep the safe Explorer handoff behavior.
       const s = buildBrowserOpenSpawn(target);
-      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // 默认浏览器路径可能是注册表里的残留(已卸载):失败走普通工具失败,不再成为 uncaughtException。
+      const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+      if (!started.ok) return { ok: false, error: `无法启动浏览器 ${s.command}:${started.error}`, target, browserMode: s.mode };
       return { ok: true, opened: target, browserMode: s.mode, preservedWorkbench: true };
   } },
 };

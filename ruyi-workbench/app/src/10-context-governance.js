@@ -2783,6 +2783,12 @@ async function runSessionTurn(input) {
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
 async function streamChat(req, res) {
   const body = await readJsonBody(req);
+  // 带了 sessionId 却不是合法 id(`foo.bar`、数字、对象…)= 客户端以为在续一条会话:回 400,不再静默新建一条
+  // (前端只发服务端给过的 sess_* / steward)。没带(或空串)才是「开新会话」;合法但不存在的 id 仍按原语义
+  // 新建(会话文件损坏被隔离后的兜底,见 runSessionTurn)。
+  if (body.sessionId != null && body.sessionId !== '' && !(typeof body.sessionId === 'string' && safeSessionId(body.sessionId))) {
+    return send(res, apiSessionIdInvalid());
+  }
   // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
   let deltaBuffer = []; let flushTimer = null;
   const flushDeltas = () => {
@@ -2795,6 +2801,9 @@ async function streamChat(req, res) {
       else merged.push({ ...d });
     }
     deltaBuffer = [];
+    // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+    // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+    if (res.writableEnded || res.destroyed) return;
     for (const evt of merged) {
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     }
@@ -2806,6 +2815,7 @@ async function streamChat(req, res) {
       return;
     }
     flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
+    if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   // 客户端断线 → abort:核心把它翻译回原来的 killOnDisconnect → stopSession 语义。
@@ -2827,6 +2837,8 @@ async function streamChat(req, res) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    // 流上的异步写错误(EPIPE / write-after-end)兜底吸收:断线已由下面的 close/aborted 翻译成 abort。
+    res.on('error', () => {});
     req.on('aborted', handleDisconnect);
     res.on('close', () => { if (!shellFinished && !res.writableEnded) handleDisconnect(); });
   };

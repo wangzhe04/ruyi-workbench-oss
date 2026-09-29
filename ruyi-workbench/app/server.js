@@ -306,6 +306,30 @@ function runKeyedChain(chains, key, work) {
   return current;
 }
 
+// 分离式外部启动(打开文件/网址/编辑器/资源管理器)的共用入口。病根:cp.spawn 找不到程序、没权限、被策略拦
+// (ENOENT / EACCES / EPERM)时【不】同步抛出,而是稍后在 ChildProcess 上发 'error' 事件;裸写
+// spawn(...).unref() 没有监听者,这个事件就成了 uncaughtException,startServerInner 的兜底会 process.exit(1)
+// —— 一次「打开」失败(注册表里残留的默认浏览器路径、卸掉的编辑器、被 AppLocker 拦的 explorer.exe)带走整个
+// 工作台:在飞回合、MCP 子进程、待决权限全丢,而工具先前已经回了「opened」。
+// 这里先挂 'error' 监听再 unref,并以 promise 交回启动结果:'spawn' 事件 → { ok:true },'error' → { ok:false, error }。
+// 同步抛出(参数非法)照旧同步抛给调用方,与原来 try { spawn().unref() } catch 的语义一致;成功路径的参数、
+// detached/stdio/windowsHide 全由调用方原样传入,行为不变。不关心结果的调用方可以不 await(错误已被吸收)。
+function spawnDetachedChecked(command, args, options) {
+  const child = cp.spawn(command, args || [], options);
+  const started = new Promise(resolve => {
+    child.on('error', error => resolve({ ok: false, error: (error && error.message) || String(error), code: (error && error.code) || null }));
+    child.once('spawn', () => resolve({ ok: true, pid: child.pid }));
+  });
+  child.unref();
+  return started;
+}
+
+// 路径段解码:decodeURIComponent 遇到坏的百分号编码(如 `%zz`)会抛 URIError,落到顶层就是 500 + http_unhandled。
+// 路由拿到 null 按「这个 id 不存在/不合法」回 4xx(先例:/api/missions/:id/interventions/:iv/decision)。
+function safeDecodeURIComponent(segment) {
+  try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse(raw);
@@ -4850,6 +4874,12 @@ function isAskUserTool(name) {
 }
 
 async function readBody(req) {
+  // 声明长度已超总闸就不必先缓冲 128 MB 再拒(同 readAudioBody 的预检);提前回 413 后客户端可能还在续传,
+  // 连接随即被拆,req 上迟到的 error/aborted 挂空接吞掉。apiCode 让 413 不再被 sendError 报成 api.internal_error。
+  req.on('error', () => {});
+  if (Number(req.headers && req.headers['content-length'] || 0) > MAX_BODY_BYTES) {
+    throw Object.assign(new Error('Request body too large'), { statusCode: 413, apiCode: 'api.body_too_large' });
+  }
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
@@ -4857,6 +4887,7 @@ async function readBody(req) {
     if (total > MAX_BODY_BYTES) {
       const err = new Error('Request body too large');
       err.statusCode = 413;
+      err.apiCode = 'api.body_too_large';
       throw err;
     }
     chunks.push(chunk);
@@ -4867,8 +4898,12 @@ async function readBody(req) {
 async function readJsonBody(req) {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
-  try { return JSON.parse(raw); }
+  let value;
+  try { value = JSON.parse(raw); }
   catch { throw Object.assign(new Error('request body is not valid JSON'), { statusCode: 400, apiCode: 'api.bad_json' }); }   // C17:客户端的错,回 400 不回 500
+  // 合法 JSON 但不是对象(null / 数组 / 字符串 / 数字):按空体处理。约 30 个 handler 直接读 body.xxx,
+  // 请求体是 `null` 时就是 TypeError → 500 + http_unhandled 日志;没有任何路由收顶层数组或标量。
+  return (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
 }
 
 function send(res, response) {
@@ -8693,14 +8728,19 @@ async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
+  // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
+  // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
+  // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。
+  const safeTitle = typeof title === 'string' && title.trim() ? title.slice(0, 200) : undefined;
+  const safeCwd = typeof cwd === 'string' && cwd.trim() ? cwd : undefined;
   const session = {
     id,
     schemaVersion: SESSION_SCHEMA,
     turnSeq: 0,
-    title: title || 'New session',
+    title: safeTitle || 'New session',
     summary: '',
     pinned: false,
-    cwd: cwd || config.defaultWorkspace || os.homedir(),
+    cwd: safeCwd || config.defaultWorkspace || os.homedir(),
     createdAt: nowIso(),
     updatedAt: nowIso(),
     claudeSessionId: null,
@@ -8726,7 +8766,7 @@ async function createSession({ title, cwd, origin, engineRoute }) {
     // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
     // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:
     // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
-    ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
+    ...(isUntitledSessionTitle(safeTitle) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
   // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),
@@ -10110,7 +10150,9 @@ function bridgedOfficeScriptGate(bridgedName, args) {
 }
 
 function normalizeCwd(cwd, fallback) {
-  const base = cwd || fallback || os.homedir();
+  // cwd 多直接取自请求体:非字符串(数字/对象)当没传,否则 path.resolve 抛 TypeError → 500(/api/memory* 等)。
+  const pick = v => (typeof v === 'string' && v ? v : '');
+  const base = pick(cwd) || pick(fallback) || os.homedir();
   return path.resolve(base);
 }
 
@@ -10839,8 +10881,9 @@ async function launchCodeEditor(spawnSpec) {
     return true;
   }
   try {
-    cp.spawn(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
-    return true;
+    // 编辑器 exe 可能已卸载/被拦:ENOENT 是异步 'error',要等到 spawn/error 才知道成没成,否则调用方的失败分支永远走不到。
+    const started = await spawnDetachedChecked(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' });
+    return started.ok;
   } catch { return false; }
 }
 
@@ -13984,7 +14027,7 @@ function claudeProviderTailSince(messages) {
   return lastClaudeIdx >= 0 ? arr.slice(lastClaudeIdx + 1) : arr;
 }
 
-const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn) => {
+const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn) => {
   const fs = fsModule;
   const fsp = fspModule;
   const path = pathModule;
@@ -13992,6 +14035,8 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   const cp = cpModule;
   const killChildTree = killTreeFn;
   const batchSafeSpawn = batchSpawnFn;
+  // 分离式启动带 'error' 监听(见 00-boot spawnDetachedChecked):explorer.exe 起不来时不再是 uncaughtException。
+  const spawnDetachedChecked = spawnDetachedFn;
   // v1.0.1 编码修复:Windows 子进程(powershell/cmd/git/python…)在中文系统默认按 OEM 代码页(GBK/cp936)
   // 输出,而非 UTF-8。此前 runProcess 按 UTF-8 逐块 toString → 中文全乱码(GBK 字节 c2a6c9bd… 被读成「¦ɽ」)。
   // 修法:累积原始字节,收尾时智能解码——先按 UTF-8 解;若出现替换符(�,说明不是合法 UTF-8),退回 GBK。
@@ -14156,14 +14201,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       child.on('exit', cleanup);
       child.on('error', () => { // powershell missing → fall back to a plain (possibly-behind) explorer open
         cleanup();
-        try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); } catch { /* give up */ }
+        try { spawnDetachedChecked('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }); } catch { /* give up */ }
       });
       child.unref();
       return true;
     } catch (e) {
       fsp.unlink(tmpFile).catch(() => {});
       // Synchronous spawn failure → last-ditch direct explorer (opens, may be behind the browser).
-      try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); return true; } catch { return false; }
+      try { spawnDetachedChecked('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }); return true; } catch { return false; }
     }
   }
 
@@ -14249,7 +14294,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     return { ok: true, cancelled: true };
   }
   return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, revealInExplorer, pickFolder, pickFile });
-})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn);
+})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked);
 
 // ── 04f · ruyi-toolbox 服务类组件:拉起、探活、接成能力端点、回收 ─────────────────────────────────────────
 // 用户 2026-09-21:「如意启动时自动探测本机上是否有这个 asr shim,有的话自动拉起并自动配置好,开箱即用」,
@@ -18737,6 +18782,10 @@ function createKimiAcpRpc(child, handlers = {}) {
   let closed = false;
   const pending = new Map();
   const reversePending = new Map();
+  // 子进程先关了 stdin/已退出而流还没标 destroyed 时,write 的 EPIPE 是 stdin 上的【异步】'error' 事件,
+  // 下面的 destroyed 守卫与调用方的 try/catch 都接不住 —— 没监听者就是 uncaughtException 带走整个服务。
+  // 与 05 Claude 引擎、07 工作流、04 MCP 客户端同一处理;子进程退出本身另有 exit/close 收尾。
+  if (child && child.stdin) child.stdin.on('error', () => {});
   const write = payload => {
     if (closed || !child.stdin || child.stdin.destroyed) throw new Error('Kimi ACP input channel is closed');
     child.stdin.write(JSON.stringify(payload) + '\n', 'utf8');
@@ -19833,7 +19882,12 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
-      try { const open = buildOpenSpawn(url.href); cp.spawn(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' }).unref(); }
+      try {
+        // 异步启动失败(ENOENT/EPERM)也要落进下面的 catch 回 -32000,而不是成为 uncaughtException 带崩服务。
+        const open = buildOpenSpawn(url.href);
+        const started = await spawnDetachedChecked(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' });
+        if (!started.ok) throw new Error(started.error);
+      }
       catch (error) { throw kimiAcpRequestError(-32000, `Unable to open elicitation URL: ${error && error.message || error}`); }
       context.reg.kimiAcpElicitations.set(String(params.elicitationId || ''), { url: url.href, at: Date.now() });
       return { action: 'accept' };
@@ -40705,6 +40759,12 @@ async function runSessionTurn(input) {
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
 async function streamChat(req, res) {
   const body = await readJsonBody(req);
+  // 带了 sessionId 却不是合法 id(`foo.bar`、数字、对象…)= 客户端以为在续一条会话:回 400,不再静默新建一条
+  // (前端只发服务端给过的 sess_* / steward)。没带(或空串)才是「开新会话」;合法但不存在的 id 仍按原语义
+  // 新建(会话文件损坏被隔离后的兜底,见 runSessionTurn)。
+  if (body.sessionId != null && body.sessionId !== '' && !(typeof body.sessionId === 'string' && safeSessionId(body.sessionId))) {
+    return send(res, apiSessionIdInvalid());
+  }
   // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
   let deltaBuffer = []; let flushTimer = null;
   const flushDeltas = () => {
@@ -40717,6 +40777,9 @@ async function streamChat(req, res) {
       else merged.push({ ...d });
     }
     deltaBuffer = [];
+    // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+    // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+    if (res.writableEnded || res.destroyed) return;
     for (const evt of merged) {
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     }
@@ -40728,6 +40791,7 @@ async function streamChat(req, res) {
       return;
     }
     flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
+    if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   // 客户端断线 → abort:核心把它翻译回原来的 killOnDisconnect → stopSession 语义。
@@ -40749,6 +40813,8 @@ async function streamChat(req, res) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    // 流上的异步写错误(EPIPE / write-after-end)兜底吸收:断线已由下面的 close/aborted 翻译成 abort。
+    res.on('error', () => {});
     req.on('aborted', handleDisconnect);
     res.on('close', () => { if (!shellFinished && !res.writableEnded) handleDisconnect(); });
   };
@@ -40987,6 +41053,9 @@ function shellStart(args, config, ctx = {}) {
   } catch (e) {
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
+  // shell_send 往一个刚关了 stdin 的子进程里写 → 异步 EPIPE 落在 stdin 的 'error' 上(try/catch 接不住),
+  // 没监听者就是 uncaughtException;吸收即可,子进程状态由 exit/close 收尾。
+  if (child.stdin) child.stdin.on('error', () => {});
   const now = Date.now();
   // 135c(线程内后台任务条):记下命令原文供界面显示 —— 先过 04 的 redact(与权限弹窗/审计同一张表),压成一行、裁 200。
   const commandShown = command ? redact(command).replace(/\s+/g, ' ').trim().slice(0, 200) : '';
@@ -44392,7 +44461,9 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
       // v1.4.6-S2: same cmd.exe injection fix as browser_open — direct explorer.exe spawn, no shell.
       const s = buildOpenSpawn(target);
-      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // 启动失败(ENOENT/EPERM…)是异步 'error' 事件:等到 spawn/error 再回话,不再先报「opened」再把服务带崩。
+      const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+      if (!started.ok) return { ok: false, error: `无法启动打开程序 ${s.command}:${started.error}`, target };
       return { ok: true, opened: target };
   } },
 };
@@ -44458,7 +44529,9 @@ const NETWORK_TOOL_HANDLERS = {
       // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
       // default-browser executable is available; folders keep the safe Explorer handoff behavior.
       const s = buildBrowserOpenSpawn(target);
-      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // 默认浏览器路径可能是注册表里的残留(已卸载):失败走普通工具失败,不再成为 uncaughtException。
+      const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+      if (!started.ok) return { ok: false, error: `无法启动浏览器 ${s.command}:${started.error}`, target, browserMode: s.mode };
       return { ok: true, opened: target, browserMode: s.mode, preservedWorkbench: true };
   } },
 };
@@ -48065,7 +48138,22 @@ async function handleApi(req, res, pathname) {
         if (s) ctx.session = s;
       } catch { /* degrade gracefully */ }
     }
-    return send(res, json({ ok: true, result: await toolCall(name, body, ctx) }));
+    // 未知工具名是 404,不是服务端故障(修前 toolCall 抛「Unknown tool」→ 500 + http_unhandled;
+    // 原型链上的名字如 constructor 更会在 entry.handler 上抛 TypeError)。
+    if (!Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name)) {
+      return send(res, apiFailure('tool.unknown', { name }, `Unknown tool: ${name}`, 404));
+    }
+    let result;
+    try { result = await toolCall(name, body, ctx); }
+    catch (error) {
+      // 工具自己抛的普通 Error(「pattern is required」「url must start with http://」、ENOENT 之类)是这次调用
+      // 的参数/对象有问题 → 400 tool.failed。编程错误(TypeError/ReferenceError…)与自带状态码的照旧交给顶层:
+      // 500 + http_unhandled 日志,真 bug 不被 400 掩掉。
+      const programming = error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError || error instanceof RangeError;
+      if (!error || programming || error.statusCode) throw error;
+      return send(res, apiFailure('tool.failed', { name }, String(error.message || error), 400));
+    }
+    return send(res, json({ ok: true, result }));
   }
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
@@ -48444,7 +48532,9 @@ async function startServerInner(opts) {
     process.exit(1);
   });
   if (opts.open) {
-    cp.spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+    // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。
+    spawnDetachedChecked('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' })
+      .then(started => { if (!started.ok) { try { console.error(`--open: 无法自动打开浏览器(${started.error}),请手动访问 ${url}`); } catch { /* ignore */ } } });
   }
 }
 
@@ -50349,7 +50439,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const bg = /^\/api\/sessions\/([^/]+)\/background(\/output|\/stop)?$/.exec(pathname);
     if (bg) {
       if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-      const sid = safeSessionId(decodeURIComponent(bg[1]));
+      const sid = safeSessionId(safeDecodeURIComponent(bg[1]));   // 坏编码(%zz)→ null → 400,不再 URIError 500
       if (!sid) return send(res, apiSessionIdInvalid());
       if (req.method === 'GET' && !bg[2]) {
         const shells = EventStreamHooks.backgroundShells;
@@ -50546,6 +50636,9 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, json({ ok: true, session, sessionMeta: sessionMeta(session, patchedConfig) }));
     }
     if (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE')) {
+      // 列表只发布 safeSessionId 合法的 id(02 重建索引的判据),不合法的 id 不可能是一条会话:先回 400,
+      // 不再对它跑 stopSession / revokeAllGrants / 一串 unlink,再回一个假的 ok:true。
+      if (!safeSessionId(id)) return send(res, apiSessionIdInvalid());
       return send(res, json(await deleteSession(id)));
     }
   }
@@ -52205,16 +52298,19 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.
+    // digest(每 2s 轮询)只从这里读标量、不外发也不改对象:浅展开即与深拷贝读到的值逐字段相同,
+    // 省掉每个 live run 整份节点/结果/progressLog 的 JSON 往返。完整视图照旧深拷贝(对象要外发)。
+    const digestView = listUrl.searchParams.get('view') === 'digest';
     for (let i = 0; i < runs.length; i += 1) {
       const live = activeAgentRuns.get(runs[i].id);
       if (!live || !live.run) continue;
-      runs[i] = { ...JSON.parse(JSON.stringify(live.run)), live: true, paused: !!live.paused };
+      runs[i] = { ...(digestView ? live.run : JSON.parse(JSON.stringify(live.run))), live: true, paused: !!live.paused };
     }
     // 第29波(§29a): digest 轻量视图 —— 增量客户端每 tick 只拉这份 run 级标量做变更探测(eventSeq/status/
     // updatedAt),不再每 2s 重传全部节点(单节点 result≤24KB + roleSnapshot 8KB prompt,历史终态 run 每 tick
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
     // 权威状态源,digest 只是"该不该去拉"的信号。
-    if (listUrl.searchParams.get('view') === 'digest') {
+    if (digestView) {
       const digest = runs.map(r => {
         const live = activeAgentRuns.get(r.id);
         const mem = live && live.run ? live.run : null;
@@ -61417,6 +61513,9 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         else merged.push({ ...d });
       }
       deltaBuffer = [];
+      // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+      // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+      if (res.writableEnded || res.destroyed) return;
       for (const evt of merged) {
         try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
       }
@@ -61428,6 +61527,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         return;
       }
       flushDeltas();
+      if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     };
     try { req.socket.setNoDelay(true); } catch { /* ignore */ }
@@ -61438,6 +61538,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    res.on('error', () => {});   // 断线后的异步写错误(EPIPE / write-after-end)不得成为 uncaughtException
     try {
       // 117l D1:routeHint 随请求进来,但它只是【提示】—— 服务端只信 sessionId(见 stewardNormalizeRouteHint)。
       const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, attachments, onEvent: writeEvent });
@@ -61598,6 +61699,9 @@ const EVENT_STREAM_LIVE_THROTTLE_MS = 500;    // thread.live 每会话 ≥500ms 
 const EVENT_STREAM_TEXT_TAIL = 240;           // textTail 上限(§6.1 载荷列)
 const EVENT_STREAM_SUMMARY_MAX = 160;         // summary 上限(§6.1 载荷列)
 const EVENT_STREAM_LIVE_SESSIONS_MAX = 256;   // 节流表容量上限(长跑进程里它只增不减的防线)
+// 连接数上限:本机单用户,几个标签页远到不了;没有上限的话一个失控的客户端(循环重连不关旧连接)能让
+// 每一帧的扇出与每条连接的写缓冲无界增长。超出回 503 —— 前端 js/event-stream.js 按退避重连,兜底轮询照常。
+const EVENT_STREAM_CLIENTS_MAX = 32;
 
 // 连接表。每条连接就是一份【在场信号】(§4.3):lens 与 sessionId 来自查询参数,断连即清。
 const eventStreamClients = new Set();   // { res, lens, sessionId, at, heartbeat }
@@ -61897,6 +62001,9 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
   // 判定点写成字面量(不是常量引用):route-inventory 的扫描器只认现行写法
   // `req.method === 'X' && pathname === '/api/...'`,写成常量它就扫不到,清册里会多出一条死鉴权行。
   if (!(req.method === 'GET' && pathname === '/api/events/stream')) return;
+  if (eventStreamClients.size >= EVENT_STREAM_CLIENTS_MAX) {
+    return send(res, apiFailure('events.too_many_clients', { max: EVENT_STREAM_CLIENTS_MAX }, 'too many event stream connections', 503));
+  }
   const query = new URL(req.url, 'http://127.0.0.1').searchParams;
   const lensRaw = String(query.get('lens') || '');
   const client = {
@@ -62762,7 +62869,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
   if ((req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH'))
       && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     let body = {};
@@ -62806,7 +62914,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
   if ((req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))
       && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     schedulerRuntime.tasks.splice(index, 1);
@@ -62820,7 +62929,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
 
   if (req.method === 'POST' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/run-now$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const task = schedulerRuntime.tasks.find(row => row.id === id);
     if (!task) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     if (task.state.inFlightRunId) {
@@ -62844,7 +62954,8 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
 
   if (req.method === 'GET' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/runs$/)) {
     if (!(await schedulerRouteGate(req, res))) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const query = new URL(req.url, 'http://127.0.0.1').searchParams;
     // **先取原值再转数字**:`Number(query.get('limit'))` 在没带这个参数时是 Number(null) === 0,
     // 而 0 会被 Number.isFinite 认成「用户真给了一个数」,再钳进 [1,50] 就变成 limit=1 ——
@@ -64287,6 +64398,7 @@ module.exports = {
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
+  spawnDetachedChecked, // 分离式外部启动带 'error' 监听的唯一入口(unit/http-input-hardening.test.js 直测 ENOENT 不成 uncaughtException)
   // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
   // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
   providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerRawCompletion, providerFixCompletion,

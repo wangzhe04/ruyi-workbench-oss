@@ -306,6 +306,30 @@ function runKeyedChain(chains, key, work) {
   return current;
 }
 
+// 分离式外部启动(打开文件/网址/编辑器/资源管理器)的共用入口。病根:cp.spawn 找不到程序、没权限、被策略拦
+// (ENOENT / EACCES / EPERM)时【不】同步抛出,而是稍后在 ChildProcess 上发 'error' 事件;裸写
+// spawn(...).unref() 没有监听者,这个事件就成了 uncaughtException,startServerInner 的兜底会 process.exit(1)
+// —— 一次「打开」失败(注册表里残留的默认浏览器路径、卸掉的编辑器、被 AppLocker 拦的 explorer.exe)带走整个
+// 工作台:在飞回合、MCP 子进程、待决权限全丢,而工具先前已经回了「opened」。
+// 这里先挂 'error' 监听再 unref,并以 promise 交回启动结果:'spawn' 事件 → { ok:true },'error' → { ok:false, error }。
+// 同步抛出(参数非法)照旧同步抛给调用方,与原来 try { spawn().unref() } catch 的语义一致;成功路径的参数、
+// detached/stdio/windowsHide 全由调用方原样传入,行为不变。不关心结果的调用方可以不 await(错误已被吸收)。
+function spawnDetachedChecked(command, args, options) {
+  const child = cp.spawn(command, args || [], options);
+  const started = new Promise(resolve => {
+    child.on('error', error => resolve({ ok: false, error: (error && error.message) || String(error), code: (error && error.code) || null }));
+    child.once('spawn', () => resolve({ ok: true, pid: child.pid }));
+  });
+  child.unref();
+  return started;
+}
+
+// 路径段解码:decodeURIComponent 遇到坏的百分号编码(如 `%zz`)会抛 URIError,落到顶层就是 500 + http_unhandled。
+// 路由拿到 null 按「这个 id 不存在/不合法」回 4xx(先例:/api/missions/:id/interventions/:iv/decision)。
+function safeDecodeURIComponent(segment) {
+  try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse(raw);

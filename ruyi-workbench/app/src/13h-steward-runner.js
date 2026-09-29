@@ -307,6 +307,9 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         else merged.push({ ...d });
       }
       deltaBuffer = [];
+      // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+      // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+      if (res.writableEnded || res.destroyed) return;
       for (const evt of merged) {
         try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
       }
@@ -318,6 +321,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         return;
       }
       flushDeltas();
+      if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     };
     try { req.socket.setNoDelay(true); } catch { /* ignore */ }
@@ -328,6 +332,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    res.on('error', () => {});   // 断线后的异步写错误(EPIPE / write-after-end)不得成为 uncaughtException
     try {
       // 117l D1:routeHint 随请求进来,但它只是【提示】—— 服务端只信 sessionId(见 stewardNormalizeRouteHint)。
       const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, attachments, onEvent: writeEvent });

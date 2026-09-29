@@ -680,6 +680,10 @@ function createKimiAcpRpc(child, handlers = {}) {
   let closed = false;
   const pending = new Map();
   const reversePending = new Map();
+  // 子进程先关了 stdin/已退出而流还没标 destroyed 时,write 的 EPIPE 是 stdin 上的【异步】'error' 事件,
+  // 下面的 destroyed 守卫与调用方的 try/catch 都接不住 —— 没监听者就是 uncaughtException 带走整个服务。
+  // 与 05 Claude 引擎、07 工作流、04 MCP 客户端同一处理;子进程退出本身另有 exit/close 收尾。
+  if (child && child.stdin) child.stdin.on('error', () => {});
   const write = payload => {
     if (closed || !child.stdin || child.stdin.destroyed) throw new Error('Kimi ACP input channel is closed');
     child.stdin.write(JSON.stringify(payload) + '\n', 'utf8');
@@ -1776,7 +1780,12 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
-      try { const open = buildOpenSpawn(url.href); cp.spawn(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' }).unref(); }
+      try {
+        // 异步启动失败(ENOENT/EPERM)也要落进下面的 catch 回 -32000,而不是成为 uncaughtException 带崩服务。
+        const open = buildOpenSpawn(url.href);
+        const started = await spawnDetachedChecked(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' });
+        if (!started.ok) throw new Error(started.error);
+      }
       catch (error) { throw kimiAcpRequestError(-32000, `Unable to open elicitation URL: ${error && error.message || error}`); }
       context.reg.kimiAcpElicitations.set(String(params.elicitationId || ''), { url: url.href, at: Date.now() });
       return { action: 'accept' };
