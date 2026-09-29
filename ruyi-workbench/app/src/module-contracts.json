@@ -2366,6 +2366,68 @@
       "requires": []
     },
     {
+      "file": "04i-provider-anthropic.js",
+      "layer": "foundation",
+      "provides": [
+        "ANTHROPIC_API_VERSION",
+        "ANTHROPIC_AUTH_MODES",
+        "ANTHROPIC_BETA_FALLBACK",
+        "ANTHROPIC_BETA_THINKING_BINDING",
+        "ANTHROPIC_COMPLETION_MAX_TOKENS",
+        "ANTHROPIC_EFFORTS",
+        "ANTHROPIC_EMPTY_TEXT",
+        "ANTHROPIC_FALLBACK_MODES",
+        "ANTHROPIC_STREAM_ERROR_STATUS",
+        "ANTHROPIC_STREAM_MAX_TOKENS",
+        "ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE",
+        "ANTHROPIC_THINKING_MODES",
+        "anthropicAssistantBlocks",
+        "anthropicFinishReason",
+        "anthropicImageBlock",
+        "anthropicMessagesFromHistory",
+        "anthropicMessagesUrl",
+        "anthropicModelTakesAdaptiveThinking",
+        "anthropicModelTraits",
+        "anthropicNonEmpty",
+        "anthropicOfficialFeatures",
+        "anthropicOfficialHost",
+        "anthropicProviderBlocks",
+        "anthropicRefusalDetail",
+        "anthropicReplayBlock",
+        "anthropicReplayableBlocks",
+        "anthropicRequestHeaders",
+        "anthropicRetryBodyOn400",
+        "anthropicStreamErrorText",
+        "anthropicThinkingFor",
+        "anthropicToolId",
+        "anthropicToolInput",
+        "anthropicToolResultAsText",
+        "anthropicToolResultContent",
+        "anthropicTools",
+        "anthropicUserBlocks",
+        "applyAnthropicEffort",
+        "applyAnthropicTemperature",
+        "applyAnthropicTools",
+        "createAnthropicStreamDecoder",
+        "decodeAnthropicCompletion",
+        "encodeAnthropicMessages",
+        "encodeAnthropicQuick",
+        "normalizeAnthropicAuth",
+        "normalizeAnthropicFallbacks",
+        "normalizeAnthropicThinking",
+        "normalizeAnthropicUsage"
+      ],
+      "requires": [
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "04i-provider-wire.js",
       "layer": "foundation",
       "provides": [
@@ -2380,6 +2442,7 @@
         "createResponsesStreamDecoder",
         "decodeChatCompletion",
         "decodeResponsesCompletion",
+        "noRetryOn400",
         "normalizeProviderApiStyle",
         "providerReasoningEffort",
         "providerWireDecoded",
@@ -2394,6 +2457,7 @@
         "responsesHistoryWithCompleteToolPairs",
         "responsesInstructions",
         "responsesOutputText",
+        "setTemperature",
         "toResponsesContent",
         "toResponsesTools"
       ],
@@ -2424,6 +2488,83 @@
           "symbol": "providerRequestHeaders",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicMessagesUrl",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicRequestHeaders",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "anthropicRetryBodyOn400",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "applyAnthropicEffort",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "applyAnthropicTemperature",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "applyAnthropicTools",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "createAnthropicStreamDecoder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "decodeAnthropicCompletion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "encodeAnthropicMessages",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "encodeAnthropicQuick",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "normalizeAnthropicUsage",
+          "kinds": [
+            "read"
           ]
         }
       ]
@@ -3047,6 +3188,27 @@
         {
           "provider": "04h-provider-http.js",
           "symbol": "providerPostJsonOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "normalizeAnthropicAuth",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "normalizeAnthropicFallbacks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "normalizeAnthropicThinking",
           "kinds": [
             "call"
           ]

@@ -1,4 +1,4 @@
-// 04i-provider-wire.js - 58 号方案批 1:服务商线协议登记表(chat / responses;批 2 加 anthropic)。
+// 04i-provider-wire.js - 58 号方案:服务商线协议登记表(批 1 chat / responses;批 2 anthropic,编解码住 04i-provider-anthropic.js)。
 //
 // 「模型服务商」引擎(内部引擎 id openai,runOpenAiTurn)会说几种线协议:OpenAI Chat Completions(apiStyle:'chat',缺省)
 // 与 OpenAI Responses(apiStyle:'responses')。修前协议知识散在 05/06/07/08/09/10 约 47 处 `apiStyle === 'responses' ? … : …`,
@@ -20,21 +20,26 @@
 //   endpointBase(baseUrl)      显示 / failover 粘住键用的 base
 //   completionUrl(baseUrl)     补全端点;base 没配 → ''(调用方据此报「provider base URL is not set」)
 //   modelsUrl(baseUrl)         模型清单端点;base 没配 → ''
-//   requestHeaders(provider)   出站请求头
+//   requestHeaders(provider, { model })            出站请求头(anthropic 按模型带 beta 头;另两种协议不看 model)
 //   encodeMessages({ model, messages, stream, instructions, serverItems, foldSystem })
 //                              基础请求体。messages 是 chat 形历史,首条是 system;instructions 缺省取首条 system 的正文,
 //                              foldSystem 再把历史里后插的 system/developer 规则折进去(Responses 没有多 system 通道);
 //                              serverItems 是上一发回来的服务端工具项(Responses 的 web_search_call),原样接在历史之后
 //   applyEffort(body, effort)  推理强度字段(effort 为空不写)
+//   applyTemperature(body, t)  采样温度(t 为 undefined 不写;anthropic 对拒收采样参数的新 Claude 模型不写)
 //   applyTools(body, tools, { serverWebSearch })   工具 + tool_choice:'auto'(工具是 chat 形,协议自己翻译)
 //   outputTokensField          输出上限字段名
 //   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
-//   decodeCompletion(payload)  非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
-//                              failed, failedDetail, usage, responseId }(text 未 trim)
-//   createStreamDecoder({ onEvent, markUsage })    流式事件解码器:feed(evt) → 这一帧是否终止流;
-//                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId }
+//   decodeCompletion(payload, { requestModel })    非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
+//                              failed, failedDetail, usage, responseId[, providerBlocks] }(text 未 trim)
+//   createStreamDecoder({ onEvent, markUsage, requestModel })    流式事件解码器:feed(evt) → 这一帧是否终止流;
+//                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId[, providerBlocks] }
 //   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
 //   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
+//   retryOn400(body, errText)  400 的协议内兼容重打:返回去掉冲突字段的新请求体,或 null(不重打;chat / responses 恒 null)
+//
+// encodeMessages 还收 provider(可选,anthropic 据它决定思考方式)与 hasTools(这一发随后会不会 applyTools;anthropic 不带 tools
+// 的请求里不许有 tool_use / tool_result 块,要改写成文字);另两种协议两个都不看。
 
 // 延迟绑定:{ makeId, redact, repairProviderHistoryPairing, repairProviderHistoryToolArgs },07-autonomy 顶层填充。
 const ProviderWireHooks = {};
@@ -455,6 +460,8 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
 
 // ── 登记表 ────────────────────────────────────────────────────────────────────────────────────────────
 const reasoningContentField = call => (call && call.reasoning ? { reasoning_content: call.reasoning } : {});
+const noRetryOn400 = () => null;
+const setTemperature = (body, temperature) => { if (temperature !== undefined) body.temperature = temperature; return body; };
 const PROVIDER_WIRE_DEFAULT = 'chat';
 const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   chat: Object.freeze({
@@ -468,6 +475,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
       ? { model, messages, stream, stream_options: { include_usage: true } }
       : { model, messages, stream }),
     applyEffort: (body, effort) => { if (effort) body.reasoning_effort = effort; return body; },
+    applyTemperature: setTemperature,
     applyTools: (body, tools) => { body.tools = tools; body.tool_choice = 'auto'; return body; },
     outputTokensField: 'max_tokens',
     // flash 系模型缺省思考,400 token 的预算会被隐藏推理吃光、正文为空(52 号文 §3 实测),所以显式关思考;端点不认这两个字段回 400 时
@@ -477,6 +485,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     createStreamDecoder: createChatStreamDecoder,
     normalizeUsage: usage => usage,
     assistantHistoryFields: reasoningContentField,
+    retryOn400: noRetryOn400,
   }),
   responses: Object.freeze({
     id: 'responses',
@@ -495,6 +504,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
       stream,
     }),
     applyEffort: (body, effort) => { if (effort) body.reasoning = { effort }; return body; },
+    applyTemperature: setTemperature,
     // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
     // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
     applyTools: (body, tools, opts) => { body.tools = toResponsesTools(tools, opts && opts.serverWebSearch === true); body.tool_choice = 'auto'; return body; },
@@ -509,6 +519,32 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
     createStreamDecoder: createResponsesStreamDecoder,
     normalizeUsage: usage => usage,
     assistantHistoryFields: reasoningContentField,
+    retryOn400: noRetryOn400,
+  }),
+  // 批 2:Anthropic Messages(官方与兼容网关)。编解码见 04i-provider-anthropic.js;这里只接线:配对自愈、makeId / redact 钩子。
+  anthropic: Object.freeze({
+    id: 'anthropic',
+    serverWebSearch: false, // 批 3 映射 web_search_20260209
+    endpointBase: baseUrl => providerBaseWithV1(baseUrl),
+    completionUrl: anthropicMessagesUrl,
+    modelsUrl: providerWireModelsUrl,
+    requestHeaders: anthropicRequestHeaders,
+    encodeMessages: ({ model, messages, stream, instructions, provider, hasTools }) => encodeAnthropicMessages({
+      model, stream, instructions, provider, hasTools,
+      // 与 Responses 同一个配对自愈:tool_use 必须紧跟 tool_result,缺了补合成结果(只改副本)。
+      messages: responsesHistoryWithCompleteToolPairs(messages).history,
+    }),
+    applyEffort: applyAnthropicEffort,
+    applyTemperature: applyAnthropicTemperature,
+    applyTools: applyAnthropicTools,
+    outputTokensField: 'max_tokens',
+    encodeQuick: encodeAnthropicQuick,
+    decodeCompletion: (payload, opts) => decodeAnthropicCompletion(payload, { requestModel: opts && opts.requestModel, newId: ProviderWireHooks.makeId }),
+    createStreamDecoder: opts => createAnthropicStreamDecoder({ ...opts, newId: ProviderWireHooks.makeId, scrub: ProviderWireHooks.redact }),
+    normalizeUsage: normalizeAnthropicUsage,
+    // thinking 的文字照旧进 reasoning_content(界面、摘要都认它);带签名的内容块原样进 providerBlocks,供同一段工具循环里回放。
+    assistantHistoryFields: call => ({ ...reasoningContentField(call), ...(call && call.providerBlocks ? { providerBlocks: call.providerBlocks } : {}) }),
+    retryOn400: anthropicRetryBodyOn400,
   }),
 });
 // 唯一的协议值归一:登记过的键原样,其余(缺失、空串、大小写不对、原型链名字、非字符串)一律当缺省 chat ——
@@ -522,6 +558,7 @@ function providerWireProtocol(providerOrStyle) {
   return PROVIDER_WIRE_PROTOCOLS[normalizeProviderApiStyle(style)];
 }
 // 调用方没说协议时按请求体形状认(Responses 用 input 项,chat 用 messages)—— 只给没传 protocol 的老调用点兜底。
+// anthropic 的请求体也用 messages,认不出来;所有调用点都显式传 protocol,这里只是老接口的兜底。
 function providerWireProtocolForBody(body) {
   return PROVIDER_WIRE_PROTOCOLS[body && Array.isArray(body.input) ? 'responses' : 'chat'];
 }

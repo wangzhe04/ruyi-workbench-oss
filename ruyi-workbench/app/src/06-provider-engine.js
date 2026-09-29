@@ -1112,12 +1112,12 @@ async function providerRawCompletion(provider, history) {
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
   }
-  const headers = wire.requestHeaders(provider);
+  const headers = wire.requestHeaders(provider, { model });
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const bodyObj = applyProviderReasoningEffort(
-    wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false, foldSystem: true }), provider, wire.id);
+    wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false, foldSystem: true, provider }), provider, wire.id);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
-  if (temp !== undefined) bodyObj.temperature = temp;
+  wire.applyTemperature(bodyObj, temp);
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
   const r = await providerPostJsonOnce({ url: chatUrl, headers, body: bodyObj, timeoutMs: 60000 });
   if (r.threw) { const e = r.error; return { ok: false, error: (e && e.name === 'AbortError') ? 'draft request timed out (60s)' : ((e && e.message) || 'draft request failed') }; }

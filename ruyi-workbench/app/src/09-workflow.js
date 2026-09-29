@@ -1536,7 +1536,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
-  const headers = wire.requestHeaders(provider); // 每个 failover 候选端点都带这同一份
+  const headers = wire.requestHeaders(provider, { model }); // 每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -1610,12 +1610,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems });
-    if (temp !== undefined) b.temperature = temp;
-    applyProviderReasoningEffort(b, provider, wire.id);
     const loadedTools = toolLoading.current();
+    const hasTools = Boolean(withTools && loadedTools.length);
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
+    wire.applyTemperature(b, temp);
+    applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
-    if (withTools && loadedTools.length) wire.applyTools(b, loadedTools, { serverWebSearch: provider.serverWebSearch === true });
+    if (hasTools) wire.applyTools(b, loadedTools, { serverWebSearch: provider.serverWebSearch === true });
     return b;
   };
 

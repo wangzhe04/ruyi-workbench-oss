@@ -97,7 +97,7 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
       { match: 'haiku', tokens: 200000 },
       { match: 'claude', tokens: 200000 },
     ],
-    contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len'],
+    contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len', 'max_input_tokens'],
     overflow: {
       statuses: [400, 413, 422],
       pattern: 'context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度',
@@ -1403,17 +1403,17 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
   const wire = providerWireProtocol(provider); // 58 号批 1:端点、请求头、请求体、回体解析都问协议登记表
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
   const chatUrl = wire.completionUrl(provider.baseUrl);
-  const headers = wire.requestHeaders(provider);
+  const headers = wire.requestHeaders(provider, { model });
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage
     : (promptOverride ? 'repair' : ((econCtx && Number(econCtx.chunkIndex) >= 1000) ? 'reduce' : ((econCtx && econCtx.chunkIndex != null) ? 'map' : 'single')));
   const policy = resolveSummaryCallPolicy(provider, model, wire.id, stage);
   const makeBody = () => {
-    const body = wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false, instructions: sysIdentity });
+    const body = wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false, instructions: sysIdentity, provider });
     applySummaryCallPolicy(body, policy);
     const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
-    if (temp !== undefined) body.temperature = temp;
+    wire.applyTemperature(body, temp);
     return body;
   };
   if (!chatUrl || !model || typeof fetch !== 'function') {

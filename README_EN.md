@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/offline%20e2e-419-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/offline%20e2e-420-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20runtime%20deps-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,9 +71,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 64 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 65 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
 | **107 native tools · 108 ACC tools** | 65 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **419 e2e cases** (412 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 102 unit suites and 17 ACC smoke groups, run on Windows CI for every change. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **420 e2e cases** (413 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 103 unit suites and 17 ACC smoke groups, run on Windows CI for every change. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -151,7 +151,7 @@ Letting the AI act only works if you can undo what it did:
 
 | Capability | Summary | More |
 |---|---|---|
-| **Engines: any model endpoint** | OpenAI-compatible endpoints (Chat Completions or Responses API) with no bundled vendor presets; local Ollama / LM Studio need no key; Claude Code or Kimi Code as Agent CLIs; switch engines mid-thread and keep the context | [§1](#1-engines-and-models) |
+| **Engines: any model endpoint** | OpenAI-compatible endpoints (Chat Completions or Responses API) and Anthropic Messages endpoints (Anthropic itself or a compatible gateway), with no bundled vendor presets; local Ollama / LM Studio need no key; Claude Code or Kimi Code as Agent CLIs; switch engines mid-thread and keep the context | [§1](#1-engines-and-models) |
 | **Native tool loop** | **107 native built-in tools** with read / edit / exec approval tiers, on-demand tool loading, batching of independent calls and staging of dependent ones | [§2](#2-native-tools) |
 | **Structured questions** | Single choice, multiple choice, free text, "choices + other"; the card closes only once the answer reached the model | [§1](#1-engines-and-models) |
 | **Multi-agent orchestration** | 8 templates, 10 roles, 5 quality gates, conditions and loops, resource leases, worktree isolation, a graphical editor and live canvas; team mode; background sub-agents | [§3](#3-multi-agent-orchestration) |
@@ -173,7 +173,7 @@ Letting the AI act only works if you can undo what it did:
 
 ### 1. Engines and models
 
-- **OpenAI-compatible endpoints (the native engine)**: direct HTTP + SSE streaming with a full native tool loop. Choose Chat Completions or the Responses API (server-side tool loop); main turns, sub-agents, summaries and Playbook drafting all follow the chosen protocol. **No vendor presets are bundled**: enter the Base URL and key your provider gives you (a cloud API, a one-api gateway, an on-prem vLLM); local Ollama / LM Studio need no key. Configure as many providers as you like, each with its own model list, prices, cache-hit prices and request headers.
+- **OpenAI-compatible endpoints (the native engine)**: direct HTTP + SSE streaming with a full native tool loop. Choose Chat Completions, the Responses API (server-side tool loop) or Anthropic Messages (Anthropic itself and Anthropic-compatible gateways; signed thinking blocks are passed back unchanged within a tool loop); main turns, sub-agents, summaries and Playbook drafting all follow the chosen protocol. **No vendor presets are bundled**: enter the Base URL and key your provider gives you (a cloud API, a one-api gateway, an on-prem vLLM); local Ollama / LM Studio need no key. Configure as many providers as you like, each with its own model list, prices, cache-hit prices and request headers.
 - **Agent CLIs**: choose **Claude Code** or **Kimi Code**. Claude Code supports live streaming, interactive steering, permission bridging, native agents and per-turn MCP configuration, and can target third-party Anthropic-compatible endpoints (Coding Plans); Kimi Code is driven through its official ACP protocol (see the compatibility limits below). Both receive a "Ruyi environment briefing" describing which Ruyi tools exist, how the UI renders things and how permissions work.
 - **Model assignment**: one settings page decides which model does what — the main conversation model, the default engine for new threads (last used / follow global), the steward, the strong and fast tiers, sub-agents, context compaction and voice correction. Changes save immediately; "follow" means the row is not set separately.
 - **Cross-engine continuation**: switch a thread from an endpoint to Claude Code or back and the history is grafted over; the context carries on. Switching on the thread header affects only that thread.

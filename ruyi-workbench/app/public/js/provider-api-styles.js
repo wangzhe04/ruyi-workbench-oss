@@ -16,6 +16,8 @@ export const PROVIDER_API_STYLE_DEFAULT = 'chat';
 export const PROVIDER_API_STYLES = Object.freeze({
   chat: Object.freeze({ id: 'chat', labelKey: 'provider.apiStyle.chat', serverWebSearch: false }),
   responses: Object.freeze({ id: 'responses', labelKey: 'provider.apiStyle.responses', serverWebSearch: true }),
+  // 58 号批 2:Anthropic Messages(官方与兼容网关);服务端搜索批 3 再开。
+  anthropic: Object.freeze({ id: 'anthropic', labelKey: 'provider.apiStyle.anthropic', serverWebSearch: false }),
 });
 
 export const PROVIDER_API_STYLE_IDS = Object.freeze(Object.keys(PROVIDER_API_STYLES));

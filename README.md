@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-419-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-420-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20%E8%BF%90%E8%A1%8C%E6%97%B6%E4%BE%9D%E8%B5%96-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,9 +71,9 @@
 
 | | |
 |---|---|
-| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 6.3 万行，由 `app/src/` 的 64 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 61 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
+| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 6.3 万行，由 `app/src/` 的 65 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 61 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
 | **107 个原生工具 · 108 个 ACC 工具** | 线程里可用的文件、终端、搜索、Git、联网、Office 交接、子代理编排等 65 个，加上管家专用的 42 个；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 419 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 419 项 e2e（默认回归 412 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 102 组 unit suite 与 17 组 ACC smoke，Windows CI 每次提交都跑。 |
+| **8 套模板 · 10 种角色 · 420 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 420 项 e2e（默认回归 413 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 103 组 unit suite 与 17 组 ACC smoke，Windows CI 每次提交都跑。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -151,7 +151,7 @@
 
 | 能力 | 说明 | 详见 |
 |---|---|---|
-| **引擎：任意模型端点** | OpenAI 兼容端点（Chat Completions 或 Responses API），不内置厂商预设；本机 Ollama / LM Studio 免密钥；Agent CLI 可选 Claude Code 或 Kimi Code；同一线程里换引擎，上下文自动续接 | [§1](#1-引擎与模型) |
+| **引擎：任意模型端点** | OpenAI 兼容端点（Chat Completions 或 Responses API）与 Anthropic Messages 端点（官方或兼容网关），不内置厂商预设；本机 Ollama / LM Studio 免密钥；Agent CLI 可选 Claude Code 或 Kimi Code；同一线程里换引擎，上下文自动续接 | [§1](#1-引擎与模型) |
 | **原生工具环** | 107 个原生工具，只读 / 修改 / 执行三级审批；按需装载工具说明；独立调用合批、有依赖的分阶段 | [§2](#2-原生工具) |
 | **结构化提问** | 单选、多选、自由输入、「选项＋其他」；确认送达模型后卡片才关闭 | [§1](#1-引擎与模型) |
 | **多 Agent 编排** | 8 套模板、10 种角色、5 种质量门、条件与循环、资源租约、worktree 隔离、图形编辑器与实时画布；团队模式；子代理可后台运行 | [§3](#3-多-agent-编排) |
@@ -173,7 +173,7 @@
 
 ### 1. 引擎与模型
 
-- **OpenAI 兼容端点（原生引擎）**：直连 HTTP + SSE 流式，带完整的原生工具循环。协议可选 Chat Completions 或 Responses API（服务端工具循环）；主回合、子代理、摘要、Playbook 起草全链路跟随所选协议。**不内置任何厂商预设**：填服务商给的 Base URL 和密钥即可（云端 API、one-api 网关、内网 vLLM 都行），本机 Ollama / LM Studio 免密钥。可以同时配多个服务商，每个服务商有自己的模型清单、单价、缓存命中价与请求头。
+- **OpenAI 兼容端点（原生引擎）**：直连 HTTP + SSE 流式，带完整的原生工具循环。协议可选 Chat Completions、Responses API（服务端工具循环）或 Anthropic Messages（Anthropic 官方与国产 / 内网的 Anthropic 兼容网关，思考块带签名在工具循环里原样回传）；主回合、子代理、摘要、Playbook 起草全链路跟随所选协议。**不内置任何厂商预设**：填服务商给的 Base URL 和密钥即可（云端 API、one-api 网关、内网 vLLM 都行），本机 Ollama / LM Studio 免密钥。可以同时配多个服务商，每个服务商有自己的模型清单、单价、缓存命中价与请求头。
 - **Agent CLI**：可选 **Claude Code** 或 **Kimi Code**。Claude Code 支持实时流式、交互式插话、权限桥接、原生 Agent 与按回合的 MCP 配置，也可以接第三方 Anthropic 兼容端点（Coding Plan）；Kimi Code 经官方 ACP 协议驱动（见下文兼容边界）。两者都会拿到一段「如意运行环境说明」：能用哪些如意工具、界面怎么显示、权限怎么走。
 - **模型分配**：设置里的「模型分配」一张表管完谁用哪个模型：对话主模型、新线程默认引擎（上次用的 / 跟随全局）、管家、强 / 快两档、子代理、上下文压缩、语音改错。选中即保存，「跟随」表示不单独指定。
 - **跨引擎续接**：同一线程从某个端点切到 Claude Code（或反过来），历史自动嫁接，不断上下文。线程头上切换只影响这一条线程。
@@ -494,7 +494,7 @@ Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源�
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            后端源码：64 个有序模块（改这里，再跑 build.js）
+│   ├── app/src/            后端源码：65 个有序模块（改这里，再跑 build.js）
 │   ├── app/server.js       后端运行产物（由 app/build.js 拼接，零 npm 运行时依赖）
 │   ├── app/public/         前端：index.html + 61 个原生 ES 模块 + 分层 CSS + 中英语言包
 │   ├── desktop/            WinForms + WebView2 桌面壳

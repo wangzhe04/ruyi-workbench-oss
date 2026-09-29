@@ -1,6 +1,6 @@
 # 58 · 服务商协议层：协议登记表 + Anthropic Messages 兼容
 
-> 状态：**方案定稿（2026-09-29）；批 1 已实现（2026-09-29，交付记录见 §7）**。用户拍板：官方 Anthropic 与国产/内网的 Anthropic 兼容网关两类都要；先做协议登记表重构，做完直接合并。
+> 状态：**方案定稿（2026-09-29）；批 1 已实现（2026-09-29，交付记录见 §7）；批 2 已实现（2026-09-29，交付记录见 §8）**。用户拍板：官方 Anthropic 与国产/内网的 Anthropic 兼容网关两类都要；先做协议登记表重构，做完直接合并。
 > 三批推进：批 1 重构（零行为变更）→ 批 2 Anthropic 协议表项 → 批 3 设置页、提示缓存与服务端工具。
 
 ## 0. 目标
@@ -280,3 +280,41 @@ SSE 分帧（空行分事件、多行 `data:` 拼接、`[DONE]`）、`raw_line` 
 - 有意统一的边角（§3.5）：非流式取字统一为 10 的口径——chat 的 parts 数组拼文本（修起草拿到 `[object Object]`）、
   Responses 只取 `output_text` / `input_text`。
 
+## 8. 批 2 交付记录（2026-09-29）
+
+- 新模块 `04i-provider-anthropic.js`（排在 04i-provider-wire 之前，只引用 04h，不进环；makeId / redact / 配对自愈由登记表胶水注入）：
+  端点 `{v1}/messages`、鉴权头（`anthropicAuth`：缺省官方主机只发 `x-api-key`、其它主机两个都发；可显式 `x-api-key` / `bearer`）、
+  chat 形历史 → Messages（后插 system → `<system-reminder>` user 文本；连续工具结果合成一条 user，`tool_result` 排最前；相邻同角色合并；
+  首末补 user；图片 data URI / URL；空文本不出块；id 清洗两边一致）、自适应思考（`anthropicThinking`：缺省按模型名，Claude 4.6 起的
+  opus / sonnet / fable / mythos 发 `{type:'adaptive', display:'summarized'}`，其余不发）、`output_config.effort`、非流式与流式解码、用量归一、
+  400 兼容重打。登记表加 `anthropic` 一项，全表加成员 `retryOn400`（chat / responses 恒 null）。
+- 思考块（§4.4 的落地口径，按 claude-api 技能的 preserved-thinking 规则核过）：解码把本次回复的内容块按原顺序收进 `providerBlocks`
+  （只在真有思考块时带，`reasoning_content` 照旧）；编码**只回放最后一条 user 之后那段 assistant**，且协议、模型（回体 model 或请求 model）、
+  tool_use id 都对得上才原样回放。理由：如意每次请求都在最后一条 user 上追加非持久提示（易变层尾部布局、recall、session notes），
+  新 user 一来上一条的追加就没了，它之后的思考块必然失效；丢掉「从最早开始的一段」思考块是 API 明文允许的。循环中途真碰上签名失配
+  （L1 蒸发等改了前缀），`retryOn400` 去掉全部思考块重打一次。
+- 不带 tools 的请求（摘要、起草、去工具重打）里 Messages 不收 `tool_use` / `tool_result` 块：调用方传 `hasTools`，不是 true 时改写成文字、
+  也不回放思考块（09 / 08 按本发是否 applyTools 传；06 / 10 不传）。
+- 错误：529 进瞬时集合（04h `providerCallIsTransient`）；流内 `error` 事件在吐内容之前按状态码口径报（overloaded → 529、限流 → 429），
+  吐过内容就不带状态码（重试会让界面内容重放）；`refusal` 以带类别的可见错误结束本回合。超窗报文 `prompt is too long` 早在判定式里。
+- 其它入口：模型清单认 `max_input_tokens`（`contextLengthKeys` 加一项）；配置清洗新增 `anthropicAuth` / `anthropicThinking`（空不落字段）；
+  前端协议表加一行（设置页下拉自动多出「Anthropic Messages」），能力项的界面留给批 3。
+- 测试：`unit/provider-wire-anthropic.test.js`（9 组：端点与头、编码、回放、不带 tools、强度与工具、非流式、流式、400 重打、配置与清单）；
+  `anthropic-fake.e2e.js`（真工作台 + `lib/fake-anthropic-provider.js`：并行工具循环、思考块逐字节回放、用量归一、历史落块、第二回合不回放旧块、
+  签名失配去块重打、子代理、非流式起草、模型清单）。chat / responses 的流式语料锁与出站逐字节锁不改一字通过。
+- 云端只能用假端点验证协议形状；真端点联调（官方与国产网关）需要在有 key 的机器上跑。
+
+### 8.1 Opus 5.5 / Sonnet 5.5 适配（2026-09-29，按 claude-api 技能的迁移指南）
+
+- 按模型名认 Claude 家族与版本（`anthropicModelTraits`）：自适应思考（4.6 起）、拒收采样参数（Opus 4.7 起、Sonnet 5 起、Fable / Mythos）、
+  `between_tools`（Sonnet 5.5 起）、服务端拒答改派（Opus 5 / 5.5、Sonnet 5.5、Fable 5.1）。非 Claude 模型一律按最保守的请求发。
+- 思考关不掉：Opus 5.5 上 `disabled` 与 `budget_tokens` 都 400，如意从不发这两种；`anthropicThinking:'off'` 在 Sonnet 5.5 上发
+  `between_tools`（effort 到 xhigh / max 时自动换回 adaptive，否则 400），在 Opus 5.5 上不发 thinking 字段、由 effort 控制。
+- 工具调用之间的进度说明在这两个模型上以思考块返回，缺省 `display:'omitted'` 时是空的；如意发 `display:'summarized'`，界面照常看得到。
+- 官方主机（api.anthropic.com）上额外带两个 beta，头与体用同一判据：`thinking-binding-controls-2026-08-01` + `block_binding: drop_block`
+  （新账户默认强制前缀校验，对不上的思考块由 API 丢掉而不是 400）；`server-side-fallback-2026-07-01` + `fallbacks:'default'`
+  （安全分类器误拒时服务端按类别改派推荐模型；`anthropicFallbacks:'off'` 可关）。网关上不带；网关若不认这些字段，`retryOn400` 只去那一项重打。
+- 温度：新的 `applyTemperature` 成员，拒收采样参数的模型上不发（修前会每发都先吃一个 400 再重打）。
+- 流式上限：官方主机上的新 Claude 模型 64K（思考计入 max_tokens，迁移指南给的长智能体回合起点），其余仍 32K。
+- 回放：服务端改派留下的 `fallback` 块等未知块原样保留（少一块就改了后面思考块的前缀）；改派后按请求时的 model 回放，接手模型读不了的块由 API 丢掉。
+- 请求头成员改为 `requestHeaders(provider, { model })`（另两种协议不看 model）。
