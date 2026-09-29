@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3034,
-    "requiredSymbols": 2914,
+    "providedSymbols": 3050,
+    "requiredSymbols": 2915,
     "edges": 511,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -46,6 +46,7 @@
         "USAGE_CACHE_CHECK_BYTES",
         "USAGE_CACHE_ROW_BYTES",
         "USAGE_CACHE_YIELD_LINES",
+        "USAGE_CACHE_YIELD_ROWS",
         "USAGE_DICT_COLUMNS",
         "UsageRowView",
         "VERSION",
@@ -13300,6 +13301,9 @@
         "normalizeContractQuestionDecision",
         "overlayMissionAggregateFields",
         "parseNdjsonRows",
+        "pendingInterventionItem",
+        "pendingInterventionRefs",
+        "pendingInterventionRefsMemo",
         "readNdjsonEdges",
         "readSessionSearchIndex",
         "refreshSessionSearchIndex",
@@ -14194,6 +14198,8 @@
         "PRETENDER_INDEX_SCHEMA",
         "PRETENDER_PAGE_DEFAULT",
         "PRETENDER_PAGE_MAX",
+        "PRETENDER_PERSIST_DEBOUNCE_MS",
+        "PRETENDER_VERIFY_MS",
         "addMissionUsageRow",
         "buildMissionUsageMap",
         "buildOrLoadPretenderIndex",
@@ -14203,32 +14209,42 @@
         "encodePretenderCursor",
         "finalizePretenderIndex",
         "finishMissionUsage",
+        "flushPretenderPersist",
         "getPretenderProjectionIndex",
         "markPretenderIndexDirty",
         "overlayMissionCard",
         "paginatePretenderProjection",
         "persistPretenderIndex",
+        "pretenderChangedSourceIds",
+        "pretenderCompareCodeUnits",
         "pretenderEtag",
         "pretenderFileStamp",
         "pretenderHash",
         "pretenderIndexMeta",
         "pretenderIndexPath",
         "pretenderIndexRuntime",
+        "pretenderIndexTestHooks",
+        "pretenderListSourceIds",
         "pretenderLiveOverlayRevision",
         "pretenderNotModified",
         "pretenderNoteSourcesScan",
         "pretenderRecentSessionIds",
+        "pretenderScheduleVerify",
         "pretenderSessionSourceStamp",
         "pretenderSessionsDirStamp",
+        "pretenderSliceBytes",
         "pretenderSourcesTrusted",
         "pretenderUsageSourceStamp",
         "readPretenderIndexDisk",
         "rebuildPretenderIndexFull",
         "refreshPretenderIndexSlices",
+        "refreshPretenderUsageFacts",
         "sameSourceMap",
         "scanPretenderSessionSources",
+        "schedulePretenderPersist",
         "validatePretenderIndex",
-        "warmPretenderProjectionIndex"
+        "warmPretenderProjectionIndex",
+        "writePretenderIndexFile"
       ],
       "requires": [
         {
@@ -23865,6 +23881,13 @@
         },
         {
           "provider": "13e-pretender-index.js",
+          "symbol": "pretenderIndexTestHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
           "symbol": "warmPretenderProjectionIndex",
           "kinds": [
             "read"
@@ -30522,6 +30545,7 @@
       "to": "13e-pretender-index.js",
       "symbols": [
         "getPretenderProjectionIndex",
+        "pretenderIndexTestHooks",
         "warmPretenderProjectionIndex"
       ],
       "direction": "backward"

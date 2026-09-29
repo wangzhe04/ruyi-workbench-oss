@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3034 | 2914 | 511 | 68 | 0 | 1 |
+| 66 | 3050 | 2915 | 511 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 128 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 129 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
@@ -63,8 +63,8 @@
 | 45 | `13-http-router.js` | transport | 65 | 235 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 48 | `13d-core-domain-routes.js` | transport | 48 | 124 | 16 |
-| 49 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
+| 48 | `13d-core-domain-routes.js` | transport | 51 | 124 | 16 |
+| 49 | `13e-pretender-index.js` | transport | 53 | 33 | 8 |
 | 50 | `13i-steward-inbox.js` | transport | 72 | 26 | 8 |
 | 51 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
 | 52 | `13k-steward-threads.js` | transport | 46 | 111 | 15 |
@@ -80,7 +80,7 @@
 | 62 | `13s-scheduler.js` | transport | 49 | 34 | 8 |
 | 63 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
 | 64 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
-| 65 | `14-main.js` | entrypoint | 1 | 573 | 42 |
+| 65 | `14-main.js` | entrypoint | 1 | 574 | 42 |
 
 ## 模块边
 
@@ -588,7 +588,7 @@
 | `14-main.js` | `10-context-governance.js` | backward | `COMPACT_MARKER_MIN_SAVED_TOKENS`, `COMPACT_RESEED_TAIL_MAX_TOKENS`, `CompactionPlan`, `agentConversationContextMeta`, `agentNodeContextWindow`, `appendPromptToLastUserMessage`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSummaryFactTableMessages`, `buildSummaryRefineMessages`, `calibratedEstimate`, `checkSummaryEntities`, `chunkHistoryByBudget`, `configuredConversationWindow`, `contextWindowFromTable`, `contextWindowOverrideKey`, `dedupeRepeatedReads`, `estimateFactor`, `evaporateBudgetBoundary`, `evaporateHistory`, `extractContextLength`, `extractSessionNotes`, `extractSummaryEntities`, `fileReadDedupKey`, `fitHistoryForSummary`, `historyStartsWithCompactionSummary`, `historyUnitStarts`, `isContextOverflowError`, `learnedWindowCap`, `mapSummaryWithLimit`, `maybeWriteSessionNotes`, `measureObservationReductionShadow`, `mergeSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `openCompactMarker`, `parseSessionNotesMarkdown`, `providerContextWindow`, `providerConversationContextWindow`, `providerSummaryCall`, `recentFileReads`, `recentTurnsBoundary`, `reduceObservationContent`, `rehydrateObservation`, `renderSessionNotesMarkdown`, `resolveCompactionProvider`, `resolveContextWindow`, `resolveSummaryCallPolicy`, `runSessionTurn`, `summaryMaxConcurrent`, `summaryPromptWithGuidance`, `summarySingleShotCap`, `summarySingleShotReserveTokens`, `upsertCompactMarker`, `validateStructuredSummary`, `writeHistorySnapshot` |
 | `14-main.js` | `11-native-tools.js` | backward | `classifyFetchError`, `crc32`, `embeddedIpv4FromV6`, `extractMainText`, `httpGetGuarded`, `isPrivateIpv4`, `parseBaiduHtml`, `parseBingHtml`, `peekRgProbe`, `probeRgAsync`, `readWebCache`, `ssrfCheck`, `webCachePath`, `webFetch`, `webFetchFailMessage`, `webSearch`, `writeWebCache` |
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
-| `14-main.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `warmPretenderProjectionIndex` |
+| `14-main.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `pretenderIndexTestHooks`, `warmPretenderProjectionIndex` |
 | `14-main.js` | `13i-steward-inbox.js` | backward | `STEWARD_SOURCE_EVENT_MAP`, `startStewardInbox`, `stewardEventDedupeKey`, `stewardInboxRowDedupeKeys`, `stewardMergeInboxEvents`, `stewardNormalizeBudgetExhausted`, `stewardNormalizeMissionChange`, `stewardNormalizePendingIntervention`, `stewardNormalizeRunEvent`, `stopStewardInbox` |
 | `14-main.js` | `13j-steward-tool-base.js` | backward | `stewardTurnTaintedBy` |
 | `14-main.js` | `13k-steward-threads.js` | backward | `stewardMediatedPermissionWaitMs` |

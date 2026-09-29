@@ -32,7 +32,18 @@ for (let m = 0; m < 6; m++) {
 const ledgerBytes = fs.readdirSync(path.join(HOME, 'usage')).reduce((a, f) => a + fs.statSync(path.join(HOME, 'usage', f)).size, 0);
 const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const t = async (label, fn) => { const s = performance.now(); await fn(); const ms = performance.now() - s; console.log(label.padEnd(44), ms.toFixed(0).padStart(6), 'ms'); return ms; };
+// 事件循环最长卡顿:每 5 ms 一拍,记下两拍之间超出的最大间隔(SSE 流顿不顿看的就是它)
+function stallMonitor() {
+  let last = performance.now(), max = 0;
+  const timer = setInterval(() => { const now = performance.now(); max = Math.max(max, now - last - 5); last = now; }, 5);
+  return () => { clearInterval(timer); return max; };
+}
+const t = async (label, fn) => {
+  const stop = stallMonitor(); const s = performance.now(); await fn(); const ms = performance.now() - s;
+  await new Promise(r => setTimeout(r, 8));   // 让监视器补记最后一段同步执行
+  const stall = stop();
+  console.log(label.padEnd(44), ms.toFixed(0).padStart(6), 'ms   最长卡顿', stall.toFixed(0).padStart(5), 'ms'); return ms;
+};
 (async () => {
   console.log(`sessions=${N} usageRows=${R} ledger=${(ledgerBytes / 1048576).toFixed(1)}MB`);
   await t('冷建(无索引文件)', () => srv.getPretenderProjectionIndex());

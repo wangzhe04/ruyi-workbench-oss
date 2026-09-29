@@ -791,7 +791,8 @@ async function readUsageRows(lowerMs) {
 //     时为 false,estimated 只在原值 === true 时为 true —— 与消费方的判据一一对应。多出一个 tsMs(= Date.parse(ts))。
 //   · RUYI_USAGE_CACHE=0 退回修前的整读路径(逃生口,也是 unit/usage-ledger-cache 差分测试的对照组)。
 const USAGE_CACHE_CHECK_BYTES = 256;
-const USAGE_CACHE_YIELD_LINES = 4000;   // 整月首次解析时每这么多行让一次事件循环(70 MB 的账不再一口气占住主线程)
+const USAGE_CACHE_YIELD_LINES = 4000;
+const USAGE_CACHE_YIELD_ROWS = 25000;   // 遍历时每这么多行让一次(约 10 ms 一片)   // 整月首次解析时每这么多行让一次事件循环(70 MB 的账不再一口气占住主线程)
 const USAGE_CACHE_ROW_BYTES = 8 * 5 + 1 + 4 * 7;   // 五个 Float64 列 + 标志位 + 七个字典号
 const usageLedgerCache = {
   months: new Map(),            // 月份文件名 -> { size, mtimeMs, committed, check, cols, tail }
@@ -1013,28 +1014,35 @@ async function forEachUsageRow(lowerMs, fn, opts = {}) {
     for (const sid of onlySessions) { const id = usageLedgerCache.dictIndex.get(sid); if (id !== undefined) wantIds.add(id); }
     if (!wantIds.size) return;
   }
+  // 性能批 P4:先同步拍一份快照(每个月的列对象、当时的行数、当时的尾巴),再按快照遍历、每 USAGE_CACHE_YIELD_ROWS 行
+  // 让一次事件循环 —— 30 万行的看板不再一口气占住主线程 170 ms。遍历期间新追加的行不在快照里(调用那一刻的一致视图):
+  // 追加只会往列尾写、整月重读换的是新列对象,快照里 [0, n) 的内容始终不变,不会重、不会漏。
+  const plan = [];
+  for (const name of order) {
+    if (lowerKey && name.slice(0, 7) < lowerKey) continue;
+    const entry = usageLedgerCache.months.get(name);
+    if (!entry) continue;
+    plan.push([entry.cols, entry.cols.n]);
+    if (entry.tail) plan.push([entry.tail, entry.tail.n]);
+  }
   const view = new UsageRowView();
-  const visit = c => {
-    const rawTs = c.tsRaw.size ? c.tsRaw : null;
-    for (let i = 0; i < c.n; i++) {
-      if (wantIds && !wantIds.has(c.sessionId[i])) continue;
+  // 让出按「交给回调的行」计;被筛掉的行只比一个字典号,按大 16 倍的间隔另计(只刷几条会话时别白等十几拍)。
+  let visited = 0, skipped = 0;
+  for (const [c, n] of plan) {
+    for (let i = 0; i < n; i++) {
+      if (visited >= USAGE_CACHE_YIELD_ROWS || skipped >= USAGE_CACHE_YIELD_ROWS * 16) { visited = 0; skipped = 0; await new Promise(resolve => setImmediate(resolve)); }
+      if (wantIds && !wantIds.has(c.sessionId[i])) { skipped++; continue; }
       const t = c.tsMs[i];
-      if (lowerMs > 0 && t < lowerMs) continue;
+      if (lowerMs > 0 && t < lowerMs) { skipped++; continue; }
+      visited++;
       const flags = c.flags[i];
-      view.tsMs = t; view.tsRaw = rawTs ? rawTs.get(i) : undefined;
+      view.tsMs = t; view.tsRaw = c.tsRaw.size ? c.tsRaw.get(i) : undefined;
       view.inTok = c.inTok[i]; view.outTok = c.outTok[i]; view.cachedInTok = c.cachedInTok[i]; view.cost = c.cost[i];
       view.costTrusted = (flags & 1) === 0; view.estimated = (flags & 2) !== 0;
       view.sessionId = dict[c.sessionId[i]]; view.engine = dict[c.engine[i]]; view.provider = dict[c.provider[i]]; view.model = dict[c.model[i]];
       view.currency = dict[c.currency[i]]; view.kind = dict[c.kind[i]]; view.note = dict[c.note[i]];
       fn(view);
     }
-  };
-  for (const name of order) {
-    if (lowerKey && name.slice(0, 7) < lowerKey) continue;
-    const entry = usageLedgerCache.months.get(name);
-    if (!entry) continue;
-    visit(entry.cols);
-    if (entry.tail) visit(entry.tail);
   }
 }
 // 视图:字段在构造时一次定形(defineProperty 之后再挂字段会让 V8 把对象降成字典模式,每行十几次读写全变慢);

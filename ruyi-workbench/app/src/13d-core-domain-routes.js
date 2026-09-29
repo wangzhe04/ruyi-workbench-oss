@@ -1696,6 +1696,63 @@ async function decideIntervention(command = {}) {
   return { status: response.ok === false ? 409 : 200, body: response };
 }
 
+// 性能批 P3:GET /api/interventions 的待决引用表,按索引对象缓存(索引任何刷新都换新对象,缓存随之作废)。
+// 次序与修前逐条相同:按 requestedAt 的 localeCompare 稳定排序(每个索引版本只排一次)。
+const pendingInterventionRefsMemo = new WeakMap();
+function pendingInterventionRefs(index, onlySession) {
+  let byFilter = pendingInterventionRefsMemo.get(index);
+  if (!byFilter) pendingInterventionRefsMemo.set(index, byFilter = new Map());
+  const hit = byFilter.get(onlySession);
+  if (hit) return hit;
+  const refs = [];
+  const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
+  for (const slice of index.sessions) {
+    if (onlySession && slice.sessionId !== onlySession) continue;
+    for (const iv of slice.interventions || []) {
+      if (!iv || iv.status !== 'pending') continue;
+      refs.push({ slice, iv, requestedAt: String(iv.requestedAt || '') });
+      counts.total++;
+      if (iv.type === 'permission') counts.permission++;
+      else if (iv.type === 'question') counts.question++;
+      else if (iv.type === 'plan') counts.plan++;
+      else if (iv.type === 'pool') counts.pool++;
+      else if (iv.type === 'replan') counts.replan++;
+    }
+  }
+  refs.sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+  const entry = { refs, counts };
+  byFilter.set(onlySession, entry);
+  return entry;
+}
+// 一条待决的对外形状(字段与次序与修前逐字相同);实时字段每次现算。
+function pendingInterventionItem(slice, iv) {
+  const sessionId = slice.sessionId;
+  return {
+    id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
+    requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
+    toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
+    runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+    input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
+    questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
+    questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
+    context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
+    planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
+    replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
+    replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
+    replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
+    deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
+      : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
+        : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
+          : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
+            : activeChildren.has(sessionId),
+    live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
+    // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
+    // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
+    deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
+      : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
+  };
+}
+
 async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/_test/pretender-maintenance') {
     if (process.env.RUYI_TEST_HOOKS !== '1') return send(res, json({ ok: false, error: 'not found' }, 404));
@@ -1739,55 +1796,19 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/interventions') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const index = await getPretenderProjectionIndex();
-    const pending = [];
-    const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
     // hunt2-steward ⑨:可选 ?sessionId= 只看一条线程的待决(counts 同口径只数它)。抽屉修前拉全局前 100 条
     // 再在前端按会话筛 —— 全局待决超过 100 条时,排在后面的那条线程的待决永远落在页外,抽屉说它「没在等你」。
     // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
     const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
     const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
-    for (const slice of index.sessions) {
-      const sessionId = slice.sessionId;
-      if (onlySession && sessionId !== onlySession) continue;
-      for (const iv of slice.interventions || []) {
-        if (!iv || iv.status !== 'pending') continue;
-        pending.push({
-          id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
-          requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
-          toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
-          runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
-          input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
-          questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
-          questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
-          context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
-          planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
-          replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
-          replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
-          replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
-          deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
-            : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
-              : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
-                : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
-                  : activeChildren.has(sessionId),
-          live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
-          // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
-          // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
-          deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
-            : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
-        });
-        counts.total++;
-        if (iv.type === 'permission') counts.permission++;
-        else if (iv.type === 'question') counts.question++;
-        else if (iv.type === 'plan') counts.plan++;
-        else if (iv.type === 'pool') counts.pool++;
-        else if (iv.type === 'replan') counts.replan++;
-      }
-    }
-    pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
+    // 性能批 P3:待决列表按索引版本只收集、排序一次(引用 + 计数缓存在 index 对象上);分页与 ETag 在造条目之前 ——
+    // 304 不再付整张表的代价,200 也只为这一页造条目。条目里的实时字段(可送达、活回合、倒计时)照旧每次现算。
+    const { refs, counts } = pendingInterventionRefs(index, onlySession);
+    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, refs);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    paged.items = paged.items.map(ref => pendingInterventionItem(ref.slice, ref.iv));
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
     // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
     // 3.0 预览收口:此前在分页与 304 之前串行读【全部】待决会话的头,299 条会话时每请求 300–450 ms

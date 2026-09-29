@@ -377,7 +377,9 @@ try {
   const src = readServerSource();
   ok(/function threadVisible\(head, input\)/.test(src), 'S1 threadVisible 单点在编译产物里(定义在 06i)');
   ok(/function threadOriginOf\(head\)/.test(src), 'S2 threadOriginOf 单点在编译产物里(定义在 06i)');
-  ok(/const PRETENDER_INDEX_SCHEMA = 6;/.test(src), 'S3 投影索引 schema 升到 6(卡片形状与产生条件都变了,必须强制重建)');
+  // 性能批 P3 又升到 7(切片排序换成码位序);这里钉的是「K3 那次升号还在」—— 至少 6,不许回退。
+  const schema = Number((/const PRETENDER_INDEX_SCHEMA = (\d+);/.exec(src) || [])[1]);
+  ok(schema >= 6, `S3 投影索引 schema 至少是 6(卡片形状与产生条件都变了,必须强制重建;实 ${schema})`);
   ok(/if \(head\.stewardWatch === true\) return true;/.test(src) && /if \(head\.stewardWatch === false\) return false;/.test(src),
     'S4 stewardWatchedThread 的两条显式开关分支排在原三条判据之前');
   // 摘要的三个键取的是 04 那份 reg.liveTail(同一个累加器、同一份预算),不另攒一套。

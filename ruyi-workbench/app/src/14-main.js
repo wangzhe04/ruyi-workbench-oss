@@ -329,6 +329,7 @@ module.exports = {
   // 128f-⑧:unit/session-index-rebuild-race 用。
   buildUsageSummary,
   forEachUsageRow, readUsageRows, usageLedgerCacheStats,   // 性能批 P1:unit/usage-ledger-cache 直调(新旧两条读账路径差分 + 增量计数)
+  pretenderIndexTestHooks,   // 性能批 P2:unit/pretender-index-incremental 直调(名单比对 / 后台校验 / 延迟落盘的计数)
   flushSessionIndex,
   invalidateSessionIndex,
   setSessionIndexRebuildScanHookForTest,
