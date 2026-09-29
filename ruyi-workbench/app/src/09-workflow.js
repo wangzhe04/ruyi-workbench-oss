@@ -2291,10 +2291,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
             });
             pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
@@ -2303,10 +2304,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)

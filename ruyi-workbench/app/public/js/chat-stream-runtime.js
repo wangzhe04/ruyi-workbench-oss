@@ -1373,7 +1373,7 @@ export function createChatStreamRuntime(deps = {}) {
           const subHost = live && live.subCards.get(String(evt.subagentId));
           if (subHost && subHost.status) {
             const tags = `${subHost.roleTag || ''}${subHost.tierTag || ''}${subHost.modelTag || ''}${subHost.driverTag || ''}${subHost.dependencyTag || ''}`;
-            subHost.status.textContent = (evt.afterTokens != null ? t('chat.agentCompacted') : t('chat.agentCompacting')) + tags;
+            subHost.status.textContent = (evt.phase === 'failed' ? t('chat.agentCompactFailed') : evt.afterTokens != null ? t('chat.agentCompacted') : t('chat.agentCompacting')) + tags;
           }
           break;
         }

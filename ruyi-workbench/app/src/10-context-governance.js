@@ -2205,6 +2205,9 @@ async function runAutoCompaction(ctx) {
   const before2 = estimate();
   const compactTarget = resolveCompactionProvider(config, provider);
   const summaryProvider = compactTarget.provider || provider;
+  // 摘要调用要几十秒到几分钟(回合在迭代边界上等它):先报 started,前端活动条与压缩指示条据此显示「压缩中」;
+  // 收尾必有一条 completed(下面带 afterTokens 的那条)或 failed,不会把状态条挂在压缩态。
+  onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
   const sc = await providerSummaryCall(summaryProvider, history, {
     model: compactTarget.model,
     config,
@@ -2213,6 +2216,7 @@ async function runAutoCompaction(ctx) {
   });
   if (!sc || !sc.ok) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
+    onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
     return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
   }
@@ -2223,7 +2227,7 @@ async function runAutoCompaction(ctx) {
   // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
   if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
   const after2 = estimateHistoryTokens([sysMsg, ...reseeded], '', tools);
-  onEvent({ type: 'compact', mode: 'summary', ...eventFields, beforeTokens: before2, afterTokens: after2 });
+  onEvent({ type: 'compact', mode: 'summary', phase: 'completed', trigger: 'auto', ...eventFields, beforeTokens: before2, afterTokens: after2 });
   logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
   return { compacted: true, level: 2, before, before2, after2, watermark: after2, reseeded, sc, summaryProvider };
 }
@@ -2245,6 +2249,8 @@ async function runForcedOverflowCompaction(ctx) {
       logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', ...logFields, ...shadow });
     } catch { /* shadow evaluation must never block forced compaction */ }
   }
+  // 强压同样要等一次摘要调用:先报 started;level 1/2 由调用方重试前发 completed(带 afterTokens),零成果在这里发 failed。
+  onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   const evaporated = evaporateHistory(history, {
     config, rawRefPrefix,
@@ -2258,6 +2264,7 @@ async function runForcedOverflowCompaction(ctx) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
   }
+  if (evaporated <= 0) onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, error: String((sc && sc.error) || 'nothing to compact') });
   return { level: evaporated > 0 ? 1 : 0, evaporated };
 }
 

@@ -32447,14 +32447,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
             if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
-            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
             pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
             subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
           }
           if (forced.level === 1) { // L2 失败但 L1 有斩获,试最后一次;下一迭代跳过自动压缩(几秒前 L2 刚失败过)
-            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
             skipAutoCompactOnce = true;
             subOk = true; subErr = '';
             iter--; continue;
@@ -36677,10 +36677,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
             });
             pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
@@ -36689,10 +36690,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
@@ -39706,6 +39708,9 @@ async function runAutoCompaction(ctx) {
   const before2 = estimate();
   const compactTarget = resolveCompactionProvider(config, provider);
   const summaryProvider = compactTarget.provider || provider;
+  // 摘要调用要几十秒到几分钟(回合在迭代边界上等它):先报 started,前端活动条与压缩指示条据此显示「压缩中」;
+  // 收尾必有一条 completed(下面带 afterTokens 的那条)或 failed,不会把状态条挂在压缩态。
+  onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
   const sc = await providerSummaryCall(summaryProvider, history, {
     model: compactTarget.model,
     config,
@@ -39714,6 +39719,7 @@ async function runAutoCompaction(ctx) {
   });
   if (!sc || !sc.ok) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
+    onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
     return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
   }
@@ -39724,7 +39730,7 @@ async function runAutoCompaction(ctx) {
   // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
   if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
   const after2 = estimateHistoryTokens([sysMsg, ...reseeded], '', tools);
-  onEvent({ type: 'compact', mode: 'summary', ...eventFields, beforeTokens: before2, afterTokens: after2 });
+  onEvent({ type: 'compact', mode: 'summary', phase: 'completed', trigger: 'auto', ...eventFields, beforeTokens: before2, afterTokens: after2 });
   logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
   return { compacted: true, level: 2, before, before2, after2, watermark: after2, reseeded, sc, summaryProvider };
 }
@@ -39746,6 +39752,8 @@ async function runForcedOverflowCompaction(ctx) {
       logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', ...logFields, ...shadow });
     } catch { /* shadow evaluation must never block forced compaction */ }
   }
+  // 强压同样要等一次摘要调用:先报 started;level 1/2 由调用方重试前发 completed(带 afterTokens),零成果在这里发 failed。
+  onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   const evaporated = evaporateHistory(history, {
     config, rawRefPrefix,
@@ -39759,6 +39767,7 @@ async function runForcedOverflowCompaction(ctx) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
   }
+  if (evaporated <= 0) onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, error: String((sc && sc.error) || 'nothing to compact') });
   return { level: evaporated > 0 ? 1 : 0, evaporated };
 }
 

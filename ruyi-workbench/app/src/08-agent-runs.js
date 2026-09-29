@@ -794,14 +794,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
             if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
-            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
             pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
             subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
           }
           if (forced.level === 1) { // L2 失败但 L1 有斩获,试最后一次;下一迭代跳过自动压缩(几秒前 L2 刚失败过)
-            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
             skipAutoCompactOnce = true;
             subOk = true; subErr = '';
             iter--; continue;

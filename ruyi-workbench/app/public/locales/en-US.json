@@ -2369,6 +2369,7 @@
   "chat.questionSegmentLabeled": "{{label}}: {{questions}}",
   "chat.agentCompacting": "Compacting agent context…",
   "chat.agentCompacted": "Agent context compacted",
+  "chat.agentCompactFailed": "Agent context summary failed — continuing with the existing context",
   "chat.agentEnvelopeSummary": "Agent summary",
   "chat.agentEnvelopeArtifacts": "Artifacts: {{list}}",
   "chat.nativeAgentCompleted": "✓ Completed",

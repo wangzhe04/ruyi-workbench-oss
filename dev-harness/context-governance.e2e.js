@@ -194,10 +194,14 @@ const prov = { id: '__context_governance_fixture__', model: 'm', contextWindow: 
       { role: 'assistant', content: 'B'.repeat(4000) },
     ];
     const ref = sub;
-    let ev = null;
-    const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: e => { if (e && e.type === 'compact') ev = e; }, subagentId: 's2', parentSession: { id: 'p' } });
+    let ev = null; const seq = [];
+    const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: e => { if (e && e.type === 'compact') { ev = e; seq.push(e); } }, subagentId: 's2', parentSession: { id: 'p' } });
     ok(changed === true && sub === ref, 'A(3) L2→数组【同一引用】(原地 splice,非重新赋值)');
     ok(ev && ev.mode === 'summary', 'A(3) 发 compact/summary 事件');
+    // L2 摘要调用前先报 started(前端据此显示「压缩中」),收尾 completed 带 afterTokens;两条都带 subagentId。
+    ok(seq.length === 2 && seq[0].phase === 'started' && seq[0].mode === 'summary' && typeof seq[0].beforeTokens === 'number' && seq[0].afterTokens === undefined
+      && seq[1].phase === 'completed' && typeof seq[1].afterTokens === 'number' && seq.every(e => e.subagentId === 's2'),
+      'A(3) L2 事件序列 started → completed(' + seq.map(e => e.mode + ':' + e.phase).join(',') + ')');
     ok(sub[0].role === 'user' && /TASK0/.test(sub[0].content) && /SUMMARY/.test(sub[0].content), 'A(3) 首条 user 并入【原始 task + 摘要】(不连续 user)');
     ok(sub[1] && sub[1].role === 'assistant', 'A(3) reseed 交替:user→assistant');
     ok(sub.length < 4, 'A(3) 重播种后长度收缩(4→2)');
@@ -215,8 +219,12 @@ const prov = { id: '__context_governance_fixture__', model: 'm', contextWindow: 
       { role: 'tool', tool_call_id: 't2', content: big },       // 近窗 → 保留,使 after1 仍超预算 → 进 L2
       { role: 'assistant', content: 'a3' },
     ];
-    const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {} });
+    const seq = [];
+    const changed = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: e => { if (e && e.type === 'compact') seq.push(e); } });
     ok(changed === true && sub[2].content.startsWith('[已省略:'), 'A(4) L2 内核失败→保留 L1 蒸发结果,不抛');
+    // L2 失败也必须收口(failed),否则活动条会一直挂在「压缩中」。
+    ok(seq.map(e => e.mode + ':' + (e.phase || '')).join(',') === 'evaporate:,summary:started,summary:failed' && /boom/.test(seq[2].error || ''),
+      'A(4) 事件序列 evaporate → summary started → summary failed(' + seq.map(e => e.mode + ':' + e.phase).join(',') + ')');
     summaryOk = true;
   }
 

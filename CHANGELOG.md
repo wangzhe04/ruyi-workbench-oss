@@ -11,6 +11,7 @@ This file records user-facing release highlights; it does not replace the comple
 - **子代理的上下文压缩与主回合同一个内核**：滞回水位线、L1 前快照（蒸发的工具输出能用 `observation_recall` 取回）、强压重试与窗口学习的纪律，子代理现在都有。
 - **旧名字全部换成如意命名**：数据目录 `~/.win-claude-workbench` → `~/.ruyi-workbench`（首次启动自动搬过去，旧路径留一个指回来的目录联接）；MCP server id `win-claude-workbench` → `ruyi`（Claude Code／Kimi Code 里的工具名变成 `mcp__ruyi__*`，旧登记由 `install` 与安装脚本清掉）；离线插件市场 `win-workbench-offline` → `ruyi-offline`；环境变量只写 `RUYI_HOME`（旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读）。
 - 修复：工作流「重试节点」之后立刻「暂停／停止」偶尔提示「工作流当前未运行」。
+- 修复：模型服务商会话里，自动压缩走到第二级（摘要重建，要等一次模型调用，可能几十秒到几分钟）时，活动条和输入框上方不显示「压缩中」，看起来像卡住；服务端判定超窗后的强制压缩结束后，活动条反而一直停在「压缩中」。现在两者都会显示「压缩中」，并在完成或失败时收起。
 
 ### English
 
@@ -18,6 +19,7 @@ This file records user-facing release highlights; it does not replace the comple
 - **Sub-agents compact through the same kernel as the main turn** (hysteresis watermark, pre-L1 snapshot so evaporated tool output can be recalled, forced-retry and window-learning discipline).
 - **Legacy names replaced with Ruyi names**: data directory `~/.win-claude-workbench` → `~/.ruyi-workbench` (moved on first start, junction left at the old path); MCP server id `win-claude-workbench` → `ruyi` (tools are `mcp__ruyi__*`; `install` and the installer remove the old registration); offline plugin marketplace `win-workbench-offline` → `ruyi-offline`; child processes get `RUYI_HOME` only (the legacy `WIN_CLAUDE_WORKBENCH_HOME` is still read).
 - Fix: pausing or stopping a workflow right after "retry node" could fail with "workflow not running".
+- Fix: in provider sessions, the second level of automatic compaction (summary rebuild, which waits on a model call) showed no "compacting" status and looked stuck, while the forced compaction after a context-overflow error left the activity bar on "compacting" after it finished. Both now show "compacting" and clear it on completion or failure.
 
 ## 如意 Ruyi Pretender 3.0 Preview 2 · v3.0.0-preview.2 · 2026-09-25 · 预览版
 
