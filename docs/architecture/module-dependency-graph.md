@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 2918 | 2876 | 509 | 68 | 0 | 1 |
+| 66 | 2921 | 2875 | 509 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -63,7 +63,7 @@
 | 45 | `13-http-router.js` | transport | 64 | 233 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 58 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 48 | `13d-core-domain-routes.js` | transport | 45 | 124 | 16 |
+| 48 | `13d-core-domain-routes.js` | transport | 48 | 123 | 16 |
 | 49 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
 | 50 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
 | 51 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
@@ -382,7 +382,7 @@
 | `13d-core-domain-routes.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
 | `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `runAutomaticInterventionDecision` |
 | `13d-core-domain-routes.js` | `06f-autonomy-grants.js` | backward | `CLI_TOOL_TIER`, `consumeGrant` |
-| `13d-core-domain-routes.js` | `06h-retrieval-index.js` | backward | `buildRetrievalCorpus`, `rankRetrievalCorpus`, `reciprocalRankFusion`, `retrievalTerms` |
+| `13d-core-domain-routes.js` | `06h-retrieval-index.js` | backward | `buildRetrievalCorpus`, `rankRetrievalCorpus`, `retrievalTerms` |
 | `13d-core-domain-routes.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks`, `aggregateMissionState`, `deriveStewardThreadState`, `stewardRuyiOwnedPath`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardThreadStateFromHead`, `stewardThreadStateRank`, `waitReasonFor` |
 | `13d-core-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns`, `agentRunFile`, `applyAgentWorktree`, `cleanupAgentWorktree`, `getAgentRoleLibrary`, `nativeToolGate`, `nativeToolTier`, `toolIsRevertible` |
 | `13d-core-domain-routes.js` | `08-agent-runs.js` | backward | `agentRunEventsFile`, `appendAgentRunEvent`, `bumpRunIntervention`, `computeWaveSeq`, `listAgentRuns`, `materializePoolItem`, `nodeDeliveryEligibility`, `readAgentRunEvents`, `saveAgentRun` |

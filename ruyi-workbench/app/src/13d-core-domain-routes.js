@@ -6,15 +6,18 @@
 // 为什么这里要落盘索引,而记忆召回那边不落:记忆的检索单元就是注册表已经读进来的头部字段,重算是
 // 微秒级;会话的检索单元要从可能几 MB 的 NDJSON 正文里抽,不缓存就是每次搜索把整个历史读一遍。
 //
-// 索引单元 = 标题 + 摘要 + 首条 user 消息 + 末尾若干条消息摘录,每会话 ≤ 4KB。失效键 =
-// updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
-// 正文读取只取文件头尾两段,不整体读入 —— 一条几 MB 的会话不会因为被搜索而把内存顶起来。
+// 索引单元(v2)= 标题 + 摘要 + 【每一条】用户消息(各取开头一段)+ 助手回复(从新到旧各取开头一段),每会话 ≤ 8K 字符。
+// v1 只收首条 user 与末尾 6 条,长对话中间问过的事永远搜不到(「搜不全」);还把后台任务回执、压缩标记这类
+// 系统行也收了进来(「搜到垃圾」)。失效键 = updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
+// 正文读取:≤ 2MB 整个读,更大的只读头尾各 1MB —— 一条几十 MB 的会话不会因为被搜索而把内存顶起来。
+// 索引文件名沿用 _search-index-v1.json(换了名旧文件就成了孤儿),版本号升到 2:旧索引读进来就是版本不符 → 全量重建。
 const SESSION_SEARCH_INDEX_FILE = '_search-index-v1.json';
-const SESSION_SEARCH_INDEX_VERSION = 1;
-const SESSION_SEARCH_UNIT_CAP = 4096;      // 每会话进索引的字符上限
-const SESSION_SEARCH_TAIL_MESSAGES = 6;    // 末尾取几条
-const SESSION_SEARCH_HEAD_BYTES = 24 * 1024;
-const SESSION_SEARCH_TAIL_BYTES = 96 * 1024;
+const SESSION_SEARCH_INDEX_VERSION = 2;
+const SESSION_SEARCH_UNIT_CAP = 8192;      // 每会话进索引的字符上限
+const SESSION_SEARCH_USER_CHARS = 400;     // 每条用户消息取多少
+const SESSION_SEARCH_ASSISTANT_CHARS = 240;// 每条助手回复取多少
+const SESSION_SEARCH_HEAD_BYTES = 1024 * 1024;
+const SESSION_SEARCH_TAIL_BYTES = 1024 * 1024;
 const SESSION_SEARCH_SNIPPET_RADIUS = 60;
 const SESSION_SEARCH_MAX_LIMIT = 50;
 const SESSION_SEARCH_MIN_QUERY = 2;
@@ -73,40 +76,52 @@ function sessionMessageText(row) {
   return parts.join(' ');
 }
 
-// 检索单元:标题/摘要/工作目录 + 首条 user 消息 + 末尾若干条消息。首条 user 消息是「这轮会话
-// 到底要干什么」的最强信号,末尾几条是「最后落到哪」——中间的过程留给全文,不进索引。
+// 不进索引的行:系统行(压缩标记、修复说明、后台任务回执)、带 backgroundJobId 的回执、以及以「完成通知 /
+// system-reminder」开头的注入文本 —— 它们不是用户说过或看过的话,进了索引只会让搜索命中一堆不相干的会话。
+function sessionSearchRowIsNoise(row) {
+  if (!row || typeof row !== 'object') return true;
+  if (row.role !== 'user' && row.role !== 'assistant') return true;
+  if (row.backgroundJobId || row.source === 'compact' || row.hidden === true) return true;
+  const text = typeof row.content === 'string' ? row.content.trimStart() : '';
+  return /^(?:\[(?:代理完成通知|后台任务完成通知|后台任务|工具结果)|<system-reminder>)/.test(text);
+}
 async function buildSessionSearchUnit(meta) {
   const body = sessionBodyPaths(meta.id);
   const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
-  const headRows = parseNdjsonRows(head);
-  const tailRows = parseNdjsonRows(tail, { dropFirstPartial: true });
-  const firstUser = headRows.find(row => row && row.role === 'user');
-  const lastRows = (tailRows.length ? tailRows : headRows).slice(-SESSION_SEARCH_TAIL_MESSAGES);
+  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail, { dropFirstPartial: true })].filter(row => !sessionSearchRowIsNoise(row));
   // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
   // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
-  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉,检索单元逐字节不变。
-  // 索引指纹是 updatedAt|messageCount:摘要落盘走 saveSession(它会推 updatedAt),所以指纹自然会变、
-  // 单元自然会重抽,不需要在这里另加一条失效判据。
+  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉。
   const briefUnit = sessionBriefOf(meta);
   const parts = [meta.title || '', (briefUnit && briefUnit.title) || '', (briefUnit && briefUnit.gist) || '', meta.summary || '', meta.cwd || ''];
+  let used = parts.reduce((n, part) => n + String(part).length + 1, 0);
   const seen = new Set();
-  const push = value => {
-    const trimmed = String(value || '').trim();
-    // 短会话里“首条 user”往往也在尾部那几条里，不去重的话它会在检索单元里出现两遍，
-    // 既白白抬高 tf，也让摘录看上去像复制错了。
-    if (!trimmed || seen.has(trimmed)) return;
+  const push = (value, cap) => {
+    const trimmed = String(value || '').replace(/\s+/g, ' ').trim().slice(0, cap);
+    // 同一句话(重发、重试)只收一次,既不白白抬高 tf,摘录也不会像复制错了。
+    if (!trimmed || seen.has(trimmed) || used >= SESSION_SEARCH_UNIT_CAP) return;
     seen.add(trimmed);
     parts.push(trimmed);
+    used += trimmed.length + 1;
   };
-  if (firstUser) push(sessionMessageText(firstUser));
-  for (const row of lastRows) push(sessionMessageText(row));
+  // 用户说过的每一句都是最强的「这条会话干过什么」信号,先收;剩下的额度给助手回复,从新到旧。
+  for (const row of rows) if (row.role === 'user') push(sessionMessageText(row), SESSION_SEARCH_USER_CHARS);
+  for (let i = rows.length - 1; i >= 0; i--) if (rows[i].role === 'assistant') push(sessionMessageText(rows[i]), SESSION_SEARCH_ASSISTANT_CHARS);
   return parts.filter(Boolean).join('\n').replace(/\s+/g, ' ').slice(0, SESSION_SEARCH_UNIT_CAP);
 }
 
+// 进程内缓存:侧栏搜索是边打字边搜(200ms 去抖),修前每敲一个字就把整份索引(会话多时十几 MB)读盘再解析一遍。
+// 按文件的 mtime + size 认新旧;本进程自己写索引时直接更新缓存。
+let sessionSearchIndexCache = null;
 async function readSessionSearchIndex() {
   try {
-    const raw = JSON.parse(await fsp.readFile(sessionSearchIndexPath(), 'utf8'));
+    const file = sessionSearchIndexPath();
+    const st = await fsp.stat(file);
+    const stamp = `${st.mtimeMs}|${st.size}`;
+    if (sessionSearchIndexCache && sessionSearchIndexCache.stamp === stamp) return sessionSearchIndexCache.data;
+    const raw = JSON.parse(await fsp.readFile(file, 'utf8'));
     if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') return null;
+    sessionSearchIndexCache = { stamp, data: raw };
     return raw;
   } catch {
     return null; // 缺失/损坏 = 全量重建。索引是纯派生物,没有需要抢救的权威数据。
@@ -128,26 +143,47 @@ async function refreshSessionSearchIndex(metas) {
   if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  await atomicWriteJson(sessionSearchIndexPath(), payload).catch(() => {});
+  const wrote = await atomicWriteJson(sessionSearchIndexPath(), payload).then(() => true, () => false);
+  if (wrote) {
+    try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
+  }
   return entries;
 }
 
-// 摘录:定位第一个命中的查询词,取前后各若干字符。出服务端前过 redact() —— 与 /api/audit 同一条
-// 脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
+// 摘录:取【命中查询词最多】的那一段(修前取第一个命中处 —— 常常是某个常见字碰巧出现的地方,看不出为什么命中)。
+// 出服务端前过 redact() —— 与 /api/audit 同一条脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
 function sessionSearchSnippet(unit, terms) {
   const source = String(unit || '');
   const lower = source.toLowerCase();
-  let at = -1;
+  const span = SESSION_SEARCH_SNIPPET_RADIUS * 3;
+  const candidates = [];
   for (const term of terms) {
-    const found = lower.indexOf(term);
-    if (found >= 0 && (at < 0 || found < at)) at = found;
+    let from = 0;
+    for (let n = 0; n < 20; n++) {
+      const found = lower.indexOf(term, from);
+      if (found < 0) break;
+      candidates.push(found);
+      from = found + term.length;
+    }
+  }
+  let at = -1, best = -1;
+  for (const pos of candidates) {
+    const start = Math.max(0, pos - SESSION_SEARCH_SNIPPET_RADIUS);
+    const window = lower.slice(start, start + span);
+    const distinct = terms.filter(term => window.includes(term)).length;
+    if (distinct > best || (distinct === best && pos < at)) { best = distinct; at = pos; }
   }
   const start = at < 0 ? 0 : Math.max(0, at - SESSION_SEARCH_SNIPPET_RADIUS);
-  const end = Math.min(source.length, start + SESSION_SEARCH_SNIPPET_RADIUS * 3);
+  const end = Math.min(source.length, start + span);
   const slice = source.slice(start, end);
   return redact((start > 0 ? '…' : '') + slice + (end < source.length ? '…' : ''));
 }
 
+// 排序(修前:词法命中与字符 n-gram 向量两路做 RRF 融合,只要沾一个字就进结果 —— 「搜到垃圾」的主因):
+//   ① 词法命中为主。一个会话要算命中,得覆盖至少一半的查询词,或者原样包含整句查询;
+//      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
+//   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
+//      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
@@ -160,28 +196,42 @@ async function searchSessionsByContent(query, limit) {
     .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
   if (!documents.length) return { ok: true, query: q, results: [], indexed: 0 };
 
-  // L0 词法:子串命中(保住今天的直觉 —— 打出完整词就该排最前);L1 向量:同义/拼写漂移兜底。
   const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
-  const lexical = [];
+  const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
+  const needed = Math.max(1, Math.ceil(terms.length / 2));
+  const scores = new Map();
   for (const doc of documents) {
     const hay = doc.text.toLowerCase();
-    let hits = 0;
-    for (const term of terms) if (hay.includes(term)) hits += Math.min(12, Math.max(2, term.length));
-    if (hits > 0) lexical.push({ id: doc.id, hits });
+    const meta = byId.get(doc.id) || {};
+    const brief = sessionBriefOf(meta);
+    const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
+    let score = 0, matched = 0;
+    for (const term of terms) {
+      if (!hay.includes(term)) continue;
+      matched += 1;
+      const weight = Math.min(12, Math.max(2, term.length));
+      score += titleHay.includes(term) ? weight * 2 : weight;
+    }
+    const exact = phrase.length >= 2 && hay.replace(/\s+/g, ' ').includes(phrase);
+    if (!exact && matched < needed) continue;
+    if (exact) score += 30;
+    if (terms.length && matched === terms.length) score += 10;
+    scores.set(doc.id, score);
   }
-  lexical.sort((a, b) => b.hits - a.hits || String(a.id).localeCompare(String(b.id)));
+  const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
 
   const corpus = buildRetrievalCorpus(documents);
   const vector = rankRetrievalCorpus(corpus, q);
+  const top = vector.length ? vector[0].score : 0;
+  const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
+  const extra = vector.filter(row => !scores.has(row.id) && row.score >= floor);
 
-  const fused = reciprocalRankFusion([lexical.map(row => row.id), vector.map(row => row.id)]);
-  const ranked = [...fused.entries()]
-    .map(([id, score]) => ({ id, score, meta: byId.get(id) }))
-    .filter(row => row.meta)
-    // 同分时按最近更新排前:搜索历史时「最近的那次」几乎总是想要的那次。
-    .sort((a, b) => b.score - a.score
-      || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''))
-      || String(a.id).localeCompare(String(b.id)));
+  const updatedOf = id => String((byId.get(id) || {}).updatedAt || '');
+  lexical.sort((a, b) => b.score - a.score || updatedOf(b.id).localeCompare(updatedOf(a.id)) || String(a.id).localeCompare(String(b.id)));
+  const ranked = [
+    ...lexical.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
+    ...extra.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
+  ].filter(row => row.meta);
 
   const cap = Math.min(SESSION_SEARCH_MAX_LIMIT, Math.max(1, Number(limit) || 20));
   return {
@@ -965,6 +1015,13 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       || (threadRank.get(String(a.sessionId)) - threadRank.get(String(b.sessionId)))
       || String(b.updatedAt).localeCompare(String(a.updatedAt))
       || String(a.sessionId).localeCompare(String(b.sessionId)));
+    // ?sessionIds=a,b,c:只要这几条的卡片(侧栏搜索命中了、但不在它已经取到的那一页里的会话 —— 左栏只取最新
+    // 200 条,修前更早的会话搜得到也显示不出来)。只认合形的 id,最多 60 条;不分页、不参与 304。
+    const wanted = String(new URL(req.url, 'http://x').searchParams.get('sessionIds') || '').split(',').map(id => safeSessionId(id.trim())).filter(Boolean).slice(0, 60);
+    if (wanted.length) {
+      const set = new Set(wanted);
+      return send(res, json({ ok: true, missions: missions.filter(row => set.has(String(row.sessionId || ''))), projectionRevision: index.missionsRevision }));
+    }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);

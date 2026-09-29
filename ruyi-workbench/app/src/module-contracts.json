@@ -12885,6 +12885,7 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
+        "SESSION_SEARCH_ASSISTANT_CHARS",
         "SESSION_SEARCH_HEAD_BYTES",
         "SESSION_SEARCH_INDEX_FILE",
         "SESSION_SEARCH_INDEX_VERSION",
@@ -12892,8 +12893,8 @@
         "SESSION_SEARCH_MIN_QUERY",
         "SESSION_SEARCH_SNIPPET_RADIUS",
         "SESSION_SEARCH_TAIL_BYTES",
-        "SESSION_SEARCH_TAIL_MESSAGES",
         "SESSION_SEARCH_UNIT_CAP",
+        "SESSION_SEARCH_USER_CHARS",
         "addMissionCostBucket",
         "agentRunActionCommand",
         "buildMissionAggregateRows",
@@ -12926,7 +12927,9 @@
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
         "sessionMessageText",
+        "sessionSearchIndexCache",
         "sessionSearchIndexPath",
+        "sessionSearchRowIsNoise",
         "sessionSearchSnippet"
       ],
       "requires": [
@@ -13500,13 +13503,6 @@
         {
           "provider": "06h-retrieval-index.js",
           "symbol": "rankRetrievalCorpus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06h-retrieval-index.js",
-          "symbol": "reciprocalRankFusion",
           "kinds": [
             "call"
           ]
