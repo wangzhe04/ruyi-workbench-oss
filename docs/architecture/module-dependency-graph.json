@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3003,
-    "requiredSymbols": 2902,
-    "edges": 510,
+    "providedSymbols": 3006,
+    "requiredSymbols": 2907,
+    "edges": 511,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -2655,6 +2655,7 @@
       "layer": "foundation",
       "note": "58 号方案批 1: 服务商线协议登记表 PROVIDER_WIRE_PROTOCOLS(chat/responses 的端点、请求头、请求体编码、推理强度、工具、流式/非流式解码、用量归一、落历史字段)与唯一的协议值归一 normalizeProviderApiStyle/providerWireProtocol;Responses 翻译(toResponsesContent/buildResponsesInputItems/toResponsesTools/responsesHistoryWithCompleteToolPairs)自 07、推理强度(PROVIDER_REASONING_EFFORTS/providerReasoningEffort/applyProviderReasoningEffort)自 05 纯搬家;只引用 04h,环内工具经 ProviderWireHooks 由 07 延迟绑定,不进任何环",
       "provides": [
+        "OPENAI_STREAM_ERROR_STATUS",
         "PROVIDER_REASONING_EFFORTS",
         "PROVIDER_WIRE_DEFAULT",
         "PROVIDER_WIRE_PROTOCOLS",
@@ -2673,9 +2674,11 @@
         "providerWireFailureDetail",
         "providerWireIncomplete",
         "providerWireModelsUrl",
+        "providerWireOutputLimited",
         "providerWireProtocol",
         "providerWireProtocolForBody",
         "providerWireResponseIdOf",
+        "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
         "responsesHistoryWithCompleteToolPairs",
@@ -7094,6 +7097,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isProviderToolArgsObject",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -7235,6 +7245,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
           ]
@@ -7893,6 +7910,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isProviderToolArgsObject",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "isUntitledSessionTitle",
           "kinds": [
             "call"
@@ -8193,8 +8217,22 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
           ]
@@ -25890,6 +25928,7 @@
       "symbols": [
         "MISSION_STALL_SIGNAL_WINDOW_MS",
         "bridgedWriteRelativePathArg",
+        "isProviderToolArgsObject",
         "missionSignalThrottleAllow",
         "mutateSession",
         "providerHistoryToolCalls",
@@ -25945,6 +25984,7 @@
       "to": "04i-provider-wire.js",
       "symbols": [
         "applyProviderReasoningEffort",
+        "providerWireOutputLimited",
         "providerWireProtocol"
       ],
       "direction": "backward"
@@ -26121,6 +26161,7 @@
         "bumpMissionChangeSeq",
         "captureWorkspaceTurnBaseline",
         "finalizeMissionAfterTurn",
+        "isProviderToolArgsObject",
         "isUntitledSessionTitle",
         "journalReadIndex",
         "loadSession",
@@ -26204,9 +26245,18 @@
     },
     {
       "from": "09-workflow.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "withTransientRetry"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
       "to": "04i-provider-wire.js",
       "symbols": [
         "applyProviderReasoningEffort",
+        "providerWireOutputLimited",
         "providerWireProtocol"
       ],
       "direction": "backward"

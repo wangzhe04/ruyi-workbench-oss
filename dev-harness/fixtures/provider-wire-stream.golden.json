@@ -512,7 +512,8 @@
    "reasoning": "",
    "finishReason": null,
    "toolCalls": [],
-   "providerResponseId": ""
+   "providerResponseId": "",
+   "httpError": "stream ended unexpectedly (connection closed before a finish_reason or end-of-stream marker)"
   },
   "thrown": null,
   "events": [
@@ -1077,10 +1078,6 @@
   ],
   "usages": [
    {
-    "input_tokens": 1,
-    "output_tokens": 1
-   },
-   {
     "input_tokens": 2,
     "output_tokens": 2
    }
@@ -1474,6 +1471,640 @@
      "content-type": "application/json"
     },
     "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.error-frame.after-content": {
+  "result": {
+   "text": "半截",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "providerResponseId": "",
+   "httpError": "Provider stream error: 500: upstream overloaded «redacted»"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"半截\"}}]}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "半截"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"error\":{\"message\":\"upstream overloaded sk-xxxxabcdefghijklmnopqrstuvwxyz0123456789\",\"code\":500}}",
+    "seq": 1
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.error-frame.before-content": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "providerResponseId": "",
+   "httpError": "HTTP 429: rate_limit_exceeded: Rate limit reached"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"error\":{\"message\":\"Rate limit reached\",\"type\":\"rate_limit_exceeded\"}}",
+    "seq": 0
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.finish.error": {
+  "result": {
+   "text": "半截",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "providerResponseId": "",
+   "httpError": "Provider stream error: error: finish_reason=error"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"半截\"}}]}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "半截"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{},\"finish_reason\":\"error\"}]}",
+    "seq": 1
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.truncated.no-done-no-finish": {
+  "result": {
+   "text": "The answer is 4",
+   "reasoning": "",
+   "finishReason": null,
+   "toolCalls": [],
+   "providerResponseId": "",
+   "httpError": "stream ended unexpectedly (connection closed before a finish_reason or end-of-stream marker)"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"The answer is 4\"}}]}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "The answer is 4"
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.finish-without-done-is-complete": {
+  "result": {
+   "text": "完整",
+   "reasoning": "",
+   "finishReason": "stop",
+   "toolCalls": [],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"完整\"}}]}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "完整"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}",
+    "seq": 1
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.usage.cumulative-every-chunk": {
+  "result": {
+   "text": "ab",
+   "reasoning": "",
+   "finishReason": "stop",
+   "toolCalls": [],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"a\"}}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":1,\"total_tokens\":101}}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "a"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"content\":\"b\"}}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":2,\"total_tokens\":102}}",
+    "seq": 1
+   },
+   {
+    "type": "assistant_delta",
+    "text": "b"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":3,\"total_tokens\":103}}",
+    "seq": 2
+   }
+  ],
+  "usages": [
+   {
+    "prompt_tokens": 100,
+    "completion_tokens": 3,
+    "total_tokens": 103
+   }
+  ],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.tools.name-repeated-every-fragment": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": null,
+   "toolCalls": [
+    {
+     "id": "call_n",
+     "name": "file_read",
+     "rawArgs": "{\"path\":\"x\"}"
+    }
+   ],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_n\",\"function\":{\"name\":\"file_read\",\"arguments\":\"{\\\"pa\"}}]}}]}",
+    "seq": 0
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"name\":\"file_read\",\"arguments\":\"th\\\":\\\"x\\\"}\"}}]}}]}",
+    "seq": 1
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "chat.tools.same-index-different-ids": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "tool_calls",
+   "toolCalls": [
+    {
+     "id": "call_g1",
+     "name": "file_read",
+     "rawArgs": "{\"x\":"
+    },
+    {
+     "id": "call_g2",
+     "name": "file_list",
+     "rawArgs": "{\"y\":2}"
+    }
+   ],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_g1\",\"function\":{\"name\":\"file_read\",\"arguments\":\"{\\\"x\\\":\"}}]}}]}",
+    "seq": 0
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_g2\",\"function\":{\"name\":\"file_list\",\"arguments\":\"{\\\"y\\\":\"}}]}}]}",
+    "seq": 1
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"2}\"}}]}}]}",
+    "seq": 2
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+    "seq": 3
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.error-event": {
+  "result": {
+   "text": "partial",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "httpError": "Provider stream error: server_error: boom",
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "partial"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"error\",\"code\":\"server_error\",\"message\":\"boom\"}",
+    "seq": 1
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.error-event.before-content": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "error",
+   "toolCalls": [],
+   "httpError": "HTTP 400: context_length_exceeded: maximum context length is 128000 tokens",
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"error\",\"code\":\"context_length_exceeded\",\"message\":\"maximum context length is 128000 tokens\"}",
+    "seq": 0
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.truncated.no-terminal": {
+  "result": {
+   "text": "partial",
+   "reasoning": "",
+   "finishReason": null,
+   "toolCalls": [],
+   "providerResponseId": "",
+   "httpError": "stream ended unexpectedly (connection closed before a finish_reason or end-of-stream marker)"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "partial"
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.args-only-in-done-events": {
+  "result": {
+   "text": "",
+   "reasoning": "",
+   "finishReason": "stop",
+   "toolCalls": [
+    {
+     "id": "call_1",
+     "name": "file_read",
+     "rawArgs": "{\"path\":\"a\"}"
+    },
+    {
+     "id": "call_2",
+     "name": "file_list",
+     "rawArgs": "{\"path\":\".\"}"
+    }
+   ],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.added\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"file_read\",\"arguments\":\"\"}}",
+    "seq": 0
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.function_call_arguments.done\",\"item_id\":\"fc_1\",\"arguments\":\"{\\\"path\\\":\\\"a\\\"}\"}",
+    "seq": 1
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.done\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"file_read\",\"arguments\":\"{\\\"path\\\":\\\"a\\\"}\"}}",
+    "seq": 2
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.done\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_2\",\"call_id\":\"call_2\",\"name\":\"file_list\",\"arguments\":\"{\\\"path\\\":\\\".\\\"}\"}}",
+    "seq": 3
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":10,\"output_tokens\":2}}}",
+    "seq": 4
+   }
+  ],
+  "usages": [
+   {
+    "input_tokens": 10,
+    "output_tokens": 2
+   }
+  ],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true,\"tools\":[{\"type\":\"function\",\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.incomplete-with-usage": {
+  "result": {
+   "text": "半截",
+   "reasoning": "",
+   "finishReason": "length",
+   "toolCalls": [],
+   "providerResponseId": ""
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_text.delta\",\"delta\":\"半截\"}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "半截"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.incomplete\",\"response\":{\"incomplete_details\":{\"reason\":\"max_output_tokens\"},\"usage\":{\"input_tokens\":10,\"output_tokens\":2}}}",
+    "seq": 1
+   }
+  ],
+  "usages": [
+   {
+    "input_tokens": 10,
+    "output_tokens": 2
+   }
+  ],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "nonstream.json-despite-stream-true": {
+  "result": {
+   "text": "hello from json",
+   "reasoning": "",
+   "toolCalls": [],
+   "finishReason": "stop",
+   "providerResponseId": "chatcmpl-json"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "assistant_delta",
+    "text": "hello from json"
+   }
+  ],
+  "usages": [
+   {
+    "prompt_tokens": 5,
+    "completion_tokens": 3
+   }
+  ],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.400.context-overflow.mentions-functions": {
+  "result": {
+   "httpError": "HTTP 400: {\"error\":{\"message\":\"This model's maximum context length is 128000 tokens. However, you requested 131000 tokens (120000 in the messages, 11000 in the functions). Please reduce the length of the messages or functions.\",\"type\":\"invalid_request_error\",\"code\":\"context_length_exceeded\"}}",
+   "contextOverflow": true,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true},\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "error.400.invalid-request-no-stream-options-retry": {
+  "result": {
+   "httpError": "HTTP 400: {\"error\":{\"message\":\"model not found\",\"type\":\"invalid_request_error\"}}",
+   "toolsRejected": false,
+   "text": "",
+   "reasoning": "",
+   "toolCalls": []
+  },
+  "thrown": null,
+  "events": [],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"messages\":[{\"role\":\"user\",\"content\":\"q\"}],\"stream\":true,\"stream_options\":{\"include_usage\":true}}"
    }
   ],
   "unusedSteps": 0

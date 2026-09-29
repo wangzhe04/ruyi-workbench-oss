@@ -2603,6 +2603,7 @@
       "file": "04i-provider-wire.js",
       "layer": "foundation",
       "provides": [
+        "OPENAI_STREAM_ERROR_STATUS",
         "PROVIDER_REASONING_EFFORTS",
         "PROVIDER_WIRE_DEFAULT",
         "PROVIDER_WIRE_PROTOCOLS",
@@ -2621,9 +2622,11 @@
         "providerWireFailureDetail",
         "providerWireIncomplete",
         "providerWireModelsUrl",
+        "providerWireOutputLimited",
         "providerWireProtocol",
         "providerWireProtocolForBody",
         "providerWireResponseIdOf",
+        "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
         "responsesHistoryWithCompleteToolPairs",
@@ -7008,6 +7011,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isProviderToolArgsObject",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -7149,6 +7159,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
           ]
@@ -7801,6 +7818,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isProviderToolArgsObject",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "isUntitledSessionTitle",
           "kinds": [
             "call"
@@ -8101,8 +8125,22 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
           ]

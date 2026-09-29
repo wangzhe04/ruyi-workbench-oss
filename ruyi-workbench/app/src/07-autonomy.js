@@ -1120,6 +1120,13 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (res && res.status === 400) {
     let t = ''; try { t = await res.text(); } catch { /* ignore */ }
     const toolsSemantics = /tool|function/i.test(t);
+    // 例外:报文带【确凿】的超窗信号(OpenAI 的 code context_length_exceeded / "maximum context length")时超窗优先。
+    // OpenAI 的超窗报文会写 "…11000 in the functions. Please reduce the length of the messages or functions",
+    // 按下面的 tools-first 顺序会被当成「工具被拒」:整回合去掉工具重打、永远不压缩。tools 拒绝报文不会带这两个短语。
+    const definiteOverflow = /context_length_exceeded|maximum context length/i.test(t) && isContextOverflowError('HTTP 400: ' + t);
+    if (definiteOverflow) {
+      return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
+    }
     // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
     // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
@@ -1138,7 +1145,9 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     const retryBody = wire.retryOn400(body, t);
     if (retryBody) {
       res = await doFetch(retryBody);
-    } else if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
+    } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
+      // 不再认裸 invalid:OpenAI 系所有 400 的 type 都是 invalid_request_error,认它等于把每个注定失败的 400
+      // 都剥 stream_options 白打第二遍。真拒收 stream_options 的端点会点名它(或说 unsupported / unknown)。
       // Some servers reject stream_options — retry once without it before failing.
       const b2 = Object.assign({}, body); delete b2.stream_options; res = await doFetch(b2);
     } else {
@@ -1155,7 +1164,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
-  if (!res.body || typeof res.body.getReader !== 'function') {
+  // 无视 stream:true、直接回一整份 application/json 的网关也走这里:按 SSE 分帧读它一行 data: 都找不到,
+  // 修前返回空回答(工具调用、正文全丢)。content-type 声明了 event-stream 的仍按流读。
+  const contentType = String((res.headers && typeof res.headers.get === 'function' && res.headers.get('content-type')) || '');
+  const jsonBody = /\bjson\b/i.test(contentType) && !/event-stream/i.test(contentType);
+  if (!res.body || typeof res.body.getReader !== 'function' || jsonBody) {
     const j = await res.json().catch(() => null);
     const d = wire.decodeCompletion(j, { requestModel: body.model });
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
@@ -1220,8 +1233,15 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
-  if (!done && buf.trim()) handleEventBlock(buf);
-  return wireDecoder.finish();
+  if (!done && buf.trim()) done = handleEventBlock(buf);
+  const out = wireDecoder.finish();
+  // 截断的流:连接干净地关了,却既没有终止信号([DONE] / responses 的 completed·incomplete·failed / anthropic 的
+  // message_stop)也没有 finish_reason —— 上游中途断了。修前半截回答被当作完整的成功回复落盘;现在走 httpError
+  // (不带状态码,调用方不会重打,防重放)。有 finish_reason 的(个别网关省掉 [DONE])照旧算完整。
+  if (!done && !out.httpError && !out.finishReason) {
+    out.httpError = 'stream ended unexpectedly (connection closed before a finish_reason or end-of-stream marker)';
+  }
+  return out;
 }
 
 // v0.8-S7: drain the steering queue at a SAFE injection point (§4 A3). Called ONLY at the iteration
