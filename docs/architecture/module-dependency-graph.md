@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 2959 | 2890 | 509 | 68 | 0 | 1 |
+| 66 | 2972 | 2892 | 509 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,7 +27,7 @@
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 14 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 248 | 68 | 16 |
+| 12 | `02-session-store.js` | foundation | 254 | 68 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 78 | 23 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 144 | 36 | 9 |
@@ -57,8 +57,8 @@
 | 39 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
 | 40 | `09-workflow.js` | orchestration | 16 | 216 | 24 |
 | 41 | `10-context-governance.js` | orchestration | 137 | 81 | 17 |
-| 42 | `11-native-tools.js` | tools | 117 | 32 | 5 |
-| 43 | `12-tool-dispatch.js` | tools | 33 | 82 | 14 |
+| 42 | `11-native-tools.js` | tools | 118 | 33 | 5 |
+| 43 | `12-tool-dispatch.js` | tools | 39 | 83 | 14 |
 | 44 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 45 | `13-http-router.js` | transport | 64 | 234 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
@@ -316,12 +316,12 @@
 | `10-context-governance.js` | `07-autonomy.js` | backward | `fetchOpenAiModels` |
 | `10-context-governance.js` | `09-workflow.js` | backward | `runOpenAiTurn` |
 | `10-context-governance.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `EVAPORATED_PREFIX`, `estimateContentTokens`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer` |
-| `11-native-tools.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `RUYI_PATH_BEFORE_VENDOR`, `URL`, `cp`, `crypto`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `ruyiVendorBinDir`, `safeJsonParse`, `samePathEntry`, `text`, `zlib` |
+| `11-native-tools.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `RUYI_PATH_BEFORE_VENDOR`, `StringDecoder`, `URL`, `cp`, `crypto`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `ruyiVendorBinDir`, `safeJsonParse`, `samePathEntry`, `text`, `zlib` |
 | `11-native-tools.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath` |
 | `11-native-tools.js` | `03-bridge-guard.js` | backward | `ensureDataRootReal`, `existsExecutable`, `existsExecutableAsync`, `isSensitiveDataPath` |
 | `11-native-tools.js` | `04-permission-runtime.js` | backward | `activeChildren`, `killChildTree`, `logEvent`, `redact` |
 | `11-native-tools.js` | `06-provider-engine.js` | backward | `markNetworkOnline`, `networkAnchors`, `probeAny` |
-| `12-tool-dispatch.js` | `00-boot.js` | backward | `OVERLAY_ID`, `SKILL_ID_RE`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `os`, `path`, `paths`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
+| `12-tool-dispatch.js` | `00-boot.js` | backward | `OVERLAY_ID`, `SKILL_ID_RE`, `agentCliHomes`, `cp`, `crypto`, `externalRoot`, `fs`, `fsp`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked`, `text` |
 | `12-tool-dispatch.js` | `01-config.js` | backward | `RUNTIME`, `agentCliLauncherOk`, `commandForSelfMcp`, `defaultConfig`, `ensureDesktopMcpWarm`, `externalServerJs`, `readConfig`, `selectedAgentCli`, `staticBase` |
 | `12-tool-dispatch.js` | `01c-runtime-flags.js` | backward | `execResultCacheEnabled`, `execResultCacheMaxEntries`, `observationRecallEnabled` |
 | `12-tool-dispatch.js` | `02-session-store.js` | backward | `bridgedWriteRelativePathArg`, `journalDropEntries`, `journalRecord`, `journalSessionCtx`, `loadSession`, `normalizeTodoItems` |

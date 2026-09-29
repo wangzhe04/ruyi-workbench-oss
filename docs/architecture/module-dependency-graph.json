@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2959,
-    "requiredSymbols": 2890,
+    "providedSymbols": 2972,
+    "requiredSymbols": 2892,
     "edges": 509,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1023,8 +1023,12 @@
         "journalGcSinceScan",
         "journalGlobalBytes",
         "journalIndexPath",
+        "journalNextEntrySeq",
         "journalReadIndex",
+        "journalReadIndexForWrite",
         "journalRecord",
+        "journalRecordMany",
+        "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
         "journalRollback",
@@ -1160,8 +1164,10 @@
         "workspaceBaselineFileSnapshot",
         "workspaceBaselineGitAbs",
         "workspaceBaselineGitBefore",
+        "workspaceBaselineGitCheckoutCrlf",
         "workspaceBaselineGitNames",
         "workspaceBaselineIsCodePath",
+        "workspaceBaselineLfToCrlf",
         "workspaceBaselineNulPaths",
         "workspaceBaselinePathKey",
         "workspaceBaselineRemainingMs",
@@ -9949,6 +9955,7 @@
         "webFetch",
         "webFetchFailMessage",
         "webSearch",
+        "writeBackgroundJobRows",
         "writeWebCache",
         "zipCollectEntries"
       ],
@@ -10047,6 +10054,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "samePathEntry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "StringDecoder",
           "kinds": [
             "call"
           ]
@@ -10196,6 +10210,7 @@
         "OBSERVATION_RECALL_QUOTA",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
+        "UTF8_BOM_BYTES",
         "_recallQuota",
         "accAnnotateNonAscii",
         "accCpCategory",
@@ -10212,13 +10227,18 @@
         "execCacheStore",
         "execCacheVersionOf",
         "execResultCacheBySession",
+        "fileToolWriteChains",
+        "fileToolWriteLockKey",
         "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
+        "journalCheckpointWarn",
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
-        "resolveFileToolRoot"
+        "resolveFileToolRoot",
+        "textFileWantsUtf8Bom",
+        "withFileToolWriteLock"
       ],
       "requires": [
         {
@@ -10289,6 +10309,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -26548,6 +26575,7 @@
         "EventStreamHooks",
         "RUYI_EVENTS",
         "RUYI_PATH_BEFORE_VENDOR",
+        "StringDecoder",
         "URL",
         "cp",
         "crypto",
@@ -26623,6 +26651,7 @@
         "os",
         "path",
         "paths",
+        "runKeyedChain",
         "safeJsonParse",
         "spawnDetachedChecked",
         "text"

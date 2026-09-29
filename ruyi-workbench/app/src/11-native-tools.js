@@ -25,18 +25,22 @@ function backgroundJobText(job) {
   if (job && job.kind === 'agent') return `[代理完成通知 ${job.status}] ${job.name} (run ${job.runId || job.shellId})\n${job.output || '(空信封)'}`;
   return `[后台任务 ${job.status}] ${job.name} (${job.shellId})\n退出码: ${job.exitCode == null ? '未知' : job.exitCode}\n${job.output || '(无输出)'}`;
 }
+// 账本唯一的写点(固定 tmp 名 + renameSync,同步执行 = 单线程串行读改写;durable-state-inventory 登记的那一处)。
+function writeBackgroundJobRows(sessionId, rows) {
+  const file = backgroundJobFile(sessionId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(rows.slice(-100)), 'utf8');
+  fs.renameSync(tmp, file);
+}
 // 代理模式 v2:把一份已完成的 job 写进会话的后台任务账本(原子写,≤100 条),合并进活回合的会话对象,并广播
 // background.completed(toast + 后台任务条刷新)。completeBackgroundJob(命令)与 notifyAgentRunEnvelope(代理)共用。
 function persistBackgroundJob(job) {
-  const file = backgroundJobFile(job.sessionId);
   let persisted = false;
   try {
     const rows = readBackgroundJobs(job.sessionId).filter(row => row.id !== job.id);
     rows.push(job);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = file + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(rows.slice(-100)), 'utf8');
-    fs.renameSync(tmp, file);
+    writeBackgroundJobRows(job.sessionId, rows);
     persisted = true;
   } catch (error) { logEvent({ kind: 'background_job_persist_error', sessionId: job.sessionId, error: String(error.message || error) }); }
   const reg = activeChildren.get(job.sessionId);
@@ -58,6 +62,18 @@ EventStreamHooks.mergeBackgroundJobs = session => {
     session.messages.push({ role: 'system', content: backgroundJobText(job), backgroundJobId: job.id, createdAt: job.completedAt });
     seen.add(job.id);
   }
+};
+// hunt2 #12:撤回截掉的消息里带着的后台任务回执,要从账本里一并删掉。否则下一次 save/load 的 merge 只拿幸存
+// 消息算「已见」,账本里那几行又被当成新回执追加回来 —— 被撤回回合的「[后台任务 succeeded] …」复活。
+EventStreamHooks.forgetBackgroundJobs = (sessionId, jobIds) => {
+  const file = backgroundJobFile(sessionId);
+  const drop = new Set((jobIds || []).filter(Boolean));
+  if (!file || !drop.size) return 0;
+  const rows = readBackgroundJobs(sessionId);
+  const kept = rows.filter(row => !drop.has(row.id));
+  if (kept.length === rows.length) return 0;
+  try { writeBackgroundJobRows(sessionId, kept); } catch (error) { logEvent({ kind: 'background_job_persist_error', sessionId, error: String(error.message || error) }); return 0; }
+  return rows.length - kept.length;
 };
 // 135c(真机走查):PowerShell 把进度流序列化成 CLIXML 写进 stderr —— 一行 `#< CLIXML` 加一大行 `<Objs …>…</Objs>`
 // (里面还常是乱码的本地化进度文字)。它原样进了完成回执(对话里、模型下一轮都看得到)和「看输出」。
@@ -230,10 +246,20 @@ function shellStart(args, config, ctx = {}) {
     }, timeoutMs);
     deadline.unref();
   }
-  child.stdout?.on('data', d => shellAppend(sess, d.toString('utf8')));
-  child.stderr?.on('data', d => shellAppend(sess, d.toString('utf8')));
+  // hunt2 #11:每条流各持一个 StringDecoder(与 00-boot createNdjsonLineFeeder 同理)—— chunk 边界不保证落在
+  // 字符边界上,逐块 toString('utf8') 会把被切开的汉字静默变成 U+FFFD(实测「中文」→「��文」)。关闭时 end()
+  // 交出残字节。注:中文 Windows 上 powershell.exe 的管道输出是否为 OEM 代码页(cp936)而非 UTF-8,本修不作猜测,
+  // 仍按 UTF-8 解码(DesktopShell.runProcess 的 GBK 兜底是整段输出判定,不适用于流式增量)。
+  const outDecoder = new StringDecoder('utf8');
+  const errDecoder = new StringDecoder('utf8');
+  child.stdout?.on('data', d => shellAppend(sess, outDecoder.write(d)));
+  child.stderr?.on('data', d => shellAppend(sess, errDecoder.write(d)));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
-  child.on('close', code => { clearTimeout(deadline); sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess); });
+  child.on('close', code => {
+    clearTimeout(deadline);
+    shellAppend(sess, outDecoder.end() + errDecoder.end());
+    sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
+  });
   shellSessions.set(shellId, sess);
   return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
@@ -807,7 +833,9 @@ const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断�
 const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0'];
 // execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
-function runGit(args, cwd, timeoutMs) {
+// opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
+// GBK 等非 UTF-8 字节变成 U+FFFD(hunt2 #4)。
+function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
     let child;
     try {
@@ -817,7 +845,7 @@ function runGit(args, cwd, timeoutMs) {
         windowsHide: true,
         timeout: Math.max(1000, Number(timeoutMs || 15000)),
         maxBuffer: 24 * 1024 * 1024,
-        encoding: 'utf8',
+        encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
         resolve({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
@@ -2276,7 +2304,13 @@ const ZIP_MAX_ENTRIES = 2000;                    // 解压条目数上限（zip 
 async function zipCollectEntries(rootPaths) {
   const entries = []; // {name, data:Buffer, isDir}
   let total = 0;
+  // hunt2 #3:敏感控制面逐项过滤。archive_zip 只对顶层输入过护栏,打包一个【祖先目录】(典型:工作区 = 家目录,
+  // 数据根 ~/.ruyi-workbench 就在里面)会把 config.json(明文密钥)/runtime.json(token)/会话一并装进包,解压后
+  // file_read 即得明文 —— 实测端到端打通。与 walkFiles 同一条规矩(审计 P1):敏感子树不返回、不下钻。
+  await ensureDataRootReal();
+  entries.skippedSensitive = 0;
   const addFile = async (absPath, zipName) => {
+    if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) return; // 安全：符号链接不入包（避免打进包外内容）
     if (st.isDirectory()) {

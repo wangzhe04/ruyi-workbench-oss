@@ -1439,6 +1439,8 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(sessionNotesPath(id)).catch(() => {}),
     proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
+    // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
+    proposalSessionId ? fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
@@ -3357,14 +3359,43 @@ async function journalReadIndex(sessionId) {
   } catch { return []; }
 }
 
+// hunt2 #18:写者(record / drop / GC)用的严格读。宽松版把【任何】读错误都当成「没有条目」,下一次 record
+// 就用 [新条目] 整份盖掉索引 —— Windows 上杀毒/索引器与双进程(serve + MCP 子进程)撞出的一次 EBUSY/EPERM
+// 就把这条会话全部检查点抹掉(entrySeq 还从 0 重来,覆写既有 .gz)。这里只有 ENOENT 才算空;别的读错误照抛,
+// 由调用方的安全网 catch 转成 journal_write_error(本次不记,既有条目不动)。内容坏了(非 JSON / 非数组)
+// 读重试也好不了,原样改名隔离成 index.json.corrupt-<时间戳> 留作取证,再按空索引继续,检查点功能自愈。
+async function journalReadIndexForWrite(sessionId) {
+  const file = journalIndexPath(sessionId);
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (e) { if (e && e.code === 'ENOENT') return []; throw e; }
+  const arr = safeJsonParse(raw, null);
+  if (Array.isArray(arr)) return arr;
+  await fsp.rename(file, `${file}.corrupt-${Date.now()}`);
+  logEvent({ kind: 'journal_index_quarantined', sessionId: String(sessionId || '') });
+  return [];
+}
+
 // Atomic index write. Never throws (caller wraps). 第25波 25.1: 收编进 atomicWriteJson。
 // 对抗轮修: retries:0 —— 该文件是【跨进程多写者】(serve 进程 + MCP 子进程各持独立 journalWriteChains,
 // 进程间无法串行),rename 重试会让旧载荷在 ~680ms 退避后覆写掉别进程刚落的新条目(丢检查点)。
 // 保持旧的 fail-fast 语义:输给并发写者就立刻失败(调用方本就 best-effort 包裹),绝不迟到覆写。
+// hunt2 #13:紧凑 JSON(不缩进)—— 索引每记一条就整份重写一次,缩进让体积与序列化时间都翻倍。
 async function journalWriteIndex(sessionId, entries) {
   const dir = journalDir(sessionId);
   await fsp.mkdir(dir, { recursive: true });
-  await atomicWriteJson(journalIndexPath(sessionId), entries, { retries: 0 });
+  await atomicWriteJson(journalIndexPath(sessionId), JSON.stringify(entries), { retries: 0 });
+}
+
+// hunt2 #6:本回合下一个 entrySeq = 本回合现有最大值 + 1。修前取「本回合条目数」—— 中间的条目被
+// journalDropEntries / 单条回滚删掉之后,条目数会等于某个仍在的 entrySeq,新条目撞号并覆写它的 .gz
+// (并行子代理共用父回合的 turnSeq,实测回滚把 p3 还原成了 p4 的内容)。
+function journalNextEntrySeq(index, turnSeq) {
+  let max = -1;
+  for (const e of index) {
+    if (e && Number(e.turnSeq) === Number(turnSeq) && Number.isFinite(Number(e.entrySeq))) max = Math.max(max, Number(e.entrySeq));
+  }
+  return max + 1;
 }
 
 // Resolve the current turnSeq for a checkpoint entry.
@@ -3391,42 +3422,64 @@ async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeConte
 }
 
 async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent) {
+  const [result] = await journalRecordManyUnlocked(sessionId, turnSeq, [{ tool, filePath, op, beforeContent }]);
+  return result;
+}
+
+// hunt2 #13:批量记账 —— 一批条目只读一次索引、写一次索引、跑一次 GC。逐条 journalRecord 每条都整份读改写
+// 索引,批量调用方(archive_unzip 最多 2000 条、CLI 回合收尾的 turn_baseline 对账)随条目数平方增长:
+// 实测 1000 条 ~5s、2000 条 ~22s,期间 JSON 读写同步占着事件循环。返回与 rows 一一对应的结果数组
+// (每项同 journalRecord 的返回值,多一个 entrySeq)。任一步失败 = 整批都没记(索引一次写入,不存在半批)。
+async function journalRecordMany(sessionId, turnSeq, rows) {
+  return withJournalWriteLock(sessionId, () => journalRecordManyUnlocked(sessionId, turnSeq, rows));
+}
+
+async function journalRecordManyUnlocked(sessionId, turnSeq, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
+  if (!sessionId || !Number.isFinite(turnSeq)) return list.map(() => ({ ok: false, reason: 'no_session_context' }));
+  if (!list.length) return [];
   try {
-    // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
-    if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    const index = await journalReadIndex(sessionId);
-    const entrySeq = index.filter(e => e && Number(e.turnSeq) === Number(turnSeq)).length; // per-turn autoincrement
-    let bytes = 0, skipped = false;
-    if (op !== 'create' && beforeContent != null) {
-      // Workspace turn baselines may discover an oversized pre-change file without loading its bytes into
-      // memory. Preserve the real size and the honest non-revertible marker instead of fabricating a partial
-      // snapshot (ordinary tool callers continue to pass Buffer|string exactly as before).
-      const knownOversize = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
-        && Number.isFinite(Number(beforeContent.skippedBytes)) && Number(beforeContent.skippedBytes) > JOURNAL_MAX_BEFORE_BYTES;
-      const buf = knownOversize ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
-      bytes = knownOversize ? Number(beforeContent.skippedBytes) : buf.length;
-      if (knownOversize || bytes > JOURNAL_MAX_BEFORE_BYTES) {
-        // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
-        skipped = true;
-      } else {
-        const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
-        await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
-        journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+    const index = await journalReadIndexForWrite(sessionId);
+    let nextSeq = journalNextEntrySeq(index, turnSeq); // per-turn autoincrement (hunt2 #6: max+1)
+    const results = [];
+    for (const { tool, filePath, op, beforeContent } of list) {
+      const entrySeq = nextSeq++;
+      let bytes = 0, skipped = false;
+      if (op !== 'create' && beforeContent != null) {
+        // Workspace turn baselines may discover a pre-change file whose bytes they could not (oversized) or
+        // must not (git read failed) load. Such a caller passes a non-Buffer `{ skippedBytes }` marker: always
+        // recorded as the honest non-revertible entry, never as a fabricated snapshot (hunt2 #4: 修前只认
+        // >5MB 的标记,小于上限的标记会被 String() 成 "[object Object]" 存进 .gz)。Ordinary tool callers
+        // continue to pass Buffer|string exactly as before.
+        const marker = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
+          && Number.isFinite(Number(beforeContent.skippedBytes));
+        const buf = marker ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
+        bytes = marker ? Number(beforeContent.skippedBytes) : buf.length;
+        if (marker || bytes > JOURNAL_MAX_BEFORE_BYTES) {
+          // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
+          skipped = true;
+        } else {
+          const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
+          await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
+          journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+        }
       }
+      index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
+      results.push(skipped ? { ok: true, skipped: true, entrySeq } : { ok: true, entrySeq });
     }
-    index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
     await journalWriteIndex(sessionId, index);
     // v1.4.1 (audit #8):必须 await —— 此前 detached 触发,GC 的 index.json 读改写会与下一条 journalRecord 竞争,
     // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
-    // 消除并发。GC 内部全 try/catch 静默,不抛。
-    await journalGc(sessionId).catch(() => {});
-    return skipped ? { ok: true, skipped: true } : { ok: true };
+    // 消除并发。GC 内部全 try/catch 静默,不抛。hunt2 #13:把刚写下的索引交给 GC,省掉它再读一遍。
+    await journalGc(sessionId, index).catch(() => {});
+    return results;
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
-    return { ok: false, reason: 'journal_write_error' };
+    return list.map(() => ({ ok: false, reason: 'journal_write_error' }));
   }
 }
 
@@ -3603,17 +3656,83 @@ async function captureWorkspaceTurnBaseline(cwd) {
   } catch { return null; }
 }
 
-async function workspaceBaselineGitBefore(baseline, absPath) {
+async function workspaceBaselineGitBefore(baseline, absPath, after) {
   const key = workspaceBaselinePathKey(absPath);
   if (baseline.dirty.has(key)) return baseline.dirty.get(key).snapshot;
   const rel = path.relative(baseline.repoRoot, absPath).replace(/\\/g, '/');
   if (!rel || rel.startsWith('../') || path.isAbsolute(rel)) return { exists: false };
-  const blob = await runGit(['-C', baseline.repoRoot, 'show', `${baseline.head}:${rel}`], baseline.repoRoot, 10000);
-  if (!blob.ok) return { exists: false };
-  const content = Buffer.from(blob.stdout || '', 'utf8');
+  // hunt2 #4:修前 `git show HEAD:rel` 按 utf8 解码再 Buffer.from 回去(GBK 文件的每个汉字都成了 U+FFFD,回滚把
+  // 乱码写回盘),且任何 git 失败(10s 超时、blob 超 24MB 输出上限)都被当成「回合前不存在」→ 记成 create,
+  // 回滚时直接删掉用户改过的文件。现在:ls-tree 分清「HEAD 里没有」(真·新建)与「git 读失败」;失败给
+  // 「存在但内容未知」的标记,journalRecord 记为 skipped(回滚时如实报失败,绝不删文件);blob 按原字节取。
+  const unknown = { exists: true, skippedBytes: JOURNAL_MAX_BEFORE_BYTES + 1, unknownBefore: true };
+  const listed = await runGit(['-C', baseline.repoRoot, '--literal-pathspecs', 'ls-tree', '-l', '-z', baseline.head, '--', rel], baseline.repoRoot, 10000);
+  if (!listed.ok) return unknown;
+  const row = String(listed.stdout || '').split('\0').find(Boolean);
+  if (!row) return { exists: false }; // HEAD 里确实没有这个路径 → 回合内新建
+  const m = /^(\d+) (\S+) ([0-9a-f]+)\s+(-|\d+)\t/i.exec(row);
+  if (!m) return unknown;
+  // 符号链接 / 子模块:快照器(lstat)一律视为「不存在」,两边同口径才不会凭空记出一条 delete。
+  if (m[2] !== 'blob' || m[1] === '120000') return { exists: false };
+  const blobSize = Number(m[4]);
+  if (Number.isFinite(blobSize) && blobSize > JOURNAL_MAX_BEFORE_BYTES) return { exists: true, size: blobSize, skippedBytes: blobSize };
+  // cat-file blob 取原字节、不跑任何过滤器。刻意不用 `cat-file --filters`:它会执行仓库 .git/config 里配置的
+  // filter.*.smudge/process 外部程序 —— 与 GIT_SAFE_FLAGS 头注里 fsmonitor / diff.external 同一类「看一眼陌生仓库
+  // 即执行它指定的程序」。换行转换改由 workspaceBaselineGitCheckoutCrlf 只按 git 内建的 eol 规则复现。
+  const blob = await runGit(['-C', baseline.repoRoot, 'cat-file', 'blob', m[3]], baseline.repoRoot, 10000, { encoding: 'buffer' });
+  if (!blob.ok || !Buffer.isBuffer(blob.stdout)) return unknown;
+  let content = blob.stdout;
+  const crlf = await workspaceBaselineGitCheckoutCrlf(baseline, rel, content);
+  if (crlf === null) return unknown;
+  // autocrlf=true 下 LF 的工作区文件同样算「干净」(自己写的 LF 文件提交后从没被 git 重新检出过)。回合后的文件
+  // 仍是纯 LF(一个 CR 都没有)时,按它原本就是 LF 处理 —— 编辑工具保留原换行,这比 git 的检出规则更贴近回合前。
+  const afterIsPureLf = after && Buffer.isBuffer(after.content) && after.content.includes(0x0a) && !after.content.includes(0x0d);
+  if (crlf && !afterIsPureLf) content = workspaceBaselineLfToCrlf(content);
   return content.length > JOURNAL_MAX_BEFORE_BYTES
     ? { exists: true, size: content.length, skippedBytes: content.length }
     : { exists: true, size: content.length, content };
+}
+
+// hunt2 #4(续):HEAD 里存的是 LF,Git for Windows 默认 core.autocrlf=true,干净的工作区文件是 CRLF。直接把 blob
+// 写回会把用户的 CRLF 文件整份改成 LF。这里只复现 git 检出时【内建】的换行转换(text/eol 属性、core.autocrlf、
+// core.eol),不执行任何外部过滤器:返回 true = 检出时会转成 CRLF;false = 原样;null = git 查询失败(内容未知)。
+async function workspaceBaselineGitCheckoutCrlf(baseline, rel, blob) {
+  if (baseline.eolConfig === undefined) {
+    const get = async key => {
+      const r = await runGit(['-C', baseline.repoRoot, 'config', '--get', key], baseline.repoRoot, 5000);
+      return r.ok ? String(r.stdout || '').trim().toLowerCase() : '';
+    };
+    baseline.eolConfig = { autocrlf: await get('core.autocrlf'), eol: await get('core.eol') };
+  }
+  const { autocrlf, eol: coreEol } = baseline.eolConfig;
+  const attrs = await runGit(['-C', baseline.repoRoot, 'check-attr', '-z', 'text', 'eol', '--', rel], baseline.repoRoot, 5000);
+  if (!attrs.ok) return null;
+  const parts = String(attrs.stdout || '').split('\0');
+  const attr = {};
+  for (let i = 0; i + 2 < parts.length; i += 3) attr[parts[i + 1]] = parts[i + 2];
+  const text = attr.text || 'unspecified';
+  const eol = attr.eol || 'unspecified';
+  if (text === 'unset') return false;                                  // -text:二进制,永不转换
+  const explicitText = text === 'set' || eol === 'crlf' || eol === 'lf';
+  const autoText = !explicitText && (text === 'auto' || autocrlf === 'true' || autocrlf === 'input');
+  if (!explicitText && !autoText) return false;                        // 未声明为文本、也没开 autocrlf:原样
+  // auto 判定:含 NUL 视为二进制;blob 里已有 CR 的不转换(git 的「安全」规则,避免 \r\r\n)。
+  if (autoText && (blob.includes(0) || blob.includes(0x0d))) return false;
+  if (eol === 'crlf') return true;
+  if (eol === 'lf') return false;
+  if (autocrlf === 'true') return true;
+  if (autocrlf === 'input') return false;
+  return coreEol === 'crlf' || ((coreEol === '' || coreEol === 'native') && process.platform === 'win32');
+}
+
+function workspaceBaselineLfToCrlf(buf) {
+  const out = [];
+  let start = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] === 0x0a && (i === 0 || buf[i - 1] !== 0x0d)) { out.push(buf.subarray(start, i), Buffer.from([0x0d])); start = i; }
+  }
+  out.push(buf.subarray(start));
+  return Buffer.concat(out);
 }
 
 function workspaceBaselineSnapshotsEqual(before, after) {
@@ -3663,21 +3782,32 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
       }
     }
     let recorded = 0;
+    // hunt2 #13:攒批记账(见 journalRecordMany 头注)。按条数/字节分批,免得一个大回合把所有 before 同时攥在内存里。
+    let pending = [], pendingBytes = 0;
+    const flush = async () => {
+      if (!pending.length) return;
+      const batch = pending;
+      pending = []; pendingBytes = 0;
+      const results = await journalRecordMany(sessionId, Number(turnSeq), batch);
+      batch.forEach((row, i) => { if (results[i] && results[i].ok) { recorded += 1; existingPaths.add(row.key); } });
+    };
     for (const [key, filePath] of candidates) {
       if (existingPaths.has(key) || !workspaceBaselineIsCodePath(filePath)) continue;
-      const before = baseline.kind === 'git'
-        ? await workspaceBaselineGitBefore(baseline, filePath)
-        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
       const after = baseline.kind === 'tree' && baseline.afterTree.files.has(key)
         ? baseline.afterTree.files.get(key).snapshot
         : await workspaceBaselineFileSnapshot(filePath, { bytes: 0 });
+      const before = baseline.kind === 'git'
+        ? await workspaceBaselineGitBefore(baseline, filePath, after)
+        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
       if (workspaceBaselineSnapshotsEqual(before, after)) continue;
       const op = before.exists ? (after.exists ? 'modify' : 'delete') : 'create';
       const beforeContent = op === 'create' ? null
         : (Buffer.isBuffer(before.content) ? before.content : { skippedBytes: Number(before.skippedBytes || before.size || (JOURNAL_MAX_BEFORE_BYTES + 1)) });
-      const result = await journalRecord(sessionId, Number(turnSeq), 'turn_baseline', filePath, op, beforeContent);
-      if (result && result.ok) { recorded += 1; existingPaths.add(key); }
+      pending.push({ key, tool: 'turn_baseline', filePath, op, beforeContent });
+      pendingBytes += Buffer.isBuffer(beforeContent) ? beforeContent.length : 0;
+      if (pending.length >= 200 || pendingBytes >= 16 * 1024 * 1024) await flush();
     }
+    await flush();
     if (recorded || reconcileTruncated) {
       logEvent({ kind: 'turn_workspace_reconcile', sessionId, turnSeq: Number(turnSeq), baseline: baseline.kind,
         recorded, truncated: reconcileTruncated, truncatedReason, budgetMs: Number(baseline.budgetMs) || undefined,
@@ -3693,22 +3823,26 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
 // rollback entries describing an operation that never happened (a phantom journal), and a later
 // rollback would act on files that were never touched. All failures are silent (rollback of the
 // phantom is best-effort; the caller already reported the real operation failure to the model).
-async function journalDropEntries(sessionId, turnSeq, tool, paths) {
-  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths));
+// entrySeqs(可选):只删这几个 entrySeq 的条目 —— 调用方知道自己刚记了哪几条时传入,同一回合早先涉及同一
+// 路径、同一工具的条目(例如本回合先把 X 移到 A、再把 A 移走)不受牵连。空数组 = 一条也不删。
+async function journalDropEntries(sessionId, turnSeq, tool, paths, entrySeqs) {
+  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs));
 }
 
-async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
+async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs) {
   try {
     if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
-    const index = await journalReadIndex(sessionId);
+    const index = await journalReadIndexForWrite(sessionId);
     if (!index.length) return { ok: true, dropped: 0 };
+    const seqSet = Array.isArray(entrySeqs) ? new Set(entrySeqs.map(Number)) : null;
     const pathSet = new Set((paths || []).map(p => String(p)));
     const kept = [];
     let dropped = 0;
     for (const e of index) {
       const hit = e && Number(e.turnSeq) === Number(turnSeq)
-        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''));
+        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''))
+        && (!seqSet || seqSet.has(Number(e.entrySeq)));
       if (hit) {
         dropped += 1;
         if (!e.skipped && e.op !== 'create') {
@@ -3731,11 +3865,12 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
 // GC. (1) Per-session: keep only the most recent JOURNAL_KEEP_TURNS turnSeqs; drop older entries + their
 // .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
 // oldest sessions (by dir mtime) until under budget. All failures are silent.
-async function journalGc(sessionId) {
+// knownIndex:调用方(持会话写锁)刚写下的索引,传入即不再重读(hunt2 #13)。
+async function journalGc(sessionId, knownIndex) {
   let freedBytes = 0; // PF1: bytes reclaimed by the per-session prune below, to decrement the size-cap cache
   try {
     const dir = journalDir(sessionId);
-    const index = await journalReadIndex(sessionId);
+    const index = Array.isArray(knownIndex) ? knownIndex : await journalReadIndexForWrite(sessionId);
     if (index.length) {
       const turns = [...new Set(index.map(e => Number(e.turnSeq)))].sort((a, b) => a - b);
       if (turns.length > JOURNAL_KEEP_TURNS) {
@@ -3995,6 +4130,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   }
 
   const removedTurns = messages.length - cutIndex; // message count removed (user + all following)
+  // hunt2 #12:被截掉的后台任务回执从账本里删掉,否则下面这一存的 mergeBackgroundJobs 会把它们原样追加回来。
+  const removedJobIds = messages.slice(cutIndex).map(m => m && m.backgroundJobId).filter(Boolean);
+  if (removedJobIds.length && EventStreamHooks.forgetBackgroundJobs) EventStreamHooks.forgetBackgroundJobs(sessionId, removedJobIds);
   session.messages = messages.slice(0, cutIndex);
   // providerHistory cleared — lazy-reseed rebuilds it on the next turn (see block comment above).
   session.providerHistory = [];

@@ -7080,6 +7080,8 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(sessionNotesPath(id)).catch(() => {}),
     proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
+    // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
+    proposalSessionId ? fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
@@ -8998,14 +9000,43 @@ async function journalReadIndex(sessionId) {
   } catch { return []; }
 }
 
+// hunt2 #18:写者(record / drop / GC)用的严格读。宽松版把【任何】读错误都当成「没有条目」,下一次 record
+// 就用 [新条目] 整份盖掉索引 —— Windows 上杀毒/索引器与双进程(serve + MCP 子进程)撞出的一次 EBUSY/EPERM
+// 就把这条会话全部检查点抹掉(entrySeq 还从 0 重来,覆写既有 .gz)。这里只有 ENOENT 才算空;别的读错误照抛,
+// 由调用方的安全网 catch 转成 journal_write_error(本次不记,既有条目不动)。内容坏了(非 JSON / 非数组)
+// 读重试也好不了,原样改名隔离成 index.json.corrupt-<时间戳> 留作取证,再按空索引继续,检查点功能自愈。
+async function journalReadIndexForWrite(sessionId) {
+  const file = journalIndexPath(sessionId);
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (e) { if (e && e.code === 'ENOENT') return []; throw e; }
+  const arr = safeJsonParse(raw, null);
+  if (Array.isArray(arr)) return arr;
+  await fsp.rename(file, `${file}.corrupt-${Date.now()}`);
+  logEvent({ kind: 'journal_index_quarantined', sessionId: String(sessionId || '') });
+  return [];
+}
+
 // Atomic index write. Never throws (caller wraps). 第25波 25.1: 收编进 atomicWriteJson。
 // 对抗轮修: retries:0 —— 该文件是【跨进程多写者】(serve 进程 + MCP 子进程各持独立 journalWriteChains,
 // 进程间无法串行),rename 重试会让旧载荷在 ~680ms 退避后覆写掉别进程刚落的新条目(丢检查点)。
 // 保持旧的 fail-fast 语义:输给并发写者就立刻失败(调用方本就 best-effort 包裹),绝不迟到覆写。
+// hunt2 #13:紧凑 JSON(不缩进)—— 索引每记一条就整份重写一次,缩进让体积与序列化时间都翻倍。
 async function journalWriteIndex(sessionId, entries) {
   const dir = journalDir(sessionId);
   await fsp.mkdir(dir, { recursive: true });
-  await atomicWriteJson(journalIndexPath(sessionId), entries, { retries: 0 });
+  await atomicWriteJson(journalIndexPath(sessionId), JSON.stringify(entries), { retries: 0 });
+}
+
+// hunt2 #6:本回合下一个 entrySeq = 本回合现有最大值 + 1。修前取「本回合条目数」—— 中间的条目被
+// journalDropEntries / 单条回滚删掉之后,条目数会等于某个仍在的 entrySeq,新条目撞号并覆写它的 .gz
+// (并行子代理共用父回合的 turnSeq,实测回滚把 p3 还原成了 p4 的内容)。
+function journalNextEntrySeq(index, turnSeq) {
+  let max = -1;
+  for (const e of index) {
+    if (e && Number(e.turnSeq) === Number(turnSeq) && Number.isFinite(Number(e.entrySeq))) max = Math.max(max, Number(e.entrySeq));
+  }
+  return max + 1;
 }
 
 // Resolve the current turnSeq for a checkpoint entry.
@@ -9032,42 +9063,64 @@ async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeConte
 }
 
 async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent) {
+  const [result] = await journalRecordManyUnlocked(sessionId, turnSeq, [{ tool, filePath, op, beforeContent }]);
+  return result;
+}
+
+// hunt2 #13:批量记账 —— 一批条目只读一次索引、写一次索引、跑一次 GC。逐条 journalRecord 每条都整份读改写
+// 索引,批量调用方(archive_unzip 最多 2000 条、CLI 回合收尾的 turn_baseline 对账)随条目数平方增长:
+// 实测 1000 条 ~5s、2000 条 ~22s,期间 JSON 读写同步占着事件循环。返回与 rows 一一对应的结果数组
+// (每项同 journalRecord 的返回值,多一个 entrySeq)。任一步失败 = 整批都没记(索引一次写入,不存在半批)。
+async function journalRecordMany(sessionId, turnSeq, rows) {
+  return withJournalWriteLock(sessionId, () => journalRecordManyUnlocked(sessionId, turnSeq, rows));
+}
+
+async function journalRecordManyUnlocked(sessionId, turnSeq, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
+  if (!sessionId || !Number.isFinite(turnSeq)) return list.map(() => ({ ok: false, reason: 'no_session_context' }));
+  if (!list.length) return [];
   try {
-    // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
-    if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    const index = await journalReadIndex(sessionId);
-    const entrySeq = index.filter(e => e && Number(e.turnSeq) === Number(turnSeq)).length; // per-turn autoincrement
-    let bytes = 0, skipped = false;
-    if (op !== 'create' && beforeContent != null) {
-      // Workspace turn baselines may discover an oversized pre-change file without loading its bytes into
-      // memory. Preserve the real size and the honest non-revertible marker instead of fabricating a partial
-      // snapshot (ordinary tool callers continue to pass Buffer|string exactly as before).
-      const knownOversize = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
-        && Number.isFinite(Number(beforeContent.skippedBytes)) && Number(beforeContent.skippedBytes) > JOURNAL_MAX_BEFORE_BYTES;
-      const buf = knownOversize ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
-      bytes = knownOversize ? Number(beforeContent.skippedBytes) : buf.length;
-      if (knownOversize || bytes > JOURNAL_MAX_BEFORE_BYTES) {
-        // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
-        skipped = true;
-      } else {
-        const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
-        await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
-        journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+    const index = await journalReadIndexForWrite(sessionId);
+    let nextSeq = journalNextEntrySeq(index, turnSeq); // per-turn autoincrement (hunt2 #6: max+1)
+    const results = [];
+    for (const { tool, filePath, op, beforeContent } of list) {
+      const entrySeq = nextSeq++;
+      let bytes = 0, skipped = false;
+      if (op !== 'create' && beforeContent != null) {
+        // Workspace turn baselines may discover a pre-change file whose bytes they could not (oversized) or
+        // must not (git read failed) load. Such a caller passes a non-Buffer `{ skippedBytes }` marker: always
+        // recorded as the honest non-revertible entry, never as a fabricated snapshot (hunt2 #4: 修前只认
+        // >5MB 的标记,小于上限的标记会被 String() 成 "[object Object]" 存进 .gz)。Ordinary tool callers
+        // continue to pass Buffer|string exactly as before.
+        const marker = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
+          && Number.isFinite(Number(beforeContent.skippedBytes));
+        const buf = marker ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
+        bytes = marker ? Number(beforeContent.skippedBytes) : buf.length;
+        if (marker || bytes > JOURNAL_MAX_BEFORE_BYTES) {
+          // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
+          skipped = true;
+        } else {
+          const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
+          await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
+          journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+        }
       }
+      index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
+      results.push(skipped ? { ok: true, skipped: true, entrySeq } : { ok: true, entrySeq });
     }
-    index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
     await journalWriteIndex(sessionId, index);
     // v1.4.1 (audit #8):必须 await —— 此前 detached 触发,GC 的 index.json 读改写会与下一条 journalRecord 竞争,
     // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
-    // 消除并发。GC 内部全 try/catch 静默,不抛。
-    await journalGc(sessionId).catch(() => {});
-    return skipped ? { ok: true, skipped: true } : { ok: true };
+    // 消除并发。GC 内部全 try/catch 静默,不抛。hunt2 #13:把刚写下的索引交给 GC,省掉它再读一遍。
+    await journalGc(sessionId, index).catch(() => {});
+    return results;
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
-    return { ok: false, reason: 'journal_write_error' };
+    return list.map(() => ({ ok: false, reason: 'journal_write_error' }));
   }
 }
 
@@ -9244,17 +9297,83 @@ async function captureWorkspaceTurnBaseline(cwd) {
   } catch { return null; }
 }
 
-async function workspaceBaselineGitBefore(baseline, absPath) {
+async function workspaceBaselineGitBefore(baseline, absPath, after) {
   const key = workspaceBaselinePathKey(absPath);
   if (baseline.dirty.has(key)) return baseline.dirty.get(key).snapshot;
   const rel = path.relative(baseline.repoRoot, absPath).replace(/\\/g, '/');
   if (!rel || rel.startsWith('../') || path.isAbsolute(rel)) return { exists: false };
-  const blob = await runGit(['-C', baseline.repoRoot, 'show', `${baseline.head}:${rel}`], baseline.repoRoot, 10000);
-  if (!blob.ok) return { exists: false };
-  const content = Buffer.from(blob.stdout || '', 'utf8');
+  // hunt2 #4:修前 `git show HEAD:rel` 按 utf8 解码再 Buffer.from 回去(GBK 文件的每个汉字都成了 U+FFFD,回滚把
+  // 乱码写回盘),且任何 git 失败(10s 超时、blob 超 24MB 输出上限)都被当成「回合前不存在」→ 记成 create,
+  // 回滚时直接删掉用户改过的文件。现在:ls-tree 分清「HEAD 里没有」(真·新建)与「git 读失败」;失败给
+  // 「存在但内容未知」的标记,journalRecord 记为 skipped(回滚时如实报失败,绝不删文件);blob 按原字节取。
+  const unknown = { exists: true, skippedBytes: JOURNAL_MAX_BEFORE_BYTES + 1, unknownBefore: true };
+  const listed = await runGit(['-C', baseline.repoRoot, '--literal-pathspecs', 'ls-tree', '-l', '-z', baseline.head, '--', rel], baseline.repoRoot, 10000);
+  if (!listed.ok) return unknown;
+  const row = String(listed.stdout || '').split('\0').find(Boolean);
+  if (!row) return { exists: false }; // HEAD 里确实没有这个路径 → 回合内新建
+  const m = /^(\d+) (\S+) ([0-9a-f]+)\s+(-|\d+)\t/i.exec(row);
+  if (!m) return unknown;
+  // 符号链接 / 子模块:快照器(lstat)一律视为「不存在」,两边同口径才不会凭空记出一条 delete。
+  if (m[2] !== 'blob' || m[1] === '120000') return { exists: false };
+  const blobSize = Number(m[4]);
+  if (Number.isFinite(blobSize) && blobSize > JOURNAL_MAX_BEFORE_BYTES) return { exists: true, size: blobSize, skippedBytes: blobSize };
+  // cat-file blob 取原字节、不跑任何过滤器。刻意不用 `cat-file --filters`:它会执行仓库 .git/config 里配置的
+  // filter.*.smudge/process 外部程序 —— 与 GIT_SAFE_FLAGS 头注里 fsmonitor / diff.external 同一类「看一眼陌生仓库
+  // 即执行它指定的程序」。换行转换改由 workspaceBaselineGitCheckoutCrlf 只按 git 内建的 eol 规则复现。
+  const blob = await runGit(['-C', baseline.repoRoot, 'cat-file', 'blob', m[3]], baseline.repoRoot, 10000, { encoding: 'buffer' });
+  if (!blob.ok || !Buffer.isBuffer(blob.stdout)) return unknown;
+  let content = blob.stdout;
+  const crlf = await workspaceBaselineGitCheckoutCrlf(baseline, rel, content);
+  if (crlf === null) return unknown;
+  // autocrlf=true 下 LF 的工作区文件同样算「干净」(自己写的 LF 文件提交后从没被 git 重新检出过)。回合后的文件
+  // 仍是纯 LF(一个 CR 都没有)时,按它原本就是 LF 处理 —— 编辑工具保留原换行,这比 git 的检出规则更贴近回合前。
+  const afterIsPureLf = after && Buffer.isBuffer(after.content) && after.content.includes(0x0a) && !after.content.includes(0x0d);
+  if (crlf && !afterIsPureLf) content = workspaceBaselineLfToCrlf(content);
   return content.length > JOURNAL_MAX_BEFORE_BYTES
     ? { exists: true, size: content.length, skippedBytes: content.length }
     : { exists: true, size: content.length, content };
+}
+
+// hunt2 #4(续):HEAD 里存的是 LF,Git for Windows 默认 core.autocrlf=true,干净的工作区文件是 CRLF。直接把 blob
+// 写回会把用户的 CRLF 文件整份改成 LF。这里只复现 git 检出时【内建】的换行转换(text/eol 属性、core.autocrlf、
+// core.eol),不执行任何外部过滤器:返回 true = 检出时会转成 CRLF;false = 原样;null = git 查询失败(内容未知)。
+async function workspaceBaselineGitCheckoutCrlf(baseline, rel, blob) {
+  if (baseline.eolConfig === undefined) {
+    const get = async key => {
+      const r = await runGit(['-C', baseline.repoRoot, 'config', '--get', key], baseline.repoRoot, 5000);
+      return r.ok ? String(r.stdout || '').trim().toLowerCase() : '';
+    };
+    baseline.eolConfig = { autocrlf: await get('core.autocrlf'), eol: await get('core.eol') };
+  }
+  const { autocrlf, eol: coreEol } = baseline.eolConfig;
+  const attrs = await runGit(['-C', baseline.repoRoot, 'check-attr', '-z', 'text', 'eol', '--', rel], baseline.repoRoot, 5000);
+  if (!attrs.ok) return null;
+  const parts = String(attrs.stdout || '').split('\0');
+  const attr = {};
+  for (let i = 0; i + 2 < parts.length; i += 3) attr[parts[i + 1]] = parts[i + 2];
+  const text = attr.text || 'unspecified';
+  const eol = attr.eol || 'unspecified';
+  if (text === 'unset') return false;                                  // -text:二进制,永不转换
+  const explicitText = text === 'set' || eol === 'crlf' || eol === 'lf';
+  const autoText = !explicitText && (text === 'auto' || autocrlf === 'true' || autocrlf === 'input');
+  if (!explicitText && !autoText) return false;                        // 未声明为文本、也没开 autocrlf:原样
+  // auto 判定:含 NUL 视为二进制;blob 里已有 CR 的不转换(git 的「安全」规则,避免 \r\r\n)。
+  if (autoText && (blob.includes(0) || blob.includes(0x0d))) return false;
+  if (eol === 'crlf') return true;
+  if (eol === 'lf') return false;
+  if (autocrlf === 'true') return true;
+  if (autocrlf === 'input') return false;
+  return coreEol === 'crlf' || ((coreEol === '' || coreEol === 'native') && process.platform === 'win32');
+}
+
+function workspaceBaselineLfToCrlf(buf) {
+  const out = [];
+  let start = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] === 0x0a && (i === 0 || buf[i - 1] !== 0x0d)) { out.push(buf.subarray(start, i), Buffer.from([0x0d])); start = i; }
+  }
+  out.push(buf.subarray(start));
+  return Buffer.concat(out);
 }
 
 function workspaceBaselineSnapshotsEqual(before, after) {
@@ -9304,21 +9423,32 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
       }
     }
     let recorded = 0;
+    // hunt2 #13:攒批记账(见 journalRecordMany 头注)。按条数/字节分批,免得一个大回合把所有 before 同时攥在内存里。
+    let pending = [], pendingBytes = 0;
+    const flush = async () => {
+      if (!pending.length) return;
+      const batch = pending;
+      pending = []; pendingBytes = 0;
+      const results = await journalRecordMany(sessionId, Number(turnSeq), batch);
+      batch.forEach((row, i) => { if (results[i] && results[i].ok) { recorded += 1; existingPaths.add(row.key); } });
+    };
     for (const [key, filePath] of candidates) {
       if (existingPaths.has(key) || !workspaceBaselineIsCodePath(filePath)) continue;
-      const before = baseline.kind === 'git'
-        ? await workspaceBaselineGitBefore(baseline, filePath)
-        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
       const after = baseline.kind === 'tree' && baseline.afterTree.files.has(key)
         ? baseline.afterTree.files.get(key).snapshot
         : await workspaceBaselineFileSnapshot(filePath, { bytes: 0 });
+      const before = baseline.kind === 'git'
+        ? await workspaceBaselineGitBefore(baseline, filePath, after)
+        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
       if (workspaceBaselineSnapshotsEqual(before, after)) continue;
       const op = before.exists ? (after.exists ? 'modify' : 'delete') : 'create';
       const beforeContent = op === 'create' ? null
         : (Buffer.isBuffer(before.content) ? before.content : { skippedBytes: Number(before.skippedBytes || before.size || (JOURNAL_MAX_BEFORE_BYTES + 1)) });
-      const result = await journalRecord(sessionId, Number(turnSeq), 'turn_baseline', filePath, op, beforeContent);
-      if (result && result.ok) { recorded += 1; existingPaths.add(key); }
+      pending.push({ key, tool: 'turn_baseline', filePath, op, beforeContent });
+      pendingBytes += Buffer.isBuffer(beforeContent) ? beforeContent.length : 0;
+      if (pending.length >= 200 || pendingBytes >= 16 * 1024 * 1024) await flush();
     }
+    await flush();
     if (recorded || reconcileTruncated) {
       logEvent({ kind: 'turn_workspace_reconcile', sessionId, turnSeq: Number(turnSeq), baseline: baseline.kind,
         recorded, truncated: reconcileTruncated, truncatedReason, budgetMs: Number(baseline.budgetMs) || undefined,
@@ -9334,22 +9464,26 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
 // rollback entries describing an operation that never happened (a phantom journal), and a later
 // rollback would act on files that were never touched. All failures are silent (rollback of the
 // phantom is best-effort; the caller already reported the real operation failure to the model).
-async function journalDropEntries(sessionId, turnSeq, tool, paths) {
-  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths));
+// entrySeqs(可选):只删这几个 entrySeq 的条目 —— 调用方知道自己刚记了哪几条时传入,同一回合早先涉及同一
+// 路径、同一工具的条目(例如本回合先把 X 移到 A、再把 A 移走)不受牵连。空数组 = 一条也不删。
+async function journalDropEntries(sessionId, turnSeq, tool, paths, entrySeqs) {
+  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs));
 }
 
-async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
+async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs) {
   try {
     if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
-    const index = await journalReadIndex(sessionId);
+    const index = await journalReadIndexForWrite(sessionId);
     if (!index.length) return { ok: true, dropped: 0 };
+    const seqSet = Array.isArray(entrySeqs) ? new Set(entrySeqs.map(Number)) : null;
     const pathSet = new Set((paths || []).map(p => String(p)));
     const kept = [];
     let dropped = 0;
     for (const e of index) {
       const hit = e && Number(e.turnSeq) === Number(turnSeq)
-        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''));
+        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''))
+        && (!seqSet || seqSet.has(Number(e.entrySeq)));
       if (hit) {
         dropped += 1;
         if (!e.skipped && e.op !== 'create') {
@@ -9372,11 +9506,12 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
 // GC. (1) Per-session: keep only the most recent JOURNAL_KEEP_TURNS turnSeqs; drop older entries + their
 // .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
 // oldest sessions (by dir mtime) until under budget. All failures are silent.
-async function journalGc(sessionId) {
+// knownIndex:调用方(持会话写锁)刚写下的索引,传入即不再重读(hunt2 #13)。
+async function journalGc(sessionId, knownIndex) {
   let freedBytes = 0; // PF1: bytes reclaimed by the per-session prune below, to decrement the size-cap cache
   try {
     const dir = journalDir(sessionId);
-    const index = await journalReadIndex(sessionId);
+    const index = Array.isArray(knownIndex) ? knownIndex : await journalReadIndexForWrite(sessionId);
     if (index.length) {
       const turns = [...new Set(index.map(e => Number(e.turnSeq)))].sort((a, b) => a - b);
       if (turns.length > JOURNAL_KEEP_TURNS) {
@@ -9636,6 +9771,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   }
 
   const removedTurns = messages.length - cutIndex; // message count removed (user + all following)
+  // hunt2 #12:被截掉的后台任务回执从账本里删掉,否则下面这一存的 mergeBackgroundJobs 会把它们原样追加回来。
+  const removedJobIds = messages.slice(cutIndex).map(m => m && m.backgroundJobId).filter(Boolean);
+  if (removedJobIds.length && EventStreamHooks.forgetBackgroundJobs) EventStreamHooks.forgetBackgroundJobs(sessionId, removedJobIds);
   session.messages = messages.slice(0, cutIndex);
   // providerHistory cleared — lazy-reseed rebuilds it on the next turn (see block comment above).
   session.providerHistory = [];
@@ -41016,18 +41154,22 @@ function backgroundJobText(job) {
   if (job && job.kind === 'agent') return `[代理完成通知 ${job.status}] ${job.name} (run ${job.runId || job.shellId})\n${job.output || '(空信封)'}`;
   return `[后台任务 ${job.status}] ${job.name} (${job.shellId})\n退出码: ${job.exitCode == null ? '未知' : job.exitCode}\n${job.output || '(无输出)'}`;
 }
+// 账本唯一的写点(固定 tmp 名 + renameSync,同步执行 = 单线程串行读改写;durable-state-inventory 登记的那一处)。
+function writeBackgroundJobRows(sessionId, rows) {
+  const file = backgroundJobFile(sessionId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(rows.slice(-100)), 'utf8');
+  fs.renameSync(tmp, file);
+}
 // 代理模式 v2:把一份已完成的 job 写进会话的后台任务账本(原子写,≤100 条),合并进活回合的会话对象,并广播
 // background.completed(toast + 后台任务条刷新)。completeBackgroundJob(命令)与 notifyAgentRunEnvelope(代理)共用。
 function persistBackgroundJob(job) {
-  const file = backgroundJobFile(job.sessionId);
   let persisted = false;
   try {
     const rows = readBackgroundJobs(job.sessionId).filter(row => row.id !== job.id);
     rows.push(job);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = file + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(rows.slice(-100)), 'utf8');
-    fs.renameSync(tmp, file);
+    writeBackgroundJobRows(job.sessionId, rows);
     persisted = true;
   } catch (error) { logEvent({ kind: 'background_job_persist_error', sessionId: job.sessionId, error: String(error.message || error) }); }
   const reg = activeChildren.get(job.sessionId);
@@ -41049,6 +41191,18 @@ EventStreamHooks.mergeBackgroundJobs = session => {
     session.messages.push({ role: 'system', content: backgroundJobText(job), backgroundJobId: job.id, createdAt: job.completedAt });
     seen.add(job.id);
   }
+};
+// hunt2 #12:撤回截掉的消息里带着的后台任务回执,要从账本里一并删掉。否则下一次 save/load 的 merge 只拿幸存
+// 消息算「已见」,账本里那几行又被当成新回执追加回来 —— 被撤回回合的「[后台任务 succeeded] …」复活。
+EventStreamHooks.forgetBackgroundJobs = (sessionId, jobIds) => {
+  const file = backgroundJobFile(sessionId);
+  const drop = new Set((jobIds || []).filter(Boolean));
+  if (!file || !drop.size) return 0;
+  const rows = readBackgroundJobs(sessionId);
+  const kept = rows.filter(row => !drop.has(row.id));
+  if (kept.length === rows.length) return 0;
+  try { writeBackgroundJobRows(sessionId, kept); } catch (error) { logEvent({ kind: 'background_job_persist_error', sessionId, error: String(error.message || error) }); return 0; }
+  return rows.length - kept.length;
 };
 // 135c(真机走查):PowerShell 把进度流序列化成 CLIXML 写进 stderr —— 一行 `#< CLIXML` 加一大行 `<Objs …>…</Objs>`
 // (里面还常是乱码的本地化进度文字)。它原样进了完成回执(对话里、模型下一轮都看得到)和「看输出」。
@@ -41221,10 +41375,20 @@ function shellStart(args, config, ctx = {}) {
     }, timeoutMs);
     deadline.unref();
   }
-  child.stdout?.on('data', d => shellAppend(sess, d.toString('utf8')));
-  child.stderr?.on('data', d => shellAppend(sess, d.toString('utf8')));
+  // hunt2 #11:每条流各持一个 StringDecoder(与 00-boot createNdjsonLineFeeder 同理)—— chunk 边界不保证落在
+  // 字符边界上,逐块 toString('utf8') 会把被切开的汉字静默变成 U+FFFD(实测「中文」→「��文」)。关闭时 end()
+  // 交出残字节。注:中文 Windows 上 powershell.exe 的管道输出是否为 OEM 代码页(cp936)而非 UTF-8,本修不作猜测,
+  // 仍按 UTF-8 解码(DesktopShell.runProcess 的 GBK 兜底是整段输出判定,不适用于流式增量)。
+  const outDecoder = new StringDecoder('utf8');
+  const errDecoder = new StringDecoder('utf8');
+  child.stdout?.on('data', d => shellAppend(sess, outDecoder.write(d)));
+  child.stderr?.on('data', d => shellAppend(sess, errDecoder.write(d)));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
-  child.on('close', code => { clearTimeout(deadline); sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess); });
+  child.on('close', code => {
+    clearTimeout(deadline);
+    shellAppend(sess, outDecoder.end() + errDecoder.end());
+    sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
+  });
   shellSessions.set(shellId, sess);
   return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
@@ -41798,7 +41962,9 @@ const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断�
 const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0'];
 // execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
-function runGit(args, cwd, timeoutMs) {
+// opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
+// GBK 等非 UTF-8 字节变成 U+FFFD(hunt2 #4)。
+function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
     let child;
     try {
@@ -41808,7 +41974,7 @@ function runGit(args, cwd, timeoutMs) {
         windowsHide: true,
         timeout: Math.max(1000, Number(timeoutMs || 15000)),
         maxBuffer: 24 * 1024 * 1024,
-        encoding: 'utf8',
+        encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
         resolve({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
@@ -43267,7 +43433,13 @@ const ZIP_MAX_ENTRIES = 2000;                    // 解压条目数上限（zip 
 async function zipCollectEntries(rootPaths) {
   const entries = []; // {name, data:Buffer, isDir}
   let total = 0;
+  // hunt2 #3:敏感控制面逐项过滤。archive_zip 只对顶层输入过护栏,打包一个【祖先目录】(典型:工作区 = 家目录,
+  // 数据根 ~/.ruyi-workbench 就在里面)会把 config.json(明文密钥)/runtime.json(token)/会话一并装进包,解压后
+  // file_read 即得明文 —— 实测端到端打通。与 walkFiles 同一条规矩(审计 P1):敏感子树不返回、不下钻。
+  await ensureDataRootReal();
+  entries.skippedSensitive = 0;
   const addFile = async (absPath, zipName) => {
+    if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) return; // 安全：符号链接不入包（避免打进包外内容）
     if (st.isDirectory()) {
@@ -43542,6 +43714,35 @@ function normalizeTextLineEndings(text, lineEnding) {
 function hasTextLineBreak(text) { return /[\r\n]/.test(String(text || '')); }
 function isUtf8Encoding(encoding) { return !encoding || /^utf-?8$/i.test(String(encoding)); }
 function defaultTextLineEnding(filePath) { return /\.(?:cmd|bat|ps1)$/i.test(String(filePath || '')) ? 'crlf' : 'lf'; }
+// Windows PowerShell 5.1 把无 BOM 的 .ps1 按 ANSI(中文系统 = GBK)读,脚本里的中文字面量就成了乱码;
+// 工具箱约定与 04 runPowerShell 头注同一条:PowerShell 脚本一律 UTF-8 with BOM。
+function textFileWantsUtf8Bom(filePath) { return /\.(?:ps1|psm1|psd1)$/i.test(String(filePath || '')); }
+const UTF8_BOM_BYTES = Buffer.from([0xef, 0xbb, 0xbf]);
+
+// hunt2 #17:检查点结果 → 模型可见的警告。此前只有 file_write 看 journalRecord 的返回值,file_edit/file_move/
+// file_copy/archive_*/http_download 在检查点没写进去(>5MB 被标 skipped、写盘失败)时照样回 ok:true 且一字不提,
+// UI 徽章按工具名显示「可撤销」,真去撤销时才报 before content was not stored。与 file_write 同一口径。
+function journalCheckpointWarn(jr) {
+  if (jr && jr.ok === false) return `回滚检查点未写入(${jr.reason});本写入不可一键撤销`;
+  if (jr && jr.skipped) return '文件超过检查点快照上限;本写入不可一键撤销';
+  return '';
+}
+
+// hunt2 #7:写族文件工具的按路径串行。主回合的写工具本就串行,但子代理 / 工作流节点 / 代理 run 会并发
+// toolCall():两个 file_edit 同读旧内容 → 各自 await 检查点(gzip + 落盘,几毫秒到几十毫秒)→ 后写者整份盖掉
+// 前者,两边都回 ok:true(实测 AAA/BBB 两处替换只剩一处)。读-改-写整段进同一条按路径的写链。
+// 多路径(move/copy)按排好序的键逐个进链 —— 固定加锁顺序,A→B 与 B→A 并发也不会互等成死锁;
+// 链内只会再拿检查点的会话锁(它从不反过来拿路径锁),所以也不存在跨两类锁的环。
+const fileToolWriteChains = new Map();
+function fileToolWriteLockKey(filePath) {
+  const resolved = path.resolve(String(filePath || ''));
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+function withFileToolWriteLock(filePaths, work) {
+  const keys = [...new Set(filePaths.map(fileToolWriteLockKey))].sort();
+  const enter = i => (i >= keys.length ? work() : runKeyedChain(fileToolWriteChains, keys[i], () => enter(i + 1)));
+  return enter(0);
+}
 
 async function resolveFileToolRoot(args, ctx) {
   if (args && args.root) return path.resolve(String(args.root));
@@ -44077,168 +44278,204 @@ const FILE_TOOL_HANDLERS = {
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_write', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
-      // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
-      let before = null, exists = false;
-      try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
-      const encoding = args.encoding || 'utf8';
-      const canNormalizeLineEnding = isUtf8Encoding(encoding);
-      const sourceLineEnding = exists && canNormalizeLineEnding ? detectTextLineEnding(before.toString('utf8')) : 'none';
-      const targetLineEnding = canNormalizeLineEnding
-        ? ((sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') ? sourceLineEnding : (!exists ? defaultTextLineEnding(p) : null))
-        : null;
-      const content = targetLineEnding ? normalizeTextLineEndings(String(args.content || ''), targetLineEnding) : String(args.content || '');
-      const writtenLineEnding = canNormalizeLineEnding ? detectTextLineEnding(content) : 'binary';
-      // 第25波 25.5(AUTONOMY-PLAN):幂等写 —— 目标已存在且落盘字节将完全相同 → 跳过(不记检查点、不重写)。
-      // 断点续跑重放同内容写不再产生新检查点条目/mtime 扰动;「touch」语义不受支持是有意的。
-      // 按 writeFile 将实际落盘的字节比较(尊重 encoding 参数),而非字符串比较,避免编码歧义。
-      const _payload = (() => { try { return Buffer.from(content, encoding); } catch { return null; } })();
-      if (exists && _payload && before.equals(_payload)) {
-        return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, sourceLineEnding, writtenLineEnding,
-          note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
-      }
-      const jctx = await journalSessionCtx(ctx);
-      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
-      if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
-      await fsp.writeFile(p, content, encoding);
-      // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
-      const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: _payload ? _payload.length : Buffer.byteLength(content), sourceLineEnding, writtenLineEnding };
-      if (jr && jr.ok === false) ret.checkpointWarn = `回滚检查点未写入(${jr.reason});本写入不可一键撤销`;
-      else if (jr && jr.skipped) ret.checkpointWarn = '文件超过检查点快照上限;本写入不可一键撤销';
-      return ret;
+      // hunt2 #9:content 缺省曾按 '' 处理 —— 模型漏传参数就把整个文件截成 0 字节还回 ok:true(schema 的 required
+      // 没有任何地方校验)。清空文件请显式传空串。
+      if (args.content == null) return { ok: false, error: 'content is required', path: p, hint: '要清空文件请显式传 content:""' };
+      return withFileToolWriteLock([p], async () => {
+        // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
+        // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
+        let before = null, exists = false;
+        try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
+        const encoding = args.encoding || 'utf8';
+        const canNormalizeLineEnding = isUtf8Encoding(encoding);
+        const sourceLineEnding = exists && canNormalizeLineEnding ? detectTextLineEnding(before.toString('utf8')) : 'none';
+        const targetLineEnding = canNormalizeLineEnding
+          ? ((sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') ? sourceLineEnding : (!exists ? defaultTextLineEnding(p) : null))
+          : null;
+        let content = targetLineEnding ? normalizeTextLineEndings(String(args.content), targetLineEnding) : String(args.content);
+        // hunt2 #10:保住 UTF-8 BOM。模型给的 content 从不带 BOM,整份覆写曾把原文件的 BOM 剥掉(file_edit 保得住);
+        // 新建的 .ps1 也补上 BOM —— 否则 Windows PowerShell 5.1 按 ANSI 读,中文字面量变乱码。
+        if (canNormalizeLineEnding && !content.startsWith('\ufeff')
+          && (exists ? before.subarray(0, 3).equals(UTF8_BOM_BYTES) : textFileWantsUtf8Bom(p))) content = '\ufeff' + content;
+        const writtenLineEnding = canNormalizeLineEnding ? detectTextLineEnding(content) : 'binary';
+        // 第25波 25.5(AUTONOMY-PLAN):幂等写 —— 目标已存在且落盘字节将完全相同 → 跳过(不记检查点、不重写)。
+        // 断点续跑重放同内容写不再产生新检查点条目/mtime 扰动;「touch」语义不受支持是有意的。
+        // 按 writeFile 将实际落盘的字节比较(尊重 encoding 参数),而非字符串比较,避免编码歧义。
+        const _payload = (() => { try { return Buffer.from(content, encoding); } catch { return null; } })();
+        if (exists && _payload && before.equals(_payload)) {
+          return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, sourceLineEnding, writtenLineEnding,
+            note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
+        }
+        const jctx = await journalSessionCtx(ctx);
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
+        if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
+        await fsp.writeFile(p, content, encoding);
+        // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
+        const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: _payload ? _payload.length : Buffer.byteLength(content), sourceLineEnding, writtenLineEnding };
+        const warn = journalCheckpointWarn(jr);
+        if (warn) ret.checkpointWarn = warn;
+        return ret;
+      });
   } },
   file_edit: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_edit', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
-      let raw;
-      try { raw = await fsp.readFile(p, 'utf8'); }
-      catch (e) {
-        if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
-        throw e;
-      }
       const oldText = String(args.oldText || '');
-      const newText = String(args.newText || '');
       if (!oldText) throw new Error('oldText is required');
-      // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
-      if (raw.length > 50 * 1024 * 1024) {
-        return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
-      }
-      const sourceLineEnding = detectTextLineEnding(raw);
-      let matchText = oldText;
-      let count = raw.split(matchText).length - 1;
-      let normalizedOldText = false;
-      // A line-mode file_read returns LF-separated display text. For an otherwise uniform CRLF file, accept
-      // that anchor after converting it back to the file's native style. Mixed files intentionally get no
-      // fallback: guessing there could replace across an already-corrupt boundary.
-      if (count === 0 && (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') && hasTextLineBreak(oldText)) {
-        const normalized = normalizeTextLineEndings(oldText, sourceLineEnding);
-        if (normalized !== oldText) {
-          const normalizedCount = raw.split(normalized).length - 1;
-          if (normalizedCount > 0) { matchText = normalized; count = normalizedCount; normalizedOldText = true; }
+      // hunt2 #9:newText 缺省曾按 '' 处理 = 模型漏传参数就静默删掉 oldText。删除文本请显式传空串。
+      if (args.newText == null) return { ok: false, error: 'newText is required', path: p, hint: '要删除 oldText 请显式传 newText:""' };
+      const newText = String(args.newText);
+      return withFileToolWriteLock([p], async () => {
+        // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
+        let rawBytes;
+        try { rawBytes = await fsp.readFile(p); }
+        catch (e) {
+          if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
+          throw e;
         }
-      }
-      if (count === 0) {
-        // v0.8-S1: not found → offer the closest line as an editing aid (no automatic fuzzy replace).
-        // Rank file lines against oldText's FIRST line by Levenshtein distance (lines truncated to
-        // 500 chars); return the best line plus a ±3-line snippet window around it under `closest`.
-        // Guardrails (this runs as a SYNCHRONOUS loop on the single-process server — an unbounded
-        // Levenshtein sweep over a huge file would freeze every API for seconds):
-        //  1. length-difference lower bound: |len(a)-len(b)| <= levenshtein(a,b), so any line whose
-        //     (capped) length differs from the needle's by >= bestDist can be skipped safely;
-        //  2. hard scan cap of 20000 lines; the remainder is not scanned and `scannedLines` reports
-        //     how far we actually looked so the model knows the hint may be partial.
-        const fileLines = raw.split(/\r?\n/);
-        const needle = oldText.split(/\r?\n/)[0] || '';
-        const MAX_CLOSEST_SCAN_LINES = 20000;
-        const scanLimit = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
-        const lb = Math.min(needle.length, 500);
-        let best = -1, bestDist = Infinity;
-        for (let i = 0; i < scanLimit; i += 1) {
-          const la = Math.min(fileLines[i].length, 500);
-          if (Math.abs(la - lb) >= bestDist) continue; // length diff is a lower bound on edit distance
-          const d = levenshtein(needle, fileLines[i]);
-          if (d < bestDist) { bestDist = d; best = i; }
+        // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
+        if (rawBytes.length > 50 * 1024 * 1024) {
+          return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
         }
-        const closest = best < 0 ? null : {
-          line: best + 1,
-          distance: bestDist,
-          snippet: fileLines
-            .slice(Math.max(0, best - 3), Math.min(fileLines.length, best + 4))
-            .map((t, k) => `${Math.max(0, best - 3) + k + 1}\t${t.slice(0, 500)}`)
-            .join('\n'),
-          scannedLines: scanLimit,
-        };
-        // v2.6: explicit diagnostics — lookalike traps + first differing character (mirrors ACC edit_file).
-        const hints = [];
-        const rawHasCrlf = raw.includes('\r\n');
-        const oldHasCrlf = oldText.includes('\r\n');
-        if (sourceLineEnding === 'mixed') hints.push('文件混用了 CRLF/LF；为避免猜测性替换，未自动转换 oldText。请先统一换行或提供逐字节一致的 oldText');
-        else if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行，文件是 LF；请用 LF 版 oldText 或先 file_read 复制原文');
-        else if (!oldHasCrlf && rawHasCrlf && !oldText.includes('\r')) hints.push('文件在磁盘上是 CRLF 换行——oldText 用 LF 无法命中,请从 file_read 复制含 \\r\\n 的原文');
-        if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
-        for (const ch of oldText) {
-          const cp = ch.codePointAt(0);
-          if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push('oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
+        // hunt2 #2:只编辑合法 UTF-8。修前按 utf8 宽松解码 —— 中文 Windows 上常见的 GBK/ANSI 源文件里每个汉字都
+        // 变成 U+FFFD,替换一处 ASCII 就把全文件的中文写成乱码并回 ok:true;检查点存的又是解码后的串,撤销也
+        // 救不回原字节。fatal 解码遇到非法字节即拒绝;ignoreBOM:true 让 BOM 留在串里原样写回(与修前一致)。
+        let raw;
+        try { raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(rawBytes); }
+        catch {
+          return { ok: false, code: 'not_utf8', path: p,
+            error: '文件不是有效的 UTF-8 文本(可能是 GBK/ANSI 等本地编码);file_edit 只编辑 UTF-8 文件,为免把中文写成乱码已拒绝',
+            hint: '先确认文件编码;GBK 文件可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
         }
-        const nonAsciiOld = [...oldText].filter(c => c.codePointAt(0) > 0x7F);
-        if (nonAsciiOld.length) hints.push('oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
-        // firstDiff: independent two-phase scan (long tokens, then single alnum chars) with per-line
-        // sliding-window alignment. NOT derived from closest.best — whole-line Levenshtein distance
-        // favours short unrelated lines over the real lookalike line (e.g. 'return x' beats 'x = a → b'
-        // when the arrow char is the only diff). Token filter keeps the sweep cheap (line <= 500 chars).
-        let firstDiff = null;
-        {
-          const ned = needle.slice(0, 500);
-          const longToks = [...new Set(needle.match(/S+/g) || [])].filter(t => t.length >= 2);
-          const singleToks = [...new Set([...needle].filter(c => /[A-Za-z0-9]/.test(c)))];
-          const scanLimit2 = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
-          let bestLine = -1, bestOff = -1, bestScore = -1;
-          const scan = (toks) => {
-            if (!toks.length) return;
-            for (let i = 0; i < scanLimit2; i += 1) {
-              const line = fileLines[i].slice(0, 500);
-              if (!line.trim() || line.length < 2) continue;
-              if (!toks.some(t => line.includes(t))) continue;
-              if (line.length > 1000) continue;
-              const step = Math.max(1, Math.floor(line.length / 200));
-              for (let off = 0; off <= Math.max(0, line.length - ned.length); off += step) {
-                const seg = line.slice(off, off + ned.length);
-                let same = 0;
-                for (let k = 0; k < seg.length && k < ned.length; k += 1) if (seg[k] === ned[k]) same += 1;
-                const score = same / Math.max(seg.length, ned.length, 1);
-                if (score > bestScore) { bestScore = score; bestOff = off; bestLine = i; }
-              }
-            }
+        const sourceLineEnding = detectTextLineEnding(raw);
+        let matchText = oldText;
+        let count = raw.split(matchText).length - 1;
+        let normalizedOldText = false;
+        // hunt2 #8:统一 CRLF 的文件里,oldText 中的裸 \n 只可能命中某个 \r\n 的后半(典型:以 "\n" 开头的锚点),
+        // 字面命中会把 \r 留在前面,而 newText 又被规范成 CRLF → 写出 "\r\r\n"。这种文件先把 oldText 规范成 CRLF
+        // 再数,规范后的结果即为准(不再退回字面命中)。
+        if (sourceLineEnding === 'crlf' && /(^|[^\r])\n/.test(oldText)) {
+          matchText = normalizeTextLineEndings(oldText, 'crlf');
+          count = raw.split(matchText).length - 1;
+          normalizedOldText = true;
+        }
+        // A line-mode file_read returns LF-separated display text. For an otherwise uniform CRLF file, accept
+        // that anchor after converting it back to the file's native style. Mixed files intentionally get no
+        // fallback: guessing there could replace across an already-corrupt boundary.
+        if (count === 0 && (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') && hasTextLineBreak(oldText)) {
+          const normalized = normalizeTextLineEndings(oldText, sourceLineEnding);
+          if (normalized !== oldText) {
+            const normalizedCount = raw.split(normalized).length - 1;
+            if (normalizedCount > 0) { matchText = normalized; count = normalizedCount; normalizedOldText = true; }
+          }
+        }
+        if (count === 0) {
+          // v0.8-S1: not found → offer the closest line as an editing aid (no automatic fuzzy replace).
+          // Rank file lines against oldText's FIRST line by Levenshtein distance (lines truncated to
+          // 500 chars); return the best line plus a ±3-line snippet window around it under `closest`.
+          // Guardrails (this runs as a SYNCHRONOUS loop on the single-process server — an unbounded
+          // Levenshtein sweep over a huge file would freeze every API for seconds):
+          //  1. length-difference lower bound: |len(a)-len(b)| <= levenshtein(a,b), so any line whose
+          //     (capped) length differs from the needle's by >= bestDist can be skipped safely;
+          //  2. hard scan cap of 20000 lines; the remainder is not scanned and `scannedLines` reports
+          //     how far we actually looked so the model knows the hint may be partial.
+          const fileLines = raw.split(/\r?\n/);
+          const needle = oldText.split(/\r?\n/)[0] || '';
+          const MAX_CLOSEST_SCAN_LINES = 20000;
+          const scanLimit = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
+          const lb = Math.min(needle.length, 500);
+          let best = -1, bestDist = Infinity;
+          for (let i = 0; i < scanLimit; i += 1) {
+            const la = Math.min(fileLines[i].length, 500);
+            if (Math.abs(la - lb) >= bestDist) continue; // length diff is a lower bound on edit distance
+            const d = levenshtein(needle, fileLines[i]);
+            if (d < bestDist) { bestDist = d; best = i; }
+          }
+          const closest = best < 0 ? null : {
+            line: best + 1,
+            distance: bestDist,
+            snippet: fileLines
+              .slice(Math.max(0, best - 3), Math.min(fileLines.length, best + 4))
+              .map((t, k) => `${Math.max(0, best - 3) + k + 1}\t${t.slice(0, 500)}`)
+              .join('\n'),
+            scannedLines: scanLimit,
           };
-          scan(longToks);
-          if (bestLine < 0) scan(singleToks);
-          if (bestLine >= 0 && bestScore >= 0.5) {
-            const lineText = fileLines[bestLine].slice(0, 500);
-            const span = Math.max(ned.length, lineText.length - bestOff);
-            for (let k = 0; k < span; k += 1) {
-              const a = lineText[bestOff + k];
-              const b = ned[k];
-              if (a === undefined || b === undefined || a !== b) {
-                firstDiff = { line: bestLine + 1, column: bestOff + k + 1, fileChar: accCpName(a === undefined ? null : a), wantChar: accCpName(b === undefined ? null : b) };
-                break;
+          // v2.6: explicit diagnostics — lookalike traps + first differing character (mirrors ACC edit_file).
+          const hints = [];
+          const rawHasCrlf = raw.includes('\r\n');
+          const oldHasCrlf = oldText.includes('\r\n');
+          if (sourceLineEnding === 'mixed') hints.push('文件混用了 CRLF/LF；为避免猜测性替换，未自动转换 oldText。请先统一换行或提供逐字节一致的 oldText');
+          else if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行，文件是 LF；请用 LF 版 oldText 或先 file_read 复制原文');
+          else if (!oldHasCrlf && rawHasCrlf && !oldText.includes('\r')) hints.push('文件在磁盘上是 CRLF 换行——oldText 用 LF 无法命中,请从 file_read 复制含 \\r\\n 的原文');
+          if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
+          for (const ch of oldText) {
+            const cp = ch.codePointAt(0);
+            if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push('oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
+          }
+          const nonAsciiOld = [...oldText].filter(c => c.codePointAt(0) > 0x7F);
+          if (nonAsciiOld.length) hints.push('oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
+          // firstDiff: independent two-phase scan (long tokens, then single alnum chars) with per-line
+          // sliding-window alignment. NOT derived from closest.best — whole-line Levenshtein distance
+          // favours short unrelated lines over the real lookalike line (e.g. 'return x' beats 'x = a → b'
+          // when the arrow char is the only diff). Token filter keeps the sweep cheap (line <= 500 chars).
+          let firstDiff = null;
+          {
+            const ned = needle.slice(0, 500);
+            // hunt2 #15:曾误写成 /S+/g(只匹配大写字母 S 的连串),长词元一轮从没跑过,总是掉进单字符那轮。
+            const longToks = [...new Set(needle.match(/\S+/g) || [])].filter(t => t.length >= 2);
+            const singleToks = [...new Set([...needle].filter(c => /[A-Za-z0-9]/.test(c)))];
+            const scanLimit2 = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
+            let bestLine = -1, bestOff = -1, bestScore = -1;
+            const scan = (toks) => {
+              if (!toks.length) return;
+              for (let i = 0; i < scanLimit2; i += 1) {
+                const line = fileLines[i].slice(0, 500);
+                if (!line.trim() || line.length < 2) continue;
+                if (!toks.some(t => line.includes(t))) continue;
+                if (line.length > 1000) continue;
+                const step = Math.max(1, Math.floor(line.length / 200));
+                for (let off = 0; off <= Math.max(0, line.length - ned.length); off += step) {
+                  const seg = line.slice(off, off + ned.length);
+                  let same = 0;
+                  for (let k = 0; k < seg.length && k < ned.length; k += 1) if (seg[k] === ned[k]) same += 1;
+                  const score = same / Math.max(seg.length, ned.length, 1);
+                  if (score > bestScore) { bestScore = score; bestOff = off; bestLine = i; }
+                }
+              }
+            };
+            scan(longToks);
+            if (bestLine < 0) scan(singleToks);
+            if (bestLine >= 0 && bestScore >= 0.5) {
+              const lineText = fileLines[bestLine].slice(0, 500);
+              const span = Math.max(ned.length, lineText.length - bestOff);
+              for (let k = 0; k < span; k += 1) {
+                const a = lineText[bestOff + k];
+                const b = ned[k];
+                if (a === undefined || b === undefined || a !== b) {
+                  firstDiff = { line: bestLine + 1, column: bestOff + k + 1, fileChar: accCpName(a === undefined ? null : a), wantChar: accCpName(b === undefined ? null : b) };
+                  break;
+                }
               }
             }
           }
+          return { ok: false, error: 'oldText was not found', closest, sourceLineEnding, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
         }
-        return { ok: false, error: 'oldText was not found', closest, sourceLineEnding, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
-      }
-      if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
-      const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
-        ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
-      const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
-      // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
-      // content already read above; only reached once we know the edit will apply (not the not-found path).
-      const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', raw);
-      await fsp.writeFile(p, updated, 'utf8');
-      return { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
-        sourceLineEnding, writtenLineEnding: detectTextLineEnding(updated), normalizedOldText };
+        if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
+        const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
+          ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
+        const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
+        // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
+        // content already read above; only reached once we know the edit will apply (not the not-found path).
+        // hunt2 #2:检查点存读到的原字节(Buffer),不存解码后的串 —— 撤销必须逐字节还原。
+        const jctx = await journalSessionCtx(ctx);
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', rawBytes);
+        await fsp.writeFile(p, updated, 'utf8');
+        const ret = { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
+          sourceLineEnding, writtenLineEnding: detectTextLineEnding(updated), normalizedOldText };
+        const warn = journalCheckpointWarn(jr);
+        if (warn) ret.checkpointWarn = warn;
+        return ret;
+      });
   } },
   file_delete: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       // v0.8-S4a (moved in from S1 — a not-undoable delete could not ship before the journal existed).
@@ -44246,23 +44483,25 @@ const FILE_TOOL_HANDLERS = {
       // directories (only files are journaled/deletable here).
       const p = path.resolve(String(args.path || ''));
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_delete', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      const st = await fsp.stat(p).catch(() => null);
-      // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
-      if (!st) return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
-      if (st.isDirectory()) return { ok: false, error: 'is a directory', hint: '仅支持删除文件' };
-      const before = await fsp.readFile(p);
-      const jctx = await journalSessionCtx(ctx);
-      // b2-P0: 检查点记录失败(无 session 上下文/写盘失败)或 >5MB 被标 skipped 时,删除不可回滚 → 中止。
-      // file_delete 是唯一"永久不可逆"操作,安全网不能静默失效;宁可拒绝也不零记录删除。
-      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_delete', p, 'delete', before);
-      if (!jr || jr.ok === false) {
-        return { ok: false, error: `无法写入回滚检查点(${jr ? jr.reason : 'unknown'}),已中止删除以保证可回滚。请检查会话上下文或先手动备份。`, path: p, checkpointWarn: true };
-      }
-      if (jr.skipped) {
-        return { ok: false, error: '文件超过检查点快照上限,删除不可回滚,已中止。请先手动备份或分块处理。', path: p, checkpointWarn: true };
-      }
-      await fsp.unlink(p);
-      return { ok: true, path: p, op: 'delete' };
+      return withFileToolWriteLock([p], async () => {
+        const st = await fsp.stat(p).catch(() => null);
+        // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
+        if (!st) return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
+        if (st.isDirectory()) return { ok: false, error: 'is a directory', hint: '仅支持删除文件' };
+        const before = await fsp.readFile(p);
+        const jctx = await journalSessionCtx(ctx);
+        // b2-P0: 检查点记录失败(无 session 上下文/写盘失败)或 >5MB 被标 skipped 时,删除不可回滚 → 中止。
+        // file_delete 是唯一"永久不可逆"操作,安全网不能静默失效;宁可拒绝也不零记录删除。
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_delete', p, 'delete', before);
+        if (!jr || jr.ok === false) {
+          return { ok: false, error: `无法写入回滚检查点(${jr ? jr.reason : 'unknown'}),已中止删除以保证可回滚。请检查会话上下文或先手动备份。`, path: p, checkpointWarn: true };
+        }
+        if (jr.skipped) {
+          return { ok: false, error: '文件超过检查点快照上限,删除不可回滚,已中止。请先手动备份或分块处理。', path: p, checkpointWarn: true };
+        }
+        await fsp.unlink(p);
+        return { ok: true, path: p, op: 'delete' };
+      });
   } },
   file_move: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) file_move(from, to, overwrite=false): 移动/重命名。检查点两条各自逆操作（见下注释）。
@@ -44280,37 +44519,62 @@ const FILE_TOOL_HANDLERS = {
       // v1.4.6-S3: a move both reads+deletes `from` and writes `to` — guard both as writes (out-of-bounds → deny).
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const toExists = await fsp.stat(to).then(() => true).catch(() => false);
-      if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
-      const fromBefore = await fsp.readFile(from);
-      const toBefore = toExists ? await fsp.readFile(to) : null;
-      const jctx = await journalSessionCtx(ctx);
-      // ① from 侧：op:delete（回滚=写回 from）。
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', from, 'delete', fromBefore);
-      // ② to 侧：已存在=modify（回滚=写回原 to）；不存在=create（回滚=删 to）。
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
-      await fsp.mkdir(path.dirname(to), { recursive: true });
-      try {
-        await fsp.rename(from, to);
-      } catch (e) {
-        // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
-        // (回滚作用于未发生的移动)。drop 失败只影响撤销精度,不影响本条错误本身。
-        const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_move', [from, to]).catch(() => ({ ok: false }));
-        if (e && e.code === 'EXDEV') {
-          // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
-          try {
-            await fsp.copyFile(from, to);
-            await fsp.unlink(from);
-          } catch (e2) {
-            // copy+delete 也失败：from 未动、to 可能半写 —— 检查点已回滚,如实披露部分状态。
-            return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+      return withFileToolWriteLock([from, to], async () => {
+        const toExists = await fsp.stat(to).then(() => true).catch(() => false);
+        if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
+        const fromBefore = await fsp.readFile(from);
+        const toBefore = toExists ? await fsp.readFile(to) : null;
+        const jctx = await journalSessionCtx(ctx);
+        // ① from 侧：op:delete（回滚=写回 from）。
+        const jrFrom = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', from, 'delete', fromBefore);
+        // hunt2 #1:from 侧快照没存下内容(>5MB 被标 skipped,或写盘失败)时,这对条目回滚起来是【丢数据】的:
+        // 逆序先撤 to(create → 删掉 to,也就是删掉唯一一份内容),再撤 from 时又报 before 没存 —— 实测 A、B 两头都没了。
+        // 目标原本不存在:丢掉这对条目,照常移动并如实披露「不可一键撤销」(移动不毁任何内容,文件就在 to)。
+        // 目标已存在(覆盖):覆盖掉的旧 to 与移动过去的大文件二者必丢其一,与 file_delete 同口径 —— 拒绝。
+        // 只删本次记下的那几条(按 entrySeq),同一回合早先涉及同一路径的条目不受牵连。
+        const recordedSeqs = [];
+        const dropRecorded = () => journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_move', [from, to], recordedSeqs).catch(() => ({ ok: false }));
+        if (jrFrom && Number.isFinite(jrFrom.entrySeq)) recordedSeqs.push(jrFrom.entrySeq);
+        const fromSnapshotMissing = !jrFrom || jrFrom.ok === false || !!jrFrom.skipped;
+        let checkpointWarn = '';
+        if (fromSnapshotMissing) {
+          await dropRecorded();
+          recordedSeqs.length = 0;
+          if (jrFrom && jrFrom.skipped && toExists) {
+            return { ok: false, error: '源文件超过检查点快照上限,覆盖式移动不可回滚,已中止。请先手动备份目标文件,或换一个不存在的目标路径。', from, to, checkpointWarn: true };
           }
+          checkpointWarn = journalCheckpointWarn(jrFrom || { ok: false, reason: 'unknown' });
         } else {
-          // b2-P2→b3: rename 失败,检查点已回滚 —— 不再留下作用于「未发生的移动」的 phantom 条目。
-          return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+          // ② to 侧：已存在=modify（回滚=写回原 to）；不存在=create（回滚=删 to）。
+          const jrTo = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
+          if (jrTo && Number.isFinite(jrTo.entrySeq)) recordedSeqs.push(jrTo.entrySeq);
+          checkpointWarn = journalCheckpointWarn(jrTo);
         }
-      }
-      return { ok: true, from, to, op: 'move', overwritten: toExists };
+        await fsp.mkdir(path.dirname(to), { recursive: true });
+        try {
+          await fsp.rename(from, to);
+        } catch (e) {
+          if (e && e.code === 'EXDEV') {
+            // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
+            // hunt2 #5:检查点只在退化也失败时才回滚 —— 修前 drop 在进这个分支之前就跑了,copy+unlink 成功后文件
+            // 已经移走、检查点却是 0 条,撤回本轮什么也不做(Windows 上 C:→D: 就是这条路)。
+            try {
+              await fsp.copyFile(from, to);
+              await fsp.unlink(from);
+            } catch (e2) {
+              // copy+delete 也失败：from 未动、to 可能半写 —— 回滚检查点,如实披露部分状态。
+              const dropped = await dropRecorded();
+              return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+            }
+          } else {
+            // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
+            // (回滚作用于未发生的移动)。drop 失败只影响撤销精度,不影响本条错误本身。
+            const dropped = await dropRecorded();
+            return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+          }
+        }
+        return { ok: true, from, to, op: 'move', overwritten: toExists, ...(checkpointWarn ? { checkpointWarn } : {}) };
+      });
   } },
   file_copy: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) file_copy(from, to, overwrite=false)。逆操作：仅 to 一条。
@@ -44324,20 +44588,23 @@ const FILE_TOOL_HANDLERS = {
       // v1.4.6-S3: copy READS `from` (exfil vector if out of bounds) and WRITES `to` — guard each accordingly.
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const toExists = await fsp.stat(to).then(() => true).catch(() => false);
-      if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
-      const toBefore = toExists ? await fsp.readFile(to) : null;
-      const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
-      await fsp.mkdir(path.dirname(to), { recursive: true });
-      try {
-        await fsp.copyFile(from, to);
-      } catch (e) {
-        // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
-        const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
-        return { ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
-      }
-      return { ok: true, from, to, op: 'copy', overwritten: toExists };
+      return withFileToolWriteLock([from, to], async () => {
+        const toExists = await fsp.stat(to).then(() => true).catch(() => false);
+        if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
+        const toBefore = toExists ? await fsp.readFile(to) : null;
+        const jctx = await journalSessionCtx(ctx);
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
+        await fsp.mkdir(path.dirname(to), { recursive: true });
+        try {
+          await fsp.copyFile(from, to);
+        } catch (e) {
+          // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
+          const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
+          return { ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+        }
+        const checkpointWarn = journalCheckpointWarn(jr);
+        return { ok: true, from, to, op: 'copy', overwritten: toExists, ...(checkpointWarn ? { checkpointWarn } : {}) };
+      });
   } },
   file_list: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -44426,11 +44693,13 @@ const ARCHIVE_TOOL_HANDLERS = {
       const destExists = await fsp.stat(dest).then(() => true).catch(() => false);
       const destBefore = destExists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
+      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, zipBuf);
       const fileCount = entries.filter(e => !e.isDir).length;
-      return { ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length };
+      const checkpointWarn = journalCheckpointWarn(jr); // hunt2 #17
+      return { ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length,
+        ...(entries.skippedSensitive ? { skippedSensitive: entries.skippedSensitive } : {}), ...(checkpointWarn ? { checkpointWarn } : {}) };
   } },
   archive_unzip: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) archive_unzip(src, destDir, overwrite=false): 解 .zip 到 destDir（stored/deflate）。
@@ -44468,10 +44737,30 @@ const ARCHIVE_TOOL_HANDLERS = {
       const jctx = await journalSessionCtx(ctx);
       const written = [];
       let extractedBytes = 0;
-      const failWithWritten = (msg, extra) => {
+      let checkpointWarn = '';
+      // hunt2 #13:检查点攒批记(journalRecordMany,一批只读写一次索引),修前每个文件整份读改写一次索引,
+      // 2000 个条目实测 ~22s。纪律不变:一批的检查点先落,再写这一批的文件;失败返回前先把已备好的一批落完,
+      // 「已写 N 个」的计数与盘上一致。按条数/字节分批,内存不随整包增长。
+      let pending = [], pendingBytes = 0;
+      const flush = async () => {
+        if (!pending.length) return;
+        const batch = pending;
+        pending = []; pendingBytes = 0;
+        const results = await journalRecordMany(jctx.sessionId, jctx.turnSeq, batch.map(b => ({
+          tool: 'archive_unzip', filePath: b.absPath, op: b.exists ? 'modify' : 'create', beforeContent: b.exists ? b.before : null })));
+        for (const r of results) if (!checkpointWarn) checkpointWarn = journalCheckpointWarn(r); // hunt2 #17
+        for (const b of batch) {
+          await fsp.mkdir(path.dirname(b.absPath), { recursive: true });
+          await fsp.writeFile(b.absPath, b.data);
+          written.push(b.absPath);
+        }
+      };
+      const failWithWritten = async (msg, extra) => {
+        await flush();
         // b2-P1: 部分解压失败必须带 written 计数 —— 模型/用户需要知道已落盘多少文件才能准确回滚/清理
         const o = { ok: false, error: msg, filesExtracted: written.length, bytesExtracted: extractedBytes, ...(extra || {}) };
         if (written.length) o.partial = true;
+        if (checkpointWarn) o.checkpointWarn = checkpointWarn;
         return o;
       };
       for (const { rec, absPath } of plan) {
@@ -44481,15 +44770,17 @@ const ARCHIVE_TOOL_HANDLERS = {
         catch (e) { return failWithWritten((e && e.message) || String(e), { entry: rec.name }); }
         extractedBytes += data.length;
         if (extractedBytes > ZIP_MAX_TOTAL) return failWithWritten(`解压总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`, { hint: '疑似 zip 炸弹，已中止' });
+        // 同一批里前面的条目还没落盘:同名条目(包里重复的路径)先把前一批落完再判存在,免得 exists 判错。
+        if (pending.some(b => fileToolWriteLockKey(b.absPath) === fileToolWriteLockKey(absPath))) await flush();
         const exists = await fsp.stat(absPath).then(() => true).catch(() => false);
         if (exists && !args.overwrite) return failWithWritten('目标文件已存在', { path: absPath, hint: '若要覆盖请设置 overwrite=true' });
         const before = exists ? await fsp.readFile(absPath) : null;
-        await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_unzip', absPath, exists ? 'modify' : 'create', exists ? before : null);
-        await fsp.mkdir(path.dirname(absPath), { recursive: true });
-        await fsp.writeFile(absPath, data);
-        written.push(absPath);
+        pending.push({ absPath, exists, before, data });
+        pendingBytes += data.length + (before ? before.length : 0);
+        if (pending.length >= 200 || pendingBytes >= 32 * 1024 * 1024) await flush();
       }
-      return { ok: true, src, destDir, files: written.length, bytes: extractedBytes };
+      await flush();
+      return { ok: true, src, destDir, files: written.length, bytes: extractedBytes, ...(checkpointWarn ? { checkpointWarn } : {}) };
   } },
 };
 
@@ -44534,7 +44825,9 @@ const SHELL_TOOL_HANDLERS = {
         return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       const p = path.join(dir, `${id}.ps1`);
-      await fsp.writeFile(p, String(args.code || ''), 'utf8');
+      // hunt2 #10:带 BOM 落盘 —— Windows PowerShell 5.1 按 ANSI 读无 BOM 的 .ps1,脚本里的中文字面量会被读成乱码
+      // (04 runPowerShell 头注同一条)。
+      await fsp.writeFile(p, '\ufeff' + String(args.code || ''), 'utf8');
       return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
         cwd: g.cwd,
         timeoutMs: args.timeoutMs || 60000,
@@ -44660,7 +44953,7 @@ const NETWORK_TOOL_HANDLERS = {
       const exists = await fsp.stat(dest).then(() => true).catch(() => false);
       const before = exists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
+      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, got.body);
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
@@ -44671,6 +44964,8 @@ const NETWORK_TOOL_HANDLERS = {
       if (/text\/html/i.test(ct) && !['.html', '.htm'].includes(destExt)) {
         ret.note = `服务器返回 text/html 且目标扩展名不是 .html —— 可能下载到了错误页/登录页/验证页,请核对内容。`;
       }
+      const warn = journalCheckpointWarn(jr); // hunt2 #17
+      if (warn) ret.checkpointWarn = warn;
       return ret;
   } },
   browser_open: { paths: null, guardNote: "spawn 默认浏览器(buildBrowserOpenSpawn 无 shell);exec tier 门,不触文件路径", handler: async (args, ctx) => {

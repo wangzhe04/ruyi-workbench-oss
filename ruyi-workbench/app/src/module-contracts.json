@@ -987,8 +987,12 @@
         "journalGcSinceScan",
         "journalGlobalBytes",
         "journalIndexPath",
+        "journalNextEntrySeq",
         "journalReadIndex",
+        "journalReadIndexForWrite",
         "journalRecord",
+        "journalRecordMany",
+        "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
         "journalRollback",
@@ -1124,8 +1128,10 @@
         "workspaceBaselineFileSnapshot",
         "workspaceBaselineGitAbs",
         "workspaceBaselineGitBefore",
+        "workspaceBaselineGitCheckoutCrlf",
         "workspaceBaselineGitNames",
         "workspaceBaselineIsCodePath",
+        "workspaceBaselineLfToCrlf",
         "workspaceBaselineNulPaths",
         "workspaceBaselinePathKey",
         "workspaceBaselineRemainingMs",
@@ -9853,6 +9859,7 @@
         "webFetch",
         "webFetchFailMessage",
         "webSearch",
+        "writeBackgroundJobRows",
         "writeWebCache",
         "zipCollectEntries"
       ],
@@ -9951,6 +9958,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "samePathEntry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "StringDecoder",
           "kinds": [
             "call"
           ]
@@ -10098,6 +10112,7 @@
         "OBSERVATION_RECALL_QUOTA",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
+        "UTF8_BOM_BYTES",
         "_recallQuota",
         "accAnnotateNonAscii",
         "accCpCategory",
@@ -10114,13 +10129,18 @@
         "execCacheStore",
         "execCacheVersionOf",
         "execResultCacheBySession",
+        "fileToolWriteChains",
+        "fileToolWriteLockKey",
         "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
+        "journalCheckpointWarn",
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
-        "resolveFileToolRoot"
+        "resolveFileToolRoot",
+        "textFileWantsUtf8Bom",
+        "withFileToolWriteLock"
       ],
       "requires": [
         {
@@ -10191,6 +10211,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
