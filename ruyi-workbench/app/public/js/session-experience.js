@@ -140,11 +140,11 @@ function scheduleSessionSearch() {
     // 已经清掉的搜索态又写回去(渲染时虽有 query 比对兑底,但状态本身不该脏)。
     sessionSearchSeq += 1;
     sessionSearchState = { query: q, results: null, loading: false, failed: false };
-    renderSessions();
+    renderSessions({ refresh: false });
     return;
   }
   sessionSearchState = { ...sessionSearchState, query: q, loading: true };
-  renderSessions();
+  renderSessions({ refresh: false });
   sessionSearchTimer = setTimeout(async () => {
     sessionSearchTimer = 0;
     const seq = ++sessionSearchSeq;
@@ -160,7 +160,7 @@ function scheduleSessionSearch() {
       if (seq !== sessionSearchSeq) return;
       sessionSearchState = { query: q, results: null, loading: false, failed: true };
     }
-    renderSessions();
+    renderSessions({ refresh: false });
   }, SESSION_SEARCH_DEBOUNCE_MS);
 }
 
@@ -195,9 +195,10 @@ function syncOwnTurnLiveIndicator() {
     liveRow.classList.add('live-turn'); liveRow.dataset.ownLive = '1';
   }
 }
-function renderSessions() {
+// opts.refresh === false：只按手上的行重画、不向服务端复核（搜索框每次按键走这条）。
+function renderSessions(opts) {
   if (!railRenderer) return false;
-  try { railRenderer(); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }
+  try { railRenderer(opts); } catch { /* 左栏画不出来不该把调用方（开会话／改名／删除）打回去 */ }
   syncOwnTurnLiveIndicator();
   return true;
 }

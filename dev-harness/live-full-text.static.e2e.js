@@ -290,9 +290,9 @@ ok(!/\btoolCard\(/.test(experienceCode) && !/\bthinkingPanel\(/.test(experienceC
   ok(rowStart >= 0 && !/kind !==|kind ===/.test(rowBody),
     'I2 单条行也不按 kind 分叉(管家开的线程与手工建的会话一视同仁；K3 之后 kind 对两者同样返回 quick_ask，身份改读 row.quick)');
   // renderSessions 自此只是「叫左栏重画一次」的转接口：它不许自己长出第二份行渲染。
-  const bridgeStart = experienceCode.indexOf('function renderSessions()');
+  const bridgeStart = experienceCode.indexOf('function renderSessions(');   // 可带 opts(refresh:false = 只重画不复核)
   const bridgeBody = bridgeStart >= 0 ? experienceCode.slice(bridgeStart, experienceCode.indexOf('\n}', bridgeStart) + 2) : '';
-  ok(bridgeStart >= 0 && /railRenderer\(\)/.test(bridgeBody) && !/createElement|innerHTML|appendChild/.test(bridgeBody),
+  ok(bridgeStart >= 0 && /railRenderer\((?:opts)?\)/.test(bridgeBody) && !/createElement|innerHTML|appendChild/.test(bridgeBody),
     'I2b renderSessions 只剩一个转接口（调注入的左栏渲染），它自己一行都不画');
 }
 

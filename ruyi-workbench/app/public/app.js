@@ -979,7 +979,7 @@ stewardShellGuard = stewardShellDomain;
 const { bindStewardShell } = stewardShellDomain;
 // 121-K4（§2.3）：左栏是两视角共用的那一份 DOM，画它的只有管家域里那一处 renderRail。
 // 工作台这一侧（开／建／改名／删会话）调的仍是 renderSessions —— 那个名字现在只是这条转接口。
-setRailRenderer(() => stewardShellDomain.board.syncRail());
+setRailRenderer(opts => (opts && opts.refresh === false ? stewardShellDomain.board.renderRail() : stewardShellDomain.board.syncRail()));
 // 121-K4：外框（顶栏的视角分段钮与齿轮菜单、左栏的密度与 Ctrl+K、≤1180 的右栏抽屉、
 // §2.7 的滚动位置保持、§2.9 的共享元素命名）。它只调 applyShellMode，不写 data-shell-mode ——
 // 唯一写者仍是 shell-mode.js。
