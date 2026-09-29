@@ -2448,6 +2448,7 @@
         "anthropicAssistantBlocks",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",

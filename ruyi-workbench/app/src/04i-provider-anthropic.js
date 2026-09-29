@@ -234,6 +234,10 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
   });
   for (const msg of out) {
     if (msg.role !== 'user') continue;
+    // 同一 tool_use_id 的 tool_result 只能有一块(否则 400):配对自愈补过合成结果、真结果又隔着一条 system 到了,留后到的那块。
+    const lastResultAt = new Map();
+    msg.content.forEach((b, i) => { if (b.type === 'tool_result') lastResultAt.set(b.tool_use_id, i); });
+    msg.content = msg.content.filter((b, i) => b.type !== 'tool_result' || lastResultAt.get(b.tool_use_id) === i);
     const results = msg.content.filter(b => b.type === 'tool_result');
     if (results.length && results.length !== msg.content.length) msg.content = [...results, ...msg.content.filter(b => b.type !== 'tool_result')];
   }
@@ -273,10 +277,12 @@ function applyAnthropicEffort(body, effort) {
   return body;
 }
 // 采样参数:Opus 4.7 起、Sonnet 5 起、Fable / Mythos 对 temperature 等一律 400,这些模型上不发(用户配的温度对它们没有意义);
-// 其余模型(含网关上的非 Claude 模型)照发。
+// 开着思考(adaptive / between_tools 等)时也不发 —— API 不收「思考 + 改过的 temperature」(Opus / Sonnet 4.6 默认就开思考);
+// 其余模型(含网关上的非 Claude 模型)照发。调用方先 encodeMessages 再调这里,body.thinking 已定。
 function applyAnthropicTemperature(body, temperature) {
   if (temperature === undefined || !body || typeof body !== 'object') return body;
-  if (!anthropicModelTraits(body.model).noSampling) body.temperature = temperature;
+  const thinkingOn = Boolean(body.thinking && typeof body.thinking === 'object' && body.thinking.type !== 'disabled');
+  if (!thinkingOn && !anthropicModelTraits(body.model).noSampling) body.temperature = temperature;
   return body;
 }
 // chat 形函数工具 → { name, description, input_schema };tool_choice 只发 auto(新模型对 any / tool 回 400)。
@@ -335,7 +341,8 @@ function anthropicReplayBlock(block) {
   if (!block || typeof block !== 'object') return null;
   if (block.type === 'thinking') return { type: 'thinking', thinking: String(block.thinking || ''), signature: String(block.signature || '') };
   if (block.type === 'redacted_thinking') return { type: 'redacted_thinking', data: String(block.data || '') };
-  if (block.type === 'text') return { type: 'text', text: String(block.text || ''), ...(Array.isArray(block.citations) ? { citations: block.citations } : {}) };
+  // 空 / 纯空白文本块 API 拒收(回放路径绕过了 anthropicAssistantBlocks 的 trim 过滤);它也不属于思考前缀校验的范围,丢掉即可。
+  if (block.type === 'text') return String(block.text || '').trim() ? { type: 'text', text: String(block.text || ''), ...(Array.isArray(block.citations) ? { citations: block.citations } : {}) } : null;
   if (block.type === 'tool_use') return { type: 'tool_use', id: String(block.id || ''), name: String(block.name || ''), input: block.input && typeof block.input === 'object' ? block.input : {} };
   // 其余块(服务端改派留下的 fallback 块、服务端工具块等)原样留着:回放时少一块就改了后面思考块的前缀。只去掉解码器自己的中间字段。
   if (typeof block.type === 'string' && block.type) { const { partial, ...rest } = block; return rest; }
@@ -383,6 +390,15 @@ function anthropicStreamErrorText(err, emitted, scrub) {
   const status = ANTHROPIC_STREAM_ERROR_STATUS[kind];
   return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Anthropic stream error: ' + detail;
 }
+// 用量合并:后到的只覆盖有限数字。message_delta.usage 里 input_tokens / cache_* 可以是 null(SDK 类型就是可空),
+// 直接展开会把 message_start 的真实计数抹成 0,上下文校准与用量台账跟着错。
+function anthropicMergeUsage(base, next) {
+  const out = { ...(base && typeof base === 'object' ? base : {}) };
+  for (const [k, v] of Object.entries(next && typeof next === 'object' ? next : {})) {
+    if (typeof v === 'number' ? Number.isFinite(v) : (v !== null && v !== undefined)) out[k] = v;
+  }
+  return out;
+}
 // 流式事件:message_start → content_block_start / delta / stop(按 index)→ message_delta(stop_reason、累计 output_tokens)→ message_stop。
 function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId, scrub }) {
   let outText = '', reasoning = '', stopReason = null, stopDetails = null, providerResponseId = '', model = '', streamError = '';
@@ -391,7 +407,7 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
   const reportUsage = () => {
     if (usageMarked || (!usageStart && !usageDelta)) return;
     usageMarked = true;
-    markUsage(normalizeAnthropicUsage({ ...(usageStart || {}), ...(usageDelta || {}) }));
+    markUsage(normalizeAnthropicUsage(anthropicMergeUsage(usageStart, usageDelta)));
   };
   return {
     feed(evt) {
@@ -444,7 +460,7 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
       if (t === 'message_delta') {
         if (evt.delta && evt.delta.stop_reason) stopReason = evt.delta.stop_reason;
         if (evt.delta && evt.delta.stop_details) stopDetails = evt.delta.stop_details;
-        if (evt.usage && typeof evt.usage === 'object') usageDelta = { ...(usageDelta || {}), ...evt.usage };
+        if (evt.usage && typeof evt.usage === 'object') usageDelta = anthropicMergeUsage(usageDelta, evt.usage);
         return false;
       }
       if (t === 'message_stop') { reportUsage(); return true; }
@@ -472,9 +488,13 @@ function anthropicRetryBodyOn400(body, errText) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
   // 官方以外的端点不认 block_binding / between_tools:只去掉这一项,思考照开。
-  if (body.thinking && typeof body.thinking === 'object' && /block_binding|between_tools/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|invalid/i.test(msg)) {
+  // 只在「去掉之后请求体真的变了」时走这一支:签名不匹配的官方报文里也点名 block_binding(建议你设 prefix_mismatch_behavior),
+  // 而请求体里并没有它 —— 这时原样重打只会再吃一次同一个 400,要落到下面的「去掉思考块」。
+  const stripBetweenTools = /between_tools/i.test(msg) && body.thinking && body.thinking.type === 'between_tools';
+  const stripBinding = /block_binding/i.test(msg) && body.thinking && typeof body.thinking === 'object' && body.thinking.block_binding !== undefined;
+  if ((stripBetweenTools || stripBinding) && !/invalid\W{0,3}signature/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|invalid/i.test(msg)) {
     const copy = { ...body };
-    if (/between_tools/i.test(msg) && body.thinking.type === 'between_tools') delete copy.thinking;
+    if (stripBetweenTools) delete copy.thinking;
     else { const { block_binding, ...rest } = body.thinking; copy.thinking = rest; }
     return copy;
   }

@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2896,
+    "providedSymbols": 2897,
     "requiredSymbols": 2869,
     "edges": 509,
     "forwardEdges": 68,
@@ -2498,6 +2498,7 @@
         "anthropicAssistantBlocks",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",
