@@ -23,7 +23,9 @@ ok(!permission.includes('function buildUserContentParts(') && !permission.includ
 ok(!context.includes('function runProcess(') && !context.includes('function pickFolder(') && !context.includes('function runMissionDriver('), 'context owner no longer contains desktop shell or mission driver');
 ok(!autonomy.includes('function saveMemory(') && !autonomy.includes('function consumeGrant(') && !autonomy.includes('function acquireResourceLease('), 'autonomy core no longer owns memory, grants, or leases');
 ok(context.includes('const CompactionPlan = (() => {'), 'context cluster owns shared CompactionPlan');
-ok(read('ruyi-workbench/app/src/08-agent-runs.js').includes("trigger: 'forced_400'"), 'subagent forced-400 uses CompactionPlan');
-ok(read('ruyi-workbench/app/src/09-workflow.js').includes("trigger: 'forced_400'"), 'main forced-400 uses CompactionPlan');
+// forced-400 的快照/蒸发/摘要重播种由 10 的共用内核 runForcedOverflowCompaction 做(用 CompactionPlan 的 forced_400 计划),主回合与子代理都调它。
+ok(/async function runForcedOverflowCompaction\(ctx\)/.test(context) && context.includes("trigger: 'forced_400'"), 'shared forced-400 kernel uses CompactionPlan');
+ok(/runForcedOverflowCompaction\(\{\s*history: subHistory, scope: 'subagent'/.test(read('ruyi-workbench/app/src/08-agent-runs.js')), 'subagent forced-400 uses the shared kernel');
+ok(/runForcedOverflowCompaction\(\{\s*history: session\.providerHistory, scope: 'main'/.test(read('ruyi-workbench/app/src/09-workflow.js')), 'main forced-400 uses the shared kernel');
 ok(context.includes("require(path.join(__dirname, 'src', 'context-governance-rules.json'))"), 'versioned context rules are runtime-authoritative');
 process.exitCode = failures ? 1 : 0;

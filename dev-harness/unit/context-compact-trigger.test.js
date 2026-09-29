@@ -163,7 +163,7 @@ test('provider trigger consumes main-model override, not the summarizer window',
   assert.equal(srv.providerContextWindow(summary.provider, summary.model), 131072);
   assert.equal(provider.contextWindow, 65536, 'does not mutate provider or summary budgets');
   const events = [];
-  const run = vm.runInNewContext(`${extract('maybeAutoCompact')}\nmaybeAutoCompact`, {
+  const run = vm.runInNewContext(`${extract('runAutoCompaction')}\n${extract('maybeAutoCompact')}\nmaybeAutoCompact`, {
     providerConversationContextWindow: srv.providerConversationContextWindow,
     providerContextWindow: srv.providerContextWindow,
     calibratedEstimate: () => 241000,

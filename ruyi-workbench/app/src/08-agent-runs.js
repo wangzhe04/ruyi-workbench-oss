@@ -641,6 +641,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   let subOk = true, subErr = '';
   let subOverWindow = false;
   let overWindowRetried = false; // 45c:over-window 强压重试,每子回合仅一次 // v0.9 F6: set when the sub-turn's 400 looks like a context-window overflow
+  // 与主回合同一套压缩簿记(10 runAutoCompaction / runForcedOverflowCompaction):滞回水位、强压重试成功才落窗口学习(45f P1-1)、
+  // 强压只靠 L1 之后下一迭代跳过自动压缩(45f P2-5)。
+  const subCompactState = { watermark: 0 };
+  let pendingOvershootLearn = 0, skipAutoCompactOnce = false;
   // 第32波: sub-agent savepoint——每次工具调用批次成功后存快照,传输/超时失败时自动从检查点恢复续跑(不重做已完成的工具调用)。
   let savepoint = null;         // { subHistory, resultText, iter, iters, toolCallCount } | null
   let checkpointRestored = false; // 仅恢复一次(防无限重试循环)
@@ -708,9 +712,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'subagent_mail_in', subagentId, sender: m.sender, text: m.text });
         }
       }
-      // 第28波(§28a):迭代边界两级自动压缩(与主回合 9208 一一对应)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
+      // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
-      await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId });
+      if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
+      else await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState });
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -757,6 +762,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'subagent', id: subagentId, state: 'retry', attempt: 1, maxAttempts: 2, reason: 'checkpoint-resume' });
           subOk = true; subErr = '';
           savepoint = null; // 仅恢复一次
+          subCompactState.watermark = 0; // 历史换回了检查点那一份,旧水位不再对应
           continue;
         }
         subOk = false;
@@ -771,35 +777,42 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         if (isOverWindow && !overWindowRetried && !(ctrl && ctrl.signal && ctrl.signal.aborted)) {
           overWindowRetried = true;
           const estNow = estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]);
-          noteWindowOvershoot(provider.id, subModel, estNow); // 45d(b)
-          onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
-          const ev = evaporateHistory(subHistory);
-          const sc = await providerSummaryCall(provider, subHistory, {
-            config,
-            auxCtx: {
-              ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}),
-              ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}),
-              ...(subagentId ? { subagentId: String(subagentId) } : {}),
-              trigger: 'subagent_forced_400',
-            },
+          const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
+          const parentTurn = parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {};
+          // 快照 → L1 蒸发 → L2 摘要重播种,与主回合走同一个内核。快照只写带内容哈希的文件名(见 maybeCompactSubHistory)。
+          const forced = await runForcedOverflowCompaction({
+            history: subHistory, scope: 'subagent', provider, model: subModel, config,
+            snapshot: () => (parentId && config.runtimeObservationReducerV1 === true
+              ? writeHistorySnapshot(parentId, parentSession.turnSeq, subHistory, true).catch(() => '')
+              : ''),
+            onEvent, eventFields: { subagentId },
+            logFields: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}) },
+            summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subagent_forced_400' },
+            beforeTokens: estNow, error: he,
           });
-          if (sc.ok) {
-            const plan = CompactionPlan.create({
-              scope: 'subagent', trigger: 'forced_400', history: subHistory,
-              provider, model: subModel, config,
-            });
+          if (forced.level === 2) {
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
-            subHistory.splice(0, subHistory.length, ...CompactionPlan.reseed(plan, sc.summary));
-            if (parentSession) recordCompactUsage(parentSession, provider, sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
+            subHistory.splice(0, subHistory.length, ...forced.reseeded);
+            if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
+            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
+            subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
           }
-          if (ev > 0) { subOk = true; subErr = ''; iter--; continue; } // L2 失败但 L1 有斩获,试最后一次
+          if (forced.level === 1) { // L2 失败但 L1 有斩获,试最后一次;下一迭代跳过自动压缩(几秒前 L2 刚失败过)
+            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            skipAutoCompactOnce = true;
+            subOk = true; subErr = '';
+            iter--; continue;
+          }
         }
         subErr = isOverWindow ? '子任务上下文超限' : he;
         subOverWindow = isOverWindow;
         break;
       }
+      // 45f P1-1(与主回合同):窗口学习只在强压重试【成功】后落账 —— 证明确实是超窗,误判不再永久压窗。
+      if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, subModel, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       if (call.toolCalls && call.toolCalls.length) {

@@ -23,8 +23,8 @@ ok(!/\.join\('\\n\\n'\)\.slice\(0, 32000\)/.test(src), 'S §28c 旧 join.slice(0
 ok(/deriveNodeOutputs\(node\);/.test(src), 'S §28b runNode 完成调 deriveNodeOutputs');
 ok(/function deriveNodeOutputs\(node\)/.test(src) && /node\.summary =/.test(src) && /node\.evidence =/.test(src) && /node\.artifacts =/.test(src), 'S §28b deriveNodeOutputs 产 summary/evidence/artifacts');
 // §28a:子代理循环边界压缩;Claude 引擎不引入。
-ok(/await maybeCompactSubHistory\(\{ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId \}\)/.test(src), 'S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory(45f P3-3:带 tools 估算口径;代理模式 v2:带 runId 供压缩费用归属)');
-ok(/subHistory\.splice\(0, subHistory\.length, \.\.\.reseeded\)/.test(src), 'S §28a L2 重播种用【原地 splice】(const 闭包安全)');
+ok(/await maybeCompactSubHistory\(\{ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState \}\)/.test(src), 'S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory(45f P3-3:带 tools 估算口径;代理模式 v2:带 runId 供压缩费用归属;带滞回水位 state)');
+ok(/subHistory\.splice\(0, subHistory\.length, \.\.\.r\.reseeded\)/.test(src) && /subHistory\.splice\(0, subHistory\.length, \.\.\.forced\.reseeded\)/.test(src), 'S §28a L2 重播种(自动 / 强压两条路)都用【原地 splice】(const 闭包安全)');
 {
   const claudeOnce = (src.match(/async function runClaudeSubAgentOnce\([\s\S]*?\nasync function runSubAgentCore\(/) || [''])[0];
   // 排除注释里对这些词的提及,只查真实代码模式(声明/调用)。
@@ -95,7 +95,9 @@ const g = new Function('estimateContentTokens', blk[0] + '\nreturn { deriveNodeO
 // ══════════════════════════════════════════════════════════════════════════════════════════════════
 console.log('\n── [A] §28a maybeCompactSubHistory ──');
 const mm = src.match(/async function maybeCompactSubHistory\(opts\) \{[\s\S]*?\n\}/);
-ok(!!mm, 'A 源抽取 maybeCompactSubHistory');
+// 子代理与主回合共用的两级压缩内核(10 runAutoCompaction)—— 一起抽出来跑,判据只有一处。
+const km = src.match(/async function runAutoCompaction\(ctx\) \{[\s\S]*?\n\}/);
+ok(!!mm && !!km, 'A 源抽取 maybeCompactSubHistory + 共用内核 runAutoCompaction');
 // 抽真 evaporateHistory + recentTurnsBoundary(保真);其余注入桩。
 const em = src.match(/function evaporateHistory\(history(?:, opts)?\) \{[\s\S]*?\n\}/);
 const evaporateHistory = new Function('EVAPORATED_PREFIX', em[0] + '\nreturn evaporateHistory;')('[已省略:'); // 注入模块级常量
@@ -135,9 +137,9 @@ const historyReadDedupEnabled = require(SERVER).historyReadDedupEnabled; // 126-
 const reseedTailUnitsEnabled = require(SERVER).reseedTailUnitsEnabled;
 const repairProviderHistoryPairing = require(SERVER).repairProviderHistoryPairing;
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled', 'historyReadDedupEnabled', 'reseedTailUnitsEnabled', 'repairProviderHistoryPairing',
-  mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled, historyReadDedupEnabled, reseedTailUnitsEnabled, repairProviderHistoryPairing);
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled', 'historyReadDedupEnabled', 'reseedTailUnitsEnabled', 'repairProviderHistoryPairing', 'logEvent',
+  km[0] + '\n' + mm[0] + '\nreturn maybeCompactSubHistory;'
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled, historyReadDedupEnabled, reseedTailUnitsEnabled, repairProviderHistoryPairing, () => {});
 
 // ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
 // 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。
@@ -233,6 +235,32 @@ const prov = { id: '__context_governance_fixture__', model: 'm', contextWindow: 
     const ids = new Set(sub.filter(m => m.role === 'tool').map(m => m.tool_call_id));
     ok(sub.filter(m => Array.isArray(m.tool_calls)).flatMap(m => m.tool_calls).every(tc => ids.has(tc.id)),
       'A(5) L2 固定尾部后 tool_call/tool 配对仍完整');
+  }
+
+  // (6) 滞回水位(与主回合共用内核后子代理才有):压完记下水位;之后估算越过预算但没越过「水位 + max(2K, 2% 窗口)」
+  //     就不再压 —— 修前子代理没有水位,贴着预算线时每迭代白蒸发一次、白付一次 L2 摘要。对照组不给 state,同一份历史照压。
+  {
+    summaryOk = true;
+    const mk = () => [
+      { role: 'user', content: 'task' },
+      { role: 'assistant', content: '', tool_calls: [{ id: 't1', type: 'function', function: { name: 'x', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 't1', content: 'Z'.repeat(3200) },
+      { role: 'assistant', content: 'a2' },
+      { role: 'assistant', content: 'a3' },
+    ];
+    const state = { watermark: 0 };
+    const sub = mk();
+    const first = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {}, state });
+    ok(first === true && state.watermark > 0 && state.watermark < 800, `A(6) 压完记下滞回水位(${state.watermark})`);
+    sub.push({ role: 'user', content: 'Y'.repeat(3000) });            // 估算越过 800 的预算,但没越过 水位 + 2000
+    let ev = 0;
+    const second = await maybeCompactSubHistory({ subHistory: sub, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => { ev++; }, state });
+    ok(second === false && ev === 0, 'A(6) 水位以内不再压(零事件、零摘要调用)');
+    const control = mk();
+    await maybeCompactSubHistory({ subHistory: control, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {} });
+    control.push({ role: 'user', content: 'Y'.repeat(3000) });
+    const third = await maybeCompactSubHistory({ subHistory: control, sys: 'sys', provider: prov, subModel: 'm', config: cfg, onEvent: () => {} });
+    ok(third === true, 'A(6) 对照:不带水位的同一份历史会再压一次');
   }
 
   // ============ A2: base64 图片字段专用处理 ============

@@ -7000,20 +7000,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "CompactionPlan",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "evaporateHistory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -7035,13 +7021,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "providerSummaryCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "recordCompactUsage",
           "kinds": [
             "call"
@@ -7049,7 +7028,21 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "runForcedOverflowCompaction",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "truncateToolResult",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "writeHistorySnapshot",
           "kinds": [
             "call"
           ]
@@ -8591,20 +8584,6 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "CompactionPlan",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "evaporateHistory",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
           "symbol": "historyStartsWithCompactionSummary",
           "kinds": [
             "call"
@@ -8620,13 +8599,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "maybeAutoCompact",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "10-context-governance.js",
-          "symbol": "measureObservationReductionShadow",
           "kinds": [
             "call"
           ]
@@ -8654,14 +8626,14 @@
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "providerSummaryCall",
+          "symbol": "recordCompactUsage",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "10-context-governance.js",
-          "symbol": "recordCompactUsage",
+          "symbol": "runForcedOverflowCompaction",
           "kinds": [
             "call"
           ]
@@ -8818,6 +8790,8 @@
         "resolveContextWindow",
         "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
+        "runAutoCompaction",
+        "runForcedOverflowCompaction",
         "runProviderCompact",
         "runSessionTurn",
         "singleSummaryCall",
