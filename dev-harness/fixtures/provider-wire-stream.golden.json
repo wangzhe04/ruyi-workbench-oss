@@ -1212,7 +1212,7 @@
   "events": [
    {
     "type": "raw_line",
-    "line": "{\"type\":\"response.failed\",\"response\":{\"last_error\":{\"code\":\"bad_key sk-abcdefghijklmnopqrstuvwxyz0123456789\"}}}",
+    "line": "{\"type\":\"response.failed\",\"response\":{\"last_error\":{\"code\":\"bad_key sk-xxxxabcdefghijklmnopqrstuvwxyz0123456789\"}}}",
     "seq": 0
    }
   ],

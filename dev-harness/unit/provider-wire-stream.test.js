@@ -59,8 +59,9 @@ const tc = (index, id, name, args) => {
   if (name !== undefined || args !== undefined) t.function = fn;
   return { choices: [{ delta: { tool_calls: [t] } }] };
 };
-// 假密钥运行时拼出来(repo-hygiene 的全仓密钥扫描不会把夹具当真密钥)。
-const FAKE_KEY = ['sk', 'abcdefghijklmnopqrstuvwxyz0123456789'].join('-');
+// 假密钥运行时拼出来、并带 xxxx 占位标记:它仍命中脱敏规则(这正是要测的),而 golden 里逐字记下的 raw_line
+// 会被 repo-hygiene 的全仓密钥扫描认作示例(PLACEHOLDER_RE),不当真密钥。
+const FAKE_KEY = ['sk', 'xxxxabcdefghijklmnopqrstuvwxyz0123456789'].join('-');
 
 // 每条语料:body = 调用方交给 openAiStreamOnce 的请求体;steps = fetch 桩逐发的回应。
 //   { sse, chunk } 流式回体;{ json } 无 body 流的非流式回体;{ status, text } 非 2xx;{ throw } fetch 抛错。
