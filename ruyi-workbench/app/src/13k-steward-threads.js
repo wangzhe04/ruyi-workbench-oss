@@ -122,7 +122,7 @@ function stewardWorkspaceNameOf(stewardNameCwd, stewardNameConfig, stewardNameKn
   }
   return {
     name: best ? best.label : (path.basename(canon) || canon),
-    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot()),
+    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot(), dataRootAliases()),
   };
 }
 

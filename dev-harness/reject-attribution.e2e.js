@@ -132,7 +132,8 @@ async function runRejectScenario({ label, wording, ok }) {
       '(no-tools) requestHasTools guard present (tools-first branch cannot fire for tool-less requests)');
     ok(src.includes('if (requestHasTools && toolsSemantics) {'),
       '(no-tools) tools-rejected priority is gated on requestHasTools (no-tools 400 skips it)');
-    ok(src.includes(String.raw`if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {`),
+    // hunt2-turnloop:嗅探正则不再认裸 invalid(OpenAI 系所有 400 的 type 都是 invalid_request_error),多认 include_usage。
+    ok(src.includes(String.raw`} else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {`),
       '(no-tools) stream_options retry branch preserved (still reachable for non-tools 400s)');
   }
 

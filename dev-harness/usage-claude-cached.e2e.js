@@ -127,8 +127,10 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     ok(cachedRow && cachedRow.cachedInTok === CACHED_EXPECT,
       '② cachedInTok === ' + CACHED_EXPECT + '(500 读 + 100 创建相加，读法与 05:761 对齐；got ' + (cachedRow && cachedRow.cachedInTok) + ')');
     const cr = cachedRow || {};
-    ok(cachedRow && cr.inTok === CL_IN && cr.outTok === CL_OUT && near(cr.cost, CL_COST) && cr.currency === 'USD' && cr.costTrusted === true,
-      '② 费用计算不受影响：inTok/outTok/cost/currency/costTrusted 与无缓存时的既有值一致(812/214/0.0123 USD trusted；got '
+    // hunt2-engines#2:inTok 归一成账本口径(输入 + 缓存两项,Claude 的 input_tokens 不含缓存),812 → 812+600;
+    // 费用那一半的断言原样 —— 定价仍按 CLI 原始 input_tokens。
+    ok(cachedRow && cr.inTok === CL_IN + CACHED_EXPECT && cr.outTok === CL_OUT && near(cr.cost, CL_COST) && cr.currency === 'USD' && cr.costTrusted === true,
+      '② 费用计算不受影响：inTok(含缓存)/outTok/cost/currency/costTrusted 与既有值一致(1412/214/0.0123 USD trusted；got '
       + cr.inTok + '/' + cr.outTok + '/' + cr.cost + '/' + cr.currency + '/' + cr.costTrusted + ')');
 
     // ③ cachehit Claude 子代理(07-autonomy.js 的 appendUsageLedger)。
@@ -154,8 +156,8 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     ok(subRow && subRow.cachedInTok === CACHED_EXPECT,
       '③ 子代理行 cachedInTok === ' + CACHED_EXPECT + '(got ' + (subRow && subRow.cachedInTok) + ')');
     const sr = subRow || {};
-    ok(subRow && sr.inTok === CL_IN && sr.outTok === CL_OUT && near(sr.cost, CL_COST),
-      '③ 子代理行费用计算同样不受影响(812/214/0.0123；got ' + sr.inTok + '/' + sr.outTok + '/' + sr.cost + ')');
+    ok(subRow && sr.inTok === CL_IN + CACHED_EXPECT && sr.outTok === CL_OUT && near(sr.cost, CL_COST),
+      '③ 子代理行费用计算同样不受影响(inTok 含缓存 1412/214/0.0123；got ' + sr.inTok + '/' + sr.outTok + '/' + sr.cost + ')');
 
     // ④ 下游 /api/usage/summary:看板口径不再对 Claude 会话恒为空。
     const sum = (await getJson(WB_PORT, '/api/usage/summary?range=today', hdr)).json;
@@ -165,6 +167,16 @@ const isTerminal = s => s === 'succeeded' || s === 'failed' || s === 'partial' |
     const engClaude = sum && sum.byEngine.find(e => e.engine === 'claude');
     ok(engClaude && Number(engClaude.cachedInTok) > 0,
       '④ byEngine claude 一行 cachedInTok > 0(此前对 Claude 会话恒为空的那一栏；got ' + (engClaude && engClaude.cachedInTok) + ')');
+
+    // ⑤ hunt2-engines#2:input_tokens(3) 远小于缓存(48000 读 + 2000 创建)的真实形状。修前 appendUsageLedger 把
+    //    cachedInTok 夹成 min(inTok=3, 50000)=3,看板这一回合少记近 5 万 token;修后 inTok=50003、cachedInTok=50000。
+    const before = readRecs().filter(r => r.kind === 'turn').length;
+    await postStream(WB_PORT, { sessionId: sid, message: 'cacheheavy 重缓存回合', cwd: HOME });
+    await waitFor('cacheheavy turn ledger row flushed', () => readRecs().filter(r => r.kind === 'turn').length > before);
+    const heavy = readRecs().filter(r => r.kind === 'turn').slice(before)[0] || {};
+    ok(heavy.inTok === 3 + 48000 + 2000 && heavy.cachedInTok === 48000 + 2000,
+      '⑤ input < cache:inTok 含缓存(50003)、cachedInTok 不被夹小(50000;got ' + heavy.inTok + '/' + heavy.cachedInTok + ')');
+    ok(near(heavy.cost, CL_COST) && heavy.costTrusted === true, '⑤ 费用仍是 CLI 的 total_cost_usd(got ' + heavy.cost + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e.message || e)); fail++; }
   finally {
     killp(wb);

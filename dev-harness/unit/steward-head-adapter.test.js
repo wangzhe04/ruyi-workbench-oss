@@ -2,6 +2,7 @@
 // 架构还债批 1 #1:会话头 → 五态证据只走 06i 的 stewardThreadStateFromHead 一处。
 //   [H1] 适配器与修前四处手写的喂法逐键等价(穷举 head 形状:无头 / 无账本 / 有账本 / 收工 / 末回合失败 / 中断)。
 //   [H2] 06i 之外不再手写会话头证据键(13d / 13k / 13o / 13r 修前各一份)。
+//   [H3] hunt2-steward ④:没盖到当前回合的成败账(last.seq < turnSeq)不算数(收件箱第四源见 steward-runner-races.test.js)。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -31,12 +32,12 @@ test('[H1] 适配器与修前手写喂法逐键等价', () => {
     null,
     { id: 's1' },
     { id: 's2', turnSeq: 3 },
-    { id: 's3', turnSeq: 2, stewardLastTurn: { ok: false } },
-    { id: 's4', turnSeq: 2, stewardLastTurn: { ok: true, aborted: true } },
+    { id: 's3', turnSeq: 2, stewardLastTurn: { seq: 2, ok: false } },
+    { id: 's4', turnSeq: 2, stewardLastTurn: { seq: 2, ok: true, aborted: true } },
     { id: 's5', mission: {} },
     { id: 's6', turnSeq: 1, mission: { autoMode: 'until-done' } },
     { id: 's7', turnSeq: 4, mission: { result: { status: 'complete' } } },
-    { id: 's8', turnSeq: 4, mission: { result: { status: 'stopped' } }, stewardLastTurn: { ok: false } },
+    { id: 's8', turnSeq: 4, mission: { result: { status: 'stopped' } }, stewardLastTurn: { seq: 4, ok: false } },
   ];
   const extras = [
     { kind: 'mission' },
@@ -56,6 +57,14 @@ test('[H2] 06i 之外不再手写会话头证据键', () => {
     if (/head\.stewardLastTurn\.ok === false/.test(text) || /ledgerless:\s*!\(?head/.test(text)) offenders.push(f);
   }
   assert.deepEqual(offenders, [], '会话头证据键请经 stewardThreadStateFromHead(06i)读,不要在调用面手写');
+});
+
+test('[H3] 过期的 stewardLastTurn 不把后来的回合判成失败', () => {
+  const stale = { id: 'sess_aaaaaaaaaaaaaaaa', turnSeq: 2, stewardLastTurn: { seq: 1, ok: false, aborted: false, errorClass: 'idle_timeout' } };
+  assert.equal(stewardThreadStateFromHead(stale, { kind: 'mission' }).sources.lastTurnFailed, false, '过期账 -> lastTurnFailed:false');
+  assert.equal(stewardThreadStateFromHead(stale, { kind: 'mission' }).state, 'done');
+  const fresh = { ...stale, stewardLastTurn: { seq: 2, ok: false } };
+  assert.equal(stewardThreadStateFromHead(fresh, { kind: 'mission' }).sources.lastTurnFailed, true, '盖得住的失败账照算');
 });
 
 process.on('exit', () => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });

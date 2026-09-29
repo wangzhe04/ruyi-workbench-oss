@@ -96,6 +96,18 @@ const SESSIONS = [
       { role: 'assistant', content: '先放 10%,观察一小时再全量。' },
     ],
   },
+  // v2 索引:长对话中间问过的事(v1 只收首条 user + 末尾 6 条,这一句永远搜不到);系统行 / 后台回执不进索引。
+  {
+    id: 'sess-epsilon', title: '无关标题戊', summary: '', cwd: 'C:/work/epsilon',
+    messages: [
+      { role: 'user', content: '先帮我看看项目结构' },
+      { role: 'assistant', content: '项目分三层。' },
+      { role: 'user', content: '下载器要支持断点续传,中断后从已下载的字节接着拉' },
+      { role: 'assistant', content: '用 Range 请求头实现了。' },
+      { role: 'system', content: '[代理完成通知 succeeded] 噪声回执独有词 ZXQJ', backgroundJobId: 'agent:run_x' },
+      ...Array.from({ length: 8 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `后续闲聊第 ${i} 条` })),
+    ],
+  },
 ];
 
 function seed(home) {
@@ -182,11 +194,11 @@ try {
   // 工作台首次启动会自己建一条空会话，所以不能硬碰夹具数量 ——
   // 对账口径是“与 /api/sessions 列出的会话一一对应”。
   const listed = (await get(PORT, '/api/sessions', auth)).json?.sessions || [];
-  ok(index1.version === 1 && Object.keys(index1.entries).length === listed.length,
-    `D2 索引版本 1 且与会话列表一一对应(索引 ${Object.keys(index1.entries || {}).length} 条 / 列表 ${listed.length} 条)`);
-  ok(SESSIONS.every(fixture => fixture.id in index1.entries), 'D2b 四条夹具会话全在索引里');
-  ok(Object.values(index1.entries).every(entry => typeof entry.unit === 'string' && entry.unit.length <= 4096),
-    'D3 每条检索单元不超过 4KB 上限');
+  ok(index1.version === 2 && Object.keys(index1.entries).length === listed.length,
+    `D2 索引版本 2 且与会话列表一一对应(索引 ${Object.keys(index1.entries || {}).length} 条 / 列表 ${listed.length} 条)`);
+  ok(SESSIONS.every(fixture => fixture.id in index1.entries), 'D2b 夹具会话全在索引里');
+  ok(Object.values(index1.entries).every(entry => typeof entry.unit === 'string' && entry.unit.length <= 8192),
+    'D3 每条检索单元不超过 8K 字符上限');
 
   // 改一条会话的正文与 updatedAt -> 只有它的 stamp 变
   const betaHead = JSON.parse(fs.readFileSync(path.join(HOME, 'sessions', 'sess-beta.json'), 'utf8'));
@@ -208,7 +220,7 @@ try {
   fs.writeFileSync(indexPath, '{ this is not json');
   const afterCorrupt = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('here-string'), auth);
   ok((afterCorrupt.json?.results || [])[0]?.id === 'sess-beta', 'D6 索引损坏时自动重建,搜索结果不受影响');
-  ok(JSON.parse(fs.readFileSync(indexPath, 'utf8')).version === 1, 'D7 损坏的索引已被重写为合法版本');
+  ok(JSON.parse(fs.readFileSync(indexPath, 'utf8')).version === 2, 'D7 损坏的索引已被重写为合法版本');
 
   // ── E 上限与形状 ──────────────────────────────────────────────────────────────────────────
   const limited = await get(PORT, '/api/sessions/search?limit=1&q=' + encodeURIComponent('一下'), auth);
@@ -238,6 +250,19 @@ try {
   const betaRow = (hereString.json?.results || []).find(r => r.id === 'sess-beta') || {};
   ok(!('briefTitle' in betaRow) && !('briefGist' in betaRow),
     'G3 没有摘要的会话这两个键根本不出现(存量载荷逐字节不变)');
+
+  // ── H 搜得全、不搜垃圾(v2 索引与排序)─────────────────────────────────────────────────────────
+  const middle = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('断点续传'), auth);
+  ok((middle.json?.results || [])[0]?.id === 'sess-epsilon', `H1 长对话中间问过的事能搜到(${JSON.stringify((middle.json?.results || []).map(r => r.id))})`);
+  ok(/断点续传/.test((middle.json?.results || [])[0]?.snippet || ''), 'H1b 摘录落在命中处');
+  const noise = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('噪声回执独有词 ZXQJ'), auth);
+  ok((noise.json?.results || []).length === 0, `H2 后台回执 / 系统行不进索引(${JSON.stringify((noise.json?.results || []).map(r => r.id))})`);
+  // 只沾一个常见词的会话不算命中:「导出」只在 alpha 里出现,但查询另外两个词它都没有
+  const weak = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('导出 季度报表 同比'), auth);
+  ok(!(weak.json?.results || []).some(r => r.id === 'sess-alpha'), `H3 只沾一个词的会话不进结果(${JSON.stringify((weak.json?.results || []).map(r => r.id))})`);
+  // 摘录取命中词最多的那一段
+  const multi = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('Range 请求头'), auth);
+  ok(/Range 请求头/.test((multi.json?.results || [])[0]?.snippet || ''), 'H4 摘录取命中查询词最多的那一段');
 } finally {
   kill(server);
   kill(serverOff);

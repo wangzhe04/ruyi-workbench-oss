@@ -108,7 +108,8 @@ ok(has(src, 'function renderAgentRuns', 'async function loadAgentRuns', 'functio
   '⑨ 核心函数仍在(renderAgentRuns/loadAgentRuns/agentRunAction)');
 ok(has(renderBody, "'.agent-run-card'", "'.agent-node'") && has(renderBody, 'dataset.runId', 'dataset.nodeId'),
   '⑨ 保留 .agent-run-card/.agent-node 基类 + data-run-id/data-node-id(展开态保存不回归)');
-ok(has(src, 'setInterval(loadAgentRuns, 2000)'), '⑨ 2s 轮询协议未改');
+// frontend2(hunt2):心跳经 agentRunsTick(列表不在屏上的那一拍跳过),周期与请求协议不变。
+ok(has(src, 'setInterval(agentRunsTick, 2000)') && /function agentRunsTick\(\)\s*\{[^}]*loadAgentRuns\(\)/.test(src), '⑨ 2s 轮询协议未改');
 
 if (fail === 0) console.log('\nAGENT WORKFLOW MONITOR UI E2E: ALL PASS');
 else { console.log(`\nAGENT WORKFLOW MONITOR UI E2E: ${fail} FAIL`); process.exitCode = 1; }

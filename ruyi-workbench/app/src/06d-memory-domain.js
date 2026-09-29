@@ -1803,7 +1803,10 @@ function effectiveMemorySelection(session, registry, cwd) {
 // 113a: 第五个参数 config 是可选的 —— 三个真实调用点（Claude 引擎/Provider 引擎/工作流节点）手里都已经有
 // config，直接传进来比在这里多读一次配置文件便宜（readConfig 无缓存）。缺省时自己读，
 // 旧调用方与测试（workbench-memory-core.e2e.js 直接调本函数）无需改动。
-async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null) {
+// hunt2-mcp:第六个参数 options.cliType —— 本回合跑的是哪个原生 CLI('claude' / 'kimi';provider 引擎不传)。
+// 那个 CLI 自己会读的导入条目(agentmd-claude-md-* 之类)在【算核心预算之前】就摘掉:修前摘在调用点、预算之后,
+// 重复条目先把核心名额占满、又被丢弃,用户自己的核心记忆反倒被挤出去。
+async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null, options = {}) {
   let registry = [];
   try { registry = await loadMemoryRegistry(cwd); } catch {
     return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
@@ -1837,13 +1840,22 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     if (!memoryIsExpired(e)) eligible.push(e);
     if (explicit && eligible.length >= fixedSelectionMax) break;
   }
+  const nativeCli = options && options.cliType ? String(options.cliType) : '';
+  if (nativeCli) {
+    const kept = filterMemoryForNativeCli(eligible, nativeCli);
+    eligible.length = 0;
+    eligible.push(...kept);
+  }
   const coreState = await resolveCoreMemoryState(cwd, eligible, effectiveConfig);
   const coreEntries = coreState.active;
   const coreKeys = new Set(coreEntries.map(e => e.scope + ':' + e.id));
+  // hunt2-mcp:相关记忆在【去掉已激活核心之后】的候选里排 Top-N。修前先在含核心的全集里取 Top-N、再滤核心,
+  // 核心条目恰好最相关时名额全被它们占掉,related 变成空,而明明还有匹配的非核心记忆。
+  const nonCore = eligible.filter(e => !coreKeys.has(e.scope + ':' + e.id));
   const ranked = explicit
-    ? eligible // 固定选择不走排序，向量开关对它本来就不适用
-    : rankMemoriesForRecall(eligible, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
-  const entries = ranked.filter(e => !coreKeys.has(e.scope + ':' + e.id));
+    ? nonCore // 固定选择不走排序，向量开关对它本来就不适用
+    : rankMemoriesForRecall(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
+  const entries = ranked;
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
     touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),

@@ -112,4 +112,16 @@ describe('createNdjsonLineFeeder', () => {
     feeder.flush();
     assert.deepEqual(lines, ['line1', 'line2']);
   });
+
+  it('⑨ hunt2-engines#4:一条 20MB 的单行按 64KB 分块喂入是线性的(修前每块整段重切,O(n²) 实测 ~8s)', () => {
+    const lines = [];
+    const feeder = createNdjsonLineFeeder(line => lines.push(line.length));
+    const big = Buffer.from('{"a":"' + 'x'.repeat(20 * 1024 * 1024) + '"}\n{"b":1}\n', 'utf8');
+    const t0 = Date.now();
+    for (let i = 0; i < big.length; i += 65536) feeder.push(big.subarray(i, i + 65536));
+    feeder.flush();
+    const ms = Date.now() - t0;
+    assert.deepEqual(lines, [20 * 1024 * 1024 + 8, 7], '两行都完整交出');
+    assert.ok(ms < 2500, `20MB 单行应在秒级内喂完(实测 ${ms}ms;修前约 8000ms)`);
+  });
 });

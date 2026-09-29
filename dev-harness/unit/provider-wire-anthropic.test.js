@@ -373,3 +373,74 @@ test('[A9] 新 Claude 模型的请求面(Opus 5.5 / Sonnet 5.5)', () => {
   assert.equal(wire.retryOn400({ model: 'm', thinking: { type: 'between_tools' }, messages: [] }, '"thinking.type.between_tools" is not supported for this model.').thinking, undefined);
   assert.ok(!('fallbacks' in wire.retryOn400({ model: 'm', fallbacks: 'default', messages: [] }, 'fallbacks: Extra inputs are not permitted')));
 });
+
+// 找 bug 波(Sonnet 复核)钉住的五条:每条先在修前的代码上复现过。
+test('[A10] 签名失配报文点名 block_binding 时仍去掉思考块(不原样重打)', () => {
+  const officialErr = 'messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation. Remove the block, or set `thinking.block_binding.prefix_mismatch_behavior` to "drop_block".';
+  const history = [{ role: 'user', content: [{ type: 'text', text: 'q' }] }, { role: 'assistant', content: [{ type: 'thinking', thinking: 't', signature: 'S' }, { type: 'tool_use', id: 'x', name: 'f', input: {} }] }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: 'r' }] }];
+  for (const thinking of [{ type: 'adaptive', display: 'summarized' }, { type: 'between_tools' }]) {
+    const body = { model: 'claude-sonnet-5-5', thinking, messages: history };
+    const retried = wire.retryOn400(body, officialErr);
+    assert.ok(retried, `${thinking.type}:要重打`);
+    assert.notDeepEqual(retried, body, `${thinking.type}:重打体必须和原体不同`);
+    assert.ok(!JSON.stringify(retried.messages).includes('"thinking"'), `${thinking.type}:思考块被去掉`);
+    assert.deepEqual(retried.thinking, thinking, `${thinking.type}:思考设置本身不动`);
+  }
+});
+
+test('[A10] 开着思考时不发 temperature', () => {
+  const body = wire.encodeMessages({ model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], stream: true, provider: OFFICIAL, hasTools: true });
+  assert.equal(body.thinking && body.thinking.type, 'adaptive', '前提:Sonnet 4.6 在官方主机默认开自适应思考');
+  assert.ok(!('temperature' in wire.applyTemperature(body, 0.2)), '思考 + temperature 会被 API 拒');
+  assert.equal(wire.applyTemperature({ model: 'claude-sonnet-4-6', thinking: { type: 'disabled' } }, 0.2).temperature, 0.2, '显式关思考照发');
+  assert.equal(wire.applyTemperature({ model: 'claude-sonnet-4-6' }, 0.2).temperature, 0.2, '没开思考照发');
+});
+
+test('[A10] message_delta 里为 null 的用量字段不抹掉 message_start 的计数', () => {
+  const { usages } = runStream([
+    { type: 'message_start', message: { id: 'm', model: 'claude-opus-5-5', usage: { input_tokens: 100, cache_read_input_tokens: 5000, cache_creation_input_tokens: 0, output_tokens: 1 } } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'ok' } },
+    { type: 'content_block_stop', index: 0 },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { input_tokens: null, cache_read_input_tokens: null, cache_creation_input_tokens: null, output_tokens: 20 } },
+    { type: 'message_stop' },
+  ]);
+  assert.equal(usages.length, 1);
+  assert.equal(usages[0].prompt_tokens, 5100);
+  assert.equal(usages[0].completion_tokens, 20);
+});
+
+test('[A10] 空文本块不进回放块', () => {
+  const { out } = runStream([
+    { type: 'message_start', message: { id: 'm', model: 'claude-opus-5-5', usage: { input_tokens: 1, output_tokens: 1 } } },
+    { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '', signature: '' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: '想' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'SIG' } },
+    { type: 'content_block_stop', index: 0 },
+    { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
+    { type: 'content_block_stop', index: 1 },
+    { type: 'content_block_start', index: 2, content_block: { type: 'tool_use', id: 'toolu_a', name: 'f', input: {} } },
+    { type: 'content_block_stop', index: 2 },
+    { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5 } },
+    { type: 'message_stop' },
+  ], 'claude-opus-5-5');
+  assert.ok(out.providerBlocks, '有思考块就带回放块');
+  assert.deepEqual(out.providerBlocks.blocks.map(b => b.type), ['thinking', 'tool_use'], '空文本块不回放(API 拒收空文本块)');
+});
+
+test('[A10] 同一 tool_use_id 只出一块 tool_result', () => {
+  const body = wire.encodeMessages({
+    model: 'claude-opus-5-5', stream: true, provider: GATEWAY, hasTools: true,
+    messages: [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: 'q' },
+      { role: 'assistant', content: '', tool_calls: [{ id: 'a', type: 'function', function: { name: 'f', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 'a', content: '[工具结果丢失]' },
+      { role: 'system', content: 'rule' },
+      { role: 'tool', tool_call_id: 'a', content: 'real' },
+    ],
+  });
+  const results = body.messages.flatMap(m => m.content).filter(b => b.type === 'tool_result');
+  assert.equal(results.length, 1);
+  assert.equal(results[0].content, 'real', '留后到的真结果');
+});

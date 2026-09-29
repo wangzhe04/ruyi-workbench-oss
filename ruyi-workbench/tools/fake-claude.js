@@ -20,7 +20,9 @@ if (process.env.WCW_FAKE_ARGV_CAPTURE) { try { fs.writeFileSync(process.env.WCW_
 if (process.env.WCW_FAKE_ENV_CAPTURE) {
   try {
     // 145-W3:PATH 也记下 —— 钉「随包 vendor-bin 前置进 CLI 子进程 PATH(Bash 里裸 rg 找得到)」。
-    const keys = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'PATH'];
+    // hunt2-engines#9:WCW_* 回环凭据也记下 —— 钉「令牌不进 CLI 进程环境(模型的 Bash 会继承),只在 --mcp-config 的 env 块里」。
+    const keys = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'PATH',
+      'WCW_TOKEN', 'WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_PERMISSION_TIMEOUT_MS'];
     const snapshot = {}; for (const k of keys) snapshot[k] = process.env[k] ?? null;
     fs.writeFileSync(process.env.WCW_FAKE_ENV_CAPTURE, JSON.stringify(snapshot, null, 2));
   } catch { /* ignore */ }
@@ -100,6 +102,12 @@ function build(scenario) {
     events.push(...textDeltas(REPLY));
     events.push(assistantText(REPLY));
     events.push(resultEvt(REPLY, { cache_read_input_tokens: 500, cache_creation_input_tokens: 100 }));
+  } else if (scenario === 'cacheheavy') {
+    // hunt2-engines#2 测试缝:真 CLI 重缓存回合的形状 —— input_tokens 只有个位数(它【不含】缓存两项),
+    // 缓存读/创建是它的上万倍。账本若按 min(inTok, cachedInTok) 夹住而不先归一,缓存就被夹成 3。
+    events.push(...textDeltas(REPLY));
+    events.push(assistantText(REPLY));
+    events.push(resultEvt(REPLY, { input_tokens: 3, cache_read_input_tokens: 48000, cache_creation_input_tokens: 2000 }));
   } else {
     events.push(...textDeltas(REPLY));
     events.push(assistantText(REPLY)); // whole message — should be deduped against the deltas
@@ -110,7 +118,7 @@ function build(scenario) {
 
 function scenarioFromEnvAndPrompt(prompt) {
   let scenario = process.env.WCW_FAKE_SCENARIO || 'happy';
-  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'agents-background', 'steer', 'cachehit']) if (prompt.includes(k)) scenario = k;
+  for (const k of ['thinking', 'tools', 'error', 'ask', 'agents', 'agents-background', 'steer', 'cachehit', 'cacheheavy', 'stderrflood']) if (prompt.includes(k)) scenario = k;
   return scenario;
 }
 
@@ -192,6 +200,12 @@ async function main() {
   // 47a 测试缝:WCW_FAKE_SLOW_MS 整体放慢(默认 0 关闭)—— 给 steer 等并发操作确定性窗口,防时序 flake。
   const slowMs = Number(process.env.WCW_FAKE_SLOW_MS) || 0;
   if (slowMs > 0) await sleep(slowMs);
+  // hunt2-engines#17 测试缝:先往 stderr 刷约 1MB 诊断(头尾各一个标记),再按默认场景正常答完。
+  if (scenario === 'stderrflood') {
+    process.stderr.write('STDERR-HEAD\n');
+    for (let i = 0; i < 1024; i++) process.stderr.write('noise '.repeat(170) + '\n');
+    process.stderr.write('STDERR-TAIL\n');
+  }
 
   if (scenario.endsWith('.jsonl') && fs.existsSync(scenario)) {
     const fixtureDelay = Number(process.env.WCW_FAKE_REPLAY_DELAY_MS)

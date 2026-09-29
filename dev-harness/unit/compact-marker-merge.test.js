@@ -112,6 +112,7 @@ function extract(name) {
   assert.ok(match, `extract ${name}`);
   return match[0];
 }
+const summaryCalls = { n: 0 };
 function autoCompactHarness(estimates) {
   const events = [], saves = [], snapshots = [];
   const ctx = {
@@ -135,7 +136,7 @@ function autoCompactHarness(estimates) {
       for (let i = 0; i < Math.min(3, history.length); i++) if (String(history[i].content || '').length > 10) { history[i].content = '[已蒸发] ' + '长'.repeat(40); n++; }
       return n;
     },
-    providerSummaryCall: async () => ({ ok: false, error: 'summary offline' }), // L2 恒败:L1 保持 + 不中断
+    providerSummaryCall: async () => { summaryCalls.n++; return { ok: false, error: 'summary offline' }; }, // L2 恒败:L1 保持 + 不中断
     resolveCompactionProvider: () => ({ provider: null, model: '', isDefault: true }),
     recordCompactUsage: () => {},
     recentTurnsBoundary: () => 0,
@@ -188,4 +189,25 @@ test('L2 失败保持 L1 结果并入同一行并落水位;压缩集跨触发合
   assert.equal(await h2.turn(session), true);
   assert.equal(session.messages.filter(m => m.source === 'compact').length, 1, '两次触发行数不变');
   assert.equal(session.messages.find(m => m.source === 'compact').compactMeta.passes, 2);
+});
+
+test('L1 无斩获、L2 失败:也落水位,贴线不再每个迭代边界重打摘要', async () => {
+  const budget = 0.8 * 131072;
+  const short = n => Array.from({ length: n }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: '短' })); // 蒸发不到
+  const session = { id: 's', messages: short(4), providerHistory: short(4) };
+  summaryCalls.n = 0;
+  const h = autoCompactHarness([budget + 500]);
+  assert.equal(await h.turn(session), false, '没压成');
+  assert.equal(summaryCalls.n, 1);
+  assert.deepEqual(h.events.map(e => e.phase), ['started', 'failed']);
+  assert.equal(session.autoCompactWatermark, budget + 500, '失败也落水位(= 这次的估算)');
+  // 下一个迭代边界:估算没怎么涨 → 被水位拦下,不再白等一次摘要
+  const h2 = autoCompactHarness([budget + 900]);
+  assert.equal(await h2.turn(session), false);
+  assert.equal(summaryCalls.n, 1, '贴线时不重打摘要');
+  assert.equal(h2.events.length, 0);
+  // 历史明显再涨 → 再试一次
+  const h3 = autoCompactHarness([budget + 500 + 2621 + 100]);
+  await h3.turn(session);
+  assert.equal(summaryCalls.n, 2);
 });

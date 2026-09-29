@@ -4,7 +4,7 @@
 import { state } from './state.js';
 import { api, wcwToken } from './net.js';
 import { $, el, fmtTokens, toast, stewardShortTitle, workflowTemplateLabel } from './util.js';   // 33 号文 §4：业务名的截短走 util.js 的唯一口径（码点安全，不再 slice 切半代理对）
-import { t } from './i18n.js';
+import { getLocale, hasTranslation, t } from './i18n.js';
 import { createWorkbenchDomain } from './workbench.js';
 // 32 号文 §4（M2-b）：pause/resume 的判据与文案键搬进叶子 js/run-state.js —— 2.0 这张 run 卡与
 // 3.0 管家壳的看板行／抽屉底部同一份（修前四处各写一遍 `live && !paused` 之类的判据）。
@@ -106,6 +106,7 @@ async function openWorkflowEditor(initialId) {
   let connectFromId = '';
   let selectedEdge = null;
   let commitSelectedNode = null;
+  let workflowEditorDirty = () => false;
   // 对抗轮 P2: 切换选中节点前 flush 检查器未应用的编辑(saveDraft 同款,堵"编辑后切走即静默丢弃"的另一半)。
   // 校验失败不阻断切换(免困死),但 doApplyNode 已弹具体错误,这里补一句"已放弃"让丢弃不再无声。
   function flushInspector() {
@@ -121,7 +122,7 @@ async function openWorkflowEditor(initialId) {
   const nodeSelect = document.createElement('select'); nodeSelect.title = t('workflow.canvas.quickSelect');
   const loadBtn=el('button','mini workflow-btn',t('workflow.editor.editSelected')), blankBtn=el('button','mini workflow-btn',t('workflow.editor.newBlank')), addBtn=el('button','mini workflow-btn',t('workflow.editor.addNode')), connectBtn=el('button','mini workflow-btn',t('workflow.editor.connect')), edgeDeleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteEdge')), deleteBtn=el('button','mini danger workflow-btn',t('workflow.editor.deleteNode')); const _tbGroup=(...els)=>{const g=el('div','wf-tb-group');g.append(...els);return g;}; toolbar.append(_tbGroup(templateSelect,loadBtn,blankBtn),el('div','wf-tb-sep'),_tbGroup(nodeSelect,addBtn,deleteBtn),el('div','wf-tb-sep'),_tbGroup(connectBtn,edgeDeleteBtn)); body.appendChild(toolbar);
   const layout=el('div','workflow-editor-layout'), graph=el('div','workflow-graph'), inspector=el('div','workflow-inspector'); layout.append(graph,inspector); body.appendChild(layout);
-  const foot=el('div','modal-actions workflow-editor-foot'), footLeft=el('div','workflow-editor-foot-left'), footRight=el('div','workflow-editor-foot-right'), forkBtn=el('button','mini workflow-btn save-as',t('workflow.editor.saveAsNew')), cancel=el('button','',t('common.cancel')), remove=el('button','ghost-danger',t('workflow.editor.deleteSaved')), save=el('button','',t('common.save')), run=el('button','primary',t('workflow.editor.saveAndRun')); footLeft.append(forkBtn,remove); footRight.append(cancel,save,run); foot.append(footLeft,footRight); const modal=buildModal(t('workflow.editor.title'),body,foot); const modalEl=modal.backdrop.querySelector('.modal'); modalEl?.classList.add('workflow-modal'); const maxBtn=el('button','workflow-window-btn','□'); maxBtn.type='button'; maxBtn.title=t('workflow.editor.maximize'); maxBtn.setAttribute('aria-label',t('workflow.editor.maximize')); modalEl?.querySelector('.modal-head button')?.before(maxBtn);
+  const foot=el('div','modal-actions workflow-editor-foot'), footLeft=el('div','workflow-editor-foot-left'), footRight=el('div','workflow-editor-foot-right'), forkBtn=el('button','mini workflow-btn save-as',t('workflow.editor.saveAsNew')), cancel=el('button','',t('common.cancel')), remove=el('button','ghost-danger',t('workflow.editor.deleteSaved')), save=el('button','',t('common.save')), run=el('button','primary',t('workflow.editor.saveAndRun')); footLeft.append(forkBtn,remove); footRight.append(cancel,save,run); foot.append(footLeft,footRight); const modal=buildModal(t('workflow.editor.title'),body,foot,null,{dirty:()=>workflowEditorDirty()}); const modalEl=modal.backdrop.querySelector('.modal'); modalEl?.classList.add('workflow-modal'); const maxBtn=el('button','workflow-window-btn','□'); maxBtn.type='button'; maxBtn.title=t('workflow.editor.maximize'); maxBtn.setAttribute('aria-label',t('workflow.editor.maximize')); modalEl?.querySelector('.modal-head button')?.before(maxBtn);
   graph.tabIndex=0;graph.addEventListener('contextmenu',e=>e.preventDefault());graph.addEventListener('pointerdown',e=>{if(e.button!==2)return;e.preventDefault();const sx=e.clientX,sy=e.clientY,sl=graph.scrollLeft,st=graph.scrollTop;graph.classList.add('panning');graph.setPointerCapture?.(e.pointerId);const move=ev=>{graph.scrollLeft=sl-(ev.clientX-sx);graph.scrollTop=st-(ev.clientY-sy);};const up=()=>{graph.classList.remove('panning');graph.removeEventListener('pointermove',move);graph.removeEventListener('pointerup',up);};graph.addEventListener('pointermove',move);graph.addEventListener('pointerup',up);},true);
   function syncMeta(){draft.id=idInput.value.trim();draft.title=titleInput.value.trim();draft.description=descInput.value.trim();draft.source=scopeSelect.value;}
   function edgeKey(edge){return edge ? `${edge.from}->${edge.to}` : '';}
@@ -321,19 +322,30 @@ async function openWorkflowEditor(initialId) {
     if(cleared)toast(t("toast.wfNodeDeleted", { p1: cleared }),'');
   };
   async function saveDraft(){if(commitSelectedNode){const okc=commitSelectedNode();if(okc===false){const err=new Error(t('workflow.invalidFields'));err.__quiet=true;throw err;}}syncMeta();const r=await api('/api/agent-workflows',{method:'POST',body:JSON.stringify({scope:draft.source,cwd:currentWorkspace(),workflow:draft})});if(!r.ok)throw new Error(r.error||t('workflow.saveFailed'));draft=cloneWorkflow(r.workflow);await loadAgentWorkflows();return draft;}
-  cancel.onclick=()=>modal.close();save.onclick=async()=>{try{await saveDraft();toast(t('workflow.editor.saved'),'ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};run.onclick=async()=>{try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast(t('workflow.editor.builtinCannotDelete'),'err');if(!confirm(t('workflow.editor.delete.confirm',{title:draft.title||draft.id})))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast(t('workflow.editor.delete.none'),'err');}else{toast(t('workflow.editor.deleted'),'ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
+  // 「保存」「保存并运行」在飞时两枚一起锁住：修前连点两下「保存并运行」= 存两次、起两个一模一样的 run。
+  const lockFoot=on=>{save.disabled=on;run.disabled=on;};
+  cancel.onclick=()=>modal.close();save.onclick=async()=>{if(save.disabled)return;lockFoot(true);try{await saveDraft();toast(t('workflow.editor.saved'),'ok');modal.close();}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}finally{lockFoot(false);}};run.onclick=async()=>{if(run.disabled)return;lockFoot(true);try{const wf=await saveDraft();modal.close();await launchAgentWorkflow(wf);}catch(e){if(!e||!e.__quiet)toast(apiErrText(e),'err');}finally{lockFoot(false);}};remove.onclick=async()=>{syncMeta();if(draft.source==='builtin')return toast(t('workflow.editor.builtinCannotDelete'),'err');if(!confirm(t('workflow.editor.delete.confirm',{title:draft.title||draft.id})))return;try{const r=await api(`/api/agent-workflows/${encodeURIComponent(draft.id)}`,{method:'POST',headers:{'x-http-method':'DELETE'},body:JSON.stringify({scope:draft.source,cwd:currentWorkspace()})});await loadAgentWorkflows();if(r&&r.ok===false){toast(t('workflow.editor.delete.none'),'err');}else{toast(t('workflow.editor.deleted'),'ok');modal.close();}}catch(e){toast(apiErrText(e),'err');}};
   renderGraph();renderInspector();
+  // 点背影／Esc／✕ 前问一句（modal.js 的 dirty 口）：画布与元信息跟打开时不一样，或检查器里敲过还没「应用」的字，
+  // 都算没存的改动。基线取在首帧画完之后（renderGraph 可能给缺坐标的节点补 position）。
+  const editorSig=()=>{try{return JSON.stringify([idInput.value,titleInput.value,descInput.value,scopeSelect.value,draft.nodes]);}catch{return '';}};
+  const editorBaseline=editorSig();
+  let inspectorTouched=false;
+  inspector.addEventListener('input',()=>{inspectorTouched=true;});
+  workflowEditorDirty=()=>inspectorTouched||editorSig()!==editorBaseline;
 }
 
 let agentRunsPoll = null;
 const agentRunSummarySeen = new Set();
 // 团队模式 v2: waiting_pool(收尾宽限窗,等待任务池审批)是活跃 live 态,并入 ACTIVE 集(卡片自动展开、不当作已完成)。
 const AGENT_RUN_ACTIVE = new Set(['running', 'paused', 'waiting_pool']);
+// 没有译文的状态（后端新加的、脏值）退回原值：t() 缺键回的是非空的 `[key]`，`t(k) || status` 永远退不回去。
 function agentRunStatusLabel(status) {
-  return t('workflow.node.status.' + status) || status || t('common.unknown');
+  const key = 'workflow.node.status.' + status;
+  return status && hasTranslation(key) ? t(key) : (status || t('common.unknown'));
 }
 // 团队模式 v2 (A4): 任务池提案状态人话标签。
-function poolStatusLabel(s) { return t('workflow.pool.status.' + s) || s || ''; } // 第50波 i18n
+function poolStatusLabel(s) { const key = 'workflow.pool.status.' + s; return s && hasTranslation(key) ? t(key) : (s || ''); } // 第50波 i18n
 // 团队模式 v2 (A4): 审批/拒绝一条任务池提案 → POST pool_approve/pool_reject（服务器要求 run 仍 live 且未收尾）。
 async function poolDecide(runId, poolId, approve) {
   const sid = state.currentSession?.id; if (!sid) return;
@@ -456,8 +468,20 @@ const {
   syncAgentRunsPolling,
   scheduleRender,
 });
+// 2 秒一拍的轮询修前每拍都把整片监控列表拆掉重建：焦点从「暂停」上掉走、按下还没抬起的那一下点击落空、
+// 选中的字被清掉。现在按内容签名判：数据（连同界面语言、简洁模式）没变就不重建，只把随时间走的那几处读数
+// （已运行时长、节点计时、任务池宽限倒计时）就地改写。写错误文案等绕开本函数改 host 的地方要把签名清空。
+let agentRunsRenderSig = '';
+function agentRunsSignature(runs) {
+  let data = '';
+  try { data = JSON.stringify(runs); } catch { return ''; }
+  return `${getLocale()}\u0000${document.documentElement.getAttribute('data-ui-mode') || ''}\u0000${data}`;
+}
 function renderAgentRuns(runs) {
   const host = $('agentRunsList'); if (!host) return;
+  const sig = agentRunsSignature(runs);
+  if (sig && sig === agentRunsRenderSig) { refreshAgentRunClocks(host, runs); return; }
+  agentRunsRenderSig = sig;
   const knownRuns = new Set([...host.querySelectorAll('.agent-run-card')].map(x => x.dataset.runId).filter(Boolean));
   const openRuns = new Set([...host.querySelectorAll('.agent-run-card[open]')].map(x => x.dataset.runId).filter(Boolean));
   const knownNodes = new Set([...host.querySelectorAll('.agent-node')].map(x => `${x.dataset.runId}:${x.dataset.nodeId}`).filter(Boolean));
@@ -477,7 +501,7 @@ function renderAgentRuns(runs) {
     if ((run.status === 'interrupted' || run.status === 'paused') && run.resumeTier === 'manual_resume_required') agg.appendChild(el('span', 'ar-agg-chip st-interrupted', t('workflow.resumeManual')));
     else if (run.status === 'interrupted' && run.resumeTier === 'auto_resumable') agg.appendChild(el('span', 'ar-agg-chip st-queued', t('workflow.resumeAutomatic')));
     agg.appendChild(el('span', 'ar-agg-nodes', t('workflow.nodes', { done, total: nodes.length })));
-    const elapsed = runElapsedMs(run); if (elapsed) agg.appendChild(el('span', 'ar-agg-time', t(run.live ? 'workflow.elapsed' : 'workflow.duration', { duration: fmtDuration(elapsed) })));
+    const timeText = runTimeText(run); if (timeText) agg.appendChild(el('span', 'ar-agg-time', timeText));
     const cost = runCostLabel(run); if (cost) agg.appendChild(el('span', 'ar-agg-cost', cost));
     sum.appendChild(agg);
     // v3 (§2.9 P2):当前活动行提升到聚合头 —— 收起态也能看到「现在谁在干嘛」。取运行中节点 progressLog 末条。
@@ -543,12 +567,12 @@ function renderAgentRuns(runs) {
       section.appendChild(ptitle);
       if (run.status === 'waiting_pool' && run.live) {
         // v3 (§2.9 P2):宽限窗倒计时改细进度条(发丝倒计时)替代纯秒数文字。
-        const remainMs = run.poolGraceUntil ? Math.max(0, Number(run.poolGraceUntil) - Date.now()) : 0;
+        const graceView = poolGraceView(run);
         const grace = el('div', 'pool-grace');
         const bar = el('div', 'pool-grace-bar'); const fill = el('i');
-        fill.style.width = `${Math.max(0, Math.min(100, Math.round((remainMs / POOL_GRACE_HINT_MS) * 100)))}%`;
+        fill.style.width = graceView.width;
         bar.appendChild(fill); grace.appendChild(bar);
-        grace.appendChild(el('span', 'pool-grace-label num', t('workflow.pool.waitingApproval', { seconds: Math.round(remainMs / 1000) })));
+        grace.appendChild(el('span', 'pool-grace-label num', graceView.label));
         section.appendChild(grace);
       }
       const listItems = simpleMode ? proposedItems : pool;
@@ -563,7 +587,7 @@ function renderAgentRuns(runs) {
         const whatLine = el('div', 'pool-line pool-what', t('workflow.pool.task', { task: simpleMode ? taskShort : taskFull }));
         if (simpleMode && taskFull.replace(/\s+/g, ' ').length > taskShort.length) whatLine.title = taskFull;
         pcard.appendChild(whatLine);
-        pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { maxIters: item.maxIters || 100 })));
+        pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { iters: item.maxIters || 100 })));
         if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', t('workflow.pool.reasonLabel', { reason: item.reason })));
         if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', t('workflow.pool.statusLabel', { status: poolStatusLabel(item.status) }) + (item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '')));
         if (item.status === 'proposed' && run.live) {
@@ -624,15 +648,7 @@ function renderAgentRuns(runs) {
         body.appendChild(bwrap);
       }
       // ── 计时（§2.3）：已运行/用时 now-startedAt。 ──
-      if (node.startedAt) {
-        const st = Date.parse(node.startedAt);
-        if (Number.isFinite(st)) {
-          const active = node.status === 'running' || node.status === 'waiting_resource';
-          const end = node.completedAt ? Date.parse(node.completedAt) : Date.now();
-          const dur = fmtDuration(end - st);
-          if (dur) body.appendChild(el('div', 'wf-node-timer', t(active ? 'workflow.timer.running' : 'workflow.timer.elapsed', { dur })));
-        }
-      }
+      { const timer = nodeTimerText(node); if (timer) body.appendChild(el('div', 'wf-node-timer', timer)); }
       // ── 质量门 verdict + 置信度（§2.3）：仅门/带 verdict 的节点。 ──
       const verdict = node.gateVerdict || (node.structuredResult && node.structuredResult.verdict);
       if (verdict || (node.confidence != null && Number.isFinite(Number(node.confidence)))) {
@@ -665,7 +681,7 @@ function renderAgentRuns(runs) {
       if (Array.isArray(node.progressLog) && node.progressLog.length) {
         const prog = el('div', 'agent-node-progress');
         prog.appendChild(el('div', 'agent-progress-title', t('workflow.progress.recent')));
-        for (const item of node.progressLog.slice(-12)) prog.appendChild(el('div', 'agent-progress-line', `${item.at ? new Date(item.at).toLocaleTimeString() + ' · ' : ''}${item.text || ''}`));
+        for (const item of node.progressLog.slice(-12)) prog.appendChild(el('div', 'agent-progress-line', `${item.at ? new Date(item.at).toLocaleTimeString(getLocale()) + ' · ' : ''}${item.text || ''}`));
         body.appendChild(prog);
       }
       // 结果/错误摘要：pre + textContent（el 内部用 textContent，XSS 安全，绝不 innerHTML）。
@@ -701,6 +717,46 @@ function renderAgentRuns(runs) {
       row.appendChild(body); graph.appendChild(row);
     }
     card.appendChild(graph); host.appendChild(card);
+  }
+}
+// 随时间走的三处读数：建卡与「数据没变、只刷读数」两条路共用这一份，文案与算法只此一处。
+function runTimeText(run) {
+  const elapsed = runElapsedMs(run);
+  return elapsed ? t(run.live ? 'workflow.elapsed' : 'workflow.duration', { duration: fmtDuration(elapsed) }) : '';
+}
+function nodeTimerText(node) {
+  if (!node || !node.startedAt) return '';
+  const st = Date.parse(node.startedAt);
+  if (!Number.isFinite(st)) return '';
+  const active = node.status === 'running' || node.status === 'waiting_resource';
+  const end = node.completedAt ? Date.parse(node.completedAt) : Date.now();
+  const dur = fmtDuration(end - st);
+  return dur ? t(active ? 'workflow.timer.running' : 'workflow.timer.elapsed', { dur }) : '';
+}
+function poolGraceView(run) {
+  const remainMs = run.poolGraceUntil ? Math.max(0, Number(run.poolGraceUntil) - Date.now()) : 0;
+  return {
+    width: `${Math.max(0, Math.min(100, Math.round((remainMs / POOL_GRACE_HINT_MS) * 100)))}%`,
+    label: t('workflow.pool.waitingApproval', { seconds: Math.round(remainMs / 1000) }),
+  };
+}
+function refreshAgentRunClocks(host, runs) {
+  const byId = new Map(runs.map(run => [String(run.id), run]));
+  for (const card of host.querySelectorAll('.agent-run-card')) {
+    const run = byId.get(String(card.dataset.runId)); if (!run) continue;
+    const time = card.querySelector('.ar-agg-time'); if (time) time.textContent = runTimeText(run);
+    const grace = card.querySelector('.pool-grace');
+    if (grace) {
+      const view = poolGraceView(run);
+      const fill = grace.querySelector('.pool-grace-bar > i'); if (fill) fill.style.width = view.width;
+      const label = grace.querySelector('.pool-grace-label'); if (label) label.textContent = view.label;
+    }
+    const nodes = Array.isArray(run.nodes) ? run.nodes : [];
+    for (const row of card.querySelectorAll('.agent-node')) {
+      const timer = row.querySelector('.wf-node-timer'); if (!timer) continue;
+      const node = nodes.find(n => n && String(n.id) === String(row.dataset.nodeId));
+      if (node) timer.textContent = nodeTimerText(node);
+    }
   }
 }
 let agentRunsSeq = 0;   // 对抗轮 P3: 轮询响应序号——慢包乱序落地时丢弃过期响应,防"审批已生效"被在途旧包闪回旧状态
@@ -830,7 +886,7 @@ async function loadAgentRuns(force) {
   }
   catch (e) {
     if (mySeq !== agentRunsSeq) return;
-    host.textContent = t('workflow.loadFailed', { err: apiErrText(e) });
+    host.textContent = t('workflow.loadFailed', { err: apiErrText(e) }); agentRunsRenderSig = '';
     // 对抗轮 P3: 画布态同步给出断连指示——原先只写监控列表,画布保持最后一帧"运行中"脉动,误导数据仍新鲜。
     markWorkbenchConnectionLost();
   }
@@ -846,9 +902,18 @@ function agentRunsPollWanted() {
   const tabActive = !!document.querySelector('.tool-pane .tool-tabs button[data-tab="agent-runs"].active');
   return (tabActive || isWorkbenchCanvasView()) && !document.hidden;
 }
+// 页签「激活」只是一个 class：整个工作台视角被切走（管家视角）或右栏收起时它照样挂着 active，修前 2 秒一拍照拉。
+// 每一拍再问一次监控列表此刻在不在屏上（画布视图另算）；不在就跳过这一拍、定时器留着 —— 右栏／视角怎么切回来
+// 都不必逐处接线，下一拍自己接上。
+function agentRunsOnScreen() {
+  if (isWorkbenchCanvasView()) return true;
+  const host = $('agentRunsList');
+  return !!(host && host.getClientRects().length);
+}
+function agentRunsTick() { if (agentRunsOnScreen()) loadAgentRuns(); }
 function syncAgentRunsPolling() {
   if (agentRunsPoll) { clearInterval(agentRunsPoll); agentRunsPoll = null; }
-  if (agentRunsPollWanted()) { loadAgentRuns(); agentRunsPoll = setInterval(loadAgentRuns, 2000); }
+  if (agentRunsPollWanted()) { agentRunsTick(); agentRunsPoll = setInterval(agentRunsTick, 2000); }
 }
 function updateAgentRunsPolling(tab) { syncAgentRunsPolling(); }
 // 标签页切到后台/切回前台都要重新同步期望态(切走时停表、切回来时立即补一次 + 恢复 2s 心跳)——

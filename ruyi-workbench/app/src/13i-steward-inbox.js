@@ -431,7 +431,9 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   const seq = Math.max(0, Number(turnSeq) || 0);
   if (seq < 1) return null;
   const h = (head && typeof head === 'object') ? head : {};
-  const last = (h.stewardLastTurn && typeof h.stewardLastTurn === 'object') ? h.stewardLastTurn : null;
+  // hunt2-steward ④:成败账只在盖得住【这一回合】时才算数(06i stewardCoveringLastTurn)。账是上一个
+  // 管家回合留下的(这一回合是用户在 2.0 里自己聊的,不写账)→ 当作账缺席,按 done 报。
+  const last = stewardCoveringLastTurn(h.stewardLastTurn, seq);
   const kind = stewardKindFor('sessionTurn', 'turn_settled', last);
   if (!kind) return null;
   const quick = !!(h.stewardQuick && typeof h.stewardQuick === 'object');
@@ -1213,8 +1215,14 @@ async function startStewardInbox(config) {
   if (stewardRuntime.running) { await stewardRunTick(); return { ok: true, running: true, enabled: true }; } // 幂等:重复 start 只补一轮
   stewardRuntime.running = true;
   stewardRuntime.generation += 1;
+  // hunt2-steward ⑥:认的是【本次起跑的代际】,不是 running 这一个布尔 —— start → stop → start 交错时,
+  // 第二次 start 已经把 running 重新置 true 并挂上了自己的 interval,第一次 start 醒来只看 running
+  // 会再挂一个、把第二个的句柄覆盖掉,之后 stop 只清得掉一个,另一个轮询器永远停不下来。
+  const generation = stewardRuntime.generation;
   await stewardRunTick();
   if (!stewardRuntime.running) return { ok: true, running: false, enabled: true }; // 起跑途中被 stop
+  if (stewardRuntime.generation !== generation) return { ok: true, running: true, enabled: true }; // 起跑途中被 stop 又 start:后来者挂 interval
+  if (stewardRuntime.timer) clearInterval(stewardRuntime.timer);   // 兜底:任何时候最多一个轮询器
   stewardRuntime.timer = setInterval(() => { void stewardRunTick(); }, pollMs);
   if (stewardRuntime.timer && typeof stewardRuntime.timer.unref === 'function') stewardRuntime.timer.unref();
   return { ok: true, running: true, enabled: true };

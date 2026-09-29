@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2896,
-    "requiredSymbols": 2869,
-    "edges": 509,
+    "providedSymbols": 3006,
+    "requiredSymbols": 2907,
+    "edges": 511,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -21,6 +21,7 @@
         "APP_NAME",
         "ASR_MAX_BODY_BYTES",
         "BUNDLED_PYTHON_RUNTIME",
+        "CLI_DIAGNOSTIC_TEXT_CAP",
         "CONFIG_SCHEMA",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
@@ -43,6 +44,9 @@
         "TOOL_TIER_RANK",
         "URL",
         "VERSION",
+        "_consoleGbDecoder",
+        "_consoleUtf8Strict",
+        "_dataRootMemo",
         "agentCliHomes",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -55,11 +59,17 @@
         "claudeLedgerSource",
         "computeCostFromPricing",
         "computeProviderCost",
+        "consoleIncompleteTail",
         "cp",
+        "createCappedDiagnosticText",
+        "createConsoleLineDecoder",
         "createNdjsonLineFeeder",
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "dataRootMemoKey",
+        "decodeConsoleSegment",
+        "decodeConsoleText",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -92,12 +102,15 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "resolveDataRootUncached",
         "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
+        "safeDecodeURIComponent",
         "safeJsonParse",
         "samePathEntry",
         "samePathKey",
+        "spawnDetachedChecked",
         "text",
         "tildePath",
         "usageDayKey",
@@ -317,6 +330,7 @@
         "DESKTOP_PYTHON_PROBE_TIMEOUT_MS",
         "DurableJsonStore",
         "RUNTIME",
+        "SESSION_MCP_CONFIG_MAX_AGE_MS",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
         "THREAD_INDEX_RECENT_DEFAULT",
@@ -337,6 +351,7 @@
         "agentCliProbeable",
         "agentMcpImportSources",
         "applyConfigMigrations",
+        "assertSessionIdForPath",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -351,11 +366,13 @@
         "configCanonicalJson",
         "configComparableValue",
         "configDegraded",
+        "configDirsEnsuredFor",
         "configExplicitKeysOf",
         "configMutateChain",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
+        "decodeClaudeCliStream",
         "decodeClaudeCliText",
         "defaultConfig",
         "desktopMcpAutodetectWanted",
@@ -390,6 +407,7 @@
         "detectKimiPath",
         "effectiveAnthropicEnv",
         "ensureDesktopMcpWarm",
+        "ensureDirsForConfigRead",
         "externalServerJs",
         "finalizeConfigExplicitKeys",
         "generateAgentNodeMcpConfig",
@@ -402,6 +420,7 @@
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
         "kimiMcpManagedIds",
+        "kimiMcpSyncChains",
         "lastGoodConfig",
         "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
@@ -438,16 +457,19 @@
         "send",
         "sendError",
         "serveStatic",
+        "sessionMcpConfigSweepDone",
         "sessionPath",
         "sessionWriteChains",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
+        "sweepStaleSessionMcpConfigs",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
         "syncMcpServersToKimi",
+        "syncMcpServersToKimiNow",
         "tokenMatches",
         "tokenOk",
         "writeConfig",
@@ -577,6 +599,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -587,6 +616,13 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "StringDecoder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -931,8 +967,11 @@
         "MISSION_REPLAN_LIMIT",
         "MISSION_STALL_LIMIT",
         "MISSION_STALL_SIGNAL_WINDOW_MS",
+        "SESSION_BODY_READ_TRANSIENT",
         "SESSION_BRIEF_GIST_CHARS",
         "SESSION_BRIEF_TITLE_CHARS",
+        "SESSION_DELETE_SETTLE_TIMEOUT_MS",
+        "SESSION_DELETE_TOMBSTONE_MAX",
         "SESSION_HEAD_READ_RETRIES",
         "SESSION_HEAD_TRANSIENT",
         "SESSION_INDEX_FILE",
@@ -1009,8 +1048,12 @@
         "journalGcSinceScan",
         "journalGlobalBytes",
         "journalIndexPath",
+        "journalNextEntrySeq",
         "journalReadIndex",
+        "journalReadIndexForWrite",
         "journalRecord",
+        "journalRecordMany",
+        "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
         "journalRollback",
@@ -1026,6 +1069,7 @@
         "loadSession",
         "loadSessionV1Backup",
         "markInterruptedInterventions",
+        "markSessionDeleted",
         "maybeFinalizeMission",
         "mergeMissionAcceptance",
         "mergeMissionBeforeSave",
@@ -1100,6 +1144,7 @@
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
+        "sessionDeleteTombstones",
         "sessionDiskWriteSeq",
         "sessionDiskWriteSeqOf",
         "sessionDisplayTitle",
@@ -1118,11 +1163,13 @@
         "sessionMetaDeferChains",
         "sessionMetaIsSteward",
         "sessionMissionId",
+        "sessionMutateChains",
         "sessionNotesPath",
         "sessionNotesWriteChains",
         "sessionObjectIsStale",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
+        "sessionSaveIsTombstoned",
         "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
         "sortSessionMetas",
@@ -1136,13 +1183,16 @@
         "withJournalWriteLock",
         "withMissionContainerLock",
         "withSessionIndexLock",
+        "withSessionMutateLock",
         "workspaceBaselineBudgetMs",
         "workspaceBaselineBudgetOnly",
         "workspaceBaselineFileSnapshot",
         "workspaceBaselineGitAbs",
         "workspaceBaselineGitBefore",
+        "workspaceBaselineGitCheckoutCrlf",
         "workspaceBaselineGitNames",
         "workspaceBaselineIsCodePath",
+        "workspaceBaselineLfToCrlf",
         "workspaceBaselineNulPaths",
         "workspaceBaselinePathKey",
         "workspaceBaselineRemainingMs",
@@ -1269,6 +1319,13 @@
           "symbol": "zlib",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "assertSessionIdForPath",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1767,6 +1824,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
             "call"
@@ -1908,10 +1972,14 @@
         "LIVE_TAIL_CHARS",
         "LIVE_TOOLS_MAX",
         "MCP_COMPAT_MATRIX",
+        "MCP_CONFIG_JSON_MAX_BYTES",
+        "MCP_CONFIG_OTHER_MAX_BYTES",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
         "MCP_DROPIN_SHADOW_WARNING",
         "MCP_FAILURE_COOLDOWN_MS",
+        "MCP_STDIO_LINE_MAX_CHARS",
+        "MCP_TOOLS_LIST_MAX_PAGES",
         "McpHttpClient",
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
@@ -1928,12 +1996,19 @@
         "_expandMcpVar",
         "_nativeToolNameSet",
         "_parseTomlMcpServers",
+        "_tomlDepth",
+        "_tomlKeyPath",
+        "_tomlScan",
+        "_tomlSplitTop",
+        "_tomlStripComment",
+        "_tomlValue",
         "_toolboxCache",
         "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
         "bridgedToolCallTimeoutMs",
+        "bridgedToolFunctionName",
         "bridgedToolTimeoutMs",
         "buildClaudeRecoveryHistory",
         "buildMcpConnectorInventory",
@@ -1967,6 +2042,7 @@
         "killAllMcpClients",
         "killChildTree",
         "killOwnProcessTree",
+        "killPosixChildTree",
         "lastAssistantEngine",
         "lastSuccessfulClaudeModel",
         "logEvent",
@@ -1975,15 +2051,23 @@
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
         "mcpClientFailures",
+        "mcpClientFingerprints",
         "mcpClientGen",
         "mcpClientPending",
         "mcpClients",
         "mcpConnectorMutateError",
         "mcpDropInDirs",
+        "mcpEntryFingerprint",
+        "mcpListAllTools",
         "mcpRuntimeCommon",
+        "mcpServerRequestReply",
+        "mcpShortHash",
         "mcpStartingClients",
+        "mcpStartupRpcMs",
+        "mcpToolAllowed",
         "mutateMcpConnector",
         "nativeClaudeAgentResultInfo",
+        "normalizeMcpToolResult",
         "normalizeQuestionAnswer",
         "normalizeQuestionContext",
         "normalizeUserQuestions",
@@ -2001,6 +2085,7 @@
         "probeMcpConnector",
         "promptDeadlineIsReal",
         "promptWaitMs",
+        "reconcileMcpEntryFingerprint",
         "redact",
         "registerUserQuestion",
         "requestUserQuestion",
@@ -2139,6 +2224,13 @@
           "symbol": "VERSION",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "isRuyiMcpServerId",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -2287,6 +2379,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -2310,6 +2409,14 @@
           "provider": "00-boot.js",
           "symbol": "path",
           "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call",
             "read"
           ]
         },
@@ -2498,6 +2605,7 @@
         "anthropicAssistantBlocks",
         "anthropicFinishReason",
         "anthropicImageBlock",
+        "anthropicMergeUsage",
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",
@@ -2547,6 +2655,7 @@
       "layer": "foundation",
       "note": "58 号方案批 1: 服务商线协议登记表 PROVIDER_WIRE_PROTOCOLS(chat/responses 的端点、请求头、请求体编码、推理强度、工具、流式/非流式解码、用量归一、落历史字段)与唯一的协议值归一 normalizeProviderApiStyle/providerWireProtocol;Responses 翻译(toResponsesContent/buildResponsesInputItems/toResponsesTools/responsesHistoryWithCompleteToolPairs)自 07、推理强度(PROVIDER_REASONING_EFFORTS/providerReasoningEffort/applyProviderReasoningEffort)自 05 纯搬家;只引用 04h,环内工具经 ProviderWireHooks 由 07 延迟绑定,不进任何环",
       "provides": [
+        "OPENAI_STREAM_ERROR_STATUS",
         "PROVIDER_REASONING_EFFORTS",
         "PROVIDER_WIRE_DEFAULT",
         "PROVIDER_WIRE_PROTOCOLS",
@@ -2565,9 +2674,11 @@
         "providerWireFailureDetail",
         "providerWireIncomplete",
         "providerWireModelsUrl",
+        "providerWireOutputLimited",
         "providerWireProtocol",
         "providerWireProtocolForBody",
         "providerWireResponseIdOf",
+        "providerWireStreamErrorText",
         "providerWireToolCallsFromSlots",
         "reasoningContentField",
         "responsesHistoryWithCompleteToolPairs",
@@ -2787,6 +2898,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "createCappedDiagnosticText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "createNdjsonLineFeeder",
           "kinds": [
             "call"
@@ -2930,13 +3048,6 @@
           "symbol": "readConfig",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "RUNTIME",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -3682,9 +3793,14 @@
       "layer": "engine",
       "note": "Kimi Code ACP 驱动：会话/流式/工具/权限/提问/排队 steer；Server API 原生压缩与 wire 状态补强",
       "provides": [
+        "AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS",
+        "agentAutoCompactBackingOff",
+        "agentAutoCompactFailures",
+        "agentAutoCompactTrigger",
         "appendKimiAcpTerminalOutput",
         "applyKimiStatusToSession",
         "awaitKimiAcpWithSignal",
+        "cancelKimiAcpIntervention",
         "cleanupKimiAcpTerminals",
         "closeKimiAcpProcess",
         "compactKimiNative",
@@ -3763,6 +3879,7 @@
         "kimiAcpSyncActualConfig",
         "kimiAcpTerminal",
         "kimiAcpTerminalDisplayResult",
+        "kimiAcpTerminalOutputText",
         "kimiAcpTerminalRef",
         "kimiAcpTextLines",
         "kimiAcpToolTier",
@@ -3787,6 +3904,7 @@
         "kimiWireSubagentStart",
         "maybeAutoCompactAgentSession",
         "normalizeKimiStatus",
+        "noteAgentAutoCompactFailure",
         "parseKimiWireAgentEvents",
         "parseKimiWireCompaction",
         "prepareKimiAcpSpawn",
@@ -3800,6 +3918,7 @@
         "stopKimiServer",
         "syncKimiSessionUsage",
         "syncKimiTurnPreferences",
+        "trimKimiAcpTerminalOutput",
         "watchKimiWire"
       ],
       "requires": [
@@ -3808,6 +3927,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createCappedDiagnosticText",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -3912,6 +4038,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "safeJsonParse",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
           "kinds": [
             "call"
           ]
@@ -4201,6 +4334,20 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "requestUserQuestion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
           "kinds": [
             "call"
           ]
@@ -5180,6 +5327,7 @@
         "stewardClipSay",
         "stewardConfigHelpFor",
         "stewardConfigTierFor",
+        "stewardCoveringLastTurn",
         "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptCatastrophicDelete",
         "stewardExemptDelegationVerdict",
@@ -6083,6 +6231,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "invalidateMcpRuntime",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
@@ -6164,6 +6319,7 @@
         "agentRunDir",
         "agentRunFile",
         "agentRunWriteChains",
+        "agentWorktreePathOwned",
         "applyAgentWorktree",
         "bridgedToolTier",
         "buildActionEnvelope",
@@ -6941,6 +7097,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isProviderToolArgsObject",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "MISSION_STALL_SIGNAL_WINDOW_MS",
           "kinds": [
             "read"
@@ -7082,6 +7245,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
           ]
@@ -7326,6 +7496,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "estimateFactor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -7503,6 +7680,7 @@
         "runOpenAiTurn",
         "settleWaitEnvelopes",
         "syncProviderHistoryFromDisplay",
+        "unmarkAgentEnvelopeDelivered",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -7732,6 +7910,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "isProviderToolArgsObject",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "isUntitledSessionTitle",
           "kinds": [
             "call"
@@ -7754,6 +7939,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "mergeMissionBeforeSave",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -8025,8 +8217,22 @@
           ]
         },
         {
+          "provider": "04h-provider-http.js",
+          "symbol": "withTransientRetry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
           ]
@@ -8916,6 +9122,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "estimateFactor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "historyStartsWithCompactionSummary",
           "kinds": [
             "call"
@@ -9013,6 +9226,7 @@
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
+        "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CONTEXT_CALIBRATION_MAX",
@@ -9073,6 +9287,7 @@
         "chunkHistoryByBudget",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionTaskText",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
@@ -9109,6 +9324,7 @@
         "openCompactMarker",
         "parseSessionNotesMarkdown",
         "persistContextCalibration",
+        "pickSummaryFailure",
         "protectedObservation",
         "providerContextWindow",
         "providerConversationContextWindow",
@@ -9149,6 +9365,13 @@
         "writeHistorySnapshot"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiSessionIdInvalid",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "appendUsageLedger",
@@ -9258,6 +9481,20 @@
         {
           "provider": "01-config.js",
           "symbol": "readJsonBody",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
           "kinds": [
             "call"
           ]
@@ -9495,13 +9732,6 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
@@ -9711,6 +9941,7 @@
         "CRC32_TABLE",
         "GIT_DIFF_MAX_BYTES",
         "GIT_SAFE_FLAGS",
+        "SEARCH_CJK_RE",
         "SHELL_BUF_MAX",
         "SHELL_IDLE_MS",
         "ZIP_MAX_ENTRIES",
@@ -9734,6 +9965,7 @@
         "debugHypStats",
         "debugHypWarnings",
         "debugHypothesis",
+        "decodeBingRedirect",
         "decodeEntities",
         "dependencyInventory",
         "dnsResolvesToPrivate",
@@ -9751,6 +9983,10 @@
         "globToRegExp",
         "hasRg",
         "hasRgAsync",
+        "htmlAttr",
+        "htmlBlocksByClass",
+        "htmlClassTokens",
+        "htmlElementInner",
         "htmlFragmentToText",
         "httpGetGuarded",
         "httpRequest",
@@ -9760,6 +9996,7 @@
         "killAllShellSessions",
         "levenshtein",
         "maybeGroup",
+        "mergeSearchResults",
         "normalizeSearchPattern",
         "numericStats",
         "parseBaiduHtml",
@@ -9782,12 +10019,17 @@
         "searchFileContent",
         "searchFileContentJs",
         "searchFileContentRg",
+        "searchPageBlocked",
+        "searchQueryTerms",
+        "searchResultKey",
+        "searchSnippetText",
         "sessionBackgroundShellRows",
         "sessionShellOutputTail",
         "shellAppend",
         "shellEndOffset",
         "shellIdValid",
         "shellIdleReaper",
+        "shellInputForPowerShell",
         "shellKill",
         "shellLastLine",
         "shellList",
@@ -9801,12 +10043,14 @@
         "shellStripClixml",
         "shellVisibleTo",
         "ssrfCheck",
+        "stripHtmlNoise",
         "summarizeGitStatus",
         "walkFiles",
         "webCachePath",
         "webFetch",
         "webFetchFailMessage",
         "webSearch",
+        "writeBackgroundJobRows",
         "writeWebCache",
         "zipCollectEntries"
       ],
@@ -9816,6 +10060,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createConsoleLineDecoder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -9913,6 +10164,7 @@
           "provider": "00-boot.js",
           "symbol": "text",
           "kinds": [
+            "call",
             "read"
           ]
         },
@@ -10053,6 +10305,7 @@
         "OBSERVATION_RECALL_QUOTA",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
+        "UTF8_BOM_BYTES",
         "_recallQuota",
         "accAnnotateNonAscii",
         "accCpCategory",
@@ -10069,13 +10322,18 @@
         "execCacheStore",
         "execCacheVersionOf",
         "execResultCacheBySession",
+        "fileToolWriteChains",
+        "fileToolWriteLockKey",
         "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
+        "journalCheckpointWarn",
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
-        "resolveFileToolRoot"
+        "resolveFileToolRoot",
+        "textFileWantsUtf8Bom",
+        "withFileToolWriteLock"
       ],
       "requires": [
         {
@@ -10150,6 +10408,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -10160,6 +10425,13 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10722,6 +10994,7 @@
         "processCommandLine",
         "processImage",
         "proxyModelsCacheMemo",
+        "resetOrphanedMissionDrivers",
         "resolveNodeModel",
         "sendMcp",
         "sendMcpNotification",
@@ -10803,6 +11076,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "call"
           ]
@@ -10952,6 +11232,13 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -12654,6 +12941,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "invalidateMcpRuntime",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
           "kinds": [
             "call"
@@ -12864,6 +13158,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "externalRoot",
           "kinds": [
             "call"
@@ -12935,6 +13236,7 @@
       "provides": [
         "BACKGROUND_RUN_DONE",
         "MISSION_FAILURE_PARAM_KEYS",
+        "SESSION_SEARCH_ASSISTANT_CHARS",
         "SESSION_SEARCH_HEAD_BYTES",
         "SESSION_SEARCH_INDEX_FILE",
         "SESSION_SEARCH_INDEX_VERSION",
@@ -12942,8 +13244,8 @@
         "SESSION_SEARCH_MIN_QUERY",
         "SESSION_SEARCH_SNIPPET_RADIUS",
         "SESSION_SEARCH_TAIL_BYTES",
-        "SESSION_SEARCH_TAIL_MESSAGES",
         "SESSION_SEARCH_UNIT_CAP",
+        "SESSION_SEARCH_USER_CHARS",
         "addMissionCostBucket",
         "agentRunActionCommand",
         "buildMissionAggregateRows",
@@ -12976,7 +13278,9 @@
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
         "sessionMessageText",
+        "sessionSearchIndexCache",
         "sessionSearchIndexPath",
+        "sessionSearchRowIsNoise",
         "sessionSearchSnippet"
       ],
       "requires": [
@@ -13006,6 +13310,13 @@
           "symbol": "crypto",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13062,6 +13373,13 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13543,13 +13861,6 @@
         {
           "provider": "06h-retrieval-index.js",
           "symbol": "rankRetrievalCorpus",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06h-retrieval-index.js",
-          "symbol": "reciprocalRankFusion",
           "kinds": [
             "call"
           ]
@@ -14333,6 +14644,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardCoveringLastTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -14679,6 +14997,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
           "kinds": [
             "call"
           ]
@@ -17031,12 +17356,14 @@
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
         "STEWARD_ACT_CONFIRM_MASK",
+        "_stewardDigestHeadCache",
         "_stewardPrerouteCache",
         "buildStewardSystemPrompt",
         "stewardActConfirmLines",
         "stewardActConfirmValueText",
         "stewardActLabel",
         "stewardContextBudget",
+        "stewardDigestHead",
         "stewardKnownWorkspaceRows",
         "stewardMemoryBlock",
         "stewardMemoryVetoedBlock",
@@ -17118,6 +17445,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -17850,7 +18184,10 @@
       "provides": [
         "STEWARD_COMMITMENT_I18N",
         "STEWARD_COMMITMENT_TEXT",
+        "STEWARD_INBOX_TURN_RETRY_MAX",
         "STEWARD_RELAY_CHANNELS",
+        "STEWARD_RELAY_SETTLE_WAIT_MS",
+        "STEWARD_VISIT_DIGEST_PAGES",
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
@@ -17858,6 +18195,7 @@
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardEnsureOpenAiRoute",
+        "stewardInboxRetryCounts",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
@@ -17865,10 +18203,12 @@
         "stewardQueueHasQuickAnswer",
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
+        "stewardRequeueFailedInboxBatch",
         "stewardRunAct",
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
+        "stewardUserWaiters",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
@@ -17985,6 +18325,13 @@
           "symbol": "promptDeadlineIsReal",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18673,6 +19020,7 @@
       "layer": "transport",
       "note": "第121波 K2a(34 号文 §6.1):GET /api/events/stream 事件流 —— 进程内总线订阅、SSE 扇出、内存环断线补发、在场快照(零落盘;经 00-boot 的 EventStreamHooks 延迟绑定挂路由)",
       "provides": [
+        "EVENT_STREAM_CLIENTS_MAX",
         "EVENT_STREAM_HEARTBEAT_MS",
         "EVENT_STREAM_LIVE_SESSIONS_MAX",
         "EVENT_STREAM_LIVE_THROTTLE_MS",
@@ -18697,6 +19045,13 @@
         "stewardPresenceSnapshot"
       ],
       "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "apiFailure",
+          "kinds": [
+            "call"
+          ]
+        },
         {
           "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
@@ -18728,6 +19083,13 @@
         {
           "provider": "01-config.js",
           "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "send",
           "kinds": [
             "call"
           ]
@@ -18814,6 +19176,7 @@
         "SCHEDULER_FIRES_FILE",
         "SCHEDULER_FIRES_FULL_READ_BYTES",
         "SCHEDULER_FIRES_TAIL_BYTES",
+        "SCHEDULER_ONTIME_SLACK_MS",
         "SCHEDULER_RUNS_LIMIT_DEFAULT",
         "SCHEDULER_RUNS_LIMIT_MAX",
         "SCHEDULER_TASKS_FILE",
@@ -18845,6 +19208,7 @@
         "schedulerReadFireRows",
         "schedulerReadFiresText",
         "schedulerReadTasksFile",
+        "schedulerRecordMissedSkip",
         "schedulerRecover",
         "schedulerRestorePersistedState",
         "schedulerRouteGate",
@@ -18920,6 +19284,13 @@
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "safeDecodeURIComponent",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -19763,6 +20134,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "spawnDetachedChecked",
           "kinds": [
             "read"
           ]
@@ -23715,6 +24093,7 @@
         "DEFAULT_PORT",
         "MAX_BODY_BYTES",
         "SKILL_ID_RE",
+        "StringDecoder",
         "URL",
         "VERSION",
         "agentCliHomes",
@@ -23731,6 +24110,7 @@
         "os",
         "path",
         "paths",
+        "runKeyedChain",
         "safeJsonParse",
         "text"
       ],
@@ -23887,6 +24267,7 @@
       "from": "02-session-store.js",
       "to": "01-config.js",
       "symbols": [
+        "assertSessionIdForPath",
         "atomicWriteJson",
         "mutateConfig",
         "readConfig",
@@ -24067,6 +24448,7 @@
         "fsp",
         "os",
         "path",
+        "spawnDetachedChecked",
         "zlib"
       ],
       "direction": "backward"
@@ -24130,10 +24512,12 @@
       "to": "00-boot.js",
       "symbols": [
         "cp",
+        "decodeConsoleText",
         "fs",
         "fsp",
         "os",
-        "path"
+        "path",
+        "spawnDetachedChecked"
       ],
       "direction": "backward"
     },
@@ -24181,7 +24565,8 @@
       "from": "04-permission-runtime.js",
       "to": "00b-ruyi-names.js",
       "symbols": [
-        "RUYI_MCP_SERVER_ID"
+        "RUYI_MCP_SERVER_ID",
+        "isRuyiMcpServerId"
       ],
       "direction": "backward"
     },
@@ -24342,6 +24727,7 @@
         "claudeCostFields",
         "computeProviderCost",
         "cp",
+        "createCappedDiagnosticText",
         "createNdjsonLineFeeder",
         "crypto",
         "fsp",
@@ -24366,7 +24752,6 @@
       "from": "05-claude-engine.js",
       "to": "01-config.js",
       "symbols": [
-        "RUNTIME",
         "buildUserEnvelope",
         "decodeClaudeCliText",
         "effectiveAnthropicEnv",
@@ -24625,6 +25010,7 @@
         "StringDecoder",
         "URL",
         "cp",
+        "createCappedDiagnosticText",
         "createNdjsonLineFeeder",
         "dataRoot",
         "externalRoot",
@@ -24638,6 +25024,7 @@
         "pathToFileURL",
         "paths",
         "safeJsonParse",
+        "spawnDetachedChecked",
         "text"
       ],
       "direction": "backward"
@@ -24704,7 +25091,9 @@
         "logEvent",
         "permissionWaitMs",
         "redact",
-        "requestUserQuestion"
+        "requestUserQuestion",
+        "runAutomaticInterventionDecision",
+        "stopSession"
       ],
       "direction": "backward"
     },
@@ -25285,6 +25674,7 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "ToolboxHooks",
+        "invalidateMcpRuntime",
         "logEvent"
       ],
       "direction": "backward"
@@ -25538,6 +25928,7 @@
       "symbols": [
         "MISSION_STALL_SIGNAL_WINDOW_MS",
         "bridgedWriteRelativePathArg",
+        "isProviderToolArgsObject",
         "missionSignalThrottleAllow",
         "mutateSession",
         "providerHistoryToolCalls",
@@ -25593,6 +25984,7 @@
       "to": "04i-provider-wire.js",
       "symbols": [
         "applyProviderReasoningEffort",
+        "providerWireOutputLimited",
         "providerWireProtocol"
       ],
       "direction": "backward"
@@ -25676,6 +26068,7 @@
       "from": "08-agent-runs.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "estimateFactor",
         "isContextOverflowError",
         "maybeCompactSubHistory",
         "noteWindowOvershoot",
@@ -25768,10 +26161,12 @@
         "bumpMissionChangeSeq",
         "captureWorkspaceTurnBaseline",
         "finalizeMissionAfterTurn",
+        "isProviderToolArgsObject",
         "isUntitledSessionTitle",
         "journalReadIndex",
         "loadSession",
         "mergeMissionBeforeSave",
+        "mutateSession",
         "normalizeTodoItems",
         "providerHistoryToolCalls",
         "readSessionNotes",
@@ -25850,9 +26245,18 @@
     },
     {
       "from": "09-workflow.js",
+      "to": "04h-provider-http.js",
+      "symbols": [
+        "withTransientRetry"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
       "to": "04i-provider-wire.js",
       "symbols": [
         "applyProviderReasoningEffort",
+        "providerWireOutputLimited",
         "providerWireProtocol"
       ],
       "direction": "backward"
@@ -26070,6 +26474,7 @@
         "appendPromptToLastUserMessage",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "estimateFactor",
         "historyStartsWithCompactionSummary",
         "isContextOverflowError",
         "maybeAutoCompact",
@@ -26125,6 +26530,7 @@
       "to": "00-boot.js",
       "symbols": [
         "URL",
+        "apiSessionIdInvalid",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
         "computeProviderCost",
@@ -26146,7 +26552,9 @@
       "symbols": [
         "DurableJsonStore",
         "readConfig",
-        "readJsonBody"
+        "readJsonBody",
+        "safeSessionId",
+        "send"
       ],
       "direction": "backward"
     },
@@ -26215,7 +26623,6 @@
       "from": "10-context-governance.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "activeChildren",
         "driverAutoSessions",
         "logEvent",
         "redact",
@@ -26326,6 +26733,7 @@
         "RUYI_PATH_BEFORE_VENDOR",
         "URL",
         "cp",
+        "createConsoleLineDecoder",
         "crypto",
         "fs",
         "fsp",
@@ -26399,7 +26807,9 @@
         "os",
         "path",
         "paths",
+        "runKeyedChain",
         "safeJsonParse",
+        "spawnDetachedChecked",
         "text"
       ],
       "direction": "backward"
@@ -26583,6 +26993,7 @@
         "cp",
         "crypto",
         "dataRootAliases",
+        "decodeConsoleText",
         "ensureDirs",
         "exePath",
         "externalRoot",
@@ -26600,6 +27011,7 @@
         "readline",
         "recordInstallLaunch",
         "safeJsonParse",
+        "spawnDetachedChecked",
         "text",
         "zlib"
       ],
@@ -27053,6 +27465,7 @@
         "collectBridgedTools",
         "getBridgedClient",
         "hasPendingQuestionForSession",
+        "invalidateMcpRuntime",
         "logEvent",
         "mutateMcpConnector",
         "probeMcpConnector",
@@ -27106,6 +27519,7 @@
         "cp",
         "crypto",
         "dataRoot",
+        "decodeConsoleText",
         "externalRoot",
         "fs",
         "fsp",
@@ -27143,12 +27557,14 @@
         "apiSessionIdInvalid",
         "apiSessionNotFound",
         "crypto",
+        "dataRootAliases",
         "fsp",
         "json",
         "makeId",
         "nowIso",
         "path",
         "paths",
+        "safeDecodeURIComponent",
         "safeJsonParse",
         "text"
       ],
@@ -27280,7 +27696,6 @@
       "symbols": [
         "buildRetrievalCorpus",
         "rankRetrievalCorpus",
-        "reciprocalRankFusion",
         "retrievalTerms"
       ],
       "direction": "backward"
@@ -27774,6 +28189,7 @@
         "STEWARD_EVENT_KINDS",
         "STEWARD_SESSION_ID",
         "StewardHooks",
+        "stewardCoveringLastTurn",
         "stewardSanitizeText",
         "stewardWatchedThread"
       ],
@@ -27888,6 +28304,7 @@
       "symbols": [
         "EventStreamHooks",
         "dataRoot",
+        "dataRootAliases",
         "fsp",
         "nowIso",
         "path",
@@ -28482,6 +28899,14 @@
     },
     {
       "from": "13o-steward-runner-prompt.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "applySessionPermissionModeOverride"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
@@ -28771,7 +29196,8 @@
         "normalizeQuestionAnswer",
         "pendingPermissions",
         "pendingQuestions",
-        "promptDeadlineIsReal"
+        "promptDeadlineIsReal",
+        "turnSettlers"
       ],
       "direction": "backward"
     },
@@ -28921,6 +29347,7 @@
         "EventStreamHooks",
         "RUYI_EVENTS",
         "URL",
+        "apiFailure",
         "nowIso"
       ],
       "direction": "backward"
@@ -28929,7 +29356,8 @@
       "from": "13r-event-stream.js",
       "to": "01-config.js",
       "symbols": [
-        "safeSessionId"
+        "safeSessionId",
+        "send"
       ],
       "direction": "backward"
     },
@@ -28985,6 +29413,7 @@
         "nowIso",
         "path",
         "paths",
+        "safeDecodeURIComponent",
         "text"
       ],
       "direction": "backward"
@@ -29256,7 +29685,8 @@
         "flushUsageLedgerSync",
         "hashArgs",
         "neutralizeFenceTag",
-        "runKeyedChain"
+        "runKeyedChain",
+        "spawnDetachedChecked"
       ],
       "direction": "backward"
     },

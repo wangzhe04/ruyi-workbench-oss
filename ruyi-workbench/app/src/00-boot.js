@@ -66,21 +66,49 @@ function defaultDataRoots() {
 function lstatOrNull(p) {
   try { return fs.lstatSync(p); } catch { return null; }
 }
-function dataRoot() {
+// dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
+// 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
+let _dataRootMemo = null;
+function dataRootMemoKey() {
+  return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
+}
+function resolveDataRootUncached() {
   if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
   if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return next;
   const old = lstatOrNull(legacy);
-  return old && old.isDirectory() && !old.isSymbolicLink() ? legacy : next;
+  if (old && old.isDirectory() && !old.isSymbolicLink()) return legacy;
+  // 旧位置是用户自己建的链接 / 联接(数据挪去了别的盘)、新目录还没有:照旧用它。修前这里会落到一个空的新目录,
+  // 配置、会话、密钥看起来全没了。迁移不搬链接(见 migrateLegacyDataRoot)。
+  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) return legacy; } catch { /* 断链:当它不存在 */ } }
+  return next;
 }
-// 数据根的别名:迁移后旧位置上留的目录联接。敏感子树判定(03 isSensitiveDataPath)与文件树隐藏都要认它,
-// 否则经旧路径的词法写法能绕开「数据根下的控制面文件一律拒读」。
+function dataRoot() {
+  const key = dataRootMemoKey();
+  if (_dataRootMemo && _dataRootMemo.key === key && _dataRootMemo.root) return _dataRootMemo.root;
+  const root = resolveDataRootUncached();
+  _dataRootMemo = { key, root, aliases: null };
+  return root;
+}
+// 数据根的别名:指向同一个目录的其它写法 —— 迁移后旧位置上留的目录联接,或者新位置是指向旧目录的链接。敏感子树判定
+// (03 isSensitiveDataPath 与文件遍历的跳过)是按词法前缀比的,只认数据根本身的话,经别名的写法就能读到 config.json /
+// runtime.json(token)/ 会话。**与环境变量无关**:Claude / Kimi 的 MCP 子进程总带 RUYI_HOME,修前在那里一律返回空,
+// 旧路径上的联接就成了绕过口。判据是 realpath 相等(Windows 上不分大小写),数据根还不存在时不缓存、下次再算。
 function dataRootAliases() {
-  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return [];
+  const root = dataRoot();
+  if (_dataRootMemo && _dataRootMemo.root === root && Array.isArray(_dataRootMemo.aliases)) return _dataRootMemo.aliases;
+  const norm = p => (process.platform === 'win32' ? String(p).toLowerCase() : String(p));
+  let rootReal = '';
+  try { rootReal = norm(fs.realpathSync(root)); } catch { return []; }
   const { next, legacy } = defaultDataRoots();
-  const old = lstatOrNull(legacy);
-  return dataRoot() === next && old && old.isSymbolicLink() ? [legacy] : [];
+  const out = [];
+  for (const candidate of [legacy, next]) {
+    if (norm(path.resolve(candidate)) === norm(path.resolve(root))) continue;
+    try { if (norm(fs.realpathSync(candidate)) === rootReal) out.push(candidate); } catch { /* 不存在 */ }
+  }
+  if (_dataRootMemo && _dataRootMemo.root === root) _dataRootMemo.aliases = out;
+  return out;
 }
 function pidAlive(pid) {
   const n = Number(pid);
@@ -96,12 +124,14 @@ function migrateLegacyDataRoot() {
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
   const old = lstatOrNull(legacy);
-  if (!old || !old.isDirectory() || old.isSymbolicLink()) return { moved: false, reason: 'no-legacy' };
+  if (old && old.isSymbolicLink()) return { moved: false, reason: 'legacy-is-link' }; // 用户自己建的链接:不搬,dataRoot() 照旧用它
+  if (!old || !old.isDirectory()) return { moved: false, reason: 'no-legacy' };
   try {
     const rt = JSON.parse(fs.readFileSync(path.join(legacy, 'runtime.json'), 'utf8'));
     if (rt && pidAlive(rt.pid)) return { moved: false, reason: 'legacy-in-use', pid: rt.pid };
   } catch { /* 没有 runtime.json 或读不了:没有活实例的证据,照常迁移 */ }
   try { fs.renameSync(legacy, next); } catch (e) { return { moved: false, reason: 'rename-failed', error: String(e && e.code || e) }; }
+  _dataRootMemo = null; // 数据根从旧目录换成了新目录
   let junction = true;
   try { fs.symlinkSync(next, legacy, 'junction'); } catch { junction = false; }
   return { moved: true, from: legacy, to: next, junction };
@@ -276,6 +306,30 @@ function runKeyedChain(chains, key, work) {
   return current;
 }
 
+// 分离式外部启动(打开文件/网址/编辑器/资源管理器)的共用入口。病根:cp.spawn 找不到程序、没权限、被策略拦
+// (ENOENT / EACCES / EPERM)时【不】同步抛出,而是稍后在 ChildProcess 上发 'error' 事件;裸写
+// spawn(...).unref() 没有监听者,这个事件就成了 uncaughtException,startServerInner 的兜底会 process.exit(1)
+// —— 一次「打开」失败(注册表里残留的默认浏览器路径、卸掉的编辑器、被 AppLocker 拦的 explorer.exe)带走整个
+// 工作台:在飞回合、MCP 子进程、待决权限全丢,而工具先前已经回了「opened」。
+// 这里先挂 'error' 监听再 unref,并以 promise 交回启动结果:'spawn' 事件 → { ok:true },'error' → { ok:false, error }。
+// 同步抛出(参数非法)照旧同步抛给调用方,与原来 try { spawn().unref() } catch 的语义一致;成功路径的参数、
+// detached/stdio/windowsHide 全由调用方原样传入,行为不变。不关心结果的调用方可以不 await(错误已被吸收)。
+function spawnDetachedChecked(command, args, options) {
+  const child = cp.spawn(command, args || [], options);
+  const started = new Promise(resolve => {
+    child.on('error', error => resolve({ ok: false, error: (error && error.message) || String(error), code: (error && error.code) || null }));
+    child.once('spawn', () => resolve({ ok: true, pid: child.pid }));
+  });
+  child.unref();
+  return started;
+}
+
+// 路径段解码:decodeURIComponent 遇到坏的百分号编码(如 `%zz`)会抛 URIError,落到顶层就是 500 + http_unhandled。
+// 路由拿到 null 按「这个 id 不存在/不合法」回 4xx(先例:/api/missions/:id/interventions/:iv/decision)。
+function safeDecodeURIComponent(segment) {
+  try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse(raw);
@@ -288,13 +342,87 @@ function safeJsonParse(raw, fallback = null) {
 // chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
 // 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
 // flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
+// ── 控制台输出解码(PowerShell / cmd / 原生命令)────────────────────────────────────────────────────────
+// 中文 Windows 上,无控制台(windowsHide)起的 powershell.exe 往重定向的 stdout 写的是系统代码页(GBK/cp936),
+// 原生命令也多半如此;而 git、node、python(UTF-8 模式)写的是 UTF-8 —— 同一份输出里两种编码混着来很常见。
+// [Console]::OutputEncoding 那类 PS 侧方案在无控制台 spawn 下无效(04-desktop-shell 头注里实测过),所以在 Node 侧解:
+// 【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
+// 合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
+// 所以按它切是安全的。纯 ASCII 行两种解法结果一样。
+let _consoleGbDecoder = null;
+const _consoleUtf8Strict = new TextDecoder('utf-8', { fatal: true });
+function decodeConsoleSegment(buf) {
+  if (!buf || !buf.length) return '';
+  try { return _consoleUtf8Strict.decode(buf); } catch { /* 不是合法 UTF-8 */ }
+  try {
+    if (!_consoleGbDecoder) { try { _consoleGbDecoder = new TextDecoder('gb18030'); } catch { _consoleGbDecoder = new TextDecoder('gbk'); } }
+    return _consoleGbDecoder.decode(buf);
+  } catch { return Buffer.from(buf).toString('utf8'); } // 这个 node 没带 GBK 的 ICU:退回 UTF-8(至少不崩)
+}
+function decodeConsoleText(buf) {
+  const data = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  let out = '', start = 0;
+  for (let i = data.indexOf(0x0a); i >= 0; i = data.indexOf(0x0a, start)) {
+    out += decodeConsoleSegment(data.subarray(start, i + 1));
+    start = i + 1;
+  }
+  return out + decodeConsoleSegment(data.subarray(start));
+}
+// 流式版本:整行才解码;没有换行的尾巴先攒着(多字节字符可能被 chunk 切开),由调用方在空闲时 flush()
+// (交互式 shell 的提示符、「是否继续? [Y/N]」这类不带换行的输出)或在进程结束时 end()。
+// 尾巴上一个没写完的多字节字符有多少字节(0 = 尾巴完整):UTF-8 看最后一个起始字节还差几个续字节;
+// 否则按 GBK 看结尾连续高位字节的个数是否为奇数(双字节字符只到了前一半)。空闲 flush 时把它留到下一次。
+function consoleIncompleteTail(buf) {
+  const n = buf.length;
+  for (let back = 1; back <= Math.min(3, n); back++) {
+    const b = buf[n - back];
+    if (b >= 0x80 && b < 0xc0) continue;            // UTF-8 续字节,继续往前找起始字节
+    if (b >= 0xc0) {
+      const need = b >= 0xf0 ? 4 : b >= 0xe0 ? 3 : 2;
+      if (back < need) { try { _consoleUtf8Strict.decode(buf.subarray(0, n - back)); return back; } catch { /* 前面也不是 UTF-8:按 GBK 看 */ } }
+    }
+    break;
+  }
+  let high = 0;
+  while (high < n && buf[n - 1 - high] >= 0x80) high += 1;
+  return high % 2 === 1 ? 1 : 0;
+}
+function createConsoleLineDecoder() {
+  let pending = Buffer.alloc(0);
+  const take = () => { const rest = pending; pending = Buffer.alloc(0); return decodeConsoleText(rest); };
+  return {
+    write(chunk) {
+      const data = pending.length ? Buffer.concat([pending, chunk]) : Buffer.from(chunk);
+      const cut = data.lastIndexOf(0x0a);
+      if (cut < 0) { pending = data; return pending.length > 256 * 1024 ? take() : ''; }
+      pending = data.subarray(cut + 1);
+      return decodeConsoleText(data.subarray(0, cut + 1));
+    },
+    // 空闲时吐出不带换行的尾巴(提示符之类),但没写完的那个字符留着 —— 写方可能正停在两个字节之间。
+    flush() {
+      const keep = consoleIncompleteTail(pending);
+      if (!keep) return take();
+      const head = pending.subarray(0, pending.length - keep);
+      pending = pending.subarray(pending.length - keep);
+      return decodeConsoleText(head);
+    },
+    end: take,
+    get pendingBytes() { return pending.length; },
+  };
+}
+
 function createNdjsonLineFeeder(onLine) {
   const decoder = new StringDecoder('utf8');
   let remainder = '';
   return {
     push(chunk) {
-      remainder += decoder.write(chunk);
-      const lines = remainder.split(/\r?\n/);
+      // hunt2-engines#4:只在【新到的这段】里找换行。修前每块都把整段残行拼上再 split 一遍 —— 一条 20MB 的单行
+      // (大 tool_result / base64 图片)按 64KB 分块喂进来是 O(n²),实测 8 秒、50MB 近一分钟阻塞事件循环。
+      // 新段里没有换行就只追加(V8 字符串拼接是摊还 O(1)),有换行时整段 split 一次,残行随即清空 —— 整体线性。
+      const text = decoder.write(chunk);
+      if (!text) return;
+      if (text.indexOf('\n') < 0) { remainder += text; return; }
+      const lines = (remainder + text).split(/\r?\n/);
       remainder = lines.pop() || '';
       for (const line of lines) onLine(line);
     },
@@ -302,6 +430,35 @@ function createNdjsonLineFeeder(onLine) {
       remainder += decoder.end();
       if (remainder.trim()) onLine(remainder);
       remainder = '';
+    },
+  };
+}
+
+// hunt2-engines#17:CLI 子进程的诊断文本(stderr、stdout 里的非 JSON 行)原来无上限累积,回合结束整段落进会话文件 ——
+// 一个刷屏的 CLI 能把一条会话撑到上百 MB,之后每次读写会话都要搬它。这里只留头尾各一半(默认共 64K 字符):
+// 启动错误多在头部、致命错误多在尾部,中间用一行说明省略了多少。累加是摊还 O(1)(尾巴超过两倍半额才裁一次)。
+const CLI_DIAGNOSTIC_TEXT_CAP = 64 * 1024;
+function createCappedDiagnosticText(cap = CLI_DIAGNOSTIC_TEXT_CAP) {
+  const half = Math.max(1, Math.floor(cap / 2));
+  let head = '';
+  let tail = '';
+  let dropped = 0;
+  return {
+    append(text) {
+      let rest = String(text || '');
+      if (!rest) return;
+      if (head.length < half) {
+        const take = rest.slice(0, half - head.length);
+        head += take;
+        rest = rest.slice(take.length);
+        if (!rest) return;
+      }
+      tail += rest;
+      if (tail.length > half * 2) { dropped += tail.length - half; tail = tail.slice(-half); }
+    },
+    toString() {
+      const omitted = dropped + Math.max(0, tail.length - half);
+      return omitted ? `${head}\n…[已省略 ${omitted} 字符]…\n${tail.slice(-half)}` : head + tail;
     },
   };
 }

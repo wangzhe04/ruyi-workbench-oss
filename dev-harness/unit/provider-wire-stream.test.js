@@ -64,7 +64,8 @@ const tc = (index, id, name, args) => {
 const FAKE_KEY = ['sk', 'xxxxabcdefghijklmnopqrstuvwxyz0123456789'].join('-');
 
 // 每条语料:body = 调用方交给 openAiStreamOnce 的请求体;steps = fetch 桩逐发的回应。
-//   { sse, chunk } 流式回体;{ json } 无 body 流的非流式回体;{ status, text } 非 2xx;{ throw } fetch 抛错。
+//   { sse, chunk } 流式回体;{ json } 无 body 流的非流式回体;{ jsonResponse } 带流但 content-type 是 JSON 的回体;
+//   { status, text } 非 2xx;{ throw } fetch 抛错。
 const CASES = {
   'chat.text.chunked': { body: CHAT_BODY, steps: [{ chunk: 5, sse: sse(
     { id: 'chatcmpl-1', choices: [{ delta: { role: 'assistant', content: '' } }] },
@@ -202,6 +203,63 @@ const CASES = {
   'nonstream.responses.incomplete': { body: RESP_BODY, steps: [{ json: { response: { id: 'resp_inner' }, status: 'incomplete', output: [] } }] },
   'nonstream.responses.failed': { body: RESP_BODY, steps: [{ json: { status: 'failed', output: [{ type: 'message', content: [{ type: 'output_text', text: 'part' }] }] } }] },
 
+  // hunt2-turnloop(有意改变的解码行为,新增语料;旧语料只有两条金样随之改变,见 PR 说明):
+  //   流内错误帧 / finish_reason:error / Responses error 事件 → httpError(还没吐内容且认得出状态码时报 HTTP <status>);
+  //   截断的流(无终止信号也无 finish_reason)→ httpError;每帧都带累计 usage → 只记最后一份;同 index 不同 id 的续片 →
+  //   最近开的槽;每片重复完整 name → 不再拼成双份;Responses 参数只在 .done 事件里 / incomplete 带 usage;
+  //   无视 stream:true 回 application/json → 按非流式解码;报文提到 functions 的真超窗 400 → 超窗优先;裸 invalid 不再剥 stream_options 重打。
+  'chat.error-frame.after-content': { body: CHAT_BODY, steps: [{ chunk: 64, sse: sse(
+    { choices: [{ delta: { content: '半截' } }] },
+    { error: { message: 'upstream overloaded ' + FAKE_KEY, code: 500 } }) }] },
+  'chat.error-frame.before-content': { body: CHAT_BODY, steps: [{ chunk: 64, sse: sse(
+    { error: { message: 'Rate limit reached', type: 'rate_limit_exceeded' } },
+    '[DONE]') }] },
+  'chat.finish.error': { body: CHAT_BODY, steps: [{ chunk: 64, sse: sse(
+    { choices: [{ delta: { content: '半截' } }] },
+    { choices: [{ delta: {}, finish_reason: 'error' }] },
+    '[DONE]') }] },
+  'chat.truncated.no-done-no-finish': { body: CHAT_BODY, steps: [{ chunk: 64, sse: sse(
+    { choices: [{ delta: { content: 'The answer is 4' } }] }) }] },
+  'chat.finish-without-done-is-complete': { body: CHAT_BODY, steps: [{ chunk: 64, sse: sse(
+    { choices: [{ delta: { content: '完整' } }] },
+    { choices: [{ delta: {}, finish_reason: 'stop' }] }) }] },
+  'chat.usage.cumulative-every-chunk': { body: CHAT_BODY, steps: [{ chunk: 64, sse: sse(
+    { choices: [{ delta: { content: 'a' } }], usage: { prompt_tokens: 100, completion_tokens: 1, total_tokens: 101 } },
+    { choices: [{ delta: { content: 'b' } }], usage: { prompt_tokens: 100, completion_tokens: 2, total_tokens: 102 } },
+    { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 3, total_tokens: 103 } },
+    '[DONE]') }] },
+  'chat.tools.name-repeated-every-fragment': { body: CHAT_BODY_TOOLS, steps: [{ chunk: 64, sse: sse(
+    tc(0, 'call_n', 'file_read', '{"pa'),
+    tc(0, undefined, 'file_read', 'th":"x"}'),
+    '[DONE]') }] },
+  'chat.tools.same-index-different-ids': { body: CHAT_BODY_TOOLS, steps: [{ chunk: 64, sse: sse(
+    tc(0, 'call_g1', 'file_read', '{"x":'),
+    tc(0, 'call_g2', 'file_list', '{"y":'),
+    tc(0, undefined, undefined, '2}'),
+    { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
+    '[DONE]') }] },
+  'responses.error-event': { body: RESP_BODY, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.output_text.delta', delta: 'partial' },
+    { type: 'error', code: 'server_error', message: 'boom' }) }] },
+  'responses.error-event.before-content': { body: RESP_BODY, steps: [{ chunk: 64, sse: sse(
+    { type: 'error', code: 'context_length_exceeded', message: 'maximum context length is 128000 tokens' }) }] },
+  'responses.truncated.no-terminal': { body: RESP_BODY, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.output_text.delta', delta: 'partial' }) }] },
+  'responses.args-only-in-done-events': { body: RESP_BODY_TOOLS, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.output_item.added', item: { type: 'function_call', id: 'fc_1', call_id: 'call_1', name: 'file_read', arguments: '' } },
+    { type: 'response.function_call_arguments.done', item_id: 'fc_1', arguments: '{"path":"a"}' },
+    { type: 'response.output_item.done', item: { type: 'function_call', id: 'fc_1', call_id: 'call_1', name: 'file_read', arguments: '{"path":"a"}' } },
+    { type: 'response.output_item.done', item: { type: 'function_call', id: 'fc_2', call_id: 'call_2', name: 'file_list', arguments: '{"path":"."}' } },
+    { type: 'response.completed', response: { usage: { input_tokens: 10, output_tokens: 2 } } }) }] },
+  'responses.incomplete-with-usage': { body: RESP_BODY, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.output_text.delta', delta: '半截' },
+    { type: 'response.incomplete', response: { incomplete_details: { reason: 'max_output_tokens' }, usage: { input_tokens: 10, output_tokens: 2 } } }) }] },
+  'nonstream.json-despite-stream-true': { body: CHAT_BODY, steps: [{ jsonResponse: {
+    id: 'chatcmpl-json', choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: 'hello from json' } }],
+    usage: { prompt_tokens: 5, completion_tokens: 3 } } }] },
+  'error.400.context-overflow.mentions-functions': { body: CHAT_BODY_TOOLS, steps: [{ status: 400, text: '{"error":{"message":"This model\'s maximum context length is 128000 tokens. However, you requested 131000 tokens (120000 in the messages, 11000 in the functions). Please reduce the length of the messages or functions.","type":"invalid_request_error","code":"context_length_exceeded"}}' }] },
+  'error.400.invalid-request-no-stream-options-retry': { body: CHAT_BODY, steps: [{ status: 400, text: '{"error":{"message":"model not found","type":"invalid_request_error"}}' }] },
+
   'error.400.tools-rejected': { body: CHAT_BODY_TOOLS, steps: [{ status: 400, text: '{"error":{"message":"tools are not supported for this model"}}' }] },
   'error.400.context-overflow': { body: CHAT_BODY_TOOLS, steps: [{ status: 400, text: '{"error":{"message":"This model\'s maximum context length is 8192 tokens"}}' }] },
   'error.400.context-overflow.no-tools': { body: CHAT_BODY, steps: [{ status: 400, text: 'prompt is too long: 250000 tokens > 200000 maximum' }] },
@@ -248,6 +306,8 @@ async function runCase(spec) {
       // 非流式:没有可读流的回体(openAiStreamOnce 看 res.body.getReader 决定走哪条路)
       return { ok: true, status: 200, body: null, json: async () => step.json, text: async () => JSON.stringify(step.json) };
     }
+    // 无视 stream:true、回一整份 application/json 的网关(回体是真 Response,带可读流)
+    if (step.jsonResponse) return new Response(JSON.stringify(step.jsonResponse), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } });
     if (step.sse != null) return new Response(streamBody(step.sse, step.chunk || 64), { status: 200, headers: { 'content-type': 'text/event-stream' } });
     return new Response(step.text, { status: step.status });
   };
@@ -276,6 +336,50 @@ test('openAiStreamOnce 特征语料与金样逐项相同', async () => {
   const golden = JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
   assert.deepEqual(Object.keys(actual), Object.keys(golden), '语料与金样一一对应');
   for (const name of Object.keys(CASES)) assert.deepEqual(actual[name], golden[name], name);
+});
+
+// hunt2-turnloop:新增语料的【语义】断言(金样之外再钉一遍意图,重录金样也绕不过去)。
+test('流内错误 / 截断 / 用量 / 工具槽 / JSON 回体 / 400 归因:行为断言', async () => {
+  const realFetch = global.fetch;
+  const run = async name => runCase(CASES[name]);
+  try {
+    let r = await run('chat.error-frame.after-content');
+    assert.equal(r.result.finishReason, 'error');
+    assert.match(r.result.httpError, /^Provider stream error: 500: upstream overloaded/, '已吐内容:流内错误,不带 HTTP 状态(不重打)');
+    assert.doesNotMatch(r.result.httpError, /abcdefghijklmnop/, '错误文本经脱敏');
+    r = await run('chat.error-frame.before-content');
+    assert.match(r.result.httpError, /^HTTP 429: rate_limit_exceeded/, '还没吐内容:认出限流 → HTTP 429(可按瞬时失败重试)');
+    r = await run('chat.finish.error');
+    assert.ok(r.result.httpError, 'finish_reason:error 不再当成功');
+    r = await run('chat.truncated.no-done-no-finish');
+    assert.match(r.result.httpError, /stream ended unexpectedly/);
+    r = await run('chat.finish-without-done-is-complete');
+    assert.equal(r.result.httpError, undefined, '有 finish_reason 的流即使没有 [DONE] 也完整');
+    r = await run('chat.usage.cumulative-every-chunk');
+    assert.deepEqual(r.usages, [{ prompt_tokens: 100, completion_tokens: 3, total_tokens: 103 }], '累计 usage 只记最后一份');
+    r = await run('chat.tools.name-repeated-every-fragment');
+    assert.deepEqual(r.result.toolCalls.map(t => t.name), ['file_read']);
+    r = await run('chat.tools.same-index-different-ids');
+    assert.deepEqual(r.result.toolCalls.map(t => [t.id, t.rawArgs]), [['call_g1', '{"x":'], ['call_g2', '{"y":2}']], '只带 index 的续片进最近开的槽');
+    r = await run('responses.error-event');
+    assert.match(r.result.httpError, /^Provider stream error: server_error: boom/);
+    r = await run('responses.error-event.before-content');
+    assert.match(r.result.httpError, /^HTTP 400: context_length_exceeded/, '超窗 error 事件 → HTTP 400(走强压重试)');
+    r = await run('responses.truncated.no-terminal');
+    assert.match(r.result.httpError, /stream ended unexpectedly/);
+    r = await run('responses.args-only-in-done-events');
+    assert.deepEqual(r.result.toolCalls.map(t => [t.id, t.name, t.rawArgs]), [['call_1', 'file_read', '{"path":"a"}'], ['call_2', 'file_list', '{"path":"."}']]);
+    r = await run('responses.incomplete-with-usage');
+    assert.deepEqual(r.usages, [{ input_tokens: 10, output_tokens: 2 }], 'incomplete 的用量照样记');
+    r = await run('nonstream.json-despite-stream-true');
+    assert.equal(r.result.text, 'hello from json');
+    assert.equal(r.usages.length, 1);
+    r = await run('error.400.context-overflow.mentions-functions');
+    assert.equal(r.result.contextOverflow, true, '真超窗先于「工具被拒」');
+    assert.equal(r.result.toolsRejected, undefined);
+    r = await run('error.400.invalid-request-no-stream-options-retry');
+    assert.equal(r.fetches.length, 1, 'invalid_request_error 不再剥 stream_options 白打第二遍');
+  } finally { global.fetch = realFetch; }
 });
 
 process.on('exit', () => { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* best-effort */ } });

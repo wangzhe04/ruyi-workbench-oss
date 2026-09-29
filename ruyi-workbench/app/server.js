@@ -66,21 +66,49 @@ function defaultDataRoots() {
 function lstatOrNull(p) {
   try { return fs.lstatSync(p); } catch { return null; }
 }
-function dataRoot() {
+// dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
+// 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
+let _dataRootMemo = null;
+function dataRootMemoKey() {
+  return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
+}
+function resolveDataRootUncached() {
   if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
   if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return next;
   const old = lstatOrNull(legacy);
-  return old && old.isDirectory() && !old.isSymbolicLink() ? legacy : next;
+  if (old && old.isDirectory() && !old.isSymbolicLink()) return legacy;
+  // 旧位置是用户自己建的链接 / 联接(数据挪去了别的盘)、新目录还没有:照旧用它。修前这里会落到一个空的新目录,
+  // 配置、会话、密钥看起来全没了。迁移不搬链接(见 migrateLegacyDataRoot)。
+  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) return legacy; } catch { /* 断链:当它不存在 */ } }
+  return next;
 }
-// 数据根的别名:迁移后旧位置上留的目录联接。敏感子树判定(03 isSensitiveDataPath)与文件树隐藏都要认它,
-// 否则经旧路径的词法写法能绕开「数据根下的控制面文件一律拒读」。
+function dataRoot() {
+  const key = dataRootMemoKey();
+  if (_dataRootMemo && _dataRootMemo.key === key && _dataRootMemo.root) return _dataRootMemo.root;
+  const root = resolveDataRootUncached();
+  _dataRootMemo = { key, root, aliases: null };
+  return root;
+}
+// 数据根的别名:指向同一个目录的其它写法 —— 迁移后旧位置上留的目录联接,或者新位置是指向旧目录的链接。敏感子树判定
+// (03 isSensitiveDataPath 与文件遍历的跳过)是按词法前缀比的,只认数据根本身的话,经别名的写法就能读到 config.json /
+// runtime.json(token)/ 会话。**与环境变量无关**:Claude / Kimi 的 MCP 子进程总带 RUYI_HOME,修前在那里一律返回空,
+// 旧路径上的联接就成了绕过口。判据是 realpath 相等(Windows 上不分大小写),数据根还不存在时不缓存、下次再算。
 function dataRootAliases() {
-  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return [];
+  const root = dataRoot();
+  if (_dataRootMemo && _dataRootMemo.root === root && Array.isArray(_dataRootMemo.aliases)) return _dataRootMemo.aliases;
+  const norm = p => (process.platform === 'win32' ? String(p).toLowerCase() : String(p));
+  let rootReal = '';
+  try { rootReal = norm(fs.realpathSync(root)); } catch { return []; }
   const { next, legacy } = defaultDataRoots();
-  const old = lstatOrNull(legacy);
-  return dataRoot() === next && old && old.isSymbolicLink() ? [legacy] : [];
+  const out = [];
+  for (const candidate of [legacy, next]) {
+    if (norm(path.resolve(candidate)) === norm(path.resolve(root))) continue;
+    try { if (norm(fs.realpathSync(candidate)) === rootReal) out.push(candidate); } catch { /* 不存在 */ }
+  }
+  if (_dataRootMemo && _dataRootMemo.root === root) _dataRootMemo.aliases = out;
+  return out;
 }
 function pidAlive(pid) {
   const n = Number(pid);
@@ -96,12 +124,14 @@ function migrateLegacyDataRoot() {
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
   const old = lstatOrNull(legacy);
-  if (!old || !old.isDirectory() || old.isSymbolicLink()) return { moved: false, reason: 'no-legacy' };
+  if (old && old.isSymbolicLink()) return { moved: false, reason: 'legacy-is-link' }; // 用户自己建的链接:不搬,dataRoot() 照旧用它
+  if (!old || !old.isDirectory()) return { moved: false, reason: 'no-legacy' };
   try {
     const rt = JSON.parse(fs.readFileSync(path.join(legacy, 'runtime.json'), 'utf8'));
     if (rt && pidAlive(rt.pid)) return { moved: false, reason: 'legacy-in-use', pid: rt.pid };
   } catch { /* 没有 runtime.json 或读不了:没有活实例的证据,照常迁移 */ }
   try { fs.renameSync(legacy, next); } catch (e) { return { moved: false, reason: 'rename-failed', error: String(e && e.code || e) }; }
+  _dataRootMemo = null; // 数据根从旧目录换成了新目录
   let junction = true;
   try { fs.symlinkSync(next, legacy, 'junction'); } catch { junction = false; }
   return { moved: true, from: legacy, to: next, junction };
@@ -276,6 +306,30 @@ function runKeyedChain(chains, key, work) {
   return current;
 }
 
+// 分离式外部启动(打开文件/网址/编辑器/资源管理器)的共用入口。病根:cp.spawn 找不到程序、没权限、被策略拦
+// (ENOENT / EACCES / EPERM)时【不】同步抛出,而是稍后在 ChildProcess 上发 'error' 事件;裸写
+// spawn(...).unref() 没有监听者,这个事件就成了 uncaughtException,startServerInner 的兜底会 process.exit(1)
+// —— 一次「打开」失败(注册表里残留的默认浏览器路径、卸掉的编辑器、被 AppLocker 拦的 explorer.exe)带走整个
+// 工作台:在飞回合、MCP 子进程、待决权限全丢,而工具先前已经回了「opened」。
+// 这里先挂 'error' 监听再 unref,并以 promise 交回启动结果:'spawn' 事件 → { ok:true },'error' → { ok:false, error }。
+// 同步抛出(参数非法)照旧同步抛给调用方,与原来 try { spawn().unref() } catch 的语义一致;成功路径的参数、
+// detached/stdio/windowsHide 全由调用方原样传入,行为不变。不关心结果的调用方可以不 await(错误已被吸收)。
+function spawnDetachedChecked(command, args, options) {
+  const child = cp.spawn(command, args || [], options);
+  const started = new Promise(resolve => {
+    child.on('error', error => resolve({ ok: false, error: (error && error.message) || String(error), code: (error && error.code) || null }));
+    child.once('spawn', () => resolve({ ok: true, pid: child.pid }));
+  });
+  child.unref();
+  return started;
+}
+
+// 路径段解码:decodeURIComponent 遇到坏的百分号编码(如 `%zz`)会抛 URIError,落到顶层就是 500 + http_unhandled。
+// 路由拿到 null 按「这个 id 不存在/不合法」回 4xx(先例:/api/missions/:id/interventions/:iv/decision)。
+function safeDecodeURIComponent(segment) {
+  try { return decodeURIComponent(String(segment == null ? '' : segment)); } catch { return null; }
+}
+
 function safeJsonParse(raw, fallback = null) {
   try {
     return JSON.parse(raw);
@@ -288,13 +342,87 @@ function safeJsonParse(raw, fallback = null) {
 // chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
 // 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
 // flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
+// ── 控制台输出解码(PowerShell / cmd / 原生命令)────────────────────────────────────────────────────────
+// 中文 Windows 上,无控制台(windowsHide)起的 powershell.exe 往重定向的 stdout 写的是系统代码页(GBK/cp936),
+// 原生命令也多半如此;而 git、node、python(UTF-8 模式)写的是 UTF-8 —— 同一份输出里两种编码混着来很常见。
+// [Console]::OutputEncoding 那类 PS 侧方案在无控制台 spawn 下无效(04-desktop-shell 头注里实测过),所以在 Node 侧解:
+// 【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
+// 合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
+// 所以按它切是安全的。纯 ASCII 行两种解法结果一样。
+let _consoleGbDecoder = null;
+const _consoleUtf8Strict = new TextDecoder('utf-8', { fatal: true });
+function decodeConsoleSegment(buf) {
+  if (!buf || !buf.length) return '';
+  try { return _consoleUtf8Strict.decode(buf); } catch { /* 不是合法 UTF-8 */ }
+  try {
+    if (!_consoleGbDecoder) { try { _consoleGbDecoder = new TextDecoder('gb18030'); } catch { _consoleGbDecoder = new TextDecoder('gbk'); } }
+    return _consoleGbDecoder.decode(buf);
+  } catch { return Buffer.from(buf).toString('utf8'); } // 这个 node 没带 GBK 的 ICU:退回 UTF-8(至少不崩)
+}
+function decodeConsoleText(buf) {
+  const data = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  let out = '', start = 0;
+  for (let i = data.indexOf(0x0a); i >= 0; i = data.indexOf(0x0a, start)) {
+    out += decodeConsoleSegment(data.subarray(start, i + 1));
+    start = i + 1;
+  }
+  return out + decodeConsoleSegment(data.subarray(start));
+}
+// 流式版本:整行才解码;没有换行的尾巴先攒着(多字节字符可能被 chunk 切开),由调用方在空闲时 flush()
+// (交互式 shell 的提示符、「是否继续? [Y/N]」这类不带换行的输出)或在进程结束时 end()。
+// 尾巴上一个没写完的多字节字符有多少字节(0 = 尾巴完整):UTF-8 看最后一个起始字节还差几个续字节;
+// 否则按 GBK 看结尾连续高位字节的个数是否为奇数(双字节字符只到了前一半)。空闲 flush 时把它留到下一次。
+function consoleIncompleteTail(buf) {
+  const n = buf.length;
+  for (let back = 1; back <= Math.min(3, n); back++) {
+    const b = buf[n - back];
+    if (b >= 0x80 && b < 0xc0) continue;            // UTF-8 续字节,继续往前找起始字节
+    if (b >= 0xc0) {
+      const need = b >= 0xf0 ? 4 : b >= 0xe0 ? 3 : 2;
+      if (back < need) { try { _consoleUtf8Strict.decode(buf.subarray(0, n - back)); return back; } catch { /* 前面也不是 UTF-8:按 GBK 看 */ } }
+    }
+    break;
+  }
+  let high = 0;
+  while (high < n && buf[n - 1 - high] >= 0x80) high += 1;
+  return high % 2 === 1 ? 1 : 0;
+}
+function createConsoleLineDecoder() {
+  let pending = Buffer.alloc(0);
+  const take = () => { const rest = pending; pending = Buffer.alloc(0); return decodeConsoleText(rest); };
+  return {
+    write(chunk) {
+      const data = pending.length ? Buffer.concat([pending, chunk]) : Buffer.from(chunk);
+      const cut = data.lastIndexOf(0x0a);
+      if (cut < 0) { pending = data; return pending.length > 256 * 1024 ? take() : ''; }
+      pending = data.subarray(cut + 1);
+      return decodeConsoleText(data.subarray(0, cut + 1));
+    },
+    // 空闲时吐出不带换行的尾巴(提示符之类),但没写完的那个字符留着 —— 写方可能正停在两个字节之间。
+    flush() {
+      const keep = consoleIncompleteTail(pending);
+      if (!keep) return take();
+      const head = pending.subarray(0, pending.length - keep);
+      pending = pending.subarray(pending.length - keep);
+      return decodeConsoleText(head);
+    },
+    end: take,
+    get pendingBytes() { return pending.length; },
+  };
+}
+
 function createNdjsonLineFeeder(onLine) {
   const decoder = new StringDecoder('utf8');
   let remainder = '';
   return {
     push(chunk) {
-      remainder += decoder.write(chunk);
-      const lines = remainder.split(/\r?\n/);
+      // hunt2-engines#4:只在【新到的这段】里找换行。修前每块都把整段残行拼上再 split 一遍 —— 一条 20MB 的单行
+      // (大 tool_result / base64 图片)按 64KB 分块喂进来是 O(n²),实测 8 秒、50MB 近一分钟阻塞事件循环。
+      // 新段里没有换行就只追加(V8 字符串拼接是摊还 O(1)),有换行时整段 split 一次,残行随即清空 —— 整体线性。
+      const text = decoder.write(chunk);
+      if (!text) return;
+      if (text.indexOf('\n') < 0) { remainder += text; return; }
+      const lines = (remainder + text).split(/\r?\n/);
       remainder = lines.pop() || '';
       for (const line of lines) onLine(line);
     },
@@ -302,6 +430,35 @@ function createNdjsonLineFeeder(onLine) {
       remainder += decoder.end();
       if (remainder.trim()) onLine(remainder);
       remainder = '';
+    },
+  };
+}
+
+// hunt2-engines#17:CLI 子进程的诊断文本(stderr、stdout 里的非 JSON 行)原来无上限累积,回合结束整段落进会话文件 ——
+// 一个刷屏的 CLI 能把一条会话撑到上百 MB,之后每次读写会话都要搬它。这里只留头尾各一半(默认共 64K 字符):
+// 启动错误多在头部、致命错误多在尾部,中间用一行说明省略了多少。累加是摊还 O(1)(尾巴超过两倍半额才裁一次)。
+const CLI_DIAGNOSTIC_TEXT_CAP = 64 * 1024;
+function createCappedDiagnosticText(cap = CLI_DIAGNOSTIC_TEXT_CAP) {
+  const half = Math.max(1, Math.floor(cap / 2));
+  let head = '';
+  let tail = '';
+  let dropped = 0;
+  return {
+    append(text) {
+      let rest = String(text || '');
+      if (!rest) return;
+      if (head.length < half) {
+        const take = rest.slice(0, half - head.length);
+        head += take;
+        rest = rest.slice(take.length);
+        if (!rest) return;
+      }
+      tail += rest;
+      if (tail.length > half * 2) { dropped += tail.length - half; tail = tail.slice(-half); }
+    },
+    toString() {
+      const omitted = dropped + Math.max(0, tail.length - half);
+      return omitted ? `${head}\n…[已省略 ${omitted} 字符]…\n${tail.slice(-half)}` : head + tail;
     },
   };
 }
@@ -3272,10 +3429,20 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
       return value;
+    }
+
+    // hunt2-P8:什么样的读失败算「已定论」—— 文件不存在(ENOENT)、内容坏(JSON 语法错)、形状/版本/清洗/校验
+    // 不过(EDURABLE_*)。只有这些才隔离 + 用默认值 + 进缓存。EBUSY/EACCES/EMFILE 这类是【这一次】没读到,
+    // 不是文件坏了:修前也当损坏处理,拷一份 .corrupt、把默认值钉进进程缓存 —— 此后本进程每次读都拿默认值,
+    // 下一次写再把默认值落盘,好好的文件就这么被一次瞬时锁冲掉了。现在只给本次调用一份默认值,下次照常读盘。
+    function readErrorIsSettled(error) {
+      const code = String((error && error.code) || '');
+      return code === 'ENOENT' || code.startsWith('EDURABLE_') || error instanceof SyntaxError;
     }
 
     function recover(error) {
@@ -3289,6 +3456,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
       if (cacheEnabled) {
@@ -3337,7 +3505,12 @@ async function writeConfigAtomic(data) {
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
-    try { await fsp.copyFile(paths.config, `${paths.config}.prev`); } catch { /* 首次写入或不可读 */ }
+    // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
+    // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
+    try {
+      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
+      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
     return atomicWriteJson(paths.config, data);
   });
   configWriteChain = thisWrite;
@@ -3362,8 +3535,18 @@ let lastGoodConfig = null;
 // 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
 // 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
-async function readConfig() {
+// hunt2-P10:readConfig 全仓 ~135 处调用,修前每一次都 ensureDirs()(14 个 mkdir)。目录只需在每个数据根上
+// 建一次:按 paths.data 记一笔,换根(测试 / 迁移)时重建。只省 readConfig 这一处 —— saveSession、writeConfig
+// 等写口仍然各自 ensureDirs(),运行中目录被删也能在下一次写时补回来。建目录失败不记,下次再试。
+let configDirsEnsuredFor = '';
+async function ensureDirsForConfigRead() {
+  const root = String(paths.data || '');
+  if (root && configDirsEnsuredFor === root) return;
   await ensureDirs();
+  configDirsEnsuredFor = root;
+}
+async function readConfig() {
+  await ensureDirsForConfigRead();
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
@@ -3599,10 +3782,17 @@ async function syncAgentCliMcpManifests(config, previousConfig = null, { require
 // v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
 // per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
 // user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
-async function syncMcpServersToKimi(config) {
+// hunt2-engines#14:这是一段「读 mcp.json + 读所有权旁账 → 合并 → 写两份文件」的读改写。修前不串行:每个 Kimi 回合起手
+// (05b includeWorkbenchMcp)、启动预热、配置保存都会调它,两路并发时后写的一方基于旧快照把先写的一方盖掉 ——
+// managedIds / previous(接管前的原条目)一旦丢了,关掉工作台 MCP 时就还原不回用户原来的条目。按目标文件串行。
+const kimiMcpSyncChains = new Map();
+function syncMcpServersToKimi(config) {
+  const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
+  return runKeyedChain(kimiMcpSyncChains, path.join(kimiDir, 'mcp.json'), () => syncMcpServersToKimiNow(config, kimiDir));
+}
+async function syncMcpServersToKimiNow(config, kimiDir) {
   try {
     await ensureDirs();
-    const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
     let current = {};
@@ -4099,13 +4289,43 @@ function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCli
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
 // proves invalid; this keeps normal CLI diagnostics byte-for-byte unchanged while
 // making the actionable error readable for Chinese Windows installs.
-function decodeClaudeCliText(chunk) {
+//
+// hunt2-engines#8:按块独立解码会把「块边界切在一个汉字中间」的正常 UTF-8 误判成非法,再按 GB18030 解出一串乱码。
+// 子进程的一条流(stderr)请传同一个状态对象 stream(调用方给一个 {} 即可):UTF-8 走 StringDecoder(被切开的尾字节
+// 留到下一块再解);只有 UTF-8 真的非法时才整流切到 GB18030(同样是流式解码器)。流结束时传 chunk=null 冲出残字节。
+// 不传 stream 时行为与修前逐字节相同(一次性整段解码的调用点)。
+function decodeClaudeCliText(chunk, stream) {
+  if (stream && typeof stream === 'object') return decodeClaudeCliStream(chunk, stream);
   const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
   if (!bytes.length) return '';
   const utf8 = bytes.toString('utf8');
   if (!utf8.includes('\uFFFD')) return utf8;
   try {
     const decoded = new TextDecoder('gb18030', { fatal: true }).decode(bytes);
+    return decoded || utf8;
+  } catch {
+    return utf8;
+  }
+}
+
+function decodeClaudeCliStream(chunk, stream) {
+  if (!stream.utf8) stream.utf8 = new StringDecoder('utf8');
+  if (chunk === null) {
+    const rest = stream.gb ? stream.gb.decode() : stream.utf8.end();
+    stream.gb = null;
+    return rest;
+  }
+  const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
+  if (!bytes.length) return '';
+  if (stream.gb) {
+    try { return stream.gb.decode(bytes, { stream: true }); } catch { stream.gb = null; return bytes.toString('utf8'); }
+  }
+  const utf8 = stream.utf8.write(bytes);
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    const gb = new TextDecoder('gb18030', { fatal: true });
+    const decoded = gb.decode(bytes, { stream: true });
+    stream.gb = gb;
     return decoded || utf8;
   } catch {
     return utf8;
@@ -4748,10 +4968,33 @@ async function generateMcpConfig(mode) {
   return configPath;
 }
 
+// hunt2-P9:每会话 / 每子代理节点的 MCP 配置(workbench.mcp.<id>.json)里有 loopback token 与外部 MCP 的 env,
+// 修前从不删除 —— 删会话只删会话本身,子代理节点那一份更是跑完就没人管,generated/ 里无界堆积带密钥的文件。
+// 删会话时 02 deleteSession 顺手删对应那份;这里再按年龄兜底:每次起引擎都会重写自己那份(mtime 刷新),
+// 超过 SESSION_MCP_CONFIG_MAX_AGE_MS 没被重写的就是没人再用的。每进程只扫一次,失败静默(旁路清理)。
+const SESSION_MCP_CONFIG_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+let sessionMcpConfigSweepDone = false;
+async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
+  let removed = 0;
+  let names = [];
+  try { names = await fsp.readdir(paths.generated); } catch { return removed; }
+  for (const name of names) {
+    // 只认 workbench.mcp.<id>.json;共享的 workbench.mcp.json 不在此列。
+    if (!/^workbench\.mcp\.[A-Za-z0-9_-]{1,64}\.json$/.test(name)) continue;
+    const file = path.join(paths.generated, name);
+    try {
+      const st = await fsp.stat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SESSION_MCP_CONFIG_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
 async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   await ensureDirs();
+  if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);
@@ -4820,6 +5063,12 @@ function isAskUserTool(name) {
 }
 
 async function readBody(req) {
+  // 声明长度已超总闸就不必先缓冲 128 MB 再拒(同 readAudioBody 的预检);提前回 413 后客户端可能还在续传,
+  // 连接随即被拆,req 上迟到的 error/aborted 挂空接吞掉。apiCode 让 413 不再被 sendError 报成 api.internal_error。
+  req.on('error', () => {});
+  if (Number(req.headers && req.headers['content-length'] || 0) > MAX_BODY_BYTES) {
+    throw Object.assign(new Error('Request body too large'), { statusCode: 413, apiCode: 'api.body_too_large' });
+  }
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
@@ -4827,6 +5076,7 @@ async function readBody(req) {
     if (total > MAX_BODY_BYTES) {
       const err = new Error('Request body too large');
       err.statusCode = 413;
+      err.apiCode = 'api.body_too_large';
       throw err;
     }
     chunks.push(chunk);
@@ -4837,8 +5087,12 @@ async function readBody(req) {
 async function readJsonBody(req) {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
-  try { return JSON.parse(raw); }
+  let value;
+  try { value = JSON.parse(raw); }
   catch { throw Object.assign(new Error('request body is not valid JSON'), { statusCode: 400, apiCode: 'api.bad_json' }); }   // C17:客户端的错,回 400 不回 500
+  // 合法 JSON 但不是对象(null / 数组 / 字符串 / 数字):按空体处理。约 30 个 handler 直接读 body.xxx,
+  // 请求体是 `null` 时就是 TypeError → 500 + http_unhandled 日志;没有任何路由收顶层数组或标量。
+  return (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
 }
 
 function send(res, response) {
@@ -4964,8 +5218,15 @@ function safeSessionId(raw) {
   return /^[A-Za-z0-9_-]{1,64}$/.test(s) ? s : null;
 }
 
+// 会话 id 拼成文件名的咽喉点:不合形的 id 在这里就拒掉(抛错),不靠每个调用方记得先 safeSessionId ——
+// 修前有几条路由(/api/chat/stream、/api/session/skills、/api/session/memories、工具上下文)直接拿请求体里的
+// sessionId 拼路径,`../config` 就读到了 <数据根>/config.json(连同服务商密钥)当会话回显出去。
+function assertSessionIdForPath(id) {
+  if (safeSessionId(id) === null) throw new Error('invalid session id');
+  return String(id);
+}
 function sessionPath(id) {
-  return path.join(paths.sessions, `${id}.json`);
+  return path.join(paths.sessions, `${assertSessionIdForPath(id)}.json`);
 }
 // 第25波对抗轮: per-session 写链(见 saveSession)—— 与 agentRunWriteChains 同范式。
 const sessionWriteChains = new Map();
@@ -5537,6 +5798,7 @@ const SESSION_STORAGE_VERSION = 2;
 // 架构还债批 3·B: 会话级内存覆盖表(sessionEngineRouteOverrides/权限档/桌面工具)与其归一、应用函数抽至 02d-session-overrides.js。
 
 function sessionBodyPaths(id) {
+  assertSessionIdForPath(id);
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
     provider: path.join(paths.sessions, `${id}.provider.ndjson`),
@@ -6174,9 +6436,21 @@ function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
 // 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
 // 容忍:否则磁盘上留着半行,下次快路径 append 会接在撕裂字节之后,把新的真消息焊进坏行 → 中间坏行 →
 // 整个会话被判 corrupt 隔离(真丢数据)。中间空行/坏行一律 corrupt(不应发生,发生即数据事故)。
+// hunt2-P3:只有 ENOENT 才是「文件缺失」(null)。EBUSY/EPERM/EACCES(Windows 杀软/索引器短暂持锁)、
+// EMFILE/ENFILE(句柄一时耗尽)这类读失败先有界重试;仍失败回 { unreadable:true } —— 修前一律 null,
+// loadSession 把它当「正文丢了」,整条会话连头带正文改名 .corrupt(一次瞬时锁 = 会话从列表里消失)。
+const SESSION_BODY_READ_TRANSIENT = new Set(['EPERM', 'EBUSY', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN']);
 async function readSessionBodyFile(p) {
   let txt;
-  try { txt = await fsp.readFile(p, 'utf8'); } catch { return null; }
+  for (let attempt = 0; ; attempt++) {
+    try { txt = await fsp.readFile(p, 'utf8'); break; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT') return null;
+      if (!SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return { unreadable: true, code: code || 'EREAD' };
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
   const lines = txt.split('\n');
   const entries = [], hashes = [], lineEndBytes = [];
   let goodBytes = 0; // 已确认好行的 utf8 字节数(含每行结尾 \n),撕裂截断点
@@ -6245,14 +6519,14 @@ function isStrictSessionBodyPrefix(entries, persistedHashes) {
 async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) {
   if (!isStrictSessionBodyPrefix(messages, state.msgHashes)) return false;
   const disk = await readSessionBodyFile(bp.messages);
-  if (!disk || disk.corrupt || disk.hashes.length !== state.msgHashes.length
+  if (!disk || disk.corrupt || disk.unreadable || disk.hashes.length !== state.msgHashes.length
     || disk.hashes[disk.hashes.length - 1] !== state.msgHashes[state.msgHashes.length - 1]) return false;
   const addedMessages = disk.entries.length - messages.length;
   messages.push(...disk.entries.slice(messages.length));
   let addedProvider = 0;
   if (isStrictSessionBodyPrefix(providerHistory, state.provHashes)) {
     const prov = await readSessionBodyFile(bp.provider);
-    if (prov && !prov.corrupt && prov.hashes.length === state.provHashes.length) {
+    if (prov && !prov.corrupt && !prov.unreadable && prov.hashes.length === state.provHashes.length) {
       addedProvider = prov.entries.length - providerHistory.length;
       providerHistory.push(...prov.entries.slice(providerHistory.length));
     }
@@ -6789,15 +7063,25 @@ async function updateSessionMeta(id, patch) {
   return updateSessionMetaAttempt(id, patch, 0);
 }
 async function updateSessionMetaAttempt(id, patch, replayDepth) {
-  const session = await loadSession(id);
-  if (!session) return null; // missing/corrupt — caller maps to 404
   const p = (patch && typeof patch === 'object') ? patch : {};
-  applySessionMetaPatch(session, p);
   const watchNote = stewardWatchNoteFrom(p);
-  // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
-  if (!activeChildren.has(id) && !turnSettlers.has(id)) {
-    try { await saveSession(session, { throwIfStale: true, writer: 'session_meta' }); }
-    catch (error) {
+  // hunt2-P4:读-改-存进 mutateSession 同一条 per-id 链(与它互斥,见 withSessionMutateLock 头注)。
+  // 链内只做这一次 load→patch→save;撤回重放的递归与延后通道都在链【外】,不会自己等自己。
+  const step = await withSessionMutateLock(id, async () => {
+    const loaded = await loadSession(id);
+    if (!loaded) return { session: null };
+    applySessionMetaPatch(loaded, p);
+    // 活回合(activeChildren)或 dying turn 收尾窗口(turnSettlers,第69波 rewind 同款判据)之外:原路不变。
+    if (activeChildren.has(id) || turnSettlers.has(id)) return { session: loaded, deferred: true };
+    try { await saveSession(loaded, { throwIfStale: true, writer: 'session_meta' }); }
+    catch (error) { return { session: loaded, error }; }
+    return { session: loaded };
+  });
+  const session = step.session;
+  if (!session) return null; // missing/corrupt — caller maps to 404
+  if (!step.deferred) {
+    if (step.error) {
+      const error = step.error;
       if (!(error && error.code === 'SESSION_STALE_SAVE') || replayDepth >= SESSION_META_STALE_REPLAYS) throw error;
       // 107-F7b:从头再走一遍(重新 load、重新判活回合),而不是只在原地重试 save —— 撤回之后可能已经
       // 起了新回合,那时补丁该走下面那条延后通道,不能拿新副本去跟活回合抢写。
@@ -6823,22 +7107,27 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
       ]);
       if (!settled) { forced = true; logEvent({ kind: 'session_meta_defer_timeout', sessionId: id }); }
     }
-    let fresh = await loadSession(id).catch(() => null);
-    if (!fresh) return;                       // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
-    applySessionMetaPatch(fresh, p);
-    // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
-    // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
-    // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
-    for (let attempt = 0; ; attempt++) {
-      try { await saveSession(fresh, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
-      catch (error) {
-        if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
-        logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
-        fresh = await loadSession(id).catch(() => null);
-        if (!fresh) return;
-        applySessionMetaPatch(fresh, p);
+    // hunt2-P4:settle 已在上面(链外)等过;读-改-存这一段进 per-id 读改写链,与 mutateSession 互斥。
+    const fresh = await withSessionMutateLock(id, async () => {
+      let copy = await loadSession(id).catch(() => null);
+      if (!copy) return null;                 // 会话在窗口内被删了:什么都不做(删除已清覆盖表)
+      applySessionMetaPatch(copy, p);
+      // 107-F7b:「重新装载的副本」在 load 与 save 之间同样可能撞上一次撤回(settle 之后正是撤回动手的
+      // 时刻),被代数闸丢掉时在更新的副本上重放补丁,有界(SESSION_META_STALE_REPLAYS)。
+      // 其它失败沿用旧语义:吞掉(旁路写,不反噬调用方)。
+      for (let attempt = 0; ; attempt++) {
+        try { await saveSession(copy, { throwIfStale: true, writer: 'session_meta_deferred' }); break; }
+        catch (error) {
+          if (!(error && error.code === 'SESSION_STALE_SAVE') || attempt >= SESSION_META_STALE_REPLAYS) break;
+          logEvent({ kind: 'session_meta_replayed', sessionId: id, keys: Object.keys(p).slice(0, 8), attempt: attempt + 1, deferred: true });
+          copy = await loadSession(id).catch(() => null);
+          if (!copy) return null;
+          applySessionMetaPatch(copy, p);
+        }
       }
-    }
+      return copy;
+    });
+    if (!fresh) return;
     RUYI_EVENTS.emit('thread.state', { sessionId: id });   // 121-K2a:延后那条路落盘之后同样要派
     // 121-K3:延后那条路同样要派交接事件(用户完全可能在一个回合跑着的时候按下那枚开关)。
     // 121-K6a:note 算在 patch 到来那一刻(watchNote,外层闭包变量),不是等到这里才重算——委托话是
@@ -6863,11 +7152,46 @@ async function updateSessionMetaAttempt(id, patch, replayDepth) {
   return session;
 }
 
+// hunt2-P2:删除墓碑。id → 删除那一刻(ms)。stopSession 只是 abort,被停回合的收尾 saveSession(以及任何
+// 手里还攥着旧会话对象的旁路写者)会在 unlink 之后把头与正文整份写回 —— 会话「复活」,列表里又出现、GET 200。
+// saveSession 在【写链内】查墓碑:createdAt 不晚于删除时刻的对象 = 删除之前就存在的那条会话的副本,整次写丢弃。
+// 用 createdAt 而不是「有墓碑就拒」:固定 id 的会话(管家 STEWARD_SESSION_ID)删掉后会以同一个 id 重建,
+// 新对象的 createdAt 晚于删除时刻,照常落盘;createSession 另外显式清墓碑。条目只活在本进程(重启后没有
+// 在飞的旧对象),有上限防长驻进程无界增长。
+const SESSION_DELETE_TOMBSTONE_MAX = 5000;
+const SESSION_DELETE_SETTLE_TIMEOUT_MS = 8000;   // 与 rewindSession 等垂死回合 settle 的窗口同值
+const sessionDeleteTombstones = new Map();
+function markSessionDeleted(id) {
+  sessionDeleteTombstones.delete(id);
+  sessionDeleteTombstones.set(id, Date.now());
+  while (sessionDeleteTombstones.size > SESSION_DELETE_TOMBSTONE_MAX) sessionDeleteTombstones.delete(sessionDeleteTombstones.keys().next().value);
+}
+function sessionSaveIsTombstoned(session) {
+  const deletedAt = sessionDeleteTombstones.get(session && session.id);
+  if (deletedAt === undefined) return false;
+  const createdMs = Date.parse(String((session && session.createdAt) || ''));
+  return !Number.isFinite(createdMs) || createdMs <= deletedAt;
+}
 // Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
 // the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
 async function deleteSession(id, { purgeAssociated = false } = {}) {
+  // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
+  // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
+  markSessionDeleted(id);
   stopSession(id, 'deleted');
+  {
+    const settler = turnSettlers.get(id);
+    if (settler && settler.promise) {
+      const settled = await Promise.race([
+        settler.promise.then(() => true, () => true),
+        new Promise(r => { const t = setTimeout(() => r(false), SESSION_DELETE_SETTLE_TIMEOUT_MS); if (t.unref) t.unref(); }),
+      ]);
+      if (!settled) logEvent({ kind: 'session_delete_settle_timeout', sessionId: id });
+    }
+    const inFlight = sessionWriteChains.get(id);
+    if (inFlight) await inFlight.catch(() => {});
+  }
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   // 116g:删线程 = 从它所在事项的反向索引里摘掉。**必须在删会话头之前读**(头没了就不知道它属于谁)。
   // 漏掉这一步不会让读模型说错话(读侧一律与会话头对账,死 id 天然不进任何视图),但会让事项文件里
@@ -6892,7 +7216,12 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(bp.provider + '.prevbody').catch(() => {}),
     fsp.unlink(interventionFilePath(id)).catch(() => {}),
     fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
+    // hunt2-P9:会话笔记旁车与每会话 MCP 配置(内含 loopback token 与外部 MCP 的 env)同属这条会话的数据载体。
+    fsp.unlink(sessionNotesPath(id)).catch(() => {}),
+    proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
+    // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
+    proposalSessionId ? fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
   sessionBodyState.delete(id);
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
@@ -8215,12 +8544,17 @@ async function truncateSessionBody(file, len) {
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
 async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
+  if (safeSessionId(id) === null) return null; // 不合形的 id 就是「没有这个会话」(sessionPath 会拒绝拼路径)
   const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
-  try {
-    raw = await fsp.readFile(sessionPath(id), 'utf8');
-  } catch {
-    return null; // ENOENT etc.
+  // hunt2-P3:头读撞上瞬时锁(EBUSY/EPERM/EACCES)先有界重试,别把「一时读不到」答成「会话不存在」。
+  for (let attempt = 0; ; attempt++) {
+    try { raw = await fsp.readFile(sessionPath(id), 'utf8'); break; }
+    catch (error) {
+      const code = String((error && error.code) || '');
+      if (code === 'ENOENT' || !SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return null;
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
   }
   let parsed;
   try {
@@ -8235,6 +8569,13 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     const bp = sessionBodyPaths(id);
     let msg = await readSessionBodyFile(bp.messages);
     let prov = await readSessionBodyFile(bp.provider);
+    // hunt2-P3:正文【在但读不出来】(重试过仍被锁/句柄耗尽)不是「正文丢了」—— 下面的判据会把它当缺失,
+    // 走 v1bak 回退或整条隔离成 .corrupt。这一趟诚实地不给结果,盘上什么都不动,下次读自然恢复。
+    const unreadable = b => !!(b && b.unreadable);
+    if (unreadable(msg) || unreadable(prov)) {
+      logEvent({ kind: 'session_body_unreadable', sessionId: id, code: String((unreadable(msg) ? msg : prov).code || '') });
+      return null;
+    }
     // 头是提交点:正文行数【少于】头声明 = 已提交数据丢失,与 corrupt 同级;【多于】头声明 = 崩溃于
     // 「append 完成、头写未完成」之间,多余行是未提交尾巴,物理截断(见下),不算损坏。
     const shortOf = (body, count) => Number.isInteger(count) && body && !body.corrupt && body.entries.length < count;
@@ -8281,6 +8622,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
       await fsp.rename(pp, bp.provider).catch(() => {});
       msg = await readSessionBodyFile(bp.messages);
       prov = await readSessionBodyFile(bp.provider);
+      if (unreadable(msg) || unreadable(prov)) return null;   // hunt2-P3:同上,读不出来就不动手
     }
     if (bodyBad()) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
@@ -8528,6 +8870,12 @@ async function saveSession(session, opts) {
     sessionBodyState.set(id, { msgHashes: nextMsgHashes, provHashes: nextProvHashes, bodiesOk: true });
   };
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
+    // hunt2-P2:删除墓碑闸。同撤回代数闸,必须在【链内】看:删除可能发生在这次 save 入链之后、执行之前
+    // (被停回合的收尾存正是这么排的)。删除之前就存在的会话对象一律不许再落盘(见 sessionDeleteTombstones 头注)。
+    if (sessionSaveIsTombstoned(session)) {
+      logEvent({ kind: 'session_deleted_save_dropped', sessionId: id, writer: String((opts && opts.writer) || ''), messageCount: messages.length });
+      return { dropped: true, deleted: true };
+    }
     // 107-F7b:撤回代数闸。必须在【链内】比:高水位可能在这次写入链之后、执行之前才被抬高(撤回那一存
     // 排在我后面入链、却抬水位在我执行之前)。对象代数低于高水位 = 撤回之前的快照,整次写丢弃 ——
     // 正文与头都不写、不动 sessionBodyState(它仍如实描述盘上的正文),下面的索引/投影刷新也一并跳过。
@@ -8571,7 +8919,8 @@ async function saveSession(session, opts) {
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }
   if (dropped) {
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
-    if (opts && opts.throwIfStale) {
+    // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
+    if (opts && opts.throwIfStale && !dropped.deleted) {
       throw Object.assign(new Error('stale session save dropped: this copy was loaded before a rewind'), {
         code: 'SESSION_STALE_SAVE', staleGen: dropped.staleGen, highWater: dropped.highWater,
       });
@@ -8611,31 +8960,47 @@ function sessionRewoundError(id, writer) {
     code: 'session.rewound_during_write', statusCode: 409, sessionId: id, writer,
   });
 }
+// hunt2-P4:同一会话的「load → 改 → save」整段按 id 串行。修前两路并发的 mutateSession(todo 与技能、
+// 记忆与 backgroundJobSeen……)各自读到同一份旧头、各改各的字段、后存者整份盖掉先存者 —— 撤回闸管不到这种
+// 同代数的丢失更新(实测 20/20 丢一边)。saveSession 自己的 per-id 写链只串「写」,串不了「读-改-写」。
+// 不会死锁的理由(改这里之前先读):
+//   · 链内只做 loadSession / mutator / saveSession。loadSession 只会【等】写链(sessionWriteChains)、
+//     saveSession 只会【排进】写链,写链里跑的只有落盘,从不回头等这条链 —— 两条链之间只有单向等待;
+//   · 活回合的收尾存直接走 saveSession,不进这条链,所以回合永远不必等这里;这条链也从不等回合 settle
+//     (updateSessionMeta 的延后通道在【进链之前】等 settle);
+//   · 约定:mutator 里不得再对【同一个 id】调 mutateSession / updateSessionMeta(会自己等自己)。
+//     现有调用方的 mutator 都是纯内存改动加至多一次只读 I/O(unit/session-mutate.test.js 的 [M6] 钉并发)。
+const sessionMutateChains = new Map();
+function withSessionMutateLock(id, work) {
+  return runKeyedChain(sessionMutateChains, String(id == null ? '' : id), work);
+}
 async function mutateSession(id, mutator, opts = {}) {
-  const writer = String((opts && opts.writer) || 'mutate_session');
-  const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
-  for (let attempt = 0; ; attempt++) {
-    const session = await loadSession(id);
-    if (!session) return { ok: false, missing: true, session: null, value: undefined };
-    if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
-      logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
-      throw sessionRewoundError(id, writer);
-    }
-    const decision = await mutator(session, { attempt });
-    const d = (decision && typeof decision === 'object') ? decision : {};
-    if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
-    try {
-      await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
-      return { ok: true, session, value: d.value, attempts: attempt + 1 };
-    } catch (error) {
-      if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
-      if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
-        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+  return withSessionMutateLock(id, async () => {
+    const writer = String((opts && opts.writer) || 'mutate_session');
+    const expectGen = opts && opts.expectGen != null ? Number(opts.expectGen) || 0 : null;
+    for (let attempt = 0; ; attempt++) {
+      const session = await loadSession(id);
+      if (!session) return { ok: false, missing: true, session: null, value: undefined };
+      if (expectGen !== null && (Number(session.rewindGen) || 0) !== expectGen) {
+        logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, expectGen, gen: Number(session.rewindGen) || 0 });
         throw sessionRewoundError(id, writer);
       }
-      logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+      const decision = await mutator(session, { attempt });
+      const d = (decision && typeof decision === 'object') ? decision : {};
+      if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, session, value: d.abort };
+      try {
+        await saveSession(session, { ...((opts && opts.saveOpts) || {}), throwIfStale: true, writer });
+        return { ok: true, session, value: d.value, attempts: attempt + 1 };
+      } catch (error) {
+        if (!(error && error.code === 'SESSION_STALE_SAVE')) throw error;
+        if (expectGen !== null || attempt >= SESSION_MUTATE_STALE_REPLAYS) {
+          logEvent({ kind: 'session_mutate_rewound', sessionId: id, writer, attempt: attempt + 1, expectGen });
+          throw sessionRewoundError(id, writer);
+        }
+        logEvent({ kind: 'session_mutate_replayed', sessionId: id, writer, attempt: attempt + 1 });
+      }
     }
-  }
+  });
 }
 // 一份内存里的会话对象是不是撤回之前读出来的(驱动器、旁车写入用它判「还该不该接着干」)。
 function sessionObjectIsStale(session) {
@@ -8652,16 +9017,22 @@ function isUntitledSessionTitle(title) {
 
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
+  sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
   const config = await readConfig();
   const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
+  // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
+  // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
+  // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。
+  const safeTitle = typeof title === 'string' && title.trim() ? title.slice(0, 200) : undefined;
+  const safeCwd = typeof cwd === 'string' && cwd.trim() ? cwd : undefined;
   const session = {
     id,
     schemaVersion: SESSION_SCHEMA,
     turnSeq: 0,
-    title: title || 'New session',
+    title: safeTitle || 'New session',
     summary: '',
     pinned: false,
-    cwd: cwd || config.defaultWorkspace || os.homedir(),
+    cwd: safeCwd || config.defaultWorkspace || os.homedir(),
     createdAt: nowIso(),
     updatedAt: nowIso(),
     claudeSessionId: null,
@@ -8687,7 +9058,7 @@ async function createSession({ title, cwd, origin, engineRoute }) {
     // 模型调用去起名。判据复用既有的 isUntitledSessionTitle(中英占位集,双引擎自动命名共用同一个),
     // 所以经典壳送来的「新会话」/「New chat」仍然算没名字。与「用户手改标题」写的是同一个字段:
     // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
-    ...(isUntitledSessionTitle(title) ? {} : { titleSource: 'user' }),
+    ...(isUntitledSessionTitle(safeTitle) ? {} : { titleSource: 'user' }),
   };
   await saveSession(session);
   // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),
@@ -8757,7 +9128,7 @@ async function withJournalWriteLock(sessionId, work) {
   return runKeyedChain(journalWriteChains, String(sessionId || ''), work);
 }
 
-function journalDir(sessionId) { return path.join(paths.checkpoints, String(sessionId)); }
+function journalDir(sessionId) { return path.join(paths.checkpoints, assertSessionIdForPath(sessionId)); }
 function journalIndexPath(sessionId) { return path.join(journalDir(sessionId), 'index.json'); }
 
 // Read a session's checkpoint index (array of entries). Missing/corrupt → []. Never throws.
@@ -8769,14 +9140,43 @@ async function journalReadIndex(sessionId) {
   } catch { return []; }
 }
 
+// hunt2 #18:写者(record / drop / GC)用的严格读。宽松版把【任何】读错误都当成「没有条目」,下一次 record
+// 就用 [新条目] 整份盖掉索引 —— Windows 上杀毒/索引器与双进程(serve + MCP 子进程)撞出的一次 EBUSY/EPERM
+// 就把这条会话全部检查点抹掉(entrySeq 还从 0 重来,覆写既有 .gz)。这里只有 ENOENT 才算空;别的读错误照抛,
+// 由调用方的安全网 catch 转成 journal_write_error(本次不记,既有条目不动)。内容坏了(非 JSON / 非数组)
+// 读重试也好不了,原样改名隔离成 index.json.corrupt-<时间戳> 留作取证,再按空索引继续,检查点功能自愈。
+async function journalReadIndexForWrite(sessionId) {
+  const file = journalIndexPath(sessionId);
+  let raw;
+  try { raw = await fsp.readFile(file, 'utf8'); }
+  catch (e) { if (e && e.code === 'ENOENT') return []; throw e; }
+  const arr = safeJsonParse(raw, null);
+  if (Array.isArray(arr)) return arr;
+  await fsp.rename(file, `${file}.corrupt-${Date.now()}`);
+  logEvent({ kind: 'journal_index_quarantined', sessionId: String(sessionId || '') });
+  return [];
+}
+
 // Atomic index write. Never throws (caller wraps). 第25波 25.1: 收编进 atomicWriteJson。
 // 对抗轮修: retries:0 —— 该文件是【跨进程多写者】(serve 进程 + MCP 子进程各持独立 journalWriteChains,
 // 进程间无法串行),rename 重试会让旧载荷在 ~680ms 退避后覆写掉别进程刚落的新条目(丢检查点)。
 // 保持旧的 fail-fast 语义:输给并发写者就立刻失败(调用方本就 best-effort 包裹),绝不迟到覆写。
+// hunt2 #13:紧凑 JSON(不缩进)—— 索引每记一条就整份重写一次,缩进让体积与序列化时间都翻倍。
 async function journalWriteIndex(sessionId, entries) {
   const dir = journalDir(sessionId);
   await fsp.mkdir(dir, { recursive: true });
-  await atomicWriteJson(journalIndexPath(sessionId), entries, { retries: 0 });
+  await atomicWriteJson(journalIndexPath(sessionId), JSON.stringify(entries), { retries: 0 });
+}
+
+// hunt2 #6:本回合下一个 entrySeq = 本回合现有最大值 + 1。修前取「本回合条目数」—— 中间的条目被
+// journalDropEntries / 单条回滚删掉之后,条目数会等于某个仍在的 entrySeq,新条目撞号并覆写它的 .gz
+// (并行子代理共用父回合的 turnSeq,实测回滚把 p3 还原成了 p4 的内容)。
+function journalNextEntrySeq(index, turnSeq) {
+  let max = -1;
+  for (const e of index) {
+    if (e && Number(e.turnSeq) === Number(turnSeq) && Number.isFinite(Number(e.entrySeq))) max = Math.max(max, Number(e.entrySeq));
+  }
+  return max + 1;
 }
 
 // Resolve the current turnSeq for a checkpoint entry.
@@ -8803,42 +9203,64 @@ async function journalRecord(sessionId, turnSeq, tool, filePath, op, beforeConte
 }
 
 async function journalRecordUnlocked(sessionId, turnSeq, tool, filePath, op, beforeContent) {
+  const [result] = await journalRecordManyUnlocked(sessionId, turnSeq, [{ tool, filePath, op, beforeContent }]);
+  return result;
+}
+
+// hunt2 #13:批量记账 —— 一批条目只读一次索引、写一次索引、跑一次 GC。逐条 journalRecord 每条都整份读改写
+// 索引,批量调用方(archive_unzip 最多 2000 条、CLI 回合收尾的 turn_baseline 对账)随条目数平方增长:
+// 实测 1000 条 ~5s、2000 条 ~22s,期间 JSON 读写同步占着事件循环。返回与 rows 一一对应的结果数组
+// (每项同 journalRecord 的返回值,多一个 entrySeq)。任一步失败 = 整批都没记(索引一次写入,不存在半批)。
+async function journalRecordMany(sessionId, turnSeq, rows) {
+  return withJournalWriteLock(sessionId, () => journalRecordManyUnlocked(sessionId, turnSeq, rows));
+}
+
+async function journalRecordManyUnlocked(sessionId, turnSeq, rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
+  if (!sessionId || !Number.isFinite(turnSeq)) return list.map(() => ({ ok: false, reason: 'no_session_context' }));
+  if (!list.length) return [];
   try {
-    // b2-P0: 不再静默 no-op —— 返回 { ok:false, reason } 让调用方(file_delete 等不可逆操作)能中止并披露。
-    if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
     await fsp.mkdir(dir, { recursive: true });
-    const index = await journalReadIndex(sessionId);
-    const entrySeq = index.filter(e => e && Number(e.turnSeq) === Number(turnSeq)).length; // per-turn autoincrement
-    let bytes = 0, skipped = false;
-    if (op !== 'create' && beforeContent != null) {
-      // Workspace turn baselines may discover an oversized pre-change file without loading its bytes into
-      // memory. Preserve the real size and the honest non-revertible marker instead of fabricating a partial
-      // snapshot (ordinary tool callers continue to pass Buffer|string exactly as before).
-      const knownOversize = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
-        && Number.isFinite(Number(beforeContent.skippedBytes)) && Number(beforeContent.skippedBytes) > JOURNAL_MAX_BEFORE_BYTES;
-      const buf = knownOversize ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
-      bytes = knownOversize ? Number(beforeContent.skippedBytes) : buf.length;
-      if (knownOversize || bytes > JOURNAL_MAX_BEFORE_BYTES) {
-        // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
-        skipped = true;
-      } else {
-        const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
-        await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
-        journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+    const index = await journalReadIndexForWrite(sessionId);
+    let nextSeq = journalNextEntrySeq(index, turnSeq); // per-turn autoincrement (hunt2 #6: max+1)
+    const results = [];
+    for (const { tool, filePath, op, beforeContent } of list) {
+      const entrySeq = nextSeq++;
+      let bytes = 0, skipped = false;
+      if (op !== 'create' && beforeContent != null) {
+        // Workspace turn baselines may discover a pre-change file whose bytes they could not (oversized) or
+        // must not (git read failed) load. Such a caller passes a non-Buffer `{ skippedBytes }` marker: always
+        // recorded as the honest non-revertible entry, never as a fabricated snapshot (hunt2 #4: 修前只认
+        // >5MB 的标记,小于上限的标记会被 String() 成 "[object Object]" 存进 .gz)。Ordinary tool callers
+        // continue to pass Buffer|string exactly as before.
+        const marker = !Buffer.isBuffer(beforeContent) && typeof beforeContent === 'object'
+          && Number.isFinite(Number(beforeContent.skippedBytes));
+        const buf = marker ? null : (Buffer.isBuffer(beforeContent) ? beforeContent : Buffer.from(String(beforeContent), 'utf8'));
+        bytes = marker ? Number(beforeContent.skippedBytes) : buf.length;
+        if (marker || bytes > JOURNAL_MAX_BEFORE_BYTES) {
+          // Too large to snapshot — record the entry as skipped (rollback of this entry will fail loudly).
+          skipped = true;
+        } else {
+          const gz = zlib.gzipSync(buf); // built-in zlib — zero npm
+          await fsp.writeFile(path.join(dir, `${turnSeq}-${entrySeq}.gz`), gz);
+          journalBytesAdjust(gz.length); // PF1: keep the size-cap cache current
+        }
       }
+      index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
+      results.push(skipped ? { ok: true, skipped: true, entrySeq } : { ok: true, entrySeq });
     }
-    index.push({ turnSeq: Number(turnSeq), entrySeq, tool: String(tool || ''), path: String(filePath || ''), op, bytes, ...(skipped ? { skipped: true } : {}), ts: nowIso() });
     await journalWriteIndex(sessionId, index);
     // v1.4.1 (audit #8):必须 await —— 此前 detached 触发,GC 的 index.json 读改写会与下一条 journalRecord 竞争,
     // 修剪写回时可覆盖刚追加的条目(lost-write → 该文件变更不可撤销)。await 让 GC 在下一条 record 前完成,
-    // 消除并发。GC 内部全 try/catch 静默,不抛。
-    await journalGc(sessionId).catch(() => {});
-    return skipped ? { ok: true, skipped: true } : { ok: true };
+    // 消除并发。GC 内部全 try/catch 静默,不抛。hunt2 #13:把刚写下的索引交给 GC,省掉它再读一遍。
+    await journalGc(sessionId, index).catch(() => {});
+    return results;
   } catch {
     // Safety-net discipline: a failed journal write must NOT abort the tool. Swallow and continue — the
     // index entry simply isn't written, and the file operation runs as if the journal weren't there.
-    return { ok: false, reason: 'journal_write_error' };
+    return list.map(() => ({ ok: false, reason: 'journal_write_error' }));
   }
 }
 
@@ -9015,17 +9437,83 @@ async function captureWorkspaceTurnBaseline(cwd) {
   } catch { return null; }
 }
 
-async function workspaceBaselineGitBefore(baseline, absPath) {
+async function workspaceBaselineGitBefore(baseline, absPath, after) {
   const key = workspaceBaselinePathKey(absPath);
   if (baseline.dirty.has(key)) return baseline.dirty.get(key).snapshot;
   const rel = path.relative(baseline.repoRoot, absPath).replace(/\\/g, '/');
   if (!rel || rel.startsWith('../') || path.isAbsolute(rel)) return { exists: false };
-  const blob = await runGit(['-C', baseline.repoRoot, 'show', `${baseline.head}:${rel}`], baseline.repoRoot, 10000);
-  if (!blob.ok) return { exists: false };
-  const content = Buffer.from(blob.stdout || '', 'utf8');
+  // hunt2 #4:修前 `git show HEAD:rel` 按 utf8 解码再 Buffer.from 回去(GBK 文件的每个汉字都成了 U+FFFD,回滚把
+  // 乱码写回盘),且任何 git 失败(10s 超时、blob 超 24MB 输出上限)都被当成「回合前不存在」→ 记成 create,
+  // 回滚时直接删掉用户改过的文件。现在:ls-tree 分清「HEAD 里没有」(真·新建)与「git 读失败」;失败给
+  // 「存在但内容未知」的标记,journalRecord 记为 skipped(回滚时如实报失败,绝不删文件);blob 按原字节取。
+  const unknown = { exists: true, skippedBytes: JOURNAL_MAX_BEFORE_BYTES + 1, unknownBefore: true };
+  const listed = await runGit(['-C', baseline.repoRoot, '--literal-pathspecs', 'ls-tree', '-l', '-z', baseline.head, '--', rel], baseline.repoRoot, 10000);
+  if (!listed.ok) return unknown;
+  const row = String(listed.stdout || '').split('\0').find(Boolean);
+  if (!row) return { exists: false }; // HEAD 里确实没有这个路径 → 回合内新建
+  const m = /^(\d+) (\S+) ([0-9a-f]+)\s+(-|\d+)\t/i.exec(row);
+  if (!m) return unknown;
+  // 符号链接 / 子模块:快照器(lstat)一律视为「不存在」,两边同口径才不会凭空记出一条 delete。
+  if (m[2] !== 'blob' || m[1] === '120000') return { exists: false };
+  const blobSize = Number(m[4]);
+  if (Number.isFinite(blobSize) && blobSize > JOURNAL_MAX_BEFORE_BYTES) return { exists: true, size: blobSize, skippedBytes: blobSize };
+  // cat-file blob 取原字节、不跑任何过滤器。刻意不用 `cat-file --filters`:它会执行仓库 .git/config 里配置的
+  // filter.*.smudge/process 外部程序 —— 与 GIT_SAFE_FLAGS 头注里 fsmonitor / diff.external 同一类「看一眼陌生仓库
+  // 即执行它指定的程序」。换行转换改由 workspaceBaselineGitCheckoutCrlf 只按 git 内建的 eol 规则复现。
+  const blob = await runGit(['-C', baseline.repoRoot, 'cat-file', 'blob', m[3]], baseline.repoRoot, 10000, { encoding: 'buffer' });
+  if (!blob.ok || !Buffer.isBuffer(blob.stdout)) return unknown;
+  let content = blob.stdout;
+  const crlf = await workspaceBaselineGitCheckoutCrlf(baseline, rel, content);
+  if (crlf === null) return unknown;
+  // autocrlf=true 下 LF 的工作区文件同样算「干净」(自己写的 LF 文件提交后从没被 git 重新检出过)。回合后的文件
+  // 仍是纯 LF(一个 CR 都没有)时,按它原本就是 LF 处理 —— 编辑工具保留原换行,这比 git 的检出规则更贴近回合前。
+  const afterIsPureLf = after && Buffer.isBuffer(after.content) && after.content.includes(0x0a) && !after.content.includes(0x0d);
+  if (crlf && !afterIsPureLf) content = workspaceBaselineLfToCrlf(content);
   return content.length > JOURNAL_MAX_BEFORE_BYTES
     ? { exists: true, size: content.length, skippedBytes: content.length }
     : { exists: true, size: content.length, content };
+}
+
+// hunt2 #4(续):HEAD 里存的是 LF,Git for Windows 默认 core.autocrlf=true,干净的工作区文件是 CRLF。直接把 blob
+// 写回会把用户的 CRLF 文件整份改成 LF。这里只复现 git 检出时【内建】的换行转换(text/eol 属性、core.autocrlf、
+// core.eol),不执行任何外部过滤器:返回 true = 检出时会转成 CRLF;false = 原样;null = git 查询失败(内容未知)。
+async function workspaceBaselineGitCheckoutCrlf(baseline, rel, blob) {
+  if (baseline.eolConfig === undefined) {
+    const get = async key => {
+      const r = await runGit(['-C', baseline.repoRoot, 'config', '--get', key], baseline.repoRoot, 5000);
+      return r.ok ? String(r.stdout || '').trim().toLowerCase() : '';
+    };
+    baseline.eolConfig = { autocrlf: await get('core.autocrlf'), eol: await get('core.eol') };
+  }
+  const { autocrlf, eol: coreEol } = baseline.eolConfig;
+  const attrs = await runGit(['-C', baseline.repoRoot, 'check-attr', '-z', 'text', 'eol', '--', rel], baseline.repoRoot, 5000);
+  if (!attrs.ok) return null;
+  const parts = String(attrs.stdout || '').split('\0');
+  const attr = {};
+  for (let i = 0; i + 2 < parts.length; i += 3) attr[parts[i + 1]] = parts[i + 2];
+  const text = attr.text || 'unspecified';
+  const eol = attr.eol || 'unspecified';
+  if (text === 'unset') return false;                                  // -text:二进制,永不转换
+  const explicitText = text === 'set' || eol === 'crlf' || eol === 'lf';
+  const autoText = !explicitText && (text === 'auto' || autocrlf === 'true' || autocrlf === 'input');
+  if (!explicitText && !autoText) return false;                        // 未声明为文本、也没开 autocrlf:原样
+  // auto 判定:含 NUL 视为二进制;blob 里已有 CR 的不转换(git 的「安全」规则,避免 \r\r\n)。
+  if (autoText && (blob.includes(0) || blob.includes(0x0d))) return false;
+  if (eol === 'crlf') return true;
+  if (eol === 'lf') return false;
+  if (autocrlf === 'true') return true;
+  if (autocrlf === 'input') return false;
+  return coreEol === 'crlf' || ((coreEol === '' || coreEol === 'native') && process.platform === 'win32');
+}
+
+function workspaceBaselineLfToCrlf(buf) {
+  const out = [];
+  let start = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] === 0x0a && (i === 0 || buf[i - 1] !== 0x0d)) { out.push(buf.subarray(start, i), Buffer.from([0x0d])); start = i; }
+  }
+  out.push(buf.subarray(start));
+  return Buffer.concat(out);
 }
 
 function workspaceBaselineSnapshotsEqual(before, after) {
@@ -9075,21 +9563,32 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
       }
     }
     let recorded = 0;
+    // hunt2 #13:攒批记账(见 journalRecordMany 头注)。按条数/字节分批,免得一个大回合把所有 before 同时攥在内存里。
+    let pending = [], pendingBytes = 0;
+    const flush = async () => {
+      if (!pending.length) return;
+      const batch = pending;
+      pending = []; pendingBytes = 0;
+      const results = await journalRecordMany(sessionId, Number(turnSeq), batch);
+      batch.forEach((row, i) => { if (results[i] && results[i].ok) { recorded += 1; existingPaths.add(row.key); } });
+    };
     for (const [key, filePath] of candidates) {
       if (existingPaths.has(key) || !workspaceBaselineIsCodePath(filePath)) continue;
-      const before = baseline.kind === 'git'
-        ? await workspaceBaselineGitBefore(baseline, filePath)
-        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
       const after = baseline.kind === 'tree' && baseline.afterTree.files.has(key)
         ? baseline.afterTree.files.get(key).snapshot
         : await workspaceBaselineFileSnapshot(filePath, { bytes: 0 });
+      const before = baseline.kind === 'git'
+        ? await workspaceBaselineGitBefore(baseline, filePath, after)
+        : (baseline.files.get(key) || { snapshot: { exists: false } }).snapshot;
       if (workspaceBaselineSnapshotsEqual(before, after)) continue;
       const op = before.exists ? (after.exists ? 'modify' : 'delete') : 'create';
       const beforeContent = op === 'create' ? null
         : (Buffer.isBuffer(before.content) ? before.content : { skippedBytes: Number(before.skippedBytes || before.size || (JOURNAL_MAX_BEFORE_BYTES + 1)) });
-      const result = await journalRecord(sessionId, Number(turnSeq), 'turn_baseline', filePath, op, beforeContent);
-      if (result && result.ok) { recorded += 1; existingPaths.add(key); }
+      pending.push({ key, tool: 'turn_baseline', filePath, op, beforeContent });
+      pendingBytes += Buffer.isBuffer(beforeContent) ? beforeContent.length : 0;
+      if (pending.length >= 200 || pendingBytes >= 16 * 1024 * 1024) await flush();
     }
+    await flush();
     if (recorded || reconcileTruncated) {
       logEvent({ kind: 'turn_workspace_reconcile', sessionId, turnSeq: Number(turnSeq), baseline: baseline.kind,
         recorded, truncated: reconcileTruncated, truncatedReason, budgetMs: Number(baseline.budgetMs) || undefined,
@@ -9105,22 +9604,26 @@ async function reconcileWorkspaceTurnBaseline(baseline, sessionId, turnSeq) {
 // rollback entries describing an operation that never happened (a phantom journal), and a later
 // rollback would act on files that were never touched. All failures are silent (rollback of the
 // phantom is best-effort; the caller already reported the real operation failure to the model).
-async function journalDropEntries(sessionId, turnSeq, tool, paths) {
-  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths));
+// entrySeqs(可选):只删这几个 entrySeq 的条目 —— 调用方知道自己刚记了哪几条时传入,同一回合早先涉及同一
+// 路径、同一工具的条目(例如本回合先把 X 移到 A、再把 A 移走)不受牵连。空数组 = 一条也不删。
+async function journalDropEntries(sessionId, turnSeq, tool, paths, entrySeqs) {
+  return withJournalWriteLock(sessionId, () => journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs));
 }
 
-async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
+async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths, entrySeqs) {
   try {
     if (!sessionId || !Number.isFinite(turnSeq)) return { ok: false, reason: 'no_session_context' };
     const dir = journalDir(sessionId);
-    const index = await journalReadIndex(sessionId);
+    const index = await journalReadIndexForWrite(sessionId);
     if (!index.length) return { ok: true, dropped: 0 };
+    const seqSet = Array.isArray(entrySeqs) ? new Set(entrySeqs.map(Number)) : null;
     const pathSet = new Set((paths || []).map(p => String(p)));
     const kept = [];
     let dropped = 0;
     for (const e of index) {
       const hit = e && Number(e.turnSeq) === Number(turnSeq)
-        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''));
+        && e.tool === String(tool || '') && pathSet.has(String(e.path || ''))
+        && (!seqSet || seqSet.has(Number(e.entrySeq)));
       if (hit) {
         dropped += 1;
         if (!e.skipped && e.op !== 'create') {
@@ -9143,11 +9646,12 @@ async function journalDropEntriesUnlocked(sessionId, turnSeq, tool, paths) {
 // GC. (1) Per-session: keep only the most recent JOURNAL_KEEP_TURNS turnSeqs; drop older entries + their
 // .gz files. (2) Global: if the whole checkpoints/ tree exceeds JOURNAL_GLOBAL_MAX_BYTES, remove entire
 // oldest sessions (by dir mtime) until under budget. All failures are silent.
-async function journalGc(sessionId) {
+// knownIndex:调用方(持会话写锁)刚写下的索引,传入即不再重读(hunt2 #13)。
+async function journalGc(sessionId, knownIndex) {
   let freedBytes = 0; // PF1: bytes reclaimed by the per-session prune below, to decrement the size-cap cache
   try {
     const dir = journalDir(sessionId);
-    const index = await journalReadIndex(sessionId);
+    const index = Array.isArray(knownIndex) ? knownIndex : await journalReadIndexForWrite(sessionId);
     if (index.length) {
       const turns = [...new Set(index.map(e => Number(e.turnSeq)))].sort((a, b) => a - b);
       if (turns.length > JOURNAL_KEEP_TURNS) {
@@ -9407,6 +9911,9 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
   }
 
   const removedTurns = messages.length - cutIndex; // message count removed (user + all following)
+  // hunt2 #12:被截掉的后台任务回执从账本里删掉,否则下面这一存的 mergeBackgroundJobs 会把它们原样追加回来。
+  const removedJobIds = messages.slice(cutIndex).map(m => m && m.backgroundJobId).filter(Boolean);
+  if (removedJobIds.length && EventStreamHooks.forgetBackgroundJobs) EventStreamHooks.forgetBackgroundJobs(sessionId, removedJobIds);
   session.messages = messages.slice(0, cutIndex);
   // providerHistory cleared — lazy-reseed rebuilds it on the next turn (see block comment above).
   session.providerHistory = [];
@@ -10071,7 +10578,9 @@ function bridgedOfficeScriptGate(bridgedName, args) {
 }
 
 function normalizeCwd(cwd, fallback) {
-  const base = cwd || fallback || os.homedir();
+  // cwd 多直接取自请求体:非字符串(数字/对象)当没传,否则 path.resolve 抛 TypeError → 500(/api/memory* 等)。
+  const pick = v => (typeof v === 'string' && v ? v : '');
+  const base = pick(cwd) || pick(fallback) || os.homedir();
   return path.resolve(base);
 }
 
@@ -10800,8 +11309,9 @@ async function launchCodeEditor(spawnSpec) {
     return true;
   }
   try {
-    cp.spawn(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
-    return true;
+    // 编辑器 exe 可能已卸载/被拦:ENOENT 是异步 'error',要等到 spawn/error 才知道成没成,否则调用方的失败分支永远走不到。
+    const started = await spawnDetachedChecked(spawnSpec.command, spawnSpec.args || [], { detached: true, windowsHide: true, stdio: 'ignore' });
+    return started.ok;
   } catch { return false; }
 }
 
@@ -11481,6 +11991,42 @@ function killOwnProcessTree(pid, opts = {}) {
     });
   });
 }
+function killPosixChildTree(pid) {
+  // hunt2-engines#11:POSIX 修前只杀根 —— CLI 的 Bash 工具、MCP 子进程、ACP 终端拉起的孙辈全成孤儿,回合停了它们还在跑。
+  // Linux 按 Windows 那一支同一条判据认子孙(dev-harness/lib/kill-own-tree.js 同款):从 /proc 快照里按父号往下找,
+  // 只认启动时刻不早于父亲的(父号过期撞号的陌生进程比「父亲」还老,按构造排除);**先快照再杀根**(根一死子孙就被
+  // 过继给 init,父号对不上了),杀每个子孙前再核一次启动时刻,号被复用就不杀。没有 /proc(macOS)仍只杀根。
+  const readStat = id => {
+    try {
+      const stat = fs.readFileSync(`/proc/${id}/stat`, 'utf8');
+      const tail = stat.slice(stat.lastIndexOf(')') + 2).split(' ');   // tail[1]=ppid(第 4 列) tail[19]=starttime(第 22 列)
+      return { pid: Number(id), ppid: Number(tail[1]), created: BigInt(tail[19]) };
+    } catch { return null; }
+  };
+  const descendants = [];
+  if (process.platform === 'linux') {
+    let table = [];
+    try { table = fs.readdirSync('/proc').filter(n => /^\d+$/.test(n)).map(readStat).filter(Boolean); } catch { table = []; }
+    const rootRow = table.find(r => r.pid === Number(pid));
+    const queue = rootRow ? [rootRow] : [];
+    const seen = new Set(queue.map(r => r.pid));
+    while (queue.length) {
+      const parent = queue.shift();
+      for (const r of table) {
+        if (seen.has(r.pid) || r.ppid !== parent.pid || r.created < parent.created) continue;
+        seen.add(r.pid);
+        descendants.push(r);
+        queue.push(r);
+      }
+    }
+  }
+  try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
+  for (const d of descendants.reverse()) {
+    const now = readStat(d.pid);
+    if (!now || now.created !== d.created) continue;
+    try { process.kill(d.pid, 'SIGKILL'); } catch { /* already gone */ }
+  }
+}
 // 发出去就算(修前的调用形状,14 处调用点零改动):不等它。怎么「发出去」是 128i 取证定的:
 //   · Node 的 detached(DETACHED_PROCESS,没有控制台)起 powershell.exe:退出码 0、**脚本一行都没跑**(实测 3/3);
 //   · 直接 spawn(不 detached)能跑,但它在本进程的 libuv job 里 —— 服务收尸完马上退出时,job 一关它也被杀,
@@ -11490,7 +12036,7 @@ function killOwnProcessTree(pid, opts = {}) {
 // cmd 的命令行上限 8191 字符;超了(不会,这里留着防以后脚本变长)就退回直接 spawn。
 function killChildTree(pid) {
   if (!pid) return;
-  if (process.platform !== 'win32') { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } return; }
+  if (process.platform !== 'win32') { killPosixChildTree(pid); return; }
   try {
     const args = ownTreeKillCommand(pid);
     const inner = `start "" /b powershell.exe ${args.join(' ')}`;
@@ -11813,19 +12359,90 @@ function clearPendingPlans(sessionId, message) {
 // Protocol: JSON-RPC 2.0 over newline-delimited stdout (MCP 2024-11-05). All errors are internalized;
 // a crashing/hung child can never take down the web server.
 // ===================================================================================================
+
+// ── hunt2-mcp:stdio / 远程两个客户端共用的小件(修前各抄一份,行为已经分叉过)──
+// 单行上限:MCP 一条响应就是一行 JSON,读大文件/截图类工具一行几 MB 是常态。修前 4MB 处直接「截掉前半行」,
+// 结果那一行永远拼不回完整 JSON、调用干等到超时再被杀进程。现在上限放宽,真超了就丢弃到下一个换行并
+// 如实拒掉那一次调用(按行首的 id 找得到时),绝不在行中间切。
+const MCP_STDIO_LINE_MAX_CHARS = 64 * 1024 * 1024;
+// tools/list 分页(nextCursor)最多跟这么多页 —— 防对端回同一个游标/无限翻页把握手拖死。
+const MCP_TOOLS_LIST_MAX_PAGES = 20;
+// 条目上的 startupTimeoutMs(从 Codex startup_timeout_sec / Claude 配置导入)只在握手各 rpc 已有的超时参数上生效。
+function mcpStartupRpcMs(client, fallback) {
+  const v = Number(client && client.startupTimeoutMs);
+  return Number.isInteger(v) && v > 0 ? v : fallback;
+}
+// 条目上的 enabledTools(非空 = 白名单)/ disabledTools(黑名单)。修前导入并落盘了却没人读,原生桥照样把
+// 用户关掉的工具全部交给模型。空白名单视为「未设置」—— 清洗后变空的数组不该把整台服务器的工具静默藏光。
+function mcpToolAllowed(entry, name) {
+  const n = String(name || '');
+  const allow = entry && Array.isArray(entry.enabledTools) ? entry.enabledTools : null;
+  if (allow && allow.length && !allow.includes(n)) return false;
+  const deny = entry && Array.isArray(entry.disabledTools) ? entry.disabledTools : null;
+  if (deny && deny.includes(n)) return false;
+  return true;
+}
+// tools/call 结果归一(两个客户端同一份)。修前:文本是 JSON 数组时被展开成 {"0":…,"1":…};
+// 工具自带的 ok:true 会盖掉协议层 isError:true(失败被报成成功)。现在数组放进 items,ok 取两者的「与」。
+function normalizeMcpToolResult(res) {
+  const isError = !!(res && res.isError);
+  let textOut = '';
+  if (res && Array.isArray(res.content)) {
+    const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
+    if (t) textOut = t.text;
+  }
+  if (textOut) {
+    // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
+    const parsed = safeJsonParse(textOut, undefined);
+    if (Array.isArray(parsed)) return { ok: !isError, items: parsed };
+    if (parsed && typeof parsed === 'object') {
+      const { ok: toolOk, ...rest } = parsed;
+      return { ok: !isError && toolOk !== false, ...rest };
+    }
+    return { ok: !isError, text: textOut };
+  }
+  return { ok: !isError, content: (res && res.content) || [] };
+}
+// 跟 nextCursor 翻完 tools/list(MCP 2025-03-26 起工具目录可分页;修前只取第一页,后面的工具凭空消失)。
+async function mcpListAllTools(rpc, timeoutMs) {
+  const tools = [];
+  let cursor = '';
+  for (let page = 0; page < MCP_TOOLS_LIST_MAX_PAGES; page++) {
+    const listed = await rpc('tools/list', cursor ? { cursor } : {}, timeoutMs);
+    if (listed && Array.isArray(listed.tools)) tools.push(...listed.tools);
+    const next = (listed && typeof listed.nextCursor === 'string') ? listed.nextCursor : '';
+    if (!next || next === cursor) break;
+    cursor = next;
+  }
+  return tools;
+}
+// 对端发来的【请求】(同时带 id 与 method,如 ping)。修前被当成响应:用它的 id 去结我们自己同号的 pending,
+// 于是一次真正的 tools/call 被 undefined「成功」提前结掉。现在按 JSON-RPC 回话:ping 回 {},其余 -32601。
+function mcpServerRequestReply(msg) {
+  if (msg.method === 'ping') return { jsonrpc: '2.0', id: msg.id, result: {} };
+  return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'method not supported by client: ' + String(msg.method).slice(0, 80) } };
+}
+
 class McpStdioClient {
-  constructor({ id, command, args, cwd, env }) {
+  constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
     this.command = command;
     this.args = Array.isArray(args) ? args : [];
     this.cwd = cwd || undefined;
     this.env = env || {};
+    this.startupTimeoutMs = startupTimeoutMs;
+    this.toolTimeoutMs = toolTimeoutMs;
+    this.enabledTools = enabledTools;
+    this.disabledTools = disabledTools;
     this.child = null;
     this.pid = null;
     this.dead = false;
     this.started = false;
     this.tools = [];
-    this._buf = '';
+    this._bufParts = [];         // 未满一行的 stdout 片段(按块累积,不反复拼接整串)
+    this._bufLen = 0;
+    this._discarding = false;    // 超长行:丢弃到下一个换行
+    this._lineMax = MCP_STDIO_LINE_MAX_CHARS;
     this._nextId = 1;
     this._pending = new Map();   // rpc id -> { resolve, timer }
     this._stderr = '';
@@ -11881,6 +12498,11 @@ class McpStdioClient {
     if (!line) return;
     const msg = safeJsonParse(line);
     if (!msg || msg.id == null) return;          // notifications/logs from the server: ignore
+    if (msg.method != null) {                     // 对端发起的请求(ping 等),不是给我们的响应
+      if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) return;
+      try { this.child.stdin.write(JSON.stringify(mcpServerRequestReply(msg)) + '\n', 'utf8'); } catch { /* ignore */ }
+      return;
+    }
     const p = this._pending.get(msg.id);
     if (!p) return;
     if (p.cleanup) p.cleanup(); else clearTimeout(p.timer);
@@ -11891,6 +12513,37 @@ class McpStdioClient {
   _failAllPending(err) {
     for (const [, p] of this._pending) { if (p.cleanup) p.cleanup(); else clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
     this._pending.clear();
+  }
+  // 按行切 stdout。只在【新到的块】里找换行(修前每块都从整串头上重找,几十 MB 的一行是平方级);
+  // 超过 _lineMax 的行整行丢弃到下一个换行,并按行首的 "id" 把那一次调用如实拒掉,不在行中间切。
+  _onStdoutChunk(chunk) {
+    let start = 0;
+    let nl;
+    while ((nl = chunk.indexOf('\n', start)) >= 0) {
+      const piece = chunk.slice(start, nl);
+      start = nl + 1;
+      if (this._discarding) { this._discarding = false; continue; }
+      const line = this._bufParts.length ? this._bufParts.join('') + piece : piece;
+      this._bufParts = []; this._bufLen = 0;
+      try { this._onLine(line); } catch { /* never let a bad line throw */ }
+    }
+    const rest = start ? chunk.slice(start) : chunk;
+    if (!rest || this._discarding) return;
+    this._bufParts.push(rest);
+    this._bufLen += rest.length;
+    if (this._bufLen > this._lineMax) {
+      let head = '';
+      for (const part of this._bufParts) { head += part.slice(0, 256 - head.length); if (head.length >= 256) break; }
+      this._bufParts = []; this._bufLen = 0;
+      this._discarding = true;
+      const m = /^\s*\{[^{]*?"id"\s*:\s*(\d+)/.exec(head);   // 只认顶层 id(它前面不能再有别的 {)
+      const p = m ? this._pending.get(Number(m[1])) : null;
+      if (p) {
+        this._pending.delete(Number(m[1]));
+        if (p.cleanup) p.cleanup(); else clearTimeout(p.timer);
+        p.reject(new Error(`mcp response too large (> ${Math.round(this._lineMax / 1048576)}MB single line)`));
+      }
+    }
   }
 
   // Spawn + handshake (initialize -> notifications/initialized -> tools/list). Throws on failure and
@@ -11922,16 +12575,7 @@ class McpStdioClient {
     // EPIPE on stdin must not crash the process.
     if (child.stdin) child.stdin.on('error', () => { /* ignore broken pipe */ });
     child.stdout.setEncoding('utf8');
-    child.stdout.on('data', chunk => {
-      this._buf += chunk;
-      let nl;
-      while ((nl = this._buf.indexOf('\n')) >= 0) {
-        const line = this._buf.slice(0, nl);
-        this._buf = this._buf.slice(nl + 1);
-        try { this._onLine(line); } catch { /* never let a bad line throw */ }
-      }
-      if (this._buf.length > 4 * 1024 * 1024) this._buf = this._buf.slice(-1024 * 1024); // bound a runaway line
-    });
+    child.stdout.on('data', chunk => this._onStdoutChunk(chunk));
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', d => { if (this._stderr.length < 8000) this._stderr += d; });
 
@@ -11940,11 +12584,10 @@ class McpStdioClient {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 客户端标识名与 server id 一致
-      }, 8000);
+      }, mcpStartupRpcMs(this, 8000));
       this.serverInfo = (init && init.serverInfo) || {};
       this._notify('notifications/initialized', {});
-      const listed = await this._rpc('tools/list', {}, 8000);
-      this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+      this.tools = await this._listAllTools(mcpStartupRpcMs(this, 8000));
     } catch (e) {
       this.kill();
       this.dead = true;
@@ -11954,31 +12597,21 @@ class McpStdioClient {
   }
 
   listTools() { return this.tools; }
+  _listAllTools(timeoutMs) { return mcpListAllTools((m, p, t) => this._rpc(m, p, t), timeoutMs); }
+  // 探针用:真发一次 tools/list(修前 probe 读的是握手时缓存的目录,卡死的服务器照样报「正常」)。
+  async refreshTools(timeoutMs) { this.tools = await this._listAllTools(timeoutMs); return this.tools; }
 
   // Call a tool and normalize the MCP result into a workbench result object. Never throws.
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs, options = {}) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
+    // 条目 disabledTools/enabledTools 在调用时再挡一道(目录里已经滤掉;这里防裸名容错路由或旧目录缓存绕过)。
+    if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
+    // 超时:调用方显式给的优先,其次条目的 toolTimeoutMs,最后按工具名的内置表。
+    const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
-      const isError = !!(res && res.isError);
-      // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
-      let textOut = '';
-      if (res && Array.isArray(res.content)) {
-        const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
-        if (t) textOut = t.text;
-      }
-      if (textOut) {
-        const parsed = safeJsonParse(textOut, undefined);
-        if (parsed && typeof parsed === 'object') {
-          // Respect an explicit ok flag from the tool; otherwise derive from isError.
-          if (typeof parsed.ok === 'boolean') return parsed;
-          return { ok: !isError, ...parsed };
-        }
-        return { ok: !isError, text: textOut };
-      }
-      return { ok: !isError, content: (res && res.content) || [] };
+      return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (/aborted by user steer/.test(m)) {
@@ -12017,13 +12650,22 @@ class McpStdioClient {
 // tools/list_changed:sse 流上收到该通知即惰性重列工具(下次 listTools 前刷新)。
 // ===================================================================================================
 class McpHttpClient {
-  constructor({ id, transport, url, headers }) {
+  constructor({ id, transport, url, headers, bearerTokenEnvVar, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
     this.transport = transport === 'sse' ? 'sse' : 'http';
     this.url = String(url || '');
     // 连接时展开密钥引用;未定义的变量保留原样(与 48c 导入器同语义)。
     this.headers = {};
     for (const [k, v] of Object.entries(headers || {})) this.headers[k] = _expandMcpVar(String(v));
+    // bearerTokenEnvVar(Codex bearer_token_env_var / 导入的同名字段):连接时从 process.env 取令牌补
+    // Authorization。修前存了不用,需要鉴权的远程连接器永远 401。显式写了 Authorization 头的以头为准。
+    const tokenVar = typeof bearerTokenEnvVar === 'string' ? bearerTokenEnvVar.trim() : '';
+    const token = tokenVar ? String(process.env[tokenVar] || '').trim() : '';
+    if (token && !Object.keys(this.headers).some(k => k.toLowerCase() === 'authorization')) this.headers.Authorization = 'Bearer ' + token;
+    this.startupTimeoutMs = startupTimeoutMs;
+    this.toolTimeoutMs = toolTimeoutMs;
+    this.enabledTools = enabledTools;
+    this.disabledTools = disabledTools;
     this.dead = false;
     this.started = false;
     this.tools = [];
@@ -12131,7 +12773,21 @@ class McpHttpClient {
     let msgs = [];
     if (ctype.includes('text/event-stream')) msgs = McpHttpClient._parseSseMessages(resp.body.toString('utf8'));
     else { const j = safeJsonParse(resp.body.toString('utf8'), null); if (j) msgs = [j]; }
-    const mine = msgs.find(m => m && m.id === id);
+    // 带 method 的是对端发来的请求(同 id 撞号也不是给我们的响应)。
+    const mine = msgs.find(m => m && m.id === id && m.method == null);
+    if (!mine && this._sessionId && (resp.status === 404 || resp.status === 400 || resp.status === 401) && method !== 'initialize') {
+      // 服务端会话失效(对端重启 / 会话过期:规范要求回 404,客户端须不带旧 Mcp-Session-Id 重新 initialize)。
+      // 修前客户端既不重握手也不标 dead,之后每一次调用都 404,直到进程重启。现在就地重握手后重发一次
+      // (对端没认这个会话,原请求不会被执行过);重握手或重发仍失败 -> 标 dead,下次 getMcpClient 整个重建。
+      if (!options._sessionRetried) {
+        this._sessionId = null;
+        try { await this._initialize(timeoutMs); }
+        catch (e) { this.kill(); throw new Error('mcp http: 会话已失效(HTTP ' + resp.status + '),重新握手失败: ' + ((e && e.message) || e)); }
+        return this._rpcHttp(method, params, timeoutMs, { ...options, _sessionRetried: true });
+      }
+      this.kill();
+      throw new Error('mcp http: 会话已失效(HTTP ' + resp.status + '),连接已重置,下次调用将重新握手');
+    }
     if (!mine) throw new Error('mcp http: 响应中无匹配 id(状态 ' + resp.status + ')');
     if (mine.error) throw new Error(mine.error.message || 'mcp error');
     return mine.result;
@@ -12193,12 +12849,20 @@ class McpHttpClient {
     let u; try { u = new URL(this.url); } catch { throw new Error('bad url: ' + this.url); }
     const lib = u.protocol === 'https:' ? require('https') : http;
     await new Promise((resolve, reject) => {
-      const req = lib.request(u, { method: 'GET', headers: { ...this.headers, 'Accept': 'text/event-stream' } }, res => {
-        if (res.statusCode >= 400) { reject(new Error('mcp sse: HTTP ' + res.statusCode)); res.resume(); return; }
+      // hunt2-mcp:openTimer 修前声明在响应回调里,而 req.on('error') 在回调外引用它 —— 连接被拒(连接器
+      // 地址写错/对端没起)时 error 先于任何响应到达,ReferenceError 冒成 uncaughtException,整个工作台进程退出。
+      // 现在提到外层、从发请求起就计时:连不上、连上不给 endpoint、TCP 挂住,都在这一个时限内拒掉并断开请求。
+      let opened = false;
+      let req = null;
+      const openTimer = setTimeout(() => {
+        if (opened) return;
+        reject(new Error('mcp sse: 等 endpoint 事件超时'));
+        try { if (req) req.destroy(); } catch { /* ignore */ }
+      }, mcpStartupRpcMs(this, 8000));
+      req = lib.request(u, { method: 'GET', headers: { ...this.headers, 'Accept': 'text/event-stream' } }, res => {
+        if (res.statusCode >= 400) { clearTimeout(openTimer); reject(new Error('mcp sse: HTTP ' + res.statusCode)); res.resume(); return; }
         this._sseReq = req;
         res.setEncoding('utf8');
-        let opened = false;
-        const openTimer = setTimeout(() => reject(new Error('mcp sse: 等 endpoint 事件超时')), 8000);
         // 干净的事件累积器:event:/data: 逐行累积,空行派发(多行 data 以 \n 连接 —— e5-multiline-sse 教训)。
         let evtName = 'message', evtData = [];
         const dispatch = () => {
@@ -12214,6 +12878,11 @@ class McpHttpClient {
           }
           const msgObj = safeJsonParse(raw, null);
           if (!msgObj) return;
+          if (msgObj.id != null && msgObj.method != null) {
+            // 对端发来的请求(ping 等):回话走 endpoint POST,绝不拿它的 id 去结我们的 pending。
+            if (!this.dead && this._ssePostUrl) this._request('POST', this._ssePostUrl, mcpServerRequestReply(msgObj), 5000).catch(() => {});
+            return;
+          }
           if (msgObj.id != null) {
             const p = this._pending.get(msgObj.id);
             if (p) {
@@ -12240,7 +12909,12 @@ class McpHttpClient {
         res.on('end', () => { this.dead = true; this._failAllPending(new Error('mcp sse: 事件流断开')); });
         res.on('error', e => { this.dead = true; this._failAllPending(new Error('mcp sse: ' + (e && e.message))); });
       });
-      req.on('error', e => { clearTimeout(openTimer); reject(new Error('mcp sse connect: ' + (e && e.message))); });
+      req.on('error', e => {
+        clearTimeout(openTimer);
+        reject(new Error('mcp sse connect: ' + (e && e.message)));   // 已 open 时是空操作
+        // 已建立的流中途断(ECONNRESET 等):与 res 'error' 同一收尾,挂着的调用立刻失败,下次调用重建。
+        if (opened) { this.dead = true; this._failAllPending(new Error('mcp sse: ' + (e && e.message))); }
+      });
       req.end();
     });
   }
@@ -12250,15 +12924,8 @@ class McpHttpClient {
     this.started = true;
     try {
       if (this.transport === 'sse') await this._openSseStream();
-      const init = await this._rpc('initialize', {
-        protocolVersion: '2025-03-26',
-        capabilities: {},
-        clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
-      }, 10000);
-      this.serverInfo = (init && init.serverInfo) || {};
-      this._notify('notifications/initialized', {});
-      const listed = await this._rpc('tools/list', {}, 10000);
-      this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+      await this._initialize(mcpStartupRpcMs(this, 10000));
+      this.tools = await this._listAllTools(mcpStartupRpcMs(this, 10000));
     } catch (e) {
       this.kill();
       this.dead = true;
@@ -12267,12 +12934,26 @@ class McpHttpClient {
     return this;
   }
 
+  // initialize + notifications/initialized。start 与「会话失效就地重握手」共用。
+  async _initialize(timeoutMs) {
+    const init = await this._rpc('initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
+    }, timeoutMs);
+    this.serverInfo = (init && init.serverInfo) || {};
+    this._notify('notifications/initialized', {});
+    return init;
+  }
+  _listAllTools(timeoutMs) { return mcpListAllTools((m, p, t) => this._rpc(m, p, t), timeoutMs); }
+  // 探针用:真发一次 tools/list,不读缓存(同 McpStdioClient.refreshTools)。
+  async refreshTools(timeoutMs) { this.tools = await this._listAllTools(timeoutMs); this._toolsStale = false; return this.tools; }
+
   // 03 §4.2 tools/list_changed:sse 通知把目录标陈旧,此处惰性重列(不主动推,桥是拉模型)。
   async listTools() {
     if (this._toolsStale && !this.dead) {
       try {
-        const listed = await this._rpc('tools/list', {}, 8000);
-        this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+        this.tools = await this._listAllTools(8000);
       } catch { /* 保留旧目录,下次再试 */ }
       this._toolsStale = false;
     }
@@ -12281,24 +12962,11 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs, options = {}) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
+    if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
+    const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
-      const isError = !!(res && res.isError);
-      let textOut = '';
-      if (res && Array.isArray(res.content)) {
-        const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
-        if (t) textOut = t.text;
-      }
-      if (textOut) {
-        const parsed = safeJsonParse(textOut, undefined);
-        if (parsed && typeof parsed === 'object') {
-          if (typeof parsed.ok === 'boolean') return parsed;
-          return { ok: !isError, ...parsed };
-        }
-        return { ok: !isError, text: textOut };
-      }
-      return { ok: !isError, content: (res && res.content) || [] };
+      return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (/aborted by user steer/.test(m)) {
@@ -12330,6 +12998,22 @@ const MCP_FAILURE_COOLDOWN_MS = 60000;
 const mcpClientPending = new Map();  // 55a: serverId -> 进行中的 start Promise(并发互斥,防孤儿子进程)
 const mcpStartingClients = new Map(); // 55a: serverId -> 正在握手(尚未入 mcpClients)的客户端,invalidate 时需 kill
 const mcpClientGen = new Map();     // 55a: serverId -> 代数;invalidate 自增以让在途 start 结果作废、不写冷却
+// hunt2-mcp:serverId -> 当前运行时状态(活客户端 / 在途启动 / 失败冷却)所属条目的指纹。上面几张表都只按 id 记账,
+// 修前用户在设置页 / import-folder / import-config 里改好了一个坏连接器(同 id),旧进程、旧冷却(60s 内一律 null)
+// 与在途启动照用不误 —— 「改好了还是连不上」。现在取客户端前先比指纹,变了就按 invalidateMcpRuntime 作废旧的。
+const mcpClientFingerprints = new Map();
+function mcpEntryFingerprint(entry) {
+  const e = entry || {};
+  return JSON.stringify([e.transport || 'stdio', e.command || '', e.args || [], e.cwd || '', e.env || {}, e.url || '', e.headers || {},
+    e.bearerTokenEnvVar || '', e.startupTimeoutMs || 0, e.toolTimeoutMs || 0, e.enabledTools || null, e.disabledTools || null]);
+}
+function reconcileMcpEntryFingerprint(entry) {
+  if (!entry || !entry.id) return;
+  const fp = mcpEntryFingerprint(entry);
+  const prev = mcpClientFingerprints.get(entry.id);
+  if (prev !== undefined && prev !== fp) invalidateMcpRuntime(entry.id);
+  mcpClientFingerprints.set(entry.id, fp);
+}
 
 // ============================================================================
 // v1.1-W2 (T2) — MCP drop-in 自动扫描。
@@ -12365,8 +13049,12 @@ function scanMcpDropIns() {
     catch { continue; } // mcp/ 目录不存在 → 正常,跳过
     for (const ent of subdirs) {
       if (out.length >= MCP_DROPIN_MAX) break;
-      if (!ent.isDirectory()) continue;
       const folder = path.join(root, ent.name);
+      // 链进来的连接器目录(符号链接 / junction)也认:Dirent 对链接不报目录,stat 跟随一次(hunt2-mcp,同 readSkillDir)。
+      if (!ent.isDirectory()) {
+        if (!ent.isSymbolicLink()) continue;
+        try { if (!fs.statSync(folder).isDirectory()) continue; } catch { continue; }
+      }
       const manifestPath = path.join(folder, 'ruyi-mcp.json');
       let raw = null;
       try {
@@ -12639,41 +13327,161 @@ function _expandMcpVar(s) {
     .replace(/\$\{([A-Z_][A-Z0-9_]*)\}/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '${' + n + '}'))
     .replace(/%([A-Z_][A-Z0-9_]*)%/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '%' + n + '%'));
 }
-function _parseTomlMcpServers(text) {
-  const out = [];
-  const lines = text.split(/\r?\n/);
-  let cur = null;
-  const unquote = v => { v = v.trim(); return /^["'].*["']$/.test(v) ? v.slice(1, -1) : v; };
-  for (const line of lines) {
-    const sec = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
-    if (sec) { const id = sec[1].replace(/^["']|["']$/g, ''); cur = { id, label: id, type: 'stdio', command: '', args: [], env: {}, cwd: '' }; out.push(cur); continue; }
-    if (!cur) continue;
-    if (/^\s*\[/.test(line)) { cur = null; continue; } // 进入其它段,结束当前 mcp_servers 段
-    const km = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*$/);
-    if (!km) continue;
-    const k = km[1], v = km[2];
-    if (k === 'command') cur.command = unquote(v);
-    else if (k === 'cwd') cur.cwd = unquote(v);
-    else if (k === 'enabled') cur.enabled = !/^false$/i.test(v.trim());
-    else if (k === 'startup_timeout_sec' || k === 'tool_timeout_sec') {
-      const seconds = Number(v);
-      if (Number.isFinite(seconds) && seconds > 0) cur[k === 'startup_timeout_sec' ? 'startupTimeoutMs' : 'toolTimeoutMs'] = Math.min(2147483647, Math.round(seconds * 1000));
-    } else if (k === 'args' || k === 'enabled_tools' || k === 'disabled_tools') {
-      const arr = v.match(/^\[(.*)\]$/s);
-      if (arr) cur[k === 'args' ? 'args' : (k === 'enabled_tools' ? 'enabledTools' : 'disabledTools')] = [...arr[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] != null ? m[1] : m[2]);
-    } else if (k === 'env') {
-      const tbl = v.match(/^\{(.*)\}$/s);
-      if (tbl) for (const e of tbl[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"/g)) cur.env[e[1]] = e[2];
+// hunt2-mcp:Codex config.toml 的迷你 parser 重写。修前逐行正则,真实配置里常见的写法全部静默丢字段:
+// 多行数组(args = [ 换行 "-y", 换行 ... ])、[mcp_servers.X.env] 子表、行尾 # 注释、单引号字面串的 env 值、
+// 远程条目(url / bearer_token_env_var / http_headers / env_http_headers)。仍是零依赖小状态机,只解我们认的键;
+// 既没有 command 也没有 url 的段【不再静默丢】,标 unsupported 交给导入界面如实显示。
+// 引号状态机:回调拿到每个【引号外】的字符(引号内的跳过),三个小工具共用。
+function _tomlScan(text, onOutside) {
+  let q = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (q === '"' && c === '\\') { i++; continue; }
+      if (c === q) q = '';
+      continue;
     }
+    if (c === '"' || c === "'") { q = c; continue; }
+    if (onOutside(c, i) === false) return;
   }
-  return out.filter(s => s.command);
 }
+function _tomlStripComment(line) {
+  let cut = -1;
+  _tomlScan(line, (c, i) => { if (c === '#') { cut = i; return false; } return true; });
+  return cut >= 0 ? line.slice(0, cut) : line;
+}
+function _tomlDepth(text) {
+  let depth = 0;
+  _tomlScan(text, c => { if (c === '[' || c === '{') depth++; else if (c === ']' || c === '}') depth--; });
+  return depth;
+}
+// 按顶层分隔符切(引号与括号内的不算)。
+function _tomlSplitTop(text, sep) {
+  const cuts = [];
+  let depth = 0;
+  _tomlScan(text, (c, i) => {
+    if (c === '[' || c === '{') depth++;
+    else if (c === ']' || c === '}') depth--;
+    else if (c === sep && depth === 0) cuts.push(i);
+  });
+  const out = [];
+  let from = 0;
+  for (const i of cuts) { out.push(text.slice(from, i)); from = i + 1; }
+  out.push(text.slice(from));
+  return out;
+}
+function _tomlKeyPath(k) {
+  return _tomlSplitTop(String(k).trim(), '.').map(part => {
+    const t = part.trim();
+    if (/^".*"$/.test(t)) { try { return JSON.parse(t); } catch { return t.slice(1, -1); } }
+    if (/^'.*'$/.test(t)) return t.slice(1, -1);
+    return t;
+  });
+}
+function _tomlValue(raw) {
+  const v = String(raw).trim();
+  if (v.startsWith('"""') || v.startsWith("'''")) return undefined;   // 多行字符串:不解,当没写(该段缺 command 时会被标 unsupported)
+  if (/^"[\s\S]*"$/.test(v)) { try { return JSON.parse(v); } catch { return v.slice(1, -1); } }
+  if (/^'[\s\S]*'$/.test(v)) return v.slice(1, -1);
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (/^[+-]?\d[\d_]*(\.\d+)?$/.test(v)) return Number(v.replace(/_/g, ''));
+  if (v.startsWith('[') && v.endsWith(']')) {
+    return _tomlSplitTop(v.slice(1, -1), ',').map(x => x.trim()).filter(Boolean).map(_tomlValue);
+  }
+  if (v.startsWith('{') && v.endsWith('}')) {
+    const obj = {};
+    for (const pair of _tomlSplitTop(v.slice(1, -1), ',')) {
+      const kv = _tomlSplitTop(pair, '=');
+      if (kv.length < 2) continue;
+      const key = _tomlKeyPath(kv[0]).join('.');
+      if (key) obj[key] = _tomlValue(kv.slice(1).join('='));
+    }
+    return obj;
+  }
+  return undefined;   // 认不出的值(多行字符串、日期等):当没写
+}
+function _parseTomlMcpServers(text) {
+  const byId = new Map();
+  const serverFor = id => {
+    if (!byId.has(id)) byId.set(id, { id, label: id, type: 'stdio', command: '', args: [], env: {}, cwd: '' });
+    return byId.get(id);
+  };
+  const strList = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string') : null);
+  const setKey = (cur, sub, key, val) => {
+    if (val === undefined) return;
+    if (sub === 'env') { if (typeof val === 'string' || typeof val === 'number') cur.env[key] = String(val); return; }
+    if (sub === 'http_headers') { if (typeof val === 'string') (cur.headers = cur.headers || {})[key] = val; return; }
+    // env_http_headers:头名 -> 环境变量名。存成 ${VAR} 引用,连接时才展开(密钥不落盘明文,与 headers 同纪律)。
+    if (sub === 'env_http_headers') { if (typeof val === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(val)) (cur.headers = cur.headers || {})[key] = '${' + val + '}'; return; }
+    if (sub) return;   // 其它子表(如 tools.*)不认
+    if (key === 'command' && typeof val === 'string') cur.command = val;
+    else if (key === 'cwd' && typeof val === 'string') cur.cwd = val;
+    else if (key === 'url' && typeof val === 'string') cur.url = val;
+    else if (key === 'enabled') cur.enabled = val !== false;
+    else if (key === 'bearer_token_env_var' && typeof val === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(val.trim())) cur.bearerTokenEnvVar = val.trim();
+    else if ((key === 'startup_timeout_sec' || key === 'tool_timeout_sec') && Number.isFinite(val) && val > 0) {
+      cur[key === 'startup_timeout_sec' ? 'startupTimeoutMs' : 'toolTimeoutMs'] = Math.min(2147483647, Math.round(val * 1000));
+    } else if (key === 'startup_timeout_ms' && Number.isFinite(val) && val > 0) cur.startupTimeoutMs = Math.min(2147483647, Math.round(val));
+    else if (key === 'args') { const l = strList(val); if (l) cur.args = l; }
+    else if (key === 'enabled_tools') { const l = strList(val); if (l) cur.enabledTools = l; }
+    else if (key === 'disabled_tools') { const l = strList(val); if (l) cur.disabledTools = l; }
+    else if ((key === 'env' || key === 'http_headers' || key === 'env_http_headers') && val && typeof val === 'object' && !Array.isArray(val)) {
+      for (const [k2, v2] of Object.entries(val)) setKey(cur, key, k2, v2);
+    }
+  };
+  let cur = null, sub = '';
+  let pending = '';
+  for (const physical of String(text).split(/\r?\n/)) {
+    let line = _tomlStripComment(physical);
+    if (pending) {
+      pending += '\n' + line;
+      if (_tomlDepth(pending) > 0) continue;
+      line = pending; pending = '';
+    } else if (!line.trim()) continue;
+    const trimmed = line.trim();
+    if (/^\[\[/.test(trimmed)) { cur = null; sub = ''; continue; }   // 表数组:不是我们的段
+    const sec = /^\[\s*([^=]+?)\s*\]$/.exec(trimmed);
+    if (sec) {
+      const keyPath = _tomlKeyPath(sec[1]);
+      if (keyPath[0] === 'mcp_servers' && keyPath.length >= 2 && keyPath[1]) {
+        cur = serverFor(keyPath[1]);
+        sub = keyPath.length === 2 ? '' : (keyPath.length === 3 ? keyPath[2] : '#deeper');   // 更深的子表不认
+      } else { cur = null; sub = ''; }
+      continue;
+    }
+    const eq = _tomlSplitTop(line, '=');
+    if (eq.length < 2) continue;
+    const valueText = eq.slice(1).join('=');
+    if (_tomlDepth(valueText) > 0) { pending = line; continue; }   // 多行数组 / 内联表:拼到括号配平
+    if (!cur) continue;
+    const keyPath = _tomlKeyPath(eq[0]);
+    const val = _tomlValue(valueText);
+    if (keyPath.length === 1) setKey(cur, sub, keyPath[0], val);
+    else if (keyPath.length === 2 && !sub) setKey(cur, keyPath[0], keyPath[1], val);   // env.FOO = "x" 点号键
+  }
+  const out = [];
+  for (const srv of byId.values()) {
+    if (srv.url) srv.type = 'http';
+    if (!srv.command && !srv.url) srv.unsupported = 'config.toml 段缺 command/url(或写法无法解析)';
+    out.push(srv);
+  }
+  return out;
+}
+const MCP_CONFIG_JSON_MAX_BYTES = 32 * 1024 * 1024;
+const MCP_CONFIG_OTHER_MAX_BYTES = 1024 * 1024;
 // 解析单个 MCP 配置文件。返回 { servers, error? }。从不抛(缺失/格式错 -> error,供 UI 明示)。
 function parseMcpConfigFile(filePath) {
+  // hunt2-mcp:~/.claude.json 里 projects 历史动辄几 MB,修前一律 256KB 封顶 → 重度用户的 Claude Code 连接器
+  // 永远导不进来。JSON 放宽到 32MB(与该文件的真实规模同档),其它格式 1MB;先 stat 再读,不把超大文件整个读进内存。
+  const lower = String(filePath || '').toLowerCase();
+  const maxBytes = lower.endsWith('.json') ? MCP_CONFIG_JSON_MAX_BYTES : MCP_CONFIG_OTHER_MAX_BYTES;
   let text;
-  try { text = fs.readFileSync(filePath, 'utf8'); } catch (e) { return { servers: [], error: '读失败: ' + (e.code === 'ENOENT' ? '文件不存在' : e.message) }; }
-  if (text.length > 256 * 1024) return { servers: [], error: '文件过大(>256KB,跳过)' };
-  const lower = filePath.toLowerCase();
+  try {
+    const st = fs.statSync(filePath);
+    if (st.isFile() && st.size > maxBytes) return { servers: [], error: `文件过大(>${Math.round(maxBytes / 1048576)}MB,跳过)` };
+    text = fs.readFileSync(filePath, 'utf8');
+  } catch (e) { return { servers: [], error: '读失败: ' + (e.code === 'ENOENT' ? '文件不存在' : e.message) }; }
   if (lower.endsWith('.json')) {
     let j; try { j = JSON.parse(text); } catch (e) { return { servers: [], error: 'JSON 解析失败: ' + e.message }; }
     const ms = (j && j.mcpServers && typeof j.mcpServers === 'object') ? j.mcpServers : null;
@@ -12753,6 +13561,10 @@ function invalidateMcpRuntime(id) {
     const starting = mcpStartingClients.get(id);
     if (starting) { try { starting.kill(); } catch { /* ignore */ } mcpStartingClients.delete(id); }
     mcpClientFailures.delete(id);
+    // hunt2-mcp:在途 start 的 Promise 也摘掉 —— 否则紧接着的 getMcpClient 会复用这个已被作废(结果注定 null)的
+    // Promise,而不是按新配置重新起一个。
+    mcpClientPending.delete(id);
+    mcpClientFingerprints.delete(id);
     // 自增代数:在途 start(其 Promise 仍可能被并发 probe await)settle 后据此作废结果——
     // 已 killed 的失败不写冷却(否则 toggle-on 后立刻又命中 60s 冷却不重连)。
     mcpClientGen.set(id, (mcpClientGen.get(id) || 0) + 1);
@@ -12765,6 +13577,10 @@ function invalidateMcpRuntime(id) {
 // opts.allowMissing:upsert 语义下「本来就没有」是合法的新建,不算错;内置与 drop-in 仍然挡。
 function mcpConnectorMutateError(id, config, opts) {
   if (id === 'ai-computer-control') return { status: 409, error: '内置桌面连接器(ai-computer-control)不可在此启停/删除;请在「设置」中调整桌面控制开关。' };
+  // 如意自己的 MCP server id(ruyi 与旧名 win-claude-workbench)是保留名:新建 / 改写成这个 id 的外部连接器,
+  // 生成 MCP 配置时会被静默丢掉,连接器列表里还会出现两个同名项。导入路径早就挡了,这里补上手动新建 / mcp_configure。
+  // 已经存在的同名旧条目仍然允许停用 / 删除(allowMissing 只在 upsert 时给)。
+  if (opts && opts.allowMissing && isRuyiMcpServerId(id)) return { status: 409, error: `「${id}」是如意自己的 MCP 服务名,不能用作外部连接器的 id;请换一个 id。` };
   const list = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
   if (list.some(s => s && s.id === id)) return null;
   const drop = scanMcpDropIns().find(d => d && d.id === id);
@@ -12878,6 +13694,7 @@ async function configureMcpFromTool(args, currentConfig) {
 // Get (lazily starting) a live client for one server entry, or null if it can't start. Caches failures.
 // 49c:按 entry.transport 选客户端类 —— sse/http 走 McpHttpClient(无进程,远程连接),其余走 stdio。
 async function getMcpClient(entry) {
+  reconcileMcpEntryFingerprint(entry);
   const existing = mcpClients.get(entry.id);
   if (existing && !existing.dead) return existing;
   if (existing && existing.dead) mcpClients.delete(entry.id);
@@ -12909,13 +13726,17 @@ async function getMcpClient(entry) {
     }
   })();
   mcpClientPending.set(entry.id, p);
-  try { return await p; } finally { mcpClientPending.delete(entry.id); }
+  // 只摘自己那一个:invalidate 之后别人可能已经放进了新的在途 Promise。
+  try { return await p; } finally { if (mcpClientPending.get(entry.id) === p) mcpClientPending.delete(entry.id); }
 }
 
 // Kill every live bridged client (called on process exit / cleanup).
 function killAllMcpClients() {
   for (const [, c] of mcpClients) { try { c.kill(); } catch { /* ignore */ } }
   mcpClients.clear();
+  // hunt2-mcp:还在握手的也要杀 —— 修前退出时它们不在 mcpClients 里,子进程成孤儿(unref 过,不拦退出)。
+  for (const [, c] of mcpStartingClients) { try { c.kill(); } catch { /* ignore */ } }
+  mcpStartingClients.clear();
 }
 
 // 47b:桥客户端获取的统一入口 —— 活则直给;死/缺则按 config 的服务器条目经 getMcpClient 惰性重 spawn。
@@ -12932,6 +13753,15 @@ async function getBridgedClient(serverId, config) {
 
 // Stable, reversible-ish server-id sanitizer for the bridged tool-name prefix. Non [A-Za-z0-9_] -> _.
 function sanitizeServerId(id) { return String(id || '').replace(/[^A-Za-z0-9_]/g, '_'); }
+// hunt2-mcp:provider 的函数名只收 ^[a-zA-Z0-9_-]{1,64}$。修前前缀冲突(my-srv 与 my_srv 都成 my_srv)时后到的
+// 服务器工具被静默丢掉;工具名里带 . / 空格或总长超 64 的,整批请求被 provider 400 拒掉。
+// 前缀冲突:先到者(desktop 在最前)保留原前缀,后到者加 id 的短哈希;名字非法字符转 _,超长截断并补哈希保唯一。
+function mcpShortHash(text) { return crypto.createHash('sha1').update(String(text), 'utf8').digest('hex').slice(0, 6); }
+function bridgedToolFunctionName(prefix, toolName) {
+  const raw = `${prefix}__${String(toolName).replace(/[^A-Za-z0-9_-]/g, '_')}`;
+  if (raw.length <= 64) return raw;
+  return raw.slice(0, 57) + '_' + mcpShortHash(`${prefix}__${toolName}`);
+}
 
 // v0.7d line 2: collect bridged tools for THIS turn (once). Returns { tools:[openai fn schema], route }.
 // route maps bridgedName -> { serverId, toolName }. Any server that fails to start/list is skipped;
@@ -12951,7 +13781,7 @@ const BRIDGED_CATALOG_SCAN_TIMEOUT_MS = 8000;
 async function collectBridgedTools(config, force = false) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
   const entries = resolveExternalMcpServers(config);
-  const cacheKey = JSON.stringify(entries.map(e => [e.id, e.command || '', e.args || [], e.cwd || '', e.env || {}, e.transport || 'stdio', e.url || '']));
+  const cacheKey = JSON.stringify(entries.map(e => [e.id, mcpEntryFingerprint(e)]));   // 过滤表 / 超时 / 头也算目录变化
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
@@ -12973,13 +13803,21 @@ async function collectBridgedTools(config, force = false) {
       try { list = await client.listTools(); } catch { list = []; }
       return { entry, list: Array.isArray(list) ? list : [] };
     }));
+    const prefixOwner = new Map();   // 前缀 -> 占用它的 serverId
     for (const item of collected) {
       if (!item) continue;
       const { entry, list } = item;
-      const prefix = sanitizeServerId(entry.id);
+      let prefix = sanitizeServerId(entry.id);
+      if (prefixOwner.has(prefix) && prefixOwner.get(prefix) !== entry.id) {
+        const taken = prefix;
+        prefix = `${prefix}_${mcpShortHash(entry.id)}`;
+        logEvent({ kind: 'mcp_bridge_prefix_collision', serverId: entry.id, other: prefixOwner.get(taken), prefix });
+      }
+      prefixOwner.set(prefix, entry.id);
       for (const t of list) {
         if (!t || typeof t.name !== 'string' || !t.name) continue;
-        const bridgedName = `${prefix}__${t.name}`;
+        if (!mcpToolAllowed(entry, t.name)) continue;   // 条目 enabledTools / disabledTools
+        const bridgedName = bridgedToolFunctionName(prefix, t.name);
         // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
         if (route[bridgedName]) continue;
         route[bridgedName] = { serverId: entry.id, toolName: t.name };
@@ -13076,7 +13914,10 @@ async function probeMcpConnector(entry, opts = {}) {
   if (!entry || (!entry.id && !entry.command && !entry.url)) {
     return { id: null, status: 'failed', category: 'startup', message: 'invalid entry', latencyMs: 0, probedAt };
   }
+  reconcileMcpEntryFingerprint(entry);   // 配置改过(同 id)-> 旧客户端 / 旧冷却作废,按新条目重测
   let client = mcpClients.get(entry.id);
+  // 已经活着的客户端:下面真发一次 tools/list(hunt2-mcp:修前读握手时缓存的目录,卡死的服务器也报 ok)。
+  const wasLive = Boolean(client && !client.dead);
   if (!client || client.dead) {
     try {
       client = await Promise.race([
@@ -13096,10 +13937,11 @@ async function probeMcpConnector(entry, opts = {}) {
     return { id: entry.id, status: 'failed', ...cls, latencyMs: Date.now() - startedAt, probedAt };
   }
   try {
+    let probeTimer = null;
     const tools = await Promise.race([
-      Promise.resolve(client.listTools()),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('mcp tools/list timed out')), timeoutMs)),
-    ]);
+      Promise.resolve(wasLive && typeof client.refreshTools === 'function' ? client.refreshTools(timeoutMs) : client.listTools()),
+      new Promise((_, reject) => { probeTimer = setTimeout(() => reject(new Error('mcp tools/list timed out')), timeoutMs); }),
+    ]).finally(() => clearTimeout(probeTimer));
     const toolCount = Array.isArray(tools) ? tools.length : 0;
     return {
       id: entry.id,
@@ -13649,7 +14491,7 @@ function claudeProviderTailSince(messages) {
   return lastClaudeIdx >= 0 ? arr.slice(lastClaudeIdx + 1) : arr;
 }
 
-const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn) => {
+const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn, decodeConsoleTextFn) => {
   const fs = fsModule;
   const fsp = fspModule;
   const path = pathModule;
@@ -13657,18 +14499,18 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   const cp = cpModule;
   const killChildTree = killTreeFn;
   const batchSafeSpawn = batchSpawnFn;
+  // 分离式启动带 'error' 监听(见 00-boot spawnDetachedChecked):explorer.exe 起不来时不再是 uncaughtException。
+  const spawnDetachedChecked = spawnDetachedFn;
   // v1.0.1 编码修复:Windows 子进程(powershell/cmd/git/python…)在中文系统默认按 OEM 代码页(GBK/cp936)
   // 输出,而非 UTF-8。此前 runProcess 按 UTF-8 逐块 toString → 中文全乱码(GBK 字节 c2a6c9bd… 被读成「¦ɽ」)。
   // 修法:累积原始字节,收尾时智能解码——先按 UTF-8 解;若出现替换符(�,说明不是合法 UTF-8),退回 GBK。
   // 我们自己以 UTF-8 输出的工具不受影响(合法 UTF-8 无替换符,原样保留),GBK 原生命令输出也能正确还原。
   // **headless 安全**:纯 Node 侧解码,不依赖控制台——[Console]::OutputEncoding 那类 PS 方案在无窗口 spawn 下
   // 会因无有效控制台句柄而静默失效(实测端到端仍乱码),Node 侧解码无此坑。
-  let _gbkDecoder = null;
+  // 2026-09 起改为【按行】判定(00-boot decodeConsoleText):修前整段只要有一处不是合法 UTF-8 就整段按 GBK 解,
+  // 混排输出(git 的 UTF-8 + 系统命令的 GBK)里总有一半是乱码。
   function decodeBestEffort(buf) {
-    const utf8 = buf.toString('utf8');
-    if (!utf8.includes('�')) return utf8;
-    try { if (!_gbkDecoder) _gbkDecoder = new TextDecoder('gbk'); return _gbkDecoder.decode(buf); }
-    catch { return utf8; } // 该 node 无 gbk ICU → 退回 UTF-8(至少不崩)
+    return decodeConsoleTextFn(buf);
   }
   function runProcess(command, args, options = {}) {
     return new Promise(resolve => {
@@ -13821,14 +14663,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       child.on('exit', cleanup);
       child.on('error', () => { // powershell missing → fall back to a plain (possibly-behind) explorer open
         cleanup();
-        try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); } catch { /* give up */ }
+        try { spawnDetachedChecked('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }); } catch { /* give up */ }
       });
       child.unref();
       return true;
     } catch (e) {
       fsp.unlink(tmpFile).catch(() => {});
       // Synchronous spawn failure → last-ditch direct explorer (opens, may be behind the browser).
-      try { cp.spawn('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }).unref(); return true; } catch { return false; }
+      try { spawnDetachedChecked('explorer.exe', mode === 'open' ? [absPath] : ['/select,' + absPath], { detached: true, stdio: 'ignore' }); return true; } catch { return false; }
     }
   }
 
@@ -13914,7 +14756,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     return { ok: true, cancelled: true };
   }
   return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, revealInExplorer, pickFolder, pickFile });
-})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn);
+})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked, decodeConsoleText);
 
 // ── 04f · ruyi-toolbox 服务类组件:拉起、探活、接成能力端点、回收 ─────────────────────────────────────────
 // 用户 2026-09-21:「如意启动时自动探测本机上是否有这个 asr shim,有的话自动拉起并自动配置好,开箱即用」,
@@ -14638,6 +15480,10 @@ function anthropicMessagesFromHistory(history, model, hasTools) {
   });
   for (const msg of out) {
     if (msg.role !== 'user') continue;
+    // 同一 tool_use_id 的 tool_result 只能有一块(否则 400):配对自愈补过合成结果、真结果又隔着一条 system 到了,留后到的那块。
+    const lastResultAt = new Map();
+    msg.content.forEach((b, i) => { if (b.type === 'tool_result') lastResultAt.set(b.tool_use_id, i); });
+    msg.content = msg.content.filter((b, i) => b.type !== 'tool_result' || lastResultAt.get(b.tool_use_id) === i);
     const results = msg.content.filter(b => b.type === 'tool_result');
     if (results.length && results.length !== msg.content.length) msg.content = [...results, ...msg.content.filter(b => b.type !== 'tool_result')];
   }
@@ -14677,10 +15523,12 @@ function applyAnthropicEffort(body, effort) {
   return body;
 }
 // 采样参数:Opus 4.7 起、Sonnet 5 起、Fable / Mythos 对 temperature 等一律 400,这些模型上不发(用户配的温度对它们没有意义);
-// 其余模型(含网关上的非 Claude 模型)照发。
+// 开着思考(adaptive / between_tools 等)时也不发 —— API 不收「思考 + 改过的 temperature」(Opus / Sonnet 4.6 默认就开思考);
+// 其余模型(含网关上的非 Claude 模型)照发。调用方先 encodeMessages 再调这里,body.thinking 已定。
 function applyAnthropicTemperature(body, temperature) {
   if (temperature === undefined || !body || typeof body !== 'object') return body;
-  if (!anthropicModelTraits(body.model).noSampling) body.temperature = temperature;
+  const thinkingOn = Boolean(body.thinking && typeof body.thinking === 'object' && body.thinking.type !== 'disabled');
+  if (!thinkingOn && !anthropicModelTraits(body.model).noSampling) body.temperature = temperature;
   return body;
 }
 // chat 形函数工具 → { name, description, input_schema };tool_choice 只发 auto(新模型对 any / tool 回 400)。
@@ -14739,7 +15587,8 @@ function anthropicReplayBlock(block) {
   if (!block || typeof block !== 'object') return null;
   if (block.type === 'thinking') return { type: 'thinking', thinking: String(block.thinking || ''), signature: String(block.signature || '') };
   if (block.type === 'redacted_thinking') return { type: 'redacted_thinking', data: String(block.data || '') };
-  if (block.type === 'text') return { type: 'text', text: String(block.text || ''), ...(Array.isArray(block.citations) ? { citations: block.citations } : {}) };
+  // 空 / 纯空白文本块 API 拒收(回放路径绕过了 anthropicAssistantBlocks 的 trim 过滤);它也不属于思考前缀校验的范围,丢掉即可。
+  if (block.type === 'text') return String(block.text || '').trim() ? { type: 'text', text: String(block.text || ''), ...(Array.isArray(block.citations) ? { citations: block.citations } : {}) } : null;
   if (block.type === 'tool_use') return { type: 'tool_use', id: String(block.id || ''), name: String(block.name || ''), input: block.input && typeof block.input === 'object' ? block.input : {} };
   // 其余块(服务端改派留下的 fallback 块、服务端工具块等)原样留着:回放时少一块就改了后面思考块的前缀。只去掉解码器自己的中间字段。
   if (typeof block.type === 'string' && block.type) { const { partial, ...rest } = block; return rest; }
@@ -14787,6 +15636,15 @@ function anthropicStreamErrorText(err, emitted, scrub) {
   const status = ANTHROPIC_STREAM_ERROR_STATUS[kind];
   return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Anthropic stream error: ' + detail;
 }
+// 用量合并:后到的只覆盖有限数字。message_delta.usage 里 input_tokens / cache_* 可以是 null(SDK 类型就是可空),
+// 直接展开会把 message_start 的真实计数抹成 0,上下文校准与用量台账跟着错。
+function anthropicMergeUsage(base, next) {
+  const out = { ...(base && typeof base === 'object' ? base : {}) };
+  for (const [k, v] of Object.entries(next && typeof next === 'object' ? next : {})) {
+    if (typeof v === 'number' ? Number.isFinite(v) : (v !== null && v !== undefined)) out[k] = v;
+  }
+  return out;
+}
 // 流式事件:message_start → content_block_start / delta / stop(按 index)→ message_delta(stop_reason、累计 output_tokens)→ message_stop。
 function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId, scrub }) {
   let outText = '', reasoning = '', stopReason = null, stopDetails = null, providerResponseId = '', model = '', streamError = '';
@@ -14795,7 +15653,7 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
   const reportUsage = () => {
     if (usageMarked || (!usageStart && !usageDelta)) return;
     usageMarked = true;
-    markUsage(normalizeAnthropicUsage({ ...(usageStart || {}), ...(usageDelta || {}) }));
+    markUsage(normalizeAnthropicUsage(anthropicMergeUsage(usageStart, usageDelta)));
   };
   return {
     feed(evt) {
@@ -14848,7 +15706,7 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
       if (t === 'message_delta') {
         if (evt.delta && evt.delta.stop_reason) stopReason = evt.delta.stop_reason;
         if (evt.delta && evt.delta.stop_details) stopDetails = evt.delta.stop_details;
-        if (evt.usage && typeof evt.usage === 'object') usageDelta = { ...(usageDelta || {}), ...evt.usage };
+        if (evt.usage && typeof evt.usage === 'object') usageDelta = anthropicMergeUsage(usageDelta, evt.usage);
         return false;
       }
       if (t === 'message_stop') { reportUsage(); return true; }
@@ -14876,9 +15734,13 @@ function anthropicRetryBodyOn400(body, errText) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
   // 官方以外的端点不认 block_binding / between_tools:只去掉这一项,思考照开。
-  if (body.thinking && typeof body.thinking === 'object' && /block_binding|between_tools/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|invalid/i.test(msg)) {
+  // 只在「去掉之后请求体真的变了」时走这一支:签名不匹配的官方报文里也点名 block_binding(建议你设 prefix_mismatch_behavior),
+  // 而请求体里并没有它 —— 这时原样重打只会再吃一次同一个 400,要落到下面的「去掉思考块」。
+  const stripBetweenTools = /between_tools/i.test(msg) && body.thinking && body.thinking.type === 'between_tools';
+  const stripBinding = /block_binding/i.test(msg) && body.thinking && typeof body.thinking === 'object' && body.thinking.block_binding !== undefined;
+  if ((stripBetweenTools || stripBinding) && !/invalid\W{0,3}signature/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|invalid/i.test(msg)) {
     const copy = { ...body };
-    if (/between_tools/i.test(msg) && body.thinking.type === 'between_tools') delete copy.thinking;
+    if (stripBetweenTools) delete copy.thinking;
     else { const { block_binding, ...rest } = body.thinking; copy.thinking = rest; }
     return copy;
   }
@@ -15096,15 +15958,38 @@ function providerWireToolCallsFromSlots(slots) {
 // 非流式回体里「命中输出上限」的判据(105j):Responses 的 status:'incomplete',或 chat 的 finish_reason 是 length / max_*_tokens,
 // 或 incomplete_details.reason 带同义词。reasoning-only 或截断的回体不许被误报成普通的空回复。
 function providerWireIncomplete(payload, statusIncomplete) {
-  const finish = String(payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason || '').toLowerCase();
+  const finish = payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason;
   const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || '').toLowerCase();
-  return statusIncomplete || /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
+  return statusIncomplete || providerWireOutputLimited(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
+}
+// 解码器交回的 finishReason 是否表示「命中输出上限被截断」:responses / anthropic 已归一成 'length',chat 原样透传
+// (多数是 length,个别端点写 max_tokens / max_output_tokens)。09 据此不执行参数被截断的工具调用、并提示回答不完整。
+function providerWireOutputLimited(finishReason) {
+  return /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(String(finishReason || '').toLowerCase());
 }
 function providerWireFailureDetail(payload) {
   const e = payload && payload.error;
   if (typeof e === 'string') return e;
   if (e && typeof e === 'object') return String(e.message || e.code || e.type || 'provider error');
   return '';
+}
+// 流内错误(chat 的顶层 {error:{…}} 帧、finish_reason:'error';Responses 的 type:'error' 事件)→ finish() 的 httpError 文本。
+// 与 04i-provider-anthropic 的 anthropicStreamErrorText 同形:还没吐出任何内容、且能认出状态码时报成 'HTTP <status>: …'
+// (等价于首字节前的失败:429 走瞬时重试、400 超窗走强压重试,都不会重放已显示的内容);已经吐过内容则报成流内错误,
+// 不带状态码(调用方据此不重试 —— 防重放)。数字 code / status 优先,其次认 OpenAI 系的几个字符串 code / type。
+const OPENAI_STREAM_ERROR_STATUS = Object.freeze({
+  rate_limit_exceeded: 429, rate_limit_error: 429, insufficient_quota: 429,
+  server_error: 500, internal_error: 500, service_unavailable: 503, overloaded: 503,
+  context_length_exceeded: 400, invalid_request_error: 400,
+});
+function providerWireStreamErrorText(err, emitted) {
+  const e = err && typeof err === 'object' ? err : { message: err == null ? '' : String(err) };
+  const numeric = [e.status, e.code, e.status_code].map(Number).find(n => Number.isInteger(n) && n >= 400 && n <= 599);
+  const status = numeric || OPENAI_STREAM_ERROR_STATUS[String(e.code || '')] || OPENAI_STREAM_ERROR_STATUS[String(e.type || '')] || 0;
+  const kind = String(e.code || e.type || 'error');
+  const msg = String(e.message || '');
+  const detail = kind + (msg ? ': ' + ProviderWireHooks.redact(msg.slice(0, 400)) : '');
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Provider stream error: ' + detail;
 }
 // 两种协议共用的回体外壳字段。
 function providerWireDecoded(payload, core) {
@@ -15139,7 +16024,10 @@ function decodeChatCompletion(j) {
 }
 // chat 流式:choices[0].delta 的 content / reasoning_content(或 reasoning)/ tool_calls 分片;终止靠分帧层的 [DONE]。
 function createChatStreamDecoder({ onEvent, markUsage }) {
-  let outText = '', reasoning = '', finishReason = null, providerResponseId = '';
+  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', streamError = '', emitted = false;
+  // 用量:有的服务商在【每一帧】都带累计 usage(不止 include_usage 的末帧)。逐帧 markUsage 会把同一次调用记好几遍
+  // (调用方按次累加 input/output),所以只记最后一份、在 finish() 里报一次。
+  let lastUsage = null;
   // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
   // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
   // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
@@ -15163,9 +16051,10 @@ function createChatStreamDecoder({ onEvent, markUsage }) {
       curSlot = s; return s;
     }
     // Priority 2: no id but an explicit index -> find-or-create by index (the standard OpenAI shape where
-    // continuation fragments carry only the index).
+    // continuation fragments carry only the index). 同一个 index 可能先后开过几个槽(Gemini 兼容端点给每个并行调用
+    // 都发 index:0、各带不同 id):只带 index 的续片属于【最近开的】那个槽,不是第一个。
     if (tc.index != null) {
-      let s = slots.find(x => x.index === tc.index);
+      let s = slots.findLast(x => x.index === tc.index);
       if (!s) { s = { id: '', index: tc.index, name: '', args: '' }; slots.push(s); }
       curSlot = s; return s;
     }
@@ -15177,25 +16066,39 @@ function createChatStreamDecoder({ onEvent, markUsage }) {
   return {
     feed(evt) {
       if (!providerResponseId) providerResponseId = providerWireResponseIdOf(evt);
-      if (evt.usage) markUsage(evt.usage);
+      if (evt.usage) lastUsage = evt.usage;
+      // 流内错误帧(上游中途失败时网关/代理常这样收尾,有的还跟一个 [DONE]):终止流,交给调用方的 httpError 路径。
+      // 修前它被当成普通帧忽略,半截回答被当作成功落盘。
+      if (evt.error && !evt.choices) { streamError = providerWireStreamErrorText(evt.error, emitted); return true; }
       const ch = evt.choices && evt.choices[0];
       if (!ch) return false;
       if (ch.finish_reason) finishReason = ch.finish_reason;
       const delta = ch.delta;
-      if (!delta) return false;
-      const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
-      if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
-      if (typeof delta.content === 'string' && delta.content) { outText += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
-      if (Array.isArray(delta.tool_calls)) {
-        for (const tc of delta.tool_calls) {
-          const slot = selectSlot(tc);
-          if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
+      if (delta) {
+        const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
+        if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
+        if (typeof delta.content === 'string' && delta.content) { outText += delta.content; emitted = true; onEvent({ type: 'assistant_delta', text: delta.content }); }
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const slot = selectSlot(tc);
+            emitted = true;
+            // 有的端点每一片都重复完整的 function.name:与已拼出的名字相同就不再追加(否则成了 file_readfile_read);
+            // 真正分片的名字('file_' + 'read')每片不同,照旧拼接。
+            if (tc.function) { if (tc.function.name && tc.function.name !== slot.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
+          }
         }
+      }
+      // finish_reason:'error'(vLLM 等在生成中途出错时这样收尾):同样是失败,不是一个正常结束的回答。
+      if (String(ch.finish_reason || '').toLowerCase() === 'error' && !streamError) {
+        streamError = providerWireStreamErrorText({ type: 'error', message: 'finish_reason=error' }, emitted);
       }
       return false;
     },
     finish() {
-      return { text: outText, reasoning, finishReason, toolCalls: providerWireToolCallsFromSlots(slots), providerResponseId };
+      if (lastUsage) { markUsage(lastUsage); lastUsage = null; }
+      const out = { text: outText, reasoning, finishReason: streamError ? 'error' : finishReason, toolCalls: providerWireToolCallsFromSlots(slots), providerResponseId };
+      if (streamError) out.httpError = streamError;
+      return out;
     },
   };
 }
@@ -15253,13 +16156,18 @@ function decodeResponsesCompletion(j) {
 // response.function_call_arguments.delta/done | response.completed | response.incomplete | response.failed.
 // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
 function createResponsesStreamDecoder({ onEvent, markUsage }) {
-  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '';
+  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '', emitted = false;
+  // 用量只记最后一份、finish() 报一次(同 chat:中途事件自带的 usage 与终止事件的 usage 是同一次调用的累计值,
+  // 逐个 markUsage 会重复计费);incomplete / failed 的回体也带 usage,照样要记(截断的那一发同样花了钱)。
+  let lastUsage = null;
   const slots = [];
   let curSlot = null;
+  // function_call 的参数有的端点只在 .done 事件里给全量(不发 delta):按 item_id / call_id 找槽,槽里还没有参数才补。
+  const slotForItem = (itemId, callId) => (itemId && slots.find(x => x.itemId === itemId)) || (callId && slots.find(x => x.id === callId)) || null;
   return {
     feed(evt) {
       if (!providerResponseId) providerResponseId = providerWireResponseIdOf(evt);
-      if (evt && evt.usage) markUsage(evt.usage); // some events carry usage directly
+      if (evt && evt.usage) lastUsage = evt.usage; // some events carry usage directly
       const t = evt && evt.type;
       if (t === 'response.output_item.added' && evt.item && evt.item.type === 'function_call') {
         // A function_call output item opens/selects its slot (call_id + name), arguments stream separately.
@@ -15315,23 +16223,49 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         if (!target) target = curSlot;
         if (!target) { target = { id: ProviderWireHooks.makeId('call'), index: null, name: '', args: '', itemId: '' }; slots.push(target); }
         target.args += evt.delta;
+        emitted = true;
         curSlot = target;
+        return false;
+      }
+      if (t === 'response.function_call_arguments.done' && typeof evt.arguments === 'string') {
+        const target = slotForItem(evt.item_id, '') || curSlot;
+        if (target && !target.args && !target.serverSide) { target.args = evt.arguments; emitted = true; }
+        return false;
+      }
+      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'function_call') {
+        const fc = evt.item;
+        let s = slotForItem(fc.id, fc.call_id);
+        // 只发 .done 不发 .added 的端点:在这里开槽(与 added 同形)。
+        if (!s) { s = { id: fc.call_id || ProviderWireHooks.makeId('call'), index: null, name: '', args: '', itemId: fc.id || '' }; slots.push(s); }
+        if (!s.name && fc.name) s.name = fc.name;
+        if (!s.args && typeof fc.arguments === 'string' && fc.arguments) { s.args = fc.arguments; emitted = true; }
         return false;
       }
       if (t === 'response.reasoning_text.delta' && typeof evt.delta === 'string' && evt.delta) {
         reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
       }
       if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        outText += evt.delta; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
       }
       if (t === 'response.completed') {
         // Final event: the full response object (with usage) rides on the event.
-        if (evt.response && evt.response.usage) markUsage(evt.response.usage);
+        if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
         finishReason = 'stop';
         return true;
       }
-      if (t === 'response.incomplete') { finishReason = 'length'; return true; } // truncated (e.g. max_output_tokens)
+      if (t === 'response.incomplete') { // truncated (e.g. max_output_tokens)
+        if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
+        finishReason = 'length';
+        return true;
+      }
+      // 流内 error 事件({type:'error', code, message}):终止流并走 httpError(修前被当作未知事件忽略,半截回答被当作成功)。
+      if (t === 'error') {
+        responsesFailedError = providerWireStreamErrorText(evt.error && typeof evt.error === 'object' ? evt.error : evt, emitted);
+        finishReason = 'error';
+        return true;
+      }
       if (t === 'response.failed') {
+        if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
         // Terminal failure — surface the error detail to the caller's existing httpError path.
         // 对抗轮(P1-3/P2-1/P2-3):
         //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
@@ -15347,6 +16281,7 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       return false; // created / in_progress / content_part.* / output_item.done / reasoning_text.done / output_text.done / … — non-terminal
     },
     finish() {
+      if (lastUsage) { markUsage(lastUsage); lastUsage = null; }
       // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
       // back into the next request's `input` without executing anything locally.
       const toolCalls = providerWireToolCallsFromSlots(slots);
@@ -15581,7 +16516,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
     recordTurnUsage({ session, config, usage, billInMax, billOutMax }) {
       if (usage && usage.usage) {
-        const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+        const rawInTok = Number(usage.usage.input_tokens) || 0, outTok = usage.usage.output_tokens;
         // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
         // 两项相加,读法与 runClaudeTurn 的 msg_usage 分支(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,
         // 只读一项会漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
@@ -15590,8 +16525,13 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
         // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
         // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
         const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
+        // hunt2-engines#2:账本的口径是 OpenAI 那一套 —— inTok 是【全部】输入、cachedInTok 是它的子集(00 appendUsageLedger
+        // 按 min(inTok, cachedInTok) 夹住)。Claude 的 input_tokens 却【不含】缓存那两项(04i normalizeAnthropicUsage 同一事实),
+        // 直接记会让重缓存回合(input 3、缓存 5 万)的缓存被夹成 3,看板每回合少记几万 token。这里先归一成账本口径;
+        // 费用仍按 CLI 原始 input_tokens 交给 claudeCostFields(config.claudePricing 的既有算法不变)。
+        const inTok = rawInTok + cachedInTok;
         // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, rawInTok, outTok, usage.costUsd);
         appendUsageLedger({
           sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
           inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
@@ -15819,6 +16759,7 @@ async function runClaudeTurn({
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
+    { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
@@ -16105,10 +17046,14 @@ async function runClaudeTurn({
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
-  env.WCW_SESSION_ID = session.id;
-  env.WCW_PORT = String(RUNTIME.port);
-  env.WCW_HOST = RUNTIME.host;
-  env.WCW_TOKEN = RUNTIME.token;
+  // hunt2-engines#9:回环凭据(WCW_SESSION_ID / PORT / HOST / TOKEN)不再放进 CLI 进程自己的环境 —— 放进去,模型经 CLI
+  // 的 Bash 起的每个子进程都会继承 WCW_TOKEN,一句 `env` 就能拿到如意的接口令牌再回调本机接口。真正要用它们的只有
+  // 如意的 MCP 子进程,generateSessionMcpConfig 已经把这四项写进 --mcp-config 里那个 server 的 env 块(每会话一份)。
+  // 从外层环境继承来的同名变量(例如如意自己被别的如意回合拉起)也一并删掉,理由相同。超时那一项不是凭据,
+  // 且会话 MCP 配置里没有它,留在进程环境里给 MCP 子进程继承。
+  // Kimi 这一路(05b runKimiAcpTurnPrepared)暂不照做:Kimi 只从全局 ~/.kimi-code/mcp.json 读 MCP 声明、没有按回合的
+  // --mcp-config,回合级回环字段只能靠 Kimi 进程环境继承给 MCP 子进程(见 01 syncMcpServersToKimi 头注)。
+  for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
   if (adapter.beforeSpawn) await adapter.beforeSpawn(config, onEvent);
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
@@ -16133,6 +17078,11 @@ async function runClaudeTurn({
     model: currentClaudeModel || 'default', iteration: _resumeRecoveryAttempt ? 1 : 0,
     resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt),
   });
+  // hunt2-engines#1:上面那次 supersede 检查与这里的 activeChildren.set 之间隔着十来个 await(建参、记忆预检、
+  // 环境说明、beforeSpawn、hooks……),同会话的两个回合可以都在那时看到「空闲」,各起一个子进程,后登记的
+  // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
+  // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
+  if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
@@ -16166,7 +17116,8 @@ async function runClaudeTurn({
   let assistantText = '';
   let thinkingText = '';
   const toolCalls = [];
-  let stderrText = '';
+  let stderrText = '';   // 子进程关闭后由 stderrCapture 定稿(hunt2-engines#17:头尾截断,不无限累积)
+  const stderrCapture = createCappedDiagnosticText();
   let rawSeq = 0;
   // Per-MESSAGE delta dedup: partials for a message set these; the following whole `assistant`
   // message is then suppressed; flags reset after each whole message so a later whole-only message
@@ -16306,10 +17257,12 @@ async function runClaudeTurn({
     child.stdin.end();
   } else child.stdin.end();
 
+  const stderrDecodeStream = {};   // hunt2-engines#8:一条 stderr 一个解码状态,块边界切开的汉字不再被误判成 GB18030
   child.stderr.on('data', chunk => {
-    const textChunk = decodeClaudeCliText(chunk);
-    stderrText += textChunk;
+    const textChunk = decodeClaudeCliText(chunk, stderrDecodeStream);
     reg.lastEventAt = Date.now();
+    if (!textChunk) return;   // 整块都是被切开的半个字符:留在解码器里等下一块
+    stderrCapture.append(textChunk);
     onEvent({ type: 'stderr', text: redact(textChunk) });
   });
 
@@ -16442,14 +17395,14 @@ async function runClaudeTurn({
     }
   };
 
-  let stdoutNoise = '';
+  const stdoutNoiseCapture = createCappedDiagnosticText();   // hunt2-engines#17:同 stderr,非 JSON 行也会被当正文兜底落盘
   const consumeLine = line => {
     if (!line.trim()) return;
     onEvent({ type: 'raw_line', line, seq: rawSeq++ }); // F4: verbatim, before parse
     const evt = safeJsonParse(line);
     if (!evt) {
       // Non-JSON CLI diagnostic — keep it visible but out of the assistant reply unless nothing else came.
-      stdoutNoise += line + '\n';
+      stdoutNoiseCapture.append(line + '\n');
       onEvent({ type: 'raw_stdout', text: line });
       return;
     }
@@ -16473,6 +17426,9 @@ async function runClaudeTurn({
   clearInterval(nativeAgentProgressTimer);
   stopSideChannelWatch();
   stdoutFeeder.flush();
+  stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));   // hunt2-engines#8:冲出流尾的残字节
+  stderrText = stderrCapture.toString();
+  const stdoutNoise = stdoutNoiseCapture.toString();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
   // interruption honestly instead of inventing a completion.
@@ -18016,6 +18972,34 @@ async function replaceSessionObject(target, fresh) {
   Object.assign(target, fresh);
 }
 
+// hunt2-engines#7:Agent CLI 回合前自动压缩的滞回与失败退避。修前每个回合都会重判、重试:Kimi 原生压缩坏了时
+// 每回合开头都要白等最多 3 分钟(compactKimiNative 的轮询上限),外部摘要模型坏了时每回合都再烧一次摘要调用。
+//   ① 成功后:runKimiCompact / runAgentExternalCompact 已把压后实测写进 session.autoCompactWatermark,这里照 10
+//      runAutoCompaction 的口径把触发线抬到 max(阈值线, 水位 + max(2K, 2% 窗口)) —— 两路引擎同一种滞回。
+//   ② 失败后:只在内存里记「哪条会话、在多少 token 时、何时失败」(不进会话头:它是运行时退避,重启即清零合理);
+//      冷却期内且上下文没有再涨过一个重武装余量,就不再尝试。
+const AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS = 10 * 60 * 1000;
+const agentAutoCompactFailures = new Map();   // sessionId -> { at, tokens }
+function agentAutoCompactTrigger(session, threshold, limit) {
+  const base = threshold * limit;
+  const rearmMargin = Math.max(2000, Math.round(limit * 0.02));
+  const wm = Number(session && session.autoCompactWatermark);
+  return { trigger: Number.isFinite(wm) && wm > 0 ? Math.max(base, wm + rearmMargin) : base, rearmMargin };
+}
+function agentAutoCompactBackingOff(sessionId, used, rearmMargin) {
+  const failed = agentAutoCompactFailures.get(String(sessionId || ''));
+  if (!failed) return false;
+  if (Date.now() - failed.at >= AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS || used >= failed.tokens + rearmMargin) {
+    agentAutoCompactFailures.delete(String(sessionId || ''));
+    return false;
+  }
+  return true;
+}
+function noteAgentAutoCompactFailure(sessionId, used) {
+  agentAutoCompactFailures.set(String(sessionId || ''), { at: Date.now(), tokens: Number(used) || 0 });
+  while (agentAutoCompactFailures.size > 500) agentAutoCompactFailures.delete(agentAutoCompactFailures.keys().next().value);
+}
+
 // Called before an Agent CLI turn. A CLI with a native status surface (adapter.contextStatus; Kimi) uses its
 // authoritative status; Claude can opt into an external model and uses the latest measured CLI usage. The
 // default Claude path remains Claude's own auto-compact.
@@ -18037,10 +19021,16 @@ async function maybeAutoCompactAgentSession(session, config, cliAdapter, onEvent
           nativeStatus.apply(session, status);
         }
       }
-      if (used > 0 && limit > 0 && used >= threshold * limit) {
+      const armed = limit > 0 ? agentAutoCompactTrigger(session, threshold, limit) : null;
+      if (used > 0 && armed && used >= armed.trigger && !agentAutoCompactBackingOff(session.id, used, armed.rearmMargin)) {
         onEvent({ type: 'compact', mode: 'external-summary', phase: 'started', trigger: 'auto', beforeTokens: used, contextWindow: limit });
         const result = await runAgentExternalCompact(session.id, config, 'auto');
-        if (!result.ok) { onEvent({ type: 'compact', mode: 'external-summary', phase: 'failed', error: result.error }); return false; }
+        if (!result.ok) {
+          noteAgentAutoCompactFailure(session.id, used);
+          onEvent({ type: 'compact', mode: 'external-summary', phase: 'failed', error: result.error });
+          return false;
+        }
+        agentAutoCompactFailures.delete(String(session.id));
         const fresh = await loadSession(session.id);
         await replaceSessionObject(session, fresh);
         onEvent({ type: 'compact', mode: 'external-summary', phase: 'completed', trigger: 'auto', beforeTokens: result.beforeTokens, afterTokens: result.afterTokens });
@@ -18053,9 +19043,15 @@ async function maybeAutoCompactAgentSession(session, config, cliAdapter, onEvent
     if (!status.ok) return false;
     nativeStatus.apply(session, status);
     onEvent({ type: 'usage', ...nativeStatus.usage(status) });
-    if (status.contextWindow > 0 && status.contextTokens >= threshold * status.contextWindow) {
+    const armed = status.contextWindow > 0 ? agentAutoCompactTrigger(session, threshold, status.contextWindow) : null;
+    if (armed && status.contextTokens >= armed.trigger && !agentAutoCompactBackingOff(session.id, status.contextTokens, armed.rearmMargin)) {
       const result = await nativeCompact.run(session.id, config, 'auto', onEvent);
-      if (!result.ok) { onEvent({ type: 'compact', mode: nativeCompact.mode, phase: 'failed', error: result.error }); return false; }
+      if (!result.ok) {
+        noteAgentAutoCompactFailure(session.id, status.contextTokens);
+        onEvent({ type: 'compact', mode: nativeCompact.mode, phase: 'failed', error: result.error });
+        return false;
+      }
+      agentAutoCompactFailures.delete(String(session.id));
       const fresh = await loadSession(session.id);
       await replaceSessionObject(session, fresh);
       return true;
@@ -18302,7 +19298,9 @@ function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
   const files = new Map();
   const addWireFile = (file, agentId, replay) => {
     if (!file || files.has(file) || !fs.existsSync(file)) return;
-    try { files.set(file, { file, agentId, offset: replay ? 0 : fs.statSync(file).size, pending: '' }); } catch { /* race with child cleanup */ }
+    // hunt2-engines#15:每个文件一只 StringDecoder —— 两次轮询之间的读窗口边界不保证落在字符边界上,各窗口单独
+    // toString('utf8') 会把被切开的汉字变成 U+FFFD(子代理结论、工具输出里的中文就此乱码)。
+    try { files.set(file, { file, agentId, offset: replay ? 0 : fs.statSync(file).size, pending: '', decoder: new StringDecoder('utf8') }); } catch { /* race with child cleanup */ }
   };
   const discover = replayNew => {
     let entries = [];
@@ -18322,14 +19320,14 @@ function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
       discover(true);
       for (const track of files.values()) {
         const size = (await fsp.stat(track.file)).size;
-        if (size < track.offset) { track.offset = 0; track.pending = ''; }
+        if (size < track.offset) { track.offset = 0; track.pending = ''; track.decoder = new StringDecoder('utf8'); }
         if (size <= track.offset) continue;
         const handle = await fsp.open(track.file, 'r');
         try {
           const buffer = Buffer.alloc(size - track.offset);
           await handle.read(buffer, 0, buffer.length, track.offset);
           track.offset = size;
-          const lines = (track.pending + buffer.toString('utf8')).split(/\r?\n/);
+          const lines = (track.pending + track.decoder.write(buffer)).split(/\r?\n/);
           track.pending = lines.pop() || '';
           for (const line of lines) {
             const row = safeJsonParse(line);
@@ -18374,6 +19372,21 @@ function kimiAcpRpcError(payload, method) {
   return error;
 }
 
+// hunt2-engines#13:结算【一条】如意侧待决(权限拒绝 / 提问取消 / 计划驳回),走与 04 clearPending* 同一个命令核心
+// (runAutomaticInterventionDecision → 同一份 CAS 与收尾顺序)。命令核心失败时不另做兜底:回合收尾那三句 clearPending*
+// 一定会把它清掉,最坏只是卡片多挂到回合结束,不会误清同会话里别的待决。
+function cancelKimiAcpIntervention(sessionId, interventionId, kind, note) {
+  const message = String(note || 'Kimi cancelled the request').slice(0, 500);
+  const payload = kind === 'permission' ? { action: 'deny', message }
+    : kind === 'question' ? { action: 'answer', normalizedAnswer: { ok: false, answers: [], content: message } }
+      : kind === 'plan' ? { action: 'reject', feedback: message } : null;
+  if (!payload) return;
+  runAutomaticInterventionDecision({
+    missionId: sessionId, interventionId, source: `clear_${kind}`, decidedBy: 'clear',
+    idempotencyKey: `clear:${interventionId}`, payload,
+  }, () => { /* 回合收尾兜底,见上 */ });
+}
+
 // ACP uses one JSON-RPC object per line. This small client deliberately keeps reverse requests on the same
 // transport: Kimi can pause session/prompt, ask Ruyi for permission/input, then continue after our response.
 function createKimiAcpRpc(child, handlers = {}) {
@@ -18381,10 +19394,18 @@ function createKimiAcpRpc(child, handlers = {}) {
   let closed = false;
   const pending = new Map();
   const reversePending = new Map();
+  // 子进程先关了 stdin/已退出而流还没标 destroyed 时,write 的 EPIPE 是 stdin 上的【异步】'error' 事件,
+  // 下面的 destroyed 守卫与调用方的 try/catch 都接不住 —— 没监听者就是 uncaughtException 带走整个服务。
+  // 与 05 Claude 引擎、07 工作流、04 MCP 客户端同一处理;子进程退出本身另有 exit/close 收尾。
+  if (child && child.stdin) child.stdin.on('error', () => {});
   const write = payload => {
-    if (closed || !child.stdin || child.stdin.destroyed) throw new Error('Kimi ACP input channel is closed');
+    if (closed || !child.stdin || child.stdin.destroyed || child.stdin.writableEnded) throw new Error('Kimi ACP input channel is closed');
     child.stdin.write(JSON.stringify(payload) + '\n', 'utf8');
   };
+  // hunt2-engines#3:子进程先死、管道还没被标 destroyed 的那一瞬间写进去,EPIPE 是在 stdin 流上【异步】抛的 'error' ——
+  // 没有监听者就成了未捕获异常,整个服务 process.exit(1),所有会话的回合一起断(05/07 的 CLI 子进程早就挂了同款空监听)。
+  // 这里吞掉并把通道记成关闭:后续 write 走上面那句同步抛,由各调用点既有的 try/catch 与 close 事件收尾。
+  if (child.stdin && typeof child.stdin.on === 'function') child.stdin.on('error', () => { closed = true; });
   const rejectPending = error => {
     for (const [, item] of pending) { clearTimeout(item.timer); item.reject(error); }
     pending.clear();
@@ -19147,7 +20168,7 @@ function kimiAcpTerminalDisplayResult(reg, terminalId) {
   const active = reg.kimiAcpTerminals && reg.kimiAcpTerminals.get(terminalId);
   const snapshot = active || (reg.kimiAcpTerminalResults && reg.kimiAcpTerminalResults.get(terminalId));
   if (!snapshot) return null;
-  const output = String(snapshot.output || '');
+  const output = String((active ? kimiAcpTerminalOutputText(active) : snapshot.output) || '');
   if (output) return output;
   const code = snapshot.exitCode;
   const signal = snapshot.signal;
@@ -19158,20 +20179,33 @@ function rememberKimiAcpTerminal(reg, terminal) {
   if (!reg || !terminal) return;
   if (!reg.kimiAcpTerminalResults) reg.kimiAcpTerminalResults = new Map();
   reg.kimiAcpTerminalResults.set(terminal.id, {
-    output: terminal.output, truncated: terminal.truncated, exitCode: terminal.exitCode, signal: terminal.signal, at: Date.now(),
+    output: kimiAcpTerminalOutputText(terminal), truncated: terminal.truncated, exitCode: terminal.exitCode, signal: terminal.signal, at: Date.now(),
   });
   while (reg.kimiAcpTerminalResults.size > 32) reg.kimiAcpTerminalResults.delete(reg.kimiAcpTerminalResults.keys().next().value);
 }
 
-function appendKimiAcpTerminalOutput(terminal, text) {
-  if (!text) return;
-  terminal.output += text;
-  let bytes = Buffer.from(terminal.output, 'utf8');
-  if (bytes.length <= terminal.outputByteLimit) return;
+// hunt2-engines#5:修前每来一块输出就把【整个】缓冲重新编码一遍再比长度 —— 输出量 N、上限 L 时是 O(N·L/块长),
+// 8MB 上限下 100MB 输出要阻塞事件循环四十多秒(整个服务跟着卡)。现在只累计新块的字节数,超过 2 倍上限才裁一次
+// (每次裁掉至少 L 字节,摊还线性);读的一侧经 kimiAcpTerminalOutputText 先裁到上限,对外口径与修前一致(≤ 上限、
+// 从头部裁、不切半个 UTF-8 字符、truncated 置位)。
+function trimKimiAcpTerminalOutput(terminal) {
+  if (!(terminal.outputBytes > terminal.outputByteLimit)) return;
+  const bytes = Buffer.from(terminal.output, 'utf8');
   let start = bytes.length - terminal.outputByteLimit;
   while (start < bytes.length && (bytes[start] & 0xc0) === 0x80) start += 1;
   terminal.output = bytes.subarray(start).toString('utf8');
+  terminal.outputBytes = bytes.length - start;
   terminal.truncated = true;
+}
+function appendKimiAcpTerminalOutput(terminal, text) {
+  if (!text) return;
+  terminal.output += text;
+  terminal.outputBytes = (Number(terminal.outputBytes) || 0) + Buffer.byteLength(text, 'utf8');
+  if (terminal.outputBytes > terminal.outputByteLimit * 2) trimKimiAcpTerminalOutput(terminal);
+}
+function kimiAcpTerminalOutputText(terminal) {
+  trimKimiAcpTerminalOutput(terminal);
+  return terminal.output;
 }
 
 function settleKimiAcpTerminal(terminal, exitCode, signal) {
@@ -19287,7 +20321,7 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   let resolveExit;
   const waitPromise = new Promise(resolve => { resolveExit = resolve; });
   const terminal = {
-    id: terminalId, sessionId: String(params.sessionId), child, output: '', outputByteLimit, truncated: false,
+    id: terminalId, sessionId: String(params.sessionId), child, output: '', outputBytes: 0, outputByteLimit, truncated: false,
     exited: false, released: false, exitCode: null, signal: null, resolveExit, waitPromise,
     stdoutDecoder: new StringDecoder('utf8'), stderrDecoder: new StringDecoder('utf8'),
   };
@@ -19300,7 +20334,7 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   });
   child.once('close', (code, signal) => settleKimiAcpTerminal(terminal, code, signal));
   await new Promise((resolve, reject) => {
-    if (terminal.exited && terminal.signal === 'ERROR') return reject(kimiAcpRequestError(-32000, terminal.output.trim() || 'Failed to create terminal'));
+    if (terminal.exited && terminal.signal === 'ERROR') return reject(kimiAcpRequestError(-32000, kimiAcpTerminalOutputText(terminal).trim() || 'Failed to create terminal'));
     const onSpawn = () => { child.removeListener('error', onError); resolve(); };
     const onError = error => { child.removeListener('spawn', onSpawn); reject(kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`)); };
     child.once('spawn', onSpawn); child.once('error', onError);
@@ -19318,7 +20352,7 @@ async function handleKimiAcpTerminalRequest(method, params, context, requestMeta
   const terminal = kimiAcpTerminal(context, params);
   if (method === 'terminal/output') {
     return {
-      output: terminal.output, truncated: terminal.truncated,
+      output: kimiAcpTerminalOutputText(terminal), truncated: terminal.truncated,
       ...(terminal.exited ? { exitStatus: { exitCode: terminal.exitCode, signal: terminal.signal } } : {}),
     };
   }
@@ -19477,7 +20511,12 @@ async function handleKimiAcpElicitation(params, context, requestMeta) {
       ), requestMeta && requestMeta.signal);
       const selected = answer && answer.ok !== false && answer.answers && answer.answers[0] && answer.answers[0].selectedOptionIds && answer.answers[0].selectedOptionIds[0];
       if (selected !== 'open') return { action: selected === 'decline' ? 'decline' : 'cancel' };
-      try { const open = buildOpenSpawn(url.href); cp.spawn(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' }).unref(); }
+      try {
+        // 异步启动失败(ENOENT/EPERM)也要落进下面的 catch 回 -32000,而不是成为 uncaughtException 带崩服务。
+        const open = buildOpenSpawn(url.href);
+        const started = await spawnDetachedChecked(open.command, open.args, { detached: true, windowsHide: false, stdio: 'ignore' });
+        if (!started.ok) throw new Error(started.error);
+      }
       catch (error) { throw kimiAcpRequestError(-32000, `Unable to open elicitation URL: ${error && error.message || error}`); }
       context.reg.kimiAcpElicitations.set(String(params.elicitationId || ''), { url: url.href, at: Date.now() });
       return { action: 'accept' };
@@ -19946,7 +20985,8 @@ async function runKimiAcpTurnPrepared(context) {
     usageTick: 0, turnUsage: null, planTouched: false, toolCalls: [], toolMap: new Map(), availableCommands: [], error: null, stopReason: '',
   };
   let rawSeq = 0;
-  let stderrText = '';
+  const stderrCapture = createCappedDiagnosticText();   // hunt2-engines#17:同 05,stderr 头尾截断后才落盘
+  const stderrDecodeStream = {};   // hunt2-engines#8:同 05,一条 stderr 一个解码状态
   let nativeSessionId = '';
   let stopKimiWireWatch = () => {};
   let watchdog = null;
@@ -20116,6 +21156,10 @@ async function runKimiAcpTurnPrepared(context) {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', iteration: 0, resumeRecoveryAttempt: false,
     });
+    // hunt2-engines#1:与 05 runClaudeTurn 同一处复查 —— 05 开头那次 supersede 检查到这里隔着多个 await
+    // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
+    // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
+    if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
@@ -20136,8 +21180,8 @@ async function runKimiAcpTurnPrepared(context) {
     RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // §6.3 指标 a
     onEvent({ type: 'process', state: 'running', pid: child.pid, interactive: true, protocol: 'acp' });
     child.stderr.on('data', chunk => {
-      const text = decodeClaudeCliText(chunk);
-      stderrText += text;
+      const text = decodeClaudeCliText(chunk, stderrDecodeStream);
+      stderrCapture.append(text);
       markActivity();
       if (text.trim()) onEvent({ type: 'stderr', text: redact(text) });
     });
@@ -20145,6 +21189,33 @@ async function runKimiAcpTurnPrepared(context) {
       session, config, workingDir, additionalDirectories,
       dataRoot: typeof dataRoot === 'function' ? dataRoot() : (typeof paths !== 'undefined' ? paths.data : ''),
       onEvent: reg.onEvent, reg, state,
+    };
+    // hunt2-engines#13:ACP 的 $/cancel_request 只撤【一条】反向请求。修前 onCancel 按会话把全部待决权限/提问/计划
+    // 一起清掉 —— Kimi 并行两个工具、只撤其中一个时,另一个还在等用户的卡片也被判成拒绝。这里按 ACP 请求 id
+    // 记下它在如意这一侧开出的待决(permission_request / ask_user / plan 事件里的 id),撤销时只结算这几条。
+    const reverseInterventions = new Map();   // ACP 反向请求 id -> Map(如意待决 id -> 类型)
+    const reverseRequestContext = requestMeta => {
+      const key = String(requestMeta && requestMeta.requestId);
+      const tracked = new Map();
+      reverseInterventions.set(key, tracked);
+      return {
+        key,
+        context: {
+          ...reverseContext,
+          onEvent: event => {
+            let opened = null;
+            if (event && event.type === 'permission_request' && event.requestId) opened = [String(event.requestId), 'permission'];
+            else if (event && event.type === 'ask_user' && event.id) opened = [String(event.id), 'question'];
+            else if (event && event.type === 'plan' && event.planId) opened = [String(event.planId), 'plan'];
+            if (opened) tracked.set(opened[0], opened[1]);
+            reverseContext.onEvent(event);
+            // 撤销先于卡片到达(处理器还在等 updateQueue 时就收到 $/cancel_request):卡片一开出来就按撤销结算。
+            if (opened && requestMeta && requestMeta.signal && requestMeta.signal.aborted && reg.state === 'running') {
+              cancelKimiAcpIntervention(session.id, opened[0], opened[1], 'Kimi cancelled the request');
+            }
+          },
+        },
+      };
     };
     rpc = createKimiAcpRpc(child, {
       onLine: line => { markActivity(); onEvent({ type: 'raw_line', line, seq: rawSeq++ }); },
@@ -20178,23 +21249,25 @@ async function runKimiAcpTurnPrepared(context) {
             await updateQueue.catch(() => {});
           }
         }
-        if (method === 'session/request_permission') return handleKimiAcpPermissionRequest(params, reverseContext);
-        if (method === 'fs/read_text_file' || method === 'fs/write_text_file') return handleKimiAcpFsRequest(method, params, reverseContext);
-        if (method.startsWith('terminal/')) return handleKimiAcpTerminalRequest(method, params, reverseContext, requestMeta);
-        if (method === 'elicitation/create') return handleKimiAcpElicitation(params, reverseContext, requestMeta);
-        throw kimiAcpRequestError(-32601, `Unsupported Kimi ACP reverse request: ${method}`);
-      },
-      onCancel: (_requestId, method) => {
-        markActivity();
-        if (method === 'session/request_permission') {
-          clearPendingPermissions(session.id, 'Kimi cancelled the permission request');
-          clearPendingQuestions(session.id, 'Kimi cancelled the question');
-          clearPendingPlans(session.id, 'Kimi cancelled the plan request');
-        } else if (method === 'elicitation/create') {
-          clearPendingQuestions(session.id, 'Kimi cancelled the elicitation');
-        } else if (method === 'terminal/create' || method === 'fs/write_text_file') {
-          clearPendingPermissions(session.id, 'Kimi cancelled the operation');
+        const scoped = reverseRequestContext(requestMeta);
+        try {
+          if (method === 'session/request_permission') return await handleKimiAcpPermissionRequest(params, scoped.context);
+          if (method === 'fs/read_text_file' || method === 'fs/write_text_file') return await handleKimiAcpFsRequest(method, params, scoped.context);
+          if (method.startsWith('terminal/')) return await handleKimiAcpTerminalRequest(method, params, scoped.context, requestMeta);
+          if (method === 'elicitation/create') return await handleKimiAcpElicitation(params, scoped.context, requestMeta);
+          throw kimiAcpRequestError(-32601, `Unsupported Kimi ACP reverse request: ${method}`);
+        } finally {
+          reverseInterventions.delete(scoped.key);
         }
+      },
+      onCancel: (requestId, method) => {
+        markActivity();
+        const tracked = reverseInterventions.get(String(requestId));
+        if (!tracked) return;
+        const note = method === 'elicitation/create' ? 'Kimi cancelled the elicitation'
+          : method === 'session/request_permission' ? 'Kimi cancelled the permission request' : 'Kimi cancelled the operation';
+        for (const [interventionId, kind] of tracked) cancelKimiAcpIntervention(session.id, interventionId, kind, note);
+        tracked.clear();
       },
     });
     reg.abort = () => {
@@ -20212,6 +21285,8 @@ async function runKimiAcpTurnPrepared(context) {
       if (reg.exited || reg.pausePending || Date.now() - reg.lastEventAt <= idleLimitMs) return;
       if (hasPendingPermissionForSession(session.id)) return;   // 128f-⑪:权限挂着豁免(见 04 的 hasPendingPermissionForSession)
       reg.state = 'watchdog-timeout';
+      // hunt2-engines#12:与 05 的 Claude 看门狗同一句可见提示 —— 修前这里静默中止,用户只看到回合「被停止」却不知道是谁停的。
+      onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       reg.abort();
     }, Math.min(5000, Math.max(500, Math.floor(idleLimitMs / 4))));
 
@@ -20400,6 +21475,14 @@ async function runKimiAcpTurnPrepared(context) {
   } catch (error) {
     state.error = error;
   } finally {
+    // hunt2-engines#6:循环以 break / throw / 看门狗中止离开时,acceptingSteer 原先还是 true —— 下面的收尾要等好几个
+    // await(队列、终端清理、关进程最多 350ms),这期间 /api/steer 仍回 queued:1,然后插话随回合结束被静默丢掉。
+    // 一进收尾就关门,晚到的插话拿到 kimiSettling 拒绝(请作为下一条消息发送);已经排进队列却没被消费的,明说没送达。
+    if (reg) {
+      reg.acceptingSteer = false;
+      const undelivered = Array.isArray(reg.steerQueue) ? reg.steerQueue.splice(0, reg.steerQueue.length) : [];
+      if (undelivered.length) onEvent({ type: 'stderr', text: `[插话未送达] Kimi 回合已结束,${undelivered.length} 条插话没有送进本回合,请作为下一条消息重新发送。` });
+    }
     await updateQueue.catch(() => {});
     if (watchdog) clearInterval(watchdog);
     stopKimiWireWatch();
@@ -20428,7 +21511,9 @@ async function runKimiAcpTurnPrepared(context) {
       contextEngine: 'agent', contextAgentCliType: 'kimi', contextModel: state.model, source: 'kimi-acp',
     };
   }
-  const errorText = state.error ? friendlyKimiAcpError(state.error) : '';
+  // hunt2-engines#12:用户 Stop(或看门狗)中止后,ACP 子进程被杀,挂着的 session/prompt 以「Kimi ACP process exited」
+  // 拒绝 —— 那是中止的【结果】,不是失败原因。修前它被写成「ACP 调用失败」进了正文;被停的回合只按「已停止」收尾。
+  const errorText = state.error && !wasStopped ? friendlyKimiAcpError(state.error) : '';
   const finalText = state.assistantText.trim() || (errorText ? `${agentCliLabel} ACP 调用失败：\n${errorText}` : '');
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(entry => entry && Number(entry.turnSeq) === Number(session.turnSeq));
@@ -20444,6 +21529,8 @@ async function runKimiAcpTurnPrepared(context) {
     source: wasStopped ? 'aborted' : 'kimi-acp', engine: 'claude', agentCliType: 'kimi', agentCliLabel,
     model: state.model || config.model || '', exitCode: turnOk ? 0 : 1,
   });
+  stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));
+  const stderrText = stderrCapture.toString();
   if (stderrText.trim()) session.messages.push({ role: 'system', content: redact(stderrText.trim()), createdAt: nowIso(), source: 'stderr' });
   if (isUntitledSessionTitle(session.title)) session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   session.summary = finalText.replace(/\s+/g, ' ').trim().slice(0, 160) || session.summary || '';
@@ -21440,6 +22527,8 @@ const ERROR_CLASSES = {
   kimi_acp_error: { zh: 'Kimi 这一回合非正常退出', next: '看会话里最后的输出;可以重发' },
   cli_missing: { zh: '找不到可用的 CLI', next: '到 设置 检查 CLI 路径' },
   launch_error: { zh: '这一回合根本没起来', next: '重发一次;仍然不行就看工作台日志' },
+  // hunt2:主回合 429 已自动退避重试过几次仍被限流(09 runOpenAiTurn)。修前归 tool_error,把人引去查工具。
+  rate_limited: { zh: '模型服务商限流(请求太频繁或额度用尽)', next: '稍等一会儿再发;频繁出现就到 设置→Providers 检查额度或换备用端点' },
 };
 
 // ── Capability probe (§7.2). One HEAD request to the provider baseUrl (or config.capabilityProbeUrl),
@@ -25333,11 +26422,21 @@ function deriveStewardThreadState(n) {
   const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
 }
+// hunt2-steward ④:stewardLastTurn 只在【盖得住当前回合】(last.seq >= turnSeq)时才算数 —— 与 13i 收集
+// 第四源、stewardStoppedTarget 同一条纪律。它只由管家/调度器发起的回合在 settle 之后写;用户在 2.0 里
+// 自己接着聊的回合不写它。修前不核 seq:一条很久以前失败过的管家回合留下的 ok:false,会把之后每一个
+// 跑成功的用户回合都判成「已停工」,收件箱也把它们报成「回合失败」。三处读法(卡片适配器 / 会话头
+// 适配器 / 13i 第四源)共用这一个判据;前端 mission-state.js 的 fromCard 抄同一行。
+function stewardCoveringLastTurn(last, turnSeq) {
+  if (!last || typeof last !== 'object') return null;
+  return Math.max(0, Number(last.seq) || 0) >= Math.max(0, Number(turnSeq) || 0) ? last : null;
+}
 // 投影卡片(13e overlayMissionCard 的输出,与 /api/missions 下发的 card 同形)适配器 —— 逐条对应
 // mission-state.js 的 fromCard。card 为 null(非 mission 会话)时由调用方走 head 派生分支。
 function stewardThreadStateFromCard(card) {
   const m = (card && card.mission) || {};
   const lr = (card && card.lastRun) || null;
+  const lastTurn = stewardCoveringLastTurn(card && card.lastTurn, card && card.turnSeq);
   return deriveStewardThreadState({
     // 121-K3:身份取卡片的 `quick` 格,不再取 `kind`。两条路径必须给同一条线程同一个答案 ——
     // 会话头那条路(13g thread_status / 13o 总览的 else 支)写的就是
@@ -25357,7 +26456,7 @@ function stewardThreadStateFromCard(card) {
     // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
     turnSeq: card && card.turnSeq,
     ledgerless: !!(card && card.status === 'none'),
-    lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
+    lastTurnFailed: !!(lastTurn && (lastTurn.ok === false || lastTurn.aborted === true)),
     milestonesTotal: m.milestonesTotal,
     milestonesDone: m.done,
   });
@@ -25372,7 +26471,7 @@ function stewardThreadStateFromCard(card) {
 function stewardThreadStateFromHead(head, extra) {
   const h = (head && typeof head === 'object') ? head : {};
   const mission = h.mission || null;
-  const last = h.stewardLastTurn || null;
+  const last = stewardCoveringLastTurn(h.stewardLastTurn, h.turnSeq);   // hunt2-steward ④
   return deriveStewardThreadState({
     autoMode: mission && mission.autoMode,
     resultStatus: (mission && mission.result && mission.result.status) || '',
@@ -25790,12 +26889,15 @@ function stewardWorkspaceLabels(stewardLabelPaths) {
 // 出身:这个目录是不是【如意自己的】—— 落在数据根里(管家会话自己的 cwd、子代理 worktree、上传与临时
 // 目录全在那儿),或者是如意为任务开的、用户还没收编(adopted)的那种。用户亲手加进常用的一律不算。
 // dataRootPath 由调用方给(06i 不引用任何外部符号)。
-function stewardRuyiOwnedPath(rawPath, config, dataRootPath) {
+// aliases:数据根的其它写法(00 dataRootAliases —— 迁移后旧位置上的联接)。改名前落盘的线程 cwd 写的是旧前缀。
+function stewardRuyiOwnedPath(rawPath, config, dataRootPath, aliases = []) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
   const target = norm(rawPath);
   if (!target) return false;
-  const root = norm(dataRootPath);
-  if (root && (target === root || target.startsWith(root + '/'))) return true;
+  for (const base of [dataRootPath, ...(Array.isArray(aliases) ? aliases : [])]) {
+    const root = norm(base);
+    if (root && (target === root || target.startsWith(root + '/'))) return true;
+  }
   const rows = Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
   return rows.some(row => row && row.adopted !== true && norm(row.path) === target);
 }
@@ -28364,7 +29466,10 @@ function effectiveMemorySelection(session, registry, cwd) {
 // 113a: 第五个参数 config 是可选的 —— 三个真实调用点（Claude 引擎/Provider 引擎/工作流节点）手里都已经有
 // config，直接传进来比在这里多读一次配置文件便宜（readConfig 无缓存）。缺省时自己读，
 // 旧调用方与测试（workbench-memory-core.e2e.js 直接调本函数）无需改动。
-async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null) {
+// hunt2-mcp:第六个参数 options.cliType —— 本回合跑的是哪个原生 CLI('claude' / 'kimi';provider 引擎不传)。
+// 那个 CLI 自己会读的导入条目(agentmd-claude-md-* 之类)在【算核心预算之前】就摘掉:修前摘在调用点、预算之后,
+// 重复条目先把核心名额占满、又被丢弃,用户自己的核心记忆反倒被挤出去。
+async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, config = null, options = {}) {
   let registry = [];
   try { registry = await loadMemoryRegistry(cwd); } catch {
     return { entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } };
@@ -28398,13 +29503,22 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     if (!memoryIsExpired(e)) eligible.push(e);
     if (explicit && eligible.length >= fixedSelectionMax) break;
   }
+  const nativeCli = options && options.cliType ? String(options.cliType) : '';
+  if (nativeCli) {
+    const kept = filterMemoryForNativeCli(eligible, nativeCli);
+    eligible.length = 0;
+    eligible.push(...kept);
+  }
   const coreState = await resolveCoreMemoryState(cwd, eligible, effectiveConfig);
   const coreEntries = coreState.active;
   const coreKeys = new Set(coreEntries.map(e => e.scope + ':' + e.id));
+  // hunt2-mcp:相关记忆在【去掉已激活核心之后】的候选里排 Top-N。修前先在含核心的全集里取 Top-N、再滤核心,
+  // 核心条目恰好最相关时名额全被它们占掉,related 变成空,而明明还有匹配的非核心记忆。
+  const nonCore = eligible.filter(e => !coreKeys.has(e.scope + ':' + e.id));
   const ranked = explicit
-    ? eligible // 固定选择不走排序，向量开关对它本来就不适用
-    : rankMemoriesForRecall(eligible, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
-  const entries = ranked.filter(e => !coreKeys.has(e.scope + ':' + e.id));
+    ? nonCore // 固定选择不走排序，向量开关对它本来就不适用
+    : rankMemoriesForRecall(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
+  const entries = ranked;
   await Promise.all([
     touchMemoryUsage(entries, cwd, 'relevant'),
     touchMemoryUsage(coreEntries.filter(e => e.type === 'preference' || e.type === 'convention'), cwd, 'core-rule'),
@@ -28468,14 +29582,29 @@ function buildMissionPromptSection(mission, engine, config) {
 // HTTP 响应流】上自动续跑,直到:①全部里程碑 done(mission_complete);②预算耗尽(archive-pause,非报错);
 // ③停滞(digest K 轮不变 → 降 supervised + mission_stuck 卡片)。红线:驱动器不放宽任何权限(exec 弹窗照旧等人/
 // 超时,权限门在各引擎内部,驱动器够不着也不试图绕);自动回合全额记账(runOpenAiTurn 内 appendUsageLedger 照常)。
-async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive }) {
+async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive, ownsSession }) {
   const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
   const allDone = () => (session.mission.milestones.length > 0 && session.mission.milestones.every(m => m.status === 'done'));
   // 每轮:跑机器验收(自动标 done)→ 判完成/预算/停滞 → 决定停或续。
   for (let guard = 0; guard < 100; guard++) {   // guard 只是死循环兜底,真正上限是 maxAutoTurns
     const m = session.mission;
     if (!m || m.autoMode !== 'until-done') return;
-    if (!isAlive()) return;   // 用户断开/停止 → 立即收手
+    if (!isAlive()) {   // 用户断开/停止 → 立即收手
+      // hunt2-steward ⑤:收手时把 autoMode 从 until-done 降成 supervised(与预算耗尽/停滞两条出口同一个落点)。
+      // 修前原样返回,账本上还写着 until-done,而再也没有驱动器在跑 —— 线程五态按 autoMode 判「在跑」,
+      // 于是这条线程在看板上永远是 running,「继续」按钮也因 already_running 灰着。
+      // 只在这条会话【仍归本回合】时落盘(ownsSession 由 10 的 runSessionTurn 给,判据是它自己的
+      // turnSettlers 条目还在):被同来源的新回合 superseded 时,新回合手里那份才是权威,这里整份存盘会
+      // 盖掉它刚写的消息。陈旧(撤回之后)的对象同理不存。
+      const owned = typeof ownsSession === 'function' ? ownsSession() : true;
+      if (owned && !sessionObjectIsStale(session)) {
+        m.autoMode = 'supervised'; m.updatedAt = nowIso();
+        await saveSession(session).catch(() => {});
+        logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'not_alive' });
+        emit({ type: 'mission', mission: m });
+      }
+      return;
+    }
     // 128b(Brief §4.2 第 17 条):撤回只停得住 activeChildren 里的回合 —— 撤回落在两个回合之间时,驱动器手里这份对象是
     // 撤回之前读出来的,它接着起的回合、每一次存盘都会被撤回闸静默丢掉,却照样烧 token。陈旧就收手、记一条原因。
     if (sessionObjectIsStale(session)) { logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'rewound' }); return; }
@@ -28539,7 +29668,6 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     if (getLastTokens) { try { session.mission.spent.tokens += Number(getLastTokens()) || 0; } catch {} }
   }
 }
-
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
 // 第27波(AUTONOMY-PLAN §27):自主性授权书(Autonomy Grant)—— 现有权限系统的严格【子集缓存】,不是新权限来源。
@@ -29818,6 +30946,14 @@ async function applyConfigPatch(rawBody) {
     await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
   }
   if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
+    // hunt2-mcp:设置页整份保存改了哪条连接器(改命令 / 停用 / 删除 / 新增同 id),就作废那条的活进程、在途启动与
+    // 60s 失败冷却 —— 修前只有启停/删除路由会作废,在这里改好一个坏连接器,旧冷却期内照样「连不上」,删掉的进程也还活着。
+    const mcpById = list => new Map((Array.isArray(list) ? list : []).filter(x => x && x.id).map(x => [x.id, JSON.stringify(x)]));
+    const beforeMcp = mcpById(current && current.externalMcpServers);
+    const afterMcp = mcpById(next && next.externalMcpServers);
+    for (const id of new Set([...beforeMcp.keys(), ...afterMcp.keys()])) {
+      if (beforeMcp.get(id) !== afterMcp.get(id)) invalidateMcpRuntime(id);
+    }
     await syncMcpServersToClaude(next);
     await syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true });
   }
@@ -30953,6 +32089,13 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (res && res.status === 400) {
     let t = ''; try { t = await res.text(); } catch { /* ignore */ }
     const toolsSemantics = /tool|function/i.test(t);
+    // 例外:报文带【确凿】的超窗信号(OpenAI 的 code context_length_exceeded / "maximum context length")时超窗优先。
+    // OpenAI 的超窗报文会写 "…11000 in the functions. Please reduce the length of the messages or functions",
+    // 按下面的 tools-first 顺序会被当成「工具被拒」:整回合去掉工具重打、永远不压缩。tools 拒绝报文不会带这两个短语。
+    const definiteOverflow = /context_length_exceeded|maximum context length/i.test(t) && isContextOverflowError('HTTP 400: ' + t);
+    if (definiteOverflow) {
+      return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
+    }
     // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
     // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
@@ -30971,7 +32114,9 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     const retryBody = wire.retryOn400(body, t);
     if (retryBody) {
       res = await doFetch(retryBody);
-    } else if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
+    } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
+      // 不再认裸 invalid:OpenAI 系所有 400 的 type 都是 invalid_request_error,认它等于把每个注定失败的 400
+      // 都剥 stream_options 白打第二遍。真拒收 stream_options 的端点会点名它(或说 unsupported / unknown)。
       // Some servers reject stream_options — retry once without it before failing.
       const b2 = Object.assign({}, body); delete b2.stream_options; res = await doFetch(b2);
     } else {
@@ -30988,7 +32133,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
-  if (!res.body || typeof res.body.getReader !== 'function') {
+  // 无视 stream:true、直接回一整份 application/json 的网关也走这里:按 SSE 分帧读它一行 data: 都找不到,
+  // 修前返回空回答(工具调用、正文全丢)。content-type 声明了 event-stream 的仍按流读。
+  const contentType = String((res.headers && typeof res.headers.get === 'function' && res.headers.get('content-type')) || '');
+  const jsonBody = /\bjson\b/i.test(contentType) && !/event-stream/i.test(contentType);
+  if (!res.body || typeof res.body.getReader !== 'function' || jsonBody) {
     const j = await res.json().catch(() => null);
     const d = wire.decodeCompletion(j, { requestModel: body.model });
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
@@ -31053,8 +32202,15 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
-  if (!done && buf.trim()) handleEventBlock(buf);
-  return wireDecoder.finish();
+  if (!done && buf.trim()) done = handleEventBlock(buf);
+  const out = wireDecoder.finish();
+  // 截断的流:连接干净地关了,却既没有终止信号([DONE] / responses 的 completed·incomplete·failed / anthropic 的
+  // message_stop)也没有 finish_reason —— 上游中途断了。修前半截回答被当作完整的成功回复落盘;现在走 httpError
+  // (不带状态码,调用方不会重打,防重放)。有 finish_reason 的(个别网关省掉 [DONE])照旧算完整。
+  if (!done && !out.httpError && !out.finishReason) {
+    out.httpError = 'stream ended unexpectedly (connection closed before a finish_reason or end-of-stream marker)';
+  }
+  return out;
 }
 
 // v0.8-S7: drain the steering queue at a SAFE injection point (§4 A3). Called ONLY at the iteration
@@ -31196,16 +32352,25 @@ async function applyAgentWorktree(run, nodeId) {
     return { ok: false, error: `隔离提交无法安全应用：${e.gitStderr || e.message || e}` };
   }
   iso.status = 'applied'; iso.appliedAt = nowIso();
-  if (iso.path && pathWithinRoot(path.resolve(iso.path), path.resolve(paths.agentWorktrees))) {
+  if (iso.path && await agentWorktreePathOwned(iso.path)) {
     try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; } catch {}
   }
   await saveAgentRun(run);
   return { ok: true, commit: iso.commit };
 }
+// 这个 worktree 路径是不是如意自己的 agent-worktrees 目录底下的。先按词法比;不在的话再按 realpath 比 ——
+// 3.0 改名前起的 run 落盘的是旧前缀 ~/.win-claude-workbench/agent-worktrees/…,迁移后那是一个指回新目录的联接,
+// 只按词法比会认成「外面的目录」,于是 worktree 永远不清。
+async function agentWorktreePathOwned(p) {
+  const target = path.resolve(String(p || ''));
+  const root = path.resolve(paths.agentWorktrees);
+  if (pathWithinRoot(target, root)) return true;
+  try { return pathWithinRoot(await fsp.realpath(target), await fsp.realpath(root)); } catch { return false; }
+}
 async function cleanupAgentWorktree(isolation) {
   if (!isolation || !isolation.path) return;
   const worktreePath = path.resolve(isolation.path);
-  if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) return;
+  if (!(await agentWorktreePathOwned(worktreePath))) return;
   try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'remove', '--force', worktreePath], 60000); }
   catch {
     try { await fsp.rm(worktreePath, { recursive: true, force: true }); } catch {}
@@ -31563,7 +32728,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // 与 05-claude-engine.js 的主回合读法对齐(cache_read_input_tokens + cache_creation_input_tokens);只在
   // 「信任 result 帧」分支累加(与 ledgerIn/ledgerOut 同一 FIELD-LEVEL source select,msg_usage 兜底帧没有
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
-  let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  // hunt2-engines#2:ledgerIn 记账本口径(输入 + 缓存读 + 缓存创建,与 05 主回合 recordTurnUsage 同一归一),
+  // ledgerRawIn 留 CLI 原始 input_tokens 只给 claudeCostFields 定价(费用算法不变)。
+  let ledgerIn = 0, ledgerRawIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
     // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
     // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
@@ -31585,9 +32752,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           const ru = res.resultUsage;
           const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
           const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn + ruCachedIn; ledgerRawIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
           else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerRawIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
           }
           if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
         } catch { /* never let accounting break the attempt */ }
@@ -31634,7 +32801,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // no special case, and a purely-aborted node with no usage records nothing.
     try {
       if (parentSession) {
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerIn, ledgerOut, ledgerCostUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerRawIn, ledgerOut, ledgerCostUsd);
         appendUsageLedger({
           sessionId: parentSession.id, engine: 'claude', provider: claudeProvider,
           // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that
@@ -32448,7 +33615,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
             if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
-            pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
+            pendingOvershootLearn = Math.round(estNow * estimateFactor(provider.id, subModel)); // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同);校准后的口径,见主回合同处
             subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
@@ -32486,6 +33653,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           subServerToolItems.push(item);
         }
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
+        // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
+        // 不能让本批还没答的 call_1 漏补配对。
+        const subBatchHistStart = subHistory.length;
+        const subOutputLimited = providerWireOutputLimited(call.finishReason);
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -32505,7 +33676,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // above). Mirrors the parent turn's `answeredIds = new Set(toolCalls.map(...))`. Without this, an
             // abort mid-batch would re-emit tool_use/tool_result + re-push role:'tool' for calls that ALREADY
             // executed earlier in the SAME batch, falsely reporting them "not executed" and double-pairing them.
-            const answered = new Set(subHistory.filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
+            const answered = new Set(subHistory.slice(subBatchHistStart).filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
             for (const rem of localToolCalls) {
               if (!rem || answered.has(rem.id)) continue; answered.add(rem.id);
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
@@ -32532,6 +33703,13 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // Forward the sub-turn's tool_use TAGGED with subagentId so the UI nests it (additive field).
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
           let resultObj;
+          // 参数不是完整的 JSON 对象(多半是输出触顶被截断):不按 {} 执行,回配对的失败结果让子代理重来(与主回合同)。
+          if (!isProviderToolArgsObject(tc.rawArgs)) {
+            resultObj = { ok: false, argsInvalid: true, error: subOutputLimited ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小后重试' : '工具调用参数不是完整的 JSON 对象,该调用未执行;请给出完整参数后重试' };
+            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            continue;
+          }
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
           // toolCall,那里拿不到 runtime/run),且已在上方豁免 role.openaiTools 白名单、此处不过 bridge/tier 判定(它们
           // 本就是 read tier、非业务能力)。放在禁嵌套守卫之前,故永不会被误判为代理工具(回归见 e2e 白名单豁免断言)。
@@ -34573,6 +35751,17 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
+  // 暂停等待的唯一入口。判定与入队在同一个同步段里:resume / stop 若落在调用方 await saveAgentRun 的窗口里,
+  // 它们已经把 paused 清掉、把(当时还空的)等待队列清空了 —— 这里再入队就永远没人叫醒(丢唤醒)。
+  // 父回合 abort(/api/stop、断线)同样要叫醒:暂停中的 run 否则只认 stopRequested,会一直挂着、聊天流也收不了尾。
+  const runAborted = () => Boolean(localCtrl && localCtrl.signal && localCtrl.signal.aborted);
+  const waitForResume = () => new Promise(resolve => {
+    if (!runtime.paused || runtime.stopRequested || runAborted()) { resolve(); return; }
+    runtime.resumeWaiters.push(resolve);
+  });
+  if (localCtrl && localCtrl.signal && typeof localCtrl.signal.addEventListener === 'function') {
+    localCtrl.signal.addEventListener('abort', () => { for (const wake of runtime.resumeWaiters.splice(0)) { try { wake(); } catch { /* ignore */ } } }, { once: true });
+  }
   const drainNodeSteers = nodeId => {
     const out = [];
     for (const queues of [runtime.steerQueues, runtime.autoSteerQueues]) {
@@ -34850,11 +36039,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   while (true) {
     // 对抗轮修(第25波): 环内保存改为非致命 —— 持久化坏掉时(磁盘满/杀软长锁)这里若抛,run 直接硬失败,
     // 25.2 的「降级→暂停止损」永远等不到生效;快照写失败已由 saveAgentRun 内部计数/亮旗/暂停接管,执行不中断。
-    while (runtime.paused && !runtime.stopRequested) {
+    while (runtime.paused && !runtime.stopRequested && !runAborted()) {
       if (inFlight.size) { await raceInFlight(); continue; }   // 第26波: 暂停只拦新派发,在飞节点先跑完
       run.status = 'paused'; await saveAgentRun(run).catch(() => {});
       const pausedAt = Date.now();
-      await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+      await waitForResume();
       // 对抗轮 P2(第28e波):暂停不计入 wait 时长/超时预算(仿 pool-grace 8763 的暂停补偿)。唤醒后把每个 waiting 节点的
       // waitStartedAt 前移一个暂停时长,使 timeout 判定与 timer 条件都排除暂停时间——否则长暂停会误判超时失败。
       const pd = Date.now() - pausedAt;
@@ -34925,7 +36114,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             // 时长补回 poolGraceUntil(runtime 与 run 双写),避免长暂停把审批窗白白吃掉。
             if (runtime.paused) {
               const pausedAt = Date.now();
-              await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+              await waitForResume();
               try { const delta = Date.now() - pausedAt; if (delta > 0) { runtime.poolGraceUntil += delta; run.poolGraceUntil = runtime.poolGraceUntil; } } catch {}
               continue;
             }
@@ -35064,7 +36253,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config).catch(() => ({
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(() => ({
         entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
       }));
       // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。
@@ -35507,6 +36696,14 @@ function legacySpawnToOrchestrateArgs(args) {
 }
 const LEGACY_SPAWN_NOTE = 'spawn_agent 已并入 orchestrate_agents(本次已按单节点代理执行)。下次请直接调用 orchestrate_agents({task, role?, background?});多代理依赖请在同一次调用的 nodes 里用 dependsOn 表达。';
 
+// 撤掉某个 run 的「信封已送达」登记(盘上的会话头 + 活回合手里的那份)。只给人工 resume / retry_node 用。
+async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
+  const id = EventStreamHooks.agentEnvelopeJobId ? EventStreamHooks.agentEnvelopeJobId(runId) : 'agent:' + String(runId || '');
+  const drop = s => { if (s && Array.isArray(s.backgroundJobSeen)) s.backgroundJobSeen = s.backgroundJobSeen.filter(x => x !== id); };
+  await mutateSession(sessionId, drop, { writer: 'agent_envelope_rearm' }).catch(() => {});
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.session) drop(reg.session);
+}
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
@@ -35530,8 +36727,13 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // —— 用户点「重试」再立刻点「暂停」就会撞上;高负载下 subagent.e2e 的 (a4) 稳定复现(master 同样)。
   let markRegistered = null;
   const registered = new Promise(resolve => { markRegistered = resolve; });
+  // 后台 run 续跑 / 重试后照样要送达一份交付信封(修前续跑不传 onComplete,重启打断后自动续跑、用户重试的后台 run 跑完
+  // 模型永远收不到完成通知)。人工干预的那次先把「已送达」登记撤掉:上一轮失败的信封可能已经被读过,新结果要再送一次。
+  const background = run.background === true;
+  if (background && interventionKind) await unmarkAgentEnvelopeDelivered(sessionId, runId);
   const finished = runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
+    ...(background ? { onComplete: r => deliverAgentRunEnvelope(sessionId, r) } : {}),
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
     permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
@@ -35539,8 +36741,12 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
+    return { ok: false, error: run.error };
   });
-  await Promise.race([registered, finished]);
+  // finished 先到 = 登记之前就退出了(未知 nodeId、运行记录没有节点、已在运行、启动时抛错)—— 那是没受理,照实回错;
+  // 修前一律回 accepted,用户点了「重试」什么都没发生也看不到原因。
+  const first = await Promise.race([registered.then(() => null), finished]);
+  if (first && first.ok === false) return { ok: false, error: first.error || '工作流未能启动', runId };
   return { ok: true, accepted: true, runId };
 }
 
@@ -36027,6 +37233,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
     if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处中止会吞掉用户正在写的回答
     if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
+    if (reg.planPending) return; // 计划审批挂着同样豁免:窗口由 requestPlanApproval 自己的计时器兜底(到点按拒绝落定);修前批得晚一点就被当空闲杀掉
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -36524,6 +37731,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     return lastCall || { httpError: 'no endpoint available', text: '', reasoning: '', toolCalls: [] };
   };
 
+  // 硬停(工具轮次上限 / 预算保护)时队列里还有插话:这一回合不能再发模型调用了,但也不许把已接受的插话静默丢掉 ——
+  // 在边界把它记进会话(providerHistory + 带 steered 标记的正文,与平常的注入同一条路),下一条消息时模型就能看到。
+  const recordSteersAtHardStop = async () => {
+    if (!Array.isArray(reg.steerQueue) || !reg.steerQueue.length) return;
+    const n = await drainSteerQueue(reg, session, onEvent);
+    if (n) onEvent({ type: 'stderr', text: `[插话] 本回合已停止新增模型调用,${n} 条插话已记入会话,下一条消息时模型会看到` });
+  };
+
   try {
     for (let iter = 0; ; iter++) {
       if (iter >= maxIters) {
@@ -36542,6 +37757,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else {
           const note = `\n\n[已达工具调用上限 ${maxIters} 轮，停止]`;
           assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+          await recordSteersAtHardStop();
           break;
         }
       }
@@ -36597,6 +37813,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'mission', mission: m, state: 'budget_guard_paused', reason: '回合 token 预算保护触发,已暂停自动推进,等待你的指示' });
             }
           } catch { /* mission pause must never break the turn */ }
+          await recordSteersAtHardStop();
           break;
         }
       }
@@ -36641,7 +37858,26 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
-      const call = await streamWithFailover(econThisIter && econBody ? econBody : buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+      const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
+      // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
+      // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
+      // (可被停止截断);502/503/504 与连接失败仍只走 streamWithFailover 的端点切换,不在这里重打。流式已开始的失败
+      // 不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      const sent = await withTransientRetry({
+        maxRetries: 3,
+        signal: ctrl && ctrl.signal,
+        isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
+        backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
+        attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+        classify: c => (/^HTTP 529\b|^HTTP 429\b/.test(String(c && c.httpError || '')) ? 'retry' : 'done'),
+        onRetry: (c, n) => {
+          econTotals.modelCallAttempts += 1;
+          touch();
+          onEvent({ type: 'stderr', text: `[provider] 服务商限流/过载(${String(c.httpError).slice(0, 8)}),稍后重试(${n}/3)` });
+        },
+      });
+      if (sent.aborted) { aborted = true; ok = false; break; }
+      const call = sent.result;
       const llmMs = Date.now() - tLlm0;
       if (econThisIter) {
         econLog('model_call_completed', {
@@ -36677,20 +37913,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
-            const afterForced = estimateHistoryTokens(session.providerHistory);
+            // 与 estBeforeCall 同一口径(含系统提示与工具定义),否则「压前→压后」把工具 schema 那一截也算成了省下来的
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
               beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
             });
-            pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
+            // 重试成功后落 45d(b) 学习(见 call 成功路径)。落的是【校准后】的估算:学到的窗口上限拿来跟 calibratedEstimate
+            // 比预算,用原始估算学的话,因子 < 1 时学到的上限比真实窗口还大,刚超过窗口的历史下一次照样不压。
+            pendingOvershootLearn = Math.round(estBeforeCall * estimateFactor(provider.id, model));
             await saveSession(session).catch(() => {});
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            const afterForced = estimateHistoryTokens(session.providerHistory);
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
@@ -36730,7 +37969,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
           await saveSession(session);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
-          const decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs);
+          let decision;
+          reg.planPending = true;
+          try { decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs); }
+          finally { reg.planPending = false; reg.lastEventAt = Date.now(); } // 等待审批不算空闲:决定落定后看门狗从此刻重新计时
           // A stop/abort during the pause settles the promise as reject via clearPendingPlans → reg.state
           // will already be non-running; treat that as an aborted turn (not a plan_rejected result).
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -36791,6 +38033,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        const outputLimited = providerWireOutputLimited(call.finishReason);
+        const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
+          ok: false, argsInvalid: true,
+          error: outputLimited
+            ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小(分几次写入)后重试'
+            : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试',
+        });
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
           if (econLog('assistant_tool_batch', {
@@ -36836,7 +38085,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
           const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
-            && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read');
+            && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
+            && !toolArgsRefusal(tc)); // 参数坏了的调用不预执行(串行路径会拒绝它,见 toolArgsRefusal)
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
           for (const tc0 of localToolCalls) {
             const s0 = tc0.name + ' ' + tc0.rawArgs;
@@ -36896,6 +38146,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
           }
         }
+        // 本批已应答的 id 只看【本批】的记录:toolCalls 是整回合的,服务商跨迭代复用 id(call_1 每轮都有)时,
+        // 按整回合判会把本批还没应答的 call_1 当成「已答」而漏补配对,留下孤儿 tool_call。
+        const batchToolCallsStart = toolCalls.length;
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
@@ -36917,7 +38170,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
             // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
-            const answeredIds = new Set(toolCalls.map(t => t && t.id));
+            const answeredIds = new Set(toolCalls.slice(batchToolCallsStart).map(t => t && t.id));
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
@@ -36955,6 +38208,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             break;
           }
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
+          // 参数不是完整的 JSON 对象(多半是输出触顶、流被截断):不执行,回一条配对的失败结果让模型重来。
+          // 修前按 {} 执行 —— todo_write({}) 当场清空任务清单、file_write 之类拿空参数乱跑。
+          const argsRefused = toolArgsRefusal(tc);
+          if (argsRefused) {
+            onEvent({ type: 'tool_result', id: tc.id, content: argsRefused, isError: true });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: argsRefused });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(argsRefused)) });
+            await notifyToolHookEnd(tc, argsRefused, iter, 'args_invalid');
+            touch();
+            if (reg.state !== 'running') { aborted = true; ok = false; break; }
+            continue;
+          }
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
           if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
@@ -37234,7 +38499,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // (strict provider 对未配对 tool_call_id 报 400 永久卡死会话)。中断后 steerAborted=true break,图片
           // flush 跳过(部分批次纪律,同 aborted),reset 后走 saveSession+continue 回 drainSteerQueue。
           if (!steerAborted && hasInterruptingSteer(reg)) {
-            const answeredIds = new Set(toolCalls.map(t => t && t.id));
+            const answeredIds = new Set(toolCalls.slice(batchToolCallsStart).map(t => t && t.id));
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
@@ -37293,6 +38558,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
+      // 回答命中输出上限被截断:修前与完整回答无从区分。给用户一句看得见的提示(只进显示正文,不进 providerHistory)。
+      if (providerWireOutputLimited(call.finishReason)) {
+        const note = '\n\n[回复达到模型输出上限,可能不完整;可发送「继续」让它接着写]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      }
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
       // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
       if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
@@ -37310,6 +38580,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           continue;
         }
       }
+      // 最终回答流式期间到达的插话:/api/steer 已回 ok(接受了),这里若直接 break,队列随回合结束被丢掉、
+      // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
+      // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
+      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
       break;
     }
   } catch (e) {
@@ -37374,6 +38648,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (wasStopped && session.providerHistory.length &&
       session.providerHistory[session.providerHistory.length - 1].role === 'user') {
     session.providerHistory.pop();
+  }
+  // 停止(或异常)落在一批工具中途:批里后面的调用既没执行也没回复,落盘的历史留下孤儿 tool_call。下一回合开头的
+  // 配对自愈会补上,但措辞是「上次回会在执行该工具时中断,结果未保存」并发一条 🛠 系统消息 —— 对一次正常的停止是误导。
+  // 这里在收尾时就把末尾那批补齐,说清楚是回合停了、调用没执行(与批内 loop/steer 跳过的逐条配对同形)。
+  if (!ok || wasStopped) {
+    const hist = session.providerHistory;
+    let blockEnd = hist.length;
+    while (blockEnd > 0 && hist[blockEnd - 1] && hist[blockEnd - 1].role === 'tool') blockEnd -= 1;
+    const lastAsst = hist[blockEnd - 1];
+    if (lastAsst && lastAsst.role === 'assistant' && Array.isArray(lastAsst.tool_calls) && lastAsst.tool_calls.length) {
+      const answered = new Set(hist.slice(blockEnd).map(m => String(m.tool_call_id)));
+      const skip = { ok: false, error: wasStopped ? '回合已被停止,该调用未执行' : '回合异常结束,该调用未执行' };
+      for (const tcall of lastAsst.tool_calls) {
+        if (!tcall || tcall.id == null || answered.has(String(tcall.id))) continue;
+        hist.push({ role: 'tool', tool_call_id: tcall.id, content: JSON.stringify(skip) });
+      }
+    }
   }
   // v0.8-S3/S4a: turn_summary — 「本轮变更」. Data source = tool records + this turn's checkpoint journal
   // entries (journal supplies the accurate op + revertible:true). Emitted before `result`, and stashed on
@@ -37446,7 +38737,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
     // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
     // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
-    if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
+    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
+    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
+    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
   if (session.mission) await bumpMissionChangeSeq(session.id, {
@@ -38494,6 +39787,12 @@ function summaryMaxConcurrent(config, provider, model) {
 // 有界并发执行摘要类调用(仿 09-workflow 21-E2 worker-pool:poolNext 领任务、完成即补位,无批次屏障)。
 // fail-fast:任一结果 !ok 即 abort failCtrl —— worker 停止领新任务,在飞请求经 extraSignal 取消;
 // 结果按输入下标保序(失败点之后的空位为 undefined,调用方按序找首个真实失败上浮)。
+// 分段摘要的失败取哪一条:按块序取第一条【真实】失败。一块失败会 abort 同批的其它块,那些被连带取消的
+// (cancelledBySibling)排在前面的话,修前报出去的就是「sibling chunk failed」,真正的原因(400 / 超时)被盖住了。
+function pickSummaryFailure(results) {
+  const failures = (Array.isArray(results) ? results : []).filter(r => r && !r.ok);
+  return failures.find(r => !r.cancelledBySibling) || failures[0] || null;
+}
 async function mapSummaryWithLimit(items, limit, fn, failCtrl) {
   const results = new Array(items.length);
   let poolNext = 0;
@@ -39010,7 +40309,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       return finish(result);
     } catch (e) {
       const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
-      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
+      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed'), ...(cancelledBySibling ? { cancelledBySibling: true } : {}) };
       econDone(failed); attempts.push(failed); return finish(failed);
     } finally { if (timer) clearTimeout(timer); }
   }
@@ -39150,8 +40449,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   // 保持原串行的失败语义(差异:失败时在飞请求被取消并记账,不再发出未派发的块)。
   const initialCalls = await mapSummaryWithLimit(chunks, summaryConcurrency, (ci) =>
     rememberCall(factChunkMsg ? [...chunks[ci], factChunkMsg] : chunks[ci], { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'map' }, failCtrl && failCtrl.signal), failCtrl);
-  let firstChunkFail = null;
-  for (const r of initialCalls) if (r && !r.ok) { firstChunkFail = r; break; } // 跳过未派发空位,按块序取真实失败
+  const firstChunkFail = pickSummaryFailure(initialCalls); // 跳过未派发空位,按块序取真实失败
   if (firstChunkFail) return firstChunkFail;
   let partialResults = initialCalls;
   let final = null;
@@ -39173,8 +40471,7 @@ async function providerSummaryCallCore(provider, history, opts) {
       role: 'user',
       content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
     }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1, summaryStage: 'reduce' }, failCtrl && failCtrl.signal), failCtrl);
-    let firstGroupFail = null;
-    for (const r of next) if (r && !r.ok) { firstGroupFail = r; break; }
+    const firstGroupFail = pickSummaryFailure(next);
     if (firstGroupFail) return firstGroupFail;
     partialResults = next;
   }
@@ -39557,6 +40854,28 @@ function recentFileReads(history, budgetTokens) {
 
 // 第104波：所有自动压缩入口共享同一份不可变计划语义。计划只计算预算、完整回合尾部与
 // 重播种形状；摘要执行、持久化和事件仍由各 owner 负责，因此不会把副作用重新揉成一团。
+// 重播种时钉住的「原始任务」正文。两个坑:
+//   · 第二次及以后的 L2:历史首条 user 就是上一次重播种写的「原始任务 + 旧摘要」。整条再钉一遍,旧摘要就一层套一层
+//     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
+//   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
+const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+function compactionTaskText(message) {
+  const content = message && message.content;
+  let text = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.map(part => {
+      if (typeof part === 'string') return part;
+      if (!part || typeof part !== 'object') return '';
+      if (typeof part.text === 'string') return part.text;
+      return /image/i.test(String(part.type || '')) ? '[图片]' : '';
+    }).filter(Boolean).join('\n')
+    : String(content == null ? '' : content);
+  if (text.startsWith(COMPACTION_TASK_PREFIX)) {
+    const body = text.slice(COMPACTION_TASK_PREFIX.length);
+    const cut = body.indexOf('\n\n【压缩摘要');
+    text = cut >= 0 ? body.slice(0, cut) : body;
+  }
+  return text;
+}
 const CompactionPlan = (() => {
   const defaults = CONTEXT_GOVERNANCE_RULES.compactionPlan;
   function create(options = {}) {
@@ -39620,7 +40939,7 @@ const CompactionPlan = (() => {
         + files.map(f => '--- ' + f.path + ' ---\n' + f.head).join('\n\n')
       : '';
     return [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
+      { role: 'user', content: COMPACTION_TASK_PREFIX + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
       { role: 'assistant', content: acknowledgement },
       ...bridged,
     ];
@@ -39721,7 +41040,9 @@ async function runAutoCompaction(ctx) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
     onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
-    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
+    // L1 也没斩获时同样落水位(= 这次的估算):修前不落,滞回永不武装,摘要端点坏着的时候每个迭代边界、每个回合都再
+    // 白等一次摘要超时(最长几分钟)、再报一次失败。历史再涨过「水位 + 余量」才会重试。
+    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before, watermark: before, summaryFailed: true };
   }
   const plan = CompactionPlan.create({ scope, trigger: 'auto', history, provider, model, config, ...planOpts });
   const reseeded = CompactionPlan.reseed(plan, sc.summary);
@@ -39800,7 +41121,7 @@ async function maybeCompactSubHistory(opts) {
       subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
       try { if (parentSession) recordCompactUsage(parentSession, r.summaryProvider, r.sc, { subagentId, runId }); } catch { /* 记账失败不阻断 */ }
     }
-    if (r.compacted && state) state.watermark = r.watermark;
+    if ((r.compacted || r.summaryFailed) && state && Number.isFinite(Number(r.watermark))) state.watermark = r.watermark;
     return r.compacted;
   } catch { return false; }
 }
@@ -39914,6 +41235,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
     if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session).catch(() => {}); }
+    else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
     // Compaction is best-effort; a failure must never break the turn.
@@ -40009,10 +41331,15 @@ async function runSessionTurn(input) {
   // (与上面那条 STEWARD_SESSION_FORBIDDEN 逐字同一条纪律)。也必须在这里而不是 09/05 各钉一遍:
   // 那两行在 runSessionTurn 的下游,而且那时用户消息已经落盘、响应头已经发出,回不了 4xx;
   // runSessionTurn 是两个引擎唯一的汇合点,守一处等于守两处。
-  const busyReg = activeChildren.get(session.id) || null;
-  const busySettler = busyReg ? turnSettlers.get(session.id) : null;
+  // hunt2-steward ②:「忙」读 turnSettlers 本身,不再先要求 activeChildren 里有它。activeChildren 要等引擎
+  // 里好几个 await 之后(09 登记子进程/中止器那一步)才写上,而 turnSettlers 在本函数同步段就登记了 ——
+  // 修前一个刚开跑的回合在这段窗口里对别处来的一句话【不算忙】,管家递话于是起一个新回合,在 09 里把
+  // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
+  // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
+  // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busyReg && busySource && busySource !== source) {
+  if (busySettler && busySource && busySource !== source) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -40206,7 +41533,7 @@ async function runSessionTurn(input) {
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
     // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
     }
   } catch (err) {
     // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。
@@ -40257,6 +41584,12 @@ async function runSessionTurn(input) {
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
 async function streamChat(req, res) {
   const body = await readJsonBody(req);
+  // 带了 sessionId 却不是合法 id(`foo.bar`、数字、对象…)= 客户端以为在续一条会话:回 400,不再静默新建一条
+  // (前端只发服务端给过的 sess_* / steward)。没带(或空串)才是「开新会话」;合法但不存在的 id 仍按原语义
+  // 新建(会话文件损坏被隔离后的兜底,见 runSessionTurn)。
+  if (body.sessionId != null && body.sessionId !== '' && !(typeof body.sessionId === 'string' && safeSessionId(body.sessionId))) {
+    return send(res, apiSessionIdInvalid());
+  }
   // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
   let deltaBuffer = []; let flushTimer = null;
   const flushDeltas = () => {
@@ -40269,6 +41602,9 @@ async function streamChat(req, res) {
       else merged.push({ ...d });
     }
     deltaBuffer = [];
+    // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+    // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+    if (res.writableEnded || res.destroyed) return;
     for (const evt of merged) {
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     }
@@ -40280,6 +41616,7 @@ async function streamChat(req, res) {
       return;
     }
     flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
+    if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   // 客户端断线 → abort:核心把它翻译回原来的 killOnDisconnect → stopSession 语义。
@@ -40301,6 +41638,8 @@ async function streamChat(req, res) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    // 流上的异步写错误(EPIPE / write-after-end)兜底吸收:断线已由下面的 close/aborted 翻译成 abort。
+    res.on('error', () => {});
     req.on('aborted', handleDisconnect);
     res.on('close', () => { if (!shellFinished && !res.writableEnded) handleDisconnect(); });
   };
@@ -40352,18 +41691,22 @@ function backgroundJobText(job) {
   if (job && job.kind === 'agent') return `[代理完成通知 ${job.status}] ${job.name} (run ${job.runId || job.shellId})\n${job.output || '(空信封)'}`;
   return `[后台任务 ${job.status}] ${job.name} (${job.shellId})\n退出码: ${job.exitCode == null ? '未知' : job.exitCode}\n${job.output || '(无输出)'}`;
 }
+// 账本唯一的写点(固定 tmp 名 + renameSync,同步执行 = 单线程串行读改写;durable-state-inventory 登记的那一处)。
+function writeBackgroundJobRows(sessionId, rows) {
+  const file = backgroundJobFile(sessionId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(rows.slice(-100)), 'utf8');
+  fs.renameSync(tmp, file);
+}
 // 代理模式 v2:把一份已完成的 job 写进会话的后台任务账本(原子写,≤100 条),合并进活回合的会话对象,并广播
 // background.completed(toast + 后台任务条刷新)。completeBackgroundJob(命令)与 notifyAgentRunEnvelope(代理)共用。
 function persistBackgroundJob(job) {
-  const file = backgroundJobFile(job.sessionId);
   let persisted = false;
   try {
     const rows = readBackgroundJobs(job.sessionId).filter(row => row.id !== job.id);
     rows.push(job);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = file + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(rows.slice(-100)), 'utf8');
-    fs.renameSync(tmp, file);
+    writeBackgroundJobRows(job.sessionId, rows);
     persisted = true;
   } catch (error) { logEvent({ kind: 'background_job_persist_error', sessionId: job.sessionId, error: String(error.message || error) }); }
   const reg = activeChildren.get(job.sessionId);
@@ -40385,6 +41728,18 @@ EventStreamHooks.mergeBackgroundJobs = session => {
     session.messages.push({ role: 'system', content: backgroundJobText(job), backgroundJobId: job.id, createdAt: job.completedAt });
     seen.add(job.id);
   }
+};
+// hunt2 #12:撤回截掉的消息里带着的后台任务回执,要从账本里一并删掉。否则下一次 save/load 的 merge 只拿幸存
+// 消息算「已见」,账本里那几行又被当成新回执追加回来 —— 被撤回回合的「[后台任务 succeeded] …」复活。
+EventStreamHooks.forgetBackgroundJobs = (sessionId, jobIds) => {
+  const file = backgroundJobFile(sessionId);
+  const drop = new Set((jobIds || []).filter(Boolean));
+  if (!file || !drop.size) return 0;
+  const rows = readBackgroundJobs(sessionId);
+  const kept = rows.filter(row => !drop.has(row.id));
+  if (kept.length === rows.length) return 0;
+  try { writeBackgroundJobRows(sessionId, kept); } catch (error) { logEvent({ kind: 'background_job_persist_error', sessionId, error: String(error.message || error) }); return 0; }
+  return rows.length - kept.length;
 };
 // 135c(真机走查):PowerShell 把进度流序列化成 CLIXML 写进 stderr —— 一行 `#< CLIXML` 加一大行 `<Objs …>…</Objs>`
 // (里面还常是乱码的本地化进度文字)。它原样进了完成回执(对话里、模型下一轮都看得到)和「看输出」。
@@ -40539,6 +41894,9 @@ function shellStart(args, config, ctx = {}) {
   } catch (e) {
     return { ok: false, error: (e && e.message) ? e.message : 'spawn failed' };
   }
+  // shell_send 往一个刚关了 stdin 的子进程里写 → 异步 EPIPE 落在 stdin 的 'error' 上(try/catch 接不住),
+  // 没监听者就是 uncaughtException;吸收即可,子进程状态由 exit/close 收尾。
+  if (child.stdin) child.stdin.on('error', () => {});
   const now = Date.now();
   // 135c(线程内后台任务条):记下命令原文供界面显示 —— 先过 04 的 redact(与权限弹窗/审计同一张表),压成一行、裁 200。
   const commandShown = command ? redact(command).replace(/\s+/g, ' ').trim().slice(0, 200) : '';
@@ -40554,10 +41912,27 @@ function shellStart(args, config, ctx = {}) {
     }, timeoutMs);
     deadline.unref();
   }
-  child.stdout?.on('data', d => shellAppend(sess, d.toString('utf8')));
-  child.stderr?.on('data', d => shellAppend(sess, d.toString('utf8')));
+  // 每条流一个按行的控制台解码器(00-boot createConsoleLineDecoder):中文 Windows 上无控制台的 powershell.exe
+  // 往管道里写的是 GBK(用户实测:shell 会话里的中文输出全是乱码),修前一律按 UTF-8 解。整行才解码(chunk 切开的
+  // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
+  const outDecoder = createConsoleLineDecoder();
+  const errDecoder = createConsoleLineDecoder();
+  let idleFlush = null;
+  const feed = (decoder, d) => {
+    shellAppend(sess, decoder.write(d));
+    if (idleFlush) clearTimeout(idleFlush);
+    idleFlush = setTimeout(() => { idleFlush = null; shellAppend(sess, outDecoder.flush() + errDecoder.flush()); }, 150);
+    if (idleFlush.unref) idleFlush.unref();
+  };
+  child.stdout?.on('data', d => feed(outDecoder, d));
+  child.stderr?.on('data', d => feed(errDecoder, d));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
-  child.on('close', code => { clearTimeout(deadline); sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess); });
+  child.on('close', code => {
+    clearTimeout(deadline);
+    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
+    shellAppend(sess, outDecoder.end() + errDecoder.end());
+    sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
+  });
   shellSessions.set(shellId, sess);
   return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
@@ -40581,6 +41956,16 @@ function shellLookup(shellId, ctx) {
   return sess && shellVisibleTo(sess, ctx) ? sess : null;
 }
 
+// 交互式 shell 的输入:无控制台的 powershell.exe 按系统代码页(GBK)读 stdin,我们写进去的 UTF-8 中文在【输入阶段】就坏了
+// (命令里的中文路径、中文参数全变问号)。含非 ASCII 字符的输入改成一条纯 ASCII 的等价命令:把原文按 UTF-8 编成
+// Base64,在 PowerShell 里解回来再 Invoke-Expression —— 与直接敲入同一作用域执行,变量、cd 都照常生效。纯 ASCII 输入原样。
+// 代价:如果 shell 里正停在 Read-Host 等你回答,一句中文回答会被当成命令执行 —— 模型给 shell 的几乎总是命令,取这一头。
+function shellInputForPowerShell(input) {
+  const text = String(input == null ? '' : input);
+  if (!/[^\x00-\x7f]/.test(text)) return text;
+  const b64 = Buffer.from(text, 'utf8').toString('base64');
+  return `Invoke-Expression ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64}')))`;
+}
 async function shellSend(args, ctx) {
   const shellId = String(args.shellId || '');
   const sess = shellLookup(shellId, ctx);
@@ -40592,7 +41977,7 @@ async function shellSend(args, ctx) {
   const startCursor = shellEndOffset(sess);
   const timeoutMs = Math.min(120000, Math.max(1000, Number(args.timeoutMs || 10000)));
   if (sess.running && sess.child.stdin && sess.child.stdin.writable) {
-    try { sess.child.stdin.write(String(args.input != null ? args.input : '') + '\n'); }
+    try { sess.child.stdin.write(shellInputForPowerShell(args.input != null ? args.input : '') + '\n'); }
     catch (e) { return { ok: false, error: `写入失败: ${e && e.message ? e.message : e}` }; }
   } else if (!sess.running) {
     // Child already exited — still return whatever fresh output exists, but flag not-running.
@@ -41131,7 +42516,9 @@ const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断�
 const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0'];
 // execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
-function runGit(args, cwd, timeoutMs) {
+// opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
+// GBK 等非 UTF-8 字节变成 U+FFFD(hunt2 #4)。
+function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
     let child;
     try {
@@ -41141,7 +42528,7 @@ function runGit(args, cwd, timeoutMs) {
         windowsHide: true,
         timeout: Math.max(1000, Number(timeoutMs || 15000)),
         maxBuffer: 24 * 1024 * 1024,
-        encoding: 'utf8',
+        encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
         resolve({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
@@ -42207,81 +43594,218 @@ function webFetchFailMessage(got) {
 
 // v1.1-W1a (T3): strip tags + decode entities + collapse whitespace from an HTML fragment → a plain snippet.
 // Truncated to ≤300 chars. Defensive: any input coerces to a string first.
+// 行内标签(高亮词 em / strong、span、a …)直接去掉不补空格 —— 修前一律换成空格,中文摘要里每个高亮词两边都多出空格。
 function htmlFragmentToText(frag) {
-  return decodeEntities(String(frag == null ? '' : frag).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 300);
+  return decodeEntities(String(frag == null ? '' : frag).replace(/<\/?(?:em|strong|b|i|u|span|a|font|mark|small|sup|sub)\b[^>]*>/gi, '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 300);
 }
-// v1.1-W1a (T3): parse Bing (cn.bing.com) result HTML. Each hit is an <li class="b_algo"> block; title+url
-// live in its <h2><a href="…">…</a></h2>, the snippet in a <p> (often class b_lineclamp*/b_caption). Regex
-// string-scan (no DOM lib — zero deps). Fully defensive: a markup change yields fewer/zero results, never a
-// throw. Returns [{title,url,snippet,source:'bing'}].
+// ── 内置免费搜索(builtin:Bing CN 为主、百度补充)的解析与合并 ────────────────────────────────────────────
+// 2026-09 排查「搜不准、不全、搜到垃圾」的根因,都在这一段:
+//   · 百度:`\bresult\b` 把 `result-op`(百度自家的「大家还在搜 / 视频 / 图片」卡片)也匹配进来,广告块也没滤 —— 垃圾结果;
+//     摘要取到第一个闭合标签就停(常常停在第一个高亮关键词 </em>)—— 摘要不全;网址全是 baidu.com/link?url= 跳转链接,
+//     真实网址其实就在容器的 mu 属性里;
+//   · Bing:块里没有 <h2> 时退回「块里第一个链接」,把相关搜索、底部广告的链接当成结果;ck/a 跳转链接没解码;
+//     每块切到下一个 b_algo 为止,最后一块会吞进分页、相关搜索、底部广告;
+//   · 合并:只在 Bing 一条都没有时才问百度、不去重、不翻页;英文查询也走国内版;遇到人机验证页只说「没有结果」。
+// 现在:按元素配平切块、只认标题链接、解开跳转、滤广告与自家卡片;中文查询两个引擎并发取、交错合并去重,不够再翻页;
+// 与查询零重合的结果排到最后;被人机验证拦下时如实说明并给出换后端的建议。
+const SEARCH_CJK_RE = /[㐀-鿿豈-﫿]/;
+// 去掉 script / style / noscript 与注释:它们的内容会被 htmlFragmentToText 当成正文(摘要里冒出 CSS / JS)。
+function stripHtmlNoise(html) {
+  return String(html == null ? '' : html).replace(/<(script|style|noscript)\b[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
+}
+function htmlClassTokens(openTag) {
+  const m = /\bclass\s*=\s*"([^"]*)"/i.exec(String(openTag || ''));
+  return m ? m[1].split(/\s+/).filter(Boolean) : [];
+}
+function htmlAttr(openTag, name) {
+  const m = new RegExp('\\s' + name + '\\s*=\\s*"([^"]*)"', 'i').exec(String(openTag || ''));
+  return m ? decodeEntities(m[1]) : '';
+}
+// 起始于 at 的那个元素的内层 HTML(按同名标签配平;不配平时取到文档末尾,调用方再按下一块的起点截)。
+function htmlElementInner(html, at) {
+  const head = /^<([a-zA-Z][\w-]*)\b[^>]*>/.exec(html.slice(at, at + 4000));
+  if (!head) return '';
+  const tag = head[1].toLowerCase();
+  const bodyStart = at + head[0].length;
+  const re = new RegExp('<(/?)' + tag + '\\b[^>]*>', 'gi');
+  re.lastIndex = bodyStart;
+  let depth = 1, m;
+  while ((m = re.exec(html))) {
+    if (m[1]) { depth -= 1; if (depth === 0) return html.slice(bodyStart, m.index); }
+    else if (!/\/>$/.test(m[0])) depth += 1;
+  }
+  return html.slice(bodyStart);
+}
+// 找出所有「开标签的 class 满足 pred」的元素,返回 [{ openTag, inner }];inner 截在下一块起点之前(防不配平时吞掉后文)。
+function htmlBlocksByClass(html, tagName, pred) {
+  const re = new RegExp('<' + tagName + '\\b[^>]*>', 'gi');
+  const hits = [];
+  let m;
+  while ((m = re.exec(html))) if (pred(htmlClassTokens(m[0]), m[0])) hits.push({ at: m.index, openTag: m[0] });
+  return hits.map((h, i) => {
+    const inner = htmlElementInner(html, h.at);
+    const limit = i + 1 < hits.length ? hits[i + 1].at - (h.at + h.openTag.length) : inner.length;
+    return { openTag: h.openTag, inner: inner.slice(0, Math.max(0, limit)) };
+  });
+}
+// Bing 的点击跟踪链接 https://www.bing.com/ck/a?…&u=a1<base64url 原网址>… → 原网址。解不开就原样返回。
+function decodeBingRedirect(url) {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)bing\.com$/i.test(u.hostname) || !/^\/ck\/a/i.test(u.pathname)) return url;
+    const raw = u.searchParams.get('u') || '';
+    if (!raw.startsWith('a1')) return url;
+    const decoded = Buffer.from(raw.slice(2).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+    return /^https?:\/\/[^\s]+$/i.test(decoded) ? decoded : url;
+  } catch { return url; }
+}
+function searchSnippetText(fragment) {
+  return htmlFragmentToText(String(fragment || '').replace(/<span[^>]*class="[^"]*algoSlug_icon[^"]*"[^>]*>[\s\S]*?<\/span>/gi, ' '))
+    .replace(/^(?:网页|Web)\s+/, '');
+}
+// Parse Bing (cn.bing.com) result HTML → [{title,url,snippet,source:'bing'}]. 只认 <li class="b_algo"> 里 <h2> 的那条链接;
+// 广告(b_ad* / b_adSlug)、Bing 自家页面(图片 / 视频 / 相关搜索)不收。markup 变了只会少结果,绝不抛。
 function parseBingHtml(html, limit) {
   const out = [];
-  const s = String(html || '');
-  // Split on the algo blocks; each chunk after the first starts inside one b_algo <li>.
-  const blocks = s.split(/<li[^>]*class="[^"]*\bb_algo\b[^"]*"[^>]*>/i).slice(1);
-  for (const block of blocks) {
+  const s = stripHtmlNoise(html);
+  for (const block of htmlBlocksByClass(s, 'li', cls => cls.includes('b_algo'))) {
     if (out.length >= limit) break;
-    // First anchor inside an <h2> is the title/url. Fall back to the first anchor with an http(s) href.
-    let m = /<h2[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) m = /<a[^>]+href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) continue;
-    const url = decodeEntities(m[1]).trim();
-    const title = htmlFragmentToText(m[2]);
+    const inner = block.inner;
+    if (htmlClassTokens(block.openTag).some(c => /^b_ad/.test(c)) || /\bb_adSlug\b|\bb_adurl\b/.test(inner)) continue;
+    const h2 = /<h2\b[^>]*>([\s\S]*?)<\/h2>/i.exec(inner);
+    const a = h2 && /<a\b[^>]*\shref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(h2[1]);
+    if (!a) continue;
+    const url = decodeBingRedirect(decodeEntities(a[1]).trim());
+    const title = htmlFragmentToText(a[2]);
     if (!/^https?:\/\//i.test(url) || !title) continue;
-    // Snippet: prefer a <p> (Bing caption); else the first div with a caption-ish class.
-    let sm = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(block);
-    if (!sm) sm = /<div[^>]*class="[^"]*b_caption[^"]*"[^>]*>([\s\S]*?)<\/div>/i.exec(block);
-    const snippet = sm ? htmlFragmentToText(sm[1]) : '';
+    try { if (/(^|\.)bing\.com$/i.test(new URL(url).hostname)) continue; } catch { continue; }
+    const capAt = inner.search(/<div\b[^>]*class="[^"]*\bb_caption\b[^"]*"[^>]*>/i);
+    const scope = capAt >= 0 ? inner.slice(capAt) : inner.replace(h2[0], ' ');
+    const p = /<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(scope);
+    let snippet = p ? searchSnippetText(p[1]) : '';
+    if (!snippet) snippet = searchSnippetText(inner.replace(h2[0], ' ').replace(/<cite\b[\s\S]*?<\/cite>/gi, ' ').replace(/<div\b[^>]*class="[^"]*\b(?:b_attribution|b_tpcn|tpcn)\b[\s\S]*?<\/div>/gi, ' '));
     out.push({ title, url, snippet, source: 'bing' });
   }
   return out;
 }
-// v1.1-W1a (T3): parse 百度 (www.baidu.com/s) result HTML. Each hit is a <div class="result c-container …">
-// block; the title anchor is its first <h3><a href="…">…</a> (百度 hands back a redirect link — 照收). The
-// snippet is best-effort from a content div/span. Defensive; returns [{title,url,snippet,source:'baidu'}].
+// Parse 百度 (www.baidu.com/s) result HTML → [{title,url,snippet,source:'baidu'}]. 只认 class 里同时有 result 与 c-container
+// 两个【完整】类名的块(result-op 是百度自家的聚合卡片,不收);广告(ec_* / tuiguang / 「广告」标)不收。网址优先取容器的
+// mu 属性(真实网址),没有才用标题上的跳转链接。
 function parseBaiduHtml(html, limit) {
   const out = [];
-  const s = String(html || '');
-  const blocks = s.split(/<div[^>]*class="[^"]*\bresult\b[^"]*\bc-container\b[^"]*"[^>]*>/i).slice(1);
-  for (const block of blocks) {
+  const s = stripHtmlNoise(html);
+  for (const block of htmlBlocksByClass(s, 'div', cls => cls.includes('result') && cls.includes('c-container'))) {
     if (out.length >= limit) break;
-    let m = /<h3[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) m = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(block);
-    if (!m) continue;
-    const url = decodeEntities(m[1]).trim();
-    const title = htmlFragmentToText(m[2]);
-    if (!url || !title) continue;
-    // Snippet: 百度's abstract lives in a span/div with a content-ish class; fall back to the first <p>.
-    let sm = /<[^>]*class="[^"]*(?:content-right|c-abstract|content_right)[^"]*"[^>]*>([\s\S]*?)<\/[^>]+>/i.exec(block);
-    if (!sm) sm = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(block);
-    const snippet = sm ? htmlFragmentToText(sm[1]) : '';
+    const inner = block.inner;
+    const cls = htmlClassTokens(block.openTag);
+    if (cls.some(c => /^(?:ec_|EC_)|tuiguang/i.test(c)) || /data-tuiguang|>\s*广告\s*</.test(inner)) continue;
+    const h3 = /<h3\b[^>]*>([\s\S]*?)<\/h3>/i.exec(inner);
+    const a = /<a\b[^>]*\shref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(h3 ? h3[1] : inner);
+    if (!a) continue;
+    const mu = htmlAttr(block.openTag, 'mu');
+    const url = /^https?:\/\//i.test(mu) ? mu.trim() : decodeEntities(a[1]).trim();
+    const title = htmlFragmentToText(a[2]);
+    if (!url || !title || /^(?:相关搜索|大家还在搜|其他人还搜了)/.test(title)) continue;
+    const rest = h3 ? inner.replace(h3[0], ' ') : inner;
+    const absAt = rest.search(/<(?:span|div)\b[^>]*class="[^"]*(?:content-right|c-abstract|c-span-last)[^"]*"[^>]*>/i);
+    let snippet = absAt >= 0 ? htmlFragmentToText(htmlElementInner(rest, absAt)) : '';
+    if (!snippet) { const p = /<p\b[^>]*>([\s\S]*?)<\/p>/i.exec(rest); snippet = p ? htmlFragmentToText(p[1]) : ''; }
+    if (!snippet) snippet = htmlFragmentToText(rest);
     out.push({ title, url, snippet, source: 'baidu' });
   }
   return out;
 }
-// v1.1-W1a (T3): the builtin no-key search. Bing CN first; if it errors or returns <1 result, fall back to
-// 百度. Both空 → ok:true with an empty list + a note (an empty result set is NOT an error). baseUrlOverride
-// (admin-trusted) replaces the Bing root for e2e; when set, the 百度 fallback is skipped so a fake server
-// deterministically owns the whole path. GET requests use the realistic browser headers (T1).
-async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs) {
+// 被人机验证 / 反爬页拦下(不是「没有结果」):Bing 的 captcha 页、百度安全验证页。
+function searchPageBlocked(html) {
+  const s = String(html || '');
+  return /\bb_captcha\b|\/challengepic|id="b_captcha"|百度安全验证|wappass\.baidu\.com|安全验证[^<]{0,20}<\/title>/i.test(s);
+}
+// 去重键:协议、www.、末尾斜杠、#锚点、utm_* 跟踪参数都不算区别。
+function searchResultKey(url) {
+  try {
+    const u = new URL(url);
+    for (const k of [...u.searchParams.keys()]) if (/^utm_|^spm$|^from$/i.test(k)) u.searchParams.delete(k);
+    const q = u.searchParams.toString();
+    return u.hostname.toLowerCase().replace(/^www\./, '') + u.pathname.replace(/\/+$/, '') + (q ? '?' + q : '');
+  } catch { return String(url || '').toLowerCase(); }
+}
+// 查询词:英文 / 数字词(≥2 字符)+ 中文二元组。用来把与查询零重合的结果排到最后(常见的是被引擎硬塞的无关推荐)。
+function searchQueryTerms(query) {
+  const q = String(query || '').toLowerCase();
+  const words = (q.match(/[a-z0-9][a-z0-9._+#-]*/g) || []).filter(w => w.length >= 2);
+  const grams = [];
+  for (const run of (q.match(/[㐀-鿿豈-﫿]+/g) || [])) {
+    if (run.length === 1) grams.push(run);
+    for (let i = 0; i + 1 < run.length; i++) grams.push(run.slice(i, i + 2));
+  }
+  return [...new Set([...words, ...grams])];
+}
+function mergeSearchResults(query, lists, maxResults) {
+  const terms = searchQueryTerms(query);
+  // 同一页面在两个引擎里都出现时:名次按先出现的那处算,内容留排在前面的引擎那条(Bing 的网址是原网址,百度的可能带跟踪参数)。
+  const preferred = new Map();
+  lists.forEach((list, li) => list.forEach(r => {
+    const key = searchResultKey(r.url);
+    if (!preferred.has(key) || preferred.get(key).li > li) preferred.set(key, { r, li });
+  }));
+  const seen = new Set();
+  const merged = [];
+  const longest = Math.max(0, ...lists.map(l => l.length));
+  for (let i = 0; i < longest; i++) {
+    for (const list of lists) {
+      const r = list[i];
+      if (!r) continue;
+      const key = searchResultKey(r.url);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(preferred.get(key).r);
+    }
+  }
+  const text = r => (r.title + ' ' + r.snippet + ' ' + r.url).toLowerCase();
+  const relevant = terms.length ? merged.filter(r => terms.some(t => text(r).includes(t))) : merged;
+  const rest = terms.length ? merged.filter(r => !relevant.includes(r)) : [];
+  return [...relevant, ...rest].slice(0, maxResults);
+}
+// v1.1-W1a (T3) 起的内置免 key 搜索。baseUrlOverride(管理端可信)替换 Bing 根地址(e2e 用),此时不外连真百度,
+// 除非另给 baiduBaseUrlOverride(同样是管理端可信的替换根)。GET 用逼真的浏览器请求头(T1)。
+async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baiduBaseUrlOverride) {
   const enc = encodeURIComponent(query);
+  const cjk = SEARCH_CJK_RE.test(query);
   const bingRoot = baseUrlOverride || 'https://cn.bing.com';
-  const bingUrl = `${bingRoot}/search?q=${enc}&count=${maxResults}`;
-  let bingResults = [];
-  try {
-    const r = await httpRequest({ url: bingUrl, headers: browserHeaders(), timeoutMs, maxBodyChars: 800000 });
-    if (r.ok && typeof r.body === 'string') bingResults = parseBingHtml(r.body, maxResults);
-  } catch { /* fall through to 百度 */ }
-  if (bingResults.length >= 1) { markNetworkOnline(); return { ok: true, results: bingResults.slice(0, maxResults), backend: 'builtin', engine: 'bing' }; }
-  // baseUrl override present → the operator/e2e redirected the engine; do NOT leak to the real 百度.
-  if (baseUrlOverride) return { ok: true, results: [], backend: 'builtin', engine: 'bing', note: 'Bing 未返回结果(已覆写引擎地址,跳过百度兜底)' };
-  // Fallback: 百度.
-  let baiduResults = [];
-  try {
-    const r = await httpRequest({ url: `https://www.baidu.com/s?wd=${enc}&rn=${maxResults}`, headers: browserHeaders(), timeoutMs, maxBodyChars: 800000 });
-    if (r.ok && typeof r.body === 'string') baiduResults = parseBaiduHtml(r.body, maxResults);
-  } catch { /* both empty → note below */ }
-  if (baiduResults.length >= 1) { markNetworkOnline(); return { ok: true, results: baiduResults.slice(0, maxResults), backend: 'builtin', engine: 'baidu' }; }
+  const baiduRoot = baiduBaseUrlOverride || (baseUrlOverride ? '' : 'https://www.baidu.com');
+  const fetchPage = async (url, parse) => {
+    try {
+      const r = await httpRequest({ url, headers: browserHeaders(), timeoutMs, maxBodyChars: 1200000 });
+      if (!r.ok || typeof r.body !== 'string') return { results: [], failed: true };
+      return { results: parse(r.body), blocked: searchPageBlocked(r.body) };
+    } catch { return { results: [], failed: true }; }
+  };
+  // 纯英文查询走 Bing 国际版结果(ensearch=1),中文查询走国内版。
+  const bingUrl = first => `${bingRoot}/search?q=${enc}${cjk ? '' : '&ensearch=1'}${first > 1 ? '&first=' + first : ''}`;
+  const bingP = fetchPage(bingUrl(1), h => parseBingHtml(h, 20));
+  // 中文查询两个引擎并发取(百度的中文覆盖面补 Bing);英文查询只在 Bing 不够时才问百度。
+  const baiduUrl = `${baiduRoot}/s?wd=${enc}&rn=${Math.min(20, Math.max(10, maxResults))}`;
+  const baiduEarly = baiduRoot && cjk ? fetchPage(baiduUrl, h => parseBaiduHtml(h, 20)) : null;
+  const bing = await bingP;
+  let bingResults = bing.results;
+  const enough = list => mergeSearchResults(query, list, maxResults).length >= maxResults;
+  if (!enough([bingResults]) && bingResults.length >= 8) {
+    const more = await fetchPage(bingUrl(bingResults.length + 1), h => parseBingHtml(h, 20));
+    bingResults = bingResults.concat(more.results);
+  }
+  let baidu = baiduEarly ? await baiduEarly : { results: [] };
+  if (!baiduEarly && baiduRoot && !enough([bingResults])) baidu = await fetchPage(baiduUrl, h => parseBaiduHtml(h, 20));
+  const results = mergeSearchResults(query, [bingResults, baidu.results], maxResults);
+  const engines = [bingResults.length ? 'bing' : '', results.some(r => r.source === 'baidu') ? 'baidu' : ''].filter(Boolean);
+  if (results.length) {
+    markNetworkOnline();
+    return { ok: true, results, backend: 'builtin', engine: engines.join('+') || 'bing' };
+  }
+  if (bing.blocked || baidu.blocked) {
+    return { ok: true, results: [], backend: 'builtin', blocked: true,
+      note: '搜索引擎返回了人机验证页(反爬拦截),这次拿不到结果;稍后再试,或到 设置→搜索后端 换成 tavily / 博查 / searxng 等接口型后端' };
+  }
+  if (!baiduRoot) return { ok: true, results: [], backend: 'builtin', engine: 'bing', note: 'Bing 未返回结果(已覆写引擎地址,跳过百度兜底)' };
   return { ok: true, results: [], backend: 'builtin', note: '两个引擎都未返回结果' };
 }
 
@@ -42289,7 +43813,8 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs) {
 // → NOT SSRF-checked (see note atop this section). Returns {ok, results:[{title,url,snippet}], backend}.
 async function webSearch(args, config) {
   const query = String(args && args.query || '').trim();
-  const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 5));
+  // 缺省 8 条(修前 5 条):内置搜索是抓网页,前几条常被百科 / 问答聚合占住,5 条经常不够把问题答全;结果只是短摘要,多几条不贵。
+  const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   if (!query) return { ok: false, error: 'query is required', backend };
@@ -42303,7 +43828,8 @@ async function webSearch(args, config) {
     // (a shape change collapses to [] rather than throwing). Results are JSON text only — the front-end renders
     // them via textContent, so no XSS surface. baseUrl override (admin-trusted, 同 searxng 先例) redirects the
     // Bing root for e2e determinism; when set, the 百度 fallback is skipped (the fake server owns both paths).
-    if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs);
+    // sb.baiduBaseUrl:只给 e2e 用的百度根地址替换(直接传进 webSearch 的配置对象里;normalizeConfig 不保留它)。
+    if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, ''));
     if (backend === 'searxng') {
       if (!baseUrl) return { ok: false, error: 'searxng baseUrl 未配置', backend };
       const u = `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json`;
@@ -42461,7 +43987,13 @@ const ZIP_MAX_ENTRIES = 2000;                    // 解压条目数上限（zip 
 async function zipCollectEntries(rootPaths) {
   const entries = []; // {name, data:Buffer, isDir}
   let total = 0;
+  // hunt2 #3:敏感控制面逐项过滤。archive_zip 只对顶层输入过护栏,打包一个【祖先目录】(典型:工作区 = 家目录,
+  // 数据根 ~/.ruyi-workbench 就在里面)会把 config.json(明文密钥)/runtime.json(token)/会话一并装进包,解压后
+  // file_read 即得明文 —— 实测端到端打通。与 walkFiles 同一条规矩(审计 P1):敏感子树不返回、不下钻。
+  await ensureDataRootReal();
+  entries.skippedSensitive = 0;
   const addFile = async (absPath, zipName) => {
+    if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) return; // 安全：符号链接不入包（避免打进包外内容）
     if (st.isDirectory()) {
@@ -42736,6 +44268,35 @@ function normalizeTextLineEndings(text, lineEnding) {
 function hasTextLineBreak(text) { return /[\r\n]/.test(String(text || '')); }
 function isUtf8Encoding(encoding) { return !encoding || /^utf-?8$/i.test(String(encoding)); }
 function defaultTextLineEnding(filePath) { return /\.(?:cmd|bat|ps1)$/i.test(String(filePath || '')) ? 'crlf' : 'lf'; }
+// Windows PowerShell 5.1 把无 BOM 的 .ps1 按 ANSI(中文系统 = GBK)读,脚本里的中文字面量就成了乱码;
+// 工具箱约定与 04 runPowerShell 头注同一条:PowerShell 脚本一律 UTF-8 with BOM。
+function textFileWantsUtf8Bom(filePath) { return /\.(?:ps1|psm1|psd1)$/i.test(String(filePath || '')); }
+const UTF8_BOM_BYTES = Buffer.from([0xef, 0xbb, 0xbf]);
+
+// hunt2 #17:检查点结果 → 模型可见的警告。此前只有 file_write 看 journalRecord 的返回值,file_edit/file_move/
+// file_copy/archive_*/http_download 在检查点没写进去(>5MB 被标 skipped、写盘失败)时照样回 ok:true 且一字不提,
+// UI 徽章按工具名显示「可撤销」,真去撤销时才报 before content was not stored。与 file_write 同一口径。
+function journalCheckpointWarn(jr) {
+  if (jr && jr.ok === false) return `回滚检查点未写入(${jr.reason});本写入不可一键撤销`;
+  if (jr && jr.skipped) return '文件超过检查点快照上限;本写入不可一键撤销';
+  return '';
+}
+
+// hunt2 #7:写族文件工具的按路径串行。主回合的写工具本就串行,但子代理 / 工作流节点 / 代理 run 会并发
+// toolCall():两个 file_edit 同读旧内容 → 各自 await 检查点(gzip + 落盘,几毫秒到几十毫秒)→ 后写者整份盖掉
+// 前者,两边都回 ok:true(实测 AAA/BBB 两处替换只剩一处)。读-改-写整段进同一条按路径的写链。
+// 多路径(move/copy)按排好序的键逐个进链 —— 固定加锁顺序,A→B 与 B→A 并发也不会互等成死锁;
+// 链内只会再拿检查点的会话锁(它从不反过来拿路径锁),所以也不存在跨两类锁的环。
+const fileToolWriteChains = new Map();
+function fileToolWriteLockKey(filePath) {
+  const resolved = path.resolve(String(filePath || ''));
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+function withFileToolWriteLock(filePaths, work) {
+  const keys = [...new Set(filePaths.map(fileToolWriteLockKey))].sort();
+  const enter = i => (i >= keys.length ? work() : runKeyedChain(fileToolWriteChains, keys[i], () => enter(i + 1)));
+  return enter(0);
+}
 
 async function resolveFileToolRoot(args, ctx) {
   if (args && args.root) return path.resolve(String(args.root));
@@ -43271,168 +44832,204 @@ const FILE_TOOL_HANDLERS = {
   file_write: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_write', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
-      // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
-      let before = null, exists = false;
-      try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
-      const encoding = args.encoding || 'utf8';
-      const canNormalizeLineEnding = isUtf8Encoding(encoding);
-      const sourceLineEnding = exists && canNormalizeLineEnding ? detectTextLineEnding(before.toString('utf8')) : 'none';
-      const targetLineEnding = canNormalizeLineEnding
-        ? ((sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') ? sourceLineEnding : (!exists ? defaultTextLineEnding(p) : null))
-        : null;
-      const content = targetLineEnding ? normalizeTextLineEndings(String(args.content || ''), targetLineEnding) : String(args.content || '');
-      const writtenLineEnding = canNormalizeLineEnding ? detectTextLineEnding(content) : 'binary';
-      // 第25波 25.5(AUTONOMY-PLAN):幂等写 —— 目标已存在且落盘字节将完全相同 → 跳过(不记检查点、不重写)。
-      // 断点续跑重放同内容写不再产生新检查点条目/mtime 扰动;「touch」语义不受支持是有意的。
-      // 按 writeFile 将实际落盘的字节比较(尊重 encoding 参数),而非字符串比较,避免编码歧义。
-      const _payload = (() => { try { return Buffer.from(content, encoding); } catch { return null; } })();
-      if (exists && _payload && before.equals(_payload)) {
-        return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, sourceLineEnding, writtenLineEnding,
-          note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
-      }
-      const jctx = await journalSessionCtx(ctx);
-      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
-      if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
-      await fsp.writeFile(p, content, encoding);
-      // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
-      const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: _payload ? _payload.length : Buffer.byteLength(content), sourceLineEnding, writtenLineEnding };
-      if (jr && jr.ok === false) ret.checkpointWarn = `回滚检查点未写入(${jr.reason});本写入不可一键撤销`;
-      else if (jr && jr.skipped) ret.checkpointWarn = '文件超过检查点快照上限;本写入不可一键撤销';
-      return ret;
+      // hunt2 #9:content 缺省曾按 '' 处理 —— 模型漏传参数就把整个文件截成 0 字节还回 ok:true(schema 的 required
+      // 没有任何地方校验)。清空文件请显式传空串。
+      if (args.content == null) return { ok: false, error: 'content is required', path: p, hint: '要清空文件请显式传 content:""' };
+      return withFileToolWriteLock([p], async () => {
+        // v0.8-S4a: checkpoint BEFORE writing. op = create when the file doesn't yet exist (no before to
+        // store), else modify (snapshot the existing bytes). Reading the old content can't block the write.
+        let before = null, exists = false;
+        try { before = await fsp.readFile(p); exists = true; } catch { before = null; exists = false; }
+        const encoding = args.encoding || 'utf8';
+        const canNormalizeLineEnding = isUtf8Encoding(encoding);
+        const sourceLineEnding = exists && canNormalizeLineEnding ? detectTextLineEnding(before.toString('utf8')) : 'none';
+        const targetLineEnding = canNormalizeLineEnding
+          ? ((sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') ? sourceLineEnding : (!exists ? defaultTextLineEnding(p) : null))
+          : null;
+        let content = targetLineEnding ? normalizeTextLineEndings(String(args.content), targetLineEnding) : String(args.content);
+        // hunt2 #10:保住 UTF-8 BOM。模型给的 content 从不带 BOM,整份覆写曾把原文件的 BOM 剥掉(file_edit 保得住);
+        // 新建的 .ps1 也补上 BOM —— 否则 Windows PowerShell 5.1 按 ANSI 读,中文字面量变乱码。
+        if (canNormalizeLineEnding && !content.startsWith('\ufeff')
+          && (exists ? before.subarray(0, 3).equals(UTF8_BOM_BYTES) : textFileWantsUtf8Bom(p))) content = '\ufeff' + content;
+        const writtenLineEnding = canNormalizeLineEnding ? detectTextLineEnding(content) : 'binary';
+        // 第25波 25.5(AUTONOMY-PLAN):幂等写 —— 目标已存在且落盘字节将完全相同 → 跳过(不记检查点、不重写)。
+        // 断点续跑重放同内容写不再产生新检查点条目/mtime 扰动;「touch」语义不受支持是有意的。
+        // 按 writeFile 将实际落盘的字节比较(尊重 encoding 参数),而非字符串比较,避免编码歧义。
+        const _payload = (() => { try { return Buffer.from(content, encoding); } catch { return null; } })();
+        if (exists && _payload && before.equals(_payload)) {
+          return { ok: true, path: p, op: 'skip', unchanged: true, bytes: _payload.length, sourceLineEnding, writtenLineEnding,
+            note: '目标内容已与要写入的内容一致,幂等跳过(未产生新检查点)' };
+        }
+        const jctx = await journalSessionCtx(ctx);
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_write', p, exists ? 'modify' : 'create', exists ? before : null);
+        if (args.createDirs !== false) await fsp.mkdir(path.dirname(p), { recursive: true });
+        await fsp.writeFile(p, content, encoding);
+        // b2-P1: 检查点失败/超限时警告式披露(写操作可重放,不中止,但模型应向用户说明不可一键撤销)。
+        const ret = { ok: true, path: p, op: exists ? 'modify' : 'create', bytes: _payload ? _payload.length : Buffer.byteLength(content), sourceLineEnding, writtenLineEnding };
+        const warn = journalCheckpointWarn(jr);
+        if (warn) ret.checkpointWarn = warn;
+        return ret;
+      });
   } },
   file_edit: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       const p = path.resolve(String(args.path || ''));
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_edit', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
-      let raw;
-      try { raw = await fsp.readFile(p, 'utf8'); }
-      catch (e) {
-        if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
-        throw e;
-      }
       const oldText = String(args.oldText || '');
-      const newText = String(args.newText || '');
       if (!oldText) throw new Error('oldText is required');
-      // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
-      if (raw.length > 50 * 1024 * 1024) {
-        return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
-      }
-      const sourceLineEnding = detectTextLineEnding(raw);
-      let matchText = oldText;
-      let count = raw.split(matchText).length - 1;
-      let normalizedOldText = false;
-      // A line-mode file_read returns LF-separated display text. For an otherwise uniform CRLF file, accept
-      // that anchor after converting it back to the file's native style. Mixed files intentionally get no
-      // fallback: guessing there could replace across an already-corrupt boundary.
-      if (count === 0 && (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') && hasTextLineBreak(oldText)) {
-        const normalized = normalizeTextLineEndings(oldText, sourceLineEnding);
-        if (normalized !== oldText) {
-          const normalizedCount = raw.split(normalized).length - 1;
-          if (normalizedCount > 0) { matchText = normalized; count = normalizedCount; normalizedOldText = true; }
+      // hunt2 #9:newText 缺省曾按 '' 处理 = 模型漏传参数就静默删掉 oldText。删除文本请显式传空串。
+      if (args.newText == null) return { ok: false, error: 'newText is required', path: p, hint: '要删除 oldText 请显式传 newText:""' };
+      const newText = String(args.newText);
+      return withFileToolWriteLock([p], async () => {
+        // v0.8-S7 error guidance: distinguish "file doesn't exist" (structured hint) from other read errors.
+        let rawBytes;
+        try { rawBytes = await fsp.readFile(p); }
+        catch (e) {
+          if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
+          throw e;
         }
-      }
-      if (count === 0) {
-        // v0.8-S1: not found → offer the closest line as an editing aid (no automatic fuzzy replace).
-        // Rank file lines against oldText's FIRST line by Levenshtein distance (lines truncated to
-        // 500 chars); return the best line plus a ±3-line snippet window around it under `closest`.
-        // Guardrails (this runs as a SYNCHRONOUS loop on the single-process server — an unbounded
-        // Levenshtein sweep over a huge file would freeze every API for seconds):
-        //  1. length-difference lower bound: |len(a)-len(b)| <= levenshtein(a,b), so any line whose
-        //     (capped) length differs from the needle's by >= bestDist can be skipped safely;
-        //  2. hard scan cap of 20000 lines; the remainder is not scanned and `scannedLines` reports
-        //     how far we actually looked so the model knows the hint may be partial.
-        const fileLines = raw.split(/\r?\n/);
-        const needle = oldText.split(/\r?\n/)[0] || '';
-        const MAX_CLOSEST_SCAN_LINES = 20000;
-        const scanLimit = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
-        const lb = Math.min(needle.length, 500);
-        let best = -1, bestDist = Infinity;
-        for (let i = 0; i < scanLimit; i += 1) {
-          const la = Math.min(fileLines[i].length, 500);
-          if (Math.abs(la - lb) >= bestDist) continue; // length diff is a lower bound on edit distance
-          const d = levenshtein(needle, fileLines[i]);
-          if (d < bestDist) { bestDist = d; best = i; }
+        // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
+        if (rawBytes.length > 50 * 1024 * 1024) {
+          return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
         }
-        const closest = best < 0 ? null : {
-          line: best + 1,
-          distance: bestDist,
-          snippet: fileLines
-            .slice(Math.max(0, best - 3), Math.min(fileLines.length, best + 4))
-            .map((t, k) => `${Math.max(0, best - 3) + k + 1}\t${t.slice(0, 500)}`)
-            .join('\n'),
-          scannedLines: scanLimit,
-        };
-        // v2.6: explicit diagnostics — lookalike traps + first differing character (mirrors ACC edit_file).
-        const hints = [];
-        const rawHasCrlf = raw.includes('\r\n');
-        const oldHasCrlf = oldText.includes('\r\n');
-        if (sourceLineEnding === 'mixed') hints.push('文件混用了 CRLF/LF；为避免猜测性替换，未自动转换 oldText。请先统一换行或提供逐字节一致的 oldText');
-        else if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行，文件是 LF；请用 LF 版 oldText 或先 file_read 复制原文');
-        else if (!oldHasCrlf && rawHasCrlf && !oldText.includes('\r')) hints.push('文件在磁盘上是 CRLF 换行——oldText 用 LF 无法命中,请从 file_read 复制含 \\r\\n 的原文');
-        if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
-        for (const ch of oldText) {
-          const cp = ch.codePointAt(0);
-          if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push('oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
+        // hunt2 #2:只编辑合法 UTF-8。修前按 utf8 宽松解码 —— 中文 Windows 上常见的 GBK/ANSI 源文件里每个汉字都
+        // 变成 U+FFFD,替换一处 ASCII 就把全文件的中文写成乱码并回 ok:true;检查点存的又是解码后的串,撤销也
+        // 救不回原字节。fatal 解码遇到非法字节即拒绝;ignoreBOM:true 让 BOM 留在串里原样写回(与修前一致)。
+        let raw;
+        try { raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(rawBytes); }
+        catch {
+          return { ok: false, code: 'not_utf8', path: p,
+            error: '文件不是有效的 UTF-8 文本(可能是 GBK/ANSI 等本地编码);file_edit 只编辑 UTF-8 文件,为免把中文写成乱码已拒绝',
+            hint: '先确认文件编码;GBK 文件可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
         }
-        const nonAsciiOld = [...oldText].filter(c => c.codePointAt(0) > 0x7F);
-        if (nonAsciiOld.length) hints.push('oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
-        // firstDiff: independent two-phase scan (long tokens, then single alnum chars) with per-line
-        // sliding-window alignment. NOT derived from closest.best — whole-line Levenshtein distance
-        // favours short unrelated lines over the real lookalike line (e.g. 'return x' beats 'x = a → b'
-        // when the arrow char is the only diff). Token filter keeps the sweep cheap (line <= 500 chars).
-        let firstDiff = null;
-        {
-          const ned = needle.slice(0, 500);
-          const longToks = [...new Set(needle.match(/S+/g) || [])].filter(t => t.length >= 2);
-          const singleToks = [...new Set([...needle].filter(c => /[A-Za-z0-9]/.test(c)))];
-          const scanLimit2 = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
-          let bestLine = -1, bestOff = -1, bestScore = -1;
-          const scan = (toks) => {
-            if (!toks.length) return;
-            for (let i = 0; i < scanLimit2; i += 1) {
-              const line = fileLines[i].slice(0, 500);
-              if (!line.trim() || line.length < 2) continue;
-              if (!toks.some(t => line.includes(t))) continue;
-              if (line.length > 1000) continue;
-              const step = Math.max(1, Math.floor(line.length / 200));
-              for (let off = 0; off <= Math.max(0, line.length - ned.length); off += step) {
-                const seg = line.slice(off, off + ned.length);
-                let same = 0;
-                for (let k = 0; k < seg.length && k < ned.length; k += 1) if (seg[k] === ned[k]) same += 1;
-                const score = same / Math.max(seg.length, ned.length, 1);
-                if (score > bestScore) { bestScore = score; bestOff = off; bestLine = i; }
-              }
-            }
+        const sourceLineEnding = detectTextLineEnding(raw);
+        let matchText = oldText;
+        let count = raw.split(matchText).length - 1;
+        let normalizedOldText = false;
+        // hunt2 #8:统一 CRLF 的文件里,oldText 中的裸 \n 只可能命中某个 \r\n 的后半(典型:以 "\n" 开头的锚点),
+        // 字面命中会把 \r 留在前面,而 newText 又被规范成 CRLF → 写出 "\r\r\n"。这种文件先把 oldText 规范成 CRLF
+        // 再数,规范后的结果即为准(不再退回字面命中)。
+        if (sourceLineEnding === 'crlf' && /(^|[^\r])\n/.test(oldText)) {
+          matchText = normalizeTextLineEndings(oldText, 'crlf');
+          count = raw.split(matchText).length - 1;
+          normalizedOldText = true;
+        }
+        // A line-mode file_read returns LF-separated display text. For an otherwise uniform CRLF file, accept
+        // that anchor after converting it back to the file's native style. Mixed files intentionally get no
+        // fallback: guessing there could replace across an already-corrupt boundary.
+        if (count === 0 && (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') && hasTextLineBreak(oldText)) {
+          const normalized = normalizeTextLineEndings(oldText, sourceLineEnding);
+          if (normalized !== oldText) {
+            const normalizedCount = raw.split(normalized).length - 1;
+            if (normalizedCount > 0) { matchText = normalized; count = normalizedCount; normalizedOldText = true; }
+          }
+        }
+        if (count === 0) {
+          // v0.8-S1: not found → offer the closest line as an editing aid (no automatic fuzzy replace).
+          // Rank file lines against oldText's FIRST line by Levenshtein distance (lines truncated to
+          // 500 chars); return the best line plus a ±3-line snippet window around it under `closest`.
+          // Guardrails (this runs as a SYNCHRONOUS loop on the single-process server — an unbounded
+          // Levenshtein sweep over a huge file would freeze every API for seconds):
+          //  1. length-difference lower bound: |len(a)-len(b)| <= levenshtein(a,b), so any line whose
+          //     (capped) length differs from the needle's by >= bestDist can be skipped safely;
+          //  2. hard scan cap of 20000 lines; the remainder is not scanned and `scannedLines` reports
+          //     how far we actually looked so the model knows the hint may be partial.
+          const fileLines = raw.split(/\r?\n/);
+          const needle = oldText.split(/\r?\n/)[0] || '';
+          const MAX_CLOSEST_SCAN_LINES = 20000;
+          const scanLimit = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
+          const lb = Math.min(needle.length, 500);
+          let best = -1, bestDist = Infinity;
+          for (let i = 0; i < scanLimit; i += 1) {
+            const la = Math.min(fileLines[i].length, 500);
+            if (Math.abs(la - lb) >= bestDist) continue; // length diff is a lower bound on edit distance
+            const d = levenshtein(needle, fileLines[i]);
+            if (d < bestDist) { bestDist = d; best = i; }
+          }
+          const closest = best < 0 ? null : {
+            line: best + 1,
+            distance: bestDist,
+            snippet: fileLines
+              .slice(Math.max(0, best - 3), Math.min(fileLines.length, best + 4))
+              .map((t, k) => `${Math.max(0, best - 3) + k + 1}\t${t.slice(0, 500)}`)
+              .join('\n'),
+            scannedLines: scanLimit,
           };
-          scan(longToks);
-          if (bestLine < 0) scan(singleToks);
-          if (bestLine >= 0 && bestScore >= 0.5) {
-            const lineText = fileLines[bestLine].slice(0, 500);
-            const span = Math.max(ned.length, lineText.length - bestOff);
-            for (let k = 0; k < span; k += 1) {
-              const a = lineText[bestOff + k];
-              const b = ned[k];
-              if (a === undefined || b === undefined || a !== b) {
-                firstDiff = { line: bestLine + 1, column: bestOff + k + 1, fileChar: accCpName(a === undefined ? null : a), wantChar: accCpName(b === undefined ? null : b) };
-                break;
+          // v2.6: explicit diagnostics — lookalike traps + first differing character (mirrors ACC edit_file).
+          const hints = [];
+          const rawHasCrlf = raw.includes('\r\n');
+          const oldHasCrlf = oldText.includes('\r\n');
+          if (sourceLineEnding === 'mixed') hints.push('文件混用了 CRLF/LF；为避免猜测性替换，未自动转换 oldText。请先统一换行或提供逐字节一致的 oldText');
+          else if (oldHasCrlf && !rawHasCrlf) hints.push('oldText 用 CRLF 换行，文件是 LF；请用 LF 版 oldText 或先 file_read 复制原文');
+          else if (!oldHasCrlf && rawHasCrlf && !oldText.includes('\r')) hints.push('文件在磁盘上是 CRLF 换行——oldText 用 LF 无法命中,请从 file_read 复制含 \\r\\n 的原文');
+          if (oldText.normalize('NFC') !== oldText) hints.push('oldText 含组合字符(NFD 形式),文件可能是预组合 NFC');
+          for (const ch of oldText) {
+            const cp = ch.codePointAt(0);
+            if (cp >= 0xFF01 && cp <= 0xFF5E) { hints.push('oldText 含全角字符 ' + accCpName(ch) + ',文件里可能是半角'); break; }
+          }
+          const nonAsciiOld = [...oldText].filter(c => c.codePointAt(0) > 0x7F);
+          if (nonAsciiOld.length) hints.push('oldText 含非 ASCII 字符: ' + nonAsciiOld.slice(0, 8).map(accCpName).join(', ') + '——文件对应位置可能是 ASCII 形近字符(或反之),逐字节必然不匹配');
+          // firstDiff: independent two-phase scan (long tokens, then single alnum chars) with per-line
+          // sliding-window alignment. NOT derived from closest.best — whole-line Levenshtein distance
+          // favours short unrelated lines over the real lookalike line (e.g. 'return x' beats 'x = a → b'
+          // when the arrow char is the only diff). Token filter keeps the sweep cheap (line <= 500 chars).
+          let firstDiff = null;
+          {
+            const ned = needle.slice(0, 500);
+            // hunt2 #15:曾误写成 /S+/g(只匹配大写字母 S 的连串),长词元一轮从没跑过,总是掉进单字符那轮。
+            const longToks = [...new Set(needle.match(/\S+/g) || [])].filter(t => t.length >= 2);
+            const singleToks = [...new Set([...needle].filter(c => /[A-Za-z0-9]/.test(c)))];
+            const scanLimit2 = Math.min(fileLines.length, MAX_CLOSEST_SCAN_LINES);
+            let bestLine = -1, bestOff = -1, bestScore = -1;
+            const scan = (toks) => {
+              if (!toks.length) return;
+              for (let i = 0; i < scanLimit2; i += 1) {
+                const line = fileLines[i].slice(0, 500);
+                if (!line.trim() || line.length < 2) continue;
+                if (!toks.some(t => line.includes(t))) continue;
+                if (line.length > 1000) continue;
+                const step = Math.max(1, Math.floor(line.length / 200));
+                for (let off = 0; off <= Math.max(0, line.length - ned.length); off += step) {
+                  const seg = line.slice(off, off + ned.length);
+                  let same = 0;
+                  for (let k = 0; k < seg.length && k < ned.length; k += 1) if (seg[k] === ned[k]) same += 1;
+                  const score = same / Math.max(seg.length, ned.length, 1);
+                  if (score > bestScore) { bestScore = score; bestOff = off; bestLine = i; }
+                }
+              }
+            };
+            scan(longToks);
+            if (bestLine < 0) scan(singleToks);
+            if (bestLine >= 0 && bestScore >= 0.5) {
+              const lineText = fileLines[bestLine].slice(0, 500);
+              const span = Math.max(ned.length, lineText.length - bestOff);
+              for (let k = 0; k < span; k += 1) {
+                const a = lineText[bestOff + k];
+                const b = ned[k];
+                if (a === undefined || b === undefined || a !== b) {
+                  firstDiff = { line: bestLine + 1, column: bestOff + k + 1, fileChar: accCpName(a === undefined ? null : a), wantChar: accCpName(b === undefined ? null : b) };
+                  break;
+                }
               }
             }
           }
+          return { ok: false, error: 'oldText was not found', closest, sourceLineEnding, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
         }
-        return { ok: false, error: 'oldText was not found', closest, sourceLineEnding, ...(hints.length ? { hints } : {}), ...(firstDiff ? { firstDiff } : {}) };
-      }
-      if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
-      const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
-        ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
-      const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
-      // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
-      // content already read above; only reached once we know the edit will apply (not the not-found path).
-      const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', raw);
-      await fsp.writeFile(p, updated, 'utf8');
-      return { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
-        sourceLineEnding, writtenLineEnding: detectTextLineEnding(updated), normalizedOldText };
+        if (count > 1 && !args.replaceAll) throw new Error(`oldText appears ${count} times; set replaceAll=true`);
+        const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
+          ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
+        const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
+        // v0.8-S4a: checkpoint the original bytes (op modify) BEFORE overwriting. `raw` is the pre-edit
+        // content already read above; only reached once we know the edit will apply (not the not-found path).
+        // hunt2 #2:检查点存读到的原字节(Buffer),不存解码后的串 —— 撤销必须逐字节还原。
+        const jctx = await journalSessionCtx(ctx);
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_edit', p, 'modify', rawBytes);
+        await fsp.writeFile(p, updated, 'utf8');
+        const ret = { ok: true, path: p, op: 'modify', replacements: args.replaceAll ? count : 1,
+          sourceLineEnding, writtenLineEnding: detectTextLineEnding(updated), normalizedOldText };
+        const warn = journalCheckpointWarn(jr);
+        if (warn) ret.checkpointWarn = warn;
+        return ret;
+      });
   } },
   file_delete: { paths: "write", guardNote: '', handler: async (args, ctx) => {
       // v0.8-S4a (moved in from S1 — a not-undoable delete could not ship before the journal existed).
@@ -43440,23 +45037,25 @@ const FILE_TOOL_HANDLERS = {
       // directories (only files are journaled/deletable here).
       const p = path.resolve(String(args.path || ''));
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_delete', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
-      const st = await fsp.stat(p).catch(() => null);
-      // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
-      if (!st) return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
-      if (st.isDirectory()) return { ok: false, error: 'is a directory', hint: '仅支持删除文件' };
-      const before = await fsp.readFile(p);
-      const jctx = await journalSessionCtx(ctx);
-      // b2-P0: 检查点记录失败(无 session 上下文/写盘失败)或 >5MB 被标 skipped 时,删除不可回滚 → 中止。
-      // file_delete 是唯一"永久不可逆"操作,安全网不能静默失效;宁可拒绝也不零记录删除。
-      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_delete', p, 'delete', before);
-      if (!jr || jr.ok === false) {
-        return { ok: false, error: `无法写入回滚检查点(${jr ? jr.reason : 'unknown'}),已中止删除以保证可回滚。请检查会话上下文或先手动备份。`, path: p, checkpointWarn: true };
-      }
-      if (jr.skipped) {
-        return { ok: false, error: '文件超过检查点快照上限,删除不可回滚,已中止。请先手动备份或分块处理。', path: p, checkpointWarn: true };
-      }
-      await fsp.unlink(p);
-      return { ok: true, path: p, op: 'delete' };
+      return withFileToolWriteLock([p], async () => {
+        const st = await fsp.stat(p).catch(() => null);
+        // v0.8-S7 error guidance: same ENOENT hint as file_read/file_edit so the model confirms the path first.
+        if (!st) return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
+        if (st.isDirectory()) return { ok: false, error: 'is a directory', hint: '仅支持删除文件' };
+        const before = await fsp.readFile(p);
+        const jctx = await journalSessionCtx(ctx);
+        // b2-P0: 检查点记录失败(无 session 上下文/写盘失败)或 >5MB 被标 skipped 时,删除不可回滚 → 中止。
+        // file_delete 是唯一"永久不可逆"操作,安全网不能静默失效;宁可拒绝也不零记录删除。
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_delete', p, 'delete', before);
+        if (!jr || jr.ok === false) {
+          return { ok: false, error: `无法写入回滚检查点(${jr ? jr.reason : 'unknown'}),已中止删除以保证可回滚。请检查会话上下文或先手动备份。`, path: p, checkpointWarn: true };
+        }
+        if (jr.skipped) {
+          return { ok: false, error: '文件超过检查点快照上限,删除不可回滚,已中止。请先手动备份或分块处理。', path: p, checkpointWarn: true };
+        }
+        await fsp.unlink(p);
+        return { ok: true, path: p, op: 'delete' };
+      });
   } },
   file_move: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) file_move(from, to, overwrite=false): 移动/重命名。检查点两条各自逆操作（见下注释）。
@@ -43474,37 +45073,62 @@ const FILE_TOOL_HANDLERS = {
       // v1.4.6-S3: a move both reads+deletes `from` and writes `to` — guard both as writes (out-of-bounds → deny).
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const toExists = await fsp.stat(to).then(() => true).catch(() => false);
-      if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
-      const fromBefore = await fsp.readFile(from);
-      const toBefore = toExists ? await fsp.readFile(to) : null;
-      const jctx = await journalSessionCtx(ctx);
-      // ① from 侧：op:delete（回滚=写回 from）。
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', from, 'delete', fromBefore);
-      // ② to 侧：已存在=modify（回滚=写回原 to）；不存在=create（回滚=删 to）。
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
-      await fsp.mkdir(path.dirname(to), { recursive: true });
-      try {
-        await fsp.rename(from, to);
-      } catch (e) {
-        // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
-        // (回滚作用于未发生的移动)。drop 失败只影响撤销精度,不影响本条错误本身。
-        const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_move', [from, to]).catch(() => ({ ok: false }));
-        if (e && e.code === 'EXDEV') {
-          // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
-          try {
-            await fsp.copyFile(from, to);
-            await fsp.unlink(from);
-          } catch (e2) {
-            // copy+delete 也失败：from 未动、to 可能半写 —— 检查点已回滚,如实披露部分状态。
-            return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+      return withFileToolWriteLock([from, to], async () => {
+        const toExists = await fsp.stat(to).then(() => true).catch(() => false);
+        if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
+        const fromBefore = await fsp.readFile(from);
+        const toBefore = toExists ? await fsp.readFile(to) : null;
+        const jctx = await journalSessionCtx(ctx);
+        // ① from 侧：op:delete（回滚=写回 from）。
+        const jrFrom = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', from, 'delete', fromBefore);
+        // hunt2 #1:from 侧快照没存下内容(>5MB 被标 skipped,或写盘失败)时,这对条目回滚起来是【丢数据】的:
+        // 逆序先撤 to(create → 删掉 to,也就是删掉唯一一份内容),再撤 from 时又报 before 没存 —— 实测 A、B 两头都没了。
+        // 目标原本不存在:丢掉这对条目,照常移动并如实披露「不可一键撤销」(移动不毁任何内容,文件就在 to)。
+        // 目标已存在(覆盖):覆盖掉的旧 to 与移动过去的大文件二者必丢其一,与 file_delete 同口径 —— 拒绝。
+        // 只删本次记下的那几条(按 entrySeq),同一回合早先涉及同一路径的条目不受牵连。
+        const recordedSeqs = [];
+        const dropRecorded = () => journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_move', [from, to], recordedSeqs).catch(() => ({ ok: false }));
+        if (jrFrom && Number.isFinite(jrFrom.entrySeq)) recordedSeqs.push(jrFrom.entrySeq);
+        const fromSnapshotMissing = !jrFrom || jrFrom.ok === false || !!jrFrom.skipped;
+        let checkpointWarn = '';
+        if (fromSnapshotMissing) {
+          await dropRecorded();
+          recordedSeqs.length = 0;
+          if (jrFrom && jrFrom.skipped && toExists) {
+            return { ok: false, error: '源文件超过检查点快照上限,覆盖式移动不可回滚,已中止。请先手动备份目标文件,或换一个不存在的目标路径。', from, to, checkpointWarn: true };
           }
+          checkpointWarn = journalCheckpointWarn(jrFrom || { ok: false, reason: 'unknown' });
         } else {
-          // b2-P2→b3: rename 失败,检查点已回滚 —— 不再留下作用于「未发生的移动」的 phantom 条目。
-          return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+          // ② to 侧：已存在=modify（回滚=写回原 to）；不存在=create（回滚=删 to）。
+          const jrTo = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_move', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
+          if (jrTo && Number.isFinite(jrTo.entrySeq)) recordedSeqs.push(jrTo.entrySeq);
+          checkpointWarn = journalCheckpointWarn(jrTo);
         }
-      }
-      return { ok: true, from, to, op: 'move', overwritten: toExists };
+        await fsp.mkdir(path.dirname(to), { recursive: true });
+        try {
+          await fsp.rename(from, to);
+        } catch (e) {
+          if (e && e.code === 'EXDEV') {
+            // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
+            // hunt2 #5:检查点只在退化也失败时才回滚 —— 修前 drop 在进这个分支之前就跑了,copy+unlink 成功后文件
+            // 已经移走、检查点却是 0 条,撤回本轮什么也不做(Windows 上 C:→D: 就是这条路)。
+            try {
+              await fsp.copyFile(from, to);
+              await fsp.unlink(from);
+            } catch (e2) {
+              // copy+delete 也失败：from 未动、to 可能半写 —— 回滚检查点,如实披露部分状态。
+              const dropped = await dropRecorded();
+              return { ok: false, error: `跨盘移动失败: ${(e2 && e2.message) || String(e2)}。from 未移动;to 可能不完整。`, from, to, partial: true, checkpointRolledBack: !!(dropped && dropped.ok) };
+            }
+          } else {
+            // b3-P2: 移动失败时刚写的两条检查点尚未对应任何真实变更 —— 回滚它们,避免 phantom journal
+            // (回滚作用于未发生的移动)。drop 失败只影响撤销精度,不影响本条错误本身。
+            const dropped = await dropRecorded();
+            return { ok: false, error: `移动失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+          }
+        }
+        return { ok: true, from, to, op: 'move', overwritten: toExists, ...(checkpointWarn ? { checkpointWarn } : {}) };
+      });
   } },
   file_copy: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) file_copy(from, to, overwrite=false)。逆操作：仅 to 一条。
@@ -43518,20 +45142,23 @@ const FILE_TOOL_HANDLERS = {
       // v1.4.6-S3: copy READS `from` (exfil vector if out of bounds) and WRITES `to` — guard each accordingly.
       { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
       { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
-      const toExists = await fsp.stat(to).then(() => true).catch(() => false);
-      if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
-      const toBefore = toExists ? await fsp.readFile(to) : null;
-      const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
-      await fsp.mkdir(path.dirname(to), { recursive: true });
-      try {
-        await fsp.copyFile(from, to);
-      } catch (e) {
-        // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
-        const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
-        return { ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
-      }
-      return { ok: true, from, to, op: 'copy', overwritten: toExists };
+      return withFileToolWriteLock([from, to], async () => {
+        const toExists = await fsp.stat(to).then(() => true).catch(() => false);
+        if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
+        const toBefore = toExists ? await fsp.readFile(to) : null;
+        const jctx = await journalSessionCtx(ctx);
+        const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'file_copy', to, toExists ? 'modify' : 'create', toExists ? toBefore : null);
+        await fsp.mkdir(path.dirname(to), { recursive: true });
+        try {
+          await fsp.copyFile(from, to);
+        } catch (e) {
+          // b3-P2: 复制失败(写满/权限等)时 to 未产生(或半写),检查点尚未对应真实变更 —— 回滚 phantom 条目。
+          const dropped = await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'file_copy', [to]).catch(() => ({ ok: false }));
+          return { ok: false, error: `复制失败: ${(e && e.message) || String(e)}。`, from, to, checkpointRolledBack: !!(dropped && dropped.ok), phantomJournal: !(dropped && dropped.ok) };
+        }
+        const checkpointWarn = journalCheckpointWarn(jr);
+        return { ok: true, from, to, op: 'copy', overwritten: toExists, ...(checkpointWarn ? { checkpointWarn } : {}) };
+      });
   } },
   file_list: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
@@ -43620,11 +45247,13 @@ const ARCHIVE_TOOL_HANDLERS = {
       const destExists = await fsp.stat(dest).then(() => true).catch(() => false);
       const destBefore = destExists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
+      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, zipBuf);
       const fileCount = entries.filter(e => !e.isDir).length;
-      return { ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length };
+      const checkpointWarn = journalCheckpointWarn(jr); // hunt2 #17
+      return { ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length,
+        ...(entries.skippedSensitive ? { skippedSensitive: entries.skippedSensitive } : {}), ...(checkpointWarn ? { checkpointWarn } : {}) };
   } },
   archive_unzip: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) archive_unzip(src, destDir, overwrite=false): 解 .zip 到 destDir（stored/deflate）。
@@ -43662,10 +45291,30 @@ const ARCHIVE_TOOL_HANDLERS = {
       const jctx = await journalSessionCtx(ctx);
       const written = [];
       let extractedBytes = 0;
-      const failWithWritten = (msg, extra) => {
+      let checkpointWarn = '';
+      // hunt2 #13:检查点攒批记(journalRecordMany,一批只读写一次索引),修前每个文件整份读改写一次索引,
+      // 2000 个条目实测 ~22s。纪律不变:一批的检查点先落,再写这一批的文件;失败返回前先把已备好的一批落完,
+      // 「已写 N 个」的计数与盘上一致。按条数/字节分批,内存不随整包增长。
+      let pending = [], pendingBytes = 0;
+      const flush = async () => {
+        if (!pending.length) return;
+        const batch = pending;
+        pending = []; pendingBytes = 0;
+        const results = await journalRecordMany(jctx.sessionId, jctx.turnSeq, batch.map(b => ({
+          tool: 'archive_unzip', filePath: b.absPath, op: b.exists ? 'modify' : 'create', beforeContent: b.exists ? b.before : null })));
+        for (const r of results) if (!checkpointWarn) checkpointWarn = journalCheckpointWarn(r); // hunt2 #17
+        for (const b of batch) {
+          await fsp.mkdir(path.dirname(b.absPath), { recursive: true });
+          await fsp.writeFile(b.absPath, b.data);
+          written.push(b.absPath);
+        }
+      };
+      const failWithWritten = async (msg, extra) => {
+        await flush();
         // b2-P1: 部分解压失败必须带 written 计数 —— 模型/用户需要知道已落盘多少文件才能准确回滚/清理
         const o = { ok: false, error: msg, filesExtracted: written.length, bytesExtracted: extractedBytes, ...(extra || {}) };
         if (written.length) o.partial = true;
+        if (checkpointWarn) o.checkpointWarn = checkpointWarn;
         return o;
       };
       for (const { rec, absPath } of plan) {
@@ -43675,15 +45324,17 @@ const ARCHIVE_TOOL_HANDLERS = {
         catch (e) { return failWithWritten((e && e.message) || String(e), { entry: rec.name }); }
         extractedBytes += data.length;
         if (extractedBytes > ZIP_MAX_TOTAL) return failWithWritten(`解压总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`, { hint: '疑似 zip 炸弹，已中止' });
+        // 同一批里前面的条目还没落盘:同名条目(包里重复的路径)先把前一批落完再判存在,免得 exists 判错。
+        if (pending.some(b => fileToolWriteLockKey(b.absPath) === fileToolWriteLockKey(absPath))) await flush();
         const exists = await fsp.stat(absPath).then(() => true).catch(() => false);
         if (exists && !args.overwrite) return failWithWritten('目标文件已存在', { path: absPath, hint: '若要覆盖请设置 overwrite=true' });
         const before = exists ? await fsp.readFile(absPath) : null;
-        await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_unzip', absPath, exists ? 'modify' : 'create', exists ? before : null);
-        await fsp.mkdir(path.dirname(absPath), { recursive: true });
-        await fsp.writeFile(absPath, data);
-        written.push(absPath);
+        pending.push({ absPath, exists, before, data });
+        pendingBytes += data.length + (before ? before.length : 0);
+        if (pending.length >= 200 || pendingBytes >= 32 * 1024 * 1024) await flush();
       }
-      return { ok: true, src, destDir, files: written.length, bytes: extractedBytes };
+      await flush();
+      return { ok: true, src, destDir, files: written.length, bytes: extractedBytes, ...(checkpointWarn ? { checkpointWarn } : {}) };
   } },
 };
 
@@ -43728,7 +45379,9 @@ const SHELL_TOOL_HANDLERS = {
         return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       const p = path.join(dir, `${id}.ps1`);
-      await fsp.writeFile(p, String(args.code || ''), 'utf8');
+      // hunt2 #10:带 BOM 落盘 —— Windows PowerShell 5.1 按 ANSI 读无 BOM 的 .ps1,脚本里的中文字面量会被读成乱码
+      // (04 runPowerShell 头注同一条)。
+      await fsp.writeFile(p, '\ufeff' + String(args.code || ''), 'utf8');
       return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
         cwd: g.cwd,
         timeoutMs: args.timeoutMs || 60000,
@@ -43805,7 +45458,9 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
       // v1.4.6-S2: same cmd.exe injection fix as browser_open — direct explorer.exe spawn, no shell.
       const s = buildOpenSpawn(target);
-      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // 启动失败(ENOENT/EPERM…)是异步 'error' 事件:等到 spawn/error 再回话,不再先报「opened」再把服务带崩。
+      const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+      if (!started.ok) return { ok: false, error: `无法启动打开程序 ${s.command}:${started.error}`, target };
       return { ok: true, opened: target };
   } },
 };
@@ -43852,7 +45507,7 @@ const NETWORK_TOOL_HANDLERS = {
       const exists = await fsp.stat(dest).then(() => true).catch(() => false);
       const before = exists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
-      await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
+      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
       await fsp.mkdir(path.dirname(dest), { recursive: true });
       await fsp.writeFile(dest, got.body);
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
@@ -43863,6 +45518,8 @@ const NETWORK_TOOL_HANDLERS = {
       if (/text\/html/i.test(ct) && !['.html', '.htm'].includes(destExt)) {
         ret.note = `服务器返回 text/html 且目标扩展名不是 .html —— 可能下载到了错误页/登录页/验证页,请核对内容。`;
       }
+      const warn = journalCheckpointWarn(jr); // hunt2 #17
+      if (warn) ret.checkpointWarn = warn;
       return ret;
   } },
   browser_open: { paths: null, guardNote: "spawn 默认浏览器(buildBrowserOpenSpawn 无 shell);exec tier 门,不触文件路径", handler: async (args, ctx) => {
@@ -43871,7 +45528,9 @@ const NETWORK_TOOL_HANDLERS = {
       // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
       // default-browser executable is available; folders keep the safe Explorer handoff behavior.
       const s = buildBrowserOpenSpawn(target);
-      cp.spawn(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+      // 默认浏览器路径可能是注册表里的残留(已卸载):失败走普通工具失败,不再成为 uncaughtException。
+      const started = await spawnDetachedChecked(s.command, s.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+      if (!started.ok) return { ok: false, error: `无法启动浏览器 ${s.command}:${started.error}`, target, browserMode: s.mode };
       return { ok: true, opened: target, browserMode: s.mode, preservedWorkbench: true };
   } },
 };
@@ -44263,13 +45922,41 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   return { health, manifest: mani };
 }
 
+// hunt2-mcp:Windows 记事本存的 SKILL.md 带 UTF-8 BOM,修前 `^---` 对不上,整段 frontmatter 被当正文(name/description
+// 全丢,描述变成「---」)。三个读 frontmatter 的入口都先剥 BOM。
+function stripLeadingBom(raw) { return String(raw || '').replace(/^\uFEFF/, ''); }
+// YAML 块标量(description: > / | / >- / |-,后跟缩进的续行)。修前值取到的就是字面的「>」。
+// 只认这两种块标量与单行 key: value,够 SKILL.md / 记忆 / 命令文件用;不引入 YAML 解析器。
+function foldFrontmatterBlock(style, lines) {
+  const body = lines.slice();
+  while (body.length && !body[body.length - 1].trim()) body.pop();
+  const widths = body.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length);
+  const indent = widths.length ? Math.min(...widths) : 0;
+  const rows = body.map(l => l.slice(indent).replace(/\s+$/, ''));
+  if (style === '|') return rows.join('\n').trim();
+  let out = '';
+  for (const r of rows) {
+    if (!r) { out += '\n'; continue; }
+    out += (out && !out.endsWith('\n') ? ' ' : '') + r;
+  }
+  return out.trim();
+}
 function parseFrontmatter(raw) {
   const fm = {};
-  const m = /^---\s*\r?\n([\s\S]*?)\r?\n---/.exec(raw || '');
+  const m = /^---\s*\r?\n([\s\S]*?)\r?\n---/.exec(stripLeadingBom(raw));
   if (m) {
-    for (const line of m[1].split(/\r?\n/)) {
-      const mm = /^([A-Za-z0-9_-]+)\s*:\s*(.*)$/.exec(line);
-      if (mm) fm[mm[1].toLowerCase()] = mm[2].replace(/^["']|["']$/g, '').trim();
+    const lines = m[1].split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const mm = /^([A-Za-z0-9_-]+)\s*:\s*(.*)$/.exec(lines[i]);
+      if (!mm) continue;
+      const block = /^([>|])[+-]?[1-9]?\s*$/.exec(mm[2]);
+      if (block) {
+        const cont = [];
+        while (i + 1 < lines.length && (/^\s/.test(lines[i + 1]) || !lines[i + 1].trim())) cont.push(lines[++i]);
+        fm[mm[1].toLowerCase()] = foldFrontmatterBlock(block[1], cont);
+        continue;
+      }
+      fm[mm[1].toLowerCase()] = mm[2].replace(/^["']|["']$/g, '').trim();
     }
   }
   return fm;
@@ -44278,7 +45965,7 @@ function parseFrontmatter(raw) {
 // First real paragraph of a doc (skipping frontmatter + the # title) — used as a description when the
 // toolkit files have no YAML frontmatter.
 function firstParaDesc(raw) {
-  const body = String(raw || '').replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
+  const body = stripLeadingBom(raw).replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
   for (const line of body.split(/\r?\n/)) {
     const t = line.trim();
     if (!t || t.startsWith('#') || t.startsWith('---')) continue;
@@ -44294,7 +45981,7 @@ function docMeta(raw) {
 // Remove machine-facing frontmatter while keeping the useful workflow body for the skill detail view and
 // provider-compatible command templates. The result is still treated as authored/untrusted content.
 function docBody(raw, max = 12000) {
-  return String(raw || '').replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '').trim().slice(0, max);
+  return stripLeadingBom(raw).replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '').trim().slice(0, max);
 }
 function commandPrompt(raw) {
   return docBody(raw, 8000).replace(/^#\s+[^\r\n]+\r?\n+/, '').trim();
@@ -44335,10 +46022,15 @@ async function readSkillDir(baseDir, source, caps) {
   let ents = [];
   try { ents = await fsp.readdir(baseDir, { withFileTypes: true }); } catch { return out; } // 目录不存在 → 空
   for (const d of ents) {
-    if (!d.isDirectory()) continue;
     const id = d.name;
     if (!SKILL_ID_RE.test(id)) continue; // 非法/穿越名跳过
     const dir = path.join(baseDir, id);
+    // hunt2-mcp:符号链接 / 目录联接(Windows junction)指向的技能目录也认 —— 「把技能仓链进 skills/」是常见装法,
+    // 修前 Dirent.isDirectory() 对链接恒为 false,整个技能静默消失。stat 跟随链接判是不是目录。
+    if (!d.isDirectory()) {
+      if (!d.isSymbolicLink()) continue;
+      try { if (!(await fsp.stat(dir)).isDirectory()) continue; } catch { continue; }
+    }
     const file = path.join(dir, 'SKILL.md');
     let raw = '';
     try { const st = await fsp.stat(file); if (!st.isFile() || st.size > 256 * 1024) continue; raw = await fsp.readFile(file, 'utf8'); } catch { continue; }
@@ -45058,12 +46750,12 @@ const MCP_TOOLS = [
   // loopback/私网/元数据/协议) — an untrusted url can never reach an internal endpoint.
   {
     name: 'web_search',
-    description: 'Search the web via the configured search backend (searxng/bing/brave/custom). Returns {results:[{title,url,snippet}]}. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
+    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha). Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
     inputSchema: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'the search query' },
-        maxResults: { type: 'number', description: 'max results to return (default 5, clamped 1..20)' },
+        maxResults: { type: 'number', description: 'max results to return (default 8, clamped 1..20)' },
       },
       required: ['query'],
     },
@@ -46961,12 +48653,20 @@ async function handleApi(req, res, pathname) {
     const background = body.async === true || body.background === true;
     if (background) {
       const runId = makeId('run');
-      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true }).catch(async e => {
+      // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
+      // 校验失败(重复节点 id、缺角色、依赖坏)以 { ok:false } 返回却没人看,调用方拿到 runId 却永远等不到这次运行;
+      // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
+      let markRegistered = null;
+      const registered = new Promise(resolve => { markRegistered = resolve; });
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
         await completion(run).catch(() => {});
+        return { ok: false, error: run.error, reported: true };
       });
+      const first = await Promise.race([registered.then(() => null), finished]);
+      if (first && first.ok === false && !first.reported) return send(res, json({ ok: false, error: first.error || '工作流未能启动', startedCount: 0 }));
       return send(res, json({ ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean), note: '代理已在后台运行;完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。' }));
     }
     // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
@@ -47437,7 +49137,22 @@ async function handleApi(req, res, pathname) {
         if (s) ctx.session = s;
       } catch { /* degrade gracefully */ }
     }
-    return send(res, json({ ok: true, result: await toolCall(name, body, ctx) }));
+    // 未知工具名是 404,不是服务端故障(修前 toolCall 抛「Unknown tool」→ 500 + http_unhandled;
+    // 原型链上的名字如 constructor 更会在 entry.handler 上抛 TypeError)。
+    if (!Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name)) {
+      return send(res, apiFailure('tool.unknown', { name }, `Unknown tool: ${name}`, 404));
+    }
+    let result;
+    try { result = await toolCall(name, body, ctx); }
+    catch (error) {
+      // 工具自己抛的普通 Error(「pattern is required」「url must start with http://」、ENOENT 之类)是这次调用
+      // 的参数/对象有问题 → 400 tool.failed。编程错误(TypeError/ReferenceError…)与自带状态码的照旧交给顶层:
+      // 500 + http_unhandled 日志,真 bug 不被 400 掩掉。
+      const programming = error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError || error instanceof RangeError;
+      if (!error || programming || error.statusCode) throw error;
+      return send(res, apiFailure('tool.failed', { name }, String(error.message || error), 400));
+    }
+    return send(res, json({ ok: true, result }));
   }
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
@@ -47478,8 +49193,9 @@ function processImage(pid) {
 function processCommandLine(pid) {
   return new Promise(resolve => {
     const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
-    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, stdout) => {
-      resolve(err || !stdout ? '' : String(stdout).toLowerCase());
+    // 按行判 UTF-8 / GBK:工作台装在中文路径下时,命令行里的中文按 UTF-8 解是乱码,取证就对不上自己。
+    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000, encoding: 'buffer' }, (err, stdout) => {
+      resolve(err || !stdout || !stdout.length ? '' : decodeConsoleText(stdout).toLowerCase());
     });
   });
 }
@@ -47623,6 +49339,38 @@ async function startServer(opts) {
   }
 }
 
+// hunt2-steward ⑤:启动清扫。until-done 驱动器只活在拉起它的那一次 runSessionTurn 里 —— 进程一重启,
+// 磁盘上仍写着 autoMode:'until-done' 的账本就再也没人推,线程五态却按它判成 running,永远不落地。
+// 与 markInterruptedAgentRuns / markInterruptedInterventions 同一立场:重启 = 上次生命周期结束,不自动续跑
+// (那要重新起回合、重新烧 token,得用户点头),而是诚实地降成 supervised,「继续」按钮随之可点。
+// 已收工(result.status === 'complete')的账本保留原值:五态先按 complete 判 done,改它只是白写一次盘。
+// 成本:只读会话头(正文在 .messages.ndjson 里,不碰),先按子串筛,命中才解析、才整份装载改写。
+// 在 listen 之前 await:此刻没有任何回合在跑。改写走 mutateSession(后台读-改-写的唯一原语)。
+// 落点:住在启动序列旁边而不是 06e —— 13 引用 06e 会新添一条循环边(06e 在强连通分量里)。
+async function resetOrphanedMissionDrivers() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return 0; }
+  let reset = 0;
+  for (const f of files) {
+    const hit = /^(sess_[A-Za-z0-9_-]+)\.json$/.exec(f);
+    if (!hit) continue;
+    const text = await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => '');
+    if (!/"autoMode"\s*:\s*"until-done"/.test(text)) continue;
+    const head = safeJsonParse(text, null);
+    const hm = head && head.mission;
+    if (!hm || hm.autoMode !== 'until-done' || (hm.result && hm.result.status === 'complete')) continue;
+    const r = await mutateSession(hit[1], session => {
+      if (!session.mission || session.mission.autoMode !== 'until-done') return { abort: 'not_armed' };
+      session.mission.autoMode = 'supervised';
+      session.mission.updatedAt = nowIso();
+      return null;
+    }, { writer: 'mission_driver_boot_reset' }).catch(() => null);
+    if (r && r.ok) reset += 1;
+  }
+  if (reset) logEvent({ kind: 'mission_driver_boot_reset', sessions: reset });
+  return reset;
+}
+
 async function startServerInner(opts) {
   try {
     await ensureDirs();
@@ -47644,6 +49392,7 @@ async function startServerInner(opts) {
   }
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
+  await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.
@@ -47816,7 +49565,9 @@ async function startServerInner(opts) {
     process.exit(1);
   });
   if (opts.open) {
-    cp.spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+    // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。
+    spawnDetachedChecked('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' })
+      .then(started => { if (!started.ok) { try { console.error(`--open: 无法自动打开浏览器(${started.error}),请手动访问 ${url}`); } catch { /* ignore */ } } });
   }
 }
 
@@ -48204,8 +49955,11 @@ async function installIntegration() {
   if (config.claudePath && existsExecutable(config.claudePath)) {
     // 3.0:先移除旧 id 的登记(win-claude-workbench;没有就报错,忽略),再按新 id 'ruyi' 登记 —— 否则 Claude Code 里
     // 同一个工作台 MCP 会以两个名字各起一个子进程。
+    // 逐个作用域删:老版本 node install 登记在 local、安装脚本登记在 user;不带 -s 时同一个 id 在多个作用域里都有会直接报错。
     for (const legacyId of LEGACY_RUYI_MCP_SERVER_IDS) {
-      try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 没登记过 */ }
+      for (const scope of ['local', 'user', 'project']) {
+        try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId, '-s', scope], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 这个作用域里没登记过 */ }
+      }
     }
     const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', RUYI_MCP_SERVER_ID, JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers[RUYI_MCP_SERVER_ID])], {
       cwd: os.homedir(),
@@ -48442,6 +50196,8 @@ async function handleMcpApiRoutes(req, res, pathname) {
     });
     if (!imp.ok) return send(res, json({ ok: false, error: '外部 MCP 数量已达上限(最多 10 个),请先移除一个再导入' }));
     const next = imp.config; const updated = imp.value;
+    // hunt2-mcp:同 id 覆盖导入 = 用户修好了这条连接器;旧进程 / 在途启动 / 失败冷却按 id 记账,不作废就还是旧的。
+    invalidateMcpRuntime(cleaned.id);
     await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 再生成 .mcp.json(缺失时不阻断导入)
     logEvent({ kind: 'mcp_import', id: cleaned.id, updated, source: folder });
     // 响应附清洗后的条目, env 值掩码(参考 apiKey 掩码模式, 防泄漏 token 类环境变量)。
@@ -48493,6 +50249,7 @@ async function handleMcpApiRoutes(req, res, pathname) {
     });
     if (!imp.ok) return send(res, json({ ok: false, error: '没有可导入的条目', skipped: imp.value.skipped }));
     const next = imp.config; const { added, updated, skipped } = imp.value;
+    for (const id of [...added, ...updated]) invalidateMcpRuntime(id);   // 同 import-folder:作废旧运行时状态
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
     return send(res, json({ ok: true, added, updated, skipped }));
@@ -49239,8 +50996,10 @@ async function extractOverlayZip(zipPath, destDir) {
     const ps = "try { Expand-Archive -LiteralPath '" + qs(zipPath) + "' -DestinationPath '" + qs(destDir) + "' -Force -ErrorAction Stop; 'OK' } catch { 'ERR:' + $_.Exception.Message }";
     // 128f-⑬:execFileSync → 异步 execFile。修前解压一个覆盖包(最长 120 s)期间整个服务不答话 —— 更新中心自己的进度、
     // 其它面的请求与推送全部排队(同文件下方 runOverlayPs1 早就因为同一个理由改成了异步,见对抗审查 F4)。
+    // -EncodedCommand(UTF-16LE Base64)而不是 -Command:无控制台起的 powershell.exe 解析 -Command 里的中文会在输入阶段
+    // 就坏掉(04-desktop-shell runPowerShell 头注的实测),覆盖包放在中文路径下就解不出来。输出按行判 UTF-8 / GBK。
     const out = await new Promise((resolve, reject) => {
-      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { encoding: 'buffer', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(decodeConsoleText(stdout))));
     });
     const trimmed = String(out || '').trim();
     if (trimmed.startsWith('ERR:')) return { ok: false, error: trimmed.slice(4) };
@@ -49273,8 +51032,11 @@ function runOverlayPs1(ps1Path, action, overlayRoot, target, extraArgs) {
   if (target) args.push('-Target', target);
   if (Array.isArray(extraArgs)) args.push(...extraArgs);
   return new Promise(resolve => {
-    cp.execFile('powershell', args, { encoding: 'utf8', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
-      const so = String(stdout || (err && err.stdout) || '');
+    // 输出按行判 UTF-8 / GBK(00-boot decodeConsoleText):中文 Windows 上 PS1 的 JSON 里带中文路径 / 报错时是 GBK。
+    cp.execFile('powershell', args, { encoding: 'buffer', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdoutBuf, stderrBuf) => {
+      const stdout = decodeConsoleText(stdoutBuf || (err && err.stdout) || Buffer.alloc(0));
+      const stderr = decodeConsoleText(stderrBuf || Buffer.alloc(0));
+      const so = String(stdout || '');
       const j = tryParseJson(so);
       if (j) return resolve({ ok: true, json: j, raw: so });
       if (err && !so) return resolve({ ok: false, error: String(err.message || err), stderr: String(stderr || ''), raw: '' });
@@ -49411,15 +51173,18 @@ async function handleOverlayApiRoutes(req, res, pathname) {
 // 为什么这里要落盘索引,而记忆召回那边不落:记忆的检索单元就是注册表已经读进来的头部字段,重算是
 // 微秒级;会话的检索单元要从可能几 MB 的 NDJSON 正文里抽,不缓存就是每次搜索把整个历史读一遍。
 //
-// 索引单元 = 标题 + 摘要 + 首条 user 消息 + 末尾若干条消息摘录,每会话 ≤ 4KB。失效键 =
-// updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
-// 正文读取只取文件头尾两段,不整体读入 —— 一条几 MB 的会话不会因为被搜索而把内存顶起来。
+// 索引单元(v2)= 标题 + 摘要 + 【每一条】用户消息(各取开头一段)+ 助手回复(从新到旧各取开头一段),每会话 ≤ 8K 字符。
+// v1 只收首条 user 与末尾 6 条,长对话中间问过的事永远搜不到(「搜不全」);还把后台任务回执、压缩标记这类
+// 系统行也收了进来(「搜到垃圾」)。失效键 = updatedAt + messageCount(两者都在 listSessions 的元数据里,判断失效零额外 IO)。
+// 正文读取:≤ 2MB 整个读,更大的只读头尾各 1MB —— 一条几十 MB 的会话不会因为被搜索而把内存顶起来。
+// 索引文件名沿用 _search-index-v1.json(换了名旧文件就成了孤儿),版本号升到 2:旧索引读进来就是版本不符 → 全量重建。
 const SESSION_SEARCH_INDEX_FILE = '_search-index-v1.json';
-const SESSION_SEARCH_INDEX_VERSION = 1;
-const SESSION_SEARCH_UNIT_CAP = 4096;      // 每会话进索引的字符上限
-const SESSION_SEARCH_TAIL_MESSAGES = 6;    // 末尾取几条
-const SESSION_SEARCH_HEAD_BYTES = 24 * 1024;
-const SESSION_SEARCH_TAIL_BYTES = 96 * 1024;
+const SESSION_SEARCH_INDEX_VERSION = 2;
+const SESSION_SEARCH_UNIT_CAP = 8192;      // 每会话进索引的字符上限
+const SESSION_SEARCH_USER_CHARS = 400;     // 每条用户消息取多少
+const SESSION_SEARCH_ASSISTANT_CHARS = 240;// 每条助手回复取多少
+const SESSION_SEARCH_HEAD_BYTES = 1024 * 1024;
+const SESSION_SEARCH_TAIL_BYTES = 1024 * 1024;
 const SESSION_SEARCH_SNIPPET_RADIUS = 60;
 const SESSION_SEARCH_MAX_LIMIT = 50;
 const SESSION_SEARCH_MIN_QUERY = 2;
@@ -49478,40 +51243,52 @@ function sessionMessageText(row) {
   return parts.join(' ');
 }
 
-// 检索单元:标题/摘要/工作目录 + 首条 user 消息 + 末尾若干条消息。首条 user 消息是「这轮会话
-// 到底要干什么」的最强信号,末尾几条是「最后落到哪」——中间的过程留给全文,不进索引。
+// 不进索引的行:系统行(压缩标记、修复说明、后台任务回执)、带 backgroundJobId 的回执、以及以「完成通知 /
+// system-reminder」开头的注入文本 —— 它们不是用户说过或看过的话,进了索引只会让搜索命中一堆不相干的会话。
+function sessionSearchRowIsNoise(row) {
+  if (!row || typeof row !== 'object') return true;
+  if (row.role !== 'user' && row.role !== 'assistant') return true;
+  if (row.backgroundJobId || row.source === 'compact' || row.hidden === true) return true;
+  const text = typeof row.content === 'string' ? row.content.trimStart() : '';
+  return /^(?:\[(?:代理完成通知|后台任务完成通知|后台任务|工具结果)|<system-reminder>)/.test(text);
+}
 async function buildSessionSearchUnit(meta) {
   const body = sessionBodyPaths(meta.id);
   const { head, tail } = await readNdjsonEdges(body.messages, SESSION_SEARCH_HEAD_BYTES, SESSION_SEARCH_TAIL_BYTES);
-  const headRows = parseNdjsonRows(head);
-  const tailRows = parseNdjsonRows(tail, { dropFirstPartial: true });
-  const firstUser = headRows.find(row => row && row.role === 'user');
-  const lastRows = (tailRows.length ? tailRows : headRows).slice(-SESSION_SEARCH_TAIL_MESSAGES);
+  const rows = [...parseNdjsonRows(head), ...parseNdjsonRows(tail, { dropFirstPartial: true })].filter(row => !sessionSearchRowIsNoise(row));
   // 116-5b:线程的名字与那句概括也进检索单元。它们是模型对「这条线程到底要干什么」的概括,
   // 常常用了用户原话里没打出来的词(原话「帮我分析一下AMD」/ 概括「拉 AMD 最新行情与新闻」)——
-  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉,检索单元逐字节不变。
-  // 索引指纹是 updatedAt|messageCount:摘要落盘走 saveSession(它会推 updatedAt),所以指纹自然会变、
-  // 单元自然会重抽,不需要在这里另加一条失效判据。
+  // 顺带提召回,而不只是显示。缺席时这两段是空串,被下面的 filter(Boolean) 丢掉。
   const briefUnit = sessionBriefOf(meta);
   const parts = [meta.title || '', (briefUnit && briefUnit.title) || '', (briefUnit && briefUnit.gist) || '', meta.summary || '', meta.cwd || ''];
+  let used = parts.reduce((n, part) => n + String(part).length + 1, 0);
   const seen = new Set();
-  const push = value => {
-    const trimmed = String(value || '').trim();
-    // 短会话里“首条 user”往往也在尾部那几条里，不去重的话它会在检索单元里出现两遍，
-    // 既白白抬高 tf，也让摘录看上去像复制错了。
-    if (!trimmed || seen.has(trimmed)) return;
+  const push = (value, cap) => {
+    const trimmed = String(value || '').replace(/\s+/g, ' ').trim().slice(0, cap);
+    // 同一句话(重发、重试)只收一次,既不白白抬高 tf,摘录也不会像复制错了。
+    if (!trimmed || seen.has(trimmed) || used >= SESSION_SEARCH_UNIT_CAP) return;
     seen.add(trimmed);
     parts.push(trimmed);
+    used += trimmed.length + 1;
   };
-  if (firstUser) push(sessionMessageText(firstUser));
-  for (const row of lastRows) push(sessionMessageText(row));
+  // 用户说过的每一句都是最强的「这条会话干过什么」信号,先收;剩下的额度给助手回复,从新到旧。
+  for (const row of rows) if (row.role === 'user') push(sessionMessageText(row), SESSION_SEARCH_USER_CHARS);
+  for (let i = rows.length - 1; i >= 0; i--) if (rows[i].role === 'assistant') push(sessionMessageText(rows[i]), SESSION_SEARCH_ASSISTANT_CHARS);
   return parts.filter(Boolean).join('\n').replace(/\s+/g, ' ').slice(0, SESSION_SEARCH_UNIT_CAP);
 }
 
+// 进程内缓存:侧栏搜索是边打字边搜(200ms 去抖),修前每敲一个字就把整份索引(会话多时十几 MB)读盘再解析一遍。
+// 按文件的 mtime + size 认新旧;本进程自己写索引时直接更新缓存。
+let sessionSearchIndexCache = null;
 async function readSessionSearchIndex() {
   try {
-    const raw = JSON.parse(await fsp.readFile(sessionSearchIndexPath(), 'utf8'));
+    const file = sessionSearchIndexPath();
+    const st = await fsp.stat(file);
+    const stamp = `${st.mtimeMs}|${st.size}`;
+    if (sessionSearchIndexCache && sessionSearchIndexCache.stamp === stamp) return sessionSearchIndexCache.data;
+    const raw = JSON.parse(await fsp.readFile(file, 'utf8'));
     if (!raw || raw.version !== SESSION_SEARCH_INDEX_VERSION || !raw.entries || typeof raw.entries !== 'object') return null;
+    sessionSearchIndexCache = { stamp, data: raw };
     return raw;
   } catch {
     return null; // 缺失/损坏 = 全量重建。索引是纯派生物,没有需要抢救的权威数据。
@@ -49533,26 +51310,47 @@ async function refreshSessionSearchIndex(metas) {
   if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  await atomicWriteJson(sessionSearchIndexPath(), payload).catch(() => {});
+  const wrote = await atomicWriteJson(sessionSearchIndexPath(), payload).then(() => true, () => false);
+  if (wrote) {
+    try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
+  }
   return entries;
 }
 
-// 摘录:定位第一个命中的查询词,取前后各若干字符。出服务端前过 redact() —— 与 /api/audit 同一条
-// 脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
+// 摘录:取【命中查询词最多】的那一段(修前取第一个命中处 —— 常常是某个常见字碰巧出现的地方,看不出为什么命中)。
+// 出服务端前过 redact() —— 与 /api/audit 同一条脱敏路径,会话正文里粘过的 key/token 不会因为「搜了一下」就漏到响应里。
 function sessionSearchSnippet(unit, terms) {
   const source = String(unit || '');
   const lower = source.toLowerCase();
-  let at = -1;
+  const span = SESSION_SEARCH_SNIPPET_RADIUS * 3;
+  const candidates = [];
   for (const term of terms) {
-    const found = lower.indexOf(term);
-    if (found >= 0 && (at < 0 || found < at)) at = found;
+    let from = 0;
+    for (let n = 0; n < 20; n++) {
+      const found = lower.indexOf(term, from);
+      if (found < 0) break;
+      candidates.push(found);
+      from = found + term.length;
+    }
+  }
+  let at = -1, best = -1;
+  for (const pos of candidates) {
+    const start = Math.max(0, pos - SESSION_SEARCH_SNIPPET_RADIUS);
+    const window = lower.slice(start, start + span);
+    const distinct = terms.filter(term => window.includes(term)).length;
+    if (distinct > best || (distinct === best && pos < at)) { best = distinct; at = pos; }
   }
   const start = at < 0 ? 0 : Math.max(0, at - SESSION_SEARCH_SNIPPET_RADIUS);
-  const end = Math.min(source.length, start + SESSION_SEARCH_SNIPPET_RADIUS * 3);
+  const end = Math.min(source.length, start + span);
   const slice = source.slice(start, end);
   return redact((start > 0 ? '…' : '') + slice + (end < source.length ? '…' : ''));
 }
 
+// 排序(修前:词法命中与字符 n-gram 向量两路做 RRF 融合,只要沾一个字就进结果 —— 「搜到垃圾」的主因):
+//   ① 词法命中为主。一个会话要算命中,得覆盖至少一半的查询词,或者原样包含整句查询;
+//      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
+//   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
+//      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
@@ -49565,28 +51363,42 @@ async function searchSessionsByContent(query, limit) {
     .map(meta => ({ id: meta.id, text: entries[meta.id].unit }));
   if (!documents.length) return { ok: true, query: q, results: [], indexed: 0 };
 
-  // L0 词法:子串命中(保住今天的直觉 —— 打出完整词就该排最前);L1 向量:同义/拼写漂移兜底。
   const terms = [...new Set(retrievalTerms(q).filter(term => !term.startsWith('#')))];
-  const lexical = [];
+  const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
+  const needed = Math.max(1, Math.ceil(terms.length / 2));
+  const scores = new Map();
   for (const doc of documents) {
     const hay = doc.text.toLowerCase();
-    let hits = 0;
-    for (const term of terms) if (hay.includes(term)) hits += Math.min(12, Math.max(2, term.length));
-    if (hits > 0) lexical.push({ id: doc.id, hits });
+    const meta = byId.get(doc.id) || {};
+    const brief = sessionBriefOf(meta);
+    const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
+    let score = 0, matched = 0;
+    for (const term of terms) {
+      if (!hay.includes(term)) continue;
+      matched += 1;
+      const weight = Math.min(12, Math.max(2, term.length));
+      score += titleHay.includes(term) ? weight * 2 : weight;
+    }
+    const exact = phrase.length >= 2 && hay.replace(/\s+/g, ' ').includes(phrase);
+    if (!exact && matched < needed) continue;
+    if (exact) score += 30;
+    if (terms.length && matched === terms.length) score += 10;
+    scores.set(doc.id, score);
   }
-  lexical.sort((a, b) => b.hits - a.hits || String(a.id).localeCompare(String(b.id)));
+  const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
 
   const corpus = buildRetrievalCorpus(documents);
   const vector = rankRetrievalCorpus(corpus, q);
+  const top = vector.length ? vector[0].score : 0;
+  const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
+  const extra = vector.filter(row => !scores.has(row.id) && row.score >= floor);
 
-  const fused = reciprocalRankFusion([lexical.map(row => row.id), vector.map(row => row.id)]);
-  const ranked = [...fused.entries()]
-    .map(([id, score]) => ({ id, score, meta: byId.get(id) }))
-    .filter(row => row.meta)
-    // 同分时按最近更新排前:搜索历史时「最近的那次」几乎总是想要的那次。
-    .sort((a, b) => b.score - a.score
-      || String(b.meta.updatedAt || '').localeCompare(String(a.meta.updatedAt || ''))
-      || String(a.id).localeCompare(String(b.id)));
+  const updatedOf = id => String((byId.get(id) || {}).updatedAt || '');
+  lexical.sort((a, b) => b.score - a.score || updatedOf(b.id).localeCompare(updatedOf(a.id)) || String(a.id).localeCompare(String(b.id)));
+  const ranked = [
+    ...lexical.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
+    ...extra.map(row => ({ id: row.id, score: row.score / 100, meta: byId.get(row.id) })),
+  ].filter(row => row.meta);
 
   const cap = Math.min(SESSION_SEARCH_MAX_LIMIT, Math.max(1, Number(limit) || 20));
   return {
@@ -49665,7 +51477,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const bg = /^\/api\/sessions\/([^/]+)\/background(\/output|\/stop)?$/.exec(pathname);
     if (bg) {
       if (!tokenOk(req)) return send(res, apiFailure('auth.token_invalid', {}, 'missing or invalid workbench token', 403));
-      const sid = safeSessionId(decodeURIComponent(bg[1]));
+      const sid = safeSessionId(safeDecodeURIComponent(bg[1]));   // 坏编码(%zz)→ null → 400,不再 URIError 500
       if (!sid) return send(res, apiSessionIdInvalid());
       if (req.method === 'GET' && !bg[2]) {
         const shells = EventStreamHooks.backgroundShells;
@@ -49862,6 +51674,9 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, json({ ok: true, session, sessionMeta: sessionMeta(session, patchedConfig) }));
     }
     if (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE')) {
+      // 列表只发布 safeSessionId 合法的 id(02 重建索引的判据),不合法的 id 不可能是一条会话:先回 400,
+      // 不再对它跑 stopSession / revokeAllGrants / 一串 unlink,再回一个假的 ok:true。
+      if (!safeSessionId(id)) return send(res, apiSessionIdInvalid());
       return send(res, json(await deleteSession(id)));
     }
   }
@@ -50101,7 +51916,7 @@ async function buildMissionAggregateRows(options = {}) {
   const workspaceOf = cwd => {
     const p = String(cwd || '').trim();
     if (!p) return null;
-    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data) };
+    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data, dataRootAliases()) };
   };
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
@@ -50370,6 +52185,13 @@ async function handleMissionsApiRoutes(req, res, pathname) {
       || (threadRank.get(String(a.sessionId)) - threadRank.get(String(b.sessionId)))
       || String(b.updatedAt).localeCompare(String(a.updatedAt))
       || String(a.sessionId).localeCompare(String(b.sessionId)));
+    // ?sessionIds=a,b,c:只要这几条的卡片(侧栏搜索命中了、但不在它已经取到的那一页里的会话 —— 左栏只取最新
+    // 200 条,修前更早的会话搜得到也显示不出来)。只认合形的 id,最多 60 条;不分页、不参与 304。
+    const wanted = String(new URL(req.url, 'http://x').searchParams.get('sessionIds') || '').split(',').map(id => safeSessionId(id.trim())).filter(Boolean).slice(0, 60);
+    if (wanted.length) {
+      const set = new Set(wanted);
+      return send(res, json({ ok: true, missions: missions.filter(row => set.has(String(row.sessionId || ''))), projectionRevision: index.missionsRevision }));
+    }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
@@ -51086,8 +52908,14 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const index = await getPretenderProjectionIndex();
     const pending = [];
     const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
+    // hunt2-steward ⑨:可选 ?sessionId= 只看一条线程的待决(counts 同口径只数它)。抽屉修前拉全局前 100 条
+    // 再在前端按会话筛 —— 全局待决超过 100 条时,排在后面的那条线程的待决永远落在页外,抽屉说它「没在等你」。
+    // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
+    const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
+    const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
     for (const slice of index.sessions) {
       const sessionId = slice.sessionId;
+      if (onlySession && sessionId !== onlySession) continue;
       for (const iv of slice.interventions || []) {
         if (!iv || iv.status !== 'pending') continue;
         pending.push({
@@ -51125,7 +52953,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
+    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
     // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
@@ -51514,16 +53342,19 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.
+    // digest(每 2s 轮询)只从这里读标量、不外发也不改对象:浅展开即与深拷贝读到的值逐字段相同,
+    // 省掉每个 live run 整份节点/结果/progressLog 的 JSON 往返。完整视图照旧深拷贝(对象要外发)。
+    const digestView = listUrl.searchParams.get('view') === 'digest';
     for (let i = 0; i < runs.length; i += 1) {
       const live = activeAgentRuns.get(runs[i].id);
       if (!live || !live.run) continue;
-      runs[i] = { ...JSON.parse(JSON.stringify(live.run)), live: true, paused: !!live.paused };
+      runs[i] = { ...(digestView ? live.run : JSON.parse(JSON.stringify(live.run))), live: true, paused: !!live.paused };
     }
     // 第29波(§29a): digest 轻量视图 —— 增量客户端每 tick 只拉这份 run 级标量做变更探测(eventSeq/status/
     // updatedAt),不再每 2s 重传全部节点(单节点 result≤24KB + roleSnapshot 8KB prompt,历史终态 run 每 tick
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
     // 权威状态源,digest 只是"该不该去拉"的信号。
-    if (listUrl.searchParams.get('view') === 'digest') {
+    if (digestView) {
       const digest = runs.map(r => {
         const live = activeAgentRuns.get(r.id);
         const mem = live && live.run ? live.run : null;
@@ -52706,7 +54537,9 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   const seq = Math.max(0, Number(turnSeq) || 0);
   if (seq < 1) return null;
   const h = (head && typeof head === 'object') ? head : {};
-  const last = (h.stewardLastTurn && typeof h.stewardLastTurn === 'object') ? h.stewardLastTurn : null;
+  // hunt2-steward ④:成败账只在盖得住【这一回合】时才算数(06i stewardCoveringLastTurn)。账是上一个
+  // 管家回合留下的(这一回合是用户在 2.0 里自己聊的,不写账)→ 当作账缺席,按 done 报。
+  const last = stewardCoveringLastTurn(h.stewardLastTurn, seq);
   const kind = stewardKindFor('sessionTurn', 'turn_settled', last);
   if (!kind) return null;
   const quick = !!(h.stewardQuick && typeof h.stewardQuick === 'object');
@@ -53488,8 +55321,14 @@ async function startStewardInbox(config) {
   if (stewardRuntime.running) { await stewardRunTick(); return { ok: true, running: true, enabled: true }; } // 幂等:重复 start 只补一轮
   stewardRuntime.running = true;
   stewardRuntime.generation += 1;
+  // hunt2-steward ⑥:认的是【本次起跑的代际】,不是 running 这一个布尔 —— start → stop → start 交错时,
+  // 第二次 start 已经把 running 重新置 true 并挂上了自己的 interval,第一次 start 醒来只看 running
+  // 会再挂一个、把第二个的句柄覆盖掉,之后 stop 只清得掉一个,另一个轮询器永远停不下来。
+  const generation = stewardRuntime.generation;
   await stewardRunTick();
   if (!stewardRuntime.running) return { ok: true, running: false, enabled: true }; // 起跑途中被 stop
+  if (stewardRuntime.generation !== generation) return { ok: true, running: true, enabled: true }; // 起跑途中被 stop 又 start:后来者挂 interval
+  if (stewardRuntime.timer) clearInterval(stewardRuntime.timer);   // 兜底:任何时候最多一个轮询器
   stewardRuntime.timer = setInterval(() => { void stewardRunTick(); }, pollMs);
   if (stewardRuntime.timer && typeof stewardRuntime.timer.unref === 'function') stewardRuntime.timer.unref();
   return { ok: true, running: true, enabled: true };
@@ -54206,7 +56045,7 @@ function stewardWorkspaceNameOf(stewardNameCwd, stewardNameConfig, stewardNameKn
   }
   return {
     name: best ? best.label : (path.basename(canon) || canon),
-    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot()),
+    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot(), dataRootAliases()),
   };
 }
 
@@ -56554,7 +58393,9 @@ async function stewardImplWebSearch(args, ctx, config) {
     url: stewardSanitizeText(String((r && r.url) || '')).slice(0, 300),
     snippet: stewardSanitizeText(String((r && (r.snippet || r.description)) || '')).slice(0, 400),
   }));
-  return { ok: true, query: q, total: rows.length, tainted: true, results: rows };
+  // 结果为空时把原因(被人机验证拦下 / 两个引擎都没结果)带上,管家才知道该换说法重搜还是告诉用户换搜索后端。
+  const note = raw.note ? stewardSanitizeText(String(raw.note)).slice(0, 200) : '';
+  return { ok: true, query: q, total: rows.length, tainted: true, results: rows, ...(note ? { note } : {}) };
 }
 
 // 28) steward_web_fetch
@@ -58223,6 +60064,24 @@ function stewardMemoryVetoedBlock(entries, pack) {
   return '\n' + pack.steward.memoryVetoedHeader + '\n' + lines.join('\n') + folded;
 }
 
+// hunt2-steward ⑩(性能):总览每次都要为投影里的【每一条】会话读一次会话头(每个管家回合 / 每次到访 /
+// 每次预判缓存未命中),会话一多(实测 ~0.9ms/条,2000 条 1.8s)就全压在「管家开口前」那段等待上。
+// 按投影切片自带的 sourceStamp(会话头 + 待决 + run 文件的 size:mtime 指纹,13e pretenderSessionSourceStamp)
+// 记一份会话头:指纹没变就用上次读到的那份,变了才重读。saveSession / 待决写入都会给投影打脏页,
+// 下一次取投影时这片的指纹随之刷新,所以缓存与投影同一个新鲜度。会话级权限档的内存覆盖表每次都在
+// 【副本】上重新盖一遍(与 stewardReadSessionHead 同一纪律:活回合里刚切的档还没落盘也要读到)。
+// 只在本进程内存;不在投影里的会话随每一轮清掉,大小以投影为界。
+const _stewardDigestHeadCache = new Map();   // sid -> { stamp, head }
+async function stewardDigestHead(sid, stamp) {
+  const key = (typeof stamp === 'string' && stamp && stamp !== '-') ? stamp : '';
+  const hit = key ? _stewardDigestHeadCache.get(sid) : null;
+  if (hit && hit.stamp === key) return applySessionPermissionModeOverride({ ...hit.head });
+  const head = await stewardReadSessionHead(sid);
+  if (key && head && head.id) _stewardDigestHeadCache.set(sid, { stamp: key, head });
+  else _stewardDigestHeadCache.delete(sid);
+  return head ? applySessionPermissionModeOverride({ ...head }) : head;
+}
+
 // 线程总览行的数据装配。事实源与 116c 的 steward_thread_status 完全相同(13e 投影 + 会话头 +
 // 06i 的五态判据),只是按「一行一条」的口径取字段 —— 13g 不能复用本函数(那会是前向边),
 // 故这里是同一批原语的第二个调用方,不是第二个事实源。
@@ -58245,10 +60104,13 @@ async function stewardThreadDigestRows(config) {
   };
   const rows = [];
   const now = Date.now();
-  for (const slice of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
+  const slices = index && Array.isArray(index.sessions) ? index.sessions : [];
+  const liveIds = new Set(slices.map(slice => slice && slice.sessionId));
+  for (const sid of [..._stewardDigestHeadCache.keys()]) if (!liveIds.has(sid)) _stewardDigestHeadCache.delete(sid);
+  for (const slice of slices) {
     const sid = slice && safeSessionId(slice.sessionId);
     if (!sid || sid === STEWARD_SESSION_ID) continue;
-    const head = await stewardReadSessionHead(sid);
+    const head = await stewardDigestHead(sid, slice.sourceStamp);   // hunt2-steward ⑩:按投影指纹复用会话头
     if (!head || !head.id) continue;
     const rawKind = stewardRawKind(head);
     if (rawKind === 'steward') continue;   // 排除面:按会话头【原始】 kind 判,不经 sessionKind()
@@ -59537,6 +61399,8 @@ async function stewardNormalizeRouteHint(raw) {
 //   · 用户回合撞用户回合:排队等前一个收尾(不取消 —— 用户自己的两句话都要答)。
 // 128f-⑪:已经报过「留给你」的权限请求 id(每条只报一次;有界,超过 512 条先进先出)。
 const stewardDeferredNotified = new Set();
+// hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
+const stewardUserWaiters = [];
 async function runStewardTurn(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -59565,39 +61429,60 @@ async function runStewardTurn(input) {
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
   const inflight = stewardRunnerRuntime.inflight;
-  if (inflight) {
-    if (trigger === 'inbox') {
-      stewardRunnerRuntime.queue.push(...events);
-      return stewardFail('steward.busy', 'a steward turn is already in flight; the inbox batch was re-queued');
-    }
-    if (inflight.kind === 'inbox') {
-      inflight.cancelled = 'preempted';
-      stewardRunnerRuntime.queue.push(...(inflight.events || []));   // 事件不丢:重排到下一轮
-      stewardAbortInflight(inflight);
-      logEvent({ kind: 'steward_preempt', preempted: 'inbox', requeued: (inflight.events || []).length });
-    }
+  if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
+    // 有在途回合,或有用户的话正排着队(槽位刚空、它还没醒过来认领):收件箱批次回排,不插队。
+    stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.busy', 'a steward turn is already in flight; the inbox batch was re-queued');
+  }
+  if (inflight || stewardUserWaiters.length) {
     // 无论取消与否都等在途那个收尾:管家会话同一时刻只能有一个回合在写它的正文。
     //
     // 117l D3(§11.9;用户第四轮走查第 6 条):修前这里是【一发】 Promise.race(15s),之后不复查
     // stewardRunnerRuntime.inflight —— 一个跑了 16 秒还在写正文的回合会被这条路径直接放行,于是
     // 第二句用户的话带着另一个回合同时开跑,两个回合抢同一份 session.messages(后写者赢),用户
     // 看到的就是「输出完了还说在忙上一件」和一条被吞掉的回复。
-    // 修法:循环等到在途那个真的不在了(或换成了别的 entry —— 那说明本次要等的这个已经收尾,
-    // 后面那个是新来的,由它自己那一层去等),总上限 5 分钟。真等过才记一条审计。
+    // 修法:循环等到轮到自己,总上限 5 分钟。真等过才记一条审计。
+    //
+    // hunt2-steward ①:修前循环条件是「inflight 仍是【进门时看到的】那一个」—— 两句用户的话排在同一个
+    // 在途回合后面时,它一收尾,先醒的那句同步认领了槽位,后醒的那句一看「已经不是我等的那个了」也冲了
+    // 出去,两个回合同时开跑,后开的把先开的 superseded 掉(一句话被吞)。现在:
+    //   · 每一圈都【重读】槽位,只要里面还有别人就接着等;
+    //   · 排队的用户回合按到达先后排成一列(stewardUserWaiters),只有排头能认领 —— 用户说的两句话
+    //     按他说的顺序答,不看谁的定时器先醒;
+    //   · 槽位里若换成了一个收件箱回合(理论上上面的入口已拦住,兜底),照「用户永远优先」抢占它。
+    // 退出循环之后到认领之间仍然没有 await。
+    stewardUserWaiters.push(entry);
     const waitStartedAt = Date.now();
-    while (stewardRunnerRuntime.inflight === inflight) {
-      if (Date.now() - waitStartedAt >= STEWARD_USER_QUEUE_WAIT_MS) {
-        logEvent({ kind: 'steward_user_turn_timeout', waitedMs: Date.now() - waitStartedAt, waitedFor: inflight.kind });
-        return stewardFail('steward.busy', `上一件还没写完(已经等了 ${Math.round((Date.now() - waitStartedAt) / 1000)} 秒),先看看它是不是卡住了`, { trigger, waitedMs: Date.now() - waitStartedAt });
+    let waitedFor = inflight ? inflight.kind : 'user';
+    try {
+      for (;;) {
+        const current = stewardRunnerRuntime.inflight;
+        if (!current && stewardUserWaiters[0] === entry) break;
+        const target = current || stewardUserWaiters[0];
+        waitedFor = target.kind;
+        if (current && current.kind === 'inbox' && !current.cancelled) {
+          current.cancelled = 'preempted';
+          stewardRunnerRuntime.queue.push(...(current.events || []));   // 事件不丢:重排到下一轮
+          stewardAbortInflight(current);
+          logEvent({ kind: 'steward_preempt', preempted: 'inbox', requeued: (current.events || []).length });
+        }
+        if (Date.now() - waitStartedAt >= STEWARD_USER_QUEUE_WAIT_MS) {
+          logEvent({ kind: 'steward_user_turn_timeout', waitedMs: Date.now() - waitStartedAt, waitedFor });
+          return stewardFail('steward.busy', `上一件还没写完(已经等了 ${Math.round((Date.now() - waitStartedAt) / 1000)} 秒),先看看它是不是卡住了`, { trigger, waitedMs: Date.now() - waitStartedAt });
+        }
+        await Promise.race([
+          (target.promise || Promise.resolve()).catch(() => {}),
+          new Promise(resolve => { const t = setTimeout(resolve, 200); if (t && t.unref) t.unref(); }),
+        ]);
       }
-      await Promise.race([
-        inflight.promise.catch(() => {}),
-        new Promise(resolve => { const t = setTimeout(resolve, 200); if (t && t.unref) t.unref(); }),
-      ]);
+    } finally {
+      // 认领或超时都出列(同步,与下面的认领之间没有 await)。
+      const at = stewardUserWaiters.indexOf(entry);
+      if (at >= 0) stewardUserWaiters.splice(at, 1);
     }
     const waitedMs = Date.now() - waitStartedAt;
     // 「真等过」才记账:抢占一个收件箱回合通常是毫秒级,那不该在审计里刷屏。
-    if (waitedMs > 0) logEvent({ kind: 'steward_user_turn_queued', waitedMs, waitedFor: inflight.kind, trigger });
+    if (waitedMs > 0) logEvent({ kind: 'steward_user_turn_queued', waitedMs, waitedFor, trigger });
   }
 
   stewardRunnerRuntime.inflight = entry;   // 同步认领(与上面的 while 判定之间没有 await)
@@ -59683,6 +61568,7 @@ async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
 async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, onEvent, events) {
   const ensured = await ensureStewardSession(config);
   if (!ensured.ok) {
+    if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'engine_unavailable');
     return stewardFail(ensured.error, ensured.message || 'steward engine is unsupported', { engine: ensured.engine });
   }
   const session = ensured.session;
@@ -59745,9 +61631,14 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 
   // 回合本身失败(端点不通/被停/装载抛错)时【不能】去读「最后一条助手消息」—— 那是【上一个】回合
   // 的话,拿它当本回合的回答就是把旧答复冒充成新答复。如实回一条稳定信封,say 留给界面说人话。
-  if (turn && turn.ok === false) {
-    const detail = String(turn.error || '').slice(0, 300);
+  // hunt2-steward ③:成败还要看【内层】 result.ok(与 13k stewardRecordLaunchOutcome 同一口径)——
+  // 端点回 HTTP 500 时 runSessionTurn 外层照样 ok:true(「这次调用完成了」),修前据此把一个失败回合
+  // 当成功解析,say 为空、收件箱那一批事件已经从队列里拿走,就此蒸发。
+  const turnInner = (turn && turn.result && typeof turn.result === 'object') ? turn.result : null;
+  if (turn && (turn.ok === false || (turnInner && turnInner.ok === false))) {
+    const detail = String(turn.error || (turnInner && (turnInner.error || turnInner.errorClass)) || '').slice(0, 300);
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
+    if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
     return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
@@ -59891,6 +61782,26 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 // ────────────────────────────────────────────────────────────────────────────
 // 收件箱驱动:116b 每轮写完箱子调 onInboxBatch,这里做 5 秒去抖后起一个收件箱回合。
 // ────────────────────────────────────────────────────────────────────────────
+// hunt2-steward ③:收件箱回合失败(端点不通 / 引擎不可用)时这一批事件回到队列【头部】,下一次排空
+// 先处理它们 —— 修前它们在定时器里被 splice 出去之后就再也没人管。重试有界:同一条事件最多再试
+// STEWARD_INBOX_TURN_RETRY_MAX 次,端点长期不通时不会每 5 秒空转一次到天荒地老;超过就放弃并记审计
+// (事件本身仍在收件箱落盘的账里,到访摘要照样看得见它)。次数记在 WeakMap 上,不改事件对象的形状。
+const STEWARD_INBOX_TURN_RETRY_MAX = 3;
+const stewardInboxRetryCounts = new WeakMap();
+function stewardRequeueFailedInboxBatch(events, reason) {
+  if (stewardRunnerRuntime.stopped) return;
+  const keep = [];
+  let dropped = 0;
+  for (const evt of (Array.isArray(events) ? events : [])) {
+    if (!evt || typeof evt !== 'object') continue;
+    const tries = (stewardInboxRetryCounts.get(evt) || 0) + 1;
+    if (tries > STEWARD_INBOX_TURN_RETRY_MAX) { dropped += 1; continue; }
+    stewardInboxRetryCounts.set(evt, tries);
+    keep.push(evt);
+  }
+  if (keep.length) stewardRunnerRuntime.queue.unshift(...keep);
+  logEvent({ kind: 'steward_inbox_requeued', reason: String(reason || ''), requeued: keep.length, dropped });
+}
 // 116-3 P1-10:排空是【自持】的。修前只有「轮询器又写了新的一批」才会排一次定时器,于是一次大批量
 // 积压超过 30 条之后,只要活动很快安静下来,剩下的条目会一直躺在内存队列里没人处理(而且是纯内存态,
 // 进程重启整份丢失);用户来跟管家说话也不会把它清掉。现在:一批处理完队列还有就接着排一个定时器;
@@ -60042,12 +61953,26 @@ const STEWARD_COMMITMENT_I18N = Object.freeze({
   missed: 'stewardShell.digest.commitment.missed',
   needsYou: 'stewardShell.digest.commitment.needsYou',
 });
+// hunt2-steward ⑧:到访摘要逐页读完「上次到访以来」的收件箱(读口一页至多 200 行)。修前只读第一页,
+// 水位却推到全箱最大的 inboxSeq —— 离开期间攒下超过 200 行时,第 201 行往后的事件永远不进任何一次摘要。
+// 页数有帽(STEWARD_VISIT_DIGEST_PAGES);帽子到了还没读完,水位就停在【最后读到的那一行】,
+// 余下的留给下一次到访,不跳过。
+const STEWARD_VISIT_DIGEST_PAGES = 25;
 async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
-  const read = await stewardInboxRead({ since: sinceSeq, limit: 200 }).catch(() => ({ items: [], inboxSeq: 0 }));
   const counts = {};
   for (const kind of STEWARD_EVENT_KINDS) counts[kind] = 0;
-  for (const row of (read.items || [])) {
-    if (Object.prototype.hasOwnProperty.call(counts, row && row.kind)) counts[row.kind] += Math.max(1, Number(row.count) || 1);
+  let cursor = Math.max(0, Number(sinceSeq) || 0);
+  let watermark = cursor;
+  for (let page = 0; page < STEWARD_VISIT_DIGEST_PAGES; page++) {
+    const read = await stewardInboxRead({ since: cursor, limit: 200 }).catch(() => null);
+    if (!read) break;   // 读失败:水位不动,下一次到访重读
+    const rows = Array.isArray(read.items) ? read.items : [];
+    for (const row of rows) {
+      if (Object.prototype.hasOwnProperty.call(counts, row && row.kind)) counts[row.kind] += Math.max(1, Number(row.count) || 1);
+      cursor = Math.max(cursor, Number(row && row.inboxSeq) || 0);
+    }
+    watermark = cursor;
+    if (!read.hasMore || !rows.length) { watermark = Math.max(cursor, Number(read.inboxSeq) || 0); break; }
   }
   const items = [];
   for (const kind of STEWARD_EVENT_KINDS) {
@@ -60075,7 +62000,7 @@ async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
   return {
     items, counts,
     commitments: { upcoming: commitments.upcoming, missed: commitments.missed, needsYou: commitments.needsYou },
-    inboxSeq: Math.max(0, Number(read.inboxSeq) || 0),
+    inboxSeq: watermark,
     fireSeq: Math.max(0, Number(commitments.fireSeq) || 0),
   };
 }
@@ -60261,6 +62186,8 @@ function stewardEnsureOpenAiRoute(session, config, tier) {
 // 117l-A1-fix (1):第五种目标状态 'queued'(在仲裁器队列里等着开跑)。它排在 steer 之前 ——
 // 见 stewardRelayChannelFor 里那段头注。
 const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'queued', 'steer', 'turn']);
+// hunt2-steward ②:递话撞上「回合起步 / 收尾」窗口时最多等多久再重判(见 stewardRelayDeliver)。
+const STEWARD_RELAY_SETTLE_WAIT_MS = 5000;
 
 // 判定单点。只读内存注册表(04 的三张待决表)与活回合表,零写入、零文件读 —— 判定必须便宜,
 // 它在每一次递话前都要跑一遍。用【内存】表而不是待决旁路账:旁路账里可能留着一条回合已经死掉的
@@ -60290,6 +62217,13 @@ function stewardRelayChannelFor(sessionId) {
   const queuedWait = stewardArbiterWait(sid);
   if (queuedWait) return { channel: 'queued', wait: waitReasonFor({ pending: 0 }, queuedWait) };
   if (activeChildren.has(sid)) return { channel: 'steer' };
+  // hunt2-steward ②:回合已经进了 10 runSessionTurn(turnSettlers 已登记)、但引擎还没把它登记进
+  // activeChildren —— 起步那几个 await 的窗口,或 until-done 驱动器两回合之间的空档。此刻判成 turn 会
+  // 让新回合在 09 里把它 superseded 掉;插话也还插不进去(没有活子回合接它)。与上面仲裁器排队同一个
+  // 保守方向:判成 queued。settling:true 标出这是「回合正在起步/收尾」而不是真的在仲裁器里排队 ——
+  // 这两个窗口都很短,执行单点(stewardRelayDeliver)会先等一小会儿再重判一次,不急着退回给用户。
+  // (回合收尾那一段同样落在这里:09 先把回合移出 activeChildren,再做收尾的几次存盘。)
+  if (turnSettlers.has(sid)) return { channel: 'queued', wait: null, settling: true };
   return { channel: 'turn' };
 }
 
@@ -60303,7 +62237,19 @@ async function stewardRelayDeliver(input) {
   const title = String(o.title || '');
   if (!sid) return stewardFail('not_found', 'invalid sessionId');
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
-  const decided = stewardRelayChannelFor(sid);
+  let decided = stewardRelayChannelFor(sid);
+  // hunt2-steward ②:「起步 / 收尾」窗口(见 stewardRelayChannelFor)只是一瞬:等那个回合收尾(或引擎
+  // 把它登记进 activeChildren)再重判,至多 STEWARD_RELAY_SETTLE_WAIT_MS —— 收尾完了走 turn,起步完了走 steer。
+  // 等不到才照 queued 退回。仲裁器排队(settling 不在)不等:那可能是几分钟。
+  const settleDeadline = Date.now() + STEWARD_RELAY_SETTLE_WAIT_MS;
+  while (decided.channel === 'queued' && decided.settling === true && Date.now() < settleDeadline) {
+    const settler = turnSettlers.get(sid);
+    await Promise.race([
+      settler && settler.promise ? settler.promise.catch(() => {}) : Promise.resolve(),
+      new Promise(resolve => { const t = setTimeout(resolve, 100); if (t && t.unref) t.unref(); }),
+    ]);
+    decided = stewardRelayChannelFor(sid);
+  }
 
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,
@@ -60724,6 +62670,9 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         else merged.push({ ...d });
       }
       deltaBuffer = [];
+      // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+      // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+      if (res.writableEnded || res.destroyed) return;
       for (const evt of merged) {
         try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
       }
@@ -60735,6 +62684,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
         return;
       }
       flushDeltas();
+      if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     };
     try { req.socket.setNoDelay(true); } catch { /* ignore */ }
@@ -60745,6 +62695,7 @@ async function handleStewardRunnerApiRoutes(req, res, pathname) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    res.on('error', () => {});   // 断线后的异步写错误(EPIPE / write-after-end)不得成为 uncaughtException
     try {
       // 117l D1:routeHint 随请求进来,但它只是【提示】—— 服务端只信 sessionId(见 stewardNormalizeRouteHint)。
       const result = await runStewardTurn({ trigger: 'user', message, routeHint: body && body.routeHint, attachments, onEvent: writeEvent });
@@ -60905,6 +62856,9 @@ const EVENT_STREAM_LIVE_THROTTLE_MS = 500;    // thread.live 每会话 ≥500ms 
 const EVENT_STREAM_TEXT_TAIL = 240;           // textTail 上限(§6.1 载荷列)
 const EVENT_STREAM_SUMMARY_MAX = 160;         // summary 上限(§6.1 载荷列)
 const EVENT_STREAM_LIVE_SESSIONS_MAX = 256;   // 节流表容量上限(长跑进程里它只增不减的防线)
+// 连接数上限:本机单用户,几个标签页远到不了;没有上限的话一个失控的客户端(循环重连不关旧连接)能让
+// 每一帧的扇出与每条连接的写缓冲无界增长。超出回 503 —— 前端 js/event-stream.js 按退避重连,兜底轮询照常。
+const EVENT_STREAM_CLIENTS_MAX = 32;
 
 // 连接表。每条连接就是一份【在场信号】(§4.3):lens 与 sessionId 来自查询参数,断连即清。
 const eventStreamClients = new Set();   // { res, lens, sessionId, at, heartbeat }
@@ -61204,6 +63158,9 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
   // 判定点写成字面量(不是常量引用):route-inventory 的扫描器只认现行写法
   // `req.method === 'X' && pathname === '/api/...'`,写成常量它就扫不到,清册里会多出一条死鉴权行。
   if (!(req.method === 'GET' && pathname === '/api/events/stream')) return;
+  if (eventStreamClients.size >= EVENT_STREAM_CLIENTS_MAX) {
+    return send(res, apiFailure('events.too_many_clients', { max: EVENT_STREAM_CLIENTS_MAX }, 'too many event stream connections', 503));
+  }
   const query = new URL(req.url, 'http://127.0.0.1').searchParams;
   const lensRaw = String(query.get('lens') || '');
   const client = {
@@ -61300,6 +63257,9 @@ const SCHEDULER_FIRES_TAIL_BYTES = 1024 * 1024;
 const SCHEDULER_RUNS_LIMIT_DEFAULT = 5;
 const SCHEDULER_RUNS_LIMIT_MAX = 50;
 const SCHEDULER_TITLE_IN_FIRE_MAX = 120;
+// hunt2-P5:tick 里「迟到多少仍算准点」。生产 tick 30 s,再留出事件循环一时被占、NTP 小幅校时的余量;
+// 超过它才是「错过」(机器睡眠/休眠唤醒、时钟大跳),交给 onMissed/graceMinutes 判。
+const SCHEDULER_ONTIME_SLACK_MS = 5 * 60000;
 
 // ── 测试旗(§3.4)────────────────────────────────────────────────────────────
 // 口径与仓里既有的测试缝逐字同款(05-claude-engine 的 WCW_FAKE_CLAUDE、06g 的
@@ -61365,6 +63325,10 @@ const schedulerRuntime = {
   // 不区分的话它会被 missedOccurrence 认成错过、以 mode:'late' 补跑 —— 界面上就成了「补跑」,
   // 而事实是准时。(实测:scheduler.e2e 的 B3 当场红成「succeeded/late」。)
   loadedFromDisk: new Set(),
+  // hunt2-P6:盘上归一化不过 / 没有 id / 超出 maxTasks 的行。不调度、不上 API,只在写盘时原样带回去 ——
+  // 修前装载时跳过、下一次写盘就把它们永久删掉(注释写着「不静默改写用户的定义」,写盘却静默删了)。
+  opaqueTasks: [],
+  startDeferred: false, // hunt2-P6:startScheduler 撞上读不出来的任务表而没起来(路由闸装载成功后补起)
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -61405,8 +63369,20 @@ function schedulerNotify(schedHookName, schedRow) {
 async function schedulerReadTasksFile() {
   const file = schedulerTasksPath();
   let text = '';
-  try { text = await fsp.readFile(file, 'utf8'); }
-  catch { return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true }; }
+  // hunt2-P6:只有 ENOENT 才是「还没有任务表」。修前任何读失败(Windows 上杀软/备份软件短暂持锁的
+  // EBUSY/EPERM、句柄耗尽)都答成 missing:true,调度器按空表装载 —— 下一次 schedulerSaveTasks 就把
+  // 用户整张任务表冲成空的。瞬时错误先有界重试,仍失败回 unreadable:schedulerLoad 不置 loaded、不许写盘。
+  for (let attempt = 0; ; attempt++) {
+    try { text = await fsp.readFile(file, 'utf8'); break; }
+    catch (e) {
+      const code = String((e && e.code) || '');
+      if (code === 'ENOENT') return { tasks: [], globalRuns: { date: '', count: 0 }, missing: true };
+      if (!['EBUSY', 'EPERM', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN'].includes(code) || attempt >= 4) {
+        return { tasks: [], globalRuns: { date: '', count: 0 }, missing: false, unreadable: true, code: code || 'EREAD' };
+      }
+      await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
+    }
+  }
   let parsed = null;
   try { parsed = JSON.parse(text); } catch { parsed = null; }
   if (!parsed || parsed.schema !== SCHEDULER_TASKS_SCHEMA || !Array.isArray(parsed.tasks)) {
@@ -61427,11 +63403,17 @@ async function schedulerReadTasksFile() {
 // 写盘。**零任务时也要写**(用户刚把最后一条删掉,那份空表就是事实);但 startScheduler 在
 // schedulerEnabledV1 关时压根不会走到这里(红线⑤:关着一个字节都不写)。
 function schedulerSaveTasks() {
+  // hunt2-P6:没装载成功(任务表存在却读不出来)就不许写 —— 此刻内存里的空表不是事实,写下去就是删用户的任务。
+  if (!schedulerRuntime.loaded) {
+    try { logEvent({ kind: 'scheduler_save_refused', reason: 'not_loaded' }); } catch { /* ignore */ }
+    return Promise.resolve();
+  }
   const payload = {
     schema: SCHEDULER_TASKS_SCHEMA,
     updatedAt: new Date(schedulerClockNow()).toISOString(),
     globalRuns: schedulerRuntime.globalRuns,
-    tasks: schedulerRuntime.tasks,
+    // hunt2-P6:装载时归一化不过的行原样写回(见 schedulerLoad),不因为「这一版读不懂」就从盘上消失。
+    tasks: [...schedulerRuntime.tasks, ...schedulerRuntime.opaqueTasks],
   };
   const next = schedulerTasksChain.catch(() => {}).then(async () => {
     await fsp.mkdir(schedulerDir(), { recursive: true });
@@ -61504,15 +63486,22 @@ async function schedulerLoad() {
   if (schedulerRuntime.loaded) return;
   const now = schedulerClockNow();
   const file = await schedulerReadTasksFile();
+  if (file.unreadable) {
+    // hunt2-P6:不置 loaded —— 路由闸据此答 503、写盘被拒;下一次路由请求会再试着装载。
+    schedulerRuntime.lastError = 'tasks-v1.json 暂时读不出来(' + file.code + '),调度器未装载,任务表原样保留';
+    try { logEvent({ kind: 'scheduler_tasks_unreadable', code: file.code }); } catch { /* ignore */ }
+    return null;
+  }
   const tasks = [];
+  const opaque = [];
   for (const rawTask of file.tasks) {
     const normalized = normalizeSchedulerTask(rawTask, now);
-    if (!normalized.ok) continue;                       // 坏行跳过(不静默改写用户的定义)
-    if (!normalized.task.id) continue;                  // 没有 id 的行不该在盘上,跳过
+    // 坏行 / 没有 id 的行 / 超出上限的行:不调度,但原样留着写回去(不静默改写用户的定义)。
+    if (!normalized.ok || !normalized.task.id || tasks.length >= SCHEDULER_LIMITS.maxTasks) { opaque.push(rawTask); continue; }
     tasks.push(schedulerRestorePersistedState(normalized.task, rawTask));
-    if (tasks.length >= SCHEDULER_LIMITS.maxTasks) break;
   }
   schedulerRuntime.tasks = tasks;
+  schedulerRuntime.opaqueTasks = opaque;
   schedulerRuntime.loadedFromDisk = new Set(tasks.map(task => task.id));
   schedulerRuntime.globalRuns = file.globalRuns;
   // fires 的单调 seq 与「同 occurrence 试过几次」都从盘上的账重建 —— 进程内计数器不跨重启。
@@ -61531,6 +63520,29 @@ async function schedulerLoad() {
   schedulerRuntime.attempts = attempts;
   schedulerRuntime.loaded = true;
   return rows;
+}
+
+// 一个错过的时点按策略【不补】:记一行 reconciled/skipped(mode:'late')并通知。启动恢复与 tick(hunt2-P5)共用。
+async function schedulerRecordMissedSkip(task, missed, now) {
+  const reason = missed.withinGrace ? 'policy_skip' : 'grace_expired';
+  await schedulerAppendFire({
+    taskId: task.id,
+    title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
+    occurrenceKey: missed.occurrenceKey,
+    dueAt: new Date(missed.dueMs).toISOString(),
+    runId: '',
+    executionGeneration: 0,
+    mode: 'late',
+    phase: 'reconciled',
+    outcome: 'skipped',
+    error: reason,
+  });
+  void schedulerNotify('onSchedulerNotice', {
+    kind: 'skipped', taskId: task.id, title: task.title,
+    occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
+    reason,
+  });
+  schedulerEmitChanged(task.id, 'reconciled', 'skipped');
 }
 
 // 启动恢复(§3.2)。两件事,顺序不能反:
@@ -61599,24 +63611,7 @@ async function schedulerRecover(schedFireRows) {
     if (missed.runLate) {
       schedulerRuntime.lateQueue.push({ taskId: task.id, dueMs: missed.dueMs });
     } else {
-      await schedulerAppendFire({
-        taskId: task.id,
-        title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX),
-        occurrenceKey: missed.occurrenceKey,
-        dueAt: new Date(missed.dueMs).toISOString(),
-        runId: '',
-        executionGeneration: 0,
-        mode: 'late',
-        phase: 'reconciled',
-        outcome: 'skipped',
-        error: missed.withinGrace ? 'policy_skip' : 'grace_expired',
-      });
-      void schedulerNotify('onSchedulerNotice', {
-        kind: 'skipped', taskId: task.id, title: task.title,
-        occurrenceKey: missed.occurrenceKey, mode: 'late', at: new Date(now).toISOString(),
-        reason: missed.withinGrace ? 'policy_skip' : 'grace_expired',
-      });
-      schedulerEmitChanged(task.id, 'reconciled', 'skipped');
+      await schedulerRecordMissedSkip(task, missed, now);
     }
     // 两条路都推进 nextFireAt ——「补跑只补一次」由 lateQueue 保证,不靠「还留着旧时点」。
     const nextMs = nextFireAt(task.schedule, now);
@@ -61904,10 +63899,27 @@ async function schedulerTick() {
       .filter(task => task.state.enabled && !task.state.inFlightRunId && !schedulerRuntime.inFlightTaskIds.has(task.id)
         && task.state.nextFireAt && Date.parse(task.state.nextFireAt) <= now)
       .sort((a, b) => Date.parse(a.state.nextFireAt) - Date.parse(b.state.nextFireAt));
+    let skippedAny = false;
     for (const task of due) {
       if (generation !== schedulerRuntime.generation) return;
+      // 上面记 skipped 那一段有 await,期间 run-now 可能已把这条派出去了:再核一次。
+      if (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)) continue;
+      // hunt2-P5:进程一直活着、但机器睡过去/时钟跳过去的那一类「错过」,修前 tick 一律当准点跑
+      // (onMissed:'skip' 与 graceMinutes 只在启动恢复里生效;实测晚 11 小时仍记 ontime)。
+      // 迟到在 SCHEDULER_ONTIME_SLACK_MS 之内是 tick 粒度的正常抖动,照旧准点;超过它才按与启动恢复
+      // 同一套判据(missedOccurrence):宽限内且 run-once-late → 以 late 补跑一次;否则记 skipped、推进。
+      const missed = missedOccurrence(task, now);
+      if (missed && missed.lateByMs > SCHEDULER_ONTIME_SLACK_MS) {
+        if (missed.runLate) { schedulerDispatchFire(task, 'late', missed.dueMs); continue; }
+        const nextMs = nextFireAt(task.schedule, now);
+        task.state.nextFireAt = nextMs == null ? '' : new Date(nextMs).toISOString();
+        await schedulerRecordMissedSkip(task, missed, now);
+        skippedAny = true;
+        continue;
+      }
       schedulerDispatchFire(task, 'ontime', Date.parse(task.state.nextFireAt));
     }
+    if (skippedAny) await schedulerSaveTasks();
   } catch (e) {
     schedulerRuntime.lastError = String((e && e.message) || e).slice(0, 400);
     try { logEvent({ kind: 'scheduler_tick_error', detail: schedulerRuntime.lastError }); } catch { /* ignore */ }
@@ -61939,6 +63951,13 @@ async function startScheduler(schedConfig) {
   schedulerRuntime.started = true;
   schedulerRuntime.generation += 1;
   const rows = await schedulerLoad();
+  if (!schedulerRuntime.loaded) {
+    // hunt2-P6:任务表在却读不出来 —— 不恢复、不起 interval(恢复会写盘)。退回「未启动」,路由闸下次装载成功时再起。
+    schedulerRuntime.started = false;
+    schedulerRuntime.startDeferred = true;
+    return false;
+  }
+  schedulerRuntime.startDeferred = false;
   await schedulerRecover(rows);
   schedulerEnsureTimer();
   // 起完就先跑一拍(不等第一个 30 s):补跑队列与「服务没开着的时候刚好到点」都该立刻见效。
@@ -62034,6 +64053,12 @@ async function schedulerRouteGate(req, res) {
     return '';
   }
   await schedulerLoad();
+  if (!schedulerRuntime.loaded) {
+    send(res, apiFailure('scheduler.unavailable', {}, 'the scheduler task table exists but could not be read; nothing was changed', 503));
+    return '';
+  }
+  // hunt2-P6:启动那一刻读失败而没起来的调度器,在这里装载成功后补起(startScheduler 自己幂等)。
+  if (schedulerRuntime.startDeferred && !schedulerRuntime.started) await startScheduler(config);
   return schedulerLocaleOf(req);
 }
 
@@ -62069,12 +64094,15 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
   if ((req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH'))
       && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     let body = {};
     try { body = await readJsonBody(req); } catch { return send(res, apiFailure('api.body_invalid', {}, 'invalid JSON body', 400)); }
-    const current = schedulerRuntime.tasks[index];
+    // 读 body 期间表可能变过(并发 DELETE):按 id 重新找,不拿旧下标。
+    const current = schedulerRuntime.tasks.find(task => task.id === id);
+    if (!current) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     // 部分更新:只认这五个顶层键,其余一律不动(id/createdAt/createdBy/revision 由服务端管)。
     // 127 波 2-ter:改档位就走这里 —— target 是整份替换(target.tier 随之生效或消失),不另开工具。
     // workdir 同属服务端自有(S-b):body 里带了也不认,永远取 current 那一份(显式写出来,不靠 ...current 的顺序)。
@@ -62103,17 +64131,23 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     normalized.task.state.inFlightRunId = current.state.inFlightRunId;
     // 从熔断里被重新打开:连败计数清零,否则下一次失败立刻再熔断。
     if (normalized.task.state.enabled && !current.state.enabled) normalized.task.state.consecutiveFailures = 0;
-    schedulerRuntime.tasks[index] = normalized.task;
+    // hunt2-P1:【原地】换内容,不换对象。在飞的 schedulerFireOnce 攥着的就是 current 这个对象 —— 修前这里
+    // 换成新对象,在飞那一次收尾时把 inFlightRunId 清在已经不在表里的旧对象上,表里的新对象永远带着一个
+    // 不会被清的 inFlightRunId(run-now 永远 409、tick 永远跳过,落盘后重启还会被当成崩溃残留)。
+    // 在飞那一次此后读 task.state 拿到的是这里的新 state(已带着 inFlightRunId),收尾照常清掉它。
+    for (const key of Object.keys(current)) if (!Object.prototype.hasOwnProperty.call(normalized.task, key)) delete current[key];
+    Object.assign(current, normalized.task);
     await schedulerSaveTasks();
     schedulerEnsureTimer();
     schedulerEmitChanged(id, 'updated', '');
-    return send(res, json({ ok: true, task: schedulerPublicTask(normalized.task, locale) }));
+    return send(res, json({ ok: true, task: schedulerPublicTask(current, locale) }));
   }
 
   if ((req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))
       && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const index = schedulerRuntime.tasks.findIndex(task => task.id === id);
     if (index < 0) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     schedulerRuntime.tasks.splice(index, 1);
@@ -62127,14 +64161,15 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
 
   if (req.method === 'POST' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/run-now$/)) {
     const locale = await schedulerRouteGate(req, res); if (!locale) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/run-now'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const task = schedulerRuntime.tasks.find(row => row.id === id);
     if (!task) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
     if (task.state.inFlightRunId) {
       return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
     }
-    if (schedulerRuntime.ticking) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'the scheduler is busy with another task (global concurrency is 1)', 409));
+    if (schedulerRuntime.inFlightTaskIds.has(task.id)) {
+      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
     }
     // 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
     // occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,
@@ -62142,16 +64177,19 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     // 往后挪到第一个没被用过的毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
     let manualDueMs = schedulerClockNow();
     while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
-    schedulerRuntime.ticking = true;
+    // hunt2-P10:修前这里整段拿着 ticking(tick 重入闸),手动那一次的回合跑多久,其它任务就多久派不出单
+    // (tick 一进来就 return)。现在只挡【这一条任务】:inFlightTaskIds 与 tick 的派单共用同一张表。
+    schedulerRuntime.inFlightTaskIds.add(task.id);
     let outcome = '';
     try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-    finally { schedulerRuntime.ticking = false; }
+    finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
     return send(res, json({ ok: true, outcome, task: schedulerPublicTask(task, locale) }));
   }
 
   if (req.method === 'GET' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/runs$/)) {
     if (!(await schedulerRouteGate(req, res))) return;
-    const id = decodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    const id = safeDecodeURIComponent(pathname.slice('/api/scheduler/tasks/'.length, pathname.length - '/runs'.length));
+    if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const query = new URL(req.url, 'http://127.0.0.1').searchParams;
     // **先取原值再转数字**:`Number(query.get('limit'))` 在没带这个参数时是 Number(null) === 0,
     // 而 0 会被 Number.isFinite 认成「用户真给了一个数」,再钳进 [1,50] 就变成 limit=1 ——
@@ -63594,6 +65632,7 @@ module.exports = {
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
+  spawnDetachedChecked, // 分离式外部启动带 'error' 监听的唯一入口(unit/http-input-hardening.test.js 直测 ENOENT 不成 uncaughtException)
   // 架构还债批 2·A:服务商 HTTP 原语(04h)与两个非流式补全外壳 —— unit/provider-http.test.js 钉请求逐字节形状;
   // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
   providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerRawCompletion, providerFixCompletion,

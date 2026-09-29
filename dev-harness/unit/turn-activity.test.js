@@ -127,6 +127,53 @@ describe('turn-activity: 阶段判定', () => {
     assert.equal(activity.snapshot().turnActive, false);
   });
 
+  it('回合收尾(result/error/停止)清掉提问与权限待决,只留计划待决', async () => {
+    const { createTurnActivity } = await loadModule();
+    for (const finish of [
+      a => a.consume({ type: 'result', ok: true }),
+      a => a.consume({ type: 'error', error: 'boom' }),
+      a => a.settle(), // 用户按停止:流被 abort,壳层只调 settle()
+    ]) {
+      const activity = createTurnActivity({ now: clock().now });
+      activity.consume({ type: 'meta' });
+      activity.consume({ type: 'ask_user', questionId: 'q1' });
+      activity.consume({ type: 'permission_request', requestId: 'r1', toolName: 'file_write' });
+      activity.consume({ type: 'permission_paused', requestId: 'r2', toolName: 'powershell_run' });
+      assert.equal(activity.snapshot().phase, 'waiting_you');
+      finish(activity);
+      assert.equal(activity.snapshot().phase, 'idle', 'ask/permission 不随回合结束残留');
+      assert.equal(activity.snapshot().waiting, null);
+
+      const planned = createTurnActivity({ now: clock().now });
+      planned.consume({ type: 'meta' });
+      planned.consume({ type: 'plan', planId: 'p1' });
+      planned.consume({ type: 'permission_request', requestId: 'r1', toolName: 'file_write' });
+      finish(planned);
+      assert.equal(planned.snapshot().phase, 'waiting_you', '计划待决仍在');
+      assert.equal(planned.snapshot().waiting.kind, 'plan');
+    }
+  });
+
+  it('并发权限申请按 requestId 各自独立:一条 decision 不注销另一条', async () => {
+    const { createTurnActivity } = await loadModule();
+    const activity = createTurnActivity({ now: clock().now });
+    activity.consume({ type: 'meta' });
+    activity.consume({ type: 'permission_request', requestId: 'A', toolName: 'file_write' });
+    activity.consume({ type: 'permission_request', requestId: 'B', toolName: 'powershell_run' });
+    activity.consume({ type: 'permission_decision', requestId: 'A', behavior: 'allow' });
+    let snapshot = activity.snapshot();
+    assert.equal(snapshot.phase, 'waiting_you', 'B 仍待决');
+    assert.equal(snapshot.waiting.id, 'B');
+    assert.equal(snapshot.waiting.label, 'powershell_run');
+    // 同一 requestId 的 paused 覆盖原条目,不另开一格
+    activity.consume({ type: 'permission_paused', requestId: 'B', toolName: 'powershell_run' });
+    assert.equal(activity.snapshot().waiting.kind, 'permission_paused');
+    activity.consume({ type: 'permission_decision', requestId: 'B', behavior: 'deny' });
+    snapshot = activity.snapshot();
+    assert.equal(snapshot.phase, 'thinking');
+    assert.equal(snapshot.waiting, null);
+  });
+
   it('result/error 收回合,活动工具与编排一并清空', async () => {
     const { createTurnActivity } = await loadModule();
     const activity = createTurnActivity({ now: clock().now });

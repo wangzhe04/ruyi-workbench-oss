@@ -1170,6 +1170,7 @@ function bindEvents() {
   // palette
   $('paletteInput').addEventListener('input', () => { state.paletteIndex = 0; renderPalette(); });
   $('paletteInput').addEventListener('keydown', e => {
+    if (e.isComposing || e.keyCode === 229) return; // 输入法选字中:回车/方向键归输入法,不执行命令
     const acts = state._paletteActs || [];
     if (e.key === 'ArrowDown') { e.preventDefault(); state.paletteIndex = Math.min(acts.length - 1, state.paletteIndex + 1); renderPalette(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); state.paletteIndex = Math.max(0, state.paletteIndex - 1); renderPalette(); }
@@ -1180,7 +1181,8 @@ function bindEvents() {
   window.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') { e.preventDefault(); newSession(); }
-    else if (e.key === 'Escape') {
+    // 输入法组合中的 Esc 是「取消选字」,不是关模态/停回合。
+    else if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) {
       const open = [...document.querySelectorAll('.modal-backdrop:not(.hidden)')];
       // Dynamic modals resolve their held request via __cancel; static ones go through closeModal so
       // focus returns to the trigger (§4.9).

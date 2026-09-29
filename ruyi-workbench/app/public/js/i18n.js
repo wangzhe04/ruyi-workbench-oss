@@ -102,6 +102,12 @@ function translatedValue(key) {
   return translate(catalogs, activeLocale, key);
 }
 
+// 「这个键有没有译文」。t() 对缺键回的是可见的 `[key]`（真字符串），所以 `t(k) || fallback` 这种写法永远
+// 走不到 fallback —— 按动态值拼键（状态名之类）又要退回原值的地方先问这一句。
+export function hasTranslation(key) {
+  return translatedValue(key) !== undefined;
+}
+
 function applyAttributes(node) {
   for (const part of (node.dataset.i18nAttr || '').split(';')) {
     const [attribute, key] = part.split(':').map(value => value?.trim());
@@ -124,14 +130,25 @@ export function applyTranslations(root = document) {
   }
 }
 
+// 连着两次 setLocale（开机 initI18n('auto') 与读到配置后的 setLocale(配置值)）时，目录是异步拉的：修前谁的
+// 目录后到谁说了算，慢的那一次会把用户刚选的语言盖回去。每次取一个序号，回来时已不是最新那一次就不落地，
+// 并把【最新那一次】的结果交给自己的调用方（设置页拿返回值写 config.locale，不能写成被盖掉的旧值）。
+let localeSeq = 0;
+let latestLocaleRun = null;
 export async function setLocale(preferredLocale = 'auto') {
-  const target = resolveLocale(preferredLocale);
-  await Promise.all([loadCatalog(FALLBACK_LOCALE), target === FALLBACK_LOCALE ? null : loadCatalog(target)]);
-  activeLocale = catalogs.has(target) ? target : FALLBACK_LOCALE;
-  document.documentElement.lang = activeLocale;
-  applyTranslations();
-  window.dispatchEvent(new CustomEvent('i18n:change', { detail: { locale: activeLocale } }));
-  return activeLocale;
+  const seq = ++localeSeq;
+  const run = (async () => {
+    const target = resolveLocale(preferredLocale);
+    await Promise.all([loadCatalog(FALLBACK_LOCALE), target === FALLBACK_LOCALE ? null : loadCatalog(target)]);
+    if (seq !== localeSeq) return latestLocaleRun;
+    activeLocale = catalogs.has(target) ? target : FALLBACK_LOCALE;
+    document.documentElement.lang = activeLocale;
+    applyTranslations();
+    window.dispatchEvent(new CustomEvent('i18n:change', { detail: { locale: activeLocale } }));
+    return activeLocale;
+  })();
+  latestLocaleRun = run;
+  return run;
 }
 
 export function initI18n(preferredLocale = 'auto') {

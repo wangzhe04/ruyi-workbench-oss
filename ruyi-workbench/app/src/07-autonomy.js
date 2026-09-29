@@ -1120,6 +1120,13 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   if (res && res.status === 400) {
     let t = ''; try { t = await res.text(); } catch { /* ignore */ }
     const toolsSemantics = /tool|function/i.test(t);
+    // 例外:报文带【确凿】的超窗信号(OpenAI 的 code context_length_exceeded / "maximum context length")时超窗优先。
+    // OpenAI 的超窗报文会写 "…11000 in the functions. Please reduce the length of the messages or functions",
+    // 按下面的 tools-first 顺序会被当成「工具被拒」:整回合去掉工具重打、永远不压缩。tools 拒绝报文不会带这两个短语。
+    const definiteOverflow = /context_length_exceeded|maximum context length/i.test(t) && isContextOverflowError('HTTP 400: ' + t);
+    if (definiteOverflow) {
+      return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
+    }
     // tools-rejected 仍最先(45f 对抗轮 P1-1 恢复既有存活路径):真实超窗报文一般不含 tool/function 字样,
     // 而 tools 拒绝报文可能带 "in this context" —— 顺序反了会把非超窗错误吸进破坏性压缩。
     if (requestHasTools && toolsSemantics) {
@@ -1138,7 +1145,9 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     const retryBody = wire.retryOn400(body, t);
     if (retryBody) {
       res = await doFetch(retryBody);
-    } else if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
+    } else if (body.stream_options && /stream_options|include_usage|unsupported|unknown|not\s*support/i.test(t)) {
+      // 不再认裸 invalid:OpenAI 系所有 400 的 type 都是 invalid_request_error,认它等于把每个注定失败的 400
+      // 都剥 stream_options 白打第二遍。真拒收 stream_options 的端点会点名它(或说 unsupported / unknown)。
       // Some servers reject stream_options — retry once without it before failing.
       const b2 = Object.assign({}, body); delete b2.stream_options; res = await doFetch(b2);
     } else {
@@ -1155,7 +1164,11 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
-  if (!res.body || typeof res.body.getReader !== 'function') {
+  // 无视 stream:true、直接回一整份 application/json 的网关也走这里:按 SSE 分帧读它一行 data: 都找不到,
+  // 修前返回空回答(工具调用、正文全丢)。content-type 声明了 event-stream 的仍按流读。
+  const contentType = String((res.headers && typeof res.headers.get === 'function' && res.headers.get('content-type')) || '');
+  const jsonBody = /\bjson\b/i.test(contentType) && !/event-stream/i.test(contentType);
+  if (!res.body || typeof res.body.getReader !== 'function' || jsonBody) {
     const j = await res.json().catch(() => null);
     const d = wire.decodeCompletion(j, { requestModel: body.model });
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
@@ -1220,8 +1233,15 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     }
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
-  if (!done && buf.trim()) handleEventBlock(buf);
-  return wireDecoder.finish();
+  if (!done && buf.trim()) done = handleEventBlock(buf);
+  const out = wireDecoder.finish();
+  // 截断的流:连接干净地关了,却既没有终止信号([DONE] / responses 的 completed·incomplete·failed / anthropic 的
+  // message_stop)也没有 finish_reason —— 上游中途断了。修前半截回答被当作完整的成功回复落盘;现在走 httpError
+  // (不带状态码,调用方不会重打,防重放)。有 finish_reason 的(个别网关省掉 [DONE])照旧算完整。
+  if (!done && !out.httpError && !out.finishReason) {
+    out.httpError = 'stream ended unexpectedly (connection closed before a finish_reason or end-of-stream marker)';
+  }
+  return out;
 }
 
 // v0.8-S7: drain the steering queue at a SAFE injection point (§4 A3). Called ONLY at the iteration
@@ -1363,16 +1383,25 @@ async function applyAgentWorktree(run, nodeId) {
     return { ok: false, error: `隔离提交无法安全应用：${e.gitStderr || e.message || e}` };
   }
   iso.status = 'applied'; iso.appliedAt = nowIso();
-  if (iso.path && pathWithinRoot(path.resolve(iso.path), path.resolve(paths.agentWorktrees))) {
+  if (iso.path && await agentWorktreePathOwned(iso.path)) {
     try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; } catch {}
   }
   await saveAgentRun(run);
   return { ok: true, commit: iso.commit };
 }
+// 这个 worktree 路径是不是如意自己的 agent-worktrees 目录底下的。先按词法比;不在的话再按 realpath 比 ——
+// 3.0 改名前起的 run 落盘的是旧前缀 ~/.win-claude-workbench/agent-worktrees/…,迁移后那是一个指回新目录的联接,
+// 只按词法比会认成「外面的目录」,于是 worktree 永远不清。
+async function agentWorktreePathOwned(p) {
+  const target = path.resolve(String(p || ''));
+  const root = path.resolve(paths.agentWorktrees);
+  if (pathWithinRoot(target, root)) return true;
+  try { return pathWithinRoot(await fsp.realpath(target), await fsp.realpath(root)); } catch { return false; }
+}
 async function cleanupAgentWorktree(isolation) {
   if (!isolation || !isolation.path) return;
   const worktreePath = path.resolve(isolation.path);
-  if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) return;
+  if (!(await agentWorktreePathOwned(worktreePath))) return;
   try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'remove', '--force', worktreePath], 60000); }
   catch {
     try { await fsp.rm(worktreePath, { recursive: true, force: true }); } catch {}
@@ -1730,7 +1759,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // 与 05-claude-engine.js 的主回合读法对齐(cache_read_input_tokens + cache_creation_input_tokens);只在
   // 「信任 result 帧」分支累加(与 ledgerIn/ledgerOut 同一 FIELD-LEVEL source select,msg_usage 兜底帧没有
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
-  let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  // hunt2-engines#2:ledgerIn 记账本口径(输入 + 缓存读 + 缓存创建,与 05 主回合 recordTurnUsage 同一归一),
+  // ledgerRawIn 留 CLI 原始 input_tokens 只给 claudeCostFields 定价(费用算法不变)。
+  let ledgerIn = 0, ledgerRawIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
     // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
     // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
@@ -1752,9 +1783,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           const ru = res.resultUsage;
           const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
           const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn + ruCachedIn; ledgerRawIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
           else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerRawIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
           }
           if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
         } catch { /* never let accounting break the attempt */ }
@@ -1801,7 +1832,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // no special case, and a purely-aborted node with no usage records nothing.
     try {
       if (parentSession) {
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerIn, ledgerOut, ledgerCostUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerRawIn, ledgerOut, ledgerCostUsd);
         appendUsageLedger({
           sessionId: parentSession.id, engine: 'claude', provider: claudeProvider,
           // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that

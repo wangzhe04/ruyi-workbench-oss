@@ -294,13 +294,22 @@ async function deleteCustomModel(modelId) {
     knownModels: (state.config.knownModels || []).filter(k => String(k || '').trim() !== id),
   };
   if ((state.config.model || '') === id) patch.model = '';
-  Object.assign(state.config, patch); // 乐观更新,失败由 toast 告知(下次刷新会回弹真实值)
-  try {
-    await saveConfigPartial(patch);
-    toast(t('modelMenu.modelDeleted', { model: id }), 'ok');
-  } catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
+  // 乐观更新；存不进去就原样退回。saveConfigPartial 失败时【返回 false、不抛】（它自己已经 toast 过原因）——
+  // 修前只接 catch，失败照样报「已删除」，内存里的列表也停在删过的样子，直到下次刷新才回弹。
+  const previous = { extraModels: state.config.extraModels, knownModels: state.config.knownModels, model: state.config.model };
+  Object.assign(state.config, patch);
+  let saved = false;
+  try { saved = await saveConfigPartial(patch); }
+  catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
+  if (!saved) {
+    Object.assign(state.config, previous);
+    onEngineConfigChanged();
+    return false;
+  }
+  toast(t('modelMenu.modelDeleted', { model: id }), 'ok');
   onEngineConfigChanged();
   await refreshModels(); // 静默重建 status.models
+  return true;
 }
 // provider 那一组（引擎 = OpenAI 兼容端点）：候选清单就是这个端点自己的 providers[].models（手填 ∪
 // 测试连接／刷新发现）。删一行 = 从这份清单里去掉，并把 id 记进 providers[].hiddenModels —— 服务端
@@ -327,12 +336,20 @@ async function deleteProviderModel(providerId, modelId) {
     model: String(current.model || '') === id ? (models.length ? modelIdOf(models[0]) : '') : String(current.model || ''),
   };
   const patch = { providers: (state.config.providers || []).map(p => (p && p.id === pid ? next : p)) };
-  Object.assign(state.config, patch); // 乐观更新，失败由 toast 告知（下次刷新会回弹真实值）
-  try {
-    await saveConfigPartial(patch);
-    toast(t('modelMenu.modelRemoved', { model: id }), 'ok');
-  } catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
+  // 乐观更新；存不进去（saveConfigPartial 返回 false）就把整张 providers 退回原样，不报「已移除」。
+  const previousProviders = state.config.providers;
+  Object.assign(state.config, patch);
+  let saved = false;
+  try { saved = await saveConfigPartial(patch); }
+  catch (e) { toast(t('modelMenu.deleteFailed', { error: apiErrText(e) }), 'err'); }
+  if (!saved) {
+    state.config.providers = previousProviders;
+    onEngineConfigChanged();
+    return false;
+  }
+  toast(t('modelMenu.modelRemoved', { model: id }), 'ok');
   onEngineConfigChanged();
+  return true;
 }
 // provider 那一组里「哪些行有 ×」：就是这个端点当前候选清单上的全部 id（含这一回合刚折回来的发现项）。
 function providerModelIdSet(providerId) {
@@ -350,7 +367,8 @@ function providerModelIdSet(providerId) {
 function ctxLenBadge(n) {
   const v = Number(n);
   if (!Number.isFinite(v) || v <= 0) return '';
-  if (v >= 1e6) { const m = v / 1e6; return (Number.isInteger(m) ? String(m) : m.toFixed(1).replace(/\.0$/, '')) + 'M'; }
+  // 同 util.js fmtTokens：K 档取整后够 1000 的（999,500 起）升到 M 档，不出「1000K」。
+  if (v >= 1e6 || Math.round(v / 1e3) >= 1000) { const m = v / 1e6; return (Number.isInteger(m) ? String(m) : m.toFixed(1).replace(/\.0$/, '')) + 'M'; }
   if (v >= 1e3) { const k = v / 1e3; return (Number.isInteger(k) ? String(k) : Math.round(k)) + 'K'; }
   return String(v);
 }
@@ -483,7 +501,7 @@ function openContextPopover() {
     const custom = el('input', 'ctx-custom'); custom.type = 'text'; custom.placeholder = t('ctx.customLimit');
     custom.value = manual > 0 ? String(manual) : '';
     custom.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); const v = custom.value.replace(/[,\s]/g, ''); const n = parseInt(v, 10); if (v === '') applyWin(0); else if (Number.isFinite(n) && n > 0) applyWin(n); }
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); const v = custom.value.replace(/[,\s]/g, ''); const n = parseInt(v, 10); if (v === '') applyWin(0); else if (Number.isFinite(n) && n > 0) applyWin(n); }
     });
     wrap.appendChild(custom);
     // Universal compaction model: default follows the current access mode (Claude/Kimi native or active
@@ -661,8 +679,21 @@ function openRenamePopover(anchorEl, s) {
   popover(anchorEl, close => {
     const wrap = el('div', 'rename-pop');
     const inp = el('input', 'rename-input'); inp.type = 'text'; inp.value = s.title || ''; inp.placeholder = t('session.name');
-    const commit = () => { const t = inp.value.trim(); close(); if (t && t !== s.title) patchSession(s.id, { title: t }); };
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+    // 改名失败要说出来、并且把浮层留着：修前先关浮层再发一个没人接的 patchSession —— 失败是一条未处理的
+    // rejection，没有提示，刚敲的名字也跟着浮层一起没了。成功（或没改）才关；在飞时锁住两枚控件防连击。
+    let saving = false;
+    const commit = async () => {
+      if (saving) return;
+      const title = inp.value.trim();
+      if (!title || title === s.title) { close(); return; }
+      saving = true; inp.disabled = true; ok.disabled = true;
+      try { await patchSession(s.id, { title }); close(); }
+      catch (e) {
+        toast(apiErrText(e), 'err');
+        saving = false; inp.disabled = false; ok.disabled = false; inp.focus();
+      }
+    };
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); commit(); } });
     const ok = el('button', 'primary', t('common.confirm')); ok.type = 'button'; ok.onclick = commit;
     const row = el('div', 'rename-row'); row.append(inp, ok);
     wrap.appendChild(row);

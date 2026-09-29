@@ -75,6 +75,11 @@ try {
   ok(r.status === 200 && disk && Array.isArray(disk.providers) && disk.providers.length === 1 && disk.providers[0].apiKey === 'sk-real-key-A',
     'B1 corrupt config recovers from .prev (providers + key survive) instead of being reset to defaults');
   ok(/config_recovered/.test(logText()), 'B2 recovery logged as config_recovered');
+  // hunt2-P7:恢复那一次落盘经 writeConfigAtomic —— 修前它先把【当前那份坏文件】无条件拷到 .prev 上,
+  // 唯一的好备份被坏文件盖掉(再坏一次就只剩降级)。现在只有当前那份是 JSON 对象时才刷新 .prev。
+  let prevAfter = null; try { prevAfter = JSON.parse(fs.readFileSync(PREV, 'utf8')); } catch { prevAfter = null; }
+  ok(!!prevAfter && Array.isArray(prevAfter.providers) && prevAfter.providers[0].apiKey === 'sk-real-key-A',
+    'B3 recovering from .prev does not overwrite .prev with the corrupt file');
 
   // ③ JSON 坏了且 .prev 也不可用，但本进程刚才读成功过 → 用内存里上一次的好配置顶着：读不写坏文件；
   //    写入在好配置之上合并后落盘 = 自愈（不是丢失）。

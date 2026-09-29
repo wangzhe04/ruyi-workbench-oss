@@ -896,7 +896,7 @@ export function createOnboardingWizardDomain({
         render();
       };
       useBtn.onclick = usePath;
-      pathInput.onkeydown = e => { if (e && e.key === 'Enter') { e.preventDefault && e.preventDefault(); usePath(); } };
+      pathInput.onkeydown = e => { if (e && e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault && e.preventDefault(); usePath(); } };
       pathRow.append(pathInput, useBtn);
       wrap.append(el('p', 'onboard-wiz-note muted', t('onboarding.wizard.workspace.pathHint')));
       wrap.append(pathRow);

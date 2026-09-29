@@ -37,11 +37,14 @@ export const fileBasename = pathValue => {
 // 开的、用户还没亲手加进常用的(config.stewardManagedWorkspaces 里 adopted !== true 的那些)。
 // 判据与服务端 06i 的 stewardRuyiOwnedPath 同一口径:分隔符两种写法都认、不分大小写、前缀按整段比。
 const workspaceKey = value => String(value == null ? '' : value).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
-export function isRuyiOwnedWorkspace(pathValue, { dataRoot = '', owned = [] } = {}) {
+// dataRootAliases:/api/status 给的数据根其它写法(改名迁移后旧位置上的联接;改名前存的工作区写的是旧前缀)。
+export function isRuyiOwnedWorkspace(pathValue, { dataRoot = '', dataRootAliases = [], owned = [] } = {}) {
   const target = workspaceKey(pathValue);
   if (!target) return false;
-  const root = workspaceKey(dataRoot);
-  if (root && (target === root || target.startsWith(root + '/'))) return true;
+  for (const base of [dataRoot, ...(Array.isArray(dataRootAliases) ? dataRootAliases : [])]) {
+    const root = workspaceKey(base);
+    if (root && (target === root || target.startsWith(root + '/'))) return true;
+  }
   return (Array.isArray(owned) ? owned : []).some(row => row && row.adopted !== true && workspaceKey(row.path) === target);
 }
 // 「常用工作区」该显示哪几行:config.workspaces 去掉如意自己的。只管【显示】—— 保存时仍用整张表
@@ -74,7 +77,8 @@ export function fmtTokens(n) {
   if (!Number.isFinite(n)) return '?';
   // toFixed then trim trailing zeros ONLY after a decimal point (so 150000 -> "150K", not "15K").
   const f = (x, d) => { let s = x.toFixed(d); if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, ''); return s; };
-  if (n >= 1e6) return f(n / 1e6, n >= 1e7 ? 0 : 2) + 'M';
+  // 999,500–999,999 按 K 取整会进位成「1000K」：取整后够 1000K 的一律升到 M 档（→「1M」）。
+  if (n >= 1e6 || Math.round(n / 1e3) >= 1000) return f(n / 1e6, n >= 1e7 ? 0 : 2) + 'M';
   if (n >= 1e3) return f(n / 1e3, n >= 1e5 ? 0 : 1) + 'K';
   return String(n);
 }

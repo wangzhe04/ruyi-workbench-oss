@@ -137,6 +137,14 @@ async function applyConfigPatch(rawBody) {
     await syncAgentRolesToClaude(next.defaultWorkspace || os.homedir(), next);
   }
   if (body && Object.prototype.hasOwnProperty.call(body, 'externalMcpServers')) {
+    // hunt2-mcp:设置页整份保存改了哪条连接器(改命令 / 停用 / 删除 / 新增同 id),就作废那条的活进程、在途启动与
+    // 60s 失败冷却 —— 修前只有启停/删除路由会作废,在这里改好一个坏连接器,旧冷却期内照样「连不上」,删掉的进程也还活着。
+    const mcpById = list => new Map((Array.isArray(list) ? list : []).filter(x => x && x.id).map(x => [x.id, JSON.stringify(x)]));
+    const beforeMcp = mcpById(current && current.externalMcpServers);
+    const afterMcp = mcpById(next && next.externalMcpServers);
+    for (const id of new Set([...beforeMcp.keys(), ...afterMcp.keys()])) {
+      if (beforeMcp.get(id) !== afterMcp.get(id)) invalidateMcpRuntime(id);
+    }
     await syncMcpServersToClaude(next);
     await syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true });
   }

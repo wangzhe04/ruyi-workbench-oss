@@ -20,6 +20,7 @@
 //   [K] claudePath 落盘的是用户给的原值,不是解析后的值;改别的键不动它。
 //   [L] 投影幂等:normalizeConfig(投影).persisted 与投影相同、changed 为假。
 //   [M] 迁移给 raw 里没有的键造出的值(<10 的工作区播种)在迁移那一次读就落盘(第一轮全量逮到的丢数据缺陷)。
+//   [O] hunt2-P10:readConfig 不再每读一次就 ensureDirs()(14 个 mkdir):同一个数据根上只建一次目录。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -232,4 +233,14 @@ test('[N] killOnDisconnect:老整份文件里的 true 跟随新默认,显式设�
   reset();
   writeDisk(fullOldFile({ killOnDisconnect: true }));
   assert.equal((await readConfig()).killOnDisconnect, false, '读盘那一路同样生效');
+});
+
+test('[O] readConfig 在同一个数据根上只建一次目录(修前每读 14 个 mkdir)', async () => {
+  await readConfig();                                  // 建目录那一次(本进程之前的用例早已读过,这里再保一次)
+  const fsp = require('fs/promises');
+  const orig = fsp.mkdir;
+  let calls = 0;
+  fsp.mkdir = function (...args) { calls += 1; return orig.apply(this, args); };
+  try { for (let i = 0; i < 5; i++) await readConfig(); } finally { fsp.mkdir = orig; }
+  assert.equal(calls, 0, `之后的 5 次读不应再 mkdir(实测 ${calls} 次)`);
 });

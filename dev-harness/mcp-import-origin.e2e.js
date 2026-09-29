@@ -145,7 +145,8 @@ async function bootOnce(oldToken) {
       's syncMcpServersToClaude 跳过 claude-code 来源');
     ok(/delete clean\.origin;/.test(src), 's /api/mcp upsert 落盘时清掉 origin（用户接管）');
     // W2:Kimi 现在也是来源 —— Kimi 同步只多了一件事:从 Kimi 导进来的(origin kimi)不写回、不接管;其余逐字不变。
-    const kimi = src.slice(src.indexOf('async function syncMcpServersToKimi(config)'), src.indexOf('async function autoImportClaudeCodeMcp(config)'));
+    const kimi = src.slice(src.indexOf('function syncMcpServersToKimi(config)'),   // hunt2-engines#14:外层按目标文件串行,正文在 syncMcpServersToKimiNow
+       src.indexOf('async function autoImportClaudeCodeMcp(config)'));
     const kimiOrigins = kimi.match(/origin/g) || [];
     ok(kimi.length > 200 && /if \(item && item\.origin === 'kimi'\) delete generatedServers\[String\(item\.id\)\];/.test(kimi)
       && !/origin === 'claude-code'/.test(kimi) && !/origin === 'codex'/.test(kimi),

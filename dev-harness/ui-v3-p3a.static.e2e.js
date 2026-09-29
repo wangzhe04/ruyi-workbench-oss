@@ -136,7 +136,10 @@ ok(/function renderWorkbench\(runs, force\)/.test(src) && has(fnBody('renderWork
 
 // ═══════════ H. 轮询复用 + XSS 纪律 + 零硬编码色/零裸 px 字号 ═══════════
 // 复用现有 agent-runs 2s 轮询,不新增请求(loadAgentRuns 内联喂画布)。
-ok(/setInterval\(loadAgentRuns, 2000\)/.test(src), 'H 复用现有 2s 轮询(setInterval loadAgentRuns 2000,协议未改)');
+// frontend2(hunt2):心跳改经 agentRunsTick —— 每拍先问监控列表在不在屏上(页签 active 但视角切走/右栏收起时跳过),
+// 在屏上才 loadAgentRuns();周期与请求协议不变,所以判据跟到这一层包装。
+ok(/setInterval\(agentRunsTick, 2000\)/.test(src) && /loadAgentRuns\(\)/.test(fnBody('agentRunsTick', 200)),
+  'H 复用现有 2s 轮询(setInterval → agentRunsTick → loadAgentRuns 2000,协议未改)');
 // 第29波(§29a):喂画布点从 loadAgentRuns 内联挪进 deliverAgentRuns(全量/增量两条路共用的投递尾段)——
 // 契约语义不变:画布仍复用同一份轮询数据、零新增请求;loadAgentRuns 两条路径都必须经 deliverAgentRuns 投递。
 ok(/wbOnRuns\(runs\)/.test(fnBody('deliverAgentRuns', 1200)), 'H 投递尾段 deliverAgentRuns 喂画布 wbOnRuns(不新增请求)');

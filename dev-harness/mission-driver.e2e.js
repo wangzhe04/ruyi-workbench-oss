@@ -11,6 +11,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //  C) 停滞:fake 不推进 → 连续 3 回合同 digest → state:'stuck' + autoMode='supervised'。
 //  D) 预算:maxAutoTurns=2 但 5 里程碑 → 2 个自动回合后 state:'budget_exhausted' + supervised(非报错)。
 //  E) 非账本会话零行为变化:无 mission 的普通会话仍是单回合(无 mission 事件)。
+//  I) hunt2-steward ⑤:重启清扫 —— 盘上留着 until-done 账本(上一个进程的驱动器已不在)→ 重启后降成 supervised,
+//     线程不再永远「在跑」。
 'use strict';
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), path = require('path'), fs = require('fs'), os = require('os');
@@ -113,6 +115,7 @@ const fake = http.createServer((rq, rs) => {
   await new Promise(r => fake.listen(FAKE_PORT, '127.0.0.1', r));
   const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
   wb.stdout.on('data', () => {}); wb.stderr.on('data', () => {});
+  let wb2 = null;
   try {
     ok(await up(), 'workbench up on :' + WB_PORT);
     // 117q-P1-33:见 waitToken 头注——单次直读可能在 runtime.json 落盘前抢跑,读到空串。
@@ -203,9 +206,25 @@ const fake = http.createServer((rq, rs) => {
     const r7 = await req('POST', '/api/mission', { token: token, sessionId: s7.id, action: 'update', milestones: [{ id: 'd1', status: 'pending' }] }, {}); // body-token = 不可信
     const d1 = (r7.json.mission.milestones || []).find(x => x.id === 'd1');
     ok(d1 && d1.status === 'done', 'H 不可信来源不能把 done 回退 pending(仍 done)');
+
+    // ── I) hunt2-steward ⑤:重启清扫 —— 驱动器只活在拉起它的那次回合里,重启后账本不能还写着 until-done ──
+    const s8 = (await req('POST', '/api/sessions', { title: 'orphan-driver', cwd: WS }, H)).json.session;
+    await req('POST', '/api/mission', { token, sessionId: s8.id, action: 'start', mission: { goal: '重启前没跑完的任务', milestones: [{ id: 'o1', desc: '还没做', check: { type: 'none' } }], budget: { maxAutoTurns: 5 } }, autoMode: 'until-done' }, H);
+    ok(((readJson(sessionPath(s8.id)) || {}).mission || {}).autoMode === 'until-done', 'I 前提:盘上账本是 until-done');
+    kill(wb);
+    for (let i = 0; i < 100; i++) {   // 等旧进程真的让出端口
+      const alive = await new Promise(r => { const q = http.get({ host: '127.0.0.1', port: WB_PORT, path: '/health' }, res => { res.resume(); r(true); }); q.on('error', () => r(false)); q.setTimeout(500, () => { q.destroy(); r(false); }); });
+      if (!alive) break;
+      await sleep(100);
+    }
+    wb2 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME }, windowsHide: true });
+    wb2.stdout.on('data', () => {}); wb2.stderr.on('data', () => {});
+    ok(await up(), 'I 重启后 workbench up');
+    const orphan = (readJson(sessionPath(s8.id)) || {}).mission || {};
+    ok(orphan.autoMode === 'supervised', 'I 重启清扫:until-done 账本降成 supervised(实 ' + orphan.autoMode + ')');
   } catch (e) { console.log('ERROR ' + (e && e.stack || e)); fail++; }
   finally {
-    kill(wb); try { fake.close(); } catch {}
+    kill(wb); kill(wb2); try { fake.close(); } catch {}
     await sleep(300); fs.rmSync(HOME, { recursive: true, force: true });
     console.log('\nMISSION-DRIVER E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
     process.exitCode = fail ? 1 : 0;

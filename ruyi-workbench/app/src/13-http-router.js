@@ -1159,12 +1159,20 @@ async function handleApi(req, res, pathname) {
     const background = body.async === true || body.background === true;
     if (background) {
       const runId = makeId('run');
-      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true }).catch(async e => {
+      // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
+      // 校验失败(重复节点 id、缺角色、依赖坏)以 { ok:false } 返回却没人看,调用方拿到 runId 却永远等不到这次运行;
+      // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
+      let markRegistered = null;
+      const registered = new Promise(resolve => { markRegistered = resolve; });
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
         await completion(run).catch(() => {});
+        return { ok: false, error: run.error, reported: true };
       });
+      const first = await Promise.race([registered.then(() => null), finished]);
+      if (first && first.ok === false && !first.reported) return send(res, json({ ok: false, error: first.error || '工作流未能启动', startedCount: 0 }));
       return send(res, json({ ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean), note: '代理已在后台运行;完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。' }));
     }
     // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
@@ -1635,7 +1643,22 @@ async function handleApi(req, res, pathname) {
         if (s) ctx.session = s;
       } catch { /* degrade gracefully */ }
     }
-    return send(res, json({ ok: true, result: await toolCall(name, body, ctx) }));
+    // 未知工具名是 404,不是服务端故障(修前 toolCall 抛「Unknown tool」→ 500 + http_unhandled;
+    // 原型链上的名字如 constructor 更会在 entry.handler 上抛 TypeError)。
+    if (!Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name)) {
+      return send(res, apiFailure('tool.unknown', { name }, `Unknown tool: ${name}`, 404));
+    }
+    let result;
+    try { result = await toolCall(name, body, ctx); }
+    catch (error) {
+      // 工具自己抛的普通 Error(「pattern is required」「url must start with http://」、ENOENT 之类)是这次调用
+      // 的参数/对象有问题 → 400 tool.failed。编程错误(TypeError/ReferenceError…)与自带状态码的照旧交给顶层:
+      // 500 + http_unhandled 日志,真 bug 不被 400 掩掉。
+      const programming = error instanceof TypeError || error instanceof ReferenceError || error instanceof SyntaxError || error instanceof RangeError;
+      if (!error || programming || error.statusCode) throw error;
+      return send(res, apiFailure('tool.failed', { name }, String(error.message || error), 400));
+    }
+    return send(res, json({ ok: true, result }));
   }
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
 }
@@ -1676,8 +1699,9 @@ function processImage(pid) {
 function processCommandLine(pid) {
   return new Promise(resolve => {
     const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
-    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, stdout) => {
-      resolve(err || !stdout ? '' : String(stdout).toLowerCase());
+    // 按行判 UTF-8 / GBK:工作台装在中文路径下时,命令行里的中文按 UTF-8 解是乱码,取证就对不上自己。
+    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000, encoding: 'buffer' }, (err, stdout) => {
+      resolve(err || !stdout || !stdout.length ? '' : decodeConsoleText(stdout).toLowerCase());
     });
   });
 }
@@ -1821,6 +1845,38 @@ async function startServer(opts) {
   }
 }
 
+// hunt2-steward ⑤:启动清扫。until-done 驱动器只活在拉起它的那一次 runSessionTurn 里 —— 进程一重启,
+// 磁盘上仍写着 autoMode:'until-done' 的账本就再也没人推,线程五态却按它判成 running,永远不落地。
+// 与 markInterruptedAgentRuns / markInterruptedInterventions 同一立场:重启 = 上次生命周期结束,不自动续跑
+// (那要重新起回合、重新烧 token,得用户点头),而是诚实地降成 supervised,「继续」按钮随之可点。
+// 已收工(result.status === 'complete')的账本保留原值:五态先按 complete 判 done,改它只是白写一次盘。
+// 成本:只读会话头(正文在 .messages.ndjson 里,不碰),先按子串筛,命中才解析、才整份装载改写。
+// 在 listen 之前 await:此刻没有任何回合在跑。改写走 mutateSession(后台读-改-写的唯一原语)。
+// 落点:住在启动序列旁边而不是 06e —— 13 引用 06e 会新添一条循环边(06e 在强连通分量里)。
+async function resetOrphanedMissionDrivers() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return 0; }
+  let reset = 0;
+  for (const f of files) {
+    const hit = /^(sess_[A-Za-z0-9_-]+)\.json$/.exec(f);
+    if (!hit) continue;
+    const text = await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => '');
+    if (!/"autoMode"\s*:\s*"until-done"/.test(text)) continue;
+    const head = safeJsonParse(text, null);
+    const hm = head && head.mission;
+    if (!hm || hm.autoMode !== 'until-done' || (hm.result && hm.result.status === 'complete')) continue;
+    const r = await mutateSession(hit[1], session => {
+      if (!session.mission || session.mission.autoMode !== 'until-done') return { abort: 'not_armed' };
+      session.mission.autoMode = 'supervised';
+      session.mission.updatedAt = nowIso();
+      return null;
+    }, { writer: 'mission_driver_boot_reset' }).catch(() => null);
+    if (r && r.ok) reset += 1;
+  }
+  if (reset) logEvent({ kind: 'mission_driver_boot_reset', sessions: reset });
+  return reset;
+}
+
 async function startServerInner(opts) {
   try {
     await ensureDirs();
@@ -1842,6 +1898,7 @@ async function startServerInner(opts) {
   }
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
+  await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.
@@ -2014,7 +2071,9 @@ async function startServerInner(opts) {
     process.exit(1);
   });
   if (opts.open) {
-    cp.spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' }).unref();
+    // cmd.exe 起不来(被策略拦)时只提示手动打开,不让上面的 uncaughtException 兜底把刚起来的服务带走。
+    spawnDetachedChecked('cmd.exe', ['/c', 'start', '', url], { detached: true, windowsHide: true, stdio: 'ignore' })
+      .then(started => { if (!started.ok) { try { console.error(`--open: 无法自动打开浏览器(${started.error}),请手动访问 ${url}`); } catch { /* ignore */ } } });
   }
 }
 
@@ -2402,8 +2461,11 @@ async function installIntegration() {
   if (config.claudePath && existsExecutable(config.claudePath)) {
     // 3.0:先移除旧 id 的登记(win-claude-workbench;没有就报错,忽略),再按新 id 'ruyi' 登记 —— 否则 Claude Code 里
     // 同一个工作台 MCP 会以两个名字各起一个子进程。
+    // 逐个作用域删:老版本 node install 登记在 local、安装脚本登记在 user;不带 -s 时同一个 id 在多个作用域里都有会直接报错。
     for (const legacyId of LEGACY_RUYI_MCP_SERVER_IDS) {
-      try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 没登记过 */ }
+      for (const scope of ['local', 'user', 'project']) {
+        try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId, '-s', scope], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 这个作用域里没登记过 */ }
+      }
     }
     const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', RUYI_MCP_SERVER_ID, JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers[RUYI_MCP_SERVER_ID])], {
       cwd: os.homedir(),

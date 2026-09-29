@@ -196,15 +196,38 @@ function providerWireToolCallsFromSlots(slots) {
 // 非流式回体里「命中输出上限」的判据(105j):Responses 的 status:'incomplete',或 chat 的 finish_reason 是 length / max_*_tokens,
 // 或 incomplete_details.reason 带同义词。reasoning-only 或截断的回体不许被误报成普通的空回复。
 function providerWireIncomplete(payload, statusIncomplete) {
-  const finish = String(payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason || '').toLowerCase();
+  const finish = payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason;
   const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || '').toLowerCase();
-  return statusIncomplete || /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
+  return statusIncomplete || providerWireOutputLimited(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
+}
+// 解码器交回的 finishReason 是否表示「命中输出上限被截断」:responses / anthropic 已归一成 'length',chat 原样透传
+// (多数是 length,个别端点写 max_tokens / max_output_tokens)。09 据此不执行参数被截断的工具调用、并提示回答不完整。
+function providerWireOutputLimited(finishReason) {
+  return /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(String(finishReason || '').toLowerCase());
 }
 function providerWireFailureDetail(payload) {
   const e = payload && payload.error;
   if (typeof e === 'string') return e;
   if (e && typeof e === 'object') return String(e.message || e.code || e.type || 'provider error');
   return '';
+}
+// 流内错误(chat 的顶层 {error:{…}} 帧、finish_reason:'error';Responses 的 type:'error' 事件)→ finish() 的 httpError 文本。
+// 与 04i-provider-anthropic 的 anthropicStreamErrorText 同形:还没吐出任何内容、且能认出状态码时报成 'HTTP <status>: …'
+// (等价于首字节前的失败:429 走瞬时重试、400 超窗走强压重试,都不会重放已显示的内容);已经吐过内容则报成流内错误,
+// 不带状态码(调用方据此不重试 —— 防重放)。数字 code / status 优先,其次认 OpenAI 系的几个字符串 code / type。
+const OPENAI_STREAM_ERROR_STATUS = Object.freeze({
+  rate_limit_exceeded: 429, rate_limit_error: 429, insufficient_quota: 429,
+  server_error: 500, internal_error: 500, service_unavailable: 503, overloaded: 503,
+  context_length_exceeded: 400, invalid_request_error: 400,
+});
+function providerWireStreamErrorText(err, emitted) {
+  const e = err && typeof err === 'object' ? err : { message: err == null ? '' : String(err) };
+  const numeric = [e.status, e.code, e.status_code].map(Number).find(n => Number.isInteger(n) && n >= 400 && n <= 599);
+  const status = numeric || OPENAI_STREAM_ERROR_STATUS[String(e.code || '')] || OPENAI_STREAM_ERROR_STATUS[String(e.type || '')] || 0;
+  const kind = String(e.code || e.type || 'error');
+  const msg = String(e.message || '');
+  const detail = kind + (msg ? ': ' + ProviderWireHooks.redact(msg.slice(0, 400)) : '');
+  return !emitted && status ? 'HTTP ' + status + ': ' + detail : 'Provider stream error: ' + detail;
 }
 // 两种协议共用的回体外壳字段。
 function providerWireDecoded(payload, core) {
@@ -239,7 +262,10 @@ function decodeChatCompletion(j) {
 }
 // chat 流式:choices[0].delta 的 content / reasoning_content(或 reasoning)/ tool_calls 分片;终止靠分帧层的 [DONE]。
 function createChatStreamDecoder({ onEvent, markUsage }) {
-  let outText = '', reasoning = '', finishReason = null, providerResponseId = '';
+  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', streamError = '', emitted = false;
+  // 用量:有的服务商在【每一帧】都带累计 usage(不止 include_usage 的末帧)。逐帧 markUsage 会把同一次调用记好几遍
+  // (调用方按次累加 input/output),所以只记最后一份、在 finish() 里报一次。
+  let lastUsage = null;
   // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
   // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
   // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
@@ -263,9 +289,10 @@ function createChatStreamDecoder({ onEvent, markUsage }) {
       curSlot = s; return s;
     }
     // Priority 2: no id but an explicit index -> find-or-create by index (the standard OpenAI shape where
-    // continuation fragments carry only the index).
+    // continuation fragments carry only the index). 同一个 index 可能先后开过几个槽(Gemini 兼容端点给每个并行调用
+    // 都发 index:0、各带不同 id):只带 index 的续片属于【最近开的】那个槽,不是第一个。
     if (tc.index != null) {
-      let s = slots.find(x => x.index === tc.index);
+      let s = slots.findLast(x => x.index === tc.index);
       if (!s) { s = { id: '', index: tc.index, name: '', args: '' }; slots.push(s); }
       curSlot = s; return s;
     }
@@ -277,25 +304,39 @@ function createChatStreamDecoder({ onEvent, markUsage }) {
   return {
     feed(evt) {
       if (!providerResponseId) providerResponseId = providerWireResponseIdOf(evt);
-      if (evt.usage) markUsage(evt.usage);
+      if (evt.usage) lastUsage = evt.usage;
+      // 流内错误帧(上游中途失败时网关/代理常这样收尾,有的还跟一个 [DONE]):终止流,交给调用方的 httpError 路径。
+      // 修前它被当成普通帧忽略,半截回答被当作成功落盘。
+      if (evt.error && !evt.choices) { streamError = providerWireStreamErrorText(evt.error, emitted); return true; }
       const ch = evt.choices && evt.choices[0];
       if (!ch) return false;
       if (ch.finish_reason) finishReason = ch.finish_reason;
       const delta = ch.delta;
-      if (!delta) return false;
-      const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
-      if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
-      if (typeof delta.content === 'string' && delta.content) { outText += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
-      if (Array.isArray(delta.tool_calls)) {
-        for (const tc of delta.tool_calls) {
-          const slot = selectSlot(tc);
-          if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
+      if (delta) {
+        const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
+        if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
+        if (typeof delta.content === 'string' && delta.content) { outText += delta.content; emitted = true; onEvent({ type: 'assistant_delta', text: delta.content }); }
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const slot = selectSlot(tc);
+            emitted = true;
+            // 有的端点每一片都重复完整的 function.name:与已拼出的名字相同就不再追加(否则成了 file_readfile_read);
+            // 真正分片的名字('file_' + 'read')每片不同,照旧拼接。
+            if (tc.function) { if (tc.function.name && tc.function.name !== slot.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
+          }
         }
+      }
+      // finish_reason:'error'(vLLM 等在生成中途出错时这样收尾):同样是失败,不是一个正常结束的回答。
+      if (String(ch.finish_reason || '').toLowerCase() === 'error' && !streamError) {
+        streamError = providerWireStreamErrorText({ type: 'error', message: 'finish_reason=error' }, emitted);
       }
       return false;
     },
     finish() {
-      return { text: outText, reasoning, finishReason, toolCalls: providerWireToolCallsFromSlots(slots), providerResponseId };
+      if (lastUsage) { markUsage(lastUsage); lastUsage = null; }
+      const out = { text: outText, reasoning, finishReason: streamError ? 'error' : finishReason, toolCalls: providerWireToolCallsFromSlots(slots), providerResponseId };
+      if (streamError) out.httpError = streamError;
+      return out;
     },
   };
 }
@@ -353,13 +394,18 @@ function decodeResponsesCompletion(j) {
 // response.function_call_arguments.delta/done | response.completed | response.incomplete | response.failed.
 // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
 function createResponsesStreamDecoder({ onEvent, markUsage }) {
-  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '';
+  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '', emitted = false;
+  // 用量只记最后一份、finish() 报一次(同 chat:中途事件自带的 usage 与终止事件的 usage 是同一次调用的累计值,
+  // 逐个 markUsage 会重复计费);incomplete / failed 的回体也带 usage,照样要记(截断的那一发同样花了钱)。
+  let lastUsage = null;
   const slots = [];
   let curSlot = null;
+  // function_call 的参数有的端点只在 .done 事件里给全量(不发 delta):按 item_id / call_id 找槽,槽里还没有参数才补。
+  const slotForItem = (itemId, callId) => (itemId && slots.find(x => x.itemId === itemId)) || (callId && slots.find(x => x.id === callId)) || null;
   return {
     feed(evt) {
       if (!providerResponseId) providerResponseId = providerWireResponseIdOf(evt);
-      if (evt && evt.usage) markUsage(evt.usage); // some events carry usage directly
+      if (evt && evt.usage) lastUsage = evt.usage; // some events carry usage directly
       const t = evt && evt.type;
       if (t === 'response.output_item.added' && evt.item && evt.item.type === 'function_call') {
         // A function_call output item opens/selects its slot (call_id + name), arguments stream separately.
@@ -415,23 +461,49 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         if (!target) target = curSlot;
         if (!target) { target = { id: ProviderWireHooks.makeId('call'), index: null, name: '', args: '', itemId: '' }; slots.push(target); }
         target.args += evt.delta;
+        emitted = true;
         curSlot = target;
+        return false;
+      }
+      if (t === 'response.function_call_arguments.done' && typeof evt.arguments === 'string') {
+        const target = slotForItem(evt.item_id, '') || curSlot;
+        if (target && !target.args && !target.serverSide) { target.args = evt.arguments; emitted = true; }
+        return false;
+      }
+      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'function_call') {
+        const fc = evt.item;
+        let s = slotForItem(fc.id, fc.call_id);
+        // 只发 .done 不发 .added 的端点:在这里开槽(与 added 同形)。
+        if (!s) { s = { id: fc.call_id || ProviderWireHooks.makeId('call'), index: null, name: '', args: '', itemId: fc.id || '' }; slots.push(s); }
+        if (!s.name && fc.name) s.name = fc.name;
+        if (!s.args && typeof fc.arguments === 'string' && fc.arguments) { s.args = fc.arguments; emitted = true; }
         return false;
       }
       if (t === 'response.reasoning_text.delta' && typeof evt.delta === 'string' && evt.delta) {
         reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
       }
       if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        outText += evt.delta; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
       }
       if (t === 'response.completed') {
         // Final event: the full response object (with usage) rides on the event.
-        if (evt.response && evt.response.usage) markUsage(evt.response.usage);
+        if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
         finishReason = 'stop';
         return true;
       }
-      if (t === 'response.incomplete') { finishReason = 'length'; return true; } // truncated (e.g. max_output_tokens)
+      if (t === 'response.incomplete') { // truncated (e.g. max_output_tokens)
+        if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
+        finishReason = 'length';
+        return true;
+      }
+      // 流内 error 事件({type:'error', code, message}):终止流并走 httpError(修前被当作未知事件忽略,半截回答被当作成功)。
+      if (t === 'error') {
+        responsesFailedError = providerWireStreamErrorText(evt.error && typeof evt.error === 'object' ? evt.error : evt, emitted);
+        finishReason = 'error';
+        return true;
+      }
       if (t === 'response.failed') {
+        if (evt.response && evt.response.usage) lastUsage = evt.response.usage;
         // Terminal failure — surface the error detail to the caller's existing httpError path.
         // 对抗轮(P1-3/P2-1/P2-3):
         //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
@@ -447,6 +519,7 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       return false; // created / in_progress / content_part.* / output_item.done / reasoning_text.done / output_text.done / … — non-terminal
     },
     finish() {
+      if (lastUsage) { markUsage(lastUsage); lastUsage = null; }
       // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
       // back into the next request's `input` without executing anything locally.
       const toolCalls = providerWireToolCallsFromSlots(slots);

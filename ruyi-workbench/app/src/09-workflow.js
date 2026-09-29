@@ -187,6 +187,17 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
+  // 暂停等待的唯一入口。判定与入队在同一个同步段里:resume / stop 若落在调用方 await saveAgentRun 的窗口里,
+  // 它们已经把 paused 清掉、把(当时还空的)等待队列清空了 —— 这里再入队就永远没人叫醒(丢唤醒)。
+  // 父回合 abort(/api/stop、断线)同样要叫醒:暂停中的 run 否则只认 stopRequested,会一直挂着、聊天流也收不了尾。
+  const runAborted = () => Boolean(localCtrl && localCtrl.signal && localCtrl.signal.aborted);
+  const waitForResume = () => new Promise(resolve => {
+    if (!runtime.paused || runtime.stopRequested || runAborted()) { resolve(); return; }
+    runtime.resumeWaiters.push(resolve);
+  });
+  if (localCtrl && localCtrl.signal && typeof localCtrl.signal.addEventListener === 'function') {
+    localCtrl.signal.addEventListener('abort', () => { for (const wake of runtime.resumeWaiters.splice(0)) { try { wake(); } catch { /* ignore */ } } }, { once: true });
+  }
   const drainNodeSteers = nodeId => {
     const out = [];
     for (const queues of [runtime.steerQueues, runtime.autoSteerQueues]) {
@@ -464,11 +475,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   while (true) {
     // 对抗轮修(第25波): 环内保存改为非致命 —— 持久化坏掉时(磁盘满/杀软长锁)这里若抛,run 直接硬失败,
     // 25.2 的「降级→暂停止损」永远等不到生效;快照写失败已由 saveAgentRun 内部计数/亮旗/暂停接管,执行不中断。
-    while (runtime.paused && !runtime.stopRequested) {
+    while (runtime.paused && !runtime.stopRequested && !runAborted()) {
       if (inFlight.size) { await raceInFlight(); continue; }   // 第26波: 暂停只拦新派发,在飞节点先跑完
       run.status = 'paused'; await saveAgentRun(run).catch(() => {});
       const pausedAt = Date.now();
-      await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+      await waitForResume();
       // 对抗轮 P2(第28e波):暂停不计入 wait 时长/超时预算(仿 pool-grace 8763 的暂停补偿)。唤醒后把每个 waiting 节点的
       // waitStartedAt 前移一个暂停时长,使 timeout 判定与 timer 条件都排除暂停时间——否则长暂停会误判超时失败。
       const pd = Date.now() - pausedAt;
@@ -539,7 +550,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             // 时长补回 poolGraceUntil(runtime 与 run 双写),避免长暂停把审批窗白白吃掉。
             if (runtime.paused) {
               const pausedAt = Date.now();
-              await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+              await waitForResume();
               try { const delta = Date.now() - pausedAt; if (delta > 0) { runtime.poolGraceUntil += delta; run.poolGraceUntil = runtime.poolGraceUntil; } } catch {}
               continue;
             }
@@ -678,7 +689,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config).catch(() => ({
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(() => ({
         entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
       }));
       // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。
@@ -1121,6 +1132,14 @@ function legacySpawnToOrchestrateArgs(args) {
 }
 const LEGACY_SPAWN_NOTE = 'spawn_agent 已并入 orchestrate_agents(本次已按单节点代理执行)。下次请直接调用 orchestrate_agents({task, role?, background?});多代理依赖请在同一次调用的 nodes 里用 dependsOn 表达。';
 
+// 撤掉某个 run 的「信封已送达」登记(盘上的会话头 + 活回合手里的那份)。只给人工 resume / retry_node 用。
+async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
+  const id = EventStreamHooks.agentEnvelopeJobId ? EventStreamHooks.agentEnvelopeJobId(runId) : 'agent:' + String(runId || '');
+  const drop = s => { if (s && Array.isArray(s.backgroundJobSeen)) s.backgroundJobSeen = s.backgroundJobSeen.filter(x => x !== id); };
+  await mutateSession(sessionId, drop, { writer: 'agent_envelope_rearm' }).catch(() => {});
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.session) drop(reg.session);
+}
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
@@ -1144,8 +1163,13 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // —— 用户点「重试」再立刻点「暂停」就会撞上;高负载下 subagent.e2e 的 (a4) 稳定复现(master 同样)。
   let markRegistered = null;
   const registered = new Promise(resolve => { markRegistered = resolve; });
+  // 后台 run 续跑 / 重试后照样要送达一份交付信封(修前续跑不传 onComplete,重启打断后自动续跑、用户重试的后台 run 跑完
+  // 模型永远收不到完成通知)。人工干预的那次先把「已送达」登记撤掉:上一轮失败的信封可能已经被读过,新结果要再送一次。
+  const background = run.background === true;
+  if (background && interventionKind) await unmarkAgentEnvelopeDelivered(sessionId, runId);
   const finished = runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
+    ...(background ? { onComplete: r => deliverAgentRunEnvelope(sessionId, r) } : {}),
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
     permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
@@ -1153,8 +1177,12 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
+    return { ok: false, error: run.error };
   });
-  await Promise.race([registered, finished]);
+  // finished 先到 = 登记之前就退出了(未知 nodeId、运行记录没有节点、已在运行、启动时抛错)—— 那是没受理,照实回错;
+  // 修前一律回 accepted,用户点了「重试」什么都没发生也看不到原因。
+  const first = await Promise.race([registered.then(() => null), finished]);
+  if (first && first.ok === false) return { ok: false, error: first.error || '工作流未能启动', runId };
   return { ok: true, accepted: true, runId };
 }
 
@@ -1641,6 +1669,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (reg.exited || reg.pausePending) return; // 第27f波:存档暂停期间豁免看门狗——否则 idle 会在 TTL 内先杀回合(且 abort 中毒 ctrl 令窗口内批准失效)
     if (hasPendingQuestionForSession(session.id)) return; // 提问挂起豁免:回答窗口由提问自身超时(+UI 心跳续时)兜底,此处中止会吞掉用户正在写的回答
     if (hasPendingPermissionForSession(session.id)) return; // 128f-⑪:权限挂着同样豁免 —— 窗口由它自己的计时器兜底(到点必拒)
+    if (reg.planPending) return; // 计划审批挂着同样豁免:窗口由 requestPlanApproval 自己的计时器兜底(到点按拒绝落定);修前批得晚一点就被当空闲杀掉
     if (Date.now() - reg.lastEventAt > idleLimitMs) {
       onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — aborting` });
       idleAborted = true;
@@ -2138,6 +2167,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     return lastCall || { httpError: 'no endpoint available', text: '', reasoning: '', toolCalls: [] };
   };
 
+  // 硬停(工具轮次上限 / 预算保护)时队列里还有插话:这一回合不能再发模型调用了,但也不许把已接受的插话静默丢掉 ——
+  // 在边界把它记进会话(providerHistory + 带 steered 标记的正文,与平常的注入同一条路),下一条消息时模型就能看到。
+  const recordSteersAtHardStop = async () => {
+    if (!Array.isArray(reg.steerQueue) || !reg.steerQueue.length) return;
+    const n = await drainSteerQueue(reg, session, onEvent);
+    if (n) onEvent({ type: 'stderr', text: `[插话] 本回合已停止新增模型调用,${n} 条插话已记入会话,下一条消息时模型会看到` });
+  };
+
   try {
     for (let iter = 0; ; iter++) {
       if (iter >= maxIters) {
@@ -2156,6 +2193,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else {
           const note = `\n\n[已达工具调用上限 ${maxIters} 轮，停止]`;
           assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+          await recordSteersAtHardStop();
           break;
         }
       }
@@ -2211,6 +2249,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               onEvent({ type: 'mission', mission: m, state: 'budget_guard_paused', reason: '回合 token 预算保护触发,已暂停自动推进,等待你的指示' });
             }
           } catch { /* mission pause must never break the turn */ }
+          await recordSteersAtHardStop();
           break;
         }
       }
@@ -2255,7 +2294,26 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
-      const call = await streamWithFailover(econThisIter && econBody ? econBody : buildBody(useTools)); // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+      const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
+      // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
+      // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
+      // (可被停止截断);502/503/504 与连接失败仍只走 streamWithFailover 的端点切换,不在这里重打。流式已开始的失败
+      // 不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      const sent = await withTransientRetry({
+        maxRetries: 3,
+        signal: ctrl && ctrl.signal,
+        isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
+        backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
+        attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
+        classify: c => (/^HTTP 529\b|^HTTP 429\b/.test(String(c && c.httpError || '')) ? 'retry' : 'done'),
+        onRetry: (c, n) => {
+          econTotals.modelCallAttempts += 1;
+          touch();
+          onEvent({ type: 'stderr', text: `[provider] 服务商限流/过载(${String(c.httpError).slice(0, 8)}),稍后重试(${n}/3)` });
+        },
+      });
+      if (sent.aborted) { aborted = true; ok = false; break; }
+      const call = sent.result;
       const llmMs = Date.now() - tLlm0;
       if (econThisIter) {
         econLog('model_call_completed', {
@@ -2291,20 +2349,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
-            const afterForced = estimateHistoryTokens(session.providerHistory);
+            // 与 estBeforeCall 同一口径(含系统提示与工具定义),否则「压前→压后」把工具 schema 那一截也算成了省下来的
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
               beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
             });
-            pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
+            // 重试成功后落 45d(b) 学习(见 call 成功路径)。落的是【校准后】的估算:学到的窗口上限拿来跟 calibratedEstimate
+            // 比预算,用原始估算学的话,因子 < 1 时学到的上限比真实窗口还大,刚超过窗口的历史下一次照样不压。
+            pendingOvershootLearn = Math.round(estBeforeCall * estimateFactor(provider.id, model));
             await saveSession(session).catch(() => {});
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            const afterForced = estimateHistoryTokens(session.providerHistory);
+            const afterForced = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current());
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
@@ -2344,7 +2405,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
           await saveSession(session);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
-          const decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs);
+          let decision;
+          reg.planPending = true;
+          try { decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs); }
+          finally { reg.planPending = false; reg.lastEventAt = Date.now(); } // 等待审批不算空闲:决定落定后看门狗从此刻重新计时
           // A stop/abort during the pause settles the promise as reject via clearPendingPlans → reg.state
           // will already be non-running; treat that as an aborted turn (not a plan_rejected result).
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
@@ -2405,6 +2469,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        const outputLimited = providerWireOutputLimited(call.finishReason);
+        const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
+          ok: false, argsInvalid: true,
+          error: outputLimited
+            ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小(分几次写入)后重试'
+            : '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试',
+        });
         // 21-E0: 一次模型响应 = 一个 assistant batch(serverToolCalls 不参与本地工具批,只占 batch 总宽度)。
         if (econThisIter && localToolCalls.length) {
           if (econLog('assistant_tool_batch', {
@@ -2450,7 +2521,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
           const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
-            && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read');
+            && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
+            && !toolArgsRefusal(tc)); // 参数坏了的调用不预执行(串行路径会拒绝它,见 toolArgsRefusal)
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
           for (const tc0 of localToolCalls) {
             const s0 = tc0.name + ' ' + tc0.rawArgs;
@@ -2510,6 +2582,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
           }
         }
+        // 本批已应答的 id 只看【本批】的记录:toolCalls 是整回合的,服务商跨迭代复用 id(call_1 每轮都有)时,
+        // 按整回合判会把本批还没应答的 call_1 当成「已答」而漏补配对,留下孤儿 tool_call。
+        const batchToolCallsStart = toolCalls.length;
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
@@ -2531,7 +2606,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // v1.4.1 (audit #1 配对铁律):若这是【并行批】,break 会漏答本批其后的 tool_call —— 严格 provider
             // (DeepSeek/DashScope-qwen)对未配对的 tool_call_id 报 400 并【永久卡死会话】(每回合重发孤儿历史)。
             // 因此 break 前,给本批每个尚未回复的 tool_call 补一条配对 role:'tool'(镜像计划相位拒绝的逐条配对)。
-            const answeredIds = new Set(toolCalls.map(t => t && t.id));
+            const answeredIds = new Set(toolCalls.slice(batchToolCallsStart).map(t => t && t.id));
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
@@ -2569,6 +2644,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             break;
           }
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args });
+          // 参数不是完整的 JSON 对象(多半是输出触顶、流被截断):不执行,回一条配对的失败结果让模型重来。
+          // 修前按 {} 执行 —— todo_write({}) 当场清空任务清单、file_write 之类拿空参数乱跑。
+          const argsRefused = toolArgsRefusal(tc);
+          if (argsRefused) {
+            onEvent({ type: 'tool_result', id: tc.id, content: argsRefused, isError: true });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: argsRefused });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(argsRefused)) });
+            await notifyToolHookEnd(tc, argsRefused, iter, 'args_invalid');
+            touch();
+            if (reg.state !== 'running') { aborted = true; ok = false; break; }
+            continue;
+          }
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
           if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
@@ -2848,7 +2935,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // (strict provider 对未配对 tool_call_id 报 400 永久卡死会话)。中断后 steerAborted=true break,图片
           // flush 跳过(部分批次纪律,同 aborted),reset 后走 saveSession+continue 回 drainSteerQueue。
           if (!steerAborted && hasInterruptingSteer(reg)) {
-            const answeredIds = new Set(toolCalls.map(t => t && t.id));
+            const answeredIds = new Set(toolCalls.slice(batchToolCallsStart).map(t => t && t.id));
             for (const rem of localToolCalls) {
               if (!rem || answeredIds.has(rem.id)) continue;
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
@@ -2907,6 +2994,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       }
       // No tool calls → final answer for this turn.
       if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
+      // 回答命中输出上限被截断:修前与完整回答无从区分。给用户一句看得见的提示(只进显示正文,不进 providerHistory)。
+      if (providerWireOutputLimited(call.finishReason)) {
+        const note = '\n\n[回复达到模型输出上限,可能不完整;可发送「继续」让它接着写]';
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+      }
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
       // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
       if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
@@ -2924,6 +3016,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           continue;
         }
       }
+      // 最终回答流式期间到达的插话:/api/steer 已回 ok(接受了),这里若直接 break,队列随回合结束被丢掉、
+      // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
+      // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
+      if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
       break;
     }
   } catch (e) {
@@ -2988,6 +3084,23 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (wasStopped && session.providerHistory.length &&
       session.providerHistory[session.providerHistory.length - 1].role === 'user') {
     session.providerHistory.pop();
+  }
+  // 停止(或异常)落在一批工具中途:批里后面的调用既没执行也没回复,落盘的历史留下孤儿 tool_call。下一回合开头的
+  // 配对自愈会补上,但措辞是「上次回会在执行该工具时中断,结果未保存」并发一条 🛠 系统消息 —— 对一次正常的停止是误导。
+  // 这里在收尾时就把末尾那批补齐,说清楚是回合停了、调用没执行(与批内 loop/steer 跳过的逐条配对同形)。
+  if (!ok || wasStopped) {
+    const hist = session.providerHistory;
+    let blockEnd = hist.length;
+    while (blockEnd > 0 && hist[blockEnd - 1] && hist[blockEnd - 1].role === 'tool') blockEnd -= 1;
+    const lastAsst = hist[blockEnd - 1];
+    if (lastAsst && lastAsst.role === 'assistant' && Array.isArray(lastAsst.tool_calls) && lastAsst.tool_calls.length) {
+      const answered = new Set(hist.slice(blockEnd).map(m => String(m.tool_call_id)));
+      const skip = { ok: false, error: wasStopped ? '回合已被停止,该调用未执行' : '回合异常结束,该调用未执行' };
+      for (const tcall of lastAsst.tool_calls) {
+        if (!tcall || tcall.id == null || answered.has(String(tcall.id))) continue;
+        hist.push({ role: 'tool', tool_call_id: tcall.id, content: JSON.stringify(skip) });
+      }
+    }
   }
   // v0.8-S3/S4a: turn_summary — 「本轮变更」. Data source = tool records + this turn's checkpoint journal
   // entries (journal supplies the accurate op + revertible:true). Emitted before `result`, and stashed on
@@ -3060,7 +3173,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // 「工具执行出错」误导用户去查工具而非改密钥。errorMsg 是回合级终态错误(provider HTTP 错传上来,如 'HTTP 401',
     // 且可能含响应体首段)。对抗轮收紧:锚定 401/403 状态码 + unauthorized/api-key 短语,不再匹配裸 'authentication'
     // (否则代理 'HTTP 407: Proxy Authentication Required' 或 502 正文含该词会被误导向「改密钥」)。再区分 network/tool。
-    if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
+    // 限流在重试用尽后仍是限流,不是「工具执行出错」:单独归 rate_limited(人话「稍等再发」,而不是让用户去查工具)。
+    if (/^HTTP 429\b/.test(errorMsg)) errorClass = 'rate_limited';
+    else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
   if (session.mission) await bumpMissionChangeSeq(session.id, {

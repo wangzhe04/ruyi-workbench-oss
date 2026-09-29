@@ -30,6 +30,9 @@ const EVENT_STREAM_LIVE_THROTTLE_MS = 500;    // thread.live 每会话 ≥500ms 
 const EVENT_STREAM_TEXT_TAIL = 240;           // textTail 上限(§6.1 载荷列)
 const EVENT_STREAM_SUMMARY_MAX = 160;         // summary 上限(§6.1 载荷列)
 const EVENT_STREAM_LIVE_SESSIONS_MAX = 256;   // 节流表容量上限(长跑进程里它只增不减的防线)
+// 连接数上限:本机单用户,几个标签页远到不了;没有上限的话一个失控的客户端(循环重连不关旧连接)能让
+// 每一帧的扇出与每条连接的写缓冲无界增长。超出回 503 —— 前端 js/event-stream.js 按退避重连,兜底轮询照常。
+const EVENT_STREAM_CLIENTS_MAX = 32;
 
 // 连接表。每条连接就是一份【在场信号】(§4.3):lens 与 sessionId 来自查询参数,断连即清。
 const eventStreamClients = new Set();   // { res, lens, sessionId, at, heartbeat }
@@ -329,6 +332,9 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
   // 判定点写成字面量(不是常量引用):route-inventory 的扫描器只认现行写法
   // `req.method === 'X' && pathname === '/api/...'`,写成常量它就扫不到,清册里会多出一条死鉴权行。
   if (!(req.method === 'GET' && pathname === '/api/events/stream')) return;
+  if (eventStreamClients.size >= EVENT_STREAM_CLIENTS_MAX) {
+    return send(res, apiFailure('events.too_many_clients', { max: EVENT_STREAM_CLIENTS_MAX }, 'too many event stream connections', 503));
+  }
   const query = new URL(req.url, 'http://127.0.0.1').searchParams;
   const lensRaw = String(query.get('lens') || '');
   const client = {

@@ -1,0 +1,273 @@
+#!/usr/bin/env node
+'use strict';
+require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 头注）
+
+// 真实浏览器 E2E：经典壳流式回合在「切走再切回」与压缩指示条上的几处前端缺陷（前端 bug 扫查批）。
+//
+// 做法：起隔离工作台（只借它的同源静态服务），把页面导到一个同源空白页，在页里 import 真的
+// chat-stream-runtime.js 与 turn-activity.js，其余依赖注入最小桩；/api/chat/stream 由页内假 fetch 供流，
+// 测试逐帧往里推事件。这样判据落在【真 DOM、真计时器、真 rAF】上，而不是读源码。
+//
+//   R1 工具卡在跑时切走再切回（mountActiveTurn 重建实时壳）：旧壳身上的 1s 秒表被停掉，不在脱离文档的节点上一直走；
+//      回合收尾后本页零残留 setInterval。
+//   R2 切走再切回之后按「停止」：「已停止」落在屏上那只新壳里，闪烁光标收掉（修前画到闭包里那只已脱离的旧壳）。
+//   R3 回合末 GET /api/sessions/:id 在飞时用户切到另一条：回包不许把 state.currentSession 与标题写回原会话。
+//   R4 会话处于插话/排队/等批准（别处起的回合）时点「压缩」：只给一句提示，不开指示条、不禁用按钮、不发 /compact。
+//   R5 Claude /compact 这一发 sendPrompt 没起回合就返回（同步上下文窗口失败）：指示条随之收掉，按钮恢复。
+//   R6 流内 compact 'started'（自动压缩）起的指示条不挂 5 分钟超时（不会误报「压缩超时」）；回合被停、completed 没到，
+//      指示条随回合收尾静默收掉。手动按钮那一路仍挂超时（对照）。
+//   R7 挂着权限申请时按停止：活动状态条不再停在「等你拍板」。
+//   R9 文件树后发先至：先点的工作区读盘慢、后点的快，晚到的旧结果不许盖掉新工作区的树。
+// 判定行：`CHAT STREAM REMOUNT BROWSER E2E: ALL PASS`。
+const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
+const { createRunner } = require('./lib/harness');
+
+const t = createRunner('CHAT STREAM REMOUNT BROWSER');
+const { ok } = t;
+
+// 页内夹具：window.__mk(opts) 建一份独立的 runtime；window.__h 暴露推帧/收流/计时器账本。
+const HARNESS = `
+window.__mk = async function (opts = {}) {
+  const mod = await import('/js/chat-stream-runtime.js');
+  const ta = await import('/js/turn-activity.js');
+  document.body.innerHTML = '<div class="composer"><div class="composer-box"><textarea id="promptInput"></textarea><button id="sendBtn"></button><div id="composerHint"></div></div></div>'
+    + '<div id="messages"></div><div id="modelChip"><i class="mc-dot"></i></div><div id="sessionTitle"></div><div id="sessionMeta"></div><button id="compactBtn">Compact</button>';
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const state = { currentSession: { id: 'A', messages: [], turnSeq: 0 }, config: {}, streaming: false, attachments: [] };
+  if (!window.__origTimers) window.__origTimers = { si: window.setInterval, ci: window.clearInterval, st: window.setTimeout, ct: window.clearTimeout };
+  const O = window.__origTimers;
+  const intervals = new Set();
+  const toolTimers = new Set();   // 只记工具卡秒表(回调里写 card.dur);活动状态条自己的 1s 表另算
+  const longTimeouts = new Set();
+  window.setInterval = (f, ms, ...a) => { const id = O.si.call(window, f, ms, ...a); intervals.add(id); if (/card\.dur/.test(String(f))) toolTimers.add(id); return id; };
+  window.clearInterval = id => { intervals.delete(id); toolTimers.delete(id); return O.ci.call(window, id); };
+  window.setTimeout = (f, ms, ...a) => { const id = O.st.call(window, (...x) => { longTimeouts.delete(id); f(...x); }, ms, ...a); if (Number(ms) >= 60000) longTimeouts.add(id); return id; };
+  window.clearTimeout = id => { longTimeouts.delete(id); return O.ct.call(window, id); };
+  let streamCtl = null;
+  const streamCtls = [];
+  const enc = new TextEncoder();
+  const streamBodies = [];
+  window.fetch = (url, init) => {
+    if (String(url).includes('/api/chat/stream')) {
+      streamBodies.push(JSON.parse(init.body || '{}'));
+      return new Promise(resolve => {
+        const rs = new ReadableStream({ start(c) { streamCtl = c; streamCtls.push(c); init.signal.addEventListener('abort', () => { try { c.error(new DOMException('aborted', 'AbortError')); } catch {} }); } });
+        resolve({ ok: true, body: rs, text: async () => '' });
+      });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({}), text: async () => '' });
+  };
+  const toasts = [];
+  const deps = {
+    $, el, state, t: (k, p) => k + (p ? JSON.stringify(p) : ''), toast: m => toasts.push(m),
+    api: async u => (u.startsWith('/api/sessions/') ? { session: state.currentSession } : { ok: true }),
+    apiErrText: e => String((e && e.message) || e),
+    agentCliMeta: () => ({ id: 'claude', nativeCompact: 'slash-command', alwaysInteractive: false }),
+    appendToolOutput() {}, authHeaders: () => ({}), autoGrow() {}, cliMissingCard: () => el('div'),
+    compactNarrativeProcessRuns() {}, createTurnActivity: ta.createTurnActivity, describeTurnActivity: ta.describeTurnActivity,
+    currentEngineMeta: () => ({ agentCliType: 'claude', engine: 'claude' }), currentWorkspace: () => '', engineLabel: () => 'x',
+    errorCard: () => el('div'), fmtTokens: x => String(x), handleAgentWorkflowEvent() {}, handlePermissionRequest() {}, handlePlanEvent() {},
+    humanizeToolName: x => x, highlightIn() {}, iconTextBtn(b, i, label) { b.textContent = label; }, isProviderMode: () => false, isUntitledTitle: () => false,
+    latestUsage: () => null, loadAutonomyGrants() {}, maybeScrollToBottom() {},
+    messageShell() { const row = el('div', 'msg assistant'); const main = el('div', 'main'); row.appendChild(main); return { row, main }; },
+    msgActions: () => el('div'), narrativeQuestionCard: () => el('div'), narrativeSemanticCard: () => el('div'), narrativeToolAnchor: id => 'turn-tool-' + id,
+    newSession: async () => {}, openModal() {}, pushRawEvent() {}, refreshSessions: async () => {}, renderAttachments() {}, renderAutonomyBar() {},
+    renderContextMeter() {}, renderCurrentSession() {}, renderGitDiffInto() {}, renderMarkdown: s => s, renderMissionBar() {}, renderResumeBanner() {}, renderSessions() {},
+    renderStaticMessage: m => el('div', 'user-row', m.content), renderStepBar() {}, paintSessionMeta() {}, safeStringify: x => JSON.stringify(x),
+    scrollMessagesToBottom() {}, settleLiveThinking() {}, showAskUserModal() {}, switchSettingsTab() {},
+    thinkingPanel: () => { const d = el('details'); const body = el('div'); const summary = el('summary'); d.append(summary, body); return { d, body, summary }; },
+    toolCard: ({ name }) => { const d = el('div', 'tool-card'); const status = el('span'); const statusbar = el('div', 'running'); const dur = el('span', 'dur'); const resPre = el('pre'); d.append(status, statusbar, dur, resPre); return { d, name, status, statusbar, dur, resPre, inp: el('pre'), diffHost: el('div'), imageHost: el('div'), staleHost: el('div') }; },
+    toolArgSummary: () => '', toolGroupSummaryText: n => 'group' + n, turnArtifactChips: () => null, turnSummaryCard: () => el('div'), turnToolIndexCard: () => null,
+    updateContextMeter() {}, updateJumpLatest() {}, usageLine: () => el('div'), wbNativeClaudeFinalize() {}, wbNativeClaudeOnSubagent() {}, wrapPreWithCopy: x => x,
+    ...(opts.deps || {}),
+  };
+  const rt = mod.createChatStreamRuntime(deps);
+  const sleep = ms => new Promise(r => O.st.call(window, r, ms));
+  // 切会话：组合根的 openSession 先 renderCurrentSession(清空消息区)再 mountActiveTurn,这里照做。
+  const switchTo = id => { state.currentSession = { id, messages: [] }; $('messages').innerHTML = ''; rt.mountActiveTurn(id); rt.syncStreamingUi(); };
+  window.__h = {
+    rt, state, intervals, toolTimers, longTimeouts, toasts, streamBodies, $, sleep, switchTo,
+    push: o => streamCtl.enqueue(enc.encode(JSON.stringify(o) + '\\n')),
+    end: () => streamCtl.close(),
+    pushTo: (i, o) => streamCtls[i].enqueue(enc.encode(JSON.stringify(o) + '\\n')),
+    endAt: i => streamCtls[i].close(),
+  };
+  return true;
+};
+true`;
+
+(async () => {
+  let fx = null;
+  try {
+    fx = await startBrowserFixture({ ok, prefix: 'ruyi-chat-remount-' });
+    // 同源空白页:页面本身不跑工作台的组合根,只借同源把 /js 模块 import 进来。
+    await fx.cdp.send('Page.navigate', { url: `http://127.0.0.1:${fx.appPort}/robots.txt` });
+    ok(Boolean(await fx.waitForEval(`location.pathname === '/robots.txt' && document.readyState === 'complete'`)), 'R0 同源空白页就绪');
+    await fx.evaluate(HARNESS);
+
+    // R1:旧壳工具卡秒表
+    const r1 = await fx.evaluate(`(async () => {
+      await window.__mk(); const h = window.__h;
+      h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(50);
+      h.push({ type: 'tool_use', id: 't1', name: 'bash', input: {} }); await h.sleep(50);
+      const oldCard = h.$('messages').querySelector('.tool-card');
+      const before = h.toolTimers.size;
+      h.switchTo('B'); await h.sleep(20);
+      h.switchTo('A'); await h.sleep(50);
+      const afterMount = h.toolTimers.size;
+      const oldDur0 = oldCard.querySelector('.dur').textContent;
+      await h.sleep(1300);
+      const oldDur1 = oldCard.querySelector('.dur').textContent;
+      h.push({ type: 'tool_result', id: 't1', content: 'ok' }); h.push({ type: 'result', ok: true }); h.end();
+      await sp; await h.sleep(80);
+      return { before, afterMount, oldDetached: !oldCard.isConnected, oldTicked: oldDur0 !== oldDur1, afterEnd: h.intervals.size };
+    })()`);
+    ok(r1.oldDetached, 'R1a 切回后旧壳已不在文档里(前置成形)');
+    ok(r1.before === 1 && r1.afterMount === 1, `R1b 切回重放后在跑的工具秒表仍只有一只(旧壳那只已停;切前 ${r1.before},切回 ${r1.afterMount})`);
+    ok(!r1.oldTicked, 'R1c 脱离文档的旧工具卡计时不再走');
+    ok(r1.afterEnd === 0, `R1d 回合收尾后本页零残留 setInterval(实为 ${r1.afterEnd})`);
+
+    // R2:切走切回后停止
+    const r2 = await fx.evaluate(`(async () => {
+      await window.__mk(); const h = window.__h;
+      h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(50);
+      h.push({ type: 'assistant_delta', text: 'partial' }); await h.sleep(40);
+      h.switchTo('B'); h.switchTo('A'); await h.sleep(40);
+      h.rt.stopTurn(); await sp; await h.sleep(80);
+      const box = h.$('messages');
+      return { note: !!box.querySelector('.msg-note'), cursor: !!box.querySelector('.stream-cursor'), text: box.textContent };
+    })()`);
+    ok(r2.note, 'R2a 「已停止」画在屏上那只壳里');
+    ok(!r2.cursor, 'R2b 屏上不再留闪烁光标');
+    ok(/partial/.test(r2.text), 'R2c 停止前已流出的正文仍在屏上');
+
+    // R3:回合末 GET 在飞时切走
+    const r3 = await fx.evaluate(`(async () => {
+      await window.__mk({ deps: { api: async u => {
+        if (u === '/api/sessions/A') { await new Promise(r => window.__origTimers.st.call(window, r, 200)); return { session: { id: 'A', messages: [], title: 'A-title' } }; }
+        return { ok: true };
+      } } });
+      const h = window.__h;
+      h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(50);
+      h.push({ type: 'assistant_delta', text: 'x' }); h.push({ type: 'result', ok: true }); h.end();
+      await h.sleep(60);
+      h.state.currentSession = { id: 'B', messages: [], title: 'B-title' }; h.$('sessionTitle').textContent = 'B-title';
+      await sp; await h.sleep(40);
+      return { id: h.state.currentSession.id, title: h.$('sessionTitle').textContent };
+    })()`);
+    ok(r3.id === 'B', `R3a 晚到的回包不把当前会话写回 A(实为 ${r3.id})`);
+    ok(r3.title === 'B-title', `R3b 标题仍是刚打开的那条(实为 ${r3.title})`);
+
+    // R4:插话 / 排队 / 等批准时点压缩
+    for (const channel of ['steer', 'queued', 'permission']) {
+      const r4 = await fx.evaluate(`(async () => {
+        await window.__mk(); const h = window.__h;
+        h.state.currentSession.messages = [{ role: 'user', content: 'x' }];
+        h.state.sessionRelay = { sessionId: 'A', channel: '${channel}', live: ${channel === 'steer'} };
+        await h.rt.compactContext(); await h.sleep(50);
+        const bar = document.getElementById('compactIndicator');
+        return { toasts: h.toasts.slice(), indicator: Boolean(bar && !bar.classList.contains('hidden')), btnDisabled: h.$('compactBtn').disabled, streams: h.streamBodies.length };
+      })()`);
+      ok(r4.toasts.length === 1 && !r4.toasts.includes('toast.compactRequested'), `R4a[${channel}] 只给一句提示(${r4.toasts.join(' | ')})`);
+      ok(!r4.indicator && !r4.btnDisabled, `R4b[${channel}] 不开指示条、不禁用按钮`);
+      ok(r4.streams === 0, `R4c[${channel}] 没有发出 /compact 回合`);
+    }
+
+    // R5:/compact 这一发没起回合
+    const r5 = await fx.evaluate(`(async () => {
+      await window.__mk({ deps: { syncContextWindowManual: async () => { throw new Error('sync failed'); } } });
+      const h = window.__h;
+      h.state.currentSession.messages = [{ role: 'user', content: 'x' }];
+      await h.rt.compactContext(); await h.sleep(50);
+      const bar = document.getElementById('compactIndicator');
+      return { indicator: Boolean(bar && !bar.classList.contains('hidden')), btnDisabled: h.$('compactBtn').disabled, btnText: h.$('compactBtn').textContent, longTimeouts: h.longTimeouts.size, streams: h.streamBodies.length };
+    })()`);
+    ok(r5.streams === 0, 'R5a 前置成形:sendPrompt 没起回合');
+    ok(!r5.indicator && !r5.btnDisabled && r5.btnText === 'Compact', `R5b 指示条收掉、按钮复原(${JSON.stringify(r5)})`);
+    ok(r5.longTimeouts === 0, 'R5c 兜底超时一并撤掉');
+
+    // R6:流内自动压缩起的指示条
+    const r6 = await fx.evaluate(`(async () => {
+      await window.__mk(); const h = window.__h;
+      h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(50);
+      h.push({ type: 'compact', phase: 'started', mode: 'external' }); await h.sleep(40);
+      const bar = document.getElementById('compactIndicator');
+      const shown = Boolean(bar && !bar.classList.contains('hidden'));
+      const armed = h.longTimeouts.size;
+      h.rt.stopTurn(); await sp; await h.sleep(60);
+      const after = Boolean(bar && !bar.classList.contains('hidden'));
+      // 对照:手动按钮那一路(Claude /compact)照旧挂超时
+      h.state.currentSession.messages = [{ role: 'user', content: 'x' }];
+      const cp = h.rt.compactContext(); await h.sleep(40);
+      const manualArmed = h.longTimeouts.size;
+      h.rt.stopTurn(); await cp; await h.sleep(60);
+      return { shown, armed, after, manualArmed, timeoutToast: h.toasts.some(x => /compactTimeout/.test(x)) };
+    })()`);
+    ok(r6.shown, 'R6a 流内 started 打开指示条(前置成形)');
+    ok(r6.armed === 0, `R6b 流内起的指示条不挂超时(挂了 ${r6.armed} 个)`);
+    ok(!r6.after, 'R6c 回合被停(completed 未到):指示条随回合收尾收掉');
+    ok(r6.manualArmed === 1, `R6d 对照:手动压缩仍挂兜底超时(实为 ${r6.manualArmed})`);
+    ok(!r6.timeoutToast, 'R6e 全程没有「压缩超时」误报');
+
+    // R6f:压缩中的回合在【后台】收尾(用户切到另一条也在跑的会话,setStreaming 不会替它收)——指示条照样收掉。
+    const r6f = await fx.evaluate(`(async () => {
+      await window.__mk(); const h = window.__h;
+      h.switchTo('B'); h.$('promptInput').value = 'b'; const spB = h.rt.sendPrompt(); await h.sleep(40);   // 流 0 = B
+      h.switchTo('A'); h.$('promptInput').value = 'a'; const spA = h.rt.sendPrompt(); await h.sleep(40);   // 流 1 = A
+      h.pushTo(1, { type: 'compact', phase: 'started', mode: 'external' }); await h.sleep(40);
+      const bar = document.getElementById('compactIndicator');
+      const shown = Boolean(bar && !bar.classList.contains('hidden'));
+      h.switchTo('B'); await h.sleep(30);
+      const stillShownOnB = Boolean(bar && !bar.classList.contains('hidden'));
+      h.pushTo(1, { type: 'result', ok: false }); h.endAt(1); await spA; await h.sleep(60);
+      const afterA = Boolean(bar && !bar.classList.contains('hidden'));
+      h.pushTo(0, { type: 'result', ok: true }); h.endAt(0); await spB; await h.sleep(40);
+      return { shown, stillShownOnB, afterA, longTimeouts: h.longTimeouts.size };
+    })()`);
+    ok(r6f.shown && r6f.stillShownOnB, 'R6f1 前置成形:A 压缩中,切到也在跑的 B,指示条仍挂着');
+    ok(!r6f.afterA, 'R6f2 A 的回合在后台收尾:指示条随之收掉,不会活过回合');
+    ok(r6f.longTimeouts === 0, 'R6f3 没有残留的兜底超时');
+
+    // R7:挂着权限申请时停止
+    const r7 = await fx.evaluate(`(async () => {
+      await window.__mk(); const h = window.__h;
+      h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(50);
+      h.push({ type: 'permission_request', requestId: 'r1', toolName: 'file_write' }); await h.sleep(80);
+      const bar = document.getElementById('turnActivityBar');
+      const during = bar.dataset.phase;
+      h.rt.stopTurn(); await sp; await h.sleep(80);
+      return { during, hidden: bar.classList.contains('hidden') };
+    })()`);
+    ok(r7.during === 'waiting_you', 'R7a 前置成形:申请挂着时状态条是「等你拍板」');
+    ok(r7.hidden, 'R7b 停止后状态条收起,不再停在「等你拍板」');
+
+    // R9:文件树后发先至(同一套同源空白页夹具,顺带钉 file-browser.js 的加载序号)
+    const r9 = await fx.evaluate(`(async () => {
+      const mod = await import('/js/file-browser.js');
+      document.body.innerHTML = '<div id="fileTreeRoot"></div><div id="fileTree"></div><div id="filePreview"></div>';
+      let ws = '/proj/X';
+      const wait = ms => new Promise(r => window.__origTimers.st.call(window, r, ms));
+      window.fetch = async (url, init) => {
+        const root = JSON.parse((init && init.body) || '{}').root;
+        await wait(root === '/proj/X' ? 300 : 20);   // 先发的 X 慢、后发的 Y 快
+        const payload = { ok: true, result: { ok: true, files: [{ path: root + '/' + (root === '/proj/X' ? 'x-file.txt' : 'y-file.txt'), type: 'file' }] } };
+        return { ok: true, status: 200, text: async () => JSON.stringify(payload), json: async () => payload, clone() { return this; } };
+      };
+      const d = mod.createFileBrowserDomain({ currentWorkspace: () => ws });
+      const p1 = d.loadFileTree(); await wait(10);
+      ws = '/proj/Y';
+      const p2 = d.loadFileTree();
+      await Promise.all([p1, p2]);
+      return { header: document.getElementById('fileTreeRoot').textContent, tree: document.getElementById('fileTree').textContent };
+    })()`);
+    ok(/Y/.test(r9.header), `R9a 前置成形:树头是后切的工作区(${r9.header})`);
+    ok(/y-file/.test(r9.tree) && !/x-file/.test(r9.tree), `R9b 晚到的旧工作区结果被丢弃,树里是 Y 的内容(${r9.tree})`);
+    ok(fx.exceptions.length === 0, `R8 页面无未捕获异常${fx.exceptions.length ? ':' + fx.exceptions.join(' | ') : ''}`);
+  } catch (error) {
+    t.fail('fatal: ' + ((error && error.stack) || error));
+  } finally {
+    if (fx) await fx.close();
+  }
+  t.done({ exit: true });
+})();

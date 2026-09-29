@@ -286,7 +286,7 @@ export function createBackgroundTray({
     const nowMs = stale && lastSuccessAt ? lastSuccessAt : now();
     const oldest = Math.min(...items.map(i => Date.parse(i.startedAt) || nowMs));
     chipCount.textContent = t('bgTray.chip.count', { count: items.length });
-    chipTime.textContent = stale ? t('bgTray.stale', { time: new Date(lastSuccessAt).toLocaleTimeString() })
+    chipTime.textContent = stale ? t('bgTray.stale', { time: new Date(lastSuccessAt).toLocaleTimeString(doc()?.documentElement?.lang || undefined) })
       : t('bgTray.chip.longest', { time: formatElapsed(nowMs - oldest) });
     tray.classList.toggle('is-stale', stale);
     chip.setAttribute('aria-expanded', expanded ? 'true' : 'false');

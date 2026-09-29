@@ -1744,10 +1744,20 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(fsModule.readFileSync(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:瞬时读失败不隔离、不进缓存
         value = recover(error);
       }
       if (cacheEnabled) { cached = value; hasCache = true; }
       return value;
+    }
+
+    // hunt2-P8:什么样的读失败算「已定论」—— 文件不存在(ENOENT)、内容坏(JSON 语法错)、形状/版本/清洗/校验
+    // 不过(EDURABLE_*)。只有这些才隔离 + 用默认值 + 进缓存。EBUSY/EACCES/EMFILE 这类是【这一次】没读到,
+    // 不是文件坏了:修前也当损坏处理,拷一份 .corrupt、把默认值钉进进程缓存 —— 此后本进程每次读都拿默认值,
+    // 下一次写再把默认值落盘,好好的文件就这么被一次瞬时锁冲掉了。现在只给本次调用一份默认值,下次照常读盘。
+    function readErrorIsSettled(error) {
+      const code = String((error && error.code) || '');
+      return code === 'ENOENT' || code.startsWith('EDURABLE_') || error instanceof SyntaxError;
     }
 
     function recover(error) {
@@ -1761,6 +1771,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
       try {
         value = prepare(JSON.parse(await fspModule.readFile(filePath(), 'utf8')), false);
       } catch (error) {
+        if (!readErrorIsSettled(error)) return freshDefault();   // hunt2-P8:同 readSync
         value = recover(error);
       }
       if (cacheEnabled) {
@@ -1809,7 +1820,12 @@ async function writeConfigAtomic(data) {
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
-    try { await fsp.copyFile(paths.config, `${paths.config}.prev`); } catch { /* 首次写入或不可读 */ }
+    // hunt2-P7:只在当前那份【读得出、是 JSON 对象】时才刷新 .prev。修前无条件拷:config.json 被写坏时
+    // readConfig 从 .prev 恢复、随即经本函数落盘 —— 第一步就把坏文件拷到 .prev 上,唯一的好备份被坏文件盖掉。
+    try {
+      const current = JSON.parse(await fsp.readFile(paths.config, 'utf8'));
+      if (current && typeof current === 'object' && !Array.isArray(current)) await fsp.copyFile(paths.config, `${paths.config}.prev`);
+    } catch { /* 首次写入、不可读或已损坏:保留旧 .prev */ }
     return atomicWriteJson(paths.config, data);
   });
   configWriteChain = thisWrite;
@@ -1834,8 +1850,18 @@ let lastGoodConfig = null;
 // 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
 // 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
-async function readConfig() {
+// hunt2-P10:readConfig 全仓 ~135 处调用,修前每一次都 ensureDirs()(14 个 mkdir)。目录只需在每个数据根上
+// 建一次:按 paths.data 记一笔,换根(测试 / 迁移)时重建。只省 readConfig 这一处 —— saveSession、writeConfig
+// 等写口仍然各自 ensureDirs(),运行中目录被删也能在下一次写时补回来。建目录失败不记,下次再试。
+let configDirsEnsuredFor = '';
+async function ensureDirsForConfigRead() {
+  const root = String(paths.data || '');
+  if (root && configDirsEnsuredFor === root) return;
   await ensureDirs();
+  configDirsEnsuredFor = root;
+}
+async function readConfig() {
+  await ensureDirsForConfigRead();
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
@@ -2071,10 +2097,17 @@ async function syncAgentCliMcpManifests(config, previousConfig = null, { require
 // v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
 // per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
 // user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
-async function syncMcpServersToKimi(config) {
+// hunt2-engines#14:这是一段「读 mcp.json + 读所有权旁账 → 合并 → 写两份文件」的读改写。修前不串行:每个 Kimi 回合起手
+// (05b includeWorkbenchMcp)、启动预热、配置保存都会调它,两路并发时后写的一方基于旧快照把先写的一方盖掉 ——
+// managedIds / previous(接管前的原条目)一旦丢了,关掉工作台 MCP 时就还原不回用户原来的条目。按目标文件串行。
+const kimiMcpSyncChains = new Map();
+function syncMcpServersToKimi(config) {
+  const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
+  return runKeyedChain(kimiMcpSyncChains, path.join(kimiDir, 'mcp.json'), () => syncMcpServersToKimiNow(config, kimiDir));
+}
+async function syncMcpServersToKimiNow(config, kimiDir) {
   try {
     await ensureDirs();
-    const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
     let current = {};
@@ -2571,13 +2604,43 @@ function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCli
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
 // proves invalid; this keeps normal CLI diagnostics byte-for-byte unchanged while
 // making the actionable error readable for Chinese Windows installs.
-function decodeClaudeCliText(chunk) {
+//
+// hunt2-engines#8:按块独立解码会把「块边界切在一个汉字中间」的正常 UTF-8 误判成非法,再按 GB18030 解出一串乱码。
+// 子进程的一条流(stderr)请传同一个状态对象 stream(调用方给一个 {} 即可):UTF-8 走 StringDecoder(被切开的尾字节
+// 留到下一块再解);只有 UTF-8 真的非法时才整流切到 GB18030(同样是流式解码器)。流结束时传 chunk=null 冲出残字节。
+// 不传 stream 时行为与修前逐字节相同(一次性整段解码的调用点)。
+function decodeClaudeCliText(chunk, stream) {
+  if (stream && typeof stream === 'object') return decodeClaudeCliStream(chunk, stream);
   const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
   if (!bytes.length) return '';
   const utf8 = bytes.toString('utf8');
   if (!utf8.includes('\uFFFD')) return utf8;
   try {
     const decoded = new TextDecoder('gb18030', { fatal: true }).decode(bytes);
+    return decoded || utf8;
+  } catch {
+    return utf8;
+  }
+}
+
+function decodeClaudeCliStream(chunk, stream) {
+  if (!stream.utf8) stream.utf8 = new StringDecoder('utf8');
+  if (chunk === null) {
+    const rest = stream.gb ? stream.gb.decode() : stream.utf8.end();
+    stream.gb = null;
+    return rest;
+  }
+  const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
+  if (!bytes.length) return '';
+  if (stream.gb) {
+    try { return stream.gb.decode(bytes, { stream: true }); } catch { stream.gb = null; return bytes.toString('utf8'); }
+  }
+  const utf8 = stream.utf8.write(bytes);
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    const gb = new TextDecoder('gb18030', { fatal: true });
+    const decoded = gb.decode(bytes, { stream: true });
+    stream.gb = gb;
     return decoded || utf8;
   } catch {
     return utf8;
@@ -3220,10 +3283,33 @@ async function generateMcpConfig(mode) {
   return configPath;
 }
 
+// hunt2-P9:每会话 / 每子代理节点的 MCP 配置(workbench.mcp.<id>.json)里有 loopback token 与外部 MCP 的 env,
+// 修前从不删除 —— 删会话只删会话本身,子代理节点那一份更是跑完就没人管,generated/ 里无界堆积带密钥的文件。
+// 删会话时 02 deleteSession 顺手删对应那份;这里再按年龄兜底:每次起引擎都会重写自己那份(mtime 刷新),
+// 超过 SESSION_MCP_CONFIG_MAX_AGE_MS 没被重写的就是没人再用的。每进程只扫一次,失败静默(旁路清理)。
+const SESSION_MCP_CONFIG_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+let sessionMcpConfigSweepDone = false;
+async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
+  let removed = 0;
+  let names = [];
+  try { names = await fsp.readdir(paths.generated); } catch { return removed; }
+  for (const name of names) {
+    // 只认 workbench.mcp.<id>.json;共享的 workbench.mcp.json 不在此列。
+    if (!/^workbench\.mcp\.[A-Za-z0-9_-]{1,64}\.json$/.test(name)) continue;
+    const file = path.join(paths.generated, name);
+    try {
+      const st = await fsp.stat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SESSION_MCP_CONFIG_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
 async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   await ensureDirs();
+  if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
   if (!mode) mode = cfg?.mcpCommandMode || 'auto';
   const self = commandForSelfMcp(mode);
@@ -3292,6 +3378,12 @@ function isAskUserTool(name) {
 }
 
 async function readBody(req) {
+  // 声明长度已超总闸就不必先缓冲 128 MB 再拒(同 readAudioBody 的预检);提前回 413 后客户端可能还在续传,
+  // 连接随即被拆,req 上迟到的 error/aborted 挂空接吞掉。apiCode 让 413 不再被 sendError 报成 api.internal_error。
+  req.on('error', () => {});
+  if (Number(req.headers && req.headers['content-length'] || 0) > MAX_BODY_BYTES) {
+    throw Object.assign(new Error('Request body too large'), { statusCode: 413, apiCode: 'api.body_too_large' });
+  }
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
@@ -3299,6 +3391,7 @@ async function readBody(req) {
     if (total > MAX_BODY_BYTES) {
       const err = new Error('Request body too large');
       err.statusCode = 413;
+      err.apiCode = 'api.body_too_large';
       throw err;
     }
     chunks.push(chunk);
@@ -3309,8 +3402,12 @@ async function readBody(req) {
 async function readJsonBody(req) {
   const raw = await readBody(req);
   if (!raw.trim()) return {};
-  try { return JSON.parse(raw); }
+  let value;
+  try { value = JSON.parse(raw); }
   catch { throw Object.assign(new Error('request body is not valid JSON'), { statusCode: 400, apiCode: 'api.bad_json' }); }   // C17:客户端的错,回 400 不回 500
+  // 合法 JSON 但不是对象(null / 数组 / 字符串 / 数字):按空体处理。约 30 个 handler 直接读 body.xxx,
+  // 请求体是 `null` 时就是 TypeError → 500 + http_unhandled 日志;没有任何路由收顶层数组或标量。
+  return (value && typeof value === 'object' && !Array.isArray(value)) ? value : {};
 }
 
 function send(res, response) {
@@ -3436,8 +3533,15 @@ function safeSessionId(raw) {
   return /^[A-Za-z0-9_-]{1,64}$/.test(s) ? s : null;
 }
 
+// 会话 id 拼成文件名的咽喉点:不合形的 id 在这里就拒掉(抛错),不靠每个调用方记得先 safeSessionId ——
+// 修前有几条路由(/api/chat/stream、/api/session/skills、/api/session/memories、工具上下文)直接拿请求体里的
+// sessionId 拼路径,`../config` 就读到了 <数据根>/config.json(连同服务商密钥)当会话回显出去。
+function assertSessionIdForPath(id) {
+  if (safeSessionId(id) === null) throw new Error('invalid session id');
+  return String(id);
+}
 function sessionPath(id) {
-  return path.join(paths.sessions, `${id}.json`);
+  return path.join(paths.sessions, `${assertSessionIdForPath(id)}.json`);
 }
 // 第25波对抗轮: per-session 写链(见 saveSession)—— 与 agentRunWriteChains 同范式。
 const sessionWriteChains = new Map();

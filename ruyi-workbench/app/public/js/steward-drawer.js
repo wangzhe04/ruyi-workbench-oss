@@ -425,7 +425,8 @@ export function createStewardDrawer({
     const id = sessionId;
     const [sessionRes, interventionsRes] = await Promise.all([
       api(`/api/sessions/${encodeURIComponent(id)}`).catch(() => null),
-      api('/api/interventions?limit=100').catch(() => null),
+      // hunt2-steward ⑨:只要这一条线程的待决(服务端按 sessionId 筛)—— 全局前 100 条里不一定有它。
+      api('/api/interventions?limit=100&sessionId=' + encodeURIComponent(id)).catch(() => null),
     ]);
     if (id !== sessionId) return;                    // 期间用户切了线程，这一趟作废
     if (sessionRes && sessionRes.ok !== false && sessionRes.session) {

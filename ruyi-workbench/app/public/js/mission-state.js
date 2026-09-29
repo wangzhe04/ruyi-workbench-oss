@@ -101,10 +101,19 @@
     return { state, label: LABELS[state] || state, sources: src };
   }
 
+  // hunt2-steward ④:末回合的成败账只在盖得住当前回合(lastTurn.seq >= turnSeq)时才算数。
+  // **本函数是 06i stewardCoveringLastTurn 的抄写件**,改一边必须同刀改另一边
+  // (unit/thread-state-differential.test.js 的 [D4] 在卡片网格上逐格比对两边输出)。
+  function coveringLastTurn(last, turnSeq) {
+    if (!last || typeof last !== 'object') return null;
+    return Math.max(0, Number(last.seq) || 0) >= Math.max(0, Number(turnSeq) || 0) ? last : null;
+  }
+
   // 列表卡片(/api/missions 的 card)适配。
   function fromCard(card) {
     const m = (card && card.mission) || {};
     const lr = (card && card.lastRun) || null;
+    const lastTurn = coveringLastTurn(card && card.lastTurn, card && card.turnSeq);
     return deriveMissionState({
       // 121-K3:身份取卡片的 `quick` 格,不再取 `kind`。**本行是 06i stewardThreadStateFromCard 的
       // 抄写件**(§11.15.4 纪律,unit/thread-state-quick-kind.test.js 钉两份输出逐字相等),
@@ -124,7 +133,7 @@
       // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
       turnSeq: card && card.turnSeq,
       ledgerless: !!(card && card.status === 'none'),
-      lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
+      lastTurnFailed: !!(lastTurn && (lastTurn.ok === false || lastTurn.aborted === true)),
       milestonesTotal: m.milestonesTotal,
       milestonesDone: m.done,
     });

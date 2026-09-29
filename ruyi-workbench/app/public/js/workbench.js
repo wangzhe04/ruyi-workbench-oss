@@ -3,7 +3,7 @@
 // EC-D 第60波：Workbench DAG 领域（视图状态、原生 Claude Agent 投影、画布与右板）。
 import { state } from './state.js';
 import { $, el, fmtTokens, toast } from './util.js';
-import { t } from './i18n.js';
+import { getLocale, t } from './i18n.js';
 
 export function createWorkbenchDomain({
   agentRunActive = new Set(),
@@ -771,7 +771,7 @@ function wbNodeDetailBody(run, node) {
       const isLast = idx === a.length - 1;
       const cls = `wb-tl-item${node.status === 'succeeded' || node.status === 'skipped' ? ' done' : (isLast && active ? ' live' : (isLast ? '' : ' done'))}`;
       const item = el('div', cls);
-      if (it.at) { const t = new Date(it.at); if (!isNaN(t)) item.appendChild(el('span', 'wb-tl-t num', t.toLocaleTimeString())); }
+      if (it.at) { const t = new Date(it.at); if (!isNaN(t)) item.appendChild(el('span', 'wb-tl-t num', t.toLocaleTimeString(getLocale()))); }
       item.appendChild(document.createTextNode(it.text || '')); tl.appendChild(item);
     });
     box.appendChild(tl);
@@ -829,7 +829,7 @@ function wbSteerBox(run, node) {
       const t2 = (input.value || '').trim(); if (!t2) return;
       input.value = '';
       const ok = await steerAgentNode(run.id, node.id, node.status, t2, node.engine);
-      if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t; inp.focus(); } else toast(t('workflow.steerBox.unsent', { text: t2.slice(0, 80) }), 'err'); }
+      if (ok === false) { const inp = $('wbSteerInput'); if (inp && !inp.disabled) { inp.value = t2; inp.focus(); } else toast(t('workflow.steerBox.unsent', { text: t2.slice(0, 80) }), 'err'); }
     };
     send.onclick = submit;
     // 对抗轮 P2: isComposing 守卫——中文输入法选字回车不再把半截拼音直接发出去(与主 composer 同款守卫)。
@@ -867,7 +867,7 @@ function wbPoolBody(run) {
       }
       box.appendChild(card);
     } else {
-      box.appendChild(el('div', 'wb-pool-decided', t('workflow.pool.decidedRow', { status: poolStatusLabel(item.status), node: item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '', task: String(item.task || '').replace(/s+/g, ' ').slice(0, 40) })));
+      box.appendChild(el('div', 'wb-pool-decided', t('workflow.pool.decidedRow', { status: poolStatusLabel(item.status), node: item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '', task: String(item.task || '').replace(/\s+/g, ' ').slice(0, 40) })));
     }
   }
   return box;
@@ -884,8 +884,8 @@ function wbMailBody(run) {
     const route = el('div', 'wb-mail-route num'); route.appendChild(document.createTextNode(m.sender || '?')); route.appendChild(el('span', 'wb-mail-arw', '→')); route.appendChild(document.createTextNode(m.target || '?')); body.appendChild(route);
     body.appendChild(el('div', 'wb-mail-text', String(m.text || '')));
     const meta = el('div', 'wb-mail-meta num');
-    if (m.dropped) { meta.appendChild(document.createTextNode(m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : '')); meta.appendChild(el('span', 'wb-mail-badge', t('workflow.mail.dropped'))); }
-    else if (m.deliveredAt) meta.appendChild(document.createTextNode(t('workflow.mail.delivered', { time: new Date(m.deliveredAt).toLocaleTimeString() })));
+    if (m.dropped) { meta.appendChild(document.createTextNode(m.createdAt ? new Date(m.createdAt).toLocaleTimeString(getLocale()) : '')); meta.appendChild(el('span', 'wb-mail-badge', t('workflow.mail.dropped'))); }
+    else if (m.deliveredAt) meta.appendChild(document.createTextNode(t('workflow.mail.delivered', { time: new Date(m.deliveredAt).toLocaleTimeString(getLocale()) })));
     else meta.appendChild(document.createTextNode(t('workflow.mail.pending')));
     body.appendChild(meta); item.appendChild(body); box.appendChild(item);
   }

@@ -47,9 +47,12 @@ function agentTrigger(extra = {}) {
     loadSession: async () => ({ id: 'test', claudeSessionId: '', messages: [] }),
     kimiSessionStatus: async () => ({ ok: false }),
     applyKimiStatusToSession: () => {},
+    // hunt2-engines#7:触发线的滞回与失败退避是 05b 里的三个小函数 + 一张进程内表,一起放进沙箱(每个沙箱一张新表)。
+    agentAutoCompactFailures: new Map(), AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS: 10 * 60 * 1000,
     ...extra,
   };
-  const run = vm.runInNewContext(`${extract('lastSessionContextTokens')}\n${extract('replaceSessionObject')}\n${extract('maybeAutoCompactAgentSession')}\nmaybeAutoCompactAgentSession`, context);
+  const helpers = ['agentAutoCompactTrigger', 'agentAutoCompactBackingOff', 'noteAgentAutoCompactFailure'].map(extract).join('\n');
+  const run = vm.runInNewContext(`${extract('lastSessionContextTokens')}\n${extract('replaceSessionObject')}\n${helpers}\n${extract('maybeAutoCompactAgentSession')}\nmaybeAutoCompactAgentSession`, context);
   // 架构还债批 4:第三个参数是该 CLI 的适配器(05 AGENT_CLI_ADAPTERS)。用真适配器,只把「原生状态/原生压缩」两项能力
   // 换成走本沙箱里的桩(与修前直接桩 kimiSessionStatus / applyKimiStatusToSession 的口径相同)。
   const adapterFor = type => {
@@ -92,6 +95,29 @@ test('a larger summarizer cannot postpone compaction for a small conversation mo
   config.providers[0].contextWindow = 1000000;
   assert.equal(await trigger.run(sessionAt(110000), config), true);
   assert.equal(trigger.events[0].contextWindow, 128000);
+});
+
+test('hunt2-engines#7 hysteresis: a compaction that landed above the line does not re-fire until context grows past the rearm margin', async () => {
+  const trigger = agentTrigger(), config = configFor();
+  const session = sessionAt(800000);
+  session.autoCompactWatermark = 790000;   // 上次压完仍有 79 万(压不动):水位 + max(2K, 2%·1M) = 81 万才重新武装
+  assert.equal(await trigger.run(session, config), false);
+  assert.equal(trigger.calls.length, 0);
+  session.messages[0].usage.contextTokens = 810000;
+  assert.equal(await trigger.run(session, config), true);
+  assert.equal(trigger.calls.length, 1);
+});
+
+test('hunt2-engines#7 back-off: a failed external compaction is not retried every turn at the same context size', async () => {
+  let attempts = 0;
+  const trigger = agentTrigger({ runAgentExternalCompact: async () => { attempts++; return { ok: false, error: 'summarizer offline' }; } });
+  const config = configFor();
+  assert.equal(await trigger.run(sessionAt(800000), config), false);
+  assert.equal(await trigger.run(sessionAt(805000), config), false);
+  assert.equal(attempts, 1, '同样大小的上下文,冷却期内不再重试');
+  assert.equal(trigger.events.filter(e => e.phase === 'failed').length, 1);
+  assert.equal(await trigger.run(sessionAt(820000), config), false);
+  assert.equal(attempts, 2, '上下文又涨过一个重武装余量(2%·窗口)就再试一次');
 });
 
 test('custom thresholds use the conversation limit; default Claude native path is unchanged', async () => {

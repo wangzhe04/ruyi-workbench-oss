@@ -251,9 +251,11 @@ const asst = content => ({ role: 'assistant', content });
       ok(!!forced, 'B1 出现 forced_400 压缩事件(服务端 400 → 自动强压)');
       // 强压要等一次摘要调用:先 started(活动条显示「压缩中」),重试前 completed 带 afterTokens 收口。
       const forcedSeq = events.filter(e => e.type === 'compact' && e.mode === 'forced_400');
+      // afterTokens 与 beforeTokens 同一口径(都含系统提示与工具定义)。本场景的历史只有一问,摘要重播种后反而略长,
+      // 所以这里只要求它是个数、且与 before 同量级 —— 不要求变小(修前口径不一致,「变小」是把工具 schema 算成了省下的)。
       ok(forcedSeq.length === 2 && forcedSeq[0].phase === 'started' && forcedSeq[1].phase === 'completed'
-        && typeof forcedSeq[1].afterTokens === 'number' && forcedSeq[1].afterTokens < forcedSeq[1].beforeTokens,
-        'B1b forced_400 事件序列 started → completed(afterTokens<beforeTokens)(' + JSON.stringify(forcedSeq.map(e => [e.phase, e.beforeTokens, e.afterTokens])) + ')');
+        && typeof forcedSeq[1].afterTokens === 'number' && forcedSeq[1].afterTokens > forcedSeq[1].beforeTokens * 0.5,
+        'B1b forced_400 事件序列 started → completed,前后同一口径(' + JSON.stringify(forcedSeq.map(e => [e.phase, e.beforeTokens, e.afterTokens])) + ')');
       const result = events.find(e => e.type === 'result');
       ok(result && result.ok === true, 'B2 强压后重试成功,回合 ok(旧行为 = 回合失败)');
       // 历史被重播种(摘要 user + ack + 保留尾部)而非裸失败 —— 存储 v2 头是瘦的,

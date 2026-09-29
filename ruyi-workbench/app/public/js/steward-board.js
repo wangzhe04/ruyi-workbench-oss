@@ -306,6 +306,10 @@ export function createStewardBoard({
   // 出发，它若 304 说明数据没变；若 200 则至少一样新），所以【只认最后发出的那一发】是安全的。
   // 被取代的那一发【等最后那一发落地再回】，不是立刻回 false：调用方紧接着就 render（setWatch 就是），立刻回的话
   // 画的是两发都还没落地时的旧行 —— thread-switch-race W2 构造出来过：开关刚点成「别盯了」，下一帧又被勾回去。
+  // /api/missions 的唯一取数口(整页一发,与搜索补取那一发共用):鉴权头与 403 换 token 重放都在 apiRaw 里。
+  function fetchMissionRows(query, options = {}) {
+    return apiRaw('/api/missions' + query, options);
+  }
   let missionsLoadSeq = 0;
   let missionsLoadLatest = null;
   function loadMissions() {
@@ -320,7 +324,7 @@ export function createStewardBoard({
       // auth.token_invalid(后台进程重启后旧 token 失效)时会像其余 45+ 处 api() 调用点一样自愈：
       // 换新 token 重放一次，而不是直接放弃、空转到用户手动刷新页面。
       const headers = missionsEtag ? { 'if-none-match': missionsEtag } : {};
-      const response = await apiRaw('/api/missions?limit=200', { headers });
+      const response = await fetchMissionRows('?limit=200', { headers });
       if (seq !== missionsLoadSeq) return missionsLoadLatest;   // 128f：已经有更晚发出的一发 —— 这一份不许写回，等它落地
       if (response.status === 304) return false;          // 没变：不重画，chip 菜单也就不会被打断
       if (!response.ok) return false;
@@ -628,22 +632,49 @@ export function createStewardBoard({
   // 搜索（Ctrl+K）：框还是 2.0 那一个（#sessionSearch），过滤在这里。
   // 两条路合一：①「后端内容搜索」命中的会话 id 集合（113b 那条路由与去抖仍住 session-experience，
   // 本模块只读它的结果快照）；② 没有后端命中时按标题子串过滤。判据只有这一处。
+  // 修两处「搜不全」:①后端命中与标题子串【并集】—— 修前后端结果一到就只认它(前 30 条),标题里明明有这个词的
+  // 会话反而被滤掉;② 左栏只取了最新 200 条会话的行,更早的会话后端搜到了也画不出来 —— 缺的那几条按 id 补取
+  // (loadSearchExtras),只在搜索时并进来。命中的摘录挂在行下面,看得出为什么搜到它。
   function railFilter() {
     const input = byId('sessionSearch');
     const query = String((input && input.value) || '').trim().toLowerCase();
     if (!query) return null;
     const snapshot = searchState() || null;
-    const hit = snapshot && Array.isArray(snapshot.results) && String(snapshot.query || '').toLowerCase() === query
-      ? new Set(snapshot.results.map(item => String((item && item.id) || '')))
-      : null;
-    return { query, ids: hit };
+    const results = snapshot && Array.isArray(snapshot.results) && String(snapshot.query || '').toLowerCase() === query ? snapshot.results : null;
+    const hit = results ? new Set(results.map(item => String((item && item.id) || ''))) : null;
+    const snippets = new Map();
+    for (const item of results || []) if (item && item.id && item.snippet) snippets.set(String(item.id), String(item.snippet));
+    return { query, ids: hit, snippets };
   }
   function railRowMatches(row, filter) {
     if (!filter) return true;
-    if (filter.ids) return filter.ids.has(String(row.sessionId || ''));
+    if (filter.ids && filter.ids.has(String(row.sessionId || ''))) return true;
     const hay = [row.displayTitle, row.title, row.missionTitle, row.cwd]
       .map(value => String(value || '').toLowerCase());
     return hay.some(value => value.includes(filter.query));
+  }
+  // 搜索命中、但不在已取到的那一页里的会话:按 id 补取它们的行。同一组 id 只取一次;查询一变旧结果作废。
+  let searchExtraRows = [];
+  let searchExtraKey = '';
+  let searchExtraSeq = 0;
+  function loadSearchExtras(filter) {
+    if (!filter || !filter.ids) { searchExtraRows = []; searchExtraKey = ''; return; }
+    const have = new Set(rows.map(row => String((row && row.sessionId) || '')));
+    const missing = [...filter.ids].filter(id => id && !have.has(id)).slice(0, 60);
+    const key = filter.query + '|' + missing.join(',');
+    if (key === searchExtraKey) return;
+    searchExtraKey = key;
+    searchExtraRows = [];
+    if (!missing.length) return;
+    const seq = ++searchExtraSeq;
+    fetchMissionRows('?sessionIds=' + encodeURIComponent(missing.join(',')))
+      .then(response => (response && response.ok ? response.json() : null))
+      .then(payload => {
+        if (seq !== searchExtraSeq || !payload || !Array.isArray(payload.missions)) return;
+        searchExtraRows = payload.missions;
+        renderRail();
+      })
+      .catch(() => {});
   }
 
   // 选中谁：管家视角＝焦点线程（右栏那一份抽屉开着的那条），工作台视角＝当前会话。
@@ -742,10 +773,12 @@ export function createStewardBoard({
     const removal = state && state.sessionRemoval;
     return removal && removal.pending instanceof Set && removal.done instanceof Set ? removal : null;
   }
-  function groupRows() {
+  function groupRows(options = {}) {
     const groups = new Map();
     const removal = removalOf();
-    for (const row of rows) {
+    const have = options.withSearchExtras && searchExtraRows.length ? new Set(rows.map(row => String((row && row.sessionId) || ''))) : null;
+    const source = have ? rows.concat(searchExtraRows.filter(row => row && !have.has(String(row.sessionId || '')))) : rows;
+    for (const row of source) {
       if (removal && removal.done.has(String(row.sessionId || ''))) continue;
       const missionId = String(row.missionId || row.sessionId || '');
       if (!groups.has(missionId)) {
@@ -1159,7 +1192,8 @@ export function createStewardBoard({
     if (!host) return 0;
     railRenderedSelected = railSelectedId();
     const filter = railFilter();
-    const groups = groupRows().filter(group => group.rows.some(row => railRowMatches(row, filter)));
+    loadSearchExtras(filter);
+    const groups = groupRows({ withSearchExtras: Boolean(filter) }).filter(group => group.rows.some(row => railRowMatches(row, filter)));
     const railCount = byId('railCount');
     if (railCount) railCount.textContent = groups.length ? String(groups.length) : '';
     if (!groups.length) {
@@ -1192,11 +1226,14 @@ export function createStewardBoard({
           tasks.appendChild(railThreadList(group, selected));
         } else {
           // 单线程任务：那一行【就是】它的线程行（不画任务层）。验收 a/b 落在它的卡尾。
-          tasks.appendChild(renderThreadRow(group.rows[0], {
+          const threadRow = renderThreadRow(group.rows[0], {
             missionId: group.missionId,
             selected,
             facts: missionFacts(group),
-          }));
+          });
+          const snippet = filter && filter.snippets.get(String(group.rows[0].sessionId || ''));
+          if (snippet) threadRow.appendChild(el('div', 'steward-board-sub rail-search-snippet', snippet));
+          tasks.appendChild(threadRow);
         }
         printed += 1;
       }

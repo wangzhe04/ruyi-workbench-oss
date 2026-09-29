@@ -723,7 +723,8 @@ const PERMISSION_WAIT_CHOICES = Object.freeze([0, 30000, 60000, 120000, 300000, 
 const QUESTION_WAIT_CHOICES = Object.freeze([0, 300000, 900000, 1800000, 3600000]);
 function waitChoiceLabel(ms) {
   if (!(ms > 0)) return t('settings.security.wait.none');
-  return ms % 60000 === 0 ? t('settings.security.wait.minutes', { n: ms / 60000 }) : t('settings.security.wait.seconds', { n: Math.round(ms / 1000) });
+  // 走复数表：英文「1 minute」不是「1 minutes」（60 秒那一档就是 1 分钟）。
+  return ms % 60000 === 0 ? tCount('settings.security.wait.minutes', ms / 60000) : tCount('settings.security.wait.seconds', Math.round(ms / 1000));
 }
 function fillWaitSelect(id, choices, current) {
   const select = $(id);
@@ -1355,14 +1356,16 @@ function wireWorkspacePerms() {
   const addBtn = $('workspaceAddBtn');
   const addInput = $('workspaceAddInput');
   if (addBtn) addBtn.addEventListener('click', () => addWorkspace());
-  if (addInput) addInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addWorkspace(); } });
+  if (addInput) addInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); addWorkspace(); } });
   const outside = $('cfgAllowOutsideWorkspace');
   if (outside) outside.addEventListener('change', () => { if (state.config) state.config.allowOutsideWorkspace = outside.checked; });
 }
 function syncPrimaryInput() {
   const ws = Array.isArray(state.config.workspaces) ? state.config.workspaces : [];
   const wi = $('workspaceInput');
-  if (wi && ws.length && wi !== document.activeElement) wi.value = ws[0].path || '';
+  // 清单删空时主工作区框也要跟着清：修前只在「还有行」时同步，删掉唯一一行后框里还留着旧路径，
+  // workspacePatch 又把它当主工作区塞回清单 —— 这一行怎么删都删不掉。
+  if (wi && wi !== document.activeElement) wi.value = ws.length ? (ws[0].path || '') : '';
 }
 function renderWorkspacePerms() {
   wireWorkspacePerms();

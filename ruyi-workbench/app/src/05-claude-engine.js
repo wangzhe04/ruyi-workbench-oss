@@ -116,7 +116,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
     recordTurnUsage({ session, config, usage, billInMax, billOutMax }) {
       if (usage && usage.usage) {
-        const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+        const rawInTok = Number(usage.usage.input_tokens) || 0, outTok = usage.usage.output_tokens;
         // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
         // 两项相加,读法与 runClaudeTurn 的 msg_usage 分支(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,
         // 只读一项会漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
@@ -125,8 +125,13 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
         // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
         // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
         const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
+        // hunt2-engines#2:账本的口径是 OpenAI 那一套 —— inTok 是【全部】输入、cachedInTok 是它的子集(00 appendUsageLedger
+        // 按 min(inTok, cachedInTok) 夹住)。Claude 的 input_tokens 却【不含】缓存那两项(04i normalizeAnthropicUsage 同一事实),
+        // 直接记会让重缓存回合(input 3、缓存 5 万)的缓存被夹成 3,看板每回合少记几万 token。这里先归一成账本口径;
+        // 费用仍按 CLI 原始 input_tokens 交给 claudeCostFields(config.claudePricing 的既有算法不变)。
+        const inTok = rawInTok + cachedInTok;
         // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, rawInTok, outTok, usage.costUsd);
         appendUsageLedger({
           sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
           inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
@@ -354,6 +359,7 @@ async function runClaudeTurn({
   const memoryPreflight = await resolveMemoryPreflight(session, workingDir, promptTaskContext,
     (id, was, now) => { try { onEvent({ type: 'stderr', text: `[记忆] 记忆 ${id} 来源项目已变化(启用时项目组 ${was || '未知'},当前 ${now || '未知'}),已暂停注入,请在记忆库重新启用。` }); } catch { /* 通知失败不阻断 */ } },
     config, // 113a: 召回层开关的唯一数据源；不传则 06d 会自己再读一次配置文件
+    { cliType: agentCliType }, // 本 CLI 原生会读的导入条目在核心预算之前摘掉(下面 filterMemoryForNativeCli 保留作兜底)
   ).catch(() => ({ entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, projectMatches: 0, globalMatches: 0, excludedCount: 0, coreActiveCount: 0 } }));
   const memoryTurnCheck = buildMemoryCheckPrompt(memoryPreflight.status, config);
   // cmd8191 防线: 先把与 append/agents 无关的尾部参数(tailArgs)全部定下来,才能精确核算整行剩余预算。
@@ -640,10 +646,14 @@ async function runClaudeTurn({
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
-  env.WCW_SESSION_ID = session.id;
-  env.WCW_PORT = String(RUNTIME.port);
-  env.WCW_HOST = RUNTIME.host;
-  env.WCW_TOKEN = RUNTIME.token;
+  // hunt2-engines#9:回环凭据(WCW_SESSION_ID / PORT / HOST / TOKEN)不再放进 CLI 进程自己的环境 —— 放进去,模型经 CLI
+  // 的 Bash 起的每个子进程都会继承 WCW_TOKEN,一句 `env` 就能拿到如意的接口令牌再回调本机接口。真正要用它们的只有
+  // 如意的 MCP 子进程,generateSessionMcpConfig 已经把这四项写进 --mcp-config 里那个 server 的 env 块(每会话一份)。
+  // 从外层环境继承来的同名变量(例如如意自己被别的如意回合拉起)也一并删掉,理由相同。超时那一项不是凭据,
+  // 且会话 MCP 配置里没有它,留在进程环境里给 MCP 子进程继承。
+  // Kimi 这一路(05b runKimiAcpTurnPrepared)暂不照做:Kimi 只从全局 ~/.kimi-code/mcp.json 读 MCP 声明、没有按回合的
+  // --mcp-config,回合级回环字段只能靠 Kimi 进程环境继承给 MCP 子进程(见 01 syncMcpServersToKimi 头注)。
+  for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
   if (adapter.beforeSpawn) await adapter.beforeSpawn(config, onEvent);
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
@@ -668,6 +678,11 @@ async function runClaudeTurn({
     model: currentClaudeModel || 'default', iteration: _resumeRecoveryAttempt ? 1 : 0,
     resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt),
   });
+  // hunt2-engines#1:上面那次 supersede 检查与这里的 activeChildren.set 之间隔着十来个 await(建参、记忆预检、
+  // 环境说明、beforeSpawn、hooks……),同会话的两个回合可以都在那时看到「空闲」,各起一个子进程,后登记的
+  // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
+  // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
+  if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
@@ -701,7 +716,8 @@ async function runClaudeTurn({
   let assistantText = '';
   let thinkingText = '';
   const toolCalls = [];
-  let stderrText = '';
+  let stderrText = '';   // 子进程关闭后由 stderrCapture 定稿(hunt2-engines#17:头尾截断,不无限累积)
+  const stderrCapture = createCappedDiagnosticText();
   let rawSeq = 0;
   // Per-MESSAGE delta dedup: partials for a message set these; the following whole `assistant`
   // message is then suppressed; flags reset after each whole message so a later whole-only message
@@ -841,10 +857,12 @@ async function runClaudeTurn({
     child.stdin.end();
   } else child.stdin.end();
 
+  const stderrDecodeStream = {};   // hunt2-engines#8:一条 stderr 一个解码状态,块边界切开的汉字不再被误判成 GB18030
   child.stderr.on('data', chunk => {
-    const textChunk = decodeClaudeCliText(chunk);
-    stderrText += textChunk;
+    const textChunk = decodeClaudeCliText(chunk, stderrDecodeStream);
     reg.lastEventAt = Date.now();
+    if (!textChunk) return;   // 整块都是被切开的半个字符:留在解码器里等下一块
+    stderrCapture.append(textChunk);
     onEvent({ type: 'stderr', text: redact(textChunk) });
   });
 
@@ -977,14 +995,14 @@ async function runClaudeTurn({
     }
   };
 
-  let stdoutNoise = '';
+  const stdoutNoiseCapture = createCappedDiagnosticText();   // hunt2-engines#17:同 stderr,非 JSON 行也会被当正文兜底落盘
   const consumeLine = line => {
     if (!line.trim()) return;
     onEvent({ type: 'raw_line', line, seq: rawSeq++ }); // F4: verbatim, before parse
     const evt = safeJsonParse(line);
     if (!evt) {
       // Non-JSON CLI diagnostic — keep it visible but out of the assistant reply unless nothing else came.
-      stdoutNoise += line + '\n';
+      stdoutNoiseCapture.append(line + '\n');
       onEvent({ type: 'raw_stdout', text: line });
       return;
     }
@@ -1008,6 +1026,9 @@ async function runClaudeTurn({
   clearInterval(nativeAgentProgressTimer);
   stopSideChannelWatch();
   stdoutFeeder.flush();
+  stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));   // hunt2-engines#8:冲出流尾的残字节
+  stderrText = stderrCapture.toString();
+  const stdoutNoise = stdoutNoiseCapture.toString();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
   // interruption honestly instead of inventing a completion.

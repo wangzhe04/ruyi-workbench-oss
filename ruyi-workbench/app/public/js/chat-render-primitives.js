@@ -892,10 +892,12 @@ export function createChatRenderPrimitives(deps = {}) {
     if (pct >= 0.9) box.classList.add('crit'); else if (pct >= 0.7) box.classList.add('warn');
     const g = u.usage || {};
     const srcLabel = ctxWindowSourceLabel();
+    // 千分位跟界面语言走（i18n.setLocale 把当前语言写在 <html lang> 上；本文件不顶部 import i18n，见上面 deps 注）。
+    const uiLocale = document.documentElement.lang || undefined;
     const srcHint = locked
-      ? t('ctx.tooltip.locked', { win: win.toLocaleString() })
+      ? t('ctx.tooltip.locked', { win: win.toLocaleString(uiLocale) })
       : t('ctx.tooltip.srcAuto', { src: srcLabel }) + (srcLabel === t('ctx.sourceLabel.guessed') ? ' ' + t('ctx.tooltip.srcGuessed') : '');
-    box.title = (plain ? t('ctx.plain.hint') + '\n' : '') + t('ctx.tooltip.summary', { n: n.toLocaleString(), win: win.toLocaleString() }) + '\n' +
+    box.title = (plain ? t('ctx.plain.hint') + '\n' : '') + t('ctx.tooltip.summary', { n: n.toLocaleString(uiLocale), win: win.toLocaleString(uiLocale) }) + '\n' +
       t('ctx.tooltip.usageLine', { input: g.input_tokens || 0, cacheRead: g.cache_read_input_tokens || 0, cacheWrite: g.cache_creation_input_tokens || 0, output: g.output_tokens || 0 }) + '\n' + srcHint;
     box.classList.remove('hidden');
   }

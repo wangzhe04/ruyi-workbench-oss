@@ -1147,7 +1147,12 @@ async function openMemoryEditModal(m) {
     editSettled = true;
     if (full && typeof full._onProposalEditCancelled === 'function') full._onProposalEditCancelled();
   };
-  const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot, settleEditCancel);
+  // 点背影／Esc／✕ 关弹层前问一句：表单与打开时不一样就算「有没存的改动」（一段记忆正文可能敲了好几分钟）。
+  const editSnapshot = () => JSON.stringify([nameEl.value, descEl.value, typeSel.value, scopeSel.value, coreCheck.checked,
+    coreSummaryEl.value, importanceSel.value, reviewEl.value, expiresEl.value, bodyTa.value]);
+  const editBaseline = editSnapshot();
+  const modal = buildModal(editing ? t('memory.edit.title') : t('memory.edit.create.title'), body, foot, settleEditCancel,
+    { dirty: () => editSnapshot() !== editBaseline });
   cancel.onclick = () => { settleEditCancel(); modal.close(); };
   save.onclick = async () => {
     const memory = { name: nameEl.value.trim(), description: descEl.value.trim(), type: typeSel.value, body: bodyTa.value, scope: scopeSel.value,
@@ -1157,12 +1162,15 @@ async function openMemoryEditModal(m) {
     if (full && full.sourceSessionId) memory.sourceSessionId = full.sourceSessionId;
     if (!memory.name || !memory.body.trim()) { toast(t("toast.memoryFieldsRequired"), 'err'); return; }
     save.disabled = true; save.textContent = t('common.saving');
+    const restoreSave = () => { save.disabled = false; save.textContent = t('common.save'); };
     try {
       const payload = { memory, cwd: currentWorkspace() || '' };
       if (full && full._proposalId && full.sourceSessionId) { payload.proposalId = full._proposalId; payload.sourceSessionId = full.sourceSessionId; }
       const r = await api('/api/memory', { method: 'POST', body: JSON.stringify(payload) });
+      // 存失败时弹层【不关】：修前先 close 再判 r.ok，一次失败就把用户刚敲的整段正文一起扔掉。
+      // 失败 = 报原因 + 把「保存」还给用户，改一改或稍后再点即可。
+      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); restoreSave(); return; }
       modal.close();
-      if (!r || !r.ok) { toast(t("toast.saveFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
       toast(t("toast.memorySaved"), 'ok');
       editSettled = true;
       if (full && full._proposalId && full.sourceSessionId) {
@@ -1172,7 +1180,7 @@ async function openMemoryEditModal(m) {
         if (typeof full._onProposalSaved === 'function') full._onProposalSaved();
       }
       await refreshMemoryViews();
-    } catch (e) { modal.close(); toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err'); }
+    } catch (e) { toast(t("toast.saveFail", { p1: apiErrText(e) }), 'err'); restoreSave(); }
   };
 }
 
@@ -1185,6 +1193,7 @@ async function openMemoryEditModal(m) {
     if (search) {
       search.addEventListener('input', () => { skillIndex = 0; renderSkillList(); });
       search.addEventListener('keydown', event => {
+        if (event.isComposing || event.keyCode === 229) return; // 输入法选字中:回车/方向键归输入法
         if (event.key === 'ArrowDown') { event.preventDefault(); moveSkillSel(1); }
         else if (event.key === 'ArrowUp') { event.preventDefault(); moveSkillSel(-1); }
         else if (event.key === 'Enter') { event.preventDefault(); pickSkill(skillIndex); }

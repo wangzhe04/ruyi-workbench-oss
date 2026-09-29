@@ -20,8 +20,8 @@ export function createInteractionPromptsDomain({
 } = {}) {
 // 32 号文 §4（M2-a）：模态原语搬进叶子 js/modal.js，3.0 管家壳的危险操作确认（js/confirm-panel.js）
 // 与这里共用同一份。本域保留 2.0 自己的调用形状（title/body/foot/onCancel），实现只此一处。
-function buildModal(title, bodyEl, footEl, onCancel) {
-  return openModal({ title, body: bodyEl, foot: footEl, onCancel });
+function buildModal(title, bodyEl, footEl, onCancel, { dirty = null } = {}) {
+  return openModal({ title, body: bodyEl, foot: footEl, onCancel, dirty });
 }
 // §4.9 helper 与焦点陷阱（focusFirstInteractive / installFocusTrap）一并搬进 js/modal.js ——
 // 静态模态（index.html）的焦点陷阱仍从本域的返回面取（app.js 那处一个字未动）。

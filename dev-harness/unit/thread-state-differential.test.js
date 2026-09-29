@@ -6,6 +6,7 @@
 //   [D2] 证据网格(每个判据键取遍它在判定里能区分的边界值,笛卡尔积)上两边 state/sources/label 逐格相同。
 //   [D3] 同一网格上,判定表与改表前那串 if/else(下面 legacyDecide 原样抄存)逐格同态 —— 本刀零语义变化。
 //   [D4] 卡片适配器:由网格派生的卡片形状上 fromCard 两边逐格相同。
+//   [D5] hunt2-steward ④:末回合成败账只在盖得住当前回合(lastTurn.seq >= turnSeq)时才算数,两边同判。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -97,7 +98,8 @@ test('[D4] 卡片适配器两边逐格相同', () => {
     if (input.factsUnknown || input.kind !== undefined) continue;   // 卡片没有 factsUnknown 这一格;kind 由 quick 决定
     for (const quick of [false, true]) {
       for (const lastRun of [null, { live: true, paused: false }, { live: true, paused: true }]) {
-        for (const lastTurn of [null, { ok: true }, { ok: false }, { ok: true, aborted: true }]) {
+        // hunt2-steward ④:带 seq 的两格 —— seq 0 在 turnSeq>0 的格上是过期账(不算数),seq 9 恒盖得住。
+        for (const lastTurn of [null, { ok: true }, { ok: false }, { ok: true, aborted: true }, { seq: 0, ok: false }, { seq: 9, ok: false }, { seq: 9, ok: true, aborted: true }]) {
           const card = {
             quick,
             status: input.ledgerless ? 'none' : 'active',
@@ -126,4 +128,17 @@ test('[D4] 卡片适配器两边逐格相同', () => {
   }
   assert.ok(cells > 10000, `卡片网格够大(${cells} 格)`);
   assert.equal(srv.stewardThreadStateFromCard(null).state, MissionState.fromCard(null).state, 'null 卡片两边同态');
+});
+
+test('[D5] 过期的末回合成败账不算数(卡片 / 会话头两个适配器,两边同判)', () => {
+  // 管家第 1 回合失败留下 ok:false;之后用户在 2.0 里自己跑成功了第 2、3 回合(用户回合不写这份账)。
+  const stale = { quick: false, status: 'none', turnSeq: 3, runCount: 0, lastTurn: { seq: 1, ok: false, aborted: false }, mission: {} };
+  assert.equal(srv.stewardThreadStateFromCard(stale).state, 'done', '服务端卡片:过期账 -> done');
+  assert.equal(MissionState.fromCard(stale).state, 'done', '前端卡片:过期账 -> done');
+  const covering = { ...stale, lastTurn: { seq: 3, ok: false, aborted: false } };
+  assert.equal(srv.stewardThreadStateFromCard(covering).state, 'stopped', '服务端卡片:盖得住的失败账 -> stopped');
+  assert.equal(MissionState.fromCard(covering).state, 'stopped', '前端卡片:盖得住的失败账 -> stopped');
+  const head = { id: 'sess_aaaaaaaaaaaaaaaa', turnSeq: 3, stewardLastTurn: { seq: 1, ok: false, aborted: false, errorClass: 'idle_timeout' } };
+  assert.equal(srv.stewardThreadStateFromHead(head, { kind: 'mission' }).state, 'done', '会话头:过期账 -> done');
+  assert.equal(srv.stewardThreadStateFromHead({ ...head, stewardLastTurn: { seq: 3, ok: false } }, { kind: 'mission' }).state, 'stopped', '会话头:盖得住的失败账 -> stopped');
 });

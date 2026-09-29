@@ -1069,6 +1069,7 @@ export function createQuickSwitchChips({
     menu.onkeydown = event => {
       const key = event && event.key;
       if (key !== 'ArrowDown' && key !== 'ArrowUp' && key !== 'Enter') return;
+      if (event.isComposing || event.keyCode === 229) return; // 焦点在搜索框里用输入法选字:回车/方向键归输入法
       const items = stewardVisibleOptions(menu);
       if (!items.length) return;
       const at = items.indexOf(doc() ? doc().activeElement : null);

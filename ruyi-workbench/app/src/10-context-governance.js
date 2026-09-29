@@ -991,6 +991,12 @@ function summaryMaxConcurrent(config, provider, model) {
 // 有界并发执行摘要类调用(仿 09-workflow 21-E2 worker-pool:poolNext 领任务、完成即补位,无批次屏障)。
 // fail-fast:任一结果 !ok 即 abort failCtrl —— worker 停止领新任务,在飞请求经 extraSignal 取消;
 // 结果按输入下标保序(失败点之后的空位为 undefined,调用方按序找首个真实失败上浮)。
+// 分段摘要的失败取哪一条:按块序取第一条【真实】失败。一块失败会 abort 同批的其它块,那些被连带取消的
+// (cancelledBySibling)排在前面的话,修前报出去的就是「sibling chunk failed」,真正的原因(400 / 超时)被盖住了。
+function pickSummaryFailure(results) {
+  const failures = (Array.isArray(results) ? results : []).filter(r => r && !r.ok);
+  return failures.find(r => !r.cancelledBySibling) || failures[0] || null;
+}
 async function mapSummaryWithLimit(items, limit, fn, failCtrl) {
   const results = new Array(items.length);
   let poolNext = 0;
@@ -1507,7 +1513,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       return finish(result);
     } catch (e) {
       const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
-      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
+      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed'), ...(cancelledBySibling ? { cancelledBySibling: true } : {}) };
       econDone(failed); attempts.push(failed); return finish(failed);
     } finally { if (timer) clearTimeout(timer); }
   }
@@ -1647,8 +1653,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   // 保持原串行的失败语义(差异:失败时在飞请求被取消并记账,不再发出未派发的块)。
   const initialCalls = await mapSummaryWithLimit(chunks, summaryConcurrency, (ci) =>
     rememberCall(factChunkMsg ? [...chunks[ci], factChunkMsg] : chunks[ci], { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'map' }, failCtrl && failCtrl.signal), failCtrl);
-  let firstChunkFail = null;
-  for (const r of initialCalls) if (r && !r.ok) { firstChunkFail = r; break; } // 跳过未派发空位,按块序取真实失败
+  const firstChunkFail = pickSummaryFailure(initialCalls); // 跳过未派发空位,按块序取真实失败
   if (firstChunkFail) return firstChunkFail;
   let partialResults = initialCalls;
   let final = null;
@@ -1670,8 +1675,7 @@ async function providerSummaryCallCore(provider, history, opts) {
       role: 'user',
       content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
     }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1, summaryStage: 'reduce' }, failCtrl && failCtrl.signal), failCtrl);
-    let firstGroupFail = null;
-    for (const r of next) if (r && !r.ok) { firstGroupFail = r; break; }
+    const firstGroupFail = pickSummaryFailure(next);
     if (firstGroupFail) return firstGroupFail;
     partialResults = next;
   }
@@ -2054,6 +2058,28 @@ function recentFileReads(history, budgetTokens) {
 
 // 第104波：所有自动压缩入口共享同一份不可变计划语义。计划只计算预算、完整回合尾部与
 // 重播种形状；摘要执行、持久化和事件仍由各 owner 负责，因此不会把副作用重新揉成一团。
+// 重播种时钉住的「原始任务」正文。两个坑:
+//   · 第二次及以后的 L2:历史首条 user 就是上一次重播种写的「原始任务 + 旧摘要」。整条再钉一遍,旧摘要就一层套一层
+//     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
+//   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
+const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+function compactionTaskText(message) {
+  const content = message && message.content;
+  let text = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.map(part => {
+      if (typeof part === 'string') return part;
+      if (!part || typeof part !== 'object') return '';
+      if (typeof part.text === 'string') return part.text;
+      return /image/i.test(String(part.type || '')) ? '[图片]' : '';
+    }).filter(Boolean).join('\n')
+    : String(content == null ? '' : content);
+  if (text.startsWith(COMPACTION_TASK_PREFIX)) {
+    const body = text.slice(COMPACTION_TASK_PREFIX.length);
+    const cut = body.indexOf('\n\n【压缩摘要');
+    text = cut >= 0 ? body.slice(0, cut) : body;
+  }
+  return text;
+}
 const CompactionPlan = (() => {
   const defaults = CONTEXT_GOVERNANCE_RULES.compactionPlan;
   function create(options = {}) {
@@ -2117,7 +2143,7 @@ const CompactionPlan = (() => {
         + files.map(f => '--- ' + f.path + ' ---\n' + f.head).join('\n\n')
       : '';
     return [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
+      { role: 'user', content: COMPACTION_TASK_PREFIX + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
       { role: 'assistant', content: acknowledgement },
       ...bridged,
     ];
@@ -2218,7 +2244,9 @@ async function runAutoCompaction(ctx) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
     onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
-    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
+    // L1 也没斩获时同样落水位(= 这次的估算):修前不落,滞回永不武装,摘要端点坏着的时候每个迭代边界、每个回合都再
+    // 白等一次摘要超时(最长几分钟)、再报一次失败。历史再涨过「水位 + 余量」才会重试。
+    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before, watermark: before, summaryFailed: true };
   }
   const plan = CompactionPlan.create({ scope, trigger: 'auto', history, provider, model, config, ...planOpts });
   const reseeded = CompactionPlan.reseed(plan, sc.summary);
@@ -2297,7 +2325,7 @@ async function maybeCompactSubHistory(opts) {
       subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
       try { if (parentSession) recordCompactUsage(parentSession, r.summaryProvider, r.sc, { subagentId, runId }); } catch { /* 记账失败不阻断 */ }
     }
-    if (r.compacted && state) state.watermark = r.watermark;
+    if ((r.compacted || r.summaryFailed) && state && Number.isFinite(Number(r.watermark))) state.watermark = r.watermark;
     return r.compacted;
   } catch { return false; }
 }
@@ -2411,6 +2439,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
     if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session).catch(() => {}); }
+    else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
     // Compaction is best-effort; a failure must never break the turn.
@@ -2506,10 +2535,15 @@ async function runSessionTurn(input) {
   // (与上面那条 STEWARD_SESSION_FORBIDDEN 逐字同一条纪律)。也必须在这里而不是 09/05 各钉一遍:
   // 那两行在 runSessionTurn 的下游,而且那时用户消息已经落盘、响应头已经发出,回不了 4xx;
   // runSessionTurn 是两个引擎唯一的汇合点,守一处等于守两处。
-  const busyReg = activeChildren.get(session.id) || null;
-  const busySettler = busyReg ? turnSettlers.get(session.id) : null;
+  // hunt2-steward ②:「忙」读 turnSettlers 本身,不再先要求 activeChildren 里有它。activeChildren 要等引擎
+  // 里好几个 await 之后(09 登记子进程/中止器那一步)才写上,而 turnSettlers 在本函数同步段就登记了 ——
+  // 修前一个刚开跑的回合在这段窗口里对别处来的一句话【不算忙】,管家递话于是起一个新回合,在 09 里把
+  // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
+  // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
+  // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busyReg && busySource && busySource !== source) {
+  if (busySettler && busySource && busySource !== source) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -2703,7 +2737,7 @@ async function runSessionTurn(input) {
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
     // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
     }
   } catch (err) {
     // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。
@@ -2754,6 +2788,12 @@ async function runSessionTurn(input) {
 // HTTP 壳:只做「解析 body / 起流 / 构造 sink / 调核心 / 收尾 res.end」。回合语义全在 runSessionTurn 里。
 async function streamChat(req, res) {
   const body = await readJsonBody(req);
+  // 带了 sessionId 却不是合法 id(`foo.bar`、数字、对象…)= 客户端以为在续一条会话:回 400,不再静默新建一条
+  // (前端只发服务端给过的 sess_* / steward)。没带(或空串)才是「开新会话」;合法但不存在的 id 仍按原语义
+  // 新建(会话文件损坏被隔离后的兜底,见 runSessionTurn)。
+  if (body.sessionId != null && body.sessionId !== '' && !(typeof body.sessionId === 'string' && safeSessionId(body.sessionId))) {
+    return send(res, apiSessionIdInvalid());
+  }
   // D1:assistant_delta/thinking_delta 高频小事件合批(50ms 窗口),减前端重渲染 60-80%;边界事件立即 flush 保顺序
   let deltaBuffer = []; let flushTimer = null;
   const flushDeltas = () => {
@@ -2766,6 +2806,9 @@ async function streamChat(req, res) {
       else merged.push({ ...d });
     }
     deltaBuffer = [];
+    // 流已收尾(res.end 之后)的迟到事件直接丢:write-after-end 的 ERR_STREAM_WRITE_AFTER_END 是【异步】
+    // 'error' 事件,try/catch 接不住,没有监听者就是 uncaughtException → 整个服务退出。
+    if (res.writableEnded || res.destroyed) return;
     for (const evt of merged) {
       try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
     }
@@ -2777,6 +2820,7 @@ async function streamChat(req, res) {
       return;
     }
     flushDeltas();  // D1:边界事件先 flush 积压 delta,保顺序
+    if (res.writableEnded || res.destroyed) return;   // 迟到事件(见 flushDeltas)
     try { res.write(`${JSON.stringify({ ...evt, ts: nowIso() })}\n`); } catch { /* client gone */ }
   };
   // 客户端断线 → abort:核心把它翻译回原来的 killOnDisconnect → stopSession 语义。
@@ -2798,6 +2842,8 @@ async function streamChat(req, res) {
       'x-accel-buffering': 'no',
     });
     try { res.flushHeaders(); } catch { /* ignore */ }
+    // 流上的异步写错误(EPIPE / write-after-end)兜底吸收:断线已由下面的 close/aborted 翻译成 abort。
+    res.on('error', () => {});
     req.on('aborted', handleDisconnect);
     res.on('close', () => { if (!shellFinished && !res.writableEnded) handleDisconnect(); });
   };

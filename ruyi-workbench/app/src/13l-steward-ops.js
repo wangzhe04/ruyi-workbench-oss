@@ -879,7 +879,9 @@ async function stewardImplWebSearch(args, ctx, config) {
     url: stewardSanitizeText(String((r && r.url) || '')).slice(0, 300),
     snippet: stewardSanitizeText(String((r && (r.snippet || r.description)) || '')).slice(0, 400),
   }));
-  return { ok: true, query: q, total: rows.length, tainted: true, results: rows };
+  // 结果为空时把原因(被人机验证拦下 / 两个引擎都没结果)带上,管家才知道该换说法重搜还是告诉用户换搜索后端。
+  const note = raw.note ? stewardSanitizeText(String(raw.note)).slice(0, 200) : '';
+  return { ok: true, query: q, total: rows.length, tainted: true, results: rows, ...(note ? { note } : {}) };
 }
 
 // 28) steward_web_fetch

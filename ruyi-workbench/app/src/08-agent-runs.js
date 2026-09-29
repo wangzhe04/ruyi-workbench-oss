@@ -795,7 +795,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
             if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
-            pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
+            pendingOvershootLearn = Math.round(estNow * estimateFactor(provider.id, subModel)); // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同);校准后的口径,见主回合同处
             subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
@@ -833,6 +833,10 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           subServerToolItems.push(item);
         }
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
+        // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
+        // 不能让本批还没答的 call_1 漏补配对。
+        const subBatchHistStart = subHistory.length;
+        const subOutputLimited = providerWireOutputLimited(call.finishReason);
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -852,7 +856,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // above). Mirrors the parent turn's `answeredIds = new Set(toolCalls.map(...))`. Without this, an
             // abort mid-batch would re-emit tool_use/tool_result + re-push role:'tool' for calls that ALREADY
             // executed earlier in the SAME batch, falsely reporting them "not executed" and double-pairing them.
-            const answered = new Set(subHistory.filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
+            const answered = new Set(subHistory.slice(subBatchHistStart).filter(m => m && m.role === 'tool').map(m => m.tool_call_id));
             for (const rem of localToolCalls) {
               if (!rem || answered.has(rem.id)) continue; answered.add(rem.id);
               let rargs = {}; try { rargs = JSON.parse(rem.rawArgs || '{}'); } catch { rargs = {}; }
@@ -879,6 +883,13 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // Forward the sub-turn's tool_use TAGGED with subagentId so the UI nests it (additive field).
           onEvent({ type: 'tool_use', id: tc.id, name: tc.name, input: args, subagentId });
           let resultObj;
+          // 参数不是完整的 JSON 对象(多半是输出触顶被截断):不按 {} 执行,回配对的失败结果让子代理重来(与主回合同)。
+          if (!isProviderToolArgsObject(tc.rawArgs)) {
+            resultObj = { ok: false, argsInvalid: true, error: subOutputLimited ? '工具调用参数被截断(模型输出达到上限),该调用未执行;请把内容拆小后重试' : '工具调用参数不是完整的 JSON 对象,该调用未执行;请给出完整参数后重试' };
+            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            continue;
+          }
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
           // toolCall,那里拿不到 runtime/run),且已在上方豁免 role.openaiTools 白名单、此处不过 bridge/tier 判定(它们
           // 本就是 read tier、非业务能力)。放在禁嵌套守卫之前,故永不会被误判为代理工具(回归见 e2e 白名单豁免断言)。
