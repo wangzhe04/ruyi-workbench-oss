@@ -361,7 +361,6 @@
         "applyConfigMigrations",
         "assertSessionIdForPath",
         "atomicWriteJson",
-        "atomicWriteJsonInner",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
         "buildClaudeCliEnv",

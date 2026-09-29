@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3095,
+    "providedSymbols": 3094,
     "requiredSymbols": 2931,
     "edges": 512,
     "forwardEdges": 68,
@@ -387,7 +387,6 @@
         "applyConfigMigrations",
         "assertSessionIdForPath",
         "atomicWriteJson",
-        "atomicWriteJsonInner",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
         "buildClaudeCliEnv",

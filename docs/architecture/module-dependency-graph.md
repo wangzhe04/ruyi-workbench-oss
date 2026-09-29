@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3095 | 2931 | 512 | 68 | 0 | 1 |
+| 66 | 3094 | 2931 | 512 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -22,7 +22,7 @@
 | 4 | `01d-win-cmdline.js` | foundation | 10 | 0 | 0 |
 | 5 | `01e-permission-modes.js` | foundation | 10 | 1 | 1 |
 | 6 | `01f-agent-cli-types.js` | foundation | 4 | 1 | 1 |
-| 7 | `01-config.js` | foundation | 172 | 54 | 12 |
+| 7 | `01-config.js` | foundation | 171 | 54 | 12 |
 | 8 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
