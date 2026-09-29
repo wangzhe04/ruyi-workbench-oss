@@ -1912,10 +1912,9 @@ export function createStewardBoard({
     if (max) max.onchange = () => { void saveMaxParallel(max.value); };
     const pause = byId('stewardBoardPauseAllBtn');
     if (pause) pause.onclick = () => { void pauseAll(); };
-    // 搜索（Ctrl+K）：框是 2.0 那一个，去抖与后端内容搜索仍住 session-experience.js；
-    // 这里只在它变的时候把左栏重画一遍（过滤判据在 railFilter 一处）。
-    const search = byId('sessionSearch');
-    if (search) search.addEventListener('input', () => { renderRail(); });
+    // 搜索（Ctrl+K）：框是 2.0 那一个，去抖与后端内容搜索仍住 session-experience.js，每次输入由它的
+    // scheduleSessionSearch 先更新搜索态、再经 renderSessions({ refresh:false }) 把左栏重画一遍（过滤判据在 railFilter 一处）。
+    // perf：修前这里还另挂了一个 input 监听，每次按键左栏整列重建两遍（外加一发 /api/missions 复核）。
 
     if (drawer && typeof drawer.setOnClosed === 'function') {
       // 关掉 docked 那一份（×／Esc／「交回管家」）＝ 松开用户钉的焦点（见 closeNow 的头注）。

@@ -173,6 +173,27 @@ export function createChatStreamRuntime(deps = {}) {
     live.renderedChars = 0;
     bubble.appendChild(live.textNode);
   }
+  // perf(长回复):流式期间正文是 .live-plain 里的一个文本节点,每帧追加都让整段重新断行排版(4 万字时每帧 5 ms 以上,
+  // 且随长度增长,maybeScrollToBottom 那一次读布局全数付清)。尾巴攒到 LIVE_TEXT_CHUNK_CHARS 且里面有换行时,把最后一个
+  // 换行(含)之前的部分封进一个块级 div、插在尾巴前面 —— 之后每帧只重排尾巴那一小块。换行符留在前一块末尾:块尾单个换行
+  // 不多出空行(实测各种换行组合高度逐像素相同),textContent 与单节点逐字相同。一整段没有换行时不切(与修前一样)。
+  // 思维链面板(.think-body)同理:scheduleLiveThinkingFollow 每帧读 scrollHeight,15 万字时布局 2.4 s。
+  // 用户正在尾巴里选字(双击 / 拖选)时不切 —— 挪走文本会把选区清掉;松手之后下一帧照常切(审查轮复现过)。
+  const LIVE_TEXT_CHUNK_CHARS = 1500;
+  function sealTextTailChunk(node) {
+    const host = node && node.parentNode;
+    if (!host || node.length < LIVE_TEXT_CHUNK_CHARS) return;
+    const sel = typeof document.getSelection === 'function' ? document.getSelection() : null;
+    if (sel && sel.rangeCount && !sel.isCollapsed && (host.contains(sel.anchorNode) || host.contains(sel.focusNode))) return;
+    const cut = node.data.lastIndexOf('\n');
+    if (cut < 0) return;
+    const chunk = document.createElement('div');
+    chunk.className = 'live-chunk';
+    chunk.textContent = node.data.slice(0, cut + 1);
+    node.deleteData(0, cut + 1);
+    host.insertBefore(chunk, node);
+  }
+  function sealLiveTextChunk(live) { if (live.bubble) sealTextTailChunk(live.textNode); }
   function startLiveTextSegment(live) {
     if (!live || !live.narrative) return null;
     compactNarrativeProcessRuns(live.narrative);
@@ -1032,7 +1053,7 @@ export function createChatStreamRuntime(deps = {}) {
       live.rafPending = false;
       live.rafId = 0;
       const pending = live.bufferText.slice(live.renderedChars || 0);
-      if (pending && live.textNode) live.textNode.appendData(pending);
+      if (pending && live.textNode) { live.textNode.appendData(pending); sealLiveTextChunk(live); }
       live.renderedChars = live.bufferText.length;
       // EC-D 57: 正文/思考/工具统一走聊天滚动控制器；DOM 增长不再伪装成用户 scroll。
       maybeScrollToBottom();
@@ -1107,7 +1128,7 @@ export function createChatStreamRuntime(deps = {}) {
   // 确保折叠摘要字数（读 body.textContent）与面板正文一致。
   function flushThinkingBuffer(live) {
     if (!live || !live.thinkingBuffer) return;
-    if (live.thinkingNode) live.thinkingNode.appendData(live.thinkingBuffer);
+    if (live.thinkingNode) { live.thinkingNode.appendData(live.thinkingBuffer); sealTextTailChunk(live.thinkingNode); }
     live.thinkingBuffer = '';
   }
 

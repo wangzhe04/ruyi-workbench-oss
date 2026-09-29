@@ -67,8 +67,8 @@ ok(/while \(tail\.tools\.length > LIVE_TOOLS_MAX\) tail\.tools\.shift\(\);/.test
 /* ─── B 信封 ───────────────────────────────────────────────────────────────── */
 ok(/\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/.test(routes),
   'B1 liveTail 仍是【条件展开】(回合一结束这个键就不在了 —— 前端据此收尾)');
-ok(count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g) === 2,
-  `B1b 两条返回路径(带 since 的与不带的)都带上它(实测 ${count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g)} 处)`);
+ok(count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g) === 3,
+  `B1b 三条返回路径(带 since 的、?view=live 轻量信封、全量)都带上它(实测 ${count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g)} 处)`);
 for (const key of ['full', 'truncated', 'startedAt', 'iterations', 'tools']) {
   ok(new RegExp(`\\n\\s+${key}:`).test(routes.slice(routes.indexOf('const liveTail = liveReg'), routes.indexOf('const liveTail = liveReg') + 1400)),
     `B2 信封带上了 ${key}`);
@@ -141,8 +141,8 @@ ok(!/messages\.push\(/.test(experienceCode) && !/currentSession\.messages\s*=/.t
     'D8 守卫本身还在(气泡被整份重绘换掉时仍返回 false 让调用方重绘)');
   ok(!/innerHTML/.test(body), 'D7 刷新也走 textContent');
 }
-ok(/if \(liveTurnVisible\(\)\) fragment\.appendChild\(buildLiveTurnCard\(\)\);/.test(experience),
-  'D8 气泡挂在会话末尾(renderCurrentSession 的 fragment 尾巴)');
+ok(/if \(liveTurnVisible\(\)\) nodes\.push\(buildLiveTurnCard\(\)\);/.test(experience),
+  'D8 气泡挂在会话末尾(renderCurrentSession 待挂行列表的尾巴;原位协调见 reconcileMessageChildren)');
 ok(/!session\.messages\?\.length && !liveForSession && !liveTurnVisible\(\)/.test(experience),
   'D9 一条落盘消息都没有但回合在跑时不落空态(否则空态把气泡整个吞掉)');
 
@@ -220,8 +220,8 @@ ok(!/segments\.push\([^)]*inputPreview/.test(turnSegments),
   'G6 参数摘要不进 segments —— 落盘的 snapshot() 形状一个字节没变');
 ok(/liveSegments: turnSegments,/.test(workflow) && /liveSegments: turnSegments \}/.test(claudeEngine),
   'G7 两条引擎路径(provider / Claude CLI)都把这一份账本挂在活回合登记项上');
-ok(count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g) === 2,
-  `G8 liveTurn 与 liveTail 同款【条件展开】,两条返回路径都带(实测 ${count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g)} 处)`);
+ok(count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g) === 3,
+  `G8 liveTurn 与 liveTail 同款【条件展开】,三条返回路径都带(实测 ${count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g)} 处)`);
 ok(/liveReg\.liveSegments\.liveSnapshot === 'function'/.test(routes),
   'G9 路由只调只读快照,不把构建器本身交出去');
 {
@@ -290,9 +290,9 @@ ok(!/\btoolCard\(/.test(experienceCode) && !/\bthinkingPanel\(/.test(experienceC
   ok(rowStart >= 0 && !/kind !==|kind ===/.test(rowBody),
     'I2 单条行也不按 kind 分叉(管家开的线程与手工建的会话一视同仁；K3 之后 kind 对两者同样返回 quick_ask，身份改读 row.quick)');
   // renderSessions 自此只是「叫左栏重画一次」的转接口：它不许自己长出第二份行渲染。
-  const bridgeStart = experienceCode.indexOf('function renderSessions()');
+  const bridgeStart = experienceCode.indexOf('function renderSessions(');   // 可带 opts(refresh:false = 只重画不复核)
   const bridgeBody = bridgeStart >= 0 ? experienceCode.slice(bridgeStart, experienceCode.indexOf('\n}', bridgeStart) + 2) : '';
-  ok(bridgeStart >= 0 && /railRenderer\(\)/.test(bridgeBody) && !/createElement|innerHTML|appendChild/.test(bridgeBody),
+  ok(bridgeStart >= 0 && /railRenderer\((?:opts)?\)/.test(bridgeBody) && !/createElement|innerHTML|appendChild/.test(bridgeBody),
     'I2b renderSessions 只剩一个转接口（调注入的左栏渲染），它自己一行都不画');
 }
 

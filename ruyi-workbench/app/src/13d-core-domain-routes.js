@@ -479,6 +479,26 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
       // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
       const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      // perf(前端长会话):?view=live —— 经典壳看「别处起的回合」时每条 thread.live 推送(约 1 次/秒)来一发,只读信封上的在跑部分
+      // (liveTail / liveTurn / relay / resumable.live)。修前每发都整份装载并下发全部历史(2000 条消息约 7.7 MB)。
+      // 真有活回合时只读会话头、回轻量信封(view:'live',session 只带几个标量,不是完整会话);没有活回合就落回下面的全量路径
+      // —— 回合刚收尾的那一拍前端正要把整份会话换上来,拿到的就是它。不带 view 的调用逐字节不变。
+      if (sinceRaw == null && new URL(req.url, 'http://x').searchParams.get('view') === 'live') {
+        const liveParts = sessionEnvelopeLiveParts(id);
+        const head = liveParts.live ? await readSessionHeadResilient(id) : null;
+        if (head && typeof head === 'object') {
+          const { liveTail, liveTurn, relay } = liveParts;
+          const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
+          const count = (n, list) => (Number.isInteger(n) ? n : (Array.isArray(list) ? list.length : 0));
+          const historyLength = count(head.providerHistoryCount, head.providerHistory);
+          return send(res, json({
+            ok: true, view: 'live',
+            session: { id, updatedAt: String(head.updatedAt || ''), turnSeq, messageCount: count(head.messageCount, head.messages), providerHistoryCount: historyLength },
+            resumable: { dangling: false, kind: null, turnSeq, historyLength, live: true },
+            ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
+          }, 200, { 'cache-control': 'no-store' }));
+        }
+      }
       // 审查轮:活态在盘上戳【之前】取。反过来(先戳后活态)时,两次取样之间「落盘 + 活态翻转」可能拼出一个等于客户端手上旧标签的
       // 组合(旧盘 + 新活态),回一次不该回的 304;先取活态,竞态最多多回一次 200。
       const preLive = sessionEnvelopeLiveParts(id);

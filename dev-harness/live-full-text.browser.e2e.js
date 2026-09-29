@@ -35,6 +35,10 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 反向验证:把 chat-static-renderer.js 的 `!options.running` 判据去掉,B15 当场红(实测 turnRecords
 // 从 0 变回 ≥1);把 css/states/chat-live.css 新增的 `.message.live-turn .msg-main::before` 规则删掉,
 // B18 当场红(content 变回 'none')。两处改完都已还原,现在钉的是修好之后的样子。
+//
+// perf(长会话重渲):R 组 —— 会话内容没变时整份重渲(这里用 i18n:change 这条真实触发路径),已在位置上的消息行
+// 原地保留:零行被摘下再挂回(修前 replaceChildren 把每一行都摘下,引擎整份重排;2000 条消息的会话上 100 行要 0.3–0.4 s),
+// 行对象不变、展开着的折叠块仍展开。
 (async () => {
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process');
@@ -590,6 +594,24 @@ try {
     `D6 回合结束后「本轮记录」索引卡出现在落盘消息上(实测 ${settled && settled.realAssistantTurnRecords} 张)`);
   ok(Boolean(settled && settled.realAssistantDot === 'none'),
     `D7 回合结束后左下角运行中动效消失(实测 content=${settled && settled.realAssistantDot})`);
+
+  const rerender = await cdp.evaluate(`(async () => {
+    const box = document.getElementById('messages');
+    const rows = [...box.querySelectorAll('.message[data-message-key]')];
+    rows.forEach((row, i) => { row.__rMark = i + 1; });
+    let removed = 0;
+    const mo = new MutationObserver(list => { for (const m of list) for (const n of m.removedNodes) if (n.nodeType === 1 && n.matches && n.matches('.message')) removed += 1; });
+    mo.observe(box, { childList: true });
+    window.dispatchEvent(new CustomEvent('i18n:change', { detail: { locale: document.documentElement.lang || 'zh-CN', changed: true } }));
+    await new Promise(r => setTimeout(r, 300));
+    mo.disconnect();
+    const after = [...box.querySelectorAll('.message[data-message-key]')];
+    return { before: rows.length, after: after.length, removed, same: rows.every(row => row.isConnected), marks: after.filter(row => row.__rMark).length };
+  })()`);
+  ok(rerender && rerender.before >= 2 && rerender.after === rerender.before,
+    `R1 前提:会话有落盘消息,重渲前后行数相同(实测 ${rerender && rerender.before} → ${rerender && rerender.after})`);
+  ok(rerender && rerender.removed === 0 && rerender.same && rerender.marks === rerender.after,
+    `R2 内容没变的重渲不摘下任何一行、行对象原样(摘下 ${rerender && rerender.removed} 行,带原标记 ${rerender && rerender.marks}/${rerender && rerender.after})`);
 } catch (error) {
   console.log('ERROR ' + (error && error.stack || error));
   fail += 1;
