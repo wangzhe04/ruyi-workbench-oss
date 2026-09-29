@@ -1,6 +1,6 @@
 {
   "enabledPlugins": {
-    "offline-toolkit@win-workbench-offline": true
+    "offline-toolkit@ruyi-offline": true
   },
   "env": {
     "CLAUDE_CODE_PLUGIN_SEED_DIR": "%PACKAGE_ROOT%\\resources\\plugins"

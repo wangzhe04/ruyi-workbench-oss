@@ -2229,7 +2229,7 @@ async function runKimiAcpTurnPrepared(context) {
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
     ...process.env,
-    WIN_CLAUDE_WORKBENCH_HOME: paths.data,
+    RUYI_HOME: paths.data,
     WCW_PERMISSION_TIMEOUT_MS: String(permissionWaitMs(session.id, config, session)),   // 128f-⑪:与服务端那一侧同一个数,子进程不先放弃
     WCW_SESSION_ID: session.id,
     WCW_PORT: String(RUNTIME.port),

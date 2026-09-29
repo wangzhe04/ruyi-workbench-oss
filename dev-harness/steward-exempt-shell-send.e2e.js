@@ -292,8 +292,8 @@ try {
     const TIERS = ['read', 'edit', 'exec'];
     const NAMES = [
       'send_email', 'slack_send', 'send_message', 'mcp__x__send_message', 'post_message', 'sms_send', 'pay_invoice', 'mcp_configure',
-      'mcp__win-claude-workbench__shell_send', 'mcp__x__shell_send', 'x__shell_send', 'Shell_Send', 'shell_send_email',
-      'mcp__win-claude-workbench__keyboard_send_keys', 'Keyboard_Send_Keys',
+      'mcp__ruyi__shell_send', 'mcp__x__shell_send', 'x__shell_send', 'Shell_Send', 'shell_send_email',
+      'mcp__ruyi__keyboard_send_keys', 'Keyboard_Send_Keys',
     ];
     const missed = [];
     let n = 0;

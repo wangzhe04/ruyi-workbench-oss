@@ -39,7 +39,7 @@ const MAX_TOKENS = Math.max(1000, Number(argOf('--max-tokens', '12000')) || 1200
 
 // ── 端点与密钥：从本机配置现读，用完即弃 ──────────────────────────────────────────────────
 function providerFromLocalConfig() {
-  const home = process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(os.homedir(), '.win-claude-workbench');
+  const home = require('./lib/real-data-root.js').realDataRoot();
   const raw = JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8'));
   const provider = (raw.providers || []).find(p => p && p.id === 'deepseek');
   if (!provider || !provider.apiKey) throw new Error('本机 config.json 里没有带密钥的 deepseek provider');

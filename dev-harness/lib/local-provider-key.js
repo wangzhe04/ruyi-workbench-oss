@@ -23,7 +23,8 @@ function candidateRoots() {
     process.env.WIN_CLAUDE_WORKBENCH_HOME,
     path.join(os.homedir(), 'Ruyi'),
     process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Ruyi') : '',
-    path.join(os.homedir(), '.win-claude-workbench'),
+    path.join(os.homedir(), '.ruyi-workbench'),
+    path.join(os.homedir(), '.win-claude-workbench'), // 3.0 之前的数据目录名(还没被新版本启动迁移过)
   ].filter(Boolean);
 }
 

@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const DEFAULT_ROOT = path.resolve(process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(os.homedir(), '.win-claude-workbench'));
+const DEFAULT_ROOT = path.resolve(require('./lib/real-data-root.js').realDataRoot());
 const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
 // 重放护栏:所有路径锚定到 cwd 内(拒绝越界),搜索深度 ≤2 —— 只测调度墙钟,绝不全盘遍历。
 function safeResolve(cwd, p) {

@@ -196,11 +196,11 @@ try {
     env: { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: mcpHome, RUYI_HOME: mcpHome, KIMI_CODE_HOME: kimiHome, USERPROFILE: mcpHome, HOME: mcpHome },
   }));
   ok(synced.enabled?.mcpServers?.keepMe?.command === 'keep-command', 'Kimi MCP sync preserves unrelated user entries');
-  ok(synced.enabled?.mcpServers?.['win-claude-workbench']?.command && !('type' in synced.enabled.mcpServers['win-claude-workbench']), 'Kimi MCP sync writes native inferred-transport shape');
-  ok(synced.enabled?.mcpServers?.['win-claude-workbench']?.toolTimeoutMs === 900000, 'Kimi MCP sync grants Ruyi bridge its long-running tool budget');
+  ok(synced.enabled?.mcpServers?.['ruyi']?.command && !('type' in synced.enabled.mcpServers['ruyi']), 'Kimi MCP sync writes native inferred-transport shape');
+  ok(synced.enabled?.mcpServers?.['ruyi']?.toolTimeoutMs === 900000, 'Kimi MCP sync grants Ruyi bridge its long-running tool budget');
   ok(synced.enabled?.mcpServers?.['ai-computer-control']?.toolTimeoutMs === 650000 && !synced.enabled?.mcpServers?.acc, 'Kimi MCP sync removes duplicate ACC aliases and avoids the 60-second transport timeout');
   ok(synced.enabled?.mcpServers?.['slow-tool']?.startupTimeoutMs === 4321 && synced.enabled?.mcpServers?.['slow-tool']?.toolTimeoutMs === 123456 && synced.enabled?.mcpServers?.['slow-tool']?.enabledTools?.[0] === 'run', 'Kimi MCP sync preserves per-server timeout and tool filters');
-  ok(!synced.disabled?.mcpServers?.['win-claude-workbench'] && synced.disabled?.mcpServers?.keepMe?.command === 'keep-command', 'disabling Ruyi MCP removes only Ruyi-owned Kimi entries');
+  ok(!synced.disabled?.mcpServers?.['ruyi'] && synced.disabled?.mcpServers?.keepMe?.command === 'keep-command', 'disabling Ruyi MCP removes only Ruyi-owned Kimi entries');
 } finally {
   fs.rmSync(mcpHome, { recursive: true, force: true });
 }
@@ -491,14 +491,14 @@ async function verifyKimiPlanFilePathGuard() {
     argEl: { textContent: '', title: '' },
   };
   streamModule.applyToolUseUpdate(updatedCard, {
-    name: 'mcp__win-claude-workbench__powershell_run',
+    name: 'mcp__ruyi__powershell_run',
     input: { command: 'Get-Volume' },
   }, {
     humanizeToolName: name => `human:${name}`,
     safeStringify: value => JSON.stringify(value),
     toolArgSummary: input => input.command,
   });
-  ok(updatedCard.verbEl.textContent === 'human:mcp__win-claude-workbench__powershell_run'
+  ok(updatedCard.verbEl.textContent === 'human:mcp__ruyi__powershell_run'
     && updatedCard.inp.textContent === '{"command":"Get-Volume"}'
     && updatedCard.argEl.textContent === 'Get-Volume',
     'Kimi late tool update executes with explicit formatter dependencies and updates the live card');

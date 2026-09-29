@@ -29,7 +29,7 @@ const zlib = require('zlib');
 const HERE = __dirname;
 const WB = path.resolve(HERE, '..', 'ruyi-workbench');
 const FIXTURES = path.join(HERE, 'realhist-fixtures', 'checkpoints');
-const SRC_ROOT = 'C:/Users/87179/.win-claude-workbench/checkpoints'; // 仅 sha256 校验,绝不写入
+const SRC_ROOT = require('./lib/real-data-root.js').defaultDataRootIn('C:/Users/87179').replace(/\\/g, '/') + '/checkpoints'; // 仅 sha256 校验,绝不写入
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-w105b-'));
 process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;

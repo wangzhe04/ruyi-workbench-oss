@@ -4,7 +4,7 @@
 >
 > **本文是基线文档**:只写「今天这棵树长什么样」。逐版本的用户可见变化看根 `CHANGELOG.md`,波次级的设计与取证看 `docs/optimization-plan/`。
 >
-> **品牌与兼容(v1.0-S9 发布工程)**:产品名为**如意 Ruyi**(`APP_NAME`,/api/status.app 与启动横幅随之)。目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`(启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`)。**数据目录解析**:`RUYI_HOME` 优先,旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 继续识别(至少保留一个大版本);默认目录仍 `~/.win-claude-workbench`。**以下存量兼容标识有意保持不变(v2.0 仍保持不变(存量兼容))**:MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`(存量 `.mcp.json` 兼容)。子进程 MCP 配置注入的是旧变量名(值=已解析 dataRoot),故老 `.mcp.json` 照常工作。
+> **品牌与兼容(v1.0-S9 发布工程)**:产品名为**如意 Ruyi**(`APP_NAME`,/api/status.app 与启动横幅随之)。目录名已改 `ruyi-workbench/`、可执行文件名已改 `Ruyi.exe`(启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`)。**数据目录解析**:`RUYI_HOME` 优先,旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 继续识别(只读);默认目录 `~/.ruyi-workbench`。**3.0 收口**:剩下的存量兼容标识全部改为如意命名 —— 默认数据目录 `~/.win-claude-workbench` → `~/.ruyi-workbench`(00-boot `migrateLegacyDataRoot`:直接运行 serve 时一次性搬移,原处留目录联接;旧目录有活实例或搬不动时本次沿用旧目录)、MCP server id `win-claude-workbench` → `ruyi`(00b-ruyi-names `RUYI_MCP_SERVER_ID`,工具名 `mcp__ruyi__*`;旧 id 只用于清理存量登记与导入保留)、离线插件市场 `win-workbench-offline` → `ruyi-offline`;子进程 MCP 配置注入的是 `RUYI_HOME`(值=已解析 dataRoot)。
 
 ## 组件
 
@@ -104,7 +104,7 @@ flowchart LR
 
 ## Workbench 自身 MCP 工具
 
-`... mcp` 子命令暴露的 stdio server(`serverInfo.name = win-claude-workbench`)以 **97 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数 —— 这个数字的**单一事实源是根 `facts.json` 的 `nativeTools`**(由 `dev-harness/facts-generate.js` 机械生成、`facts.static.e2e.js` 重算比对),文档里再出现别的数就是漂移。**97 的构成**(`steward-tools.static.e2e.js` ① 钉住):通用原生工具 **63** ＋ 只在管家会话可见的 `steward_*` **33**(普通会话与子代理永远看不到) ＋ 语音转写 `audio_transcribe` **1**。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
+`... mcp` 子命令暴露的 stdio server(`serverInfo.name = ruyi`,3.0 之前是 `win-claude-workbench`)以 **97 个原生工具**(`TOOL_HANDLERS` 派发注册表轴)为当前工具数 —— 这个数字的**单一事实源是根 `facts.json` 的 `nativeTools`**(由 `dev-harness/facts-generate.js` 机械生成、`facts.static.e2e.js` 重算比对),文档里再出现别的数就是漂移。**97 的构成**(`steward-tools.static.e2e.js` ① 钉住):通用原生工具 **63** ＋ 只在管家会话可见的 `steward_*` **33**(普通会话与子代理永远看不到) ＋ 语音转写 `audio_transcribe` **1**。**历史口径**:向 Claude CLI 曾列 37 个工具(不计内部的 `permission_prompt`;CLI 面 `tools/list` 过滤掉 provider-only 的 `spawn_agent`——它需 serve 进程回合闭包,CLI 侧调只会拒;含 `permission_prompt` = 38),`MCP_TOOLS` 数组本身曾含 39 条(含 `permission_prompt` + `spawn_agent`;不计 `permission_prompt` = 38);**provider 引擎**经 `buildOpenAiTools` offer 的工具数在 `subagentMaxPerTurn>0` 时含 `spawn_agent`(比 CLI 面多一),且 `web_search`/`web_fetch` 受**能力矩阵**门控(离线/无搜索后端时不 offer;见「能力矩阵」)。**S9 增量**:`web_search`+`web_fetch`(+2);**v1.0-S4 增量**:git 工具族新增 `git_diff`/`git_log`/`git_commit`(+3,`git_status` 早已在列);**v1.1+ 增量**:`file_move`+`file_copy`+`archive_zip`+`archive_unzip`+`http_download`(+5)→ `MCP_TOOLS` 数组由 34 增至 39,CLI 面不计 permission_prompt 由 32 增至 37(均为历史口径):
 
 - 权限桥接:`permission_prompt`(interactive + 权限桥接时把权限询问路由回 UI)。
 - 执行:`powershell_run`(一次性)、`script_run`。
@@ -143,7 +143,7 @@ v0.8-S4a 检查点 journal 与文件回滚(信任层核心,纯加法,零 npm—�
 
 ## 离线插件包
 
-`resources\plugins\win-workbench-offline` 是本地 Claude Code marketplace。它包含:
+`resources\plugins\ruyi-offline` 是本地 Claude Code marketplace。它包含:
 
 - `skills\*`:离线工作流,例如代码审查、前端审计、本地文档检索、API 调试、CI 复现和插件开发。
 - `commands\*`:高频任务提示词,例如 `/offline-code-review`、`/frontend-audit`、`/commit-message`。
@@ -194,8 +194,10 @@ v1.5 团队模式(历史引入:v1.5;当前 v2.0.0)
 默认位于:
 
 ```text
-%USERPROFILE%\.win-claude-workbench
+%USERPROFILE%\.ruyi-workbench
 ```
+
+(3.0 之前是 `%USERPROFILE%\.win-claude-workbench`,首次启动自动迁移,原处留目录联接。)
 
 包含:
 
@@ -217,5 +219,5 @@ v1.5 团队模式(历史引入:v1.5;当前 v2.0.0)
 可通过环境变量覆盖:
 
 ```powershell
-$env:WIN_CLAUDE_WORKBENCH_HOME = "D:\workbench-data"
+$env:RUYI_HOME = "D:\workbench-data"   # 旧变量名 WIN_CLAUDE_WORKBENCH_HOME 仍可读
 ```

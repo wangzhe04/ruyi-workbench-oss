@@ -13,7 +13,7 @@ const html = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8');
 const src = readFrontendSrc();
 const workspaceSrc = fs.readFileSync(path.join(PUB, 'js', 'workspace-preferences.js'), 'utf8');
 const SKILLS_DIR = path.resolve(__dirname, '..', 'ruyi-workbench', 'resources', 'plugins',
-  'win-workbench-offline', 'offline-toolkit', 'skills');
+  'ruyi-offline', 'offline-toolkit', 'skills');
 
 let fail = 0;
 const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };

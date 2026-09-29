@@ -14,7 +14,7 @@ function sortedCounts(map) {
   return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name, count]) => ({ name, count }));
 }
 function resolveDataRoot(input) {
-  return path.resolve(input || process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(os.homedir(), '.win-claude-workbench'));
+  return path.resolve(input || require('./lib/real-data-root.js').realDataRoot());
 }
 function parseLines(file) {
   if (!fs.existsSync(file)) return [];

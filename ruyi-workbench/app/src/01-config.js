@@ -2120,7 +2120,7 @@ async function syncMcpServersToKimi(config) {
       }
       // Kimi's MCP transport defaults to 60 s per tool call. Ruyi's own long-running bridge and ACC
       // both intentionally support longer operations, so advertise a matching transport budget.
-      if (id === 'win-claude-workbench') {
+      if (id === RUYI_MCP_SERVER_ID) {
         kimiServer.startupTimeoutMs = Math.max(Number(kimiServer.startupTimeoutMs) || 0, 60000);
         kimiServer.toolTimeoutMs = Math.max(Number(kimiServer.toolTimeoutMs) || 0, 900000);
       } else if (id === 'ai-computer-control') {
@@ -2236,9 +2236,9 @@ function classifyAgentMcpCandidate(raw, origin, view, managedKimi) {
   const id = String((raw && raw.id) || '');
   if (!raw || !id) return { status: 'skipped', reason: 'invalid' };
   // Ruyi 保留 id:绝不能作为外部服务器导入(否则与内部桥/桌面内置连接器同 id 冲突)。
-  //   win-claude-workbench = 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
+  //   ruyi(3.0 前叫 win-claude-workbench)= 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
   //   ai-computer-control   = 桌面控制内置连接器(detectDesktopMcp 单独探测,mcpConnectorMutateError 视为 builtin)。
-  if (id === 'win-claude-workbench' || id === 'ai-computer-control') return { status: 'skipped', reason: 'reserved' };
+  if (isRuyiMcpServerId(id) || id === 'ai-computer-control') return { status: 'skipped', reason: 'reserved' };
   if (id.startsWith('toolbox-')) return { status: 'skipped', reason: 'toolbox' }; // toolbox- 前缀归自动发现所有:老版本同步过去的残留不导回来
   if (origin === 'kimi' && managedKimi && managedKimi.has(id)) return { status: 'skipped', reason: 'ruyi-managed' };
   const list = view && Array.isArray(view.externalMcpServers) ? view.externalMcpServers : [];
@@ -3171,7 +3171,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
   if (!config) return;
   try {
     for (const entry of resolveExternalMcpServers(config)) {
-      if (mcpServers[entry.id]) continue;    // never clobber win-claude-workbench or an earlier entry
+      if (mcpServers[entry.id]) continue;    // never clobber Ruyi's own server (id 'ruyi') or an earlier entry
       let server;
       if (entry.transport === 'sse' || entry.transport === 'http') {
         server = { type: entry.transport, url: entry.url };
@@ -3203,15 +3203,14 @@ async function generateMcpConfig(mode) {
   const configPath = mcpConfigFilePath();
   const mcp = {
     mcpServers: {
-      // 【存量兼容标识 — 发布后至少保留一个大版本】MCP server id 'win-claude-workbench' 已写进用户的
-      // .mcp.json;硬改会断存量接入。v1.0-S9 发布确认:保持不变(建议 v2.0 评估加别名 ruyi-workbench 双写后收口)。
-      'win-claude-workbench': {
+      // 3.0 收口:server id 由 'win-claude-workbench' 改为 'ruyi'(RUYI_MCP_SERVER_ID;存量登记的清理见 00-boot 注释)。
+      [RUYI_MCP_SERVER_ID]: {
         type: 'stdio',
         command: self.command,
         args: self.args,
         env: {
-          // 【存量兼容标识】env 变量名保持旧名(子进程/桥接照常工作),值=已解析 dataRoot。
-          WIN_CLAUDE_WORKBENCH_HOME: paths.data,
+          // MCP 子进程的数据根 = 父进程已解析的 dataRoot(3.0 起只写 RUYI_HOME;旧变量名 WIN_CLAUDE_WORKBENCH_HOME 只读兼容)。
+          RUYI_HOME: paths.data,
         },
       },
     },
@@ -3231,13 +3230,13 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   const configPath = path.join(paths.generated, `workbench.mcp.${sessionId}.json`);
   const mcp = {
     mcpServers: {
-      // 【存量兼容标识 — 发布后至少保留一个大版本】同 generateMcpConfig:MCP server id 保持 'win-claude-workbench'(v1.0-S9 确认)。
-      'win-claude-workbench': {
+      // 同 generateMcpConfig:server id 是 RUYI_MCP_SERVER_ID。
+      [RUYI_MCP_SERVER_ID]: {
         type: 'stdio',
         command: self.command,
         args: self.args,
         env: {
-          WIN_CLAUDE_WORKBENCH_HOME: paths.data, // 【存量兼容标识】env 变量名保持旧名
+          RUYI_HOME: paths.data,
           WCW_SESSION_ID: sessionId,
           WCW_PORT: String(RUNTIME.port),
           WCW_HOST: RUNTIME.host,
@@ -3264,13 +3263,13 @@ async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
   const configPath = await generateSessionMcpConfig(subagentId, mode, Object.keys(TOOL_PACK_DESCRIPTIONS));
   try {
     const raw = JSON.parse(await fsp.readFile(configPath, 'utf8'));
-    const own = raw.mcpServers && raw.mcpServers['win-claude-workbench'];
+    const own = raw.mcpServers && raw.mcpServers[RUYI_MCP_SERVER_ID];
     if (own) own.env = { ...(own.env || {}), WCW_DISABLE_USER_INPUT: '1' };
     // This helper is used only for exec-tier Claude nodes. Preserve their explicit direct-MCP contract;
     // the main interactive Claude path uses adaptive proxies instead.
     addExternalMcpServersToMap(raw.mcpServers, await readConfig().catch(() => null));
     if (Array.isArray(allowedServerIds) && allowedServerIds.length) {
-      const allowed = new Set(allowedServerIds);
+      const allowed = new Set(allowedServerIds.map(canonicalRuyiMcpServerId)); // 3.0:未经清洗的角色(.md 前言)里的旧 id 也认
       raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
     }
     await atomicWriteJson(configPath, raw);

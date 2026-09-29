@@ -90,7 +90,7 @@ const EVID = path.join(DIR, 'evidence');
 // ── 隔离:先换家,再 require server.js ──────────────────────────────────────────────────
 const REAL_HOME_DIR = process.env.RUYI_REAL_HOME || os.homedir();
 const norm = p => { let s = path.resolve(String(p || '')); while (s.length > 3 && /[\\/]$/.test(s)) s = s.slice(0, -1); return process.platform === 'win32' ? s.toLowerCase() : s; };
-const REAL_WCW = path.join(REAL_HOME_DIR, '.win-claude-workbench');
+const REAL_WCW = require('./lib/real-data-root.js').defaultDataRootIn(REAL_HOME_DIR);
 
 for (const d of [SIM_HOME, SIM_USER, SIM_WORK, EVID, path.join(SIM_USER, 'AppData', 'Local'), path.join(SIM_USER, 'AppData', 'Roaming')]) fs.mkdirSync(d, { recursive: true });
 
@@ -748,8 +748,8 @@ async function run111c(repeat, order) {
 // ── 主流程 ─────────────────────────────────────────────────────────────────────────────
 function fingerprint(label) {
   const targets = [
-    ['wcw-config', path.join(REAL_HOME_DIR, '.win-claude-workbench', 'config.json')],
-    ['scheduler-tasks', path.join(REAL_HOME_DIR, '.win-claude-workbench', 'scheduler', 'tasks-v1.json')],
+    ['wcw-config', path.join(REAL_WCW, 'config.json')],
+    ['scheduler-tasks', path.join(REAL_WCW, 'scheduler', 'tasks-v1.json')],
     ['claude-json', path.join(REAL_HOME_DIR, '.claude.json')],
     ['kimi-mcp', path.join(REAL_HOME_DIR, '.kimi-code', 'mcp.json')],
   ];

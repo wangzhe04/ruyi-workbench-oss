@@ -1730,7 +1730,7 @@ async function claudePluginSkillDirs() {
 async function loadSkillRegistry(cwd, config, caps) {
   if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
   const out = [];
-  const tk = path.join(externalRoot(), 'resources', 'plugins', 'win-workbench-offline', 'offline-toolkit');
+  const tk = path.join(externalRoot(), 'resources', 'plugins', 'ruyi-offline', 'offline-toolkit');
   // ---- 技能: builtin(toolkit)→ user(dataRoot/skills)→ project(<cwd>/.ruyi/skills),后写覆盖同 id ----
   const skillMap = new Map();
   {

@@ -11,7 +11,7 @@ const zlib = require('zlib');
 process.env.WIN_CLAUDE_WORKBENCH_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-105g-sweetspot-'));
 const ROOT = path.resolve(__dirname, '..');
 const srv = require(path.join(ROOT, 'ruyi-workbench', 'app', 'server.js'));
-const providerConfigPath = process.env.RUYI_FACT_GATE_CONFIG || path.join(os.homedir(), '.win-claude-workbench', 'config.json');
+const providerConfigPath = process.env.RUYI_FACT_GATE_CONFIG || path.join(require('./lib/real-data-root.js').defaultDataRootIn(os.homedir()), 'config.json');
 const fixturePath = path.join(__dirname, 'realhist-fixtures', 'checkpoints', 'sess_fe3de15dfc3b8354', 'history-24.json.gz');
 const candidateCaps = (process.env.RUYI_FACT_GATE_CAPS || '0,8,12,16,24,32').split(',').map(Number)
   .filter(value => Number.isFinite(value) && value >= 0);

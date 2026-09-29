@@ -62,7 +62,7 @@ const psQuote = p => "'" + String(p).replace(/'/g, "''") + "'";
 function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* gone */ } } }
 
 const REAL_HOME = process.env.RUYI_REAL_HOME || os.homedir();
-const realConfig = JSON.parse(fs.readFileSync(path.join(REAL_HOME, '.win-claude-workbench', 'config.json'), 'utf8'));
+const realConfig = JSON.parse(fs.readFileSync(path.join(require('./lib/real-data-root.js').defaultDataRootIn(REAL_HOME), 'config.json'), 'utf8'));
 const realProvider = (realConfig.providers || []).find(p => p.id === PROVIDER_ID);
 if (!realProvider || !realProvider.apiKey) { console.error('FATAL: 真机配置里没有带 key 的 provider ' + PROVIDER_ID); process.exit(2); }
 const API_KEY = String(realProvider.apiKey);

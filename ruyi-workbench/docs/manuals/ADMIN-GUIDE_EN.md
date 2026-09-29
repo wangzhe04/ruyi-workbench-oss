@@ -19,8 +19,8 @@ back also deletes the files that apply added (recorded as `.overlay-added.json` 
 Wave 107's P1 drill confirmed this on real packages: the 2.8.0 overlay reports `version incompatible` against a
 2.7.0 install and writes nothing.
 
-The data root defaults to the legacy .win-claude-workbench directory under the user profile. Set RUYI_HOME to move
-it. It contains configuration, chats, uploads, checkpoints, audit logs, generated MCP configuration, skills,
+The data root defaults to .ruyi-workbench under the user profile (called .win-claude-workbench before 3.0; the
+first 3.0 start moves it and leaves a directory junction at the old path). Set RUYI_HOME to move it. It contains configuration, chats, uploads, checkpoints, audit logs, generated MCP configuration, skills,
 memories, workflow state, and usage ledgers. Treat it as private local application data.
 
 The default HTTP port is 8765. Use a loopback address only; Ruyi is not a multi-user or public web service.
@@ -284,7 +284,7 @@ switch, off by default still means byte for byte identical to the previous relea
 ### 8.3 Upgrading from 2.7.0
 
 - **How to upgrade**: download the 2.8.0 Slim or Full **full package**, **extract it into a new folder**, close
-  2.7.0 and start from the new folder. The data root (`.win-claude-workbench` under the user profile by default,
+  2.7.0 and start from the new folder. The data root (`.ruyi-workbench` under the user profile by default, formerly `.win-claude-workbench`,
   or wherever `RUYI_HOME` points) is not inside the install folder, and the new version migrates it on first
   start. **The 2.8.0 overlay cannot be applied to 2.7.0** (precheck refuses it by version). Keep the old folder
   until the new version is working: it is your ready-made way back (take the backups in section 8.4 first).
@@ -351,6 +351,8 @@ v2.7.0 in wave 107's P1 drill (a provider carrying all four fields, one downgrad
 
 ## Brand and compatibility
 
-Ruyi was formerly Win Claude Workbench. The runtime still recognizes old data-root and environment-variable names,
-and retains the MCP server identifier win-claude-workbench to avoid breaking existing user configuration. New
-documentation and UI use the Ruyi brand.
+Ruyi was formerly Win Claude Workbench. Since 3.0 the remaining legacy identifiers use Ruyi names as well: the
+data root .win-claude-workbench becomes .ruyi-workbench (migrated on first start, junction left behind), the MCP
+server id win-claude-workbench becomes ruyi (tools are mcp__ruyi__*; install removes the old registration), and the
+offline plugin marketplace win-workbench-offline becomes ruyi-offline. The legacy WIN_CLAUDE_WORKBENCH_HOME
+variable is still read; child processes receive RUYI_HOME.

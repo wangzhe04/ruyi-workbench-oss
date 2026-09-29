@@ -20,7 +20,7 @@ const arg = (name, fallback = '') => {
   return found ? found.slice(prefix.length) : fallback;
 };
 const has = name => args.includes('--' + name);
-const configPath = arg('config', path.join(os.homedir(), '.win-claude-workbench', 'config.json'));
+const configPath = arg('config', path.join(require('./lib/real-data-root.js').defaultDataRootIn(os.homedir()), 'config.json'));
 const providerId = arg('provider', 'deepseek');
 const modelOverride = arg('model', 'deepseek-v4-flash');
 const fixturePath = arg('fixture', path.join(HERE, 'realhist-fixtures', 'checkpoints', 'sess_fe3de15dfc3b8354', 'history-24.json.gz'));

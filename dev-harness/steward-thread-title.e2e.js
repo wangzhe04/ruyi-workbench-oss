@@ -5,7 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // E2E 117s-A D2/D3(27 号文 §11.13 ⑤):**管家开的线程要有一个短名,不是把用户那句话抄一遍**。
 //
 // 用户第九轮走查原话:「线程标题概括就是管家发的提示词本身,太长了,根本不对」。
-// 真机证据(`~/.win-claude-workbench`,2026-09-09 上午):
+// 真机证据(数据目录,当时叫 `~/.win-claude-workbench`,2026-09-09 上午):
 //   · `steward_thread_new` 开的两条线程(sess_e97b… 大A / sess_8bb0… 博纳)**`titleSource:'user'`
 //     且 `threadBrief:null`** —— 13g 把模型给的 `args.title` 交给 createSession,02 见非占位标题即写
 //     `titleSource:'user'`,而 116-5 的自动摘要判据(06:「titleSource === 'user' 就跳过」)于是永远短路。

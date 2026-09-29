@@ -432,7 +432,8 @@ function isSensitiveDataPath(p) {
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs'];
-  const bases = (_dataRootReal && _dataRootReal !== root) ? [root, _dataRootReal] : [root];
+  // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
+  const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
   // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
   // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。

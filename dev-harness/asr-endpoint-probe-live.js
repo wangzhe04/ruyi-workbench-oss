@@ -33,7 +33,7 @@ const arg = (n, d) => { const h = argv.find(a => a.startsWith('--' + n + '=')); 
 const OUT = arg('out', '');
 
 const REAL_HOME = process.env.RUYI_REAL_HOME || os.homedir();
-const config = JSON.parse(fs.readFileSync(path.join(REAL_HOME, '.win-claude-workbench', 'config.json'), 'utf8'));
+const config = JSON.parse(fs.readFileSync(path.join(require('./lib/real-data-root.js').defaultDataRootIn(REAL_HOME), 'config.json'), 'utf8'));
 
 // 45 号文 §9.6.3 点名的四个候选(provider id × 模型 id)。
 const CANDIDATES = [

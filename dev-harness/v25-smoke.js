@@ -158,8 +158,8 @@ function ok(name, cond, detail) {
   console.log('\n[D] autoImportClaudeCodeMcp idempotence');
   const imp1 = await mod.autoImportClaudeCodeMcp({ autoImportClaudeCodeMcp: true, externalMcpServers: [], dismissedMcpIds: [] });
   ok('autoImport #1 returns added>=0 + config', typeof imp1.added === 'number' && imp1.config, 'added=' + imp1.added + ' err=' + (imp1.error || ''));
-  ok('autoImport skips reserved ids (win-claude-workbench, ai-computer-control)',
-    !(imp1.ids || []).some(id => id === 'win-claude-workbench' || id === 'ai-computer-control'),
+  ok('autoImport skips reserved ids (ruyi, pre-3.0 win-claude-workbench, ai-computer-control)',
+    !(imp1.ids || []).some(id => id === 'ruyi' || id === 'win-claude-workbench' || id === 'ai-computer-control'),
     'ids=' + JSON.stringify(imp1.ids));
   // 第二次:externalMcpServers 已含第一次导入的 id -> 全 conflict -> added=0(幂等)
   const imp2 = await mod.autoImportClaudeCodeMcp(imp1.config);

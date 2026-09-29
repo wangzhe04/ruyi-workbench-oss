@@ -9,7 +9,7 @@ English: [MCP Connectors: Folder Drop-ins](README_EN.md)
 扫描位置（两处，各自最多合并 10 个，合计上限 10）：
 
 - `<发行包根>/mcp/*/ruyi-mcp.json` —— 随发行包分发的连接器（本目录）。
-- `<数据目录>/mcp/*/ruyi-mcp.json` —— 用户自装的连接器（`RUYI_HOME` 或默认 `~/.win-claude-workbench/mcp/`）。
+- `<数据目录>/mcp/*/ruyi-mcp.json` —— 用户自装的连接器（`RUYI_HOME` 或默认 `~/.ruyi-workbench/mcp/`）。
 
 ## 内置桌面控制 MCP：`ai-computer-control/`
 

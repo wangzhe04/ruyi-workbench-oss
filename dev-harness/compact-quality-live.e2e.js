@@ -17,7 +17,7 @@ const os = require('os');
 const path = require('path');
 
 // 隔离:只读真实 config 拿凭据;校准存储等写面仍指向临时根。
-const REAL_HOME = process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(os.homedir(), '.win-claude-workbench');
+const REAL_HOME = require('./lib/real-data-root.js').realDataRoot();
 process.env.WIN_CLAUDE_WORKBENCH_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-w45-quality-'));
 
 const WB = path.resolve(__dirname, '..', 'ruyi-workbench');

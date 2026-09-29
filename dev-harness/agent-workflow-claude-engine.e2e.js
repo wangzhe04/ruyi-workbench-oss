@@ -137,7 +137,7 @@ async function tokenFor(port) {
       const mcpIdx = argv3.indexOf('--mcp-config');
       ok(mcpIdx >= 0, 'exec-tier node receives --mcp-config');
       const mcpConfig = mcpIdx >= 0 ? JSON.parse(fs.readFileSync(argv3[mcpIdx + 1], 'utf8')) : null;
-      ok(!!mcpConfig && Object.keys(mcpConfig.mcpServers || {}).length === 1 && mcpConfig.mcpServers['win-claude-workbench'], "role.mcpServers narrows --mcp-config to just the allowed server ('dummy-tool' excluded)");
+      ok(!!mcpConfig && Object.keys(mcpConfig.mcpServers || {}).length === 1 && mcpConfig.mcpServers['ruyi'], "role.mcpServers narrows --mcp-config to just the allowed server ('dummy-tool' excluded; the role's pre-3.0 id win-claude-workbench still selects Ruyi's own server, now id ruyi)");
 
       const readRun = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [{ id: 'read_node', task: 'say hi', engine: 'claude' }] });
       ok(readRun.ok === true && readRun.results[0].status === 'succeeded', 'read-tier Claude-engine node still runs successfully');

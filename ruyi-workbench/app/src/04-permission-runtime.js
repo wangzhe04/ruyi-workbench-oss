@@ -821,7 +821,7 @@ class McpStdioClient {
       const init = await this._rpc('initialize', {
         protocolVersion: '2024-11-05',
         capabilities: {},
-        clientInfo: { name: 'win-claude-workbench', version: VERSION }, // 【存量兼容标识】MCP 客户端标识名保持旧名(与 server id 一致)
+        clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 客户端标识名与 server id 一致
       }, 8000);
       this.serverInfo = (init && init.serverInfo) || {};
       this._notify('notifications/initialized', {});
@@ -1135,7 +1135,7 @@ class McpHttpClient {
       const init = await this._rpc('initialize', {
         protocolVersion: '2025-03-26',
         capabilities: {},
-        clientInfo: { name: 'win-claude-workbench', version: VERSION },
+        clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
       }, 10000);
       this.serverInfo = (init && init.serverInfo) || {};
       this._notify('notifications/initialized', {});

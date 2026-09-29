@@ -7,11 +7,11 @@
 
 | 路径 | 内容 |
 |---|---|
-| `app/src/` | 后端源码：65 个有序模块，顺序记在 `app/src/manifest.json` |
+| `app/src/` | 后端源码：66 个有序模块，顺序记在 `app/src/manifest.json` |
 | `app/server.js` | 后端运行产物：`node app/build.js` 把 `app/src/` 拼接成这一个文件，**零 npm 运行时依赖**；改代码只改 `app/src/`，再重建 |
 | `app/public/` | 前端：`index.html`、`app.js` 组合根、`js/` 下的原生 ES 模块、分层 CSS、`locales/` 中英语言包；无框架、无构建 |
 | `desktop/` | WinForms + WebView2 桌面壳 `RuyiDesktop.exe` 的源码与构建脚本 |
-| `resources/` | 内置 Playbook、Claude Code 离线插件市场 `plugins/win-workbench-offline`（`offline-toolkit` 技能集）、安装与启动脚本 |
+| `resources/` | 内置 Playbook、Claude Code 离线插件市场 `plugins/ruyi-offline`（`offline-toolkit` 技能集）、安装与启动脚本 |
 | `config/` | 配置示例与出厂默认值 |
 | `docs/` | 用户手册、管理员手册、架构、离线部署、源码审阅、技能目录 |
 | `tools/` | 离线打包 `package-offline.ps1`、overlay 增量升级、开发脚手架 |
@@ -28,7 +28,7 @@ node .\app\server.js mcp              # 以 stdio MCP server 方式运行
 ```
 
 需要 Windows 10/11 与 Node.js ≥ 20，不需要 `npm install`（`package.json` 里的 devDependencies 只给打包单体 exe 用）。
-数据目录默认 `~/.win-claude-workbench`，可用 `RUYI_HOME` 覆盖。
+数据目录默认 `~/.ruyi-workbench`（3.0 之前叫 `~/.win-claude-workbench`，首次启动自动迁移），可用 `RUYI_HOME` 覆盖。
 
 ## 打包
 
@@ -55,6 +55,6 @@ npm run build:desktop            # 构建 RuyiDesktop.exe 桌面壳
 ## 品牌与兼容标识
 
 本项目原名 **Win Claude Workbench**，v0.8 起更名 **如意 Ruyi**，目录与可执行文件已改名（`ruyi-workbench/`、`Ruyi.exe`，启动脚本仍识别旧的 `WinClaudeWorkbench.exe`）。
-为不破坏已有接入，MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`（`RUYI_HOME` 优先）有意保持不变。
+3.0 起旧标识统一改为如意命名：数据目录 `~/.ruyi-workbench`（旧目录自动迁移，原处留目录联接）、MCP server id `ruyi`（工具名 `mcp__ruyi__*`，旧登记由 `install` 清理）、离线插件市场 `ruyi-offline`；环境变量只写 `RUYI_HOME`，旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读。
 
 本项目是 clean-room 独立实现：不含 Anthropic 泄露源码，不分发官方 Claude Code，不复制第三方插件源码；随包前端静态库的许可见 [`../THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)，本体按 [Apache-2.0](../LICENSE) 发布。

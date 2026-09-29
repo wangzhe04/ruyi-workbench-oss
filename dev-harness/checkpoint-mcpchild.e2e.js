@@ -67,7 +67,7 @@ function parseCall(call) { const t = (call.result && call.result.content && call
     const mc = mcpChild({ WIN_CLAUDE_WORKBENCH_HOME: HOME, WCW_SESSION_ID: sid, WCW_PORT: String(WB_PORT), WCW_HOST: '127.0.0.1', WCW_TOKEN: token });
     kids.push(mc.child);
     const init = await mc.rpc('initialize', { protocolVersion: '2024-11-05' });
-    ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'win-claude-workbench', 'child: initialize ok');
+    ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'ruyi', 'child: initialize ok');
     const call = await mc.rpc('tools/call', { name: 'file_write', arguments: { path: target, content: 'written by mcp child' } });
     const parsed = parseCall(call);
     ok(call.result && call.result.isError === false && parsed.ok === true, 'child: file_write ok (got: ' + JSON.stringify(parsed).slice(0, 120) + ')');

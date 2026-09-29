@@ -10,14 +10,17 @@
         "ASR_MAX_BODY_BYTES",
         "BUNDLED_PYTHON_RUNTIME",
         "CONFIG_SCHEMA",
+        "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
         "EventStreamHooks",
         "INSTALL_REGISTRY_MAX",
         "INSTALL_REGISTRY_SCHEMA",
         "LEGACY_API_ERROR_CODES",
+        "LEGACY_DATA_DIR_NAME",
         "MAX_BODY_BYTES",
         "MigrationHooks",
         "OVERLAY_ID",
+        "RUYI_DATA_DIR_NAME",
         "RUYI_EVENTS",
         "RUYI_EVENT_SUBSCRIBERS",
         "RUYI_PATH_BEFORE_VENDOR",
@@ -44,6 +47,8 @@
         "createNdjsonLineFeeder",
         "crypto",
         "dataRoot",
+        "dataRootAliases",
+        "defaultDataRoots",
         "ensureDirs",
         "exePath",
         "exposeBundledPythonRuntime",
@@ -56,9 +61,12 @@
         "hashArgs",
         "http",
         "installRegistryPath",
+        "isDirectServeInvocation",
         "isPkg",
         "json",
+        "lstatOrNull",
         "makeId",
+        "migrateLegacyDataRoot",
         "neutralizeFenceTag",
         "normalizeApiErrorPayload",
         "normalizePricing",
@@ -67,6 +75,7 @@
         "path",
         "pathToFileURL",
         "paths",
+        "pidAlive",
         "readInstallRegistry",
         "readUsageRows",
         "readline",
@@ -136,6 +145,18 @@
           ]
         }
       ]
+    },
+    {
+      "file": "00b-ruyi-names.js",
+      "layer": "bootstrap",
+      "provides": [
+        "LEGACY_RUYI_MCP_SERVER_IDS",
+        "RUYI_MCP_CLI_TOOL_PREFIX",
+        "RUYI_MCP_SERVER_ID",
+        "canonicalRuyiMcpServerId",
+        "isRuyiMcpServerId"
+      ],
+      "requires": []
     },
     {
       "file": "01b-route-auth.js",
@@ -220,7 +241,15 @@
         "permissionModeFrom",
         "resolvePermissionMode"
       ],
-      "requires": []
+      "requires": [
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "canonicalRuyiMcpServerId",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "01f-agent-cli-types.js",
@@ -552,6 +581,27 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "canonicalRuyiMcpServerId",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "isRuyiMcpServerId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
           "kinds": [
             "read"
           ]
@@ -1644,6 +1694,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -2038,6 +2095,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "VERSION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
           "kinds": [
             "read"
           ]
@@ -2749,6 +2813,13 @@
           "symbol": "URL",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -4631,6 +4702,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "zlib",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
           "kinds": [
             "read"
           ]
@@ -10615,6 +10693,20 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "DATA_ROOT_MIGRATION",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "DEFAULT_PORT",
           "kinds": [
             "read"
@@ -10784,6 +10876,20 @@
         {
           "provider": "00-boot.js",
           "symbol": "zlib",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "LEGACY_RUYI_MCP_SERVER_IDS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_SERVER_ID",
           "kinds": [
             "read"
           ]

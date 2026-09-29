@@ -86,8 +86,8 @@ function walk(dir) {
 // 从 resources/ 读的三个目录。
 const RESOURCE_DIRS = [
   'resources/playbooks',                                              // 06 builtinPlaybooksDir:整目录 *.json
-  'resources/plugins/win-workbench-offline/offline-toolkit/skills',   // 12 loadSkillRegistry:<id>/SKILL.md
-  'resources/plugins/win-workbench-offline/offline-toolkit/commands', // 12 loadSkillRegistry:*.md
+  'resources/plugins/ruyi-offline/offline-toolkit/skills',   // 12 loadSkillRegistry:<id>/SKILL.md
+  'resources/plugins/ruyi-offline/offline-toolkit/commands', // 12 loadSkillRegistry:*.md
 ];
 const sensitiveDirs = ['app/public', 'app/src', ...RESOURCE_DIRS];
 const unregistered = [];

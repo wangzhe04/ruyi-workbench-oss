@@ -22,7 +22,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
-const DEFAULT_CONFIG = path.join(os.homedir(), '.win-claude-workbench', 'config.json');
+const DEFAULT_CONFIG = path.join(require('./lib/real-data-root.js').defaultDataRootIn(os.homedir()), 'config.json');
 const CONFIG_PATH = process.env.RUYI_REAL_CONFIG || DEFAULT_CONFIG;
 const OUT = process.argv[2] || process.env.RUYI_REAL_OUT || '';
 const MODEL_OVERRIDE = process.env.RUYI_REAL_MODEL || '';

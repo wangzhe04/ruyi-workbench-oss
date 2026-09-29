@@ -59,8 +59,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       // cmd8191 防线: --agents 的推送延后到 runClaudeTurn 的「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
       // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
       if (config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto') {
-        // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
-        args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
+        // permission-prompt-tool 名派生自 MCP server id,须与之一致(RUYI_MCP_CLI_TOOL_PREFIX)。
+        args.push('--permission-prompt-tool', `${RUYI_MCP_CLI_TOOL_PREFIX}permission_prompt`);
       }
       // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
       // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
@@ -441,20 +441,20 @@ async function runClaudeTurn({
     // 两句已并进上面的 <ruyi-environment>(Kimi 版改用原生 AskUserQuestion,经 ACP 落到如意提问卡)。
     // 管家会话不拿那段,两句照旧给它。
     if (!envBrief && interactive && config.includeWorkbenchMcp) {
-      appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
+      appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call ${RUYI_MCP_CLI_TOOL_PREFIX}request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
     if (!envBrief && config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
-      appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
+      appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call ${RUYI_MCP_CLI_TOOL_PREFIX}tool_search, then invoke the exact result with ${RUYI_MCP_CLI_TOOL_PREFIX}tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
     if (config.includeWorkbenchMcp) {
       // 核心记忆协议是稳定上下文，和技能/记忆索引一样走 stdin，避免占用 Windows 命令行预算。
       indexSecs.push(getPromptPack(config && config.locale).memoryCoreGuide({
-        list: 'mcp__win-claude-workbench__workbench_memory_list',
-        read: 'mcp__win-claude-workbench__workbench_memory_read',
-        propose: 'mcp__win-claude-workbench__workbench_memory_propose',
-        relationPropose: 'mcp__win-claude-workbench__workbench_memory_relation_propose',
-        revise: 'mcp__win-claude-workbench__workbench_memory_revise',
-        relationRevoke: 'mcp__win-claude-workbench__workbench_memory_relation_revoke',
+        list: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_list`,
+        read: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_read`,
+        propose: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_propose`,
+        relationPropose: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_relation_propose`,
+        revise: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_revise`,
+        relationRevoke: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_relation_revoke`,
       }));
     }
     if (config.desktopMcp && config.desktopMcp.enabled) {
@@ -636,7 +636,7 @@ async function runClaudeTurn({
   }
 
   // 子进程环境由适配器给(Claude:effectiveAnthropicEnv 叠第三方端点/模型 + MAX_THINKING_TOKENS;Kimi:process.env)。
-  const env = adapter.buildEnv(config, { WIN_CLAUDE_WORKBENCH_HOME: paths.data }); // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
+  const env = adapter.buildEnv(config, { RUYI_HOME: paths.data }); // 数据根交给 CLI/MCP 子进程(3.0 起只写 RUYI_HOME)
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)

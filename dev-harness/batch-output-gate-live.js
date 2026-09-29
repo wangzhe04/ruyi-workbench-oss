@@ -15,7 +15,7 @@
 // 报告只落计量数字、槽位字符数、winner/scores，不落方案正文、不落 API key。
 //
 // 用法: node dev-harness/batch-output-gate-live.js [结果JSON路径]
-//   env: RUYI_REAL_CONFIG（provider 来源，默认 ~/.win-claude-workbench/config.json）
+//   env: RUYI_REAL_CONFIG（provider 来源，默认 <数据根>/config.json,数据根见 lib/real-data-root.js）
 //        RUYI_REAL_MODEL（模型覆盖）  RUYI_BATCH_REPS（每臂重复次数，默认 2）
 
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
@@ -27,7 +27,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const WB = path.join(ROOT, 'ruyi-workbench');
-const DEFAULT_CONFIG = path.join(os.homedir(), '.win-claude-workbench', 'config.json');
+const DEFAULT_CONFIG = path.join(require('./lib/real-data-root.js').defaultDataRootIn(os.homedir()), 'config.json');
 const CONFIG_PATH = process.env.RUYI_REAL_CONFIG || DEFAULT_CONFIG;
 const OUT = process.argv[2] || process.env.RUYI_REAL_OUT || path.join(ROOT, 'docs', 'optimization-plan', '106-batch-output-gate-report.json');
 // 断点续跑：每个 run 完成即追加一行到 PROGRESS；进程被杀后重跑只补未完成的 (arm,rep)。

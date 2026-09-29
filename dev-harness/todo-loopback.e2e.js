@@ -62,7 +62,7 @@ function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore *
     const mc = mcpChild({ WIN_CLAUDE_WORKBENCH_HOME: HOME, WCW_SESSION_ID: sid, WCW_PORT: String(WB_PORT), WCW_HOST: '127.0.0.1', WCW_TOKEN: token });
     kids.push(mc.child);
     const init = await mc.rpc('initialize', { protocolVersion: '2024-11-05' });
-    ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'win-claude-workbench', 'child: initialize ok');
+    ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'ruyi', 'child: initialize ok');
     const call = await mc.rpc('tools/call', { name: 'todo_write', arguments: { items: [ { text: '第一步', status: 'in_progress' }, { text: '第二步', status: 'pending' } ] } });
     const text = (call.result && call.result.content && call.result.content[0] && call.result.content[0].text) || '';
     let parsed = {}; try { parsed = JSON.parse(text); } catch { /* leave empty */ }

@@ -21,7 +21,7 @@ const PUBLIC_JS = path.resolve(__dirname, '..', '..', 'ruyi-workbench', 'app', '
 let modulePromise;
 const load = () => (modulePromise ||= import(pathToFileURL(path.join(PUBLIC_JS, 'util.js')).href));
 
-const DATA_ROOT = 'C:\\Users\\u\\.win-claude-workbench';
+const DATA_ROOT = 'C:\\Users\\u\\.ruyi-workbench';
 const OWNED = [
   { path: 'C:\\Users\\u\\Ruyi\\下周A股走势分析', at: '' },
   { path: 'C:\\Users\\u\\Ruyi\\英伟达分析', at: '', adopted: true },
@@ -33,7 +33,7 @@ describe('isRuyiOwnedWorkspace', () => {
     const ctx = { dataRoot: DATA_ROOT, owned: [] };
     assert.equal(isRuyiOwnedWorkspace(DATA_ROOT, ctx), true);
     assert.equal(isRuyiOwnedWorkspace(DATA_ROOT + '\\agent-worktrees\\run_1', ctx), true);
-    assert.equal(isRuyiOwnedWorkspace('c:/users/u/.win-claude-workbench/tmp/', ctx), true, '正斜杠 + 小写 + 尾斜杠同样认');
+    assert.equal(isRuyiOwnedWorkspace('c:/users/u/.ruyi-workbench/tmp/', ctx), true, '正斜杠 + 小写 + 尾斜杠同样认');
     assert.equal(isRuyiOwnedWorkspace(DATA_ROOT + '-backup', ctx), false, '同前缀的兄弟目录不算(整段比,不是字符串前缀)');
   });
   it('② 如意开的、没收编的算;收编过的不算', async () => {

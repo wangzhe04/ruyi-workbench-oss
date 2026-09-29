@@ -1676,7 +1676,7 @@ function buildRuntimeIdentityFacts() {
 //     权限档、提问弹窗、管家代开三句(providerEnvLines),rg 并进既有能力行(见 buildVolatileParts)。
 const ENGINE_BRIEF_OPEN = '<ruyi-environment>';
 const ENGINE_BRIEF_CLOSE = '</ruyi-environment>';
-const RUYI_MCP_TOOL_PREFIX = 'mcp__win-claude-workbench__'; // 【存量兼容标识】MCP server id 仍是 win-claude-workbench
+const RUYI_MCP_TOOL_PREFIX = RUYI_MCP_CLI_TOOL_PREFIX; // CLI 引擎里如意工具的全名前缀(mcp__ruyi__)
 const _engineBriefMemo = new Map();
 function engineBriefFacts({ engine, config, session, rg } = {}) {
   const cfg = config || {};

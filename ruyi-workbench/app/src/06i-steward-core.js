@@ -279,8 +279,8 @@ const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|tr
 // 为什么只认精确全名、大小写敏感:原生引擎里外部 MCP 工具恒为 `<serverId>__<工具名>`(04 collectBridgedTools),
 // 且 resolveBridge 内建名优先(裸名 shell_send 永远落到内建实现);CLI 引擎恒为 `mcp__<server>__<工具名>`。
 // 所以裸名只可能是工作台自己的那两个工具。前缀形态【不】放 —— 判据拿不到引擎上下文,而
-// `mcp__win-claude-workbench__shell_send` 在原生引擎里能被一个 id 为 mcp 的外部服务器凑出来
-// (serverId=mcp + 工具名 win-claude-workbench__shell_send);CLI 那两条路上 shell 族在 MCP 子进程里本就是
+// `mcp__ruyi__shell_send` 在原生引擎里能被一个 id 为 mcp 的外部服务器凑出来
+// (serverId=mcp + 工具名 ruyi__shell_send);CLI 那两条路上 shell 族在 MCP 子进程里本就是
 // 引导性报错(12 shellMcpChildGuard),放它没有收益。
 const STEWARD_EXEMPT_NAME_CARVEOUTS = Object.freeze(['shell_send', 'keyboard_send_keys']);
 
