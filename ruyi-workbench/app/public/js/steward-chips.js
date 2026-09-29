@@ -1028,14 +1028,15 @@ export function createQuickSwitchChips({
   function render() {
     for (const [kind, chip] of chips) {
       const value = valueFor(kind);
-      chip.value.textContent = value;
+      // 值没变就不写：左栏复用行每拍都会 setSession 一次（steward-board.js 的 railRowChips），同值重写也是一次 DOM 变更。
+      if (chip.value.textContent !== value) chip.value.textContent = value;
       // U15 走查：英文档位/模型名常比中文长（如 "Ask me every step" vs 「每步都问」），窄栏里
       // .steward-chip-value 的 ellipsis(css/views/steward-drawer.css)会把它截断成「…」——补一个
       // title 兜底,鼠标悬停能看到完整值,不必先展开菜单才知道选的是哪一个。
-      chip.value.title = value;
+      if (chip.value.title !== value) chip.value.title = value;
       // U14 走查：kind 标签跟着一起刷新（见 buildChip 头注）——render() 本来就在换会话／改档位／
       // rerenderAllQuickSwitchChips() 时被调用，不必为它另起一条监听。
-      if (chip.keyLabel && chip.labelKey) chip.keyLabel.textContent = t(chip.labelKey);
+      if (chip.keyLabel && chip.labelKey && chip.keyLabel.textContent !== t(chip.labelKey)) chip.keyLabel.textContent = t(chip.labelKey);
       chip.button.disabled = !sessionId;
       chip.button.classList.toggle('is-pinned', kind === 'permission' && Boolean(session && session.permissionMode));
     }
