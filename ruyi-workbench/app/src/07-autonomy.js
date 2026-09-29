@@ -1739,7 +1739,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // 与 05-claude-engine.js 的主回合读法对齐(cache_read_input_tokens + cache_creation_input_tokens);只在
   // 「信任 result 帧」分支累加(与 ledgerIn/ledgerOut 同一 FIELD-LEVEL source select,msg_usage 兜底帧没有
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
-  let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  // hunt2-engines#2:ledgerIn 记账本口径(输入 + 缓存读 + 缓存创建,与 05 主回合 recordTurnUsage 同一归一),
+  // ledgerRawIn 留 CLI 原始 input_tokens 只给 claudeCostFields 定价(费用算法不变)。
+  let ledgerIn = 0, ledgerRawIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
     // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
     // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
@@ -1761,9 +1763,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           const ru = res.resultUsage;
           const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
           const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn + ruCachedIn; ledgerRawIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
           else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerRawIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
           }
           if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
         } catch { /* never let accounting break the attempt */ }
@@ -1810,7 +1812,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // no special case, and a purely-aborted node with no usage records nothing.
     try {
       if (parentSession) {
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerIn, ledgerOut, ledgerCostUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerRawIn, ledgerOut, ledgerCostUsd);
         appendUsageLedger({
           sessionId: parentSession.id, engine: 'claude', provider: claudeProvider,
           // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that

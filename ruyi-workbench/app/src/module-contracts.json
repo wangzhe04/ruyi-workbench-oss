@@ -9,6 +9,7 @@
         "APP_NAME",
         "ASR_MAX_BODY_BYTES",
         "BUNDLED_PYTHON_RUNTIME",
+        "CLI_DIAGNOSTIC_TEXT_CAP",
         "CONFIG_SCHEMA",
         "DATA_ROOT_MIGRATION",
         "DEFAULT_PORT",
@@ -45,6 +46,7 @@
         "computeCostFromPricing",
         "computeProviderCost",
         "cp",
+        "createCappedDiagnosticText",
         "createNdjsonLineFeeder",
         "crypto",
         "dataRoot",
@@ -338,6 +340,7 @@
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
+        "decodeClaudeCliStream",
         "decodeClaudeCliText",
         "defaultConfig",
         "desktopMcpAutodetectWanted",
@@ -385,6 +388,7 @@
         "isDesktopMcpRepo",
         "isKimiCodingEndpoint",
         "kimiMcpManagedIds",
+        "kimiMcpSyncChains",
         "lastGoodConfig",
         "looksLikeRuyiSelfMcp",
         "mcpConfigFilePath",
@@ -433,6 +437,7 @@
         "syncClaudeCliSettings",
         "syncMcpServersToClaude",
         "syncMcpServersToKimi",
+        "syncMcpServersToKimiNow",
         "tokenMatches",
         "tokenOk",
         "writeConfig",
@@ -562,6 +567,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -572,6 +584,13 @@
           "symbol": "SKILL_ID_RE",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "StringDecoder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -1975,6 +1994,7 @@
         "killAllMcpClients",
         "killChildTree",
         "killOwnProcessTree",
+        "killPosixChildTree",
         "lastAssistantEngine",
         "lastSuccessfulClaudeModel",
         "logEvent",
@@ -2808,6 +2828,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "createCappedDiagnosticText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "createNdjsonLineFeeder",
           "kinds": [
             "call"
@@ -2951,13 +2978,6 @@
           "symbol": "readConfig",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "01-config.js",
-          "symbol": "RUNTIME",
-          "kinds": [
-            "read"
           ]
         },
         {
@@ -3701,9 +3721,14 @@
       "file": "05b-kimi-bridge.js",
       "layer": "engine",
       "provides": [
+        "AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS",
+        "agentAutoCompactBackingOff",
+        "agentAutoCompactFailures",
+        "agentAutoCompactTrigger",
         "appendKimiAcpTerminalOutput",
         "applyKimiStatusToSession",
         "awaitKimiAcpWithSignal",
+        "cancelKimiAcpIntervention",
         "cleanupKimiAcpTerminals",
         "closeKimiAcpProcess",
         "compactKimiNative",
@@ -3782,6 +3807,7 @@
         "kimiAcpSyncActualConfig",
         "kimiAcpTerminal",
         "kimiAcpTerminalDisplayResult",
+        "kimiAcpTerminalOutputText",
         "kimiAcpTerminalRef",
         "kimiAcpTextLines",
         "kimiAcpToolTier",
@@ -3806,6 +3832,7 @@
         "kimiWireSubagentStart",
         "maybeAutoCompactAgentSession",
         "normalizeKimiStatus",
+        "noteAgentAutoCompactFailure",
         "parseKimiWireAgentEvents",
         "parseKimiWireCompaction",
         "prepareKimiAcpSpawn",
@@ -3819,6 +3846,7 @@
         "stopKimiServer",
         "syncKimiSessionUsage",
         "syncKimiTurnPreferences",
+        "trimKimiAcpTerminalOutput",
         "watchKimiWire"
       ],
       "requires": [
@@ -3827,6 +3855,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createCappedDiagnosticText",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -4227,6 +4262,20 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "requestUserQuestion",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "runAutomaticInterventionDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "stopSession",
           "kinds": [
             "call"
           ]

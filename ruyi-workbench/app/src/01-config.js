@@ -2097,10 +2097,17 @@ async function syncAgentCliMcpManifests(config, previousConfig = null, { require
 // v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
 // per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
 // user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
-async function syncMcpServersToKimi(config) {
+// hunt2-engines#14:这是一段「读 mcp.json + 读所有权旁账 → 合并 → 写两份文件」的读改写。修前不串行:每个 Kimi 回合起手
+// (05b includeWorkbenchMcp)、启动预热、配置保存都会调它,两路并发时后写的一方基于旧快照把先写的一方盖掉 ——
+// managedIds / previous(接管前的原条目)一旦丢了,关掉工作台 MCP 时就还原不回用户原来的条目。按目标文件串行。
+const kimiMcpSyncChains = new Map();
+function syncMcpServersToKimi(config) {
+  const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
+  return runKeyedChain(kimiMcpSyncChains, path.join(kimiDir, 'mcp.json'), () => syncMcpServersToKimiNow(config, kimiDir));
+}
+async function syncMcpServersToKimiNow(config, kimiDir) {
   try {
     await ensureDirs();
-    const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
     let current = {};
@@ -2597,13 +2604,43 @@ function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCli
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
 // proves invalid; this keeps normal CLI diagnostics byte-for-byte unchanged while
 // making the actionable error readable for Chinese Windows installs.
-function decodeClaudeCliText(chunk) {
+//
+// hunt2-engines#8:按块独立解码会把「块边界切在一个汉字中间」的正常 UTF-8 误判成非法,再按 GB18030 解出一串乱码。
+// 子进程的一条流(stderr)请传同一个状态对象 stream(调用方给一个 {} 即可):UTF-8 走 StringDecoder(被切开的尾字节
+// 留到下一块再解);只有 UTF-8 真的非法时才整流切到 GB18030(同样是流式解码器)。流结束时传 chunk=null 冲出残字节。
+// 不传 stream 时行为与修前逐字节相同(一次性整段解码的调用点)。
+function decodeClaudeCliText(chunk, stream) {
+  if (stream && typeof stream === 'object') return decodeClaudeCliStream(chunk, stream);
   const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
   if (!bytes.length) return '';
   const utf8 = bytes.toString('utf8');
   if (!utf8.includes('\uFFFD')) return utf8;
   try {
     const decoded = new TextDecoder('gb18030', { fatal: true }).decode(bytes);
+    return decoded || utf8;
+  } catch {
+    return utf8;
+  }
+}
+
+function decodeClaudeCliStream(chunk, stream) {
+  if (!stream.utf8) stream.utf8 = new StringDecoder('utf8');
+  if (chunk === null) {
+    const rest = stream.gb ? stream.gb.decode() : stream.utf8.end();
+    stream.gb = null;
+    return rest;
+  }
+  const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
+  if (!bytes.length) return '';
+  if (stream.gb) {
+    try { return stream.gb.decode(bytes, { stream: true }); } catch { stream.gb = null; return bytes.toString('utf8'); }
+  }
+  const utf8 = stream.utf8.write(bytes);
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    const gb = new TextDecoder('gb18030', { fatal: true });
+    const decoded = gb.decode(bytes, { stream: true });
+    stream.gb = gb;
     return decoded || utf8;
   } catch {
     return utf8;

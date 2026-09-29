@@ -7,6 +7,7 @@
 //   [P2] dry 模式:根不在表里 ⇒ ROOT-GONE,什么都不杀。
 //   [R1] 真进程 killOwnProcessTree:根 ＋ detached 孙子(逃出 libuv 的 job、不会随根一起死)都被收掉。
 //   [R2] 真进程 killChildTree(发出去就算的旧调用形状):同上,几秒内都没了。
+//   [R3] hunt2-engines#11 Linux:killChildTree 修前只杀根,CLI/终端拉起的孙辈成孤儿;现在按 /proc 认子孙一起收。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const cp = require('child_process');
@@ -68,4 +69,18 @@ test('[R2] 真进程 killChildTree(发出去就算):几秒内根与 detached 孙
   let gone = false;
   for (let i = 0; i < 40 && !gone; i++) { await sleep(250); gone = !alive(grandPid) && !alive(rootProc.pid); }
   assert.ok(gone, '根与孙子都没了');
+});
+
+// Linux:僵尸(状态 Z)也算没了 —— 容器里的 1 号进程不一定收尸,被杀的孙辈可能以僵尸留在 /proc 里。
+const aliveLinux = pid => {
+  try { const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8'); return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z'; } catch { return false; }
+};
+test('[R3] Linux 真进程 killChildTree:根与 detached 孙子都没了', { skip: process.platform !== 'linux' }, async () => {
+  const { rootProc, grandPid } = await rootWithDetachedGrandchild();
+  assert.ok(aliveLinux(grandPid), '前提:孙子在跑');
+  srv.killChildTree(rootProc.pid);
+  let gone = false;
+  for (let i = 0; i < 20 && !gone; i++) { await sleep(100); gone = !aliveLinux(grandPid) && !aliveLinux(rootProc.pid); }
+  if (!gone) { try { process.kill(grandPid, 'SIGKILL'); } catch { /* 已退 */ } }
+  assert.ok(gone, '根与孙子都没了(修前只杀根,孙子一直在跑)');
 });

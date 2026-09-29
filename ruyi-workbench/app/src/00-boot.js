@@ -347,8 +347,13 @@ function createNdjsonLineFeeder(onLine) {
   let remainder = '';
   return {
     push(chunk) {
-      remainder += decoder.write(chunk);
-      const lines = remainder.split(/\r?\n/);
+      // hunt2-engines#4:只在【新到的这段】里找换行。修前每块都把整段残行拼上再 split 一遍 —— 一条 20MB 的单行
+      // (大 tool_result / base64 图片)按 64KB 分块喂进来是 O(n²),实测 8 秒、50MB 近一分钟阻塞事件循环。
+      // 新段里没有换行就只追加(V8 字符串拼接是摊还 O(1)),有换行时整段 split 一次,残行随即清空 —— 整体线性。
+      const text = decoder.write(chunk);
+      if (!text) return;
+      if (text.indexOf('\n') < 0) { remainder += text; return; }
+      const lines = (remainder + text).split(/\r?\n/);
       remainder = lines.pop() || '';
       for (const line of lines) onLine(line);
     },
@@ -356,6 +361,35 @@ function createNdjsonLineFeeder(onLine) {
       remainder += decoder.end();
       if (remainder.trim()) onLine(remainder);
       remainder = '';
+    },
+  };
+}
+
+// hunt2-engines#17:CLI 子进程的诊断文本(stderr、stdout 里的非 JSON 行)原来无上限累积,回合结束整段落进会话文件 ——
+// 一个刷屏的 CLI 能把一条会话撑到上百 MB,之后每次读写会话都要搬它。这里只留头尾各一半(默认共 64K 字符):
+// 启动错误多在头部、致命错误多在尾部,中间用一行说明省略了多少。累加是摊还 O(1)(尾巴超过两倍半额才裁一次)。
+const CLI_DIAGNOSTIC_TEXT_CAP = 64 * 1024;
+function createCappedDiagnosticText(cap = CLI_DIAGNOSTIC_TEXT_CAP) {
+  const half = Math.max(1, Math.floor(cap / 2));
+  let head = '';
+  let tail = '';
+  let dropped = 0;
+  return {
+    append(text) {
+      let rest = String(text || '');
+      if (!rest) return;
+      if (head.length < half) {
+        const take = rest.slice(0, half - head.length);
+        head += take;
+        rest = rest.slice(take.length);
+        if (!rest) return;
+      }
+      tail += rest;
+      if (tail.length > half * 2) { dropped += tail.length - half; tail = tail.slice(-half); }
+    },
+    toString() {
+      const omitted = dropped + Math.max(0, tail.length - half);
+      return omitted ? `${head}\n…[已省略 ${omitted} 字符]…\n${tail.slice(-half)}` : head + tail;
     },
   };
 }

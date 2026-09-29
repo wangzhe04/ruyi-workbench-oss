@@ -299,11 +299,16 @@ test('[U] 用量记账金样', async () => {
   claude.recordTurnUsage({ session: { id: 'sess_u4', turnSeq: 1 }, config: {}, usage: null, billInMax: 0, billOutMax: 0 });
   claude.recordTurnUsage({ session: { id: 'sess_u5', turnSeq: 1 }, config: {}, usage: { costUsd: 1 }, billInMax: 0, billOutMax: 0 });
   kimi.recordTurnUsage({ session: { id: 'sess_u6', turnSeq: 1 }, config: {}, usage: { usage: { input_tokens: 5, output_tokens: 5 } }, billInMax: 9, billOutMax: 9 });
-  const rows = (await waitRows(3)).map(strip);
+  // hunt2-engines#2:Claude 的 input_tokens 不含缓存;重缓存回合(3 vs 5 万)修前被 appendUsageLedger 的 min 夹成 cachedInTok 3。
+  // claudePricing 在场:定价仍按原始 input_tokens(3×1 + 500×2)/1e6,不因归一多算。
+  claude.recordTurnUsage({ session: { id: 'sess_u7', turnSeq: 2 }, config: { model: 'test-model-h', claudePricing: { inputPerM: 1, outputPerM: 2, currency: 'USD' } }, billInMax: 0, billOutMax: 0,
+    usage: { usage: { input_tokens: 3, output_tokens: 500, cache_read_input_tokens: 48000, cache_creation_input_tokens: 2000 }, costUsd: 0.1 } });
+  const rows = (await waitRows(4)).map(strip);
   assert.deepEqual(rows, [
-    { sessionId: 'sess_u1', engine: 'claude', provider: 'claude-cli', model: 'test-model-u', inTok: 812, outTok: 214, cachedInTok: 600, cost: 0.0456, currency: 'USD', costTrusted: true, estimated: false, turnSeq: 3, kind: 'turn' },
+    { sessionId: 'sess_u1', engine: 'claude', provider: 'claude-cli', model: 'test-model-u', inTok: 1412, outTok: 214, cachedInTok: 600, cost: 0.0456, currency: 'USD', costTrusted: true, estimated: false, turnSeq: 3, kind: 'turn' },
     { sessionId: 'sess_u2', engine: 'claude', provider: 'claude-cli', model: 'test-model-n', inTok: 300, outTok: 55, cachedInTok: 0, cost: null, currency: null, costTrusted: true, estimated: true, turnSeq: 1, kind: 'turn' },
     { sessionId: 'sess_u3', engine: 'claude', provider: 'claude-endpoint:proxy.example.test', model: '', inTok: 10, outTok: 2, cachedInTok: 0, cost: null, currency: null, costTrusted: false, estimated: false, turnSeq: 1, kind: 'turn' },
+    { sessionId: 'sess_u7', engine: 'claude', provider: 'claude-cli', model: 'test-model-h', inTok: 50003, outTok: 500, cachedInTok: 50000, cost: 0.001003, currency: 'USD', costTrusted: true, estimated: false, turnSeq: 2, kind: 'turn' },
   ], '有结果帧记真实行、无结果帧有计费下限记估算行、都没有不记;Kimi 不记');
 });
 

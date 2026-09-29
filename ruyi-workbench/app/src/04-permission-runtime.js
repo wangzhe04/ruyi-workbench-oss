@@ -363,6 +363,42 @@ function killOwnProcessTree(pid, opts = {}) {
     });
   });
 }
+function killPosixChildTree(pid) {
+  // hunt2-engines#11:POSIX 修前只杀根 —— CLI 的 Bash 工具、MCP 子进程、ACP 终端拉起的孙辈全成孤儿,回合停了它们还在跑。
+  // Linux 按 Windows 那一支同一条判据认子孙(dev-harness/lib/kill-own-tree.js 同款):从 /proc 快照里按父号往下找,
+  // 只认启动时刻不早于父亲的(父号过期撞号的陌生进程比「父亲」还老,按构造排除);**先快照再杀根**(根一死子孙就被
+  // 过继给 init,父号对不上了),杀每个子孙前再核一次启动时刻,号被复用就不杀。没有 /proc(macOS)仍只杀根。
+  const readStat = id => {
+    try {
+      const stat = fs.readFileSync(`/proc/${id}/stat`, 'utf8');
+      const tail = stat.slice(stat.lastIndexOf(')') + 2).split(' ');   // tail[1]=ppid(第 4 列) tail[19]=starttime(第 22 列)
+      return { pid: Number(id), ppid: Number(tail[1]), created: BigInt(tail[19]) };
+    } catch { return null; }
+  };
+  const descendants = [];
+  if (process.platform === 'linux') {
+    let table = [];
+    try { table = fs.readdirSync('/proc').filter(n => /^\d+$/.test(n)).map(readStat).filter(Boolean); } catch { table = []; }
+    const rootRow = table.find(r => r.pid === Number(pid));
+    const queue = rootRow ? [rootRow] : [];
+    const seen = new Set(queue.map(r => r.pid));
+    while (queue.length) {
+      const parent = queue.shift();
+      for (const r of table) {
+        if (seen.has(r.pid) || r.ppid !== parent.pid || r.created < parent.created) continue;
+        seen.add(r.pid);
+        descendants.push(r);
+        queue.push(r);
+      }
+    }
+  }
+  try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
+  for (const d of descendants.reverse()) {
+    const now = readStat(d.pid);
+    if (!now || now.created !== d.created) continue;
+    try { process.kill(d.pid, 'SIGKILL'); } catch { /* already gone */ }
+  }
+}
 // 发出去就算(修前的调用形状,14 处调用点零改动):不等它。怎么「发出去」是 128i 取证定的:
 //   · Node 的 detached(DETACHED_PROCESS,没有控制台)起 powershell.exe:退出码 0、**脚本一行都没跑**(实测 3/3);
 //   · 直接 spawn(不 detached)能跑,但它在本进程的 libuv job 里 —— 服务收尸完马上退出时,job 一关它也被杀,
@@ -372,7 +408,7 @@ function killOwnProcessTree(pid, opts = {}) {
 // cmd 的命令行上限 8191 字符;超了(不会,这里留着防以后脚本变长)就退回直接 spawn。
 function killChildTree(pid) {
   if (!pid) return;
-  if (process.platform !== 'win32') { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } return; }
+  if (process.platform !== 'win32') { killPosixChildTree(pid); return; }
   try {
     const args = ownTreeKillCommand(pid);
     const inner = `start "" /b powershell.exe ${args.join(' ')}`;

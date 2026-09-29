@@ -347,8 +347,13 @@ function createNdjsonLineFeeder(onLine) {
   let remainder = '';
   return {
     push(chunk) {
-      remainder += decoder.write(chunk);
-      const lines = remainder.split(/\r?\n/);
+      // hunt2-engines#4:只在【新到的这段】里找换行。修前每块都把整段残行拼上再 split 一遍 —— 一条 20MB 的单行
+      // (大 tool_result / base64 图片)按 64KB 分块喂进来是 O(n²),实测 8 秒、50MB 近一分钟阻塞事件循环。
+      // 新段里没有换行就只追加(V8 字符串拼接是摊还 O(1)),有换行时整段 split 一次,残行随即清空 —— 整体线性。
+      const text = decoder.write(chunk);
+      if (!text) return;
+      if (text.indexOf('\n') < 0) { remainder += text; return; }
+      const lines = (remainder + text).split(/\r?\n/);
       remainder = lines.pop() || '';
       for (const line of lines) onLine(line);
     },
@@ -356,6 +361,35 @@ function createNdjsonLineFeeder(onLine) {
       remainder += decoder.end();
       if (remainder.trim()) onLine(remainder);
       remainder = '';
+    },
+  };
+}
+
+// hunt2-engines#17:CLI 子进程的诊断文本(stderr、stdout 里的非 JSON 行)原来无上限累积,回合结束整段落进会话文件 ——
+// 一个刷屏的 CLI 能把一条会话撑到上百 MB,之后每次读写会话都要搬它。这里只留头尾各一半(默认共 64K 字符):
+// 启动错误多在头部、致命错误多在尾部,中间用一行说明省略了多少。累加是摊还 O(1)(尾巴超过两倍半额才裁一次)。
+const CLI_DIAGNOSTIC_TEXT_CAP = 64 * 1024;
+function createCappedDiagnosticText(cap = CLI_DIAGNOSTIC_TEXT_CAP) {
+  const half = Math.max(1, Math.floor(cap / 2));
+  let head = '';
+  let tail = '';
+  let dropped = 0;
+  return {
+    append(text) {
+      let rest = String(text || '');
+      if (!rest) return;
+      if (head.length < half) {
+        const take = rest.slice(0, half - head.length);
+        head += take;
+        rest = rest.slice(take.length);
+        if (!rest) return;
+      }
+      tail += rest;
+      if (tail.length > half * 2) { dropped += tail.length - half; tail = tail.slice(-half); }
+    },
+    toString() {
+      const omitted = dropped + Math.max(0, tail.length - half);
+      return omitted ? `${head}\n…[已省略 ${omitted} 字符]…\n${tail.slice(-half)}` : head + tail;
     },
   };
 }
@@ -3679,10 +3713,17 @@ async function syncAgentCliMcpManifests(config, previousConfig = null, { require
 // v2.8: Kimi Code reads user MCP declarations from $KIMI_CODE_HOME/mcp.json (default ~/.kimi-code/mcp.json) and currently has no
 // per-invocation --mcp-config flag. Merge Ruyi's declarations into that file without removing unrelated
 // user entries. Turn-specific loopback fields are inherited from the spawned Kimi process environment.
-async function syncMcpServersToKimi(config) {
+// hunt2-engines#14:这是一段「读 mcp.json + 读所有权旁账 → 合并 → 写两份文件」的读改写。修前不串行:每个 Kimi 回合起手
+// (05b includeWorkbenchMcp)、启动预热、配置保存都会调它,两路并发时后写的一方基于旧快照把先写的一方盖掉 ——
+// managedIds / previous(接管前的原条目)一旦丢了,关掉工作台 MCP 时就还原不回用户原来的条目。按目标文件串行。
+const kimiMcpSyncChains = new Map();
+function syncMcpServersToKimi(config) {
+  const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
+  return runKeyedChain(kimiMcpSyncChains, path.join(kimiDir, 'mcp.json'), () => syncMcpServersToKimiNow(config, kimiDir));
+}
+async function syncMcpServersToKimiNow(config, kimiDir) {
   try {
     await ensureDirs();
-    const kimiDir = String(process.env.KIMI_CODE_HOME || '').trim() || path.join(os.homedir(), '.kimi-code');
     const target = path.join(kimiDir, 'mcp.json');
     const sidecar = path.join(paths.data, 'kimi-mcp-sync.json');
     let current = {};
@@ -4179,13 +4220,43 @@ function invalidateAgentCliPathCaches() { invalidateClaudePathCache(); _agentCli
 // command failure in the active ANSI code page.  Decode GB18030 only after UTF-8
 // proves invalid; this keeps normal CLI diagnostics byte-for-byte unchanged while
 // making the actionable error readable for Chinese Windows installs.
-function decodeClaudeCliText(chunk) {
+//
+// hunt2-engines#8:按块独立解码会把「块边界切在一个汉字中间」的正常 UTF-8 误判成非法,再按 GB18030 解出一串乱码。
+// 子进程的一条流(stderr)请传同一个状态对象 stream(调用方给一个 {} 即可):UTF-8 走 StringDecoder(被切开的尾字节
+// 留到下一块再解);只有 UTF-8 真的非法时才整流切到 GB18030(同样是流式解码器)。流结束时传 chunk=null 冲出残字节。
+// 不传 stream 时行为与修前逐字节相同(一次性整段解码的调用点)。
+function decodeClaudeCliText(chunk, stream) {
+  if (stream && typeof stream === 'object') return decodeClaudeCliStream(chunk, stream);
   const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
   if (!bytes.length) return '';
   const utf8 = bytes.toString('utf8');
   if (!utf8.includes('\uFFFD')) return utf8;
   try {
     const decoded = new TextDecoder('gb18030', { fatal: true }).decode(bytes);
+    return decoded || utf8;
+  } catch {
+    return utf8;
+  }
+}
+
+function decodeClaudeCliStream(chunk, stream) {
+  if (!stream.utf8) stream.utf8 = new StringDecoder('utf8');
+  if (chunk === null) {
+    const rest = stream.gb ? stream.gb.decode() : stream.utf8.end();
+    stream.gb = null;
+    return rest;
+  }
+  const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk || '');
+  if (!bytes.length) return '';
+  if (stream.gb) {
+    try { return stream.gb.decode(bytes, { stream: true }); } catch { stream.gb = null; return bytes.toString('utf8'); }
+  }
+  const utf8 = stream.utf8.write(bytes);
+  if (!utf8.includes('\uFFFD')) return utf8;
+  try {
+    const gb = new TextDecoder('gb18030', { fatal: true });
+    const decoded = gb.decode(bytes, { stream: true });
+    stream.gb = gb;
     return decoded || utf8;
   } catch {
     return utf8;
@@ -11851,6 +11922,42 @@ function killOwnProcessTree(pid, opts = {}) {
     });
   });
 }
+function killPosixChildTree(pid) {
+  // hunt2-engines#11:POSIX 修前只杀根 —— CLI 的 Bash 工具、MCP 子进程、ACP 终端拉起的孙辈全成孤儿,回合停了它们还在跑。
+  // Linux 按 Windows 那一支同一条判据认子孙(dev-harness/lib/kill-own-tree.js 同款):从 /proc 快照里按父号往下找,
+  // 只认启动时刻不早于父亲的(父号过期撞号的陌生进程比「父亲」还老,按构造排除);**先快照再杀根**(根一死子孙就被
+  // 过继给 init,父号对不上了),杀每个子孙前再核一次启动时刻,号被复用就不杀。没有 /proc(macOS)仍只杀根。
+  const readStat = id => {
+    try {
+      const stat = fs.readFileSync(`/proc/${id}/stat`, 'utf8');
+      const tail = stat.slice(stat.lastIndexOf(')') + 2).split(' ');   // tail[1]=ppid(第 4 列) tail[19]=starttime(第 22 列)
+      return { pid: Number(id), ppid: Number(tail[1]), created: BigInt(tail[19]) };
+    } catch { return null; }
+  };
+  const descendants = [];
+  if (process.platform === 'linux') {
+    let table = [];
+    try { table = fs.readdirSync('/proc').filter(n => /^\d+$/.test(n)).map(readStat).filter(Boolean); } catch { table = []; }
+    const rootRow = table.find(r => r.pid === Number(pid));
+    const queue = rootRow ? [rootRow] : [];
+    const seen = new Set(queue.map(r => r.pid));
+    while (queue.length) {
+      const parent = queue.shift();
+      for (const r of table) {
+        if (seen.has(r.pid) || r.ppid !== parent.pid || r.created < parent.created) continue;
+        seen.add(r.pid);
+        descendants.push(r);
+        queue.push(r);
+      }
+    }
+  }
+  try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ }
+  for (const d of descendants.reverse()) {
+    const now = readStat(d.pid);
+    if (!now || now.created !== d.created) continue;
+    try { process.kill(d.pid, 'SIGKILL'); } catch { /* already gone */ }
+  }
+}
 // 发出去就算(修前的调用形状,14 处调用点零改动):不等它。怎么「发出去」是 128i 取证定的:
 //   · Node 的 detached(DETACHED_PROCESS,没有控制台)起 powershell.exe:退出码 0、**脚本一行都没跑**(实测 3/3);
 //   · 直接 spawn(不 detached)能跑,但它在本进程的 libuv job 里 —— 服务收尸完马上退出时,job 一关它也被杀,
@@ -11860,7 +11967,7 @@ function killOwnProcessTree(pid, opts = {}) {
 // cmd 的命令行上限 8191 字符;超了(不会,这里留着防以后脚本变长)就退回直接 spawn。
 function killChildTree(pid) {
   if (!pid) return;
-  if (process.platform !== 'win32') { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } return; }
+  if (process.platform !== 'win32') { killPosixChildTree(pid); return; }
   try {
     const args = ownTreeKillCommand(pid);
     const inner = `start "" /b powershell.exe ${args.join(' ')}`;
@@ -16269,7 +16376,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
     // priced and wrong for that vendor, and it is often a flat monthly plan not billed per token).
     recordTurnUsage({ session, config, usage, billInMax, billOutMax }) {
       if (usage && usage.usage) {
-        const inTok = usage.usage.input_tokens, outTok = usage.usage.output_tokens;
+        const rawInTok = Number(usage.usage.input_tokens) || 0, outTok = usage.usage.output_tokens;
         // P2-18(30号文§3 总表): cachedInTok —— 读(cache_read_input_tokens)+ 创建(cache_creation_input_tokens)
         // 两项相加,读法与 runClaudeTurn 的 msg_usage 分支(上下文估算)已在用的读法对齐(CLI 结果帧的这两个字段本就独立,
         // 只读一项会漏记「本回合新写入缓存」的部分)。此前三处 Claude 引擎的 appendUsageLedger 都没传这个字段,用量看板
@@ -16278,8 +16385,13 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
         // 定价),不经过 computeProviderCost/computeCostFromPricing 那条按 cachedInTok 打折的定价路径 —— 这里
         // 补写只是让看板口径不再对 Claude 会话空缺,不改变任何一笔已记的费用。
         const cachedInTok = (Number(usage.usage.cache_read_input_tokens) || 0) + (Number(usage.usage.cache_creation_input_tokens) || 0);
+        // hunt2-engines#2:账本的口径是 OpenAI 那一套 —— inTok 是【全部】输入、cachedInTok 是它的子集(00 appendUsageLedger
+        // 按 min(inTok, cachedInTok) 夹住)。Claude 的 input_tokens 却【不含】缓存那两项(04i normalizeAnthropicUsage 同一事实),
+        // 直接记会让重缓存回合(input 3、缓存 5 万)的缓存被夹成 3,看板每回合少记几万 token。这里先归一成账本口径;
+        // 费用仍按 CLI 原始 input_tokens 交给 claudeCostFields(config.claudePricing 的既有算法不变)。
+        const inTok = rawInTok + cachedInTok;
         // v1.4-OSS 用量看板(补): cost precedence extracted into claudeCostFields (shared with the Claude sub-agent path).
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, inTok, outTok, usage.costUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, rawInTok, outTok, usage.costUsd);
         appendUsageLedger({
           sessionId: session.id, engine: 'claude', provider: claudeProvider, model: config.model || '',
           inTok, outTok, cachedInTok, cost, currency, costTrusted, estimated: false, turnSeq: session.turnSeq,
@@ -16794,10 +16906,14 @@ async function runClaudeTurn({
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
-  env.WCW_SESSION_ID = session.id;
-  env.WCW_PORT = String(RUNTIME.port);
-  env.WCW_HOST = RUNTIME.host;
-  env.WCW_TOKEN = RUNTIME.token;
+  // hunt2-engines#9:回环凭据(WCW_SESSION_ID / PORT / HOST / TOKEN)不再放进 CLI 进程自己的环境 —— 放进去,模型经 CLI
+  // 的 Bash 起的每个子进程都会继承 WCW_TOKEN,一句 `env` 就能拿到如意的接口令牌再回调本机接口。真正要用它们的只有
+  // 如意的 MCP 子进程,generateSessionMcpConfig 已经把这四项写进 --mcp-config 里那个 server 的 env 块(每会话一份)。
+  // 从外层环境继承来的同名变量(例如如意自己被别的如意回合拉起)也一并删掉,理由相同。超时那一项不是凭据,
+  // 且会话 MCP 配置里没有它,留在进程环境里给 MCP 子进程继承。
+  // Kimi 这一路(05b runKimiAcpTurnPrepared)暂不照做:Kimi 只从全局 ~/.kimi-code/mcp.json 读 MCP 声明、没有按回合的
+  // --mcp-config,回合级回环字段只能靠 Kimi 进程环境继承给 MCP 子进程(见 01 syncMcpServersToKimi 头注)。
+  for (const key of ['WCW_SESSION_ID', 'WCW_PORT', 'WCW_HOST', 'WCW_TOKEN']) delete env[key];
   if (adapter.beforeSpawn) await adapter.beforeSpawn(config, onEvent);
 
   const spawn = fakeClaude ? { command: process.execPath, args: [fakeClaude, ...args], opts: {} }
@@ -16822,6 +16938,11 @@ async function runClaudeTurn({
     model: currentClaudeModel || 'default', iteration: _resumeRecoveryAttempt ? 1 : 0,
     resumeRecoveryAttempt: Boolean(_resumeRecoveryAttempt),
   });
+  // hunt2-engines#1:上面那次 supersede 检查与这里的 activeChildren.set 之间隔着十来个 await(建参、记忆预检、
+  // 环境说明、beforeSpawn、hooks……),同会话的两个回合可以都在那时看到「空闲」,各起一个子进程,后登记的
+  // 把先登记的从表里挤掉 —— Stop 只杀得到一个,另一个成了孤儿。这里在「最后一个 await 之后、spawn 之前」
+  // 再判一次(从这行到 activeChildren.set 全是同步代码,中间没有让出点),保证同会话同一时刻只有一个子进程。
+  if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
@@ -16855,7 +16976,8 @@ async function runClaudeTurn({
   let assistantText = '';
   let thinkingText = '';
   const toolCalls = [];
-  let stderrText = '';
+  let stderrText = '';   // 子进程关闭后由 stderrCapture 定稿(hunt2-engines#17:头尾截断,不无限累积)
+  const stderrCapture = createCappedDiagnosticText();
   let rawSeq = 0;
   // Per-MESSAGE delta dedup: partials for a message set these; the following whole `assistant`
   // message is then suppressed; flags reset after each whole message so a later whole-only message
@@ -16995,10 +17117,12 @@ async function runClaudeTurn({
     child.stdin.end();
   } else child.stdin.end();
 
+  const stderrDecodeStream = {};   // hunt2-engines#8:一条 stderr 一个解码状态,块边界切开的汉字不再被误判成 GB18030
   child.stderr.on('data', chunk => {
-    const textChunk = decodeClaudeCliText(chunk);
-    stderrText += textChunk;
+    const textChunk = decodeClaudeCliText(chunk, stderrDecodeStream);
     reg.lastEventAt = Date.now();
+    if (!textChunk) return;   // 整块都是被切开的半个字符:留在解码器里等下一块
+    stderrCapture.append(textChunk);
     onEvent({ type: 'stderr', text: redact(textChunk) });
   });
 
@@ -17131,14 +17255,14 @@ async function runClaudeTurn({
     }
   };
 
-  let stdoutNoise = '';
+  const stdoutNoiseCapture = createCappedDiagnosticText();   // hunt2-engines#17:同 stderr,非 JSON 行也会被当正文兜底落盘
   const consumeLine = line => {
     if (!line.trim()) return;
     onEvent({ type: 'raw_line', line, seq: rawSeq++ }); // F4: verbatim, before parse
     const evt = safeJsonParse(line);
     if (!evt) {
       // Non-JSON CLI diagnostic — keep it visible but out of the assistant reply unless nothing else came.
-      stdoutNoise += line + '\n';
+      stdoutNoiseCapture.append(line + '\n');
       onEvent({ type: 'raw_stdout', text: line });
       return;
     }
@@ -17162,6 +17286,9 @@ async function runClaudeTurn({
   clearInterval(nativeAgentProgressTimer);
   stopSideChannelWatch();
   stdoutFeeder.flush();
+  stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));   // hunt2-engines#8:冲出流尾的残字节
+  stderrText = stderrCapture.toString();
+  const stdoutNoise = stdoutNoiseCapture.toString();
   // Never leave a native child card permanently "running" after its owning CLI process has exited.
   // A clean exit here still means Ruyi can no longer observe that background process, so surface the
   // interruption honestly instead of inventing a completion.
@@ -18705,6 +18832,34 @@ async function replaceSessionObject(target, fresh) {
   Object.assign(target, fresh);
 }
 
+// hunt2-engines#7:Agent CLI 回合前自动压缩的滞回与失败退避。修前每个回合都会重判、重试:Kimi 原生压缩坏了时
+// 每回合开头都要白等最多 3 分钟(compactKimiNative 的轮询上限),外部摘要模型坏了时每回合都再烧一次摘要调用。
+//   ① 成功后:runKimiCompact / runAgentExternalCompact 已把压后实测写进 session.autoCompactWatermark,这里照 10
+//      runAutoCompaction 的口径把触发线抬到 max(阈值线, 水位 + max(2K, 2% 窗口)) —— 两路引擎同一种滞回。
+//   ② 失败后:只在内存里记「哪条会话、在多少 token 时、何时失败」(不进会话头:它是运行时退避,重启即清零合理);
+//      冷却期内且上下文没有再涨过一个重武装余量,就不再尝试。
+const AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS = 10 * 60 * 1000;
+const agentAutoCompactFailures = new Map();   // sessionId -> { at, tokens }
+function agentAutoCompactTrigger(session, threshold, limit) {
+  const base = threshold * limit;
+  const rearmMargin = Math.max(2000, Math.round(limit * 0.02));
+  const wm = Number(session && session.autoCompactWatermark);
+  return { trigger: Number.isFinite(wm) && wm > 0 ? Math.max(base, wm + rearmMargin) : base, rearmMargin };
+}
+function agentAutoCompactBackingOff(sessionId, used, rearmMargin) {
+  const failed = agentAutoCompactFailures.get(String(sessionId || ''));
+  if (!failed) return false;
+  if (Date.now() - failed.at >= AGENT_AUTO_COMPACT_FAIL_COOLDOWN_MS || used >= failed.tokens + rearmMargin) {
+    agentAutoCompactFailures.delete(String(sessionId || ''));
+    return false;
+  }
+  return true;
+}
+function noteAgentAutoCompactFailure(sessionId, used) {
+  agentAutoCompactFailures.set(String(sessionId || ''), { at: Date.now(), tokens: Number(used) || 0 });
+  while (agentAutoCompactFailures.size > 500) agentAutoCompactFailures.delete(agentAutoCompactFailures.keys().next().value);
+}
+
 // Called before an Agent CLI turn. A CLI with a native status surface (adapter.contextStatus; Kimi) uses its
 // authoritative status; Claude can opt into an external model and uses the latest measured CLI usage. The
 // default Claude path remains Claude's own auto-compact.
@@ -18726,10 +18881,16 @@ async function maybeAutoCompactAgentSession(session, config, cliAdapter, onEvent
           nativeStatus.apply(session, status);
         }
       }
-      if (used > 0 && limit > 0 && used >= threshold * limit) {
+      const armed = limit > 0 ? agentAutoCompactTrigger(session, threshold, limit) : null;
+      if (used > 0 && armed && used >= armed.trigger && !agentAutoCompactBackingOff(session.id, used, armed.rearmMargin)) {
         onEvent({ type: 'compact', mode: 'external-summary', phase: 'started', trigger: 'auto', beforeTokens: used, contextWindow: limit });
         const result = await runAgentExternalCompact(session.id, config, 'auto');
-        if (!result.ok) { onEvent({ type: 'compact', mode: 'external-summary', phase: 'failed', error: result.error }); return false; }
+        if (!result.ok) {
+          noteAgentAutoCompactFailure(session.id, used);
+          onEvent({ type: 'compact', mode: 'external-summary', phase: 'failed', error: result.error });
+          return false;
+        }
+        agentAutoCompactFailures.delete(String(session.id));
         const fresh = await loadSession(session.id);
         await replaceSessionObject(session, fresh);
         onEvent({ type: 'compact', mode: 'external-summary', phase: 'completed', trigger: 'auto', beforeTokens: result.beforeTokens, afterTokens: result.afterTokens });
@@ -18742,9 +18903,15 @@ async function maybeAutoCompactAgentSession(session, config, cliAdapter, onEvent
     if (!status.ok) return false;
     nativeStatus.apply(session, status);
     onEvent({ type: 'usage', ...nativeStatus.usage(status) });
-    if (status.contextWindow > 0 && status.contextTokens >= threshold * status.contextWindow) {
+    const armed = status.contextWindow > 0 ? agentAutoCompactTrigger(session, threshold, status.contextWindow) : null;
+    if (armed && status.contextTokens >= armed.trigger && !agentAutoCompactBackingOff(session.id, status.contextTokens, armed.rearmMargin)) {
       const result = await nativeCompact.run(session.id, config, 'auto', onEvent);
-      if (!result.ok) { onEvent({ type: 'compact', mode: nativeCompact.mode, phase: 'failed', error: result.error }); return false; }
+      if (!result.ok) {
+        noteAgentAutoCompactFailure(session.id, status.contextTokens);
+        onEvent({ type: 'compact', mode: nativeCompact.mode, phase: 'failed', error: result.error });
+        return false;
+      }
+      agentAutoCompactFailures.delete(String(session.id));
       const fresh = await loadSession(session.id);
       await replaceSessionObject(session, fresh);
       return true;
@@ -18991,7 +19158,9 @@ function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
   const files = new Map();
   const addWireFile = (file, agentId, replay) => {
     if (!file || files.has(file) || !fs.existsSync(file)) return;
-    try { files.set(file, { file, agentId, offset: replay ? 0 : fs.statSync(file).size, pending: '' }); } catch { /* race with child cleanup */ }
+    // hunt2-engines#15:每个文件一只 StringDecoder —— 两次轮询之间的读窗口边界不保证落在字符边界上,各窗口单独
+    // toString('utf8') 会把被切开的汉字变成 U+FFFD(子代理结论、工具输出里的中文就此乱码)。
+    try { files.set(file, { file, agentId, offset: replay ? 0 : fs.statSync(file).size, pending: '', decoder: new StringDecoder('utf8') }); } catch { /* race with child cleanup */ }
   };
   const discover = replayNew => {
     let entries = [];
@@ -19011,14 +19180,14 @@ function watchKimiWire(nativeSessionId, onEvent, contextWindow, state = {}) {
       discover(true);
       for (const track of files.values()) {
         const size = (await fsp.stat(track.file)).size;
-        if (size < track.offset) { track.offset = 0; track.pending = ''; }
+        if (size < track.offset) { track.offset = 0; track.pending = ''; track.decoder = new StringDecoder('utf8'); }
         if (size <= track.offset) continue;
         const handle = await fsp.open(track.file, 'r');
         try {
           const buffer = Buffer.alloc(size - track.offset);
           await handle.read(buffer, 0, buffer.length, track.offset);
           track.offset = size;
-          const lines = (track.pending + buffer.toString('utf8')).split(/\r?\n/);
+          const lines = (track.pending + track.decoder.write(buffer)).split(/\r?\n/);
           track.pending = lines.pop() || '';
           for (const line of lines) {
             const row = safeJsonParse(line);
@@ -19063,6 +19232,21 @@ function kimiAcpRpcError(payload, method) {
   return error;
 }
 
+// hunt2-engines#13:结算【一条】如意侧待决(权限拒绝 / 提问取消 / 计划驳回),走与 04 clearPending* 同一个命令核心
+// (runAutomaticInterventionDecision → 同一份 CAS 与收尾顺序)。命令核心失败时不另做兜底:回合收尾那三句 clearPending*
+// 一定会把它清掉,最坏只是卡片多挂到回合结束,不会误清同会话里别的待决。
+function cancelKimiAcpIntervention(sessionId, interventionId, kind, note) {
+  const message = String(note || 'Kimi cancelled the request').slice(0, 500);
+  const payload = kind === 'permission' ? { action: 'deny', message }
+    : kind === 'question' ? { action: 'answer', normalizedAnswer: { ok: false, answers: [], content: message } }
+      : kind === 'plan' ? { action: 'reject', feedback: message } : null;
+  if (!payload) return;
+  runAutomaticInterventionDecision({
+    missionId: sessionId, interventionId, source: `clear_${kind}`, decidedBy: 'clear',
+    idempotencyKey: `clear:${interventionId}`, payload,
+  }, () => { /* 回合收尾兜底,见上 */ });
+}
+
 // ACP uses one JSON-RPC object per line. This small client deliberately keeps reverse requests on the same
 // transport: Kimi can pause session/prompt, ask Ruyi for permission/input, then continue after our response.
 function createKimiAcpRpc(child, handlers = {}) {
@@ -19075,9 +19259,13 @@ function createKimiAcpRpc(child, handlers = {}) {
   // 与 05 Claude 引擎、07 工作流、04 MCP 客户端同一处理;子进程退出本身另有 exit/close 收尾。
   if (child && child.stdin) child.stdin.on('error', () => {});
   const write = payload => {
-    if (closed || !child.stdin || child.stdin.destroyed) throw new Error('Kimi ACP input channel is closed');
+    if (closed || !child.stdin || child.stdin.destroyed || child.stdin.writableEnded) throw new Error('Kimi ACP input channel is closed');
     child.stdin.write(JSON.stringify(payload) + '\n', 'utf8');
   };
+  // hunt2-engines#3:子进程先死、管道还没被标 destroyed 的那一瞬间写进去,EPIPE 是在 stdin 流上【异步】抛的 'error' ——
+  // 没有监听者就成了未捕获异常,整个服务 process.exit(1),所有会话的回合一起断(05/07 的 CLI 子进程早就挂了同款空监听)。
+  // 这里吞掉并把通道记成关闭:后续 write 走上面那句同步抛,由各调用点既有的 try/catch 与 close 事件收尾。
+  if (child.stdin && typeof child.stdin.on === 'function') child.stdin.on('error', () => { closed = true; });
   const rejectPending = error => {
     for (const [, item] of pending) { clearTimeout(item.timer); item.reject(error); }
     pending.clear();
@@ -19840,7 +20028,7 @@ function kimiAcpTerminalDisplayResult(reg, terminalId) {
   const active = reg.kimiAcpTerminals && reg.kimiAcpTerminals.get(terminalId);
   const snapshot = active || (reg.kimiAcpTerminalResults && reg.kimiAcpTerminalResults.get(terminalId));
   if (!snapshot) return null;
-  const output = String(snapshot.output || '');
+  const output = String((active ? kimiAcpTerminalOutputText(active) : snapshot.output) || '');
   if (output) return output;
   const code = snapshot.exitCode;
   const signal = snapshot.signal;
@@ -19851,20 +20039,33 @@ function rememberKimiAcpTerminal(reg, terminal) {
   if (!reg || !terminal) return;
   if (!reg.kimiAcpTerminalResults) reg.kimiAcpTerminalResults = new Map();
   reg.kimiAcpTerminalResults.set(terminal.id, {
-    output: terminal.output, truncated: terminal.truncated, exitCode: terminal.exitCode, signal: terminal.signal, at: Date.now(),
+    output: kimiAcpTerminalOutputText(terminal), truncated: terminal.truncated, exitCode: terminal.exitCode, signal: terminal.signal, at: Date.now(),
   });
   while (reg.kimiAcpTerminalResults.size > 32) reg.kimiAcpTerminalResults.delete(reg.kimiAcpTerminalResults.keys().next().value);
 }
 
-function appendKimiAcpTerminalOutput(terminal, text) {
-  if (!text) return;
-  terminal.output += text;
-  let bytes = Buffer.from(terminal.output, 'utf8');
-  if (bytes.length <= terminal.outputByteLimit) return;
+// hunt2-engines#5:修前每来一块输出就把【整个】缓冲重新编码一遍再比长度 —— 输出量 N、上限 L 时是 O(N·L/块长),
+// 8MB 上限下 100MB 输出要阻塞事件循环四十多秒(整个服务跟着卡)。现在只累计新块的字节数,超过 2 倍上限才裁一次
+// (每次裁掉至少 L 字节,摊还线性);读的一侧经 kimiAcpTerminalOutputText 先裁到上限,对外口径与修前一致(≤ 上限、
+// 从头部裁、不切半个 UTF-8 字符、truncated 置位)。
+function trimKimiAcpTerminalOutput(terminal) {
+  if (!(terminal.outputBytes > terminal.outputByteLimit)) return;
+  const bytes = Buffer.from(terminal.output, 'utf8');
   let start = bytes.length - terminal.outputByteLimit;
   while (start < bytes.length && (bytes[start] & 0xc0) === 0x80) start += 1;
   terminal.output = bytes.subarray(start).toString('utf8');
+  terminal.outputBytes = bytes.length - start;
   terminal.truncated = true;
+}
+function appendKimiAcpTerminalOutput(terminal, text) {
+  if (!text) return;
+  terminal.output += text;
+  terminal.outputBytes = (Number(terminal.outputBytes) || 0) + Buffer.byteLength(text, 'utf8');
+  if (terminal.outputBytes > terminal.outputByteLimit * 2) trimKimiAcpTerminalOutput(terminal);
+}
+function kimiAcpTerminalOutputText(terminal) {
+  trimKimiAcpTerminalOutput(terminal);
+  return terminal.output;
 }
 
 function settleKimiAcpTerminal(terminal, exitCode, signal) {
@@ -19980,7 +20181,7 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   let resolveExit;
   const waitPromise = new Promise(resolve => { resolveExit = resolve; });
   const terminal = {
-    id: terminalId, sessionId: String(params.sessionId), child, output: '', outputByteLimit, truncated: false,
+    id: terminalId, sessionId: String(params.sessionId), child, output: '', outputBytes: 0, outputByteLimit, truncated: false,
     exited: false, released: false, exitCode: null, signal: null, resolveExit, waitPromise,
     stdoutDecoder: new StringDecoder('utf8'), stderrDecoder: new StringDecoder('utf8'),
   };
@@ -19993,7 +20194,7 @@ async function handleKimiAcpTerminalCreate(params, context, requestMeta) {
   });
   child.once('close', (code, signal) => settleKimiAcpTerminal(terminal, code, signal));
   await new Promise((resolve, reject) => {
-    if (terminal.exited && terminal.signal === 'ERROR') return reject(kimiAcpRequestError(-32000, terminal.output.trim() || 'Failed to create terminal'));
+    if (terminal.exited && terminal.signal === 'ERROR') return reject(kimiAcpRequestError(-32000, kimiAcpTerminalOutputText(terminal).trim() || 'Failed to create terminal'));
     const onSpawn = () => { child.removeListener('error', onError); resolve(); };
     const onError = error => { child.removeListener('spawn', onSpawn); reject(kimiAcpRequestError(-32000, `Failed to create terminal: ${error && error.message || error}`)); };
     child.once('spawn', onSpawn); child.once('error', onError);
@@ -20011,7 +20212,7 @@ async function handleKimiAcpTerminalRequest(method, params, context, requestMeta
   const terminal = kimiAcpTerminal(context, params);
   if (method === 'terminal/output') {
     return {
-      output: terminal.output, truncated: terminal.truncated,
+      output: kimiAcpTerminalOutputText(terminal), truncated: terminal.truncated,
       ...(terminal.exited ? { exitStatus: { exitCode: terminal.exitCode, signal: terminal.signal } } : {}),
     };
   }
@@ -20644,7 +20845,8 @@ async function runKimiAcpTurnPrepared(context) {
     usageTick: 0, turnUsage: null, planTouched: false, toolCalls: [], toolMap: new Map(), availableCommands: [], error: null, stopReason: '',
   };
   let rawSeq = 0;
-  let stderrText = '';
+  const stderrCapture = createCappedDiagnosticText();   // hunt2-engines#17:同 05,stderr 头尾截断后才落盘
+  const stderrDecodeStream = {};   // hunt2-engines#8:同 05,一条 stderr 一个解码状态
   let nativeSessionId = '';
   let stopKimiWireWatch = () => {};
   let watchdog = null;
@@ -20814,6 +21016,10 @@ async function runKimiAcpTurnPrepared(context) {
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'claude',
       model: currentClaudeModel || 'default', iteration: 0, resumeRecoveryAttempt: false,
     });
+    // hunt2-engines#1:与 05 runClaudeTurn 同一处复查 —— 05 开头那次 supersede 检查到这里隔着多个 await
+    // (MCP 同步、基线捕获、hooks),同会话并发的两个回合会各起一个 ACP 子进程。从这行到 activeChildren.set
+    // 全是同步代码,在这里判一次就不会有两个子进程同时在册。
+    if (activeChildren.has(session.id)) stopSession(session.id, 'superseded');
     child = cp.spawn(spawn.command, spawn.args, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawn.opts });
     reg = {
       child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(),
@@ -20834,8 +21040,8 @@ async function runKimiAcpTurnPrepared(context) {
     RUYI_EVENTS.emit('thread.state', { sessionId: session.id });   // §6.3 指标 a
     onEvent({ type: 'process', state: 'running', pid: child.pid, interactive: true, protocol: 'acp' });
     child.stderr.on('data', chunk => {
-      const text = decodeClaudeCliText(chunk);
-      stderrText += text;
+      const text = decodeClaudeCliText(chunk, stderrDecodeStream);
+      stderrCapture.append(text);
       markActivity();
       if (text.trim()) onEvent({ type: 'stderr', text: redact(text) });
     });
@@ -20843,6 +21049,33 @@ async function runKimiAcpTurnPrepared(context) {
       session, config, workingDir, additionalDirectories,
       dataRoot: typeof dataRoot === 'function' ? dataRoot() : (typeof paths !== 'undefined' ? paths.data : ''),
       onEvent: reg.onEvent, reg, state,
+    };
+    // hunt2-engines#13:ACP 的 $/cancel_request 只撤【一条】反向请求。修前 onCancel 按会话把全部待决权限/提问/计划
+    // 一起清掉 —— Kimi 并行两个工具、只撤其中一个时,另一个还在等用户的卡片也被判成拒绝。这里按 ACP 请求 id
+    // 记下它在如意这一侧开出的待决(permission_request / ask_user / plan 事件里的 id),撤销时只结算这几条。
+    const reverseInterventions = new Map();   // ACP 反向请求 id -> Map(如意待决 id -> 类型)
+    const reverseRequestContext = requestMeta => {
+      const key = String(requestMeta && requestMeta.requestId);
+      const tracked = new Map();
+      reverseInterventions.set(key, tracked);
+      return {
+        key,
+        context: {
+          ...reverseContext,
+          onEvent: event => {
+            let opened = null;
+            if (event && event.type === 'permission_request' && event.requestId) opened = [String(event.requestId), 'permission'];
+            else if (event && event.type === 'ask_user' && event.id) opened = [String(event.id), 'question'];
+            else if (event && event.type === 'plan' && event.planId) opened = [String(event.planId), 'plan'];
+            if (opened) tracked.set(opened[0], opened[1]);
+            reverseContext.onEvent(event);
+            // 撤销先于卡片到达(处理器还在等 updateQueue 时就收到 $/cancel_request):卡片一开出来就按撤销结算。
+            if (opened && requestMeta && requestMeta.signal && requestMeta.signal.aborted && reg.state === 'running') {
+              cancelKimiAcpIntervention(session.id, opened[0], opened[1], 'Kimi cancelled the request');
+            }
+          },
+        },
+      };
     };
     rpc = createKimiAcpRpc(child, {
       onLine: line => { markActivity(); onEvent({ type: 'raw_line', line, seq: rawSeq++ }); },
@@ -20876,23 +21109,25 @@ async function runKimiAcpTurnPrepared(context) {
             await updateQueue.catch(() => {});
           }
         }
-        if (method === 'session/request_permission') return handleKimiAcpPermissionRequest(params, reverseContext);
-        if (method === 'fs/read_text_file' || method === 'fs/write_text_file') return handleKimiAcpFsRequest(method, params, reverseContext);
-        if (method.startsWith('terminal/')) return handleKimiAcpTerminalRequest(method, params, reverseContext, requestMeta);
-        if (method === 'elicitation/create') return handleKimiAcpElicitation(params, reverseContext, requestMeta);
-        throw kimiAcpRequestError(-32601, `Unsupported Kimi ACP reverse request: ${method}`);
-      },
-      onCancel: (_requestId, method) => {
-        markActivity();
-        if (method === 'session/request_permission') {
-          clearPendingPermissions(session.id, 'Kimi cancelled the permission request');
-          clearPendingQuestions(session.id, 'Kimi cancelled the question');
-          clearPendingPlans(session.id, 'Kimi cancelled the plan request');
-        } else if (method === 'elicitation/create') {
-          clearPendingQuestions(session.id, 'Kimi cancelled the elicitation');
-        } else if (method === 'terminal/create' || method === 'fs/write_text_file') {
-          clearPendingPermissions(session.id, 'Kimi cancelled the operation');
+        const scoped = reverseRequestContext(requestMeta);
+        try {
+          if (method === 'session/request_permission') return await handleKimiAcpPermissionRequest(params, scoped.context);
+          if (method === 'fs/read_text_file' || method === 'fs/write_text_file') return await handleKimiAcpFsRequest(method, params, scoped.context);
+          if (method.startsWith('terminal/')) return await handleKimiAcpTerminalRequest(method, params, scoped.context, requestMeta);
+          if (method === 'elicitation/create') return await handleKimiAcpElicitation(params, scoped.context, requestMeta);
+          throw kimiAcpRequestError(-32601, `Unsupported Kimi ACP reverse request: ${method}`);
+        } finally {
+          reverseInterventions.delete(scoped.key);
         }
+      },
+      onCancel: (requestId, method) => {
+        markActivity();
+        const tracked = reverseInterventions.get(String(requestId));
+        if (!tracked) return;
+        const note = method === 'elicitation/create' ? 'Kimi cancelled the elicitation'
+          : method === 'session/request_permission' ? 'Kimi cancelled the permission request' : 'Kimi cancelled the operation';
+        for (const [interventionId, kind] of tracked) cancelKimiAcpIntervention(session.id, interventionId, kind, note);
+        tracked.clear();
       },
     });
     reg.abort = () => {
@@ -20910,6 +21145,8 @@ async function runKimiAcpTurnPrepared(context) {
       if (reg.exited || reg.pausePending || Date.now() - reg.lastEventAt <= idleLimitMs) return;
       if (hasPendingPermissionForSession(session.id)) return;   // 128f-⑪:权限挂着豁免(见 04 的 hasPendingPermissionForSession)
       reg.state = 'watchdog-timeout';
+      // hunt2-engines#12:与 05 的 Claude 看门狗同一句可见提示 —— 修前这里静默中止,用户只看到回合「被停止」却不知道是谁停的。
+      onEvent({ type: 'stderr', text: `[watchdog] turn idle >${Math.round(idleLimitMs / 1000)}s — terminating` });
       reg.abort();
     }, Math.min(5000, Math.max(500, Math.floor(idleLimitMs / 4))));
 
@@ -21098,6 +21335,14 @@ async function runKimiAcpTurnPrepared(context) {
   } catch (error) {
     state.error = error;
   } finally {
+    // hunt2-engines#6:循环以 break / throw / 看门狗中止离开时,acceptingSteer 原先还是 true —— 下面的收尾要等好几个
+    // await(队列、终端清理、关进程最多 350ms),这期间 /api/steer 仍回 queued:1,然后插话随回合结束被静默丢掉。
+    // 一进收尾就关门,晚到的插话拿到 kimiSettling 拒绝(请作为下一条消息发送);已经排进队列却没被消费的,明说没送达。
+    if (reg) {
+      reg.acceptingSteer = false;
+      const undelivered = Array.isArray(reg.steerQueue) ? reg.steerQueue.splice(0, reg.steerQueue.length) : [];
+      if (undelivered.length) onEvent({ type: 'stderr', text: `[插话未送达] Kimi 回合已结束,${undelivered.length} 条插话没有送进本回合,请作为下一条消息重新发送。` });
+    }
     await updateQueue.catch(() => {});
     if (watchdog) clearInterval(watchdog);
     stopKimiWireWatch();
@@ -21126,7 +21371,9 @@ async function runKimiAcpTurnPrepared(context) {
       contextEngine: 'agent', contextAgentCliType: 'kimi', contextModel: state.model, source: 'kimi-acp',
     };
   }
-  const errorText = state.error ? friendlyKimiAcpError(state.error) : '';
+  // hunt2-engines#12:用户 Stop(或看门狗)中止后,ACP 子进程被杀,挂着的 session/prompt 以「Kimi ACP process exited」
+  // 拒绝 —— 那是中止的【结果】,不是失败原因。修前它被写成「ACP 调用失败」进了正文;被停的回合只按「已停止」收尾。
+  const errorText = state.error && !wasStopped ? friendlyKimiAcpError(state.error) : '';
   const finalText = state.assistantText.trim() || (errorText ? `${agentCliLabel} ACP 调用失败：\n${errorText}` : '');
   await reconcileWorkspaceTurnBaseline(workspaceTurnBaseline, session.id, session.turnSeq).catch(() => {});
   const turnJournal = (await journalReadIndex(session.id)).filter(entry => entry && Number(entry.turnSeq) === Number(session.turnSeq));
@@ -21142,6 +21389,8 @@ async function runKimiAcpTurnPrepared(context) {
     source: wasStopped ? 'aborted' : 'kimi-acp', engine: 'claude', agentCliType: 'kimi', agentCliLabel,
     model: state.model || config.model || '', exitCode: turnOk ? 0 : 1,
   });
+  stderrCapture.append(decodeClaudeCliText(null, stderrDecodeStream));
+  const stderrText = stderrCapture.toString();
   if (stderrText.trim()) session.messages.push({ role: 'system', content: redact(stderrText.trim()), createdAt: nowIso(), source: 'stderr' });
   if (isUntitledSessionTitle(session.title)) session.title = message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'Session';
   session.summary = finalText.replace(/\s+/g, ' ').trim().slice(0, 160) || session.summary || '';
@@ -32293,7 +32542,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // 与 05-claude-engine.js 的主回合读法对齐(cache_read_input_tokens + cache_creation_input_tokens);只在
   // 「信任 result 帧」分支累加(与 ledgerIn/ledgerOut 同一 FIELD-LEVEL source select,msg_usage 兜底帧没有
   // cache 字段)。费用计算不受影响(claudeCostFields 走 CLI costUsd,不经 cachedInTok 定价路径)。
-  let ledgerIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
+  // hunt2-engines#2:ledgerIn 记账本口径(输入 + 缓存读 + 缓存创建,与 05 主回合 recordTurnUsage 同一归一),
+  // ledgerRawIn 留 CLI 原始 input_tokens 只给 claudeCostFields 定价(费用算法不变)。
+  let ledgerIn = 0, ledgerRawIn = 0, ledgerOut = 0, ledgerCachedIn = 0, ledgerCostUsd = NaN, ledgerEstimated = false;
   try {
     // 架构还债批 2·A:重试骨架走 04h 的 withTransientRetry(与 08 的 OpenAI 子回合同一份)。本处口径原样:总共至多
     // MAX_ATTEMPTS 次(= MAX_ATTEMPTS-1 次重试);每次尝试前查 killed;失败先记账与 last*,再由 classifyClaudeSubagentFailure
@@ -32315,9 +32566,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
           const ru = res.resultUsage;
           const ruIn = ru ? (Number(ru.input_tokens) || 0) : 0, ruOut = ru ? (Number(ru.output_tokens) || 0) : 0;
           const ruCachedIn = ru ? (Number(ru.cache_read_input_tokens) || 0) + (Number(ru.cache_creation_input_tokens) || 0) : 0;
-          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
+          if (ruIn > 0 || ruOut > 0) { ledgerIn += ruIn + ruCachedIn; ledgerRawIn += ruIn; ledgerOut += ruOut; ledgerCachedIn += ruCachedIn; }
           else if ((Number(res.msgBillInMax) || 0) > 0 || (Number(res.msgBillOutMax) || 0) > 0) {
-            ledgerIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
+            ledgerIn += Number(res.msgBillInMax) || 0; ledgerRawIn += Number(res.msgBillInMax) || 0; ledgerOut += Number(res.msgBillOutMax) || 0; ledgerEstimated = true;
           }
           if (Number.isFinite(res.resultCostUsd)) ledgerCostUsd = (Number.isFinite(ledgerCostUsd) ? ledgerCostUsd : 0) + res.resultCostUsd;
         } catch { /* never let accounting break the attempt */ }
@@ -32364,7 +32615,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     // no special case, and a purely-aborted node with no usage records nothing.
     try {
       if (parentSession) {
-        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerIn, ledgerOut, ledgerCostUsd);
+        const { provider: claudeProvider, cost, currency, costTrusted } = claudeCostFields(config, ledgerRawIn, ledgerOut, ledgerCostUsd);
         appendUsageLedger({
           sessionId: parentSession.id, engine: 'claude', provider: claudeProvider,
           // A workflow node can pass model:'inherit' straight through (subModel === 'inherit'); the model that
