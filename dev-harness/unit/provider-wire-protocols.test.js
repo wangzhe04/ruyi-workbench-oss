@@ -31,7 +31,7 @@ const loadFrontend = () => import(pathToFileURL(path.join(app, 'public', 'js', '
 const MEMBERS = {
   id: 'string', serverWebSearch: 'boolean', outputTokensField: 'string',
   endpointBase: 'function', completionUrl: 'function', modelsUrl: 'function', requestHeaders: 'function',
-  encodeMessages: 'function', applyEffort: 'function', applyTools: 'function', encodeQuick: 'function',
+  encodeMessages: 'function', applyEffort: 'function', applyTemperature: 'function', applyTools: 'function', encodeQuick: 'function',
   decodeCompletion: 'function', createStreamDecoder: 'function', normalizeUsage: 'function', assistantHistoryFields: 'function',
   retryOn400: 'function',
 };

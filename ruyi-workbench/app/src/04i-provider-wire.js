@@ -20,12 +20,13 @@
 //   endpointBase(baseUrl)      显示 / failover 粘住键用的 base
 //   completionUrl(baseUrl)     补全端点;base 没配 → ''(调用方据此报「provider base URL is not set」)
 //   modelsUrl(baseUrl)         模型清单端点;base 没配 → ''
-//   requestHeaders(provider)   出站请求头
+//   requestHeaders(provider, { model })            出站请求头(anthropic 按模型带 beta 头;另两种协议不看 model)
 //   encodeMessages({ model, messages, stream, instructions, serverItems, foldSystem })
 //                              基础请求体。messages 是 chat 形历史,首条是 system;instructions 缺省取首条 system 的正文,
 //                              foldSystem 再把历史里后插的 system/developer 规则折进去(Responses 没有多 system 通道);
 //                              serverItems 是上一发回来的服务端工具项(Responses 的 web_search_call),原样接在历史之后
 //   applyEffort(body, effort)  推理强度字段(effort 为空不写)
+//   applyTemperature(body, t)  采样温度(t 为 undefined 不写;anthropic 对拒收采样参数的新 Claude 模型不写)
 //   applyTools(body, tools, { serverWebSearch })   工具 + tool_choice:'auto'(工具是 chat 形,协议自己翻译)
 //   outputTokensField          输出上限字段名
 //   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
@@ -460,6 +461,7 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
 // ── 登记表 ────────────────────────────────────────────────────────────────────────────────────────────
 const reasoningContentField = call => (call && call.reasoning ? { reasoning_content: call.reasoning } : {});
 const noRetryOn400 = () => null;
+const setTemperature = (body, temperature) => { if (temperature !== undefined) body.temperature = temperature; return body; };
 const PROVIDER_WIRE_DEFAULT = 'chat';
 const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
   chat: Object.freeze({
@@ -473,6 +475,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
       ? { model, messages, stream, stream_options: { include_usage: true } }
       : { model, messages, stream }),
     applyEffort: (body, effort) => { if (effort) body.reasoning_effort = effort; return body; },
+    applyTemperature: setTemperature,
     applyTools: (body, tools) => { body.tools = tools; body.tool_choice = 'auto'; return body; },
     outputTokensField: 'max_tokens',
     // flash 系模型缺省思考,400 token 的预算会被隐藏推理吃光、正文为空(52 号文 §3 实测),所以显式关思考;端点不认这两个字段回 400 时
@@ -501,6 +504,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
       stream,
     }),
     applyEffort: (body, effort) => { if (effort) body.reasoning = { effort }; return body; },
+    applyTemperature: setTemperature,
     // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
     // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
     applyTools: (body, tools, opts) => { body.tools = toResponsesTools(tools, opts && opts.serverWebSearch === true); body.tool_choice = 'auto'; return body; },
@@ -531,6 +535,7 @@ const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
       messages: responsesHistoryWithCompleteToolPairs(messages).history,
     }),
     applyEffort: applyAnthropicEffort,
+    applyTemperature: applyAnthropicTemperature,
     applyTools: applyAnthropicTools,
     outputTokensField: 'max_tokens',
     encodeQuick: encodeAnthropicQuick,

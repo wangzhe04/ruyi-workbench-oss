@@ -2371,11 +2371,15 @@
       "provides": [
         "ANTHROPIC_API_VERSION",
         "ANTHROPIC_AUTH_MODES",
+        "ANTHROPIC_BETA_FALLBACK",
+        "ANTHROPIC_BETA_THINKING_BINDING",
         "ANTHROPIC_COMPLETION_MAX_TOKENS",
         "ANTHROPIC_EFFORTS",
         "ANTHROPIC_EMPTY_TEXT",
+        "ANTHROPIC_FALLBACK_MODES",
         "ANTHROPIC_STREAM_ERROR_STATUS",
         "ANTHROPIC_STREAM_MAX_TOKENS",
+        "ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE",
         "ANTHROPIC_THINKING_MODES",
         "anthropicAssistantBlocks",
         "anthropicFinishReason",
@@ -2383,7 +2387,9 @@
         "anthropicMessagesFromHistory",
         "anthropicMessagesUrl",
         "anthropicModelTakesAdaptiveThinking",
+        "anthropicModelTraits",
         "anthropicNonEmpty",
+        "anthropicOfficialFeatures",
         "anthropicOfficialHost",
         "anthropicProviderBlocks",
         "anthropicRefusalDetail",
@@ -2400,12 +2406,14 @@
         "anthropicTools",
         "anthropicUserBlocks",
         "applyAnthropicEffort",
+        "applyAnthropicTemperature",
         "applyAnthropicTools",
         "createAnthropicStreamDecoder",
         "decodeAnthropicCompletion",
         "encodeAnthropicMessages",
         "encodeAnthropicQuick",
         "normalizeAnthropicAuth",
+        "normalizeAnthropicFallbacks",
         "normalizeAnthropicThinking",
         "normalizeAnthropicUsage"
       ],
@@ -2449,6 +2457,7 @@
         "responsesHistoryWithCompleteToolPairs",
         "responsesInstructions",
         "responsesOutputText",
+        "setTemperature",
         "toResponsesContent",
         "toResponsesTools"
       ],
@@ -2505,6 +2514,13 @@
         {
           "provider": "04i-provider-anthropic.js",
           "symbol": "applyAnthropicEffort",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "applyAnthropicTemperature",
           "kinds": [
             "read"
           ]
@@ -3179,6 +3195,13 @@
         {
           "provider": "04i-provider-anthropic.js",
           "symbol": "normalizeAnthropicAuth",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-anthropic.js",
+          "symbol": "normalizeAnthropicFallbacks",
           "kinds": [
             "call"
           ]

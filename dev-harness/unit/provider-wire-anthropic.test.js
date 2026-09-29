@@ -91,7 +91,7 @@ test('[A2] 请求编码', () => {
   assert.equal(nb.max_tokens, 8192);
   assert.equal(nb.system, 'EXPLICIT', '显式 instructions 优先');
   assert.equal(nb.stream, false);
-  assert.deepEqual(nb.thinking, { type: 'adaptive', display: 'summarized' });
+  assert.deepEqual(nb.thinking, { type: 'adaptive', display: 'summarized', block_binding: { prefix_mismatch_behavior: 'drop_block' } }, '官方主机带 drop_block');
   assert.deepEqual(nb.messages.map(m => m.role), ['user', 'assistant', 'user'], '首条补 user、末条不留 assistant(不预填)');
   // 思考方式:模型名 auto;显式覆盖
   const think = (model, provider) => wire.encodeMessages({ model, messages: [{ role: 'user', content: 'hi' }], stream: true, provider }).thinking;
@@ -310,8 +310,8 @@ test('[A8] 用量、落历史字段、配置能力项、模型清单', () => {
   assert.deepEqual(wire.assistantHistoryFields({ reasoning: '想', providerBlocks: { protocol: 'anthropic', blocks: [] } }), { reasoning_content: '想', providerBlocks: { protocol: 'anthropic', blocks: [] } });
   assert.deepEqual(wire.assistantHistoryFields({ reasoning: '' }), {});
   const cfg = srv.normalizeConfig({ providers: [
-    { id: 'p1', label: 'A', baseUrl: 'https://api.anthropic.com', apiStyle: 'anthropic', anthropicAuth: 'bearer', anthropicThinking: 'off' },
-    { id: 'p2', label: 'B', baseUrl: 'https://x', apiStyle: 'anthropic', anthropicAuth: 'weird', anthropicThinking: 'always' },
+    { id: 'p1', label: 'A', baseUrl: 'https://api.anthropic.com', apiStyle: 'anthropic', anthropicAuth: 'bearer', anthropicThinking: 'off', anthropicFallbacks: 'off' },
+    { id: 'p2', label: 'B', baseUrl: 'https://x', apiStyle: 'anthropic', anthropicAuth: 'weird', anthropicThinking: 'always', anthropicFallbacks: 'on' },
   ] });
   const providers = (cfg.config || cfg).providers;
   const p1 = providers.find(p => p.id === 'p1');
@@ -319,6 +319,57 @@ test('[A8] 用量、落历史字段、配置能力项、模型清单', () => {
   assert.equal(p1.apiStyle, 'anthropic');
   assert.equal(p1.anthropicAuth, 'bearer');
   assert.equal(p1.anthropicThinking, 'off');
-  assert.ok(!('anthropicAuth' in p2) && !('anthropicThinking' in p2), '不认的值不落字段');
+  assert.equal(p1.anthropicFallbacks, 'off');
+  assert.ok(!('anthropicAuth' in p2) && !('anthropicThinking' in p2) && !('anthropicFallbacks' in p2), '不认的值不落字段');
   assert.equal(srv.extractContextLength({ id: 'claude-opus-5-5', max_input_tokens: 1000000, max_tokens: 128000 }), 1000000);
+});
+
+test('[A9] 新 Claude 模型的请求面(Opus 5.5 / Sonnet 5.5)', () => {
+  const enc = (model, provider, extra = {}) => wire.encodeMessages({ model, messages: [{ role: 'user', content: 'hi' }], stream: true, provider, hasTools: true, ...extra });
+  // 头:官方主机按模型带 beta;网关、老模型、非 Claude 不带
+  assert.equal(wire.requestHeaders(OFFICIAL, { model: 'claude-opus-5-5' })['anthropic-beta'], 'thinking-binding-controls-2026-08-01,server-side-fallback-2026-07-01');
+  assert.equal(wire.requestHeaders(OFFICIAL, { model: 'claude-sonnet-5-5' })['anthropic-beta'], 'thinking-binding-controls-2026-08-01,server-side-fallback-2026-07-01');
+  assert.equal(wire.requestHeaders(OFFICIAL, { model: 'claude-fable-5-1' })['anthropic-beta'], 'thinking-binding-controls-2026-08-01,server-side-fallback-2026-07-01');
+  assert.equal(wire.requestHeaders(OFFICIAL, { model: 'claude-sonnet-5' })['anthropic-beta'], 'thinking-binding-controls-2026-08-01', 'Sonnet 5 不在改派名单');
+  assert.equal(wire.requestHeaders(OFFICIAL, { model: 'claude-haiku-4-5' })['anthropic-beta'], undefined);
+  assert.equal(wire.requestHeaders({ ...OFFICIAL, anthropicFallbacks: 'off' }, { model: 'claude-opus-5-5' })['anthropic-beta'], 'thinking-binding-controls-2026-08-01');
+  assert.equal(wire.requestHeaders(GATEWAY, { model: 'claude-opus-5-5' })['anthropic-beta'], undefined, '网关不带官方 beta');
+  assert.equal(wire.requestHeaders({ ...OFFICIAL, extraHeaders: { 'anthropic-beta': 'mine' } }, { model: 'claude-opus-5-5' })['anthropic-beta'], 'mine', '自定义头照旧最后覆盖');
+  // 体:与头同一判据
+  const opus = enc('claude-opus-5-5', OFFICIAL);
+  assert.equal(opus.max_tokens, 64000);
+  assert.equal(opus.fallbacks, 'default');
+  assert.deepEqual(opus.thinking.block_binding, { prefix_mismatch_behavior: 'drop_block' });
+  const gw = enc('claude-opus-5-5', GATEWAY);
+  assert.equal(gw.max_tokens, 32000);
+  assert.ok(!('fallbacks' in gw) && !('block_binding' in gw.thinking), '网关:不发 fallbacks / block_binding');
+  assert.ok(!('fallbacks' in enc('claude-opus-5-5', { ...OFFICIAL, anthropicFallbacks: 'off' })));
+  assert.ok(!('fallbacks' in enc('claude-opus-4-8', OFFICIAL)), 'Opus 4.8 不在改派名单');
+  // 'off':Sonnet 5.5 用 between_tools;Opus 5.5 思考关不掉,不发 thinking
+  assert.deepEqual(enc('claude-sonnet-5-5', { ...OFFICIAL, anthropicThinking: 'off' }).thinking, { type: 'between_tools' });
+  assert.equal(enc('claude-opus-5-5', { ...OFFICIAL, anthropicThinking: 'off' }).thinking, undefined);
+  const bt = wire.applyEffort(enc('claude-sonnet-5-5', { ...GATEWAY, anthropicThinking: 'off' }), 'xhigh');
+  assert.equal(bt.thinking.type, 'adaptive', 'between_tools 只到 high;xhigh 换回 adaptive');
+  assert.deepEqual(wire.applyEffort(enc('claude-sonnet-5-5', { ...GATEWAY, anthropicThinking: 'off' }), 'high').thinking, { type: 'between_tools' });
+  // 采样参数
+  for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-sonnet-5', 'claude-opus-4-7', 'claude-fable-5-1']) {
+    assert.ok(!('temperature' in wire.applyTemperature({ model }, 0.3)), `${model} 不发 temperature`);
+  }
+  for (const model of ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5', 'glm-4.6']) {
+    assert.equal(wire.applyTemperature({ model }, 0.3).temperature, 0.3, `${model} 照发`);
+  }
+  assert.ok(!('temperature' in wire.applyTemperature({ model: 'glm-4.6' }, undefined)));
+  assert.equal(srv.PROVIDER_WIRE_PROTOCOLS.chat.applyTemperature({}, 0.5).temperature, 0.5);
+  // 回放保留 fallback 等未知块(少一块就改了后面思考块的前缀)
+  const d = wire.decodeCompletion({ model: 'claude-opus-5', content: [
+    { type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-5' } },
+    { type: 'thinking', thinking: 't', signature: 'S' }, { type: 'text', text: 'ok' },
+  ] }, { requestModel: 'claude-opus-5-5' });
+  assert.deepEqual(d.providerBlocks.blocks[0], { type: 'fallback', from: { model: 'claude-opus-5-5' }, to: { model: 'claude-opus-5' } });
+  assert.equal(d.providerBlocks.requestModel, 'claude-opus-5-5', '改派后照样按请求 model 回放');
+  // 网关不认官方专属字段:只去那一项
+  const withBinding = { model: 'm', thinking: { type: 'adaptive', display: 'summarized', block_binding: { prefix_mismatch_behavior: 'drop_block' } }, messages: [{ role: 'assistant', content: [{ type: 'thinking', thinking: 't', signature: 'S' }] }] };
+  assert.deepEqual(wire.retryOn400(withBinding, 'thinking.block_binding: Extra inputs are not permitted').thinking, { type: 'adaptive', display: 'summarized' });
+  assert.equal(wire.retryOn400({ model: 'm', thinking: { type: 'between_tools' }, messages: [] }, '"thinking.type.between_tools" is not supported for this model.').thinking, undefined);
+  assert.ok(!('fallbacks' in wire.retryOn400({ model: 'm', fallbacks: 'default', messages: [] }, 'fallbacks: Extra inputs are not permitted')));
 });

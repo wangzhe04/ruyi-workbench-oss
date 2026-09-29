@@ -1349,11 +1349,13 @@ function sanitizeProvider(raw) {
     // ({type:'web_search'}). Default false keeps the built-in LOCAL web_search function tool as the fallback
     // for every provider / endpoint that doesn't support server-side search (DeepSeek preset sets true).
     serverWebSearch: raw.serverWebSearch === true,
-    // 58 号批 2:Anthropic Messages 协议(apiStyle:'anthropic')的两个能力项,空 = 缺省、不落字段(存量 config 零漂移)。
+    // 58 号批 2:Anthropic Messages 协议(apiStyle:'anthropic')的三个能力项,空 = 缺省、不落字段(存量 config 零漂移)。
     //   anthropicAuth     'x-api-key' / 'bearer';缺省 = 官方主机只发 x-api-key,其它主机两个都发
     //   anthropicThinking 'adaptive' / 'off';缺省 = 按模型名(Claude 4.6 起的 opus/sonnet/fable/mythos 发自适应思考)
+    //   anthropicFallbacks 'off';缺省 = 官方主机上的 Opus 5 / 5.5、Sonnet 5.5、Fable 5.1 带 fallbacks:'default'(拒答改派)
     ...(normalizeAnthropicAuth(raw.anthropicAuth) ? { anthropicAuth: normalizeAnthropicAuth(raw.anthropicAuth) } : {}),
     ...(normalizeAnthropicThinking(raw.anthropicThinking) ? { anthropicThinking: normalizeAnthropicThinking(raw.anthropicThinking) } : {}),
+    ...(normalizeAnthropicFallbacks(raw.anthropicFallbacks) ? { anthropicFallbacks: normalizeAnthropicFallbacks(raw.anthropicFallbacks) } : {}),
     // v0.8-S6: vision (boolean, default false) — the gate for the v0.9 vision回路 (image parts to the model).
     // Passed through untouched by sanitizeProvider; surfaced in the capability matrix (provider.vision).
     vision: raw.vision === true,
@@ -2079,7 +2081,7 @@ async function providerFixCompletion(provider, model, messages) {
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
-  const headers = wire.requestHeaders(provider);
+  const headers = wire.requestHeaders(provider, { model });
   const build = plain => wire.encodeQuick({ model, messages, plain });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。

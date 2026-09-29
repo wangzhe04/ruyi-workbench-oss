@@ -579,7 +579,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
-  const headers = wire.requestHeaders(provider);
+  const headers = wire.requestHeaders(provider, { model: subModel });
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
@@ -589,7 +589,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     // 与父回合同一个协议(58 号批 1):chat 发 messages,Responses 发 instructions + input 项(system 折进 instructions);
     // v1.8:服务端工具项 subServerToolItems 接在翻译后的历史之后(DeepSeek 在服务端恢复搜索结果)。
     const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, instructions: sys, serverItems: subServerToolItems, provider, hasTools: useTools });
-    if (temp !== undefined) b.temperature = temp;
+    wire.applyTemperature(b, temp);
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2:服务端 web_search 只在服务商显式开启(serverWebSearch:true)时映射;否则 web_search 仍是本地工具。
     if (useTools) wire.applyTools(b, tools, { serverWebSearch: provider.serverWebSearch === true });

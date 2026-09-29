@@ -303,3 +303,18 @@ SSE 分帧（空行分事件、多行 `data:` 拼接、`[DONE]`）、`raw_line` 
   `anthropic-fake.e2e.js`（真工作台 + `lib/fake-anthropic-provider.js`：并行工具循环、思考块逐字节回放、用量归一、历史落块、第二回合不回放旧块、
   签名失配去块重打、子代理、非流式起草、模型清单）。chat / responses 的流式语料锁与出站逐字节锁不改一字通过。
 - 云端只能用假端点验证协议形状；真端点联调（官方与国产网关）需要在有 key 的机器上跑。
+
+### 8.1 Opus 5.5 / Sonnet 5.5 适配（2026-09-29，按 claude-api 技能的迁移指南）
+
+- 按模型名认 Claude 家族与版本（`anthropicModelTraits`）：自适应思考（4.6 起）、拒收采样参数（Opus 4.7 起、Sonnet 5 起、Fable / Mythos）、
+  `between_tools`（Sonnet 5.5 起）、服务端拒答改派（Opus 5 / 5.5、Sonnet 5.5、Fable 5.1）。非 Claude 模型一律按最保守的请求发。
+- 思考关不掉：Opus 5.5 上 `disabled` 与 `budget_tokens` 都 400，如意从不发这两种；`anthropicThinking:'off'` 在 Sonnet 5.5 上发
+  `between_tools`（effort 到 xhigh / max 时自动换回 adaptive，否则 400），在 Opus 5.5 上不发 thinking 字段、由 effort 控制。
+- 工具调用之间的进度说明在这两个模型上以思考块返回，缺省 `display:'omitted'` 时是空的；如意发 `display:'summarized'`，界面照常看得到。
+- 官方主机（api.anthropic.com）上额外带两个 beta，头与体用同一判据：`thinking-binding-controls-2026-08-01` + `block_binding: drop_block`
+  （新账户默认强制前缀校验，对不上的思考块由 API 丢掉而不是 400）；`server-side-fallback-2026-07-01` + `fallbacks:'default'`
+  （安全分类器误拒时服务端按类别改派推荐模型；`anthropicFallbacks:'off'` 可关）。网关上不带；网关若不认这些字段，`retryOn400` 只去那一项重打。
+- 温度：新的 `applyTemperature` 成员，拒收采样参数的模型上不发（修前会每发都先吃一个 400 再重打）。
+- 流式上限：官方主机上的新 Claude 模型 64K（思考计入 max_tokens，迁移指南给的长智能体回合起点），其余仍 32K。
+- 回放：服务端改派留下的 `fallback` 块等未知块原样保留（少一块就改了后面思考块的前缀）；改派后按请求时的 model 回放，接手模型读不了的块由 API 丢掉。
+- 请求头成员改为 `requestHeaders(provider, { model })`（另两种协议不看 model）。

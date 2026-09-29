@@ -1403,7 +1403,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
   const wire = providerWireProtocol(provider); // 58 号批 1:端点、请求头、请求体、回体解析都问协议登记表
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
   const chatUrl = wire.completionUrl(provider.baseUrl);
-  const headers = wire.requestHeaders(provider);
+  const headers = wire.requestHeaders(provider, { model });
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage
@@ -1413,7 +1413,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
     const body = wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false, instructions: sysIdentity, provider });
     applySummaryCallPolicy(body, policy);
     const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
-    if (temp !== undefined) body.temperature = temp;
+    wire.applyTemperature(body, temp);
     return body;
   };
   if (!chatUrl || !model || typeof fetch !== 'function') {

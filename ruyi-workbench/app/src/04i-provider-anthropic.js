@@ -21,19 +21,30 @@
 
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const ANTHROPIC_STREAM_MAX_TOKENS = 32000;
+// 官方主机上的新 Claude 模型:思考计入 max_tokens,长的智能体回合 64K 是官方建议的起点(Opus 5.5 / Sonnet 5.5 迁移指南)。
+const ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE = 64000;
 const ANTHROPIC_COMPLETION_MAX_TOKENS = 8192;
 const ANTHROPIC_EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 const ANTHROPIC_EMPTY_TEXT = '(空)';
+// 官方 API 才认的 beta:思考块前缀校验改成「丢块」而不是 400;拒答时服务端按类别改派推荐模型。
+const ANTHROPIC_BETA_THINKING_BINDING = 'thinking-binding-controls-2026-08-01';
+const ANTHROPIC_BETA_FALLBACK = 'server-side-fallback-2026-07-01';
 // provider.anthropicAuth:'x-api-key' / 'bearer';缺省(auto)= 官方主机只发 x-api-key,其它主机两个都发(与 CLI 的 claudeAuthMode 同义)。
 const ANTHROPIC_AUTH_MODES = new Set(['x-api-key', 'bearer']);
-// provider.anthropicThinking:'adaptive' 总是发自适应思考;'off' 不发 thinking 字段(模型自己的缺省);缺省(auto)按模型名判断。
+// provider.anthropicThinking:'adaptive' 总是发自适应思考;'off' 尽量少想(Sonnet 5.5 发 between_tools;思考关不掉的模型如
+// Opus 5.5 就不发 thinking 字段、由 effort 控制);缺省(auto)按模型名判断。
 const ANTHROPIC_THINKING_MODES = new Set(['adaptive', 'off']);
+// provider.anthropicFallbacks:'off' 关掉官方主机上的服务端拒答改派;缺省开(见 anthropicModelTraits.fallbacks)。
+const ANTHROPIC_FALLBACK_MODES = new Set(['off']);
 
 function normalizeAnthropicAuth(value) {
   return typeof value === 'string' && ANTHROPIC_AUTH_MODES.has(value) ? value : '';
 }
 function normalizeAnthropicThinking(value) {
   return typeof value === 'string' && ANTHROPIC_THINKING_MODES.has(value) ? value : '';
+}
+function normalizeAnthropicFallbacks(value) {
+  return typeof value === 'string' && ANTHROPIC_FALLBACK_MODES.has(value) ? value : '';
 }
 // 主机名用正则取(不用 URL 类:00-boot 有同名顶层绑定,扫描器会把它记成一条进环的边)。
 function anthropicOfficialHost(baseUrl) {
@@ -44,7 +55,40 @@ function anthropicMessagesUrl(baseUrl) {
   const base = providerBaseWithV1(baseUrl);
   return base ? base + '/messages' : '';
 }
-function anthropicRequestHeaders(provider) {
+// 按模型名认 Claude 家族的请求面差异(claude-api 技能 2026-09 的迁移指南;网关上的非 Claude 模型一律 false,走最保守的请求):
+//   adaptive        自适应思考:4.6 起的 opus / sonnet / fable / mythos(更早的与 haiku 走 budget_tokens,发 adaptive 会 400)
+//   noSampling      temperature / top_p / top_k 一律 400:opus 4.7 起、sonnet 5 起、fable / mythos 全系
+//   betweenTools    thinking:{type:'between_tools'} 是最低思考档(关思考的正确写法;disabled 在这些模型上 400):sonnet 5.5 起
+//   fallbacks       官方 API 认 fallbacks:'default'(拒答时服务端改派):opus 5 / 5.5、sonnet 5.5、fable 5.1
+function anthropicModelTraits(model) {
+  const m = /(?:^|[^a-z])claude-(opus|sonnet|fable|mythos|haiku)-(\d{1,2})(?:[-.](\d{1,2}))?(?![\d])/i.exec(String(model || ''));
+  if (!m) return { claude: false, adaptive: false, noSampling: false, betweenTools: false, fallbacks: false };
+  const family = m[1].toLowerCase();
+  const version = Number(m[2]) + (m[3] != null ? Number(m[3]) / 10 : 0);
+  const atLeast = v => version >= v - 1e-9;
+  const is = v => Math.abs(version - v) < 1e-9;
+  const frontier = family === 'fable' || family === 'mythos';
+  return {
+    claude: true,
+    adaptive: family !== 'haiku' && atLeast(4.6),
+    noSampling: frontier || (family === 'opus' && atLeast(4.7)) || (family === 'sonnet' && atLeast(5)),
+    betweenTools: family === 'sonnet' && atLeast(5.5),
+    fallbacks: (family === 'opus' && (is(5) || is(5.5))) || (family === 'sonnet' && is(5.5)) || (family === 'fable' && is(5.1)),
+  };
+}
+function anthropicModelTakesAdaptiveThinking(model) {
+  return anthropicModelTraits(model).adaptive;
+}
+// 官方主机上要不要带「思考块丢块」与「拒答改派」:请求头与请求体用同一个判据,两边永远对得上。
+function anthropicOfficialFeatures(provider, model) {
+  const official = anthropicOfficialHost(provider && provider.baseUrl);
+  const traits = anthropicModelTraits(model);
+  return {
+    thinkingBinding: official && traits.adaptive,
+    fallbacks: official && traits.fallbacks && normalizeAnthropicFallbacks(provider && provider.anthropicFallbacks) !== 'off',
+  };
+}
+function anthropicRequestHeaders(provider, opts) {
   const headers = { 'content-type': 'application/json', 'anthropic-version': ANTHROPIC_API_VERSION };
   const key = String((provider && provider.apiKey) || '').trim();
   if (key) {
@@ -53,23 +97,23 @@ function anthropicRequestHeaders(provider) {
     if (mode !== 'bearer') headers['x-api-key'] = key;
     if (mode === 'bearer' || (!mode && !official)) headers['authorization'] = 'Bearer ' + key;
   }
+  const features = anthropicOfficialFeatures(provider, opts && opts.model);
+  const betas = [features.thinkingBinding ? ANTHROPIC_BETA_THINKING_BINDING : '', features.fallbacks ? ANTHROPIC_BETA_FALLBACK : ''].filter(Boolean);
+  if (betas.length) headers['anthropic-beta'] = betas.join(',');
   if (provider && provider.extraHeaders) Object.assign(headers, provider.extraHeaders);
   return headers;
 }
-// 自适应思考只发给认得它的模型:Claude 4.6 起的 opus / sonnet / fable / mythos(更早的与 haiku 走 budget_tokens,发 adaptive 会 400)。
-// 网关上的非 Claude 模型(GLM / Kimi / DeepSeek 的 Anthropic 兼容端点等)缺省不发,由各家自己的缺省决定。
-function anthropicModelTakesAdaptiveThinking(model) {
-  const m = /(?:^|[^a-z])claude-(opus|sonnet|fable|mythos)-(\d{1,2})(?:[-.](\d{1,2}))?(?![\d])/i.exec(String(model || ''));
-  if (!m) return false;
-  const major = Number(m[2]);
-  const minor = m[3] != null ? Number(m[3]) : 0;
-  return major > 4 || (major === 4 && minor >= 6);
-}
+// 思考配置。display:'summarized' 让界面拿得到可读的推理摘要 —— Opus 5.5 / Sonnet 5.5 把工具调用之间的进度说明也放进思考块,
+// 缺省 display:'omitted' 时界面会在整个长回合里一声不吭。官方主机再带 block_binding:drop_block(前缀对不上的思考块由 API 丢掉,
+// 不回 400;配套 beta 头由 anthropicRequestHeaders 按同一判据带上)。
 function anthropicThinkingFor(provider, model) {
   const mode = normalizeAnthropicThinking(provider && provider.anthropicThinking);
-  if (mode === 'off') return null;
-  if (mode === 'adaptive' || anthropicModelTakesAdaptiveThinking(model)) return { type: 'adaptive', display: 'summarized' };
-  return null;
+  const traits = anthropicModelTraits(model);
+  if (mode === 'off') return traits.betweenTools ? { type: 'between_tools' } : null;
+  if (mode !== 'adaptive' && !traits.adaptive) return null;
+  const thinking = { type: 'adaptive', display: 'summarized' };
+  if (anthropicOfficialFeatures(provider, model).thinkingBinding) thinking.block_binding = { prefix_mismatch_behavior: 'drop_block' };
+  return thinking;
 }
 
 // tool_use / tool_result 的 id 只许 [A-Za-z0-9_-];历史里的 id 来自别的协议时可能带别的字符,两边用同一个映射就对得上。
@@ -206,11 +250,15 @@ function encodeAnthropicMessages({ model, messages, stream, instructions, provid
   const lead = hasLead ? String(list[0].content || '') : '';
   const system = typeof instructions === 'string' ? instructions : lead;
   const rest = hasLead ? list.slice(1) : list;
-  const body = { model, max_tokens: stream ? ANTHROPIC_STREAM_MAX_TOKENS : ANTHROPIC_COMPLETION_MAX_TOKENS };
+  const officialClaude = anthropicOfficialHost(provider && provider.baseUrl) && anthropicModelTraits(model).adaptive;
+  const body = { model, max_tokens: stream ? (officialClaude ? ANTHROPIC_STREAM_MAX_TOKENS_CLAUDE : ANTHROPIC_STREAM_MAX_TOKENS) : ANTHROPIC_COMPLETION_MAX_TOKENS };
   if (system.trim()) body.system = system;
   body.messages = anthropicMessagesFromHistory(rest, model, hasTools === true);
   const thinking = anthropicThinkingFor(provider, model);
   if (thinking) body.thinking = thinking;
+  // 官方 API 上的新模型:安全分类器误拒时由服务端按类别改派推荐模型(fallbacks:'default',beta 头见 anthropicRequestHeaders)。
+  // 改派后的回复里 message.model 是接手的模型;回放判据认请求时的 model(providerBlocks.requestModel),接手模型读不了的思考块由 API 丢掉。
+  if (anthropicOfficialFeatures(provider, model).fallbacks) body.fallbacks = 'default';
   body.stream = stream === true;
   return body;
 }
@@ -220,6 +268,15 @@ function applyAnthropicEffort(body, effort) {
   const mapped = (e === 'none' || e === 'minimal') ? 'low' : e;
   if (!ANTHROPIC_EFFORTS.has(mapped)) return body;
   body.output_config = Object.assign({}, body.output_config, { effort: mapped });
+  // between_tools 只接受 high 及以下;更高的档位要自适应思考(否则 400)。
+  if (body.thinking && body.thinking.type === 'between_tools' && (mapped === 'xhigh' || mapped === 'max')) body.thinking = { type: 'adaptive', display: 'summarized' };
+  return body;
+}
+// 采样参数:Opus 4.7 起、Sonnet 5 起、Fable / Mythos 对 temperature 等一律 400,这些模型上不发(用户配的温度对它们没有意义);
+// 其余模型(含网关上的非 Claude 模型)照发。
+function applyAnthropicTemperature(body, temperature) {
+  if (temperature === undefined || !body || typeof body !== 'object') return body;
+  if (!anthropicModelTraits(body.model).noSampling) body.temperature = temperature;
   return body;
 }
 // chat 形函数工具 → { name, description, input_schema };tool_choice 只发 auto(新模型对 any / tool 回 400)。
@@ -280,6 +337,8 @@ function anthropicReplayBlock(block) {
   if (block.type === 'redacted_thinking') return { type: 'redacted_thinking', data: String(block.data || '') };
   if (block.type === 'text') return { type: 'text', text: String(block.text || ''), ...(Array.isArray(block.citations) ? { citations: block.citations } : {}) };
   if (block.type === 'tool_use') return { type: 'tool_use', id: String(block.id || ''), name: String(block.name || ''), input: block.input && typeof block.input === 'object' ? block.input : {} };
+  // 其余块(服务端改派留下的 fallback 块、服务端工具块等)原样留着:回放时少一块就改了后面思考块的前缀。只去掉解码器自己的中间字段。
+  if (typeof block.type === 'string' && block.type) { const { partial, ...rest } = block; return rest; }
   return null;
 }
 function anthropicProviderBlocks(blocks, model, requestModel) {
@@ -406,11 +465,19 @@ function createAnthropicStreamDecoder({ onEvent, markUsage, requestModel, newId,
   };
 }
 // 400 兼容重打(07 openAiStreamOnce 在超窗判定之后、stream_options 嗅探之前问这一句;返回新请求体 = 重打一次,null = 不重打):
+//   0) 端点不认 thinking.block_binding / between_tools(官方以外):只去这一项(先于 1,报文里也有 thinking.block 字样);
 //   1) 思考块签名校验失败(前缀被改过):去掉全部 thinking / redacted_thinking 块;
-//   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k):去掉报文里点名的那几个。
+//   2) 兼容网关不认某个参数(thinking / output_config / temperature / top_p / top_k / fallbacks):去掉报文里点名的那几个。
 function anthropicRetryBodyOn400(body, errText) {
   const msg = String(errText || '');
   if (!body || typeof body !== 'object' || !msg) return null;
+  // 官方以外的端点不认 block_binding / between_tools:只去掉这一项,思考照开。
+  if (body.thinking && typeof body.thinking === 'object' && /block_binding|between_tools/i.test(msg) && /extra inputs|not permitted|unknown|unsupported|not\s*support|invalid/i.test(msg)) {
+    const copy = { ...body };
+    if (/between_tools/i.test(msg) && body.thinking.type === 'between_tools') delete copy.thinking;
+    else { const { block_binding, ...rest } = body.thinking; copy.thinking = rest; }
+    return copy;
+  }
   const hasThinkingBlocks = Array.isArray(body.messages) && body.messages.some(m => Array.isArray(m && m.content) && m.content.some(b => b && (b.type === 'thinking' || b.type === 'redacted_thinking')));
   if (hasThinkingBlocks && /signature|thinking.{0,40}block|block.{0,20}thinking/i.test(msg)) {
     const messages = body.messages.map(m => (Array.isArray(m && m.content)
@@ -418,7 +485,7 @@ function anthropicRetryBodyOn400(body, errText) {
       : m)).filter(m => !Array.isArray(m.content) || m.content.length);
     return { ...body, messages };
   }
-  const named = ['thinking', 'output_config', 'temperature', 'top_p', 'top_k'].filter(k => body[k] !== undefined && new RegExp('\\b' + k + '\\b', 'i').test(msg));
+  const named = ['thinking', 'output_config', 'temperature', 'top_p', 'top_k', 'fallbacks'].filter(k => body[k] !== undefined && new RegExp('\\b' + k + '\\b', 'i').test(msg));
   if (named.length && /extra inputs|not permitted|unknown|unsupported|not\s*support|unrecognized|invalid|not allowed/i.test(msg)) {
     const copy = { ...body };
     for (const k of named) delete copy[k];
