@@ -173,6 +173,22 @@ export function createChatStreamRuntime(deps = {}) {
     live.renderedChars = 0;
     bubble.appendChild(live.textNode);
   }
+  // perf(长回复):流式期间正文是 .live-plain 里的一个文本节点,每帧追加都让整段重新断行排版(4 万字时每帧 5 ms 以上,
+  // 且随长度增长,maybeScrollToBottom 那一次读布局全数付清)。尾巴攒到 LIVE_TEXT_CHUNK_CHARS 且里面有换行时,把最后一个
+  // 换行(含)之前的部分封进一个块级 div、插在尾巴前面 —— 之后每帧只重排尾巴那一小块。换行符留在前一块末尾:块尾单个换行
+  // 不多出空行(实测各种换行组合高度逐像素相同),textContent 与单节点逐字相同。一整段没有换行时不切(与修前一样)。
+  const LIVE_TEXT_CHUNK_CHARS = 1500;
+  function sealLiveTextChunk(live) {
+    const node = live.textNode;
+    if (!node || !live.bubble || node.length < LIVE_TEXT_CHUNK_CHARS) return;
+    const cut = node.data.lastIndexOf('\n');
+    if (cut < 0) return;
+    const chunk = document.createElement('div');
+    chunk.className = 'live-chunk';
+    chunk.textContent = node.data.slice(0, cut + 1);
+    node.deleteData(0, cut + 1);
+    live.bubble.insertBefore(chunk, node);
+  }
   function startLiveTextSegment(live) {
     if (!live || !live.narrative) return null;
     compactNarrativeProcessRuns(live.narrative);
@@ -1032,7 +1048,7 @@ export function createChatStreamRuntime(deps = {}) {
       live.rafPending = false;
       live.rafId = 0;
       const pending = live.bufferText.slice(live.renderedChars || 0);
-      if (pending && live.textNode) live.textNode.appendData(pending);
+      if (pending && live.textNode) { live.textNode.appendData(pending); sealLiveTextChunk(live); }
       live.renderedChars = live.bufferText.length;
       // EC-D 57: 正文/思考/工具统一走聊天滚动控制器；DOM 增长不再伪装成用户 scroll。
       maybeScrollToBottom();

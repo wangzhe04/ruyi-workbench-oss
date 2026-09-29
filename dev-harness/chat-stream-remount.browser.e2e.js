@@ -18,6 +18,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //      指示条随回合收尾静默收掉。手动按钮那一路仍挂超时（对照）。
 //   R7 挂着权限申请时按停止：活动状态条不再停在「等你拍板」。
 //   R9 文件树后发先至：先点的工作区读盘慢、后点的快，晚到的旧结果不许盖掉新工作区的树。
+//   R10 长回复流式期间正文分块(perf):尾巴攒满且有换行就把前面封进块级 .live-chunk —— 屏上文本与流出的逐字相同、
+//       只剩尾巴一个裸文本节点在长;没有换行的一整段不切;回合收尾照旧换成一份 Markdown(不留分块)。
 // 判定行：`CHAT STREAM REMOUNT BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 const { createRunner } = require('./lib/harness');
@@ -241,6 +243,38 @@ true`;
     })()`);
     ok(r7.during === 'waiting_you', 'R7a 前置成形:申请挂着时状态条是「等你拍板」');
     ok(r7.hidden, 'R7b 停止后状态条收起,不再停在「等你拍板」');
+
+    // R10:长回复分块
+    const r10 = await fx.evaluate(`(async () => {
+      await window.__mk(); const h = window.__h;
+      h.$('promptInput').value = 'long'; const sp = h.rt.sendPrompt(); await h.sleep(50);
+      let full = '';
+      for (let i = 0; i < 300; i++) {
+        const piece = 'line ' + i + ' 中文段落内容 lorem ipsum dolor\\n' + (i % 10 === 9 ? '\\n' : '');
+        full += piece; h.push({ type: 'assistant_delta', text: piece });
+        if (i % 20 === 19) await h.sleep(20);   // 让 rAF 跑几帧
+      }
+      await h.sleep(60);
+      const bubble = h.$('messages').querySelector('.bubble.live-plain');
+      const chunks = bubble ? bubble.querySelectorAll('.live-chunk').length : -1;
+      const tail = bubble ? bubble.lastChild : null;
+      const streamed = { chunks, same: bubble ? bubble.textContent === full : false, tailIsText: !!tail && tail.nodeType === 3, tailLen: tail && tail.nodeType === 3 ? tail.length : -1, total: full.length };
+      // 一整段没有换行:不切
+      h.push({ type: 'result', ok: true }); h.end(); await sp; await h.sleep(60);
+      const settled = h.$('messages').querySelectorAll('.live-chunk').length;
+      await window.__mk(); const h2 = window.__h;
+      h2.$('promptInput').value = 'oneline'; const sp2 = h2.rt.sendPrompt(); await h2.sleep(50);
+      h2.push({ type: 'assistant_delta', text: 'x'.repeat(6000) }); await h2.sleep(80);
+      const b2 = h2.$('messages').querySelector('.bubble.live-plain');
+      const oneLine = b2 ? b2.querySelectorAll('.live-chunk').length : -1;
+      h2.push({ type: 'result', ok: true }); h2.end(); await sp2;
+      return { ...streamed, settled, oneLine };
+    })()`);
+    ok(r10.chunks >= 3, `R10a 长回复流式期间分了块(${r10.chunks} 块,共 ${r10.total} 字)`);
+    ok(r10.same, 'R10b 屏上文本与流出的逐字相同');
+    ok(r10.tailIsText && r10.tailLen >= 0 && r10.tailLen < 1500 + 400, `R10c 只剩尾巴一个裸文本节点在长(尾巴 ${r10.tailLen} 字)`);
+    ok(r10.settled === 0, 'R10d 回合收尾换成一份 Markdown,不留分块');
+    ok(r10.oneLine === 0, 'R10e 没有换行的一整段不切');
 
     // R9:文件树后发先至(同一套同源空白页夹具,顺带钉 file-browser.js 的加载序号)
     const r9 = await fx.evaluate(`(async () => {
