@@ -1,4 +1,4 @@
-const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn) => {
+const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn, decodeConsoleTextFn) => {
   const fs = fsModule;
   const fsp = fspModule;
   const path = pathModule;
@@ -14,12 +14,10 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 我们自己以 UTF-8 输出的工具不受影响(合法 UTF-8 无替换符,原样保留),GBK 原生命令输出也能正确还原。
   // **headless 安全**:纯 Node 侧解码,不依赖控制台——[Console]::OutputEncoding 那类 PS 方案在无窗口 spawn 下
   // 会因无有效控制台句柄而静默失效(实测端到端仍乱码),Node 侧解码无此坑。
-  let _gbkDecoder = null;
+  // 2026-09 起改为【按行】判定(00-boot decodeConsoleText):修前整段只要有一处不是合法 UTF-8 就整段按 GBK 解,
+  // 混排输出(git 的 UTF-8 + 系统命令的 GBK)里总有一半是乱码。
   function decodeBestEffort(buf) {
-    const utf8 = buf.toString('utf8');
-    if (!utf8.includes('�')) return utf8;
-    try { if (!_gbkDecoder) _gbkDecoder = new TextDecoder('gbk'); return _gbkDecoder.decode(buf); }
-    catch { return utf8; } // 该 node 无 gbk ICU → 退回 UTF-8(至少不崩)
+    return decodeConsoleTextFn(buf);
   }
   function runProcess(command, args, options = {}) {
     return new Promise(resolve => {
@@ -265,4 +263,4 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     return { ok: true, cancelled: true };
   }
   return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, revealInExplorer, pickFolder, pickFile });
-})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked);
+})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked, decodeConsoleText);

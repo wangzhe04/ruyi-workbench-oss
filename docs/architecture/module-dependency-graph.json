@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2986,
-    "requiredSymbols": 2897,
+    "providedSymbols": 2993,
+    "requiredSymbols": 2900,
     "edges": 509,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -44,6 +44,8 @@
         "TOOL_TIER_RANK",
         "URL",
         "VERSION",
+        "_consoleGbDecoder",
+        "_consoleUtf8Strict",
         "_dataRootMemo",
         "agentCliHomes",
         "apiFailure",
@@ -57,13 +59,17 @@
         "claudeLedgerSource",
         "computeCostFromPricing",
         "computeProviderCost",
+        "consoleIncompleteTail",
         "cp",
         "createCappedDiagnosticText",
+        "createConsoleLineDecoder",
         "createNdjsonLineFeeder",
         "crypto",
         "dataRoot",
         "dataRootAliases",
         "dataRootMemoKey",
+        "decodeConsoleSegment",
+        "decodeConsoleText",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -2367,6 +2373,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "read"
           ]
@@ -9984,6 +9997,7 @@
         "shellEndOffset",
         "shellIdValid",
         "shellIdleReaper",
+        "shellInputForPowerShell",
         "shellKill",
         "shellLastLine",
         "shellList",
@@ -10014,6 +10028,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createConsoleLineDecoder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10103,13 +10124,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "samePathEntry",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "StringDecoder",
           "kinds": [
             "call"
           ]
@@ -11029,6 +11043,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "call"
           ]
@@ -13098,6 +13119,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "call"
           ]
@@ -24422,6 +24450,7 @@
       "to": "00-boot.js",
       "symbols": [
         "cp",
+        "decodeConsoleText",
         "fs",
         "fsp",
         "os",
@@ -26629,9 +26658,9 @@
         "EventStreamHooks",
         "RUYI_EVENTS",
         "RUYI_PATH_BEFORE_VENDOR",
-        "StringDecoder",
         "URL",
         "cp",
+        "createConsoleLineDecoder",
         "crypto",
         "fs",
         "fsp",
@@ -26891,6 +26920,7 @@
         "cp",
         "crypto",
         "dataRootAliases",
+        "decodeConsoleText",
         "ensureDirs",
         "exePath",
         "externalRoot",
@@ -27416,6 +27446,7 @@
         "cp",
         "crypto",
         "dataRoot",
+        "decodeConsoleText",
         "externalRoot",
         "fs",
         "fsp",

@@ -32,6 +32,8 @@
         "TOOL_TIER_RANK",
         "URL",
         "VERSION",
+        "_consoleGbDecoder",
+        "_consoleUtf8Strict",
         "_dataRootMemo",
         "agentCliHomes",
         "apiFailure",
@@ -45,13 +47,17 @@
         "claudeLedgerSource",
         "computeCostFromPricing",
         "computeProviderCost",
+        "consoleIncompleteTail",
         "cp",
         "createCappedDiagnosticText",
+        "createConsoleLineDecoder",
         "createNdjsonLineFeeder",
         "crypto",
         "dataRoot",
         "dataRootAliases",
         "dataRootMemoKey",
+        "decodeConsoleSegment",
+        "decodeConsoleText",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -2323,6 +2329,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "read"
           ]
@@ -9888,6 +9901,7 @@
         "shellEndOffset",
         "shellIdValid",
         "shellIdleReaper",
+        "shellInputForPowerShell",
         "shellKill",
         "shellLastLine",
         "shellList",
@@ -9918,6 +9932,13 @@
           "symbol": "cp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "createConsoleLineDecoder",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10007,13 +10028,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "samePathEntry",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "StringDecoder",
           "kinds": [
             "call"
           ]
@@ -10927,6 +10941,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "call"
           ]
@@ -12992,6 +13013,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
           "kinds": [
             "call"
           ]

@@ -246,17 +246,24 @@ function shellStart(args, config, ctx = {}) {
     }, timeoutMs);
     deadline.unref();
   }
-  // hunt2 #11:每条流各持一个 StringDecoder(与 00-boot createNdjsonLineFeeder 同理)—— chunk 边界不保证落在
-  // 字符边界上,逐块 toString('utf8') 会把被切开的汉字静默变成 U+FFFD(实测「中文」→「��文」)。关闭时 end()
-  // 交出残字节。注:中文 Windows 上 powershell.exe 的管道输出是否为 OEM 代码页(cp936)而非 UTF-8,本修不作猜测,
-  // 仍按 UTF-8 解码(DesktopShell.runProcess 的 GBK 兜底是整段输出判定,不适用于流式增量)。
-  const outDecoder = new StringDecoder('utf8');
-  const errDecoder = new StringDecoder('utf8');
-  child.stdout?.on('data', d => shellAppend(sess, outDecoder.write(d)));
-  child.stderr?.on('data', d => shellAppend(sess, errDecoder.write(d)));
+  // 每条流一个按行的控制台解码器(00-boot createConsoleLineDecoder):中文 Windows 上无控制台的 powershell.exe
+  // 往管道里写的是 GBK(用户实测:shell 会话里的中文输出全是乱码),修前一律按 UTF-8 解。整行才解码(chunk 切开的
+  // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
+  const outDecoder = createConsoleLineDecoder();
+  const errDecoder = createConsoleLineDecoder();
+  let idleFlush = null;
+  const feed = (decoder, d) => {
+    shellAppend(sess, decoder.write(d));
+    if (idleFlush) clearTimeout(idleFlush);
+    idleFlush = setTimeout(() => { idleFlush = null; shellAppend(sess, outDecoder.flush() + errDecoder.flush()); }, 150);
+    if (idleFlush.unref) idleFlush.unref();
+  };
+  child.stdout?.on('data', d => feed(outDecoder, d));
+  child.stderr?.on('data', d => feed(errDecoder, d));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
   child.on('close', code => {
     clearTimeout(deadline);
+    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
     shellAppend(sess, outDecoder.end() + errDecoder.end());
     sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
   });
@@ -283,6 +290,16 @@ function shellLookup(shellId, ctx) {
   return sess && shellVisibleTo(sess, ctx) ? sess : null;
 }
 
+// 交互式 shell 的输入:无控制台的 powershell.exe 按系统代码页(GBK)读 stdin,我们写进去的 UTF-8 中文在【输入阶段】就坏了
+// (命令里的中文路径、中文参数全变问号)。含非 ASCII 字符的输入改成一条纯 ASCII 的等价命令:把原文按 UTF-8 编成
+// Base64,在 PowerShell 里解回来再 Invoke-Expression —— 与直接敲入同一作用域执行,变量、cd 都照常生效。纯 ASCII 输入原样。
+// 代价:如果 shell 里正停在 Read-Host 等你回答,一句中文回答会被当成命令执行 —— 模型给 shell 的几乎总是命令,取这一头。
+function shellInputForPowerShell(input) {
+  const text = String(input == null ? '' : input);
+  if (!/[^\x00-\x7f]/.test(text)) return text;
+  const b64 = Buffer.from(text, 'utf8').toString('base64');
+  return `Invoke-Expression ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64}')))`;
+}
 async function shellSend(args, ctx) {
   const shellId = String(args.shellId || '');
   const sess = shellLookup(shellId, ctx);
@@ -294,7 +311,7 @@ async function shellSend(args, ctx) {
   const startCursor = shellEndOffset(sess);
   const timeoutMs = Math.min(120000, Math.max(1000, Number(args.timeoutMs || 10000)));
   if (sess.running && sess.child.stdin && sess.child.stdin.writable) {
-    try { sess.child.stdin.write(String(args.input != null ? args.input : '') + '\n'); }
+    try { sess.child.stdin.write(shellInputForPowerShell(args.input != null ? args.input : '') + '\n'); }
     catch (e) { return { ok: false, error: `写入失败: ${e && e.message ? e.message : e}` }; }
   } else if (!sess.running) {
     // Child already exited — still return whatever fresh output exists, but flag not-running.

@@ -342,6 +342,75 @@ function safeJsonParse(raw, fallback = null) {
 // chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
 // 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
 // flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
+// ── 控制台输出解码(PowerShell / cmd / 原生命令)────────────────────────────────────────────────────────
+// 中文 Windows 上,无控制台(windowsHide)起的 powershell.exe 往重定向的 stdout 写的是系统代码页(GBK/cp936),
+// 原生命令也多半如此;而 git、node、python(UTF-8 模式)写的是 UTF-8 —— 同一份输出里两种编码混着来很常见。
+// [Console]::OutputEncoding 那类 PS 侧方案在无控制台 spawn 下无效(04-desktop-shell 头注里实测过),所以在 Node 侧解:
+// 【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
+// 合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
+// 所以按它切是安全的。纯 ASCII 行两种解法结果一样。
+let _consoleGbDecoder = null;
+const _consoleUtf8Strict = new TextDecoder('utf-8', { fatal: true });
+function decodeConsoleSegment(buf) {
+  if (!buf || !buf.length) return '';
+  try { return _consoleUtf8Strict.decode(buf); } catch { /* 不是合法 UTF-8 */ }
+  try {
+    if (!_consoleGbDecoder) { try { _consoleGbDecoder = new TextDecoder('gb18030'); } catch { _consoleGbDecoder = new TextDecoder('gbk'); } }
+    return _consoleGbDecoder.decode(buf);
+  } catch { return Buffer.from(buf).toString('utf8'); } // 这个 node 没带 GBK 的 ICU:退回 UTF-8(至少不崩)
+}
+function decodeConsoleText(buf) {
+  const data = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  let out = '', start = 0;
+  for (let i = data.indexOf(0x0a); i >= 0; i = data.indexOf(0x0a, start)) {
+    out += decodeConsoleSegment(data.subarray(start, i + 1));
+    start = i + 1;
+  }
+  return out + decodeConsoleSegment(data.subarray(start));
+}
+// 流式版本:整行才解码;没有换行的尾巴先攒着(多字节字符可能被 chunk 切开),由调用方在空闲时 flush()
+// (交互式 shell 的提示符、「是否继续? [Y/N]」这类不带换行的输出)或在进程结束时 end()。
+// 尾巴上一个没写完的多字节字符有多少字节(0 = 尾巴完整):UTF-8 看最后一个起始字节还差几个续字节;
+// 否则按 GBK 看结尾连续高位字节的个数是否为奇数(双字节字符只到了前一半)。空闲 flush 时把它留到下一次。
+function consoleIncompleteTail(buf) {
+  const n = buf.length;
+  for (let back = 1; back <= Math.min(3, n); back++) {
+    const b = buf[n - back];
+    if (b >= 0x80 && b < 0xc0) continue;            // UTF-8 续字节,继续往前找起始字节
+    if (b >= 0xc0) {
+      const need = b >= 0xf0 ? 4 : b >= 0xe0 ? 3 : 2;
+      if (back < need) { try { _consoleUtf8Strict.decode(buf.subarray(0, n - back)); return back; } catch { /* 前面也不是 UTF-8:按 GBK 看 */ } }
+    }
+    break;
+  }
+  let high = 0;
+  while (high < n && buf[n - 1 - high] >= 0x80) high += 1;
+  return high % 2 === 1 ? 1 : 0;
+}
+function createConsoleLineDecoder() {
+  let pending = Buffer.alloc(0);
+  const take = () => { const rest = pending; pending = Buffer.alloc(0); return decodeConsoleText(rest); };
+  return {
+    write(chunk) {
+      const data = pending.length ? Buffer.concat([pending, chunk]) : Buffer.from(chunk);
+      const cut = data.lastIndexOf(0x0a);
+      if (cut < 0) { pending = data; return pending.length > 256 * 1024 ? take() : ''; }
+      pending = data.subarray(cut + 1);
+      return decodeConsoleText(data.subarray(0, cut + 1));
+    },
+    // 空闲时吐出不带换行的尾巴(提示符之类),但没写完的那个字符留着 —— 写方可能正停在两个字节之间。
+    flush() {
+      const keep = consoleIncompleteTail(pending);
+      if (!keep) return take();
+      const head = pending.subarray(0, pending.length - keep);
+      pending = pending.subarray(pending.length - keep);
+      return decodeConsoleText(head);
+    },
+    end: take,
+    get pendingBytes() { return pending.length; },
+  };
+}
+
 function createNdjsonLineFeeder(onLine) {
   const decoder = new StringDecoder('utf8');
   let remainder = '';
@@ -14422,7 +14491,7 @@ function claudeProviderTailSince(messages) {
   return lastClaudeIdx >= 0 ? arr.slice(lastClaudeIdx + 1) : arr;
 }
 
-const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn) => {
+const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, killTreeFn, batchSpawnFn, spawnDetachedFn, decodeConsoleTextFn) => {
   const fs = fsModule;
   const fsp = fspModule;
   const path = pathModule;
@@ -14438,12 +14507,10 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 我们自己以 UTF-8 输出的工具不受影响(合法 UTF-8 无替换符,原样保留),GBK 原生命令输出也能正确还原。
   // **headless 安全**:纯 Node 侧解码,不依赖控制台——[Console]::OutputEncoding 那类 PS 方案在无窗口 spawn 下
   // 会因无有效控制台句柄而静默失效(实测端到端仍乱码),Node 侧解码无此坑。
-  let _gbkDecoder = null;
+  // 2026-09 起改为【按行】判定(00-boot decodeConsoleText):修前整段只要有一处不是合法 UTF-8 就整段按 GBK 解,
+  // 混排输出(git 的 UTF-8 + 系统命令的 GBK)里总有一半是乱码。
   function decodeBestEffort(buf) {
-    const utf8 = buf.toString('utf8');
-    if (!utf8.includes('�')) return utf8;
-    try { if (!_gbkDecoder) _gbkDecoder = new TextDecoder('gbk'); return _gbkDecoder.decode(buf); }
-    catch { return utf8; } // 该 node 无 gbk ICU → 退回 UTF-8(至少不崩)
+    return decodeConsoleTextFn(buf);
   }
   function runProcess(command, args, options = {}) {
     return new Promise(resolve => {
@@ -14689,7 +14756,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     return { ok: true, cancelled: true };
   }
   return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, revealInExplorer, pickFolder, pickFile });
-})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked);
+})(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked, decodeConsoleText);
 
 // ── 04f · ruyi-toolbox 服务类组件:拉起、探活、接成能力端点、回收 ─────────────────────────────────────────
 // 用户 2026-09-21:「如意启动时自动探测本机上是否有这个 asr shim,有的话自动拉起并自动配置好,开箱即用」,
@@ -41626,17 +41693,24 @@ function shellStart(args, config, ctx = {}) {
     }, timeoutMs);
     deadline.unref();
   }
-  // hunt2 #11:每条流各持一个 StringDecoder(与 00-boot createNdjsonLineFeeder 同理)—— chunk 边界不保证落在
-  // 字符边界上,逐块 toString('utf8') 会把被切开的汉字静默变成 U+FFFD(实测「中文」→「��文」)。关闭时 end()
-  // 交出残字节。注:中文 Windows 上 powershell.exe 的管道输出是否为 OEM 代码页(cp936)而非 UTF-8,本修不作猜测,
-  // 仍按 UTF-8 解码(DesktopShell.runProcess 的 GBK 兜底是整段输出判定,不适用于流式增量)。
-  const outDecoder = new StringDecoder('utf8');
-  const errDecoder = new StringDecoder('utf8');
-  child.stdout?.on('data', d => shellAppend(sess, outDecoder.write(d)));
-  child.stderr?.on('data', d => shellAppend(sess, errDecoder.write(d)));
+  // 每条流一个按行的控制台解码器(00-boot createConsoleLineDecoder):中文 Windows 上无控制台的 powershell.exe
+  // 往管道里写的是 GBK(用户实测:shell 会话里的中文输出全是乱码),修前一律按 UTF-8 解。整行才解码(chunk 切开的
+  // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
+  const outDecoder = createConsoleLineDecoder();
+  const errDecoder = createConsoleLineDecoder();
+  let idleFlush = null;
+  const feed = (decoder, d) => {
+    shellAppend(sess, decoder.write(d));
+    if (idleFlush) clearTimeout(idleFlush);
+    idleFlush = setTimeout(() => { idleFlush = null; shellAppend(sess, outDecoder.flush() + errDecoder.flush()); }, 150);
+    if (idleFlush.unref) idleFlush.unref();
+  };
+  child.stdout?.on('data', d => feed(outDecoder, d));
+  child.stderr?.on('data', d => feed(errDecoder, d));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
   child.on('close', code => {
     clearTimeout(deadline);
+    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
     shellAppend(sess, outDecoder.end() + errDecoder.end());
     sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
   });
@@ -41663,6 +41737,16 @@ function shellLookup(shellId, ctx) {
   return sess && shellVisibleTo(sess, ctx) ? sess : null;
 }
 
+// 交互式 shell 的输入:无控制台的 powershell.exe 按系统代码页(GBK)读 stdin,我们写进去的 UTF-8 中文在【输入阶段】就坏了
+// (命令里的中文路径、中文参数全变问号)。含非 ASCII 字符的输入改成一条纯 ASCII 的等价命令:把原文按 UTF-8 编成
+// Base64,在 PowerShell 里解回来再 Invoke-Expression —— 与直接敲入同一作用域执行,变量、cd 都照常生效。纯 ASCII 输入原样。
+// 代价:如果 shell 里正停在 Read-Host 等你回答,一句中文回答会被当成命令执行 —— 模型给 shell 的几乎总是命令,取这一头。
+function shellInputForPowerShell(input) {
+  const text = String(input == null ? '' : input);
+  if (!/[^\x00-\x7f]/.test(text)) return text;
+  const b64 = Buffer.from(text, 'utf8').toString('base64');
+  return `Invoke-Expression ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64}')))`;
+}
 async function shellSend(args, ctx) {
   const shellId = String(args.shellId || '');
   const sess = shellLookup(shellId, ctx);
@@ -41674,7 +41758,7 @@ async function shellSend(args, ctx) {
   const startCursor = shellEndOffset(sess);
   const timeoutMs = Math.min(120000, Math.max(1000, Number(args.timeoutMs || 10000)));
   if (sess.running && sess.child.stdin && sess.child.stdin.writable) {
-    try { sess.child.stdin.write(String(args.input != null ? args.input : '') + '\n'); }
+    try { sess.child.stdin.write(shellInputForPowerShell(args.input != null ? args.input : '') + '\n'); }
     catch (e) { return { ok: false, error: `写入失败: ${e && e.message ? e.message : e}` }; }
   } else if (!sess.running) {
     // Child already exited — still return whatever fresh output exists, but flag not-running.
@@ -48890,8 +48974,9 @@ function processImage(pid) {
 function processCommandLine(pid) {
   return new Promise(resolve => {
     const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
-    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, stdout) => {
-      resolve(err || !stdout ? '' : String(stdout).toLowerCase());
+    // 按行判 UTF-8 / GBK:工作台装在中文路径下时,命令行里的中文按 UTF-8 解是乱码,取证就对不上自己。
+    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000, encoding: 'buffer' }, (err, stdout) => {
+      resolve(err || !stdout || !stdout.length ? '' : decodeConsoleText(stdout).toLowerCase());
     });
   });
 }
@@ -50659,8 +50744,10 @@ async function extractOverlayZip(zipPath, destDir) {
     const ps = "try { Expand-Archive -LiteralPath '" + qs(zipPath) + "' -DestinationPath '" + qs(destDir) + "' -Force -ErrorAction Stop; 'OK' } catch { 'ERR:' + $_.Exception.Message }";
     // 128f-⑬:execFileSync → 异步 execFile。修前解压一个覆盖包(最长 120 s)期间整个服务不答话 —— 更新中心自己的进度、
     // 其它面的请求与推送全部排队(同文件下方 runOverlayPs1 早就因为同一个理由改成了异步,见对抗审查 F4)。
+    // -EncodedCommand(UTF-16LE Base64)而不是 -Command:无控制台起的 powershell.exe 解析 -Command 里的中文会在输入阶段
+    // 就坏掉(04-desktop-shell runPowerShell 头注的实测),覆盖包放在中文路径下就解不出来。输出按行判 UTF-8 / GBK。
     const out = await new Promise((resolve, reject) => {
-      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { encoding: 'buffer', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(decodeConsoleText(stdout))));
     });
     const trimmed = String(out || '').trim();
     if (trimmed.startsWith('ERR:')) return { ok: false, error: trimmed.slice(4) };
@@ -50693,8 +50780,11 @@ function runOverlayPs1(ps1Path, action, overlayRoot, target, extraArgs) {
   if (target) args.push('-Target', target);
   if (Array.isArray(extraArgs)) args.push(...extraArgs);
   return new Promise(resolve => {
-    cp.execFile('powershell', args, { encoding: 'utf8', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
-      const so = String(stdout || (err && err.stdout) || '');
+    // 输出按行判 UTF-8 / GBK(00-boot decodeConsoleText):中文 Windows 上 PS1 的 JSON 里带中文路径 / 报错时是 GBK。
+    cp.execFile('powershell', args, { encoding: 'buffer', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdoutBuf, stderrBuf) => {
+      const stdout = decodeConsoleText(stdoutBuf || (err && err.stdout) || Buffer.alloc(0));
+      const stderr = decodeConsoleText(stderrBuf || Buffer.alloc(0));
+      const so = String(stdout || '');
       const j = tryParseJson(so);
       if (j) return resolve({ ok: true, json: j, raw: so });
       if (err && !so) return resolve({ ok: false, error: String(err.message || err), stderr: String(stderr || ''), raw: '' });

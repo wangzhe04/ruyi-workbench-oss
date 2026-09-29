@@ -1699,8 +1699,9 @@ function processImage(pid) {
 function processCommandLine(pid) {
   return new Promise(resolve => {
     const ps = `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}"; if ($p) { $p.CommandLine; $p.ExecutablePath }`;
-    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, stdout) => {
-      resolve(err || !stdout ? '' : String(stdout).toLowerCase());
+    // 按行判 UTF-8 / GBK:工作台装在中文路径下时,命令行里的中文按 UTF-8 解是乱码,取证就对不上自己。
+    cp.execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 8000, encoding: 'buffer' }, (err, stdout) => {
+      resolve(err || !stdout || !stdout.length ? '' : decodeConsoleText(stdout).toLowerCase());
     });
   });
 }

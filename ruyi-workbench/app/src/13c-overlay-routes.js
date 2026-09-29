@@ -27,8 +27,10 @@ async function extractOverlayZip(zipPath, destDir) {
     const ps = "try { Expand-Archive -LiteralPath '" + qs(zipPath) + "' -DestinationPath '" + qs(destDir) + "' -Force -ErrorAction Stop; 'OK' } catch { 'ERR:' + $_.Exception.Message }";
     // 128f-⑬:execFileSync → 异步 execFile。修前解压一个覆盖包(最长 120 s)期间整个服务不答话 —— 更新中心自己的进度、
     // 其它面的请求与推送全部排队(同文件下方 runOverlayPs1 早就因为同一个理由改成了异步,见对抗审查 F4)。
+    // -EncodedCommand(UTF-16LE Base64)而不是 -Command:无控制台起的 powershell.exe 解析 -Command 里的中文会在输入阶段
+    // 就坏掉(04-desktop-shell runPowerShell 头注的实测),覆盖包放在中文路径下就解不出来。输出按行判 UTF-8 / GBK。
     const out = await new Promise((resolve, reject) => {
-      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+      cp.execFile('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(ps, 'utf16le').toString('base64')], { encoding: 'buffer', timeout: 120000, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout) => (err ? reject(err) : resolve(decodeConsoleText(stdout))));
     });
     const trimmed = String(out || '').trim();
     if (trimmed.startsWith('ERR:')) return { ok: false, error: trimmed.slice(4) };
@@ -61,8 +63,11 @@ function runOverlayPs1(ps1Path, action, overlayRoot, target, extraArgs) {
   if (target) args.push('-Target', target);
   if (Array.isArray(extraArgs)) args.push(...extraArgs);
   return new Promise(resolve => {
-    cp.execFile('powershell', args, { encoding: 'utf8', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
-      const so = String(stdout || (err && err.stdout) || '');
+    // 输出按行判 UTF-8 / GBK(00-boot decodeConsoleText):中文 Windows 上 PS1 的 JSON 里带中文路径 / 报错时是 GBK。
+    cp.execFile('powershell', args, { encoding: 'buffer', timeout: OVERLAY_PS1_TIMEOUT, maxBuffer: 16 * 1024 * 1024 }, (err, stdoutBuf, stderrBuf) => {
+      const stdout = decodeConsoleText(stdoutBuf || (err && err.stdout) || Buffer.alloc(0));
+      const stderr = decodeConsoleText(stderrBuf || Buffer.alloc(0));
+      const so = String(stdout || '');
       const j = tryParseJson(so);
       if (j) return resolve({ ok: true, json: j, raw: so });
       if (err && !so) return resolve({ ok: false, error: String(err.message || err), stderr: String(stderr || ''), raw: '' });
