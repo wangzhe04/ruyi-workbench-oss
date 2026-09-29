@@ -7,6 +7,9 @@
 //        没写完的半行不入列、补全之后才入列且不重复
 //   [U4] 旧末尾被改写(同尺寸、换内容)→ 那个月整份重读,不拿旧列充数
 //   [U5] 会话筛选(每轮对话后只刷那几条会话的用量)与「全量遍历再筛」逐条相同
+//   [U6] 同尺寸原地改写(只换了 mtime)→ 整月重读(修前的缓存会一直拿旧列,审查轮复现过)
+//   [U7] 对象值字段按内容去重:一千行各带一个同内容对象,字典只多一格
+//   [U8] 午夜跳 DST 的时区(开罗):看板 byDay 与逐行本地日期一致(日键缓存的次日边界曾错成次日 01:00)
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -166,4 +169,51 @@ test('[U3][U4] 增量:追加一行只解析那一行;半行不入列;旧末尾�
   const rewritten = await snapshot(0);
   assert.equal(srv.usageLedgerCacheStats().fullParses, beforeRewrite.fullParses + 1, '旧末尾被改写 → 整月重读');
   assert.deepEqual(rewritten, (await both(() => snapshot(0))).oracle);
+});
+
+test('[U6][U7] 同尺寸原地改写整月重读;对象值按内容去重', async () => {
+  fs.rmSync(usageDir, { recursive: true, force: true });
+  fs.mkdirSync(usageDir, { recursive: true });
+  const m = '2026-07';
+  const row = cost => JSON.stringify({ ts: '2026-07-02T03:04:05.000Z', sessionId: 'sess_x', inTok: 1, outTok: 1, cost, currency: 'USD' });
+  // 改动落在第一行,后面垫 20 行 —— 离文件末尾远超核对窗口(256 字节),只能靠「同尺寸 = 原地改写」这条判据发现
+  fs.writeFileSync(monthFile(m), [row(0.5), ...Array.from({ length: 20 }, () => row(0))].join('\n') + '\n');
+  const sum = async () => { let c = 0; await srv.forEachUsageRow(0, r => { c += Number(r.cost); }); return Math.round(c * 1e6) / 1e6; };
+  assert.equal(await sum(), 0.5);
+  const edited = fs.readFileSync(monthFile(m), 'utf8').replace('"cost":0.5', '"cost":0.9');   // 同尺寸、改在第一行
+  fs.writeFileSync(monthFile(m), edited);
+  fs.utimesSync(monthFile(m), new Date(), new Date(Date.now() + 120000));
+  assert.equal(await sum(), 0.9, '同尺寸原地改写 → 整月重读,不拿旧列充数');
+
+  const before = srv.usageLedgerCacheStats().dictSize;
+  fs.appendFileSync(monthFile(m), Array.from({ length: 1000 }, () => JSON.stringify({ ts: '2026-07-03T00:00:00.000Z', sessionId: 'sess_x', model: { odd: true }, inTok: 1 })).join('\n') + '\n');
+  const models = new Set();
+  await srv.forEachUsageRow(0, r => { if (r.model && typeof r.model === 'object') models.add(JSON.stringify(r.model)); });
+  assert.deepEqual([...models], ['{"odd":true}'], '消费方看到的仍是对象(typeof / String 不变)');
+  assert.ok(srv.usageLedgerCacheStats().dictSize - before <= 2, `字典只多一两格(实 ${srv.usageLedgerCacheStats().dictSize - before})`);
+});
+
+test('[U8] 午夜跳 DST 的时区:byDay 与逐行本地日期一致', () => {
+  const { execFileSync } = require('child_process');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-usage-dst-'));
+  try {
+    const script = `
+      process.env.RUYI_HOME = ${JSON.stringify(home)};
+      const fs = require('fs'), path = require('path');
+      fs.mkdirSync(path.join(process.env.RUYI_HOME, 'usage'), { recursive: true });
+      // 开罗 2025-04-25 零点跳到 01:00:两行分别是本地 4 月 25 日与 4 月 26 日
+      const rows = ['2025-04-24T22:30:00.000Z', '2025-04-25T21:30:00.000Z', '2025-04-25T22:30:00.000Z'].map(ts => JSON.stringify({ ts, sessionId: 's', inTok: 10, outTok: 0 }));
+      fs.writeFileSync(path.join(process.env.RUYI_HOME, 'usage', '2025-04.jsonl'), rows.join('\\n') + '\\n');
+      const srv = require(${JSON.stringify(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'))});
+      const local = ms => { const d = new Date(ms); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+      srv.buildUsageSummary('all').then(sum => {
+        const got = sum.byDay.map(d => [d.date, d.inTok]);
+        const want = {}; for (const r of rows) { const k = local(Date.parse(JSON.parse(r).ts)); want[k] = (want[k] || 0) + 10; }
+        process.stdout.write(JSON.stringify({ got, want: Object.entries(want).sort() }));
+        process.exit(0);
+      });`;
+    const out = JSON.parse(execFileSync(process.execPath, ['-e', script], { env: { ...process.env, TZ: 'Africa/Cairo', RUYI_HOME: home }, encoding: 'utf8' }).trim().split('\n').pop());
+    assert.deepEqual(out.got, out.want, `开罗时区 byDay(got ${JSON.stringify(out.got)})`);
+    assert.equal(out.want.length, 2, '夹具确实跨了那个不存在的零点');
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });

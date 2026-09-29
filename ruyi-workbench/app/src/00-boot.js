@@ -728,14 +728,16 @@ function usageDayKey(ms) {
 }
 // 性能批 P1:账大体按时间追加,相邻行多半同一天。记住上一次算出的那一天的 [本地 0 点, 次日 0 点),落在里面就复用日键 ——
 // 日键只由 ms 决定,区间内处处相同,所以结果与逐行 usageDayKey 相同(NaN 永远不落在区间里,照旧逐次现算)。
+// 边界按日历字段现造(new Date(年, 月, 日) / 日 + 1):午夜跳 DST 的时区(开罗、哈瓦那、贝鲁特、圣地亚哥……)那一天
+// 的 0 点不存在,setHours(0) 会落到 01:00,若再从它 setDate(+1) 推次日边界就错成次日 01:00,次日 0–1 点的行被记到前一天。
 function usageDayKeyMemo() {
   let lo = NaN, hi = NaN, key = '';
   return ms => {
     if (ms >= lo && ms < hi) return key;
     key = usageDayKey(ms);
-    const start = new Date(ms); start.setHours(0, 0, 0, 0);
-    const next = new Date(start); next.setDate(next.getDate() + 1);
-    lo = start.getTime(); hi = next.getTime();
+    const d = new Date(ms);
+    lo = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    hi = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
     return key;
   };
 }
@@ -777,27 +779,37 @@ async function readUsageRows(lowerMs) {
 // JSON.parse。每跑一轮对话 13e 就打一次 usage 脏页,下一次看板读因此整读一遍账 —— 2000 会话 / 30 万行(70 MB)时
 // 单这一步 1.5 s,而且大半是同步解析,SSE 流跟着顿。
 // 这里把解析结果按月份文件常驻成列(定长数组 + 值字典),文件只长不改时只解析新增的尾巴:
-//   · 判据:stat 的 size/mtime 没变 → 原样复用;同一个文件(ino 没变)、size 没缩、且上次已解析末尾那 ≤32 字节原样
-//     还在 → 只读新增部分;否则(截短、改写、换文件)这一个月整份重读。只提交到最后一个换行,没写完的那半行每次按原
-//     逻辑现解析、不入列。程序自己对账只追加(appendUsageLedger / flushUsageLedgerSync);外部编辑里只有「在中间改、
-//     同时又变长、末尾 32 字节恰好没动」这一种查不出,要等进程重启(缓存只在内存里)。
+//   · 判据:stat 的 size/mtime 没变 → 原样复用;同一个文件(ino 没变)、【变长了】、且上次已解析部分末尾那 ≤256 字节
+//     (约一整行,含毫秒级 ts)原样还在 → 只读新增部分;其余一切(截短、同尺寸改写、换文件、核对不上)这一个月整份重读。
+//     只提交到最后一个换行,没写完的那半行每次按原逻辑现解析、不入列。程序自己对账只追加(appendUsageLedger /
+//     flushUsageLedgerSync);外部编辑里只有「在中间改、同时又变长、末尾 256 字节恰好没动」这一种查不出,要等进程重启
+//     (缓存只在内存里)。
 //   · 对外只有 forEachUsageRow(lowerMs, fn):次序(readdir 次序的月份文件 → 文件内行序)、过滤(月份键 + ts 下界 +
 //     坏行/坏 ts 跳过)与 readUsageRows 逐条相同,调用方原来的累加代码一字不改,浮点累加次序因此也不变。
 //   · fn 拿到的是【复用的】视图对象:只许在回调里读,不许留引用。数值列存的是 Number(原值)(六个消费方本来就先
 //     Number() 再用),字符串类字段原值入字典(连类型一起保真:typeof 判断照旧),costTrusted 只在原值 === false
 //     时为 false,estimated 只在原值 === true 时为 true —— 与消费方的判据一一对应。多出一个 tsMs(= Date.parse(ts))。
 //   · RUYI_USAGE_CACHE=0 退回修前的整读路径(逃生口,也是 unit/usage-ledger-cache 差分测试的对照组)。
-const USAGE_CACHE_CHECK_BYTES = 32;
+const USAGE_CACHE_CHECK_BYTES = 256;
 const USAGE_CACHE_YIELD_LINES = 4000;   // 整月首次解析时每这么多行让一次事件循环(70 MB 的账不再一口气占住主线程)
 const USAGE_CACHE_ROW_BYTES = 8 * 5 + 1 + 4 * 7;   // 五个 Float64 列 + 标志位 + 七个字典号
 const usageLedgerCache = {
   months: new Map(),            // 月份文件名 -> { size, mtimeMs, committed, check, cols, tail }
-  dict: [], dictIndex: new Map(),
+  dict: [], dictIndex: new Map(), dictObjectIndex: new Map(),
   chain: Promise.resolve(),
   stats: { refreshes: 0, fullParses: 0, incrementalParses: 0, bytesParsed: 0 },
 };
 function usageLedgerCacheDisabled() { return process.env.RUYI_USAGE_CACHE === '0'; }
+// 对象 / 数组值(只可能来自外部写坏的行)按内容去重:原样交给消费方的是同内容的第一份实例 —— typeof、String()
+// 的结果都不变,而按引用去重会让每一行都在字典里新占一格、永不回收。
 function usageDictId(value) {
+  if (value !== null && typeof value === 'object') {
+    let key = '';
+    try { key = JSON.stringify(value); } catch { key = '?'; }
+    let id = usageLedgerCache.dictObjectIndex.get(key);
+    if (id === undefined) { id = usageLedgerCache.dict.length; usageLedgerCache.dict.push(value); usageLedgerCache.dictObjectIndex.set(key, id); }
+    return id;
+  }
   let id = usageLedgerCache.dictIndex.get(value);
   if (id === undefined) { id = usageLedgerCache.dict.length; usageLedgerCache.dict.push(value); usageLedgerCache.dictIndex.set(value, id); }
   return id;
@@ -965,7 +977,8 @@ async function refreshUsageLedgerCacheNow() {
       const st = await fsp.stat(file);
       const entry = usageLedgerCache.months.get(name);
       if (entry && entry.size === st.size && entry.mtimeMs === st.mtimeMs) continue;
-      const commit = entry && st.ino === entry.ino && st.size >= entry.committed ? await usageMonthIncremental(file, entry, st).catch(() => null) : null;
+      // 同尺寸只换了 mtime = 原地改写(追加一定变长)→ 整月重读
+      const commit = entry && st.ino === entry.ino && st.size > entry.size && st.size >= entry.committed ? await usageMonthIncremental(file, entry, st).catch(() => null) : null;
       if (commit) usageLedgerCache.months.set(name, commit());
       else usageLedgerCache.months.set(name, await usageMonthFullParse(file, st));
     } catch { usageLedgerCache.months.delete(name); }   // 读不了的月份与修前一样当它不存在
