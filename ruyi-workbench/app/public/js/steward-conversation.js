@@ -443,11 +443,16 @@ export function stewardAgoParts(iso, nowMs) {
 // 117u-G1：把「(value, unit) → 人话」这一步也提到模块级并导出，抽屉的卡头因此与对话流的卡头
 // 说【同一句】「3 分钟前」，而不是各自 new 一个 Intl（那就是第二处实现）。算不出来一律回空串，
 // 调用方据此整段不说 —— 与 stewardAgoParts 回 null 是同一条纪律。
+// 性能(前端):格式化器按语言缓存 —— 修前左栏每一行都 new 一个 Intl.RelativeTimeFormat(实测占左栏重画 ~12%)。
+const stewardAgoFormatters = new Map();
 export function stewardAgoLabel(iso, lang) {
   const parts = stewardAgoParts(iso, Date.now());
   if (!parts) return '';
   try {
-    return new Intl.RelativeTimeFormat(String(lang || '') || undefined, { numeric: 'auto' }).format(parts.value, parts.unit);
+    const key = String(lang || '');
+    let formatter = stewardAgoFormatters.get(key);
+    if (!formatter) { formatter = new Intl.RelativeTimeFormat(key || undefined, { numeric: 'auto' }); stewardAgoFormatters.set(key, formatter); }
+    return formatter.format(parts.value, parts.unit);
   } catch { return ''; }   // 没有 Intl.RelativeTimeFormat 的宿主：不说，而不是吐一个英文串
 }
 

@@ -250,11 +250,17 @@ function renderRawEventSnapshot() {
   rawEventDomQueue = [];
   if ($('debugAutoscroll')?.checked) pre.scrollTop = pre.scrollHeight;
 }
+// 性能(前端):流式时每一行事件都要问一次「调试页签开着没有」。修前每次在整棵 DOM 上 querySelector(长会话一万多个
+// 节点,2000 行事件累计 ~0.5 s);现在记住那颗按钮,只看它的 class —— 判据与原选择器相同(按钮被换掉就重新找)。
+let debugTabButton = null;
+function debugTabActive() {
+  if (!debugTabButton || !debugTabButton.isConnected) debugTabButton = document.querySelector('.tool-pane .tool-tabs button[data-tab="debug"]');
+  return Boolean(debugTabButton && debugTabButton.classList.contains('active'));
+}
 function scheduleRawEventDom(item) {
   // The debug feed used to build thousands of hidden DOM rows during normal chat streaming. Keep only the
   // bounded data cache while its tab is hidden; render it on demand when Debug is opened.
-  const active = document.querySelector('.tool-pane .tool-tabs button[data-tab="debug"].active');
-  if (!active) return;
+  if (!debugTabActive()) return;
   rawEventDomQueue.push(item);
   if (rawEventRaf) return;
   rawEventRaf = requestAnimationFrame(() => {

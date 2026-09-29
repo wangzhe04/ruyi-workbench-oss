@@ -350,9 +350,20 @@ export function missionStateIcon(state, size = 12) {
 }
 
 // name → SVGElement(未知名返回 null + warn)。
+// 性能(前端):左栏整表重画时每行都要几个图标,修前每次逐个 createElementNS + setAttribute(实测占左栏重画 ~1/3)。
+// 每个(名字, 尺寸)只造一份模板,之后给它的深拷贝 —— 调用方拿到的是独立节点,改它(比如 missionStateIcon 改描边)
+// 不影响模板,产出的 DOM 与现造的逐属性相同。
+const ICON_TEMPLATES = new Map();
 export function icon(name, size = 16) {
   const shapes = ICONS[name];
   if (!shapes) { console.warn('[icons] unknown icon:', name); return null; }
+  const key = name + '\u0000' + size;
+  let template = ICON_TEMPLATES.get(key);
+  if (!template) { template = buildIcon(shapes, size); ICON_TEMPLATES.set(key, template); }
+  // 没有 cloneNode 的宿主(单测里的最小 DOM 桩)照旧现造一份
+  return typeof template.cloneNode === 'function' ? template.cloneNode(true) : buildIcon(shapes, size);
+}
+function buildIcon(shapes, size) {
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('width', String(size));

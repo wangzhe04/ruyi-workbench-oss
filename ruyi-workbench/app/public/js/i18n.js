@@ -134,6 +134,7 @@ export function applyTranslations(root = document) {
 // 目录后到谁说了算，慢的那一次会把用户刚选的语言盖回去。每次取一个序号，回来时已不是最新那一次就不落地，
 // 并把【最新那一次】的结果交给自己的调用方（设置页拿返回值写 config.locale，不能写成被盖掉的旧值）。
 let localeSeq = 0;
+let localeDispatched = false;   // 至少派过一发 i18n:change 了没有(第一发的 changed 恒为 true)
 let latestLocaleRun = null;
 export async function setLocale(preferredLocale = 'auto') {
   const seq = ++localeSeq;
@@ -141,10 +142,14 @@ export async function setLocale(preferredLocale = 'auto') {
     const target = resolveLocale(preferredLocale);
     await Promise.all([loadCatalog(FALLBACK_LOCALE), target === FALLBACK_LOCALE ? null : loadCatalog(target)]);
     if (seq !== localeSeq) return latestLocaleRun;
+    // 性能(前端):detail.changed 告诉监听方语言到底换没换。开机连着两次 setLocale(initI18n('auto') 与读到配置后
+    // 的 setLocale(配置值))多半是同一种语言,修前第二发让 app.js 把当前会话整段重画(长会话 ~0.4 s)。第一发恒为 true。
+    const previousLocale = localeDispatched ? activeLocale : null;
     activeLocale = catalogs.has(target) ? target : FALLBACK_LOCALE;
     document.documentElement.lang = activeLocale;
     applyTranslations();
-    window.dispatchEvent(new CustomEvent('i18n:change', { detail: { locale: activeLocale } }));
+    localeDispatched = true;
+    window.dispatchEvent(new CustomEvent('i18n:change', { detail: { locale: activeLocale, changed: previousLocale !== activeLocale } }));
     return activeLocale;
   })();
   latestLocaleRun = run;
