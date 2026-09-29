@@ -54981,9 +54981,15 @@ const STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ = 500; // 首见 run:同上
 const STEWARD_FIRST_SIGHT_MAX_TURNS = 50;  // 116-4 首见会话:回合数不超过它才补一条,否则只建基线
 
 // ── 容量常量(游标不得无限增长) ───────────────────────────────────────────────
+// 这三个上限管的是【落盘】的游标(cursor-v1.json 的体积与重启后读回的条数),不管进程内存里的游标。
+// 修前 stewardSaveCursor 把它们同样用在内存游标上:第 501 个之后的会话每一拍都被裁掉,于是下一拍又算
+// 「首见」—— 整份会话头 readFile + JSON.parse、开 .changes.ndjson、readdir agent-runs 全走一遍
+// (2000 会话实测每拍约 700ms CPU、38k 次系统调用/分钟)。内存游标另有一档宽得多的上限,只防无界增长。
 const STEWARD_CURSOR_MAX_SESSIONS = 500;
 const STEWARD_CURSOR_MAX_RUNS = 500;
 const STEWARD_CURSOR_MAX_PENDING = 2000;
+const STEWARD_CURSOR_MEM_MAX_SESSIONS = 20000;   // 内存游标的会话条目上限(missionChanges / sessionTurns / budgetSeen 共用)
+const STEWARD_CURSOR_MEM_MAX_RUNS = 20000;       // 内存游标的 run 条目上限
 
 // ── 读取常量 ────────────────────────────────────────────────────────────────
 const STEWARD_INBOX_LIMIT_DEFAULT = 50;
@@ -55490,6 +55496,10 @@ const stewardRuntime = {
   // 116-4:第四源 sessionTurns 的游标 —— sid -> { turnSeq, stamp }。stamp 是投影免费给的
   // 会话文件指纹(size:mtime 的哈希);它没变就连会话头都不用读,这是第四源不把轮询成本推高的关键。
   cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} },
+  // 上一次【成功落盘】的游标内容指纹(不含 updatedAt)。stewardSaveCursor 每拍先算一遍当前指纹,
+  // 与它相同就不写盘 —— 15 秒一拍的空转轮询不该每拍 temp+rename 重写一份 65KB 的游标。
+  // 空串 = 本进程还没成功写过(装载/重置后的第一拍必写:冷启动基线、损坏游标的重建都靠这一拍)。
+  cursorSig: '',
   // 116-3 P0-3:本轮因单轮上限没能写进箱子的【原始】事件。游标在 stewardCollectEvents 里已经越过
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
@@ -55602,6 +55612,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
+  stewardRuntime.cursorSig = '';   // 重置 = 磁盘上那份不再可信,下一拍必须重写
   stewardRuntime.carry = [];
   stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
   stewardRuntime.adoptedRecent = new Map();   // 135:重复交接的去重窗口,同上
@@ -55752,42 +55763,66 @@ function stewardAppendInboxRows(rows) {
   return next;
 }
 
-// 游标落盘(容量控制在这里做:只留活跃集合 + 硬顶,过期条目直接清掉)。
+// 按 order 的顺序从 source 里挑出「有游标条目」的键,一趟同时产出两份:
+//   kept      —— 进程内存里留的(至多 memMax 条);
+//   persisted —— 写进 cursor-v1.json 的(至多 persistMax 条,恒为 kept 的前缀,所以「活跃的先留」的优先级不变)。
+// 计数用局部计数器,【不要】在循环里对累积对象再取 Object.keys(obj).length —— 那是 O(n^2),
+// 把上限调到 2 万之后 2000 会话一次 save 就阻塞事件循环 460ms(实测)。
+function stewardTrimCursorMap(order, source, memMax, persistMax) {
+  const kept = {};
+  const persisted = {};
+  let keptCount = 0;
+  let persistedCount = 0;
+  for (const key of order) {
+    if (keptCount >= memMax) break;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+    if (Object.prototype.hasOwnProperty.call(kept, key)) continue;   // order 里重复的键只算一次
+    kept[key] = source[key];
+    keptCount += 1;
+    if (persistedCount < persistMax) { persisted[key] = source[key]; persistedCount += 1; }
+  }
+  return { kept, persisted };
+}
+
+// 游标收紧 + 落盘。两档容量:内存游标保留本轮还见得到的全部会话/run(硬顶见 STEWARD_CURSOR_MEM_MAX_*,
+// 会话被删了自然被清掉),落盘只取其中排在最前(活跃优先)的 STEWARD_CURSOR_MAX_* 条 —— 重启后读回的
+// 语义与修前一致(超出落盘上限的会话重启后仍算首见),但运行期不再每拍把它们重新当首见。
+// 落盘只在内容真的变了时才写(指纹见 stewardRuntime.cursorSig),并且写紧凑 JSON(没人读缩进)。
 async function stewardSaveCursor(activeSessionIds, activeRunIds) {
-  const missionChanges = {};
-  for (const sid of activeSessionIds) {
-    if (Object.keys(missionChanges).length >= STEWARD_CURSOR_MAX_SESSIONS) break;
-    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.missionChanges, sid)) missionChanges[sid] = stewardRuntime.cursor.missionChanges[sid];
-  }
-  const agentRuns = {};
-  for (const runId of activeRunIds) {
-    if (Object.keys(agentRuns).length >= STEWARD_CURSOR_MAX_RUNS) break;
-    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.agentRuns, runId)) agentRuns[runId] = stewardRuntime.cursor.agentRuns[runId];
-  }
-  stewardRuntime.cursor.missionChanges = missionChanges;
-  stewardRuntime.cursor.agentRuns = agentRuns;
+  const mc = stewardTrimCursorMap(activeSessionIds, stewardRuntime.cursor.missionChanges, STEWARD_CURSOR_MEM_MAX_SESSIONS, STEWARD_CURSOR_MAX_SESSIONS);
+  const ar = stewardTrimCursorMap(activeRunIds, stewardRuntime.cursor.agentRuns, STEWARD_CURSOR_MEM_MAX_RUNS, STEWARD_CURSOR_MAX_RUNS);
+  stewardRuntime.cursor.missionChanges = mc.kept;
+  stewardRuntime.cursor.agentRuns = ar.kept;
   const pendingIds = [...stewardRuntime.cursor.pendingIds].slice(0, STEWARD_CURSOR_MAX_PENDING);
   stewardRuntime.cursor.pendingIds = new Set(pendingIds);
   // 116-3 P1-9:budgetSeen 与另外两源同款做容量控制 —— 只留【本轮还见得到的会话】(会话没了就没有
   // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
   // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
   const activeSet = new Set(activeSessionIds);
-  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(key => activeSet.has(String(key).split('\u0000')[0])).slice(0, STEWARD_CURSOR_MAX_SESSIONS);   // 键 = 会话 id(+ \u0000 + 用尽时刻)
-  stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
-  // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
-  const sessionTurns = {};
-  for (const sid of activeSessionIds) {
-    if (Object.keys(sessionTurns).length >= STEWARD_CURSOR_MAX_SESSIONS) break;
-    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.sessionTurns, sid)) sessionTurns[sid] = stewardRuntime.cursor.sessionTurns[sid];
+  const budgetKept = [];
+  for (const key of stewardRuntime.cursor.budgetSeen) {
+    if (budgetKept.length >= STEWARD_CURSOR_MEM_MAX_SESSIONS) break;
+    if (activeSet.has(String(key).split('\u0000')[0])) budgetKept.push(key);   // 键 = 会话 id(+ \u0000 + 用尽时刻)
   }
-  stewardRuntime.cursor.sessionTurns = sessionTurns;
+  stewardRuntime.cursor.budgetSeen = new Set(budgetKept);
+  const budgetSeen = budgetKept.slice(0, STEWARD_CURSOR_MAX_SESSIONS);
+  // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
+  const st = stewardTrimCursorMap(activeSessionIds, stewardRuntime.cursor.sessionTurns, STEWARD_CURSOR_MEM_MAX_SESSIONS, STEWARD_CURSOR_MAX_SESSIONS);
+  stewardRuntime.cursor.sessionTurns = st.kept;
+  const missionChanges = mc.persisted;
+  const agentRuns = ar.persisted;
+  const sessionTurns = st.persisted;
+  const sig = stewardRuntime.inboxSeq + '|' + JSON.stringify({ missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns });
+  if (sig === stewardRuntime.cursorSig) return { written: false };
   await fsp.mkdir(stewardDir(), { recursive: true });
-  await atomicWriteJson(stewardCursorPath(), {
+  await atomicWriteJson(stewardCursorPath(), JSON.stringify({
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),
     sources: { missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns },
-  });
+  }));
+  stewardRuntime.cursorSig = sig;   // 写成功才记:写失败下一拍照旧重试
+  return { written: true };
 }
 
 // ── 116-4 第四源 sessionTurns(27 号文 §11.7)─────────────────────────────────
@@ -56183,8 +56218,21 @@ async function stewardInboxRead(opts) {
   };
 }
 
-async function stewardInboxState(config) {
-  const cfg = (config && typeof config === 'object') ? config : await readConfig().catch(() => ({}));
+// 收件箱的「按类计数 + 最大 inboxSeq」备忘。/api/steward/state 由前端 30 秒(SSE 断时 5–15 秒)轮询,
+// 每个管家回合的状态块也会取一次;修前每次都把整份 inbox-v1.ndjson(全读上限 8MB)重读重解析,
+// 只为数这两样(7MB / 1.7 万行实测每次 80–130ms)。
+// 备忘的键是文件自己的 stat 指纹(路径 + size + mtimeMs + ino):追加、截断、被外部改写都会让指纹变,
+// 变了就照旧整份重算 —— 所以输出与修前逐位一致,而不是靠「每处写入都记得同步计数」的约定。
+// 先 stat 后读:读到的内容只可能【不早于】键所代表的那一刻,竞态下最坏是下次多重算一回,不会读到陈旧值。
+let stewardInboxCountsMemo = null;   // { key, byKind, inboxSeq }
+async function stewardInboxCounts() {
+  const file = stewardInboxPath();
+  let key = '';
+  try {
+    const st = await fsp.stat(file);
+    key = [file, st.size, st.mtimeMs, st.ino].join('|');
+  } catch { /* 文件不存在:下面按空箱子算,不进备忘 */ }
+  if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) return stewardInboxCountsMemo;
   const rows = await stewardReadInboxRows();
   const byKind = {};
   for (const kind of STEWARD_EVENT_KINDS) byKind[kind] = 0;
@@ -56193,6 +56241,16 @@ async function stewardInboxState(config) {
     inboxSeq = Math.max(inboxSeq, Number(row.inboxSeq) || 0);
     if (Object.prototype.hasOwnProperty.call(byKind, row.kind)) byKind[row.kind] += 1;
   }
+  const counts = { key, byKind, inboxSeq };
+  stewardInboxCountsMemo = key ? counts : null;
+  return counts;
+}
+
+async function stewardInboxState(config) {
+  const cfg = (config && typeof config === 'object') ? config : await readConfig().catch(() => ({}));
+  const counted = await stewardInboxCounts();
+  const byKind = { ...counted.byKind };   // 拷一份:备忘对象不外泄,调用方随便改也污染不了下一次
+  const inboxSeq = counted.inboxSeq;
   return {
     enabled: cfg.stewardEnabledV1 === true,
     running: stewardRuntime.running,

@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3070,
+    "providedSymbols": 3075,
     "requiredSymbols": 2924,
     "edges": 512,
     "forwardEdges": 68,
@@ -14542,6 +14542,8 @@
         "STEWARD_CURSOR_MAX_PENDING",
         "STEWARD_CURSOR_MAX_RUNS",
         "STEWARD_CURSOR_MAX_SESSIONS",
+        "STEWARD_CURSOR_MEM_MAX_RUNS",
+        "STEWARD_CURSOR_MEM_MAX_SESSIONS",
         "STEWARD_CURSOR_SCHEMA",
         "STEWARD_DEDUPE_TAIL_ROWS",
         "STEWARD_DIR_NAME",
@@ -14574,6 +14576,8 @@
         "stewardDir",
         "stewardEventDedupeKey",
         "stewardHeldTurnSessions",
+        "stewardInboxCounts",
+        "stewardInboxCountsMemo",
         "stewardInboxPath",
         "stewardInboxRead",
         "stewardInboxRowDedupeKeys",
@@ -14605,6 +14609,7 @@
         "stewardSaveCursor",
         "stewardThreadBackgroundBusy",
         "stewardTickOnce",
+        "stewardTrimCursorMap",
         "stopStewardInbox"
       ],
       "requires": [
