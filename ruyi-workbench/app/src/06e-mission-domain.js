@@ -37,14 +37,29 @@ function buildMissionPromptSection(mission, engine, config) {
 // HTTP 响应流】上自动续跑,直到:①全部里程碑 done(mission_complete);②预算耗尽(archive-pause,非报错);
 // ③停滞(digest K 轮不变 → 降 supervised + mission_stuck 卡片)。红线:驱动器不放宽任何权限(exec 弹窗照旧等人/
 // 超时,权限门在各引擎内部,驱动器够不着也不试图绕);自动回合全额记账(runOpenAiTurn 内 appendUsageLedger 照常)。
-async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive }) {
+async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive, ownsSession }) {
   const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
   const allDone = () => (session.mission.milestones.length > 0 && session.mission.milestones.every(m => m.status === 'done'));
   // 每轮:跑机器验收(自动标 done)→ 判完成/预算/停滞 → 决定停或续。
   for (let guard = 0; guard < 100; guard++) {   // guard 只是死循环兜底,真正上限是 maxAutoTurns
     const m = session.mission;
     if (!m || m.autoMode !== 'until-done') return;
-    if (!isAlive()) return;   // 用户断开/停止 → 立即收手
+    if (!isAlive()) {   // 用户断开/停止 → 立即收手
+      // hunt2-steward ⑤:收手时把 autoMode 从 until-done 降成 supervised(与预算耗尽/停滞两条出口同一个落点)。
+      // 修前原样返回,账本上还写着 until-done,而再也没有驱动器在跑 —— 线程五态按 autoMode 判「在跑」,
+      // 于是这条线程在看板上永远是 running,「继续」按钮也因 already_running 灰着。
+      // 只在这条会话【仍归本回合】时落盘(ownsSession 由 10 的 runSessionTurn 给,判据是它自己的
+      // turnSettlers 条目还在):被同来源的新回合 superseded 时,新回合手里那份才是权威,这里整份存盘会
+      // 盖掉它刚写的消息。陈旧(撤回之后)的对象同理不存。
+      const owned = typeof ownsSession === 'function' ? ownsSession() : true;
+      if (owned && !sessionObjectIsStale(session)) {
+        m.autoMode = 'supervised'; m.updatedAt = nowIso();
+        await saveSession(session).catch(() => {});
+        logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'not_alive' });
+        emit({ type: 'mission', mission: m });
+      }
+      return;
+    }
     // 128b(Brief §4.2 第 17 条):撤回只停得住 activeChildren 里的回合 —— 撤回落在两个回合之间时,驱动器手里这份对象是
     // 撤回之前读出来的,它接着起的回合、每一次存盘都会被撤回闸静默丢掉,却照样烧 token。陈旧就收手、记一条原因。
     if (sessionObjectIsStale(session)) { logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'rewound' }); return; }
@@ -108,4 +123,3 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     if (getLastTokens) { try { session.mission.spent.tokens += Number(getLastTokens()) || 0; } catch {} }
   }
 }
-

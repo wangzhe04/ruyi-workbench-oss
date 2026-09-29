@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2993,
-    "requiredSymbols": 2900,
-    "edges": 509,
+    "providedSymbols": 3003,
+    "requiredSymbols": 2902,
+    "edges": 510,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -5324,6 +5324,7 @@
         "stewardClipSay",
         "stewardConfigHelpFor",
         "stewardConfigTierFor",
+        "stewardCoveringLastTurn",
         "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptCatastrophicDelete",
         "stewardExemptDelegationVerdict",
@@ -9693,13 +9694,6 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
@@ -10962,6 +10956,7 @@
         "processCommandLine",
         "processImage",
         "proxyModelsCacheMemo",
+        "resetOrphanedMissionDrivers",
         "resolveNodeModel",
         "sendMcp",
         "sendMcpNotification",
@@ -14611,6 +14606,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardCoveringLastTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -17316,12 +17318,14 @@
       "note": "第117波 T2(32 号文 §5 拆分):管家提示词装配(记忆块/线程摘要/递话预判/总览/两个分叉入口)与输出契约解析(零行为搬家自 13h)",
       "provides": [
         "STEWARD_ACT_CONFIRM_MASK",
+        "_stewardDigestHeadCache",
         "_stewardPrerouteCache",
         "buildStewardSystemPrompt",
         "stewardActConfirmLines",
         "stewardActConfirmValueText",
         "stewardActLabel",
         "stewardContextBudget",
+        "stewardDigestHead",
         "stewardKnownWorkspaceRows",
         "stewardMemoryBlock",
         "stewardMemoryVetoedBlock",
@@ -17403,6 +17407,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -18135,7 +18146,10 @@
       "provides": [
         "STEWARD_COMMITMENT_I18N",
         "STEWARD_COMMITMENT_TEXT",
+        "STEWARD_INBOX_TURN_RETRY_MAX",
         "STEWARD_RELAY_CHANNELS",
+        "STEWARD_RELAY_SETTLE_WAIT_MS",
+        "STEWARD_VISIT_DIGEST_PAGES",
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
@@ -18143,6 +18157,7 @@
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardEnsureOpenAiRoute",
+        "stewardInboxRetryCounts",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
@@ -18150,10 +18165,12 @@
         "stewardQueueHasQuickAnswer",
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
+        "stewardRequeueFailedInboxBatch",
         "stewardRunAct",
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
+        "stewardUserWaiters",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
@@ -18270,6 +18287,13 @@
           "symbol": "promptDeadlineIsReal",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -26549,7 +26573,6 @@
       "from": "10-context-governance.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "activeChildren",
         "driverAutoSessions",
         "logEvent",
         "redact",
@@ -28116,6 +28139,7 @@
         "STEWARD_EVENT_KINDS",
         "STEWARD_SESSION_ID",
         "StewardHooks",
+        "stewardCoveringLastTurn",
         "stewardSanitizeText",
         "stewardWatchedThread"
       ],
@@ -28825,6 +28849,14 @@
     },
     {
       "from": "13o-steward-runner-prompt.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "applySessionPermissionModeOverride"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13o-steward-runner-prompt.js",
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
@@ -29114,7 +29146,8 @@
         "normalizeQuestionAnswer",
         "pendingPermissions",
         "pendingQuestions",
-        "promptDeadlineIsReal"
+        "promptDeadlineIsReal",
+        "turnSettlers"
       ],
       "direction": "backward"
     },

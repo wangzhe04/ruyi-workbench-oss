@@ -1845,6 +1845,38 @@ async function startServer(opts) {
   }
 }
 
+// hunt2-steward ⑤:启动清扫。until-done 驱动器只活在拉起它的那一次 runSessionTurn 里 —— 进程一重启,
+// 磁盘上仍写着 autoMode:'until-done' 的账本就再也没人推,线程五态却按它判成 running,永远不落地。
+// 与 markInterruptedAgentRuns / markInterruptedInterventions 同一立场:重启 = 上次生命周期结束,不自动续跑
+// (那要重新起回合、重新烧 token,得用户点头),而是诚实地降成 supervised,「继续」按钮随之可点。
+// 已收工(result.status === 'complete')的账本保留原值:五态先按 complete 判 done,改它只是白写一次盘。
+// 成本:只读会话头(正文在 .messages.ndjson 里,不碰),先按子串筛,命中才解析、才整份装载改写。
+// 在 listen 之前 await:此刻没有任何回合在跑。改写走 mutateSession(后台读-改-写的唯一原语)。
+// 落点:住在启动序列旁边而不是 06e —— 13 引用 06e 会新添一条循环边(06e 在强连通分量里)。
+async function resetOrphanedMissionDrivers() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return 0; }
+  let reset = 0;
+  for (const f of files) {
+    const hit = /^(sess_[A-Za-z0-9_-]+)\.json$/.exec(f);
+    if (!hit) continue;
+    const text = await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => '');
+    if (!/"autoMode"\s*:\s*"until-done"/.test(text)) continue;
+    const head = safeJsonParse(text, null);
+    const hm = head && head.mission;
+    if (!hm || hm.autoMode !== 'until-done' || (hm.result && hm.result.status === 'complete')) continue;
+    const r = await mutateSession(hit[1], session => {
+      if (!session.mission || session.mission.autoMode !== 'until-done') return { abort: 'not_armed' };
+      session.mission.autoMode = 'supervised';
+      session.mission.updatedAt = nowIso();
+      return null;
+    }, { writer: 'mission_driver_boot_reset' }).catch(() => null);
+    if (r && r.ok) reset += 1;
+  }
+  if (reset) logEvent({ kind: 'mission_driver_boot_reset', sessions: reset });
+  return reset;
+}
+
 async function startServerInner(opts) {
   try {
     await ensureDirs();
@@ -1866,6 +1898,7 @@ async function startServerInner(opts) {
   }
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
+  await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.

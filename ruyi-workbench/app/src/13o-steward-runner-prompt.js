@@ -103,6 +103,24 @@ function stewardMemoryVetoedBlock(entries, pack) {
   return '\n' + pack.steward.memoryVetoedHeader + '\n' + lines.join('\n') + folded;
 }
 
+// hunt2-steward ⑩(性能):总览每次都要为投影里的【每一条】会话读一次会话头(每个管家回合 / 每次到访 /
+// 每次预判缓存未命中),会话一多(实测 ~0.9ms/条,2000 条 1.8s)就全压在「管家开口前」那段等待上。
+// 按投影切片自带的 sourceStamp(会话头 + 待决 + run 文件的 size:mtime 指纹,13e pretenderSessionSourceStamp)
+// 记一份会话头:指纹没变就用上次读到的那份,变了才重读。saveSession / 待决写入都会给投影打脏页,
+// 下一次取投影时这片的指纹随之刷新,所以缓存与投影同一个新鲜度。会话级权限档的内存覆盖表每次都在
+// 【副本】上重新盖一遍(与 stewardReadSessionHead 同一纪律:活回合里刚切的档还没落盘也要读到)。
+// 只在本进程内存;不在投影里的会话随每一轮清掉,大小以投影为界。
+const _stewardDigestHeadCache = new Map();   // sid -> { stamp, head }
+async function stewardDigestHead(sid, stamp) {
+  const key = (typeof stamp === 'string' && stamp && stamp !== '-') ? stamp : '';
+  const hit = key ? _stewardDigestHeadCache.get(sid) : null;
+  if (hit && hit.stamp === key) return applySessionPermissionModeOverride({ ...hit.head });
+  const head = await stewardReadSessionHead(sid);
+  if (key && head && head.id) _stewardDigestHeadCache.set(sid, { stamp: key, head });
+  else _stewardDigestHeadCache.delete(sid);
+  return head ? applySessionPermissionModeOverride({ ...head }) : head;
+}
+
 // 线程总览行的数据装配。事实源与 116c 的 steward_thread_status 完全相同(13e 投影 + 会话头 +
 // 06i 的五态判据),只是按「一行一条」的口径取字段 —— 13g 不能复用本函数(那会是前向边),
 // 故这里是同一批原语的第二个调用方,不是第二个事实源。
@@ -125,10 +143,13 @@ async function stewardThreadDigestRows(config) {
   };
   const rows = [];
   const now = Date.now();
-  for (const slice of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
+  const slices = index && Array.isArray(index.sessions) ? index.sessions : [];
+  const liveIds = new Set(slices.map(slice => slice && slice.sessionId));
+  for (const sid of [..._stewardDigestHeadCache.keys()]) if (!liveIds.has(sid)) _stewardDigestHeadCache.delete(sid);
+  for (const slice of slices) {
     const sid = slice && safeSessionId(slice.sessionId);
     if (!sid || sid === STEWARD_SESSION_ID) continue;
-    const head = await stewardReadSessionHead(sid);
+    const head = await stewardDigestHead(sid, slice.sourceStamp);   // hunt2-steward ⑩:按投影指纹复用会话头
     if (!head || !head.id) continue;
     const rawKind = stewardRawKind(head);
     if (rawKind === 'steward') continue;   // 排除面:按会话头【原始】 kind 判,不经 sessionKind()

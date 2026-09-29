@@ -31,6 +31,8 @@
 //   · 用户回合撞用户回合:排队等前一个收尾(不取消 —— 用户自己的两句话都要答)。
 // 128f-⑪:已经报过「留给你」的权限请求 id(每条只报一次;有界,超过 512 条先进先出)。
 const stewardDeferredNotified = new Set();
+// hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
+const stewardUserWaiters = [];
 async function runStewardTurn(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -59,39 +61,60 @@ async function runStewardTurn(input) {
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
   const inflight = stewardRunnerRuntime.inflight;
-  if (inflight) {
-    if (trigger === 'inbox') {
-      stewardRunnerRuntime.queue.push(...events);
-      return stewardFail('steward.busy', 'a steward turn is already in flight; the inbox batch was re-queued');
-    }
-    if (inflight.kind === 'inbox') {
-      inflight.cancelled = 'preempted';
-      stewardRunnerRuntime.queue.push(...(inflight.events || []));   // 事件不丢:重排到下一轮
-      stewardAbortInflight(inflight);
-      logEvent({ kind: 'steward_preempt', preempted: 'inbox', requeued: (inflight.events || []).length });
-    }
+  if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
+    // 有在途回合,或有用户的话正排着队(槽位刚空、它还没醒过来认领):收件箱批次回排,不插队。
+    stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.busy', 'a steward turn is already in flight; the inbox batch was re-queued');
+  }
+  if (inflight || stewardUserWaiters.length) {
     // 无论取消与否都等在途那个收尾:管家会话同一时刻只能有一个回合在写它的正文。
     //
     // 117l D3(§11.9;用户第四轮走查第 6 条):修前这里是【一发】 Promise.race(15s),之后不复查
     // stewardRunnerRuntime.inflight —— 一个跑了 16 秒还在写正文的回合会被这条路径直接放行,于是
     // 第二句用户的话带着另一个回合同时开跑,两个回合抢同一份 session.messages(后写者赢),用户
     // 看到的就是「输出完了还说在忙上一件」和一条被吞掉的回复。
-    // 修法:循环等到在途那个真的不在了(或换成了别的 entry —— 那说明本次要等的这个已经收尾,
-    // 后面那个是新来的,由它自己那一层去等),总上限 5 分钟。真等过才记一条审计。
+    // 修法:循环等到轮到自己,总上限 5 分钟。真等过才记一条审计。
+    //
+    // hunt2-steward ①:修前循环条件是「inflight 仍是【进门时看到的】那一个」—— 两句用户的话排在同一个
+    // 在途回合后面时,它一收尾,先醒的那句同步认领了槽位,后醒的那句一看「已经不是我等的那个了」也冲了
+    // 出去,两个回合同时开跑,后开的把先开的 superseded 掉(一句话被吞)。现在:
+    //   · 每一圈都【重读】槽位,只要里面还有别人就接着等;
+    //   · 排队的用户回合按到达先后排成一列(stewardUserWaiters),只有排头能认领 —— 用户说的两句话
+    //     按他说的顺序答,不看谁的定时器先醒;
+    //   · 槽位里若换成了一个收件箱回合(理论上上面的入口已拦住,兜底),照「用户永远优先」抢占它。
+    // 退出循环之后到认领之间仍然没有 await。
+    stewardUserWaiters.push(entry);
     const waitStartedAt = Date.now();
-    while (stewardRunnerRuntime.inflight === inflight) {
-      if (Date.now() - waitStartedAt >= STEWARD_USER_QUEUE_WAIT_MS) {
-        logEvent({ kind: 'steward_user_turn_timeout', waitedMs: Date.now() - waitStartedAt, waitedFor: inflight.kind });
-        return stewardFail('steward.busy', `上一件还没写完(已经等了 ${Math.round((Date.now() - waitStartedAt) / 1000)} 秒),先看看它是不是卡住了`, { trigger, waitedMs: Date.now() - waitStartedAt });
+    let waitedFor = inflight ? inflight.kind : 'user';
+    try {
+      for (;;) {
+        const current = stewardRunnerRuntime.inflight;
+        if (!current && stewardUserWaiters[0] === entry) break;
+        const target = current || stewardUserWaiters[0];
+        waitedFor = target.kind;
+        if (current && current.kind === 'inbox' && !current.cancelled) {
+          current.cancelled = 'preempted';
+          stewardRunnerRuntime.queue.push(...(current.events || []));   // 事件不丢:重排到下一轮
+          stewardAbortInflight(current);
+          logEvent({ kind: 'steward_preempt', preempted: 'inbox', requeued: (current.events || []).length });
+        }
+        if (Date.now() - waitStartedAt >= STEWARD_USER_QUEUE_WAIT_MS) {
+          logEvent({ kind: 'steward_user_turn_timeout', waitedMs: Date.now() - waitStartedAt, waitedFor });
+          return stewardFail('steward.busy', `上一件还没写完(已经等了 ${Math.round((Date.now() - waitStartedAt) / 1000)} 秒),先看看它是不是卡住了`, { trigger, waitedMs: Date.now() - waitStartedAt });
+        }
+        await Promise.race([
+          (target.promise || Promise.resolve()).catch(() => {}),
+          new Promise(resolve => { const t = setTimeout(resolve, 200); if (t && t.unref) t.unref(); }),
+        ]);
       }
-      await Promise.race([
-        inflight.promise.catch(() => {}),
-        new Promise(resolve => { const t = setTimeout(resolve, 200); if (t && t.unref) t.unref(); }),
-      ]);
+    } finally {
+      // 认领或超时都出列(同步,与下面的认领之间没有 await)。
+      const at = stewardUserWaiters.indexOf(entry);
+      if (at >= 0) stewardUserWaiters.splice(at, 1);
     }
     const waitedMs = Date.now() - waitStartedAt;
     // 「真等过」才记账:抢占一个收件箱回合通常是毫秒级,那不该在审计里刷屏。
-    if (waitedMs > 0) logEvent({ kind: 'steward_user_turn_queued', waitedMs, waitedFor: inflight.kind, trigger });
+    if (waitedMs > 0) logEvent({ kind: 'steward_user_turn_queued', waitedMs, waitedFor, trigger });
   }
 
   stewardRunnerRuntime.inflight = entry;   // 同步认领(与上面的 while 判定之间没有 await)
@@ -177,6 +200,7 @@ async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
 async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, onEvent, events) {
   const ensured = await ensureStewardSession(config);
   if (!ensured.ok) {
+    if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'engine_unavailable');
     return stewardFail(ensured.error, ensured.message || 'steward engine is unsupported', { engine: ensured.engine });
   }
   const session = ensured.session;
@@ -239,9 +263,14 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 
   // 回合本身失败(端点不通/被停/装载抛错)时【不能】去读「最后一条助手消息」—— 那是【上一个】回合
   // 的话,拿它当本回合的回答就是把旧答复冒充成新答复。如实回一条稳定信封,say 留给界面说人话。
-  if (turn && turn.ok === false) {
-    const detail = String(turn.error || '').slice(0, 300);
+  // hunt2-steward ③:成败还要看【内层】 result.ok(与 13k stewardRecordLaunchOutcome 同一口径)——
+  // 端点回 HTTP 500 时 runSessionTurn 外层照样 ok:true(「这次调用完成了」),修前据此把一个失败回合
+  // 当成功解析,say 为空、收件箱那一批事件已经从队列里拿走,就此蒸发。
+  const turnInner = (turn && turn.result && typeof turn.result === 'object') ? turn.result : null;
+  if (turn && (turn.ok === false || (turnInner && turnInner.ok === false))) {
+    const detail = String(turn.error || (turnInner && (turnInner.error || turnInner.errorClass)) || '').slice(0, 300);
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
+    if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
     return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
@@ -385,6 +414,26 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 // ────────────────────────────────────────────────────────────────────────────
 // 收件箱驱动:116b 每轮写完箱子调 onInboxBatch,这里做 5 秒去抖后起一个收件箱回合。
 // ────────────────────────────────────────────────────────────────────────────
+// hunt2-steward ③:收件箱回合失败(端点不通 / 引擎不可用)时这一批事件回到队列【头部】,下一次排空
+// 先处理它们 —— 修前它们在定时器里被 splice 出去之后就再也没人管。重试有界:同一条事件最多再试
+// STEWARD_INBOX_TURN_RETRY_MAX 次,端点长期不通时不会每 5 秒空转一次到天荒地老;超过就放弃并记审计
+// (事件本身仍在收件箱落盘的账里,到访摘要照样看得见它)。次数记在 WeakMap 上,不改事件对象的形状。
+const STEWARD_INBOX_TURN_RETRY_MAX = 3;
+const stewardInboxRetryCounts = new WeakMap();
+function stewardRequeueFailedInboxBatch(events, reason) {
+  if (stewardRunnerRuntime.stopped) return;
+  const keep = [];
+  let dropped = 0;
+  for (const evt of (Array.isArray(events) ? events : [])) {
+    if (!evt || typeof evt !== 'object') continue;
+    const tries = (stewardInboxRetryCounts.get(evt) || 0) + 1;
+    if (tries > STEWARD_INBOX_TURN_RETRY_MAX) { dropped += 1; continue; }
+    stewardInboxRetryCounts.set(evt, tries);
+    keep.push(evt);
+  }
+  if (keep.length) stewardRunnerRuntime.queue.unshift(...keep);
+  logEvent({ kind: 'steward_inbox_requeued', reason: String(reason || ''), requeued: keep.length, dropped });
+}
 // 116-3 P1-10:排空是【自持】的。修前只有「轮询器又写了新的一批」才会排一次定时器,于是一次大批量
 // 积压超过 30 条之后,只要活动很快安静下来,剩下的条目会一直躺在内存队列里没人处理(而且是纯内存态,
 // 进程重启整份丢失);用户来跟管家说话也不会把它清掉。现在:一批处理完队列还有就接着排一个定时器;
@@ -536,12 +585,26 @@ const STEWARD_COMMITMENT_I18N = Object.freeze({
   missed: 'stewardShell.digest.commitment.missed',
   needsYou: 'stewardShell.digest.commitment.needsYou',
 });
+// hunt2-steward ⑧:到访摘要逐页读完「上次到访以来」的收件箱(读口一页至多 200 行)。修前只读第一页,
+// 水位却推到全箱最大的 inboxSeq —— 离开期间攒下超过 200 行时,第 201 行往后的事件永远不进任何一次摘要。
+// 页数有帽(STEWARD_VISIT_DIGEST_PAGES);帽子到了还没读完,水位就停在【最后读到的那一行】,
+// 余下的留给下一次到访,不跳过。
+const STEWARD_VISIT_DIGEST_PAGES = 25;
 async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
-  const read = await stewardInboxRead({ since: sinceSeq, limit: 200 }).catch(() => ({ items: [], inboxSeq: 0 }));
   const counts = {};
   for (const kind of STEWARD_EVENT_KINDS) counts[kind] = 0;
-  for (const row of (read.items || [])) {
-    if (Object.prototype.hasOwnProperty.call(counts, row && row.kind)) counts[row.kind] += Math.max(1, Number(row.count) || 1);
+  let cursor = Math.max(0, Number(sinceSeq) || 0);
+  let watermark = cursor;
+  for (let page = 0; page < STEWARD_VISIT_DIGEST_PAGES; page++) {
+    const read = await stewardInboxRead({ since: cursor, limit: 200 }).catch(() => null);
+    if (!read) break;   // 读失败:水位不动,下一次到访重读
+    const rows = Array.isArray(read.items) ? read.items : [];
+    for (const row of rows) {
+      if (Object.prototype.hasOwnProperty.call(counts, row && row.kind)) counts[row.kind] += Math.max(1, Number(row.count) || 1);
+      cursor = Math.max(cursor, Number(row && row.inboxSeq) || 0);
+    }
+    watermark = cursor;
+    if (!read.hasMore || !rows.length) { watermark = Math.max(cursor, Number(read.inboxSeq) || 0); break; }
   }
   const items = [];
   for (const kind of STEWARD_EVENT_KINDS) {
@@ -569,7 +632,7 @@ async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
   return {
     items, counts,
     commitments: { upcoming: commitments.upcoming, missed: commitments.missed, needsYou: commitments.needsYou },
-    inboxSeq: Math.max(0, Number(read.inboxSeq) || 0),
+    inboxSeq: watermark,
     fireSeq: Math.max(0, Number(commitments.fireSeq) || 0),
   };
 }
@@ -755,6 +818,8 @@ function stewardEnsureOpenAiRoute(session, config, tier) {
 // 117l-A1-fix (1):第五种目标状态 'queued'(在仲裁器队列里等着开跑)。它排在 steer 之前 ——
 // 见 stewardRelayChannelFor 里那段头注。
 const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'queued', 'steer', 'turn']);
+// hunt2-steward ②:递话撞上「回合起步 / 收尾」窗口时最多等多久再重判(见 stewardRelayDeliver)。
+const STEWARD_RELAY_SETTLE_WAIT_MS = 5000;
 
 // 判定单点。只读内存注册表(04 的三张待决表)与活回合表,零写入、零文件读 —— 判定必须便宜,
 // 它在每一次递话前都要跑一遍。用【内存】表而不是待决旁路账:旁路账里可能留着一条回合已经死掉的
@@ -784,6 +849,13 @@ function stewardRelayChannelFor(sessionId) {
   const queuedWait = stewardArbiterWait(sid);
   if (queuedWait) return { channel: 'queued', wait: waitReasonFor({ pending: 0 }, queuedWait) };
   if (activeChildren.has(sid)) return { channel: 'steer' };
+  // hunt2-steward ②:回合已经进了 10 runSessionTurn(turnSettlers 已登记)、但引擎还没把它登记进
+  // activeChildren —— 起步那几个 await 的窗口,或 until-done 驱动器两回合之间的空档。此刻判成 turn 会
+  // 让新回合在 09 里把它 superseded 掉;插话也还插不进去(没有活子回合接它)。与上面仲裁器排队同一个
+  // 保守方向:判成 queued。settling:true 标出这是「回合正在起步/收尾」而不是真的在仲裁器里排队 ——
+  // 这两个窗口都很短,执行单点(stewardRelayDeliver)会先等一小会儿再重判一次,不急着退回给用户。
+  // (回合收尾那一段同样落在这里:09 先把回合移出 activeChildren,再做收尾的几次存盘。)
+  if (turnSettlers.has(sid)) return { channel: 'queued', wait: null, settling: true };
   return { channel: 'turn' };
 }
 
@@ -797,7 +869,19 @@ async function stewardRelayDeliver(input) {
   const title = String(o.title || '');
   if (!sid) return stewardFail('not_found', 'invalid sessionId');
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
-  const decided = stewardRelayChannelFor(sid);
+  let decided = stewardRelayChannelFor(sid);
+  // hunt2-steward ②:「起步 / 收尾」窗口(见 stewardRelayChannelFor)只是一瞬:等那个回合收尾(或引擎
+  // 把它登记进 activeChildren)再重判,至多 STEWARD_RELAY_SETTLE_WAIT_MS —— 收尾完了走 turn,起步完了走 steer。
+  // 等不到才照 queued 退回。仲裁器排队(settling 不在)不等:那可能是几分钟。
+  const settleDeadline = Date.now() + STEWARD_RELAY_SETTLE_WAIT_MS;
+  while (decided.channel === 'queued' && decided.settling === true && Date.now() < settleDeadline) {
+    const settler = turnSettlers.get(sid);
+    await Promise.race([
+      settler && settler.promise ? settler.promise.catch(() => {}) : Promise.resolve(),
+      new Promise(resolve => { const t = setTimeout(resolve, 100); if (t && t.unref) t.unref(); }),
+    ]);
+    decided = stewardRelayChannelFor(sid);
+  }
 
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,

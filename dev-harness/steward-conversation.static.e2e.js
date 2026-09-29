@@ -143,6 +143,17 @@ ok(/if \(!isStewardMode\(\)\) return;/.test(composer)
   'D4 预判受「管家模式 + 管家开关」双重门控（非管家模式零请求，延续 117b 纪律）');
 ok(/api\(`\/api\/steward\/preroute\?q=\$\{encodeURIComponent\(query\)\}\$\{focusParam\}`\)/.test(composer),
   'D5 预判走既有的 GET /api/steward/preroute（128h-J03 起多带一个可缺的 focus）');
+// hunt2-steward ⑦:两个「这一趟预判不该再落屏」的时刻也要让在途请求作废(序号 +1),不止离开管家壳那一处 ——
+// 输入框被清空(runPreroute 的空串分支)与一句话发出去之后(submit)。修前慢响应回来会把刚复位的 chip 又填回去。
+{
+  const { functionBlock } = require('./lib/source-slice');
+  const runBody = functionBlock(composer, 'runPreroute');
+  const submitBody = functionBlock(composer, 'submit');
+  ok(/if \(!query\) \{ prerouteSeq \+= 1;/.test(runBody),
+    'D5e 输入框清空的那一支让在途预判作废(prerouteSeq += 1)');
+  ok(/cancelPreroute\(\);\s*closePicker\(\);\s*prerouteSeq \+= 1;/.test(submitBody),
+    'D5f 发出一句话之后在途预判作废(cancelPreroute / closePicker 之后 prerouteSeq += 1)');
+}
 // 128h-J03（41 号文 J03「继续那个」）：focus 取自 focusThreadId()（取不到当没有），壳层接的是右栏抽屉此刻那一条 ——
 // 拿掉任一处，「继续那个」就又落不到焦点上（纯函数与路由那两层由 unit/steward-preroute ⑫ 与 steward-preroute.e2e (J) 钉）。
 ok(/try \{ focus = String\(focusThreadId\(\) \|\| ''\); \} catch \{ focus = ''; \}/.test(composer)

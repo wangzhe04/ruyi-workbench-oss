@@ -2535,10 +2535,15 @@ async function runSessionTurn(input) {
   // (与上面那条 STEWARD_SESSION_FORBIDDEN 逐字同一条纪律)。也必须在这里而不是 09/05 各钉一遍:
   // 那两行在 runSessionTurn 的下游,而且那时用户消息已经落盘、响应头已经发出,回不了 4xx;
   // runSessionTurn 是两个引擎唯一的汇合点,守一处等于守两处。
-  const busyReg = activeChildren.get(session.id) || null;
-  const busySettler = busyReg ? turnSettlers.get(session.id) : null;
+  // hunt2-steward ②:「忙」读 turnSettlers 本身,不再先要求 activeChildren 里有它。activeChildren 要等引擎
+  // 里好几个 await 之后(09 登记子进程/中止器那一步)才写上,而 turnSettlers 在本函数同步段就登记了 ——
+  // 修前一个刚开跑的回合在这段窗口里对别处来的一句话【不算忙】,管家递话于是起一个新回合,在 09 里把
+  // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
+  // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
+  // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busyReg && busySource && busySource !== source) {
+  if (busySettler && busySource && busySource !== source) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -2732,7 +2737,7 @@ async function runSessionTurn(input) {
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
     // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
     }
   } catch (err) {
     // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。

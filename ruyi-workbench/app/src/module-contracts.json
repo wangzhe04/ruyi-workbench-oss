@@ -5254,6 +5254,7 @@
         "stewardClipSay",
         "stewardConfigHelpFor",
         "stewardConfigTierFor",
+        "stewardCoveringLastTurn",
         "stewardExemptAbsoluteDeleteTarget",
         "stewardExemptCatastrophicDelete",
         "stewardExemptDelegationVerdict",
@@ -9599,13 +9600,6 @@
         },
         {
           "provider": "04-permission-runtime.js",
-          "symbol": "activeChildren",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
@@ -10860,6 +10854,7 @@
         "processCommandLine",
         "processImage",
         "proxyModelsCacheMemo",
+        "resetOrphanedMissionDrivers",
         "resolveNodeModel",
         "sendMcp",
         "sendMcpNotification",
@@ -14499,6 +14494,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardCoveringLastTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -17190,12 +17192,14 @@
       "layer": "transport",
       "provides": [
         "STEWARD_ACT_CONFIRM_MASK",
+        "_stewardDigestHeadCache",
         "_stewardPrerouteCache",
         "buildStewardSystemPrompt",
         "stewardActConfirmLines",
         "stewardActConfirmValueText",
         "stewardActLabel",
         "stewardContextBudget",
+        "stewardDigestHead",
         "stewardKnownWorkspaceRows",
         "stewardMemoryBlock",
         "stewardMemoryVetoedBlock",
@@ -17277,6 +17281,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -18005,7 +18016,10 @@
       "provides": [
         "STEWARD_COMMITMENT_I18N",
         "STEWARD_COMMITMENT_TEXT",
+        "STEWARD_INBOX_TURN_RETRY_MAX",
         "STEWARD_RELAY_CHANNELS",
+        "STEWARD_RELAY_SETTLE_WAIT_MS",
+        "STEWARD_VISIT_DIGEST_PAGES",
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
@@ -18013,6 +18027,7 @@
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardEnsureOpenAiRoute",
+        "stewardInboxRetryCounts",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
@@ -18020,10 +18035,12 @@
         "stewardQueueHasQuickAnswer",
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
+        "stewardRequeueFailedInboxBatch",
         "stewardRunAct",
         "stewardRunClaimedTurn",
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
+        "stewardUserWaiters",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
@@ -18140,6 +18157,13 @@
           "symbol": "promptDeadlineIsReal",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
           ]
         },
         {

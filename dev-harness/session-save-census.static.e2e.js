@@ -19,7 +19,7 @@ const CENSUS = {
   '02-session-store.js': 9,      // 回合外的存储层自身:updateSessionMeta ×2、loadSession 自愈 ×2、v1 回退、createSession、撤回、mutateSession、任务控制
   '05-claude-engine.js': 4,      // runClaudeTurn 自存
   '05b-kimi-bridge.js': 3,       // Kimi 回合自存(runKimiCompact 已改走 mutateSession)
-  '06e-mission-domain.js': 5,    // 驱动器自存(拿着聊天流那份对象;撤回后由 sessionObjectIsStale 收手)
+  '06e-mission-domain.js': 6,    // 驱动器自存(拿着聊天流那份对象;撤回后由 sessionObjectIsStale 收手);hunt2-steward ⑤ 收手时降 supervised 那一存同属回合自存(仍归本回合、不陈旧才存)
   '07-autonomy.js': 1,           // steer 排空(回合自存)
   '09-workflow.js': 10,          // runOpenAiTurn 自存
   '10-context-governance.js': 1, // maybeAutoCompact(回合自存,L1 / L2 / L2 失败保 L1 三个出口并成一处);两个手动压缩已改走 mutateSession

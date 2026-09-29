@@ -26347,11 +26347,21 @@ function deriveStewardThreadState(n) {
   const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
 }
+// hunt2-steward ④:stewardLastTurn 只在【盖得住当前回合】(last.seq >= turnSeq)时才算数 —— 与 13i 收集
+// 第四源、stewardStoppedTarget 同一条纪律。它只由管家/调度器发起的回合在 settle 之后写;用户在 2.0 里
+// 自己接着聊的回合不写它。修前不核 seq:一条很久以前失败过的管家回合留下的 ok:false,会把之后每一个
+// 跑成功的用户回合都判成「已停工」,收件箱也把它们报成「回合失败」。三处读法(卡片适配器 / 会话头
+// 适配器 / 13i 第四源)共用这一个判据;前端 mission-state.js 的 fromCard 抄同一行。
+function stewardCoveringLastTurn(last, turnSeq) {
+  if (!last || typeof last !== 'object') return null;
+  return Math.max(0, Number(last.seq) || 0) >= Math.max(0, Number(turnSeq) || 0) ? last : null;
+}
 // 投影卡片(13e overlayMissionCard 的输出,与 /api/missions 下发的 card 同形)适配器 —— 逐条对应
 // mission-state.js 的 fromCard。card 为 null(非 mission 会话)时由调用方走 head 派生分支。
 function stewardThreadStateFromCard(card) {
   const m = (card && card.mission) || {};
   const lr = (card && card.lastRun) || null;
+  const lastTurn = stewardCoveringLastTurn(card && card.lastTurn, card && card.turnSeq);
   return deriveStewardThreadState({
     // 121-K3:身份取卡片的 `quick` 格,不再取 `kind`。两条路径必须给同一条线程同一个答案 ——
     // 会话头那条路(13g thread_status / 13o 总览的 else 支)写的就是
@@ -26371,7 +26381,7 @@ function stewardThreadStateFromCard(card) {
     // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
     turnSeq: card && card.turnSeq,
     ledgerless: !!(card && card.status === 'none'),
-    lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
+    lastTurnFailed: !!(lastTurn && (lastTurn.ok === false || lastTurn.aborted === true)),
     milestonesTotal: m.milestonesTotal,
     milestonesDone: m.done,
   });
@@ -26386,7 +26396,7 @@ function stewardThreadStateFromCard(card) {
 function stewardThreadStateFromHead(head, extra) {
   const h = (head && typeof head === 'object') ? head : {};
   const mission = h.mission || null;
-  const last = h.stewardLastTurn || null;
+  const last = stewardCoveringLastTurn(h.stewardLastTurn, h.turnSeq);   // hunt2-steward ④
   return deriveStewardThreadState({
     autoMode: mission && mission.autoMode,
     resultStatus: (mission && mission.result && mission.result.status) || '',
@@ -29497,14 +29507,29 @@ function buildMissionPromptSection(mission, engine, config) {
 // HTTP 响应流】上自动续跑,直到:①全部里程碑 done(mission_complete);②预算耗尽(archive-pause,非报错);
 // ③停滞(digest K 轮不变 → 降 supervised + mission_stuck 卡片)。红线:驱动器不放宽任何权限(exec 弹窗照旧等人/
 // 超时,权限门在各引擎内部,驱动器够不着也不试图绕);自动回合全额记账(runOpenAiTurn 内 appendUsageLedger 照常)。
-async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive }) {
+async function runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens, isAlive, ownsSession }) {
   const cwd = normalizeCwd(session.cwd, config.defaultWorkspace);
   const allDone = () => (session.mission.milestones.length > 0 && session.mission.milestones.every(m => m.status === 'done'));
   // 每轮:跑机器验收(自动标 done)→ 判完成/预算/停滞 → 决定停或续。
   for (let guard = 0; guard < 100; guard++) {   // guard 只是死循环兜底,真正上限是 maxAutoTurns
     const m = session.mission;
     if (!m || m.autoMode !== 'until-done') return;
-    if (!isAlive()) return;   // 用户断开/停止 → 立即收手
+    if (!isAlive()) {   // 用户断开/停止 → 立即收手
+      // hunt2-steward ⑤:收手时把 autoMode 从 until-done 降成 supervised(与预算耗尽/停滞两条出口同一个落点)。
+      // 修前原样返回,账本上还写着 until-done,而再也没有驱动器在跑 —— 线程五态按 autoMode 判「在跑」,
+      // 于是这条线程在看板上永远是 running,「继续」按钮也因 already_running 灰着。
+      // 只在这条会话【仍归本回合】时落盘(ownsSession 由 10 的 runSessionTurn 给,判据是它自己的
+      // turnSettlers 条目还在):被同来源的新回合 superseded 时,新回合手里那份才是权威,这里整份存盘会
+      // 盖掉它刚写的消息。陈旧(撤回之后)的对象同理不存。
+      const owned = typeof ownsSession === 'function' ? ownsSession() : true;
+      if (owned && !sessionObjectIsStale(session)) {
+        m.autoMode = 'supervised'; m.updatedAt = nowIso();
+        await saveSession(session).catch(() => {});
+        logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'not_alive' });
+        emit({ type: 'mission', mission: m });
+      }
+      return;
+    }
     // 128b(Brief §4.2 第 17 条):撤回只停得住 activeChildren 里的回合 —— 撤回落在两个回合之间时,驱动器手里这份对象是
     // 撤回之前读出来的,它接着起的回合、每一次存盘都会被撤回闸静默丢掉,却照样烧 token。陈旧就收手、记一条原因。
     if (sessionObjectIsStale(session)) { logEvent({ kind: 'mission_driver_stopped', sessionId: session.id, reason: 'rewound' }); return; }
@@ -29568,7 +29593,6 @@ async function runMissionDriver({ session, config, provider, emit, runTurn, getL
     if (getLastTokens) { try { session.mission.spent.tokens += Number(getLastTokens()) || 0; } catch {} }
   }
 }
-
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════
 // 第27波(AUTONOMY-PLAN §27):自主性授权书(Autonomy Grant)—— 现有权限系统的严格【子集缓存】,不是新权限来源。
@@ -41117,10 +41141,15 @@ async function runSessionTurn(input) {
   // (与上面那条 STEWARD_SESSION_FORBIDDEN 逐字同一条纪律)。也必须在这里而不是 09/05 各钉一遍:
   // 那两行在 runSessionTurn 的下游,而且那时用户消息已经落盘、响应头已经发出,回不了 4xx;
   // runSessionTurn 是两个引擎唯一的汇合点,守一处等于守两处。
-  const busyReg = activeChildren.get(session.id) || null;
-  const busySettler = busyReg ? turnSettlers.get(session.id) : null;
+  // hunt2-steward ②:「忙」读 turnSettlers 本身,不再先要求 activeChildren 里有它。activeChildren 要等引擎
+  // 里好几个 await 之后(09 登记子进程/中止器那一步)才写上,而 turnSettlers 在本函数同步段就登记了 ——
+  // 修前一个刚开跑的回合在这段窗口里对别处来的一句话【不算忙】,管家递话于是起一个新回合,在 09 里把
+  // 刚开跑的用户回合 superseded 掉(用户那句话丢了)。turnSettlers 条目覆盖整个 runSessionTurn(含
+  // until-done 驱动器两回合之间的空档),正是「这条线程此刻有一个回合归别人」的完整区间。
+  // 检查与下面 turnSettlers.set 之间没有 await,两个并发调用不会都判成空闲。
+  const busySettler = turnSettlers.get(session.id) || null;
   const busySource = busySettler ? String(busySettler.source || '') : '';
-  if (busyReg && busySource && busySource !== source) {
+  if (busySettler && busySource && busySource !== source) {
     throw Object.assign(new Error('这条线程正在跑一个由「' + busySource + '」发起的回合;要接着说就插话(POST /api/steer),新回合不会顶掉它'), {
       code: 'SESSION_TURN_BUSY_ELSEWHERE', statusCode: 409, turnSource: busySource,
     });
@@ -41314,7 +41343,7 @@ async function runSessionTurn(input) {
     // 对抗轮 P2: isAlive 同时看 turnStopped —— /api/stop(服务端 stopSession,不关 socket)也要能刹住驱动器,
     // 不能只靠客户端断连(否则脚本/代理调 /api/stop 后驱动器仍relaunch 到预算耗尽)。
     if (session.mission && session.mission.autoMode === 'until-done') {
-      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped });
+      await runMissionDriver({ session, config, provider, emit, runTurn, getLastTokens: () => lastTurnTokens, isAlive: () => !disconnectHandled && !finished && !turnStopped, ownsSession: () => turnSettlers.get(session.id) === settleEntry });
     }
   } catch (err) {
     // 116h:排队中被取消 -> 与「被 /api/stop 停掉」同一条语义(process/stopped),不是错误信封。
@@ -49120,6 +49149,38 @@ async function startServer(opts) {
   }
 }
 
+// hunt2-steward ⑤:启动清扫。until-done 驱动器只活在拉起它的那一次 runSessionTurn 里 —— 进程一重启,
+// 磁盘上仍写着 autoMode:'until-done' 的账本就再也没人推,线程五态却按它判成 running,永远不落地。
+// 与 markInterruptedAgentRuns / markInterruptedInterventions 同一立场:重启 = 上次生命周期结束,不自动续跑
+// (那要重新起回合、重新烧 token,得用户点头),而是诚实地降成 supervised,「继续」按钮随之可点。
+// 已收工(result.status === 'complete')的账本保留原值:五态先按 complete 判 done,改它只是白写一次盘。
+// 成本:只读会话头(正文在 .messages.ndjson 里,不碰),先按子串筛,命中才解析、才整份装载改写。
+// 在 listen 之前 await:此刻没有任何回合在跑。改写走 mutateSession(后台读-改-写的唯一原语)。
+// 落点:住在启动序列旁边而不是 06e —— 13 引用 06e 会新添一条循环边(06e 在强连通分量里)。
+async function resetOrphanedMissionDrivers() {
+  let files = [];
+  try { files = await fsp.readdir(paths.sessions); } catch { return 0; }
+  let reset = 0;
+  for (const f of files) {
+    const hit = /^(sess_[A-Za-z0-9_-]+)\.json$/.exec(f);
+    if (!hit) continue;
+    const text = await fsp.readFile(path.join(paths.sessions, f), 'utf8').catch(() => '');
+    if (!/"autoMode"\s*:\s*"until-done"/.test(text)) continue;
+    const head = safeJsonParse(text, null);
+    const hm = head && head.mission;
+    if (!hm || hm.autoMode !== 'until-done' || (hm.result && hm.result.status === 'complete')) continue;
+    const r = await mutateSession(hit[1], session => {
+      if (!session.mission || session.mission.autoMode !== 'until-done') return { abort: 'not_armed' };
+      session.mission.autoMode = 'supervised';
+      session.mission.updatedAt = nowIso();
+      return null;
+    }, { writer: 'mission_driver_boot_reset' }).catch(() => null);
+    if (r && r.ok) reset += 1;
+  }
+  if (reset) logEvent({ kind: 'mission_driver_boot_reset', sessions: reset });
+  return reset;
+}
+
 async function startServerInner(opts) {
   try {
     await ensureDirs();
@@ -49141,6 +49202,7 @@ async function startServerInner(opts) {
   }
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
+  await resetOrphanedMissionDrivers().catch(() => 0); // hunt2-steward ⑤:重启后没有驱动器了,until-done 账本降成 supervised(见 resetOrphanedMissionDrivers 头注)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
   // plus the default classic-shell hydration. It never delays listen; the empty-directory guard keeps later
   // external-import discovery authoritative.
@@ -52656,8 +52718,14 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const index = await getPretenderProjectionIndex();
     const pending = [];
     const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
+    // hunt2-steward ⑨:可选 ?sessionId= 只看一条线程的待决(counts 同口径只数它)。抽屉修前拉全局前 100 条
+    // 再在前端按会话筛 —— 全局待决超过 100 条时,排在后面的那条线程的待决永远落在页外,抽屉说它「没在等你」。
+    // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
+    const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
+    const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
     for (const slice of index.sessions) {
       const sessionId = slice.sessionId;
+      if (onlySession && sessionId !== onlySession) continue;
       for (const iv of slice.interventions || []) {
         if (!iv || iv.status !== 'pending') continue;
         pending.push({
@@ -52695,7 +52763,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
+    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
     // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
@@ -54279,7 +54347,9 @@ function stewardNormalizeSessionTurn(sessionId, missionId, head, turnSeq) {
   const seq = Math.max(0, Number(turnSeq) || 0);
   if (seq < 1) return null;
   const h = (head && typeof head === 'object') ? head : {};
-  const last = (h.stewardLastTurn && typeof h.stewardLastTurn === 'object') ? h.stewardLastTurn : null;
+  // hunt2-steward ④:成败账只在盖得住【这一回合】时才算数(06i stewardCoveringLastTurn)。账是上一个
+  // 管家回合留下的(这一回合是用户在 2.0 里自己聊的,不写账)→ 当作账缺席,按 done 报。
+  const last = stewardCoveringLastTurn(h.stewardLastTurn, seq);
   const kind = stewardKindFor('sessionTurn', 'turn_settled', last);
   if (!kind) return null;
   const quick = !!(h.stewardQuick && typeof h.stewardQuick === 'object');
@@ -55061,8 +55131,14 @@ async function startStewardInbox(config) {
   if (stewardRuntime.running) { await stewardRunTick(); return { ok: true, running: true, enabled: true }; } // 幂等:重复 start 只补一轮
   stewardRuntime.running = true;
   stewardRuntime.generation += 1;
+  // hunt2-steward ⑥:认的是【本次起跑的代际】,不是 running 这一个布尔 —— start → stop → start 交错时,
+  // 第二次 start 已经把 running 重新置 true 并挂上了自己的 interval,第一次 start 醒来只看 running
+  // 会再挂一个、把第二个的句柄覆盖掉,之后 stop 只清得掉一个,另一个轮询器永远停不下来。
+  const generation = stewardRuntime.generation;
   await stewardRunTick();
   if (!stewardRuntime.running) return { ok: true, running: false, enabled: true }; // 起跑途中被 stop
+  if (stewardRuntime.generation !== generation) return { ok: true, running: true, enabled: true }; // 起跑途中被 stop 又 start:后来者挂 interval
+  if (stewardRuntime.timer) clearInterval(stewardRuntime.timer);   // 兜底:任何时候最多一个轮询器
   stewardRuntime.timer = setInterval(() => { void stewardRunTick(); }, pollMs);
   if (stewardRuntime.timer && typeof stewardRuntime.timer.unref === 'function') stewardRuntime.timer.unref();
   return { ok: true, running: true, enabled: true };
@@ -59798,6 +59874,24 @@ function stewardMemoryVetoedBlock(entries, pack) {
   return '\n' + pack.steward.memoryVetoedHeader + '\n' + lines.join('\n') + folded;
 }
 
+// hunt2-steward ⑩(性能):总览每次都要为投影里的【每一条】会话读一次会话头(每个管家回合 / 每次到访 /
+// 每次预判缓存未命中),会话一多(实测 ~0.9ms/条,2000 条 1.8s)就全压在「管家开口前」那段等待上。
+// 按投影切片自带的 sourceStamp(会话头 + 待决 + run 文件的 size:mtime 指纹,13e pretenderSessionSourceStamp)
+// 记一份会话头:指纹没变就用上次读到的那份,变了才重读。saveSession / 待决写入都会给投影打脏页,
+// 下一次取投影时这片的指纹随之刷新,所以缓存与投影同一个新鲜度。会话级权限档的内存覆盖表每次都在
+// 【副本】上重新盖一遍(与 stewardReadSessionHead 同一纪律:活回合里刚切的档还没落盘也要读到)。
+// 只在本进程内存;不在投影里的会话随每一轮清掉,大小以投影为界。
+const _stewardDigestHeadCache = new Map();   // sid -> { stamp, head }
+async function stewardDigestHead(sid, stamp) {
+  const key = (typeof stamp === 'string' && stamp && stamp !== '-') ? stamp : '';
+  const hit = key ? _stewardDigestHeadCache.get(sid) : null;
+  if (hit && hit.stamp === key) return applySessionPermissionModeOverride({ ...hit.head });
+  const head = await stewardReadSessionHead(sid);
+  if (key && head && head.id) _stewardDigestHeadCache.set(sid, { stamp: key, head });
+  else _stewardDigestHeadCache.delete(sid);
+  return head ? applySessionPermissionModeOverride({ ...head }) : head;
+}
+
 // 线程总览行的数据装配。事实源与 116c 的 steward_thread_status 完全相同(13e 投影 + 会话头 +
 // 06i 的五态判据),只是按「一行一条」的口径取字段 —— 13g 不能复用本函数(那会是前向边),
 // 故这里是同一批原语的第二个调用方,不是第二个事实源。
@@ -59820,10 +59914,13 @@ async function stewardThreadDigestRows(config) {
   };
   const rows = [];
   const now = Date.now();
-  for (const slice of (index && Array.isArray(index.sessions) ? index.sessions : [])) {
+  const slices = index && Array.isArray(index.sessions) ? index.sessions : [];
+  const liveIds = new Set(slices.map(slice => slice && slice.sessionId));
+  for (const sid of [..._stewardDigestHeadCache.keys()]) if (!liveIds.has(sid)) _stewardDigestHeadCache.delete(sid);
+  for (const slice of slices) {
     const sid = slice && safeSessionId(slice.sessionId);
     if (!sid || sid === STEWARD_SESSION_ID) continue;
-    const head = await stewardReadSessionHead(sid);
+    const head = await stewardDigestHead(sid, slice.sourceStamp);   // hunt2-steward ⑩:按投影指纹复用会话头
     if (!head || !head.id) continue;
     const rawKind = stewardRawKind(head);
     if (rawKind === 'steward') continue;   // 排除面:按会话头【原始】 kind 判,不经 sessionKind()
@@ -61112,6 +61209,8 @@ async function stewardNormalizeRouteHint(raw) {
 //   · 用户回合撞用户回合:排队等前一个收尾(不取消 —— 用户自己的两句话都要答)。
 // 128f-⑪:已经报过「留给你」的权限请求 id(每条只报一次;有界,超过 512 条先进先出)。
 const stewardDeferredNotified = new Set();
+// hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
+const stewardUserWaiters = [];
 async function runStewardTurn(input) {
   const opts = (input && typeof input === 'object') ? input : {};
   const trigger = opts.trigger === 'inbox' ? 'inbox' : 'user';
@@ -61140,39 +61239,60 @@ async function runStewardTurn(input) {
   entry.promise = new Promise(resolve => { finishEntry = () => resolve(); });
 
   const inflight = stewardRunnerRuntime.inflight;
-  if (inflight) {
-    if (trigger === 'inbox') {
-      stewardRunnerRuntime.queue.push(...events);
-      return stewardFail('steward.busy', 'a steward turn is already in flight; the inbox batch was re-queued');
-    }
-    if (inflight.kind === 'inbox') {
-      inflight.cancelled = 'preempted';
-      stewardRunnerRuntime.queue.push(...(inflight.events || []));   // 事件不丢:重排到下一轮
-      stewardAbortInflight(inflight);
-      logEvent({ kind: 'steward_preempt', preempted: 'inbox', requeued: (inflight.events || []).length });
-    }
+  if (trigger === 'inbox' && (inflight || stewardUserWaiters.length)) {
+    // 有在途回合,或有用户的话正排着队(槽位刚空、它还没醒过来认领):收件箱批次回排,不插队。
+    stewardRunnerRuntime.queue.push(...events);
+    return stewardFail('steward.busy', 'a steward turn is already in flight; the inbox batch was re-queued');
+  }
+  if (inflight || stewardUserWaiters.length) {
     // 无论取消与否都等在途那个收尾:管家会话同一时刻只能有一个回合在写它的正文。
     //
     // 117l D3(§11.9;用户第四轮走查第 6 条):修前这里是【一发】 Promise.race(15s),之后不复查
     // stewardRunnerRuntime.inflight —— 一个跑了 16 秒还在写正文的回合会被这条路径直接放行,于是
     // 第二句用户的话带着另一个回合同时开跑,两个回合抢同一份 session.messages(后写者赢),用户
     // 看到的就是「输出完了还说在忙上一件」和一条被吞掉的回复。
-    // 修法:循环等到在途那个真的不在了(或换成了别的 entry —— 那说明本次要等的这个已经收尾,
-    // 后面那个是新来的,由它自己那一层去等),总上限 5 分钟。真等过才记一条审计。
+    // 修法:循环等到轮到自己,总上限 5 分钟。真等过才记一条审计。
+    //
+    // hunt2-steward ①:修前循环条件是「inflight 仍是【进门时看到的】那一个」—— 两句用户的话排在同一个
+    // 在途回合后面时,它一收尾,先醒的那句同步认领了槽位,后醒的那句一看「已经不是我等的那个了」也冲了
+    // 出去,两个回合同时开跑,后开的把先开的 superseded 掉(一句话被吞)。现在:
+    //   · 每一圈都【重读】槽位,只要里面还有别人就接着等;
+    //   · 排队的用户回合按到达先后排成一列(stewardUserWaiters),只有排头能认领 —— 用户说的两句话
+    //     按他说的顺序答,不看谁的定时器先醒;
+    //   · 槽位里若换成了一个收件箱回合(理论上上面的入口已拦住,兜底),照「用户永远优先」抢占它。
+    // 退出循环之后到认领之间仍然没有 await。
+    stewardUserWaiters.push(entry);
     const waitStartedAt = Date.now();
-    while (stewardRunnerRuntime.inflight === inflight) {
-      if (Date.now() - waitStartedAt >= STEWARD_USER_QUEUE_WAIT_MS) {
-        logEvent({ kind: 'steward_user_turn_timeout', waitedMs: Date.now() - waitStartedAt, waitedFor: inflight.kind });
-        return stewardFail('steward.busy', `上一件还没写完(已经等了 ${Math.round((Date.now() - waitStartedAt) / 1000)} 秒),先看看它是不是卡住了`, { trigger, waitedMs: Date.now() - waitStartedAt });
+    let waitedFor = inflight ? inflight.kind : 'user';
+    try {
+      for (;;) {
+        const current = stewardRunnerRuntime.inflight;
+        if (!current && stewardUserWaiters[0] === entry) break;
+        const target = current || stewardUserWaiters[0];
+        waitedFor = target.kind;
+        if (current && current.kind === 'inbox' && !current.cancelled) {
+          current.cancelled = 'preempted';
+          stewardRunnerRuntime.queue.push(...(current.events || []));   // 事件不丢:重排到下一轮
+          stewardAbortInflight(current);
+          logEvent({ kind: 'steward_preempt', preempted: 'inbox', requeued: (current.events || []).length });
+        }
+        if (Date.now() - waitStartedAt >= STEWARD_USER_QUEUE_WAIT_MS) {
+          logEvent({ kind: 'steward_user_turn_timeout', waitedMs: Date.now() - waitStartedAt, waitedFor });
+          return stewardFail('steward.busy', `上一件还没写完(已经等了 ${Math.round((Date.now() - waitStartedAt) / 1000)} 秒),先看看它是不是卡住了`, { trigger, waitedMs: Date.now() - waitStartedAt });
+        }
+        await Promise.race([
+          (target.promise || Promise.resolve()).catch(() => {}),
+          new Promise(resolve => { const t = setTimeout(resolve, 200); if (t && t.unref) t.unref(); }),
+        ]);
       }
-      await Promise.race([
-        inflight.promise.catch(() => {}),
-        new Promise(resolve => { const t = setTimeout(resolve, 200); if (t && t.unref) t.unref(); }),
-      ]);
+    } finally {
+      // 认领或超时都出列(同步,与下面的认领之间没有 await)。
+      const at = stewardUserWaiters.indexOf(entry);
+      if (at >= 0) stewardUserWaiters.splice(at, 1);
     }
     const waitedMs = Date.now() - waitStartedAt;
     // 「真等过」才记账:抢占一个收件箱回合通常是毫秒级,那不该在审计里刷屏。
-    if (waitedMs > 0) logEvent({ kind: 'steward_user_turn_queued', waitedMs, waitedFor: inflight.kind, trigger });
+    if (waitedMs > 0) logEvent({ kind: 'steward_user_turn_queued', waitedMs, waitedFor, trigger });
   }
 
   stewardRunnerRuntime.inflight = entry;   // 同步认领(与上面的 while 判定之间没有 await)
@@ -61258,6 +61378,7 @@ async function stewardDelegationToolCalls(turnSeq, includeActions = false) {
 async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, onEvent, events) {
   const ensured = await ensureStewardSession(config);
   if (!ensured.ok) {
+    if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'engine_unavailable');
     return stewardFail(ensured.error, ensured.message || 'steward engine is unsupported', { engine: ensured.engine });
   }
   const session = ensured.session;
@@ -61320,9 +61441,14 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 
   // 回合本身失败(端点不通/被停/装载抛错)时【不能】去读「最后一条助手消息」—— 那是【上一个】回合
   // 的话,拿它当本回合的回答就是把旧答复冒充成新答复。如实回一条稳定信封,say 留给界面说人话。
-  if (turn && turn.ok === false) {
-    const detail = String(turn.error || '').slice(0, 300);
+  // hunt2-steward ③:成败还要看【内层】 result.ok(与 13k stewardRecordLaunchOutcome 同一口径)——
+  // 端点回 HTTP 500 时 runSessionTurn 外层照样 ok:true(「这次调用完成了」),修前据此把一个失败回合
+  // 当成功解析,say 为空、收件箱那一批事件已经从队列里拿走,就此蒸发。
+  const turnInner = (turn && turn.result && typeof turn.result === 'object') ? turn.result : null;
+  if (turn && (turn.ok === false || (turnInner && turnInner.ok === false))) {
+    const detail = String(turn.error || (turnInner && (turnInner.error || turnInner.errorClass)) || '').slice(0, 300);
     logEvent({ kind: 'steward_turn_failed', trigger, error: detail });
+    if (trigger === 'inbox') stewardRequeueFailedInboxBatch(events, 'turn_failed');
     // 自理动作已经真的发生了,回合失败不能把它们吞掉 —— 如实带回去(界面与 /api/steward/state 都能看到)。
     return stewardFail('steward.turn_failed', detail || 'the steward turn did not complete', { trigger, stopped: !!turn.stopped, actions: selfServe.executed.concat(stewardMergeDelegationReceipts(selfServe.executed, delegationCalls, delegationTitleOf)) });
   }
@@ -61466,6 +61592,26 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
 // ────────────────────────────────────────────────────────────────────────────
 // 收件箱驱动:116b 每轮写完箱子调 onInboxBatch,这里做 5 秒去抖后起一个收件箱回合。
 // ────────────────────────────────────────────────────────────────────────────
+// hunt2-steward ③:收件箱回合失败(端点不通 / 引擎不可用)时这一批事件回到队列【头部】,下一次排空
+// 先处理它们 —— 修前它们在定时器里被 splice 出去之后就再也没人管。重试有界:同一条事件最多再试
+// STEWARD_INBOX_TURN_RETRY_MAX 次,端点长期不通时不会每 5 秒空转一次到天荒地老;超过就放弃并记审计
+// (事件本身仍在收件箱落盘的账里,到访摘要照样看得见它)。次数记在 WeakMap 上,不改事件对象的形状。
+const STEWARD_INBOX_TURN_RETRY_MAX = 3;
+const stewardInboxRetryCounts = new WeakMap();
+function stewardRequeueFailedInboxBatch(events, reason) {
+  if (stewardRunnerRuntime.stopped) return;
+  const keep = [];
+  let dropped = 0;
+  for (const evt of (Array.isArray(events) ? events : [])) {
+    if (!evt || typeof evt !== 'object') continue;
+    const tries = (stewardInboxRetryCounts.get(evt) || 0) + 1;
+    if (tries > STEWARD_INBOX_TURN_RETRY_MAX) { dropped += 1; continue; }
+    stewardInboxRetryCounts.set(evt, tries);
+    keep.push(evt);
+  }
+  if (keep.length) stewardRunnerRuntime.queue.unshift(...keep);
+  logEvent({ kind: 'steward_inbox_requeued', reason: String(reason || ''), requeued: keep.length, dropped });
+}
 // 116-3 P1-10:排空是【自持】的。修前只有「轮询器又写了新的一批」才会排一次定时器,于是一次大批量
 // 积压超过 30 条之后,只要活动很快安静下来,剩下的条目会一直躺在内存队列里没人处理(而且是纯内存态,
 // 进程重启整份丢失);用户来跟管家说话也不会把它清掉。现在:一批处理完队列还有就接着排一个定时器;
@@ -61617,12 +61763,26 @@ const STEWARD_COMMITMENT_I18N = Object.freeze({
   missed: 'stewardShell.digest.commitment.missed',
   needsYou: 'stewardShell.digest.commitment.needsYou',
 });
+// hunt2-steward ⑧:到访摘要逐页读完「上次到访以来」的收件箱(读口一页至多 200 行)。修前只读第一页,
+// 水位却推到全箱最大的 inboxSeq —— 离开期间攒下超过 200 行时,第 201 行往后的事件永远不进任何一次摘要。
+// 页数有帽(STEWARD_VISIT_DIGEST_PAGES);帽子到了还没读完,水位就停在【最后读到的那一行】,
+// 余下的留给下一次到访,不跳过。
+const STEWARD_VISIT_DIGEST_PAGES = 25;
 async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
-  const read = await stewardInboxRead({ since: sinceSeq, limit: 200 }).catch(() => ({ items: [], inboxSeq: 0 }));
   const counts = {};
   for (const kind of STEWARD_EVENT_KINDS) counts[kind] = 0;
-  for (const row of (read.items || [])) {
-    if (Object.prototype.hasOwnProperty.call(counts, row && row.kind)) counts[row.kind] += Math.max(1, Number(row.count) || 1);
+  let cursor = Math.max(0, Number(sinceSeq) || 0);
+  let watermark = cursor;
+  for (let page = 0; page < STEWARD_VISIT_DIGEST_PAGES; page++) {
+    const read = await stewardInboxRead({ since: cursor, limit: 200 }).catch(() => null);
+    if (!read) break;   // 读失败:水位不动,下一次到访重读
+    const rows = Array.isArray(read.items) ? read.items : [];
+    for (const row of rows) {
+      if (Object.prototype.hasOwnProperty.call(counts, row && row.kind)) counts[row.kind] += Math.max(1, Number(row.count) || 1);
+      cursor = Math.max(cursor, Number(row && row.inboxSeq) || 0);
+    }
+    watermark = cursor;
+    if (!read.hasMore || !rows.length) { watermark = Math.max(cursor, Number(read.inboxSeq) || 0); break; }
   }
   const items = [];
   for (const kind of STEWARD_EVENT_KINDS) {
@@ -61650,7 +61810,7 @@ async function stewardVisitDigest(sinceSeq, sinceFireSeq) {
   return {
     items, counts,
     commitments: { upcoming: commitments.upcoming, missed: commitments.missed, needsYou: commitments.needsYou },
-    inboxSeq: Math.max(0, Number(read.inboxSeq) || 0),
+    inboxSeq: watermark,
     fireSeq: Math.max(0, Number(commitments.fireSeq) || 0),
   };
 }
@@ -61836,6 +61996,8 @@ function stewardEnsureOpenAiRoute(session, config, tier) {
 // 117l-A1-fix (1):第五种目标状态 'queued'(在仲裁器队列里等着开跑)。它排在 steer 之前 ——
 // 见 stewardRelayChannelFor 里那段头注。
 const STEWARD_RELAY_CHANNELS = Object.freeze(['answer', 'permission', 'queued', 'steer', 'turn']);
+// hunt2-steward ②:递话撞上「回合起步 / 收尾」窗口时最多等多久再重判(见 stewardRelayDeliver)。
+const STEWARD_RELAY_SETTLE_WAIT_MS = 5000;
 
 // 判定单点。只读内存注册表(04 的三张待决表)与活回合表,零写入、零文件读 —— 判定必须便宜,
 // 它在每一次递话前都要跑一遍。用【内存】表而不是待决旁路账:旁路账里可能留着一条回合已经死掉的
@@ -61865,6 +62027,13 @@ function stewardRelayChannelFor(sessionId) {
   const queuedWait = stewardArbiterWait(sid);
   if (queuedWait) return { channel: 'queued', wait: waitReasonFor({ pending: 0 }, queuedWait) };
   if (activeChildren.has(sid)) return { channel: 'steer' };
+  // hunt2-steward ②:回合已经进了 10 runSessionTurn(turnSettlers 已登记)、但引擎还没把它登记进
+  // activeChildren —— 起步那几个 await 的窗口,或 until-done 驱动器两回合之间的空档。此刻判成 turn 会
+  // 让新回合在 09 里把它 superseded 掉;插话也还插不进去(没有活子回合接它)。与上面仲裁器排队同一个
+  // 保守方向:判成 queued。settling:true 标出这是「回合正在起步/收尾」而不是真的在仲裁器里排队 ——
+  // 这两个窗口都很短,执行单点(stewardRelayDeliver)会先等一小会儿再重判一次,不急着退回给用户。
+  // (回合收尾那一段同样落在这里:09 先把回合移出 activeChildren,再做收尾的几次存盘。)
+  if (turnSettlers.has(sid)) return { channel: 'queued', wait: null, settling: true };
   return { channel: 'turn' };
 }
 
@@ -61878,7 +62047,19 @@ async function stewardRelayDeliver(input) {
   const title = String(o.title || '');
   if (!sid) return stewardFail('not_found', 'invalid sessionId');
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
-  const decided = stewardRelayChannelFor(sid);
+  let decided = stewardRelayChannelFor(sid);
+  // hunt2-steward ②:「起步 / 收尾」窗口(见 stewardRelayChannelFor)只是一瞬:等那个回合收尾(或引擎
+  // 把它登记进 activeChildren)再重判,至多 STEWARD_RELAY_SETTLE_WAIT_MS —— 收尾完了走 turn,起步完了走 steer。
+  // 等不到才照 queued 退回。仲裁器排队(settling 不在)不等:那可能是几分钟。
+  const settleDeadline = Date.now() + STEWARD_RELAY_SETTLE_WAIT_MS;
+  while (decided.channel === 'queued' && decided.settling === true && Date.now() < settleDeadline) {
+    const settler = turnSettlers.get(sid);
+    await Promise.race([
+      settler && settler.promise ? settler.promise.catch(() => {}) : Promise.resolve(),
+      new Promise(resolve => { const t = setTimeout(resolve, 100); if (t && t.unref) t.unref(); }),
+    ]);
+    decided = stewardRelayChannelFor(sid);
+  }
 
   if (decided.channel === 'answer') {
     // 129g(31 号文 §2.5):这一支是管家唯一一个【替用户说话】的出口 —— 递话时那句话是用户的原话,

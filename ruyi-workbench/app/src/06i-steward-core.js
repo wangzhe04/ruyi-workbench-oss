@@ -898,11 +898,21 @@ function deriveStewardThreadState(n) {
   const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
 }
+// hunt2-steward ④:stewardLastTurn 只在【盖得住当前回合】(last.seq >= turnSeq)时才算数 —— 与 13i 收集
+// 第四源、stewardStoppedTarget 同一条纪律。它只由管家/调度器发起的回合在 settle 之后写;用户在 2.0 里
+// 自己接着聊的回合不写它。修前不核 seq:一条很久以前失败过的管家回合留下的 ok:false,会把之后每一个
+// 跑成功的用户回合都判成「已停工」,收件箱也把它们报成「回合失败」。三处读法(卡片适配器 / 会话头
+// 适配器 / 13i 第四源)共用这一个判据;前端 mission-state.js 的 fromCard 抄同一行。
+function stewardCoveringLastTurn(last, turnSeq) {
+  if (!last || typeof last !== 'object') return null;
+  return Math.max(0, Number(last.seq) || 0) >= Math.max(0, Number(turnSeq) || 0) ? last : null;
+}
 // 投影卡片(13e overlayMissionCard 的输出,与 /api/missions 下发的 card 同形)适配器 —— 逐条对应
 // mission-state.js 的 fromCard。card 为 null(非 mission 会话)时由调用方走 head 派生分支。
 function stewardThreadStateFromCard(card) {
   const m = (card && card.mission) || {};
   const lr = (card && card.lastRun) || null;
+  const lastTurn = stewardCoveringLastTurn(card && card.lastTurn, card && card.turnSeq);
   return deriveStewardThreadState({
     // 121-K3:身份取卡片的 `quick` 格,不再取 `kind`。两条路径必须给同一条线程同一个答案 ——
     // 会话头那条路(13g thread_status / 13o 总览的 else 支)写的就是
@@ -922,7 +932,7 @@ function stewardThreadStateFromCard(card) {
     // 升号强制整份重建正是为了让它们刷新(见 13e PRETENDER_INDEX_SCHEMA 注释)。
     turnSeq: card && card.turnSeq,
     ledgerless: !!(card && card.status === 'none'),
-    lastTurnFailed: !!(card && card.lastTurn && (card.lastTurn.ok === false || card.lastTurn.aborted === true)),
+    lastTurnFailed: !!(lastTurn && (lastTurn.ok === false || lastTurn.aborted === true)),
     milestonesTotal: m.milestonesTotal,
     milestonesDone: m.done,
   });
@@ -937,7 +947,7 @@ function stewardThreadStateFromCard(card) {
 function stewardThreadStateFromHead(head, extra) {
   const h = (head && typeof head === 'object') ? head : {};
   const mission = h.mission || null;
-  const last = h.stewardLastTurn || null;
+  const last = stewardCoveringLastTurn(h.stewardLastTurn, h.turnSeq);   // hunt2-steward ④
   return deriveStewardThreadState({
     autoMode: mission && mission.autoMode,
     resultStatus: (mission && mission.result && mission.result.status) || '',

@@ -5,6 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 // 与已删除的交办台前端无关):全局「需要你」聚合 + 任务单五态派生 + 四旅程数据面 + PoC 接线。
 // 覆盖:
 //  (a) GET /api/interventions 全局收件箱:无 token 403;question pending 时出现(type/sessionId/live/计数);
+//      hunt2-steward ⑨:?sessionId= 只回那一条线程的待决;
 //      决策后消失;counts 含 pool 键。
 //  (b) 五态派生(mission-state.js 纯函数,node 直接 require):quick_ask 逃生舱 / needs_you(真实 pending)/
 //      dispatching(刚立单)/ done(complete 章)/ stopped(stop 章+supervised)/ running(until-done);
@@ -129,6 +130,11 @@ function spawnWb() {
     ok(qSeen.counts && qSeen.counts.question === 1 && qSeen.counts.total === 1 && typeof qSeen.counts.pool === 'number', '(a) counts 分型计数(含 pool 键)');
     const noTok = await requestJson(WB_PORT, '/api/interventions', null, null);
     ok(noTok.status === 403, '(a) 无 token -> 403(ROUTE_AUTH token-browser)');
+    // hunt2-steward ⑨:?sessionId= 只看一条线程的待决(抽屉用它,不再拉全局前 100 条再在前端筛)。
+    const onlyS1 = (await requestJson(WB_PORT, '/api/interventions?limit=100&sessionId=' + encodeURIComponent(s1), null, token)).json;
+    ok(onlyS1 && onlyS1.pending.length === 1 && onlyS1.pending[0].sessionId === s1 && onlyS1.counts.total === 1, '(a) ?sessionId=<有待决的线程> 只回它自己的那一条');
+    const onlyS2 = (await requestJson(WB_PORT, '/api/interventions?limit=100&sessionId=' + encodeURIComponent(s2), null, token)).json;
+    ok(onlyS2 && onlyS2.ok === true && onlyS2.pending.length === 0 && onlyS2.counts.total === 0, '(a) ?sessionId=<没有待决的线程> 回空(别的线程的待决不混进来)');
 
     // (b-2) needs_you:真实 pending 驱动鎏金态(哪怕回合在跑)
     cards = (await requestJson(WB_PORT, '/api/missions', null, token)).json.missions;

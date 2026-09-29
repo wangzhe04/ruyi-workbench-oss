@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 2993 | 2900 | 509 | 68 | 0 | 1 |
+| 66 | 3003 | 2902 | 510 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -44,7 +44,7 @@
 | 26 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 27 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 28 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 29 | `06i-steward-core.js` | engine | 153 | 0 | 0 |
+| 29 | `06i-steward-core.js` | engine | 154 | 0 | 0 |
 | 30 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
 | 31 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 32 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -56,25 +56,25 @@
 | 38 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 39 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
 | 40 | `09-workflow.js` | orchestration | 16 | 216 | 24 |
-| 41 | `10-context-governance.js` | orchestration | 137 | 81 | 17 |
+| 41 | `10-context-governance.js` | orchestration | 137 | 80 | 17 |
 | 42 | `11-native-tools.js` | tools | 119 | 33 | 5 |
 | 43 | `12-tool-dispatch.js` | tools | 39 | 83 | 14 |
 | 44 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 45 | `13-http-router.js` | transport | 64 | 235 | 28 |
+| 45 | `13-http-router.js` | transport | 65 | 235 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 48 | `13d-core-domain-routes.js` | transport | 48 | 124 | 16 |
 | 49 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
-| 50 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
+| 50 | `13i-steward-inbox.js` | transport | 72 | 26 | 8 |
 | 51 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
 | 52 | `13k-steward-threads.js` | transport | 46 | 111 | 15 |
 | 53 | `13l-steward-ops.js` | transport | 36 | 104 | 18 |
 | 54 | `13g-steward.js` | transport | 12 | 66 | 9 |
 | 55 | `13m-steward-runner-base.js` | transport | 42 | 16 | 7 |
 | 56 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
-| 57 | `13o-steward-runner-prompt.js` | transport | 20 | 61 | 14 |
+| 57 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
 | 58 | `13p-steward-runner-actions.js` | transport | 29 | 46 | 10 |
-| 59 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 18 |
+| 59 | `13q-steward-runner-turn.js` | transport | 31 | 65 | 18 |
 | 60 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 61 | `13r-event-stream.js` | transport | 23 | 17 | 6 |
 | 62 | `13s-scheduler.js` | transport | 49 | 34 | 8 |
@@ -305,7 +305,7 @@
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
 | `10-context-governance.js` | `02-session-store.js` | backward | `createSession`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `mutateSession`, `readSessionNotes`, `rememberLastUsedEngineRoute`, `repairProviderHistoryPairing`, `saveSession`, `sessionObjectIsStale`, `withJournalWriteLock`, `writeSessionNotes` |
 | `10-context-governance.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute`, `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
-| `10-context-governance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `logEvent`, `redact`, `stopSession`, `turnSettlers` |
+| `10-context-governance.js` | `04-permission-runtime.js` | backward | `driverAutoSessions`, `logEvent`, `redact`, `stopSession`, `turnSettlers` |
 | `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
 | `10-context-governance.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle`, `providerWireProtocol` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter`, `runClaudeTurn` |
@@ -423,7 +423,7 @@
 | `13i-steward-inbox.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath` |
 | `13i-steward-inbox.js` | `02-session-store.js` | backward | `readMissionChangesWithMeta`, `repairMissionChangeTornTail` |
 | `13i-steward-inbox.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
-| `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardSanitizeText`, `stewardWatchedThread` |
+| `13i-steward-inbox.js` | `06i-steward-core.js` | backward | `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardCoveringLastTurn`, `stewardSanitizeText`, `stewardWatchedThread` |
 | `13i-steward-inbox.js` | `07-autonomy.js` | backward | `activeAgentRuns` |
 | `13i-steward-inbox.js` | `08-agent-runs.js` | backward | `listAgentRuns`, `readAgentRunEvents` |
 | `13i-steward-inbox.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
@@ -484,6 +484,7 @@
 | `13o-steward-runner-prompt.js` | `00-boot.js` | backward | `fsp`, `path`, `text` |
 | `13o-steward-runner-prompt.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `13o-steward-runner-prompt.js` | `02-session-store.js` | backward | `listSessions`, `readMissionContainer`, `sessionDisplayTitle`, `sessionMetaIsSteward`, `sessionMissionId` |
+| `13o-steward-runner-prompt.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride` |
 | `13o-steward-runner-prompt.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `redact` |
 | `13o-steward-runner-prompt.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
 | `13o-steward-runner-prompt.js` | `06d-memory-domain.js` | backward | `memoryIsExpired` |
@@ -509,7 +510,7 @@
 | `13q-steward-runner-turn.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
 | `13q-steward-runner-turn.js` | `02-session-store.js` | backward | `loadSession`, `mutateSession` |
 | `13q-steward-runner-turn.js` | `02e-session-engine-route.js` | backward | `normalizeSessionEngineRoute` |
-| `13q-steward-runner-turn.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingQuestions`, `promptDeadlineIsReal` |
+| `13q-steward-runner-turn.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingQuestions`, `promptDeadlineIsReal`, `turnSettlers` |
 | `13q-steward-runner-turn.js` | `06i-steward-core.js` | backward | `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardOpenAiFallback`, `stewardPendingOneLine`, `stewardSanitizeText`, `stewardThreadEngineRoute`, `waitReasonFor` |
 | `13q-steward-runner-turn.js` | `06j-scheduler-core.js` | backward | `SchedulerHooks` |
 | `13q-steward-runner-turn.js` | `10-context-governance.js` | backward | `runSessionTurn` |

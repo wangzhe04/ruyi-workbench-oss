@@ -128,8 +128,13 @@ try {
 
   /* ═══════ 在盘上补机器痕迹 ═══════ */
   // R:在跑。autoMode='until-done' 是 deriveStewardThreadState 的 running 三条判据之一
-  //   (activeTurn || autoMode==='until-done' || liveRuns>0),它住在会话头里,重启后仍在。
-  writeHead(R, Object.assign(readHead(R), {
+  //   (activeTurn || autoMode==='until-done' || liveRuns>0)。
+  // hunt2-steward ⑤:它【不再】跨重启存活 —— 重启后没有驱动器在推它,启动清扫把盘上的 until-done 降成
+  //   supervised(否则线程永远「在跑」)。所以只有账本这一格改在第二次启动【之后】写,见下面 writeRunning();
+  //   其余痕迹(turnSeq 等)照旧在启动前落盘 —— 收件箱第四源在第二次启动时据此建基线,第三次启动不会
+  //   把 R 的第 2 回合当成新事件去处理(那会改写会话头、推新 updatedAt)。
+  writeHead(R, Object.assign(readHead(R), { kind: 'mission', launchedBy: 'steward', turnSeq: 2, updatedAt: AT_MID }));
+  const writeRunning = () => writeHead(R, Object.assign(readHead(R), {
     kind: 'mission', launchedBy: 'steward', turnSeq: 2, updatedAt: AT_MID,
     mission: { goal: '把这件事跑完', createdAt: AT_MID, updatedAt: AT_MID, autoMode: 'until-done', milestones: [], budget: { maxAutoTurns: 10, maxTokens: 0 }, spent: { autoTurns: 1, tokens: 0 }, result: null },
   }));
@@ -156,6 +161,11 @@ try {
   wb = spawnWb();
   ok(await waitUp(), '② workbench restarted (fresh projection index)');
   hdr = { 'x-wcw-token': await tokenOf() };
+  // R 的「在跑」痕迹在启动清扫之后才落盘(见上面 writeRunning 的注释)。改写已有文件不动目录指纹,
+  // 再在 sessions 目录里放一个非会话文件把目录指纹推新 —— 投影索引的目录级自愈(13e 121-K3)据此重扫,
+  // 发现 R 的源指纹变了、只刷 R 那一片。整个过程不经 saveSession,updatedAt 一个字节不动。
+  writeRunning();
+  fs.writeFileSync(path.join(HOME, 'sessions', 'fixture-touch.txt'), String(Date.now()), 'utf8');
 
   const list = await request('GET', '/api/missions?limit=200', undefined, hdr);
   ok(list.status === 200 && Array.isArray(list.json && list.json.missions), `② GET /api/missions -> 200(实 ${list.status})`);

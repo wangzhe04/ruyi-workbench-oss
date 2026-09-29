@@ -185,7 +185,9 @@ export function createStewardComposer({
   async function runPreroute(text) {
     const query = String(text || '').trim();
     // 117r-D3 ③ 复位点之一：输入框被清空 = 用户在打一句新的话，之前否掉的那次预判不该再拦后面的响应。
-    if (!query) { routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = false; renderChip(); return; }
+    // hunt2-steward ⑦:清空时也让在途预判作废(序号 +1)——否则输入框清空之前发出去的那一趟慢响应回来,
+    // 会把刚复位的 chip 又写回「像是接着『X』」。
+    if (!query) { prerouteSeq += 1; routeKind = 'steward'; routeHits = []; routeReason = ''; hintDismissed = false; renderChip(); return; }
     if (!isStewardMode()) return;
     if (!(state && state.config && state.config.stewardEnabledV1 === true)) return;
     const seq = ++prerouteSeq;
@@ -334,6 +336,7 @@ export function createStewardComposer({
     input.placeholder = t('stewardShell.compose.placeholder');
     cancelPreroute();
     closePicker();
+    prerouteSeq += 1;   // hunt2-steward ⑦:发出去之后,这一句的在途预判作废 —— 慢响应回来不许把 chip 又填回去
     try {
       // 117l D1：**手选的目标才直递**（那是用户明示，§8.12 第 4 条）；其余一律发给管家，预判只
       // 随 routeHint 走一趟提示（§11.9 D1「无论关键词匹配到什么，都要发给管家让它决定」）。

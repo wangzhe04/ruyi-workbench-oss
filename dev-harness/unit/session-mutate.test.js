@@ -16,6 +16,8 @@
 //        各自读到同一份旧头、后存者整份盖掉先存者)。updateSessionMeta 与 mutateSession 并发同样不丢。
 //   [M7] hunt2-P4 不死锁:读改写链与 saveSession 自己的写链、与「活回合」那种直接 saveSession 的写者交错
 //        (mutator 里还夹着一次直接 saveSession),全部在限时内完成,且各自的改动都落盘。
+//   [D3] hunt2-steward ⑤:驱动器因停止/断线收手 ⇒ 账本 autoMode 降成 supervised 并落盘(修前留着 until-done,线程永远「在跑」)。
+//   [D4] 会话已被新回合接管(ownsSession 为假)⇒ 收手但不存盘,不盖新回合的写。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -165,4 +167,25 @@ test('[D2] 对照:对象不陈旧时驱动器照常起回合', async () => {
   let turns = 0;
   await runMissionDriver({ session: held, config: await srv.readConfig(), provider: null, emit: () => {}, runTurn: async () => { turns += 1; held.mission.autoMode = 'off'; }, getLastTokens: null, isAlive: () => true });
   assert.equal(turns, 1);
+});
+
+test('[D3] 驱动器因停止/断线收手 ⇒ autoMode 降成 supervised 并落盘', async () => {
+  const id = await freshSession(4);
+  const held = await loadSession(id);
+  held.mission = driverMission();
+  await saveSession(held);
+  let turns = 0;
+  await runMissionDriver({ session: held, config: await srv.readConfig(), provider: null, emit: () => {}, runTurn: async () => { turns += 1; }, getLastTokens: null, isAlive: () => false, ownsSession: () => true });
+  assert.equal(turns, 0);
+  assert.equal(held.mission.autoMode, 'supervised');
+  assert.equal((await loadSession(id)).mission.autoMode, 'supervised', '落盘的账本不再是 until-done(修前留着,线程永远 running)');
+});
+
+test('[D4] 会话已被新回合接管 ⇒ 收手、不存盘', async () => {
+  const id = await freshSession(4);
+  const held = await loadSession(id);
+  held.mission = driverMission();
+  await saveSession(held);
+  await runMissionDriver({ session: held, config: await srv.readConfig(), provider: null, emit: () => {}, runTurn: async () => {}, getLastTokens: null, isAlive: () => false, ownsSession: () => false });
+  assert.equal((await loadSession(id)).mission.autoMode, 'until-done', '新回合手里那份才是权威,旧驱动器不写');
 });

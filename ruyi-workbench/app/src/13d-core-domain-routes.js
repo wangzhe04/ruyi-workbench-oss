@@ -1741,8 +1741,14 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     const index = await getPretenderProjectionIndex();
     const pending = [];
     const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
+    // hunt2-steward ⑨:可选 ?sessionId= 只看一条线程的待决(counts 同口径只数它)。抽屉修前拉全局前 100 条
+    // 再在前端按会话筛 —— 全局待决超过 100 条时,排在后面的那条线程的待决永远落在页外,抽屉说它「没在等你」。
+    // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
+    const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
+    const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
     for (const slice of index.sessions) {
       const sessionId = slice.sessionId;
+      if (onlySession && sessionId !== onlySession) continue;
       for (const iv of slice.interventions || []) {
         if (!iv || iv.status !== 'pending') continue;
         pending.push({
@@ -1780,7 +1786,7 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
     const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision(), paged.page);
+    const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
     // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
