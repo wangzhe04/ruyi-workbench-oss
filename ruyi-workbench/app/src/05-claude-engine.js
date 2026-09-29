@@ -1220,13 +1220,6 @@ const CLAUDE_ENDPOINT_PRESETS = [
   },
 ];
 
-// Keep this allowlist shared by config normalization and request construction. Omission means "use the
-// endpoint/model default"; selected values use the OpenAI-compatible fields for their respective APIs.
-const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
-function providerReasoningEffort(provider) {
-  const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
-  return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
-}
 // 114a(45 号文 §7): PROVIDER_MODEL_CAPS —— models[].caps 的取值白名单。【模型能力标签】:这个模型
 // 会什么(asr=可语音识别 / embedding=可向量化)。它与 06-provider-engine 的 getCapabilities()【运行
 // 环境能力矩阵】(PLAYBOOK_REQUIRES: network/desktopMcp/vision —— 这台机器有什么)是【两个正交
@@ -1241,13 +1234,6 @@ function providerModelCaps(rawCaps) {
     if (s && PROVIDER_MODEL_CAPS.has(s) && !out.includes(s)) out.push(s);
   }
   return out;
-}
-function applyProviderReasoningEffort(body, provider, apiStyle) {
-  const effort = providerReasoningEffort(provider);
-  if (!effort || !body || typeof body !== 'object') return body;
-  if (apiStyle === 'responses') body.reasoning = { effort };
-  else body.reasoning_effort = effort;
-  return body;
 }
 
 // Fold one raw provider entry onto a safe, fully-populated shape. Returns null if unusable (no id).
@@ -1358,7 +1344,7 @@ function sanitizeProvider(raw) {
     // 'responses' (OpenAI Responses API; DeepSeek added it for Codex/agent loops, v4-flash now + v4-pro from
     // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,
     // 引擎在 buildBody/openAiStreamOnce 按此分支。其它 openai-compat 服务商(未提供 /responses 端点)保持 chat。
-    apiStyle: raw.apiStyle === 'responses' ? 'responses' : 'chat',
+    apiStyle: normalizeProviderApiStyle(raw.apiStyle),
     // v1.8.2: serverWebSearch (boolean, default false) — opt-in for the Responses SERVER-SIDE web_search tool
     // ({type:'web_search'}). Default false keeps the built-in LOCAL web_search function tool as the fallback
     // for every provider / endpoint that doesn't support server-side search (DeepSeek preset sets true).
@@ -2080,19 +2066,16 @@ function asrFixSanity(input, output) {
 //  ① 模型由调用方指定;② 不带身份系统提示;③ temperature 0、max_tokens 400、超时 20 s(句尾后一秒内要落地的事);
 //  ④ 显式关思考(thinking:{type:'disabled'} + enable_thinking:false)—— flash 系模型缺省思考,预算被隐藏推理吃光、正文为空(52 号文 §3 实测);
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
-// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;这里只留提示词形状与回体取字。
+// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;58 号批 1 起请求体形状(encodeQuick)
+// 与回体取字(decodeCompletion)按协议问 04i 的登记表。
 async function providerFixCompletion(provider, model, messages) {
-  const respStyle = provider && provider.apiStyle === 'responses';
-  const url = providerCompletionUrl(provider.baseUrl, respStyle);
+  const wire = providerWireProtocol(provider);
+  const url = wire.completionUrl(provider.baseUrl);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
-  const headers = providerRequestHeaders(provider);
-  const system = messages.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
-  const user = messages.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
-  const build = plain => (respStyle
-    ? { model, instructions: system, input: user, stream: false, max_output_tokens: 400, ...(plain ? {} : { reasoning: { effort: 'minimal' } }) }
-    : { model, messages, stream: false, temperature: 0, max_tokens: 400, ...(plain ? {} : { thinking: { type: 'disabled' }, enable_thinking: false }) });
+  const headers = wire.requestHeaders(provider);
+  const build = plain => wire.encodeQuick({ model, messages, plain });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
     const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
@@ -2102,19 +2085,9 @@ async function providerFixCompletion(provider, model, messages) {
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));
   if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.status + (r.j ? ': ' + redact(JSON.stringify(r.j).slice(0, 300)) : '')) };
-  let content = '';
-  if (respStyle) {
-    for (const item of (Array.isArray(r.j && r.j.output) ? r.j.output : [])) {
-      if (item && item.type === 'message' && Array.isArray(item.content)) {
-        for (const part of item.content) { if (part && typeof part.text === 'string') content += part.text; }
-      }
-    }
-  } else {
-    const msg = r.j && r.j.choices && r.j.choices[0] && r.j.choices[0].message;
-    content = String((msg && msg.content) || '');
-  }
-  content = content.trim();
-  const usage = (r.j && r.j.usage && typeof r.j.usage === 'object') ? r.j.usage : null;
+  const decoded = wire.decodeCompletion(r.j);
+  const content = decoded.text.trim();
+  const usage = (decoded.usage && typeof decoded.usage === 'object') ? decoded.usage : null;
   if (!content) return { ok: false, error: 'empty completion', usage };
   return { ok: true, content, usage, model };
 }

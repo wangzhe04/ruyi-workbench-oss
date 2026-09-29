@@ -65,6 +65,8 @@ const PAYLOAD_FILES = [
   // ENGINEERING-SPEC §11.1：前端 Agent CLI 登记表（provider-settings/navigation-controls/session-experience/steward-chips
   // 与组合根 app.js 静态 import）—— 漏登记即离线包白屏(43e 同款)。
   'app/public/js/agent-cli-registry.js',
+  // 58 号方案批 1:前端服务商线协议登记表(provider-settings 静态 import)—— 漏登记即离线包白屏(43e 同款)。
+  'app/public/js/provider-api-styles.js',
   'app/public/js/agent-workflows.js',
   // 32 号文 §4：2.0 顶栏模型弹层与 3.0 管家壳的模型菜单行【共用】的构造件 —— 两壳都在 import，
   // 漏登记即离线包白屏（43e 同款事故）。

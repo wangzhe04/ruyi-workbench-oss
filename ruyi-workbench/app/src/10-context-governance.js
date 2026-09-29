@@ -871,7 +871,7 @@ function summarySingleShotCap(config, provider, model) {
   const ov = (config && config.summarySingleShotMaxOverridesV1 && typeof config.summarySingleShotMaxOverridesV1 === 'object' && !Array.isArray(config.summarySingleShotMaxOverridesV1)) ? config.summarySingleShotMaxOverridesV1 : {};
   const pid = String((provider && provider.id) || '');
   const mid = String(model || (provider && provider.model) || '');
-  const style = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  const style = providerWireProtocol(provider).id;
   for (const key of [pid && mid ? pid + '/' + mid : '', pid, 'style:' + style]) {
     if (key && ov[key] != null) return clampCap(ov[key]);
   }
@@ -894,7 +894,7 @@ function summaryCallPolicyKey(provider, model, apiStyle) {
   // baseUrl is part of the capability identity (different gateways can expose different schemas), but the
   // key deliberately contains no api key and is bounded so a malformed custom URL cannot grow the cache.
   const base = String(provider && provider.baseUrl || '').trim().toLowerCase().slice(0, 400);
-  return [String(provider && provider.id || '').slice(0, 80), String(model || '').slice(0, 120), apiStyle === 'responses' ? 'responses' : 'chat', base].join('\u0000');
+  return [String(provider && provider.id || '').slice(0, 80), String(model || '').slice(0, 120), normalizeProviderApiStyle(apiStyle), base].join('\u0000');
 }
 function summaryModelPolicy(model) {
   const m = String(model || '').trim().toLowerCase();
@@ -917,7 +917,7 @@ function summaryPolicyTiers(stage) {
   return tiers.length ? [...new Set(tiers)] : [6144, 8192];
 }
 function resolveSummaryCallPolicy(provider, model, apiStyle, stage) {
-  const normalizedStyle = apiStyle === 'responses' ? 'responses' : 'chat';
+  const normalizedStyle = normalizeProviderApiStyle(apiStyle);
   const normalizedStage = SUMMARY_POLICY_STAGES.has(stage) ? stage : 'single';
   const modelRule = summaryModelPolicy(model);
   const key = summaryCallPolicyKey(provider, model, normalizedStyle);
@@ -970,8 +970,7 @@ function summaryUnsupportedParameterFields(status, detail, policy) {
 function applySummaryCallPolicy(body, policy) {
   if (!body || typeof body !== 'object' || !policy) return body;
   if (policy.reasoning && policy.reasoning.mode === 'effort' && policy.reasoning.value) {
-    if (policy.apiStyle === 'responses') body.reasoning = { effort: policy.reasoning.value };
-    else body.reasoning_effort = policy.reasoning.value;
+    providerWireProtocol(policy.apiStyle).applyEffort(body, policy.reasoning.value);
   }
   const out = policy.output || {};
   const value = out.field && Array.isArray(out.tiers) ? out.tiers[out.tierIndex] : 0;
@@ -1398,54 +1397,20 @@ async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路
   return ECON_AUX_FLAG_CACHE.on;
 }
 
-// 105j: Responses/Chat 非流式响应统一解析。尤其要保留 status/incomplete_details/usage，不能把
-// reasoning-only 或命中输出上限的响应误报成普通 empty summary。
-function summaryResponseText(payload, responses) {
-  if (responses) {
-    let text = '';
-    for (const item of (Array.isArray(payload && payload.output) ? payload.output : [])) {
-      if (!item || item.type !== 'message' || !Array.isArray(item.content)) continue;
-      for (const part of item.content) {
-        if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') text += part.text;
-      }
-    }
-    return text.trim();
-  }
-  const msg = payload && payload.choices && payload.choices[0] && payload.choices[0].message;
-  if (!msg) return '';
-  if (typeof msg.content === 'string') return msg.content.trim();
-  if (Array.isArray(msg.content)) return msg.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('').trim();
-  return '';
-}
-function summaryResponseIncomplete(payload, responses) {
-  const status = String(payload && payload.status || '').toLowerCase();
-  const finish = String(payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason || '').toLowerCase();
-  const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || '').toLowerCase();
-  return (responses && status === 'incomplete') || /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
-}
-function summaryResponseFailureDetail(payload) {
-  const e = payload && payload.error;
-  if (typeof e === 'string') return e;
-  if (e && typeof e === 'object') return String(e.message || e.code || e.type || 'provider error');
-  return '';
-}
-
 // 105j: summary call policy-aware implementation. It keeps the historical six-argument signature while all
 // callers gain the same bounded reasoning/output policy and one-shot compatibility fallback.
 async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal, config) {
-  const respStyle = provider && provider.apiStyle === 'responses';
+  const wire = providerWireProtocol(provider); // 58 号批 1:端点、请求头、请求体、回体解析都问协议登记表
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
-  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle); // 04h:端点 URL 与请求头原语(与补全/流式请求同一份)
-  const headers = providerRequestHeaders(provider);
+  const chatUrl = wire.completionUrl(provider.baseUrl);
+  const headers = wire.requestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage
     : (promptOverride ? 'repair' : ((econCtx && Number(econCtx.chunkIndex) >= 1000) ? 'reduce' : ((econCtx && econCtx.chunkIndex != null) ? 'map' : 'single')));
-  const policy = resolveSummaryCallPolicy(provider, model, respStyle ? 'responses' : 'chat', stage);
+  const policy = resolveSummaryCallPolicy(provider, model, wire.id, stage);
   const makeBody = () => {
-    const body = respStyle
-      ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }]), stream: false }
-      : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false };
+    const body = wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false, instructions: sysIdentity });
     applySummaryCallPolicy(body, policy);
     const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
     if (temp !== undefined) body.temperature = temp;
@@ -1487,7 +1452,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
           ...(econCtx.traceId ? { traceId: String(econCtx.traceId) } : {}),
           ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
           trigger: String(econCtx.trigger || 'summary'),
-          model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat', ok: okRes,
+          model: String(model || ''), apiStyle: wire.id, ok: okRes,
           usageSource: okRes && hasUsage ? 'provider' : 'missing', inputTokens: uIn, outputTokens: uOut,
           ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
           ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}), httpMs: Date.now() - econT0,
@@ -1515,15 +1480,18 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
         return finish(failed);
       }
       const payload = await res.json().catch(() => null);
-      const summary = summaryResponseText(payload, respStyle);
-      const usage = (payload && payload.usage) || null;
+      // 105j:非流式回体按协议解析(04i decodeCompletion)。尤其要保留 status/incomplete_details/usage,不能把
+      // reasoning-only 或命中输出上限的响应误报成普通 empty summary。
+      const decoded = wire.decodeCompletion(payload);
+      const summary = decoded.text.trim();
+      const usage = decoded.usage;
       const promptTokensEst = estimateHistoryTokens(bodyObj.messages || bodyObj.input);
       let result;
-      if (payload && String(payload.status || '').toLowerCase() === 'failed') {
-        const detail = summaryResponseFailureDetail(payload);
+      if (decoded.failed) {
+        const detail = decoded.failedDetail;
         result = { ok: false, error: `provider returned failed summary${detail ? ': ' + redact(detail.slice(0, 300)) : ''}`, usage, promptTokensEst };
-      } else if (summaryResponseIncomplete(payload, respStyle)) {
-        const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || (payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason) || 'output limit');
+      } else if (decoded.incomplete) {
+        const reason = decoded.incompleteReason;
         result = { ok: false, error: `provider returned an incomplete summary (${reason})`, incomplete: true, usage, promptTokensEst };
       } else if (!summary) {
         result = { ok: false, error: 'provider returned an empty summary', usage, promptTokensEst };

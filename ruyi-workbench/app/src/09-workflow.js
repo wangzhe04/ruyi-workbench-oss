@@ -1279,19 +1279,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let workspaceTurnBaseline = null;
   const promptTaskContext = buildPromptTaskContext(message, session);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
-  // v1.7: protocol preference — 'chat' (Chat Completions) vs 'responses' (OpenAI Responses API, DeepSeek
-  // /responses for Codex/agent loops; v4-flash now, v4-pro from 2026-08). Default chat keeps every
-  // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
-  // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
-  const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = providerApiBase(provider.baseUrl, apiStyle === 'responses'); // 04h:端点 URL 原语(显示用 base 见 meta 事件)
-  const chatUrl = providerCompletionUrl(provider.baseUrl, apiStyle === 'responses');
+  // 线协议(58 号批 1):端点、请求头、请求体、流式解码、落历史字段都问 04i 的协议登记表;apiStyle 缺省 chat,
+  // 存量配置零变化。
+  const wire = providerWireProtocol(provider);
+  const apiStyle = wire.id;
+  const base = wire.endpointBase(provider.baseUrl); // 显示用 base 见 meta 事件
+  const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
-  // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized через
-  // providerBaseWithV1 (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
+  // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized through
+  // the protocol's endpointBase/completionUrl (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
   // `base` (for the failover event's from/to + the sticky key value) and its derived `chatUrl`. We de-dupe on
   // the derived chatUrl (two raw bases that normalize identically are one endpoint). When provider has no
   // extraBaseUrls this list is length 1 and the loop below behaves EXACTLY as the single-endpoint code did.
@@ -1299,8 +1298,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = providerApiBase(raw, apiStyle === 'responses');
-      const u = providerCompletionUrl(raw, apiStyle === 'responses');
+      const b = wire.endpointBase(raw);
+      const u = wire.completionUrl(raw);
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -1537,7 +1536,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
-  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头;每个 failover 候选端点都带这同一份
+  const headers = wire.requestHeaders(provider); // 每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -1584,48 +1583,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
       : new Map();
     const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;
-    // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`).
-    // volatile 放置两分支同规则:开关关 = 前插历史首条 user(51d C1b 现状);106 #1 G1 开关开 =
-    // 追加当前最新 user 尾部。
-    if (apiStyle === 'responses') {
-      const msgs = [{ role: 'system', content: sys }, ...viewHistory];
-      // 51d C1b 现状(开关关): volatile 前插历史第一条 user,不持久化(每回合动态)。
-      // 106 #1 G1(开关开): volatile 追加当前最新 user 尾部 —— 跨回合不重写既有消息,前缀缓存
-      // 不再从 messages[1] 断裂;同一会合内两种布局都稳定(volatile 每回合只构建一次)。
-      if (turnVolatile && volatileTail) appendPromptToLastUserMessage(msgs, turnVolatile);
-      else if (turnVolatile && !volatileTail) {
-        const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
-        if (firstUserIndex > 0) {
-          const firstUser = msgs[firstUserIndex];
-          if (typeof firstUser.content === 'string') {
-            msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
-          } else if (Array.isArray(firstUser.content)) {
-            const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
-            if (textPartIndex >= 0) {
-              const content = firstUser.content.slice();
-              content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
-              msgs[firstUserIndex] = { ...firstUser, content };
-            }
-          }
-        }
-      }
-      appendRecallPrompt(msgs, viewHistory);
-      appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-      // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
-      // DeepSeek restores the search results server-side and the model continues on the next call.
-      const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
-      if (temp !== undefined) b.temperature = temp;
-      applyProviderReasoningEffort(b, provider, 'responses');
-      const loadedTools = toolLoading.current();
-      // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
-      // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
-      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
-      return b;
-    }
+    // 请求体(58 号批 1):消息视图(volatile 布局、recall、session notes)只构建一份,协议差异只剩登记表的
+    // encodeMessages / applyTools —— chat 发 messages(+stream_options),Responses 发 instructions + input 项
+    // (v1.8:服务端工具项 serverToolItems 接在翻译后的历史之后,DeepSeek 在服务端恢复搜索结果)。
     const msgs = [{ role: 'system', content: sys }, ...viewHistory];
     // 51d C1b 现状(开关关): volatile 前插历史第一条 user,不持久化(每回合动态)。Do not assume
     // messages[1] or parts[0] is text: compacted/imported histories and multimodal providers may use
-    // another shape. 106 #1 G1(开关开): 追加当前最新 user 尾部(规则同 responses 分支)。
+    // another shape. 106 #1 G1(开关开): 追加当前最新 user 尾部 —— 跨回合不重写既有消息,前缀缓存不再从
+    // messages[1] 断裂;同一回合内两种布局都稳定(volatile 每回合只构建一次)。
     if (turnVolatile && volatileTail) appendPromptToLastUserMessage(msgs, turnVolatile);
     else if (turnVolatile && !volatileTail) {
       const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
@@ -1645,11 +1610,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-    const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems });
     if (temp !== undefined) b.temperature = temp;
-    applyProviderReasoningEffort(b, provider, 'chat');
+    applyProviderReasoningEffort(b, provider, wire.id);
     const loadedTools = toolLoading.current();
-    if (withTools && loadedTools.length) { b.tools = loadedTools; b.tool_choice = 'auto'; }
+    // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
+    if (withTools && loadedTools.length) wire.applyTools(b, loadedTools, { serverWebSearch: provider.serverWebSearch === true });
     return b;
   };
 
@@ -2138,7 +2104,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         onEvent({ type: 'failover', providerId: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
-      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: b, ctrl, onEvent, markUsage, rawSeqRef, touch });
+      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: b, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
       if (call.transportError) failReason = call.transportReason || 'connect';
@@ -2379,7 +2345,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (looksLikePlan(call.text) && !(call.toolCalls && call.toolCalls.length)) {
           // The model spoke a plan and stopped — record it in history so the context stays coherent for the
           // post-approval continuation, then pause for the decision.
-          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
+          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
           await saveSession(session);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           const decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs);
@@ -2412,7 +2378,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else if (call.toolCalls && call.toolCalls.length) {
           // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
-          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
+          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
@@ -2468,7 +2434,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
-        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
@@ -2944,7 +2910,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
-      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
+      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
       // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
       if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {

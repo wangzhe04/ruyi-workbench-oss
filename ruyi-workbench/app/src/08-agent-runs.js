@@ -491,10 +491,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   startInitBeat();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself launch agents.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes the agent tools */ }
-  // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const chatUrl = providerCompletionUrl(provider.baseUrl, subApiStyle === 'responses'); // 04h:端点 URL 原语(与父回合同一份)
+  // 线协议与父回合同一份(58 号批 1:04i 协议登记表)。
+  const wire = providerWireProtocol(provider);
+  const chatUrl = wire.completionUrl(provider.baseUrl);
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -580,29 +579,20 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
-  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头
+  const headers = wire.requestHeaders(provider);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
   // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
   let useTools = tools.length > 0, toolsRetried = false;
   const buildBody = () => {
-    // v1.7 (Responses): sub-agent body follows the parent's protocol choice — instructions + input items,
-    // flat function tools; system folded into instructions (buildResponsesInputItems skips system roles).
-    if (subApiStyle === 'responses') {
-      // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
-      const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
-      if (temp !== undefined) b.temperature = temp;
-      applyProviderReasoningEffort(b, provider, 'responses');
-      // v1.8.2: mirror the parent — server-side web_search only when the provider opts in (serverWebSearch:true);
-      // otherwise web_search stays a LOCAL function tool (builtin fallback).
-      if (useTools) { b.tools = toResponsesTools(tools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
-      return b;
-    }
-    const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
+    // 与父回合同一个协议(58 号批 1):chat 发 messages,Responses 发 instructions + input 项(system 折进 instructions);
+    // v1.8:服务端工具项 subServerToolItems 接在翻译后的历史之后(DeepSeek 在服务端恢复搜索结果)。
+    const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, instructions: sys, serverItems: subServerToolItems });
     if (temp !== undefined) b.temperature = temp;
-    applyProviderReasoningEffort(b, provider, 'chat');
-    if (useTools) { b.tools = tools; b.tool_choice = 'auto'; }
+    applyProviderReasoningEffort(b, provider, wire.id);
+    // v1.8.2:服务端 web_search 只在服务商显式开启(serverWebSearch:true)时映射;否则 web_search 仍是本地工具。
+    if (useTools) wire.applyTools(b, tools, { serverWebSearch: provider.serverWebSearch === true });
     return b;
   };
 
@@ -672,7 +662,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON；字符串值内部的双引号必须转义为 \\"。',
     });
     try {
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
+      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire });
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (!call.httpError && call.text && String(call.text).trim()) {
         resultText += call.text;
@@ -737,7 +727,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
         backoffMs: n => Math.min(2000, 250 * n),
-        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream }),
+        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
         classify: c => {
           if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
           return providerCallIsTransient(c) ? 'retry' : 'done';
@@ -829,7 +819,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
           subServerToolItems.push(item);
         }
-        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -1013,7 +1003,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         continue; // let the sub-agent react to its tool results
       }
       // No tool calls → final conclusion for the sub-turn.
-      if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
+      if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       break;
     }
     // 预算耗尽(循环正常退出,非 break 跳出)

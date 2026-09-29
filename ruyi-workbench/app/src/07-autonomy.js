@@ -1,12 +1,13 @@
-// Best-effort model list from a provider's OpenAI-style GET /models. Never throws.
+// Best-effort model list from a provider's GET …/models. Never throws. 端点与请求头按协议问 04i 的登记表(与补全请求同一份)。
 async function fetchOpenAiModels(provider, timeoutMs = 4000) {
-  const base = providerBaseWithV1(provider && provider.baseUrl);
-  if (!base || typeof fetch !== 'function') return { ok: false, error: base ? 'fetch unavailable' : 'no base URL', models: [] };
-  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头,与补全请求同一份
+  const wire = providerWireProtocol(provider);
+  const modelsUrl = wire.modelsUrl(provider && provider.baseUrl);
+  if (!modelsUrl || typeof fetch !== 'function') return { ok: false, error: modelsUrl ? 'fetch unavailable' : 'no base URL', models: [] };
+  const headers = wire.requestHeaders(provider);
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
-    const res = await fetch(base + '/models', { headers, signal: ctrl ? ctrl.signal : undefined });
+    const res = await fetch(modelsUrl, { headers, signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) return { ok: false, error: 'HTTP ' + (res ? res.status : '?'), models: [] };
     const body = await res.json();
     const data = Array.isArray(body && body.data) ? body.data : (Array.isArray(body) ? body : []);
@@ -1010,43 +1011,10 @@ function failoverConnectReason(err) {
 // process. Not persisted (in-memory only, per spec). Cleared implicitly on process exit.
 const failoverStickyBase = new Map();
 
-// v1.7 — OpenAI Responses API request shaping (DeepSeek /v1/responses, Codex/agent oriented).
-// Ruyi's provider engine keeps ONE normalized chat-shaped providerHistory (roles user/assistant/tool +
-// assistant.tool_calls). The Responses protocol wants `input` ITEMS instead of `messages`, so we translate
-// at request time (never mutating the stored history — multi-round tool loops keep working identically):
-//   user        → { type:'message', role:'user', content:[{type:'input_text', text}] }
-//   assistant   → optional {type:'reasoning',content:[{type:'reasoning_text',text}]} then
-//                 { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
-//   tool        → { type:'function_call_output', call_id, output }
-//   system      → folded into `instructions` (the Responses equivalent of a leading system message)
-// function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
-// (chat's nested { type:'function', function:{...} } shape is NOT accepted there).
-function toResponsesContent(content) {
-  // String → single input_text block. Parts array (vision) → text parts + input_image parts。图片 part 在此
-  // 展平成 Responses 形 { type:'input_image', image_url:'data:…' }(OpenAI Responses 官方形状;DeepSeek
-  // /responses 现也接受 input_image —— 2026-09 用户确认,旧注释「Responses 无图像输入」已过时)。
-  // chat 形 {type:'image_url', image_url:{url}} 与 Responses 形都认;URI 实在取不出才降级为可见占位文本
-  // (绝不静默丢图)。图片是否随消息发由上游闸住:provider.vision !== true 时根本不建 image part(09-workflow)。
-  if (typeof content === 'string') return [{ type: 'input_text', text: content }];
-  if (Array.isArray(content)) {
-    const parts = [];
-    for (const part of content) {
-      if (!part || typeof part !== 'object') continue;
-      if (part.type === 'text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
-      else if (part.type === 'input_text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
-      else if (part.type === 'image_url' || part.type === 'input_image') {
-        const raw = typeof part.image_url === 'string' ? part.image_url
-          : (part.image_url && typeof part.image_url.url === 'string') ? part.image_url.url
-          : (typeof part.input_image === 'string' ? part.input_image : '');
-        if (raw) parts.push({ type: 'input_image', image_url: raw });
-        else parts.push({ type: 'input_text', text: '[图片输入无法解析图像 URI，已替换为占位文本]' });
-      }
-    }
-    return parts.length ? parts : [{ type: 'input_text', text: '' }];
-  }
-  return [{ type: 'input_text', text: String(content || '') }];
-}
-// Translate a chat-shaped providerHistory into Responses `input` items (see header note).
+// 58 号方案批 1:04i 协议登记表要用的四个环内工具在这里一次填好 —— 04i 直接引用它们会被拽进唯一大 SCC(见 04i 头注)。
+// 单文件加载即执行,早于任何一次请求。
+Object.assign(ProviderWireHooks, { makeId, redact, repairProviderHistoryPairing, repairProviderHistoryToolArgs });
+
 // 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
 // (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
 // 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
@@ -1111,70 +1079,6 @@ function projectActionModelView(history, auditMap) {
   return { history: projected, changed };
 }
 
-function buildResponsesInputItems(history) {
-  const items = [];
-  const paired = responsesHistoryWithCompleteToolPairs(history).history;
-  for (const m of paired) {
-    if (!m || typeof m !== 'object') continue;
-    if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
-    if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
-    if (m.role === 'assistant') {
-      // DeepSeek Responses is stateless and thinking mode is enabled by default. When tools are present it
-      // requires every prior reasoning_text to be passed back; dropping it makes the next tool-loop request
-      // fail with HTTP 400. Keep the normalized history chat-shaped, but project its reasoning_content into
-      // a first-class Responses reasoning item immediately before the adjacent assistant/function_call items.
-      const reasoning = typeof m.reasoning_content === 'string' ? m.reasoning_content : '';
-      if (reasoning) items.push({ type: 'reasoning', content: [{ type: 'reasoning_text', text: reasoning }] });
-      const text = typeof m.content === 'string' ? m.content : '';
-      if (text) items.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text }] });
-      if (Array.isArray(m.tool_calls)) {
-        for (const tc of m.tool_calls) {
-          if (!tc || tc.id == null) continue;
-          items.push({ type: 'function_call', call_id: String(tc.id), name: (tc.function && tc.function.name) || '', arguments: (tc.function && tc.function.arguments) || '' });
-        }
-      }
-      continue;
-    }
-    if (m.role === 'tool') {
-      if (m.tool_call_id != null) {
-        items.push({ type: 'function_call_output', call_id: String(m.tool_call_id), output: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '') });
-      }
-      continue;
-    }
-    items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); // unknown role → user
-  }
-  return items;
-}
-// Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
-// v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
-// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call) —
-// but ONLY when the provider opts in via serverWebSearch:true (the DeepSeek preset ships it). This keeps
-// the built-in LOCAL web_search (builtin/searxng/bing/brave/tavily/bocha/custom backends) as the FALLBACK
-// for every other provider and for Responses endpoints that ignore server-side tool types (DeepSeek
-// silently drops unsupported tools — an unconditional mapping would silently remove web_search there).
-// DeepSeek ignores unknown builtin tool types, so only web_search is ever mapped; everything else keeps
-// its historical flatten/passthrough behavior.
-function toResponsesTools(tools, serverWebSearch) {
-  if (!Array.isArray(tools)) return [];
-  const out = [];
-  for (const t of tools) {
-    if (!t || typeof t !== 'object') continue;
-    const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
-    if (serverWebSearch === true && flatName === 'web_search') {
-      out.push({ type: 'web_search' });
-      continue;
-    }
-    if (t.type === 'function' && t.function && typeof t.function === 'object') {
-      out.push({ type: 'function', name: t.function.name || '', description: t.function.description || '', parameters: t.function.parameters || { type: 'object', properties: {} } });
-    } else if (t.type === 'function') {
-      out.push({ type: 'function', name: t.name || '', description: t.description || '', parameters: t.parameters || { type: 'object', properties: {} } });
-    } else {
-      out.push(t); // web_search etc. pass through verbatim
-    }
-  }
-  return out;
-}
-
 // One streaming chat/completions call. Emits assistant_delta / thinking_delta / raw_line live; returns
 // { text, reasoning, toolCalls:[{id,name,rawArgs}], finishReason, httpError, toolsRejected }.
 // v1.0-S6 (B): pre-first-byte failures are surfaced structurally so the caller can decide failover:
@@ -1183,15 +1087,12 @@ function toResponsesTools(tools, serverWebSearch) {
 //   • a non-ok response whose status is 502/503/504 → the returned httpError object also carries
 //     { failoverStatus:<502|503|504> } so the caller can advance. A throw that happens AFTER streaming has
 //     started still propagates normally (caller's error path; no failover — 防重放).
-// v1.7: ALSO speaks the OpenAI Responses API protocol when the request body carries `input` (not `messages`).
-// DeepSeek added /v1/responses for Codex/agent loops (v4-flash now, v4-pro from 2026-08). The two protocols
-// differ end-to-end (request shape, SSE event types, terminal condition), so `isResponses` selects a parallel
-// parser inside — chat keeps its battle-tested path byte-for-byte; responses handles
-// response.output_text.delta / response.reasoning_text.delta / response.function_call_arguments.delta /
-// response.output_item.added / response.completed|incomplete|failed (NO `data: [DONE]` terminator).
-async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch }) {
-  const isResponses = !!(body && Array.isArray(body.input)); // Responses body uses `input` items, chat uses `messages`
-  let providerResponseId = ''; // 21-E0: provider 侧响应 id(辅助字段,请求侧 modelCallId 为主键)
+// 协议(58 号批 1):请求体的形状与流式事件语法都住在 04i 的协议登记表 —— 这里只管传输:发请求、首字节前的传输失败与
+// failover 判定、400 归因(工具被拒 / 超窗 / stream_options)、SSE 分帧(空行分事件、多行 data: 拼接、[DONE])、raw_line;
+// 每一帧交给 protocol.createStreamDecoder 的解码器,非流式回体交给 protocol.decodeCompletion。调用方(09/08)显式传
+// protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
+async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
+  const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = b => fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(b), signal: ctrl ? ctrl.signal : undefined });
   let res;
   try {
@@ -1247,208 +1148,28 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     const failoverStatus = (res && FAILOVER_HTTP_STATUSES.has(res.status)) ? res.status : undefined;
     return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: /tool|function/i.test(d), failoverStatus, text: '', reasoning: '', toolCalls: [] };
   }
-  // Non-streaming fallback: single JSON body.
+  // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
+  // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
   if (!res.body || typeof res.body.getReader !== 'function') {
     const j = await res.json().catch(() => null);
-    // v1.7 (Responses API): a non-streamed response body is a `response` object with an `output` item list
-    // (message / function_call / reasoning…), NOT chat's {choices:[{message}]}. Normalize it to the same
-    // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
-    if (isResponses) {
-      const out = Array.isArray(j && j.output) ? j.output : [];
-      let respText = '', respReasoning = '';
-      const tcs = [];
-      for (const item of out) {
-        if (!item || typeof item !== 'object') continue;
-        if (item.type === 'function_call') {
-          tcs.push({ id: item.call_id || makeId('call'), name: item.name, rawArgs: (typeof item.arguments === 'string' && item.arguments) ? item.arguments : '{}' });
-          continue;
-        }
-        if (item.type === 'reasoning') {
-          const parts = Array.isArray(item.content) ? item.content : [];
-          for (const part of parts) { if (part && part.type === 'reasoning_text' && typeof part.text === 'string') respReasoning += part.text; }
-          continue;
-        }
-        if (item.type === 'message') {
-          const parts = Array.isArray(item.content) ? item.content : [];
-          for (const part of parts) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') respText += part.text; }
-        }
-      }
-      // E6 parity: surface reasoning before content, matching the streaming order.
-      if (respReasoning) onEvent({ type: 'thinking_delta', text: respReasoning });
-      if (respText) onEvent({ type: 'assistant_delta', text: respText });
-      if (j && j.usage) markUsage(j.usage);
-      return { text: respText, reasoning: respReasoning, toolCalls: tcs.filter(t => t.name), finishReason: (j && j.status === 'incomplete') ? 'length' : ((j && j.status === 'failed') ? 'error' : 'stop'), providerResponseId: (j && (j.id || (j.response && j.response.id))) || providerResponseId };
-    }
-    const ch = j && j.choices && j.choices[0];
-    const msg = ch && ch.message;
-    // E6: this branch previously returned reasoning_content but never surfaced it as a thinking_delta, so a
-    // non-streaming endpoint's reasoning chain was invisible in the UI. Emit it here (before the content, to
-    // match the streaming order) whether the provider spells it reasoning_content or reasoning.
-    const reasoningText = (msg && typeof msg.reasoning_content === 'string' && msg.reasoning_content) || (msg && typeof msg.reasoning === 'string' && msg.reasoning) || '';
-    if (reasoningText) onEvent({ type: 'thinking_delta', text: reasoningText });
-    if (msg && typeof msg.content === 'string' && msg.content) onEvent({ type: 'assistant_delta', text: msg.content });
-    if (j && j.usage) markUsage(j.usage);
-    const tcs = Array.isArray(msg && msg.tool_calls) ? msg.tool_calls.map(tc => ({ id: tc.id || makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name) : [];
-    return { text: (msg && msg.content) || '', reasoning: reasoningText, toolCalls: tcs, finishReason: ch && ch.finish_reason, providerResponseId: (j && (j.id || (j.response && j.response.id))) || providerResponseId };
+    const d = wire.decodeCompletion(j);
+    // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
+    // chain used to be invisible in the UI).
+    if (d.reasoning) onEvent({ type: 'thinking_delta', text: d.reasoning });
+    if (d.text) onEvent({ type: 'assistant_delta', text: d.text });
+    if (d.usage) markUsage(d.usage);
+    return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId };
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder('utf-8');
-  let buf = '', text = '', reasoning = '', finishReason = null, done = false, responsesFailedError = '';
-  // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
-  // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
-  // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
-  // a slot, otherwise keep writing the current slot" state machine keeps multiple PARALLEL tool_calls
-  // independent even when the provider omits `index` on the delta fragments (some vLLM/Ollama/self-hosted
-  // endpoints do). The old code forced every index-less delta into acc[0], splicing distinct calls' names
-  // ("file_readfile_write") and arguments into one corrupt, unparseable blob.
-  const slots = []; // { id, index, name, args } in first-seen order
-  let curSlot = null;
-  const selectSlot = tc => {
-    // Priority 1: an explicit, non-empty id is the authoritative call identity -> find-or-create by id
-    // (idempotent whether the provider sends the id once at the start or repeats it on every fragment).
-    if (typeof tc.id === 'string' && tc.id) {
-      let s = slots.find(x => x.id === tc.id);
-      if (!s) {
-        // Adopt a slot previously opened for this same index that has not yet been assigned an id.
-        if (tc.index != null) s = slots.find(x => !x.id && x.index === tc.index);
-        if (s) s.id = tc.id;
-        else { s = { id: tc.id, index: (tc.index != null ? tc.index : null), name: '', args: '' }; slots.push(s); }
-      }
-      curSlot = s; return s;
-    }
-    // Priority 2: no id but an explicit index -> find-or-create by index (the standard OpenAI shape where
-    // continuation fragments carry only the index).
-    if (tc.index != null) {
-      let s = slots.find(x => x.index === tc.index);
-      if (!s) { s = { id: '', index: tc.index, name: '', args: '' }; slots.push(s); }
-      curSlot = s; return s;
-    }
-    // Priority 3: neither id nor index -> keep writing to the current slot (open a first default slot if this
-    // is the very first fragment).
-    if (!curSlot) { curSlot = { id: '', index: null, name: '', args: '' }; slots.push(curSlot); }
-    return curSlot;
-  };
-  // Process ONE decoded SSE event object (already JSON-parsed). Mutates text/reasoning/finishReason/slots.
+  let buf = '', done = false;
+  const wireDecoder = wire.createStreamDecoder({ onEvent, markUsage });
+  // Process ONE decoded SSE event object (already JSON-parsed): raw_line first, then the protocol's event grammar.
   // Returns true when this event terminates the stream (responses' completed/incomplete/failed; chat keeps
-  // relying on the `[DONE]` sentinel inside handleEventBlock). v1.7: `isResponses` selects the Responses-API
-  // event grammar — the two protocols share nothing structurally, so they get separate handlers.
+  // relying on the `[DONE]` sentinel inside handleEventBlock).
   const processEvt = (evt, rawStr) => {
     onEvent({ type: 'raw_line', line: rawStr, seq: rawSeqRef.n++ });
-    // 21-E0: 捕获 provider 侧响应 id 作辅助关联(请求侧 modelCallId 仍为主键;无 id 端点保持空串)。
-    if (!providerResponseId) {
-      if (evt && evt.response && typeof evt.response.id === 'string' && evt.response.id) providerResponseId = evt.response.id;
-      else if (evt && typeof evt.id === 'string' && evt.id && evt.type !== 'response.created') providerResponseId = evt.id;
-    }
-    if (isResponses) {
-      // ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
-      // Events: response.created | response.in_progress | response.output_item.added/done |
-      // response.content_part.added/done | response.reasoning_text.delta/done | response.output_text.delta/done |
-      // response.function_call_arguments.delta/done | response.completed | response.incomplete | response.failed.
-      // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
-      if (evt && evt.usage) markUsage(evt.usage); // some events carry usage directly
-      const t = evt && evt.type;
-      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'function_call') {
-        // A function_call output item opens/selects its slot (call_id + name), arguments stream separately.
-        // 对抗轮(P1-2):以 call_id 为主键选槽 —— 并行 function_call 是常态(官方文档 parallel_tool_calls 忽略
-        // = 始终开启),delta 事件自带 item_id,必须按 item_id 路由参数,不能依赖"最后 added 的槽"(交错事件序会错配)。
-        const fc = evt.item;
-        const id = fc.call_id || makeId('call');
-        let s = slots.find(x => x.id === id);
-        if (!s) { s = { id, index: null, name: fc.name || '', args: '', itemId: evt.item && evt.item.id || '' }; slots.push(s); }
-        else if (fc.name) s.name += fc.name;
-        curSlot = s;
-        return false;
-      }
-      // v1.8: a web_search_call output item is a SERVER-SIDE tool invocation (DeepSeek /responses executes
-      // the search itself). Surface it as a toolCall named 'web_search' with serverSide:true so the tool
-      // loop knows NOT to execute it locally; the raw item is carried back to the next request's `input`
-      // (DeepSeek restores the search results server-side). status/output arrive on the .done event.
-      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'web_search_call') {
-        const ws = evt.item;
-        const id = ws.id || makeId('call');
-        let s = slots.find(x => x.id === id);
-        if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
-        curSlot = s;
-        return false;
-      }
-      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
-        const ws = evt.item;
-        const id = ws.id || '';
-        let s = id ? slots.find(x => x.id === id) : curSlot;
-        if (s) {
-          s.item = ws; // keep the FULL item so it can be echoed back verbatim (server restores the results)
-          // v1.8.1: DeepSeek's web_search_call carries the query under `action` (NOT the OpenAI-doc shape
-          // `output.query`/`output.search_terms` — the real item has NO `output` field at all):
-          //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
-          //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
-          // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
-          const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
-          let q = '';
-          if (action) {
-            if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
-            else if (typeof action.url === 'string') q = action.url;
-          }
-          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
-        }
-        return false;
-      }
-      if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
-        // 对抗轮(P1-2):优先按事件的 item_id 精确定位槽(并行时 arguments delta 按 item_id 路由,绝不串写);
-        // item_id 缺失/未命中才回退到"最近 added 的槽"(串行单调用场景,与旧行为一致)。
-        let target = null;
-        const itemId = evt && evt.item_id;
-        if (typeof itemId === 'string' && itemId) target = slots.find(x => x.itemId === itemId);
-        if (!target) target = curSlot;
-        if (!target) { target = { id: makeId('call'), index: null, name: '', args: '', itemId: '' }; slots.push(target); }
-        target.args += evt.delta;
-        curSlot = target;
-        return false;
-      }
-      if (t === 'response.reasoning_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
-      }
-      if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        text += evt.delta; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
-      }
-      if (t === 'response.completed') {
-        // Final event: the full response object (with usage) rides on the event.
-        if (evt.response && evt.response.usage) markUsage(evt.response.usage);
-        finishReason = 'stop';
-        return true;
-      }
-      if (t === 'response.incomplete') { finishReason = 'length'; return true; } // truncated (e.g. max_output_tokens)
-      if (t === 'response.failed') {
-        // Terminal failure — surface the error detail to the caller's existing httpError path.
-        // 对抗轮(P1-3/P2-1/P2-3):
-        //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
-        //  • 文本过 redact() 防恶意服务商在 error 里回显密钥(P2-3);
-        //  • 错误含 context/length 语义时置 contextOverflow,让 45b 强压重试能识别(P1-3)。
-        const err = evt.response && (evt.response.error || evt.response.last_error);
-        const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
-        responsesFailedError = 'Responses failed' + (em ? ': ' + redact(String(em).slice(0, 400)) : ' (no error detail)');
-        if (/context|length|token/i.test(responsesFailedError)) responsesFailedError = 'HTTP 400: ' + responsesFailedError;
-        finishReason = 'error';
-        return true;
-      }
-      return false; // created / in_progress / content_part.* / output_item.done / reasoning_text.done / output_text.done / … — non-terminal
-    }
-    // ── Chat Completions stream (classic path) ─────────────────────────────────────────────────────────
-    if (evt.usage) markUsage(evt.usage);
-    const ch = evt.choices && evt.choices[0];
-    if (!ch) return false;
-    if (ch.finish_reason) finishReason = ch.finish_reason;
-    const delta = ch.delta;
-    if (!delta) return false;
-    const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
-    if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
-    if (typeof delta.content === 'string' && delta.content) { text += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
-    if (Array.isArray(delta.tool_calls)) {
-      for (const tc of delta.tool_calls) {
-        const slot = selectSlot(tc);
-        if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
-      }
-    }
-    return false;
+    return wireDecoder.feed(evt);
   };
   // E5: standard SSE framing. Events are separated by a BLANK line; within one event, multiple `data:` field
   // lines concatenate (joined by '\n') into a single payload before parsing (per the WHATWG SSE spec). The
@@ -1495,17 +1216,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
   if (!done && buf.trim()) handleEventBlock(buf);
-  // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
-  // back into the next request's `input` without executing anything locally.
-  const toolCalls = slots.filter(t => t.name).map(t => {
-    const base = { id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' };
-    if (t.serverSide) { base.serverSide = true; if (t.item) base.item = t.item; }
-    return base;
-  });
-  // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
-  // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
-  if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
-  return { text, reasoning, finishReason, toolCalls, providerResponseId };
+  return wireDecoder.finish();
 }
 
 // v0.8-S7: drain the steering queue at a SAFE injection point (§4 A3). Called ONLY at the iteration
@@ -2100,20 +1811,4 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
     } catch { /* accounting must never break the sub-agent */ }
   }
-}
-
-// Responses strict pairing adapter. A bounded history projection (summary fitting, retry/reseed, or an
-// interrupted subturn) can end after an assistant function_call but before its function_call_output.
-// DeepSeek Responses rejects that otherwise useful prefix with HTTP 400 "No tool output found". Reuse the
-// persisted-history repair primitive on a SHALLOW ARRAY COPY: missing outputs become explicit synthetic
-// results before the next message/end, while the caller's auditable history stays byte-for-byte untouched.
-// Function declarations are hoisted; keeping this adapter at the module tail minimizes generated line-map churn.
-function responsesHistoryWithCompleteToolPairs(history) {
-  const paired = Array.isArray(history) ? history.slice() : [];
-  // 参数铁律自愈同址施行(见 02-session-store.js)。与配对自愈不同,它是【就地】改消息对象的
-  // ——— 浅拷贝共享同一批 message,故这一改会落到调用方的历史上。这是刻意的:把 arguments 改成
-  // 当时实际执行用的 '{}' 正是我们想让它【持久】的终态(与配对自愈往数组里插合成回复不同,那种
-  // 改写只该活在请求体投影里,所以那条仍严格只动副本)。
-  const argsRepaired = repairProviderHistoryToolArgs(paired);
-  return { history: paired, repaired: repairProviderHistoryPairing(paired) + argsRepaired };
 }

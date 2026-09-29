@@ -2366,6 +2366,69 @@
       "requires": []
     },
     {
+      "file": "04i-provider-wire.js",
+      "layer": "foundation",
+      "provides": [
+        "PROVIDER_REASONING_EFFORTS",
+        "PROVIDER_WIRE_DEFAULT",
+        "PROVIDER_WIRE_PROTOCOLS",
+        "ProviderWireHooks",
+        "applyProviderReasoningEffort",
+        "buildResponsesInputItems",
+        "chatCompletionText",
+        "createChatStreamDecoder",
+        "createResponsesStreamDecoder",
+        "decodeChatCompletion",
+        "decodeResponsesCompletion",
+        "normalizeProviderApiStyle",
+        "providerReasoningEffort",
+        "providerWireDecoded",
+        "providerWireFailureDetail",
+        "providerWireIncomplete",
+        "providerWireModelsUrl",
+        "providerWireProtocol",
+        "providerWireProtocolForBody",
+        "providerWireResponseIdOf",
+        "providerWireToolCallsFromSlots",
+        "reasoningContentField",
+        "responsesHistoryWithCompleteToolPairs",
+        "responsesInstructions",
+        "responsesOutputText",
+        "toResponsesContent",
+        "toResponsesTools"
+      ],
+      "requires": [
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerApiBase",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerBaseWithV1",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerCompletionUrl",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
+          "symbol": "providerRequestHeaders",
+          "kinds": [
+            "call"
+          ]
+        }
+      ]
+    },
+    {
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
@@ -2381,11 +2444,9 @@
         "MCP_ARG_REDACTED_MARK",
         "PROVIDER_MODEL_CAPS",
         "PROVIDER_PRESETS",
-        "PROVIDER_REASONING_EFFORTS",
         "SENSITIVE_HEADER_RE",
         "activeOpenAiProvider",
         "agentCliAdapter",
-        "applyProviderReasoningEffort",
         "asrChatContentText",
         "asrFixContextTail",
         "asrFixMessages",
@@ -2415,7 +2476,6 @@
         "providerMaskedSecretFields",
         "providerMaskedUrlFields",
         "providerModelCaps",
-        "providerReasoningEffort",
         "providerVectorNotWidened",
         "resolveAsrFixProvider",
         "resolveAsrProvider",
@@ -2986,21 +3046,28 @@
         },
         {
           "provider": "04h-provider-http.js",
-          "symbol": "providerCompletionUrl",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
           "symbol": "providerPostJsonOnce",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerRequestHeaders",
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
           "kinds": [
             "call"
           ]
@@ -4548,21 +4615,21 @@
         },
         {
           "provider": "04h-provider-http.js",
-          "symbol": "providerCompletionUrl",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
           "symbol": "providerPostJsonOnce",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerRequestHeaders",
+          "provider": "04i-provider-wire.js",
+          "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
           "kinds": [
             "call"
           ]
@@ -4577,13 +4644,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "agentCliAdapter",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "call"
           ]
@@ -4619,13 +4679,6 @@
         {
           "provider": "06e-mission-domain.js",
           "symbol": "buildMissionPromptSection",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildResponsesInputItems",
           "kinds": [
             "call"
           ]
@@ -5793,7 +5846,6 @@
         "buildCallHint",
         "buildClaudeAgentDefinitions",
         "buildOpenAiTools",
-        "buildResponsesInputItems",
         "buildToolCatalog",
         "classifyClaudeSubagentFailure",
         "classifyRuntimeToolFailure",
@@ -5829,7 +5881,6 @@
         "readProjectAgentRoles",
         "requestNativePermission",
         "requestPlanApproval",
-        "responsesHistoryWithCompleteToolPairs",
         "resumeInFlight",
         "retrievalHintForTool",
         "runClaudeSubAgentOnce",
@@ -5838,8 +5889,6 @@
         "schedulerAskWaitOverrideMs",
         "schedulerAskWaitSessions",
         "searchToolCatalog",
-        "toResponsesContent",
-        "toResponsesTools",
         "tokenizeToolSearchText",
         "toolIsRevertible",
         "toolPackForName",
@@ -5894,7 +5943,8 @@
           "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -6076,14 +6126,14 @@
           "provider": "02-session-store.js",
           "symbol": "repairProviderHistoryPairing",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
           "provider": "02-session-store.js",
           "symbol": "repairProviderHistoryToolArgs",
           "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -6181,7 +6231,8 @@
           "provider": "04-permission-runtime.js",
           "symbol": "redact",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -6200,21 +6251,28 @@
         },
         {
           "provider": "04h-provider-http.js",
-          "symbol": "providerBaseWithV1",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerRequestHeaders",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "ProviderWireHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocolForBody",
           "kinds": [
             "call"
           ]
@@ -6690,28 +6748,21 @@
         },
         {
           "provider": "04h-provider-http.js",
-          "symbol": "providerCompletionUrl",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerRequestHeaders",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "05-claude-engine.js",
+          "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
           "kinds": [
             "call"
           ]
@@ -6844,13 +6895,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "buildResponsesInputItems",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "classifyToolPacks",
           "kinds": [
             "call"
@@ -6922,13 +6966,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toResponsesTools",
           "kinds": [
             "call"
           ]
@@ -7663,22 +7700,15 @@
           ]
         },
         {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerApiBase",
+          "provider": "04i-provider-wire.js",
+          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerCompletionUrl",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerRequestHeaders",
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
           "kinds": [
             "call"
           ]
@@ -7686,13 +7716,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "call"
           ]
@@ -7972,13 +7995,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "buildResponsesInputItems",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "classifyRuntimeToolFailure",
           "kinds": [
             "call"
@@ -8178,13 +8194,6 @@
           "symbol": "resumeInFlight",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "toResponsesTools",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -8821,9 +8830,6 @@
         "summaryPolicyTiers",
         "summaryPromptIsEnglish",
         "summaryPromptWithGuidance",
-        "summaryResponseFailureDetail",
-        "summaryResponseIncomplete",
-        "summaryResponseText",
         "summarySingleShotCap",
         "summarySingleShotReserveTokens",
         "summarySourceText",
@@ -9229,15 +9235,15 @@
           ]
         },
         {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerCompletionUrl",
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
           "kinds": [
             "call"
           ]
         },
         {
-          "provider": "04h-provider-http.js",
-          "symbol": "providerRequestHeaders",
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
           "kinds": [
             "call"
           ]
@@ -9322,13 +9328,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildResponsesInputItems",
           "kinds": [
             "call"
           ]
@@ -20583,6 +20582,55 @@
           ]
         },
         {
+          "provider": "04i-provider-wire.js",
+          "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "buildResponsesInputItems",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "normalizeProviderApiStyle",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "PROVIDER_WIRE_PROTOCOLS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerReasoningEffort",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerWireProtocol",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "responsesHistoryWithCompleteToolPairs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "AGENT_CLI_ADAPTERS",
           "kinds": [
@@ -20592,13 +20640,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "agentCliAdapter",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "applyProviderReasoningEffort",
           "kinds": [
             "read"
           ]
@@ -20641,13 +20682,6 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "providerLaunchVectorKey",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "05-claude-engine.js",
-          "symbol": "providerReasoningEffort",
           "kinds": [
             "read"
           ]
@@ -21977,13 +22011,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "buildResponsesInputItems",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "buildToolCatalog",
           "kinds": [
             "read"
@@ -22090,13 +22117,6 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "requestNativePermission",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "responsesHistoryWithCompleteToolPairs",
           "kinds": [
             "read"
           ]

@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-417-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-418-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20%E8%BF%90%E8%A1%8C%E6%97%B6%E4%BE%9D%E8%B5%96-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,9 +71,9 @@
 
 | | |
 |---|---|
-| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 6.3 万行，由 `app/src/` 的 63 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 60 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
+| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 6.3 万行，由 `app/src/` 的 64 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 61 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
 | **107 个原生工具 · 108 个 ACC 工具** | 线程里可用的文件、终端、搜索、Git、联网、Office 交接、子代理编排等 65 个，加上管家专用的 42 个；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 417 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 417 项 e2e（默认回归 410 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 100 组 unit suite 与 17 组 ACC smoke，Windows CI 每次提交都跑。 |
+| **8 套模板 · 10 种角色 · 418 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 418 项 e2e（默认回归 411 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 102 组 unit suite 与 17 组 ACC smoke，Windows CI 每次提交都跑。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -494,9 +494,9 @@ Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源�
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            后端源码：63 个有序模块（改这里，再跑 build.js）
+│   ├── app/src/            后端源码：64 个有序模块（改这里，再跑 build.js）
 │   ├── app/server.js       后端运行产物（由 app/build.js 拼接，零 npm 运行时依赖）
-│   ├── app/public/         前端：index.html + 60 个原生 ES 模块 + 分层 CSS + 中英语言包
+│   ├── app/public/         前端：index.html + 61 个原生 ES 模块 + 分层 CSS + 中英语言包
 │   ├── desktop/            WinForms + WebView2 桌面壳
 │   ├── resources/          内置 Playbook、离线插件与脚本
 │   ├── config/             配置示例与出厂默认值
