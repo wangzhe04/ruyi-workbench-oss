@@ -69,8 +69,17 @@ export function fmtBytes(n) {
   return `${value.toFixed(1)} ${units[unit]}`;
 }
 // ISO 时间 → 当前语言的短格式。
+// 每种语言一个格式器(toLocaleString 带 options 每次都新建一个;打开长会话时每行都调)。输出与 toLocaleString 相同。
+const fmtTimeFormatters = new Map();
 export function fmtTime(iso) {
-  try { const d = new Date(iso); return d.toLocaleString(getLocale(), { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit' }); } catch { return ''; }
+  try {
+    const d = new Date(iso);
+    const locale = getLocale();
+    if (Number.isNaN(d.getTime())) return d.toLocaleString(getLocale());   // 「Invalid Date」:与修前同一个字符串(format() 会抛)
+    let f = fmtTimeFormatters.get(locale);
+    if (!f) { f = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit' }); fmtTimeFormatters.set(locale, f); }
+    return f.format(d);
+  } catch { return ''; }
 }
 // token 数人类可读(K/M,尾零裁剪)。ctx-meter 与各处读数共用。
 export function fmtTokens(n) {
