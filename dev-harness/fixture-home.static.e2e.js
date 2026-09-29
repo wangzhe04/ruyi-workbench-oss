@@ -130,7 +130,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 58 号批 2 的 anthropic-fake.e2e.js 起一个真工作台(同一个模具:RUYI_HOME + WIN_CLAUDE_WORKBENCH_HOME 指向自己的临时家),162 -> 163。
 // hunt2-turnloop:新增 dev-harness/provider-turnloop-hardening.e2e.js(一处带 RUYI_HOME 的 spawn 起服务;第一行已 require
 // self-isolate-home;进程内的 fake provider 不带 RUYI_HOME,不计入),163 -> 164。
-const RUYI_HOME_SPAWN_SITES = 164;
+// perf(GET /api/sessions/:id 条件 GET):新增 dev-harness/session-get-etag.e2e.js(一处带 RUYI_HOME 的 spawn 起服务;第一行已 require
+// self-isolate-home;进程内的 fake provider 不带 RUYI_HOME,不计入),164 -> 165。
+const RUYI_HOME_SPAWN_SITES = 165;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 

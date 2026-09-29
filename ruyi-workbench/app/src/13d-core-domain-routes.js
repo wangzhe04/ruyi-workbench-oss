@@ -143,7 +143,8 @@ async function refreshSessionSearchIndex(metas) {
   if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  const wrote = await atomicWriteJson(sessionSearchIndexPath(), payload).then(() => true, () => false);
+  // 性能批 C1:紧凑 JSON(3000 条会话时带缩进写出来有 34 MB,每次会话有变都整份重写一遍)
+  const wrote = await atomicWriteJson(sessionSearchIndexPath(), JSON.stringify(payload)).then(() => true, () => false);
   if (wrote) {
     try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
   }
@@ -184,6 +185,19 @@ function sessionSearchSnippet(unit, terms) {
 //      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
 //   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
 //      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
+// 性能批 C1:会话搜索每敲一个字就查一次。语料(分词、df、向量)与每篇的「小写 + 空白折叠」都按条目缓存 ——
+// 条目在会话没变时是同一个对象(refreshSessionSearchIndex 原样复用),结果与逐次现算逐位相同。
+let sessionSearchCorpusCache = null;
+const sessionSearchHayMemo = new WeakMap();   // 条目对象 -> { unit, hay }
+function sessionSearchHayOf(entry) {
+  const hit = sessionSearchHayMemo.get(entry);
+  if (hit && hit.unit === entry.unit) return hit.hay;
+  // 查询词(retrievalTerms 产出的)不含空白,所以在折叠过空白的文本里 includes 与在原文里结果相同;
+  // 整句 phrase 本来就是在折叠后的文本里比。一份就够两用。
+  const hay = String(entry.unit).toLowerCase().replace(/\s+/g, ' ');
+  sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
+  return hay;
+}
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
@@ -200,8 +214,13 @@ async function searchSessionsByContent(query, limit) {
   const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
   const needed = Math.max(1, Math.ceil(terms.length / 2));
   const scores = new Map();
+  // 性能批 C1:首次(或会话大批变化后)要给几千篇现算小写 + 折叠,先分片预热、每 100 篇让一次事件循环
+  for (let i = 0; i < documents.length; i++) {
+    sessionSearchHayOf(entries[documents[i].id]);
+    if (i % 100 === 99) await new Promise(resolve => setImmediate(resolve));
+  }
   for (const doc of documents) {
-    const hay = doc.text.toLowerCase();
+    const hay = sessionSearchHayOf(entries[doc.id]);
     const meta = byId.get(doc.id) || {};
     const brief = sessionBriefOf(meta);
     const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
@@ -212,7 +231,7 @@ async function searchSessionsByContent(query, limit) {
       const weight = Math.min(12, Math.max(2, term.length));
       score += titleHay.includes(term) ? weight * 2 : weight;
     }
-    const exact = phrase.length >= 2 && hay.replace(/\s+/g, ' ').includes(phrase);
+    const exact = phrase.length >= 2 && hay.includes(phrase);
     if (!exact && matched < needed) continue;
     if (exact) score += 30;
     if (terms.length && matched === terms.length) score += 10;
@@ -220,7 +239,8 @@ async function searchSessionsByContent(query, limit) {
   }
   const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
 
-  const corpus = buildRetrievalCorpus(documents);
+  if (!sessionSearchCorpusCache) sessionSearchCorpusCache = createRetrievalCorpusCache();
+  const corpus = await sessionSearchCorpusCache.build(documents);
   const vector = rankRetrievalCorpus(corpus, q);
   const top = vector.length ? vector[0].score : 0;
   const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
@@ -254,6 +274,111 @@ async function searchSessionsByContent(query, limit) {
       snippet: sessionSearchSnippet(entries[row.id].unit, terms),
     })),
   };
+}
+
+// GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
+// 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
+// 慢路径整份重写是 rename 换 inode)+ 后台任务账本的 size/mtime/ino(loadSession 会把它合并进 messages)。
+// 头是提交点(saveSession 正文先落、头后落,且每次都推 updatedAt),所以「头哈希 + 正文戳」不变 = 盘上没有新提交。
+// 任何一步读不到(legacy 单文件会话没有正文文件、瞬时锁、会话不存在)一律返回 null → 调用方不发 ETag、走原来的无条件全量,
+// 与修前逐字节一致。
+async function sessionEnvelopeStamp(id) {
+  if (safeSessionId(id) === null) return null;
+  try {
+    const bp = sessionBodyPaths(id);
+    const [head, msg, prov, jobs] = await Promise.all([
+      fsp.readFile(sessionPath(id)),
+      fsp.stat(bp.messages),
+      fsp.stat(bp.provider),
+      // 路径与 11-native-tools.js 的 backgroundJobFile 同一处约定(sessions/background-jobs/<id>.json)。这里不直接引用它:13d 引 11
+      // 会新增一条循环边(module-dependency-graph 的债务上限锁着);e2e session-get-etag 的 F 段写一份账本、断言标签会变,钉住这份约定不漂移。
+      fsp.stat(path.join(paths.sessions, 'background-jobs', id + '.json')).catch(() => null),
+    ]);
+    const fileStamp = st => `${st.size}:${st.mtimeMs}:${st.ino}`;
+    return crypto.createHash('sha1').update(head).digest('hex') + '|' + fileStamp(msg) + '|' + fileStamp(prov) + '|' + (jobs ? fileStamp(jobs) : '-');
+  } catch { return null; }
+}
+// 标签 = 盘上戳 + 装载会改变响应的全部【内存】输入:活态四件(见 sessionEnvelopeLiveParts)、会话级权限档/桌面工具覆盖表
+// (loadSession 会把它们盖到返回的会话对象上)、垂死回合收尾窗口(turnSettlers:窗口内 loadSession 不做残留 pending 叙事段的
+// 惰性清理,出窗后同一份盘面装载出的会话就不同了)、以及 ?since 参数(管家会话的尾巴切片,响应体不同)。
+function sessionEnvelopeEtag(id, stamp, liveParts, sinceRaw) {
+  const overrides = [
+    sessionPermissionModeOverrides.has(id) ? [sessionPermissionModeOverrides.get(id)] : null,
+    sessionDesktopToolsOverrides.has(id) ? [sessionDesktopToolsOverrides.get(id)] : null,
+  ];
+  return pretenderEtag('session', pretenderHash([stamp, overrides, turnSettlers.has(id), liveParts, sinceRaw == null ? null : String(sinceRaw)]));
+}
+// 会话信封上【只来自内存】的那几样(活回合标志 / liveTail / liveTurn / 递话通道):GET /api/sessions/:id 的 200 体与
+// 条件 GET 的 ETag 共用这一份取样 —— 判据只写一处,响应里放了什么,ETag 就带什么(sessionEnvelopeEtag 直接哈希它)。
+// 纯同步只读:不碰盘、不改 reg。取样逻辑与注释原样搬自路由体(只是从内联挪成函数,一个字没动)。
+function sessionEnvelopeLiveParts(id) {
+  // 运行中豁免:活回合/活 agent run 在跑时,见路由体里 resumable 那一段。
+  let live = activeChildren.has(id);
+  if (!live) {
+    for (const runtime of activeAgentRuns.values()) {
+      if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
+    }
+  }
+  // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
+  // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
+  // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
+  // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
+  // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
+  // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
+  // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
+  // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
+  // tools 里还有工具调用 id,都不该出现在信封上。
+  const liveReg = activeChildren.get(id);
+  const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
+    ? {
+      text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
+      full: String(liveReg.liveTail.full || ''),
+      truncated: Boolean(liveReg.liveTail.truncated),
+      startedAt: String(liveReg.liveTail.startedAt || ''),
+      iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
+      tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
+        name: String((row && row.name) || '').slice(0, 80),
+        status: String((row && row.status) || ''),
+        startedAt: String((row && row.startedAt) || ''),
+        endedAt: String((row && row.endedAt) || ''),
+      })),
+    }
+    : null;
+  // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
+  // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
+  // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
+  // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
+  // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
+  // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
+  // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
+  // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
+  // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
+  const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
+    ? liveReg.liveSegments.liveSnapshot()
+    : null;
+  const liveTurn = liveNarrative
+    ? {
+      segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
+      toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
+      truncated: Boolean(liveNarrative.truncated),
+      startedAt: liveTail ? liveTail.startedAt : '',
+      iterations: liveTail ? liveTail.iterations : 0,
+    }
+    : null;
+  // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
+  // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
+  // queued > steer > turn,
+  // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
+  // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
+  // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
+  // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
+  // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
+  // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
+  const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
+  const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
+    ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
+    : null;
+  return { live, liveTail, liveTurn, relay };
 }
 
 async function handleSessionApiRoutes(req, res, pathname) {
@@ -347,18 +472,31 @@ async function handleSessionApiRoutes(req, res, pathname) {
   if (pathname.startsWith('/api/sessions/')) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
+      // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
+      // 正文并逐行 sha1(18 MB 会话 250–350 ms)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
+      // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
+      // 装载期间若有写者落盘,下一次比对必然不等 → 只会多回一次 200,绝不会拿旧标签配新内容(只可能多刷新,不会漏刷新)。
+      // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
+      // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
+      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      // 审查轮:活态在盘上戳【之前】取。反过来(先戳后活态)时,两次取样之间「落盘 + 活态翻转」可能拼出一个等于客户端手上旧标签的
+      // 组合(旧盘 + 新活态),回一次不该回的 304;先取活态,竞态最多多回一次 200。
+      const preLive = sessionEnvelopeLiveParts(id);
+      const envelopeStamp = await sessionEnvelopeStamp(id);
+      if (envelopeStamp) {
+        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw);
+        if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
+      }
       const session = await loadSession(id);
       if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
       // 横幅,故 live 会话直接返回不悬挂。
-      let live = activeChildren.has(id);
-      if (!live) {
-        for (const runtime of activeAgentRuns.values()) {
-          if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
-        }
-      }
+      const liveParts = sessionEnvelopeLiveParts(id);
+      const { live, liveTail, liveTurn, relay } = liveParts;
+      // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
+      const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
       // isLive() 第一判据是 `resumable && resumable.live === true`,而这个活回合分支修前没有
       // `live` 键,那条判据从没走通过,一直静默回落到「事项行五态 === 'running'」——挂在
@@ -368,59 +506,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const resumable = live
         ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0, live: true }
         : detectDanglingTurn(session);
-      // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
-      // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
-      // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
-      // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
-      // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
-      // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
-      // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
-      // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
-      // tools 里还有工具调用 id,都不该出现在信封上。
-      const liveReg = activeChildren.get(id);
-      const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
-        ? {
-          text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
-          full: String(liveReg.liveTail.full || ''),
-          truncated: Boolean(liveReg.liveTail.truncated),
-          startedAt: String(liveReg.liveTail.startedAt || ''),
-          iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
-          tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
-            name: String((row && row.name) || '').slice(0, 80),
-            status: String((row && row.status) || ''),
-            startedAt: String((row && row.startedAt) || ''),
-            endedAt: String((row && row.endedAt) || ''),
-          })),
-        }
-        : null;
-      // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
-      // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
-      // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
-      // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
-      // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
-      // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
-      // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
-      // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
-      // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
-      const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
-        ? liveReg.liveSegments.liveSnapshot()
-        : null;
-      const liveTurn = liveNarrative
-        ? {
-          segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
-          toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
-          truncated: Boolean(liveNarrative.truncated),
-          startedAt: liveTail ? liveTail.startedAt : '',
-          iterations: liveTail ? liveTail.iterations : 0,
-        }
-        : null;
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
       // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
       // 纪律：① 只对管家会话生效 —— 别的会话有自己的分页语义，不在本波范围；② 不带 since 的旧调用
       // 逐字节不变（没有这个参数就走原路，一行都不改）；③ 只切 messages 的尾巴，其余字段原样带出，
       // 前端拿到的仍是同一个形状；④ 不改会话对象本身（浅拷贝），loadSession 的返回值不许被路由改写。
-      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
       const sinceMs = sinceRaw ? Date.parse(String(sinceRaw)) : NaN;
       if (Number.isFinite(sinceMs)) {
         const all = Array.isArray(session.messages) ? session.messages : [];
@@ -428,25 +519,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
       }
-      // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
-      // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
-      // queued > steer > turn,
-      // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
-      // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
-      // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
-      // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
-      // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
-      // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
-      const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
-      const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
-        ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
-        : null;
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -739,6 +817,8 @@ function addMissionCostBucket(bucket, usage) {
   return bucket;
 }
 
+// 测试用确定性计数(不靠墙钟):workspaceComputed = 真正跑了一次「工作区归属判定」的次数(同 cwd 一次装配内只算一次)。
+const missionAggregateStats = { workspaceComputed: 0 };
 async function buildMissionAggregateRows(options = {}) {
   const includeArchived = options.includeArchived === true;
   // W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):事项与线程的读模型把【工作区】带出去 ——
@@ -746,11 +826,25 @@ async function buildMissionAggregateRows(options = {}) {
   // 最近动过的那条线程的目录。ruyiOwned 的判据单点在 06i 的 stewardRuyiOwnedPath(数据根里的、或如意
   // 为任务开的而用户没收编的),要配置里那张表 —— 调用方有现成的就传 options.config,省一次读盘。
   const wsConfig = (options.config && typeof options.config === 'object') ? options.config : await readConfig().catch(() => null);
+  // 性能:2000 条线程只有寥寥几个不同的 cwd,而 stewardRuyiOwnedPath(逐字符归一 + 数据根前缀比较)与
+  // dataRootAliases()(取数据根、比对别名)此前在【每条线程 + 每个事项组】各算一遍,一次 GET /api/missions
+  // 约 4000 次,占去 37% CPU。本次装配内 wsConfig / paths.data / 别名都是定值,所以别名提到函数头只取一次,
+  // 并按 cwd 记下 { name, ruyiOwned }(纯函数,同 cwd 同答案);每次仍返回【新对象】,调用方改它不会串行。
+  const dataRootPath = paths.data;
+  const dataRootAliasList = dataRootAliases();
+  const workspaceMemo = new Map();   // 修剪后的 cwd -> { name, ruyiOwned }
   const workspaceOf = cwd => {
     const p = String(cwd || '').trim();
     if (!p) return null;
-    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data, dataRootAliases()) };
+    let known = workspaceMemo.get(p);
+    if (!known) {
+      known = { name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, dataRootPath, dataRootAliasList) };
+      workspaceMemo.set(p, known);
+      missionAggregateStats.workspaceComputed += 1;
+    }
+    return { path: p, name: known.name, ruyiOwned: known.ruyiOwned };
   };
+  const overlayAt = nowIso();   // 一次装配只取一次「叠加时刻」:每行各取一次是 2000 次 Date + toISOString,而它们本就是同一个请求
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
   const metas = await listSessions().catch(() => []);          // 管家会话已在 listSessions 里滤掉
@@ -774,7 +868,7 @@ async function buildMissionAggregateRows(options = {}) {
     if (container && container.archivedAt && !includeArchived) continue;
     const group = ensure(missionId, container);
     const slice = slices.get(meta.id) || null;
-    const card = slice ? overlayMissionCard(slice) : null;
+    const card = slice ? overlayMissionCard(slice, overlayAt) : null;
     // 五态的三条取值路径,与 13g steward_thread_status 逐字一致(同一条线程在看板与管家里必须同色):
     //   ① 有投影卡片 -> fromCard(与 /api/missions 的卡片同源);
     //   ② 没卡片但是 mission 会话(投影还没赶上这条新会话)-> 按会话头现算,入参与 thread_status 相同
@@ -986,8 +1080,9 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     // 116g:只加字段 —— 行仍然是【线程行】(每个 mission 会话一张卡),既有字段与顺序逐字节不变,
     // 追加的是这条线程所属【事项】的聚合事实(aggregateState/threadCount/acceptance/cost/budget/derived)。
     const aggregate = await buildMissionAggregateRows();
+    const overlayAt = nowIso();   // 与聚合装配同理:整张列表共用一个叠加时刻,不再逐行取一次
     const missions = index.sessions.filter(row => row.card && String(row.sessionId || '') !== STEWARD_SESSION_ID)   // 走查 U3:管家自己的会话不是任务,不进左栏
-      .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
+      .map(row => overlayMissionAggregateFields(overlayMissionCard(row, overlayAt), aggregate.rowBySessionId.get(row.sessionId)));
     // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
     // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
     // 那两处排序,但那一份是给 steward_missions 工具面消费的;**看板真正吃的是这一行**,所以三处
@@ -1027,7 +1122,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
+    // 用量修订号挂在【最后】一段:前面三段(修订号 - 在场覆盖 - 行指纹)的段位有测试按位读(steward-thread-order ⑪)。
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,
@@ -1696,6 +1792,63 @@ async function decideIntervention(command = {}) {
   return { status: response.ok === false ? 409 : 200, body: response };
 }
 
+// 性能批 P3:GET /api/interventions 的待决引用表,按索引对象缓存(索引任何刷新都换新对象,缓存随之作废)。
+// 次序与修前逐条相同:按 requestedAt 的 localeCompare 稳定排序(每个索引版本只排一次)。
+const pendingInterventionRefsMemo = new WeakMap();
+function pendingInterventionRefs(index, onlySession) {
+  let byFilter = pendingInterventionRefsMemo.get(index);
+  if (!byFilter) pendingInterventionRefsMemo.set(index, byFilter = new Map());
+  const hit = byFilter.get(onlySession);
+  if (hit) return hit;
+  const refs = [];
+  const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
+  for (const slice of index.sessions) {
+    if (onlySession && slice.sessionId !== onlySession) continue;
+    for (const iv of slice.interventions || []) {
+      if (!iv || iv.status !== 'pending') continue;
+      refs.push({ slice, iv, requestedAt: String(iv.requestedAt || '') });
+      counts.total++;
+      if (iv.type === 'permission') counts.permission++;
+      else if (iv.type === 'question') counts.question++;
+      else if (iv.type === 'plan') counts.plan++;
+      else if (iv.type === 'pool') counts.pool++;
+      else if (iv.type === 'replan') counts.replan++;
+    }
+  }
+  refs.sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+  const entry = { refs, counts };
+  byFilter.set(onlySession, entry);
+  return entry;
+}
+// 一条待决的对外形状(字段与次序与修前逐字相同);实时字段每次现算。
+function pendingInterventionItem(slice, iv) {
+  const sessionId = slice.sessionId;
+  return {
+    id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
+    requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
+    toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
+    runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+    input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
+    questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
+    questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
+    context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
+    planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
+    replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
+    replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
+    replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
+    deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
+      : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
+        : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
+          : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
+            : activeChildren.has(sessionId),
+    live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
+    // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
+    // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
+    deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
+      : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
+  };
+}
+
 async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/_test/pretender-maintenance') {
     if (process.env.RUYI_TEST_HOOKS !== '1') return send(res, json({ ok: false, error: 'not found' }, 404));
@@ -1739,55 +1892,19 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/interventions') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const index = await getPretenderProjectionIndex();
-    const pending = [];
-    const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
     // hunt2-steward ⑨:可选 ?sessionId= 只看一条线程的待决(counts 同口径只数它)。抽屉修前拉全局前 100 条
     // 再在前端按会话筛 —— 全局待决超过 100 条时,排在后面的那条线程的待决永远落在页外,抽屉说它「没在等你」。
     // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
     const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
     const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
-    for (const slice of index.sessions) {
-      const sessionId = slice.sessionId;
-      if (onlySession && sessionId !== onlySession) continue;
-      for (const iv of slice.interventions || []) {
-        if (!iv || iv.status !== 'pending') continue;
-        pending.push({
-          id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
-          requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
-          toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
-          runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
-          input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
-          questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
-          questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
-          context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
-          planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
-          replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
-          replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
-          replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
-          deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
-            : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
-              : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
-                : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
-                  : activeChildren.has(sessionId),
-          live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
-          // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
-          // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
-          deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
-            : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
-        });
-        counts.total++;
-        if (iv.type === 'permission') counts.permission++;
-        else if (iv.type === 'question') counts.question++;
-        else if (iv.type === 'plan') counts.plan++;
-        else if (iv.type === 'pool') counts.pool++;
-        else if (iv.type === 'replan') counts.replan++;
-      }
-    }
-    pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
+    // 性能批 P3:待决列表按索引版本只收集、排序一次(引用 + 计数缓存在 index 对象上);分页与 ETag 在造条目之前 ——
+    // 304 不再付整张表的代价,200 也只为这一页造条目。条目里的实时字段(可送达、活回合、倒计时)照旧每次现算。
+    const { refs, counts } = pendingInterventionRefs(index, onlySession);
+    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, refs);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    paged.items = paged.items.map(ref => pendingInterventionItem(ref.slice, ref.iv));
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
     // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
     // 3.0 预览收口:此前在分页与 304 之前串行读【全部】待决会话的头,299 条会话时每请求 300–450 ms
@@ -2171,13 +2288,15 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     const listUrl = new URL(req.url, 'http://x');
     const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
-    const liveBefore = [...activeAgentRuns.keys()]; let runs = await listAgentRuns(sessionId); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await listAgentRuns(sessionId);   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
+    // digest 视图只要标量:走按 mtime+size 缓存的 listAgentRunDigests(08),未变的 run 文件零读盘;完整视图照旧读全量。
+    const digestView = listUrl.searchParams.get('view') === 'digest';
+    const readRuns = () => (digestView ? listAgentRunDigests(sessionId) : listAgentRuns(sessionId));
+    const liveBefore = [...activeAgentRuns.keys()]; let runs = await readRuns(); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await readRuns();   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.
     // digest(每 2s 轮询)只从这里读标量、不外发也不改对象:浅展开即与深拷贝读到的值逐字段相同,
     // 省掉每个 live run 整份节点/结果/progressLog 的 JSON 往返。完整视图照旧深拷贝(对象要外发)。
-    const digestView = listUrl.searchParams.get('view') === 'digest';
     for (let i = 0; i < runs.length; i += 1) {
       const live = activeAgentRuns.get(runs[i].id);
       if (!live || !live.run) continue;
@@ -2188,19 +2307,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
     // 权威状态源,digest 只是"该不该去拉"的信号。
     if (digestView) {
-      const digest = runs.map(r => {
-        const live = activeAgentRuns.get(r.id);
-        const mem = live && live.run ? live.run : null;
-        return {
-          id: r.id, status: mem ? mem.status : r.status, eventSeq: Number((mem || r).eventSeq) || 0,
-          updatedAt: (mem || r).updatedAt || '', createdAt: r.createdAt || '', completedAt: (mem || r).completedAt || '',
-          nodeCount: Array.isArray((mem || r).nodes) ? (mem || r).nodes.length : 0,
-          poolPending: ((mem || r).taskPool || []).filter(p => p && p.status === 'proposed').length,
-          live: !!live, paused: !!(live && live.paused), persistenceDegraded: !!(mem && mem.persistenceDegraded) || r.persistenceDegraded === true,
-          resumeTier: (mem || r).resumeTier || '', pendingReview: !!(mem || r).pendingReview,
-          anyRunning: Array.isArray((mem || r).nodes) && (mem || r).nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
-        };
-      });
+      // runs 此刻是磁盘摘要(live 且有内存对象的已被上面换成 live.run 的浅展开);逐行装配见 08 agentRunDigestRow。
+      const digest = runs.map(r => agentRunDigestRow(r, activeAgentRuns.get(r.id)));
       return send(res, json({ ok: true, view: 'digest', runs: digest }));
     }
     return send(res, json({ ok: true, runs }));
@@ -2287,6 +2395,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
+      agentRunDigestWriteSeq += 1;
+      agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});

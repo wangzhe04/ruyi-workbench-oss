@@ -726,6 +726,21 @@ function usageDayKey(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+// 性能批 P1:账大体按时间追加,相邻行多半同一天。记住上一次算出的那一天的 [本地 0 点, 次日 0 点),落在里面就复用日键 ——
+// 日键只由 ms 决定,区间内处处相同,所以结果与逐行 usageDayKey 相同(NaN 永远不落在区间里,照旧逐次现算)。
+// 边界按日历字段现造(new Date(年, 月, 日) / 日 + 1):午夜跳 DST 的时区(开罗、哈瓦那、贝鲁特、圣地亚哥……)那一天
+// 的 0 点不存在,setHours(0) 会落到 01:00,若再从它 setDate(+1) 推次日边界就错成次日 01:00,次日 0–1 点的行被记到前一天。
+function usageDayKeyMemo() {
+  let lo = NaN, hi = NaN, key = '';
+  return ms => {
+    if (ms >= lo && ms < hi) return key;
+    key = usageDayKey(ms);
+    const d = new Date(ms);
+    lo = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    hi = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+    return key;
+  };
+}
 // Lower-bound instant (ms) for a range. today/month use the LOCAL calendar; week = last 7x24h; all = 0.
 function usageRangeLowerMs(range, now) {
   const d = new Date(now);
@@ -740,7 +755,7 @@ function usageRangeLowerMs(range, now) {
 async function readUsageRows(lowerMs) {
   const rows = [];
   let files = [];
-  try { files = await fsp.readdir(paths.usage); } catch { return rows; }
+  try { files = (await fsp.readdir(paths.usage)).sort(); } catch { return rows; }   // 性能批 P1:按月份名排序 —— 修前是 readdir 次序(Linux 上是散列序),浮点累加次序随平台漂
   const lowerKey = lowerMs > 0 ? new Date(lowerMs).toISOString().slice(0, 7) : '';
   for (const f of files) {
     if (!/^\d{4}-\d{2}\.jsonl$/.test(f)) continue;
@@ -758,13 +773,351 @@ async function readUsageRows(lowerMs) {
   }
   return rows;
 }
+
+// ── 性能批 P1:用量账缓存 ────────────────────────────────────────────────────────────────────────
+// 修前每个读者(看板、预算、任务卡用量、管家熔断/仲裁/用量工具)每次都 readUsageRows:把所有月份整份读出、逐行
+// JSON.parse。每跑一轮对话 13e 就打一次 usage 脏页,下一次看板读因此整读一遍账 —— 2000 会话 / 30 万行(70 MB)时
+// 单这一步 1.5 s,而且大半是同步解析,SSE 流跟着顿。
+// 这里把解析结果按月份文件常驻成列(定长数组 + 值字典),文件只长不改时只解析新增的尾巴:
+//   · 判据:stat 的 size/mtime 没变 → 原样复用;同一个文件(ino 没变)、【变长了】、且上次已解析部分末尾那 ≤256 字节
+//     (约一整行,含毫秒级 ts)原样还在 → 只读新增部分;其余一切(截短、同尺寸改写、换文件、核对不上)这一个月整份重读。
+//     只提交到最后一个换行,没写完的那半行每次按原逻辑现解析、不入列。程序自己对账只追加(appendUsageLedger /
+//     flushUsageLedgerSync);外部编辑里只有「在中间改、同时又变长、末尾 256 字节恰好没动」这一种查不出,要等进程重启
+//     (缓存只在内存里)。
+//   · 对外只有 forEachUsageRow(lowerMs, fn):次序(readdir 次序的月份文件 → 文件内行序)、过滤(月份键 + ts 下界 +
+//     坏行/坏 ts 跳过)与 readUsageRows 逐条相同,调用方原来的累加代码一字不改,浮点累加次序因此也不变。
+//   · fn 拿到的是【复用的】视图对象:只许在回调里读,不许留引用。数值列存的是 Number(原值)(六个消费方本来就先
+//     Number() 再用),字符串类字段原值入字典(连类型一起保真:typeof 判断照旧),costTrusted 只在原值 === false
+//     时为 false,estimated 只在原值 === true 时为 true —— 与消费方的判据一一对应。多出一个 tsMs(= Date.parse(ts))。
+//   · RUYI_USAGE_CACHE=0 退回修前的整读路径(逃生口,也是 unit/usage-ledger-cache 差分测试的对照组)。
+const USAGE_CACHE_CHECK_BYTES = 256;
+const USAGE_CACHE_YIELD_LINES = 4000;
+const USAGE_CACHE_YIELD_ROWS = 25000;   // 遍历时每这么多行让一次(约 10 ms 一片)   // 整月首次解析时每这么多行让一次事件循环(70 MB 的账不再一口气占住主线程)
+const USAGE_CACHE_ROW_BYTES = 8 * 5 + 1 + 4 * 7;   // 五个 Float64 列 + 标志位 + 七个字典号
+const usageLedgerCache = {
+  months: new Map(),            // 月份文件名 -> { size, mtimeMs, committed, check, cols, tail }
+  dict: [], dictIndex: new Map(), dictObjectIndex: new Map(),
+  chain: Promise.resolve(),
+  stats: { refreshes: 0, fullParses: 0, incrementalParses: 0, bytesParsed: 0 },
+  // 变更日志:每次刷新里哪些会话的行变了(整月重读 / 删月份记为 all)。13e 按它只刷那几条会话的用量 ——
+  // 本进程追加的与外部写进来的一视同仁,不再靠源指纹猜(审查轮:外部写账与本进程追加同时发生时会被漏掉)。
+  changeSeq: 0,
+  changeLog: [],                // { seq, all, ids: Set<string> },最多 USAGE_CHANGE_LOG_MAX 条
+  changeFloor: 0,               // 早于这个序号的日志已丢弃,问得更早的一律答 all
+};
+const USAGE_CHANGE_LOG_MAX = 512;
+function usageNoteChange(all, ids) {
+  if (!all && (!ids || !ids.size)) return;
+  usageLedgerCache.changeSeq += 1;
+  usageLedgerCache.changeLog.push({ seq: usageLedgerCache.changeSeq, all: Boolean(all), ids: ids || new Set() });
+  while (usageLedgerCache.changeLog.length > USAGE_CHANGE_LOG_MAX) usageLedgerCache.changeFloor = usageLedgerCache.changeLog.shift().seq;
+}
+function usageColsSessionIds(cols, from, into) {
+  if (!cols) return into;
+  for (let i = from; i < cols.n; i++) into.add(String(usageLedgerCache.dict[cols.sessionId[i]]));
+  return into;
+}
+function usageLedgerCacheDisabled() { return process.env.RUYI_USAGE_CACHE === '0'; }
+// 对象 / 数组值(只可能来自外部写坏的行)按内容去重:原样交给消费方的是同内容的第一份实例 —— typeof、String()
+// 的结果都不变,而按引用去重会让每一行都在字典里新占一格、永不回收。
+function usageDictId(value) {
+  if (value !== null && typeof value === 'object') {
+    let key = '';
+    try { key = JSON.stringify(value); } catch { key = '?'; }
+    let id = usageLedgerCache.dictObjectIndex.get(key);
+    if (id === undefined) { id = usageLedgerCache.dict.length; usageLedgerCache.dict.push(value); usageLedgerCache.dictObjectIndex.set(key, id); }
+    return id;
+  }
+  let id = usageLedgerCache.dictIndex.get(value);
+  if (id === undefined) { id = usageLedgerCache.dict.length; usageLedgerCache.dict.push(value); usageLedgerCache.dictIndex.set(value, id); }
+  return id;
+}
+const USAGE_DICT_COLUMNS = ['sessionId', 'engine', 'provider', 'model', 'currency', 'kind', 'note'];
+function usageColumns(capacity) {
+  const cap = Math.max(4, capacity | 0);
+  const cols = { n: 0, cap, tsMs: new Float64Array(cap), inTok: new Float64Array(cap), outTok: new Float64Array(cap), cachedInTok: new Float64Array(cap), cost: new Float64Array(cap), flags: new Uint8Array(cap), tsRaw: new Map() };
+  for (const key of USAGE_DICT_COLUMNS) cols[key] = new Uint32Array(cap);
+  return cols;
+}
+function usageColumnsGrow(cols) {
+  // 小列倍增;大列(整月解析完收紧过的)每次只多留 1/8 —— 一个月几万行,追加一行就翻倍太浪费
+  const cap = cols.cap < 4096 ? cols.cap * 2 : cols.cap + (cols.cap >> 3);
+  for (const key of ['tsMs', 'inTok', 'outTok', 'cachedInTok', 'cost', 'flags', ...USAGE_DICT_COLUMNS]) {
+    const next = new cols[key].constructor(cap); next.set(cols[key]); cols[key] = next;
+  }
+  cols.cap = cap;
+}
+// ts 原串是不是 toISOString 的规范写法(是的话不必另存,用 tsMs 就能原样还原)。逐行 new Date().toISOString() 太贵,
+// 按形状判:24 位、各分隔符在位、全是数字、小时不是 24(V8 把 24 点进位到次日);日期部分合不合法(2 月 30 日之类
+// V8 也会进位)按「上一行的那一天」缓存,同一天只真算一次。判不准的情形一律当非规范、另存原串 —— 只多占点内存,不会错。
+const usageTsDateMemo = { date: '', ok: false };
+function usageTsIsCanonical(ts) {
+  if (typeof ts !== 'string' || ts.length !== 24) return false;
+  if (ts.charCodeAt(4) !== 45 || ts.charCodeAt(7) !== 45 || ts.charCodeAt(10) !== 84 || ts.charCodeAt(13) !== 58
+    || ts.charCodeAt(16) !== 58 || ts.charCodeAt(19) !== 46 || ts.charCodeAt(23) !== 90) return false;
+  for (const k of [0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22]) { const c = ts.charCodeAt(k); if (c < 48 || c > 57) return false; }
+  if (ts.charCodeAt(11) === 50 && ts.charCodeAt(12) === 52) return false;   // 24 点
+  if (!ts.startsWith(usageTsDateMemo.date) || usageTsDateMemo.date === '') {
+    const date = ts.slice(0, 10);
+    const probe = date + 'T00:00:00.000Z';
+    const t = Date.parse(probe);
+    usageTsDateMemo.date = date;
+    usageTsDateMemo.ok = Number.isFinite(t) && new Date(t).toISOString() === probe;
+  }
+  return usageTsDateMemo.ok;
+}
+// 字典号:相邻行的会话/引擎/模型多半相同,每列记住上一个值,命中就不查 Map。
+function usageColumnsDictMemo() {
+  return { sessionId: [NaN, 0], engine: [NaN, 0], provider: [NaN, 0], model: [NaN, 0], currency: [NaN, 0], kind: [NaN, 0], note: [NaN, 0] };
+}
+function usageDictIdMemo(memo, value) {
+  if (memo[0] === value) return memo[1];   // NaN 初值永不相等;JSON 里也出不来 NaN
+  const id = usageDictId(value);
+  memo[0] = value; memo[1] = id;
+  return id;
+}
+// 一行 → 列。与 readUsageRows 的逐行判据相同:空白行、解析不出对象、ts 解析不出有限数的行都跳过。
+function usageColumnsPushLine(cols, line) {
+  if (!line.trim()) return false;
+  const rec = safeJsonParse(line, null);
+  if (!rec || typeof rec !== 'object') return false;
+  const t = Date.parse(rec.ts);
+  if (!Number.isFinite(t)) return false;
+  if (cols.n === cols.cap) usageColumnsGrow(cols);
+  const i = cols.n++;
+  cols.tsMs[i] = t;
+  // ts 原串只在它不是 toISOString 的规范写法时才另存(byModel.lastAt 要原样回显那一行的 ts)
+  if (!usageTsIsCanonical(rec.ts)) cols.tsRaw.set(i, rec.ts);
+  cols.inTok[i] = Number(rec.inTok); cols.outTok[i] = Number(rec.outTok); cols.cachedInTok[i] = Number(rec.cachedInTok); cols.cost[i] = Number(rec.cost);
+  cols.flags[i] = (rec.costTrusted === false ? 1 : 0) | (rec.estimated === true ? 2 : 0);
+  const memo = cols.dictMemo || (cols.dictMemo = usageColumnsDictMemo());
+  cols.sessionId[i] = usageDictIdMemo(memo.sessionId, rec.sessionId);
+  cols.engine[i] = usageDictIdMemo(memo.engine, rec.engine);
+  cols.provider[i] = usageDictIdMemo(memo.provider, rec.provider);
+  cols.model[i] = usageDictIdMemo(memo.model, rec.model);
+  cols.currency[i] = usageDictIdMemo(memo.currency, rec.currency);
+  cols.kind[i] = usageDictIdMemo(memo.kind, rec.kind);
+  cols.note[i] = usageDictIdMemo(memo.note, rec.note);
+  return true;
+}
+// 解析一段文本进 cols。yieldBetween 时每 USAGE_CACHE_YIELD_LINES 行让一次事件循环(只用于还没发布出去的新列)。
+async function usageColumnsParseText(cols, text, yieldBetween) {
+  const lines = text.split('\n');
+  for (let k = 0; k < lines.length; k++) {
+    let line = lines[k];
+    if (line.endsWith('\r')) line = line.slice(0, -1);
+    usageColumnsPushLine(cols, line);
+    if (yieldBetween && k % USAGE_CACHE_YIELD_LINES === USAGE_CACHE_YIELD_LINES - 1) await new Promise(resolve => setImmediate(resolve));
+  }
+}
+// 整月解析完把列收紧到实际行数(首次解析按字节估的容量会多出两成)。之后追加仍按倍增长。
+function usageColumnsShrink(cols) {
+  const cap = Math.max(4, cols.n);
+  if (cap >= cols.cap) return cols;
+  for (const key of ['tsMs', 'inTok', 'outTok', 'cachedInTok', 'cost', 'flags', ...USAGE_DICT_COLUMNS]) cols[key] = cols[key].slice(0, cap);
+  cols.cap = cap;
+  return cols;
+}
+function usageColumnsAppend(dst, src) {
+  for (let j = 0; j < src.n; j++) {
+    if (dst.n === dst.cap) usageColumnsGrow(dst);
+    const i = dst.n++;
+    for (const key of ['tsMs', 'inTok', 'outTok', 'cachedInTok', 'cost', 'flags', ...USAGE_DICT_COLUMNS]) dst[key][i] = src[key][j];
+    if (src.tsRaw.has(j)) dst.tsRaw.set(i, src.tsRaw.get(j));
+  }
+}
+// buf 的 [0, lastNL] 是完整行、之后是没写完的尾巴(不入列,每次随条目现解析一份)。
+// 0x0A 不会出现在 UTF-8 多字节序列内部,在它上面切不会劈开字符,逐段解码与整份解码结果相同。
+function usageSplitComplete(buf) {
+  const lastNl = buf.lastIndexOf(0x0a);
+  const complete = lastNl >= 0 ? buf.subarray(0, lastNl + 1) : buf.subarray(0, 0);
+  return { complete, rest: buf.subarray(complete.length) };
+}
+function usageNextCheck(previous, complete) {
+  const take = complete.subarray(Math.max(0, complete.length - USAGE_CACHE_CHECK_BYTES));   // 只拷末尾,不把整块拼一遍
+  const source = take.length >= USAGE_CACHE_CHECK_BYTES ? take : Buffer.concat([previous, take]);
+  return Buffer.from(source.subarray(Math.max(0, source.length - USAGE_CACHE_CHECK_BYTES)));
+}
+async function usageParseTail(rest) {
+  if (!rest.length) return null;
+  const tail = usageColumns(4);
+  await usageColumnsParseText(tail, rest.toString('utf8'), false);
+  return tail;
+}
+async function usageMonthFullParse(file, st) {
+  const buf = await fsp.readFile(file);
+  const { complete, rest } = usageSplitComplete(buf);
+  const cols = usageColumns(Math.ceil(complete.length / 200) + 16);
+  // 新列还没发布(不在 months 里),分片让出期间别的读者看到的仍是旧条目。
+  if (complete.length) await usageColumnsParseText(cols, complete.toString('utf8'), true);
+  usageColumnsShrink(cols);
+  usageLedgerCache.stats.fullParses += 1;
+  usageLedgerCache.stats.bytesParsed += buf.length;
+  return { size: buf.length, mtimeMs: st.mtimeMs, ino: st.ino, committed: complete.length, check: usageNextCheck(Buffer.alloc(0), complete), cols, tail: await usageParseTail(rest) };
+}
+// 读 [committed - check.length, size):先核对旧末尾那几个字节还在原位,再吞新增部分。核不上就返回 null(调用方整月重读)。
+// 新增行先解析进临时列;并进共享列与换上新条目由调用方在同一个同步段里做 —— 别的读者看不到「行已入列、旧尾巴
+// 还挂着」那种半截状态(那会把同一行数两遍)。
+async function usageMonthIncremental(file, entry, st) {
+  const start = entry.committed - entry.check.length;
+  const length = st.size - start;
+  const fh = await fsp.open(file, 'r');
+  let buf;
+  try {
+    buf = Buffer.alloc(length);
+    const { bytesRead } = await fh.read(buf, 0, length, start);
+    if (bytesRead !== length) return null;
+  } finally { await fh.close(); }
+  if (!buf.subarray(0, entry.check.length).equals(entry.check)) return null;
+  const { complete, rest } = usageSplitComplete(buf.subarray(entry.check.length));
+  const fresh = usageColumns(16);
+  if (complete.length) await usageColumnsParseText(fresh, complete.toString('utf8'), false);
+  const tail = await usageParseTail(rest);
+  const parsedBytes = buf.length - entry.check.length;
+  // 返回提交函数:由调用方在【同一个同步段】里并列 + 换条目。
+  return () => {
+    usageColumnsAppend(entry.cols, fresh);
+    usageLedgerCache.stats.incrementalParses += 1;
+    usageLedgerCache.stats.bytesParsed += parsedBytes;
+    return { size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, committed: entry.committed + complete.length, check: usageNextCheck(entry.check, complete), cols: entry.cols, tail };
+  };
+}
+async function refreshUsageLedgerCacheNow() {
+  usageLedgerCache.stats.refreshes += 1;
+  let files = [];
+  try { files = await fsp.readdir(paths.usage); } catch {
+    if (usageLedgerCache.months.size) usageNoteChange(true);
+    usageLedgerCache.months.clear();
+    return [];
+  }
+  const order = files.filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort();   // 与 readUsageRows 同一次序
+  const present = new Set(order);
+  for (const name of [...usageLedgerCache.months.keys()]) if (!present.has(name)) { usageLedgerCache.months.delete(name); usageNoteChange(true); }
+  for (const name of order) {
+    const file = path.join(paths.usage, name);
+    try {
+      const st = await fsp.stat(file);
+      const entry = usageLedgerCache.months.get(name);
+      if (entry && entry.size === st.size && entry.mtimeMs === st.mtimeMs) continue;
+      // 同尺寸只换了 mtime = 原地改写(追加一定变长)→ 整月重读
+      const commit = entry && st.ino === entry.ino && st.size > entry.size && st.size >= entry.committed ? await usageMonthIncremental(file, entry, st).catch(() => null) : null;
+      if (commit) {
+        const before = entry.cols.n;
+        const next = commit();
+        usageLedgerCache.months.set(name, next);
+        const ids = usageColsSessionIds(entry.tail, 0, usageColsSessionIds(next.cols, before, new Set()));
+        usageNoteChange(false, usageColsSessionIds(next.tail, 0, ids));
+      } else {
+        const next = await usageMonthFullParse(file, st);
+        usageLedgerCache.months.set(name, next);
+        // 新出现的月份只牵涉它自己那些行的会话;已有月份被整份重读(截短、改写)就当全部都可能变了
+        if (entry) usageNoteChange(true);
+        else usageNoteChange(false, usageColsSessionIds(next.tail, 0, usageColsSessionIds(next.cols, 0, new Set())));
+      }
+    } catch {   // 读不了的月份与修前一样当它不存在
+      if (usageLedgerCache.months.delete(name)) usageNoteChange(true);
+    }
+  }
+  return order;
+}
+// 刷新串行:每个调用拿到的都是【它发起之后】才开始的那一次刷新 —— 刚写进账的行对下一个读者一定可见。
+function refreshUsageLedgerCache() {
+  const run = usageLedgerCache.chain.then(refreshUsageLedgerCacheNow, refreshUsageLedgerCacheNow);
+  usageLedgerCache.chain = run.catch(() => []);
+  return run;
+}
+// opts.sessionIds(可选,Set<string>):只遍历这些会话的行 —— 次序与全量遍历里筛出来的一样,聚合结果逐位相同;
+// 列里先比字典号,不命中的行连视图都不填(每轮对话后只刷那几条会话的用量时,30 万行的账只花几毫秒)。
+async function forEachUsageRow(lowerMs, fn, opts = {}) {
+  const onlySessions = opts && opts.sessionIds instanceof Set ? opts.sessionIds : null;
+  if (usageLedgerCacheDisabled()) {
+    for (const rec of await readUsageRows(lowerMs)) {
+      if (onlySessions && !onlySessions.has(rec.sessionId)) continue;
+      rec.tsMs = Date.parse(rec.ts); rec.tsRaw = rec.ts; fn(rec);
+    }
+    return;
+  }
+  // 读账失败与修前 readUsageRows 同口径:当空账(不抛)。回调里抛的错照旧往外冒。
+  let order = [];
+  try { order = await refreshUsageLedgerCache(); } catch { return; }
+  const lowerKey = lowerMs > 0 ? new Date(lowerMs).toISOString().slice(0, 7) : '';
+  const dict = usageLedgerCache.dict;
+  let wantIds = null;
+  if (onlySessions) {
+    wantIds = new Set();
+    for (const sid of onlySessions) { const id = usageLedgerCache.dictIndex.get(sid); if (id !== undefined) wantIds.add(id); }
+    if (!wantIds.size) return;
+  }
+  // 性能批 P4:先同步拍一份快照(每个月的列对象、当时的行数、当时的尾巴),再按快照遍历、每 USAGE_CACHE_YIELD_ROWS 行
+  // 让一次事件循环 —— 30 万行的看板不再一口气占住主线程 170 ms。遍历期间新追加的行不在快照里(调用那一刻的一致视图):
+  // 追加只会往列尾写、整月重读换的是新列对象,快照里 [0, n) 的内容始终不变,不会重、不会漏。
+  const plan = [];
+  for (const name of order) {
+    if (lowerKey && name.slice(0, 7) < lowerKey) continue;
+    const entry = usageLedgerCache.months.get(name);
+    if (!entry) continue;
+    plan.push([entry.cols, entry.cols.n]);
+    if (entry.tail) plan.push([entry.tail, entry.tail.n]);
+  }
+  const view = new UsageRowView();
+  // 让出按「交给回调的行」计;被筛掉的行只比一个字典号,按大 16 倍的间隔另计(只刷几条会话时别白等十几拍)。
+  let visited = 0, skipped = 0;
+  for (const [c, n] of plan) {
+    for (let i = 0; i < n; i++) {
+      if (visited >= USAGE_CACHE_YIELD_ROWS || skipped >= USAGE_CACHE_YIELD_ROWS * 16) { visited = 0; skipped = 0; await new Promise(resolve => setImmediate(resolve)); }
+      if (wantIds && !wantIds.has(c.sessionId[i])) { skipped++; continue; }
+      const t = c.tsMs[i];
+      if (lowerMs > 0 && t < lowerMs) { skipped++; continue; }
+      visited++;
+      const flags = c.flags[i];
+      view.tsMs = t; view.tsRaw = c.tsRaw.size ? c.tsRaw.get(i) : undefined;
+      view.inTok = c.inTok[i]; view.outTok = c.outTok[i]; view.cachedInTok = c.cachedInTok[i]; view.cost = c.cost[i];
+      view.costTrusted = (flags & 1) === 0; view.estimated = (flags & 2) !== 0;
+      view.sessionId = dict[c.sessionId[i]]; view.engine = dict[c.engine[i]]; view.provider = dict[c.provider[i]]; view.model = dict[c.model[i]];
+      view.currency = dict[c.currency[i]]; view.kind = dict[c.kind[i]]; view.note = dict[c.note[i]];
+      fn(view);
+    }
+  }
+}
+// 视图:字段在构造时一次定形(defineProperty 之后再挂字段会让 V8 把对象降成字典模式,每行十几次读写全变慢);
+// ts 走原型上的 getter,按需拼规范串。tsRaw:只有原值不是 toISOString 规范写法时才有值(回退路径下恒为原值)——
+// 需要原样回显 ts 的地方(看板 byModel.lastAt)用 tsRaw ?? 规范串,免得每行都拼一次串。
+class UsageRowView {
+  constructor() {
+    this.tsMs = 0; this.tsRaw = undefined;
+    this.inTok = 0; this.outTok = 0; this.cachedInTok = 0; this.cost = 0;
+    this.costTrusted = true; this.estimated = false;
+    this.sessionId = undefined; this.engine = undefined; this.provider = undefined; this.model = undefined;
+    this.currency = undefined; this.kind = undefined; this.note = undefined;
+  }
+  get ts() { return this.tsRaw !== undefined ? this.tsRaw : new Date(this.tsMs).toISOString(); }
+}
+// 自 seq 之后账本变过哪些会话(先刷新一次缓存)。seq 为 null / 早于日志下限 → all。返回的 seq 是刷新之后的当前序号。
+async function usageLedgerChangesSince(seq) {
+  if (usageLedgerCacheDisabled()) return { seq: 0, all: true, sessionIds: new Set() };
+  try { await refreshUsageLedgerCache(); } catch { /* 刷新失败:按当前已知的回答 */ }
+  const current = usageLedgerCache.changeSeq;
+  if (seq == null || !Number.isFinite(seq) || seq < usageLedgerCache.changeFloor) return { seq: current, all: true, sessionIds: new Set() };
+  const sessionIds = new Set();
+  let all = false;
+  for (const entry of usageLedgerCache.changeLog) {
+    if (entry.seq <= seq) continue;
+    if (entry.all) { all = true; break; }
+    for (const id of entry.ids) sessionIds.add(id);
+  }
+  return { seq: current, all, sessionIds };
+}
+function usageLedgerCacheStats() {
+  let rows = 0, residentBytes = 0;
+  for (const entry of usageLedgerCache.months.values()) { rows += entry.cols.n; residentBytes += entry.cols.cap * USAGE_CACHE_ROW_BYTES; }
+  return { ...usageLedgerCache.stats, months: usageLedgerCache.months.size, rows, residentBytes, dictSize: usageLedgerCache.dict.length };
+}
 // Aggregate the ledger for a range into the /api/usage/summary shape. costsByCurrency holds ONLY trusted,
 // non-plan-based costs; planBasedTurns counts turns whose cost is plan-based/notional (surfaced separately).
 // Dimensions: engine / provider / session / day / model (117x-M1 added byModel; see its comment in the loop).
 async function buildUsageSummary(range) {
   const config = await readConfig().catch(() => ({}));
   const now = Date.now();
-  const rows = await readUsageRows(usageRangeLowerMs(range, now));
   // provider/source id -> display label (native providers + Claude direct + known Claude endpoints).
   const labels = new Map([['claude-cli', 'Claude CLI (Anthropic)']]);
   for (const p of (Array.isArray(config.providers) ? config.providers : [])) if (p && p.id) labels.set(String(p.id), String(p.label || p.id));
@@ -782,8 +1135,16 @@ async function buildUsageSummary(range) {
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
   const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
   const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map(), byModel = new Map();
+  const dayKeyOf = usageDayKeyMemo();
+  const modelKeys = new Map();   // eng -> pid -> mid -> JSON 键(每个三元组只 stringify 一次)
+  const modelKeyOf = (eng, pid, mid) => {
+    let byPid = modelKeys.get(eng); if (!byPid) modelKeys.set(eng, byPid = new Map());
+    let byMid = byPid.get(pid); if (!byMid) byPid.set(pid, byMid = new Map());
+    let key = byMid.get(mid); if (key === undefined) byMid.set(mid, key = JSON.stringify([eng, pid, mid]));
+    return key;
+  };
 
-  for (const r of rows) {
+  await forEachUsageRow(usageRangeLowerMs(range, now), r => {
     const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0, cachedInTok = Math.min(inTok, Number(r.cachedInTok) || 0);
     const cost = Number(r.cost), cur = (typeof r.currency === 'string' && r.currency) ? r.currency : null;
     const trusted = r.costTrusted !== false;
@@ -803,8 +1164,8 @@ async function buildUsageSummary(range) {
     const sid = String(r.sessionId || '');
     let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
     sm.inTok += inTok; sm.outTok += outTok; sm.cachedInTok += cachedInTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
-    const tsMs = Date.parse(r.ts);
-    const dk = usageDayKey(tsMs);
+    const tsMs = r.tsMs;
+    const dk = dayKeyOf(tsMs);
     let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} });
     dm.inTok += inTok; dm.outTok += outTok; dm.cachedInTok += cachedInTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
     // 117x-M1: byModel. Keyed by the (engine, provider, model) TRIPLE, not by model id alone: the same id can be
@@ -817,18 +1178,19 @@ async function buildUsageSummary(range) {
     // model entry's planBased flag and costsByCurrency mean precisely what a provider entry's do.
     const mid = String(r.model || '');
     if (mid) {
-      const mk = JSON.stringify([eng, pid, mid]); // JSON-array key: unambiguous whatever characters an id carries
+      const mk = modelKeyOf(eng, pid, mid); // JSON-array key: unambiguous whatever characters an id carries
       let mm = byModel.get(mk);
-      if (!mm) byModel.set(mk, mm = { model: mid, provider: pid, label: labels.get(pid) || pid, engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {}, lastAt: '', lastMs: 0 });
+      if (!mm) byModel.set(mk, mm = { model: mid, provider: pid, label: labels.get(pid) || pid, engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {}, lastAt: '', lastMs: 0, lastTsRaw: undefined });
       mm.inTok += inTok; mm.outTok += outTok; mm.cachedInTok += cachedInTok; mm.turns += 1; if (!trusted) mm.planBasedTurns += 1; if (hasCost) addCost(mm.costsByCurrency, cur, cost);
       // lastAt = the ts of this group's MOST RECENT ledger row, kept as that row's own ISO string so it reads
       // exactly like the `ts` on the line it came from (设计页 §11.17.2「常用」按最近一次使用时间排序). A row whose
       // ts does not parse is ignored FOR lastAt ONLY — it still counts in this entry's tokens/turns — so lastAt can
       // never become 'Invalid Date'/NaN; a group with no parseable ts at all keeps the empty string. (readUsageRows
       // already drops unparseable-ts rows before we get here, so this is defence in depth, not a live path.)
-      if (Number.isFinite(tsMs) && tsMs > mm.lastMs) { mm.lastMs = tsMs; mm.lastAt = String(r.ts); }
+      // 性能批 P1:只记最大时刻与那一行的原串(没有原串 = 规范写法),收尾再成串 —— 与逐行 String(r.ts) 结果相同。
+      if (Number.isFinite(tsMs) && tsMs > mm.lastMs) { mm.lastMs = tsMs; mm.lastTsRaw = r.tsRaw; }
     }
-  }
+  });
   // Round every currency bucket to 6 dp to shed binary-float noise (0.30000000000000004 -> 0.3), and derive a
   // per-entry planBased flag: true ONLY when the entry has plan-based turns AND no trusted cost to show (so a
   // mixed entry that still has a real cost keeps showing it, and the front-end can honestly badge 计划内计费).
@@ -846,9 +1208,8 @@ async function buildUsageSummary(range) {
   let budget = null;
   const ub = config.usageBudget;
   if (ub && typeof ub === 'object' && Number(ub.monthly) > 0 && typeof ub.currency === 'string' && ub.currency) {
-    const monthRows = await readUsageRows(usageRangeLowerMs('month', now));
     let spent = 0;
-    for (const r of monthRows) { const c = Number(r.cost); if (r.costTrusted !== false && r.currency === ub.currency && Number.isFinite(c)) spent += c; }
+    await forEachUsageRow(usageRangeLowerMs('month', now), r => { const c = Number(r.cost); if (r.costTrusted !== false && r.currency === ub.currency && Number.isFinite(c)) spent += c; });
     budget = { monthly: Number(ub.monthly), currency: ub.currency, spentThisMonth: round6(spent) };
   }
   return {
@@ -861,7 +1222,7 @@ async function buildUsageSummary(range) {
     // sum(byModel.turns) === sum(byEngine.turns) - empty-model-rows invariant. lastMs is scratch, stripped here.
     byModel: [...byModel.values()]
       .sort((a, b) => (b.lastMs - a.lastMs) || (b.turns - a.turns) || (a.model < b.model ? -1 : (a.model > b.model ? 1 : 0)))
-      .map(({ lastMs, ...rest }) => rest),
+      .map(({ lastMs, lastTsRaw, ...rest }) => ({ ...rest, lastAt: lastMs > 0 ? String(lastTsRaw !== undefined ? lastTsRaw : new Date(lastMs).toISOString()) : rest.lastAt })),
     bySession: [...bySession.values()].sort((a, b) => (b.inTok + b.outTok) - (a.inTok + a.outTok)).slice(0, 20),
     byDay: [...byDay.values()].sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)),
     budget,
@@ -3273,6 +3634,14 @@ function normalizeConfig(raw, opts = {}) {
 
 // 110-2b: 运行时开关判定函数抽至 01c-runtime-flags.js。
 
+// 本进程落进 sessions 目录【本层】的原子写次数(会话头、会话索引、搜索索引……)。13e 投影索引据此区分
+// 「目录 mtime 变了是自己写的」还是外部改动(外部改动当次做全量比对,自己写的只比名单)。写前、写后各记一次:
+// 临时文件落下与 rename 各改一次目录 mtime,两次之间来的读也得认得出是自己。
+let sessionsDirOwnWriteSeq = 0;
+function noteSessionsDirOwnWrite(file) {
+  if (paths && paths.sessions && path.dirname(String(file || '')) === paths.sessions) sessionsDirOwnWriteSeq += 1;
+}
+
 // ============================================================================
 // 第25波 25.1(AUTONOMY-PLAN §4):原子 JSON 写【统一入口】。此前四种手写变体各缺一角——
 // saveSession/writeConfigAtomic 无 rename 重试、saveAgentRun 的 tmp 名无随机、journalWriteIndex/
@@ -3283,22 +3652,27 @@ function normalizeConfig(raw, opts = {}) {
 //   ③ 最终失败必 unlink tmp:唯一名没有"下次覆写自愈"路径,不清会无界累积孤儿;
 //   ④ value 传字符串视为已序列化(saveSession 需要同步快照语义:序列化与索引快照同一 tick)。
 async function atomicWriteJson(finalPath, value, opts = {}) {
-  const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-  const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
-  // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
-  // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
-  try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
-  catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
-  const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
-  for (let attempt = 0; ; attempt++) {
-    try { await fsp.rename(tmpPath, finalPath); return; }
-    catch (e) {
-      const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
-      if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
-      try { await fsp.unlink(tmpPath); } catch { /* best-effort tmp cleanup */ }
-      throw e;
+  // typeof 守卫:本函数体会被 autonomy-durability 单独抽取执行(那里没有这个钩子)。
+  const noteOwn = typeof noteSessionsDirOwnWrite === 'function' ? noteSessionsDirOwnWrite : () => {};
+  noteOwn(finalPath);
+  try {
+    const payload = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
+    // 对抗轮修(第25波): writeFile 自身失败(ENOSPC 典型——目录项已建、写入失败)同样必须清 tmp,否则
+    // 节流重试每 1.5s 造一个新孤儿(唯一名无覆写自愈路径)。不变量③对 write 与 rename 两个失败点都成立。
+    try { await fsp.writeFile(tmpPath, payload, 'utf8'); }
+    catch (e) { fsp.unlink(tmpPath).catch(() => {}); throw e; }
+    const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.rename(tmpPath, finalPath); return; }
+      catch (e) {
+        const transient = e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES' || e.code === 'EEXIST');
+        if (transient && attempt < retries) { await new Promise(r => setTimeout(r, 15 + attempt * 20)); continue; }
+        try { await fsp.unlink(tmpPath); } catch { /* best-effort tmp cleanup */ }
+        throw e;
+      }
     }
-  }
+  } finally { noteOwn(finalPath); }
 }
 
 // 117q-B6(30 号文 P2-10):「读文件末尾 N 字节」原语【统一入口】。此前四处独立手写同一套动作
@@ -3502,6 +3876,7 @@ const DurableJsonStore = ((fsModule, fspModule, pathModule, atomicWriteFn) => {
 // 重试窗口下旧载荷不得迟到覆写新载荷)。
 let configWriteChain = Promise.resolve();
 async function writeConfigAtomic(data) {
+  configReadCache = null;   // 进程内写:读缓存立刻作废(写完后再作废一次,见下)。文件戳本来也会变,这是显式的第二道保险
   const thisWrite = configWriteChain.catch(() => {}).then(async () => {
     // 2026-09-06 对抗审查 P2-1：覆盖前把即将被替换的那份原样留成 config.json.prev（只留最近一份）。
     // 这是 readConfig 在文件丢失/写坏时的第一恢复源；首次写入或旧文件不可读时跳过，失败不阻塞。
@@ -3514,7 +3889,8 @@ async function writeConfigAtomic(data) {
     return atomicWriteJson(paths.config, data);
   });
   configWriteChain = thisWrite;
-  await thisWrite;
+  try { await thisWrite; }
+  finally { configReadCache = null; }   // 写在飞的这段时间里别的读者可能按旧戳填过缓存:落盘之后再清一次
 }
 async function readConfigPrev() {
   try {
@@ -3535,6 +3911,7 @@ let lastGoodConfig = null;
 // 生产环境 config 变更走 POST /api/config(writeConfig 可失效缓存)故缓存对生产正确,但测试直接写是合法
 // 提速捷径,且 mutate 别名隐患(structuredClone 仅治标),perf 收益(小 config + OS 已缓存磁盘读)不抵
 // 5 件回归 + 风险。05 方案 P1 留作后续:若重做须先把 e2e 改用 POST /api/config(镜像生产)或加 mtime 失效。
+// (后续:已按上面「加 mtime 失效」重做,见下方 configReadCache —— 文件戳失效 + 近期改动不入缓存 + 命中给深拷贝。)
 // hunt2-P10:readConfig 全仓 ~135 处调用,修前每一次都 ensureDirs()(14 个 mkdir)。目录只需在每个数据根上
 // 建一次:按 paths.data 记一笔,换根(测试 / 迁移)时重建。只省 readConfig 这一处 —— saveSession、writeConfig
 // 等写口仍然各自 ensureDirs(),运行中目录被删也能在下一次写时补回来。建目录失败不记,下次再试。
@@ -3545,8 +3922,58 @@ async function ensureDirsForConfigRead() {
   await ensureDirs();
   configDirsEnsuredFor = root;
 }
+// readConfig 读缓存(perf):~45 个调用点、85 KB 的配置每次 ~10 ms(parse + normalizeConfig 占大头,读盘本身很快),
+// 而配置几乎从不变。【上一版缓存被回退】的原因见上面 48b 那段:e2e 直接写 config.json 拿不到、别名被调用方改脏。
+// 这一版把两条根因都堵上,而不是绕开:
+//   · 失效靠【文件戳】而不是「只有 writeConfig 才失效」:key = 路径 + size + mtimeNs + ino(+ 家目录,归一化会用到)。
+//     e2e 或用户手改 config.json → 戳变 → 下一次读就重读重归一化;进程内写(writeConfigAtomic)前后再显式清一次。
+//   · 文件系统时间戳有粗粒度(Windows/FAT 十几 ms 到 2 s),同尺寸的原地改写可能撞戳 —— 所以【刚改过的文件不入缓存】
+//     (git 的 racy-timestamp 同款):读的这一刻 mtime 距今不足 CONFIG_CACHE_MIN_AGE_MS 就只读不存。配置在这段窗口里
+//     照旧每次重读(与修前逐字节同),窗口过后才开始命中;窗口之后再发生的改写,mtime 必然比戳老的那一刻新,不会撞。
+//   · 戳要在读盘【之前】取:取戳与读之间文件被换掉,存下的是「旧戳 + 新内容」,下次戳对不上 → 只会多读一次;反过来取会
+//     存成「新戳 + 旧内容」= 陈旧命中。
+//   · 归一化的输出里还有【运行时输入】不在文件里:detectClaudePath/detectKimiPath 的探测结果(60 s 过期后台重探)、
+//     resolveClaudeLauncher 的解析结果(Windows 上 claude.cmd → claude.exe)。命中时重取这三样,与填缓存时不一致就当未命中
+//     (顺带保住「每次读配置都会碰一下探测记忆、过期则触发后台重探」这个旧副作用)。
+//   · 调用方会就地改返回值(mutateConfig 的 mutator 就是),所以缓存里只放一份没人拿过的快照,每次命中给一份深拷贝
+//     (structuredClone + 手补 Symbol 键 CONFIG_GIVEN_CLAUDE_PATH,structuredClone 不带 Symbol)。拷贝失败一律当未命中。
+//   · 只缓存「干净读」:读盘成功、JSON 合法、不是从 .prev 恢复、归一化没有要回写的迁移(changed=false)。降级/恢复/迁移
+//     路径全部照旧走完整流程(它们有写盘或降级状态副作用)。
+const CONFIG_CACHE_MIN_AGE_MS = 2500;
+let configReadCache = null;   // { key, claudeProbe, kimiProbe, snapshot }
+async function configFileStamp() {
+  try {
+    const st = await fsp.stat(paths.config, { bigint: true });
+    // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
+    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}`, mtimeMs: Number(st.mtimeMs) };
+  } catch { return null; }
+}
+function cloneConfigSnapshot(config) {
+  const copy = structuredClone(config);
+  copy[CONFIG_GIVEN_CLAUDE_PATH] = config[CONFIG_GIVEN_CLAUDE_PATH];
+  return copy;
+}
+function configReadCacheLookup(stamp) {
+  const cache = configReadCache;
+  if (!cache || !stamp || cache.key !== stamp.key) return null;
+  try {
+    if (detectClaudePath() !== cache.claudeProbe || detectKimiPath() !== cache.kimiProbe) return null;
+    if (resolveClaudeLauncher(cache.snapshot[CONFIG_GIVEN_CLAUDE_PATH]) !== cache.snapshot.claudePath) return null;
+    return cloneConfigSnapshot(cache.snapshot);
+  } catch { configReadCache = null; return null; }
+}
+function configReadCacheStore(stamp, config) {
+  configReadCache = null;
+  if (!stamp || (Date.now() - stamp.mtimeMs) < CONFIG_CACHE_MIN_AGE_MS) return;   // 刚改过(或时钟在未来):不信戳
+  try {
+    configReadCache = { key: stamp.key, claudeProbe: detectClaudePath(), kimiProbe: detectKimiPath(), snapshot: cloneConfigSnapshot(config) };
+  } catch { configReadCache = null; }
+}
 async function readConfig() {
   await ensureDirsForConfigRead();
+  const stamp = await configFileStamp();   // 必须在读盘之前取(见 configReadCache 头注)
+  const cached = configReadCacheLookup(stamp);
+  if (cached) { configDegraded = false; return cached; }
   let text = null; let readError = null;
   try { text = await fsp.readFile(paths.config, 'utf8'); } catch (e) { readError = e; }
   let raw = null; let recoveredFrom = '';
@@ -3577,6 +4004,7 @@ async function readConfig() {
   // Only rewrite when a migration actually mutated the file (avoid racy write-on-every-read)；恢复自 .prev 时也落盘。
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
   if (changed || recoveredFrom) await writeConfigAtomic(JSON.stringify(persisted, null, 2)).catch(() => {});
+  else if (!readError) configReadCacheStore(stamp, config);   // 干净读才缓存;存的是深拷贝,返回给调用方的 config 仍归调用方
   return config;
 }
 
@@ -6684,12 +7112,32 @@ async function readSessionIndex() {
     return Array.isArray(arr) ? arr : null;
   } catch { return null; }
 }
+// 索引的【内存镜像】(perf):flushSessionIndex 每个 200 ms 去抖窗口都要「读 → 解析 → 合并 → 整份写」一遍 index.json
+// (3000 条会话 ≈ 1.3 MB,每次 ~25 ms,回合进行中每个窗口都在跑)。我们自己刚写下的那份内容就是合并后的 map,
+// 下一窗口再读回来解析一遍纯属重复。这里把「刚写下的 map + 写完后立刻取的文件戳」留在内存里:下一次 flush 先取当前文件戳,
+// 与镜像的戳相同 = 磁盘上仍是我们写的那一份,直接在镜像 map 上合并,跳过读与解析;戳不同(外部改写/被 invalidate/被
+// listSessions 重建覆盖/flushSessionIndexSync 写过/文件不在)一律作废镜像走原来的读盘路径。戳 = 路径 + size + mtimeNs + ino
+// (写入是 tmp + rename,每次换 inode)。只有 flushSessionIndex 那一处产生镜像;所有别的写口都不给 map → 镜像作废。
+// 镜像只在 withSessionIndexLock 里读写(与索引写同一把锁),无并发。
+let sessionIndexMemo = null;   // { stamp, map }
+async function sessionIndexFileStamp() {
+  try {
+    const st = await fsp.stat(sessionIndexPath(), { bigint: true });
+    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ino}`;
+  } catch { return null; }
+}
 // Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
-async function writeSessionIndex(entries) {
+// 第二参 map(可选)= 这份 entries 对应的合并结果,给了就登记成内存镜像(见 sessionIndexMemo)。
+async function writeSessionIndex(entries, map = null) {
+  sessionIndexMemo = null;   // 写之前先作废:写到一半失败/被别的写口接着覆盖,镜像都不该再被信
   await fsp.mkdir(paths.sessions, { recursive: true });
   await atomicWriteJson(sessionIndexPath(), entries);   // 25.1 收编
+  if (map) {
+    const stamp = await sessionIndexFileStamp();
+    if (stamp) sessionIndexMemo = { stamp, map };
+  }
 }
-async function invalidateSessionIndex() { await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+async function invalidateSessionIndex() { sessionIndexMemo = null; await fsp.unlink(sessionIndexPath()).catch(() => {}); }
 // Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
 // tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
 let sessionIndexChain = Promise.resolve();
@@ -6755,11 +7203,19 @@ async function flushSessionIndex() {
   try {
     await withSessionIndexLock(async () => {
       try {
-        const index = await readSessionIndex();
-        if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
-        const map = new Map(index.map(e => [String(e && e.id), e]));
+        // 镜像命中(文件戳与我们上次写完时一致)就不读盘不解析,直接在镜像 map 上合并;否则走原来的读盘路径。
+        const stamp = await sessionIndexFileStamp();
+        let map = null;
+        if (stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp) map = sessionIndexMemo.map;
+        else {
+          sessionIndexMemo = null;
+          const index = await readSessionIndex();
+          if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
+          map = new Map(index.map(e => [String(e && e.id), e]));
+        }
+        sessionIndexMemo = null;   // 下面要就地改 map:改到一半失败它就是脏的,写成功后 writeSessionIndex 再登记回来
         for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
-        await writeSessionIndex([...map.values()]);
+        await writeSessionIndex([...map.values()], map);
       } catch { await invalidateSessionIndex(); }
     }).catch(() => {});
   } finally {
@@ -6803,6 +7259,7 @@ function flushSessionIndexSync() {
     try {
       fs.writeFileSync(tmpPath, JSON.stringify([...map.values()], null, 2), 'utf8');
       fs.renameSync(tmpPath, finalPath);
+      noteSessionsDirOwnWrite(finalPath);   // 13e:这次目录变化是自己写的
     } catch (e) { try { fs.unlinkSync(tmpPath); } catch { /* best-effort */ } throw e; }
   } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
 }
@@ -9682,45 +10139,63 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
-    journalGcProbe.fullScans++;
-    journalGcSinceScan = 0;
-    journalSweeping++;
-    const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
-    try {
-      // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
-      // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
-      // purge decision is always made against real bytes, never the estimate.
-      const root = paths.checkpoints;
-      const names = await fsp.readdir(root).catch(() => []);
-      const dirs = [];
-      let total = 0;
-      for (const name of names) {
-        const p = path.join(root, name);
-        const st = await fsp.stat(p).catch(() => null);
-        if (!st || !st.isDirectory()) continue;
-        const size = await dirSize(p);
-        total += size;
-        dirs.push({ p, size, mtime: st.mtimeMs });
-      }
-      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
-        dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
-        for (const d of dirs) {
-          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-          await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
-          total -= d.size;
-        }
-      }
-      // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
-      // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
-      // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
-      // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
-      const windowDelta = journalDeltaDuringSweep - deltaMark;
-      journalGlobalBytes = Math.max(0, total + windowDelta);
-    } finally {
-      journalSweeping--;
-      if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
-    }
+    // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
+    // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
+    // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
+    // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
+    // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
+    const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
+    if (overBudget) await journalGlobalSweepOnce();
+    else void journalGlobalSweepOnce();
   } catch { /* silent */ }
+}
+
+let journalSweepInFlight = null;
+function journalGlobalSweepOnce() {
+  if (!journalSweepInFlight) {
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+  }
+  return journalSweepInFlight;
+}
+async function journalGlobalSweep() {
+  journalGcProbe.fullScans++;
+  journalGcSinceScan = 0;
+  journalSweeping++;
+  const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
+  try {
+    // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
+    // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
+    // purge decision is always made against real bytes, never the estimate.
+    const root = paths.checkpoints;
+    const names = await fsp.readdir(root).catch(() => []);
+    const dirs = [];
+    let total = 0;
+    for (const name of names) {
+      const p = path.join(root, name);
+      const st = await fsp.stat(p).catch(() => null);
+      if (!st || !st.isDirectory()) continue;
+      const size = await dirSize(p);
+      total += size;
+      dirs.push({ p, size, mtime: st.mtimeMs });
+    }
+    if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+      dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      for (const d of dirs) {
+        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
+        total -= d.size;
+      }
+    }
+    // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
+    // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
+    // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
+    // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
+    const windowDelta = journalDeltaDuringSweep - deltaMark;
+    journalGlobalBytes = Math.max(0, total + windowDelta);
+  } finally {
+    journalSweeping--;
+    if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
+  }
 }
 
 // Sum the byte size of a directory tree (best-effort; errors count as 0).
@@ -25522,6 +25997,141 @@ function rankRetrievalCorpus(corpus, query, { minScore = 0.05, limit = 0 } = {})
   return limit > 0 ? scored.slice(0, limit) : scored;
 }
 
+// ── 性能批 C1:可复用的语料缓存 ────────────────────────────────────────────────────────────────────────
+// buildRetrievalCorpus 每次都把每篇文档重新分词、重算 df 与向量。会话搜索每敲一个字(200 ms 去抖)就调一次,
+// 3000 条会话 × 8 KB 的单元要 6–7 秒、整段占住事件循环;记忆召回每条用户消息也调一次。
+// 缓存两层,结果与 buildRetrievalCorpus 逐位相同(同一批文档、同一顺序 → 同一 df、同一向量):
+//   ① 每篇文档的词频按「文本没变」复用 —— 存成全局词表里的词号数组 + 次数数组(保留首次出现的次序,
+//      retrievalVector 的累加次序因此不变),不再每次重新分词;
+//   ② 文档集合(id 与文本逐篇相同)没变就整份复用语料;变了只用缓存的词频重算 df 与向量。
+// 每个调用点各持一份(会话搜索、记忆召回),互不干扰。
+// opts.maxTerms:词表上限(超了整份重来),缺省 200 万;只有单测会调小它来触发重置。
+function createRetrievalCorpusCache(opts = {}) {
+  const maxTerms = Number(opts && opts.maxTerms) > 0 ? Number(opts.maxTerms) : 2000000;
+  const vocab = new Map();          // term -> id
+  const termOf = [];                // id -> term
+  const termHash = [];              // id -> fnv1a32(term)
+  const docs = new Map();           // doc id -> { text, ids: Uint32Array, counts: Uint32Array }
+  let last = null;                  // { ids, texts, corpus }
+  let generation = 0;               // 词表整份重来一次 +1:挂起中的异步装配据此作废重算(审查轮)
+  let buildChain = Promise.resolve();
+  const termId = term => {
+    let id = vocab.get(term);
+    if (id === undefined) { id = termOf.length; vocab.set(term, id); termOf.push(term); termHash.push(fnv1a32(term)); }
+    return id;
+  };
+  const docTerms = (id, text) => {
+    const hit = docs.get(id);
+    if (hit && hit.text === text) return hit;
+    const counts = retrievalTermCounts(text);
+    const entry = { text, ids: new Uint32Array(counts.size), counts: new Uint32Array(counts.size) };
+    let k = 0;
+    for (const [term, count] of counts) { entry.ids[k] = termId(term); entry.counts[k] = count; k++; }
+    docs.set(id, entry);
+    return entry;
+  };
+  // 与 retrievalVector 同一算式、同一迭代次序(词按首次出现的次序、raw 按桶首次出现的次序)。
+  const vectorOf = (entry, dfById, docCount) => {
+    const raw = new Map();
+    for (let k = 0; k < entry.ids.length; k++) {
+      const tid = entry.ids[k];
+      const hash = termHash[tid];
+      const dim = hash % RETRIEVAL_DIMS;
+      const sign = (hash >>> 16) & 1 ? -1 : 1;
+      const seen = dfById.get(tid) || 0;
+      const weight = (1 + Math.log(entry.counts[k])) * Math.log(1 + (Math.max(1, docCount) + 1) / (seen + 1));
+      raw.set(dim, (raw.get(dim) || 0) + sign * weight);
+    }
+    let norm = 0;
+    for (const value of raw.values()) norm += value * value;
+    norm = Math.sqrt(norm);
+    const vector = {};
+    if (!(norm > 0)) return vector;
+    for (const [dim, value] of raw) {
+      const scaled = value / norm;
+      if (scaled !== 0) vector[dim] = scaled;
+    }
+    return vector;
+  };
+  // 异步预热:把还没分过词的文档分词进缓存,每 50 篇让一次事件循环(3000 篇 × 8 KB 首次要几秒,不能一口气占住主线程)。
+  // 之后再调 corpusFor 就只剩 df 与向量。结果不变 —— 只是把同一份分词提前、分片做了。
+  const prepare = async documents => {
+    let sinceYield = 0;
+    for (const doc of documents || []) {
+      if (!doc || !doc.id) continue;
+      const hit = docs.get(String(doc.id));
+      if (hit && hit.text === doc.text) continue;
+      docTerms(String(doc.id), doc.text);
+      if (++sinceYield >= 50) { sinceYield = 0; await new Promise(resolve => setImmediate(resolve)); }
+    }
+  };
+  // 装配(df 与向量)写成生成器:每算完一篇的向量 yield 一次。同步调用方一口气跑完,异步调用方隔几篇让一次事件循环 ——
+  // 两条路径是同一份代码,结果相同。
+  // 词表只增不减;极端情况下(几百万个不同的词)整份重来,别让它无限长。每次装配开始前查一次。
+  const maybeReset = () => {
+    if (termOf.length > maxTerms) { vocab.clear(); termOf.length = 0; termHash.length = 0; docs.clear(); last = null; generation += 1; }
+  };
+  function* assemble(documents) {
+    const ids = [], texts = [];
+    for (const doc of documents || []) {
+      if (!doc || !doc.id) continue;
+      ids.push(String(doc.id));
+      texts.push(doc.text);
+    }
+    if (last && last.ids.length === ids.length && last.ids.every((id, i) => id === ids[i] && last.texts[i] === texts[i])) return last.corpus;
+    const entries = ids.map((id, i) => docTerms(id, texts[i]));
+    // 不在这一批里的缓存条目只在超出上限时才清(审查轮:两批文档交替查询 —— 例如两个工作区的记忆召回 —— 每次都清掉
+    // 另一批,等于没有缓存)。上限按当前批的 4 倍、至少 2000 篇,内存仍有界。
+    if (docs.size > Math.max(2000, ids.length * 4)) {
+      const keep = new Set(ids);
+      for (const id of [...docs.keys()]) if (!keep.has(id)) docs.delete(id);
+    }
+    const dfById = new Map();
+    for (const entry of entries) for (let k = 0; k < entry.ids.length; k++) dfById.set(entry.ids[k], (dfById.get(entry.ids[k]) || 0) + 1);
+    const docCount = entries.length;
+    const df = new Map();
+    for (const [tid, n] of dfById) df.set(termOf[tid], n);
+    const vectors = [];
+    for (const entry of entries) { vectors.push(vectorOf(entry, dfById, docCount)); yield; }
+    const corpus = { ids, vectors, df, docCount };
+    last = { ids, texts, corpus };
+    return corpus;
+  }
+  const corpusFor = function corpusFor(documents) {
+    maybeReset();
+    const run = assemble(documents);
+    let step = run.next();
+    while (!step.done) step = run.next();
+    return step.value;
+  };
+  // 异步版:先分片分词(prepare),装配时每 200 篇让一次。
+  // 审查轮:同一份缓存上的异步装配一次只跑一个(串在 buildChain 上)—— 两个并发装配交错时,后一个触发的词表重置会让
+  // 前一个挂起中的生成器拿旧词号配新哈希表,算出错的向量。同步的 corpusFor 插进来重置了词表也一样:让出回来发现代数变了就整份重算。
+  const buildNow = async documents => {
+    for (;;) {
+      maybeReset();
+      const gen = generation;
+      await prepare(documents);
+      if (gen !== generation) continue;
+      const run = assemble(documents);
+      let step = run.next(), n = 0;
+      while (!step.done && gen === generation) {
+        if (++n % 200 === 0) await new Promise(resolve => setImmediate(resolve));
+        if (gen !== generation) break;
+        step = run.next();
+      }
+      if (step.done && gen === generation) return step.value;
+    }
+  };
+  corpusFor.build = documents => {
+    const run = buildChain.then(() => buildNow(documents));
+    buildChain = run.catch(() => {});
+    return run;
+  };
+  corpusFor.prepare = prepare;
+  return corpusFor;
+}
+
 // ============================================================================
 // 第 116 波 116a(27 号文 §11.3):工作台管家(Steward)引擎侧核心——纯函数与延迟绑定命名空间。
 //
@@ -29371,6 +29981,13 @@ function memoryRetrievalKey(entry) {
 const MEMORY_FUSION_SCOPE_BONUS = 0.0006;
 const MEMORY_FUSION_TYPE_BONUS = 0.0004;
 
+// 性能批 C1:记忆召回的语料缓存(每条用户消息都会召回一次;记忆库不变时不再逐条重新分词)。
+let memoryRecallCorpusCache = null;
+function memoryRecallCorpus(documents) {
+  if (!memoryRecallCorpusCache) memoryRecallCorpusCache = createRetrievalCorpusCache();
+  return memoryRecallCorpusCache(documents);
+}
+
 function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const entries = (Array.isArray(registry) ? registry : []).filter(entry => entry && entry.id);
   if (!entries.length) return [];
@@ -29383,7 +30000,8 @@ function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const lexicalScored = rankRelevantMemoriesScored(entries, query);
   const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
   const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
-  const corpus = buildRetrievalCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
+  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与 buildRetrievalCorpus 逐位相同)
+  const corpus = memoryRecallCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
   const vectorRanking = rankRetrievalCorpus(corpus, query).map(row => row.id);
 
   // 两层都没命中（空 query / 全不相干）就原样走词法层结果，不自己造候选。
@@ -33053,7 +33671,10 @@ async function saveAgentRun(run) {
     // 永久钉进最后一份快照(run 已结束,再无下一次写),UI 对一个完好收尾的 run 永远亮红横幅。
     // 先乐观清、写失败在 catch 里按计数恢复,则任何一次成功写落盘的都是干净旗标。
     try {
-      await atomicWriteJson(agentRunFile(run.sessionId, run.id), snapshot);
+      const runFile = agentRunFile(run.sessionId, run.id);
+      await atomicWriteJson(runFile, snapshot);
+      agentRunDigestWriteSeq += 1;
+      agentRunDigestCache.delete(runFile); // digest 摘要缓存:进程内写成功即作废该文件条目(见 listAgentRunDigests 头注)
       markPretenderIndexDirty(run.sessionId, 'source'); // 75c: persisted run digest participates in Mission projection
       // 128f-⑫:班组的状态真的换了(跑着/暂停/等池/收尾……)才派一发 —— 左栏行上的「暂停／继续」、焦点栏的班组段读的
       // 都是落盘这一份摘要,而它不经过会话头(13r「会话头落盘即碰一下」那一路盖不到)。节点每一步也会存一次,
@@ -33095,6 +33716,83 @@ async function listAgentRuns(sessionId) {
     } catch { /* skip corrupt/incomplete records */ }
   }
   return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+// ── digest 轮询的磁盘摘要缓存(性能) ─────────────────────────────────────────────────────────────
+// GET /api/agent-runs?view=digest 每 ~2s 被前端轮询,而 listAgentRuns 会把该会话【每个 run 快照】整份读盘 +
+// JSON.parse 只为取十几个标量(单个终态 run 的 nodes/result/progressLog 动辄 1MB,30 个 run 一次 400-800ms CPU)。
+// 这里按【文件】缓存「digest 用得到的标量」:键 = 绝对路径,失效判据 = mtimeMs + size + ino(三者任一变就重读)。
+//   · 先 stat 后 read:stat 与 read 之间若被 atomicWriteJson 的 rename 换了新文件,缓存里存的是【新内容 + 旧戳】,
+//     下一拍 stat 到新戳与缓存不符就重读 —— 顶多多读一次,绝不会把旧内容钉在新戳下(反过来先 read 后 stat 才会)。
+//   · saveAgentRun 在进程内写成功后立刻 delete 该文件的条目:同毫秒同大小的连写(mtime 粒度粗的文件系统)也不会读到旧摘要。
+//   · 只缓存标量(见 agentRunDigestShadow),不留整份 run 对象;条目数封顶,满了整表清空(下一拍自然重建)。
+//   · 完整视图/其它 listAgentRuns 调用方不走这里,仍读全量,行为不变。
+// agentRunDigestStats 是给测试数「读了几个 run 文件」的确定性计数(不靠墙钟)。
+const AGENT_RUN_DIGEST_CACHE_MAX = 4096;
+const agentRunDigestCache = new Map(); // 绝对文件路径 -> { mtimeMs, ctimeMs, size, ino, shadow|null }
+// 进程内每写 / 删一个 run 文件 +1。列举时 stat 之前记下,填缓存之前比一眼:期间有写就不填(审查轮:ino 恒 0、mtime 粒度粗的
+// 文件系统上,「stat → 写者 rename + delete 条目 → 列举把旧内容 set 进去」会把旧摘要钉在新戳下,直到下一次写)。
+let agentRunDigestWriteSeq = 0;
+const agentRunDigestStats = { reads: 0, hits: 0 };
+// 磁盘快照里 digest 视图会读到的全部字段(与 13d handleAgentRunApiRoutes 的 digest 逐字段同口径);
+// 取值表达式与旧的「(mem || r).xxx」写法一字不差,所以磁盘态的 digest 行与修前逐字节相同。
+function agentRunDigestShadow(run) {
+  return Object.freeze({
+    id: run.id, status: run.status, eventSeq: Number(run.eventSeq) || 0,
+    updatedAt: run.updatedAt || '', createdAt: run.createdAt || '', completedAt: run.completedAt || '',
+    nodeCount: Array.isArray(run.nodes) ? run.nodes.length : 0,
+    poolPending: Array.isArray(run.taskPool) ? run.taskPool.filter(p => p && p.status === 'proposed').length : 0,
+    persistenceDegraded: run.persistenceDegraded === true,
+    resumeTier: run.resumeTier || '', pendingReview: !!run.pendingReview,
+    anyRunning: Array.isArray(run.nodes) && run.nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
+  });
+}
+// 与 listAgentRuns 同枚举、同过滤、同排序(createdAt 降序,同值保持 readdir 序),只是返回摘要而非整份 run。
+async function listAgentRunDigests(sessionId) {
+  const dir = agentRunDir(sessionId);
+  let files = []; try { files = await fsp.readdir(dir); } catch { return []; }
+  const out = [];
+  for (const file of files.filter(f => /^run_[a-f0-9]+\.json$/i.test(f))) {
+    const full = path.join(dir, file);
+    try {
+      const writeSeq = agentRunDigestWriteSeq;
+      const st = await fsp.stat(full);
+      const hit = agentRunDigestCache.get(full);
+      if (hit && hit.mtimeMs === st.mtimeMs && hit.ctimeMs === st.ctimeMs && hit.size === st.size && hit.ino === st.ino) {
+        agentRunDigestStats.hits += 1;
+        if (hit.shadow) out.push(hit.shadow);
+        continue;
+      }
+      agentRunDigestStats.reads += 1;
+      const run = safeJsonParse(await fsp.readFile(full, 'utf8'), null);
+      const shadow = run ? agentRunDigestShadow(run) : null;   // 坏/空快照也记一笔(同戳不再重读),与 listAgentRuns 一样跳过
+      if (agentRunDigestCache.size >= AGENT_RUN_DIGEST_CACHE_MAX && !agentRunDigestCache.has(full)) agentRunDigestCache.clear();
+      if (writeSeq === agentRunDigestWriteSeq) agentRunDigestCache.set(full, { mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs, size: st.size, ino: st.ino, shadow });
+      if (shadow) out.push(shadow);
+    } catch { agentRunDigestCache.delete(full); /* skip corrupt/incomplete records */ }
+  }
+  return out.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+}
+// digest 一行:live 且有内存对象的 run 以【内存】为准(快照节流 1.5s,磁盘恒旧),否则用磁盘摘要。
+// r 是 listAgentRunDigests 的摘要,或路由把 live.run 浅展开叠上 live/paused 之后的对象;键序即下发序。
+function agentRunDigestRow(r, live) {
+  const mem = live && live.run ? live.run : null;
+  if (!mem) {
+    return {
+      id: r.id, status: r.status, eventSeq: r.eventSeq, updatedAt: r.updatedAt, createdAt: r.createdAt, completedAt: r.completedAt,
+      nodeCount: r.nodeCount, poolPending: r.poolPending,
+      live: !!live, paused: !!(live && live.paused), persistenceDegraded: r.persistenceDegraded,
+      resumeTier: r.resumeTier, pendingReview: r.pendingReview, anyRunning: r.anyRunning,
+    };
+  }
+  return {
+    id: r.id, status: mem.status, eventSeq: Number(mem.eventSeq) || 0,
+    updatedAt: mem.updatedAt || '', createdAt: r.createdAt || '', completedAt: mem.completedAt || '',
+    nodeCount: Array.isArray(mem.nodes) ? mem.nodes.length : 0,
+    poolPending: (mem.taskPool || []).filter(p => p && p.status === 'proposed').length,
+    live: true, paused: !!live.paused, persistenceDegraded: !!mem.persistenceDegraded || r.persistenceDegraded === true,
+    resumeTier: mem.resumeTier || '', pendingReview: !!mem.pendingReview,
+    anyRunning: Array.isArray(mem.nodes) && mem.nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
+  };
 }
 // ============================================================================
 // 第29波(§29b 自动恢复分级):节点续跑危险度。纯函数,只看持久化字段,不碰运行时。红线(AUTONOMY-PLAN §6):
@@ -35468,9 +36166,21 @@ const CJK_RE = /[\u2E80-\u9FFF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF
 // 镜像无多配置歧义;默认 false = 两桶逐字节不变。
 let estimateBucketsV1On = false;
 function setEstimateBucketsV1(on) { estimateBucketsV1On = on === true; }
+// 性能批 C2:CJK_RE 命中数的等价计数。修前 str.match(CJK_RE) 给每个汉字分配一个字符串,每回合至少估两次整段历史,
+// 400 万汉字要 230 ms。CJK_RE 不带 u 标志、按 UTF-16 码元匹配,几个区间都不含代理区(D800–DFFF),所以逐码元比区间
+// 与之逐个相同(unit/token-estimate-cjk 在全部 65536 个码元与随机串上比对)。
+function countCjkCodeUnits(str) {
+  let n = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c < 0x2E80) continue;
+    if (c <= 0x9FFF || (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xF900 && c <= 0xFAFF) || (c >= 0xFE30 && c <= 0xFE4F) || (c >= 0xFF00 && c <= 0xFFEF)) n++;
+  }
+  return n;
+}
 function estimateTextTokens(str) {
   if (typeof str !== 'string' || !str) return 0;
-  const cjk = (str.match(CJK_RE) || []).length;
+  const cjk = countCjkCodeUnits(str);
   const ascii = str.length - cjk;
   // 105e: 开关关 = 现状两桶,同样的输入同样的输出(逐字节一致);开时先分类再套桶因子。
   if (!estimateBucketsV1On) return ascii / 3.6 + cjk / 1.5;
@@ -51310,7 +52020,8 @@ async function refreshSessionSearchIndex(metas) {
   if (!changed && Object.keys(existing.entries).length === Object.keys(entries).length) return entries;
   const payload = { version: SESSION_SEARCH_INDEX_VERSION, builtAt: nowIso(), entries };
   // 写失败不影响本次搜索结果(内存里的 entries 已经算好了),下次再试。
-  const wrote = await atomicWriteJson(sessionSearchIndexPath(), payload).then(() => true, () => false);
+  // 性能批 C1:紧凑 JSON(3000 条会话时带缩进写出来有 34 MB,每次会话有变都整份重写一遍)
+  const wrote = await atomicWriteJson(sessionSearchIndexPath(), JSON.stringify(payload)).then(() => true, () => false);
   if (wrote) {
     try { const st = await fsp.stat(sessionSearchIndexPath()); sessionSearchIndexCache = { stamp: `${st.mtimeMs}|${st.size}`, data: payload }; } catch { sessionSearchIndexCache = null; }
   }
@@ -51351,6 +52062,19 @@ function sessionSearchSnippet(unit, terms) {
 //      分数 = 各词权重之和,命中在标题 / 概括里翻倍,整句原样出现、查询词全中另有加分;
 //   ② 向量(同义、拼写漂移)只补【强】命中:有词法结果时,只收分数不低于最高分六成且 ≥ 0.2 的;
 //      一条词法命中都没有时(打错字)才放宽到最高分一半且 ≥ 0.15(实测打错字的真命中在 0.3–0.5,只沾一个词的在 0.08 上下)。
+// 性能批 C1:会话搜索每敲一个字就查一次。语料(分词、df、向量)与每篇的「小写 + 空白折叠」都按条目缓存 ——
+// 条目在会话没变时是同一个对象(refreshSessionSearchIndex 原样复用),结果与逐次现算逐位相同。
+let sessionSearchCorpusCache = null;
+const sessionSearchHayMemo = new WeakMap();   // 条目对象 -> { unit, hay }
+function sessionSearchHayOf(entry) {
+  const hit = sessionSearchHayMemo.get(entry);
+  if (hit && hit.unit === entry.unit) return hit.hay;
+  // 查询词(retrievalTerms 产出的)不含空白,所以在折叠过空白的文本里 includes 与在原文里结果相同;
+  // 整句 phrase 本来就是在折叠后的文本里比。一份就够两用。
+  const hay = String(entry.unit).toLowerCase().replace(/\s+/g, ' ');
+  sessionSearchHayMemo.set(entry, { unit: entry.unit, hay });
+  return hay;
+}
 async function searchSessionsByContent(query, limit) {
   const q = String(query || '').trim();
   if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
@@ -51367,8 +52091,13 @@ async function searchSessionsByContent(query, limit) {
   const phrase = q.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ');
   const needed = Math.max(1, Math.ceil(terms.length / 2));
   const scores = new Map();
+  // 性能批 C1:首次(或会话大批变化后)要给几千篇现算小写 + 折叠,先分片预热、每 100 篇让一次事件循环
+  for (let i = 0; i < documents.length; i++) {
+    sessionSearchHayOf(entries[documents[i].id]);
+    if (i % 100 === 99) await new Promise(resolve => setImmediate(resolve));
+  }
   for (const doc of documents) {
-    const hay = doc.text.toLowerCase();
+    const hay = sessionSearchHayOf(entries[doc.id]);
     const meta = byId.get(doc.id) || {};
     const brief = sessionBriefOf(meta);
     const titleHay = [meta.title, brief && brief.title, brief && brief.gist].filter(Boolean).join(' ').toLowerCase();
@@ -51379,7 +52108,7 @@ async function searchSessionsByContent(query, limit) {
       const weight = Math.min(12, Math.max(2, term.length));
       score += titleHay.includes(term) ? weight * 2 : weight;
     }
-    const exact = phrase.length >= 2 && hay.replace(/\s+/g, ' ').includes(phrase);
+    const exact = phrase.length >= 2 && hay.includes(phrase);
     if (!exact && matched < needed) continue;
     if (exact) score += 30;
     if (terms.length && matched === terms.length) score += 10;
@@ -51387,7 +52116,8 @@ async function searchSessionsByContent(query, limit) {
   }
   const lexical = [...scores.entries()].map(([id, score]) => ({ id, score }));
 
-  const corpus = buildRetrievalCorpus(documents);
+  if (!sessionSearchCorpusCache) sessionSearchCorpusCache = createRetrievalCorpusCache();
+  const corpus = await sessionSearchCorpusCache.build(documents);
   const vector = rankRetrievalCorpus(corpus, q);
   const top = vector.length ? vector[0].score : 0;
   const floor = lexical.length ? Math.max(0.2, top * 0.6) : Math.max(0.15, top * 0.5);
@@ -51421,6 +52151,111 @@ async function searchSessionsByContent(query, limit) {
       snippet: sessionSearchSnippet(entries[row.id].unit, terms),
     })),
   };
+}
+
+// GET /api/sessions/:id 条件 GET 的【盘上戳】。不装载会话就能取:头文件整份读出来哈希(头只有几 KB~几十 KB;
+// 不能只信 updatedAt/mtime —— 同一毫秒/同一个文件系统时钟刻度内两次落头会撞)+ 两个正文的 size/mtime/ino(追加改 size,
+// 慢路径整份重写是 rename 换 inode)+ 后台任务账本的 size/mtime/ino(loadSession 会把它合并进 messages)。
+// 头是提交点(saveSession 正文先落、头后落,且每次都推 updatedAt),所以「头哈希 + 正文戳」不变 = 盘上没有新提交。
+// 任何一步读不到(legacy 单文件会话没有正文文件、瞬时锁、会话不存在)一律返回 null → 调用方不发 ETag、走原来的无条件全量,
+// 与修前逐字节一致。
+async function sessionEnvelopeStamp(id) {
+  if (safeSessionId(id) === null) return null;
+  try {
+    const bp = sessionBodyPaths(id);
+    const [head, msg, prov, jobs] = await Promise.all([
+      fsp.readFile(sessionPath(id)),
+      fsp.stat(bp.messages),
+      fsp.stat(bp.provider),
+      // 路径与 11-native-tools.js 的 backgroundJobFile 同一处约定(sessions/background-jobs/<id>.json)。这里不直接引用它:13d 引 11
+      // 会新增一条循环边(module-dependency-graph 的债务上限锁着);e2e session-get-etag 的 F 段写一份账本、断言标签会变,钉住这份约定不漂移。
+      fsp.stat(path.join(paths.sessions, 'background-jobs', id + '.json')).catch(() => null),
+    ]);
+    const fileStamp = st => `${st.size}:${st.mtimeMs}:${st.ino}`;
+    return crypto.createHash('sha1').update(head).digest('hex') + '|' + fileStamp(msg) + '|' + fileStamp(prov) + '|' + (jobs ? fileStamp(jobs) : '-');
+  } catch { return null; }
+}
+// 标签 = 盘上戳 + 装载会改变响应的全部【内存】输入:活态四件(见 sessionEnvelopeLiveParts)、会话级权限档/桌面工具覆盖表
+// (loadSession 会把它们盖到返回的会话对象上)、垂死回合收尾窗口(turnSettlers:窗口内 loadSession 不做残留 pending 叙事段的
+// 惰性清理,出窗后同一份盘面装载出的会话就不同了)、以及 ?since 参数(管家会话的尾巴切片,响应体不同)。
+function sessionEnvelopeEtag(id, stamp, liveParts, sinceRaw) {
+  const overrides = [
+    sessionPermissionModeOverrides.has(id) ? [sessionPermissionModeOverrides.get(id)] : null,
+    sessionDesktopToolsOverrides.has(id) ? [sessionDesktopToolsOverrides.get(id)] : null,
+  ];
+  return pretenderEtag('session', pretenderHash([stamp, overrides, turnSettlers.has(id), liveParts, sinceRaw == null ? null : String(sinceRaw)]));
+}
+// 会话信封上【只来自内存】的那几样(活回合标志 / liveTail / liveTurn / 递话通道):GET /api/sessions/:id 的 200 体与
+// 条件 GET 的 ETag 共用这一份取样 —— 判据只写一处,响应里放了什么,ETag 就带什么(sessionEnvelopeEtag 直接哈希它)。
+// 纯同步只读:不碰盘、不改 reg。取样逻辑与注释原样搬自路由体(只是从内联挪成函数,一个字没动)。
+function sessionEnvelopeLiveParts(id) {
+  // 运行中豁免:活回合/活 agent run 在跑时,见路由体里 resumable 那一段。
+  let live = activeChildren.has(id);
+  if (!live) {
+    for (const runtime of activeAgentRuns.values()) {
+      if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
+    }
+  }
+  // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
+  // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
+  // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
+  // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
+  // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
+  // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
+  // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
+  // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
+  // tools 里还有工具调用 id,都不该出现在信封上。
+  const liveReg = activeChildren.get(id);
+  const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
+    ? {
+      text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
+      full: String(liveReg.liveTail.full || ''),
+      truncated: Boolean(liveReg.liveTail.truncated),
+      startedAt: String(liveReg.liveTail.startedAt || ''),
+      iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
+      tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
+        name: String((row && row.name) || '').slice(0, 80),
+        status: String((row && row.status) || ''),
+        startedAt: String((row && row.startedAt) || ''),
+        endedAt: String((row && row.endedAt) || ''),
+      })),
+    }
+    : null;
+  // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
+  // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
+  // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
+  // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
+  // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
+  // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
+  // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
+  // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
+  // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
+  const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
+    ? liveReg.liveSegments.liveSnapshot()
+    : null;
+  const liveTurn = liveNarrative
+    ? {
+      segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
+      toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
+      truncated: Boolean(liveNarrative.truncated),
+      startedAt: liveTail ? liveTail.startedAt : '',
+      iterations: liveTail ? liveTail.iterations : 0,
+    }
+    : null;
+  // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
+  // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
+  // queued > steer > turn,
+  // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
+  // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
+  // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
+  // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
+  // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
+  // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
+  const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
+  const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
+    ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
+    : null;
+  return { live, liveTail, liveTurn, relay };
 }
 
 async function handleSessionApiRoutes(req, res, pathname) {
@@ -51514,18 +52349,31 @@ async function handleSessionApiRoutes(req, res, pathname) {
   if (pathname.startsWith('/api/sessions/')) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
+      // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
+      // 正文并逐行 sha1(18 MB 会话 250–350 ms)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
+      // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
+      // 装载期间若有写者落盘,下一次比对必然不等 → 只会多回一次 200,绝不会拿旧标签配新内容(只可能多刷新,不会漏刷新)。
+      // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
+      // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
+      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      // 审查轮:活态在盘上戳【之前】取。反过来(先戳后活态)时,两次取样之间「落盘 + 活态翻转」可能拼出一个等于客户端手上旧标签的
+      // 组合(旧盘 + 新活态),回一次不该回的 304;先取活态,竞态最多多回一次 200。
+      const preLive = sessionEnvelopeLiveParts(id);
+      const envelopeStamp = await sessionEnvelopeStamp(id);
+      if (envelopeStamp) {
+        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw);
+        if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
+      }
       const session = await loadSession(id);
       if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
       // 横幅,故 live 会话直接返回不悬挂。
-      let live = activeChildren.has(id);
-      if (!live) {
-        for (const runtime of activeAgentRuns.values()) {
-          if (runtime && runtime.run && runtime.run.sessionId === id) { live = true; break; }
-        }
-      }
+      const liveParts = sessionEnvelopeLiveParts(id);
+      const { live, liveTail, liveTurn, relay } = liveParts;
+      // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
+      const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
       // isLive() 第一判据是 `resumable && resumable.live === true`,而这个活回合分支修前没有
       // `live` 键,那条判据从没走通过,一直静默回落到「事项行五态 === 'running'」——挂在
@@ -51535,59 +52383,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const resumable = live
         ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0, live: true }
         : detectDanglingTurn(session);
-      // 117l D4(§11.9;用户第四轮走查第 3 条):活回合的尾巴。只在【真有一个活回合】时出现
-      // (回合一结束这个键就不在了 —— 抽屉据此把「它正在说」换回「它刚说」),不落盘、不进任何投影。
-      // 放在【信封】上而不往 session 里塞:与下面 displayTitle 同一条纪律(路由不改写会话头本身)。
-      // 117m-A5(用户第六轮走查①「点开线程的看全文,还是啥也看不到」):同一个信封上再多带四个键 ——
-      // full(本回合从头累加的正文,04 里硬顶 12000 字、超顶砍头)、truncated、tools(最近 ≤20 条工具名
-      // 与起止,**不含参数与结果**)、startedAt/iterations。经典壳据此在会话末尾画一张临时气泡,
-      // 让「在别处起的回合」也看得到它现在在说什么。仍然是【条件展开】:回合一结束这个键就不在了。
-      // 白名单式逐字段搬运,不 spread reg 上那份对象 —— 累加器上还有 batchMark/lastKind 这类内部游标,
-      // tools 里还有工具调用 id,都不该出现在信封上。
-      const liveReg = activeChildren.get(id);
-      const liveTail = liveReg && liveReg.liveTail && typeof liveReg.liveTail === 'object'
-        ? {
-          text: String(liveReg.liveTail.text || ''), tool: String(liveReg.liveTail.tool || ''), updatedAt: String(liveReg.liveTail.updatedAt || ''),
-          full: String(liveReg.liveTail.full || ''),
-          truncated: Boolean(liveReg.liveTail.truncated),
-          startedAt: String(liveReg.liveTail.startedAt || ''),
-          iterations: Math.max(0, Number(liveReg.liveTail.iterations) || 0),
-          tools: (Array.isArray(liveReg.liveTail.tools) ? liveReg.liveTail.tools : []).slice(-20).map(row => ({
-            name: String((row && row.name) || '').slice(0, 80),
-            status: String((row && row.status) || ''),
-            startedAt: String((row && row.startedAt) || ''),
-            endedAt: String((row && row.endedAt) || ''),
-          })),
-        }
-        : null;
-      // 117o-A7(用户第七轮走查,两张截图对照:「为啥这个查看全文,不能像 2.0 那样显示呢」):
-      // 同一个信封上【再加一个新键】liveTurn —— 在途回合的有序叙事账本(02c 的 createTurnSegmentBuilder,
-      // 回合落盘之后经典壳重建叙事靠的就是它)。A5 的 liveTail 只是一段拼好的纯文本,渲染层再怎么写
-      // 也画不出思考块 / 过程记录 / 工具卡,差距的根子是数据形状。前端拿到它以后组装成一条与落盘助手
-      // 消息同形的对象,交给【渲染落盘助手消息的同一个入口】去画,不写第二套简版渲染器。
-      // 三条纪律:① 上面 liveTail 那几个键一个字不动(抽屉的「它正在说」在读它,117l/117m 的断言看着它),
-      // 新键是【加】不是改;② 有界与截断方向都在 02c 的 liveSnapshot() 里(段数/单段/总文本三重硬顶,
-      // 超顶从头部丢弃并置 truncated:true);③ **工具结果一律不下发** —— 只送 name 与那一行参数摘要,
-      // 结果可能是整份文件、可能含密钥;回合一结束真消息落盘,经典壳照常拿到全部(e2e 的 E 段钉着这条)。
-      const liveNarrative = liveReg && liveReg.liveSegments && typeof liveReg.liveSegments.liveSnapshot === 'function'
-        ? liveReg.liveSegments.liveSnapshot()
-        : null;
-      const liveTurn = liveNarrative
-        ? {
-          segments: Array.isArray(liveNarrative.segments) ? liveNarrative.segments : [],
-          toolCalls: Array.isArray(liveNarrative.toolCalls) ? liveNarrative.toolCalls : [],
-          truncated: Boolean(liveNarrative.truncated),
-          startedAt: liveTail ? liveTail.startedAt : '',
-          iterations: liveTail ? liveTail.iterations : 0,
-        }
-        : null;
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
       // 回合追加进对话流，整份拉一遍管家会话在长会话上是几百 KB 的重复载荷。
       // 纪律：① 只对管家会话生效 —— 别的会话有自己的分页语义，不在本波范围；② 不带 since 的旧调用
       // 逐字节不变（没有这个参数就走原路，一行都不改）；③ 只切 messages 的尾巴，其余字段原样带出，
       // 前端拿到的仍是同一个形状；④ 不改会话对象本身（浅拷贝），loadSession 的返回值不许被路由改写。
-      const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
       const sinceMs = sinceRaw ? Date.parse(String(sinceRaw)) : NaN;
       if (Number.isFinite(sinceMs)) {
         const all = Array.isArray(session.messages) ? session.messages : [];
@@ -51595,25 +52396,12 @@ async function handleSessionApiRoutes(req, res, pathname) {
           const at = Date.parse(String((m && m.createdAt) || ''));
           return Number.isFinite(at) && at > sinceMs;
         });
-        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }));
+        return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
       }
-      // 117s-G(27 号文 §11.13.1 ②;真浏览器复现的丢回合 bug):这条线程此刻【该走哪条递话通道】。
-      // 判据不是新造的 —— 就是 13h 那条递话阶梯 stewardRelayChannelFor,顺序 answer > permission >
-      // queued > steer > turn,
-      // 全仓递话唯一那处判定,经 06i 的延迟绑定命名空间取(13d 直接引用 13h 会造一条前向边)。
-      // 为什么信封上要有它:经典壳的发送门只认 activeTurns —— 本页自己起的那条流。管家在服务端起的
-      // 回合不在里面,于是用户在「2.0 视窗」里打一句话走的是「新回合」那条路,09:1347 的
-      // `activeChildren.has -> stopSession('superseded')` 把跑着的回合就地杀掉,界面零提示。
-      // 只投影 {channel, wait} 两个键:questionId/pendingId 是待决面的内部锚点,不该进会话信封。
-      // 空闲(channel === 'turn')时整个键都不下发 —— 存量消费者拿到的信封逐字节不变。
-      const relayDecision = typeof StewardHooks.relayChannel === 'function' ? StewardHooks.relayChannel(id) : null;
-      const relay = relayDecision && relayDecision.channel && relayDecision.channel !== 'turn'
-        ? { channel: String(relayDecision.channel), ...(relayDecision.wait ? { wait: relayDecision.wait } : {}) }
-        : null;
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状
       // (上面 since 分支那条「不改会话对象本身」是同一条纪律);抽屉/「现在这一件」的标题读这个键。
-      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }));
+      return send(res, json({ ok: true, session, resumable, displayTitle: sessionDisplayTitle(session), ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}) }, 200, envelopeHeaders));
     }
     if (req.method === 'PATCH' || (req.method === 'POST' && req.headers['x-http-method'] === 'PATCH')) {
       const body = await readJsonBody(req);
@@ -51906,6 +52694,8 @@ function addMissionCostBucket(bucket, usage) {
   return bucket;
 }
 
+// 测试用确定性计数(不靠墙钟):workspaceComputed = 真正跑了一次「工作区归属判定」的次数(同 cwd 一次装配内只算一次)。
+const missionAggregateStats = { workspaceComputed: 0 };
 async function buildMissionAggregateRows(options = {}) {
   const includeArchived = options.includeArchived === true;
   // W7(用户 2026-09-24「管家需要把工作区和任务联系起来」):事项与线程的读模型把【工作区】带出去 ——
@@ -51913,11 +52703,25 @@ async function buildMissionAggregateRows(options = {}) {
   // 最近动过的那条线程的目录。ruyiOwned 的判据单点在 06i 的 stewardRuyiOwnedPath(数据根里的、或如意
   // 为任务开的而用户没收编的),要配置里那张表 —— 调用方有现成的就传 options.config,省一次读盘。
   const wsConfig = (options.config && typeof options.config === 'object') ? options.config : await readConfig().catch(() => null);
+  // 性能:2000 条线程只有寥寥几个不同的 cwd,而 stewardRuyiOwnedPath(逐字符归一 + 数据根前缀比较)与
+  // dataRootAliases()(取数据根、比对别名)此前在【每条线程 + 每个事项组】各算一遍,一次 GET /api/missions
+  // 约 4000 次,占去 37% CPU。本次装配内 wsConfig / paths.data / 别名都是定值,所以别名提到函数头只取一次,
+  // 并按 cwd 记下 { name, ruyiOwned }(纯函数,同 cwd 同答案);每次仍返回【新对象】,调用方改它不会串行。
+  const dataRootPath = paths.data;
+  const dataRootAliasList = dataRootAliases();
+  const workspaceMemo = new Map();   // 修剪后的 cwd -> { name, ruyiOwned }
   const workspaceOf = cwd => {
     const p = String(cwd || '').trim();
     if (!p) return null;
-    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data, dataRootAliases()) };
+    let known = workspaceMemo.get(p);
+    if (!known) {
+      known = { name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, dataRootPath, dataRootAliasList) };
+      workspaceMemo.set(p, known);
+      missionAggregateStats.workspaceComputed += 1;
+    }
+    return { path: p, name: known.name, ruyiOwned: known.ruyiOwned };
   };
+  const overlayAt = nowIso();   // 一次装配只取一次「叠加时刻」:每行各取一次是 2000 次 Date + toISOString,而它们本就是同一个请求
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
   const metas = await listSessions().catch(() => []);          // 管家会话已在 listSessions 里滤掉
@@ -51941,7 +52745,7 @@ async function buildMissionAggregateRows(options = {}) {
     if (container && container.archivedAt && !includeArchived) continue;
     const group = ensure(missionId, container);
     const slice = slices.get(meta.id) || null;
-    const card = slice ? overlayMissionCard(slice) : null;
+    const card = slice ? overlayMissionCard(slice, overlayAt) : null;
     // 五态的三条取值路径,与 13g steward_thread_status 逐字一致(同一条线程在看板与管家里必须同色):
     //   ① 有投影卡片 -> fromCard(与 /api/missions 的卡片同源);
     //   ② 没卡片但是 mission 会话(投影还没赶上这条新会话)-> 按会话头现算,入参与 thread_status 相同
@@ -52153,8 +52957,9 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     // 116g:只加字段 —— 行仍然是【线程行】(每个 mission 会话一张卡),既有字段与顺序逐字节不变,
     // 追加的是这条线程所属【事项】的聚合事实(aggregateState/threadCount/acceptance/cost/budget/derived)。
     const aggregate = await buildMissionAggregateRows();
+    const overlayAt = nowIso();   // 与聚合装配同理:整张列表共用一个叠加时刻,不再逐行取一次
     const missions = index.sessions.filter(row => row.card && String(row.sessionId || '') !== STEWARD_SESSION_ID)   // 走查 U3:管家自己的会话不是任务,不进左栏
-      .map(row => overlayMissionAggregateFields(overlayMissionCard(row), aggregate.rowBySessionId.get(row.sessionId)));
+      .map(row => overlayMissionAggregateFields(overlayMissionCard(row, overlayAt), aggregate.rowBySessionId.get(row.sessionId)));
     // 117s-A D1(§11.13 ③):看板正文读的就是这一份行序(steward-board.js 的 groupRows() 按
     // missionId 首次出现的先后定组序、组内按行序)—— 设计页只点了 buildMissionAggregateRows 里的
     // 那两处排序,但那一份是给 steward_missions 工具面消费的;**看板真正吃的是这一行**,所以三处
@@ -52194,7 +52999,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
+    // 用量修订号挂在【最后】一段:前面三段(修订号 - 在场覆盖 - 行指纹)的段位有测试按位读(steward-thread-order ⑪)。
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,
@@ -52863,6 +53669,63 @@ async function decideIntervention(command = {}) {
   return { status: response.ok === false ? 409 : 200, body: response };
 }
 
+// 性能批 P3:GET /api/interventions 的待决引用表,按索引对象缓存(索引任何刷新都换新对象,缓存随之作废)。
+// 次序与修前逐条相同:按 requestedAt 的 localeCompare 稳定排序(每个索引版本只排一次)。
+const pendingInterventionRefsMemo = new WeakMap();
+function pendingInterventionRefs(index, onlySession) {
+  let byFilter = pendingInterventionRefsMemo.get(index);
+  if (!byFilter) pendingInterventionRefsMemo.set(index, byFilter = new Map());
+  const hit = byFilter.get(onlySession);
+  if (hit) return hit;
+  const refs = [];
+  const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
+  for (const slice of index.sessions) {
+    if (onlySession && slice.sessionId !== onlySession) continue;
+    for (const iv of slice.interventions || []) {
+      if (!iv || iv.status !== 'pending') continue;
+      refs.push({ slice, iv, requestedAt: String(iv.requestedAt || '') });
+      counts.total++;
+      if (iv.type === 'permission') counts.permission++;
+      else if (iv.type === 'question') counts.question++;
+      else if (iv.type === 'plan') counts.plan++;
+      else if (iv.type === 'pool') counts.pool++;
+      else if (iv.type === 'replan') counts.replan++;
+    }
+  }
+  refs.sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+  const entry = { refs, counts };
+  byFilter.set(onlySession, entry);
+  return entry;
+}
+// 一条待决的对外形状(字段与次序与修前逐字相同);实时字段每次现算。
+function pendingInterventionItem(slice, iv) {
+  const sessionId = slice.sessionId;
+  return {
+    id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
+    requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
+    toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
+    runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
+    input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
+    questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
+    questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
+    context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
+    planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
+    replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
+    replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
+    replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
+    deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
+      : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
+        : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
+          : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
+            : activeChildren.has(sessionId),
+    live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
+    // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
+    // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
+    deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
+      : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
+  };
+}
+
 async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/_test/pretender-maintenance') {
     if (process.env.RUYI_TEST_HOOKS !== '1') return send(res, json({ ok: false, error: 'not found' }, 404));
@@ -52906,55 +53769,19 @@ async function handleInterventionApiRoutes(req, res, pathname) {
   if (req.method === 'GET' && pathname === '/api/interventions') {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
     const index = await getPretenderProjectionIndex();
-    const pending = [];
-    const counts = { permission: 0, question: 0, plan: 0, pool: 0, replan: 0, total: 0 };
     // hunt2-steward ⑨:可选 ?sessionId= 只看一条线程的待决(counts 同口径只数它)。抽屉修前拉全局前 100 条
     // 再在前端按会话筛 —— 全局待决超过 100 条时,排在后面的那条线程的待决永远落在页外,抽屉说它「没在等你」。
     // 不带这个参数的调用逐字节不变。ETag 带上筛选键:同一个修订号下两种视图的响应体不同。
     const onlySessionRaw = new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId');
     const onlySession = onlySessionRaw ? (safeSessionId(onlySessionRaw) || '~invalid') : '';
-    for (const slice of index.sessions) {
-      const sessionId = slice.sessionId;
-      if (onlySession && sessionId !== onlySession) continue;
-      for (const iv of slice.interventions || []) {
-        if (!iv || iv.status !== 'pending') continue;
-        pending.push({
-          id: iv.id, type: iv.type || '', sessionId, missionId: slice.missionId || sessionId,
-          requestedAt: iv.requestedAt || '', interventionVersion: Math.max(0, Number(iv.interventionVersion) || 0),
-          toolName: iv.toolName || '', tier: iv.tier || '', revertible: iv.revertible === true,
-          runId: iv.runId || '', proposedBy: iv.proposedBy || '', task: iv.task || '',
-          input: iv.type === 'permission' && iv.input && typeof iv.input === 'object' && !Array.isArray(iv.input) ? iv.input : undefined,
-          questionSummary: iv.type === 'question' ? String(iv.questionSummary || '') : '',
-          questions: iv.type === 'question' && Array.isArray(iv.questions) ? iv.questions : [],
-          context: iv.type === 'question' ? String(iv.context || '').slice(0, 6000) : '',
-          planSummary: iv.type === 'plan' ? String(iv.planSummary || '') : '',
-          replanSummary: iv.type === 'replan' ? String(iv.summary || '') : '',
-          replanTriggerType: iv.type === 'replan' ? String(iv.triggerType || '') : '',
-          replanNodeId: iv.type === 'replan' ? String(iv.nodeId || '') : '',
-          deliverable: iv.type === 'permission' ? pendingPermissions.has(String(iv.id))
-            : iv.type === 'question' ? pendingQuestions.has(String(iv.id))
-              : iv.type === 'plan' ? pendingPlans.has(String(iv.id))
-                : iv.type === 'pool' ? activeAgentRuns.has(String(iv.runId || ''))
-                  : activeChildren.has(sessionId),
-          live: activeChildren.has(sessionId), // 决策可送达性提示:活回合在,决策才能立刻被消费
-          // 135(工作台「等你处理」队列的倒计时):内存登记簿里的截止时刻(ms)。权限的超时即自动拒绝、
-          // 存档暂停会把它延长,提问靠心跳续期 —— 都只有这张登记簿知道真值,前端不自己猜。取不到为 0。
-          deadlineAt: Math.max(0, Number((iv.type === 'permission' ? pendingPermissions.get(String(iv.id))
-            : iv.type === 'question' ? pendingQuestions.get(String(iv.id)) : null)?.deadlineAt) || 0),
-        });
-        counts.total++;
-        if (iv.type === 'permission') counts.permission++;
-        else if (iv.type === 'question') counts.question++;
-        else if (iv.type === 'plan') counts.plan++;
-        else if (iv.type === 'pool') counts.pool++;
-        else if (iv.type === 'replan') counts.replan++;
-      }
-    }
-    pending.sort((a, b) => String(a.requestedAt).localeCompare(String(b.requestedAt)));
-    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, pending);
+    // 性能批 P3:待决列表按索引版本只收集、排序一次(引用 + 计数缓存在 index 对象上);分页与 ETag 在造条目之前 ——
+    // 304 不再付整张表的代价,200 也只为这一页造条目。条目里的实时字段(可送达、活回合、倒计时)照旧每次现算。
+    const { refs, counts } = pendingInterventionRefs(index, onlySession);
+    const paged = paginatePretenderProjection(req, 'interventions', index.interventionsRevision, refs);
     if (paged.response) return send(res, paged.response);
     const etag = pretenderEtag('interventions', index.interventionsRevision + '-' + pretenderLiveOverlayRevision() + (onlySession ? '-s:' + onlySession : ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
+    paged.items = paged.items.map(ref => pendingInterventionItem(ref.slice, ref.iv));
     // 135(「等你处理」队列真机走查):弹窗要写清「来自哪条线程」,而前端左栏列表可能还没刷到刚开的线程。
     // 只读【本页】有待决的那几条会话的头(每个 ~1 KB,并行),取不到就留空,前端退回「未命名线程」。
     // 3.0 预览收口:此前在分页与 304 之前串行读【全部】待决会话的头,299 条会话时每请求 300–450 ms
@@ -53338,13 +54165,15 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     const listUrl = new URL(req.url, 'http://x');
     const sessionId = safeSessionId(listUrl.searchParams.get('sessionId'));
     if (!sessionId) return send(res, json({ ok: false, error: 'sessionId required' }, 400));
-    const liveBefore = [...activeAgentRuns.keys()]; let runs = await listAgentRuns(sessionId); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await listAgentRuns(sessionId);   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
+    // digest 视图只要标量:走按 mtime+size 缓存的 listAgentRunDigests(08),未变的 run 文件零读盘;完整视图照旧读全量。
+    const digestView = listUrl.searchParams.get('view') === 'digest';
+    const readRuns = () => (digestView ? listAgentRunDigests(sessionId) : listAgentRuns(sessionId));
+    const liveBefore = [...activeAgentRuns.keys()]; let runs = await readRuns(); if (liveBefore.some(id => !activeAgentRuns.has(id))) runs = await readRuns();   // 读盘期间有 run 收尾（终稿落盘后才撤活对象）：先前读到的是收尾前快照、却已不算 live（提案仍 proposed）→ 重读一次拿终稿
     // A live run's in-memory state is newer than its throttled crash-recovery snapshot. Return a detached
     // copy of that state for the full polling view, otherwise short nodes can finish before their intermediate
     // progressLog snapshot is ever observable and the UI falsely looks frozen.
     // digest(每 2s 轮询)只从这里读标量、不外发也不改对象:浅展开即与深拷贝读到的值逐字段相同,
     // 省掉每个 live run 整份节点/结果/progressLog 的 JSON 往返。完整视图照旧深拷贝(对象要外发)。
-    const digestView = listUrl.searchParams.get('view') === 'digest';
     for (let i = 0; i < runs.length; i += 1) {
       const live = activeAgentRuns.get(runs[i].id);
       if (!live || !live.run) continue;
@@ -53355,19 +54184,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
     // 白传)。live run 的 eventSeq/status/updatedAt 以【内存】为准(快照节流 1.5s,磁盘恒旧);快照仍是唯一
     // 权威状态源,digest 只是"该不该去拉"的信号。
     if (digestView) {
-      const digest = runs.map(r => {
-        const live = activeAgentRuns.get(r.id);
-        const mem = live && live.run ? live.run : null;
-        return {
-          id: r.id, status: mem ? mem.status : r.status, eventSeq: Number((mem || r).eventSeq) || 0,
-          updatedAt: (mem || r).updatedAt || '', createdAt: r.createdAt || '', completedAt: (mem || r).completedAt || '',
-          nodeCount: Array.isArray((mem || r).nodes) ? (mem || r).nodes.length : 0,
-          poolPending: ((mem || r).taskPool || []).filter(p => p && p.status === 'proposed').length,
-          live: !!live, paused: !!(live && live.paused), persistenceDegraded: !!(mem && mem.persistenceDegraded) || r.persistenceDegraded === true,
-          resumeTier: (mem || r).resumeTier || '', pendingReview: !!(mem || r).pendingReview,
-          anyRunning: Array.isArray((mem || r).nodes) && (mem || r).nodes.some(n => n && (n.status === 'running' || n.status === 'waiting_resource')),
-        };
-      });
+      // runs 此刻是磁盘摘要(live 且有内存对象的已被上面换成 live.run 的浅展开);逐行装配见 08 agentRunDigestRow。
+      const digest = runs.map(r => agentRunDigestRow(r, activeAgentRuns.get(r.id)));
       return send(res, json({ ok: true, view: 'digest', runs: digest }));
     }
     return send(res, json({ ok: true, runs }));
@@ -53454,6 +54272,8 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
       const run = safeJsonParse(await fsp.readFile(file, 'utf8'), null);
       for (const node of (run && run.nodes || [])) if (node.isolation) await cleanupAgentWorktree(node.isolation);
       await fsp.unlink(file);
+      agentRunDigestWriteSeq += 1;
+      agentRunDigestCache.delete(file);   // digest 摘要缓存(08):文件没了条目一并撤
       // 对抗轮修(第25波): 删除快照必须连带删姊妹事件日志 —— 用户删「运行记录」的心智模型是数据消失,
       // 取证 ndjson(含时间线/错误切片)不该在删除后无限期残留。
       await fsp.unlink(agentRunEventsFile(sessionId, runId)).catch(() => {});
@@ -53506,7 +54326,10 @@ async function handleAgentRunApiRoutes(req, res, pathname) {
 // (cardRevision 也把它们算进哈希),产生条件从 watched 一条线换成 threadVisible 四条并集(§4.2)。
 // 不升号的话,存量索引里用户自己在 2.0 开的那些会话仍是 card:null,而它们的会话文件不会再变
 // (sourceStamp 不动),增量刷新永远不碰它们 —— 本刀要修的那个症状会原样留在存量机器上。
-const PRETENDER_INDEX_SCHEMA = 6;
+// 性能批 P3:6 -> 7。finalize 里切片的排序从 localeCompare 换成码位序:id 带大写 / 下划线 / 连字符时两种次序不同,
+// 而 missionsRevision 是按行序算的哈希 —— 不升号,盘上旧索引的修订号会与同一份事实新算出来的对不上。代价同前:升级后
+// 首次读全量重建一次。
+const PRETENDER_INDEX_SCHEMA = 7;
 const PRETENDER_INDEX_DIR = '.pretender';
 const PRETENDER_INDEX_FILE = 'projection-index.json';
 const PRETENDER_PAGE_DEFAULT = 100;
@@ -53524,7 +54347,35 @@ const pretenderIndexRuntime = {
   // 以及那次扫描完成的时刻。两个值一起用才判得出「这次扫描可信不可信」,见下面 PRETENDER_DIR_SETTLE_MS。
   sourcesDirStamp: '',
   sourcesScannedAt: 0,
+  // 性能批 P2:
+  //   headMtimes —— 每条会话头文件的 mtime(每次给会话算源指纹时顺手记下)。「最近 N 条」窗口从这里排,
+  //     不再每次刷新都把 sessions 目录里每个头文件 stat 一遍。
+  //   verifyScan / lastVerifyAt / verifyTimer —— 目录变了只比对文件名单(一次 readdir),已有文件被外部原地替换
+  //     这一种由后台低频全量校验兜住(PRETENDER_VERIFY_MS 一次,不在请求路径上)。
+  //   persistTimer —— 增量刷新后的落盘合并成一次延迟写(冷重建仍立即落盘)。
+  headMtimes: new Map(),
+  verifyScan: null,             // 后台校验在建索引链之外先扫好的 { sources, dirStamp },建索引时只做比对
+  lastVerifyAt: 0,
+  verifyTimer: null,
+  knownMasks: new Map(),        // 会话 id -> 文件组成(1 = 会话头,2 = Intervention journal),名单比对的基准
+  usageSeq: null,               // 已吸收到的用量账变更序号(00-boot usageLedgerChangesSince);null = 基准未知,下一次整份对账
+  // ownMarks —— 本进程写口打脏页的累计次数;ownMarksAtScan —— 上一次看目录(名单比对或全量扫描)时的
+  //   pretenderOwnWriteSeq()(脏页次数 + 01 的 sessionsDirOwnWriteSeq:会话索引、搜索索引这类不打脏页、但同样落在
+  //   sessions 目录里的原子写 —— 审查轮复现过:漏掉它们时每次落盘后的下一次读都多付一遍全量扫描)。
+  //   目录指纹变了、而这期间本进程一次都没写过:这次变化只可能来自外部(导入 / 手工编辑 / 夹具原地替换),
+  //   当次就做一遍全量比对(121-K3 的「下一次读就看得见」逐字保住);有本进程写入时照旧只比名单。
+  ownMarks: 0,
+  ownMarksAtScan: 0,
+  persistTimer: null,
+  writers: 0,
+  writeChain: Promise.resolve(),
+  sliceBytes: new WeakMap(),
+  counters: { fullSourceScans: 0, nameDiffScans: 0, sliceBuilds: 0, persists: 0 },
 };
+// 后台全量校验的最短间隔。程序自己的写口都会打脏页(02/08 的 markPretenderIndexDirty),MCP 子进程写会话一律回环到
+// 主进程 HTTP;需要这道校验的只剩外部导入 / 手工编辑 / 测试夹具「原地替换已有会话文件」—— 30 秒内被看到。
+const PRETENDER_VERIFY_MS = 30000;
+const PRETENDER_PERSIST_DEBOUNCE_MS = 1000;
 
 // 121-K3:目录 mtime 的「沉降窗口」。
 // 病根不是 K0b 修的那个(空目录时建出空索引并缓存),而是它的一般形式:**投影索引一旦进了进程内存,
@@ -53552,7 +54403,9 @@ function pretenderSourcesTrusted(dirStamp) {
 function pretenderNoteSourcesScan(dirStamp) {
   pretenderIndexRuntime.sourcesDirStamp = dirStamp;
   pretenderIndexRuntime.sourcesScannedAt = Date.now();
+  pretenderIndexRuntime.ownMarksAtScan = pretenderOwnWriteSeq();
 }
+function pretenderOwnWriteSeq() { return pretenderIndexRuntime.ownMarks + sessionsDirOwnWriteSeq; }
 
 function pretenderIndexPath() {
   return path.join(paths.sessions, PRETENDER_INDEX_DIR, PRETENDER_INDEX_FILE);
@@ -53562,6 +54415,7 @@ function pretenderIndexPath() {
 // read refreshes only that session slice. `usage` is separate because refreshing it requires scanning ledgers.
 function markPretenderIndexDirty(sessionId, reason = 'source') {
   const sid = safeSessionId(sessionId);
+  pretenderIndexRuntime.ownMarks += 1;
   if (!sid) { pretenderIndexRuntime.fullDirty = true; return; }
   pretenderIndexRuntime.dirtySessions.add(sid);
   if (reason === 'usage') pretenderIndexRuntime.usageDirty.add(sid);
@@ -53581,8 +54435,11 @@ async function pretenderFileStamp(file) {
 async function pretenderSessionSourceStamp(sessionId) {
   const sid = safeSessionId(sessionId);
   if (!sid) return '-';
+  const head = await fsp.stat(sessionPath(sid)).catch(() => null);
+  if (head) pretenderIndexRuntime.headMtimes.set(sid, Math.trunc(head.mtimeMs));
+  else pretenderIndexRuntime.headMtimes.delete(sid);
   const parts = [
-    'h=' + await pretenderFileStamp(sessionPath(sid)),
+    'h=' + (head ? `${head.size}:${Math.trunc(head.mtimeMs)}` : '-'),
     'i=' + await pretenderFileStamp(interventionFilePath(sid)),
   ];
   const dir = agentRunDir(sid);
@@ -53592,15 +54449,26 @@ async function pretenderSessionSourceStamp(sessionId) {
   return pretenderHash(parts.join('|'));
 }
 
-async function scanPretenderSessionSources() {
+// sessions 目录里「有会话头或有 Intervention journal」的会话 id(一次 readdir,不 stat)。
+// 返回 id -> 文件组成(1 = 会话头,2 = Intervention journal)。审查轮:只比 id 的话,已有会话头的会话后来才长出
+// journal(外部登记了一条待决)这一种会漏;比文件组成就能在这一次读里看见。
+async function pretenderListSourceIds() {
   let files = [];
   try { files = await fsp.readdir(paths.sessions); } catch { files = []; }
-  const idSet = new Set();
+  const masks = new Map();
   for (const file of files) {
-    if (/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) idSet.add(file.slice(0, -5));
-    else if (/^sess_[A-Za-z0-9_-]+\.interventions\.ndjson$/.test(file)) idSet.add(file.slice(0, -'.interventions.ndjson'.length));
+    if (/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) { const id = file.slice(0, -5); masks.set(id, (masks.get(id) || 0) | 1); }
+    else if (/^sess_[A-Za-z0-9_-]+\.interventions\.ndjson$/.test(file)) { const id = file.slice(0, -'.interventions.ndjson'.length); masks.set(id, (masks.get(id) || 0) | 2); }
   }
-  const ids = [...idSet].sort();
+  return masks;
+}
+
+async function scanPretenderSessionSources() {
+  pretenderIndexRuntime.counters.fullSourceScans += 1;
+  const masks = await pretenderListSourceIds();
+  pretenderIndexRuntime.knownMasks = masks;
+  for (const sid of [...pretenderIndexRuntime.headMtimes.keys()]) if (!masks.has(sid)) pretenderIndexRuntime.headMtimes.delete(sid);
+  const ids = [...masks.keys()].sort();
   const sources = {};
   let cursor = 0;
   const workers = Array.from({ length: Math.min(16, Math.max(1, ids.length)) }, async () => {
@@ -53626,15 +54494,9 @@ async function pretenderRecentSessionIds() {
   const limit = Number.isFinite(raw)
     ? Math.min(THREAD_INDEX_RECENT_MAX, Math.max(THREAD_INDEX_RECENT_MIN, Math.round(raw)))
     : THREAD_INDEX_RECENT_DEFAULT;
-  let files = [];
-  try { files = await fsp.readdir(paths.sessions); } catch { return new Set(); }
-  const rows = [];
-  for (const file of files) {
-    if (!/^sess_[A-Za-z0-9_-]+\.json$/.test(file)) continue;
-    let mtime = 0;
-    try { mtime = Math.trunc((await fsp.stat(path.join(paths.sessions, file))).mtimeMs); } catch { continue; }
-    rows.push([file.slice(0, -5), mtime]);
-  }
+  // 性能批 P2:mtime 取自 headMtimes(每次算源指纹时记下的),不再每次刷新都把全部会话头 stat 一遍。
+  // 这张表在每次全量扫描、名单比对新增、脏页刷新时都会被更新,覆盖的正是 sessions 目录里现存的会话头。
+  const rows = [...pretenderIndexRuntime.headMtimes.entries()];
   // 末位按 sessionId 降序兜确定性:同毫秒写入的两条会话不该因为目录枚举顺序漂移而轮流进窗口。
   rows.sort((a, b) => b[1] - a[1] || String(b[0]).localeCompare(String(a[0])));
   return new Set(rows.slice(0, limit).map(row => row[0]));
@@ -53670,16 +54532,16 @@ function finishMissionUsage(usage) {
   return usage;
 }
 
-async function buildMissionUsageMap() {
+// sessionIds(可选):只聚合这几条会话 —— 每轮对话后的增量刷新只需要被打了 usage 脏页的那几条(性能批 P1)。
+async function buildMissionUsageMap(sessionIds = null) {
   const map = new Map();
-  const rows = await readUsageRows(0).catch(() => []);
-  for (const row of rows) {
+  await forEachUsageRow(0, row => {
     const sid = String(row && row.sessionId || '');
-    if (!sid) continue;
+    if (!sid) return;
     let usage = map.get(sid);
     if (!usage) map.set(sid, usage = emptyMissionUsage());
     addMissionUsageRow(usage, row);
-  }
+  }, sessionIds ? { sessionIds } : {});
   for (const usage of map.values()) finishMissionUsage(usage);
   return map;
 }
@@ -53687,6 +54549,7 @@ async function buildMissionUsageMap() {
 async function buildPretenderSessionSlice(sessionId, sourceStamp, usage, recentIds) {
   const sid = safeSessionId(sessionId);
   if (!sid) return null;
+  pretenderIndexRuntime.counters.sliceBuilds += 1;
   const head = safeJsonParse(await fsp.readFile(sessionPath(sid), 'utf8').catch(() => ''), null);
   let ivMeta = await readInterventionsWithMeta(sid);
   if ((!head || !head.id) && ivMeta.bytes === 0) return null;
@@ -53778,10 +54641,21 @@ function sameSourceMap(a, b) {
   return ak.length === bk.length && ak.every((key, i) => key === bk[i] && a[key] === b[key]);
 }
 
+// 性能批 P2:大小估算按切片缓存(增量刷新之间没变的切片对象原样复用),不再每次 finalize 都把整份索引 stringify 一遍。
+function pretenderSliceBytes(row) {
+  let bytes = pretenderIndexRuntime.sliceBytes.get(row);
+  if (bytes === undefined) { bytes = Buffer.byteLength(JSON.stringify(row), 'utf8') + 1; pretenderIndexRuntime.sliceBytes.set(row, bytes); }
+  return bytes;
+}
+// 性能批 P3:热路径排序按码位比(localeCompare 走 ICU 排序规则,慢一个数量级;id 与 ISO 时间戳要的就是码位序)。
+function pretenderCompareCodeUnits(a, b) { return a < b ? -1 : (a > b ? 1 : 0); }
+
 function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
-  sessions.sort((a, b) => String(a.sessionId).localeCompare(String(b.sessionId)));
+  sessions.sort((a, b) => pretenderCompareCodeUnits(String(a.sessionId), String(b.sessionId)));
   const missionRows = sessions.filter(row => row.card);
   const missionsRevision = pretenderHash(missionRows.map(row => [row.missionId, row.cardRevision || row.missionRevision]));
+  // 只进 ETag、不进分页游标:列表行上的费用来自切片用量,用量变了要换 ETag,但不该让翻到一半的分页 409(审查轮)。
+  const missionsUsageRevision = pretenderHash(missionRows.map(row => row.missionRevision || ''));
   const interventionsRevision = pretenderHash(sessions.map(row => [row.sessionId, row.interventionRevision]));
   const revision = pretenderHash([missionsRevision, interventionsRevision]);
   const degradedSessions = sessions.filter(row => row.integrity && row.integrity.degraded).map(row => row.sessionId);
@@ -53789,6 +54663,7 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
     schemaVersion: PRETENDER_INDEX_SCHEMA,
     revision,
     missionsRevision,
+    missionsUsageRevision,
     interventionsRevision,
     builtAt: nowIso(),
     buildReason,
@@ -53797,22 +54672,77 @@ function finalizePretenderIndex(sessions, sources, usageStamp, buildReason) {
     sessions,
     degraded: { active: degradedSessions.length > 0, sessions: degradedSessions },
   };
-  value.estimatedBytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
+  let sliceBytes = 0;
+  for (const row of sessions) sliceBytes += pretenderSliceBytes(row);
+  value.estimatedBytes = sliceBytes + Buffer.byteLength(JSON.stringify({ ...value, sessions: [] }), 'utf8');
   return value;
 }
 
-async function persistPretenderIndex(value) {
+// 所有写盘串在一条链上(审查轮:冷重建的立即写与延迟写交错时,旧的那份可能最后落地)。
+function writePretenderIndexFile(value) {
+  const run = pretenderIndexRuntime.writeChain.then(() => writePretenderIndexFileNow(value));
+  pretenderIndexRuntime.writeChain = run.catch(() => false);
+  return run;
+}
+async function writePretenderIndexFileNow(value) {
   const file = pretenderIndexPath();
+  // writers:改名落盘到记下新 diskStamp 之间,盘上那份与 diskStamp 对不上是我们自己造成的,别当成「用户动了缓存」。
+  pretenderIndexRuntime.writers += 1;
   try {
     await fsp.mkdir(path.dirname(file), { recursive: true });
-    await atomicWriteJson(file, value);
+    // 性能批 P2:紧凑 JSON(索引是可删缓存、没人读它;atomicWriteJson 缺省的两格缩进让 7 MB 的索引多出四成字节与序列化时间)
+    await atomicWriteJson(file, JSON.stringify(value));
+    pretenderIndexRuntime.counters.persists += 1;
     pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
-    pretenderIndexRuntime.persisted = true;
+    return true;
   } catch {
     // Cache write failure never compromises authority or blocks reads. Keep the current in-memory projection.
     pretenderIndexRuntime.diskStamp = await pretenderFileStamp(file);
-    pretenderIndexRuntime.persisted = false;
-  }
+    return false;
+  } finally { pretenderIndexRuntime.writers -= 1; }
+}
+// 冷重建(索引缺失/损坏/显式重建)立即落盘 —— 「坏索引读一次就原子重建回盘上」是既有承诺。
+async function persistPretenderIndex(value) {
+  pretenderIndexRuntime.persisted = await writePretenderIndexFile(value);
+}
+// 增量刷新(脏页、目录变化、用量变化)的落盘合并成一次延迟写,不放在请求路径上。进程退出时没写的那一份丢了也无妨:
+// 索引是纯派生物,下次启动按源指纹只刷变了的那几片。
+function schedulePretenderPersist() {
+  if (pretenderIndexRuntime.persistTimer) return;
+  pretenderIndexRuntime.persistTimer = setTimeout(() => {
+    pretenderIndexRuntime.persistTimer = null;
+    void flushPretenderPersist().catch(() => {});
+  }, PRETENDER_PERSIST_DEBOUNCE_MS);
+  if (pretenderIndexRuntime.persistTimer.unref) pretenderIndexRuntime.persistTimer.unref();
+}
+async function flushPretenderPersist() {
+  while (pretenderIndexRuntime.building) await pretenderIndexRuntime.building.catch(() => {});
+  const value = pretenderIndexRuntime.value;
+  if (!value || pretenderIndexRuntime.persisted) return;
+  // 数据目录已经被删了(清数据、测试收尾)就别再把它建回来(审查轮)
+  if (!fs.existsSync(paths.sessions)) return;
+  const ok = await writePretenderIndexFile(value);
+  if (pretenderIndexRuntime.value === value) pretenderIndexRuntime.persisted = ok;
+  else schedulePretenderPersist();   // 写的期间又刷新过:下一拍再写最新那一份
+}
+// 后台低频全量校验:到点先在链外扫好,再走一次 getPretenderProjectionIndex 做比对。
+// 全量扫描(逐条 stat)在建索引链之外先做 —— 扫描期间来的请求不必排在它后面(审查轮);建索引时只拿结果做比对。
+async function pretenderRunVerify() {
+  pretenderIndexRuntime.lastVerifyAt = Date.now();
+  if (!fs.existsSync(paths.sessions)) return null;
+  const dirStamp = await pretenderSessionsDirStamp();
+  const sources = await scanPretenderSessionSources();
+  pretenderIndexRuntime.verifyScan = { sources, dirStamp };
+  return getPretenderProjectionIndexShared();   // 自己这次构建不再武装下一轮:没人读时后台校验就停下,不空转
+}
+function pretenderScheduleVerify() {
+  if (pretenderIndexRuntime.verifyTimer || pretenderIndexRuntime.verifyScan) return;
+  const wait = Math.max(0, pretenderIndexRuntime.lastVerifyAt + PRETENDER_VERIFY_MS - Date.now());
+  pretenderIndexRuntime.verifyTimer = setTimeout(() => {
+    pretenderIndexRuntime.verifyTimer = null;
+    void pretenderRunVerify().catch(() => {});
+  }, wait);
+  if (pretenderIndexRuntime.verifyTimer.unref) pretenderIndexRuntime.verifyTimer.unref();
 }
 
 async function rebuildPretenderIndexFull(reason, knownSources) {
@@ -53835,29 +54765,67 @@ async function rebuildPretenderIndexFull(reason, knownSources) {
 async function refreshPretenderIndexSlices(base, dirtyIds, usageIds, reason) {
   const sources = { ...(base.sources || {}) };
   const rows = new Map(base.sessions.map(row => [row.sessionId, row]));
-  const usageMap = usageIds.size ? await buildMissionUsageMap() : null;
-  // 121-K3:增量刷新也要算一次窗口 —— 一条刚被写过的会话恰恰最可能【刚刚】挤进最近 N 条,
-  // 拿旧窗口判它等于让新会话晚一整轮才上索引。dirtyIds 为空时下面的循环不跑,这一次 readdir
-  // 也就不会白付(getPretenderProjectionIndex 只在真有脏页时才走到这里)。
+  const usageMap = usageIds.size ? await buildMissionUsageMap(usageIds) : null;
+  // 先给这几条会话算源指纹(顺手更新 headMtimes),再排「最近 N 条」窗口 —— 121-K3:一条刚被写过的会话恰恰最可能
+  // 【刚刚】挤进最近 N 条,拿旧窗口判它等于让新会话晚一整轮才上索引。
+  // 性能批 P2:与全量重建同样按 12 路并发池跑(修前逐条串行 —— 启动后外部一次物化几百条会话时,这里一条一条等 IO)。
+  // 每条会话只动自己那一格,行序由 finalize 统一排序,并发不改变结果。
+  const ids = [...dirtyIds];
+  const pool = async work => {
+    let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(12, Math.max(1, ids.length)) }, async () => {
+      while (cursor < ids.length) await work(ids[cursor++]);
+    }));
+  };
+  const stamps = new Map();
+  await pool(async sid => { stamps.set(sid, await pretenderSessionSourceStamp(sid)); });
   const recentIds = await pretenderRecentSessionIds();
-  for (const sid of dirtyIds) {
-    const stamp = await pretenderSessionSourceStamp(sid);
-    if (!fs.existsSync(sessionPath(sid)) && !fs.existsSync(interventionFilePath(sid))) { delete sources[sid]; rows.delete(sid); continue; }
+  await pool(async sid => {
+    const stamp = stamps.get(sid);
+    if (!fs.existsSync(sessionPath(sid)) && !fs.existsSync(interventionFilePath(sid))) { delete sources[sid]; rows.delete(sid); return; }
     sources[sid] = stamp;
     const previous = rows.get(sid);
     const usage = usageIds.has(sid) ? usageMap.get(sid) : (previous && previous.usage);
     const slice = await buildPretenderSessionSlice(sid, stamp, usage, recentIds);
     if (slice) { sources[sid] = slice.sourceStamp; rows.set(sid, slice); } else { delete sources[sid]; rows.delete(sid); }
-  }
+  });
   const usageStamp = usageIds.size ? await pretenderUsageSourceStamp() : base.usageStamp;
   return finalizePretenderIndex([...rows.values()], sources, usageStamp, reason);
+}
+
+// 性能批 P2:账本变了(上次落盘之后又跑过回合)只重算每片的用量事实,不再把每条会话从盘上整份重建 ——
+// 修前这是启动时最常见的一种「全量重建」(退出前最后几轮的用量还没随索引落盘)。
+// 与 buildPretenderSessionSlice 里同一套算法:missionRevision = hash({cardRevision, usage}),revision = hash([missionRevision, interventionRevision])。
+// sessionIds(可选):只对这几条会话重算(用量账变更日志说只有它们变了)。一片都没变就原样返回 base。
+async function refreshPretenderUsageFacts(base, reason, sessionIds = null) {
+  const usageMap = await buildMissionUsageMap(sessionIds);
+  let changed = false;
+  const sessions = base.sessions.map(row => {
+    if (sessionIds && !sessionIds.has(row.sessionId)) return row;
+    const usage = usageMap.get(row.sessionId) || emptyMissionUsage();
+    if (JSON.stringify(usage) === JSON.stringify(row.usage)) return row;
+    changed = true;
+    const missionRevision = pretenderHash({ cardRevision: row.cardRevision, usage });
+    return { ...row, usage, missionRevision, revision: pretenderHash([missionRevision, row.interventionRevision]) };
+  });
+  const usageStamp = await pretenderUsageSourceStamp();
+  if (!changed && usageStamp === base.usageStamp) return base;
+  return finalizePretenderIndex(sessions, { ...(base.sources || {}) }, usageStamp, reason);
+}
+
+function pretenderChangedSourceIds(before, after) {
+  const ids = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
+  return new Set([...ids].filter(id => (before || {})[id] !== (after || {})[id]));
 }
 
 async function buildOrLoadPretenderIndex() {
   const indexFile = pretenderIndexPath();
   const currentDiskStamp = await pretenderFileStamp(indexFile);
-  if (pretenderIndexRuntime.value && pretenderIndexRuntime.persisted && currentDiskStamp !== pretenderIndexRuntime.diskStamp) {
-    // User deleted/replaced/corrupted the cache while the process was live: discard memory and prove rebuild.
+  // User deleted/replaced/corrupted the cache while the process was live: discard memory and prove rebuild.
+  // 性能批 P2:判据是「盘上那份不再是我们最后一次写 / 读到的那份」(diskStamp),不再要求 persisted —— 增量刷新改成
+  // 延迟落盘之后,等写的那一秒里用户删了缓存,照样丢内存、从权威源重建(修前每次刷新都立即落盘,persisted 恒真)。
+  if (pretenderIndexRuntime.value && pretenderIndexRuntime.writers === 0 && pretenderIndexRuntime.diskStamp
+    && currentDiskStamp !== pretenderIndexRuntime.diskStamp) {
     pretenderIndexRuntime.value = null;
   }
 
@@ -53865,54 +54833,98 @@ async function buildOrLoadPretenderIndex() {
   // 下面那句 `if (!value)` 是热路径的命根子(不能每次读都全量扫目录),但它同时也是 §13.3 那条
   // 竞态的病根:索引进了内存之后,外部写进 sessions 目录的会话【永远】不被发现。
   // 这里用一次 stat 把两件事都照顾到:目录指纹没变且已经沉降 -> 什么都不做(热路径逐字不变);
-  // 指纹变了、或者变得太新(还在一边写一边读的窗口里)-> 扫一遍目录,真有差异才按差异刷【那几片】。
-  // 注意它只在 value 已经在内存里时才跑:value 为空时下面那段本来就要扫,重复扫是白花钱。
+  // 指纹变了、或者变得太新(还在一边写一边读的窗口里)-> 看一眼目录,真有差异才按差异刷【那几片】。
+  // 性能批 P2:「看一眼」从「每条会话 2 次 stat + 1 次 readdir」降成【一次 readdir 比对名单】—— 目录 mtime 在
+  // 本进程每次原子落盘会话头时都会变,修前每次落盘后的下一次读都付一整遍全量扫描(2000 条会话约 300 ms)。
+  // 新出现 / 消失的会话、已有会话新长出(或没了)journal,照旧在这一次读里就刷好(K3 的保证不变,比的是每条会话的
+  // 文件组成);只有「外部原地替换 / 改写已有文件」这一种(名单与组成都不变),由后台全量校验兜住 —— 目录变过之后
+  // 最多 PRETENDER_VERIFY_MS 看见。本进程自己的写口本来就打脏页,MCP 子进程写会话回环到主进程,都不靠这一步。
+  // 例外(全量回归复现过,steward-thread-order ③):目录指纹变了、这期间本进程却一次脏页都没打 —— 变化只可能是外部的,
+  // 名单比对看不见原地替换,就当次做一遍全量比对(与修前同价,只落在「纯外部改动」这一种上;本进程落盘后的读仍只比名单)。
   const dirStamp = await pretenderSessionsDirStamp();
-  if (pretenderIndexRuntime.value && !pretenderSourcesTrusted(dirStamp)) {
+  const verifyScan = pretenderIndexRuntime.verifyScan;
+  pretenderIndexRuntime.verifyScan = null;
+  if (pretenderIndexRuntime.value && verifyScan) {
+    const base = pretenderIndexRuntime.value;
+    pretenderNoteSourcesScan(verifyScan.dirStamp);
+    if (!sameSourceMap(base.sources, verifyScan.sources)) {
+      pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, pretenderChangedSourceIds(base.sources, verifyScan.sources), new Set(), 'sources_verify');
+      pretenderIndexRuntime.persisted = false;
+    }
+  } else if (pretenderIndexRuntime.value && pretenderIndexRuntime.sourcesDirStamp !== dirStamp
+    && pretenderOwnWriteSeq() === pretenderIndexRuntime.ownMarksAtScan) {
     const base = pretenderIndexRuntime.value;
     const sources = await scanPretenderSessionSources();
     pretenderNoteSourcesScan(dirStamp);
+    pretenderIndexRuntime.lastVerifyAt = Date.now();
     if (!sameSourceMap(base.sources, sources)) {
-      const ids = new Set([...Object.keys(base.sources || {}), ...Object.keys(sources)]);
-      const changed = new Set([...ids].filter(id => (base.sources || {})[id] !== sources[id]));
+      pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, pretenderChangedSourceIds(base.sources, sources), new Set(), 'sources_dir_changed');
+      pretenderIndexRuntime.persisted = false;
+    }
+  } else if (pretenderIndexRuntime.value && !pretenderSourcesTrusted(dirStamp)) {
+    const base = pretenderIndexRuntime.value;
+    pretenderIndexRuntime.counters.nameDiffScans += 1;
+    const masks = await pretenderListSourceIds();
+    pretenderNoteSourcesScan(dirStamp);
+    const known = pretenderIndexRuntime.knownMasks;
+    const changed = new Set();
+    for (const [id, mask] of masks) if (known.get(id) !== mask) changed.add(id);
+    for (const id of known.keys()) if (!masks.has(id)) changed.add(id);
+    // 索引里有、名单基准里没有的(不该发生,防御):也按名单对一遍
+    for (const id of Object.keys(base.sources || {})) if (!masks.has(id)) changed.add(id);
+    pretenderIndexRuntime.knownMasks = masks;
+    if (changed.size) {
       pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, changed, new Set(), 'sources_dir_changed');
       pretenderIndexRuntime.persisted = false;   // 变过就得重新落盘(下面统一那一处写)
     }
   }
 
   let value = pretenderIndexRuntime.value;
+  let cold = false;
   if (!value) {
     const disk = await readPretenderIndexDisk();
     const sources = await scanPretenderSessionSources();
     pretenderNoteSourcesScan(dirStamp);
+    pretenderIndexRuntime.lastVerifyAt = Date.now();
+    // 用量基准:先取变更序号、再算源指纹 —— 两者之间追加进来的行会让指纹对不上,走整份对账,不会漏。
+    const usageBaseline = await usageLedgerChangesSince(Number.MAX_SAFE_INTEGER);
+    pretenderIndexRuntime.usageSeq = usageBaseline.seq;
     const usageStamp = await pretenderUsageSourceStamp();
     if (!disk) {
       // 121-K0b(病根在此):原来的空目录守卫只长在 warmPretenderProjectionIndex 里,只护 boot 那一次
       // 预热。13i 的收件箱 tick 与其他任何调用方一样直接走 getPretenderProjectionIndex -> 这里,不经过
       // warm。当索引文件从未建过(currentDiskStamp === '-',即真·首次)且 sessions 目录此刻确实一份
       // sess_* 都没有(scanPretenderSessionSources 的 sources 为空)时,不能走下面的 rebuildPretenderIndexFull:
-      // 那会把一份空索引落盘(persistPretenderIndex,314 行)并存进 pretenderIndexRuntime.value——下一次
-      // 调用会在 279 行发现 diskStamp 没变就直接信任这份【已缓存为已建】的空索引,永远不再重新发现
-      // (284 行 `if (!value)` 短路)。管家默认开着(121-K0)之后,服务起来的第一拍收件箱 tick 就会撞上这个
+      // 那会把一份空索引落盘(persistPretenderIndex)并存进 pretenderIndexRuntime.value——下一次
+      // 调用会发现 diskStamp 没变就直接信任这份【已缓存为已建】的空索引,永远不再重新发现
+      // (`if (!value)` 短路)。管家默认开着(121-K0)之后,服务起来的第一拍收件箱 tick 就会撞上这个
       // 窗口——外部导入/多进程写入/本仓大量夹具都在 boot 之后才把会话物化到盘上。
       // 修法:直接 return 一份不落盘、不缓存为已建的空索引,下一次调用(不论隔多久)重新 scanPretenderSessionSources
       // 发现磁盘上的真会话。disk 索引已存在时(currentDiskStamp !== '-',对应下面 corrupt_index 分支)不受影响——
-      // 那是「索引文件在但读不出来」,与「索引从未建过」是两回事,仍应立即重建并落盘(热路径逐字不变)。
+      // 那是「索引文件在但读不出来」,与「索引从未建过」是两回事,仍应立即重建并落盘。
       if (currentDiskStamp === '-' && Object.keys(sources).length === 0) {
         return finalizePretenderIndex([], sources, usageStamp, 'empty_sessions_dir');
       }
       value = await rebuildPretenderIndexFull(currentDiskStamp === '-' ? 'missing_index' : 'corrupt_index', sources);
-    } else if (disk.usageStamp !== usageStamp) {
-      value = await rebuildPretenderIndexFull('usage_source_changed', sources);
-    } else if (!sameSourceMap(disk.sources, sources)) {
-      const ids = new Set([...Object.keys(disk.sources || {}), ...Object.keys(sources)]);
-      const changed = new Set([...ids].filter(id => disk.sources[id] !== sources[id]));
-      value = await refreshPretenderIndexSlices(disk, changed, new Set(), 'source_changed');
+      cold = true;
     } else {
       value = disk;
-      pretenderIndexRuntime.diskStamp = currentDiskStamp;
-      pretenderIndexRuntime.persisted = true;
+      if (!sameSourceMap(disk.sources, sources)) value = await refreshPretenderIndexSlices(disk, pretenderChangedSourceIds(disk.sources, sources), new Set(), 'source_changed');
+      if (value.usageStamp !== usageStamp) value = await refreshPretenderUsageFacts(value, 'usage_source_changed');
+      if (value === disk) {
+        pretenderIndexRuntime.diskStamp = currentDiskStamp;
+        pretenderIndexRuntime.persisted = true;
+      }
     }
+  }
+
+  // 用量账变了哪些会话(00-boot 的变更日志,本进程追加与外部写进来的一视同仁):只重算那几片的用量事实。
+  // 修前索引一旦进了内存,外部写账【永远】看不见(只在启动读盘那一次比 usageStamp)。冷重建刚从整份账算过,跳过。
+  if (value && !cold) {
+    const change = await usageLedgerChangesSince(pretenderIndexRuntime.usageSeq);
+    if (change.all) value = await refreshPretenderUsageFacts(value, 'usage_source_changed');
+    else if (change.sessionIds.size) value = await refreshPretenderUsageFacts(value, 'usage_source_changed', change.sessionIds);
+    pretenderIndexRuntime.usageSeq = change.seq;
   }
 
   const forceFull = pretenderIndexRuntime.fullDirty;
@@ -53921,15 +54933,37 @@ async function buildOrLoadPretenderIndex() {
   const usageIds = new Set(pretenderIndexRuntime.usageDirty);
   pretenderIndexRuntime.dirtySessions.clear();
   pretenderIndexRuntime.usageDirty.clear();
-  if (forceFull) value = await rebuildPretenderIndexFull('explicit_rebuild');
+  if (forceFull) {
+    pretenderIndexRuntime.usageSeq = (await usageLedgerChangesSince(Number.MAX_SAFE_INTEGER)).seq;   // 基准先取,再整份算
+    value = await rebuildPretenderIndexFull('explicit_rebuild');
+    cold = true;
+  }
   else if (dirtyIds.size) value = await refreshPretenderIndexSlices(value, dirtyIds, usageIds, usageIds.size ? 'usage_dirty' : 'source_dirty');
 
-  if (value !== pretenderIndexRuntime.value || !pretenderIndexRuntime.persisted) await persistPretenderIndex(value);
+  if (value !== pretenderIndexRuntime.value || !pretenderIndexRuntime.persisted) {
+    if (cold) await persistPretenderIndex(value);
+    else { pretenderIndexRuntime.persisted = false; schedulePretenderPersist(); }
+  }
   pretenderIndexRuntime.value = value;
   return value;
 }
 
+// 测试直调(unit/pretender-index-incremental):计数、立即走一次后台校验、立即落盘。不改任何行为。
+const pretenderIndexTestHooks = {
+  stats: () => ({ ...pretenderIndexRuntime.counters, persisted: pretenderIndexRuntime.persisted, verifyArmed: Boolean(pretenderIndexRuntime.verifyTimer) }),
+  verifyNow: () => pretenderRunVerify(),
+  flushPersist: () => flushPretenderPersist(),
+};
+
+// 审查轮:后台校验由【每一次真实读取】武装(PRETENDER_VERIFY_MS 一轮),不再只在「目录变过」之后武装一次 ——
+// 修前原地改写已有文件(目录 mtime 不动)永远不会被看见,校验跑过一次之后也不再重来。
+// 校验自己触发的那次构建走 getPretenderProjectionIndexShared,不武装:页面关了、没人读,后台就不再扫。
 async function getPretenderProjectionIndex() {
+  const index = await getPretenderProjectionIndexShared();
+  if (pretenderIndexRuntime.value) pretenderScheduleVerify();
+  return index;
+}
+async function getPretenderProjectionIndexShared() {
   if (pretenderIndexRuntime.building) return pretenderIndexRuntime.building;
   const current = buildOrLoadPretenderIndex();
   pretenderIndexRuntime.building = current;
@@ -54041,7 +55075,8 @@ function pretenderIndexMeta(index) {
   };
 }
 
-function overlayMissionCard(slice) {
+// overlayAt:批量调用方(GET /api/missions、聚合装配)传入同一个「叠加时刻」,省掉逐行 nowIso();不传则各取各的(其余调用方不变)。
+function overlayMissionCard(slice, overlayAt) {
   const card = slice && slice.card;
   if (!card) return null;
   const liveRuns = [];
@@ -54099,7 +55134,7 @@ function overlayMissionCard(slice) {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,
       liveOverlay: activeTurn || liveRuns.length > 0,
-      overlayAt: nowIso(),
+      overlayAt: overlayAt || nowIso(),
     },
   };
 }
@@ -54162,9 +55197,15 @@ const STEWARD_FIRST_SIGHT_MAX_EVENT_SEQ = 500; // 首见 run:同上
 const STEWARD_FIRST_SIGHT_MAX_TURNS = 50;  // 116-4 首见会话:回合数不超过它才补一条,否则只建基线
 
 // ── 容量常量(游标不得无限增长) ───────────────────────────────────────────────
+// 这三个上限管的是【落盘】的游标(cursor-v1.json 的体积与重启后读回的条数),不管进程内存里的游标。
+// 修前 stewardSaveCursor 把它们同样用在内存游标上:第 501 个之后的会话每一拍都被裁掉,于是下一拍又算
+// 「首见」—— 整份会话头 readFile + JSON.parse、开 .changes.ndjson、readdir agent-runs 全走一遍
+// (2000 会话实测每拍约 700ms CPU、38k 次系统调用/分钟)。内存游标另有一档宽得多的上限,只防无界增长。
 const STEWARD_CURSOR_MAX_SESSIONS = 500;
 const STEWARD_CURSOR_MAX_RUNS = 500;
 const STEWARD_CURSOR_MAX_PENDING = 2000;
+const STEWARD_CURSOR_MEM_MAX_SESSIONS = 20000;   // 内存游标的会话条目上限(missionChanges / sessionTurns / budgetSeen 共用)
+const STEWARD_CURSOR_MEM_MAX_RUNS = 20000;       // 内存游标的 run 条目上限
 
 // ── 读取常量 ────────────────────────────────────────────────────────────────
 const STEWARD_INBOX_LIMIT_DEFAULT = 50;
@@ -54671,6 +55712,10 @@ const stewardRuntime = {
   // 116-4:第四源 sessionTurns 的游标 —— sid -> { turnSeq, stamp }。stamp 是投影免费给的
   // 会话文件指纹(size:mtime 的哈希);它没变就连会话头都不用读,这是第四源不把轮询成本推高的关键。
   cursor: { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} },
+  // 上一次【成功落盘】的游标内容指纹(不含 updatedAt)。stewardSaveCursor 每拍先算一遍当前指纹,
+  // 与它相同就不写盘 —— 15 秒一拍的空转轮询不该每拍 temp+rename 重写一份 65KB 的游标。
+  // 空串 = 本进程还没成功写过(装载/重置后的第一拍必写:冷启动基线、损坏游标的重建都靠这一拍)。
+  cursorSig: '',
   // 116-3 P0-3:本轮因单轮上限没能写进箱子的【原始】事件。游标在 stewardCollectEvents 里已经越过
   // 它们(三条源日志的游标是「这一轮看到的最新版本号」,不管后面写没写进箱),所以不留在这里就是
   // 永久静默丢失 —— 而超出上限的恰恰是最新的那批 needs_you / failed。留到下一轮开头再入箱。
@@ -54783,6 +55828,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.lastError = '';
   stewardRuntime.seen = new Set();
   stewardRuntime.cursor = { missionChanges: {}, agentRuns: {}, pendingIds: new Set(), budgetSeen: new Set(), sessionTurns: {} };
+  stewardRuntime.cursorSig = '';   // 重置 = 磁盘上那份不再可信,下一拍必须重写
   stewardRuntime.carry = [];
   stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
   stewardRuntime.adoptedRecent = new Map();   // 135:重复交接的去重窗口,同上
@@ -54933,42 +55979,66 @@ function stewardAppendInboxRows(rows) {
   return next;
 }
 
-// 游标落盘(容量控制在这里做:只留活跃集合 + 硬顶,过期条目直接清掉)。
+// 按 order 的顺序从 source 里挑出「有游标条目」的键,一趟同时产出两份:
+//   kept      —— 进程内存里留的(至多 memMax 条);
+//   persisted —— 写进 cursor-v1.json 的(至多 persistMax 条,恒为 kept 的前缀,所以「活跃的先留」的优先级不变)。
+// 计数用局部计数器,【不要】在循环里对累积对象再取 Object.keys(obj).length —— 那是 O(n^2),
+// 把上限调到 2 万之后 2000 会话一次 save 就阻塞事件循环 460ms(实测)。
+function stewardTrimCursorMap(order, source, memMax, persistMax) {
+  const kept = {};
+  const persisted = {};
+  let keptCount = 0;
+  let persistedCount = 0;
+  for (const key of order) {
+    if (keptCount >= memMax) break;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+    if (Object.prototype.hasOwnProperty.call(kept, key)) continue;   // order 里重复的键只算一次
+    kept[key] = source[key];
+    keptCount += 1;
+    if (persistedCount < persistMax) { persisted[key] = source[key]; persistedCount += 1; }
+  }
+  return { kept, persisted };
+}
+
+// 游标收紧 + 落盘。两档容量:内存游标保留本轮还见得到的全部会话/run(硬顶见 STEWARD_CURSOR_MEM_MAX_*,
+// 会话被删了自然被清掉),落盘只取其中排在最前(活跃优先)的 STEWARD_CURSOR_MAX_* 条 —— 重启后读回的
+// 语义与修前一致(超出落盘上限的会话重启后仍算首见),但运行期不再每拍把它们重新当首见。
+// 落盘只在内容真的变了时才写(指纹见 stewardRuntime.cursorSig),并且写紧凑 JSON(没人读缩进)。
 async function stewardSaveCursor(activeSessionIds, activeRunIds) {
-  const missionChanges = {};
-  for (const sid of activeSessionIds) {
-    if (Object.keys(missionChanges).length >= STEWARD_CURSOR_MAX_SESSIONS) break;
-    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.missionChanges, sid)) missionChanges[sid] = stewardRuntime.cursor.missionChanges[sid];
-  }
-  const agentRuns = {};
-  for (const runId of activeRunIds) {
-    if (Object.keys(agentRuns).length >= STEWARD_CURSOR_MAX_RUNS) break;
-    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.agentRuns, runId)) agentRuns[runId] = stewardRuntime.cursor.agentRuns[runId];
-  }
-  stewardRuntime.cursor.missionChanges = missionChanges;
-  stewardRuntime.cursor.agentRuns = agentRuns;
+  const mc = stewardTrimCursorMap(activeSessionIds, stewardRuntime.cursor.missionChanges, STEWARD_CURSOR_MEM_MAX_SESSIONS, STEWARD_CURSOR_MAX_SESSIONS);
+  const ar = stewardTrimCursorMap(activeRunIds, stewardRuntime.cursor.agentRuns, STEWARD_CURSOR_MEM_MAX_RUNS, STEWARD_CURSOR_MAX_RUNS);
+  stewardRuntime.cursor.missionChanges = mc.kept;
+  stewardRuntime.cursor.agentRuns = ar.kept;
   const pendingIds = [...stewardRuntime.cursor.pendingIds].slice(0, STEWARD_CURSOR_MAX_PENDING);
   stewardRuntime.cursor.pendingIds = new Set(pendingIds);
   // 116-3 P1-9:budgetSeen 与另外两源同款做容量控制 —— 只留【本轮还见得到的会话】(会话没了就没有
   // 再去重的对象),再夹一次硬顶。它不像 pendingIds 那样每轮整份重算(预算触顶是一次性持久标记,
   // 不会「自然消失」),所以裁剪必须显式做,否则长跑进程里它只增不减。
   const activeSet = new Set(activeSessionIds);
-  const budgetSeen = [...stewardRuntime.cursor.budgetSeen].filter(key => activeSet.has(String(key).split('\u0000')[0])).slice(0, STEWARD_CURSOR_MAX_SESSIONS);   // 键 = 会话 id(+ \u0000 + 用尽时刻)
-  stewardRuntime.cursor.budgetSeen = new Set(budgetSeen);
-  // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
-  const sessionTurns = {};
-  for (const sid of activeSessionIds) {
-    if (Object.keys(sessionTurns).length >= STEWARD_CURSOR_MAX_SESSIONS) break;
-    if (Object.prototype.hasOwnProperty.call(stewardRuntime.cursor.sessionTurns, sid)) sessionTurns[sid] = stewardRuntime.cursor.sessionTurns[sid];
+  const budgetKept = [];
+  for (const key of stewardRuntime.cursor.budgetSeen) {
+    if (budgetKept.length >= STEWARD_CURSOR_MEM_MAX_SESSIONS) break;
+    if (activeSet.has(String(key).split('\u0000')[0])) budgetKept.push(key);   // 键 = 会话 id(+ \u0000 + 用尽时刻)
   }
-  stewardRuntime.cursor.sessionTurns = sessionTurns;
+  stewardRuntime.cursor.budgetSeen = new Set(budgetKept);
+  const budgetSeen = budgetKept.slice(0, STEWARD_CURSOR_MAX_SESSIONS);
+  // 116-4:第四源游标同款裁剪 —— 只留本轮还见得到的会话(会话被删了就没有再去重的对象),再夹硬顶。
+  const st = stewardTrimCursorMap(activeSessionIds, stewardRuntime.cursor.sessionTurns, STEWARD_CURSOR_MEM_MAX_SESSIONS, STEWARD_CURSOR_MAX_SESSIONS);
+  stewardRuntime.cursor.sessionTurns = st.kept;
+  const missionChanges = mc.persisted;
+  const agentRuns = ar.persisted;
+  const sessionTurns = st.persisted;
+  const sig = stewardRuntime.inboxSeq + '|' + JSON.stringify({ missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns });
+  if (sig === stewardRuntime.cursorSig) return { written: false };
   await fsp.mkdir(stewardDir(), { recursive: true });
-  await atomicWriteJson(stewardCursorPath(), {
+  await atomicWriteJson(stewardCursorPath(), JSON.stringify({
     schema: STEWARD_CURSOR_SCHEMA,
     inboxSeq: stewardRuntime.inboxSeq,
     updatedAt: nowIso(),
     sources: { missionChanges, agentRuns, pendingIds, budgetSeen, sessionTurns },
-  });
+  }));
+  stewardRuntime.cursorSig = sig;   // 写成功才记:写失败下一拍照旧重试
+  return { written: true };
 }
 
 // ── 116-4 第四源 sessionTurns(27 号文 §11.7)─────────────────────────────────
@@ -55364,8 +56434,22 @@ async function stewardInboxRead(opts) {
   };
 }
 
-async function stewardInboxState(config) {
-  const cfg = (config && typeof config === 'object') ? config : await readConfig().catch(() => ({}));
+// 收件箱的「按类计数 + 最大 inboxSeq」备忘。/api/steward/state 由前端 30 秒(SSE 断时 5–15 秒)轮询,
+// 每个管家回合的状态块也会取一次;修前每次都把整份 inbox-v1.ndjson(全读上限 8MB)重读重解析,
+// 只为数这两样(7MB / 1.7 万行实测每次 80–130ms)。
+// 备忘的键是文件自己的 stat 指纹(路径 + size + mtimeMs + ino):追加、截断、被外部改写都会让指纹变,
+// 变了就照旧整份重算 —— 所以输出与修前逐位一致,而不是靠「每处写入都记得同步计数」的约定。
+// 先 stat 后读:读到的内容只可能【不早于】键所代表的那一刻,竞态下最坏是下次多重算一回,不会读到陈旧值。
+let stewardInboxCountsMemo = null;   // { key, byKind, inboxSeq }
+async function stewardInboxCounts() {
+  const file = stewardInboxPath();
+  let key = '', size = 0;
+  try {
+    const st = await fsp.stat(file);
+    size = st.size;
+    key = [file, st.size, st.mtimeMs, st.ino].join('|');
+  } catch { /* 文件不存在:下面按空箱子算,不进备忘 */ }
+  if (key && stewardInboxCountsMemo && stewardInboxCountsMemo.key === key) return stewardInboxCountsMemo;
   const rows = await stewardReadInboxRows();
   const byKind = {};
   for (const kind of STEWARD_EVENT_KINDS) byKind[kind] = 0;
@@ -55374,6 +56458,18 @@ async function stewardInboxState(config) {
     inboxSeq = Math.max(inboxSeq, Number(row.inboxSeq) || 0);
     if (Object.prototype.hasOwnProperty.call(byKind, row.kind)) byKind[row.kind] += 1;
   }
+  const counts = { key, byKind, inboxSeq };
+  // 文件非空却一行都没读出来:多半是这一次读撞上瞬时锁(stewardReadInboxText 吞掉错误回空串;Windows 杀软 / 索引器
+  // 常见),别把「空箱子」记进备忘 —— 否则文件不再变就一直报零(审查轮复现过)。下一次照旧重读。
+  stewardInboxCountsMemo = key && (size === 0 || rows.length > 0) ? counts : null;
+  return counts;
+}
+
+async function stewardInboxState(config) {
+  const cfg = (config && typeof config === 'object') ? config : await readConfig().catch(() => ({}));
+  const counted = await stewardInboxCounts();
+  const byKind = { ...counted.byKind };   // 拷一份:备忘对象不外泄,调用方随便改也污染不了下一次
+  const inboxSeq = counted.inboxSeq;
   return {
     enabled: cfg.stewardEnabledV1 === true,
     running: stewardRuntime.running,
@@ -57615,16 +58711,16 @@ async function stewardImplUsage(args) {
   const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
   if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
   const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
-  const rows = await readUsageRows(0).catch(() => []);
   const total = stewardEmptyUsageBucket();
   const steward = stewardEmptyUsageBucket();
   const bySession = new Map();
   const byDay = new Map();
-  for (const row of rows) {
-    if (!row || typeof row !== 'object') continue;
-    if (sessionId && String(row.sessionId || '') !== sessionId) continue;
-    const rowDay = usageDayKey(Date.parse(row.ts));
-    if (day && rowDay !== day) continue;
+  const dayKeyOf = usageDayKeyMemo();
+  const absorb = row => {
+    if (!row || typeof row !== 'object') return;
+    if (sessionId && String(row.sessionId || '') !== sessionId) return;
+    const rowDay = dayKeyOf(row.tsMs);
+    if (day && rowDay !== day) return;
     stewardAddUsageRow(total, row);
     if (row.kind === 'aux' && row.note === 'steward') stewardAddUsageRow(steward, row);
     const sid = String(row.sessionId || '');
@@ -57632,7 +58728,8 @@ async function stewardImplUsage(args) {
     stewardAddUsageRow(bySession.get(sid), row);
     if (!byDay.has(rowDay)) byDay.set(rowDay, stewardEmptyUsageBucket());
     stewardAddUsageRow(byDay.get(rowDay), row);
-  }
+  };
+  await forEachUsageRow(0, absorb, sessionId ? { sessionIds: new Set([sessionId]) } : {});
   const topSessions = [...bySession.entries()]
     .sort((a, b) => (b[1].inTok + b[1].outTok) - (a[1].inTok + a[1].outTok))
     .slice(0, 20)
@@ -59552,12 +60649,14 @@ async function stewardArbiterDayCost() {
   if (now - stewardArbiter.costCache.at < STEWARD_ARBITER_COST_CACHE_MS) return stewardArbiter.costCache.value;
   const today = usageDayKey(now);
   let cost = 0;
-  for (const row of await readUsageRows(0).catch(() => [])) {
-    if (!row || usageDayKey(Date.parse(row.ts)) !== today) continue;
-    if (row.costTrusted === false) continue;
+  const dayKeyOf = usageDayKeyMemo();
+  // 性能批 P1:只有今天的行会被计入,下界取本地今天 0 点 —— 旧月份整份跳过,结果与整读逐条判日相同。
+  await forEachUsageRow(usageRangeLowerMs('today', now), row => {
+    if (!row || dayKeyOf(row.tsMs) !== today) return;
+    if (row.costTrusted === false) return;
     const value = Number(row.cost);
     if (Number.isFinite(value)) cost += value;
-  }
+  });
   const rounded = Math.round(cost * 1e6) / 1e6;
   stewardArbiter.costCache = { at: now, value: rounded };
   return rounded;
@@ -61080,15 +62179,18 @@ async function stewardHumanizeSay(text) {
 // 熔断(§11.3):每小时回合数、日费用、无进展、停机。触发时不调模型,只回一条带 circuit 的 steward_reply。
 // ────────────────────────────────────────────────────────────────────────────
 async function stewardDayCost(config) {
-  const today = usageDayKey(Date.now());
+  const now = Date.now();
+  const today = usageDayKey(now);
   let cost = 0;
-  for (const row of await readUsageRows(0).catch(() => [])) {
-    if (!row || row.kind !== 'aux' || row.note !== 'steward') continue;
-    if (usageDayKey(Date.parse(row.ts)) !== today) continue;
-    if (row.costTrusted === false) continue;      // 套餐制名义金额不进真实费用(与 13e/13g 同口径)
+  const dayKeyOf = usageDayKeyMemo();
+  // 性能批 P1:只算今天,下界取本地今天 0 点(旧月份整份跳过;结果与整读逐条判日相同)。
+  await forEachUsageRow(usageRangeLowerMs('today', now), row => {
+    if (!row || row.kind !== 'aux' || row.note !== 'steward') return;
+    if (dayKeyOf(row.tsMs) !== today) return;
+    if (row.costTrusted === false) return;      // 套餐制名义金额不进真实费用(与 13e/13g 同口径)
     const value = Number(row.cost);
     if (Number.isFinite(value)) cost += value;
-  }
+  });
   return Math.round(cost * 1e6) / 1e6;
 }
 
@@ -63038,6 +64140,11 @@ RUYI_EVENTS.subscribe((name, payload) => {
   // spawnSync 子进程,子进程存盘 8 次重试全撞上)。推迟一拍的代价是这一帧晚一个 tick。
   if (name === 'thread.state') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid); }); return; }
   // 128f-⑫:会话头落盘(02 saveSession)—— 只在这一行看得见的东西变了才推(见 eventStreamEmitThreadState 头注)。
+  // (perf 复盘,别再试一遍:「零 SSE 客户端时跳过这一趟现算」看着白赚 —— 每次 saveSession 省一次读头 + 读待决账本 —— 但【不能】加
+  //  `if (!eventStreamClients.size) return`。这一趟不只是发帧:它还(a)把这一帧塞进 200 条的断线补发环 eventStreamRing —— 客户端
+  //  断线的那几秒里(此刻连接数恰好是 0)发生的 thread.state 要靠环补发给带 Last-Event-ID 重连回来的它(event-stream.e2e D 段;
+  //  0 客户端时跳过 = 重连后漏帧,左栏那一行要等下一拍轮询);(b)更新 eventStreamLastRowSig 去重签名 —— 断线期间不更新,重连后
+  //  第一发 touched 会拿旧签名比,可能多推也可能把「变回旧值」的那一帧吞掉。所以这里的代价是有意保留的。)
   if (name === 'thread.touched') { const sid = data.sessionId; setImmediate(() => { void eventStreamEmitThreadState(sid, { onlyIfChanged: true }); }); return; }
   // 128f-⑫:线程删掉了。修前删除一帧都不派(02 deleteSession),而且就算派了 thread.state,这边读不出会话头也会
   // 丢掉它(上面「会话已删/读不出来」那一支)—— 于是左栏那一行要等下一拍轮询(管家视角 15 s)或用户点别处才消失。
@@ -65925,6 +67032,8 @@ module.exports = {
   CAP_UNKNOWN_TTL_MS,
   // 128f-⑧:unit/session-index-rebuild-race 用。
   buildUsageSummary,
+  forEachUsageRow, readUsageRows, usageLedgerCacheStats,   // 性能批 P1:unit/usage-ledger-cache 直调(新旧两条读账路径差分 + 增量计数)
+  pretenderIndexTestHooks,   // 性能批 P2:unit/pretender-index-incremental 直调(名单比对 / 后台校验 / 延迟落盘的计数)
   flushSessionIndex,
   invalidateSessionIndex,
   setSessionIndexRebuildScanHookForTest,
@@ -66317,4 +67426,10 @@ module.exports = {
   // 第 123 波 M2 §3.5:管家面的两个观测口 —— 定时任务回调/承诺读口的延迟绑定命名空间,
   //   与「回来摘要」那一支(七类事件 + 承诺三项) exposed for scheduler-steward.e2e.js 的直测。
   stewardVisitDigest,
+  // 性能批(GET /api/missions 聚合装配 + GET /api/agent-runs?view=digest 摘要缓存):unit/poll-path-caches.test.js 直调
+  //   两个装配/列举函数、用 saveAgentRun 验「进程内写即作废」,并读确定性计数器(perfCounters)断言「没重算 / 没重读」。
+  buildMissionAggregateRows,
+  listAgentRunDigests,
+  saveAgentRun,
+  perfCounters: { missionAggregate: missionAggregateStats, agentRunDigest: agentRunDigestStats },
 };

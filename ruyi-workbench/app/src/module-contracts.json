@@ -31,6 +31,13 @@
         "StringDecoder",
         "TOOL_TIER_RANK",
         "URL",
+        "USAGE_CACHE_CHECK_BYTES",
+        "USAGE_CACHE_ROW_BYTES",
+        "USAGE_CACHE_YIELD_LINES",
+        "USAGE_CACHE_YIELD_ROWS",
+        "USAGE_CHANGE_LOG_MAX",
+        "USAGE_DICT_COLUMNS",
+        "UsageRowView",
         "VERSION",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
@@ -66,6 +73,7 @@
         "externalRoot",
         "findRuyiPackageRootFor",
         "flushUsageLedgerSync",
+        "forEachUsageRow",
         "fs",
         "fsp",
         "hashArgs",
@@ -90,6 +98,8 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "refreshUsageLedgerCache",
+        "refreshUsageLedgerCacheNow",
         "resolveDataRootUncached",
         "runKeyedChain",
         "ruyiPackageInfo",
@@ -101,10 +111,33 @@
         "spawnDetachedChecked",
         "text",
         "tildePath",
+        "usageColsSessionIds",
+        "usageColumns",
+        "usageColumnsAppend",
+        "usageColumnsDictMemo",
+        "usageColumnsGrow",
+        "usageColumnsParseText",
+        "usageColumnsPushLine",
+        "usageColumnsShrink",
         "usageDayKey",
+        "usageDayKeyMemo",
+        "usageDictId",
+        "usageDictIdMemo",
+        "usageLedgerCache",
+        "usageLedgerCacheDisabled",
+        "usageLedgerCacheStats",
         "usageLedgerChain",
+        "usageLedgerChangesSince",
         "usageLedgerPending",
+        "usageMonthFullParse",
+        "usageMonthIncremental",
+        "usageNextCheck",
+        "usageNoteChange",
+        "usageParseTail",
         "usageRangeLowerMs",
+        "usageSplitComplete",
+        "usageTsDateMemo",
+        "usageTsIsCanonical",
         "zlib"
       ],
       "requires": [
@@ -292,6 +325,7 @@
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_THINKING_EFFORTS",
         "CONFIG_BOOKKEEPING_KEYS",
+        "CONFIG_CACHE_MIN_AGE_MS",
         "CONFIG_EXPLICIT_KEY_MAX",
         "CONFIG_GIVEN_CLAUDE_PATH",
         "CONFIG_MIGRATIONS",
@@ -336,13 +370,18 @@
         "claudeInstallCandidates",
         "claudeProbeCandidates",
         "claudeShimExeFor",
+        "cloneConfigSnapshot",
         "commandForSelfMcp",
         "configCanonicalJson",
         "configComparableValue",
         "configDegraded",
         "configDirsEnsuredFor",
         "configExplicitKeysOf",
+        "configFileStamp",
         "configMutateChain",
+        "configReadCache",
+        "configReadCacheLookup",
+        "configReadCacheStore",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
@@ -403,6 +442,7 @@
         "normalizeDesktopPythonCandidate",
         "normalizeStewardManagedWorkspaces",
         "normalizeWorkspacePathString",
+        "noteSessionsDirOwnWrite",
         "originOk",
         "persistableConfig",
         "pickPython",
@@ -434,6 +474,7 @@
         "sessionMcpConfigSweepDone",
         "sessionPath",
         "sessionWriteChains",
+        "sessionsDirOwnWriteSeq",
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
@@ -1011,6 +1052,8 @@
         "journalGcProbe",
         "journalGcSinceScan",
         "journalGlobalBytes",
+        "journalGlobalSweep",
+        "journalGlobalSweepOnce",
         "journalIndexPath",
         "journalNextEntrySeq",
         "journalReadIndex",
@@ -1022,6 +1065,7 @@
         "journalResolveTurnSeq",
         "journalRollback",
         "journalSessionCtx",
+        "journalSweepInFlight",
         "journalSweeping",
         "journalWriteChains",
         "journalWriteIndex",
@@ -1114,8 +1158,10 @@
         "sessionDisplayTitle",
         "sessionFirstUserExcerpt",
         "sessionIndexChain",
+        "sessionIndexFileStamp",
         "sessionIndexFlushTimer",
         "sessionIndexLatestWrite",
+        "sessionIndexMemo",
         "sessionIndexPath",
         "sessionIndexRebuildScanHook",
         "sessionIndexRebuildsActive",
@@ -1302,6 +1348,13 @@
         {
           "provider": "01-config.js",
           "symbol": "mutateConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "noteSessionsDirOwnWrite",
           "kinds": [
             "call"
           ]
@@ -5146,6 +5199,7 @@
         "RETRIEVAL_TEXT_CAP",
         "buildRetrievalCorpus",
         "buildRetrievalDf",
+        "createRetrievalCorpusCache",
         "fnv1a32",
         "rankRetrievalCorpus",
         "reciprocalRankFusion",
@@ -5396,6 +5450,8 @@
         "memoryProposalSemanticKey",
         "memoryProposalSimilarity",
         "memoryProposalStateFile",
+        "memoryRecallCorpus",
+        "memoryRecallCorpusCache",
         "memoryRelationsFile",
         "memoryRetrievalKey",
         "memoryRetrievalText",
@@ -5685,7 +5741,7 @@
         },
         {
           "provider": "06h-retrieval-index.js",
-          "symbol": "buildRetrievalCorpus",
+          "symbol": "createRetrievalCorpusCache",
           "kinds": [
             "call"
           ]
@@ -6763,6 +6819,7 @@
         "AGENT_ENVELOPE_TOTAL_SUMMARY_MAX",
         "AGENT_RESULT_DEFAULT_CHARS",
         "AGENT_RESULT_MAX_CHARS",
+        "AGENT_RUN_DIGEST_CACHE_MAX",
         "AGENT_RUN_EVENTS_PAGE_MAX",
         "AGENT_RUN_EVENTS_TAIL_BYTES",
         "AGENT_RUN_PERSIST_DEGRADED_AFTER",
@@ -6780,6 +6837,11 @@
         "QUALITY_GATE_OUTPUT_SCHEMA",
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
+        "agentRunDigestCache",
+        "agentRunDigestRow",
+        "agentRunDigestShadow",
+        "agentRunDigestStats",
+        "agentRunDigestWriteSeq",
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
@@ -6817,6 +6879,7 @@
         "getAgentWorkflows",
         "getEvidenceSet",
         "indexNodeEvidence",
+        "listAgentRunDigests",
         "listAgentRuns",
         "mapPool",
         "markInterruptedAgentRuns",
@@ -7546,6 +7609,7 @@
         "CONTEXT_WINDOW_FALLBACK",
         "EVAPORATED_PREFIX",
         "classifyTextForEstimate",
+        "countCjkCodeUnits",
         "estimateBucketsV1On",
         "estimateContentTokens",
         "estimateHistoryTokens",
@@ -13155,6 +13219,7 @@
         "interventionDecisionFingerprint",
         "lastMissionRunProgress",
         "mapInterventionTransitionFailure",
+        "missionAggregateStats",
         "missionCardStatus",
         "missionContainerFailure",
         "missionContainerHttpStatus",
@@ -13164,12 +13229,21 @@
         "normalizeContractQuestionDecision",
         "overlayMissionAggregateFields",
         "parseNdjsonRows",
+        "pendingInterventionItem",
+        "pendingInterventionRefs",
+        "pendingInterventionRefsMemo",
         "readNdjsonEdges",
         "readSessionSearchIndex",
         "refreshSessionSearchIndex",
         "searchSessionsByContent",
         "sessionBackgroundRunRows",
+        "sessionEnvelopeEtag",
+        "sessionEnvelopeLiveParts",
+        "sessionEnvelopeStamp",
         "sessionMessageText",
+        "sessionSearchCorpusCache",
+        "sessionSearchHayMemo",
+        "sessionSearchHayOf",
         "sessionSearchIndexCache",
         "sessionSearchIndexPath",
         "sessionSearchRowIsNoise",
@@ -13326,6 +13400,13 @@
         {
           "provider": "01-config.js",
           "symbol": "send",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionPath",
           "kinds": [
             "call"
           ]
@@ -13639,6 +13720,20 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionPermissionModeOverrides",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "normalizeCwd",
           "kinds": [
@@ -13730,6 +13825,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnSettlers",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06f-autonomy-grants.js",
           "symbol": "CLI_TOOL_TIER",
           "kinds": [
@@ -13745,7 +13847,7 @@
         },
         {
           "provider": "06h-retrieval-index.js",
-          "symbol": "buildRetrievalCorpus",
+          "symbol": "createRetrievalCorpusCache",
           "kinds": [
             "call"
           ]
@@ -13899,6 +14001,27 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestCache",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestWriteSeq",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "agentRunEventsFile",
           "kinds": [
             "call"
@@ -13921,6 +14044,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "computeWaveSeq",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "listAgentRunDigests",
           "kinds": [
             "call"
           ]
@@ -14056,6 +14186,8 @@
         "PRETENDER_INDEX_SCHEMA",
         "PRETENDER_PAGE_DEFAULT",
         "PRETENDER_PAGE_MAX",
+        "PRETENDER_PERSIST_DEBOUNCE_MS",
+        "PRETENDER_VERIFY_MS",
         "addMissionUsageRow",
         "buildMissionUsageMap",
         "buildOrLoadPretenderIndex",
@@ -14065,32 +14197,46 @@
         "encodePretenderCursor",
         "finalizePretenderIndex",
         "finishMissionUsage",
+        "flushPretenderPersist",
         "getPretenderProjectionIndex",
+        "getPretenderProjectionIndexShared",
         "markPretenderIndexDirty",
         "overlayMissionCard",
         "paginatePretenderProjection",
         "persistPretenderIndex",
+        "pretenderChangedSourceIds",
+        "pretenderCompareCodeUnits",
         "pretenderEtag",
         "pretenderFileStamp",
         "pretenderHash",
         "pretenderIndexMeta",
         "pretenderIndexPath",
         "pretenderIndexRuntime",
+        "pretenderIndexTestHooks",
+        "pretenderListSourceIds",
         "pretenderLiveOverlayRevision",
         "pretenderNotModified",
         "pretenderNoteSourcesScan",
+        "pretenderOwnWriteSeq",
         "pretenderRecentSessionIds",
+        "pretenderRunVerify",
+        "pretenderScheduleVerify",
         "pretenderSessionSourceStamp",
         "pretenderSessionsDirStamp",
+        "pretenderSliceBytes",
         "pretenderSourcesTrusted",
         "pretenderUsageSourceStamp",
         "readPretenderIndexDisk",
         "rebuildPretenderIndexFull",
         "refreshPretenderIndexSlices",
+        "refreshPretenderUsageFacts",
         "sameSourceMap",
         "scanPretenderSessionSources",
+        "schedulePretenderPersist",
         "validatePretenderIndex",
-        "warmPretenderProjectionIndex"
+        "warmPretenderProjectionIndex",
+        "writePretenderIndexFile",
+        "writePretenderIndexFileNow"
       ],
       "requires": [
         {
@@ -14112,6 +14258,13 @@
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -14151,13 +14304,6 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "readUsageRows",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
           "symbol": "safeJsonParse",
           "kinds": [
             "call"
@@ -14166,6 +14312,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "URL",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageLedgerChangesSince",
           "kinds": [
             "call"
           ]
@@ -14196,6 +14349,13 @@
           "symbol": "sessionPath",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sessionsDirOwnWriteSeq",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -14338,6 +14498,8 @@
         "STEWARD_CURSOR_MAX_PENDING",
         "STEWARD_CURSOR_MAX_RUNS",
         "STEWARD_CURSOR_MAX_SESSIONS",
+        "STEWARD_CURSOR_MEM_MAX_RUNS",
+        "STEWARD_CURSOR_MEM_MAX_SESSIONS",
         "STEWARD_CURSOR_SCHEMA",
         "STEWARD_DEDUPE_TAIL_ROWS",
         "STEWARD_DIR_NAME",
@@ -14370,6 +14532,8 @@
         "stewardDir",
         "stewardEventDedupeKey",
         "stewardHeldTurnSessions",
+        "stewardInboxCounts",
+        "stewardInboxCountsMemo",
         "stewardInboxPath",
         "stewardInboxRead",
         "stewardInboxRowDedupeKeys",
@@ -14401,6 +14565,7 @@
         "stewardSaveCursor",
         "stewardThreadBackgroundBusy",
         "stewardTickOnce",
+        "stewardTrimCursorMap",
         "stopStewardInbox"
       ],
       "requires": [
@@ -15701,6 +15866,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -15716,13 +15888,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "nowIso",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "readUsageRows",
           "kinds": [
             "call"
           ]
@@ -15750,7 +15915,7 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "usageDayKey",
+          "symbol": "usageDayKeyMemo",
           "kinds": [
             "call"
           ]
@@ -17127,6 +17292,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -17141,14 +17313,21 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "readUsageRows",
+          "symbol": "usageDayKey",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "usageDayKey",
+          "symbol": "usageDayKeyMemo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageRangeLowerMs",
           "kinds": [
             "call"
           ]
@@ -17726,7 +17905,7 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "readUsageRows",
+          "symbol": "forEachUsageRow",
           "kinds": [
             "call"
           ]
@@ -17741,6 +17920,20 @@
         {
           "provider": "00-boot.js",
           "symbol": "usageDayKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKeyMemo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageRangeLowerMs",
           "kinds": [
             "call"
           ]
@@ -19970,6 +20163,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "hashArgs",
           "kinds": [
             "read"
@@ -19978,6 +20178,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "readUsageRows",
           "kinds": [
             "read"
           ]
@@ -19999,6 +20206,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageLedgerCacheStats",
           "kinds": [
             "read"
           ]
@@ -22771,6 +22985,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentRunDigestStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "aggregateAgentVote",
           "kinds": [
             "read"
@@ -22883,6 +23104,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "listAgentRunDigests",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "mapPool",
           "kinds": [
             "read"
@@ -22982,6 +23210,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "runWorkspaceHash",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "saveAgentRun",
           "kinds": [
             "read"
           ]
@@ -23638,8 +23873,29 @@
           ]
         },
         {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "buildMissionAggregateRows",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "missionAggregateStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13e-pretender-index.js",
+          "symbol": "pretenderIndexTestHooks",
           "kinds": [
             "read"
           ]

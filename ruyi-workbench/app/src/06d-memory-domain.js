@@ -1708,6 +1708,13 @@ function memoryRetrievalKey(entry) {
 const MEMORY_FUSION_SCOPE_BONUS = 0.0006;
 const MEMORY_FUSION_TYPE_BONUS = 0.0004;
 
+// 性能批 C1:记忆召回的语料缓存(每条用户消息都会召回一次;记忆库不变时不再逐条重新分词)。
+let memoryRecallCorpusCache = null;
+function memoryRecallCorpus(documents) {
+  if (!memoryRecallCorpusCache) memoryRecallCorpusCache = createRetrievalCorpusCache();
+  return memoryRecallCorpusCache(documents);
+}
+
 function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const entries = (Array.isArray(registry) ? registry : []).filter(entry => entry && entry.id);
   if (!entries.length) return [];
@@ -1720,7 +1727,8 @@ function rankMemoriesFused(registry, query, limit = MEMORY_RELEVANCE_MAX) {
   const lexicalScored = rankRelevantMemoriesScored(entries, query);
   const lexicalRanking = lexicalScored.filter(row => row.shared > 0).map(row => memoryRetrievalKey(row.entry));
   const lexicalFallback = lexicalScored.filter(row => !(row.shared > 0)).map(row => memoryRetrievalKey(row.entry));
-  const corpus = buildRetrievalCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
+  // 性能批 C1:语料走缓存(文档没变不重新分词;结果与 buildRetrievalCorpus 逐位相同)
+  const corpus = memoryRecallCorpus(entries.map(entry => ({ id: memoryRetrievalKey(entry), text: memoryRetrievalText(entry) })));
   const vectorRanking = rankRetrievalCorpus(corpus, query).map(row => row.id);
 
   // 两层都没命中（空 query / 全不相干）就原样走词法层结果，不自己造候选。

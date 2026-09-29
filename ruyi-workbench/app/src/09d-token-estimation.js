@@ -34,9 +34,21 @@ const CJK_RE = /[\u2E80-\u9FFF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF
 // 镜像无多配置歧义;默认 false = 两桶逐字节不变。
 let estimateBucketsV1On = false;
 function setEstimateBucketsV1(on) { estimateBucketsV1On = on === true; }
+// 性能批 C2:CJK_RE 命中数的等价计数。修前 str.match(CJK_RE) 给每个汉字分配一个字符串,每回合至少估两次整段历史,
+// 400 万汉字要 230 ms。CJK_RE 不带 u 标志、按 UTF-16 码元匹配,几个区间都不含代理区(D800–DFFF),所以逐码元比区间
+// 与之逐个相同(unit/token-estimate-cjk 在全部 65536 个码元与随机串上比对)。
+function countCjkCodeUnits(str) {
+  let n = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    if (c < 0x2E80) continue;
+    if (c <= 0x9FFF || (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xF900 && c <= 0xFAFF) || (c >= 0xFE30 && c <= 0xFE4F) || (c >= 0xFF00 && c <= 0xFFEF)) n++;
+  }
+  return n;
+}
 function estimateTextTokens(str) {
   if (typeof str !== 'string' || !str) return 0;
-  const cjk = (str.match(CJK_RE) || []).length;
+  const cjk = countCjkCodeUnits(str);
   const ascii = str.length - cjk;
   // 105e: 开关关 = 现状两桶,同样的输入同样的输出(逐字节一致);开时先分类再套桶因子。
   if (!estimateBucketsV1On) return ascii / 3.6 + cjk / 1.5;

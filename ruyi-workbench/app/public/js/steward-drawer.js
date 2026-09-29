@@ -424,7 +424,9 @@ export function createStewardDrawer({
     if (!sessionId) return;
     const id = sessionId;
     const [sessionRes, interventionsRes] = await Promise.all([
-      api(`/api/sessions/${encodeURIComponent(id)}`).catch(() => null),
+      // 条件 GET(perf):抽屉每 5 s(活)/15 s(闲)/30 s(推送连着)+ 每条 thread.state 推送来一发,服务端每次装载整份会话。
+      // 带 If-None-Match 走:没变就 304,回上一次那份(带 notModified:true),下面的赋值照旧、只是不再付整份传输与解析。
+      (typeof api.conditional === 'function' ? api.conditional : api)(`/api/sessions/${encodeURIComponent(id)}`).catch(() => null),
       // hunt2-steward ⑨:只要这一条线程的待决(服务端按 sessionId 筛)—— 全局前 100 条里不一定有它。
       api('/api/interventions?limit=100&sessionId=' + encodeURIComponent(id)).catch(() => null),
     ]);

@@ -903,12 +903,32 @@ async function readSessionIndex() {
     return Array.isArray(arr) ? arr : null;
   } catch { return null; }
 }
+// 索引的【内存镜像】(perf):flushSessionIndex 每个 200 ms 去抖窗口都要「读 → 解析 → 合并 → 整份写」一遍 index.json
+// (3000 条会话 ≈ 1.3 MB,每次 ~25 ms,回合进行中每个窗口都在跑)。我们自己刚写下的那份内容就是合并后的 map,
+// 下一窗口再读回来解析一遍纯属重复。这里把「刚写下的 map + 写完后立刻取的文件戳」留在内存里:下一次 flush 先取当前文件戳,
+// 与镜像的戳相同 = 磁盘上仍是我们写的那一份,直接在镜像 map 上合并,跳过读与解析;戳不同(外部改写/被 invalidate/被
+// listSessions 重建覆盖/flushSessionIndexSync 写过/文件不在)一律作废镜像走原来的读盘路径。戳 = 路径 + size + mtimeNs + ino
+// (写入是 tmp + rename,每次换 inode)。只有 flushSessionIndex 那一处产生镜像;所有别的写口都不给 map → 镜像作废。
+// 镜像只在 withSessionIndexLock 里读写(与索引写同一把锁),无并发。
+let sessionIndexMemo = null;   // { stamp, map }
+async function sessionIndexFileStamp() {
+  try {
+    const st = await fsp.stat(sessionIndexPath(), { bigint: true });
+    return `${sessionIndexPath()}|${st.size}|${st.mtimeNs}|${st.ino}`;
+  } catch { return null; }
+}
 // Atomic index write (tmp + rename, same discipline as saveSession). Caller wraps failures.
-async function writeSessionIndex(entries) {
+// 第二参 map(可选)= 这份 entries 对应的合并结果,给了就登记成内存镜像(见 sessionIndexMemo)。
+async function writeSessionIndex(entries, map = null) {
+  sessionIndexMemo = null;   // 写之前先作废:写到一半失败/被别的写口接着覆盖,镜像都不该再被信
   await fsp.mkdir(paths.sessions, { recursive: true });
   await atomicWriteJson(sessionIndexPath(), entries);   // 25.1 收编
+  if (map) {
+    const stamp = await sessionIndexFileStamp();
+    if (stamp) sessionIndexMemo = { stamp, map };
+  }
 }
-async function invalidateSessionIndex() { await fsp.unlink(sessionIndexPath()).catch(() => {}); }
+async function invalidateSessionIndex() { sessionIndexMemo = null; await fsp.unlink(sessionIndexPath()).catch(() => {}); }
 // Serialize all index mutations (single global chain) so concurrent saveSession calls can't lose updates or
 // tear the file. Session FILES are still written concurrently; only the shared index write is serialized.
 let sessionIndexChain = Promise.resolve();
@@ -974,11 +994,19 @@ async function flushSessionIndex() {
   try {
     await withSessionIndexLock(async () => {
       try {
-        const index = await readSessionIndex();
-        if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
-        const map = new Map(index.map(e => [String(e && e.id), e]));
+        // 镜像命中(文件戳与我们上次写完时一致)就不读盘不解析,直接在镜像 map 上合并;否则走原来的读盘路径。
+        const stamp = await sessionIndexFileStamp();
+        let map = null;
+        if (stamp && sessionIndexMemo && sessionIndexMemo.stamp === stamp) map = sessionIndexMemo.map;
+        else {
+          sessionIndexMemo = null;
+          const index = await readSessionIndex();
+          if (!index) return; // no valid index → don't fabricate a partial one; listSessions will rebuild
+          map = new Map(index.map(e => [String(e && e.id), e]));
+        }
+        sessionIndexMemo = null;   // 下面要就地改 map:改到一半失败它就是脏的,写成功后 writeSessionIndex 再登记回来
         for (const [id, val] of batch) { if (val === SESSION_TOMBSTONE) map.delete(id); else map.set(id, val); }
-        await writeSessionIndex([...map.values()]);
+        await writeSessionIndex([...map.values()], map);
       } catch { await invalidateSessionIndex(); }
     }).catch(() => {});
   } finally {
@@ -1022,6 +1050,7 @@ function flushSessionIndexSync() {
     try {
       fs.writeFileSync(tmpPath, JSON.stringify([...map.values()], null, 2), 'utf8');
       fs.renameSync(tmpPath, finalPath);
+      noteSessionsDirOwnWrite(finalPath);   // 13e:这次目录变化是自己写的
     } catch (e) { try { fs.unlinkSync(tmpPath); } catch { /* best-effort */ } throw e; }
   } catch { /* best-effort; boot invalidation rebuilds from truth regardless */ }
 }
@@ -3901,45 +3930,63 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
-    journalGcProbe.fullScans++;
-    journalGcSinceScan = 0;
-    journalSweeping++;
-    const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
-    try {
-      // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
-      // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
-      // purge decision is always made against real bytes, never the estimate.
-      const root = paths.checkpoints;
-      const names = await fsp.readdir(root).catch(() => []);
-      const dirs = [];
-      let total = 0;
-      for (const name of names) {
-        const p = path.join(root, name);
-        const st = await fsp.stat(p).catch(() => null);
-        if (!st || !st.isDirectory()) continue;
-        const size = await dirSize(p);
-        total += size;
-        dirs.push({ p, size, mtime: st.mtimeMs });
-      }
-      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
-        dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
-        for (const d of dirs) {
-          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
-          await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
-          total -= d.size;
-        }
-      }
-      // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
-      // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
-      // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
-      // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
-      const windowDelta = journalDeltaDuringSweep - deltaMark;
-      journalGlobalBytes = Math.max(0, total + windowDelta);
-    } finally {
-      journalSweeping--;
-      if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
-    }
+    // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
+    // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
+    // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
+    // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
+    // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
+    const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
+    if (overBudget) await journalGlobalSweepOnce();
+    else void journalGlobalSweepOnce();
   } catch { /* silent */ }
+}
+
+let journalSweepInFlight = null;
+function journalGlobalSweepOnce() {
+  if (!journalSweepInFlight) {
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+  }
+  return journalSweepInFlight;
+}
+async function journalGlobalSweep() {
+  journalGcProbe.fullScans++;
+  journalGcSinceScan = 0;
+  journalSweeping++;
+  const deltaMark = journalDeltaDuringSweep; // writer deltas already counted BEFORE this window opened
+  try {
+    // Authoritative sweep: sum every session dir, purge whole sessions oldest-first when over budget, and
+    // RECALIBRATE the cache from measured truth. This is the ONLY writer that resets journalGlobalBytes, so a
+    // purge decision is always made against real bytes, never the estimate.
+    const root = paths.checkpoints;
+    const names = await fsp.readdir(root).catch(() => []);
+    const dirs = [];
+    let total = 0;
+    for (const name of names) {
+      const p = path.join(root, name);
+      const st = await fsp.stat(p).catch(() => null);
+      if (!st || !st.isDirectory()) continue;
+      const size = await dirSize(p);
+      total += size;
+      dirs.push({ p, size, mtime: st.mtimeMs });
+    }
+    if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+      dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      for (const d of dirs) {
+        if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
+        total -= d.size;
+      }
+    }
+    // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
+    // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
+    // a missed sweep). Double-counting a byte already on disk when measured only inflates the estimate,
+    // which is the SAFE direction (an extra sweep that recalibrates, never a skipped cleanup).
+    const windowDelta = journalDeltaDuringSweep - deltaMark;
+    journalGlobalBytes = Math.max(0, total + windowDelta);
+  } finally {
+    journalSweeping--;
+    if (journalSweeping === 0) journalDeltaDuringSweep = 0; // reset once no sweep is measuring
+  }
 }
 
 // Sum the byte size of a directory tree (best-effort; errors count as 0).

@@ -630,7 +630,7 @@ const {
   decidePermission: (requestId, behavior) => { void decide(requestId, behavior); settlePrompt(requestId); },   // 走查 #5：卡上就地决定
 });
 
-window.addEventListener('i18n:change', () => {
+window.addEventListener('i18n:change', event => {   // detail.changed:语言真的换了(开机第二发同语言不重画会话正文)
   const sendButton = $('sendBtn');
   // The first locale application runs before hydrateIcons(). Defer icon-bearing controls until then so
   // hydrateIcons remains the only initializer and does not prepend a duplicate SVG.
@@ -656,7 +656,7 @@ window.addEventListener('i18n:change', () => {
   if (!$('skillModal')?.classList.contains('hidden')) renderSkillList();
   if (!$('paletteModal')?.classList.contains('hidden')) renderPalette();
   if (!state.streaming) {
-    if (state.currentSession) {
+    if (state.currentSession && event?.detail?.changed !== false) {
       const messages = $('messages');
       const scrollTop = messages?.scrollTop || 0;
       const wasAtBottom = !messages || (messages.scrollHeight - messages.clientHeight - scrollTop <= 4);

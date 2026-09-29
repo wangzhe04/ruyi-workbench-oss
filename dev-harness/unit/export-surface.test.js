@@ -18,7 +18,7 @@ process.env.RUYI_HOME = root;
 const repo = path.resolve(__dirname, '../..');
 const srv = require(path.join(repo, 'ruyi-workbench', 'app', 'server.js'));
 
-const EXPORT_CEILING = 576;   // 2026-09-27 批 3·C 清掉 73 条无人引用的导出之后的实数(修前 643);批 3·A 引擎适配器 +2(AGENT_CLI_ADAPTERS / agentCliAdapter,unit/agent-cli-adapters 直调);58 号批 1 协议登记表 +3(PROVIDER_WIRE_PROTOCOLS / normalizeProviderApiStyle / providerWireProtocol,unit/provider-wire-protocols 直调);hunt2-http +1(spawnDetachedChecked,unit/http-input-hardening 直调)
+const EXPORT_CEILING = 584;   // 2026-09-27 批 3·C 清掉 73 条无人引用的导出之后的实数(修前 643);批 3·A 引擎适配器 +2(AGENT_CLI_ADAPTERS / agentCliAdapter,unit/agent-cli-adapters 直调);58 号批 1 协议登记表 +3(PROVIDER_WIRE_PROTOCOLS / normalizeProviderApiStyle / providerWireProtocol,unit/provider-wire-protocols 直调);hunt2-http +1(spawnDetachedChecked,unit/http-input-hardening 直调);性能批 P1 +3(forEachUsageRow / readUsageRows / usageLedgerCacheStats,unit/usage-ledger-cache 直调);性能批 P2 +1(pretenderIndexTestHooks,unit/pretender-index-incremental 直调);perf 轮询路径 +4(buildMissionAggregateRows / listAgentRunDigests / saveAgentRun / perfCounters,unit/poll-path-caches 直调并读确定性计数器)
 
 // 刻意的公共接口:名字 → 理由。目前为空 —— 现有每个导出都有测试或工具在用。
 const PUBLIC_API = {};
