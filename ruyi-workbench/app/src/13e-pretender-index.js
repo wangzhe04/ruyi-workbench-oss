@@ -50,6 +50,11 @@ const pretenderIndexRuntime = {
   verifyTimer: null,
   knownMasks: new Map(),        // 会话 id -> 文件组成(1 = 会话头,2 = Intervention journal),名单比对的基准
   usageSeq: null,               // 已吸收到的用量账变更序号(00-boot usageLedgerChangesSince);null = 基准未知,下一次整份对账
+  // ownMarks —— 本进程写口打脏页的累计次数;ownMarksAtScan —— 上一次看目录(名单比对或全量扫描)时的值。
+  //   目录指纹变了、而这期间本进程一次脏页都没打:这次变化只可能来自外部(导入 / 手工编辑 / 夹具原地替换),
+  //   当次就做一遍全量比对(121-K3 的「下一次读就看得见」逐字保住);有本进程写入时照旧只比名单。
+  ownMarks: 0,
+  ownMarksAtScan: 0,
   persistTimer: null,
   writers: 0,
   writeChain: Promise.resolve(),
@@ -87,6 +92,7 @@ function pretenderSourcesTrusted(dirStamp) {
 function pretenderNoteSourcesScan(dirStamp) {
   pretenderIndexRuntime.sourcesDirStamp = dirStamp;
   pretenderIndexRuntime.sourcesScannedAt = Date.now();
+  pretenderIndexRuntime.ownMarksAtScan = pretenderIndexRuntime.ownMarks;
 }
 
 function pretenderIndexPath() {
@@ -97,6 +103,7 @@ function pretenderIndexPath() {
 // read refreshes only that session slice. `usage` is separate because refreshing it requires scanning ledgers.
 function markPretenderIndexDirty(sessionId, reason = 'source') {
   const sid = safeSessionId(sessionId);
+  pretenderIndexRuntime.ownMarks += 1;
   if (!sid) { pretenderIndexRuntime.fullDirty = true; return; }
   pretenderIndexRuntime.dirtySessions.add(sid);
   if (reason === 'usage') pretenderIndexRuntime.usageDirty.add(sid);
@@ -520,6 +527,8 @@ async function buildOrLoadPretenderIndex() {
   // 新出现 / 消失的会话、已有会话新长出(或没了)journal,照旧在这一次读里就刷好(K3 的保证不变,比的是每条会话的
   // 文件组成);只有「外部原地替换 / 改写已有文件」这一种(名单与组成都不变),由后台全量校验兜住 —— 目录变过之后
   // 最多 PRETENDER_VERIFY_MS 看见。本进程自己的写口本来就打脏页,MCP 子进程写会话回环到主进程,都不靠这一步。
+  // 例外(全量回归复现过,steward-thread-order ③):目录指纹变了、这期间本进程却一次脏页都没打 —— 变化只可能是外部的,
+  // 名单比对看不见原地替换,就当次做一遍全量比对(与修前同价,只落在「纯外部改动」这一种上;本进程落盘后的读仍只比名单)。
   const dirStamp = await pretenderSessionsDirStamp();
   const verifyScan = pretenderIndexRuntime.verifyScan;
   pretenderIndexRuntime.verifyScan = null;
@@ -528,6 +537,16 @@ async function buildOrLoadPretenderIndex() {
     pretenderNoteSourcesScan(verifyScan.dirStamp);
     if (!sameSourceMap(base.sources, verifyScan.sources)) {
       pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, pretenderChangedSourceIds(base.sources, verifyScan.sources), new Set(), 'sources_verify');
+      pretenderIndexRuntime.persisted = false;
+    }
+  } else if (pretenderIndexRuntime.value && pretenderIndexRuntime.sourcesDirStamp !== dirStamp
+    && pretenderIndexRuntime.ownMarks === pretenderIndexRuntime.ownMarksAtScan) {
+    const base = pretenderIndexRuntime.value;
+    const sources = await scanPretenderSessionSources();
+    pretenderNoteSourcesScan(dirStamp);
+    pretenderIndexRuntime.lastVerifyAt = Date.now();
+    if (!sameSourceMap(base.sources, sources)) {
+      pretenderIndexRuntime.value = await refreshPretenderIndexSlices(base, pretenderChangedSourceIds(base.sources, sources), new Set(), 'sources_dir_changed');
       pretenderIndexRuntime.persisted = false;
     }
   } else if (pretenderIndexRuntime.value && !pretenderSourcesTrusted(dirStamp)) {

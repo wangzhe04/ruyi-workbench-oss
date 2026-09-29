@@ -1,9 +1,10 @@
 'use strict';
 // 性能批 P2:投影索引(13e)的增量维护。都用计数断言,不掐表。
-//   [I1] 启动第一次读做一次全量源扫描,之后目录变化只比对文件名单(一次 readdir),不再逐条 stat
-//   [I2] 外部新出现的会话:下一次读就在索引里(121-K3 的保证不变)
+//   [I1] 启动第一次读做一次全量源扫描
+//   [I2] 外部新出现的会话:下一次读就在索引里(121-K3 的保证不变),只给它建一片
 //   [I3] 本进程落盘一条会话:只重建那一片(不全量扫描、不重建别的切片)
-//   [I4] 外部「原地替换」已有会话头:名单比对看不见,后台校验(verifyNow)之后可见
+//   [I4] 外部「原地替换」已有会话头、期间本进程没写过:下一次读就可见(121-K3;全量回归 steward-thread-order ③ 复现过)
+//   [I4b] 外部原地替换与本进程落盘同时发生:这一次读只比名单(热路径),后台校验(verifyNow)之后可见
 //   [I5] 外部往用量账追加:下一次读的用量就对(修前索引进了内存后永远看不见外部写账)
 //   [I6] 增量刷新的落盘被合并延迟:读路径上不写盘,flush 之后盘上那份与内存同修订号
 //   [I7] 落盘还挂着时用户删了缓存文件:下一次读丢内存、从权威源重建(buildReason missing_index)
@@ -55,7 +56,7 @@ before(() => {
   fs.writeFileSync(path.join(usageDir, '2026-01.jsonl'), [usageRow(1, 10), usageRow(1, 10), usageRow(2, 5)].join('\n') + '\n');
 });
 
-test('[I1][I2] 首读全量扫描一次;外部新会话靠名单比对当次可见', async () => {
+test('[I1][I2] 首读全量扫描一次;外部新会话当次可见', async () => {
   const first = await srv.getPretenderProjectionIndex();
   assert.equal(first.sessions.length, 40);
   const s0 = hooks.stats();
@@ -64,8 +65,6 @@ test('[I1][I2] 首读全量扫描一次;外部新会话靠名单比对当次可�
   const second = await srv.getPretenderProjectionIndex();
   assert.ok(slice(second, 40), '外部新会话下一次读就在索引里');
   const s1 = hooks.stats();
-  assert.equal(s1.fullSourceScans, s0.fullSourceScans, '目录变化不再触发全量扫描');
-  assert.ok(s1.nameDiffScans > s0.nameDiffScans, '改为比对文件名单');
   assert.equal(s1.sliceBuilds - s0.sliceBuilds, 1, '只给新会话建了一片');
 });
 
@@ -83,18 +82,41 @@ test('[I3] 本进程落盘一条会话:只重建那一片', async () => {
   assert.equal(afterStats.sliceBuilds - before.sliceBuilds, 1, '只重建落盘的那一片');
 });
 
-test('[I4] 外部原地替换已有会话头:后台校验之后可见', async () => {
+test('[I4] 外部原地替换已有会话头、期间本进程没写过:下一次读就可见', async () => {
   await srv.getPretenderProjectionIndex();
+  await new Promise(r => setTimeout(r, 20));   // 目录 mtime 走到下一个毫秒
   const file = path.join(sessionsDir, sid(5) + '.json');
   const tmp = file + '.ext-tmp';
   const h = head(5, 'goal 5 replaced externally');
   h.mission.changeSeq = 9;
   fs.writeFileSync(tmp, JSON.stringify(h));
   fs.renameSync(tmp, file);
+  const before = hooks.stats();
+  const index = await srv.getPretenderProjectionIndex();
+  assert.match(cardText(index, 5), /replaced externally/, '纯外部改动:当次全量比对');
+  assert.equal(hooks.stats().fullSourceScans - before.fullSourceScans, 1);
+  assert.equal(hooks.stats().sliceBuilds - before.sliceBuilds, 1, '只重建被替换的那一片');
+});
+
+test('[I4b] 外部原地替换与本进程落盘同时发生:这次只比名单,后台校验之后可见', async () => {
+  await srv.getPretenderProjectionIndex();
+  await new Promise(r => setTimeout(r, 20));
+  const file = path.join(sessionsDir, sid(6) + '.json');
+  const tmp = file + '.ext-tmp';
+  fs.writeFileSync(tmp, JSON.stringify(head(6, 'goal 6 replaced externally')));
+  fs.renameSync(tmp, file);
+  const s = await srv.loadSession(sid(4));
+  s.mission.goal = 'goal 4 edited in-process';
+  s.mission.changeSeq += 1;
+  await srv.saveSession(s);
+  const before = hooks.stats();
   const quick = await srv.getPretenderProjectionIndex();
-  assert.doesNotMatch(cardText(quick, 5), /replaced externally/, '名单没变:这一次读看不见(交给后台校验)');
+  assert.equal(hooks.stats().fullSourceScans, before.fullSourceScans, '本进程写过:不做全量扫描');
+  assert.equal(hooks.stats().nameDiffScans - before.nameDiffScans, 1, '只比对了一次文件名单');
+  assert.match(cardText(quick, 4), /edited in-process/);
+  assert.doesNotMatch(cardText(quick, 6), /replaced externally/, '名单没变:这一次读看不见(交给后台校验)');
   const verified = await hooks.verifyNow();
-  assert.match(cardText(verified, 5), /replaced externally/, '后台校验之后可见');
+  assert.match(cardText(verified, 6), /replaced externally/, '后台校验之后可见');
 });
 
 test('[I5] 外部往用量账追加:下一次读的用量就对', async () => {

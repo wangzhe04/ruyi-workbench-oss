@@ -1044,7 +1044,8 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     }
     const paged = paginatePretenderProjection(req, 'missions', index.missionsRevision, missions);
     if (paged.response) return send(res, paged.response);
-    const etag = pretenderEtag('missions', index.missionsRevision + '-' + (index.missionsUsageRevision || '') + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp, paged.page);
+    // 用量修订号挂在【最后】一段:前面三段(修订号 - 在场覆盖 - 行指纹)的段位有测试按位读(steward-thread-order ⑪)。
+    const etag = pretenderEtag('missions', index.missionsRevision + '-' + pretenderLiveOverlayRevision() + '-' + aggregate.stamp + '-' + (index.missionsUsageRevision || ''), paged.page);
     if (pretenderNotModified(req, etag)) return send(res, { status: 304, headers: { etag }, body: '' });
     return send(res, json({
       ok: true,
