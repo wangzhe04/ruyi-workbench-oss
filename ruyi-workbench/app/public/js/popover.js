@@ -64,7 +64,7 @@ export function popover(anchorEl, buildContent, opts = {}) {
     node.style.left = left + 'px';
   };
   if (!layer) place();
-  const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+  const onKey = e => { if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); close(); } }; // 输入法组合中的 Esc 只取消选字
   const onDown = e => { if (!node.contains(e.target) && e.target !== anchorEl && !anchorEl.contains(e.target)) close(); };
   const onScroll = layer ? () => {} : () => place();
   document.addEventListener('keydown', onKey, true);

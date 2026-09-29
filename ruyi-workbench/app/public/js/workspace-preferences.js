@@ -342,7 +342,7 @@ function pickWorkspace(anchor) {
     wrap.append(el('div', 'wp-pop-or', t('workspace.pastePath')));
     const row = el('div', 'wp-pop-row');
     const input = el('input', 'wp-pop-input'); input.type = 'text'; input.placeholder = t('workspace.pathPlaceholder');
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submitPastedWorkspace(input, close); } });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); submitPastedWorkspace(input, close); } });
     const go = el('button', 'wp-pop-go', t('common.confirm')); go.type = 'button';
     go.onclick = () => submitPastedWorkspace(input, close);
     row.append(input, go);

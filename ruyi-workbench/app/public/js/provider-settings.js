@@ -1355,7 +1355,7 @@ function wireWorkspacePerms() {
   const addBtn = $('workspaceAddBtn');
   const addInput = $('workspaceAddInput');
   if (addBtn) addBtn.addEventListener('click', () => addWorkspace());
-  if (addInput) addInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addWorkspace(); } });
+  if (addInput) addInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); addWorkspace(); } });
   const outside = $('cfgAllowOutsideWorkspace');
   if (outside) outside.addEventListener('change', () => { if (state.config) state.config.allowOutsideWorkspace = outside.checked; });
 }

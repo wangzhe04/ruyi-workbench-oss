@@ -274,6 +274,17 @@ export function createChatStreamRuntime(deps = {}) {
     box.appendChild(row); scrollMessagesToBottom(); // EC-D 57: 新 turn 开始 -> 恢复跟随最新
     return { live, main };
   }
+  // 旧实时壳让位前的收尾:只停它身上的计时器与 rAF,不动 DOM(它已不在屏上)。
+  // 否则每张还在跑的工具卡的 1s 秒表会在脱离文档的节点上一直走到页面关闭。
+  function disposeLive(live) {
+    if (!live) return;
+    for (const card of (live.toolCards || new Map()).values()) {
+      if (card && card.durationTimer) { clearInterval(card.durationTimer); card.durationTimer = 0; }
+    }
+    if (live.rafId) { cancelAnimationFrame(live.rafId); live.rafId = 0; }
+    live.rafPending = false;
+    if (live.thinkingRafId) { cancelAnimationFrame(live.thinkingRafId); live.thinkingRafId = 0; }
+  }
   function rememberTurnLine(turn, line) {
     if (!turn || !line || !line.trim()) return;
     // raw_line is already available in the debug stream and can be extremely large; the visible
@@ -316,6 +327,7 @@ export function createChatStreamRuntime(deps = {}) {
     box.querySelector('.empty-state')?.remove();
     const persistedUser = activeTurnUserIsPersisted(state.currentSession?.messages, turn);
     if (turn.optimisticUserRow && !turn.optimisticUserRow.isConnected && !persistedUser) box.appendChild(turn.optimisticUserRow);
+    disposeLive(turn.live);
     const shell = createLiveAssistantShell(); turn.live = shell.live; turn.main = shell.main;
     // 112c: 回到一个仍在跑的后台会话 —— 事件全量重放,状态机也从零重建,否则状态条会显示切走之前的旧阶段。
     if (turnActivity) { turnActivity.reset(); turnActivity.start(turn.startedAt); activityBoundSession = sessionId; }
@@ -474,9 +486,14 @@ export function createChatStreamRuntime(deps = {}) {
 
   // v1.0.2 (F3): 压缩进行中的持续指示。compactState.active 防重入(进行中再点=忽略);indicator 是 composer
   // 上方一条带 spinner 的持续提示条;compactBtn 禁用 + 文案变「压缩中…」;90s 兜底超时恢复防卡死。
-  const compactState = { active: false, timer: 0 };
-  function beginCompactIndicator() {
+  // 流内 compact 'started'(自动 L2 压缩)起的指示条传 { stream: sessionId }:服务端对它必发 completed/failed,
+  // 不挂 5 分钟超时(否则长回合里会误报「压缩超时」);改由该回合收尾(end/stop/error)时静默收掉,绝不活过回合。
+  // seq 让「谁开的谁收」:异步路径收尾前比对,别把后来别处起的指示条误收。
+  const compactState = { active: false, timer: 0, stream: '', seq: 0 };
+  function beginCompactIndicator(options = {}) {
     compactState.active = true;
+    compactState.seq += 1;
+    compactState.stream = options.stream ? String(options.stream) : '';
     const btn = $('compactBtn');
     if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = t('chat.compacting'); }
     // 持续指示条:插在 composer 顶部(resumeBanner 之上),复用 chip/toast 令牌,自带 spinner。
@@ -491,12 +508,15 @@ export function createChatStreamRuntime(deps = {}) {
     // External map-reduce can run several sequential local-model calls (a real 65K Ollama chunk takes
     // ~3 minutes on the reference machine). Keep the stale-UI guard, but do not declare failure while
     // the HTTP request is still legitimately reducing a long history.
-    clearTimeout(compactState.timer);
+    clearTimeout(compactState.timer); compactState.timer = 0;
+    if (compactState.stream) return compactState.seq;
     const indicatorTimeoutMs = state.config?.compactProviderId ? 30 * 60 * 1000 : 5 * 60 * 1000;
     compactState.timer = setTimeout(() => { if (compactState.active) { endCompactIndicator(); toast(t("toast.compactTimeout"), 'err'); } }, indicatorTimeoutMs);
+    return compactState.seq;
   }
   function endCompactIndicator() {
     compactState.active = false;
+    compactState.stream = '';
     clearTimeout(compactState.timer); compactState.timer = 0;
     const btn = $('compactBtn');
     if (btn) { btn.disabled = false; if (btn.dataset.label) { btn.textContent = btn.dataset.label; delete btn.dataset.label; } }
@@ -587,20 +607,31 @@ export function createChatStreamRuntime(deps = {}) {
     if (compactState.active) return; // F3⑥ 进行中再点=忽略
     if (state.streaming) { toast(t("toast.compactWaitTurn"), ''); return; }
     if (!state.currentSession || !(state.currentSession.messages || []).length) { toast(t("toast.compactEmpty"), ''); return; }
+    const sid = state.currentSession.id;
+    // 117s-G 同一判据:别处起的回合在跑(插话/回答)或排队中/等批准 —— 这时压缩既不能当新回合发
+    // (sendPrompt 会把 '/compact' 当插话递进去),也不该去动正在用的上下文。说一句,不开指示条。
+    if (sessionAcceptsSteer(sid) || relayBlockNote(sid)) { toast(relayBlockNote(sid) || t("toast.compactWaitTurn"), ''); return; }
     if (!isProviderMode() && agentCliMeta(currentEngineMeta().agentCliType).nativeCompact === 'slash-command' && !state.config?.compactProviderId) {
       // Claude 模式:/compact 是流式回合。开指示,sendPrompt 走完流后 setStreaming(false) 会调 endCompactIndicator。
-      beginCompactIndicator();
+      // sendPrompt 也可能根本没起回合就返回(同步窗口失败、await 期间被判成插话/排队)——那时 setStreaming 不会再来收,
+      // 这里兜底:本次开的指示条还挂着就收掉。
+      const seq = beginCompactIndicator();
       toast(t("toast.compactRequested"), 'ok');
-      sendPrompt('/compact');
+      Promise.resolve(sendPrompt('/compact')).catch(() => {}).finally(() => {
+        if (compactState.active && compactState.seq === seq) endCompactIndicator();
+      });
       return;
     }
-    const sid = state.currentSession.id;
     beginCompactIndicator();
     try {
       const endpoint = isProviderMode() ? '/api/provider/compact' : '/api/agent/compact';
       const r = await api(endpoint, { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
       if (!r || !r.ok) { toast(t("toast.compactFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
-      if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; renderCurrentSession(); }
+      if (state.currentSession?.id === sid) {
+        const s = await api(`/api/sessions/${sid}`);
+        // await 期间可能已切走:再判一次,别用被压缩那条覆盖当前打开的会话。
+        if (state.currentSession?.id === sid) { state.currentSession = s.session; renderCurrentSession(); }
+      }
       await refreshSessions();
       toast(t("toast.compactDone", { p1: fmtTokens(r.beforeTokens || 0), p2: fmtTokens(r.afterTokens || 0) }), 'ok');
     } catch (e) { toast(t("toast.compactFail", { p1: apiErrText(e) }), 'err'); }
@@ -726,16 +757,19 @@ export function createChatStreamRuntime(deps = {}) {
       await refreshSessions();
       if (state.currentSession?.id === turnSessionId) {
         const r = await api(`/api/sessions/${turnSessionId}`);
-        state.currentSession = r.session; state.resumable = r.resumable || null;
-        rebindOptimisticUserRow(r.session); // 第69波:乐观行的「回溯到此处」重绑到持久化真身
-        // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
-        // answer a second time and causes the characteristic end-of-stream stall.
-        $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('session.untitled') : r.session.title.trim();
-        paintSessionMeta($('sessionMeta'), r.session);
-        renderStepBar(r.session && r.session.todos);
-        renderMissionBar(r.session && r.session.mission);
-        renderContextMeter(latestUsage(r.session));
-        renderResumeBanner();
+        // await 期间用户可能已切到别的会话:再判一次,别拿本回合会话覆盖掉刚打开的那条。
+        if (state.currentSession?.id === turnSessionId) {
+          state.currentSession = r.session; state.resumable = r.resumable || null;
+          rebindOptimisticUserRow(r.session); // 第69波:乐观行的「回溯到此处」重绑到持久化真身
+          // The live DOM already contains this complete turn. Rebuilding it here parses/highlights the same long
+          // answer a second time and causes the characteristic end-of-stream stall.
+          $('sessionTitle').textContent = isUntitledTitle(r.session?.title) ? t('session.untitled') : r.session.title.trim();
+          paintSessionMeta($('sessionMeta'), r.session);
+          renderStepBar(r.session && r.session.todos);
+          renderMissionBar(r.session && r.session.mission);
+          renderContextMeter(latestUsage(r.session));
+          renderResumeBanner();
+        }
       }
       // 不阻塞回合解锁：两引擎都可能通过 workbench_memory_propose 提交待确认候选；provider 还会
       // 运行自动审稿。服务端通常静默返回 proposal:null，只有真正的 pending 才追加卡片。
@@ -745,6 +779,9 @@ export function createChatStreamRuntime(deps = {}) {
     } catch (err) {
       // C6: aborts read as a neutral note (.msg-note), real failures as a red .msg-error block — not
       // stuffed into the markdown buffer. finalizeLive still renders whatever text streamed before this.
+      // 取 turnState 上的当前壳(与 finally/成功路径同源):切走再切回时 mountActiveTurn 已换了新壳,
+      // 闭包里的 live/main 可能还指着那只已脱离文档的旧壳,「已停止」会画到看不见的地方。
+      live = turnState.live; main = turnState.main;
       if (err.name === 'AbortError') { appendMsgNote(main, live, t('status.stopped')); toast(t("toast.turnStopped")); }
       else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
@@ -766,6 +803,8 @@ export function createChatStreamRuntime(deps = {}) {
       // 刚结束的正是它；真有新回合（比如管家接着起一条），下一次 GET 会把它重新写回来。
       if (state.sessionRelay && state.sessionRelay.sessionId === turnSessionId) state.sessionRelay = null;
       if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle(); renderTurnActivityBar(); }
+      // 流内 'started' 起的压缩指示条随本回合收尾静默收掉(回合被停/断流时服务端的 completed 到不了)。
+      if (compactState.active && compactState.stream === turnSessionId) endCompactIndicator();
       notifySessionStream({ type: 'settled', sessionId: turnSessionId });
       syncStreamingUi();
       renderSessions();
@@ -1379,7 +1418,7 @@ export function createChatStreamRuntime(deps = {}) {
         }
         const phase = evt.phase || (evt.afterTokens != null ? 'completed' : 'running');
         if (phase === 'started') {
-          if (!compactState.active) beginCompactIndicator();
+          if (!compactState.active) beginCompactIndicator({ stream: streamSessionId || state.currentSession?.id || 'stream' });
           const label = $('compactIndicator')?.querySelector('span:last-child');
           if (label) label.textContent = evt.mode === 'kimi-native' ? t('chat.compactStartedKimi') : t('chat.compactStartedGeneric');
         } else if (phase === 'running' || phase === 'applied') {

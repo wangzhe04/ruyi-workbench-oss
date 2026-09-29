@@ -1185,6 +1185,7 @@ async function openMemoryEditModal(m) {
     if (search) {
       search.addEventListener('input', () => { skillIndex = 0; renderSkillList(); });
       search.addEventListener('keydown', event => {
+        if (event.isComposing || event.keyCode === 229) return; // 输入法选字中:回车/方向键归输入法
         if (event.key === 'ArrowDown') { event.preventDefault(); moveSkillSel(1); }
         else if (event.key === 'ArrowUp') { event.preventDefault(); moveSkillSel(-1); }
         else if (event.key === 'Enter') { event.preventDefault(); pickSkill(skillIndex); }

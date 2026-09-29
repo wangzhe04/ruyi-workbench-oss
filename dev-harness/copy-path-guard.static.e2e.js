@@ -325,7 +325,10 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // 只剩下面这一条正则词表（它匹配的是 SSE 文本，不是渲染给用户的文案）。行号未动（改动都在原行内）。
     // ENGINEERING-SPEC §11.1（前端 Agent CLI 登记表）：工厂 deps 解构里在 :50 一带插 2 行（agentCliMeta 注入口 + 头注）
     // —— 这一条 1491 → 1493（逐行 byte 比对过：与位移前的 1491 逐字相同，是位移不是新增，同上面各次先例）。
-    1493:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
+    // 前端 bug 扫查批（2026-09-29）：本文件在 :265 一带插 disposeLive（切回重建实时壳前停旧壳计时器）、在 :480 一带
+    // 给压缩指示条加「流内起的不挂超时」选项、compactContext 加插话/排队门、sendPrompt 回合末与 catch 各补一处
+    // 「按当前会话/当前壳」—— 这一条 1493 → 1532（逐行 byte 比对过：与位移前的 1493 逐字相同，是位移不是新增）。
+    1532:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
   },
   // 前端架构债第一批：节点 aria-label／判定／置信度／依赖四处已改走 t()（workflow.node.ariaLabel、
   // workflow.detail.verdict、workflow.meta.confidence、workflow.node.dependsOn），白名单清空。

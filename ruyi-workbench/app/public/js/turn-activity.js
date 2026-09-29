@@ -141,6 +141,20 @@ function clearPending(state, key) {
   state.pending.delete(key);
 }
 
+// 按 kind 批量清待决(回合收尾用):kinds 里任一 kind 命中即删。
+function clearPendingKinds(state, kinds) {
+  for (const [key, entry] of state.pending) {
+    if (kinds.includes(entry.kind)) state.pending.delete(key);
+  }
+}
+
+// 权限待决按 requestId 分键:并发的两次申请各占一格,一条 permission_decision 只注销它自己那一条。
+// 缺 requestId 时退回单格 'permission'(老形状兜底)。
+function permissionKey(requestId) {
+  const id = String(requestId || '');
+  return id ? `permission:${id}` : 'permission';
+}
+
 export function createTurnActivity({ now = () => Date.now() } = {}) {
   let state = blankState();
 
@@ -161,7 +175,10 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
     state.compact = null;
     state.workflow = null;
     state.ended = ended || null;
-    // 待决不随回合结束消失:回合可以在「等你拍板」上停住,状态条要继续说等什么。
+    // 只有计划待决随回合结束保留:计划审批本就停在回合之外(回合收在「等你拍板」上,状态条要继续说等什么)。
+    // 提问与权限申请都活在回合里 —— 回合一收(停止/出错/result),服务端那头的等待已随之作废,
+    // 留着只会让状态条永远卡在「等你拍板」。
+    clearPendingKinds(state, ['ask', 'permission', 'permission_paused']);
   }
 
   function touchOutput(at) {
@@ -362,13 +379,14 @@ export function createTurnActivity({ now = () => Date.now() } = {}) {
         break;
 
       case 'permission_request':
-        setPending(state, 'permission', 'permission', evt.requestId, evt.toolName);
+        setPending(state, permissionKey(evt.requestId), 'permission', evt.requestId, evt.toolName);
         break;
       case 'permission_paused':
-        setPending(state, 'permission', 'permission_paused', evt.requestId, evt.toolName);
+        setPending(state, permissionKey(evt.requestId), 'permission_paused', evt.requestId, evt.toolName);
         break;
       case 'permission_decision':
-        clearPending(state, 'permission');
+        if (evt.requestId) clearPending(state, permissionKey(evt.requestId));
+        else clearPendingKinds(state, ['permission', 'permission_paused']);
         break;
 
       case 'plan':

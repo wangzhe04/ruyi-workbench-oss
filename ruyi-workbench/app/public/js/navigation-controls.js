@@ -483,7 +483,7 @@ function openContextPopover() {
     const custom = el('input', 'ctx-custom'); custom.type = 'text'; custom.placeholder = t('ctx.customLimit');
     custom.value = manual > 0 ? String(manual) : '';
     custom.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); const v = custom.value.replace(/[,\s]/g, ''); const n = parseInt(v, 10); if (v === '') applyWin(0); else if (Number.isFinite(n) && n > 0) applyWin(n); }
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); const v = custom.value.replace(/[,\s]/g, ''); const n = parseInt(v, 10); if (v === '') applyWin(0); else if (Number.isFinite(n) && n > 0) applyWin(n); }
     });
     wrap.appendChild(custom);
     // Universal compaction model: default follows the current access mode (Claude/Kimi native or active
@@ -662,7 +662,7 @@ function openRenamePopover(anchorEl, s) {
     const wrap = el('div', 'rename-pop');
     const inp = el('input', 'rename-input'); inp.type = 'text'; inp.value = s.title || ''; inp.placeholder = t('session.name');
     const commit = () => { const t = inp.value.trim(); close(); if (t && t !== s.title) patchSession(s.id, { title: t }); };
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); commit(); } });
     const ok = el('button', 'primary', t('common.confirm')); ok.type = 'button'; ok.onclick = commit;
     const row = el('div', 'rename-row'); row.append(inp, ok);
     wrap.appendChild(row);

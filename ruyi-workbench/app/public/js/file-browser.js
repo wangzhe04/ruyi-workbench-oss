@@ -105,7 +105,10 @@ export function createFileBrowserDomain({
     return row;
   }
 
+  // 目录树加载序号:切工作区时前一次(可能更慢)的读盘结果晚到,不能盖掉新工作区的树。
+  let fileTreeLoadSeq = 0;
   async function loadFileTree() {
+    const loadSeq = ++fileTreeLoadSeq;
     const rootElement = $('fileTreeRoot');
     const tree = $('fileTree');
     if (!rootElement || !tree) return;
@@ -118,6 +121,7 @@ export function createFileBrowserDomain({
     tree.appendChild(el('div', 'ftree-loading', t('file.tree.loading')));
     try {
       const entries = await fetchDirLevel(root);
+      if (loadSeq !== fileTreeLoadSeq) return; // 已有更新的一次加载,丢弃过期结果
       tree.textContent = '';
       if (!entries.length) {
         tree.appendChild(el('div', 'ftree-empty', t('file.tree.empty')));
@@ -125,6 +129,7 @@ export function createFileBrowserDomain({
       }
       for (const entry of entries) tree.appendChild(fileTreeRow(entry, 0));
     } catch (error) {
+      if (loadSeq !== fileTreeLoadSeq) return;
       tree.textContent = '';
       tree.appendChild(el('div', 'ftree-empty', t('file.tree.readFailed', {
         reason: apiErrText(error),

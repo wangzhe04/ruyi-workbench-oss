@@ -563,7 +563,7 @@ function renderAgentRuns(runs) {
         const whatLine = el('div', 'pool-line pool-what', t('workflow.pool.task', { task: simpleMode ? taskShort : taskFull }));
         if (simpleMode && taskFull.replace(/\s+/g, ' ').length > taskShort.length) whatLine.title = taskFull;
         pcard.appendChild(whatLine);
-        pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { maxIters: item.maxIters || 100 })));
+        pcard.appendChild(el('div', 'pool-line pool-cost', t('workflow.pool.cost', { iters: item.maxIters || 100 })));
         if (!simpleMode && item.reason) pcard.appendChild(el('div', 'pool-line pool-reason', t('workflow.pool.reasonLabel', { reason: item.reason })));
         if (!simpleMode && item.status !== 'proposed') pcard.appendChild(el('div', 'pool-line pool-status', t('workflow.pool.statusLabel', { status: poolStatusLabel(item.status) }) + (item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '')));
         if (item.status === 'proposed' && run.live) {

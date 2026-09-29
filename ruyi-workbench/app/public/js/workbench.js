@@ -867,7 +867,7 @@ function wbPoolBody(run) {
       }
       box.appendChild(card);
     } else {
-      box.appendChild(el('div', 'wb-pool-decided', t('workflow.pool.decidedRow', { status: poolStatusLabel(item.status), node: item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '', task: String(item.task || '').replace(/s+/g, ' ').slice(0, 40) })));
+      box.appendChild(el('div', 'wb-pool-decided', t('workflow.pool.decidedRow', { status: poolStatusLabel(item.status), node: item.resultNodeId ? ' · ' + t('workflow.pool.node', { id: item.resultNodeId }) : '', task: String(item.task || '').replace(/\s+/g, ' ').slice(0, 40) })));
     }
   }
   return box;
