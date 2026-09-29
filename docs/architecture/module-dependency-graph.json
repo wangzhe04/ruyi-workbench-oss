@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2903,
-    "requiredSymbols": 2874,
+    "providedSymbols": 2906,
+    "requiredSymbols": 2876,
     "edges": 509,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -7346,6 +7346,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "estimateFactor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -8944,6 +8951,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "estimateFactor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "historyStartsWithCompactionSummary",
           "kinds": [
             "call"
@@ -9041,6 +9055,7 @@
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
+        "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CONTEXT_CALIBRATION_MAX",
@@ -9101,6 +9116,7 @@
         "chunkHistoryByBudget",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionTaskText",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
@@ -9137,6 +9153,7 @@
         "openCompactMarker",
         "parseSessionNotesMarkdown",
         "persistContextCalibration",
+        "pickSummaryFailure",
         "protectedObservation",
         "providerContextWindow",
         "providerConversationContextWindow",
@@ -25720,6 +25737,7 @@
       "from": "08-agent-runs.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "estimateFactor",
         "isContextOverflowError",
         "maybeCompactSubHistory",
         "noteWindowOvershoot",
@@ -26115,6 +26133,7 @@
         "appendPromptToLastUserMessage",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "estimateFactor",
         "historyStartsWithCompactionSummary",
         "isContextOverflowError",
         "maybeAutoCompact",

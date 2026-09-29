@@ -991,6 +991,12 @@ function summaryMaxConcurrent(config, provider, model) {
 // 有界并发执行摘要类调用(仿 09-workflow 21-E2 worker-pool:poolNext 领任务、完成即补位,无批次屏障)。
 // fail-fast:任一结果 !ok 即 abort failCtrl —— worker 停止领新任务,在飞请求经 extraSignal 取消;
 // 结果按输入下标保序(失败点之后的空位为 undefined,调用方按序找首个真实失败上浮)。
+// 分段摘要的失败取哪一条:按块序取第一条【真实】失败。一块失败会 abort 同批的其它块,那些被连带取消的
+// (cancelledBySibling)排在前面的话,修前报出去的就是「sibling chunk failed」,真正的原因(400 / 超时)被盖住了。
+function pickSummaryFailure(results) {
+  const failures = (Array.isArray(results) ? results : []).filter(r => r && !r.ok);
+  return failures.find(r => !r.cancelledBySibling) || failures[0] || null;
+}
 async function mapSummaryWithLimit(items, limit, fn, failCtrl) {
   const results = new Array(items.length);
   let poolNext = 0;
@@ -1507,7 +1513,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
       return finish(result);
     } catch (e) {
       const cancelledBySibling = e && e.name === 'AbortError' && extraSignal && extraSignal.aborted && !(ctrl && ctrl.signal.aborted);
-      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed') };
+      const failed = { ok: false, error: (e && e.name === 'AbortError') ? (cancelledBySibling ? 'summary request cancelled (sibling chunk failed)' : `summary request timed out (${Math.round(timeoutMs / 1000)}s)`) : ((e && e.message) || 'summary request failed'), ...(cancelledBySibling ? { cancelledBySibling: true } : {}) };
       econDone(failed); attempts.push(failed); return finish(failed);
     } finally { if (timer) clearTimeout(timer); }
   }
@@ -1647,8 +1653,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   // 保持原串行的失败语义(差异:失败时在飞请求被取消并记账,不再发出未派发的块)。
   const initialCalls = await mapSummaryWithLimit(chunks, summaryConcurrency, (ci) =>
     rememberCall(factChunkMsg ? [...chunks[ci], factChunkMsg] : chunks[ci], { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'map' }, failCtrl && failCtrl.signal), failCtrl);
-  let firstChunkFail = null;
-  for (const r of initialCalls) if (r && !r.ok) { firstChunkFail = r; break; } // 跳过未派发空位,按块序取真实失败
+  const firstChunkFail = pickSummaryFailure(initialCalls); // 跳过未派发空位,按块序取真实失败
   if (firstChunkFail) return firstChunkFail;
   let partialResults = initialCalls;
   let final = null;
@@ -1670,8 +1675,7 @@ async function providerSummaryCallCore(provider, history, opts) {
       role: 'user',
       content: groups[gi].map(m => m.content).join('\n\n') + '\n\n请把以上各分段摘要汇总为一份完整摘要。',
     }, ...(factReduceMsg ? [factReduceMsg] : [])], { ...ectxBase, chunkIndex: 1000 + (round * 100) + gi + 1, summaryStage: 'reduce' }, failCtrl && failCtrl.signal), failCtrl);
-    let firstGroupFail = null;
-    for (const r of next) if (r && !r.ok) { firstGroupFail = r; break; }
+    const firstGroupFail = pickSummaryFailure(next);
     if (firstGroupFail) return firstGroupFail;
     partialResults = next;
   }
@@ -2054,6 +2058,28 @@ function recentFileReads(history, budgetTokens) {
 
 // 第104波：所有自动压缩入口共享同一份不可变计划语义。计划只计算预算、完整回合尾部与
 // 重播种形状；摘要执行、持久化和事件仍由各 owner 负责，因此不会把副作用重新揉成一团。
+// 重播种时钉住的「原始任务」正文。两个坑:
+//   · 第二次及以后的 L2:历史首条 user 就是上一次重播种写的「原始任务 + 旧摘要」。整条再钉一遍,旧摘要就一层套一层
+//     越积越长(新摘要本来就覆盖了旧摘要)—— 只取出其中原始任务那一段;
+//   · 带图片的首问:content 是 parts 数组,String() 出来是「[object Object],[object Object]」—— 拍平成文字、图片记一笔。
+const COMPACTION_TASK_PREFIX = '原始任务(保持聚焦):\n';
+function compactionTaskText(message) {
+  const content = message && message.content;
+  let text = typeof content === 'string' ? content
+    : Array.isArray(content) ? content.map(part => {
+      if (typeof part === 'string') return part;
+      if (!part || typeof part !== 'object') return '';
+      if (typeof part.text === 'string') return part.text;
+      return /image/i.test(String(part.type || '')) ? '[图片]' : '';
+    }).filter(Boolean).join('\n')
+    : String(content == null ? '' : content);
+  if (text.startsWith(COMPACTION_TASK_PREFIX)) {
+    const body = text.slice(COMPACTION_TASK_PREFIX.length);
+    const cut = body.indexOf('\n\n【压缩摘要');
+    text = cut >= 0 ? body.slice(0, cut) : body;
+  }
+  return text;
+}
 const CompactionPlan = (() => {
   const defaults = CONTEXT_GOVERNANCE_RULES.compactionPlan;
   function create(options = {}) {
@@ -2117,7 +2143,7 @@ const CompactionPlan = (() => {
         + files.map(f => '--- ' + f.path + ' ---\n' + f.head).join('\n\n')
       : '';
     return [
-      { role: 'user', content: '原始任务(保持聚焦):\n' + String(plan && plan.task && plan.task.content || '') + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
+      { role: 'user', content: COMPACTION_TASK_PREFIX + compactionTaskText(plan && plan.task) + '\n\n' + heading + '\n' + String(summary || '') + fileBlock },
       { role: 'assistant', content: acknowledgement },
       ...bridged,
     ];
@@ -2218,7 +2244,9 @@ async function runAutoCompaction(ctx) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
     onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
-    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
+    // L1 也没斩获时同样落水位(= 这次的估算):修前不落,滞回永不武装,摘要端点坏着的时候每个迭代边界、每个回合都再
+    // 白等一次摘要超时(最长几分钟)、再报一次失败。历史再涨过「水位 + 余量」才会重试。
+    return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before, watermark: before, summaryFailed: true };
   }
   const plan = CompactionPlan.create({ scope, trigger: 'auto', history, provider, model, config, ...planOpts });
   const reseeded = CompactionPlan.reseed(plan, sc.summary);
@@ -2297,7 +2325,7 @@ async function maybeCompactSubHistory(opts) {
       subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
       try { if (parentSession) recordCompactUsage(parentSession, r.summaryProvider, r.sc, { subagentId, runId }); } catch { /* 记账失败不阻断 */ }
     }
-    if (r.compacted && state) state.watermark = r.watermark;
+    if ((r.compacted || r.summaryFailed) && state && Number.isFinite(Number(r.watermark))) state.watermark = r.watermark;
     return r.compacted;
   } catch { return false; }
 }
@@ -2411,6 +2439,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
     if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session).catch(() => {}); }
+    else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
     // Compaction is best-effort; a failure must never break the turn.

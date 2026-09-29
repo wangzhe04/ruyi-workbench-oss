@@ -795,7 +795,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
             if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
             onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
-            pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
+            pendingOvershootLearn = Math.round(estNow * estimateFactor(provider.id, subModel)); // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同);校准后的口径,见主回合同处
             subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;

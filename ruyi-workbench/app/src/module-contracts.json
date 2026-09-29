@@ -7260,6 +7260,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "estimateFactor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "isContextOverflowError",
           "kinds": [
             "call"
@@ -8852,6 +8859,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "estimateFactor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "historyStartsWithCompactionSummary",
           "kinds": [
             "call"
@@ -8947,6 +8961,7 @@
       "file": "10-context-governance.js",
       "layer": "orchestration",
       "provides": [
+        "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CONTEXT_CALIBRATION_MAX",
@@ -9007,6 +9022,7 @@
         "chunkHistoryByBudget",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionTaskText",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
@@ -9043,6 +9059,7 @@
         "openCompactMarker",
         "parseSessionNotesMarkdown",
         "persistContextCalibration",
+        "pickSummaryFailure",
         "protectedObservation",
         "providerContextWindow",
         "providerConversationContextWindow",
