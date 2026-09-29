@@ -6,7 +6,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(require se
 //
 // 用户 2026-09-24:「根据不同引擎的线程设计不同的提示词,让 claude code 知道它是在如意工作台中、有什么能力」。
 // 修前只有 provider 引擎有「你在如意里」的说明,Claude/Kimi 只有零散提示。本件钉住:
-//   A  Claude 变体:引擎专属标记(Claude Code / 原生工具名 / CLAUDE.md 原生读取 / mcp__win-claude-workbench__ 前缀 /
+//   A  Claude 变体:引擎专属标记(Claude Code / 原生工具名 / CLAUDE.md 原生读取 / mcp__ruyi__ 前缀 /
 //      request_user_input 与交互模式禁原生 AskUserQuestion)+ 能力事实(桌面开/关两组、终端 rg 来源、mermaid 成图、
 //      权限档含义、管家代开);只提 orchestrate_agents,绝不出现 spawn_agent;中文 ≤ 1800 字;
 //      文字里没有 % 与 !(claude.cmd 启动时整段过 cmd.exe),除自身围栏外没有尖括号标签(fenceSafeSlice 会当悬空围栏切)。
@@ -55,8 +55,8 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
     'A2 身份:担任线程引擎的 Claude Code + 产品名 + 版本 v' + pkgVersion);
   ok(/Read、Edit、Write、Bash、Grep、Glob、Agent/.test(cOn) && cOn.includes('CLAUDE.md') && /原生方式读取/.test(cOn),
     'A3 原生工具分工 + CLAUDE.md 由 CLI 原生读取');
-  ok(cOn.includes('mcp__win-claude-workbench__') && ['workbench_memory_propose', 'request_user_input', 'tool_search', 'tool_invoke_exec', 'orchestrate_agents', 'workbench_self_status'].every(n => cOn.includes(n)),
-    'A4 如意 MCP 工具按组列名(真实前缀 mcp__win-claude-workbench__)');
+  ok(cOn.includes('mcp__ruyi__') && ['workbench_memory_propose', 'request_user_input', 'tool_search', 'tool_invoke_exec', 'orchestrate_agents', 'workbench_self_status'].every(n => cOn.includes(n)),
+    'A4 如意 MCP 工具按组列名(真实前缀 mcp__ruyi__)');
   ok(/不要用原生 AskUserQuestion/.test(cOn), 'A5 交互模式:提问走 request_user_input,禁原生 AskUserQuestion(与 --disallowedTools 一致)');
   ok(!/spawn_agent/.test(cOn), 'A6 只提 orchestrate_agents,不出现 spawn_agent(W1 正在退役它)');
   ok(/桌面控制：已开启/.test(cOn) && !/桌面控制：未开启/.test(cOn), 'A7 桌面开:如实写已开启');
@@ -78,7 +78,7 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
   const printMode = brief('claude', baseConfig({ engineMode: 'print' }), {}, RG_BUNDLED).text;
   ok(printMode.includes('request_user_input') && !/不要用原生 AskUserQuestion/.test(printMode), 'A19 非交互模式不写「禁原生 AskUserQuestion」(那条 --disallowedTools 只在交互模式加)');
   const noMcp = brief('claude', baseConfig({ includeWorkbenchMcp: false }), {}, RG_BUNDLED).text;
-  ok(!noMcp.includes('mcp__win-claude-workbench__') && noMcp.includes('Claude Code'), 'A20 没接如意 MCP 时不列 MCP 工具(不许许诺不存在的工具)');
+  ok(!noMcp.includes('mcp__ruyi__') && noMcp.includes('Claude Code'), 'A20 没接如意 MCP 时不列 MCP 工具(不许许诺不存在的工具)');
   const noOrch = brief('claude', baseConfig({ subagentMaxPerTurn: 0 }), {}, RG_BUNDLED).text;
   ok(!noOrch.includes('orchestrate_agents'), 'A21 编排关(subagentMaxPerTurn=0)时不提 orchestrate_agents');
   const modes = ['default', 'acceptEdits', 'plan', 'auto', 'bypass'];
@@ -90,7 +90,7 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
   ok(kimi.includes('Kimi Code') && !kimi.includes('Claude Code'), 'B1 Kimi 版身份是 Kimi Code');
   ok(/用原生 AskUserQuestion，如意界面会弹出提问卡/.test(kimi) && !kimi.includes('request_user_input'), 'B2 Kimi 提问走原生 AskUserQuestion(经 ACP 落到如意提问卡),不提 request_user_input');
   ok(/Bash 命令由如意代为执行/.test(kimi) && !kimi.includes('CLAUDE.md'), 'B3 Kimi 原生 Bash 由如意代执行;不提 CLAUDE.md');
-  ok(/ripgrep 可用（本机已安装）/.test(kimi) && kimi.includes('mcp__win-claude-workbench__') && kimi.includes('```mermaid'), 'B4 Kimi 版同样带能力事实(系统 rg / 如意 MCP / mermaid)');
+  ok(/ripgrep 可用（本机已安装）/.test(kimi) && kimi.includes('mcp__ruyi__') && kimi.includes('```mermaid'), 'B4 Kimi 版同样带能力事实(系统 rg / 如意 MCP / mermaid)');
   ok(kimi.length <= 1800 && !/[%!]/.test(kimi), 'B5 中文 Kimi 版 ≤ 1800 字且无 % !(实 ' + kimi.length + ')');
 
   /* ═══════════ C provider 变体 ═══════════ */
@@ -130,7 +130,7 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
 
   /* ═══════════ E 英文包 ═══════════ */
   const en = brief('claude', baseConfig({ locale: 'en-US' }), { createdBy: 'steward' }, RG_BUNDLED).text;
-  ok(en.startsWith('<ruyi-environment>') && /You are Claude Code/.test(en) && /mcp__win-claude-workbench__/.test(en) && /```mermaid/.test(en)
+  ok(en.startsWith('<ruyi-environment>') && /You are Claude Code/.test(en) && /mcp__ruyi__/.test(en) && /```mermaid/.test(en)
     && /Desktop control: enabled/.test(en) && /The steward opened this thread/.test(en) && !/spawn_agent/.test(en) && !/[%!]/.test(en)
     && tagsOf(en).length === 2, 'E1 英文 Claude 版同构(身份/MCP/mermaid/桌面/管家代开;无 spawn_agent、无 % !、只有自身围栏)');
   const enKimi = brief('kimi', baseConfig({ locale: 'en-US', desktopMcp: { enabled: false } }), {}, null).text;

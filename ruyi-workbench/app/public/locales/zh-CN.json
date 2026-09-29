@@ -2369,6 +2369,7 @@
   "chat.questionSegmentLabeled": "{{label}}：{{questions}}",
   "chat.agentCompacting": "压缩代理上下文…",
   "chat.agentCompacted": "已压缩代理上下文",
+  "chat.agentCompactFailed": "代理上下文摘要没做成，已保留原有内容继续",
   "chat.agentEnvelopeSummary": "代理摘要",
   "chat.agentEnvelopeArtifacts": "产物：{{list}}",
   "chat.nativeAgentCompleted": "✓ 已完成",

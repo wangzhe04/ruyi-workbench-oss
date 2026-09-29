@@ -249,6 +249,11 @@ const asst = content => ({ role: 'assistant', content });
       const forced = events.find(e => e.type === 'compact' && e.mode === 'forced_400');
       if (!forced) console.log('   [diag B] 事件类型: ' + events.map(e => e.type).join(',') + ' | fake 请求数: ' + JSON.stringify(await get(FAKE, '/__count')));
       ok(!!forced, 'B1 出现 forced_400 压缩事件(服务端 400 → 自动强压)');
+      // 强压要等一次摘要调用:先 started(活动条显示「压缩中」),重试前 completed 带 afterTokens 收口。
+      const forcedSeq = events.filter(e => e.type === 'compact' && e.mode === 'forced_400');
+      ok(forcedSeq.length === 2 && forcedSeq[0].phase === 'started' && forcedSeq[1].phase === 'completed'
+        && typeof forcedSeq[1].afterTokens === 'number' && forcedSeq[1].afterTokens < forcedSeq[1].beforeTokens,
+        'B1b forced_400 事件序列 started → completed(afterTokens<beforeTokens)(' + JSON.stringify(forcedSeq.map(e => [e.phase, e.beforeTokens, e.afterTokens])) + ')');
       const result = events.find(e => e.type === 'result');
       ok(result && result.ok === true, 'B2 强压后重试成功,回合 ok(旧行为 = 回合失败)');
       // 历史被重播种(摘要 user + ack + 保留尾部)而非裸失败 —— 存储 v2 头是瘦的,

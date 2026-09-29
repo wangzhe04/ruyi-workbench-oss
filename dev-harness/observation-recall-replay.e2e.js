@@ -17,7 +17,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   REPLAY_PROVIDER=deepseek REPLAY_GUIDED=1 node dev-harness/observation-recall-replay.e2e.js
 //                                                                  # 明确要求使用 rawRef 的可用性对照
 //
-// 硬约束:原历史记录(.win-claude-workbench/checkpoints)零写入;deepseek 密钥只从本机 config
+// 硬约束:原历史记录(<数据根>/checkpoints)零写入;deepseek 密钥只从本机 config
 // 复制进临时 HOME,绝不打印。
 // ─────────────────────────────────────────────────────────────────────────────
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
@@ -26,7 +26,7 @@ const cp = require('child_process'), fs = require('fs'), os = require('os'), pat
 const HERE = __dirname, WB = path.resolve(HERE, '..', 'ruyi-workbench');
 const PROVIDER = process.env.REPLAY_PROVIDER === 'deepseek' ? 'deepseek' : 'fake';
 const REAL_MODEL = String(process.env.REPLAY_MODEL || 'deepseek-v4-flash');
-const REAL_CONFIG = 'C:/Users/87179/.win-claude-workbench/config.json';
+const REAL_CONFIG = require('./lib/real-data-root.js').defaultDataRootIn('C:/Users/87179').replace(/\\/g, '/') + '/config.json';
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-replay-'));
 // Use an ordinary fact that already exists in the real file_search output, rather than injecting a

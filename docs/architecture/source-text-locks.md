@@ -11,7 +11,7 @@
 本批的规矩：
 
 1. **被断言的东西运行时拿得到，就断言运行时的值。** 能走的路有三条：`require(server.js)`，同时把
-   `WIN_CLAUDE_WORKBENCH_HOME`/`RUYI_HOME` 指到临时目录，或者在文件头 `require('./lib/self-isolate-home.js')`；
+   `RUYI_HOME`(旧名 `WIN_CLAUDE_WORKBENCH_HOME` 也认)指到临时目录，或者在文件头 `require('./lib/self-isolate-home.js')`；
    `import()` `public/js` 下的 ES 模块；`require` `tools/` 下的 CommonJS 模块。
 2. **判据本身就是结构性的，才保留文本锁。** 保留时用 `dev-harness/lib/source-slice.js` 的
    `constBlock` / `functionBlock` / `bracedBlock` / `sliceBlock` 取片段。它们按括号配对切，会跳过字符串、模板、注释和正则里的括号，

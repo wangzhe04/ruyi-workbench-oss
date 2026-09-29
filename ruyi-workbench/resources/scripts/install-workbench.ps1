@@ -64,28 +64,34 @@ if (-not (Test-Path $mcpConfigPath)) {
 }
 
 $mcpConfig = Get-Content -Raw $mcpConfigPath | ConvertFrom-Json
-$serverJson = $mcpConfig.mcpServers.'win-claude-workbench' | ConvertTo-Json -Depth 20 -Compress
+# 3.0: Ruyi's MCP server id is 'ruyi' (tools show up as mcp__ruyi__*); the pre-3.0 id 'win-claude-workbench' is removed first.
+$serverJson = $mcpConfig.mcpServers.'ruyi' | ConvertTo-Json -Depth 20 -Compress
 
 if ($ClaudePath) {
   Write-Host "Registering MCP server with Claude CLI..."
   # Native exe non-zero exits do NOT throw, so check $LASTEXITCODE (try/catch only catches launch failure).
   try {
-    & $ClaudePath mcp add-json win-claude-workbench $serverJson -s $Scope
+    # Pre-3.0 id; absent on fresh installs. Its own try: with ErrorActionPreference=Stop a native stderr line can throw.
+    try { & $ClaudePath mcp remove win-claude-workbench -s $Scope *> $null } catch { }
+    & $ClaudePath mcp add-json ruyi $serverJson -s $Scope
     if ($LASTEXITCODE -ne 0) { Write-Warning "claude mcp add-json failed (exit $LASTEXITCODE). Manually import: $mcpConfigPath" }
   } catch {
     Write-Warning "claude mcp add-json could not run. You can manually import: $mcpConfigPath"
   }
 
   if (-not $SkipPluginMarketplace) {
-    $marketplaceRoot = Join-Path $root "resources\plugins\win-workbench-offline"
+    $marketplaceRoot = Join-Path $root "resources\plugins\ruyi-offline"
     if (Test-Path (Join-Path $marketplaceRoot ".claude-plugin\marketplace.json")) {
       Write-Host "Registering offline plugin marketplace..."
       try {
+        # 3.0: the marketplace was renamed win-workbench-offline -> ruyi-offline; drop the old registration first (ignore "not found").
+        try { & $ClaudePath plugin uninstall offline-toolkit@win-workbench-offline --scope $Scope *> $null } catch { }
+        try { & $ClaudePath plugin marketplace remove win-workbench-offline *> $null } catch { }
         & $ClaudePath plugin marketplace add $marketplaceRoot --scope $Scope
         if ($LASTEXITCODE -ne 0) {
           Write-Warning "plugin marketplace add failed (exit $LASTEXITCODE); skipping install. Claude CLI may not support plugins yet."
         } else {
-          & $ClaudePath plugin install offline-toolkit@win-workbench-offline --scope $Scope
+          & $ClaudePath plugin install offline-toolkit@ruyi-offline --scope $Scope
           if ($LASTEXITCODE -ne 0) { Write-Warning "plugin install failed (exit $LASTEXITCODE)." }
         }
       } catch {

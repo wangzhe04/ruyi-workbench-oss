@@ -38,11 +38,12 @@ export function createFileBrowserDomain({
     });
     const result = response && response.result;
     if (!result || !result.ok || !Array.isArray(result.files)) return [];
-    // 走查 U10：工作文件夹是整个用户目录时，如意自己的数据目录（.win-claude-workbench）不出现在文件树里 ——
-    // 那里面是配置、线程记录，不是用户的文件（工具层对其中敏感部分本来就拒读）。
+    // 走查 U10：工作文件夹是整个用户目录时，如意自己的数据目录（.ruyi-workbench）不出现在文件树里 ——
+    // 那里面是配置、线程记录，不是用户的文件（工具层对其中敏感部分本来就拒读）。3.0 改名后旧目录名是指回来的联接，一并藏。
     const key = p => String(p || '').replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase();
-    const dataRoot = key(state.status && state.status.dataRoot);
-    const entries = result.files.filter(file => !dataRoot || key(file.path) !== dataRoot).map(file => ({
+    const status = state.status || {};
+    const hidden = new Set([status.dataRoot, ...(Array.isArray(status.dataRootAliases) ? status.dataRootAliases : [])].map(key).filter(Boolean));
+    const entries = result.files.filter(file => !hidden.has(key(file.path))).map(file => ({
       path: file.path,
       type: file.type === 'directory' ? 'directory' : 'file',
       name: fileBasename(file.path),

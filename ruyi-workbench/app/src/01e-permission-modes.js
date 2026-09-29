@@ -73,7 +73,7 @@ function normalizeAgentRole(raw, opts = {}) {
     },
     openaiTools: strArr(raw.openaiTools || (raw.tools && raw.driver !== 'claude' ? raw.tools : []), 128),
     claudeTools: strArr(raw.claudeTools || (raw.driver === 'claude' ? raw.tools : []), 128),
-    mcpServers: strArr(raw.mcpServers, 32),
+    mcpServers: [...new Set(strArr(raw.mcpServers, 32).map(canonicalRuyiMcpServerId))], // 3.0:旧 id win-claude-workbench → ruyi
     permissionMode,
     budgets: {
       openai: Math.min(300, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),

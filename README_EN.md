@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/offline%20e2e-420-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/offline%20e2e-421-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20runtime%20deps-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,9 +71,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 65 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 66 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
 | **107 native tools · 108 ACC tools** | 65 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **420 e2e cases** (413 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 103 unit suites and 17 ACC smoke groups, run on Windows CI for every change. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **421 e2e cases** (414 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 103 unit suites and 17 ACC smoke groups, run on Windows CI for every change. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -436,8 +436,8 @@ node .\app\server.js serve --open        # binds 127.0.0.1, default port 8765, m
 
 | Item | Meaning |
 |---|---|
-| Data directory | Defaults to `~/.win-claude-workbench` (legacy name kept for compatibility): configuration, threads, checkpoints, audit, memory, skills and usage all live here |
-| `RUYI_HOME` | Sets the data directory (takes precedence over the legacy `WIN_CLAUDE_WORKBENCH_HOME`) |
+| Data directory | Defaults to `~/.ruyi-workbench`: configuration, threads, checkpoints, audit, memory, skills and usage all live here (called `~/.win-claude-workbench` before 3.0 and migrated automatically on first start; see below) |
+| `RUYI_HOME` | Sets the data directory (the legacy `WIN_CLAUDE_WORKBENCH_HOME` is still read; `RUYI_HOME` wins) |
 | `RUYI_RG_PATH` | Path to ripgrep; otherwise the package's `vendor-bin/rg.exe`, then `rg` on `PATH`, then a built-in scanner (slower on large repositories) |
 | `RUYI_TOOLBOX_HOME` | Where ruyi-toolbox components register (default `~/.ruyi-toolbox`) |
 | `CLAUDE_CLI_PATH` / `KIMI_CLI_PATH` | Paths to the Agent CLIs (also settable in Settings) |
@@ -474,7 +474,7 @@ By design: web content can smuggle in instructions. Once it has read external co
 
 <details><summary><b>Where is my data, and how do I uninstall?</b></summary>
 
-In the data directory (default `~/.win-claude-workbench`, changeable with `RUYI_HOME`). To uninstall, delete the extracted install folder; delete the data directory too if you want the data gone. There is zero telemetry and nothing is ever reported.
+In the data directory (default `~/.ruyi-workbench`, changeable with `RUYI_HOME`). To uninstall, delete the extracted install folder; delete the data directory too if you want the data gone. There is zero telemetry and nothing is ever reported.
 </details>
 
 <details><summary><b>The extractor says paths are too long?</b></summary>
@@ -565,7 +565,7 @@ The complete bilingual documentation index is [docs/README.md](docs/README.md).
 - **Zero telemetry**: the only outbound traffic goes to the model endpoints and search backends you configure and the URLs you ask it to visit.
 - Ruyi is a **clean-room implementation**: no leaked Anthropic source, no redistribution of the official Claude Code (bring your own), no copied third-party plugin source. License obligations for the bundled frontend libraries (marked, highlight.js, mermaid and others) are listed in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).
 
-**Legacy identifiers**: to avoid breaking existing integrations, the MCP server id `win-claude-workbench`, the default data directory `~/.win-claude-workbench` and the environment variable `WIN_CLAUDE_WORKBENCH_HOME` (`RUYI_HOME` takes precedence) are deliberately unchanged.
+**3.0 naming cleanup**: the data directory `~/.win-claude-workbench` becomes `~/.ruyi-workbench` (moved automatically on first start, with a directory junction left at the old path so scripts and shortcuts that hard-code it keep working; if another running instance is using the old directory, it is kept for now and migrated on a later start); the MCP server id `win-claude-workbench` becomes `ruyi` (tools show up as `mcp__ruyi__*` in Claude Code / Kimi Code; `install` and the installer remove the old registration, stale Kimi entries are cleaned up, and agent roles that still name the old id keep working); the offline plugin marketplace `win-workbench-offline` becomes `ruyi-offline`; child processes only get `RUYI_HOME`, while the old `WIN_CLAUDE_WORKBENCH_HOME` is still read.
 
 ## Contributing
 

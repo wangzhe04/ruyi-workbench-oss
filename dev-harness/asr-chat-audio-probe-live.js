@@ -61,7 +61,7 @@ function hostOf(u) { try { return new URL(String(u)).host; } catch { return '(ba
 // ── 真机配置：只读 ─────────────────────────────────────────────────────────
 // 自隔离之后 os.homedir() 已是临时目录；真家目录由 fixture-home 记下（只读取，绝不写）。
 const REAL_HOME = require('./lib/fixture-home').REAL_HOME;
-const realConfigPath = path.join(REAL_HOME, '.win-claude-workbench', 'config.json');
+const realConfigPath = path.join(require('./lib/real-data-root.js').defaultDataRootIn(REAL_HOME), 'config.json');
 if (!fs.existsSync(realConfigPath)) { console.error('找不到真机 config.json:', realConfigPath); process.exit(1); }
 const real = JSON.parse(fs.readFileSync(realConfigPath, 'utf8'));
 const realProviders = Array.isArray(real.providers) ? real.providers : [];

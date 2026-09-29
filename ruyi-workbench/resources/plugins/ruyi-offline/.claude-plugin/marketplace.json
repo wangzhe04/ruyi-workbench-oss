@@ -1,7 +1,7 @@
 {
-  "name": "win-workbench-offline",
+  "name": "ruyi-offline",
   "owner": {
-    "name": "Local Windows Workbench"
+    "name": "Ruyi Workbench (如意)"
   },
   "metadata": {
     "version": "0.2.0",

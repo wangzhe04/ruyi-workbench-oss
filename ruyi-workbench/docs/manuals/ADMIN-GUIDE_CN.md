@@ -2,7 +2,7 @@
 
 > 面向部署者 / IT / 内网运维。本手册讲清楚如意工作台的**部署形态、引擎接入、安全边界、验收回归与排障**。用户视角的操作说明另见同目录 [`USER-GUIDE_CN.md`](USER-GUIDE_CN.md)。
 >
-> 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**默认全离线零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME` 等存量兼容标识有意保持不变**（详见文末「品牌与兼容」）。
+> 术语与硬约束：如意工作台是 **clean-room 独立实现**、**server.js 零 npm 运行时依赖**、**默认全离线零遥测**、**overlay 增量套用**、支持 **Windows 10/11**。产品名对外为「如意 Ruyi」。v1.0-S9 发布工程已将目录名改为 `ruyi-workbench`、可执行文件名改为 `Ruyi.exe`（启动/检测脚本双名兼容旧 `WinClaudeWorkbench.exe`）；**3.0 起 MCP server id 为 `ruyi`、默认数据目录为 `~/.ruyi-workbench`、环境变量为 `RUYI_HOME`**（旧的 `win-claude-workbench` / `~/.win-claude-workbench` / `WIN_CLAUDE_WORKBENCH_HOME` 自动迁移或仍可读，详见文末「品牌与兼容」）。
 
 ---
 
@@ -61,10 +61,10 @@ Manage-Overlay.ps1 -Action audit     -Target "C:\...\Ruyi-offline" [-Json]
 数据目录解析优先级（`dataRoot()`）：
 
 ```
-RUYI_HOME  →  WIN_CLAUDE_WORKBENCH_HOME  →  ~/.win-claude-workbench（默认）
+RUYI_HOME  →  WIN_CLAUDE_WORKBENCH_HOME（旧变量名，只读）  →  ~/.ruyi-workbench（默认）
 ```
 
-新变量 `RUYI_HOME` 优先，旧变量继续识别（至少保留一个大版本，兼容存量部署）。目录下含：`config.json`、`sessions/*.json`（原子写：先 `.tmp` 再 rename；损坏文件改名 `.corrupt` 隔离而非删）、`uploads/*`、`generated/*`（含生成的 `.mcp.json`）、`logs/*`、`checkpoints/<sessionId>/*`（文件检查点 journal + 压缩前历史快照）、`playbooks/*.json`（用户自定义任务模板）、`webcache/<sha256(url)>.json`（联网检索正文缓存）。
+新变量 `RUYI_HOME` 优先，旧变量继续识别（兼容存量部署）。**3.0 起默认目录改名**：旧默认目录 `~/.win-claude-workbench` 在首次启动（`serve`，且没设任何数据根环境变量）时自动搬成 `~/.ruyi-workbench`，原处留一个指回新目录的目录联接（写死旧路径的脚本、计划任务、Claude CLI 里的旧登记照样能用）；旧目录里有正在运行的实例、或搬不动（被占用、权限）时，本次继续用旧目录，启动日志记一笔 `data_root_migration`，下次启动再试。目录下含：`config.json`、`sessions/*.json`（原子写：先 `.tmp` 再 rename；损坏文件改名 `.corrupt` 隔离而非删）、`uploads/*`、`generated/*`（含生成的 `.mcp.json`）、`logs/*`、`checkpoints/<sessionId>/*`（文件检查点 journal + 压缩前历史快照）、`playbooks/*.json`（用户自定义任务模板）、`webcache/<sha256(url)>.json`（联网检索正文缓存）。
 
 覆盖示例：
 
@@ -172,15 +172,15 @@ claude.cmd -p "Reply with exactly: ENDPOINT_OK"
 
 **第五步 · 绑定到工作台**
 
-工作台配置 `claudePath`（留空则自动探测）。确认 `~/.win-claude-workbench/config.json` 中 `claudePath` 已指向 CLI（如 `"claude.cmd"`）。注册 MCP server（让 Claude CLI 能调用工作台工具）：
+工作台配置 `claudePath`（留空则自动探测）。确认 `~/.ruyi-workbench/config.json` 中 `claudePath` 已指向 CLI（如 `"claude.cmd"`）。注册 MCP server（让 Claude CLI 能调用工作台工具）：
 
 ```powershell
 # 方式一：工作台 install 子命令（内部调用 claude mcp add-json）
 node app\server.js install
 
 # 方式二：手动注册（推荐——见下方 add-json 已知问题）
-claude mcp add win-claude-workbench --scope user `
-  -e "WIN_CLAUDE_WORKBENCH_HOME=$env:USERPROFILE\.win-claude-workbench" `
+claude mcp add ruyi --scope user `
+  -e "RUYI_HOME=$env:USERPROFILE\.ruyi-workbench" `
   -- "C:\Program Files\nodejs\node.exe" `
   "<工作台路径>\ruyi-workbench\app\server.js" `
   mcp
@@ -191,7 +191,7 @@ claude mcp add win-claude-workbench --scope user `
 **第六步 · 验证**
 
 ```powershell
-claude mcp list                    # 应显示: win-claude-workbench - ✔ Connected
+claude mcp list                    # 应显示: ruyi - ✔ Connected（3.0 之前登记的 win-claude-workbench 请先 claude mcp remove 掉，install 子命令会自动做）
 node app\server.js doctor          # 应显示: claudeWorks: true
 ```
 
@@ -217,7 +217,7 @@ node app\server.js doctor          # 应显示: claudeWorks: true
 - `modelsApiKey` 按 `claudeAuthMode` 精确写入 `ANTHROPIC_AUTH_TOKEN`（`bearer`）或 `ANTHROPIC_API_KEY`（`x-api-key`），并**强制清空另一个**——避免两者同时存在时 CLI 认错认证方式；`auto` 保留旧的「两者都发」兜底行为。
 - `model` → `ANTHROPIC_MODEL`。
 
-任何一项留空，则该项继续沿用继承的环境变量（未配置=行为不变）。workbench 另外注入 `WIN_CLAUDE_WORKBENCH_HOME` 和（如有配置）`MAX_THINKING_TOKENS` / `WCW_PERMISSION_TIMEOUT_MS`。
+任何一项留空，则该项继续沿用继承的环境变量（未配置=行为不变）。workbench 另外注入 `RUYI_HOME`（3.0 之前是 `WIN_CLAUDE_WORKBENCH_HOME`）和（如有配置）`MAX_THINKING_TOKENS` / `WCW_PERMISSION_TIMEOUT_MS`。
 
 以下用户级环境变量仍可能干扰第三方端点配置，**若走纯手动 `setx` 路径（未在工作台前端填写对应字段），修改或排查时必须逐一检查**——凡是在工作台设置里已经配置了对应字段的，下表前两项由 `buildClaudeCliEnv` 自动处理，无需手动排查：
 
@@ -310,7 +310,7 @@ foreach ($v in $vars) {
 
 **ACC 传输与工具面（49c/49d）**：ACC server 支持三种传输——`stdio`（本地子进程）、`SSE`（Server-Sent Events，适合远端桥接）与 `Streamable HTTP`（统一流式入口，推荐新接入）。`ACC_TOOLSETS` 允许按场景子集注册工具（如只暴露截图/OCR/查找等只读族给低权限会话），在 MCP 配置中声明 `toolset` 字段即可限定可见工具面，无需修改 server 代码。
 
-**MCP 配置导入器（48c）**：工作台设置 → 集成/MCP 面板支持直接粘贴或导入外部 `mcp.json` 片段，自动校验 schema、合并到现有配置并即时生效（无需手动编辑 `~/.win-claude-workbench/generated/.mcp.json`）。导入时会做去重——同名 server id 按「保留本地、提示冲突」处理。
+**MCP 配置导入器（48c）**：工作台设置 → 集成/MCP 面板支持直接粘贴或导入外部 `mcp.json` 片段，自动校验 schema、合并到现有配置并即时生效（无需手动编辑 `~/.ruyi-workbench/generated/.mcp.json`）。导入时会做去重——同名 server id 按「保留本地、提示冲突」处理。
 
 **offline wheels 安装**：ACC 支持离线部署——`python installer/build_offline_package.py`（需联网一次）生成含 CPython 3.12 + 全部 wheels + Playwright Chromium 的 zip，目标机解压跑 `install.bat` 即可，无需公网。默认 OCR 调用 Windows.Media.Ocr（`winsdk`），不使用 Tesseract；构建、安装与导入探针都会验证 `winsdk`，且 CPython 3.12 是因为其提供 cp312 wheel。旧安装做 overlay 时先运行 `update.bat --deps`（安装 uiautomation / comtypes / winsdk）再运行 `update.bat --code`。可选依赖缺失时对应工具优雅降级，不崩服务；`write_pdf` 的中文字体按「微软雅黑 → 宋体 → 内置 STSong-Light CID → Helvetica」顺序注册。
 
@@ -543,7 +543,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 ### 7.4 从 2.7.0 升级
 
-- **怎么升**：下载 2.8.0 的 Slim 或 Full **完整包**，**解压到一个新目录**，关掉 2.7.0 之后从新目录启动。数据目录（默认 `~/.win-claude-workbench`，或 `RUYI_HOME` 指的地方）不在安装目录里，新版首次启动时自动迁移。**2.8.0 的覆盖包套不到 2.7.0 上**（precheck 按版本拒绝，见 §1.3）。旧目录先别删：确认新版正常之前，它就是现成的回退路径（回退前的备份见 §7.5）。第 107 波 P1 在真包上演练过这一条：2.7.0 新建的数据 → 2.8.0 启动后 `configSchema` 12、下面第 4 条那三个开关打开，其余键原样。
+- **怎么升**：下载 2.8.0 的 Slim 或 Full **完整包**，**解压到一个新目录**，关掉 2.7.0 之后从新目录启动。数据目录（默认 `~/.ruyi-workbench`，3.0 之前叫 `~/.win-claude-workbench`；或 `RUYI_HOME` 指的地方）不在安装目录里，新版首次启动时自动迁移。**2.8.0 的覆盖包套不到 2.7.0 上**（precheck 按版本拒绝，见 §1.3）。旧目录先别删：确认新版正常之前，它就是现成的回退路径（回退前的备份见 §7.5）。第 107 波 P1 在真包上演练过这一条：2.7.0 新建的数据 → 2.8.0 启动后 `configSchema` 12、下面第 4 条那三个开关打开，其余键原样。
 - **`CONFIG_SCHEMA` 由 11 抬到 12**（第 107 波 T1）。除下面点名的那一条之外没有别的配置迁移：其余新键仍是在首次读配置时取默认值并回写。
 - **升级用户会自动获得四件**，都不经确认：
   1. **管家代批默认开**（`stewardExemptDelegationV1`）—— 2.7.0 里配着「智能自动」的线程从此可能被管家代批。不想要就按 §7.2 关掉。
@@ -580,4 +580,4 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 
 ## 附：品牌与兼容（v1.0-S9 发布工程）
 
-对外产品名为「如意 Ruyi」。软品牌（UI 文案 / 标题 / 空态 / favicon / 环境变量 / 合规文件）与硬标识改名均已落地：**目录名** `win-claude-workbench/` → `ruyi-workbench/`、**可执行文件名** `WinClaudeWorkbench.exe` → `Ruyi.exe`（启动/检测脚本双名兼容旧名）、**版本** → `2.0.0`。以下**存量兼容标识有意保持不变**（存量接入破坏面，v2.0 起维持现状）：MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`。
+对外产品名为「如意 Ruyi」。软品牌（UI 文案 / 标题 / 空态 / favicon / 环境变量 / 合规文件）与硬标识改名均已落地：**目录名** `win-claude-workbench/` → `ruyi-workbench/`、**可执行文件名** `WinClaudeWorkbench.exe` → `Ruyi.exe`（启动/检测脚本双名兼容旧名）、**版本** → `2.0.0`。**3.0 起剩下的存量兼容标识也已收口**：MCP server id `win-claude-workbench` → `ruyi`（`install` 与安装脚本先移除旧登记；Kimi 的旧条目由所有权旁车自动清；Agent 角色里写的旧 id 照样认）、默认数据目录 `~/.win-claude-workbench` → `~/.ruyi-workbench`（自动迁移，见 §1 数据目录）、离线插件市场 `win-workbench-offline` → `ruyi-offline`（安装脚本先卸旧的）；环境变量只写 `RUYI_HOME`，旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读。

@@ -30,7 +30,7 @@ async function runCase(label, desktopMcp, wantPresent, port) {
     // Read the generated global mcp config on disk.
     const cfgPath = path.join(HOME, 'generated', 'workbench.mcp.json');
     let generated = null; try { generated = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); } catch { /* ignore */ }
-    ok(generated && generated.mcpServers && generated.mcpServers['win-claude-workbench'], 'generated config always has win-claude-workbench');
+    ok(generated && generated.mcpServers && generated.mcpServers['ruyi'], 'generated config always has ruyi');
     const acc = generated && generated.mcpServers && generated.mcpServers['ai-computer-control'];
     if (wantPresent) {
       ok(!!acc, 'mcpServers contains ai-computer-control');
@@ -40,7 +40,7 @@ async function runCase(label, desktopMcp, wantPresent, port) {
     } else {
       ok(!acc, 'mcpServers OMITS ai-computer-control (back-compat)');
       const keys = generated ? Object.keys(generated.mcpServers) : [];
-      ok(keys.length === 1 && keys[0] === 'win-claude-workbench', 'only win-claude-workbench present when disabled');
+      ok(keys.length === 1 && keys[0] === 'ruyi', 'only ruyi present when disabled');
     }
   } catch (e) { console.log('ERROR [' + label + '] ' + (e && e.message || e)); out.fail++; }
   finally {

@@ -39,14 +39,14 @@ Full 包的发布契约要求内置 CPython 3.12、固定的 `winsdk==1.0.0b10`
 安装脚本会尝试执行：
 
 ```powershell
-claude mcp add-json win-claude-workbench "{...}" -s user
+claude mcp add-json ruyi "{...}" -s user
 ```
 
 > **PowerShell 上的已知问题**：在 PowerShell 中调用 `claude mcp add-json` 时，JSON 字符串中的双引号会被 `.cmd` 文件的 `cmd.exe` 参数解析层吞掉，导致 `Invalid configuration: : Invalid input` 错误。**改用 `claude mcp add`（非 JSON 版）可绕过**：
 >
 > ```powershell
-> claude mcp add win-claude-workbench --scope user `
->   -e "WIN_CLAUDE_WORKBENCH_HOME=$env:USERPROFILE\.win-claude-workbench" `
+> claude mcp add ruyi --scope user `
+>   -e "RUYI_HOME=$env:USERPROFILE\.ruyi-workbench" `
 >   -- "C:\Program Files\nodejs\node.exe" `
 >   "<工作台路径>\ruyi-workbench\app\server.js" `
 >   mcp
@@ -60,21 +60,21 @@ claude mcp add-json win-claude-workbench "{...}" -s user
 .\Ruyi.exe mcp-config
 ```
 
-该命令会打印生成的 MCP JSON 文件路径。把其中 `mcpServers.win-claude-workbench` 配置加入 Claude CLI 的 MCP 配置即可。
+该命令会打印生成的 MCP JSON 文件路径。把其中 `mcpServers.ruyi` 配置加入 Claude CLI 的 MCP 配置即可(3.0 之前的服务名是 `win-claude-workbench`,旧登记用 `claude mcp remove win-claude-workbench` 删掉,安装脚本会自动做)。
 
 ## 插件/技能
 
 包内带本地 marketplace：
 
 ```text
-resources\plugins\win-workbench-offline
+resources\plugins\ruyi-offline
 ```
 
 安装脚本会尝试：
 
 ```powershell
-claude plugin marketplace add .\resources\plugins\win-workbench-offline --scope user
-claude plugin install offline-toolkit@win-workbench-offline --scope user
+claude plugin marketplace add .\resources\plugins\ruyi-offline --scope user
+claude plugin install offline-toolkit@ruyi-offline --scope user
 ```
 
 如果内网 Claude CLI 的插件命令不可用，可以只用 MCP 工具；核心功能不依赖插件。
@@ -100,13 +100,13 @@ claude plugin install offline-toolkit@win-workbench-offline --scope user
 在 Claude CLI 中可让它调用 MCP 工具，例如：
 
 ```text
-请使用 win-claude-workbench 的 project_snapshot 查看当前项目结构。
+请使用 ruyi 的 project_snapshot 查看当前项目结构。
 ```
 
 也可以验证新增离线能力：
 
 ```text
-请使用 win-claude-workbench 的 dependency_inventory 和 code_review_scan 审查当前项目。
+请使用 ruyi 的 dependency_inventory 和 code_review_scan 审查当前项目。
 ```
 
 ## 边界

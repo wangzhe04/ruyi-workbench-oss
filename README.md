@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-420-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%20e2e-421-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20%E8%BF%90%E8%A1%8C%E6%97%B6%E4%BE%9D%E8%B5%96-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,9 +71,9 @@
 
 | | |
 |---|---|
-| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 6.3 万行，由 `app/src/` 的 65 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 61 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
+| **单文件、零依赖** | 后端运行产物是一个 `app/server.js`（约 6.3 万行，由 `app/src/` 的 66 个有序模块拼接，字节级可复现），**零 npm 运行时依赖**，只用 Node 内建模块；前端是 61 个原生 ES 模块，无框架、无构建。内网安全审查要看的面最小。 |
 | **107 个原生工具 · 108 个 ACC 工具** | 线程里可用的文件、终端、搜索、Git、联网、Office 交接、子代理编排等 65 个，加上管家专用的 42 个；可选的桌面控制组件 ACC 再提供截图 / OCR / UIA / 键鼠 / 窗口 / 浏览器 / Office / PDF 等 108 个工具。 |
-| **8 套模板 · 10 种角色 · 420 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 420 项 e2e（默认回归 413 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 103 组 unit suite 与 17 组 ACC smoke，Windows CI 每次提交都跑。 |
+| **8 套模板 · 10 种角色 · 421 项 e2e** | 内置 8 套多 Agent 工作流与 10 种节点角色；仓库里有 421 项 e2e（默认回归 414 项，另有 7 项需要真实 API / 桌面环境的 live probe 按需启用），另含 103 组 unit suite 与 17 组 ACC smoke，Windows CI 每次提交都跑。 |
 
 > 原名 **Win Claude Workbench**，自 v0.8 起更名**如意 Ruyi**：项目名去掉 "Claude" 一是规避商标风险，二是旧提示词曾让 provider 模型自称「我是 Claude」。「如意」取「称心如意、如你所愿」之意，图标为青花如意云纹。
 
@@ -436,8 +436,8 @@ node .\app\server.js serve --open        # 只监听 127.0.0.1，默认端口 87
 
 | 项 | 说明 |
 |---|---|
-| 数据目录 | 默认 `~/.win-claude-workbench`（存量兼容名）：配置、线程、检查点、审计、记忆、技能、用量都在这里 |
-| `RUYI_HOME` | 指定数据目录（优先于旧变量 `WIN_CLAUDE_WORKBENCH_HOME`） |
+| 数据目录 | 默认 `~/.ruyi-workbench`：配置、线程、检查点、审计、记忆、技能、用量都在这里（3.0 之前叫 `~/.win-claude-workbench`，首次启动自动迁移，见下文） |
+| `RUYI_HOME` | 指定数据目录（旧变量 `WIN_CLAUDE_WORKBENCH_HOME` 仍认，`RUYI_HOME` 优先） |
 | `RUYI_RG_PATH` | 指定 ripgrep 路径；否则依次用发布包 `vendor-bin/rg.exe`、`PATH` 里的 `rg`，都没有时用内置扫描器（大仓库慢一些） |
 | `RUYI_TOOLBOX_HOME` | ruyi-toolbox 组件登记目录（默认 `~/.ruyi-toolbox`） |
 | `CLAUDE_CLI_PATH` / `KIMI_CLI_PATH` | 指定 Agent CLI 路径（也可以在设置里填） |
@@ -474,7 +474,7 @@ node .\app\server.js serve --open        # 只监听 127.0.0.1，默认端口 87
 
 <details><summary><b>数据在哪？怎么卸载？</b></summary>
 
-数据在数据目录（默认 `~/.win-claude-workbench`，可用 `RUYI_HOME` 改）。卸载就是删掉解压出来的安装目录；要清掉数据再删数据目录。零遥测，没有任何数据上报。
+数据在数据目录（默认 `~/.ruyi-workbench`，可用 `RUYI_HOME` 改）。卸载就是删掉解压出来的安装目录；要清掉数据再删数据目录。零遥测，没有任何数据上报。
 </details>
 
 <details><summary><b>解压时提示路径过长？</b></summary>
@@ -494,7 +494,7 @@ Windows 10/11 是一等目标，发布包和桌面控制只支持 Windows。源�
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            后端源码：65 个有序模块（改这里，再跑 build.js）
+│   ├── app/src/            后端源码：66 个有序模块（改这里，再跑 build.js）
 │   ├── app/server.js       后端运行产物（由 app/build.js 拼接，零 npm 运行时依赖）
 │   ├── app/public/         前端：index.html + 61 个原生 ES 模块 + 分层 CSS + 中英语言包
 │   ├── desktop/            WinForms + WebView2 桌面壳
@@ -565,7 +565,7 @@ node dev-harness/<改动相关>.e2e.js             # 单件：末行 ... E2E: AL
 - **零遥测**：唯一的出站流量是你配置的模型端点、搜索后端和你让它访问的网址。
 - 本项目是 **clean-room 独立实现**：不含 Anthropic 泄露源码，不分发官方 Claude Code（用户自备），不复制第三方插件源码。随包前端静态库（marked、highlight.js、mermaid 等）的许可义务见 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)。
 
-**存量兼容标识**：为了不破坏已有的接入，MCP server id `win-claude-workbench`、默认数据目录 `~/.win-claude-workbench`、环境变量 `WIN_CLAUDE_WORKBENCH_HOME`（`RUYI_HOME` 优先）有意保持不变。
+**3.0 统一命名**：数据目录 `~/.win-claude-workbench` → `~/.ruyi-workbench`（首次启动自动搬过去，旧路径留一个指回新目录的目录联接，写死旧路径的脚本、快捷方式照样能用；旧目录正被别的实例占用时先沿用、下次启动再迁）；MCP server id `win-claude-workbench` → `ruyi`（Claude Code / Kimi Code 里的工具名随之是 `mcp__ruyi__*`；`install` 与安装脚本会先移除旧登记，Kimi 的旧条目自动清理，Agent 角色里写的旧 id 照样认）；离线插件市场 `win-workbench-offline` → `ruyi-offline`；环境变量只写 `RUYI_HOME`，旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读。
 
 ## 参与开源
 

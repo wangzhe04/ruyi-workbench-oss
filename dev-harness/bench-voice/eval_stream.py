@@ -125,7 +125,8 @@ def main():
         out = {"clean": {}, "noisy": {}, "hard": {}}
         t0 = time.perf_counter()
         if name == "wb":
-            rt = json.load(open(os.path.expanduser("~/.win-claude-workbench/runtime.json")))
+            home = next((d for d in (os.path.expanduser("~/.ruyi-workbench"), os.path.expanduser("~/.win-claude-workbench")) if os.path.isdir(d)), os.path.expanduser("~/.ruyi-workbench"))
+            rt = json.load(open(os.path.join(os.environ.get("RUYI_HOME") or home, "runtime.json")))
             for cond, key in (("clean", "wav"), ("noisy", "noisy"), ("hard", "hard")):
                 for m in man: out[cond][m["id"]] = run_qwen(m[key], rt["port"], rt["token"]); time.sleep(1.0)
         elif name == "qwen":

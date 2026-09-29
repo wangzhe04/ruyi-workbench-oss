@@ -1,6 +1,6 @@
 // 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, onRegistered }) {
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
   // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
@@ -196,6 +196,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     return out;
   };
   activeAgentRuns.set(runId, runtime);
+  // 已登记为运行中:launchPersistedAgentRun 等的就是这一刻(见那边的注释)。
+  if (typeof onRegistered === 'function') { try { onRegistered(); } catch { /* 回调失败不影响运行 */ } }
   // 对抗轮 P2: 这次首落盘在下方 try/finally 保护区之外,失败必须同步撤掉 Map 注册再抛——否则 runId 永久悬挂为
   // "live 僵尸"(列表恒 live、删除恒 409、resume 恒"已在运行"),直到进程重启。
   try { await saveAgentRun(run); } catch (e) { activeAgentRuns.delete(runId); throw e; }
@@ -1137,15 +1139,22 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   const parentSession = await loadSession(sessionId).catch(() => null);
   if (!parentSession) return { ok: false, error: 'session not found' };
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
-  void runAgentWorkflow({
+  // 回「已受理」之前先等到这次运行登记进 activeAgentRuns(或者它在登记前就退出了)。修前是发起就回:runAgentWorkflow
+  // 在登记之前还有几处 await(读角色库、落盘),受理之后紧跟着的 pause / stop / 插话会看到「工作流当前未运行」被 409 拒掉
+  // —— 用户点「重试」再立刻点「暂停」就会撞上;高负载下 subagent.e2e 的 (a4) 稳定复现(master 同样)。
+  let markRegistered = null;
+  const registered = new Promise(resolve => { markRegistered = resolve; });
+  const finished = runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
     permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
+    onRegistered: () => markRegistered(),
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
   });
+  await Promise.race([registered, finished]);
   return { ok: true, accepted: true, runId };
 }
 
@@ -2282,10 +2291,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
             });
             pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
@@ -2294,10 +2304,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)

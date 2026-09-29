@@ -107,7 +107,7 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
     'native Claude parent/child lifecycle is projected into a persistent read-only workbench DAG and refreshed chat card');
     const argv = JSON.parse(fs.readFileSync(capture, 'utf8')); const idx = argv.indexOf('--agents'); const sent = idx >= 0 ? JSON.parse(argv[idx + 1]) : {};
     ok(sent['security-checker'] && sent['security-checker'].model === 'sonnet' && sent['security-checker'].maxTurns === 7, '--agents receives custom model and maxTurns');
-    ok(sent['security-checker'] && sent['security-checker'].mcpServers[0] === 'win-claude-workbench' && sent['security-checker'].permissionMode === 'dontAsk', '--agents receives MCP and permission settings');
+    ok(sent['security-checker'] && sent['security-checker'].mcpServers[0] === 'ruyi' && sent['security-checker'].permissionMode === 'dontAsk', '--agents receives MCP and permission settings (pre-3.0 id win-claude-workbench in a saved role is read as ruyi)');
   } finally { kill(wb); await sleep(250); }
 
   const continuationCapture = path.join(HOME, 'claude-continuation.jsonl');

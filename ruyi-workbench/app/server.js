@@ -53,15 +53,67 @@ function appRoot() {
   return path.resolve(__dirname, '..');
 }
 
-function dataRoot() {
-  // v0.8-S8 品牌落地:RUYI_HOME 优先于旧的 WIN_CLAUDE_WORKBENCH_HOME。兼容策略——两者都识别,
-  // 新变量优先;旧变量至少保留一个大版本(兼容承诺),存量部署/脚本不受影响。子进程注入的
-  // 仍是旧变量名(值=已解析 dataRoot),故老 .mcp.json 与桥接子进程照常工作。默认目录名保持
-  // .win-claude-workbench 不变(改目录名会破坏存量用户数据迁移,与 MCP id/exe 一样)。
-  // 【存量兼容标识 — 发布后至少保留一个大版本】v1.0-S9 发布确认:目录改名 ruyi-workbench 已落地,
-  // 但 env 变量名 WIN_CLAUDE_WORKBENCH_HOME 与默认数据目录 .win-claude-workbench 有意保持不变(存量兼容,建议 v2.0 收口)。
-  return process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(os.homedir(), '.win-claude-workbench');
+// 3.0 收口(原 v1.0-S9「建议 v2.0 收口」):数据目录缺省名改为 .ruyi-workbench。解析顺序:
+//   RUYI_HOME → WIN_CLAUDE_WORKBENCH_HOME(旧变量名,只读兼容,不再往子进程里写)→ ~/.ruyi-workbench;
+//   新目录还不存在、旧目录 ~/.win-claude-workbench 是真目录(迁移没成或还没轮到)时继续用旧目录 —— 数据不会因为改名「消失」。
+// 迁移(把旧目录搬成新名、原处留一个指回来的目录联接)只在直接运行 serve 时做一次,见 migrateLegacyDataRoot。
+const RUYI_DATA_DIR_NAME = '.ruyi-workbench';
+const LEGACY_DATA_DIR_NAME = '.win-claude-workbench';
+function defaultDataRoots() {
+  const home = os.homedir();
+  return { next: path.join(home, RUYI_DATA_DIR_NAME), legacy: path.join(home, LEGACY_DATA_DIR_NAME) };
 }
+function lstatOrNull(p) {
+  try { return fs.lstatSync(p); } catch { return null; }
+}
+function dataRoot() {
+  if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
+  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
+  const { next, legacy } = defaultDataRoots();
+  if (lstatOrNull(next)) return next;
+  const old = lstatOrNull(legacy);
+  return old && old.isDirectory() && !old.isSymbolicLink() ? legacy : next;
+}
+// 数据根的别名:迁移后旧位置上留的目录联接。敏感子树判定(03 isSensitiveDataPath)与文件树隐藏都要认它,
+// 否则经旧路径的词法写法能绕开「数据根下的控制面文件一律拒读」。
+function dataRootAliases() {
+  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return [];
+  const { next, legacy } = defaultDataRoots();
+  const old = lstatOrNull(legacy);
+  return dataRoot() === next && old && old.isSymbolicLink() ? [legacy] : [];
+}
+function pidAlive(pid) {
+  const n = Number(pid);
+  if (!Number.isInteger(n) || n <= 0 || n === process.pid) return false;
+  try { process.kill(n, 0); return true; } catch (e) { return Boolean(e && e.code === 'EPERM'); }
+}
+// 一次性迁移:~/.win-claude-workbench → ~/.ruyi-workbench,原处留目录联接(Windows 普通用户就能建;其它平台是目录符号链接)
+// 指回新目录 —— 用户全局 Claude 配置里登记的 MCP 路径、计划任务、快捷方式里写死的旧路径照样能用。
+// 只在:直接运行、缺省命令 serve、没有任何数据根环境变量、新目录不存在、旧目录是真目录、旧目录里没有别的活实例
+// (runtime.json 的 pid 还活着就不动)时做。搬不动(被占用、跨卷、权限)就原样继续用旧目录,下次启动再试。
+function migrateLegacyDataRoot() {
+  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return { moved: false, reason: 'env' };
+  const { next, legacy } = defaultDataRoots();
+  if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
+  const old = lstatOrNull(legacy);
+  if (!old || !old.isDirectory() || old.isSymbolicLink()) return { moved: false, reason: 'no-legacy' };
+  try {
+    const rt = JSON.parse(fs.readFileSync(path.join(legacy, 'runtime.json'), 'utf8'));
+    if (rt && pidAlive(rt.pid)) return { moved: false, reason: 'legacy-in-use', pid: rt.pid };
+  } catch { /* 没有 runtime.json 或读不了:没有活实例的证据,照常迁移 */ }
+  try { fs.renameSync(legacy, next); } catch (e) { return { moved: false, reason: 'rename-failed', error: String(e && e.code || e) }; }
+  let junction = true;
+  try { fs.symlinkSync(next, legacy, 'junction'); } catch { junction = false; }
+  return { moved: true, from: legacy, to: next, junction };
+}
+// 缺省命令就是 serve(`Ruyi.exe`、`server.js`、`server.js serve --port N`、`server.js --port N`);mcp / install / doctor /
+// mcp-config 这些子命令不迁移(MCP 子进程本来就由父进程经 RUYI_HOME 指到数据根)。
+function isDirectServeInvocation() {
+  if (require.main !== module) return false;
+  return !process.argv.slice(2).some(a => ['mcp', 'install', 'doctor', 'mcp-config'].includes(String(a)));
+}
+const DATA_ROOT_MIGRATION = isDirectServeInvocation() ? migrateLegacyDataRoot() : null;
+
 
 function externalRoot() {
   return isPkg() ? path.dirname(process.execPath) : appRoot();
@@ -827,6 +879,24 @@ async function recordInstallLaunch(launchMode) {
   } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
 }
 
+// 00b-ruyi-names.js - 3.0 收口:如意自有的对外标识(原 v1.0-S9 注释里「建议 v2.0 收口」的存量兼容标识)。
+// 零出边(不引用任何其他模块的顶层符号),排在 00-boot 之后;所有用到 MCP server id 的模块都只引用这里,不进依赖环。
+// 数据目录的新旧名在 00-boot(路径表 paths 在那里、加载即算)。
+
+// 3.0 收口:如意自己的 MCP server id。Claude Code / Kimi Code 里看到的工具名是 mcp__ruyi__<工具>(修前是
+// mcp__win-claude-workbench__<工具>)。旧 id 只用来认出并清掉存量登记(Kimi 的 mcp.json 由所有权旁车自动清,
+// Claude Code 的用户登记在 install 时一并移除),以及在导入外部连接器时继续当保留名。
+const RUYI_MCP_SERVER_ID = 'ruyi';
+const LEGACY_RUYI_MCP_SERVER_IDS = Object.freeze(['win-claude-workbench']);
+const RUYI_MCP_CLI_TOOL_PREFIX = `mcp__${RUYI_MCP_SERVER_ID}__`;
+function isRuyiMcpServerId(id) {
+  return id === RUYI_MCP_SERVER_ID || LEGACY_RUYI_MCP_SERVER_IDS.includes(id);
+}
+// 存量配置(Agent 角色的 mcpServers 白名单)里写的旧 id 一律当新 id 认,否则改名后如意自己的 MCP 会被白名单滤掉。
+function canonicalRuyiMcpServerId(id) {
+  return isRuyiMcpServerId(id) ? RUYI_MCP_SERVER_ID : id;
+}
+
 // 01b-route-auth.js - 110-2a: 从 01-config.js 搬出的 ROUTE_AUTH 路由鉴权表(纯搬家,零行为变更)。
 const ROUTE_AUTH = [
   // open: 低敏读(host 门已过,无 token 需求)
@@ -1368,7 +1438,7 @@ function normalizeAgentRole(raw, opts = {}) {
     },
     openaiTools: strArr(raw.openaiTools || (raw.tools && raw.driver !== 'claude' ? raw.tools : []), 128),
     claudeTools: strArr(raw.claudeTools || (raw.driver === 'claude' ? raw.tools : []), 128),
-    mcpServers: strArr(raw.mcpServers, 32),
+    mcpServers: [...new Set(strArr(raw.mcpServers, 32).map(canonicalRuyiMcpServerId))], // 3.0:旧 id win-claude-workbench → ruyi
     permissionMode,
     budgets: {
       openai: Math.min(300, Math.max(1, Math.round(Number(budgets0.openai != null ? budgets0.openai : (raw.maxIters || 100))) || 100)),
@@ -3578,7 +3648,7 @@ async function syncMcpServersToKimi(config) {
       }
       // Kimi's MCP transport defaults to 60 s per tool call. Ruyi's own long-running bridge and ACC
       // both intentionally support longer operations, so advertise a matching transport budget.
-      if (id === 'win-claude-workbench') {
+      if (id === RUYI_MCP_SERVER_ID) {
         kimiServer.startupTimeoutMs = Math.max(Number(kimiServer.startupTimeoutMs) || 0, 60000);
         kimiServer.toolTimeoutMs = Math.max(Number(kimiServer.toolTimeoutMs) || 0, 900000);
       } else if (id === 'ai-computer-control') {
@@ -3694,9 +3764,9 @@ function classifyAgentMcpCandidate(raw, origin, view, managedKimi) {
   const id = String((raw && raw.id) || '');
   if (!raw || !id) return { status: 'skipped', reason: 'invalid' };
   // Ruyi 保留 id:绝不能作为外部服务器导入(否则与内部桥/桌面内置连接器同 id 冲突)。
-  //   win-claude-workbench = 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
+  //   ruyi(3.0 前叫 win-claude-workbench)= 工作台自有权限桥(generateMcpConfig 永远单独注入,不在 externalMcpServers);
   //   ai-computer-control   = 桌面控制内置连接器(detectDesktopMcp 单独探测,mcpConnectorMutateError 视为 builtin)。
-  if (id === 'win-claude-workbench' || id === 'ai-computer-control') return { status: 'skipped', reason: 'reserved' };
+  if (isRuyiMcpServerId(id) || id === 'ai-computer-control') return { status: 'skipped', reason: 'reserved' };
   if (id.startsWith('toolbox-')) return { status: 'skipped', reason: 'toolbox' }; // toolbox- 前缀归自动发现所有:老版本同步过去的残留不导回来
   if (origin === 'kimi' && managedKimi && managedKimi.has(id)) return { status: 'skipped', reason: 'ruyi-managed' };
   const list = view && Array.isArray(view.externalMcpServers) ? view.externalMcpServers : [];
@@ -4629,7 +4699,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
   if (!config) return;
   try {
     for (const entry of resolveExternalMcpServers(config)) {
-      if (mcpServers[entry.id]) continue;    // never clobber win-claude-workbench or an earlier entry
+      if (mcpServers[entry.id]) continue;    // never clobber Ruyi's own server (id 'ruyi') or an earlier entry
       let server;
       if (entry.transport === 'sse' || entry.transport === 'http') {
         server = { type: entry.transport, url: entry.url };
@@ -4661,15 +4731,14 @@ async function generateMcpConfig(mode) {
   const configPath = mcpConfigFilePath();
   const mcp = {
     mcpServers: {
-      // 【存量兼容标识 — 发布后至少保留一个大版本】MCP server id 'win-claude-workbench' 已写进用户的
-      // .mcp.json;硬改会断存量接入。v1.0-S9 发布确认:保持不变(建议 v2.0 评估加别名 ruyi-workbench 双写后收口)。
-      'win-claude-workbench': {
+      // 3.0 收口:server id 由 'win-claude-workbench' 改为 'ruyi'(RUYI_MCP_SERVER_ID;存量登记的清理见 00-boot 注释)。
+      [RUYI_MCP_SERVER_ID]: {
         type: 'stdio',
         command: self.command,
         args: self.args,
         env: {
-          // 【存量兼容标识】env 变量名保持旧名(子进程/桥接照常工作),值=已解析 dataRoot。
-          WIN_CLAUDE_WORKBENCH_HOME: paths.data,
+          // MCP 子进程的数据根 = 父进程已解析的 dataRoot(3.0 起只写 RUYI_HOME;旧变量名 WIN_CLAUDE_WORKBENCH_HOME 只读兼容)。
+          RUYI_HOME: paths.data,
         },
       },
     },
@@ -4689,13 +4758,13 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   const configPath = path.join(paths.generated, `workbench.mcp.${sessionId}.json`);
   const mcp = {
     mcpServers: {
-      // 【存量兼容标识 — 发布后至少保留一个大版本】同 generateMcpConfig:MCP server id 保持 'win-claude-workbench'(v1.0-S9 确认)。
-      'win-claude-workbench': {
+      // 同 generateMcpConfig:server id 是 RUYI_MCP_SERVER_ID。
+      [RUYI_MCP_SERVER_ID]: {
         type: 'stdio',
         command: self.command,
         args: self.args,
         env: {
-          WIN_CLAUDE_WORKBENCH_HOME: paths.data, // 【存量兼容标识】env 变量名保持旧名
+          RUYI_HOME: paths.data,
           WCW_SESSION_ID: sessionId,
           WCW_PORT: String(RUNTIME.port),
           WCW_HOST: RUNTIME.host,
@@ -4722,13 +4791,13 @@ async function generateAgentNodeMcpConfig(subagentId, mode, allowedServerIds) {
   const configPath = await generateSessionMcpConfig(subagentId, mode, Object.keys(TOOL_PACK_DESCRIPTIONS));
   try {
     const raw = JSON.parse(await fsp.readFile(configPath, 'utf8'));
-    const own = raw.mcpServers && raw.mcpServers['win-claude-workbench'];
+    const own = raw.mcpServers && raw.mcpServers[RUYI_MCP_SERVER_ID];
     if (own) own.env = { ...(own.env || {}), WCW_DISABLE_USER_INPUT: '1' };
     // This helper is used only for exec-tier Claude nodes. Preserve their explicit direct-MCP contract;
     // the main interactive Claude path uses adaptive proxies instead.
     addExternalMcpServersToMap(raw.mcpServers, await readConfig().catch(() => null));
     if (Array.isArray(allowedServerIds) && allowedServerIds.length) {
-      const allowed = new Set(allowedServerIds);
+      const allowed = new Set(allowedServerIds.map(canonicalRuyiMcpServerId)); // 3.0:未经清洗的角色(.md 前言)里的旧 id 也认
       raw.mcpServers = Object.fromEntries(Object.entries(raw.mcpServers || {}).filter(([id]) => allowed.has(id)));
     }
     await atomicWriteJson(configPath, raw);
@@ -10314,7 +10383,8 @@ function isSensitiveDataPath(p) {
   // 敏感子路径(相对 dataRoot):明文密钥 config.json、token runtime.json、会话/记忆/计费/审计/工作流状态/带 token 的
   // 生成配置。不含 uploads/checkpoints/webcache/skills/playbooks/agent-worktrees —— 那些是用户产物/内容,合法可读。
   const names = ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs'];
-  const bases = (_dataRootReal && _dataRootReal !== root) ? [root, _dataRootReal] : [root];
+  // 3.0:迁移后旧目录名是指回数据根的联接(00-boot dataRootAliases),经它的词法路径同样要命中。
+  const bases = [...new Set([root, ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
   for (const b of bases) for (const n of names) if (pathWithinRoot(p, path.join(b, n))) return true;
   // 2026-09-06：config.json 的备份族（config.json.prev / config.json.bak-<日期> / config.json.bak-providers-<ts>）
   // 与正本一样含明文密钥；audit-w23 P1#2 探针实测 file_search 能把 .prev 里的 apiKey 搜出来。
@@ -11869,7 +11939,7 @@ class McpStdioClient {
       const init = await this._rpc('initialize', {
         protocolVersion: '2024-11-05',
         capabilities: {},
-        clientInfo: { name: 'win-claude-workbench', version: VERSION }, // 【存量兼容标识】MCP 客户端标识名保持旧名(与 server id 一致)
+        clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 客户端标识名与 server id 一致
       }, 8000);
       this.serverInfo = (init && init.serverInfo) || {};
       this._notify('notifications/initialized', {});
@@ -12183,7 +12253,7 @@ class McpHttpClient {
       const init = await this._rpc('initialize', {
         protocolVersion: '2025-03-26',
         capabilities: {},
-        clientInfo: { name: 'win-claude-workbench', version: VERSION },
+        clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
       }, 10000);
       this.serverInfo = (init && init.serverInfo) || {};
       this._notify('notifications/initialized', {});
@@ -15454,8 +15524,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       // cmd8191 防线: --agents 的推送延后到 runClaudeTurn 的「预算核算与降级阶梯」——角色定义吃 append 之后的剩余预算。
       // v1.4.3: 'auto' mode uses the CLI's built-in risk classifier, no workbench bridge needed.
       if (config.permissionBridge && config.permissionMode !== 'bypass' && config.permissionMode !== 'auto') {
-        // 【存量兼容标识】permission-prompt-tool 名派生自 MCP server id,须与之一致——随 id 保持 win-claude-workbench。
-        args.push('--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt');
+        // permission-prompt-tool 名派生自 MCP server id,须与之一致(RUYI_MCP_CLI_TOOL_PREFIX)。
+        args.push('--permission-prompt-tool', `${RUYI_MCP_CLI_TOOL_PREFIX}permission_prompt`);
       }
       // v1.4.2: use --permission-mode bypassPermissions (the standard CLI flag) instead of the deprecated
       // --dangerously-skip-permissions shortcut. They are functionally equivalent per Anthropic docs, but
@@ -15836,20 +15906,20 @@ async function runClaudeTurn({
     // 两句已并进上面的 <ruyi-environment>(Kimi 版改用原生 AskUserQuestion,经 ACP 落到如意提问卡)。
     // 管家会话不拿那段,两句照旧给它。
     if (!envBrief && interactive && config.includeWorkbenchMcp) {
-      appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call mcp__win-claude-workbench__request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
+      appendSys += `${appendSys ? '\n\n' : ''}When you need information or a choice from the user, call ${RUYI_MCP_CLI_TOOL_PREFIX}request_user_input. Do not use the native AskUserQuestion tool in this workbench.`;
     }
     if (!envBrief && config.includeWorkbenchMcp && config.toolLoadingMode === 'auto') {
-      appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call mcp__win-claude-workbench__tool_search, then invoke the exact result with mcp__win-claude-workbench__tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
+      appendSys += `${appendSys ? '\n\n' : ''}Ruyi uses adaptive tool loading. Only likely tools are listed for this turn. If a Ruyi/desktop/Office capability is missing, call ${RUYI_MCP_CLI_TOOL_PREFIX}tool_search, then invoke the exact result with ${RUYI_MCP_CLI_TOOL_PREFIX}tool_invoke_read, _edit, or _exec according to its returned tier. Never use a lower-tier proxy for a higher-tier target.`;
     }
     if (config.includeWorkbenchMcp) {
       // 核心记忆协议是稳定上下文，和技能/记忆索引一样走 stdin，避免占用 Windows 命令行预算。
       indexSecs.push(getPromptPack(config && config.locale).memoryCoreGuide({
-        list: 'mcp__win-claude-workbench__workbench_memory_list',
-        read: 'mcp__win-claude-workbench__workbench_memory_read',
-        propose: 'mcp__win-claude-workbench__workbench_memory_propose',
-        relationPropose: 'mcp__win-claude-workbench__workbench_memory_relation_propose',
-        revise: 'mcp__win-claude-workbench__workbench_memory_revise',
-        relationRevoke: 'mcp__win-claude-workbench__workbench_memory_relation_revoke',
+        list: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_list`,
+        read: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_read`,
+        propose: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_propose`,
+        relationPropose: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_relation_propose`,
+        revise: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_revise`,
+        relationRevoke: `${RUYI_MCP_CLI_TOOL_PREFIX}workbench_memory_relation_revoke`,
       }));
     }
     if (config.desktopMcp && config.desktopMcp.enabled) {
@@ -16031,7 +16101,7 @@ async function runClaudeTurn({
   }
 
   // 子进程环境由适配器给(Claude:effectiveAnthropicEnv 叠第三方端点/模型 + MAX_THINKING_TOKENS;Kimi:process.env)。
-  const env = adapter.buildEnv(config, { WIN_CLAUDE_WORKBENCH_HOME: paths.data }); // 【存量兼容标识】注入旧 env 变量名给 CLI/MCP 子进程
+  const env = adapter.buildEnv(config, { RUYI_HOME: paths.data }); // 数据根交给 CLI/MCP 子进程(3.0 起只写 RUYI_HOME)
   if (fakeClaude && interactive) env.WCW_FAKE_INTERACTIVE = '1';
   // Let the bridge child outlive the server's auto-deny so the timeouts don't race.
   env.WCW_PERMISSION_TIMEOUT_MS = String(permissionWaitMs(session.id, config, session));   // 128f-⑪:与服务端那一侧同一个数(定时／管家盯着的线程更长)
@@ -19860,7 +19930,7 @@ async function runKimiAcpTurnPrepared(context) {
   let workspaceTurnBaseline = context.workspaceTurnBaseline;
   const env = {
     ...process.env,
-    WIN_CLAUDE_WORKBENCH_HOME: paths.data,
+    RUYI_HOME: paths.data,
     WCW_PERMISSION_TIMEOUT_MS: String(permissionWaitMs(session.id, config, session)),   // 128f-⑪:与服务端那一侧同一个数,子进程不先放弃
     WCW_SESSION_ID: session.id,
     WCW_PORT: String(RUNTIME.port),
@@ -22947,7 +23017,7 @@ function buildRuntimeIdentityFacts() {
 //     权限档、提问弹窗、管家代开三句(providerEnvLines),rg 并进既有能力行(见 buildVolatileParts)。
 const ENGINE_BRIEF_OPEN = '<ruyi-environment>';
 const ENGINE_BRIEF_CLOSE = '</ruyi-environment>';
-const RUYI_MCP_TOOL_PREFIX = 'mcp__win-claude-workbench__'; // 【存量兼容标识】MCP server id 仍是 win-claude-workbench
+const RUYI_MCP_TOOL_PREFIX = RUYI_MCP_CLI_TOOL_PREFIX; // CLI 引擎里如意工具的全名前缀(mcp__ruyi__)
 const _engineBriefMemo = new Map();
 function engineBriefFacts({ engine, config, session, rg } = {}) {
   const cfg = config || {};
@@ -24644,8 +24714,8 @@ const STEWARD_EXEMPT_TOOL_PATTERNS = /send|mail|sms|post_message|pay|purchase|tr
 // 为什么只认精确全名、大小写敏感:原生引擎里外部 MCP 工具恒为 `<serverId>__<工具名>`(04 collectBridgedTools),
 // 且 resolveBridge 内建名优先(裸名 shell_send 永远落到内建实现);CLI 引擎恒为 `mcp__<server>__<工具名>`。
 // 所以裸名只可能是工作台自己的那两个工具。前缀形态【不】放 —— 判据拿不到引擎上下文,而
-// `mcp__win-claude-workbench__shell_send` 在原生引擎里能被一个 id 为 mcp 的外部服务器凑出来
-// (serverId=mcp + 工具名 win-claude-workbench__shell_send);CLI 那两条路上 shell 族在 MCP 子进程里本就是
+// `mcp__ruyi__shell_send` 在原生引擎里能被一个 id 为 mcp 的外部服务器凑出来
+// (serverId=mcp + 工具名 ruyi__shell_send);CLI 那两条路上 shell 族在 MCP 子进程里本就是
 // 引导性报错(12 shellMcpChildGuard),放它没有收益。
 const STEWARD_EXEMPT_NAME_CARVEOUTS = Object.freeze(['shell_send', 'keyboard_send_keys']);
 
@@ -32377,14 +32447,14 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
             if (parentSession) recordCompactUsage(parentSession, provider, forced.sc, { subagentId, runId }); // 代理模式 v2:子代理压缩费用带归属
-            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
             pendingOvershootLearn = estNow; // 45d(b) 窗口学习:重试成功才落(45f P1-1,与主回合同)
             subCompactState.watermark = 0;
             subOk = true; subErr = '';
             iter--; continue;
           }
           if (forced.level === 1) { // L2 失败但 L1 有斩获,试最后一次;下一迭代跳过自动压缩(几秒前 L2 刚失败过)
-            onEvent({ type: 'compact', mode: 'forced_400', subagentId, beforeTokens: estNow });
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', subagentId, beforeTokens: estNow, afterTokens: estimateHistoryTokens([{ role: 'system', content: String(sys || '') }, ...subHistory]) });
             skipAutoCompactOnce = true;
             subOk = true; subErr = '';
             iter--; continue;
@@ -34316,7 +34386,7 @@ const EVAPORATED_PREFIX = '[已省略:';   // marker prefixing an evaporated too
 
 // 110-4a: 节点续点与重规划补丁账本(recordNodeContinuation/REPLAN_*/validateReplanPatch/proposeReplanPatch/applyReplanPatch/rollbackReplanPatch)抽至 09b-replan-ledger.js。
 
-async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background }) {
+async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNodes, onEvent, ctrl: parentCtrl, permModeOverride, maxNodes, existingRun, retryNodeId, retryCascade, contextText, runIdOverride, onComplete, poolPolicy: poolPolicyParam, parentEngine, parentModel, runKind, runTitle, background, onRegistered }) {
   let run, nodes, runId;
   // 代理模式 v2:后台 run(background:true,或恢复的后台 run)转发给父回合的每个事件都打 background:true —— 02c 的
   // 段账本据此不把它们标 cancelled(回合结束不杀它),前端据此把它们画进自己的卡/后台任务条而不是父回合的活动条。
@@ -34512,6 +34582,8 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     return out;
   };
   activeAgentRuns.set(runId, runtime);
+  // 已登记为运行中:launchPersistedAgentRun 等的就是这一刻(见那边的注释)。
+  if (typeof onRegistered === 'function') { try { onRegistered(); } catch { /* 回调失败不影响运行 */ } }
   // 对抗轮 P2: 这次首落盘在下方 try/finally 保护区之外,失败必须同步撤掉 Map 注册再抛——否则 runId 永久悬挂为
   // "live 僵尸"(列表恒 live、删除恒 409、resume 恒"已在运行"),直到进程重启。
   try { await saveAgentRun(run); } catch (e) { activeAgentRuns.delete(runId); throw e; }
@@ -35453,15 +35525,22 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   const parentSession = await loadSession(sessionId).catch(() => null);
   if (!parentSession) return { ok: false, error: 'session not found' };
   const onEvent = () => {}; // management UI polls persisted state; no chat stream is required
-  void runAgentWorkflow({
+  // 回「已受理」之前先等到这次运行登记进 activeAgentRuns(或者它在登记前就退出了)。修前是发起就回:runAgentWorkflow
+  // 在登记之前还有几处 await(读角色库、落盘),受理之后紧跟着的 pause / stop / 插话会看到「工作流当前未运行」被 409 拒掉
+  // —— 用户点「重试」再立刻点「暂停」就会撞上;高负载下 subagent.e2e 的 (a4) 稳定复现(master 同样)。
+  let markRegistered = null;
+  const registered = new Promise(resolve => { markRegistered = resolve; });
+  const finished = runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
     permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
+    onRegistered: () => markRegistered(),
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
   });
+  await Promise.race([registered, finished]);
   return { ok: true, accepted: true, runId };
 }
 
@@ -36598,10 +36677,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', reseeded: true,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已重建摘要并重试。',
             });
             pendingOvershootLearn = estBeforeCall; // 重试成功后落 45d(b) 学习(见 call 成功路径)
@@ -36610,10 +36690,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
           if (forced.level === 1) {
-            onEvent({ type: 'compact', mode: 'forced_400', beforeTokens: estBeforeCall });
+            const afterForced = estimateHistoryTokens(session.providerHistory);
+            onEvent({ type: 'compact', mode: 'forced_400', phase: 'completed', beforeTokens: estBeforeCall, afterTokens: afterForced });
             upsertCompactMarker(session, {
               kind: 'forced-400', label: '自动压缩（超限重试）', evaporated: forced.evaporated,
-              beforeTokens: estBeforeCall, afterTokens: estimateHistoryTokens(session.providerHistory),
+              beforeTokens: estBeforeCall, afterTokens: afterForced,
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
@@ -39627,6 +39708,9 @@ async function runAutoCompaction(ctx) {
   const before2 = estimate();
   const compactTarget = resolveCompactionProvider(config, provider);
   const summaryProvider = compactTarget.provider || provider;
+  // 摘要调用要几十秒到几分钟(回合在迭代边界上等它):先报 started,前端活动条与压缩指示条据此显示「压缩中」;
+  // 收尾必有一条 completed(下面带 afterTokens 的那条)或 failed,不会把状态条挂在压缩态。
+  onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
   const sc = await providerSummaryCall(summaryProvider, history, {
     model: compactTarget.model,
     config,
@@ -39635,6 +39719,7 @@ async function runAutoCompaction(ctx) {
   });
   if (!sc || !sc.ok) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
+    onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
     return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before };
   }
@@ -39645,7 +39730,7 @@ async function runAutoCompaction(ctx) {
   // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
   if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
   const after2 = estimateHistoryTokens([sysMsg, ...reseeded], '', tools);
-  onEvent({ type: 'compact', mode: 'summary', ...eventFields, beforeTokens: before2, afterTokens: after2 });
+  onEvent({ type: 'compact', mode: 'summary', phase: 'completed', trigger: 'auto', ...eventFields, beforeTokens: before2, afterTokens: after2 });
   logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
   return { compacted: true, level: 2, before, before2, after2, watermark: after2, reseeded, sc, summaryProvider };
 }
@@ -39667,6 +39752,8 @@ async function runForcedOverflowCompaction(ctx) {
       logEvent({ kind: 'observation_reduction_shadow', mode: 'forced_400', ...logFields, ...shadow });
     } catch { /* shadow evaluation must never block forced compaction */ }
   }
+  // 强压同样要等一次摘要调用:先报 started;level 1/2 由调用方重试前发 completed(带 afterTokens),零成果在这里发 failed。
+  onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   const evaporated = evaporateHistory(history, {
     config, rawRefPrefix,
@@ -39680,6 +39767,7 @@ async function runForcedOverflowCompaction(ctx) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
   }
+  if (evaporated <= 0) onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, error: String((sc && sc.error) || 'nothing to compact') });
   return { level: evaporated > 0 ? 1 : 0, evaporated };
 }
 
@@ -40786,7 +40874,7 @@ async function walkFiles(root, opts = {}) {
   const out = [];
   // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
   // 而 guardFileToolPath 只校验 root 参数、不校验被遍历文件 —— 当某允许根是 dataRoot 的祖先(默认: home 工作区 ⊇
-  // home/.win-claude-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
+  // home/.ruyi-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
@@ -44304,7 +44392,7 @@ async function claudePluginSkillDirs() {
 async function loadSkillRegistry(cwd, config, caps) {
   if (caps === undefined) caps = await getCapabilities(config).catch(() => null);
   const out = [];
-  const tk = path.join(externalRoot(), 'resources', 'plugins', 'win-workbench-offline', 'offline-toolkit');
+  const tk = path.join(externalRoot(), 'resources', 'plugins', 'ruyi-offline', 'offline-toolkit');
   // ---- 技能: builtin(toolkit)→ user(dataRoot/skills)→ project(<cwd>/.ruyi/skills),后写覆盖同 id ----
   const skillMap = new Map();
   {
@@ -45956,7 +46044,7 @@ async function handleApi(req, res, pathname) {
       configSchema: CONFIG_SCHEMA, // v0.8-S0: surfaced top-level so clients/tests don't dig into config
       overlayId: OVERLAY_ID,
       launchMode: LAUNCH_MODE,
-      dataRoot: paths.data, homeDir: os.homedir(),   // homeDir:体验走查 #7,向导据此判「工作文件夹是不是整个用户目录」
+      dataRoot: paths.data, dataRootAliases: dataRootAliases(), homeDir: os.homedir(),   // homeDir:体验走查 #7,向导据此判「工作文件夹是不是整个用户目录」
       exePath: exePath(),
       // v1.0-S9 exe 改名 Ruyi.exe;双名兼容探测——先探新名,再探旧名(兼容窗口:存量安装/旧 launcher,建议 v2.0 收口)。
       exePresent: fs.existsSync(path.join(externalRoot(), 'Ruyi.exe')) || fs.existsSync(path.join(externalRoot(), 'WinClaudeWorkbench.exe')),
@@ -46184,7 +46272,7 @@ async function handleApi(req, res, pathname) {
     const projectRoles = await readProjectAgentRoles(cwd);
     const nativeClaudeRoles = await readClaudeProjectAgentRoles(cwd);
     const claudeDefs = await buildClaudeAgentDefinitions(cwd, config);
-    const mcpServers = [{ id: 'win-claude-workbench', label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
+    const mcpServers = [{ id: RUYI_MCP_SERVER_ID, label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
     return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles, nativeClaudeRoles, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-roles') {
@@ -47549,6 +47637,11 @@ async function startServerInner(opts) {
   // 桥接子进程的回调、能力探测因此偶发失败。这是本刀第一版真实踩到的坑(capabilities e2e 稳定复现)。
   START_NOTICE.lastError = await consumeStartError();
   if (START_NOTICE.lastError) console.log(`[start] previous launch failed (${START_NOTICE.lastError.kind}): ${START_NOTICE.lastError.message}`);
+  // 3.0 数据目录改名(00-boot migrateLegacyDataRoot):搬了、或该搬没搬成,都在启动行与日志里留一笔。
+  if (DATA_ROOT_MIGRATION && (DATA_ROOT_MIGRATION.moved || !['next-exists', 'no-legacy', 'env'].includes(DATA_ROOT_MIGRATION.reason))) {
+    console.log(`[start] data dir ${DATA_ROOT_MIGRATION.moved ? `migrated ${DATA_ROOT_MIGRATION.from} -> ${DATA_ROOT_MIGRATION.to}${DATA_ROOT_MIGRATION.junction ? ' (old path kept as a junction)' : ''}` : `migration skipped (${DATA_ROOT_MIGRATION.reason}); still using ${paths.data}`}`);
+    try { logEvent({ kind: 'data_root_migration', ...DATA_ROOT_MIGRATION }); } catch { /* 日志绝不阻断启动 */ }
+  }
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
@@ -48009,7 +48102,7 @@ async function startMcp() {
           return sendMcp(msg.id, {
             protocolVersion: msg.params?.protocolVersion || '2024-11-05',
             capabilities: { tools: {}, resources: {} },
-            serverInfo: { name: 'win-claude-workbench', version: VERSION }, // 【存量兼容标识】MCP 服务端标识名保持旧名(与 server id 一致)
+            serverInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 服务端标识名与 server id 一致
           });
         }
         if (msg.method === 'tools/list') {
@@ -48109,8 +48202,12 @@ async function installIntegration() {
     console.log(`Run installer script: powershell -ExecutionPolicy Bypass -File "${installer}"`);
   }
   if (config.claudePath && existsExecutable(config.claudePath)) {
-    // 【存量兼容标识】注册进用户全局 Claude MCP 时沿用旧 server id 'win-claude-workbench'(与生成的配置一致)。
-    const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', 'win-claude-workbench', JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers['win-claude-workbench'])], {
+    // 3.0:先移除旧 id 的登记(win-claude-workbench;没有就报错,忽略),再按新 id 'ruyi' 登记 —— 否则 Claude Code 里
+    // 同一个工作台 MCP 会以两个名字各起一个子进程。
+    for (const legacyId of LEGACY_RUYI_MCP_SERVER_IDS) {
+      try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 没登记过 */ }
+    }
+    const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', RUYI_MCP_SERVER_ID, JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers[RUYI_MCP_SERVER_ID])], {
       cwd: os.homedir(),
       timeoutMs: 30000,
     });

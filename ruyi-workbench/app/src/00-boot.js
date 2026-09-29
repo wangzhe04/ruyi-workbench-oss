@@ -53,15 +53,67 @@ function appRoot() {
   return path.resolve(__dirname, '..');
 }
 
-function dataRoot() {
-  // v0.8-S8 品牌落地:RUYI_HOME 优先于旧的 WIN_CLAUDE_WORKBENCH_HOME。兼容策略——两者都识别,
-  // 新变量优先;旧变量至少保留一个大版本(兼容承诺),存量部署/脚本不受影响。子进程注入的
-  // 仍是旧变量名(值=已解析 dataRoot),故老 .mcp.json 与桥接子进程照常工作。默认目录名保持
-  // .win-claude-workbench 不变(改目录名会破坏存量用户数据迁移,与 MCP id/exe 一样)。
-  // 【存量兼容标识 — 发布后至少保留一个大版本】v1.0-S9 发布确认:目录改名 ruyi-workbench 已落地,
-  // 但 env 变量名 WIN_CLAUDE_WORKBENCH_HOME 与默认数据目录 .win-claude-workbench 有意保持不变(存量兼容,建议 v2.0 收口)。
-  return process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(os.homedir(), '.win-claude-workbench');
+// 3.0 收口(原 v1.0-S9「建议 v2.0 收口」):数据目录缺省名改为 .ruyi-workbench。解析顺序:
+//   RUYI_HOME → WIN_CLAUDE_WORKBENCH_HOME(旧变量名,只读兼容,不再往子进程里写)→ ~/.ruyi-workbench;
+//   新目录还不存在、旧目录 ~/.win-claude-workbench 是真目录(迁移没成或还没轮到)时继续用旧目录 —— 数据不会因为改名「消失」。
+// 迁移(把旧目录搬成新名、原处留一个指回来的目录联接)只在直接运行 serve 时做一次,见 migrateLegacyDataRoot。
+const RUYI_DATA_DIR_NAME = '.ruyi-workbench';
+const LEGACY_DATA_DIR_NAME = '.win-claude-workbench';
+function defaultDataRoots() {
+  const home = os.homedir();
+  return { next: path.join(home, RUYI_DATA_DIR_NAME), legacy: path.join(home, LEGACY_DATA_DIR_NAME) };
 }
+function lstatOrNull(p) {
+  try { return fs.lstatSync(p); } catch { return null; }
+}
+function dataRoot() {
+  if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
+  if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
+  const { next, legacy } = defaultDataRoots();
+  if (lstatOrNull(next)) return next;
+  const old = lstatOrNull(legacy);
+  return old && old.isDirectory() && !old.isSymbolicLink() ? legacy : next;
+}
+// 数据根的别名:迁移后旧位置上留的目录联接。敏感子树判定(03 isSensitiveDataPath)与文件树隐藏都要认它,
+// 否则经旧路径的词法写法能绕开「数据根下的控制面文件一律拒读」。
+function dataRootAliases() {
+  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return [];
+  const { next, legacy } = defaultDataRoots();
+  const old = lstatOrNull(legacy);
+  return dataRoot() === next && old && old.isSymbolicLink() ? [legacy] : [];
+}
+function pidAlive(pid) {
+  const n = Number(pid);
+  if (!Number.isInteger(n) || n <= 0 || n === process.pid) return false;
+  try { process.kill(n, 0); return true; } catch (e) { return Boolean(e && e.code === 'EPERM'); }
+}
+// 一次性迁移:~/.win-claude-workbench → ~/.ruyi-workbench,原处留目录联接(Windows 普通用户就能建;其它平台是目录符号链接)
+// 指回新目录 —— 用户全局 Claude 配置里登记的 MCP 路径、计划任务、快捷方式里写死的旧路径照样能用。
+// 只在:直接运行、缺省命令 serve、没有任何数据根环境变量、新目录不存在、旧目录是真目录、旧目录里没有别的活实例
+// (runtime.json 的 pid 还活着就不动)时做。搬不动(被占用、跨卷、权限)就原样继续用旧目录,下次启动再试。
+function migrateLegacyDataRoot() {
+  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return { moved: false, reason: 'env' };
+  const { next, legacy } = defaultDataRoots();
+  if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
+  const old = lstatOrNull(legacy);
+  if (!old || !old.isDirectory() || old.isSymbolicLink()) return { moved: false, reason: 'no-legacy' };
+  try {
+    const rt = JSON.parse(fs.readFileSync(path.join(legacy, 'runtime.json'), 'utf8'));
+    if (rt && pidAlive(rt.pid)) return { moved: false, reason: 'legacy-in-use', pid: rt.pid };
+  } catch { /* 没有 runtime.json 或读不了:没有活实例的证据,照常迁移 */ }
+  try { fs.renameSync(legacy, next); } catch (e) { return { moved: false, reason: 'rename-failed', error: String(e && e.code || e) }; }
+  let junction = true;
+  try { fs.symlinkSync(next, legacy, 'junction'); } catch { junction = false; }
+  return { moved: true, from: legacy, to: next, junction };
+}
+// 缺省命令就是 serve(`Ruyi.exe`、`server.js`、`server.js serve --port N`、`server.js --port N`);mcp / install / doctor /
+// mcp-config 这些子命令不迁移(MCP 子进程本来就由父进程经 RUYI_HOME 指到数据根)。
+function isDirectServeInvocation() {
+  if (require.main !== module) return false;
+  return !process.argv.slice(2).some(a => ['mcp', 'install', 'doctor', 'mcp-config'].includes(String(a)));
+}
+const DATA_ROOT_MIGRATION = isDirectServeInvocation() ? migrateLegacyDataRoot() : null;
+
 
 function externalRoot() {
   return isPkg() ? path.dirname(process.execPath) : appRoot();

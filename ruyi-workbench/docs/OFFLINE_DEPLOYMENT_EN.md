@@ -37,21 +37,22 @@ from being released or activated. After installation, ACC `diagnostics` must rep
 
 The installer attempts to register the workbench MCP server. If JSON registration fails under PowerShell because a
 cmd.exe layer strips JSON quotes, use the non-JSON Claude MCP add command or run Ruyi.exe mcp-config and add the
-generated win-claude-workbench server entry to the Claude CLI configuration manually.
+generated ruyi server entry to the Claude CLI configuration manually.
 
-The legacy MCP identifier, data-directory name, and WIN_CLAUDE_WORKBENCH_HOME variable are intentionally retained
-for compatibility. RUYI_HOME takes precedence for new deployments.
+Since 3.0 the MCP server id is ruyi (it was win-claude-workbench; the installer removes the old registration) and
+the default data root is .ruyi-workbench (the old .win-claude-workbench is migrated on first start). The legacy
+WIN_CLAUDE_WORKBENCH_HOME variable is still read; RUYI_HOME takes precedence.
 
 ## Offline skills and plugins
 
-The package includes the local win-workbench-offline marketplace and offline-toolkit. The installer attempts to
+The package includes the local ruyi-offline marketplace and offline-toolkit. The installer attempts to
 register it, but the workbench MCP tools remain usable when an internal Claude CLI does not support marketplace
 commands. The bundled skills are clean-room local workflows for review, security, frontend work, API/CI diagnosis,
 packaging, and document context; they do not download packages at runtime.
 
 ## Verify
 
-Run Ruyi.exe doctor. In Claude CLI, ask the win-claude-workbench MCP server to run project_snapshot, then try
+Run Ruyi.exe doctor. In Claude CLI, ask the ruyi MCP server to run project_snapshot, then try
 dependency_inventory or code_review_scan against a workspace.
 
 ## Boundaries

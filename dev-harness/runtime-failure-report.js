@@ -66,7 +66,7 @@ function summarizeFailureEvents(events) {
 }
 
 function resolveLogDir(input) {
-  const target = path.resolve(input || process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(require('os').homedir(), '.win-claude-workbench'));
+  const target = path.resolve(input || require('./lib/real-data-root.js').realDataRoot());
   const nested = path.join(target, 'logs');
   return fs.existsSync(nested) && fs.statSync(nested).isDirectory() ? nested : target;
 }

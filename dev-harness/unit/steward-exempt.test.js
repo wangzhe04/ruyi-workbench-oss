@@ -213,8 +213,8 @@ for (const [group, commands] of Object.entries(HIT)) {
 
   // 判据 ③：真正的对外发送名字照样按名字拦；出口不被前缀 / 大小写 / 包含变体借走。
   const STILL = ['send_email', 'slack_send', 'send_message', 'mcp__x__send_message', 'post_message', 'canvas_post_message', 'sms_send', 'mcp_configure',
-    'mcp__win-claude-workbench__shell_send', 'mcp__x__shell_send', 'x__shell_send', 'Shell_Send', 'SHELL_SEND', 'shell_send_email', 'shell_send ',
-    'mcp__win-claude-workbench__keyboard_send_keys', 'Keyboard_Send_Keys'];
+    'mcp__ruyi__shell_send', 'mcp__x__shell_send', 'x__shell_send', 'Shell_Send', 'SHELL_SEND', 'shell_send_email', 'shell_send ',
+    'mcp__ruyi__keyboard_send_keys', 'Keyboard_Send_Keys'];
   const notByName = STILL.filter(name => {
     const r = stewardExemptReason(name, { command: 'ls' });
     return !(r && r.by === 'tool_name' && r.category === null);

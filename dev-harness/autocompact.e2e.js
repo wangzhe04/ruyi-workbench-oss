@@ -166,9 +166,14 @@ function postStream(port, payload) {
     ok(compactEvents.length > 0, 'at least one compact event (' + compactEvents.length + ')');
     const hadEvaporate = compactEvents.some(e => e.mode === 'evaporate');
     ok(hadEvaporate, 'compact event with mode "evaporate" present (' + compactEvents.map(e => e.mode).join(',') + ')');
-    // sanity: compact events carry beforeTokens > afterTokens numbers.
-    ok(compactEvents.every(e => typeof e.beforeTokens === 'number' && typeof e.afterTokens === 'number' && e.afterTokens < e.beforeTokens),
+    // sanity: compact events that report a result carry beforeTokens > afterTokens numbers.
+    // (started/failed 是进度事件:started 只有 beforeTokens —— L2 摘要调用前发,前端据此显示「压缩中」;failed 带 error。)
+    const resultEvents = compactEvents.filter(e => e.phase !== 'started' && e.phase !== 'failed');
+    ok(resultEvents.length > 0 && resultEvents.every(e => typeof e.beforeTokens === 'number' && typeof e.afterTokens === 'number' && e.afterTokens < e.beforeTokens),
       'compact events carry beforeTokens>afterTokens');
+    // 每个 started 之后都有同 mode 的 completed / failed 收口(否则活动条会挂在「压缩中」)。
+    ok(compactEvents.every((e, i) => e.phase !== 'started' || compactEvents.slice(i + 1).some(x => x.mode === e.mode && (x.phase === 'completed' || x.phase === 'failed'))),
+      'every compact started is closed by completed/failed (' + compactEvents.map(e => e.mode + ':' + (e.phase || '')).join(',') + ')');
 
     // (b) turn completed ok.
     const result = events.find(e => e.type === 'result');

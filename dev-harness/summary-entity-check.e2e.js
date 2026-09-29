@@ -107,7 +107,7 @@ const REPAIRED = FLAWED.replace('支付相关代码与配置',
 
   // ═══ [H] 真实历史抽取门(本机 checkpoints 存在时) ═══
   console.log('── [H] 真实历史抽取 ──');
-  const SRC_ROOT = 'C:/Users/87179/.win-claude-workbench/checkpoints'; // 只读,绝不写入
+  const SRC_ROOT = require('./lib/real-data-root.js').defaultDataRootIn('C:/Users/87179').replace(/\\/g, '/') + '/checkpoints'; // 只读,绝不写入
   let histFile = null, histSize = 0; const histAll = [];
   try {
     if (fs.existsSync(SRC_ROOT)) {

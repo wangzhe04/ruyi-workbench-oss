@@ -147,7 +147,7 @@ const NPM_RUN = process.platform === 'win32'
     const skipBlock = fs.readFileSync(path.join(__dirname, 'run-all.js'), 'utf8');
     const skipMatch = (skipBlock.match(/const SKIP = new Set\(\[([\s\S]*?)\]\)/) || [])[1] || '';
     const probes = (skipMatch.match(/'[^']+\.e2e\.js'/g) || []).map(x => x.slice(1, -1));
-    const home = process.env.WIN_CLAUDE_WORKBENCH_HOME || path.join(process.env.USERPROFILE || process.env.HOME, '.win-claude-workbench');
+    const home = require('./lib/real-data-root.js').realDataRoot(process.env.USERPROFILE || process.env.HOME);
     let cfg = null; try { cfg = JSON.parse(fs.readFileSync(path.join(home, 'config.json'), 'utf8')); } catch {}
     const claudeOnPath = (() => { try { cp.execFileSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], { stdio: 'pipe', timeout: 5000 }); return true; } catch { return false; } })();
     const accVenv = fs.existsSync(path.join(ROOT, 'mcp', 'ai-computer-control', '.venv', 'Scripts', 'python.exe'));

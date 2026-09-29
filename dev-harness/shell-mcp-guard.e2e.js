@@ -36,7 +36,7 @@ const HOME = path.join(os.tmpdir(), 'wcw-shell-mcp-guard-e2e');
 
   try {
     const init = await rpc('initialize', { protocolVersion: '2024-11-05' });
-    ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'win-claude-workbench', 'initialize handshake ok');
+    ok(init.result && init.result.serverInfo && init.result.serverInfo.name === 'ruyi', 'initialize handshake ok');
 
     const list = await rpc('tools/list', {});
     const names = ((list.result && list.result.tools) || []).map(t => t.name);

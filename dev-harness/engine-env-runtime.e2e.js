@@ -172,7 +172,7 @@ const sameDir = (a, b) => path.resolve(String(a || '')).toLowerCase() === path.r
     const close = t1.append.indexOf('</ruyi-environment>');
     ok(t1.append.startsWith(MARKER) && open > 0 && close > open, 'C1 --append-system-prompt 以用户 append 开头,紧跟 <ruyi-environment>');
     const envBlock = open > 0 && close > open ? t1.append.slice(open, close + '</ruyi-environment>'.length) : '';
-    ok(/Claude Code/.test(envBlock) && /mcp__win-claude-workbench__/.test(envBlock) && /ripgrep 可用（如意随包自带/.test(envBlock) && envBlock.includes('```mermaid'),
+    ok(/Claude Code/.test(envBlock) && /mcp__ruyi__/.test(envBlock) && /ripgrep 可用（如意随包自带/.test(envBlock) && envBlock.includes('```mermaid'),
       'C2 Claude 变体:引擎名 + 如意 MCP 前缀 + 随包 rg + mermaid');
     ok(t1.append.indexOf('工具批次') > close, 'C3 环境说明排在四层工具协议之前(无条件前缀)');
     let envSeen = null; try { envSeen = JSON.parse(fs.readFileSync(ENV_CAP, 'utf8')); } catch { envSeen = null; }

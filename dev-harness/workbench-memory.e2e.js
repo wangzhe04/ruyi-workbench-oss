@@ -434,7 +434,7 @@ const mkSession = async (cwd) => (await postJson(WB_PORT, '/api/sessions', { cwd
     ok(ai >= 0 && appendVal.includes(USER_APPEND_MARKER), '(2b) Claude --append-system-prompt 保留用户 append(政策信道)');
     ok(!/<workbench-memory>/.test(appendVal) && !/<skill-index>/.test(appendVal), '(2b) 记忆/技能索引不再走 --append-system-prompt(P2 改道 stdin)');
     ok(/<workbench-context>/.test(stdinTxt) && /<workbench-memory>/.test(stdinTxt), '(2b) 记忆索引经 stdin <workbench-context> 注入');
-    ok(/核心能力：工作台记忆/.test(stdinTxt) && /mcp__win-claude-workbench__workbench_memory_propose/.test(stdinTxt), '(2b) Claude stdin context carries the built-in Workbench Memory call protocol');
+    ok(/核心能力：工作台记忆/.test(stdinTxt) && /mcp__ruyi__workbench_memory_propose/.test(stdinTxt), '(2b) Claude stdin context carries the built-in Workbench Memory call protocol');
     ok(stdinTxt.includes(aConv.file) && /用 Read 工具/.test(stdinTxt), '(2b) Claude memory index gives the file path + tells the model to use Read');
     ok(/每次收到新的用户消息,先检查本索引/.test(stdinTxt), '(2b) Claude memory prompt requires a relevance check on every user message');
     ok(stdinTxt.includes('[冲突:见 ' + aConflict.id + ']') && stdinTxt.includes('[冲突:见 ' + aConv.id + ']'), 'R4-S1 Claude real path: confirmed contradiction marks BOTH injected memories');

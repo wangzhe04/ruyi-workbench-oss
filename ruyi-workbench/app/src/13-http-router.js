@@ -242,7 +242,7 @@ async function handleApi(req, res, pathname) {
       configSchema: CONFIG_SCHEMA, // v0.8-S0: surfaced top-level so clients/tests don't dig into config
       overlayId: OVERLAY_ID,
       launchMode: LAUNCH_MODE,
-      dataRoot: paths.data, homeDir: os.homedir(),   // homeDir:体验走查 #7,向导据此判「工作文件夹是不是整个用户目录」
+      dataRoot: paths.data, dataRootAliases: dataRootAliases(), homeDir: os.homedir(),   // homeDir:体验走查 #7,向导据此判「工作文件夹是不是整个用户目录」
       exePath: exePath(),
       // v1.0-S9 exe 改名 Ruyi.exe;双名兼容探测——先探新名,再探旧名(兼容窗口:存量安装/旧 launcher,建议 v2.0 收口)。
       exePresent: fs.existsSync(path.join(externalRoot(), 'Ruyi.exe')) || fs.existsSync(path.join(externalRoot(), 'WinClaudeWorkbench.exe')),
@@ -470,7 +470,7 @@ async function handleApi(req, res, pathname) {
     const projectRoles = await readProjectAgentRoles(cwd);
     const nativeClaudeRoles = await readClaudeProjectAgentRoles(cwd);
     const claudeDefs = await buildClaudeAgentDefinitions(cwd, config);
-    const mcpServers = [{ id: 'win-claude-workbench', label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
+    const mcpServers = [{ id: RUYI_MCP_SERVER_ID, label: 'Ruyi Workbench' }, ...resolveExternalMcpServers(config).map(s => ({ id: s.id, label: s.label || s.id }))];
     return send(res, json({ ok: true, cwd, roles, builtinRoles, globalRoles, projectRoles, nativeClaudeRoles, mcpServers, drivers: { openai: { mode: 'workbench-native' }, claude: { mode: 'claude-native', flag: '--agents', synced: Object.keys(claudeDefs.definitions), omitted: claudeDefs.omitted } } }));
   }
   if (req.method === 'POST' && pathname === '/api/agent-roles') {
@@ -1835,6 +1835,11 @@ async function startServerInner(opts) {
   // 桥接子进程的回调、能力探测因此偶发失败。这是本刀第一版真实踩到的坑(capabilities e2e 稳定复现)。
   START_NOTICE.lastError = await consumeStartError();
   if (START_NOTICE.lastError) console.log(`[start] previous launch failed (${START_NOTICE.lastError.kind}): ${START_NOTICE.lastError.message}`);
+  // 3.0 数据目录改名(00-boot migrateLegacyDataRoot):搬了、或该搬没搬成,都在启动行与日志里留一笔。
+  if (DATA_ROOT_MIGRATION && (DATA_ROOT_MIGRATION.moved || !['next-exists', 'no-legacy', 'env'].includes(DATA_ROOT_MIGRATION.reason))) {
+    console.log(`[start] data dir ${DATA_ROOT_MIGRATION.moved ? `migrated ${DATA_ROOT_MIGRATION.from} -> ${DATA_ROOT_MIGRATION.to}${DATA_ROOT_MIGRATION.junction ? ' (old path kept as a junction)' : ''}` : `migration skipped (${DATA_ROOT_MIGRATION.reason}); still using ${paths.data}`}`);
+    try { logEvent({ kind: 'data_root_migration', ...DATA_ROOT_MIGRATION }); } catch { /* 日志绝不阻断启动 */ }
+  }
   await markInterruptedAgentRuns();
   await markInterruptedInterventions(); // 第71波:重启终态化 pending Intervention(与 markInterruptedAgentRuns 对称,不重挂)
   // Wave 80: start warming after crash/intervention reconciliation and overlap it with configuration sync
@@ -2295,7 +2300,7 @@ async function startMcp() {
           return sendMcp(msg.id, {
             protocolVersion: msg.params?.protocolVersion || '2024-11-05',
             capabilities: { tools: {}, resources: {} },
-            serverInfo: { name: 'win-claude-workbench', version: VERSION }, // 【存量兼容标识】MCP 服务端标识名保持旧名(与 server id 一致)
+            serverInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 服务端标识名与 server id 一致
           });
         }
         if (msg.method === 'tools/list') {
@@ -2395,8 +2400,12 @@ async function installIntegration() {
     console.log(`Run installer script: powershell -ExecutionPolicy Bypass -File "${installer}"`);
   }
   if (config.claudePath && existsExecutable(config.claudePath)) {
-    // 【存量兼容标识】注册进用户全局 Claude MCP 时沿用旧 server id 'win-claude-workbench'(与生成的配置一致)。
-    const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', 'win-claude-workbench', JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers['win-claude-workbench'])], {
+    // 3.0:先移除旧 id 的登记(win-claude-workbench;没有就报错,忽略),再按新 id 'ruyi' 登记 —— 否则 Claude Code 里
+    // 同一个工作台 MCP 会以两个名字各起一个子进程。
+    for (const legacyId of LEGACY_RUYI_MCP_SERVER_IDS) {
+      try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 没登记过 */ }
+    }
+    const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', RUYI_MCP_SERVER_ID, JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers[RUYI_MCP_SERVER_ID])], {
       cwd: os.homedir(),
       timeoutMs: 30000,
     });

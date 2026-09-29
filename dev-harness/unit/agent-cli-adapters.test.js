@@ -75,7 +75,7 @@ test('[S] 两个适配器方法集逐项相同,且与登记的接口清单、AGE
   assert.equal(agentCliAdapter(undefined), claude);
 });
 
-const BRIDGE = ['--permission-prompt-tool', 'mcp__win-claude-workbench__permission_prompt'];
+const BRIDGE = ['--permission-prompt-tool', 'mcp__ruyi__permission_prompt'];
 const HEAD = ['-p', '--output-format', 'stream-json', '--verbose'];
 const noMcp = extra => ({ includeWorkbenchMcp: false, ...extra });
 
