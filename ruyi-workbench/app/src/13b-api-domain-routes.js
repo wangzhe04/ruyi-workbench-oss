@@ -88,6 +88,8 @@ async function handleMcpApiRoutes(req, res, pathname) {
     });
     if (!imp.ok) return send(res, json({ ok: false, error: '外部 MCP 数量已达上限(最多 10 个),请先移除一个再导入' }));
     const next = imp.config; const updated = imp.value;
+    // hunt2-mcp:同 id 覆盖导入 = 用户修好了这条连接器;旧进程 / 在途启动 / 失败冷却按 id 记账,不作废就还是旧的。
+    invalidateMcpRuntime(cleaned.id);
     await generateMcpConfig(next.mcpCommandMode).catch(() => {}); // 再生成 .mcp.json(缺失时不阻断导入)
     logEvent({ kind: 'mcp_import', id: cleaned.id, updated, source: folder });
     // 响应附清洗后的条目, env 值掩码(参考 apiKey 掩码模式, 防泄漏 token 类环境变量)。
@@ -139,6 +141,7 @@ async function handleMcpApiRoutes(req, res, pathname) {
     });
     if (!imp.ok) return send(res, json({ ok: false, error: '没有可导入的条目', skipped: imp.value.skipped }));
     const next = imp.config; const { added, updated, skipped } = imp.value;
+    for (const id of [...added, ...updated]) invalidateMcpRuntime(id);   // 同 import-folder:作废旧运行时状态
     await generateMcpConfig(next.mcpCommandMode).catch(() => {});
     logEvent({ kind: 'mcp_import', ids: [...added, ...updated], added: added.length, updated: updated.length, source: 'import-config' });
     return send(res, json({ ok: true, added, updated, skipped }));

@@ -415,6 +415,23 @@ function startLegacySseMcp(port, state) {
     const dNoTok = await del(WP, '/api/mcp/connectors', { id: 'stdio-good' }, {});
     ok(dNoTok && (dNoTok.status === 401 || dNoTok.status === 403), 'J8 无 token -> 401/403');
 
+    // ── L 段(hunt2-mcp): 设置页整份保存(POST /api/config 的 externalMcpServers)改了哪条连接器,就作废那条的活客户端 ──
+    // 修前只有 toggle/DELETE 路由调 invalidateMcpRuntime;经 /api/config 停用/删改的连接器进程照样活着(还在
+    // 60s 失败冷却里的也照样冷却)。停用 stdio-good 是 H13 留下的终态,K 段据此断言,这里走 /api/config 复现同一终态。
+    console.log('── L 段: /api/config 保存作废改动连接器的运行时 ──');
+    await post(WP, '/api/mcp/connectors/toggle', { id: 'stdio-good', enabled: true }, hdr);
+    const hL = await post(WP, '/api/mcp/connectors/health', { id: 'stdio-good' }, hdr);
+    ok(hL && hL.json && hL.json.health && hL.json.health.status === 'ok', 'L0 前置:重新启用并探针 stdio-good -> ok');
+    let lPid = 0;
+    try { lPid = Number((fs.readFileSync(path.join(HOME, 'good-pids.txt'), 'utf8').trim().split('\n').pop() || '').trim()) || 0; } catch { /* ignore */ }
+    ok(lPid > 0 && pidAlive(lPid), 'L1 前置:stdio-good 活客户端在 (pid ' + lPid + ')');
+    const cfgL = JSON.parse(fs.readFileSync(path.join(HOME, 'config.json'), 'utf8'));
+    const listL = cfgL.externalMcpServers.map(s => (s.id === 'stdio-good' ? { ...s, enabled: false } : s));
+    const saveL = await post(WP, '/api/config', { externalMcpServers: listL }, hdr);
+    ok(saveL && saveL.status === 200, 'L2 POST /api/config 停用 stdio-good -> 200');
+    await sleep(300);
+    ok(lPid > 0 && !pidAlive(lPid), 'L3 /api/config 停用后活客户端被杀(不再留孤儿进程)');
+
     // ── K 段(55b): 重启一致性 -- 同 HOME 重启,停用仍停用、删除不复活、无关条目在(退出条件#3)──
     console.log('── K 段: 重启一致性 ──');
     try { killOwnTree(wb); } catch { /* ignore */ }

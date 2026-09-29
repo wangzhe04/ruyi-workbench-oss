@@ -65,6 +65,21 @@ function writeSkill(baseDir, id, name, desc, body, extraFiles) {
 const USER_SKILLS_DIR = path.join(HOME, 'skills');
 writeSkill(USER_SKILLS_DIR, 'user-only-skill', 'User Only Skill', 'USER_ONLY_MARKER a user-defined skill', 'user body');
 writeSkill(USER_SKILLS_DIR, 'demo-skill', 'Demo User Version', 'USER_VERSION_MARKER should be overridden by project', 'user demo body');
+// hunt2-mcp(a2):三种修前读不出来的 SKILL.md —— UTF-8 BOM(Windows 记事本)、YAML 块标量描述(description: > / |-)、
+// 以符号链接/目录联接挂进 skills/ 的技能目录(Windows 用 junction,免管理员权限)。
+{
+  const bomDir = path.join(USER_SKILLS_DIR, 'bom-skill');
+  fs.mkdirSync(bomDir, { recursive: true });
+  fs.writeFileSync(path.join(bomDir, 'SKILL.md'), '\uFEFF---\r\nname: BOM Skill\r\ndescription: BOM_DESC_MARKER\r\n---\r\n\r\n# BOM Skill\r\n\r\nbody\r\n');
+  const foldDir = path.join(USER_SKILLS_DIR, 'folded-skill');
+  fs.mkdirSync(foldDir, { recursive: true });
+  fs.writeFileSync(path.join(foldDir, 'SKILL.md'), '---\nname: Folded Skill\ndescription: >\n  FOLDED_LINE_ONE\n  FOLDED_LINE_TWO\nrequires: []\n---\n\n# Folded\n\nbody\n');
+  const literalDir = path.join(USER_SKILLS_DIR, 'literal-skill');
+  fs.mkdirSync(literalDir, { recursive: true });
+  fs.writeFileSync(path.join(literalDir, 'SKILL.md'), '---\nname: Literal Skill\ndescription: |-\n  LITERAL_LINE_ONE\n  LITERAL_LINE_TWO\n---\n\nbody\n');
+  writeSkill(path.join(HOME, 'linked-src'), 'linked-skill', 'Linked Skill', 'LINKED_DESC_MARKER', 'linked body');
+  fs.symlinkSync(path.join(HOME, 'linked-src', 'linked-skill'), path.join(USER_SKILLS_DIR, 'linked-skill'), 'junction');
+}
 // project skill: .ruyi/skills/demo-skill (overrides the user demo-skill by id).
 writeSkill(path.join(CWD, '.ruyi', 'skills'), 'demo-skill', 'Demo Project Skill', PROJECT_DEMO_MARKER + ' a project-scoped skill', PROJECT_SKILL_BODY, { 'helper.md': 'HELPER FILE BODY' });
 
@@ -144,6 +159,15 @@ function stopFake() { return new Promise(resolve => { if (fake && fake.pid) { tr
     ok(byId.has('demo-skill') && /PROJECT_DEMO_MARKER/.test(byId.get('demo-skill').description) && !/USER_VERSION_MARKER/.test(byId.get('demo-skill').description), '(a) demo-skill carries the PROJECT description, not the USER one (override)');
     ok(skills.filter(s => s.id === 'demo-skill').length === 1, '(a) demo-skill appears exactly once (user version shadowed)');
     ok(kinds.has('command'), '(a) registry includes commands');
+    // hunt2-mcp(a2):BOM / 块标量 / 链接目录。
+    const bom = byId.get('bom-skill');
+    ok(bom && bom.name === 'BOM Skill' && bom.description === 'BOM_DESC_MARKER' && !/^---|name:/.test(bom.detail || ''), '(a2) BOM 开头的 SKILL.md 照常读出 frontmatter(got ' + JSON.stringify(bom && { name: bom.name, description: bom.description }) + ')');
+    const folded = byId.get('folded-skill');
+    ok(folded && folded.description === 'FOLDED_LINE_ONE FOLDED_LINE_TWO', '(a2) description: > 折叠块标量取到正文而不是「>」(got ' + JSON.stringify(folded && folded.description) + ')');
+    const literal = byId.get('literal-skill');
+    ok(literal && literal.description === 'LITERAL_LINE_ONE\nLITERAL_LINE_TWO', '(a2) description: |- 字面块标量保留换行(got ' + JSON.stringify(literal && literal.description) + ')');
+    const linked = byId.get('linked-skill');
+    ok(linked && linked.source === 'user' && linked.description === 'LINKED_DESC_MARKER', '(a2) 符号链接/联接挂进来的技能目录被识别');
     const builtinCommand = skills.find(s => s.kind === 'command' && s.source === 'builtin');
     ok(builtinCommand && typeof builtinCommand.prompt === 'string' && builtinCommand.prompt.length > 20, '(a) commands expose a provider-compatible full prompt template');
     const builtinDetailedSkill = skills.find(s => s.kind === 'skill' && s.source === 'builtin');

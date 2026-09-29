@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 2921 | 2875 | 509 | 68 | 0 | 1 |
+| 66 | 2941 | 2877 | 509 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -30,7 +30,7 @@
 | 12 | `02-session-store.js` | foundation | 240 | 68 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 78 | 22 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 15 | `04-permission-runtime.js` | foundation | 124 | 36 | 9 |
+| 15 | `04-permission-runtime.js` | foundation | 144 | 36 | 9 |
 | 16 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
 | 17 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
 | 18 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
@@ -50,7 +50,7 @@
 | 32 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 33 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
 | 34 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 35 | `06k-config-patch.js` | engine | 1 | 20 | 8 |
+| 35 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 36 | `07-autonomy.js` | orchestration | 89 | 65 | 17 |
 | 37 | `08-agent-runs.js` | orchestration | 104 | 88 | 19 |
 | 38 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
@@ -61,7 +61,7 @@
 | 43 | `12-tool-dispatch.js` | tools | 33 | 81 | 14 |
 | 44 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 45 | `13-http-router.js` | transport | 64 | 233 | 28 |
-| 46 | `13b-api-domain-routes.js` | transport | 36 | 58 | 7 |
+| 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
 | 48 | `13d-core-domain-routes.js` | transport | 48 | 123 | 16 |
 | 49 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
@@ -233,7 +233,7 @@
 | `06k-config-patch.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES_REQUIRING_CONFIRM` |
 | `06k-config-patch.js` | `02-session-store.js` | backward | `rememberLastUsedEngineRoute` |
 | `06k-config-patch.js` | `02e-session-engine-route.js` | backward | `sessionEngineRouteFromConfig` |
-| `06k-config-patch.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `logEvent` |
+| `06k-config-patch.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `invalidateMcpRuntime`, `logEvent` |
 | `06k-config-patch.js` | `05-claude-engine.js` | backward | `maskedSecretConflictMessage`, `maskedSecretConflicts`, `unmaskSecrets` |
 | `06k-config-patch.js` | `06i-steward-core.js` | backward | `StewardHooks` |
 | `07-autonomy.js` | `00-boot.js` | backward | `TOOL_TIER_RANK`, `URL`, `appendUsageLedger`, `claudeCostFields`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
@@ -366,7 +366,7 @@
 | `13b-api-domain-routes.js` | `00-boot.js` | backward | `ASR_MAX_BODY_BYTES`, `MigrationHooks`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `appendUsageLedger`, `computeProviderCost`, `crypto`, `fsp`, `json`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
-| `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `ToolboxHooks`, `activeChildren`, `buildMcpConnectorInventory`, `collectBridgedTools`, `getBridgedClient`, `hasPendingQuestionForSession`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `scanMcpSources` |
+| `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `ToolboxHooks`, `activeChildren`, `buildMcpConnectorInventory`, `collectBridgedTools`, `getBridgedClient`, `hasPendingQuestionForSession`, `invalidateMcpRuntime`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `scanMcpSources` |
 | `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `asrFixMessages`, `asrFixModeOf`, `asrFixSanity`, `maskExternalMcpServerForDisplay`, `providerFixCompletion`, `resolveAsrFixProvider`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
 | `13b-api-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns` |

@@ -695,19 +695,90 @@ function clearPendingPlans(sessionId, message) {
 // Protocol: JSON-RPC 2.0 over newline-delimited stdout (MCP 2024-11-05). All errors are internalized;
 // a crashing/hung child can never take down the web server.
 // ===================================================================================================
+
+// ── hunt2-mcp:stdio / 远程两个客户端共用的小件(修前各抄一份,行为已经分叉过)──
+// 单行上限:MCP 一条响应就是一行 JSON,读大文件/截图类工具一行几 MB 是常态。修前 4MB 处直接「截掉前半行」,
+// 结果那一行永远拼不回完整 JSON、调用干等到超时再被杀进程。现在上限放宽,真超了就丢弃到下一个换行并
+// 如实拒掉那一次调用(按行首的 id 找得到时),绝不在行中间切。
+const MCP_STDIO_LINE_MAX_CHARS = 64 * 1024 * 1024;
+// tools/list 分页(nextCursor)最多跟这么多页 —— 防对端回同一个游标/无限翻页把握手拖死。
+const MCP_TOOLS_LIST_MAX_PAGES = 20;
+// 条目上的 startupTimeoutMs(从 Codex startup_timeout_sec / Claude 配置导入)只在握手各 rpc 已有的超时参数上生效。
+function mcpStartupRpcMs(client, fallback) {
+  const v = Number(client && client.startupTimeoutMs);
+  return Number.isInteger(v) && v > 0 ? v : fallback;
+}
+// 条目上的 enabledTools(非空 = 白名单)/ disabledTools(黑名单)。修前导入并落盘了却没人读,原生桥照样把
+// 用户关掉的工具全部交给模型。空白名单视为「未设置」—— 清洗后变空的数组不该把整台服务器的工具静默藏光。
+function mcpToolAllowed(entry, name) {
+  const n = String(name || '');
+  const allow = entry && Array.isArray(entry.enabledTools) ? entry.enabledTools : null;
+  if (allow && allow.length && !allow.includes(n)) return false;
+  const deny = entry && Array.isArray(entry.disabledTools) ? entry.disabledTools : null;
+  if (deny && deny.includes(n)) return false;
+  return true;
+}
+// tools/call 结果归一(两个客户端同一份)。修前:文本是 JSON 数组时被展开成 {"0":…,"1":…};
+// 工具自带的 ok:true 会盖掉协议层 isError:true(失败被报成成功)。现在数组放进 items,ok 取两者的「与」。
+function normalizeMcpToolResult(res) {
+  const isError = !!(res && res.isError);
+  let textOut = '';
+  if (res && Array.isArray(res.content)) {
+    const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
+    if (t) textOut = t.text;
+  }
+  if (textOut) {
+    // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
+    const parsed = safeJsonParse(textOut, undefined);
+    if (Array.isArray(parsed)) return { ok: !isError, items: parsed };
+    if (parsed && typeof parsed === 'object') {
+      const { ok: toolOk, ...rest } = parsed;
+      return { ok: !isError && toolOk !== false, ...rest };
+    }
+    return { ok: !isError, text: textOut };
+  }
+  return { ok: !isError, content: (res && res.content) || [] };
+}
+// 跟 nextCursor 翻完 tools/list(MCP 2025-03-26 起工具目录可分页;修前只取第一页,后面的工具凭空消失)。
+async function mcpListAllTools(rpc, timeoutMs) {
+  const tools = [];
+  let cursor = '';
+  for (let page = 0; page < MCP_TOOLS_LIST_MAX_PAGES; page++) {
+    const listed = await rpc('tools/list', cursor ? { cursor } : {}, timeoutMs);
+    if (listed && Array.isArray(listed.tools)) tools.push(...listed.tools);
+    const next = (listed && typeof listed.nextCursor === 'string') ? listed.nextCursor : '';
+    if (!next || next === cursor) break;
+    cursor = next;
+  }
+  return tools;
+}
+// 对端发来的【请求】(同时带 id 与 method,如 ping)。修前被当成响应:用它的 id 去结我们自己同号的 pending,
+// 于是一次真正的 tools/call 被 undefined「成功」提前结掉。现在按 JSON-RPC 回话:ping 回 {},其余 -32601。
+function mcpServerRequestReply(msg) {
+  if (msg.method === 'ping') return { jsonrpc: '2.0', id: msg.id, result: {} };
+  return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'method not supported by client: ' + String(msg.method).slice(0, 80) } };
+}
+
 class McpStdioClient {
-  constructor({ id, command, args, cwd, env }) {
+  constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
     this.command = command;
     this.args = Array.isArray(args) ? args : [];
     this.cwd = cwd || undefined;
     this.env = env || {};
+    this.startupTimeoutMs = startupTimeoutMs;
+    this.toolTimeoutMs = toolTimeoutMs;
+    this.enabledTools = enabledTools;
+    this.disabledTools = disabledTools;
     this.child = null;
     this.pid = null;
     this.dead = false;
     this.started = false;
     this.tools = [];
-    this._buf = '';
+    this._bufParts = [];         // 未满一行的 stdout 片段(按块累积,不反复拼接整串)
+    this._bufLen = 0;
+    this._discarding = false;    // 超长行:丢弃到下一个换行
+    this._lineMax = MCP_STDIO_LINE_MAX_CHARS;
     this._nextId = 1;
     this._pending = new Map();   // rpc id -> { resolve, timer }
     this._stderr = '';
@@ -763,6 +834,11 @@ class McpStdioClient {
     if (!line) return;
     const msg = safeJsonParse(line);
     if (!msg || msg.id == null) return;          // notifications/logs from the server: ignore
+    if (msg.method != null) {                     // 对端发起的请求(ping 等),不是给我们的响应
+      if (this.dead || !this.child || !this.child.stdin || !this.child.stdin.writable) return;
+      try { this.child.stdin.write(JSON.stringify(mcpServerRequestReply(msg)) + '\n', 'utf8'); } catch { /* ignore */ }
+      return;
+    }
     const p = this._pending.get(msg.id);
     if (!p) return;
     if (p.cleanup) p.cleanup(); else clearTimeout(p.timer);
@@ -773,6 +849,37 @@ class McpStdioClient {
   _failAllPending(err) {
     for (const [, p] of this._pending) { if (p.cleanup) p.cleanup(); else clearTimeout(p.timer); try { p.reject(err); } catch { /* settled */ } }
     this._pending.clear();
+  }
+  // 按行切 stdout。只在【新到的块】里找换行(修前每块都从整串头上重找,几十 MB 的一行是平方级);
+  // 超过 _lineMax 的行整行丢弃到下一个换行,并按行首的 "id" 把那一次调用如实拒掉,不在行中间切。
+  _onStdoutChunk(chunk) {
+    let start = 0;
+    let nl;
+    while ((nl = chunk.indexOf('\n', start)) >= 0) {
+      const piece = chunk.slice(start, nl);
+      start = nl + 1;
+      if (this._discarding) { this._discarding = false; continue; }
+      const line = this._bufParts.length ? this._bufParts.join('') + piece : piece;
+      this._bufParts = []; this._bufLen = 0;
+      try { this._onLine(line); } catch { /* never let a bad line throw */ }
+    }
+    const rest = start ? chunk.slice(start) : chunk;
+    if (!rest || this._discarding) return;
+    this._bufParts.push(rest);
+    this._bufLen += rest.length;
+    if (this._bufLen > this._lineMax) {
+      let head = '';
+      for (const part of this._bufParts) { head += part.slice(0, 256 - head.length); if (head.length >= 256) break; }
+      this._bufParts = []; this._bufLen = 0;
+      this._discarding = true;
+      const m = /^\s*\{[^{]*?"id"\s*:\s*(\d+)/.exec(head);   // 只认顶层 id(它前面不能再有别的 {)
+      const p = m ? this._pending.get(Number(m[1])) : null;
+      if (p) {
+        this._pending.delete(Number(m[1]));
+        if (p.cleanup) p.cleanup(); else clearTimeout(p.timer);
+        p.reject(new Error(`mcp response too large (> ${Math.round(this._lineMax / 1048576)}MB single line)`));
+      }
+    }
   }
 
   // Spawn + handshake (initialize -> notifications/initialized -> tools/list). Throws on failure and
@@ -804,16 +911,7 @@ class McpStdioClient {
     // EPIPE on stdin must not crash the process.
     if (child.stdin) child.stdin.on('error', () => { /* ignore broken pipe */ });
     child.stdout.setEncoding('utf8');
-    child.stdout.on('data', chunk => {
-      this._buf += chunk;
-      let nl;
-      while ((nl = this._buf.indexOf('\n')) >= 0) {
-        const line = this._buf.slice(0, nl);
-        this._buf = this._buf.slice(nl + 1);
-        try { this._onLine(line); } catch { /* never let a bad line throw */ }
-      }
-      if (this._buf.length > 4 * 1024 * 1024) this._buf = this._buf.slice(-1024 * 1024); // bound a runaway line
-    });
+    child.stdout.on('data', chunk => this._onStdoutChunk(chunk));
     child.stderr.setEncoding('utf8');
     child.stderr.on('data', d => { if (this._stderr.length < 8000) this._stderr += d; });
 
@@ -822,11 +920,10 @@ class McpStdioClient {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION }, // MCP 客户端标识名与 server id 一致
-      }, 8000);
+      }, mcpStartupRpcMs(this, 8000));
       this.serverInfo = (init && init.serverInfo) || {};
       this._notify('notifications/initialized', {});
-      const listed = await this._rpc('tools/list', {}, 8000);
-      this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+      this.tools = await this._listAllTools(mcpStartupRpcMs(this, 8000));
     } catch (e) {
       this.kill();
       this.dead = true;
@@ -836,31 +933,21 @@ class McpStdioClient {
   }
 
   listTools() { return this.tools; }
+  _listAllTools(timeoutMs) { return mcpListAllTools((m, p, t) => this._rpc(m, p, t), timeoutMs); }
+  // 探针用:真发一次 tools/list(修前 probe 读的是握手时缓存的目录,卡死的服务器照样报「正常」)。
+  async refreshTools(timeoutMs) { this.tools = await this._listAllTools(timeoutMs); return this.tools; }
 
   // Call a tool and normalize the MCP result into a workbench result object. Never throws.
   // 47b:超时走契约化处理 —— notifications/cancelled(_rpc 内已发)+ kill 客户端进程树(无僵尸执行),
   // 下次调用由 mcpClients 惰性重 spawn。错误文本如实告知"已杀进程树"。
   async callTool(name, args, timeoutMs, options = {}) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
+    // 条目 disabledTools/enabledTools 在调用时再挡一道(目录里已经滤掉;这里防裸名容错路由或旧目录缓存绕过)。
+    if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
+    // 超时:调用方显式给的优先,其次条目的 toolTimeoutMs,最后按工具名的内置表。
+    const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
-      const isError = !!(res && res.isError);
-      // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
-      let textOut = '';
-      if (res && Array.isArray(res.content)) {
-        const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
-        if (t) textOut = t.text;
-      }
-      if (textOut) {
-        const parsed = safeJsonParse(textOut, undefined);
-        if (parsed && typeof parsed === 'object') {
-          // Respect an explicit ok flag from the tool; otherwise derive from isError.
-          if (typeof parsed.ok === 'boolean') return parsed;
-          return { ok: !isError, ...parsed };
-        }
-        return { ok: !isError, text: textOut };
-      }
-      return { ok: !isError, content: (res && res.content) || [] };
+      return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (/aborted by user steer/.test(m)) {
@@ -899,13 +986,22 @@ class McpStdioClient {
 // tools/list_changed:sse 流上收到该通知即惰性重列工具(下次 listTools 前刷新)。
 // ===================================================================================================
 class McpHttpClient {
-  constructor({ id, transport, url, headers }) {
+  constructor({ id, transport, url, headers, bearerTokenEnvVar, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
     this.transport = transport === 'sse' ? 'sse' : 'http';
     this.url = String(url || '');
     // 连接时展开密钥引用;未定义的变量保留原样(与 48c 导入器同语义)。
     this.headers = {};
     for (const [k, v] of Object.entries(headers || {})) this.headers[k] = _expandMcpVar(String(v));
+    // bearerTokenEnvVar(Codex bearer_token_env_var / 导入的同名字段):连接时从 process.env 取令牌补
+    // Authorization。修前存了不用,需要鉴权的远程连接器永远 401。显式写了 Authorization 头的以头为准。
+    const tokenVar = typeof bearerTokenEnvVar === 'string' ? bearerTokenEnvVar.trim() : '';
+    const token = tokenVar ? String(process.env[tokenVar] || '').trim() : '';
+    if (token && !Object.keys(this.headers).some(k => k.toLowerCase() === 'authorization')) this.headers.Authorization = 'Bearer ' + token;
+    this.startupTimeoutMs = startupTimeoutMs;
+    this.toolTimeoutMs = toolTimeoutMs;
+    this.enabledTools = enabledTools;
+    this.disabledTools = disabledTools;
     this.dead = false;
     this.started = false;
     this.tools = [];
@@ -1013,7 +1109,21 @@ class McpHttpClient {
     let msgs = [];
     if (ctype.includes('text/event-stream')) msgs = McpHttpClient._parseSseMessages(resp.body.toString('utf8'));
     else { const j = safeJsonParse(resp.body.toString('utf8'), null); if (j) msgs = [j]; }
-    const mine = msgs.find(m => m && m.id === id);
+    // 带 method 的是对端发来的请求(同 id 撞号也不是给我们的响应)。
+    const mine = msgs.find(m => m && m.id === id && m.method == null);
+    if (!mine && this._sessionId && (resp.status === 404 || resp.status === 400 || resp.status === 401) && method !== 'initialize') {
+      // 服务端会话失效(对端重启 / 会话过期:规范要求回 404,客户端须不带旧 Mcp-Session-Id 重新 initialize)。
+      // 修前客户端既不重握手也不标 dead,之后每一次调用都 404,直到进程重启。现在就地重握手后重发一次
+      // (对端没认这个会话,原请求不会被执行过);重握手或重发仍失败 -> 标 dead,下次 getMcpClient 整个重建。
+      if (!options._sessionRetried) {
+        this._sessionId = null;
+        try { await this._initialize(timeoutMs); }
+        catch (e) { this.kill(); throw new Error('mcp http: 会话已失效(HTTP ' + resp.status + '),重新握手失败: ' + ((e && e.message) || e)); }
+        return this._rpcHttp(method, params, timeoutMs, { ...options, _sessionRetried: true });
+      }
+      this.kill();
+      throw new Error('mcp http: 会话已失效(HTTP ' + resp.status + '),连接已重置,下次调用将重新握手');
+    }
     if (!mine) throw new Error('mcp http: 响应中无匹配 id(状态 ' + resp.status + ')');
     if (mine.error) throw new Error(mine.error.message || 'mcp error');
     return mine.result;
@@ -1075,12 +1185,20 @@ class McpHttpClient {
     let u; try { u = new URL(this.url); } catch { throw new Error('bad url: ' + this.url); }
     const lib = u.protocol === 'https:' ? require('https') : http;
     await new Promise((resolve, reject) => {
-      const req = lib.request(u, { method: 'GET', headers: { ...this.headers, 'Accept': 'text/event-stream' } }, res => {
-        if (res.statusCode >= 400) { reject(new Error('mcp sse: HTTP ' + res.statusCode)); res.resume(); return; }
+      // hunt2-mcp:openTimer 修前声明在响应回调里,而 req.on('error') 在回调外引用它 —— 连接被拒(连接器
+      // 地址写错/对端没起)时 error 先于任何响应到达,ReferenceError 冒成 uncaughtException,整个工作台进程退出。
+      // 现在提到外层、从发请求起就计时:连不上、连上不给 endpoint、TCP 挂住,都在这一个时限内拒掉并断开请求。
+      let opened = false;
+      let req = null;
+      const openTimer = setTimeout(() => {
+        if (opened) return;
+        reject(new Error('mcp sse: 等 endpoint 事件超时'));
+        try { if (req) req.destroy(); } catch { /* ignore */ }
+      }, mcpStartupRpcMs(this, 8000));
+      req = lib.request(u, { method: 'GET', headers: { ...this.headers, 'Accept': 'text/event-stream' } }, res => {
+        if (res.statusCode >= 400) { clearTimeout(openTimer); reject(new Error('mcp sse: HTTP ' + res.statusCode)); res.resume(); return; }
         this._sseReq = req;
         res.setEncoding('utf8');
-        let opened = false;
-        const openTimer = setTimeout(() => reject(new Error('mcp sse: 等 endpoint 事件超时')), 8000);
         // 干净的事件累积器:event:/data: 逐行累积,空行派发(多行 data 以 \n 连接 —— e5-multiline-sse 教训)。
         let evtName = 'message', evtData = [];
         const dispatch = () => {
@@ -1096,6 +1214,11 @@ class McpHttpClient {
           }
           const msgObj = safeJsonParse(raw, null);
           if (!msgObj) return;
+          if (msgObj.id != null && msgObj.method != null) {
+            // 对端发来的请求(ping 等):回话走 endpoint POST,绝不拿它的 id 去结我们的 pending。
+            if (!this.dead && this._ssePostUrl) this._request('POST', this._ssePostUrl, mcpServerRequestReply(msgObj), 5000).catch(() => {});
+            return;
+          }
           if (msgObj.id != null) {
             const p = this._pending.get(msgObj.id);
             if (p) {
@@ -1122,7 +1245,12 @@ class McpHttpClient {
         res.on('end', () => { this.dead = true; this._failAllPending(new Error('mcp sse: 事件流断开')); });
         res.on('error', e => { this.dead = true; this._failAllPending(new Error('mcp sse: ' + (e && e.message))); });
       });
-      req.on('error', e => { clearTimeout(openTimer); reject(new Error('mcp sse connect: ' + (e && e.message))); });
+      req.on('error', e => {
+        clearTimeout(openTimer);
+        reject(new Error('mcp sse connect: ' + (e && e.message)));   // 已 open 时是空操作
+        // 已建立的流中途断(ECONNRESET 等):与 res 'error' 同一收尾,挂着的调用立刻失败,下次调用重建。
+        if (opened) { this.dead = true; this._failAllPending(new Error('mcp sse: ' + (e && e.message))); }
+      });
       req.end();
     });
   }
@@ -1132,15 +1260,8 @@ class McpHttpClient {
     this.started = true;
     try {
       if (this.transport === 'sse') await this._openSseStream();
-      const init = await this._rpc('initialize', {
-        protocolVersion: '2025-03-26',
-        capabilities: {},
-        clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
-      }, 10000);
-      this.serverInfo = (init && init.serverInfo) || {};
-      this._notify('notifications/initialized', {});
-      const listed = await this._rpc('tools/list', {}, 10000);
-      this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+      await this._initialize(mcpStartupRpcMs(this, 10000));
+      this.tools = await this._listAllTools(mcpStartupRpcMs(this, 10000));
     } catch (e) {
       this.kill();
       this.dead = true;
@@ -1149,12 +1270,26 @@ class McpHttpClient {
     return this;
   }
 
+  // initialize + notifications/initialized。start 与「会话失效就地重握手」共用。
+  async _initialize(timeoutMs) {
+    const init = await this._rpc('initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: RUYI_MCP_SERVER_ID, version: VERSION },
+    }, timeoutMs);
+    this.serverInfo = (init && init.serverInfo) || {};
+    this._notify('notifications/initialized', {});
+    return init;
+  }
+  _listAllTools(timeoutMs) { return mcpListAllTools((m, p, t) => this._rpc(m, p, t), timeoutMs); }
+  // 探针用:真发一次 tools/list,不读缓存(同 McpStdioClient.refreshTools)。
+  async refreshTools(timeoutMs) { this.tools = await this._listAllTools(timeoutMs); this._toolsStale = false; return this.tools; }
+
   // 03 §4.2 tools/list_changed:sse 通知把目录标陈旧,此处惰性重列(不主动推,桥是拉模型)。
   async listTools() {
     if (this._toolsStale && !this.dead) {
       try {
-        const listed = await this._rpc('tools/list', {}, 8000);
-        this.tools = (listed && Array.isArray(listed.tools)) ? listed.tools : [];
+        this.tools = await this._listAllTools(8000);
       } catch { /* 保留旧目录,下次再试 */ }
       this._toolsStale = false;
     }
@@ -1163,24 +1298,11 @@ class McpHttpClient {
 
   // Same result normalization as McpStdioClient.callTool — never throws.
   async callTool(name, args, timeoutMs, options = {}) {
-    const limit = Math.max(1000, Number(timeoutMs) || bridgedToolCallTimeoutMs(name, args));
+    if (!mcpToolAllowed(this, name)) return { ok: false, error: `tool '${name}' is disabled for MCP server '${this.id}' (enabledTools/disabledTools)` };
+    const limit = Math.max(1000, Number(timeoutMs) || Number(this.toolTimeoutMs) || bridgedToolCallTimeoutMs(name, args));
     try {
       const res = await this._rpc('tools/call', { name, arguments: args || {} }, limit, options);
-      const isError = !!(res && res.isError);
-      let textOut = '';
-      if (res && Array.isArray(res.content)) {
-        const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
-        if (t) textOut = t.text;
-      }
-      if (textOut) {
-        const parsed = safeJsonParse(textOut, undefined);
-        if (parsed && typeof parsed === 'object') {
-          if (typeof parsed.ok === 'boolean') return parsed;
-          return { ok: !isError, ...parsed };
-        }
-        return { ok: !isError, text: textOut };
-      }
-      return { ok: !isError, content: (res && res.content) || [] };
+      return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
       if (/aborted by user steer/.test(m)) {
@@ -1212,6 +1334,22 @@ const MCP_FAILURE_COOLDOWN_MS = 60000;
 const mcpClientPending = new Map();  // 55a: serverId -> 进行中的 start Promise(并发互斥,防孤儿子进程)
 const mcpStartingClients = new Map(); // 55a: serverId -> 正在握手(尚未入 mcpClients)的客户端,invalidate 时需 kill
 const mcpClientGen = new Map();     // 55a: serverId -> 代数;invalidate 自增以让在途 start 结果作废、不写冷却
+// hunt2-mcp:serverId -> 当前运行时状态(活客户端 / 在途启动 / 失败冷却)所属条目的指纹。上面几张表都只按 id 记账,
+// 修前用户在设置页 / import-folder / import-config 里改好了一个坏连接器(同 id),旧进程、旧冷却(60s 内一律 null)
+// 与在途启动照用不误 —— 「改好了还是连不上」。现在取客户端前先比指纹,变了就按 invalidateMcpRuntime 作废旧的。
+const mcpClientFingerprints = new Map();
+function mcpEntryFingerprint(entry) {
+  const e = entry || {};
+  return JSON.stringify([e.transport || 'stdio', e.command || '', e.args || [], e.cwd || '', e.env || {}, e.url || '', e.headers || {},
+    e.bearerTokenEnvVar || '', e.startupTimeoutMs || 0, e.toolTimeoutMs || 0, e.enabledTools || null, e.disabledTools || null]);
+}
+function reconcileMcpEntryFingerprint(entry) {
+  if (!entry || !entry.id) return;
+  const fp = mcpEntryFingerprint(entry);
+  const prev = mcpClientFingerprints.get(entry.id);
+  if (prev !== undefined && prev !== fp) invalidateMcpRuntime(entry.id);
+  mcpClientFingerprints.set(entry.id, fp);
+}
 
 // ============================================================================
 // v1.1-W2 (T2) — MCP drop-in 自动扫描。
@@ -1247,8 +1385,12 @@ function scanMcpDropIns() {
     catch { continue; } // mcp/ 目录不存在 → 正常,跳过
     for (const ent of subdirs) {
       if (out.length >= MCP_DROPIN_MAX) break;
-      if (!ent.isDirectory()) continue;
       const folder = path.join(root, ent.name);
+      // 链进来的连接器目录(符号链接 / junction)也认:Dirent 对链接不报目录,stat 跟随一次(hunt2-mcp,同 readSkillDir)。
+      if (!ent.isDirectory()) {
+        if (!ent.isSymbolicLink()) continue;
+        try { if (!fs.statSync(folder).isDirectory()) continue; } catch { continue; }
+      }
       const manifestPath = path.join(folder, 'ruyi-mcp.json');
       let raw = null;
       try {
@@ -1521,41 +1663,161 @@ function _expandMcpVar(s) {
     .replace(/\$\{([A-Z_][A-Z0-9_]*)\}/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '${' + n + '}'))
     .replace(/%([A-Z_][A-Z0-9_]*)%/gi, (_, n) => (process.env[n] != null ? String(process.env[n]) : '%' + n + '%'));
 }
-function _parseTomlMcpServers(text) {
-  const out = [];
-  const lines = text.split(/\r?\n/);
-  let cur = null;
-  const unquote = v => { v = v.trim(); return /^["'].*["']$/.test(v) ? v.slice(1, -1) : v; };
-  for (const line of lines) {
-    const sec = line.match(/^\s*\[\s*mcp_servers\.([^\]\s]+)\s*\]\s*$/);
-    if (sec) { const id = sec[1].replace(/^["']|["']$/g, ''); cur = { id, label: id, type: 'stdio', command: '', args: [], env: {}, cwd: '' }; out.push(cur); continue; }
-    if (!cur) continue;
-    if (/^\s*\[/.test(line)) { cur = null; continue; } // 进入其它段,结束当前 mcp_servers 段
-    const km = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*$/);
-    if (!km) continue;
-    const k = km[1], v = km[2];
-    if (k === 'command') cur.command = unquote(v);
-    else if (k === 'cwd') cur.cwd = unquote(v);
-    else if (k === 'enabled') cur.enabled = !/^false$/i.test(v.trim());
-    else if (k === 'startup_timeout_sec' || k === 'tool_timeout_sec') {
-      const seconds = Number(v);
-      if (Number.isFinite(seconds) && seconds > 0) cur[k === 'startup_timeout_sec' ? 'startupTimeoutMs' : 'toolTimeoutMs'] = Math.min(2147483647, Math.round(seconds * 1000));
-    } else if (k === 'args' || k === 'enabled_tools' || k === 'disabled_tools') {
-      const arr = v.match(/^\[(.*)\]$/s);
-      if (arr) cur[k === 'args' ? 'args' : (k === 'enabled_tools' ? 'enabledTools' : 'disabledTools')] = [...arr[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map(m => m[1] != null ? m[1] : m[2]);
-    } else if (k === 'env') {
-      const tbl = v.match(/^\{(.*)\}$/s);
-      if (tbl) for (const e of tbl[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"([^"]*)"/g)) cur.env[e[1]] = e[2];
+// hunt2-mcp:Codex config.toml 的迷你 parser 重写。修前逐行正则,真实配置里常见的写法全部静默丢字段:
+// 多行数组(args = [ 换行 "-y", 换行 ... ])、[mcp_servers.X.env] 子表、行尾 # 注释、单引号字面串的 env 值、
+// 远程条目(url / bearer_token_env_var / http_headers / env_http_headers)。仍是零依赖小状态机,只解我们认的键;
+// 既没有 command 也没有 url 的段【不再静默丢】,标 unsupported 交给导入界面如实显示。
+// 引号状态机:回调拿到每个【引号外】的字符(引号内的跳过),三个小工具共用。
+function _tomlScan(text, onOutside) {
+  let q = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (q === '"' && c === '\\') { i++; continue; }
+      if (c === q) q = '';
+      continue;
     }
+    if (c === '"' || c === "'") { q = c; continue; }
+    if (onOutside(c, i) === false) return;
   }
-  return out.filter(s => s.command);
 }
+function _tomlStripComment(line) {
+  let cut = -1;
+  _tomlScan(line, (c, i) => { if (c === '#') { cut = i; return false; } return true; });
+  return cut >= 0 ? line.slice(0, cut) : line;
+}
+function _tomlDepth(text) {
+  let depth = 0;
+  _tomlScan(text, c => { if (c === '[' || c === '{') depth++; else if (c === ']' || c === '}') depth--; });
+  return depth;
+}
+// 按顶层分隔符切(引号与括号内的不算)。
+function _tomlSplitTop(text, sep) {
+  const cuts = [];
+  let depth = 0;
+  _tomlScan(text, (c, i) => {
+    if (c === '[' || c === '{') depth++;
+    else if (c === ']' || c === '}') depth--;
+    else if (c === sep && depth === 0) cuts.push(i);
+  });
+  const out = [];
+  let from = 0;
+  for (const i of cuts) { out.push(text.slice(from, i)); from = i + 1; }
+  out.push(text.slice(from));
+  return out;
+}
+function _tomlKeyPath(k) {
+  return _tomlSplitTop(String(k).trim(), '.').map(part => {
+    const t = part.trim();
+    if (/^".*"$/.test(t)) { try { return JSON.parse(t); } catch { return t.slice(1, -1); } }
+    if (/^'.*'$/.test(t)) return t.slice(1, -1);
+    return t;
+  });
+}
+function _tomlValue(raw) {
+  const v = String(raw).trim();
+  if (v.startsWith('"""') || v.startsWith("'''")) return undefined;   // 多行字符串:不解,当没写(该段缺 command 时会被标 unsupported)
+  if (/^"[\s\S]*"$/.test(v)) { try { return JSON.parse(v); } catch { return v.slice(1, -1); } }
+  if (/^'[\s\S]*'$/.test(v)) return v.slice(1, -1);
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (/^[+-]?\d[\d_]*(\.\d+)?$/.test(v)) return Number(v.replace(/_/g, ''));
+  if (v.startsWith('[') && v.endsWith(']')) {
+    return _tomlSplitTop(v.slice(1, -1), ',').map(x => x.trim()).filter(Boolean).map(_tomlValue);
+  }
+  if (v.startsWith('{') && v.endsWith('}')) {
+    const obj = {};
+    for (const pair of _tomlSplitTop(v.slice(1, -1), ',')) {
+      const kv = _tomlSplitTop(pair, '=');
+      if (kv.length < 2) continue;
+      const key = _tomlKeyPath(kv[0]).join('.');
+      if (key) obj[key] = _tomlValue(kv.slice(1).join('='));
+    }
+    return obj;
+  }
+  return undefined;   // 认不出的值(多行字符串、日期等):当没写
+}
+function _parseTomlMcpServers(text) {
+  const byId = new Map();
+  const serverFor = id => {
+    if (!byId.has(id)) byId.set(id, { id, label: id, type: 'stdio', command: '', args: [], env: {}, cwd: '' });
+    return byId.get(id);
+  };
+  const strList = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string') : null);
+  const setKey = (cur, sub, key, val) => {
+    if (val === undefined) return;
+    if (sub === 'env') { if (typeof val === 'string' || typeof val === 'number') cur.env[key] = String(val); return; }
+    if (sub === 'http_headers') { if (typeof val === 'string') (cur.headers = cur.headers || {})[key] = val; return; }
+    // env_http_headers:头名 -> 环境变量名。存成 ${VAR} 引用,连接时才展开(密钥不落盘明文,与 headers 同纪律)。
+    if (sub === 'env_http_headers') { if (typeof val === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(val)) (cur.headers = cur.headers || {})[key] = '${' + val + '}'; return; }
+    if (sub) return;   // 其它子表(如 tools.*)不认
+    if (key === 'command' && typeof val === 'string') cur.command = val;
+    else if (key === 'cwd' && typeof val === 'string') cur.cwd = val;
+    else if (key === 'url' && typeof val === 'string') cur.url = val;
+    else if (key === 'enabled') cur.enabled = val !== false;
+    else if (key === 'bearer_token_env_var' && typeof val === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(val.trim())) cur.bearerTokenEnvVar = val.trim();
+    else if ((key === 'startup_timeout_sec' || key === 'tool_timeout_sec') && Number.isFinite(val) && val > 0) {
+      cur[key === 'startup_timeout_sec' ? 'startupTimeoutMs' : 'toolTimeoutMs'] = Math.min(2147483647, Math.round(val * 1000));
+    } else if (key === 'startup_timeout_ms' && Number.isFinite(val) && val > 0) cur.startupTimeoutMs = Math.min(2147483647, Math.round(val));
+    else if (key === 'args') { const l = strList(val); if (l) cur.args = l; }
+    else if (key === 'enabled_tools') { const l = strList(val); if (l) cur.enabledTools = l; }
+    else if (key === 'disabled_tools') { const l = strList(val); if (l) cur.disabledTools = l; }
+    else if ((key === 'env' || key === 'http_headers' || key === 'env_http_headers') && val && typeof val === 'object' && !Array.isArray(val)) {
+      for (const [k2, v2] of Object.entries(val)) setKey(cur, key, k2, v2);
+    }
+  };
+  let cur = null, sub = '';
+  let pending = '';
+  for (const physical of String(text).split(/\r?\n/)) {
+    let line = _tomlStripComment(physical);
+    if (pending) {
+      pending += '\n' + line;
+      if (_tomlDepth(pending) > 0) continue;
+      line = pending; pending = '';
+    } else if (!line.trim()) continue;
+    const trimmed = line.trim();
+    if (/^\[\[/.test(trimmed)) { cur = null; sub = ''; continue; }   // 表数组:不是我们的段
+    const sec = /^\[\s*([^=]+?)\s*\]$/.exec(trimmed);
+    if (sec) {
+      const keyPath = _tomlKeyPath(sec[1]);
+      if (keyPath[0] === 'mcp_servers' && keyPath.length >= 2 && keyPath[1]) {
+        cur = serverFor(keyPath[1]);
+        sub = keyPath.length === 2 ? '' : (keyPath.length === 3 ? keyPath[2] : '#deeper');   // 更深的子表不认
+      } else { cur = null; sub = ''; }
+      continue;
+    }
+    const eq = _tomlSplitTop(line, '=');
+    if (eq.length < 2) continue;
+    const valueText = eq.slice(1).join('=');
+    if (_tomlDepth(valueText) > 0) { pending = line; continue; }   // 多行数组 / 内联表:拼到括号配平
+    if (!cur) continue;
+    const keyPath = _tomlKeyPath(eq[0]);
+    const val = _tomlValue(valueText);
+    if (keyPath.length === 1) setKey(cur, sub, keyPath[0], val);
+    else if (keyPath.length === 2 && !sub) setKey(cur, keyPath[0], keyPath[1], val);   // env.FOO = "x" 点号键
+  }
+  const out = [];
+  for (const srv of byId.values()) {
+    if (srv.url) srv.type = 'http';
+    if (!srv.command && !srv.url) srv.unsupported = 'config.toml 段缺 command/url(或写法无法解析)';
+    out.push(srv);
+  }
+  return out;
+}
+const MCP_CONFIG_JSON_MAX_BYTES = 32 * 1024 * 1024;
+const MCP_CONFIG_OTHER_MAX_BYTES = 1024 * 1024;
 // 解析单个 MCP 配置文件。返回 { servers, error? }。从不抛(缺失/格式错 -> error,供 UI 明示)。
 function parseMcpConfigFile(filePath) {
+  // hunt2-mcp:~/.claude.json 里 projects 历史动辄几 MB,修前一律 256KB 封顶 → 重度用户的 Claude Code 连接器
+  // 永远导不进来。JSON 放宽到 32MB(与该文件的真实规模同档),其它格式 1MB;先 stat 再读,不把超大文件整个读进内存。
+  const lower = String(filePath || '').toLowerCase();
+  const maxBytes = lower.endsWith('.json') ? MCP_CONFIG_JSON_MAX_BYTES : MCP_CONFIG_OTHER_MAX_BYTES;
   let text;
-  try { text = fs.readFileSync(filePath, 'utf8'); } catch (e) { return { servers: [], error: '读失败: ' + (e.code === 'ENOENT' ? '文件不存在' : e.message) }; }
-  if (text.length > 256 * 1024) return { servers: [], error: '文件过大(>256KB,跳过)' };
-  const lower = filePath.toLowerCase();
+  try {
+    const st = fs.statSync(filePath);
+    if (st.isFile() && st.size > maxBytes) return { servers: [], error: `文件过大(>${Math.round(maxBytes / 1048576)}MB,跳过)` };
+    text = fs.readFileSync(filePath, 'utf8');
+  } catch (e) { return { servers: [], error: '读失败: ' + (e.code === 'ENOENT' ? '文件不存在' : e.message) }; }
   if (lower.endsWith('.json')) {
     let j; try { j = JSON.parse(text); } catch (e) { return { servers: [], error: 'JSON 解析失败: ' + e.message }; }
     const ms = (j && j.mcpServers && typeof j.mcpServers === 'object') ? j.mcpServers : null;
@@ -1635,6 +1897,10 @@ function invalidateMcpRuntime(id) {
     const starting = mcpStartingClients.get(id);
     if (starting) { try { starting.kill(); } catch { /* ignore */ } mcpStartingClients.delete(id); }
     mcpClientFailures.delete(id);
+    // hunt2-mcp:在途 start 的 Promise 也摘掉 —— 否则紧接着的 getMcpClient 会复用这个已被作废(结果注定 null)的
+    // Promise,而不是按新配置重新起一个。
+    mcpClientPending.delete(id);
+    mcpClientFingerprints.delete(id);
     // 自增代数:在途 start(其 Promise 仍可能被并发 probe await)settle 后据此作废结果——
     // 已 killed 的失败不写冷却(否则 toggle-on 后立刻又命中 60s 冷却不重连)。
     mcpClientGen.set(id, (mcpClientGen.get(id) || 0) + 1);
@@ -1764,6 +2030,7 @@ async function configureMcpFromTool(args, currentConfig) {
 // Get (lazily starting) a live client for one server entry, or null if it can't start. Caches failures.
 // 49c:按 entry.transport 选客户端类 —— sse/http 走 McpHttpClient(无进程,远程连接),其余走 stdio。
 async function getMcpClient(entry) {
+  reconcileMcpEntryFingerprint(entry);
   const existing = mcpClients.get(entry.id);
   if (existing && !existing.dead) return existing;
   if (existing && existing.dead) mcpClients.delete(entry.id);
@@ -1795,13 +2062,17 @@ async function getMcpClient(entry) {
     }
   })();
   mcpClientPending.set(entry.id, p);
-  try { return await p; } finally { mcpClientPending.delete(entry.id); }
+  // 只摘自己那一个:invalidate 之后别人可能已经放进了新的在途 Promise。
+  try { return await p; } finally { if (mcpClientPending.get(entry.id) === p) mcpClientPending.delete(entry.id); }
 }
 
 // Kill every live bridged client (called on process exit / cleanup).
 function killAllMcpClients() {
   for (const [, c] of mcpClients) { try { c.kill(); } catch { /* ignore */ } }
   mcpClients.clear();
+  // hunt2-mcp:还在握手的也要杀 —— 修前退出时它们不在 mcpClients 里,子进程成孤儿(unref 过,不拦退出)。
+  for (const [, c] of mcpStartingClients) { try { c.kill(); } catch { /* ignore */ } }
+  mcpStartingClients.clear();
 }
 
 // 47b:桥客户端获取的统一入口 —— 活则直给;死/缺则按 config 的服务器条目经 getMcpClient 惰性重 spawn。
@@ -1818,6 +2089,15 @@ async function getBridgedClient(serverId, config) {
 
 // Stable, reversible-ish server-id sanitizer for the bridged tool-name prefix. Non [A-Za-z0-9_] -> _.
 function sanitizeServerId(id) { return String(id || '').replace(/[^A-Za-z0-9_]/g, '_'); }
+// hunt2-mcp:provider 的函数名只收 ^[a-zA-Z0-9_-]{1,64}$。修前前缀冲突(my-srv 与 my_srv 都成 my_srv)时后到的
+// 服务器工具被静默丢掉;工具名里带 . / 空格或总长超 64 的,整批请求被 provider 400 拒掉。
+// 前缀冲突:先到者(desktop 在最前)保留原前缀,后到者加 id 的短哈希;名字非法字符转 _,超长截断并补哈希保唯一。
+function mcpShortHash(text) { return crypto.createHash('sha1').update(String(text), 'utf8').digest('hex').slice(0, 6); }
+function bridgedToolFunctionName(prefix, toolName) {
+  const raw = `${prefix}__${String(toolName).replace(/[^A-Za-z0-9_-]/g, '_')}`;
+  if (raw.length <= 64) return raw;
+  return raw.slice(0, 57) + '_' + mcpShortHash(`${prefix}__${toolName}`);
+}
 
 // v0.7d line 2: collect bridged tools for THIS turn (once). Returns { tools:[openai fn schema], route }.
 // route maps bridgedName -> { serverId, toolName }. Any server that fails to start/list is skipped;
@@ -1837,7 +2117,7 @@ const BRIDGED_CATALOG_SCAN_TIMEOUT_MS = 8000;
 async function collectBridgedTools(config, force = false) {
   if (!config || config.bridgeExternalToolsToProvider === false) return { tools: [], route: {} };
   const entries = resolveExternalMcpServers(config);
-  const cacheKey = JSON.stringify(entries.map(e => [e.id, e.command || '', e.args || [], e.cwd || '', e.env || {}, e.transport || 'stdio', e.url || '']));
+  const cacheKey = JSON.stringify(entries.map(e => [e.id, mcpEntryFingerprint(e)]));   // 过滤表 / 超时 / 头也算目录变化
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
@@ -1859,13 +2139,21 @@ async function collectBridgedTools(config, force = false) {
       try { list = await client.listTools(); } catch { list = []; }
       return { entry, list: Array.isArray(list) ? list : [] };
     }));
+    const prefixOwner = new Map();   // 前缀 -> 占用它的 serverId
     for (const item of collected) {
       if (!item) continue;
       const { entry, list } = item;
-      const prefix = sanitizeServerId(entry.id);
+      let prefix = sanitizeServerId(entry.id);
+      if (prefixOwner.has(prefix) && prefixOwner.get(prefix) !== entry.id) {
+        const taken = prefix;
+        prefix = `${prefix}_${mcpShortHash(entry.id)}`;
+        logEvent({ kind: 'mcp_bridge_prefix_collision', serverId: entry.id, other: prefixOwner.get(taken), prefix });
+      }
+      prefixOwner.set(prefix, entry.id);
       for (const t of list) {
         if (!t || typeof t.name !== 'string' || !t.name) continue;
-        const bridgedName = `${prefix}__${t.name}`;
+        if (!mcpToolAllowed(entry, t.name)) continue;   // 条目 enabledTools / disabledTools
+        const bridgedName = bridgedToolFunctionName(prefix, t.name);
         // Never overwrite an already-claimed name (defensive; prefixes make collisions unlikely).
         if (route[bridgedName]) continue;
         route[bridgedName] = { serverId: entry.id, toolName: t.name };
@@ -1962,7 +2250,10 @@ async function probeMcpConnector(entry, opts = {}) {
   if (!entry || (!entry.id && !entry.command && !entry.url)) {
     return { id: null, status: 'failed', category: 'startup', message: 'invalid entry', latencyMs: 0, probedAt };
   }
+  reconcileMcpEntryFingerprint(entry);   // 配置改过(同 id)-> 旧客户端 / 旧冷却作废,按新条目重测
   let client = mcpClients.get(entry.id);
+  // 已经活着的客户端:下面真发一次 tools/list(hunt2-mcp:修前读握手时缓存的目录,卡死的服务器也报 ok)。
+  const wasLive = Boolean(client && !client.dead);
   if (!client || client.dead) {
     try {
       client = await Promise.race([
@@ -1982,10 +2273,11 @@ async function probeMcpConnector(entry, opts = {}) {
     return { id: entry.id, status: 'failed', ...cls, latencyMs: Date.now() - startedAt, probedAt };
   }
   try {
+    let probeTimer = null;
     const tools = await Promise.race([
-      Promise.resolve(client.listTools()),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('mcp tools/list timed out')), timeoutMs)),
-    ]);
+      Promise.resolve(wasLive && typeof client.refreshTools === 'function' ? client.refreshTools(timeoutMs) : client.listTools()),
+      new Promise((_, reject) => { probeTimer = setTimeout(() => reject(new Error('mcp tools/list timed out')), timeoutMs); }),
+    ]).finally(() => clearTimeout(probeTimer));
     const toolCount = Array.isArray(tools) ? tools.length : 0;
     return {
       id: entry.id,

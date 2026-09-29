@@ -1601,13 +1601,41 @@ async function computeHealth(config, { desktopPending = false } = {}) {
   return { health, manifest: mani };
 }
 
+// hunt2-mcp:Windows 记事本存的 SKILL.md 带 UTF-8 BOM,修前 `^---` 对不上,整段 frontmatter 被当正文(name/description
+// 全丢,描述变成「---」)。三个读 frontmatter 的入口都先剥 BOM。
+function stripLeadingBom(raw) { return String(raw || '').replace(/^\uFEFF/, ''); }
+// YAML 块标量(description: > / | / >- / |-,后跟缩进的续行)。修前值取到的就是字面的「>」。
+// 只认这两种块标量与单行 key: value,够 SKILL.md / 记忆 / 命令文件用;不引入 YAML 解析器。
+function foldFrontmatterBlock(style, lines) {
+  const body = lines.slice();
+  while (body.length && !body[body.length - 1].trim()) body.pop();
+  const widths = body.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length);
+  const indent = widths.length ? Math.min(...widths) : 0;
+  const rows = body.map(l => l.slice(indent).replace(/\s+$/, ''));
+  if (style === '|') return rows.join('\n').trim();
+  let out = '';
+  for (const r of rows) {
+    if (!r) { out += '\n'; continue; }
+    out += (out && !out.endsWith('\n') ? ' ' : '') + r;
+  }
+  return out.trim();
+}
 function parseFrontmatter(raw) {
   const fm = {};
-  const m = /^---\s*\r?\n([\s\S]*?)\r?\n---/.exec(raw || '');
+  const m = /^---\s*\r?\n([\s\S]*?)\r?\n---/.exec(stripLeadingBom(raw));
   if (m) {
-    for (const line of m[1].split(/\r?\n/)) {
-      const mm = /^([A-Za-z0-9_-]+)\s*:\s*(.*)$/.exec(line);
-      if (mm) fm[mm[1].toLowerCase()] = mm[2].replace(/^["']|["']$/g, '').trim();
+    const lines = m[1].split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const mm = /^([A-Za-z0-9_-]+)\s*:\s*(.*)$/.exec(lines[i]);
+      if (!mm) continue;
+      const block = /^([>|])[+-]?[1-9]?\s*$/.exec(mm[2]);
+      if (block) {
+        const cont = [];
+        while (i + 1 < lines.length && (/^\s/.test(lines[i + 1]) || !lines[i + 1].trim())) cont.push(lines[++i]);
+        fm[mm[1].toLowerCase()] = foldFrontmatterBlock(block[1], cont);
+        continue;
+      }
+      fm[mm[1].toLowerCase()] = mm[2].replace(/^["']|["']$/g, '').trim();
     }
   }
   return fm;
@@ -1616,7 +1644,7 @@ function parseFrontmatter(raw) {
 // First real paragraph of a doc (skipping frontmatter + the # title) — used as a description when the
 // toolkit files have no YAML frontmatter.
 function firstParaDesc(raw) {
-  const body = String(raw || '').replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
+  const body = stripLeadingBom(raw).replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '');
   for (const line of body.split(/\r?\n/)) {
     const t = line.trim();
     if (!t || t.startsWith('#') || t.startsWith('---')) continue;
@@ -1632,7 +1660,7 @@ function docMeta(raw) {
 // Remove machine-facing frontmatter while keeping the useful workflow body for the skill detail view and
 // provider-compatible command templates. The result is still treated as authored/untrusted content.
 function docBody(raw, max = 12000) {
-  return String(raw || '').replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '').trim().slice(0, max);
+  return stripLeadingBom(raw).replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*\r?\n?/, '').trim().slice(0, max);
 }
 function commandPrompt(raw) {
   return docBody(raw, 8000).replace(/^#\s+[^\r\n]+\r?\n+/, '').trim();
@@ -1673,10 +1701,15 @@ async function readSkillDir(baseDir, source, caps) {
   let ents = [];
   try { ents = await fsp.readdir(baseDir, { withFileTypes: true }); } catch { return out; } // 目录不存在 → 空
   for (const d of ents) {
-    if (!d.isDirectory()) continue;
     const id = d.name;
     if (!SKILL_ID_RE.test(id)) continue; // 非法/穿越名跳过
     const dir = path.join(baseDir, id);
+    // hunt2-mcp:符号链接 / 目录联接(Windows junction)指向的技能目录也认 —— 「把技能仓链进 skills/」是常见装法,
+    // 修前 Dirent.isDirectory() 对链接恒为 false,整个技能静默消失。stat 跟随链接判是不是目录。
+    if (!d.isDirectory()) {
+      if (!d.isSymbolicLink()) continue;
+      try { if (!(await fsp.stat(dir)).isDirectory()) continue; } catch { continue; }
+    }
     const file = path.join(dir, 'SKILL.md');
     let raw = '';
     try { const st = await fsp.stat(file); if (!st.isFile() || st.size > 256 * 1024) continue; raw = await fsp.readFile(file, 'utf8'); } catch { continue; }

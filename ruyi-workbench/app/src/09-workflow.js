@@ -689,7 +689,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
       const nodeContextPrefix = node.context ? `本节点专属资料（仅本节点可见）：\n${node.context}\n\n` : '';
       const evidenceInstruction = `\n\n【R1 可引用证据】\n${formatNodeEvidencePrompt(run, node)}`;
       const nodeMemoryQuery = [contextText, node.context, node.task].filter(Boolean).join('\n');
-      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config).catch(() => ({
+      const nodeMemory = await resolveMemoryPreflight(parentSession, wfCwd, nodeMemoryQuery, undefined, config, { cliType: node.engine === 'claude' ? 'claude' : '' }).catch(() => ({
         entries: [], coreEntries: [], status: { mode: 'unavailable', enabled: true, checked: false, candidateCount: 0, matchCount: 0, coreActiveCount: 0 },
       }));
       // 137 集成:Claude 节点跑的是 Claude CLI,它原生读 ~/.claude/CLAUDE.md —— 与主会话同一条去重(W2 迁移中心导入的那份不再重复注入)。

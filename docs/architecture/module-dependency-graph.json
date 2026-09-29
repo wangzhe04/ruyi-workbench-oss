@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2921,
-    "requiredSymbols": 2875,
+    "providedSymbols": 2941,
+    "requiredSymbols": 2877,
     "edges": 509,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1919,10 +1919,14 @@
         "LIVE_TAIL_CHARS",
         "LIVE_TOOLS_MAX",
         "MCP_COMPAT_MATRIX",
+        "MCP_CONFIG_JSON_MAX_BYTES",
+        "MCP_CONFIG_OTHER_MAX_BYTES",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
         "MCP_DROPIN_SHADOW_WARNING",
         "MCP_FAILURE_COOLDOWN_MS",
+        "MCP_STDIO_LINE_MAX_CHARS",
+        "MCP_TOOLS_LIST_MAX_PAGES",
         "McpHttpClient",
         "McpStdioClient",
         "NATIVE_CLAUDE_AGENT_RESULT_MAX_CHARS",
@@ -1939,12 +1943,19 @@
         "_expandMcpVar",
         "_nativeToolNameSet",
         "_parseTomlMcpServers",
+        "_tomlDepth",
+        "_tomlKeyPath",
+        "_tomlScan",
+        "_tomlSplitTop",
+        "_tomlStripComment",
+        "_tomlValue",
         "_toolboxCache",
         "_toolboxSkipLogged",
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
         "bridgedToolCallTimeoutMs",
+        "bridgedToolFunctionName",
         "bridgedToolTimeoutMs",
         "buildClaudeRecoveryHistory",
         "buildMcpConnectorInventory",
@@ -1986,15 +1997,23 @@
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
         "mcpClientFailures",
+        "mcpClientFingerprints",
         "mcpClientGen",
         "mcpClientPending",
         "mcpClients",
         "mcpConnectorMutateError",
         "mcpDropInDirs",
+        "mcpEntryFingerprint",
+        "mcpListAllTools",
         "mcpRuntimeCommon",
+        "mcpServerRequestReply",
+        "mcpShortHash",
         "mcpStartingClients",
+        "mcpStartupRpcMs",
+        "mcpToolAllowed",
         "mutateMcpConnector",
         "nativeClaudeAgentResultInfo",
+        "normalizeMcpToolResult",
         "normalizeQuestionAnswer",
         "normalizeQuestionContext",
         "normalizeUserQuestions",
@@ -2012,6 +2031,7 @@
         "probeMcpConnector",
         "promptDeadlineIsReal",
         "promptWaitMs",
+        "reconcileMcpEntryFingerprint",
         "redact",
         "registerUserQuestion",
         "requestUserQuestion",
@@ -6096,6 +6116,13 @@
         {
           "provider": "02e-session-engine-route.js",
           "symbol": "sessionEngineRouteFromConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "invalidateMcpRuntime",
           "kinds": [
             "call"
           ]
@@ -12706,6 +12733,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "hasPendingQuestionForSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "invalidateMcpRuntime",
           "kinds": [
             "call"
           ]
@@ -25355,6 +25389,7 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "ToolboxHooks",
+        "invalidateMcpRuntime",
         "logEvent"
       ],
       "direction": "backward"
@@ -27126,6 +27161,7 @@
         "collectBridgedTools",
         "getBridgedClient",
         "hasPendingQuestionForSession",
+        "invalidateMcpRuntime",
         "logEvent",
         "mutateMcpConnector",
         "probeMcpConnector",
