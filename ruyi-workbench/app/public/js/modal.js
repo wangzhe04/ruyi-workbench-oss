@@ -18,12 +18,20 @@ import { el } from './util.js';
 import { icon } from './icons.js';
 import { t } from './i18n.js';
 
-export function buildModal({ title = '', body = null, foot = null, onCancel = null, size = 'small', extraClass = 'dynamic' } = {}) {
+//   · dirty（可选）：返回 true = 弹层里有没存的改动。只拦「取消」这一路（点背影、Esc、✕）——大编辑器
+//     （工作流、记忆）修前一次手滑点到背影就整份丢掉；「保存」走 close()，不问。
+export function buildModal({ title = '', body = null, foot = null, onCancel = null, size = 'small', extraClass = 'dynamic', dirty = null } = {}) {
   const backdrop = el('div', `modal-backdrop ${extraClass}`.trim());
   const trigger = document.activeElement; // §4.9: return focus here on close
   let done = false;
   const finish = (cancelled) => {
-    if (done) return; done = true;
+    if (done) return;
+    if (cancelled && typeof dirty === 'function') {
+      let unsaved = false;
+      try { unsaved = !!dirty(); } catch { /* 判不出来就当没改，别把弹层困死 */ }
+      if (unsaved && !globalThis.confirm(t('modal.discardConfirm'))) return;
+    }
+    done = true;
     if (cancelled && onCancel) { try { onCancel(); } catch { /* ignore */ } }
     backdrop.remove();
     if (trigger && typeof trigger.focus === 'function') { try { trigger.focus(); } catch { /* ignore */ } }

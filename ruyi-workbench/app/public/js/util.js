@@ -77,7 +77,8 @@ export function fmtTokens(n) {
   if (!Number.isFinite(n)) return '?';
   // toFixed then trim trailing zeros ONLY after a decimal point (so 150000 -> "150K", not "15K").
   const f = (x, d) => { let s = x.toFixed(d); if (s.indexOf('.') >= 0) s = s.replace(/\.?0+$/, ''); return s; };
-  if (n >= 1e6) return f(n / 1e6, n >= 1e7 ? 0 : 2) + 'M';
+  // 999,500–999,999 按 K 取整会进位成「1000K」：取整后够 1000K 的一律升到 M 档（→「1M」）。
+  if (n >= 1e6 || Math.round(n / 1e3) >= 1000) return f(n / 1e6, n >= 1e7 ? 0 : 2) + 'M';
   if (n >= 1e3) return f(n / 1e3, n >= 1e5 ? 0 : 1) + 'K';
   return String(n);
 }

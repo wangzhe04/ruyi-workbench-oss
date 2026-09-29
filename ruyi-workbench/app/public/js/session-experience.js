@@ -222,7 +222,8 @@ function bindRailSessionActions() {
     if (!id) return;
     const session = state.sessions.find(item => item && String(item.id) === id) || { id };
     const action = String(button.dataset.sessionAction || '');
-    if (action === 'pin') { patchSession(id, { pinned: !(session && session.pinned) }); return; }
+    // 置顶失败要报出来（修前是一条没人接的 rejection：点了没反应，也不知道为什么）。
+    if (action === 'pin') { patchSession(id, { pinned: !(session && session.pinned) }).catch(e => toast(apiErrText(e), 'err')); return; }
     if (action === 'rename') { openRenamePopover(button, session); return; }
     if (action === 'delete' && confirm(t('session.delete.confirm'))) removeSession(id);
   });

@@ -7,7 +7,7 @@
 // 由组合根注入，避免反向依赖 app.js。
 import { $, el, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { t } from './i18n.js';
+import { getLocale, t } from './i18n.js';
 
 export function createSettingsOperationsDomain({
   apiErrText = fallbackApiErrText,
@@ -40,7 +40,7 @@ export function createSettingsOperationsDomain({
       const hint = $('ovCurrentHint');
       const audit = $('ovAudit');
       if (status.current) {
-        current.textContent = `v${status.current.version}  ·  ${new Date(status.current.appliedAt).toLocaleString()}`;
+        current.textContent = `v${status.current.version}  ·  ${new Date(status.current.appliedAt).toLocaleString(getLocale())}`;
         hint.textContent = status.backups && status.backups.length
           ? t('settings.update.backupsCount', { p1: status.backups.length })
           : t('settings.update.noBackups');
@@ -214,20 +214,26 @@ export function createSettingsOperationsDomain({
     return parts.join(' · ');
   }
 
+  // 探测（?probe=1，慢）与普通刷新可以同时在飞：修前谁后到谁画，旧的那一发会把新列表和计数盖回去。
+  // 每发取序号，只认最新那一发；按钮也只由最新那一发解锁。
+  let mcpOpsSeq = 0;
   async function refreshMcpOps(probe) {
+    const seq = ++mcpOpsSeq;
     const hint = $('mcpListHint');
     if (hint) hint.textContent = t(probe ? 'settings.mcp.probing' : 'settings.mcp.loading');
     const button = $('mcpRefreshBtn'); if (button) button.disabled = true;
     try {
       const result = await api('/api/mcp/connectors' + (probe ? '?probe=1' : ''));
+      if (seq !== mcpOpsSeq) return;
       mcpConnectorCache = Array.isArray(result.connectors) ? result.connectors : [];
       renderMcpCompat(result.compat);
       renderMcpConnList();
       if (hint) hint.textContent = t('settings.mcp.count', { p1: mcpConnectorCache.length });
     } catch (error) {
+      if (seq !== mcpOpsSeq) return;
       if (hint) hint.textContent = apiErrText(error);
     } finally {
-      if (button) button.disabled = false;
+      if (button && seq === mcpOpsSeq) button.disabled = false;
     }
   }
 

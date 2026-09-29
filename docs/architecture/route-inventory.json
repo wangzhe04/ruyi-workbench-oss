@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-29T11:48:05.121Z",
+  "generatedAt": "2026-09-29T11:52:50.359Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1235,7 +1235,8 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\config-mutate-mcp-parity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
-        "dev-harness\\meta-guard.e2e.js"
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1254,7 +1255,8 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\config-mutate-mcp-parity.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
-        "dev-harness\\meta-guard.e2e.js"
+        "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1273,7 +1275,8 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
-        "dev-harness\\ui-bugfix.static.e2e.js"
+        "dev-harness\\ui-bugfix.static.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1292,7 +1295,8 @@
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
-        "dev-harness\\ui-bugfix.static.e2e.js"
+        "dev-harness\\ui-bugfix.static.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1431,6 +1435,7 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
@@ -1566,6 +1571,7 @@
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
@@ -1931,6 +1937,7 @@
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"
@@ -1980,6 +1987,7 @@
         "dev-harness\\model-menu-no-shift.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\steward-model-menu.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-dashboard.e2e.js",
@@ -4141,6 +4149,7 @@
         "dev-harness\\subagent-compaction-parity.e2e.js",
         "dev-harness\\subagent.e2e.js",
         "dev-harness\\team-pool-mailbox.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\usage-claude-cached.e2e.js",
         "dev-harness\\usage-subagent-ledger.e2e.js",
         "dev-harness\\wait-primitive.e2e.js"

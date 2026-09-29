@@ -43,8 +43,12 @@ function fmtCostsByCurrency(costs, prefix) {
 function entryPlanBased(e) { return !!(e && (e.planBased === true || e.costTrusted === false)); }
 function engineDisplayName(engine) { return engine === 'claude' ? 'Claude' : engine === 'openai' ? t('chat.providerNative') : (engine || t('common.other')); }
 
+// 连点「今天 → 本周」时两发请求同时在飞：修前谁后到谁画，慢的「今天」会盖掉已经选中的「本周」。
+// 每发取一个序号，回来时已不是最新那一发就整个丢掉（数据、画面、忙碌标记都归最新那一发管）。
+let usageLoadSeq = 0;
 async function loadUsage(force) {
   const host = $('usagePanel'); if (!host) return;
+  const seq = ++usageLoadSeq;
   const range = usageState.range || 'month';
   host.setAttribute('aria-busy', 'true');
   if (force || !usageState.data) { host.textContent = ''; host.appendChild(usageNoticeCard(t('usage.loading'))); }
@@ -52,12 +56,15 @@ async function loadUsage(force) {
     const r = await api(`/api/usage/summary?range=${encodeURIComponent(range)}`);
     // 29c: 运营指标(干预/预算超支率)随用量面板一并拉,失败静默(纯附加信息,不阻断用量展示)。
     r.opsMetrics = await api('/api/ops/metrics?days=7').catch(() => null);
+    if (seq !== usageLoadSeq) return;
     usageState.data = r; usageState.loaded = true;
     renderUsage(r);
   } catch (e) {
-    usageState.loaded = true; usageState.data = null;
+    if (seq !== usageLoadSeq) return;
+    // 失败不算「已加载」：修前记成 loaded=true、data=null，之后每次打开页签都只画「暂不可用」、再也不重拉。
+    usageState.loaded = false; usageState.data = null;
     host.textContent = ''; host.appendChild(usageNoticeCard(t('usage.loadFailed', { reason: apiErrText(e) })));
-  } finally { host.removeAttribute('aria-busy'); }
+  } finally { if (seq === usageLoadSeq) host.removeAttribute('aria-busy'); }
 }
 function setUsageRange(range) {
   if (!['today', 'week', 'month', 'all'].includes(range) || usageState.range === range) return;
