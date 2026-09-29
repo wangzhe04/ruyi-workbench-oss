@@ -14331,6 +14331,534 @@ async function withTransientRetry({ attempt, classify, maxRetries, backoffMs, si
   }
 }
 
+// 04i-provider-wire.js - 58 号方案批 1:服务商线协议登记表(chat / responses;批 2 加 anthropic)。
+//
+// 「模型服务商」引擎(内部引擎 id openai,runOpenAiTurn)会说几种线协议:OpenAI Chat Completions(apiStyle:'chat',缺省)
+// 与 OpenAI Responses(apiStyle:'responses')。修前协议知识散在 05/06/07/08/09/10 约 47 处 `apiStyle === 'responses' ? … : …`,
+// 加一种协议就要满仓找。现在协议之间的全部差异住在这张表里,调用点只问 providerWireProtocol(provider).xxx。
+// 内部历史始终是 OpenAI chat 形(role/content/tool_calls/tool_call_id/reasoning_content),差异只在出站编码与入站解码两个边上。
+//
+// 加一种协议 = 在 PROVIDER_WIRE_PROTOCOLS 登记一项(成员齐全,unit/provider-wire-protocols.test.js 钉)+ 前端
+// public/js/provider-api-styles.js 加一行(键集合与这里逐一相同,同一件单测钉)。
+//
+// 依赖纪律:本模块只引用 04h(零出边)。要用的 makeId(00)、redact(04-permission-runtime)、配对与参数自愈(02)
+// 都在唯一大 SCC 里,直接引用会把本模块拽进环(module-dependency-graph.static 的 SCC 规模上限 32,已满)。这四样走
+// ProviderWireHooks 延迟绑定,由 07-autonomy 在顶层一次填好(先例 06j SchedulerHooks、01f cliHost);单文件加载即执行,
+// 早于任何一次调用。局部量一律【不叫 text】(outText / said / out):扫描器按顶层符号名认引用,00-boot 有个 text() 响应助手,
+// 裸标识符 text 会凭空造出一条 04i -> 00-boot 的边、把本模块拖进 SCC(与 06i 同一个坑);对象键 text: 不算引用。
+//
+// 表项成员(每项冻结;函数成员一律是函数,不用 null 表示「没有这一步」):
+//   id                         协议值(= provider.apiStyle,经 normalizeProviderApiStyle 归一)
+//   serverWebSearch            能否把本地 web_search 映射成服务端工具(provider.serverWebSearch 只对它为 true 的协议生效)
+//   endpointBase(baseUrl)      显示 / failover 粘住键用的 base
+//   completionUrl(baseUrl)     补全端点;base 没配 → ''(调用方据此报「provider base URL is not set」)
+//   modelsUrl(baseUrl)         模型清单端点;base 没配 → ''
+//   requestHeaders(provider)   出站请求头
+//   encodeMessages({ model, messages, stream, instructions, serverItems, foldSystem })
+//                              基础请求体。messages 是 chat 形历史,首条是 system;instructions 缺省取首条 system 的正文,
+//                              foldSystem 再把历史里后插的 system/developer 规则折进去(Responses 没有多 system 通道);
+//                              serverItems 是上一发回来的服务端工具项(Responses 的 web_search_call),原样接在历史之后
+//   applyEffort(body, effort)  推理强度字段(effort 为空不写)
+//   applyTools(body, tools, { serverWebSearch })   工具 + tool_choice:'auto'(工具是 chat 形,协议自己翻译)
+//   outputTokensField          输出上限字段名
+//   encodeQuick({ model, messages, plain })        句尾改字那种短补全:400 token、尽量关思考;plain = 去掉思考开关重打的那一发
+//   decodeCompletion(payload)  非流式回体 → { text, reasoning, toolCalls, finishReason, incomplete, incompleteReason,
+//                              failed, failedDetail, usage, responseId }(text 未 trim)
+//   createStreamDecoder({ onEvent, markUsage })    流式事件解码器:feed(evt) → 这一帧是否终止流;
+//                              finish() → { text, reasoning, finishReason, toolCalls, [httpError,] providerResponseId }
+//   normalizeUsage(usage)      用量归一到 OpenAI 口径(prompt_tokens 含缓存);chat / responses 原样
+//   assistantHistoryFields(call)                   本次回复随 assistant 消息落进历史的协议字段
+
+// 延迟绑定:{ makeId, redact, repairProviderHistoryPairing, repairProviderHistoryToolArgs },07-autonomy 顶层填充。
+const ProviderWireHooks = {};
+
+// Keep this allowlist shared by config normalization and request construction. Omission means "use the
+// endpoint/model default"; selected values use the OpenAI-compatible fields for their respective APIs.
+const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+function providerReasoningEffort(provider) {
+  const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
+  return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
+}
+function applyProviderReasoningEffort(body, provider, apiStyle) {
+  const effort = providerReasoningEffort(provider);
+  if (!effort || !body || typeof body !== 'object') return body;
+  providerWireProtocol(apiStyle).applyEffort(body, effort);
+  return body;
+}
+
+// v1.7 — OpenAI Responses API request shaping (DeepSeek /v1/responses, Codex/agent oriented).
+// Ruyi's provider engine keeps ONE normalized chat-shaped providerHistory (roles user/assistant/tool +
+// assistant.tool_calls). The Responses protocol wants `input` ITEMS instead of `messages`, so we translate
+// at request time (never mutating the stored history — multi-round tool loops keep working identically):
+//   user        → { type:'message', role:'user', content:[{type:'input_text', text}] }
+//   assistant   → optional {type:'reasoning',content:[{type:'reasoning_text',text}]} then
+//                 { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
+//   tool        → { type:'function_call_output', call_id, output }
+//   system      → folded into `instructions` (the Responses equivalent of a leading system message)
+// function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
+// (chat's nested { type:'function', function:{...} } shape is NOT accepted there).
+function toResponsesContent(content) {
+  // String → single input_text block. Parts array (vision) → text parts + input_image parts。图片 part 在此
+  // 展平成 Responses 形 { type:'input_image', image_url:'data:…' }(OpenAI Responses 官方形状;DeepSeek
+  // /responses 现也接受 input_image —— 2026-09 用户确认,旧注释「Responses 无图像输入」已过时)。
+  // chat 形 {type:'image_url', image_url:{url}} 与 Responses 形都认;URI 实在取不出才降级为可见占位文本
+  // (绝不静默丢图)。图片是否随消息发由上游闸住:provider.vision !== true 时根本不建 image part(09-workflow)。
+  if (typeof content === 'string') return [{ type: 'input_text', text: content }];
+  if (Array.isArray(content)) {
+    const parts = [];
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue;
+      if (part.type === 'text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
+      else if (part.type === 'input_text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
+      else if (part.type === 'image_url' || part.type === 'input_image') {
+        const raw = typeof part.image_url === 'string' ? part.image_url
+          : (part.image_url && typeof part.image_url.url === 'string') ? part.image_url.url
+          : (typeof part.input_image === 'string' ? part.input_image : '');
+        if (raw) parts.push({ type: 'input_image', image_url: raw });
+        else parts.push({ type: 'input_text', text: '[图片输入无法解析图像 URI，已替换为占位文本]' });
+      }
+    }
+    return parts.length ? parts : [{ type: 'input_text', text: '' }];
+  }
+  return [{ type: 'input_text', text: String(content || '') }];
+}
+// Translate a chat-shaped providerHistory into Responses `input` items (see header note).
+function buildResponsesInputItems(history) {
+  const items = [];
+  const paired = responsesHistoryWithCompleteToolPairs(history).history;
+  for (const m of paired) {
+    if (!m || typeof m !== 'object') continue;
+    if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
+    if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
+    if (m.role === 'assistant') {
+      // DeepSeek Responses is stateless and thinking mode is enabled by default. When tools are present it
+      // requires every prior reasoning_text to be passed back; dropping it makes the next tool-loop request
+      // fail with HTTP 400. Keep the normalized history chat-shaped, but project its reasoning_content into
+      // a first-class Responses reasoning item immediately before the adjacent assistant/function_call items.
+      const reasoning = typeof m.reasoning_content === 'string' ? m.reasoning_content : '';
+      if (reasoning) items.push({ type: 'reasoning', content: [{ type: 'reasoning_text', text: reasoning }] });
+      const said = typeof m.content === 'string' ? m.content : '';
+      if (said) items.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: said }] });
+      if (Array.isArray(m.tool_calls)) {
+        for (const tc of m.tool_calls) {
+          if (!tc || tc.id == null) continue;
+          items.push({ type: 'function_call', call_id: String(tc.id), name: (tc.function && tc.function.name) || '', arguments: (tc.function && tc.function.arguments) || '' });
+        }
+      }
+      continue;
+    }
+    if (m.role === 'tool') {
+      if (m.tool_call_id != null) {
+        items.push({ type: 'function_call_output', call_id: String(m.tool_call_id), output: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '') });
+      }
+      continue;
+    }
+    items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); // unknown role → user
+  }
+  return items;
+}
+// Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
+// v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
+// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call) —
+// but ONLY when the provider opts in via serverWebSearch:true (the DeepSeek preset ships it). This keeps
+// the built-in LOCAL web_search (builtin/searxng/bing/brave/tavily/bocha/custom backends) as the FALLBACK
+// for every other provider and for Responses endpoints that ignore server-side tool types (DeepSeek
+// silently drops unsupported tools — an unconditional mapping would silently remove web_search there).
+// DeepSeek ignores unknown builtin tool types, so only web_search is ever mapped; everything else keeps
+// its historical flatten/passthrough behavior.
+function toResponsesTools(tools, serverWebSearch) {
+  if (!Array.isArray(tools)) return [];
+  const out = [];
+  for (const t of tools) {
+    if (!t || typeof t !== 'object') continue;
+    const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
+    if (serverWebSearch === true && flatName === 'web_search') {
+      out.push({ type: 'web_search' });
+      continue;
+    }
+    if (t.type === 'function' && t.function && typeof t.function === 'object') {
+      out.push({ type: 'function', name: t.function.name || '', description: t.function.description || '', parameters: t.function.parameters || { type: 'object', properties: {} } });
+    } else if (t.type === 'function') {
+      out.push({ type: 'function', name: t.name || '', description: t.description || '', parameters: t.parameters || { type: 'object', properties: {} } });
+    } else {
+      out.push(t); // web_search etc. pass through verbatim
+    }
+  }
+  return out;
+}
+// Responses strict pairing adapter. A bounded history projection (summary fitting, retry/reseed, or an
+// interrupted subturn) can end after an assistant function_call but before its function_call_output.
+// DeepSeek Responses rejects that otherwise useful prefix with HTTP 400 "No tool output found". Reuse the
+// persisted-history repair primitive on a SHALLOW ARRAY COPY: missing outputs become explicit synthetic
+// results before the next message/end, while the caller's auditable history stays byte-for-byte untouched.
+function responsesHistoryWithCompleteToolPairs(history) {
+  const paired = Array.isArray(history) ? history.slice() : [];
+  // 参数铁律自愈同址施行(见 02-session-store.js)。与配对自愈不同,它是【就地】改消息对象的
+  // ——— 浅拷贝共享同一批 message,故这一改会落到调用方的历史上。这是刻意的:把 arguments 改成
+  // 当时实际执行用的 '{}' 正是我们想让它【持久】的终态(与配对自愈往数组里插合成回复不同,那种
+  // 改写只该活在请求体投影里,所以那条仍严格只动副本)。
+  const argsRepaired = ProviderWireHooks.repairProviderHistoryToolArgs(paired);
+  return { history: paired, repaired: ProviderWireHooks.repairProviderHistoryPairing(paired) + argsRepaired };
+}
+
+// ── 协议无关的小件 ─────────────────────────────────────────────────────────────────────────────────────
+// 模型清单:两种 OpenAI 协议都在 {v1}/models(Responses 的补全端点不加 /v1,清单端点照旧加)。
+function providerWireModelsUrl(baseUrl) {
+  const base = providerBaseWithV1(baseUrl);
+  return base ? base + '/models' : '';
+}
+// 服务商侧响应 id(21-E0 辅助关联;请求侧 modelCallId 为主键,无 id 的端点保持空串)。
+function providerWireResponseIdOf(evt) {
+  if (evt && evt.response && typeof evt.response.id === 'string' && evt.response.id) return evt.response.id;
+  if (evt && typeof evt.id === 'string' && evt.id && evt.type !== 'response.created') return evt.id;
+  return '';
+}
+// 流式工具调用槽 → 返回值里的 toolCalls:空名滤掉、缺 id 现补;服务端工具(web_search_call)带原始 item 以便原样回传。
+function providerWireToolCallsFromSlots(slots) {
+  return slots.filter(t => t.name).map(t => {
+    const base = { id: t.id || ProviderWireHooks.makeId('call'), name: t.name, rawArgs: t.args || '{}' };
+    if (t.serverSide) { base.serverSide = true; if (t.item) base.item = t.item; }
+    return base;
+  });
+}
+// 非流式回体里「命中输出上限」的判据(105j):Responses 的 status:'incomplete',或 chat 的 finish_reason 是 length / max_*_tokens,
+// 或 incomplete_details.reason 带同义词。reasoning-only 或截断的回体不许被误报成普通的空回复。
+function providerWireIncomplete(payload, statusIncomplete) {
+  const finish = String(payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason || '').toLowerCase();
+  const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || '').toLowerCase();
+  return statusIncomplete || /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
+}
+function providerWireFailureDetail(payload) {
+  const e = payload && payload.error;
+  if (typeof e === 'string') return e;
+  if (e && typeof e === 'object') return String(e.message || e.code || e.type || 'provider error');
+  return '';
+}
+// 两种协议共用的回体外壳字段。
+function providerWireDecoded(payload, core) {
+  return {
+    ...core,
+    failed: String(payload && payload.status || '').toLowerCase() === 'failed',
+    failedDetail: providerWireFailureDetail(payload),
+    incompleteReason: String(payload && payload.incomplete_details && payload.incomplete_details.reason
+      || (payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason) || 'output limit'),
+    usage: (payload && payload.usage) || null,
+    responseId: (payload && (payload.id || (payload.response && payload.response.id))) || '',
+  };
+}
+
+// ── chat(OpenAI Chat Completions)──────────────────────────────────────────────────────────────────────
+// 非流式取字(58 号批 1 统一 06/05/07/10 四份的口径):content 是字符串,或 OpenAI 多模态形的 parts 数组(拼各 part 的 text)。
+function chatCompletionText(msg) {
+  if (!msg) return '';
+  if (typeof msg.content === 'string') return msg.content;
+  if (Array.isArray(msg.content)) return msg.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('');
+  return '';
+}
+function decodeChatCompletion(j) {
+  const ch = j && j.choices && j.choices[0];
+  const msg = ch && ch.message;
+  // E6:推理链两种拼法都认(reasoning_content / reasoning)。
+  const reasoning = (msg && typeof msg.reasoning_content === 'string' && msg.reasoning_content) || (msg && typeof msg.reasoning === 'string' && msg.reasoning) || '';
+  const toolCalls = Array.isArray(msg && msg.tool_calls)
+    ? msg.tool_calls.map(tc => ({ id: tc.id || ProviderWireHooks.makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name)
+    : [];
+  return providerWireDecoded(j, { text: chatCompletionText(msg), reasoning, toolCalls, finishReason: ch && ch.finish_reason, incomplete: providerWireIncomplete(j, false) });
+}
+// chat 流式:choices[0].delta 的 content / reasoning_content(或 reasoning)/ tool_calls 分片;终止靠分帧层的 [DONE]。
+function createChatStreamDecoder({ onEvent, markUsage }) {
+  let outText = '', reasoning = '', finishReason = null, providerResponseId = '';
+  // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
+  // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
+  // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
+  // a slot, otherwise keep writing the current slot" state machine keeps multiple PARALLEL tool_calls
+  // independent even when the provider omits `index` on the delta fragments (some vLLM/Ollama/self-hosted
+  // endpoints do). The old code forced every index-less delta into acc[0], splicing distinct calls' names
+  // ("file_readfile_write") and arguments into one corrupt, unparseable blob.
+  const slots = []; // { id, index, name, args } in first-seen order
+  let curSlot = null;
+  const selectSlot = tc => {
+    // Priority 1: an explicit, non-empty id is the authoritative call identity -> find-or-create by id
+    // (idempotent whether the provider sends the id once at the start or repeats it on every fragment).
+    if (typeof tc.id === 'string' && tc.id) {
+      let s = slots.find(x => x.id === tc.id);
+      if (!s) {
+        // Adopt a slot previously opened for this same index that has not yet been assigned an id.
+        if (tc.index != null) s = slots.find(x => !x.id && x.index === tc.index);
+        if (s) s.id = tc.id;
+        else { s = { id: tc.id, index: (tc.index != null ? tc.index : null), name: '', args: '' }; slots.push(s); }
+      }
+      curSlot = s; return s;
+    }
+    // Priority 2: no id but an explicit index -> find-or-create by index (the standard OpenAI shape where
+    // continuation fragments carry only the index).
+    if (tc.index != null) {
+      let s = slots.find(x => x.index === tc.index);
+      if (!s) { s = { id: '', index: tc.index, name: '', args: '' }; slots.push(s); }
+      curSlot = s; return s;
+    }
+    // Priority 3: neither id nor index -> keep writing to the current slot (open a first default slot if this
+    // is the very first fragment).
+    if (!curSlot) { curSlot = { id: '', index: null, name: '', args: '' }; slots.push(curSlot); }
+    return curSlot;
+  };
+  return {
+    feed(evt) {
+      if (!providerResponseId) providerResponseId = providerWireResponseIdOf(evt);
+      if (evt.usage) markUsage(evt.usage);
+      const ch = evt.choices && evt.choices[0];
+      if (!ch) return false;
+      if (ch.finish_reason) finishReason = ch.finish_reason;
+      const delta = ch.delta;
+      if (!delta) return false;
+      const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
+      if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
+      if (typeof delta.content === 'string' && delta.content) { outText += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
+      if (Array.isArray(delta.tool_calls)) {
+        for (const tc of delta.tool_calls) {
+          const slot = selectSlot(tc);
+          if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
+        }
+      }
+      return false;
+    },
+    finish() {
+      return { text: outText, reasoning, finishReason, toolCalls: providerWireToolCallsFromSlots(slots), providerResponseId };
+    },
+  };
+}
+
+// ── responses(OpenAI Responses API,DeepSeek /responses)───────────────────────────────────────────────
+// Instructions:显式给的优先;否则取首条 system 的正文;foldSystem 时再把历史里后插的 system/developer 规则(非空、与首条不同)
+// 以空行接上 —— Responses 没有 chat 的多 system-message 通道,不折就会被 buildResponsesInputItems 丢掉(06 起草/JSON 修复/
+// 记忆审稿人的严格协议就在后插的 system 里)。
+function responsesInstructions(messages, foldSystem) {
+  const list = Array.isArray(messages) ? messages : [];
+  const lead = list[0] && (list[0].role === 'system' || list[0].role === 'developer') ? String(list[0].content || '') : '';
+  if (!foldSystem) return lead;
+  const extras = list.slice(1)
+    .filter(m => m && (m.role === 'system' || m.role === 'developer') && String(m.content || '').trim())
+    .map(m => String(m.content).trim())
+    .filter(rule => rule !== lead);
+  return [lead, ...extras].join('\n\n');
+}
+function responsesOutputText(payload) {
+  let out = '';
+  for (const item of (Array.isArray(payload && payload.output) ? payload.output : [])) {
+    if (!item || item.type !== 'message' || !Array.isArray(item.content)) continue;
+    for (const part of item.content) {
+      if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') out += part.text;
+    }
+  }
+  return out;
+}
+// v1.7 (Responses API): a non-streamed response body is a `response` object with an `output` item list
+// (message / function_call / reasoning…), NOT chat's {choices:[{message}]}.
+function decodeResponsesCompletion(j) {
+  const out = Array.isArray(j && j.output) ? j.output : [];
+  let reasoning = '';
+  const toolCalls = [];
+  for (const item of out) {
+    if (!item || typeof item !== 'object') continue;
+    if (item.type === 'function_call') {
+      toolCalls.push({ id: item.call_id || ProviderWireHooks.makeId('call'), name: item.name, rawArgs: (typeof item.arguments === 'string' && item.arguments) ? item.arguments : '{}' });
+      continue;
+    }
+    if (item.type === 'reasoning') {
+      for (const part of (Array.isArray(item.content) ? item.content : [])) { if (part && part.type === 'reasoning_text' && typeof part.text === 'string') reasoning += part.text; }
+    }
+  }
+  const status = j && j.status;
+  return providerWireDecoded(j, {
+    text: responsesOutputText(j), reasoning, toolCalls: toolCalls.filter(t => t.name),
+    finishReason: status === 'incomplete' ? 'length' : (status === 'failed' ? 'error' : 'stop'),
+    incomplete: providerWireIncomplete(j, String(status || '').toLowerCase() === 'incomplete'),
+  });
+}
+// ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
+// Events: response.created | response.in_progress | response.output_item.added/done |
+// response.content_part.added/done | response.reasoning_text.delta/done | response.output_text.delta/done |
+// response.function_call_arguments.delta/done | response.completed | response.incomplete | response.failed.
+// No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
+function createResponsesStreamDecoder({ onEvent, markUsage }) {
+  let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '';
+  const slots = [];
+  let curSlot = null;
+  return {
+    feed(evt) {
+      if (!providerResponseId) providerResponseId = providerWireResponseIdOf(evt);
+      if (evt && evt.usage) markUsage(evt.usage); // some events carry usage directly
+      const t = evt && evt.type;
+      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'function_call') {
+        // A function_call output item opens/selects its slot (call_id + name), arguments stream separately.
+        // 对抗轮(P1-2):以 call_id 为主键选槽 —— 并行 function_call 是常态(官方文档 parallel_tool_calls 忽略
+        // = 始终开启),delta 事件自带 item_id,必须按 item_id 路由参数,不能依赖"最后 added 的槽"(交错事件序会错配)。
+        const fc = evt.item;
+        const id = fc.call_id || ProviderWireHooks.makeId('call');
+        let s = slots.find(x => x.id === id);
+        if (!s) { s = { id, index: null, name: fc.name || '', args: '', itemId: evt.item && evt.item.id || '' }; slots.push(s); }
+        else if (fc.name) s.name += fc.name;
+        curSlot = s;
+        return false;
+      }
+      // v1.8: a web_search_call output item is a SERVER-SIDE tool invocation (DeepSeek /responses executes
+      // the search itself). Surface it as a toolCall named 'web_search' with serverSide:true so the tool
+      // loop knows NOT to execute it locally; the raw item is carried back to the next request's `input`
+      // (DeepSeek restores the search results server-side). status/output arrive on the .done event.
+      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'web_search_call') {
+        const ws = evt.item;
+        const id = ws.id || ProviderWireHooks.makeId('call');
+        let s = slots.find(x => x.id === id);
+        if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
+        curSlot = s;
+        return false;
+      }
+      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
+        const ws = evt.item;
+        const id = ws.id || '';
+        let s = id ? slots.find(x => x.id === id) : curSlot;
+        if (s) {
+          s.item = ws; // keep the FULL item so it can be echoed back verbatim (server restores the results)
+          // v1.8.1: DeepSeek's web_search_call carries the query under `action` (NOT the OpenAI-doc shape
+          // `output.query`/`output.search_terms` — the real item has NO `output` field at all):
+          //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
+          //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
+          // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
+          const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
+          let q = '';
+          if (action) {
+            if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
+            else if (typeof action.url === 'string') q = action.url;
+          }
+          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
+        }
+        return false;
+      }
+      if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
+        // 对抗轮(P1-2):优先按事件的 item_id 精确定位槽(并行时 arguments delta 按 item_id 路由,绝不串写);
+        // item_id 缺失/未命中才回退到"最近 added 的槽"(串行单调用场景,与旧行为一致)。
+        let target = null;
+        const itemId = evt && evt.item_id;
+        if (typeof itemId === 'string' && itemId) target = slots.find(x => x.itemId === itemId);
+        if (!target) target = curSlot;
+        if (!target) { target = { id: ProviderWireHooks.makeId('call'), index: null, name: '', args: '', itemId: '' }; slots.push(target); }
+        target.args += evt.delta;
+        curSlot = target;
+        return false;
+      }
+      if (t === 'response.reasoning_text.delta' && typeof evt.delta === 'string' && evt.delta) {
+        reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
+      }
+      if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
+        outText += evt.delta; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+      }
+      if (t === 'response.completed') {
+        // Final event: the full response object (with usage) rides on the event.
+        if (evt.response && evt.response.usage) markUsage(evt.response.usage);
+        finishReason = 'stop';
+        return true;
+      }
+      if (t === 'response.incomplete') { finishReason = 'length'; return true; } // truncated (e.g. max_output_tokens)
+      if (t === 'response.failed') {
+        // Terminal failure — surface the error detail to the caller's existing httpError path.
+        // 对抗轮(P1-3/P2-1/P2-3):
+        //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
+        //  • 文本过 redact() 防恶意服务商在 error 里回显密钥(P2-3);
+        //  • 错误含 context/length 语义时置 contextOverflow,让 45b 强压重试能识别(P1-3)。
+        const err = evt.response && (evt.response.error || evt.response.last_error);
+        const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
+        responsesFailedError = 'Responses failed' + (em ? ': ' + ProviderWireHooks.redact(String(em).slice(0, 400)) : ' (no error detail)');
+        if (/context|length|token/i.test(responsesFailedError)) responsesFailedError = 'HTTP 400: ' + responsesFailedError;
+        finishReason = 'error';
+        return true;
+      }
+      return false; // created / in_progress / content_part.* / output_item.done / reasoning_text.done / output_text.done / … — non-terminal
+    },
+    finish() {
+      // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
+      // back into the next request's `input` without executing anything locally.
+      const toolCalls = providerWireToolCallsFromSlots(slots);
+      // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
+      // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
+      if (responsesFailedError) return { text: outText, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
+      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId };
+    },
+  };
+}
+
+// ── 登记表 ────────────────────────────────────────────────────────────────────────────────────────────
+const reasoningContentField = call => (call && call.reasoning ? { reasoning_content: call.reasoning } : {});
+const PROVIDER_WIRE_DEFAULT = 'chat';
+const PROVIDER_WIRE_PROTOCOLS = Object.freeze({
+  chat: Object.freeze({
+    id: 'chat',
+    serverWebSearch: false,
+    endpointBase: baseUrl => providerApiBase(baseUrl, false),
+    completionUrl: baseUrl => providerCompletionUrl(baseUrl, false),
+    modelsUrl: providerWireModelsUrl,
+    requestHeaders: provider => providerRequestHeaders(provider),
+    encodeMessages: ({ model, messages, stream }) => (stream
+      ? { model, messages, stream, stream_options: { include_usage: true } }
+      : { model, messages, stream }),
+    applyEffort: (body, effort) => { if (effort) body.reasoning_effort = effort; return body; },
+    applyTools: (body, tools) => { body.tools = tools; body.tool_choice = 'auto'; return body; },
+    outputTokensField: 'max_tokens',
+    // flash 系模型缺省思考,400 token 的预算会被隐藏推理吃光、正文为空(52 号文 §3 实测),所以显式关思考;端点不认这两个字段回 400 时
+    // 调用方以 plain:true 去掉重打一次。
+    encodeQuick: ({ model, messages, plain }) => ({ model, messages, stream: false, temperature: 0, max_tokens: 400, ...(plain ? {} : { thinking: { type: 'disabled' }, enable_thinking: false }) }),
+    decodeCompletion: decodeChatCompletion,
+    createStreamDecoder: createChatStreamDecoder,
+    normalizeUsage: usage => usage,
+    assistantHistoryFields: reasoningContentField,
+  }),
+  responses: Object.freeze({
+    id: 'responses',
+    serverWebSearch: true,
+    // 对抗轮(open-risk):responses 走原样 baseUrl + /responses(不加 /v1,与官方 SDK 示例一致),见 04h providerResponsesBase。
+    endpointBase: baseUrl => providerApiBase(baseUrl, true),
+    completionUrl: baseUrl => providerCompletionUrl(baseUrl, true),
+    modelsUrl: providerWireModelsUrl,
+    requestHeaders: provider => providerRequestHeaders(provider),
+    encodeMessages: ({ model, messages, stream, instructions, serverItems, foldSystem }) => ({
+      model,
+      instructions: typeof instructions === 'string' ? instructions : responsesInstructions(messages, foldSystem === true),
+      // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
+      // DeepSeek restores the search results server-side and the model continues on the next call.
+      input: [...buildResponsesInputItems(messages), ...(Array.isArray(serverItems) ? serverItems : [])],
+      stream,
+    }),
+    applyEffort: (body, effort) => { if (effort) body.reasoning = { effort }; return body; },
+    // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
+    // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
+    applyTools: (body, tools, opts) => { body.tools = toResponsesTools(tools, opts && opts.serverWebSearch === true); body.tool_choice = 'auto'; return body; },
+    outputTokensField: 'max_output_tokens',
+    encodeQuick: ({ model, messages, plain }) => {
+      const list = Array.isArray(messages) ? messages : [];
+      const system = list.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
+      const user = list.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
+      return { model, instructions: system, input: user, stream: false, max_output_tokens: 400, ...(plain ? {} : { reasoning: { effort: 'minimal' } }) };
+    },
+    decodeCompletion: decodeResponsesCompletion,
+    createStreamDecoder: createResponsesStreamDecoder,
+    normalizeUsage: usage => usage,
+    assistantHistoryFields: reasoningContentField,
+  }),
+});
+// 唯一的协议值归一:登记过的键原样,其余(缺失、空串、大小写不对、原型链名字、非字符串)一律当缺省 chat ——
+// 与修前各处的 `x === 'responses' ? 'responses' : 'chat'` 输出逐项相同,只是口径现在由登记表给。
+function normalizeProviderApiStyle(value) {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PROVIDER_WIRE_PROTOCOLS, value) ? value : PROVIDER_WIRE_DEFAULT;
+}
+// 按服务商(对象,读 .apiStyle)或协议值(字符串)取表项。
+function providerWireProtocol(providerOrStyle) {
+  const style = providerOrStyle && typeof providerOrStyle === 'object' ? providerOrStyle.apiStyle : providerOrStyle;
+  return PROVIDER_WIRE_PROTOCOLS[normalizeProviderApiStyle(style)];
+}
+// 调用方没说协议时按请求体形状认(Responses 用 input 项,chat 用 messages)—— 只给没传 protocol 的老调用点兜底。
+function providerWireProtocolForBody(body) {
+  return PROVIDER_WIRE_PROTOCOLS[body && Array.isArray(body.input) ? 'responses' : 'chat'];
+}
+
 // ============================================================================
 // 架构还债批 3 A:Agent CLI 适配器。runClaudeTurn 是 Claude Code 与 Kimi Code 两个命令行引擎共用的唯一回合骨架;
 // 凡是「这一家 CLI 怎么做」的决定(命令行参数、续接旗标、子进程环境、事件解析、回合后用量、原生子代理……)
@@ -15553,13 +16081,6 @@ const CLAUDE_ENDPOINT_PRESETS = [
   },
 ];
 
-// Keep this allowlist shared by config normalization and request construction. Omission means "use the
-// endpoint/model default"; selected values use the OpenAI-compatible fields for their respective APIs.
-const PROVIDER_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
-function providerReasoningEffort(provider) {
-  const effort = String(provider && (provider.reasoningEffort || provider.reasoning_effort) || '').trim().toLowerCase();
-  return PROVIDER_REASONING_EFFORTS.has(effort) ? effort : '';
-}
 // 114a(45 号文 §7): PROVIDER_MODEL_CAPS —— models[].caps 的取值白名单。【模型能力标签】:这个模型
 // 会什么(asr=可语音识别 / embedding=可向量化)。它与 06-provider-engine 的 getCapabilities()【运行
 // 环境能力矩阵】(PLAYBOOK_REQUIRES: network/desktopMcp/vision —— 这台机器有什么)是【两个正交
@@ -15574,13 +16095,6 @@ function providerModelCaps(rawCaps) {
     if (s && PROVIDER_MODEL_CAPS.has(s) && !out.includes(s)) out.push(s);
   }
   return out;
-}
-function applyProviderReasoningEffort(body, provider, apiStyle) {
-  const effort = providerReasoningEffort(provider);
-  if (!effort || !body || typeof body !== 'object') return body;
-  if (apiStyle === 'responses') body.reasoning = { effort };
-  else body.reasoning_effort = effort;
-  return body;
 }
 
 // Fold one raw provider entry onto a safe, fully-populated shape. Returns null if unusable (no id).
@@ -15691,7 +16205,7 @@ function sanitizeProvider(raw) {
     // 'responses' (OpenAI Responses API; DeepSeek added it for Codex/agent loops, v4-flash now + v4-pro from
     // 2026-08). Unknown/absent → 'chat' (向后兼容:任何既有配置零行为变化)。UI 设置里可逐 provider 切换,
     // 引擎在 buildBody/openAiStreamOnce 按此分支。其它 openai-compat 服务商(未提供 /responses 端点)保持 chat。
-    apiStyle: raw.apiStyle === 'responses' ? 'responses' : 'chat',
+    apiStyle: normalizeProviderApiStyle(raw.apiStyle),
     // v1.8.2: serverWebSearch (boolean, default false) — opt-in for the Responses SERVER-SIDE web_search tool
     // ({type:'web_search'}). Default false keeps the built-in LOCAL web_search function tool as the fallback
     // for every provider / endpoint that doesn't support server-side search (DeepSeek preset sets true).
@@ -16413,19 +16927,16 @@ function asrFixSanity(input, output) {
 //  ① 模型由调用方指定;② 不带身份系统提示;③ temperature 0、max_tokens 400、超时 20 s(句尾后一秒内要落地的事);
 //  ④ 显式关思考(thinking:{type:'disabled'} + enable_thinking:false)—— flash 系模型缺省思考,预算被隐藏推理吃光、正文为空(52 号文 §3 实测);
 //     端点不认这两个字段回 400 时去掉再打一次;正文为空当失败(usage 照样带回来给记账)。
-// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;这里只留提示词形状与回体取字。
+// 架构还债批 2·A:URL/请求头/「超时 + 读回体 + SSE 兜底」的一次 POST 都走 04h 的原语;58 号批 1 起请求体形状(encodeQuick)
+// 与回体取字(decodeCompletion)按协议问 04i 的登记表。
 async function providerFixCompletion(provider, model, messages) {
-  const respStyle = provider && provider.apiStyle === 'responses';
-  const url = providerCompletionUrl(provider.baseUrl, respStyle);
+  const wire = providerWireProtocol(provider);
+  const url = wire.completionUrl(provider.baseUrl);
   if (!url || !model || typeof fetch !== 'function') {
     return { ok: false, error: !url ? 'provider base URL is not set' : (!model ? 'no model' : 'fetch unavailable') };
   }
-  const headers = providerRequestHeaders(provider);
-  const system = messages.filter(m => m && m.role === 'system').map(m => m.content).join('\n\n');
-  const user = messages.filter(m => m && m.role === 'user').map(m => m.content).join('\n');
-  const build = plain => (respStyle
-    ? { model, instructions: system, input: user, stream: false, max_output_tokens: 400, ...(plain ? {} : { reasoning: { effort: 'minimal' } }) }
-    : { model, messages, stream: false, temperature: 0, max_tokens: 400, ...(plain ? {} : { thinking: { type: 'disabled' }, enable_thinking: false }) });
+  const headers = wire.requestHeaders(provider);
+  const build = plain => wire.encodeQuick({ model, messages, plain });
   const once = async bodyObj => {
     // 20 s 超时;有的端点／代理不理 stream:false 照样回 SSE —— 由 04h 拼成一份非流式回体(sseFallback)。
     const r = await providerPostJsonOnce({ url, headers, body: bodyObj, timeoutMs: 20000, sseFallback: true });
@@ -16435,19 +16946,9 @@ async function providerFixCompletion(provider, model, messages) {
   let r = await once(build(false));
   if (!r.ok && r.status === 400) r = await once(build(true));
   if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.status + (r.j ? ': ' + redact(JSON.stringify(r.j).slice(0, 300)) : '')) };
-  let content = '';
-  if (respStyle) {
-    for (const item of (Array.isArray(r.j && r.j.output) ? r.j.output : [])) {
-      if (item && item.type === 'message' && Array.isArray(item.content)) {
-        for (const part of item.content) { if (part && typeof part.text === 'string') content += part.text; }
-      }
-    }
-  } else {
-    const msg = r.j && r.j.choices && r.j.choices[0] && r.j.choices[0].message;
-    content = String((msg && msg.content) || '');
-  }
-  content = content.trim();
-  const usage = (r.j && r.j.usage && typeof r.j.usage === 'object') ? r.j.usage : null;
+  const decoded = wire.decodeCompletion(r.j);
+  const content = decoded.text.trim();
+  const usage = (decoded.usage && typeof decoded.usage === 'object') ? decoded.usage : null;
   if (!content) return { ok: false, error: 'empty completion', usage };
   return { ok: true, content, usage, model };
 }
@@ -21332,27 +21833,19 @@ async function draftPlaybookFromSession(sessionId) {
 
 // Non-stream provider completion with the identity-only system layer (reuses the same headers/timeout
 // shape as providerSummaryCall). Returns { ok, content } | { ok:false, error }. Used by the draft feature.
-// v1.7: follows the provider's apiStyle — Responses protocol uses instructions+input and reads output_text.
+// 线协议(58 号批 1)问 04i 的登记表:端点、请求头、请求体(Responses 把调用方后插的 system 规则折进 instructions ——
+// 否则 JSON 修复器/记忆审稿人的严格协议会被丢掉)、回体取字。URL/请求头/一次 POST 的原语在 04h。
 async function providerRawCompletion(provider, history) {
-  const respStyle = provider && provider.apiStyle === 'responses';
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。URL/请求头/一次 POST 的原语在 04h。
-  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle);
+  const wire = providerWireProtocol(provider);
+  const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !model || typeof fetch !== 'function') {
     return { ok: false, error: !chatUrl ? 'provider base URL is not set' : (!model ? 'no model selected for this provider' : 'fetch unavailable') };
   }
-  const headers = providerRequestHeaders(provider);
+  const headers = wire.requestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
-  // Responses 没有 chat/completions 的多 system-message 通道；把调用方追加的 system/developer
-  // 规则折进 instructions，否则 JSON 修复器/记忆审稿人的严格协议会被 buildResponsesInputItems 丢弃。
-  const extraInstructions = (Array.isArray(history) ? history : [])
-    .filter(m => m && (m.role === 'system' || m.role === 'developer') && String(m.content || '').trim())
-    .map(m => String(m.content).trim())
-    .filter(text => text !== sysIdentity);
-  const responseInstructions = [sysIdentity, ...extraInstructions].join('\n\n');
-  const bodyObj = applyProviderReasoningEffort(respStyle
-    ? { model, instructions: responseInstructions, input: buildResponsesInputItems(history), stream: false }
-    : { model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false }, provider, respStyle ? 'responses' : 'chat');
+  const bodyObj = applyProviderReasoningEffort(
+    wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false, foldSystem: true }), provider, wire.id);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
@@ -21362,23 +21855,11 @@ async function providerRawCompletion(provider, history) {
     const d = r.raw;
     return { ok: false, error: `HTTP ${r.res ? r.status : '?'}${d ? ': ' + redact(d.slice(0, 300)) : ''}` };
   }
-  const j = r.parsed;
-  let content = '';
-  if (respStyle) {
-    // Responses non-stream body: { output:[{type:'message', content:[{type:'output_text', text}]}, …], usage }
-    for (const item of (Array.isArray(j && j.output) ? j.output : [])) {
-      if (item && item.type === 'message' && Array.isArray(item.content)) {
-        for (const part of item.content) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') content += part.text; }
-      }
-    }
-  } else {
-    const msg = j && j.choices && j.choices[0] && j.choices[0].message;
-    content = String((msg && msg.content) || '');
-  }
-  content = content.trim();
+  const decoded = wire.decodeCompletion(r.parsed);
+  const content = decoded.text.trim();
   if (!content) return { ok: false, error: 'provider returned an empty completion' };
   // v1.4-OSS 用量看板(补): 透传响应 usage + 实际用的 model,让调用方把这次起草补全记入 aux 台账。
-  return { ok: true, content, usage: (j && j.usage) || null, model };
+  return { ok: true, content, usage: decoded.usage, model };
 }
 
 // ── 116-5a(27 号文 §11.8「线程自动摘要」)────────────────────────────────────────────────
@@ -28739,15 +29220,16 @@ async function applyConfigPatch(rawBody) {
 // 加载即登记:13 / 13l 只经这个键调(见 01 的 ConfigPatchHooks)。
 ConfigPatchHooks.applyConfigPatch = applyConfigPatch;
 
-// Best-effort model list from a provider's OpenAI-style GET /models. Never throws.
+// Best-effort model list from a provider's GET …/models. Never throws. 端点与请求头按协议问 04i 的登记表(与补全请求同一份)。
 async function fetchOpenAiModels(provider, timeoutMs = 4000) {
-  const base = providerBaseWithV1(provider && provider.baseUrl);
-  if (!base || typeof fetch !== 'function') return { ok: false, error: base ? 'fetch unavailable' : 'no base URL', models: [] };
-  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头,与补全请求同一份
+  const wire = providerWireProtocol(provider);
+  const modelsUrl = wire.modelsUrl(provider && provider.baseUrl);
+  if (!modelsUrl || typeof fetch !== 'function') return { ok: false, error: modelsUrl ? 'fetch unavailable' : 'no base URL', models: [] };
+  const headers = wire.requestHeaders(provider);
   const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch { /* ignore */ } }, timeoutMs) : null;
   try {
-    const res = await fetch(base + '/models', { headers, signal: ctrl ? ctrl.signal : undefined });
+    const res = await fetch(modelsUrl, { headers, signal: ctrl ? ctrl.signal : undefined });
     if (!res || !res.ok) return { ok: false, error: 'HTTP ' + (res ? res.status : '?'), models: [] };
     const body = await res.json();
     const data = Array.isArray(body && body.data) ? body.data : (Array.isArray(body) ? body : []);
@@ -29751,43 +30233,10 @@ function failoverConnectReason(err) {
 // process. Not persisted (in-memory only, per spec). Cleared implicitly on process exit.
 const failoverStickyBase = new Map();
 
-// v1.7 — OpenAI Responses API request shaping (DeepSeek /v1/responses, Codex/agent oriented).
-// Ruyi's provider engine keeps ONE normalized chat-shaped providerHistory (roles user/assistant/tool +
-// assistant.tool_calls). The Responses protocol wants `input` ITEMS instead of `messages`, so we translate
-// at request time (never mutating the stored history — multi-round tool loops keep working identically):
-//   user        → { type:'message', role:'user', content:[{type:'input_text', text}] }
-//   assistant   → optional {type:'reasoning',content:[{type:'reasoning_text',text}]} then
-//                 { type:'message', role:'assistant', content:[{type:'output_text', text}] } (+ function_call items)
-//   tool        → { type:'function_call_output', call_id, output }
-//   system      → folded into `instructions` (the Responses equivalent of a leading system message)
-// function tools are ALSO flattened: Responses uses { type:'function', name, description, parameters }
-// (chat's nested { type:'function', function:{...} } shape is NOT accepted there).
-function toResponsesContent(content) {
-  // String → single input_text block. Parts array (vision) → text parts + input_image parts。图片 part 在此
-  // 展平成 Responses 形 { type:'input_image', image_url:'data:…' }(OpenAI Responses 官方形状;DeepSeek
-  // /responses 现也接受 input_image —— 2026-09 用户确认,旧注释「Responses 无图像输入」已过时)。
-  // chat 形 {type:'image_url', image_url:{url}} 与 Responses 形都认;URI 实在取不出才降级为可见占位文本
-  // (绝不静默丢图)。图片是否随消息发由上游闸住:provider.vision !== true 时根本不建 image part(09-workflow)。
-  if (typeof content === 'string') return [{ type: 'input_text', text: content }];
-  if (Array.isArray(content)) {
-    const parts = [];
-    for (const part of content) {
-      if (!part || typeof part !== 'object') continue;
-      if (part.type === 'text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
-      else if (part.type === 'input_text' && typeof part.text === 'string') parts.push({ type: 'input_text', text: part.text });
-      else if (part.type === 'image_url' || part.type === 'input_image') {
-        const raw = typeof part.image_url === 'string' ? part.image_url
-          : (part.image_url && typeof part.image_url.url === 'string') ? part.image_url.url
-          : (typeof part.input_image === 'string' ? part.input_image : '');
-        if (raw) parts.push({ type: 'input_image', image_url: raw });
-        else parts.push({ type: 'input_text', text: '[图片输入无法解析图像 URI，已替换为占位文本]' });
-      }
-    }
-    return parts.length ? parts : [{ type: 'input_text', text: '' }];
-  }
-  return [{ type: 'input_text', text: String(content || '') }];
-}
-// Translate a chat-shaped providerHistory into Responses `input` items (see header note).
+// 58 号方案批 1:04i 协议登记表要用的四个环内工具在这里一次填好 —— 04i 直接引用它们会被拽进唯一大 SCC(见 04i 头注)。
+// 单文件加载即执行,早于任何一次请求。
+Object.assign(ProviderWireHooks, { makeId, redact, repairProviderHistoryPairing, repairProviderHistoryToolArgs });
+
 // 21-E3: 已执行动作的参数历史双视图 —— 纯函数(可 e2e 直测)。execution/audit view 保留完整 rawArgs
 // (session.actionAudit + providerHistory 原消息),provider model view 投影为紧凑 envelope。
 // 投影纪律:只投影 status=completed 且 sha256 与原始 arguments 可校验的动作;失败/中断/待审批不瘦身;
@@ -29852,70 +30301,6 @@ function projectActionModelView(history, auditMap) {
   return { history: projected, changed };
 }
 
-function buildResponsesInputItems(history) {
-  const items = [];
-  const paired = responsesHistoryWithCompleteToolPairs(history).history;
-  for (const m of paired) {
-    if (!m || typeof m !== 'object') continue;
-    if (m.role === 'system' || m.role === 'developer') continue; // folded into instructions by the caller
-    if (m.role === 'user') { items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); continue; }
-    if (m.role === 'assistant') {
-      // DeepSeek Responses is stateless and thinking mode is enabled by default. When tools are present it
-      // requires every prior reasoning_text to be passed back; dropping it makes the next tool-loop request
-      // fail with HTTP 400. Keep the normalized history chat-shaped, but project its reasoning_content into
-      // a first-class Responses reasoning item immediately before the adjacent assistant/function_call items.
-      const reasoning = typeof m.reasoning_content === 'string' ? m.reasoning_content : '';
-      if (reasoning) items.push({ type: 'reasoning', content: [{ type: 'reasoning_text', text: reasoning }] });
-      const text = typeof m.content === 'string' ? m.content : '';
-      if (text) items.push({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text }] });
-      if (Array.isArray(m.tool_calls)) {
-        for (const tc of m.tool_calls) {
-          if (!tc || tc.id == null) continue;
-          items.push({ type: 'function_call', call_id: String(tc.id), name: (tc.function && tc.function.name) || '', arguments: (tc.function && tc.function.arguments) || '' });
-        }
-      }
-      continue;
-    }
-    if (m.role === 'tool') {
-      if (m.tool_call_id != null) {
-        items.push({ type: 'function_call_output', call_id: String(m.tool_call_id), output: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '') });
-      }
-      continue;
-    }
-    items.push({ type: 'message', role: 'user', content: toResponsesContent(m.content) }); // unknown role → user
-  }
-  return items;
-}
-// Flatten chat-shaped function tools ({type:'function', function:{...}}) into Responses' flat shape.
-// v1.8: Ruyi's local `web_search` function tool is MAPPED to the Responses SERVER-SIDE tool
-// {type:'web_search'} (DeepSeek executes it; events web_search_call.* + output_item web_search_call) —
-// but ONLY when the provider opts in via serverWebSearch:true (the DeepSeek preset ships it). This keeps
-// the built-in LOCAL web_search (builtin/searxng/bing/brave/tavily/bocha/custom backends) as the FALLBACK
-// for every other provider and for Responses endpoints that ignore server-side tool types (DeepSeek
-// silently drops unsupported tools — an unconditional mapping would silently remove web_search there).
-// DeepSeek ignores unknown builtin tool types, so only web_search is ever mapped; everything else keeps
-// its historical flatten/passthrough behavior.
-function toResponsesTools(tools, serverWebSearch) {
-  if (!Array.isArray(tools)) return [];
-  const out = [];
-  for (const t of tools) {
-    if (!t || typeof t !== 'object') continue;
-    const flatName = t.type === 'function' ? (t.name || (t.function && t.function.name) || '') : '';
-    if (serverWebSearch === true && flatName === 'web_search') {
-      out.push({ type: 'web_search' });
-      continue;
-    }
-    if (t.type === 'function' && t.function && typeof t.function === 'object') {
-      out.push({ type: 'function', name: t.function.name || '', description: t.function.description || '', parameters: t.function.parameters || { type: 'object', properties: {} } });
-    } else if (t.type === 'function') {
-      out.push({ type: 'function', name: t.name || '', description: t.description || '', parameters: t.parameters || { type: 'object', properties: {} } });
-    } else {
-      out.push(t); // web_search etc. pass through verbatim
-    }
-  }
-  return out;
-}
-
 // One streaming chat/completions call. Emits assistant_delta / thinking_delta / raw_line live; returns
 // { text, reasoning, toolCalls:[{id,name,rawArgs}], finishReason, httpError, toolsRejected }.
 // v1.0-S6 (B): pre-first-byte failures are surfaced structurally so the caller can decide failover:
@@ -29924,15 +30309,12 @@ function toResponsesTools(tools, serverWebSearch) {
 //   • a non-ok response whose status is 502/503/504 → the returned httpError object also carries
 //     { failoverStatus:<502|503|504> } so the caller can advance. A throw that happens AFTER streaming has
 //     started still propagates normally (caller's error path; no failover — 防重放).
-// v1.7: ALSO speaks the OpenAI Responses API protocol when the request body carries `input` (not `messages`).
-// DeepSeek added /v1/responses for Codex/agent loops (v4-flash now, v4-pro from 2026-08). The two protocols
-// differ end-to-end (request shape, SSE event types, terminal condition), so `isResponses` selects a parallel
-// parser inside — chat keeps its battle-tested path byte-for-byte; responses handles
-// response.output_text.delta / response.reasoning_text.delta / response.function_call_arguments.delta /
-// response.output_item.added / response.completed|incomplete|failed (NO `data: [DONE]` terminator).
-async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch }) {
-  const isResponses = !!(body && Array.isArray(body.input)); // Responses body uses `input` items, chat uses `messages`
-  let providerResponseId = ''; // 21-E0: provider 侧响应 id(辅助字段,请求侧 modelCallId 为主键)
+// 协议(58 号批 1):请求体的形状与流式事件语法都住在 04i 的协议登记表 —— 这里只管传输:发请求、首字节前的传输失败与
+// failover 判定、400 归因(工具被拒 / 超窗 / stream_options)、SSE 分帧(空行分事件、多行 data: 拼接、[DONE])、raw_line;
+// 每一帧交给 protocol.createStreamDecoder 的解码器,非流式回体交给 protocol.decodeCompletion。调用方(09/08)显式传
+// protocol;没传(老调用点、单测)时按请求体形状认(Responses 用 input 项,chat 用 messages)。
+async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol }) {
+  const wire = protocol || providerWireProtocolForBody(body);
   const doFetch = b => fetch(chatUrl, { method: 'POST', headers, body: JSON.stringify(b), signal: ctrl ? ctrl.signal : undefined });
   let res;
   try {
@@ -29988,208 +30370,28 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     const failoverStatus = (res && FAILOVER_HTTP_STATUSES.has(res.status)) ? res.status : undefined;
     return { httpError: `HTTP ${res ? res.status : '?'}${d ? ': ' + redact(d.slice(0, 500)) : ''}`, toolsRejected: /tool|function/i.test(d), failoverStatus, text: '', reasoning: '', toolCalls: [] };
   }
-  // Non-streaming fallback: single JSON body.
+  // Non-streaming fallback: single JSON body. The protocol decoder normalizes it to the same
+  // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
   if (!res.body || typeof res.body.getReader !== 'function') {
     const j = await res.json().catch(() => null);
-    // v1.7 (Responses API): a non-streamed response body is a `response` object with an `output` item list
-    // (message / function_call / reasoning…), NOT chat's {choices:[{message}]}. Normalize it to the same
-    // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
-    if (isResponses) {
-      const out = Array.isArray(j && j.output) ? j.output : [];
-      let respText = '', respReasoning = '';
-      const tcs = [];
-      for (const item of out) {
-        if (!item || typeof item !== 'object') continue;
-        if (item.type === 'function_call') {
-          tcs.push({ id: item.call_id || makeId('call'), name: item.name, rawArgs: (typeof item.arguments === 'string' && item.arguments) ? item.arguments : '{}' });
-          continue;
-        }
-        if (item.type === 'reasoning') {
-          const parts = Array.isArray(item.content) ? item.content : [];
-          for (const part of parts) { if (part && part.type === 'reasoning_text' && typeof part.text === 'string') respReasoning += part.text; }
-          continue;
-        }
-        if (item.type === 'message') {
-          const parts = Array.isArray(item.content) ? item.content : [];
-          for (const part of parts) { if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') respText += part.text; }
-        }
-      }
-      // E6 parity: surface reasoning before content, matching the streaming order.
-      if (respReasoning) onEvent({ type: 'thinking_delta', text: respReasoning });
-      if (respText) onEvent({ type: 'assistant_delta', text: respText });
-      if (j && j.usage) markUsage(j.usage);
-      return { text: respText, reasoning: respReasoning, toolCalls: tcs.filter(t => t.name), finishReason: (j && j.status === 'incomplete') ? 'length' : ((j && j.status === 'failed') ? 'error' : 'stop'), providerResponseId: (j && (j.id || (j.response && j.response.id))) || providerResponseId };
-    }
-    const ch = j && j.choices && j.choices[0];
-    const msg = ch && ch.message;
-    // E6: this branch previously returned reasoning_content but never surfaced it as a thinking_delta, so a
-    // non-streaming endpoint's reasoning chain was invisible in the UI. Emit it here (before the content, to
-    // match the streaming order) whether the provider spells it reasoning_content or reasoning.
-    const reasoningText = (msg && typeof msg.reasoning_content === 'string' && msg.reasoning_content) || (msg && typeof msg.reasoning === 'string' && msg.reasoning) || '';
-    if (reasoningText) onEvent({ type: 'thinking_delta', text: reasoningText });
-    if (msg && typeof msg.content === 'string' && msg.content) onEvent({ type: 'assistant_delta', text: msg.content });
-    if (j && j.usage) markUsage(j.usage);
-    const tcs = Array.isArray(msg && msg.tool_calls) ? msg.tool_calls.map(tc => ({ id: tc.id || makeId('call'), name: tc.function && tc.function.name, rawArgs: (tc.function && tc.function.arguments) || '{}' })).filter(t => t.name) : [];
-    return { text: (msg && msg.content) || '', reasoning: reasoningText, toolCalls: tcs, finishReason: ch && ch.finish_reason, providerResponseId: (j && (j.id || (j.response && j.response.id))) || providerResponseId };
+    const d = wire.decodeCompletion(j);
+    // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
+    // chain used to be invisible in the UI).
+    if (d.reasoning) onEvent({ type: 'thinking_delta', text: d.reasoning });
+    if (d.text) onEvent({ type: 'assistant_delta', text: d.text });
+    if (d.usage) markUsage(d.usage);
+    return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId };
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder('utf-8');
-  let buf = '', text = '', reasoning = '', finishReason = null, done = false, responsesFailedError = '';
-  // E1: accumulate streamed tool_calls into SLOTS keyed primarily by tool_call id. A delta carrying a
-  // non-empty id opens (or re-selects) that call's slot; a delta with only an index selects/creates the slot
-  // for that index; a delta with neither keeps writing to the CURRENT slot. This "non-empty id => open/select
-  // a slot, otherwise keep writing the current slot" state machine keeps multiple PARALLEL tool_calls
-  // independent even when the provider omits `index` on the delta fragments (some vLLM/Ollama/self-hosted
-  // endpoints do). The old code forced every index-less delta into acc[0], splicing distinct calls' names
-  // ("file_readfile_write") and arguments into one corrupt, unparseable blob.
-  const slots = []; // { id, index, name, args } in first-seen order
-  let curSlot = null;
-  const selectSlot = tc => {
-    // Priority 1: an explicit, non-empty id is the authoritative call identity -> find-or-create by id
-    // (idempotent whether the provider sends the id once at the start or repeats it on every fragment).
-    if (typeof tc.id === 'string' && tc.id) {
-      let s = slots.find(x => x.id === tc.id);
-      if (!s) {
-        // Adopt a slot previously opened for this same index that has not yet been assigned an id.
-        if (tc.index != null) s = slots.find(x => !x.id && x.index === tc.index);
-        if (s) s.id = tc.id;
-        else { s = { id: tc.id, index: (tc.index != null ? tc.index : null), name: '', args: '' }; slots.push(s); }
-      }
-      curSlot = s; return s;
-    }
-    // Priority 2: no id but an explicit index -> find-or-create by index (the standard OpenAI shape where
-    // continuation fragments carry only the index).
-    if (tc.index != null) {
-      let s = slots.find(x => x.index === tc.index);
-      if (!s) { s = { id: '', index: tc.index, name: '', args: '' }; slots.push(s); }
-      curSlot = s; return s;
-    }
-    // Priority 3: neither id nor index -> keep writing to the current slot (open a first default slot if this
-    // is the very first fragment).
-    if (!curSlot) { curSlot = { id: '', index: null, name: '', args: '' }; slots.push(curSlot); }
-    return curSlot;
-  };
-  // Process ONE decoded SSE event object (already JSON-parsed). Mutates text/reasoning/finishReason/slots.
+  let buf = '', done = false;
+  const wireDecoder = wire.createStreamDecoder({ onEvent, markUsage });
+  // Process ONE decoded SSE event object (already JSON-parsed): raw_line first, then the protocol's event grammar.
   // Returns true when this event terminates the stream (responses' completed/incomplete/failed; chat keeps
-  // relying on the `[DONE]` sentinel inside handleEventBlock). v1.7: `isResponses` selects the Responses-API
-  // event grammar — the two protocols share nothing structurally, so they get separate handlers.
+  // relying on the `[DONE]` sentinel inside handleEventBlock).
   const processEvt = (evt, rawStr) => {
     onEvent({ type: 'raw_line', line: rawStr, seq: rawSeqRef.n++ });
-    // 21-E0: 捕获 provider 侧响应 id 作辅助关联(请求侧 modelCallId 仍为主键;无 id 端点保持空串)。
-    if (!providerResponseId) {
-      if (evt && evt.response && typeof evt.response.id === 'string' && evt.response.id) providerResponseId = evt.response.id;
-      else if (evt && typeof evt.id === 'string' && evt.id && evt.type !== 'response.created') providerResponseId = evt.id;
-    }
-    if (isResponses) {
-      // ── OpenAI Responses API stream (DeepSeek /v1/responses) ────────────────────────────────────────
-      // Events: response.created | response.in_progress | response.output_item.added/done |
-      // response.content_part.added/done | response.reasoning_text.delta/done | response.output_text.delta/done |
-      // response.function_call_arguments.delta/done | response.completed | response.incomplete | response.failed.
-      // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
-      if (evt && evt.usage) markUsage(evt.usage); // some events carry usage directly
-      const t = evt && evt.type;
-      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'function_call') {
-        // A function_call output item opens/selects its slot (call_id + name), arguments stream separately.
-        // 对抗轮(P1-2):以 call_id 为主键选槽 —— 并行 function_call 是常态(官方文档 parallel_tool_calls 忽略
-        // = 始终开启),delta 事件自带 item_id,必须按 item_id 路由参数,不能依赖"最后 added 的槽"(交错事件序会错配)。
-        const fc = evt.item;
-        const id = fc.call_id || makeId('call');
-        let s = slots.find(x => x.id === id);
-        if (!s) { s = { id, index: null, name: fc.name || '', args: '', itemId: evt.item && evt.item.id || '' }; slots.push(s); }
-        else if (fc.name) s.name += fc.name;
-        curSlot = s;
-        return false;
-      }
-      // v1.8: a web_search_call output item is a SERVER-SIDE tool invocation (DeepSeek /responses executes
-      // the search itself). Surface it as a toolCall named 'web_search' with serverSide:true so the tool
-      // loop knows NOT to execute it locally; the raw item is carried back to the next request's `input`
-      // (DeepSeek restores the search results server-side). status/output arrive on the .done event.
-      if (t === 'response.output_item.added' && evt.item && evt.item.type === 'web_search_call') {
-        const ws = evt.item;
-        const id = ws.id || makeId('call');
-        let s = slots.find(x => x.id === id);
-        if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
-        curSlot = s;
-        return false;
-      }
-      if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
-        const ws = evt.item;
-        const id = ws.id || '';
-        let s = id ? slots.find(x => x.id === id) : curSlot;
-        if (s) {
-          s.item = ws; // keep the FULL item so it can be echoed back verbatim (server restores the results)
-          // v1.8.1: DeepSeek's web_search_call carries the query under `action` (NOT the OpenAI-doc shape
-          // `output.query`/`output.search_terms` — the real item has NO `output` field at all):
-          //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
-          //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
-          // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
-          const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
-          let q = '';
-          if (action) {
-            if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
-            else if (typeof action.url === 'string') q = action.url;
-          }
-          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
-        }
-        return false;
-      }
-      if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
-        // 对抗轮(P1-2):优先按事件的 item_id 精确定位槽(并行时 arguments delta 按 item_id 路由,绝不串写);
-        // item_id 缺失/未命中才回退到"最近 added 的槽"(串行单调用场景,与旧行为一致)。
-        let target = null;
-        const itemId = evt && evt.item_id;
-        if (typeof itemId === 'string' && itemId) target = slots.find(x => x.itemId === itemId);
-        if (!target) target = curSlot;
-        if (!target) { target = { id: makeId('call'), index: null, name: '', args: '', itemId: '' }; slots.push(target); }
-        target.args += evt.delta;
-        curSlot = target;
-        return false;
-      }
-      if (t === 'response.reasoning_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
-      }
-      if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        text += evt.delta; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
-      }
-      if (t === 'response.completed') {
-        // Final event: the full response object (with usage) rides on the event.
-        if (evt.response && evt.response.usage) markUsage(evt.response.usage);
-        finishReason = 'stop';
-        return true;
-      }
-      if (t === 'response.incomplete') { finishReason = 'length'; return true; } // truncated (e.g. max_output_tokens)
-      if (t === 'response.failed') {
-        // Terminal failure — surface the error detail to the caller's existing httpError path.
-        // 对抗轮(P1-3/P2-1/P2-3):
-        //  • 无 error 详情也置错误(否则 finishReason 无人消费 → 静默空转,见 P2-1);
-        //  • 文本过 redact() 防恶意服务商在 error 里回显密钥(P2-3);
-        //  • 错误含 context/length 语义时置 contextOverflow,让 45b 强压重试能识别(P1-3)。
-        const err = evt.response && (evt.response.error || evt.response.last_error);
-        const em = (err && (err.message || err.code)) || (err && typeof err === 'object' ? JSON.stringify(err) : String(err || ''));
-        responsesFailedError = 'Responses failed' + (em ? ': ' + redact(String(em).slice(0, 400)) : ' (no error detail)');
-        if (/context|length|token/i.test(responsesFailedError)) responsesFailedError = 'HTTP 400: ' + responsesFailedError;
-        finishReason = 'error';
-        return true;
-      }
-      return false; // created / in_progress / content_part.* / output_item.done / reasoning_text.done / output_text.done / … — non-terminal
-    }
-    // ── Chat Completions stream (classic path) ─────────────────────────────────────────────────────────
-    if (evt.usage) markUsage(evt.usage);
-    const ch = evt.choices && evt.choices[0];
-    if (!ch) return false;
-    if (ch.finish_reason) finishReason = ch.finish_reason;
-    const delta = ch.delta;
-    if (!delta) return false;
-    const reason = (typeof delta.reasoning_content === 'string' && delta.reasoning_content) || (typeof delta.reasoning === 'string' && delta.reasoning) || '';
-    if (reason) { reasoning += reason; onEvent({ type: 'thinking_delta', text: reason }); }
-    if (typeof delta.content === 'string' && delta.content) { text += delta.content; onEvent({ type: 'assistant_delta', text: delta.content }); }
-    if (Array.isArray(delta.tool_calls)) {
-      for (const tc of delta.tool_calls) {
-        const slot = selectSlot(tc);
-        if (tc.function) { if (tc.function.name) slot.name += tc.function.name; if (typeof tc.function.arguments === 'string') slot.args += tc.function.arguments; }
-      }
-    }
-    return false;
+    return wireDecoder.feed(evt);
   };
   // E5: standard SSE framing. Events are separated by a BLANK line; within one event, multiple `data:` field
   // lines concatenate (joined by '\n') into a single payload before parsing (per the WHATWG SSE spec). The
@@ -30236,17 +30438,7 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   }
   // Flush a trailing event that arrived without a terminating blank line (some servers omit the final one).
   if (!done && buf.trim()) handleEventBlock(buf);
-  // v1.8: serverSide toolCalls (web_search_call items) carry the raw item so the tool loop can echo it
-  // back into the next request's `input` without executing anything locally.
-  const toolCalls = slots.filter(t => t.name).map(t => {
-    const base = { id: t.id || makeId('call'), name: t.name, rawArgs: t.args || '{}' };
-    if (t.serverSide) { base.serverSide = true; if (t.item) base.item = t.item; }
-    return base;
-  });
-  // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
-  // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
-  if (responsesFailedError) return { text, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
-  return { text, reasoning, finishReason, toolCalls, providerResponseId };
+  return wireDecoder.finish();
 }
 
 // v0.8-S7: drain the steering queue at a SAFE injection point (§4 A3). Called ONLY at the iteration
@@ -30843,22 +31035,6 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   }
 }
 
-// Responses strict pairing adapter. A bounded history projection (summary fitting, retry/reseed, or an
-// interrupted subturn) can end after an assistant function_call but before its function_call_output.
-// DeepSeek Responses rejects that otherwise useful prefix with HTTP 400 "No tool output found". Reuse the
-// persisted-history repair primitive on a SHALLOW ARRAY COPY: missing outputs become explicit synthetic
-// results before the next message/end, while the caller's auditable history stays byte-for-byte untouched.
-// Function declarations are hoisted; keeping this adapter at the module tail minimizes generated line-map churn.
-function responsesHistoryWithCompleteToolPairs(history) {
-  const paired = Array.isArray(history) ? history.slice() : [];
-  // 参数铁律自愈同址施行(见 02-session-store.js)。与配对自愈不同,它是【就地】改消息对象的
-  // ——— 浅拷贝共享同一批 message,故这一改会落到调用方的历史上。这是刻意的:把 arguments 改成
-  // 当时实际执行用的 '{}' 正是我们想让它【持久】的终态(与配对自愈往数组里插合成回复不同,那种
-  // 改写只该活在请求体投影里,所以那条仍严格只动副本)。
-  const argsRepaired = repairProviderHistoryToolArgs(paired);
-  return { history: paired, repaired: repairProviderHistoryPairing(paired) + argsRepaired };
-}
-
 // ============================================================================
 // 第25波 25.3(AUTONOMY-PLAN §4):run 事件日志 —— `<runId>.events.ndjson`(与快照同目录)append-only,
 // 单调 seq 持久于 run.eventSeq。快照(run_<id>.json)仍是唯一读取来源;事件日志服务于崩溃取证与
@@ -31352,10 +31528,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   startInitBeat();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself launch agents.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes the agent tools */ }
-  // v1.7: protocol preference — mirror the parent turn (apiStyle:'responses' → /responses + Responses body).
-  // 对抗轮(open-risk):responses 用 providerResponsesBase(不加 /v1,与官方 SDK 示例一致)。
-  const subApiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const chatUrl = providerCompletionUrl(provider.baseUrl, subApiStyle === 'responses'); // 04h:端点 URL 原语(与父回合同一份)
+  // 线协议与父回合同一份(58 号批 1:04i 协议登记表)。
+  const wire = providerWireProtocol(provider);
+  const chatUrl = wire.completionUrl(provider.baseUrl);
   const role = roleDefinition || null;
   const subModel = String(model || (role && role.models && role.models.openai) || config.subagentPreferredModel || provider.subagentModel || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!chatUrl || !subModel || typeof fetch !== 'function') {
@@ -31441,29 +31616,20 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   );
 
   const subHistory = [{ role: 'user', content: String(task || '') }];
-  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头
+  const headers = wire.requestHeaders(provider);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   // v1.4.5: useTools/toolsRetried mirror runOpenAiTurn - a tools-rejected 400 retries once WITHOUT tools
   // instead of failing the sub-turn outright (the sub-turn previously ignored openAiStreamOnce's
   // toolsRejected flag and died on the 400). Mutated by the transient-retry loop below.
   let useTools = tools.length > 0, toolsRetried = false;
   const buildBody = () => {
-    // v1.7 (Responses): sub-agent body follows the parent's protocol choice — instructions + input items,
-    // flat function tools; system folded into instructions (buildResponsesInputItems skips system roles).
-    if (subApiStyle === 'responses') {
-      // v1.8: server-side tool items appended after the translated history (DeepSeek restores search results).
-      const b = { model: subModel, instructions: sys, input: [...buildResponsesInputItems([{ role: 'system', content: sys }, ...subHistory]), ...subServerToolItems], stream: true };
-      if (temp !== undefined) b.temperature = temp;
-      applyProviderReasoningEffort(b, provider, 'responses');
-      // v1.8.2: mirror the parent — server-side web_search only when the provider opts in (serverWebSearch:true);
-      // otherwise web_search stays a LOCAL function tool (builtin fallback).
-      if (useTools) { b.tools = toResponsesTools(tools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
-      return b;
-    }
-    const b = { model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, stream_options: { include_usage: true } };
+    // 与父回合同一个协议(58 号批 1):chat 发 messages,Responses 发 instructions + input 项(system 折进 instructions);
+    // v1.8:服务端工具项 subServerToolItems 接在翻译后的历史之后(DeepSeek 在服务端恢复搜索结果)。
+    const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, instructions: sys, serverItems: subServerToolItems });
     if (temp !== undefined) b.temperature = temp;
-    applyProviderReasoningEffort(b, provider, 'chat');
-    if (useTools) { b.tools = tools; b.tool_choice = 'auto'; }
+    applyProviderReasoningEffort(b, provider, wire.id);
+    // v1.8.2:服务端 web_search 只在服务商显式开启(serverWebSearch:true)时映射;否则 web_search 仍是本地工具。
+    if (useTools) wire.applyTools(b, tools, { serverWebSearch: provider.serverWebSearch === true });
     return b;
   };
 
@@ -31533,7 +31699,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
       content: '工具/迭代预算已经用尽。现在不要再调用任何工具，只根据上面已经获得的信息给出最终结论。若原任务要求 JSON Schema 或质量门输出，必须只输出符合要求的 JSON；字符串值内部的双引号必须转义为 \\"。',
     });
     try {
-      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream });
+      const call = await openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire });
       if (call.transportError && !call.httpError) call.httpError = call.transportError;
       if (!call.httpError && call.text && String(call.text).trim()) {
         resultText += call.text;
@@ -31598,7 +31764,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         isAborted: () => Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         signal: ctrl && ctrl.signal,
         backoffMs: n => Math.min(2000, 250 * n),
-        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream }),
+        attempt: () => openAiStreamOnce({ chatUrl, headers, body: buildBody(), ctrl, onEvent: () => {}, markUsage, rawSeqRef, touch: touchSubagentStream, protocol: wire }),
         classify: c => {
           if (c.toolsRejected && useTools && !toolsRetried) { toolsRetried = true; useTools = false; return 'again'; }
           return providerCallIsTransient(c) ? 'retry' : 'done';
@@ -31690,7 +31856,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
           subServerToolItems.push(item);
         }
-        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
+        if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         for (const tc of localToolCalls) {
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           // v1.x (B3): consecutive-identical-signature loop guard (parity with the parent turn). At the abort
@@ -31874,7 +32040,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
         continue; // let the sub-agent react to its tool results
       }
       // No tool calls → final conclusion for the sub-turn.
-      if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
+      if (call.text) subHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       break;
     }
     // 预算耗尽(循环正常退出,非 break 跳出)
@@ -34870,19 +35036,18 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   let workspaceTurnBaseline = null;
   const promptTaskContext = buildPromptTaskContext(message, session);
   const fullPrompt = `${message}${buildAttachmentPrompt(attachments)}`;
-  // v1.7: protocol preference — 'chat' (Chat Completions) vs 'responses' (OpenAI Responses API, DeepSeek
-  // /responses for Codex/agent loops; v4-flash now, v4-pro from 2026-08). Default chat keeps every
-  // existing config byte-compatible; DeepSeek preset ships apiStyle:'responses' (switchable in Settings).
-  // 对抗轮(open-risk):responses 端点用 providerResponsesBase(原样 baseUrl,不加 /v1,与官方 SDK 示例一致)。
-  const apiStyle = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
-  const base = providerApiBase(provider.baseUrl, apiStyle === 'responses'); // 04h:端点 URL 原语(显示用 base 见 meta 事件)
-  const chatUrl = providerCompletionUrl(provider.baseUrl, apiStyle === 'responses');
+  // 线协议(58 号批 1):端点、请求头、请求体、流式解码、落历史字段都问 04i 的协议登记表;apiStyle 缺省 chat,
+  // 存量配置零变化。
+  const wire = providerWireProtocol(provider);
+  const apiStyle = wire.id;
+  const base = wire.endpointBase(provider.baseUrl); // 显示用 base 见 meta 事件
+  const chatUrl = wire.completionUrl(provider.baseUrl);
   const model = String(provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   const plannedTurnSeq = (Number(session.turnSeq) || 0) + 1;
   activeTraceId = AgentLoopHooks.makeAgentLoopTraceId(session.id, plannedTurnSeq);
 
-  // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized через
-  // providerBaseWithV1 (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
+  // v1.0-S6 (B): failover candidate sequence = [main baseUrl, ...extraBaseUrls], each normalized through
+  // the protocol's endpointBase/completionUrl (so a bare host gets its /v1 like the primary). Each candidate keeps BOTH its display
   // `base` (for the failover event's from/to + the sticky key value) and its derived `chatUrl`. We de-dupe on
   // the derived chatUrl (two raw bases that normalize identically are one endpoint). When provider has no
   // extraBaseUrls this list is length 1 and the loop below behaves EXACTLY as the single-endpoint code did.
@@ -34890,8 +35055,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   {
     const seenUrls = new Set();
     for (const raw of [provider.baseUrl, ...(Array.isArray(provider.extraBaseUrls) ? provider.extraBaseUrls : [])]) {
-      const b = providerApiBase(raw, apiStyle === 'responses');
-      const u = providerCompletionUrl(raw, apiStyle === 'responses');
+      const b = wire.endpointBase(raw);
+      const u = wire.completionUrl(raw);
       if (!u || seenUrls.has(u)) continue;
       seenUrls.add(u);
       // base(显示/日志/粘住键)剥 userinfo 防明文凭据外泄;chatUrl 保留原样以完成 basic-auth 请求。
@@ -35128,7 +35293,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
-  const headers = providerRequestHeaders(provider); // 04h:content-type + Bearer(去空白)+ 自定义头;每个 failover 候选端点都带这同一份
+  const headers = wire.requestHeaders(provider); // 每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
     const recallPrompt = buildObservationRecallPrompt(history, config);
@@ -35175,48 +35340,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       ? new Map(session.actionAudit.map(e => e && e.toolCallId ? [e.toolCallId, e] : null).filter(Boolean))
       : new Map();
     const viewHistory = actionAuditMap.size ? projectActionModelView(session.providerHistory, actionAuditMap).history : session.providerHistory;
-    // v1.7: Responses API body — `instructions` + `input` items (no `messages`/`stream_options`).
-    // volatile 放置两分支同规则:开关关 = 前插历史首条 user(51d C1b 现状);106 #1 G1 开关开 =
-    // 追加当前最新 user 尾部。
-    if (apiStyle === 'responses') {
-      const msgs = [{ role: 'system', content: sys }, ...viewHistory];
-      // 51d C1b 现状(开关关): volatile 前插历史第一条 user,不持久化(每回合动态)。
-      // 106 #1 G1(开关开): volatile 追加当前最新 user 尾部 —— 跨回合不重写既有消息,前缀缓存
-      // 不再从 messages[1] 断裂;同一会合内两种布局都稳定(volatile 每回合只构建一次)。
-      if (turnVolatile && volatileTail) appendPromptToLastUserMessage(msgs, turnVolatile);
-      else if (turnVolatile && !volatileTail) {
-        const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
-        if (firstUserIndex > 0) {
-          const firstUser = msgs[firstUserIndex];
-          if (typeof firstUser.content === 'string') {
-            msgs[firstUserIndex] = { ...firstUser, content: turnVolatile + '\n\n' + firstUser.content };
-          } else if (Array.isArray(firstUser.content)) {
-            const textPartIndex = firstUser.content.findIndex(part => part && part.type === 'text');
-            if (textPartIndex >= 0) {
-              const content = firstUser.content.slice();
-              content[textPartIndex] = { ...content[textPartIndex], text: turnVolatile + '\n\n' + String(content[textPartIndex].text || '') };
-              msgs[firstUserIndex] = { ...firstUser, content };
-            }
-          }
-        }
-      }
-      appendRecallPrompt(msgs, viewHistory);
-      appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-      // v1.8: server-side tool items (web_search_call) are appended to `input` AFTER the translated history —
-      // DeepSeek restores the search results server-side and the model continues on the next call.
-      const b = { model, instructions: sys, input: [...buildResponsesInputItems(msgs), ...serverToolItems], stream: true };
-      if (temp !== undefined) b.temperature = temp;
-      applyProviderReasoningEffort(b, provider, 'responses');
-      const loadedTools = toolLoading.current();
-      // v1.8.2: server-side web_search mapping only when the provider opts in (serverWebSearch:true) —
-      // otherwise web_search stays a LOCAL function tool (builtin backend fallback, works on any provider).
-      if (withTools && loadedTools.length) { b.tools = toResponsesTools(loadedTools, provider.serverWebSearch === true); b.tool_choice = 'auto'; }
-      return b;
-    }
+    // 请求体(58 号批 1):消息视图(volatile 布局、recall、session notes)只构建一份,协议差异只剩登记表的
+    // encodeMessages / applyTools —— chat 发 messages(+stream_options),Responses 发 instructions + input 项
+    // (v1.8:服务端工具项 serverToolItems 接在翻译后的历史之后,DeepSeek 在服务端恢复搜索结果)。
     const msgs = [{ role: 'system', content: sys }, ...viewHistory];
     // 51d C1b 现状(开关关): volatile 前插历史第一条 user,不持久化(每回合动态)。Do not assume
     // messages[1] or parts[0] is text: compacted/imported histories and multimodal providers may use
-    // another shape. 106 #1 G1(开关开): 追加当前最新 user 尾部(规则同 responses 分支)。
+    // another shape. 106 #1 G1(开关开): 追加当前最新 user 尾部 —— 跨回合不重写既有消息,前缀缓存不再从
+    // messages[1] 断裂;同一回合内两种布局都稳定(volatile 每回合只构建一次)。
     if (turnVolatile && volatileTail) appendPromptToLastUserMessage(msgs, turnVolatile);
     else if (turnVolatile && !volatileTail) {
       const firstUserIndex = msgs.findIndex((entry, index) => index > 0 && entry && entry.role === 'user');
@@ -35236,11 +35367,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-    const b = { model, messages: msgs, stream: true, stream_options: { include_usage: true } };
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems });
     if (temp !== undefined) b.temperature = temp;
-    applyProviderReasoningEffort(b, provider, 'chat');
+    applyProviderReasoningEffort(b, provider, wire.id);
     const loadedTools = toolLoading.current();
-    if (withTools && loadedTools.length) { b.tools = loadedTools; b.tool_choice = 'auto'; }
+    // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
+    if (withTools && loadedTools.length) wire.applyTools(b, loadedTools, { serverWebSearch: provider.serverWebSearch === true });
     return b;
   };
 
@@ -35729,7 +35861,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         onEvent({ type: 'failover', providerId: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
         logEvent({ kind: 'failover', sessionId: session.id, provider: provider.id, from: prevBase, to: cand.base, reason: lastCall._failReason });
       }
-      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: b, ctrl, onEvent, markUsage, rawSeqRef, touch });
+      const call = await openAiStreamOnce({ chatUrl: cand.chatUrl, headers, body: b, ctrl, onEvent, markUsage, rawSeqRef, touch, protocol: wire });
       // Decide if this outcome is a failover trigger (pre-first-byte only).
       let failReason = null;
       if (call.transportError) failReason = call.transportReason || 'connect';
@@ -35970,7 +36102,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (looksLikePlan(call.text) && !(call.toolCalls && call.toolCalls.length)) {
           // The model spoke a plan and stopped — record it in history so the context stays coherent for the
           // post-approval continuation, then pause for the decision.
-          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
+          if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
           await saveSession(session);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           const decision = await requestPlanApproval(session.id, call.text, onEvent, config.permissionTimeoutMs);
@@ -36003,7 +36135,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } else if (call.toolCalls && call.toolCalls.length) {
           // A mixed batch is refused as a unit: executing its reads could leak partial evidence into a request
           // whose modifying half was never authorized, and one paired result per call keeps history valid.
-          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
+          session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(call.toolCalls, { sessionId: session.id }) });
           for (const tc of call.toolCalls) {
             let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
             const refuse = { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' };
@@ -36059,7 +36191,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
         }
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
-        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...(call.reasoning ? { reasoning_content: call.reasoning } : {}), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
+        if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
         // image message — but that message may ONLY be appended AFTER the whole tool batch closes (连续性铁律:
         // no user message wedged between an assistant.tool_calls and its role:'tool' replies). So we collect the
@@ -36535,7 +36667,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
-      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...(call.reasoning ? { reasoning_content: call.reasoning } : {}) });
+      if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
       // O3 (hb360): 产物类任务完成前自检 -- 对照任务要求逐项核对产物覆盖/数值自洽,漏项补全(只跑一次)。
       // 标 073(漏 gap 类别)/077(大小写当重复)/091(金额归位)/092(drift 标识错) 类「框架对、细节失守」。
       if (!selfCheckDone && toolCalls.length > 0 && /生成|输出|创建|写出|列出|csv|报告|清单|manifest|核对|修复|审计|对账|reconciliation|report|list|generate/i.test(fullPrompt)) {
@@ -37617,7 +37749,7 @@ function summarySingleShotCap(config, provider, model) {
   const ov = (config && config.summarySingleShotMaxOverridesV1 && typeof config.summarySingleShotMaxOverridesV1 === 'object' && !Array.isArray(config.summarySingleShotMaxOverridesV1)) ? config.summarySingleShotMaxOverridesV1 : {};
   const pid = String((provider && provider.id) || '');
   const mid = String(model || (provider && provider.model) || '');
-  const style = provider && provider.apiStyle === 'responses' ? 'responses' : 'chat';
+  const style = providerWireProtocol(provider).id;
   for (const key of [pid && mid ? pid + '/' + mid : '', pid, 'style:' + style]) {
     if (key && ov[key] != null) return clampCap(ov[key]);
   }
@@ -37640,7 +37772,7 @@ function summaryCallPolicyKey(provider, model, apiStyle) {
   // baseUrl is part of the capability identity (different gateways can expose different schemas), but the
   // key deliberately contains no api key and is bounded so a malformed custom URL cannot grow the cache.
   const base = String(provider && provider.baseUrl || '').trim().toLowerCase().slice(0, 400);
-  return [String(provider && provider.id || '').slice(0, 80), String(model || '').slice(0, 120), apiStyle === 'responses' ? 'responses' : 'chat', base].join('\u0000');
+  return [String(provider && provider.id || '').slice(0, 80), String(model || '').slice(0, 120), normalizeProviderApiStyle(apiStyle), base].join('\u0000');
 }
 function summaryModelPolicy(model) {
   const m = String(model || '').trim().toLowerCase();
@@ -37663,7 +37795,7 @@ function summaryPolicyTiers(stage) {
   return tiers.length ? [...new Set(tiers)] : [6144, 8192];
 }
 function resolveSummaryCallPolicy(provider, model, apiStyle, stage) {
-  const normalizedStyle = apiStyle === 'responses' ? 'responses' : 'chat';
+  const normalizedStyle = normalizeProviderApiStyle(apiStyle);
   const normalizedStage = SUMMARY_POLICY_STAGES.has(stage) ? stage : 'single';
   const modelRule = summaryModelPolicy(model);
   const key = summaryCallPolicyKey(provider, model, normalizedStyle);
@@ -37716,8 +37848,7 @@ function summaryUnsupportedParameterFields(status, detail, policy) {
 function applySummaryCallPolicy(body, policy) {
   if (!body || typeof body !== 'object' || !policy) return body;
   if (policy.reasoning && policy.reasoning.mode === 'effort' && policy.reasoning.value) {
-    if (policy.apiStyle === 'responses') body.reasoning = { effort: policy.reasoning.value };
-    else body.reasoning_effort = policy.reasoning.value;
+    providerWireProtocol(policy.apiStyle).applyEffort(body, policy.reasoning.value);
   }
   const out = policy.output || {};
   const value = out.field && Array.isArray(out.tiers) ? out.tiers[out.tierIndex] : 0;
@@ -38144,54 +38275,20 @@ async function economicsShadowEnabledCached() { // 60s 内缓存,避免压缩路
   return ECON_AUX_FLAG_CACHE.on;
 }
 
-// 105j: Responses/Chat 非流式响应统一解析。尤其要保留 status/incomplete_details/usage，不能把
-// reasoning-only 或命中输出上限的响应误报成普通 empty summary。
-function summaryResponseText(payload, responses) {
-  if (responses) {
-    let text = '';
-    for (const item of (Array.isArray(payload && payload.output) ? payload.output : [])) {
-      if (!item || item.type !== 'message' || !Array.isArray(item.content)) continue;
-      for (const part of item.content) {
-        if (part && (part.type === 'output_text' || part.type === 'input_text') && typeof part.text === 'string') text += part.text;
-      }
-    }
-    return text.trim();
-  }
-  const msg = payload && payload.choices && payload.choices[0] && payload.choices[0].message;
-  if (!msg) return '';
-  if (typeof msg.content === 'string') return msg.content.trim();
-  if (Array.isArray(msg.content)) return msg.content.map(part => part && typeof part.text === 'string' ? part.text : '').join('').trim();
-  return '';
-}
-function summaryResponseIncomplete(payload, responses) {
-  const status = String(payload && payload.status || '').toLowerCase();
-  const finish = String(payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason || '').toLowerCase();
-  const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || '').toLowerCase();
-  return (responses && status === 'incomplete') || /^(?:length|max[_-](?:output|completion)?[_-]?tokens)$/.test(finish) || /max[_-](?:output|completion)[_-]tokens|length/.test(reason);
-}
-function summaryResponseFailureDetail(payload) {
-  const e = payload && payload.error;
-  if (typeof e === 'string') return e;
-  if (e && typeof e === 'object') return String(e.message || e.code || e.type || 'provider error');
-  return '';
-}
-
 // 105j: summary call policy-aware implementation. It keeps the historical six-argument signature while all
 // callers gain the same bounded reasoning/output policy and one-shot compatibility fallback.
 async function singleSummaryCall(provider, messages, model, econCtx, promptOverride, extraSignal, config) {
-  const respStyle = provider && provider.apiStyle === 'responses';
+  const wire = providerWireProtocol(provider); // 58 号批 1:端点、请求头、请求体、回体解析都问协议登记表
   const summaryPrompt = typeof promptOverride === 'string' && promptOverride ? promptOverride : summaryPromptWithGuidance(config);
-  const chatUrl = providerCompletionUrl(provider.baseUrl, respStyle); // 04h:端点 URL 与请求头原语(与补全/流式请求同一份)
-  const headers = providerRequestHeaders(provider);
+  const chatUrl = wire.completionUrl(provider.baseUrl);
+  const headers = wire.requestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const stage = econCtx && SUMMARY_POLICY_STAGES.has(econCtx.summaryStage)
     ? econCtx.summaryStage
     : (promptOverride ? 'repair' : ((econCtx && Number(econCtx.chunkIndex) >= 1000) ? 'reduce' : ((econCtx && econCtx.chunkIndex != null) ? 'map' : 'single')));
-  const policy = resolveSummaryCallPolicy(provider, model, respStyle ? 'responses' : 'chat', stage);
+  const policy = resolveSummaryCallPolicy(provider, model, wire.id, stage);
   const makeBody = () => {
-    const body = respStyle
-      ? { model, instructions: sysIdentity, input: buildResponsesInputItems([{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }]), stream: false }
-      : { model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false };
+    const body = wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...messages, { role: 'user', content: summaryPrompt }], stream: false, instructions: sysIdentity });
     applySummaryCallPolicy(body, policy);
     const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
     if (temp !== undefined) body.temperature = temp;
@@ -38233,7 +38330,7 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
           ...(econCtx.traceId ? { traceId: String(econCtx.traceId) } : {}),
           ...(econCtx.subagentId ? { subagentId: String(econCtx.subagentId) } : {}),
           trigger: String(econCtx.trigger || 'summary'),
-          model: String(model || ''), apiStyle: respStyle ? 'responses' : 'chat', ok: okRes,
+          model: String(model || ''), apiStyle: wire.id, ok: okRes,
           usageSource: okRes && hasUsage ? 'provider' : 'missing', inputTokens: uIn, outputTokens: uOut,
           ...(okRes && hasUsage && typeof cachedInputTokensFromUsage === 'function' ? { cachedInputTokens: Math.min(uIn, cachedInputTokensFromUsage(u)) } : {}),
           ...(econCtx.chunkIndex ? { mapReduceChunk: Number(econCtx.chunkIndex) } : {}), httpMs: Date.now() - econT0,
@@ -38261,15 +38358,18 @@ async function singleSummaryCall(provider, messages, model, econCtx, promptOverr
         return finish(failed);
       }
       const payload = await res.json().catch(() => null);
-      const summary = summaryResponseText(payload, respStyle);
-      const usage = (payload && payload.usage) || null;
+      // 105j:非流式回体按协议解析(04i decodeCompletion)。尤其要保留 status/incomplete_details/usage,不能把
+      // reasoning-only 或命中输出上限的响应误报成普通 empty summary。
+      const decoded = wire.decodeCompletion(payload);
+      const summary = decoded.text.trim();
+      const usage = decoded.usage;
       const promptTokensEst = estimateHistoryTokens(bodyObj.messages || bodyObj.input);
       let result;
-      if (payload && String(payload.status || '').toLowerCase() === 'failed') {
-        const detail = summaryResponseFailureDetail(payload);
+      if (decoded.failed) {
+        const detail = decoded.failedDetail;
         result = { ok: false, error: `provider returned failed summary${detail ? ': ' + redact(detail.slice(0, 300)) : ''}`, usage, promptTokensEst };
-      } else if (summaryResponseIncomplete(payload, respStyle)) {
-        const reason = String(payload && payload.incomplete_details && payload.incomplete_details.reason || (payload && payload.choices && payload.choices[0] && payload.choices[0].finish_reason) || 'output limit');
+      } else if (decoded.incomplete) {
+        const reason = decoded.incompleteReason;
         result = { ok: false, error: `provider returned an incomplete summary (${reason})`, incomplete: true, usage, promptTokensEst };
       } else if (!summary) {
         result = { ok: false, error: 'provider returned an empty summary', usage, promptTokensEst };
@@ -62804,6 +62904,8 @@ module.exports = {
   // 瞬时错误重试骨架 —— unit/transient-retry.test.js 钉判据、次数、退避序列与「首字节后不重试」。
   providerBaseWithV1, providerResponsesBase, providerApiBase, providerCompletionUrl, providerRequestHeaders, providerRawCompletion, providerFixCompletion,
   providerCallIsTransient, abortableDelay, withTransientRetry, openAiStreamOnce,
+  // 58 号批 1:服务商线协议登记表(04i)—— unit/provider-wire-protocols.test.js 钉成员齐全、归一口径与各成员金样。
+  PROVIDER_WIRE_PROTOCOLS, normalizeProviderApiStyle, providerWireProtocol,
   // 131b(52 号文):句尾改错的三个纯函数 — exposed for unit(提示词加固形状／出参合理性／端点解析的失败码)。
   asrFixMessages,
   asrFixSanity,

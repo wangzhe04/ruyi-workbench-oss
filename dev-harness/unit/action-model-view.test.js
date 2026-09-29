@@ -6,10 +6,12 @@ const src = readServerSource();
 let fail = 0;
 const ok = (condition, label) => { if (condition) console.log('PASS ' + label); else { fail++; console.log('FAIL ' + label); } };
 
-const start = src.indexOf('const ACTION_VIEW_TOOLS = new Set(');
-const end = src.indexOf('\nfunction buildResponsesInputItems(', start);
-ok(start >= 0 && end > start, 'E3 source block found');
-const block = src.slice(start, end);
+// 58 号批 1 起 buildResponsesInputItems 搬去了 04i(排在 07 之前),原来「切到它为止」的手写切片会切空;按符号切五段。
+const { constBlock, functionBlock } = require('../lib/source-slice');
+const parts = [constBlock(src, 'ACTION_VIEW_TOOLS'), constBlock(src, 'ACTION_VIEW_MIN_CHARS'),
+  functionBlock(src, 'actionTargetMeta'), functionBlock(src, 'buildActionEnvelope'), functionBlock(src, 'projectActionModelView')];
+ok(parts.every(part => part.length > 20), 'E3 source block found');
+const block = parts.join('\n');
 const t3 = new Function('crypto', 'path', block + '\nreturn { ACTION_VIEW_TOOLS, ACTION_VIEW_MIN_CHARS, buildActionEnvelope, projectActionModelView };')(crypto, require('path'));
 
 const BIG = 'x'.repeat(5000);

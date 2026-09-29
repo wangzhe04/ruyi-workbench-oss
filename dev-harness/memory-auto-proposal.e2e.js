@@ -78,8 +78,21 @@ ok(/activeChildren\.has/.test(serverSource) && /reason: 'turn_active'/.test(serv
 ok(/reason: latestSession \? 'conversation_advanced' : 'session_deleted'/.test(serverSource), 'a completed newer turn or deleted session also discards an in-flight candidate');
 ok(!/turnState\.engine\s*===\s*'openai'/.test(uiSource) && /resultOk\s*===\s*true/.test(uiSource) && /suggestMemoryFromTurn/.test(uiSource), 'UI requests pending candidates after a clean turn from either engine');
 ok(/proposal:null/.test(memoryUiSource) && /_isDraft:\s*true/.test(memoryUiSource), 'silent no-proposal path and edit-before-save path are both explicit');
-const providerSource = fs.readFileSync(path.resolve(__dirname, '..', 'ruyi-workbench', 'app', 'src', '06-provider-engine.js'), 'utf8');
-ok(/responseInstructions/.test(providerSource) && /extraInstructions/.test(providerSource), 'Responses auxiliary calls retain strict system/developer judge instructions');
-
-console.log('\nMEMORY AUTO PROPOSAL E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
-process.exit(failures ? 1 : 0);
+// 58 号批 1 起「Responses 把调用方后插的 system/developer 规则折进 instructions」住在协议登记表(encodeMessages 的 foldSystem)。
+// 断言运行时行为而不是变量名:记忆审稿人走的 providerRawCompletion 在 Responses 服务商上,严格审稿规则必须进 instructions。
+(async () => {
+  const realFetch = global.fetch;
+  let sent = null;
+  global.fetch = async (url, init) => {
+    sent = JSON.parse(init.body);
+    return new Response(JSON.stringify({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'ok' }] }] }), { status: 200 });
+  };
+  try {
+    await srv.providerRawCompletion({ id: 'resp-judge', apiStyle: 'responses', baseUrl: 'http://127.0.0.1:1', apiKey: 'k', model: 'm' },
+      [{ role: 'system', content: 'STRICT JUDGE RULE' }, { role: 'developer', content: 'DEV RULE' }, { role: 'user', content: 'q' }]);
+  } finally { global.fetch = realFetch; }
+  ok(sent && typeof sent.instructions === 'string' && sent.instructions.includes('STRICT JUDGE RULE') && sent.instructions.includes('DEV RULE') && !('messages' in sent),
+    'Responses auxiliary calls retain strict system/developer judge instructions');
+  console.log('\nMEMORY AUTO PROPOSAL E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
+  process.exit(failures ? 1 : 0);
+})();

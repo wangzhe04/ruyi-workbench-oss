@@ -18,6 +18,8 @@ import { openSharedHelpDoc } from './help-viewer.js';
 import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONBOARDING_MANUAL_DOC_ID } from './onboarding-wizard.js';
 // 每个 Agent CLI 的知识（品牌名、路径键、思考强度档位、头像字母……）只问这一张登记表（ENGINEERING-SPEC §11.1）。
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
+// 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
+import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta } from './provider-api-styles.js';
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -1693,28 +1695,33 @@ function providerCard(p, idx) {
   cap.addEventListener('toggle', () => providerCapOpen.set(p.id, cap.open));
   const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning; rc.onchange = () => { p.reasoning = rc.checked; };
   reason.appendChild(rc); reason.appendChild(document.createTextNode(' ' + t('provider.reasoning')));
-  // v1.7: protocol 选择 — chat (Chat Completions, 默认) / responses (OpenAI Responses API, DeepSeek
-  // Codex/agent 场景官方新增端点)。存 p.apiStyle;后端 sanitizeProvider 归一为 'chat'|'responses'。
+  // v1.7: protocol 选择,选项由协议登记表生成(provider-api-styles.js;chat 缺省)。存 p.apiStyle;
+  // 后端 sanitizeProvider 经 normalizeProviderApiStyle 归一。
   const styleLbl = el('label', 'check prov-style'); styleLbl.appendChild(document.createTextNode(' ' + t('provider.apiStyle') + ' '));
   const sc = el('select'); sc.className = 'prov-style-select';
-  for (const [val, key] of [['chat', 'provider.apiStyle.chat'], ['responses', 'provider.apiStyle.responses']]) {
-    const o = el('option'); o.value = val; o.textContent = t(key); sc.appendChild(o);
+  for (const style of Object.values(PROVIDER_API_STYLES)) {
+    const o = el('option'); o.value = style.id; o.textContent = t(style.labelKey); sc.appendChild(o);
   }
-  sc.value = p.apiStyle === 'responses' ? 'responses' : 'chat';
-  // v1.8.2: 协议与能力联动 —— 只有 responses 才可能用服务端 web_search;切回 chat 自动隐藏该开关。
+  sc.value = normalizeProviderApiStyle(p.apiStyle);
+  // v1.8.2: 协议与能力联动 —— 只有登记表里 serverWebSearch 为 true 的协议才可能用服务端 web_search;切到别的协议自动隐藏该开关。
   // 对抗轮(critic C):sync 只做【显隐 + 视觉 uncheck】,绝不 delete p.serverWebSearch —— 否则渲染期
   // (locale 切换/加卡/测连触发 renderProviders)会静默丢弃用户已勾选的意图,responses→chat→responses
   // 往返后已持久化的 true 会被降为 false。删除语义只发生在用户显式切换协议时(sc.onchange 里 delete)。
   const serverSearchLbl = el('label', 'check prov-server-search');
   const ssc = el('input'); ssc.type = 'checkbox'; ssc.checked = !!p.serverWebSearch;
   const syncServerSearchVisibility = () => {
-    const isResponses = sc.value === 'responses';
-    serverSearchLbl.style.display = isResponses ? '' : 'none';
-    if (!isResponses) ssc.checked = false; // 视觉 uncheck;字段留给显式用户操作
-    // 对抗轮(reverify B):responses 时让显示镜像字段(外部手编 chat+true 切到 responses 时,显示与落盘一致)。
+    const searchable = providerApiStyleMeta(sc.value).serverWebSearch;
+    serverSearchLbl.style.display = searchable ? '' : 'none';
+    if (!searchable) ssc.checked = false; // 视觉 uncheck;字段留给显式用户操作
+    // 对抗轮(reverify B):能服务端搜索时让显示镜像字段(外部手编 chat+true 切到 responses 时,显示与落盘一致)。
     else ssc.checked = !!p.serverWebSearch;
   };
-  sc.onchange = () => { if (sc.value === 'responses') p.apiStyle = 'responses'; else { delete p.apiStyle; delete p.serverWebSearch; } syncServerSearchVisibility(); };
+  // 缺省协议不落字段(存量 config 零漂移);切到不支持服务端搜索的协议时连同 serverWebSearch 一起删(显式用户操作)。
+  sc.onchange = () => {
+    if (sc.value !== PROVIDER_API_STYLE_DEFAULT) p.apiStyle = sc.value; else delete p.apiStyle;
+    if (!providerApiStyleMeta(sc.value).serverWebSearch) delete p.serverWebSearch;
+    syncServerSearchVisibility();
+  };
   styleLbl.appendChild(sc);
   // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
   // 由双 locale 的 provider.apiStyle.hint 提供;此前该键定义了但 UI 从不渲染(死键)。

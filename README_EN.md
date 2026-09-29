@@ -8,7 +8,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Windows e2e](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml/badge.svg?branch=master)](https://github.com/wangzhe04/ruyi-workbench-oss/actions/workflows/e2e.yml)
-[![Offline e2e](https://img.shields.io/badge/offline%20e2e-417-success.svg)](./dev-harness)
+[![Offline e2e](https://img.shields.io/badge/offline%20e2e-418-success.svg)](./dev-harness)
 [![Zero npm deps](https://img.shields.io/badge/npm%20runtime%20deps-0-orange.svg)](./ruyi-workbench/app/server.js)
 [![Third-Party Notices](https://img.shields.io/badge/third--party-notices-informational.svg)](./THIRD-PARTY-NOTICES.md)
 
@@ -71,9 +71,9 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 
 | | |
 |---|---|
-| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 63 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 60 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
+| **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 64 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
 | **107 native tools · 108 ACC tools** | 65 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **417 e2e cases** (410 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 100 unit suites and 17 ACC smoke groups, run on Windows CI for every change. |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **418 e2e cases** (411 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 102 unit suites and 17 ACC smoke groups, run on Windows CI for every change. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -494,9 +494,9 @@ Windows 10/11 is the first-class target; release packages and desktop control ar
 ```
 .
 ├── ruyi-workbench/
-│   ├── app/src/            Backend source: 63 ordered modules (edit here, then run build.js)
+│   ├── app/src/            Backend source: 64 ordered modules (edit here, then run build.js)
 │   ├── app/server.js       Backend runtime artifact (concatenated by app/build.js; zero npm runtime deps)
-│   ├── app/public/         Frontend: index.html + 60 native ES modules + layered CSS + zh/en locales
+│   ├── app/public/         Frontend: index.html + 61 native ES modules + layered CSS + zh/en locales
 │   ├── desktop/            WinForms + WebView2 desktop shell
 │   ├── resources/          Built-in Playbooks, the offline plugin marketplace, scripts
 │   ├── config/             Configuration examples and factory defaults

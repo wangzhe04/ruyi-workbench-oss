@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 63 | 2814 | 2847 | 493 | 68 | 0 | 1 |
+| 64 | 2831 | 2846 | 500 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -33,51 +33,52 @@
 | 15 | `04-desktop-shell.js` | foundation | 1 | 7 | 3 |
 | 16 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
 | 17 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
-| 18 | `05-claude-engine.js` | engine | 67 | 126 | 19 |
-| 19 | `05b-kimi-bridge.js` | engine | 119 | 68 | 12 |
-| 20 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
-| 21 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 22 | `06-provider-engine.js` | engine | 130 | 56 | 14 |
-| 23 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
-| 24 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 25 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
-| 26 | `06i-steward-core.js` | engine | 153 | 0 | 0 |
-| 27 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
-| 28 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
-| 29 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 30 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
-| 31 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 32 | `06k-config-patch.js` | engine | 1 | 20 | 8 |
-| 33 | `07-autonomy.js` | orchestration | 92 | 64 | 16 |
-| 34 | `08-agent-runs.js` | orchestration | 104 | 91 | 18 |
-| 35 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 36 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
-| 37 | `09-workflow.js` | orchestration | 15 | 221 | 24 |
-| 38 | `10-context-governance.js` | orchestration | 135 | 79 | 16 |
-| 39 | `11-native-tools.js` | tools | 105 | 32 | 5 |
-| 40 | `12-tool-dispatch.js` | tools | 33 | 81 | 14 |
-| 41 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 42 | `13-http-router.js` | transport | 64 | 229 | 27 |
-| 43 | `13b-api-domain-routes.js` | transport | 36 | 58 | 7 |
-| 44 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
-| 45 | `13d-core-domain-routes.js` | transport | 45 | 123 | 16 |
-| 46 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
-| 47 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
-| 48 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
-| 49 | `13k-steward-threads.js` | transport | 46 | 110 | 15 |
-| 50 | `13l-steward-ops.js` | transport | 36 | 104 | 18 |
-| 51 | `13g-steward.js` | transport | 12 | 66 | 9 |
-| 52 | `13m-steward-runner-base.js` | transport | 42 | 16 | 7 |
-| 53 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
-| 54 | `13o-steward-runner-prompt.js` | transport | 20 | 61 | 14 |
-| 55 | `13p-steward-runner-actions.js` | transport | 29 | 46 | 10 |
-| 56 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 18 |
-| 57 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
-| 58 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
-| 59 | `13s-scheduler.js` | transport | 47 | 33 | 8 |
-| 60 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
-| 61 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
-| 62 | `14-main.js` | entrypoint | 1 | 566 | 41 |
+| 18 | `04i-provider-wire.js` | foundation | 27 | 4 | 1 |
+| 19 | `05-claude-engine.js` | engine | 64 | 127 | 20 |
+| 20 | `05b-kimi-bridge.js` | engine | 119 | 68 | 12 |
+| 21 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
+| 22 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 23 | `06-provider-engine.js` | engine | 130 | 54 | 15 |
+| 24 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
+| 25 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 26 | `06h-retrieval-index.js` | engine | 14 | 0 | 0 |
+| 27 | `06i-steward-core.js` | engine | 153 | 0 | 0 |
+| 28 | `06d-memory-domain.js` | engine | 127 | 36 | 10 |
+| 29 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
+| 30 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
+| 31 | `06g-resource-leases.js` | engine | 16 | 5 | 3 |
+| 32 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
+| 33 | `06k-config-patch.js` | engine | 1 | 20 | 8 |
+| 34 | `07-autonomy.js` | orchestration | 88 | 65 | 17 |
+| 35 | `08-agent-runs.js` | orchestration | 104 | 88 | 19 |
+| 36 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
+| 37 | `09d-token-estimation.js` | orchestration | 10 | 2 | 2 |
+| 38 | `09-workflow.js` | orchestration | 15 | 217 | 24 |
+| 39 | `10-context-governance.js` | orchestration | 132 | 78 | 17 |
+| 40 | `11-native-tools.js` | tools | 105 | 32 | 5 |
+| 41 | `12-tool-dispatch.js` | tools | 33 | 81 | 14 |
+| 42 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
+| 43 | `13-http-router.js` | transport | 64 | 229 | 27 |
+| 44 | `13b-api-domain-routes.js` | transport | 36 | 58 | 7 |
+| 45 | `13c-overlay-routes.js` | transport | 11 | 12 | 3 |
+| 46 | `13d-core-domain-routes.js` | transport | 45 | 123 | 16 |
+| 47 | `13e-pretender-index.js` | transport | 41 | 33 | 8 |
+| 48 | `13i-steward-inbox.js` | transport | 72 | 25 | 8 |
+| 49 | `13j-steward-tool-base.js` | transport | 76 | 22 | 8 |
+| 50 | `13k-steward-threads.js` | transport | 46 | 110 | 15 |
+| 51 | `13l-steward-ops.js` | transport | 36 | 104 | 18 |
+| 52 | `13g-steward.js` | transport | 12 | 66 | 9 |
+| 53 | `13m-steward-runner-base.js` | transport | 42 | 16 | 7 |
+| 54 | `13n-steward-arbiter.js` | transport | 35 | 15 | 6 |
+| 55 | `13o-steward-runner-prompt.js` | transport | 20 | 61 | 14 |
+| 56 | `13p-steward-runner-actions.js` | transport | 29 | 46 | 10 |
+| 57 | `13q-steward-runner-turn.js` | transport | 25 | 64 | 18 |
+| 58 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
+| 59 | `13r-event-stream.js` | transport | 22 | 15 | 6 |
+| 60 | `13s-scheduler.js` | transport | 47 | 33 | 8 |
+| 61 | `13t-steward-schedule.js` | transport | 19 | 35 | 10 |
+| 62 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
+| 63 | `14-main.js` | entrypoint | 1 | 569 | 42 |
 
 ## 模块边
 
@@ -139,6 +140,7 @@
 | `04f-toolbox-services.js` | `00-boot.js` | backward | `cp`, `http`, `path`, `safeJsonParse`, `text` |
 | `04f-toolbox-services.js` | `01-config.js` | backward | `mutateConfig`, `readConfig` |
 | `04f-toolbox-services.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `enabledToolboxComponents`, `invalidateToolboxCache`, `logEvent`, `redact`, `scanToolboxComponents` |
+| `04i-provider-wire.js` | `04h-provider-http.js` | backward | `providerApiBase`, `providerBaseWithV1`, `providerCompletionUrl`, `providerRequestHeaders` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `cp`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `safeJsonParse`, `text` |
 | `05-claude-engine.js` | `01-config.js` | backward | `RUNTIME`, `buildUserEnvelope`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi`, `writeToChild` |
 | `05-claude-engine.js` | `01d-win-cmdline.js` | backward | `CMD_EXE_LINE_LIMIT`, `CMD_LINE_QUOTE_MARGIN`, `cmdLineBudgetFor`, `cmdLineBudgetSeam`, `isBatchLauncher`, `quoteWinArg`, `spawnCmdLineLength` |
@@ -148,7 +150,8 @@
 | `05-claude-engine.js` | `02c-turn-segments.js` | backward | `createTurnSegmentBuilder` |
 | `05-claude-engine.js` | `03-bridge-guard.js` | backward | `buildAttachmentPrompt`, `cwdWarning`, `normalizeCwd` |
 | `05-claude-engine.js` | `04-permission-runtime.js` | backward | `ToolboxHooks`, `activeChildren`, `appendLiveTail`, `buildClaudeRecoveryHistory`, `claudeProviderTailSince`, `claudeResumeRouteKey`, `clearPendingPermissions`, `clearPendingQuestions`, `formatQuestionGuidance`, `hasPendingPermissionForSession`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `isClaudeResumeMissingError`, `killChildTree`, `lastAssistantEngine`, `lastSuccessfulClaudeModel`, `logEvent`, `nativeClaudeAgentResultInfo`, `parseClaudeEvent`, `parseKimiStreamJsonEvent`, `permissionWaitMs`, `redact`, `registerUserQuestion`, `safeUrlForDisplay`, `sameClaudeResumeCwd`, `stopSession` |
-| `05-claude-engine.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCompletionUrl`, `providerPostJsonOnce`, `providerRequestHeaders` |
+| `05-claude-engine.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerPostJsonOnce` |
+| `05-claude-engine.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle`, `providerReasoningEffort`, `providerWireProtocol` |
 | `05-claude-engine.js` | `05b-kimi-bridge.js` | forward | `applyKimiStatusToSession`, `kimiContextWindow`, `kimiSessionStatus`, `kimiUsageFromStatus`, `maybeAutoCompactAgentSession`, `runKimiAcpTurnPrepared`, `runKimiCompact`, `syncKimiSessionUsage`, `syncKimiTurnPreferences`, `watchKimiWire` |
 | `05-claude-engine.js` | `06-provider-engine.js` | forward | `appendMemorySection`, `appendTurnPolicies`, `buildBrowserAutomationHint`, `buildPlaybookIndexSection`, `buildPromptTaskContext`, `buildSkillsPromptSection`, `buildToolCustomizationHint`, `engineTranscriptCwd`, `evalPlaybookAvailability`, `fenceSafeSlice`, `getCapabilities`, `loadAllPlaybooks`, `peekCapabilities`, `resolveEngineEnvBrief`, `softwareEngineeringTaskProfile` |
 | `05-claude-engine.js` | `06b-prompt-registry.js` | forward | `PROMPT_PACK_VERSION`, `getPromptPack` |
@@ -181,12 +184,13 @@
 | `06-provider-engine.js` | `02-session-store.js` | backward | `SESSION_INDEX_FILE`, `loadSession`, `updateSessionMeta` |
 | `06-provider-engine.js` | `03-bridge-guard.js` | backward | `existsExecutableAsync`, `probeGitCliAsync` |
 | `06-provider-engine.js` | `04-permission-runtime.js` | backward | `activeChildren`, `collectBridgedTools`, `logEvent`, `mcpClients`, `redact`, `resolveExternalMcpServers`, `sanitizeServerId` |
-| `06-provider-engine.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCompletionUrl`, `providerPostJsonOnce`, `providerRequestHeaders` |
-| `06-provider-engine.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter`, `applyProviderReasoningEffort` |
+| `06-provider-engine.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerPostJsonOnce` |
+| `06-provider-engine.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerWireProtocol` |
+| `06-provider-engine.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter` |
 | `06-provider-engine.js` | `06b-prompt-registry.js` | forward | `PROMPT_EN`, `getPromptPack` |
 | `06-provider-engine.js` | `06d-memory-domain.js` | forward | `buildMemoryCheckPrompt`, `buildMemoryPromptSection` |
 | `06-provider-engine.js` | `06e-mission-domain.js` | forward | `buildMissionPromptSection` |
-| `06-provider-engine.js` | `07-autonomy.js` | forward | `buildResponsesInputItems`, `toolPackForName` |
+| `06-provider-engine.js` | `07-autonomy.js` | forward | `toolPackForName` |
 | `06-provider-engine.js` | `11-native-tools.js` | forward | `probeRgAsync` |
 | `06b-prompt-registry.js` | `00-boot.js` | backward | `text` |
 | `06c-agent-loop-hooks.js` | `00-boot.js` | backward | `makeId` |
@@ -231,7 +235,8 @@
 | `07-autonomy.js` | `02f-turn-effect-kinds.js` | backward | `unprefixedBridgedName` |
 | `07-autonomy.js` | `03-bridge-guard.js` | backward | `existsExecutableAsync`, `normalizeCwd`, `pathWithinRoot` |
 | `07-autonomy.js` | `04-permission-runtime.js` | backward | `PermissionWaitHooks`, `killChildTree`, `logEvent`, `parseClaudeEvent`, `pendingPermissions`, `pendingPlans`, `promptWaitMs`, `redact`, `resolveBridge`, `runAutomaticInterventionDecision` |
-| `07-autonomy.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerRequestHeaders`, `withTransientRetry` |
+| `07-autonomy.js` | `04h-provider-http.js` | backward | `withTransientRetry` |
+| `07-autonomy.js` | `04i-provider-wire.js` | backward | `ProviderWireHooks`, `providerWireProtocol`, `providerWireProtocolForBody` |
 | `07-autonomy.js` | `06-provider-engine.js` | backward | `appendResponseLanguagePolicy`, `toolRequirementsMet` |
 | `07-autonomy.js` | `06i-steward-core.js` | backward | `isStewardToolName`, `stewardToolPermanentlyExempt` |
 | `07-autonomy.js` | `08-agent-runs.js` | forward | `saveAgentRun` |
@@ -245,11 +250,12 @@
 | `08-agent-runs.js` | `02d-session-overrides.js` | backward | `liveSessionPermissionMode` |
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd` |
 | `08-agent-runs.js` | `04-permission-runtime.js` | backward | `collectBridgedTools`, `getBridgedClient`, `logEvent`, `redact`, `resolveBridge` |
-| `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `providerCompletionUrl`, `providerRequestHeaders`, `withTransientRetry` |
-| `08-agent-runs.js` | `05-claude-engine.js` | backward | `applyProviderReasoningEffort`, `resolveProvider` |
+| `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `withTransientRetry` |
+| `08-agent-runs.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerWireProtocol` |
+| `08-agent-runs.js` | `05-claude-engine.js` | backward | `resolveProvider` |
 | `08-agent-runs.js` | `06-provider-engine.js` | backward | `TOOL_ITERATION_BUDGETS`, `appendResponseLanguagePolicy`, `buildProviderSystemPrompt`, `getCapabilities`, `readProjectMemory`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget` |
 | `08-agent-runs.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease` |
-| `08-agent-runs.js` | `07-autonomy.js` | backward | `LOOP_GUARD_LIMITS`, `activeAgentRuns`, `agentRunDir`, `agentRunFile`, `agentRunWriteChains`, `bridgedToolTier`, `buildOpenAiTools`, `buildResponsesInputItems`, `classifyToolPacks`, `fetchOpenAiModels`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `neutralizeInjectedPrefixes`, `openAiStreamOnce`, `runClaudeSubAgentOnce`, `toResponsesTools`, `toolPackForName` |
+| `08-agent-runs.js` | `07-autonomy.js` | backward | `LOOP_GUARD_LIMITS`, `activeAgentRuns`, `agentRunDir`, `agentRunFile`, `agentRunWriteChains`, `bridgedToolTier`, `buildOpenAiTools`, `classifyToolPacks`, `fetchOpenAiModels`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `neutralizeInjectedPrefixes`, `openAiStreamOnce`, `runClaudeSubAgentOnce`, `toolPackForName` |
 | `08-agent-runs.js` | `09-workflow.js` | forward | `launchPersistedAgentRun` |
 | `08-agent-runs.js` | `09d-token-estimation.js` | forward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
 | `08-agent-runs.js` | `10-context-governance.js` | forward | `CompactionPlan`, `evaporateHistory`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `providerSummaryCall`, `recordCompactUsage`, `truncateToolResult` |
@@ -265,8 +271,8 @@
 | `09-workflow.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `buildAttachmentPrompt`, `cwdWarning`, `journalBridgedWrite`, `normalizeCwd`, `preflightWriteBoundary` |
 | `09-workflow.js` | `04-permission-runtime.js` | backward | `activeChildren`, `appendLiveTail`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingPermissionForSession`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `lastAssistantEngine`, `logEvent`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `resolveBridge`, `stopSession` |
 | `09-workflow.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
-| `09-workflow.js` | `04h-provider-http.js` | backward | `providerApiBase`, `providerCompletionUrl`, `providerRequestHeaders` |
-| `09-workflow.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `applyProviderReasoningEffort`, `resolveProvider`, `stripUrlUserinfo` |
+| `09-workflow.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerWireProtocol` |
+| `09-workflow.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `resolveProvider`, `stripUrlUserinfo` |
 | `09-workflow.js` | `06-provider-engine.js` | backward | `appendTurnPolicies`, `buildPromptTaskContext`, `buildStableSystemPrompt`, `buildVolatileParts`, `evalPlaybookAvailability`, `getCapabilities`, `loadAllPlaybooks`, `readProjectMemory`, `repairNodeJsonViaProvider`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `softwareEngineeringTaskProfile` |
 | `09-workflow.js` | `06b-prompt-registry.js` | backward | `PROMPT_PACK_VERSION`, `getPromptPack` |
 | `09-workflow.js` | `06c-agent-loop-hooks.js` | backward | `AgentLoopHooks` |
@@ -274,7 +280,7 @@
 | `09-workflow.js` | `06f-autonomy-grants.js` | backward | `consumeGrant` |
 | `09-workflow.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources` |
 | `09-workflow.js` | `06i-steward-core.js` | backward | `StewardHooks`, `isStewardToolName` |
-| `09-workflow.js` | `07-autonomy.js` | backward | `ACTION_VIEW_MIN_CHARS`, `ACTION_VIEW_TOOLS`, `LOOP_GUARD_LIMITS`, `MAIL_GLOBAL_MAX`, `MAIL_PER_SENDER_MAX`, `MAIL_QUEUE_MAX`, `MAIL_TEXT_MAX`, `POOL_CHAIN_MAX`, `POOL_GRACE_MS`, `POOL_MAX_TOTAL`, `actionTargetMeta`, `activeAgentRuns`, `agentRunFile`, `bridgedToolTier`, `buildOpenAiTools`, `buildResponsesInputItems`, `classifyRuntimeToolFailure`, `cleanupAgentWorktree`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `drainSteerQueue`, `estimateToolSchemaTokens`, `failoverStickyBase`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `hasInterruptingSteer`, `looksLikePlan`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `openAiStreamOnce`, `projectActionModelView`, `requestNativePermission`, `requestPlanApproval`, `resumeInFlight`, `toResponsesTools` |
+| `09-workflow.js` | `07-autonomy.js` | backward | `ACTION_VIEW_MIN_CHARS`, `ACTION_VIEW_TOOLS`, `LOOP_GUARD_LIMITS`, `MAIL_GLOBAL_MAX`, `MAIL_PER_SENDER_MAX`, `MAIL_QUEUE_MAX`, `MAIL_TEXT_MAX`, `POOL_CHAIN_MAX`, `POOL_GRACE_MS`, `POOL_MAX_TOTAL`, `actionTargetMeta`, `activeAgentRuns`, `agentRunFile`, `bridgedToolTier`, `buildOpenAiTools`, `classifyRuntimeToolFailure`, `cleanupAgentWorktree`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `drainSteerQueue`, `estimateToolSchemaTokens`, `failoverStickyBase`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `hasInterruptingSteer`, `looksLikePlan`, `loopAbortExempt`, `loopWarnOnly`, `nativeToolGate`, `nativeToolTier`, `openAiStreamOnce`, `projectActionModelView`, `requestNativePermission`, `requestPlanApproval`, `resumeInFlight` |
 | `09-workflow.js` | `08-agent-runs.js` | backward | `accumulateRunUsage`, `agentRunResultSlice`, `agentRunSaveFailures`, `aggregateAgentVote`, `aggregateCoverage`, `appendAgentRunEvent`, `buildAgentRunEnvelope`, `buildOrchestrateHint`, `buildUpstreamContext`, `bumpRunIntervention`, `classifyNodeErrorText`, `computeSchedulerStep`, `dedupeAgentFindings`, `deriveNodeOutputs`, `evalWaitCondition`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `flushAgentRunEvents`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `materializePoolItem`, `nodeDeliveryEligibility`, `normalizeAgentGate`, `normalizeWaitSpec`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `parseStructuredAgentOutput`, `poolChainDepth`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunRecord`, `recordAgentNodeProgress`, `recordRunBudgetTrippedEvent`, `recordRunStalledEvent`, `resolveAgentTeamRoute`, `resolveOrchestrateNodes`, `runSubAgent`, `sanitizeAgentOutputSchema`, `saveAgentRun`, `summarizeAgentWorkflowRun`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verdictPasses`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `09-workflow.js` | `09b-replan-ledger.js` | backward | `proposeReplanPatch`, `recordNodeContinuation`, `validateReplanPatch` |
 | `09-workflow.js` | `09d-token-estimation.js` | backward | `estimateContentTokens`, `estimateHistoryTokens`, `setEstimateBucketsV1` |
@@ -290,13 +296,14 @@
 | `10-context-governance.js` | `02-session-store.js` | backward | `createSession`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `mutateSession`, `readSessionNotes`, `rememberLastUsedEngineRoute`, `repairProviderHistoryPairing`, `saveSession`, `sessionObjectIsStale`, `withJournalWriteLock`, `writeSessionNotes` |
 | `10-context-governance.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute`, `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `10-context-governance.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `logEvent`, `redact`, `stopSession`, `turnSettlers` |
-| `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCompletionUrl`, `providerRequestHeaders` |
+| `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
+| `10-context-governance.js` | `04i-provider-wire.js` | backward | `normalizeProviderApiStyle`, `providerWireProtocol` |
 | `10-context-governance.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `agentCliAdapter`, `runClaudeTurn` |
 | `10-context-governance.js` | `06-provider-engine.js` | backward | `buildProviderSystemPrompt`, `maybeWriteThreadBrief`, `settleThreadBrief` |
 | `10-context-governance.js` | `06e-mission-domain.js` | backward | `runMissionDriver` |
 | `10-context-governance.js` | `06f-autonomy-grants.js` | backward | `activeDriverRuns`, `bindDriverRun`, `revokeGrantsForRun` |
 | `10-context-governance.js` | `06i-steward-core.js` | backward | `StewardHooks`, `stewardTaintToolCall` |
-| `10-context-governance.js` | `07-autonomy.js` | backward | `buildResponsesInputItems`, `fetchOpenAiModels` |
+| `10-context-governance.js` | `07-autonomy.js` | backward | `fetchOpenAiModels` |
 | `10-context-governance.js` | `09-workflow.js` | backward | `runOpenAiTurn` |
 | `10-context-governance.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `EVAPORATED_PREFIX`, `estimateContentTokens`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer` |
 | `11-native-tools.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `RUYI_PATH_BEFORE_VENDOR`, `URL`, `cp`, `crypto`, `fs`, `fsp`, `nowIso`, `os`, `path`, `paths`, `ruyiVendorBinDir`, `safeJsonParse`, `samePathEntry`, `text`, `zlib` |
@@ -550,7 +557,8 @@
 | `14-main.js` | `03-bridge-guard.js` | backward | `AUTOEXEC_DENYLIST`, `auditBridgedWriteCoverage`, `bridgedOfficeScriptGate`, `buildBrowserOpenSpawn`, `buildCodeEditorSpawn`, `buildOpenSpawn`, `buildRevealSpawn`, `classifyCodeEditorExecutable`, `cwdWarning`, `executableFromAssociationCommand`, `guardFileToolPath`, `guardWorkspacePath`, `pathWithinAnyRoot`, `pathWithinRoot`, `providerIsLocal`, `resolveWorkspace` |
 | `14-main.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `McpHttpClient`, `McpStdioClient`, `activeChildren`, `buildMcpConnectorInventory`, `classifyMcpError`, `clearPendingPermissions`, `collectBridgedTools`, `configureMcpFromTool`, `hasPendingPermissionForSession`, `invalidateMcpDropInCache`, `killAllMcpClients`, `killChildTree`, `killOwnProcessTree`, `makeAttachmentRecord`, `nativeClaudeAgentResultInfo`, `parseAgentCliEvent`, `parseClaudeTaskNotification`, `parseMcpConfigFile`, `permissionWaitMs`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `safeMcpInventory`, `safeUrlForDisplay`, `scanMcpSources` |
 | `14-main.js` | `04h-provider-http.js` | backward | `abortableDelay`, `providerApiBase`, `providerBaseWithV1`, `providerCallIsTransient`, `providerCompletionUrl`, `providerRequestHeaders`, `providerResponsesBase`, `withTransientRetry` |
-| `14-main.js` | `05-claude-engine.js` | backward | `AGENT_CLI_ADAPTERS`, `agentCliAdapter`, `applyProviderReasoningEffort`, `asrFixMessages`, `asrFixSanity`, `maskSecrets`, `maskedSecretConflicts`, `providerFixCompletion`, `providerLaunchVectorKey`, `providerReasoningEffort`, `resolveAsrFixProvider`, `sanitizeExternalMcpServer`, `unmaskProviders`, `unmaskSecrets` |
+| `14-main.js` | `04i-provider-wire.js` | backward | `PROVIDER_WIRE_PROTOCOLS`, `applyProviderReasoningEffort`, `buildResponsesInputItems`, `normalizeProviderApiStyle`, `providerReasoningEffort`, `providerWireProtocol`, `responsesHistoryWithCompleteToolPairs` |
+| `14-main.js` | `05-claude-engine.js` | backward | `AGENT_CLI_ADAPTERS`, `agentCliAdapter`, `asrFixMessages`, `asrFixSanity`, `maskSecrets`, `maskedSecretConflicts`, `providerFixCompletion`, `providerLaunchVectorKey`, `resolveAsrFixProvider`, `sanitizeExternalMcpServer`, `unmaskProviders`, `unmaskSecrets` |
 | `14-main.js` | `05b-kimi-bridge.js` | backward | `consumeKimiAcpApproval`, `isKimiAcpPlanFilePath`, `kimiAcpFreshActualForOperation`, `kimiAcpInferConcreteToolInput`, `kimiAcpModeOptionFromActivated`, `kimiAcpNativeBashWrapperCandidate`, `kimiAcpNativeBashWrapperTexts`, `kimiAcpNativeShellQuote`, `kimiAcpPermissionToolCall`, `kimiAcpSessionRestoreMethods`, `kimiAcpSuccessfulEnterPlanMode`, `kimiAcpUnknownSessionError`, `kimiSessionStatus`, `parseKimiWireAgentEvents`, `parseKimiWireCompaction`, `prepareKimiAcpSpawn`, `resolveKimiAcpPlanFilePath`, `runKimiCompact`, `watchKimiWire` |
 | `14-main.js` | `06-provider-engine.js` | backward | `CAP_UNKNOWN_TTL_MS`, `ERROR_CLASSES`, `TOOL_ITERATION_BUDGETS`, `TOOL_REQUIRES`, `appendResponseLanguagePolicy`, `appendTurnPolicies`, `buildAgentTeamHint`, `buildBrowserAutomationHint`, `buildClaudeNativeAgentPolicy`, `buildEngineEnvBrief`, `buildMetricsPayload`, `buildPlaybookIndexSection`, `buildPromptTaskContext`, `buildProviderSystemPrompt`, `buildRuntimeIdentityFacts`, `buildSoftwareEngineeringPolicy`, `buildStableSystemPrompt`, `buildToolCustomizationHint`, `buildVolatileParts`, `clampAppendWithSkills`, `claudeProjectDirKey`, `claudeProjectsRoot`, `collectStorageStats`, `evalPlaybookAvailability`, `fenceSafeSlice`, `getCapabilities`, `invalidateCapabilityCache`, `matchServiceEntry`, `maybeRecordStorageTrend`, `maybeWriteThreadBrief`, `networkAnchors`, `normalizeMetricsPath`, `normalizePlaybook`, `normalizeStoragePolicy`, `parsePlaybookDraft`, `parseThreadBrief`, `peekCapabilities`, `probeAny`, `providerRawCompletion`, `readStorageTrend`, `recordEngineTranscript`, `recordRequestMetric`, `resolveEngineEnvBrief`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `shrinkFencedSection`, `softwareEngineeringTaskProfile`, `storageSweep`, `toolRequirementsMet` |
 | `14-main.js` | `06b-prompt-registry.js` | backward | `PROMPT_PACK_VERSION`, `getPromptPack` |
@@ -560,7 +568,7 @@
 | `14-main.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `agentResourcesConflict`, `inferToolResources`, `normalizeAgentResource`, `normalizeAgentResources`, `releaseResourceLease`, `remapAgentResources`, `resourceBlockers` |
 | `14-main.js` | `06i-steward-core.js` | backward | `STEWARD_BRIEF_LIMITS`, `STEWARD_CONFIG_TIERS`, `STEWARD_DELIVERABLE_CHARS`, `STEWARD_DIGEST_LIMITS`, `STEWARD_EVENT_KINDS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_EXEMPT_DELEGATIONS_PER_HOUR`, `STEWARD_EXEMPT_DELEGATION_GATES`, `STEWARD_EXEMPT_DELEGATION_TEXT_MAX`, `STEWARD_EXEMPT_EXCERPT_CHARS`, `STEWARD_EXEMPT_NAME_CARVEOUTS`, `STEWARD_EXEMPT_TOOL_PATTERNS`, `STEWARD_MEMORY_KINDS`, `STEWARD_PERMISSION_RANK`, `STEWARD_PREROUTE_DEFAULTS`, `STEWARD_QUICK_ANSWER_CHARS`, `STEWARD_SESSION_ID`, `STEWARD_SESSION_TITLE`, `STEWARD_WAIT_LABELS`, `STEWARD_WAIT_REASONS`, `StewardHooks`, `aggregateMissionState`, `buildStewardBrief`, `buildStewardDigestLine`, `deriveStewardThreadState`, `isStewardToolName`, `prerouteText`, `stewardActConfirmSpec`, `stewardAsksYou`, `stewardAssemblePlaybookPrompt`, `stewardClipSay`, `stewardConfigTierFor`, `stewardExemptDelegationVerdict`, `stewardExemptExcerpt`, `stewardExemptHits`, `stewardExemptReason`, `stewardExemptRiskNote`, `stewardExemptScanInput`, `stewardHumanizeIds`, `stewardMayAct`, `stewardMayTightenTo`, `stewardOpenAiFallback`, `stewardPermissionRank`, `stewardPlaybookMissingInputs`, `stewardStoppedTarget`, `stewardTaintToolCall`, `stewardTaintToolName`, `stewardTermJaccard`, `stewardThreadEngineRoute`, `stewardThreadStateFromCard`, `stewardThreadStateFromHead`, `stewardThreadStateRank`, `stewardToolPermanentlyExempt`, `stewardTrimSayAtSentence`, `stewardTurnTaint`, `threadVisible`, `waitReasonFor` |
 | `14-main.js` | `06j-scheduler-core.js` | backward | `SCHEDULER_DEFAULT_POLICY`, `SCHEDULER_DESCRIBE_KEYS`, `SCHEDULER_DOW_KEYS`, `SCHEDULER_FIRE_MODES`, `SCHEDULER_FORBIDDEN_PAYLOAD_KEYS`, `SCHEDULER_LIMITS`, `SCHEDULER_OUTCOMES`, `SCHEDULER_THREAD_TIERS`, `describeSchedule`, `missedOccurrence`, `nextFireAt`, `normalizeSchedulerTask`, `occurrenceKey`, `parseCronExpr` |
-| `14-main.js` | `07-autonomy.js` | backward | `NATIVE_TOOL_PACKS`, `NATIVE_TOOL_TIER`, `adaptiveMetaToolSchemas`, `applyAgentWorktree`, `bridgedToolTier`, `buildClaudeAgentDefinitions`, `buildOpenAiTools`, `buildResponsesInputItems`, `buildToolCatalog`, `classifyClaudeSubagentFailure`, `classifyRuntimeToolFailure`, `classifyToolPacks`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `fetchOpenAiModels`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `nativeToolGate`, `openAiStreamOnce`, `readClaudeProjectAgentRoles`, `requestNativePermission`, `responsesHistoryWithCompleteToolPairs`, `saveProjectAgentRoles`, `schedulerAskWaitSessions`, `searchToolCatalog`, `toolPackForName` |
+| `14-main.js` | `07-autonomy.js` | backward | `NATIVE_TOOL_PACKS`, `NATIVE_TOOL_TIER`, `adaptiveMetaToolSchemas`, `applyAgentWorktree`, `bridgedToolTier`, `buildClaudeAgentDefinitions`, `buildOpenAiTools`, `buildToolCatalog`, `classifyClaudeSubagentFailure`, `classifyRuntimeToolFailure`, `classifyToolPacks`, `compareToolRetrievalShadow`, `createAgentWorktree`, `createToolLoadingState`, `fetchOpenAiModels`, `finalizeAgentWorktree`, `getAgentRoleLibrary`, `nativeToolGate`, `openAiStreamOnce`, `readClaudeProjectAgentRoles`, `requestNativePermission`, `saveProjectAgentRoles`, `schedulerAskWaitSessions`, `searchToolCatalog`, `toolPackForName` |
 | `14-main.js` | `08-agent-runs.js` | backward | `BUILTIN_AGENT_WORKFLOWS`, `QUALITY_GATE_OUTPUT_SCHEMA`, `aggregateAgentVote`, `aggregateCoverage`, `appendAgentRunEvent`, `autoResumeInterruptedRuns`, `buildAgentRunEnvelope`, `buildNodeEvidenceCatalog`, `cutAtSentence`, `dedupeAgentFindings`, `deleteAgentWorkflow`, `evaluateNodeToolEvidence`, `evaluateWorkflowCondition`, `flushAgentRunEvents`, `formatNodeEvidencePrompt`, `getAgentWorkflows`, `indexNodeEvidence`, `mapPool`, `markInterruptedAgentRuns`, `normalizeAgentGate`, `normalizeAgentWorkflow`, `normalizeWorkflowCondition`, `normalizeWorkflowLoop`, `parseStructuredAgentOutput`, `propagateAssignments`, `purgeNodeEvidence`, `readAgentRunEvents`, `repairJson`, `resolveAgentTeamRoute`, `runSubAgentCore`, `runWorkspaceHash`, `saveAgentWorkflow`, `singleAgentShorthandNode`, `syncRunEventSeq`, `validateAgentJsonSchema`, `verifyNodeClaims`, `workflowProgressFingerprint` |
 | `14-main.js` | `09-workflow.js` | backward | `legacySpawnToOrchestrateArgs`, `planDiscoveryToolBatchAllowed`, `waitForAgentRunResults` |
 | `14-main.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `classifyTextForEstimate`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer`, `setEstimateBucketsV1` |
