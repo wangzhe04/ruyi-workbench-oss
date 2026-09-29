@@ -7,7 +7,7 @@
 
 | 路径 | 内容 |
 |---|---|
-| `app/src/` | 后端源码：64 个有序模块，顺序记在 `app/src/manifest.json` |
+| `app/src/` | 后端源码：65 个有序模块，顺序记在 `app/src/manifest.json` |
 | `app/server.js` | 后端运行产物：`node app/build.js` 把 `app/src/` 拼接成这一个文件，**零 npm 运行时依赖**；改代码只改 `app/src/`，再重建 |
 | `app/public/` | 前端：`index.html`、`app.js` 组合根、`js/` 下的原生 ES 模块、分层 CSS、`locales/` 中英语言包；无框架、无构建 |
 | `desktop/` | WinForms + WebView2 桌面壳 `RuyiDesktop.exe` 的源码与构建脚本 |

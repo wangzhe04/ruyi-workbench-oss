@@ -1610,12 +1610,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
-    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems });
+    const loadedTools = toolLoading.current();
+    const hasTools = Boolean(withTools && loadedTools.length);
+    const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
     if (temp !== undefined) b.temperature = temp;
     applyProviderReasoningEffort(b, provider, wire.id);
-    const loadedTools = toolLoading.current();
     // v1.8.2: 服务端 web_search 映射只在服务商显式开启(serverWebSearch:true)且协议支持时发生;否则 web_search 仍是本地工具。
-    if (withTools && loadedTools.length) wire.applyTools(b, loadedTools, { serverWebSearch: provider.serverWebSearch === true });
+    if (hasTools) wire.applyTools(b, loadedTools, { serverWebSearch: provider.serverWebSearch === true });
     return b;
   };
 

@@ -82,10 +82,11 @@ async function providerPostJsonOnce({ url, headers, body, timeoutMs, sseFallback
 // OpenAI 路径的「瞬时」口径(修前写在 08 子代理循环里):首字节前的连接/TLS 失败(openAiStreamOnce 结构化交回的
 // transportError)、网关不可用 502/503/504(failoverStatus)、限流 429。流式已开始后的错误 openAiStreamOnce 直接抛出,
 // 根本到不了这里 —— 防重放是结构性的,不靠这个判据。
+// 529 是 Anthropic 的「服务过载」(58 号批 2;流内 overloaded_error 在还没吐内容时也报成 HTTP 529),对别的协议无害。
 function providerCallIsTransient(call) {
   const he0 = String((call && call.httpError) || '');
   const status0 = Number((/HTTP (\d{3})/.exec(he0) || [])[1]);
-  return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429));
+  return Boolean(call && (call.transportError || call.failoverStatus || status0 === 429 || status0 === 529));
 }
 // 可被中止截断的退避睡眠。与修前两份手写逐字同形:signal 已经 aborted 时监听器永不触发,睡满整段
 // (两处调用方都在睡前/睡后自己查中止,这个细节不能在这里「顺手修好」,否则事件时序会变)。

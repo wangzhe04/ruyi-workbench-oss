@@ -1133,8 +1133,13 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
     if (isContextOverflowError('HTTP 400: ' + t)) {
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, contextOverflow: true, text: '', reasoning: '', toolCalls: [] };
     }
-    // Some servers reject stream_options — retry once without it before failing.
-    if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
+    // 58 号批 2:协议内的兼容重打(Anthropic:思考块签名校验失败 → 去掉思考块;网关不认 thinking / output_config 等 → 去掉点名字段)。
+    // chat / responses 恒返回 null,走下面原有的 stream_options 分支,行为不变。
+    const retryBody = wire.retryOn400(body, t);
+    if (retryBody) {
+      res = await doFetch(retryBody);
+    } else if (body.stream_options && /stream_options|unsupported|unknown|invalid|not\s*support/i.test(t)) {
+      // Some servers reject stream_options — retry once without it before failing.
       const b2 = Object.assign({}, body); delete b2.stream_options; res = await doFetch(b2);
     } else {
       return { httpError: `HTTP 400${t ? ': ' + redact(t.slice(0, 500)) : ''}`, toolsRejected: toolsSemantics, text: '', reasoning: '', toolCalls: [] };
@@ -1152,18 +1157,18 @@ async function openAiStreamOnce({ chatUrl, headers, body, ctrl, onEvent, markUsa
   // { text, reasoning, toolCalls } shape so every caller is protocol-agnostic.
   if (!res.body || typeof res.body.getReader !== 'function') {
     const j = await res.json().catch(() => null);
-    const d = wire.decodeCompletion(j);
+    const d = wire.decodeCompletion(j, { requestModel: body.model });
     // E6: surface reasoning before content, matching the streaming order (a non-streaming endpoint's reasoning
     // chain used to be invisible in the UI).
     if (d.reasoning) onEvent({ type: 'thinking_delta', text: d.reasoning });
     if (d.text) onEvent({ type: 'assistant_delta', text: d.text });
     if (d.usage) markUsage(d.usage);
-    return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId };
+    return { text: d.text, reasoning: d.reasoning, toolCalls: d.toolCalls, finishReason: d.finishReason, providerResponseId: d.responseId, ...(d.providerBlocks ? { providerBlocks: d.providerBlocks } : {}) };
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder('utf-8');
   let buf = '', done = false;
-  const wireDecoder = wire.createStreamDecoder({ onEvent, markUsage });
+  const wireDecoder = wire.createStreamDecoder({ onEvent, markUsage, requestModel: body.model });
   // Process ONE decoded SSE event object (already JSON-parsed): raw_line first, then the protocol's event grammar.
   // Returns true when this event terminates the stream (responses' completed/incomplete/failed; chat keeps
   // relying on the `[DONE]` sentinel inside handleEventBlock).

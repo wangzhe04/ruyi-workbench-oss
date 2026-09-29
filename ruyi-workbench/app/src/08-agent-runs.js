@@ -588,7 +588,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   const buildBody = () => {
     // 与父回合同一个协议(58 号批 1):chat 发 messages,Responses 发 instructions + input 项(system 折进 instructions);
     // v1.8:服务端工具项 subServerToolItems 接在翻译后的历史之后(DeepSeek 在服务端恢复搜索结果)。
-    const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, instructions: sys, serverItems: subServerToolItems });
+    const b = wire.encodeMessages({ model: subModel, messages: [{ role: 'system', content: sys }, ...subHistory], stream: true, instructions: sys, serverItems: subServerToolItems, provider, hasTools: useTools });
     if (temp !== undefined) b.temperature = temp;
     applyProviderReasoningEffort(b, provider, wire.id);
     // v1.8.2:服务端 web_search 只在服务商显式开启(serverWebSearch:true)时映射;否则 web_search 仍是本地工具。

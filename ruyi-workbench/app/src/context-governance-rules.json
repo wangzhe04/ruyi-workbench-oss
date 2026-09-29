@@ -344,7 +344,8 @@
     "context_length",
     "max_context_length",
     "context_window",
-    "max_model_len"
+    "max_model_len",
+    "max_input_tokens"
   ],
   "overflow": {
     "statuses": [

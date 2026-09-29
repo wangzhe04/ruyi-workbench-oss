@@ -3,8 +3,9 @@
 // 加一种协议应当只要「服务端登记表一项 + 前端一行 + 两份语言包的文案键」,不用满仓找 `apiStyle === 'responses'`。本件钉:
 //   [R] 登记表:冻结、键序、每项成员齐全且类型对、id 等于键;前端表键集合 / 键序 / serverWebSearch 与服务端逐一相同,
 //       labelKey 在中英两份语言包里都有。
-//   [N] 归一:normalizeProviderApiStyle(服务端与前端两份)对一张输入表(两个真协议、缺失、空串、大小写错、未登记的名字、
-//       原型链名字、非字符串)的输出与修前 `x === 'responses' ? 'responses' : 'chat'` 逐项相同;providerWireProtocol 认服务商对象与协议值。
+//   [N] 归一:normalizeProviderApiStyle(服务端与前端两份)对一张输入表(三个真协议、缺失、空串、大小写错、未登记的名字、
+//       原型链名字、非字符串)的输出与修前 `x === 'responses' ? 'responses' : 'chat'` 逐项相同 —— 批 2 起唯一的差别是
+//       'anthropic' 本身被认成 anthropic;providerWireProtocol 认服务商对象与协议值。
 //   [M] 各成员金样:端点 / 模型清单 URL、请求头、基础请求体(chat 流式带 stream_options、非流式不带;Responses 的 instructions
 //       缺省取首条 system、显式优先、foldSystem 折后插规则、serverItems 接在历史之后)、推理强度字段、工具翻译与服务端搜索映射、
 //       输出上限字段名、短补全请求体、非流式回体解码(取字口径、截断与失败判据、用量与响应 id)、落历史字段。
@@ -32,14 +33,16 @@ const MEMBERS = {
   endpointBase: 'function', completionUrl: 'function', modelsUrl: 'function', requestHeaders: 'function',
   encodeMessages: 'function', applyEffort: 'function', applyTools: 'function', encodeQuick: 'function',
   decodeCompletion: 'function', createStreamDecoder: 'function', normalizeUsage: 'function', assistantHistoryFields: 'function',
+  retryOn400: 'function',
 };
-const legacyStyle = value => (value === 'responses' ? 'responses' : 'chat');
-const INPUTS = ['chat', 'responses', undefined, null, '', 'Responses', 'RESPONSES', ' responses', 'anthropic', 'messages', 'openai', 42, true, {}, [],
+// 修前的三元式,外加批 2 登记的 anthropic(大小写错、带空格的照旧落回 chat)。
+const legacyStyle = value => (value === 'responses' ? 'responses' : value === 'anthropic' ? 'anthropic' : 'chat');
+const INPUTS = ['chat', 'responses', undefined, null, '', 'Responses', 'RESPONSES', ' responses', 'anthropic', 'Anthropic', 'anthropic ', 'messages', 'openai', 42, true, {}, [],
   'toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf'];
 
 test('[R] 登记表成员齐全、冻结;前端表与服务端逐一相同', async () => {
   assert.ok(Object.isFrozen(PROVIDER_WIRE_PROTOCOLS));
-  assert.deepEqual(Object.keys(PROVIDER_WIRE_PROTOCOLS), ['chat', 'responses'], '登记顺序即设置页下拉顺序');
+  assert.deepEqual(Object.keys(PROVIDER_WIRE_PROTOCOLS), ['chat', 'responses', 'anthropic'], '登记顺序即设置页下拉顺序');
   for (const [id, entry] of Object.entries(PROVIDER_WIRE_PROTOCOLS)) {
     assert.ok(Object.isFrozen(entry), `${id} 冻结`);
     assert.equal(entry.id, id);

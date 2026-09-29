@@ -1115,7 +1115,7 @@ async function providerRawCompletion(provider, history) {
   const headers = wire.requestHeaders(provider);
   const sysIdentity = buildProviderSystemPrompt(provider, model, '', [], null, null, null, true);
   const bodyObj = applyProviderReasoningEffort(
-    wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false, foldSystem: true }), provider, wire.id);
+    wire.encodeMessages({ model, messages: [{ role: 'system', content: sysIdentity }, ...history], stream: false, foldSystem: true, provider }), provider, wire.id);
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   if (temp !== undefined) bodyObj.temperature = temp;
   // 60 s 超时(计时覆盖读回体);不认 SSE 兜底(修前就只认 JSON 回体)。回体不是 JSON → parsed 为 null → 下面按空补全报。
