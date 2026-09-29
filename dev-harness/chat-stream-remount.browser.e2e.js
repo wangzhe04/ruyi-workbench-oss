@@ -21,6 +21,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   R10 长回复流式期间正文分块(perf):尾巴攒满且有换行就把前面封进块级 .live-chunk —— 屏上文本与流出的逐字相同、
 //       只剩尾巴一个裸文本节点在长;没有换行的一整段不切;回合收尾照旧换成一份 Markdown(不留分块)。
 //       R10f 用户在尾巴里选着字时不切(挪走文本会清掉选区),松手后照常切;R10g 思维链面板同样分块、文本逐字相同。
+//   R11 屏外代码块懒高亮(perf,真 chat-render-primitives.js + vendor hljs):在文档外建好的一批行挂进滚动容器后,
+//       可见区附近的代码块高亮了、离得远的还没动(连复制按钮都没补);滚过去之后它们也高亮了。已在文档里的容器照旧当场高亮。
 // 判定行：`CHAT STREAM REMOUNT BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 const { createRunner } = require('./lib/harness');
@@ -308,6 +310,44 @@ true`;
     ok(r10b.selected === 'gamma' && r10b.chunks === 0, `R10f 选着字时不切、选区还在(选中「${r10b.selected}」,块数 ${r10b.chunks})`);
     ok(r10b.released >= 1, `R10f 松手后下一帧照常切(块数 ${r10b.released})`);
     ok(r10b.think.chunks >= 2 && r10b.think.same, `R10g 思维链面板分块、文本逐字相同(块数 ${r10b.think.chunks})`);
+
+    // R11:屏外代码块懒高亮
+    const r11 = await fx.evaluate(`(async () => {
+      if (!window.hljs) await new Promise((resolve, reject) => { const sc = document.createElement('script'); sc.src = '/vendor/highlight.min.js'; sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc); });
+      const { createChatRenderPrimitives } = await import('/js/chat-render-primitives.js');
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      const p = createChatRenderPrimitives({ $: id => document.getElementById(id), el, t: k => k, tCount: k => k, toast() {}, hljs: window.hljs, state: {}, escapeHtml: s => String(s), icon: () => null });
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      document.body.innerHTML = '';
+      const box = el('div'); box.style.cssText = 'height:400px;overflow-y:auto;';
+      document.body.appendChild(box);
+      const rows = [];
+      for (let i = 0; i < 60; i++) {
+        const row = el('div'); row.style.cssText = 'height:300px;';
+        const pre = el('pre'); const code = el('code', 'language-js', 'const value' + i + ' = function () { return ' + i + '; };');
+        pre.appendChild(code); row.appendChild(pre);
+        p.highlightIn(row);   // 行还在文档外:交给懒高亮
+        rows.push(row);
+      }
+      const syncNow = rows.filter(r => r.querySelector('code').dataset.hl).length;
+      rows.forEach(r => box.appendChild(r));
+      box.scrollTop = box.scrollHeight;
+      await frame(); await frame();
+      const hl = r => Boolean(r.querySelector('code').dataset.hl);
+      const bottom = { last: hl(rows[59]), first: hl(rows[0]), firstCopy: Boolean(rows[0].querySelector('.copy-code')), lastSpans: rows[59].querySelectorAll('code span').length };
+      box.scrollTop = 0;
+      await frame(); await frame();
+      const top = { first: hl(rows[0]), firstCopy: Boolean(rows[0].querySelector('.copy-code')) };
+      // 对照:已在文档里的容器当场高亮
+      const live = el('div'); const lp = el('pre'); lp.appendChild(el('code', 'language-js', 'let x = 1;')); live.appendChild(lp); box.appendChild(live);
+      p.highlightIn(live);
+      return { syncNow, bottom, top, liveNow: Boolean(live.querySelector('code').dataset.hl) };
+    })()`);
+    ok(r11.syncNow === 0, `R11a 行还在文档外时不当场高亮(当场高亮了 ${r11.syncNow} 块)`);
+    ok(r11.bottom.last && r11.bottom.lastSpans > 0, `R11b 挂进去滚到底:可见的最后一块高亮了(${r11.bottom.lastSpans} 个 span)`);
+    ok(!r11.bottom.first && !r11.bottom.firstCopy, 'R11c 离可见区很远的第一块还没动(没高亮、没补复制按钮)');
+    ok(r11.top.first && r11.top.firstCopy, 'R11d 滚到顶之后第一块也高亮了、复制按钮补上了');
+    ok(r11.liveNow, 'R11e 已在文档里的容器照旧当场高亮');
 
     // R9:文件树后发先至(同一套同源空白页夹具,顺带钉 file-browser.js 的加载序号)
     const r9 = await fx.evaluate(`(async () => {
