@@ -17,6 +17,12 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *   G 没有 If-None-Match / 标签对不上 → 与修前一样的 200 全量;不存在的会话仍是 404(不发 ETag)。
  *   L ?view=live(经典壳看别处起的回合时每条 thread.live 推送一发):回合在跑 → 轻量信封(view:'live'、无历史、
  *     liveTail/resumable.live 与全量那份相同、字节数远小于全量);回合收尾后 → 落回整份会话(与不带参数的全量同形)。
+ *   M ?fromIndex=N&prefixStamp=S(经典壳自己起的回合收尾时的增量取):回合起点的 session 事件带 messagesStamp;
+ *     戳对得上 → 只回 messages[N..](messagesFrom/messageCount/messagesStamp,不带 providerHistory),其余与全量相同;
+ *     前端 fetchSessionAfterTurn 拼出来的信封与全量(去掉 providerHistory)深相等;增量与全量 ETag 不同、各自 304;
+ *     垃圾/过期参数 → 与无参全量逐字节相同的体。
+ *   R 历史改写:原地改写前缀(条数不变)、撤回截断、撤回后再补回条数 → 落回全量;账本合并与压缩(只往末尾追加)→ 增量照样对,
+ *     且可以拿增量回的新戳链式接着增量。
  */
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
@@ -24,6 +30,8 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const cp = require('child_process');
+const assert = require('assert');
+const { pathToFileURL } = require('url');
 const { getFreePort } = require('./free-port.js');
 const { createRunner } = require('./lib/harness');
 const { startFakeProvider, textFrames } = require('./lib/fake-openai-provider');
@@ -64,6 +72,10 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
   const fake = await startFakeProvider({
     handler(req) {
       if (mode === 'hold') { held = req; req.open(); arrived.push(req.index); return undefined; }
+      // R3 的压缩走非流式的一发摘要请求,摘要要过五节结构校验(同 provider-compact.e2e 的判据:按请求体里的提示词认它)。
+      if (req.stream === false && JSON.stringify(req.messages || []).includes('结构化摘要')) {
+        return textFrames('【目标】测试目标\n【已确认的决定】无\n【未完成事项】无\n【当前执行状态】已完成：无；正在进行：测试；阻塞：无；下一步：继续\n【关键文件与上下文】无');
+      }
       return textFrames('quick answer');
     },
   });
@@ -232,6 +244,161 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     const f5 = await get(sid, { 'if-none-match': stable });
     ok(f5.status === 200 && f5.headers.etag !== stable, 'F5 头一变 → 200 + 新标签');
     ok(f5.json.session.title === 'etag-renamed', 'F6 体里是新标题');
+
+    // ── M 增量取 ?fromIndex=N&prefixStamp=S(经典壳自己起的回合收尾时用)────────────────────────────────
+    // 底子来自回合起点那条 session 事件(带 messagesStamp);客户端逻辑用的是前端模块里【同一个】fetchSessionAfterTurn,
+    // api 换成打真服务的那一发。每一种情形都断言「客户端拿到的信封 === 无参全量(去掉 providerHistory)」。
+    const runtime = await import(pathToFileURL(path.join(WB, 'app', 'public', 'js', 'chat-stream-runtime.js')).href);
+    const getPath = (route, extra = {}) => request(WP, 'GET', route, { headers: { ...auth, ...extra } });
+    const deltaRoute = (id, from, stamp) => `/api/sessions/${encodeURIComponent(id)}?fromIndex=${encodeURIComponent(from)}&prefixStamp=${encodeURIComponent(stamp)}`;
+    const startEvent = async (id, message) => {
+      const streamed = await turn(id, message);
+      return String(streamed.text || '').split('\n').filter(Boolean)
+        .map(line => { try { return JSON.parse(line); } catch { return null; } })
+        .find(evt => evt && evt.type === 'session') || null;
+    };
+    // 回合收尾后还有几拍延后落盘(见 D9):等到连续两次无参 GET 同标签,再拿那一份当「全量真值」。
+    const steadyFull = async id => {
+      let body = null;
+      await waitFor(async () => {
+        const a = await get(id); const b = await get(id);
+        if (a.status === 200 && a.headers.etag && a.headers.etag === b.headers.etag && a.text === b.text) { body = b; return true; }
+        return null;
+      }, 60, 100);
+      return body;
+    };
+    const dropProviderHistory = envelope => {
+      const { providerHistory: _ignored, ...session } = envelope.session;
+      return { ...envelope, session };
+    };
+    const clientFetch = async (id, base) => {
+      const paths = [];
+      const api = async route => {
+        paths.push(route);
+        const r = await getPath(route);
+        if (r.status !== 200) throw new Error(`HTTP ${r.status} ${route}`);
+        return r.json;
+      };
+      const result = await runtime.fetchSessionAfterTurn(api, id, base);
+      return { result, paths };
+    };
+    const same = (a, b) => { try { assert.deepStrictEqual(a, b); return true; } catch { return false; } };
+
+    const createdM = await request(WP, 'POST', '/api/sessions', { headers: auth, body: { title: 'delta', cwd: HOME } });
+    const sidM = createdM.json.session.id;
+    await turn(sidM, 'delta one');
+    await turn(sidM, 'delta two');
+    const start3 = await startEvent(sidM, 'delta three');
+    const N = start3 && start3.session && Array.isArray(start3.session.messages) ? start3.session.messages.length : -1;
+    ok(N >= 4 && /^m1\.\d+\.[0-9a-f]{40}$/.test(String(start3.messagesStamp || '')) && start3.messagesStamp.startsWith(`m1.${N}.`),
+      `M1 回合起点的 session 事件带 messagesStamp(m1.<N>.<sha1>,N = 下发的条数 ${N})`);
+    const fullM = await steadyFull(sidM);
+    const deltaM = await getPath(deltaRoute(sidM, N, start3.messagesStamp));
+    ok(deltaM.status === 200 && deltaM.json && deltaM.json.messagesFrom === N && deltaM.json.messageCount === fullM.json.session.messages.length
+      && fullM.json.session.messages.length > N, `M2 前缀对得上 → 增量:messagesFrom=${deltaM.json && deltaM.json.messagesFrom}、messageCount=整份条数`);
+    ok(same(deltaM.json.session.messages, fullM.json.session.messages.slice(N)), 'M3 增量的 messages 正是全量的 messages[N..]');
+    ok(deltaM.json.session.providerHistory === undefined && Array.isArray(fullM.json.session.providerHistory), 'M4 增量不带 providerHistory(全量照旧带)');
+    {
+      const { messages: _m1, providerHistory: _p1, ...fullHead } = fullM.json.session;
+      const { messages: _m2, ...deltaHead } = deltaM.json.session;
+      ok(same(deltaHead, fullHead), 'M5 增量里会话头的其余字段与全量逐项相同(title/todos/mission/turnSeq/…)');
+    }
+    ok(same(deltaM.json.resumable, fullM.json.resumable) && deltaM.json.displayTitle === fullM.json.displayTitle, 'M6 信封上的 resumable / displayTitle 与全量相同');
+    ok(deltaM.text.length < fullM.text.length, `M7 增量体比全量小(${deltaM.text.length} / ${fullM.text.length} 字节)`);
+    runtime.rememberMessagesStamp(start3.session.messages, start3.messagesStamp);
+    const spliced = await clientFetch(sidM, start3.session);
+    ok(spliced.paths.length === 1 && spliced.paths[0].includes(`fromIndex=${N}&prefixStamp=`), `M8 客户端只发一发增量(${spliced.paths.join(' , ')})`);
+    ok(same(spliced.result, dropProviderHistory(fullM.json)), 'M9 客户端拼出来的信封与全量(去掉 providerHistory)深相等');
+    ok(spliced.result.session.messages !== start3.session.messages && start3.session.messages.length === N, 'M10 拼接出的是新数组,底子那份一条没多(不就地改共享数组)');
+    // ETag:参数改变响应体,所以进标签。
+    ok(deltaM.headers.etag && fullM.headers.etag && deltaM.headers.etag !== fullM.headers.etag, 'M11 同一状态下增量与全量的 ETag 不同');
+    const delta304 = await getPath(deltaRoute(sidM, N, start3.messagesStamp), { 'if-none-match': deltaM.headers.etag });
+    ok(delta304.status === 304, 'M12 增量带自己的标签再来 → 304');
+    const crossed = await get(sidM, { 'if-none-match': deltaM.headers.etag });
+    ok(crossed.status === 200 && crossed.text === fullM.text, 'M13 拿增量的标签去问无参全量 → 200 全量(不会错配成 304)');
+    // 新整份戳可以接着用:从末尾增量 = 空尾巴。
+    const chained = await getPath(deltaRoute(sidM, deltaM.json.messageCount, deltaM.json.messagesStamp));
+    ok(chained.status === 200 && chained.json.messagesFrom === deltaM.json.messageCount && chained.json.session.messages.length === 0,
+      'M14 增量回的 messagesStamp 就是整份的戳(从末尾接着增量 → 空尾巴)');
+    // 垃圾 / 过期参数:一律回全量,且体与无参全量逐字节相同。
+    const zeros = '0'.repeat(40);
+    const flipped = start3.messagesStamp.slice(0, -1) + (start3.messagesStamp.endsWith('0') ? '1' : '0');
+    const fallbacks = [
+      ['fromIndex 非数字', deltaRoute(sidM, 'abc', start3.messagesStamp)],
+      ['fromIndex 负数', deltaRoute(sidM, '-1', start3.messagesStamp)],
+      ['fromIndex 小数', deltaRoute(sidM, '1.5', start3.messagesStamp)],
+      ['fromIndex 超出条数', deltaRoute(sidM, 999999, `m1.999999.${zeros}`)],
+      ['fromIndex 与戳的条数不符', deltaRoute(sidM, N - 1, start3.messagesStamp)],
+      ['戳的哈希被改一位', deltaRoute(sidM, N, flipped)],
+      ['戳的版本不认识', deltaRoute(sidM, N, start3.messagesStamp.replace(/^m1\./, 'm9.'))],
+      ['戳为空', deltaRoute(sidM, N, '')],
+      ['只有 fromIndex', `/api/sessions/${encodeURIComponent(sidM)}?fromIndex=${N}`],
+      ['只有 prefixStamp', `/api/sessions/${encodeURIComponent(sidM)}?prefixStamp=${encodeURIComponent(start3.messagesStamp)}`],
+    ];
+    for (const [label, route] of fallbacks) {
+      const r = await getPath(route);
+      ok(r.status === 200 && r.json && r.json.messagesFrom === undefined && r.text === fullM.text, `M15 ${label} → 全量,体与无参全量逐字节相同`);
+    }
+
+    // ── R 历史被改写 → 自动落回全量;尾部追加(账本合并 / 压缩)→ 增量照样对 ──────────────────────────────
+    // R1 原地改写第 0 条的正文(条数、id、角色都不变 —— 只比条数或 id 的戳会漏掉这一类:蒸发、惰性清理、编辑都是这个形状)。
+    const bodyFile = path.join(HOME, 'sessions', sidM + '.messages.ndjson');
+    const bodyLines = fs.readFileSync(bodyFile, 'utf8').split('\n');
+    const first0 = JSON.parse(bodyLines[0]);
+    bodyLines[0] = JSON.stringify({ ...first0, content: String(first0.content || '') + ' [rewritten in place]' });
+    fs.writeFileSync(bodyFile, bodyLines.join('\n'), 'utf8');
+    const fullR1 = await steadyFull(sidM);
+    ok(fullR1.json.session.messages.length === fullM.json.session.messages.length && /rewritten in place/.test(fullR1.json.session.messages[0].content),
+      'R1 前提:改写后条数不变、第 0 条是新内容');
+    const r1 = await getPath(deltaRoute(sidM, N, start3.messagesStamp));
+    ok(r1.status === 200 && r1.json.messagesFrom === undefined && r1.text === fullR1.text, 'R1 前缀被原地改写 → 旧戳对不上 → 全量(逐字节同无参)');
+    const r1Client = await clientFetch(sidM, start3.session);
+    ok(same(r1Client.result, fullR1.json) && /rewritten in place/.test(r1Client.result.session.messages[0].content), 'R1 客户端拿到的就是全量(改写后的第 0 条),不是拼上旧前缀');
+    // R2 后台任务账本合并(loadSession 往末尾追加回执):增量里带着它,拼出来仍与全量相同。
+    const start4 = await startEvent(sidM, 'delta four');
+    ok(start4 && /rewritten in place/.test(start4.session.messages[0].content), 'R2 前提:新回合起点下发的底子里是改写后的第 0 条');
+    await steadyFull(sidM);
+    fs.writeFileSync(path.join(ledgerDir, sidM + '.json'), JSON.stringify([{
+      id: 'job_delta_1', shellId: 'sh_d1', name: 'bg-delta', sessionId: sidM, status: 'succeeded', exitCode: 0,
+      output: 'delta-ledger-output', completedAt: new Date().toISOString(),
+    }]), 'utf8');
+    const fullR2 = await steadyFull(sidM);
+    runtime.rememberMessagesStamp(start4.session.messages, start4.messagesStamp);
+    const r2Client = await clientFetch(sidM, start4.session);
+    ok(r2Client.paths.length === 1 && r2Client.paths[0].includes('fromIndex='), 'R2 账本只往末尾追加 → 仍是一发增量');
+    ok(same(r2Client.result, dropProviderHistory(fullR2.json)) && r2Client.result.session.messages.some(m => m && m.backgroundJobId === 'job_delta_1'),
+      'R2 拼出来的信封与全量深相等,且带着合并进来的回执');
+    // R3 压缩(providerHistory 整份换掉、messages 末尾追加一条「已压缩」):底子用 R2 拼出来的那一份(它记着增量回的新戳 = 链式)。
+    const compacted = await request(WP, 'POST', '/api/provider/compact', { headers: auth, body: { sessionId: sidM } });
+    ok(compacted.status === 200 && compacted.json && compacted.json.ok === true, `R3 前提:压缩成功(${compacted.status} ${compacted.json && compacted.json.error ? JSON.stringify(compacted.json.error) : ''})`);
+    const fullR3 = await steadyFull(sidM);
+    const r3Client = await clientFetch(sidM, r2Client.result.session);
+    ok(r3Client.paths.length === 1 && r3Client.paths[0].includes(`fromIndex=${r2Client.result.session.messages.length}&`), 'R3 链式:拿 R2 增量回的戳接着增量');
+    ok(same(r3Client.result, dropProviderHistory(fullR3.json)), 'R3 压缩后拼出来的信封与全量(去掉 providerHistory)深相等');
+    {
+      const tail = r3Client.result.session.messages[r3Client.result.session.messages.length - 1];
+      ok(tail && tail.role === 'system' && /已压缩/.test(String(tail.content || '')), 'R3 「已压缩」那条系统消息是从增量尾巴里拼进来的');
+    }
+    // R4 撤回(截断):底子比现有条数长 → 全量;再跑回合把条数补回来(内容不同)→ 旧戳仍对不上 → 全量。
+    const baseR4 = r3Client.result.session;
+    const rewound = await request(WP, 'POST', '/api/session/rewind', { headers: auth, body: { sessionId: sidM, targetTurnSeq: 2 } });
+    ok(rewound.status === 200 && rewound.json && rewound.json.ok === true, 'R4 前提:撤回到第 2 回合之前');
+    const fullR4 = await steadyFull(sidM);
+    ok(fullR4.json.session.messages.length < baseR4.messages.length, `R4 前提:撤回后条数变少(${fullR4.json.session.messages.length} < ${baseR4.messages.length})`);
+    const r4Client = await clientFetch(sidM, baseR4);
+    ok(r4Client.paths.length === 1 && same(r4Client.result, fullR4.json), 'R4 撤回后旧底子(N 超长)→ 服务端回全量,客户端原样收下');
+    for (let i = 0; i < 6; i++) {
+      const cur = await get(sidM);
+      if (cur.json.session.messages.length >= baseR4.messages.length) break;
+      await turn(sidM, 'after rewind ' + i);
+    }
+    const fullR4b = await steadyFull(sidM);
+    ok(fullR4b.json.session.messages.length >= baseR4.messages.length, 'R4 前提:撤回后又跑回合,条数补回到不少于旧底子');
+    const r4bRoute = runtime.sessionRefetchPath(sidM, baseR4);
+    const r4b = await getPath(r4bRoute);
+    ok(r4bRoute.includes(`fromIndex=${baseR4.messages.length}&`) && r4b.status === 200 && r4b.json.messagesFrom === undefined && r4b.text === fullR4b.text, 'R4 条数够了但前缀内容已变 → 旧戳对不上 → 全量');
+    const r4bClient = await clientFetch(sidM, baseR4);
+    ok(same(r4bClient.result, fullR4b.json), 'R4 客户端拿到的就是全量');
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));
   } finally {

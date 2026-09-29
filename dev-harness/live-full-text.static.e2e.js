@@ -67,8 +67,9 @@ ok(/while \(tail\.tools\.length > LIVE_TOOLS_MAX\) tail\.tools\.shift\(\);/.test
 /* ─── B 信封 ───────────────────────────────────────────────────────────────── */
 ok(/\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/.test(routes),
   'B1 liveTail 仍是【条件展开】(回合一结束这个键就不在了 —— 前端据此收尾)');
-ok(count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g) === 3,
-  `B1b 三条返回路径(带 since 的、?view=live 轻量信封、全量)都带上它(实测 ${count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g)} 处)`);
+// 回合收尾增量取(?fromIndex&prefixStamp)是第四条返回路径 —— 信封与全量同形,同样带上它。
+ok(count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g) === 4,
+  `B1b 四条返回路径(带 since 的、?view=live 轻量信封、增量取、全量)都带上它(实测 ${count(routes, /\.\.\.\(liveTail \? \{ liveTail \} : \{\}\)/g)} 处)`);
 for (const key of ['full', 'truncated', 'startedAt', 'iterations', 'tools']) {
   ok(new RegExp(`\\n\\s+${key}:`).test(routes.slice(routes.indexOf('const liveTail = liveReg'), routes.indexOf('const liveTail = liveReg') + 1400)),
     `B2 信封带上了 ${key}`);
@@ -220,8 +221,8 @@ ok(!/segments\.push\([^)]*inputPreview/.test(turnSegments),
   'G6 参数摘要不进 segments —— 落盘的 snapshot() 形状一个字节没变');
 ok(/liveSegments: turnSegments,/.test(workflow) && /liveSegments: turnSegments \}/.test(claudeEngine),
   'G7 两条引擎路径(provider / Claude CLI)都把这一份账本挂在活回合登记项上');
-ok(count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g) === 3,
-  `G8 liveTurn 与 liveTail 同款【条件展开】,三条返回路径都带(实测 ${count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g)} 处)`);
+ok(count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g) === 4,
+  `G8 liveTurn 与 liveTail 同款【条件展开】,四条返回路径(含增量取)都带(实测 ${count(routes, /\.\.\.\(liveTurn \? \{ liveTurn \} : \{\}\)/g)} 处)`);
 ok(/liveReg\.liveSegments\.liveSnapshot === 'function'/.test(routes),
   'G9 路由只调只读快照,不把构建器本身交出去');
 {

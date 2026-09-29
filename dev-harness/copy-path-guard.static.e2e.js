@@ -329,7 +329,9 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // 给压缩指示条加「流内起的不挂超时」选项、compactContext 加插话/排队门、sendPrompt 回合末与 catch 各补一处
     // 「按当前会话/当前壳」—— 这一条 1493 → 1532（逐行 byte 比对过：与位移前的 1493 逐字相同，是位移不是新增）。
     // 长回复 / 思维链分块(sealTextTailChunk,前面加了 21 行)—— 1532 → 1553,同一行原样位移。
-    1553:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
+    // 回合收尾增量取(perf):sendPrompt 回合末那一发与 catch 里那一发各多一行(注释 / 链式 .then 换行)—— 1553 → 1555,
+    // 逐行 byte 比对过(与位移前的 1553 逐字相同,是位移不是新增)。
+    1555:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
   },
   // 前端架构债第一批：节点 aria-label／判定／置信度／依赖四处已改走 t()（workflow.node.ariaLabel、
   // workflow.detail.verdict、workflow.meta.confidence、workflow.node.dependsOn），白名单清空。

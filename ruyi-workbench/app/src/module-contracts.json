@@ -981,6 +981,7 @@
         "SESSION_HEAD_TRANSIENT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
+        "SESSION_MESSAGES_STAMP_VERSION",
         "SESSION_META_DEFER_TIMEOUT_MS",
         "SESSION_META_STALE_REPLAYS",
         "SESSION_MUTATE_STALE_REPLAYS",
@@ -1169,6 +1170,9 @@
         "sessionIndexWriteSeq",
         "sessionKind",
         "sessionLineHash",
+        "sessionMessageStampLine",
+        "sessionMessagesDelta",
+        "sessionMessagesStamp",
         "sessionMeta",
         "sessionMetaDeferChains",
         "sessionMetaIsSteward",
@@ -9653,6 +9657,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMessagesStamp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -13673,6 +13684,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
           "kinds": [
             "call"
           ]

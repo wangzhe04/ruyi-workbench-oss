@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 151(精确 128 / 前缀 14 / 正则 9),ROUTE_AUTH 137 条,生成于 2026-09-29T23:42:45.192Z。
+> 判定点 151(精确 128 / 前缀 14 / 正则 9),ROUTE_AUTH 137 条,生成于 2026-09-29T23:58:54.103Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -22,7 +22,7 @@
 | POST | `/api/storage/policy` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js, session-storage-v2.e2e.js 等 4 件 |
 | POST | `/api/storage/clean` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | frontend-domains.static.e2e.js, session-storage-v2.e2e.js, storage-steward.e2e.js |
 | POST | `/api/checkpoints/rollback` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, artifacts.e2e.js, checkpoint-coverage.e2e.js 等 7 件 |
-| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, rewind.e2e.js, steward-conversation.e2e.js 等 7 件 |
+| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, rewind.e2e.js, session-get-etag.e2e.js 等 8 件 |
 
 ## core-inline(69)
 
@@ -68,7 +68,7 @@
 | DELETE/POST | `/api/memory/relations/` | prefix | token-browser | 13-http-router.js · `handleApi` | workbench-memory.e2e.js |
 | DELETE/POST | `/api/memory/` | prefix | token-browser | 13-http-router.js · `handleApi` | action-feedback.static.e2e.js, agent-quality-workflow.e2e.js, auth-deny-default.e2e.js 等 6 件 |
 | POST | `/api/stop` | exact | token-browser | 13-http-router.js · `handleApi` | agent-run-lifecycle.e2e.js, focus-rail.browser.e2e.js, kimi-agent-cli.e2e.js 等 13 件 |
-| POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js · `handleApi` | context-compact-v2.e2e.js, provider-compact.e2e.js, summary-entity-check.e2e.js 等 4 件 |
+| POST | `/api/provider/compact` | exact | token-browser | 13-http-router.js · `handleApi` | context-compact-v2.e2e.js, provider-compact.e2e.js, session-get-etag.e2e.js 等 5 件 |
 | POST | `/api/agent/compact` | exact | token-browser | 13-http-router.js · `handleApi` | agent-cli-registry.test.js |
 | GET | `/api/kimi/status` | exact | token-browser | 13-http-router.js · `handleApi` | kimi-agent-cli.e2e.js |
 | POST | `/api/todo` | exact | body-token | 13-http-router.js · `handleApi` | event-stream.e2e.js, todo-loopback.e2e.js, http-input-hardening.test.js |

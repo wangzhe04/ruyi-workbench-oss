@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3094,
-    "requiredSymbols": 2931,
+    "providedSymbols": 3098,
+    "requiredSymbols": 2933,
     "edges": 512,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1017,6 +1017,7 @@
         "SESSION_HEAD_TRANSIENT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
+        "SESSION_MESSAGES_STAMP_VERSION",
         "SESSION_META_DEFER_TIMEOUT_MS",
         "SESSION_META_STALE_REPLAYS",
         "SESSION_MUTATE_STALE_REPLAYS",
@@ -1205,6 +1206,9 @@
         "sessionIndexWriteSeq",
         "sessionKind",
         "sessionLineHash",
+        "sessionMessageStampLine",
+        "sessionMessagesDelta",
+        "sessionMessagesStamp",
         "sessionMeta",
         "sessionMetaDeferChains",
         "sessionMetaIsSteward",
@@ -9747,6 +9751,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMessagesStamp",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -13781,6 +13792,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
           "kinds": [
             "call"
           ]
@@ -26859,6 +26877,7 @@
         "rememberLastUsedEngineRoute",
         "repairProviderHistoryPairing",
         "saveSession",
+        "sessionMessagesStamp",
         "sessionObjectIsStale",
         "withJournalWriteLock",
         "writeSessionNotes"
@@ -27896,6 +27915,7 @@
         "sessionBriefOf",
         "sessionDisplayTitle",
         "sessionKind",
+        "sessionMessagesDelta",
         "sessionMeta",
         "sessionMissionId",
         "settleIntervention",

@@ -2686,7 +2686,11 @@ async function runSessionTurn(input) {
   let briefSettleCandidate = false;
   let briefSettleProvider = null;
   try {
-    emit({ type: 'session', session });
+    // perf(前端长会话):经典壳(只有 source 'http' 这条流有它在读)把这一份会话当作回合收尾时增量取的底子 ——
+    // messagesStamp 是 02 sessionMessagesStamp 对【这一刻】messages 的前缀戳,与下面这次同步序列化是同一拍
+    // (emit → onEvent → streamChat 的 writeEvent 当场 JSON.stringify,中间没有 await),所以戳与客户端收到的内容一致。
+    // 别的来源(管家/调度)的流没人拿它做增量,不付这笔 O(历史) 的哈希。
+    emit(source === 'http' ? { type: 'session', session, messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session });
     // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
     // 排队期间的 agent_resource 事件才有归属)、引擎分派【之前】(等的是「能不能开始跑」)。
     // 判据读【原始】 session.kind:管家会话自己不是线程,不受并发上限约束(与 09/10 既有分叉同口径)。

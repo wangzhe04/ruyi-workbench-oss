@@ -777,7 +777,8 @@ export function createChatStreamRuntime(deps = {}) {
       finalizeLive(turnState.live);
       await refreshSessions();
       if (state.currentSession?.id === turnSessionId) {
-        const r = await api(`/api/sessions/${turnSessionId}`);
+        // perf:手上那份若是回合起点带戳下发的,只取 messages[N..] 拼回去(见文件末 fetchSessionAfterTurn);否则整份取,与修前一致。
+        const r = await fetchSessionAfterTurn(api, turnSessionId, state.currentSession);
         // await 期间用户可能已切到别的会话:再判一次,别拿本回合会话覆盖掉刚打开的那条。
         if (state.currentSession?.id === turnSessionId) {
           state.currentSession = r.session; state.resumable = r.resumable || null;
@@ -807,7 +808,8 @@ export function createChatStreamRuntime(deps = {}) {
       else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
       // 失败/中止路径没有成功路径的回合末重取 —— 单独拉一次,把乐观行的操作条重绑到持久化真身。
-      api(`/api/sessions/${turnSessionId}`).then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
+      fetchSessionAfterTurn(api, turnSessionId, state.currentSession?.id === turnSessionId ? state.currentSession : null)
+        .then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
     } finally {
       activeTurns.delete(turnSessionId);
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
@@ -1175,7 +1177,7 @@ export function createChatStreamRuntime(deps = {}) {
     }
     switch (evt.type) {
       case 'session':
-        if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; renderSessions(); }
+        if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; rememberMessagesStamp(evt.session.messages, evt.messagesStamp); renderSessions(); }
         break;
       case 'raw_line':
         pushRawEvent(evt.seq, evt.line);
@@ -1688,4 +1690,46 @@ export function createChatStreamRuntime(deps = {}) {
     updateAgentTeamButton,
     updateSendBtn,
   };
+}
+
+// ── perf(前端长会话):回合收尾的增量取 ─────────────────────────────────────────────────────────────────────
+// 修前本页自己起的回合一收尾就整份重取会话(2000 条消息 7.8–19 MB、主线程 1.1–1.7 s),可前面那些消息手上早有:
+// 回合起点服务端那条 session 事件整份下发过一次,还带着它的前缀戳 messagesStamp(02 sessionMessagesStamp)。
+// 收尾时带 ?fromIndex=N&prefixStamp=S 只要 messages[N..];服务端对【此刻】的前 N 条重算戳,相等才回尾巴(信封上
+// messagesFrom=N),否则回与无参 GET 逐字节相同的全量 —— 历史被改写过(撤回、压缩、惰性清理、编辑……)一律自动落回。
+// 戳按【数组对象】记(WeakMap):只有「手上这份 messages 恰好就是服务端给过戳的那一份、而且没长没短」才发增量;
+// 会话对象被别处整个换掉(PATCH 回包、切会话重开)就查不到戳,照旧整份取。
+// 本模块零 import;导出一律写成 `export function`(vm 单测按这个前缀剥导出,别写 export const / export async)。
+const sessionMessagesStamps = new WeakMap();
+export function rememberMessagesStamp(messages, stamp) {
+  if (Array.isArray(messages) && typeof stamp === 'string' && stamp) sessionMessagesStamps.set(messages, stamp);
+}
+// 回合收尾该发哪一发:能增量就带参数,否则就是修前那条无参路径(逐字不变)。
+export function sessionRefetchPath(sessionId, base) {
+  const path = `/api/sessions/${sessionId}`;
+  const messages = base && Array.isArray(base.messages) ? base.messages : null;
+  const stamp = messages ? sessionMessagesStamps.get(messages) : '';
+  if (!stamp || !stamp.startsWith(`m1.${messages.length}.`)) return path;
+  return `${path}?fromIndex=${messages.length}&prefixStamp=${encodeURIComponent(stamp)}`;
+}
+// 把增量回包拼回与全量同形的信封:session.messages = 手上前 N 条 + 尾巴(新数组,不动任何人手里的旧数组),
+// 去掉 messagesFrom / messageCount / messagesStamp 三个增量专用键(新戳记到新数组上,下次还能接着增量)。
+// 回包本身就是全量(服务端落回了)→ 原样返回;拼不上(前缀在请求期间长短变了、条数自检不符)→ null,调用方整份重取。
+export function spliceSessionDelta(prefix, payload) {
+  if (!payload || !payload.session || !Number.isInteger(payload.messagesFrom)) return payload;
+  const tail = Array.isArray(payload.session.messages) ? payload.session.messages : null;
+  if (!Array.isArray(prefix) || !tail || prefix.length !== payload.messagesFrom
+    || prefix.length + tail.length !== payload.messageCount) return null;
+  const { messagesFrom: _from, messageCount: _count, messagesStamp, ...envelope } = payload;
+  const messages = prefix.concat(tail);
+  rememberMessagesStamp(messages, messagesStamp);
+  return { ...envelope, session: { ...payload.session, messages } };
+}
+// 回合收尾(与失败/中止路径)取会话:返回与无参 GET 同形的信封(增量时 session 上没有 providerHistory —— 前端从不读它)。
+export function fetchSessionAfterTurn(api, sessionId, base) {
+  const fullPath = `/api/sessions/${sessionId}`;
+  const path = sessionRefetchPath(sessionId, base);
+  if (path === fullPath) return api(fullPath);
+  const prefix = base.messages;   // 请求发出这一刻的那一个数组;回包时它的长度必须还是 N(见 spliceSessionDelta)
+  return api(path).then(payload => spliceSessionDelta(prefix, payload) || api(fullPath));
 }
