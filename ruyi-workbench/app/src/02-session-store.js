@@ -17,6 +17,7 @@ const SESSION_STORAGE_VERSION = 2;
 // 架构还债批 3·B: 会话级内存覆盖表(sessionEngineRouteOverrides/权限档/桌面工具)与其归一、应用函数抽至 02d-session-overrides.js。
 
 function sessionBodyPaths(id) {
+  assertSessionIdForPath(id);
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
     provider: path.join(paths.sessions, `${id}.provider.ndjson`),
@@ -2695,6 +2696,7 @@ async function truncateSessionBody(file, len) {
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
 async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
+  if (safeSessionId(id) === null) return null; // 不合形的 id 就是「没有这个会话」(sessionPath 会拒绝拼路径)
   const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
   try {
@@ -3237,7 +3239,7 @@ async function withJournalWriteLock(sessionId, work) {
   return runKeyedChain(journalWriteChains, String(sessionId || ''), work);
 }
 
-function journalDir(sessionId) { return path.join(paths.checkpoints, String(sessionId)); }
+function journalDir(sessionId) { return path.join(paths.checkpoints, assertSessionIdForPath(sessionId)); }
 function journalIndexPath(sessionId) { return path.join(journalDir(sessionId), 'index.json'); }
 
 // Read a session's checkpoint index (array of entries). Missing/corrupt → []. Never throws.

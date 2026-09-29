@@ -1363,16 +1363,25 @@ async function applyAgentWorktree(run, nodeId) {
     return { ok: false, error: `隔离提交无法安全应用：${e.gitStderr || e.message || e}` };
   }
   iso.status = 'applied'; iso.appliedAt = nowIso();
-  if (iso.path && pathWithinRoot(path.resolve(iso.path), path.resolve(paths.agentWorktrees))) {
+  if (iso.path && await agentWorktreePathOwned(iso.path)) {
     try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; } catch {}
   }
   await saveAgentRun(run);
   return { ok: true, commit: iso.commit };
 }
+// 这个 worktree 路径是不是如意自己的 agent-worktrees 目录底下的。先按词法比;不在的话再按 realpath 比 ——
+// 3.0 改名前起的 run 落盘的是旧前缀 ~/.win-claude-workbench/agent-worktrees/…,迁移后那是一个指回新目录的联接,
+// 只按词法比会认成「外面的目录」,于是 worktree 永远不清。
+async function agentWorktreePathOwned(p) {
+  const target = path.resolve(String(p || ''));
+  const root = path.resolve(paths.agentWorktrees);
+  if (pathWithinRoot(target, root)) return true;
+  try { return pathWithinRoot(await fsp.realpath(target), await fsp.realpath(root)); } catch { return false; }
+}
 async function cleanupAgentWorktree(isolation) {
   if (!isolation || !isolation.path) return;
   const worktreePath = path.resolve(isolation.path);
-  if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) return;
+  if (!(await agentWorktreePathOwned(worktreePath))) return;
   try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'remove', '--force', worktreePath], 60000); }
   catch {
     try { await fsp.rm(worktreePath, { recursive: true, force: true }); } catch {}

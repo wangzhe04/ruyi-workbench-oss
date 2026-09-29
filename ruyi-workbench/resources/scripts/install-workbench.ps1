@@ -71,8 +71,11 @@ if ($ClaudePath) {
   Write-Host "Registering MCP server with Claude CLI..."
   # Native exe non-zero exits do NOT throw, so check $LASTEXITCODE (try/catch only catches launch failure).
   try {
-    # Pre-3.0 id; absent on fresh installs. Its own try: with ErrorActionPreference=Stop a native stderr line can throw.
-    try { & $ClaudePath mcp remove win-claude-workbench -s $Scope *> $null } catch { }
+    # Pre-3.0 id; absent on fresh installs. Remove it from every scope (the old node installer used local, this script
+    # used $Scope). Each in its own try: with ErrorActionPreference=Stop a native stderr line can throw.
+    foreach ($legacyScope in @('local', 'user', 'project')) {
+      try { & $ClaudePath mcp remove win-claude-workbench -s $legacyScope *> $null } catch { }
+    }
     & $ClaudePath mcp add-json ruyi $serverJson -s $Scope
     if ($LASTEXITCODE -ne 0) { Write-Warning "claude mcp add-json failed (exit $LASTEXITCODE). Manually import: $mcpConfigPath" }
   } catch {

@@ -1647,6 +1647,10 @@ function invalidateMcpRuntime(id) {
 // opts.allowMissing:upsert 语义下「本来就没有」是合法的新建,不算错;内置与 drop-in 仍然挡。
 function mcpConnectorMutateError(id, config, opts) {
   if (id === 'ai-computer-control') return { status: 409, error: '内置桌面连接器(ai-computer-control)不可在此启停/删除;请在「设置」中调整桌面控制开关。' };
+  // 如意自己的 MCP server id(ruyi 与旧名 win-claude-workbench)是保留名:新建 / 改写成这个 id 的外部连接器,
+  // 生成 MCP 配置时会被静默丢掉,连接器列表里还会出现两个同名项。导入路径早就挡了,这里补上手动新建 / mcp_configure。
+  // 已经存在的同名旧条目仍然允许停用 / 删除(allowMissing 只在 upsert 时给)。
+  if (opts && opts.allowMissing && isRuyiMcpServerId(id)) return { status: 409, error: `「${id}」是如意自己的 MCP 服务名,不能用作外部连接器的 id;请换一个 id。` };
   const list = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
   if (list.some(s => s && s.id === id)) return null;
   const drop = scanMcpDropIns().find(d => d && d.id === id);

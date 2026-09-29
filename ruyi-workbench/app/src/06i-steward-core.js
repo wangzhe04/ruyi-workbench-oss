@@ -1355,12 +1355,15 @@ function stewardWorkspaceLabels(stewardLabelPaths) {
 // 出身:这个目录是不是【如意自己的】—— 落在数据根里(管家会话自己的 cwd、子代理 worktree、上传与临时
 // 目录全在那儿),或者是如意为任务开的、用户还没收编(adopted)的那种。用户亲手加进常用的一律不算。
 // dataRootPath 由调用方给(06i 不引用任何外部符号)。
-function stewardRuyiOwnedPath(rawPath, config, dataRootPath) {
+// aliases:数据根的其它写法(00 dataRootAliases —— 迁移后旧位置上的联接)。改名前落盘的线程 cwd 写的是旧前缀。
+function stewardRuyiOwnedPath(rawPath, config, dataRootPath, aliases = []) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
   const target = norm(rawPath);
   if (!target) return false;
-  const root = norm(dataRootPath);
-  if (root && (target === root || target.startsWith(root + '/'))) return true;
+  for (const base of [dataRootPath, ...(Array.isArray(aliases) ? aliases : [])]) {
+    const root = norm(base);
+    if (root && (target === root || target.startsWith(root + '/'))) return true;
+  }
   const rows = Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
   return rows.some(row => row && row.adopted !== true && norm(row.path) === target);
 }

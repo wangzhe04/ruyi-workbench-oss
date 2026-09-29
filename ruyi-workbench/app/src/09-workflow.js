@@ -187,6 +187,17 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
+  // 暂停等待的唯一入口。判定与入队在同一个同步段里:resume / stop 若落在调用方 await saveAgentRun 的窗口里,
+  // 它们已经把 paused 清掉、把(当时还空的)等待队列清空了 —— 这里再入队就永远没人叫醒(丢唤醒)。
+  // 父回合 abort(/api/stop、断线)同样要叫醒:暂停中的 run 否则只认 stopRequested,会一直挂着、聊天流也收不了尾。
+  const runAborted = () => Boolean(localCtrl && localCtrl.signal && localCtrl.signal.aborted);
+  const waitForResume = () => new Promise(resolve => {
+    if (!runtime.paused || runtime.stopRequested || runAborted()) { resolve(); return; }
+    runtime.resumeWaiters.push(resolve);
+  });
+  if (localCtrl && localCtrl.signal && typeof localCtrl.signal.addEventListener === 'function') {
+    localCtrl.signal.addEventListener('abort', () => { for (const wake of runtime.resumeWaiters.splice(0)) { try { wake(); } catch { /* ignore */ } } }, { once: true });
+  }
   const drainNodeSteers = nodeId => {
     const out = [];
     for (const queues of [runtime.steerQueues, runtime.autoSteerQueues]) {
@@ -464,11 +475,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   while (true) {
     // 对抗轮修(第25波): 环内保存改为非致命 —— 持久化坏掉时(磁盘满/杀软长锁)这里若抛,run 直接硬失败,
     // 25.2 的「降级→暂停止损」永远等不到生效;快照写失败已由 saveAgentRun 内部计数/亮旗/暂停接管,执行不中断。
-    while (runtime.paused && !runtime.stopRequested) {
+    while (runtime.paused && !runtime.stopRequested && !runAborted()) {
       if (inFlight.size) { await raceInFlight(); continue; }   // 第26波: 暂停只拦新派发,在飞节点先跑完
       run.status = 'paused'; await saveAgentRun(run).catch(() => {});
       const pausedAt = Date.now();
-      await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+      await waitForResume();
       // 对抗轮 P2(第28e波):暂停不计入 wait 时长/超时预算(仿 pool-grace 8763 的暂停补偿)。唤醒后把每个 waiting 节点的
       // waitStartedAt 前移一个暂停时长,使 timeout 判定与 timer 条件都排除暂停时间——否则长暂停会误判超时失败。
       const pd = Date.now() - pausedAt;
@@ -539,7 +550,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             // 时长补回 poolGraceUntil(runtime 与 run 双写),避免长暂停把审批窗白白吃掉。
             if (runtime.paused) {
               const pausedAt = Date.now();
-              await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+              await waitForResume();
               try { const delta = Date.now() - pausedAt; if (delta > 0) { runtime.poolGraceUntil += delta; run.poolGraceUntil = runtime.poolGraceUntil; } } catch {}
               continue;
             }
@@ -1121,6 +1132,14 @@ function legacySpawnToOrchestrateArgs(args) {
 }
 const LEGACY_SPAWN_NOTE = 'spawn_agent 已并入 orchestrate_agents(本次已按单节点代理执行)。下次请直接调用 orchestrate_agents({task, role?, background?});多代理依赖请在同一次调用的 nodes 里用 dependsOn 表达。';
 
+// 撤掉某个 run 的「信封已送达」登记(盘上的会话头 + 活回合手里的那份)。只给人工 resume / retry_node 用。
+async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
+  const id = EventStreamHooks.agentEnvelopeJobId ? EventStreamHooks.agentEnvelopeJobId(runId) : 'agent:' + String(runId || '');
+  const drop = s => { if (s && Array.isArray(s.backgroundJobSeen)) s.backgroundJobSeen = s.backgroundJobSeen.filter(x => x !== id); };
+  await mutateSession(sessionId, drop, { writer: 'agent_envelope_rearm' }).catch(() => {});
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.session) drop(reg.session);
+}
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
@@ -1144,8 +1163,13 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // —— 用户点「重试」再立刻点「暂停」就会撞上;高负载下 subagent.e2e 的 (a4) 稳定复现(master 同样)。
   let markRegistered = null;
   const registered = new Promise(resolve => { markRegistered = resolve; });
+  // 后台 run 续跑 / 重试后照样要送达一份交付信封(修前续跑不传 onComplete,重启打断后自动续跑、用户重试的后台 run 跑完
+  // 模型永远收不到完成通知)。人工干预的那次先把「已送达」登记撤掉:上一轮失败的信封可能已经被读过,新结果要再送一次。
+  const background = run.background === true;
+  if (background && interventionKind) await unmarkAgentEnvelopeDelivered(sessionId, runId);
   const finished = runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
+    ...(background ? { onComplete: r => deliverAgentRunEnvelope(sessionId, r) } : {}),
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
     permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
@@ -1153,8 +1177,12 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
+    return { ok: false, error: run.error };
   });
-  await Promise.race([registered, finished]);
+  // finished 先到 = 登记之前就退出了(未知 nodeId、运行记录没有节点、已在运行、启动时抛错)—— 那是没受理,照实回错;
+  // 修前一律回 accepted,用户点了「重试」什么都没发生也看不到原因。
+  const first = await Promise.race([registered.then(() => null), finished]);
+  if (first && first.ok === false) return { ok: false, error: first.error || '工作流未能启动', runId };
   return { ok: true, accepted: true, runId };
 }
 

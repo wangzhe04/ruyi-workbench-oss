@@ -237,6 +237,7 @@ function allFavorites() {
 function favoriteList() {
   return visibleFavoriteWorkspaces(allFavorites(), {
     dataRoot: (state.status && state.status.dataRoot) || '',
+    dataRootAliases: (state.status && state.status.dataRootAliases) || [],
     owned: state.config.stewardManagedWorkspaces,
   });
 }

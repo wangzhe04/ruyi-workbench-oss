@@ -66,21 +66,49 @@ function defaultDataRoots() {
 function lstatOrNull(p) {
   try { return fs.lstatSync(p); } catch { return null; }
 }
-function dataRoot() {
+// dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
+// 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
+let _dataRootMemo = null;
+function dataRootMemoKey() {
+  return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
+}
+function resolveDataRootUncached() {
   if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
   if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return next;
   const old = lstatOrNull(legacy);
-  return old && old.isDirectory() && !old.isSymbolicLink() ? legacy : next;
+  if (old && old.isDirectory() && !old.isSymbolicLink()) return legacy;
+  // 旧位置是用户自己建的链接 / 联接(数据挪去了别的盘)、新目录还没有:照旧用它。修前这里会落到一个空的新目录,
+  // 配置、会话、密钥看起来全没了。迁移不搬链接(见 migrateLegacyDataRoot)。
+  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) return legacy; } catch { /* 断链:当它不存在 */ } }
+  return next;
 }
-// 数据根的别名:迁移后旧位置上留的目录联接。敏感子树判定(03 isSensitiveDataPath)与文件树隐藏都要认它,
-// 否则经旧路径的词法写法能绕开「数据根下的控制面文件一律拒读」。
+function dataRoot() {
+  const key = dataRootMemoKey();
+  if (_dataRootMemo && _dataRootMemo.key === key && _dataRootMemo.root) return _dataRootMemo.root;
+  const root = resolveDataRootUncached();
+  _dataRootMemo = { key, root, aliases: null };
+  return root;
+}
+// 数据根的别名:指向同一个目录的其它写法 —— 迁移后旧位置上留的目录联接,或者新位置是指向旧目录的链接。敏感子树判定
+// (03 isSensitiveDataPath 与文件遍历的跳过)是按词法前缀比的,只认数据根本身的话,经别名的写法就能读到 config.json /
+// runtime.json(token)/ 会话。**与环境变量无关**:Claude / Kimi 的 MCP 子进程总带 RUYI_HOME,修前在那里一律返回空,
+// 旧路径上的联接就成了绕过口。判据是 realpath 相等(Windows 上不分大小写),数据根还不存在时不缓存、下次再算。
 function dataRootAliases() {
-  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return [];
+  const root = dataRoot();
+  if (_dataRootMemo && _dataRootMemo.root === root && Array.isArray(_dataRootMemo.aliases)) return _dataRootMemo.aliases;
+  const norm = p => (process.platform === 'win32' ? String(p).toLowerCase() : String(p));
+  let rootReal = '';
+  try { rootReal = norm(fs.realpathSync(root)); } catch { return []; }
   const { next, legacy } = defaultDataRoots();
-  const old = lstatOrNull(legacy);
-  return dataRoot() === next && old && old.isSymbolicLink() ? [legacy] : [];
+  const out = [];
+  for (const candidate of [legacy, next]) {
+    if (norm(path.resolve(candidate)) === norm(path.resolve(root))) continue;
+    try { if (norm(fs.realpathSync(candidate)) === rootReal) out.push(candidate); } catch { /* 不存在 */ }
+  }
+  if (_dataRootMemo && _dataRootMemo.root === root) _dataRootMemo.aliases = out;
+  return out;
 }
 function pidAlive(pid) {
   const n = Number(pid);
@@ -96,12 +124,14 @@ function migrateLegacyDataRoot() {
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
   const old = lstatOrNull(legacy);
-  if (!old || !old.isDirectory() || old.isSymbolicLink()) return { moved: false, reason: 'no-legacy' };
+  if (old && old.isSymbolicLink()) return { moved: false, reason: 'legacy-is-link' }; // 用户自己建的链接:不搬,dataRoot() 照旧用它
+  if (!old || !old.isDirectory()) return { moved: false, reason: 'no-legacy' };
   try {
     const rt = JSON.parse(fs.readFileSync(path.join(legacy, 'runtime.json'), 'utf8'));
     if (rt && pidAlive(rt.pid)) return { moved: false, reason: 'legacy-in-use', pid: rt.pid };
   } catch { /* 没有 runtime.json 或读不了:没有活实例的证据,照常迁移 */ }
   try { fs.renameSync(legacy, next); } catch (e) { return { moved: false, reason: 'rename-failed', error: String(e && e.code || e) }; }
+  _dataRootMemo = null; // 数据根从旧目录换成了新目录
   let junction = true;
   try { fs.symlinkSync(next, legacy, 'junction'); } catch { junction = false; }
   return { moved: true, from: legacy, to: next, junction };

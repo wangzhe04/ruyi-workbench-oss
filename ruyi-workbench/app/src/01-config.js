@@ -3436,8 +3436,15 @@ function safeSessionId(raw) {
   return /^[A-Za-z0-9_-]{1,64}$/.test(s) ? s : null;
 }
 
+// 会话 id 拼成文件名的咽喉点:不合形的 id 在这里就拒掉(抛错),不靠每个调用方记得先 safeSessionId ——
+// 修前有几条路由(/api/chat/stream、/api/session/skills、/api/session/memories、工具上下文)直接拿请求体里的
+// sessionId 拼路径,`../config` 就读到了 <数据根>/config.json(连同服务商密钥)当会话回显出去。
+function assertSessionIdForPath(id) {
+  if (safeSessionId(id) === null) throw new Error('invalid session id');
+  return String(id);
+}
 function sessionPath(id) {
-  return path.join(paths.sessions, `${id}.json`);
+  return path.join(paths.sessions, `${assertSessionIdForPath(id)}.json`);
 }
 // 第25波对抗轮: per-session 写链(见 saveSession)—— 与 agentRunWriteChains 同范式。
 const sessionWriteChains = new Map();

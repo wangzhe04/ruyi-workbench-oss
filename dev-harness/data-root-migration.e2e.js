@@ -9,7 +9,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   M3 第二次启动:不再迁移、不再打迁移行;
 //   M4 旧目录里有活实例(runtime.json 的 pid 活着)→ 不动它,本次继续用旧目录,启动行说明原因;
 //   M5 设了 RUYI_HOME → 不迁移(旧目录原样);
-//   M6 mcp-config 子命令不迁移;生成的 MCP 配置里如意自己的 server id 是 ruyi,子进程环境只写 RUYI_HOME。
+//   M6 mcp-config 子命令不迁移;生成的 MCP 配置里如意自己的 server id 是 ruyi,子进程环境只写 RUYI_HOME;
+//   M2b 带 RUYI_HOME 的进程(Claude / Kimi 的 MCP 子进程就是这样)经旧路径联接搜 / 列数据根:敏感文件照样不出现
+//       (修前 dataRootAliases 见到环境变量就返回空,旧路径的联接成了绕过口,能搜出 config.json 里的密钥);
+//   M7 旧位置是用户自己建的链接(数据挪去了别的盘)、新目录没有:照旧用它,不落到一个空的新目录、不迁移。
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -100,6 +103,23 @@ const same = (a, b) => { try { return fs.realpathSync(a) === fs.realpathSync(b);
     ok(!/data dir (migrated|migration skipped)/.test(s1b.log()) && fs.existsSync(path.join(next1, 'config.json')), 'M3 第二次启动不再迁移');
     await s1b.stop(); running.pop();
 
+    // M2b:模拟 MCP 子进程 —— 环境里带 RUYI_HOME(新目录),经旧路径的联接调文件工具
+    const probe = `const s = require(${JSON.stringify(path.join(WB, 'app', 'server.js'))});
+      (async () => {
+        const legacy = ${JSON.stringify(legacy1)};
+        const search = await s.toolCall('file_search', { root: legacy, query: 'MARK-M1' });
+        const list = await s.toolCall('file_list', { root: legacy });
+        console.log('PROBE ' + JSON.stringify({ search, list }));
+        process.exit(0);
+      })().catch(e => { console.log('PROBE ' + JSON.stringify({ error: String(e && e.message || e) })); process.exit(0); });`;
+    const probeEnv = childEnv(h1, { RUYI_HOME: next1 }); // childEnv 里 spread 了 process.env(家目录隔离的唯一来路)
+    const probeOut = cp.execFileSync(process.execPath, ['-e', probe], { cwd: WB, env: probeEnv, encoding: 'utf8', windowsHide: true, timeout: 60000 });
+    const probeLine = (probeOut.split(/\r?\n/).find(l => l.startsWith('PROBE ')) || 'PROBE {}').slice(6);
+    const probed = JSON.parse(probeLine);
+    ok(!probeLine.includes('MARK-M1') && !/config\.json|runtime\.json/.test(probeLine),
+      `M2b 带 RUYI_HOME 经旧路径联接搜 / 列:敏感文件不出现(${probeLine.slice(0, 200)})`);
+    ok(!probed.error, 'M2b 探针本身跑通');
+
     // ── M4:旧目录里有活实例 → 不动 ──────────────────────────────────────────────────────────────
     const h4 = makeHome('m4');
     const legacy4 = seedLegacy(h4, 'MARK-M4');
@@ -117,6 +137,18 @@ const same = (a, b) => { try { return fs.realpathSync(a) === fs.realpathSync(b);
     const s5 = await serve(h5, { RUYI_HOME: path.join(h5, 'explicit') }); running.push(s5);
     ok(!isLink(legacy5) && !lexists(path.join(h5, '.ruyi-workbench')) && fs.existsSync(path.join(h5, 'explicit')), 'M5 设了 RUYI_HOME:旧目录原样、不建新目录');
     await s5.stop(); running.pop();
+
+    // ── M7:旧位置是用户自己建的链接 → 照旧用它 ───────────────────────────────────────────────────────
+    const h7 = makeHome('m7');
+    const elsewhere = path.join(ROOT, 'm7-data-on-other-drive');
+    fs.mkdirSync(path.join(elsewhere, 'sessions'), { recursive: true });
+    fs.writeFileSync(path.join(elsewhere, 'config.json'), JSON.stringify({ configSchema: 12, permissionMode: 'bypass', stewardThreadBriefV1: false, marker: 'MARK-M7' }));
+    fs.symlinkSync(elsewhere, path.join(h7, '.win-claude-workbench'), 'junction');
+    const s7 = await serve(h7); running.push(s7);
+    const st7 = await request(s7.port, 'GET', '/api/status', null, s7.headers);
+    ok(st7 && same(st7.dataRoot, elsewhere) && !lexists(path.join(h7, '.ruyi-workbench')) && isLink(path.join(h7, '.win-claude-workbench')),
+      `M7 旧位置是用户的链接:照旧用它,不建空的新目录、不迁移(dataRoot=${st7 && st7.dataRoot})`);
+    await s7.stop(); running.pop();
 
     // ── M6:mcp-config 子命令不迁移;生成的配置用新 id 与 RUYI_HOME ─────────────────────────────────
     const h6 = makeHome('m6');

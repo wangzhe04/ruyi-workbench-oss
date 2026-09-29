@@ -66,21 +66,49 @@ function defaultDataRoots() {
 function lstatOrNull(p) {
   try { return fs.lstatSync(p); } catch { return null; }
 }
-function dataRoot() {
+// dataRoot() / dataRootAliases() 在文件遍历的热路径上逐项被调(03 isSensitiveDataPath);每次都 lstat 两个目录在大树上是秒级开销。
+// 结果按「两个环境变量 + 家目录」记住:进程内能改变答案的只有这三样(迁移发生在启动时,迁移后清一次缓存)。
+let _dataRootMemo = null;
+function dataRootMemoKey() {
+  return [process.env.RUYI_HOME || '', process.env.WIN_CLAUDE_WORKBENCH_HOME || '', os.homedir()].join('\0');
+}
+function resolveDataRootUncached() {
   if (process.env.RUYI_HOME) return process.env.RUYI_HOME;
   if (process.env.WIN_CLAUDE_WORKBENCH_HOME) return process.env.WIN_CLAUDE_WORKBENCH_HOME;
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return next;
   const old = lstatOrNull(legacy);
-  return old && old.isDirectory() && !old.isSymbolicLink() ? legacy : next;
+  if (old && old.isDirectory() && !old.isSymbolicLink()) return legacy;
+  // 旧位置是用户自己建的链接 / 联接(数据挪去了别的盘)、新目录还没有:照旧用它。修前这里会落到一个空的新目录,
+  // 配置、会话、密钥看起来全没了。迁移不搬链接(见 migrateLegacyDataRoot)。
+  if (old && old.isSymbolicLink()) { try { if (fs.statSync(legacy).isDirectory()) return legacy; } catch { /* 断链:当它不存在 */ } }
+  return next;
 }
-// 数据根的别名:迁移后旧位置上留的目录联接。敏感子树判定(03 isSensitiveDataPath)与文件树隐藏都要认它,
-// 否则经旧路径的词法写法能绕开「数据根下的控制面文件一律拒读」。
+function dataRoot() {
+  const key = dataRootMemoKey();
+  if (_dataRootMemo && _dataRootMemo.key === key && _dataRootMemo.root) return _dataRootMemo.root;
+  const root = resolveDataRootUncached();
+  _dataRootMemo = { key, root, aliases: null };
+  return root;
+}
+// 数据根的别名:指向同一个目录的其它写法 —— 迁移后旧位置上留的目录联接,或者新位置是指向旧目录的链接。敏感子树判定
+// (03 isSensitiveDataPath 与文件遍历的跳过)是按词法前缀比的,只认数据根本身的话,经别名的写法就能读到 config.json /
+// runtime.json(token)/ 会话。**与环境变量无关**:Claude / Kimi 的 MCP 子进程总带 RUYI_HOME,修前在那里一律返回空,
+// 旧路径上的联接就成了绕过口。判据是 realpath 相等(Windows 上不分大小写),数据根还不存在时不缓存、下次再算。
 function dataRootAliases() {
-  if (process.env.RUYI_HOME || process.env.WIN_CLAUDE_WORKBENCH_HOME) return [];
+  const root = dataRoot();
+  if (_dataRootMemo && _dataRootMemo.root === root && Array.isArray(_dataRootMemo.aliases)) return _dataRootMemo.aliases;
+  const norm = p => (process.platform === 'win32' ? String(p).toLowerCase() : String(p));
+  let rootReal = '';
+  try { rootReal = norm(fs.realpathSync(root)); } catch { return []; }
   const { next, legacy } = defaultDataRoots();
-  const old = lstatOrNull(legacy);
-  return dataRoot() === next && old && old.isSymbolicLink() ? [legacy] : [];
+  const out = [];
+  for (const candidate of [legacy, next]) {
+    if (norm(path.resolve(candidate)) === norm(path.resolve(root))) continue;
+    try { if (norm(fs.realpathSync(candidate)) === rootReal) out.push(candidate); } catch { /* 不存在 */ }
+  }
+  if (_dataRootMemo && _dataRootMemo.root === root) _dataRootMemo.aliases = out;
+  return out;
 }
 function pidAlive(pid) {
   const n = Number(pid);
@@ -96,12 +124,14 @@ function migrateLegacyDataRoot() {
   const { next, legacy } = defaultDataRoots();
   if (lstatOrNull(next)) return { moved: false, reason: 'next-exists' };
   const old = lstatOrNull(legacy);
-  if (!old || !old.isDirectory() || old.isSymbolicLink()) return { moved: false, reason: 'no-legacy' };
+  if (old && old.isSymbolicLink()) return { moved: false, reason: 'legacy-is-link' }; // 用户自己建的链接:不搬,dataRoot() 照旧用它
+  if (!old || !old.isDirectory()) return { moved: false, reason: 'no-legacy' };
   try {
     const rt = JSON.parse(fs.readFileSync(path.join(legacy, 'runtime.json'), 'utf8'));
     if (rt && pidAlive(rt.pid)) return { moved: false, reason: 'legacy-in-use', pid: rt.pid };
   } catch { /* 没有 runtime.json 或读不了:没有活实例的证据,照常迁移 */ }
   try { fs.renameSync(legacy, next); } catch (e) { return { moved: false, reason: 'rename-failed', error: String(e && e.code || e) }; }
+  _dataRootMemo = null; // 数据根从旧目录换成了新目录
   let junction = true;
   try { fs.symlinkSync(next, legacy, 'junction'); } catch { junction = false; }
   return { moved: true, from: legacy, to: next, junction };
@@ -4964,8 +4994,15 @@ function safeSessionId(raw) {
   return /^[A-Za-z0-9_-]{1,64}$/.test(s) ? s : null;
 }
 
+// 会话 id 拼成文件名的咽喉点:不合形的 id 在这里就拒掉(抛错),不靠每个调用方记得先 safeSessionId ——
+// 修前有几条路由(/api/chat/stream、/api/session/skills、/api/session/memories、工具上下文)直接拿请求体里的
+// sessionId 拼路径,`../config` 就读到了 <数据根>/config.json(连同服务商密钥)当会话回显出去。
+function assertSessionIdForPath(id) {
+  if (safeSessionId(id) === null) throw new Error('invalid session id');
+  return String(id);
+}
 function sessionPath(id) {
-  return path.join(paths.sessions, `${id}.json`);
+  return path.join(paths.sessions, `${assertSessionIdForPath(id)}.json`);
 }
 // 第25波对抗轮: per-session 写链(见 saveSession)—— 与 agentRunWriteChains 同范式。
 const sessionWriteChains = new Map();
@@ -5537,6 +5574,7 @@ const SESSION_STORAGE_VERSION = 2;
 // 架构还债批 3·B: 会话级内存覆盖表(sessionEngineRouteOverrides/权限档/桌面工具)与其归一、应用函数抽至 02d-session-overrides.js。
 
 function sessionBodyPaths(id) {
+  assertSessionIdForPath(id);
   return {
     messages: path.join(paths.sessions, `${id}.messages.ndjson`),
     provider: path.join(paths.sessions, `${id}.provider.ndjson`),
@@ -8215,6 +8253,7 @@ async function truncateSessionBody(file, len) {
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
 async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
+  if (safeSessionId(id) === null) return null; // 不合形的 id 就是「没有这个会话」(sessionPath 会拒绝拼路径)
   const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
   try {
@@ -8757,7 +8796,7 @@ async function withJournalWriteLock(sessionId, work) {
   return runKeyedChain(journalWriteChains, String(sessionId || ''), work);
 }
 
-function journalDir(sessionId) { return path.join(paths.checkpoints, String(sessionId)); }
+function journalDir(sessionId) { return path.join(paths.checkpoints, assertSessionIdForPath(sessionId)); }
 function journalIndexPath(sessionId) { return path.join(journalDir(sessionId), 'index.json'); }
 
 // Read a session's checkpoint index (array of entries). Missing/corrupt → []. Never throws.
@@ -12765,6 +12804,10 @@ function invalidateMcpRuntime(id) {
 // opts.allowMissing:upsert 语义下「本来就没有」是合法的新建,不算错;内置与 drop-in 仍然挡。
 function mcpConnectorMutateError(id, config, opts) {
   if (id === 'ai-computer-control') return { status: 409, error: '内置桌面连接器(ai-computer-control)不可在此启停/删除;请在「设置」中调整桌面控制开关。' };
+  // 如意自己的 MCP server id(ruyi 与旧名 win-claude-workbench)是保留名:新建 / 改写成这个 id 的外部连接器,
+  // 生成 MCP 配置时会被静默丢掉,连接器列表里还会出现两个同名项。导入路径早就挡了,这里补上手动新建 / mcp_configure。
+  // 已经存在的同名旧条目仍然允许停用 / 删除(allowMissing 只在 upsert 时给)。
+  if (opts && opts.allowMissing && isRuyiMcpServerId(id)) return { status: 409, error: `「${id}」是如意自己的 MCP 服务名,不能用作外部连接器的 id;请换一个 id。` };
   const list = (config && Array.isArray(config.externalMcpServers)) ? config.externalMcpServers : [];
   if (list.some(s => s && s.id === id)) return null;
   const drop = scanMcpDropIns().find(d => d && d.id === id);
@@ -25810,12 +25853,15 @@ function stewardWorkspaceLabels(stewardLabelPaths) {
 // 出身:这个目录是不是【如意自己的】—— 落在数据根里(管家会话自己的 cwd、子代理 worktree、上传与临时
 // 目录全在那儿),或者是如意为任务开的、用户还没收编(adopted)的那种。用户亲手加进常用的一律不算。
 // dataRootPath 由调用方给(06i 不引用任何外部符号)。
-function stewardRuyiOwnedPath(rawPath, config, dataRootPath) {
+// aliases:数据根的其它写法(00 dataRootAliases —— 迁移后旧位置上的联接)。改名前落盘的线程 cwd 写的是旧前缀。
+function stewardRuyiOwnedPath(rawPath, config, dataRootPath, aliases = []) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
   const target = norm(rawPath);
   if (!target) return false;
-  const root = norm(dataRootPath);
-  if (root && (target === root || target.startsWith(root + '/'))) return true;
+  for (const base of [dataRootPath, ...(Array.isArray(aliases) ? aliases : [])]) {
+    const root = norm(base);
+    if (root && (target === root || target.startsWith(root + '/'))) return true;
+  }
   const rows = Array.isArray(config && config.stewardManagedWorkspaces) ? config.stewardManagedWorkspaces : [];
   return rows.some(row => row && row.adopted !== true && norm(row.path) === target);
 }
@@ -31216,16 +31262,25 @@ async function applyAgentWorktree(run, nodeId) {
     return { ok: false, error: `隔离提交无法安全应用：${e.gitStderr || e.message || e}` };
   }
   iso.status = 'applied'; iso.appliedAt = nowIso();
-  if (iso.path && pathWithinRoot(path.resolve(iso.path), path.resolve(paths.agentWorktrees))) {
+  if (iso.path && await agentWorktreePathOwned(iso.path)) {
     try { await gitExec(repoRoot, ['worktree', 'remove', '--force', iso.path], 60000); iso.path = ''; } catch {}
   }
   await saveAgentRun(run);
   return { ok: true, commit: iso.commit };
 }
+// 这个 worktree 路径是不是如意自己的 agent-worktrees 目录底下的。先按词法比;不在的话再按 realpath 比 ——
+// 3.0 改名前起的 run 落盘的是旧前缀 ~/.win-claude-workbench/agent-worktrees/…,迁移后那是一个指回新目录的联接,
+// 只按词法比会认成「外面的目录」,于是 worktree 永远不清。
+async function agentWorktreePathOwned(p) {
+  const target = path.resolve(String(p || ''));
+  const root = path.resolve(paths.agentWorktrees);
+  if (pathWithinRoot(target, root)) return true;
+  try { return pathWithinRoot(await fsp.realpath(target), await fsp.realpath(root)); } catch { return false; }
+}
 async function cleanupAgentWorktree(isolation) {
   if (!isolation || !isolation.path) return;
   const worktreePath = path.resolve(isolation.path);
-  if (!pathWithinRoot(worktreePath, path.resolve(paths.agentWorktrees))) return;
+  if (!(await agentWorktreePathOwned(worktreePath))) return;
   try { await gitExec(path.resolve(isolation.repoRoot), ['worktree', 'remove', '--force', worktreePath], 60000); }
   catch {
     try { await fsp.rm(worktreePath, { recursive: true, force: true }); } catch {}
@@ -34593,6 +34648,17 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
     steerQueues: new Map(), autoSteerQueues: new Map(), mailQueues: new Map(), nodeControls: new Map(),
     closing: false, poolGraceUntil: 0, poolGraceArmed: true, inPoolGrace: false,
   };
+  // 暂停等待的唯一入口。判定与入队在同一个同步段里:resume / stop 若落在调用方 await saveAgentRun 的窗口里,
+  // 它们已经把 paused 清掉、把(当时还空的)等待队列清空了 —— 这里再入队就永远没人叫醒(丢唤醒)。
+  // 父回合 abort(/api/stop、断线)同样要叫醒:暂停中的 run 否则只认 stopRequested,会一直挂着、聊天流也收不了尾。
+  const runAborted = () => Boolean(localCtrl && localCtrl.signal && localCtrl.signal.aborted);
+  const waitForResume = () => new Promise(resolve => {
+    if (!runtime.paused || runtime.stopRequested || runAborted()) { resolve(); return; }
+    runtime.resumeWaiters.push(resolve);
+  });
+  if (localCtrl && localCtrl.signal && typeof localCtrl.signal.addEventListener === 'function') {
+    localCtrl.signal.addEventListener('abort', () => { for (const wake of runtime.resumeWaiters.splice(0)) { try { wake(); } catch { /* ignore */ } } }, { once: true });
+  }
   const drainNodeSteers = nodeId => {
     const out = [];
     for (const queues of [runtime.steerQueues, runtime.autoSteerQueues]) {
@@ -34870,11 +34936,11 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
   while (true) {
     // 对抗轮修(第25波): 环内保存改为非致命 —— 持久化坏掉时(磁盘满/杀软长锁)这里若抛,run 直接硬失败,
     // 25.2 的「降级→暂停止损」永远等不到生效;快照写失败已由 saveAgentRun 内部计数/亮旗/暂停接管,执行不中断。
-    while (runtime.paused && !runtime.stopRequested) {
+    while (runtime.paused && !runtime.stopRequested && !runAborted()) {
       if (inFlight.size) { await raceInFlight(); continue; }   // 第26波: 暂停只拦新派发,在飞节点先跑完
       run.status = 'paused'; await saveAgentRun(run).catch(() => {});
       const pausedAt = Date.now();
-      await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+      await waitForResume();
       // 对抗轮 P2(第28e波):暂停不计入 wait 时长/超时预算(仿 pool-grace 8763 的暂停补偿)。唤醒后把每个 waiting 节点的
       // waitStartedAt 前移一个暂停时长,使 timeout 判定与 timer 条件都排除暂停时间——否则长暂停会误判超时失败。
       const pd = Date.now() - pausedAt;
@@ -34945,7 +35011,7 @@ async function runAgentWorkflow({ parentSession, provider, config, nodes: rawNod
             // 时长补回 poolGraceUntil(runtime 与 run 双写),避免长暂停把审批窗白白吃掉。
             if (runtime.paused) {
               const pausedAt = Date.now();
-              await new Promise(resolve => runtime.resumeWaiters.push(resolve));
+              await waitForResume();
               try { const delta = Date.now() - pausedAt; if (delta > 0) { runtime.poolGraceUntil += delta; run.poolGraceUntil = runtime.poolGraceUntil; } } catch {}
               continue;
             }
@@ -35527,6 +35593,14 @@ function legacySpawnToOrchestrateArgs(args) {
 }
 const LEGACY_SPAWN_NOTE = 'spawn_agent 已并入 orchestrate_agents(本次已按单节点代理执行)。下次请直接调用 orchestrate_agents({task, role?, background?});多代理依赖请在同一次调用的 nodes 里用 dependsOn 表达。';
 
+// 撤掉某个 run 的「信封已送达」登记(盘上的会话头 + 活回合手里的那份)。只给人工 resume / retry_node 用。
+async function unmarkAgentEnvelopeDelivered(sessionId, runId) {
+  const id = EventStreamHooks.agentEnvelopeJobId ? EventStreamHooks.agentEnvelopeJobId(runId) : 'agent:' + String(runId || '');
+  const drop = s => { if (s && Array.isArray(s.backgroundJobSeen)) s.backgroundJobSeen = s.backgroundJobSeen.filter(x => x !== id); };
+  await mutateSession(sessionId, drop, { writer: 'agent_envelope_rearm' }).catch(() => {});
+  const reg = activeChildren.get(sessionId);
+  if (reg && reg.session) drop(reg.session);
+}
 async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCascade, interventionKind, configOverride }) {
   if (activeAgentRuns.has(runId)) return { ok: false, error: '该工作流已在运行' };
   let run;
@@ -35550,8 +35624,13 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   // —— 用户点「重试」再立刻点「暂停」就会撞上;高负载下 subagent.e2e 的 (a4) 稳定复现(master 同样)。
   let markRegistered = null;
   const registered = new Promise(resolve => { markRegistered = resolve; });
+  // 后台 run 续跑 / 重试后照样要送达一份交付信封(修前续跑不传 onComplete,重启打断后自动续跑、用户重试的后台 run 跑完
+  // 模型永远收不到完成通知)。人工干预的那次先把「已送达」登记撤掉:上一轮失败的信封可能已经被读过,新结果要再送一次。
+  const background = run.background === true;
+  if (background && interventionKind) await unmarkAgentEnvelopeDelivered(sessionId, runId);
   const finished = runAgentWorkflow({
     parentSession, provider, config, onEvent, existingRun: run, retryNodeId, retryCascade,
+    ...(background ? { onComplete: r => deliverAgentRunEnvelope(sessionId, r) } : {}),
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
     permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
@@ -35559,8 +35638,12 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
     await saveAgentRun(run).catch(() => {}); activeAgentRuns.delete(runId);
+    return { ok: false, error: run.error };
   });
-  await Promise.race([registered, finished]);
+  // finished 先到 = 登记之前就退出了(未知 nodeId、运行记录没有节点、已在运行、启动时抛错)—— 那是没受理,照实回错;
+  // 修前一律回 accepted,用户点了「重试」什么都没发生也看不到原因。
+  const first = await Promise.race([registered.then(() => null), finished]);
+  if (first && first.ok === false) return { ok: false, error: first.error || '工作流未能启动', runId };
   return { ok: true, accepted: true, runId };
 }
 
@@ -46981,12 +47064,20 @@ async function handleApi(req, res, pathname) {
     const background = body.async === true || body.background === true;
     if (background) {
       const runId = makeId('run');
-      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true }).catch(async e => {
+      // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
+      // 校验失败(重复节点 id、缺角色、依赖坏)以 { ok:false } 返回却没人看,调用方拿到 runId 却永远等不到这次运行;
+      // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
+      let markRegistered = null;
+      const registered = new Promise(resolve => { markRegistered = resolve; });
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
         await completion(run).catch(() => {});
+        return { ok: false, error: run.error, reported: true };
       });
+      const first = await Promise.race([registered.then(() => null), finished]);
+      if (first && first.ok === false && !first.reported) return send(res, json({ ok: false, error: first.error || '工作流未能启动', startedCount: 0 }));
       return send(res, json({ ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean), note: '代理已在后台运行;完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。' }));
     }
     // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
@@ -48224,8 +48315,11 @@ async function installIntegration() {
   if (config.claudePath && existsExecutable(config.claudePath)) {
     // 3.0:先移除旧 id 的登记(win-claude-workbench;没有就报错,忽略),再按新 id 'ruyi' 登记 —— 否则 Claude Code 里
     // 同一个工作台 MCP 会以两个名字各起一个子进程。
+    // 逐个作用域删:老版本 node install 登记在 local、安装脚本登记在 user;不带 -s 时同一个 id 在多个作用域里都有会直接报错。
     for (const legacyId of LEGACY_RUYI_MCP_SERVER_IDS) {
-      try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 没登记过 */ }
+      for (const scope of ['local', 'user', 'project']) {
+        try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId, '-s', scope], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 这个作用域里没登记过 */ }
+      }
     }
     const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', RUYI_MCP_SERVER_ID, JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers[RUYI_MCP_SERVER_ID])], {
       cwd: os.homedir(),
@@ -50121,7 +50215,7 @@ async function buildMissionAggregateRows(options = {}) {
   const workspaceOf = cwd => {
     const p = String(cwd || '').trim();
     if (!p) return null;
-    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data) };
+    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data, dataRootAliases()) };
   };
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));
@@ -54226,7 +54320,7 @@ function stewardWorkspaceNameOf(stewardNameCwd, stewardNameConfig, stewardNameKn
   }
   return {
     name: best ? best.label : (path.basename(canon) || canon),
-    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot()),
+    ruyiOwned: stewardRuyiOwnedPath(canon, stewardNameConfig, dataRoot(), dataRootAliases()),
   };
 }
 

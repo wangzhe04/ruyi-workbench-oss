@@ -1159,12 +1159,20 @@ async function handleApi(req, res, pathname) {
     const background = body.async === true || body.background === true;
     if (background) {
       const runId = makeId('run');
-      void runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true }).catch(async e => {
+      // 与 launchPersistedAgentRun 同款:等到登记进 activeAgentRuns(或登记前就退出)再回。修前发起即回 accepted ——
+      // 校验失败(重复节点 id、缺角色、依赖坏)以 { ok:false } 返回却没人看,调用方拿到 runId 却永远等不到这次运行;
+      // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
+      let markRegistered = null;
+      const registered = new Promise(resolve => { markRegistered = resolve; });
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
         await completion(run).catch(() => {});
+        return { ok: false, error: run.error, reported: true };
       });
+      const first = await Promise.race([registered.then(() => null), finished]);
+      if (first && first.ok === false && !first.reported) return send(res, json({ ok: false, error: first.error || '工作流未能启动', startedCount: 0 }));
       return send(res, json({ ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean), note: '代理已在后台运行;完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。' }));
     }
     // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
@@ -2402,8 +2410,11 @@ async function installIntegration() {
   if (config.claudePath && existsExecutable(config.claudePath)) {
     // 3.0:先移除旧 id 的登记(win-claude-workbench;没有就报错,忽略),再按新 id 'ruyi' 登记 —— 否则 Claude Code 里
     // 同一个工作台 MCP 会以两个名字各起一个子进程。
+    // 逐个作用域删:老版本 node install 登记在 local、安装脚本登记在 user;不带 -s 时同一个 id 在多个作用域里都有会直接报错。
     for (const legacyId of LEGACY_RUYI_MCP_SERVER_IDS) {
-      try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 没登记过 */ }
+      for (const scope of ['local', 'user', 'project']) {
+        try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'remove', legacyId, '-s', scope], { cwd: os.homedir(), timeoutMs: 15000 }); } catch { /* 这个作用域里没登记过 */ }
+      }
     }
     const result = await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', RUYI_MCP_SERVER_ID, JSON.stringify(JSON.parse(await fsp.readFile(mcpPath, 'utf8')).mcpServers[RUYI_MCP_SERVER_ID])], {
       cwd: os.homedir(),

@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 2897,
-    "requiredSymbols": 2869,
+    "providedSymbols": 2903,
+    "requiredSymbols": 2874,
     "edges": 509,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -43,6 +43,7 @@
         "TOOL_TIER_RANK",
         "URL",
         "VERSION",
+        "_dataRootMemo",
         "agentCliHomes",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -60,6 +61,7 @@
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "dataRootMemoKey",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -92,6 +94,7 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "resolveDataRootUncached",
         "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
@@ -337,6 +340,7 @@
         "agentCliProbeable",
         "agentMcpImportSources",
         "applyConfigMigrations",
+        "assertSessionIdForPath",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -1273,6 +1277,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "assertSessionIdForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
@@ -2139,6 +2150,13 @@
           "symbol": "VERSION",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "isRuyiMcpServerId",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6165,6 +6183,7 @@
         "agentRunDir",
         "agentRunFile",
         "agentRunWriteChains",
+        "agentWorktreePathOwned",
         "applyAgentWorktree",
         "bridgedToolTier",
         "buildActionEnvelope",
@@ -7504,6 +7523,7 @@
         "runOpenAiTurn",
         "settleWaitEnvelopes",
         "syncProviderHistoryFromDisplay",
+        "unmarkAgentEnvelopeDelivered",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -7755,6 +7775,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "mergeMissionBeforeSave",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -13011,6 +13038,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -14680,6 +14714,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
           "kinds": [
             "call"
           ]
@@ -23888,6 +23929,7 @@
       "from": "02-session-store.js",
       "to": "01-config.js",
       "symbols": [
+        "assertSessionIdForPath",
         "atomicWriteJson",
         "mutateConfig",
         "readConfig",
@@ -24182,7 +24224,8 @@
       "from": "04-permission-runtime.js",
       "to": "00b-ruyi-names.js",
       "symbols": [
-        "RUYI_MCP_SERVER_ID"
+        "RUYI_MCP_SERVER_ID",
+        "isRuyiMcpServerId"
       ],
       "direction": "backward"
     },
@@ -25773,6 +25816,7 @@
         "journalReadIndex",
         "loadSession",
         "mergeMissionBeforeSave",
+        "mutateSession",
         "normalizeTodoItems",
         "providerHistoryToolCalls",
         "readSessionNotes",
@@ -27144,6 +27188,7 @@
         "apiSessionIdInvalid",
         "apiSessionNotFound",
         "crypto",
+        "dataRootAliases",
         "fsp",
         "json",
         "makeId",
@@ -27889,6 +27934,7 @@
       "symbols": [
         "EventStreamHooks",
         "dataRoot",
+        "dataRootAliases",
         "fsp",
         "nowIso",
         "path",

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-29T06:45:19.993Z",
+  "generatedAt": "2026-09-29T10:34:40.226Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1367,6 +1367,7 @@
       "coveredBy": [
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
         "dev-harness\\steward-content-tools.e2e.js",
         "dev-harness\\workbench-memory.e2e.js"
@@ -1406,6 +1407,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
     },
@@ -1678,6 +1680,7 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\live-full-text.static.e2e.js",
@@ -1894,6 +1897,7 @@
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
@@ -2258,6 +2262,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\agent-role-openai.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-team-mode.e2e.js",
         "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
@@ -2346,6 +2351,7 @@
         "dev-harness\\self-check.e2e.js",
         "dev-harness\\semantic-loop-guard.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
@@ -2975,6 +2981,7 @@
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
         "dev-harness\\agent-team-mode.e2e.js",
@@ -3191,6 +3198,7 @@
         "dev-harness\\agent-parent-heartbeat.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
         "dev-harness\\agent-team-mode.e2e.js",
@@ -3416,6 +3424,7 @@
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
@@ -4085,6 +4094,7 @@
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-node-wrapup.e2e.js",
         "dev-harness\\agent-quality-workflow.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
@@ -4129,6 +4139,7 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
@@ -4161,6 +4172,7 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
@@ -4193,6 +4205,7 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",
@@ -4225,6 +4238,7 @@
       "coveredBy": [
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
+        "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\autonomy-durability.e2e.js",
         "dev-harness\\autonomy-resume.e2e.js",

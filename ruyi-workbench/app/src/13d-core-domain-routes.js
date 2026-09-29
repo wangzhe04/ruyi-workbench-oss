@@ -696,7 +696,7 @@ async function buildMissionAggregateRows(options = {}) {
   const workspaceOf = cwd => {
     const p = String(cwd || '').trim();
     if (!p) return null;
-    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data) };
+    return { path: p, name: path.basename(p.replace(/[\\/]+$/, '')) || p, ruyiOwned: stewardRuyiOwnedPath(p, wsConfig, paths.data, dataRootAliases()) };
   };
   const index = await getPretenderProjectionIndex().catch(() => null);
   const slices = new Map(((index && index.sessions) || []).map(row => [row.sessionId, row]));

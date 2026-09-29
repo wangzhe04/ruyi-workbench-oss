@@ -31,6 +31,7 @@
         "TOOL_TIER_RANK",
         "URL",
         "VERSION",
+        "_dataRootMemo",
         "agentCliHomes",
         "apiFailure",
         "apiSessionIdInvalid",
@@ -48,6 +49,7 @@
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "dataRootMemoKey",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -80,6 +82,7 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "resolveDataRootUncached",
         "runKeyedChain",
         "ruyiPackageInfo",
         "ruyiVendorBinDir",
@@ -311,6 +314,7 @@
         "agentCliProbeable",
         "agentMcpImportSources",
         "applyConfigMigrations",
+        "assertSessionIdForPath",
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
@@ -1237,6 +1241,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "assertSessionIdForPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
@@ -2097,6 +2108,13 @@
           "symbol": "VERSION",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "isRuyiMcpServerId",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6081,6 +6099,7 @@
         "agentRunDir",
         "agentRunFile",
         "agentRunWriteChains",
+        "agentWorktreePathOwned",
         "applyAgentWorktree",
         "bridgedToolTier",
         "buildActionEnvelope",
@@ -7412,6 +7431,7 @@
         "runOpenAiTurn",
         "settleWaitEnvelopes",
         "syncProviderHistoryFromDisplay",
+        "unmarkAgentEnvelopeDelivered",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -7663,6 +7683,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "mergeMissionBeforeSave",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "mutateSession",
           "kinds": [
             "call"
           ]
@@ -12903,6 +12930,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -14564,6 +14598,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
           "kinds": [
             "call"
           ]
