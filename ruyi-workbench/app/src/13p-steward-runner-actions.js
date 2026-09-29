@@ -428,15 +428,18 @@ async function stewardHumanizeSay(text) {
 // 熔断(§11.3):每小时回合数、日费用、无进展、停机。触发时不调模型,只回一条带 circuit 的 steward_reply。
 // ────────────────────────────────────────────────────────────────────────────
 async function stewardDayCost(config) {
-  const today = usageDayKey(Date.now());
+  const now = Date.now();
+  const today = usageDayKey(now);
   let cost = 0;
-  for (const row of await readUsageRows(0).catch(() => [])) {
-    if (!row || row.kind !== 'aux' || row.note !== 'steward') continue;
-    if (usageDayKey(Date.parse(row.ts)) !== today) continue;
-    if (row.costTrusted === false) continue;      // 套餐制名义金额不进真实费用(与 13e/13g 同口径)
+  const dayKeyOf = usageDayKeyMemo();
+  // 性能批 P1:只算今天,下界取本地今天 0 点(旧月份整份跳过;结果与整读逐条判日相同)。
+  await forEachUsageRow(usageRangeLowerMs('today', now), row => {
+    if (!row || row.kind !== 'aux' || row.note !== 'steward') return;
+    if (dayKeyOf(row.tsMs) !== today) return;
+    if (row.costTrusted === false) return;      // 套餐制名义金额不进真实费用(与 13e/13g 同口径)
     const value = Number(row.cost);
     if (Number.isFinite(value)) cost += value;
-  }
+  });
   return Math.round(cost * 1e6) / 1e6;
 }
 

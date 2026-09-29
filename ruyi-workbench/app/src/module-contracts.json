@@ -31,6 +31,11 @@
         "StringDecoder",
         "TOOL_TIER_RANK",
         "URL",
+        "USAGE_CACHE_CHECK_BYTES",
+        "USAGE_CACHE_ROW_BYTES",
+        "USAGE_CACHE_YIELD_LINES",
+        "USAGE_DICT_COLUMNS",
+        "UsageRowView",
         "VERSION",
         "_consoleGbDecoder",
         "_consoleUtf8Strict",
@@ -66,6 +71,7 @@
         "externalRoot",
         "findRuyiPackageRootFor",
         "flushUsageLedgerSync",
+        "forEachUsageRow",
         "fs",
         "fsp",
         "hashArgs",
@@ -90,6 +96,8 @@
         "readUsageRows",
         "readline",
         "recordInstallLaunch",
+        "refreshUsageLedgerCache",
+        "refreshUsageLedgerCacheNow",
         "resolveDataRootUncached",
         "runKeyedChain",
         "ruyiPackageInfo",
@@ -101,10 +109,30 @@
         "spawnDetachedChecked",
         "text",
         "tildePath",
+        "usageColumns",
+        "usageColumnsAppend",
+        "usageColumnsDictMemo",
+        "usageColumnsGrow",
+        "usageColumnsParseText",
+        "usageColumnsPushLine",
+        "usageColumnsShrink",
         "usageDayKey",
+        "usageDayKeyMemo",
+        "usageDictId",
+        "usageDictIdMemo",
+        "usageLedgerCache",
+        "usageLedgerCacheDisabled",
+        "usageLedgerCacheStats",
         "usageLedgerChain",
         "usageLedgerPending",
+        "usageMonthFullParse",
+        "usageMonthIncremental",
+        "usageNextCheck",
+        "usageParseTail",
         "usageRangeLowerMs",
+        "usageSplitComplete",
+        "usageTsDateMemo",
+        "usageTsIsCanonical",
         "zlib"
       ],
       "requires": [
@@ -14116,6 +14144,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -14147,13 +14182,6 @@
           "symbol": "paths",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "readUsageRows",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -15701,6 +15729,13 @@
       "requires": [
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fsp",
           "kinds": [
             "read"
@@ -15716,13 +15751,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "nowIso",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "readUsageRows",
           "kinds": [
             "call"
           ]
@@ -15750,7 +15778,7 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "usageDayKey",
+          "symbol": "usageDayKeyMemo",
           "kinds": [
             "call"
           ]
@@ -17127,6 +17155,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -17141,14 +17176,21 @@
         },
         {
           "provider": "00-boot.js",
-          "symbol": "readUsageRows",
+          "symbol": "usageDayKey",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "00-boot.js",
-          "symbol": "usageDayKey",
+          "symbol": "usageDayKeyMemo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageRangeLowerMs",
           "kinds": [
             "call"
           ]
@@ -17726,7 +17768,7 @@
       "requires": [
         {
           "provider": "00-boot.js",
-          "symbol": "readUsageRows",
+          "symbol": "forEachUsageRow",
           "kinds": [
             "call"
           ]
@@ -17741,6 +17783,20 @@
         {
           "provider": "00-boot.js",
           "symbol": "usageDayKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKeyMemo",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageRangeLowerMs",
           "kinds": [
             "call"
           ]
@@ -19970,6 +20026,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "forEachUsageRow",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "hashArgs",
           "kinds": [
             "read"
@@ -19978,6 +20041,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "neutralizeFenceTag",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "readUsageRows",
           "kinds": [
             "read"
           ]
@@ -19999,6 +20069,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "spawnDetachedChecked",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageLedgerCacheStats",
           "kinds": [
             "read"
           ]

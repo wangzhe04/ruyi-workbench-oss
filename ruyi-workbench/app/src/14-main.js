@@ -328,6 +328,7 @@ module.exports = {
   CAP_UNKNOWN_TTL_MS,
   // 128f-⑧:unit/session-index-rebuild-race 用。
   buildUsageSummary,
+  forEachUsageRow, readUsageRows, usageLedgerCacheStats,   // 性能批 P1:unit/usage-ledger-cache 直调(新旧两条读账路径差分 + 增量计数)
   flushSessionIndex,
   invalidateSessionIndex,
   setSessionIndexRebuildScanHookForTest,

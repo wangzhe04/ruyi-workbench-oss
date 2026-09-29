@@ -726,6 +726,19 @@ function usageDayKey(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+// 性能批 P1:账大体按时间追加,相邻行多半同一天。记住上一次算出的那一天的 [本地 0 点, 次日 0 点),落在里面就复用日键 ——
+// 日键只由 ms 决定,区间内处处相同,所以结果与逐行 usageDayKey 相同(NaN 永远不落在区间里,照旧逐次现算)。
+function usageDayKeyMemo() {
+  let lo = NaN, hi = NaN, key = '';
+  return ms => {
+    if (ms >= lo && ms < hi) return key;
+    key = usageDayKey(ms);
+    const start = new Date(ms); start.setHours(0, 0, 0, 0);
+    const next = new Date(start); next.setDate(next.getDate() + 1);
+    lo = start.getTime(); hi = next.getTime();
+    return key;
+  };
+}
 // Lower-bound instant (ms) for a range. today/month use the LOCAL calendar; week = last 7x24h; all = 0.
 function usageRangeLowerMs(range, now) {
   const d = new Date(now);
@@ -740,7 +753,7 @@ function usageRangeLowerMs(range, now) {
 async function readUsageRows(lowerMs) {
   const rows = [];
   let files = [];
-  try { files = await fsp.readdir(paths.usage); } catch { return rows; }
+  try { files = (await fsp.readdir(paths.usage)).sort(); } catch { return rows; }   // 性能批 P1:按月份名排序 —— 修前是 readdir 次序(Linux 上是散列序),浮点累加次序随平台漂
   const lowerKey = lowerMs > 0 ? new Date(lowerMs).toISOString().slice(0, 7) : '';
   for (const f of files) {
     if (!/^\d{4}-\d{2}\.jsonl$/.test(f)) continue;
@@ -758,13 +771,283 @@ async function readUsageRows(lowerMs) {
   }
   return rows;
 }
+
+// ── 性能批 P1:用量账缓存 ────────────────────────────────────────────────────────────────────────
+// 修前每个读者(看板、预算、任务卡用量、管家熔断/仲裁/用量工具)每次都 readUsageRows:把所有月份整份读出、逐行
+// JSON.parse。每跑一轮对话 13e 就打一次 usage 脏页,下一次看板读因此整读一遍账 —— 2000 会话 / 30 万行(70 MB)时
+// 单这一步 1.5 s,而且大半是同步解析,SSE 流跟着顿。
+// 这里把解析结果按月份文件常驻成列(定长数组 + 值字典),文件只长不改时只解析新增的尾巴:
+//   · 判据:stat 的 size/mtime 没变 → 原样复用;同一个文件(ino 没变)、size 没缩、且上次已解析末尾那 ≤32 字节原样
+//     还在 → 只读新增部分;否则(截短、改写、换文件)这一个月整份重读。只提交到最后一个换行,没写完的那半行每次按原
+//     逻辑现解析、不入列。程序自己对账只追加(appendUsageLedger / flushUsageLedgerSync);外部编辑里只有「在中间改、
+//     同时又变长、末尾 32 字节恰好没动」这一种查不出,要等进程重启(缓存只在内存里)。
+//   · 对外只有 forEachUsageRow(lowerMs, fn):次序(readdir 次序的月份文件 → 文件内行序)、过滤(月份键 + ts 下界 +
+//     坏行/坏 ts 跳过)与 readUsageRows 逐条相同,调用方原来的累加代码一字不改,浮点累加次序因此也不变。
+//   · fn 拿到的是【复用的】视图对象:只许在回调里读,不许留引用。数值列存的是 Number(原值)(六个消费方本来就先
+//     Number() 再用),字符串类字段原值入字典(连类型一起保真:typeof 判断照旧),costTrusted 只在原值 === false
+//     时为 false,estimated 只在原值 === true 时为 true —— 与消费方的判据一一对应。多出一个 tsMs(= Date.parse(ts))。
+//   · RUYI_USAGE_CACHE=0 退回修前的整读路径(逃生口,也是 unit/usage-ledger-cache 差分测试的对照组)。
+const USAGE_CACHE_CHECK_BYTES = 32;
+const USAGE_CACHE_YIELD_LINES = 4000;   // 整月首次解析时每这么多行让一次事件循环(70 MB 的账不再一口气占住主线程)
+const USAGE_CACHE_ROW_BYTES = 8 * 5 + 1 + 4 * 7;   // 五个 Float64 列 + 标志位 + 七个字典号
+const usageLedgerCache = {
+  months: new Map(),            // 月份文件名 -> { size, mtimeMs, committed, check, cols, tail }
+  dict: [], dictIndex: new Map(),
+  chain: Promise.resolve(),
+  stats: { refreshes: 0, fullParses: 0, incrementalParses: 0, bytesParsed: 0 },
+};
+function usageLedgerCacheDisabled() { return process.env.RUYI_USAGE_CACHE === '0'; }
+function usageDictId(value) {
+  let id = usageLedgerCache.dictIndex.get(value);
+  if (id === undefined) { id = usageLedgerCache.dict.length; usageLedgerCache.dict.push(value); usageLedgerCache.dictIndex.set(value, id); }
+  return id;
+}
+const USAGE_DICT_COLUMNS = ['sessionId', 'engine', 'provider', 'model', 'currency', 'kind', 'note'];
+function usageColumns(capacity) {
+  const cap = Math.max(4, capacity | 0);
+  const cols = { n: 0, cap, tsMs: new Float64Array(cap), inTok: new Float64Array(cap), outTok: new Float64Array(cap), cachedInTok: new Float64Array(cap), cost: new Float64Array(cap), flags: new Uint8Array(cap), tsRaw: new Map() };
+  for (const key of USAGE_DICT_COLUMNS) cols[key] = new Uint32Array(cap);
+  return cols;
+}
+function usageColumnsGrow(cols) {
+  // 小列倍增;大列(整月解析完收紧过的)每次只多留 1/8 —— 一个月几万行,追加一行就翻倍太浪费
+  const cap = cols.cap < 4096 ? cols.cap * 2 : cols.cap + (cols.cap >> 3);
+  for (const key of ['tsMs', 'inTok', 'outTok', 'cachedInTok', 'cost', 'flags', ...USAGE_DICT_COLUMNS]) {
+    const next = new cols[key].constructor(cap); next.set(cols[key]); cols[key] = next;
+  }
+  cols.cap = cap;
+}
+// ts 原串是不是 toISOString 的规范写法(是的话不必另存,用 tsMs 就能原样还原)。逐行 new Date().toISOString() 太贵,
+// 按形状判:24 位、各分隔符在位、全是数字、小时不是 24(V8 把 24 点进位到次日);日期部分合不合法(2 月 30 日之类
+// V8 也会进位)按「上一行的那一天」缓存,同一天只真算一次。判不准的情形一律当非规范、另存原串 —— 只多占点内存,不会错。
+const usageTsDateMemo = { date: '', ok: false };
+function usageTsIsCanonical(ts) {
+  if (typeof ts !== 'string' || ts.length !== 24) return false;
+  if (ts.charCodeAt(4) !== 45 || ts.charCodeAt(7) !== 45 || ts.charCodeAt(10) !== 84 || ts.charCodeAt(13) !== 58
+    || ts.charCodeAt(16) !== 58 || ts.charCodeAt(19) !== 46 || ts.charCodeAt(23) !== 90) return false;
+  for (const k of [0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22]) { const c = ts.charCodeAt(k); if (c < 48 || c > 57) return false; }
+  if (ts.charCodeAt(11) === 50 && ts.charCodeAt(12) === 52) return false;   // 24 点
+  if (!ts.startsWith(usageTsDateMemo.date) || usageTsDateMemo.date === '') {
+    const date = ts.slice(0, 10);
+    const probe = date + 'T00:00:00.000Z';
+    const t = Date.parse(probe);
+    usageTsDateMemo.date = date;
+    usageTsDateMemo.ok = Number.isFinite(t) && new Date(t).toISOString() === probe;
+  }
+  return usageTsDateMemo.ok;
+}
+// 字典号:相邻行的会话/引擎/模型多半相同,每列记住上一个值,命中就不查 Map。
+function usageColumnsDictMemo() {
+  return { sessionId: [NaN, 0], engine: [NaN, 0], provider: [NaN, 0], model: [NaN, 0], currency: [NaN, 0], kind: [NaN, 0], note: [NaN, 0] };
+}
+function usageDictIdMemo(memo, value) {
+  if (memo[0] === value) return memo[1];   // NaN 初值永不相等;JSON 里也出不来 NaN
+  const id = usageDictId(value);
+  memo[0] = value; memo[1] = id;
+  return id;
+}
+// 一行 → 列。与 readUsageRows 的逐行判据相同:空白行、解析不出对象、ts 解析不出有限数的行都跳过。
+function usageColumnsPushLine(cols, line) {
+  if (!line.trim()) return false;
+  const rec = safeJsonParse(line, null);
+  if (!rec || typeof rec !== 'object') return false;
+  const t = Date.parse(rec.ts);
+  if (!Number.isFinite(t)) return false;
+  if (cols.n === cols.cap) usageColumnsGrow(cols);
+  const i = cols.n++;
+  cols.tsMs[i] = t;
+  // ts 原串只在它不是 toISOString 的规范写法时才另存(byModel.lastAt 要原样回显那一行的 ts)
+  if (!usageTsIsCanonical(rec.ts)) cols.tsRaw.set(i, rec.ts);
+  cols.inTok[i] = Number(rec.inTok); cols.outTok[i] = Number(rec.outTok); cols.cachedInTok[i] = Number(rec.cachedInTok); cols.cost[i] = Number(rec.cost);
+  cols.flags[i] = (rec.costTrusted === false ? 1 : 0) | (rec.estimated === true ? 2 : 0);
+  const memo = cols.dictMemo || (cols.dictMemo = usageColumnsDictMemo());
+  cols.sessionId[i] = usageDictIdMemo(memo.sessionId, rec.sessionId);
+  cols.engine[i] = usageDictIdMemo(memo.engine, rec.engine);
+  cols.provider[i] = usageDictIdMemo(memo.provider, rec.provider);
+  cols.model[i] = usageDictIdMemo(memo.model, rec.model);
+  cols.currency[i] = usageDictIdMemo(memo.currency, rec.currency);
+  cols.kind[i] = usageDictIdMemo(memo.kind, rec.kind);
+  cols.note[i] = usageDictIdMemo(memo.note, rec.note);
+  return true;
+}
+// 解析一段文本进 cols。yieldBetween 时每 USAGE_CACHE_YIELD_LINES 行让一次事件循环(只用于还没发布出去的新列)。
+async function usageColumnsParseText(cols, text, yieldBetween) {
+  const lines = text.split('\n');
+  for (let k = 0; k < lines.length; k++) {
+    let line = lines[k];
+    if (line.endsWith('\r')) line = line.slice(0, -1);
+    usageColumnsPushLine(cols, line);
+    if (yieldBetween && k % USAGE_CACHE_YIELD_LINES === USAGE_CACHE_YIELD_LINES - 1) await new Promise(resolve => setImmediate(resolve));
+  }
+}
+// 整月解析完把列收紧到实际行数(首次解析按字节估的容量会多出两成)。之后追加仍按倍增长。
+function usageColumnsShrink(cols) {
+  const cap = Math.max(4, cols.n);
+  if (cap >= cols.cap) return cols;
+  for (const key of ['tsMs', 'inTok', 'outTok', 'cachedInTok', 'cost', 'flags', ...USAGE_DICT_COLUMNS]) cols[key] = cols[key].slice(0, cap);
+  cols.cap = cap;
+  return cols;
+}
+function usageColumnsAppend(dst, src) {
+  for (let j = 0; j < src.n; j++) {
+    if (dst.n === dst.cap) usageColumnsGrow(dst);
+    const i = dst.n++;
+    for (const key of ['tsMs', 'inTok', 'outTok', 'cachedInTok', 'cost', 'flags', ...USAGE_DICT_COLUMNS]) dst[key][i] = src[key][j];
+    if (src.tsRaw.has(j)) dst.tsRaw.set(i, src.tsRaw.get(j));
+  }
+}
+// buf 的 [0, lastNL] 是完整行、之后是没写完的尾巴(不入列,每次随条目现解析一份)。
+// 0x0A 不会出现在 UTF-8 多字节序列内部,在它上面切不会劈开字符,逐段解码与整份解码结果相同。
+function usageSplitComplete(buf) {
+  const lastNl = buf.lastIndexOf(0x0a);
+  const complete = lastNl >= 0 ? buf.subarray(0, lastNl + 1) : buf.subarray(0, 0);
+  return { complete, rest: buf.subarray(complete.length) };
+}
+function usageNextCheck(previous, complete) {
+  const take = complete.subarray(Math.max(0, complete.length - USAGE_CACHE_CHECK_BYTES));   // 只拷末尾,不把整块拼一遍
+  const source = take.length >= USAGE_CACHE_CHECK_BYTES ? take : Buffer.concat([previous, take]);
+  return Buffer.from(source.subarray(Math.max(0, source.length - USAGE_CACHE_CHECK_BYTES)));
+}
+async function usageParseTail(rest) {
+  if (!rest.length) return null;
+  const tail = usageColumns(4);
+  await usageColumnsParseText(tail, rest.toString('utf8'), false);
+  return tail;
+}
+async function usageMonthFullParse(file, st) {
+  const buf = await fsp.readFile(file);
+  const { complete, rest } = usageSplitComplete(buf);
+  const cols = usageColumns(Math.ceil(complete.length / 200) + 16);
+  // 新列还没发布(不在 months 里),分片让出期间别的读者看到的仍是旧条目。
+  if (complete.length) await usageColumnsParseText(cols, complete.toString('utf8'), true);
+  usageColumnsShrink(cols);
+  usageLedgerCache.stats.fullParses += 1;
+  usageLedgerCache.stats.bytesParsed += buf.length;
+  return { size: buf.length, mtimeMs: st.mtimeMs, ino: st.ino, committed: complete.length, check: usageNextCheck(Buffer.alloc(0), complete), cols, tail: await usageParseTail(rest) };
+}
+// 读 [committed - check.length, size):先核对旧末尾那几个字节还在原位,再吞新增部分。核不上就返回 null(调用方整月重读)。
+// 新增行先解析进临时列;并进共享列与换上新条目由调用方在同一个同步段里做 —— 别的读者看不到「行已入列、旧尾巴
+// 还挂着」那种半截状态(那会把同一行数两遍)。
+async function usageMonthIncremental(file, entry, st) {
+  const start = entry.committed - entry.check.length;
+  const length = st.size - start;
+  const fh = await fsp.open(file, 'r');
+  let buf;
+  try {
+    buf = Buffer.alloc(length);
+    const { bytesRead } = await fh.read(buf, 0, length, start);
+    if (bytesRead !== length) return null;
+  } finally { await fh.close(); }
+  if (!buf.subarray(0, entry.check.length).equals(entry.check)) return null;
+  const { complete, rest } = usageSplitComplete(buf.subarray(entry.check.length));
+  const fresh = usageColumns(16);
+  if (complete.length) await usageColumnsParseText(fresh, complete.toString('utf8'), false);
+  const tail = await usageParseTail(rest);
+  const parsedBytes = buf.length - entry.check.length;
+  // 返回提交函数:由调用方在【同一个同步段】里并列 + 换条目。
+  return () => {
+    usageColumnsAppend(entry.cols, fresh);
+    usageLedgerCache.stats.incrementalParses += 1;
+    usageLedgerCache.stats.bytesParsed += parsedBytes;
+    return { size: st.size, mtimeMs: st.mtimeMs, ino: st.ino, committed: entry.committed + complete.length, check: usageNextCheck(entry.check, complete), cols: entry.cols, tail };
+  };
+}
+async function refreshUsageLedgerCacheNow() {
+  usageLedgerCache.stats.refreshes += 1;
+  let files = [];
+  try { files = await fsp.readdir(paths.usage); } catch { usageLedgerCache.months.clear(); return []; }
+  const order = files.filter(f => /^\d{4}-\d{2}\.jsonl$/.test(f)).sort();   // 与 readUsageRows 同一次序
+  const present = new Set(order);
+  for (const name of [...usageLedgerCache.months.keys()]) if (!present.has(name)) usageLedgerCache.months.delete(name);
+  for (const name of order) {
+    const file = path.join(paths.usage, name);
+    try {
+      const st = await fsp.stat(file);
+      const entry = usageLedgerCache.months.get(name);
+      if (entry && entry.size === st.size && entry.mtimeMs === st.mtimeMs) continue;
+      const commit = entry && st.ino === entry.ino && st.size >= entry.committed ? await usageMonthIncremental(file, entry, st).catch(() => null) : null;
+      if (commit) usageLedgerCache.months.set(name, commit());
+      else usageLedgerCache.months.set(name, await usageMonthFullParse(file, st));
+    } catch { usageLedgerCache.months.delete(name); }   // 读不了的月份与修前一样当它不存在
+  }
+  return order;
+}
+// 刷新串行:每个调用拿到的都是【它发起之后】才开始的那一次刷新 —— 刚写进账的行对下一个读者一定可见。
+function refreshUsageLedgerCache() {
+  const run = usageLedgerCache.chain.then(refreshUsageLedgerCacheNow, refreshUsageLedgerCacheNow);
+  usageLedgerCache.chain = run.catch(() => []);
+  return run;
+}
+// opts.sessionIds(可选,Set<string>):只遍历这些会话的行 —— 次序与全量遍历里筛出来的一样,聚合结果逐位相同;
+// 列里先比字典号,不命中的行连视图都不填(每轮对话后只刷那几条会话的用量时,30 万行的账只花几毫秒)。
+async function forEachUsageRow(lowerMs, fn, opts = {}) {
+  const onlySessions = opts && opts.sessionIds instanceof Set ? opts.sessionIds : null;
+  if (usageLedgerCacheDisabled()) {
+    for (const rec of await readUsageRows(lowerMs)) {
+      if (onlySessions && !onlySessions.has(rec.sessionId)) continue;
+      rec.tsMs = Date.parse(rec.ts); rec.tsRaw = rec.ts; fn(rec);
+    }
+    return;
+  }
+  // 读账失败与修前 readUsageRows 同口径:当空账(不抛)。回调里抛的错照旧往外冒。
+  let order = [];
+  try { order = await refreshUsageLedgerCache(); } catch { return; }
+  const lowerKey = lowerMs > 0 ? new Date(lowerMs).toISOString().slice(0, 7) : '';
+  const dict = usageLedgerCache.dict;
+  let wantIds = null;
+  if (onlySessions) {
+    wantIds = new Set();
+    for (const sid of onlySessions) { const id = usageLedgerCache.dictIndex.get(sid); if (id !== undefined) wantIds.add(id); }
+    if (!wantIds.size) return;
+  }
+  const view = new UsageRowView();
+  const visit = c => {
+    const rawTs = c.tsRaw.size ? c.tsRaw : null;
+    for (let i = 0; i < c.n; i++) {
+      if (wantIds && !wantIds.has(c.sessionId[i])) continue;
+      const t = c.tsMs[i];
+      if (lowerMs > 0 && t < lowerMs) continue;
+      const flags = c.flags[i];
+      view.tsMs = t; view.tsRaw = rawTs ? rawTs.get(i) : undefined;
+      view.inTok = c.inTok[i]; view.outTok = c.outTok[i]; view.cachedInTok = c.cachedInTok[i]; view.cost = c.cost[i];
+      view.costTrusted = (flags & 1) === 0; view.estimated = (flags & 2) !== 0;
+      view.sessionId = dict[c.sessionId[i]]; view.engine = dict[c.engine[i]]; view.provider = dict[c.provider[i]]; view.model = dict[c.model[i]];
+      view.currency = dict[c.currency[i]]; view.kind = dict[c.kind[i]]; view.note = dict[c.note[i]];
+      fn(view);
+    }
+  };
+  for (const name of order) {
+    if (lowerKey && name.slice(0, 7) < lowerKey) continue;
+    const entry = usageLedgerCache.months.get(name);
+    if (!entry) continue;
+    visit(entry.cols);
+    if (entry.tail) visit(entry.tail);
+  }
+}
+// 视图:字段在构造时一次定形(defineProperty 之后再挂字段会让 V8 把对象降成字典模式,每行十几次读写全变慢);
+// ts 走原型上的 getter,按需拼规范串。tsRaw:只有原值不是 toISOString 规范写法时才有值(回退路径下恒为原值)——
+// 需要原样回显 ts 的地方(看板 byModel.lastAt)用 tsRaw ?? 规范串,免得每行都拼一次串。
+class UsageRowView {
+  constructor() {
+    this.tsMs = 0; this.tsRaw = undefined;
+    this.inTok = 0; this.outTok = 0; this.cachedInTok = 0; this.cost = 0;
+    this.costTrusted = true; this.estimated = false;
+    this.sessionId = undefined; this.engine = undefined; this.provider = undefined; this.model = undefined;
+    this.currency = undefined; this.kind = undefined; this.note = undefined;
+  }
+  get ts() { return this.tsRaw !== undefined ? this.tsRaw : new Date(this.tsMs).toISOString(); }
+}
+function usageLedgerCacheStats() {
+  let rows = 0, residentBytes = 0;
+  for (const entry of usageLedgerCache.months.values()) { rows += entry.cols.n; residentBytes += entry.cols.cap * USAGE_CACHE_ROW_BYTES; }
+  return { ...usageLedgerCache.stats, months: usageLedgerCache.months.size, rows, residentBytes, dictSize: usageLedgerCache.dict.length };
+}
 // Aggregate the ledger for a range into the /api/usage/summary shape. costsByCurrency holds ONLY trusted,
 // non-plan-based costs; planBasedTurns counts turns whose cost is plan-based/notional (surfaced separately).
 // Dimensions: engine / provider / session / day / model (117x-M1 added byModel; see its comment in the loop).
 async function buildUsageSummary(range) {
   const config = await readConfig().catch(() => ({}));
   const now = Date.now();
-  const rows = await readUsageRows(usageRangeLowerMs(range, now));
   // provider/source id -> display label (native providers + Claude direct + known Claude endpoints).
   const labels = new Map([['claude-cli', 'Claude CLI (Anthropic)']]);
   for (const p of (Array.isArray(config.providers) ? config.providers : [])) if (p && p.id) labels.set(String(p.id), String(p.label || p.id));
@@ -782,8 +1065,16 @@ async function buildUsageSummary(range) {
   const addCost = (bucket, cur, cost) => { bucket[cur] = (bucket[cur] || 0) + cost; };
   const totals = { inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, subagentTurns: 0, auxCalls: 0, estimatedTurns: 0, planBasedTurns: 0, costsByCurrency: {} };
   const byEngine = new Map(), byProvider = new Map(), bySession = new Map(), byDay = new Map(), byModel = new Map();
+  const dayKeyOf = usageDayKeyMemo();
+  const modelKeys = new Map();   // eng -> pid -> mid -> JSON 键(每个三元组只 stringify 一次)
+  const modelKeyOf = (eng, pid, mid) => {
+    let byPid = modelKeys.get(eng); if (!byPid) modelKeys.set(eng, byPid = new Map());
+    let byMid = byPid.get(pid); if (!byMid) byPid.set(pid, byMid = new Map());
+    let key = byMid.get(mid); if (key === undefined) byMid.set(mid, key = JSON.stringify([eng, pid, mid]));
+    return key;
+  };
 
-  for (const r of rows) {
+  await forEachUsageRow(usageRangeLowerMs(range, now), r => {
     const inTok = Number(r.inTok) || 0, outTok = Number(r.outTok) || 0, cachedInTok = Math.min(inTok, Number(r.cachedInTok) || 0);
     const cost = Number(r.cost), cur = (typeof r.currency === 'string' && r.currency) ? r.currency : null;
     const trusted = r.costTrusted !== false;
@@ -803,8 +1094,8 @@ async function buildUsageSummary(range) {
     const sid = String(r.sessionId || '');
     let sm = bySession.get(sid); if (!sm) bySession.set(sid, sm = { sessionId: sid, title: titles.get(sid) || '', inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {} });
     sm.inTok += inTok; sm.outTok += outTok; sm.cachedInTok += cachedInTok; sm.turns += 1; if (!trusted) sm.planBasedTurns += 1; if (hasCost) addCost(sm.costsByCurrency, cur, cost);
-    const tsMs = Date.parse(r.ts);
-    const dk = usageDayKey(tsMs);
+    const tsMs = r.tsMs;
+    const dk = dayKeyOf(tsMs);
     let dm = byDay.get(dk); if (!dm) byDay.set(dk, dm = { date: dk, inTok: 0, outTok: 0, cachedInTok: 0, costsByCurrency: {} });
     dm.inTok += inTok; dm.outTok += outTok; dm.cachedInTok += cachedInTok; if (hasCost) addCost(dm.costsByCurrency, cur, cost);
     // 117x-M1: byModel. Keyed by the (engine, provider, model) TRIPLE, not by model id alone: the same id can be
@@ -817,18 +1108,19 @@ async function buildUsageSummary(range) {
     // model entry's planBased flag and costsByCurrency mean precisely what a provider entry's do.
     const mid = String(r.model || '');
     if (mid) {
-      const mk = JSON.stringify([eng, pid, mid]); // JSON-array key: unambiguous whatever characters an id carries
+      const mk = modelKeyOf(eng, pid, mid); // JSON-array key: unambiguous whatever characters an id carries
       let mm = byModel.get(mk);
-      if (!mm) byModel.set(mk, mm = { model: mid, provider: pid, label: labels.get(pid) || pid, engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {}, lastAt: '', lastMs: 0 });
+      if (!mm) byModel.set(mk, mm = { model: mid, provider: pid, label: labels.get(pid) || pid, engine: eng, inTok: 0, outTok: 0, cachedInTok: 0, turns: 0, planBasedTurns: 0, costsByCurrency: {}, lastAt: '', lastMs: 0, lastTsRaw: undefined });
       mm.inTok += inTok; mm.outTok += outTok; mm.cachedInTok += cachedInTok; mm.turns += 1; if (!trusted) mm.planBasedTurns += 1; if (hasCost) addCost(mm.costsByCurrency, cur, cost);
       // lastAt = the ts of this group's MOST RECENT ledger row, kept as that row's own ISO string so it reads
       // exactly like the `ts` on the line it came from (设计页 §11.17.2「常用」按最近一次使用时间排序). A row whose
       // ts does not parse is ignored FOR lastAt ONLY — it still counts in this entry's tokens/turns — so lastAt can
       // never become 'Invalid Date'/NaN; a group with no parseable ts at all keeps the empty string. (readUsageRows
       // already drops unparseable-ts rows before we get here, so this is defence in depth, not a live path.)
-      if (Number.isFinite(tsMs) && tsMs > mm.lastMs) { mm.lastMs = tsMs; mm.lastAt = String(r.ts); }
+      // 性能批 P1:只记最大时刻与那一行的原串(没有原串 = 规范写法),收尾再成串 —— 与逐行 String(r.ts) 结果相同。
+      if (Number.isFinite(tsMs) && tsMs > mm.lastMs) { mm.lastMs = tsMs; mm.lastTsRaw = r.tsRaw; }
     }
-  }
+  });
   // Round every currency bucket to 6 dp to shed binary-float noise (0.30000000000000004 -> 0.3), and derive a
   // per-entry planBased flag: true ONLY when the entry has plan-based turns AND no trusted cost to show (so a
   // mixed entry that still has a real cost keeps showing it, and the front-end can honestly badge 计划内计费).
@@ -846,9 +1138,8 @@ async function buildUsageSummary(range) {
   let budget = null;
   const ub = config.usageBudget;
   if (ub && typeof ub === 'object' && Number(ub.monthly) > 0 && typeof ub.currency === 'string' && ub.currency) {
-    const monthRows = await readUsageRows(usageRangeLowerMs('month', now));
     let spent = 0;
-    for (const r of monthRows) { const c = Number(r.cost); if (r.costTrusted !== false && r.currency === ub.currency && Number.isFinite(c)) spent += c; }
+    await forEachUsageRow(usageRangeLowerMs('month', now), r => { const c = Number(r.cost); if (r.costTrusted !== false && r.currency === ub.currency && Number.isFinite(c)) spent += c; });
     budget = { monthly: Number(ub.monthly), currency: ub.currency, spentThisMonth: round6(spent) };
   }
   return {
@@ -861,7 +1152,7 @@ async function buildUsageSummary(range) {
     // sum(byModel.turns) === sum(byEngine.turns) - empty-model-rows invariant. lastMs is scratch, stripped here.
     byModel: [...byModel.values()]
       .sort((a, b) => (b.lastMs - a.lastMs) || (b.turns - a.turns) || (a.model < b.model ? -1 : (a.model > b.model ? 1 : 0)))
-      .map(({ lastMs, ...rest }) => rest),
+      .map(({ lastMs, lastTsRaw, ...rest }) => ({ ...rest, lastAt: lastMs > 0 ? String(lastTsRaw !== undefined ? lastTsRaw : new Date(lastMs).toISOString()) : rest.lastAt })),
     bySession: [...bySession.values()].sort((a, b) => (b.inTok + b.outTok) - (a.inTok + a.outTok)).slice(0, 20),
     byDay: [...byDay.values()].sort((a, b) => a.date < b.date ? -1 : (a.date > b.date ? 1 : 0)),
     budget,

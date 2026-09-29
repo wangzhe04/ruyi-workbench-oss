@@ -101,16 +101,16 @@ async function stewardImplUsage(args) {
   const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
   if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
   const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
-  const rows = await readUsageRows(0).catch(() => []);
   const total = stewardEmptyUsageBucket();
   const steward = stewardEmptyUsageBucket();
   const bySession = new Map();
   const byDay = new Map();
-  for (const row of rows) {
-    if (!row || typeof row !== 'object') continue;
-    if (sessionId && String(row.sessionId || '') !== sessionId) continue;
-    const rowDay = usageDayKey(Date.parse(row.ts));
-    if (day && rowDay !== day) continue;
+  const dayKeyOf = usageDayKeyMemo();
+  const absorb = row => {
+    if (!row || typeof row !== 'object') return;
+    if (sessionId && String(row.sessionId || '') !== sessionId) return;
+    const rowDay = dayKeyOf(row.tsMs);
+    if (day && rowDay !== day) return;
     stewardAddUsageRow(total, row);
     if (row.kind === 'aux' && row.note === 'steward') stewardAddUsageRow(steward, row);
     const sid = String(row.sessionId || '');
@@ -118,7 +118,8 @@ async function stewardImplUsage(args) {
     stewardAddUsageRow(bySession.get(sid), row);
     if (!byDay.has(rowDay)) byDay.set(rowDay, stewardEmptyUsageBucket());
     stewardAddUsageRow(byDay.get(rowDay), row);
-  }
+  };
+  await forEachUsageRow(0, absorb, sessionId ? { sessionIds: new Set([sessionId]) } : {});
   const topSessions = [...bySession.entries()]
     .sort((a, b) => (b[1].inTok + b[1].outTok) - (a[1].inTok + a[1].outTok))
     .slice(0, 20)

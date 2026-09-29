@@ -181,16 +181,16 @@ function finishMissionUsage(usage) {
   return usage;
 }
 
-async function buildMissionUsageMap() {
+// sessionIds(可选):只聚合这几条会话 —— 每轮对话后的增量刷新只需要被打了 usage 脏页的那几条(性能批 P1)。
+async function buildMissionUsageMap(sessionIds = null) {
   const map = new Map();
-  const rows = await readUsageRows(0).catch(() => []);
-  for (const row of rows) {
+  await forEachUsageRow(0, row => {
     const sid = String(row && row.sessionId || '');
-    if (!sid) continue;
+    if (!sid) return;
     let usage = map.get(sid);
     if (!usage) map.set(sid, usage = emptyMissionUsage());
     addMissionUsageRow(usage, row);
-  }
+  }, sessionIds ? { sessionIds } : {});
   for (const usage of map.values()) finishMissionUsage(usage);
   return map;
 }
@@ -346,7 +346,7 @@ async function rebuildPretenderIndexFull(reason, knownSources) {
 async function refreshPretenderIndexSlices(base, dirtyIds, usageIds, reason) {
   const sources = { ...(base.sources || {}) };
   const rows = new Map(base.sessions.map(row => [row.sessionId, row]));
-  const usageMap = usageIds.size ? await buildMissionUsageMap() : null;
+  const usageMap = usageIds.size ? await buildMissionUsageMap(usageIds) : null;
   // 121-K3:增量刷新也要算一次窗口 —— 一条刚被写过的会话恰恰最可能【刚刚】挤进最近 N 条,
   // 拿旧窗口判它等于让新会话晚一整轮才上索引。dirtyIds 为空时下面的循环不跑,这一次 readdir
   // 也就不会白付(getPretenderProjectionIndex 只在真有脏页时才走到这里)。

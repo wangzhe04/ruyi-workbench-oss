@@ -148,12 +148,14 @@ async function stewardArbiterDayCost() {
   if (now - stewardArbiter.costCache.at < STEWARD_ARBITER_COST_CACHE_MS) return stewardArbiter.costCache.value;
   const today = usageDayKey(now);
   let cost = 0;
-  for (const row of await readUsageRows(0).catch(() => [])) {
-    if (!row || usageDayKey(Date.parse(row.ts)) !== today) continue;
-    if (row.costTrusted === false) continue;
+  const dayKeyOf = usageDayKeyMemo();
+  // 性能批 P1:只有今天的行会被计入,下界取本地今天 0 点 —— 旧月份整份跳过,结果与整读逐条判日相同。
+  await forEachUsageRow(usageRangeLowerMs('today', now), row => {
+    if (!row || dayKeyOf(row.tsMs) !== today) return;
+    if (row.costTrusted === false) return;
     const value = Number(row.cost);
     if (Number.isFinite(value)) cost += value;
-  }
+  });
   const rounded = Math.round(cost * 1e6) / 1e6;
   stewardArbiter.costCache = { at: now, value: rounded };
   return rounded;
