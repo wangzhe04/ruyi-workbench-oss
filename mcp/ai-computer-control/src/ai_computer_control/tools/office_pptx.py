@@ -252,43 +252,29 @@ def write_pptx(
 ) -> dict:
     """Create a 16:9 PowerPoint (.pptx) from slide specs, styled from design tokens (模板驱动).
 
-    slides is a list of dicts; each dict's 'type' selects the layout:
-      * {'type': 'title',   'title': str, 'subtitle': str?, 'date': str?}
-            — a full-bleed dark COVER:主色满铺 background, big white bold title (44–54pt by length),
-              light subtitle, an accent underline, and an optional bottom-right date. No page number.
-      * {'type': 'content', 'title': str, 'bullets': [str | {'text': str, 'level': int}]}
-            — a bulleted content slide. Bullets may be plain strings or {text, level} for indent
-              levels (0 = top). Font size and layout adapt to the bullet count: ≤3 large / 4–5 medium
-              (both vertically centred), 6–10 auto-split into two columns. Longer lists automatically
-              continue onto additional slides without discarding content.
-      * {'type': 'stats',   'title': str, 'items': [{'label': str, 'value': str, 'note': str?}]}
-            — number-highlight cards (2–6 items): even cards (2–3 per row) with a big bold primary
-              value, a label above and an optional grey note below. Empty / >6 items -> error.
-      * {'type': 'table',   'title': str, 'headers': [str,...], 'rows': [[...], ...]}
-            — a slide with a styled table (token header fill + white bold text + zebra rows).
-      * {'type': 'image',   'title': str, 'image_path': str, 'caption': str?}
-            — a slide showing an image (auto-fit) with an optional caption. image_path is read and
-              passes the protected-path guard.
-      * {'type': 'closing', 'title': str?, 'subtitle': str?}
-            — a full-bleed dark CLOSING slide mirroring the cover ('谢谢' if no title). No page number.
-    Content / stats / table / image slides carry a footer page number; title & closing do not.
-
-    v2 layout: every slide uses the "Title Only" layout, so its title is a real title placeholder (outline /
-    navigator / screen readers). Bullets are real paragraph bullets with a hanging indent and shrink to fit;
-    11+ bullets split into balanced slides (no one-bullet orphan). Table columns are weighted by content and
-    always fit the slide width; dense tables drop to 10-11 pt and split on estimated wrapped height.
-    Images over 2000 px are downscaled before embedding. A target held open by PowerPoint/WPS returns
-    {'error', 'code': 'file_locked', 'hint'} and leaves the old file untouched.
+    slides is a list of dicts; 'type' selects the layout:
+      * {'type': 'title', 'title': str, 'subtitle': str?, 'date': str?} — dark full-bleed COVER, no page number.
+      * {'type': 'content', 'title': str, 'bullets': [str | {'text': str, 'level': int}]} — bullets (level 0 =
+        top). Size adapts to the count (≤3 large, 4–5 medium, 6–10 two columns); 11+ split into balanced slides,
+        nothing dropped.
+      * {'type': 'stats', 'title': str, 'items': [{'label': str, 'value': str, 'note': str?}]} — 2–6
+        number-highlight cards. Empty / >6 items -> error.
+      * {'type': 'table', 'title': str, 'headers': [str,...], 'rows': [[...], ...]} — styled table; columns fit
+        the width; dense tables use 10-11 pt and split across slides.
+      * {'type': 'image', 'title': str, 'image_path': str, 'caption': str?} — auto-fit image (must pass the
+        protected-path guard; >2000 px is downscaled).
+      * {'type': 'closing', 'title': str?, 'subtitle': str?} — dark CLOSING slide ('谢谢' if no title), no page number.
 
     Args:
         path: Output .pptx path.
-        slides: List of slide spec dicts (see above). Empty -> error.
+        slides: List of slide spec dicts. Empty -> error.
         style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> 'business'.
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
         dict with 'success', 'path', 'output_path', 'slides' (count), 'style'. Missing python-pptx ->
-        {'error': install guidance}. Bad input -> {'error': <中文人话>}.
+        {'error': install guidance}. Bad input -> {'error': <中文人话>}. A target held open by PowerPoint/WPS ->
+        {'error', 'code': 'file_locked', 'hint'}, old file untouched.
     """
     if not _AVAILABLE:
         return _unavailable()

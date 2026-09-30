@@ -24,14 +24,12 @@ async def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000
                          tolerance: int = 10, poll_ms: int = 100) -> dict:
     """Poll the pixel at (x, y) until it matches color_hex (within tolerance) or timeout.
 
-    A synchronization primitive: block until the screen visibly changes to an expected color.
-
     Args:
         x, y: Screen coordinates to sample.
         color_hex: Target color like "#3399ff" (or "39f").
-        timeout_ms: Max time to wait, in milliseconds (capped at 120000; 'capped' is set when cut).
+        timeout_ms: Max wait in ms (capped at 120000; 'capped' is set when cut).
         tolerance: Per-channel absolute tolerance (0-255).
-        poll_ms: Poll interval in milliseconds.
+        poll_ms: Poll interval in ms.
 
     Returns:
         dict with ok, matched (bool), waited_ms, and the last observed 'rgb'/'hex'.

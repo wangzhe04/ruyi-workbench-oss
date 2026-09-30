@@ -92,16 +92,14 @@ def type_text(text: str, interval: float = 0.02, use_clipboard: bool | None = No
 
     Args:
         text: The text to type.
-        interval: Seconds between each keystroke (ignored when the clipboard method is used).
-        use_clipboard: None (default) = auto: clipboard paste for non-ASCII/CJK, multi-line, or long
-                       (>200 chars) text — verbatim, no editor auto-indent — and key-by-key only for
-                       short single-line ASCII; True = force clipboard paste; False = force key-by-key
-                       (cannot produce CJK; multi-line text may be auto-indented by the editor).
+        interval: Seconds between keystrokes (ignored for clipboard paste).
+        use_clipboard: None (default) = auto: clipboard paste for non-ASCII/CJK, multi-line or long (>200 chars)
+            text (verbatim, no editor auto-indent), key-by-key only for short single-line ASCII. True = force
+            paste. False = force key-by-key (cannot produce CJK; editors may auto-indent multi-line text).
 
     Returns:
-        dict with 'ok', 'length', and the 'method' actually used ('route' says why, 'restore' how the
-        previous clipboard text was put back). On a forced key-by-key call with non-ASCII text, a
-        'warning' flags the characters that could not be typed.
+        dict with 'ok', 'length', and the 'method' used ('route' says why, 'restore' how the previous clipboard
+        text was put back). Forced key-by-key with non-ASCII text adds a 'warning' naming untypable characters.
     """
     try:
         # b2-P2: 超长文本禁止逐键 typewrite(百万字符可阻塞数分钟)—— 强制走剪贴板路由
@@ -216,9 +214,6 @@ def key_down(key: str) -> dict:
 
     Args:
         key: Key to hold down.
-
-    Returns:
-        dict with 'ok'.
     """
     try:
         k = key.strip().lower()
@@ -236,9 +231,6 @@ def key_up(key: str) -> dict:
 
     Args:
         key: Key to release.
-
-    Returns:
-        dict with 'ok'.
     """
     try:
         k = key.strip().lower()

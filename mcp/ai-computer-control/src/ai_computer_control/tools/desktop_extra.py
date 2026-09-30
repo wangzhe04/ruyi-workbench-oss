@@ -112,17 +112,16 @@ def get_clipboard_image(save_path: str | None = None, allow_protected: bool = Fa
     """Read an image currently on the clipboard (e.g. a screenshot the user copied).
 
     Args:
-        save_path: Optional PNG path to save to (always full resolution). If omitted, base64 is returned.
-        allow_protected: Override the protected-system-root guard on save_path (default off).
-        max_width: For the base64 return only: proportionally downscale to this width (default 1280, same
-            budget as screenshot; 0 = original size). 'scale' reports the factor applied.
-        format: 'png' (default) or 'jpeg' for the base64 return; the result's 'format' says which.
+        save_path: Optional PNG path to save to (full resolution); omitted -> base64.
+        allow_protected: Bypass the protected-path guard on save_path (default off).
+        max_width: Base64 return only: downscale to this width (default 1280; 0 = original); 'scale' reports the
+            factor.
+        format: 'png' (default) or 'jpeg' for the base64 return.
         quality: JPEG quality 1-100 (ignored for PNG).
 
     Returns:
-        dict with 'has_image', and either 'path'+size or 'image_base64' (+ 'width'/'height' of the
-        returned image, 'original_width'/'original_height', 'scale', 'format'), or 'files' if the clipboard
-        holds file paths instead of a bitmap.
+        dict with 'has_image', and 'path'+size or 'image_base64' (+ 'width'/'height', 'original_width'/
+        'original_height', 'scale', 'format'), or 'files' if the clipboard holds file paths instead of a bitmap.
     """
     try:
         from PIL import ImageGrab
@@ -159,11 +158,11 @@ def set_clipboard_image(path: str) -> dict:
     何时别用: 剪贴板里是文本时用 set_clipboard;只是要看图用 image_info/screenshot。
 
     Args:
-        path: 源图片文件路径 (PNG/JPG 等 Pillow 可读格式;写剪贴板前会用 Pillow 预验,坏文件直接报错)。
+        path: 源图片文件路径 (PNG/JPG 等 Pillow 可读格式;写入前预验,坏文件直接报错)。
 
     Returns:
-        dict with 'success' and 'path' (绝对路径); 文件不存在 / 非图片 / PowerShell 失败 →
-        {'error': 人话说明}。注意: 写入会覆盖用户当前剪贴板里的图片/文本。
+        dict with 'success' and 'path' (绝对路径); 文件不存在 / 非图片 / PowerShell 失败 -> {'error': 人话说明}。
+        注意: 写入会覆盖用户当前剪贴板里的图片/文本。
     """
     import subprocess
     if not os.path.exists(path):

@@ -99,61 +99,38 @@ def chart_image(
 ) -> dict:
     """Render a standalone chart image (.png) with matplotlib, styled from design tokens (模板驱动).
 
-    data shape:
-        {'labels': [str, ...],
-         'series': [{'name': str, 'values': [num, ...]}, ...]}
-    labels are the x categories (or pie slice labels); each series is one line/bar-group. For 'pie'
-    exactly one series is required (its values map to the labels).
-
-    Styling: token chart palette, light-grey grid, no top/right spines, a legend, value labels on
-    bar charts, and DPI 150. 中文 titles/labels render via the CJK font chain (Microsoft YaHei ->
-    SimHei -> SimSun, probed at call time).
+    data: {'labels': [str, ...], 'series': [{'name': str, 'values': [num, ...]}, ...]}. labels are the x
+    categories (or pie slice labels); each series is one line/bar-group; 'pie' needs exactly one series.
+    中文 labels render via an auto-picked CJK font; 150 DPI.
 
     何时用: 需要 bar/line/pie/scatter 之外的形态 —— 类目多/标签长用 hbar 横排更好读；一个类目下多个
     分量的构成用 stacked_bar；随时间的量级趋势(强调"填满到 0"的体量感)用 area。
     何时别用: 单纯要精确数值对比用 bar/line 即可,area 的堆叠/透明度会让精确读数变难;分量总和无意义
     (如互不相关的独立指标)时别用 stacked_bar,改用 bar 分组。
 
-    109c — 出图补型 (工具版本不变，仅补 chart_type): 新增 hbar(横向条形图)、stacked_bar(堆叠柱状图)、
-    area(面积图)。三者复用同一份 data 形状与坐标轴标题/CJK 字体/style 链路,不新增参数：
-      * hbar: labels 落在纵轴(自上而下与 labels 顺序一致)，数值落在横轴；多系列并列成组。
-        坐标轴语义与 bar 相反 —— 若沿用自动推导的 y_title(取单系列 name)会挂在类目轴上，横向图建议
-        显式传 x_title/y_title。
-      * stacked_bar: 同一 x 类目下的多系列纵向堆叠求和；柱顶标注堆叠总和(不逐段标数值，避免拥挤)。
-      * area: 多系列各自画折线 + 半透明填充(alpha=0.35，与 matplotlib fill_between 独立叠放，不是
-        累积堆叠面积图) —— 系列间可直接互相对照，重叠处靠透明度分辨。
-
-    v1.7.1 — 坐标轴标题 (用户反馈图表缺 X/Y 轴单位)。命名与 excel_chart 对齐 (x_title / y_title):
-      * x_title / y_title 设横 / 纵轴标题 (matplotlib ax.set_xlabel / set_ylabel)，字体走既有 CJK 链。
-      * 也可写在 data 里 (data['x_title'] / data['y_title'])；顶层参数优先。
-      * 缺省自动推导 (仅当该参数为 None 且 data 里也没给)：
-          - y_title ← 单系列时取该系列的 name；多系列留空 (由图例承担)。
-          - x_title ← 无表头来源，缺省留空 (类别名已在刻度上)。
-        传空字符串 '' 可显式关闭。饼图无坐标轴，两者忽略。
-
-    v2 出图质量 (布局按数据自适应, 不新增必填参数):
-      * 图宽随类目数增长(最大 20in); 长类目标签自动 换行 -> 旋转 40° -> 抽稀, 实测渲染后不重叠。
-      * 数值标签密集时自动缩小/竖排, 仍碰撞则只标每系列峰值。
-      * pie: 大扇区内百分比按底色对比度取白/深字, 小扇区(<6%)带引线在外侧标注且互不重叠。
-      * scatter: 数值 x 轴 —— data['x'] 或 series[i]['x'] (与 labels 等长的数值), 或 labels 本身全为数字;
-        否则退化为按类目序号排布。line/area 用整数位置, 重复的类目名不会叠到同一刻度。
+    Types: hbar = labels down the vertical axis (top-down), values horizontal, series grouped — axis roles are
+    reversed vs bar, so pass x_title/y_title explicitly. stacked_bar = series stacked per category,
+    only the total is labelled. area = per-series line + alpha-0.35 fill, overlaid (not cumulative). scatter =
+    numeric x from data['x'] or series[i]['x'] (same length as labels), or all-numeric labels, else category
+    index. pie = slices <6% get outside leader labels.
+    Layout adapts to the data: width grows with category count (max 20in); long labels wrap/rotate/thin out;
+    dense value labels shrink, else only series peaks are labelled.
 
     Args:
         path: Output .png path.
         chart_type: 'bar' | 'line' | 'pie' | 'scatter' | 'hbar' | 'stacked_bar' | 'area'.
-        data: {'labels': [...], 'series': [{'name', 'values'}, ...]} (see above). May also carry
-              optional 'x_title' / 'y_title' keys (top-level params take precedence).
-        title: Chart title (中文 OK).
+        data: see above; may also carry 'x_title' / 'y_title' (top-level params win).
+        title: Chart title.
         style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> 'business'.
-        x_title: 横轴标题。None = data['x_title'] 或留空；'' = 不加。饼图忽略。
-        y_title: 纵轴标题。None = data['y_title'] 或自动 (单系列取 name)；'' = 不加。饼图忽略。
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        x_title: Horizontal-axis title. None = data['x_title'] or empty; '' = none.
+        y_title: Vertical-axis title. None = data['y_title'] or, for a single series, its name; '' = none. Pie
+            ignores both.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'chart_type', 'style', 'font', 'bytes',
-        'x_title', 'y_title' (axis titles actually drawn — '' when none / pie). Missing matplotlib ->
-        {'error': install guidance}. Bad input -> {'error': <中文人话>}. Carries a 'warning' when no
-        CJK font file was found.
+        dict with 'success', 'path', 'output_path', 'chart_type', 'style', 'font', 'bytes', 'x_title', 'y_title'
+        (titles drawn). Missing matplotlib -> {'error': install guidance}. Bad input -> {'error': <中文人话>}.
+        'warning' when no CJK font file was found.
     """
     if not _AVAILABLE:
         return _unavailable()

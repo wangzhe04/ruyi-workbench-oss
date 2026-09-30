@@ -101,10 +101,9 @@ def diagnostics() -> dict:
     """Report server version, Python, admin status, monitors, DPI, and optional-module availability.
 
     Returns:
-        dict with ok, version, python, is_admin, monitors, dpi, optional (compact {ocr,uia,cv2,
-        playwright,pynput} booleans that the workbench probe reads), optional_modules (full
-        import-level map), tool_count, and load_errors ({module: error} for tool modules that failed to
-        import — their tools are missing; empty when everything loaded).
+        dict with ok, version, python, is_admin, monitors, dpi, optional (compact {ocr,uia,cv2,playwright,pynput}
+        booleans that the workbench probe reads), optional_modules (full import-level map), tool_count, and
+        load_errors ({module: error} for tool modules that failed to import — their tools are missing).
     """
     try:
         tool_count = len(mcp._tool_manager.list_tools())

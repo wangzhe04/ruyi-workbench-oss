@@ -21,27 +21,22 @@ def window_screenshot(title_substring: str, output_path: str | None = None,
                       allow_protected: bool = False) -> dict:
     """Screenshot a specific window by (case-insensitive) title substring.
 
-    Tries PrintWindow (captures even background/occluded windows); if that fails or returns an
-    all-black frame (GPU-composited windows), falls back to cropping the virtual desktop to the
-    window's frame (then 'occluded_possible' is true: other windows may cover it). Restores the
-    window first if minimized ('restored': true).
+    Uses PrintWindow (works for occluded windows); on failure or an all-black frame it crops the virtual desktop
+    to the window frame ('occluded_possible': true). A minimized window is restored first ('restored': true).
 
     Args:
-        title_substring: Part of the target window's title.
-        output_path: Optional path to write. If omitted, returns base64 (image_base64).
-        max_width: If >0, proportionally downscale the returned base64 image to this width (default
-            1280, same as screenshot; 0 = original). Ignored when output_path is given (the saved
-            file is always full-resolution PNG). Returned 'scale' (<1.0 when downscaled) maps a point
-            in the base64 image back to the window: x_screen = origin.x + x_img / scale.
-        format: 'png' (default) or 'jpeg' for the returned base64 (ignored when saving to a path).
-        quality: JPEG quality 1-100 (ignored for PNG / when saving to a path).
-        allow_protected: Override the protected-system-root guard on output_path (default off).
+        title_substring: Part of the window's title.
+        output_path: Optional path to write (full-resolution PNG); omitted -> base64 in 'image_base64'.
+        max_width: If >0, downscale the base64 image to this width (default 1280; 0 = original; ignored with
+            output_path). Map an image point to screen: x_screen = origin.x + x_img / scale.
+        format: 'png' (default) or 'jpeg' for the base64.
+        quality: JPEG quality 1-100.
+        allow_protected: Bypass the protected-path guard on output_path (default off).
 
     Returns:
-        dict with ok, matched_title, method ('printwindow'|'screen_crop'), width, height, scale,
-        format, origin {x,y} (virtual-screen coordinates of the image's top-left pixel; the saved
-        file has scale 1), and either 'path' or 'image_base64'. A 'blank': true + 'warning' means the
-        frame is completely black and should not be trusted.
+        dict with ok, matched_title, method ('printwindow'|'screen_crop'), width, height, scale, format, origin
+        {x,y} (virtual-screen coords of the image's top-left; a saved file has scale 1), and 'path' or
+        'image_base64'. 'blank': true + 'warning' = completely black frame, do not trust it.
     """
     # Validate the write destination before inspecting or manipulating a window. Besides making the safety
     # decision deterministic in headless/zero-size desktop sessions, this avoids doing unnecessary capture

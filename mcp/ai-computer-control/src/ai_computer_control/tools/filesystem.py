@@ -159,18 +159,14 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000,
 
     Args:
         path: File path to read.
-        encoding: Text encoding (default utf-8). Pass "auto" to detect: tries UTF-8 first, then the
-            system ANSI code page (cp936 on zh-CN) for files from native Chinese apps. The default
-            (utf-8) ALSO applies this fallback so a GBK file no longer silently becomes mojibake;
-            the encoding actually used is reported as 'encoding_used' (and 'encoding_fallback' when
-            a fallback occurred).
-        max_bytes: Maximum bytes to read (default 1MB). This is a BYTE budget: the file is read
-            in binary and decoded, so a UTF-8 Chinese file (1 char ~= 3 bytes) returns at most
-            ~max_bytes/3 characters — never max_bytes *characters* (~3x the promised bytes).
+        encoding: Text encoding (default utf-8). "auto" detects: UTF-8 first, then the system ANSI code page
+            (cp936 on zh-CN). The default also falls back this way so a GBK file never becomes silent mojibake;
+            the encoding used is reported as 'encoding_used' (plus 'encoding_fallback' when a fallback occurred).
+        max_bytes: Maximum bytes to read (default 1MB) — a BYTE budget (binary read then decode), so a UTF-8
+            Chinese file (~3 bytes/char) returns at most ~max_bytes/3 characters.
 
     Returns:
-        dict with 'content', 'size', 'truncated', 'encoding_used' (and 'encoding_fallback'
-        if a fallback was applied).
+        dict with 'content', 'size', 'truncated', 'encoding_used' (and 'encoding_fallback').
     """
     try:
         size = os.path.getsize(path)
@@ -214,10 +210,10 @@ def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = 
 
     Args:
         path: File path to write.
-        content: Text content to write.
+        content: Text content.
         encoding: Text encoding (default utf-8).
-        append: If True, append to existing file instead of overwriting.
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        append: If True, append instead of overwriting.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
         dict with 'success' and 'bytes_written'.
@@ -270,17 +266,16 @@ def list_directory(
 
     Args:
         path: Directory path to list.
-        pattern: Optional glob pattern filter (e.g. "*.txt", "*.py").
+        pattern: Optional glob filter (e.g. "*.txt").
         recursive: If True, list recursively.
-        include_hidden: If True, include hidden files/dirs (starting with .). When False, hidden
-            directories (e.g. .git) are not descended into either.
-        limit: Max entries returned (default and hard max 1000) — applies to every mode.
+        include_hidden: If True, include dot-files/dirs; when False, hidden directories (e.g. .git) are not
+            descended into either.
+        limit: Max entries (default and hard max 1000), for every mode.
 
     Returns:
-        dict with 'total' (entries returned), 'capped' (only when the listing was cut — narrow
-        with pattern/path or lower the scope), 'skipped' (only when >0: entries that could not be
-        stat-ed, e.g. broken symlinks), then the 'entries' list (name, path, type, size). The
-        summary keys come BEFORE the entries so a host-side text cut cannot hide them.
+        dict with 'total' (entries returned), 'capped' (only when cut — narrow with pattern/path), 'skipped' (only
+        when >0: entries that could not be stat-ed, e.g. broken symlinks), then 'entries' (name, path, type, size).
+        Summary keys come BEFORE the entries so a host-side text cut cannot hide them.
     """
     import glob as glob_module
 
@@ -366,9 +361,6 @@ def copy_file(source: str, destination: str, allow_protected: bool = False) -> d
         source: Source path.
         destination: Destination path.
         allow_protected: Override the protected-system-root guard on the destination (default off).
-
-    Returns:
-        dict with 'success'.
     """
     reason = protected_path_reason(destination)
     if reason and not allow_protected:
@@ -394,9 +386,6 @@ def move_file(source: str, destination: str, allow_protected: bool = False) -> d
         source: Source path.
         destination: Destination path.
         allow_protected: Override the protected-system-root guard (default off).
-
-    Returns:
-        dict with 'success'.
     """
     reason = protected_path_reason(source) or protected_path_reason(destination)
     if reason and not allow_protected:
@@ -418,9 +407,6 @@ def delete_file(path: str, allow_protected: bool = False, confirm: bool = False)
     Args:
         path: Path to delete.
         allow_protected: Override the protected-system-root guard (default off).
-
-    Returns:
-        dict with 'success'.
     """
     reason = protected_path_reason(path)
     if reason and not allow_protected:

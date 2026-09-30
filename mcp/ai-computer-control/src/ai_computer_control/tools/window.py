@@ -230,14 +230,14 @@ def focus_window(title: str | None = None, handle: int | None = None, confirm: b
     """Bring a window to the foreground by title or handle, and confirm it actually took focus.
 
     Args:
-        title: Window title (partial match supported).
+        title: Window title (partial match).
         handle: Window handle (takes priority over title).
-        confirm: Several windows matched a partial title? Without confirm the call refuses and lists
-            them in 'matches' [{handle, title, process}] — retry with handle=<handle>.
+        confirm: If several windows match a partial title, the call refuses without confirm and lists them in
+            'matches' [{handle, title, process}] — retry with handle=<handle>.
 
     Returns:
-        dict with 'ok' (the activation was attempted) plus 'focused'/'foreground_verified' reflecting
-        whether the target REALLY became the foreground window — if false, do NOT type/click yet.
+        dict with 'ok' (activation attempted) plus 'focused'/'foreground_verified' (whether the target REALLY
+        became foreground) — if false, do NOT type/click yet.
     """
     try:
         hwnd, matches = _resolve(title, handle)
@@ -367,11 +367,10 @@ def close_window(title: str | None = None, handle: int | None = None, confirm: b
     """Ask a window to close, then confirm whether it actually closed.
 
     A modal 'save changes?' prompt can keep the window open — this reports closed:false and
-    possibly_blocked_by_dialog:true rather than falsely claiming success. It never auto-confirms a
-    save dialog (that would risk data loss).
+    possibly_blocked_by_dialog:true rather than claiming success. It never auto-confirms a save dialog.
 
     Returns:
-        dict with 'ok' (the close was requested), 'closed' (actual), and 'possibly_blocked_by_dialog'.
+        dict with 'ok' (close requested), 'closed' (actual), 'possibly_blocked_by_dialog'.
     """
     try:
         hwnd, matches = _resolve(title, handle)

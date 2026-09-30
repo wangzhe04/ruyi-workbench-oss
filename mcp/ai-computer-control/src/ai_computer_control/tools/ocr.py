@@ -501,8 +501,8 @@ async def ocr_image(path: str, lang: str | None = None) -> dict:
 
     Args:
         path: Image file to OCR.
-        lang: Optional language hint. Accepts friendly aliases: "zh"/"chinese"/"zh-CN" -> zh-Hans,
-              "zh-TW"/"zh-Hant" -> zh-Hant, "ja", "ko", "en". Omit to auto-detect from the system locale.
+        lang: Optional language hint: "zh"/"chinese"/"zh-CN" -> zh-Hans, "zh-TW"/"zh-Hant" -> zh-Hant, "ja", "ko",
+            "en". Omit to auto-detect from the system locale.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -522,22 +522,20 @@ def _offset_words(res: dict, ox: int, oy: int) -> None:
 
 @mcp.tool()
 async def ocr_screen(region: str | None = None, lang: str | None = None) -> dict:
-    """Run OCR on the whole screen, or a region "x,y,width,height".
+    """Run OCR on the whole primary screen, or a region "x,y,width,height".
 
-    Word 'center' coordinates are SCREEN coordinates (region offset added), ready for mouse_click.
-    A region may lie on any monitor (virtual-screen coordinates; negative x/y are valid); one that is
-    wholly outside the virtual desktop is an error, a partly-outside one is clipped. Without a region
-    the primary monitor is read.
+    Word 'center' coordinates are SCREEN coordinates (region offset added), ready for mouse_click. A region may lie
+    on any monitor (negative x/y are valid); wholly outside the desktop is an error, partly outside is clipped.
 
     Args:
-        region: Optional "x,y,width,height" to restrict the search.
-        lang: Optional language hint (zh/chinese/zh-CN -> zh-Hans, zh-TW/zh-Hant -> zh-Hant, ja, ko, en).
-              Omit to auto-detect from the system locale (prefers Chinese on a zh-CN box).
+        region: Optional "x,y,width,height".
+        lang: Optional language hint (zh/chinese/zh-CN, zh-TW/zh-Hant, ja, ko, en); omit to auto-detect from the
+            system locale.
 
     Returns:
-        dict with success, text, lines, words (each: text,left,top,width,height,center,line), origin {x,y}
-        of the OCR'd area; 'truncated'/'words_total' when the word list was capped; 'blank': true when the
-        captured frame was completely black.
+        dict with success, text, lines, words (each: text,left,top,width,height,center,line), origin {x,y} of the
+        OCR'd area; 'truncated'/'words_total' when the word list was capped; 'blank': true for a completely black
+        frame.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -823,28 +821,22 @@ async def ocr_click(text: str, region: str | None = None, lang: str | None = Non
                     return_candidates: bool = False) -> dict:
     """OCR the screen (or region), find `text` (case-insensitive), and click its center.
 
-    `text` may be part of one OCR word or a multi-word phrase (CJK needs no spaces: "系统设置" matches
-    OCR words ["系统","设置"]); a phrase never spans two text lines. The click point is the centre of
-    exactly the matched words.
-
-    Disambiguation when several matches:
-      * return_candidates=True: DO NOT click; return every match so the caller can choose.
-      * nearest_to={"x":..,"y":..}: click the match whose center is closest to that point.
-      * nth: click the nth match (0-based) in reading order (top-to-bottom, then left-to-right).
-      * default (none of the above): click the first match in reading order.
+    `text` may be part of one OCR word or a multi-word phrase (CJK needs no spaces: "系统设置" matches OCR words
+    ["系统","设置"]); a phrase never spans two lines. The click lands on the centre of exactly the matched words.
+    Several matches: default = first in reading order (top-to-bottom, left-to-right); nth = the nth (0-based);
+    nearest_to = closest to a point; return_candidates=True clicks nothing and returns every match.
 
     Args:
-        text: Text to find (case-insensitive; one word/substring or a multi-word phrase).
-        region: Optional "x,y,width,height" to restrict the search.
-        lang: Optional OCR language tag (zh/chinese/ja/ko/en accepted).
-        nth: 0-based index into the (reading-order-sorted) matches to click.
-        nearest_to: {"x","y"} - click the match closest to this screen point.
-        return_candidates: If True, return all matches without clicking.
+        text: Text to find (word/substring or phrase).
+        region: Optional "x,y,width,height".
+        lang: Optional OCR language tag (zh/chinese/ja/ko/en).
+        nth: 0-based index into the reading-order matches.
+        nearest_to: {"x","y"}; click the closest match.
+        return_candidates: Return all matches without clicking.
 
-    Returns dict with 'success'+'clicked' (the matched word/phrase, with 'match_type' word|phrase),
-    'candidates' (when return_candidates or ambiguous), or on a miss 'not_found' + 'found': false +
-    'words_seen', 'near_matches' (closest OCR text with score) and a 'hint'; or 'error'.
-    OCR engines give no per-word confidence, so none is reported.
+    Returns dict with 'success'+'clicked' (matched word/phrase, 'match_type'), 'candidates' (when
+    return_candidates or ambiguous); on a miss 'not_found' + 'found': false + 'words_seen', 'near_matches'
+    (closest OCR text with score) + 'hint'; or 'error'.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -897,22 +889,21 @@ async def ocr_click(text: str, region: str | None = None, lang: str | None = Non
 @mcp.tool(audit=True)
 async def ocr_find_text(text: str, region: str | None = None, click: bool = False,
                         lang: str | None = None) -> dict:
-    """OCR the screen (or a region) and locate `text`, spanning across adjacent words if needed.
+    """OCR the screen (or a region) and locate `text`, spanning adjacent words if needed.
 
-    Coordinates are SCREEN coordinates (region offset already applied by ocr_screen), so 'center'
-    is directly clickable. Set click=True to click the match center. A multi-word phrase matches
-    consecutive words of one text line only; center/rect cover exactly the matched words.
+    Coordinates are SCREEN coordinates (region offset applied), so 'center' is directly clickable. A multi-word
+    phrase matches consecutive words of one line only; center/rect cover exactly the matched words.
 
     Args:
-        text: Text to find (case-insensitive; may span multiple OCR words; CJK needs no spaces).
-        region: Optional "x,y,width,height" to restrict the search.
+        text: Text to find (case-insensitive; may span several OCR words; CJK needs no spaces).
+        region: Optional "x,y,width,height".
         click: If True, click the center of the match.
         lang: Optional OCR language tag (e.g. "en", "zh", "zh-Hans", "ja").
 
     Returns:
-        dict with ok, found, and on success center:{x,y}, rect, matched_text, match_type ('word'|'phrase'),
-        count (matches on screen; the first in reading order is returned) (+ clicked if click).
-        On a miss: found false + words_seen, near_matches (closest OCR text) and a hint.
+        dict with ok, found, and on success center:{x,y}, rect, matched_text, match_type ('word'|'phrase'), count
+        (matches on screen; the first in reading order is returned) (+ clicked). On a miss: found false +
+        words_seen, near_matches and a hint.
     """
     if not _AVAILABLE:
         return _unavailable()

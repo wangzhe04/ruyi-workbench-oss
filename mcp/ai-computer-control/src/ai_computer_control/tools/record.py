@@ -285,13 +285,13 @@ def record_stop(save_as: str | None = None) -> dict:
     """Stop the active recording and return the captured steps (macro_run-compatible).
 
     Args:
-        save_as: Optional macro name; if given, the steps are written to <data>/macros/<name>.json
-            (a '.json' suffix is added if missing) for later macro_list / macro_run use.
+        save_as: Optional macro name; steps are written to <data>/macros/<name>.json ('.json' added if missing)
+            for macro_list / macro_run.
 
     Returns:
-        dict with ok, 'steps' (list of {tool,args} directly replayable by macro_run), 'count', and
-        'path' when saved. Steps keep the recorded pacing (a `wait` step for pauses over 0.3s, capped
-        at 5s) and shortcuts such as Ctrl+C are recorded as one `hotkey` step.
+        dict with ok, 'steps' (list of {tool,args} replayable by macro_run), 'count', and 'path' when saved. Steps
+        keep the recorded pacing (a `wait` step for pauses over 0.3s, capped at 5s); shortcuts such as Ctrl+C are
+        one `hotkey` step.
     """
     if not _AVAILABLE:
         return _unavailable()

@@ -127,22 +127,20 @@ def launch_application(
 
     何时用: open a GUI/console program or a document/URL. 何时别用: shell pipelines, builds, scripts whose
     output you need (use run_command); killing/closing (kill_process / close_window).
-    Spawned WITHOUT a shell, so the pid is the app itself; a bad path is an error, not a false success.
-    The child gets no stdin (EOF).
+    Spawned WITHOUT a shell (pid is the app itself; a bad path is an error, not a false success); no stdin (EOF).
 
     Args:
-        path: Executable path ("notepad.exe", "C:/Program Files/app/app.exe"), a name on PATH, a registered
-              app name (calc, mspaint, msedge, chrome, code), or a document/URL for its default handler.
-        args: Command-line arguments (quoted paths with spaces are handled). Not allowed with a document/URL.
+        path: Executable path, a name on PATH, a registered app name (calc, mspaint, msedge, chrome, code), or a
+            document/URL for its default handler.
+        args: Command-line arguments (paths with spaces are quoted); not allowed with a document/URL.
         working_dir: Working directory.
-        wait: Block until exit and capture output (console programs only; for GUI apps use wait=False).
-        ready_timeout: Seconds to wait for the main window (0 skips, max 60); its hwnd/title/rect come back
-              so you can focus/click at once.
+        wait: Block until exit and capture output (console programs only; GUI apps: wait=False).
+        ready_timeout: Seconds to wait for the main window (0 skips, max 60).
         wait_timeout: Seconds to wait for exit when wait=True (default 120, clamped to [1, 600]).
 
     Returns:
-        dict with success, pid, name; plus window {hwnd,title,rect} and ready when a window was found.
-        A bad launch gives {success: False, ...} or {error: ...}.
+        dict with success, pid, name; plus window {hwnd,title,rect} and ready when a window was found. A bad
+        launch gives {success: False, ...} or {error: ...}.
     """
     exe = _resolve_executable(path)
     try:
@@ -271,10 +269,8 @@ def kill_process(
 
     Args:
         pid: Process ID to kill.
-        name: Process name to kill. By default matches the EXACT basename
-              (case-insensitive, ".exe" optional), NOT a substring. This prevents
-              e.g. name="s" from killing every process containing "s".
-        force: If True, force kill (SIGKILL). Otherwise graceful terminate.
+        name: Process name; matches the EXACT basename (case-insensitive, ".exe" optional), NOT a substring.
+        force: True = force kill (SIGKILL); otherwise graceful terminate.
         contains: Opt in to substring matching (dangerous — use with confirm).
         confirm: Required when a name matches more than one process.
         allow_critical: Override the critical-OS-process denylist (default off).

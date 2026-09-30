@@ -228,35 +228,30 @@ async def observe(max_width: int = 1280, window_title: str | None = None,
                   lang: str | None = None, include_screenshot: bool = True) -> dict:
     """One-shot situational snapshot: screenshot + focused window + UIA elements + OCR words.
 
-    Everything you need to pick a next action in a single round-trip. UIA/OCR are included only when
-    their optional backend is installed (otherwise the field is omitted and the reason noted under
-    'degraded'); the screenshot always succeeds. The screen is grabbed once and shared by the image
-    and OCR; UIA and OCR run concurrently.
+    UIA/OCR are included only when their optional backend is installed (otherwise omitted, reason under
+    'degraded'); the screenshot always succeeds.
 
     Args:
-        max_width: Downscale the returned screenshot to this width to save tokens (default 1280;
-            0 = original). Map image points to screen with x_screen = screenshot.origin.x + x / scale.
-        window_title: Restrict UIA element collection AND OCR to this window (substring); omit for the
-            foreground window (UIA) / the whole primary screen (OCR).
-        include_uia: Collect UI-Automation elements (<=80) when uiautomation is available.
-        include_ocr: Collect OCR words (<=200) when the OCR backend is available.
-        format: Screenshot encoding 'png' (default) or 'jpeg'; screenshot.format says what you got.
+        max_width: Downscale the screenshot to this width (default 1280; 0 = original). Screen x =
+            screenshot.origin.x + x / scale.
+        window_title: Restrict UIA and OCR to this window (substring); omit for the foreground window (UIA) /
+            primary screen (OCR).
+        include_uia: Collect UI-Automation elements (<=80).
+        include_ocr: Collect OCR words (<=200).
+        format: 'png' (default) or 'jpeg'.
         quality: JPEG quality 1-100 (ignored for PNG).
-        lang: Optional OCR language hint (zh/chinese/zh-CN -> zh-Hans, ja, ko, en). Omit to let
-            ocr.py auto-detect from the system locale (prefers Chinese on a zh-CN box).
+        lang: Optional OCR language hint (zh/chinese/zh-CN -> zh-Hans, ja, ko, en); omit to auto-detect.
         include_screenshot: Default True. False skips the image (text-only models / cheap polling): no
-            'screenshot' key, and no full-screen grab or encode (OCR of a targeted window grabs only that
-            window's rect; with include_ocr=false nothing is grabbed).
+            'screenshot' key, no full-screen grab (OCR of a targeted window grabs only its rect).
 
     Returns:
-        dict with ok, screenshot:{image,width,height,scale,format,origin} (unless include_screenshot=false),
-        focused_window:{...}, uia_elements:[{name,type,rect,center}] (+ uia_truncated / uia_timed_out /
-        uia_visited when the walk hit its cap or deadline; a timeout still returns the partial list),
-        ocr_words:[{text,rect,center}] with ocr_scope:{kind:'screen'|'window',origin,rect?}, and
-        ocr_truncated + ocr_total when more than 200 words were read, and 'degraded' listing any
-        backend that was requested but unavailable or that timed out.
-        NOTE: uia_elements/ocr_words rects & centers are UNSCALED physical screen coords (clickable);
-        only screenshot bytes are affected by 'scale'.
+        dict with ok, screenshot:{image,width,height,scale,format,origin}, focused_window:{...},
+        uia_elements:[{name,type,rect,center}] (+ uia_truncated / uia_timed_out / uia_visited when the walk hit
+        its cap or deadline; a timeout still returns the partial list), ocr_words:[{text,rect,center}] with
+        ocr_scope:{kind:'screen'|'window',origin,rect?}, ocr_truncated + ocr_total when >200 words, and 'degraded'
+        listing requested backends that were unavailable or timed out.
+        NOTE: uia/ocr rects & centers are UNSCALED physical screen coords (clickable); 'scale' affects only the
+        screenshot bytes.
     """
     from ai_computer_control.utils.image import capture_fields, encode_with_budget, grab_screen
 

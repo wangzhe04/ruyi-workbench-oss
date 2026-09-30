@@ -29,21 +29,18 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
         现状再改);二进制文件别用(按文本解码)。
 
     Args:
-        path: File path to edit (must already exist).
-        old_string: The exact text to find. Must match byte-for-byte INCLUDING indentation and
-            newlines; read the file first to copy it verbatim.
-        new_string: The replacement text (may be empty to delete).
-        replace_all: False (default) requires old_string to occur EXACTLY once — a 0 or >1
-            match is an error, which is the safety catch against ambiguous edits. True replaces
-            every occurrence.
-        encoding: Text encoding used for both read and write (default utf-8). The file is
-            re-written with the same encoding it was decoded with. 文件的 UTF-8 BOM 与 CRLF/LF
-            行尾会原样保留(.bat/.ps1 等改完仍是 CRLF);old_string/new_string 用 LF 书写即可。
-        allow_protected: Override the protected-system-root guard (default off).
+        path: File to edit (must exist).
+        old_string: Exact text to find, byte-for-byte INCLUDING indentation and newlines (copy it from read_file).
+        new_string: Replacement text (may be empty to delete).
+        replace_all: False (default) requires old_string to occur EXACTLY once — 0 or >1 matches is an error
+            (guards against ambiguous edits). True replaces every occurrence.
+        encoding: Text encoding for read and write (default utf-8). UTF-8 BOM and CRLF/LF endings are preserved
+            (.bat/.ps1 stay CRLF); write old_string/new_string with LF.
+        allow_protected: Bypass the protected-path guard (default off).
 
     Returns:
-        dict with 'success', 'replacements' (occurrences replaced), 'output_path'. On failure a
-        dict with 'error' (人话说明: not found / not unique / decode failure / protected).
+        dict with 'success', 'replacements', 'output_path'. Failure -> 'error' (not found / not unique / decode
+        failure / protected).
     """
     reason = protected_path_reason(path)
     if reason and not allow_protected:

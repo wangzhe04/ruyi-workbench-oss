@@ -380,16 +380,16 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
         name: Substring of the control name (case-insensitive).
         control_type: Substring of the control type, e.g. "Button", "Edit".
         automation_id: Exact automation id.
-        window_title: Substring of the target window title; omit for the foreground window.
+        window_title: Substring of the window title; omit for the foreground window.
         max_results: Stop after this many matches.
         max_depth: Tree depth limit (default 8).
         visible_only: Skip offscreen / zero-size controls.
         enabled_only: Skip disabled controls.
 
     Returns:
-        dict with 'matches': [{name,type,automation_id,center}] (each clickable via its center; a disabled
-        control carries enabled:false, an offscreen one offscreen:true), plus 'nodes_scanned' and
-        'truncated' (true when the node/depth/max_results limit cut the search short, see 'truncated_by').
+        dict with 'matches': [{name,type,automation_id,center}] (click via center; disabled -> enabled:false,
+        offscreen -> offscreen:true), 'nodes_scanned', and 'truncated' (+ 'truncated_by') when a limit cut the
+        search short.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -580,19 +580,18 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
               nth: int = 0) -> dict:
     """Act on a control matching the given selectors (the first ACTIONABLE match unless `nth` is given).
 
-    Enabled, on-screen matches are preferred over disabled/offscreen ones. When several controls match,
-    the answer lists them ('candidates', 'matched_count') so you can re-call with `nth` or tighter
-    selectors instead of guessing.
+    Enabled, on-screen matches are preferred. With several matches the answer lists them ('candidates',
+    'matched_count') so you can re-call with `nth` or tighter selectors.
 
     Args:
         action: invoke | click | set_value | focus | toggle | expand.
         name/control_type/automation_id/window_title: selectors (see ui_find).
         text: value for action="set_value".
-        nth: 0-based index into the ordered matches (actionable first) when more than one matches.
+        nth: 0-based index into the ordered matches (actionable first).
 
     Returns dict with 'success' and the acted-on control, or an error (with its center for a pixel fallback).
-    set_value adds 'confirmed' (true / false / null = the control has no readable value, so unverifiable).
-    If a timeout error says the action may already have been delivered, check state before retrying.
+    set_value adds 'confirmed' (true / false / null = no readable value, unverifiable). If a timeout error says
+    the action may already have been delivered, check state before retrying.
     """
     if not _AVAILABLE:
         return _unavailable()

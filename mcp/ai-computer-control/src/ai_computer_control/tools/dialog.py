@@ -30,9 +30,6 @@ def show_notification(title: str, message: str, duration: int = 5) -> dict:
         title: Notification title.
         message: Notification message body.
         duration: Display duration in seconds (approximate).
-
-    Returns:
-        dict with 'ok'.
     """
     try:
         from win10toast import ToastNotifier
@@ -109,19 +106,18 @@ async def message_box(
 ) -> dict:
     """Show a Windows message box and return the user's response.
 
-    IMPORTANT: this needs a human to click. It runs the (blocking) dialog on a background thread and
-    auto-dismisses after `timeout_ms`, so an unattended call can never hang the server forever — a
-    plain modal MessageBoxW on the server's event-loop thread would otherwise deadlock it permanently.
+    Needs a human to click; the dialog runs on a background thread and auto-dismisses after `timeout_ms`, so an
+    unattended call never hangs the server.
 
     Args:
-        title: Message box title.
+        title: Box title.
         message: Message text.
-        buttons: Button style - "ok", "okcancel", "yesno", "yesnocancel".
-        icon: Icon type - "info", "warning", "error", "question".
-        timeout_ms: Auto-dismiss after this many ms if no one responds (default 30s; clamped to [1s, 60s]).
+        buttons: "ok", "okcancel", "yesno", "yesnocancel".
+        icon: "info", "warning", "error", "question".
+        timeout_ms: Auto-dismiss delay (default 30s; clamped to [1s, 60s]).
 
     Returns:
-        dict with 'ok' and 'result' ("ok"/"cancel"/"yes"/"no", or "timeout" if auto-dismissed).
+        dict with 'ok' and 'result' ("ok"/"cancel"/"yes"/"no", or "timeout").
     """
     import threading
 
