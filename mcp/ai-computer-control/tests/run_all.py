@@ -26,7 +26,9 @@ PYTHON = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
 # 判定依据:import pyautogui 即需要显示会话(windows runner 有虚拟桌面,pyautogui 可用,
 # 但 OCR/UIA 依赖具体窗口/字体渲染,实测后再放行)。smoke_registry/stdio/async_contracts
 # 经本地与 CI 双验证为纯协议/注册表面,稳定。
-CI_SUBSET = ("smoke_registry", "smoke_stdio", "smoke_async_contracts", "smoke_toolsets", "smoke_descriptions")
+CI_SUBSET = ("smoke_registry", "smoke_stdio", "smoke_async_contracts", "smoke_toolsets", "smoke_descriptions",
+             # 纯逻辑(假 win32/UIA/pyautogui),不依赖真实显示会话:动作类工具的边界/等待/批量图片/路由判定。
+             "smoke_action_tools")
 
 TIMEOUT_S = 300
 
