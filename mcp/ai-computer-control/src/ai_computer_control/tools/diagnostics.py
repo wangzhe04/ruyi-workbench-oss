@@ -1,10 +1,32 @@
 """Environment / self-diagnostics: version, admin, monitors, DPI, optional-module availability."""
 
 import ctypes
+import importlib.util
 import platform
 import sys
 
+from ai_computer_control import server as _server
 from ai_computer_control.server import mcp, VERSION
+from ai_computer_control.utils.errors import exc_text
+
+# Diagnostics must OBSERVE, never load: importing a tool module registers its tools, which used to defeat
+# ACC_TOOLSETS (15 -> 51 tools after one diagnostics() call). Availability of a third-party package is
+# therefore probed with find_spec (no import, no side effects); tool modules are only inspected when the
+# server already loaded them.
+_TOOLS_PKG = "ai_computer_control.tools."
+
+
+def _has_module(mod: str) -> bool:
+    """True if ``mod`` is importable, decided without importing it."""
+    loaded = sys.modules.get(mod)
+    if loaded is not None:
+        return True
+    if mod in sys.modules:  # explicitly blocked (None entry)
+        return False
+    try:
+        return importlib.util.find_spec(mod) is not None
+    except (ImportError, ValueError, AttributeError):
+        return False
 
 
 def _is_admin() -> bool | None:
@@ -21,11 +43,7 @@ def _optional_modules() -> dict:
                      ("cv2", "cv2"), ("numpy", "numpy"), ("playwright", "playwright"),
                      ("win10toast", "win10toast"), ("pynput", "pynput"),
                      ("pptx", "pptx"), ("matplotlib", "matplotlib")):
-        try:
-            __import__(mod)
-            out[key] = True
-        except Exception:
-            out[key] = False
+        out[key] = _has_module(mod)
     return out
 
 
@@ -38,18 +56,10 @@ def _optional() -> dict:
     fall back to a bare import check.
     """
     def flag(module_path: str, mod_name: str) -> bool:
-        try:
-            import importlib
-            m = importlib.import_module(module_path)
-            if hasattr(m, "_AVAILABLE"):
-                return bool(m._AVAILABLE)
-        except Exception:
-            pass
-        try:
-            __import__(mod_name)
-            return True
-        except Exception:
-            return False
+        m = sys.modules.get(module_path)  # only if the server already loaded it (never import here)
+        if m is not None and hasattr(m, "_AVAILABLE"):
+            return bool(m._AVAILABLE)
+        return _has_module(mod_name)
 
     return {
         "ocr": flag("ai_computer_control.tools.ocr", "winsdk"),
@@ -65,8 +75,10 @@ def _optional() -> dict:
 
 def _monitors_summary() -> dict:
     try:
-        from ai_computer_control.tools.desktop_extra import list_monitors
-        m = list_monitors()
+        mod = sys.modules.get(_TOOLS_PKG + "desktop_extra")
+        if mod is None:  # toolset not loaded (ACC_TOOLSETS) — don't load it just to report
+            return {"count": None, "monitors": []}
+        m = mod.list_monitors()
         if m.get("count") is not None:
             return {"count": m.get("count"), "monitors": m.get("monitors", [])}
     except Exception:
@@ -76,8 +88,10 @@ def _monitors_summary() -> dict:
 
 def _dpi_summary() -> dict:
     try:
-        from ai_computer_control.tools.desktop_extra import get_dpi_info
-        return get_dpi_info()
+        mod = sys.modules.get(_TOOLS_PKG + "desktop_extra")
+        if mod is None:
+            return {"awareness": None, "primary_scale": None}
+        return mod.get_dpi_info()
     except Exception:
         return {"awareness": None, "primary_scale": None}
 
@@ -87,9 +101,9 @@ def diagnostics() -> dict:
     """Report server version, Python, admin status, monitors, DPI, and optional-module availability.
 
     Returns:
-        dict with ok, version, python, is_admin, monitors, dpi, optional (compact {ocr,uia,cv2,
-        playwright,pynput} booleans that the workbench probe reads), optional_modules (full
-        import-level map), and tool_count.
+        dict with ok, version, python, is_admin, monitors, dpi, optional (compact {ocr,uia,cv2,playwright,pynput}
+        booleans that the workbench probe reads), optional_modules (full import-level map), tool_count, and
+        load_errors ({module: error} for tool modules that failed to import — their tools are missing).
     """
     try:
         tool_count = len(mcp._tool_manager.list_tools())
@@ -109,6 +123,8 @@ def diagnostics() -> dict:
         # Fuller import-level map kept for humans / debugging.
         "optional_modules": _optional_modules(),
         "tool_count": tool_count,
+        # Tool modules that failed to import (their tools are NOT registered). Empty dict = all loaded.
+        "load_errors": dict(_server._LOAD_ERRORS),
     }
 
 
@@ -127,7 +143,7 @@ def safety_info() -> dict:
         summary["ok"] = True
         return summary
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": exc_text(e)}
 
 
 @mcp.tool()

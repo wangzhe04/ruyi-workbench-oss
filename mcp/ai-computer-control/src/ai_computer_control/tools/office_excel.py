@@ -17,6 +17,7 @@ import os
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 from ai_computer_control.tools import office_style as style_tokens
+from ai_computer_control.tools import office_io
 
 
 def _protected_write_guard(path: str, allow_protected: bool):
@@ -61,23 +62,19 @@ def excel_beautify(
 ) -> dict:
     """Beautify an existing .xlsx into a professional-looking sheet (模板驱动, idempotent).
 
-    Applies, using the chosen design-token style: a bold header row (business/vibrant: primary fill
-    + white text; minimal「墨白极简」v1.7.1: 白底墨黑粗体 + 底部 2pt 青色下边框 — 不用满底色), a frozen
-    header row, zebra striping on the data rows (minimal 的斑马纹为极浅灰), thin borders over the whole
-    used range, content-fit column widths (capped at 50 chars), right-aligned numeric columns, and an
-    auto-filter over the used range. Re-running is safe — styling is recomputed from the data, not
-    layered on top, so it never accumulates.
+    Applies the style's bold header row, frozen header, zebra striping, thin borders, content-fit column widths
+    (cap 50 chars), right-aligned numeric columns and an auto-filter. Re-running is safe (recomputed, never layered).
 
     Args:
         path: Path to an existing .xlsx (e.g. just written by write_excel).
         sheet: Worksheet name; None = the active/first sheet.
-        style: Design style — 'business' (default) | 'minimal' | 'vibrant'. Unknown -> 'business'.
-        header_row: 1-based row index of the header row (default 1). Rows below it are data.
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> 'business'.
+        header_row: 1-based header row (default 1); rows below are data.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'sheet', 'style', 'rows', 'cols'. On failure a
-        {'error': <中文人话>} dict (missing file / bad sheet / no data / import failure).
+        dict with 'success', 'path', 'output_path', 'sheet', 'style', 'rows', 'cols'. Failure (missing file / bad
+        sheet / no data / import) -> {'error': <中文人话>}.
     """
     if not str(path).lower().endswith(".xlsx"):
         return {"error": "path 必须以 .xlsx 结尾"}
@@ -224,7 +221,7 @@ def excel_beautify(
         os.close(fd)
         try:
             wb.save(tmp)
-            os.replace(tmp, path)
+            office_io.replace_with_retry(tmp, path)
         except Exception:
             try:
                 os.unlink(tmp)
@@ -243,7 +240,7 @@ def excel_beautify(
             "cols": max_col,
         }
     except Exception as e:  # noqa: BLE001
-        return {"error": f"美化失败：{e}"}
+        return office_io.io_failure(e, path, prefix="美化失败：")
 
 
 def _rich_title(text: str, font_name: str):
@@ -374,47 +371,28 @@ def excel_chart(
     y_title: str | None = None,
     allow_protected: bool = False,
 ) -> dict:
-    """Insert a native chart (bar | line | pie | scatter) into an existing .xlsx, coloured from
-    design tokens.
+    """Insert a native chart (bar | line | pie | scatter) into an existing .xlsx, coloured from the style palette.
 
-    The first row of data_range is treated as series names (headers) and the first column as the
-    category axis (labels) — EXCEPT for 'scatter', where the first column instead holds numeric
-    X values and each subsequent column is one Y series (a true XY chart, no category axis). Chart
-    series colours come from the chosen style's chart_palette.
-
-    109c — scatter (openpyxl ScatterChart): 用 Series(yvalues, xvalues=xvalues, title_from_data=True)
-    逐列建系列 —— data_range 首列是数值 X (非类别)，其余每列各一条 Y 系列，系列名取该列表头。标记点用
-    实心圆 (marker.symbol='circle', size=7) 且系列间不连线 (line.noFill=True)，与 excel 里常见的
-    "散点图不连线" 习惯一致；如需折线连接请改用 chart_type='line'。x_title/y_title 的自动推导沿用同一
-    套表头规则 (首列表头 → x_title；单列 Y 时其表头 → y_title)。
-
-    v1.7.1 — 坐标轴标题 (用户反馈「Excel 图表好多都没有 X/Y 轴单位」):
-      * x_title / y_title 显式设置横 / 纵轴标题 (如「季度」「销售额(万元)」)。
-      * 缺省自动推导 (仅在该参数为 None 时):
-          - x_title  ← data_range 首列 (类别列) 的表头单元格文本；
-          - y_title  ← 单系列时取该系列的表头文本；多系列时留空 (由图例承担轴含义)。
-        传空字符串 '' 可显式关闭某轴标题的自动推导。
-      * 轴标题与刻度文字字体走令牌 body_font (微软雅黑)，与图内其它文字一致。
-      * 常见坑规避: 设 axis.title 后显式 `x_axis.delete = False` / `y_axis.delete = False`，否则
-        openpyxl 默认可能把轴 (连同标题) 隐藏。
-      * 饼图无坐标轴，x_title / y_title 被忽略。
+    data_range: first row = series names (headers), first column = category axis — EXCEPT 'scatter', where the
+    first column is numeric X and each further column one Y series (true XY chart, solid-circle markers, series
+    not connected; use 'line' to connect).
+    Axis titles use the token body font. Default (None): x_title = first column's header; y_title = the series
+    header for a single series (empty for several, the legend carries it); '' = none. Pie ignores both.
 
     Args:
         path: Path to an existing .xlsx.
-        sheet: Worksheet name the data lives on (the chart is placed on the same sheet).
+        sheet: Worksheet holding the data (the chart goes on the same sheet).
         chart_type: 'bar' | 'line' | 'pie' | 'scatter'.
-        data_range: Data area as 'A1:B10' — first row = series header, first column = categories
-              (for 'scatter': first row = header, first column = numeric X values).
-        title: Chart title (中文 OK).
-        target_cell: Anchor cell for the chart's top-left corner (default 'H2').
-        x_title: 横轴标题。None = 自动推导 (首列表头)；'' = 不加横轴标题。饼图忽略。
-        y_title: 纵轴标题。None = 自动推导 (单系列取系列表头，多系列留空)；'' = 不加纵轴标题。饼图忽略。
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        data_range: Data area as 'A1:B10' (layout above).
+        title: Chart title.
+        target_cell: Anchor cell of the chart's top-left corner (default 'H2').
+        x_title: Horizontal-axis title, e.g. 「季度」.
+        y_title: Vertical-axis title, e.g. 「销售额(万元)」.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'sheet', 'chart_type', 'anchor', 'x_title',
-        'y_title' (the axis titles actually applied — '' when none). On failure a {'error': <中文人话>}
-        dict (bad type / bad range / missing sheet / import failure).
+        dict with 'success', 'path', 'output_path', 'sheet', 'chart_type', 'anchor', 'x_title', 'y_title' (titles
+        actually applied). Failure (bad type / range / missing sheet / import) -> {'error': <中文人话>}.
     """
     if not str(path).lower().endswith(".xlsx"):
         return {"error": "path 必须以 .xlsx 结尾"}
@@ -584,7 +562,7 @@ def excel_chart(
         os.close(fd)
         try:
             wb.save(tmp)
-            os.replace(tmp, path)
+            office_io.replace_with_retry(tmp, path)
         except Exception:
             try:
                 os.unlink(tmp)
@@ -604,4 +582,4 @@ def excel_chart(
             "y_title": applied_y,
         }
     except Exception as e:  # noqa: BLE001
-        return {"error": f"插入图表失败：{e}"}
+        return office_io.io_failure(e, path, prefix="插入图表失败：")

@@ -34,7 +34,7 @@ export function createFileBrowserDomain({
   async function fetchDirLevel(directory) {
     const response = await api('/api/tools/file_list', {
       method: 'POST',
-      body: JSON.stringify({ root: directory, recursive: false }),
+      body: JSON.stringify({ root: directory, recursive: false, absolute: true }),   // file_list 默认只返回相对路径;树节点要绝对 path
     });
     const result = response && response.result;
     if (!result || !result.ok || !Array.isArray(result.files)) return [];

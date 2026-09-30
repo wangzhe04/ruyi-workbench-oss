@@ -7,7 +7,8 @@ import time
 import psutil
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import is_critical_process
-from ai_computer_control.tools.shell import _default_console_encoding
+from ai_computer_control.tools.shell import _clip_text, _decode, _default_console_encoding, _DEFAULT_OUTPUT_CHARS
+from ai_computer_control.utils.errors import exc_text
 
 
 def _split_args(args: str) -> list[str]:
@@ -122,31 +123,30 @@ def launch_application(
     ready_timeout: float = 2.0,
     wait_timeout: float = 120.0,
 ) -> dict:
-    """Launch an application and report whether it actually started.
+    """Launch an application and confirm it really started (real pid, main window when one appears).
 
-    Unlike a naive shell launch, this resolves the target to a real executable, spawns it WITHOUT a
-    shell (so the returned pid is the application itself, not a transient cmd.exe), and confirms the
-    process is alive — a bad path returns an error instead of a false success.
+    何时用: open a GUI/console program or a document/URL. 何时别用: shell pipelines, builds, scripts whose
+    output you need (use run_command); killing/closing (kill_process / close_window).
+    Spawned WITHOUT a shell (pid is the app itself; a bad path is an error, not a false success); no stdin (EOF).
 
     Args:
-        path: Executable path ("notepad.exe", "C:/Program Files/app/app.exe"), a name on PATH, a
-              registered app name (calc, mspaint, msedge, chrome, code), OR a document/URL to open
-              with its default handler.
-        args: Optional command-line arguments (quoted paths with spaces are handled).
-        working_dir: Optional working directory.
-        wait: If True, block until the process exits and capture its output (for console programs;
-              meaningless for GUI apps — use wait=False + the returned 'window'/wait_for_window).
-        ready_timeout: Seconds to wait for the app's main window to appear (0 to skip). The window
-              info is returned so you can focus/click it immediately without a separate poll.
-        wait_timeout: Seconds to wait for process exit when wait=True (default 120, clamped to
-              [1, 600]). Previously the 2-second ready_timeout was (mis)reused as this cap, so a
-              synchronous wait almost always "timed_out" — the two budgets are now independent.
+        path: Executable path, a name on PATH, a registered app name (calc, mspaint, msedge, chrome, code), or a
+            document/URL for its default handler.
+        args: Command-line arguments (paths with spaces are quoted); not allowed with a document/URL.
+        working_dir: Working directory.
+        wait: Block until exit and capture output (console programs only; GUI apps: wait=False).
+        ready_timeout: Seconds to wait for the main window (0 skips, max 60).
+        wait_timeout: Seconds to wait for exit when wait=True (default 120, clamped to [1, 600]).
 
     Returns:
-        dict with 'success' + real 'pid' + 'name'; plus 'window' {hwnd,title,rect} and 'ready' when
-        a window was found. On a bad launch: {success: False, ...} or {error: ...}.
+        dict with success, pid, name; plus window {hwnd,title,rect} and ready when a window was found. A bad
+        launch gives {success: False, ...} or {error: ...}.
     """
     exe = _resolve_executable(path)
+    try:
+        ready_timeout = max(0.0, min(float(ready_timeout), 60.0))  # bounded: never poll for windows forever
+    except (TypeError, ValueError):
+        ready_timeout = 2.0
 
     # Not a resolvable executable -> treat as a document/URL association (os.startfile).
     if exe is None:
@@ -171,30 +171,34 @@ def launch_application(
         proc = subprocess.Popen(
             [exe] + _split_args(args),
             cwd=working_dir,
+            # Never inherit our stdin: it is the MCP JSON-RPC pipe (a child reading it would swallow the
+            # next requests and hang until killed).
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE if wait else subprocess.DEVNULL,
             stderr=subprocess.PIPE if wait else subprocess.DEVNULL,
-            text=True,
-            # Console programs on zh-CN write cp936/GBK, NOT UTF-8 (OEM code page). Hard-coding
-            # utf-8 here turned every Chinese line into U+FFFD mojibake (e.g. ipconfig/systeminfo
-            # with Chinese adapter/OS names). Match the OEM code page like run_command does.
-            encoding=_default_console_encoding(),
-            errors="replace",
+            # Bytes, decoded below with run_command's rules (strict UTF-8 first, then the OEM code page
+            # cp936/GBK, then replace) so both UTF-8 and GBK console programs come out readable.
         )
     except Exception as e:  # noqa: BLE001 — bad path / permission / bad args
-        return {"error": f"failed to launch '{path}': {type(e).__name__}: {e}"}
+        return {"error": f"failed to launch '{path}': {exc_text(e)}"}
 
     if wait:
         try:
             cap = max(1, min(600, int(wait_timeout)))
-            stdout, stderr = proc.communicate(timeout=cap)
+            raw_out, raw_err = proc.communicate(timeout=cap)
+            enc = _default_console_encoding()
+            stdout, out_cut = _clip_text(_decode(raw_out, enc), _DEFAULT_OUTPUT_CHARS)
+            stderr, err_cut = _clip_text(_decode(raw_err, enc), _DEFAULT_OUTPUT_CHARS // 2)
             out = {
                 "success": proc.returncode == 0,
                 "pid": proc.pid,
                 "name": os.path.basename(exe),
                 "return_code": proc.returncode,
-                "stdout": stdout or "",
-                "stderr": stderr or "",
             }
+            if out_cut or err_cut:
+                out["output_truncated"] = True
+            out["stderr"] = stderr
+            out["stdout"] = stdout
             if cap != int(wait_timeout):
                 out["wait_timeout_capped"] = cap
             return out
@@ -265,10 +269,8 @@ def kill_process(
 
     Args:
         pid: Process ID to kill.
-        name: Process name to kill. By default matches the EXACT basename
-              (case-insensitive, ".exe" optional), NOT a substring. This prevents
-              e.g. name="s" from killing every process containing "s".
-        force: If True, force kill (SIGKILL). Otherwise graceful terminate.
+        name: Process name; matches the EXACT basename (case-insensitive, ".exe" optional), NOT a substring.
+        force: True = force kill (SIGKILL); otherwise graceful terminate.
         contains: Opt in to substring matching (dangerous — use with confirm).
         confirm: Required when a name matches more than one process.
         allow_critical: Override the critical-OS-process denylist (default off).

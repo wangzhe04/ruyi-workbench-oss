@@ -1257,6 +1257,26 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
   });
 }
 
+// N9: 并行只读「岛」规划(纯函数,可独立测试)。修前「整批全是安全只读」才并发,批里混进一个 todo_write / tool_search
+// (模型几乎总这么发)或一次编辑,整批就退回串行 —— [web_search ×3, todo_write] 耗时是 4 倍。
+// 现在:岛 = 批里【排在第一个有副作用/阻塞调用之前】的安全只读调用,它们并发预执行;之后的调用照旧按原顺序串行,
+// 结果仍按原顺序消费(预执行结果按 id 存表,串行循环取用 —— 配对/历史/hook/事件顺序不变)。
+// 为什么只取「第一个阻塞调用之前」:串行语义里排在编辑之后的读要看见编辑的结果([file_read A, file_edit A, file_read A]
+// 的第二次读必须读到改后内容),把它提前并发执行就读到旧内容 —— 所以阻塞调用一出现岛就关门,其后的读不入岛。
+// 中性调用(不影响后面的读、也不被读影响:todo_write / tool_search / list_tools / tool_load,以及参数坏了、串行路径会直接拒绝
+// 的调用)不关门。岛不足 2 个时返回 []:单个只读没有并发收益,保持原串行路径(hook/事件时序逐字节不变)。
+// isSafeRead(tc):原生、read 档、非控制面/非桥接、参数有效;isRefused(tc):串行路径会按参数错误直接拒绝它。
+const PARALLEL_READ_NEUTRAL = new Set(['todo_write', 'tool_search', 'list_tools', 'tool_load']);
+function planParallelReadIsland(calls, isSafeRead, isRefused) {
+  const island = [];
+  for (const tc of (Array.isArray(calls) ? calls : [])) {
+    if (isSafeRead(tc)) { island.push(tc); continue; }
+    if (tc && tc.name && (PARALLEL_READ_NEUTRAL.has(tc.name) || isRefused(tc))) continue;   // 中性:不关门
+    break;                                                                                   // 阻塞:岛到此为止
+  }
+  return island.length >= 2 ? island : [];
+}
+
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 // 106 #1 (21-E4 §7.3): 布局 shadow —— 采样调用上同时构建 current/candidate 两种易变层布局的
@@ -1772,7 +1792,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
       disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
-      result: AgentLoopHooks.summarizeAgentLoopToolResult(result),
+      // N3: 没有任何 hook 注册时没人读这份摘要 —— 它要把整个结果序列化一遍算 bytes(2MB 结果 ≈15ms),不算了。
+      result: AgentLoopHooks.listAgentLoopHooks().length ? AgentLoopHooks.summarizeAgentLoopToolResult(result) : undefined,
     });
     if (config.runtimeFailureTelemetryV1 === true || config.runtimeOptimizationShadowV1 === true) {
       try {
@@ -1837,7 +1858,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // already-queued user instruction is consumed at the next normal iteration boundary.
   const toolHeartbeatMs = Math.max(250, Number(process.env.WCW_TOOL_HEARTBEAT_MS)
     || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 3))));
-  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run']);
+  // shell_poll:waitMs 长轮询(≤30s)循环里看 ctx.signal,必须可被插话 / 停止打断,否则排队的插话要等满 30s。
+  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run', 'shell_poll']);
   const awaitProviderTool = async (tc, runner, interruptible = false) => {
     const startedAt = Date.now();
     const toolAbort = interruptible ? new AbortController() : null;
@@ -2047,7 +2069,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     else if (typeof resultObj.text === 'string') text = resultObj.text;
     else if (typeof resultObj.output === 'string') text = resultObj.output;
     else if (typeof resultObj.result === 'string') text = resultObj.result;
-    else text = JSON.stringify(resultObj).slice(0, 500);
+    else {
+      // N3: 只要前 500 个字符 —— 顶层字符串先截到 500 再序列化,前 500 个输出字符与整体序列化逐字节相同(转义只会变长),
+      // 但不必给 240KB–2MB 的 stdout 白白序列化一遍。
+      const clipped = {};
+      for (const k of Object.keys(resultObj)) { const v = resultObj[k]; clipped[k] = typeof v === 'string' && v.length > 500 ? v.slice(0, 500) : v; }
+      text = JSON.stringify(clipped).slice(0, 500);
+    }
     text = String(text).replace(/\s+/g, ' ').trim();
     if (!text) return null;
     return toolName + '|' + text.length + '|' + text.slice(0, 200);
@@ -2565,12 +2593,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         //    ③ loopWarning/语义指纹在下方取结果后按原顺序照常应用。任一条件不满足 → null → 走原串行。
         let parallelReadResults = null;
         let poolStrategy = null;   // 21-E2: 'parallel'(≤8 全量) | 'pool_read'(>8 有界并发) | null
+        let parallelIslandWidth = 0; // N9: 并发预执行的只读岛宽度(0 = 无岛/串行)
         let poolQueueWaitMs = 0;   // 21-E2: pool 内资源锁排队总时长(串行/全量路径恒 0)
         if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
-          const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
+          const isSafeRead = tc => Boolean(tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
             && !toolArgsRefusal(tc)); // 参数坏了的调用不预执行(串行路径会拒绝它,见 toolArgsRefusal)
+          // N9: 只读岛(见 planParallelReadIsland):整批全是安全只读时 = 整批(与修前逐字节等价);混批时 = 第一个阻塞调用之前的只读。
+          const islandCalls = planParallelReadIsland(localToolCalls, isSafeRead, tc => toolArgsRefusal(tc));
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
           for (const tc0 of localToolCalls) {
             const s0 = tc0.name + ' ' + tc0.rawArgs;
@@ -2579,14 +2610,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             else if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
             if (simCount >= LOOP_ABORT_AT && !loopAbortExempt(b0) && !loopWarnOnly(b0)) { loopTrip = true; break; }
           }
-          const withinLegacyWidth = localToolCalls.length <= 8;
+          const withinLegacyWidth = islandCalls.length <= 8;
           const usePool = config.boundedReadSchedulerV1 === true; // 21-E2: 主动开关,>8 才触发 pool 分支
-          if (allSafeRead && !loopTrip && (withinLegacyWidth || usePool)) {
+          if (islandCalls.length >= 2 && !loopTrip && (withinLegacyWidth || usePool)) {
+            parallelIslandWidth = islandCalls.length;
             parallelReadResults = new Map();
             poolStrategy = withinLegacyWidth ? 'parallel' : 'pool_read';
             if (withinLegacyWidth) {
               // 现状全量并发路径(逐字节等价,仅供 E1 埋点延续)
-              await Promise.all(localToolCalls.map(async tc => {
+              await Promise.all(islandCalls.map(async tc => {
                 let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
                 let res, lease = '';
                 if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
@@ -2605,11 +2637,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             } else {
               // 21-E2: >8 纯 read —— 有界 worker pool。worker 数 = min(width, min(8, max(4, width))),
               // 提交顺序推进(完成顺序可乱),结果仍按 id 存表,下方按原顺序消费 → 配对/历史顺序不变。
-              const poolWorkers = Math.min(localToolCalls.length, Math.min(8, Math.max(4, localToolCalls.length)));
+              const poolWorkers = Math.min(islandCalls.length, Math.min(8, Math.max(4, islandCalls.length)));
               let poolNext = 0;
               await Promise.all(Array.from({ length: poolWorkers }, async () => {
-                while (poolNext < localToolCalls.length) {
-                  const tc = localToolCalls[poolNext++];
+                while (poolNext < islandCalls.length) {
+                  const tc = islandCalls[poolNext++];
                   let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
                   let res, lease = '', tWait0 = Date.now();
                   if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 预执行真实起点
@@ -2766,8 +2798,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
-            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
-            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+            const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id }); // N3: 展示副本(agent_result 等可能很大)
+            onEvent({ type: 'tool_result', id: tc.id, content: shownAgentResult, isError: isErr });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownAgentResult });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
@@ -2813,7 +2846,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (grantHit) { gate = 'allow'; onEvent({ type: 'autonomy_grant_consumed', grantId: grantHit.grantId, tool: grantHit.tool, tier: grantHit.tier, remaining: grantHit.remaining }); }
           }
           // resultObj declared above (shared with the agent-tools branch, which `continue`s before reaching here).
-          if (gate === 'block') {
+          // 审计 N4:设置里关掉的命令/桌面工具在分发点拒绝(不弹权限窗、不执行;offer 面只是藏 schema,bypass/auto 下 gate 恒放行)。
+          const policyOff = (!bridge && !isStewardTurn) ? nativeToolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(session)) : '';
+          if (policyOff) {
+            resultObj = toolDisabledResult(tc.name, policyOff);
+          } else if (gate === 'block') {
             resultObj = { ok: false, error: `blocked by permission mode '${config.permissionMode}' (${tier} tool)` };
           } else {
             if (gate === 'ask' && !bridge) resultObj = (await preflightWriteBoundary(tc.name, args, { session, config, workingDir })) || undefined;   // 走查 U5:越界的写不弹窗
@@ -2833,7 +2870,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (!resultObj) {
               if (bridge) {
                 const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
-                if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+                if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                   const gateRefusal = bridgedOfficeScriptGate(tc.name, args)
@@ -2912,10 +2949,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   resultObj = await awaitProviderTool(
                     tc,
                     signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
-                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                    // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
+                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
                 }
-                catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                catch (e) { resultObj = toolFailureResult(e, allTools.map(t => t.function && t.function.name)); } // 审计 N5:未知工具附 did-you-mean
                 finally { releaseResourceLease(toolLease); }
                 }
               }
@@ -2947,8 +2985,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
-          onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
-          toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+          // N3: 只有 providerHistory 那份是有界的;SSE 事件与落盘的 toolCalls[].result 原先是完整的 240KB–2MB
+          // (含 image_base64 截图)。这里算一份【展示副本】(结构感知收缩 + 大图落附件),事件与落盘共用同一个对象。
+          // 历史/hook/指纹仍用完整 resultObj。小结果原样返回(同一引用)。
+          const shownResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id });
+          onEvent({ type: 'tool_result', id: tc.id, content: shownResult, isError: isErr });
+          toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownResult });
           await notifyToolHookEnd(tc, resultObj, iter);
           // 21-E3 (actionArgumentModelViewV1): 大参数写动作执行后落 audit —— 执行与审计视图。
           // 原始 arguments 保留在 providerHistory 原消息(可还原),audit 只存元数据 + 校验哈希;失败/中断
@@ -2988,6 +3030,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               const note = `[以下是工具 ${tc.name} 的屏幕截图]`;
               pendingToolImages.push({ toolCallId: tc.id, note, parts: [{ type: 'text', text: note }, ...imgs.map(u => ({ type: 'image_url', image_url: { url: u } }))] });
             }
+          } else if (VisualPipeline.extractToolImages(resultObj).length) {
+            // 审计 N7:非视觉模型看不了图 —— 历史里换成一行占位,不再把 40 KB 的 base64 当文字塞进上下文(UI 事件仍用原 resultObj)。
+            toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
           session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(toolResultForHistory)) });
@@ -3047,8 +3092,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // 21-E2: strategy 扩展 pool_read(>8 有界并发)/pool_island(混合批岛, E2b); 旧并行批保持 'parallel'。
             strategy: poolStrategy || ((parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial'),
             maxConcurrency: poolStrategy === 'pool_read'
-              ? Math.min(localToolCalls.length, Math.min(8, Math.max(4, localToolCalls.length)))
-              : ((parallelReadResults && parallelReadResults.size) ? localToolCalls.length : 1),
+              ? Math.min(parallelIslandWidth, Math.min(8, Math.max(4, parallelIslandWidth)))
+              : ((parallelReadResults && parallelReadResults.size) ? parallelIslandWidth : 1),
             toolsMs: econToolsMs,
             criticalPathMs: econMax,
             serialEstimateMs: econSum,

@@ -40,25 +40,190 @@ language while business (定稿默认) keeps the v1.6.1 layout byte-for-byte:
     这次把圆角做对); the content title bar keeps the colour band and gains a small coral end-dot.
 """
 
+import math
 import os
+import shutil
+import tempfile
 
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 from ai_computer_control.tools import office_style as style_tokens
+from ai_computer_control.tools import office_io
 
-# Guarded optional import (module top): absent python-pptx must NOT crash server import.
+# python-pptx is an OPTIONAL offline dependency and a ~0.25 s import: NOT imported at module load.
+# `_AVAILABLE` is a cheap find_spec probe (diagnostics reads it); the real import happens inside
+# write_pptx / the helpers, and a broken install degrades to an install-hint envelope.
 try:
-    import pptx  # type: ignore  # noqa: F401
-    _AVAILABLE = True
-    _IMPORT_ERROR = ""
-except Exception as e:  # noqa: BLE001 — optional dependency
+    import importlib.util as _ilu
+    _AVAILABLE = _ilu.find_spec("pptx") is not None
+except Exception:  # noqa: BLE001
     _AVAILABLE = False
-    _IMPORT_ERROR = str(e)
+_IMPORT_ERROR = "" if _AVAILABLE else "python-pptx not installed"
 
 
-def _unavailable() -> dict:
-    return {"error": "PPTX 生成需要 python-pptx。离线包已含，可运行 installer 重装；或 pip install python-pptx",
-            "detail": _IMPORT_ERROR}
+def _unavailable(detail: str = "") -> dict:
+    return office_io.missing_dependency("pptx", detail or _IMPORT_ERROR)
+
+
+# --- layout estimation (no renderer available, so a conservative text-metrics model) -------------
+def _text_units(s) -> int:
+    """Display width in half-em units (CJK / full-width = 2, everything else = 1)."""
+    return sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(s))
+
+
+def _est_lines(text, width_in: float, pt: float, margin_in: float = 0.2) -> int:
+    """Estimated wrapped line count of `text` in a box `width_in` wide at `pt` points."""
+    cpl_units = max(1.0, (width_in - margin_in) * 72.0 / (0.5 * pt))
+    lines = 0
+    for para in str(text).split("\n"):
+        lines += max(1, math.ceil(_text_units(para) / cpl_units))
+    return lines
+
+
+def _row_height_in(cells, widths_in, pt: float) -> float:
+    lines = max((_est_lines(c, widths_in[i], pt) for i, c in enumerate(cells)), default=1)
+    return max(0.36, lines * pt * 1.2 / 72.0 + 0.14)
+
+
+def _balanced_sizes(n: int, k: int) -> list:
+    """Split n items into k chunks whose sizes differ by at most 1 (larger first): no orphan tail."""
+    base, extra = divmod(n, k)
+    return [base + (1 if i < extra else 0) for i in range(k)]
+
+
+def _table_col_widths(headers, rows, total_in: float = 11.5, min_in: float = 0.8) -> list:
+    """Column widths (inches) summing to `total_in`, proportional to content length (0.6*longest +
+    0.4*mean display width, clamped to [4, 40] units), each at least `min_in`."""
+    n = len(headers)
+    weights = []
+    for c in range(n):
+        lens = [_text_units(_txt(r[c])) if c < len(r) else 0 for r in rows]
+        lens.append(_text_units(_txt(headers[c])) + 2)
+        longest, mean = max(lens), sum(lens) / len(lens)
+        weights.append(min(max(0.6 * longest + 0.4 * mean, 4), 40))
+    min_in = min(min_in, total_in / n)
+    widths, free, remaining = [0.0] * n, set(range(n)), float(total_in)
+    while free:
+        tw = sum(weights[i] for i in free)
+        pinned = [i for i in free if remaining * weights[i] / tw < min_in]
+        if not pinned:
+            for i in free:
+                widths[i] = remaining * weights[i] / tw
+            break
+        for i in pinned:
+            widths[i] = min_in
+            remaining -= min_in
+            free.discard(i)
+    return widths
+
+
+def _txt(v) -> str:
+    return "" if v is None else str(v)
+
+
+_TABLE_MAX_H_IN = 5.1      # table top 1.8in -> footer at 7.05in leaves ~5.2in
+_TABLE_MAX_ROWS = 11       # readability cap per slide (data rows), as before
+
+
+def _plan_table(headers, rows) -> dict:
+    """Column widths, font size and row->slide split for a table.
+
+    Picks the largest body font (12 -> 11 -> 10 pt) that needs the fewest slides, splitting on ESTIMATED
+    wrapped height (not just row count), at most 11 data rows a slide, balanced so the last slide is
+    never a one-row orphan. Returns {'widths', 'pt', 'chunks': [[row, ...], ...]} — heights are
+    recomputed per chunk by the caller via _row_height_in."""
+    widths = _table_col_widths(headers, rows)
+    best = None
+    for pt in (12, 11, 10):
+        head_h = _row_height_in(headers, widths, pt + 2)
+        heights = [_row_height_in(r, widths, pt) for r in rows]
+        chunks, cur, cur_h = [], [], head_h
+        for r, h in zip(rows, heights):
+            if cur and (cur_h + h > _TABLE_MAX_H_IN or len(cur) >= _TABLE_MAX_ROWS):
+                chunks.append(cur)
+                cur, cur_h = [], head_h
+            cur.append((r, h))
+            cur_h += h
+        chunks.append(cur)
+        k = len(chunks)
+        if k > 1:
+            # try an even split into k slides; keep it only if every slide still fits
+            sizes = _balanced_sizes(len(rows), k)
+            even, i, ok = [], 0, True
+            for sz in sizes:
+                part = list(zip(rows[i:i + sz], heights[i:i + sz]))
+                i += sz
+                if head_h + sum(h for _, h in part) > _TABLE_MAX_H_IN or len(part) > _TABLE_MAX_ROWS:
+                    ok = False
+                    break
+                even.append(part)
+            if ok:
+                chunks = even
+            elif len(chunks[-1]) == 1 and len(chunks[-2]) > 1:      # steal one row to avoid the orphan
+                chunks[-1].insert(0, chunks[-2].pop())
+        plan = {"widths": widths, "pt": pt, "chunks": [[r for r, _ in c] for c in chunks]}
+        if best is None or len(plan["chunks"]) < len(best["chunks"]):
+            best = plan
+        if len(best["chunks"]) == 1:
+            break
+    return best
+
+
+def _fit_bullet_size(items, width_in: float, height_in: float, size: float, spacing: float) -> float:
+    """Shrink `size` (down to 12pt) until the estimated wrapped bullets fit `height_in`."""
+    while size > 12:
+        total = 0.0
+        for text, level in items:
+            sz = max(12, size - level * 2)
+            lines = _est_lines(text, width_in - 0.35 * (level + 1), sz, margin_in=0.2)
+            total += lines * sz * spacing * 1.2 / 72.0 + 4 / 72.0
+        if total <= height_in:
+            break
+        size -= 1
+    return size
+
+
+def _prepare_image(img_path: str, tmpdir: str, idx: int) -> str:
+    """Downscale a huge image (longest side > 2000 px) before embedding — a 4K PNG otherwise adds
+    tens of MB to the deck. Returns the path to embed (original when small or on any failure)."""
+    try:
+        from PIL import Image
+        with Image.open(img_path) as im:
+            w, h = im.size
+            if max(w, h) <= 2000:
+                return img_path
+            scale = 2000.0 / max(w, h)
+            new = (max(1, round(w * scale)), max(1, round(h * scale)))
+            has_alpha = im.mode in ("RGBA", "LA") or "transparency" in im.info
+            fmt = (im.format or "").upper()
+            im2 = im.convert("RGBA" if has_alpha else "RGB").resize(new, Image.LANCZOS)
+            if not has_alpha and fmt in ("JPEG", "JPG"):
+                out = os.path.join(tmpdir, f"img{idx}.jpg")
+                im2.save(out, "JPEG", quality=88, optimize=True)
+                return out
+            out = os.path.join(tmpdir, f"img{idx}.png")
+            im2.save(out, "PNG", optimize=True)
+            if not has_alpha and os.path.getsize(out) > 2_500_000:
+                out = os.path.join(tmpdir, f"img{idx}.jpg")
+                im2.save(out, "JPEG", quality=88, optimize=True)
+            return out
+    except Exception:  # noqa: BLE001 — embed the original rather than fail the deck
+        return img_path
+
+
+def _title_shape(slide, left, top, width, height):
+    """The slide's TITLE PLACEHOLDER positioned at the given box (so the outline / navigator / screen
+    readers see a real slide title), raised above the decorative shapes. Falls back to a plain textbox
+    when the layout has no title placeholder."""
+    t = slide.shapes.title
+    if t is None:
+        return slide.shapes.add_textbox(left, top, width, height)
+    t.left, t.top, t.width, t.height = int(left), int(top), int(width), int(height)
+    el = t._element
+    parent = el.getparent()
+    parent.remove(el)
+    parent.append(el)
+    return t
 
 
 def _protected_read_guard(path: str):
@@ -87,36 +252,29 @@ def write_pptx(
 ) -> dict:
     """Create a 16:9 PowerPoint (.pptx) from slide specs, styled from design tokens (模板驱动).
 
-    slides is a list of dicts; each dict's 'type' selects the layout:
-      * {'type': 'title',   'title': str, 'subtitle': str?, 'date': str?}
-            — a full-bleed dark COVER:主色满铺 background, big white bold title (44–54pt by length),
-              light subtitle, an accent underline, and an optional bottom-right date. No page number.
-      * {'type': 'content', 'title': str, 'bullets': [str | {'text': str, 'level': int}]}
-            — a bulleted content slide. Bullets may be plain strings or {text, level} for indent
-              levels (0 = top). Font size and layout adapt to the bullet count: ≤3 large / 4–5 medium
-              (both vertically centred), 6–10 auto-split into two columns. Longer lists automatically
-              continue onto additional slides without discarding content.
-      * {'type': 'stats',   'title': str, 'items': [{'label': str, 'value': str, 'note': str?}]}
-            — number-highlight cards (2–6 items): even cards (2–3 per row) with a big bold primary
-              value, a label above and an optional grey note below. Empty / >6 items -> error.
-      * {'type': 'table',   'title': str, 'headers': [str,...], 'rows': [[...], ...]}
-            — a slide with a styled table (token header fill + white bold text + zebra rows).
-      * {'type': 'image',   'title': str, 'image_path': str, 'caption': str?}
-            — a slide showing an image (auto-fit) with an optional caption. image_path is read and
-              passes the protected-path guard.
-      * {'type': 'closing', 'title': str?, 'subtitle': str?}
-            — a full-bleed dark CLOSING slide mirroring the cover ('谢谢' if no title). No page number.
-    Content / stats / table / image slides carry a footer page number; title & closing do not.
+    slides is a list of dicts; 'type' selects the layout:
+      * {'type': 'title', 'title': str, 'subtitle': str?, 'date': str?} — dark full-bleed COVER, no page number.
+      * {'type': 'content', 'title': str, 'bullets': [str | {'text': str, 'level': int}]} — bullets (level 0 =
+        top). Size adapts to the count (≤3 large, 4–5 medium, 6–10 two columns); 11+ split into balanced slides,
+        nothing dropped.
+      * {'type': 'stats', 'title': str, 'items': [{'label': str, 'value': str, 'note': str?}]} — 2–6
+        number-highlight cards. Empty / >6 items -> error.
+      * {'type': 'table', 'title': str, 'headers': [str,...], 'rows': [[...], ...]} — styled table; columns fit
+        the width; dense tables use 10-11 pt and split across slides.
+      * {'type': 'image', 'title': str, 'image_path': str, 'caption': str?} — auto-fit image (must pass the
+        protected-path guard; >2000 px is downscaled).
+      * {'type': 'closing', 'title': str?, 'subtitle': str?} — dark CLOSING slide ('谢谢' if no title), no page number.
 
     Args:
         path: Output .pptx path.
-        slides: List of slide spec dicts (see above). Empty -> error.
+        slides: List of slide spec dicts. Empty -> error.
         style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> 'business'.
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
         dict with 'success', 'path', 'output_path', 'slides' (count), 'style'. Missing python-pptx ->
-        {'error': install guidance}. Bad input -> {'error': <中文人话>}.
+        {'error': install guidance}. Bad input -> {'error': <中文人话>}. A target held open by PowerPoint/WPS ->
+        {'error', 'code': 'file_locked', 'hint'}, old file untouched.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -128,10 +286,13 @@ def write_pptx(
     if guard:
         return guard
 
-    from pptx import Presentation
-    from pptx.util import Inches, Pt, Emu
-    from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt, Emu
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    except Exception as e:  # noqa: BLE001 — optional dependency present on disk but broken
+        return _unavailable(str(e))
 
     tokens = style_tokens.get_style(style)
     resolved_style = style if style in style_tokens.STYLES else style_tokens.DEFAULT_STYLE
@@ -218,18 +379,38 @@ def write_pptx(
                     return g
 
         # Keep source content intact; paginate instead of silently dropping bullets or squeezing
-        # a tall table through the footer. Repeat headers and identify continuation pages.
+        # a tall table through the footer. Continuation slides repeat the headers and carry (i/k) in the
+        # title; splits are balanced (no one-bullet / one-row orphan slide). Tables are split on the
+        # ESTIMATED wrapped height with column widths weighted by content.
         source_slides = len(slides)
         paginated = []
+        dropped_cells = 0
         for spec in slides:
             stype = str(spec.get('type', '')).lower()
-            key, capacity = ('bullets', 5) if stype == 'content' else ('rows', 11)
-            values = spec.get(key)
-            threshold = 10 if stype == 'content' else 11
-            if stype in ('content', 'table') and isinstance(values, list) and len(values) > threshold:
-                chunks = [values[i:i + capacity] for i in range(0, len(values), capacity)]
-                for i, chunk in enumerate(chunks, 1):
-                    paginated.append({**spec, key: chunk, 'title': f"{spec.get('title', '')} ({i}/{len(chunks)})"})
+            values = spec.get('bullets') if stype == 'content' else spec.get('rows')
+            if stype == 'content' and isinstance(values, list) and len(values) > 10:
+                k = math.ceil(len(values) / 5)
+                i = 0
+                for idx, sz in enumerate(_balanced_sizes(len(values), k), 1):
+                    paginated.append({**spec, 'bullets': values[i:i + sz],
+                                      'title': f"{spec.get('title', '')} ({idx}/{k})"})
+                    i += sz
+            elif (stype == 'table' and isinstance(values, list) and values
+                  and isinstance(spec.get('headers'), list) and spec.get('headers')
+                  and all(isinstance(r, list) for r in values)):
+                # rows wider than the headers are cut to the header count (shorter rows are padded) BEFORE
+                # planning: the planner indexes column widths by cell index.
+                n_hdr = len(spec['headers'])
+                if any(len(r) > n_hdr for r in values):
+                    dropped_cells += sum(max(0, len(r) - n_hdr) for r in values)
+                values = [(list(r) + [""] * n_hdr)[:n_hdr] for r in values]
+                plan = _plan_table(spec['headers'], values)
+                k = len(plan['chunks'])
+                for idx, chunk in enumerate(plan['chunks'], 1):
+                    new = {**spec, 'rows': chunk, '_plan': plan}
+                    if k > 1:
+                        new['title'] = f"{spec.get('title', '')} ({idx}/{k})"
+                    paginated.append(new)
             else:
                 paginated.append(spec)
         slides = paginated
@@ -237,7 +418,13 @@ def write_pptx(
         prs = Presentation()
         prs.slide_width = SLIDE_W
         prs.slide_height = SLIDE_H
-        blank = prs.slide_layouts[6]  # fully blank layout — we place everything ourselves.
+        # "Title Only" layout: every slide owns a real title placeholder (outline, navigator and screen
+        # readers see slide titles); we restyle/position it ourselves through the design tokens.
+        try:
+            blank = prs.slide_layouts[5]
+        except IndexError:
+            blank = prs.slide_layouts[len(prs.slide_layouts) - 1]
+        img_tmp = tempfile.mkdtemp(prefix="ruyi-pptx-")
 
         for page_no, spec in enumerate(slides, 1):
             stype = str(spec.get("type", "")).lower()
@@ -355,11 +542,20 @@ def write_pptx(
                     return {"error": "第 " + str(page_no) + " 页 table 的 rows 必须是二维数组(list of lists)"}
                 n_cols = len(headers)
                 n_rows = len(rows) + 1  # + header
-                if n_rows > 12:
-                    return {"error": "第 " + str(page_no) + " 页 table 行数过多(" + str(n_rows) + ")—— 大表会溢出画布,请拆成多页或精简行数"}
+                plan = spec.get("_plan") or {"widths": _table_col_widths(headers, rows), "pt": 12}
+                widths_in, body_pt = plan["widths"], plan["pt"]
+                head_pt = body_pt + 2
+                row_hs = [_row_height_in(headers, widths_in, head_pt)] + \
+                         [_row_height_in([_txt(v) for v in (list(r) + [""] * n_cols)[:n_cols]], widths_in, body_pt)
+                          for r in rows]
                 tbl_shape = slide.shapes.add_table(
-                    n_rows, n_cols, Inches(0.9), Inches(1.8), Inches(11.5), Inches(0.4 * n_rows))
+                    n_rows, n_cols, int((SLIDE_W - Inches(sum(widths_in))) / 2), Inches(1.8),
+                    Inches(sum(widths_in)), Inches(sum(row_hs)))
                 table = tbl_shape.table
+                for c, w_in in enumerate(widths_in):
+                    table.columns[c].width = Inches(w_in)
+                for r_i, h_in in enumerate(row_hs):
+                    table.rows[r_i].height = Inches(h_in)
                 # header row
                 for c, h in enumerate(headers):
                     cell = table.cell(0, c)
@@ -370,8 +566,8 @@ def write_pptx(
                     tf.word_wrap = True
                     p = tf.paragraphs[0]
                     run = p.add_run()
-                    run.text = str(h)
-                    _set_run(run, 14, header_font_color, body_font, bold=True)
+                    run.text = _txt(h)
+                    _set_run(run, head_pt, header_font_color, body_font, bold=True)
                 # body rows with zebra
                 for r, row in enumerate(rows, start=1):
                     striped = (r % 2 == 0)
@@ -385,8 +581,8 @@ def write_pptx(
                         tf.word_wrap = True
                         p = tf.paragraphs[0]
                         run = p.add_run()
-                        run.text = str(val)
-                        _set_run(run, 12, text_color, body_font, bold=False)
+                        run.text = _txt(val)
+                        _set_run(run, body_pt, text_color, body_font, bold=False)
 
             elif stype == "image":
                 _add_title_bar(slide, spec.get("title", ""), primary, accent_on_light, title_font,
@@ -399,6 +595,7 @@ def write_pptx(
                 left = Inches(0.9)
                 top = Inches(1.8)
                 try:
+                    img = _prepare_image(img, img_tmp, page_no)
                     pic = slide.shapes.add_picture(img, left, top, width=max_w)
                     # If it overflows vertically, re-add constrained by height instead.
                     if pic.height > Inches(4.8):
@@ -424,8 +621,7 @@ def write_pptx(
             if stype not in ("title", "closing"):
                 _add_footer(slide, page_no)
 
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        prs.save(path)
+        office_io.atomic_save(path, prs.save)
         return {
             "success": True,
             "path": os.path.abspath(path),
@@ -435,9 +631,15 @@ def write_pptx(
             "paginated": len(slides) > source_slides,
             "visual_review_required": True,
             "style": resolved_style,
+            **({"warnings": [f"{dropped_cells} 个表格单元格超出表头列数,已被截掉(请补全 headers)"]} if dropped_cells else {}),
         }
     except Exception as e:  # noqa: BLE001
-        return {"error": f"PPTX 生成失败：{e}"}
+        return office_io.io_failure(e, path, prefix="PPTX 生成失败：")
+    finally:
+        try:
+            shutil.rmtree(img_tmp, ignore_errors=True)
+        except NameError:
+            pass
 
 
 def _add_title_bar(slide, title_text, primary, accent, title_font, header_font_color, set_run,
@@ -455,7 +657,7 @@ def _add_title_bar(slide, title_text, primary, accent, title_font, header_font_c
 
     if layout == "bigtext":
         # minimal: no bar. Big dark title on white + thin teal rule under it.
-        tbox = slide.shapes.add_textbox(Inches(0.75), Inches(0.45), Inches(11.8), Inches(0.9))
+        tbox = _title_shape(slide, Inches(0.75), Inches(0.45), Inches(11.8), Inches(0.9))
         tf = tbox.text_frame
         tf.word_wrap = True
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -478,10 +680,12 @@ def _add_title_bar(slide, title_text, primary, accent, title_font, header_font_c
     bar.fill.solid()
     bar.fill.fore_color.rgb = primary
     bar.line.fill.background()
-    tf = bar.text_frame
+    # the bar is decoration only; the title text lives in the slide's title placeholder on top of it
+    # (left 0.5in + the placeholder's default 0.1in inset == the old 0.6in text margin).
+    tbox = _title_shape(slide, Inches(0.5), 0, Inches(12.0), Inches(1.25))
+    tf = tbox.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    tf.margin_left = Inches(0.6)
     p = tf.paragraphs[0]
     p.alignment = PP_ALIGN.LEFT
     run = p.add_run()
@@ -520,7 +724,7 @@ def _cover_dark_center(slide, spec, slide_w, slide_h, *, title_bg, white, accent
         tsize = 54 if len(title_text) <= 12 else (48 if len(title_text) <= 22 else 44)
         t_top, u_top, sub_top = Inches(2.5), Inches(4.35), Inches(4.6)
 
-    tbox = slide.shapes.add_textbox(Inches(1.0), t_top, Inches(11.333), Inches(1.7))
+    tbox = _title_shape(slide, Inches(1.0), t_top, Inches(11.333), Inches(1.7))
     tf = tbox.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -585,7 +789,7 @@ def _cover_light_left(slide, spec, slide_w, slide_h, *, text_color, accent, subt
 
     # super-large near-black left-aligned title, just right of the line.
     tsize = 60 if len(title_text) <= 10 else (56 if len(title_text) <= 18 else 44)
-    tbox = slide.shapes.add_textbox(Inches(1.25), line_top, Inches(11.2), line_h)
+    tbox = _title_shape(slide, Inches(1.25), line_top, Inches(11.2), line_h)
     tf = tbox.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -665,7 +869,7 @@ def _cover_dark_deco(slide, spec, slide_w, slide_h, *, title_bg, white, accent, 
         tsize = 54 if len(title_text) <= 12 else (48 if len(title_text) <= 22 else 44)
         t_top, u_top, sub_top = Inches(2.4), Inches(4.25), Inches(4.5)
 
-    tbox = slide.shapes.add_textbox(Inches(1.0), t_top, Inches(11.333), Inches(1.7))
+    tbox = _title_shape(slide, Inches(1.0), t_top, Inches(11.333), Inches(1.7))
     tf = tbox.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
@@ -736,15 +940,25 @@ def _fill_bullets(slide, items, left, top, width, height, size_pt, line_spacing,
                   text_color, body_font, set_run, anchor):
     """Fill one textbox with normalized (text, level) bullets at a fixed size / line spacing.
 
-    items: list of (text, level). Vertically anchored via `anchor` so short lists sit centred in
-    the body area rather than clinging to the top. Line spacing is a float multiplier (1.4 == 140%).
+    items: list of (text, level). Bullets are REAL paragraph bullets (`a:buChar` + hanging indent via
+    marL/indent), so wrapped lines align under the text instead of under the glyph, and PowerPoint
+    treats them as a list. The font shrinks (to a 12pt floor) when the estimated wrapped height would
+    overflow the box, and normAutofit is set as a safety net. Vertically anchored via `anchor` so short
+    lists sit centred in the body area rather than clinging to the top. Line spacing is a float
+    multiplier (1.4 == 140%).
     """
-    from pptx.util import Pt
-    from pptx.enum.text import PP_ALIGN
+    from pptx.util import Pt, Emu
+    from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
+    from pptx.oxml.ns import qn
+    size_pt = _fit_bullet_size(items, width / 914400.0, height / 914400.0, size_pt, line_spacing)
     box = slide.shapes.add_textbox(left, top, width, height)
     tf = box.text_frame
     tf.word_wrap = True
     tf.vertical_anchor = anchor
+    try:
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    except Exception:  # noqa: BLE001
+        pass
     first = True
     for btext, level in items:
         p = tf.paragraphs[0] if first else tf.add_paragraph()
@@ -753,11 +967,19 @@ def _fill_bullets(slide, items, left, top, width, height, size_pt, line_spacing,
         p.alignment = PP_ALIGN.LEFT
         p.line_spacing = line_spacing
         p.space_after = Pt(4)
+        run_size = max(12, size_pt - level * 2)
+        hang = int(Pt(run_size) * 1.1)
+        ppr = p._p.get_or_add_pPr()
+        ppr.set("marL", str(hang * (level + 1)))
+        ppr.set("indent", str(-hang))
+        bu_font = ppr.makeelement(qn("a:buFont"), {"typeface": "Arial"})
+        bu_char = ppr.makeelement(qn("a:buChar"), {"char": "•" if level == 0 else ("–" if level == 1 else "·")})
+        ppr.append(bu_font)
+        ppr.append(bu_char)
         run = p.add_run()
-        bullet_char = "• " if level == 0 else ("– " if level == 1 else "· ")
-        run.text = bullet_char + btext
+        run.text = btext
         # Nested levels step down a touch so hierarchy reads without going tiny.
-        set_run(run, max(12, size_pt - level * 2), text_color, body_font, bold=False)
+        set_run(run, run_size, text_color, body_font, bold=False)
     return box
 
 

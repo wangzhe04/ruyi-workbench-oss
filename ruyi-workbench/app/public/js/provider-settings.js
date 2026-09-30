@@ -1529,6 +1529,7 @@ const INSTANT_SETTINGS = Object.freeze([
       type: $('cfgSearchType') ? $('cfgSearchType').value : ((state.config.searchBackend && state.config.searchBackend.type) || 'none'),
       baseUrl: $('cfgSearchBaseUrl') ? $('cfgSearchBaseUrl').value.trim() : '',
       apiKey: $('cfgSearchApiKey') ? $('cfgSearchApiKey').value : '',
+      ...(state.config.searchBackend && state.config.searchBackend.fallbackToBuiltin === true ? { fallbackToBuiltin: true } : {}),   // 无界面开关,保存时别丢
     },
   }) },
   // ── 集成与 MCP。v0.7d: autodetect stays on so a blank command keeps auto-discovering. ──

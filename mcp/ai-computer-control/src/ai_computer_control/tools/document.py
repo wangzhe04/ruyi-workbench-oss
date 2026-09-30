@@ -19,6 +19,7 @@ from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 from ai_computer_control.tools.filesystem import _non_ascii_report
 from ai_computer_control.tools import office_style as style_tokens
+from ai_computer_control.tools import office_io, office_markup
 
 
 # v1.0 收官安全加固(对抗复核 CONFIRMED·minor):写族(write_document/write_excel/write_pdf)此前不接
@@ -31,30 +32,41 @@ def _protected_write_guard(path: str, allow_protected: bool):
     return None
 
 
-@mcp.tool()
-def read_document(path: str) -> dict:
-    """Read the text content of a document file (Word .docx, Excel .xlsx, PDF .pdf).
+_READ_DEFAULT_CHARS = 20_000
+_READ_HARD_CHARS = 200_000
 
-    何时用: 只想快速拿走一个小文档的全部文字(一页纸的 docx、小 xlsx、几页的 pdf)。
-    何时别用(v1.9 收敛, 03 Phase B):
-      * .pdf → 请改用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限);本分支【已弃用】,
-        无分页上限会整本抽取,50 页 PDF 直接爆上下文。
-      * .xlsx → 请改用 excel_read(结构化二维 data + 表头 + 公式/数字格式);本分支【已弃用】,
-        静默截 500 行且把结构拍平成文本。
-      * .docx 分支仍是本工具的主用途(无 successor)。
+
+@mcp.tool()
+def read_document(path: str, max_chars: int = _READ_DEFAULT_CHARS, offset: int = 0) -> dict:
+    """Read the text content of a document file (Word .docx, PowerPoint .pptx, Excel .xlsx, PDF .pdf).
+
+    何时用: 只想快速拿走一个小文档的全部文字(一页纸的 docx、几页的 pdf、一份 pptx 的文字与备注)。
+    何时别用:
+      * .pdf -> 用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限 + 总预算续读);本分支【已弃用】,无分页上限会
+        整本抽取,50 页 PDF 直接爆上下文。
+      * .xlsx -> 用 excel_read(结构化二维 data + 表头 + 公式/数字格式);本分支【已弃用】,静默截 500 行且拍平成文本。
+      * .docx / .pptx 是本工具的主用途。.csv/.txt/.md 等纯文本用 read_file;老 .doc/.xls/.ppt 先另存为新版格式。
 
     Args:
         path: Path to the document file.
+        max_chars: 单次返回字符上限(默认 20000,硬上限 200000)。超出时 truncated=true 并给 next_offset。
+        offset: 从抽取文本的第几个字符开始返回;续读用同一 path + offset=next_offset。
 
     Returns:
-        dict with 'content' (extracted text), 'type', 'pages'/'sheets' count. 弃用分支附带
-        'deprecated'/'successor' 字段明示替代工具。
+        dict with 'content', 'type', 'total_chars', 'truncated'/'next_offset', 'pages'/'sheets'/'slides' count.
+        .docx 输出 markdown 风格结构(# 标题、- 列表、| 表格 |)并附 'headings' 大纲;.pptx 每张幻灯片为
+        「## Slide N: 标题」+ 文字 + 表格 + 备注。加密/损坏文件 -> error;扫描件 PDF(无文字层) -> ok 且 note 建议 OCR。
+        已弃用分支附带 'deprecated'/'successor' 字段。
     """
+    from ai_computer_control.tools.office_read import describe_read_error
+
     ext = os.path.splitext(path)[1].lower()
 
     try:
         if ext == ".docx":
             out = _read_docx(path)
+        elif ext == ".pptx":
+            out = _read_pptx(path)
         elif ext == ".xlsx":
             out = _read_xlsx(path)
             out["deprecated"] = True
@@ -64,40 +76,234 @@ def read_document(path: str) -> dict:
             out["deprecated"] = True
             out["successor"] = "pdf_read_pages"
         else:
-            return {"error": f"Unsupported format: {ext}. Supported: .docx, .xlsx, .pdf"}
+            return {"error": f"Unsupported format: {ext}. Supported: .docx, .pptx, .xlsx, .pdf"
+                             "(纯文本/csv 用 read_file;老 .doc/.xls/.ppt 先另存为新版格式)"}
+        if out.get("error"):
+            return {"error": out["error"]}
         content = out.get("content") or ""
-        non_ascii = _non_ascii_report(content)
-        if non_ascii["total"]:
+        try:
+            cap = max(1, min(int(max_chars), _READ_HARD_CHARS))
+        except Exception:
+            cap = _READ_DEFAULT_CHARS
+        try:
+            start = max(0, int(offset))
+        except Exception:
+            start = 0
+        total = len(content)
+        piece = content[start:start + cap]
+        out["content"] = piece
+        out["total_chars"] = total
+        if start + cap < total:
+            out["truncated"] = True
+            out["next_offset"] = start + cap
+            note = f"内容共 {total} 字符,本次返回 [{start}, {start + cap});传 offset={start + cap} 续读。"
+            out["note"] = (out["note"] + " " + note) if out.get("note") else note
+        non_ascii = _non_ascii_report(piece)
+        if non_ascii["samples"]:
             out["non_ascii"] = non_ascii
         return out
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": describe_read_error(e, path)}
+
+
+def _md_cell(text: str) -> str:
+    return (text or "").replace("\r", " ").replace("\n", " ").replace("|", "\\|").strip()
+
+
+def _table_to_md(table) -> str:
+    """Word 表 → markdown 行。合并单元格只在首次出现处写文字(python-docx 的 row.cells 对合并格重复返回同一个
+    单元格),避免「合并表头 | 合并表头 | 合并表头」。"""
+    seen = set()   # 存 <w:tc> 元素本身(会被引用住);别存 id() —— lxml 代理对象释放后 id 会被复用
+    rows = []
+    for row in table.rows:
+        cells = []
+        for cell in row.cells:
+            tc = cell._tc
+            if tc in seen:
+                cells.append("")
+            else:
+                seen.add(tc)
+                cells.append(_md_cell(cell.text))
+        rows.append(cells)
+    if not rows:
+        return ""
+    width = max(len(r) for r in rows)
+    lines = []
+    for i, r in enumerate(rows):
+        r = r + [""] * (width - len(r))
+        lines.append("| " + " | ".join(r) + " |")
+        if i == 0:
+            lines.append("|" + " --- |" * width)
+    return "\n".join(lines)
+
+
+def _iter_block_items(parent_elm, doc):
+    """按文档顺序产出 Paragraph / Table(含 sdt 内容控件里的块)。"""
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in parent_elm.iterchildren():
+        tag = child.tag.rsplit("}", 1)[-1]
+        if tag == "p":
+            yield Paragraph(child, doc)
+        elif tag == "tbl":
+            yield Table(child, doc)
+        elif tag == "sdt":
+            for sub in child.iterchildren():
+                if sub.tag.rsplit("}", 1)[-1] == "sdtContent":
+                    yield from _iter_block_items(sub, doc)
 
 
 def _read_docx(path: str) -> dict:
     from docx import Document
+    from ai_computer_control.tools.office_read import ole_password_hint
 
+    hint = ole_password_hint(path)
+    if hint:
+        return {"error": hint}
     doc = Document(path)
-    paragraphs = [p.text for p in doc.paragraphs]
-
-    # Also read tables
-    tables_text = []
-    for table in doc.tables:
-        rows = []
-        for row in table.rows:
-            cells = [cell.text for cell in row.cells]
-            rows.append(" | ".join(cells))
-        tables_text.append("\n".join(rows))
-
-    content = "\n".join(paragraphs)
-    if tables_text:
-        content += "\n\n--- Tables ---\n" + "\n\n".join(tables_text)
-
-    return {
+    lines: list[str] = []
+    headings: list[dict] = []
+    n_par = n_tbl = 0
+    num_counter = 0   # 连续「编号列表」段落的序号(遇到非列表段落归零)
+    for block in _iter_block_items(doc.element.body, doc):
+        if block.__class__.__name__ == "Table":
+            n_tbl += 1
+            md = _table_to_md(block)
+            if md:
+                lines.append("")
+                lines.append(md)
+                lines.append("")
+            num_counter = 0
+            continue
+        n_par += 1
+        text = block.text
+        try:
+            sname = (block.style.name or "") if block.style is not None else ""
+        except Exception:
+            sname = ""
+        lowered = sname.lower()
+        if not text.strip():
+            lines.append("")
+            num_counter = 0
+            continue
+        level = 0
+        if lowered == "title":
+            level = 1
+        elif lowered.startswith("heading "):
+            try:
+                level = min(6, int(lowered.split()[-1]))
+            except ValueError:
+                level = 0
+        if level:
+            lines.append("")
+            lines.append("#" * level + " " + text.strip())
+            lines.append("")
+            if len(headings) < 100:
+                headings.append({"level": level, "text": text.strip()[:120]})
+            num_counter = 0
+            continue
+        ppr = block._p.pPr
+        numpr = ppr.numPr if ppr is not None else None
+        if "list number" in lowered:
+            num_counter += 1
+            lines.append(f"{num_counter}. {text.strip()}")
+        elif "list bullet" in lowered or "list paragraph" in lowered or numpr is not None:
+            ilvl = 0
+            if numpr is not None and numpr.ilvl is not None:
+                try:
+                    ilvl = int(numpr.ilvl.val)
+                except Exception:
+                    ilvl = 0
+            lines.append("  " * ilvl + "- " + text.strip())
+            num_counter = 0
+        else:
+            lines.append(text)
+            num_counter = 0
+    # 折叠连续空行
+    content = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip("\n")
+    out = {
         "content": content,
         "type": "docx",
-        "paragraphs": len(paragraphs),
-        "tables": len(doc.tables),
+        "paragraphs": n_par,
+        "tables": n_tbl,
+    }
+    if headings:
+        out["headings"] = headings
+    return out
+
+
+def _read_pptx(path: str) -> dict:
+    try:
+        from pptx import Presentation
+    except Exception:
+        return {"error": "读 .pptx 需要 python-pptx。离线包已含,可运行 installer 重装;或 pip install python-pptx"}
+    from ai_computer_control.tools.office_read import ole_password_hint
+
+    hint = ole_password_hint(path)
+    if hint:
+        return {"error": hint}
+    prs = Presentation(path)
+
+    def _stype(sh):
+        # python-pptx raises NotImplementedError for an <p:sp> it cannot classify (no prstGeom/custGeom,
+        # not a txBox: seen in decks from some exporters); such a shape must not fail the whole deck.
+        try:
+            return sh.shape_type
+        except Exception:
+            return None
+
+    def _shape_lines(shapes, out):
+        for sh in sorted(shapes, key=lambda x: ((getattr(x, "top", 0) or 0), (getattr(x, "left", 0) or 0))):
+            if _stype(sh) == 6 and hasattr(sh, "shapes"):  # GROUP
+                _shape_lines(sh.shapes, out)
+                continue
+            if getattr(sh, "has_table", False) and sh.has_table:
+                rows = [[_md_cell(c.text) for c in r.cells] for r in sh.table.rows]
+                if rows:
+                    w = max(len(r) for r in rows)
+                    for i, r in enumerate(rows):
+                        out.append("| " + " | ".join(r + [""] * (w - len(r))) + " |")
+                        if i == 0:
+                            out.append("|" + " --- |" * w)
+                continue
+            if getattr(sh, "has_text_frame", False) and sh.has_text_frame:
+                for para in sh.text_frame.paragraphs:
+                    t = "".join(r.text for r in para.runs).strip() or para.text.strip()
+                    if t:
+                        out.append(("  " * (para.level or 0) + "- " + t) if (para.level or 0) > 0 else t)
+            elif _stype(sh) == 13:  # PICTURE
+                out.append("[图片]")
+
+    parts = []
+    n_notes = 0
+    for idx, slide in enumerate(prs.slides, 1):
+        title = ""
+        try:
+            if slide.shapes.title is not None:
+                title = (slide.shapes.title.text_frame.text or "").strip()
+        except Exception:
+            title = ""
+        body_shapes = [sh for sh in slide.shapes
+                       if not (slide.shapes.title is not None and sh.shape_id == slide.shapes.title.shape_id)]
+        lines: list[str] = []
+        _shape_lines(body_shapes, lines)
+        head = f"## Slide {idx}" + (f": {title}" if title else "")
+        block = [head] + lines
+        try:
+            if slide.has_notes_slide:
+                nt = (slide.notes_slide.notes_text_frame.text or "").strip()
+                if nt:
+                    n_notes += 1
+                    block.append("[备注] " + nt.replace("\n", "\n[备注] "))
+        except Exception:
+            pass
+        parts.append("\n".join(block))
+    return {
+        "content": "\n\n".join(parts),
+        "type": "pptx",
+        "slides": len(prs.slides),
+        "slides_with_notes": n_notes,
     }
 
 
@@ -160,6 +366,9 @@ def _read_pdf(path: str) -> dict:
     if truncated:
         out["truncated"] = True
         out["note"] = f"only the first {_MAX_PAGES} of {page_count} pages were extracted; use pdf_read_pages for the rest"
+    if not text_parts and page_count:
+        msg = ("没有抽到任何文字:该 PDF 多半是扫描件/图片 PDF(无文字层)。可把页面导出/截图为图片后用 ocr_image 做 OCR 识别。")
+        out["note"] = (out["note"] + " " + msg) if out.get("note") else msg
     return out
 
 
@@ -544,11 +753,140 @@ def _add_cover_light(doc, cover, tokens):
     doc.add_page_break()
 
 
-def _add_content_table(doc, headers, rows, tokens):
-    """Add a token-styled table (表头主色填充白字 + 斑马纹 + 细边框), matching the Excel/PPT observation."""
+def _disp_width(value) -> int:
+    """Display width in half-em units: CJK / full-width = 2, everything else = 1."""
+    return sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(value))
+
+
+def _cell_text(value) -> str:
+    """Table / sheet cell value -> display text. None is an EMPTY cell, not the word 'None'."""
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _apply_run_font(run, font_name, east_asia=None):
+    """Explicit latin font + the separate eastAsia slot python-docx never touches."""
+    from docx.oxml.ns import qn
+    run.font.name = font_name
+    rpr = run._element.get_or_add_rPr()
+    rf = rpr.find(qn("w:rFonts"))
+    if rf is None:
+        rf = rpr.makeelement(qn("w:rFonts"), {})
+        rpr.append(rf)
+    rf.set(qn("w:eastAsia"), east_asia or font_name)
+
+
+_XML_BAD_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def _raw_run(parent_el, text, *, font=None, east_asia=None, size_pt=None, color_hex=None,
+             bold=None, italic=None, underline=False, shade_hex=None):
+    """Append one <w:r> to `parent_el` (a <w:p> or <w:hyperlink>) built directly with lxml.
+
+    python-docx's run.font.* setters cost ~0.4 ms per run (each touches the CT_RPr child-order
+    machinery); a 1000-row table has 3000+ runs, so this is the hot path. Children are written in
+    CT_RPr schema order: rFonts, b, i, color, sz/szCs, u, shd."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    r = OxmlElement("w:r")
+    rpr = OxmlElement("w:rPr")
+    if font:
+        rf = OxmlElement("w:rFonts")
+        rf.set(qn("w:ascii"), font)
+        rf.set(qn("w:hAnsi"), font)
+        rf.set(qn("w:eastAsia"), east_asia or font)
+        rpr.append(rf)
+    if bold is not None:
+        b = OxmlElement("w:b")
+        if not bold:
+            b.set(qn("w:val"), "0")
+        rpr.append(b)
+    if italic:
+        rpr.append(OxmlElement("w:i"))
+    if color_hex:
+        c = OxmlElement("w:color")
+        c.set(qn("w:val"), str(color_hex).lstrip("#").upper())
+        rpr.append(c)
+    if size_pt:
+        half = str(int(round(size_pt * 2)))
+        for tag in ("w:sz", "w:szCs"):
+            sz = OxmlElement(tag)
+            sz.set(qn("w:val"), half)
+            rpr.append(sz)
+    if underline:
+        u = OxmlElement("w:u")
+        u.set(qn("w:val"), "single")
+        rpr.append(u)
+    if shade_hex:
+        shd = OxmlElement("w:shd")
+        shd.set(qn("w:val"), "clear")
+        shd.set(qn("w:color"), "auto")
+        shd.set(qn("w:fill"), shade_hex)
+        rpr.append(shd)
+    if len(rpr):
+        r.append(rpr)
+    text = _XML_BAD_CHARS.sub("", str(text))
+    parts = text.split("\n")
+    for i, part in enumerate(parts):
+        if i:
+            r.append(OxmlElement("w:br"))
+        for j, chunk in enumerate(part.split("\t")):
+            if j:
+                r.append(OxmlElement("w:tab"))
+            if chunk:
+                t = OxmlElement("w:t")
+                t.text = chunk
+                if chunk != chunk.strip():
+                    t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                r.append(t)
+    parent_el.append(r)
+    return r
+
+
+def _add_inline(paragraph, text, *, font=None, size_pt=None, color_hex=None, bold=None):
+    """Append `text` (inline markdown-lite) to `paragraph` as runs: **bold**, *italic*, `code`
+    (Consolas + light shading), [text](url) as a real Word hyperlink (http/https/mailto only; any other
+    scheme is kept as 'text (url)' so nothing is lost or made clickable by surprise)."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+    for seg, fmt in office_markup.parse_inline(text):
+        url = fmt.get("url")
+        if url and not office_markup.is_safe_url(url):
+            seg = f"{seg} ({url})"
+            url = None
+        parent = paragraph._p
+        if url:
+            r_id = paragraph.part.relate_to(url, RT.HYPERLINK, is_external=True)
+            link = OxmlElement("w:hyperlink")
+            link.set(qn("r:id"), r_id)
+            link.set(qn("w:history"), "1")
+            paragraph._p.append(link)
+            parent = link
+        is_bold = True if fmt.get("bold") else bold
+        if fmt.get("code"):
+            _raw_run(parent, seg, font="Consolas", east_asia=font, size_pt=(size_pt or 11) - 1,
+                     color_hex=color_hex if not url else None, bold=is_bold,
+                     italic=fmt.get("italic"), underline=bool(url), shade_hex="F2F2F2")
+        else:
+            _raw_run(parent, seg, font=font, size_pt=size_pt,
+                     color_hex=("0563C1" if url else color_hex), bold=is_bold,
+                     italic=fmt.get("italic"), underline=bool(url))
+    return paragraph
+
+
+def _add_content_table(doc, headers, rows, tokens, aligns=None):
+    """Add a token-styled table (表头主色填充白字 + 斑马纹 + 细边框), matching the Excel/PPT observation.
+
+    Perf: python-docx's Table.cell(r, c) rebuilds the whole cell grid on every call, which made a
+    1000-row table O(rows^2 * cols^2) (minutes). The grid is fetched ONCE (`tbl._cells`) and indexed.
+    Cell text is inline markdown-lite; `aligns` is an optional per-column 'left'|'center'|'right'."""
     from docx.oxml.ns import qn
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Pt, RGBColor
+    from docx.oxml import OxmlElement
 
     primary = tokens["header_fill"]
     header_fg = tokens["header_font_color"]
@@ -561,10 +899,10 @@ def _add_content_table(doc, headers, rows, tokens):
     tbl = doc.add_table(rows=1 + len(rows), cols=n_cols)
     tbl.style = "Table Grid"  # gives us a real grid to recolour
     # Repeat the header after a page break and keep each data row together.
-    from docx.oxml import OxmlElement
-    tbl.rows[0]._tr.get_or_add_trPr().append(OxmlElement('w:tblHeader'))
-    for row in tbl.rows:
-        row._tr.get_or_add_trPr().append(OxmlElement('w:cantSplit'))
+    tr_list = tbl._tbl.tr_lst
+    tr_list[0].get_or_add_trPr().append(OxmlElement('w:tblHeader'))
+    for tr in tr_list:
+        tr.get_or_add_trPr().append(OxmlElement('w:cantSplit'))
 
     # recolour all borders to the token hairline
     tblPr = tbl._tbl.tblPr
@@ -579,6 +917,9 @@ def _add_content_table(doc, headers, rows, tokens):
         borders.append(b)
     tblPr.append(borders)
 
+    align_map = {"left": WD_ALIGN_PARAGRAPH.LEFT, "center": WD_ALIGN_PARAGRAPH.CENTER,
+                 "right": WD_ALIGN_PARAGRAPH.RIGHT}
+
     def _shade(cell, fill_hex):
         tcPr = cell._tc.get_or_add_tcPr()
         for ex in tcPr.findall(qn("w:shd")):
@@ -589,37 +930,142 @@ def _add_content_table(doc, headers, rows, tokens):
         shd.set(qn("w:fill"), fill_hex.lstrip("#").upper())
         tcPr.append(shd)
 
-    def _cell_run(cell, text, color_hex, bold):
-        cell.paragraphs[0].text = ""
+    def _cell_run(cell, text, color_hex, bold, col):
         p = cell.paragraphs[0]
-        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        r = p.add_run(str(text))
-        r.font.name = body_font
-        r.font.size = Pt(10.5)
-        r.font.bold = bold
-        r.font.color.rgb = RGBColor(*style_tokens.rgb_tuple(color_hex))
-        rpr = r._element.get_or_add_rPr()
-        rf = rpr.find(qn("w:rFonts"))
-        if rf is None:
-            rf = rpr.makeelement(qn("w:rFonts"), {})
-            rpr.append(rf)
-        rf.set(qn("w:eastAsia"), body_font)
+        p.alignment = align_map.get((aligns[col] if aligns and col < len(aligns) else "left"),
+                                    WD_ALIGN_PARAGRAPH.LEFT)
+        _add_inline(p, _cell_text(text), font=body_font, size_pt=10.5, color_hex=color_hex, bold=bold)
+
+    # One grid fetch (row-major list); fall back to per-call cell() if a python-docx build lacks it.
+    try:
+        grid = tbl._cells
+    except Exception:  # noqa: BLE001
+        grid = None
+
+    def _cell(r, c):
+        return grid[r * n_cols + c] if grid is not None else tbl.cell(r, c)
 
     # header row
     for c, h in enumerate(headers):
-        cell = tbl.cell(0, c)
+        cell = _cell(0, c)
         _shade(cell, primary)
-        _cell_run(cell, h, header_fg, bold=True)
+        _cell_run(cell, h, header_fg, True, c)
 
     # body rows with zebra
     for ri, row in enumerate(rows, start=1):
         striped = (ri % 2 == 0)
         for c in range(n_cols):
-            cell = tbl.cell(ri, c)
+            cell = _cell(ri, c)
             if striped:
                 _shade(cell, zebra)
             val = row[c] if c < len(row) else ""
-            _cell_run(cell, val, text_color, bold=False)
+            _cell_run(cell, val, text_color, False, c)
+
+
+class _ListNumbering:
+    """Fresh Word numbering instance per markdown numbered list, so a second list restarts at 1.
+
+    python-docx's 'List Number' style points at ONE style-level numId, so every list in the document
+    shares a counter (the second list would start at 3). For each new list we add a <w:num> that
+    references the same abstractNum with a startOverride and stamp it on the paragraphs' numPr."""
+
+    _STYLES = ("List Number", "List Number 2", "List Number 3")
+
+    def __init__(self, doc):
+        self.doc = doc
+        self.by_list: dict = {}
+        self.ok = True
+        try:
+            self.numbering = doc.part.numbering_part.numbering_definitions._numbering
+        except Exception:  # noqa: BLE001
+            self.numbering = None
+            self.ok = False
+
+    def _new_num(self, style_name, start):
+        style = self.doc.styles[style_name]
+        style_num = style.element.pPr.numPr.numId.val
+        abstract_id = self.numbering.num_having_numId(style_num).abstractNumId.val
+        num = self.numbering.add_num(abstract_id)
+        lvl = num.add_lvlOverride(ilvl=0)
+        lvl.add_startOverride(int(start))
+        return num.numId
+
+    def apply(self, paragraph, style_name, list_id, start):
+        if not self.ok:
+            return
+        try:
+            if list_id not in self.by_list:
+                self.by_list[list_id] = self._new_num(style_name, start)
+            ppr = paragraph._p.get_or_add_pPr()
+            num_pr = ppr.get_or_add_numPr()
+            num_pr.get_or_add_ilvl().val = 0
+            num_pr.get_or_add_numId().val = self.by_list[list_id]
+        except Exception:  # noqa: BLE001 — degrade to style-level (continuous) numbering
+            self.ok = False
+
+
+def _styled_para(doc, style_name):
+    try:
+        return doc.add_paragraph(style=style_name)
+    except KeyError:
+        return doc.add_paragraph()
+
+
+def _add_block_paragraphs(doc, blocks, tokens, rule_color, rule_side, numbering):
+    """Walk parsed markdown-lite blocks and emit Word paragraphs / tables."""
+    from docx.shared import Pt, Inches
+
+    list_starts: dict = {}
+    for blk in blocks:
+        kind = blk[0]
+        if kind == "blank":
+            doc.add_paragraph("")
+        elif kind == "heading":
+            p = doc.add_heading("", level=blk[1])
+            _add_inline(p, blk[2])
+            _add_heading_rule(p, rule_color, side=rule_side)
+        elif kind == "bullet":
+            level = min(blk[1], 2)
+            p = _styled_para(doc, "List Bullet" if level == 0 else f"List Bullet {level + 1}")
+            _add_inline(p, blk[2])
+        elif kind == "number":
+            _, level, text, num, list_id, first = blk
+            level = min(level, 2)
+            if first:
+                list_starts[list_id] = num
+            p = _styled_para(doc, _ListNumbering._STYLES[level])
+            _add_inline(p, text)
+            numbering.apply(p, _ListNumbering._STYLES[level], list_id, list_starts.get(list_id, num))
+        elif kind == "table":
+            _, headers, rows, aligns = blk
+            _add_content_table(doc, headers, rows, tokens, aligns=aligns)
+        elif kind == "quote":
+            p = _styled_para(doc, "Quote")
+            _add_inline(p, blk[1])
+        elif kind == "code":
+            from docx.oxml.ns import qn
+            body_font = tokens["body_font"]
+            for line in (blk[1] or [""]):
+                p = doc.add_paragraph()
+                p.paragraph_format.space_after = Pt(0)
+                p.paragraph_format.line_spacing = 1.0
+                p.paragraph_format.left_indent = Inches(0.25)
+                ppr = p._p.get_or_add_pPr()
+                shd = ppr.makeelement(qn("w:shd"), {})
+                shd.set(qn("w:val"), "clear")
+                shd.set(qn("w:color"), "auto")
+                shd.set(qn("w:fill"), "F2F2F2")
+                ppr.append(shd)
+                r = p.add_run(line.replace("\t", "    ") or " ")
+                _apply_run_font(r, "Consolas", east_asia=body_font)
+                r.font.size = Pt(9.5)
+            doc.add_paragraph("")
+        elif kind == "rule":
+            p = doc.add_paragraph("")
+            _add_heading_rule(p, tokens["border_color"], side="bottom", sz="6")
+        else:  # para
+            p = doc.add_paragraph()
+            _add_inline(p, blk[1])
 
 
 @mcp.tool()
@@ -632,45 +1078,38 @@ def write_document(
     page_numbers: bool = False,
     allow_protected: bool = False,
 ) -> dict:
-    """Create or overwrite a styled Word document (.docx) — v1.7「Office 体系 2.0」字体纪律版.
+    """Create or overwrite a styled Word document (.docx); every style carries an explicit font (中文 never falls
+    back to 宋体), token heading colour, line spacing 1.4.
 
-    Every built-in style (Normal / Title / Heading 1-3) is injected with an EXPLICIT font (token
-    body/heading family, all three rFonts links incl. **w:eastAsia** so 中文 no longer falls back to
-    宋体), a size ladder (Normal 11 / H3 14 / H2 16 / H1 20 / Title 28 pt), the token heading colour,
-    行距 1.4 and加大 H1 前段距. Headings get a coloured 2.25pt hairline underline. So no run is 裸奔 and
-    old「字体都不对、中文大小不一」is fixed structurally.
-
-    content markdown-lite (向后兼容 — old plain-text/heading calls work unchanged and auto-inherit the
-    new styles):
-        '# ' / '## ' / '### '  -> heading levels 1/2/3 (with the accent hairline)
-        '- '                   -> bullet point
-        '1. ' (2./3.…)         -> numbered point
-        blank line             -> spacer
-
-    v1.7 additions:
-      * style: 'business'「青花商务」(default) | 'minimal'「墨白极简」| 'vibrant'「活力现代」. Unknown -> business.
-      * cover: optional {title, subtitle?, date?, author?} — a full-width 深底满铺 title-block (white 大字
-        + 鎏金/强调金 line + subtitle + author·date) on its own page, then a page break before the body.
-      * page_numbers: True adds a centred 「第 X 页」 footer via a live PAGE field.
-      * inline table 段落: a line 'TABLE: h1 | h2 | h3' begins a token-styled table (表头主色白字 + 斑马纹
-        + 细边框); each following '| a | b | c' line is a row; a blank line ends the table. Non-table
-        content is unaffected (向后兼容).
+    content is markdown-lite (plain text works unchanged):
+        '# ' .. '###### '      -> headings 1/2/3 (4-6 fold into 3)
+        '- ' / '* ' / '+ '     -> bullet; indent 2+ spaces = nested (up to 3 levels)
+        '1. ' / '1) '          -> numbered point; a blank line or paragraph in between restarts the list
+        GFM pipe table         -> '| a | b |' + '|---|:--:|' separator + rows (':---:' / '---:' align columns)
+        'TABLE: h1 | h2 | h3'  -> starts a table; following '| a | b | c' lines are rows; a blank line ends it
+        **bold** *italic* `code` [text](https://url)   -> real runs; links become hyperlinks
+        '> quote'  ```fence```  '---' (rule)  blank line (spacer)
 
     Args:
         path: Output file path (must end with .docx).
-        content: Body text in markdown-lite (see above).
-        title: Optional document title — added as a Title-styled heading at the top of the body.
-        style: Design style name (see above).
-        cover: Optional cover-page spec dict (see above).
-        page_numbers: Add a 「第 X 页」 page-number footer (default off).
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        content: Body text in markdown-lite.
+        title: Optional Title-styled heading at the top of the body.
+        style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> business.
+        cover: Optional {title, subtitle?, date?, author?} — a full-width dark title block on its own page, then a
+            page break before the body.
+        page_numbers: True adds a centred 「第 X 页」 footer (live PAGE field). Default off.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'style'. On failure {'error': ...}.
+        dict with 'success', 'path', 'output_path', 'style'. Failure -> {'error': ...}; a target held open by
+        Excel/Word/WPS -> {'error', 'code': 'file_locked', 'hint'}, old file untouched.
     """
     guard = _protected_write_guard(path, allow_protected)
     if guard:
         return guard
+    _, dep_err = office_io.require("docx")
+    if dep_err:
+        return dep_err
     from docx import Document
 
     tokens = style_tokens.get_style(style)
@@ -693,91 +1132,53 @@ def write_document(
         # v1.7.1: minimal 标题不用底线而用左侧青色细竖线 (word_heading_rule='left'); 其它风格照旧 bottom.
         rule_side = "left" if tokens.get("word_heading_rule", "bottom") == "left" else "bottom"
 
-        # Table accumulation state: when we hit 'TABLE:' we buffer rows until a blank line.
-        pending_table = None  # dict{headers, rows} or None
-
-        def _flush_table():
-            nonlocal pending_table
-            if pending_table:
-                headers = pending_table["headers"]
-                rows = pending_table["rows"]
-                # 空表头(如 'TABLE:' 无字段)时不能静默丢弃已缓冲的行——
-                # 把第一缓冲行提升为表头，其余作为数据行，确保没有用户内容凭空消失。
-                if not headers and rows:
-                    headers = rows[0]
-                    rows = rows[1:]
-                if headers:
-                    _add_content_table(doc, headers, rows, tokens)
-            pending_table = None
-
-        for line in content.split("\n"):
-            stripped = line.strip()
-
-            # --- table block handling ---
-            if pending_table is not None:
-                if not stripped:
-                    _flush_table()
-                    doc.add_paragraph("")
-                    continue
-                if stripped.startswith("|"):
-                    cells = [c.strip() for c in stripped.strip("|").split("|")]
-                    pending_table["rows"].append(cells)
-                    continue
-                # a non-row, non-blank line ends the table then falls through to normal handling.
-                _flush_table()
-
-            if not stripped:
-                doc.add_paragraph("")
-            elif stripped.upper().startswith("TABLE:"):
-                headers = [c.strip() for c in stripped[6:].split("|") if c.strip()]
-                pending_table = {"headers": headers, "rows": []}
-            elif stripped.startswith("### "):
-                p = doc.add_heading(stripped[4:], level=3)
-                _add_heading_rule(p, rule_color, side=rule_side)
-            elif stripped.startswith("## "):
-                p = doc.add_heading(stripped[3:], level=2)
-                _add_heading_rule(p, rule_color, side=rule_side)
-            elif stripped.startswith("# "):
-                p = doc.add_heading(stripped[2:], level=1)
-                _add_heading_rule(p, rule_color, side=rule_side)
-            elif stripped.startswith("- "):
-                doc.add_paragraph(stripped[2:], style="List Bullet")
-            elif re.match(r"^\d+\.\s+", stripped):
-                doc.add_paragraph(re.sub(r"^\d+\.\s+", "", stripped), style="List Number")
-            else:
-                doc.add_paragraph(stripped)
-
-        _flush_table()  # close a table that ran to EOF
+        blocks = office_markup.parse_blocks(str(content))
+        _add_block_paragraphs(doc, blocks, tokens, rule_color, rule_side, _ListNumbering(doc))
 
         if page_numbers:
             _add_page_number_footer(doc, tokens)
 
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        doc.save(path)
+        office_io.atomic_save(path, doc.save)
         # v1.5.1: echo output_path (== path) so the workbench 产物收割 (ARTIFACT_OUTPUT_PATH_KEYS)
         # picks this file up directly. 老字段 path 保留(字段只增,不破坏现有契约)。
         return {"success": True, "path": os.path.abspath(path),
                 "output_path": os.path.abspath(path), "style": resolved_style,
                 "visual_review_required": True}
     except Exception as e:
-        return {"error": str(e)}
+        return office_io.io_failure(e, path)
+
+
+_NUM_SYNTAX = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
+_THOUSANDS_SYNTAX = re.compile(r"[+-]?[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
+
+
+def _numeric_text(value):
+    """float for a numeric-looking string (optional thousands commas / % / ¥ / $), else None.
+
+    Strict on purpose: commas only as real thousands groups ('3,14' and '1,2,3' stay text), no underscores
+    ('2024_01'), and never inf / nan / overflow ('inf', 'Infinity', '1e999' stay text)."""
+    s = value.strip().replace("%", "").replace("¥", "").replace("$", "").strip()
+    if "," in s:
+        if not _THOUSANDS_SYNTAX.fullmatch(s):
+            return None
+        s = s.replace(",", "")
+    if not _NUM_SYNTAX.fullmatch(s):
+        return None
+    try:
+        f = float(s)
+    except ValueError:
+        return None
+    return f if math.isfinite(f) else None
 
 
 def _looks_numeric(value) -> bool:
     """True if `value` (possibly a numeric string) should be treated as a number for formatting."""
-    if isinstance(value, bool):
+    if isinstance(value, bool) or value is None:
         return False
     if isinstance(value, (int, float)):
-        return True
+        return not (isinstance(value, float) and not math.isfinite(value))
     if isinstance(value, str):
-        s = value.strip().replace(",", "").replace("%", "").replace("¥", "").replace("$", "").strip()
-        if s in ("", "-", "."):
-            return False
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False
+        return _numeric_text(value) is not None
     return False
 
 
@@ -790,80 +1191,138 @@ def _numeric_value(value):
         # Identifiers and high precision integers must survive an Excel round trip unchanged.
         if re.fullmatch(r"[+-]?0\d+", raw) or re.fullmatch(r"[+-]?\d{16,}", raw):
             return value
-        s = raw.replace(",", "").replace("%", "").replace("¥", "").replace("$", "").strip()
-        try:
-            f = float(s)
-            if not math.isfinite(f):
-                return value
-            if raw.endswith('%'):
-                return f / 100
-            return int(f) if f == int(f) else f
-        except ValueError:
+        f = _numeric_text(raw)
+        if f is None:
             return value
+        if raw.endswith('%'):
+            return f / 100
+        return int(f) if f == int(f) and abs(f) < 1e15 else f
     return value
+
+
+# 标识类列(年份/手机/邮编/编号…):数字长得像数量,但千分位会毁掉它 (2024 -> 2,024, 手机号 13,800,138,000)。
+_IDENT_HEADER_CN = ("年份", "年度", "编号", "编码", "号码", "手机", "电话", "邮编", "邮政", "代码", "证件",
+                    "身份证", "工号", "学号", "序号", "单号", "订单号", "卡号", "账号", "帐号", "流水",
+                    "条码", "货号", "型号", "传真", "区号")
+_IDENT_HEADER_EN = re.compile(
+    r"(?:^|[^a-z])(?:id|no|code|zip|postcode|postal|phone|mobile|tel|year|serial|sku|isbn)(?:$|[^a-z])|[a-z]id$",
+    re.I)
+_PHONE_RE = re.compile(r"1[3-9]\d{9}")
+
+
+def _header_is_identifier(header) -> bool:
+    h = str(header or "").strip()
+    if not h:
+        return False
+    if h == "年" or h.endswith("年份") or any(k in h for k in _IDENT_HEADER_CN):
+        return True
+    return bool(_IDENT_HEADER_EN.search(h))
+
+
+def _is_identifier_column(header, sample_values) -> bool:
+    """Year / phone / postcode / ID style column: numeric-looking but NOT a quantity."""
+    if _header_is_identifier(header):
+        return True
+    ints = []
+    for v in sample_values:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            continue
+        nv = _numeric_value(v)
+        if isinstance(nv, bool) or not isinstance(nv, int):
+            return False
+        ints.append(nv)
+    if not ints:
+        return False
+    if all(_PHONE_RE.fullmatch(str(x)) for x in ints):        # 11 位手机号
+        return True
+    if len(ints) >= 2 and all(1900 <= x <= 2100 for x in ints):   # 一列年份
+        return True
+    return False
 
 
 def _column_number_format(header, sample_values) -> str | None:
     """Heuristic Excel number format for a column, from its header text + a sample of its values.
 
-    * 含 '%' 表头 OR values 含 '%'                       -> '0.0%' (values are 0-1 fractions? no —
-                                                            values are like '12%' text; we store the
-                                                            fraction and format as percent).
-      Actually we DON'T rescale — if the source says '12%' we store 0.12 and format 0%. See below.
-    * 含 '$'/'¥' 表头, 或 '金额/收入/成本/价格/费用' 关键词  -> '¥#,##0.00' 货币.
-    * 纯数字列且任一值 > 999                              -> '#,##0' 千分位.
+    * 含 '%' 表头 OR values 含 '%'                       -> '0.0%'
+    * 含 '$'/'¥'/'€' 表头, 或 '金额/收入/成本/价格/费用' 关键词 -> 货币 ('¥#,##0.00', '$…', '€…')
+    * 标识类列(年份/手机/邮编/编号/ID…, 见 _is_identifier_column) -> None (General, 不加千分位)
+    * 纯数量列且任一值 > 999                              -> '#,##0' (含小数则 '#,##0.00')
     * 否则 None (不设格式).
     """
     h = str(header or "")
     money_kw = ("金额", "收入", "成本", "价格", "费用", "支出", "营收", "利润", "销售额", "总额")
+    sample_values = [v for v in sample_values if v is not None and v != ""]
     if "%" in h or any(isinstance(v, str) and "%" in v for v in sample_values):
         return "0.0%"
-    if "$" in h or "¥" in h or any(k in h for k in money_kw):
+    if "$" in h or "美元" in h or "USD" in h.upper():
+        return "$#,##0.00"
+    if "€" in h or "欧元" in h:
+        return "€#,##0.00"
+    if "¥" in h or any(k in h for k in money_kw):
         return "¥#,##0.00"
+    if _is_identifier_column(header, sample_values):
+        return None
     # plain numeric column with a big value -> thousands separator
     numeric = [v for v in sample_values if _looks_numeric(v)]
     if numeric and len(numeric) >= max(1, len(sample_values) // 2):
         try:
-            if any(abs(float(_numeric_value(v))) > 999 for v in numeric):
-                return "#,##0"
-        except (ValueError, TypeError):
+            nums = [float(_numeric_value(v)) for v in numeric]
+            nums = [x for x in nums if math.isfinite(x)]
+            if any(abs(x) > 999 for x in nums):
+                return "#,##0.00" if any(x != int(x) for x in nums) else "#,##0"
+        except (ValueError, TypeError, OverflowError):
             pass
     return None
 
 
+_FORMULA_START = re.compile(r"=[A-Za-z0-9_(\-+@'$.]")
+
+
+def _looks_like_formula(text: str) -> bool:
+    """A leading '=' string that can be a real formula (=SUM(..), =1+2, =A1*2); '=== 汇总 ===' or '= 说明' cannot."""
+    return bool(_FORMULA_START.match(text)) and not text.startswith("==")
+
+
+_XLSX_BAD_SHEET_CHARS = set('[]:*?/\\')
+
 @mcp.tool()
 def write_excel(
     path: str,
-    data: list[list[str]],
+    data: list[list[str | int | float | bool | None]],
     sheet_name: str = "Sheet1",
-    headers: list[str] | None = None,
+    headers: list[str | int | float] | None = None,
     style: str = "business",
     allow_protected: bool = False,
 ) -> dict:
-    """Create or overwrite a styled Excel file (.xlsx) — v1.7「Office 体系 2.0」落笔即样式版.
+    """Create or overwrite a styled Excel file (.xlsx); styled on write, no beautify pass needed.
 
-    Unlike the old bare writer (which left ZERO font declarations → mixed Calibri/宋体), every cell is
-    written with the token body font (微软雅黑, 11pt); the header row (if given) is bold on that font;
-    numeric-looking columns get a number format by heuristic (千分位 for values >999, 百分比 for '%'
-    columns, 货币 for '$'/'¥'/金额/收入/成本… headers) and numeric-looking strings are coerced to real
-    numbers so Excel can compute on them; column widths auto-fit (CJK-aware) on first write. So the
-    sheet 「不跑 beautify 也不难看」. excel_beautify remains the full makeover (frozen header, zebra,
-    borders, auto-filter) — this is the 落笔即样式 baseline.
+    Every cell uses the token body font (微软雅黑, 11pt); the header row (if given) is bold. Number formats by
+    heuristic: 千分位 for quantities >999, 百分比 for '%' columns, 货币 for '$'/'¥'/金额/收入/成本… headers;
+    numeric-looking strings become real numbers; column widths auto-fit (CJK-aware). Year / phone / postcode / ID
+    columns (年份, 手机号, 邮编, 编号, ID …) get no thousands separator; leading-zero strings stay text. Use
+    excel_beautify for frozen header, zebra, borders, auto-filter.
 
     Args:
         path: Output file path (must end with .xlsx).
-        data: 2D list of cell values (list of rows, each row is a list of values).
-        sheet_name: Name of the worksheet.
-        headers: Optional list of header row values (rendered bold on the token font).
-        style: Design style — 'business' (default) | 'minimal' | 'vibrant'. Unknown -> business.
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        data: 2D list of rows; cells may be strings, numbers, booleans or null (empty).
+        sheet_name: Worksheet name (<=31 chars, none of [ ] : * ? / \\).
+        headers: Optional header row values.
+        style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> business.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'rows', 'style'. On failure {'error': ...}.
+        dict with 'success', 'path', 'output_path', 'rows', 'style'. Failure -> {'error': ...}; a target held open
+        by Excel/WPS -> {'error', 'code': 'file_locked', 'hint'}.
     """
     guard = _protected_write_guard(path, allow_protected)
     if guard:
         return guard
+    _, dep_err = office_io.require("openpyxl")
+    if dep_err:
+        return dep_err
+    sheet_name = str(sheet_name)
+    if not sheet_name.strip() or len(sheet_name) > 31 or any(ch in _XLSX_BAD_SHEET_CHARS for ch in sheet_name):
+        return {"error": f"sheet_name 非法:{sheet_name!r}。Excel 工作表名 1-31 个字符,且不能含 [ ] : * ? / \\ 。请改名后重试。"}
     from openpyxl import Workbook
     from openpyxl.styles import Font, Border, Side
     from openpyxl.utils import get_column_letter
@@ -894,22 +1353,52 @@ def write_excel(
             header_border = Border(bottom=Side(style="medium",
                                                color=style_tokens.argb(tokens["accent"])))
 
+        n_cols = max([len(headers or [])] + [len(r) for r in data] + [0])
+
+        # per-column profile decided BEFORE writing: number format + identifier (keep-as-text) flag.
+        col_fmt: dict = {}
+        ident_cols: set = set()
+        for col in range(1, n_cols + 1):
+            header_text = _cell_text(headers[col - 1]) if headers and col - 1 < len(headers) else ""
+            sample = []
+            for row in data:
+                if col - 1 < len(row):
+                    sample.append(row[col - 1])
+                    if len(sample) >= 50:
+                        break
+            col_fmt[col] = _column_number_format(header_text, sample)
+            if _is_identifier_column(header_text, [v for v in sample if v is not None and v != ""]):
+                ident_cols.add(col)
+
         start_row = 1
-        n_cols = 0
         if headers:
-            n_cols = len(headers)
             for col, header in enumerate(headers, 1):
+                if isinstance(header, str):
+                    header = _XML_BAD_CHARS.sub("", header)
                 c = ws.cell(row=1, column=col, value=header)
+                if isinstance(header, str) and header.startswith("=") and not _looks_like_formula(header):
+                    c.data_type = "s"
                 c.font = header_font
                 if header_border is not None:
                     c.border = header_border
             start_row = 2
 
-        # write data (coercing numeric-looking strings to real numbers) with the token body font.
+        # write data (coercing numeric-looking strings to real numbers; None stays an empty cell).
         for row_idx, row_data in enumerate(data, start_row):
-            n_cols = max(n_cols, len(row_data))
             for col_idx, value in enumerate(row_data, 1):
-                c = ws.cell(row=row_idx, column=col_idx, value=_numeric_value(value))
+                if value is None:
+                    continue
+                if isinstance(value, str):
+                    value = _XML_BAD_CHARS.sub("", value)    # ESC/BEL from pasted console output must not abort the sheet
+                if isinstance(value, float) and not math.isfinite(value):
+                    coerced = str(value)                      # inf / nan have no xlsx representation: keep as text
+                elif col_idx in ident_cols and isinstance(value, str) and re.fullmatch(r"\s*[+-]?\d{12,}\s*", value):
+                    coerced = value.strip()      # 12+ 位标识串(证件/卡号):数字化会显示成科学计数法,保留文本
+                else:
+                    coerced = _numeric_value(value)
+                c = ws.cell(row=row_idx, column=col_idx, value=coerced)
+                if isinstance(coerced, str) and coerced.startswith("=") and not _looks_like_formula(coerced):
+                    c.data_type = "s"            # "=== 汇总 ===" is a label, not a formula (Excel would offer a repair)
                 c.font = base_font
                 if isinstance(value, str) and value.strip().endswith('%') and isinstance(c.value, (int, float)):
                     c.number_format = '0.0%'
@@ -918,13 +1407,11 @@ def write_excel(
 
         # per-column number formats (heuristic) + content-fit widths (CJK-aware).
         for col in range(1, n_cols + 1):
-            header_text = headers[col - 1] if headers and col - 1 < len(headers) else ""
-            sample = [row[col - 1] for row in data if col - 1 < len(row)][:50]
-            fmt = _column_number_format(header_text, sample)
+            fmt = col_fmt.get(col)
             longest = 0
             # header width
             if headers and col - 1 < len(headers):
-                longest = sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(headers[col - 1]))
+                longest = _disp_width(headers[col - 1])
             for r in range(start_row, start_row + len(data)):
                 cell = ws.cell(row=r, column=col)
                 if fmt is not None and isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool) and cell.number_format == 'General':
@@ -938,16 +1425,16 @@ def write_excel(
                         cell.number_format = fmt
                 v = cell.value
                 if v is not None:
-                    disp = sum(2 if ord(ch) > 0x2E7F else 1 for ch in str(v))
+                    disp = _disp_width(v)
                     # 把关直修(v1.7 审美关真机撞出):数字格式会加宽显示——"1250" 套上 ¥#,##0.00 变成
                     # "¥1,250.00",列宽若按【原始值】量,渲染出来就是 ######。这里按格式化后的近似宽度
                     # (千分位分隔符 + 小数位 + 货币/百分号 + 负号)取更大者。近似即可,+2 padding 兜底。
-                    if fmt is not None and isinstance(cell.value, (int, float)):
+                    if fmt is not None and isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool):
                         f = str(cell.number_format or "")
                         try:
                             dec = 2 if "0.00" in f else (1 if "0.0" in f else 0)
                             body = f"{abs(float(cell.value)):,.{dec}f}"
-                            symbol = 1 if any(s in f for s in ("¥", "$", "％", "%")) else 0
+                            symbol = 1 if any(s in f for s in ("¥", "$", "€", "％", "%")) else 0
                             sign = 1 if float(cell.value) < 0 else 0
                             disp = max(disp, len(body) + symbol + sign)
                         except Exception:
@@ -957,14 +1444,13 @@ def write_excel(
 
         if headers and n_cols:
             ws.auto_filter.ref = f'A1:{get_column_letter(n_cols)}{max(1, len(data) + 1)}'
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        wb.save(path)
+        office_io.atomic_save(path, wb.save)
         # v1.5.1: 补 output_path(== path), 见 write_document。
         return {"success": True, "path": os.path.abspath(path),
                 "output_path": os.path.abspath(path), "rows": len(data), "style": resolved_style,
                 "formula_status": "not_calculated", "visual_review_required": True}
     except Exception as e:
-        return {"error": str(e)}
+        return office_io.io_failure(e, path)
 
 
 # --- PDF export (write_pdf) ---------------------------------------------------
@@ -974,17 +1460,42 @@ def write_excel(
 _PDF_FONT_CACHE: dict | None = None
 
 
+def _pdf_font_candidates():
+    """(registered name, regular file, bold file or None) in preference order. Windows first (the primary
+    target; %WINDIR% respected), then the usual Linux / macOS CJK faces so a non-Windows box embeds a real
+    font instead of relying on the reader's CID substitution."""
+    win = os.environ.get("WINDIR") or os.environ.get("SystemRoot") or r"C:\Windows"
+    wf = os.path.join(win, "Fonts")
+    cands = [
+        ("MSYaHei", os.path.join(wf, "msyh.ttc"), os.path.join(wf, "msyhbd.ttc")),
+        ("SimSun", os.path.join(wf, "simsun.ttc"), None),
+    ]
+    if os.name != "nt":
+        cands += [
+            ("NotoSansCJK", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+             "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
+            ("WQYZenHei", "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", None),
+            ("WQYMicroHei", "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc", None),
+        ]
+    return cands
+
+
 def _resolve_cjk_font():
     """Register and cache a Chinese-capable font for reportlab. Returns a dict:
 
         {"name": <registered font name>, "warning": <optional str>}
 
     Preference chain (first that works wins):
-      1. C:\\Windows\\Fonts\\msyh.ttc   (Microsoft YaHei, TTFont subfontIndex=0)
+      1. C:\\Windows\\Fonts\\msyh.ttc   (Microsoft YaHei, TTFont subfontIndex=0; msyhbd.ttc as bold)
       2. C:\\Windows\\Fonts\\simsun.ttc (SimSun,          TTFont subfontIndex=0)
+      2b. (non-Windows) Noto Sans CJK / WenQuanYi when installed
       3. reportlab built-in UnicodeCIDFont('STSong-Light') — zero external files
          (the CID font is resolved by the PDF *reader*)
       4. Helvetica (Latin only, extreme fallback) + a warning that Chinese may not show
+
+    The chosen face is also registered as a font FAMILY (bold -> real bold face when one exists, else the
+    same face) so '<b>' / '<i>' in table headers and **bold** never fall back to Helvetica-Bold and drop
+    the CJK glyphs.
     """
     global _PDF_FONT_CACHE
     if _PDF_FONT_CACHE is not None:
@@ -994,14 +1505,26 @@ def _resolve_cjk_font():
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
-    # 1 & 2: TrueType collections shipped with Windows.
-    for font_name, ttc_path in (
-        ("MSYaHei", r"C:\Windows\Fonts\msyh.ttc"),
-        ("SimSun", r"C:\Windows\Fonts\simsun.ttc"),
-    ):
+    def _family(name, bold_name):
+        b = bold_name or name
+        try:
+            pdfmetrics.registerFontFamily(name, normal=name, bold=b, italic=name, boldItalic=b)
+        except Exception:
+            pass
+
+    # 1 & 2: TrueType collections shipped with Windows (then Linux/macOS CJK faces).
+    for font_name, ttc_path, bold_path in _pdf_font_candidates():
         if os.path.exists(ttc_path):
             try:
                 pdfmetrics.registerFont(TTFont(font_name, ttc_path, subfontIndex=0))
+                bold_name = None
+                if bold_path and os.path.exists(bold_path):
+                    try:
+                        pdfmetrics.registerFont(TTFont(font_name + "-Bold", bold_path, subfontIndex=0))
+                        bold_name = font_name + "-Bold"
+                    except Exception:
+                        bold_name = None
+                _family(font_name, bold_name)
                 _PDF_FONT_CACHE = {"name": font_name}
                 return _PDF_FONT_CACHE
             except Exception:
@@ -1011,6 +1534,7 @@ def _resolve_cjk_font():
     # 3: reportlab's built-in Adobe CID font — no external file needed.
     try:
         pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+        _family("STSong-Light", None)
         _PDF_FONT_CACHE = {"name": "STSong-Light"}
         return _PDF_FONT_CACHE
     except Exception:
@@ -1024,43 +1548,71 @@ def _resolve_cjk_font():
     return _PDF_FONT_CACHE
 
 
+def _pdf_col_widths(headers, rows, avail, *, min_pt=34.0, cap_units=40):
+    """Column widths (points) summing to `avail`, proportional to content length.
+
+    Weight = 0.6*longest + 0.4*mean display width per column (CJK counts double), clamped to
+    [4, cap_units] so one giant cell cannot starve its neighbours, and every column keeps at least
+    `min_pt` (shrunk when there are too many columns) so Paragraph never sees a negative availWidth."""
+    n = len(headers) if headers else (max((len(r) for r in rows), default=0))
+    if n <= 0:
+        return []
+    weights = []
+    for c in range(n):
+        lens = [_disp_width(_cell_text(r[c])) if c < len(r) else 0 for r in rows]
+        if headers and c < len(headers):
+            lens.append(_disp_width(_cell_text(headers[c])) + 1)
+        longest = max(lens, default=4)
+        mean = sum(lens) / len(lens) if lens else 4
+        weights.append(min(max(0.6 * longest + 0.4 * mean, 4), cap_units))
+    min_pt = min(min_pt, avail / n)
+    widths = [0.0] * n
+    free = set(range(n))
+    remaining = float(avail)
+    while free:
+        total = sum(weights[i] for i in free)
+        pinned = [i for i in free if remaining * weights[i] / total < min_pt]
+        if not pinned:
+            for i in free:
+                widths[i] = remaining * weights[i] / total
+            break
+        for i in pinned:
+            widths[i] = min_pt
+            remaining -= min_pt
+            free.discard(i)
+    return widths
+
+
 @mcp.tool()
 def write_pdf(
     path: str,
     content: str,
     title: str | None = None,
-    table_headers: list[str] | None = None,
-    table_data: list[list[str]] | None = None,
+    table_headers: list[str | int | float] | None = None,
+    table_data: list[list[str | int | float | bool | None]] | None = None,
     page_size: str = "A4",
     allow_protected: bool = False,
 ) -> dict:
     """Create or overwrite a PDF (.pdf) from markdown-lite text, with full Chinese support.
 
-    content uses the same markdown-lite syntax as write_document:
-        '# ' / '## ' / '### '  -> heading levels 1/2/3
-        '- '                   -> bullet point
-        '1. ' (or '2.'/'3.')   -> numbered point
-        blank line             -> vertical spacing
-
-    If table_data is given, a table is rendered after the body (table_headers optional
-    as the header row). Every cell is str()-coerced.
-
-    A Chinese-capable font is auto-registered (Microsoft YaHei -> SimSun -> reportlab's
-    built-in STSong-Light CID font -> Helvetica as a last resort). Paragraphs use
-    wordWrap='CJK' so Chinese lines break correctly.
+    content uses the same markdown-lite as write_document: '# '..'###### ' headings (1/2/3), '- ' / '* ' / '+ '
+    bullets (indent 2+ = nested), '1. ' numbered points, GFM pipe tables or 'TABLE: a | b' blocks (bordered,
+    cells wrap), **bold** *italic* `code` [text](https://url) (links clickable), '> quote', ```fence```, '---'
+    rule, blank line = spacing. A Chinese-capable font is auto-registered (Helvetica as a last resort).
 
     Args:
         path: Output file path (must end with .pdf).
-        content: Body text in markdown-lite (see above).
-        title: Optional document title (rendered as the top heading).
+        content: Body text in markdown-lite.
+        title: Optional document title (top heading).
         table_headers: Optional header row for the trailing table.
-        table_data: Optional 2D list of rows for the trailing table.
-        page_size: 'A4' or 'letter' (anything else falls back to A4).
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        table_data: Optional 2D list of rows rendered as a table after the body (cells may be null = empty).
+        page_size: 'A4' or 'letter' (anything else -> A4).
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path' (abs), 'pages', 'font'. On the Helvetica fallback
-        it also carries 'warning'. Missing reportlab -> {'error': install guidance}.
+        dict with 'success', 'path' (abs), 'pages', 'font' (+ 'warning' on the Helvetica fallback). Missing
+        reportlab -> {'error': install guidance}. A target held open by another program ->
+        {'error', 'code': 'file_locked', 'hint'}.
     """
     if not str(path).lower().endswith(".pdf"):
         return {"error": "path must end with .pdf"}
@@ -1081,6 +1633,7 @@ def write_pdf(
             Table,
             TableStyle,
         )
+        from reportlab.platypus.flowables import HRFlowable
     except Exception:
         return {"error": "PDF 导出需要 reportlab。离线包已含，可运行 installer 重装；或 pip install reportlab"}
 
@@ -1090,21 +1643,50 @@ def write_pdf(
 
         # Paragraph() parses mini-HTML, so raw '&'/'<'/'>' in USER text (e.g. "R&D",
         # "<url>") would raise or misparse. Escape every user-supplied string; the only
-        # markup we ever emit (<b> header cells) is our own, wrapped OUTSIDE the escape.
+        # markup we ever emit (<b>/<i>/<a>/<font>) is our own, wrapped OUTSIDE the escape.
         def _esc(s) -> str:
             return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+        def _markup(text, force_bold=False) -> str:
+            out = []
+            for seg, fmt in office_markup.parse_inline(_cell_text(text)):
+                url = fmt.get("url")
+                if url and not office_markup.is_safe_url(url):
+                    seg = f"{seg} ({url})"
+                    url = None
+                t = _esc(seg)
+                if fmt.get("code"):
+                    mono = "Courier" if seg.isascii() else font_name
+                    t = f'<font name="{mono}" color="#9A3412">{t}</font>'
+                if fmt.get("italic"):
+                    t = f"<i>{t}</i>"
+                if fmt.get("bold") or force_bold:
+                    t = f"<b>{t}</b>"
+                if url:
+                    href = str(url).replace("&", "&amp;").replace('"', "&quot;")
+                    t = f'<a href="{href}" color="#0563C1"><u>{t}</u></a>'
+                out.append(t)
+            return "".join(out)
+
+        def _para(text, style, force_bold=False, **kw):
+            try:
+                return Paragraph(_markup(text, force_bold), style, **kw)
+            except Exception:  # malformed-markup safety net: fall back to escaped plain text
+                return Paragraph(_esc(_cell_text(text)), style, **kw)
+
         # page size: only 'A4' | 'letter'; anything else -> A4.
         psize = letter if str(page_size).lower() == "letter" else A4
+        margin = 72
+        avail_w = psize[0] - 2 * margin
 
         # Clone the sample stylesheet but force every style onto our CJK font, with
         # wordWrap='CJK' so Chinese wraps mid-run (no whitespace to break on).
         base = getSampleStyleSheet()
 
-        def _cjk_style(src_name: str, **overrides) -> ParagraphStyle:
+        def _cjk_style(src_name: str, name=None, **overrides) -> ParagraphStyle:
             src = base[src_name]
             return ParagraphStyle(
-                f"CJK-{src_name}",
+                name or f"CJK-{src_name}",
                 parent=src,
                 fontName=font_name,
                 wordWrap="CJK",
@@ -1113,10 +1695,57 @@ def write_pdf(
 
         style_body = _cjk_style("BodyText")
         style_title = _cjk_style("Title")
-        style_h1 = _cjk_style("Heading1")
-        style_h2 = _cjk_style("Heading2")
-        style_h3 = _cjk_style("Heading3")
-        style_bullet = _cjk_style("BodyText", leftIndent=18)
+        style_h = {1: _cjk_style("Heading1"), 2: _cjk_style("Heading2"), 3: _cjk_style("Heading3")}
+        style_quote = _cjk_style("BodyText", name="CJK-Quote", leftIndent=16,
+                                 textColor=colors.HexColor("#555555"))
+        style_code = _cjk_style("BodyText", name="CJK-Code", leftIndent=10, fontSize=9, leading=11,
+                                backColor=colors.HexColor("#F2F2F2"))
+        style_cells = {a: _cjk_style("BodyText", name=f"CJK-Cell-{a}", fontSize=9.5, leading=12,
+                                     alignment={"left": 0, "center": 1, "right": 2}[a])
+                       for a in ("left", "center", "right")}
+
+        def _list_style(level):
+            return _cjk_style("BodyText", name=f"CJK-List-{level}", leftIndent=18 * (level + 1),
+                              bulletIndent=18 * level + 4, bulletFontName=font_name)
+
+        list_styles = {lv: _list_style(lv) for lv in (0, 1, 2)}
+        bullet_chars = {0: "•", 1: "–", 2: "·"}
+
+        def _table(headers, rows, aligns=None):
+            n_cols = max(len(headers or []), max((len(r) for r in rows), default=0))
+            if n_cols == 0:
+                return None
+            hdr = list(headers or [])
+            data_rows = [(list(r) + [""] * n_cols)[:n_cols] for r in rows]
+            widths = _pdf_col_widths((hdr + [""] * n_cols)[:n_cols] if hdr else None, data_rows, avail_w)
+            if not widths:
+                return None
+
+            def _al(c):
+                return style_cells[aligns[c] if aligns and c < len(aligns) and aligns[c] in style_cells else "left"]
+
+            cells = []
+            if hdr:
+                cells.append([_para(h, _al(c), force_bold=True) for c, h in enumerate((hdr + [""] * n_cols)[:n_cols])])
+            for r in data_rows:
+                cells.append([_para(v, _al(c)) for c, v in enumerate(r)])
+            tbl = Table(cells, colWidths=widths, repeatRows=1 if hdr else 0)
+            tbl.setStyle(
+                TableStyle(
+                    [
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("BACKGROUND", (0, 0), (-1, 0),
+                         colors.whitesmoke if hdr else colors.white),
+                        ("FONTNAME", (0, 0), (-1, -1), font_name),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                        ("TOPPADDING", (0, 0), (-1, -1), 3),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ]
+                )
+            )
+            return tbl
 
         story = []
 
@@ -1124,53 +1753,48 @@ def write_pdf(
             story.append(Paragraph(_esc(title), style_title))
             story.append(Spacer(1, 6 * mm))
 
-        for raw in str(content).split("\n"):
-            stripped = raw.strip()
-            if not stripped:
+        counters: dict = {}
+        for blk in office_markup.parse_blocks(str(content)):
+            kind = blk[0]
+            if kind == "blank":
                 story.append(Spacer(1, 4 * mm))
-            elif stripped.startswith("### "):
-                story.append(Paragraph(_esc(stripped[4:]), style_h3))
-            elif stripped.startswith("## "):
-                story.append(Paragraph(_esc(stripped[3:]), style_h2))
-            elif stripped.startswith("# "):
-                story.append(Paragraph(_esc(stripped[2:]), style_h1))
-            elif stripped.startswith("- "):
-                story.append(Paragraph("• " + _esc(stripped[2:]), style_bullet))
-            elif stripped.startswith(("1. ", "2. ", "3. ", "4. ", "5. ",
-                                      "6. ", "7. ", "8. ", "9. ")):
-                story.append(Paragraph(stripped[0:2] + " " + _esc(stripped[3:]), style_bullet))
+            elif kind == "heading":
+                story.append(_para(blk[2], style_h[blk[1]]))
+            elif kind == "bullet":
+                lv = min(blk[1], 2)
+                story.append(_para(blk[2], list_styles[lv], bulletText=bullet_chars[lv]))
+            elif kind == "number":
+                _, lv, text, num, list_id, first = blk
+                lv = min(lv, 2)
+                if first or list_id not in counters:
+                    counters[list_id] = num
+                else:
+                    counters[list_id] += 1
+                story.append(_para(text, list_styles[lv], bulletText=f"{counters[list_id]}."))
+            elif kind == "table":
+                t = _table(blk[1], blk[2], blk[3])
+                if t is not None:
+                    story.append(Spacer(1, 2 * mm))
+                    story.append(t)
+                    story.append(Spacer(1, 2 * mm))
+            elif kind == "quote":
+                story.append(_para(blk[1], style_quote))
+            elif kind == "code":
+                lines = [ln.replace("\t", "    ") for ln in blk[1]] or [""]
+                story.append(Paragraph("<br/>".join(_esc(ln).replace(" ", "&nbsp;") or "&nbsp;" for ln in lines),
+                                       style_code))
+            elif kind == "rule":
+                story.append(HRFlowable(width="100%", thickness=0.6, color=colors.lightgrey,
+                                        spaceBefore=3, spaceAfter=3))
             else:
-                story.append(Paragraph(_esc(stripped), style_body))
+                story.append(_para(blk[1], style_body))
 
-        # Optional trailing table. Every cell wrapped in a CJK Paragraph so wide/Chinese
-        # cells wrap inside the column instead of overflowing the page.
+        # Optional trailing table (headers + rows), same builder as in-content tables.
         if table_data:
-            rows = []
-            if table_headers:
-                rows.append([Paragraph("<b>" + _esc(h) + "</b>", style_body) for h in table_headers])
-            for row in table_data:
-                rows.append([Paragraph(_esc(c), style_body) for c in row])
-            if rows:
+            t = _table(table_headers, table_data)
+            if t is not None:
                 story.append(Spacer(1, 4 * mm))
-                tbl = Table(rows, repeatRows=1 if table_headers else 0)
-                tbl.setStyle(
-                    TableStyle(
-                        [
-                            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                            ("BACKGROUND", (0, 0), (-1, 0),
-                             colors.whitesmoke if table_headers else colors.white),
-                            ("FONTNAME", (0, 0), (-1, -1), font_name),
-                            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                            ("TOPPADDING", (0, 0), (-1, -1), 3),
-                            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                        ]
-                    )
-                )
-                story.append(tbl)
-
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+                story.append(t)
 
         # Count pages via an onPage callback (robust across reportlab builds).
         _page_counter = {"n": 0}
@@ -1178,9 +1802,19 @@ def write_pdf(
         def _count_page(canvas, doc):
             _page_counter["n"] += 1
 
-        doc = SimpleDocTemplate(path, pagesize=psize)
-        doc.build(story, onFirstPage=_count_page, onLaterPages=_count_page)
-        pages = _page_counter["n"] or getattr(doc, "page", 1) or 1
+        def _build(target):
+            _page_counter["n"] = 0
+            d = SimpleDocTemplate(target, pagesize=psize, leftMargin=margin, rightMargin=margin)
+            d.build(story, onFirstPage=_count_page, onLaterPages=_count_page)
+            return d
+
+        holder = {}
+
+        def _writer(tmp):
+            holder["doc"] = _build(tmp)
+
+        office_io.atomic_save(path, _writer)
+        pages = _page_counter["n"] or getattr(holder.get("doc"), "page", 1) or 1
 
         # v1.5.1: 补 output_path(== path), 见 write_document。
         out = {"success": True, "path": os.path.abspath(path), "output_path": os.path.abspath(path), "pages": pages, "font": font_name}
@@ -1188,4 +1822,4 @@ def write_pdf(
             out["warning"] = font_info["warning"]
         return out
     except Exception as e:
-        return {"error": str(e)}
+        return office_io.io_failure(e, path)

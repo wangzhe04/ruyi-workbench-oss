@@ -13,6 +13,7 @@ import difflib
 import re
 import unicodedata
 from ai_computer_control.server import mcp
+from ai_computer_control.tools.office_io import replace_with_retry
 from ai_computer_control.tools.safety import protected_path_reason
 
 _MAX_EDIT_BYTES = 10 * 1024 * 1024  # refuse to load files >10MB into memory for editing
@@ -29,20 +30,18 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
         现状再改);二进制文件别用(按文本解码)。
 
     Args:
-        path: File path to edit (must already exist).
-        old_string: The exact text to find. Must match byte-for-byte INCLUDING indentation and
-            newlines; read the file first to copy it verbatim.
-        new_string: The replacement text (may be empty to delete).
-        replace_all: False (default) requires old_string to occur EXACTLY once — a 0 or >1
-            match is an error, which is the safety catch against ambiguous edits. True replaces
-            every occurrence.
-        encoding: Text encoding used for both read and write (default utf-8). The file is
-            re-written with the same encoding it was decoded with.
-        allow_protected: Override the protected-system-root guard (default off).
+        path: File to edit (must exist).
+        old_string: Exact text to find, byte-for-byte INCLUDING indentation and newlines (copy it from read_file).
+        new_string: Replacement text (may be empty to delete).
+        replace_all: False (default) requires old_string to occur EXACTLY once — 0 or >1 matches is an error
+            (guards against ambiguous edits). True replaces every occurrence.
+        encoding: Text encoding for read and write (default utf-8). UTF-8 BOM and CRLF/LF endings are preserved
+            (.bat/.ps1 stay CRLF); write old_string/new_string with LF.
+        allow_protected: Bypass the protected-path guard (default off).
 
     Returns:
-        dict with 'success', 'replacements' (occurrences replaced), 'output_path'. On failure a
-        dict with 'error' (人话说明: not found / not unique / decode failure / protected).
+        dict with 'success', 'replacements', 'output_path'. Failure -> 'error' (not found / not unique / decode
+        failure / protected).
     """
     reason = protected_path_reason(path)
     if reason and not allow_protected:
@@ -59,18 +58,63 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
         return {"error": str(e)}
     if size > _MAX_EDIT_BYTES:
         return {"error": f"file too large to edit in memory ({size} bytes > {_MAX_EDIT_BYTES}); 请分段处理或用 write_file 重写。"}
+    # F5: 以字节读入,自己处理 BOM 与换行 —— 文本模式(universal newlines)会把 CRLF 静默改成 LF,
+    # 且 encoding="utf-8" 不剥 BOM(BOM 会作为 \ufeff 留在 text 里,写回时再补一次就成了双 BOM)。
     try:
-        with open(path, "r", encoding=encoding) as f:
-            text = f.read()
+        with open(path, "rb") as f:
+            raw = f.read()
+    except Exception as e:
+        return {"error": str(e)}
+    is_utf8 = encoding.lower().replace("_", "-") in ("utf-8", "utf8")
+    has_bom = is_utf8 and raw.startswith(codecs.BOM_UTF8)
+    try:
+        text = (raw[len(codecs.BOM_UTF8):] if has_bom else raw).decode(encoding)
     except UnicodeDecodeError as e:
         return {"error": f"按 {encoding} 解码失败({e})—— 文件可能是别的编码(如 gbk)或二进制;换 encoding 参数重试。"}
+    except LookupError as e:
+        return {"error": f"未知编码 {encoding}: {e}"}
     except Exception as e:
         return {"error": str(e)}
 
-    occurrences = text.count(old_string)
+    # 行尾:文件以 CRLF 为主就把 old/new 的换行都对齐到 CRLF(模型给的通常是 LF),写回时原样保留。
+    crlf_n = text.count("\r\n")
+    lf_only_n = text.count("\n") - crlf_n
+    file_eol = "\r\n" if crlf_n > lf_only_n else "\n"
+    mixed = crlf_n > 0 and lf_only_n > 0
+    if not mixed:
+        old_string = old_string.replace("\r\n", "\n")
+        new_string = new_string.replace("\r\n", "\n")
+        if file_eol == "\r\n":
+            old_string = old_string.replace("\n", "\r\n")
+            new_string = new_string.replace("\n", "\r\n")
+        occurrences = text.count(old_string)
+    else:
+        # 混用换行的文件:逐个候选对齐 old/new 的换行 —— 原样、CRLF、LF —— 取第一个能在文件里命中的;
+        # new_string 与命中的 old_string 用同一种换行,未改动的行保持原样。
+        def _lf(v):
+            return v.replace("\r\n", "\n")
+        candidates = [(old_string, new_string),
+                      (_lf(old_string).replace("\n", "\r\n"), _lf(new_string).replace("\n", "\r\n")),
+                      (_lf(old_string), _lf(new_string))]
+        occurrences = 0
+        orig_old = old_string
+        for cand_old, cand_new in candidates:
+            occurrences = text.count(cand_old)
+            if occurrences:
+                old_string, new_string = cand_old, cand_new
+                break
+        else:
+            old_string = orig_old
     if occurrences == 0:
-        file_crlf = _file_uses_crlf(path)
-        diag = _diagnose_mismatch(text, old_string, file_crlf)
+        # 诊断用 LF 归一化的文本,行/列号与 read_file 看到的一致。
+        norm_text, norm_old = text.replace("\r\n", "\n"), old_string.replace("\r\n", "\n")
+        if mixed and norm_old in norm_text:
+            diag = ("该片段在内容上存在,但它跨越了文件里 CRLF 与 LF 混用的位置(同一片段里两种换行都有),"
+                    "无法用单一换行匹配 —— 请把 old_string 缩短到只含一种换行的范围,分几次编辑。")
+        else:
+            diag = _diagnose_mismatch(norm_text, norm_old, False)
+            if mixed:
+                diag = "(文件混用 CRLF/LF 换行,须与磁盘上该处的换行逐字匹配)" + diag
         return {"error": "old_string 在文件中未出现(0 次)。" + diag}
     if occurrences > 1 and not replace_all:
         return {"error": f"old_string 出现 {occurrences} 次,不唯一 —— 请把前后文多带几行使它唯一,或确认后传 replace_all=true 全部替换。"}
@@ -78,23 +122,17 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
     replaced = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
     n = occurrences if replace_all else 1
     # b2-P0: 原子写 —— 先写同目录临时文件再 os.replace,任何写失败(编码/磁盘满)都不会截断原文。
-    # 同时保留原 UTF-8 BOM(文本读取剥 BOM,写回恢复),避免旧文件 BOM 被无声丢弃。
+    # BOM 只在原文件有时补回一次(上面已剥掉,不会双写)。
     try:
-        has_bom = False
-        try:
-            with open(path, "rb") as _rb:
-                has_bom = _rb.read(3) == codecs.BOM_UTF8
-        except Exception:
-            has_bom = False
         encoded = replaced.encode(encoding)
-        if has_bom and encoding.lower() in ("utf-8", "utf8"):
+        if has_bom:
             encoded = codecs.BOM_UTF8 + encoded
         dirn = os.path.dirname(os.path.abspath(path)) or "."
         fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".edit-", suffix=".tmp")
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(encoded)
-            os.replace(tmp, path)
+            replace_with_retry(tmp, path)
         except Exception:
             try:
                 os.unlink(tmp)
@@ -104,10 +142,15 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
     except Exception as e:
         return {"error": f"写入失败: {e}(原文件未被修改 —— 本工具采用原子写,不会留下截断文件)。"}
     # Echo output_path so the workbench 产物收割 (ARTIFACT_OUTPUT_PATH_KEYS) picks the edit up.
-    return {"success": True, "replacements": n, "output_path": os.path.abspath(path)}
+    out = {"success": True, "replacements": n, "output_path": os.path.abspath(path)}
+    if mixed:
+        out["eol_mixed"] = True   # file mixes CRLF/LF; the edit matched with the EOL style found at the match site
+    return out
 
 def _codepoint_name(ch: str) -> str:
     """U+XXXX 'c' (UNICODE NAME) — visible even when the character itself renders like ASCII."""
+    if len(ch) != 1:          # the "<EOF>" / "<END>" / "<same>" sentinels of the diagnosis, not a character
+        return ch
     try:
         name = unicodedata.name(ch)
     except ValueError:
@@ -159,16 +202,6 @@ def _find_closest_single_line(text: str, old_string: str):
                 old_string[min(len(seg), len(old_string))] if len(old_string) > len(seg) else "<END>",
                 ratio)
     return (ln, off + 1, "<same>", "<same>", ratio)
-
-
-def _file_uses_crlf(path: str) -> bool:
-    """True when the file on disk uses CRLF line endings (binary probe — the in-memory text was
-    already normalized by universal newlines, so \"\\r\\n\" in text is always False)."""
-    try:
-        with open(path, "rb") as f:
-            return b"\r\n" in f.read(65536)
-    except Exception:
-        return False
 
 
 def _diagnose_mismatch(text: str, old_string: str, file_crlf: bool = False) -> str:

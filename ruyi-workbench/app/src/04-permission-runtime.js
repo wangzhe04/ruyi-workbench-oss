@@ -758,21 +758,59 @@ function mcpToolAllowed(entry, name) {
 // 工具自带的 ok:true 会盖掉协议层 isError:true(失败被报成成功)。现在数组放进 items,ok 取两者的「与」。
 function normalizeMcpToolResult(res) {
   const isError = !!(res && res.isError);
-  let textOut = '';
-  if (res && Array.isArray(res.content)) {
-    const t = res.content.find(c => c && c.type === 'text' && typeof c.text === 'string');
-    if (t) textOut = t.text;
+  const blocks = (res && Array.isArray(res.content)) ? res.content : [];
+  // 审计 N6:MCP 标准 content 是多块(text / image / resource / audio…)。修前只取第一个 text 块,其余静默丢弃;
+  // 只有图片时把整个 content 数组(含 9 万字符 base64)原样回给模型,再被 60 KB 截断劈成半截 base64 文字。
+  // 现在:全部 text 块拼起来(单块时与修前逐字一致);image 块映射成工具图像通道认识的字段
+  // (第一张 image_base64 + image_mime,多张的其余放 images:[{mimeType,data}]),base64 永不进 text;
+  // 内嵌文本资源当文本收;其余块类型只留一条 {type, note:'omitted'}。
+  const texts = [];
+  const images = [];
+  const omitted = [];
+  for (const c of blocks) {
+    if (!c || typeof c !== 'object') continue;
+    if (c.type === 'text' && typeof c.text === 'string') texts.push(c.text);
+    else if (c.type === 'image' && typeof c.data === 'string' && c.data) images.push({ mimeType: String(c.mimeType || c.mime_type || 'image/png'), data: c.data });
+    else if (c.type === 'resource' && c.resource && typeof c.resource.text === 'string') texts.push(c.resource.text);
+    else {
+      const o = { type: String(c.type || 'unknown'), note: 'omitted' };
+      for (const k of ['uri', 'name', 'mimeType']) if (typeof c[k] === 'string') o[k] = c[k].slice(0, 300);   // resource_link 等:留下可辨认的指针,不留载荷
+      omitted.push(o);
+    }
   }
+  // 多个 text 块时先看【第一块】是不是 JSON(结构化结果 {ok:false,error,…} 后面常跟一条 warning 之类的附注块):是 → 以它为载荷,
+  // 其余块放 extraText;否则才把各块拼起来。修前(拼接后再解析)会让「第一块是失败 JSON + 第二块附注」整体变成 ok:true 的文本。
+  let textOut = texts.length > 1 ? texts.join('\n') : (texts[0] || '');
+  let extraText = '';
+  if (texts.length > 1) {
+    const head = safeJsonParse(texts[0], undefined);
+    if (head && typeof head === 'object') { textOut = texts[0]; extraText = texts.slice(1).join('\n'); }
+  }
+  const withExtras = base => {
+    if (images.length) {
+      if (base.image_base64 === undefined && base.image === undefined) {
+        base.image_base64 = images[0].data;
+        if (base.image_mime === undefined) base.image_mime = images[0].mimeType;
+        if (images.length > 1 && base.images === undefined) base.images = images.slice(1);
+      } else if (base.images === undefined) {
+        base.images = images;
+      }
+    }
+    if (omitted.length && base.omittedBlocks === undefined) base.omittedBlocks = omitted;
+    if (extraText && base.extraText === undefined) base.extraText = extraText;
+    return base;
+  };
   if (textOut) {
-    // Prefer the first text content block; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
+    // Prefer the text content; parse it as JSON when it is JSON (desktop MCP returns {ok,...}).
     const parsed = safeJsonParse(textOut, undefined);
-    if (Array.isArray(parsed)) return { ok: !isError, items: parsed };
+    if (Array.isArray(parsed)) return withExtras({ ok: !isError, items: parsed });
     if (parsed && typeof parsed === 'object') {
       const { ok: toolOk, ...rest } = parsed;
-      return { ok: !isError && toolOk !== false, ...rest };
+      return withExtras({ ok: !isError && toolOk !== false, ...rest });
     }
-    return { ok: !isError, text: textOut };
+    return withExtras({ ok: !isError, text: textOut });
   }
+  if (images.length || omitted.length) return withExtras({ ok: !isError });
   return { ok: !isError, content: (res && res.content) || [] };
 }
 // 跟 nextCursor 翻完 tools/list(MCP 2025-03-26 起工具目录可分页;修前只取第一页,后面的工具凭空消失)。
@@ -959,13 +997,19 @@ class McpStdioClient {
     // explicitly via killAllMcpClients()/killChildTree on exit.
     try { child.unref(); } catch { /* ignore */ }
     child.on('error', e => { this.dead = true; this._failAllPending(new Error('mcp child error: ' + (e && e.message))); });
-    child.on('exit', () => { this.dead = true; this._failAllPending(new Error('mcp child exited')); });
+    child.on('exit', (code, signal) => {
+      this.dead = true;
+      // 审计 A14:带上退出码/信号与 stderr 末尾,callTool 据此给模型可行动的说明(修前只有裸的「mcp child exited」)。
+      const err = new Error(`mcp child exited (code ${code == null ? 'null' : code}${signal ? `, signal ${signal}` : ''})`);
+      err.mcpChildExit = { code: code == null ? null : code, signal: signal || null, stderrTail: String(this._stderrTail || '').slice(-400).trim() };
+      this._failAllPending(err);
+    });
     // EPIPE on stdin must not crash the process.
     if (child.stdin) child.stdin.on('error', () => { /* ignore broken pipe */ });
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', chunk => this._onStdoutChunk(chunk));
     child.stderr.setEncoding('utf8');
-    child.stderr.on('data', d => { if (this._stderr.length < 8000) this._stderr += d; });
+    child.stderr.on('data', d => { if (this._stderr.length < 8000) this._stderr += d; this._stderrTail = (String(this._stderrTail || '') + d).slice(-800); });
 
     try {
       const init = await this._rpc('initialize', {
@@ -1002,6 +1046,7 @@ class McpStdioClient {
       return normalizeMcpToolResult(res);
     } catch (e) {
       const m = (e && e.message) ? e.message : String(e);
+      if (e && e.mcpChildExit) return mcpChildExitResult(this, name, e.mcpChildExit);   // 审计 A14
       if (/aborted by user steer/.test(m)) {
         // A cooperative notification is not enough for an arbitrary local MCP server: terminate the
         // process tree as the safety backstop so an interrupted write cannot continue as a zombie.
@@ -2079,6 +2124,27 @@ async function configureMcpFromTool(args, currentConfig) {
     note: '配置已原子保存并刷新工具目录；若工具仍不可用，请读取 MCP 列表与启动诊断。' };
 }
 
+// 审计 A14:桥接子进程在一次调用中途退出(崩溃 / 被外部杀 / OOM)。返回给模型的错误说明是哪个工具、哪个组件、退出码、
+// 是否会自动重启以及重试口径 —— 修前只有「mcp child exited」,模型无从判断是自己的参数错还是环境坏了。
+function mcpChildExitResult(client, toolName, info) {
+  const id = client && client.id ? String(client.id) : 'mcp';
+  const isDesktop = id === 'ai-computer-control';
+  const who = isDesktop ? `desktop control component (${id})` : `MCP server '${id}'`;
+  const how = `code ${info && info.code != null ? info.code : 'null'}${info && info.signal ? `, signal ${info.signal}` : ''}`;
+  const tail = info && info.stderrTail ? ` Last stderr: ${info.stderrTail.replace(/\s+/g, ' ').slice(-300)}` : '';
+  return {
+    ok: false, code: 'mcp-child-exited', retryable: true, serverId: id, tool: String(toolName || ''),
+    error: `tool '${toolName}' was interrupted: the ${who} process exited unexpectedly (${how}). It restarts automatically on the next call: retry the call once; any state it held in memory (open browser pages, recording, thinking chain) is lost, and if the same call kills it again, stop retrying and report the failure.${tail}`,
+  };
+}
+// 审计 A14:getBridgedClient 返回 null 时的说明 —— 带上上一次启动失败的原因与冷却剩余,而不是一句「not available」。
+function bridgedServerUnavailableMessage(serverId) {
+  const base = `bridged MCP server '${serverId}' is not available`;
+  const fail = mcpClientFailures.get(serverId);
+  if (!fail) return `${base} (it could not be started or has no launch command configured)`;
+  const leftSec = Math.max(0, Math.ceil((MCP_FAILURE_COOLDOWN_MS - (Date.now() - fail.at)) / 1000));
+  return `${base}: the last start failed: ${String(fail.error || 'unknown error').slice(0, 300)}. ${leftSec > 0 ? `It will be retried automatically in about ${leftSec}s.` : 'It will be retried on the next call.'} Use another tool meanwhile.`;
+}
 // Get (lazily starting) a live client for one server entry, or null if it can't start. Caches failures.
 // 49c:按 entry.transport 选客户端类 —— sse/http 走 McpHttpClient(无进程,远程连接),其余走 stdio。
 async function getMcpClient(entry) {
@@ -2160,7 +2226,7 @@ let bridgedCatalogCache = { key: '', expiresAt: 0, value: null };
 // HTTP 超时(e2e 8s)。到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
 // 单个 MCP 的握手预算:start() 内部 initialize + tools/list 各 8s 上限,挂起桩(stdio-hang)串行可吃满 16s。
 // 扫描期对每个 entry 用该预算 race,超时即跳过该 MCP —— 扫描不被单桩拖死,慢 MCP 的下次调用再补(有 60s 冷却)。
-const BRIDGED_ENTRY_START_TIMEOUT_MS = 3500;
+const BRIDGED_ENTRY_START_TIMEOUT_MS = Number(process.env.WCW_BRIDGED_ENTRY_START_TIMEOUT_MS) || 3500;   // env 仅为测试缝(unit/bridged-catalog-incomplete)
 // 整体扫描时限:getCapabilities 冷启动(网络探测 + 全量 MCP 扫描)不能无限期阻塞 —— 本机 ~/.claude.json
 // 可能导入 10+ 个 MCP,串行扫描实测可达 18.9s,远超 /api/capabilities 的 HTTP 超时(e2e 8s)。
 // 到点返回已收集的部分结果,不因单个慢/挂 MCP 拖死整次探测。
@@ -2173,8 +2239,21 @@ async function collectBridgedTools(config, force = false) {
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
+  // 残缺目录不进长缓存(审计 A3)之后,启动期一阵并发请求(状态轮询 / 能力探测 / 首回合)会各自重扫、各自再等一轮
+  // 启动竞速:同一 key 的扫描在飞时直接共用它;force 照旧另起。
+  if (!force && bridgedCatalogInflight && bridgedCatalogInflight.key === cacheKey) return bridgedCatalogInflight.promise;
+  const promise = collectBridgedToolsScan(config, entries, cacheKey);
+  if (!force) bridgedCatalogInflight = { key: cacheKey, promise };
+  try { return await promise; }
+  finally { if (bridgedCatalogInflight && bridgedCatalogInflight.promise === promise) bridgedCatalogInflight = null; }
+}
+let bridgedCatalogInflight = null;   // { key, promise }:同一 key 的目录扫描在飞时共用
+// 残缺目录也短暂缓存 1 s:吸收紧挨着的一串调用,又不耽误慢起来的 MCP 在下一次(>1 s 后)被补进目录。
+const BRIDGED_CATALOG_INCOMPLETE_TTL_MS = 1000;
+async function collectBridgedToolsScan(config, entries, cacheKey) {
   const tools = [];
   const route = {};
+  let incomplete = false;   // 有 entry 没在预算内起来 / 起不来:这一次的目录是残缺的
   const scan = (async () => {
     // 并行收集每个 entry 的 client + tools —— N 个 MCP 同时启动,单个慢/挂不再拖慢其它(每 entry 有独立握手预算)。
     const collected = await Promise.all(entries.map(async (entry) => {
@@ -2186,7 +2265,7 @@ async function collectBridgedTools(config, force = false) {
           new Promise(res => setTimeout(() => res('__timeout__'), BRIDGED_ENTRY_START_TIMEOUT_MS)),
         ]);
       } catch { client = null; }
-      if (!client || client === '__timeout__') return null;
+      if (!client || client === '__timeout__') { incomplete = true; return null; }   // 审计 A3:没扫全的目录不缓存
       let list;
       try { list = await client.listTools(); } catch { list = []; }
       return { entry, list: Array.isArray(list) ? list : [] };
@@ -2221,10 +2300,19 @@ async function collectBridgedTools(config, force = false) {
     }
   })();
   // 整体时限兜底:超时后返回当前已收集的部分(可能缺慢 MCP 的工具,但探测本身不再被拖死)。
+  let scanDone = false;
   try {
-    await Promise.race([scan, new Promise(res => setTimeout(res, BRIDGED_CATALOG_SCAN_TIMEOUT_MS))]);
+    await Promise.race([scan.then(() => { scanDone = true; }), new Promise(res => setTimeout(res, BRIDGED_CATALOG_SCAN_TIMEOUT_MS))]);
   } catch { /* 并行收集失败不阻断 —— 返回已收集部分 */ }
+  if (!scanDone) incomplete = true;
   const value = { tools, route };
+  // 审计 A3:桌面组件(ACC)冷启动可能赶不上 3.5 s 的启动竞速。修前把「缺了它」的目录照常缓存 60 s,首几个回合模型看不到任何桌面
+  // 工具、tool_search 也搜不到。现在残缺目录【不缓存】:下一次调用重新扫(慢的那个 start 仍在后台跑,getMcpClient 的
+  // 待决互斥保证不会重复起进程;真起不来的有 60 s 失败冷却,重扫是廉价的 null)。
+  if (incomplete) {
+    bridgedCatalogCache = { key: cacheKey, expiresAt: Date.now() + BRIDGED_CATALOG_INCOMPLETE_TTL_MS, value };
+    return value;
+  }
   bridgedCatalogCache = {
     key: cacheKey,
     expiresAt: Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000),

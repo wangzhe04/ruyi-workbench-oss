@@ -28,10 +28,19 @@ def _unavailable() -> dict:
 
 import threading
 
+_MAX_NODES = 5000          # tree-walk node cap shared by ui_find / ui_invoke
+_DEFAULT_DEPTH = 8         # default tree depth for ui_find / ui_invoke (kept identical on purpose)
+_CANDIDATE_CAP = 10        # ui_invoke: how many matches it collects to report ambiguity
+_ACTION_TIMEOUT_S = 10     # bound for a single pattern action (Invoke/SetValue/Toggle/...)
+_READ_TIMEOUT_S = 15       # bound for reading properties of the matched controls (after the walk)
+
 # A single ctrl.GetChildren() (or Invoke/SetValue/SendKeys) on an unresponsive window is a
 # synchronous COM call with no per-call timeout. SetGlobalSearchTimeout only bounds search ops, not
 # tree walks or pattern actions. Run such calls in a daemon thread with a join deadline so a hung
-# window degrades to a clean error instead of blocking the whole ACC event loop to the 120s bridge.
+# window degrades to a clean error at `timeout` instead of hanging until the 120s bridge kill.
+# NOTE: the COM WORK runs off the calling thread, but the tool functions here are sync, so the
+# calling (event-loop) thread still waits up to `timeout` in join() — the bound limits the damage of
+# a hung window (<=15s/10s per call), it does not keep the loop free meanwhile.
 _TIMEOUT_SENTINEL = object()
 
 
@@ -40,7 +49,7 @@ def _run_bounded(fn, timeout, *args, **kwargs):
 
     Returns the fn result, raises any exception fn raised, or returns _TIMEOUT_SENTINEL on timeout.
     COM safety: uiautomation/comtypes need CoInitialize on each worker thread; we do it here so
-    tree walks and pattern actions work off the event loop (pywin32 is a hard dependency).
+    tree walks and pattern actions can run on a worker thread (pywin32 is a hard dependency).
     """
     holder = {}
 
@@ -84,7 +93,26 @@ def _center(control) -> list[int] | None:
         return None
 
 
-def _node(control, include_center: bool = True) -> dict:
+def _actionable_state(control) -> tuple[bool, bool, bool]:
+    """(enabled, offscreen, empty_rect) for a control; each read is guarded (unknown -> not excluded)."""
+    enabled, offscreen, empty = True, False, False
+    try:
+        enabled = bool(getattr(control, "IsEnabled", True))
+    except Exception:
+        pass
+    try:
+        offscreen = bool(getattr(control, "IsOffscreen", False))
+    except Exception:
+        pass
+    try:
+        r = control.BoundingRectangle
+        empty = r is not None and (r.right <= r.left or r.bottom <= r.top)
+    except Exception:
+        pass
+    return enabled, offscreen, empty
+
+
+def _node(control, include_center: bool = True, include_state: bool = False) -> dict:
     d = {}
     for attr, key in (("Name", "name"), ("ControlTypeName", "type"), ("AutomationId", "automation_id"),
                       ("ClassName", "class")):
@@ -98,6 +126,14 @@ def _node(control, include_center: bool = True) -> dict:
         c = _center(control)
         if c:
             d["center"] = c
+    if include_state:
+        # Only the notable states, to keep the payload small: a disabled or offscreen control is
+        # a poor click target and the model should see that before choosing among matches.
+        enabled, offscreen, empty = _actionable_state(control)
+        if not enabled:
+            d["enabled"] = False
+        if offscreen or empty:
+            d["offscreen"] = True
     return d
 
 
@@ -235,12 +271,126 @@ def ui_inspect(window_title: str | None = None, max_depth: int = 4, max_nodes: i
     return out
 
 
+def _find_controls(root, name=None, control_type=None, automation_id=None, max_results=20,
+                   max_depth=_DEFAULT_DEPTH, max_nodes=_MAX_NODES, visible_only=False,
+                   enabled_only=False) -> dict:
+    """ONE depth-first walk shared by ui_find and ui_invoke (so invoke never walks twice).
+
+    Returns {controls: [live control objects], control_types, nodes_scanned, more, node_cap, depth_cut,
+    skipped_offscreen, skipped_disabled}. `more` = at least one further match exists beyond max_results;
+    `node_cap`/`depth_cut` = the walk was cut short by the node/depth limit (results may be incomplete).
+    Must run inside _run_bounded by the caller (COM calls on an unresponsive window can hang).
+    """
+    name_l = name.lower() if name else None
+    type_l = control_type.lower() if control_type else None
+    have_selector = name_l is not None or type_l is not None or automation_id is not None
+    controls: list = []
+    control_types: set[str] = set()
+    st = {"nodes": 0, "more": False, "node_cap": False, "depth_cut": False,
+          "offscreen": 0, "disabled": 0}
+
+    def stop() -> bool:
+        return st["more"] or st["node_cap"]
+
+    def walk(ctrl, depth):
+        if stop():
+            return
+        if st["nodes"] >= max_nodes:
+            st["node_cap"] = True
+            return
+        st["nodes"] += 1
+        try:
+            tp = (getattr(ctrl, "ControlTypeName", "") or "")
+            if tp:
+                control_types.add(tp)
+            ok = have_selector
+            if ok and type_l is not None:
+                ok = type_l in tp.lower()
+            if ok and name_l is not None:
+                ok = name_l in (getattr(ctrl, "Name", "") or "").lower()
+            if ok and automation_id is not None:
+                ok = automation_id == (getattr(ctrl, "AutomationId", "") or "")
+            if ok:
+                enabled, offscreen, empty = _actionable_state(ctrl)
+                if visible_only and (offscreen or empty):
+                    st["offscreen"] += 1
+                elif enabled_only and not enabled:
+                    st["disabled"] += 1
+                elif len(controls) >= max_results:
+                    st["more"] = True
+                    return
+                else:
+                    controls.append(ctrl)
+        except Exception:
+            pass
+        try:
+            kids = ctrl.GetChildren()
+        except Exception:
+            return
+        if depth >= max_depth:
+            if kids:
+                st["depth_cut"] = True
+            return
+        for ch in kids:
+            if stop():
+                break
+            walk(ch, depth + 1)
+
+    walk(root, 0)
+    return {"controls": controls, "control_types": control_types, "nodes_scanned": st["nodes"],
+            "more": st["more"], "node_cap": st["node_cap"], "depth_cut": st["depth_cut"],
+            "skipped_offscreen": st["offscreen"], "skipped_disabled": st["disabled"]}
+
+
+def _walk_report(found: dict) -> dict:
+    """Truncation / scan stats to merge into a ui_find / ui_invoke answer."""
+    by = [k for k, on in (("node_cap", found["node_cap"]), ("max_depth", found["depth_cut"]),
+                          ("max_results", found["more"])) if on]
+    out = {"nodes_scanned": found["nodes_scanned"], "truncated": bool(by)}
+    if by:
+        out["truncated_by"] = by
+    skipped = {}
+    if found["skipped_offscreen"]:
+        skipped["offscreen"] = found["skipped_offscreen"]
+    if found["skipped_disabled"]:
+        skipped["disabled"] = found["skipped_disabled"]
+    if skipped:
+        out["skipped"] = skipped
+    return out
+
+
+def _locate(root, **kw):
+    """Run _find_controls bounded. Returns (found, error_dict); exactly one is None."""
+    try:
+        found = _run_bounded(lambda: _find_controls(root, **kw), 15)
+    except Exception as e:  # noqa: BLE001
+        return None, {"error": f"{type(e).__name__}: {e}"}
+    if found is _TIMEOUT_SENTINEL:
+        return None, {"error": "UIA tree walk timed out (>15s); the window may be unresponsive",
+                      "window": _window_identity(root)}
+    return found, None
+
+
 @mcp.tool()
 def ui_find(name: str | None = None, control_type: str | None = None, automation_id: str | None = None,
-            window_title: str | None = None, max_results: int = 20, max_depth: int = 8) -> dict:
+            window_title: str | None = None, max_results: int = 20, max_depth: int = _DEFAULT_DEPTH,
+            visible_only: bool = False, enabled_only: bool = False) -> dict:
     """Find controls by name / control type / automation id within a window.
 
-    Returns dict with 'matches': [{name,type,automation_id,center}], each clickable via its center.
+    Args:
+        name: Substring of the control name (case-insensitive).
+        control_type: Substring of the control type, e.g. "Button", "Edit".
+        automation_id: Exact automation id.
+        window_title: Substring of the window title; omit for the foreground window.
+        max_results: Stop after this many matches.
+        max_depth: Tree depth limit (default 8).
+        visible_only: Skip offscreen / zero-size controls.
+        enabled_only: Skip disabled controls.
+
+    Returns:
+        dict with 'matches': [{name,type,automation_id,center}] (click via center; disabled -> enabled:false,
+        offscreen -> offscreen:true), 'nodes_scanned', and 'truncated' (+ 'truncated_by') when a limit cut the
+        search short.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -248,191 +398,286 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
     if root is None:
         return {"error": "window not found", "searched": window_title,
                 "hint": "use wait_for_window(title) if the app was just launched"}
-    name_l = name.lower() if name else None
-    type_l = control_type.lower() if control_type else None
-    matches, count = [], [0]
-    control_types: set[str] = set()
-
-    def walk(ctrl, depth):
-        if len(matches) >= max_results or depth > max_depth or count[0] > 5000:
-            return
-        count[0] += 1
-        try:
-            nm = (getattr(ctrl, "Name", "") or "")
-            tp = (getattr(ctrl, "ControlTypeName", "") or "")
-            if tp:
-                control_types.add(tp)
-            aid = (getattr(ctrl, "AutomationId", "") or "")
-            ok = True
-            if name_l is not None:
-                ok = ok and name_l in nm.lower()
-            if type_l is not None:
-                ok = ok and type_l in tp.lower()
-            if automation_id is not None:
-                ok = ok and automation_id == aid
-            if ok and (name_l is not None or type_l is not None or automation_id is not None):
-                matches.append(_node(ctrl))
-        except Exception:
-            pass
-        try:
-            for ch in ctrl.GetChildren():
-                if len(matches) >= max_results:
-                    break
-                walk(ch, depth + 1)
-        except Exception:
-            pass
-
-    try:
-        walk_res = _run_bounded(lambda: walk(root, 0), 15)
+    found, err = _locate(root, name=name, control_type=control_type,
+                         automation_id=automation_id, max_results=max_results, max_depth=max_depth,
+                         visible_only=visible_only, enabled_only=enabled_only)
+    if err:
+        return err
+    try:   # property reads are cross-process COM calls too: bound them like the walk
+        matches = _run_bounded(lambda: [_node(c, include_state=True) for c in found["controls"]],
+                               _READ_TIMEOUT_S)
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"}
-    if walk_res is _TIMEOUT_SENTINEL:
-        return {"error": "UIA tree walk timed out (>15s); the window may be unresponsive",
+    if matches is _TIMEOUT_SENTINEL:
+        return {"error": "UIA property read timed out (>%ds); the window may be unresponsive" % _READ_TIMEOUT_S,
                 "window": _window_identity(root)}
     out = {"success": True, "count": len(matches), "matches": matches,
-           "window": _window_identity(root)}
+           "window": _window_identity(root), **_walk_report(found)}
     if not matches:
-        limitation = _browser_accessibility_status(root, count[0], control_types)
+        limitation = _browser_accessibility_status(root, found["nodes_scanned"], found["control_types"])
         if limitation:
             out.update(limitation)
+        elif out["truncated"]:
+            out["hint"] = ("no match, but the search was cut short (see truncated_by); narrow it with "
+                           "window_title / automation_id, or raise max_depth.")
     return out
+
+
+def _timeout_note(what: str, seconds: int = _ACTION_TIMEOUT_S) -> str:
+    return (f"{what} did not return within {seconds}s. The action may ALREADY have been delivered "
+            f"(e.g. a modal dialog opened and is holding the call) — check the current state "
+            f"(screenshot / ui_find) BEFORE retrying, or you may act twice.")
+
+
+def _read_back_value(ctrl):
+    """(value, source) read through ValuePattern -> LegacyIAccessible -> TextPattern; (None, None) if unreadable."""
+    for source, getter in (
+        ("value_pattern", lambda: ctrl.GetValuePattern().Value),
+        ("legacy_accessible", lambda: ctrl.GetLegacyIAccessiblePattern().Value),
+        ("text_pattern", lambda: ctrl.GetTextPattern().DocumentRange.GetText(-1)),
+    ):
+        try:
+            v = getter()
+        except Exception:
+            continue
+        if isinstance(v, str):
+            return v, source
+    return None, None
+
+
+def _norm_text(v: str) -> str:
+    return v.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _confirm_set_value(ctrl, text: str) -> dict:
+    """Did set_value take? Compares ONLY against a real readable value (never the control's Name).
+
+    Returns {"confirmed": True|False|None, "read_back_via": ..., "actual": ...}. None = the control
+    exposes no readable value (or is a password field), i.e. UNVERIFIABLE — not a failure.
+    """
+    try:
+        if bool(getattr(ctrl, "IsPassword", False)):
+            return {"confirmed": None, "note": "password field: value not read back"}
+    except Exception:
+        pass
+    value, source = _read_back_value(ctrl)
+    if value is None:
+        return {"confirmed": None,
+                "note": "value set; the control does not expose a readable value, so it could not be confirmed"}
+    a, b = _norm_text(value), _norm_text(text)
+    if source == "text_pattern":  # document ranges often carry a trailing newline
+        a, b = a.rstrip("\n"), b.rstrip("\n")
+    if a == b:
+        return {"confirmed": True, "read_back_via": source}
+    return {"confirmed": False, "read_back_via": source, "actual": value}
+
+
+def _write_value(ctrl, text: str) -> str:
+    """Set a control's value; returns the method used. Runs bounded (see _perform)."""
+    try:
+        ctrl.GetValuePattern().SetValue(text)
+        return "value_pattern"
+    except Exception:
+        pass
+    # No ValuePattern: prefer a non-keystroke setter (no SendKeys syntax parsing, so
+    # braces/parens in JSON/code/paths are not corrupted).
+    try:
+        ctrl.GetLegacyIAccessiblePattern().SetValue(text)
+        return "legacy_accessible"
+    except Exception:
+        pass
+    # SendKeys fallback: escape braces in the VALUE only, NOT the select-all literal.
+    safe = text.replace("{", "{{}").replace("}", "{}}")
+    ctrl.SendKeys("{Ctrl}a" + safe)
+    return "sendkeys"
+
+
+def _bounded_action(fn, what: str):
+    """Run one pattern action with the action timeout. Returns (result, timeout_error_dict|None)."""
+    r = _run_bounded(fn, _ACTION_TIMEOUT_S)
+    if r is _TIMEOUT_SENTINEL:
+        return None, {"error": _timeout_note(what)}
+    return r, None
+
+
+def _perform(act: str, ctrl, text: str, info: dict) -> dict:
+    """Carry out `act` on the resolved control. Every COM action is bounded (a hung window must not
+    freeze the server); exceptions propagate to the caller's handler."""
+    if act in ("invoke", "click"):
+        try:
+            inv, tmo = _bounded_action(lambda: ctrl.GetInvokePattern().Invoke(), "Invoke()")
+            if tmo:
+                # Deliberately NOT falling back to a click here: the invoke may have gone through.
+                return {**tmo, "control": info}
+            # 'verified' means the event was SENT, not that the effect is confirmed.
+            return {"success": True, "action": act, "control": info,
+                    "method": "invoke_pattern", "verified": False}
+        except Exception:
+            # Mouse-Click fallback pixel-clicks the control center; a zero/offscreen
+            # rect makes the click a silent no-op, so re-check before clicking.
+            r = None
+            try:
+                r, rtmo = _bounded_action(lambda: ctrl.BoundingRectangle, "BoundingRectangle read")
+                if rtmo:
+                    return {**rtmo, "control": info}
+            except Exception:
+                r = None
+            empty = (r is None or (r.left == r.right and r.top == r.bottom)
+                     or r.right <= r.left or r.bottom <= r.top
+                     or r.right < 0 or r.bottom < 0)
+            if empty:
+                return {"error": "control has empty/offscreen BoundingRectangle; not clicked",
+                        "control": info}
+            _, tmo = _bounded_action(lambda: ctrl.Click(), "Click()")
+            if tmo:
+                return {**tmo, "control": info}
+            return {"success": True, "action": act, "control": info,
+                    "method": "mouse_click_fallback", "verified": False}
+    if act == "set_value":
+        method, tmo = _bounded_action(lambda: _write_value(ctrl, text), "set_value")
+        if tmo:
+            return {**tmo, "control": info}
+        try:
+            conf, ctmo = _bounded_action(lambda: _confirm_set_value(ctrl, text), "set_value read-back")
+        except Exception:
+            conf, ctmo = {"confirmed": None, "note": "value set; the read-back failed, so it could not be confirmed"}, None
+        if ctmo:   # the value was written; only the read-back stalled -> unverifiable, not a failure
+            conf = {"confirmed": None, "note": "value set; the read-back timed out, so it could not be confirmed"}
+        if conf["confirmed"] is False:
+            return {"success": False, "error": "set_value not confirmed", "expected": text,
+                    "actual": conf.get("actual"), "read_back_via": conf.get("read_back_via"),
+                    "method": method, "control": info}
+        out = {"success": True, "action": act, "control": info, "method": method,
+               "confirmed": conf["confirmed"], "verified": conf["confirmed"] is True}
+        if conf.get("note"):
+            out["note"] = conf["note"]
+        if conf.get("read_back_via"):
+            out["read_back_via"] = conf["read_back_via"]
+        return out
+    if act == "focus":
+        _, tmo = _bounded_action(lambda: ctrl.SetFocus(), "SetFocus()")
+        if tmo:
+            return {**tmo, "control": info}
+    elif act == "toggle":
+        def _toggle():
+            p = ctrl.GetTogglePattern()
+            if p is None:
+                return False
+            p.Toggle()
+            return True
+        done, tmo = _bounded_action(_toggle, "Toggle()")
+        if tmo:
+            return {**tmo, "control": info}
+        if not done:
+            return {"error": "control does not support toggle", "control": info,
+                    "hint": "fall back to clicking 'center' with mouse_click"}
+    elif act == "expand":
+        def _expand():
+            p = ctrl.GetExpandCollapsePattern()
+            if p is None:
+                return False
+            p.Expand()
+            return True
+        done, tmo = _bounded_action(_expand, "Expand()")
+        if tmo:
+            return {**tmo, "control": info}
+        if not done:
+            return {"error": "control does not support expand", "control": info,
+                    "hint": "fall back to clicking 'center' with mouse_click"}
+    else:
+        return {"error": f"unknown action: {act}", "target": info}
+    return {"success": True, "action": act, "control": info}
 
 
 @mcp.tool(audit=True)
 def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str | None = None,
-              automation_id: str | None = None, window_title: str | None = None, text: str = "") -> dict:
-    """Act on the first control matching the given selectors.
+              automation_id: str | None = None, window_title: str | None = None, text: str = "",
+              nth: int = 0) -> dict:
+    """Act on a control matching the given selectors (the first ACTIONABLE match unless `nth` is given).
+
+    Enabled, on-screen matches are preferred. With several matches the answer lists them ('candidates',
+    'matched_count') so you can re-call with `nth` or tighter selectors.
 
     Args:
         action: invoke | click | set_value | focus | toggle | expand.
         name/control_type/automation_id/window_title: selectors (see ui_find).
         text: value for action="set_value".
+        nth: 0-based index into the ordered matches (actionable first).
 
     Returns dict with 'success' and the acted-on control, or an error (with its center for a pixel fallback).
+    set_value adds 'confirmed' (true / false / null = no readable value, unverifiable). If a timeout error says
+    the action may already have been delivered, check state before retrying.
     """
     if not _AVAILABLE:
         return _unavailable()
     # b2-P2: selector 全空会静默匹配一切 —— 显式要求至少一个定位条件
     if not any([name, control_type, automation_id, window_title]):
         return {"error": "至少提供 name / control_type / automation_id / window_title 之一作为定位条件"}
-    found = ui_find(name=name, control_type=control_type, automation_id=automation_id,
-                    window_title=window_title, max_results=1)
-    if found.get("error"):
-        return found
-    if not found.get("matches"):
-        out = {"error": "no control matched the selectors"}
-        for key in ("accessibilityLimited", "reason", "observedNodes", "fallback", "hint"):
-            if key in found:
-                out[key] = found[key]
+    root = _root(window_title)   # the ONLY root resolution for this call
+    if root is None:
+        return {"error": "window not found", "searched": window_title,
+                "hint": "use wait_for_window(title) if the app was just launched"}
+    found, err = _locate(root, name=name, control_type=control_type,
+                         automation_id=automation_id, max_results=_CANDIDATE_CAP)  # the ONLY tree walk
+    if err:
+        return err
+    report = _walk_report(found)
+    if not found["controls"]:
+        out = {"error": "no control matched the selectors", **report}
+        limitation = _browser_accessibility_status(root, found["nodes_scanned"], found["control_types"])
+        if limitation:
+            for key in ("accessibilityLimited", "reason", "observedNodes", "fallback", "hint"):
+                if key in limitation:
+                    out[key] = limitation[key]
         return out
-    root = _root(window_title)
 
-    # Re-resolve the concrete control to act on (ui_find returns plain dicts).
-    def first(ctrl, depth=0):
-        if depth > 12:
-            return None
+    # Rank: enabled + on-screen first (stable within each group), then the rest. The property reads run
+    # bounded (one worker call) so a window that stalls after the walk cannot block the server.
+    def _rank_and_describe():
+        ranked = []
+        for c in found["controls"]:
+            enabled, offscreen, empty = _actionable_state(c)
+            ranked.append((c, enabled and not offscreen and not empty))
+        ranked.sort(key=lambda t: not t[1])
+        total = len(ranked)
         try:
-            nm = (getattr(ctrl, "Name", "") or "").lower()
-            tp = (getattr(ctrl, "ControlTypeName", "") or "").lower()
-            aid = (getattr(ctrl, "AutomationId", "") or "")
-            ok = True
-            if name:
-                ok = ok and name.lower() in nm
-            if control_type:
-                ok = ok and control_type.lower() in tp
-            if automation_id:
-                ok = ok and automation_id == aid
-            if ok and (name or control_type or automation_id):
-                return ctrl
-            for ch in ctrl.GetChildren():
-                r = first(ch, depth + 1)
-                if r:
-                    return r
-        except Exception:
-            return None
-        return None
-
-    ctrl = _run_bounded(lambda: first(root), 15)
-    if ctrl is _TIMEOUT_SENTINEL:
-        return {"error": "UIA tree walk timed out (>15s) locating the control; the window may be unresponsive"}
-    if ctrl is None:
-        return {"error": "control disappeared before action", "target": found["matches"][0]}
-    info = _node(ctrl)
+            idx = int(nth)
+        except (TypeError, ValueError):
+            idx = 0
+        if not (0 <= idx < total):
+            return ranked, total, idx, None, []
+        return (ranked, total, idx, _node(ranked[idx][0]),
+                [dict(_node(c, include_state=True), nth=i) for i, (c, _a) in enumerate(ranked[:5])]
+                if total > 1 or found["more"] else [])
     try:
-        act = action.lower()
-        if act in ("invoke", "click"):
-            try:
-                inv = _run_bounded(lambda: ctrl.GetInvokePattern().Invoke(), 10)
-                if inv is _TIMEOUT_SENTINEL:
-                    return {"error": "Invoke() timed out (>10s); the control may be unresponsive",
-                            "control": info}
-                # 'verified' means the event was SENT, not that the effect is confirmed.
-                return {"success": True, "action": act, "control": info,
-                        "method": "invoke_pattern", "verified": False}
-            except Exception:
-                # Mouse-Click fallback pixel-clicks the control center; a zero/offscreen
-                # rect makes the click a silent no-op, so re-check before clicking.
-                r = None
-                try:
-                    r = ctrl.BoundingRectangle
-                except Exception:
-                    r = None
-                empty = (r is None or (r.left == r.right and r.top == r.bottom)
-                         or r.right <= r.left or r.bottom <= r.top
-                         or r.right < 0 or r.bottom < 0)
-                if empty:
-                    return {"error": "control has empty/offscreen BoundingRectangle; not clicked",
-                            "control": info}
-                ctrl.Click()
-                return {"success": True, "action": act, "control": info,
-                        "method": "mouse_click_fallback", "verified": False}
-        elif act == "set_value":
-            confirmed = None
-            try:
-                ctrl.GetValuePattern().SetValue(text)
-            except Exception:
-                # No ValuePattern: prefer a non-keystroke setter (no SendKeys syntax parsing,
-                # so braces/parens in JSON/code/paths are not corrupted).
-                did_legacy = False
-                try:
-                    ctrl.GetLegacyIAccessiblePattern().SetValue(text)
-                    did_legacy = True
-                except Exception:
-                    did_legacy = False
-                if not did_legacy:
-                    # SendKeys fallback: escape braces in the VALUE only, NOT the select-all
-                    # literal. Paren-escaping is unnecessary for uiautomation SendKeys.
-                    safe = text.replace("{", "{{}").replace("}", "{}}")
-                    ctrl.SendKeys("{Ctrl}a" + safe)
-            # Read back to make sure the value actually took (don't report a lie).
-            try:
-                confirmed = ctrl.GetValuePattern().Value
-            except Exception:
-                try:
-                    confirmed = getattr(ctrl, "Name", None)
-                except Exception:
-                    confirmed = None
-            if confirmed is not None and confirmed != text:
-                return {"success": False, "error": "set_value not confirmed",
-                        "expected": text, "actual": confirmed, "control": info}
-            return {"success": True, "action": act, "control": info}
-        elif act == "focus":
-            ctrl.SetFocus()
-        elif act == "toggle":
-            p = ctrl.GetTogglePattern()
-            if p is None:
-                return {"error": "control does not support toggle", "control": info,
-                        "hint": "fall back to clicking 'center' with mouse_click"}
-            p.Toggle()
-        elif act == "expand":
-            p = ctrl.GetExpandCollapsePattern()
-            if p is None:
-                return {"error": "control does not support expand", "control": info,
-                        "hint": "fall back to clicking 'center' with mouse_click"}
-            p.Expand()
-        else:
-            return {"error": f"unknown action: {action}", "target": info}
-        return {"success": True, "action": act, "control": info}
+        rd = _run_bounded(_rank_and_describe, _READ_TIMEOUT_S)
     except Exception as e:  # noqa: BLE001
-        return {"error": f"{type(e).__name__}: {e}", "control": info,
+        return {"error": f"{type(e).__name__}: {e}", **report}
+    if rd is _TIMEOUT_SENTINEL:
+        return {"error": "UIA property read timed out (>%ds); the window may be unresponsive" % _READ_TIMEOUT_S,
+                "window": _window_identity(root), **report}
+    ranked, total, idx, info, candidates = rd
+    if info is None:
+        return {"error": f"nth={nth} out of range (0..{total - 1})", "matched_count": total, **report}
+    ctrl, actionable = ranked[idx]
+    extra = {}
+    if total > 1 or found["more"]:
+        extra["matched_count"] = total
+        if found["more"]:
+            extra["matched_more"] = True   # capped at _CANDIDATE_CAP: at least this many
+        extra["candidates"] = candidates
+        extra["note"] = (f"{total}{'+' if found['more'] else ''} controls matched; acted on nth={idx}. "
+                         f"Pass `nth` or tighter selectors (automation_id / control_type) to choose another.")
+    if not actionable:
+        extra["warning"] = "the chosen control is disabled or offscreen; the action may have no effect"
+    if report["truncated"]:
+        extra["truncated"] = True
+        extra["truncated_by"] = report["truncated_by"]
+    try:
+        out = _perform(action.lower(), ctrl, text, info)
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"{type(e).__name__}: {e}", "control": info, **extra,
                 "hint": "fall back to clicking 'center' with mouse_click"}
+    for k, v in extra.items():
+        out.setdefault(k, v)
+    return out

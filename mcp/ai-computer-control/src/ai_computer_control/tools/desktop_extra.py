@@ -4,15 +4,16 @@ Covers: DPI awareness (set once at import so coordinates are consistent), pixel 
 image read, monitor enumeration, and wait-for-window / wait-for-window-idle primitives.
 """
 
-import base64
+import asyncio
 import ctypes
-import io
 import os
 import time
 from ctypes import wintypes
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.errors import exc_text
 from ai_computer_control.tools.safety import protected_path_reason
+from ai_computer_control.utils.waits import capped_fields, clamp_wait_s
 
 _user32 = ctypes.windll.user32
 _kernel32 = ctypes.windll.kernel32
@@ -102,26 +103,31 @@ def get_pixel_color(x: int, y: int) -> dict:
         r, g, b = pyautogui.pixel(int(x), int(y))
         return {"success": True, "x": x, "y": y, "rgb": [r, g, b], "hex": f"#{r:02x}{g:02x}{b:02x}"}
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
 
 
 @mcp.tool()
-def get_clipboard_image(save_path: str | None = None, allow_protected: bool = False) -> dict:
+def get_clipboard_image(save_path: str | None = None, allow_protected: bool = False,
+                        max_width: int = 1280, format: str = "png", quality: int = 80) -> dict:
     """Read an image currently on the clipboard (e.g. a screenshot the user copied).
 
     Args:
-        save_path: Optional PNG path to save to. If omitted, a base64 PNG is returned.
-        allow_protected: Override the protected-system-root guard on save_path (default off).
+        save_path: Optional PNG path to save to (full resolution); omitted -> base64.
+        allow_protected: Bypass the protected-path guard on save_path (default off).
+        max_width: Base64 return only: downscale to this width (default 1280; 0 = original); 'scale' reports the
+            factor.
+        format: 'png' (default) or 'jpeg' for the base64 return.
+        quality: JPEG quality 1-100 (ignored for PNG).
 
     Returns:
-        dict with 'has_image', and either 'path'+size or 'image_base64', or 'files' if the clipboard
-        holds file paths instead of a bitmap.
+        dict with 'has_image', and 'path'+size or 'image_base64' (+ 'width'/'height', 'original_width'/
+        'original_height', 'scale', 'format'), or 'files' if the clipboard holds file paths instead of a bitmap.
     """
     try:
         from PIL import ImageGrab
         data = ImageGrab.grabclipboard()
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
     if data is None:
         return {"has_image": False}
     if isinstance(data, list):
@@ -137,10 +143,11 @@ def get_clipboard_image(save_path: str | None = None, allow_protected: bool = Fa
         data.save(save_path, "PNG")
         # v1.5.1: 补 output_path(== path)供产物收割。
         return {"has_image": True, "path": os.path.abspath(save_path), "output_path": os.path.abspath(save_path), "width": width, "height": height}
-    buf = io.BytesIO()
-    data.save(buf, "PNG")
-    return {"has_image": True, "width": width, "height": height,
-            "image_base64": base64.b64encode(buf.getvalue()).decode("ascii")}
+    from ai_computer_control.utils.image import encode_with_budget
+    enc = encode_with_budget(data, max_width=max_width, fmt=format, quality=quality)
+    return {"has_image": True, "width": enc["width"], "height": enc["height"],
+            "original_width": width, "original_height": height,
+            "scale": enc["scale"], "format": enc["format"], "image_base64": enc["image"]}
 
 
 @mcp.tool(audit=True)
@@ -151,11 +158,11 @@ def set_clipboard_image(path: str) -> dict:
     何时别用: 剪贴板里是文本时用 set_clipboard;只是要看图用 image_info/screenshot。
 
     Args:
-        path: 源图片文件路径 (PNG/JPG 等 Pillow 可读格式;写剪贴板前会用 Pillow 预验,坏文件直接报错)。
+        path: 源图片文件路径 (PNG/JPG 等 Pillow 可读格式;写入前预验,坏文件直接报错)。
 
     Returns:
-        dict with 'success' and 'path' (绝对路径); 文件不存在 / 非图片 / PowerShell 失败 →
-        {'error': 人话说明}。注意: 写入会覆盖用户当前剪贴板里的图片/文本。
+        dict with 'success' and 'path' (绝对路径); 文件不存在 / 非图片 / PowerShell 失败 -> {'error': 人话说明}。
+        注意: 写入会覆盖用户当前剪贴板里的图片/文本。
     """
     import subprocess
     if not os.path.exists(path):
@@ -177,12 +184,12 @@ def set_clipboard_image(path: str) -> dict:
     try:
         env = dict(os.environ, WCW_CLIP_IMG=os.path.abspath(path))
         r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps],
-                           capture_output=True, text=True, timeout=15, env=env)
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, env=env)
         if r.returncode != 0:
             return {"error": (r.stderr or "powershell failed").strip()}
         return {"success": True, "path": os.path.abspath(path)}
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
 
 
 @mcp.tool()
@@ -213,7 +220,7 @@ def list_monitors() -> dict:
     try:
         _user32.EnumDisplayMonitors(0, 0, MonitorEnumProc(_cb), 0)
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
     return {"count": len(monitors), "monitors": monitors}
 
 
@@ -244,12 +251,12 @@ def _window_rect(hwnd) -> dict:
 
 
 @mcp.tool()
-def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250, exact: bool = False) -> dict:
+async def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250, exact: bool = False) -> dict:
     """Wait until a top-level window whose title matches `title` appears.
 
     Args:
         title: Substring (default) or exact title (exact=True), case-insensitive.
-        timeout: Max seconds to wait (wall-clock bounded).
+        timeout: Max seconds to wait (wall-clock bounded; capped at 120, 'capped' is set when cut).
         poll_ms: Poll interval in ms.
         exact: Require an exact (case-insensitive) title match.
 
@@ -257,40 +264,60 @@ def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250, exact
         dict with 'found', and on success 'hwnd', 'title', 'rect'.
     """
     target = title.lower()
-    deadline = time.monotonic() + max(0.0, float(timeout))
+    timeout_s, capped = clamp_wait_s(timeout)
+    extra = capped_fields(timeout, capped)
+    poll_s = max(0.05, min(5.0, int(poll_ms) / 1000.0))
+    deadline = time.monotonic() + timeout_s
     while True:
         for hwnd, wtitle in _enum_windows():
             wl = wtitle.lower()
             if (wl == target) if exact else (target in wl):
-                return {"found": True, "hwnd": int(hwnd), "title": wtitle, "rect": _window_rect(hwnd)}
+                return {"found": True, "hwnd": int(hwnd), "title": wtitle, "rect": _window_rect(hwnd), **extra}
         if time.monotonic() >= deadline:
-            return {"found": False, "title": title, "timeout": timeout}
-        time.sleep(poll_ms / 1000.0)
+            return {"found": False, "title": title, "timeout": timeout_s, **extra}
+        await asyncio.sleep(poll_s)
+
+
+_IDLE_POLL_S = 0.1
 
 
 @mcp.tool()
-def wait_for_window_idle(pid: int, timeout_ms: int = 5000) -> dict:
+async def wait_for_window_idle(pid: int, timeout_ms: int = 5000) -> dict:
     """Wait until a process's UI message queue is idle (WaitForInputIdle).
 
-    Useful right after launching an app before driving its UI. Returns dict with 'state'
-    (idle | timeout | error).
+    Useful right after launching an app before driving its UI. timeout_ms is capped at 120000 ('capped' is
+    set when cut). Returns dict with 'state' (idle | timeout | not_gui_process | error).
     """
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000  # works across integrity levels (Vista+)
     PROCESS_QUERY_INFORMATION = 0x0400
     SYNCHRONIZE = 0x00100000
+    try:
+        requested_ms = int(timeout_ms)
+    except (TypeError, ValueError):
+        requested_ms = 5000
+    timeout_s, capped = clamp_wait_s(requested_ms / 1000.0, default=5.0)
+    extra = capped_fields(requested_ms, capped)
     h = _kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
     if not h:
         h = _kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, False, int(pid))
     if not h:
         return {"state": "error", "error": f"OpenProcess failed for pid {pid}"}
     try:
-        res = _user32.WaitForInputIdle(h, int(timeout_ms))
+        # Poll with a zero-timeout WaitForInputIdle and yield to the event loop between polls, so a long
+        # wait never stops the server from servicing pings / other calls.
+        deadline = time.monotonic() + timeout_s
+        while True:
+            res = _user32.WaitForInputIdle(h, 0)
+            if res == 0:
+                return {"state": "idle", **extra}
+            if res == 0x102:  # WAIT_TIMEOUT: not idle yet
+                if time.monotonic() >= deadline:
+                    return {"state": "timeout", **extra}
+                await asyncio.sleep(_IDLE_POLL_S)
+                continue
+            break
     finally:
         _kernel32.CloseHandle(h)
-    if res == 0:
-        return {"state": "idle"}
-    if res == 0x102:  # WAIT_TIMEOUT
-        return {"state": "timeout"}
     if res == 0xFFFFFFFF:  # WAIT_FAILED — commonly "process has no GUI message queue"
         return {"state": "not_gui_process",
                 "hint": "this pid has no GUI input queue (console or UWP-hosted UI). "

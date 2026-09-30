@@ -71,6 +71,17 @@ const CLAUDE_IRREVERSIBLE_KIND = {
   Bash: 'exec', BashOutput: 'exec', KillBash: 'exec', KillShell: 'exec',
   Edit: 'exec', Write: 'exec', MultiEdit: 'exec', NotebookEdit: 'exec', // CLI 直落盘,工作台无 journal(08:238)
 };
+// 审计 N1:`tool_invoke_read/edit/exec {name, arguments}` 是代理入口,真正跑的是 input.name。回合摘要/不可逆账
+// 一律按【真正被调用的那个工具】的名字记(unit/tool-metadata-consistency M2 的 EXEC_NOT_LEDGERED 早就这么承诺)。
+// 代理目标读不出来(缺 name / 不是字符串)原样返回,按代理名字记(不谎称账全)。
+function unwrapToolInvokeCall(tc) {
+  if (!tc || typeof tc !== 'object' || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
+  const input = (tc.input && typeof tc.input === 'object') ? tc.input : null;
+  const target = input && typeof input.name === 'string' ? input.name.trim() : '';
+  if (!target || target.startsWith('tool_invoke_')) return tc;
+  const inner = (input.arguments && typeof input.arguments === 'object' && !Array.isArray(input.arguments)) ? input.arguments : {};
+  return { ...tc, name: target, input: inner };
+}
 const IRREVERSIBLE_LEDGER_MAX = 50;
 function irreversibleToolKind(name) {
   const n = String(name || '');

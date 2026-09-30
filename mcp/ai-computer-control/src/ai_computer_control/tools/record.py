@@ -16,6 +16,7 @@ import threading
 import time
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.errors import exc_text
 from ai_computer_control.paths import data_dir
 
 try:
@@ -80,7 +81,10 @@ class _Recorder:
             self._events.append((time.monotonic(), "key", {"key": _key_name(key)}))
 
         self._mouse_listener = _pynput_mouse.Listener(on_click=on_click, on_scroll=on_scroll)
-        self._kbd_listener = _pynput_keyboard.Listener(on_press=on_press)
+        def on_release(key):
+            self._events.append((time.monotonic(), "keyup", {"key": _key_name(key)}))
+
+        self._kbd_listener = _pynput_keyboard.Listener(on_press=on_press, on_release=on_release)
         # Start BOTH low-level input hooks; if the SECOND fails after the FIRST is installed, tear
         # down whichever already started (so no WH_MOUSE_LL/WH_KEYBOARD_LL hook is left dangling),
         # reset all state, and re-raise so record_start reports a DISTINCT start-failure (not the
@@ -116,35 +120,110 @@ class _Recorder:
         return self._to_steps()
 
     def _to_steps(self):
-        """Convert raw events into replayable steps, coalescing runs of printable keys into type_text."""
-        steps = []
-        text_buf = []
+        """Convert raw events into replayable steps (see _events_to_steps)."""
+        return _events_to_steps(self._events)
 
-        def flush_text():
-            if text_buf:
-                steps.append({"tool": "type_text", "args": {"text": "".join(text_buf)}})
-                text_buf.clear()
 
-        for _t, kind, payload in self._events:
-            if kind == "key":
-                key = payload["key"]
-                if len(key) == 1:  # a printable character -> accumulate into a type_text run
-                    text_buf.append(key)
-                else:
+_WAIT_GAP_S = 0.3      # a pause longer than this between steps becomes a `wait` step
+_WAIT_MAX_S = 5.0      # ...capped, so an idle break while recording does not stall the replay
+
+
+def _canon_mod(name: str) -> str | None:
+    """Canonical hotkey modifier ('ctrl'/'alt'/'shift'/'win') for a recorded key name, else None."""
+    n = str(name).lower()
+    if n.startswith("alt_gr") or n.startswith("altgr"):
+        return None          # AltGr composes characters; treat it as an ordinary key
+    for prefix, canon in (("ctrl", "ctrl"), ("shift", "shift"), ("alt", "alt"), ("win", "win"), ("cmd", "win")):
+        if n.startswith(prefix):
+            return canon
+    return None
+
+
+def _chord_base(key: str, mods: list[str]) -> str:
+    """The non-modifier key of a chord: Ctrl+C is recorded by pynput as the control char '\\x03' -> 'c'."""
+    if len(key) == 1:
+        if "ctrl" in mods and 1 <= ord(key) <= 26:
+            return chr(ord(key) + 96)
+        return key.lower()
+    return key
+
+
+def _events_to_steps(events, gap_s: float = _WAIT_GAP_S) -> list[dict]:
+    """Raw events [(t, kind, payload)] -> macro_run steps.
+
+    * runs of printable keys coalesce into type_text;
+    * a modifier held while another key is pressed becomes ONE `hotkey` step (Ctrl+C replays as
+      hotkey [ctrl, c], not `press_key ctrlleft` + a stray control character); a modifier pressed and
+      released on its own is a plain press_key;
+    * pauses longer than `gap_s` between steps become `wait` steps (capped), so a replay keeps the
+      recorded pacing instead of a fixed inter-step delay.
+    """
+    steps: list[dict] = []
+    text_buf: list[str] = []
+    text_t: list[float] = []      # [first_char_time, last_char_time] of the current run
+    held: list[list] = []         # [canonical mod, used, original key name, press time]
+    last_end = [None]
+
+    def add(step, t_start, t_end=None):
+        if last_end[0] is not None and t_start - last_end[0] > gap_s:
+            steps.append({"tool": "wait",
+                          "args": {"seconds": round(min(_WAIT_MAX_S, t_start - last_end[0]), 1)}})
+        steps.append(step)
+        last_end[0] = t_end if t_end is not None else t_start
+
+    def flush_text():
+        if text_buf:
+            add({"tool": "type_text", "args": {"text": "".join(text_buf)}}, text_t[0], text_t[1])
+            text_buf.clear()
+            text_t.clear()
+
+    def push_char(ch, t):
+        if not text_buf:
+            text_t[:] = [t, t]
+        else:
+            text_t[1] = t
+        text_buf.append(ch)
+
+    for t, kind, payload in events:
+        if kind == "key":
+            key = payload["key"]
+            mod = _canon_mod(key)
+            if mod:
+                if not any(h[0] == mod for h in held):
+                    held.append([mod, False, key, t])
+                continue
+            if held:
+                for h in held:
+                    h[1] = True
+                mods = [h[0] for h in held]
+                if not (len(key) == 1 and set(mods) == {"shift"}):   # Shift+char is just a typed char
                     flush_text()
-                    steps.append({"tool": "press_key", "args": {"key": key}})
-            elif kind == "click":
+                    add({"tool": "hotkey", "args": {"keys": mods + [_chord_base(key, mods)]}},
+                        min(h[3] for h in held), t)   # the chord starts when its first modifier went down
+                    continue
+            if len(key) == 1:  # a printable character -> accumulate into a type_text run
+                push_char(key, t)
+            else:
                 flush_text()
-                steps.append({"tool": "mouse_click",
-                              "args": {"x": payload["x"], "y": payload["y"],
-                                       "button": payload["button"]}})
-            elif kind == "scroll":
-                flush_text()
-                steps.append({"tool": "scroll_at",
-                              "args": {"x": payload["x"], "y": payload["y"],
-                                       "amount": payload["amount"]}})
-        flush_text()
-        return steps
+                add({"tool": "press_key", "args": {"key": key}}, t)
+        elif kind == "keyup":
+            mod = _canon_mod(payload["key"])
+            for h in list(held):
+                if mod and h[0] == mod:
+                    held.remove(h)
+                    if not h[1]:      # pressed and released alone (e.g. the Win key)
+                        flush_text()
+                        add({"tool": "press_key", "args": {"key": h[2]}}, h[3], t)
+        elif kind == "click":
+            flush_text()
+            add({"tool": "mouse_click",
+                 "args": {"x": payload["x"], "y": payload["y"], "button": payload["button"]}}, t)
+        elif kind == "scroll":
+            flush_text()
+            add({"tool": "scroll_at",
+                 "args": {"x": payload["x"], "y": payload["y"], "amount": payload["amount"]}}, t)
+    flush_text()
+    return steps
 
 
 def _key_name(key) -> str:
@@ -206,12 +285,13 @@ def record_stop(save_as: str | None = None) -> dict:
     """Stop the active recording and return the captured steps (macro_run-compatible).
 
     Args:
-        save_as: Optional macro name; if given, the steps are written to <data>/macros/<name>.json
-            (a '.json' suffix is added if missing) for later macro_list / macro_run use.
+        save_as: Optional macro name; steps are written to <data>/macros/<name>.json ('.json' added if missing)
+            for macro_list / macro_run.
 
     Returns:
-        dict with ok, 'steps' (list of {tool,args} directly replayable by macro_run), 'count', and
-        'path' when saved.
+        dict with ok, 'steps' (list of {tool,args} replayable by macro_run), 'count', and 'path' when saved. Steps
+        keep the recorded pacing (a `wait` step for pauses over 0.3s, capped at 5s); shortcuts such as Ctrl+C are
+        one `hotkey` step.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -271,5 +351,5 @@ def macro_list() -> dict:
     except FileNotFoundError:
         pass
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": exc_text(e)}
     return {"ok": True, "count": len(macros), "macros": macros, "macros_dir": d}

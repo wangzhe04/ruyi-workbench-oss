@@ -18,6 +18,7 @@ import time
 
 from ai_computer_control.paths import data_dir
 from ai_computer_control.server import mcp
+from ai_computer_control.tools.office_io import replace_with_retry
 
 _MAX_ENTRIES = 500
 _MAX_CONTENT_CHARS = 4000
@@ -28,22 +29,48 @@ def _store_path() -> str:
     return os.path.join(data_dir(), "memory.json")
 
 
-def _load() -> dict:
-    path = _store_path()
+class _StoreBusy(OSError):
+    """The store exists but could not be read right now (AV / OneDrive / sharing violation)."""
+
+
+_BUSY_MSG = "记忆库暂时被占用(可能被杀毒/网盘同步锁住),原文件未动,请稍后重试。"
+
+
+def _quarantine(path: str) -> None:
+    dst = path + ".corrupt"
+    if os.path.exists(dst):  # 不覆盖更早的隔离副本
+        dst = "%s.corrupt-%s" % (path, time.strftime("%Y%m%d%H%M%S"))
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        os.replace(path, dst)
+    except Exception:
+        pass
+
+
+def _load() -> dict:
+    """Read the store. Only a real parse/shape failure quarantines the file; a transient OSError
+    (PermissionError / sharing violation) is retried briefly and then raised as _StoreBusy — a healthy
+    store must never be renamed away (that used to make every memory vanish)."""
+    path = _store_path()
+    last_err = None
+    for attempt in range(4):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return {"entries": {}}
+        except ValueError:  # JSONDecodeError / UnicodeDecodeError: the content really is bad
+            _quarantine(path)
+            return {"entries": {}}
+        except OSError as e:
+            last_err = e
+            if attempt < 3:
+                time.sleep(0.05)
+            continue
         if isinstance(data, dict) and isinstance(data.get("entries"), dict):
             return data
-    except FileNotFoundError:
-        pass
-    except Exception:
-        # Corrupt store: quarantine once, rebuild empty. Never raise into the tool path.
-        try:
-            os.replace(path, path + ".corrupt")
-        except Exception:
-            pass
-    return {"entries": {}}
+        _quarantine(path)  # valid JSON but not a store
+        return {"entries": {}}
+    raise _StoreBusy(str(last_err))
 
 
 # b3-P2: 读-改-写串行锁 —— ACC 的同步工具由 FastMCP 放进线程池执行,两个并发 memory_save/delete
@@ -54,10 +81,19 @@ _MEMORY_LOCK = threading.Lock()
 
 def _save(store: dict) -> None:
     path = _store_path()
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(store, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, path)
+    # Per-process temp name: Claude Code and Kimi each spawn their own ACC on the same data dir, and a
+    # shared fixed name lets two writers interleave on one file (the in-process lock cannot see the other).
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(store, f, ensure_ascii=False, indent=1)
+        replace_with_retry(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 @mcp.tool(audit=True)
@@ -68,10 +104,9 @@ def memory_save(key: str, content: str, tags: str = "") -> dict:
     何时别用: 大段文档/代码(有 4000 字上限,放文件里只存路径);一次性临时信息。
 
     Args:
-        key: Short slug identifying the memory (e.g. "user-editor-preference"). Reusing a key
-            overwrites the old content (that IS the update path).
-        content: Free-text memory body (max 4000 chars; longer is truncated with a marker).
-        tags: Optional comma-separated labels for later filtering (e.g. "preference,editor").
+        key: Short slug (e.g. "user-editor-preference"); reusing a key overwrites (that IS the update path).
+        content: Free-text body (max 4000 chars; longer is truncated with a marker).
+        tags: Optional comma-separated labels for filtering (e.g. "preference,editor").
 
     Returns:
         dict with 'success', 'key', 'updated' (iso time), 'overwritten' (bool).
@@ -86,7 +121,10 @@ def memory_save(key: str, content: str, tags: str = "") -> dict:
         content = content[:_MAX_CONTENT_CHARS]
         truncated = True
     with _MEMORY_LOCK:
-        store = _load()
+        try:
+            store = _load()
+        except _StoreBusy:
+            return {"error": _BUSY_MSG}
         entries = store["entries"]
         if key not in entries and len(entries) >= _MAX_ENTRIES:
             return {"error": f"记忆库已满({_MAX_ENTRIES} 条)—— 先 memory_delete 清理不再需要的条目。"}
@@ -119,7 +157,10 @@ def memory_read(key: str) -> dict:
     Returns:
         dict with 'found', and when found 'key'/'content'/'tags'/'updated'.
     """
-    entry = _load()["entries"].get((key or "").strip())
+    try:
+        entry = _load()["entries"].get((key or "").strip())
+    except _StoreBusy:
+        return {"error": _BUSY_MSG}
     if entry is None:
         return {"found": False, "key": key}
     return {"found": True, "key": key, "content": entry["content"], "tags": entry["tags"], "updated": entry["updated"]}
@@ -141,7 +182,10 @@ def memory_list(query: str = "", limit: int = 50) -> dict:
     """
     q = (query or "").strip().lower()
     cap = max(1, min(int(limit), 200))
-    entries = _load()["entries"]
+    try:
+        entries = _load()["entries"]
+    except _StoreBusy:
+        return {"error": _BUSY_MSG}
     matched = []
     for k, v in entries.items():
         if q:
@@ -173,7 +217,10 @@ def memory_delete(key: str) -> dict:
     """
     key = (key or "").strip()
     with _MEMORY_LOCK:
-        store = _load()
+        try:
+            store = _load()
+        except _StoreBusy:
+            return {"error": _BUSY_MSG}
         deleted = store["entries"].pop(key, None) is not None
         if deleted:
             try:

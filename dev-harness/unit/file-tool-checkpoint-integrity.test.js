@@ -5,7 +5,7 @@
 // 交错(需要「卡在某一步」的地方在 fs/promises 上装一次性卡子,与 session-rewind-gen.test.js 同一手法)。
 //
 //   #1  >5MB 文件 file_move:检查点存不下源文件时不能留一对「回滚=删掉唯一一份内容」的条目;
-//   #2  file_edit 遇到非 UTF-8(GBK)文件拒绝,不把中文写成 U+FFFD;检查点存原字节;
+//   #2  file_edit 遇到 GBK 文件按原编码写回(不把中文写成 U+FFFD、不悄悄转 UTF-8);既非 UTF-8 也非 GBK 的拒绝;检查点存原字节;
 //   #3  archive_zip 打包数据根的祖先目录,config.json 等敏感控制面不得入包;
 //   #4  CLI 回合对账(git 基线)按原字节取 HEAD 内容(GBK 不坏)、还原 CRLF;git 读失败不当成「回合前不存在」;
 //   #5  跨盘(EXDEV)退化 copy+unlink 成功时检查点不能被提前丢掉;
@@ -123,17 +123,27 @@ describe('hunt2 · 写族文件工具与检查点完整性', () => {
     assert.deepEqual(indexOf(sid2).filter(e => e.tool === 'file_move'), []);
   });
 
-  it('#2 file_edit:GBK 文件拒绝且逐字节不变;UTF-8 文件的检查点是原字节', async () => {
+  it('#2 file_edit:GBK 文件原编码写回、无法解码的拒绝且逐字节不变;UTF-8 文件的检查点是原字节', async () => {
     const ws = freshWs();
     const sid = 'sess_hunt2_gbk';
     const gbkFile = path.join(ws, 'gbk.txt');
     const gbk = Buffer.from('c4e3bac30a466f6f0ad6d0cec40a', 'hex'); // 你好\nFoo\n中文\n(GBK)
     fs.writeFileSync(gbkFile, gbk);
+    // 原先这里是「GBK 一律拒绝」;现在 GBK 按原编码编辑并逐字节写回(F3),未改动的中文字节一个不变。
     const r = await srv.toolCall('file_edit', { path: gbkFile, oldText: 'Foo', newText: 'Bar' }, ctxFor(ws, sid, 1));
-    assert.equal(r.ok, false);
-    assert.equal(r.code, 'not_utf8');
-    assert.ok(fs.readFileSync(gbkFile).equals(gbk), 'GBK 文件一个字节都不能动');
-    assert.deepEqual(indexOf(sid), [], '拒绝的编辑不记检查点');
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.equal(r.encoding, 'gb18030');
+    assert.ok(fs.readFileSync(gbkFile).equals(Buffer.from('c4e3bac30a4261720ad6d0cec40a', 'hex')), 'GBK 原编码写回,中文字节不变');
+    // 既非合法 UTF-8 也非合法 GBK(0x80 0xff 0xfe...):仍拒绝,一个字节都不能动。
+    const junk = path.join(ws, 'junk.txt');
+    const junkBytes = Buffer.from('466f6f0aff80fe0a', 'hex');
+    fs.writeFileSync(junk, junkBytes);
+    const rj = await srv.toolCall('file_edit', { path: junk, oldText: 'Foo', newText: 'Bar' }, ctxFor(ws, sid, 9));
+    assert.equal(rj.ok, false);
+    assert.equal(rj.code, 'not_utf8');
+    assert.ok(fs.readFileSync(junk).equals(junkBytes), '无法解码的文件一个字节都不能动');
+    assert.equal(indexOf(sid).filter(e => e.turnSeq === 9).length, 0, '拒绝的编辑不记检查点');
+    assert.ok(gzBefore(sid, indexOf(sid).find(e => e.turnSeq === 1)).equals(gbk), 'GBK 编辑的检查点 = 原字节');
 
     const u = path.join(ws, 'bom.txt');
     const orig = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('第一行\r\nFoo\r\n', 'utf8')]);

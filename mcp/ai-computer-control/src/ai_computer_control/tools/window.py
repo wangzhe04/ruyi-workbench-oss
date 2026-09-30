@@ -66,14 +66,45 @@ def _resolve(title: str | None, handle: int | None) -> tuple[int | None, list]:
     return results[0][0], results
 
 
+def _process_name(hwnd: int) -> str | None:
+    """Executable name of the window's owner process (None if unreadable)."""
+    try:
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        import psutil
+        return psutil.Process(pid).name()
+    except Exception:
+        return None
+
+
+def _candidates(matches: list, limit: int = 10) -> list[dict]:
+    """[{handle, title, process}] for _resolve()'s (hwnd, title) tuples — real handles, so the model
+    can retry the call with handle=<n> instead of guessing a more specific title."""
+    out = []
+    for h, t in matches[:limit]:
+        c = {"handle": int(h), "title": t, "process": _process_name(h)}
+        if _is_foreground(h):
+            c["foreground"] = True
+        out.append(c)
+    return out
+
+
+def _needs_confirm(verb: str, title, matches: list) -> dict:
+    """The refusal returned when a partial title matched several windows and confirm is not set."""
+    return {"ok": False, "needs_confirm": True,
+            "matches": _candidates(matches),
+            "message": f"{len(matches)} windows match '{title}'. Retry with handle=<handle> from 'matches' "
+                       f"(or a more specific title), or pass confirm=true to {verb} the first match."}
+
+
 def _amb(matches: list) -> dict:
     """Ambiguity fragment to merge into a return dict when a partial title matched > 1 window."""
     if len(matches) > 1:
         return {
             "matched_count": len(matches),
             "ambiguous": [t for _, t in matches[:8]],
+            "candidates": _candidates(matches, 8),
             "note": f"{len(matches)} windows matched; acted on the first ('{matches[0][1]}'). "
-                    f"Pass an explicit handle or a more specific title to disambiguate.",
+                    f"Pass an explicit handle (see 'candidates') or a more specific title to disambiguate.",
         }
     return {}
 
@@ -199,12 +230,14 @@ def focus_window(title: str | None = None, handle: int | None = None, confirm: b
     """Bring a window to the foreground by title or handle, and confirm it actually took focus.
 
     Args:
-        title: Window title (partial match supported).
+        title: Window title (partial match).
         handle: Window handle (takes priority over title).
+        confirm: If several windows match a partial title, the call refuses without confirm and lists them in
+            'matches' [{handle, title, process}] — retry with handle=<handle>.
 
     Returns:
-        dict with 'ok' (the activation was attempted) plus 'focused'/'foreground_verified' reflecting
-        whether the target REALLY became the foreground window — if false, do NOT type/click yet.
+        dict with 'ok' (activation attempted) plus 'focused'/'foreground_verified' (whether the target REALLY
+        became foreground) — if false, do NOT type/click yet.
     """
     try:
         hwnd, matches = _resolve(title, handle)
@@ -212,9 +245,7 @@ def focus_window(title: str | None = None, handle: int | None = None, confirm: b
             return {"ok": False, "error": f"Window not found: {title or handle}"}
         # b2-P2: 模糊标题多匹配时默认不擅动 —— 与 close_window 同款护栏
         if len(matches) > 1 and not confirm:
-            return {"ok": False, "needs_confirm": True,
-                    "matches": [{"title": m.get("title") if isinstance(m, dict) else m, "handle": m.get("handle") if isinstance(m, dict) else None} for m in matches[:10]],
-                    "message": str(len(matches)) + " windows match '" + str(title) + "'. Pass confirm=true to focus the first match, or use a more specific title."}
+            return _needs_confirm("focus", title, matches)
 
         focused, fg = _activate(hwnd)
         out = {"ok": True, "focused": focused, "foreground_verified": focused, **(_get_window_info(hwnd, require_title=False) or {})}
@@ -336,11 +367,10 @@ def close_window(title: str | None = None, handle: int | None = None, confirm: b
     """Ask a window to close, then confirm whether it actually closed.
 
     A modal 'save changes?' prompt can keep the window open — this reports closed:false and
-    possibly_blocked_by_dialog:true rather than falsely claiming success. It never auto-confirms a
-    save dialog (that would risk data loss).
+    possibly_blocked_by_dialog:true rather than claiming success. It never auto-confirms a save dialog.
 
     Returns:
-        dict with 'ok' (the close was requested), 'closed' (actual), and 'possibly_blocked_by_dialog'.
+        dict with 'ok' (close requested), 'closed' (actual), 'possibly_blocked_by_dialog'.
     """
     try:
         hwnd, matches = _resolve(title, handle)
@@ -348,9 +378,7 @@ def close_window(title: str | None = None, handle: int | None = None, confirm: b
             return {"ok": False, "error": f"Window not found: {title or handle}"}
         # b2-P1: 模糊标题匹配到多个窗口时,默认不擅动 —— 需 confirm=true 或更精确的 title
         if len(matches) > 1 and not confirm:
-            return {"ok": False, "needs_confirm": True,
-                    "matches": [{"title": m.get("title") if isinstance(m, dict) else m, "handle": m.get("handle") if isinstance(m, dict) else None} for m in matches[:10]],
-                    "message": f"{len(matches)} windows match '{title}'. Pass confirm=true to close the first match, or use a more specific title."}
+            return _needs_confirm("close", title, matches)
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
         win32gui.PostMessage(hwnd, win32con.WM_CLOSE, 0, 0)
         closed = False

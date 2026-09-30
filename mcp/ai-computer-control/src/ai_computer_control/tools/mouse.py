@@ -3,6 +3,7 @@
 import ctypes
 import pyautogui
 from ai_computer_control.server import mcp
+from ai_computer_control.utils import geometry
 
 # Disable pyautogui fail-safe. NOTE: this is process-wide and intentional — the agent may legitimately
 # need to reach a screen corner, which pyautogui's default FAILSAFE would abort with an exception.
@@ -15,6 +16,20 @@ _MOUSEEVENTF_HWHEEL = 0x01000
 def _pos() -> tuple[int, int]:
     p = pyautogui.position()
     return int(p.x), int(p.y)
+
+
+def _virtual_bounds() -> tuple[int, int, int, int]:
+    """Virtual-desktop rect (all monitors) — the same space get_screen_info reports as 'virtual'."""
+    return geometry.virtual_desktop_bounds()
+
+
+def _off_desktop(what: str, *points) -> dict | None:
+    """Refusal dict if any (x, y) in `points` is outside the virtual desktop, else None."""
+    bounds = _virtual_bounds()
+    for x, y in points:
+        if not geometry.point_in_bounds(x, y, bounds):
+            return geometry.outside_error(what, x, y, bounds)
+    return None
 
 
 def _reached(x: int, y: int, tol: int = 2) -> dict:
@@ -34,21 +49,23 @@ def mouse_click(
     """Click the mouse at the specified coordinates.
 
     Args:
-        x: X coordinate to click.
-        y: Y coordinate to click.
-        button: Mouse button - "left", "right", or "middle".
-        clicks: Number of clicks (1 for single, 2 for double).
+        x: X coordinate.
+        y: Y coordinate.
+        button: "left", "right", or "middle".
+        clicks: Number of clicks (1 single, 2 double).
         interval: Seconds between multiple clicks.
 
     Returns:
-        dict with 'ok', the requested position, and the ACTUAL cursor position ('actual_x/y',
-        'reached') so an off-screen/clamped target does not read as a success.
+        dict with 'ok', the requested position, and the ACTUAL cursor position ('actual_x/y', 'reached') so a
+        clamped target does not read as success. Targets outside the virtual desktop (see get_screen_info
+        'virtual') are refused.
     """
     try:
         # b2-P1: 越界预校验 —— 先于点击拦截,避免「先点后报」在屏边缘真实误点
-        _w, _h = pyautogui.size()
-        if not (0 <= int(x) < _w and 0 <= int(y) < _h):
-            return {"ok": False, "error": f"click target ({x},{y}) is outside the primary screen ({_w}x{_h}); refusing to click off-screen. Check the coordinates (multi-monitor offsets can be negative on a secondary display)."}
+        # F2: 边界用虚拟桌面(与 get_screen_info 一致),副屏(含负坐标)可点。
+        refused = _off_desktop("click", (x, y))
+        if refused:
+            return refused
         pyautogui.click(x=x, y=y, button=button, clicks=clicks, interval=interval)
         out = {"ok": True, "x": x, "y": y, "button": button, "clicks": clicks, **_reached(x, y)}
         if not out["reached"]:
@@ -71,6 +88,9 @@ def mouse_move(x: int, y: int, duration: float = 0.2) -> dict:
         dict with 'ok', the requested position, and the ACTUAL position reached.
     """
     try:
+        refused = _off_desktop("move", (x, y))
+        if refused:
+            return refused
         pyautogui.moveTo(x=x, y=y, duration=duration)
         out = {"ok": True, "x": x, "y": y, **_reached(x, y)}
         if not out["reached"]:
@@ -103,6 +123,9 @@ def mouse_drag(
         dict with 'ok', start/end positions, and the ACTUAL end position reached.
     """
     try:
+        refused = _off_desktop("drag", (start_x, start_y), (end_x, end_y))
+        if refused:
+            return refused
         pyautogui.moveTo(start_x, start_y)
         pyautogui.drag(
             end_x - start_x,
@@ -133,14 +156,14 @@ def mouse_scroll(
     """Scroll the mouse wheel.
 
     Args:
-        clicks: Number of wheel notches. Positive = up/right, negative = down/left.
-        x: Optional X coordinate to scroll at (defaults to current position).
-        y: Optional Y coordinate to scroll at (defaults to current position).
-        direction: "vertical" (default) or "horizontal".
+        clicks: Wheel notches. Positive = up/right, negative = down/left.
+        x: Optional X to scroll at (default: current position).
+        y: Optional Y to scroll at (default: current position).
+        direction: "vertical" (default) or "horizontal" (a real WM_MOUSEHWHEEL event; pyautogui's hscroll is a
+            no-op on Windows).
 
     Returns:
-        dict with 'ok' and scroll details. Horizontal uses a real WM_MOUSEHWHEEL event (pyautogui's
-        hscroll is a no-op on Windows), so it actually scrolls sideways.
+        dict with 'ok' and scroll details.
     """
     try:
         if x is not None and y is not None:

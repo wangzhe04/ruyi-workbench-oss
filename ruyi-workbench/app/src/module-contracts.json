@@ -957,7 +957,8 @@
         "irreversibleDetail",
         "irreversibleToolKind",
         "isBridgedWriteTool",
-        "unprefixedBridgedName"
+        "unprefixedBridgedName",
+        "unwrapToolInvokeCall"
       ],
       "requires": []
     },
@@ -1167,6 +1168,7 @@
         "registerIntervention",
         "releaseSessionBodyLineCache",
         "rememberLastUsedEngineRoute",
+        "removeSessionToolImages",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
         "repairProviderHistoryToolArgs",
@@ -1229,6 +1231,7 @@
         "sortSessionMetas",
         "stewardWatchNoteFrom",
         "stopMissionAgentRuns",
+        "toolImageSessionTag",
         "transitionInterventionState",
         "truncateSessionBody",
         "updateSessionMeta",
@@ -1588,6 +1591,13 @@
         {
           "provider": "02f-turn-effect-kinds.js",
           "symbol": "unprefixedBridgedName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "unwrapToolInvokeCall",
           "kinds": [
             "call"
           ]
@@ -2045,6 +2055,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -2053,6 +2070,7 @@
       "layer": "foundation",
       "provides": [
         "ACTIVE_CHILD_EVENT_TAPS",
+        "BRIDGED_CATALOG_INCOMPLETE_TTL_MS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
         "BRIDGED_TOOL_TIMEOUTS",
@@ -2099,7 +2117,9 @@
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
+        "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
+        "bridgedServerUnavailableMessage",
         "bridgedToolCallTimeoutMs",
         "bridgedToolFunctionName",
         "bridgedToolTimeoutMs",
@@ -2113,6 +2133,7 @@
         "clearPendingPlans",
         "clearPendingQuestions",
         "collectBridgedTools",
+        "collectBridgedToolsScan",
         "configureMcpFromTool",
         "decodeClaudeTaskXmlText",
         "deltaOf",
@@ -2143,6 +2164,7 @@
         "logStreamDay",
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
+        "mcpChildExitResult",
         "mcpClientFailures",
         "mcpClientFingerprints",
         "mcpClientGen",
@@ -2515,6 +2537,13 @@
           "symbol": "spawnDetachedChecked",
           "kinds": [
             "call",
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
             "read"
           ]
         },
@@ -4787,6 +4816,7 @@
         "collectLiveClaudeSessionIds",
         "collectStorageStats",
         "deleteUserPlaybook",
+        "desktopAuditEntriesFromResult",
         "dirStat",
         "draftPlaybookFromSession",
         "engineBriefFacts",
@@ -6096,10 +6126,14 @@
       "file": "06g-resource-leases.js",
       "layer": "engine",
       "provides": [
+        "ACC_DESKTOP_READ_TOOLS",
+        "ACC_DESKTOP_WRITE_TOOLS",
+        "ACC_NON_DESKTOP_TOOLS",
         "DEFAULT_RESOURCE_LEASE_TIMEOUT_MS",
         "RESOURCE_LEASE_TIMEOUT_MS",
         "acquireResourceLease",
         "agentResourcesConflict",
+        "bridgedDesktopLeaseMode",
         "canonicalResourcePath",
         "drainResourceWaiters",
         "inferToolResources",
@@ -6379,6 +6413,8 @@
         "MAIL_PER_SENDER_MAX",
         "MAIL_QUEUE_MAX",
         "MAIL_TEXT_MAX",
+        "NATIVE_COMMAND_TOOL_NAMES",
+        "NATIVE_DESKTOP_TOOL_NAMES",
         "NATIVE_TOOL_PACKS",
         "NATIVE_TOOL_TIER",
         "POOL_CHAIN_MAX",
@@ -6390,6 +6426,7 @@
         "STEER_QUEUE_MAX",
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
+        "_nativeToolSchemaByName",
         "actionTargetMeta",
         "activeAgentRuns",
         "adaptiveMetaToolSchemas",
@@ -6428,7 +6465,9 @@
         "looksLikePlan",
         "loopAbortExempt",
         "loopWarnOnly",
+        "nativeToolDisabledByPolicy",
         "nativeToolGate",
+        "nativeToolSchema",
         "nativeToolTier",
         "neutralizeInjectedPrefixes",
         "normalizeToolSearchText",
@@ -6449,6 +6488,7 @@
         "schedulerAskWaitSessions",
         "searchToolCatalog",
         "tokenizeToolSearchText",
+        "toolDisabledResult",
         "toolIsRevertible",
         "toolPackForName",
         "toolSchemaFreezeBySessionMap",
@@ -7280,6 +7320,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "bridgedServerUnavailableMessage",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "collectBridgedTools",
           "kinds": [
             "call"
@@ -7588,6 +7635,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "boundToolResultForDisplay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "compactionRefetchRefusal",
           "kinds": [
             "call"
@@ -7659,20 +7713,6 @@
         {
           "provider": "10-context-governance.js",
           "symbol": "writeHistorySnapshot",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "httpGetGuarded",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "ssrfCheck",
           "kinds": [
             "call"
           ]
@@ -7790,6 +7830,7 @@
       "provides": [
         "AGENT_RUN_TERMINAL",
         "LEGACY_SPAWN_NOTE",
+        "PARALLEL_READ_NEUTRAL",
         "PLAN_DISCOVERY_BLOCKED_TOOLS",
         "appendDisplayMessagesToProviderHistory",
         "commonPrefixChars",
@@ -7799,6 +7840,7 @@
         "layoutShadowPrevBySessionMap",
         "legacySpawnToOrchestrateArgs",
         "planDiscoveryToolBatchAllowed",
+        "planParallelReadIsland",
         "runAgentWorkflow",
         "runOpenAiTurn",
         "settleWaitEnvelopes",
@@ -8237,6 +8279,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "appendLiveTail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
             "call"
           ]
@@ -8803,6 +8852,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
           "kinds": [
             "call"
@@ -8869,6 +8925,13 @@
           "symbol": "resumeInFlight",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -9252,6 +9315,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "boundToolResultForDisplay",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "buildObservationRecallPrompt",
           "kinds": [
             "call"
@@ -9436,7 +9506,16 @@
         "SUMMARY_SINGLE_SHOT_CAP_RULE",
         "SUMMARY_SINGLE_SHOT_MAX_EST",
         "SUMMARY_SINGLE_SHOT_RESERVE",
+        "TOOL_EXEC_CLASS_RE",
+        "TOOL_IMAGE_B64_BODY_RE",
+        "TOOL_IMAGE_B64_MIN",
+        "TOOL_IMAGE_KEY_RE",
+        "TOOL_OUTPUT_KEY_RE",
         "TOOL_RESULT_CAP",
+        "TOOL_RESULT_DISPLAY_CAP",
+        "TOOL_RESULT_FIELD_FLOOR",
+        "TOOL_RESULT_MARKER_RESERVE",
+        "TOOL_RESULT_MIN_CAP",
         "_calibKey",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
@@ -9445,6 +9524,7 @@
         "appendPromptToLastUserMessage",
         "applySummaryCallPolicy",
         "applySummaryEntityCheck",
+        "boundToolResultForDisplay",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
         "buildSummaryFactTableMessages",
@@ -9454,6 +9534,7 @@
         "calibratedEstimate",
         "checkSummaryEntities",
         "chunkHistoryByBudget",
+        "collectToolResultLeaves",
         "compactHistoryFromSession",
         "compactObservationValue",
         "compactionRefetchRefusal",
@@ -9464,6 +9545,7 @@
         "contextCalibrationStore",
         "contextWindowFromTable",
         "contextWindowOverrideKey",
+        "cowToolResultParent",
         "createCompactionRefetchGuard",
         "ctxProbeKey",
         "dedupeRepeatedReads",
@@ -9475,6 +9557,7 @@
         "extractSessionNotes",
         "extractSummaryEntities",
         "fileReadDedupKey",
+        "findToolImageFields",
         "fitHistoryForSummary",
         "historyHasFullToolResult",
         "historyStartsWithCompactionSummary",
@@ -9519,6 +9602,11 @@
         "runForcedOverflowCompaction",
         "runProviderCompact",
         "runSessionTurn",
+        "shrinkSerializedToolResult",
+        "shrinkToolResultArray",
+        "shrinkToolResultForDisplay",
+        "shrinkToolResultValue",
+        "shrinkToolText",
         "singleSummaryCall",
         "streamChat",
         "summaryCallPolicyKey",
@@ -9535,7 +9623,12 @@
         "summaryStopSignal",
         "summaryStoppedResult",
         "summaryUnsupportedParameterFields",
+        "toolImageMime",
+        "toolResultCharCap",
+        "toolResultHeadRatio",
         "toolResultIsFull",
+        "toolResultPathText",
+        "toolResultRecoveryHint",
         "truncateToolResult",
         "upsertCompactMarker",
         "userBlockStarts",
@@ -9882,6 +9975,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "toolImageSessionTag",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "withJournalWriteLock",
           "kinds": [
             "call"
@@ -10092,6 +10192,13 @@
         },
         {
           "provider": "09d-token-estimation.js",
+          "symbol": "countCjkCodeUnits",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
           "symbol": "estimateContentTokens",
           "kinds": [
             "call"
@@ -10124,6 +10231,13 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "09d-token-estimation.js",
+          "symbol": "tokensFromTextCounts",
+          "kinds": [
+            "call"
+          ]
         }
       ]
     },
@@ -10132,91 +10246,71 @@
       "layer": "tools",
       "provides": [
         "BINARY_READ_SUFFIXES",
-        "BLOCK_TAGS_RE",
-        "BROWSER_UA",
-        "CODE_SYMBOL_SUFFIXES",
-        "CRC32_TABLE",
-        "GIT_DIFF_MAX_BYTES",
+        "BROWSE_IGNORE_DIRS",
+        "DEFAULT_IGNORE_DIRS",
+        "DOTNET_PROJECT_RE",
+        "GIT_DIFF_MAX_BUFFER",
+        "GIT_DIFF_MAX_CHARS",
+        "GIT_DIFF_STAT_MAX_CHARS",
         "GIT_READ_ONLY_FLAGS",
         "GIT_SAFE_FLAGS",
+        "GIT_UNTRACKED_LIST_MAX",
+        "HARD_IGNORE_DIRS",
         "PATH_MATCH_WORKER_SRC",
         "REGEX_SCAN_MAX_MS",
         "REGEX_SCAN_WORKER_SRC",
-        "SEARCH_CJK_RE",
+        "SEARCH_DEFAULT_MAX_FILE_BYTES",
+        "SEARCH_JS_DEFAULT_MAX_FILES",
+        "SEARCH_MAX_FILE_BYTES_CEILING",
         "SHELL_BUF_MAX",
         "SHELL_IDLE_MS",
+        "SHELL_OUTPUT_DEFAULT_CHARS",
+        "SHELL_OUTPUT_MAX_CHARS",
+        "SHELL_OUTPUT_MIN_CHARS",
+        "SHELL_POLL_WAIT_MAX_MS",
         "WALK_PATTERN_BATCH",
         "WALK_PATTERN_BUDGET_MS",
         "WALK_PATTERN_MAX_CHARS",
-        "ZIP_MAX_ENTRIES",
-        "ZIP_MAX_SINGLE_FILE",
-        "ZIP_MAX_TOTAL",
         "_rgProbe",
         "_rgProbeInflight",
         "backgroundJobFile",
         "backgroundJobText",
         "backgroundShellCountsBySession",
-        "browserHeaders",
-        "builtinSearch",
-        "classifyFetchError",
-        "claudeMdAudit",
-        "codeReviewScan",
-        "codebaseSymbolSearch",
-        "columnProfile",
+        "buildIgnoreMatcher",
+        "classifyListPattern",
         "completeBackgroundJob",
-        "crc32",
         "createBoundedPathMatcher",
-        "dataProfile",
-        "debugHypStats",
-        "debugHypWarnings",
-        "debugHypothesis",
-        "decodeBingRedirect",
-        "decodeEntities",
-        "dependencyInventory",
-        "dnsResolvesToPrivate",
-        "docsSearch",
-        "embeddedIpv4FromV6",
-        "escapeRegexLiteral",
-        "extractMainText",
-        "frontendAudit",
+        "discoverPrunedDirs",
+        "explicitAllowDirs",
+        "explicitSegmentsOfGlob",
+        "explicitSegmentsOfRegex",
         "genShellId",
-        "gitCommit",
+        "gitCwdMissingError",
         "gitDiff",
+        "gitHeadToJsonBudget",
         "gitHumanError",
-        "gitLog",
         "gitReadOnlyGuard",
         "gitReadOnlyGuardError",
         "gitStatus",
         "globToRegExp",
         "hasRg",
         "hasRgAsync",
-        "htmlAttr",
-        "htmlBlocksByClass",
-        "htmlClassTokens",
-        "htmlElementInner",
-        "htmlFragmentToText",
-        "httpGetGuarded",
-        "httpRequest",
-        "inferColumnType",
+        "ignoreGlobsForRg",
         "isBinaryReadPath",
-        "isPrivateIpv4",
+        "isHighSurrogate",
+        "isLowSurrogate",
         "killAllShellSessions",
         "levenshtein",
         "maybeGroup",
-        "mergeSearchResults",
         "normalizeSearchPattern",
-        "numericStats",
-        "parseBaiduHtml",
-        "parseBingHtml",
-        "parseCsv",
         "peekRgProbe",
         "persistBackgroundJob",
         "probeRg",
         "probeRgAsync",
         "probeRgInfoSync",
+        "prunedDirsHint",
         "readBackgroundJobs",
         "readIfExists",
-        "readWebCache",
         "regexBacktrackBounded",
         "regexScanFilesBounded",
         "resolveGitCwd",
@@ -10224,14 +10318,13 @@
         "rgProbeCandidates",
         "rgProbeResolve",
         "runGit",
-        "safeFromCodePoint",
+        "searchExplicitNames",
         "searchFileContent",
         "searchFileContentJs",
         "searchFileContentRg",
-        "searchPageBlocked",
-        "searchQueryTerms",
-        "searchResultKey",
-        "searchSnippetText",
+        "searchMaxDepth",
+        "searchMaxFileBytes",
+        "sensitiveGlobsForRg",
         "sessionBackgroundShellRows",
         "sessionShellOutputTail",
         "shellAppend",
@@ -10244,24 +10337,21 @@
         "shellList",
         "shellLookup",
         "shellMcpChildGuard",
+        "shellOutputCap",
         "shellPoll",
         "shellSend",
+        "shellSendResult",
         "shellSessions",
+        "shellShapeOutput",
         "shellSliceFrom",
         "shellStart",
         "shellStripClixml",
         "shellVisibleTo",
-        "ssrfCheck",
-        "stripHtmlNoise",
         "summarizeGitStatus",
+        "walkEnvelopeEntries",
         "walkFiles",
-        "webCachePath",
-        "webFetch",
-        "webFetchFailMessage",
-        "webSearch",
-        "writeBackgroundJobRows",
-        "writeWebCache",
-        "zipCollectEntries"
+        "walkTruncationHint",
+        "writeBackgroundJobRows"
       ],
       "requires": [
         {
@@ -10287,6 +10377,27 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "dataRootAliases",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeConsoleText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "EventStreamHooks",
           "kinds": [
             "read"
@@ -10302,6 +10413,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "json",
           "kinds": [
             "read"
           ]
@@ -10381,7 +10499,8 @@
           "provider": "00-boot.js",
           "symbol": "URL",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -10407,6 +10526,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "RUNTIME",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -10415,6 +10541,20 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "observationRecallEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "loadSession",
           "kinds": [
             "call"
           ]
@@ -10442,6 +10582,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "guardFileToolPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "isSensitiveDataPath",
           "kinds": [
             "call"
@@ -10452,6 +10599,13 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "collectBridgedTools",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10495,6 +10649,50 @@
           "kinds": [
             "call"
           ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "buildToolCatalog",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "MCP_TOOLS",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "11b-file-text-io.js",
+      "layer": "tools",
+      "provides": [
+        "FileTextIo"
+      ],
+      "requires": [
+        {
+          "provider": "00-boot.js",
+          "symbol": "cp",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "text",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -10502,11 +10700,14 @@
       "file": "12-tool-dispatch.js",
       "layer": "tools",
       "provides": [
-        "ARCHIVE_TOOL_HANDLERS",
         "CORE_TOOL_HANDLERS",
         "EXEC_CACHE_ENTRY_MAX_BYTES",
         "EXEC_CACHE_MAX_SESSIONS",
         "EXEC_CACHE_WHITELIST",
+        "FILE_READ_CHAR_DEFAULT",
+        "FILE_READ_CHAR_MAX",
+        "FILE_READ_JSON_BUDGET",
+        "FILE_READ_LINE_DEFAULT",
         "FILE_TOOL_HANDLERS",
         "OBSERVATION_RECALL_MAX_CHARS",
         "OBSERVATION_RECALL_QUOTA",
@@ -10517,6 +10718,7 @@
         "accAnnotateNonAscii",
         "accCpCategory",
         "accCpName",
+        "buildFileEditMiss",
         "buildNonAsciiReport",
         "buildWorkbenchSelfStatus",
         "defaultTextLineEnding",
@@ -10529,15 +10731,24 @@
         "execCacheStore",
         "execCacheVersionOf",
         "execResultCacheBySession",
+        "fileToolBeforeForCheckpoint",
+        "fileToolDropPhantom",
+        "fileToolFsFailure",
+        "fileToolNotFound",
+        "fileToolUnencodable",
+        "fileToolWorkspaceDir",
         "fileToolWriteChains",
         "fileToolWriteLockKey",
         "hasTextLineBreak",
         "invokeAdaptiveMcpTool",
         "isUtf8Encoding",
         "journalCheckpointWarn",
+        "naClassify",
+        "naIsCjkish",
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
+        "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
         "withFileToolWriteLock"
@@ -10583,6 +10794,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "makeId",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10741,6 +10959,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "JOURNAL_MAX_BEFORE_BYTES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalDropEntries",
           "kinds": [
             "call"
@@ -10749,6 +10974,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalRecord",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRecordMany",
           "kinds": [
             "call"
           ]
@@ -10770,6 +11002,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -10804,7 +11043,7 @@
         },
         {
           "provider": "03-bridge-guard.js",
-          "symbol": "isSensitiveDataPath",
+          "symbol": "guardWorkspaceExecute",
           "kinds": [
             "call"
           ]
@@ -10825,6 +11064,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "OFFICE_WRITER_LIB_RE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "pathWithinRoot",
           "kinds": [
             "call"
@@ -10833,6 +11079,27 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "realpathForContainment",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "resolveExecCwd",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "bridgedServerUnavailableMessage",
           "kinds": [
             "call"
           ]
@@ -10877,6 +11144,13 @@
           "symbol": "safeMcpInventory",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10972,6 +11246,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -11000,7 +11281,28 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "searchToolCatalog",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
           "kinds": [
             "call"
           ]
@@ -11034,24 +11336,10 @@
           ]
         },
         {
-          "provider": "11-native-tools.js",
-          "symbol": "globToRegExp",
+          "provider": "10-context-governance.js",
+          "symbol": "TOOL_RESULT_CAP",
           "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "httpGetGuarded",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "httpRequest",
-          "kinds": [
-            "call"
+            "read"
           ]
         },
         {
@@ -11065,7 +11353,8 @@
           "provider": "11-native-tools.js",
           "symbol": "levenshtein",
           "kinds": [
-            "call"
+            "call",
+            "read"
           ]
         },
         {
@@ -11084,58 +11373,51 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "searchFileContent",
+          "symbol": "shellKill",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "ssrfCheck",
+          "symbol": "shellList",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "walkFiles",
+          "symbol": "shellMcpChildGuard",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "webFetch",
+          "symbol": "shellPoll",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "webSearch",
+          "symbol": "shellSend",
           "kinds": [
             "call"
           ]
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "ZIP_MAX_SINGLE_FILE",
+          "symbol": "shellStart",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11b-file-text-io.js",
+          "symbol": "FileTextIo",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "ZIP_MAX_TOTAL",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "zipCollectEntries",
-          "kinds": [
-            "call"
           ]
         }
       ]
@@ -16590,20 +16872,6 @@
           ]
         },
         {
-          "provider": "11-native-tools.js",
-          "symbol": "webFetch",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "webSearch",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
           "provider": "12-tool-dispatch.js",
           "symbol": "buildWorkbenchSelfStatus",
           "kinds": [
@@ -21422,6 +21690,13 @@
           ]
         },
         {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "unwrapToolInvokeCall",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "auditBridgedWriteCoverage",
           "kinds": [
@@ -21549,6 +21824,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "bridgedServerUnavailableMessage",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "buildMcpConnectorInventory",
           "kinds": [
             "read"
@@ -21633,6 +21915,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "mcpChildExitResult",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "McpHttpClient",
           "kinds": [
             "read"
@@ -21648,6 +21937,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "nativeClaudeAgentResultInfo",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "normalizeMcpToolResult",
           "kinds": [
             "read"
           ]
@@ -21725,6 +22021,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "scanMcpSources",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-visual-pipeline.js",
+          "symbol": "VisualPipeline",
           "kinds": [
             "read"
           ]
@@ -22193,6 +22496,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "desktopAuditEntriesFromResult",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "ERROR_CLASSES",
           "kinds": [
             "read"
@@ -22635,6 +22945,13 @@
         {
           "provider": "06g-resource-leases.js",
           "symbol": "agentResourcesConflict",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06g-resource-leases.js",
+          "symbol": "bridgedDesktopLeaseMode",
           "kinds": [
             "read"
           ]
@@ -23293,6 +23610,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "NATIVE_TOOL_TIER",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolDisabledByPolicy",
           "kinds": [
             "read"
           ]
@@ -24090,62 +24414,6 @@
         },
         {
           "provider": "11-native-tools.js",
-          "symbol": "classifyFetchError",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "crc32",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "embeddedIpv4FromV6",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "extractMainText",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "httpGetGuarded",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "isPrivateIpv4",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "parseBaiduHtml",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "parseBingHtml",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
           "symbol": "peekRgProbe",
           "kinds": [
             "read"
@@ -24154,55 +24422,6 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "probeRgAsync",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "readWebCache",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "ssrfCheck",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "webCachePath",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "webFetch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "webFetchFailMessage",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "webSearch",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "11-native-tools.js",
-          "symbol": "writeWebCache",
           "kinds": [
             "read"
           ]

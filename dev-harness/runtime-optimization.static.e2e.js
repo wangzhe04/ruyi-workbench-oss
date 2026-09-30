@@ -184,7 +184,8 @@ console.log('\n── [E2] bounded read scheduler wiring (21) ──');
 ok(/boundedReadSchedulerV1: false/.test(src), 'E2 active scheduler defaults false');
 ok(/boundedReadConcurrencyV1: 4/.test(src), 'E2 default concurrency 4');
 ok(/config\.boundedReadSchedulerV1 === true/.test(src), 'E2 strict boolean gate in the tool loop');
-ok(/Math\.min\(8, Math\.max\(4, localToolCalls\.length\)\)/.test(src), 'E2 concurrency formula = min(8, max(4, width)) (decision B)');
+// N9:宽度从「整批」改为「只读岛」(整批全是只读时岛 = 整批,公式不变),变量名随之是 islandCalls。
+ok(/Math\.min\(8, Math\.max\(4, (?:localToolCalls|islandCalls)\.length\)\)/.test(src), 'E2 concurrency formula = min(8, max(4, width)) (decision B)');
 ok(/strategy: poolStrategy/.test(src) && /'pool_read'/.test(src), 'E2 phase event exposes pool_read strategy');
 ok(/queueWaitMs/.test(src), 'E2 resource-queue wait measured');
 ok(!/boundedReadSchedulerV1: true/.test(src), 'E2 active flag is not defaulted on');

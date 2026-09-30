@@ -1046,7 +1046,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
-              if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+              if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                 const subGateRefusal = bridgedOfficeScriptGate(tc.name, args)
@@ -1079,7 +1079,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
                 // 代理模式 v2:把节点的 abort 信号交给工具 —— 显式停止(后台任务条/stop 动作)能中断在跑的长命令,而不是等它自然结束。
                 resultObj = await toolCall(tc.name, args, { sessionId: parentSession.id, turnSeq: parentSession.turnSeq, session: parentSession, config, workingDir, effectivePermissionMode: effMode, signal: ctrl && ctrl.signal }); // P3-4: workingDir 单一真源; v2.7.1 opt#1: 注入有效模式供 guardFileToolPath 宽写判定(role/permModeOverride 可能与 config.permissionMode 不同)
               }
-              catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+              catch (e) { resultObj = toolFailureResult(e); } // 审计 N5:未知工具附 did-you-mean(N4 的命令/桌面开关由 toolCall 按 ctx.config 拒绝)
               finally { stopToolBeat(); releaseResourceLease(toolLease); }
             }
           }
@@ -1107,7 +1107,8 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
-          onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });
+          // N3: 子代理的 tool_result 事件同样只发有界的展示副本(大图落附件);subHistory 那份仍按模型预算截断。
+          onEvent({ type: 'tool_result', id: tc.id, content: await boundToolResultForDisplay(tc.name, resultObj, { sessionId: parentSession && parentSession.id }), isError: isErr, subagentId });
           subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
         }

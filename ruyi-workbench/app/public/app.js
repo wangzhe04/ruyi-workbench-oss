@@ -279,6 +279,7 @@ const {
   renderMarkdown,
   renderMarkdownInto,
   renderToolImageInto,
+  renderToolResultInto,
   renderStaleBadgeInto,
   saveAsPlaybook,
   safeStringify,
@@ -295,6 +296,7 @@ const {
 } = createChatRenderPrimitives({
   $,
   api,
+  fetchAttachmentImage: att => attachmentImageUrl(att), // N11: 落盘截图走既有 /api/upload/content(带鉴权头 fetch → objectURL)
   apiErrText,
   agentCliMeta,
   autoGrow,
@@ -395,6 +397,7 @@ const {
   refreshToolPane: () => refreshToolPane(),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   renderToolImageInto, // 109b: 工具产出图内联缩略图,tool_result 到达后补渲染。
+  renderToolResultInto, // N11: 结果框富渲染(多行文本块/截图缩略图)
   renderStaleBadgeInto, // 125-P2:缓存徽标,同一趟补渲染(判据只看结构化字段 fromCache/ts)。
   renderSessions: (...args) => renderSessions(...args),
   renderStaticMessage: (...args) => renderStaticMessage(...args),

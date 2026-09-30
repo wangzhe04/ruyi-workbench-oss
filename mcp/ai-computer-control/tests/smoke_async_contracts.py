@@ -203,6 +203,7 @@ def main() -> int:
         "browser_get_text", "browser_execute_js", "browser_navigate", "browser_get_elements",
         "browser_list_tabs", "browser_switch_tab", "browser_close", "browser_backend_status",
         "ocr_image", "ocr_screen", "ocr_click", "ocr_find_text", "observe",
+        "wait_for_image", "wait_for_window_idle",
     }
     check(expected_async <= async_names, "all async-backed tools remain async after registration")
 

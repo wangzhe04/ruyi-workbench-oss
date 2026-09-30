@@ -272,7 +272,10 @@ try {
     summaryDelayMs = 8000;
     const evs = [];
     let compactAt = 0, resultAt = 0;
-    const p = stream(small.port, { message: 'SCN-C hello there' }, e => {
+    // 窗口有 8000 的下限;修前靠工具 schema 本身的体积越过压缩线,工具集优化批把 schema 瘦身后首回合不再越线 ——
+    // 用户消息自带 ~3K token 的填充,让「每回合都要压」不依赖 schema 体积。
+    const pad = ' ' + 'filler words for context pressure '.repeat(400);
+    const p = stream(small.port, { message: 'SCN-C hello there' + pad }, e => {
       evs.push(e);
       if (e.type === 'compact' && e.mode === 'summary' && e.phase === 'started' && !compactAt) compactAt = Date.now();
       if (e.type === 'result') resultAt = Date.now();

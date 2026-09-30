@@ -185,7 +185,47 @@ function shellSliceFrom(sess, cursor) {
   if (from < sess.baseOffset) { from = sess.baseOffset; truncated = true; }
   if (from > end) from = end;
   const output = sess.buf.slice(from - sess.baseOffset);
-  return { output, cursor: end, truncated };
+  return { output, cursor: end, truncated, from };
+}
+
+// NE-2:shell_poll / shell_send 的输出整形。修前一次最多回 200K 字符,且 output 排在 cursor/running/exitCode 前面 —— 超过 60K 后
+// 模型看不到「作业结束了没」。现在:状态字段在前;output 封顶 maxChars(默认 16000,范围 500..30000)。
+// cursor 语义统一:cursor = 本次返回的输出【结束处】的绝对偏移(UTF-16 单位,不是字节)—— 原样传回下一次 shell_poll 即续读,不丢不重。
+//   · 不传 cursor(或 0)= 「看最新」:缓冲超过 maxChars 时取 开头 20% + 结尾 80%,中间写明省略区间 omittedFrom..omittedTo(绝对偏移),
+//     cursor 落在缓冲末尾;想读回中间某段,用 cursor=omittedFrom 分页。
+//   · 传 cursor>0 = 「往后翻页」:从 cursor 起最多 maxChars 字符,more:true 表示后面还有,cursor 是这一页的末尾。
+const SHELL_OUTPUT_DEFAULT_CHARS = 16000;
+const SHELL_OUTPUT_MIN_CHARS = 500;
+const SHELL_OUTPUT_MAX_CHARS = 30000;
+const SHELL_POLL_WAIT_MAX_MS = 30000;
+function shellOutputCap(args) {
+  const n = Number(args && args.maxChars);
+  if (!Number.isFinite(n) || n <= 0) return SHELL_OUTPUT_DEFAULT_CHARS;
+  return Math.min(SHELL_OUTPUT_MAX_CHARS, Math.max(SHELL_OUTPUT_MIN_CHARS, Math.floor(n)));
+}
+const isHighSurrogate = c => c >= 0xd800 && c <= 0xdbff;
+const isLowSurrogate = c => c >= 0xdc00 && c <= 0xdfff;
+// slice = shellSliceFrom 的结果;paging=true 走「往后翻页」。返回 { output, cursor, more?, omittedChars?, omittedFrom?, omittedTo?, hint? }。
+function shellShapeOutput(slice, cap, paging) {
+  const text = slice.output;
+  if (text.length <= cap) return { output: text, cursor: slice.cursor };
+  if (paging) {
+    let n = cap;
+    if (isHighSurrogate(text.charCodeAt(n - 1))) n -= 1;
+    const cursor = slice.from + n;
+    return { output: text.slice(0, n), cursor, more: true, remainingChars: slice.cursor - cursor,
+      hint: `后面还有 ${slice.cursor - cursor} 字符;用 cursor=${cursor} 继续读下一页` };
+  }
+  let headN = Math.floor(cap * 0.2);
+  if (isHighSurrogate(text.charCodeAt(headN - 1))) headN -= 1;
+  let tailStart = text.length - (cap - headN);
+  if (isLowSurrogate(text.charCodeAt(tailStart))) tailStart += 1;
+  const omittedFrom = slice.from + headN;
+  const omittedTo = slice.from + tailStart;
+  const omittedChars = tailStart - headN;
+  const marker = `\n[...省略偏移 ${omittedFrom}..${omittedTo} 共 ${omittedChars} 字符;shell_poll({shellId, cursor:${omittedFrom}}) 可读回...]\n`;
+  return { output: text.slice(0, headN) + marker + text.slice(tailStart), cursor: slice.cursor, omittedChars, omittedFrom, omittedTo,
+    hint: '输出过长,只返回了开头和最新一段;中间被省略的部分可用 cursor=omittedFrom 分页读回' };
 }
 
 // Spawn a persistent powershell child. Returns { ok, shellId, name, cwd } or { ok:false, error, hint }.
@@ -209,6 +249,9 @@ function shellStart(args, config, ctx = {}) {
   }
   // 107-S0:工具分发(12 shell_start)总是传入执行闸解析好的 cwd;家目录兜底只留给没有 cwd 的直接调用方。
   const cwd = args.cwd ? path.resolve(String(args.cwd)) : os.homedir();
+  // NE-13:cwd 不存在时 Node 报的是 `spawn powershell.exe ENOENT`,模型会误以为没装 PowerShell —— 先明说目录不存在。
+  try { if (!fs.statSync(cwd).isDirectory()) throw new Error('not a directory'); }
+  catch { return { ok: false, error: `工作目录不存在: ${cwd}`, hint: '确认 cwd 是已存在的目录(Windows 用完整盘符路径),或省略 cwd 用线程工作目录' }; }
   const name = args.name ? String(args.name).slice(0, 80) : shellId;
   const command = args.command == null ? '' : String(args.command).trim();
   const mode = command ? 'background' : 'interactive';
@@ -253,21 +296,47 @@ function shellStart(args, config, ctx = {}) {
   const outDecoder = createConsoleLineDecoder();
   const errDecoder = createConsoleLineDecoder();
   let idleFlush = null;
+  let exitAt = 0;
+  let exitTimer = null;
+  let finalized = false;
+  // 收尾只做一次:'close'(管道都关了)与后台任务的 'exit' 宽限(下面)两条路径共用。
+  const finalize = (code, note) => {
+    if (finalized) return;
+    finalized = true;
+    clearTimeout(deadline);
+    if (exitTimer) { clearTimeout(exitTimer); exitTimer = null; }
+    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
+    shellAppend(sess, outDecoder.end() + errDecoder.end());
+    if (note) shellAppend(sess, note);
+    sess.running = false; sess.exitCode = (code === null || code === undefined ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
+  };
+  // NE-4:后台命令的主进程已退出,但一个脱离的孙进程(gradle/adb/docker daemon、Start-Process)还占着输出管道 → 'close' 迟迟不来,
+  // sess.running 永远 true:不弹完成通知、一直占 shell 会话名额、空闲收割也不碰它(它把「后台运行中」的会话当活的)。
+  // exit 后给一小段静默宽限排空管道(仍有输出就顺延,总共 ≤3s),之后销毁我们这一侧的流,按已收到的输出收尾。只管后台命令;
+  // 交互式 shell 自己退出就是会话结束,不套这条。
+  const armExitTimer = () => {
+    if (exitTimer) clearTimeout(exitTimer);
+    exitTimer = setTimeout(() => {
+      exitTimer = null;
+      if (finalized) return;
+      try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* already closed */ }
+      finalize(exitInfoCode, '\n[process exited; a background child kept the output pipe open — later output is not captured]\n');
+    }, 500);
+    if (exitTimer.unref) exitTimer.unref();
+  };
+  let exitInfoCode = null;
   const feed = (decoder, d) => {
     shellAppend(sess, decoder.write(d));
     if (idleFlush) clearTimeout(idleFlush);
     idleFlush = setTimeout(() => { idleFlush = null; shellAppend(sess, outDecoder.flush() + errDecoder.flush()); }, 150);
     if (idleFlush.unref) idleFlush.unref();
+    if (exitAt && !finalized && Date.now() - exitAt < 3000) armExitTimer();
   };
   child.stdout?.on('data', d => feed(outDecoder, d));
   child.stderr?.on('data', d => feed(errDecoder, d));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
-  child.on('close', code => {
-    clearTimeout(deadline);
-    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
-    shellAppend(sess, outDecoder.end() + errDecoder.end());
-    sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
-  });
+  if (command) child.on('exit', code => { exitInfoCode = code; exitAt = Date.now(); armExitTimer(); });
+  child.on('close', code => finalize(code));
   shellSessions.set(shellId, sess);
   return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
@@ -316,42 +385,75 @@ async function shellSend(args, ctx) {
     catch (e) { return { ok: false, error: `写入失败: ${e && e.message ? e.message : e}` }; }
   } else if (!sess.running) {
     // Child already exited — still return whatever fresh output exists, but flag not-running.
-    const slice = shellSliceFrom(sess, startCursor);
-    return { ok: true, output: slice.output, cursor: slice.cursor, running: false, exitCode: sess.exitCode };
+    return shellSendResult(sess, shellSliceFrom(sess, startCursor), args, 'exit');
   }
   // Settle loop: poll every 60ms; resolve once ~300ms passes with no growth, or on timeout / child exit.
   const deadline = Date.now() + timeoutMs;
   const sentAt = Date.now();
   let lastLen = shellEndOffset(sess);
   let stableSince = Date.now();
+  let settled = 'timeout';   // NE-15:告诉模型这次是怎么返回的 —— exit=进程退出 / quiet=输出安静了(命令大概率跑完) / silent=没输出 / timeout=超时仍在出
   for (;;) {
     await new Promise(r => setTimeout(r, 60));
     const nowLen = shellEndOffset(sess);
     if (nowLen !== lastLen) { lastLen = nowLen; stableSince = Date.now(); }
-    if (!sess.running) break;
-    if (Date.now() - stableSince >= 300 && nowLen > startCursor) break; // grew then went quiet
+    if (!sess.running) { settled = 'exit'; break; }
+    if (Date.now() - stableSince >= 300 && nowLen > startCursor) { settled = 'quiet'; break; } // grew then went quiet
     if (nowLen === startCursor && Date.now() - sentAt >= Math.min(5000, timeoutMs)) {
       // No output at all within a settle window (e.g. a command that prints nothing) — don't hang.
+      settled = 'silent';
       break;
     }
     if (Date.now() >= deadline) break;
   }
   sess.lastUsedAt = Date.now();
-  const slice = shellSliceFrom(sess, startCursor);
-  return { ok: true, output: slice.output, cursor: slice.cursor, truncated: slice.truncated || false, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
+  return shellSendResult(sess, shellSliceFrom(sess, startCursor), args, settled);
+}
+// shell_send 的返回:状态字段在前,output(封顶,见 shellShapeOutput)在最后。
+function shellSendResult(sess, slice, args, settled) {
+  const shaped = shellShapeOutput(slice, shellOutputCap(args), false);
+  const out = { ok: true, running: sess.running };
+  if (!sess.running) out.exitCode = sess.exitCode;
+  out.cursor = shaped.cursor;
+  out.settled = settled;
+  if (slice.truncated) out.truncated = true;
+  if (shaped.omittedChars) { out.omittedChars = shaped.omittedChars; out.omittedFrom = shaped.omittedFrom; out.omittedTo = shaped.omittedTo; out.hint = shaped.hint; }
+  out.output = shaped.output;
+  return out;
 }
 
-function shellPoll(args, ctx) {
+// shell_poll {shellId, cursor?, maxChars?, waitMs?}。返回键序:ok/running/exitCode/timedOut/mode/cursor 在前,output 最后(NE-2)。
+// waitMs(≤30s):长轮询 —— 当前没有可返回的新输出且作业还在跑时,等到有新输出或进程退出再返回;省得模型每隔几秒烧一整轮 LLM 去轮询。
+async function shellPoll(args, ctx) {
   const shellId = String(args.shellId || '');
   const sess = shellLookup(shellId, ctx);
   // v0.8-S7 error guidance: same unknown-shellId hint as shell_send.
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'`, hint: '用 shell_list 查看现有会话,或 shell_start 新建' };
   sess.lastUsedAt = Date.now();
-  const cursor = args.cursor === undefined || args.cursor === null ? 0 : Number(args.cursor);
-  const slice = shellSliceFrom(sess, cursor);
-  const out = { ok: true, output: slice.output, cursor: slice.cursor, running: sess.running, mode: sess.mode || 'interactive', timedOut: sess.timedOut === true };
-  if (slice.truncated) out.truncated = true;
+  const cursorNum = args.cursor === undefined || args.cursor === null ? 0 : Number(args.cursor);
+  const paging = Number.isFinite(cursorNum) && cursorNum > 0;
+  const waitMs = Math.min(SHELL_POLL_WAIT_MAX_MS, Math.max(0, Number(args.waitMs) || 0));
+  if (waitMs > 0) {
+    const until = Date.now() + waitMs;
+    const signal = ctx && ctx.signal;
+    while (sess.running && shellEndOffset(sess) <= Math.max(paging ? cursorNum : 0, 0) && Date.now() < until) {
+      if (signal && signal.aborted) break;
+      await new Promise(r => setTimeout(r, 50));
+      sess.lastUsedAt = Date.now();
+    }
+  }
+  const slice = shellSliceFrom(sess, cursorNum);
+  const shaped = shellShapeOutput(slice, shellOutputCap(args), paging);
+  const out = { ok: true, running: sess.running };
   if (!sess.running) out.exitCode = sess.exitCode;
+  out.timedOut = sess.timedOut === true;
+  out.mode = sess.mode || 'interactive';
+  out.cursor = shaped.cursor;
+  if (slice.truncated) out.truncated = true;
+  if (shaped.more) { out.more = true; out.remainingChars = shaped.remainingChars; }
+  if (shaped.omittedChars) { out.omittedChars = shaped.omittedChars; out.omittedFrom = shaped.omittedFrom; out.omittedTo = shaped.omittedTo; }
+  if (shaped.hint) out.hint = shaped.hint;
+  out.output = shaped.output;
   return out;
 }
 
@@ -711,10 +813,91 @@ function createBoundedPathMatcher(pattern, flags, budgetMs) {
   return { match, close };
 }
 
+// ---- 遍历类工具的共用忽略清单(F2)----
+// 之前 file_list/glob/file_search/project_snapshot 只忽略 node_modules/.git/.venv,docs_search/symbol_search 各自另有
+// 一份「宽」名单,walk 又按 readdir 顺序先到先得地截断 —— __pycache__/venv/.claude/worktrees 之类的大目录把配额吃光,
+// 真正的源码根本没被看到,而结果里往往没有 truncated。现在一份名单、一处实现:
+//   · 目录名(不含 '/')逐层比对目录项名(Windows 上不分大小写);含 '/' 的项(如 `.claude/worktrees`)比对相对遍历根的路径;
+//   · `.NET`:目录里有 *.csproj/*.fsproj/*.vbproj 时,其下的 bin/obj 也剪掉(单独的 bin 太常见,不能无条件剪);
+//   · 调用方的 ignoreDirs 是【追加】(此前是整份覆盖,模型传一个 ignoreDirs 就把 node_modules 又放回来了);
+//     includeIgnored:true 是整体退出口(仍保留 .git/.svn/.hg —— 仓库内部对话没有意义);
+//   · browse:true(file_list 非递归 = 目录浏览)只用最小名单 —— 用户点开一个目录就是想看里面有什么(build/dist 也要能看)。
+const HARD_IGNORE_DIRS = Object.freeze(['.git', '.svn', '.hg']);
+const BROWSE_IGNORE_DIRS = Object.freeze(['node_modules', '.git', '.venv']);
+const DEFAULT_IGNORE_DIRS = Object.freeze([
+  'node_modules', '.git', '.svn', '.hg', '.venv', 'venv', '__pycache__', 'site-packages',
+  '.mypy_cache', '.pytest_cache', '.ruff_cache', '.tox', '.idea', '.gradle',
+  'dist', 'build', 'out', 'target', 'coverage', '.next', '.nuxt', '.cache',
+  '.claude/worktrees',
+]);
+const DOTNET_PROJECT_RE = /\.(?:csproj|fsproj|vbproj)$/i;
+// 调用方【显式点名】的目录不剪(审计 native-files #1):glob / 正则 / root 里以字面段出现的名字(`dist/**/*.js`、root=…/build)。
+// 只豁免默认清单(DEFAULT_IGNORE_DIRS)里的项;.git/.svn/.hg 与调用方自己传的 ignoreDirs 照剪。
+// 不是字面段的(`*`、`{a,b}`、含通配的段)不算点名 —— 宁可保守地剪,剪掉的会在 prunedDirs 里说出来。
+function explicitSegmentsOfGlob(glob) {
+  return String(glob == null ? '' : glob).replace(/\\/g, '/').split('/').map(x => x.trim()).filter(x => x && !/[*?[\]{}]/.test(x));
+}
+// file_list.pattern 是正则:去掉转义的点与首尾锚,按 '/' 切,只认 [\w.-]+ 的整段。
+function explicitSegmentsOfRegex(src) {
+  return String(src == null ? '' : src).replace(/\\\./g, '.').replace(/\\\//g, '/').replace(/^\^/, '').replace(/\$$/, '')
+    .split('/').map(x => x.trim()).filter(x => /^[\w.-]+$/.test(x));
+}
+function buildIgnoreMatcher(opts = {}) {
+  const fold = s => (process.platform === 'win32' ? String(s).toLowerCase() : String(s));
+  const base = opts.includeIgnored === true ? HARD_IGNORE_DIRS : (opts.browse === true ? BROWSE_IGNORE_DIRS : DEFAULT_IGNORE_DIRS);
+  const extra = Array.isArray(opts.ignoreDirs) ? opts.ignoreDirs : [];
+  const allow = new Set((Array.isArray(opts.allowDirs) ? opts.allowDirs : []).map(x => fold(String(x || '').trim())).filter(Boolean));
+  const hard = new Set(HARD_IGNORE_DIRS.map(fold));
+  const names = new Set();
+  const paths = new Set();
+  const norm1 = raw => String(raw || '').trim().replace(/\\/g, '/').replace(/^\.?\/+/, '').replace(/\/+$/, '');
+  for (const raw of base) {
+    const s = norm1(raw);
+    if (!s) continue;
+    const f = fold(s);
+    if (s.includes('/')) { if (!s.split('/').every(seg => allow.has(fold(seg)))) paths.add(f); }
+    else if (hard.has(f) || !allow.has(f)) names.add(f);
+  }
+  for (const raw of extra) {
+    const s = norm1(raw);
+    if (!s) continue;
+    (s.includes('/') ? paths : names).add(fold(s));
+  }
+  const dotnet = opts.includeIgnored !== true && opts.browse !== true && !(allow.has('bin') || allow.has('obj'));
+  // dirEntries:该目录的 Dirent 列表(判 .NET 用);relSlash:相对遍历根、以 '/' 分隔的路径。
+  return {
+    dotnet, names, paths,
+    pruneName(name, relSlash, dotnetDir) {
+      const n = fold(name);
+      if (names.has(n)) return true;
+      if (dotnetDir && (n === 'bin' || n === 'obj')) return true;
+      return paths.size > 0 && paths.has(fold(relSlash));
+    },
+  };
+}
+
+// walkFiles opts:
+//   maxFiles      结果条数上限(默认 500);只数【发出的】条目(见 accept / emitDirs)
+//   maxDepth      最深下钻层数(默认 8)         recursive:false → 只列 base 一层
+//   pattern       相对路径正则(file_list;回溯失控的交给 worker,见上)   ignoreCase:false → 区分大小写
+//   accept(rel,isDir)   谓词:不接受的条目不发出、不占配额(目录照样下钻)—— glob / 内容搜索 / 符号搜索把自己的过滤放这里,
+//                       修前是先按遍历顺序截 N 条再事后过滤,前 N 条全是无关文件时一个都找不到
+//   emitDirs      false → 目录不进结果(仍下钻);内容类工具用,目录不再吃文件配额
+//   bfs           true → 广度优先(先把浅层列全再往下;project_snapshot / 递归 file_list 用)
+//   maxVisited    最多检视这么多目录项(默认 300000),兜住「几乎没有命中的超大树」的耗时
+//   ignoreDirs / includeIgnored / browse / allowDirs   见 buildIgnoreMatcher(allowDirs = 调用方显式点名、不剪的目录名)
+//   skipHidden    true → 跳过 '.' 开头的文件/目录(内容搜索默认;file_list/glob 不用,.github/ 之类要看得见);
+//                 allowHidden:[名字] 是显式点名的例外(其子树内的隐藏项一并放行)
+//   pattern 对【以 '/' 分隔】的相对路径求值(Windows 上也是,否则文档里的 ^src/.*\.ts$ 永远配不上)
+// 返回数组,另挂:truncated / truncatedReason('maxFiles'|'maxVisited'|'patternTimeout')/ patternTimedOut / visited / prunedDirs。
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
   const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
   const recursive = opts.recursive !== false;
+  const maxDepth = Number(opts.maxDepth != null ? opts.maxDepth : 8);
+  const emitDirs = opts.emitDirs !== false;
+  const accept = typeof opts.accept === 'function' ? opts.accept : null;
+  const maxVisited = Math.max(1, Number(opts.maxVisited) || 300000);
   const patternSrc = opts.pattern ? String(opts.pattern) : '';
   const patternFlags = opts.ignoreCase === false ? '' : 'i';
   if (patternSrc.length > WALK_PATTERN_MAX_CHARS) throw new Error(`pattern too long (max ${WALK_PATTERN_MAX_CHARS} characters)`);
@@ -723,7 +906,12 @@ async function walkFiles(root, opts = {}) {
   const matcher = pattern && !regexBacktrackBounded(patternSrc) ? createBoundedPathMatcher(patternSrc, patternFlags, WALK_PATTERN_BUDGET_MS) : null;
   let deferred = [];
   let patternTimedOut = false;
-  const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
+  const ignore = buildIgnoreMatcher(opts);
+  const foldName = n => (process.platform === 'win32' ? String(n).toLowerCase() : String(n));
+  const skipHidden = opts.skipHidden === true;
+  const allowHidden = new Set((Array.isArray(opts.allowHidden) ? opts.allowHidden : []).map(foldName));
+  const toSlash = r => (path.sep === '/' ? r : r.split(path.sep).join('/'));
+  const pruned = new Set();
   const out = [];
   // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
   // 而 guardFileToolPath 只校验 root 参数、不校验被遍历文件 —— 当某允许根是 dataRoot 的祖先(默认: home 工作区 ⊇
@@ -731,56 +919,129 @@ async function walkFiles(root, opts = {}) {
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
+  let reason = '';
+  let stopped = false;
+  let visited = 0;
   const emit = async (full, rel, isDir) => {
-    const stat = await fsp.stat(full).catch(() => null);
-    out.push({ path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 });
+    // 目录不需要 stat(size 恒记 0;信封里目录不带 size);文件要 size,glob 还要 mtime。
+    const stat = isDir ? null : await fsp.stat(full).catch(() => null);
+    const rec = { path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 };
+    if (stat) rec.mtimeMs = Math.round(stat.mtimeMs);
+    out.push(rec);
   };
+  const capped = why => { hitCap = true; if (!reason) reason = why; };
   async function flushDeferred() {
     if (!deferred.length || patternTimedOut) { deferred = []; return; }
     const batch = deferred;
     deferred = [];
-    const r = await matcher.match(batch.map(c => c.rel));
+    const r = await matcher.match(batch.map(c => toSlash(c.rel)));
     if (r.timedOut || r.error) patternTimedOut = true;
     let last = -1;
     for (const i of r.hits) {
-      if (out.length >= maxFiles) { hitCap = true; break; }
+      if (out.length >= maxFiles) { capped('maxFiles'); break; }
       await emit(batch[i].full, batch[i].rel, batch[i].isDir);
       last = i;
     }
     // 与主线程路径同口径:凑满 maxFiles 之后还见到了别的条目 → 可能不全。
-    if (out.length >= maxFiles && last >= 0 && last < batch.length - 1) hitCap = true;
+    if (out.length >= maxFiles && last >= 0 && last < batch.length - 1) capped('maxFiles');
   }
-  async function walk(dir, depth) {
-    if (out.length >= maxFiles) { hitCap = true; return; }
-    if (patternTimedOut) return;
-    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
-    for (const entry of entries) {
-      if (out.length >= maxFiles) { hitCap = true; break; }
-      if (patternTimedOut) return;
-      if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
-      const full = path.join(dir, entry.name);
-      if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
-      const rel = path.relative(base, full) || '.';
-      if (matcher) {
-        deferred.push({ full, rel, isDir: entry.isDirectory() });
-        if (deferred.length >= WALK_PATTERN_BATCH) await flushDeferred();
-      } else if (!pattern || pattern.test(rel)) {
-        await emit(full, rel, entry.isDirectory());
-      }
-      if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth != null ? opts.maxDepth : 8)) {
-        await walk(full, depth + 1);
-      }
-    }
-  }
+  // 待读目录队列:bfs 先进先出;dfs 后进先出(子目录倒序压栈 → 仍按名字顺序下钻)。
+  const pending = [{ dir: base, relDir: '', depth: 0, hiddenOk: false }];
+  let qi = 0;
+  const nextDir = () => (opts.bfs === true ? pending[qi++] : pending.pop());
+  const hasDir = () => (opts.bfs === true ? qi < pending.length : pending.length > 0);
   try {
-    await walk(base, 0);
+    while (hasDir() && !stopped && !patternTimedOut) {
+      const { dir, relDir, depth, hiddenOk } = nextDir();
+      const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+      // 排序:各平台 readdir 顺序不同(Linux 不定序、NTFS 字典序),截断时「取到哪些」必须可复现。
+      entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
+      const subdirs = [];
+      for (const entry of entries) {
+        if (patternTimedOut) break;
+        if (++visited > maxVisited) { capped('maxVisited'); stopped = true; break; }
+        const isDir = entry.isDirectory();
+        const rel = relDir ? relDir + path.sep + entry.name : entry.name;
+        let entryHiddenOk = hiddenOk;
+        if (skipHidden && !hiddenOk && entry.name.charCodeAt(0) === 46) {
+          if (!allowHidden.has(foldName(entry.name))) continue;
+          entryHiddenOk = true;
+        }
+        if (isDir) {
+          const relSlash = toSlash(rel);
+          if (ignore.pruneName(entry.name, relSlash, dotnetDir)) { if (pruned.size < 12) pruned.add(relSlash); continue; }
+        }
+        const full = path.join(dir, entry.name);
+        if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
+        if ((emitDirs || !isDir) && (!accept || accept(rel, isDir))) {
+          if (matcher) {
+            deferred.push({ full, rel, isDir });
+            if (deferred.length >= WALK_PATTERN_BATCH) await flushDeferred();
+            if (out.length >= maxFiles) { stopped = true; if (hasDir() || entry !== entries[entries.length - 1] || deferred.length) hitCap = true; if (hitCap && !reason) reason = 'maxFiles'; break; }
+          } else if (!pattern || pattern.test(toSlash(rel))) {
+            if (out.length >= maxFiles) { capped('maxFiles'); stopped = true; break; }   // 已满之后又见到一个【命中】才算截断
+            await emit(full, rel, isDir);
+          }
+        }
+        if (recursive && isDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
+      }
+      if (opts.bfs === true) pending.push(...subdirs);
+      else for (let k = subdirs.length - 1; k >= 0; k -= 1) pending.push(subdirs[k]);
+    }
     if (matcher) await flushDeferred();
   } finally {
     if (matcher) matcher.close();
   }
-  if (hitCap || patternTimedOut) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  if (patternTimedOut) { hitCap = true; if (!reason) reason = 'patternTimeout'; }
+  if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  if (reason) out.truncatedReason = reason;
   if (patternTimedOut) out.patternTimedOut = true;   // 审计 F 后续:模式撞了时间预算(file_list 据此给 patternNote)
+  out.visited = visited;
+  if (pruned.size) out.prunedDirs = [...pruned];
   return out;
+}
+
+// F12:file_list / glob / project_snapshot 的信封。每条只带相对路径(root 在顶层只出现一次,模型自己拼);
+// 修前每条同时带绝对 path 与 relativePath,默认 500 条约 100KB,自己就超过 60K 的模型侧上限被拦腰截断。
+// 目录不带 size(恒为 0 的噪声)。absolute:true 才补回绝对 path(前端文件树用)。
+function walkEnvelopeEntries(files, absolute, extra) {
+  return files.map(f => {
+    const e = { relativePath: f.relativePath };
+    if (absolute) e.path = f.path;
+    e.type = f.type;
+    if (f.type !== 'directory') e.size = f.size;
+    if (extra) Object.assign(e, extra(f));
+    return e;
+  });
+}
+// 截断必须说出来 + 说怎么办(F2):调用方把 truncated:true 与这句 hint 一起放进结果。
+function walkTruncationHint(files, tool) {
+  const why = files && files.truncatedReason;
+  if (why === 'maxVisited') return `${tool}: directory tree too large (stopped after ${files.visited} entries); pass a narrower root, or a more specific pattern`;
+  if (why === 'patternTimeout') return `${tool}: pattern matching hit its time budget; simplify the pattern or narrow root`;
+  return `${tool}: result capped at maxFiles; narrow root/pattern, lower maxDepth, or raise maxFiles`;
+}
+// F13:file_list.pattern 是正则(对相对路径、默认不区分大小写)。模型常把它当 glob 写(`*.js`、`**/*.ts`)—— 修前直接抛
+// 「Nothing to repeat」的原始 SyntaxError。这里:含 `*` 又不含任何正则专属字符 → 按 glob 处理(无 '/' 的按文件名任意层级匹配,
+// 与 glob 工具的 `**/` 前缀写法一致);既不像 glob 又编译不过 → 给 bad_pattern + 人话 hint。
+function classifyListPattern(raw) {
+  const p = String(raw == null ? '' : raw);
+  if (!p) return { kind: 'none' };
+  let compiles = true;
+  try { new RegExp(p, 'i'); } catch { compiles = false; }
+  // `.*` / `.?` 在能编译时按正则理解(`src/.*` 是正则);编译不过的(以 `*` 开头,如 `*.*`)只可能是 glob。
+  const globish = p.includes('*') && !/[\^$()|\\+{}[\]]/.test(p) && (!compiles || !/\.[*?]/.test(p));
+  if (globish) {
+    const re = globToRegExp(/[\\/]/.test(p) ? p : '**/' + p);
+    return { kind: 'glob', accept: rel => re.test(rel), note: 'pattern looks like a glob and was applied as one (no "/" in it → matches the file name at any depth); pass a regular expression such as \\.js$ to use regex matching' };
+  }
+  if (compiles) return { kind: 'regex' };
+  {
+    let msg = '';
+    try { new RegExp(p, 'i'); } catch (e) { msg = (e && e.message) || String(e); }
+    return { kind: 'invalid', error: `pattern is not a valid regular expression: ${msg}`, hint: 'file_list.pattern is a regular expression tested against the relative path (e.g. \\.js$ or ^src/.*\\.ts$); for glob patterns use the glob tool, or write a glob such as **/*.js' };
+  }
 }
 
 // v0.8-S1: grep v2. Backward compatible — with no new params the returned records are byte-identical
@@ -827,7 +1088,12 @@ async function searchFileContent(root, pattern, opts = {}) {
   if (await hasRgAsync()) {
     try {
       const viaRg = await searchFileContentRg(root, norm.pattern, effOpts);
-      if (viaRg) results = viaRg;
+      if (viaRg) {
+        results = viaRg;
+        // rg 不报被剪掉的目录;补一次有界探查,让「没搜到」不再静默地可能落在 build/dist/out/target 里。
+        const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(() => []);
+        if (pd.length) results.prunedDirs = pd;
+      }
     } catch { /* fall through to JS path */ }
   }
   if (!results) results = await searchFileContentJs(root, norm.pattern, effOpts);
@@ -872,7 +1138,8 @@ const REGEX_SCAN_WORKER_SRC = `
   for (const file of files) {
     if (count >= maxResults) break;
     let raw = '';
-    try { raw = fs.readFileSync(file.path, 'utf8'); } catch { continue; }
+    // F7:含 NUL 的文件按二进制跳过(与 rg 口径一致;此前 JS 引擎会在随机二进制里命中)。
+    try { const buf = fs.readFileSync(file.path); if (buf.subarray(0, 8192).includes(0)) continue; raw = buf.toString('utf8'); } catch { continue; }
     if (wholeFile) {
       re.lastIndex = 0;
       if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
@@ -935,22 +1202,133 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
   });
 }
 
+// F7:内容搜索的单文件体积上限(两个引擎同一个默认值)。1MB 太小 —— 日志文件恰恰是最常被搜的,且 rg 是流式的、
+// JS worker 一次只读一个文件,20MB 的内存/耗时都可控。超限的文件不再静默:JS 引擎在结果里列 skippedLargeFiles,
+// rg 引擎在结果里带 maxFileBytes,让模型知道「更大的文件没搜」并可用 maxFileBytes 调高(上限 200MB)。
+const SEARCH_DEFAULT_MAX_FILE_BYTES = 20 * 1024 * 1024;
+const SEARCH_MAX_FILE_BYTES_CEILING = 200 * 1024 * 1024;
+function searchMaxFileBytes(opts) {
+  const n = Number(opts && opts.maxFileBytes);
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), SEARCH_MAX_FILE_BYTES_CEILING) : SEARCH_DEFAULT_MAX_FILE_BYTES;
+}
+const SEARCH_JS_DEFAULT_MAX_FILES = 5000;
+// 深度默认【不限】(两个引擎同一口径):调用方传 maxDepth 才限。JS 的 maxDepth=N = 最多下钻 N 层目录(文件最深 N+1 段),
+// rg 的 --max-depth 数路径段,故传给 rg 时 +1。修前 rg 无条件 --max-depth 9(Maven/Gradle/monorepo 的深层源码静默搜不到),
+// JS 是 8 —— 两边还各说各话。无限深度由 maxFiles / maxVisited 兜底(dirent 不跟符号链接,不会环)。
+function searchMaxDepth(opts) {
+  const n = Number(opts && opts.maxDepth);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+// 内容搜索里「调用方点名了谁」:glob 的字面段(`dist/**`、`.github/**`)与 root 的末段 → 这些默认清单里的目录不剪;
+// glob 里字面的 '.' 开头段 → 隐藏项放行(glob 本身把搜索范围框死在它之内,不会借此扫全部隐藏目录)。
+function explicitAllowDirs(root, segs) {
+  let rootName = '';
+  try { rootName = path.basename(path.resolve(root || '.')); } catch { rootName = ''; }
+  return rootName ? [...segs, rootName] : segs;
+}
+function searchExplicitNames(root, opts) {
+  const segs = explicitSegmentsOfGlob(opts && opts.glob);
+  return { allowDirs: explicitAllowDirs(root, segs), allowHidden: segs.filter(x => x.startsWith('.') && x.length > 1) };
+}
+// 被默认清单剪掉的目录名的提示语(file_search/glob/file_list/project_snapshot 共用):剪了就说,并说怎么放开。
+function prunedDirsHint(tool) {
+  return `${tool}: skipped dependency/build/cache folders (see prunedDirs); a miss may be inside them - pass includeIgnored:true to include them`;
+}
+// rg 引擎自己不报剪了谁:对同一棵树做一次有界的、只读目录的探查(深度 ≤ 6、最多读 2000 个目录),列出默认清单会剪的目录。
+async function discoverPrunedDirs(root, opts, names) {
+  if (opts.includeIgnored === true) return [];
+  const ignore = buildIgnoreMatcher({ ignoreDirs: opts.ignoreDirs, allowDirs: names.allowDirs });
+  const found = [];
+  const base = path.resolve(root || process.cwd());
+  const queue = [{ dir: base, rel: '', depth: 0, hiddenOk: false }];
+  const allowH = new Set(names.allowHidden.map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
+  let reads = 0;
+  const maxDepth = Math.min(searchMaxDepth(opts) || 6, 6);
+  for (let qi = 0; qi < queue.length && reads < 2000 && found.length < 12; qi += 1) {
+    const { dir, rel, depth, hiddenOk } = queue[qi];
+    reads += 1;
+    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      let ok = hiddenOk;
+      if (!hiddenOk && opts.includeHidden !== true && e.name.charCodeAt(0) === 46) {
+        if (!allowH.has(process.platform === 'win32' ? e.name.toLowerCase() : e.name)) continue;
+        ok = true;
+      }
+      const r = rel ? rel + '/' + e.name : e.name;
+      if (ignore.pruneName(e.name, r, dotnetDir)) { if (found.length < 12 && !found.includes(r)) found.push(r); continue; }
+      if (depth < maxDepth) queue.push({ dir: path.join(dir, e.name), rel: r, depth: depth + 1, hiddenOk: ok });
+    }
+  }
+  return found;
+}
+
 async function searchFileContentJs(root, pattern, opts = {}) {
+  // 不含 '/' 的 glob(`*.js`)按文件名在任意层级匹配(与 rg 的 -g 同一语义;修前 JS 引擎只配根下的文件)。
+  const globRe = opts.glob ? globToRegExp(/[\\/]/.test(String(opts.glob)) ? String(opts.glob) : '**/' + String(opts.glob)) : null;
+  // glob 在遍历时就过滤(accept),配额只数「真会被扫描的文件」;修前先按遍历顺序截 2000 条再滤,
+  // 前 2000 条是 .github / __pycache__ 时后面的源码一个都搜不到,而且 truncated 被丢掉。
+  const names = searchExplicitNames(root, opts);
   const files = await walkFiles(root, {
     recursive: true,
-    maxFiles: opts.maxFiles || 2000,
-    maxDepth: opts.maxDepth || 8,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
+    maxFiles: opts.maxFiles || SEARCH_JS_DEFAULT_MAX_FILES,
+    maxDepth: searchMaxDepth(opts) || Infinity,
+    emitDirs: false,
+    ignoreDirs: opts.ignoreDirs,
+    includeIgnored: opts.includeIgnored === true,
+    allowDirs: names.allowDirs,
+    // 隐藏文件/目录(.ssh/.aws/.env …)默认不搜,includeHidden:true 才搜;glob 字面点名的隐藏段(.github/**)例外。
+    skipHidden: opts.includeHidden !== true,
+    allowHidden: names.allowHidden,
+    accept: globRe ? (rel => globRe.test(rel)) : null,
   });
   // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
   const flags = (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || '');
-  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
-  const maxFileBytes = Number(opts.maxFileBytes || 1024 * 1024);
-  const scanFiles = files.filter(f => f.type === 'file' && !(f.size > maxFileBytes) && !(globRe && !globRe.test(f.relativePath)));
+  const maxFileBytes = searchMaxFileBytes(opts);
+  const scanFiles = [];
+  const skippedLarge = [];
+  for (const f of files) {
+    if (f.type !== 'file') continue;
+    if (f.size > maxFileBytes) skippedLarge.push(f.relativePath); else scanFiles.push(f);
+  }
   const scan = await regexScanFilesBounded(scanFiles, pattern, flags, opts);
   const grouped = maybeGroup(scan.results, opts.group);
   if (scan.timedOut) grouped.regexTimedOut = true;
+  grouped.engine = 'js';
+  grouped.scannedFiles = scanFiles.length;
+  grouped.maxFileBytes = maxFileBytes;
+  if (files.truncated) { grouped.walkTruncated = true; grouped.walkTruncatedReason = files.truncatedReason || 'maxFiles'; }
+  if (skippedLarge.length) grouped.skippedLargeFiles = skippedLarge;
+  if (files.prunedDirs) grouped.prunedDirs = files.prunedDirs;
   return grouped;
+}
+
+// rg 的 glob 是 gitignore 语法:不含 '/' 的名字在任意层级匹配目录,含 '/' 的按相对 cwd 锚定。
+function ignoreGlobsForRg(opts, allowDirs) {
+  const m = buildIgnoreMatcher({ includeIgnored: opts.includeIgnored === true, ignoreDirs: opts.ignoreDirs, allowDirs });
+  const globs = [];
+  for (const n of m.names) globs.push('!' + n + '/');
+  for (const p of m.paths) globs.push('!**/' + p + '/');
+  return globs;
+}
+// rg 带 --hidden 后会进数据根;JS 路径在 walkFiles 里剪掉敏感子树,rg 只能靠 glob 排除(结果层过滤在后面兜底,
+// 但不排除的话敏感文件的命中会先占满 maxResults 再被滤掉 → 假阴性)。
+function sensitiveGlobsForRg(base) {
+  const globs = [];
+  try {
+    const roots = [...new Set([dataRoot(), ...dataRootAliases()])];
+    for (const r of roots) {
+      for (const n of ['config.json', 'runtime.json', 'sessions', 'memory', 'usage', 'logs', 'generated', 'agent-runs']) {
+        const rel = path.relative(base, path.join(r, n));
+        if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) globs.push('!/' + rel.split(path.sep).join('/'));
+      }
+      const relRoot = path.relative(base, r);
+      if (relRoot && !relRoot.startsWith('..') && !path.isAbsolute(relRoot)) globs.push('!/' + relRoot.split(path.sep).join('/') + '/config.json*');
+    }
+  } catch { /* 取不到数据根 → 只剩结果层过滤 */ }
+  return globs;
 }
 
 // rg --json emits NDJSON: one JSON object per line. We care about type:'match' events. The matched
@@ -964,14 +1342,27 @@ function searchFileContentRg(root, pattern, opts = {}) {
   const base = path.resolve(root || process.cwd());
   const ctx = Math.max(0, Math.min(5, Number(opts.context || 0) || 0));
   const maxResults = Number(opts.maxResults || 200);
+  // 与 JS 引擎同一口径:跳二进制、默认不搜隐藏(.ssh/.aws/.env …,includeHidden:true 才搜;glob 字面点名的隐藏段例外)、
+  // 目录忽略靠共用清单。rg 额外遵守 .gitignore(仅在 git 仓库内生效,rg 的默认行为),includeIgnored:true 或调用方
+  // 显式点名了默认清单里的目录(dist/**)时才 --no-ignore —— 否则 gitignore 会把点名的 dist 又吞掉。
+  const names = searchExplicitNames(base, opts);
   const args = ['--json', '--no-messages'];
+  if (opts.includeHidden === true || names.allowHidden.length) args.push('--hidden');
+  const defaultNames = new Set(DEFAULT_IGNORE_DIRS.filter(x => !x.includes('/')).map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
+  const namedIgnored = names.allowDirs.some(x => defaultNames.has(process.platform === 'win32' ? String(x).toLowerCase() : String(x)));
+  if (opts.includeIgnored === true || namedIgnored) args.push('--no-ignore');
   if (opts.ignoreCase !== false) args.push('-i');
   if (ctx > 0) { args.push('-C', String(ctx)); }
+  // rg 的 -g 区分大小写(Windows 也是),而忽略清单在 Windows 上是小写化、不分大小写剪的(Build/、用户的 ignoreDirs:['Vendor'])。
+  // 所以 win32 上排除类 glob 走 --iglob(不分大小写);调用方自己的 glob 仍用 -g,原样不动。
+  const exclFlag = process.platform === 'win32' ? '--iglob' : '-g';
   if (opts.glob) { args.push('-g', String(opts.glob)); }
-  for (const d of (opts.ignoreDirs || ['node_modules', '.git', '.venv'])) { args.push('-g', '!' + d + '/'); }
-  // Align rg's scan limits with the JS path so both paths skip the same big files / deep dirs.
-  args.push('--max-filesize', String(opts.maxFileBytes || 1024 * 1024));
-  if (opts.maxDepth) args.push('--max-depth', String(opts.maxDepth));
+  for (const g of ignoreGlobsForRg(opts, names.allowDirs)) args.push(exclFlag, g);
+  for (const g of sensitiveGlobsForRg(base)) args.push(exclFlag, g);
+  args.push('--max-filesize', String(searchMaxFileBytes(opts)));
+  // 深度:调用方没传就不限(见 searchMaxDepth);传了按路径段 +1 与 JS 对齐。
+  const depthCap = searchMaxDepth(opts);
+  if (depthCap) args.push('--max-depth', String(depthCap + 1));
   args.push('--', String(pattern), base);
   return new Promise(resolve => {
     let stdout = '', stderr = '', done = false;
@@ -1037,7 +1428,10 @@ function searchFileContentRg(root, pattern, opts = {}) {
         }
       }
       finalizeBlock(lastMatch);
-      finish(maybeGroup(results, opts.group));
+      const grouped = maybeGroup(results, opts.group);
+      grouped.engine = 'rg';
+      grouped.maxFileBytes = searchMaxFileBytes(opts);
+      finish(grouped);
     });
   });
 }
@@ -1061,7 +1455,30 @@ async function readIfExists(file, limit = 200000) {
 // 两个引擎路径都注册(serve 进程 provider 循环 + `node server.js mcp` 子进程),因为这是无状态一次性命令,
 // 同 file_read/powershell_run 一样自然工作 —— 不像 shell 会话那样需要 provider-only 护栏。
 // ============================================================================
-const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断加注(200KB)
+// NE-7:git_diff 上限按【序列化后的 JSON 字符】算,并要低于模型可见上限(10 truncateToolResult 的 60K)。修前 200KB 的 diff 序列化后
+// 超过 60K,会被下游平切 —— 「已截断」说明和 truncated 字段恰好落在被切掉的尾部,模型不知道自己没看到哪些文件。
+// 截断时另附 --stat 文件清单(≤ STAT 字符),模型据此用 path 参数逐个文件看。
+const GIT_DIFF_MAX_CHARS = 40000;
+const GIT_DIFF_STAT_MAX_CHARS = 6000;
+const GIT_DIFF_MAX_BUFFER = 8 * 1024 * 1024; // diff 只需要开头一段;超出就停,不再把几十 MB 读进内存(整体 maxBuffer 24MB 会让超大 diff 直接失败)
+const GIT_UNTRACKED_LIST_MAX = 50;
+// 只保留开头、使序列化(JSON 转义后:换行/引号会变长)长度不超过 budget,尽量收在整行边界。返回 { text }。
+// (不复用 04 DesktopShell 的同类函数:11 引用 04 会在依赖图里新增一条循环边。)
+function gitHeadToJsonBudget(text, budget) {
+  const s = String(text == null ? '' : text);
+  const len = x => JSON.stringify(x).length;
+  if (len(s) <= budget) return { text: s };
+  let n = Math.min(s.length, budget);
+  let cut = s.slice(0, n);
+  for (let i = 0; i < 8 && len(cut) > budget; i += 1) {
+    n = Math.max(1, Math.floor(n * (budget / len(cut)) * 0.95));
+    cut = s.slice(0, n);
+  }
+  const nl = cut.lastIndexOf('\n');
+  if (nl >= cut.length * 0.5) cut = cut.slice(0, nl + 1);
+  else if (/[\ud800-\udbff]/.test(cut[cut.length - 1] || '')) cut = cut.slice(0, -1);
+  return { text: cut };
+}
 // v1.0 收官安全加固(对抗复核 CONFIRMED·CRITICAL):git 会执行由被操作仓库自带 `.git/config` 指定的
 // 外部程序 —— `core.fsmonitor`(status/diff 读 index 时执行)、`diff.external` / textconv(diff 时执行)。
 // git_status/git_diff 是 read 档、所有权限模式恒放行零弹窗,若不覆盖这些键,「看一眼陌生仓库的 git 状态」
@@ -1071,7 +1488,8 @@ const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断�
 // 的外部差异器」而报 `external diff died`,反而破坏正常 diff;diff.external / textconv 面改由 gitDiff 的
 // `--no-ext-diff --no-textconv` 关闭(diff 子命令专用选项,见 gitDiff)。GIT_SAFE_FLAGS 对 ALL git 调用统一
 // 前置(commit 亦安全:它不读 fsmonitor;合法 pre-commit hook 走 core.hooksPath,未被触碰,仍在 exec 档权限门下)。
-const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0'];
+// NE-7:core.quotepath=false —— 否则中文路径在 status/diff 里被写成 "\346\226\260..." 八进制转义,模型和用户都读不了。
+const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0', '-c', 'core.quotepath=false'];
 // execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
 // opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
@@ -1085,7 +1503,7 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
         cwd: cwd || process.cwd(),
         windowsHide: true,
         timeout: Math.max(1000, Number(timeoutMs || 15000)),
-        maxBuffer: 24 * 1024 * 1024,
+        maxBuffer: opts && opts.maxBuffer ? opts.maxBuffer : 24 * 1024 * 1024,
         encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
@@ -1132,16 +1550,19 @@ function gitReadOnlyGuardError(guard, cwd) {
   }
   return gitHumanError(guard && guard.res, cwd);
 }
-// Resolve the working directory a git tool runs in. Mirrors powershell_run's lenient handling: an explicit,
-// existing absolute dir wins; anything unusable falls back to the session/home workspace (never throws).
+// Resolve the working directory a git tool runs in. 工具分发(12)总是传入执行闸/会话解析好的绝对 cwd;这里只兜住没有 cwd 的
+// 直接调用方(缺省家目录)。NE-6:显式给了却不存在/不是目录 → 返回 null(调用方报「目录不存在」),不再悄悄换成家目录 ——
+// 修前手滑的 cwd 会让 git_status 在 $HOME 上报「不是 Git 仓库」、git_commit 甚至提交到 $HOME 所在的别的仓库。
 function resolveGitCwd(raw) {
-  const home = os.homedir();
   const candidate = String(raw || '').trim();
-  if (!candidate) return home;
+  if (!candidate) return os.homedir();
   let resolved;
-  try { resolved = path.resolve(candidate); } catch { return home; }
+  try { resolved = path.resolve(candidate); } catch { return null; }
   try { if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) return resolved; } catch { /* fall through */ }
-  return home;
+  return null;
+}
+function gitCwdMissingError(raw) {
+  return { ok: false, error: `目录不存在: ${String(raw || '').trim()}`, hint: '确认 cwd 是已存在的仓库目录(Windows 用完整盘符路径),或省略 cwd 使用当前对话的工作目录。' };
 }
 // Map a failed git invocation to a 中文人话引导错误. Order matters: binary-missing first (nothing else is
 // meaningful without git), then the common "not a repo" and "missing identity" cases, else the raw stderr.
@@ -1193,6 +1614,7 @@ function summarizeGitStatus(stdout) {
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:关掉仓库自带过滤器与子模块递归
   if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
   const res = await runGit([...guard.flags, '-C', cwd, 'status', '--porcelain=v1', '-b', '--ignore-submodules=dirty'], cwd, args.timeoutMs || 15000);
@@ -1206,14 +1628,17 @@ async function gitStatus(args = {}) {
 // SECURITY: any model-controllable path goes AFTER `--`; a lone `-`-leading path with no separator is refused.
 async function gitDiff(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   // 安全加固(对抗复核 CRITICAL 的 diff 面):--no-ext-diff 忽略仓库配置的 diff.external 外部差异器,
   // --no-textconv 关掉 gitattributes 指定的 textconv 过滤器 —— 两者都会执行仓库自带的外部程序,是 read 档
   // git_diff 下的代码执行面。用 diff 子命令专用选项关闭(不能用 `-c diff.external=` 空值,那会让 git 尝试
   // spawn 空命令而报错)。正常 diff 输出不受影响(已实弹验证:+/- 行照常产出、恶意 diff.external 不触发)。
   const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:clean/smudge/process 过滤器与子模块递归
   if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
-  const gitArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
-  if (args.staged === true) gitArgs.push('--cached');
+  const baseArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
+  const gitArgs = [...baseArgs];
+  const staged = args.staged === true;
+  if (staged) gitArgs.push('--cached');
   // contextLines → -U<n> (clamped 0..50). Passed as a single joined arg so it can't be split/走私.
   const ctx = Number(args.contextLines);
   if (Number.isFinite(ctx)) gitArgs.push('-U' + String(Math.max(0, Math.min(50, Math.floor(ctx)))));
@@ -1221,23 +1646,56 @@ async function gitDiff(args = {}) {
   // never a git flag. (We still pass it verbatim — execFile means no shell, so no further quoting needed.)
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath);
-  const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
-  if (!res.ok) return gitHumanError(res, cwd);
-  let diff = res.stdout || '';
+  // diff 按原始字节取、再按行判 UTF-8/GBK(GBK 源文件的 diff 不再变成 U+FFFD);maxBuffer 8MB —— 撞上限不算失败,按「太大」处理。
+  const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
+  const asText = b => (Buffer.isBuffer(b) ? decodeConsoleText(b) : String(b || ''));
+  const overflow = !res.ok && res.error && res.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+  if (!res.ok && !overflow) return gitHumanError({ ...res, stdout: asText(res.stdout), stderr: asText(res.stderr) }, cwd);
+  const full = asText(res.stdout);
+  let diff = full;
   let truncated = false;
-  if (Buffer.byteLength(diff, 'utf8') > GIT_DIFF_MAX_BYTES) {
-    // Truncate on a byte budget, then trim back to a whole-character boundary and add a 人话 note.
-    diff = Buffer.from(diff, 'utf8').slice(0, GIT_DIFF_MAX_BYTES).toString('utf8');
+  let stat = '';
+  if (overflow || JSON.stringify(full).length > GIT_DIFF_MAX_CHARS) {
     truncated = true;
-    diff += `\n\n[已截断:diff 超过 ${Math.round(GIT_DIFF_MAX_BYTES / 1024)}KB。可用 path 参数只看单个文件,或减小 contextLines。]`;
+    const cut = gitHeadToJsonBudget(full, GIT_DIFF_MAX_CHARS);
+    const total = overflow ? `超过 ${Math.round(GIT_DIFF_MAX_BUFFER / 1024 / 1024)}MB` : `${full.length} 字符`;
+    diff = cut.text + `\n\n[已截断:diff 共 ${total},只显示前 ${cut.text.length} 字符。文件清单见 stat;用 path 参数只看单个文件,或减小 contextLines。]`;
+    const statArgs = [...baseArgs, '--stat=120,60', '--stat-count=60'];
+    if (staged) statArgs.push('--cached');
+    if (rawPath) statArgs.push('--', rawPath);
+    const st = await runGit(statArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
+    if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) stat = gitHeadToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
   }
-  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated,
-    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
+  const out = { ok: true, cwd, staged, path: rawPath || undefined, truncated };
+  // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
+  let untracked = [];
+  let untrackedCount = 0;
+  if (!truncated && diff.trim() === '' && !staged) {
+    const lsArgs = [...guard.flags, '-C', cwd, 'ls-files', '--others', '--exclude-standard', '-z'];
+    if (rawPath) lsArgs.push('--', rawPath);
+    const ls = await runGit(lsArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer' });
+    if (ls.ok) {
+      const names = asText(ls.stdout).split('\0').filter(Boolean);
+      untrackedCount = names.length;
+      untracked = names.slice(0, GIT_UNTRACKED_LIST_MAX);
+    }
+  }
+  out.empty = diff.trim() === '' && untrackedCount === 0;
+  if (untrackedCount) {
+    out.untracked = untracked;
+    out.untrackedCount = untrackedCount;
+    out.hint = `没有已跟踪文件的改动,但有 ${untrackedCount} 个未跟踪的新文件(git diff 不含它们);用 file_read 看内容,或 git_commit 时用 paths/addAll 纳入。`;
+  }
+  if (stat) out.stat = stat;
+  out.diff = diff;
+  if (guard.names.length) out.filtersNeutralized = guard.names;
+  return out;
 }
 
 // git_log {cwd?, maxCount?, path?}: recent commits as a row table. tier: read.
 async function gitLog(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
   // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
   const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
@@ -1256,6 +1714,7 @@ async function gitLog(args = {}) {
 // SECURITY: message via `-m <message>` (two elements); paths after `--`; NEVER --no-verify; NEVER fake identity.
 async function gitCommit(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   const message = String(args.message != null ? args.message : '').trim();
   if (!message) return { ok: false, error: 'message 不能为空', hint: '请给这次提交写一句说明(例如「修好登录按钮」)。', cwd };
   const paths = Array.isArray(args.paths) ? args.paths.filter(p => typeof p === 'string' && p.trim() !== '') : [];
@@ -1275,7 +1734,7 @@ async function gitCommit(args = {}) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
     if (/nothing to commit|no changes added|nothing added to commit/.test(low)) {
-      return { ok: false, error: '没有可提交的改动', hint: '工作区没有变化,或改动还没被暂存。先确认有改动再提交。', cwd, detail: (res.stdout || res.stderr || '').trim() };
+      return { ok: false, error: '没有可提交的改动', hint: '工作区没有变化,或改动还没被暂存。有改动时传 addAll:true(暂存全部)或 paths:[...](只暂存这些文件)再提交。', cwd, detail: (res.stdout || res.stderr || '').trim() };
     }
     return gitHumanError(res, cwd);
   }
@@ -1308,7 +1767,8 @@ async function dependencyInventory(root) {
   for (const rel of candidates) {
     const full = path.join(cwd, rel);
     if (fs.existsSync(full)) {
-      files.push({ relativePath: rel, path: full, content: await readIfExists(full, 80000) });
+      // F14:只有 package.json 的内容会被用到(下面解析),其余 14 个清单文件只需存在与否 —— 别再白读 8 万字符再丢掉。
+      files.push({ relativePath: rel, path: full, content: rel === 'package.json' ? await readIfExists(full, 80000) : '' });
     }
   }
   const packageJson = files.find(f => f.relativePath === 'package.json');
@@ -1331,13 +1791,17 @@ async function codeReviewScan(root, opts = {}) {
     recursive: true,
     maxFiles: opts.maxFiles || 1200,
     maxDepth: opts.maxDepth || 8,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv', 'dist', 'build', 'coverage', '.next', 'out', 'target'],
+    ignoreDirs: opts.ignoreDirs,   // F2:追加到共用清单(buildIgnoreMatcher)
+    includeIgnored: opts.includeIgnored === true,
   });
   const patterns = [
     { id: 'hardcoded-secret', severity: 'high', re: /(api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]{8,}/i, hint: 'Possible hardcoded credential' },
-    { id: 'shell-exec', severity: 'medium', re: /\b(exec|execSync|Invoke-Expression|IEX|shell_exec|system)\s*\(/i, hint: 'Shell execution needs input validation' },
-    { id: 'sql-concat', severity: 'medium', re: /(SELECT|UPDATE|DELETE|INSERT).{0,80}(\+|\$\{)/i, hint: 'Possible SQL string interpolation' },
-    { id: 'xss-html', severity: 'medium', re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
+    // NE-14:修前 `\bexec\s*\(` 把每一处 `regex.exec(` 都当成 shell 执行(本仓 app/src 60 处命中 51 处是正则),sql-concat 不带词界又开了 i,
+    // 命中的全是 querySelector/.delete(/Update 散文。收紧:裸调用要求前面不是 `.`/字母(排除 re.exec、fooexec),对象方法只认
+    // child_process/cp 这类子进程对象;SQL 要求出现在字符串字面量里、有 SELECT…FROM / INSERT INTO / UPDATE…SET / DELETE FROM 的形状且拼接了变量。
+    { id: 'shell-exec', severity: 'medium', codeOnly: true, re: /(?<![.\w$])(?<!\bfunction\s+)(?:execSync|exec|shell_exec|system)\(|\bInvoke-Expression\b|\bIEX\s|\b(?:child_process|childProcess|cp)\.(?:exec|execSync)\s*\(|\brequire\(\s*['"](?:node:)?child_process['"]\s*\)\.(?:exec|execSync)\s*\(|\bos\.system\s*\(|\bshell\s*[:=]\s*(?:true|True)\b/, hint: 'Shell execution needs input validation' },
+    { id: 'sql-concat', severity: 'medium', codeOnly: true, re: /(['"`])\s*(?:SELECT\s[^'"`]{1,200}?\sFROM\s|INSERT\s+INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s)[^'"`]*(?:\$\{|\1\s*\+)/i, hint: 'Possible SQL string interpolation' },
+    { id: 'xss-html', severity: 'medium', codeOnly: true, re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
     { id: 'broad-cors', severity: 'medium', re: /(Access-Control-Allow-Origin.{0,40}\*|cors\(\s*\))/i, hint: 'Review CORS policy' },
     { id: 'disabled-tls', severity: 'high', re: /(NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0|rejectUnauthorized\s*:\s*false)/i, hint: 'TLS verification disabled' },
     { id: 'todo-marker', severity: 'low', re: /\b(TODO|FIXME|HACK|XXX)\b/i, hint: 'Unresolved engineering note' },
@@ -1351,7 +1815,10 @@ async function codeReviewScan(root, opts = {}) {
     const lines = raw.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
       if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(lines[i])) continue;
+      // codeOnly 规则不看纯注释行(//、/*、*、#、<!--):注释里提到 exec( / innerHTML 不是风险点(hardcoded-secret 与 todo-marker 照旧全行扫)。
+      const commentLine = /^\s*(?:\/\/|\/\*|\*|#|<!--)/.test(lines[i]);
       for (const ptn of patterns) {
+        if (ptn.codeOnly && commentLine) continue;
         if (ptn.re.test(lines[i])) {
           findings.push({
             id: ptn.id,
@@ -1359,7 +1826,7 @@ async function codeReviewScan(root, opts = {}) {
             path: file.path,
             relativePath: file.relativePath,
             line: i + 1,
-            text: lines[i].trim().slice(0, 500),
+            text: lines[i].trim().slice(0, 200),
             hint: ptn.hint,
           });
           break;
@@ -1372,7 +1839,10 @@ async function codeReviewScan(root, opts = {}) {
     acc[f.severity] = (acc[f.severity] || 0) + 1;
     return acc;
   }, {});
-  return { ok: true, root: cwd, counts, findings };
+  // NE-14:高危排前面(稳定排序,同级保持遍历顺序);counts 在 findings 之前 —— 名单再长被下游平切,也先看得到总数。
+  const sevRank = { high: 0, medium: 1, low: 2 };
+  const sorted = findings.map((f, i) => [f, i]).sort((a, b) => (sevRank[a[0].severity] - sevRank[b[0].severity]) || (a[1] - b[1])).map(x => x[0]);
+  return { ok: true, root: cwd, counts, total: sorted.length, findings: sorted };
 }
 
 async function frontendAudit(root, opts = {}) {
@@ -1381,13 +1851,15 @@ async function frontendAudit(root, opts = {}) {
     recursive: true,
     maxFiles: opts.maxFiles || 800,
     maxDepth: opts.maxDepth || 6,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv', 'dist', 'build', 'coverage', '.next', 'out', 'target'],
+    ignoreDirs: opts.ignoreDirs,   // F2:追加到共用清单(buildIgnoreMatcher)
+    includeIgnored: opts.includeIgnored === true,
   });
   const issues = [];
   for (const file of files.filter(f => f.type === 'file' && /\.(html|css|js|jsx|ts|tsx|vue|svelte)$/i.test(f.path))) {
     if (file.size > 1024 * 1024) continue;
     const raw = await readIfExists(file.path, 1024 * 1024);
-    const lines = raw.split(/\r?\n/).filter(line => !/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line));
+    const allLines = raw.split(/\r?\n/);
+    const lines = allLines.filter(line => !/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line));
     const checks = [
       { id: 'external-asset', re: /https?:\/\/(cdn|fonts|unpkg|jsdelivr|cdnjs|googleapis|gstatic)\./i, hint: 'External CDN/font asset will fail offline' },
       { id: 'missing-viewport', re: /<html[\s\S]*<\/html>/i, hint: 'HTML page may need a viewport meta tag', custom: text => /<html[\s\S]*<\/html>/i.test(text) && !/<meta[^>]+viewport/i.test(text) },
@@ -1396,11 +1868,20 @@ async function frontendAudit(root, opts = {}) {
       { id: 'one-note-gradient', re: /(radial-gradient|linear-gradient).{0,80}(purple|violet|slate|blue)/i, hint: 'Review for generic gradient-heavy visual style' },
     ];
     for (const check of checks) {
-      const match = check.custom ? check.custom(raw) : lines.some(line => {
-        check.re.lastIndex = 0;
-        return check.re.test(line);
-      });
-      if (match) issues.push({ id: check.id, path: file.path, relativePath: file.relativePath, hint: check.hint });
+      // NE-14:给出首个命中行号与片段(行号按原文件,规则定义行被滤掉也不偏);external-asset 不看注释行里的 CDN 链接。
+      let hitLine = 0;
+      let hitText = '';
+      if (!check.custom) {
+        for (let li = 0; li < allLines.length; li += 1) {
+          const line = allLines[li];
+          if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line)) continue;
+          if (check.id === 'external-asset' && /^\s*(?:\/\/|\*|\/\*|<!--)/.test(line)) continue;
+          check.re.lastIndex = 0;
+          if (check.re.test(line)) { hitLine = li + 1; hitText = line.trim().slice(0, 160); break; }
+        }
+      }
+      const match = check.custom ? check.custom(raw) : hitLine > 0;
+      if (match) issues.push({ id: check.id, path: file.path, relativePath: file.relativePath, ...(hitLine ? { line: hitLine, text: hitText } : {}), hint: check.hint });
     }
   }
   return { ok: true, root: cwd, issues };
@@ -1413,11 +1894,12 @@ async function claudeMdAudit(root) {
   for (const f of files.filter(_ => _.type === 'file')) {
     const content = await readIfExists(f.path, 200000);
     const checks = [
-      { id: 'purpose', ok: /purpose|overview|目标|说明/i.test(content) },
-      { id: 'commands', ok: /test|build|lint|run|命令|测试|构建/i.test(content) },
-      { id: 'style', ok: /style|convention|pattern|规范|约定/i.test(content) },
-      { id: 'safety', ok: /permission|secret|credential|安全|权限|密钥/i.test(content) },
-      { id: 'offline', ok: /offline|air.?gap|intranet|内网|离线/i.test(content) },
+      // NE-14:英文关键词加词界 —— 修前 `test` 会命中 "latest",一份「latest thoughts, nothing else here」的 CLAUDE.md 也算写了命令。
+      { id: 'purpose', ok: /\b(?:purpose|overview)\b|目标|说明/i.test(content) },
+      { id: 'commands', ok: /\b(?:tests?|build|builds|lint|linting|run|npm|node|make|pytest)\b|```|命令|测试|构建/i.test(content) },
+      { id: 'style', ok: /\b(?:style|conventions?|patterns?)\b|规范|约定/i.test(content) },
+      { id: 'safety', ok: /\b(?:permissions?|secrets?|credentials?)\b|安全|权限|密钥/i.test(content) },
+      { id: 'offline', ok: /\b(?:offline|air.?gap|intranet)\b|内网|离线/i.test(content) },
     ];
     audits.push({
       path: f.path,
@@ -1437,48 +1919,45 @@ async function claudeMdAudit(root) {
   };
 }
 
+// F14:docs_search 只搜「文档」。修前 roots 的第一项是整个工作区,于是 300 个 src/*.js 里的命中把文档淹没
+// (且 docs/ 被二次扫描、README 被塞一条合成的 "File contains" 记录)。现在:遍历工作区,只收文档后缀,
+// 优先级 = 根下 README/CHANGELOG/CONTRIBUTING 等 → docs/doc/ 目录 → 其余;返回 truncated + scannedFiles + hint。
+const DOCS_SEARCH_SUFFIXES = /\.(?:md|mdx|markdown|txt|rst|adoc|asciidoc|org)$/i;
 async function docsSearch(root, query, opts = {}) {
   const cwd = path.resolve(root || process.cwd());
-  // v0.8-S3fix: normalize once via the shared sanitizer — the bare `new RegExp(query,'i')` here had the
-  // same (?i)-inline-flag crash file_search fixed in S2fix (found by a live DeepSeek run). The
-  // searchFileContent call below re-normalizes internally (idempotent for a normalized pattern).
+  // v0.8-S3fix: normalize once via the shared sanitizer(见 file_search 的 (?i) 内联标志说明)。
   const nq = normalizeSearchPattern(query);
-  let fileRe = null;
-  try { fileRe = new RegExp(nq.pattern, 'i' + (nq.extraFlags || '')); } catch { fileRe = null; }
-  const roots = [
-    cwd,
-    path.join(cwd, 'docs'),
-    path.join(cwd, 'doc'),
-    path.join(cwd, 'README.md'),
-    path.join(cwd, 'CHANGELOG.md'),
-  ];
-  const matches = [];
-  const seen = new Set();
-  for (const r of roots) {
-    if (!fs.existsSync(r)) continue;
-    const stat = await fsp.stat(r).catch(() => null);
-    if (!stat) continue;
-    if (stat.isFile()) {
-      // 审计 F:整文件(≤40 万字)上的模型正则同样可能灾难回溯 —— 与 file_search 的 JS 路径同一个有界 worker。
-      const hit = fileRe ? await regexScanFilesBounded([{ path: r, relativePath: path.relative(cwd, r) }], nq.pattern, 'i' + (nq.extraFlags || ''), { wholeFile: true, wholeFileChars: 400000, maxResults: 1 }) : null;
-      if (hit && hit.results.length) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
-      continue;
-    }
-    const partial = await searchFileContent(r, query, {
-      maxFiles: opts.maxFiles || 1500,
-      maxResults: opts.maxResults || 200,
-      maxDepth: opts.maxDepth || 8,
-      ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv', 'dist', 'build', 'coverage', '.next', 'out', 'target'],
-    });
-    for (const item of partial) {
-      const key = `${item.path}:${item.line}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        matches.push(item);
-      }
-    }
+  const maxResults = Math.max(1, Number(opts.maxResults || 200));
+  const files = await walkFiles(cwd, {
+    recursive: true,
+    maxFiles: opts.maxFiles || 3000,
+    maxDepth: opts.maxDepth || 8,
+    emitDirs: false,
+    accept: rel => DOCS_SEARCH_SUFFIXES.test(rel),
+    ignoreDirs: opts.ignoreDirs,
+    includeIgnored: opts.includeIgnored === true,
+  });
+  const rank = f => {
+    const segs = f.relativePath.split(/[\\/]/);
+    if (segs.length === 1) return 0;                       // 根下的 README.md / CHANGELOG.md …
+    if (/^(?:docs?|documentation)$/i.test(segs[0])) return 1;
+    return 2;
+  };
+  const cands = files.filter(f => f.type === 'file' && f.size <= 4 * 1024 * 1024)
+    .sort((a, b) => rank(a) - rank(b) || (a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0));
+  const scan = await regexScanFilesBounded(cands, nq.pattern, 'gi' + (nq.extraFlags || ''), { maxResults: maxResults + 1, regexTimeoutMs: opts.regexTimeoutMs });
+  const hits = scan.results;
+  const truncated = hits.length > maxResults || files.truncated === true || scan.timedOut;
+  const out = { ok: true, root: cwd, query, matches: hits.slice(0, maxResults), scannedFiles: cands.length };
+  if (truncated) {
+    out.truncated = true;
+    out.hint = hits.length > maxResults ? 'docs_search: more matches exist; raise maxResults or make the query more specific'
+      : scan.timedOut ? 'docs_search: regex hit its time budget; results may be incomplete'
+        : 'docs_search: file limit reached before all docs were scanned; pass a narrower root or raise maxFiles';
   }
-  return { ok: true, root: cwd, query, matches: matches.slice(0, Number(opts.maxResults || 200)) };
+  if (nq.note) out.patternNote = nq.note;
+  if (files.prunedDirs) out.prunedDirs = files.prunedDirs;
+  return out;
 }
 
 // ============================================================================
@@ -1506,28 +1985,41 @@ async function codebaseSymbolSearch(root, opts = {}) {
   const esc = escapeRegexLiteral(symbol);
   // 词边界只在 symbol 首尾都是 \w([A-Za-z0-9_])时可靠:$foo/-bar 等含非 \w 的符号用字面匹配(诚实降级)。
   const b = (/^[A-Za-z0-9_]/.test(symbol) && /[A-Za-z0-9_]$/.test(symbol)) ? '\\b' : '';
-  const wordRe = new RegExp(b + esc + b, 'i');
+  // F14:默认区分大小写(`User` 不再命中 `user`,`const user = new User()` 也不会被当成 User 的定义、把真正的
+  // new User() 引用吞掉);caseSensitive:false 才放开。关键字(function/class/const…)带首字母大写变体。
+  const symFlag = opts.caseSensitive === false ? 'i' : '';
+  const wordRe = new RegExp(b + esc + b, symFlag);
+  // 关键字带首字母大写变体(VB 的 Sub/Function),符号本身才区分大小写。
+  const kw = (words, tail) => new RegExp('(?:\\b(?:' + words.split('|').flatMap(w => [w, w[0].toUpperCase() + w.slice(1)]).join('|') + ')\\s+)' + '(?:' + esc + ')' + tail, symFlag);
   const defPatterns = [
-    { kind: 'function', re: new RegExp('\\b(?:function|func|fn|def|sub)\\s+' + esc + b, 'i') },
-    { kind: 'class', re: new RegExp('\\b(?:class|interface|struct|enum|trait)\\s+' + esc + b, 'i') },
-    { kind: 'type', re: new RegExp('\\btype\\s+' + esc + b, 'i') },
-    { kind: 'variable', re: new RegExp('\\b(?:const|let|var|val)\\s+' + esc + b, 'i') },
+    { kind: 'function', re: kw('function|func|fn|def|sub', b) },
+    { kind: 'class', re: kw('class|interface|struct|enum|trait', b) },
+    { kind: 'type', re: kw('type', b) },
+    { kind: 'variable', re: kw('const|let|var|val', b) },
   ];
 
+  // F2:后缀过滤放进遍历(accept),1500 的配额只数代码文件 —— 修前对【所有】文件先截 1500 再筛后缀,
+  // 前 1500 个是别的东西时符号一个都找不到,还回 truncated:false。
   const files = await walkFiles(cwd, {
     recursive: true,
-    maxFiles: opts.maxFiles || 1500,
+    maxFiles: opts.maxFiles || 5000,
     maxDepth: opts.maxDepth || 8,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv', 'dist', 'build', 'coverage', '.next', 'out', 'target'],
+    emitDirs: false,
+    accept: rel => CODE_SYMBOL_SUFFIXES.test(rel),
+    ignoreDirs: opts.ignoreDirs,
+    includeIgnored: opts.includeIgnored === true,
   });
   const maxResults = Math.max(1, Number(opts.maxResults || 200));
   const definitions = [];
   const references = [];
   const fileMap = new Map();
   let truncated = false;
+  let scannedFiles = 0;
+  const skippedLargeFiles = [];
 
   outer: for (const file of files.filter(f => f.type === 'file' && CODE_SYMBOL_SUFFIXES.test(f.path))) {
-    if (file.size > 1024 * 1024) continue;
+    if (file.size > 1024 * 1024) { skippedLargeFiles.push(file.relativePath); continue; }
+    scannedFiles += 1;
     const raw = await readIfExists(file.path, 1024 * 1024);
     const lines = raw.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
@@ -1555,12 +2047,19 @@ async function codebaseSymbolSearch(root, opts = {}) {
     }
   }
 
-  return {
+  // F2:遍历撞了文件数/耗时上限 —— 「没找到」可能只是「没扫到」,必须说出来。
+  const walkTruncated = files.truncated === true;
+  const res = {
     ok: true, root: cwd, symbol, kind,
-    definitionCount: definitions.length, referenceCount: references.length, fileCount: fileMap.size, truncated,
+    definitionCount: definitions.length, referenceCount: references.length, fileCount: fileMap.size, truncated: truncated || walkTruncated,
+    scannedFiles,
     definitions, references, files: Array.from(fileMap.values()),
-    note: 'grep-level lexical identifier scan; definition classification is keyword-pattern heuristic, not AST-accurate. Method definitions vs calls are not reliably distinguished.',
+    note: 'grep-level lexical identifier scan; definition classification is keyword-pattern heuristic, not AST-accurate. Method definitions vs calls are not reliably distinguished.' + (opts.caseSensitive === false ? '' : ' Matching is case-sensitive (pass caseSensitive:false to ignore case).'),
   };
+  if (walkTruncated) res.hint = 'codebase_symbol_search: file limit reached before all code files were scanned, so a missing symbol may just be unscanned; narrow root or raise maxFiles';
+  if (skippedLargeFiles.length) res.skippedLargeFiles = skippedLargeFiles.slice(0, 20);
+  if (files.prunedDirs) res.prunedDirs = files.prunedDirs;
+  return res;
 }
 
 // ============================================================================
@@ -1627,6 +2126,10 @@ function debugHypothesis(args = {}) {
     hypotheses: ledger.hypotheses.slice(0, 50).map(h => ({
       id: String(h && h.id || '').trim().slice(0, 64),
       description: String(h && h.description || '').trim().slice(0, 500),
+      // NE-14:重入时保留 init 写下的 mechanism / expectedEvidence / verification(修前每次 test 之后这三项就没了)。
+      mechanism: String(h && h.mechanism || '').trim().slice(0, 500),
+      expectedEvidence: String(h && h.expectedEvidence || '').trim().slice(0, 500),
+      verification: String(h && h.verification || '').trim().slice(0, 500),
       status: ['pending', 'supported', 'refuted', 'confirmed'].includes(h && h.status) ? h.status : 'pending',
       tests: Array.isArray(h && h.tests) ? h.tests.slice(0, 50).map(t => ({ result: ['supports', 'refutes', 'inconclusive'].includes(t && t.result) ? t.result : 'inconclusive', evidence: String(t && t.evidence || '').trim().slice(0, 2000) })) : [],
     })).filter(h => h.id && h.description),
@@ -1752,10 +2255,115 @@ function columnProfile(name, values, maxSampleValues) {
   if (type === 'numeric') { const ns = numericStats(values); if (ns) Object.assign(prof, ns); }
   return prof;
 }
+// F8:data_profile 读盘。修前 readIfExists 把整个文件读进内存再 slice(0,1MB)(292MB 的文件 +564MB RSS 只为看 2000 行;
+// 几 GB 的文件直接抛错并被吞成「不存在」),而且 1MB 截断对调用方不可见(5000 行的 CSV 报 1044 行 sampled:false,
+// 3MB 的合法 JSON 报「不是合法 JSON」)。现在:
+//   · fs.open + 只读窗口(8MB),stat 得 fileBytes;窗口没读完 → truncatedInput:true + bytesRead/fileBytes + estimatedRowCount;
+//   · JSON:≤16MB 整读整解析;更大的顶层数组用一个小的流式扫描器只取前 maxRows 个元素,顶层非数组才如实说做不了;
+//   · 解码:BOM / UTF-16 / 严格 UTF-8,都不是且运行时支持时按 GB18030(中文 Windows 的 CSV 常是 GBK),不再出 U+FFFD 乱码;
+//   · 错误分类(不存在 / 无权限 / 是目录 / 空文件),不再一律「不存在、为空或无法读取」。
+const DATA_PROFILE_WINDOW_BYTES = 8 * 1024 * 1024;
+const DATA_PROFILE_JSON_FULL_BYTES = 16 * 1024 * 1024;
+const DATA_PROFILE_JSON_STREAM_BYTES = 128 * 1024 * 1024;
+let _profileGb18030 = null;
+function profileGb18030Decoder() {
+  if (_profileGb18030 === null) {
+    try { _profileGb18030 = typeof TextDecoder === 'function' ? new TextDecoder('gb18030', { fatal: true }) : false; }
+    catch { _profileGb18030 = false; }   // 精简 ICU 的 Node 不带 gb18030 → 退回有损 UTF-8
+  }
+  return _profileGb18030 || null;
+}
+// partial:true → buf 是文件的前缀,末尾可能截在多字节字符中间(stream 模式不把它当非法序列)。
+function decodeProfileText(buf, partial) {
+  const opt = { stream: !!partial };
+  if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) return { text: new TextDecoder('utf-16le').decode(buf, opt), encoding: 'utf-16le' };
+  if (buf.length >= 2 && buf[0] === 0xFE && buf[1] === 0xFF) return { text: new TextDecoder('utf-16be').decode(buf, opt), encoding: 'utf-16be' };
+  try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(buf, opt), encoding: 'utf-8' }; } catch { /* 不是 UTF-8 */ }
+  const gb = profileGb18030Decoder();
+  if (gb) { try { return { text: new TextDecoder('gb18030', { fatal: true }).decode(buf, opt), encoding: 'gb18030' }; } catch { /* 也不是 */ } }
+  return { text: new TextDecoder('utf-8').decode(buf, opt), encoding: 'utf-8', lossy: true };
+}
+async function readProfileWindow(p, maxBytes) {
+  let fh = null;
+  try {
+    fh = await fsp.open(p, 'r');
+    const st = await fh.stat();
+    if (!st.isFile()) return { error: '不是普通文件(是目录或设备)', code: 'not_file' };
+    if (st.size === 0) return { error: '文件为空', code: 'empty' };
+    const n = Math.min(st.size, maxBytes);
+    const buf = Buffer.alloc(n);
+    let got = 0;
+    while (got < n) {
+      const { bytesRead } = await fh.read(buf, got, n - got, got);
+      if (!bytesRead) break;
+      got += bytesRead;
+    }
+    return { buf: got < n ? buf.subarray(0, got) : buf, fileBytes: st.size };
+  } catch (e) {
+    const c = e && e.code;
+    if (c === 'ENOENT' || c === 'ENOTDIR') return { error: '文件不存在', code: 'not_found' };
+    if (c === 'EACCES' || c === 'EPERM') return { error: '没有读取该文件的权限', code: 'no_permission' };
+    if (c === 'EISDIR') return { error: '不是普通文件(是目录)', code: 'not_file' };
+    return { error: '无法读取文件: ' + ((e && e.message) || String(e)), code: 'read_failed' };
+  } finally {
+    if (fh) { try { await fh.close(); } catch { /* ignore */ } }
+  }
+}
+// 大 JSON 的顶层数组:边读边扫括号/字符串状态,遇到深度 1 的逗号切出一个元素 JSON.parse,取够 maxItems 就停。
+// 只支持 UTF-8(带/不带 BOM)。返回 { items, scannedBytes, arrayEnded } 或 { notArray:true }。
+async function profileJsonArrayHead(p, maxItems) {
+  const fh = await fsp.open(p, 'r');
+  try {
+    const dec = new TextDecoder('utf-8');
+    const chunk = Buffer.allocUnsafe(1024 * 1024);
+    let pos = 0, started = false, depth = 0, inStr = false, esc = false, cur = '', arrayEnded = false, bad = false;
+    const items = [];
+    const push = text => {
+      const t = text.trim();
+      if (!t) return;
+      try { items.push(JSON.parse(t)); } catch { bad = true; }
+    };
+    while (!arrayEnded && !bad && items.length < maxItems && pos < DATA_PROFILE_JSON_STREAM_BYTES) {
+      const { bytesRead } = await fh.read(chunk, 0, chunk.length, pos);
+      if (!bytesRead) break;
+      pos += bytesRead;
+      const str = dec.decode(chunk.subarray(0, bytesRead), { stream: true });
+      let segStart = 0;
+      for (let i = 0; i < str.length; i += 1) {
+        const c = str.charCodeAt(i);
+        if (inStr) { if (esc) esc = false; else if (c === 92) esc = true; else if (c === 34) inStr = false; continue; }
+        if (!started) {
+          if (c === 91) { started = true; depth = 1; segStart = i + 1; }
+          else if (c !== 32 && c !== 9 && c !== 10 && c !== 13 && c !== 0xFEFF) return { notArray: true };
+          continue;
+        }
+        if (c === 34) { inStr = true; continue; }
+        if (c === 123 || c === 91) { depth += 1; continue; }
+        if (c === 125 || c === 93) {
+          depth -= 1;
+          if (depth === 0) { push(cur + str.slice(segStart, i)); cur = ''; arrayEnded = true; break; }
+          continue;
+        }
+        if (c === 44 && depth === 1) {
+          push(cur + str.slice(segStart, i)); cur = ''; segStart = i + 1;
+          if (items.length >= maxItems || bad) break;
+        }
+      }
+      if (started && !arrayEnded && items.length < maxItems && !bad) cur += str.slice(segStart);
+    }
+    if (!started) return { notArray: true };
+    return { items, scannedBytes: pos, arrayEnded, bad };
+  } finally { try { await fh.close(); } catch { /* ignore */ } }
+}
 async function dataProfile(filePath, args = {}) {
   const p = String(filePath || '');
-  const raw = await readIfExists(p, 1024 * 1024); // 1MB 上限(大文件截断)
-  if (!raw) return { ok: false, error: '文件不存在、为空或无法读取', path: p };
+  const win = await readProfileWindow(p, DATA_PROFILE_WINDOW_BYTES);
+  if (win.error) return { ok: false, error: win.error, code: win.code, path: p };
+  const fileBytes = win.fileBytes;
+  let truncatedInput = win.buf.length < fileBytes;
+  let dec = decodeProfileText(win.buf, truncatedInput);
+  let raw = dec.text;
+  let bytesRead = win.buf.length;
   const maxRows = Math.max(1, Math.min(50000, Math.round(Number(args.maxRows) || 2000)));
   const maxSampleValues = Math.max(1, Math.min(50, Math.round(Number(args.maxSampleValues) || 5)));
   const ext = (p.match(/\.([^./\\]+)$/) || [])[1] || '';
@@ -1771,11 +2379,59 @@ async function dataProfile(filePath, args = {}) {
     else if (args.delimiter) format = 'csv';
     else if (/[,\t|]/.test(raw.slice(0, 200))) format = 'csv';
   }
+  // 窗口只是文件的前缀:最后一行多半是半截的,丢掉,免得多出一个假行。
+  const cutPartialLine = () => {
+    if (!truncatedInput) return;
+    const nl = raw.lastIndexOf('\n');
+    if (nl > 0) raw = raw.slice(0, nl);
+  };
+  // 输入元信息:窗口没读完时说明(truncatedInput/bytesRead/fileBytes/estimatedRowCount),读完了给 totalRowCount(精确)。
+  const inputMeta = (totalRows) => {
+    const m = { fileBytes };
+    if (dec.encoding !== 'utf-8') m.encoding = dec.encoding;
+    if (dec.lossy) m.encodingNote = '文件不是 UTF-8 且本机 Node 不支持 GB18030,已按 UTF-8 宽松解码,可能有乱码';
+    if (truncatedInput) {
+      m.truncatedInput = true; m.bytesRead = bytesRead;
+      if (Number.isFinite(totalRows.estimate)) m.estimatedRowCount = totalRows.estimate;
+    } else if (Number.isFinite(totalRows.exact)) m.totalRowCount = totalRows.exact;
+    return m;
+  };
+  // 按窗口内的平均行宽外推整个文件的行数(只是估计,CSV 引号内换行会有偏差)。
+  const estimateLines = () => {
+    const nl = (raw.match(/\n/g) || []).length;
+    return nl > 0 ? Math.round(fileBytes * nl / Math.max(1, bytesRead)) : null;
+  };
 
   if (format === 'json') {
-    const parsed = safeJsonParse(raw, null);
+    let parsed = null;
+    let items = null;      // 流式取出的数组元素(超大文件)
+    let streamedEnded = true;
+    if (!truncatedInput) parsed = safeJsonParse(raw, null);
+    else if (fileBytes <= DATA_PROFILE_JSON_FULL_BYTES) {
+      const full = await readProfileWindow(p, DATA_PROFILE_JSON_FULL_BYTES);
+      if (full.error) return { ok: false, error: full.error, code: full.code, path: p };
+      dec = decodeProfileText(full.buf, false); raw = dec.text; bytesRead = full.buf.length; truncatedInput = false;
+      parsed = safeJsonParse(raw, null);
+    } else if (dec.encoding === 'utf-8' && !dec.lossy) {
+      const head = await profileJsonArrayHead(p, maxRows);
+      if (!head.notArray && !head.bad) { items = head.items; streamedEnded = head.arrayEnded; bytesRead = head.scannedBytes; }
+    }
+    if (items) {
+      const keys = [];
+      for (const it of items) if (it && typeof it === 'object') for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
+      const columns = keys.map(k => columnProfile(k, items.map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
+      const meta = { fileBytes, bytesRead };
+      // 只有数组【没读到结尾】才算采样:bytesRead 是按块对齐的扫描位置,`]` 之后的空白 / 别的文档让它 < fileBytes,
+      // 但元素已经全在 items 里(rowCount 即精确总数),不能因此谎报 sampled。
+      if (!streamedEnded) meta.truncatedInput = true;
+      return { ok: true, path: p, format: 'json', rowCount: items.length, colCount: keys.length, sampled: !streamedEnded, ...meta, columns,
+        note: streamedEnded
+          ? `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,已流式读完顶层数组(${items.length} 个元素),rowCount 为精确总数。`
+          : `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,只流式读取了顶层数组的前 ${items.length} 个元素做画像,总元素数未知。` };
+    }
     // 对抗验证(MEDIUM): 首字符 {/[ 的多行 JSONL(无扩展名)会被 sniff 成 json 而整体解析失败 —— 回落逐行解析。
     if (parsed == null) {
+      cutPartialLine();
       const lines = raw.split(/\r?\n/).filter(l => l.trim());
       const rows = [];
       for (const l of lines) { if (rows.length >= maxRows) break; const o = safeJsonParse(l, null); if (o != null && typeof o === 'object') rows.push(o); }
@@ -1783,35 +2439,40 @@ async function dataProfile(filePath, args = {}) {
         const keys = [];
         for (const it of rows) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
         const columns = keys.map(k => columnProfile(k, rows.map(it => it[k]), maxSampleValues));
-        return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows, columns, note: '采样画像(grep 级启发式)。' };
+        return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), columns, note: '采样画像(grep 级启发式)。' };
       }
-      return { ok: false, error: 'JSON 解析失败,不是合法 JSON', path: p };
+      if (truncatedInput) return { ok: false, error: `JSON 文件超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB 且顶层不是数组(或不是 UTF-8),无法做画像`, code: 'json_too_large', path: p, fileBytes, hint: '用 file_read 看开头几行了解结构,或先拆成 JSONL/数组再画像' };
+      return { ok: false, error: 'JSON 解析失败,不是合法 JSON', path: p, fileBytes };
     }
     const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+    const objs = arr.slice(0, maxRows);
     const keys = [];
-    for (const it of arr.slice(0, maxRows)) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
-    const columns = keys.map(k => columnProfile(k, arr.slice(0, maxRows).map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
-    return { ok: true, path: p, format: 'json', rowCount: Math.min(arr.length, maxRows), colCount: keys.length, sampled: arr.length > maxRows, columns, note: '采样画像(grep 级启发式): 列类型/离群点是统计启发式,非数据血缘。' };
+    for (const it of objs) if (it && typeof it === 'object') for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
+    const columns = keys.map(k => columnProfile(k, objs.map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
+    return { ok: true, path: p, format: 'json', rowCount: Math.min(arr.length, maxRows), colCount: keys.length, sampled: arr.length > maxRows, ...inputMeta({ exact: arr.length }), columns, note: '采样画像(grep 级启发式): 列类型/离群点是统计启发式,非数据血缘。' };
   }
   if (format === 'jsonl') {
+    cutPartialLine();
     const lines = raw.split(/\r?\n/).filter(l => l.trim());
     const rows = [];
     for (const l of lines) { if (rows.length >= maxRows) break; const o = safeJsonParse(l, null); if (o != null && typeof o === 'object') rows.push(o); }
     const keys = [];
     for (const it of rows) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
     const columns = keys.map(k => columnProfile(k, rows.map(it => it[k]), maxSampleValues));
-    return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows, columns, note: '采样画像(grep 级启发式)。' };
+    return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), columns, note: '采样画像(grep 级启发式)。' };
   }
   if (format === 'csv' || format === 'tsv') {
+    cutPartialLine();
     let delim = String(args.delimiter || '');
     if (!delim) {
       const sample = raw.slice(0, 1000);
       const counts = { ',': (sample.match(/,/g) || []).length, '\t': (sample.match(/\t/g) || []).length, '|': (sample.match(/\|/g) || []).length };
       delim = counts[','] >= counts['\t'] && counts[','] >= counts['|'] ? ',' : (counts['\t'] >= counts['|'] ? '\t' : '|');
     }
-    const allRows = parseCsv(raw, delim, maxRows + 1);
+    // 窗口读完了 → 整段解析得到精确总行数(≤8MB,可控);只有前缀 → 解析到 maxRows+1 行即止,总行数靠外推。
+    const allRows = parseCsv(raw, delim, truncatedInput ? maxRows + 1 : Infinity);
     let header, dataRows;
-    if (allRows.length) { header = allRows[0]; dataRows = allRows.slice(1); }
+    if (allRows.length) { header = allRows[0]; dataRows = allRows.slice(1, maxRows + 1); }
     if (!header || !header.length) return { ok: false, error: 'CSV/TSV 无法解析出表头', path: p };
     const colCount = header.length;
     const columns = [];
@@ -1820,16 +2481,18 @@ async function dataProfile(filePath, args = {}) {
       const values = dataRows.map(r => (r[c] !== undefined ? r[c] : ''));
       columns.push(columnProfile(name, values, maxSampleValues));
     }
-    return { ok: true, path: p, format: format === 'tsv' && delim === '\t' ? 'tsv' : 'csv', delimiter: delim, rowCount: dataRows.length, colCount, sampled: allRows.length > maxRows, columns, note: '采样画像(grep 级启发式): CSV 简单状态机解析,不保证兼容所有方言(BOM/多字符分隔符/嵌入引号边缘)。' };
+    const est = estimateLines();
+    return { ok: true, path: p, format: format === 'tsv' && delim === '\t' ? 'tsv' : 'csv', delimiter: delim, rowCount: dataRows.length, colCount, sampled: allRows.length - 1 > maxRows || truncatedInput, ...inputMeta({ exact: allRows.length - 1, estimate: est == null ? null : Math.max(0, est - 1) }), columns, note: '采样画像(grep 级启发式): CSV 简单状态机解析,不保证兼容所有方言(BOM/多字符分隔符/嵌入引号边缘)。' };
   }
   // text/log: 逐行为一行,无结构化列 → 行数 + 行长度统计 + 常见行首。
+  cutPartialLine();
   const lines = raw.split(/\r?\n/).filter(l => l.length);
   const lengths = lines.slice(0, maxRows).map(l => l.length);
   const lineStats = lengths.length ? { min: Math.min(...lengths), max: Math.max(...lengths), avg: Math.round(lengths.reduce((a, b) => a + b, 0) / lengths.length) } : null;
   const prefixes = {};
   for (const l of lines.slice(0, maxRows)) { const pre = l.slice(0, 12); prefixes[pre] = (prefixes[pre] || 0) + 1; }
   const topPrefixes = Object.entries(prefixes).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => ({ prefix: k, count: v }));
-  return { ok: true, path: p, format: 'text', rowCount: Math.min(lines.length, maxRows), colCount: 0, sampled: lines.length > maxRows, lineStats, topPrefixes, note: '文本/日志按行画像(无结构化列);行首模式统计可帮助识别日志格式。' };
+  return { ok: true, path: p, format: 'text', rowCount: Math.min(lines.length, maxRows), colCount: 0, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), lineStats, topPrefixes, note: '文本/日志按行画像(无结构化列);行首模式统计可帮助识别日志格式。' };
 }
 
 // ============================================================================
@@ -1918,15 +2581,8 @@ function ssrfCheck(rawUrl) {
   return { allowed: true, host: bare };
 }
 
-// Zero-dependency main-text extraction from an HTML string (self-written, no npm). Steps:
-//   1) drop <script>/<style>/<noscript> BLOCKS entirely (content + tags);
-//   2) capture <title> before stripping;
-//   3) turn block-level closing/opening tags into newlines so paragraph structure survives;
-//   4) strip ALL remaining tags;
-//   5) decode the common HTML entities;
-//   6) collapse runs of blank space, keep paragraph newlines.
-// Exported (module.exports) so the e2e can直测 it deterministically without any network.
-const BLOCK_TAGS_RE = /<\/?(p|div|section|article|header|footer|main|br|hr|li|ul|ol|tr|table|h[1-6]|blockquote|pre|figure|nav|aside)\b[^>]*>/gi;
+// Zero-dependency main-text extraction from an HTML string (self-written, no npm; see the NE-9 block below for the
+// rules). Exported (module.exports) so the e2e can直测 it deterministically without any network.
 function decodeEntities(s) {
   return String(s)
     // v1.1-W1a (T3): numeric (&#174;) and hex (&#xAE;) entities — common in scraped search-result HTML.
@@ -1954,32 +2610,157 @@ function decodeEntities(s) {
     .replace(/&rdquo;/g, '”');
 }
 function safeFromCodePoint(n, fallback) { try { return String.fromCodePoint(n); } catch { return fallback; } }
-function extractMainText(html) {
+// ── NE-9:web_fetch 正文抽取(零依赖分词器 + 单趟渲染)──────────────────────────────────────────────
+// 修前的做法是「块级标签换行、其余标签一刀切」:导航 / 侧栏 / 页脚原样进正文(还排在文章前面),链接地址整个丢掉,
+// <pre> 缩进被折叠,模型读完索引页没有任何可跟进的网址。现在:
+//   · nav / aside / select / button / iframe / svg / object / canvas / template 整块丢掉;header / footer 只丢【不在
+//     main / article 里】的(文章自己的题头带标题与日期);role=navigation|banner|contentinfo|complementary|search 同样丢。
+//     <form> 【不丢】:ASP.NET WebForms(老政企站的主力)用一个 <form> 包住整页,丢了就是空页。
+//   · 页里有 <main> 取 <main>,否则有 <article> 取全部 <article>(取出来太短就退回整页,防止把一个小推荐卡当成正文)。
+//   · h1-h6 → `# 标题`,li → `- 条目`,表格单元格以 ` | ` 相隔,<pre> 整块原样(围栏 ```),其余空白折叠。
+//   · <a href> → 「链接文字 [n]」,网址按序号放进返回的 links 数组(相对地址按 baseUrl 解析,去掉 #锚点 / javascript: /
+//     mailto: 等;正文里没有可读链接文字的图片链接不编号)。
+// 被丢弃的元素要求「关标签数 ≥ 开标签数」才生效(某个 <nav> 忘了关会吞掉整页后文,宁可不丢)。
+const HTML_VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+const HTML_DROP_TAGS = new Set(['nav', 'aside', 'select', 'button', 'iframe', 'svg', 'object', 'canvas', 'template']);
+const HTML_DROP_ROLES = /^(?:navigation|banner|contentinfo|complementary|search)$/i;
+const HTML_BLOCK_TAGS = new Set(['div', 'section', 'article', 'main', 'header', 'footer', 'ul', 'ol', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'blockquote', 'figure', 'figcaption', 'address', 'details', 'summary', 'form', 'fieldset', 'center', 'body']);
+const HTML_MAX_LINKS = 300;
+function htmlTokenize(html) {
+  const out = [];
+  const counts = new Map();
+  const re = /<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
+  let last = 0, m;
+  while ((m = re.exec(html))) {
+    if (m.index > last) out.push({ t: html.slice(last, m.index) });
+    const tag = m[2].toLowerCase();
+    const selfClose = /\/\s*$/.test(m[3]) || HTML_VOID_TAGS.has(tag);
+    out.push({ tag, close: m[1] === '/', attrs: m[3], selfClose });
+    if (!selfClose) { const c = counts.get(tag) || { o: 0, c: 0 }; if (m[1]) c.c++; else c.o++; counts.set(tag, c); }
+    last = re.lastIndex;
+  }
+  if (last < html.length) out.push({ t: html.slice(last) });
+  out.counts = counts;
+  return out;
+}
+function htmlTagAttr(attrs, name) {
+  const m = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i').exec(String(attrs || ''));
+  return m ? decodeEntities(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]) : '';
+}
+// 链接地址归一:相对地址按 baseUrl 解析;只留 http(s);去 #锚点;不可用 / 过长返回 ''。
+function htmlResolveLink(href, baseUrl) {
+  const h = String(href || '').trim();
+  if (!h || h[0] === '#' || /^(?:javascript|mailto|tel|data|about|sms|file):/i.test(h)) return '';
+  try {
+    const u = baseUrl ? new URL(h, baseUrl) : new URL(h);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    u.hash = '';
+    const s = u.toString();
+    return s.length > 600 ? '' : s;
+  } catch { return ''; }
+}
+// mode: 'all' | 'main' | 'article' —— 只渲染落在该区域里的内容。返回 { text, links:[{n,url}] }。
+function htmlRenderTokens(tokens, mode, baseUrl, maxLinks) {
+  const counts = tokens.counts || new Map();
+  const droppable = tag => { const c = counts.get(tag); return !c || c.c >= c.o; };
+  const parts = [], pres = [], links = [], linkIdx = new Map();
+  let skipTag = null, skipDepth = 0, mainDepth = 0, articleDepth = 0, preDepth = 0, preBuf = '', anchor = null, cell = 0;
+  const inRegion = () => mode === 'all' || (mode === 'main' ? mainDepth > 0 : articleDepth > 0);
+  const flushPre = () => {
+    let body = preBuf.replace(/\r\n?/g, '\n').replace(/^\n/, '').replace(/\s+$/, '');
+    preBuf = '';
+    if (!body) return;
+    pres.push(body);
+    parts.push('\n\n\uE000' + (pres.length - 1) + '\uE001\n\n');
+  };
+  for (const tk of tokens) {
+    if (tk.t !== undefined) {
+      if (skipTag || !inRegion()) continue;
+      const d = decodeEntities(tk.t);
+      if (preDepth > 0) { preBuf += d; continue; }
+      const s = d.replace(/[ \t\r\n\f\v\u00a0]+/g, ' ');
+      parts.push(s);
+      if (anchor) anchor.text += s;
+      continue;
+    }
+    const { tag, close } = tk;
+    if (skipTag) {
+      if (tag === skipTag && !tk.selfClose) { if (close) { skipDepth -= 1; if (skipDepth === 0) skipTag = null; } else skipDepth += 1; }
+      continue;
+    }
+    const was = inRegion();
+    if (!tk.selfClose) {
+      const dlt = close ? -1 : 1;
+      if (tag === 'main') mainDepth = Math.max(0, mainDepth + dlt);
+      else if (tag === 'article') articleDepth = Math.max(0, articleDepth + dlt);
+    }
+    if (!close && !tk.selfClose && tag !== 'main' && tag !== 'article' && tag !== 'body' && tag !== 'html') {
+      const role = htmlTagAttr(tk.attrs, 'role');
+      const drop = (HTML_DROP_TAGS.has(tag) && droppable(tag))
+        || ((tag === 'header' || tag === 'footer') && mainDepth === 0 && articleDepth === 0 && droppable(tag))
+        || (role && HTML_DROP_ROLES.test(role) && droppable(tag));
+      if (drop) { skipTag = tag; skipDepth = 1; continue; }
+    }
+    const now = inRegion();
+    if (!was && !now) continue;
+    if (tag === 'pre') {
+      if (close) { if (preDepth > 0 && --preDepth === 0) flushPre(); } else { if (preDepth === 0) anchor = null; preDepth += 1; }
+      continue;
+    }
+    if (preDepth > 0) { if (tag === 'br') preBuf += '\n'; continue; }
+    if (tag === 'br') { parts.push('\n'); continue; }
+    if (/^h[1-6]$/.test(tag)) { parts.push(close ? '\n\n' : '\n\n' + '#'.repeat(Number(tag[1])) + ' '); continue; }
+    if (tag === 'li') { if (!close) parts.push('\n- '); continue; }
+    if (tag === 'p' || tag === 'hr') { parts.push('\n\n'); continue; }
+    if (tag === 'tr') { if (!close) { parts.push('\n'); cell = 0; } continue; }
+    if (tag === 'td' || tag === 'th') { if (!close && cell++ > 0) parts.push(' | '); continue; }
+    if (tag === 'a') {
+      if (!close) { const href = htmlTagAttr(tk.attrs, 'href'); anchor = href ? { href, text: '' } : null; continue; }
+      if (anchor) {
+        const label = anchor.text.trim();
+        const url = htmlResolveLink(anchor.href, baseUrl);
+        anchor = null;
+        if (label && url && !/^\[?\d+\]?$/.test(label)) {
+          let n = linkIdx.get(url);
+          if (!n && links.length < maxLinks) { n = links.length + 1; links.push({ n, url }); linkIdx.set(url, n); }
+          if (n) parts.push(' [' + n + ']');
+        }
+      }
+      continue;
+    }
+    if (HTML_BLOCK_TAGS.has(tag)) parts.push('\n');
+  }
+  if (preDepth > 0) flushPre();
+  let s = parts.join('')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/^[ \u3000]+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  s = s.replace(/\uE000(\d+)\uE001/g, (m, i) => '```\n' + pres[Number(i)] + '\n```');
+  return { text: s, links };
+}
+function extractMainText(html, opts) {
+  const o = opts || {};
   let s = String(html == null ? '' : html);
-  // 2) title first (before we strip the head).
+  // title first (before we strip the head).
   let title = '';
   const tm = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(s);
   if (tm) title = decodeEntities(tm[1].replace(/\s+/g, ' ').trim()).slice(0, 300);
-  // 1) drop the whole <head> (title/meta/link belong to metadata, not main text), then script/style/noscript
-  // blocks and comments. The <head> strip is best-effort — a malformed page without a closing </head> keeps
-  // its head content, which the later tag-strip still neutralizes.
+  // <head> 与 script / style / noscript / textarea 整块、注释、DOCTYPE / XML 声明。<head> 的剥离是尽力而为:没有 </head> 的
+  // 残页会把头留下,后面分词渲染时 <title> 的文字仍会当正文 —— 与修前一致。
   s = s.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, ' ')
-       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-       .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-       .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
-       .replace(/<!--[\s\S]*?-->/g, ' ');
-  // 3) block-level tags → newline (paragraph structure survives the tag strip).
-  s = s.replace(BLOCK_TAGS_RE, '\n');
-  // 4) strip every remaining tag.
-  s = s.replace(/<[^>]+>/g, ' ');
-  // 5) decode entities.
-  s = decodeEntities(s);
-  // 6) collapse whitespace: spaces/tabs within a line, then blank-line runs.
-  s = s.replace(/[ \t\f\v ]+/g, ' ')
-       .replace(/ *\n */g, '\n')
-       .replace(/\n{3,}/g, '\n\n')
-       .trim();
-  return { title, text: s };
+       .replace(/<(script|style|noscript|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+       .replace(/<!--[\s\S]*?-->/g, ' ')
+       .replace(/<![^>]*>|<\?[^>]*\?>/g, ' ');
+  const tokens = htmlTokenize(s);
+  const has = name => tokens.some(tk => tk.tag === name && !tk.close);
+  const maxLinks = Math.max(0, Math.min(HTML_MAX_LINKS, Number(o.maxLinks) >= 0 ? Number(o.maxLinks) : HTML_MAX_LINKS));
+  let r = null;
+  if (has('main')) { r = htmlRenderTokens(tokens, 'main', o.baseUrl, maxLinks); if (r.text.length < 100) r = null; }
+  if (!r && has('article')) { r = htmlRenderTokens(tokens, 'article', o.baseUrl, maxLinks); if (r.text.length < 200) r = null; }
+  if (!r) r = htmlRenderTokens(tokens, 'all', o.baseUrl, maxLinks);
+  return { title, text: r.text, links: r.links };
 }
 
 // Web cache: dataRoot/webcache/<sha256(url)>.json holding {url,title,text,ts}. Written after a successful
@@ -2001,7 +2782,26 @@ async function writeWebCache(entry) {
   try {
     await fsp.mkdir(paths.webcache, { recursive: true });
     await atomicWriteJson(webCachePath(entry.url), JSON.stringify(entry));   // 25.1 收编
+    await evictWebCacheOverCap();
   } catch { /* best-effort cache write; never fail the fetch on a cache error */ }
+}
+// 缓存条目现在存完整抽取文本(≤40 万字符,重定向后还有第二份),没有上限会无限长。这里是【硬兜底】:超过 WEB_CACHE_HARD_MAX_ENTRIES
+// (WCW_WEBCACHE_HARD_MAX 可覆写,测试缝)条就按 mtime 删最旧的;用户配的 storagePolicy.webcacheMaxEntries(可更小)仍由 storageSweep 管。
+const WEB_CACHE_HARD_MAX_ENTRIES = 2000;
+async function evictWebCacheOverCap() {
+  const max = Math.max(1, Math.floor(Number(process.env.WCW_WEBCACHE_HARD_MAX)) || WEB_CACHE_HARD_MAX_ENTRIES);
+  let files = [];
+  try { files = (await fsp.readdir(paths.webcache)).filter(f => f.endsWith('.json')); } catch { return 0; }
+  if (files.length <= max) return 0;
+  const rows = [];
+  for (const f of files) {
+    const st = await fsp.stat(path.join(paths.webcache, f)).catch(() => null);
+    if (st) rows.push({ f, mtime: st.mtimeMs });
+  }
+  rows.sort((a, b) => a.mtime - b.mtime || (a.f < b.f ? -1 : 1));
+  let n = 0;
+  for (const v of rows.slice(0, Math.max(0, rows.length - max))) { await fsp.unlink(path.join(paths.webcache, v.f)).catch(() => {}); n += 1; }
+  return n;
 }
 
 // v0.9 F2: resolve a hostname and refuse if ANY resolved address is private/loopback (DNS-rebinding /
@@ -2053,30 +2853,225 @@ function classifyFetchError(err) {
   if (code === 'ECONNREFUSED' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH' || code === 'EADDRNOTAVAIL' || /refused|unreachable/.test(msg)) return 'connect';
   return 'other';
 }
+// ── NE-10:HTTP(S) 代理(环境变量 HTTPS_PROXY / HTTP_PROXY / ALL_PROXY / NO_PROXY,大小写皆可)──────────────────────
+// 政企内网常见「只能经代理出网、域名只有代理才解析得了」。修前所有网络工具都直连 + 本机 DNS 预检,于是报「域名解析失败」
+// 「当前疑似离线」,模型据此断定网址不对或机器没网,而真正的解法是配代理。工作台里没有别的代理实现(04h 的服务商通道走
+// 全局 fetch,与本组工具无关),所以这里做最小的一份:https 目标走 HTTP CONNECT 隧道再叠 TLS,http 目标走绝对 URI 请求。
+// 只认 http:// / https:// 形式的代理(带 user:pass@ 时发 Proxy-Authorization: Basic);socks 等其余协议视为未配置。
+// 默认不走代理:localhost / 回环与私网 IPv4 字面量 / *.local / 不含点的单标签主机名(与 WinINET「本地地址不走代理」同口径,
+// 内网服务与工作台自身的 loopback 桥接都在这一类里),再加 NO_PROXY(`*`、域名后缀、host:port、IPv4 CIDR)。
+// 【SSRF】走代理时目标域名仍由代理解析,所以「连接地址锁定」(pin)不适用;但「解析到内网地址」的 DNS 预检照跑(nip.io / 重绑定类
+// 名字 127.0.0.1.nip.io 只要本机 DNS 答得出来就拦):本机解析【失败】(只有代理才解析得了的内网 / 政企域名)返回 null = 放行,
+// 解析到回环 / 私网 / 链路本地 = 拒绝。每一跳的 ssrfCheck(协议、字面量、*.local / *.internal)与重定向逐跳复查同样有效。
+function parseProxyUrl(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = 'http://' + s;
+  let u;
+  try { u = new URL(s); } catch { return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  const port = Number(u.port) || (u.protocol === 'https:' ? 443 : 80);
+  const hostname = u.hostname.replace(/^\[|\]$/g, '');
+  let auth = '';
+  if (u.username) { try { auth = 'Basic ' + Buffer.from(decodeURIComponent(u.username) + ':' + decodeURIComponent(u.password)).toString('base64'); } catch { auth = ''; } }
+  return { protocol: u.protocol, hostname, port, auth, display: hostname + ':' + port };
+}
+function proxyIpv4ToInt(ip) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+  if (!m) return null;
+  const o = m.slice(1).map(Number);
+  if (o.some(n => n > 255)) return null;
+  return ((o[0] << 24) >>> 0) + (o[1] << 16) + (o[2] << 8) + o[3];
+}
+function proxyNoProxyMatches(host, port, noProxy) {
+  for (const raw of String(noProxy || '').split(/[,\s]+/)) {
+    let e = raw.trim().toLowerCase();
+    if (!e) continue;
+    if (e === '*') return true;
+    const cidr = /^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/.exec(e);
+    if (cidr) {
+      const a = proxyIpv4ToInt(host), b = proxyIpv4ToInt(cidr[1]), bits = Number(cidr[2]);
+      if (a !== null && b !== null && bits <= 32) {
+        const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+        if (((a & mask) >>> 0) === ((b & mask) >>> 0)) return true;
+      }
+      continue;
+    }
+    let ePort = '';
+    const pm = /^(.*):(\d+)$/.exec(e);
+    if (pm && !e.includes('::')) { e = pm[1]; ePort = pm[2]; }
+    if (ePort && String(port) !== ePort) continue;
+    e = e.replace(/^\*?\./, '');
+    if (!e) continue;
+    if (host === e || host.endsWith('.' + e)) return true;
+  }
+  return false;
+}
+// 目标 URL 该走哪个代理:返回 parseProxyUrl 的结果,或 null(直连)。env 可传入以便测试。
+function proxyForUrl(target, env) {
+  const e = env || process.env;
+  let u;
+  try { u = target instanceof URL ? target : new URL(String(target)); } catch { return null; }
+  const https = u.protocol === 'https:';
+  if (!https && u.protocol !== 'http:') return null;
+  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (host === 'localhost' || host === '::1' || isPrivateIpv4(host) || /\.local$/.test(host)) return null;
+  if (!host.includes('.') && !host.includes(':')) return null;              // 单标签内网主机名
+  if (/^f[cd][0-9a-f]{0,2}:|^fe80:/.test(host)) return null;                // IPv6 ULA / link-local
+  const pick = (...names) => { for (const n of names) { const v = e[n]; if (v && String(v).trim()) return String(v).trim(); } return ''; };
+  const raw = https ? pick('HTTPS_PROXY', 'https_proxy', 'ALL_PROXY', 'all_proxy') : pick('HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy');
+  if (!raw) return null;
+  if (proxyNoProxyMatches(host, u.port || (https ? '443' : '80'), pick('NO_PROXY', 'no_proxy'))) return null;
+  return parseProxyUrl(raw);
+}
+// HTTP CONNECT 隧道:成功 resolve 一个已连到 目标host:port 的 socket;失败 reject 带 proxyFail 标记的 Error。
+function proxyConnectTunnel(u, proxy, timeoutMs, onPendingReq) {
+  return new Promise((resolve, reject) => {
+    const plib = proxy.protocol === 'https:' ? require('https') : require('http');
+    const hostPort = u.hostname + ':' + (u.port || (u.protocol === 'https:' ? '443' : '80'));
+    const headers = { host: hostPort };
+    if (proxy.auth) headers['proxy-authorization'] = proxy.auth;
+    const req = plib.request({ host: proxy.hostname, port: proxy.port, method: 'CONNECT', path: hostPort, headers, timeout: timeoutMs });
+    if (typeof onPendingReq === 'function') { try { onPendingReq(req); } catch { /* ignore */ } } // 让总期限能掐断还没握完手的 CONNECT
+    const fail = (msg, cause) => { const err = new Error(msg); err.proxyFail = true; if (cause && cause.code) err.code = cause.code; reject(err); };
+    req.on('connect', (res, socket) => {
+      if (res.statusCode === 200) { req.removeAllListeners('timeout'); socket.setTimeout(0); resolve(socket); return; }
+      socket.destroy();
+      fail(`代理拒绝了 CONNECT ${hostPort}(HTTP ${res.statusCode}${res.statusCode === 407 ? ',需要代理认证' : ''})`);
+    });
+    req.on('timeout', () => { req.destroy(); fail(`连接代理 ${proxy.display} 超时`); });
+    req.on('error', e => fail(`无法连接代理 ${proxy.display}: ${(e && e.message) || e}`, e));
+    req.end();
+  });
+}
+// 统一的「发起请求」:不走代理 = 原样 lib.request(u, opts, cb);走代理 = http 用绝对 URI 请求发给代理,https 先 CONNECT 再叠 TLS。
+// 返回 ClientRequest(调用方自己挂 timeout / error 事件并 end);隧道失败时 reject(proxyFail)。
+async function openHttpRequest(u, opts, cb, proxy, onPendingReq) {
+  const https = u.protocol === 'https:';
+  if (!proxy) return (https ? require('https') : require('http')).request(u, opts, cb);
+  const o = Object.assign({}, opts);
+  delete o.lookup; // 连接对象是代理(或已建好的隧道),目标域名的本机解析结果用不上
+  if (!https) {
+    o.hostname = proxy.hostname; o.port = proxy.port; o.path = u.href; o.method = opts.method || 'GET';
+    o.headers = Object.assign({ host: u.host }, opts.headers || {});
+    if (proxy.auth) o.headers['proxy-authorization'] = proxy.auth;
+    return (proxy.protocol === 'https:' ? require('https') : require('http')).request(o, cb);
+  }
+  const socket = await proxyConnectTunnel(u, proxy, opts.timeout || 20000, onPendingReq);
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  delete o.agent; // agent 缺省 + createConnection 才会真的用它(agent:false 会新建 Agent 忽略 createConnection)
+  // host 必须带上:tls.connect({socket}) 缺省按 'localhost' 校验证书身份,IP 字面量目标(https://<公网 IP>/)会因此永远验不过。
+  o.createConnection = () => require('tls').connect({ socket, host, servername: require('net').isIP(host) ? undefined : host });
+  return require('https').request(u, o, cb);
+}
+
+// ── NE-8:web_fetch 的字符集与内容类型 ─────────────────────────────────────────────────────────────────────────
+// 修前一律 body.toString('utf8'):GBK / GB2312 的页面(老政府站、高校站、论坛仍很常见)满屏 U+FFFD 还报 ok:true;PDF / 图片 /
+// Office / zip 被当文本抽,最多 20000 字符的二进制乱码,还写进离线缓存。现在:
+//   · 字符集:Content-Type 的 charset → BOM → 前 4KB 里的 <meta charset> / <meta http-equiv content="…charset=…"> /
+//     XML 声明的 encoding → 都没有就严格 UTF-8,严格失败再试 gb18030。解码走 TextDecoder,先做运行时能力检查
+//     (Node 若是不带完整 ICU 的构建,认不出 gbk 等标签):不认识就退回 UTF-8 并给 warning,不抛。
+//   · 类型闸:pdf / 图片 / 音视频 / octet-stream / zip / Office 等二进制不做抽取,返回 ok:false + 提示改用 http_download;
+//     没有 Content-Type 或类型陌生时看魔数与 NUL 字节。text/*、json、xml 等文本类原样解码(json / 纯文本不走 HTML 抽取)。
+function charsetFromContentType(ct) {
+  const m = /charset\s*=\s*["']?([^\s;"']+)/i.exec(String(ct || ''));
+  return m ? m[1].toLowerCase() : '';
+}
+function sniffMetaCharset(buf) {
+  const head = buf.subarray(0, 4096).toString('latin1');
+  let m = /<meta\b[^>]*?charset\s*=\s*["']?\s*([A-Za-z0-9_:.\-]+)/i.exec(head);
+  if (!m) m = /^\s*<\?xml[^>]*\bencoding\s*=\s*["']([A-Za-z0-9_.\-]+)/i.exec(head);
+  return m ? m[1].toLowerCase() : '';
+}
+function textDecoderFor(label, fatal) {
+  try { return new TextDecoder(label, { fatal: !!fatal }); } catch { return null; }
+}
+// → { text, charset, warning? }。buf 是 Buffer,contentType 是响应头原值(可空)。
+function decodeHtmlBody(buf, contentType) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const cands = [];
+  const hdr = charsetFromContentType(contentType);
+  if (hdr) cands.push({ label: hdr, from: 'header' });
+  if (b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) cands.push({ label: 'utf-8', from: 'bom' });
+  else if (b[0] === 0xff && b[1] === 0xfe) cands.push({ label: 'utf-16le', from: 'bom' });
+  else if (b[0] === 0xfe && b[1] === 0xff) cands.push({ label: 'utf-16be', from: 'bom' });
+  const meta = sniffMetaCharset(b);
+  if (meta) cands.push({ label: /^utf-?16/.test(meta) ? 'utf-8' : meta, from: 'meta' }); // ASCII 兼容地读到的 meta 不可能真是 UTF-16(WHATWG 同口径)
+  let warning = '';
+  for (const c of cands) {
+    const dec = textDecoderFor(c.label, false);
+    if (dec) return { text: dec.decode(b), charset: dec.encoding };
+    warning = `页面声明的字符集 ${c.label} 本机不支持,已按 UTF-8 解码,可能有乱码`;
+  }
+  // 没声明:严格 UTF-8(stream:true 容忍被 2MB 上限截在半个字符上),失败再猜 GB18030。
+  try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(b, { stream: true }), charset: 'utf-8', ...(warning ? { warning } : {}) }; } catch { /* fall through */ }
+  const gb = textDecoderFor('gb18030', false);
+  if (gb) return { text: gb.decode(b), charset: 'gb18030', warning: warning || '页面没有声明字符集且不是合法 UTF-8,已按 GB18030 猜测解码' };
+  return { text: b.toString('utf8'), charset: 'utf-8', warning: warning || '页面没有声明字符集且不是合法 UTF-8,已按 UTF-8 解码,可能有乱码' };
+}
+const FETCH_TEXT_TYPE_RE = /^(?:text\/.+|application\/(?:json|xml|xhtml\+xml|javascript|x-javascript|ecmascript|yaml|x-yaml|x-ndjson|toml|sql|x-sh|rss\+xml|atom\+xml)|.+\+(?:json|xml))$/;
+const FETCH_BINARY_TYPE_RE = /^(?:image|audio|video|font)\/|^application\/(?:pdf|octet-stream|zip|gzip|x-gzip|x-zip-compressed|x-tar|x-rar-compressed|vnd\.rar|x-7z-compressed|msword|rtf|x-msdownload|x-msi|java-archive|wasm|vnd\.ms-.+|vnd\.openxmlformats-.+|vnd\.oasis\..+|epub\+zip|x-shockwave-flash)$/;
+// → { kind:'html'|'text'|'binary', type }
+function classifyFetchedBody(contentType, buf) {
+  const type = String(contentType || '').split(';')[0].trim().toLowerCase();
+  if (type === 'text/html' || type === 'application/xhtml+xml') return { kind: 'html', type };
+  if (type && FETCH_BINARY_TYPE_RE.test(type)) return { kind: 'binary', type };
+  if (type && FETCH_TEXT_TYPE_RE.test(type)) return { kind: 'text', type };
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const head = b.subarray(0, 2048);
+  const magic = head.subarray(0, 8).toString('latin1');
+  const utf16 = (head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff);
+  if (/^%PDF-|^PK\x03\x04|^\x89PNG|^GIF8|^\xff\xd8\xff|^\x1f\x8b|^Rar!|^7z\xbc\xaf|^MZ/.test(magic) || (!utf16 && head.includes(0))) return { kind: 'binary', type };
+  const sniff = head.toString('latin1');
+  if (/^\s*<(?:!doctype|html|head|body|\?xml)|<(?:html|body|div|p|table)\b/i.test(sniff)) return { kind: 'html', type };
+  return { kind: 'text', type };
+}
+
 // Low-level http(s) GET with a redirect chain, re-running ssrfCheck on EVERY hop (≤maxRedirects). Returns
 // { ok, status, finalUrl, body(Buffer, ≤maxBytes), truncated } on success, else { ok:false, error, failClass,
 //  statusCode?, blocked? }. v1.1-W1a: a 'reset' failure (对端掐线 / aborted) is retried ONCE automatically
 // before surfacing — anti-scrape edges often reset the first probe but serve the second. Never throws.
-function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, _retriedReset = false } = {}) {
-  return new Promise(resolve => {
-    let hops = 0;
+// timeoutMs 是【空闲】超时(下载大文件靠它);totalTimeoutMs(可选)是整条重定向链的硬期限 —— 修前对端每 400ms 滴一个字节,
+// timeoutMs:1000 的请求能挂 4.8 秒(NE-11)。走代理(NE-10)时 DNS 预检照跑、只是不锁定连接地址,见上文。
+function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTimeoutMs = 0, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, _retriedReset = false } = {}) {
+  return new Promise(resolveOuter => {
+    let hops = 0, settled = false, usedProxy = false, curReq = null, overall = null;
+    const startedAt = performance.now();
+    const resolve = v => {
+      if (settled) return; settled = true;
+      if (overall) clearTimeout(overall);
+      if (usedProxy && v && typeof v === 'object') v.viaProxy = true;
+      resolveOuter(v);
+    };
+    if (totalTimeoutMs > 0) {
+      overall = setTimeout(() => {
+        resolve({ ok: false, error: `timeout after ${totalTimeoutMs}ms (total)`, failClass: 'timeout' });
+        try { if (curReq) curReq.destroy(); } catch { /* ignore */ }
+      }, Math.min(totalTimeoutMs, 2147483647));
+    }
     const visit = async current => {
+      if (settled) return;
       const chk = ssrfCheck(current);
       if (!chk.allowed) { resolve({ ok: false, error: chk.reason, failClass: 'blocked', blocked: chk.host }); return; }
       let u;
       try { u = new URL(current); } catch { resolve({ ok: false, error: 'URL 无法解析', failClass: 'other' }); return; }
+      // NE-10:配了代理就由代理解析目标域名 —— 本机 DNS 预检既拿不到答案(代理网络里本机往往解析不了)还会误报「域名解析失败」。
+      const proxy = proxyForUrl(u);
+      if (proxy) usedProxy = true;
       // v0.9 F2 / v1.4.1 audit #2: DNS resolve-then-check —— 拒绝解析到内网的名字(rebinding 守护),并把已验证的
       // 公网地址【锁定】给本次连接(pinned lookup),使 http/https 不再独立二次解析(消除 TOCTOU 重绑定窗口)。
+      // 走代理时同样本机预检(只为拦「解析到内网」);本机解析不了 → null → 放行,交给代理解析。走代理不 pin(连接对象是代理)。
       const dnsRes = await dnsResolvesToPrivate(u.hostname);
+      if (settled) return;
       if (dnsRes && dnsRes.blocked) { resolve({ ok: false, error: '解析到内网地址', failClass: 'blocked', blocked: dnsRes.blocked }); return; }
-      const lib = u.protocol === 'https:' ? require('https') : require('http');
       const reqOpts = { method: 'GET', timeout: timeoutMs, headers: browserHeaders({ 'user-agent': userAgent }) };
-      const pin = dnsRes && dnsRes.pin;
+      const pin = !proxy && dnsRes && dnsRes.pin;
       if (pin && pin.length) {
         // 锁定到已验证公网地址(literal IP / 解析失败 → dnsRes 为 null → 不 pin,literal 已被 ssrfCheck 判过)。
         reqOpts.lookup = (h, opts, cb) => { if (opts && opts.all) cb(null, pin); else cb(null, pin[0].address, pin[0].family); };
       }
-      const req = lib.request(u, reqOpts, res => {
+      let req = null;
+      const onRes = res => {
         const status = res.statusCode || 0;
         // Redirect handling — re-check every hop.
         if (status >= 300 && status < 400 && res.headers.location) {
@@ -2115,44 +3110,124 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, maxBytes 
         });
         res.on('end', () => resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null }));
         res.on('error', e => resolve({ ok: false, error: (e && e.message) || 'response error', failClass: classifyFetchError(e) }));
-      });
-      req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
-      req.on('error', async e => {
-        const failClass = classifyFetchError(e);
+      };
+      const onErr = async e => {
+        if (settled) return;
+        let failClass = e && e.proxyFail ? 'proxy' : classifyFetchError(e);
+        // http 目标经代理时 dns / connect 类错误只可能出在「连代理」这一段。
+        if (proxy && (failClass === 'dns' || failClass === 'connect')) {
+          resolve({ ok: false, error: `无法连接代理 ${proxy.display}: ${(e && e.message) || 'request error'}`, failClass: 'proxy' });
+          return;
+        }
         // v1.1-W1a (T1): a 'reset'/aborted failure is often a transient anti-scrape blip → retry once.
         if (failClass === 'reset' && !_retriedReset) {
-          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, maxBytes, userAgent, _retriedReset: true });
+          // 重试只用剩余的总期限,不重新计满(否则总时长可到 2 倍)。
+          let remaining = totalTimeoutMs;
+          if (totalTimeoutMs > 0) { remaining = totalTimeoutMs - (performance.now() - startedAt); if (remaining <= 0) { resolve({ ok: false, error: `timeout after ${totalTimeoutMs}ms (total)`, failClass: 'timeout' }); return; } }
+          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, totalTimeoutMs: remaining, maxBytes, userAgent, _retriedReset: true });
           resolve(retry); return;
         }
         resolve({ ok: false, error: (e && e.message) || 'request error', failClass });
-      });
+      };
+      try { req = await openHttpRequest(u, reqOpts, onRes, proxy, r => { curReq = r; }); } catch (e) { await onErr(e); return; }
+      curReq = req;
+      if (settled) { try { req.destroy(); } catch { /* ignore */ } return; }
+      req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
+      req.on('error', onErr);
       req.end();
     };
     visit(String(rawUrl));
   });
 }
 
-// web_fetch tool body. SSRF-guarded fetch → main-text extraction → cache write. On a fetch failure (offline),
-// falls back to the on-disk cache (fromCache:true) so an air-gapped session can still reuse a prior fetch.
+// web_fetch tool body. SSRF-guarded fetch → charset decode → main-text extraction → cache write. On a fetch failure
+// (offline), falls back to the on-disk cache (fromCache:true) so an air-gapped session can still reuse a prior fetch.
+// NE-9:缓存存【完整】抽取文本(上限 WEB_CACHE_MAX_CHARS),maxChars / offset 只在返回值里切 —— 修前存的是 maxChars 切过的片段,
+// 一次 maxChars:500 的调用会把整页缓存覆盖成 500 字,之后离线读到的还标 truncated:false。offset>0 的翻页请求在缓存足够新
+// (WEB_FETCH_PAGE_TTL_MS)时直接读缓存,不重抓、也不会因页面中途变化错位。
+const WEB_FETCH_DEFAULT_CHARS = 20000;
+const WEB_FETCH_MAX_CHARS = 60000;            // 与工具结果 ~60K 的上限对齐:再大只会被截头
+const WEB_CACHE_MAX_CHARS = 400000;
+const WEB_FETCH_PAGE_TTL_MS = 10 * 60 * 1000;
+// 从完整文本切出 [offset, offset+maxChars) 一页;不在代理对(surrogate pair)中间切。
+function webFetchSlice(full, offset, maxChars) {
+  let end = Math.min(full.length, offset + maxChars);
+  if (end < full.length && end > offset) { const c = full.charCodeAt(end - 1); if (c >= 0xd800 && c <= 0xdbff) end -= 1; }
+  return { text: full.slice(offset, end), end };
+}
+// 只列出本页 text 里真出现了 [n] 标记的链接,总长有预算,避免把整页的链接表都塞进每一页。
+function webFetchPageLinks(pageText, links) {
+  const out = [];
+  let budget = 6000, cut = false;
+  for (const l of Array.isArray(links) ? links : []) {
+    if (!pageText.includes('[' + l.n + ']')) continue;
+    const line = '[' + l.n + '] ' + l.url;
+    if (budget - line.length < 0) { cut = true; break; }
+    budget -= line.length;
+    out.push(line);
+  }
+  return { links: out, linksTruncated: cut };
+}
 async function webFetch(args = {}) {
   const url = String(args.url || '').trim();
-  const maxChars = Math.min(200000, Math.max(500, Number(args.maxChars) || 20000));
+  const maxChars = Math.min(WEB_FETCH_MAX_CHARS, Math.max(500, Number(args.maxChars) || WEB_FETCH_DEFAULT_CHARS));
+  const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
   if (!url) return { ok: false, error: 'url is required' };
   // Fast SSRF reject up-front (also blocks non-http/https + literal internal targets) — a blocked target
   // never even attempts a socket, and NEVER falls back to cache (a blocked url must not leak cached content).
   const pre = ssrfCheck(url);
   if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
-  const got = await httpGetGuarded(url);
+  // 一页 = 缓存条目的一个切片;live / cache 共用同一个出口,保证 truncated / nextOffset 的口径一致。
+  const pageOf = (entry, extra) => {
+    const full = String(entry.text || '');
+    const { text, end } = webFetchSlice(full, offset, maxChars);
+    const more = end < full.length;
+    const res = { ok: true, url: entry.url || url, title: entry.title || '', text, offset, totalChars: full.length,
+      truncated: more || entry.truncated === true, ts: entry.ts || null };
+    if (more) res.nextOffset = end;
+    if (entry.contentType) res.contentType = entry.contentType;
+    if (entry.charset) res.charset = entry.charset;
+    if (entry.warning) res.warning = entry.warning;
+    if (entry.note) res.note = entry.note;
+    if (entry.sourceTruncated) res.sourceTruncated = true;
+    const pl = webFetchPageLinks(text, entry.links);
+    if (pl.links.length) { res.links = pl.links; if (pl.linksTruncated) res.linksTruncated = true; }
+    if (offset > 0 && offset >= full.length) res.note = res.note || `offset 超出正文长度(${full.length} 字符)`;
+    return Object.assign(res, extra);
+  };
+  if (offset > 0) {
+    const hit = await readWebCache(url);
+    const age = hit && hit.ts ? Date.parse(hit.ts) : NaN;
+    if (hit && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+  }
+  const got = await httpGetGuarded(url, { totalTimeoutMs: 30000 });
   if (got.ok && got.body) {
-    const html = got.body.toString('utf8');
-    const { title, text } = extractMainText(html);
-    const clipped = text.slice(0, maxChars);
-    const entry = { url: got.finalUrl || url, title, text: clipped, ts: nowIso() };
+    const kind = classifyFetchedBody(got.contentType, got.body);
+    if (kind.kind === 'binary') {
+      return { ok: false, error: `该网址返回的是 ${kind.type || '二进制内容'},不是网页文本`, failClass: 'not-text', contentType: kind.type || null,
+        hint: '用 http_download 把它保存到工作区,再用对应的文件/文档工具读取(PDF、Office、压缩包等)' };
+    }
+    const dec = decodeHtmlBody(got.body, got.contentType);
+    const finalUrl = got.finalUrl || url;
+    let title = '', text, links = [], note = '';
+    if (kind.kind === 'html') {
+      const ex = extractMainText(dec.text, { baseUrl: finalUrl });
+      title = ex.title; text = ex.text; links = ex.links;
+      if (text.length < 200 && (dec.text.match(/<script\b/gi) || []).length >= 3) note = '页面正文很少,可能依赖 JavaScript 渲染(本工具不执行脚本);可换个来源或用 web_search';
+    } else {
+      text = dec.text.replace(/\r\n?/g, '\n').replace(/^﻿/, '');
+    }
+    const cacheClipped = text.length > WEB_CACHE_MAX_CHARS;
+    const entry = { url: finalUrl, title, text: cacheClipped ? text.slice(0, WEB_CACHE_MAX_CHARS) : text, links, ts: nowIso(),
+      contentType: kind.type || null, charset: dec.charset, ...(dec.warning ? { warning: dec.warning } : {}), ...(note ? { note } : {}),
+      ...(got.truncated ? { sourceTruncated: true } : {}), ...(cacheClipped ? { truncated: true } : {}) };
     await writeWebCache(entry);
+    if (url !== finalUrl) await writeWebCache(Object.assign({}, entry, { url })); // 重定向后按请求网址也能命中(离线回退 / 翻页都按请求网址查)
     // v1.1-W1a (T2): a real successful fetch is fresh proof we are online — nudge the capability cache so a
     // stale/single-target offline reading gets corrected for free.
     markNetworkOnline();
-    return { ok: true, url: entry.url, title, text: clipped, truncated: got.truncated || clipped.length < text.length, fromCache: false, ts: entry.ts };
+    // 本次调用直接用完整文本切页(不受缓存上限影响),truncated 含「源体被 2MB 上限截断」。
+    return pageOf(Object.assign({}, entry, { text, truncated: got.truncated === true }), { fromCache: false, ...(got.viaProxy ? { viaProxy: true } : {}) });
   }
   // A guard-level block during a redirect hop → surface it as blocked, do NOT serve cache.
   if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
@@ -2160,12 +3235,15 @@ async function webFetch(args = {}) {
   const mapped = webFetchFailMessage(got);
   // Cache fallback still applies (an air-gapped session reuses a prior fetch).
   const cached = await readWebCache(url);
-  if (cached) return { ok: true, url: cached.url || url, title: cached.title || '', text: String(cached.text || '').slice(0, maxChars), truncated: false, fromCache: true, ts: cached.ts || null, staleReason: mapped.error };
+  if (cached) return pageOf(cached, { fromCache: true, staleReason: mapped.error });
   // No cache. Decide the hint by a FAST live probe (multi-target, 2s) — only if that also fails do we say 离线.
-  const online = await probeAny(networkAnchors(await readConfig().catch(() => ({}))), 2000);
+  // 走了代理时不做这一探:探测走的是本机直连,代理网络里它必然失败,会把「代理没配好」误报成「当前疑似离线」。
   let hint = mapped.hint;
-  if (online === false) hint = '当前疑似离线。' + '联网后重试,或先在线抓取一次以建立缓存';
-  else markNetworkOnline(); // the probe just succeeded → refresh the cap cache
+  if (!got.viaProxy) {
+    const online = await probeAny(networkAnchors(await readConfig().catch(() => ({}))), 2000);
+    if (online === false) hint = '当前疑似离线。' + '联网后重试,或先在线抓取一次以建立缓存';
+    else markNetworkOnline(); // the probe just succeeded → refresh the cap cache
+  }
   return { ok: false, error: mapped.error, failClass: got.failClass || 'other', statusCode: got.statusCode, hint };
 }
 
@@ -2176,8 +3254,10 @@ function webFetchFailMessage(got) {
   const fc = (got && got.failClass) || 'other';
   const code = got && got.statusCode;
   switch (fc) {
-    case 'dns': return { error: '域名解析失败(网址可能不存在)', hint: '检查网址拼写是否正确' };
-    case 'connect': return { error: '无法连接到该网站', hint: '确认网址可访问,或稍后重试' };
+    case 'dns': return { error: '域名解析失败(网址可能不存在)', hint: '检查网址拼写是否正确;若本机需要经代理上网,请设置 HTTPS_PROXY / HTTP_PROXY 环境变量后重启工作台' };
+    case 'connect': return { error: '无法连接到该网站', hint: '确认网址可访问,或稍后重试;若本机需要经代理上网,请设置 HTTPS_PROXY / HTTP_PROXY 环境变量后重启工作台' };
+    // NE-10:代理这一段出的错(连不上代理 / 代理拒绝 CONNECT / 需要认证);got.error 已带上代理地址与状态码。
+    case 'proxy': return { error: (got && got.error) || '通过代理访问失败', hint: '检查 HTTPS_PROXY / HTTP_PROXY / NO_PROXY 环境变量与代理本身是否可用(工作台读取这几个环境变量,改后需重启)' };
     case 'reset': return { error: '对方服务器中断了连接(可能有反爬限制)', hint: '可尝试用 web_search 搜索该内容替代' };
     case 'tls': return { error: 'HTTPS 证书/握手失败', hint: '该站点的安全证书异常,谨慎访问' };
     case 'timeout': return { error: '抓取超时', hint: '网站响应过慢,稍后重试或换个来源' };
@@ -2411,7 +3491,53 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
 
 // web_search tool body. Fans out by searchBackend.type. searxng/custom baseUrl is TRUSTED (admin-configured)
 // → NOT SSRF-checked (see note atop this section). Returns {ok, results:[{title,url,snippet}], backend}.
+// NE-11:① 200 却不是 JSON(登录页 / WAF 页 / searxng 没开 json 格式)不再静默回 results:[],而是 ok:false 说明原因;
+// ② 4xx / 5xx 带针对性的 hint;③ 配置的后端失败时回退一次内置免费搜索,结果里带 fallbackFrom / fallbackReason。
+// 回退会把查询词发给公网的 Bing / 百度,所以:searxng / custom(管理员自托管 / 自选的端点,不论内网还是有域名)【永不】回退;
+// bing / brave / tavily / bocha 这类 API-key 后端只有 searchBackend.fallbackToBuiltin === true(默认关)才回退;
+// 没回退时结果带 fallbackSkipped 说明原因与该开关。
+function searchFailFromResponse(backend, r) {
+  const st = r.statusCode;
+  const out = { ok: false, error: r.error || ('HTTP ' + st), backend };
+  if (st) out.statusCode = st;
+  if (r.hint) out.hint = r.hint;
+  if (st === 403 && backend === 'searxng') out.hint = 'searxng 需要启用 JSON 输出:settings.yml 里 search.formats 加上 json(并确认没有被 limiter / 反向代理拦截)';
+  else if (st === 401 || st === 403) out.hint = '检查 设置→搜索后端 的 API Key 是否正确、是否过期或无权限';
+  else if (st === 429) out.hint = '触发限流或额度用完;稍后再试,或换一个搜索后端';
+  else if (st >= 500) out.hint = '搜索服务暂时不可用;稍后再试';
+  return out;
+}
+// 解析 JSON 型后端的 200 响应:返回 { body } 或 { fail }。
+function searchParseJsonResponse(backend, r) {
+  if (r.redirected) {
+    return { fail: { ok: false, error: `搜索后端返回了重定向(HTTP ${r.statusCode} → ${(r.headers && r.headers.location) || '?'})`, hint: '把 设置→搜索后端 的地址改成重定向后的最终地址(常见是 http 改 https)', backend } };
+  }
+  const body = safeJsonParse(r.body, null);
+  if (body === null || typeof body !== 'object') {
+    return { fail: { ok: false, error: '搜索后端返回的不是 JSON 结果(可能被登录页 / WAF 拦截' + (backend === 'searxng' ? ',或 searxng 没有启用 json 格式' : '') + ')', hint: backend === 'searxng' ? 'searxng 需要启用 JSON 输出:settings.yml 里 search.formats 加上 json' : '检查后端地址是否正确、是否需要登录', backend, parseFailed: true } };
+  }
+  return { body };
+}
+function searchBackendNeverFallsBack(sb) { return !!sb && (sb.type === 'searxng' || sb.type === 'custom'); }
 async function webSearch(args, config) {
+  const first = await webSearchViaBackend(args, config);
+  const sb = (config && config.searchBackend) || { type: 'none' };
+  const backend = sb.type || 'none';
+  const query = String(args && args.query || '').trim();
+  if (first.ok !== false || !query || backend === 'none' || backend === 'builtin') return first;
+  if (searchBackendNeverFallsBack(sb)) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;为避免把查询词发给公网搜索引擎,没有回退到内置搜索` });
+  if (sb.fallbackToBuiltin !== true) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;没有回退到内置免费搜索(会把查询词发给公网的 Bing / 百度)`, hint: ((first && first.hint) ? first.hint + ';' : '') + '如接受回退,在 config.json 的 searchBackend 里设 fallbackToBuiltin:true' });
+  const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
+  const timeoutMs = Number(args && args.timeoutMs) || 12000;
+  let fb = null;
+  // builtinBaseUrl / baiduBaseUrl:只给 e2e 用的引擎根地址替换(直接传进 webSearch 的配置对象里;normalizeConfig 不保留它们)。
+  try { fb = await builtinSearch(query, maxResults, String(sb.builtinBaseUrl || '').trim().replace(/\/+$/, ''), timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, '')); } catch { fb = null; }
+  if (fb && fb.ok && Array.isArray(fb.results) && fb.results.length) {
+    return Object.assign({}, fb, { fallbackFrom: backend, fallbackReason: first.error, note: `配置的搜索后端 ${backend} 失败(${first.error}),这次结果来自内置免费搜索` });
+  }
+  return Object.assign({}, first, { fallbackTried: 'builtin' });
+}
+async function webSearchViaBackend(args, config) {
   const query = String(args && args.query || '').trim();
   // 缺省 8 条(修前 5 条):内置搜索是抓网页,前几条常被百科 / 问答聚合占住,5 条经常不够把问题答全;结果只是短摘要,多几条不贵。
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
@@ -2430,33 +3556,34 @@ async function webSearch(args, config) {
     // Bing root for e2e determinism; when set, the 百度 fallback is skipped (the fake server owns both paths).
     // sb.baiduBaseUrl:只给 e2e 用的百度根地址替换(直接传进 webSearch 的配置对象里;normalizeConfig 不保留它)。
     if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, ''));
+    // 各 JSON 后端共用的收尾:请求 → 失败 / 非 JSON 说明 → 取出行 → 映射。extract(body) 返回行数组(缺失则 [])。
+    const viaJson = async (reqArgs, extract, map, missingNote) => {
+      const r = await httpRequest(Object.assign({ timeoutMs, maxBodyChars: 500000 }, reqArgs));
+      if (!r.ok || r.redirected) {
+        if (r.redirected) return searchParseJsonResponse(backend, r).fail;
+        return searchFailFromResponse(backend, r);
+      }
+      const parsed = searchParseJsonResponse(backend, r);
+      if (parsed.fail) return parsed.fail;
+      const rows = extract(parsed.body);
+      const list = Array.isArray(rows) ? rows : [];
+      const out = { ok: true, results: list.slice(0, maxResults).map(map), backend };
+      if (!Array.isArray(rows) && missingNote) out.note = missingNote;
+      return out;
+    };
     if (backend === 'searxng') {
       if (!baseUrl) return { ok: false, error: 'searxng baseUrl 未配置', backend };
-      const u = `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json`;
-      const r = await httpRequest({ url: u, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && Array.isArray(body.results)) ? body.results : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.content || x.snippet || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json` },
+        b => b.results, x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.content || x.snippet || '') }),
+        '响应是 JSON 但没有 results 字段,可能不是 searxng 的接口');
     }
     if (backend === 'bing') {
-      const u = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${maxResults}`;
-      const r = await httpRequest({ url: u, headers: { 'Ocp-Apim-Subscription-Key': apiKey }, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && body.webPages && Array.isArray(body.webPages.value)) ? body.webPages.value : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String(x.name || ''), url: String(x.url || ''), snippet: String(x.snippet || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${maxResults}`, headers: { 'Ocp-Apim-Subscription-Key': apiKey } },
+        b => b.webPages && b.webPages.value, x => ({ title: String(x.name || ''), url: String(x.url || ''), snippet: String(x.snippet || '') }));
     }
     if (backend === 'brave') {
-      const u = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${maxResults}`;
-      const r = await httpRequest({ url: u, headers: { 'X-Subscription-Token': apiKey, 'Accept': 'application/json' }, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && body.web && Array.isArray(body.web.results)) ? body.web.results : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.description || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${maxResults}`, headers: { 'X-Subscription-Token': apiKey, 'Accept': 'application/json' } },
+        b => b.web && b.web.results, x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.description || '') }));
     }
     // v1.0-S6 (A): Tavily (AI 搜索 API). POST /search, JSON {api_key, query, max_results}; parse
     // results[].{title,url,content}. baseUrl override — searchBackend.baseUrl, when non-empty, REPLACES the
@@ -2465,14 +3592,8 @@ async function webSearch(args, config) {
     // missing/невалид results array yields an empty list, never a crash.
     if (backend === 'tavily') {
       const root = baseUrl || 'https://api.tavily.com';
-      const u = `${root}/search`;
-      const payload = JSON.stringify({ api_key: apiKey, query, max_results: maxResults });
-      const r = await httpRequest({ url: u, method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && Array.isArray(body.results)) ? body.results : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String((x && x.title) || ''), url: String((x && x.url) || ''), snippet: String((x && x.content) || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${root}/search`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ api_key: apiKey, query, max_results: maxResults }) },
+        b => b.results, x => ({ title: String((x && x.title) || ''), url: String((x && x.url) || ''), snippet: String((x && x.content) || '') }));
     }
     // v1.0-S6 (A): 博查 Bocha (中文搜索 API). POST /v1/web-search, Header Authorization: Bearer <key>,
     // JSON {query, count}; parse data.webPages.value[].{name,url,snippet} (按官方公开文档形状). baseUrl
@@ -2480,35 +3601,24 @@ async function webSearch(args, config) {
     // missing hop in data.webPages.value collapses to an empty list, никогда crashes.
     if (backend === 'bocha') {
       const root = baseUrl || 'https://api.bochaai.com';
-      const u = `${root}/v1/web-search`;
-      const payload = JSON.stringify({ query, count: maxResults });
       const headers = { 'content-type': 'application/json' };
       if (apiKey) headers['authorization'] = 'Bearer ' + apiKey;
-      const r = await httpRequest({ url: u, method: 'POST', headers, body: payload, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && body.data && body.data.webPages && Array.isArray(body.data.webPages.value)) ? body.data.webPages.value : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String((x && x.name) || ''), url: String((x && x.url) || ''), snippet: String((x && x.snippet) || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${root}/v1/web-search`, method: 'POST', headers, body: JSON.stringify({ query, count: maxResults }) },
+        b => b.data && b.data.webPages && b.data.webPages.value, x => ({ title: String((x && x.name) || ''), url: String((x && x.url) || ''), snippet: String((x && x.snippet) || '') }));
     }
     // custom: GET {baseUrl}?q=… ; best-effort parse of common {title,url,snippet} field shapes.
     if (backend === 'custom') {
       if (!baseUrl) return { ok: false, error: 'custom baseUrl 未配置', backend };
       const sep = baseUrl.includes('?') ? '&' : '?';
-      const u = `${baseUrl}${sep}q=${encodeURIComponent(query)}`;
       const headers = {};
       if (apiKey) headers['authorization'] = 'Bearer ' + apiKey;
-      const r = await httpRequest({ url: u, headers, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = Array.isArray(body) ? body : (body && (body.results || body.items || body.data)) || [];
-      const list = Array.isArray(rows) ? rows : [];
-      const results = list.slice(0, maxResults).map(x => ({
-        title: String((x && (x.title || x.name || x.heading)) || ''),
-        url: String((x && (x.url || x.link || x.href)) || ''),
-        snippet: String((x && (x.snippet || x.content || x.description || x.summary)) || ''),
-      }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${baseUrl}${sep}q=${encodeURIComponent(query)}`, headers },
+        b => (Array.isArray(b) ? b : (b && (b.results || b.items || b.data)) || []),
+        x => ({
+          title: String((x && (x.title || x.name || x.heading)) || ''),
+          url: String((x && (x.url || x.link || x.href)) || ''),
+          snippet: String((x && (x.snippet || x.content || x.description || x.summary)) || ''),
+        }));
     }
     return { ok: false, error: '未知搜索后端: ' + backend, backend };
   } catch (e) {
@@ -2516,36 +3626,80 @@ async function webSearch(args, config) {
   }
 }
 
+// http_request 工具体(也是 web_search 各 API 后端与 builtin 抓取、以及 loopback 桥接的共用底层)。
+// NE-11:① 字符串 / Buffer 请求体发 Content-Length(修前 req.write 不带长度 → chunked POST,部分 WAF / IIS / 老 Java 网关回
+// 411 / 400);对象体按 JSON 序列化(修前变成 "[object Object]"),没给 content-type 就补 application/json;② timeoutMs 是
+// 【整个请求的硬期限】,同时保留空闲超时(修前只有空闲超时,对端每 400ms 滴一字节 timeoutMs:1000 能挂 4.8 秒);③ 4xx / 5xx
+// 带 error:'HTTP 404'(仍保留 statusCode / body,ok:false),连接类失败带 failClass 与 hint,坏 URL 返回 {ok:false,error}
+// 而不是抛异常;④ NE-10:按 HTTPS_PROXY / HTTP_PROXY / NO_PROXY 走代理(loopback 与私网地址默认不走,见 proxyForUrl)。
 async function httpRequest(args = {}) {
   const target = String(args.url || '');
-  if (!/^https?:\/\//i.test(target)) throw new Error('url must start with http:// or https://');
-  const lib = target.startsWith('https://') ? require('https') : require('http');
+  if (!/^https?:\/\//i.test(target)) return { ok: false, error: 'url must start with http:// or https://', failClass: 'other' };
+  let u;
+  try { u = new URL(target); } catch { return { ok: false, error: 'URL 无法解析', failClass: 'other' }; }
   const method = String(args.method || 'GET').toUpperCase();
-  const body = args.body === undefined ? null : String(args.body);
+  const headers = Object.assign({}, (args.headers && typeof args.headers === 'object') ? args.headers : {});
+  const hasHeader = n => Object.keys(headers).some(k => k.toLowerCase() === n);
+  let body = null;
+  if (args.body !== undefined && args.body !== null) {
+    if (typeof args.body === 'string' || Buffer.isBuffer(args.body)) body = args.body;
+    else if (typeof args.body === 'object') { body = JSON.stringify(args.body); if (!hasHeader('content-type')) headers['content-type'] = 'application/json'; }
+    else body = String(args.body);
+  }
+  if (body !== null && body.length > 0 && !hasHeader('content-length') && !hasHeader('transfer-encoding')) headers['content-length'] = String(Buffer.byteLength(body));
   const timeoutMs = Number(args.timeoutMs || 20000);
   const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
   const hardCap = Math.max(1, maxChars) * 4 + 65536; // utf8 每字符 ≤4 字节 + 余量
+  const proxy = proxyForUrl(u);
   return new Promise(resolve => {
-    let done = false;
-    const finish = v => { if (done) return; done = true; resolve(v); };
-    const req = lib.request(target, { method, headers: args.headers || {}, timeout: timeoutMs }, res => {
+    let done = false, req = null, deadline = null;
+    const finish = v => { if (done) return; done = true; if (deadline) clearTimeout(deadline); if (proxy && v && typeof v === 'object') v.viaProxy = true; resolve(v); };
+    const fail = (message, failClass) => {
+      const out = { ok: false, error: message, failClass };
+      const hint = failClass === 'other' ? '' : webFetchFailMessage({ failClass }).hint;
+      if (hint) out.hint = hint;
+      finish(out);
+    };
+    const result = (res, bodyBuf, truncated) => {
+      const st = res.statusCode;
+      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: bodyBuf.toString('utf8').slice(0, maxChars), truncated };
+      if (st >= 400) { out.error = `HTTP ${st}`; out.failClass = 'http'; }
+      return out;
+    };
+    if (timeoutMs > 0) {
+      deadline = setTimeout(() => {
+        fail(`timeout after ${timeoutMs}ms (total)`, 'timeout');
+        try { if (req) req.destroy(); } catch { /* ignore */ }
+      }, Math.min(timeoutMs, 2147483647));
+    }
+    const onRes = res => {
       const chunks = []; let total = 0;
       res.on('data', d => {
         if (done) return;
         chunks.push(d); total += d.length;
         if (total >= hardCap) {
-          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
+          finish(result(res, Buffer.concat(chunks), true));
           try { req.destroy(); } catch { /* ignore */ }
         }
       });
-      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
-    });
-    req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
-    req.on('error', error => finish({ ok: false, error: error.message }));
-    if (body) req.write(body);
-    req.end();
+      res.on('end', () => finish(result(res, Buffer.concat(chunks), false)));
+      res.on('error', e => fail((e && e.message) || 'response error', classifyFetchError(e)));
+    };
+    const onErr = e => {
+      if (done) return;
+      let failClass = e && e.proxyFail ? 'proxy' : classifyFetchError(e);
+      if (proxy && (failClass === 'dns' || failClass === 'connect')) { fail(`无法连接代理 ${proxy.display}: ${(e && e.message) || 'request error'}`, 'proxy'); return; }
+      fail((e && e.message) || 'request error', failClass);
+    };
+    openHttpRequest(u, { method, headers, timeout: timeoutMs }, onRes, proxy, pending => { req = pending; }).then(r => {
+      req = r;
+      if (done) { try { req.destroy(); } catch { /* ignore */ } return; }
+      req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
+      req.on('error', onErr);
+      if (body !== null && body.length > 0) req.end(body); else req.end();
+    }, onErr);
   });
 }
 
@@ -2579,12 +3733,38 @@ function crc32(buf) {
 // ZIP 大小 / 数量护栏（zip 炸弹与体积防御）。
 const ZIP_MAX_SINGLE_FILE = 100 * 1024 * 1024;   // 单文件 100MB（打包时）
 const ZIP_MAX_TOTAL = 500 * 1024 * 1024;         // 总量 500MB（打包 + 解压累计）
-const ZIP_MAX_ENTRIES = 2000;                    // 解压条目数上限（zip 炸弹）
+// F9:条目数上限与写入端对齐 —— 经典 zip 的条目数字段是 UInt16(本实现不写 zip64),所以两端都是 65535。
+// 修前打包无上限、解包 2000 封顶:archive_zip 打出 2506 个条目的包,archive_unzip 却把它当 zip 炸弹拒收(拒绝自己的产物)。
+// 炸弹防御本来就该看体积:解压前先核对中央目录声明的总大小(≤ZIP_MAX_TOTAL),解压时逐条核对实际大小与 CRC。
+// 65534 而非 65535:EOCD 的条目数字段 0xFFFF 是 zip64 哨兵,写满 65535 条的包我们自己的 archive_unzip 会当 zip64 拒掉。
+const ZIP_MAX_ENTRIES = 65534;
+
+// 让出事件循环一拍(大数据的 CRC / 压缩 / 解压循环之间调用,SSE 与其它会话不被卡住)。
+const zipYield = () => new Promise(resolve => setImmediate(resolve));
+// 增量 CRC:分片计算,片间让出。Node ≥ 20.15/22.2 有原生 zlib.crc32(C 实现,数百 MB/s 级且不必分片),没有就走 JS 表驱动。
+async function crc32Async(buf) {
+  if (typeof zlib.crc32 === 'function') return zlib.crc32(buf) >>> 0;
+  let c = 0 ^ (-1);
+  const STEP = 4 * 1024 * 1024;
+  for (let off = 0; off < buf.length; off += STEP) {
+    const end = Math.min(buf.length, off + STEP);
+    for (let i = off; i < end; i += 1) c = (c >>> 8) ^ CRC32_TABLE[(c ^ buf[i]) & 0xff];
+    if (end < buf.length) await zipYield();
+  }
+  return (c ^ (-1)) >>> 0;
+}
+const zipDeflateRawAsync = data => new Promise((resolve, reject) => zlib.deflateRaw(data, (err, out) => (err ? reject(err) : resolve(out))));
+const zipInflateRawAsync = (data, maxOutputLength) => new Promise((resolve, reject) => zlib.inflateRaw(data, { maxOutputLength }, (err, out) => (err ? reject(err) : resolve(out))));
+// 小数据同步压缩更快(线程池往返的开销比压缩本身还大);大数据才走异步。
+const ZIP_ASYNC_DEFLATE_MIN = 256 * 1024;
 
 // 收集要打包的路径（文件或文件夹）→ 一个 {name, data} 平面列表。name 是 ZIP 内的相对路径（'/' 分隔）。
 // baseName = 该顶层路径在包内的根名（文件夹用其 basename，文件用 basename）。递归遍历文件夹；符号链接跳过。
 // 累计大小 > ZIP_MAX_TOTAL 或单文件 > ZIP_MAX_SINGLE_FILE → 抛人话错误（调用方转 {ok:false}）。
-async function zipCollectEntries(rootPaths) {
+// F9:子目录按共用忽略清单剪枝(node_modules/.git/__pycache__/venv/dist/build/… —— 「打包这个项目」不该把它们装进去);
+// 用户【显式】传入的顶层路径不剪;opts.ignoreDirs 追加、opts.includeIgnored 全部放开(仍剪 .git/.svn/.hg 之外的都进包)。
+// 被剪掉的计入 entries.skippedExcluded / entries.excludedDirs,由调用方说出来。
+async function zipCollectEntries(rootPaths, opts = {}) {
   const entries = []; // {name, data:Buffer, isDir}
   let total = 0;
   // hunt2 #3:敏感控制面逐项过滤。archive_zip 只对顶层输入过护栏,打包一个【祖先目录】(典型:工作区 = 家目录,
@@ -2592,20 +3772,34 @@ async function zipCollectEntries(rootPaths) {
   // file_read 即得明文 —— 实测端到端打通。与 walkFiles 同一条规矩(审计 P1):敏感子树不返回、不下钻。
   await ensureDataRootReal();
   entries.skippedSensitive = 0;
-  const addFile = async (absPath, zipName) => {
+  entries.skippedExcluded = 0;
+  entries.excludedDirs = [];
+  const ignore = buildIgnoreMatcher({ includeIgnored: opts.includeIgnored === true, ignoreDirs: opts.ignoreDirs });
+  const addFile = async (absPath, zipName, relFromTop) => {
     if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
     if (st.isSymbolicLink()) return; // 安全：符号链接不入包（避免打进包外内容）
     if (st.isDirectory()) {
       entries.push({ name: zipName.replace(/\/?$/, '/'), data: Buffer.alloc(0), isDir: true });
-      const kids = await fsp.readdir(absPath);
-      for (const kid of kids.sort()) await addFile(path.join(absPath, kid), zipName + '/' + kid);
+      const kids = await fsp.readdir(absPath, { withFileTypes: true });
+      const dotnetDir = ignore.dotnet && kids.some(k => !k.isDirectory() && DOTNET_PROJECT_RE.test(k.name));
+      kids.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      for (const kid of kids) {
+        const kidRel = relFromTop ? relFromTop + '/' + kid.name : kid.name;
+        if (kid.isDirectory() && ignore.pruneName(kid.name, kidRel, dotnetDir)) {
+          entries.skippedExcluded += 1;
+          if (entries.excludedDirs.length < 12 && !entries.excludedDirs.includes(kidRel)) entries.excludedDirs.push(kidRel);
+          continue;
+        }
+        await addFile(path.join(absPath, kid.name), zipName + '/' + kid.name, kidRel);
+      }
       return;
     }
     if (!st.isFile()) return;
-    if (st.size > ZIP_MAX_SINGLE_FILE) throw new Error(`单个文件超过上限（${Math.round(ZIP_MAX_SINGLE_FILE / 1024 / 1024)}MB）：${path.basename(absPath)}`);
+    if (st.size > ZIP_MAX_SINGLE_FILE) throw new Error(`单个文件超过上限（${Math.round(ZIP_MAX_SINGLE_FILE / 1024 / 1024)}MB）：${path.win32.basename(absPath)}`);
     total += st.size;
     if (total > ZIP_MAX_TOTAL) throw new Error(`打包总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`);
+    if (entries.length >= ZIP_MAX_ENTRIES) throw new Error(`条目数超过 zip 格式上限（${ZIP_MAX_ENTRIES}）;请缩小打包范围,或用 exclude 追加要跳过的目录名`);
     const data = await fsp.readFile(absPath);
     entries.push({ name: zipName, data, isDir: false });
   };
@@ -2613,23 +3807,23 @@ async function zipCollectEntries(rootPaths) {
     const abs = path.resolve(String(raw));
     const st = await fsp.lstat(abs).catch(() => null);
     if (!st) throw new Error(`路径不存在：${raw}`);
-    await addFile(abs, path.basename(abs));
+    await addFile(abs, path.win32.basename(abs), '');
   }
   return entries;
 }
 
 // 把 {name,data,isDir} 条目数组写成一个 ZIP Buffer。deflate 压缩（空数据 stored）。手写 local header +
 // central directory + EOCD。返回完整 Buffer。文件名用 UTF-8 字节 + flag bit 11。
-function zipWrite(entries) {
+// prepared[i] = { crc, method, comp }:压缩与 CRC 由调用方算好(zipWrite 同步算、zipWriteAsync 异步算),这里只装配。
+function zipAssemble(entries, prepared) {
+  if (entries.length > ZIP_MAX_ENTRIES) throw new Error(`条目数超过 zip 格式上限（${ZIP_MAX_ENTRIES}）`);
   const localParts = []; // 各条目的 [localHeader, filename, compressedData]
   const central = [];    // central directory 记录
   let offset = 0;        // 当前 local header 的绝对偏移（EOCD/central 用）
-  for (const e of entries) {
+  for (let idx = 0; idx < entries.length; idx += 1) {
+    const e = entries[idx];
+    const { crc, method, comp } = prepared[idx];
     const nameBuf = Buffer.from(e.name, 'utf8');
-    const crc = crc32(e.data);
-    let method, comp;
-    if (e.data.length === 0) { method = 0; comp = Buffer.alloc(0); } // 空文件/目录 → stored, size 0
-    else { method = 8; comp = zlib.deflateRawSync(e.data); }        // deflate（内建 zlib）
     // ---- local file header (0x04034b50) ----
     const lh = Buffer.alloc(30);
     lh.writeUInt32LE(0x04034b50, 0);
@@ -2680,20 +3874,63 @@ function zipWrite(entries) {
   eocd.writeUInt16LE(0, 20);          // comment len
   return Buffer.concat([localBlob, centralBlob, eocd]);
 }
+function zipWrite(entries) {
+  return zipAssemble(entries, entries.map(e => {
+    const crc = crc32(e.data);
+    if (e.data.length === 0) return { crc, method: 0, comp: Buffer.alloc(0) };   // 空文件/目录 → stored, size 0
+    return { crc, method: 8, comp: zlib.deflateRawSync(e.data) };                // deflate（内建 zlib）
+  }));
+}
+// F9:archive_zip 走这条 —— 大文件的 deflate 与 CRC 不再在主线程同步跑(实测 5×40MB 随机文件同步压缩让事件循环停顿 6.8 s,
+// SSE/其它会话/API 全卡住);压缩交给 libuv 线程池,条目之间让出事件循环。产物与 zipWrite 字节一致。
+async function zipWriteAsync(entries) {
+  const prepared = [];
+  let sinceYield = 0;
+  for (const e of entries) {
+    const n = e.data.length;
+    if (n === 0) { prepared.push({ crc: 0, method: 0, comp: Buffer.alloc(0) }); continue; }
+    if (n < ZIP_ASYNC_DEFLATE_MIN) {
+      prepared.push({ crc: crc32(e.data), method: 8, comp: zlib.deflateRawSync(e.data) });
+      sinceYield += n;
+      if (sinceYield >= 4 * 1024 * 1024) { sinceYield = 0; await zipYield(); }
+      continue;
+    }
+    const crc = await crc32Async(e.data);
+    prepared.push({ crc, method: 8, comp: await zipDeflateRawAsync(e.data) });
+    sinceYield = 0;
+  }
+  return zipAssemble(entries, prepared);
+}
+
+// F9:条目名解码。flag bit 11 = UTF-8;没置位时(Windows 资源管理器在中文系统上、旧版 WinRAR/7-Zip 打的包)名字是本地代码页
+// (中文 Windows = GBK)—— 纯 ASCII 照旧,严格 UTF-8 能解就按 UTF-8,否则按 GB18030(运行时支持时)。
+// 返回 { name, encoding }。
+function zipDecodeName(nameBuf, utf8Flag) {
+  let ascii = true;
+  for (let i = 0; i < nameBuf.length; i += 1) if (nameBuf[i] > 0x7f) { ascii = false; break; }
+  if (ascii || utf8Flag) return { name: nameBuf.toString('utf8'), encoding: 'utf-8' };
+  try { return { name: new TextDecoder('utf-8', { fatal: true }).decode(nameBuf), encoding: 'utf-8' }; } catch { /* 不是 UTF-8 */ }
+  const gb = profileGb18030Decoder();
+  if (gb) { try { return { name: gb.decode(nameBuf), encoding: 'gb18030' }; } catch { /* 也不是 */ } }
+  return { name: nameBuf.toString('utf8'), encoding: 'utf-8', lossy: true };
+}
 
 // 从 ZIP Buffer 解析 central directory → [{name, method, compSize, uncompSize, crc, localOffset, isDir}]。
 // 手动找 EOCD（从尾部倒扫 0x06054b50），读 central dir 偏移与条目数，逐条读 central header。只读元数据，不解压。
 // 损坏/非 ZIP → 抛人话错误。
 function zipReadCentralDir(buf) {
-  // 从尾部倒扫 EOCD 签名（comment 可变长，但我们写入端 comment=0；仍倒扫以兼容外部 zip）。
+  // 从尾部倒扫 EOCD 签名。EOCD 后只可能跟不超过 65535 字节的 comment,所以只扫最后 65557 字节
+  // (修前对 500MB 的非 zip 文件逐字节倒扫到头)。
   let eocdPos = -1;
-  for (let i = buf.length - 22; i >= 0; i -= 1) {
+  const scanFloor = Math.max(0, buf.length - 22 - 0xFFFF);
+  for (let i = buf.length - 22; i >= scanFloor; i -= 1) {
     if (buf.readUInt32LE(i) === 0x06054b50) { eocdPos = i; break; }
   }
   if (eocdPos < 0) throw new Error('不是有效的 ZIP 文件（找不到结尾记录）');
   const totalEntries = buf.readUInt16LE(eocdPos + 10);
   const cdSize = buf.readUInt32LE(eocdPos + 12);
   const cdOffset = buf.readUInt32LE(eocdPos + 16);
+  if (totalEntries === 0xFFFF || cdSize === 0xFFFFFFFF || cdOffset === 0xFFFFFFFF) throw new Error('不支持 zip64 格式的压缩包（条目数或体积超出经典 zip 范围）');
   if (cdOffset + cdSize > buf.length) throw new Error('ZIP 目录结构越界（文件可能损坏）');
   const out = [];
   let p = cdOffset;
@@ -2709,43 +3946,73 @@ function zipReadCentralDir(buf) {
     const commentLen = buf.readUInt16LE(p + 32);
     const externalAttrs = buf.readUInt32LE(p + 38);
     const localOffset = buf.readUInt32LE(p + 42);
-    // flag bit 11 = UTF-8；ZIP 传统上非 UTF-8 用 CP437。我们只可靠支持 UTF-8（bit 11）与纯 ASCII 名。
     const nameBuf = buf.slice(p + 46, p + 46 + nameLen);
-    const name = nameBuf.toString('utf8');
+    const decoded = zipDecodeName(nameBuf, (flag & 0x0800) !== 0);
+    const name = decoded.name;
     const isDir = name.endsWith('/') || (externalAttrs & 0x10) !== 0;
     // Unix 符号链接：external attrs 高 16 位是 st_mode，S_IFLNK = 0xA000。跳过（安全）。
     const unixMode = (externalAttrs >>> 16) & 0xffff;
     const isSymlink = (unixMode & 0xF000) === 0xA000;
-    out.push({ name, method, crc, compSize, uncompSize, localOffset, isDir, isSymlink, flag });
+    out.push({ name, nameEncoding: decoded.encoding, method, crc, compSize, uncompSize, localOffset, isDir, isSymlink, flag });
     p += 46 + nameLen + extraLen + commentLen;
   }
   return out;
 }
 
-// 从 ZIP Buffer + 一条 central 记录取出解压后的数据 Buffer。读 local header 定位数据区，按 method 解压。
-// method 0 = stored（原样切片）；method 8 = deflate（inflateRawSync）；其它 → 抛「不支持」。累计解压字节由调用方卡上限。
-function zipReadEntryData(buf, rec) {
+// 定位一条记录的压缩数据区并做解压前的格式核对(加密 / zip64 哨兵 / 头签名)。返回压缩后的字节切片。
+function zipEntryCompressedSlice(buf, rec) {
+  if (rec.flag & 0x0001) throw new Error(`条目已加密（${rec.name}），不支持加密的压缩包`);
+  if (rec.compSize === 0xFFFFFFFF || rec.uncompSize === 0xFFFFFFFF || rec.localOffset === 0xFFFFFFFF) throw new Error(`条目使用 zip64 扩展（${rec.name}），不支持`);
   // local header：签名 4 + 26 字节固定 → name/extra 长度在 26/28 偏移。
   const lo = rec.localOffset;
-  if (buf.readUInt32LE(lo) !== 0x04034b50) throw new Error('ZIP 条目头签名错误（文件可能损坏）');
+  if (lo + 30 > buf.length || buf.readUInt32LE(lo) !== 0x04034b50) throw new Error('ZIP 条目头签名错误（文件可能损坏）');
   const nameLen = buf.readUInt16LE(lo + 26);
   const extraLen = buf.readUInt16LE(lo + 28);
   const dataStart = lo + 30 + nameLen + extraLen;
-  const comp = buf.slice(dataStart, dataStart + rec.compSize);
-  if (rec.method === 0) return comp; // stored
-  if (rec.method === 8) {
+  if (dataStart + rec.compSize > buf.length) throw new Error(`条目数据越界（${rec.name}，文件可能被截断）`);
+  return buf.slice(dataStart, dataStart + rec.compSize);
+}
+const ZIP_BOMB_MSG = `单个条目解压后超过大小上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）或与声明大小不符，疑似 zip 炸弹，已拒绝`;
+// F9:解压后核对大小与 CRC32(修前 rec.crc 解析了却从不比对:被改坏的包照样「解压成功」)。
+function zipVerifyEntry(rec, data, crc) {
+  if (data.length !== rec.uncompSize) throw new Error(`条目大小与目录声明不符（${rec.name}：声明 ${rec.uncompSize} 字节，实际 ${data.length} 字节），压缩包可能已损坏`);
+  if ((crc >>> 0) !== (rec.crc >>> 0)) throw new Error(`CRC32 校验失败（${rec.name}），压缩包可能已损坏`);
+}
+
+// 从 ZIP Buffer + 一条 central 记录取出解压后的数据 Buffer。读 local header 定位数据区，按 method 解压。
+// method 0 = stored（原样切片）；method 8 = deflate（inflateRawSync）；其它 → 抛「不支持」。累计解压字节由调用方卡上限。
+function zipReadEntryData(buf, rec) {
+  const comp = zipEntryCompressedSlice(buf, rec);
+  let data;
+  if (rec.method === 0) data = comp; // stored
+  else if (rec.method === 8) {
     // 把关加固(收官复核):单条目 inflate 硬上限。没有它,高压缩比的【单个】条目(zip 炸弹,几百 KB 压缩
     // 体可展开出数十 GB)会在调用方的累计限额检查【之前】就被 inflateRawSync 全量展开吃爆内存——累计上限
     // 只防多条目,不防单条目。maxOutputLength 让 zlib 在超限处即刻中止,这里映射成人话。
-    try { return zlib.inflateRawSync(comp, { maxOutputLength: ZIP_MAX_TOTAL }); }
+    // F9:上限收紧到该条目声明的大小(声明本身已在解压前核对过 ≤ ZIP_MAX_TOTAL):实际输出超过声明就是撒谎。
+    try { data = zlib.inflateRawSync(comp, { maxOutputLength: Math.max(1, Math.min(ZIP_MAX_TOTAL, rec.uncompSize)) }); }
     catch (e) {
-      if (e && (e.code === 'ERR_BUFFER_TOO_LARGE' || /maxOutputLength|output.*length|too (large|big)/i.test(String(e && e.message || '')))) {
-        throw new Error(`单个条目解压后超过大小上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB），疑似 zip 炸弹，已拒绝`);
-      }
+      if (e && (e.code === 'ERR_BUFFER_TOO_LARGE' || /maxOutputLength|output.*length|too (large|big)/i.test(String(e && e.message || '')))) throw new Error(ZIP_BOMB_MSG);
       throw e;
     }
-  }
-  throw new Error(`不支持的压缩方式（method ${rec.method}），仅支持 stored/deflate`);
+  } else throw new Error(`不支持的压缩方式（method ${rec.method}），仅支持 stored/deflate`);
+  zipVerifyEntry(rec, data, crc32(data));
+  return data;
+}
+// 异步版(archive_unzip 用):inflate 走线程池、CRC 分片,解一个大条目不再卡住事件循环。语义与 zipReadEntryData 相同。
+async function zipReadEntryDataAsync(buf, rec) {
+  const comp = zipEntryCompressedSlice(buf, rec);
+  let data;
+  if (rec.method === 0) data = comp;
+  else if (rec.method === 8) {
+    try { data = await zipInflateRawAsync(comp, Math.max(1, Math.min(ZIP_MAX_TOTAL, rec.uncompSize))); }
+    catch (e) {
+      if (e && (e.code === 'ERR_BUFFER_TOO_LARGE' || /maxOutputLength|output.*length|too (large|big)/i.test(String(e && e.message || '')))) throw new Error(ZIP_BOMB_MSG);
+      throw e;
+    }
+  } else throw new Error(`不支持的压缩方式（method ${rec.method}），仅支持 stored/deflate`);
+  zipVerifyEntry(rec, data, await crc32Async(data));
+  return data;
 }
 
 // v1.1-W2 (T1) — http_download 的落盘目标护栏。thread 进来的 ctx 可能带 session/config（provider 引擎路径）

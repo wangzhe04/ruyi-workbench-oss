@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-30T10:57:50.154Z",
+  "generatedAt": "2026-09-30T17:17:39.783Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2189,6 +2189,7 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\audit-desktop-records.e2e.js",
         "dev-harness\\audit.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\autonomy-grant.e2e.js",
@@ -2247,6 +2248,8 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\steward-conversation.static.e2e.js",
+        "dev-harness\\tool-result-render.browser.e2e.js",
+        "dev-harness\\unit\\tool-result-shrink.test.js",
         "dev-harness\\vision-loop.e2e.js"
       ]
     },
@@ -2263,6 +2266,8 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\tool-result-render.browser.e2e.js",
+        "dev-harness\\unit\\tool-result-shrink.test.js",
         "dev-harness\\vision-loop.e2e.js"
       ]
     },
@@ -2365,6 +2370,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\openai-engine.e2e.js",
         "dev-harness\\openai-tools.e2e.js",
+        "dev-harness\\parallel-read-island.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
@@ -2422,7 +2428,9 @@
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\thread-commission.browser.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\tool-dispatch-hardening.e2e.js",
         "dev-harness\\tool-loading.e2e.js",
+        "dev-harness\\tool-result-bounds.e2e.js",
         "dev-harness\\tools-v2.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
@@ -3195,6 +3203,8 @@
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
+        "dev-harness\\tool-result-bounds.e2e.js",
+        "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
@@ -3426,6 +3436,8 @@
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
+        "dev-harness\\tool-result-bounds.e2e.js",
+        "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
@@ -3586,6 +3598,8 @@
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\tool-result-bounds.e2e.js",
+        "dev-harness\\tool-result-render.browser.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",

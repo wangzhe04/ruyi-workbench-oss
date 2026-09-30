@@ -117,6 +117,18 @@
 .tool-image.expanded img { max-height: none; }
 .tool-image-toggle, .tool-image-openbtn { margin-top: 4px; font-size: var(--fs-xs); padding: 3px 10px; }
 
+/* N11: 工具结果富渲染。结果框(.tc-result-rich)里是多行文本块 + 截图缩略图 + 其余键的紧凑 JSON,
+   不再是一行转义的 "\n"。外层 <pre> 改成普通流式容器,每个文本块自己限高滚动,展开后放宽。token 化配色。 */
+.tool-card pre.tc-result-rich { white-space: normal; max-height: none; overflow: visible; padding: 0; background: transparent; }
+.tool-card .tc-res-meta { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--code-bg); border-radius: 6px; padding: 9px 11px; margin: 0 0 6px; font-family: var(--mono); font-size: var(--fs-sm); max-height: 260px; overflow: auto; }
+.tool-card .tc-res-block { margin: 0 0 6px; }
+.tool-card .tc-res-key { font-size: var(--fs-xs); color: var(--muted); margin: 4px 0 3px; font-family: var(--font, inherit); }
+.tool-card .tc-res-len { margin-left: 6px; opacity: .8; }
+.tool-card .tc-res-text { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--code-bg); border-radius: 6px; padding: 9px 11px; font-family: var(--mono); font-size: var(--fs-sm); max-height: 320px; overflow: auto; }
+.tool-card .tc-res-block.expanded .tc-res-text { max-height: 70vh; }
+.tool-card .tc-res-block.err .tc-res-text { border-left: 2px solid var(--danger-fg); }
+.tool-card .tc-res-more { margin-top: 4px; font-size: var(--fs-xs); padding: 3px 10px; }
+
 .diff-view { background: var(--code-bg); border-radius: 6px; padding: 6px 0; margin: 0 0 4px; font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.5; max-height: 420px; overflow: auto; border: 1px solid var(--line); }
 .diff-view .diff-line { padding: 0 11px; white-space: pre; min-height: 1.5em; }
 .diff-view .diff-add { background: var(--ok-bg); color: var(--ink); }

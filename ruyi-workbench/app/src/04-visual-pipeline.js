@@ -45,32 +45,107 @@ const VisualPipeline = ((fspModule, pathModule) => {
   function hasImageAttachment(attachments) {
     return Array.isArray(attachments) && attachments.some(a => a && a.path && IMAGE_EXT_RE.test(String(a.name || a.path)));
   }
-  // Pull screenshot image(s) out of a bridged tool result. Desktop MCP (ACC v1.4) may surface a screenshot as
-  // `image` / `image_base64` (base64 or data URI) or nested under `screenshot.image`. Returns an array of data
-  // URIs (0..n). The base64 is assumed PNG unless it is already a data: URI. Pure read — does NOT mutate result.
+  // ── 工具结果里的图像字段(ACC 方言 + MCP 标准 ImageContent 映射后的形状)────────────────────────────────────────
+  // 三处顶层/嵌套位置:`image` / `image_base64`(ACC screenshot、window_screenshot、get_clipboard_image)、
+  // `screenshot.image`(ACC observe),外加 normalizeMcpToolResult 把第三方 MCP 的 `type:'image'` 块映射成的
+  // `image_base64`(第一张)+`images:[{mimeType,data}]`(多张)。每个字段旁的 format/mimeType/image_mime 给出真实类型。
+  // 审计 F3/A11:修前一律贴 `data:image/png`,ACC 的 format:"jpeg" 会被当 PNG 发出去,Anthropic Messages 校验 media_type
+  // 与字节不符直接 400。现在:字节魔数优先(服务端校验的是字节),其次兄弟键声明的类型,最后才回落 png。
+  const FORMAT_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
+  function mimeFromHint(v) {
+    const h = String(v == null ? '' : v).trim().toLowerCase();
+    if (!h) return '';
+    if (/^image\/[a-z0-9.+-]+$/.test(h)) return h === 'image/jpg' ? 'image/jpeg' : h;
+    return FORMAT_MIME[h.replace(/^\./, '')] || '';
+  }
+  // 只解码前 24 个 base64 字符(18 字节)够认 PNG/JPEG/GIF/WEBP/BMP 的头。
+  function sniffImageMime(b64) {
+    let head;
+    try { head = Buffer.from(String(b64 || '').slice(0, 24), 'base64'); } catch { return ''; }
+    if (head.length >= 8 && head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47) return 'image/png';
+    if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'image/jpeg';
+    if (head.length >= 6 && head.slice(0, 3).toString('latin1') === 'GIF') return 'image/gif';
+    if (head.length >= 12 && head.slice(0, 4).toString('latin1') === 'RIFF' && head.slice(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+    if (head.length >= 2 && head[0] === 0x42 && head[1] === 0x4d) return 'image/bmp';
+    return '';
+  }
+  // 从图像字节读宽高(PNG IHDR / JPEG SOFn);认不出返回 null。只为占位文案与结果元数据,不做校验。
+  function imageSizeFromBuffer(buf) {
+    if (!Buffer.isBuffer(buf) || buf.length < 24) return null;
+    if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+    if (buf[0] === 0xff && buf[1] === 0xd8) {
+      let i = 2;
+      while (i + 9 < buf.length) {
+        if (buf[i] !== 0xff) { i += 1; continue; }
+        const marker = buf[i + 1];
+        if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+        const len = buf.readUInt16BE(i + 2);
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return { height: buf.readUInt16BE(i + 5), width: buf.readUInt16BE(i + 7) };
+        i += 2 + len;
+      }
+    }
+    return null;
+  }
+  function toImageDataUri(v, ...hints) {
+    if (typeof v !== 'string' || !v) return '';
+    if (v.startsWith('data:')) return v;
+    let mime = sniffImageMime(v);
+    for (let k = 0; !mime && k < hints.length; k += 1) mime = mimeFromHint(hints[k]);
+    return `data:${mime || 'image/png'};base64,${v}`;
+  }
+  // 像图像载荷吗:data URI,或一长串 base64/base64url 字符(排除 `nginx:latest`、`C:\\x.png` 这类恰好叫 image 的普通字符串 ——
+  // 非视觉路径会把命中的字段换成占位,误伤普通字段比漏掉一张图更糟)。
+  function looksLikeImagePayload(v) {
+    if (typeof v !== 'string') return false;
+    if (v.startsWith('data:')) return /^data:image\//i.test(v);
+    return v.length >= 12 && /^[A-Za-z0-9+/=_-]+$/.test(v.length > 512 ? v.slice(0, 512) : v);
+  }
+  // 结果里所有图像字段的引用:{ value, mime(推断出的 data URI 之前的类型), width, height, replace(text) → 就地改克隆 }。
+  function imageFieldRefs(resultObj) {
+    const refs = [];
+    if (!resultObj || typeof resultObj !== 'object') return refs;
+    const top = { w: resultObj.width, h: resultObj.height };
+    const topHints = [resultObj.image_mime, resultObj.mimeType, resultObj.mime_type, resultObj.media_type, resultObj.format];
+    if (looksLikeImagePayload(resultObj.image)) refs.push({ value: resultObj.image, hints: topHints, ...top, set: (c, t) => { c.image = t; } });
+    if (looksLikeImagePayload(resultObj.image_base64)) refs.push({ value: resultObj.image_base64, hints: topHints, ...top, set: (c, t) => { c.image_base64 = t; } });
+    const shot = resultObj.screenshot;
+    if (shot && typeof shot === 'object' && looksLikeImagePayload(shot.image)) {
+      refs.push({ value: shot.image, hints: [shot.image_mime, shot.mimeType, shot.mime_type, shot.media_type, shot.format], w: shot.width, h: shot.height,
+        set: (c, t) => { c.screenshot = { ...c.screenshot, image: t }; } });
+    }
+    if (Array.isArray(resultObj.images)) {
+      resultObj.images.forEach((it, idx) => {
+        if (it && typeof it === 'object' && looksLikeImagePayload(it.data)) {
+          refs.push({ value: it.data, hints: [it.mimeType, it.mime_type, it.mime, it.media_type, it.format], w: it.width, h: it.height,
+            set: (c, t) => { c.images = (c.images || resultObj.images).slice(); c.images[idx] = { ...c.images[idx], data: t }; } });
+        }
+      });
+    }
+    return refs;
+  }
+  // Pull screenshot image(s) out of a bridged tool result → array of data URIs (0..n). Pure read — does NOT mutate result.
   function extractToolImages(resultObj) {
-    if (!resultObj || typeof resultObj !== 'object') return [];
-    const out = [];
-    const push = v => {
-      if (typeof v !== 'string' || !v) return;
-      out.push(v.startsWith('data:') ? v : `data:image/png;base64,${v}`);
-    };
-    push(resultObj.image);
-    push(resultObj.image_base64);
-    if (resultObj.screenshot && typeof resultObj.screenshot === 'object') push(resultObj.screenshot.image);
-    return out;
+    return imageFieldRefs(resultObj).map(r => toImageDataUri(r.value, ...r.hints)).filter(Boolean);
   }
   // Strip the heavy image field(s) out of a tool result BEFORE it is serialized into a `role:'tool'` message,
   // replacing each with a compact占位 so the tool-result JSON stays精简 (the actual pixels ride in a separate
   // user image message, appended after the batch). Returns a SHALLOW clone with the image fields占位ed; the
-  // original object (used for the UI event) is untouched. Only called when we DID extract ≥1 image AND vision是开的.
-  function stripToolImageFields(resultObj) {
+  // original object (used for the UI event) is untouched.
+  // 第二参 placeholder:省略 = 视觉开时的「截图见随后的图片消息」;传 'no-vision' = 审计 N7,非视觉模型历史里用
+  // 「[image omitted: WxH png, model has no vision]」(不再把 40 KB base64 当文字塞进历史)。也可传函数 (ref, mime) → 文本。
+  function stripToolImageFields(resultObj, placeholder) {
     if (!resultObj || typeof resultObj !== 'object') return resultObj;
+    const refs = imageFieldRefs(resultObj);
+    if (!refs.length) return { ...resultObj };
     const clone = { ...resultObj };
-    if (typeof clone.image === 'string') clone.image = '[截图见随后的图片消息]';
-    if (typeof clone.image_base64 === 'string') clone.image_base64 = '[截图见随后的图片消息]';
-    if (clone.screenshot && typeof clone.screenshot === 'object' && typeof clone.screenshot.image === 'string') {
-      clone.screenshot = { ...clone.screenshot, image: '[截图见随后的图片消息]' };
+    for (const r of refs) {
+      let text = '[截图见随后的图片消息]';
+      if (placeholder === 'no-vision' || typeof placeholder === 'function') {
+        const mime = (toImageDataUri(r.value, ...r.hints).match(/^data:([^;]+);/) || [])[1] || 'image/png';
+        text = typeof placeholder === 'function' ? placeholder(r, mime)
+          : `[image omitted: ${Number(r.w) > 0 && Number(r.h) > 0 ? `${Number(r.w)}x${Number(r.h)} ` : ''}${mime.replace('image/', '')}, model has no vision]`;
+      }
+      r.set(clone, text);
     }
     return clone;
   }
@@ -102,5 +177,5 @@ const VisualPipeline = ((fspModule, pathModule) => {
     }
     return demoted;
   }
-  return Object.freeze({ buildUserContentParts, hasImageAttachment, extractToolImages, stripToolImageFields, pruneOldImages });
+  return Object.freeze({ buildUserContentParts, hasImageAttachment, extractToolImages, stripToolImageFields, pruneOldImages, sniffImageMime, imageSizeFromBuffer });
 })(fsp, path);

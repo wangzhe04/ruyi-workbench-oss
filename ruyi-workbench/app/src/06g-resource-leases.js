@@ -173,6 +173,35 @@ async function acquireResourceLease(group, resources, signal, onWait, timeoutMs)
   });
 }
 function releaseResourceLease(token) { if (token && resourceLeases.delete(token)) drainResourceWaiters(); }
+// 审计 A9:ACC 桌面工具的租约分类。write = 改变桌面/输入状态(独占);read = 只观察屏幕或窗口状态(共享)。
+const ACC_DESKTOP_WRITE_TOOLS = new Set([
+  'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',
+  'focus_window', 'resize_window', 'move_window', 'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
+  'ui_invoke', 'ocr_click', 'vision_click', 'macro_run', 'batch_actions', 'act_and_verify', 'launch_application',
+  'set_clipboard', 'set_clipboard_image', 'message_box', 'show_notification',
+]);
+const ACC_DESKTOP_READ_TOOLS = new Set([
+  'screenshot', 'screenshot_region', 'window_screenshot', 'observe', 'ocr_screen', 'find_on_screen', 'find_template', 'find_all_templates',
+  'wait_for_image', 'wait_for_pixel', 'get_pixel_color', 'get_screen_info', 'list_windows', 'get_active_window', 'get_mouse_position',
+  'list_monitors', 'get_dpi_info', 'ui_inspect', 'ui_find', 'wait_for_window', 'wait_for_window_idle', 'get_clipboard', 'get_clipboard_image',
+]);
+// ACC 里【不碰桌面】的其余注册名:文件/Office/记忆/网络/进程/浏览器(浏览器另有 browser:<profile> 锁)/发声/诊断。
+const ACC_NON_DESKTOP_TOOLS = new Set([
+  'audit_tail', 'diagnostics', 'safety_info', 'version_info', 'run_command', 'list_processes', 'kill_process', 'get_system_info', 'wait',
+  'get_environment_variable', 'read_file', 'write_file', 'list_directory', 'copy_file', 'move_file', 'delete_file', 'file_info', 'read_document',
+  'write_document', 'write_excel', 'write_pdf', 'excel_beautify', 'excel_chart', 'write_pptx', 'chart_image', 'excel_read', 'pdf_read_pages',
+  'browser_open', 'browser_backend_status', 'browser_click', 'browser_type', 'browser_screenshot', 'browser_get_text', 'browser_execute_js',
+  'browser_navigate', 'browser_get_elements', 'browser_list_tabs', 'browser_switch_tab', 'browser_close', 'edit_file', 'image_info', 'image_resize',
+  'ocr_image', 'ocr_available_languages', 'record_start', 'record_stop', 'macro_list', 'memory_save', 'memory_read', 'memory_list', 'memory_delete',
+  'fetch', 'sequential_thinking', 'beep', 'notify_attention', 'play_sound',
+]);
+function bridgedDesktopLeaseMode(bare, input) {
+  if (ACC_DESKTOP_WRITE_TOOLS.has(bare)) return 'write';
+  if (bare === 'ocr_find_text') return input && input.click === true ? 'write' : 'read';   // click=True 才真点击
+  if (ACC_DESKTOP_READ_TOOLS.has(bare)) return 'read';
+  if (ACC_NON_DESKTOP_TOOLS.has(bare)) return '';
+  return /click|mouse|keyboard|hotkey|ocr|screen|window|desktop|type|press|scroll|drag/.test(bare) ? 'write' : '';   // 表外(第三方 MCP):旧口径
+}
 function inferToolResources(name, args, bridge, cwd, tier) {
   const bare = String(bridge ? bridge.toolName : name || '').toLowerCase();
   const input = args && typeof args === 'object' ? args : {};
@@ -192,7 +221,15 @@ function inferToolResources(name, args, bridge, cwd, tier) {
     const p = input.path || input.file || input.input_path || input.output_path;
     if (p) add(`office:${p}`, tier === 'read' ? 'read' : 'write');
   }
-  if (name === 'desktop_screenshot' || bridge && /click|mouse|keyboard|hotkey|ocr|screen|window|desktop|type|press|scroll|drag/.test(bare)) add('desktop', 'write');
+  // 桌面锁(审计 A9):修前是一条名字正则 —— 漏掉 macro_run / batch_actions(回放鼠标键盘)、key_down/up、ui_invoke、act_and_verify、
+  // launch_application、剪贴板写、message_box,两个 agent 可以交错点击;又把只读的 get_screen_info / list_windows 也当独占写锁。
+  // 现在按 ACC 的真实工具名(mcp/ai-computer-control 的 108 个注册名逐个分过类)显式分两张表:会动桌面的 → 独占写锁,
+  // 只看桌面的 → 共享读锁(读读可并发、与写互斥),其余 ACC 工具(文件/Office/记忆/网络/浏览器…)不占桌面。
+  // 表外的名字(第三方 MCP)仍走旧正则兜底 —— 未知的保守当写。原生 keyboard_send_keys 修前完全没锁,一并补上。
+  const deskMode = name === 'keyboard_send_keys' ? 'write'
+    : name === 'desktop_screenshot' ? 'read'
+    : bridge ? bridgedDesktopLeaseMode(bare, input) : '';
+  if (deskMode) add('desktop', deskMode);
   if (bridge) {
     for (const target of collectBridgedWriteTargets(bridge.toolName, input)) add(`file:${target.path}`, 'write');
   }

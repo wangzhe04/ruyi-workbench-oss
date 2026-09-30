@@ -1,5 +1,6 @@
 """Dialog and notification tools for Windows."""
 
+import asyncio
 import ctypes
 from ai_computer_control.server import mcp
 
@@ -29,9 +30,6 @@ def show_notification(title: str, message: str, duration: int = 5) -> dict:
         title: Notification title.
         message: Notification message body.
         duration: Display duration in seconds (approximate).
-
-    Returns:
-        dict with 'ok'.
     """
     try:
         from win10toast import ToastNotifier
@@ -54,6 +52,7 @@ def show_notification(title: str, message: str, duration: int = 5) -> dict:
         subprocess.Popen(
             ["powershell", "-NoProfile", "-Command", _TOAST_PS],
             env=env,
+            stdin=subprocess.DEVNULL,  # never inherit the MCP stdio pipe
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -98,7 +97,7 @@ IDTIMEOUT = 32000
 
 
 @mcp.tool()
-def message_box(
+async def message_box(
     title: str,
     message: str,
     buttons: str = "ok",
@@ -107,22 +106,25 @@ def message_box(
 ) -> dict:
     """Show a Windows message box and return the user's response.
 
-    IMPORTANT: this needs a human to click. It runs the (blocking) dialog on a background thread and
-    auto-dismisses after `timeout_ms`, so an unattended call can never hang the server forever — a
-    plain modal MessageBoxW on the server's event-loop thread would otherwise deadlock it permanently.
+    Needs a human to click; the dialog runs on a background thread and auto-dismisses after `timeout_ms`, so an
+    unattended call never hangs the server.
 
     Args:
-        title: Message box title.
+        title: Box title.
         message: Message text.
-        buttons: Button style - "ok", "okcancel", "yesno", "yesnocancel".
-        icon: Icon type - "info", "warning", "error", "question".
-        timeout_ms: Auto-dismiss after this many ms if no one responds (default 30s; clamped to [1s, 60s]).
+        buttons: "ok", "okcancel", "yesno", "yesnocancel".
+        icon: "info", "warning", "error", "question".
+        timeout_ms: Auto-dismiss delay (default 30s; clamped to [1s, 60s]).
 
     Returns:
-        dict with 'ok' and 'result' ("ok"/"cancel"/"yes"/"no", or "timeout" if auto-dismissed).
+        dict with 'ok' and 'result' ("ok"/"cancel"/"yes"/"no", or "timeout").
     """
     import threading
 
+    try:
+        timeout_ms = max(1000, min(60000, int(timeout_ms)))   # the docstring's promised [1s, 60s] clamp
+    except (TypeError, ValueError):
+        timeout_ms = 30000
     style = _BUTTON_MAP.get(buttons, MB_OK) | _ICON_MAP.get(icon, MB_ICONINFO)
     holder: dict = {}
 
@@ -141,9 +143,10 @@ def message_box(
 
     t = threading.Thread(target=_show, daemon=True)
     t.start()
-    # Bounded wait: the blocking C call releases the GIL, so the event loop is free during the join;
-    # worst case we wait timeout_ms (+slack) instead of forever.
-    t.join(timeout=(int(timeout_ms) / 1000.0) + 2.0)
+    # Bounded wait, OFF the event loop: this tool is async and the join runs in a worker thread
+    # (asyncio.to_thread), so pings/cancellation stay serviced while the dialog is open. Worst case
+    # we wait timeout_ms (+slack) instead of forever.
+    await asyncio.to_thread(t.join, (int(timeout_ms) / 1000.0) + 2.0)
 
     if "e" in holder:
         return {"ok": False, "error": str(holder["e"])}
