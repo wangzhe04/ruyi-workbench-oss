@@ -86,7 +86,7 @@ const MCP_TOOLS = [
     // 105a: offered only when runtimeObservationRecallV1 AND runtimeObservationReducerV1 are both on
     // (buildOpenAiTools / MCP tools/list / adaptive catalog all gate on the pair; the handler fails closed too).
     name: 'observation_recall',
-    description: 'Recall the original content of a tool result reduced during context compaction, using the rawRef embedded in its reduced view (format history:<turn>:<hash>:<index>:<hash>). When a user asks for an exact historical value/detail and a relevant earlier tool result is marked reduced or omitted, call this tool before answering; never conclude the detail is absent from the reduced view alone. Read-only; resolves only snapshots of the CURRENT session. Stable failure envelope {ok:false,error}: invalid_ref | not_found (snapshot GC\'d) | hash_mismatch | quota_exceeded (8 recalls per turn — do not retry the same ref after this) | disabled.',
+    description: "Recall the original content of a tool result that was reduced during context compaction, using the rawRef in its reduced view (history:<turn>:<hash>:<index>:<hash>). When the user asks for an exact earlier value and the relevant result is marked reduced/omitted, call this before answering; never conclude the detail is absent from the reduced view alone. Read-only, current session only. Failure envelope {ok:false,error}: invalid_ref | not_found | hash_mismatch | quota_exceeded (8 per turn; do not retry the same ref) | disabled.",
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['rawRef'],
       properties: {
@@ -178,7 +178,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'script_run',
-    description: 'Run a temporary PowerShell, Python, or Node script',
+    description: "Run a temporary script: language powershell (default), python, or node/javascript; `code` is the script body. Returns stdout/stderr/exit code; timeoutMs defaults to 60000. For one-line commands prefer powershell_run.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -207,7 +207,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_write',
-    description: 'Write a local file',
+    description: "Write a local file (overwrites; checkpointed so it can be rolled back). `content` is required; pass \"\" to empty the file. Parent directories are created unless createDirs:false.",
     inputSchema: {
       type: 'object',
       properties: { path: { type: 'string' }, content: { type: 'string' }, createDirs: { type: 'boolean' } },
@@ -229,7 +229,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_edit',
-    description: 'Replace text in a local file',
+    description: "Replace text in a UTF-8 file. `oldText` must match exactly once (whitespace and line endings included) unless replaceAll:true; `newText` is required (\"\" deletes the match). A miss returns the closest line as a hint; read the file first to copy oldText verbatim.",
     inputSchema: {
       type: 'object',
       properties: { path: { type: 'string' }, oldText: { type: 'string' }, newText: { type: 'string' }, replaceAll: { type: 'boolean' } },
@@ -312,7 +312,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_list',
-    description: 'List files under a directory',
+    description: "List files under `root` (default: the workspace). `pattern` filters names, recursive/maxDepth/maxFiles bound the walk; truncated:true means more files exist.",
     inputSchema: {
       type: 'object',
       properties: { root: { type: 'string' }, pattern: { type: 'string' }, recursive: { type: 'boolean' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' } },
@@ -500,7 +500,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'codebase_symbol_search',
-    description: 'Search a codebase for where a symbol (function/class/method/variable name) is defined and referenced, returning file-level definition/reference evidence grouped by file. Grep-level lexical scan (not AST/type-aware): it matches identifier occurrences by word boundary. Use when auditing or tracing where a symbol is defined and called, so claims are grounded in real file:line evidence instead of name-similarity guesses. Do not use for semantic/type-aware queries, cross-language resolution, or when an exact definition-vs-reference distinction matters (use a language server). The symbol argument is treated as a literal (regex metacharacters are escaped).',
+    description: "Find where a symbol (function/class/method/variable) is defined and referenced; returns file-level evidence grouped by file. Lexical word-boundary scan, not AST/type-aware; the symbol is matched literally (regex metacharacters escaped). Use it to ground claims in real file:line evidence; not for semantic/cross-language resolution (use a language server).",
     inputSchema: {
       type: 'object',
       properties: {
@@ -517,7 +517,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'debug_hypothesis',
-    description: 'Advisory hypothesis/experiment/refutation ledger for structured debugging (bisect/elimination method). Tracks which hypotheses are pending/refuted/supported/confirmed so you can see how many remain unrefuted, catch repeated experiments, and avoid locking a root cause before excluding alternatives. It is a STATELESS helper (the ledger is carried in the conversation, not persisted server-side): pass the ledger returned by the previous call back on every subsequent call. Actions: init(hypotheses[]) to create the ledger, test(hypothesisId,result,evidence) to record a refuting/supporting experiment (refutation is sticky; a refuted hypothesis cannot be revived), conclude(hypothesisId) to lock the root cause (only a supported hypothesis may be concluded; warns if alternatives remain unexcluded), status to see stats + duplicate/contradiction warnings. Do not use when the bug is already obvious or there is nothing to disambiguate.',
+    description: "Advisory, stateless hypothesis/experiment ledger for structured debugging (elimination method): pass the ledger returned by the previous call back on every call. Actions: init(hypotheses[]) creates it; test(hypothesisId,result,evidence) records a refuting/supporting experiment (refutation is sticky, a refuted hypothesis cannot be revived); conclude(hypothesisId) locks the root cause (only a supported hypothesis; warns if alternatives remain unexcluded); status shows stats + duplicate/contradiction warnings. Skip when the bug is already obvious.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -533,7 +533,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'data_profile',
-    description: 'Profile a data file (CSV/TSV/JSON/JSONL/text log) into a machine-computed summary: row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outlier count, and sample values. Use to replace eyeballing a large file with file_read when you need its structure, scale and data-quality issues (missing/outliers/format) before planning an analysis. Do not use for small files where reading directly is cheaper, or for cleaning/transforming the data (this tool is read-only). Column type and outlier detection are statistical heuristics, not data lineage.',
+    description: "Profile a data file (CSV/TSV/JSON/JSONL/text log): row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outlier count, and sample values. Use it to learn a large file's structure and data-quality issues without reading it; skip for small files (read directly) or for cleaning/transforming (read-only). Types and outliers are statistical heuristics.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -559,7 +559,7 @@ const MCP_TOOLS = [
   // loopback/私网/元数据/协议) — an untrusted url can never reach an internal endpoint.
   {
     name: 'web_search',
-    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha). Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
+    description: "Search the web via the configured search backend. Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. captcha). Use specific keywords (product names, error messages, versions) and rephrase if results look off-topic. Use it for time-sensitive facts or anything that may have changed after your knowledge cutoff: search first, then answer; use web_fetch to read a promising result in full.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -585,7 +585,7 @@ const MCP_TOOLS = [
   // loopback. It is hidden from sub-agents and standalone MCP sessions because neither owns the chat UI.
   {
     name: 'request_user_input',
-    description: 'Pause and ask the user one to three concise questions in the workbench UI. Prefer 2-5 concrete, mutually exclusive options whenever the answer can be enumerated; put the recommended option first and label it (Recommended). Choice questions include an Other typed fallback by default. Use text-only mode only when options genuinely cannot represent the answer. The tool returns structured user answers; continue only after it returns.',
+    description: 'Pause and ask the user 1-3 concise questions in the workbench UI; it returns structured answers, so continue only after it returns. Prefer 2-5 concrete, mutually exclusive options (recommended first, label suffixed (Recommended)); choice questions get an Other typed fallback by default. Use text-only mode only when options cannot represent the answer.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -597,9 +597,9 @@ const MCP_TOOLS = [
               id: { type: 'string', description: 'Stable identifier within this request; generated when omitted' },
               header: { type: 'string', description: 'Short label for the question' },
               question: { type: 'string', description: 'The question shown to the user' },
-              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'Single or multiple choice is preferred. Use text only when a useful finite option set cannot be offered. Inferred from options/multiSelect when omitted.' },
+              answerMode: { type: 'string', enum: ['single', 'multiple', 'text'], description: 'single | multiple | text (text only when no finite option set works). Inferred from options/multiSelect when omitted.' },
               options: {
-                type: 'array', description: 'Prefer 2-5 concrete choices. Put the recommended option first and suffix its label with (Recommended). Omit only for genuinely open-ended text answers.',
+                type: 'array', description: 'Concrete choices; omit only for open-ended text answers.',
                 items: {
                   type: 'object',
                   properties: {
@@ -611,9 +611,9 @@ const MCP_TOOLS = [
                 },
               },
               multiSelect: { type: 'boolean', description: 'Legacy alias for answerMode=multiple' },
-              allowOther: { type: 'boolean', default: true, description: 'With single/multiple choices, allow a custom typed fallback. Defaults to true; set false only when custom input would be invalid.' },
-              otherLabel: { type: 'string', description: 'Optional label for the custom-answer choice' },
-              otherPlaceholder: { type: 'string', description: 'Optional placeholder for the custom-answer input' },
+              allowOther: { type: 'boolean', default: true, description: 'Custom typed fallback for choice questions (default true).' },
+              otherLabel: { type: 'string', description: 'Label for the custom-answer choice' },
+              otherPlaceholder: { type: 'string', description: 'Placeholder for the custom-answer input' },
             },
             required: ['question'],
           },
@@ -677,7 +677,7 @@ const MCP_TOOLS = [
   // getCapabilities/loadSkillRegistry/getAgentWorkflows 等),不新造事实源;config 段只回显白名单标量字段。
   {
     name: 'workbench_self_status',
-    description: '只读查询本工作台自身的运行时状态:版本号、启动模式(exe/源码)、安装位置、数据目录、服务地址与实例标识、健康检查项、原生/ACC 工具数与技能/命令/Playbook/工作流数量,以及当前设置(引擎/端点/模型/权限模式/输出风格/界面语言,已做密钥掩码,绝不含 apiKey/token)。何时用:用户问「你是哪个版本/装在哪/端口是多少/数据目录在哪/当前用哪个模型和权限模式/有多少工具、技能、Playbook」,或你需要核对自身运行环境再回答时,调用本工具而不是凭记忆回答或猜测。何时别用:查询用户项目文件、工作区结构或桌面/浏览器状态时——那应改用 project_snapshot/file_list/ACC diagnostics 等工具;本工具不接受也不触碰任何用户文件路径。section 可选,缩小返回范围以节省上下文,默认 all(全部)。',
+    description: "只读查询本工作台自身的运行时状态:版本、启动模式、安装位置、数据目录、服务地址与实例标识、健康检查、工具/技能/命令/Playbook/工作流数量,以及当前设置(引擎/端点/模型/权限模式/输出风格/界面语言,密钥已掩码)。用户问「哪个版本/装在哪/端口/数据目录/当前模型和权限模式/有多少工具」或你需要核对自身环境时调用,不要凭记忆猜。不用于查用户项目文件、工作区或桌面状态(改用 project_snapshot/file_list/ACC diagnostics)。section 可选,缩小返回范围,默认 all。",
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -1210,7 +1210,7 @@ const MCP_TOOLS = [
   // 完成信封经后台任务账本恰好投递一次。子代理自身拿不到这三个工具(禁嵌套:07 buildOpenAiTools noAgentTools)。
   {
     name: 'orchestrate_agents',
-    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Three call shapes: (1) single agent — pass top-level {task, role?, toolTier?, model?, resources?} and it runs as a one-node run; (2) author `nodes` inline for a one-off DAG; (3) pass `workflowId` to reuse a saved/built-in template by id (ids listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since template node tasks are generic placeholders. Set background:true whenever you still have independent work to do: the call returns {runId, status:'running'} immediately, the run keeps going even after this turn ends, and its delivery envelope is injected into the conversation exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you must have the result before continuing. The result you receive is a bounded delivery envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; call agent_result({runId, nodeId?}) for the full text of a node. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Two ways to call it: (1) author `nodes` inline for a one-off DAG, or (2) pass `workflowId` to reuse a saved/built-in template by id (available ids + when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since a template's node tasks are often generic placeholders with no subject of their own. Prefer (2) for complex, multi-step tasks that match a listed template; skip it for simple one-shot requests.",
+    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent — pass top-level {task, role?, toolTier?, model?, resources?} and it runs as a one-node run; (2) author `nodes` inline for a one-off DAG; (3) pass `workflowId` to reuse a saved/built-in template (ids and when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since template node tasks are generic placeholders. Prefer (3) for complex multi-step tasks that match a listed template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work to do: the call returns {runId, status:'running'} immediately, the run keeps going even after this turn ends, and its delivery envelope is injected into the conversation exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you must have the result before continuing. The result you receive is a bounded delivery envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; call agent_result({runId, nodeId?}) for the full text of a node. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -1226,11 +1226,11 @@ const MCP_TOOLS = [
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
-              model: { type: 'string', description: 'optional explicit model override for THIS node. Omit by default so the runtime can validate and use the configured sub-agent preferred endpoint/model, then fall back to the current conversation endpoint/model. Set only when the user/task requires a different model; it must match the node engine.' },
+              model: { type: 'string', description: 'explicit model override for THIS node; omit by default (the runtime uses the configured sub-agent model, then the conversation model). Set only when the task needs a different model; it must match the node engine.' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
-              isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree runs this node in a detached Git worktree and keeps its commit for explicit user application; never auto-merges' },
-              outputSchema: { type: 'object', description: 'optional JSON Schema for this node final JSON value (objects, arrays, and primitives supported); invalid JSON/schema fails the node. Fields that may be unavailable must explicitly allow null, for example type:["integer","null"].' },
-              context: { type: 'string', description: 'optional node-level context injected ONLY into this node (appended after the run-wide context). Use for per-node specifics (structure summary for exploration, concrete fragment for execution, artifact list for verify); omit to inherit only the run-wide context. Capped at 4000 chars.' },
+              isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree: run this node in a detached Git worktree and keep its commit for explicit user application (never auto-merged)' },
+              outputSchema: { type: 'object', description: 'optional JSON Schema for this node final JSON value; invalid JSON/schema fails the node. Fields that may be unavailable must allow null, e.g. type:["integer","null"].' },
+              context: { type: 'string', description: 'node-level context injected ONLY into this node (after the run-wide context): per-node specifics such as a structure summary, a concrete fragment or an artifact list. Max 4000 chars.' },
               gate: {
                 type: 'object', description: 'quality gate; reviewer/verifier roles get one automatically',
                 properties: {
@@ -1243,18 +1243,18 @@ const MCP_TOOLS = [
                   propagateKey: { type: 'string', description: 'item record key used to inherit assignments among equal-key items' },
                   allowPartialCoverage: { type: 'boolean', description: 'allow coverage nodes or model gates with uncovered items to succeed with a warning' },
                   allowPartial: { type: 'boolean', description: 'allow propagate nodes with unpropagated items to succeed' },
-                  requireEvidence: { type: 'boolean', description: 'R1 high-stakes gate (audit/research). When true, structuredResult.findings claims whose evidenceRefs are missing/invalid/cross-workspace are marked unverified, and if any unverified claim exists the node is rejected (gate_unverified). Default false: unverified claims are merely marked, not blocking (backwards-compatible).' },
+                  requireEvidence: { type: 'boolean', description: 'high-stakes gate (audit/research): when true, structuredResult.findings claims with missing/invalid/cross-workspace evidenceRefs are marked unverified and any unverified claim rejects the node (gate_unverified). Default false: only marked, not blocking.' },
                 },
               },
               failurePolicy: { type: 'string', enum: ['block', 'continue', 'retry'], description: 'block downstream (default), continue in degraded mode, or retry automatically' },
-              dependencyPolicy: { type: 'string', enum: ['all_success', 'all_settled'], description: 'all_success blocks this node on a failed dependency (default); all_settled runs after every dependency settles and injects failed status/error for tolerant fan-in aggregation' },
+              dependencyPolicy: { type: 'string', enum: ['all_success', 'all_settled'], description: 'all_success (default) blocks on a failed dependency; all_settled runs after every dependency settles and injects failed status/error (tolerant fan-in)' },
               degradedPolicy: { type: 'string', enum: ['accept', 'retry', 'request_review', 'fail'], description: '当节点【降级成功】(产出可用但执行异常)时的处置:accept 照用(默认)/ retry 重跑一次 / request_review 暂停待人工 / fail 判失败(交 failurePolicy 决定下游)' },
               maxRetries: { type: 'number', description: 'additional automatic attempts for retry policy, 0..5' },
               retryFallback: { type: 'string', enum: ['block', 'continue'], description: 'behavior after retries are exhausted' },
-              minSuccessfulToolCalls: { type: 'number', description: '0..20; fail the node unless this attempt records at least this many successful tool calls. Use >=1 for independently checkable factual probes.' },
+              minSuccessfulToolCalls: { type: 'number', description: '0..20; fail the node unless this attempt records at least this many successful tool calls (use >=1 for factual probes)' },
               condition: { type: 'object', description: 'optional branch condition: {node,path,operator,value}; operators include equals/not_equals/truthy/falsy/contains/comparisons/status_is' },
-              loop: { type: 'object', description: 'bounded loop: {maxIterations,until,progressPath,noProgressLimit,onNoProgress}. progressPath selects a stable field from structured output (for example status or remainingCount), so prose/verbosity changes do not fake progress.' },
-              replan: { type: 'boolean', description: 'R5: when true, a failed/rejected node generates a reviewable replanPatch proposal (status pending, never auto-applied). Default false = zero-migration.' },
+              loop: { type: 'object', description: 'bounded loop: {maxIterations,until,progressPath,noProgressLimit,onNoProgress}; progressPath selects a stable structured-output field (e.g. status, remainingCount) so prose changes cannot fake progress' },
+              replan: { type: 'boolean', description: 'when true, a failed/rejected node generates a reviewable replanPatch proposal (pending, never auto-applied); default false' },
             },
             required: ['id', 'task'],
           },
