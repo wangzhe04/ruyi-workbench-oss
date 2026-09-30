@@ -4356,10 +4356,36 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   if (!targets.length) return { ok: false, error: 'no entries' };
   // Reverse order so multiple mutations to the same file unwind to the earliest recorded `before`.
   targets = targets.slice().sort((a, b) => b.entrySeq - a.entrySeq);
+  // 安全审计 #8:index.json 是盘上的数据,不是可信输入 —— 条目里的 path 会被原样写回(或删掉)。修前不验:谁能改
+  // index.json(检查点目录曾是文件工具可写的数据根子树)就能借「回滚」把任意内容落到任意位置。现在每条都按【写】
+  // 重过一遍与文件工具同一个闸(三层硬地板 + 受保护数据 + 包含判定;包含判定用读根集合,见 guardFileToolPath
+  // 的 rootSet:'read' 注),权限档按会话当前的有效档位(宽写档下工作区外的合法条目照样能回滚)。不过闸的条目
+  // 不动盘、记进 failed(原因 path-denied),其余照常回滚;它们留在索引里。序号不是整数的条目同样拒(.gz 文件名由它拼)。
+  let guardSession = null, guardConfig = null;
+  try { guardSession = await loadSession(sessionId); } catch { guardSession = null; }
+  try { guardConfig = await readConfig(); } catch { guardConfig = {}; }
+  const guardCtx = {
+    session: guardSession, config: guardConfig,
+    effectivePermissionMode: resolvePermissionMode({ session: guardSession, config: guardConfig }),
+  };
   const reverted = [], failed = [], revertedKeys = new Set();
   for (const e of targets) {
     const key = `${e.turnSeq}-${e.entrySeq}`;
     try {
+      if (!Number.isSafeInteger(Number(e.turnSeq)) || !Number.isSafeInteger(Number(e.entrySeq))) {
+        failed.push({ path: typeof e.path === 'string' ? e.path : '', reason: 'path-denied: malformed checkpoint entry' });
+        continue;
+      }
+      if (typeof e.path !== 'string' || !e.path || !path.isAbsolute(e.path)) {
+        failed.push({ path: typeof e.path === 'string' ? e.path : '', reason: 'path-denied: checkpoint path is not absolute' });
+        continue;
+      }
+      const g = await guardFileToolPath(e.path, guardCtx, { tool: 'checkpoint_rollback', write: true, rootSet: 'read' });
+      if (!g || !g.ok) {
+        logEvent({ kind: 'checkpoint_rollback_denied', sessionId: String(sessionId || ''), turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), code: (g && g.code) || '' });
+        failed.push({ path: e.path, reason: `path-denied: ${(g && g.error) || 'blocked by the file write guard'}` });
+        continue;
+      }
       if (e.skipped) { failed.push({ path: e.path, reason: 'before content was not stored (too large)' }); continue; }
       if (e.op === 'create') {
         await fsp.unlink(e.path).catch(() => {}); // idempotent: gone already is fine

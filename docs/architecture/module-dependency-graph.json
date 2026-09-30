@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3149,
-    "requiredSymbols": 2948,
+    "providedSymbols": 3156,
+    "requiredSymbols": 2951,
     "edges": 513,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1616,6 +1616,13 @@
         },
         {
           "provider": "03-bridge-guard.js",
+          "symbol": "guardFileToolPath",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
           "symbol": "pathWithinRoot",
           "kinds": [
             "call"
@@ -1787,6 +1794,7 @@
         "PREVIEW_TEXT_EXTS",
         "PREVIEW_TEXT_MAX",
         "READDIR_TIMEOUT",
+        "REALPATH_LINK_DEPTH_MAX",
         "REVEAL_OPEN_SAFE_EXTS",
         "STAT_TIMEOUT",
         "WORKSPACE_CANDIDATE_CAP",
@@ -1795,6 +1803,8 @@
         "WORKSPACE_MATCH_THRESHOLD",
         "WORKSPACE_RESOLVE_BUDGET_MS",
         "WRITE_PATH_ARGS",
+        "WRITE_PROTECTED_DATA_DIRS",
+        "WRITE_PROTECTED_DATA_FILES",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
@@ -1819,9 +1829,11 @@
         "guardWorkspaceExecute",
         "guardWorkspacePath",
         "installedCodeEditorCandidates",
+        "isAutoLoadedLaunchConfigPath",
         "isBrowserDocumentTarget",
         "isOsCriticalPath",
         "isSensitiveDataPath",
+        "isWriteProtectedDataPath",
         "journalBridgedWrite",
         "launchCodeEditor",
         "listChildDirs",
@@ -1839,10 +1851,12 @@
         "readFilePreview",
         "readdirTimed",
         "realpathForContainment",
+        "resolveContainmentPath",
         "resolveExecCwd",
         "resolvePreferredCodeEditor",
         "resolveWorkspace",
         "statTimed",
+        "stripWin32VerbatimPrefix",
         "wideWriteModeEnabled",
         "windowsFileAssociationExecutable",
         "windowsRegistryString",
@@ -1999,6 +2013,20 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "logEvent",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "mcpDropInDirs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "toolboxComponentsDir",
           "kinds": [
             "call"
           ]
@@ -24763,6 +24791,7 @@
       "from": "02-session-store.js",
       "to": "03-bridge-guard.js",
       "symbols": [
+        "guardFileToolPath",
         "pathWithinRoot",
         "realpathForContainment"
       ],
@@ -24926,7 +24955,9 @@
       "from": "03-bridge-guard.js",
       "to": "04-permission-runtime.js",
       "symbols": [
-        "logEvent"
+        "logEvent",
+        "mcpDropInDirs",
+        "toolboxComponentsDir"
       ],
       "direction": "forward"
     },

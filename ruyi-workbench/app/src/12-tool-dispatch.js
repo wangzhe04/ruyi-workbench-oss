@@ -1092,6 +1092,20 @@ const ARCHIVE_TOOL_HANDLERS = {
         }
         plan.push({ rec, absPath: target });
       }
+      // 安全审计 #4:词法落在 destDir 内还不够 —— destDir 是家目录 / 工作区时,包里的 data/config.json、
+      // ws/.git/hooks/pre-commit、.claude/settings.json 同样「在 destDir 内」,修前照写不误(实测覆写了配置、种下了
+      // git hook)。每个条目(含目录条目)在【落任何盘之前】逐个过文件工具的同一个写闸(敏感/受保护数据、autoexec、
+      // OS 关键目录、写根包含、悬空链接);任一被拒 → 整包拒绝,一个文件都不写。配置只读一次,别让 2000 个条目各读一遍盘。
+      {
+        let entryCtx = ctx;
+        if (!(ctx && ctx.config)) { let cfg = {}; try { cfg = await readConfig(); } catch { cfg = {}; } entryCtx = { ...(ctx || {}), config: cfg }; }
+        for (const { rec, absPath } of plan) {
+          const ge = await guardFileToolPath(absPath, entryCtx, { tool: 'archive_unzip', write: true });
+          if (!ge.ok) {
+            return { ok: false, error: `压缩包内的条目落点被拒绝,已整包拒绝(未解压任何文件):${ge.error}`, code: ge.code, entry: rec.name, path: absPath, filesExtracted: 0 };
+          }
+        }
+      }
       // ---- 第二遍：逐条解压 + 检查点。累计字节卡 500MB（zip 炸弹二次防御，inflate 后累加）----
       const jctx = await journalSessionCtx(ctx);
       const written = [];
@@ -1296,7 +1310,7 @@ const NETWORK_TOOL_HANDLERS = {
       if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
       // ② 落盘目标护栏（工作区内）。
       const guard = await guardDownloadDest(args.dest, ctx);
-      if (!guard.ok) return { ok: false, error: guard.error };
+      if (!guard.ok) return { ok: false, error: guard.error, ...(guard.code ? { code: guard.code } : {}) };
       const dest = guard.absPath;
       // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });

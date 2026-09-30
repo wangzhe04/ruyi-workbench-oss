@@ -2487,25 +2487,28 @@ function zipReadEntryData(buf, rec) {
 // 或不带（MCP child 路径）。带 → 走 guardWorkspacePath（realpath + fileAllowedRoots）；不带 → 退化护栏：
 // dest 的父目录必须在 dataRoot 或 process.cwd 下（与文件工具「落盘落在工作区」同精神，绝不写系统任意路径）。
 // 返回 {ok, absPath?} 或 {ok:false, error}。dest 尚不存在时对其父目录做包含判定。
+// 安全审计 #3:修前两条路都比 file_write 松 —— 带 ctx 走的是 guardWorkspacePath(读根集合,不查 autoexec / OS 关键目录,
+// ws\.git\hooks\pre-commit 照下不误);不带 ctx(MCP 子进程、tool_invoke_edit、不带 sessionId 的 /api/tools/http_download)
+// 只看父目录在不在 dataRoot / process.cwd 下,连敏感名单都没查,实测直接盖掉了 <dataRoot>\config.json。现在两条路都走
+// 文件工具的同一个【写】闸 guardFileToolPath(敏感/受保护数据 + autoexec + OS 关键目录三层地板,写根包含判定,宽写档
+// 语义一致)。ctx 缺会话时按 file_* 工具在 MCP 子进程里的同一口径补:WCW_SESSION_ID 指向的会话 cwd;MCP 子进程
+// 连它也没有时,子进程的 cwd 就是 CLI 给的会话工作目录(沿用修前「当前工作目录可下」的那一半,但它在 serve 进程
+// 里是安装目录,所以只在 MCP 子进程认)。配置照旧由 guardFileToolPath 在缺 ctx.config 时从盘读。
 async function guardDownloadDest(rawDest, ctx) {
   const dest = String(rawDest || '');
   if (!dest || !path.isAbsolute(dest)) return { ok: false, error: '下载目标必须是绝对路径' };
   const abs = path.resolve(dest);
-  const session = ctx && ctx.session ? ctx.session : null;
-  const config = ctx && ctx.config ? ctx.config : null;
-  if (session || config) {
-    // dest 可能尚不存在 → guardWorkspacePath 对不存在的路径 realpath 回退为自身，再做包含判定，OK。
-    const g = await guardWorkspacePath(abs, session, config);
-    if (!g.ok) return { ok: false, error: g.error || '下载目标不在允许的工作区内' };
-    return { ok: true, absPath: g.absPath };
+  let gctx = ctx || null;
+  if (!(gctx && gctx.session)) {
+    let session = null;
+    const sid = (gctx && gctx.sessionId) || process.env.WCW_SESSION_ID || '';
+    if (sid) { try { session = await loadSession(String(sid)); } catch { session = null; } }
+    if (!session && RUNTIME.isMcpChild) session = { cwd: process.cwd() };
+    if (session) gctx = { ...(gctx || {}), session };
   }
-  // 退化路径（无 session/config）：父目录须在 dataRoot 或当前工作目录下。
-  const parent = path.dirname(abs);
-  const roots = [dataRoot(), process.cwd()].map(r => path.resolve(r));
-  const realParent = await fsp.realpath(parent).catch(() => parent);
-  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
-  if (!pathWithinAnyRoot(realParent, realRoots)) return { ok: false, error: '下载目标不在允许的工作区内' };
-  return { ok: true, absPath: abs };
+  const g = await guardFileToolPath(abs, gctx, { tool: 'http_download', write: true });
+  if (!g.ok) return { ok: false, error: g.error || '下载目标不在允许的工作区内', code: g.code };
+  return { ok: true, absPath: g.absPath };
 }
 
 // v0.8-S4a: `ctx` optionally carries checkpoint-journal context {sessionId, turnSeq}. The provider loop

@@ -2857,7 +2857,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // v0.8-S4a: pass the live checkpoint-journal context so file_write/file_edit/file_delete
                 // record a `before` snapshot under this session's current turnSeq (serve process path).
                 // v1.1-W2 (T1): also thread session+config so http_download can guard its落盘 dest against the
-                // session's allowed workspace roots (guardDownloadDest → guardWorkspacePath).
+                // session's allowed workspace roots (guardDownloadDest → guardFileToolPath write guard).
                 let toolLease = '';
                 try {
                   const toolResources = inferToolResources(tc.name, args, null, workingDir, tier);

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3149 | 2948 | 513 | 68 | 0 | 1 |
+| 66 | 3156 | 2951 | 513 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,8 +27,8 @@
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 14 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 288 | 69 | 16 |
-| 13 | `03-bridge-guard.js` | foundation | 78 | 23 | 7 |
+| 12 | `02-session-store.js` | foundation | 288 | 70 | 16 |
+| 13 | `03-bridge-guard.js` | foundation | 85 | 25 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 145 | 36 | 9 |
 | 16 | `04-desktop-shell.js` | foundation | 1 | 9 | 3 |
@@ -110,7 +110,7 @@
 | `02-session-store.js` | `02d-session-overrides.js` | backward | `applySessionDesktopToolsOverride`, `applySessionPermissionModeOverride`, `normalizeSessionDesktopTools`, `normalizeSessionPermissionMode`, `sessionDesktopToolsOverrides`, `sessionEngineRouteOverrides`, `sessionPermissionModeOf`, `sessionPermissionModeOverrides` |
 | `02-session-store.js` | `02e-session-engine-route.js` | backward | `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `02-session-store.js` | `02f-turn-effect-kinds.js` | backward | `ARTIFACT_OUTPUT_PATH_KEYS`, `IRREVERSIBLE_LEDGER_MAX`, `TURN_SUMMARY_COMMAND_TOOLS`, `TURN_SUMMARY_FILE_TOOLS`, `TURN_SUMMARY_KNOWN_TOOLS`, `irreversibleDetail`, `irreversibleToolKind`, `isBridgedWriteTool`, `unprefixedBridgedName` |
-| `02-session-store.js` | `03-bridge-guard.js` | forward | `pathWithinRoot`, `realpathForContainment` |
+| `02-session-store.js` | `03-bridge-guard.js` | forward | `guardFileToolPath`, `pathWithinRoot`, `realpathForContainment` |
 | `02-session-store.js` | `04-desktop-shell.js` | forward | `DesktopShell` |
 | `02-session-store.js` | `04-permission-runtime.js` | forward | `activeChildren`, `logEvent`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `stopSession`, `turnSettlers` |
 | `02-session-store.js` | `06-provider-engine.js` | forward | `recordEngineTranscript` |
@@ -127,7 +127,7 @@
 | `03-bridge-guard.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `03-bridge-guard.js` | `02-session-store.js` | backward | `BRIDGED_WRITE_PATH_ARGS`, `collectBridgedWriteTargets`, `journalDir`, `journalRecord`, `journalSessionCtx`, `kindForPath` |
 | `03-bridge-guard.js` | `02f-turn-effect-kinds.js` | backward | `unprefixedBridgedName` |
-| `03-bridge-guard.js` | `04-permission-runtime.js` | forward | `logEvent` |
+| `03-bridge-guard.js` | `04-permission-runtime.js` | forward | `logEvent`, `mcpDropInDirs`, `toolboxComponentsDir` |
 | `03-bridge-guard.js` | `05-claude-engine.js` | forward | `activeOpenAiProvider` |
 | `04-desktop-shell.js` | `00-boot.js` | backward | `cp`, `decodeConsoleText`, `fs`, `fsp`, `os`, `path`, `spawnDetachedChecked` |
 | `04-desktop-shell.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |

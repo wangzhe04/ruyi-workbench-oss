@@ -1635,8 +1635,8 @@ async function handleApi(req, res, pathname) {
     // journalSessionCtx resolves to no context and journaling silently no-ops. Extra keys are ignored by the file tools.
     const ctx = body && body.sessionId ? { sessionId: String(body.sessionId), ...(Number.isFinite(Number(body.turnSeq)) && body.turnSeq !== '' && body.turnSeq != null ? { turnSeq: Number(body.turnSeq) } : {}) } : null;
     // v1.1-W2 (T1): thread session+config into ctx so http_download can guard its dest against the session's
-    // allowed workspace roots (guardDownloadDest → guardWorkspacePath). Best-effort; a load failure just falls
-    // back to guardDownloadDest's degraded (dataRoot/cwd) guard, never blocking the other tools.
+    // write roots (guardDownloadDest → guardFileToolPath, 安全审计 #3). Best-effort; a load failure just falls
+    // back to the config read from disk inside guardFileToolPath, never blocking the other tools.
     if (ctx) {
       try {
         ctx.config = await readConfig();
