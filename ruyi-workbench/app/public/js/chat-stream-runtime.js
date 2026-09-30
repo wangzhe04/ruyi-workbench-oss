@@ -94,9 +94,7 @@ export function createChatStreamRuntime(deps = {}) {
     renderMarkdown,
     renderMissionBar,
     // 109b: 工具产出图内联缩略图,tool_result 到达后与 renderGitDiffInto 同一趟补渲染(见下方 case 'tool_result')。
-    renderToolImageInto = () => {},
-    // N11: 结果框的富渲染(多行文本块/截图缩略图);缺省退回整份 JSON 文本(与旧行为一致)。
-    renderToolResultInto = null,
+    renderToolImageInto = () => {}, renderToolResultInto = null, // N11: renderToolResultInto = 结果框富渲染(多行文本块/截图缩略图),缺省退回整份 JSON 文本
     // 125-P2:缓存徽标。与上面那两个补渲染同一个模具 —— 摘要行的徽标位在 tool_use 阶段是空的,
     // 结果到达才知道这次是不是回落了缓存。
     renderStaleBadgeInto = () => {},

@@ -28,7 +28,7 @@ function makePng() {
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(Buffer.concat([row, row]))), chunk('IEND', Buffer.alloc(0))]);
 }
 const PNG_1x1 = makePng();
-const BIG_B64 = Buffer.concat([PNG_1x1, Buffer.alloc(9000, 0)]).toString('base64');
+const BIG_B64 = Buffer.concat([PNG_1x1, Buffer.alloc(9216, 0)]).toString('base64');
 
 (async () => {
   let fx = null;
