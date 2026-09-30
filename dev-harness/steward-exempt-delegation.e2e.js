@@ -291,9 +291,12 @@ try {
   ok(!!taskId && created.json.task.autonomy && created.json.task.autonomy.permissionMode === 'auto',
     `R02 建一条 prompt 定时任务,任务级档位「智能自动」(实得 ${brief(created.json && created.json.task && created.json.task.autonomy)})`);
   const runNow = reqJson(R, 'POST', '/api/scheduler/tasks/' + taskId + '/run-now', {}, 600000);
+  // 调度器开线程是两次落盘:createSession 先落一版(origin:schedule、kind 还是默认的 quick_ask),紧接着补上三个身份
+  // 字段(kind:mission / launchedBy / createdBy)再落一次。只认 origin 会在 Windows 上偶尔读到头一版(CI 上见过
+  // {origin:schedule, kind:quick_ask})。等身份那一次落下来(launchedBy 在)再断言整个头的形状。
   const schedSid = await waitFor(() => {
     let names = []; try { names = fs.readdirSync(R.sessionsDir).filter(f => /^sess_[A-Za-z0-9]+\.json$/.test(f)); } catch { names = []; }
-    for (const f of names) { try { const h = JSON.parse(fs.readFileSync(path.join(R.sessionsDir, f), 'utf8')); if (h.origin === 'schedule') return h.id; } catch { /* 写到一半 */ } }
+    for (const f of names) { try { const h = JSON.parse(fs.readFileSync(path.join(R.sessionsDir, f), 'utf8')); if (h.origin === 'schedule' && h.launchedBy) return h.id; } catch { /* 写到一半 */ } }
     return '';
   }, 30000);
   const schedHead = schedSid ? JSON.parse(fs.readFileSync(path.join(R.sessionsDir, schedSid + '.json'), 'utf8')) : {};
