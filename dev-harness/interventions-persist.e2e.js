@@ -337,7 +337,8 @@ function spawnWb() {
     ok(/function settleIntervention\(sessionId, ivId, status, extra\)/.test(src) && /async function readInterventions\(sessionId\)/.test(src), 'e 02 有 settleIntervention/readInterventions');
     ok(/async function markInterruptedInterventions\(\)/.test(src) && /cancelled_restart/.test(src), 'e 02 有 markInterruptedInterventions + cancelled_restart 终态');
     ok(/async function missionPendingCounts\(sessionId, runs, interventions\)/.test(src) && /Array\.isArray\(interventions\).*readInterventions\(sessionId\)/.test(src), 'e 13d missionPendingCounts 支持75c索引切片并以 journal 兜底');
-    ok(/GET' && pathname\.startsWith\('\/api\/interventions\/'\)/.test(src), 'e 13d GET /api/interventions/:sid 只读路由');
+    // 路由形状:只认 GET /api/interventions/<一段>(审计后续:修前是 startsWith + path.basename,多段路径都成了 <id> 的别名)。
+    ok(/req\.method === 'GET' \? pathname\.match\(\/\^\\\/api\\\/interventions\\\/\(\[\^\/\]\+\)\$\/\)/.test(src), 'e 13d GET /api/interventions/:sid 只读路由');
     ok(/\{ m: 'GET', p: '\/api\/interventions\/', auth: 'token-browser', prefix: true \}/.test(src), 'e 01-config ROUTE_AUTH /api/interventions/ token-browser');
     ok(/await markInterruptedInterventions\(\);/.test(src), 'e 13-http-router boot 调 markInterruptedInterventions');
     ok(/registerIntervention\(sessionId, 'question', id,/.test(src), 'e 04 question 注册点调 registerIntervention');
