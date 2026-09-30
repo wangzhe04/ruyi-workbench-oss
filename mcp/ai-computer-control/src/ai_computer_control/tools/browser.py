@@ -15,6 +15,7 @@ import fails, or `playwright install chromium` was never run, the tools degrade 
 import asyncio
 import base64
 import io
+import json
 import os
 import re
 import subprocess
@@ -312,41 +313,62 @@ async def browser_type(
             return {"error": str(e)}
 
 
+def _cap_text(text: str, max_chars: int) -> tuple[str, bool]:
+    """Cap text at max_chars (>=1). Returns (text, truncated)."""
+    try:
+        cap = max(1, int(max_chars))
+    except Exception:
+        cap = _TEXT_CAP_DEFAULT
+    if len(text) > cap:
+        return text[:cap], True
+    return text, False
+
+
+_TEXT_CAP_DEFAULT = 20_000
+_JS_RESULT_CAP = 50_000   # 宿主对单次工具结果 60KB 硬截,1MB 的上限没有意义
+
+
 @mcp.tool()
-async def browser_screenshot() -> dict:
+async def browser_screenshot(max_width: int = 1280, format: str = "png", quality: int = 80) -> dict:
     """Take a screenshot of the current browser page.
 
+    Args:
+        max_width: If >0, proportionally downscale the returned image to this width (default 1280;
+            0 = original size). Same budget convention as the desktop `screenshot` tool.
+        format: 'png' (default, lossless) or 'jpeg' (much smaller for photo-heavy pages).
+        quality: JPEG quality 1-100 (ignored for PNG).
+
     Returns:
-        dict with 'image' (base64 PNG), 'width', 'height', 'url', 'title'.
+        dict with 'image' (base64), 'width', 'height' (of the RETURNED image), 'scale', 'format',
+        'url', 'title'.
     """
     if not _AVAILABLE:
         return _unavailable()
     async with _lock:
         try:
             from PIL import Image
+            from ai_computer_control.utils.image import encode_with_budget
             page = await _ensure_browser()
             screenshot_bytes = await page.screenshot(type="png")
             image = Image.open(io.BytesIO(screenshot_bytes))
-            return {
-                "image": base64.b64encode(screenshot_bytes).decode("utf-8"),
-                "width": image.width,
-                "height": image.height,
-                "url": page.url,
-                "title": await page.title(),
-            }
+            enc = encode_with_budget(image, max_width=max_width, fmt=format, quality=quality)
+            return {**enc, "url": page.url, "title": await page.title()}
         except Exception as e:
             return {"error": str(e)}
 
 
 @mcp.tool()
-async def browser_get_text(selector: str | None = None) -> dict:
+async def browser_get_text(selector: str | None = None, max_chars: int = _TEXT_CAP_DEFAULT) -> dict:
     """Extract text content from the page or a specific element.
 
     Args:
         selector: Optional CSS selector. If None, returns full page text.
+        max_chars: Max characters returned (default 20000). Longer text is cut and marked
+            truncated with 'total_chars' so you can narrow the selector.
 
     Returns:
-        dict with 'text'.
+        dict with 'text', 'url', 'total_chars', 'truncated'. A selector that matches nothing is an
+        error (not an empty string).
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -355,10 +377,15 @@ async def browser_get_text(selector: str | None = None) -> dict:
             page = await _ensure_browser()
             if selector:
                 element = await page.query_selector(selector)
-                text = (await element.inner_text()) if element else ""
+                if not element:
+                    return {"error": f"selector matched no element: {selector!r}(页面可能还没加载完,或选择器有误;"
+                                     "可先用 browser_get_elements 看页面结构)", "found": False, "url": page.url}
+                text = await element.inner_text()
             else:
                 text = await page.inner_text("body")
-            return {"text": text, "url": page.url}
+            total = len(text)
+            text, cut = _cap_text(text, max_chars)
+            return {"text": text, "url": page.url, "total_chars": total, "truncated": cut}
         except Exception as e:
             return {"error": str(e)}
 
@@ -392,8 +419,9 @@ async def browser_execute_js(script: str) -> dict:
                 _js = json.dumps(result, ensure_ascii=False, default=str)
             except Exception:
                 _js = str(result)
-            if len(_js) > 1_000_000:
-                return {"result": _js[:1_000_000], "truncated": True, "note": "result was larger than 1MB and was truncated"}
+            if len(_js) > _JS_RESULT_CAP:
+                return {"result": _js[:_JS_RESULT_CAP], "truncated": True,
+                        "note": f"result was {len(_js)} chars (JSON) and was truncated to {_JS_RESULT_CAP}; return less from the script"}
             return {"result": result}
         except Exception as e:
             return {"error": str(e)}
