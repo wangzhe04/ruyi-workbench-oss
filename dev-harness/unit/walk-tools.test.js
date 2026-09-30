@@ -456,8 +456,9 @@ describe('[W9] archive_zip / archive_unzip', () => {
     // 所以最多测 3 次、取最好的一次 —— 抖动放过,回归照样红。
     let best = Infinity, cal = 0;
     for (let attempt = 0; attempt < 3 && !(best < cal * 0.6); attempt++) {
+      // 修前的写法是对每个条目依次 deflateRawSync、中间不让出 —— 一次连续停顿 ≈ 同步压完【全部】条目;标定就量这个。
       const c0 = process.hrtime.bigint();
-      zlib.deflateRawSync(blobs[0]);
+      for (const b of blobs) zlib.deflateRawSync(b);
       const calMs = Number((process.hrtime.bigint() - c0) / 1000000n);
       let last = process.hrtime.bigint(), maxGap = 0n;
       const iv = setInterval(() => { const now = process.hrtime.bigint(); const g = now - last; if (g > maxGap) maxGap = g; last = now; }, 10);
@@ -467,7 +468,7 @@ describe('[W9] archive_zip / archive_unzip', () => {
       const gapMs = Number(maxGap / 1000000n);
       if (gapMs < best) { best = gapMs; cal = calMs; }
     }
-    assert.ok(best < cal * 0.6, `事件循环最长停顿 ${best} ms,应远小于一次同步压缩(${cal} ms);修前实测 3.7 s`);
+    assert.ok(best < cal * 0.6, `事件循环最长停顿 ${best} ms,应远小于同步压完全部条目(${cal} ms);修前实测 3.7 s`);
     const u = await srv.toolCall('archive_unzip', { src: path.join(ws, 'big.zip'), destDir: path.join(ws, 'un') }, ctxFor(ws));
     assert.equal(u.ok, true);
     assert.equal(fs.readFileSync(path.join(ws, 'un', 'big', 'r1.bin')).equals(fs.readFileSync(path.join(ws, 'big', 'r1.bin'))), true);

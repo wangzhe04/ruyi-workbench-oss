@@ -2070,6 +2070,7 @@
       "layer": "foundation",
       "provides": [
         "ACTIVE_CHILD_EVENT_TAPS",
+        "BRIDGED_CATALOG_INCOMPLETE_TTL_MS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
         "BRIDGED_TOOL_TIMEOUTS",
@@ -2116,6 +2117,7 @@
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
+        "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
         "bridgedServerUnavailableMessage",
         "bridgedToolCallTimeoutMs",
@@ -2131,6 +2133,7 @@
         "clearPendingPlans",
         "clearPendingQuestions",
         "collectBridgedTools",
+        "collectBridgedToolsScan",
         "configureMcpFromTool",
         "decodeClaudeTaskXmlText",
         "deltaOf",

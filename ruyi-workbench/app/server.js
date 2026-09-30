@@ -15061,6 +15061,18 @@ async function collectBridgedTools(config, force = false) {
   if (!force && bridgedCatalogCache.value && bridgedCatalogCache.key === cacheKey && Date.now() < bridgedCatalogCache.expiresAt) {
     return bridgedCatalogCache.value;
   }
+  // 残缺目录不进长缓存(审计 A3)之后,启动期一阵并发请求(状态轮询 / 能力探测 / 首回合)会各自重扫、各自再等一轮
+  // 启动竞速:同一 key 的扫描在飞时直接共用它;force 照旧另起。
+  if (!force && bridgedCatalogInflight && bridgedCatalogInflight.key === cacheKey) return bridgedCatalogInflight.promise;
+  const promise = collectBridgedToolsScan(config, entries, cacheKey);
+  if (!force) bridgedCatalogInflight = { key: cacheKey, promise };
+  try { return await promise; }
+  finally { if (bridgedCatalogInflight && bridgedCatalogInflight.promise === promise) bridgedCatalogInflight = null; }
+}
+let bridgedCatalogInflight = null;   // { key, promise }:同一 key 的目录扫描在飞时共用
+// 残缺目录也短暂缓存 1 s:吸收紧挨着的一串调用,又不耽误慢起来的 MCP 在下一次(>1 s 后)被补进目录。
+const BRIDGED_CATALOG_INCOMPLETE_TTL_MS = 1000;
+async function collectBridgedToolsScan(config, entries, cacheKey) {
   const tools = [];
   const route = {};
   let incomplete = false;   // 有 entry 没在预算内起来 / 起不来:这一次的目录是残缺的
@@ -15119,7 +15131,10 @@ async function collectBridgedTools(config, force = false) {
   // 审计 A3:桌面组件(ACC)冷启动可能赶不上 3.5 s 的启动竞速。修前把「缺了它」的目录照常缓存 60 s,首几个回合模型看不到任何桌面
   // 工具、tool_search 也搜不到。现在残缺目录【不缓存】:下一次调用重新扫(慢的那个 start 仍在后台跑,getMcpClient 的
   // 待决互斥保证不会重复起进程;真起不来的有 60 s 失败冷却,重扫是廉价的 null)。
-  if (incomplete) return value;
+  if (incomplete) {
+    bridgedCatalogCache = { key: cacheKey, expiresAt: Date.now() + BRIDGED_CATALOG_INCOMPLETE_TTL_MS, value };
+    return value;
+  }
   bridgedCatalogCache = {
     key: cacheKey,
     expiresAt: Date.now() + Math.max(5000, Number(config.toolCatalogCacheTtlMs) || 60000),

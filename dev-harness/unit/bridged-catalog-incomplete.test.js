@@ -42,3 +42,11 @@ test('冷启动慢的桥接服务器:第一次目录残缺不缓存,服务起来
   // 完整的目录照常缓存(同一对象)
   assert.equal(await srv.collectBridgedTools(config), second);
 });
+
+test('同一目录的并发请求共用在飞的那一次扫描(残缺目录不进长缓存后,启动期一串请求不各等一轮启动竞速)', async () => {
+  const config = { bridgeExternalToolsToProvider: true, desktopMcp: { enabled: false, autodetect: false }, enableMcpDropIn: false, toolbox: { autoDiscover: false },
+    externalMcpServers: [{ id: 'slowacc2', label: 'slow2', command: process.execPath, args: [SLOW], enabled: true }] };
+  const [a, b, c] = await Promise.all([srv.collectBridgedTools(config), srv.collectBridgedTools(config), srv.collectBridgedTools(config)]);
+  assert.equal(a, b, '修前:三次调用各扫一遍,各得一个对象');
+  assert.equal(b, c);
+});

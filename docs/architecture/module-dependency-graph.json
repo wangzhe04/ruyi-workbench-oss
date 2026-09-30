@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 67,
-    "providedSymbols": 3229,
+    "providedSymbols": 3232,
     "requiredSymbols": 2995,
     "edges": 524,
     "forwardEdges": 68,
@@ -2112,6 +2112,7 @@
       "note": "pendingPermissions/plan 批准/原生权限请求",
       "provides": [
         "ACTIVE_CHILD_EVENT_TAPS",
+        "BRIDGED_CATALOG_INCOMPLETE_TTL_MS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
         "BRIDGED_TOOL_TIMEOUTS",
@@ -2158,6 +2159,7 @@
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
+        "bridgedCatalogInflight",
         "bridgedServerSpawnEnv",
         "bridgedServerUnavailableMessage",
         "bridgedToolCallTimeoutMs",
@@ -2173,6 +2175,7 @@
         "clearPendingPlans",
         "clearPendingQuestions",
         "collectBridgedTools",
+        "collectBridgedToolsScan",
         "configureMcpFromTool",
         "decodeClaudeTaskXmlText",
         "deltaOf",

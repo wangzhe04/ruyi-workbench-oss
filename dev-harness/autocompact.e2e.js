@@ -5,7 +5,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //
 // Strategy (no fake changes needed — real big file heaps the window): a provider with a SMALL
 // contextWindow + autoCompactThreshold 0.8, a 200KB seed file, and FAKE_TOOL_SEQUENCE = three full
-// file_reads. Each truncated file_read result (~48KB → ~13K est-tokens) accumulates until the iteration
+// file_reads(显式 limit:50000 —— 工具集优化批把缺省页收到 40K 字符). Each truncated file_read result (~48KB → ~13K est-tokens) accumulates until the iteration
 // boundary est crosses the budget, at which point LEVEL 1 (evaporate) rewrites the oldest tool result's
 // content in place and the turn continues.
 //
@@ -142,9 +142,9 @@ function postStream(port, payload) {
       // 关掉 usage 帧 = 无样本 = 因子恒 1,机制断言与校准解耦(校准本身的回归在 context-compact-v2)。
       FAKE_NO_USAGE: '1',
       FAKE_TOOL_SEQUENCE: JSON.stringify([
-      { name: 'file_read', args: { path: BIGFILE } },
-      { name: 'file_read', args: { path: BIGFILE } },
-      { name: 'file_read', args: { path: BIGFILE } },
+      { name: 'file_read', args: { path: BIGFILE, limit: 50000 } },
+      { name: 'file_read', args: { path: BIGFILE, limit: 50000 } },
+      { name: 'file_read', args: { path: BIGFILE, limit: 50000 } },
     ]) },
   });
   fake.stdout.on('data', d => String(d).trim() && console.log('[fake] ' + String(d).trim()));
