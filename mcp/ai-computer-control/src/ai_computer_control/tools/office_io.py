@@ -14,6 +14,7 @@ Two jobs:
 import errno
 import os
 import tempfile
+import time
 
 _LOCK_WINERRORS = (5, 32, 33)
 _LOCK_ERRNOS = (errno.EACCES, errno.EPERM, errno.EBUSY)
@@ -85,6 +86,23 @@ def require(module: str):
         return None, missing_dependency(module, str(e))
 
 
+def replace_with_retry(src: str, dst: str, attempts: int = 6, delay: float = 0.05) -> None:
+    """os.replace with a short retry on the TRANSIENT Windows sharing failures (WinError 5/32/33).
+
+    Defender / OneDrive / the search indexer routinely hold a freshly written file for tens of ms; one
+    attempt would report "file_locked: close Excel" for a file nothing has open. Only a failure that
+    persists (~0.75 s) propagates. Other errors (and non-Windows PermissionError) raise immediately.
+    """
+    for i in range(max(1, attempts)):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as e:
+            if i >= attempts - 1 or getattr(e, "winerror", None) not in _LOCK_WINERRORS:
+                raise
+            time.sleep(min(0.2, delay * (i + 1)))
+
+
 def atomic_save(path: str, writer, *, suffix: str | None = None) -> None:
     """Run writer(tmp_path) into a same-directory temp file, then os.replace onto `path`.
 
@@ -108,7 +126,7 @@ def atomic_save(path: str, writer, *, suffix: str | None = None) -> None:
             os.chmod(tmp, mode | 0o200)
         except OSError:
             pass
-        os.replace(tmp, target)
+        replace_with_retry(tmp, target)
     except BaseException:
         try:
             os.unlink(tmp)

@@ -355,8 +355,13 @@ def _parse_pages(spec: str, total: int) -> list[int]:
                 raise ValueError(f"看不懂的页码段 {part!r} —— 例如 '1-5'。")
             if lo > hi:
                 lo, hi = hi, lo
-            for p in range(lo, hi + 1):
-                pages.append(p)
+            # bounds-check BEFORE expanding: '1-999999999' must not build a multi-GB list
+            bad_bounds = [b for b in (lo, hi) if b < 1 or b > total]
+            if bad_bounds:
+                raise ValueError(
+                    f"页码越界: {sorted(set(bad_bounds))} —— 本 PDF 共 {total} 页 (有效页码 1..{total})。"
+                )
+            pages.extend(range(lo, hi + 1))
         else:
             try:
                 pages.append(int(part))

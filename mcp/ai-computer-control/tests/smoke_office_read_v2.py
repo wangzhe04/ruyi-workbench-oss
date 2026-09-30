@@ -90,6 +90,30 @@ def section_edit_file():
     miss = _FNS["edit_file"](path=bat, old_string="没有这段", new_string="x")
     check("未出现" in (miss.get("error") or ""), "找不到时仍给诊断错误")
 
+    # 混用换行:一个散落的 LF 不该让所有多行 LF old_string 失效;未改动的行保持原换行
+    mx = P("mixed.txt")
+    wb_bytes(mx, b"a\r\nb\r\nc\r\nd\ne\r\nf\r\n")
+    r = _FNS["edit_file"](path=mx, old_string="b\nc", new_string="B\nC\nC2")
+    check(r.get("success") is True and open(mx, "rb").read() == b"a\r\nB\r\nC\r\nC2\r\nd\ne\r\nf\r\n",
+          f"混用换行文件: CRLF 处的多行 LF 编辑命中,new 取该处的 CRLF (got {open(mx, 'rb').read()!r})")
+    r = _FNS["edit_file"](path=mx, old_string="d\ne", new_string="D\nE")
+    check(r.get("success") is True and open(mx, "rb").read() == b"a\r\nB\r\nC\r\nC2\r\nD\nE\r\nf\r\n",
+          "混用换行文件: LF 处的多行编辑也命中,保持 LF")
+    wb_bytes(mx, b"a\r\nb\r\nc\r\nd\ne\r\nf\r\n")
+    r = _FNS["edit_file"](path=mx, old_string="c\nd\ne", new_string="x")
+    err = r.get("error") or ""
+    check("TypeError" not in err and "CRLF 与 LF 混用" in err,
+          f"跨越混用换行处的片段: 给出换行指引而不是裸 TypeError (got {err[:80]!r})")
+    # 诊断路径的哨兵字符不再触发 TypeError
+    wb_bytes(mx, b"hello wor\nnext")
+    r = _FNS["edit_file"](path=mx, old_string="hello world", new_string="x")
+    check("未出现" in (r.get("error") or "") and "TypeError" not in (r.get("error") or ""),
+          f"old_string 越过文件尾的诊断不再抛 TypeError (got {(r.get('error') or '')[:80]!r})")
+    wb_bytes(mx, b"alpha\nbeta\n")
+    r = _FNS["edit_file"](path=mx, old_string="alpha\nbeta\ngamma", new_string="x")
+    check("未出现" in (r.get("error") or "") and "TypeError" not in (r.get("error") or ""),
+          "多行 old_string 越过文件尾的诊断不再抛 TypeError")
+
 
 def section_read_file():
     print("\n== ② read_file: BOM / UTF-16 / GBK / 二进制 / 噪声 ==")
@@ -131,6 +155,28 @@ def section_read_file():
     chars = {s["char"] for s in r.get("non_ascii", {}).get("samples", [])}
     check({" ", "—"} <= chars, f"易混字符(nbsp / em dash)仍被报告 (got {chars})")
     check("（" in chars, "紧贴 ASCII 的全角括号仍被报告")
+
+
+def section_read_file_truncation():
+    print("\n== ②b read_file: max_bytes 落在 UTF-8 字符中间 ==")
+    f = P("cjk_long.txt")
+    text = "你好世界,这是一份很长的中文文档。" * 400
+    wb_bytes(f, text.encode("utf-8"))
+    bad = []
+    for mb in range(1000, 1007):
+        r = _FNS["read_file"](path=f, max_bytes=mb)
+        if r.get("encoding_used") != "utf-8" or "encoding_fallback" in r or not text.startswith(r.get("content", "x")):
+            bad.append((mb, r.get("encoding_used")))
+    check(not bad, f"截断点落在多字节字符中间也仍按 UTF-8 解码(不整文件退成 GBK) (bad: {bad})")
+    r = _FNS["read_file"](path=f, max_bytes=1001)
+    check(r.get("truncated") is True and text.startswith(r["content"]) and len(r["content"].encode("utf-8")) >= 998
+          and "�" not in r["content"], "截断后内容是完整字符的前缀(无 U+FFFD)")
+    g = P("gbk_long.txt")
+    wb_bytes(g, ("中文内容来自记事本。" * 300).encode("gbk"))
+    r = _FNS["read_file"](path=g, max_bytes=1001)
+    check(r.get("encoding_fallback") and "中文内容" in r.get("content", ""), "真 GBK 文件截断时仍正常回退 GBK")
+    check(fs._trim_partial_utf8("你".encode("utf-8")[:2]) == b"" and fs._trim_partial_utf8(b"ab") == b"ab"
+          and fs._trim_partial_utf8("你好".encode("utf-8")) == "你好".encode("utf-8"), "_trim_partial_utf8 只丢残缺尾部")
 
 
 def section_list_directory():
@@ -217,6 +263,30 @@ def section_memory():
         f.write("{not json")
     r = _FNS["memory_read"](key="pref")
     check(r.get("found") is False and os.path.exists(store + ".corrupt"), "真解析失败才隔离成 .corrupt")
+
+    # _save: per-process tmp name, transient sharing violation retried, no orphan tmp on failure
+    os.remove(store + ".corrupt") if os.path.exists(store + ".corrupt") else None
+    os.remove(store) if os.path.exists(store) else None
+    names = []
+    real_replace = os.replace
+    flaky = {"left": 2}
+
+    def flaky_replace(src, dst):
+        names.append(os.path.basename(src))
+        if flaky["left"] > 0:
+            flaky["left"] -= 1
+            e = PermissionError(13, "sharing violation")
+            e.winerror = 32
+            raise e
+        return real_replace(src, dst)
+    os.replace = flaky_replace
+    try:
+        r = _FNS["memory_save"](key="retry", content="x")
+    finally:
+        os.replace = real_replace
+    check(r.get("success") is True and len(names) == 3, f"memory_save 遇到瞬时占用(WinError 32)重试后成功 (replace 调用 {len(names)} 次, got {r})")
+    check(all(str(os.getpid()) in n for n in names), f"memory 临时文件名含进程号(两个 ACC 进程不共用一个 .tmp) (got {names[:1]})")
+    check(not [n for n in os.listdir(_DATA) if n.endswith(".tmp")], "成功后没有残留 .tmp")
 
 
 try:
@@ -341,6 +411,21 @@ def section_read_document():
         check(r.get("ok") is True and r.get("slides") == 2 and "## Slide 1: 季度汇报" in c and "第二条要点" in c
               and "[备注] 讲者备注:强调增长" in c and "## Slide 2: 数据表" in c and "| 营收 | 12% |" in c,
               f".pptx: 标题/文字/备注/表格 (got {c!r})")
+        # 一个 python-pptx 无法归类 shape_type 的形状(无 prstGeom、非 txBox)不该让整套 deck 读失败
+        s3 = prs.slides.add_slide(prs.slide_layouts[6])
+        tb3 = s3.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+        tb3.text_frame.text = "无法归类的形状里的文字"
+        sp = tb3._element
+        if "txBox" in sp.nvSpPr.cNvSpPr.attrib:
+            del sp.nvSpPr.cNvSpPr.attrib["txBox"]
+        for g in sp.spPr.findall("{http://schemas.openxmlformats.org/drawingml/2006/main}prstGeom"):
+            sp.spPr.remove(g)
+        pp2 = P("deck_odd.pptx")
+        prs.save(pp2)
+        r = _FNS["read_document"](path=pp2)
+        c = r.get("content", "")
+        check(r.get("ok") is True and r.get("slides") == 3 and "## Slide 1: 季度汇报" in c and "无法归类的形状里的文字" in c,
+              f".pptx: shape_type 抛错的形状不使整份读取失败,其余内容照读 (got {r.get('error') or c[-60:]!r})")
 
 
 def section_pdf_pages():
@@ -366,6 +451,15 @@ def section_pdf_pages():
     check(seen == list(range(1, 31)), f"按 next_pages 续读恰好覆盖 1..30 各一次 (got {seen})")
     r = _FNS["pdf_read_pages"](path=pdf, pages="1-3")
     check("truncated" not in r and "next_pages" not in r, "预算够用时不带续读键")
+    t0 = time.time()
+    try:
+        oread._parse_pages("1-999999999", 30)
+        ok_raise = False
+    except ValueError as ve:
+        ok_raise = "越界" in str(ve)
+    check(ok_raise and time.time() - t0 < 0.5, "页码范围先做边界检查再展开('1-999999999' 立刻报越界,不建巨大列表)")
+    check(oread._parse_pages("3-1,2,7-8", 30) == [1, 2, 3, 7, 8] and oread._parse_pages("5", 30) == [5],
+          "合法页码范围解析不变")
 
     enc = P("enc2.pdf")
     _make_pdf(enc, pages=1, text_lines=3, encrypt="secret")
@@ -465,6 +559,39 @@ class _FakePage:
         return "T"
 
 
+def section_fetch_html():
+    print("\n== ⑨ fetch: HTML -> text 线性 / 标题 / Location 大小写 ==")
+    import ai_computer_control.tools.web_fetch as wf
+    t0 = time.time()
+    text, _title = wf._html_to_text("<pre>a" + " " * 200000 + "b</pre>", "http://example.test/")
+    dt = time.time() - t0
+    check(dt < 2.0 and text.startswith("a") and text.endswith("b"), f"200KB 空格串的 <pre> 线性处理 (耗时 {dt:.2f}s)")
+    t0 = time.time()
+    wf._html_to_text("<pre>a" + " \t" * 100000 + "b</pre>", "http://example.test/")
+    check(time.time() - t0 < 2.0, "空格+制表符混排同样线性")
+    text, title = wf._html_to_text(
+        "<html><head><title>My Site</title></head><body><svg><title>menu icon</title></svg>"
+        "<p>hello</p><svg><title>close</title></svg></body></html>", "http://example.test/")
+    check(title == "My Site" and text == "hello", f"内联 <svg><title> 不污染页面标题/正文 (got {title!r}, {text!r})")
+    _t, title = wf._html_to_text("<title>A</title><title>B</title><p>x</p>", "http://example.test/")
+    check(title == "A", "只取第一个 <title>")
+
+    calls = []
+
+    def fake_once(url, tmo, budget):
+        calls.append(url)
+        if len(calls) == 1:
+            return 302, {"LOCATION": "http://example.test/next"}, b"", None
+        return 200, {"content-type": "text/plain"}, b"done", None
+    old = (wf._check_url, wf._fetch_once)
+    wf._check_url, wf._fetch_once = (lambda u: None), fake_once
+    try:
+        r = _FNS["fetch"](url="http://example.test/")
+    finally:
+        wf._check_url, wf._fetch_once = old
+    check(r.get("ok") is True and calls[-1] == "http://example.test/next", f"大写 LOCATION 头也跟随重定向 (got {r.get('error') or r.get('url')})")
+
+
 def section_browser():
     print("\n== ⑧ browser 纯逻辑(playwright 未装, 用假 page) ==")
     check(hasattr(browser, "json"), "browser 模块 import 了 json (回归: 曾 NameError 被吞)")
@@ -504,7 +631,8 @@ def section_browser():
 def main() -> int:
     try:
         for sec in (section_edit_file, section_read_file, section_list_directory, section_memory,
-                    section_read_document, section_pdf_pages, section_excel, section_browser):
+                    section_read_document, section_pdf_pages, section_excel, section_browser,
+                    section_read_file_truncation, section_fetch_html):
             try:
                 sec()
             except Exception as e:  # 一节崩了不遮住其它节的结果
