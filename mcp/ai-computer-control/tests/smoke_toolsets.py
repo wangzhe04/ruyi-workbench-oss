@@ -4,7 +4,10 @@
   ① 默认(不设 env)注册全部 108 件;
   ② ACC_TOOLSETS="filesystem,shell" 只注册该两族 + 常驻(audit/diagnostics)= 15 件;
   ③ 未知 toolset 名忽略并 stderr 提醒,不炸;
-  ④ 单族 "office" 含 write_document/excel_read 等且无 desktop 族工具。
+  ④ 单族 "office" 含 write_document/excel_read 等且无 desktop 族工具;
+  ⑤ 调用 diagnostics() 不得再注册任何工具(它曾 import 全部可选模块: 15 -> 51 件,ACC_TOOLSETS 被悄悄撤销);
+  ⑥ 某个工具模块 import 失败(如 psutil DLL 坏了)不拖垮服务: 其余工具照常,
+     diagnostics().load_errors 点名失败的模块,stderr 留一行。
 
 Run with UTF-8:  python -X utf8 tests/smoke_toolsets.py
 """
@@ -21,7 +24,15 @@ import ai_computer_control.server as s
 names = sorted(t.name for t in s.mcp._tool_manager.list_tools())
 print("COUNT=" + str(len(names)))
 print("NAMES=" + ",".join(names))
+d = s.mcp._tool_manager.get_tool("diagnostics").fn()
+print("COUNT_AFTER_DIAG=" + str(len(s.mcp._tool_manager.list_tools())))
+print("REPORTED=" + str(d.get("tool_count")))
+print("LOAD_ERRORS=" + ",".join(sorted(d.get("load_errors", {}))))
 """ % os.path.join(_ROOT, "src").replace("\\", "\\\\")
+
+# Same, but `psutil` fails to import the way a broken pywin32/psutil DLL does.
+_BROKEN_PSUTIL = "import importlib.abc\nclass _B(importlib.abc.MetaPathFinder):\n    def find_spec(self, name, path, target=None):\n        if name == 'psutil' or name.startswith('psutil.'):\n            raise ImportError('DLL load failed while importing _psutil_windows')\nsys.meta_path.insert(0, _B())\n"
+_CHILD_CODE_BROKEN = _CHILD_CODE.replace("import ai_computer_control.server as s", _BROKEN_PSUTIL + "import ai_computer_control.server as s")
 
 _FAILURES: list[str] = []
 
@@ -32,18 +43,22 @@ def check(cond, msg):
         _FAILURES.append(msg)
 
 
-def run_child(env_extra=None):
+def run_child(env_extra=None, code=None):
     env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
     env.pop("ACC_TOOLSETS", None)
     env.pop("ACC_HIDE_MEMORY", None)
     if env_extra:
         env.update(env_extra)
-    r = subprocess.run([sys.executable, "-X", "utf8", "-c", _CHILD_CODE],
+    r = subprocess.run([sys.executable, "-X", "utf8", "-c", code or _CHILD_CODE],
                        cwd=_ROOT, env=env, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=120)
     count, names, stderr = -1, [], r.stderr or ""
+    run_child.extra = {}
     for line in (r.stdout or "").splitlines():
-        if line.startswith("COUNT="):
+        if line.startswith(("COUNT_AFTER_DIAG=", "REPORTED=", "LOAD_ERRORS=")):
+            k, _, v = line.partition("=")
+            run_child.extra[k] = v
+        elif line.startswith("COUNT="):
             count = int(line[6:])
         elif line.startswith("NAMES="):
             names = line[6:].split(",") if line[6:] else []
@@ -69,6 +84,20 @@ def main() -> int:
     rc, count, names, _ = run_child({"ACC_TOOLSETS": "memory,web,thinking"})
     check(rc == 0 and {"memory_save", "fetch", "sequential_thinking"}.issubset(set(names)),
           f"v1.9 新工具族独立可裁 (got {count})")
+
+    rc, count, names, _ = run_child({"ACC_TOOLSETS": "filesystem,shell"})
+    check(rc == 0 and run_child.extra.get("COUNT_AFTER_DIAG") == "15",
+          f"diagnostics() 不再注册工具: 调用后仍 15 件 (got {run_child.extra.get('COUNT_AFTER_DIAG')})")
+    check(run_child.extra.get("REPORTED") == "15", "diagnostics 自报 tool_count 与实际一致")
+
+    rc, count, names, err = run_child(code=_CHILD_CODE_BROKEN)
+    check(rc == 0 and count >= 80, f"psutil 导入失败: 服务照常起来,其余工具照常注册 (rc={rc}, count={count})")
+    check("run_command" in names and "read_file" in names and "launch_application" not in names,
+          "无关工具(shell/filesystem)在,依赖 psutil 的 application 工具缺席")
+    le = set(filter(None, run_child.extra.get("LOAD_ERRORS", "").split(",")))
+    check({"application", "system"} <= le, f"diagnostics().load_errors 点名失败模块 (got {sorted(le)})")
+    check("failed to load" in err and "psutil" in err.lower() or "_psutil_windows" in err,
+          "失败在 stderr 留一行,不静默")
 
     rc, count, names, _ = run_child({"ACC_TOOLSETS": "memory,web,thinking", "ACC_HIDE_MEMORY": "1"})
     check(rc == 0 and "memory_save" not in names and "memory_read" not in names

@@ -12,6 +12,7 @@ import time
 from ctypes import wintypes
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.errors import exc_text
 from ai_computer_control.tools.safety import protected_path_reason
 
 _user32 = ctypes.windll.user32
@@ -102,7 +103,7 @@ def get_pixel_color(x: int, y: int) -> dict:
         r, g, b = pyautogui.pixel(int(x), int(y))
         return {"success": True, "x": x, "y": y, "rgb": [r, g, b], "hex": f"#{r:02x}{g:02x}{b:02x}"}
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
 
 
 @mcp.tool()
@@ -121,7 +122,7 @@ def get_clipboard_image(save_path: str | None = None, allow_protected: bool = Fa
         from PIL import ImageGrab
         data = ImageGrab.grabclipboard()
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
     if data is None:
         return {"has_image": False}
     if isinstance(data, list):
@@ -182,7 +183,7 @@ def set_clipboard_image(path: str) -> dict:
             return {"error": (r.stderr or "powershell failed").strip()}
         return {"success": True, "path": os.path.abspath(path)}
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
 
 
 @mcp.tool()
@@ -213,7 +214,7 @@ def list_monitors() -> dict:
     try:
         _user32.EnumDisplayMonitors(0, 0, MonitorEnumProc(_cb), 0)
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
     return {"count": len(monitors), "monitors": monitors}
 
 

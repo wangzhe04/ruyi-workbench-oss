@@ -1,9 +1,12 @@
-"""Append-only audit log for mutating tool calls (NDJSON, one file per day).
+"""Append-only audit log for mutating tool calls (NDJSON, one file per day, size-rotated).
 
-`log_action(tool, args_summary, ok)` appends a single JSON line to
-<data>/logs/audit-YYYYMMDD.ndjson. It is deliberately best-effort: any failure to serialize
-or write is swallowed so auditing can NEVER break the tool it is auditing. `audit_tail(n)` reads
-the most recent n records back for inspection.
+`log_action(tool, args, ok, error=None, ms=None)` appends a single JSON line to
+<data>/logs/audit-YYYYMMDD.ndjson (a day file that grows past ~5 MB is renamed to
+audit-YYYYMMDD.HHMMSS.ndjson and a fresh one started; only the newest 30 files are kept). Each record
+carries the redacted args as a JSON object (not a pre-encoded string), the ok/error outcome and the
+duration. It is deliberately best-effort: any failure to serialize or write is swallowed so auditing can
+NEVER break the tool it is auditing. `audit_tail(n)` reads the most recent n records back (seeking from
+the end of the newest files, never reading whole logs).
 
 Sensitive-looking fields (password/token/secret/key/...) are redacted by KEY name, and string
 VALUES are scrubbed for inline credential shapes (``password=...``, ``Bearer ...``, ``sk-...``,
@@ -18,8 +21,12 @@ import re
 
 from ai_computer_control.server import mcp
 from ai_computer_control.paths import logs_dir
+from ai_computer_control.utils.errors import exc_text
 
 _MAX_ARGS_CHARS = 500
+_MAX_ERROR_CHARS = 200
+_MAX_FILE_BYTES = 5 * 1024 * 1024   # rotate a log file once it grows past this
+_KEEP_FILES = 30                    # newest N audit files survive pruning
 _SECRET_HINTS = ("password", "passwd", "secret", "token", "api_key", "apikey",
                  "access_key", "private_key", "credential", "auth")
 
@@ -52,8 +59,13 @@ def _scrub_value(v: str) -> str:
     return v
 
 
-def _summarize_args(args) -> str:
-    """Turn an args dict/obj into a short, secret-scrubbed string capped at 500 chars."""
+def _redact_args(args):
+    """Secret-scrubbed, size-bounded view of the call args.
+
+    A dict stays a dict (so the log holds real JSON, not a JSON string inside JSON); if the redacted dict
+    would exceed ``_MAX_ARGS_CHARS`` once serialized it degrades to a truncated string. Anything that is not
+    a dict becomes a scrubbed string.
+    """
     try:
         if isinstance(args, dict):
             safe = {}
@@ -72,6 +84,8 @@ def _summarize_args(args) -> str:
                 else:
                     safe[k] = f"<{type(v).__name__}>"
             s = json.dumps(safe, ensure_ascii=False, default=str)
+            if len(s) <= _MAX_ARGS_CHARS:
+                return safe
         else:
             s = _scrub_value(str(args))
     except Exception:
@@ -84,23 +98,104 @@ def _summarize_args(args) -> str:
     return s
 
 
-def log_action(tool: str, args_summary, ok: bool = True) -> None:
+def _summarize_args(args) -> str:
+    """The redacted args as a string capped at 500 chars (kept for callers that want text)."""
+    red = _redact_args(args)
+    if isinstance(red, str):
+        return red
+    try:
+        return json.dumps(red, ensure_ascii=False, default=str)
+    except Exception:
+        return "<unserializable>"
+
+
+def _audit_files(d: str) -> list[str]:
+    """Audit file names in chronological order (rotated ``.HHMMSS`` files sort before the day's live file)."""
+    try:
+        return sorted(fn for fn in os.listdir(d) if fn.startswith("audit-") and fn.endswith(".ndjson"))
+    except OSError:
+        return []
+
+
+def _prune(d: str) -> None:
+    """Keep only the newest ``_KEEP_FILES`` audit files."""
+    files = _audit_files(d)
+    for fn in files[:max(0, len(files) - _KEEP_FILES)]:
+        try:
+            os.remove(os.path.join(d, fn))
+        except OSError:
+            pass
+
+
+_pruned_dirs: set[str] = set()
+
+
+def _rotate_if_needed(path: str) -> bool:
+    """Rename an oversized live file to a timestamped sibling. Returns True if a rotation happened."""
+    try:
+        if os.path.getsize(path) < _MAX_FILE_BYTES:
+            return False
+    except OSError:
+        return False
+    stem = path[:-len(".ndjson")]
+    rotated = f"{stem}.{datetime.datetime.now().strftime('%H%M%S')}.ndjson"
+    n = 0
+    while os.path.exists(rotated):  # same-second rotation: keep names unique and ordered
+        n += 1
+        rotated = f"{stem}.{datetime.datetime.now().strftime('%H%M%S')}{n:02d}.ndjson"
+    try:
+        os.replace(path, rotated)
+        return True
+    except OSError:
+        return False
+
+
+def log_action(tool: str, args_summary, ok: bool = True, error: str | None = None, ms: int | None = None) -> None:
     """Append one audit record. Never raises — auditing must not break the audited tool."""
     try:
         rec = {
             "ts": datetime.datetime.now().isoformat(timespec="seconds"),
             "tool": tool,
             "ok": bool(ok),
-            "args": _summarize_args(args_summary),
+            "args": _redact_args(args_summary),
         }
+        if error:
+            e = _scrub_value(str(error))
+            rec["error"] = e if len(e) <= _MAX_ERROR_CHARS else e[:_MAX_ERROR_CHARS] + "..."
+        if ms is not None:
+            rec["ms"] = int(ms)
         line = json.dumps(rec, ensure_ascii=False, default=str)
+        d = logs_dir()
         fname = "audit-" + datetime.datetime.now().strftime("%Y%m%d") + ".ndjson"
-        path = os.path.join(logs_dir(), fname)
+        path = os.path.join(d, fname)
+        rotated = _rotate_if_needed(path)
+        first_in_dir = d not in _pruned_dirs
         with open(path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
+        if rotated or first_in_dir:
+            _pruned_dirs.add(d)
+            _prune(d)
     except Exception:
         # Auditing is best-effort; swallow everything.
         pass
+
+
+def _tail_lines(path: str, n: int) -> list[str]:
+    """Last ``n`` non-empty lines of a file, reading blocks backwards from the end."""
+    block = 64 * 1024
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        pos = f.tell()
+        data = b""
+        while pos > 0 and data.count(b"\n") <= n:
+            step = min(block, pos)
+            pos -= step
+            f.seek(pos)
+            data = f.read(step) + data
+    lines = data.split(b"\n")
+    if pos > 0:
+        lines = lines[1:]  # first element is a partial line cut by the block boundary
+    return [ln.decode("utf-8", errors="replace") for ln in lines if ln.strip()][-n:]
 
 
 @mcp.tool()
@@ -111,22 +206,18 @@ def audit_tail(n: int = 50) -> dict:
         n: Number of most-recent records to return (1-1000, default 50).
 
     Returns:
-        dict with ok, count, and 'records' (newest last), reading across day-rolled log files.
+        dict with ok, count, and 'records' (newest last), reading across day-rolled/rotated log files.
+        Each record: ts, tool, ok, args (redacted object), and error/ms when known.
     """
     try:
         n = max(1, min(1000, int(n)))
         d = logs_dir()
-        try:
-            files = sorted(fn for fn in os.listdir(d)
-                           if fn.startswith("audit-") and fn.endswith(".ndjson"))
-        except FileNotFoundError:
-            files = []
+        files = _audit_files(d)
         lines: list[str] = []
         # Walk newest files first, collecting lines until we have >= n.
         for fn in reversed(files):
             try:
-                with open(os.path.join(d, fn), "r", encoding="utf-8", errors="replace") as f:
-                    flines = [ln for ln in f.read().splitlines() if ln.strip()]
+                flines = _tail_lines(os.path.join(d, fn), n)
             except Exception:
                 continue
             lines = flines + lines
@@ -141,4 +232,4 @@ def audit_tail(n: int = 50) -> dict:
                 records.append({"raw": ln})
         return {"ok": True, "count": len(records), "records": records, "log_dir": d}
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": exc_text(e)}

@@ -6,6 +6,7 @@ get_clipboard_image / set_clipboard_image。诊断: diagnostics() 的工具注�
 
 import pyperclip
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.errors import exc_text
 
 
 @mcp.tool()
@@ -77,4 +78,4 @@ def set_clipboard(text: str) -> dict:
             out["note"] = "写入了空串，等于清空了剪贴板。"
         return out
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": exc_text(e)}
