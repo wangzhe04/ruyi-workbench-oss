@@ -9657,6 +9657,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionMessagesStamp",
           "kinds": [
             "call"

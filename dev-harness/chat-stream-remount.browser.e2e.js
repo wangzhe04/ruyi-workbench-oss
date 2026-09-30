@@ -24,6 +24,9 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   R11 回合收尾的增量取(perf):回合起点 session 事件带 messagesStamp → 收尾只发一发 ?fromIndex=N&prefixStamp=S 并拼接;
 //       不带戳 / 服务端落回全量 / 拼接自检不符 三种对照。四遍收尾后的会话与标题、元信息、步骤条、事项条、电量表、续跑横幅
 //       拿到的输入逐项一致,乐观 user 行重绑到同一条持久化消息。
+//   R13 回合起点 session 事件的增量(perf round 4):手上底子带戳 → 发送体带 knownMessages;服务端答增量事件 → 拼回发送那一刻的
+//       前缀(新数组、记上新戳,于是收尾那一发从新条数接着增量);不带戳 → 发送体没有这个键(修前形状);增量事件拼不上 → 补一发无参全量。
+//       三遍收尾后的会话一致。
 //   R12 屏外代码块懒高亮(perf,真 chat-render-primitives.js + vendor hljs):在文档外建好的一批行挂进滚动容器后,
 //       可见区附近的代码块高亮了、离得远的还没动(连复制按钮都没补);滚过去之后它们也高亮了。已在文档里的容器照旧当场高亮。
 // 判定行：`CHAT STREAM REMOUNT BROWSER E2E: ALL PASS`。
@@ -385,6 +388,57 @@ true`;
       ok(diff.length === 0 && out.delta.title === 'new title', `R11f 标题/元信息/步骤条/事项条/电量表/续跑横幅的输入四遍一致${diff.length ? '(不同:' + diff.join(',') + ')' : ''}`);
       ok(out.delta.rebound === expectRebound, 'R11g 乐观 user 行重绑到增量尾巴里那条持久化的 user 消息');
       ok(out.delta.baseLen === 2 && !out.delta.sameArray, 'R11h 拼接出的是新数组,底子那份 messages 一条没多');
+    }
+    // R13:回合起点 session 事件的增量。底子 [u0,a0] 带戳 m1.2.aaa…;服务端起点事件只给尾巴 [u1](messagesFrom 2、共 3 条、新戳 m1.3.ccc…),
+    // 收尾时客户端应当从 3 接着增量(服务端答 [a1],共 4 条)。
+    const r13 = await fx.evaluate(`(async () => {
+      const mod = await import('/js/chat-stream-runtime.js');
+      const canon = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)) ? Object.fromEntries(Object.keys(x).sort().map(key => [key, x[key]])) : x);
+      const dropPH = s => { if (!s) return s; const { providerHistory, ...rest } = s; return rest; };
+      const clone = v => JSON.parse(JSON.stringify(v));
+      const u0 = { role: 'user', content: 'earlier', turnSeq: 1 }, a0 = { role: 'assistant', content: 'earlier answer', turnSeq: 1 };
+      const u1 = { role: 'user', content: 'hello', turnSeq: 2 }, a1 = { role: 'assistant', content: 'fresh answer', turnSeq: 2 };
+      const HEAD = { id: 'A', title: 'new title', turnSeq: 2, todos: [] };
+      const FULL = { ok: true, session: { ...HEAD, messages: [u0, a0, u1, a1], providerHistory: [{ role: 'user', content: 'x' }] }, resumable: { dangling: false, kind: null }, displayTitle: 'new title' };
+      const END_DELTA = { ok: true, session: { ...HEAD, messages: [a1] }, resumable: FULL.resumable, displayTitle: FULL.displayTitle, messagesFrom: 3, messageCount: 4, messagesStamp: 'm1.4.' + 'd'.repeat(40) };
+      const STAMP2 = 'm1.2.' + 'a'.repeat(40);
+      const out = {};
+      for (const mode of ['start-delta', 'no-stamp', 'bad-splice']) {
+        const rec = { paths: [] };
+        await window.__mk({ deps: { api: async u => {
+          rec.paths.push(u);
+          if (u === '/api/sessions/A') return clone(FULL);
+          if (u.startsWith('/api/sessions/A?fromIndex=3&')) return clone(END_DELTA);
+          if (u.startsWith('/api/sessions/A?')) return clone(FULL);
+          return { ok: true };
+        } } });
+        const h = window.__h;
+        const base = { id: 'A', title: 'old title', turnSeq: 1, todos: [], messages: [clone(u0), clone(a0)] };
+        if (mode !== 'no-stamp') mod.rememberMessagesStamp(base.messages, STAMP2);
+        h.state.currentSession = base;
+        h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(40);
+        rec.body = h.streamBodies[h.streamBodies.length - 1];
+        if (mode === 'no-stamp') h.push({ type: 'session', session: { ...HEAD, messages: [clone(u0), clone(a0), clone(u1)] } });
+        else h.push({ type: 'session', session: { ...HEAD, messages: [clone(u1)] }, messagesFrom: 2, messageCount: mode === 'bad-splice' ? 9 : 3, messagesStamp: 'm1.3.' + 'c'.repeat(40) });
+        await h.sleep(30);
+        rec.afterStart = { len: h.state.currentSession.messages.length, sameBase: h.state.currentSession.messages === base.messages, path: mod.sessionRefetchPath('A', h.state.currentSession) };
+        h.push({ type: 'assistant_delta', text: 'fresh answer' }); h.push({ type: 'result', ok: true }); h.end();
+        await sp; await h.sleep(40);
+        out[mode] = { ...rec, state: canon(dropPH(h.state.currentSession)), baseLen: base.messages.length };
+      }
+      return { out, expectState: canon(dropPH(FULL.session)), STAMP2 };
+    })()`);
+    {
+      const { out, expectState, STAMP2 } = r13;
+      const d = out['start-delta'];
+      ok(d.body && d.body.knownMessages && d.body.knownMessages.count === 2 && d.body.knownMessages.stamp === STAMP2, `R13a 底子带戳 → 发送体带 knownMessages {count:2, stamp}(${JSON.stringify(d.body && d.body.knownMessages)})`);
+      ok(out['no-stamp'].body && !('knownMessages' in out['no-stamp'].body), 'R13b 底子没戳 → 发送体没有 knownMessages(修前形状)');
+      ok(d.afterStart.len === 3 && !d.afterStart.sameBase && d.afterStart.path === `/api/sessions/A?fromIndex=3&prefixStamp=m1.3.${'c'.repeat(40)}`,
+        `R13c 增量起点事件拼回前缀(3 条、新数组),并记上新戳(收尾路径 ${d.afterStart.path})`);
+      ok(d.paths.length === 1 && d.paths[0].startsWith('/api/sessions/A?fromIndex=3&'), `R13d 收尾只发一发、从 3 接着增量(${d.paths.join(' , ')})`);
+      ok(out['bad-splice'].paths[0] === '/api/sessions/A', `R13e 起点增量拼不上 → 补一发无参全量(${out['bad-splice'].paths.join(' , ')})`);
+      for (const mode of ['start-delta', 'no-stamp', 'bad-splice']) ok(out[mode].state === expectState, `R13f[${mode}] 收尾后的会话与全量(去掉 providerHistory)一致`);
+      ok(d.baseLen === 2, 'R13g 底子那份 messages 一条没多(不就地改)');
     }
     // R12:屏外代码块懒高亮
     const r12 = await fx.evaluate(`(async () => {

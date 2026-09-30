@@ -5,7 +5,7 @@
   "summary": {
     "modules": 66,
     "providedSymbols": 3098,
-    "requiredSymbols": 2933,
+    "requiredSymbols": 2934,
     "edges": 512,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -9745,6 +9745,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
           "kinds": [
             "call"
           ]
@@ -26877,6 +26884,7 @@
         "rememberLastUsedEngineRoute",
         "repairProviderHistoryPairing",
         "saveSession",
+        "sessionMessagesDelta",
         "sessionMessagesStamp",
         "sessionObjectIsStale",
         "withJournalWriteLock",

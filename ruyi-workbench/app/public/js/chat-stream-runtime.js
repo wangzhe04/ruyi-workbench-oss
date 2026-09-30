@@ -727,6 +727,11 @@ export function createChatStreamRuntime(deps = {}) {
     const turnState = { abort: turnAbort, startedAt: Date.now(), initialTurnSeq: Number(state.currentSession?.turnSeq) || 0, message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
       engine: turnEngine, agentCliType: agentCliMeta(turnMeta.agentCliType).id,
       claudeInteractive: turnEngine !== 'claude' || agentCliMeta(turnMeta.agentCliType).alwaysInteractive || state.config.engineMode === 'interactive' };
+    // 手上已有前 N 条(服务端给过戳)就告诉服务端,回合起点那条 session 事件只回尾巴;knownPrefix 是拼接用的那一个数组。
+    if (state.currentSession?.id === turnSessionId) {
+      turnState.knownMessages = knownMessagesFor(state.currentSession);
+      if (turnState.knownMessages) turnState.knownPrefix = state.currentSession.messages;
+    }
     activeTurns.set(turnSessionId, turnState);
     // 112c: 新回合 = 状态机清零重开(状态条只反映当前打开的会话)。
     if (turnActivity && state.currentSession?.id === turnSessionId) {
@@ -745,6 +750,7 @@ export function createChatStreamRuntime(deps = {}) {
           attachments: sentAttachments,
           agentTeam,
           ...(options.permissionMode ? { permissionMode: options.permissionMode } : {}),
+          ...(turnState.knownMessages ? { knownMessages: turnState.knownMessages } : {}),
         }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
@@ -1177,7 +1183,15 @@ export function createChatStreamRuntime(deps = {}) {
     }
     switch (evt.type) {
       case 'session':
-        if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; rememberMessagesStamp(evt.session.messages, evt.messagesStamp); renderSessions(); }
+        if (evt.session && state.currentSession?.id === streamSessionId) {
+          // 回合起点的增量版(发送时带了 knownMessages):拼回发送那一刻手上的前缀;拼不上(前缀在途中被整个换掉)就整份取一次。
+          const turn = activeTurns.get(streamSessionId);
+          const merged = Number.isInteger(evt.messagesFrom) ? spliceSessionDelta(turn?.knownPrefix, evt) : evt;
+          if (merged) { state.currentSession = merged.session; rememberMessagesStamp(merged.session.messages, merged.messagesStamp); renderSessions(); }
+          else api(`/api/sessions/${streamSessionId}`).then(p => {
+            if (p?.session && state.currentSession?.id === streamSessionId && activeTurns.get(streamSessionId) === turn) { state.currentSession = p.session; renderSessions(); }
+          }).catch(() => {});
+        }
         break;
       case 'raw_line':
         pushRawEvent(evt.seq, evt.line);
@@ -1704,13 +1718,19 @@ const sessionMessagesStamps = new WeakMap();
 export function rememberMessagesStamp(messages, stamp) {
   if (Array.isArray(messages) && typeof stamp === 'string' && stamp) sessionMessagesStamps.set(messages, stamp);
 }
+// 手上这份 messages 服务端给过戳、且没长没短 → { count, stamp };否则 null(只能整份)。
+export function knownMessagesFor(base) {
+  const messages = base && Array.isArray(base.messages) ? base.messages : null;
+  const stamp = messages ? sessionMessagesStamps.get(messages) : '';
+  if (!stamp || !stamp.startsWith(`m1.${messages.length}.`)) return null;
+  return { count: messages.length, stamp };
+}
 // 回合收尾该发哪一发:能增量就带参数,否则就是修前那条无参路径(逐字不变)。
 export function sessionRefetchPath(sessionId, base) {
   const path = `/api/sessions/${sessionId}`;
-  const messages = base && Array.isArray(base.messages) ? base.messages : null;
-  const stamp = messages ? sessionMessagesStamps.get(messages) : '';
-  if (!stamp || !stamp.startsWith(`m1.${messages.length}.`)) return path;
-  return `${path}?fromIndex=${messages.length}&prefixStamp=${encodeURIComponent(stamp)}`;
+  const known = knownMessagesFor(base);
+  if (!known) return path;
+  return `${path}?fromIndex=${known.count}&prefixStamp=${encodeURIComponent(known.stamp)}`;
 }
 // 把增量回包拼回与全量同形的信封:session.messages = 手上前 N 条 + 尾巴(新数组,不动任何人手里的旧数组),
 // 去掉 messagesFrom / messageCount / messagesStamp 三个增量专用键(新戳记到新数组上,下次还能接着增量)。
