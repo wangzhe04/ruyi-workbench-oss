@@ -192,25 +192,32 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_read',
-    description: 'Read a local file. Char slice via offset/limit, or line mode via lineOffset (1-based) / lineLimit (returns cat -n style content with totalLines). Image/binary files are refused (use the vision channel).',
+    description: 'Read a local text file (UTF-8, UTF-16 with BOM, GBK/GB18030 are auto-detected; the result reports `encoding`). Char slice via offset/limit (default 40000 chars), or line mode via lineOffset (1-based) / lineLimit (default 2000 lines; returns cat -n style content). Each call returns at most ~40K chars so nothing is silently cut: when `truncated` is true, call again with offset=nextOffset (char mode) or lineOffset=nextLine (line mode). Image/binary files are refused (use the vision channel).',
     inputSchema: {
       type: 'object',
       properties: {
-        path: { type: 'string' },
-        offset: { type: 'number', description: 'char offset (char-slice mode)' },
-        limit: { type: 'number', description: 'char count (char-slice mode)' },
-        lineOffset: { type: 'number', description: '1-based start line (line mode)' },
-        lineLimit: { type: 'number', description: 'number of lines to return (line mode)' },
+        path: { type: 'string', description: 'absolute path, or relative to the workspace (session working folder)' },
+        offset: { type: 'number', description: 'char offset (char-slice mode); continue a truncated read with the returned nextOffset' },
+        limit: { type: 'number', description: 'char count (char-slice mode), default 40000, max 50000' },
+        lineOffset: { type: 'number', description: '1-based start line (line mode); continue with the returned nextLine' },
+        lineLimit: { type: 'number', description: 'max lines to return (line mode), default 2000; also bounded by the ~40K char budget' },
+        encoding: { type: 'string', description: 'optional override: utf8 | utf-16le | utf-16be | gbk (= gb2312 = gb18030) | latin1. Default: auto-detect (BOM, then UTF-8, then GBK)' },
+        annotate_non_ascii: { type: 'boolean', description: 'replace every non-ASCII char with a <U+XXXX> tag (debug lookalike characters); default false' },
       },
       required: ['path'],
     },
   },
   {
     name: 'file_write',
-    description: 'Write a local file',
+    description: 'Write (create or fully overwrite) a local file. Overwriting an existing file keeps its encoding (UTF-8 BOM, UTF-16, GBK) and its CRLF/LF line endings; new files are UTF-8 (CRLF for .cmd/.bat/.ps1, LF otherwise). The write is atomic and checkpointed (undoable) when the old file is <=5MB. To change part of a file prefer file_edit.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string' }, content: { type: 'string' }, createDirs: { type: 'boolean' } },
+      properties: {
+        path: { type: 'string', description: 'absolute path, or relative to the workspace (session working folder)' },
+        content: { type: 'string', description: 'the full new file content (pass "" explicitly to empty the file)' },
+        createDirs: { type: 'boolean', description: 'create missing parent folders, default true' },
+        encoding: { type: 'string', description: 'optional: utf8 | utf-16le | utf-16be | gbk. Default: keep the existing file\'s encoding, UTF-8 for new files' },
+      },
       required: ['path', 'content'],
     },
   },
@@ -229,19 +236,24 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_edit',
-    description: 'Replace text in a local file',
+    description: 'Replace text in a local file. oldText must match the file byte-for-byte (copy it from file_read) and be unique, otherwise set replaceAll=true. Preserves the file\'s encoding (UTF-8/BOM, UTF-16, GBK) and line endings. On a miss the result explains why (code whitespace_mismatch with the file\'s actual text, or the closest region); on several matches it lists their line numbers (code ambiguous).',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string' }, oldText: { type: 'string' }, newText: { type: 'string' }, replaceAll: { type: 'boolean' } },
+      properties: {
+        path: { type: 'string', description: 'absolute path, or relative to the workspace (session working folder)' },
+        oldText: { type: 'string', description: 'exact text to replace (multi-line allowed)' },
+        newText: { type: 'string', description: 'replacement text (pass "" explicitly to delete oldText)' },
+        replaceAll: { type: 'boolean', description: 'replace every occurrence instead of requiring a unique match' },
+      },
       required: ['path', 'oldText', 'newText'],
     },
   },
   {
     name: 'file_delete',
-    description: 'Delete a local file (checkpointed first, so it can be rolled back). Directories are refused.',
+    description: 'Delete a local file (checkpointed first, so it can be rolled back). Files over 5MB are still deleted but cannot be checkpointed; the result then carries checkpointWarn. Directories are refused.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string' } },
+      properties: { path: { type: 'string', description: 'absolute path, or relative to the workspace (session working folder)' } },
       required: ['path'],
     },
   },
@@ -251,8 +263,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        from: { type: 'string', description: '源文件绝对路径' },
-        to: { type: 'string', description: '目标绝对路径（含新文件名即为重命名）' },
+        from: { type: 'string', description: '源文件路径(绝对路径,或相对工作区)' },
+        to: { type: 'string', description: '目标路径(绝对路径,或相对工作区;含新文件名即为重命名)' },
         overwrite: { type: 'boolean', description: '目标已存在时是否覆盖，默认 false' },
       },
       required: ['from', 'to'],
@@ -264,8 +276,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        from: { type: 'string', description: '源文件绝对路径' },
-        to: { type: 'string', description: '目标绝对路径' },
+        from: { type: 'string', description: '源文件路径(绝对路径,或相对工作区)' },
+        to: { type: 'string', description: '目标路径(绝对路径,或相对工作区)' },
         overwrite: { type: 'boolean', description: '目标已存在时是否覆盖，默认 false' },
       },
       required: ['from', 'to'],
