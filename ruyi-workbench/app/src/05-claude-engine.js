@@ -1153,13 +1153,14 @@ async function runClaudeTurn({
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
-  await saveSession(session);
+  // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final'));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
-  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
+  if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。
   adapter.recordTurnUsage({ session, config, usage, billInMax, billOutMax });
   const claudeTurnOk = exit.code === 0 && !wasStopped;
-  if (session.mission) await bumpMissionChangeSeq(session.id, {
+  if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: claudeTurnOk || wasStopped ? 'progress' : 'failure',
     cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: {

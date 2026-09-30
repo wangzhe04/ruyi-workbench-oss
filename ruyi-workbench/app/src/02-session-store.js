@@ -3458,6 +3458,22 @@ async function saveSession(session, opts) {
       });
       return { dropped: true, staleGen: saveGen, highWater };
     }
+    // 回合代数闸(opts.dropIfTurnSuperseded / throwIfTurnSuperseded,只有回合自己的存盘带):盘上的 turnSeq 已经
+    // 比这份对象的大 = 这个回合被一个更新的回合顶替过(旧回合卡在不理会中止的工具里,新回合先跑完)。旧回合手里
+    // 那份对象的正文不含新回合的消息,照写就把新回合整段盖掉(messages 与 providerHistory 都回到旧样子)。
+    // 与撤回代数闸同理必须在【链内】比:新回合起跑那一存可能排在我入链之后、执行之前。只读头文件(turnSeq 在头上);
+    // 读不到/解析不了(首存、损坏)一律放行,与不带旗子逐字节等价。
+    if (opts && (opts.dropIfTurnSuperseded || opts.throwIfTurnSuperseded)) {
+      let diskTurnSeq = 0;
+      try { diskTurnSeq = Number(JSON.parse(await fsp.readFile(finalPath, 'utf8')).turnSeq) || 0; } catch { diskTurnSeq = 0; }
+      if (diskTurnSeq > (Number(session.turnSeq) || 0)) {
+        logEvent({
+          kind: 'session_superseded_turn_save_dropped', sessionId: id, turnSeq: Number(session.turnSeq) || 0, diskTurnSeq,
+          messageCount: messages.length, writer: String((opts && opts.writer) || ''),
+        });
+        return { dropped: true, supersededTurn: true, diskTurnSeq };
+      }
+    }
     // 装载回写(补默认字段/懒迁移)只在「装载那一眼之后没人写过」时才落:否则它拿的是旧副本,会把刚落盘的
     // 消息整份盖回去。比较在链内做 —— 进程内所有写者都串在这条链上,这里看到的计数就是权威答案。
     if (opts && Number.isInteger(opts.ifUnwrittenSince) && sessionDiskWriteSeqOf(id) !== opts.ifUnwrittenSince) {
@@ -3490,6 +3506,14 @@ async function saveSession(session, opts) {
   if (dropped) {
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
     // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
+    if (dropped.supersededTurn) {
+      if (opts && opts.throwIfTurnSuperseded) {
+        throw Object.assign(new Error('stale turn save dropped: a newer turn already ran on this session'), {
+          code: 'SESSION_TURN_SUPERSEDED', turnSeq: Number(session.turnSeq) || 0, diskTurnSeq: dropped.diskTurnSeq,
+        });
+      }
+      return session;
+    }
     if (opts && opts.throwIfStale && !dropped.deleted) {
       throw Object.assign(new Error('stale session save dropped: this copy was loaded before a rewind'), {
         code: 'SESSION_STALE_SAVE', staleGen: dropped.staleGen, highWater: dropped.highWater,
@@ -3511,6 +3535,22 @@ async function saveSession(session, opts) {
     void recordEngineTranscript(session.claudeSessionId, session.cwd).catch(() => {});
   }
   return session;
+}
+
+// ── 回合收尾那一存(三个引擎共用):带回合代数闸 ──────────────────────────────────────────────────────
+// 现象(审计 t4):回合 1 卡在不理会中止的工具里,用户在同一会话发回合 2,回合 2 跑完;回合 1 的工具稍后返回,
+// 收尾那一存拿着回合 1 起跑时的旧对象把整份正文写回去 —— 回合 2 的 user/assistant 消息与 providerHistory 全没了。
+// 这里用 saveSession 的 throwIfTurnSuperseded:盘上的 turnSeq 比这份对象大就不写。返回 true = 已落盘;
+// false = 本回合已被更新的回合顶替,收尾存被丢弃 —— 调用方据此不再派 thread.done / 任务进度(否则把一个
+// 过期回合当成「最新一回合结束」广播出去)。一次普通的停止(没有更新的回合)turnSeq 相等,照常落盘。
+async function saveTurnFinalSession(session, writer) {
+  try {
+    await saveSession(session, { throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
+    return true;
+  } catch (e) {
+    if (e && e.code === 'SESSION_TURN_SUPERSEDED') return false;
+    throw e;
+  }
 }
 
 // ── 128b(48 号文 §2-b):会话「读-改-写」的唯一原语 ────────────────────────────────────────────────────

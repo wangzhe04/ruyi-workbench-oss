@@ -353,7 +353,10 @@
       413,
       422
     ],
-    "pattern": "context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度",
+    "statusOnly": [
+      413
+    ],
+    "pattern": "context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+(is\\s+)?too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度|(input|prompt).{0,20}exceeds?\\s+the\\s+configured\\s+limit|request\\s+entity\\s+too\\s+large|payload\\s+too\\s+large",
     "flags": "i",
     "legacySubagentPattern": "context|token|length|maximum|too\\s*long|too\\s*large|exceed",
     "legacySubagentLongErrorChars": 400

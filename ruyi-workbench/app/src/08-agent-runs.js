@@ -555,7 +555,16 @@ async function markInterruptedAgentRuns() {
   }
 }
 
-async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped, runId }) {
+// 子代理回合的外壳:两路心跳(初始化心跳 initBeat、工具心跳 toolBeat)在【任何】出口都停掉 —— 正常返回、提前返回、
+// 抛错,以及第一次模型调用之前就被中止(修前这条路 break 出循环时 initBeat 还在跳:每秒一条 subagent_progress,
+// 一直重写 run 快照直到进程退出,审计 t8)。本体登记停心跳的函数,这里的 finally 负责调用。
+async function runSubAgentCore(opts) {
+  const lifecycle = { stopBeats: null };
+  try { return await runSubAgentCoreBody(opts, lifecycle); }
+  finally { if (typeof lifecycle.stopBeats === 'function') lifecycle.stopBeats(); }
+}
+
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped, runId }, lifecycle) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -568,6 +577,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
     if (initBeat && initBeat.unref) initBeat.unref();
   };
+  // 工具心跳的句柄与停止函数提前到这里声明(启动函数仍在下面、紧挨它用到的流式节流):外壳的 finally 可能在
+  // 本体跑到那一行之前就调停止函数,不能落进 const 的暂时性死区。
+  let toolBeat = null;
+  const stopToolBeat = () => { if (toolBeat) { clearInterval(toolBeat); toolBeat = null; } };
+  if (lifecycle) lifecycle.stopBeats = () => { stopInitBeat(); stopToolBeat(); };
   startInitBeat();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself launch agents.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes the agent tools */ }
@@ -695,13 +709,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
   // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。
   // 工具执行(含资源租约等待)期间以 streamActivityEventMs 节流发 progress 事件刷新看门狗时钟;一执行完立即停。
-  let toolBeat = null;
   const startToolBeat = () => {
     if (toolBeat) return;
     toolBeat = setInterval(() => { try { touchSubagentStream(); } catch { /* 心跳失败不阻断 */ } }, Math.max(1000, streamActivityEventMs));
     if (toolBeat && toolBeat.unref) toolBeat.unref();
   };
-  const stopToolBeat = () => { if (toolBeat) { clearInterval(toolBeat); toolBeat = null; } };
   // v1.4-OSS 用量看板(补): accumulate the sub-turn's OWN token usage (kept OUT of the parent's usage event —
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
@@ -870,7 +882,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             logFields: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}) },
             summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subagent_forced_400' },
             beforeTokens: estNow, error: he,
+            signal: ctrl && ctrl.signal,   // 子回合被中止时当场取消强压的摘要调用
           });
+          if (forced.aborted) { subOk = false; subErr = '已中止'; break; }
           if (forced.level === 2) {
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
@@ -1109,13 +1123,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'adaptive_tool_budget', subagentId, previousLimit, nextLimit: budget, hardLimit: adaptiveBudgetLimit });
         }
         // 第32波: 每次成功工具调用后存检查点(供传输/超时失败时自动断点续跑)
+        // 深拷贝整条消息:修前按 role/content/tool_call_id/tool_calls 白名单抄,恢复后重放的 assistant 丢了
+        // reasoning_content(DeepSeek 思考模式带工具调用时必须回传)与 providerBlocks(Anthropic 线协议的原样块),
+        // 服务商据此 400 或丢失思考上下文(审计 t10)。恢复那一侧本来就是逐条 JSON 深拷贝。
         savepoint = {
-          subHistory: subHistory.map(m => {
-            const c = { role: m.role, content: m.content };
-            if (m.tool_call_id) c.tool_call_id = m.tool_call_id;
-            if (m.tool_calls) c.tool_calls = m.tool_calls.map(tc => ({ id: tc.id, type: tc.type, function: { name: tc.function.name, arguments: tc.function.arguments } }));
-            return c;
-          }),
+          subHistory: subHistory.map(m => JSON.parse(JSON.stringify(m))),
           resultText, iter, iters, toolCallCount,
         };
         continue; // let the sub-agent react to its tool results

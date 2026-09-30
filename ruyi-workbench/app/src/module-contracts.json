@@ -1161,6 +1161,7 @@
         "safeMissionId",
         "sanitizeImportedSessionMessages",
         "saveSession",
+        "saveTurnFinalSession",
         "scheduleSessionIndexUpdate",
         "serializeSessionBody",
         "sessionBodyDanglingFromLines",
@@ -3274,6 +3275,13 @@
           ]
         },
         {
+          "provider": "02-session-store.js",
+          "symbol": "saveTurnFinalSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
           "kinds": [
@@ -4266,6 +4274,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "saveTurnFinalSession",
           "kinds": [
             "call"
           ]
@@ -6982,6 +6997,7 @@
         "resolveOrchestrateNodes",
         "runSubAgent",
         "runSubAgentCore",
+        "runSubAgentCoreBody",
         "runWorkspaceHash",
         "sanitizeAgentOutputSchema",
         "saveAgentRun",
@@ -7760,6 +7776,7 @@
         "appendDisplayMessagesToProviderHistory",
         "commonPrefixChars",
         "deliverAgentRunEnvelope",
+        "emptyReplyNotice",
         "launchPersistedAgentRun",
         "layoutShadowPrevBySessionMap",
         "legacySpawnToOrchestrateArgs",
@@ -8110,6 +8127,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "saveTurnFinalSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -8449,6 +8473,13 @@
           "symbol": "getPromptPack",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "PROMPT_EN",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -9351,6 +9382,7 @@
         "CONTEXT_GOVERNANCE_RULES",
         "CONTEXT_OVERFLOW_PATTERNS",
         "CONTEXT_OVERFLOW_STATUSES",
+        "CONTEXT_OVERFLOW_STATUS_ONLY",
         "CTX_LENGTH_KEYS",
         "CTX_PROBE_CACHE",
         "CTX_PROBE_TTL_MS",
@@ -9391,6 +9423,7 @@
         "agentConversationContextMeta",
         "agentNodeContextWindow",
         "aggregateSummaryCalls",
+        "anySummarySignal",
         "appendPromptToLastUserMessage",
         "applySummaryCallPolicy",
         "applySummaryEntityCheck",
@@ -9481,6 +9514,8 @@
         "summarySingleShotCap",
         "summarySingleShotReserveTokens",
         "summarySourceText",
+        "summaryStopSignal",
+        "summaryStoppedResult",
         "summaryUnsupportedParameterFields",
         "toolResultIsFull",
         "truncateToolResult",

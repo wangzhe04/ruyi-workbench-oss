@@ -136,7 +136,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // self-isolate-home;进程内的 fake provider 不带 RUYI_HOME,不计入),165 -> 166。
 // 安全审计修复 C:新增 dev-harness/claude-permission-bridge-mode.e2e.js(一处带 RUYI_HOME 的 spawn 起服务 + 临时目录里的假 CLI;
 // 第一行已 require self-isolate-home),166 -> 167。
-const RUYI_HOME_SPAWN_SITES = 167;
+// 回合引擎审计(停止/过期回合):新增 dev-harness/turn-stop-supersede.e2e.js(一处带 RUYI_HOME 的 spawn —— startWorkbench 起两台,
+// 各自独立临时家;第一行已 require self-isolate-home;进程内的 fake provider 不带 RUYI_HOME,不计入),167 -> 168。
+const RUYI_HOME_SPAWN_SITES = 168;
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
@@ -371,7 +373,9 @@ try {
   // 137 W1 +1 件：agent-mode-v2（G 段「显式停止能中断在跑的长命令」一处就地豁免 —— 界 20 s，失败形态是等满 60 s 长命令）→ 27。
   // C18 +1 件:scheduler(E 组新断言「fastElapsedMs < SLOWTURN_MS」一处就地豁免 —— 界取慢任务人为延迟的整段
   // 3000ms,判的是「同拍里排在慢任务后面的任务不再被它拖到界满」,不是量噪声)→ 28。
-  const WALLCLOCK_OWNER_FILES = 28;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  // 回合引擎审计 +1 件:turn-stop-supersede(A2 / C2「停止到结果」两处就地豁免 —— 修后实得几十 ms,界 3000 ms;失败形态是等满
+  // 不可中断工具的超时 / 摘要慢回的整段)→ 29。
+  const WALLCLOCK_OWNER_FILES = 29;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];
