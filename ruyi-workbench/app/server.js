@@ -43932,28 +43932,65 @@ function shellMcpChildGuard() {
 // other regex metacharacter is escaped literally. Matches against the relative path (with either
 // slash flavor accepted). Anchored full-match (^…$).
 function globToRegExp(glob) {
+  // 返回一个只有 test(str) 的匹配器(调用点只用 .test)。修前把 glob 译成正则:每个 `*` 是 `[^\\/]*`,
+  // 模型给的 `*a*a*a*a*a*b` 这类 glob 在长文件名上是多项式回溯(星号越多次方越高),卡死主线程。
+  // 这里把 glob 切成记号,按 NFA 同时推进所有可能位置:每个字符 O(记号数),整条 O(路径长 × 记号数),与 glob 形状无关。
+  // 语义与修前逐条一致:`**` 跨分隔符任意长(紧跟的分隔符可省,让 `**/x` 也配根下的 x);`*` 段内任意长;
+  // `?` 段内一个字符;`/` 与 `\` 互认;其余字面、大小写不敏感;整串锚定。
+  // 自包含(不引用本文件别处的名字):autonomy-grant.e2e 从源码切出这个函数单独求值。
   const g = String(glob || '');
-  let re = '';
+  const toks = [];
   for (let i = 0; i < g.length; i += 1) {
     const c = g[i];
     if (c === '*') {
-      if (g[i + 1] === '*') { // `**` → any chars including separators
-        re += '.*';
+      if (g[i + 1] === '*') {
+        toks.push({ t: 'any' });
         i += 1;
-        // swallow an immediately following separator so `**/x` also matches `x` at root
-        if (g[i + 1] === '/' || g[i + 1] === '\\') { re += '(?:[\\\\/])?'; i += 1; }
-      } else {
-        re += '[^\\\\/]*'; // `*` → within a segment
-      }
-    } else if (c === '?') {
-      re += '[^\\\\/]'; // single non-separator char
-    } else if (c === '/' || c === '\\') {
-      re += '[\\\\/]'; // accept either separator flavor
-    } else {
-      re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // escape regex metachars
-    }
+        if (g[i + 1] === '/' || g[i + 1] === '\\') { toks.push({ t: 'optsep' }); i += 1; }
+      } else toks.push({ t: 'star' });
+    } else if (c === '?') toks.push({ t: 'one' });
+    else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
+    else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
   }
-  return new RegExp('^' + re + '$', 'i');
+  const m = toks.length;
+  const isSep = ch => ch === '/' || ch === '\\';
+  // 可空记号(`*`、`**`、可省分隔符)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
+  const close = (on, i) => {
+    while (i <= m && !on[i]) {
+      on[i] = 1;
+      const tk = toks[i];
+      if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'optsep')) break;
+      i += 1;
+    }
+  };
+  return {
+    source: g,
+    test(str) {
+      const s = String(str == null ? '' : str);
+      let cur = new Uint8Array(m + 1);
+      close(cur, 0);
+      for (let k = 0; k < s.length; k += 1) {
+        const ch = s[k];
+        const lo = ch.toLowerCase();
+        const next = new Uint8Array(m + 1);
+        let any = false;
+        for (let i = 0; i < m; i += 1) {
+          if (!cur[i]) continue;
+          const tk = toks[i];
+          let to = -1;
+          if (tk.t === 'lit') { if (lo === tk.c || ch === tk.u) to = i + 1; }
+          else if (tk.t === 'one') { if (!isSep(ch)) to = i + 1; }
+          else if (tk.t === 'sep' || tk.t === 'optsep') { if (isSep(ch)) to = i + 1; }
+          else if (tk.t === 'star') { if (!isSep(ch)) to = i; }
+          else if (tk.t === 'any') to = i;
+          if (to >= 0) { close(next, to); any = true; }
+        }
+        if (!any) return false;
+        cur = next;
+      }
+      return cur[m] === 1;
+    },
+  };
 }
 
 // v0.8-S1: minimal Levenshtein edit distance (zero-dep) for file_edit `closest` ranking. Lines longer
