@@ -32,14 +32,27 @@ const { ok } = t;
       { role: 'assistant', content: '用 Range 请求头实现了。' },
       ...Array.from({ length: 10 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: `后续闲聊第 ${i} 条` })),
     ];
+    // 先完整读一次老会话:修前新会话的第一次装载会补默认字段并回写(还把 updatedAt 推到现在)。那一次回写要是落在
+    // 下面改盘【之后】,老会话就被顶回列表最上面,S1 的前提不成立(Windows CI 上偶发红)。现在装载不再回写,
+    // 这一读仍留着:改盘之前把「第一次装载」的一切副作用都了结掉,后面读到的头就是我们写下的那一份。
+    const firstRead = await fx.request('GET', `/api/sessions/${oldId}`);
+    ok(Boolean(firstRead && firstRead.json && firstRead.json.session && firstRead.json.session.id === oldId), 'S0 改盘前先读一次老会话');
     const sessionsDir = path.join(fx.home, 'sessions');
     const headFile = path.join(sessionsDir, `${oldId}.json`);
     const head = JSON.parse(fs.readFileSync(headFile, 'utf8'));
     fs.writeFileSync(path.join(sessionsDir, `${oldId}.messages.ndjson`), rows.map(m => JSON.stringify({ ...m, createdAt: head.createdAt, turnSeq: 1 })).join('\n') + '\n');
     fs.writeFileSync(headFile, JSON.stringify({ ...head, messageCount: rows.length }, null, 2));
-    for (let i = 0; i < 205; i++) await create(`填充会话 ${i}`);
+    const fillerIds = [];
+    for (let i = 0; i < 205; i++) fillerIds.push(await create(`填充会话 ${i}`));
     const titled = await create('断点续传方案评审');   // S3:标题里就有查询词
+    const missing = fillerIds.filter(id => !id).length + (titled ? 0 : 1);
+    ok(missing === 0, `S0 206 条填充/标题会话都建出来了(建失败 ${missing} 条)`);
     fs.rmSync(path.join(sessionsDir, 'index.json'), { force: true });   // 让 listSessions 重扫,读到老会话的新 messageCount
+    // 前提先在接口上核一遍:老会话在列表里的位置必须在前 200 之外(左栏只取最新 200 条),否则 S1 验不到它要验的东西。
+    const listed = await fx.request('GET', '/api/sessions');
+    const listedIds = listed && listed.json && Array.isArray(listed.json.sessions) ? listed.json.sessions.map(row => row.id) : [];
+    const oldPos = listedIds.indexOf(oldId);
+    ok(oldPos >= 200, `S0 前提:GET /api/sessions 里老会话排在前 200 之外(第 ${oldPos} 位,共 ${listedIds.length} 条)`);
 
     await fx.evaluate('location.reload(), true');
     await sleep(800);

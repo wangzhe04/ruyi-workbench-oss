@@ -645,7 +645,9 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
 //   providerBodySkips    增量取的装载有几次证明了 provider 正文没变、没去读它(loadSession 的 omitProviderHistory 视图)。
 //   deltaStampFromBytes  增量取的前缀戳有几次是直接对盘上字节算的(不逐条 JSON.stringify)。
 //   deltaStampSerialized 同上,逐条序列化算的(修前的算法;字节路径的前提不成立时仍走它)。
-const sessionBodyPerfStats = { lineHashes: 0, bodyReads: 0, providerBodySkips: 0, deltaStampFromBytes: 0, deltaStampSerialized: 0 };
+const sessionBodyPerfStats = { lineHashes: 0, bodyReads: 0, providerBodySkips: 0, deltaStampFromBytes: 0, deltaStampSerialized: 0, stateEvictions: 0, stateRecoveries: 0 };
+// 当前条目数(只读;见 sessionBodyState 头注的条目上限)。getter:随 perfCounters.sessionBody 一起被展开取值。
+Object.defineProperty(sessionBodyPerfStats, 'stateEntries', { enumerable: true, get: () => sessionBodyState.size });
 function sessionLineHash(line) {
   sessionBodyPerfStats.lineHashes++;
   return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
@@ -732,7 +734,12 @@ function sessionMessagesDelta(messages, fromRaw, stampRaw, body = null) {
 // 这张表只可能让事情变慢、不可能让数据变错:比对失配 → 全量重写;记录缺失 / bodiesOk=false → 全量重写;
 // 增量取的任何一个前提不成立 → 落回完整装载。
 // bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。进程重启后由 loadSession 重建。
+// 条目数也有上限 SESSION_BODY_STATE_MAX_ENTRIES:行原文有字符预算,可退成的 hashes(每行一个 16 字符串)修前却
+// 没有任何上限 —— 进程活多久,摸过的每一条会话就在这里挂多久。超出时按最近写/读序整条淘汰最旧的(Map 插入序,
+// setSessionBodyState 每次都把本条挪到末尾)。淘汰只丢「快」:下次 save 先在写链里按盘上的头与正文把记录重建
+// 回来(recoverSessionBodyState,②的旧副本补齐因此不失效),重建不了就全量重写;增量取落回完整装载。
 const SESSION_BODY_LINE_CACHE_CHARS = 32 * 1024 * 1024;
+const SESSION_BODY_STATE_MAX_ENTRIES = 128;
 const sessionBodyState = new Map();
 const sessionBodyLineCache = new Map();   // id → 该会话记录里行原文的字符数(Map 插入序 = 最近写/读序,最旧的先被淘汰)
 let sessionBodyLineCacheChars = 0;
@@ -768,7 +775,9 @@ function releaseSessionBodyLineCache(id) {
 function setSessionBodyState(id, state) {
   const prev = sessionBodyState.get(id);
   releaseSessionBodyLineCache(id);
+  sessionBodyState.delete(id);   // 先删再放:本条挪到插入序末尾(= 最近用过),淘汰从最旧的那头开始
   sessionBodyState.set(id, state);
+  evictSessionBodyStateOverflow(id);
   const held = [state.msg, state.prov].reduce((n, rec) => n + (rec && rec.lines ? rec.chars : 0), 0);
   if (held > SESSION_BODY_LINE_CACHE_CHARS) {   // 单条会话就超预算:不占缓存,直接退成 hash(与修前同样的活)
     demoteSessionBodyRecord(state.msg, prev && prev.msg);
@@ -787,6 +796,37 @@ function setSessionBodyState(id, state) {
 function dropSessionBodyState(id) {
   releaseSessionBodyLineCache(id);
   sessionBodyState.delete(id);
+}
+// 条目数超上限 → 从最旧的开始整条丢。正在写盘的会话(写链在跑)跳过:写者收尾会把准确的记录放回来,
+// 丢了它也只是让那一次 save 多做一遍重建。keep 是刚放进来的那一条。
+function evictSessionBodyStateOverflow(keep) {
+  if (sessionBodyState.size <= SESSION_BODY_STATE_MAX_ENTRIES) return;
+  for (const otherId of sessionBodyState.keys()) {
+    if (sessionBodyState.size <= SESSION_BODY_STATE_MAX_ENTRIES) break;
+    if (otherId === keep || sessionWriteChains.has(otherId)) continue;
+    dropSessionBodyState(otherId);
+    sessionBodyPerfStats.stateEvictions++;
+  }
+}
+// 写链内、记录缺失时(被上面淘汰过;或进程重启后没装载就直接存)按盘上的真内容重建记录 —— 与 loadSession 读完交出的
+// 那一份同形。前提:头是 v2、两个正文都读得出且行数与头声明的计数【完全相等】(多出的是未提交尾巴,要 loadSession
+// 截断;少了是坏)。任何一条不成立就不给,调用方照旧全量重写。只在写链里调:此刻没有别的写者,盘上就是已提交的状态。
+async function recoverSessionBodyState(id, bp) {
+  const head = await readSessionHeadResilient(id);
+  if (!head || typeof head !== 'object' || head.storageVersion !== SESSION_STORAGE_VERSION) return null;
+  const msg = await readSessionBodyFile(bp.messages);
+  const prov = await readSessionBodyFile(bp.provider);
+  const whole = (body, count) => body && !body.corrupt && !body.unreadable && body.tornAt == null
+    && Number.isInteger(count) && body.entries.length === count;
+  if (!whole(msg, head.messageCount) || !whole(prov, head.providerHistoryCount)) return null;
+  const state = {
+    msg: sessionBodyRecordFromRead(msg, null),
+    prov: sessionBodyRecordFromRead(prov, null, { dangling: danglingTurnState(prov.entries.length, i => prov.entries[i]) }),
+    bodiesOk: true,
+  };
+  setSessionBodyState(id, state);
+  sessionBodyPerfStats.stateRecoveries++;
+  return state;
 }
 // 装载读到的正文 → 记录。与上一份 canonical 记录逐行相等(字符串比较)就继承 canonical,并沿用那一份的行对象(新解码的丢给 GC)。
 function sessionBodyRecordFromRead(body, prev, { stampOk = true, dangling = null } = {}) {
@@ -1238,7 +1278,9 @@ async function listSessions() {
   const all = await fsp.readdir(paths.sessions).catch(() => []);
   // Search metadata lives beside session heads. It is not a session and must not enter either
   // the disk id-set or the rebuilt sidebar index (otherwise boot tries to open an undefined id).
-  const files = all.filter(f => f.endsWith('.json') && f !== SESSION_INDEX_FILE && f !== '_search-index-v1.json');
+  // 判据与 loadSession / 全量扫描同一个 safeSessionId(01):它拒绝 index、`_` 前缀这些保留名,也拒绝不合形的
+  // 文件名 —— 修前这里只点名排除两个文件,别的保留名/怪名进了 diskIds、却永远进不了重建的索引,列表每次都判漂移全量扫。
+  const files = all.filter(f => f.endsWith('.json') && safeSessionId(f.slice(0, -5)) !== null);
   const diskIds = new Set(files.map(f => f.slice(0, -5))); // strip '.json'
   // PF2 fix + 107-F9a: overlay everything not yet durable onto the disk index BEFORE trusting it. The index write
   // is debounced ~200ms, so without the overlay a read would serve a stale title / messageCount / pin / missionId
@@ -1600,6 +1642,8 @@ function sessionSaveIsTombstoned(session) {
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
 // the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
 async function deleteSession(id, { purgeAssociated = false } = {}) {
+  // 不合形/保留名(index、`_` 前缀 …,见 01 safeSessionId)先拒:修前 DELETE /api/sessions/index 一路走到 unlink index.json。
+  assertSessionIdForPath(id);
   // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
   // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
   markSessionDeleted(id);
@@ -2950,6 +2994,15 @@ async function readSessionHeadResilient(id) {
     }
   }
 }
+// 「这条会话走哪条引擎路由」的只读取法:GET /api/status?sessionId= 与 GET /api/models?sessionId= 用。
+// 两条路由都是 auth:'open'(跨站页面也能让浏览器发出来),修前它们调 loadSession —— 装载会补默认字段回写、
+// 懒迁移 v1、截断撕裂尾行,开放读口就这样成了能改盘的写口(配合保留名,还能把搜索索引「迁移」成假会话)。
+// 这里只读会话头,零副作用;inferSessionEngineRoute 要的 engineRoute 就在头上(v1 单文件头连 messages 一起带着)。
+async function readSessionRouteHead(id) {
+  if (safeSessionId(id) === null) return null;
+  const head = await readSessionHeadResilient(id);
+  return head && typeof head === 'object' && !Array.isArray(head) ? head : null;
+}
 // 正文截断同款有界重试(Windows 上杀软/索引器短暂持锁的 EPERM/EBUSY)。仍失败就如实返回 false:
 // 调用方据此不交出 bodiesOk:true —— 否则下次快路径会接在没截掉的残留后面 append,把新行焊进
 // 半行(整条会话随后被判损坏隔离),或让旧的未提交尾巴留在真消息前面、下次截断反而截掉真消息。
@@ -3072,6 +3125,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
     // 计数当指纹：saveSession 每次落头都会推 updatedAt（nowIso），所以它变了就一定有写者插进来过。
+    // （例外是装载回写 keepUpdatedAt：它们不推 updatedAt、不改两个计数，只补头上的默认字段。本进程内的任何写者
+    //  —— 包括它们 —— 都由下面的 sessionDiskWriteSeqOf 判出来，那才是权威信号；updatedAt 与计数只是兜底。）
     // 读不到头（正被原子替换的那一瞬）同样按「别动手」处理 —— 破坏性动作绝不建立在一次可疑的读上。
     const torn = () => (msg && msg.tornAt != null) || (prov && prov.tornAt != null);
     if (bodyBad() || countsDiffer() || torn()) {   // 只有要动手(截断/隔离)时才需要确认没有写者
@@ -3189,8 +3244,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
-  } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
+    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
+  } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
   if (session.mission && typeof session.mission === 'object') {
@@ -3220,7 +3275,7 @@ async function loadSessionV1Backup(id) {
   const { session } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
   Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-  await saveSession(session).catch(() => {});
+  await saveSession(session, { writer: 'load_v1bak_restore', keepUpdatedAt: true }).catch(() => {});
   return session;
 }
 
@@ -3263,7 +3318,12 @@ async function saveSession(session, opts) {
   if (sessionOmittedProviderHistory(session)) throw new Error('refusing to save a session loaded without its provider history');
   await ensureDirs();
   if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
-  session.updatedAt = nowIso();
+  // opts.keepUpdatedAt —— 只有装载回写(补默认字段 load_normalize / 惰性清理残留段 / 懒迁移 load_migrate /
+  // v1bak 回退)传:它们不是这条会话的新活动,不许推 updatedAt。修前「打开看一眼」就把会话顶到列表最上面
+  // (列表、任务行、搜索命中都按 updatedAt 排)。头上没有可用的旧值才照常取现在。真编辑一律不传,照旧推。
+  const keepUpdatedAt = opts && opts.keepUpdatedAt === true && typeof session.updatedAt === 'string'
+    && Number.isFinite(Date.parse(session.updatedAt));
+  if (!keepUpdatedAt) session.updatedAt = nowIso();
   const id = session.id;
   // 107-F7b:从这里到 sessionWriteChains.set 是一段同步代码,抬水位与入链因此是原子的。
   const rewindBump = opts && opts.rewindBump === true ? claimRewindGeneration(session) : null;
@@ -3326,7 +3386,8 @@ async function saveSession(session, opts) {
       await fsp.copyFile(finalPath, finalPath + '.v1bak', fs.constants.COPYFILE_EXCL).catch(() => {});
       session.__v1bakPending = false;
     }
-    const state = sessionBodyState.get(id);
+    // 记录缺失(条目上限淘汰过 / 重启后没装载就存)→ 先按盘上已提交的内容重建,旧副本补齐与快路径照常可用。
+    const state = sessionBodyState.get(id) || await recoverSessionBodyState(id, bp);
     // 旧副本补齐：调用方手里的消息是盘上正文的【严格前缀】（更短、逐行相同）= 它装载之后别的写者又追加过，
     // 它自己并没有删消息（有意删的只有撤回 rewindBump 与管家归档 opts.shrinkBody）。以前这里走慢路径，用旧数组
     // 整份重写 —— 别人刚追加的消息全丢。现在先把盘上多出来的尾巴补进它的数组再写：两边的改动都留下。
@@ -3524,11 +3585,22 @@ function isUntitledSessionTitle(title) {
   return !v || v === 'New session' || v === '新会话' || v === 'New chat';
 }
 
+const IMPORTED_MESSAGE_ROLE_MAX = 32;
+function sanitizeImportedSessionMessages(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(m => m && typeof m === 'object' && !Array.isArray(m)
+    && typeof m.role === 'string' && m.role.trim() && m.role.length <= IMPORTED_MESSAGE_ROLE_MAX
+    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)));
+}
+
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
   const config = await readConfig();
-  const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
+  // 导入会话(POST /api/sessions 的 messages,来自用户选的 JSON 文件)同样不可信:修前 [null] 让建会话 500
+  // (而且半截落了盘),数字/字符串元素原样进正文。只收【普通对象 + 非空字符串 role + content 缺省或为字符串/数组】
+  // 的条目,其余丢掉 —— 这就是展示消息的形状(assistant 的 content 可以是 '',正文在 segments 里)。
+  const initialMessages = sanitizeImportedSessionMessages(arguments[0]?.messages);
   // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
   // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
   // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。
@@ -3569,6 +3641,10 @@ async function createSession({ title, cwd, origin, engineRoute }) {
     // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
     ...(isUntitledSessionTitle(safeTitle) ? {} : { titleSource: 'user' }),
   };
+  // 落盘前就补齐 normalizeSession 的默认字段(todos / skills / memories / memoriesExplicit / memoryExclusions ……)。
+  // 修前新会话头缺这几个键,第一次 loadSession 判 changed → load_normalize 回写 —— 光是「点开看一眼」就把
+  // updatedAt 推到现在,这条会话跳到列表最上面(rail-session-search 浏览器件在 Windows CI 上偶发红的根因)。
+  normalizeSession(session);
   await saveSession(session);
   // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),
   // 真正归到别的任务是后来 missionAttachThread 的事(它自己派 thread.adopted)。

@@ -226,8 +226,9 @@ async function handleApi(req, res, pathname) {
     try {
       const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
       if (requestedSessionId) {
-        const statusSession = await loadSession(requestedSessionId);
-        if (statusSession) conversationConfig = configForSessionEngineRoute(config, statusSession);
+        // 开放读口只读会话头(02 readSessionRouteHead 头注):不装载、不回写。
+        const statusHead = await readSessionRouteHead(requestedSessionId);
+        if (statusHead) conversationConfig = configForSessionEngineRoute(config, statusHead);
       }
     } catch { /* status without a valid session keeps the global new-session default */ }
     // 128f-③(48 号文 §2-c):桌面组件的 Python 探测还在飞(缓存冷)时,本路由【不等、也不走同步探针】——
@@ -403,8 +404,8 @@ async function handleApi(req, res, pathname) {
     try {
       const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
       if (requestedSessionId) {
-        const modelsSession = await loadSession(requestedSessionId);
-        if (modelsSession) modelsConfig = configForSessionEngineRoute(config, modelsSession);
+        const modelsHead = await readSessionRouteHead(requestedSessionId);   // 同 /api/status:只读头,零副作用
+        if (modelsHead) modelsConfig = configForSessionEngineRoute(config, modelsHead);
       }
     } catch { /* 无效或读不到的 sessionId：与 status 同样退回全局新任务默认值 */ }
     const provider = activeOpenAiProvider(modelsConfig);

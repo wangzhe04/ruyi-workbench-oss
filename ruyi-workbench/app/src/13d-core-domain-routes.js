@@ -473,9 +473,15 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, json({ ok: false, error: 'method not allowed' }, 405));
     }
   }
-  if (pathname.startsWith('/api/sessions/')) {
-    const id = path.basename(pathname); // guards traversal
+  // 单条会话的 GET / PATCH / DELETE 只认 /api/sessions/<一段>。修前是 startsWith + path.basename(pathname):
+  // /api/sessions/随便/什么/<id> 与 /api/sessions/<id>/ 都被当成 <id> —— 同一条会话有无数个别名(DELETE 也吃),
+  // 以后再加 /api/sessions/:id/xxx 子路由时稍不留神就被这里先吞掉。其余形状落到路由末尾的 api.route_not_found。
+  const single = pathname.match(/^\/api\/sessions\/([^/]+)$/);
+  if (single) {
+    // 与后台任务那几条同一个解码口径:坏编码(%zz)→ '' → 下面各分支按不合形的 id 处理(404 / 400)。
+    const id = safeDecodeURIComponent(single[1]) || '';
     if (req.method === 'GET') {
+      if (!safeSessionId(id)) return send(res, apiSessionNotFound());   // 不合形/保留名(01 safeSessionId)不可能是一条会话
       // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
       // 正文并逐行 sha1(18 MB 会话 250–350 ms;逐行 sha1 后来去掉了,见 02 sessionBodyState)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
       // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
@@ -592,6 +598,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       if (id === STEWARD_SESSION_ID) {
         return send(res, apiFailure('steward.forbidden', {}, 'the steward session cannot be patched through /api/sessions', 403));
       }
+      if (!safeSessionId(id)) return send(res, apiSessionNotFound());
       // 116-2a(27 号文 §3.3/§8.6「每条线程一个权限 chip、点开即换、立即生效」):线程级权限就地快切。
       // 与 engineRoute 同端点、同风格(它是会话级字段的既有先例)。两道门:
       //   ① 白名单 —— 非 PERMISSION_MODES 的值 400,绝不悄悄回落(用户按了一个档,系统却按另一个档跑,

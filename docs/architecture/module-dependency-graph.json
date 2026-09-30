@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3142,
-    "requiredSymbols": 2947,
+    "providedSymbols": 3149,
+    "requiredSymbols": 2948,
     "edges": 513,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -363,6 +363,7 @@
         "DESKTOP_PYTHON_OK_CACHE_MS",
         "DESKTOP_PYTHON_PROBE_TIMEOUT_MS",
         "DurableJsonStore",
+        "RESERVED_SESSION_FILE_IDS",
         "RUNTIME",
         "SESSION_MCP_CONFIG_MAX_AGE_MS",
         "STEWARD_MANAGED_WORKSPACES_CAP",
@@ -989,6 +990,7 @@
       "provides": [
         "ARTIFACT_IMG_EXTS",
         "BRIDGED_WRITE_PATH_ARGS",
+        "IMPORTED_MESSAGE_ROLE_MAX",
         "INTERVENTION_TERMINAL",
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
@@ -1010,6 +1012,7 @@
         "MISSION_STALL_SIGNAL_WINDOW_MS",
         "SESSION_BODY_LINE_CACHE_CHARS",
         "SESSION_BODY_READ_TRANSIENT",
+        "SESSION_BODY_STATE_MAX_ENTRIES",
         "SESSION_BRIEF_GIST_CHARS",
         "SESSION_BRIEF_TITLE_CHARS",
         "SESSION_DELETE_SETTLE_TIMEOUT_MS",
@@ -1066,6 +1069,7 @@
         "dirSize",
         "dropSessionBodyState",
         "evaluateMissionCheck",
+        "evictSessionBodyStateOverflow",
         "finalizeMissionAfterTurn",
         "flushSessionIndex",
         "flushSessionIndexSync",
@@ -1175,12 +1179,14 @@
         "readSessionHeadResilient",
         "readSessionIndex",
         "readSessionNotes",
+        "readSessionRouteHead",
         "rebaseStaleSessionBody",
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
         "recordMissionBudgetTrippedChange",
         "recordMissionCheckResult",
         "recordMissionStalledChange",
+        "recoverSessionBodyState",
         "registerIntervention",
         "releaseSessionBodyLineCache",
         "rememberLastUsedEngineRoute",
@@ -1189,6 +1195,7 @@
         "repairProviderHistoryToolArgs",
         "rewindSession",
         "safeMissionId",
+        "sanitizeImportedSessionMessages",
         "saveSession",
         "scheduleSessionIndexUpdate",
         "serializeSessionBody",
@@ -11846,6 +11853,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionRouteHead",
           "kinds": [
             "call"
           ]
@@ -27540,6 +27554,7 @@
         "mutateSession",
         "normalizeMission",
         "normalizeTodoItems",
+        "readSessionRouteHead",
         "recordMissionCheckResult",
         "saveSession",
         "workspaceBaselineIsCodePath",

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3142 | 2947 | 513 | 68 | 0 | 1 |
+| 66 | 3149 | 2948 | 513 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -22,12 +22,12 @@
 | 4 | `01d-win-cmdline.js` | foundation | 10 | 0 | 0 |
 | 5 | `01e-permission-modes.js` | foundation | 10 | 1 | 1 |
 | 6 | `01f-agent-cli-types.js` | foundation | 4 | 1 | 1 |
-| 7 | `01-config.js` | foundation | 171 | 54 | 12 |
+| 7 | `01-config.js` | foundation | 172 | 54 | 12 |
 | 8 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 14 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 282 | 69 | 16 |
+| 12 | `02-session-store.js` | foundation | 288 | 69 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 78 | 23 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 145 | 36 | 9 |
@@ -60,7 +60,7 @@
 | 42 | `11-native-tools.js` | tools | 119 | 33 | 5 |
 | 43 | `12-tool-dispatch.js` | tools | 39 | 84 | 14 |
 | 44 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 45 | `13-http-router.js` | transport | 65 | 235 | 28 |
+| 45 | `13-http-router.js` | transport | 65 | 236 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 48 | `13d-core-domain-routes.js` | transport | 58 | 135 | 16 |
@@ -342,7 +342,7 @@
 | `13-http-router.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `observationRecallEnabled` |
 | `13-http-router.js` | `01e-permission-modes.js` | backward | `BUILTIN_AGENT_ROLES`, `PERMISSION_MODES`, `normalizeAgentRole` |
 | `13-http-router.js` | `01f-agent-cli-types.js` | backward | `AGENT_CLI_TYPES` |
-| `13-http-router.js` | `02-session-store.js` | backward | `MISSION_MAX_TEXT`, `applyMissionUpdate`, `bumpMissionChangeSeq`, `evaluateMissionCheck`, `flushSessionIndexSync`, `invalidateSessionIndex`, `journalDir`, `journalReadIndex`, `loadSession`, `markInterruptedInterventions`, `maybeFinalizeMission`, `missionControlCommand`, `mutateSession`, `normalizeMission`, `normalizeTodoItems`, `recordMissionCheckResult`, `saveSession`, `workspaceBaselineIsCodePath`, `workspaceBaselinePathKey` |
+| `13-http-router.js` | `02-session-store.js` | backward | `MISSION_MAX_TEXT`, `applyMissionUpdate`, `bumpMissionChangeSeq`, `evaluateMissionCheck`, `flushSessionIndexSync`, `invalidateSessionIndex`, `journalDir`, `journalReadIndex`, `loadSession`, `markInterruptedInterventions`, `maybeFinalizeMission`, `missionControlCommand`, `mutateSession`, `normalizeMission`, `normalizeTodoItems`, `readSessionRouteHead`, `recordMissionCheckResult`, `saveSession`, `workspaceBaselineIsCodePath`, `workspaceBaselinePathKey` |
 | `13-http-router.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute` |
 | `13-http-router.js` | `03-bridge-guard.js` | backward | `PREVIEW_TEXT_EXTS`, `buildCodeEditorSpawn`, `buildRevealSpawn`, `ensureDataRootReal`, `existsExecutable`, `existsExecutableAsync`, `fileAllowedRoots`, `guardWorkspacePath`, `isSensitiveDataPath`, `launchCodeEditor`, `materializeCheckpointEditorDiff`, `normalizeCwd`, `pathWithinAnyRoot`, `pathWithinRoot`, `readFilePreview`, `resolvePreferredCodeEditor`, `resolveWorkspace` |
 | `13-http-router.js` | `04-desktop-shell.js` | backward | `DesktopShell` |

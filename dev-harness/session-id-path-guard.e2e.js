@@ -5,6 +5,13 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 // 密钥)当成会话读出来、在 session 事件里原样回显;/api/session/skills、/api/session/memories 会把它当会话改写。
 //   P1 /api/chat/stream sessionId:'../config' → 回显里没有配置内容(当作没有这个会话,另起一个新会话)
 //   P2 /api/session/skills、/api/session/memories sessionId:'../config' → 404,config.json 原样不动
+// 会话目录里的保留名与单条会话路由的形状(修前实证):
+//   P3 GET /api/sessions/_search-index-v1 → 404,搜索索引没被当成 v1 会话「懒迁移」(修前 200 + 头被改写 + 长出正文);
+//      DELETE /api/sessions/index → 400,侧栏索引还在(修前 200 + unlink index.json)
+//   P4 开放读口 GET /api/status?sessionId= / GET /api/models?sessionId=(不带 token、跨站来源)只读会话头:
+//      头缺默认字段的会话头逐字节不变(修前 loadSession 回写);保留名不长出任何文件
+//   P5 /api/sessions/<多段>/<id> 不再是 <id> 的别名(修前 GET 200、DELETE 真删);子路由 /background 与 /search 照常
+//   P6 POST /api/sessions 带 messages:[null] → 200,不合形的条目被丢掉(修前 500)
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -64,6 +71,61 @@ function req(port, method, route, payload, headers = {}) {
     const after = fs.readFileSync(path.join(HOME, 'config.json'), 'utf8');
     ok(JSON.parse(after).providers[0].apiKey === SECRET && !fs.existsSync(path.join(HOME, 'config.json.corrupt')), 'P2 config.json 没被当成会话改写或隔离');
     ok(JSON.parse(before).activeProvider === JSON.parse(after).activeProvider, 'P2 配置内容前后一致');
+
+    const sessDir = path.join(HOME, 'sessions');
+    const jsonOf = r => { try { return JSON.parse(r.raw); } catch { return null; } };
+    const created = jsonOf(await req(port, 'POST', '/api/sessions', { title: 'hello guard', cwd: HOME }, hdr));
+    const sid = created && created.session && created.session.id;
+    ok(typeof sid === 'string' && /^sess_/.test(sid), `建会话(${sid})`);
+    const search = await req(port, 'GET', '/api/sessions/search?q=hello', null, hdr);
+    ok(search.status === 200, `搜索可用(${search.status})`);
+    await sleep(300);
+    const searchIdx = path.join(sessDir, '_search-index-v1.json');
+    const sideIdx = path.join(sessDir, 'index.json');
+    ok(fs.existsSync(searchIdx) && fs.existsSync(sideIdx), '搜索索引与侧栏索引都已落盘');
+    const searchBefore = fs.readFileSync(searchIdx, 'utf8');
+    const reserved = await req(port, 'GET', '/api/sessions/_search-index-v1', null, hdr);
+    ok(reserved.status === 404, `P3 GET /api/sessions/_search-index-v1 → 404(${reserved.status} ${reserved.raw.slice(0, 80).replace(/\s+/g, ' ')})`);
+    await sleep(300);
+    const strays = fs.readdirSync(sessDir).filter(f => f.startsWith('_search-index-v1') && f !== '_search-index-v1.json');
+    ok(fs.readFileSync(searchIdx, 'utf8') === searchBefore && strays.length === 0, `P3 搜索索引原样、没长出正文/备份(${strays.join(',')})`);
+    const delIndex = await req(port, 'DELETE', '/api/sessions/index', null, hdr);
+    ok(delIndex.status === 400 && fs.existsSync(sideIdx), `P3 DELETE /api/sessions/index → 400,index.json 还在(${delIndex.status})`);
+
+    // P4:一条「老版本写下的」v2 头(缺 normalize 补的默认字段、updatedAt 很旧)。开放读口不许替它回写。
+    const headFile = path.join(sessDir, sid + '.json');
+    const oldHead = JSON.parse(fs.readFileSync(headFile, 'utf8'));
+    for (const key of ['todos', 'skills', 'memories', 'memoriesExplicit', 'memoryExclusions']) delete oldHead[key];
+    oldHead.updatedAt = '2020-01-02T03:04:05.000Z';
+    fs.writeFileSync(headFile, JSON.stringify(oldHead, null, 2));
+    const headBefore = fs.readFileSync(headFile, 'utf8');
+    const crossSite = { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' };
+    const st = await req(port, 'GET', '/api/status?sessionId=' + sid, null, crossSite);
+    const stJson = jsonOf(st);
+    ok(st.status === 200 && stJson && stJson.ok === true && Array.isArray(stJson.models), `P4 /api/status?sessionId= 照常回(${st.status})`);
+    const md = await req(port, 'GET', '/api/models?sessionId=' + sid, null, crossSite);
+    ok(md.status === 200, `P4 /api/models?sessionId= 照常回(${md.status})`);
+    await req(port, 'GET', '/api/status?sessionId=_search-index-v1', null, crossSite);
+    await sleep(400);
+    ok(fs.readFileSync(headFile, 'utf8') === headBefore, 'P4 开放读口没有回写会话头(修前 load_normalize 回写 + 推 updatedAt)');
+    ok(fs.readFileSync(searchIdx, 'utf8') === searchBefore
+      && fs.readdirSync(sessDir).filter(f => f.startsWith('_')).join(',') === '_search-index-v1.json', 'P4 /api/status?sessionId=保留名 不长出任何文件');
+
+    const aliasGet = await req(port, 'GET', '/api/sessions/anything/at/all/' + sid, null, hdr);
+    ok(aliasGet.status === 404, `P5 GET /api/sessions/anything/at/all/<id> → 404(${aliasGet.status})`);
+    const aliasTrail = await req(port, 'GET', '/api/sessions/' + sid + '/', null, hdr);
+    ok(aliasTrail.status === 404, `P5 GET /api/sessions/<id>/ → 404(${aliasTrail.status})`);
+    const aliasDel = await req(port, 'DELETE', '/api/sessions/zzz/' + sid, null, hdr);
+    ok(aliasDel.status === 404 && fs.existsSync(headFile), `P5 DELETE /api/sessions/zzz/<id> 不删会话(${aliasDel.status})`);
+    const direct = await req(port, 'GET', '/api/sessions/' + encodeURIComponent(sid), null, hdr);
+    ok(direct.status === 200 && (jsonOf(direct) || {}).session && jsonOf(direct).session.id === sid, `P5 GET /api/sessions/<id> 照常(${direct.status})`);
+    const bg = await req(port, 'GET', '/api/sessions/' + sid + '/background', null, hdr);
+    ok(bg.status === 200 && (jsonOf(bg) || {}).sessionId === sid, `P5 子路由 /api/sessions/<id>/background 照常(${bg.status})`);
+
+    const imported = await req(port, 'POST', '/api/sessions', { title: 'imp', cwd: HOME, messages: [null, 5, 'x', { role: 'user', content: 'kept' }] }, hdr);
+    const impJson = jsonOf(imported);
+    const impMsgs = impJson && impJson.session && impJson.session.messages;
+    ok(imported.status === 200 && Array.isArray(impMsgs) && impMsgs.length === 1 && impMsgs[0].content === 'kept', `P6 messages:[null,…] → 200,只留合形条目(${imported.status})`);
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));
   } finally {
