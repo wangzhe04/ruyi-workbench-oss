@@ -23,7 +23,7 @@ ok(!/\.join\('\\n\\n'\)\.slice\(0, 32000\)/.test(src), 'S §28c 旧 join.slice(0
 ok(/deriveNodeOutputs\(node\);/.test(src), 'S §28b runNode 完成调 deriveNodeOutputs');
 ok(/function deriveNodeOutputs\(node\)/.test(src) && /node\.summary =/.test(src) && /node\.evidence =/.test(src) && /node\.artifacts =/.test(src), 'S §28b deriveNodeOutputs 产 summary/evidence/artifacts');
 // §28a:子代理循环边界压缩;Claude 引擎不引入。
-ok(/await maybeCompactSubHistory\(\{ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState \}\)/.test(src), 'S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory(45f P3-3:带 tools 估算口径;代理模式 v2:带 runId 供压缩费用归属;带滞回水位 state)');
+ok(/await maybeCompactSubHistory\(\{ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState, signal: ctrl && ctrl\.signal \}\)/.test(src), 'S §28a runSubAgentCore 循环边界调 maybeCompactSubHistory(45f P3-3:带 tools 估算口径;代理模式 v2:带 runId 供压缩费用归属;带滞回水位 state;带子回合中止信号 —— Stop 取消在飞的 L2 摘要)');
 ok(/subHistory\.splice\(0, subHistory\.length, \.\.\.r\.reseeded\)/.test(src) && /subHistory\.splice\(0, subHistory\.length, \.\.\.forced\.reseeded\)/.test(src), 'S §28a L2 重播种(自动 / 强压两条路)都用【原地 splice】(const 闭包安全)');
 {
   const claudeOnce = (src.match(/async function runClaudeSubAgentOnce\([\s\S]*?\nasync function runSubAgentCore\(/) || [''])[0];

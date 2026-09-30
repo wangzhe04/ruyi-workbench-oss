@@ -220,15 +220,25 @@ function getJson(port, requestPath) {
 }
 function health(port) { return getJson(port, '/health'); }
 let testToken = '';
+// 最近几发 POST 的结果(路径、状态码、回包摘要或错误)。stream 的 onEvent 里发的决定(/api/permission/decision)
+// 失败会被 .catch 吞掉 —— Windows CI 上偶发「permission_request 之后 30 s 无事件」时,光看事件流分不清是决定没发出去、
+// 被拒了、还是发出去了但回合没接住。超时报错里带上这几行,下次出现就能直接看出是哪一种。
+const postLog = [];
+function notePost(entry) { postLog.push(entry); if (postLog.length > 8) postLog.shift(); }
 function postJson(port, requestPath, body) {
   return new Promise((resolve, reject) => {
     const raw = JSON.stringify(body);
     const req = http.request({ host: '127.0.0.1', port, path: requestPath, method: 'POST', timeout: 5000,
       headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...(testToken ? { 'x-wcw-token': testToken } : {}) } }, res => {
       let text = ''; res.on('data', chunk => (text += chunk));
-      res.on('end', () => { try { resolve(JSON.parse(text)); } catch { resolve(null); } });
+      res.on('end', () => {
+        notePost({ path: requestPath, status: res.statusCode, body: text.slice(0, 160) });
+        try { resolve(JSON.parse(text)); } catch { resolve(null); }
+      });
     });
-    req.on('error', reject); req.end(raw);
+    req.on('timeout', () => { req.destroy(new Error('post timeout (5 s)')); });
+    req.on('error', error => { notePost({ path: requestPath, error: String(error && error.message || error) }); reject(error); });
+    req.end(raw);
   });
 }
 function stream(port, body, onEvent) {
@@ -256,7 +266,7 @@ function stream(port, body, onEvent) {
     req.on('error', reject);
     // Windows CI 上偶发首跑 30 s 无事件(PR #15 / #17 的 flaky 名单):报错里带上是哪一个场景、最后收到了哪几种事件,
     // 下一次出现就能直接看出卡在哪一步,而不是只剩一行 stream timeout。
-    req.on('timeout', () => { req.destroy(new Error(`stream timeout (30 s without data): message=${JSON.stringify(body && body.message)} events=${events.length} last=${JSON.stringify(events.slice(-5).map(e => e && e.type))}`)); });
+    req.on('timeout', () => { req.destroy(new Error(`stream timeout (30 s without data): message=${JSON.stringify(body && body.message)} events=${events.length} last=${JSON.stringify(events.slice(-5).map(e => e && e.type))} lastPermissionRequest=${JSON.stringify((events.filter(e => e && e.type === 'permission_request').pop() || {}).requestId || '')} recentPosts=${JSON.stringify(postLog.slice(-4))}`)); });
     req.end(raw);
   });
 }

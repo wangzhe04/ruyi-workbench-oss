@@ -1962,6 +1962,14 @@ async function readConfig() {
   return config;
 }
 
+// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
+// 【不带整份配置】(里面有服务商密钥;总线纪律③:它只是一条线,不承载正文;13r 只转发它认得的名字,这一声不出进程)。
+// 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
+// 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
+function configEmitWritten(config) {
+  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
+}
+
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
@@ -1976,6 +1984,7 @@ async function writeConfig(next, before = null) {
   if (!before) {
     const { config, persisted } = normalizeConfig(next);
     await writeConfigAtomic(JSON.stringify(persisted, null, 2));
+    configEmitWritten(config);
     return config;
   }
   const { config } = normalizeConfig(next, { inferExplicit: false });
@@ -1989,6 +1998,7 @@ async function writeConfig(next, before = null) {
   }
   finalizeConfigExplicitKeys(config, explicit);
   await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  configEmitWritten(config);
   return config;
 }
 
@@ -3294,9 +3304,37 @@ function desktopMcpDetectionPending(config) {
 // Shell-session tools guard on it: their state lives in the serve process, so the child cannot serve them.
 const RUNTIME = { port: DEFAULT_PORT, host: '127.0.0.1', token: '', isMcpChild: false };
 
+// 安全修复(审计 A①)的判据:桥接 MCP 服务器(ACC 桌面控制、第三方 stdio MCP)不得从启动它的进程继承工作台凭据。
+// 去掉所有 WCW_*(工作台内部键:回环令牌 / 端口 / 会话号等;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
+// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
+// (buildClaudeCliEnv;桌面/文档类 MCP 用不到)。两处共用这一个判据:
+//   · 工作台自己 spawn 桥接服务器(04 bridgedServerSpawnEnv:直接从继承环境里删);
+//   · 交给 agent CLI 去 spawn(下面 bridgedCliServerEnv:写进 --mcp-config / Kimi mcp.json 的条目 env 块)。
+const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedEnvKeyStripped(key) {
+  const up = String(key).toUpperCase();
+  if (BRIDGED_ENV_KEEP.has(up)) return false;
+  return up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up);
+}
+// 后续补漏(审计 A① 的 CLI 直挂面):toolLoadingMode:'full' 的会话与 exec 档 Claude DAG 节点把桥接服务器直接写进
+// --mcp-config,由 Claude CLI 自己 spawn —— 子进程环境 = CLI 的环境叠条目 env。CLI 的环境里有工作台注入的模型密钥
+// (buildClaudeCliEnv),Kimi 进程的环境里还有回合级 WCW_TOKEN 等(05b 靠继承把它们交给如意的 MCP 子进程),
+// 修前 ACC 的 get_environment_variable 一问就拿到。配置文件只能【加/盖】变量、不能删,所以把这些键在条目 env 块里
+// 盖成空串:固定一组已知凭据键,再加本进程环境里此刻存在的其它 WCW_*(被别的如意回合拉起时继承来的)。
+// 条目自己声明的 env 叠在最后,照常生效(与 04 同口径)。
+const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
+  const blanks = {};
+  for (const k of BRIDGED_CLI_ENV_BLANK_KEYS) blanks[k] = '';
+  for (const k of Object.keys(baseEnv || {}).sort()) if (bridgedEnvKeyStripped(k)) blanks[k] = '';
+  return { ...blanks, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
+}
+
 // v0.7d: mutate an mcpServers map in place, adding the desktop MCP (id 'ai-computer-control') and every
 // enabled user externalMcpServers entry. Back-compat: when nothing is detected/configured, the map is
 // left exactly as it was, so the generated config equals the pre-0.7d output.
+// stdio 条目一律带 env 块(bridgedCliServerEnv:置空工作台凭据 + 条目自己的 env);远程(sse/http)条目没有子进程。
 function addExternalMcpServersToMap(mcpServers, config) {
   if (!config) return;
   try {
@@ -3310,7 +3348,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
       } else {
         server = { type: 'stdio', command: entry.command, args: entry.args || [] };
         if (entry.cwd) server.cwd = entry.cwd;
-        if (entry.env && Object.keys(entry.env).length) server.env = entry.env;
+        server.env = bridgedCliServerEnv(entry.env);
       }
       mcpServers[entry.id] = server;
     }

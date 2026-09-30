@@ -11,6 +11,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //       摘要服务失败 —— 下一回合照常再压(不武装滞回水位、不进冷却)。
 //   [D] 空回复(正常结束、没有文字也没有工具调用):给用户一句看得见的提示(修前静悄悄结束,只剩空气泡);
 //       providerHistory 里不塞空 assistant。
+//   [E] 同一句提示按 config.locale 选语言(09 emptyReplyNotice 经 06b getPromptPack):en-US 的工作台给英文那句
+//       (整回合空 / 前面说过话、最后一步空了 两种措辞),不夹中文;提示同样只进显示正文,providerHistory 不变。
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -48,6 +50,7 @@ const hang = http.createServer((req, res) => {
 await new Promise(r => hang.listen(0, '127.0.0.1', r));
 const HANG = 'http://127.0.0.1:' + hang.address().port;
 
+const EMPTY_REPLY = () => [{ id: 'x', choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] }, { id: 'x', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }, usageFrame(8, 0)];
 let summaryHits = 0;
 let summaryDelayMs = 0;
 const fake = await startFakeProvider({
@@ -71,7 +74,11 @@ const fake = await startFakeProvider({
       case 'B2':
         return [...textFrames('second reply'), usageFrame(8, 4)];
       case 'D':
-        return [{ id: 'x', choices: [{ index: 0, delta: { role: 'assistant', content: '' }, finish_reason: null }] }, { id: 'x', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }, usageFrame(8, 0)];
+      case 'E1':
+        return EMPTY_REPLY();
+      case 'E2':   // 先说一句话并调一个工具,工具回来之后那一步空了 —— 「没有给出最终回答」那种措辞
+        if (toolsAnswered) return EMPTY_REPLY();
+        return [{ id: 'x', choices: [{ index: 0, delta: { role: 'assistant', content: 'Let me look.' }, finish_reason: null }] }, ...toolCallFrames('file_list', { path: '.' }, 'e2')];
       default:
         return [...textFrames('normal reply'), usageFrame(8, 4)];
     }
@@ -122,13 +129,14 @@ const providerHistoryOf = (home, sid) => {
   try { return fs.readFileSync(path.join(home, 'sessions', sid + '.provider.ndjson'), 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; }
 };
 
-async function startWorkbench(name, providerExtra) {
+async function startWorkbench(name, providerExtra, configExtra = {}) {
   const home = path.join(ROOT, name);
   fs.mkdirSync(path.join(home, 'sessions'), { recursive: true });
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({
     configSchema: 4, version: '1.0.0', permissionMode: 'bypass', defaultWorkspace: home,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'F' }], ...providerExtra }],
     activeProvider: 'fake',
+    ...configExtra,
   }));
   const port = await getFreePort();
   const child = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], {
@@ -217,6 +225,43 @@ try {
     const ph = providerHistoryOf(main.home, sid);
     ok(!ph.some(m => m.role === 'assistant' && !contentText(m.content).trim() && !(m.tool_calls && m.tool_calls.length)), 'D4 providerHistory 里没有塞空 assistant');
     ok(!ph.some(m => /空回复/.test(contentText(m.content))), 'D5 提示只进显示正文,不进 providerHistory');
+  }
+
+  // ── [E] 空回复提示按 locale 选语言(en-US) ──
+  {
+    const en = await startWorkbench('en', {}, { locale: 'en-US' });
+    servers.push(en);
+    ok(en.up, 'E0 en-US workbench starts');
+    const getEn = async sid => { const s = await request(en.port, 'GET', '/api/sessions/' + sid, null, en.H); return (s.json && (s.json.session || s.json)) || {}; };
+    const EN_EMPTY = '[The model returned an empty reply (no text and no tool calls). Try sending it again, rephrasing, or switching models.]';
+    const EN_NO_FINAL = '[The model ended the turn without a final answer (empty reply). Send "continue" or ask again.]';
+    const noteRe = /empty reply|空回复|模型/;
+    // E1:整回合空。
+    {
+      const evs = await stream(en.port, { message: 'SCN-E1 say something' });
+      const sid = sessionIdOf(evs);
+      const deltas = evs.filter(e => e.type === 'assistant_delta').map(e => e.text).join('');
+      ok(deltas.includes(EN_EMPTY) && !/[\u4e00-\u9fff]/.test(deltas), `E1 en-US:流里是英文那句提示,不夹中文(实得 ${JSON.stringify(deltas)})`);
+      const res = evs.find(e => e.type === 'result');
+      ok(res && res.ok === true, 'E2 回合仍是正常结束(不是错误)');
+      const last = ((await getEn(sid)).messages || []).slice(-1)[0] || {};
+      ok(last.role === 'assistant' && contentText(last.content).includes(EN_EMPTY), 'E3 落盘的助手消息带英文提示(刷新后也看得见)');
+      const ph = providerHistoryOf(en.home, sid);
+      ok(ph.length > 0 && ph.every(m => m.role !== 'assistant') && !ph.some(m => noteRe.test(contentText(m.content))),
+        `E4 providerHistory 不变:只有那条 user,没有空 assistant、没有提示(实得 ${JSON.stringify(ph.map(m => m.role))})`);
+    }
+    // E5:前面说过话、最后一步空了 → 「没有给出最终回答」那句。
+    {
+      const evs = await stream(en.port, { message: 'SCN-E2 list the folder' });
+      const sid = sessionIdOf(evs);
+      const deltas = evs.filter(e => e.type === 'assistant_delta').map(e => e.text).join('');
+      ok(deltas.includes('Let me look.') && deltas.includes(EN_NO_FINAL) && !deltas.includes(EN_EMPTY) && !/[\u4e00-\u9fff]/.test(deltas),
+        `E5 en-US:前面说过话的那种空结尾给「no final answer」那句(实得 ${JSON.stringify(deltas)})`);
+      const ph = providerHistoryOf(en.home, sid);
+      ok(ph.some(m => m.role === 'tool') && !ph.some(m => noteRe.test(contentText(m.content)))
+        && !ph.some(m => m.role === 'assistant' && !contentText(m.content).trim() && !(m.tool_calls && m.tool_calls.length)),
+        'E6 providerHistory 不变:工具往来原样,没有空 assistant、没有提示');
+    }
   }
 
   // ── [C] L2 摘要压缩期间按停止(小窗口:每回合都要压) ──

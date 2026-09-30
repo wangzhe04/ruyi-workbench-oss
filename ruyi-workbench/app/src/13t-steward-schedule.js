@@ -151,27 +151,22 @@ async function stewardImplScheduleResume(args, ctx, config) {
   return schedulerToolSetEnabled(args, ctx, config, true, 'steward_schedule_resume');
 }
 
-// 5) steward_schedule_run_now —— 「再跑一次」。与 POST /api/scheduler/tasks/:id/run-now 同一条路:
-//    全局并发 1 的两道闸(任务自己在途 / 调度器正在 tick)、新 occurrence(mode:'manual')、
-//    同毫秒撞 key 时往后挪一格(假时钟下时钟是钉死的,必走这段循环)。
+// 5) steward_schedule_run_now —— 「再跑一次」。与 POST /api/scheduler/tasks/:id/run-now 同一条路(13s 的
+//    schedulerRunNow):闸只挡【这一条任务自己】在途(落盘的 inFlightRunId / 进程内的 inFlightTaskIds),
+//    新 occurrence(mode:'manual')、同毫秒撞 key 时往后挪一格(假时钟下时钟是钉死的,必走这段循环)。
+//    修前这里另写了一份「全局并发 1」:看 schedulerRuntime.ticking,别的任务在跑就拒,自己跑时整段占着
+//    ticking —— 一条慢任务能把管家的手动运行和 tick 的到点派单一起挡住。
 async function stewardImplScheduleRunNow(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
   await schedulerLoad();
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
-  if (task.state.inFlightRunId) {
+  const ran = await schedulerRunNow(task);
+  if (ran.busy) {
     return stewardFail('steward.busy', '这条定时任务正在跑,等它跑完再说(不要重试)', { id: task.id });
   }
-  if (schedulerRuntime.ticking) {
-    return stewardFail('steward.busy', '调度器正在跑另一条任务(全局并发 1),等一会儿再说(不要重试)', { id: task.id });
-  }
-  let manualDueMs = schedulerClockNow();
-  while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
-  schedulerRuntime.ticking = true;
-  let outcome = '';
-  try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-  finally { schedulerRuntime.ticking = false; }
+  const outcome = ran.outcome;
   stewardAppendDecision({
     tool: 'steward_schedule_run_now', args: { id: task.id, outcome },
     targetSessionId: '', permissionMode: '', mayAct: 'user',

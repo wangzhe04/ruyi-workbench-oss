@@ -64,6 +64,8 @@ const REGEX_ROUTE_SAMPLES = {
   // 第 116 波 116g:事项容器写面(§3.1 事项跨会话升格)。
   '^\\/api\\/missions\\/([^/]+)$': '/api/missions/:missionId',
   '^\\/api\\/missions\\/([^/]+)\\/threads$': '/api/missions/:missionId/threads',
+  // 单条事项详情 / 单会话 Intervention 旁路记录(13d):修前是前缀 + path.basename,多段路径都成了 <id> 的别名。
+  '^\\/api\\/interventions\\/([^/]+)$': '/api/interventions/:sessionId',
   '^\\/api\\/missions\\/([^/]+)\\/merge$': '/api/missions/:missionId/merge',
   '^\\/api\\/missions\\/([^/]+)\\/split$': '/api/missions/:missionId/split',
   // 第 123 波 M1（37 号文 §3.3）：定时任务的三条带 :id 的路由。改/删共用第一条（PATCH 与

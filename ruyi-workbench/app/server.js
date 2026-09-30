@@ -4008,6 +4008,14 @@ async function readConfig() {
   return config;
 }
 
+// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
+// 【不带整份配置】(里面有服务商密钥;总线纪律③:它只是一条线,不承载正文;13r 只转发它认得的名字,这一声不出进程)。
+// 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
+// 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
+function configEmitWritten(config) {
+  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
+}
+
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
@@ -4022,6 +4030,7 @@ async function writeConfig(next, before = null) {
   if (!before) {
     const { config, persisted } = normalizeConfig(next);
     await writeConfigAtomic(JSON.stringify(persisted, null, 2));
+    configEmitWritten(config);
     return config;
   }
   const { config } = normalizeConfig(next, { inferExplicit: false });
@@ -4035,6 +4044,7 @@ async function writeConfig(next, before = null) {
   }
   finalizeConfigExplicitKeys(config, explicit);
   await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  configEmitWritten(config);
   return config;
 }
 
@@ -5340,9 +5350,37 @@ function desktopMcpDetectionPending(config) {
 // Shell-session tools guard on it: their state lives in the serve process, so the child cannot serve them.
 const RUNTIME = { port: DEFAULT_PORT, host: '127.0.0.1', token: '', isMcpChild: false };
 
+// 安全修复(审计 A①)的判据:桥接 MCP 服务器(ACC 桌面控制、第三方 stdio MCP)不得从启动它的进程继承工作台凭据。
+// 去掉所有 WCW_*(工作台内部键:回环令牌 / 端口 / 会话号等;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
+// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
+// (buildClaudeCliEnv;桌面/文档类 MCP 用不到)。两处共用这一个判据:
+//   · 工作台自己 spawn 桥接服务器(04 bridgedServerSpawnEnv:直接从继承环境里删);
+//   · 交给 agent CLI 去 spawn(下面 bridgedCliServerEnv:写进 --mcp-config / Kimi mcp.json 的条目 env 块)。
+const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedEnvKeyStripped(key) {
+  const up = String(key).toUpperCase();
+  if (BRIDGED_ENV_KEEP.has(up)) return false;
+  return up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up);
+}
+// 后续补漏(审计 A① 的 CLI 直挂面):toolLoadingMode:'full' 的会话与 exec 档 Claude DAG 节点把桥接服务器直接写进
+// --mcp-config,由 Claude CLI 自己 spawn —— 子进程环境 = CLI 的环境叠条目 env。CLI 的环境里有工作台注入的模型密钥
+// (buildClaudeCliEnv),Kimi 进程的环境里还有回合级 WCW_TOKEN 等(05b 靠继承把它们交给如意的 MCP 子进程),
+// 修前 ACC 的 get_environment_variable 一问就拿到。配置文件只能【加/盖】变量、不能删,所以把这些键在条目 env 块里
+// 盖成空串:固定一组已知凭据键,再加本进程环境里此刻存在的其它 WCW_*(被别的如意回合拉起时继承来的)。
+// 条目自己声明的 env 叠在最后,照常生效(与 04 同口径)。
+const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
+  const blanks = {};
+  for (const k of BRIDGED_CLI_ENV_BLANK_KEYS) blanks[k] = '';
+  for (const k of Object.keys(baseEnv || {}).sort()) if (bridgedEnvKeyStripped(k)) blanks[k] = '';
+  return { ...blanks, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
+}
+
 // v0.7d: mutate an mcpServers map in place, adding the desktop MCP (id 'ai-computer-control') and every
 // enabled user externalMcpServers entry. Back-compat: when nothing is detected/configured, the map is
 // left exactly as it was, so the generated config equals the pre-0.7d output.
+// stdio 条目一律带 env 块(bridgedCliServerEnv:置空工作台凭据 + 条目自己的 env);远程(sse/http)条目没有子进程。
 function addExternalMcpServersToMap(mcpServers, config) {
   if (!config) return;
   try {
@@ -5356,7 +5394,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
       } else {
         server = { type: 'stdio', command: entry.command, args: entry.args || [] };
         if (entry.cwd) server.cwd = entry.cwd;
-        if (entry.env && Object.keys(entry.env).length) server.env = entry.env;
+        server.env = bridgedCliServerEnv(entry.env);
       }
       mcpServers[entry.id] = server;
     }
@@ -6644,9 +6682,24 @@ function foldInterventionJournalText(txt) {
 }
 
 async function readInterventionsWithMeta(sessionId) {
+  const sid = String(sessionId || '');
+  // 读自己的写:registerIntervention / settleIntervention 是「发出去不等」地排进这条会话的写链的。待决事件
+  // (permission_request / ask_user)在排队那一刻就推给了前端,用户(或 e2e)紧接着作答时,决定核心
+  // (13d decideIntervention)从这里读账 —— 修前不等写链,注册那一行还没落盘就判 not_found,作答 404、
+  // 回合干等到超时(Windows CI kimi-agent-cli「permission_request 之后 30 s 无事件」的根因:
+  // 决定 POST 回的是 404 unknown or expired request)。写链只做 append,不回头读账,这里等它不会自锁。
+  const pending = interventionWriteChains.get(sid);
+  if (pending) { try { await pending; } catch { /* append 失败已在写链里吞掉:照读盘上现有的 */ } }
   let txt;
-  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); }
-  catch { return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 }; }
+  for (let attempt = 0; ; attempt++) {
+    try { txt = await fsp.readFile(interventionFilePath(sid), 'utf8'); break; }
+    catch (e) {
+      // 每 128 次 append 一次的压实是「写临时文件 + rename」;Windows 上 rename 那一瞬读会撞 EPERM/EBUSY。
+      // 修前任何读错都当成「这条会话没有待决」—— 同样判 not_found。瞬时锁有界重试,其余(ENOENT 等)照旧当空。
+      if (attempt < 3 && /^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) { await new Promise(r => setTimeout(r, 10 + attempt * 20)); continue; }
+      return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 };
+    }
+  }
   return foldInterventionJournalText(txt);
 }
 
@@ -12121,15 +12174,29 @@ async function preflightWriteBoundary(toolName, args, ctx) {
 //   · 必须是绝对路径:相对路径由 ACC 按它自己的工作目录解析,工作台这边判不准,缺省 '.' 同理 → 拒并提示改绝对路径。
 // 仍是 read 档:工作区里的读照旧零弹窗,桌面自动化的日常用法不受影响。表按【裸名】登记,对任何桥接服务器
 // 同名工具一视同仁(第三方 MCP 的 read_file 也是读文件)。
+// 后续补漏:表覆盖 ACC 【全部只读】且带路径入参的工具(逐个对过 mcp/ai-computer-control 的函数签名)——
+//   · 读内容 / 列目录 / 看元数据:path 必填(缺省即 ACC 按自己的 cwd 解析,判不准 → 拒);
+//   · 模板匹配:find_template / find_all_templates / wait_for_image 的 template_path 与 template_b64 二选一
+//     (vision.py _load_template_gray)→ 【给了才查】;find_on_screen 只收 template_path(screen.py,必填)。
+//     修前它们在 read 档零弹窗,template_path 指向 config.json 也照读不误。
+// 要动桌面 / 动文件的工具(vision_click、copy_file、image_resize、set_clipboard_image、play_sound ……)不在此表:
+// 它们是 exec 档(非 bypass/auto 先问人),写路径另有 BRIDGED_WRITE_PATH_ARGS 与检查点。
+// 条目形状:{ required: [参数名...], optional: [参数名...] }。
 const BRIDGED_READ_PATH_ARGS = Object.freeze({
-  read_file: ['path'], list_directory: ['path'], file_info: ['path'], ocr_image: ['path'],
+  read_file: { required: ['path'] }, list_directory: { required: ['path'] }, file_info: { required: ['path'] }, ocr_image: { required: ['path'] },
+  read_document: { required: ['path'] }, excel_read: { required: ['path'] }, pdf_read_pages: { required: ['path'] }, image_info: { required: ['path'] },
+  find_on_screen: { required: ['template_path'] },
+  find_template: { optional: ['template_path'] }, find_all_templates: { optional: ['template_path'] }, wait_for_image: { optional: ['template_path'] },
 });
 async function bridgedReadPathGate(bridgedName, args, ctx) {
   const bare = unprefixedBridgedName(bridgedName);
   if (!Object.prototype.hasOwnProperty.call(BRIDGED_READ_PATH_ARGS, bare)) return null;
   const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
-  for (const field of BRIDGED_READ_PATH_ARGS[bare]) {
+  const spec = BRIDGED_READ_PATH_ARGS[bare];
+  const fields = [...(spec.required || []).map(f => [f, true]), ...(spec.optional || []).map(f => [f, false])];
+  for (const [field, required] of fields) {
     const raw = typeof a[field] === 'string' ? a[field].trim() : '';
+    if (!raw && !required) continue;
     if (!raw || !path.isAbsolute(raw)) {
       return { ok: false, code: 'path-not-absolute', error: `桌面控制读文件必须用【绝对路径】。参数「${field}」${raw ? '是相对路径' : '缺失'},工作台无法判断它指向哪里。请用完整绝对路径重试。` };
     }
@@ -13449,17 +13516,13 @@ function mcpServerRequestReply(msg) {
 // 每会话 MCP 子进程(`server.js mcp`)的环境里有 WCW_TOKEN / WCW_PORT / WCW_HOST / WCW_SESSION_ID(01 generateSessionMcpConfig
 // 塞进去的),修前它再 spawn 桥接服务器时整份 process.env 原样传下去 —— ACC 的 get_environment_variable 一问就把
 // 令牌交给了模型(令牌 = 可调 /api/permission/decision 等 body-token 路由,自己批自己的权限)。
-// 规则:继承来的环境里去掉所有 WCW_*(工作台内部键;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
-// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
-// (01 buildClaudeCliEnv;桌面/文档类 MCP 用不到)。服务器条目【自己声明】的 env(ownEnv)原样叠在最后,仍然生效。
-const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
-const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+// 规则见 01 bridgedEnvKeyStripped(与交给 agent CLI 去 spawn 的 --mcp-config 条目同一个判据):继承来的环境里去掉
+// 所有 WCW_*(WCW_DATA_DIR 除外)与 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY。服务器条目【自己声明】的 env(ownEnv)
+// 原样叠在最后,仍然生效。
 function bridgedServerSpawnEnv(baseEnv, ownEnv) {
   const out = {};
   for (const [k, v] of Object.entries(baseEnv || {})) {
-    const up = String(k).toUpperCase();
-    if (BRIDGED_ENV_KEEP.has(up)) { out[k] = v; continue; }
-    if (up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up)) continue;
+    if (bridgedEnvKeyStripped(k)) continue;
     out[k] = v;
   }
   return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
@@ -34858,7 +34921,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
-      else await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState });
+      else await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState, signal: ctrl && ctrl.signal });
+      // 压缩期间被中止(Stop 取消了在飞的 L2 摘要):当场收住,不再发这一迭代的模型请求。
+      if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -42829,8 +42894,11 @@ async function runForcedOverflowCompaction(ctx) {
 // 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】(CompactionPlan 的
 // subagent scope 把它并进摘要 user 消息),防摘要吞掉原始目标后跑偏。
 // state:runSubAgentCore 持有的 { watermark } —— 滞回水位跨迭代留在子回合里(子代理没有会话头可存)。
+// signal:子回合的中止信号(runSubAgentCoreBody 的 ctrl.signal)。与主回合 maybeAutoCompact 同一条线:Stop 当场取消在飞的
+// L2 摘要调用,runAutoCompaction 走 aborted 那一支 —— 不进 10 分钟摘要失败冷却(compactionSummaryFailures)、不武装滞回
+// 水位、不重播种(历史只可能被 L1 原地蒸发过,配对完好)。修前子代理这一处没接信号,停止要干等摘要调用返回。
 async function maybeCompactSubHistory(opts) {
-  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state } = opts || {};
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state, signal } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
@@ -42847,6 +42915,7 @@ async function maybeCompactSubHistory(opts) {
       eventFields: { subagentId },
       logFields: { ...(parentId ? { sessionId: parentId } : {}), ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) },
       summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subturn_auto_L2' },
+      ...(signal ? { signal } : {}),
     });
     if (r.level === 2) {
       subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
@@ -43878,28 +43947,65 @@ function shellMcpChildGuard() {
 // other regex metacharacter is escaped literally. Matches against the relative path (with either
 // slash flavor accepted). Anchored full-match (^…$).
 function globToRegExp(glob) {
+  // 返回一个只有 test(str) 的匹配器(调用点只用 .test)。修前把 glob 译成正则:每个 `*` 是 `[^\\/]*`,
+  // 模型给的 `*a*a*a*a*a*b` 这类 glob 在长文件名上是多项式回溯(星号越多次方越高),卡死主线程。
+  // 这里把 glob 切成记号,按 NFA 同时推进所有可能位置:每个字符 O(记号数),整条 O(路径长 × 记号数),与 glob 形状无关。
+  // 语义与修前逐条一致:`**` 跨分隔符任意长(紧跟的分隔符可省,让 `**/x` 也配根下的 x);`*` 段内任意长;
+  // `?` 段内一个字符;`/` 与 `\` 互认;其余字面、大小写不敏感;整串锚定。
+  // 自包含(不引用本文件别处的名字):autonomy-grant.e2e 从源码切出这个函数单独求值。
   const g = String(glob || '');
-  let re = '';
+  const toks = [];
   for (let i = 0; i < g.length; i += 1) {
     const c = g[i];
     if (c === '*') {
-      if (g[i + 1] === '*') { // `**` → any chars including separators
-        re += '.*';
+      if (g[i + 1] === '*') {
+        toks.push({ t: 'any' });
         i += 1;
-        // swallow an immediately following separator so `**/x` also matches `x` at root
-        if (g[i + 1] === '/' || g[i + 1] === '\\') { re += '(?:[\\\\/])?'; i += 1; }
-      } else {
-        re += '[^\\\\/]*'; // `*` → within a segment
-      }
-    } else if (c === '?') {
-      re += '[^\\\\/]'; // single non-separator char
-    } else if (c === '/' || c === '\\') {
-      re += '[\\\\/]'; // accept either separator flavor
-    } else {
-      re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // escape regex metachars
-    }
+        if (g[i + 1] === '/' || g[i + 1] === '\\') { toks.push({ t: 'optsep' }); i += 1; }
+      } else toks.push({ t: 'star' });
+    } else if (c === '?') toks.push({ t: 'one' });
+    else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
+    else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
   }
-  return new RegExp('^' + re + '$', 'i');
+  const m = toks.length;
+  const isSep = ch => ch === '/' || ch === '\\';
+  // 可空记号(`*`、`**`、可省分隔符)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
+  const close = (on, i) => {
+    while (i <= m && !on[i]) {
+      on[i] = 1;
+      const tk = toks[i];
+      if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'optsep')) break;
+      i += 1;
+    }
+  };
+  return {
+    source: g,
+    test(str) {
+      const s = String(str == null ? '' : str);
+      let cur = new Uint8Array(m + 1);
+      close(cur, 0);
+      for (let k = 0; k < s.length; k += 1) {
+        const ch = s[k];
+        const lo = ch.toLowerCase();
+        const next = new Uint8Array(m + 1);
+        let any = false;
+        for (let i = 0; i < m; i += 1) {
+          if (!cur[i]) continue;
+          const tk = toks[i];
+          let to = -1;
+          if (tk.t === 'lit') { if (lo === tk.c || ch === tk.u) to = i + 1; }
+          else if (tk.t === 'one') { if (!isSep(ch)) to = i + 1; }
+          else if (tk.t === 'sep' || tk.t === 'optsep') { if (isSep(ch)) to = i + 1; }
+          else if (tk.t === 'star') { if (!isSep(ch)) to = i; }
+          else if (tk.t === 'any') to = i;
+          if (to >= 0) { close(next, to); any = true; }
+        }
+        if (!any) return false;
+        cur = next;
+      }
+      return cur[m] === 1;
+    },
+  };
 }
 
 // v0.8-S1: minimal Levenshtein edit distance (zero-dep) for file_edit `closest` ranking. Lines longer
@@ -44011,11 +44117,107 @@ function probeRg() { const info = probeRgInfoSync(); return info ? info.path : n
 function hasRg() { return !!probeRg(); }
 async function hasRgAsync() { return !!(await probeRgAsync()); }
 
+// 安全修复(审计 F · ReDoS 后续):file_list 的 pattern 是模型给的正则,逐项同步 `re.test(相对路径)`。
+// `(a+)+$` 碰上一个 60 个 a 加 b 的文件名(模型自己就能用 file_write 造出来)要回溯 2^60 步,整个服务的事件循环
+// 冻死 —— 与 file_search 修前同一类问题(见下方 regexScanFilesBounded)。file_list 是热路径,不能每次都起 worker:
+//   · 词法上「回溯有界」的模式(无分组、无分支、无反向引用、至多一个量词 —— 常见的 `\.js$`、`^src/.*\.ts$`)
+//     仍在主线程直接匹配:最坏 O(n²),n = 相对路径长度;
+//   · 其余模式交给一个随本次遍历存活的 worker 分批匹配(每批 WALK_PATTERN_BATCH 条相对路径),worker 实际计算
+//     累计超过 WALK_PATTERN_BUDGET_MS 就 terminate —— 已匹配到的照常返回,另挂 patternTimedOut(调用方标
+//     truncated + patternNote),遍历就此停下;
+//   · 模式超过 WALK_PATTERN_MAX_CHARS 直接拒。遍历顺序、maxFiles 截断与 truncated 口径与主线程路径一致。
+const WALK_PATTERN_MAX_CHARS = 1000;
+const WALK_PATTERN_BUDGET_MS = 1500;
+const WALK_PATTERN_BATCH = 1000;
+function regexBacktrackBounded(src) {
+  let quantifiers = 0;
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === '\\') {
+      const n = src[i + 1];
+      if (n === undefined || /[1-9k]/.test(n)) return false;   // 反向引用 → 不判有界
+      i += 1;
+      continue;
+    }
+    if (c === '[') {   // 字符类整体是一个原子
+      i += 1;
+      if (src[i] === '^') i += 1;
+      if (src[i] === ']') i += 1;
+      while (i < src.length && src[i] !== ']') { if (src[i] === '\\') i += 1; i += 1; }
+      continue;
+    }
+    if (c === '(' || c === ')' || c === '|') return false;
+    if (c === '*' || c === '+' || c === '?') {
+      quantifiers += 1;
+      if (src[i + 1] === '?') i += 1;   // 惰性量词后缀
+      continue;
+    }
+    if (c === '{') {
+      const m = /^\{\d+(?:,\d*)?\}/.exec(src.slice(i));
+      if (m) { quantifiers += 1; i += m[0].length - 1; if (src[i + 1] === '?') i += 1; }
+    }
+  }
+  return quantifiers <= 1;
+}
+const PATH_MATCH_WORKER_SRC = `
+(() => {
+  const { parentPort, workerData } = require('worker_threads');
+  let re;
+  try { re = new RegExp(workerData.pattern, workerData.flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  parentPort.on('message', m => {
+    const hits = [];
+    for (let i = 0; i < m.subjects.length; i += 1) { if (re.test(m.subjects[i])) hits.push(i); }
+    parentPort.postMessage({ type: 'hits', hits });
+  });
+})();
+`;
+// 一次遍历一个 worker;match(subjects) → { hits, timedOut, error },永不 reject;close() 必调(幂等)。
+function createBoundedPathMatcher(pattern, flags, budgetMs) {
+  let worker = null, dead = '', spent = 0;
+  try {
+    const { Worker } = require('worker_threads');
+    worker = new Worker(PATH_MATCH_WORKER_SRC, { eval: true, workerData: { pattern: String(pattern), flags: String(flags || '') } });
+  } catch (e) { dead = String((e && e.message) || e) || 'worker unavailable'; }
+  const close = () => { if (worker) { const w = worker; worker = null; try { w.terminate(); } catch { /* gone */ } } };
+  const match = subjects => new Promise(resolve => {
+    if (dead || !worker) { resolve({ hits: [], timedOut: false, error: dead || 'closed' }); return; }
+    const w = worker;
+    const t0 = Date.now();
+    let settled = false, timer = null;
+    const onMessage = m => {
+      if (m && m.type === 'hits') finish({ hits: Array.isArray(m.hits) ? m.hits : [] });
+      else if (m && m.type === 'error') finish({ error: String(m.error || 'regex error') });
+    };
+    const onError = e => finish({ error: String((e && e.message) || e) });
+    const onExit = () => finish({ error: 'worker exited' });
+    function finish(r) {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      w.off('message', onMessage); w.off('error', onError); w.off('exit', onExit);
+      spent += Date.now() - t0;
+      if (r.timedOut || r.error) { dead = r.error || 'timed out'; close(); }
+      resolve({ hits: [], timedOut: false, error: '', ...r });
+    }
+    w.on('message', onMessage); w.on('error', onError); w.on('exit', onExit);
+    timer = setTimeout(() => finish({ timedOut: true }), Math.max(1, budgetMs - spent));
+    try { w.postMessage({ subjects }); } catch (e) { finish({ error: String((e && e.message) || e) }); }
+  });
+  return { match, close };
+}
+
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
   const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
   const recursive = opts.recursive !== false;
-  const pattern = opts.pattern ? new RegExp(opts.pattern, opts.ignoreCase === false ? '' : 'i') : null;
+  const patternSrc = opts.pattern ? String(opts.pattern) : '';
+  const patternFlags = opts.ignoreCase === false ? '' : 'i';
+  if (patternSrc.length > WALK_PATTERN_MAX_CHARS) throw new Error(`pattern too long (max ${WALK_PATTERN_MAX_CHARS} characters)`);
+  const pattern = patternSrc ? new RegExp(patternSrc, patternFlags) : null;   // 语法错照旧在这里抛
+  // 回溯可能失控的模式交给 worker(见上方 WALK_PATTERN_* 头注);deferred 按遍历顺序攒待匹配项。
+  const matcher = pattern && !regexBacktrackBounded(patternSrc) ? createBoundedPathMatcher(patternSrc, patternFlags, WALK_PATTERN_BUDGET_MS) : null;
+  let deferred = [];
+  let patternTimedOut = false;
   const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
   const out = [];
   // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
@@ -44024,26 +44226,55 @@ async function walkFiles(root, opts = {}) {
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
+  const emit = async (full, rel, isDir) => {
+    const stat = await fsp.stat(full).catch(() => null);
+    out.push({ path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 });
+  };
+  async function flushDeferred() {
+    if (!deferred.length || patternTimedOut) { deferred = []; return; }
+    const batch = deferred;
+    deferred = [];
+    const r = await matcher.match(batch.map(c => c.rel));
+    if (r.timedOut || r.error) patternTimedOut = true;
+    let last = -1;
+    for (const i of r.hits) {
+      if (out.length >= maxFiles) { hitCap = true; break; }
+      await emit(batch[i].full, batch[i].rel, batch[i].isDir);
+      last = i;
+    }
+    // 与主线程路径同口径:凑满 maxFiles 之后还见到了别的条目 → 可能不全。
+    if (out.length >= maxFiles && last >= 0 && last < batch.length - 1) hitCap = true;
+  }
   async function walk(dir, depth) {
     if (out.length >= maxFiles) { hitCap = true; return; }
+    if (patternTimedOut) return;
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       if (out.length >= maxFiles) { hitCap = true; break; }
+      if (patternTimedOut) return;
       if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
       const rel = path.relative(base, full) || '.';
-      if (!pattern || pattern.test(rel)) {
-        const stat = await fsp.stat(full).catch(() => null);
-        out.push({ path: full, relativePath: rel, type: entry.isDirectory() ? 'directory' : 'file', size: stat?.size || 0 });
+      if (matcher) {
+        deferred.push({ full, rel, isDir: entry.isDirectory() });
+        if (deferred.length >= WALK_PATTERN_BATCH) await flushDeferred();
+      } else if (!pattern || pattern.test(rel)) {
+        await emit(full, rel, entry.isDirectory());
       }
       if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth != null ? opts.maxDepth : 8)) {
         await walk(full, depth + 1);
       }
     }
   }
-  await walk(base, 0);
-  if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  try {
+    await walk(base, 0);
+    if (matcher) await flushDeferred();
+  } finally {
+    if (matcher) matcher.close();
+  }
+  if (hitCap || patternTimedOut) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  if (patternTimedOut) out.patternTimedOut = true;   // 审计 F 后续:模式撞了时间预算(file_list 据此给 patternNote)
   return out;
 }
 
@@ -47039,6 +47270,8 @@ const FILE_TOOL_HANDLERS = {
       const files = await walkFiles(root, args);
       const resp = { ok: true, root, files };
       if (files && files.truncated) resp.truncated = true;
+      // 审计 F 后续:pattern 撞了时间预算(可能是灾难性回溯)—— 已匹配到的照给,如实说「可能不全」(口径同 file_search)。
+      if (files && files.patternTimedOut) resp.patternNote = 'pattern matching hit its time budget (pattern too slow, possible catastrophic backtracking); listing may be incomplete';
       return resp;
   } },
   file_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -49267,7 +49500,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_run_now',
-    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 目标正在跑、或调度器正忙着别的任务时返回 {ok:false,error:"steward.busy"}(全局并发 1)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
+    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
@@ -54362,9 +54595,12 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     return send(res, json(result.body, result.status));
   }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
-  if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
+  // 只认 /api/missions/<一段>(与 13d 单条会话路由同一个口径):修前是 startsWith + path.basename,
+  // /api/missions/随便/什么/<id> 与 /api/missions/<id>/ 都被当成 <id>,以后加 GET 子路由会被这里先吞掉。
+  const missionDetail = req.method === 'GET' ? pathname.match(/^\/api\/missions\/([^/]+)$/) : null;
+  if (missionDetail) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    const sessionId = safeSessionId(safeDecodeURIComponent(missionDetail[1]) || '');
     if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
@@ -55046,9 +55282,11 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     }, 200, { etag }));
   }
   // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
-  if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
+  // 只认 /api/interventions/<一段>(同上:不再用 path.basename 给多段路径当别名)。
+  const interventionsOf = req.method === 'GET' ? pathname.match(/^\/api\/interventions\/([^/]+)$/) : null;
+  if (interventionsOf) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    const sessionId = safeSessionId(safeDecodeURIComponent(interventionsOf[1]) || '');
     if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
@@ -55138,6 +55376,22 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!reg || !reg.onEvent) {
       // No live UI stream to ask — fail closed.
       return send(res, json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
+    }
+    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
+    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
+    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
+    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
+    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
+    {
+      const cliToolName = String(body.toolName || '');
+      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
+        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
+        if (readRefusal) {
+          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
+          return send(res, json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
+        }
+      }
     }
     // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
     // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/
@@ -65801,6 +66055,10 @@ const schedulerRuntime = {
   // 修前装载时跳过、下一次写盘就把它们永久删掉(注释写着「不静默改写用户的定义」,写盘却静默删了)。
   opaqueTasks: [],
   startDeferred: false, // hunt2-P6:startScheduler 撞上读不出来的任务表而没起来(路由闸装载成功后补起)
+  // 启动那一刻 schedulerEnabledV1 关着(startScheduler 立即返回、什么都没做)。之后配置里把它打开 ——
+  // 01 writeConfig 派的 'config.written'(设置页 / 管家改设置 / API)或路由闸读到开着(手改了 config.json)——
+  // 就当场补起,不必重启。stopScheduler(进程收尾)清掉它,收尾之后不再被配置写入唤醒。
+  awaitingEnable: false,
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -66382,6 +66640,28 @@ function schedulerDispatchFire(task, mode, dueMs) {
     })
     .then(() => { schedulerRuntime.inFlightTaskIds.delete(task.id); });
 }
+// 「立即运行」的共用口:HTTP 的 POST /:id/run-now 与管家的 steward_schedule_run_now(13t)走同一份。
+// 闸只挡【这一条任务自己】:落盘的 task.state.inFlightRunId(登记成功之后)或进程内的 inFlightTaskIds(调用前就写下,
+// 与 tick 的派单共用同一张表)。不看 ticking —— 别的任务在跑、tick 正在派单,都不是这一条不能手动跑一次的理由
+// (hunt2-P10 修的是 HTTP 那一半;修前管家那一半仍拿 ticking 当全局并发 1 的闸:任何一条在跑就拒,
+// 自己跑的时候还整段占着 ticking,把 tick 一起挡住)。
+// 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
+// occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,时钟是钉死的)
+// 会撞出同一个 key,那就变成「同一 occurrence 的第二次尝试」,与承诺投影的语义相反。往后挪到第一个没被用过的
+// 毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
+// 返回 { busy: true }(这一条正在跑,调用方各按自己的信封拒)或 { busy: false, outcome }。
+function schedulerTaskBusy(task) {
+  return !!(task && (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)));
+}
+async function schedulerRunNow(task) {
+  if (schedulerTaskBusy(task)) return { busy: true, outcome: '' };
+  let manualDueMs = schedulerClockNow();
+  while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
+  schedulerRuntime.inFlightTaskIds.add(task.id);
+  try { return { busy: false, outcome: await schedulerFireOnce(task, 'manual', manualDueMs) }; }
+  finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
+}
+
 // `ticking` 只挡「同一个定时器触发两次并发 tick」的重入 —— 不再是「等全部到点任务跑完」的闸,
 // 派单全走 schedulerDispatchFire,tick 本体现在是一段纯同步的派单决策(见上)。
 async function schedulerTick() {
@@ -66458,7 +66738,8 @@ function schedulerEnsureTimer() {
 // schedulerEnabledV1 !== true 时【立即返回且什么都不做】:不建目录、不读盘、不起 interval(红线⑤)。
 async function startScheduler(schedConfig) {
   if (schedulerRuntime.started) return false;
-  if (!schedulerEnabled(schedConfig)) { schedulerRuntime.enabled = false; return false; }
+  if (!schedulerEnabled(schedConfig)) { schedulerRuntime.enabled = false; schedulerRuntime.awaitingEnable = true; return false; }
+  schedulerRuntime.awaitingEnable = false;
   schedulerRuntime.enabled = true;
   schedulerRuntime.started = true;
   schedulerRuntime.generation += 1;
@@ -66478,10 +66759,22 @@ async function startScheduler(schedConfig) {
   return true;
 }
 function stopScheduler() {
+  schedulerRuntime.awaitingEnable = false;
   schedulerRuntime.generation += 1;      // 在途 tick 看见代际变了就尽快退出
   if (schedulerRuntime.timer) { clearInterval(schedulerRuntime.timer); schedulerRuntime.timer = null; }
   schedulerRuntime.started = false;
 }
+// 启动时关着、之后被打开:听 01 writeConfig 派的 'config.written'(只带开关位)。关着的那段时间这里什么都不做 ——
+// 不起 interval、不建目录、不读盘(红线⑤原样成立);打开那一刻走的就是启动那一条 startScheduler(装载、恢复、
+// 有任务才起 interval、先跑一拍)。已经起过的调度器不归这里管:运行中关掉/再打开由 tick 每拍重读配置处理。
+// 装在模块加载期,进程生命周期内不卸(同 13i / 13r 的订阅纪律);订阅者只排一个异步启动,不回流到写路径。
+RUYI_EVENTS.subscribe((name, payload) => {
+  if (name !== 'config.written') return;
+  if (!schedulerRuntime.awaitingEnable || schedulerRuntime.started) return;
+  if (!(payload && payload.schedulerEnabledV1 === true)) return;
+  void startScheduler({ schedulerEnabledV1: true }).catch(() => {});
+});
+
 // e2e 的观测面(不落盘、不改状态)。「零任务零 interval」这条红线就靠 timerActive 钉。
 function schedulerRuntimeSnapshot() {
   return {
@@ -66570,7 +66863,8 @@ async function schedulerRouteGate(req, res) {
     return '';
   }
   // hunt2-P6:启动那一刻读失败而没起来的调度器,在这里装载成功后补起(startScheduler 自己幂等)。
-  if (schedulerRuntime.startDeferred && !schedulerRuntime.started) await startScheduler(config);
+  // 启动时关着、之后开着(配置被手改、没经 writeConfig 那一声)的同样在这里补起。
+  if ((schedulerRuntime.startDeferred || schedulerRuntime.awaitingEnable) && !schedulerRuntime.started) await startScheduler(config);
   return schedulerLocaleOf(req);
 }
 
@@ -66677,25 +66971,11 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const task = schedulerRuntime.tasks.find(row => row.id === id);
     if (!task) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
-    if (task.state.inFlightRunId) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
-    }
-    if (schedulerRuntime.inFlightTaskIds.has(task.id)) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
-    }
-    // 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
-    // occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,
-    // 时钟是钉死的)会撞出同一个 key,那就变成「同一 occurrence 的第二次尝试」,与承诺投影的语义相反。
-    // 往后挪到第一个没被用过的毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
-    let manualDueMs = schedulerClockNow();
-    while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
     // hunt2-P10:修前这里整段拿着 ticking(tick 重入闸),手动那一次的回合跑多久,其它任务就多久派不出单
-    // (tick 一进来就 return)。现在只挡【这一条任务】:inFlightTaskIds 与 tick 的派单共用同一张表。
-    schedulerRuntime.inFlightTaskIds.add(task.id);
-    let outcome = '';
-    try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-    finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
-    return send(res, json({ ok: true, outcome, task: schedulerPublicTask(task, locale) }));
+    // (tick 一进来就 return)。现在只挡【这一条任务】—— 闸与新 occurrence 的取法都在 schedulerRunNow(与管家工具共用)。
+    const ran = await schedulerRunNow(task);
+    if (ran.busy) return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
+    return send(res, json({ ok: true, outcome: ran.outcome, task: schedulerPublicTask(task, locale) }));
   }
 
   if (req.method === 'GET' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/runs$/)) {
@@ -66869,27 +67149,22 @@ async function stewardImplScheduleResume(args, ctx, config) {
   return schedulerToolSetEnabled(args, ctx, config, true, 'steward_schedule_resume');
 }
 
-// 5) steward_schedule_run_now —— 「再跑一次」。与 POST /api/scheduler/tasks/:id/run-now 同一条路:
-//    全局并发 1 的两道闸(任务自己在途 / 调度器正在 tick)、新 occurrence(mode:'manual')、
-//    同毫秒撞 key 时往后挪一格(假时钟下时钟是钉死的,必走这段循环)。
+// 5) steward_schedule_run_now —— 「再跑一次」。与 POST /api/scheduler/tasks/:id/run-now 同一条路(13s 的
+//    schedulerRunNow):闸只挡【这一条任务自己】在途(落盘的 inFlightRunId / 进程内的 inFlightTaskIds),
+//    新 occurrence(mode:'manual')、同毫秒撞 key 时往后挪一格(假时钟下时钟是钉死的,必走这段循环)。
+//    修前这里另写了一份「全局并发 1」:看 schedulerRuntime.ticking,别的任务在跑就拒,自己跑时整段占着
+//    ticking —— 一条慢任务能把管家的手动运行和 tick 的到点派单一起挡住。
 async function stewardImplScheduleRunNow(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
   await schedulerLoad();
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
-  if (task.state.inFlightRunId) {
+  const ran = await schedulerRunNow(task);
+  if (ran.busy) {
     return stewardFail('steward.busy', '这条定时任务正在跑,等它跑完再说(不要重试)', { id: task.id });
   }
-  if (schedulerRuntime.ticking) {
-    return stewardFail('steward.busy', '调度器正在跑另一条任务(全局并发 1),等一会儿再说(不要重试)', { id: task.id });
-  }
-  let manualDueMs = schedulerClockNow();
-  while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
-  schedulerRuntime.ticking = true;
-  let outcome = '';
-  try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-  finally { schedulerRuntime.ticking = false; }
+  const outcome = ran.outcome;
   stewardAppendDecision({
     tool: 'steward_schedule_run_now', args: { id: task.id, outcome },
     targetSessionId: '', permissionMode: '', mayAct: 'user',

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-30T08:52:47.505Z",
+  "generatedAt": "2026-09-30T10:57:50.154Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -21,8 +21,8 @@
     "decisionPoints": 151,
     "byKind": {
       "exact": 128,
-      "prefix": 13,
-      "regex": 10
+      "prefix": 11,
+      "regex": 12
     },
     "authLevels": [
       "body-token",
@@ -1216,6 +1216,7 @@
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\unit\\context-compact-trigger.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\walkthrough-round2.browser.e2e.js",
         "dev-harness\\websearch.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js",
@@ -1828,6 +1829,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",
@@ -2306,6 +2308,7 @@
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
@@ -3055,6 +3058,7 @@
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
@@ -3285,6 +3289,7 @@
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
@@ -3630,6 +3635,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-deliverable.e2e.js",
@@ -3690,6 +3696,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-board.static.e2e.js",
         "dev-harness\\steward-deliverable.e2e.js",
@@ -3747,6 +3754,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3788,6 +3796,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3829,6 +3838,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3870,6 +3880,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3879,8 +3890,9 @@
       ]
     },
     {
-      "kind": "prefix",
-      "path": "/api/missions/",
+      "kind": "regex",
+      "pattern": "^\\/api\\/missions\\/([^/]+)$",
+      "path": "/api/missions/:missionId",
       "file": "13d-core-domain-routes.js",
       "handler": "handleMissionsApiRoutes",
       "methods": [
@@ -3910,6 +3922,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -3967,6 +3980,7 @@
         "dev-harness\\one-workbench-frame.browser.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -4002,6 +4016,7 @@
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
@@ -4012,8 +4027,9 @@
       ]
     },
     {
-      "kind": "prefix",
-      "path": "/api/interventions/",
+      "kind": "regex",
+      "pattern": "^\\/api\\/interventions\\/([^/]+)$",
+      "path": "/api/interventions/:sessionId",
       "file": "13d-core-domain-routes.js",
       "handler": "handleInterventionApiRoutes",
       "methods": [
@@ -4026,6 +4042,7 @@
       "coveredBy": [
         "dev-harness\\interventions-persist.e2e.js",
         "dev-harness\\mission-index-scale.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js"
       ]
     },
@@ -4100,6 +4117,7 @@
       "domain": "intervention",
       "auth": "body-token",
       "coveredBy": [
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js"
       ]
     },
@@ -4118,6 +4136,7 @@
       "coveredBy": [
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
@@ -4783,6 +4802,7 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js"
       ]
     },
@@ -4809,6 +4829,7 @@
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js"
       ]
     },
@@ -4832,6 +4853,7 @@
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js"
       ]
     },
@@ -4855,6 +4877,7 @@
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js"
       ]
     },
@@ -4878,6 +4901,7 @@
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js"
       ]
     },
@@ -4901,6 +4925,7 @@
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
+        "dev-harness\\unit\\scheduler-enable-and-run-now.test.js",
         "dev-harness\\unit\\scheduler-persist.test.js"
       ]
     }

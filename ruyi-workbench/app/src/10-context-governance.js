@@ -2487,8 +2487,11 @@ async function runForcedOverflowCompaction(ctx) {
 // 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】(CompactionPlan 的
 // subagent scope 把它并进摘要 user 消息),防摘要吞掉原始目标后跑偏。
 // state:runSubAgentCore 持有的 { watermark } —— 滞回水位跨迭代留在子回合里(子代理没有会话头可存)。
+// signal:子回合的中止信号(runSubAgentCoreBody 的 ctrl.signal)。与主回合 maybeAutoCompact 同一条线:Stop 当场取消在飞的
+// L2 摘要调用,runAutoCompaction 走 aborted 那一支 —— 不进 10 分钟摘要失败冷却(compactionSummaryFailures)、不武装滞回
+// 水位、不重播种(历史只可能被 L1 原地蒸发过,配对完好)。修前子代理这一处没接信号,停止要干等摘要调用返回。
 async function maybeCompactSubHistory(opts) {
-  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state } = opts || {};
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state, signal } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
@@ -2505,6 +2508,7 @@ async function maybeCompactSubHistory(opts) {
       eventFields: { subagentId },
       logFields: { ...(parentId ? { sessionId: parentId } : {}), ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) },
       summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subturn_auto_L2' },
+      ...(signal ? { signal } : {}),
     });
     if (r.level === 2) {
       subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值

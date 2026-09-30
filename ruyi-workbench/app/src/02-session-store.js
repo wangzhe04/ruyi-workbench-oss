@@ -422,9 +422,24 @@ function foldInterventionJournalText(txt) {
 }
 
 async function readInterventionsWithMeta(sessionId) {
+  const sid = String(sessionId || '');
+  // 读自己的写:registerIntervention / settleIntervention 是「发出去不等」地排进这条会话的写链的。待决事件
+  // (permission_request / ask_user)在排队那一刻就推给了前端,用户(或 e2e)紧接着作答时,决定核心
+  // (13d decideIntervention)从这里读账 —— 修前不等写链,注册那一行还没落盘就判 not_found,作答 404、
+  // 回合干等到超时(Windows CI kimi-agent-cli「permission_request 之后 30 s 无事件」的根因:
+  // 决定 POST 回的是 404 unknown or expired request)。写链只做 append,不回头读账,这里等它不会自锁。
+  const pending = interventionWriteChains.get(sid);
+  if (pending) { try { await pending; } catch { /* append 失败已在写链里吞掉:照读盘上现有的 */ } }
   let txt;
-  try { txt = await fsp.readFile(interventionFilePath(String(sessionId || '')), 'utf8'); }
-  catch { return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 }; }
+  for (let attempt = 0; ; attempt++) {
+    try { txt = await fsp.readFile(interventionFilePath(sid), 'utf8'); break; }
+    catch (e) {
+      // 每 128 次 append 一次的压实是「写临时文件 + rename」;Windows 上 rename 那一瞬读会撞 EPERM/EBUSY。
+      // 修前任何读错都当成「这条会话没有待决」—— 同样判 not_found。瞬时锁有界重试,其余(ENOENT 等)照旧当空。
+      if (attempt < 3 && /^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) { await new Promise(r => setTimeout(r, 10 + attempt * 20)); continue; }
+      return { interventions: [], rowCount: 0, corruptLines: 0, degraded: false, bytes: 0 };
+    }
+  }
   return foldInterventionJournalText(txt);
 }
 

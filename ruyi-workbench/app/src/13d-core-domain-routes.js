@@ -1307,9 +1307,12 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     return send(res, json(result.body, result.status));
   }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
-  if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
+  // 只认 /api/missions/<一段>(与 13d 单条会话路由同一个口径):修前是 startsWith + path.basename,
+  // /api/missions/随便/什么/<id> 与 /api/missions/<id>/ 都被当成 <id>,以后加 GET 子路由会被这里先吞掉。
+  const missionDetail = req.method === 'GET' ? pathname.match(/^\/api\/missions\/([^/]+)$/) : null;
+  if (missionDetail) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    const sessionId = safeSessionId(safeDecodeURIComponent(missionDetail[1]) || '');
     if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
@@ -1991,9 +1994,11 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     }, 200, { etag }));
   }
   // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
-  if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
+  // 只认 /api/interventions/<一段>(同上:不再用 path.basename 给多段路径当别名)。
+  const interventionsOf = req.method === 'GET' ? pathname.match(/^\/api\/interventions\/([^/]+)$/) : null;
+  if (interventionsOf) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    const sessionId = safeSessionId(safeDecodeURIComponent(interventionsOf[1]) || '');
     if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;
@@ -2083,6 +2088,22 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!reg || !reg.onEvent) {
       // No live UI stream to ask — fail closed.
       return send(res, json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
+    }
+    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
+    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
+    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
+    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
+    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
+    {
+      const cliToolName = String(body.toolName || '');
+      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
+        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
+        if (readRefusal) {
+          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
+          return send(res, json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
+        }
+      }
     }
     // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
     // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/

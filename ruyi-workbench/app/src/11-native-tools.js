@@ -452,28 +452,65 @@ function shellMcpChildGuard() {
 // other regex metacharacter is escaped literally. Matches against the relative path (with either
 // slash flavor accepted). Anchored full-match (^…$).
 function globToRegExp(glob) {
+  // 返回一个只有 test(str) 的匹配器(调用点只用 .test)。修前把 glob 译成正则:每个 `*` 是 `[^\\/]*`,
+  // 模型给的 `*a*a*a*a*a*b` 这类 glob 在长文件名上是多项式回溯(星号越多次方越高),卡死主线程。
+  // 这里把 glob 切成记号,按 NFA 同时推进所有可能位置:每个字符 O(记号数),整条 O(路径长 × 记号数),与 glob 形状无关。
+  // 语义与修前逐条一致:`**` 跨分隔符任意长(紧跟的分隔符可省,让 `**/x` 也配根下的 x);`*` 段内任意长;
+  // `?` 段内一个字符;`/` 与 `\` 互认;其余字面、大小写不敏感;整串锚定。
+  // 自包含(不引用本文件别处的名字):autonomy-grant.e2e 从源码切出这个函数单独求值。
   const g = String(glob || '');
-  let re = '';
+  const toks = [];
   for (let i = 0; i < g.length; i += 1) {
     const c = g[i];
     if (c === '*') {
-      if (g[i + 1] === '*') { // `**` → any chars including separators
-        re += '.*';
+      if (g[i + 1] === '*') {
+        toks.push({ t: 'any' });
         i += 1;
-        // swallow an immediately following separator so `**/x` also matches `x` at root
-        if (g[i + 1] === '/' || g[i + 1] === '\\') { re += '(?:[\\\\/])?'; i += 1; }
-      } else {
-        re += '[^\\\\/]*'; // `*` → within a segment
-      }
-    } else if (c === '?') {
-      re += '[^\\\\/]'; // single non-separator char
-    } else if (c === '/' || c === '\\') {
-      re += '[\\\\/]'; // accept either separator flavor
-    } else {
-      re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // escape regex metachars
-    }
+        if (g[i + 1] === '/' || g[i + 1] === '\\') { toks.push({ t: 'optsep' }); i += 1; }
+      } else toks.push({ t: 'star' });
+    } else if (c === '?') toks.push({ t: 'one' });
+    else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
+    else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
   }
-  return new RegExp('^' + re + '$', 'i');
+  const m = toks.length;
+  const isSep = ch => ch === '/' || ch === '\\';
+  // 可空记号(`*`、`**`、可省分隔符)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
+  const close = (on, i) => {
+    while (i <= m && !on[i]) {
+      on[i] = 1;
+      const tk = toks[i];
+      if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'optsep')) break;
+      i += 1;
+    }
+  };
+  return {
+    source: g,
+    test(str) {
+      const s = String(str == null ? '' : str);
+      let cur = new Uint8Array(m + 1);
+      close(cur, 0);
+      for (let k = 0; k < s.length; k += 1) {
+        const ch = s[k];
+        const lo = ch.toLowerCase();
+        const next = new Uint8Array(m + 1);
+        let any = false;
+        for (let i = 0; i < m; i += 1) {
+          if (!cur[i]) continue;
+          const tk = toks[i];
+          let to = -1;
+          if (tk.t === 'lit') { if (lo === tk.c || ch === tk.u) to = i + 1; }
+          else if (tk.t === 'one') { if (!isSep(ch)) to = i + 1; }
+          else if (tk.t === 'sep' || tk.t === 'optsep') { if (isSep(ch)) to = i + 1; }
+          else if (tk.t === 'star') { if (!isSep(ch)) to = i; }
+          else if (tk.t === 'any') to = i;
+          if (to >= 0) { close(next, to); any = true; }
+        }
+        if (!any) return false;
+        cur = next;
+      }
+      return cur[m] === 1;
+    },
+  };
 }
 
 // v0.8-S1: minimal Levenshtein edit distance (zero-dep) for file_edit `closest` ranking. Lines longer
@@ -585,11 +622,107 @@ function probeRg() { const info = probeRgInfoSync(); return info ? info.path : n
 function hasRg() { return !!probeRg(); }
 async function hasRgAsync() { return !!(await probeRgAsync()); }
 
+// 安全修复(审计 F · ReDoS 后续):file_list 的 pattern 是模型给的正则,逐项同步 `re.test(相对路径)`。
+// `(a+)+$` 碰上一个 60 个 a 加 b 的文件名(模型自己就能用 file_write 造出来)要回溯 2^60 步,整个服务的事件循环
+// 冻死 —— 与 file_search 修前同一类问题(见下方 regexScanFilesBounded)。file_list 是热路径,不能每次都起 worker:
+//   · 词法上「回溯有界」的模式(无分组、无分支、无反向引用、至多一个量词 —— 常见的 `\.js$`、`^src/.*\.ts$`)
+//     仍在主线程直接匹配:最坏 O(n²),n = 相对路径长度;
+//   · 其余模式交给一个随本次遍历存活的 worker 分批匹配(每批 WALK_PATTERN_BATCH 条相对路径),worker 实际计算
+//     累计超过 WALK_PATTERN_BUDGET_MS 就 terminate —— 已匹配到的照常返回,另挂 patternTimedOut(调用方标
+//     truncated + patternNote),遍历就此停下;
+//   · 模式超过 WALK_PATTERN_MAX_CHARS 直接拒。遍历顺序、maxFiles 截断与 truncated 口径与主线程路径一致。
+const WALK_PATTERN_MAX_CHARS = 1000;
+const WALK_PATTERN_BUDGET_MS = 1500;
+const WALK_PATTERN_BATCH = 1000;
+function regexBacktrackBounded(src) {
+  let quantifiers = 0;
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === '\\') {
+      const n = src[i + 1];
+      if (n === undefined || /[1-9k]/.test(n)) return false;   // 反向引用 → 不判有界
+      i += 1;
+      continue;
+    }
+    if (c === '[') {   // 字符类整体是一个原子
+      i += 1;
+      if (src[i] === '^') i += 1;
+      if (src[i] === ']') i += 1;
+      while (i < src.length && src[i] !== ']') { if (src[i] === '\\') i += 1; i += 1; }
+      continue;
+    }
+    if (c === '(' || c === ')' || c === '|') return false;
+    if (c === '*' || c === '+' || c === '?') {
+      quantifiers += 1;
+      if (src[i + 1] === '?') i += 1;   // 惰性量词后缀
+      continue;
+    }
+    if (c === '{') {
+      const m = /^\{\d+(?:,\d*)?\}/.exec(src.slice(i));
+      if (m) { quantifiers += 1; i += m[0].length - 1; if (src[i + 1] === '?') i += 1; }
+    }
+  }
+  return quantifiers <= 1;
+}
+const PATH_MATCH_WORKER_SRC = `
+(() => {
+  const { parentPort, workerData } = require('worker_threads');
+  let re;
+  try { re = new RegExp(workerData.pattern, workerData.flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  parentPort.on('message', m => {
+    const hits = [];
+    for (let i = 0; i < m.subjects.length; i += 1) { if (re.test(m.subjects[i])) hits.push(i); }
+    parentPort.postMessage({ type: 'hits', hits });
+  });
+})();
+`;
+// 一次遍历一个 worker;match(subjects) → { hits, timedOut, error },永不 reject;close() 必调(幂等)。
+function createBoundedPathMatcher(pattern, flags, budgetMs) {
+  let worker = null, dead = '', spent = 0;
+  try {
+    const { Worker } = require('worker_threads');
+    worker = new Worker(PATH_MATCH_WORKER_SRC, { eval: true, workerData: { pattern: String(pattern), flags: String(flags || '') } });
+  } catch (e) { dead = String((e && e.message) || e) || 'worker unavailable'; }
+  const close = () => { if (worker) { const w = worker; worker = null; try { w.terminate(); } catch { /* gone */ } } };
+  const match = subjects => new Promise(resolve => {
+    if (dead || !worker) { resolve({ hits: [], timedOut: false, error: dead || 'closed' }); return; }
+    const w = worker;
+    const t0 = Date.now();
+    let settled = false, timer = null;
+    const onMessage = m => {
+      if (m && m.type === 'hits') finish({ hits: Array.isArray(m.hits) ? m.hits : [] });
+      else if (m && m.type === 'error') finish({ error: String(m.error || 'regex error') });
+    };
+    const onError = e => finish({ error: String((e && e.message) || e) });
+    const onExit = () => finish({ error: 'worker exited' });
+    function finish(r) {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      w.off('message', onMessage); w.off('error', onError); w.off('exit', onExit);
+      spent += Date.now() - t0;
+      if (r.timedOut || r.error) { dead = r.error || 'timed out'; close(); }
+      resolve({ hits: [], timedOut: false, error: '', ...r });
+    }
+    w.on('message', onMessage); w.on('error', onError); w.on('exit', onExit);
+    timer = setTimeout(() => finish({ timedOut: true }), Math.max(1, budgetMs - spent));
+    try { w.postMessage({ subjects }); } catch (e) { finish({ error: String((e && e.message) || e) }); }
+  });
+  return { match, close };
+}
+
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
   const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
   const recursive = opts.recursive !== false;
-  const pattern = opts.pattern ? new RegExp(opts.pattern, opts.ignoreCase === false ? '' : 'i') : null;
+  const patternSrc = opts.pattern ? String(opts.pattern) : '';
+  const patternFlags = opts.ignoreCase === false ? '' : 'i';
+  if (patternSrc.length > WALK_PATTERN_MAX_CHARS) throw new Error(`pattern too long (max ${WALK_PATTERN_MAX_CHARS} characters)`);
+  const pattern = patternSrc ? new RegExp(patternSrc, patternFlags) : null;   // 语法错照旧在这里抛
+  // 回溯可能失控的模式交给 worker(见上方 WALK_PATTERN_* 头注);deferred 按遍历顺序攒待匹配项。
+  const matcher = pattern && !regexBacktrackBounded(patternSrc) ? createBoundedPathMatcher(patternSrc, patternFlags, WALK_PATTERN_BUDGET_MS) : null;
+  let deferred = [];
+  let patternTimedOut = false;
   const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
   const out = [];
   // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
@@ -598,26 +731,55 @@ async function walkFiles(root, opts = {}) {
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
+  const emit = async (full, rel, isDir) => {
+    const stat = await fsp.stat(full).catch(() => null);
+    out.push({ path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 });
+  };
+  async function flushDeferred() {
+    if (!deferred.length || patternTimedOut) { deferred = []; return; }
+    const batch = deferred;
+    deferred = [];
+    const r = await matcher.match(batch.map(c => c.rel));
+    if (r.timedOut || r.error) patternTimedOut = true;
+    let last = -1;
+    for (const i of r.hits) {
+      if (out.length >= maxFiles) { hitCap = true; break; }
+      await emit(batch[i].full, batch[i].rel, batch[i].isDir);
+      last = i;
+    }
+    // 与主线程路径同口径:凑满 maxFiles 之后还见到了别的条目 → 可能不全。
+    if (out.length >= maxFiles && last >= 0 && last < batch.length - 1) hitCap = true;
+  }
   async function walk(dir, depth) {
     if (out.length >= maxFiles) { hitCap = true; return; }
+    if (patternTimedOut) return;
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       if (out.length >= maxFiles) { hitCap = true; break; }
+      if (patternTimedOut) return;
       if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
       const rel = path.relative(base, full) || '.';
-      if (!pattern || pattern.test(rel)) {
-        const stat = await fsp.stat(full).catch(() => null);
-        out.push({ path: full, relativePath: rel, type: entry.isDirectory() ? 'directory' : 'file', size: stat?.size || 0 });
+      if (matcher) {
+        deferred.push({ full, rel, isDir: entry.isDirectory() });
+        if (deferred.length >= WALK_PATTERN_BATCH) await flushDeferred();
+      } else if (!pattern || pattern.test(rel)) {
+        await emit(full, rel, entry.isDirectory());
       }
       if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth != null ? opts.maxDepth : 8)) {
         await walk(full, depth + 1);
       }
     }
   }
-  await walk(base, 0);
-  if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  try {
+    await walk(base, 0);
+    if (matcher) await flushDeferred();
+  } finally {
+    if (matcher) matcher.close();
+  }
+  if (hitCap || patternTimedOut) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  if (patternTimedOut) out.patternTimedOut = true;   // 审计 F 后续:模式撞了时间预算(file_list 据此给 patternNote)
   return out;
 }
 
