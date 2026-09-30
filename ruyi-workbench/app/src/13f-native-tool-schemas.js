@@ -285,27 +285,30 @@ const MCP_TOOLS = [
   },
   {
     name: 'archive_zip',
-    description: '把工作区内的文件/文件夹打包成一个 .zip（deflate 压缩，中文文件名正确保留）。dest 已存在时先存检查点，可撤销。单文件上限 100MB、总量上限 500MB，超限会人话拒绝。',
+    description: '把工作区内的文件/文件夹打包成一个 .zip（deflate 压缩，中文文件名正确保留）。文件夹里的 node_modules、.git、__pycache__、venv、dist、build 等依赖/构建/缓存目录默认不打进包（结果里 skippedExcluded/excludedDirs 会列出；includeIgnored=true 才全部包含）。dest 已存在时先存检查点，可撤销。单文件上限 100MB、总量上限 500MB、条目数上限 65535，超限会人话拒绝。',
     inputSchema: {
       type: 'object',
       properties: {
-        paths: { type: 'array', items: { type: 'string' }, description: '要打包的文件或文件夹的绝对路径数组' },
+        paths: { type: 'array', items: { type: 'string' }, description: '要打包的文件或文件夹的绝对路径数组（你显式传入的路径本身不会被排除，只排除其子目录中的忽略项）' },
         dest: { type: 'string', description: '输出 .zip 的绝对路径' },
+        exclude: { type: 'array', items: { type: 'string' }, description: '额外要跳过的子目录名（如 ["logs","tmp"]），追加到默认排除清单' },
+        includeIgnored: { type: 'boolean', description: '默认 false；true = 不套默认排除清单（node_modules/dist 等也打进包）' },
       },
       required: ['paths', 'dest'],
     },
   },
   {
     name: 'archive_unzip',
-    description: '把一个 .zip 解压到 destDir（支持 stored/deflate 两种压缩方式）。含越界路径（Zip Slip，如 ..\\）的压缩包会被整包拒绝；符号链接条目会被跳过。条目数上限 2000、解压总量上限 500MB。覆盖已存在文件需 overwrite=true，覆盖前会存检查点。',
+    description: '把一个 .zip 解压到 destDir（支持 stored/deflate 两种压缩方式）。含越界路径（Zip Slip，如 ..\\）的压缩包会被整包拒绝；符号链接条目会被跳过。解压总量上限 500MB（解压前先核对压缩包声明的总大小，并逐条校验大小与 CRC32，损坏或疑似 zip 炸弹会拒绝）。没有 UTF-8 标志的中文文件名（Windows 资源管理器/旧版压缩软件打的包）按 GBK 解码。list=true 只列出条目（名字/大小/编码）不解压，此时不需要 destDir。覆盖已存在文件需 overwrite=true，覆盖前会存检查点。',
     inputSchema: {
       type: 'object',
       properties: {
         src: { type: 'string', description: '要解压的 .zip 绝对路径' },
-        destDir: { type: 'string', description: '解压目标文件夹的绝对路径' },
+        destDir: { type: 'string', description: '解压目标文件夹的绝对路径（list=true 时可省略）' },
         overwrite: { type: 'boolean', description: '覆盖已存在的文件，默认 false' },
+        list: { type: 'boolean', description: '默认 false；true = 只列出压缩包条目（最多 500 条）不解压' },
       },
-      required: ['src', 'destDir'],
+      required: ['src'],
     },
   },
   {
@@ -324,23 +327,39 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_list',
-    description: 'List files under a directory',
+    description: 'List files and folders under a directory (default: recursive, breadth-first, up to 500 entries, depth 8). Returns {root, files:[{relativePath,type,size}]}: join relativePath onto root (pass absolute:true to also get absolute paths). Recursive listings skip dependency/build/cache folders (node_modules, .git, .venv, venv, __pycache__, dist, build, out, target, coverage, .next, .cache, .claude/worktrees, .NET bin/obj) and report which were pruned in prunedDirs; recursive:false lists exactly one directory and hides only node_modules/.git/.venv. When truncated:true, hint says how to narrow (root, pattern, maxDepth) or raise maxFiles.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, pattern: { type: 'string' }, recursive: { type: 'boolean' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' } },
+      properties: {
+        root: { type: 'string', description: 'Directory to list (absolute path; defaults to the session workspace).' },
+        pattern: { type: 'string', description: 'Filter on the relative path. A regular expression, case-insensitive (e.g. "\\.js$" or "^src/.*\\.ts$"). A glob-looking value such as "*.js" or "**/*.ts" is applied as a glob (no "/" in it = match the file name at any depth). Invalid regex returns code:"bad_pattern" with a hint.' },
+        recursive: { type: 'boolean', description: 'Descend into subdirectories (default true). false = single-directory listing.' },
+        maxFiles: { type: 'number', description: 'Max entries returned, files and folders together (default 500).' },
+        maxDepth: { type: 'number', description: 'Max directory depth to descend (default 8).' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra folder names to skip, added to the default list.' },
+        includeIgnored: { type: 'boolean', description: 'true = also descend into the default-skipped folders (node_modules, dist, build …); .git is always skipped.' },
+        absolute: { type: 'boolean', description: 'true = each entry also carries its absolute path (bigger output). Default false.' },
+        ignoreCase: { type: 'boolean', description: 'Regex pattern case sensitivity; default true (case-insensitive).' },
+      },
     },
   },
   {
       name: 'file_search',
-      description: 'Search text (regex, per line) in files under a directory. Optional context lines, relative-path glob filter, and per-file grouping.',
+      description: 'Search text (regex, per line, case-insensitive by default) in files under a directory. Hidden files (.github/…) are searched; .gitignore is NOT applied, but dependency/build/cache folders (node_modules, .git, venv, __pycache__, dist, build, target, .cache, .claude/worktrees …) are skipped by default (includeIgnored:true to search them). Binary files and files over maxFileBytes (default 20MB) are not searched — oversize files are listed in skippedLargeFiles. truncated:true means results hit maxResults OR the scan stopped early (see hint); a missing hit is only conclusive when truncated is absent. Optional context lines, relative-path glob filter, and per-file grouping.',
       inputSchema: {
         type: 'object',
         properties: {
-          root: { type: 'string' }, pattern: { type: 'string' },
-          maxResults: { type: 'number' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' },
-          ignoreDirs: { type: 'array', items: { type: 'string' } },
+          root: { type: 'string', description: 'Directory to search (absolute path; defaults to the session workspace).' },
+          pattern: { type: 'string', description: 'Regex to look for (a literal is fine). An invalid regex is searched as literal text and patternNote says so.' },
+          maxResults: { type: 'number', description: 'Max matches returned (default 200).' },
+          maxFiles: { type: 'number', description: 'Max files scanned by the built-in scanner (default 5000).' },
+          maxDepth: { type: 'number', description: 'Max directory depth (default 8).' },
+          ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra folder names to skip, added to the default list.' },
+          includeIgnored: { type: 'boolean', description: 'true = also search the default-skipped folders (node_modules, dist, build …); .git is always skipped.' },
+          ignoreCase: { type: 'boolean', description: 'Default true (case-insensitive); false = case-sensitive.' },
+          maxFileBytes: { type: 'number', description: 'Skip files larger than this many bytes (default 20MB, max 200MB).' },
           context: { type: 'number', description: '0-5 lines of context before/after each match' },
-          glob: { type: 'string', description: 'relative-path glob filter (** / * / ?) restricting scanned files' },
+          glob: { type: 'string', description: 'relative-path glob filter (** / * / ?) restricting scanned files; without a "/" it matches the file name at any depth (e.g. "*.js")' },
           group: { type: 'boolean', description: 'group results by file: [{path, matches:[...]}]' },
         },
         required: ['pattern'],
@@ -348,10 +367,18 @@ const MCP_TOOLS = [
   },
   {
     name: 'glob',
-    description: 'Find files by glob pattern (** crosses dirs, * within a segment, ? one char). Returns matches sorted by mtime (newest first).',
+    description: 'Find files by glob pattern (** crosses dirs, * within a segment, ? one char; the pattern is matched against the path relative to root, so "*.md" = top level only and "**/*.md" = everywhere). Returns {root, files:[{relativePath, mtime(ms)}]} sorted by mtime (newest first), default 500 results. Skips dependency/build/cache folders (node_modules, .git, venv, __pycache__, dist, build, target, .claude/worktrees …; see prunedDirs; includeIgnored:true to include). truncated:true + hint when more files matched than shown or the tree was too large to finish.',
     inputSchema: {
       type: 'object',
-      properties: { pattern: { type: 'string' }, root: { type: 'string' }, maxResults: { type: 'number' }, maxDepth: { type: 'number' } },
+      properties: {
+        pattern: { type: 'string', description: 'Glob such as "**/*.ts" or "src/**/test_*.py".' },
+        root: { type: 'string', description: 'Directory to search (absolute path; defaults to the session workspace).' },
+        maxResults: { type: 'number', description: 'Max files returned, newest first (default 500).' },
+        maxDepth: { type: 'number', description: 'Max directory depth (default 12).' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra folder names to skip, added to the default list.' },
+        includeIgnored: { type: 'boolean', description: 'true = also search the default-skipped folders; .git is always skipped.' },
+        absolute: { type: 'boolean', description: 'true = each file also carries its absolute path. Default false.' },
+      },
       required: ['pattern'],
     },
   },
@@ -412,10 +439,17 @@ const MCP_TOOLS = [
   },
   {
     name: 'project_snapshot',
-    description: 'Return a compact project tree snapshot',
+    description: 'Return a compact project tree snapshot: files and folders listed breadth-first (every top-level entry comes before deeper ones), default 300 entries and depth 4, as {root, files:[{relativePath,type,size}]}. Dependency/build/cache folders (node_modules, .git, venv, __pycache__, dist, build, .claude/worktrees …) are pruned and named in prunedDirs. truncated:true + hint when the cap was hit; then raise maxFiles or snapshot a sub-folder.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' } },
+      properties: {
+        root: { type: 'string', description: 'Project directory (absolute path; defaults to the session workspace).' },
+        maxFiles: { type: 'number', description: 'Max entries (files + folders), default 300.' },
+        maxDepth: { type: 'number', description: 'Max directory depth, default 4.' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra folder names to skip, added to the default list.' },
+        includeIgnored: { type: 'boolean', description: 'true = also descend into the default-skipped folders; .git is always skipped.' },
+        absolute: { type: 'boolean', description: 'true = each entry also carries its absolute path. Default false.' },
+      },
     },
   },
   // v1.0-S4 git 工具族 — 看状态/看差异/看历史/提交。为非程序员管版本(「帮我把这次改动存个版本」)。全部
@@ -471,10 +505,10 @@ const MCP_TOOLS = [
   },
   {
     name: 'dependency_inventory',
-    description: 'Inventory local dependency and runtime configuration files without installing anything',
+    description: 'Inventory local dependency and runtime configuration files (package.json, lockfiles, requirements.txt, pyproject.toml, Cargo.toml, go.mod, pom.xml, build.gradle, composer.json, .tool-versions …) found directly in root, without installing anything. Returns the list of files present plus, for package.json, scripts/dependencies/devDependencies names/engines. Only looks at the top level of root (not sub-packages) and does not parse versions from non-npm manifests.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' } },
+      properties: { root: { type: 'string', description: 'Project directory (absolute path; defaults to the session workspace).' } },
     },
   },
   {
@@ -503,10 +537,18 @@ const MCP_TOOLS = [
   },
   {
     name: 'docs_search',
-    description: 'Search local project documentation as an offline docs lookup',
+    description: 'Search local project documentation (only .md .mdx .markdown .txt .rst .adoc .asciidoc .org files under root; code files are not searched — use file_search for those) as an offline docs lookup. Query is a regex, case-insensitive. Root-level README/CHANGELOG first, then docs/, then the rest; dependency/build/cache folders are skipped. Returns {matches:[{relativePath,line,text}], scannedFiles}; truncated:true + hint when more matches exist or the file limit was hit.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, query: { type: 'string' }, maxResults: { type: 'number' }, maxDepth: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
+      properties: {
+        root: { type: 'string', description: 'Project directory (absolute path; defaults to the session workspace).' },
+        query: { type: 'string', description: 'Regex or plain text to look for.' },
+        maxResults: { type: 'number', description: 'Max matching lines returned (default 200).' },
+        maxFiles: { type: 'number', description: 'Max doc files scanned (default 3000).' },
+        maxDepth: { type: 'number', description: 'Max directory depth (default 8).' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra folder names to skip, added to the default list.' },
+        includeIgnored: { type: 'boolean', description: 'true = also search the default-skipped folders; .git is always skipped.' },
+      },
       required: ['query'],
     },
   },
@@ -520,9 +562,11 @@ const MCP_TOOLS = [
         root: { type: 'string', description: 'Codebase root directory (defaults to workspace).' },
         kind: { type: 'string', enum: ['any', 'definition', 'reference'], description: 'Only return definitions, references, or both (default any).' },
         maxResults: { type: 'number', description: 'Max total matches (default 200).' },
-        maxFiles: { type: 'number', description: 'Max files scanned (default 1500).' },
+        maxFiles: { type: 'number', description: 'Max code files scanned (default 5000). If reached, truncated:true + hint: a missing symbol may just be unscanned.' },
         maxDepth: { type: 'number', description: 'Max directory depth (default 8).' },
-        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra dirs to skip (node_modules/.git/.venv always skipped).' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'Extra folder names to skip, added to the default list (node_modules, .git, venv, __pycache__, dist, build, target, .claude/worktrees …).' },
+        includeIgnored: { type: 'boolean', description: 'true = also scan the default-skipped folders; .git is always skipped.' },
+        caseSensitive: { type: 'boolean', description: 'Default true (User does not match user); false = ignore case.' },
       },
       required: ['symbol'],
     },
@@ -545,12 +589,12 @@ const MCP_TOOLS = [
   },
   {
     name: 'data_profile',
-    description: 'Profile a data file (CSV/TSV/JSON/JSONL/text log) into a machine-computed summary: row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outlier count, and sample values. Use to replace eyeballing a large file with file_read when you need its structure, scale and data-quality issues (missing/outliers/format) before planning an analysis. Do not use for small files where reading directly is cheaper, or for cleaning/transforming the data (this tool is read-only). Column type and outlier detection are statistical heuristics, not data lineage.',
+    description: 'Profile a data file (CSV/TSV/JSON/JSONL/text log) into a machine-computed summary: row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outlier count, and sample values. Use to replace eyeballing a large file with file_read when you need its structure, scale and data-quality issues (missing/outliers/format) before planning an analysis. Do not use for small files where reading directly is cheaper, or for cleaning/transforming the data (this tool is read-only). Column type and outlier detection are statistical heuristics, not data lineage. Large files are read as a bounded prefix (8MB; JSON arrays up to 16MB whole, bigger ones streamed): when truncatedInput:true the row counts are for the prefix only and estimatedRowCount extrapolates the file; sampled:true means the profile covers fewer rows than the file has. GBK/GB18030 and UTF-16 text is decoded automatically (encoding field).',
     inputSchema: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'Absolute path to the data file to profile.' },
-        maxRows: { type: 'number', description: 'Max rows to sample (default 2000).' },
+        maxRows: { type: 'number', description: 'Max rows to sample (default 2000, max 50000).' },
         delimiter: { type: 'string', description: 'CSV/TSV delimiter; auto-detected when omitted.' },
         maxSampleValues: { type: 'number', description: 'Sample values shown per column (default 5).' },
       },

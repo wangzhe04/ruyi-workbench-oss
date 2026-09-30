@@ -261,9 +261,9 @@ const BROWSER ={ origin: 'http://evil.example', 'sec-fetch-site': 'cross-site', 
     const sm2 = (srch2.json && srch2.json.result && srch2.json.result.matches) || [];
     ok(Array.isArray(sm2) && sm2.some(m => /hello\.txt$/i.test((m && m.path) || '')), 'P1#2 对照: file_search 仍能命中工作区内普通文件(遍历未被过度阻断)');
     // file_list dataRoot: 敏感子项不出现在列表
-    const lst = await httpReq(WB_PORT, 'POST', '/api/tools/file_list', { headers: { 'x-wcw-token': TOK }, body: { root: HOME } });
+    const lst = await httpReq(WB_PORT, 'POST', '/api/tools/file_list', { headers: { 'x-wcw-token': TOK }, body: { root: HOME, absolute: true } });
     const lf = (lst.json && lst.json.result && lst.json.result.files) || [];
-    ok(Array.isArray(lf) && !lf.some(f => /(^|[\\/])(config|runtime)\.json$/i.test((f && f.path) || '') || /[\\/]sessions$/i.test((f && f.path) || '')), 'P1#2 file_list dataRoot 不列出 config/runtime/sessions ← 补漏');
+    ok(Array.isArray(lf) && lf.length > 0 && lf.every(f => typeof (f && f.path) === 'string') && !lf.some(f => /(^|[\\/])(config|runtime)\.json$/i.test((f && f.path) || '') || /[\\/]sessions$/i.test((f && f.path) || '')), 'P1#2 file_list dataRoot 不列出 config/runtime/sessions ← 补漏');
     // /api/file/preview 拒 config.json —— 切断「file_read runtime.json 拿 token → 用 token 打 preview 读密钥」链
     const prev = await httpReq(WB_PORT, 'GET', '/api/file/preview?path=' + encodeURIComponent(path.join(HOME, 'config.json')), { headers: { 'x-wcw-token': TOK } });
     ok(prev.status === 403, 'P1#2 /api/file/preview 拒 config.json(切断 runtime.json→token→preview 读密钥链)← 补漏');
