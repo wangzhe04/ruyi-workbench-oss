@@ -4008,6 +4008,14 @@ async function readConfig() {
   return config;
 }
 
+// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
+// 【不带整份配置】(里面有服务商密钥;总线纪律③:它只是一条线,不承载正文;13r 只转发它认得的名字,这一声不出进程)。
+// 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
+// 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
+function configEmitWritten(config) {
+  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
+}
+
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
@@ -4022,6 +4030,7 @@ async function writeConfig(next, before = null) {
   if (!before) {
     const { config, persisted } = normalizeConfig(next);
     await writeConfigAtomic(JSON.stringify(persisted, null, 2));
+    configEmitWritten(config);
     return config;
   }
   const { config } = normalizeConfig(next, { inferExplicit: false });
@@ -4035,6 +4044,7 @@ async function writeConfig(next, before = null) {
   }
   finalizeConfigExplicitKeys(config, explicit);
   await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  configEmitWritten(config);
   return config;
 }
 
@@ -34858,7 +34868,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       // 第28波(§28a):迭代边界两级自动压缩(与主回合共用 10 runAutoCompaction)。steer/mail drain 之后插入 → 新注入消息计入预算并作为
       // 「最近回合」保留;transient-retry 之前 → 本轮请求发的是压缩后的 subHistory。循环顶端 subHistory 恒完全配对,故安全。
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:强压只靠 L1 的重试之后,下一迭代不再白跑一次 L2
-      else await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState });
+      else await maybeCompactSubHistory({ subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state: subCompactState, signal: ctrl && ctrl.signal });
+      // 压缩期间被中止(Stop 取消了在飞的 L2 摘要):当场收住,不再发这一迭代的模型请求。
+      if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
       // v1.4.5: transient-error resilience parity with the parent turn. runOpenAiTurn has streamWithFailover
       // (502/503/504) + a toolsRejected retry; the sub-turn previously had NEITHER, so a single transient
       // gateway blip, rate-limit (429) or connect/TLS failure on a sub-agent call failed the whole node - and
@@ -42829,8 +42841,11 @@ async function runForcedOverflowCompaction(ctx) {
 // 【子代理专属】主回合无固定目标,子代理有单一 task(subHistory[0])—— L2 重播种【钉住 task[0]】(CompactionPlan 的
 // subagent scope 把它并进摘要 user 消息),防摘要吞掉原始目标后跑偏。
 // state:runSubAgentCore 持有的 { watermark } —— 滞回水位跨迭代留在子回合里(子代理没有会话头可存)。
+// signal:子回合的中止信号(runSubAgentCoreBody 的 ctrl.signal)。与主回合 maybeAutoCompact 同一条线:Stop 当场取消在飞的
+// L2 摘要调用,runAutoCompaction 走 aborted 那一支 —— 不进 10 分钟摘要失败冷却(compactionSummaryFailures)、不武装滞回
+// 水位、不重播种(历史只可能被 L1 原地蒸发过,配对完好)。修前子代理这一处没接信号,停止要干等摘要调用返回。
 async function maybeCompactSubHistory(opts) {
-  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state } = opts || {};
+  const { subHistory, sys, provider, subModel, config, onEvent, subagentId, parentSession, tools, runId, state, signal } = opts || {};
   try {
     if (!Array.isArray(subHistory) || subHistory.length < 3 || !provider) return false;
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
@@ -42847,6 +42862,7 @@ async function maybeCompactSubHistory(opts) {
       eventFields: { subagentId },
       logFields: { ...(parentId ? { sessionId: parentId } : {}), ...(parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) },
       summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subturn_auto_L2' },
+      ...(signal ? { signal } : {}),
     });
     if (r.level === 2) {
       subHistory.splice(0, subHistory.length, ...r.reseeded);           // 原地 splice(const 绑定,闭包安全)——绝不重新赋值
@@ -49267,7 +49283,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_run_now',
-    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 目标正在跑、或调度器正忙着别的任务时返回 {ok:false,error:"steward.busy"}(全局并发 1)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
+    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
@@ -65806,6 +65822,10 @@ const schedulerRuntime = {
   // 修前装载时跳过、下一次写盘就把它们永久删掉(注释写着「不静默改写用户的定义」,写盘却静默删了)。
   opaqueTasks: [],
   startDeferred: false, // hunt2-P6:startScheduler 撞上读不出来的任务表而没起来(路由闸装载成功后补起)
+  // 启动那一刻 schedulerEnabledV1 关着(startScheduler 立即返回、什么都没做)。之后配置里把它打开 ——
+  // 01 writeConfig 派的 'config.written'(设置页 / 管家改设置 / API)或路由闸读到开着(手改了 config.json)——
+  // 就当场补起,不必重启。stopScheduler(进程收尾)清掉它,收尾之后不再被配置写入唤醒。
+  awaitingEnable: false,
   attempts: new Map(),  // occurrenceKey -> 已注册过几次(executionGeneration 的来源)
   lastError: '',
   firedTotal: 0,        // e2e 观测用:本进程一共触发过几次
@@ -66387,6 +66407,28 @@ function schedulerDispatchFire(task, mode, dueMs) {
     })
     .then(() => { schedulerRuntime.inFlightTaskIds.delete(task.id); });
 }
+// 「立即运行」的共用口:HTTP 的 POST /:id/run-now 与管家的 steward_schedule_run_now(13t)走同一份。
+// 闸只挡【这一条任务自己】:落盘的 task.state.inFlightRunId(登记成功之后)或进程内的 inFlightTaskIds(调用前就写下,
+// 与 tick 的派单共用同一张表)。不看 ticking —— 别的任务在跑、tick 正在派单,都不是这一条不能手动跑一次的理由
+// (hunt2-P10 修的是 HTTP 那一半;修前管家那一半仍拿 ticking 当全局并发 1 的闸:任何一条在跑就拒,
+// 自己跑的时候还整段占着 ticking,把 tick 一起挡住)。
+// 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
+// occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,时钟是钉死的)
+// 会撞出同一个 key,那就变成「同一 occurrence 的第二次尝试」,与承诺投影的语义相反。往后挪到第一个没被用过的
+// 毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
+// 返回 { busy: true }(这一条正在跑,调用方各按自己的信封拒)或 { busy: false, outcome }。
+function schedulerTaskBusy(task) {
+  return !!(task && (task.state.inFlightRunId || schedulerRuntime.inFlightTaskIds.has(task.id)));
+}
+async function schedulerRunNow(task) {
+  if (schedulerTaskBusy(task)) return { busy: true, outcome: '' };
+  let manualDueMs = schedulerClockNow();
+  while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
+  schedulerRuntime.inFlightTaskIds.add(task.id);
+  try { return { busy: false, outcome: await schedulerFireOnce(task, 'manual', manualDueMs) }; }
+  finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
+}
+
 // `ticking` 只挡「同一个定时器触发两次并发 tick」的重入 —— 不再是「等全部到点任务跑完」的闸,
 // 派单全走 schedulerDispatchFire,tick 本体现在是一段纯同步的派单决策(见上)。
 async function schedulerTick() {
@@ -66463,7 +66505,8 @@ function schedulerEnsureTimer() {
 // schedulerEnabledV1 !== true 时【立即返回且什么都不做】:不建目录、不读盘、不起 interval(红线⑤)。
 async function startScheduler(schedConfig) {
   if (schedulerRuntime.started) return false;
-  if (!schedulerEnabled(schedConfig)) { schedulerRuntime.enabled = false; return false; }
+  if (!schedulerEnabled(schedConfig)) { schedulerRuntime.enabled = false; schedulerRuntime.awaitingEnable = true; return false; }
+  schedulerRuntime.awaitingEnable = false;
   schedulerRuntime.enabled = true;
   schedulerRuntime.started = true;
   schedulerRuntime.generation += 1;
@@ -66483,10 +66526,22 @@ async function startScheduler(schedConfig) {
   return true;
 }
 function stopScheduler() {
+  schedulerRuntime.awaitingEnable = false;
   schedulerRuntime.generation += 1;      // 在途 tick 看见代际变了就尽快退出
   if (schedulerRuntime.timer) { clearInterval(schedulerRuntime.timer); schedulerRuntime.timer = null; }
   schedulerRuntime.started = false;
 }
+// 启动时关着、之后被打开:听 01 writeConfig 派的 'config.written'(只带开关位)。关着的那段时间这里什么都不做 ——
+// 不起 interval、不建目录、不读盘(红线⑤原样成立);打开那一刻走的就是启动那一条 startScheduler(装载、恢复、
+// 有任务才起 interval、先跑一拍)。已经起过的调度器不归这里管:运行中关掉/再打开由 tick 每拍重读配置处理。
+// 装在模块加载期,进程生命周期内不卸(同 13i / 13r 的订阅纪律);订阅者只排一个异步启动,不回流到写路径。
+RUYI_EVENTS.subscribe((name, payload) => {
+  if (name !== 'config.written') return;
+  if (!schedulerRuntime.awaitingEnable || schedulerRuntime.started) return;
+  if (!(payload && payload.schedulerEnabledV1 === true)) return;
+  void startScheduler({ schedulerEnabledV1: true }).catch(() => {});
+});
+
 // e2e 的观测面(不落盘、不改状态)。「零任务零 interval」这条红线就靠 timerActive 钉。
 function schedulerRuntimeSnapshot() {
   return {
@@ -66575,7 +66630,8 @@ async function schedulerRouteGate(req, res) {
     return '';
   }
   // hunt2-P6:启动那一刻读失败而没起来的调度器,在这里装载成功后补起(startScheduler 自己幂等)。
-  if (schedulerRuntime.startDeferred && !schedulerRuntime.started) await startScheduler(config);
+  // 启动时关着、之后开着(配置被手改、没经 writeConfig 那一声)的同样在这里补起。
+  if ((schedulerRuntime.startDeferred || schedulerRuntime.awaitingEnable) && !schedulerRuntime.started) await startScheduler(config);
   return schedulerLocaleOf(req);
 }
 
@@ -66682,25 +66738,11 @@ async function handleSchedulerApiRoutes(req, res, pathname) {
     if (id === null) return send(res, apiFailure('scheduler.not_found', {}, 'no such scheduler task', 404));   // 坏编码(%zz):不是任何任务的 id,不再 URIError 500
     const task = schedulerRuntime.tasks.find(row => row.id === id);
     if (!task) return send(res, apiFailure('scheduler.not_found', { id }, 'no such scheduler task', 404));
-    if (task.state.inFlightRunId) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
-    }
-    if (schedulerRuntime.inFlightTaskIds.has(task.id)) {
-      return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
-    }
-    // 「再跑一次」是一个【新】 occurrence(mode:'manual'),不是对旧那次的重试(37 号文 §1)。
-    // occurrenceKey = taskId@dueIso,而 dueIso 取「此刻」—— 同一毫秒里按两下(假时钟下更是必然,
-    // 时钟是钉死的)会撞出同一个 key,那就变成「同一 occurrence 的第二次尝试」,与承诺投影的语义相反。
-    // 往后挪到第一个没被用过的毫秒:生产上这一步恒是无操作,只有钉死时钟的 e2e 会走进循环。
-    let manualDueMs = schedulerClockNow();
-    while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
     // hunt2-P10:修前这里整段拿着 ticking(tick 重入闸),手动那一次的回合跑多久,其它任务就多久派不出单
-    // (tick 一进来就 return)。现在只挡【这一条任务】:inFlightTaskIds 与 tick 的派单共用同一张表。
-    schedulerRuntime.inFlightTaskIds.add(task.id);
-    let outcome = '';
-    try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-    finally { schedulerRuntime.inFlightTaskIds.delete(task.id); }
-    return send(res, json({ ok: true, outcome, task: schedulerPublicTask(task, locale) }));
+    // (tick 一进来就 return)。现在只挡【这一条任务】—— 闸与新 occurrence 的取法都在 schedulerRunNow(与管家工具共用)。
+    const ran = await schedulerRunNow(task);
+    if (ran.busy) return send(res, apiFailure('scheduler.busy', { id }, 'this task is already running', 409));
+    return send(res, json({ ok: true, outcome: ran.outcome, task: schedulerPublicTask(task, locale) }));
   }
 
   if (req.method === 'GET' && pathname.match(/^\/api\/scheduler\/tasks\/([^/]+)\/runs$/)) {
@@ -66874,27 +66916,22 @@ async function stewardImplScheduleResume(args, ctx, config) {
   return schedulerToolSetEnabled(args, ctx, config, true, 'steward_schedule_resume');
 }
 
-// 5) steward_schedule_run_now —— 「再跑一次」。与 POST /api/scheduler/tasks/:id/run-now 同一条路:
-//    全局并发 1 的两道闸(任务自己在途 / 调度器正在 tick)、新 occurrence(mode:'manual')、
-//    同毫秒撞 key 时往后挪一格(假时钟下时钟是钉死的,必走这段循环)。
+// 5) steward_schedule_run_now —— 「再跑一次」。与 POST /api/scheduler/tasks/:id/run-now 同一条路(13s 的
+//    schedulerRunNow):闸只挡【这一条任务自己】在途(落盘的 inFlightRunId / 进程内的 inFlightTaskIds),
+//    新 occurrence(mode:'manual')、同毫秒撞 key 时往后挪一格(假时钟下时钟是钉死的,必走这段循环)。
+//    修前这里另写了一份「全局并发 1」:看 schedulerRuntime.ticking,别的任务在跑就拒,自己跑时整段占着
+//    ticking —— 一条慢任务能把管家的手动运行和 tick 的到点派单一起挡住。
 async function stewardImplScheduleRunNow(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
   await schedulerLoad();
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
-  if (task.state.inFlightRunId) {
+  const ran = await schedulerRunNow(task);
+  if (ran.busy) {
     return stewardFail('steward.busy', '这条定时任务正在跑,等它跑完再说(不要重试)', { id: task.id });
   }
-  if (schedulerRuntime.ticking) {
-    return stewardFail('steward.busy', '调度器正在跑另一条任务(全局并发 1),等一会儿再说(不要重试)', { id: task.id });
-  }
-  let manualDueMs = schedulerClockNow();
-  while (schedulerRuntime.attempts.has(occurrenceKey(task.id, manualDueMs))) manualDueMs += 1;
-  schedulerRuntime.ticking = true;
-  let outcome = '';
-  try { outcome = await schedulerFireOnce(task, 'manual', manualDueMs); }
-  finally { schedulerRuntime.ticking = false; }
+  const outcome = ran.outcome;
   stewardAppendDecision({
     tool: 'steward_schedule_run_now', args: { id: task.id, outcome },
     targetSessionId: '', permissionMode: '', mayAct: 'user',

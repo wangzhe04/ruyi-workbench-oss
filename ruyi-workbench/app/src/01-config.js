@@ -1962,6 +1962,14 @@ async function readConfig() {
   return config;
 }
 
+// 配置落盘之后在进程内总线(00-boot 的 RUYI_EVENTS)上派一声 'config.written'。载荷只带订阅者要的开关位,
+// 【不带整份配置】(里面有服务商密钥;总线纪律③:它只是一条线,不承载正文;13r 只转发它认得的名字,这一声不出进程)。
+// 订阅者:13s 的调度器 —— 启动那一刻 schedulerEnabledV1 关着就没起(红线⑤:关着零开销、零写入),修前用户之后在设置里
+// 打开要重启才生效;现在听到这一声当场补起。零订阅者时 emit 是 no-op。
+function configEmitWritten(config) {
+  RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true) });
+}
+
 // 128a:before ＝ 这次写入之前的内存视图(mutateConfig 在 mutator 动手前拍的快照)。next 里归一化后值与它
 // 不同的键记成显式 —— 「被改过」的唯一口径,设置页、API、管家改设置、产品代用户记的状态一视同仁。
 // 没有 before 的调用(只剩单测)退回读盘语义:next 里不等于默认的键都算显式。
@@ -1976,6 +1984,7 @@ async function writeConfig(next, before = null) {
   if (!before) {
     const { config, persisted } = normalizeConfig(next);
     await writeConfigAtomic(JSON.stringify(persisted, null, 2));
+    configEmitWritten(config);
     return config;
   }
   const { config } = normalizeConfig(next, { inferExplicit: false });
@@ -1989,6 +1998,7 @@ async function writeConfig(next, before = null) {
   }
   finalizeConfigExplicitKeys(config, explicit);
   await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2));
+  configEmitWritten(config);
   return config;
 }
 

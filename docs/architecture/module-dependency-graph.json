@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3186,
+    "providedSymbols": 3189,
     "requiredSymbols": 2967,
     "edges": 514,
     "forwardEdges": 68,
@@ -403,6 +403,7 @@
         "configComparableValue",
         "configDegraded",
         "configDirsEnsuredFor",
+        "configEmitWritten",
         "configExplicitKeysOf",
         "configFileStamp",
         "configMutateChain",
@@ -644,6 +645,13 @@
           "symbol": "runKeyedChain",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -19714,9 +19722,11 @@
         "schedulerRecover",
         "schedulerRestorePersistedState",
         "schedulerRouteGate",
+        "schedulerRunNow",
         "schedulerRuntime",
         "schedulerRuntimeSnapshot",
         "schedulerSaveTasks",
+        "schedulerTaskBusy",
         "schedulerTasksChain",
         "schedulerTasksPath",
         "schedulerTick",
@@ -20064,13 +20074,6 @@
         },
         {
           "provider": "06j-scheduler-core.js",
-          "symbol": "occurrenceKey",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06j-scheduler-core.js",
           "symbol": "SCHEDULER_LIMITS",
           "kinds": [
             "read"
@@ -20211,13 +20214,6 @@
         },
         {
           "provider": "13s-scheduler.js",
-          "symbol": "schedulerFireOnce",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13s-scheduler.js",
           "symbol": "schedulerLoad",
           "kinds": [
             "call"
@@ -20226,6 +20222,13 @@
         {
           "provider": "13s-scheduler.js",
           "symbol": "schedulerReadFireRows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
+          "symbol": "schedulerRunNow",
           "kinds": [
             "call"
           ]
@@ -24692,6 +24695,7 @@
         "CONFIG_SCHEMA",
         "DEFAULT_PORT",
         "MAX_BODY_BYTES",
+        "RUYI_EVENTS",
         "SKILL_ID_RE",
         "StringDecoder",
         "URL",
@@ -30185,8 +30189,7 @@
         "SCHEDULER_LIMITS",
         "SchedulerHooks",
         "describeSchedule",
-        "normalizeSchedulerTask",
-        "occurrenceKey"
+        "normalizeSchedulerTask"
       ],
       "direction": "backward"
     },
@@ -30247,9 +30250,9 @@
         "schedulerEmitChanged",
         "schedulerEnabled",
         "schedulerEnsureTimer",
-        "schedulerFireOnce",
         "schedulerLoad",
         "schedulerReadFireRows",
+        "schedulerRunNow",
         "schedulerRuntime",
         "schedulerSaveTasks"
       ],

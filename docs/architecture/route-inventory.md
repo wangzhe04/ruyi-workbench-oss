@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 151(精确 128 / 前缀 11 / 正则 12),ROUTE_AUTH 137 条,生成于 2026-09-30T10:34:50.498Z。
+> 判定点 151(精确 128 / 前缀 11 / 正则 12),ROUTE_AUTH 137 条,生成于 2026-09-30T10:50:12.053Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -41,7 +41,7 @@
 | POST | `/api/workspace/dedicated` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js · `handleApi` | overlay-update-gui.static.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js · `handleApi` | asr-config-ui.static.e2e.js, claude-models-cache.e2e.js, context-window.e2e.js 等 7 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-team-mode.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 49 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-team-mode.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 50 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 5 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 5 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js · `handleApi` | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 5 件 |
@@ -173,12 +173,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 11 件 |
-| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 11 件 |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 7 件 |
-| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 7 件 |
-| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 7 件 |
-| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 7 件 |
+| GET | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 12 件 |
+| POST | `/api/scheduler/tasks` | exact | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | quiet-card-snooze.browser.e2e.js, rail-pocket.browser.e2e.js, scheduler-api.e2e.js 等 12 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 8 件 |
+| * | `/api/scheduler/tasks/:taskId` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 8 件 |
+| POST | `/api/scheduler/tasks/:taskId/run-now` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 8 件 |
+| GET | `/api/scheduler/tasks/:taskId/runs` | regex | token | 13s-scheduler.js · `handleSchedulerApiRoutes` | scheduler-api.e2e.js, scheduler-crash.e2e.js, scheduler-steward.e2e.js 等 8 件 |
 
 ## session(6)
 
