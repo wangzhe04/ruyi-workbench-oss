@@ -83,6 +83,11 @@ def _slim_schema(node):
                 node.setdefault(k, v)
             if node.get("default", 0) is None:
                 node.pop("default")
+        elif len(any_of) > 1 and all(isinstance(m, dict) and set(m) == {"type"} and isinstance(m["type"], str)
+                                     for m in any_of):
+            # 纯原子类型并集(如表格单元格 str|int|float|bool|None)收成一个 type 数组:语义不变、更短,且保住 null。
+            node.pop("anyOf")
+            node["type"] = [m["type"] for m in any_of]
     for key in ("anyOf", "oneOf", "allOf"):
         if isinstance(node.get(key), list):
             for m in node[key]:
