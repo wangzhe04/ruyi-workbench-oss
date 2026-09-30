@@ -149,8 +149,8 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   }
 }
 
-// 105a: observation_recall 每回合配额。回合键 = 当前会话 providerHistory 的 user 消息数(回合内稳定、
-// 下一回合自增,无需新管线);每会话只保留最近 4 个桶,全局最多 64 个会话,先进先出。
+// 105a: observation_recall 每回合配额。回合键见 10 providerTurnQuotaKey(优先 turnSeq —— 修前用 user 消息数,
+// L2 重播种一改条数配额就清零);每会话只保留最近 4 个桶,全局最多 64 个会话,先进先出。
 const OBSERVATION_RECALL_QUOTA = 8;
 const OBSERVATION_RECALL_MAX_CHARS = { min: 1000, max: 60000, dflt: 8000 };
 const _recallQuota = new Map(); // sessionId -> Map(turnKey -> used)
@@ -210,8 +210,7 @@ const CORE_TOOL_HANDLERS = {
       const session = (ctx && ctx.session) || null;
       const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
-      const history = session && Array.isArray(session.providerHistory) ? session.providerHistory : [];
-      const turnKey = history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+      const turnKey = providerTurnQuotaKey(session);
       if (!observationRecallQuotaTake(sessionId, turnKey)) {
         return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
       }

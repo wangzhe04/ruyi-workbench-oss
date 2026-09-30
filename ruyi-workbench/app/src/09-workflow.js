@@ -1989,6 +1989,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 误报防护:探索类工具(read/search/glob/grep/web_search/ocr/ui_find)宽阈值--换路径读不同内容是正常进展
   // (结果内容变->指纹变->reset),只有真反复得到相同结果才 warn。计数 turn-local(同 loopSig,不跨回合泄漏)。
   let lastResultFp = null, noProgressRun = 0;
+  // 压缩后重取守卫(10 createCompactionRefetchGuard):抓工作集装不下预算时的交替重读抖动 —— 上面两条守卫都只看相邻调用。
+  const compactionRefetch = createCompactionRefetchGuard();
   const NO_PROGRESS_WARN_AT = 4, EXPLORATORY_WARN_AT = 8;
   const EXPLORATORY_TOOLS = new Set(['file_read', 'read_file', 'list_directory', 'grep', 'glob', 'find_template', 'web_search', 'ocr_screen', 'ocr_find_text', 'ocr_image', 'ui_find', 'ui_inspect', 'screenshot', 'find_on_screen', 'find_all_templates']);
   // 结果指纹: ok + toolName(不同工具结果不混比) + 结果内容摘要(前200字+长度)。【不含】调用参数--"换参数但
@@ -2656,6 +2658,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
             continue;
           }
+          // 同一调用本回合被压缩省略后又重取:第 2 次在结果上附提醒(见下方 compactionWarning),第 3 次起不执行。
+          // 轮询原语(loopAbortExempt)本来就是反复调、结果被压掉也无妨,不计。
+          const refetch = loopAbortExempt(loopBare) ? null : compactionRefetch(session.providerHistory, tc.name, tc.rawArgs);
+          if (refetch && refetch.action) logEvent({ kind: 'compaction_refetch', action: refetch.action, sessionId: session.id, turnSeq: session.turnSeq, tool: loopBare, count: refetch.count });
+          if (refetch && refetch.action === 'refuse') {
+            const refused = compactionRefetchRefusal(refetch.count);
+            onEvent({ type: 'tool_result', id: tc.id, content: refused, isError: true });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: refused });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refused)) });
+            await notifyToolHookEnd(tc, refused, iter, 'compaction_refetch_refused');
+            touch();
+            if (reg.state !== 'running') { aborted = true; ok = false; break; }
+            continue;
+          }
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
           if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
@@ -2863,6 +2879,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // here). Applied whether the call succeeded or failed — a succeeding-but-repeating loop is still a loop.
           if (loopCount >= LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object') {
             resultObj.loopWarning = '检测到连续第 3 次相同调用;若结果不符合预期,请改变参数或换用其它工具,不要原样重试。';
+          }
+          if (refetch && refetch.action === 'warn' && resultObj && typeof resultObj === 'object') {
+            try { resultObj.compactionWarning = compactionRefetchWarning(refetch.count); } catch { /* frozen result */ }
           }
           // 04 Phase D 语义 loop-guard: 结果指纹无进展判定(同签名连击未覆盖的盲区)。与上面 loopWarning 互补--
           // !resultObj.loopWarning 守卫:若同签名连击已 warn,语义判定跳过(避免双 warn)。
