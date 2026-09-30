@@ -13,7 +13,6 @@ import fails, or `playwright install chromium` was never run, the tools degrade 
 """
 
 import asyncio
-import base64
 import io
 import json
 import os

@@ -1490,7 +1490,6 @@ def _resolve_cjk_font():
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-    from reportlab.lib.fonts import addMapping
 
     def _family(name, bold_name):
         b = bold_name or name

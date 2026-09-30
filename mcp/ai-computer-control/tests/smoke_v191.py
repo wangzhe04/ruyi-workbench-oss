@@ -176,10 +176,11 @@ def main() -> int:
 
     # --- capture PrintWindow bounded (source assertion) ------------------------
     print("\n== capture PrintWindow 有界 ==")
-    import ai_computer_control.tools.capture as capture
-    check(_src_has(capture, "threading.Thread(target=_cap, daemon=True)"),
+    # 抓窗核心已抽到 utils/wincap.py(screenshot(window_title=) 与 window_screenshot 共用),有界线程随之搬家。
+    import ai_computer_control.utils.wincap as wincap
+    check(_src_has(wincap, "threading.Thread(target=_cap, daemon=True)"),
           "PrintWindow 在 daemon 线程内 (join 超时)")
-    check(_src_has(capture, "t.join(timeout=5)"), "PrintWindow join 5s 超时")
+    check(_src_has(wincap, "t.join(timeout=5)"), "PrintWindow join 5s 超时")
 
     # --- filesystem GBK fallback -----------------------------------------------
     print("\n== filesystem GBK 回退 ==")

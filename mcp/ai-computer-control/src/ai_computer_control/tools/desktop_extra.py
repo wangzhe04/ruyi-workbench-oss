@@ -5,9 +5,7 @@ image read, monitor enumeration, and wait-for-window / wait-for-window-idle prim
 """
 
 import asyncio
-import base64
 import ctypes
-import io
 import os
 import time
 from ctypes import wintypes
@@ -109,15 +107,21 @@ def get_pixel_color(x: int, y: int) -> dict:
 
 
 @mcp.tool()
-def get_clipboard_image(save_path: str | None = None, allow_protected: bool = False) -> dict:
+def get_clipboard_image(save_path: str | None = None, allow_protected: bool = False,
+                        max_width: int = 1280, format: str = "png", quality: int = 80) -> dict:
     """Read an image currently on the clipboard (e.g. a screenshot the user copied).
 
     Args:
-        save_path: Optional PNG path to save to. If omitted, a base64 PNG is returned.
+        save_path: Optional PNG path to save to (always full resolution). If omitted, base64 is returned.
         allow_protected: Override the protected-system-root guard on save_path (default off).
+        max_width: For the base64 return only: proportionally downscale to this width (default 1280, same
+            budget as screenshot; 0 = original size). 'scale' reports the factor applied.
+        format: 'png' (default) or 'jpeg' for the base64 return; the result's 'format' says which.
+        quality: JPEG quality 1-100 (ignored for PNG).
 
     Returns:
-        dict with 'has_image', and either 'path'+size or 'image_base64', or 'files' if the clipboard
+        dict with 'has_image', and either 'path'+size or 'image_base64' (+ 'width'/'height' of the
+        returned image, 'original_width'/'original_height', 'scale', 'format'), or 'files' if the clipboard
         holds file paths instead of a bitmap.
     """
     try:
@@ -140,10 +144,11 @@ def get_clipboard_image(save_path: str | None = None, allow_protected: bool = Fa
         data.save(save_path, "PNG")
         # v1.5.1: 补 output_path(== path)供产物收割。
         return {"has_image": True, "path": os.path.abspath(save_path), "output_path": os.path.abspath(save_path), "width": width, "height": height}
-    buf = io.BytesIO()
-    data.save(buf, "PNG")
-    return {"has_image": True, "width": width, "height": height,
-            "image_base64": base64.b64encode(buf.getvalue()).decode("ascii")}
+    from ai_computer_control.utils.image import encode_with_budget
+    enc = encode_with_budget(data, max_width=max_width, fmt=format, quality=quality)
+    return {"has_image": True, "width": enc["width"], "height": enc["height"],
+            "original_width": width, "original_height": height,
+            "scale": enc["scale"], "format": enc["format"], "image_base64": enc["image"]}
 
 
 @mcp.tool(audit=True)

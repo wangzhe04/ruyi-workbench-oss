@@ -4,7 +4,7 @@ import ctypes
 import pyautogui
 
 from ai_computer_control.server import mcp
-from ai_computer_control.utils.image import encode_with_budget
+from ai_computer_control.utils.image import capture_fields, encode_with_budget, grab_screen
 
 
 @mcp.tool()
@@ -14,33 +14,49 @@ def screenshot(
     max_width: int = 1280,
     format: str = "png",
     quality: int = 80,
+    monitor: str | None = None,
 ) -> dict:
-    """Take a screenshot of the entire screen, a specific region, or a specific window.
+    """Take a screenshot of the primary screen, a specific region, a monitor, or a specific window.
+
+    Coordinates are VIRTUAL-SCREEN coordinates (the same space clicks, UIA and OCR use; a monitor
+    left of / above the primary has negative x/y). A region outside the virtual desktop returns an
+    error instead of a black image; a partly-outside one is clipped ('clipped': true).
 
     Args:
-        region: Optional region as "x,y,width,height" (e.g. "100,200,800,600").
-        window_title: Optional window title to capture a specific window.
+        region: Optional region as "x,y,width,height" (e.g. "100,200,800,600"); may lie on any monitor.
+        window_title: Optional window title (case-insensitive substring, like the other window tools)
+            to capture that window. Uses PrintWindow so a covered window is still captured, falls back to
+            a screen crop ('occluded_possible': true) if the window renders blank. A minimized window
+            returns an error with a hint to restore it (use window_screenshot to auto-restore).
         max_width: If >0, proportionally downscale the returned image to this pixel width to save
-            tokens; 0 = original size. The returned 'scale' (<1.0 when downscaled) maps a point in
-            the returned image back to physical pixels (x_screen = x_in_image / scale).
-        format: 'png' (lossless, default) or 'jpeg' (smaller; uses 'quality').
+            tokens; 0 = original size. The returned 'scale' (<1.0 when downscaled) and 'origin' map a
+            point in the returned image back to screen pixels:
+            x_screen = origin.x + x_in_image / scale (origin is {x:0,y:0} for a full primary capture).
+        format: 'png' (lossless, default) or 'jpeg' (smaller; uses 'quality'). The result's 'format' key
+            says which one the returned bytes actually are.
         quality: JPEG quality 1-100 (ignored for PNG).
+        monitor: Optional 'all' (whole virtual desktop, all monitors) or a monitor index from
+            list_monitors. Default (omitted) captures the primary monitor only. Ignored when region or
+            window_title is given.
 
     Returns:
-        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format'.
+        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format', 'origin' {x,y}; for a
+        window also 'matched_title' and 'method'. 'blank': true + 'warning'/'hint' when the frame is
+        completely black (do not trust it as "the screen is empty").
     """
     try:
         if window_title:
-            import win32gui
+            from ai_computer_control.utils import wincap
 
-            hwnd = win32gui.FindWindow(None, window_title)
-            if not hwnd:
-                return {"ok": False, "error": f"Window not found: {window_title}"}
-
-            left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-            width = right - left
-            height = bottom - top
-            img = pyautogui.screenshot(region=(left, top, width, height))
+            cap = wincap.capture_window(window_title, restore_minimized=False)
+            if not cap.get("ok"):
+                if cap.get("found") is False:
+                    cap["error"] = f"Window not found: {window_title}"
+                return cap
+            img = cap.pop("img")
+            enc = encode_with_budget(img, max_width=max_width, fmt=format, quality=quality)
+            cap.pop("window_rect", None)
+            return {"ok": True, **enc, **cap}
         elif region:
             try:
                 parts = [int(x.strip()) for x in region.split(",")]
@@ -50,12 +66,11 @@ def screenshot(
                 return {"ok": False, "error": "Region must be 'x,y,width,height'"}
             if parts[2] <= 0 or parts[3] <= 0:
                 return {"ok": False, "error": "Region width and height must be positive"}
-            img = pyautogui.screenshot(region=tuple(parts))
+            img, info = grab_screen(region=tuple(parts))
         else:
-            img = pyautogui.screenshot()
-
+            img, info = grab_screen(monitor=monitor)
         enc = encode_with_budget(img, max_width=max_width, fmt=format, quality=quality)
-        return {"ok": True, **enc}
+        return {"ok": True, **enc, **capture_fields(img, info)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
 
@@ -63,26 +78,28 @@ def screenshot(
 @mcp.tool()
 def screenshot_region(x: int, y: int, width: int, height: int,
                       max_width: int = 1280, format: str = "png", quality: int = 80) -> dict:
-    """Take a screenshot of a specific rectangular region.
+    """Take a screenshot of a specific rectangular region (virtual-screen coordinates, any monitor).
 
     Args:
-        x: Left coordinate.
+        x: Left coordinate (negative on a monitor left of the primary).
         y: Top coordinate.
         width: Width of the region.
         height: Height of the region.
         max_width: If >0, proportionally downscale the returned image to this width (0 = original).
+            Map image points back with x_screen = origin.x + x_in_image / scale.
         format: 'png' (default) or 'jpeg'.
         quality: JPEG quality 1-100 (ignored for PNG).
 
     Returns:
-        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format'.
+        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format', 'origin' {x,y}
+        (+ 'clipped' / 'blank' + 'warning' when applicable). A region outside the virtual desktop is an error.
     """
     try:
         if width <= 0 or height <= 0:
             return {"ok": False, "error": "width and height must be positive"}
-        img = pyautogui.screenshot(region=(x, y, width, height))
+        img, info = grab_screen(region=(x, y, width, height))
         enc = encode_with_budget(img, max_width=max_width, fmt=format, quality=quality)
-        return {"ok": True, **enc}
+        return {"ok": True, **enc, **capture_fields(img, info)}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
 
@@ -174,7 +191,9 @@ def find_on_screen(
 ) -> dict:
     """Find an image template on the screen using template matching.
 
-    Note: confidence matching requires OpenCV; without it, matching falls back to exact-pixel search.
+    Note: confidence matching requires OpenCV; without it, matching falls back to exact-pixel search
+    (the result then carries 'matched_exact_only': true and a 'note' - the confidence threshold was
+    NOT applied, so a scaled/anti-aliased icon will read as not found; use find_template/vision_click).
 
     Args:
         template_path: Path to the template image file to search for.
@@ -183,15 +202,20 @@ def find_on_screen(
     Returns:
         dict with 'ok', 'found' bool, and if found: 'x', 'y', 'width', 'height' of the match center.
     """
+    exact_note: dict = {}
     try:
         try:
             location = pyautogui.locateOnScreen(template_path, confidence=confidence)
         except (NotImplementedError, ValueError):
             # OpenCV missing -> confidence unsupported; retry exact match.
+            exact_note = {"matched_exact_only": True,
+                          "note": "OpenCV is unavailable, so the confidence threshold was ignored and only an "
+                                  "exact pixel match was searched; a scaled or anti-aliased template will not match."}
             location = pyautogui.locateOnScreen(template_path)
         if location:
             center = pyautogui.center(location)
             return {
+                **exact_note,
                 "ok": True,
                 "found": True,
                 "x": center.x,
@@ -205,8 +229,8 @@ def find_on_screen(
                     "height": location.height,
                 },
             }
-        return {"ok": True, "found": False}
+        return {"ok": True, "found": False, **exact_note}
     except pyautogui.ImageNotFoundException:
-        return {"ok": True, "found": False}
+        return {"ok": True, "found": False, **exact_note}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
