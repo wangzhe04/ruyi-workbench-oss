@@ -168,15 +168,21 @@ function killp(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* ignore 
       ok(e40.length === 0, '(e) no checkpoint entries for a rejected malicious archive');
     }
 
-    // ============ (f) zip bomb: entry-count over 2000 cap refused ============
+    // ============ (f) zip bomb: 体积判 —— 声明总大小超上限解压前即拒;条目多但合法的包(>2000)照常可解 ============
     {
-      // 2001 tiny empty entries — over ZIP_MAX_ENTRIES (2000).
+      // 2001 tiny empty entries —— 旧的 2000 条目上限会把它当炸弹(也拒收 archive_zip 自己的产物);现在按体积判,合法可解。
       const many = [];
       for (let i = 0; i < 2001; i++) many.push({ name: 'f' + i + '.txt', data: Buffer.from(''), isDir: false });
-      const bomb = S.zipWrite(many);
-      const bombZip = path.join(HOME, 'bomb.zip'); fs.writeFileSync(bombZip, bomb);
-      const r = await tool(WB_PORT, token, sid, 'archive_unzip', { src: bombZip, destDir: path.join(HOME, 'bombout'), turnSeq: 41 });
-      ok(r && r.ok === false && /条目数超过上限|炸弹/.test(r.error || ''), '(f) entry-count over cap refused (' + (r && r.error) + ')');
+      const manyZip = path.join(HOME, 'many.zip'); fs.writeFileSync(manyZip, S.zipWrite(many));
+      const rm = await tool(WB_PORT, token, sid, 'archive_unzip', { src: manyZip, destDir: path.join(HOME, 'manyout'), turnSeq: 41 });
+      ok(rm && rm.ok === true && rm.files === 2001, '(f) 2001 个条目的合法包可解(条目数不再是炸弹判据, got ' + JSON.stringify(rm && { ok: rm.ok, files: rm.files, error: rm.error }) + ')');
+      // 真炸弹:中央目录声明 600MB(> 500MB 上限)的小包 —— 解压前就拒。
+      const bombBuf = Buffer.from(S.zipWrite([{ name: 'a.txt', data: Buffer.from('tiny'), isDir: false }]));
+      bombBuf.writeUInt32LE(600 * 1024 * 1024, bombBuf.readUInt32LE(bombBuf.length - 22 + 16) + 24);
+      const bombZip = path.join(HOME, 'bomb.zip'); fs.writeFileSync(bombZip, bombBuf);
+      const r = await tool(WB_PORT, token, sid, 'archive_unzip', { src: bombZip, destDir: path.join(HOME, 'bombout'), turnSeq: 42 });
+      ok(r && r.ok === false && /上限|炸弹/.test((r.error || '') + (r.hint || '')), '(f) 声明体积超限的包被拒(' + (r && r.error) + ')');
+      ok(!fs.existsSync(path.join(HOME, 'bombout', 'a.txt')), '(f) 被拒的包没有落任何文件');
     }
 
     // ============ (g) http_download from fake server → saved; checkpoint create ============
