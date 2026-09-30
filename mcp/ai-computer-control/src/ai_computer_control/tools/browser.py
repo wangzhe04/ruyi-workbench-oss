@@ -56,15 +56,15 @@ def _system_open(url: str, new_tab: bool) -> None:
             # browser directly is still shell-free and gives a stronger non-destructive contract
             # than handing the URL to the generic shell association.
             flag = "-new-tab" if "firefox" in os.path.basename(executable).lower() else "--new-tab"
-            subprocess.Popen([executable, flag, url], start_new_session=True)
+            subprocess.Popen([executable, flag, url], start_new_session=True, stdin=subprocess.DEVNULL)
         else:
             # Association fallback: Windows normally opens a tab in the existing browser session,
             # but cannot provide an explicit tab-placement guarantee without its executable.
             os.startfile(url)  # type: ignore[attr-defined]
     elif sys.platform == "darwin":
-        subprocess.Popen(["open", url], start_new_session=True)
+        subprocess.Popen(["open", url], start_new_session=True, stdin=subprocess.DEVNULL)
     else:
-        subprocess.Popen(["xdg-open", url], start_new_session=True)
+        subprocess.Popen(["xdg-open", url], start_new_session=True, stdin=subprocess.DEVNULL)
 
 
 def _windows_default_browser_executable() -> str:

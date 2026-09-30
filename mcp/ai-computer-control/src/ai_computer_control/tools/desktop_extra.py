@@ -177,7 +177,7 @@ def set_clipboard_image(path: str) -> dict:
     try:
         env = dict(os.environ, WCW_CLIP_IMG=os.path.abspath(path))
         r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps],
-                           capture_output=True, text=True, timeout=15, env=env)
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, env=env)
         if r.returncode != 0:
             return {"error": (r.stderr or "powershell failed").strip()}
         return {"success": True, "path": os.path.abspath(path)}
