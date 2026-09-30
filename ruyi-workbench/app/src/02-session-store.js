@@ -877,7 +877,9 @@ function planSessionBodyAppend(entries, record) {
     try { line = JSON.stringify(entries[i]); } catch { return null; } // 不可序列化 → 全量重写兜底
     if (typeof line !== 'string') return null;                        // undefined/函数:同上(全量重写那里会拒绝落盘)
     if (i < record.count && !sessionBodyLineMatches(record, i, line)) return null; // 前缀变 → 全量重写
-    allLines[i] = line;
+    // 前缀行与记录里那一份逐字相同:沿用记录里的旧串,刚序列化出来的这份当场可回收(review:否则每次 save 都把
+    // 整份正文的新串留进下一份记录,长会话一次 12 MB 升进老生代,Mark-Compact 次数 4 → 1)。
+    allLines[i] = i < record.count && record.lines ? record.lines[i] : line;
   }
   return { appendLines: allLines.slice(record.count), allLines };
 }

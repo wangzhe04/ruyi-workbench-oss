@@ -63,7 +63,7 @@ function tokensFromTextCounts(ascii, cjk, bucket) {
 // 每个 API 迭代前都要估两遍整段历史(maybeAutoCompact 的 calibratedEstimate + lastEstBeforeCall),回合末再一遍;
 // 2000 条 / 10 MB 的会话一遍 50–150 ms(bench/token-estimate.bench.js;真机 cpu-prof 里关键字正则一项就 ~120 ms/回合),几乎全花在 countCjkCodeUnits 与 classifyTextForEstimate 上,而两次估算之间
 // 历史里绝大多数字符串一个字没变。会话每回合从盘上重读(loadSession 给新对象、新字符串),所以不能按消息对象
-// 挂 WeakMap,只能按【内容】认:Map 以字符串本身为键(SameValueZero = 逐字比较,没有哈希碰撞认错的可能)。
+// 挂 WeakMap,只能按【内容】认:命中一律逐字比对原串(没有哈希碰撞认错的可能;长串的键见下方 tokenEstimateMemoKey)。
 //   · 存原料 { cjk, bucket } 而非结果:bucket 只取决于字符串与 ESTIMATION_RULES 的阈值(进程内常量),因子在
 //     tokensFromTextCounts 里现读;开关(estimateBucketsV1On)翻转不用失效 —— 关时不看 bucket,开时缺了才补分类。
 //     calibratedEstimate 的 EMA 校准系数乘在 estimateHistoryTokens 的整数总和上,不经过这里,随时变都不受影响。
@@ -75,24 +75,41 @@ function tokensFromTextCounts(ascii, cjk, bucket) {
 const TOKEN_ESTIMATE_MEMO_MIN_CHARS = 64;
 const TOKEN_ESTIMATE_MEMO_MAX_CHARS = 24 * 1024 * 1024;
 const TOKEN_ESTIMATE_MEMO_MAX_ENTRIES = 100000;
+//   · 键:V8 只给 ≤16383 码元的字符串按内容算哈希,更长的只按长度 —— 截断到固定上限的工具输出(11 的 slice(0, 24000)、
+//     12 的 slice(0, 20000))同长,整串当键会挤进同一个桶,一次查找要与所有同长键逐个比(review 实测 1000 条同长
+//     2 万字符:热估 92 ms,反比直算 48 ms 还慢)。长串改用「长度 + 8 段各 64 字符的采样」当键(短、按内容哈希),
+//     条目里存原串,命中还要 entry.str === str 逐字确认;采样撞了但内容不同 = 未命中,覆盖旧条目。
+const TOKEN_ESTIMATE_MEMO_HASHED_CHARS = 16383;
 const tokenEstimateMemo = { map: new Map(), chars: 0 };
+function tokenEstimateMemoKey(str) {
+  const n = str.length;
+  if (n <= TOKEN_ESTIMATE_MEMO_HASHED_CHARS) return str;
+  let key = n + '\u0000';
+  for (let i = 0; i < 8; i++) { const at = Math.floor((n - 64) * i / 7); key += str.slice(at, at + 64); }
+  return key;
+}
 function tokenEstimateMemoEntry(str) {
   const memo = tokenEstimateMemo;
-  let entry = memo.map.get(str);
+  const key = tokenEstimateMemoKey(str);
+  let entry = memo.map.get(key);
   if (entry) {
-    memo.map.delete(str);
-    memo.map.set(str, entry);
-    return entry;
+    memo.map.delete(key);
+    if (entry.str === str) {
+      entry.str = str; // 换成本次传入的那份,重读前的旧副本可回收
+      memo.map.set(key, entry);
+      return entry;
+    }
+    memo.chars -= entry.str.length; // 采样撞了、内容不同:丢掉旧条目,按未命中重算
   }
-  entry = { cjk: countCjkCodeUnits(str), bucket: undefined };
+  entry = { str, cjk: countCjkCodeUnits(str), bucket: undefined };
   if (str.length > TOKEN_ESTIMATE_MEMO_MAX_CHARS) return entry; // 单条就超总量:这次用、不进表
-  memo.map.set(str, entry);
+  memo.map.set(key, entry);
   memo.chars += str.length;
   if (memo.chars > TOKEN_ESTIMATE_MEMO_MAX_CHARS || memo.map.size > TOKEN_ESTIMATE_MEMO_MAX_ENTRIES) {
-    for (const key of memo.map.keys()) {
-      if (key === str || (memo.chars <= TOKEN_ESTIMATE_MEMO_MAX_CHARS && memo.map.size <= TOKEN_ESTIMATE_MEMO_MAX_ENTRIES)) break;
-      memo.map.delete(key);
-      memo.chars -= key.length;
+    for (const [oldKey, old] of memo.map) {
+      if (oldKey === key || (memo.chars <= TOKEN_ESTIMATE_MEMO_MAX_CHARS && memo.map.size <= TOKEN_ESTIMATE_MEMO_MAX_ENTRIES)) break;
+      memo.map.delete(oldKey);
+      memo.chars -= old.str.length;
     }
   }
   return entry;

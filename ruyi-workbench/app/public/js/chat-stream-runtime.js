@@ -310,7 +310,9 @@ export function createChatStreamRuntime(deps = {}) {
     if (!turn || !line || !line.trim()) return;
     // raw_line is already available in the debug stream and can be extremely large; the visible
     // progress replay only needs normalized events.
-    try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; }
+    // 只有提到 "raw_line" 的行才值得整行解析去认它(大块 tool_result 行不再为这一问多 parse 一遍);
+    // 其余行即使不是合法 JSON 也无妨 —— 重放时解析失败的行本就跳过。
+    if (line.includes('"raw_line"')) { try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; } }
     turn.eventLines.push(line); turn.eventChars += line.length;
     turn.eventHead = Number(turn.eventHead) || 0;
     while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length - turn.eventHead > 1) {
@@ -323,7 +325,9 @@ export function createChatStreamRuntime(deps = {}) {
       turn.eventHead = 0;
     }
   }
+  const BACKGROUND_PROMPT_EVENT_RE = /"(?:ask_user|permission_request|permission_decision|question_answer)"/;
   function surfaceBackgroundQuestion(line, sessionId) {
+    if (!BACKGROUND_PROMPT_EVENT_RE.test(line)) return; // 后台回合的每一行都过这里:不是这四类就不整行解析
     let evt; try { evt = JSON.parse(line); } catch { return; }
     if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId, evt.context || '', Number(evt.deadlineAt) || 0);
     // 135:后台线程的权限申请修前只能等你切过去、或在 120 s 后被自动拒绝;现在同样进「等你处理」队列。

@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3129,
+    "providedSymbols": 3131,
     "requiredSymbols": 2938,
     "edges": 512,
     "forwardEdges": 68,
@@ -7723,6 +7723,7 @@
         "ESTIMATE_CHAR_CLASS",
         "ESTIMATE_KEYWORD_RE",
         "EVAPORATED_PREFIX",
+        "TOKEN_ESTIMATE_MEMO_HASHED_CHARS",
         "TOKEN_ESTIMATE_MEMO_MAX_CHARS",
         "TOKEN_ESTIMATE_MEMO_MAX_ENTRIES",
         "TOKEN_ESTIMATE_MEMO_MIN_CHARS",
@@ -7740,6 +7741,7 @@
         "setEstimateBucketsV1",
         "tokenEstimateMemo",
         "tokenEstimateMemoEntry",
+        "tokenEstimateMemoKey",
         "tokensFromTextCounts"
       ],
       "requires": [

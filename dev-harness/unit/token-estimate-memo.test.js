@@ -102,7 +102,8 @@ const toolSchema = functionBlock(source, 'estimateToolSchemaTokens');
 function loadCluster() {
   const ctx = vm.createContext({ ESTIMATION_RULES: RULES });
   vm.runInContext(cluster + '\n' + toolSchema + '\n'
-    + 'globalThis.__memo = () => (typeof tokenEstimateMemo === "undefined" ? null : tokenEstimateMemo);', ctx);
+    + 'globalThis.__memo = () => (typeof tokenEstimateMemo === "undefined" ? null : tokenEstimateMemo);'
+    + 'globalThis.__memoHas = s => (typeof tokenEstimateMemoKey === "function" ? tokenEstimateMemo.map.get(tokenEstimateMemoKey(s))?.str === s : tokenEstimateMemo.map.has(s));', ctx);
   const calls = { classify: [], cjk: [] };
   const realClassify = ctx.classifyTextForEstimate, realCjk = ctx.countCjkCodeUnits;
   ctx.classifyTextForEstimate = s => { calls.classify.push(s); return realClassify(s); };
@@ -351,11 +352,37 @@ test('[M7] 有界:超字符上限从最久未用端淘汰,估算照旧逐位相�
   for (let i = 0; i < 30; i++) {
     assert.ok(Object.is(ctx.estimateTextTokensMemo(big(i)), oracleText(big(i), true)));
     if (i % 5 === 0) ctx.estimateTextTokensMemo(kept); // 常用的那条一直被摸,不该被淘汰
-    let sum = 0; for (const k of memo.map.keys()) sum += k.length;
+    let sum = 0; for (const e of memo.map.values()) sum += e.str.length;
     assert.equal(sum, memo.chars, '字符账与表内一致');
     assert.ok(memo.chars <= 24 * MB, `字符总数不超上限 (${memo.chars})`);
   }
-  assert.ok(memo.map.has(kept), '最近用过的留在表里');
-  assert.ok(!memo.map.has(big(1)), '最久未用的被淘汰');
+  assert.ok(ctx.__memoHas(kept), '最近用过的留在表里');
+  assert.ok(!ctx.__memoHas(big(1)), '最久未用的被淘汰');
   assert.ok(Object.is(ctx.estimateTextTokensMemo(big(1)), oracleText(big(1), true)), '淘汰后重算照旧逐位相同');
+});
+
+// review(round 4):V8 对 >16383 码元的字符串只按长度哈希。同长长串(截断到固定上限的工具输出)若整串当键会挤进同一桶,
+// 热估反比直算慢。判据用计数而非计时:同长、只在尾部不同的一批长串,热估零重算,且采样撞键的两串互不认错。
+test('[M8] 同长长串:按采样键分桶,命中逐字确认;采样撞键不认错', () => {
+  const { ctx, calls, reset } = loadCluster();
+  ctx.setEstimateBucketsV1(true);
+  const L = 20000;
+  const strs = Array.from({ length: 300 }, (_, i) => ('const x = ' + i + ';\n').repeat(3000).slice(0, L - 8) + String(i).padStart(8, '0'));
+  assert.ok(strs.every(s => s.length === L));
+  const cold = strs.map(s => ctx.estimateTextTokensMemo(s));
+  reset();
+  const warm = strs.map(s => ctx.estimateTextTokensMemo(s.split('').join('')));  // 新字符串对象、内容相同(模拟重读)
+  assert.deepEqual(warm, cold);
+  assert.equal(calls.cjk.length + calls.classify.length, 0, '热估零重算');
+  assert.ok(warm.every((v, i) => Object.is(v, oracleText(strs[i], true))), '与原版逐位相同');
+  // 采样撞键:两串长度与 8 段采样全同,只在采样缝隙里差一个字
+  const base = 'a'.repeat(L);
+  const twin = base.slice(0, 100) + '中' + base.slice(101);
+  assert.equal(ctx.tokenEstimateMemoKey(base), ctx.tokenEstimateMemoKey(twin), '前提:采样键相同');
+  assert.ok(Object.is(ctx.estimateTextTokensMemo(base), oracleText(base, true)));
+  assert.ok(Object.is(ctx.estimateTextTokensMemo(twin), oracleText(twin, true)), '撞键的另一串按自己的内容算');
+  assert.ok(Object.is(ctx.estimateTextTokensMemo(base), oracleText(base, true)), '换回来仍按自己的内容算');
+  const memo = ctx.__memo();
+  let sum = 0; for (const e of memo.map.values()) sum += e.str.length;
+  assert.equal(sum, memo.chars, '字符账与表内一致');
 });

@@ -7633,6 +7633,7 @@
         "ESTIMATE_CHAR_CLASS",
         "ESTIMATE_KEYWORD_RE",
         "EVAPORATED_PREFIX",
+        "TOKEN_ESTIMATE_MEMO_HASHED_CHARS",
         "TOKEN_ESTIMATE_MEMO_MAX_CHARS",
         "TOKEN_ESTIMATE_MEMO_MAX_ENTRIES",
         "TOKEN_ESTIMATE_MEMO_MIN_CHARS",
@@ -7650,6 +7651,7 @@
         "setEstimateBucketsV1",
         "tokenEstimateMemo",
         "tokenEstimateMemoEntry",
+        "tokenEstimateMemoKey",
         "tokensFromTextCounts"
       ],
       "requires": [
