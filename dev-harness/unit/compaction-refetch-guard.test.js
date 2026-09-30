@@ -5,13 +5,15 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('vm');
 const { readServerSource } = require('../src-reader');
-const { sliceBlock } = require('../lib/source-slice');
+const { sliceBlock, constBlock, functionBlock } = require('../lib/source-slice');
 
 const source = readServerSource();
 const block = sliceBlock(source, '// ── 压缩后重取守卫(回合内)', '// True shadow evaluation for 20-C1');
+// 工具档位用真表(07 NATIVE_TOOL_TIER + nativeToolTier),不另写一份假的
+const tierBlock = constBlock(source, 'NATIVE_TOOL_TIER') + '\n' + functionBlock(source, 'nativeToolTier');
 function load() {
   const ctx = vm.createContext({ EVAPORATED_PREFIX: '[已省略:' });
-  vm.runInContext(block + '\nglobalThis.__limits = COMPACTION_REFETCH_LIMITS;', ctx);
+  vm.runInContext(tierBlock + '\n' + block + '\nglobalThis.__limits = COMPACTION_REFETCH_LIMITS;', ctx);
   return ctx;
 }
 const call = (id, name, args) => ({ id, type: 'function', function: { name, arguments: JSON.stringify(args) } });
@@ -87,4 +89,38 @@ test('[R5] 每回合配额的回合键:优先 turnSeq(压缩改 user 条数不�
   assert.notEqual(providerTurnQuotaKey({ ...before, turnSeq: 8 }), providerTurnQuotaKey(before));
   assert.equal(providerTurnQuotaKey({ providerHistory: [{ role: 'user' }, { role: 'user' }] }), 'u2');
   assert.equal(providerTurnQuotaKey(null), 'u0');
+});
+
+test('[R6] 只数内容型读取:结果会随状态变的调用(跑测试、git_status、截图、agent_result)重复多少次都不算重取', () => {
+  const ctx = load();
+  const check = ctx.createCompactionRefetchGuard();
+  const gone = [{ role: 'user', content: '【压缩摘要】…' }, { role: 'assistant', content: '收到' }];
+  const npmTest = JSON.stringify({ command: 'npm test' });
+  for (let i = 0; i < 6; i++) assert.equal(check(gone, 'shell_exec', npmTest).action, '', `第 ${i + 1} 次 npm test 照常执行`);
+  for (const [name, args] of [['git_status', '{}'], ['todo_write', '{"todos":[]}'], ['agent_result', '{"runId":"r1"}'], ['wait_agents', '{}']]) {
+    for (let i = 0; i < 5; i++) assert.equal(check(gone, name, args).action, '', `${name} 不计`);
+  }
+  // 桥接(MCP)工具:档位未知 → 按 exec,既不计也会清零
+  for (let i = 0; i < 5; i++) assert.equal(check(gone, 'acc__screenshot', '{}').action, '');
+});
+
+test('[R7] 本回合有非 read 档的调用(改文件、跑命令、桥接工具)就清零:改完再读是新信息,不是重取;纯 A/B 来回照样抓', () => {
+  const ctx = load();
+  const check = ctx.createCompactionRefetchGuard();
+  const gone = [{ role: 'user', content: '【压缩摘要】…' }, { role: 'assistant', content: '收到' }];
+  // 边改边读(review 复现的场景):读 → 压掉 → 改 → 读 …… 每一轮中间都有 file_edit,永远不提醒、不拒绝
+  for (let i = 0; i < 6; i++) {
+    assert.equal(check(gone, 'file_read', READ_A).action, '', `第 ${i + 1} 次核对读取照常`);
+    check(gone, 'file_edit', JSON.stringify({ path: 'a.txt', old: 'x', new: 'y' }));
+  }
+  // 清零之后从头计:第一次算「首次见到」,之后依次 无 → 提醒 → 拒绝
+  check(gone, 'shell_exec', JSON.stringify({ command: 'npm run build' }));
+  assert.equal(check(gone, 'file_read', READ_A).action, '');
+  assert.equal(check(gone, 'file_read', READ_A).action, '');
+  assert.equal(check(gone, 'file_read', READ_A).action, 'warn');
+  assert.equal(check(gone, 'file_read', READ_A).action, 'refuse');
+  // 被拒后一次写动作解除拒绝
+  check(gone, 'file_write', JSON.stringify({ path: 'a.txt', content: 'z' }));
+  assert.equal(check(gone, 'file_read', READ_A).action, '');
+  assert.equal(check(gone, 'file_read', READ_A).action, '', '清零后第一次重取不提醒');
 });

@@ -791,7 +791,16 @@ function evaporateHistory(history, opts) {
 // 完整结果(被 L1 缩减/蒸发、或被 L2 重播种整段换掉)时再调一次 = 一次「压缩后重取」。同一签名第 WARN_AT 次提醒模型
 // 先记要点或缩小范围,第 REFUSE_AT 次起不执行、回一条说明(配对照常)。被拒后原样重试仍算重取、仍被拒,
 // 再连击就交给同签名连击守卫收尾 —— 所以任何签名的抖动都有界。换参数(缩小范围)是新签名,照常执行。
+// 「同参数 = 同内容」只对内容型读取成立(review:按全体工具算时,边改边测里第 4 次 `npm test` 会被当成重取拒掉;
+// 改完文件再读一遍核对、git_status、截图也一样)。所以:① 只数 COMPACTION_REFETCH_TOOLS 里这些内容型读取;
+// ② 本回合一旦有非 read 档的调用(改文件、跑命令、外部 MCP 工具……)就整张表清零 —— 世界可能变了,再读是新信息。
+// 纯粹的 A、B 来回重读中间没有任何写动作,照样抓得到。
 const COMPACTION_REFETCH_LIMITS = Object.freeze({ WARN_AT: 2, REFUSE_AT: 3 });
+const COMPACTION_REFETCH_TOOLS = new Set([
+  'file_read', 'file_list', 'file_search', 'glob', 'docs_search', 'codebase_symbol_search', 'project_snapshot',
+  'dependency_inventory', 'git_log', 'web_fetch', 'web_search', 'skill_read', 'workbench_memory_read', 'observation_recall',
+  'steward_file_read', 'steward_web_fetch', 'steward_web_search', 'steward_thread_read', 'steward_thread_artifact_read',
+]);
 const COMPACTION_REFETCH_REFUSED = 'compaction_refetch_refused';
 // 这条工具消息还是不是完整结果:蒸发占位、缩减视图(文本头尾版 / 结构化版)、本守卫自己的拒绝都不算。
 // 结构化缩减视图的判据带着未转义的引号 —— 工具结果里若只是【正文】含这几个字(比如读到本文件),
@@ -823,12 +832,16 @@ function historyHasFullToolResult(history, name, rawArgs) {
   }
   return false;
 }
-// 每个回合(主回合 / 子回合)建一个;check 在执行前调,返回 { count, action: '' | 'warn' | 'refuse' }。
+// 每个回合(主回合 / 子回合)建一个;check 在执行前对每个调用都调(清零要看到非 read 档的调用),
+// 返回 { count, action: '' | 'warn' | 'refuse' }。
 function createCompactionRefetchGuard() {
   const seen = new Set();
   const counts = new Map();
   return function check(history, name, rawArgs) {
-    const sig = String(name) + ' ' + String(rawArgs == null ? '' : rawArgs);
+    const bare = String(name || '');
+    if (nativeToolTier(bare) !== 'read') { seen.clear(); counts.clear(); return { count: 0, action: '' }; } // 桥接工具不在表里 → exec → 清零
+    if (!COMPACTION_REFETCH_TOOLS.has(bare)) return { count: 0, action: '' };
+    const sig = bare + ' ' + String(rawArgs == null ? '' : rawArgs);
     if (!seen.has(sig)) { seen.add(sig); return { count: 0, action: '' }; }
     if (historyHasFullToolResult(history, name, rawArgs)) return { count: counts.get(sig) || 0, action: '' };
     const count = (counts.get(sig) || 0) + 1;

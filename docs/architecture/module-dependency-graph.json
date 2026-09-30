@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3139,
-    "requiredSymbols": 2946,
+    "providedSymbols": 3140,
+    "requiredSymbols": 2947,
     "edges": 513,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -9371,6 +9371,7 @@
       "provides": [
         "COMPACTION_REFETCH_LIMITS",
         "COMPACTION_REFETCH_REFUSED",
+        "COMPACTION_REFETCH_TOOLS",
         "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
@@ -10038,6 +10039,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
           "kinds": [
             "call"
           ]
@@ -27114,7 +27122,8 @@
       "from": "10-context-governance.js",
       "to": "07-autonomy.js",
       "symbols": [
-        "fetchOpenAiModels"
+        "fetchOpenAiModels",
+        "nativeToolTier"
       ],
       "direction": "backward"
     },

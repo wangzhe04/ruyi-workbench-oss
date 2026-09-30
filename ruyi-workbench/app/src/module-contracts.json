@@ -9277,6 +9277,7 @@
       "provides": [
         "COMPACTION_REFETCH_LIMITS",
         "COMPACTION_REFETCH_REFUSED",
+        "COMPACTION_REFETCH_TOOLS",
         "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
@@ -9944,6 +9945,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
           "kinds": [
             "call"
           ]
