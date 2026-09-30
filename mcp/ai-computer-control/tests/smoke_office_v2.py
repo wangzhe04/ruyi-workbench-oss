@@ -319,6 +319,108 @@ e.winerror = 32
 check("io_failure maps winerror 32 OSError", office_io.io_failure(e, "a.xlsx").get("code") == "file_locked")
 check("plain error keeps its text", office_io.io_failure(ValueError("boom"), "a").get("error") == "boom")
 
+print("# review round: markup / excel / pptx / replace retry")
+B = {"bold": True}
+check("one-char bold runs: **A** 或 **B**",
+      office_markup.parse_inline("选项 **A** 或 **B**") == [("选项 ", {}), ("A", B), (" 或 ", {}), ("B", B)],
+      office_markup.parse_inline("选项 **A** 或 **B**"))
+check("one-char bold runs: **是**和**否**",
+      office_markup.parse_inline("**是**和**否**") == [("是", B), ("和", {}), ("否", B)])
+check("one-char __bold__ runs", office_markup.parse_inline("__a__ and __b__") == [("a", B), (" and ", {}), ("b", B)])
+check("multi-char bold unchanged", office_markup.parse_inline("**bold text** ok") == [("bold text", B), (" ok", {})])
+fence_blocks = office_markup.parse_blocks("````md\n```py\nx\n```\n````\nafter")
+check("4-backtick fence keeps inner ``` lines as code",
+      fence_blocks[0] == ("code", ["```py", "x", "```"]) and fence_blocks[1] == ("para", "after"), fence_blocks)
+check("'- - -' / '* * *' are rules, '- a' is a bullet",
+      [b[0] for b in office_markup.parse_blocks("- - -\n* * *\n- a")] == ["rule", "rule", "bullet"])
+t0 = time.time()
+office_markup.parse_inline("`" * 20000)
+office_markup.parse_inline("`" * 20000 + "x")
+check("inline code regex is linear on a long backtick run", time.time() - t0 < 2, f"{time.time() - t0:.1f}s")
+check("code spans still parse", office_markup.parse_inline("`a` and ``b`c``") ==
+      [("a", {"code": True}), (" and ", {}), ("b`c", {"code": True})])
+
+xl = root / "hazards.xlsx"
+hz = ["inf", "-Infinity", "1e999", "nan", "2024_01", "3,14", "1,2,3", "=== 汇总 ===", "= 说明", "bell\x07x\x1b[0m", "1,234.5", "12%"]
+r = tools["write_excel"](str(xl), [[v] for v in hz] + [["=SUM(1,2)"], [5000]], headers=["h\x07"])
+check("write_excel survives inf / 1e999 / nan / control chars", r.get("success") is True, r)
+if r.get("success"):
+    ws = load_workbook(xl).active
+    vals = [ws.cell(row=i, column=1) for i in range(2, 2 + len(hz) + 2)]
+    check("non-finite numeric strings stay text", [c.value for c in vals[:4]] == ["inf", "-Infinity", "1e999", "nan"]
+          and all(c.data_type == "s" for c in vals[:4]), [(c.value, c.data_type) for c in vals[:4]])
+    check("'2024_01' / '3,14' / '1,2,3' are not coerced to numbers",
+          [c.value for c in vals[4:7]] == ["2024_01", "3,14", "1,2,3"], [c.value for c in vals[4:7]])
+    check("'=== 汇总 ===' / '= 说明' are text, '=SUM(1,2)' is still a formula",
+          vals[7].data_type == "s" and vals[8].data_type == "s" and vals[12].data_type == "f",
+          [(c.value, c.data_type) for c in vals[7:13]])
+    check("control characters are stripped per cell", vals[9].value == "bellx[0m" and ws["A1"].value == "h", vals[9].value)
+    check("real thousands / percent strings still become numbers", vals[10].value == 1234.5 and vals[11].value == 0.12,
+          (vals[10].value, vals[11].value))
+
+from pptx import Presentation  # noqa: E402
+pp = root / "wide.pptx"
+r = tools["write_pptx"](str(pp), [{"type": "title", "title": "T"},
+                                  {"type": "table", "title": "宽表", "headers": ["a", "b"],
+                                   "rows": [["1", "2", "3"], ["4"], ["5", "6"]]}])
+check("write_pptx table rows wider than headers do not crash", r.get("success") is True, r)
+if r.get("success"):
+    tbl = [sh.table for sl in Presentation(pp).slides for sh in sl.shapes if sh.has_table][0]
+    check("wide rows are truncated to the header width, short rows padded",
+          len(tbl.columns) == 2 and [c.text for c in tbl.rows[1].cells] == ["1", "2"]
+          and [c.text for c in tbl.rows[2].cells] == ["4", ""], [[c.text for c in row.cells] for row in tbl.rows])
+    check("the truncation is reported", bool(r.get("warnings")), r)
+
+import errno as _errno  # noqa: E402
+real_replace = os.replace
+attempts = {"n": 0, "fail": 2}
+
+
+def flaky_replace(src, dst):
+    attempts["n"] += 1
+    if attempts["fail"] > 0:
+        attempts["fail"] -= 1
+        err = PermissionError(_errno.EACCES, "sharing violation")
+        err.winerror = 32
+        raise err
+    return real_replace(src, dst)
+
+
+target = root / "retry.bin"
+os.replace = flaky_replace
+slept = []
+real_sleep = office_io.time.sleep
+office_io.time.sleep = lambda sec: slept.append(sec)
+try:
+    office_io.atomic_save(str(target), lambda tmp: open(tmp, "wb").write(b"ok"))
+    check("atomic_save retries a transient WinError 32 and succeeds", target.read_bytes() == b"ok" and attempts["n"] == 3, attempts)
+    check("retry backs off briefly", 0 < sum(slept) < 1.5, slept)
+    attempts.update(n=0, fail=99)
+    try:
+        office_io.atomic_save(str(target), lambda tmp: open(tmp, "wb").write(b"new"))
+        raised = None
+    except PermissionError as err:
+        raised = err
+    check("a persistent lock still surfaces (then maps to file_locked)",
+          raised is not None and attempts["n"] == 6 and office_io.io_failure(raised, str(target)).get("code") == "file_locked"
+          and target.read_bytes() == b"ok", attempts)
+    check("no orphan temp file after the failure", not [n for n in os.listdir(root) if n.startswith(".ruyi-")])
+    plain = PermissionError(_errno.EACCES, "read-only")      # no winerror: not transient, no retry
+    calls = []
+
+    def always_plain(s_, d_):
+        calls.append(1)
+        raise plain
+    os.replace = always_plain
+    try:
+        office_io.replace_with_retry("a", "b")
+    except PermissionError:
+        pass
+    check("a PermissionError without a sharing-violation winerror is not retried", len(calls) == 1, calls)
+finally:
+    os.replace = real_replace
+    office_io.time.sleep = real_sleep
+
 print("# lazy heavy imports")
 code = ("import sys, os, tempfile\n"
         "os.environ['WCW_DATA_DIR']=tempfile.mkdtemp()\n"

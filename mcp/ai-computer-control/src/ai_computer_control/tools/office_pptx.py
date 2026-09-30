@@ -384,6 +384,7 @@ def write_pptx(
         # ESTIMATED wrapped height with column widths weighted by content.
         source_slides = len(slides)
         paginated = []
+        dropped_cells = 0
         for spec in slides:
             stype = str(spec.get('type', '')).lower()
             values = spec.get('bullets') if stype == 'content' else spec.get('rows')
@@ -397,6 +398,12 @@ def write_pptx(
             elif (stype == 'table' and isinstance(values, list) and values
                   and isinstance(spec.get('headers'), list) and spec.get('headers')
                   and all(isinstance(r, list) for r in values)):
+                # rows wider than the headers are cut to the header count (shorter rows are padded) BEFORE
+                # planning: the planner indexes column widths by cell index.
+                n_hdr = len(spec['headers'])
+                if any(len(r) > n_hdr for r in values):
+                    dropped_cells += sum(max(0, len(r) - n_hdr) for r in values)
+                values = [(list(r) + [""] * n_hdr)[:n_hdr] for r in values]
                 plan = _plan_table(spec['headers'], values)
                 k = len(plan['chunks'])
                 for idx, chunk in enumerate(plan['chunks'], 1):
@@ -624,6 +631,7 @@ def write_pptx(
             "paginated": len(slides) > source_slides,
             "visual_review_required": True,
             "style": resolved_style,
+            **({"warnings": [f"{dropped_cells} 个表格单元格超出表头列数,已被截掉(请补全 headers)"]} if dropped_cells else {}),
         }
     except Exception as e:  # noqa: BLE001
         return office_io.io_failure(e, path, prefix="PPTX 生成失败：")
