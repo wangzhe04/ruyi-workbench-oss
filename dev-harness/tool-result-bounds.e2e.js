@@ -110,7 +110,9 @@ try {
     ok(modelSaw && modelSaw.code === 3 && modelSaw.stderr && /fatal stderr/.test(modelSaw.stderr) && modelSaw.timedOut === false,
       'A3 模型视图保留 code / stderr / timedOut(修前全被切掉)');
     ok(modelSaw && /ERROR at end/.test(modelSaw.stdout || ''), 'A4 模型视图保留 stdout 末尾的 ERROR 行(尾部窗口)');
-    ok(modelSaw && modelSaw._truncated && !/offset\/limit/.test(modelSaw._truncated.hint) && /file_read/.test(modelSaw._truncated.hint),
+    // 两层都可能给提示:runProcess 源头整形(stdoutOmitted + hint)已把结果压到上限内时,通用层不再触发(无 _truncated)。
+    const recoveryHint = modelSaw && ((modelSaw._truncated && modelSaw._truncated.hint) || (modelSaw.stdoutOmitted > 0 && modelSaw.hint)) || '';
+    ok(recoveryHint && !/offset\/limit/.test(recoveryHint) && /file_read/.test(recoveryHint),
       'A5 恢复提示按工具给(重定向到文件 + file_read),不再点名 offset/limit');
 
     const tr = evs.find(e => e.type === 'tool_result' && e.id === 'o1');
@@ -140,7 +142,9 @@ try {
     const reqs = scnRequests('B');
     const toolMsg = reqs[reqs.length - 1].messages.filter(m => m.role === 'tool').map(m => contentText(m.content))[0] || '';
     let modelSaw = null; try { modelSaw = JSON.parse(toolMsg); } catch { /* not json */ }
-    ok(modelSaw && modelSaw.content.startsWith('HEAD-') && modelSaw._truncated && /offset/.test(modelSaw._truncated.hint), 'B4 模型视图:file_read 头部在,提示指向 offset');
+    // file_read 自己的默认上限已落在模型上限内时,续读信息由它自带(truncated + nextOffset + hint),通用层不再触发。
+    ok(modelSaw && modelSaw.content.startsWith('HEAD-') && ((modelSaw._truncated && /offset/.test(modelSaw._truncated.hint))
+      || (modelSaw.truncated === true && Number.isFinite(modelSaw.nextOffset) && /offset/i.test(String(modelSaw.hint || '')))), 'B4 模型视图:file_read 头部在,提示指向 offset');
     ok(toolMsg.length <= 60000 && toolMsg.length >= 40000, `B5 file_read 模型视图 ≈ 头 40K + 尾 8K(实得 ${toolMsg.length})`);
   }
 } catch (e) {
