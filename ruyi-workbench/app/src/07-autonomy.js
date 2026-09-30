@@ -406,7 +406,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   agents: 'sub-agents and workflow orchestration',
   skills: 'read enabled skill instructions',
   integrations: 'inspect and configure MCP connectors and browser targets',
-  memory: 'cross-session memory read/write/search (memory_save/read/list/delete)',
+  memory: 'Workbench Memory maintenance: propose relations between memories, revise a confirmed memory, revoke a relation (plus external memory_save/read/list/delete)',
   thinking: 'step-by-step reasoning chains and sequential thinking',
   // 116c: 管家专属包。只对 kind==='steward' 的会话 offer(四个 offer 面各自门控),普通会话永不进入。
   steward: 'workbench steward: observe threads, delegate work, decide pending items and keep steward memory',
@@ -414,7 +414,9 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
-  workbench_memory_relation_propose: 'core', workbench_memory_revise: 'core', workbench_memory_relation_revoke: 'core',
+  // N8: 三个记忆维护工具(关系边提议/修订/撤销边,合计 ≈3.1K 字符)很少用,不必每回合都带:归 memory 包,
+  // 用户话里提到记忆/修订/关系时 classifyToolPacks 自动装载;没装时仍可 tool_load({packs:['memory']}) 或 tool_invoke_read 调用。
+  workbench_memory_relation_propose: 'memory', workbench_memory_revise: 'memory', workbench_memory_relation_revoke: 'memory',
   observation_recall: 'core', workbench_self_status: 'core', // 108c: core 常驻,不依赖 classifyToolPacks 意图分类
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
@@ -556,7 +558,7 @@ function classifyToolPacks(message, attachments) {
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
   if (/(技能|skill)/i.test(s)) add('skills');
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
-  if (/(记住|记忆|偏好|以后别忘|remember|memorize|preference|recall)/i.test(s)) add('memory');
+  if (/(记住|记忆|偏好|以后别忘|修订记忆|更正记忆|过时|关系边|remember|memorize|memory|memories|preference|recall|outdated|supersede|contradict)/i.test(s)) add('memory');
   if (/(思考|推理|分析|对比|决策|规划|方案|权衡|think|reason|analy|compare|decide|plan|strateg)/i.test(s)) add('thinking');
   return [...packs];
 }

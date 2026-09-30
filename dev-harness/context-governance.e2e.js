@@ -149,10 +149,16 @@ const trm = src.match(/const IMG_B64_TRIM_RE = ([^\n]+);/);
 const tm = src.match(/function truncateToolResult\(name, jsonStr\) \{\n[\s\S]*?\n\}/);
 ok(!!trm && !!tm, 'A2 源抽取 truncateToolResult + IMG_B64_TRIM_RE');
 const IMG_B64_TRIM_RE = trm ? eval('(' + trm[1] + ')') : null;
+// N2:truncateToolResult 改为结构感知后依赖 10 里 TOOL-RESULT-SHRINK 区间(纯函数+常量)与 09d 的 CJK 计数/估算公式 ——
+// 区间整段随函数一起抽出并跑(区间自带 4 个常量,故不再注入 TOOL_RESULT_CAP 等)。
+const shrinkRegion = src.slice(src.indexOf('// <<TOOL-RESULT-SHRINK BEGIN'), src.indexOf('// >>TOOL-RESULT-SHRINK END'));
+ok(shrinkRegion.length > 500, 'A2 源抽取 TOOL-RESULT-SHRINK 区间');
+const cjkFn = src.match(/function countCjkCodeUnits\(str\) \{\n[\s\S]*?\n\}/);
+const tokFn = src.match(/function tokensFromTextCounts\(ascii, cjk, bucket\) \{\n[\s\S]*?\n\}/);
 const truncateToolResult = new Function(
-  'TOOL_RESULT_CAP', 'FILE_READ_HEAD', 'FILE_READ_TAIL', 'IMG_B64_TRIM_RE',
-  tm[0] + '\nreturn truncateToolResult;'
-)(60000, 2000, 8000, IMG_B64_TRIM_RE);
+  'ESTIMATION_RULES',
+  cjkFn[0] + '\n' + tokFn[0] + '\n' + shrinkRegion + '\n' + tm[0] + '\nreturn truncateToolResult;'
+)({ factors: { json: 3.6, code: 3.6 } });
 
 const cfg = { autoCompactThreshold: 0.8 }; // budget = 0.8 × 1000 = 800 token
 const prov = { id: '__context_governance_fixture__', model: 'm', contextWindow: 1000 };

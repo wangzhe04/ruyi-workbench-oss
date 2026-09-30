@@ -1919,6 +1919,7 @@ function buildVolatileParts(provider, tools, caps, config, projectMemory, skillE
     lines.push(getPromptPack(config && config.locale).memoryCoreGuide({
       list: 'workbench_memory_list', read: 'workbench_memory_read', propose: 'workbench_memory_propose',
       relationPropose: 'workbench_memory_relation_propose', revise: 'workbench_memory_revise', relationRevoke: 'workbench_memory_relation_revoke',
+      lazyMaintenance: !(config && config.toolLoadingMode === 'full'), // N8: 三个维护工具在 memory 包,按需装载
     }));
   }
   // [ACC 序列思维工具引导] — 当 sequential_thinking 在工具列表中时，注入使用指引
