@@ -1772,7 +1772,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai',
       providerId: provider.id, model, iteration, toolCallId: tc.id, toolName: tc.name,
       disposition, durationMs: startedAt ? Date.now() - startedAt : 0,
-      result: AgentLoopHooks.summarizeAgentLoopToolResult(result),
+      // N3: 没有任何 hook 注册时没人读这份摘要 —— 它要把整个结果序列化一遍算 bytes(2MB 结果 ≈15ms),不算了。
+      result: AgentLoopHooks.listAgentLoopHooks().length ? AgentLoopHooks.summarizeAgentLoopToolResult(result) : undefined,
     });
     if (config.runtimeFailureTelemetryV1 === true || config.runtimeOptimizationShadowV1 === true) {
       try {
@@ -2047,7 +2048,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     else if (typeof resultObj.text === 'string') text = resultObj.text;
     else if (typeof resultObj.output === 'string') text = resultObj.output;
     else if (typeof resultObj.result === 'string') text = resultObj.result;
-    else text = JSON.stringify(resultObj).slice(0, 500);
+    else {
+      // N3: 只要前 500 个字符 —— 顶层字符串先截到 500 再序列化,前 500 个输出字符与整体序列化逐字节相同(转义只会变长),
+      // 但不必给 240KB–2MB 的 stdout 白白序列化一遍。
+      const clipped = {};
+      for (const k of Object.keys(resultObj)) { const v = resultObj[k]; clipped[k] = typeof v === 'string' && v.length > 500 ? v.slice(0, 500) : v; }
+      text = JSON.stringify(clipped).slice(0, 500);
+    }
     text = String(text).replace(/\s+/g, ' ').trim();
     if (!text) return null;
     return toolName + '|' + text.length + '|' + text.slice(0, 200);
@@ -2766,8 +2773,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
-            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
-            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+            const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj); // N3: 展示副本(agent_result 等可能很大)
+            onEvent({ type: 'tool_result', id: tc.id, content: shownAgentResult, isError: isErr });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownAgentResult });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             markToolProgress(tc, resultObj, iter);
             await notifyToolHookEnd(tc, resultObj, iter, 'agent_orchestration');
@@ -2947,8 +2955,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
-          onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr });
-          toolCalls.push({ id: tc.id, name: tc.name, input: args, result: resultObj });
+          // N3: 只有 providerHistory 那份是有界的;SSE 事件与落盘的 toolCalls[].result 原先是完整的 240KB–2MB
+          // (含 image_base64 截图)。这里算一份【展示副本】(结构感知收缩 + 大图落附件),事件与落盘共用同一个对象。
+          // 历史/hook/指纹仍用完整 resultObj。小结果原样返回(同一引用)。
+          const shownResult = await boundToolResultForDisplay(tc.name, resultObj);
+          onEvent({ type: 'tool_result', id: tc.id, content: shownResult, isError: isErr });
+          toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownResult });
           await notifyToolHookEnd(tc, resultObj, iter);
           // 21-E3 (actionArgumentModelViewV1): 大参数写动作执行后落 audit —— 执行与审计视图。
           // 原始 arguments 保留在 providerHistory 原消息(可还原),audit 只存元数据 + 校验哈希;失败/中断

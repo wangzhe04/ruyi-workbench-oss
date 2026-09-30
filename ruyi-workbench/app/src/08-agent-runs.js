@@ -1107,7 +1107,8 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             }
           }
           const isErr = !!(resultObj && resultObj.ok === false);
-          onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: isErr, subagentId });
+          // N3: 子代理的 tool_result 事件同样只发有界的展示副本(大图落附件);subHistory 那份仍按模型预算截断。
+          onEvent({ type: 'tool_result', id: tc.id, content: await boundToolResultForDisplay(tc.name, resultObj), isError: isErr, subagentId });
           subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
           if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
         }
