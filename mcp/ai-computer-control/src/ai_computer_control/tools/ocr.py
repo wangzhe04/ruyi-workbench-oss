@@ -289,6 +289,16 @@ def _resolve_engine(lang: str | None):
     return None, None, None
 
 
+def _png_size(data: bytes):
+    """(width, height) from a PNG's IHDR chunk without decoding, or None if `data` is not a PNG."""
+    try:
+        if len(data) >= 24 and data[:8] == b"\x89PNG\r\n\x1a\n" and data[12:16] == b"IHDR":
+            return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    except Exception:
+        pass
+    return None
+
+
 def _maybe_upscale(png_bytes: bytes, min_dim: int = 900, max_factor: float = 2.0):
     """LANCZOS-upscale small images so Chinese OCR has enough pixels. Returns (bytes, scale).
 
@@ -296,6 +306,11 @@ def _maybe_upscale(png_bytes: bytes, min_dim: int = 900, max_factor: float = 2.0
     `scale` to return them in the ORIGINAL image space (we do this inside _recognize).
     """
     try:
+        # Big frames (a full screen) never need upscaling: read the size from the PNG IHDR instead of
+        # decoding the whole image just to look at it (observe/ocr_screen hit this on every call).
+        hdr = _png_size(png_bytes)
+        if hdr is not None and min(hdr) >= min_dim:
+            return png_bytes, 1.0
         from PIL import Image
         img = Image.open(io.BytesIO(png_bytes))
         img.load()
@@ -356,7 +371,7 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
 
     words = []
     inv = 1.0 / scale if scale and scale > 0 else 1.0
-    for line in result.lines:
+    for line_no, line in enumerate(result.lines):
         for w in line.words:
             r = w.bounding_rect
             left = int(r.x * inv)
@@ -365,7 +380,8 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
             height = int(r.height * inv)
             words.append({"text": w.text, "left": left, "top": top,
                           "width": width, "height": height,
-                          "center": [left + width // 2, top + height // 2]})
+                          "center": [left + width // 2, top + height // 2],
+                          "line": line_no})
     _WORDS_CAP = 500
     words_total = len(words)
     if words_total > _WORDS_CAP:
@@ -381,12 +397,8 @@ async def _recognize(png_bytes: bytes, lang: str | None) -> dict:
         out["lang_fallback"] = {"requested": fallback_from, "used": lang_used}
     if scale and scale > 1.0:
         out["upscaled"] = scale
-    try:
-        conf = result.confidence
-        if conf is not None:
-            out["confidence"] = str(conf)
-    except Exception:
-        pass
+    # NOTE: Windows.Media.Ocr's OcrResult exposes no confidence (only Lines/Text/TextAngle), so none is
+    # reported; ocr_click / ocr_find_text report 'match_type' (word|phrase) and near_matches instead.
     return out
 
 
@@ -459,12 +471,28 @@ def _png_bytes_from_path(path: str) -> bytes:
         return f.read()
 
 
-def _screenshot_png(region=None) -> bytes:
-    from PIL import ImageGrab
-    img = ImageGrab.grab(bbox=region) if region else ImageGrab.grab()
+# Set by _screenshot_png (worker thread, inside the OCR gate) so ocr_screen can tell "OCR found no text"
+# from "the frame it was given was all black". ocr_screen clears it before each capture.
+_CAPTURE_STATE: dict = {}
+
+
+def _png_bytes(img) -> bytes:
+    """PNG-encode a frame for WinRT. compress_level=1: ~2x faster than the default at similar size."""
     buf = io.BytesIO()
-    img.save(buf, "PNG")
+    img.save(buf, "PNG", compress_level=1)
     return buf.getvalue()
+
+
+def _screenshot_png(region=None) -> bytes:
+    """Grab the screen (primary) or `region` bbox (x0,y0,x1,y1 in virtual-screen coords, any monitor)."""
+    from ai_computer_control.utils.image import grab_screen, is_blank_frame
+    if region:
+        x0, y0, x1, y1 = region
+        img, _info = grab_screen(region=(x0, y0, x1 - x0, y1 - y0))
+    else:
+        img, _info = grab_screen()
+    _CAPTURE_STATE["blank"] = is_blank_frame(img)
+    return _png_bytes(img)
 
 
 @mcp.tool()
@@ -483,16 +511,33 @@ async def ocr_image(path: str, lang: str | None = None) -> dict:
     return await _run_ocr_loader(lambda: _png_bytes_from_path(path), lang, "image read")
 
 
+def _offset_words(res: dict, ox: int, oy: int) -> None:
+    """Shift word coordinates from image space to screen space (in place)."""
+    if res.get("success") and (ox or oy):
+        for w in res.get("words", []):
+            w["left"] += ox
+            w["top"] += oy
+            w["center"] = [w["center"][0] + ox, w["center"][1] + oy]
+
+
 @mcp.tool()
 async def ocr_screen(region: str | None = None, lang: str | None = None) -> dict:
     """Run OCR on the whole screen, or a region "x,y,width,height".
 
     Word 'center' coordinates are SCREEN coordinates (region offset added), ready for mouse_click.
+    A region may lie on any monitor (virtual-screen coordinates; negative x/y are valid); one that is
+    wholly outside the virtual desktop is an error, a partly-outside one is clipped. Without a region
+    the primary monitor is read.
 
     Args:
         region: Optional "x,y,width,height" to restrict the search.
         lang: Optional language hint (zh/chinese/zh-CN -> zh-Hans, zh-TW/zh-Hant -> zh-Hant, ja, ko, en).
               Omit to auto-detect from the system locale (prefers Chinese on a zh-CN box).
+
+    Returns:
+        dict with success, text, lines, words (each: text,left,top,width,height,center,line), origin {x,y}
+        of the OCR'd area; 'truncated'/'words_total' when the word list was capped; 'blank': true when the
+        captured frame was completely black.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -501,16 +546,51 @@ async def ocr_screen(region: str | None = None, lang: str | None = None) -> dict
     if region:
         try:
             x, y, w, h = (int(v) for v in region.split(","))
-            bbox = (x, y, x + w, y + h)
-            ox, oy = x, y
         except Exception:
             return {"error": "region must be 'x,y,width,height'"}
+        if w <= 0 or h <= 0:
+            return {"error": "region width and height must be positive"}
+        from ai_computer_control.utils.image import clip_to_virtual
+        clipped, bounds = clip_to_virtual((x, y, w, h))
+        if clipped is None:
+            b = "unknown" if bounds is None else \
+                f"x={bounds[0]}..{bounds[0] + bounds[2]}, y={bounds[1]}..{bounds[1] + bounds[3]}"
+            return {"ok": False, "error": f"region ({x},{y},{w},{h}) is outside the virtual desktop ({b}); "
+                                          "see get_screen_info/list_monitors for the valid coordinate space"}
+        x, y, w, h = clipped
+        bbox = (x, y, x + w, y + h)
+        ox, oy = x, y
+    _CAPTURE_STATE.clear()
     res = await _run_ocr_loader(lambda: _screenshot_png(bbox), lang, "screen capture")
-    if res.get("success") and (ox or oy):
-        for w in res.get("words", []):
-            w["left"] += ox
-            w["top"] += oy
-            w["center"] = [w["center"][0] + ox, w["center"][1] + oy]
+    _offset_words(res, ox, oy)
+    if res.get("success"):
+        res["origin"] = {"x": ox, "y": oy}
+        if _CAPTURE_STATE.get("blank"):
+            from ai_computer_control.utils.image import BLANK_FRAME_HINT, BLANK_FRAME_WARNING
+            res["blank"] = True
+            res["warning"] = BLANK_FRAME_WARNING
+            res["hint"] = BLANK_FRAME_HINT
+    return res
+
+
+async def ocr_frame(img, origin=(0, 0), lang: str | None = None) -> dict:
+    """OCR an ALREADY-CAPTURED PIL frame (no second screen grab); words come back in SCREEN coordinates.
+
+    `origin` is the virtual-screen coordinate of the frame's top-left pixel. Used by `observe` so the OCR
+    words and the returned screenshot come from the same frame and the screen is grabbed only once.
+    Not a tool.
+    """
+    if not _AVAILABLE:
+        return _unavailable()
+    from ai_computer_control.utils.image import is_blank_frame
+
+    blank = is_blank_frame(img)
+    res = await _run_ocr_loader(lambda: _png_bytes(img), lang, "frame encode")
+    _offset_words(res, int(origin[0]), int(origin[1]))
+    if res.get("success"):
+        res["origin"] = {"x": int(origin[0]), "y": int(origin[1])}
+        if blank:
+            res["blank"] = True
     return res
 
 
@@ -534,40 +614,254 @@ async def ocr_available_languages() -> dict:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
 
+def _is_cjk(s: str) -> bool:
+    """True if `s` contains CJK ideographs (used to decide no-space phrase joining)."""
+    for ch in s:
+        o = ord(ch)
+        if 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF or 0x3040 <= o <= 0x30FF \
+                or 0xAC00 <= o <= 0xD7AF or 0xFF00 <= o <= 0xFFEF:
+            return True
+    return False
+
+
+def _line_groups(words: list[dict]) -> list[list[int]]:
+    """Indices of `words` grouped by text line, in reading order.
+
+    Uses the engine's own 'line' index when every word carries one; otherwise (hand-built lists, older
+    callers) infers lines geometrically: a new line starts when the next word's vertical centre leaves
+    the previous word's box band or it starts left of where the previous word ended.
+    """
+    if not words:
+        return []
+    if all("line" in w for w in words):
+        groups: dict = {}
+        for idx, w in enumerate(words):
+            groups.setdefault(w["line"], []).append(idx)
+        return [groups[k] for k in sorted(groups, key=lambda k: groups[k][0])]
+    out: list[list[int]] = [[0]]
+    for idx in range(1, len(words)):
+        prev, cur = words[idx - 1], words[idx]
+        prev_cy = prev["top"] + prev["height"] / 2.0
+        cur_cy = cur["top"] + cur["height"] / 2.0
+        band = max(1.0, 0.6 * max(prev["height"], cur["height"]))
+        backwards = cur["left"] < prev["left"] + prev["width"] - max(2, 0.5 * min(prev["width"], cur["width"]))
+        if abs(cur_cy - prev_cy) > band or backwards:
+            out.append([idx])
+        else:
+            out[-1].append(idx)
+    return out
+
+
+def _stream_hits(stream: list[tuple[int, str]], needle: str, joiner: str) -> list[tuple[int, int]]:
+    """Non-overlapping occurrences of `needle` in the words of `stream` joined by `joiner`.
+
+    Returns (first_pos, last_pos) stream positions of the words each occurrence overlaps - exactly the
+    words that carry the match, no unrelated neighbours.
+    """
+    spans, parts, cursor = [], [], 0
+    for pos, (_idx, txt) in enumerate(stream):
+        if parts:
+            cursor += len(joiner)
+        spans.append((cursor, cursor + len(txt)))
+        parts.append(txt)
+        cursor += len(txt)
+    hay = joiner.join(parts)
+    hits, start = [], 0
+    while needle:
+        at = hay.find(needle, start)
+        if at < 0:
+            break
+        end = at + len(needle)
+        covered = [pos for pos, (a, b) in enumerate(spans) if b > at and a < end and b > a]
+        if covered:
+            hits.append((covered[0], covered[-1]))
+        start = end
+    return hits
+
+
+def _phrase_matches(words: list[dict], text: str) -> list[dict]:
+    """Every match of `text` (case-insensitive) in reading order, each spanning exactly its own words.
+
+    1. Single-word matches: `text` contained in one OCR word (CJK: also ignoring spaces).
+    2. If there are none, phrase matches: consecutive words of ONE LINE whose joined text contains `text`
+       (Latin: joined with a space; CJK: ALSO joined without, so "系统设置" matches ["系统","设置"]).
+       Lines are never joined with each other unless `text` itself contains a line break.
+    Each match is {rect, center, matched_text, match_type: 'word'|'phrase', word_count}; the rect is the
+    union box of only the matched words and `center` is that box's centre (the click point).
+    """
+    raw = str(text or "")
+    target = " ".join(raw.lower().split())
+    if not target:
+        return []
+    cjk = _is_cjk(raw)
+    target_ns = target.replace(" ", "") if cjk else None
+
+    singles = []
+    for w in words:
+        wt = str(w.get("text", "")).lower()
+        if target in wt or (target_ns and target_ns in wt.replace(" ", "")):
+            singles.append(_span([w], w["text"], "word"))
+    if singles:
+        return singles
+
+    if "\n" in raw or "\r" in raw:
+        groups = [list(range(len(words)))]  # the phrase itself spans lines: one stream over the page
+    else:
+        groups = _line_groups(words)
+    found: list[tuple[int, int]] = []  # (first_word_idx, last_word_idx)
+    for grp in groups:
+        stream = [(idx, str(words[idx].get("text", "")).lower()) for idx in grp
+                  if str(words[idx].get("text", "")).strip()]
+        if len(stream) < 2:
+            continue
+        hits = _stream_hits(stream, target, " ")
+        if cjk:
+            ns_stream = [(idx, t.replace(" ", "")) for idx, t in stream]
+            hits += _stream_hits(ns_stream, target_ns, "")
+        for a, b in hits:
+            pair = (stream[a][0], stream[b][0])
+            if pair[0] != pair[1] and pair not in found:
+                found.append(pair)
+    found.sort()
+    out = []
+    for first, last in found:
+        grp_words = [words[k] for k in range(first, last + 1)
+                     if str(words[k].get("text", "")).strip()]
+        out.append(_span(grp_words, " ".join(str(x["text"]) for x in grp_words), "phrase"))
+    return out
+
+
+def _find_phrase(words: list[dict], text: str) -> dict | None:
+    """First match of `text` in reading order (see _phrase_matches), or None.
+
+    The returned rect/center cover exactly the matched words (never unrelated leading words), so the
+    centre is a safe click point; a phrase never spans two text lines unless `text` has a line break.
+    """
+    hits = _phrase_matches(words, text)
+    return hits[0] if hits else None
+
+
+def _span(group: list[dict], matched: str, match_type: str = "phrase") -> dict:
+    left = min(w["left"] for w in group)
+    top = min(w["top"] for w in group)
+    right = max(w["left"] + w["width"] for w in group)
+    bottom = max(w["top"] + w["height"] for w in group)
+    if len(group) == 1 and group[0].get("center"):
+        center = list(group[0]["center"])
+    else:
+        center = [int((left + right) / 2), int((top + bottom) / 2)]
+    return {"rect": {"left": left, "top": top, "width": right - left, "height": bottom - top},
+            "center": center, "matched_text": matched, "match_type": match_type,
+            "word_count": len(group)}
+
+
+def _near_matches(words: list[dict], text: str, limit: int = 5, min_score: float = 0.6) -> list[dict]:
+    """Closest OCR candidates for a missed query: single words plus 2-3 word joins within a line."""
+    import difflib
+    target = " ".join(str(text or "").lower().split())
+    if not target:
+        return []
+    cands = []
+    for grp in _line_groups(words):
+        ws = [words[i] for i in grp if str(words[i].get("text", "")).strip()]
+        for n in (1, 2, 3):
+            for k in range(0, len(ws) - n + 1):
+                chunk = ws[k:k + n]
+                cands.append((" ".join(str(c["text"]) for c in chunk), chunk))
+    scored = []
+    sm = difflib.SequenceMatcher(autojunk=False)
+    sm.set_seq2(target)
+    for label, chunk in cands:
+        sm.set_seq1(label.lower())
+        if sm.real_quick_ratio() < min_score or sm.quick_ratio() < min_score:
+            continue
+        score = sm.ratio()
+        if score >= min_score:
+            scored.append((score, label, chunk))
+    scored.sort(key=lambda t: -t[0])
+    out, seen = [], set()
+    for score, label, chunk in scored:
+        m = _span(chunk, label, "fuzzy")
+        key = (label.lower(), tuple(m["center"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"text": label, "center": m["center"], "rect": m["rect"], "score": round(score, 3)})
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _miss_details(res: dict, text: str) -> dict:
+    """Diagnostics for an OCR search miss: what OCR saw, near matches, and what to try next."""
+    words = res.get("words", [])
+    out = {"words_seen": len(words)}
+    if res.get("lang_used"):
+        out["lang_used"] = res["lang_used"]
+    if res.get("truncated"):
+        out["truncated"] = True
+        out["words_total"] = res.get("words_total")
+    if res.get("blank"):
+        out["blank"] = True
+    near = _near_matches(words, text)
+    if near:
+        out["near_matches"] = near
+    if not words:
+        out["hint"] = ("OCR read no text at all: the captured area may be blank/black or on another "
+                       "monitor (check screenshot / get_screen_info), or the OCR language pack does not "
+                       "match the text (try lang=).")
+    else:
+        out["hint"] = ("Text not found. Try lang= for the screen's language, a smaller region, ocr_screen "
+                       "to read what OCR actually sees, or ui_find for UI Automation controls."
+                       + (" 'near_matches' lists the closest candidates." if near else ""))
+    return out
+
+
 @mcp.tool(audit=True)
 async def ocr_click(text: str, region: str | None = None, lang: str | None = None,
                     nth: int | None = None, nearest_to: dict | None = None,
                     return_candidates: bool = False) -> dict:
-    """OCR the screen (or region), find `text` (case-insensitive substring), and click its center.
+    """OCR the screen (or region), find `text` (case-insensitive), and click its center.
 
-    Disambiguation when several words match:
+    `text` may be part of one OCR word or a multi-word phrase (CJK needs no spaces: "系统设置" matches
+    OCR words ["系统","设置"]); a phrase never spans two text lines. The click point is the centre of
+    exactly the matched words.
+
+    Disambiguation when several matches:
       * return_candidates=True: DO NOT click; return every match so the caller can choose.
       * nearest_to={"x":..,"y":..}: click the match whose center is closest to that point.
       * nth: click the nth match (0-based) in reading order (top-to-bottom, then left-to-right).
       * default (none of the above): click the first match in reading order.
 
     Args:
-        text: Text to find (case-insensitive substring of a single OCR word).
+        text: Text to find (case-insensitive; one word/substring or a multi-word phrase).
         region: Optional "x,y,width,height" to restrict the search.
         lang: Optional OCR language tag (zh/chinese/ja/ko/en accepted).
         nth: 0-based index into the (reading-order-sorted) matches to click.
         nearest_to: {"x","y"} - click the match closest to this screen point.
         return_candidates: If True, return all matches without clicking.
 
-    Returns dict with 'success'+'clicked' (the matched word), 'candidates' (when return_candidates
-    or ambiguous), 'not_found', or 'error'.
+    Returns dict with 'success'+'clicked' (the matched word/phrase, with 'match_type' word|phrase),
+    'candidates' (when return_candidates or ambiguous), or on a miss 'not_found' + 'found': false +
+    'words_seen', 'near_matches' (closest OCR text with score) and a 'hint'; or 'error'.
+    OCR engines give no per-word confidence, so none is reported.
     """
     if not _AVAILABLE:
         return _unavailable()
     res = await ocr_screen(region=region, lang=lang)
     if not res.get("success"):
         return res
-    target = text.lower()
     # Keep the OCR engine's native reading order (result.lines -> line.words), which is already
     # top-to-bottom / left-to-right and DPI-correct - a fixed-pixel row band mis-sorts at high DPI.
-    matches = [w for w in res.get("words", []) if target in w["text"].lower()]
+    matches = []
+    for m in _phrase_matches(res.get("words", []), text):
+        left, top = m["rect"]["left"], m["rect"]["top"]
+        matches.append({"text": m["matched_text"], "left": left, "top": top,
+                        "width": m["rect"]["width"], "height": m["rect"]["height"],
+                        "center": m["center"], "match_type": m["match_type"]})
     if not matches:
-        return {"not_found": True, "text": text, "clicked": None}
+        return {"ok": True, "not_found": True, "found": False, "text": text, "clicked": None,
+                **_miss_details(res, text)}
 
     if return_candidates:
         return {"ok": True, "found": True, "count": len(matches), "candidates": matches,
@@ -600,71 +894,14 @@ async def ocr_click(text: str, region: str | None = None, lang: str | None = Non
         return {"error": str(e), "match": chosen}
 
 
-def _is_cjk(s: str) -> bool:
-    """True if `s` contains CJK ideographs (used to decide no-space phrase joining)."""
-    for ch in s:
-        o = ord(ch)
-        if 0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF or 0x3040 <= o <= 0x30FF \
-                or 0xAC00 <= o <= 0xD7AF or 0xFF00 <= o <= 0xFFEF:
-            return True
-    return False
-
-
-def _find_phrase(words: list[dict], text: str) -> dict | None:
-    """Find `text` (case-insensitive) within a run of consecutive words; span their boxes.
-
-    First tries a single word (fast path), then greedily joins consecutive words to match a phrase
-    that spans word boundaries. For CJK text (no inter-word spaces) the joined string is ALSO matched
-    without spaces, so a search for "系统设置" matches adjacent OCR words ["系统","设置"]. Returns a
-    dict with rect/center/matched_text, or None.
-    """
-    target = " ".join(text.lower().split())
-    if not target:
-        return None
-    cjk = _is_cjk(text)
-    target_nospace = target.replace(" ", "") if cjk else None
-    # Fast path: contained within one word.
-    for w in words:
-        wt = w["text"].lower()
-        if target in wt or (target_nospace and target_nospace in wt.replace(" ", "")):
-            return {"rect": {"left": w["left"], "top": w["top"], "width": w["width"], "height": w["height"]},
-                    "center": w["center"], "matched_text": w["text"]}
-    # Phrase path: join consecutive words with single spaces and look for the target substring.
-    n = len(words)
-    for i in range(n):
-        joined = words[i]["text"].lower()
-        joined_nospace = joined.replace(" ", "") if cjk else None
-        if target in joined or (joined_nospace and target_nospace in joined_nospace):
-            grp = [words[i]]
-            return _span(grp, words[i]["text"])
-        for j in range(i + 1, n):
-            joined = joined + " " + words[j]["text"].lower()
-            if cjk:
-                joined_nospace = joined.replace(" ", "")
-            if target in joined or (joined_nospace and target_nospace in joined_nospace):
-                grp = words[i:j + 1]
-                return _span(grp, " ".join(x["text"] for x in grp))
-            if len(joined) > len(target) + 40:  # give up early; can't be this run
-                break
-    return None
-
-
-def _span(group: list[dict], matched: str) -> dict:
-    left = min(w["left"] for w in group)
-    top = min(w["top"] for w in group)
-    right = max(w["left"] + w["width"] for w in group)
-    bottom = max(w["top"] + w["height"] for w in group)
-    return {"rect": {"left": left, "top": top, "width": right - left, "height": bottom - top},
-            "center": [int((left + right) / 2), int((top + bottom) / 2)], "matched_text": matched}
-
-
 @mcp.tool(audit=True)
 async def ocr_find_text(text: str, region: str | None = None, click: bool = False,
                         lang: str | None = None) -> dict:
     """OCR the screen (or a region) and locate `text`, spanning across adjacent words if needed.
 
     Coordinates are SCREEN coordinates (region offset already applied by ocr_screen), so 'center'
-    is directly clickable. Set click=True to click the match center.
+    is directly clickable. Set click=True to click the match center. A multi-word phrase matches
+    consecutive words of one text line only; center/rect cover exactly the matched words.
 
     Args:
         text: Text to find (case-insensitive; may span multiple OCR words; CJK needs no spaces).
@@ -673,18 +910,22 @@ async def ocr_find_text(text: str, region: str | None = None, click: bool = Fals
         lang: Optional OCR language tag (e.g. "en", "zh", "zh-Hans", "ja").
 
     Returns:
-        dict with ok, found, and on success center:{x,y}, rect, matched_text (+ clicked if click).
+        dict with ok, found, and on success center:{x,y}, rect, matched_text, match_type ('word'|'phrase'),
+        count (matches on screen; the first in reading order is returned) (+ clicked if click).
+        On a miss: found false + words_seen, near_matches (closest OCR text) and a hint.
     """
     if not _AVAILABLE:
         return _unavailable()
     res = await ocr_screen(region=region, lang=lang)
     if not res.get("success"):
         return res
-    match = _find_phrase(res.get("words", []), text)
-    if match is None:
-        return {"ok": True, "found": False, "text": text}
+    all_matches = _phrase_matches(res.get("words", []), text)
+    if not all_matches:
+        return {"ok": True, "found": False, "text": text, **_miss_details(res, text)}
+    match = all_matches[0]
     out = {"ok": True, "found": True, "center": {"x": match["center"][0], "y": match["center"][1]},
-           "rect": match["rect"], "matched_text": match["matched_text"]}
+           "rect": match["rect"], "matched_text": match["matched_text"],
+           "match_type": match["match_type"], "count": len(all_matches)}
     if click:
         try:
             import pyautogui
