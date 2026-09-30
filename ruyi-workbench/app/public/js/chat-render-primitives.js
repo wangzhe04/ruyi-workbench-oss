@@ -216,8 +216,22 @@ export function createChatRenderPrimitives(deps = {}) {
     }
     for (const block of blocks) lazyHighlightObserver.observe(block);
   }
-  function highlightIn(container) {
+  // opts.nearView:只把容器里还没高亮、且离视口 800px 以内的代码块当场高亮(调用方刚挂上一批在文档外画好的行、
+  // 布局也刚算过时用 —— 懒高亮的 IntersectionObserver 回调晚于这一帧的绘制,不补这一下会闪一帧没着色的代码)。
+  // 远处的照旧留给懒高亮;看不见的(display:none,矩形为零)不动。
+  function highlightNearView(container, margin = 800) {
+    if (typeof hljs === 'undefined' || container.isConnected === false) return;
+    const viewport = globalThis.innerHeight || 0;
+    for (const block of container.querySelectorAll('pre code:not([data-hl])')) {
+      if (block.classList.contains('language-mermaid')) continue;
+      const rect = block.getBoundingClientRect();
+      if (!rect.width && !rect.height) continue;
+      if (rect.bottom >= -margin && rect.top <= viewport + margin) highlightCodeBlock(block);
+    }
+  }
+  function highlightIn(container, opts) {
     if (!container || typeof container.querySelectorAll !== 'function') return;
+    if (opts && opts.nearView) { highlightNearView(container); return; }
     // 109a: 在同一趟里分流 mermaid 围栏: `pre > code.language-mermaid` 不进 hljs,交给懒加载的
     // 图表运行时;vendor/mermaid.min.js 缺失或渲染失败时它把原代码块留在原地并补一行提示。
     // 异步且不阻塞高亮;失败已在运行时内部收敛,这里只兜住 promise 防未处理拒绝。

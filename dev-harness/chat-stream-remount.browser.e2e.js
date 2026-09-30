@@ -423,6 +423,27 @@ true`;
     ok(!r12.bottom.first && !r12.bottom.firstCopy, 'R12c 离可见区很远的第一块还没动(没高亮、没补复制按钮)');
     ok(r12.top.first && r12.top.firstCopy, 'R12d 滚到顶之后第一块也高亮了、复制按钮补上了');
     ok(r12.liveNow, 'R12e 已在文档里的容器照旧当场高亮');
+    // R12f(审查轮):刚挂上的一批行,调用方在同一拍补一下 nearView —— 视口附近的当场着色(不等懒高亮晚一帧的回调,
+    // 否则每次重画都闪一帧没着色的代码),远处的照旧留给懒高亮。
+    const r12f = await fx.evaluate(`(async () => {
+      const { createChatRenderPrimitives } = await import('/js/chat-render-primitives.js');
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      const p = createChatRenderPrimitives({ $: id => document.getElementById(id), el, t: k => k, tCount: k => k, toast() {}, hljs: window.hljs, state: {}, escapeHtml: s => String(s), icon: () => null });
+      document.body.innerHTML = '';
+      const box = el('div'); box.style.cssText = 'height:400px;overflow-y:auto;';
+      document.body.appendChild(box);
+      const rows = [];
+      for (let i = 0; i < 60; i++) {
+        const row = el('div'); row.style.cssText = 'height:300px;';
+        const pre = el('pre'); pre.appendChild(el('code', 'language-js', 'const v' + i + ' = ' + i + ';'));
+        row.appendChild(pre); p.highlightIn(row); rows.push(row); box.appendChild(row);
+      }
+      box.scrollTop = box.scrollHeight;
+      p.highlightIn(box, { nearView: true });   // 同一拍,不等帧
+      const hl = r => Boolean(r.querySelector('code').dataset.hl);
+      return { last: hl(rows[59]), first: hl(rows[0]) };
+    })()`);
+    ok(r12f.last && !r12f.first, `R12f 挂上后同一拍补 nearView:视口附近当场着色、远处不动(最后一块 ${r12f.last} / 第一块 ${r12f.first})`);
 
     // R9:文件树后发先至(同一套同源空白页夹具,顺带钉 file-browser.js 的加载序号)
     const r9 = await fx.evaluate(`(async () => {
