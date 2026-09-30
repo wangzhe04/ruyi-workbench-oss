@@ -100,16 +100,27 @@ def _changed_stats(before, after):
         return 0.0, 0, 0
 
 
-def _crop(img, region):
-    """Crop `img` (a primary-screen grab, origin 0,0) to `region` (screen coords), clamped to the
-    image. Returns the cropped image, or None if the clamped box is degenerate/off this grab."""
+def _clip_box(img, region):
+    """`region` (x, y, w, h in screen coords) clipped to `img` (a primary-screen grab, origin 0,0) as an
+    (x, y, w, h) box, or None when the clipped box is degenerate/off this grab."""
     try:
         x, y, w, h = region
         L, T = max(0, x), max(0, y)
         R, B = min(img.width, x + w), min(img.height, y + h)
         if R - L < 2 or B - T < 2:
             return None
-        return img.crop((L, T, R, B))
+        return (L, T, R - L, B - T)
+    except Exception:
+        return None
+
+
+def _crop(img, region):
+    """Crop `img` to `region`, clamped to the image. Returns the cropped image, or None if degenerate."""
+    box = _clip_box(img, region)
+    if box is None:
+        return None
+    try:
+        return img.crop((box[0], box[1], box[0] + box[2], box[1] + box[3]))
     except Exception:
         return None
 
@@ -308,10 +319,13 @@ def act_and_verify(action: dict, region: str | None = None, settle_ms: int = 500
     # Poll the region of interest (small grab) instead of a fixed sleep; fall back to the plain wait
     # when the ROI is off the primary grab (nothing to poll against).
     waited_ms, settled = None, None
-    before_roi = _crop(before_full, region_tuple) if region_tuple else None
-    if region_tuple and before_roi is not None:
+    # Poll EXACTLY the box before_roi was cut from: pyautogui pads an unclipped off-screen region with
+    # black at full size, and frames of different sizes would always read as "changed".
+    poll_box = _clip_box(before_full, region_tuple) if region_tuple else None
+    before_roi = _crop(before_full, poll_box) if poll_box else None
+    if poll_box and before_roi is not None:
         try:
-            _, waited_ms, _changed, settled = _wait_settled(lambda: _grab(region_tuple), before_roi, settle_ms)
+            _, waited_ms, _changed, settled = _wait_settled(lambda: _grab(poll_box), before_roi, settle_ms)
         except Exception:  # noqa: BLE001 — polling is best-effort; the final capture below decides
             waited_ms, settled = None, None
     if waited_ms is None:

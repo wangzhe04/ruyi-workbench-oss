@@ -119,7 +119,7 @@ def _slim_registered_schema(name: str) -> None:
 _EMPTY_ERROR_TEXT = "unknown error (the tool returned an empty error message)"
 
 
-def _normalize(result):
+def _normalize(result, tool: str | None = None):
     """Guarantee the result is a dict carrying a boolean 'ok', preserving existing keys.
 
     'ok' reflects ONLY whether the tool *executed* without error — never the query outcome.
@@ -155,17 +155,17 @@ def _normalize(result):
         if err is None or (isinstance(err, str) and not err.strip()):
             result["error"] = err = _EMPTY_ERROR_TEXT
         if isinstance(err, str) and "hint" not in result:
-            h = hint_for(err)
+            h = hint_for(err, tool)
             if h:
                 result["hint"] = h
     return result
 
 
-def _fail_envelope(e: BaseException) -> dict:
+def _fail_envelope(e: BaseException, tool: str | None = None) -> dict:
     """Envelope for an exception that escaped a tool: 'Type: message' + a hint when one applies."""
     text = exc_text(e)
     out = {"ok": False, "error": text}
-    h = hint_for(text)
+    h = hint_for(text, tool)
     if h:
         out["hint"] = h
     return out
@@ -219,9 +219,9 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
             async def wrapper(*args, **kwargs):
                 t0 = time.monotonic()
                 try:
-                    out = _normalize(await fn(*args, **kwargs))
+                    out = _normalize(await fn(*args, **kwargs), tool_name)
                 except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
-                    out = _fail_envelope(e)
+                    out = _fail_envelope(e, tool_name)
                 _record(out, args, kwargs, t0)
                 return out
         else:
@@ -229,9 +229,9 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
             def wrapper(*args, **kwargs):
                 t0 = time.monotonic()
                 try:
-                    out = _normalize(fn(*args, **kwargs))
+                    out = _normalize(fn(*args, **kwargs), tool_name)
                 except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
-                    out = _fail_envelope(e)
+                    out = _fail_envelope(e, tool_name)
                 _record(out, args, kwargs, t0)
                 return out
 
