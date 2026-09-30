@@ -7,6 +7,8 @@
 //   [D3] 同一网格上,判定表与改表前那串 if/else(下面 legacyDecide 原样抄存)逐格同态 —— 本刀零语义变化。
 //   [D4] 卡片适配器:由网格派生的卡片形状上 fromCard 两边逐格相同。
 //   [D5] hunt2-steward ④:末回合成败账只在盖得住当前回合(lastTurn.seq >= turnSeq)时才算数,两边同判。
+//   [D6] hunt3:queued(回合排在管家仲裁器里,还没进 activeChildren)与 activeTurn 同进 live 规则 —— 网格多一根轴,
+//        对照神谕同刀补上这一格(修前排队中的线程被报成「已收工」)。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -22,12 +24,13 @@ const srv = require(path.join(APP, 'server.js'));
 const MissionState = require(path.join(APP, 'public', 'js', 'mission-state.js'));
 
 // 改表前(批 3 及以前)两份抄写件里逐字相同的那串分支,原样留作判定表的对照神谕。
+// hunt3 唯一的改动:running 那一支补上 queued(与判定表 live 规则同刀),其余逐字未动。
 function legacyDecide(src) {
   let state;
   if (src.factsUnknown) state = 'quick_ask';
   else if (src.pendingTotal > 0) state = 'needs_you';
   else if (src.resultStatus === 'complete') state = 'done';
-  else if (src.activeTurn || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
+  else if (src.activeTurn || src.queued || src.autoMode === 'until-done' || src.liveRuns > 0) state = 'running';
   else if (src.runCount === 0 && src.turnSeq === 0 && src.milestonesDone === 0 && src.resultStatus !== 'stopped') state = 'dispatching';
   else if (src.ledgerless && src.turnSeq > 0) state = src.lastTurnFailed ? 'stopped' : 'done';
   else state = 'stopped';
@@ -40,6 +43,7 @@ const AXES = {
   pending: [undefined, {}, { questions: 1 }, { permissions: 0, plans: 2 }],
   resultStatus: ['', 'complete', 'stopped'],
   activeTurn: [false, true],
+  queued: [false, true],
   autoMode: [undefined, 'off', 'until-done', 'supervised'],
   liveRuns: [0, 1],
   runCount: [0, 1, 2],
@@ -105,6 +109,7 @@ test('[D4] 卡片适配器两边逐格相同', () => {
             status: input.ledgerless ? 'none' : 'active',
             pending: input.pending,
             activeTurn: input.activeTurn,
+            queued: input.queued,
             runCount: input.runCount,
             turnSeq: input.turnSeq,
             lastRun,
@@ -128,6 +133,21 @@ test('[D4] 卡片适配器两边逐格相同', () => {
   }
   assert.ok(cells > 10000, `卡片网格够大(${cells} 格)`);
   assert.equal(srv.stewardThreadStateFromCard(null).state, MissionState.fromCard(null).state, 'null 卡片两边同态');
+});
+
+test('[D6] 排队中的回合算进行中(两边同判,且不压过待决与结果章)', () => {
+  const idle = { status: 'none', turnSeq: 2, runCount: 0, lastTurn: null, mission: {} };
+  assert.equal(srv.stewardThreadStateFromCard(idle).state, 'done', '前提:空闲的无账本线程 -> done');
+  assert.equal(MissionState.fromCard(idle).state, 'done');
+  const queued = { ...idle, queued: true };
+  assert.equal(srv.stewardThreadStateFromCard(queued).state, 'running', '服务端卡片:排队中 -> running');
+  assert.equal(MissionState.fromCard(queued).state, 'running', '前端卡片:排队中 -> running');
+  assert.equal(MissionState.fromSnapshot({ queued: true, mission: {}, cursor: { turnSeq: 2 } }).state, 'running', '前端详情快照同判');
+  assert.equal(srv.stewardThreadStateFromHead({ id: 'sess_bbbbbbbbbbbbbbbb', turnSeq: 2 }, { kind: 'mission', queued: true }).state, 'running', '会话头适配器同判');
+  for (const input of [{ queued: true, pending: { questions: 1 } }, { queued: true, resultStatus: 'complete' }]) {
+    assert.equal(srv.deriveStewardThreadState(input).state, MissionState.deriveMissionState(input).state);
+    assert.notEqual(srv.deriveStewardThreadState(input).state, 'running', `优先级不变 @ ${JSON.stringify(input)}`);
+  }
 });
 
 test('[D5] 过期的末回合成败账不算数(卡片 / 会话头两个适配器,两边同判)', () => {

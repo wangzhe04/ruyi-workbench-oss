@@ -775,6 +775,8 @@ function overlayMissionCard(slice, overlayAt) {
   liveRuns.sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
   const latestLive = liveRuns.length ? liveRuns[liveRuns.length - 1] : null;
   const activeTurn = activeChildren.has(slice.sessionId);
+  // hunt3:回合排在 13n 仲裁器里(还没进 activeChildren)—— 五态 queued 证据键,与 activeTurn 同一条「只活在叠加层」纪律。
+  const queued = stewardThreadTurnQueued(slice.sessionId);
   // 117l D4(§11.9):「它在问你」只活在叠加层 —— 待决的死活与活回合都是此刻的事实,写进持久卡片
   // 就会在下一次重建前一直说谎(与 activeTurn / lastRun 同一条纪律)。判据单点同样是 06i 的 stewardAsksYou。
   // 117m-A2:判据单点从 stewardAsksYou 换成 stewardAsksYouForThread —— 后者认【四类待决】
@@ -818,13 +820,14 @@ function overlayMissionCard(slice, overlayAt) {
     liveTail,
     seatedBy,
     activeTurn,
+    queued,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
     lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
     freshness: {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,
-      liveOverlay: activeTurn || liveRuns.length > 0,
+      liveOverlay: activeTurn || queued || liveRuns.length > 0,
       overlayAt: overlayAt || nowIso(),
     },
   };

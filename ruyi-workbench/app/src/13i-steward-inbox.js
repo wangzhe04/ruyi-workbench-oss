@@ -807,7 +807,12 @@ function stewardAppendInboxRows(rows) {
   const next = stewardAppendChain.catch(() => {}).then(async () => {
     await fsp.mkdir(stewardDir(), { recursive: true });
     await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
-    await fsp.appendFile(file, payload, 'utf8');
+    // Windows 上杀软/备份软件短暂持锁的 EBUSY/EPERM/EACCES:与 02 appendIntervention 同款有界重试。
+    // 仍失败就抛给 stewardTickOnce —— 那里把这一批原始事件放回结转队列,下一拍重来(见那里的注释)。
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.appendFile(file, payload, 'utf8'); break; }
+      catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
+    }
     // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
     // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
     // 121-K6a(34 号文 §4.3 安静卡):补 quiet(在场门②情形打的旗)与卡上要印的一句话(ask)——
@@ -1176,6 +1181,7 @@ async function stewardTickOnce() {
     logEvent({ kind: 'steward_inbox_deferred', deferred: kept.length, dropped: rest.length - kept.length });
   }
   const merged = stewardMergeInboxEvents(head, STEWARD_MERGE_WINDOW_MS);
+  const seqBefore = stewardRuntime.inboxSeq;
   const rows = [];
   for (const row of merged) {
     stewardRuntime.inboxSeq += 1;
@@ -1197,7 +1203,21 @@ async function stewardTickOnce() {
   if (rows.length && typeof StewardHooks.enrichInboxRows === 'function') {
     try { await StewardHooks.enrichInboxRows(rows); } catch { /* 增强失败只是少两个字段,不反噬轮询器 */ }
   }
-  if (rows.length) await stewardAppendInboxRows(rows);
+  // 落盘失败(有界重试之后仍是 EBUSY/EIO/ENOSPC …)不许丢事件:四源游标、待决集合、budgetSeen、交接队列
+  // 在 stewardCollectEvents 里都已经越过了这一批 —— 修前异常直接冒出去,这些事件从此永远读不回来
+  // (一条「需要你」的权限请求就此从收件箱里消失)。这里不去逐个回滚游标(交接队列与 budgetSeen 是内存态,
+  // 回滚不全),而是把这一批【原始】事件整批放回结转队列的最前面 —— 与 P0-3 的单轮上限结转同一条通路:
+  // 下一拍它们排在最前、照样过去重、不再过在场门(已经过过一次)。inboxSeq 退回本批之前,
+  // 不留空号;游标这一拍不落盘(异常照旧冒到 stewardRunTick 记 lastError),重启则从旧游标重读 + seen 去重。
+  if (rows.length) {
+    try { await stewardAppendInboxRows(rows); }
+    catch (error) {
+      stewardRuntime.inboxSeq = seqBefore;
+      stewardRuntime.carry = head.concat(stewardRuntime.carry).slice(0, STEWARD_CARRY_MAX_EVENTS);
+      try { logEvent({ kind: 'steward_inbox_append_failed', code: String((error && error.code) || ''), requeued: head.length }); } catch { /* 观测绝不反噬 */ }
+      throw error;
+    }
+  }
   if (rows.length) stewardRuntime.lastInboxAt = nowIso();   // 116-4:唤醒链诚实 —— 「箱子最后一次真的收到东西」
   for (const row of rows) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   // 去重集合在长跑进程里只增不减 —— 超过硬顶就按「装载时」的口径从 inbox 尾部重建(旧键本来也已经

@@ -27,6 +27,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   R13 回合起点 session 事件的增量(perf round 4):手上底子带戳 → 发送体带 knownMessages;服务端答增量事件 → 拼回发送那一刻的
 //       前缀(新数组、记上新戳,于是收尾那一发从新条数接着增量);不带戳 → 发送体没有这个键(修前形状);增量事件拼不上 → 补一发无参全量。
 //       三遍收尾后的会话一致。
+//   R14 回合末 await 期间下一回合已经起来(插话落回 sendPrompt):旧回合的 finally 不许删掉新回合的登记 ——
+//       新回合还在流时页面仍是「在跑」(按钮是停止),新回合收尾后才回到空闲。
+//   R15 中止/断流之后,重取回来的会话装回 state(服务端已落盘的半截回答不会在下一次重画时从屏上消失)。
+//   R16 切走切回重放事件时,一次性副作用(备用服务商切换 toast、调试面板的 stderr 行)不重来。
 //   R12 屏外代码块懒高亮(perf,真 chat-render-primitives.js + vendor hljs):在文档外建好的一批行挂进滚动容器后,
 //       可见区附近的代码块高亮了、离得远的还没动(连复制按钮都没补);滚过去之后它们也高亮了。已在文档里的容器照旧当场高亮。
 // 判定行：`CHAT STREAM REMOUNT BROWSER E2E: ALL PASS`。
@@ -440,6 +444,56 @@ true`;
       for (const mode of ['start-delta', 'no-stamp', 'bad-splice']) ok(out[mode].state === expectState, `R13f[${mode}] 收尾后的会话与全量(去掉 providerHistory)一致`);
       ok(d.baseLen === 2, 'R13g 底子那份 messages 一条没多(不就地改)');
     }
+    // R14:旧回合的 finally 只收拾自己
+    const r14 = await fx.evaluate(`(async () => {
+      let release = null; const gate = new Promise(r => { release = r; });
+      await window.__mk({ deps: { api: async u => {
+        if (u.startsWith('/api/sessions/A')) { await gate; return { ok: true, session: { id: 'A', messages: [] } }; }
+        return { ok: true };
+      } } });
+      const h = window.__h;
+      h.$('promptInput').value = 'one'; const sp1 = h.rt.sendPrompt(); await h.sleep(30);
+      h.pushTo(0, { type: 'result', ok: true }); h.endAt(0); await h.sleep(30);   // 回合 1 的流收尾,卡在回合末重取
+      const midTurn1 = h.state.streaming;
+      h.$('promptInput').value = 'two'; const sp2 = h.rt.sendPrompt(undefined, { skipSteer: true }); await h.sleep(30);  // 插话落回 → 新回合
+      release(); await sp1; await h.sleep(30);          // 回合 1 的 finally 跑完
+      const afterTurn1 = { streaming: h.state.streaming, bodies: h.streamBodies.length };
+      h.pushTo(1, { type: 'result', ok: true }); h.endAt(1); await sp2; await h.sleep(30);
+      return { midTurn1, afterTurn1, afterTurn2: h.state.streaming };
+    })()`);
+    ok(r14.afterTurn1.bodies === 2, `R14 前提:两个回合都发出了流(${r14.afterTurn1.bodies})`);
+    ok(r14.afterTurn1.streaming === true, 'R14 回合 1 收尾之后,回合 2 还在流 → 页面仍是「在跑」(修前被回合 1 的 finally 删掉登记,按钮回到发送)');
+    ok(r14.afterTurn2 === false, 'R14 回合 2 收尾之后才回到空闲');
+
+    // R15:中止/断流后装回重取的会话
+    const r15 = await fx.evaluate(`(async () => {
+      const FULL = { ok: true, session: { id: 'A', messages: [{ role: 'user', content: 'hello' }, { role: 'assistant', content: 'partial answer' }] } };
+      await window.__mk({ deps: { api: async u => (u.startsWith('/api/sessions/A') ? JSON.parse(JSON.stringify(FULL)) : { ok: true }) } });
+      const h = window.__h;
+      h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(30);
+      h.push({ type: 'assistant_delta', text: 'partial answer' }); await h.sleep(20);
+      h.rt.stopTurn();
+      await sp.catch(() => {}); await h.sleep(60);
+      return { count: (h.state.currentSession.messages || []).length, last: (h.state.currentSession.messages || []).slice(-1)[0] };
+    })()`);
+    ok(r15.count === 2 && r15.last && r15.last.content === 'partial answer', `R15 中止后 state 里是服务端落盘的会话(${r15.count} 条)`);
+
+    // R16:重放不重复一次性副作用
+    const r16 = await fx.evaluate(`(async () => {
+      let debugLines = 0;
+      await window.__mk({ deps: { appendToolOutput() { debugLines++; } } });
+      const h = window.__h;
+      h.$('promptInput').value = 'go'; const sp = h.rt.sendPrompt(); await h.sleep(30);
+      h.push({ type: 'failover', to: 'backup' }); h.push({ type: 'stderr', text: 'warn line' }); await h.sleep(30);
+      const first = { toasts: h.toasts.length, debug: debugLines };
+      for (let i = 0; i < 3; i++) { h.switchTo('B'); await h.sleep(10); h.switchTo('A'); await h.sleep(20); }
+      const after = { toasts: h.toasts.length, debug: debugLines };
+      h.push({ type: 'result', ok: true }); h.end(); await sp; await h.sleep(20);
+      return { first, after };
+    })()`);
+    ok(r16.first.toasts >= 1 && r16.first.debug >= 1, `R16 前提:首次到达时弹了提示、写了调试行(${JSON.stringify(r16.first)})`);
+    ok(r16.after.toasts === r16.first.toasts && r16.after.debug === r16.first.debug, `R16 切回三次重放,提示与调试行都没有再加(${JSON.stringify(r16.after)})`);
+
     // R12:屏外代码块懒高亮
     const r12 = await fx.evaluate(`(async () => {
       if (!window.hljs) await new Promise((resolve, reject) => { const sc = document.createElement('script'); sc.src = '/vendor/highlight.min.js'; sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc); });

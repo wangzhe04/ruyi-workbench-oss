@@ -137,7 +137,7 @@ thinking-boundary 和 desktop-dpi 用的是 `assert`，不打 PASS 行。thinkin
 | `steward-runner.static`、`steward-events.static` D4/D5、`steward-tools.static` ②(handler 体)③⑤⑦–⑪ | 模块落点、manifest 顺序、handler 只调 StewardHooks、四个 offer 面各自有门、常量只定义一次、代码行里零裸字面量 | 依赖方向、落点、单一定义点都是结构。⑤ 另有一段真实回环 |
 | `steward-events.static` D2/D3 | 每处 `appendAgentRunEvent(` 调用点的 type 都登记过 | 扫描调用点是为了发现「新增了一处调用」 |
 | `autonomy-grant.e2e` S1–S8、S10 | 签发主权路由、子集律插桩、子代理不消耗、exec 不持久、授权书块里没有 CI 条目副本 | 「某函数体里没有某符号」属于结构。本批改用 `functionBlock`/`sliceBlock` |
-| `subagent-net-tools.e2e` ③④ | runSubAgentCore / runClaudeSubAgentOnce 的桥接收集与 mcp-config 门 | 函数体里有没有某条调用。本批改用 `functionBlock`，修前按 5000/6000 字截断 |
+| `subagent-net-tools.e2e` ③④ | runSubAgentCore(本体 `runSubAgentCoreBody`)/ runClaudeSubAgentOnce 的桥接收集与 mcp-config 门 | 函数体里有没有某条调用。本批改用 `functionBlock`，修前按 5000/6000 字截断 |
 | `overlay-payload-lock.static` 109a(循环体)、③b | 打包循环对可选载荷做存在性跳过；服务端每个 `resources/` 读口都有载荷覆盖 | 装配一次会写 dist/，不适合在静态件里跑。③b 扫的是读口调用点 |
 | `start-experience.static` ②–⑥ | 启动器 `.cmd`、README-START-HERE、向导接线、手册小节 | 启动器和纯文本文件没有运行时可以调 |
 | `live-full-text.static`、`streaming-responsiveness.static`、`resume-banner-dismiss.static`、`provider-reasoning-effort-ui.static`、`thread-commission.static`、`new-thread-engine-default.static`、`memory-toolbox.static`、`mcp-ops-gui.static`、`overlay-update-gui.static`、`action-feedback.static`、`scheduler-ui.static`①、`progress-events.static`(接线) | 前端接线：某处调了某个窄接口、某个 DOM 挂点存在、零 innerHTML、事件分支有人接 | 需要真实 DOM。行为另有对应的 `*.browser.e2e.js` |

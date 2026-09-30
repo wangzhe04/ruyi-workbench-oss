@@ -152,6 +152,36 @@ function post(port, p, payload, headers) {
     ok(false, 'S3 short-name/junction regression setup (' + (e && e.message || e) + ')');
   }
 
+  // 安全审计 2026-09(#1/#7,全量用例见 unit/write-guard-autoload.test.js):
+  //   #7 悬空 junction/符号链接指向工作区外(目标尚不存在)不再被当成「还不存在的工作区文件」放行;
+  //   #1 数据根里会被自动加载/执行的状态(mcp drop-in、检查点、工作流模板)写拒、读照旧;agent CLI 启动配置写拒。
+  {
+    const DANGLE_OUT = path.join(os.tmpdir(), 'wcw-file-guard-dangle-target');
+    fs.rmSync(DANGLE_OUT, { recursive: true, force: true });
+    const DANGLE_LINK = path.join(WS, 'dangle-dir');
+    try { fs.rmSync(DANGLE_LINK, { force: true, recursive: true }); } catch { /* none */ }
+    let linked = false;
+    try { fs.symlinkSync(path.join(DANGLE_OUT, 'not-created'), DANGLE_LINK, process.platform === 'win32' ? 'junction' : 'dir'); linked = true; } catch (e) { console.log('SKIP #7 dangling link setup: ' + (e && e.code || e)); }
+    if (linked) {
+      const gd = await S.guardFileToolPath(path.join(DANGLE_LINK, 'new.txt'), ctx('https://api.deepseek.com'), { write: true });
+      ok(gd.ok === false && gd.code === 'not-allowed', 'S3 安全审计#7 write through a DANGLING junction/symlink to outside → DENY (' + gd.code + ')');
+      try { fs.unlinkSync(DANGLE_LINK); } catch { try { fs.rmdirSync(DANGLE_LINK); } catch { /* best-effort */ } }
+    }
+    const dataCtx = { config: { ...P('https://api.deepseek.com'), permissionMode: 'default', defaultWorkspace: UNIT_DATA }, session: { cwd: UNIT_DATA } };
+    const gMcp = await S.guardFileToolPath(path.join(UNIT_DATA, 'mcp', 'evil', 'ruyi-mcp.json'), dataCtx, { write: true });
+    ok(gMcp.ok === false, 'S3 安全审计#1 dataRoot/mcp drop-in manifest write → DENY');
+    const gCk = await S.guardFileToolPath(path.join(UNIT_DATA, 'checkpoints', 's', 'index.json'), wide(), { write: true });
+    ok(gCk.ok === false, 'S3 安全审计#1 dataRoot/checkpoints write → DENY even in bypass wide write');
+    const gCkR = await S.guardFileToolPath(path.join(UNIT_DATA, 'checkpoints', 's', '1-1.gz'), dataCtx, { write: false });
+    ok(gCkR.ok === true, 'S3 安全审计#1 dataRoot/checkpoints READ stays allowed');
+    for (const rel of ['.claude/settings.json', '.claude/settings.local.json', '.mcp.json', '.claude.json', '.kimi/mcp.json', '.ruyi-toolbox/components/x.json']) {
+      const ga = await S.guardFileToolPath(path.join(WS, rel), ctx('https://api.deepseek.com'), { write: true });
+      ok(ga.ok === false && ga.code === 'autoexec-denied', 'S3 安全审计#1 agent-CLI launch config ' + rel + ' write → autoexec-denied');
+    }
+    const gPkg = await S.guardFileToolPath(path.join(WS, 'package.json'), ctx('https://api.deepseek.com'), { write: true });
+    ok(gPkg.ok === true, 'S3 安全审计#1 ordinary workspace file (package.json) write still allowed');
+  }
+
   // ── PART B: integration on a live workbench ───────────────────────────────────────────────────────────
   fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
   const WS2 = path.join(HOME, 'ws'); fs.mkdirSync(WS2, { recursive: true });

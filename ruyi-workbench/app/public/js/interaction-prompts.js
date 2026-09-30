@@ -226,7 +226,9 @@ function renderAskModal(item, ctx) {
           const next = Number(r && r.deadlineAt) || 0;
           if (next > 0) { currentDeadline = next; item.deadlineAt = next; syncCountdown(); }
         })
-        .catch(() => { clearInterval(heartbeatTimer); }); // 409 → question already settled server-side
+        // 只有服务端明确回 4xx(409 = 问题已了结、403 = token 失效)才停;断网、5xx 这类瞬时错误照常下个周期再续 ——
+        // 修前任何一次失败都永久停掉心跳,用户还在弹窗里打字,服务端的截止时间就到了,问题被自动取消。
+        .catch(e => { const status = Number(e && e.status) || 0; if (status >= 400 && status < 500) clearInterval(heartbeatTimer); });
     }, 30000);
   }
   const collectAnswers = () => states.map(state => {

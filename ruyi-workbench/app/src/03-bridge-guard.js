@@ -393,22 +393,56 @@ function pathWithinAnyRoot(target, roots) {
 // an 8.3 short name (RUNNER~1) or a junction while the allowed root resolves to its long/real name. Comparing
 // those two spellings rejects a legitimate new file. Resolving the nearest existing ancestor preserves the
 // symlink/junction escape protection while also canonicalizing paths whose leaf does not exist yet.
-async function realpathForContainment(rawPath) {
-  const abs = path.resolve(String(rawPath || ''));
-  let probe = abs;
-  const missing = [];
-  for (;;) {
-    try {
-      const real = await fsp.realpath(probe);
-      return missing.length ? path.join(real, ...missing) : real;
-    } catch (err) {
-      if (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR')) return abs;
-      const parent = path.dirname(probe);
-      if (parent === probe) return abs;
-      missing.unshift(path.basename(probe));
-      probe = parent;
+// 安全审计 #7(悬空链接越界写):修前 realpath 报 ENOENT 就一律当「这一段还不存在」往上走,于是工作区里一个
+// 【悬空】符号链接 / junction(ws\dangle.txt -> D:\outside\new.txt,目标尚不存在)被词法拼回 ws\dangle.txt,包含判定
+// 放行,而 writeFile 跟着链接把文件建在了工作区外。现在每走到一个 realpath 失败的段先 lstat 它:是链接就读出目标、
+// 把剩余尾巴接到目标上再整条重算(链接套链接逐层解开,上限 40 层);只有真正不存在的段才照旧词法补回。父目录链
+// (mkdir -p 要建的中间段)走同一条路:中间某段是悬空链接时,同样解到它的真实落点再判。Node 在 Windows 上把
+// junction 也报成 isSymbolicLink,readlink 能读出目标。链接读不出目标 / 层数超限 → unresolvable:true,两道护栏
+// (guardFileToolPath / guardWorkspacePath)据此 fail-closed 拒绝;realpathForContainment 保持「返回一个路径」的
+// 旧形状供其它调用方(根目录归一、Kimi 计划文件、exec 闸)。
+const REALPATH_LINK_DEPTH_MAX = 40;
+function stripWin32VerbatimPrefix(p) {
+  // readlink 读 junction 在 Windows 上可能带 \\?\ 前缀(\\?\C:\x);去掉它,与 realpath 的输出同一种拼法再比包含。
+  const s = String(p || '');
+  const m = s.match(/^\\\\\?\\([A-Za-z]:(?:[\\/].*)?)$/);
+  return m ? m[1] : s;
+}
+async function resolveContainmentPath(rawPath) {
+  let abs = path.resolve(String(rawPath || ''));
+  for (let depth = 0; ; depth += 1) {
+    let probe = abs;
+    const missing = [];
+    let next = null;
+    for (;;) {
+      try {
+        const real = await fsp.realpath(probe);
+        return { path: missing.length ? path.join(real, ...missing) : real, unresolvable: false };
+      } catch (err) {
+        // 这一段本身在盘上、realpath 却解不开 → 悬空链接。跟着链接走,别把它当成「还不存在」。先 lstat 再看错误码:
+        // Windows 上悬空 junction 的 realpath 错误码不保证是 ENOENT,不能让它落进下面「其它错误 → 词法回退」那一支。
+        let lst = null;
+        try { lst = await fsp.lstat(probe); } catch { lst = null; }
+        if (!(lst && lst.isSymbolicLink()) && (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR'))) return { path: abs, unresolvable: false };
+        if (lst && lst.isSymbolicLink()) {
+          if (depth >= REALPATH_LINK_DEPTH_MAX) return { path: abs, unresolvable: true };
+          let target;
+          try { target = stripWin32VerbatimPrefix(await fsp.readlink(probe)); } catch { return { path: abs, unresolvable: true }; }
+          const linkTarget = path.resolve(path.dirname(probe), target);
+          next = missing.length ? path.join(linkTarget, ...missing) : linkTarget;
+          break;
+        }
+        const parent = path.dirname(probe);
+        if (parent === probe) return { path: abs, unresolvable: false };
+        missing.unshift(path.basename(probe));
+        probe = parent;
+      }
     }
+    abs = next;
   }
+}
+async function realpathForContainment(rawPath) {
+  return (await resolveContainmentPath(rawPath)).path;
 }
 // 审计 P1: dataRoot 是文件工具的允许根之一(fileAllowedRoots),本意只为读写【应用产物】(uploads/checkpoints
 // 内容/generated 产物)。但它同时罩住了应用自身的【控制面文件】:config.json(明文 provider 密钥)、sessions/
@@ -449,6 +483,50 @@ function isSensitiveDataPath(p) {
   } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   return false;
 }
+// 安全审计 #1/#8(数据根里会被【自动加载 / 执行 / 信任】的状态):dataRoot 是文件工具的写根,isSensitiveDataPath
+// 只挡了「读出来会泄密」的那一批。下面这批读是无害的(或本来就要能读:检查点内容、个人工作流模板),但【写】进去
+// 就等于在下一回合 / 下一次启动时让工作台替模型执行它:
+//   mcp/*/ruyi-mcp.json      —— scanMcpDropIns 不经审批就合并进 MCP 清单,每回合按里面的 command 起进程;
+//   agent-workflows/         —— 个人 DAG 模板(角色、工具、权限档位),一键运行;
+//   checkpoints/             —— 回滚按 index.json 里的 path 把 .gz 内容写回任意位置(#8);
+//   scheduler/               —— 定时任务(payload + autonomy)到点无人值守开回合;
+//   steward/ missions/       —— 管家收件箱/记忆/决策与事项容器,管家据此自动派活;
+//   migrations/              —— 迁移日志,撤销时按日志改写 ~/.claude.json / Kimi / Codex 配置;
+//   overlay-tool/            —— Manage-Overlay.ps1 等覆盖更新脚本,工作台直接执行;
+//   以及数据根顶层的几份状态文件(安装登记表记着别的包的启动位置、CLI 配置同步的所有权侧车等)。
+// 只拦【写】(guardFileToolPath write:true),读照旧 —— 不影响 file_read 检查点内容 / 工作流模板。uploads/、webcache/、
+// skills/、playbooks/、agent-worktrees/ 与会话自己放进数据根的普通文件不在此列(用户产物与写代理的隔离工作树)。
+const WRITE_PROTECTED_DATA_DIRS = Object.freeze(['mcp', 'agent-workflows', 'checkpoints', 'scheduler', 'steward', 'missions', 'migrations', 'overlay-tool']);
+const WRITE_PROTECTED_DATA_FILES = Object.freeze(['install-registry.json', 'claude-settings-sync.json', 'kimi-mcp-sync.json', 'engine-transcripts.json', 'context-calibration.json', 'proxy-models-cache.json', 'storage-trend.json', 'last-start-error.json']);
+function isWriteProtectedDataPath(p) {
+  if (!p) return false;
+  if (isSensitiveDataPath(p)) return true;
+  const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+  for (const b of bases) {
+    for (const n of WRITE_PROTECTED_DATA_DIRS) if (pathWithinRoot(p, path.join(b, n))) return true;
+    for (const n of WRITE_PROTECTED_DATA_FILES) if (pathWithinRoot(p, path.join(b, n))) return true;
+  }
+  return false;
+}
+// 安全审计 #1:数据根之外、同样会被【不经审批自动加载成可执行启动配置】的位置,按真实路径比(env 可改的那几处
+// 不能靠文件名正则):ruyi-toolbox 组件登记目录(04 scanToolboxComponents 按登记文件起服务进程,RUYI_TOOLBOX_HOME
+// 可改位置)、发行包 mcp/ 整棵(随包 drop-in 的清单与它要起的代码,同 scanMcpDropIns)、Kimi Code 的 mcp.json(KIMI_CODE_HOME
+// 可改位置)。缺省位置的文件名形状另由 AUTOEXEC_DENYLIST 的正则兜住,任何工作区里的同名路径也一并拦。
+function isAutoLoadedLaunchConfigPath(p) {
+  if (!p) return false;
+  try {
+    if (pathWithinRoot(p, path.resolve(toolboxComponentsDir()))) return true;
+  } catch { /* 取不到登记目录:由正则兜底 */ }
+  try {
+    // 与 scanMcpDropIns 同一张目录表(发行包 mcp/ 与数据根 mcp/);数据根那一处另由 WRITE_PROTECTED_DATA_DIRS 整棵拦。
+    for (const { root } of mcpDropInDirs()) if (pathWithinRoot(p, path.resolve(root))) return true;
+  } catch { /* 同上 */ }
+  const kimiHome = String(process.env.KIMI_CODE_HOME || '').trim();
+  if (kimiHome) {
+    try { if (pathWithinRoot(p, path.resolve(kimiHome, 'mcp.json'))) return true; } catch { /* 同上 */ }
+  }
+  return false;
+}
 // v1.0.2-S3: shared allowed-root guard for the file endpoints (/api/file/preview borrows the inline version;
 // /api/file/reveal uses this). Resolves BOTH the target and every root via fs.realpath (symlink-agnostic) —
 // a symlink inside an allowed root but pointing outside must NOT pass. Returns {ok, code?, error?, absPath?}:
@@ -462,10 +540,13 @@ async function guardWorkspacePath(rawPath, session, config) {
   const targetRaw = path.resolve(rawPath);
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
-  const realRaw = await realpathForContainment(targetRaw);
-  const real = normalizeGuardPath(realRaw);
-  // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 http_download 落盘目标都经此护栏 —— 敏感控制面文件既
-  // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
+  const resolved = await resolveContainmentPath(targetRaw);
+  const real = normalizeGuardPath(resolved.path);
+  // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
+  if (resolved.unresolvable) return { ok: false, code: 'not-allowed', error: '路径经过无法解析的链接,已拒绝' };
+  // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 bridged 写快照都经此护栏 —— 敏感控制面文件既
+  // 不许暴露也不许被覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
+  // (http_download 落盘自安全审计 #3 起改走 guardFileToolPath 写闸,见 11 guardDownloadDest。)
   await ensureDataRootReal();
   if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
@@ -513,6 +594,11 @@ const AUTOEXEC_DENYLIST = [
   /(^|[\\/])\.vscode[\\/]tasks\.json$/i, /(^|[\\/])\.vscode[\\/]launch\.json$/i,
   // CI/CD 配置（非高频开发编辑）
   /(^|[\\/])\.github[\\/]workflows[\\/]/i, /(^|[\\/])\.gitlab-ci\.yml$/i, /(^|[\\/])Jenkinsfile$/i,
+  // 安全审计 #1:agent CLI / 工具箱【不经审批自动加载】的启动配置 —— 写进去就等于下一回合替模型起任意进程。
+  //   Claude Code:.claude/settings(.local).json 的 hooks、项目 .mcp.json、~/.claude.json 的 mcpServers(工作台还会
+  //   自动导入它);Kimi Code:.kimi/mcp.json 与 ~/.kimi-code/mcp.json;ruyi-toolbox 组件登记 ~/.ruyi-toolbox/components/。
+  /(^|[\\/])\.claude[\\/]settings(?:\.local)?\.json$/i, /(^|[\\/])\.mcp\.json$/i, /(^|[\\/])\.claude\.json$/i,
+  /(^|[\\/])\.kimi(?:-code)?[\\/]mcp\.json$/i, /(^|[\\/])\.ruyi-toolbox[\\/]components[\\/]/i,
 ];
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
@@ -594,8 +680,14 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
-  const realRaw = await realpathForContainment(absRaw);
-  const real = normalizeGuardPath(realRaw);
+  const resolved = await resolveContainmentPath(absRaw);
+  const real = normalizeGuardPath(resolved.path);
+  // 安全审计 #7:悬空链接已在 resolveContainmentPath 里解到真实落点(下面的包含判定与三层地板都按它判);
+  // 链接读不出目标 / 层数超限时不知道会写到哪儿 —— 任何模式下都不放行(含宽写与越界豁免)。
+  if (resolved.unresolvable) {
+    logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unresolvable-link', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: '该路径经过无法解析的符号链接/联接,已拒绝' };
+  }
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
   // 词法 abs 与 realpath 后 real 都查,双保险(junction/短名部署下两者不同)。
@@ -607,11 +699,17 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   // 第31波B(L1): autoexec 检查下沉到 guardFileToolPath —— 全模式覆盖(含 bypass/plan/default),不再依赖授权书层。
   // 仅 write 时检查(读 .git/hooks 不会触发自动执行);对 abs 与 real 双路径归一后匹配 denylist,命中即拒。
   if (write) {
+    // 安全审计 #1/#8:数据根里会被自动加载 / 执行 / 信任的状态(mcp drop-in、工作流模板、检查点、定时任务等,
+    // 见 isWriteProtectedDataPath)—— 读照旧,写一律拒。与敏感名单一样放在逃生舱之前。
+    if (isWriteProtectedDataPath(abs) || isWriteProtectedDataPath(real)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-protected-data', pathLen: abs.length });
+      return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(MCP 连接器/工作流/检查点/定时任务等),已禁止文件工具写入' };
+    }
     const normAbs = normalizeAutoexecPath(abs);
     const normReal = normalizeAutoexecPath(real);
-    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal))) {
+    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal)) || isAutoLoadedLaunchConfigPath(abs) || isAutoLoadedLaunchConfigPath(real)) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
-      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
     // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
     if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {
@@ -629,7 +727,10 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: wideWrite ? 'allow-wide-mode' : 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
-  const roots = write ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
+  // opts.rootSet === 'read':写,但包含判定用读根集合(外加 defaultWorkspace / recentWorkspaces / 读授权工作区)——
+  // 只给检查点回滚用(安全审计 #8):bridged 写快照当初按读根集合(guardWorkspacePath)入账,回滚写回同一处要认得它;
+  // 三层硬地板与受保护数据照旧先拦。
+  const roots = (write && !(opts && opts.rootSet === 'read')) ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
@@ -655,6 +756,32 @@ async function preflightWriteBoundary(toolName, args, ctx) {
     const p = path.resolve(args[k]);
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
+  }
+  return null;
+}
+// 安全修复(审计 A②):桥接(ACC 等)的【读文件内容】族工具走与原生 file_read 同一道读边界。
+// 修前 read_file / list_directory / file_info / ocr_image 在 read 档(任何权限模式都零弹窗放行),却从不经
+// guardFileToolPath —— 远端模型一句话就能读 <dataRoot>\config.json(API 密钥)、runtime.json(回环令牌)、
+// ~\.ssh\*。现在分发前(callTool 之前、三个分发点同一个函数)对这些工具的路径参数过读闸:
+//   · 应用内部数据(配置/会话/记忆/日志)一律拒(与 file_read 同一条 isSensitiveDataPath 地板);
+//   · 工作区外:本机模型放行、远端模型拒(allowOutsideWorkspace 是唯一逃生舱)—— 口径逐字同 file_read;
+//   · 必须是绝对路径:相对路径由 ACC 按它自己的工作目录解析,工作台这边判不准,缺省 '.' 同理 → 拒并提示改绝对路径。
+// 仍是 read 档:工作区里的读照旧零弹窗,桌面自动化的日常用法不受影响。表按【裸名】登记,对任何桥接服务器
+// 同名工具一视同仁(第三方 MCP 的 read_file 也是读文件)。
+const BRIDGED_READ_PATH_ARGS = Object.freeze({
+  read_file: ['path'], list_directory: ['path'], file_info: ['path'], ocr_image: ['path'],
+});
+async function bridgedReadPathGate(bridgedName, args, ctx) {
+  const bare = unprefixedBridgedName(bridgedName);
+  if (!Object.prototype.hasOwnProperty.call(BRIDGED_READ_PATH_ARGS, bare)) return null;
+  const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  for (const field of BRIDGED_READ_PATH_ARGS[bare]) {
+    const raw = typeof a[field] === 'string' ? a[field].trim() : '';
+    if (!raw || !path.isAbsolute(raw)) {
+      return { ok: false, code: 'path-not-absolute', error: `桌面控制读文件必须用【绝对路径】。参数「${field}」${raw ? '是相对路径' : '缺失'},工作台无法判断它指向哪里。请用完整绝对路径重试。` };
+    }
+    const g = await guardFileToolPath(raw, ctx, { tool: bare, write: false });
+    if (!g.ok) return { ok: false, error: g.error, code: g.code, path: raw };
   }
   return null;
 }

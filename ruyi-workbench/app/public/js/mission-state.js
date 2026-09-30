@@ -52,7 +52,8 @@
     // 2. 已收工:结果章 complete(72波持久化盖章,全部里程碑 done 的权威记录)。
     { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
     // 3. 进行中:活回合 / until-done 驱动中 / 有未暂停的活 run —— 有权威活证据才算在干,不靠猜。
-    { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+    // hunt3:queued = 回合排在管家仲裁器里(等锁/等预算/等并发位),已交出去的活,同算进行中。
+    { id: 'live', state: 'running', when: s => s.activeTurn || s.queued || s.autoMode === 'until-done' || s.liveRuns > 0 },
     // 4. 交办中:立了单但还没有任何执行痕迹(无 run、无回合、无里程碑完成)——刚交办待启动。
     { id: 'untouched', state: 'dispatching',
       when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
@@ -66,7 +67,7 @@
   const RULE_IDS = RULES.map(r => r.id);
 
   // 归一化输入(卡片与详情快照都可适配进来,见 fromCard/fromSnapshot):
-  //   { kind, autoMode, budgetExhausted, resultStatus, pending, activeTurn, liveRuns, runCount, turnSeq,
+  //   { kind, autoMode, budgetExhausted, resultStatus, pending, activeTurn, queued, liveRuns, runCount, turnSeq,
   //     milestonesTotal, milestonesDone, ledgerless, lastTurnFailed }
   function deriveMissionState(n) {
     const src = {
@@ -79,6 +80,7 @@
       resultStatus: n.resultStatus || '',
       pendingTotal: pendingTotal(n.pending),
       activeTurn: n.activeTurn === true,
+      queued: n.queued === true,   // hunt3:与 06i deriveStewardThreadState 同一个证据键
       liveRuns: Math.max(0, Number(n.liveRuns) || 0),
       runCount: Math.max(0, Number(n.runCount) || 0),
       turnSeq: Math.max(0, Number(n.turnSeq) || 0),
@@ -126,6 +128,7 @@
       resultStatus: (m.result && m.result.status) || '',
       pending: card && card.pending,
       activeTurn: card && card.activeTurn === true,
+      queued: card && card.queued === true,
       liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
       runCount: card && card.runCount,
       // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
@@ -151,6 +154,7 @@
       resultStatus: (snap && snap.result && snap.result.status) || (m.result && m.result.status) || '',
       pending: snap && snap.pending,
       activeTurn: snap && snap.activeTurn === true,
+      queued: snap && snap.queued === true,
       liveRuns: runs.filter(r => r && r.live && !r.paused).length,
       runCount: runs.length,
       turnSeq: snap && snap.cursor && snap.cursor.turnSeq,

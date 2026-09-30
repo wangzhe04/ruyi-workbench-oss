@@ -1093,7 +1093,8 @@ export function createChatRenderPrimitives(deps = {}) {
         if (!r || !r.ok) { toast(t("toast.rewindFail", { p1: (r && r.error) || t('common.unknownError') }), 'err'); return; }
         // Reload the truncated session and re-render; refill the composer with the removed user text.
         // v1.0-S7 (perf): reset the window cursor so the shrunken conversation re-windows from its new tail.
-        if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); state.currentSession = s.session; state.resumable = s.resumable || null; state.msgWindowStart = null; renderCurrentSession(); renderResumeBanner(); }
+        // GET 期间切到了别的会话:别把回溯后的这条写回 state(会盖掉刚打开的那条)—— 取回来之后再判一次。
+        if (state.currentSession?.id === sid) { const s = await api(`/api/sessions/${sid}`); if (state.currentSession?.id === sid) { state.currentSession = s.session; state.resumable = s.resumable || null; state.msgWindowStart = null; renderCurrentSession(); renderResumeBanner(); } }
         await refreshSessions();
         try { refreshToolPane(); } catch { /* 128f-⑫：回溯连文件一起退的话，「变更」页签要当场跟上 */ }
         if (r.lastUserText != null) { $('promptInput').value = r.lastUserText; autoGrow($('promptInput')); $('promptInput').focus(); }

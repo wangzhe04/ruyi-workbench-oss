@@ -10,6 +10,11 @@
 //   [S4] P10 run-now 不再拿住 tick 锁:手动那一次回合挂着的时候,别的任务照常到点派单、跑完。
 //   [S5] P5 进程一直活着、时钟跳过去(睡眠唤醒)的错过:onMissed:'skip' / 超出 graceMinutes ⇒ 记 skipped、
 //        不派单、推进 nextRunAt(修前晚 11 小时仍记 ontime 照跑);默认策略宽限内 ⇒ 以 late 补跑一次。
+//   [S6] hunt3 登记之后任何一步抛错(这里是 fires-v1.ndjson 一次 EIO):修前异常冒出去只落一条日志,inFlightRunId
+//        永远挂着、没有 reconciled 行、nextRunAt 不动 —— tick 永远跳过它、run-now 永远 409。现在按 failed 收尾。
+//   [S7] hunt3 运行中把 schedulerEnabledV1 关掉:修前 interval 照跑、到点照派;现在关着就不派,再打开接着走。
+//   [S8] hunt3 目标线程正被别处的回合占着(SESSION_TURN_BUSY_ELSEWHERE):修前记 failed、计入连败(3 次熔断停用);
+//        现在记 skipped/target_busy,连败不动,不往那条线程的会话头上记管家末回合。
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -198,6 +203,91 @@ test('[S5] 进程活着、时钟跳过去的错过:按 onMissed / graceMinutes �
   assert.ok(Date.parse(after.nextRunAt) > clock, 'nextRunAt 推到了「现在」之后(跳过不等于卡住)');
   await sleep(300);
   assert.equal(fires().filter(f => f.taskId === lateId && f.phase === 'registered').length, 1, '只补一次');
+});
+
+test('[S6] 登记之后一步写失败:按 failed 收尾,不再永远在飞', async () => {
+  const c = await api('POST', '/api/scheduler/tasks', { title: 'eio', schedule: { kind: 'daily', at: '04:00' }, payload: { kind: 'reminder', text: 'e' } });
+  const id = c.json.task.id;
+  const dueMs = Date.parse(c.json.task.nextRunAt);
+  const orig = fsp.appendFile;
+  let failed = 0;
+  fsp.appendFile = function (p, ...rest) {
+    if (String(p) === FIRES && failed < 1) { failed += 1; return Promise.reject(Object.assign(new Error('EIO: i/o error, write'), { code: 'EIO' })); }
+    return orig.call(this, p, ...rest);
+  };
+  try {
+    setClock(dueMs + 1000);
+    assert.ok(await waitFor(() => fires().some(f => f.taskId === id && f.phase === 'reconciled'), 5000), '有一行 reconciled(修前一行都没有)');
+  } finally { fsp.appendFile = orig; }
+  assert.equal(failed, 1, '前提:registered 那一行确实写失败了一次');
+  const row = fires().find(f => f.taskId === id && f.phase === 'reconciled');
+  assert.equal(row.outcome, 'failed');
+  assert.match(String(row.error), /^dispatch_error: EIO/);
+  const t = await taskOf(id);
+  assert.equal(t.state.inFlightRunId, '', '内存里不再挂着 inFlightRunId');
+  assert.equal(t.state.consecutiveFailures, 1, '计入连败(熔断照常兜底)');
+  assert.ok(Date.parse(t.nextRunAt) > dueMs, 'nextRunAt 推进到了下一个时点');
+  const disk = JSON.parse(fs.readFileSync(TASKS, 'utf8')).tasks.find(x => x.id === id);
+  assert.equal(disk.state.inFlightRunId, '', '盘上也清了');
+  const again = await api('POST', '/api/scheduler/tasks/' + id + '/run-now', {});
+  assert.equal(again.status, 200, `之后再跑一次不 409(实测 ${again.status})`);
+  assert.equal(again.json.outcome, 'succeeded');
+  setClock(Date.parse(t.nextRunAt) + 1000);
+  assert.ok(await waitFor(() => fires().filter(f => f.taskId === id && f.phase === 'reconciled' && f.mode === 'ontime').length === 2, 5000),
+    '第二天到点照常触发(修前 tick 永远跳过它)');
+  await api('DELETE', '/api/scheduler/tasks/' + id);
+});
+
+test('[S7] 运行中关掉总开关:到点不派;再打开接着走', async () => {
+  const c = await api('POST', '/api/scheduler/tasks', { title: 'off', schedule: { kind: 'daily', at: '05:00' }, payload: { kind: 'reminder', text: 'o' } });
+  const id = c.json.task.id;
+  const dueMs = Date.parse(c.json.task.nextRunAt);
+  await srv.mutateConfig(cfg => { cfg.schedulerEnabledV1 = false; return cfg; });
+  try {
+    assert.equal((await readConfig()).schedulerEnabledV1, false, '前提:配置里已经关了');
+    setClock(dueMs + 1000);
+    await sleep(500);                          // 40 ms 一拍,至少十来拍
+    assert.equal(fires().filter(f => f.taskId === id).length, 0, '关着的时候一行 fires 都不写(修前 registered/dispatched/reconciled 照写)');
+  } finally {
+    await srv.mutateConfig(cfg => { cfg.schedulerEnabledV1 = true; return cfg; });
+  }
+  assert.ok(await waitFor(() => fires().some(f => f.taskId === id && f.phase === 'reconciled'), 5000), '再打开之后不必重启,下一拍接着派');
+  await api('DELETE', '/api/scheduler/tasks/' + id);
+});
+
+test('[S8] 目标线程被别处的回合占着:skipped/target_busy,不计连败', async () => {
+  armGate();
+  const S = await srv.createSession({ title: 'user chat', cwd: root });
+  await srv.saveSession(S);
+  const c = await api('POST', '/api/scheduler/tasks', {
+    title: 'poke', schedule: { kind: 'daily', at: '06:00' }, payload: { kind: 'prompt', text: 'status please' },
+    target: { mode: 'existing-session', sessionId: S.id },
+  });
+  assert.equal(c.status, 200, JSON.stringify(c.json));
+  const id = c.json.task.id;
+  const userTurn = srv.runSessionTurn({ sessionId: S.id, message: 'GATED user is talking', source: 'http', onEvent: () => {} });
+  try {
+    await sleep(200);
+    const before = Number(((await taskOf(id)).state.runsToday || {}).count) || 0;
+    for (let i = 0; i < 3; i++) {
+      const r = await api('POST', '/api/scheduler/tasks/' + id + '/run-now', {});
+      assert.equal(r.status, 200);
+      assert.equal(r.json.outcome, 'skipped', `第 ${i + 1} 次:忙不是失败(实测 ${r.json.outcome})`);
+    }
+    const rows = fires().filter(f => f.taskId === id && f.phase === 'reconciled');
+    assert.equal(rows.length, 3);
+    assert.ok(rows.every(f => f.outcome === 'skipped' && f.error === 'target_busy'), JSON.stringify(rows.map(f => [f.outcome, f.error])));
+    const t = await taskOf(id);
+    assert.equal(t.state.consecutiveFailures, 0, '连败不动(修前三次就熔断)');
+    assert.equal(t.enabled, true, '没有被熔断停用');
+    assert.equal(Number((t.state.runsToday || {}).count) || 0, before, '什么都没跑,当日计数退回');
+    const head = await srv.readSessionHeadResilient(S.id).catch(() => null);
+    assert.ok(!head || !head.stewardLastTurn, '没往用户那条线程头上记一笔管家末回合');
+  } finally {
+    gateRelease();
+    await Promise.race([userTurn.catch(() => null), deadline(20000)]);
+  }
+  await api('DELETE', '/api/scheduler/tasks/' + id);
 });
 
 test('teardown', async () => {

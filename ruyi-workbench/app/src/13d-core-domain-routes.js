@@ -473,9 +473,15 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, json({ ok: false, error: 'method not allowed' }, 405));
     }
   }
-  if (pathname.startsWith('/api/sessions/')) {
-    const id = path.basename(pathname); // guards traversal
+  // 单条会话的 GET / PATCH / DELETE 只认 /api/sessions/<一段>。修前是 startsWith + path.basename(pathname):
+  // /api/sessions/随便/什么/<id> 与 /api/sessions/<id>/ 都被当成 <id> —— 同一条会话有无数个别名(DELETE 也吃),
+  // 以后再加 /api/sessions/:id/xxx 子路由时稍不留神就被这里先吞掉。其余形状落到路由末尾的 api.route_not_found。
+  const single = pathname.match(/^\/api\/sessions\/([^/]+)$/);
+  if (single) {
+    // 与后台任务那几条同一个解码口径:坏编码(%zz)→ '' → 下面各分支按不合形的 id 处理(404 / 400)。
+    const id = safeDecodeURIComponent(single[1]) || '';
     if (req.method === 'GET') {
+      if (!safeSessionId(id)) return send(res, apiSessionNotFound());   // 不合形/保留名(01 safeSessionId)不可能是一条会话
       // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
       // 正文并逐行 sha1(18 MB 会话 250–350 ms;逐行 sha1 后来去掉了,见 02 sessionBodyState)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
       // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
@@ -592,6 +598,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       if (id === STEWARD_SESSION_ID) {
         return send(res, apiFailure('steward.forbidden', {}, 'the steward session cannot be patched through /api/sessions', 403));
       }
+      if (!safeSessionId(id)) return send(res, apiSessionNotFound());
       // 116-2a(27 号文 §3.3/§8.6「每条线程一个权限 chip、点开即换、立即生效」):线程级权限就地快切。
       // 与 engineRoute 同端点、同风格(它是会话级字段的既有先例)。两道门:
       //   ① 白名单 —— 非 PERMISSION_MODES 的值 400,绝不悄悄回落(用户按了一个档,系统却按另一个档跑,
@@ -817,6 +824,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
       : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
+    ...(opts.persistent ? {} : { queued: stewardThreadTurnQueued(head.id) }), // hunt3:排队中的回合,同上只活在叠加层
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
       autoMode: mm.autoMode || 'off',
@@ -1399,6 +1407,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
         activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
+        queued: stewardThreadTurnQueued(sessionId), // hunt3:回合在仲裁器里排队(前端 fromSnapshot 读它,同 activeTurn 一档)
         mission: session.mission || null,
         acceptance,
         // 班组图只需最近 6 轮；更旧历史仍保留标量 digest，可在经典工作台查看完整节点。
@@ -2083,7 +2092,11 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
     const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
     // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
-    const bridgeMode = String(config.permissionMode || '');
+    // 审计 C:按【这一回合】的实效档判,不按全局档。runClaudeTurn 登记活回合时记下了 spawn CLI 用的解析档
+    // (请求级 > 会话级 > 全局,10 runSessionTurn 解析);修前读 config.permissionMode —— 全局 auto 时,一条被
+    // 收紧到 default/plan 的线程(或交办卡/定时任务的请求级收紧)经 CLI 桥发来的 edit/exec 请求被静默放行。
+    // 登记表上没有这个值(Kimi 等其它引擎)就按会话头 + 全局解析,仍比「只看全局」更紧或相等。
+    const bridgeMode = String((reg && reg.permissionMode) || resolvePermissionMode({ session: reg && reg.session, config }) || '');
     const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
     // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
     // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。

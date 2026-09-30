@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-30T04:00:27.931Z",
+  "generatedAt": "2026-09-30T08:52:47.505Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -21,8 +21,8 @@
     "decisionPoints": 151,
     "byKind": {
       "exact": 128,
-      "prefix": 14,
-      "regex": 9
+      "prefix": 13,
+      "regex": 10
     },
     "authLevels": [
       "body-token",
@@ -31,7 +31,7 @@
       "token",
       "token-browser"
     ],
-    "uncoveredPoints": 7,
+    "uncoveredPoints": 6,
     "problems": 0,
     "warnings": 0
   },
@@ -937,6 +937,7 @@
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\simple-mode.browser.e2e.js",
@@ -1153,6 +1154,7 @@
         "dev-harness\\context-window.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",
         "dev-harness\\openai-engine.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\unit\\agent-cli-registry.test.js"
       ]
     },
@@ -1706,6 +1708,7 @@
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
+        "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\unit\\foreign-turn-composer.test.js"
       ]
     },
@@ -2305,6 +2308,7 @@
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-permission-bridge-mode.e2e.js",
         "dev-harness\\claude-resume-recovery.e2e.js",
         "dev-harness\\compaction-refetch-guard.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -2417,6 +2421,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\tool-loading.e2e.js",
         "dev-harness\\tools-v2.e2e.js",
+        "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\uimode-style.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -3052,6 +3057,7 @@
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-permission-bridge-mode.e2e.js",
         "dev-harness\\claude-resume-recovery.e2e.js",
         "dev-harness\\compaction-refetch-guard.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -3133,6 +3139,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
@@ -3185,6 +3192,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
@@ -3215,6 +3223,7 @@
       "domain": "session",
       "auth": "token",
       "coveredBy": [
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\steward-runner.e2e.js"
       ]
@@ -3278,6 +3287,7 @@
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
+        "dev-harness\\claude-permission-bridge-mode.e2e.js",
         "dev-harness\\claude-resume-recovery.e2e.js",
         "dev-harness\\compaction-refetch-guard.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
@@ -3359,6 +3369,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
@@ -3411,6 +3422,7 @@
         "dev-harness\\todo-summary.e2e.js",
         "dev-harness\\token-bootstrap-csp.e2e.js",
         "dev-harness\\tools-v3.e2e.js",
+        "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\turn-undo.browser.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
@@ -3459,8 +3471,9 @@
       "coveredBy": []
     },
     {
-      "kind": "prefix",
-      "path": "/api/sessions/",
+      "kind": "regex",
+      "pattern": "^\\/api\\/sessions\\/([^/]+)$",
+      "path": "/api/sessions/:id",
       "file": "13d-core-domain-routes.js",
       "handler": "handleSessionApiRoutes",
       "methods": [
@@ -3526,12 +3539,14 @@
         "dev-harness\\quiet-card-typing.browser.e2e.js",
         "dev-harness\\quiet-card.browser.e2e.js",
         "dev-harness\\rail-reconcile.browser.e2e.js",
+        "dev-harness\\rail-session-search.browser.e2e.js",
         "dev-harness\\resume-dangling.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\scheduler.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-bulk-cleanup.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
+        "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
@@ -3566,6 +3581,7 @@
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\todo-loopback.e2e.js",
         "dev-harness\\todo-summary.e2e.js",
+        "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\ui-polish.browser.e2e.js",
         "dev-harness\\unit\\api-conditional.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -4083,7 +4099,9 @@
       "methodOverride": false,
       "domain": "intervention",
       "auth": "body-token",
-      "coveredBy": []
+      "coveredBy": [
+        "dev-harness\\claude-permission-bridge-mode.e2e.js"
+      ]
     },
     {
       "kind": "exact",
@@ -4100,6 +4118,7 @@
       "coveredBy": [
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-permission-bridge-mode.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",
         "dev-harness\\kimi-agent-cli.e2e.js",

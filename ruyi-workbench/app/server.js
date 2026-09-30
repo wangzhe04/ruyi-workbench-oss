@@ -5641,9 +5641,22 @@ function authorizeRoute(req, method, pathname) {
 // canonical shape (letters/digits/_/-, 1..64), else null. Real ids look like `session_<hex>` → pass
 // naturally. Callers treat null as a 400. Blocks path-ish / oversized / control-char ids from ever
 // reaching loadSession / journal / activeChildren lookups.
+// 会话目录里还住着不是会话的 .json:侧栏索引 index.json、内容搜索索引 _search-index-v1.json(13d)。它们的文件名
+// 本身形状合法,修前 GET /api/sessions/_search-index-v1 会把搜索索引当成 v1 会话「懒迁移」(头被改写、旁边长出
+// 两个正文),DELETE /api/sessions/index 直接 unlink 侧栏索引。所以保留名一律不是会话 id:`index`,以及任何以
+// `_` 开头的名字(工作台自己往会话目录里放的旁车文件都用这个前缀,以后新加的也照此起名)。真会话 id 的形状是
+// makeId('sess') 的 `sess_<16 hex>`、管家会话的 `steward`,都不受影响。
+// 同一张表里还有 Windows 的保留设备名:`CON.json` / `NUL.json` 在 Win32 路径语义下指向设备而不是文件
+// (大小写不敏感,所以比对前先转小写 —— `INDEX.json` 在 NTFS 上也就是 index.json)。
+const RESERVED_SESSION_FILE_IDS = new Set([
+  'index', 'con', 'prn', 'aux', 'nul',
+  ...Array.from({ length: 9 }, (_, i) => `com${i + 1}`), ...Array.from({ length: 9 }, (_, i) => `lpt${i + 1}`),
+]);
 function safeSessionId(raw) {
   const s = String(raw == null ? '' : raw);
-  return /^[A-Za-z0-9_-]{1,64}$/.test(s) ? s : null;
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(s)) return null;
+  if (s.startsWith('_') || RESERVED_SESSION_FILE_IDS.has(s.toLowerCase())) return null;
+  return s;
 }
 
 // 会话 id 拼成文件名的咽喉点:不合形的 id 在这里就拒掉(抛错),不靠每个调用方记得先 safeSessionId ——
@@ -6854,7 +6867,9 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
 //   providerBodySkips    增量取的装载有几次证明了 provider 正文没变、没去读它(loadSession 的 omitProviderHistory 视图)。
 //   deltaStampFromBytes  增量取的前缀戳有几次是直接对盘上字节算的(不逐条 JSON.stringify)。
 //   deltaStampSerialized 同上,逐条序列化算的(修前的算法;字节路径的前提不成立时仍走它)。
-const sessionBodyPerfStats = { lineHashes: 0, bodyReads: 0, providerBodySkips: 0, deltaStampFromBytes: 0, deltaStampSerialized: 0 };
+const sessionBodyPerfStats = { lineHashes: 0, bodyReads: 0, providerBodySkips: 0, deltaStampFromBytes: 0, deltaStampSerialized: 0, stateEvictions: 0, stateRecoveries: 0 };
+// 当前条目数(只读;见 sessionBodyState 头注的条目上限)。getter:随 perfCounters.sessionBody 一起被展开取值。
+Object.defineProperty(sessionBodyPerfStats, 'stateEntries', { enumerable: true, get: () => sessionBodyState.size });
 function sessionLineHash(line) {
   sessionBodyPerfStats.lineHashes++;
   return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
@@ -6941,7 +6956,12 @@ function sessionMessagesDelta(messages, fromRaw, stampRaw, body = null) {
 // 这张表只可能让事情变慢、不可能让数据变错:比对失配 → 全量重写;记录缺失 / bodiesOk=false → 全量重写;
 // 增量取的任何一个前提不成立 → 落回完整装载。
 // bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。进程重启后由 loadSession 重建。
+// 条目数也有上限 SESSION_BODY_STATE_MAX_ENTRIES:行原文有字符预算,可退成的 hashes(每行一个 16 字符串)修前却
+// 没有任何上限 —— 进程活多久,摸过的每一条会话就在这里挂多久。超出时按最近写/读序整条淘汰最旧的(Map 插入序,
+// setSessionBodyState 每次都把本条挪到末尾)。淘汰只丢「快」:下次 save 先在写链里按盘上的头与正文把记录重建
+// 回来(recoverSessionBodyState,②的旧副本补齐因此不失效),重建不了就全量重写;增量取落回完整装载。
 const SESSION_BODY_LINE_CACHE_CHARS = 32 * 1024 * 1024;
+const SESSION_BODY_STATE_MAX_ENTRIES = 128;
 const sessionBodyState = new Map();
 const sessionBodyLineCache = new Map();   // id → 该会话记录里行原文的字符数(Map 插入序 = 最近写/读序,最旧的先被淘汰)
 let sessionBodyLineCacheChars = 0;
@@ -6977,7 +6997,9 @@ function releaseSessionBodyLineCache(id) {
 function setSessionBodyState(id, state) {
   const prev = sessionBodyState.get(id);
   releaseSessionBodyLineCache(id);
+  sessionBodyState.delete(id);   // 先删再放:本条挪到插入序末尾(= 最近用过),淘汰从最旧的那头开始
   sessionBodyState.set(id, state);
+  evictSessionBodyStateOverflow(id);
   const held = [state.msg, state.prov].reduce((n, rec) => n + (rec && rec.lines ? rec.chars : 0), 0);
   if (held > SESSION_BODY_LINE_CACHE_CHARS) {   // 单条会话就超预算:不占缓存,直接退成 hash(与修前同样的活)
     demoteSessionBodyRecord(state.msg, prev && prev.msg);
@@ -6996,6 +7018,37 @@ function setSessionBodyState(id, state) {
 function dropSessionBodyState(id) {
   releaseSessionBodyLineCache(id);
   sessionBodyState.delete(id);
+}
+// 条目数超上限 → 从最旧的开始整条丢。正在写盘的会话(写链在跑)跳过:写者收尾会把准确的记录放回来,
+// 丢了它也只是让那一次 save 多做一遍重建。keep 是刚放进来的那一条。
+function evictSessionBodyStateOverflow(keep) {
+  if (sessionBodyState.size <= SESSION_BODY_STATE_MAX_ENTRIES) return;
+  for (const otherId of sessionBodyState.keys()) {
+    if (sessionBodyState.size <= SESSION_BODY_STATE_MAX_ENTRIES) break;
+    if (otherId === keep || sessionWriteChains.has(otherId)) continue;
+    dropSessionBodyState(otherId);
+    sessionBodyPerfStats.stateEvictions++;
+  }
+}
+// 写链内、记录缺失时(被上面淘汰过;或进程重启后没装载就直接存)按盘上的真内容重建记录 —— 与 loadSession 读完交出的
+// 那一份同形。前提:头是 v2、两个正文都读得出且行数与头声明的计数【完全相等】(多出的是未提交尾巴,要 loadSession
+// 截断;少了是坏)。任何一条不成立就不给,调用方照旧全量重写。只在写链里调:此刻没有别的写者,盘上就是已提交的状态。
+async function recoverSessionBodyState(id, bp) {
+  const head = await readSessionHeadResilient(id);
+  if (!head || typeof head !== 'object' || head.storageVersion !== SESSION_STORAGE_VERSION) return null;
+  const msg = await readSessionBodyFile(bp.messages);
+  const prov = await readSessionBodyFile(bp.provider);
+  const whole = (body, count) => body && !body.corrupt && !body.unreadable && body.tornAt == null
+    && Number.isInteger(count) && body.entries.length === count;
+  if (!whole(msg, head.messageCount) || !whole(prov, head.providerHistoryCount)) return null;
+  const state = {
+    msg: sessionBodyRecordFromRead(msg, null),
+    prov: sessionBodyRecordFromRead(prov, null, { dangling: danglingTurnState(prov.entries.length, i => prov.entries[i]) }),
+    bodiesOk: true,
+  };
+  setSessionBodyState(id, state);
+  sessionBodyPerfStats.stateRecoveries++;
+  return state;
 }
 // 装载读到的正文 → 记录。与上一份 canonical 记录逐行相等(字符串比较)就继承 canonical,并沿用那一份的行对象(新解码的丢给 GC)。
 function sessionBodyRecordFromRead(body, prev, { stampOk = true, dangling = null } = {}) {
@@ -7447,7 +7500,9 @@ async function listSessions() {
   const all = await fsp.readdir(paths.sessions).catch(() => []);
   // Search metadata lives beside session heads. It is not a session and must not enter either
   // the disk id-set or the rebuilt sidebar index (otherwise boot tries to open an undefined id).
-  const files = all.filter(f => f.endsWith('.json') && f !== SESSION_INDEX_FILE && f !== '_search-index-v1.json');
+  // 判据与 loadSession / 全量扫描同一个 safeSessionId(01):它拒绝 index、`_` 前缀这些保留名,也拒绝不合形的
+  // 文件名 —— 修前这里只点名排除两个文件,别的保留名/怪名进了 diskIds、却永远进不了重建的索引,列表每次都判漂移全量扫。
+  const files = all.filter(f => f.endsWith('.json') && safeSessionId(f.slice(0, -5)) !== null);
   const diskIds = new Set(files.map(f => f.slice(0, -5))); // strip '.json'
   // PF2 fix + 107-F9a: overlay everything not yet durable onto the disk index BEFORE trusting it. The index write
   // is debounced ~200ms, so without the overlay a read would serve a stale title / messageCount / pin / missionId
@@ -7809,6 +7864,8 @@ function sessionSaveIsTombstoned(session) {
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
 // the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
 async function deleteSession(id, { purgeAssociated = false } = {}) {
+  // 不合形/保留名(index、`_` 前缀 …,见 01 safeSessionId)先拒:修前 DELETE /api/sessions/index 一路走到 unlink index.json。
+  assertSessionIdForPath(id);
   // hunt2-P2:先立墓碑(同步,先于 stopSession 触发的任何收尾),再等垂死回合 settle 与已在跑的那一截写链
   // 落完,最后才 unlink —— 否则 unlink 与正在进行的 append/头写交错,删完还会剩下半份文件。
   markSessionDeleted(id);
@@ -9159,6 +9216,15 @@ async function readSessionHeadResilient(id) {
     }
   }
 }
+// 「这条会话走哪条引擎路由」的只读取法:GET /api/status?sessionId= 与 GET /api/models?sessionId= 用。
+// 两条路由都是 auth:'open'(跨站页面也能让浏览器发出来),修前它们调 loadSession —— 装载会补默认字段回写、
+// 懒迁移 v1、截断撕裂尾行,开放读口就这样成了能改盘的写口(配合保留名,还能把搜索索引「迁移」成假会话)。
+// 这里只读会话头,零副作用;inferSessionEngineRoute 要的 engineRoute 就在头上(v1 单文件头连 messages 一起带着)。
+async function readSessionRouteHead(id) {
+  if (safeSessionId(id) === null) return null;
+  const head = await readSessionHeadResilient(id);
+  return head && typeof head === 'object' && !Array.isArray(head) ? head : null;
+}
 // 正文截断同款有界重试(Windows 上杀软/索引器短暂持锁的 EPERM/EBUSY)。仍失败就如实返回 false:
 // 调用方据此不交出 bodiesOk:true —— 否则下次快路径会接在没截掉的残留后面 append,把新行焊进
 // 半行(整条会话随后被判损坏隔离),或让旧的未提交尾巴留在真消息前面、下次截断反而截掉真消息。
@@ -9281,6 +9347,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
       || (Number.isInteger(parsed.providerHistoryCount) && prov && !prov.corrupt && prov.entries.length !== parsed.providerHistoryCount);
     // 117j：只要接下来可能动手（截断或隔离），先确认「头还是刚才读的那一份」。用 updatedAt ＋ 两个
     // 计数当指纹：saveSession 每次落头都会推 updatedAt（nowIso），所以它变了就一定有写者插进来过。
+    // （例外是装载回写 keepUpdatedAt：它们不推 updatedAt、不改两个计数，只补头上的默认字段。本进程内的任何写者
+    //  —— 包括它们 —— 都由下面的 sessionDiskWriteSeqOf 判出来，那才是权威信号；updatedAt 与计数只是兜底。）
     // 读不到头（正被原子替换的那一瞬）同样按「别动手」处理 —— 破坏性动作绝不建立在一次可疑的读上。
     const torn = () => (msg && msg.tornAt != null) || (prov && prov.tornAt != null);
     if (bodyBad() || countsDiffer() || torn()) {   // 只有要动手(截断/隔离)时才需要确认没有写者
@@ -9398,8 +9466,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
-  } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead }).catch(() => {});
+    await saveSession(session, { writer: 'load_migrate', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
+  } else if (changed || healed) await saveSession(session, { writer: 'load_normalize', ifUnwrittenSince: writeSeqAtRead, keepUpdatedAt: true }).catch(() => {});
   // 75a-2b (S3): seed the in-memory changeSeq high-water from the loaded mission, so bumpMissionChangeSeq
   // increments from the correct base and saveSession's max-preserve works. Reset on crash; re-seeded here.
   if (session.mission && typeof session.mission === 'object') {
@@ -9429,7 +9497,7 @@ async function loadSessionV1Backup(id) {
   const { session } = normalizeSession(parsed);
   if (session.id == null) session.id = id;
   Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
-  await saveSession(session).catch(() => {});
+  await saveSession(session, { writer: 'load_v1bak_restore', keepUpdatedAt: true }).catch(() => {});
   return session;
 }
 
@@ -9472,7 +9540,12 @@ async function saveSession(session, opts) {
   if (sessionOmittedProviderHistory(session)) throw new Error('refusing to save a session loaded without its provider history');
   await ensureDirs();
   if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
-  session.updatedAt = nowIso();
+  // opts.keepUpdatedAt —— 只有装载回写(补默认字段 load_normalize / 惰性清理残留段 / 懒迁移 load_migrate /
+  // v1bak 回退)传:它们不是这条会话的新活动,不许推 updatedAt。修前「打开看一眼」就把会话顶到列表最上面
+  // (列表、任务行、搜索命中都按 updatedAt 排)。头上没有可用的旧值才照常取现在。真编辑一律不传,照旧推。
+  const keepUpdatedAt = opts && opts.keepUpdatedAt === true && typeof session.updatedAt === 'string'
+    && Number.isFinite(Date.parse(session.updatedAt));
+  if (!keepUpdatedAt) session.updatedAt = nowIso();
   const id = session.id;
   // 107-F7b:从这里到 sessionWriteChains.set 是一段同步代码,抬水位与入链因此是原子的。
   const rewindBump = opts && opts.rewindBump === true ? claimRewindGeneration(session) : null;
@@ -9535,7 +9608,8 @@ async function saveSession(session, opts) {
       await fsp.copyFile(finalPath, finalPath + '.v1bak', fs.constants.COPYFILE_EXCL).catch(() => {});
       session.__v1bakPending = false;
     }
-    const state = sessionBodyState.get(id);
+    // 记录缺失(条目上限淘汰过 / 重启后没装载就存)→ 先按盘上已提交的内容重建,旧副本补齐与快路径照常可用。
+    const state = sessionBodyState.get(id) || await recoverSessionBodyState(id, bp);
     // 旧副本补齐：调用方手里的消息是盘上正文的【严格前缀】（更短、逐行相同）= 它装载之后别的写者又追加过，
     // 它自己并没有删消息（有意删的只有撤回 rewindBump 与管家归档 opts.shrinkBody）。以前这里走慢路径，用旧数组
     // 整份重写 —— 别人刚追加的消息全丢。现在先把盘上多出来的尾巴补进它的数组再写：两边的改动都留下。
@@ -9606,6 +9680,22 @@ async function saveSession(session, opts) {
       });
       return { dropped: true, staleGen: saveGen, highWater };
     }
+    // 回合代数闸(opts.dropIfTurnSuperseded / throwIfTurnSuperseded,只有回合自己的存盘带):盘上的 turnSeq 已经
+    // 比这份对象的大 = 这个回合被一个更新的回合顶替过(旧回合卡在不理会中止的工具里,新回合先跑完)。旧回合手里
+    // 那份对象的正文不含新回合的消息,照写就把新回合整段盖掉(messages 与 providerHistory 都回到旧样子)。
+    // 与撤回代数闸同理必须在【链内】比:新回合起跑那一存可能排在我入链之后、执行之前。只读头文件(turnSeq 在头上);
+    // 读不到/解析不了(首存、损坏)一律放行,与不带旗子逐字节等价。
+    if (opts && (opts.dropIfTurnSuperseded || opts.throwIfTurnSuperseded)) {
+      let diskTurnSeq = 0;
+      try { diskTurnSeq = Number(JSON.parse(await fsp.readFile(finalPath, 'utf8')).turnSeq) || 0; } catch { diskTurnSeq = 0; }
+      if (diskTurnSeq > (Number(session.turnSeq) || 0)) {
+        logEvent({
+          kind: 'session_superseded_turn_save_dropped', sessionId: id, turnSeq: Number(session.turnSeq) || 0, diskTurnSeq,
+          messageCount: messages.length, writer: String((opts && opts.writer) || ''),
+        });
+        return { dropped: true, supersededTurn: true, diskTurnSeq };
+      }
+    }
     // 装载回写(补默认字段/懒迁移)只在「装载那一眼之后没人写过」时才落:否则它拿的是旧副本,会把刚落盘的
     // 消息整份盖回去。比较在链内做 —— 进程内所有写者都串在这条链上,这里看到的计数就是权威答案。
     if (opts && Number.isInteger(opts.ifUnwrittenSince) && sessionDiskWriteSeqOf(id) !== opts.ifUnwrittenSince) {
@@ -9638,6 +9728,14 @@ async function saveSession(session, opts) {
   if (dropped) {
     // 107-F7b:被闸丢掉的写。默认静默(日志已落):垂死回合的收尾存、它的中途存都走这里,它们本来就该丢。
     // hunt2-P2:墓碑丢掉的写同样静默 —— 会话已经没了,不是「撤回之前的旧副本」,不抛 SESSION_STALE_SAVE。
+    if (dropped.supersededTurn) {
+      if (opts && opts.throwIfTurnSuperseded) {
+        throw Object.assign(new Error('stale turn save dropped: a newer turn already ran on this session'), {
+          code: 'SESSION_TURN_SUPERSEDED', turnSeq: Number(session.turnSeq) || 0, diskTurnSeq: dropped.diskTurnSeq,
+        });
+      }
+      return session;
+    }
     if (opts && opts.throwIfStale && !dropped.deleted) {
       throw Object.assign(new Error('stale session save dropped: this copy was loaded before a rewind'), {
         code: 'SESSION_STALE_SAVE', staleGen: dropped.staleGen, highWater: dropped.highWater,
@@ -9659,6 +9757,22 @@ async function saveSession(session, opts) {
     void recordEngineTranscript(session.claudeSessionId, session.cwd).catch(() => {});
   }
   return session;
+}
+
+// ── 回合收尾那一存(三个引擎共用):带回合代数闸 ──────────────────────────────────────────────────────
+// 现象(审计 t4):回合 1 卡在不理会中止的工具里,用户在同一会话发回合 2,回合 2 跑完;回合 1 的工具稍后返回,
+// 收尾那一存拿着回合 1 起跑时的旧对象把整份正文写回去 —— 回合 2 的 user/assistant 消息与 providerHistory 全没了。
+// 这里用 saveSession 的 throwIfTurnSuperseded:盘上的 turnSeq 比这份对象大就不写。返回 true = 已落盘;
+// false = 本回合已被更新的回合顶替,收尾存被丢弃 —— 调用方据此不再派 thread.done / 任务进度(否则把一个
+// 过期回合当成「最新一回合结束」广播出去)。一次普通的停止(没有更新的回合)turnSeq 相等,照常落盘。
+async function saveTurnFinalSession(session, writer) {
+  try {
+    await saveSession(session, { throwIfTurnSuperseded: true, writer: String(writer || 'turn-final') });
+    return true;
+  } catch (e) {
+    if (e && e.code === 'SESSION_TURN_SUPERSEDED') return false;
+    throw e;
+  }
 }
 
 // ── 128b(48 号文 §2-b):会话「读-改-写」的唯一原语 ────────────────────────────────────────────────────
@@ -9733,11 +9847,22 @@ function isUntitledSessionTitle(title) {
   return !v || v === 'New session' || v === '新会话' || v === 'New chat';
 }
 
+const IMPORTED_MESSAGE_ROLE_MAX = 32;
+function sanitizeImportedSessionMessages(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(m => m && typeof m === 'object' && !Array.isArray(m)
+    && typeof m.role === 'string' && m.role.trim() && m.role.length <= IMPORTED_MESSAGE_ROLE_MAX
+    && (m.content == null || typeof m.content === 'string' || Array.isArray(m.content)));
+}
+
 async function createSession({ title, cwd, origin, engineRoute }) {
   const id = makeId('sess');
   sessionDeleteTombstones.delete(id);   // hunt2-P2:新建的会话绝不继承同名旧会话的删除墓碑
   const config = await readConfig();
-  const initialMessages = Array.isArray(arguments[0]?.messages) ? arguments[0].messages : [];
+  // 导入会话(POST /api/sessions 的 messages,来自用户选的 JSON 文件)同样不可信:修前 [null] 让建会话 500
+  // (而且半截落了盘),数字/字符串元素原样进正文。只收【普通对象 + 非空字符串 role + content 缺省或为字符串/数组】
+  // 的条目,其余丢掉 —— 这就是展示消息的形状(assistant 的 content 可以是 '',正文在 segments 里)。
+  const initialMessages = sanitizeImportedSessionMessages(arguments[0]?.messages);
   // title / cwd 来自 POST /api/sessions 与 /api/chat/stream 的请求体,类型不可信:修前 {"cwd":5} 原样落盘,
   // 这条会话此后每一回合都死在 path.resolve(5);对象/数组标题会原样回给列表(前端 .trim() 的雷)。
   // 非字符串或空白一律当没传;标题上限与 applySessionMetaPatch 改名同为 200。
@@ -9778,6 +9903,10 @@ async function createSession({ title, cwd, origin, engineRoute }) {
     // 显示优先级只有一条 —— 人给的名字 > 生成的名字 > 原话。
     ...(isUntitledSessionTitle(safeTitle) ? {} : { titleSource: 'user' }),
   };
+  // 落盘前就补齐 normalizeSession 的默认字段(todos / skills / memories / memoriesExplicit / memoryExclusions ……)。
+  // 修前新会话头缺这几个键,第一次 loadSession 判 changed → load_normalize 回写 —— 光是「点开看一眼」就把
+  // updatedAt 推到现在,这条会话跳到列表最上面(rail-session-search 浏览器件在 Windows CI 上偶发红的根因)。
+  normalizeSession(session);
   await saveSession(session);
   // 121-K2a(§6.1 第 4 条):新线程。missionId 在 3.0 里建会话时 == sessionId(见上面那一行),
   // 真正归到别的任务是后来 missionAttachThread 的事(它自己派 thread.adopted)。
@@ -10069,7 +10198,11 @@ async function workspaceBaselineGitNames(repoRoot, head, deadline = Date.now() +
     if (!result.ok) { truncated = true; return; }
     paths.push(...workspaceBaselineNulPaths(result.stdout));
   };
-  await collect(['-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--name-only', '-z', head, '--']);
+  // 审计 B:回合开头自动跑的这条 diff 同样会触发仓库自带的 clean 过滤器与子模块递归(比 git_status 还隐蔽:
+  // 不需要任何工具调用)—— 与 11 的只读 git 工具共用同一道护栏;护栏读不出配置就当扫描不完整(truncated)。
+  const guard = await gitReadOnlyGuard(repoRoot, workspaceBaselineRemainingMs(deadline) || 1000);
+  if (!guard.ok) return { paths: [], truncated: true };
+  await collect([...guard.flags, '-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty', '--name-only', '-z', head, '--']);
   await collect(['-C', repoRoot, 'ls-files', '--others', '--exclude-standard', '-z', '--']);
   if (Date.now() >= deadline) truncated = true;
   return { paths: [...new Set(paths)], truncated };
@@ -10489,10 +10622,36 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   if (!targets.length) return { ok: false, error: 'no entries' };
   // Reverse order so multiple mutations to the same file unwind to the earliest recorded `before`.
   targets = targets.slice().sort((a, b) => b.entrySeq - a.entrySeq);
+  // 安全审计 #8:index.json 是盘上的数据,不是可信输入 —— 条目里的 path 会被原样写回(或删掉)。修前不验:谁能改
+  // index.json(检查点目录曾是文件工具可写的数据根子树)就能借「回滚」把任意内容落到任意位置。现在每条都按【写】
+  // 重过一遍与文件工具同一个闸(三层硬地板 + 受保护数据 + 包含判定;包含判定用读根集合,见 guardFileToolPath
+  // 的 rootSet:'read' 注),权限档按会话当前的有效档位(宽写档下工作区外的合法条目照样能回滚)。不过闸的条目
+  // 不动盘、记进 failed(原因 path-denied),其余照常回滚;它们留在索引里。序号不是整数的条目同样拒(.gz 文件名由它拼)。
+  let guardSession = null, guardConfig = null;
+  try { guardSession = await loadSession(sessionId); } catch { guardSession = null; }
+  try { guardConfig = await readConfig(); } catch { guardConfig = {}; }
+  const guardCtx = {
+    session: guardSession, config: guardConfig,
+    effectivePermissionMode: resolvePermissionMode({ session: guardSession, config: guardConfig }),
+  };
   const reverted = [], failed = [], revertedKeys = new Set();
   for (const e of targets) {
     const key = `${e.turnSeq}-${e.entrySeq}`;
     try {
+      if (!Number.isSafeInteger(Number(e.turnSeq)) || !Number.isSafeInteger(Number(e.entrySeq))) {
+        failed.push({ path: typeof e.path === 'string' ? e.path : '', reason: 'path-denied: malformed checkpoint entry' });
+        continue;
+      }
+      if (typeof e.path !== 'string' || !e.path || !path.isAbsolute(e.path)) {
+        failed.push({ path: typeof e.path === 'string' ? e.path : '', reason: 'path-denied: checkpoint path is not absolute' });
+        continue;
+      }
+      const g = await guardFileToolPath(e.path, guardCtx, { tool: 'checkpoint_rollback', write: true, rootSet: 'read' });
+      if (!g || !g.ok) {
+        logEvent({ kind: 'checkpoint_rollback_denied', sessionId: String(sessionId || ''), turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), code: (g && g.code) || '' });
+        failed.push({ path: e.path, reason: `path-denied: ${(g && g.error) || 'blocked by the file write guard'}` });
+        continue;
+      }
       if (e.skipped) { failed.push({ path: e.path, reason: 'before content was not stored (too large)' }); continue; }
       if (e.op === 'create') {
         await fsp.unlink(e.path).catch(() => {}); // idempotent: gone already is fine
@@ -11587,22 +11746,56 @@ function pathWithinAnyRoot(target, roots) {
 // an 8.3 short name (RUNNER~1) or a junction while the allowed root resolves to its long/real name. Comparing
 // those two spellings rejects a legitimate new file. Resolving the nearest existing ancestor preserves the
 // symlink/junction escape protection while also canonicalizing paths whose leaf does not exist yet.
-async function realpathForContainment(rawPath) {
-  const abs = path.resolve(String(rawPath || ''));
-  let probe = abs;
-  const missing = [];
-  for (;;) {
-    try {
-      const real = await fsp.realpath(probe);
-      return missing.length ? path.join(real, ...missing) : real;
-    } catch (err) {
-      if (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR')) return abs;
-      const parent = path.dirname(probe);
-      if (parent === probe) return abs;
-      missing.unshift(path.basename(probe));
-      probe = parent;
+// 安全审计 #7(悬空链接越界写):修前 realpath 报 ENOENT 就一律当「这一段还不存在」往上走,于是工作区里一个
+// 【悬空】符号链接 / junction(ws\dangle.txt -> D:\outside\new.txt,目标尚不存在)被词法拼回 ws\dangle.txt,包含判定
+// 放行,而 writeFile 跟着链接把文件建在了工作区外。现在每走到一个 realpath 失败的段先 lstat 它:是链接就读出目标、
+// 把剩余尾巴接到目标上再整条重算(链接套链接逐层解开,上限 40 层);只有真正不存在的段才照旧词法补回。父目录链
+// (mkdir -p 要建的中间段)走同一条路:中间某段是悬空链接时,同样解到它的真实落点再判。Node 在 Windows 上把
+// junction 也报成 isSymbolicLink,readlink 能读出目标。链接读不出目标 / 层数超限 → unresolvable:true,两道护栏
+// (guardFileToolPath / guardWorkspacePath)据此 fail-closed 拒绝;realpathForContainment 保持「返回一个路径」的
+// 旧形状供其它调用方(根目录归一、Kimi 计划文件、exec 闸)。
+const REALPATH_LINK_DEPTH_MAX = 40;
+function stripWin32VerbatimPrefix(p) {
+  // readlink 读 junction 在 Windows 上可能带 \\?\ 前缀(\\?\C:\x);去掉它,与 realpath 的输出同一种拼法再比包含。
+  const s = String(p || '');
+  const m = s.match(/^\\\\\?\\([A-Za-z]:(?:[\\/].*)?)$/);
+  return m ? m[1] : s;
+}
+async function resolveContainmentPath(rawPath) {
+  let abs = path.resolve(String(rawPath || ''));
+  for (let depth = 0; ; depth += 1) {
+    let probe = abs;
+    const missing = [];
+    let next = null;
+    for (;;) {
+      try {
+        const real = await fsp.realpath(probe);
+        return { path: missing.length ? path.join(real, ...missing) : real, unresolvable: false };
+      } catch (err) {
+        // 这一段本身在盘上、realpath 却解不开 → 悬空链接。跟着链接走,别把它当成「还不存在」。先 lstat 再看错误码:
+        // Windows 上悬空 junction 的 realpath 错误码不保证是 ENOENT,不能让它落进下面「其它错误 → 词法回退」那一支。
+        let lst = null;
+        try { lst = await fsp.lstat(probe); } catch { lst = null; }
+        if (!(lst && lst.isSymbolicLink()) && (!err || (err.code !== 'ENOENT' && err.code !== 'ENOTDIR'))) return { path: abs, unresolvable: false };
+        if (lst && lst.isSymbolicLink()) {
+          if (depth >= REALPATH_LINK_DEPTH_MAX) return { path: abs, unresolvable: true };
+          let target;
+          try { target = stripWin32VerbatimPrefix(await fsp.readlink(probe)); } catch { return { path: abs, unresolvable: true }; }
+          const linkTarget = path.resolve(path.dirname(probe), target);
+          next = missing.length ? path.join(linkTarget, ...missing) : linkTarget;
+          break;
+        }
+        const parent = path.dirname(probe);
+        if (parent === probe) return { path: abs, unresolvable: false };
+        missing.unshift(path.basename(probe));
+        probe = parent;
+      }
     }
+    abs = next;
   }
+}
+async function realpathForContainment(rawPath) {
+  return (await resolveContainmentPath(rawPath)).path;
 }
 // 审计 P1: dataRoot 是文件工具的允许根之一(fileAllowedRoots),本意只为读写【应用产物】(uploads/checkpoints
 // 内容/generated 产物)。但它同时罩住了应用自身的【控制面文件】:config.json(明文 provider 密钥)、sessions/
@@ -11643,6 +11836,50 @@ function isSensitiveDataPath(p) {
   } catch { /* 非法路径按不敏感处理，由其它围栏兜底 */ }
   return false;
 }
+// 安全审计 #1/#8(数据根里会被【自动加载 / 执行 / 信任】的状态):dataRoot 是文件工具的写根,isSensitiveDataPath
+// 只挡了「读出来会泄密」的那一批。下面这批读是无害的(或本来就要能读:检查点内容、个人工作流模板),但【写】进去
+// 就等于在下一回合 / 下一次启动时让工作台替模型执行它:
+//   mcp/*/ruyi-mcp.json      —— scanMcpDropIns 不经审批就合并进 MCP 清单,每回合按里面的 command 起进程;
+//   agent-workflows/         —— 个人 DAG 模板(角色、工具、权限档位),一键运行;
+//   checkpoints/             —— 回滚按 index.json 里的 path 把 .gz 内容写回任意位置(#8);
+//   scheduler/               —— 定时任务(payload + autonomy)到点无人值守开回合;
+//   steward/ missions/       —— 管家收件箱/记忆/决策与事项容器,管家据此自动派活;
+//   migrations/              —— 迁移日志,撤销时按日志改写 ~/.claude.json / Kimi / Codex 配置;
+//   overlay-tool/            —— Manage-Overlay.ps1 等覆盖更新脚本,工作台直接执行;
+//   以及数据根顶层的几份状态文件(安装登记表记着别的包的启动位置、CLI 配置同步的所有权侧车等)。
+// 只拦【写】(guardFileToolPath write:true),读照旧 —— 不影响 file_read 检查点内容 / 工作流模板。uploads/、webcache/、
+// skills/、playbooks/、agent-worktrees/ 与会话自己放进数据根的普通文件不在此列(用户产物与写代理的隔离工作树)。
+const WRITE_PROTECTED_DATA_DIRS = Object.freeze(['mcp', 'agent-workflows', 'checkpoints', 'scheduler', 'steward', 'missions', 'migrations', 'overlay-tool']);
+const WRITE_PROTECTED_DATA_FILES = Object.freeze(['install-registry.json', 'claude-settings-sync.json', 'kimi-mcp-sync.json', 'engine-transcripts.json', 'context-calibration.json', 'proxy-models-cache.json', 'storage-trend.json', 'last-start-error.json']);
+function isWriteProtectedDataPath(p) {
+  if (!p) return false;
+  if (isSensitiveDataPath(p)) return true;
+  const bases = [...new Set([dataRoot(), ...(_dataRootReal ? [_dataRootReal] : []), ...dataRootAliases()])];
+  for (const b of bases) {
+    for (const n of WRITE_PROTECTED_DATA_DIRS) if (pathWithinRoot(p, path.join(b, n))) return true;
+    for (const n of WRITE_PROTECTED_DATA_FILES) if (pathWithinRoot(p, path.join(b, n))) return true;
+  }
+  return false;
+}
+// 安全审计 #1:数据根之外、同样会被【不经审批自动加载成可执行启动配置】的位置,按真实路径比(env 可改的那几处
+// 不能靠文件名正则):ruyi-toolbox 组件登记目录(04 scanToolboxComponents 按登记文件起服务进程,RUYI_TOOLBOX_HOME
+// 可改位置)、发行包 mcp/ 整棵(随包 drop-in 的清单与它要起的代码,同 scanMcpDropIns)、Kimi Code 的 mcp.json(KIMI_CODE_HOME
+// 可改位置)。缺省位置的文件名形状另由 AUTOEXEC_DENYLIST 的正则兜住,任何工作区里的同名路径也一并拦。
+function isAutoLoadedLaunchConfigPath(p) {
+  if (!p) return false;
+  try {
+    if (pathWithinRoot(p, path.resolve(toolboxComponentsDir()))) return true;
+  } catch { /* 取不到登记目录:由正则兜底 */ }
+  try {
+    // 与 scanMcpDropIns 同一张目录表(发行包 mcp/ 与数据根 mcp/);数据根那一处另由 WRITE_PROTECTED_DATA_DIRS 整棵拦。
+    for (const { root } of mcpDropInDirs()) if (pathWithinRoot(p, path.resolve(root))) return true;
+  } catch { /* 同上 */ }
+  const kimiHome = String(process.env.KIMI_CODE_HOME || '').trim();
+  if (kimiHome) {
+    try { if (pathWithinRoot(p, path.resolve(kimiHome, 'mcp.json'))) return true; } catch { /* 同上 */ }
+  }
+  return false;
+}
 // v1.0.2-S3: shared allowed-root guard for the file endpoints (/api/file/preview borrows the inline version;
 // /api/file/reveal uses this). Resolves BOTH the target and every root via fs.realpath (symlink-agnostic) —
 // a symlink inside an allowed root but pointing outside must NOT pass. Returns {ok, code?, error?, absPath?}:
@@ -11656,10 +11893,13 @@ async function guardWorkspacePath(rawPath, session, config) {
   const targetRaw = path.resolve(rawPath);
   const target = normalizeGuardPath(targetRaw);
   const roots = fileAllowedRoots(session, config);
-  const realRaw = await realpathForContainment(targetRaw);
-  const real = normalizeGuardPath(realRaw);
-  // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 http_download 落盘目标都经此护栏 —— 敏感控制面文件既
-  // 不许暴露也不许被下载覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
+  const resolved = await resolveContainmentPath(targetRaw);
+  const real = normalizeGuardPath(resolved.path);
+  // 安全审计 #7:链接读不出目标 / 链接层数超限 —— 不知道真实落点,不放行。
+  if (resolved.unresolvable) return { ok: false, code: 'not-allowed', error: '路径经过无法解析的链接,已拒绝' };
+  // 审计 P1(对抗轮补漏): reveal(在资源管理器打开/定位)与 bridged 写快照都经此护栏 —— 敏感控制面文件既
+  // 不许暴露也不许被覆写(否则可覆写 config.json/runtime.json 致配置损毁/token 替换)。与文件工具同源拒绝。
+  // (http_download 落盘自安全审计 #3 起改走 guardFileToolPath 写闸,见 11 guardDownloadDest。)
   await ensureDataRootReal();
   if (isSensitiveDataPath(target) || isSensitiveDataPath(real)) return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据,已禁止访问' };
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
@@ -11707,6 +11947,11 @@ const AUTOEXEC_DENYLIST = [
   /(^|[\\/])\.vscode[\\/]tasks\.json$/i, /(^|[\\/])\.vscode[\\/]launch\.json$/i,
   // CI/CD 配置（非高频开发编辑）
   /(^|[\\/])\.github[\\/]workflows[\\/]/i, /(^|[\\/])\.gitlab-ci\.yml$/i, /(^|[\\/])Jenkinsfile$/i,
+  // 安全审计 #1:agent CLI / 工具箱【不经审批自动加载】的启动配置 —— 写进去就等于下一回合替模型起任意进程。
+  //   Claude Code:.claude/settings(.local).json 的 hooks、项目 .mcp.json、~/.claude.json 的 mcpServers(工作台还会
+  //   自动导入它);Kimi Code:.kimi/mcp.json 与 ~/.kimi-code/mcp.json;ruyi-toolbox 组件登记 ~/.ruyi-toolbox/components/。
+  /(^|[\\/])\.claude[\\/]settings(?:\.local)?\.json$/i, /(^|[\\/])\.mcp\.json$/i, /(^|[\\/])\.claude\.json$/i,
+  /(^|[\\/])\.kimi(?:-code)?[\\/]mcp\.json$/i, /(^|[\\/])\.ruyi-toolbox[\\/]components[\\/]/i,
 ];
 // 对路径做 Windows 语义归一:组件去尾点/尾空格 + 小写(Windows 不区分大小写,junction/短名由 realpath 化解)。
 function normalizeAutoexecPath(absPath) {
@@ -11788,8 +12033,14 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   let config = ctx && ctx.config ? ctx.config : null;
   if (!config) { try { config = await readConfig(); } catch { config = {}; } }
   const session = ctx && ctx.session ? ctx.session : null;
-  const realRaw = await realpathForContainment(absRaw);
-  const real = normalizeGuardPath(realRaw);
+  const resolved = await resolveContainmentPath(absRaw);
+  const real = normalizeGuardPath(resolved.path);
+  // 安全审计 #7:悬空链接已在 resolveContainmentPath 里解到真实落点(下面的包含判定与三层地板都按它判);
+  // 链接读不出目标 / 层数超限时不知道会写到哪儿 —— 任何模式下都不放行(含宽写与越界豁免)。
+  if (resolved.unresolvable) {
+    logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: 'deny-unresolvable-link', pathLen: abs.length });
+    return { ok: false, code: 'not-allowed', error: '该路径经过无法解析的符号链接/联接,已拒绝' };
+  }
   // 审计 P1: 敏感控制面文件二次拒绝(见 isSensitiveDataPath)。放在 allowOutsideWorkspace 逃生舱【之前】——即便用户
   // 开了越界豁免,应用自身的 config/runtime/sessions/memory 等也绝不可经文件工具读写(密钥/会话/token 外传面)。
   // 词法 abs 与 realpath 后 real 都查,双保险(junction/短名部署下两者不同)。
@@ -11801,11 +12052,17 @@ async function guardFileToolPath(rawPath, ctx, opts) {
   // 第31波B(L1): autoexec 检查下沉到 guardFileToolPath —— 全模式覆盖(含 bypass/plan/default),不再依赖授权书层。
   // 仅 write 时检查(读 .git/hooks 不会触发自动执行);对 abs 与 real 双路径归一后匹配 denylist,命中即拒。
   if (write) {
+    // 安全审计 #1/#8:数据根里会被自动加载 / 执行 / 信任的状态(mcp drop-in、工作流模板、检查点、定时任务等,
+    // 见 isWriteProtectedDataPath)—— 读照旧,写一律拒。与敏感名单一样放在逃生舱之前。
+    if (isWriteProtectedDataPath(abs) || isWriteProtectedDataPath(real)) {
+      logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-protected-data', pathLen: abs.length });
+      return { ok: false, code: 'not-allowed', error: '该路径属于应用内部数据(MCP 连接器/工作流/检查点/定时任务等),已禁止文件工具写入' };
+    }
     const normAbs = normalizeAutoexecPath(abs);
     const normReal = normalizeAutoexecPath(real);
-    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal))) {
+    if (AUTOEXEC_DENYLIST.some(re => re.test(normAbs) || re.test(normReal)) || isAutoLoadedLaunchConfigPath(abs) || isAutoLoadedLaunchConfigPath(real)) {
       logEvent({ kind: 'workspace_boundary', tool, op: 'write', decision: 'deny-autoexec', pathLen: abs.length });
-      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
+      return { ok: false, code: 'autoexec-denied', error: '该路径属于自动执行文件(如 git hooks/CI 配置/agent CLI 与 MCP 启动配置),已禁止通过文件工具写入;如确需编辑,请直接在终端操作' };
     }
     // v2.7.1 (opt#1): OS 关键目录硬地板 -- bypass/auto 宽写下也始终拒写(系统级安全保护第三层)。abs 与 real 双查。
     if (isOsCriticalPath(abs) || isOsCriticalPath(real)) {
@@ -11823,7 +12080,10 @@ async function guardFileToolPath(rawPath, ctx, opts) {
     if (!pathWithinAnyRoot(real, realRoots0)) logEvent({ kind: 'workspace_boundary', tool, op: write ? 'write' : 'read', decision: wideWrite ? 'allow-wide-mode' : 'allow-config', pathLen: abs.length });
     return { ok: true, absPath: real };
   }
-  const roots = write ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
+  // opts.rootSet === 'read':写,但包含判定用读根集合(外加 defaultWorkspace / recentWorkspaces / 读授权工作区)——
+  // 只给检查点回滚用(安全审计 #8):bridged 写快照当初按读根集合(guardWorkspacePath)入账,回滚写回同一处要认得它;
+  // 三层硬地板与受保护数据照旧先拦。
+  const roots = (write && !(opts && opts.rootSet === 'read')) ? workspaceWriteRoots(session, config) : fileAllowedRoots(session, config);
   const realRoots = await Promise.all(roots.map(r => realpathForContainment(r)));
   if (pathWithinAnyRoot(real, realRoots)) return { ok: true, absPath: real };
   if (write) {
@@ -11849,6 +12109,32 @@ async function preflightWriteBoundary(toolName, args, ctx) {
     const p = path.resolve(args[k]);
     const g = await guardFileToolPath(p, ctx, { tool: toolName, write: true });
     if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p };
+  }
+  return null;
+}
+// 安全修复(审计 A②):桥接(ACC 等)的【读文件内容】族工具走与原生 file_read 同一道读边界。
+// 修前 read_file / list_directory / file_info / ocr_image 在 read 档(任何权限模式都零弹窗放行),却从不经
+// guardFileToolPath —— 远端模型一句话就能读 <dataRoot>\config.json(API 密钥)、runtime.json(回环令牌)、
+// ~\.ssh\*。现在分发前(callTool 之前、三个分发点同一个函数)对这些工具的路径参数过读闸:
+//   · 应用内部数据(配置/会话/记忆/日志)一律拒(与 file_read 同一条 isSensitiveDataPath 地板);
+//   · 工作区外:本机模型放行、远端模型拒(allowOutsideWorkspace 是唯一逃生舱)—— 口径逐字同 file_read;
+//   · 必须是绝对路径:相对路径由 ACC 按它自己的工作目录解析,工作台这边判不准,缺省 '.' 同理 → 拒并提示改绝对路径。
+// 仍是 read 档:工作区里的读照旧零弹窗,桌面自动化的日常用法不受影响。表按【裸名】登记,对任何桥接服务器
+// 同名工具一视同仁(第三方 MCP 的 read_file 也是读文件)。
+const BRIDGED_READ_PATH_ARGS = Object.freeze({
+  read_file: ['path'], list_directory: ['path'], file_info: ['path'], ocr_image: ['path'],
+});
+async function bridgedReadPathGate(bridgedName, args, ctx) {
+  const bare = unprefixedBridgedName(bridgedName);
+  if (!Object.prototype.hasOwnProperty.call(BRIDGED_READ_PATH_ARGS, bare)) return null;
+  const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  for (const field of BRIDGED_READ_PATH_ARGS[bare]) {
+    const raw = typeof a[field] === 'string' ? a[field].trim() : '';
+    if (!raw || !path.isAbsolute(raw)) {
+      return { ok: false, code: 'path-not-absolute', error: `桌面控制读文件必须用【绝对路径】。参数「${field}」${raw ? '是相对路径' : '缺失'},工作台无法判断它指向哪里。请用完整绝对路径重试。` };
+    }
+    const g = await guardFileToolPath(raw, ctx, { tool: bare, write: false });
+    if (!g.ok) return { ok: false, error: g.error, code: g.code, path: raw };
   }
   return null;
 }
@@ -13159,6 +13445,26 @@ function mcpServerRequestReply(msg) {
   return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'method not supported by client: ' + String(msg.method).slice(0, 80) } };
 }
 
+// 安全修复(审计 A①):桥接 MCP 服务器(ACC 桌面控制、第三方 stdio MCP)不得继承工作台自己的回环凭据。
+// 每会话 MCP 子进程(`server.js mcp`)的环境里有 WCW_TOKEN / WCW_PORT / WCW_HOST / WCW_SESSION_ID(01 generateSessionMcpConfig
+// 塞进去的),修前它再 spawn 桥接服务器时整份 process.env 原样传下去 —— ACC 的 get_environment_variable 一问就把
+// 令牌交给了模型(令牌 = 可调 /api/permission/decision 等 body-token 路由,自己批自己的权限)。
+// 规则:继承来的环境里去掉所有 WCW_*(工作台内部键;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
+// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
+// (01 buildClaudeCliEnv;桌面/文档类 MCP 用不到)。服务器条目【自己声明】的 env(ownEnv)原样叠在最后,仍然生效。
+const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedServerSpawnEnv(baseEnv, ownEnv) {
+  const out = {};
+  for (const [k, v] of Object.entries(baseEnv || {})) {
+    const up = String(k).toUpperCase();
+    if (BRIDGED_ENV_KEEP.has(up)) { out[k] = v; continue; }
+    if (up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up)) continue;
+    out[k] = v;
+  }
+  return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -13292,7 +13598,7 @@ class McpStdioClient {
     try {
       child = cp.spawn(s.command, s.args, {
         cwd: this.cwd,
-        env: { ...process.env, ...this.env },
+        env: bridgedServerSpawnEnv(process.env, this.env),
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         ...s.opts,
@@ -17822,7 +18128,7 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, liveSegments: turnSegments }; // 47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -18289,13 +18595,14 @@ async function runClaudeTurn({
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
-  await saveSession(session);
+  // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final'));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
-  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
+  if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。
   adapter.recordTurnUsage({ session, config, usage, billInMax, billOutMax });
   const claudeTurnOk = exit.code === 0 && !wasStopped;
-  if (session.mission) await bumpMissionChangeSeq(session.id, {
+  if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: claudeTurnOk || wasStopped ? 'progress' : 'failure',
     cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: {
@@ -22284,12 +22591,13 @@ async function runKimiAcpTurnPrepared(context) {
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* ignore */ }
   }
-  await saveSession(session);
+  // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'kimi-turn-final'));
   // 121-K3(§13.4 登记项①的另一半):收尾帧。与 05/09 同位置(紧跟本回合最后一次 saveSession ——
   // summary 这一刻已经是本回合的话)、同载荷。收尾形状与那两路不同(Kimi 这一路没有 result 早退,
   // 整段 finally 之后才走到这里),但【派帧的时机语义】一致:回合真的结束了才派。
-  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });   // §6.3 指标 b
-  if (session.mission) await bumpMissionChangeSeq(session.id, {
+  if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });   // §6.3 指标 b
+  if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: turnOk || wasStopped ? 'progress' : 'failure', cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: { ok: turnOk, aborted: wasStopped, errorClass: turnOk || wasStopped ? '' : 'kimi_acp_error', filesChanged: turnSummary.filesChanged.length, artifacts: turnSummary.artifacts.length, commands: Number(turnSummary.commands) || 0 },
   });
@@ -27250,7 +27558,7 @@ const STEWARD_THREAD_STATE_RULES = Object.freeze([
   { id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },
   { id: 'pending', state: 'needs_you', when: s => s.pendingTotal > 0 },
   { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
-  { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+  { id: 'live', state: 'running', when: s => s.activeTurn || s.queued || s.autoMode === 'until-done' || s.liveRuns > 0 },
   { id: 'untouched', state: 'dispatching',
     when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
   { id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },
@@ -27272,6 +27580,10 @@ function deriveStewardThreadState(n) {
     resultStatus: input.resultStatus || '',
     pendingTotal: stewardPendingTotal(input.pending),
     activeTurn: input.activeTurn === true,
+    // hunt3:这条线程有一个回合正在 13n 仲裁器里排队(等锁 / 等预算 / 等并发位)。它还没进 activeChildren,
+    // 修前只认 activeTurn,于是一条已经被用户/管家续上一句、正在等预算的线程被报成「已收工」,
+    // 与同一行上的 wait(「等预算:……」)自相矛盾。排队中的回合是【已经交出去的活】,归 running。
+    queued: input.queued === true,
     liveRuns: Math.max(0, Number(input.liveRuns) || 0),
     runCount: Math.max(0, Number(input.runCount) || 0),
     turnSeq: Math.max(0, Number(input.turnSeq) || 0),
@@ -27292,6 +27604,13 @@ function deriveStewardThreadState(n) {
   const rule = STEWARD_THREAD_STATE_RULES.find(r => r.when(src));
   const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
+}
+// hunt3:「这条线程有回合在仲裁器里排队」的唯一读法 —— 五态的 queued 证据键由它喂(卡片叠加层 13e / 会话头适配器)。
+// 仲裁器住 13n(拼在本文件之后),经 StewardHooks.arbiterWait 延迟绑定取;没填充 / 抛错一律当「没在排队」。
+function stewardThreadTurnQueued(sessionId) {
+  try {
+    return !!(sessionId && typeof StewardHooks.arbiterWait === 'function' && StewardHooks.arbiterWait(sessionId));
+  } catch { return false; }
 }
 // hunt2-steward ④:stewardLastTurn 只在【盖得住当前回合】(last.seq >= turnSeq)时才算数 —— 与 13i 收集
 // 第四源、stewardStoppedTarget 同一条纪律。它只由管家/调度器发起的回合在 settle 之后写;用户在 2.0 里
@@ -27320,6 +27639,7 @@ function stewardThreadStateFromCard(card) {
     resultStatus: (m.result && m.result.status) || '',
     pending: card && card.pending,
     activeTurn: card && card.activeTurn === true,
+    queued: card && card.queued === true,   // hunt3:13e 叠加层现算(持久卡片上恒无此键)
     liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
     runCount: card && card.runCount,
     // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
@@ -27349,6 +27669,8 @@ function stewardThreadStateFromHead(head, extra) {
     turnSeq: h.turnSeq,
     ledgerless: !mission,
     lastTurnFailed: !!(last && (last.ok === false || last.aborted === true)),
+    // hunt3:排队中的回合是此刻的内存事实,与会话头无关 —— 按 id 现问仲裁器(调用方 extra 显式给了就以它为准)。
+    queued: stewardThreadTurnQueued(h.id),
     ...((extra && typeof extra === 'object') ? extra : {}),
   });
 }
@@ -32166,12 +32488,40 @@ const BRIDGED_READ_TOOLS = new Set([
 // Prefix rules for read-only families that share a common verb (e.g. get_windows, list_processes,
 // wait_for_window_idle). Kept narrow so an 'exec'-shaped verb can't sneak in under a broad prefix.
 const BRIDGED_READ_PREFIXES = ['get_', 'list_', 'wait_for_'];
+// 安全修复(审计 A②):前缀规则会把「读出秘密」的工具也收进 read 档(任何模式都零弹窗放行)。
+// get_environment_variable 能读出宿主进程环境里的任何值(令牌、密钥、代理口令)—— 它不是「看一眼桌面」,
+// 按未知工具的缺省口径落回 exec(非 bypass/auto 模式下先问人)。
+const BRIDGED_NOT_READ = new Set(['get_environment_variable']);
+// 安全修复(审计 A③):同一个工具按入参有两副面孔 —— get_clipboard_image / window_screenshot 不带落盘参数时
+// 只回图,带了就往任意路径写文件(allow_protected:true 还会绕过 ACC 自己的系统目录护栏)。它们的写路径
+// 参数本来就登记在 BRIDGED_WRITE_PATH_ARGS(检查点要用),这里复用同一张表:给了写路径参数的这一次调用,
+// 档位至少是 edit;再带 allow_protected:true 就是 exec。只抬不降,用户覆盖表也压不下这道地板。
+// args 缺省(目录/清单等不看入参的调用方)= 修前口径。args 可以是对象或 JSON 字符串。
+function bridgedCallTierFloor(unprefixedName, args) {
+  let a = args;
+  if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return '';
+  const spec = Object.prototype.hasOwnProperty.call(BRIDGED_WRITE_PATH_ARGS, unprefixedName) ? BRIDGED_WRITE_PATH_ARGS[unprefixedName] : null;
+  if (!spec) return '';
+  const fields = Array.isArray(spec.multi) ? spec.multi : [spec];
+  const writes = fields.some(f => typeof a[f.field] === 'string' && a[f.field].trim());
+  if (!writes) return '';
+  return a.allow_protected === true ? 'exec' : 'edit';
+}
 // Resolve a bridged tool's tier: user override (config.bridgedToolTiers) wins, then the built-in table,
 // then default 'exec'. `unprefixedName` is bridge.toolName (never the serverId__tool form).
-function bridgedToolTier(unprefixedName, config) {
+// 第三参 args(可选):按本次调用的入参抬档(见 bridgedCallTierFloor)。
+function bridgedToolTier(unprefixedName, config, args) {
+  const base = bridgedToolTierByName(unprefixedName, config);
+  const floor = args === undefined ? '' : bridgedCallTierFloor(unprefixedName, args);
+  const rank = { read: 0, edit: 1, exec: 2 };
+  return floor && rank[floor] > rank[base] ? floor : base;
+}
+function bridgedToolTierByName(unprefixedName, config) {
   const overrides = (config && config.bridgedToolTiers && typeof config.bridgedToolTiers === 'object') ? config.bridgedToolTiers : {};
   const ov = overrides[unprefixedName];
   if (ov === 'read' || ov === 'edit' || ov === 'exec') return ov;
+  if (BRIDGED_NOT_READ.has(unprefixedName)) return 'exec';
   if (BRIDGED_READ_TOOLS.has(unprefixedName)) return 'read';
   if (BRIDGED_READ_PREFIXES.some(p => unprefixedName.startsWith(p))) return 'read';
   return 'exec';
@@ -34255,7 +34605,16 @@ async function markInterruptedAgentRuns() {
   }
 }
 
-async function runSubAgentCore({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped, runId }) {
+// 子代理回合的外壳:两路心跳(初始化心跳 initBeat、工具心跳 toolBeat)在【任何】出口都停掉 —— 正常返回、提前返回、
+// 抛错,以及第一次模型调用之前就被中止(修前这条路 break 出循环时 initBeat 还在跳:每秒一条 subagent_progress,
+// 一直重写 run 快照直到进程退出,审计 t8)。本体登记停心跳的函数,这里的 finally 负责调用。
+async function runSubAgentCore(opts) {
+  const lifecycle = { stopBeats: null };
+  try { return await runSubAgentCoreBody(opts, lifecycle); }
+  finally { if (typeof lifecycle.stopBeats === 'function') lifecycle.stopBeats(); }
+}
+
+async function runSubAgentCoreBody({ parentSession, provider, config, task, displayTask, agentKey, dependsOn, toolTier, maxIters, model, onEvent, subagentId, depth, ctrl, permModeOverride, resourceGroup, roleDefinition, getSteer, steerReminder, proposeTask, sendToAgent, getMail, onBudgetTripped, runId }, lifecycle) {
   const started = Date.now();
   setEstimateBucketsV1(estimateBucketsEnabled(config)); // 105e: 子代理入口刷新分桶镜像(同 runOpenAiTurn)
   // A3-fix: 子代理初始化(首次 getCapabilities 可达 10s+、collectBridgedTools、readProjectMemory)期间不发任何
@@ -34268,6 +34627,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
     initBeat = setInterval(() => { try { onEvent({ type: 'subagent_progress', subagentId, note: '子代理初始化中' }); } catch { /* 心跳失败不阻断 */ } }, 1000);
     if (initBeat && initBeat.unref) initBeat.unref();
   };
+  // 工具心跳的句柄与停止函数提前到这里声明(启动函数仍在下面、紧挨它用到的流式节流):外壳的 finally 可能在
+  // 本体跑到那一行之前就调停止函数,不能落进 const 的暂时性死区。
+  let toolBeat = null;
+  const stopToolBeat = () => { if (toolBeat) { clearInterval(toolBeat); toolBeat = null; } };
+  if (lifecycle) lifecycle.stopBeats = () => { stopInitBeat(); stopToolBeat(); };
   startInitBeat();
   // 禁嵌套 double-guard: a sub-turn must have depth ≥ 1 and can never itself launch agents.
   if (Number(depth) >= 1) { /* expected — this IS the sub-turn; the tool set below excludes the agent tools */ }
@@ -34395,13 +34759,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // A3: 工具执行心跳 —— 子代理 await 长工具(>watchdog idle 上限的 powershell_run/script_run 等)期间,
   // 除 tool_use/tool_result 外不发任何事件,会被节点级/工作流级看门狗误判卡死而 abort。
   // 工具执行(含资源租约等待)期间以 streamActivityEventMs 节流发 progress 事件刷新看门狗时钟;一执行完立即停。
-  let toolBeat = null;
   const startToolBeat = () => {
     if (toolBeat) return;
     toolBeat = setInterval(() => { try { touchSubagentStream(); } catch { /* 心跳失败不阻断 */ } }, Math.max(1000, streamActivityEventMs));
     if (toolBeat && toolBeat.unref) toolBeat.unref();
   };
-  const stopToolBeat = () => { if (toolBeat) { clearInterval(toolBeat); toolBeat = null; } };
   // v1.4-OSS 用量看板(补): accumulate the sub-turn's OWN token usage (kept OUT of the parent's usage event —
   // the sub-agent bills as its own independent ledger row, never merged into the父回合, so no double counting).
   // Mirrors the parent markUsage's E4 alias handling (prompt_tokens|input_tokens / completion_tokens|output_tokens)
@@ -34570,7 +34932,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             logFields: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}) },
             summaryAuxCtx: { ...(parentId ? { sessionId: parentId } : {}), ...parentTurn, ...(subagentId ? { subagentId: String(subagentId) } : {}), trigger: 'subagent_forced_400' },
             beforeTokens: estNow, error: he,
+            signal: ctrl && ctrl.signal,   // 子回合被中止时当场取消强压的摘要调用
           });
+          if (forced.aborted) { subOk = false; subErr = '已中止'; break; }
           if (forced.level === 2) {
             // 原地 splice(const 绑定闭包安全)+ 钉住原始 task(与 maybeCompactSubHistory 同款纪律)
             subHistory.splice(0, subHistory.length, ...forced.reseeded);
@@ -34697,7 +35061,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
             const bridge = resolveBridge(bridgedRoute, tc.name);
-            const ntier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+            const ntier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
             if (!allows(tc.name, bridge)) {
               resultObj = { ok: false, error: `Agent 角色 '${role && role.id || ''}' 未授权工具 ${tc.name}` };
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
@@ -34733,7 +35097,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                const subGateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                const subGateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                  || await bridgedReadPathGate(tc.name, args, { sessionId: parentSession.id, session: parentSession, config, workingDir, effectivePermissionMode: effMode });   // 审计 A②:桥接读文件过读边界
                 const subRelArg = subGateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                 if (subGateRefusal) { resultObj = subGateRefusal; }
                 else if (subRelArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${subRelArg}」是相对路径,无法建立检查点/回撤。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
@@ -34808,13 +35173,11 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           onEvent({ type: 'adaptive_tool_budget', subagentId, previousLimit, nextLimit: budget, hardLimit: adaptiveBudgetLimit });
         }
         // 第32波: 每次成功工具调用后存检查点(供传输/超时失败时自动断点续跑)
+        // 深拷贝整条消息:修前按 role/content/tool_call_id/tool_calls 白名单抄,恢复后重放的 assistant 丢了
+        // reasoning_content(DeepSeek 思考模式带工具调用时必须回传)与 providerBlocks(Anthropic 线协议的原样块),
+        // 服务商据此 400 或丢失思考上下文(审计 t10)。恢复那一侧本来就是逐条 JSON 深拷贝。
         savepoint = {
-          subHistory: subHistory.map(m => {
-            const c = { role: m.role, content: m.content };
-            if (m.tool_call_id) c.tool_call_id = m.tool_call_id;
-            if (m.tool_calls) c.tool_calls = m.tool_calls.map(tc => ({ id: tc.id, type: tc.type, function: { name: tc.function.name, arguments: tc.function.arguments } }));
-            return c;
-          }),
+          subHistory: subHistory.map(m => JSON.parse(JSON.stringify(m))),
           resultText, iter, iters, toolCallCount,
         };
         continue; // let the sub-agent react to its tool results
@@ -37739,7 +38102,9 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
-    const settled = rows.every(row => row && !row.live);
+    // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
+    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(最长 60 秒)。只有【活的】 run 才值得等。
+    const settled = rows.every(row => !row || !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
     await new Promise(resolve => {
       let done = false;
@@ -37763,8 +38128,10 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
     if (row.live && !AGENT_RUN_TERMINAL.has(env.status)) env.status = 'running';
     return env;
   });
+  // settled 口径不变(有 not_found 就不算「全部结果到手」,信封里照样标 status:'not_found');
+  // timedOut 只看【活的】 run —— not_found 不是等超时了,是压根没有这个 run。
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
-  return { ok: true, settled, timedOut: !settled, runs };
+  return { ok: true, settled, timedOut: runs.some(run => run.live === true), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -37920,7 +38287,7 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
     const name = String(tc.name || '').trim();
     if (!name || PLAN_DISCOVERY_BLOCKED_TOOLS.has(name)) return false;
     const bridge = resolveBridge(bridgedRoute || {}, name);
-    return (bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(name)) === 'read';
+    return (bridge ? bridgedToolTier(bridge.toolName, config, tc.rawArgs || tc.input || {}) : nativeToolTier(name)) === 'read';
   });
 }
 
@@ -37936,6 +38303,21 @@ function commonPrefixChars(a, b) {
   let i = 0;
   while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
   return i;
+}
+
+// 空回复提示(runOpenAiTurn 的「正常结束、没有文字也没有工具调用」)。按 config.locale 选语言 —— 直接问 06b 的
+// getPromptPack(恰是 en-us 才英文,其余含未设中文),不另抄一份判据。afterText = 本回合前面的迭代已经说过话
+// (只是最后一步空了),措辞换成「没有给出最终回答」。
+function emptyReplyNotice(locale, afterText) {
+  const en = getPromptPack(locale) === PROMPT_EN;
+  if (en) {
+    return afterText
+      ? '\n\n[The model ended the turn without a final answer (empty reply). Send "continue" or ask again.]'
+      : '[The model returned an empty reply (no text and no tool calls). Try sending it again, rephrasing, or switching models.]';
+  }
+  return afterText
+    ? '\n\n[模型没有给出最终回答就结束了本轮(空回复);可以发送「继续」或再问一次]'
+    : '[模型这次返回了空回复(没有文字,也没有调用工具);可以重发一次,或换个说法、换个模型再试]';
 }
 
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta }) {
@@ -38039,6 +38421,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = plannedTurnSeq;
+  // 回合中途的存盘都带回合代数闸(02 saveSession 的 dropIfTurnSuperseded):本回合若已被同会话更新的回合顶替
+  // (卡在不理会中止的工具里、新回合先跑完),这份旧对象的存盘静默丢掉,不把新回合的消息与历史盖回去。
+  const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn' };
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
   // 116f: messageMeta 是可选的「这条用户消息从哪来」元数据(目前唯一来源:管家收件箱回合的
@@ -38543,6 +38928,27 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // A steer can land after the provider emitted tool_calls but before execution reaches this item.
     if (interruptible && hasInterruptingSteer(reg)) interrupt();
     try {
+      // 不可中断的工具(http_request、文件类、桥接 MCP……)拿不到中止信号,修前 Stop 要等它自己跑完(审计 t3:
+      // 挂住的 http_request 让停止晚了 14 s)。现在与回合的中止信号赛跑:回合被停时立刻给一条配对的「已停止」
+      // 结果(历史里每个 tool_call 照样有回复),工具本身可能还在后台跑,它晚到的结果丢弃、不写回会话。
+      // 回合在进这里之前就已停止时不再启动工具。
+      if (!interruptible && turnSignal) {
+        const stoppedResult = () => ({ ok: false, aborted: true, error: '回合已被停止;该工具不支持中断,可能仍在后台跑完,其结果不会写回本会话' });
+        if (turnSignal.aborted) return stoppedResult();
+        const STOPPED = Symbol('turn_stopped');
+        let onTurnStop = null;
+        const stopped = new Promise(resolve => { onTurnStop = () => resolve(STOPPED); turnSignal.addEventListener('abort', onTurnStop, { once: true }); });
+        const running = Promise.resolve().then(() => runner(null));
+        let raced;
+        try { raced = await Promise.race([running, stopped]); }
+        finally { turnSignal.removeEventListener('abort', onTurnStop); }
+        if (raced === STOPPED) {
+          running.catch(() => {});   // 后台那一路晚到的成功/失败都没人要了
+          try { logEvent({ kind: 'tool_abandoned_on_stop', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, elapsedMs: Date.now() - startedAt }); } catch { /* telemetry must never break a tool call */ }
+          return stoppedResult();
+        }
+        return raced;
+      }
       const result = await runner(toolAbort && toolAbort.signal);
       // 13a-t 字节轴【只计数,不改写】(20-C1 三个 High 阻断未解除,不做结果引用改写)。
       if (interruptible && ttbByteShadowBytes > 0 && result && typeof result === 'object') {
@@ -38879,7 +39285,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
+      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) touch();
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
@@ -39018,7 +39424,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
             beforeTokens: estBeforeCall, error: call.httpError,
+            signal: ctrl && ctrl.signal,   // Stop 当场取消强压的摘要调用(10 runForcedOverflowCompaction)
           });
+          // 摘要是被停止取消的:回合已停,不重试、不报「压缩无果」,直接按停止收尾(L1 的原地蒸发配对完好)。
+          if (forced.aborted || reg.state !== 'running') { aborted = true; ok = false; break; }
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
@@ -39033,7 +39442,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // 重试成功后落 45d(b) 学习(见 call 成功路径)。落的是【校准后】的估算:学到的窗口上限拿来跟 calibratedEstimate
             // 比预算,用原始估算学的话,因子 < 1 时学到的上限比真实窗口还大,刚超过窗口的历史下一次照样不压。
             pendingOvershootLearn = Math.round(estBeforeCall * estimateFactor(provider.id, model));
-            await saveSession(session).catch(() => {});
+            await saveSession(session, turnSaveOpts).catch(() => {});
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
@@ -39046,7 +39455,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
-            await saveSession(session).catch(() => {});
+            await saveSession(session, turnSaveOpts).catch(() => {});
             touch();
             iter--; continue; // L2 失败但 L1 有斩获,试最后一次
           }
@@ -39076,7 +39485,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // The model spoke a plan and stopped — record it in history so the context stays coherent for the
           // post-approval continuation, then pause for the decision.
           if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
-          await saveSession(session);
+          await saveSession(session, turnSaveOpts);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           let decision;
           reg.planPending = true;
@@ -39095,7 +39504,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const safeNote = neutralizeFenceTag(note, 'workbench-plan-approved'); // P2-8: 单一事实源见 00-boot.js
             session.providerHistory.push({ role: 'user', content: getPromptPack(config && config.locale).planApproved({ note: safeNote }) });
             if (note) onEvent({ type: 'plan_note', text: note });
-            await saveSession(session);
+            await saveSession(session, turnSaveOpts);
             continue; // resume the loop; the gate now allows edit/exec tools this turn (planApproved)
           } else {
             planRejected = true;
@@ -39122,7 +39531,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refuse)) });
             await notifyToolHookEnd(tc, refuse, iter, 'plan_refused');
           }
-          await saveSession(session);
+          await saveSession(session, turnSaveOpts);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
           // v1.0.2 (F1c 根因修复): re-ARM the plan phase before waiting. Without this, planPhase was already
@@ -39404,7 +39813,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // MCP stdio client. v0.8-S0: their tier now comes from BRIDGED_TOOL_TIERS (keyed by the
           // unprefixed bridge.toolName) so ACC's read-only family auto-allows in 'default' mode.
           const bridge = resolveBridge(bridgedRoute, tc.name);
-          const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+          const tier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
           // 116f(§3.5 末段):管家会话用独立权限模式 'steward'(不进 PERMISSION_MODES)—— steward_* 一律
           // allow(read/edit/exec 都不弹权限窗:真正的边界由 13g 工具内部的 stewardMayAct、永久豁免清单与
           // 自理清单执行,那是按【目标线程】权限判的,不是按管家自己的档);非管家工具在管家会话里根本
@@ -39447,7 +39856,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               const pauseOpts = (config.autonomyPauseOnTimeout && driverAuto) ? {
                 enabled: true, ttlMs: config.autonomyPauseTtlMs,
                 // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
-                onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session).catch(() => {}); },
+                onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session, turnSaveOpts).catch(() => {}); },
               } : null;
               const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts);   // 128f-⑪
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
@@ -39461,7 +39870,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                    || await bridgedReadPathGate(tc.name, args, { sessionId: session.id, session, config, workingDir });   // 审计 A②:桥接读文件过读边界
                   const relArg = gateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                   if (gateRefusal) { resultObj = gateRefusal; }
                   else if (relArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${relArg}」是相对路径,无法建立检查点/回撤(会变成不可撤销的写)。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
@@ -39528,7 +39938,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // v0.8-S4a: pass the live checkpoint-journal context so file_write/file_edit/file_delete
                 // record a `before` snapshot under this session's current turnSeq (serve process path).
                 // v1.1-W2 (T1): also thread session+config so http_download can guard its落盘 dest against the
-                // session's allowed workspace roots (guardDownloadDest → guardWorkspacePath).
+                // session's allowed workspace roots (guardDownloadDest → guardFileToolPath write guard).
                 let toolLease = '';
                 try {
                   const toolResources = inferToolResources(tc.name, args, null, workingDir, tier);
@@ -39679,7 +40089,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             queueWaitMs: poolQueueWaitMs || 0, // 21-E2: pool 内资源锁排队总时长
           })) econTotals.phasesLogged += 1;
         }
-        await saveSession(session);   // persist the growing tool trace
+        await saveSession(session, turnSaveOpts);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
@@ -39710,6 +40120,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
       // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
       if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
+      // 空回复(正常结束、没有文字也没有工具调用):修前回合就这么静悄悄地结束,界面上只剩一个空气泡,用户分不清是
+      // 还在跑、出错了还是模型真的什么都没说。给一句看得见的提示 —— 同上面「输出上限」那句,只进显示正文、不进
+      // providerHistory(历史里不塞一条伪造的 assistant,下一回合的请求照旧合法)。命中输出上限的那种已经有自己的提示。
+      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason)) {
+        const note = emptyReplyNotice(config && config.locale, Boolean(assistantText.trim()));
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+        try { logEvent({ kind: 'provider_empty_reply', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, finishReason: call.finishReason || '', hadReasoning: Boolean(call.reasoning) }); } catch { /* telemetry must never break a turn */ }
+      }
       break;
     }
   } catch (e) {
@@ -39832,9 +40250,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
-  await saveSession(session);
+  // 回合代数闸:本回合已被同会话更新的回合顶替(见 02 saveTurnFinalSession)时收尾存被丢弃,也不派 thread.done、
+  // 不记任务进度 —— 过期回合不能把自己当成「最新一回合」宣布。用量账照记(token 确实花了)。
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'openai-turn-final'));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
-  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
+  if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
   if (usageObj && usageObj.usage) {
@@ -39868,7 +40288,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
-  if (session.mission) await bumpMissionChangeSeq(session.id, {
+  if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: errorClass || (!ok && !wasStopped) ? 'failure' : 'progress',
     cursor: { turnSeq: session.turnSeq, engine: 'openai' },
     detail: {
@@ -39891,7 +40311,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
     usage: usageObj && usageObj.usage ? { ...usageObj.usage, calls: usageObj.calls, estimated: usageObj.estimated === true } : undefined,
   });
-  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt });
+  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt, ...(turnSuperseded ? { superseded: true } : {}) });
   // 22-§4.2 第0步: 回合级「不抽样总量」账目 —— E1 报表口径的事实源。本体不受采样与事件上限约束,
   // sampledLogged/eventsDropped 字段让报表能对账明细完整性(截断→标 unknown,不推算)。缺此行的引擎
   // 路径(claude/kimi 桥接回合、playbook 草拟/JSON 修复等非摘要辅助调用)由报表显式标记未覆盖。
@@ -39915,7 +40335,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
-  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass });
+  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass, ...(turnSuperseded ? { superseded: true } : {}) });
 }
 
 // 110-4b: token 估算与分桶簇(fmtTokensServer/CJK_RE/setEstimateBucketsV1/estimateTextTokens/classifyTextForEstimate/estimateContentTokens/estimateHistoryTokens/CONTEXT_WINDOW_FALLBACK/EVAPORATED_PREFIX)抽至 09d-token-estimation.js。
@@ -40022,7 +40442,8 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len', 'max_input_tokens'],
     overflow: {
       statuses: [400, 413, 422],
-      pattern: 'context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度',
+      statusOnly: [413],
+      pattern: 'context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+(is\\s+)?too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度|(input|prompt).{0,20}exceeds?\\s+the\\s+configured\\s+limit|request\\s+entity\\s+too\\s+large|payload\\s+too\\s+large',
       flags: 'i',
       legacySubagentPattern: 'context|token|length|maximum|too\\s*long|too\\s*large|exceed',
       legacySubagentLongErrorChars: 400,
@@ -40257,8 +40678,13 @@ function calibratedEstimate(provider, model, messages, tools) {
 // "function calling is not supported in this context" / 参数校验类 400,把非超窗错误吸进破坏性压缩。
 const CONTEXT_OVERFLOW_STATUSES = new Set(CONTEXT_GOVERNANCE_RULES.overflow.statuses.map(Number));
 const CONTEXT_OVERFLOW_PATTERNS = new RegExp(CONTEXT_GOVERNANCE_RULES.overflow.pattern, CONTEXT_GOVERNANCE_RULES.overflow.flags);
+// 单凭状态码就算超窗的那几个(413 Payload Too Large:网关/反代常只回一个裸状态、不带正文)。只认错误串【开头】的
+// 「HTTP 413」—— 正文里碰巧出现的 413(「413 tokens」)不算。
+const CONTEXT_OVERFLOW_STATUS_ONLY = new Set((CONTEXT_GOVERNANCE_RULES.overflow.statusOnly || []).map(Number));
 function isContextOverflowError(httpError, options = {}) {
   const s = String(httpError || '');
+  const lead = /^\s*HTTP\s+(\d{3})\b/.exec(s);
+  if (lead && CONTEXT_OVERFLOW_STATUS_ONLY.has(Number(lead[1]))) return true;
   const hasStatus = [...CONTEXT_OVERFLOW_STATUSES].some(status => new RegExp(`\\b${status}\\b`).test(s));
   if (!hasStatus) return false;
   if (CONTEXT_OVERFLOW_PATTERNS.test(s)) return true;
@@ -41001,6 +41427,25 @@ function summaryMaxConcurrent(config, provider, model) {
   if (Number.isFinite(n)) return clamp(n);
   return Number(rule.default) || 8;
 }
+// 摘要调用的停止信号(回合的 AbortSignal,经 opts.signal 传入);不是信号就当没有。
+function summaryStopSignal(opts) {
+  const sig = opts && opts.signal;
+  return sig && typeof sig.aborted === 'boolean' && typeof sig.addEventListener === 'function' ? sig : undefined;
+}
+function summaryStoppedResult() {
+  return { ok: false, aborted: true, error: 'summary request cancelled (turn stopped)' };
+}
+// 两路信号任一 abort 即 abort(map-reduce 的 fail-fast 与回合停止);缺一路就用另一路。
+function anySummarySignal(a, b) {
+  if (!a) return b || undefined;
+  if (!b) return a;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
+  const ctrl = new AbortController();
+  const fire = () => { try { ctrl.abort(); } catch { /* ignore */ } };
+  if (a.aborted || b.aborted) fire();
+  else { a.addEventListener('abort', fire, { once: true }); b.addEventListener('abort', fire, { once: true }); }
+  return ctrl.signal;
+}
 // 有界并发执行摘要类调用(仿 09-workflow 21-E2 worker-pool:poolNext 领任务、完成即补位,无批次屏障)。
 // fail-fast:任一结果 !ok 即 abort failCtrl —— worker 停止领新任务,在飞请求经 extraSignal 取消;
 // 结果按输入下标保序(失败点之后的空位为 undefined,调用方按序找首个真实失败上浮)。
@@ -41309,7 +41754,7 @@ async function applySummaryEntityCheck(provider, history, sc, model, opts) {
       trigger: teleBase.trigger + '_entity_repair',
       summaryStage: 'repair',
     };
-    const rc = await singleSummaryCall(provider, repairMessages, model, ectx, String(SUMMARY_ENTITY_RULES.repairPrompt || ''));
+    const rc = await singleSummaryCall(provider, repairMessages, model, ectx, String(SUMMARY_ENTITY_RULES.repairPrompt || ''), summaryStopSignal(opts));
     if (!rc || !rc.ok) { tele({ outcome: 'repair_failed', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
     if (!validateStructuredSummary(rc.summary)) { tele({ outcome: 'repair_rejected', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
     // 采用修补稿:usage 聚合进 sc(修补成本计入本次压缩台账),即便仍有缺失也不再二次重试。
@@ -41547,6 +41992,10 @@ function aggregateSummaryCalls(target, calls) {
 }
 
 async function providerSummaryCallCore(provider, history, opts) {
+  // 回合的停止信号(opts.signal):一路传到每一次摘要请求(singleSummaryCall 的 extraSignal),Stop 当场取消在飞的
+  // 摘要调用,而不是让回合在迭代边界上干等几十秒到几分钟。已经停了就一次都不发。
+  const stopSignal = summaryStopSignal(opts);
+  if (stopSignal && stopSignal.aborted) return summaryStoppedResult();
   const base = providerBaseWithV1(provider.baseUrl);
   const model = String((opts && opts.model) || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!base || !model || typeof fetch !== 'function') {
@@ -41587,7 +42036,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const forceChunks = !fitted.needsMapReduce && singleEstimate > singleCap; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
   let degradedFromSingle = false;
   if (!fitted.needsMapReduce && !forceChunks) {
-    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined, undefined, opts && opts.config);
+    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined, stopSignal, opts && opts.config);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     // 105f:仅【可识别的上下文超窗 400】(isContextOverflowError 共现语义,宁可漏判不误判)自动降级
@@ -41601,7 +42050,7 @@ async function providerSummaryCallCore(provider, history, opts) {
     ? Math.min(budget, Math.max(4000, Math.floor(singleCap * 0.75))) // 22-S0:肥单发分块时压低每组目标;105f 400 降级同目标(单发已证明该量级越窗)
     : budget);
   if (chunks.length <= 1) {
-    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined, undefined, opts && opts.config);
+    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined, stopSignal, opts && opts.config);
     if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
@@ -41620,7 +42069,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const refineCalls = [];
   let refineFailure = '';
   if (refineOn) {
-    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' }, undefined, undefined, opts && opts.config);
+    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' }, undefined, stopSignal, opts && opts.config);
     refineCalls.push(current);
     if (!current.ok) refineFailure = 'request';
     else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
@@ -41631,13 +42080,14 @@ async function providerSummaryCallCore(provider, history, opts) {
         model,
         { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'refine' },
         String(SUMMARY_REFINE_RULES.prompt || SUMMARY_PROMPT),
-        undefined,
+        stopSignal,
         opts && opts.config,
       );
       refineCalls.push(current);
       if (!current.ok) refineFailure = 'request';
       else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
     }
+    if (refineFailure && stopSignal && stopSignal.aborted) return summaryStoppedResult();
     if (!refineFailure) {
       aggregateSummaryCalls(current, refineCalls);
       current.mapReduce = {
@@ -41658,7 +42108,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const failCtrl = typeof AbortController === 'function' ? new AbortController() : null;
   const summaryConcurrency = summaryMaxConcurrent(opts && opts.config, provider, model);
   const rememberCall = async (messages, context, signal) => {
-    const r = await singleSummaryCall(provider, messages, model, context, undefined, signal, opts && opts.config);
+    const r = await singleSummaryCall(provider, messages, model, context, undefined, anySummarySignal(signal, stopSignal), opts && opts.config);
     calls.push(r);
     return r;
   };
@@ -41713,6 +42163,9 @@ async function providerSummaryCallCore(provider, history, opts) {
 // 都原样透传;只有 sc.ok 且显式开启时才做抽样检查与一次定向修补(见 applySummaryEntityCheck)。
 async function providerSummaryCall(provider, history, opts) {
   const sc = await providerSummaryCallCore(provider, history, opts);
+  // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
+  // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。
+  if ((!sc || !sc.ok) && summaryStopSignal(opts) && summaryStopSignal(opts).aborted) return { ...(sc || {}), ...summaryStoppedResult() };
   if (!sc || !sc.ok) return sc;
   if (!summaryEntityCheckEnabled(opts && opts.config)) return sc;
   const model = String(sc.model || (opts && opts.model) || (provider && provider.model) || '').trim();
@@ -42201,7 +42654,7 @@ const CompactionPlan = (() => {
 const compactionSummaryFailures = new Map();
 const COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
 async function runAutoCompaction(ctx) {
-  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {} } = ctx;
+  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {}, signal } = ctx;
   // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
   // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
   // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
@@ -42283,13 +42736,23 @@ async function runAutoCompaction(ctx) {
   }
   // 摘要调用要几十秒到几分钟(回合在迭代边界上等它):先报 started,前端活动条与压缩指示条据此显示「压缩中」;
   // 收尾必有一条 completed(下面带 afterTokens 的那条)或 failed,不会把状态条挂在压缩态。
+  // 回合已经停了:L2 一次都不发(L1 若有斩获照常算数,历史只被 L1 原地改过、配对完好)。
+  if (signal && signal.aborted) return compacted ? { compacted, level: 1, before, watermark: estimate(), aborted: true } : { compacted, level: 0, before, aborted: true };
   onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
   const sc = await providerSummaryCall(summaryProvider, history, {
     model: compactTarget.model,
     config,
     auxCtx: summaryAuxCtx,
     ...(promptOverride ? { promptOverride } : {}),
+    ...(signal ? { signal } : {}),
   });
+  if (sc && sc.aborted) {
+    // 停止取消了摘要调用:收掉「压缩中」状态条(failed + aborted),但这不是摘要服务的失败 —— 不进 10 分钟冷却
+    // (compactionSummaryFailures),L1 也没斩获时不武装滞回水位(下一回合照常再压)。历史没被重播种,原样有效。
+    onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, aborted: true, error: String(sc.error || 'cancelled') });
+    logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, aborted: true });
+    return compacted ? { compacted, level: 1, before, watermark: estimate(), aborted: true } : { compacted, level: 0, before, aborted: true };
+  }
   if (!sc || !sc.ok) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
     onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
@@ -42326,7 +42789,7 @@ async function runAutoCompaction(ctx) {
 // 返回 { level: 0|1|2, evaporated, reseeded?, sc? }:2 = 摘要重播种成功(调用方装回历史、记账、重试,重试成功才落窗口学习);
 // 1 = 只有 L1 蒸发有斩获(调用方重试最后一次,并跳过下一迭代的自动压缩 —— 几秒前 L2 刚失败过);0 = 零成果(不许虚报压缩)。
 async function runForcedOverflowCompaction(ctx) {
-  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error } = ctx;
+  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error, signal } = ctx;
   logEvent({ kind: 'auto_compact', mode: 'forced_400', ...logFields, beforeTokens, error: String(error || '').slice(0, 200) });
   if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
     try {
@@ -42345,7 +42808,13 @@ async function runForcedOverflowCompaction(ctx) {
       logEvent({ kind: 'observation_reduced', ...logFields, ...meta });
     },
   });
-  const sc = await providerSummaryCall(provider, history, { config, auxCtx: summaryAuxCtx });
+  const sc = (signal && signal.aborted) ? { ok: false, aborted: true, error: 'summary request cancelled (turn stopped)' }
+    : await providerSummaryCall(provider, history, { config, auxCtx: summaryAuxCtx, ...(signal ? { signal } : {}) });
+  if (sc && sc.aborted) {
+    // 停止取消了强压的摘要:收掉状态条;返回 aborted,调用方不重试(回合已停)。L1 的原地蒸发保留(配对完好)。
+    onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, aborted: true, error: String(sc.error || 'cancelled') });
+    return { level: evaporated > 0 ? 1 : 0, evaporated, aborted: true };
+  }
   if (sc && sc.ok) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
@@ -42463,7 +42932,7 @@ async function runProviderCompact(sessionId) {
 // 🗜 system row into session.messages (upsertCompactMarker; repeated levels merge into the same open row). Mutates
 // session.providerHistory / session.messages in place; the caller persists via its normal saveSession.
 // Returns true if any compaction happened (caller may save immediately). Never throws.
-async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools) {
+async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools, signal) {
   try {
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
@@ -42489,6 +42958,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       promptOverride: stewardBudget > 0 && typeof StewardHooks.visitNotesPrompt === 'function' ? String(StewardHooks.visitNotesPrompt(config) || '') : '',
       // 116f: 重播种计划与判预算用同一个预算口径(管家的尾预算不能按普通会话那份大预算算,否则压完仍旧超管家自己的线)。
       planOpts: { conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) },
+      // 回合的停止信号:Stop 当场取消在飞的 L2 摘要调用(见 runAutoCompaction)。
+      ...(signal ? { signal } : {}),
     });
     if (r.level === 2) {
       recordCompactUsage(session, r.summaryProvider, r.sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
@@ -42496,7 +42967,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       session.providerHistory = r.reseeded;
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
-    if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session).catch(() => {}); }
+    if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session, { dropIfTurnSuperseded: true, writer: 'auto-compact' }).catch(() => {}); }
     else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
@@ -42651,10 +43122,21 @@ async function runSessionTurn(input) {
   // also fires after a normally-consumed request body on modern Node, so using req.close here can
   // terminate a healthy background turn when the UI opens another session.
   let disconnectHandled = false;
+  // 本次调用登记的 turnSettlers 条目(下面 settleEntry 建好后回填)。stopSession 按【会话】停的是活回合登记表里
+  // 此刻那一个 —— 本回合已被同会话更新的回合顶替(同来源再发一句)之后,旧流断线(被顶替的回合还在收尾)
+  // 会把【新】回合杀掉。条目已经换成别人的 = 这条会话此刻的回合不归本次调用,断线不停它。
+  let ownSettleEntry = null;
   const handleDisconnect = () => {
     if (finished || disconnectHandled) return;
     disconnectHandled = true;
-    readConfig().then(cfg => { if (cfg.killOnDisconnect) stopSession(session.id, 'disconnected'); }).catch(() => {});
+    readConfig().then(cfg => {
+      if (!cfg.killOnDisconnect) return;
+      if (ownSettleEntry && turnSettlers.get(session.id) !== ownSettleEntry) {
+        logEvent({ kind: 'disconnect_stop_skipped', sessionId: session.id, reason: 'superseded' });
+        return;
+      }
+      stopSession(session.id, 'disconnected');
+    }).catch(() => {});
   };
   if (typeof body.onStart === 'function') body.onStart({ session, config });
   const signal = body.signal || null;
@@ -42736,6 +43218,7 @@ async function runSessionTurn(input) {
   let settleResolve = null;
   const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null };
   turnSettlers.set(session.id, settleEntry);
+  ownSettleEntry = settleEntry;
   let turnError = '';
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
   // 这个变量恒为 null,收尾的 release 是一次 if 判空 —— runSessionTurn 的既有路径逐字节不变。
@@ -43615,6 +44098,11 @@ async function searchFileContent(root, pattern, opts = {}) {
   // Carry the literal-fallback note on the array (JSON.stringify of an array drops extra props, so the
   // file_search handler lifts it into the response as `patternNote`; other callers safely ignore it).
   if (norm.note) results.patternNote = norm.note;
+  // 审计 F:JS 路径的正则撞了时间预算 —— 已找到的照常给,并如实说「可能不全」(同一个 patternNote 出口)。
+  if (results.regexTimedOut) {
+    results.patternNote = (results.patternNote ? results.patternNote + '; ' : '')
+      + 'regex search hit its time budget (pattern too slow, possible catastrophic backtracking); results may be incomplete';
+  }
   return results;
 }
 
@@ -43630,30 +44118,31 @@ function maybeGroup(results, group) {
   return Array.from(byFile.values());
 }
 
-async function searchFileContentJs(root, pattern, opts = {}) {
-  const files = await walkFiles(root, {
-    recursive: true,
-    maxFiles: opts.maxFiles || 2000,
-    maxDepth: opts.maxDepth || 8,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
-  });
-  // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
-  const re = new RegExp(pattern, (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || ''));
-  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
-  const ctx = Math.max(0, Math.min(5, Number(opts.context || 0) || 0));
-  const maxResults = Number(opts.maxResults || 200);
-  const results = [];
-  for (const file of files.filter(f => f.type === 'file')) {
-    if (results.length >= maxResults) break;
-    if (file.size > Number(opts.maxFileBytes || 1024 * 1024)) continue;
-    if (globRe && !globRe.test(file.relativePath)) continue;
+// 安全修复(审计 F · ReDoS):模型给的正则在 JS 扫描路径上是逐行同步 `re.test` —— `(a+)+$` 对 30 个 a 加一个 b
+// 这一行就要回溯 2^30 步,整个服务的事件循环被冻住(实测 81 s,期间 SSE/其它会话全停)。rg 不在(PATH 里没有、
+// 随包缺失)或 rg 拒绝了这个模式(Rust regex 不支持回溯引用/环视 → 退到 JS)时都会走到这里。
+// 修法:匹配放进 worker_threads(Node 内建,零依赖)里跑,主线程只等消息;超过时间预算(默认 10 s,调用方只能
+// 往小调)就 terminate 掉 worker —— 一个卡死的正则能拖住的只是它自己那个线程。已找到的命中照常返回,
+// 另挂 regexTimedOut 让调用方把「结果可能不全」说出来。文件读取也在 worker 里(同步读不再占主线程)。
+const REGEX_SCAN_MAX_MS = 10000;
+const REGEX_SCAN_WORKER_SRC = `
+(() => {
+  const { parentPort, workerData } = require('worker_threads');
+  const fs = require('fs');
+  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars } = workerData;
+  let re;
+  try { re = new RegExp(pattern, flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  let count = 0;
+  for (const file of files) {
+    if (count >= maxResults) break;
     let raw = '';
-    try {
-      raw = await fsp.readFile(file.path, 'utf8');
-    } catch {
+    try { raw = fs.readFileSync(file.path, 'utf8'); } catch { continue; }
+    if (wholeFile) {
+      re.lastIndex = 0;
+      if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
       continue;
     }
-    const lines = raw.split(/\r?\n/);
+    const lines = raw.split(/\\r?\\n/);
     for (let i = 0; i < lines.length; i += 1) {
       re.lastIndex = 0;
       if (re.test(lines[i])) {
@@ -43665,12 +44154,67 @@ async function searchFileContentJs(root, pattern, opts = {}) {
           }
           rec.context = block;
         }
-        results.push(rec);
-        if (results.length >= maxResults) break;
+        parentPort.postMessage({ type: 'match', rec });
+        count += 1;
+        if (count >= maxResults) break;
       }
     }
   }
-  return maybeGroup(results, opts.group);
+  parentPort.postMessage({ type: 'done' });
+})();
+`;
+// files: [{path, relativePath}];返回 { results, timedOut, error }。永不 reject。
+function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+  const budgetMs = Math.max(50, Math.min(REGEX_SCAN_MAX_MS, Number(opts.regexTimeoutMs) || REGEX_SCAN_MAX_MS));
+  return new Promise(resolve => {
+    const results = [];
+    let settled = false, worker = null, timer = null;
+    const finish = extra => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (worker) { try { worker.terminate(); } catch { /* already gone */ } }
+      resolve({ results, timedOut: false, error: '', ...extra });
+    };
+    try {
+      const { Worker } = require('worker_threads');
+      worker = new Worker(REGEX_SCAN_WORKER_SRC, {
+        eval: true,
+        workerData: {
+          files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
+          ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
+          wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
+        },
+      });
+    } catch (e) { finish({ error: String((e && e.message) || e) }); return; }
+    timer = setTimeout(() => finish({ timedOut: true }), budgetMs);
+    worker.on('message', m => {
+      if (!m || settled) return;
+      if (m.type === 'match') results.push(m.rec);
+      else if (m.type === 'done') finish({});
+      else if (m.type === 'error') finish({ error: String(m.error || 'regex error') });
+    });
+    worker.on('error', e => finish({ error: String((e && e.message) || e) }));
+    worker.on('exit', () => finish({}));
+  });
+}
+
+async function searchFileContentJs(root, pattern, opts = {}) {
+  const files = await walkFiles(root, {
+    recursive: true,
+    maxFiles: opts.maxFiles || 2000,
+    maxDepth: opts.maxDepth || 8,
+    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
+  });
+  // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
+  const flags = (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || '');
+  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
+  const maxFileBytes = Number(opts.maxFileBytes || 1024 * 1024);
+  const scanFiles = files.filter(f => f.type === 'file' && !(f.size > maxFileBytes) && !(globRe && !globRe.test(f.relativePath)));
+  const scan = await regexScanFilesBounded(scanFiles, pattern, flags, opts);
+  const grouped = maybeGroup(scan.results, opts.group);
+  if (scan.timedOut) grouped.regexTimedOut = true;
+  return grouped;
 }
 
 // rg --json emits NDJSON: one JSON object per line. We care about type:'match' events. The matched
@@ -43818,6 +44362,40 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
     child.on('error', () => { /* handled via the callback's `error` arg */ });
   });
 }
+// 安全修复(审计 B):read 档的 git 调用还会执行仓库自带配置指定的【过滤器】—— `.gitattributes` 里一行
+// `* filter=x` 加 `.git/config` 里 `[filter "x"] clean = <命令>`,git status / git diff 在比对工作区文件时就会
+// spawn 那条命令(stat 变了就重算哈希,先过 clean)。子模块同理:status/diff 会在子模块里再起一个 git,
+// 子模块自己的 config 里的过滤器不归上面那几个 -c 管。修法:
+//   ① 先读一遍配置里【所有】filter.<name>.(clean|smudge|process) 键(git config 只读配置、不执行任何东西),
+//      对每个 name 追加 `-c filter.<name>.clean= -c …smudge= -c …process= -c …required=false`(空值 = 不跑;
+//      实弹验证 status/diff 不再触发,输出照常);名字里带 `=`(`-c` 的键值分隔符,覆盖不到)一律拒绝执行(fail-closed);
+//   ② `--ignore-submodules=dirty`:不进子模块跑 status(子模块提交指针变了仍会报,只是不看子模块工作区脏不脏);
+//   ③ 另外关掉会 spawn 子进程的展示项:status.submoduleSummary(跑子模块 log)、log.showSignature(跑 gpg.program)。
+// 代价:用 git-lfs 之类 clean 过滤器的仓库,stat 变过的受管文件会被报成「已修改」(按原始字节比);结果里
+// filtersNeutralized 如实列出被关掉的过滤器名。git_commit(exec 档,要真的按过滤器入库)不走这条。
+const GIT_READ_ONLY_FLAGS = ['-c', 'status.submoduleSummary=false', '-c', 'log.showSignature=false', '-c', 'diff.submodule=short'];
+async function gitReadOnlyGuard(cwd, timeoutMs) {
+  const res = await runGit(['-C', cwd, 'config', '-z', '--get-regexp', '^filter\\..*\\.(clean|smudge|process)$'], cwd, timeoutMs || 15000);
+  // exit 1 = 没有匹配的键(也包括「不是仓库」时只剩全局/系统配置且没有过滤器);其余非零 = 读配置本身就失败了。
+  if (!res.ok && res.code !== 1) return { ok: false, res };
+  const names = [];
+  for (const entry of String(res.stdout || '').split('\0')) {
+    const key = entry.split('\n')[0];
+    const m = /^filter\.(.+)\.(?:clean|smudge|process)$/i.exec(key);
+    if (m && !names.includes(m[1])) names.push(m[1]);
+  }
+  const bad = names.find(n => /[=\r\n]/.test(n));
+  if (bad) return { ok: false, refused: true, name: bad };
+  const flags = [...GIT_READ_ONLY_FLAGS];
+  for (const n of names) flags.push('-c', `filter.${n}.clean=`, '-c', `filter.${n}.smudge=`, '-c', `filter.${n}.process=`, '-c', `filter.${n}.required=false`);
+  return { ok: true, flags, names };
+}
+function gitReadOnlyGuardError(guard, cwd) {
+  if (guard && guard.refused) {
+    return { ok: false, error: '这个仓库的 git 配置里有无法安全关闭的过滤器,已拒绝执行只读 git 命令', hint: '过滤器名含「=」。请在终端里检查 .git/config 的 [filter] 段后再试。', cwd };
+  }
+  return gitHumanError(guard && guard.res, cwd);
+}
 // Resolve the working directory a git tool runs in. Mirrors powershell_run's lenient handling: an explicit,
 // existing absolute dir wins; anything unusable falls back to the session/home workspace (never throws).
 function resolveGitCwd(raw) {
@@ -43879,10 +44457,13 @@ function summarizeGitStatus(stdout) {
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
-  const res = await runGit(['-C', cwd, 'status', '--porcelain=v1', '-b'], cwd, args.timeoutMs || 15000);
+  const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:关掉仓库自带过滤器与子模块递归
+  if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
+  const res = await runGit([...guard.flags, '-C', cwd, 'status', '--porcelain=v1', '-b', '--ignore-submodules=dirty'], cwd, args.timeoutMs || 15000);
   if (!res.ok) return gitHumanError(res, cwd);
   const parsed = summarizeGitStatus(res.stdout);
-  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout };
+  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout,
+    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
 // git_diff {cwd?, path?, staged?, contextLines?}: unified diff text. tier: read.
@@ -43893,7 +44474,9 @@ async function gitDiff(args = {}) {
   // --no-textconv 关掉 gitattributes 指定的 textconv 过滤器 —— 两者都会执行仓库自带的外部程序,是 read 档
   // git_diff 下的代码执行面。用 diff 子命令专用选项关闭(不能用 `-c diff.external=` 空值,那会让 git 尝试
   // spawn 空命令而报错)。正常 diff 输出不受影响(已实弹验证:+/- 行照常产出、恶意 diff.external 不触发)。
-  const gitArgs = ['-C', cwd, 'diff', '--no-ext-diff', '--no-textconv'];
+  const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:clean/smudge/process 过滤器与子模块递归
+  if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
+  const gitArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
   if (args.staged === true) gitArgs.push('--cached');
   // contextLines → -U<n> (clamped 0..50). Passed as a single joined arg so it can't be split/走私.
   const ctx = Number(args.contextLines);
@@ -43912,14 +44495,16 @@ async function gitDiff(args = {}) {
     truncated = true;
     diff += `\n\n[已截断:diff 超过 ${Math.round(GIT_DIFF_MAX_BYTES / 1024)}KB。可用 path 参数只看单个文件,或减小 contextLines。]`;
   }
-  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated };
+  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated,
+    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
 // git_log {cwd?, maxCount?, path?}: recent commits as a row table. tier: read.
 async function gitLog(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
-  const gitArgs = ['-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
+  // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
+  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath); // UNTRUSTED path after the `--` separator
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
@@ -44138,8 +44723,9 @@ async function docsSearch(root, query, opts = {}) {
     const stat = await fsp.stat(r).catch(() => null);
     if (!stat) continue;
     if (stat.isFile()) {
-      const content = await readIfExists(r, 400000);
-      if (fileRe && fileRe.test(content)) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
+      // 审计 F:整文件(≤40 万字)上的模型正则同样可能灾难回溯 —— 与 file_search 的 JS 路径同一个有界 worker。
+      const hit = fileRe ? await regexScanFilesBounded([{ path: r, relativePath: path.relative(cwd, r) }], nq.pattern, 'i' + (nq.extraFlags || ''), { wholeFile: true, wholeFileChars: 400000, maxResults: 1 }) : null;
+      if (hit && hit.results.length) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
       continue;
     }
     const partial = await searchFileContent(r, query, {
@@ -45430,25 +46016,28 @@ function zipReadEntryData(buf, rec) {
 // 或不带（MCP child 路径）。带 → 走 guardWorkspacePath（realpath + fileAllowedRoots）；不带 → 退化护栏：
 // dest 的父目录必须在 dataRoot 或 process.cwd 下（与文件工具「落盘落在工作区」同精神，绝不写系统任意路径）。
 // 返回 {ok, absPath?} 或 {ok:false, error}。dest 尚不存在时对其父目录做包含判定。
+// 安全审计 #3:修前两条路都比 file_write 松 —— 带 ctx 走的是 guardWorkspacePath(读根集合,不查 autoexec / OS 关键目录,
+// ws\.git\hooks\pre-commit 照下不误);不带 ctx(MCP 子进程、tool_invoke_edit、不带 sessionId 的 /api/tools/http_download)
+// 只看父目录在不在 dataRoot / process.cwd 下,连敏感名单都没查,实测直接盖掉了 <dataRoot>\config.json。现在两条路都走
+// 文件工具的同一个【写】闸 guardFileToolPath(敏感/受保护数据 + autoexec + OS 关键目录三层地板,写根包含判定,宽写档
+// 语义一致)。ctx 缺会话时按 file_* 工具在 MCP 子进程里的同一口径补:WCW_SESSION_ID 指向的会话 cwd;MCP 子进程
+// 连它也没有时,子进程的 cwd 就是 CLI 给的会话工作目录(沿用修前「当前工作目录可下」的那一半,但它在 serve 进程
+// 里是安装目录,所以只在 MCP 子进程认)。配置照旧由 guardFileToolPath 在缺 ctx.config 时从盘读。
 async function guardDownloadDest(rawDest, ctx) {
   const dest = String(rawDest || '');
   if (!dest || !path.isAbsolute(dest)) return { ok: false, error: '下载目标必须是绝对路径' };
   const abs = path.resolve(dest);
-  const session = ctx && ctx.session ? ctx.session : null;
-  const config = ctx && ctx.config ? ctx.config : null;
-  if (session || config) {
-    // dest 可能尚不存在 → guardWorkspacePath 对不存在的路径 realpath 回退为自身，再做包含判定，OK。
-    const g = await guardWorkspacePath(abs, session, config);
-    if (!g.ok) return { ok: false, error: g.error || '下载目标不在允许的工作区内' };
-    return { ok: true, absPath: g.absPath };
+  let gctx = ctx || null;
+  if (!(gctx && gctx.session)) {
+    let session = null;
+    const sid = (gctx && gctx.sessionId) || process.env.WCW_SESSION_ID || '';
+    if (sid) { try { session = await loadSession(String(sid)); } catch { session = null; } }
+    if (!session && RUNTIME.isMcpChild) session = { cwd: process.cwd() };
+    if (session) gctx = { ...(gctx || {}), session };
   }
-  // 退化路径（无 session/config）：父目录须在 dataRoot 或当前工作目录下。
-  const parent = path.dirname(abs);
-  const roots = [dataRoot(), process.cwd()].map(r => path.resolve(r));
-  const realParent = await fsp.realpath(parent).catch(() => parent);
-  const realRoots = await Promise.all(roots.map(r => fsp.realpath(r).catch(() => r)));
-  if (!pathWithinAnyRoot(realParent, realRoots)) return { ok: false, error: '下载目标不在允许的工作区内' };
-  return { ok: true, absPath: abs };
+  const g = await guardFileToolPath(abs, gctx, { tool: 'http_download', write: true });
+  if (!g.ok) return { ok: false, error: g.error || '下载目标不在允许的工作区内', code: g.code };
+  return { ok: true, absPath: g.absPath };
 }
 
 // v0.8-S4a: `ctx` optionally carries checkpoint-journal context {sessionId, turnSeq}. The provider loop
@@ -45592,17 +46181,19 @@ async function resolveFileToolRoot(args, ctx) {
   return normalizeCwd(null, cfg && cfg.defaultWorkspace);
 }
 
-async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
+async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const config = await readConfig();
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
   if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
   if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
-  if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
+  // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
+  // 目录档与入参档不一致时以入参档为准,否则带落盘参数的这一次既过不了 _read(抬档)也过不了 _edit(目录说 read)。
+  if (!bridge && item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
-    const actualTier = bridgedToolTier(bridge.toolName, config);
-    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}', not '${proxyTier}'` };
+    const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
+    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, not '${proxyTier}'` };
   }
   if (!bridge) return toolCall(targetName, targetArgs || {});
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
@@ -45613,8 +46204,12 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
   try {
     const sid = process.env.WCW_SESSION_ID || '';
-    const session = sid ? await loadSession(sid).catch(() => null) : null;
-    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, { sessionId: sid, turnSeq: session.turnSeq });
+    const sidSession = sid ? await loadSession(sid).catch(() => null) : null;
+    const session = (ctx && ctx.session) || sidSession;
+    // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
+    const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
+    if (readRefusal) return readRefusal;
+    if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
     return await client.callTool(bridge.toolName, targetArgs || {});
   } catch (e) {
     return { ok: false, error: (e && e.message) || String(e) };
@@ -45725,13 +46320,13 @@ const CORE_TOOL_HANDLERS = {
       return { ok: true, note: 'Claude CLI schemas are fixed for this process. Use tool_search then tool_invoke_read/edit/exec. OpenAI-compatible turns load concrete schemas on the next iteration.' };
   } },
   tool_invoke_read: { paths: null, guardNote: "代理分发:桥接工具经 bridgedWriteRelativePathArg/journalBridgedWrite;原生目标递归回本注册表走各自 guard", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {}, ctx);
   } },
   tool_invoke_edit: { paths: null, guardNote: "代理分发:同 tool_invoke_read", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {}, ctx);
   } },
   tool_invoke_exec: { paths: null, guardNote: "代理分发:同 tool_invoke_read", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {}, ctx);
   } },
   permission_prompt: { paths: null, guardNote: "CLI 权限桥 loopback,不触文件路径(fail-closed)", handler: async (args, ctx) => {
       // Bridge: the CLI (via --permission-prompt-tool) asks us to approve a tool call. We run inside
@@ -46453,10 +47048,11 @@ const FILE_TOOL_HANDLERS = {
       let matches = await searchFileContent(root, String(args.pattern || ''), args);
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
+      const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
       if (Array.isArray(matches)) { const pn = matches.patternNote; matches = matches.filter(m => !isSensitiveDataPath(m && m.path)); if (pn) matches.patternNote = pn; }
       const maxResults = Number(args.maxResults != null ? args.maxResults : 200);
       const resp = { ok: true, root, matches };
-      if (Array.isArray(matches) && matches.length >= maxResults) resp.truncated = true;
+      if ((Array.isArray(matches) && matches.length >= maxResults) || regexTimedOut) resp.truncated = true;
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
       return resp;
@@ -46563,6 +47159,20 @@ const ARCHIVE_TOOL_HANDLERS = {
           return { ok: false, error: '压缩包含越界路径（Zip Slip），已整包拒绝', entry: rec.name, hint: '该压缩包可能是恶意构造的，未解压任何文件' };
         }
         plan.push({ rec, absPath: target });
+      }
+      // 安全审计 #4:词法落在 destDir 内还不够 —— destDir 是家目录 / 工作区时,包里的 data/config.json、
+      // ws/.git/hooks/pre-commit、.claude/settings.json 同样「在 destDir 内」,修前照写不误(实测覆写了配置、种下了
+      // git hook)。每个条目(含目录条目)在【落任何盘之前】逐个过文件工具的同一个写闸(敏感/受保护数据、autoexec、
+      // OS 关键目录、写根包含、悬空链接);任一被拒 → 整包拒绝,一个文件都不写。配置只读一次,别让 2000 个条目各读一遍盘。
+      {
+        let entryCtx = ctx;
+        if (!(ctx && ctx.config)) { let cfg = {}; try { cfg = await readConfig(); } catch { cfg = {}; } entryCtx = { ...(ctx || {}), config: cfg }; }
+        for (const { rec, absPath } of plan) {
+          const ge = await guardFileToolPath(absPath, entryCtx, { tool: 'archive_unzip', write: true });
+          if (!ge.ok) {
+            return { ok: false, error: `压缩包内的条目落点被拒绝,已整包拒绝(未解压任何文件):${ge.error}`, code: ge.code, entry: rec.name, path: absPath, filesExtracted: 0 };
+          }
+        }
       }
       // ---- 第二遍：逐条解压 + 检查点。累计字节卡 500MB（zip 炸弹二次防御，inflate 后累加）----
       const jctx = await journalSessionCtx(ctx);
@@ -46768,7 +47378,7 @@ const NETWORK_TOOL_HANDLERS = {
       if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
       // ② 落盘目标护栏（工作区内）。
       const guard = await guardDownloadDest(args.dest, ctx);
-      if (!guard.ok) return { ok: false, error: guard.error };
+      if (!guard.ok) return { ok: false, error: guard.error, ...(guard.code ? { code: guard.code } : {}) };
       const dest = guard.absPath;
       // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
       const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });
@@ -48997,8 +49607,9 @@ async function handleApi(req, res, pathname) {
     try {
       const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
       if (requestedSessionId) {
-        const statusSession = await loadSession(requestedSessionId);
-        if (statusSession) conversationConfig = configForSessionEngineRoute(config, statusSession);
+        // 开放读口只读会话头(02 readSessionRouteHead 头注):不装载、不回写。
+        const statusHead = await readSessionRouteHead(requestedSessionId);
+        if (statusHead) conversationConfig = configForSessionEngineRoute(config, statusHead);
       }
     } catch { /* status without a valid session keeps the global new-session default */ }
     // 128f-③(48 号文 §2-c):桌面组件的 Python 探测还在飞(缓存冷)时,本路由【不等、也不走同步探针】——
@@ -49174,8 +49785,8 @@ async function handleApi(req, res, pathname) {
     try {
       const requestedSessionId = safeSessionId(new URL(req.url, 'http://127.0.0.1').searchParams.get('sessionId') || '');
       if (requestedSessionId) {
-        const modelsSession = await loadSession(requestedSessionId);
-        if (modelsSession) modelsConfig = configForSessionEngineRoute(config, modelsSession);
+        const modelsHead = await readSessionRouteHead(requestedSessionId);   // 同 /api/status:只读头,零副作用
+        if (modelsHead) modelsConfig = configForSessionEngineRoute(config, modelsHead);
       }
     } catch { /* 无效或读不到的 sessionId：与 status 同样退回全局新任务默认值 */ }
     const provider = activeOpenAiProvider(modelsConfig);
@@ -50405,8 +51016,8 @@ async function handleApi(req, res, pathname) {
     // journalSessionCtx resolves to no context and journaling silently no-ops. Extra keys are ignored by the file tools.
     const ctx = body && body.sessionId ? { sessionId: String(body.sessionId), ...(Number.isFinite(Number(body.turnSeq)) && body.turnSeq !== '' && body.turnSeq != null ? { turnSeq: Number(body.turnSeq) } : {}) } : null;
     // v1.1-W2 (T1): thread session+config into ctx so http_download can guard its dest against the session's
-    // allowed workspace roots (guardDownloadDest → guardWorkspacePath). Best-effort; a load failure just falls
-    // back to guardDownloadDest's degraded (dataRoot/cwd) guard, never blocking the other tools.
+    // write roots (guardDownloadDest → guardFileToolPath, 安全审计 #3). Best-effort; a load failure just falls
+    // back to the config read from disk inside guardFileToolPath, never blocking the other tools.
     if (ctx) {
       try {
         ctx.config = await readConfig();
@@ -52917,9 +53528,15 @@ async function handleSessionApiRoutes(req, res, pathname) {
       return send(res, json({ ok: false, error: 'method not allowed' }, 405));
     }
   }
-  if (pathname.startsWith('/api/sessions/')) {
-    const id = path.basename(pathname); // guards traversal
+  // 单条会话的 GET / PATCH / DELETE 只认 /api/sessions/<一段>。修前是 startsWith + path.basename(pathname):
+  // /api/sessions/随便/什么/<id> 与 /api/sessions/<id>/ 都被当成 <id> —— 同一条会话有无数个别名(DELETE 也吃),
+  // 以后再加 /api/sessions/:id/xxx 子路由时稍不留神就被这里先吞掉。其余形状落到路由末尾的 api.route_not_found。
+  const single = pathname.match(/^\/api\/sessions\/([^/]+)$/);
+  if (single) {
+    // 与后台任务那几条同一个解码口径:坏编码(%zz)→ '' → 下面各分支按不合形的 id 处理(404 / 400)。
+    const id = safeDecodeURIComponent(single[1]) || '';
     if (req.method === 'GET') {
+      if (!safeSessionId(id)) return send(res, apiSessionNotFound());   // 不合形/保留名(01 safeSessionId)不可能是一条会话
       // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
       // 正文并逐行 sha1(18 MB 会话 250–350 ms;逐行 sha1 后来去掉了,见 02 sessionBodyState)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
       // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
@@ -53036,6 +53653,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       if (id === STEWARD_SESSION_ID) {
         return send(res, apiFailure('steward.forbidden', {}, 'the steward session cannot be patched through /api/sessions', 403));
       }
+      if (!safeSessionId(id)) return send(res, apiSessionNotFound());
       // 116-2a(27 号文 §3.3/§8.6「每条线程一个权限 chip、点开即换、立即生效」):线程级权限就地快切。
       // 与 engineRoute 同端点、同风格(它是会话级字段的既有先例)。两道门:
       //   ① 白名单 —— 非 PERMISSION_MODES 的值 400,绝不悄悄回落(用户按了一个档,系统却按另一个档跑,
@@ -53261,6 +53879,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
       : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
+    ...(opts.persistent ? {} : { queued: stewardThreadTurnQueued(head.id) }), // hunt3:排队中的回合,同上只活在叠加层
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
       autoMode: mm.autoMode || 'off',
@@ -53843,6 +54462,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
         activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
+        queued: stewardThreadTurnQueued(sessionId), // hunt3:回合在仲裁器里排队(前端 fromSnapshot 读它,同 activeTurn 一档)
         mission: session.mission || null,
         acceptance,
         // 班组图只需最近 6 轮；更旧历史仍保留标量 digest，可在经典工作台查看完整节点。
@@ -54527,7 +55147,11 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
     const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
     // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
-    const bridgeMode = String(config.permissionMode || '');
+    // 审计 C:按【这一回合】的实效档判,不按全局档。runClaudeTurn 登记活回合时记下了 spawn CLI 用的解析档
+    // (请求级 > 会话级 > 全局,10 runSessionTurn 解析);修前读 config.permissionMode —— 全局 auto 时,一条被
+    // 收紧到 default/plan 的线程(或交办卡/定时任务的请求级收紧)经 CLI 桥发来的 edit/exec 请求被静默放行。
+    // 登记表上没有这个值(Kimi 等其它引擎)就按会话头 + 全局解析,仍比「只看全局」更紧或相等。
+    const bridgeMode = String((reg && reg.permissionMode) || resolvePermissionMode({ session: reg && reg.session, config }) || '');
     const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
     // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
     // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
@@ -55709,6 +56333,8 @@ function overlayMissionCard(slice, overlayAt) {
   liveRuns.sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
   const latestLive = liveRuns.length ? liveRuns[liveRuns.length - 1] : null;
   const activeTurn = activeChildren.has(slice.sessionId);
+  // hunt3:回合排在 13n 仲裁器里(还没进 activeChildren)—— 五态 queued 证据键,与 activeTurn 同一条「只活在叠加层」纪律。
+  const queued = stewardThreadTurnQueued(slice.sessionId);
   // 117l D4(§11.9):「它在问你」只活在叠加层 —— 待决的死活与活回合都是此刻的事实,写进持久卡片
   // 就会在下一次重建前一直说谎(与 activeTurn / lastRun 同一条纪律)。判据单点同样是 06i 的 stewardAsksYou。
   // 117m-A2:判据单点从 stewardAsksYou 换成 stewardAsksYouForThread —— 后者认【四类待决】
@@ -55752,13 +56378,14 @@ function overlayMissionCard(slice, overlayAt) {
     liveTail,
     seatedBy,
     activeTurn,
+    queued,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
     lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
     freshness: {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,
-      liveOverlay: activeTurn || liveRuns.length > 0,
+      liveOverlay: activeTurn || queued || liveRuns.length > 0,
       overlayAt: overlayAt || nowIso(),
     },
   };
@@ -56573,7 +57200,12 @@ function stewardAppendInboxRows(rows) {
   const next = stewardAppendChain.catch(() => {}).then(async () => {
     await fsp.mkdir(stewardDir(), { recursive: true });
     await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
-    await fsp.appendFile(file, payload, 'utf8');
+    // Windows 上杀软/备份软件短暂持锁的 EBUSY/EPERM/EACCES:与 02 appendIntervention 同款有界重试。
+    // 仍失败就抛给 stewardTickOnce —— 那里把这一批原始事件放回结转队列,下一拍重来(见那里的注释)。
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.appendFile(file, payload, 'utf8'); break; }
+      catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
+    }
     // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
     // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
     // 121-K6a(34 号文 §4.3 安静卡):补 quiet(在场门②情形打的旗)与卡上要印的一句话(ask)——
@@ -56942,6 +57574,7 @@ async function stewardTickOnce() {
     logEvent({ kind: 'steward_inbox_deferred', deferred: kept.length, dropped: rest.length - kept.length });
   }
   const merged = stewardMergeInboxEvents(head, STEWARD_MERGE_WINDOW_MS);
+  const seqBefore = stewardRuntime.inboxSeq;
   const rows = [];
   for (const row of merged) {
     stewardRuntime.inboxSeq += 1;
@@ -56963,7 +57596,21 @@ async function stewardTickOnce() {
   if (rows.length && typeof StewardHooks.enrichInboxRows === 'function') {
     try { await StewardHooks.enrichInboxRows(rows); } catch { /* 增强失败只是少两个字段,不反噬轮询器 */ }
   }
-  if (rows.length) await stewardAppendInboxRows(rows);
+  // 落盘失败(有界重试之后仍是 EBUSY/EIO/ENOSPC …)不许丢事件:四源游标、待决集合、budgetSeen、交接队列
+  // 在 stewardCollectEvents 里都已经越过了这一批 —— 修前异常直接冒出去,这些事件从此永远读不回来
+  // (一条「需要你」的权限请求就此从收件箱里消失)。这里不去逐个回滚游标(交接队列与 budgetSeen 是内存态,
+  // 回滚不全),而是把这一批【原始】事件整批放回结转队列的最前面 —— 与 P0-3 的单轮上限结转同一条通路:
+  // 下一拍它们排在最前、照样过去重、不再过在场门(已经过过一次)。inboxSeq 退回本批之前,
+  // 不留空号;游标这一拍不落盘(异常照旧冒到 stewardRunTick 记 lastError),重启则从旧游标重读 + seen 去重。
+  if (rows.length) {
+    try { await stewardAppendInboxRows(rows); }
+    catch (error) {
+      stewardRuntime.inboxSeq = seqBefore;
+      stewardRuntime.carry = head.concat(stewardRuntime.carry).slice(0, STEWARD_CARRY_MAX_EVENTS);
+      try { logEvent({ kind: 'steward_inbox_append_failed', code: String((error && error.code) || ''), requeued: head.length }); } catch { /* 观测绝不反噬 */ }
+      throw error;
+    }
+  }
   if (rows.length) stewardRuntime.lastInboxAt = nowIso();   // 116-4:唤醒链诚实 —— 「箱子最后一次真的收到东西」
   for (const row of rows) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   // 去重集合在长跑进程里只增不减 —— 超过硬顶就按「装载时」的口径从 inbox 尾部重建(旧键本来也已经
@@ -59131,6 +59778,18 @@ function stewardExemptPendingSummary(iv) {
 //            没有活回合 'no_live_turn';登记表没有 liveSegments(Kimi 的就没有)'no_live_segments'。
 //            粘性位优先读活回合里那一份会话对象(10 的 emit 写的就是它,比盘上新),盘上的会话头兜底。
 //            10 只在读外部内容的那条工具调用【结果回来】时置位 —— 这条待决自己(还没执行、没有结果)不会把自己算进去。
+// 审计 E:非代批的待决判 mayAct 也要看【活回合此刻的实效档】—— 定时任务(请求级 autonomy.permissionMode)与
+// 交办卡的请求级收紧只活在回合里,不在会话头上。只读档位,不碰污染判定(那是代批十道闸的事)。
+// 09 的登记表挂 effectivePermissionMode();Claude CLI 的登记表只有 spawn 时的解析档 permissionMode(05);
+// 都没有(Kimi、无活回合、调用抛错)→ 空串,由调用方决定怎么兜底。
+function stewardLiveTurnPermissionMode(liveSessionId) {
+  const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
+  if (!liveReg) return '';
+  try {
+    if (typeof liveReg.effectivePermissionMode === 'function') return String(liveReg.effectivePermissionMode() || '');
+  } catch { return ''; }
+  return typeof liveReg.permissionMode === 'string' ? liveReg.permissionMode : '';
+}
 function stewardExemptLiveTurn(liveSessionId, liveInterventionId, liveHead) {
   const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
   if (!liveReg) return { live: false, mode: '', taint: { tainted: true, taintBy: 'no_live_turn' } };
@@ -59497,10 +60156,19 @@ async function stewardImplDecide(args, ctx, config) {
   // 可以不一致 —— 会话头 auto、回合 default 已被闸 2 拦下;反过来会话头 default、回合按请求级 auto 在跑
   // (定时任务的 autonomy.permissionMode),线程此刻确实是「智能自动」,拿会话头去判会把一条合规的代批说成
   // 「档位不够」。非代批的待决口径一个字不变。
-  const mayAct = stewardMayAct(delegation ? delegation.liveMode : permissionMode, type === 'permission' ? 'permission' : type, tier);
+  // 审计 E:非代批那一支修前只看会话头 / 全局档。全局 auto、会话头没设档,而定时任务按 autonomy.permissionMode
+  // 'default'(或交办卡把这一单收紧到 plan/default)在跑时,管家拿「auto」去判 → 替用户批掉了回合自己该问人的那一步。
+  // 现在取【会话头档与活回合实效档中更紧的那一个】(只收不放:活回合档更宽时仍按会话头判,口径与修前一致);
+  // 定时任务开出来的线程读不到活回合档(回合已结束 / 引擎登记表不带档)时按 default 算 —— 天花板语义见 13s。
+  const liveActMode = stewardLiveTurnPermissionMode(missionId);
+  let actMode = permissionMode;
+  if (liveActMode && stewardPermissionRank(liveActMode) >= 0 && stewardPermissionRank(liveActMode) < stewardPermissionRank(actMode)) actMode = liveActMode;
+  if (!liveActMode && threadOriginOf(head) === 'schedule' && stewardPermissionRank(actMode) > stewardPermissionRank('default')) actMode = 'default';
+  const mayAct = stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
   if (mayAct !== 'auto') {
-    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
+    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(delegation ? permissionMode : actMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
+      ...(!delegation && actMode !== permissionMode ? { effectivePermissionMode: actMode } : {}),
     });
   }
 
@@ -61192,6 +61860,15 @@ const STEWARD_ARBITER_STARVE_FACTOR = 3;
 const STEWARD_ARBITER_DURATION_SAMPLES = 20;   // 平均回合时长的样本数
 const STEWARD_ARBITER_COST_CACHE_MS = 2000;    // 当日费用记账缓存(配置【不缓存】,费用台账缓存 2 秒)
 const STEWARD_ARBITER_QUEUE_MAX = 500;         // 队列硬顶:超出宁可放行也不无限堆积(排队不是背压手段)
+// hunt3:预算闸的自唤醒。队列只在「有回合释放 / 取消 / 插队 / 改配置」时被唤醒 —— 被 turns_per_hour /
+// cost_per_day 挡住、而此刻又没有任何回合在跑的条目,修前就再也没有人来叫它(小时窗滑过去了也照样挂着)。
+// 现在 drain 收尾时若队里还有被预算挡着的条目,就挂【一个】unref 的定时器,到「最早能放行的时刻」再唤醒一次:
+// 小时口径 = 窗口内最早那一笔回合滑出窗口;当日费用口径 = 下一个本地 0 点。drain 自己抛错时 15 秒后重试。
+// 上限封顶 30 分钟:机器睡眠 / 改时钟之后不至于一觉睡到明天;队列空了就撤掉。
+const STEWARD_ARBITER_RETRY_MIN_MS = 1000;
+const STEWARD_ARBITER_RETRY_MAX_MS = 30 * 60 * 1000;
+const STEWARD_ARBITER_RETRY_ERROR_MS = 15000;
+const STEWARD_ARBITER_RETRY_SLACK_MS = 1000;   // 到点后多等一秒,免得正好卡在窗口边界上再判一次「还满」
 
 const stewardArbiter = {
   running: new Map(),      // token -> { token, sessionId, title, cwdKey, startedAt }
@@ -61210,6 +61887,8 @@ const stewardArbiter = {
   drainAgain: false,
   costCache: { at: 0, value: 0 },
   budgetNotified: new Map(), // sessionId -> 上次落 budget 通知的小时桶(同一条线程一小时最多提醒一次)
+  retryTimer: null,        // hunt3:预算闸 / drain 出错后的自唤醒定时器(至多一个,unref)
+  retryAt: 0,              // 它预定在哪一刻触发(ms);0 = 没挂
 };
 
 // 工作文件夹的锁键:规范化成绝对路径,Windows 折大小写,再取 sha1 前 12 位。用哈希而不是原路径是
@@ -61436,6 +62115,8 @@ function stewardArbiterCancel(entry, reason) {
   stewardArbiterDetach(entry);
   if (entry.waited) stewardArbiterEmit(entry, 'released', entry.lastResource || 'steward:slot');
   if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve({ granted: false, reason: String(reason || 'cancelled') }); }
+  // hunt3:真的排过队的条目被撤走 = 五态的 queued 证据变了(running -> done/stopped),推一帧让左栏跟上。
+  if (entry.waited) { try { RUYI_EVENTS.emit('thread.state', { sessionId: entry.sessionId }); } catch { /* 观测不反噬 */ } }
   stewardArbiterScheduleDrain();
   return true;
 }
@@ -61455,13 +62136,69 @@ function stewardCancelQueuedTurn(sessionId) {
 function stewardArbiterScheduleDrain() {
   if (stewardArbiter.draining) { stewardArbiter.drainAgain = true; return; }
   stewardArbiter.draining = true;
+  let failed = false;
   Promise.resolve()
     .then(() => stewardArbiterDrain())
-    .catch(() => { /* 唤醒失败不该让队列永久卡死:下一次释放会再唤醒 */ })
+    .catch(error => {
+      // 唤醒失败不该让队列永久卡死:修前只寄望于「下一次释放」,而队里的条目可能正是因为没人在跑才排着 ——
+      // 那就没有下一次释放。记下来,下面挂一个短延时的重试。
+      failed = true;
+      try { logEvent({ kind: 'steward_arbiter_drain_error', error: String((error && error.message) || error).slice(0, 300) }); } catch { /* ignore */ }
+    })
     .then(() => {
       stewardArbiter.draining = false;
-      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); }
+      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); return; }
+      stewardArbiterArmRetry(failed);
     });
+}
+
+// hunt3:队里还有没放行的条目时,下一次该在什么时候自己醒(ms 延时;null = 不必自醒,释放/取消会唤醒它)。
+// 只有两种条目需要自醒:被预算挡着的(没有释放事件会来),以及 drain 本身出了错(条目的等待原因都不可信)。
+// 被锁 / 并发位挡着的条目不在此列 —— 挡着它们的是一个正在跑的回合,那个回合的 release 一定会唤醒队列。
+function stewardArbiterRetryDelayMs(failed, now) {
+  const live = stewardArbiter.queue.filter(entry => !entry.cancelled);
+  if (!live.length) return null;
+  if (failed) return STEWARD_ARBITER_RETRY_ERROR_MS;
+  let oldest = now;   // 小时窗里最早那一笔(turns 按放行先后追加,但不假设有序)
+  for (const ts of stewardArbiter.turns) if (ts > now - STEWARD_TURN_WINDOW_MS && ts < oldest) oldest = ts;
+  let delay = null;
+  for (const entry of live) {
+    const budget = entry.wait && entry.wait.budget;
+    if (!budget) continue;
+    let wake;
+    if (budget.axis === 'turns_per_hour') {
+      wake = oldest + STEWARD_TURN_WINDOW_MS - now;
+    } else if (budget.axis === 'cost_per_day') {
+      const d = new Date(now);
+      wake = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - now;   // 下一个本地 0 点(同 usageDayKey 的日界)
+    } else {
+      wake = STEWARD_ARBITER_RETRY_MAX_MS;
+    }
+    delay = delay == null ? wake : Math.min(delay, wake);
+  }
+  if (delay == null) return null;
+  return Math.min(STEWARD_ARBITER_RETRY_MAX_MS, Math.max(STEWARD_ARBITER_RETRY_MIN_MS, delay + STEWARD_ARBITER_RETRY_SLACK_MS));
+}
+function stewardArbiterClearRetry() {
+  if (stewardArbiter.retryTimer) clearTimeout(stewardArbiter.retryTimer);
+  stewardArbiter.retryTimer = null;
+  stewardArbiter.retryAt = 0;
+}
+function stewardArbiterArmRetry(failed) {
+  const now = Date.now();
+  const delay = stewardArbiterRetryDelayMs(failed, now);
+  if (delay == null) { stewardArbiterClearRetry(); return; }
+  const at = now + delay;
+  // 已经挂着一个不晚于它的就留着(至多一个定时器;更早的唤醒不必被推迟)。
+  if (stewardArbiter.retryTimer && stewardArbiter.retryAt && stewardArbiter.retryAt <= at) return;
+  stewardArbiterClearRetry();
+  stewardArbiter.retryAt = at;
+  stewardArbiter.retryTimer = setTimeout(() => {
+    stewardArbiter.retryTimer = null;
+    stewardArbiter.retryAt = 0;
+    stewardArbiterScheduleDrain();
+  }, delay);
+  if (stewardArbiter.retryTimer && typeof stewardArbiter.retryTimer.unref === 'function') stewardArbiter.retryTimer.unref();
 }
 
 function stewardArbiterStarveThresholdMs() {
@@ -61516,7 +62253,12 @@ async function stewardArbiterDrain() {
     if (entry.cancelled || at < 0) continue;
     // 116-3 P0-5:waited 在这里置(而不是入队时)—— 全新条目现在也先入队,只有【真的被挡住】的那些
     // 才该在事件流里出现 waiting/acquired/released 三帧。
-    if (blocked) { entry.waited = true; stewardArbiterSetWait(entry, blocked); continue; }
+    if (blocked) {
+      // hunt3:第一次真的被挡住 = 这条线程的五态从 done/stopped 变成 running(queued 证据),推一帧让事件流跟上。
+      // 没被挡住直接放行的回合不推:回合起跑时 05/09 自己会派 thread.state。
+      if (!entry.waited) { try { RUYI_EVENTS.emit('thread.state', { sessionId: entry.sessionId }); } catch { /* 观测不反噬 */ } }
+      entry.waited = true; stewardArbiterSetWait(entry, blocked); continue;
+    }
     stewardArbiter.queue.splice(at, 1);
     stewardArbiterDetach(entry);
     if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve(stewardArbiterGrant(entry)); }
@@ -65354,16 +66096,20 @@ async function schedulerRecover(schedFireRows) {
 }
 
 // ── 触发四段(§3.2)────────────────────────────────────────────────────────
-// 权限档:任务自带的档是【天花板 = 全局档去掉 bypass】。任务没给(''),或给的档不在
-// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档。这一句是 06j 那半条校验
+// 权限档:【天花板 = 全局档,永不含 bypass】。任务没给(''),或给的档不在
+// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档;给了就与全局档取更紧的那个。这一句是 06j 那半条校验
 // (「不是 bypass 的非空字符串就留着」)的另一半:只有这里读得到 config。
+// 安全修复(审计 D):修前「天花板」只挡了 bypass —— 任务档比全局档【宽】时照样生效(全局 plan、任务 auto
+// → 定时回合按 auto 跑),全局是 bypass 而任务没给档时也原样拿到 bypass(与「永不含 bypass」相悖)。
+// 现在按 06i 的全序(plan < default < acceptEdits < auto < bypass)取 min(任务档 || 全局档, 全局档),
+// 结果若仍是 bypass(只可能来自全局档)一律落到 default。全局档本身不认识 → 按 default 算(fail-closed)。
 function schedulerPermissionModeFor(schedTask, schedConfig) {
-  const wanted = String((schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
-  const globalMode = String((schedConfig && schedConfig.permissionMode) || 'default');
-  if (!wanted) return globalMode;
-  if (wanted === 'bypass' || wanted === 'bypassPermissions') return globalMode;
-  if (!PERMISSION_MODES.includes(wanted)) return globalMode;
-  return wanted;
+  const wanted0 = String((schedTask && schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
+  const globalRaw = String((schedConfig && schedConfig.permissionMode) || 'default');
+  const globalMode = stewardPermissionRank(globalRaw) >= 0 ? globalRaw : 'default';
+  const wanted = (wanted0 && wanted0 !== 'bypass' && wanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(wanted0)) ? wanted0 : globalMode;
+  const narrowest = stewardPermissionRank(wanted) <= stewardPermissionRank(globalMode) ? wanted : globalMode;
+  return (narrowest === 'bypass' || narrowest === 'bypassPermissions') ? 'default' : narrowest;
 }
 
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
@@ -65415,138 +66161,165 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   task.state.lastMode = schedMode;
   task.state.runsToday = { date: day, count: task.state.runsToday.count + 1 };
   schedulerRuntime.globalRuns = { date: day, count: schedulerRuntime.globalRuns.count + 1 };
-  await schedulerSaveTasks();
-  await schedulerAppendFire({ ...fireBase, phase: 'registered' });
-  schedulerRuntime.firedTotal += 1;
-  schedulerEmitChanged(task.id, 'registered', '');
-  schedulerMaybeCrash('after-register');
-
-  // ── ② 派单 ────────────────────────────────────────────────────────────────
-  const config = await readConfig();
+  // hunt3:从这里起到收尾之前,任何一步抛错(tasks-v1.json / fires-v1.ndjson 写不进去、readConfig、
+  // createSession/saveSession ……)都【不许】越过收尾段直接冒出去。修前异常冒到 schedulerDispatchFire 只落一条
+  // 日志:inFlightRunId 永远留在任务上(盘上也是)、没有 reconciled 行、nextFireAt 不推进 —— tick 从此永远跳过它,
+  // run-now 永远 409,直到重启走崩溃残留恢复。现在一律按 failed 走同一段收尾(清 inFlightRunId、推进 nextFireAt、
+  // 计入连败熔断、补 reconciled 行);收尾自己再写不进去,内存里的状态也已经先摆正了,下一拍照常能派。
   let outcome = 'succeeded';
   let error = '';
   let sessionId = '';
   let costTokens = 0;
+  let targetBusy = false;   // 8a:目标线程正被别处的回合占着(SESSION_TURN_BUSY_ELSEWHERE),见下
+  try {
+    await schedulerSaveTasks();
+    await schedulerAppendFire({ ...fireBase, phase: 'registered' });
+    schedulerRuntime.firedTotal += 1;
+    schedulerEmitChanged(task.id, 'registered', '');
+    schedulerMaybeCrash('after-register');
 
-  if (task.payload.kind === 'reminder') {
-    // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
-    await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
-    schedulerEmitChanged(task.id, 'dispatched', '');
-    schedulerMaybeCrash('after-dispatch');
-    schedulerMaybeCrash('mid-run');
-    await schedulerNotify('onReminderDue', {
-      taskId: task.id, title: task.title, text: task.payload.text,
-      occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
-      ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
-    });
-  } else {
-    let session = null;
-    if (task.target.mode === 'existing-session' && task.target.sessionId) {
-      session = await loadSession(task.target.sessionId).catch(() => null);
-    }
-    if (!session) {
-      // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
-      // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
-      // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
-      session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
-      session.kind = 'mission';
-      session.launchedBy = 'steward';
-      session.createdBy = 'steward';
-      session.titleSource = 'steward';
-      // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
-      // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
-      // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
-      // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
-      // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
-      // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
-      // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
-      const workdirBefore = String(task.workdir || '');
-      const prepared = await schedulerNotify('prepareThread', { session, task, config });
-      // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
-      // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
-      if (prepared && prepared.workdir === 'fallback') {
-        try {
-          logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
-        } catch { /* 观测不反噬触发 */ }
-      }
-      await saveSession(session);
-      // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
-      // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
-      if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
-    }
-    sessionId = session.id;
-    await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
-    schedulerEmitChanged(task.id, 'dispatched', '');
-    schedulerMaybeCrash('after-dispatch');
-    await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
-    schedulerMaybeCrash('mid-run');
+    // ── ② 派单 ────────────────────────────────────────────────────────────────
+    const config = await readConfig();
 
-    // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
-    // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
-    schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
-    let permissionDenied = 0;
-    const onEvent = evt => {
-      if (!evt || typeof evt !== 'object') return;
-      if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
-      if (evt.type === 'usage' && evt.usage) {
-        const u = evt.usage;
-        costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
-          + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
-      }
-    };
-    let timedOut = false;
-    // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
-    // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
-    // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
-    // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
-    // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
-    // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
-    const timer = setTimeout(() => {
-      timedOut = true;
-      try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
-    }, Math.max(1000, task.policy.timeoutMinutes * 60000));
-    if (timer && typeof timer.unref === 'function') timer.unref();
-    let result = null;
-    try {
-      result = await runSessionTurn({
-        sessionId,
-        message: task.payload.text,
-        cwd: session.cwd,
-        permissionMode: schedulerPermissionModeFor(task, config),
-        source: 'scheduler',
-        requestMeta: { taskId: task.id, runId },
-        onEvent,
+    if (task.payload.kind === 'reminder') {
+      // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
+      await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
+      schedulerEmitChanged(task.id, 'dispatched', '');
+      schedulerMaybeCrash('after-dispatch');
+      schedulerMaybeCrash('mid-run');
+      await schedulerNotify('onReminderDue', {
+        taskId: task.id, title: task.title, text: task.payload.text,
+        occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
+        ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
       });
-    } catch (e) {
-      error = String((e && e.message) || e).slice(0, 400);
-    } finally {
-      clearTimeout(timer);
-      schedulerAskWaitSessions.delete(sessionId);
+    } else {
+      let session = null;
+      if (task.target.mode === 'existing-session' && task.target.sessionId) {
+        session = await loadSession(task.target.sessionId).catch(() => null);
+      }
+      if (!session) {
+        // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
+        // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
+        // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
+        session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
+        session.kind = 'mission';
+        session.launchedBy = 'steward';
+        session.createdBy = 'steward';
+        session.titleSource = 'steward';
+        // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
+        // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
+        // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
+        // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
+        // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
+        // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
+        // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
+        const workdirBefore = String(task.workdir || '');
+        const prepared = await schedulerNotify('prepareThread', { session, task, config });
+        // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
+        // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
+        if (prepared && prepared.workdir === 'fallback') {
+          try {
+            logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
+          } catch { /* 观测不反噬触发 */ }
+        }
+        await saveSession(session);
+        // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
+        // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
+        if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
+      }
+      sessionId = session.id;
+      await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
+      schedulerEmitChanged(task.id, 'dispatched', '');
+      schedulerMaybeCrash('after-dispatch');
+      await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
+      schedulerMaybeCrash('mid-run');
+
+      // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
+      // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
+      schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
+      let permissionDenied = 0;
+      const onEvent = evt => {
+        if (!evt || typeof evt !== 'object') return;
+        if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
+        if (evt.type === 'usage' && evt.usage) {
+          const u = evt.usage;
+          costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
+            + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
+        }
+      };
+      let timedOut = false;
+      // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
+      // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
+      // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
+      // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
+      // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
+      // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
+      const timer = setTimeout(() => {
+        timedOut = true;
+        try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
+      }, Math.max(1000, task.policy.timeoutMinutes * 60000));
+      if (timer && typeof timer.unref === 'function') timer.unref();
+      let result = null;
+      try {
+        result = await runSessionTurn({
+          sessionId,
+          message: task.payload.text,
+          cwd: session.cwd,
+          permissionMode: schedulerPermissionModeFor(task, config),
+          source: 'scheduler',
+          requestMeta: { taskId: task.id, runId },
+          onEvent,
+        });
+      } catch (e) {
+        error = String((e && e.message) || e).slice(0, 400);
+        // 8a:目标线程(existing-session)此刻有一个别处发起的回合在跑 —— runSessionTurn 在起回合【之前】
+        // 就回 409,一个字节都没动那条线程。这不是这条任务的失败:修前记成 failed、计入连败,用户在那条线程里
+        // 连着聊三次就把任务熔断停用了。判据只认稳定错误码,不认文案。
+        if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') targetBusy = true;
+      } finally {
+        clearTimeout(timer);
+        schedulerAskWaitSessions.delete(sessionId);
+      }
+      // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
+      // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
+      const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
+      const turnOk = inner ? inner.ok === true : !!(result && result.ok);
+      if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+      else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
+      else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
+      else outcome = 'succeeded';
+      if (targetBusy) {
+        // 8a:按「这一次不跑」记 skipped(与撞上限同一个结果值,原因 target_busy),不计连败;日程推进到【下一个】
+        // 时点(收尾段对非 manual 一律如此)—— 不选「下一拍重试」:用户在那条线程里一聊半小时,每 30 秒一拍的
+        // 重试会在他每说完一句话的空档里立刻插进一个定时回合,而 cron 的下一个时点本来就是这条任务的节奏。
+        // 登记时预扣的两份当日计数退回(什么都没跑,不该占今天的上限)。
+        outcome = 'skipped';
+        error = 'target_busy';
+        if (task.state.runsToday && task.state.runsToday.date === day) task.state.runsToday = { date: day, count: Math.max(0, task.state.runsToday.count - 1) };
+        if (schedulerRuntime.globalRuns.date === day) schedulerRuntime.globalRuns = { date: day, count: Math.max(0, schedulerRuntime.globalRuns.count - 1) };
+      }
+      // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
+      // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
+      // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
+      // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
+      // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
+      // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
+      // 8a:target_busy 时这条线程上根本没有定时回合,不往别人的回合头上记一笔「管家末回合」。
+      if (!targetBusy) void updateSessionMeta(sessionId, {
+        launchedBy: 'steward',
+        stewardLastTurn: {
+          seq: Math.max(0, Number(result && result.turnSeq) || 0),
+          ok: outcome === 'succeeded',
+          aborted: !!(inner ? inner.aborted : (result && result.stopped)),
+          errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
+          at: nowIso(),
+        },
+      }).catch(() => null);
     }
-    // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
-    // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
-    const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
-    const turnOk = inner ? inner.ok === true : !!(result && result.ok);
-    if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
-    else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
-    else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
-    else outcome = 'succeeded';
-    // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
-    // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
-    // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
-    // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
-    // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
-    // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
-    void updateSessionMeta(sessionId, {
-      launchedBy: 'steward',
-      stewardLastTurn: {
-        seq: Math.max(0, Number(result && result.turnSeq) || 0),
-        ok: outcome === 'succeeded',
-        aborted: !!(inner ? inner.aborted : (result && result.stopped)),
-        errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
-        at: nowIso(),
-      },
-    }).catch(() => null);
+  } catch (e) {
+    outcome = 'failed';
+    error = 'dispatch_error: ' + String((e && (e.code || e.message)) || e).slice(0, 380);
+    try { logEvent({ kind: 'scheduler_fire_error', taskId: task.id, runId, detail: String((e && e.message) || e).slice(0, 400) }); } catch { /* 观测不反噬 */ }
   }
 
   // ── ④ 收尾 ────────────────────────────────────────────────────────────────
@@ -65554,7 +66327,9 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   const finishedMs = schedulerClockNow();
   task.state.inFlightRunId = '';
   task.state.lastResult = outcome;
-  task.state.consecutiveFailures = outcome === 'failed' ? (Number(task.state.consecutiveFailures) || 0) + 1 : 0;
+  // skipped(撞上限 / 8a 目标线程忙)既不是失败也不是成功:连败计数原样不动(与上面撞上限那一支同口径)。
+  if (outcome === 'failed') task.state.consecutiveFailures = (Number(task.state.consecutiveFailures) || 0) + 1;
+  else if (outcome !== 'skipped') task.state.consecutiveFailures = 0;
   let tripped = false;
   if (task.state.consecutiveFailures >= SCHEDULER_LIMITS.consecutiveFailuresTrip) {
     task.state.enabled = false;      // 熔断优先于重试(29 号文 §10)
@@ -65614,6 +66389,13 @@ async function schedulerTick() {
   schedulerRuntime.ticking = true;
   const generation = schedulerRuntime.generation;
   try {
+    // hunt3:总开关是【活的】。startScheduler 只在启动时读一次 schedulerEnabledV1,修前用户在设置里把它关掉之后
+    // interval 照跑、到点照派(「关了所有定时承诺一起停」只在重启后才兑现)。每一拍先重读配置(readConfig 走
+    // 文件指纹缓存,一拍一次 stat),关着就这一拍什么都不做 —— 不派单、不动补跑队列、不写盘;interval 留着,
+    // 用户再打开时下一拍就接着走,不必重启。已经派出去的那一次照常收尾(它的回合可能已经在跑)。
+    const liveConfig = await readConfig().catch(() => null);
+    if (liveConfig && !schedulerEnabled(liveConfig)) return;
+    if (generation !== schedulerRuntime.generation) return;
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
       if (generation !== schedulerRuntime.generation) return;
@@ -67640,6 +68422,7 @@ module.exports = {
   repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
   repairProviderHistoryToolArgs, // 参数铁律自愈(arguments 不是 JSON 对象 -> 改写成实际执行用的 '{}') — exposed for e2e 直测
   bridgedToolTier,
+  bridgedReadPathGate,   // 安全修复(审计 A②):桥接读文件的读边界 —— unit/security-audit-fixes.test.js 直调
   cwdWarning,
   defaultConfig,
   DurableJsonStore,
@@ -68042,6 +68825,8 @@ module.exports = {
   startScheduler,
   stopScheduler,
   schedulerRuntimeSnapshot,
+  // 安全修复(审计 D):定时回合权限档的天花板(= 全局档,永不含 bypass)—— unit/security-permission-ceilings.test.js 直调整张真值表。
+  schedulerPermissionModeFor,
   // 127 波 2-ter S-b:六条路由的处理函数本体 —— exposed for scheduler-steward.e2e.js 在进程内挂一个 http 壳直测
   //   「HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份」(workdir 只在管家开着且真触发过之后才有,
   //   而那件是进程内夹具;鉴权表是另一件事,由 scheduler-api.e2e.js 经真服务钉着)。

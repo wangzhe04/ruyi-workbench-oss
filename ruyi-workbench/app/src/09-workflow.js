@@ -1068,7 +1068,9 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
-    const settled = rows.every(row => row && !row.live);
+    // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
+    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(最长 60 秒)。只有【活的】 run 才值得等。
+    const settled = rows.every(row => !row || !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
     await new Promise(resolve => {
       let done = false;
@@ -1092,8 +1094,10 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
     if (row.live && !AGENT_RUN_TERMINAL.has(env.status)) env.status = 'running';
     return env;
   });
+  // settled 口径不变(有 not_found 就不算「全部结果到手」,信封里照样标 status:'not_found');
+  // timedOut 只看【活的】 run —— not_found 不是等超时了,是压根没有这个 run。
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
-  return { ok: true, settled, timedOut: !settled, runs };
+  return { ok: true, settled, timedOut: runs.some(run => run.live === true), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -1249,7 +1253,7 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
     const name = String(tc.name || '').trim();
     if (!name || PLAN_DISCOVERY_BLOCKED_TOOLS.has(name)) return false;
     const bridge = resolveBridge(bridgedRoute || {}, name);
-    return (bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(name)) === 'read';
+    return (bridge ? bridgedToolTier(bridge.toolName, config, tc.rawArgs || tc.input || {}) : nativeToolTier(name)) === 'read';
   });
 }
 
@@ -1265,6 +1269,21 @@ function commonPrefixChars(a, b) {
   let i = 0;
   while (i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
   return i;
+}
+
+// 空回复提示(runOpenAiTurn 的「正常结束、没有文字也没有工具调用」)。按 config.locale 选语言 —— 直接问 06b 的
+// getPromptPack(恰是 en-us 才英文,其余含未设中文),不另抄一份判据。afterText = 本回合前面的迭代已经说过话
+// (只是最后一步空了),措辞换成「没有给出最终回答」。
+function emptyReplyNotice(locale, afterText) {
+  const en = getPromptPack(locale) === PROMPT_EN;
+  if (en) {
+    return afterText
+      ? '\n\n[The model ended the turn without a final answer (empty reply). Send "continue" or ask again.]'
+      : '[The model returned an empty reply (no text and no tool calls). Try sending it again, rephrasing, or switching models.]';
+  }
+  return afterText
+    ? '\n\n[模型没有给出最终回答就结束了本轮(空回复);可以发送「继续」或再问一次]'
+    : '[模型这次返回了空回复(没有文字,也没有调用工具);可以重发一次,或换个说法、换个模型再试]';
 }
 
 async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, provider, config, driverAuto, agentTeam, messageMeta }) {
@@ -1368,6 +1387,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // v0.8-S0: one turn = one user message → reply-complete. Bump the session-level monotonic counter at
   // turn start and persist it with the existing save (checkpoint/rewind/summary key downstream).
   session.turnSeq = plannedTurnSeq;
+  // 回合中途的存盘都带回合代数闸(02 saveSession 的 dropIfTurnSuperseded):本回合若已被同会话更新的回合顶替
+  // (卡在不理会中止的工具里、新回合先跑完),这份旧对象的存盘静默丢掉,不把新回合的消息与历史盖回去。
+  const turnSaveOpts = { dropIfTurnSuperseded: true, writer: 'openai-turn' };
   // v0.8-S4b: stamp the user message with its turnSeq so rewind can locate a turn's first user message
   // directly (rather than inferring from the following assistant's turnSummary.turnSeq). Additive field.
   // 116f: messageMeta 是可选的「这条用户消息从哪来」元数据(目前唯一来源:管家收件箱回合的
@@ -1872,6 +1894,27 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // A steer can land after the provider emitted tool_calls but before execution reaches this item.
     if (interruptible && hasInterruptingSteer(reg)) interrupt();
     try {
+      // 不可中断的工具(http_request、文件类、桥接 MCP……)拿不到中止信号,修前 Stop 要等它自己跑完(审计 t3:
+      // 挂住的 http_request 让停止晚了 14 s)。现在与回合的中止信号赛跑:回合被停时立刻给一条配对的「已停止」
+      // 结果(历史里每个 tool_call 照样有回复),工具本身可能还在后台跑,它晚到的结果丢弃、不写回会话。
+      // 回合在进这里之前就已停止时不再启动工具。
+      if (!interruptible && turnSignal) {
+        const stoppedResult = () => ({ ok: false, aborted: true, error: '回合已被停止;该工具不支持中断,可能仍在后台跑完,其结果不会写回本会话' });
+        if (turnSignal.aborted) return stoppedResult();
+        const STOPPED = Symbol('turn_stopped');
+        let onTurnStop = null;
+        const stopped = new Promise(resolve => { onTurnStop = () => resolve(STOPPED); turnSignal.addEventListener('abort', onTurnStop, { once: true }); });
+        const running = Promise.resolve().then(() => runner(null));
+        let raced;
+        try { raced = await Promise.race([running, stopped]); }
+        finally { turnSignal.removeEventListener('abort', onTurnStop); }
+        if (raced === STOPPED) {
+          running.catch(() => {});   // 后台那一路晚到的成功/失败都没人要了
+          try { logEvent({ kind: 'tool_abandoned_on_stop', sessionId: session.id, turnSeq: session.turnSeq, tool: tc.name, elapsedMs: Date.now() - startedAt }); } catch { /* telemetry must never break a tool call */ }
+          return stoppedResult();
+        }
+        return raced;
+      }
       const result = await runner(toolAbort && toolAbort.signal);
       // 13a-t 字节轴【只计数,不改写】(20-C1 三个 High 阻断未解除,不做结果引用改写)。
       if (interruptible && ttbByteShadowBytes > 0 && result && typeof result === 'object') {
@@ -2208,7 +2251,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current())) touch();
+      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) touch();
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
@@ -2347,7 +2390,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             onEvent, logFields: { sessionId: session.id, turnSeq: session.turnSeq },
             summaryAuxCtx: { sessionId: session.id, turnSeq: session.turnSeq, trigger: 'context_overflow_retry' },
             beforeTokens: estBeforeCall, error: call.httpError,
+            signal: ctrl && ctrl.signal,   // Stop 当场取消强压的摘要调用(10 runForcedOverflowCompaction)
           });
+          // 摘要是被停止取消的:回合已停,不重试、不报「压缩无果」,直接按停止收尾(L1 的原地蒸发配对完好)。
+          if (forced.aborted || reg.state !== 'running') { aborted = true; ok = false; break; }
           if (forced.level === 2) {
             session.providerHistory = forced.reseeded;
             recordCompactUsage(session, provider, forced.sc);
@@ -2362,7 +2408,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // 重试成功后落 45d(b) 学习(见 call 成功路径)。落的是【校准后】的估算:学到的窗口上限拿来跟 calibratedEstimate
             // 比预算,用原始估算学的话,因子 < 1 时学到的上限比真实窗口还大,刚超过窗口的历史下一次照样不压。
             pendingOvershootLearn = Math.round(estBeforeCall * estimateFactor(provider.id, model));
-            await saveSession(session).catch(() => {});
+            await saveSession(session, turnSaveOpts).catch(() => {});
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
@@ -2375,7 +2421,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               note: '服务端判定上下文超限(HTTP 400),已蒸发旧工具结果并重试。',
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
-            await saveSession(session).catch(() => {});
+            await saveSession(session, turnSaveOpts).catch(() => {});
             touch();
             iter--; continue; // L2 失败但 L1 有斩获,试最后一次
           }
@@ -2405,7 +2451,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // The model spoke a plan and stopped — record it in history so the context stays coherent for the
           // post-approval continuation, then pause for the decision.
           if (call.text) session.providerHistory.push({ role: 'assistant', content: call.text, ...wire.assistantHistoryFields(call) });
-          await saveSession(session);
+          await saveSession(session, turnSaveOpts);
           touch(); // feed the idle watchdog at the pause boundary (the plan's own permissionTimeoutMs governs the wait)
           let decision;
           reg.planPending = true;
@@ -2424,7 +2470,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             const safeNote = neutralizeFenceTag(note, 'workbench-plan-approved'); // P2-8: 单一事实源见 00-boot.js
             session.providerHistory.push({ role: 'user', content: getPromptPack(config && config.locale).planApproved({ note: safeNote }) });
             if (note) onEvent({ type: 'plan_note', text: note });
-            await saveSession(session);
+            await saveSession(session, turnSaveOpts);
             continue; // resume the loop; the gate now allows edit/exec tools this turn (planApproved)
           } else {
             planRejected = true;
@@ -2451,7 +2497,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refuse)) });
             await notifyToolHookEnd(tc, refuse, iter, 'plan_refused');
           }
-          await saveSession(session);
+          await saveSession(session, turnSaveOpts);
           touch();
           if (reg.state !== 'running') { aborted = true; ok = false; break; }
           // v1.0.2 (F1c 根因修复): re-ARM the plan phase before waiting. Without this, planPhase was already
@@ -2733,7 +2779,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // MCP stdio client. v0.8-S0: their tier now comes from BRIDGED_TOOL_TIERS (keyed by the
           // unprefixed bridge.toolName) so ACC's read-only family auto-allows in 'default' mode.
           const bridge = resolveBridge(bridgedRoute, tc.name);
-          const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+          const tier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
           // 116f(§3.5 末段):管家会话用独立权限模式 'steward'(不进 PERMISSION_MODES)—— steward_* 一律
           // allow(read/edit/exec 都不弹权限窗:真正的边界由 13g 工具内部的 stewardMayAct、永久豁免清单与
           // 自理清单执行,那是按【目标线程】权限判的,不是按管家自己的档);非管家工具在管家会话里根本
@@ -2776,7 +2822,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               const pauseOpts = (config.autonomyPauseOnTimeout && driverAuto) ? {
                 enabled: true, ttlMs: config.autonomyPauseTtlMs,
                 // 存档暂停开始:置 reg.pausePending 令 idle 看门狗豁免(否则 TTL 内先杀回合)。onPause 闭包持 reg(runOpenAiTurn 作用域)。
-                onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session).catch(() => {}); },
+                onPause: rid => { reg.pausePending = true; try { logEvent({ kind: 'permission_paused', sessionId: session.id, tool: tc.name, tier, requestId: rid }); } catch { /* ignore */ } saveSession(session, turnSaveOpts).catch(() => {}); },
               } : null;
               const decision = await requestNativePermission(session.id, tc.name, args, onEvent, permissionWaitMs(session.id, config, session), tier, pauseOpts);   // 128f-⑪
               reg.pausePending = false; // 决定/TTL-deny/clearPending 任一使 await 返回 → 解除暂停豁免;并把看门狗时钟重置(暂停不算空闲)
@@ -2790,7 +2836,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                    || await bridgedReadPathGate(tc.name, args, { sessionId: session.id, session, config, workingDir });   // 审计 A②:桥接读文件过读边界
                   const relArg = gateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                   if (gateRefusal) { resultObj = gateRefusal; }
                   else if (relArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${relArg}」是相对路径,无法建立检查点/回撤(会变成不可撤销的写)。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
@@ -2857,7 +2904,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 // v0.8-S4a: pass the live checkpoint-journal context so file_write/file_edit/file_delete
                 // record a `before` snapshot under this session's current turnSeq (serve process path).
                 // v1.1-W2 (T1): also thread session+config so http_download can guard its落盘 dest against the
-                // session's allowed workspace roots (guardDownloadDest → guardWorkspacePath).
+                // session's allowed workspace roots (guardDownloadDest → guardFileToolPath write guard).
                 let toolLease = '';
                 try {
                   const toolResources = inferToolResources(tc.name, args, null, workingDir, tier);
@@ -3008,7 +3055,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             queueWaitMs: poolQueueWaitMs || 0, // 21-E2: pool 内资源锁排队总时长
           })) econTotals.phasesLogged += 1;
         }
-        await saveSession(session);   // persist the growing tool trace
+        await saveSession(session, turnSaveOpts);   // persist the growing tool trace
         continue;                     // loop: let the model react to the tool results
       }
       // No tool calls → final answer for this turn.
@@ -3039,6 +3086,14 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // 模型永远看不到。回合还在跑就再转一圈:循环顶端 drainSteerQueue 注入插话,模型接着回应(同 Kimi 的 follow-up)。
       // 历史此刻是完整的(最终回答已入历史,没有未配对的工具调用),在边界注入是配对安全的。
       if (reg.state === 'running' && Array.isArray(reg.steerQueue) && reg.steerQueue.length) continue;
+      // 空回复(正常结束、没有文字也没有工具调用):修前回合就这么静悄悄地结束,界面上只剩一个空气泡,用户分不清是
+      // 还在跑、出错了还是模型真的什么都没说。给一句看得见的提示 —— 同上面「输出上限」那句,只进显示正文、不进
+      // providerHistory(历史里不塞一条伪造的 assistant,下一回合的请求照旧合法)。命中输出上限的那种已经有自己的提示。
+      if (!String(call.text || '').trim() && !providerWireOutputLimited(call.finishReason)) {
+        const note = emptyReplyNotice(config && config.locale, Boolean(assistantText.trim()));
+        assistantText += note; onEvent({ type: 'assistant_delta', text: note });
+        try { logEvent({ kind: 'provider_empty_reply', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter, finishReason: call.finishReason || '', hadReasoning: Boolean(call.reasoning) }); } catch { /* telemetry must never break a turn */ }
+      }
       break;
     }
   } catch (e) {
@@ -3161,9 +3216,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
-  await saveSession(session);
+  // 回合代数闸:本回合已被同会话更新的回合顶替(见 02 saveTurnFinalSession)时收尾存被丢弃,也不派 thread.done、
+  // 不记任务进度 —— 过期回合不能把自己当成「最新一回合」宣布。用量账照记(token 确实花了)。
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'openai-turn-final'));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
-  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
+  if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板: append this turn to the monthly cost ledger (fire-and-forget; skips zero-token turns).
   // Cost comes from the provider's optional pricing (null when unpriced); estimated turns are flagged.
   if (usageObj && usageObj.usage) {
@@ -3197,7 +3254,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     else if (/\bHTTP 40[13]\b|unauthorized|invalid.{0,16}api.?key|api.?key.{0,20}(invalid|无效|错误)|无效.{0,6}(密钥|api ?key)/i.test(errorMsg)) errorClass = 'provider_misconfigured';
     else errorClass = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket|timed out|timeout/i.test(errorMsg) ? 'network_down' : 'tool_error';
   }
-  if (session.mission) await bumpMissionChangeSeq(session.id, {
+  if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: errorClass || (!ok && !wasStopped) ? 'failure' : 'progress',
     cursor: { turnSeq: session.turnSeq, engine: 'openai' },
     detail: {
@@ -3220,7 +3277,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     durationMs: Date.now() - turnStartedAt, replyLength: finalText.length, toolCalls: toolCalls.length,
     usage: usageObj && usageObj.usage ? { ...usageObj.usage, calls: usageObj.calls, estimated: usageObj.estimated === true } : undefined,
   });
-  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt });
+  logEvent({ kind: 'turn_end', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, engine: 'openai', provider: provider.id, ok: ok && !wasStopped, replyLen: finalText.length, tools: toolCalls.length, aborted: wasStopped, errorClass, durationMs: Date.now() - turnStartedAt, ...(turnSuperseded ? { superseded: true } : {}) });
   // 22-§4.2 第0步: 回合级「不抽样总量」账目 —— E1 报表口径的事实源。本体不受采样与事件上限约束,
   // sampledLogged/eventsDropped 字段让报表能对账明细完整性(截断→标 unknown,不推算)。缺此行的引擎
   // 路径(claude/kimi 桥接回合、playbook 草拟/JSON 修复等非摘要辅助调用)由报表显式标记未覆盖。
@@ -3244,7 +3301,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   }
   // v1.0 收官安全加固:result 错误经 redact + 剥 URL userinfo 再回显(与显示路径一致);transportError 原文
   // 可能含带 basic-auth 的端点 URL,不加处理会漏进前端与审计。
-  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass });
+  onEvent({ type: 'result', ok: ok && !wasStopped, aborted: wasStopped, error: errorMsg ? redact(stripUrlUserinfo(errorMsg)) : undefined, errorClass, ...(turnSuperseded ? { superseded: true } : {}) });
 }
 
 // 110-4b: token 估算与分桶簇(fmtTokensServer/CJK_RE/setEstimateBucketsV1/estimateTextTokens/classifyTextForEstimate/estimateContentTokens/estimateHistoryTokens/CONTEXT_WINDOW_FALLBACK/EVAPORATED_PREFIX)抽至 09d-token-estimation.js。

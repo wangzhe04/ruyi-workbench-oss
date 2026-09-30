@@ -318,12 +318,40 @@ const BRIDGED_READ_TOOLS = new Set([
 // Prefix rules for read-only families that share a common verb (e.g. get_windows, list_processes,
 // wait_for_window_idle). Kept narrow so an 'exec'-shaped verb can't sneak in under a broad prefix.
 const BRIDGED_READ_PREFIXES = ['get_', 'list_', 'wait_for_'];
+// 安全修复(审计 A②):前缀规则会把「读出秘密」的工具也收进 read 档(任何模式都零弹窗放行)。
+// get_environment_variable 能读出宿主进程环境里的任何值(令牌、密钥、代理口令)—— 它不是「看一眼桌面」,
+// 按未知工具的缺省口径落回 exec(非 bypass/auto 模式下先问人)。
+const BRIDGED_NOT_READ = new Set(['get_environment_variable']);
+// 安全修复(审计 A③):同一个工具按入参有两副面孔 —— get_clipboard_image / window_screenshot 不带落盘参数时
+// 只回图,带了就往任意路径写文件(allow_protected:true 还会绕过 ACC 自己的系统目录护栏)。它们的写路径
+// 参数本来就登记在 BRIDGED_WRITE_PATH_ARGS(检查点要用),这里复用同一张表:给了写路径参数的这一次调用,
+// 档位至少是 edit;再带 allow_protected:true 就是 exec。只抬不降,用户覆盖表也压不下这道地板。
+// args 缺省(目录/清单等不看入参的调用方)= 修前口径。args 可以是对象或 JSON 字符串。
+function bridgedCallTierFloor(unprefixedName, args) {
+  let a = args;
+  if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return '';
+  const spec = Object.prototype.hasOwnProperty.call(BRIDGED_WRITE_PATH_ARGS, unprefixedName) ? BRIDGED_WRITE_PATH_ARGS[unprefixedName] : null;
+  if (!spec) return '';
+  const fields = Array.isArray(spec.multi) ? spec.multi : [spec];
+  const writes = fields.some(f => typeof a[f.field] === 'string' && a[f.field].trim());
+  if (!writes) return '';
+  return a.allow_protected === true ? 'exec' : 'edit';
+}
 // Resolve a bridged tool's tier: user override (config.bridgedToolTiers) wins, then the built-in table,
 // then default 'exec'. `unprefixedName` is bridge.toolName (never the serverId__tool form).
-function bridgedToolTier(unprefixedName, config) {
+// 第三参 args(可选):按本次调用的入参抬档(见 bridgedCallTierFloor)。
+function bridgedToolTier(unprefixedName, config, args) {
+  const base = bridgedToolTierByName(unprefixedName, config);
+  const floor = args === undefined ? '' : bridgedCallTierFloor(unprefixedName, args);
+  const rank = { read: 0, edit: 1, exec: 2 };
+  return floor && rank[floor] > rank[base] ? floor : base;
+}
+function bridgedToolTierByName(unprefixedName, config) {
   const overrides = (config && config.bridgedToolTiers && typeof config.bridgedToolTiers === 'object') ? config.bridgedToolTiers : {};
   const ov = overrides[unprefixedName];
   if (ov === 'read' || ov === 'edit' || ov === 'exec') return ov;
+  if (BRIDGED_NOT_READ.has(unprefixedName)) return 'exec';
   if (BRIDGED_READ_TOOLS.has(unprefixedName)) return 'read';
   if (BRIDGED_READ_PREFIXES.some(p => unprefixedName.startsWith(p))) return 'read';
   return 'exec';

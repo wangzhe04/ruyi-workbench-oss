@@ -264,10 +264,19 @@ async function stewardImplDecide(args, ctx, config) {
   // 可以不一致 —— 会话头 auto、回合 default 已被闸 2 拦下;反过来会话头 default、回合按请求级 auto 在跑
   // (定时任务的 autonomy.permissionMode),线程此刻确实是「智能自动」,拿会话头去判会把一条合规的代批说成
   // 「档位不够」。非代批的待决口径一个字不变。
-  const mayAct = stewardMayAct(delegation ? delegation.liveMode : permissionMode, type === 'permission' ? 'permission' : type, tier);
+  // 审计 E:非代批那一支修前只看会话头 / 全局档。全局 auto、会话头没设档,而定时任务按 autonomy.permissionMode
+  // 'default'(或交办卡把这一单收紧到 plan/default)在跑时,管家拿「auto」去判 → 替用户批掉了回合自己该问人的那一步。
+  // 现在取【会话头档与活回合实效档中更紧的那一个】(只收不放:活回合档更宽时仍按会话头判,口径与修前一致);
+  // 定时任务开出来的线程读不到活回合档(回合已结束 / 引擎登记表不带档)时按 default 算 —— 天花板语义见 13s。
+  const liveActMode = stewardLiveTurnPermissionMode(missionId);
+  let actMode = permissionMode;
+  if (liveActMode && stewardPermissionRank(liveActMode) >= 0 && stewardPermissionRank(liveActMode) < stewardPermissionRank(actMode)) actMode = liveActMode;
+  if (!liveActMode && threadOriginOf(head) === 'schedule' && stewardPermissionRank(actMode) > stewardPermissionRank('default')) actMode = 'default';
+  const mayAct = stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
   if (mayAct !== 'auto') {
-    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
+    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(delegation ? permissionMode : actMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
+      ...(!delegation && actMode !== permissionMode ? { effectivePermissionMode: actMode } : {}),
     });
   }
 

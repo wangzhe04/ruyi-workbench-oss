@@ -313,6 +313,7 @@ module.exports = {
   repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
   repairProviderHistoryToolArgs, // 参数铁律自愈(arguments 不是 JSON 对象 -> 改写成实际执行用的 '{}') — exposed for e2e 直测
   bridgedToolTier,
+  bridgedReadPathGate,   // 安全修复(审计 A②):桥接读文件的读边界 —— unit/security-audit-fixes.test.js 直调
   cwdWarning,
   defaultConfig,
   DurableJsonStore,
@@ -715,6 +716,8 @@ module.exports = {
   startScheduler,
   stopScheduler,
   schedulerRuntimeSnapshot,
+  // 安全修复(审计 D):定时回合权限档的天花板(= 全局档,永不含 bypass)—— unit/security-permission-ceilings.test.js 直调整张真值表。
+  schedulerPermissionModeFor,
   // 127 波 2-ter S-b:六条路由的处理函数本体 —— exposed for scheduler-steward.e2e.js 在进程内挂一个 http 壳直测
   //   「HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份」(workdir 只在管家开着且真触发过之后才有,
   //   而那件是进程内夹具;鉴权表是另一件事,由 scheduler-api.e2e.js 经真服务钉着)。

@@ -58,6 +58,8 @@ const ROUTE_AUTH_FILE = '01b-route-auth.js';
 // 正则路由的代表路径(鉴权首配模拟用):key = 正则源码原文,value = 具体化样例路径。
 // 新增正则路由而不登记样例 -> 生成器直接报错,指路此处。
 const REGEX_ROUTE_SAMPLES = {
+  // 单条会话的 GET / PATCH / DELETE(13d handleSessionApiRoutes)。修前是前缀 + path.basename,多段路径都成了 <id> 的别名。
+  '^\\/api\\/sessions\\/([^/]+)$': '/api/sessions/:id',
   '^\\/api\\/missions\\/([^/]+)\\/interventions\\/([^/]+)\\/decision$': '/api/missions/:missionId/interventions/:interventionId/decision',
   // 第 116 波 116g:事项容器写面(§3.1 事项跨会话升格)。
   '^\\/api\\/missions\\/([^/]+)$': '/api/missions/:missionId',

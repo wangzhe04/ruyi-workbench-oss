@@ -686,7 +686,7 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, liveSegments: turnSegments }; // 47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -1153,13 +1153,14 @@ async function runClaudeTurn({
     const how = session.__missionFinalizeHow; delete session.__missionFinalizeHow;
     try { if (await finalizeMissionAfterTurn(session, how)) onEvent({ type: 'mission', mission: session.mission }); } catch { /* 盖章失败不阻断回合 */ }
   }
-  await saveSession(session);
+  // 回合代数闸(与 09 同一个 02 saveTurnFinalSession):被更新的回合顶替过的收尾存丢弃,不派 thread.done / 任务进度。
+  const turnSuperseded = !(await saveTurnFinalSession(session, 'claude-turn-final'));
   // 121-K2a(§6.3 指标 b):回合收尾。summary 这一刻已经是本回合的话(上面那行刚写),摘要/标题仍异步。
-  RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
+  if (!turnSuperseded) RUYI_EVENTS.emit('thread.done', { sessionId: session.id, summary: String(session.summary || '').slice(0, 160) });
   // v1.4-OSS 用量看板:本回合记账(计价优先级与无结果帧的估算兜底见适配器 recordTurnUsage)。
   adapter.recordTurnUsage({ session, config, usage, billInMax, billOutMax });
   const claudeTurnOk = exit.code === 0 && !wasStopped;
-  if (session.mission) await bumpMissionChangeSeq(session.id, {
+  if (session.mission && !turnSuperseded) await bumpMissionChangeSeq(session.id, {
     type: claudeTurnOk || wasStopped ? 'progress' : 'failure',
     cursor: { turnSeq: session.turnSeq, engine: 'claude' },
     detail: {

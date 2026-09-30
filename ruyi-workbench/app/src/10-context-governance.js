@@ -100,7 +100,8 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     contextLengthKeys: ['context_length', 'max_context_length', 'context_window', 'max_model_len', 'max_input_tokens'],
     overflow: {
       statuses: [400, 413, 422],
-      pattern: 'context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度',
+      statusOnly: [413],
+      pattern: 'context.{0,20}(length|window|limit|token)|(length|window|limit|token).{0,20}context|maximum.{0,20}(token|length)|length.{0,12}exceed|prompt.{0,12}too.{0,4}long|prompt\\s+is\\s+too\\s+long|too_many_tokens|tokens\\s*>|input\\s+(is\\s+)?too\\s+long|input.{0,8}length.{0,30}(should be|range|限制)|上下文.{0,8}(超限|过长|超出)|长度超限|超出.{0,4}长度|(input|prompt).{0,20}exceeds?\\s+the\\s+configured\\s+limit|request\\s+entity\\s+too\\s+large|payload\\s+too\\s+large',
       flags: 'i',
       legacySubagentPattern: 'context|token|length|maximum|too\\s*long|too\\s*large|exceed',
       legacySubagentLongErrorChars: 400,
@@ -335,8 +336,13 @@ function calibratedEstimate(provider, model, messages, tools) {
 // "function calling is not supported in this context" / 参数校验类 400,把非超窗错误吸进破坏性压缩。
 const CONTEXT_OVERFLOW_STATUSES = new Set(CONTEXT_GOVERNANCE_RULES.overflow.statuses.map(Number));
 const CONTEXT_OVERFLOW_PATTERNS = new RegExp(CONTEXT_GOVERNANCE_RULES.overflow.pattern, CONTEXT_GOVERNANCE_RULES.overflow.flags);
+// 单凭状态码就算超窗的那几个(413 Payload Too Large:网关/反代常只回一个裸状态、不带正文)。只认错误串【开头】的
+// 「HTTP 413」—— 正文里碰巧出现的 413(「413 tokens」)不算。
+const CONTEXT_OVERFLOW_STATUS_ONLY = new Set((CONTEXT_GOVERNANCE_RULES.overflow.statusOnly || []).map(Number));
 function isContextOverflowError(httpError, options = {}) {
   const s = String(httpError || '');
+  const lead = /^\s*HTTP\s+(\d{3})\b/.exec(s);
+  if (lead && CONTEXT_OVERFLOW_STATUS_ONLY.has(Number(lead[1]))) return true;
   const hasStatus = [...CONTEXT_OVERFLOW_STATUSES].some(status => new RegExp(`\\b${status}\\b`).test(s));
   if (!hasStatus) return false;
   if (CONTEXT_OVERFLOW_PATTERNS.test(s)) return true;
@@ -1079,6 +1085,25 @@ function summaryMaxConcurrent(config, provider, model) {
   if (Number.isFinite(n)) return clamp(n);
   return Number(rule.default) || 8;
 }
+// 摘要调用的停止信号(回合的 AbortSignal,经 opts.signal 传入);不是信号就当没有。
+function summaryStopSignal(opts) {
+  const sig = opts && opts.signal;
+  return sig && typeof sig.aborted === 'boolean' && typeof sig.addEventListener === 'function' ? sig : undefined;
+}
+function summaryStoppedResult() {
+  return { ok: false, aborted: true, error: 'summary request cancelled (turn stopped)' };
+}
+// 两路信号任一 abort 即 abort(map-reduce 的 fail-fast 与回合停止);缺一路就用另一路。
+function anySummarySignal(a, b) {
+  if (!a) return b || undefined;
+  if (!b) return a;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') return AbortSignal.any([a, b]);
+  const ctrl = new AbortController();
+  const fire = () => { try { ctrl.abort(); } catch { /* ignore */ } };
+  if (a.aborted || b.aborted) fire();
+  else { a.addEventListener('abort', fire, { once: true }); b.addEventListener('abort', fire, { once: true }); }
+  return ctrl.signal;
+}
 // 有界并发执行摘要类调用(仿 09-workflow 21-E2 worker-pool:poolNext 领任务、完成即补位,无批次屏障)。
 // fail-fast:任一结果 !ok 即 abort failCtrl —— worker 停止领新任务,在飞请求经 extraSignal 取消;
 // 结果按输入下标保序(失败点之后的空位为 undefined,调用方按序找首个真实失败上浮)。
@@ -1387,7 +1412,7 @@ async function applySummaryEntityCheck(provider, history, sc, model, opts) {
       trigger: teleBase.trigger + '_entity_repair',
       summaryStage: 'repair',
     };
-    const rc = await singleSummaryCall(provider, repairMessages, model, ectx, String(SUMMARY_ENTITY_RULES.repairPrompt || ''));
+    const rc = await singleSummaryCall(provider, repairMessages, model, ectx, String(SUMMARY_ENTITY_RULES.repairPrompt || ''), summaryStopSignal(opts));
     if (!rc || !rc.ok) { tele({ outcome: 'repair_failed', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
     if (!validateStructuredSummary(rc.summary)) { tele({ outcome: 'repair_rejected', missingCount: missing.length, missingSample: missing.slice(0, 8) }); return sc; }
     // 采用修补稿:usage 聚合进 sc(修补成本计入本次压缩台账),即便仍有缺失也不再二次重试。
@@ -1625,6 +1650,10 @@ function aggregateSummaryCalls(target, calls) {
 }
 
 async function providerSummaryCallCore(provider, history, opts) {
+  // 回合的停止信号(opts.signal):一路传到每一次摘要请求(singleSummaryCall 的 extraSignal),Stop 当场取消在飞的
+  // 摘要调用,而不是让回合在迭代边界上干等几十秒到几分钟。已经停了就一次都不发。
+  const stopSignal = summaryStopSignal(opts);
+  if (stopSignal && stopSignal.aborted) return summaryStoppedResult();
   const base = providerBaseWithV1(provider.baseUrl);
   const model = String((opts && opts.model) || provider.model || (provider.models && provider.models[0] && provider.models[0].id) || '').trim();
   if (!base || !model || typeof fetch !== 'function') {
@@ -1665,7 +1694,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const forceChunks = !fitted.needsMapReduce && singleEstimate > singleCap; // 肥单发 → 分块,让每次真实尝试远离超时悬崖
   let degradedFromSingle = false;
   if (!fitted.needsMapReduce && !forceChunks) {
-    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined, undefined, opts && opts.config);
+    const sc = await singleSummaryCall(provider, fitted.messages, model, ectxBase, promptOverride || undefined, stopSignal, opts && opts.config);
     if (sc.ok && fitted.droppedMiddle) sc.droppedMiddle = fitted.droppedMiddle;
     if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     // 105f:仅【可识别的上下文超窗 400】(isContextOverflowError 共现语义,宁可漏判不误判)自动降级
@@ -1679,7 +1708,7 @@ async function providerSummaryCallCore(provider, history, opts) {
     ? Math.min(budget, Math.max(4000, Math.floor(singleCap * 0.75))) // 22-S0:肥单发分块时压低每组目标;105f 400 降级同目标(单发已证明该量级越窗)
     : budget);
   if (chunks.length <= 1) {
-    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined, undefined, opts && opts.config);
+    const sc = await singleSummaryCall(provider, chunks[0] || [], model, ectxBase, promptOverride || undefined, stopSignal, opts && opts.config);
     if (sc.ok && !promptOverride && !validateStructuredSummary(sc.summary)) return { ok: false, error: 'structured summary validation failed (missing sections); 降级保留原文' };
     return sc;
   }
@@ -1698,7 +1727,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const refineCalls = [];
   let refineFailure = '';
   if (refineOn) {
-    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' }, undefined, undefined, opts && opts.config);
+    let current = await singleSummaryCall(provider, factChunkMsg ? [...chunks[0], factChunkMsg] : chunks[0], model, { ...ectxBase, chunkIndex: 1, summaryStage: 'refine' }, undefined, stopSignal, opts && opts.config);
     refineCalls.push(current);
     if (!current.ok) refineFailure = 'request';
     else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
@@ -1709,13 +1738,14 @@ async function providerSummaryCallCore(provider, history, opts) {
         model,
         { ...ectxBase, chunkIndex: ci + 1, summaryStage: 'refine' },
         String(SUMMARY_REFINE_RULES.prompt || SUMMARY_PROMPT),
-        undefined,
+        stopSignal,
         opts && opts.config,
       );
       refineCalls.push(current);
       if (!current.ok) refineFailure = 'request';
       else if (!validateStructuredSummary(current.summary)) refineFailure = 'validation';
     }
+    if (refineFailure && stopSignal && stopSignal.aborted) return summaryStoppedResult();
     if (!refineFailure) {
       aggregateSummaryCalls(current, refineCalls);
       current.mapReduce = {
@@ -1736,7 +1766,7 @@ async function providerSummaryCallCore(provider, history, opts) {
   const failCtrl = typeof AbortController === 'function' ? new AbortController() : null;
   const summaryConcurrency = summaryMaxConcurrent(opts && opts.config, provider, model);
   const rememberCall = async (messages, context, signal) => {
-    const r = await singleSummaryCall(provider, messages, model, context, undefined, signal, opts && opts.config);
+    const r = await singleSummaryCall(provider, messages, model, context, undefined, anySummarySignal(signal, stopSignal), opts && opts.config);
     calls.push(r);
     return r;
   };
@@ -1791,6 +1821,9 @@ async function providerSummaryCallCore(provider, history, opts) {
 // 都原样透传;只有 sc.ok 且显式开启时才做抽样检查与一次定向修补(见 applySummaryEntityCheck)。
 async function providerSummaryCall(provider, history, opts) {
   const sc = await providerSummaryCallCore(provider, history, opts);
+  // 失败发生在回合被停之后 = 是停止取消了它(fetch 的 AbortError 会被 singleSummaryCall 记成超时/兄弟块失败):统一标
+  // aborted,调用方据此不把它算成「摘要服务坏了」(不进冷却、不武装滞回水位)。
+  if ((!sc || !sc.ok) && summaryStopSignal(opts) && summaryStopSignal(opts).aborted) return { ...(sc || {}), ...summaryStoppedResult() };
   if (!sc || !sc.ok) return sc;
   if (!summaryEntityCheckEnabled(opts && opts.config)) return sc;
   const model = String(sc.model || (opts && opts.model) || (provider && provider.model) || '').trim();
@@ -2279,7 +2312,7 @@ const CompactionPlan = (() => {
 const compactionSummaryFailures = new Map();
 const COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
 async function runAutoCompaction(ctx) {
-  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {} } = ctx;
+  const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {}, signal } = ctx;
   // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
   // 实测数据里估算值贴着预算线抖动时,曾出现连续 26 次「蒸发 1 条:106K→106K」的每迭代无效循环
   // (每次快照写盘 + 全量存盘 + 追加标记,token 却没降)。水位与预算取大者,窗口放大后不阻碍再压。
@@ -2361,13 +2394,23 @@ async function runAutoCompaction(ctx) {
   }
   // 摘要调用要几十秒到几分钟(回合在迭代边界上等它):先报 started,前端活动条与压缩指示条据此显示「压缩中」;
   // 收尾必有一条 completed(下面带 afterTokens 的那条)或 failed,不会把状态条挂在压缩态。
+  // 回合已经停了:L2 一次都不发(L1 若有斩获照常算数,历史只被 L1 原地改过、配对完好)。
+  if (signal && signal.aborted) return compacted ? { compacted, level: 1, before, watermark: estimate(), aborted: true } : { compacted, level: 0, before, aborted: true };
   onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
   const sc = await providerSummaryCall(summaryProvider, history, {
     model: compactTarget.model,
     config,
     auxCtx: summaryAuxCtx,
     ...(promptOverride ? { promptOverride } : {}),
+    ...(signal ? { signal } : {}),
   });
+  if (sc && sc.aborted) {
+    // 停止取消了摘要调用:收掉「压缩中」状态条(failed + aborted),但这不是摘要服务的失败 —— 不进 10 分钟冷却
+    // (compactionSummaryFailures),L1 也没斩获时不武装滞回水位(下一回合照常再压)。历史没被重播种,原样有效。
+    onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, aborted: true, error: String(sc.error || 'cancelled') });
+    logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, aborted: true });
+    return compacted ? { compacted, level: 1, before, watermark: estimate(), aborted: true } : { compacted, level: 0, before, aborted: true };
+  }
   if (!sc || !sc.ok) {
     // Level-2 failed (network/timeout). Keep the level-1 result and continue — do NOT abort.
     onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: String((sc && sc.error) || 'summary failed') });
@@ -2404,7 +2447,7 @@ async function runAutoCompaction(ctx) {
 // 返回 { level: 0|1|2, evaporated, reseeded?, sc? }:2 = 摘要重播种成功(调用方装回历史、记账、重试,重试成功才落窗口学习);
 // 1 = 只有 L1 蒸发有斩获(调用方重试最后一次,并跳过下一迭代的自动压缩 —— 几秒前 L2 刚失败过);0 = 零成果(不许虚报压缩)。
 async function runForcedOverflowCompaction(ctx) {
-  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error } = ctx;
+  const { history, scope, provider, model, config, snapshot, onEvent, eventFields = {}, logFields = {}, summaryAuxCtx, beforeTokens, error, signal } = ctx;
   logEvent({ kind: 'auto_compact', mode: 'forced_400', ...logFields, beforeTokens, error: String(error || '').slice(0, 200) });
   if (config.runtimeOptimizationShadowV1 === true && config.runtimeObservationReducerV1 !== true) {
     try {
@@ -2423,7 +2466,13 @@ async function runForcedOverflowCompaction(ctx) {
       logEvent({ kind: 'observation_reduced', ...logFields, ...meta });
     },
   });
-  const sc = await providerSummaryCall(provider, history, { config, auxCtx: summaryAuxCtx });
+  const sc = (signal && signal.aborted) ? { ok: false, aborted: true, error: 'summary request cancelled (turn stopped)' }
+    : await providerSummaryCall(provider, history, { config, auxCtx: summaryAuxCtx, ...(signal ? { signal } : {}) });
+  if (sc && sc.aborted) {
+    // 停止取消了强压的摘要:收掉状态条;返回 aborted,调用方不重试(回合已停)。L1 的原地蒸发保留(配对完好)。
+    onEvent({ type: 'compact', mode: 'forced_400', phase: 'failed', trigger: 'forced_400', ...eventFields, aborted: true, error: String(sc.error || 'cancelled') });
+    return { level: evaporated > 0 ? 1 : 0, evaporated, aborted: true };
+  }
   if (sc && sc.ok) {
     const plan = CompactionPlan.create({ scope, trigger: 'forced_400', history, provider, model, config, ...(scope === 'main' ? { conversationWindow: true } : {}) });
     return { level: 2, evaporated, reseeded: CompactionPlan.reseed(plan, sc.summary), sc };
@@ -2541,7 +2590,7 @@ async function runProviderCompact(sessionId) {
 // 🗜 system row into session.messages (upsertCompactMarker; repeated levels merge into the same open row). Mutates
 // session.providerHistory / session.messages in place; the caller persists via its normal saveSession.
 // Returns true if any compaction happened (caller may save immediately). Never throws.
-async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools) {
+async function maybeAutoCompact(session, provider, sys, config, onEvent, model, tools, signal) {
   try {
     const history = session.providerHistory;
     if (!Array.isArray(history) || !history.length) return false;
@@ -2567,6 +2616,8 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       promptOverride: stewardBudget > 0 && typeof StewardHooks.visitNotesPrompt === 'function' ? String(StewardHooks.visitNotesPrompt(config) || '') : '',
       // 116f: 重播种计划与判预算用同一个预算口径(管家的尾预算不能按普通会话那份大预算算,否则压完仍旧超管家自己的线)。
       planOpts: { conversationWindow: true, ...(stewardBudget > 0 ? { budgetOverride: stewardBudget } : {}) },
+      // 回合的停止信号:Stop 当场取消在飞的 L2 摘要调用(见 runAutoCompaction)。
+      ...(signal ? { signal } : {}),
     });
     if (r.level === 2) {
       recordCompactUsage(session, r.summaryProvider, r.sc); // v1.4-OSS 用量看板(补): 自动压缩(L2 摘要)调用入 aux 台账
@@ -2574,7 +2625,7 @@ async function maybeAutoCompact(session, provider, sys, config, onEvent, model, 
       session.providerHistory = r.reseeded;
       upsertCompactMarker(session, { kind: 'auto', label: '自动压缩', reseeded: true, beforeTokens: r.before2, afterTokens: r.after2 });
     }
-    if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session).catch(() => {}); }
+    if (r.compacted) { session.autoCompactWatermark = r.watermark; await saveSession(session, { dropIfTurnSuperseded: true, writer: 'auto-compact' }).catch(() => {}); }
     else if (r.summaryFailed && Number.isFinite(Number(r.watermark))) session.autoCompactWatermark = r.watermark; // 随回合收尾的正常存盘落下
     return r.compacted;
   } catch (e) {
@@ -2729,10 +2780,21 @@ async function runSessionTurn(input) {
   // also fires after a normally-consumed request body on modern Node, so using req.close here can
   // terminate a healthy background turn when the UI opens another session.
   let disconnectHandled = false;
+  // 本次调用登记的 turnSettlers 条目(下面 settleEntry 建好后回填)。stopSession 按【会话】停的是活回合登记表里
+  // 此刻那一个 —— 本回合已被同会话更新的回合顶替(同来源再发一句)之后,旧流断线(被顶替的回合还在收尾)
+  // 会把【新】回合杀掉。条目已经换成别人的 = 这条会话此刻的回合不归本次调用,断线不停它。
+  let ownSettleEntry = null;
   const handleDisconnect = () => {
     if (finished || disconnectHandled) return;
     disconnectHandled = true;
-    readConfig().then(cfg => { if (cfg.killOnDisconnect) stopSession(session.id, 'disconnected'); }).catch(() => {});
+    readConfig().then(cfg => {
+      if (!cfg.killOnDisconnect) return;
+      if (ownSettleEntry && turnSettlers.get(session.id) !== ownSettleEntry) {
+        logEvent({ kind: 'disconnect_stop_skipped', sessionId: session.id, reason: 'superseded' });
+        return;
+      }
+      stopSession(session.id, 'disconnected');
+    }).catch(() => {});
   };
   if (typeof body.onStart === 'function') body.onStart({ session, config });
   const signal = body.signal || null;
@@ -2814,6 +2876,7 @@ async function runSessionTurn(input) {
   let settleResolve = null;
   const settleEntry = { promise: new Promise(r => { settleResolve = r; }), startedAt: Date.now(), source, requestMeta: body.requestMeta || null };
   turnSettlers.set(session.id, settleEntry);
+  ownSettleEntry = settleEntry;
   let turnError = '';
   // 116h(27 号文 §3.1 116h 行):线程间仲裁的凭据。开关关 / 管家会话时下面那个分支根本不进,
   // 这个变量恒为 null,收尾的 release 是一次 if 判空 —— runSessionTurn 的既有路径逐字节不变。

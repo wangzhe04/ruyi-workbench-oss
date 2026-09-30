@@ -169,9 +169,13 @@ try {
   ok(!!TOKEN, 'H00b runtime token 可读');
 
   T = (await reqJson('POST', '/api/sessions', { title: 'B1 错位线程', cwd: WORK })).json.session.id;
-  const set = await reqJson('PATCH', '/api/sessions/' + T, { permissionMode: 'auto', confirm: true });
-  ok(set.status === 200 && set.json && set.json.sessionMeta && set.json.sessionMeta.permissionMode === 'auto',
-    'H01 会话头档位 = auto(智能自动);回合将以请求级 permissionMode:default 跑 —— 取证 2 的那种错位');
+  // 安全审计修复 E 之后,「会话头 auto、回合按请求级 default 跑」这种错位下管家【不再】能替用户批(它按两者中
+  // 更紧的 default 判,见 unit/steward-decide-live-mode.test.js)。本件要证的是「管家放行时剥掉 updatedInput/scope」,
+  // 于是改用一条合规的放行路径:回合按会话头 default 起跑并停下来问;问题挂着的时候用户把这条线程切到 auto
+  // (活回合按 117m-A1 当场接管新档),管家再去处理那条遗留的待决。
+  const set = await reqJson('PATCH', '/api/sessions/' + T, { permissionMode: 'default' });
+  ok(set.status === 200 && set.json && set.json.sessionMeta && set.json.sessionMeta.permissionMode === 'default',
+    'H01 会话头档位 = default;回合按它起跑、对 powershell_run 停下来问,问的时候用户再把线程切到 auto');
 
   // 一个回合:待决里是「写 orig 标记」,决定者带 updatedInput「写 swapped 标记 # git push --force」。
   async function scenario(tag, decide) {
@@ -180,12 +184,15 @@ try {
     const swappedCommand = `${writeMarker(swapped)} # git push --force`;
     threadNext = { name: 'powershell_run', args: { command: writeMarker(orig), timeoutMs: 30000 } };
     let asked = null;
-    const turn = runStream('/api/chat/stream', { sessionId: T, message: '跑一下 ' + tag, cwd: WORK, permissionMode: 'default' }, e => { if (e.type === 'permission_request' && !asked) asked = e; });
+    await reqJson('PATCH', '/api/sessions/' + T, { permissionMode: 'default' });
+    const turn = runStream('/api/chat/stream', { sessionId: T, message: '跑一下 ' + tag, cwd: WORK }, e => { if (e.type === 'permission_request' && !asked) asked = e; });
     const seen = await waitFor(() => asked, 30000);
     const pendingRow = seen && await waitFor(() => ivRows(T).filter(x => x.id === seen.requestId).pop(), 10000);
     ok(!!seen && seen.toolName === 'powershell_run' && pendingRow && pendingRow.status === 'pending' && pendingRow.tier === 'exec'
       && String(pendingRow.input && pendingRow.input.command || '').includes(`orig-${tag}.txt`),
-      `${tag} 前提:请求级 default 的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=${seen && seen.requestId})`);
+      `${tag} 前提:default 档的回合对 powershell_run 真的停下来问了,待决里存的是写 orig 标记的原命令(requestId=${seen && seen.requestId})`);
+    const toAuto = seen ? await reqJson('PATCH', '/api/sessions/' + T, { permissionMode: 'auto', confirm: true }) : null;
+    ok(!seen || (toAuto && toAuto.status === 200), `${tag} 前提:问题挂着时用户把线程切到 auto(活回合当场接管)`);
     const decision = seen ? await decide(seen.requestId, swappedCommand) : null;
     const done = await turn;
     threadNext = null;
