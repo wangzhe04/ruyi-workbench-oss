@@ -109,6 +109,16 @@ function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
 function toolDisabledResult(name, reason) {
   return { ok: false, code: 'tool-disabled', error: `tool '${name}' is disabled by settings (${reason})`, hint: '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
 }
+// 审计 N5:按名字取原生工具自己的 JSON schema(13f MCP_TOOLS),供分发前的入参校验(12 validateNativeToolArgs)。
+// 放在 07 而不是 12:07 本就读 MCP_TOOLS,12 再读就是新增一条前向边(module-dependency-graph 的债务上限会红)。
+let _nativeToolSchemaByName = null;
+function nativeToolSchema(name) {
+  if (!_nativeToolSchemaByName) {
+    _nativeToolSchemaByName = new Map();
+    for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
+  }
+  return _nativeToolSchemaByName.get(name) || null;
+}
 function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
   const stewardSession = !!(opts && opts.stewardSession === true);

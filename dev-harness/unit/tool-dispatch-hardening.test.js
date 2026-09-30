@@ -119,6 +119,8 @@ test('[N5] 入参按工具自己的 schema 校验:必填 / 类型 / enum / items
   assert.match(r.error, /ignoreDirs\[0\]/);
   // 无 schema 的工具(provider 侧元工具)不校验
   assert.equal(H.validateNativeToolArgs('skill_read', {}), null);
+  // 管家工具自带校验与专属错误码,公共闸不碰
+  assert.equal(H.validateNativeToolArgs('steward_run_action', {}), null);
   // 未知键不拒(HTTP /api/tools 路由把整个 body 当 args)
   assert.equal(H.validateNativeToolArgs('file_read', { path: 'a', sessionId: 's1', turnSeq: 2 }), null);
 });

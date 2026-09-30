@@ -1750,16 +1750,10 @@ function jsonSchemaObjectProblems(schema, obj, at) {
   }
   return problems;
 }
-let _nativeToolSchemaByName = null;
-function nativeToolSchema(name) {
-  if (!_nativeToolSchemaByName) {
-    _nativeToolSchemaByName = new Map();
-    for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
-  }
-  return _nativeToolSchemaByName.get(name) || null;
-}
 // 返回 null = 通过;否则是可直接回给模型的 {ok:false, code:'invalid-arguments', ...}。
 function validateNativeToolArgs(name, args) {
+  // 管家工具族自带逐字段校验与专属错误码(invalid_request / no_agent_run …,steward e2e 逐字钉着)—— 不在公共闸里二次判。
+  if (isStewardToolName(name)) return null;
   const schema = nativeToolSchema(name);
   if (!schema) return null;
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
