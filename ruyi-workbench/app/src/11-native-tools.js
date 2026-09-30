@@ -1918,15 +1918,8 @@ function ssrfCheck(rawUrl) {
   return { allowed: true, host: bare };
 }
 
-// Zero-dependency main-text extraction from an HTML string (self-written, no npm). Steps:
-//   1) drop <script>/<style>/<noscript> BLOCKS entirely (content + tags);
-//   2) capture <title> before stripping;
-//   3) turn block-level closing/opening tags into newlines so paragraph structure survives;
-//   4) strip ALL remaining tags;
-//   5) decode the common HTML entities;
-//   6) collapse runs of blank space, keep paragraph newlines.
-// Exported (module.exports) so the e2e can直测 it deterministically without any network.
-const BLOCK_TAGS_RE = /<\/?(p|div|section|article|header|footer|main|br|hr|li|ul|ol|tr|table|h[1-6]|blockquote|pre|figure|nav|aside)\b[^>]*>/gi;
+// Zero-dependency main-text extraction from an HTML string (self-written, no npm; see the NE-9 block below for the
+// rules). Exported (module.exports) so the e2e can直测 it deterministically without any network.
 function decodeEntities(s) {
   return String(s)
     // v1.1-W1a (T3): numeric (&#174;) and hex (&#xAE;) entities — common in scraped search-result HTML.
@@ -1954,32 +1947,157 @@ function decodeEntities(s) {
     .replace(/&rdquo;/g, '”');
 }
 function safeFromCodePoint(n, fallback) { try { return String.fromCodePoint(n); } catch { return fallback; } }
-function extractMainText(html) {
+// ── NE-9:web_fetch 正文抽取(零依赖分词器 + 单趟渲染)──────────────────────────────────────────────
+// 修前的做法是「块级标签换行、其余标签一刀切」:导航 / 侧栏 / 页脚原样进正文(还排在文章前面),链接地址整个丢掉,
+// <pre> 缩进被折叠,模型读完索引页没有任何可跟进的网址。现在:
+//   · nav / aside / select / button / iframe / svg / object / canvas / template 整块丢掉;header / footer 只丢【不在
+//     main / article 里】的(文章自己的题头带标题与日期);role=navigation|banner|contentinfo|complementary|search 同样丢。
+//     <form> 【不丢】:ASP.NET WebForms(老政企站的主力)用一个 <form> 包住整页,丢了就是空页。
+//   · 页里有 <main> 取 <main>,否则有 <article> 取全部 <article>(取出来太短就退回整页,防止把一个小推荐卡当成正文)。
+//   · h1-h6 → `# 标题`,li → `- 条目`,表格单元格以 ` | ` 相隔,<pre> 整块原样(围栏 ```),其余空白折叠。
+//   · <a href> → 「链接文字 [n]」,网址按序号放进返回的 links 数组(相对地址按 baseUrl 解析,去掉 #锚点 / javascript: /
+//     mailto: 等;正文里没有可读链接文字的图片链接不编号)。
+// 被丢弃的元素要求「关标签数 ≥ 开标签数」才生效(某个 <nav> 忘了关会吞掉整页后文,宁可不丢)。
+const HTML_VOID_TAGS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+const HTML_DROP_TAGS = new Set(['nav', 'aside', 'select', 'button', 'iframe', 'svg', 'object', 'canvas', 'template']);
+const HTML_DROP_ROLES = /^(?:navigation|banner|contentinfo|complementary|search)$/i;
+const HTML_BLOCK_TAGS = new Set(['div', 'section', 'article', 'main', 'header', 'footer', 'ul', 'ol', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'blockquote', 'figure', 'figcaption', 'address', 'details', 'summary', 'form', 'fieldset', 'center', 'body']);
+const HTML_MAX_LINKS = 300;
+function htmlTokenize(html) {
+  const out = [];
+  const counts = new Map();
+  const re = /<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)((?:"[^"]*"|'[^']*'|[^'">])*)>/g;
+  let last = 0, m;
+  while ((m = re.exec(html))) {
+    if (m.index > last) out.push({ t: html.slice(last, m.index) });
+    const tag = m[2].toLowerCase();
+    const selfClose = /\/\s*$/.test(m[3]) || HTML_VOID_TAGS.has(tag);
+    out.push({ tag, close: m[1] === '/', attrs: m[3], selfClose });
+    if (!selfClose) { const c = counts.get(tag) || { o: 0, c: 0 }; if (m[1]) c.c++; else c.o++; counts.set(tag, c); }
+    last = re.lastIndex;
+  }
+  if (last < html.length) out.push({ t: html.slice(last) });
+  out.counts = counts;
+  return out;
+}
+function htmlTagAttr(attrs, name) {
+  const m = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\'|([^\\s"\'>]+))', 'i').exec(String(attrs || ''));
+  return m ? decodeEntities(m[1] !== undefined ? m[1] : m[2] !== undefined ? m[2] : m[3]) : '';
+}
+// 链接地址归一:相对地址按 baseUrl 解析;只留 http(s);去 #锚点;不可用 / 过长返回 ''。
+function htmlResolveLink(href, baseUrl) {
+  const h = String(href || '').trim();
+  if (!h || h[0] === '#' || /^(?:javascript|mailto|tel|data|about|sms|file):/i.test(h)) return '';
+  try {
+    const u = baseUrl ? new URL(h, baseUrl) : new URL(h);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    u.hash = '';
+    const s = u.toString();
+    return s.length > 600 ? '' : s;
+  } catch { return ''; }
+}
+// mode: 'all' | 'main' | 'article' —— 只渲染落在该区域里的内容。返回 { text, links:[{n,url}] }。
+function htmlRenderTokens(tokens, mode, baseUrl, maxLinks) {
+  const counts = tokens.counts || new Map();
+  const droppable = tag => { const c = counts.get(tag); return !c || c.c >= c.o; };
+  const parts = [], pres = [], links = [], linkIdx = new Map();
+  let skipTag = null, skipDepth = 0, mainDepth = 0, articleDepth = 0, preDepth = 0, preBuf = '', anchor = null, cell = 0;
+  const inRegion = () => mode === 'all' || (mode === 'main' ? mainDepth > 0 : articleDepth > 0);
+  const flushPre = () => {
+    let body = preBuf.replace(/\r\n?/g, '\n').replace(/^\n/, '').replace(/\s+$/, '');
+    preBuf = '';
+    if (!body) return;
+    pres.push(body);
+    parts.push('\n\n\uE000' + (pres.length - 1) + '\uE001\n\n');
+  };
+  for (const tk of tokens) {
+    if (tk.t !== undefined) {
+      if (skipTag || !inRegion()) continue;
+      const d = decodeEntities(tk.t);
+      if (preDepth > 0) { preBuf += d; continue; }
+      const s = d.replace(/[ \t\r\n\f\v\u00a0]+/g, ' ');
+      parts.push(s);
+      if (anchor) anchor.text += s;
+      continue;
+    }
+    const { tag, close } = tk;
+    if (skipTag) {
+      if (tag === skipTag && !tk.selfClose) { if (close) { skipDepth -= 1; if (skipDepth === 0) skipTag = null; } else skipDepth += 1; }
+      continue;
+    }
+    const was = inRegion();
+    if (!tk.selfClose) {
+      const dlt = close ? -1 : 1;
+      if (tag === 'main') mainDepth = Math.max(0, mainDepth + dlt);
+      else if (tag === 'article') articleDepth = Math.max(0, articleDepth + dlt);
+    }
+    if (!close && !tk.selfClose && tag !== 'main' && tag !== 'article' && tag !== 'body' && tag !== 'html') {
+      const role = htmlTagAttr(tk.attrs, 'role');
+      const drop = (HTML_DROP_TAGS.has(tag) && droppable(tag))
+        || ((tag === 'header' || tag === 'footer') && mainDepth === 0 && articleDepth === 0 && droppable(tag))
+        || (role && HTML_DROP_ROLES.test(role) && droppable(tag));
+      if (drop) { skipTag = tag; skipDepth = 1; continue; }
+    }
+    const now = inRegion();
+    if (!was && !now) continue;
+    if (tag === 'pre') {
+      if (close) { if (preDepth > 0 && --preDepth === 0) flushPre(); } else { if (preDepth === 0) anchor = null; preDepth += 1; }
+      continue;
+    }
+    if (preDepth > 0) { if (tag === 'br') preBuf += '\n'; continue; }
+    if (tag === 'br') { parts.push('\n'); continue; }
+    if (/^h[1-6]$/.test(tag)) { parts.push(close ? '\n\n' : '\n\n' + '#'.repeat(Number(tag[1])) + ' '); continue; }
+    if (tag === 'li') { if (!close) parts.push('\n- '); continue; }
+    if (tag === 'p' || tag === 'hr') { parts.push('\n\n'); continue; }
+    if (tag === 'tr') { if (!close) { parts.push('\n'); cell = 0; } continue; }
+    if (tag === 'td' || tag === 'th') { if (!close && cell++ > 0) parts.push(' | '); continue; }
+    if (tag === 'a') {
+      if (!close) { const href = htmlTagAttr(tk.attrs, 'href'); anchor = href ? { href, text: '' } : null; continue; }
+      if (anchor) {
+        const label = anchor.text.trim();
+        const url = htmlResolveLink(anchor.href, baseUrl);
+        anchor = null;
+        if (label && url && !/^\[?\d+\]?$/.test(label)) {
+          let n = linkIdx.get(url);
+          if (!n && links.length < maxLinks) { n = links.length + 1; links.push({ n, url }); linkIdx.set(url, n); }
+          if (n) parts.push(' [' + n + ']');
+        }
+      }
+      continue;
+    }
+    if (HTML_BLOCK_TAGS.has(tag)) parts.push('\n');
+  }
+  if (preDepth > 0) flushPre();
+  let s = parts.join('')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/^[ \u3000]+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  s = s.replace(/\uE000(\d+)\uE001/g, (m, i) => '```\n' + pres[Number(i)] + '\n```');
+  return { text: s, links };
+}
+function extractMainText(html, opts) {
+  const o = opts || {};
   let s = String(html == null ? '' : html);
-  // 2) title first (before we strip the head).
+  // title first (before we strip the head).
   let title = '';
   const tm = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(s);
   if (tm) title = decodeEntities(tm[1].replace(/\s+/g, ' ').trim()).slice(0, 300);
-  // 1) drop the whole <head> (title/meta/link belong to metadata, not main text), then script/style/noscript
-  // blocks and comments. The <head> strip is best-effort — a malformed page without a closing </head> keeps
-  // its head content, which the later tag-strip still neutralizes.
+  // <head> 与 script / style / noscript / textarea 整块、注释、DOCTYPE / XML 声明。<head> 的剥离是尽力而为:没有 </head> 的
+  // 残页会把头留下,后面分词渲染时 <title> 的文字仍会当正文 —— 与修前一致。
   s = s.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, ' ')
-       .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-       .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-       .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, ' ')
-       .replace(/<!--[\s\S]*?-->/g, ' ');
-  // 3) block-level tags → newline (paragraph structure survives the tag strip).
-  s = s.replace(BLOCK_TAGS_RE, '\n');
-  // 4) strip every remaining tag.
-  s = s.replace(/<[^>]+>/g, ' ');
-  // 5) decode entities.
-  s = decodeEntities(s);
-  // 6) collapse whitespace: spaces/tabs within a line, then blank-line runs.
-  s = s.replace(/[ \t\f\v ]+/g, ' ')
-       .replace(/ *\n */g, '\n')
-       .replace(/\n{3,}/g, '\n\n')
-       .trim();
-  return { title, text: s };
+       .replace(/<(script|style|noscript|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ')
+       .replace(/<!--[\s\S]*?-->/g, ' ')
+       .replace(/<![^>]*>|<\?[^>]*\?>/g, ' ');
+  const tokens = htmlTokenize(s);
+  const has = name => tokens.some(tk => tk.tag === name && !tk.close);
+  const maxLinks = Math.max(0, Math.min(HTML_MAX_LINKS, Number(o.maxLinks) >= 0 ? Number(o.maxLinks) : HTML_MAX_LINKS));
+  let r = null;
+  if (has('main')) { r = htmlRenderTokens(tokens, 'main', o.baseUrl, maxLinks); if (r.text.length < 100) r = null; }
+  if (!r && has('article')) { r = htmlRenderTokens(tokens, 'article', o.baseUrl, maxLinks); if (r.text.length < 200) r = null; }
+  if (!r) r = htmlRenderTokens(tokens, 'all', o.baseUrl, maxLinks);
+  return { title, text: r.text, links: r.links };
 }
 
 // Web cache: dataRoot/webcache/<sha256(url)>.json holding {url,title,text,ts}. Written after a successful
@@ -2053,30 +2171,221 @@ function classifyFetchError(err) {
   if (code === 'ECONNREFUSED' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH' || code === 'EADDRNOTAVAIL' || /refused|unreachable/.test(msg)) return 'connect';
   return 'other';
 }
+// ── NE-10:HTTP(S) 代理(环境变量 HTTPS_PROXY / HTTP_PROXY / ALL_PROXY / NO_PROXY,大小写皆可)──────────────────────
+// 政企内网常见「只能经代理出网、域名只有代理才解析得了」。修前所有网络工具都直连 + 本机 DNS 预检,于是报「域名解析失败」
+// 「当前疑似离线」,模型据此断定网址不对或机器没网,而真正的解法是配代理。工作台里没有别的代理实现(04h 的服务商通道走
+// 全局 fetch,与本组工具无关),所以这里做最小的一份:https 目标走 HTTP CONNECT 隧道再叠 TLS,http 目标走绝对 URI 请求。
+// 只认 http:// / https:// 形式的代理(带 user:pass@ 时发 Proxy-Authorization: Basic);socks 等其余协议视为未配置。
+// 默认不走代理:localhost / 回环与私网 IPv4 字面量 / *.local / 不含点的单标签主机名(与 WinINET「本地地址不走代理」同口径,
+// 内网服务与工作台自身的 loopback 桥接都在这一类里),再加 NO_PROXY(`*`、域名后缀、host:port、IPv4 CIDR)。
+// 【SSRF 取舍】走代理时目标域名由代理解析,本机没有解析结果可查 → 跳过「解析到内网地址」的 DNS 预检与连接地址锁定(那两道只在
+// 直连时成立)。仍然有效的:每一跳的 ssrfCheck(协议、回环 / 私网 / 元数据的字面量、*.local / *.internal)、重定向逐跳复查、
+// 私网字面量一律不发包。即:直连时防「公网域名解析到内网」的重绑定防线,在走代理时由代理侧负责。
+function parseProxyUrl(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = 'http://' + s;
+  let u;
+  try { u = new URL(s); } catch { return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  const port = Number(u.port) || (u.protocol === 'https:' ? 443 : 80);
+  const hostname = u.hostname.replace(/^\[|\]$/g, '');
+  let auth = '';
+  if (u.username) { try { auth = 'Basic ' + Buffer.from(decodeURIComponent(u.username) + ':' + decodeURIComponent(u.password)).toString('base64'); } catch { auth = ''; } }
+  return { protocol: u.protocol, hostname, port, auth, display: hostname + ':' + port };
+}
+function proxyIpv4ToInt(ip) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+  if (!m) return null;
+  const o = m.slice(1).map(Number);
+  if (o.some(n => n > 255)) return null;
+  return ((o[0] << 24) >>> 0) + (o[1] << 16) + (o[2] << 8) + o[3];
+}
+function proxyNoProxyMatches(host, port, noProxy) {
+  for (const raw of String(noProxy || '').split(/[,\s]+/)) {
+    let e = raw.trim().toLowerCase();
+    if (!e) continue;
+    if (e === '*') return true;
+    const cidr = /^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/.exec(e);
+    if (cidr) {
+      const a = proxyIpv4ToInt(host), b = proxyIpv4ToInt(cidr[1]), bits = Number(cidr[2]);
+      if (a !== null && b !== null && bits <= 32) {
+        const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+        if (((a & mask) >>> 0) === ((b & mask) >>> 0)) return true;
+      }
+      continue;
+    }
+    let ePort = '';
+    const pm = /^(.*):(\d+)$/.exec(e);
+    if (pm && !e.includes('::')) { e = pm[1]; ePort = pm[2]; }
+    if (ePort && String(port) !== ePort) continue;
+    e = e.replace(/^\*?\./, '');
+    if (!e) continue;
+    if (host === e || host.endsWith('.' + e)) return true;
+  }
+  return false;
+}
+// 目标 URL 该走哪个代理:返回 parseProxyUrl 的结果,或 null(直连)。env 可传入以便测试。
+function proxyForUrl(target, env) {
+  const e = env || process.env;
+  let u;
+  try { u = target instanceof URL ? target : new URL(String(target)); } catch { return null; }
+  const https = u.protocol === 'https:';
+  if (!https && u.protocol !== 'http:') return null;
+  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (host === 'localhost' || host === '::1' || isPrivateIpv4(host) || /\.local$/.test(host)) return null;
+  if (!host.includes('.') && !host.includes(':')) return null;              // 单标签内网主机名
+  if (/^f[cd][0-9a-f]{0,2}:|^fe80:/.test(host)) return null;                // IPv6 ULA / link-local
+  const pick = (...names) => { for (const n of names) { const v = e[n]; if (v && String(v).trim()) return String(v).trim(); } return ''; };
+  const raw = https ? pick('HTTPS_PROXY', 'https_proxy', 'ALL_PROXY', 'all_proxy') : pick('HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy');
+  if (!raw) return null;
+  if (proxyNoProxyMatches(host, u.port || (https ? '443' : '80'), pick('NO_PROXY', 'no_proxy'))) return null;
+  return parseProxyUrl(raw);
+}
+// HTTP CONNECT 隧道:成功 resolve 一个已连到 目标host:port 的 socket;失败 reject 带 proxyFail 标记的 Error。
+function proxyConnectTunnel(u, proxy, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const plib = proxy.protocol === 'https:' ? require('https') : require('http');
+    const hostPort = u.hostname + ':' + (u.port || (u.protocol === 'https:' ? '443' : '80'));
+    const headers = { host: hostPort };
+    if (proxy.auth) headers['proxy-authorization'] = proxy.auth;
+    const req = plib.request({ host: proxy.hostname, port: proxy.port, method: 'CONNECT', path: hostPort, headers, timeout: timeoutMs });
+    const fail = (msg, cause) => { const err = new Error(msg); err.proxyFail = true; if (cause && cause.code) err.code = cause.code; reject(err); };
+    req.on('connect', (res, socket) => {
+      if (res.statusCode === 200) { req.removeAllListeners('timeout'); socket.setTimeout(0); resolve(socket); return; }
+      socket.destroy();
+      fail(`代理拒绝了 CONNECT ${hostPort}(HTTP ${res.statusCode}${res.statusCode === 407 ? ',需要代理认证' : ''})`);
+    });
+    req.on('timeout', () => { req.destroy(); fail(`连接代理 ${proxy.display} 超时`); });
+    req.on('error', e => fail(`无法连接代理 ${proxy.display}: ${(e && e.message) || e}`, e));
+    req.end();
+  });
+}
+// 统一的「发起请求」:不走代理 = 原样 lib.request(u, opts, cb);走代理 = http 用绝对 URI 请求发给代理,https 先 CONNECT 再叠 TLS。
+// 返回 ClientRequest(调用方自己挂 timeout / error 事件并 end);隧道失败时 reject(proxyFail)。
+async function openHttpRequest(u, opts, cb, proxy) {
+  const https = u.protocol === 'https:';
+  if (!proxy) return (https ? require('https') : require('http')).request(u, opts, cb);
+  const o = Object.assign({}, opts);
+  delete o.lookup; // 连接对象是代理(或已建好的隧道),目标域名的本机解析结果用不上
+  if (!https) {
+    o.hostname = proxy.hostname; o.port = proxy.port; o.path = u.href; o.method = opts.method || 'GET';
+    o.headers = Object.assign({ host: u.host }, opts.headers || {});
+    if (proxy.auth) o.headers['proxy-authorization'] = proxy.auth;
+    return (proxy.protocol === 'https:' ? require('https') : require('http')).request(o, cb);
+  }
+  const socket = await proxyConnectTunnel(u, proxy, opts.timeout || 20000);
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  delete o.agent; // agent 缺省 + createConnection 才会真的用它(agent:false 会新建 Agent 忽略 createConnection)
+  o.createConnection = () => require('tls').connect({ socket, servername: require('net').isIP(host) ? undefined : host });
+  return require('https').request(u, o, cb);
+}
+
+// ── NE-8:web_fetch 的字符集与内容类型 ─────────────────────────────────────────────────────────────────────────
+// 修前一律 body.toString('utf8'):GBK / GB2312 的页面(老政府站、高校站、论坛仍很常见)满屏 U+FFFD 还报 ok:true;PDF / 图片 /
+// Office / zip 被当文本抽,最多 20000 字符的二进制乱码,还写进离线缓存。现在:
+//   · 字符集:Content-Type 的 charset → BOM → 前 4KB 里的 <meta charset> / <meta http-equiv content="…charset=…"> /
+//     XML 声明的 encoding → 都没有就严格 UTF-8,严格失败再试 gb18030。解码走 TextDecoder,先做运行时能力检查
+//     (Node 若是不带完整 ICU 的构建,认不出 gbk 等标签):不认识就退回 UTF-8 并给 warning,不抛。
+//   · 类型闸:pdf / 图片 / 音视频 / octet-stream / zip / Office 等二进制不做抽取,返回 ok:false + 提示改用 http_download;
+//     没有 Content-Type 或类型陌生时看魔数与 NUL 字节。text/*、json、xml 等文本类原样解码(json / 纯文本不走 HTML 抽取)。
+function charsetFromContentType(ct) {
+  const m = /charset\s*=\s*["']?([^\s;"']+)/i.exec(String(ct || ''));
+  return m ? m[1].toLowerCase() : '';
+}
+function sniffMetaCharset(buf) {
+  const head = buf.subarray(0, 4096).toString('latin1');
+  let m = /<meta\b[^>]*?charset\s*=\s*["']?\s*([A-Za-z0-9_:.\-]+)/i.exec(head);
+  if (!m) m = /^\s*<\?xml[^>]*\bencoding\s*=\s*["']([A-Za-z0-9_.\-]+)/i.exec(head);
+  return m ? m[1].toLowerCase() : '';
+}
+function textDecoderFor(label, fatal) {
+  try { return new TextDecoder(label, { fatal: !!fatal }); } catch { return null; }
+}
+// → { text, charset, warning? }。buf 是 Buffer,contentType 是响应头原值(可空)。
+function decodeHtmlBody(buf, contentType) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const cands = [];
+  const hdr = charsetFromContentType(contentType);
+  if (hdr) cands.push({ label: hdr, from: 'header' });
+  if (b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) cands.push({ label: 'utf-8', from: 'bom' });
+  else if (b[0] === 0xff && b[1] === 0xfe) cands.push({ label: 'utf-16le', from: 'bom' });
+  else if (b[0] === 0xfe && b[1] === 0xff) cands.push({ label: 'utf-16be', from: 'bom' });
+  const meta = sniffMetaCharset(b);
+  if (meta) cands.push({ label: /^utf-?16/.test(meta) ? 'utf-8' : meta, from: 'meta' }); // ASCII 兼容地读到的 meta 不可能真是 UTF-16(WHATWG 同口径)
+  let warning = '';
+  for (const c of cands) {
+    const dec = textDecoderFor(c.label, false);
+    if (dec) return { text: dec.decode(b), charset: dec.encoding };
+    warning = `页面声明的字符集 ${c.label} 本机不支持,已按 UTF-8 解码,可能有乱码`;
+  }
+  // 没声明:严格 UTF-8(stream:true 容忍被 2MB 上限截在半个字符上),失败再猜 GB18030。
+  try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(b, { stream: true }), charset: 'utf-8', ...(warning ? { warning } : {}) }; } catch { /* fall through */ }
+  const gb = textDecoderFor('gb18030', false);
+  if (gb) return { text: gb.decode(b), charset: 'gb18030', warning: warning || '页面没有声明字符集且不是合法 UTF-8,已按 GB18030 猜测解码' };
+  return { text: b.toString('utf8'), charset: 'utf-8', warning: warning || '页面没有声明字符集且不是合法 UTF-8,已按 UTF-8 解码,可能有乱码' };
+}
+const FETCH_TEXT_TYPE_RE = /^(?:text\/.+|application\/(?:json|xml|xhtml\+xml|javascript|x-javascript|ecmascript|yaml|x-yaml|x-ndjson|toml|sql|x-sh|rss\+xml|atom\+xml)|.+\+(?:json|xml))$/;
+const FETCH_BINARY_TYPE_RE = /^(?:image|audio|video|font)\/|^application\/(?:pdf|octet-stream|zip|gzip|x-gzip|x-zip-compressed|x-tar|x-rar-compressed|vnd\.rar|x-7z-compressed|msword|rtf|x-msdownload|x-msi|java-archive|wasm|vnd\.ms-.+|vnd\.openxmlformats-.+|vnd\.oasis\..+|epub\+zip|x-shockwave-flash)$/;
+// → { kind:'html'|'text'|'binary', type }
+function classifyFetchedBody(contentType, buf) {
+  const type = String(contentType || '').split(';')[0].trim().toLowerCase();
+  if (type === 'text/html' || type === 'application/xhtml+xml') return { kind: 'html', type };
+  if (type && FETCH_BINARY_TYPE_RE.test(type)) return { kind: 'binary', type };
+  if (type && FETCH_TEXT_TYPE_RE.test(type)) return { kind: 'text', type };
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const head = b.subarray(0, 2048);
+  const magic = head.subarray(0, 8).toString('latin1');
+  const utf16 = (head[0] === 0xff && head[1] === 0xfe) || (head[0] === 0xfe && head[1] === 0xff);
+  if (/^%PDF-|^PK\x03\x04|^\x89PNG|^GIF8|^\xff\xd8\xff|^\x1f\x8b|^Rar!|^7z\xbc\xaf|^MZ/.test(magic) || (!utf16 && head.includes(0))) return { kind: 'binary', type };
+  const sniff = head.toString('latin1');
+  if (/^\s*<(?:!doctype|html|head|body|\?xml)|<(?:html|body|div|p|table)\b/i.test(sniff)) return { kind: 'html', type };
+  return { kind: 'text', type };
+}
+
 // Low-level http(s) GET with a redirect chain, re-running ssrfCheck on EVERY hop (≤maxRedirects). Returns
 // { ok, status, finalUrl, body(Buffer, ≤maxBytes), truncated } on success, else { ok:false, error, failClass,
 //  statusCode?, blocked? }. v1.1-W1a: a 'reset' failure (对端掐线 / aborted) is retried ONCE automatically
 // before surfacing — anti-scrape edges often reset the first probe but serve the second. Never throws.
-function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, _retriedReset = false } = {}) {
-  return new Promise(resolve => {
-    let hops = 0;
+// timeoutMs 是【空闲】超时(下载大文件靠它);totalTimeoutMs(可选)是整条重定向链的硬期限 —— 修前对端每 400ms 滴一个字节,
+// timeoutMs:1000 的请求能挂 4.8 秒(NE-11)。走代理(NE-10)时跳过 DNS 预检与连接锁定,见上文的取舍说明。
+function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTimeoutMs = 0, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, _retriedReset = false } = {}) {
+  return new Promise(resolveOuter => {
+    let hops = 0, settled = false, usedProxy = false, curReq = null, overall = null;
+    const resolve = v => {
+      if (settled) return; settled = true;
+      if (overall) clearTimeout(overall);
+      if (usedProxy && v && typeof v === 'object') v.viaProxy = true;
+      resolveOuter(v);
+    };
+    if (totalTimeoutMs > 0) {
+      overall = setTimeout(() => {
+        resolve({ ok: false, error: `timeout after ${totalTimeoutMs}ms (total)`, failClass: 'timeout' });
+        try { if (curReq) curReq.destroy(); } catch { /* ignore */ }
+      }, Math.min(totalTimeoutMs, 2147483647));
+    }
     const visit = async current => {
+      if (settled) return;
       const chk = ssrfCheck(current);
       if (!chk.allowed) { resolve({ ok: false, error: chk.reason, failClass: 'blocked', blocked: chk.host }); return; }
       let u;
       try { u = new URL(current); } catch { resolve({ ok: false, error: 'URL 无法解析', failClass: 'other' }); return; }
+      // NE-10:配了代理就由代理解析目标域名 —— 本机 DNS 预检既拿不到答案(代理网络里本机往往解析不了)还会误报「域名解析失败」。
+      const proxy = proxyForUrl(u);
+      if (proxy) usedProxy = true;
       // v0.9 F2 / v1.4.1 audit #2: DNS resolve-then-check —— 拒绝解析到内网的名字(rebinding 守护),并把已验证的
       // 公网地址【锁定】给本次连接(pinned lookup),使 http/https 不再独立二次解析(消除 TOCTOU 重绑定窗口)。
-      const dnsRes = await dnsResolvesToPrivate(u.hostname);
+      const dnsRes = proxy ? null : await dnsResolvesToPrivate(u.hostname);
+      if (settled) return;
       if (dnsRes && dnsRes.blocked) { resolve({ ok: false, error: '解析到内网地址', failClass: 'blocked', blocked: dnsRes.blocked }); return; }
-      const lib = u.protocol === 'https:' ? require('https') : require('http');
       const reqOpts = { method: 'GET', timeout: timeoutMs, headers: browserHeaders({ 'user-agent': userAgent }) };
       const pin = dnsRes && dnsRes.pin;
       if (pin && pin.length) {
         // 锁定到已验证公网地址(literal IP / 解析失败 → dnsRes 为 null → 不 pin,literal 已被 ssrfCheck 判过)。
         reqOpts.lookup = (h, opts, cb) => { if (opts && opts.all) cb(null, pin); else cb(null, pin[0].address, pin[0].family); };
       }
-      const req = lib.request(u, reqOpts, res => {
+      let req = null;
+      const onRes = res => {
         const status = res.statusCode || 0;
         // Redirect handling — re-check every hop.
         if (status >= 300 && status < 400 && res.headers.location) {
@@ -2115,44 +2424,121 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, maxBytes 
         });
         res.on('end', () => resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null }));
         res.on('error', e => resolve({ ok: false, error: (e && e.message) || 'response error', failClass: classifyFetchError(e) }));
-      });
-      req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
-      req.on('error', async e => {
-        const failClass = classifyFetchError(e);
+      };
+      const onErr = async e => {
+        if (settled) return;
+        let failClass = e && e.proxyFail ? 'proxy' : classifyFetchError(e);
+        // http 目标经代理时 dns / connect 类错误只可能出在「连代理」这一段。
+        if (proxy && (failClass === 'dns' || failClass === 'connect')) {
+          resolve({ ok: false, error: `无法连接代理 ${proxy.display}: ${(e && e.message) || 'request error'}`, failClass: 'proxy' });
+          return;
+        }
         // v1.1-W1a (T1): a 'reset'/aborted failure is often a transient anti-scrape blip → retry once.
         if (failClass === 'reset' && !_retriedReset) {
-          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, maxBytes, userAgent, _retriedReset: true });
+          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, totalTimeoutMs, maxBytes, userAgent, _retriedReset: true });
           resolve(retry); return;
         }
         resolve({ ok: false, error: (e && e.message) || 'request error', failClass });
-      });
+      };
+      try { req = await openHttpRequest(u, reqOpts, onRes, proxy); } catch (e) { await onErr(e); return; }
+      curReq = req;
+      if (settled) { try { req.destroy(); } catch { /* ignore */ } return; }
+      req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
+      req.on('error', onErr);
       req.end();
     };
     visit(String(rawUrl));
   });
 }
 
-// web_fetch tool body. SSRF-guarded fetch → main-text extraction → cache write. On a fetch failure (offline),
-// falls back to the on-disk cache (fromCache:true) so an air-gapped session can still reuse a prior fetch.
+// web_fetch tool body. SSRF-guarded fetch → charset decode → main-text extraction → cache write. On a fetch failure
+// (offline), falls back to the on-disk cache (fromCache:true) so an air-gapped session can still reuse a prior fetch.
+// NE-9:缓存存【完整】抽取文本(上限 WEB_CACHE_MAX_CHARS),maxChars / offset 只在返回值里切 —— 修前存的是 maxChars 切过的片段,
+// 一次 maxChars:500 的调用会把整页缓存覆盖成 500 字,之后离线读到的还标 truncated:false。offset>0 的翻页请求在缓存足够新
+// (WEB_FETCH_PAGE_TTL_MS)时直接读缓存,不重抓、也不会因页面中途变化错位。
+const WEB_FETCH_DEFAULT_CHARS = 20000;
+const WEB_FETCH_MAX_CHARS = 60000;            // 与工具结果 ~60K 的上限对齐:再大只会被截头
+const WEB_CACHE_MAX_CHARS = 400000;
+const WEB_FETCH_PAGE_TTL_MS = 10 * 60 * 1000;
+// 从完整文本切出 [offset, offset+maxChars) 一页;不在代理对(surrogate pair)中间切。
+function webFetchSlice(full, offset, maxChars) {
+  let end = Math.min(full.length, offset + maxChars);
+  if (end < full.length && end > offset) { const c = full.charCodeAt(end - 1); if (c >= 0xd800 && c <= 0xdbff) end -= 1; }
+  return { text: full.slice(offset, end), end };
+}
+// 只列出本页 text 里真出现了 [n] 标记的链接,总长有预算,避免把整页的链接表都塞进每一页。
+function webFetchPageLinks(pageText, links) {
+  const out = [];
+  let budget = 6000, cut = false;
+  for (const l of Array.isArray(links) ? links : []) {
+    if (!pageText.includes('[' + l.n + ']')) continue;
+    const line = '[' + l.n + '] ' + l.url;
+    if (budget - line.length < 0) { cut = true; break; }
+    budget -= line.length;
+    out.push(line);
+  }
+  return { links: out, linksTruncated: cut };
+}
 async function webFetch(args = {}) {
   const url = String(args.url || '').trim();
-  const maxChars = Math.min(200000, Math.max(500, Number(args.maxChars) || 20000));
+  const maxChars = Math.min(WEB_FETCH_MAX_CHARS, Math.max(500, Number(args.maxChars) || WEB_FETCH_DEFAULT_CHARS));
+  const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
   if (!url) return { ok: false, error: 'url is required' };
   // Fast SSRF reject up-front (also blocks non-http/https + literal internal targets) — a blocked target
   // never even attempts a socket, and NEVER falls back to cache (a blocked url must not leak cached content).
   const pre = ssrfCheck(url);
   if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
-  const got = await httpGetGuarded(url);
+  // 一页 = 缓存条目的一个切片;live / cache 共用同一个出口,保证 truncated / nextOffset 的口径一致。
+  const pageOf = (entry, extra) => {
+    const full = String(entry.text || '');
+    const { text, end } = webFetchSlice(full, offset, maxChars);
+    const more = end < full.length;
+    const res = { ok: true, url: entry.url || url, title: entry.title || '', text, offset, totalChars: full.length,
+      truncated: more || entry.truncated === true, ts: entry.ts || null };
+    if (more) res.nextOffset = end;
+    if (entry.contentType) res.contentType = entry.contentType;
+    if (entry.charset) res.charset = entry.charset;
+    if (entry.warning) res.warning = entry.warning;
+    if (entry.note) res.note = entry.note;
+    if (entry.sourceTruncated) res.sourceTruncated = true;
+    const pl = webFetchPageLinks(text, entry.links);
+    if (pl.links.length) { res.links = pl.links; if (pl.linksTruncated) res.linksTruncated = true; }
+    if (offset > 0 && offset >= full.length) res.note = res.note || `offset 超出正文长度(${full.length} 字符)`;
+    return Object.assign(res, extra);
+  };
+  if (offset > 0) {
+    const hit = await readWebCache(url);
+    const age = hit && hit.ts ? Date.parse(hit.ts) : NaN;
+    if (hit && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
+  }
+  const got = await httpGetGuarded(url, { totalTimeoutMs: 30000 });
   if (got.ok && got.body) {
-    const html = got.body.toString('utf8');
-    const { title, text } = extractMainText(html);
-    const clipped = text.slice(0, maxChars);
-    const entry = { url: got.finalUrl || url, title, text: clipped, ts: nowIso() };
+    const kind = classifyFetchedBody(got.contentType, got.body);
+    if (kind.kind === 'binary') {
+      return { ok: false, error: `该网址返回的是 ${kind.type || '二进制内容'},不是网页文本`, failClass: 'not-text', contentType: kind.type || null,
+        hint: '用 http_download 把它保存到工作区,再用对应的文件/文档工具读取(PDF、Office、压缩包等)' };
+    }
+    const dec = decodeHtmlBody(got.body, got.contentType);
+    const finalUrl = got.finalUrl || url;
+    let title = '', text, links = [], note = '';
+    if (kind.kind === 'html') {
+      const ex = extractMainText(dec.text, { baseUrl: finalUrl });
+      title = ex.title; text = ex.text; links = ex.links;
+      if (text.length < 200 && (dec.text.match(/<script\b/gi) || []).length >= 3) note = '页面正文很少,可能依赖 JavaScript 渲染(本工具不执行脚本);可换个来源或用 web_search';
+    } else {
+      text = dec.text.replace(/\r\n?/g, '\n').replace(/^﻿/, '');
+    }
+    const cacheClipped = text.length > WEB_CACHE_MAX_CHARS;
+    const entry = { url: finalUrl, title, text: cacheClipped ? text.slice(0, WEB_CACHE_MAX_CHARS) : text, links, ts: nowIso(),
+      contentType: kind.type || null, charset: dec.charset, ...(dec.warning ? { warning: dec.warning } : {}), ...(note ? { note } : {}),
+      ...(got.truncated ? { sourceTruncated: true } : {}), ...(cacheClipped ? { truncated: true } : {}) };
     await writeWebCache(entry);
+    if (url !== finalUrl) await writeWebCache(Object.assign({}, entry, { url })); // 重定向后按请求网址也能命中(离线回退 / 翻页都按请求网址查)
     // v1.1-W1a (T2): a real successful fetch is fresh proof we are online — nudge the capability cache so a
     // stale/single-target offline reading gets corrected for free.
     markNetworkOnline();
-    return { ok: true, url: entry.url, title, text: clipped, truncated: got.truncated || clipped.length < text.length, fromCache: false, ts: entry.ts };
+    // 本次调用直接用完整文本切页(不受缓存上限影响),truncated 含「源体被 2MB 上限截断」。
+    return pageOf(Object.assign({}, entry, { text, truncated: got.truncated === true }), { fromCache: false, ...(got.viaProxy ? { viaProxy: true } : {}) });
   }
   // A guard-level block during a redirect hop → surface it as blocked, do NOT serve cache.
   if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
@@ -2160,12 +2546,15 @@ async function webFetch(args = {}) {
   const mapped = webFetchFailMessage(got);
   // Cache fallback still applies (an air-gapped session reuses a prior fetch).
   const cached = await readWebCache(url);
-  if (cached) return { ok: true, url: cached.url || url, title: cached.title || '', text: String(cached.text || '').slice(0, maxChars), truncated: false, fromCache: true, ts: cached.ts || null, staleReason: mapped.error };
+  if (cached) return pageOf(cached, { fromCache: true, staleReason: mapped.error });
   // No cache. Decide the hint by a FAST live probe (multi-target, 2s) — only if that also fails do we say 离线.
-  const online = await probeAny(networkAnchors(await readConfig().catch(() => ({}))), 2000);
+  // 走了代理时不做这一探:探测走的是本机直连,代理网络里它必然失败,会把「代理没配好」误报成「当前疑似离线」。
   let hint = mapped.hint;
-  if (online === false) hint = '当前疑似离线。' + '联网后重试,或先在线抓取一次以建立缓存';
-  else markNetworkOnline(); // the probe just succeeded → refresh the cap cache
+  if (!got.viaProxy) {
+    const online = await probeAny(networkAnchors(await readConfig().catch(() => ({}))), 2000);
+    if (online === false) hint = '当前疑似离线。' + '联网后重试,或先在线抓取一次以建立缓存';
+    else markNetworkOnline(); // the probe just succeeded → refresh the cap cache
+  }
   return { ok: false, error: mapped.error, failClass: got.failClass || 'other', statusCode: got.statusCode, hint };
 }
 
@@ -2176,8 +2565,10 @@ function webFetchFailMessage(got) {
   const fc = (got && got.failClass) || 'other';
   const code = got && got.statusCode;
   switch (fc) {
-    case 'dns': return { error: '域名解析失败(网址可能不存在)', hint: '检查网址拼写是否正确' };
-    case 'connect': return { error: '无法连接到该网站', hint: '确认网址可访问,或稍后重试' };
+    case 'dns': return { error: '域名解析失败(网址可能不存在)', hint: '检查网址拼写是否正确;若本机需要经代理上网,请设置 HTTPS_PROXY / HTTP_PROXY 环境变量后重启工作台' };
+    case 'connect': return { error: '无法连接到该网站', hint: '确认网址可访问,或稍后重试;若本机需要经代理上网,请设置 HTTPS_PROXY / HTTP_PROXY 环境变量后重启工作台' };
+    // NE-10:代理这一段出的错(连不上代理 / 代理拒绝 CONNECT / 需要认证);got.error 已带上代理地址与状态码。
+    case 'proxy': return { error: (got && got.error) || '通过代理访问失败', hint: '检查 HTTPS_PROXY / HTTP_PROXY / NO_PROXY 环境变量与代理本身是否可用(工作台读取这几个环境变量,改后需重启)' };
     case 'reset': return { error: '对方服务器中断了连接(可能有反爬限制)', hint: '可尝试用 web_search 搜索该内容替代' };
     case 'tls': return { error: 'HTTPS 证书/握手失败', hint: '该站点的安全证书异常,谨慎访问' };
     case 'timeout': return { error: '抓取超时', hint: '网站响应过慢,稍后重试或换个来源' };
@@ -2411,7 +2802,57 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
 
 // web_search tool body. Fans out by searchBackend.type. searxng/custom baseUrl is TRUSTED (admin-configured)
 // → NOT SSRF-checked (see note atop this section). Returns {ok, results:[{title,url,snippet}], backend}.
+// NE-11:① 200 却不是 JSON(登录页 / WAF 页 / searxng 没开 json 格式)不再静默回 results:[],而是 ok:false 说明原因;
+// ② 4xx / 5xx 带针对性的 hint;③ 配置的后端失败时回退一次内置免费搜索,结果里带 fallbackFrom / fallbackReason。
+// 例外:searxng / custom 指向内网地址(管理员刻意配的内部搜索)时【不】回退 —— 回退会把查询词发给公网的 Bing / 百度,
+// 与「只用内网搜索」的意图相反;此时结果带 fallbackSkipped 说明。
+function searchFailFromResponse(backend, r) {
+  const st = r.statusCode;
+  const out = { ok: false, error: r.error || ('HTTP ' + st), backend };
+  if (st) out.statusCode = st;
+  if (r.hint) out.hint = r.hint;
+  if (st === 403 && backend === 'searxng') out.hint = 'searxng 需要启用 JSON 输出:settings.yml 里 search.formats 加上 json(并确认没有被 limiter / 反向代理拦截)';
+  else if (st === 401 || st === 403) out.hint = '检查 设置→搜索后端 的 API Key 是否正确、是否过期或无权限';
+  else if (st === 429) out.hint = '触发限流或额度用完;稍后再试,或换一个搜索后端';
+  else if (st >= 500) out.hint = '搜索服务暂时不可用;稍后再试';
+  return out;
+}
+// 解析 JSON 型后端的 200 响应:返回 { body } 或 { fail }。
+function searchParseJsonResponse(backend, r) {
+  if (r.redirected) {
+    return { fail: { ok: false, error: `搜索后端返回了重定向(HTTP ${r.statusCode} → ${(r.headers && r.headers.location) || '?'})`, hint: '把 设置→搜索后端 的地址改成重定向后的最终地址(常见是 http 改 https)', backend } };
+  }
+  const body = safeJsonParse(r.body, null);
+  if (body === null || typeof body !== 'object') {
+    return { fail: { ok: false, error: '搜索后端返回的不是 JSON 结果(可能被登录页 / WAF 拦截' + (backend === 'searxng' ? ',或 searxng 没有启用 json 格式' : '') + ')', hint: backend === 'searxng' ? 'searxng 需要启用 JSON 输出:settings.yml 里 search.formats 加上 json' : '检查后端地址是否正确、是否需要登录', backend, parseFailed: true } };
+  }
+  return { body };
+}
+function searchBackendIsIntranet(sb) {
+  if (!sb || (sb.type !== 'searxng' && sb.type !== 'custom')) return false;
+  try {
+    const h = new URL(String(sb.baseUrl || '')).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    return h === 'localhost' || h === '::1' || isPrivateIpv4(h) || /\.(local|internal)$/.test(h) || (!h.includes('.') && !h.includes(':')) || /^f[cd][0-9a-f]{0,2}:|^fe80:/.test(h);
+  } catch { return false; }
+}
 async function webSearch(args, config) {
+  const first = await webSearchViaBackend(args, config);
+  const sb = (config && config.searchBackend) || { type: 'none' };
+  const backend = sb.type || 'none';
+  const query = String(args && args.query || '').trim();
+  if (first.ok !== false || !query || backend === 'none' || backend === 'builtin') return first;
+  if (searchBackendIsIntranet(sb)) return Object.assign({}, first, { fallbackSkipped: '内网搜索后端失败;为避免把查询词发给公网搜索引擎,没有回退到内置搜索' });
+  const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
+  const timeoutMs = Number(args && args.timeoutMs) || 12000;
+  let fb = null;
+  // builtinBaseUrl / baiduBaseUrl:只给 e2e 用的引擎根地址替换(直接传进 webSearch 的配置对象里;normalizeConfig 不保留它们)。
+  try { fb = await builtinSearch(query, maxResults, String(sb.builtinBaseUrl || '').trim().replace(/\/+$/, ''), timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, '')); } catch { fb = null; }
+  if (fb && fb.ok && Array.isArray(fb.results) && fb.results.length) {
+    return Object.assign({}, fb, { fallbackFrom: backend, fallbackReason: first.error, note: `配置的搜索后端 ${backend} 失败(${first.error}),这次结果来自内置免费搜索` });
+  }
+  return Object.assign({}, first, { fallbackTried: 'builtin' });
+}
+async function webSearchViaBackend(args, config) {
   const query = String(args && args.query || '').trim();
   // 缺省 8 条(修前 5 条):内置搜索是抓网页,前几条常被百科 / 问答聚合占住,5 条经常不够把问题答全;结果只是短摘要,多几条不贵。
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
@@ -2430,33 +2871,34 @@ async function webSearch(args, config) {
     // Bing root for e2e determinism; when set, the 百度 fallback is skipped (the fake server owns both paths).
     // sb.baiduBaseUrl:只给 e2e 用的百度根地址替换(直接传进 webSearch 的配置对象里;normalizeConfig 不保留它)。
     if (backend === 'builtin') return await builtinSearch(query, maxResults, baseUrl, timeoutMs, String(sb.baiduBaseUrl || '').trim().replace(/\/+$/, ''));
+    // 各 JSON 后端共用的收尾:请求 → 失败 / 非 JSON 说明 → 取出行 → 映射。extract(body) 返回行数组(缺失则 [])。
+    const viaJson = async (reqArgs, extract, map, missingNote) => {
+      const r = await httpRequest(Object.assign({ timeoutMs, maxBodyChars: 500000 }, reqArgs));
+      if (!r.ok || r.redirected) {
+        if (r.redirected) return searchParseJsonResponse(backend, r).fail;
+        return searchFailFromResponse(backend, r);
+      }
+      const parsed = searchParseJsonResponse(backend, r);
+      if (parsed.fail) return parsed.fail;
+      const rows = extract(parsed.body);
+      const list = Array.isArray(rows) ? rows : [];
+      const out = { ok: true, results: list.slice(0, maxResults).map(map), backend };
+      if (!Array.isArray(rows) && missingNote) out.note = missingNote;
+      return out;
+    };
     if (backend === 'searxng') {
       if (!baseUrl) return { ok: false, error: 'searxng baseUrl 未配置', backend };
-      const u = `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json`;
-      const r = await httpRequest({ url: u, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && Array.isArray(body.results)) ? body.results : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.content || x.snippet || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${baseUrl}/search?q=${encodeURIComponent(query)}&format=json` },
+        b => b.results, x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.content || x.snippet || '') }),
+        '响应是 JSON 但没有 results 字段,可能不是 searxng 的接口');
     }
     if (backend === 'bing') {
-      const u = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${maxResults}`;
-      const r = await httpRequest({ url: u, headers: { 'Ocp-Apim-Subscription-Key': apiKey }, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && body.webPages && Array.isArray(body.webPages.value)) ? body.webPages.value : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String(x.name || ''), url: String(x.url || ''), snippet: String(x.snippet || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${maxResults}`, headers: { 'Ocp-Apim-Subscription-Key': apiKey } },
+        b => b.webPages && b.webPages.value, x => ({ title: String(x.name || ''), url: String(x.url || ''), snippet: String(x.snippet || '') }));
     }
     if (backend === 'brave') {
-      const u = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${maxResults}`;
-      const r = await httpRequest({ url: u, headers: { 'X-Subscription-Token': apiKey, 'Accept': 'application/json' }, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && body.web && Array.isArray(body.web.results)) ? body.web.results : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.description || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${maxResults}`, headers: { 'X-Subscription-Token': apiKey, 'Accept': 'application/json' } },
+        b => b.web && b.web.results, x => ({ title: String(x.title || ''), url: String(x.url || ''), snippet: String(x.description || '') }));
     }
     // v1.0-S6 (A): Tavily (AI 搜索 API). POST /search, JSON {api_key, query, max_results}; parse
     // results[].{title,url,content}. baseUrl override — searchBackend.baseUrl, when non-empty, REPLACES the
@@ -2465,14 +2907,8 @@ async function webSearch(args, config) {
     // missing/невалид results array yields an empty list, never a crash.
     if (backend === 'tavily') {
       const root = baseUrl || 'https://api.tavily.com';
-      const u = `${root}/search`;
-      const payload = JSON.stringify({ api_key: apiKey, query, max_results: maxResults });
-      const r = await httpRequest({ url: u, method: 'POST', headers: { 'content-type': 'application/json' }, body: payload, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && Array.isArray(body.results)) ? body.results : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String((x && x.title) || ''), url: String((x && x.url) || ''), snippet: String((x && x.content) || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${root}/search`, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ api_key: apiKey, query, max_results: maxResults }) },
+        b => b.results, x => ({ title: String((x && x.title) || ''), url: String((x && x.url) || ''), snippet: String((x && x.content) || '') }));
     }
     // v1.0-S6 (A): 博查 Bocha (中文搜索 API). POST /v1/web-search, Header Authorization: Bearer <key>,
     // JSON {query, count}; parse data.webPages.value[].{name,url,snippet} (按官方公开文档形状). baseUrl
@@ -2480,35 +2916,24 @@ async function webSearch(args, config) {
     // missing hop in data.webPages.value collapses to an empty list, никогда crashes.
     if (backend === 'bocha') {
       const root = baseUrl || 'https://api.bochaai.com';
-      const u = `${root}/v1/web-search`;
-      const payload = JSON.stringify({ query, count: maxResults });
       const headers = { 'content-type': 'application/json' };
       if (apiKey) headers['authorization'] = 'Bearer ' + apiKey;
-      const r = await httpRequest({ url: u, method: 'POST', headers, body: payload, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = (body && body.data && body.data.webPages && Array.isArray(body.data.webPages.value)) ? body.data.webPages.value : [];
-      const results = rows.slice(0, maxResults).map(x => ({ title: String((x && x.name) || ''), url: String((x && x.url) || ''), snippet: String((x && x.snippet) || '') }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${root}/v1/web-search`, method: 'POST', headers, body: JSON.stringify({ query, count: maxResults }) },
+        b => b.data && b.data.webPages && b.data.webPages.value, x => ({ title: String((x && x.name) || ''), url: String((x && x.url) || ''), snippet: String((x && x.snippet) || '') }));
     }
     // custom: GET {baseUrl}?q=… ; best-effort parse of common {title,url,snippet} field shapes.
     if (backend === 'custom') {
       if (!baseUrl) return { ok: false, error: 'custom baseUrl 未配置', backend };
       const sep = baseUrl.includes('?') ? '&' : '?';
-      const u = `${baseUrl}${sep}q=${encodeURIComponent(query)}`;
       const headers = {};
       if (apiKey) headers['authorization'] = 'Bearer ' + apiKey;
-      const r = await httpRequest({ url: u, headers, timeoutMs, maxBodyChars: 500000 });
-      if (!r.ok) return { ok: false, error: r.error || ('HTTP ' + r.statusCode), backend };
-      const body = safeJsonParse(r.body, null);
-      const rows = Array.isArray(body) ? body : (body && (body.results || body.items || body.data)) || [];
-      const list = Array.isArray(rows) ? rows : [];
-      const results = list.slice(0, maxResults).map(x => ({
-        title: String((x && (x.title || x.name || x.heading)) || ''),
-        url: String((x && (x.url || x.link || x.href)) || ''),
-        snippet: String((x && (x.snippet || x.content || x.description || x.summary)) || ''),
-      }));
-      return { ok: true, results, backend };
+      return await viaJson({ url: `${baseUrl}${sep}q=${encodeURIComponent(query)}`, headers },
+        b => (Array.isArray(b) ? b : (b && (b.results || b.items || b.data)) || []),
+        x => ({
+          title: String((x && (x.title || x.name || x.heading)) || ''),
+          url: String((x && (x.url || x.link || x.href)) || ''),
+          snippet: String((x && (x.snippet || x.content || x.description || x.summary)) || ''),
+        }));
     }
     return { ok: false, error: '未知搜索后端: ' + backend, backend };
   } catch (e) {
@@ -2516,36 +2941,80 @@ async function webSearch(args, config) {
   }
 }
 
+// http_request 工具体(也是 web_search 各 API 后端与 builtin 抓取、以及 loopback 桥接的共用底层)。
+// NE-11:① 字符串 / Buffer 请求体发 Content-Length(修前 req.write 不带长度 → chunked POST,部分 WAF / IIS / 老 Java 网关回
+// 411 / 400);对象体按 JSON 序列化(修前变成 "[object Object]"),没给 content-type 就补 application/json;② timeoutMs 是
+// 【整个请求的硬期限】,同时保留空闲超时(修前只有空闲超时,对端每 400ms 滴一字节 timeoutMs:1000 能挂 4.8 秒);③ 4xx / 5xx
+// 带 error:'HTTP 404'(仍保留 statusCode / body,ok:false),连接类失败带 failClass 与 hint,坏 URL 返回 {ok:false,error}
+// 而不是抛异常;④ NE-10:按 HTTPS_PROXY / HTTP_PROXY / NO_PROXY 走代理(loopback 与私网地址默认不走,见 proxyForUrl)。
 async function httpRequest(args = {}) {
   const target = String(args.url || '');
-  if (!/^https?:\/\//i.test(target)) throw new Error('url must start with http:// or https://');
-  const lib = target.startsWith('https://') ? require('https') : require('http');
+  if (!/^https?:\/\//i.test(target)) return { ok: false, error: 'url must start with http:// or https://', failClass: 'other' };
+  let u;
+  try { u = new URL(target); } catch { return { ok: false, error: 'URL 无法解析', failClass: 'other' }; }
   const method = String(args.method || 'GET').toUpperCase();
-  const body = args.body === undefined ? null : String(args.body);
+  const headers = Object.assign({}, (args.headers && typeof args.headers === 'object') ? args.headers : {});
+  const hasHeader = n => Object.keys(headers).some(k => k.toLowerCase() === n);
+  let body = null;
+  if (args.body !== undefined && args.body !== null) {
+    if (typeof args.body === 'string' || Buffer.isBuffer(args.body)) body = args.body;
+    else if (typeof args.body === 'object') { body = JSON.stringify(args.body); if (!hasHeader('content-type')) headers['content-type'] = 'application/json'; }
+    else body = String(args.body);
+  }
+  if (body !== null && body.length > 0 && !hasHeader('content-length') && !hasHeader('transfer-encoding')) headers['content-length'] = String(Buffer.byteLength(body));
   const timeoutMs = Number(args.timeoutMs || 20000);
   const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
   const hardCap = Math.max(1, maxChars) * 4 + 65536; // utf8 每字符 ≤4 字节 + 余量
+  const proxy = proxyForUrl(u);
   return new Promise(resolve => {
-    let done = false;
-    const finish = v => { if (done) return; done = true; resolve(v); };
-    const req = lib.request(target, { method, headers: args.headers || {}, timeout: timeoutMs }, res => {
+    let done = false, req = null, deadline = null;
+    const finish = v => { if (done) return; done = true; if (deadline) clearTimeout(deadline); if (proxy && v && typeof v === 'object') v.viaProxy = true; resolve(v); };
+    const fail = (message, failClass) => {
+      const out = { ok: false, error: message, failClass };
+      const hint = failClass === 'other' ? '' : webFetchFailMessage({ failClass }).hint;
+      if (hint) out.hint = hint;
+      finish(out);
+    };
+    const result = (res, bodyBuf, truncated) => {
+      const st = res.statusCode;
+      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: bodyBuf.toString('utf8').slice(0, maxChars), truncated };
+      if (st >= 400) { out.error = `HTTP ${st}`; out.failClass = 'http'; }
+      return out;
+    };
+    if (timeoutMs > 0) {
+      deadline = setTimeout(() => {
+        fail(`timeout after ${timeoutMs}ms (total)`, 'timeout');
+        try { if (req) req.destroy(); } catch { /* ignore */ }
+      }, Math.min(timeoutMs, 2147483647));
+    }
+    const onRes = res => {
       const chunks = []; let total = 0;
       res.on('data', d => {
         if (done) return;
         chunks.push(d); total += d.length;
         if (total >= hardCap) {
-          finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: true });
+          finish(result(res, Buffer.concat(chunks), true));
           try { req.destroy(); } catch { /* ignore */ }
         }
       });
-      res.on('end', () => finish({ ok: res.statusCode >= 200 && res.statusCode < 400, redirected: res.statusCode >= 300 && res.statusCode < 400, statusCode: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8').slice(0, maxChars), truncated: false }));
-    });
-    req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
-    req.on('error', error => finish({ ok: false, error: error.message }));
-    if (body) req.write(body);
-    req.end();
+      res.on('end', () => finish(result(res, Buffer.concat(chunks), false)));
+      res.on('error', e => fail((e && e.message) || 'response error', classifyFetchError(e)));
+    };
+    const onErr = e => {
+      if (done) return;
+      let failClass = e && e.proxyFail ? 'proxy' : classifyFetchError(e);
+      if (proxy && (failClass === 'dns' || failClass === 'connect')) { fail(`无法连接代理 ${proxy.display}: ${(e && e.message) || 'request error'}`, 'proxy'); return; }
+      fail((e && e.message) || 'request error', failClass);
+    };
+    openHttpRequest(u, { method, headers, timeout: timeoutMs }, onRes, proxy).then(r => {
+      req = r;
+      if (done) { try { req.destroy(); } catch { /* ignore */ } return; }
+      req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
+      req.on('error', onErr);
+      if (body !== null && body.length > 0) req.end(body); else req.end();
+    }, onErr);
   });
 }
 

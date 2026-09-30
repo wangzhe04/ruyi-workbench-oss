@@ -547,7 +547,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'http_request',
-    description: 'Make an HTTP request to a local or intranet endpoint for API debugging',
+    description: 'Make an HTTP request to a local or intranet endpoint for API debugging. String bodies are sent with Content-Length (an object body is sent as JSON); timeoutMs is a hard total deadline; 4xx/5xx come back ok:false with error "HTTP <status>" plus statusCode/body. Honors HTTPS_PROXY/HTTP_PROXY/NO_PROXY (loopback/private addresses bypass the proxy).',
     inputSchema: {
       type: 'object',
       properties: { url: { type: 'string' }, method: { type: 'string' }, headers: { type: 'object' }, body: { type: 'string' }, timeoutMs: { type: 'number' }, maxBodyChars: { type: 'number' } },
@@ -559,7 +559,7 @@ const MCP_TOOLS = [
   // loopback/私网/元数据/协议) — an untrusted url can never reach an internal endpoint.
   {
     name: 'web_search',
-    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha). Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
+    description: 'Search the web via the configured search backend (built-in Bing/Baidu, searxng, bing, brave, tavily, bocha, custom). Returns {results:[{title,url,snippet}]}; a `note` explains an empty list (e.g. the engine showed a captcha); when the configured backend fails, the built-in search is tried once and the result carries `fallbackFrom`. Use specific keywords (product names, error messages, versions); if results look off-topic, rephrase and search again. Use it for time-sensitive facts, external information, or anything that may have changed after your knowledge cutoff — search first, then answer. Then use web_fetch to read a promising result in full.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -571,12 +571,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'web_fetch',
-    description: 'Fetch a public web page over http/https and return its extracted main text + title. Follows redirects (≤3), 10s timeout, ≤2MB. Internal/loopback/metadata addresses are refused for safety. Offline, it serves a cached copy if one exists (fromCache:true). Use it to read a page found via web_search.',
+    description: 'Fetch a public web page over http/https and return its extracted main text + title (nav/footer chrome dropped, <main>/<article> preferred, headings as # lines, code blocks kept verbatim; links appear as "text [n]" with the URLs in `links`). Decodes GBK/GB2312/Big5 etc. from the header/<meta>. Non-text URLs (PDF, images, zip, Office) are refused with a hint to use http_download. Follows redirects (≤3), 10s idle / 30s total timeout, ≤2MB; honors HTTPS_PROXY/HTTP_PROXY/NO_PROXY. Internal/loopback/metadata addresses are refused for safety. Long pages are paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline, it serves a cached copy if one exists (fromCache:true). Use it to read a page found via web_search.',
     inputSchema: {
       type: 'object',
       properties: {
         url: { type: 'string', description: 'the http(s) URL to fetch' },
-        maxChars: { type: 'number', description: 'max characters of extracted text to return (default 20000)' },
+        maxChars: { type: 'number', description: 'max characters of extracted text to return per call (default 20000, max 60000)' },
+        offset: { type: 'number', description: 'character offset into the extracted text (use the previous result\'s nextOffset to read on)' },
       },
       required: ['url'],
     },
