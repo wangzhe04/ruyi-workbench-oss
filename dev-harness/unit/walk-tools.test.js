@@ -452,16 +452,22 @@ describe('[W9] archive_zip / archive_unzip', () => {
     blobs.forEach((b, i) => put(path.join(ws, 'big', 'r' + i + '.bin'), b));
     // 标定:同一进程、同一负载下,同步压缩一个 30MB 随机文件要多久 —— 修前的事件循环停顿 ≥ 这个数;
     // 绝对毫秒阈值在忙碌的 CI 机上会抖,所以用相对阈值(修后的最长停顿应远小于一次同步压缩)。
-    const c0 = process.hrtime.bigint();
-    zlib.deflateRawSync(blobs[0]);
-    const calMs = Number((process.hrtime.bigint() - c0) / 1000000n);
-    let last = process.hrtime.bigint(), maxGap = 0n;
-    const iv = setInterval(() => { const now = process.hrtime.bigint(); const g = now - last; if (g > maxGap) maxGap = g; last = now; }, 10);
-    const z = await srv.toolCall('archive_zip', { paths: [path.join(ws, 'big')], dest: path.join(ws, 'big.zip') }, ctxFor(ws));
-    clearInterval(iv);
-    assert.equal(z.ok, true, JSON.stringify(z).slice(0, 200));
-    const gapMs = Number(maxGap / 1000000n);
-    assert.ok(gapMs < calMs * 0.6, `事件循环最长停顿 ${gapMs} ms,应远小于一次同步压缩(${calMs} ms);修前实测 3.7 s`);
+    // 满载跑整套 unit 时(node --test 多文件并行),进程被 CPU 争用挂起也会记成「停顿」;真回归(同步压缩)每次都停,
+    // 所以最多测 3 次、取最好的一次 —— 抖动放过,回归照样红。
+    let best = Infinity, cal = 0;
+    for (let attempt = 0; attempt < 3 && !(best < cal * 0.6); attempt++) {
+      const c0 = process.hrtime.bigint();
+      zlib.deflateRawSync(blobs[0]);
+      const calMs = Number((process.hrtime.bigint() - c0) / 1000000n);
+      let last = process.hrtime.bigint(), maxGap = 0n;
+      const iv = setInterval(() => { const now = process.hrtime.bigint(); const g = now - last; if (g > maxGap) maxGap = g; last = now; }, 10);
+      const z = await srv.toolCall('archive_zip', { paths: [path.join(ws, 'big')], dest: path.join(ws, 'big.zip') }, ctxFor(ws));
+      clearInterval(iv);
+      assert.equal(z.ok, true, JSON.stringify(z).slice(0, 200));
+      const gapMs = Number(maxGap / 1000000n);
+      if (gapMs < best) { best = gapMs; cal = calMs; }
+    }
+    assert.ok(best < cal * 0.6, `事件循环最长停顿 ${best} ms,应远小于一次同步压缩(${cal} ms);修前实测 3.7 s`);
     const u = await srv.toolCall('archive_unzip', { src: path.join(ws, 'big.zip'), destDir: path.join(ws, 'un') }, ctxFor(ws));
     assert.equal(u.ok, true);
     assert.equal(fs.readFileSync(path.join(ws, 'un', 'big', 'r1.bin')).equals(fs.readFileSync(path.join(ws, 'big', 'r1.bin'))), true);

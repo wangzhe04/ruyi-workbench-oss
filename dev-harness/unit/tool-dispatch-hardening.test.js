@@ -166,8 +166,10 @@ test('[N5b] 宽进:枚举大小写 / 布尔 0-1 / 逗号串数组被规范成正
   assert.match(r.error, /'recursive' must be a boolean/);
   r = V('file_list', { recursive: 2 });
   assert.match(r.error, /'recursive' must be a boolean/);
-  r = V('workbench_self_status', { section: 'status' });
-  assert.match(r.error, /'section' must be one of/);
+  // workbench_self_status.section 是登记过的「非法值回落默认」字段(e2e workbench-self-status 钉着回落 all):去掉而不是拒绝。
+  a = { section: 'status' };
+  assert.equal(V('workbench_self_status', a), null, 'section 非法值回落默认,不拒绝');
+  assert.equal('section' in a, false);
 });
 
 test('[N5b] 端到端:toolCall 收到的 script_run / file_list 入参已是规范值', async () => {

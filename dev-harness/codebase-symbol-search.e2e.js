@@ -124,10 +124,18 @@ function tool(port, token, name, body) {
     ok(h2 && h2.ok === true && h2.definitionCount === 1 && h2.definitions && h2.definitions[0] && h2.definitions[0].kind === 'variable', '(h) $dollarVar → variable 定义(字面转义精确命中)');
 
     // (f) invalid args rejected with a human error.
-    const f1 = (await tool(WB_PORT, token, 'codebase_symbol_search', { root: WORK })).result;
-    ok(f1 && f1.ok === false && /symbol/.test(f1.error || ''), '(f) 缺 symbol 被人话拒绝');
-    const f2 = (await tool(WB_PORT, token, 'codebase_symbol_search', { root: WORK, symbol: 'foo', kind: 'bogus' })).result;
-    ok(f2 && f2.ok === false && /kind/.test(f2.error || ''), '(f) 非法 kind 被人话拒绝');
+    // 工具集优化批 N5:缺必填 / 非法枚举现由分发层按 schema 统一拦截,HTTP 面回 400 tool.failed(error 点名字段);
+    // 处理器自己的 {ok:false} 形态也仍认(直调 toolCall 的路径)。
+    const rejected = (resp, field) => {
+      const r = resp && (resp.result || resp);
+      const e = (r && r.error) || (resp && resp.error) || '';
+      const msg = typeof e === 'string' ? e : String((e && e.message) || '');
+      return !!resp && (resp.ok === false || (r && r.ok === false)) && new RegExp(field).test(msg);
+    };
+    const f1 = await tool(WB_PORT, token, 'codebase_symbol_search', { root: WORK });
+    ok(rejected(f1, 'symbol'), '(f) 缺 symbol 被人话拒绝');
+    const f2 = await tool(WB_PORT, token, 'codebase_symbol_search', { root: WORK, symbol: 'foo', kind: 'bogus' });
+    ok(rejected(f2, 'kind'), '(f) 非法 kind 被人话拒绝');
   } catch (e) { console.log('ERROR ' + e.message); fail++; }
   finally {
     if (wb && wb.pid) { try { killOwnTree(wb); } catch { /* ignore */ } }

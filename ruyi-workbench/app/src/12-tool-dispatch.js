@@ -2124,7 +2124,11 @@ function jsonSchemaCoerceValue(schema, value) {
   if (t === 'object' && typeof value === 'object' && !Array.isArray(value)) { jsonSchemaCoerceObject(schema, value); return value; }
   return value;
 }
-function jsonSchemaCoerceObject(schema, obj) {
+// 少数可选枚举字段的处理器本就约定「不认识的值回落默认」(e2e 钉着,如 workbench_self_status 的 section → 'all')。
+// 这些字段上的非法值在公共闸里直接去掉、交给处理器的默认,而不是拒绝;其余枚举(如 script_run.language)照旧拒绝 ——
+// 把 'cobol' 静默当 powershell 跑才是真危险。
+const LENIENT_ENUM_FALLBACK_FIELDS = Object.freeze({ workbench_self_status: Object.freeze(['section']) });
+function jsonSchemaCoerceObject(schema, obj, lenientKeys) {
   const props = (schema && schema.properties) || {};
   const required = new Set(Array.isArray(schema && schema.required) ? schema.required : []);
   for (const key of Object.keys(props)) {
@@ -2132,6 +2136,7 @@ function jsonSchemaCoerceObject(schema, obj) {
     const sub = props[key];
     if (obj[key] === '' && Array.isArray(sub && sub.enum) && !required.has(key) && !sub.enum.includes('')) { delete obj[key]; continue; }
     obj[key] = jsonSchemaCoerceValue(sub, obj[key]);
+    if (lenientKeys && lenientKeys.includes(key) && !required.has(key) && Array.isArray(sub && sub.enum) && !sub.enum.includes(obj[key])) delete obj[key];
   }
 }
 // 返回 null = 通过;否则是可直接回给模型的 {ok:false, code:'invalid-arguments', ...}。
@@ -2143,7 +2148,7 @@ function validateNativeToolArgs(name, args) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
     return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
   }
-  jsonSchemaCoerceObject(schema, args);
+  jsonSchemaCoerceObject(schema, args, LENIENT_ENUM_FALLBACK_FIELDS[name]);
   const problems = jsonSchemaObjectProblems(schema, args, '');
   if (!problems.length) return null;
   const props = schema.properties || {};

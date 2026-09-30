@@ -1287,7 +1287,7 @@ const MCP_TOOLS = [
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
-              model: { type: 'string', description: 'explicit model override for THIS node; omit by default (the runtime uses the configured sub-agent model, then the conversation model). Set only when the task needs a different model; it must match the node engine.' },
+              model: { type: 'string', description: 'optional explicit model override for THIS node. Omit by default so the runtime can validate and use the configured sub-agent preferred endpoint/model, then fall back to the current conversation endpoint/model. Set only when the user/task requires a different model; it must match the node engine.' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
               isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree: run this node in a detached Git worktree and keep its commit for explicit user application (never auto-merged)' },
               outputSchema: { type: 'object', description: 'optional JSON Schema for this node final JSON value; invalid JSON/schema fails the node. Fields that may be unavailable must allow null, e.g. type:["integer","null"].' },

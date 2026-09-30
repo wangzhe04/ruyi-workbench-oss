@@ -41,7 +41,7 @@ const filler = (tag, n) => Array.from({ length: n }, (_, i) => `${tag} line ${St
 fs.mkdirSync(WORK, { recursive: true });
 {
   // 大文件要大到「蒸发掉它」能把估算压到 L1 低水位(预算 × compactionPlan.l1SufficientRatio)以下 —— 只回到预算以内
-  // 不再算 L1 够了(会当场升 L2)。820 行 ≈ 12.7K 估算 token,仍在 file_read 截断上限以内。
+  // 不再算 L1 够了(会当场升 L2)。820 行 ≈ 12.7K 估算 token(≈44K 字符),读时显式 limit:50000,仍在 file_read 单页上限以内。
   const lines = filler('big', 820).split('\n');
   lines.splice(60, 0, `the answer is ${FACT}`);
   fs.writeFileSync(path.join(WORK, 'big.txt'), lines.join('\n'), 'utf8');
@@ -66,7 +66,8 @@ function handler(req) {
   subBodies.push(req.body);
   const n = toolResults(req).length;
   const file = name => ({ path: path.join(WORK, name) });
-  if (n === 0) return toolCallFrames('file_read', file('big.txt'), 'call_big');
+  // big.txt ≈ 44K 字符,超过 file_read 的缺省页(40K,工具集优化批按模型上限收紧),显式 limit 读全(上限 50K)。
+  if (n === 0) return toolCallFrames('file_read', { ...file('big.txt'), limit: 50000 }, 'call_big');
   if (n === 1) return toolCallFrames('file_read', file('s1.txt'), 'call_s1');
   if (n === 2) return toolCallFrames('file_read', file('s2.txt'), 'call_s2');
   if (n === 3) {

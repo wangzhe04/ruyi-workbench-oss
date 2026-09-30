@@ -51062,7 +51062,11 @@ function jsonSchemaCoerceValue(schema, value) {
   if (t === 'object' && typeof value === 'object' && !Array.isArray(value)) { jsonSchemaCoerceObject(schema, value); return value; }
   return value;
 }
-function jsonSchemaCoerceObject(schema, obj) {
+// 少数可选枚举字段的处理器本就约定「不认识的值回落默认」(e2e 钉着,如 workbench_self_status 的 section → 'all')。
+// 这些字段上的非法值在公共闸里直接去掉、交给处理器的默认,而不是拒绝;其余枚举(如 script_run.language)照旧拒绝 ——
+// 把 'cobol' 静默当 powershell 跑才是真危险。
+const LENIENT_ENUM_FALLBACK_FIELDS = Object.freeze({ workbench_self_status: Object.freeze(['section']) });
+function jsonSchemaCoerceObject(schema, obj, lenientKeys) {
   const props = (schema && schema.properties) || {};
   const required = new Set(Array.isArray(schema && schema.required) ? schema.required : []);
   for (const key of Object.keys(props)) {
@@ -51070,6 +51074,7 @@ function jsonSchemaCoerceObject(schema, obj) {
     const sub = props[key];
     if (obj[key] === '' && Array.isArray(sub && sub.enum) && !required.has(key) && !sub.enum.includes('')) { delete obj[key]; continue; }
     obj[key] = jsonSchemaCoerceValue(sub, obj[key]);
+    if (lenientKeys && lenientKeys.includes(key) && !required.has(key) && Array.isArray(sub && sub.enum) && !sub.enum.includes(obj[key])) delete obj[key];
   }
 }
 // 返回 null = 通过;否则是可直接回给模型的 {ok:false, code:'invalid-arguments', ...}。
@@ -51081,7 +51086,7 @@ function validateNativeToolArgs(name, args) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
     return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
   }
-  jsonSchemaCoerceObject(schema, args);
+  jsonSchemaCoerceObject(schema, args, LENIENT_ENUM_FALLBACK_FIELDS[name]);
   const problems = jsonSchemaObjectProblems(schema, args, '');
   if (!problems.length) return null;
   const props = schema.properties || {};
@@ -52807,7 +52812,7 @@ const MCP_TOOLS = [
               dependsOn: { type: 'array', items: { type: 'string' }, description: 'node ids that must finish before this node starts' },
               toolTier: { type: 'string', enum: ['read', 'edit', 'exec'] },
               maxIters: { type: 'number' },
-              model: { type: 'string', description: 'explicit model override for THIS node; omit by default (the runtime uses the configured sub-agent model, then the conversation model). Set only when the task needs a different model; it must match the node engine.' },
+              model: { type: 'string', description: 'optional explicit model override for THIS node. Omit by default so the runtime can validate and use the configured sub-agent preferred endpoint/model, then fall back to the current conversation endpoint/model. Set only when the user/task requires a different model; it must match the node engine.' },
               resources: { type: 'array', items: { type: 'string' }, description: 'exclusive resources required by this node; use read: prefix for shared access' },
               isolation: { type: 'string', enum: ['none', 'worktree'], description: 'worktree: run this node in a detached Git worktree and keep its commit for explicit user application (never auto-merged)' },
               outputSchema: { type: 'object', description: 'optional JSON Schema for this node final JSON value; invalid JSON/schema fails the node. Fields that may be unavailable must allow null, e.g. type:["integer","null"].' },
