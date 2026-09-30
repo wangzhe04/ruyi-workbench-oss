@@ -778,7 +778,14 @@ function normalizeMcpToolResult(res) {
       omitted.push(o);
     }
   }
-  const textOut = texts.length > 1 ? texts.join('\n') : (texts[0] || '');
+  // 多个 text 块时先看【第一块】是不是 JSON(结构化结果 {ok:false,error,…} 后面常跟一条 warning 之类的附注块):是 → 以它为载荷,
+  // 其余块放 extraText;否则才把各块拼起来。修前(拼接后再解析)会让「第一块是失败 JSON + 第二块附注」整体变成 ok:true 的文本。
+  let textOut = texts.length > 1 ? texts.join('\n') : (texts[0] || '');
+  let extraText = '';
+  if (texts.length > 1) {
+    const head = safeJsonParse(texts[0], undefined);
+    if (head && typeof head === 'object') { textOut = texts[0]; extraText = texts.slice(1).join('\n'); }
+  }
   const withExtras = base => {
     if (images.length) {
       if (base.image_base64 === undefined && base.image === undefined) {
@@ -790,6 +797,7 @@ function normalizeMcpToolResult(res) {
       }
     }
     if (omitted.length && base.omittedBlocks === undefined) base.omittedBlocks = omitted;
+    if (extraText && base.extraText === undefined) base.extraText = extraText;
     return base;
   };
   if (textOut) {

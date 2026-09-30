@@ -2674,7 +2674,26 @@ async function writeWebCache(entry) {
   try {
     await fsp.mkdir(paths.webcache, { recursive: true });
     await atomicWriteJson(webCachePath(entry.url), JSON.stringify(entry));   // 25.1 收编
+    await evictWebCacheOverCap();
   } catch { /* best-effort cache write; never fail the fetch on a cache error */ }
+}
+// 缓存条目现在存完整抽取文本(≤40 万字符,重定向后还有第二份),没有上限会无限长。这里是【硬兜底】:超过 WEB_CACHE_HARD_MAX_ENTRIES
+// (WCW_WEBCACHE_HARD_MAX 可覆写,测试缝)条就按 mtime 删最旧的;用户配的 storagePolicy.webcacheMaxEntries(可更小)仍由 storageSweep 管。
+const WEB_CACHE_HARD_MAX_ENTRIES = 2000;
+async function evictWebCacheOverCap() {
+  const max = Math.max(1, Math.floor(Number(process.env.WCW_WEBCACHE_HARD_MAX)) || WEB_CACHE_HARD_MAX_ENTRIES);
+  let files = [];
+  try { files = (await fsp.readdir(paths.webcache)).filter(f => f.endsWith('.json')); } catch { return 0; }
+  if (files.length <= max) return 0;
+  const rows = [];
+  for (const f of files) {
+    const st = await fsp.stat(path.join(paths.webcache, f)).catch(() => null);
+    if (st) rows.push({ f, mtime: st.mtimeMs });
+  }
+  rows.sort((a, b) => a.mtime - b.mtime || (a.f < b.f ? -1 : 1));
+  let n = 0;
+  for (const v of rows.slice(0, Math.max(0, rows.length - max))) { await fsp.unlink(path.join(paths.webcache, v.f)).catch(() => {}); n += 1; }
+  return n;
 }
 
 // v0.9 F2: resolve a hostname and refuse if ANY resolved address is private/loopback (DNS-rebinding /
@@ -2733,9 +2752,9 @@ function classifyFetchError(err) {
 // 只认 http:// / https:// 形式的代理(带 user:pass@ 时发 Proxy-Authorization: Basic);socks 等其余协议视为未配置。
 // 默认不走代理:localhost / 回环与私网 IPv4 字面量 / *.local / 不含点的单标签主机名(与 WinINET「本地地址不走代理」同口径,
 // 内网服务与工作台自身的 loopback 桥接都在这一类里),再加 NO_PROXY(`*`、域名后缀、host:port、IPv4 CIDR)。
-// 【SSRF 取舍】走代理时目标域名由代理解析,本机没有解析结果可查 → 跳过「解析到内网地址」的 DNS 预检与连接地址锁定(那两道只在
-// 直连时成立)。仍然有效的:每一跳的 ssrfCheck(协议、回环 / 私网 / 元数据的字面量、*.local / *.internal)、重定向逐跳复查、
-// 私网字面量一律不发包。即:直连时防「公网域名解析到内网」的重绑定防线,在走代理时由代理侧负责。
+// 【SSRF】走代理时目标域名仍由代理解析,所以「连接地址锁定」(pin)不适用;但「解析到内网地址」的 DNS 预检照跑(nip.io / 重绑定类
+// 名字 127.0.0.1.nip.io 只要本机 DNS 答得出来就拦):本机解析【失败】(只有代理才解析得了的内网 / 政企域名)返回 null = 放行,
+// 解析到回环 / 私网 / 链路本地 = 拒绝。每一跳的 ssrfCheck(协议、字面量、*.local / *.internal)与重定向逐跳复查同样有效。
 function parseProxyUrl(raw) {
   let s = String(raw || '').trim();
   if (!s) return null;
@@ -2798,13 +2817,14 @@ function proxyForUrl(target, env) {
   return parseProxyUrl(raw);
 }
 // HTTP CONNECT 隧道:成功 resolve 一个已连到 目标host:port 的 socket;失败 reject 带 proxyFail 标记的 Error。
-function proxyConnectTunnel(u, proxy, timeoutMs) {
+function proxyConnectTunnel(u, proxy, timeoutMs, onPendingReq) {
   return new Promise((resolve, reject) => {
     const plib = proxy.protocol === 'https:' ? require('https') : require('http');
     const hostPort = u.hostname + ':' + (u.port || (u.protocol === 'https:' ? '443' : '80'));
     const headers = { host: hostPort };
     if (proxy.auth) headers['proxy-authorization'] = proxy.auth;
     const req = plib.request({ host: proxy.hostname, port: proxy.port, method: 'CONNECT', path: hostPort, headers, timeout: timeoutMs });
+    if (typeof onPendingReq === 'function') { try { onPendingReq(req); } catch { /* ignore */ } } // 让总期限能掐断还没握完手的 CONNECT
     const fail = (msg, cause) => { const err = new Error(msg); err.proxyFail = true; if (cause && cause.code) err.code = cause.code; reject(err); };
     req.on('connect', (res, socket) => {
       if (res.statusCode === 200) { req.removeAllListeners('timeout'); socket.setTimeout(0); resolve(socket); return; }
@@ -2818,7 +2838,7 @@ function proxyConnectTunnel(u, proxy, timeoutMs) {
 }
 // 统一的「发起请求」:不走代理 = 原样 lib.request(u, opts, cb);走代理 = http 用绝对 URI 请求发给代理,https 先 CONNECT 再叠 TLS。
 // 返回 ClientRequest(调用方自己挂 timeout / error 事件并 end);隧道失败时 reject(proxyFail)。
-async function openHttpRequest(u, opts, cb, proxy) {
+async function openHttpRequest(u, opts, cb, proxy, onPendingReq) {
   const https = u.protocol === 'https:';
   if (!proxy) return (https ? require('https') : require('http')).request(u, opts, cb);
   const o = Object.assign({}, opts);
@@ -2829,10 +2849,11 @@ async function openHttpRequest(u, opts, cb, proxy) {
     if (proxy.auth) o.headers['proxy-authorization'] = proxy.auth;
     return (proxy.protocol === 'https:' ? require('https') : require('http')).request(o, cb);
   }
-  const socket = await proxyConnectTunnel(u, proxy, opts.timeout || 20000);
+  const socket = await proxyConnectTunnel(u, proxy, opts.timeout || 20000, onPendingReq);
   const host = u.hostname.replace(/^\[|\]$/g, '');
   delete o.agent; // agent 缺省 + createConnection 才会真的用它(agent:false 会新建 Agent 忽略 createConnection)
-  o.createConnection = () => require('tls').connect({ socket, servername: require('net').isIP(host) ? undefined : host });
+  // host 必须带上:tls.connect({socket}) 缺省按 'localhost' 校验证书身份,IP 字面量目标(https://<公网 IP>/)会因此永远验不过。
+  o.createConnection = () => require('tls').connect({ socket, host, servername: require('net').isIP(host) ? undefined : host });
   return require('https').request(u, o, cb);
 }
 
@@ -2903,10 +2924,11 @@ function classifyFetchedBody(contentType, buf) {
 //  statusCode?, blocked? }. v1.1-W1a: a 'reset' failure (对端掐线 / aborted) is retried ONCE automatically
 // before surfacing — anti-scrape edges often reset the first probe but serve the second. Never throws.
 // timeoutMs 是【空闲】超时(下载大文件靠它);totalTimeoutMs(可选)是整条重定向链的硬期限 —— 修前对端每 400ms 滴一个字节,
-// timeoutMs:1000 的请求能挂 4.8 秒(NE-11)。走代理(NE-10)时跳过 DNS 预检与连接锁定,见上文的取舍说明。
+// timeoutMs:1000 的请求能挂 4.8 秒(NE-11)。走代理(NE-10)时 DNS 预检照跑、只是不锁定连接地址,见上文。
 function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTimeoutMs = 0, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, _retriedReset = false } = {}) {
   return new Promise(resolveOuter => {
     let hops = 0, settled = false, usedProxy = false, curReq = null, overall = null;
+    const startedAt = performance.now();
     const resolve = v => {
       if (settled) return; settled = true;
       if (overall) clearTimeout(overall);
@@ -2930,11 +2952,12 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
       if (proxy) usedProxy = true;
       // v0.9 F2 / v1.4.1 audit #2: DNS resolve-then-check —— 拒绝解析到内网的名字(rebinding 守护),并把已验证的
       // 公网地址【锁定】给本次连接(pinned lookup),使 http/https 不再独立二次解析(消除 TOCTOU 重绑定窗口)。
-      const dnsRes = proxy ? null : await dnsResolvesToPrivate(u.hostname);
+      // 走代理时同样本机预检(只为拦「解析到内网」);本机解析不了 → null → 放行,交给代理解析。走代理不 pin(连接对象是代理)。
+      const dnsRes = await dnsResolvesToPrivate(u.hostname);
       if (settled) return;
       if (dnsRes && dnsRes.blocked) { resolve({ ok: false, error: '解析到内网地址', failClass: 'blocked', blocked: dnsRes.blocked }); return; }
       const reqOpts = { method: 'GET', timeout: timeoutMs, headers: browserHeaders({ 'user-agent': userAgent }) };
-      const pin = dnsRes && dnsRes.pin;
+      const pin = !proxy && dnsRes && dnsRes.pin;
       if (pin && pin.length) {
         // 锁定到已验证公网地址(literal IP / 解析失败 → dnsRes 为 null → 不 pin,literal 已被 ssrfCheck 判过)。
         reqOpts.lookup = (h, opts, cb) => { if (opts && opts.all) cb(null, pin); else cb(null, pin[0].address, pin[0].family); };
@@ -2990,12 +3013,15 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
         }
         // v1.1-W1a (T1): a 'reset'/aborted failure is often a transient anti-scrape blip → retry once.
         if (failClass === 'reset' && !_retriedReset) {
-          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, totalTimeoutMs, maxBytes, userAgent, _retriedReset: true });
+          // 重试只用剩余的总期限,不重新计满(否则总时长可到 2 倍)。
+          let remaining = totalTimeoutMs;
+          if (totalTimeoutMs > 0) { remaining = totalTimeoutMs - (performance.now() - startedAt); if (remaining <= 0) { resolve({ ok: false, error: `timeout after ${totalTimeoutMs}ms (total)`, failClass: 'timeout' }); return; } }
+          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, totalTimeoutMs: remaining, maxBytes, userAgent, _retriedReset: true });
           resolve(retry); return;
         }
         resolve({ ok: false, error: (e && e.message) || 'request error', failClass });
       };
-      try { req = await openHttpRequest(u, reqOpts, onRes, proxy); } catch (e) { await onErr(e); return; }
+      try { req = await openHttpRequest(u, reqOpts, onRes, proxy, r => { curReq = r; }); } catch (e) { await onErr(e); return; }
       curReq = req;
       if (settled) { try { req.destroy(); } catch { /* ignore */ } return; }
       req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });
@@ -3359,8 +3385,9 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
 // → NOT SSRF-checked (see note atop this section). Returns {ok, results:[{title,url,snippet}], backend}.
 // NE-11:① 200 却不是 JSON(登录页 / WAF 页 / searxng 没开 json 格式)不再静默回 results:[],而是 ok:false 说明原因;
 // ② 4xx / 5xx 带针对性的 hint;③ 配置的后端失败时回退一次内置免费搜索,结果里带 fallbackFrom / fallbackReason。
-// 例外:searxng / custom 指向内网地址(管理员刻意配的内部搜索)时【不】回退 —— 回退会把查询词发给公网的 Bing / 百度,
-// 与「只用内网搜索」的意图相反;此时结果带 fallbackSkipped 说明。
+// 回退会把查询词发给公网的 Bing / 百度,所以:searxng / custom(管理员自托管 / 自选的端点,不论内网还是有域名)【永不】回退;
+// bing / brave / tavily / bocha 这类 API-key 后端只有 searchBackend.fallbackToBuiltin === true(默认关)才回退;
+// 没回退时结果带 fallbackSkipped 说明原因与该开关。
 function searchFailFromResponse(backend, r) {
   const st = r.statusCode;
   const out = { ok: false, error: r.error || ('HTTP ' + st), backend };
@@ -3383,20 +3410,15 @@ function searchParseJsonResponse(backend, r) {
   }
   return { body };
 }
-function searchBackendIsIntranet(sb) {
-  if (!sb || (sb.type !== 'searxng' && sb.type !== 'custom')) return false;
-  try {
-    const h = new URL(String(sb.baseUrl || '')).hostname.replace(/^\[|\]$/g, '').toLowerCase();
-    return h === 'localhost' || h === '::1' || isPrivateIpv4(h) || /\.(local|internal)$/.test(h) || (!h.includes('.') && !h.includes(':')) || /^f[cd][0-9a-f]{0,2}:|^fe80:/.test(h);
-  } catch { return false; }
-}
+function searchBackendNeverFallsBack(sb) { return !!sb && (sb.type === 'searxng' || sb.type === 'custom'); }
 async function webSearch(args, config) {
   const first = await webSearchViaBackend(args, config);
   const sb = (config && config.searchBackend) || { type: 'none' };
   const backend = sb.type || 'none';
   const query = String(args && args.query || '').trim();
   if (first.ok !== false || !query || backend === 'none' || backend === 'builtin') return first;
-  if (searchBackendIsIntranet(sb)) return Object.assign({}, first, { fallbackSkipped: '内网搜索后端失败;为避免把查询词发给公网搜索引擎,没有回退到内置搜索' });
+  if (searchBackendNeverFallsBack(sb)) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;为避免把查询词发给公网搜索引擎,没有回退到内置搜索` });
+  if (sb.fallbackToBuiltin !== true) return Object.assign({}, first, { fallbackSkipped: `搜索后端 ${backend} 失败;没有回退到内置免费搜索(会把查询词发给公网的 Bing / 百度)`, hint: ((first && first.hint) ? first.hint + ';' : '') + '如接受回退,在 config.json 的 searchBackend 里设 fallbackToBuiltin:true' });
   const maxResults = Math.min(20, Math.max(1, Number(args && args.maxResults) || 8));
   const timeoutMs = Number(args && args.timeoutMs) || 12000;
   let fb = null;
@@ -3563,7 +3585,7 @@ async function httpRequest(args = {}) {
       if (proxy && (failClass === 'dns' || failClass === 'connect')) { fail(`无法连接代理 ${proxy.display}: ${(e && e.message) || 'request error'}`, 'proxy'); return; }
       fail((e && e.message) || 'request error', failClass);
     };
-    openHttpRequest(u, { method, headers, timeout: timeoutMs }, onRes, proxy).then(r => {
+    openHttpRequest(u, { method, headers, timeout: timeoutMs }, onRes, proxy, pending => { req = pending; }).then(r => {
       req = r;
       if (done) { try { req.destroy(); } catch { /* ignore */ } return; }
       req.on('timeout', () => { req.destroy(new Error(`timeout after ${timeoutMs}ms`)); });

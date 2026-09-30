@@ -10,6 +10,7 @@
 //   [S7] python:UTF-8 环境变量
 //   [S8] PowerShell 一次性运行带 -NonInteractive 与静音进度条(假 powershell.exe)
 //   [S9] shell_poll:状态字段在前、输出封顶、可分页、waitMs 长轮询;后台任务主进程退出后即 running:false
+//   [S10] shell_poll waitMs 长轮询可被用户插话(mode:interrupt)打断 —— 修前要等满 waitMs(≤30s)
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -45,6 +46,8 @@ if (mode === 'argv') {
   setTimeout(() => console.log('line1'), 200);
   setTimeout(() => console.log('line2'), 1200);
   setTimeout(() => process.exit(0), 1600);
+} else if (mode === 'quiet') {
+  setTimeout(() => {}, 60000);
 } else if (mode === 'daemon') {
   cp.spawn(process.execPath, ['-e', 'setTimeout(()=>{},8000)'], { stdio: ['ignore', 'inherit', 'inherit'], detached: true }).unref();
   console.log('main done');
@@ -238,4 +241,48 @@ test('[S9] 后台任务:主进程退出、孙进程占着管道 → 及时 runni
   assert.ok(list.shells.some(s => s.shellId === 'dm1' && s.running === false));
   const k = await srv.toolCall('shell_kill', { shellId: 'dm1' }, ctx());
   assert.equal(k.ok, true, '退出的会话可回收');
+});
+
+test('[S10] shell_poll {waitMs:30000} 被插话打断:下一轮模型请求在秒级到达,不是等满 30 秒', { skip: skipFake }, async () => {
+  const { startFakeProvider, textFrames, toolCallFrames, usageFrame } = require('../lib/fake-openai-provider');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const fake = await startFakeProvider({
+    handler(req) {
+      if (!req.stream || /起名字/.test(JSON.stringify(req.messages))) return textFrames('{"title":"t","gist":"g"}');
+      const tools = req.messages.filter(m => m.role === 'tool').length;
+      if (tools === 0) { process.env.FAKE_PS_MODE = 'quiet'; return toolCallFrames('shell_start', { command: 'fake', shellId: 'q10', cwd: ws }, 'call_start'); }
+      if (tools === 1) return toolCallFrames('shell_poll', { shellId: 'q10', waitMs: 30000 }, 'call_poll');
+      return [...textFrames('done'), usageFrame(8, 4)];
+    },
+  });
+  try {
+    fs.writeFileSync(path.join(root, 'data', 'config.json'), JSON.stringify({
+      configSchema: 9, permissionMode: 'bypass', defaultWorkspace: ws, desktopMcp: { enabled: false },
+      providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model' }],
+      activeProvider: 'fake',
+    }), 'utf8');
+    const s = await srv.createSession({ title: 's10', cwd: ws });
+    let pollStarted = null;
+    const started = new Promise(r => { pollStarted = r; });
+    const turn = srv.runSessionTurn({ sessionId: s.id, message: '等一下那个任务', cwd: ws, source: 'http',
+      onEvent: e => { if (e && e.type === 'tool_use' && e.name === 'shell_poll') pollStarted(); } });
+    turn.catch(() => {});
+    assert.notEqual(await Promise.race([started, sleep(15000).then(() => 'timeout')]), 'timeout', '前提:shell_poll 已开始');
+    await sleep(600);                                        // 让它真的进了长轮询循环
+    const reg = srv.activeChildren.get(s.id);
+    assert.ok(reg && typeof reg.interruptToolWait === 'function', 'shell_poll 登记了可中断的等待(修前 interruptToolWait 为 null)');
+    const before = fake.requests.length;
+    reg.steerQueue.push({ text: '别等了,先看一下别的', mode: 'interrupt' });
+    const t0 = process.hrtime.bigint();
+    reg.interruptToolWait();
+    for (let i = 0; i < 250 && fake.requests.length <= before; i++) await sleep(20);
+    const took = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(fake.requests.length > before, '插话之后模型的下一轮请求应在数秒内到达(修前要等满 30 s)');
+    assert.ok(took < 6000, '用了 ' + took + ' ms');
+    await Promise.race([turn.catch(() => {}), sleep(10000)]);
+  } finally {
+    await srv.toolCall('shell_kill', { shellId: 'q10' }, ctx()).catch(() => {});
+    await fake.close();
+    try { fs.unlinkSync(path.join(root, 'data', 'config.json')); } catch { /* ignore */ }
+  }
 });
