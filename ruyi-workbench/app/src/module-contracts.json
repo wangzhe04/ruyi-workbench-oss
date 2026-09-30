@@ -6770,7 +6770,7 @@
         },
         {
           "provider": "09d-token-estimation.js",
-          "symbol": "estimateTextTokens",
+          "symbol": "estimateTextTokensMemo",
           "kinds": [
             "call"
           ]
@@ -7611,15 +7611,27 @@
       "provides": [
         "CJK_RE",
         "CONTEXT_WINDOW_FALLBACK",
+        "ESTIMATE_CHAR_CLASS",
+        "ESTIMATE_KEYWORD_RE",
         "EVAPORATED_PREFIX",
+        "TOKEN_ESTIMATE_MEMO_MAX_CHARS",
+        "TOKEN_ESTIMATE_MEMO_MAX_ENTRIES",
+        "TOKEN_ESTIMATE_MEMO_MIN_CHARS",
         "classifyTextForEstimate",
         "countCjkCodeUnits",
+        "countEstimateKeywords",
         "estimateBucketsV1On",
         "estimateContentTokens",
+        "estimateContentTokensBy",
         "estimateHistoryTokens",
         "estimateTextTokens",
+        "estimateTextTokensMemo",
         "fmtTokensServer",
-        "setEstimateBucketsV1"
+        "isRegexSpaceCodeUnit",
+        "setEstimateBucketsV1",
+        "tokenEstimateMemo",
+        "tokenEstimateMemoEntry",
+        "tokensFromTextCounts"
       ],
       "requires": [
         {

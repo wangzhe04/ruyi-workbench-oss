@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3098 | 2934 | 512 | 68 | 0 | 1 |
+| 66 | 3110 | 2934 | 512 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -54,7 +54,7 @@
 | 36 | `07-autonomy.js` | orchestration | 89 | 65 | 17 |
 | 37 | `08-agent-runs.js` | orchestration | 111 | 90 | 19 |
 | 38 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 39 | `09d-token-estimation.js` | orchestration | 11 | 2 | 2 |
+| 39 | `09d-token-estimation.js` | orchestration | 23 | 2 | 2 |
 | 40 | `09-workflow.js` | orchestration | 16 | 219 | 25 |
 | 41 | `10-context-governance.js` | orchestration | 137 | 82 | 17 |
 | 42 | `11-native-tools.js` | tools | 119 | 33 | 5 |
@@ -250,7 +250,7 @@
 | `07-autonomy.js` | `06-provider-engine.js` | backward | `appendResponseLanguagePolicy`, `toolRequirementsMet` |
 | `07-autonomy.js` | `06i-steward-core.js` | backward | `isStewardToolName`, `stewardToolPermanentlyExempt` |
 | `07-autonomy.js` | `08-agent-runs.js` | forward | `saveAgentRun` |
-| `07-autonomy.js` | `09d-token-estimation.js` | forward | `estimateTextTokens` |
+| `07-autonomy.js` | `09d-token-estimation.js` | forward | `estimateTextTokensMemo` |
 | `07-autonomy.js` | `10-context-governance.js` | forward | `CONTEXT_OVERFLOW_PATTERNS`, `cacheContextLength`, `extractContextLength`, `isContextOverflowError` |
 | `07-autonomy.js` | `13f-native-tool-schemas.js` | forward | `MCP_TOOLS` |
 | `08-agent-runs.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text`, `zlib` |
