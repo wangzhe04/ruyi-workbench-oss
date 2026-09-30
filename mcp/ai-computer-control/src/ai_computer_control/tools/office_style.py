@@ -254,6 +254,36 @@ _FONT_CHAIN_CACHE: dict | None = None
 
 # (family-name-for-matplotlib, absolute font file). family-name is what we set into rcParams AND what
 # FontProperties uses; we register the file under that name so the two always agree.
+def _font_candidates() -> list:
+    """(family, file) probe list. Windows first and %WINDIR% / %SystemRoot% aware (Windows installed on a
+    non-C: drive), plus the per-user font folder; then DengXian; then the usual Linux / macOS CJK faces so
+    charts stay legible when the tool runs off Windows."""
+    win = os.environ.get("WINDIR") or os.environ.get("SystemRoot") or r"C:\Windows"
+    sysfonts = os.path.join(win, "Fonts")
+    userfonts = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Windows", "Fonts") \
+        if os.environ.get("LOCALAPPDATA") else ""
+    out = [
+        ("Microsoft YaHei", os.path.join(sysfonts, "msyh.ttc")),
+        ("Microsoft YaHei", os.path.join(sysfonts, "msyh.ttf")),
+        ("SimHei", os.path.join(sysfonts, "simhei.ttf")),
+        ("SimSun", os.path.join(sysfonts, "simsun.ttc")),
+        ("DengXian", os.path.join(sysfonts, "Deng.ttf")),
+    ]
+    if userfonts:
+        out += [("Microsoft YaHei", os.path.join(userfonts, "msyh.ttc")),
+                ("SimHei", os.path.join(userfonts, "simhei.ttf"))]
+    if os.name != "nt":
+        out += [
+            ("Noto Sans CJK SC", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+            ("Noto Sans CJK SC", "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"),
+            ("WenQuanYi Zen Hei", "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+            ("WenQuanYi Micro Hei", "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
+            ("PingFang SC", "/System/Library/Fonts/PingFang.ttc"),
+        ]
+    return out
+
+
+# Kept for callers/tests that read the legacy module attribute (the Windows trio).
 _FONT_CANDIDATES = [
     ("Microsoft YaHei", r"C:\Windows\Fonts\msyh.ttc"),
     ("SimHei", r"C:\Windows\Fonts\simhei.ttf"),
@@ -273,7 +303,7 @@ def font_chain() -> dict:
     global _FONT_CHAIN_CACHE
     if _FONT_CHAIN_CACHE is not None:
         return _FONT_CHAIN_CACHE
-    for family, path in _FONT_CANDIDATES:
+    for family, path in _font_candidates():
         if os.path.exists(path):
             _FONT_CHAIN_CACHE = {"family": family, "path": path}
             return _FONT_CHAIN_CACHE
