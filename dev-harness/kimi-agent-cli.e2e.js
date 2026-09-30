@@ -220,7 +220,7 @@ function getJson(port, requestPath) {
 }
 function health(port) { return getJson(port, '/health'); }
 let testToken = '';
-// 最近几发 POST 的结果(路径、状态码、耗时、回包摘要或错误)。stream 的 onEvent 里发的决定(/api/permission/decision)
+// 最近几发 POST 的结果(路径、状态码、回包摘要或错误)。stream 的 onEvent 里发的决定(/api/permission/decision)
 // 失败会被 .catch 吞掉 —— Windows CI 上偶发「permission_request 之后 30 s 无事件」时,光看事件流分不清是决定没发出去、
 // 被拒了、还是发出去了但回合没接住。超时报错里带上这几行,下次出现就能直接看出是哪一种。
 const postLog = [];
@@ -228,17 +228,16 @@ function notePost(entry) { postLog.push(entry); if (postLog.length > 8) postLog.
 function postJson(port, requestPath, body) {
   return new Promise((resolve, reject) => {
     const raw = JSON.stringify(body);
-    const startedAt = Date.now();
     const req = http.request({ host: '127.0.0.1', port, path: requestPath, method: 'POST', timeout: 5000,
       headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...(testToken ? { 'x-wcw-token': testToken } : {}) } }, res => {
       let text = ''; res.on('data', chunk => (text += chunk));
       res.on('end', () => {
-        notePost({ path: requestPath, status: res.statusCode, ms: Date.now() - startedAt, body: text.slice(0, 160) });
+        notePost({ path: requestPath, status: res.statusCode, body: text.slice(0, 160) });
         try { resolve(JSON.parse(text)); } catch { resolve(null); }
       });
     });
     req.on('timeout', () => { req.destroy(new Error('post timeout (5 s)')); });
-    req.on('error', error => { notePost({ path: requestPath, ms: Date.now() - startedAt, error: String(error && error.message || error) }); reject(error); });
+    req.on('error', error => { notePost({ path: requestPath, error: String(error && error.message || error) }); reject(error); });
     req.end(raw);
   });
 }
