@@ -1858,7 +1858,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // already-queued user instruction is consumed at the next normal iteration boundary.
   const toolHeartbeatMs = Math.max(250, Number(process.env.WCW_TOOL_HEARTBEAT_MS)
     || Math.min(15000, Math.max(1000, Math.floor(idleLimitMs / 3))));
-  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run']);
+  // shell_poll:waitMs 长轮询(≤30s)循环里看 ctx.signal,必须可被插话 / 停止打断,否则排队的插话要等满 30s。
+  const INTERRUPTIBLE_NATIVE_TOOLS = new Set(['powershell_run', 'script_run', 'shell_poll']);
   const awaitProviderTool = async (tc, runner, interruptible = false) => {
     const startedAt = Date.now();
     const toolAbort = interruptible ? new AbortController() : null;
@@ -2797,7 +2798,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
-            const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj); // N3: 展示副本(agent_result 等可能很大)
+            const shownAgentResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id }); // N3: 展示副本(agent_result 等可能很大)
             onEvent({ type: 'tool_result', id: tc.id, content: shownAgentResult, isError: isErr });
             toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownAgentResult });
             session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
@@ -2987,7 +2988,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // N3: 只有 providerHistory 那份是有界的;SSE 事件与落盘的 toolCalls[].result 原先是完整的 240KB–2MB
           // (含 image_base64 截图)。这里算一份【展示副本】(结构感知收缩 + 大图落附件),事件与落盘共用同一个对象。
           // 历史/hook/指纹仍用完整 resultObj。小结果原样返回(同一引用)。
-          const shownResult = await boundToolResultForDisplay(tc.name, resultObj);
+          const shownResult = await boundToolResultForDisplay(tc.name, resultObj, { sessionId: session.id });
           onEvent({ type: 'tool_result', id: tc.id, content: shownResult, isError: isErr });
           toolCalls.push({ id: tc.id, name: tc.name, input: args, result: shownResult });
           await notifyToolHookEnd(tc, resultObj, iter);

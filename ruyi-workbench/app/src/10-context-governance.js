@@ -592,7 +592,9 @@ function shrinkSerializedToolResult(name, s, cap) {
 
 function truncateToolResult(name, jsonStr) {
   const s = String(jsonStr == null ? '' : jsonStr);
-  const cap = toolResultCharCap(s);
+  // file_read 自己按 40K 字符分页并给 nextOffset:CJK 收紧会把一个默认页(40K 汉字)从中间挖掉,而模型会直接从 nextOffset 续读、
+  // 永远补不上那个洞 —— 所以 file_read 用不收紧的平口径上限(40K 页 + JSON 壳远小于 60K)。
+  const cap = name === 'file_read' ? TOOL_RESULT_CAP : toolResultCharCap(s);
   if (s.length <= cap) return s;
   // A2: 先试图片字段压缩(整体替换,不切中间)。
   const trimmed = s.replace(IMG_B64_TRIM_RE, (match, pre, b64) => {
@@ -648,7 +650,7 @@ function findToolImageFields(value) {
   walk(value, [], 0);
   return found;
 }
-async function boundToolResultForDisplay(name, resultObj) {
+async function boundToolResultForDisplay(name, resultObj, opts = null) {
   try {
     if (!resultObj || typeof resultObj !== 'object' || Array.isArray(resultObj)) return shrinkToolResultForDisplay(name, resultObj);
     let out = resultObj;
@@ -660,13 +662,20 @@ async function boundToolResultForDisplay(name, resultObj) {
         const buf = Buffer.from(img.b64, 'base64');
         const mime = toolImageMime(img.b64, img.mime);
         const ext = mime === 'image/jpeg' ? 'jpg' : mime.slice(6).replace(/[^a-z0-9]/g, '') || 'png';
-        const id = 'toolimg_' + crypto.createHash('sha1').update(buf).digest('hex').slice(0, 24);
+        // 有归属会话时目录名带会话标签(toolimg_<tag>_<hash>):删会话时按前缀整批清(02 removeSessionToolImages)。
+        const sidTag = opts && opts.sessionId ? toolImageSessionTag(opts.sessionId) : '';
+        const id = 'toolimg_' + (sidTag ? sidTag + '_' : '') + crypto.createHash('sha1').update(buf).digest('hex').slice(0, 24);
         const fname = `${String(name || 'tool').replace(/^.+?__/, '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'tool'}.${ext}`;
         let stored = false;
         try {
           await fsp.mkdir(path.join(paths.uploads, id), { recursive: true });
           const target = path.join(paths.uploads, id, fname);
-          await fsp.access(target).catch(async () => { await fsp.writeFile(target, buf); });
+          // 先写临时文件再 rename:崩在半路只会留下 .tmp,不会留下「id = 内容哈希 → 永远被当成完整」的截断图。
+          await fsp.access(target).catch(async () => {
+            const tmp = `${target}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+            try { await fsp.writeFile(tmp, buf); await fsp.rename(tmp, target); }
+            catch (e) { fsp.unlink(tmp).catch(() => {}); throw e; }
+          });
           stored = true;
         } catch { stored = false; }
         const parent = cowToolResultParent(resultObj, img.path, cloneOf);

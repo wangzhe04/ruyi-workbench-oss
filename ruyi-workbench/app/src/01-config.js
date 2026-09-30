@@ -1529,6 +1529,8 @@ function normalizeConfig(raw, opts = {}) {
       // 107-S2 最后一道闸(同 sanitizeProvider):掩码永不落盘。
       baseUrl: typeof raw0.baseUrl === 'string' ? configUrlOrCleared(raw0.baseUrl.trim().slice(0, 1000)) : '',
       apiKey: typeof raw0.apiKey === 'string' ? configSecretValueOrCleared(raw0.apiKey.slice(0, 2048)) : '',
+      // 配置的 API-key 后端失败时是否回退到公网内置搜索(会外发查询词)。缺省 = 关;只在为 true 时落盘,老配置字节不变。
+      ...(raw0.fallbackToBuiltin === true ? { fallbackToBuiltin: true } : {}),
     };
     if (JSON.stringify(sb) !== JSON.stringify(config.searchBackend)) { config.searchBackend = sb; changed = true; }
     else config.searchBackend = sb;

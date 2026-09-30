@@ -156,12 +156,13 @@ test('N3 展示副本:嵌套字段(results[i].body)也按最大字段先收', ()
 // boundToolResultForDisplay 带 IO(uploads 目录),故与上面的纯区间分开抽取,注入临时 uploads 与真 fs。
 const os = require('os');
 const crypto = require('crypto');
-function loadImageBound(uploadsDir) {
+function loadImageBound(uploadsDir, fsOverride) {
   const parts = [constBlock(gov, 'TOOL_IMAGE_KEY_RE'), constBlock(gov, 'TOOL_IMAGE_B64_MIN'), constBlock(gov, 'TOOL_IMAGE_B64_BODY_RE'),
     functionBlock(gov, 'toolImageMime'), functionBlock(gov, 'findToolImageFields'), functionBlock(gov, 'boundToolResultForDisplay'),
     functionBlock(gov, 'cowToolResultParent')].join('\n');
-  return new Function('ESTIMATION_RULES', 'fsp', 'path', 'paths', 'crypto', 'Buffer',
-    `${deps}\n${region}\n${parts}\nreturn boundToolResultForDisplay;`)(ESTIMATION_RULES, fs.promises, path, { uploads: uploadsDir }, crypto, Buffer);
+  return new Function('ESTIMATION_RULES', 'fsp', 'path', 'paths', 'crypto', 'Buffer', 'toolImageSessionTag',
+    `${deps}\n${region}\n${parts}\nreturn boundToolResultForDisplay;`)(ESTIMATION_RULES, fsOverride || fs.promises, path, { uploads: uploadsDir }, crypto, Buffer,
+    sid => 'T' + String(sid).replace(/[^A-Za-z0-9]/g, '').slice(0, 9).padEnd(9, '0'));
 }
 const PNG_HEAD = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 const fakePng = n => Buffer.concat([PNG_HEAD, Buffer.alloc(n, 7)]);
@@ -218,4 +219,52 @@ test('N3 图片:uploads 不可写时只留占位(无 imageAttachments),回合不
     assert.match(shown.image_base64, /^\[image omitted from stored result: \d+ base64 chars\]$/);
     assert.equal(shown.imageAttachments, undefined);
   } finally { fs.rmSync(blocker, { force: true }); }
+});
+
+test('[file_read CJK] 默认一页 40K 汉字不被 CJK 收紧挖洞:页面完整到模型,nextOffset 仍衔接', () => {
+  const page = '汉'.repeat(40000);                                     // file_read 的默认页(FILE_READ_HEAD 字符)
+  const res = { ok: true, path: 'C:\\w\\zh.txt', content: page, offset: 0, nextOffset: 40000, totalChars: 90000, truncated: true };
+  const raw = JSON.stringify(res);
+  const out = T.truncateToolResult('file_read', raw);
+  assert.equal(out, raw, '修前 CJK 收紧把 cap 压到 ~25K,40K 汉字页被从中间挖掉,而模型会直接从 nextOffset 续读,永远补不上');
+  const parsed = JSON.parse(out);
+  assert.equal(parsed.content.length, 40000);
+  assert.equal(parsed.nextOffset, parsed.offset + parsed.content.length, 'nextOffset 与本页长度一致');
+  // 混合内容、带换行的中文页也一样
+  const mixed = Array.from({ length: 2500 }, (_, i) => `第${i}行:这是一段中文内容 with some ascii ${i}`).join('\n').slice(0, 40000);
+  const r2 = JSON.stringify({ ok: true, content: mixed, offset: 0, nextOffset: mixed.length });
+  assert.equal(T.truncateToolResult('file_read', r2), r2);
+  // 对照:其它工具的 CJK 大结果仍按 token 口径收紧(收紧本身没被关掉)
+  const other = JSON.stringify({ ok: true, body: '汉'.repeat(40000) });
+  assert.ok(T.truncateToolResult('web_fetch', other).length < 30000);
+  // file_read 超出模型上限的页(显式大 limit)仍按头 40K + 尾 8K 收缩
+  const huge = JSON.stringify({ ok: true, content: '汉'.repeat(100000), nextOffset: 100000 });
+  const cut = JSON.parse(T.truncateToolResult('file_read', huge));
+  assert.match(cut.content, /已截断/);
+});
+
+test('N3 图片:附件先写 tmp 再 rename;带会话标签的目录名;同一张图再来不重写', async () => {
+  const uploads = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-trs-up-'));
+  try {
+    const writes = [];
+    const spy = Object.assign({}, fs.promises, {
+      async writeFile(p, data, ...rest) { writes.push({ p: String(p), finalExisted: fs.existsSync(String(p).replace(/\.\d+\.[0-9a-f]+\.tmp$/, '')) }); return fs.promises.writeFile(p, data, ...rest); },
+    });
+    const bound = loadImageBound(uploads, spy);
+    const png = fakePng(20000);
+    const res = { ok: true, image_base64: png.toString('base64') };
+    const shown = await bound('ai_computer_control__screenshot', res, { sessionId: 'sess_abcdef123456' });
+    const att = shown.imageAttachments[0];
+    assert.match(att.id, /^toolimg_T[A-Za-z0-9]{9}_[0-9a-f]{24}$/, '目录名带会话标签:' + att.id);
+    assert.ok(att.id.length <= 64, '仍过 /api/upload/content 的 id 校验');
+    assert.equal(writes.length, 1);
+    assert.match(writes[0].p, /\.tmp$/, '写的是临时文件,不是最终路径');
+    assert.equal(writes[0].finalExisted, false);
+    assert.deepEqual(fs.readFileSync(path.join(uploads, att.id, att.name)), png);
+    assert.deepEqual(fs.readdirSync(path.join(uploads, att.id)), [att.name], '没有残留 .tmp');
+    await bound('ai_computer_control__screenshot', res, { sessionId: 'sess_abcdef123456' });
+    assert.equal(writes.length, 1, '同一张图不重写');
+    const plain = await bound('ai_computer_control__screenshot', res);
+    assert.match(plain.imageAttachments[0].id, /^toolimg_[0-9a-f]{24}$/, '不传 sessionId 沿用旧命名');
+  } finally { fs.rmSync(uploads, { recursive: true, force: true }); }
 });

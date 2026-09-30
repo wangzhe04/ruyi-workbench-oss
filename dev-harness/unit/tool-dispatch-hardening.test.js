@@ -3,7 +3,9 @@
 //   [N1]  tool_invoke_* 把 ctx 带进原生目标(workingDir 生效);回合摘要 / 不可逆账按真正被调用的工具名记。
 //   [N4]  allowCommandTools / allowDesktopTools 在分发点(toolCall,ctx 带 config)也拒绝,与 offer 面同一判据。
 //   [N5]  未知工具 did-you-mean;必填缺失 / 类型明显不对 → 点名字段的 invalid-arguments;合法调用不受影响。
-//   [N6]  MCP 标准 image / 多 text 块不再丢、不再把 base64 劈成文字。
+//   [N5b] 宽进:枚举大小写不敏感、boolean 认 0/1、字符串数组认逗号串 —— 就地规范成正统值再交给处理器;真不合法仍点名字段。
+//   [N6]  MCP 标准 image / 多 text 块不再丢、不再把 base64 劈成文字;多块时首块是 JSON(含 ok:false)照样按结构化结果处理。
+//   [N6b] 工具截图附件落盘走 tmp+rename,目录名带会话标签,删会话时一并清。
 //   [N7]  非视觉模型历史里图像换一行占位。
 //   [F3]  extractToolImages 的 mime 认字节魔数 / format,不再一律 png。
 //   [A2]  桌面 audit_tail 的真实形状({ok,count,records:[{ts,tool,ok,args}]})出得了时间线行。
@@ -113,7 +115,7 @@ test('[N5] 入参按工具自己的 schema 校验:必填 / 类型 / enum / items
   assert.equal(H.validateNativeToolArgs('file_read', { path: 123 }), null);
   assert.equal(H.validateNativeToolArgs('file_search', { pattern: 'a', ignoreDirs: ['x'], group: 'true' }), null);
   // 数组 items / 类型
-  r = H.validateNativeToolArgs('file_search', { pattern: 'a', ignoreDirs: 'node_modules' });
+  r = H.validateNativeToolArgs('file_search', { pattern: 'a', ignoreDirs: { x: 1 } });
   assert.match(r.error, /'ignoreDirs' must be an array/);
   r = H.validateNativeToolArgs('file_search', { pattern: 'a', ignoreDirs: [{}] });
   assert.match(r.error, /ignoreDirs\[0\]/);
@@ -123,6 +125,65 @@ test('[N5] 入参按工具自己的 schema 校验:必填 / 类型 / enum / items
   assert.equal(H.validateNativeToolArgs('steward_run_action', {}), null);
   // 未知键不拒(HTTP /api/tools 路由把整个 body 当 args)
   assert.equal(H.validateNativeToolArgs('file_read', { path: 'a', sessionId: 's1', turnSeq: 2 }), null);
+});
+
+test('[N5b] 宽进:枚举大小写 / 布尔 0-1 / 逗号串数组被规范成正统值,处理器看到的是规范值', () => {
+  const V = H.validateNativeToolArgs;
+  let a = { language: 'PowerShell', code: 'Write-Output 1' };
+  assert.equal(V('script_run', a), null, 'script_run language:PowerShell 修前被拒');
+  assert.equal(a.language, 'powershell', '就地规范成 schema 里的正统值');
+  for (const [given, canon] of [['Node', 'node'], ['NODE', 'node'], [' Python ', 'python']]) {
+    a = { language: given, code: 'x' };
+    assert.equal(V('script_run', a), null, given);
+    assert.equal(a.language, canon);
+  }
+  a = { language: '', code: 'x' };
+  assert.equal(V('script_run', a), null, "可选枚举传 '' 视为没传(处理器自带缺省)");
+  assert.ok(!('language' in a));
+  a = { section: 'Health' };
+  assert.equal(V('workbench_self_status', a), null, 'workbench_self_status section 大小写');
+  assert.equal(a.section, 'health');
+  a = { recursive: 1 };
+  assert.equal(V('file_list', a), null, 'file_list recursive:1 修前被拒');
+  assert.strictEqual(a.recursive, true);
+  a = { recursive: '0' };
+  assert.equal(V('file_list', a), null);
+  assert.strictEqual(a.recursive, false);
+  a = { recursive: 'False' };
+  assert.equal(V('file_list', a), null);
+  assert.strictEqual(a.recursive, false);
+  a = { ignoreDirs: 'a, b ,,c' };
+  assert.equal(V('file_list', a), null, 'file_list ignoreDirs 逗号串修前被拒');
+  assert.deepEqual(a.ignoreDirs, ['a', 'b', 'c']);
+  a = { pattern: 'x', ignoreDirs: 'node_modules' };
+  assert.equal(V('file_search', a), null);
+  assert.deepEqual(a.ignoreDirs, ['node_modules']);
+  // 真不合法的输入仍被拒,且点名字段
+  let r = V('script_run', { language: 'cobol', code: 'x' });
+  assert.equal(r.code, 'invalid-arguments');
+  assert.match(r.error, /'language' must be one of/);
+  r = V('file_list', { recursive: 'maybe' });
+  assert.match(r.error, /'recursive' must be a boolean/);
+  r = V('file_list', { recursive: 2 });
+  assert.match(r.error, /'recursive' must be a boolean/);
+  r = V('workbench_self_status', { section: 'status' });
+  assert.match(r.error, /'section' must be one of/);
+});
+
+test('[N5b] 端到端:toolCall 收到的 script_run / file_list 入参已是规范值', async () => {
+  const ws = path.join(root, 'ws-n5b');
+  fs.mkdirSync(path.join(ws, 'skipme'), { recursive: true });
+  fs.writeFileSync(path.join(ws, 'skipme', 'hidden.txt'), 'x');
+  fs.writeFileSync(path.join(ws, 'keep.txt'), 'x');
+  const ctx = { config: { permissionMode: 'bypass' }, workingDir: ws, session: { id: 'sess_n5b', cwd: ws } };
+  const r = await toolCall('file_list', { root: ws, recursive: 1, ignoreDirs: 'skipme' }, ctx);
+  assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
+  const names = (r.files || []).map(f => f.relativePath);
+  assert.ok(names.includes('keep.txt'));
+  assert.ok(!names.some(n => n.includes('hidden.txt')), 'ignoreDirs 逗号串真的生效了:' + JSON.stringify(names));
+  const s = await toolCall('script_run', { language: 'Node', code: 'console.log("n5b-ok")', cwd: ws }, ctx);
+  assert.equal(s.ok, true, JSON.stringify(s).slice(0, 300));
+  assert.match(s.stdout, /n5b-ok/);
 });
 
 test('[N6] MCP 标准 content:全部 text 块、image 块映射、不劈 base64', () => {
@@ -149,6 +210,25 @@ test('[N6] MCP 标准 content:全部 text 块、image 块映射、不劈 base64'
   assert.deepEqual(n({ content: [] }), { ok: true, content: [] });
   // 映射后的形状就是工具图像通道认识的形状
   assert.equal(H.VisualPipeline.extractToolImages(only).length, 1);
+});
+
+test('[N6] 多 text 块:首块是 JSON 就按结构化结果(保住 ok:false),其余块放 extraText;首块不是 JSON 才拼接', () => {
+  const n = H.normalizeMcpToolResult;
+  const fail = n({ content: [{ type: 'text', text: '{"ok":false,"error":"boom","code":"E1"}' }, { type: 'text', text: 'Warning: something' }] });
+  assert.equal(fail.ok, false, '修前拼接后再解析 → 整体变成 ok:true 的文本');
+  assert.equal(fail.error, 'boom');
+  assert.equal(fail.code, 'E1');
+  assert.equal(fail.extraText, 'Warning: something');
+  const good = n({ content: [{ type: 'text', text: '{"ok":true,"a":1}' }, { type: 'text', text: 'note A' }, { type: 'text', text: 'note B' }] });
+  assert.deepEqual(good, { ok: true, a: 1, extraText: 'note A\nnote B' });
+  const arr = n({ content: [{ type: 'text', text: '[1,2]' }, { type: 'text', text: 'tail' }] });
+  assert.deepEqual(arr, { ok: true, items: [1, 2], extraText: 'tail' });
+  // 首块不是 JSON:仍整体拼接(与修前一致),后面块是 JSON 也不抢
+  assert.deepEqual(n({ content: [{ type: 'text', text: 'Result:' }, { type: 'text', text: '{"ok":false}' }] }), { ok: true, text: 'Result:\n{"ok":false}' });
+  // 图像仍映射
+  const withImg = n({ content: [{ type: 'text', text: '{"ok":false,"error":"x"}' }, { type: 'text', text: 'w' }, { type: 'image', data: PNG_1X1, mimeType: 'image/png' }] });
+  assert.equal(withImg.ok, false);
+  assert.equal(withImg.image_base64, PNG_1X1);
 });
 
 test('[N7] 非视觉:图像字段换成一行占位', () => {
@@ -284,4 +364,24 @@ function handle(m) {
   assert.match(d.error, /desktop control component/);
   // 没有失败记录 / 有失败记录
   assert.match(H.bridgedServerUnavailableMessage('never-failed'), /^bridged MCP server 'never-failed' is not available/);
+});
+
+// ── [N6b] 工具截图附件:tmp+rename、按会话标签命名、删会话时清 ───────────────────────────────────────────────
+test('[N6b] 删会话时清掉该会话的 toolimg_* 附件目录(别的会话的不动)', async () => {
+  const { functionBlock } = require('../lib/source-slice');
+  const src = fs.readFileSync(path.resolve(__dirname, '../../ruyi-workbench/app/src/02-session-store.js'), 'utf8');
+  const tagOf = new Function('crypto', `${functionBlock(src, 'toolImageSessionTag')}\nreturn toolImageSessionTag;`)(require('crypto'));
+  const a = await srv.createSession({ title: 'a', cwd: root });
+  const b = await srv.createSession({ title: 'b', cwd: root });
+  const uploads = path.join(process.env.RUYI_HOME, 'uploads');
+  const mk = (sid, hash) => { const d = path.join(uploads, `toolimg_${tagOf(sid)}_${hash}`); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, 'screenshot.png'), 'x'); return d; };
+  const a1 = mk(a.id, 'aaaaaaaaaaaaaaaaaaaaaaaa'), a2 = mk(a.id, 'bbbbbbbbbbbbbbbbbbbbbbbb'), b1 = mk(b.id, 'cccccccccccccccccccccccc');
+  const legacy = path.join(uploads, 'toolimg_dddddddddddddddddddddddd'); fs.mkdirSync(legacy, { recursive: true });
+  assert.notEqual(tagOf(a.id), tagOf(b.id));
+  await srv.deleteSession(a.id);
+  assert.ok(!fs.existsSync(a1) && !fs.existsSync(a2), '被删会话的截图附件没了');
+  assert.ok(fs.existsSync(b1), '别的会话的不动');
+  assert.ok(fs.existsSync(legacy), '无会话标签的旧附件不在本次清理范围');
+  await srv.deleteSession(b.id);
+  assert.ok(!fs.existsSync(b1));
 });

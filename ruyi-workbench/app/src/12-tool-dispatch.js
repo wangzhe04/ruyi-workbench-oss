@@ -2082,6 +2082,43 @@ function jsonSchemaObjectProblems(schema, obj, at) {
   }
   return problems;
 }
+// 宽进:校验之前把「语义明确、处理器本来就容忍」的写法规范成 schema 的正统值(就地改 args,处理器看到的是规范值)——
+//   · 字符串枚举大小写不敏感('PowerShell' → 'powershell');可选枚举字段传 '' 视为没传(处理器自带缺省);
+//   · boolean 接受 0/1、'0'/'1' 与大小写不同的 'True'/'FALSE';
+//   · 元素是字符串的数组接受逗号分隔的字符串('a, b' → ['a','b'])。
+// 真正不合法的值(不在枚举里、乱字符串当布尔)原样留给 jsonSchemaValueProblems 报错并点名字段。
+function jsonSchemaCoerceValue(schema, value) {
+  if (!schema || typeof schema !== 'object' || value === undefined || value === null) return value;
+  const t = schema.type;
+  if (Array.isArray(schema.enum) && schema.enum.length && typeof value === 'string' && !schema.enum.includes(value)) {
+    const lower = value.trim().toLowerCase();
+    const hit = schema.enum.find(x => typeof x === 'string' && x.toLowerCase() === lower);
+    if (hit !== undefined) return hit;
+  }
+  if (t === 'boolean') {
+    if (value === 1 || value === '1') return true;
+    if (value === 0 || value === '0') return false;
+    if (typeof value === 'string') { const l = value.trim().toLowerCase(); if (l === 'true') return true; if (l === 'false') return false; }
+    return value;
+  }
+  if (t === 'array') {
+    if (typeof value === 'string' && schema.items && schema.items.type === 'string') return value.split(',').map(x => x.trim()).filter(Boolean);
+    if (Array.isArray(value) && schema.items) for (let i = 0; i < value.length; i += 1) value[i] = jsonSchemaCoerceValue(schema.items, value[i]);
+    return value;
+  }
+  if (t === 'object' && typeof value === 'object' && !Array.isArray(value)) { jsonSchemaCoerceObject(schema, value); return value; }
+  return value;
+}
+function jsonSchemaCoerceObject(schema, obj) {
+  const props = (schema && schema.properties) || {};
+  const required = new Set(Array.isArray(schema && schema.required) ? schema.required : []);
+  for (const key of Object.keys(props)) {
+    if (obj[key] === undefined || obj[key] === null) continue;
+    const sub = props[key];
+    if (obj[key] === '' && Array.isArray(sub && sub.enum) && !required.has(key) && !sub.enum.includes('')) { delete obj[key]; continue; }
+    obj[key] = jsonSchemaCoerceValue(sub, obj[key]);
+  }
+}
 // 返回 null = 通过;否则是可直接回给模型的 {ok:false, code:'invalid-arguments', ...}。
 function validateNativeToolArgs(name, args) {
   // 管家工具族自带逐字段校验与专属错误码(invalid_request / no_agent_run …,steward e2e 逐字钉着)—— 不在公共闸里二次判。
@@ -2091,6 +2128,7 @@ function validateNativeToolArgs(name, args) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
     return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
   }
+  jsonSchemaCoerceObject(schema, args);
   const problems = jsonSchemaObjectProblems(schema, args, '');
   if (!problems.length) return null;
   const props = schema.properties || {};

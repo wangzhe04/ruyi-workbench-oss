@@ -4,7 +4,8 @@
 //   [R2] timeoutMs 是整个请求的硬期限(对端每 400ms 滴一个字节也拦得住);httpGetGuarded 的 totalTimeoutMs 同理
 //   [R3] 4xx / 5xx 带 error:'HTTP <status>' + statusCode + body;连接失败带 failClass / hint;坏 URL 返回 {ok:false} 不抛
 //   [R4] web_search:searxng 200 却是 HTML → ok:false 并说明;403 给 json 格式提示;有效 JSON 的零结果仍是 ok:true
-//   [R5] 配置的后端失败 → 回退内置搜索并带 fallbackFrom;内置也没结果 → 原错误 + fallbackTried;内网 searxng 不回退
+//   [R5] API-key 后端失败:默认【不】回退公网内置搜索(不外发查询词),searchBackend.fallbackToBuiltin:true 才回退并带 fallbackFrom;
+//        内置也没结果 → 原错误 + fallbackTried;searxng / custom 永不回退(内网或带域名的自托管端点都一样)
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -164,10 +165,33 @@ test('[R4] searxng 403 → 提示启用 json 格式;401 / 429 各有提示;有�
   assert.deepEqual(empty.results, []);
 });
 
-test('[R5] 配置的后端失败 → 回退内置搜索,带 fallbackFrom / fallbackReason', async () => {
+test('[R5] API-key 后端失败:默认不回退(查询词不外发),fallbackSkipped 说明原因与开关', async () => {
+  let builtinHit = 0;
+  const bing = await serve((req, res) => { builtinHit++; res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(BING_HTML); });
+  const tavily = await serve((req, res) => { res.writeHead(401, { 'content-type': 'application/json' }); res.end('{"detail":"bad key"}'); });
+  for (const type of ['tavily', 'bocha', 'brave', 'bing']) {
+    const r = await srv.webSearch({ query: 'private query' }, { searchBackend: { type, baseUrl: tavily, apiKey: 'wrong', builtinBaseUrl: bing } });
+    assert.equal(r.ok, false, type);
+    assert.equal(r.backend, type);
+    assert.match(r.fallbackSkipped || '', /没有回退/, type);
+    assert.match(r.hint || '', /fallbackToBuiltin/, type);
+    assert.ok(!('fallbackFrom' in r), type);
+  }
+  assert.equal(builtinHit, 0, '内置(公网)引擎一次都没有被请求');
+});
+
+test('[R5] searchBackend.fallbackToBuiltin 落得进配置(缺省关、只在 true 时保留)', () => {
+  const { normalizeConfig } = srv;
+  const on = normalizeConfig({ searchBackend: { type: 'tavily', baseUrl: '', apiKey: '', fallbackToBuiltin: true }, searchBackendMigrated: true });
+  assert.equal(on.config.searchBackend.fallbackToBuiltin, true);
+  const off = normalizeConfig({ searchBackend: { type: 'tavily', baseUrl: '', apiKey: '', fallbackToBuiltin: 'yes' }, searchBackendMigrated: true });
+  assert.ok(!('fallbackToBuiltin' in off.config.searchBackend));
+});
+
+test('[R5] fallbackToBuiltin:true → 回退内置搜索,带 fallbackFrom / fallbackReason', async () => {
   const bing = await serve((req, res) => { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(BING_HTML); });
   const tavily = await serve((req, res) => { res.writeHead(401, { 'content-type': 'application/json' }); res.end('{"detail":"bad key"}'); });
-  const cfg = { searchBackend: { type: 'tavily', baseUrl: tavily, apiKey: 'wrong', builtinBaseUrl: bing } };
+  const cfg = { searchBackend: { type: 'tavily', baseUrl: tavily, apiKey: 'wrong', builtinBaseUrl: bing, fallbackToBuiltin: true } };
   const r = await srv.webSearch({ query: 'fallback query' }, cfg);
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.fallbackFrom, 'tavily');
@@ -180,26 +204,30 @@ test('[R5] 配置的后端失败 → 回退内置搜索,带 fallbackFrom / fallb
 test('[R5] 内置也没结果 → 仍是原错误(带 fallbackTried);后端正常时不回退', async () => {
   const emptyBing = await serve((req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<html></html>'); });
   const bocha = await serve((req, res) => { res.writeHead(500); res.end('boom'); });
-  const r = await srv.webSearch({ query: 'q' }, { searchBackend: { type: 'bocha', baseUrl: bocha, apiKey: 'k', builtinBaseUrl: emptyBing } });
+  const r = await srv.webSearch({ query: 'q' }, { searchBackend: { type: 'bocha', baseUrl: bocha, apiKey: 'k', builtinBaseUrl: emptyBing, fallbackToBuiltin: true } });
   assert.equal(r.ok, false);
   assert.equal(r.backend, 'bocha');
   assert.equal(r.fallbackTried, 'builtin');
   assert.equal(r.statusCode, 500);
   const good = await serve((req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ results: [{ title: 'T', url: 'https://t.example', content: 'c' }] })); });
-  const g = await srv.webSearch({ query: 'q' }, { searchBackend: { type: 'tavily', baseUrl: good, apiKey: 'k', builtinBaseUrl: emptyBing } });
+  const g = await srv.webSearch({ query: 'q' }, { searchBackend: { type: 'tavily', baseUrl: good, apiKey: 'k', builtinBaseUrl: emptyBing, fallbackToBuiltin: true } });
   assert.equal(g.ok, true);
   assert.equal(g.backend, 'tavily');
   assert.ok(!('fallbackFrom' in g));
 });
 
-test('[R5] 内网 searxng / custom 失败时不回退(不把查询词发给公网引擎)', async () => {
+test('[R5] searxng / custom 失败时永不回退(内网地址、带域名的内网主机、即使开了 fallbackToBuiltin)', async () => {
   let builtinHit = 0;
   const bing = await serve((req, res) => { builtinHit++; res.writeHead(200, { 'content-type': 'text/html' }); res.end(BING_HTML); });
   const dead = await serve((req, res) => { res.writeHead(503); res.end('down'); });   // 127.0.0.1 = 内网地址
   for (const type of ['searxng', 'custom']) {
     const r = await srv.webSearch({ query: 'secret internal query' }, { searchBackend: { type, baseUrl: dead, builtinBaseUrl: bing } });
     assert.equal(r.ok, false, type);
-    assert.match(r.fallbackSkipped || '', /内网/, type);
+    assert.match(r.fallbackSkipped || '', /没有回退/, type);
+    // 普通带点域名的自托管端点(修前只豁免 localhost / 私网 IP / .local):连不上也不能把查询词发给公网,开关也不放行。
+    const named = await srv.webSearch({ query: 'secret internal query' }, { searchBackend: { type, baseUrl: 'http://searx.corp.example.test:9', builtinBaseUrl: bing, fallbackToBuiltin: true } });
+    assert.equal(named.ok, false, type + ' named');
+    assert.match(named.fallbackSkipped || '', /没有回退/, type + ' named');
   }
   assert.equal(builtinHit, 0, '内置引擎一次都没有被请求');
 });

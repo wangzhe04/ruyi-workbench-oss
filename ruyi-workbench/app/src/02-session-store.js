@@ -1656,6 +1656,20 @@ function sessionSaveIsTombstoned(session) {
 // Delete the persisted chat itself. `purgeAssociated` is deliberately opt-in: a normal single-chat
 // delete keeps its previous, conservative behavior, while the batch-cleanup flow can also reclaim
 // the per-chat recovery and workflow records that otherwise have their own GC lifecycle.
+// 工具截图附件(10 boundToolResultForDisplay)落在 uploads/toolimg_<tag>_<hash>/,tag 由会话 id 派生;删会话时按前缀整批清,
+// 否则长时间的桌面操控会话会在 uploads/ 里留下成百上千个永不回收的文件。
+function toolImageSessionTag(sessionId) { return crypto.createHash('sha1').update(String(sessionId)).digest('hex').slice(0, 10); }
+async function removeSessionToolImages(sessionId) {
+  const prefix = `toolimg_${toolImageSessionTag(sessionId)}_`;
+  let names = [];
+  try { names = await fsp.readdir(paths.uploads); } catch { return 0; }
+  let n = 0;
+  for (const name of names) {
+    if (!name.startsWith(prefix)) continue;
+    await fsp.rm(path.join(paths.uploads, name), { recursive: true, force: true }).then(() => { n += 1; }).catch(() => {});
+  }
+  return n;
+}
 async function deleteSession(id, { purgeAssociated = false } = {}) {
   // 不合形/保留名(index、`_` 前缀 …,见 01 safeSessionId)先拒:修前 DELETE /api/sessions/index 一路走到 unlink index.json。
   assertSessionIdForPath(id);
@@ -1706,6 +1720,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
     proposalSessionId ? fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
+  await removeSessionToolImages(id);
   dropSessionBodyState(id);
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
   sessionEngineRouteOverrides.delete(id);

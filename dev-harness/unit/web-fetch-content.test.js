@@ -6,6 +6,7 @@
 //   [C3] 抽取:文章在最前、菜单页脚被丢、<pre> 缩进原样、链接编号 + 相对地址解析、标题 / 列表 / 表格
 //   [C4] 抽取的边界:<form> 包整页不丢内容、没关的 <nav> 不吞后文、article 里的 header 保留、main 太短退回整页
 //   [C5] 缓存存完整文本、翻页(offset / nextOffset / truncated)、离线读缓存与翻页拼回原文
+//   [C6] 缓存条目数有硬上限:超过就按 mtime 删最旧的(默认 webcacheMaxEntries:0 不限的情况下也不无限长)
 const { test, after, before } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -260,4 +261,26 @@ test('[C5] 重定向后的页面也按请求网址缓存;maxChars 上限收在 6
   assert.equal(r.nextOffset, 60000);
   assert.ok(await srv.readWebCache(base + '/old'), '按请求网址也有缓存');
   assert.ok(await srv.readWebCache(base + '/new'), '按最终网址有缓存');
+});
+
+// ── [C6] ────────────────────────────────────────────────────────────────────────────────────────────────
+test('[C6] 缓存超过硬上限就删最旧的(WCW_WEBCACHE_HARD_MAX 是测试缝)', async () => {
+  process.env.WCW_WEBCACHE_HARD_MAX = '5';
+  try {
+    const dir = path.join(root, 'webcache');
+    for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) fs.rmSync(path.join(dir, f), { force: true });
+    const urls = Array.from({ length: 8 }, (_, i) => `http://cache.example.test/p${i}`);
+    for (let i = 0; i < urls.length; i++) {
+      await srv.writeWebCache({ url: urls[i], title: 't' + i, text: 'body ' + i, ts: new Date(1e12 + i * 1000).toISOString() });
+      const f = fs.readdirSync(dir).map(n => path.join(dir, n)).find(p => JSON.parse(fs.readFileSync(p, 'utf8')).url === urls[i]);
+      if (f && i < urls.length - 1) fs.utimesSync(f, 1e9 + i, 1e9 + i);   // 把已写的压成「很老」,并保持先后次序
+    }
+    const left = fs.readdirSync(dir).filter(n => n.endsWith('.json'));
+    assert.equal(left.length, 5, '只留最新的 5 条,修前没有任何上限:' + left.length);
+    assert.ok(await srv.readWebCache(urls[7]), '刚写的一条在');
+    assert.equal(await srv.readWebCache(urls[0]), null, '最老的被淘汰');
+    assert.equal(await srv.readWebCache(urls[1]), null);
+    assert.equal(await srv.readWebCache(urls[2]), null);
+    assert.ok(await srv.readWebCache(urls[3]));
+  } finally { delete process.env.WCW_WEBCACHE_HARD_MAX; }
 });

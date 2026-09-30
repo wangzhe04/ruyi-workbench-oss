@@ -7,6 +7,9 @@
 //   [P4] NO_PROXY(后缀 / *. / host:port / CIDR / *)与默认直连(回环、私网、单标签主机名)
 //   [P5] SSRF 护栏在走代理时仍然有效:私网字面量不发包、重定向到元数据地址被拦
 //   [P6] http_request 同样走代理
+//   [P7] 走代理时本机 DNS 预检照跑:名字在本机解析到回环 / 私网(nip.io、重绑定类)→ 拒绝、不发给代理;本机解析失败 → 放行
+//   [P9] https://<公网 IP 字面量> 经 CONNECT:按该 IP 校验证书(修前 servername 与 host 都缺,按 'localhost' 校验,永远验不过)
+//   [P8] CONNECT 握手也受整条请求的硬期限管:总期限到点时对代理的连接被掐断,不悬到 CONNECT 自己的超时
 const { test, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -95,9 +98,9 @@ test('[P1] 没配代理时同一个网址直连失败(对照:证明上面的成�
 });
 
 // ── [P2] ────────────────────────────────────────────────────────────────────────────────────────────────
-function opensslCert(dir, host) {
+function opensslCert(dir, host, san) {
   const key = path.join(dir, 'k.pem'), crt = path.join(dir, 'c.pem');
-  const r = cp.spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', crt, '-days', '2', '-subj', '/CN=' + host, '-addext', 'subjectAltName=DNS:' + host], { encoding: 'utf8' });
+  const r = cp.spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', crt, '-days', '2', '-subj', '/CN=' + host, '-addext', 'subjectAltName=' + (san || 'DNS:' + host)], { encoding: 'utf8' });
   return r.status === 0 ? { key: fs.readFileSync(key), cert: fs.readFileSync(crt), certPath: crt } : null;
 }
 test('[P2] https 目标经 CONNECT 隧道:代理只看到 host:443,TLS 端到端', async t => {
@@ -230,4 +233,87 @@ test('[P6] http_request 经代理:POST 带 Content-Length,响应回来', async (
   assert.equal(j.body, '{"k":"值"}');
   assert.equal(proxy.seen[0].headers['content-length'], String(Buffer.byteLength('{"k":"值"}')));
   clearProxyEnv();
+});
+
+// ── [P7] ────────────────────────────────────────────────────────────────────────────────────────────────
+// 本机 DNS 换成可控桩(dnsResolvesToPrivate 每次调用时才取 require('dns').promises.lookup)。
+async function withDnsStub(table, fn) {
+  const dnsp = require('dns').promises;
+  const orig = dnsp.lookup;
+  dnsp.lookup = async (host, opts) => {
+    if (Object.prototype.hasOwnProperty.call(table, host)) {
+      const a = table[host];
+      if (a instanceof Error) throw a;
+      return a;
+    }
+    return orig.call(dnsp, host, opts);
+  };
+  try { return await fn(); } finally { dnsp.lookup = orig; }
+}
+test('[P7] 走代理时名字在本机解析到回环 / 私网 / 元数据地址 → 拒绝,一个字节都不发给代理', async () => {
+  const proxy = await startProxy();
+  clearProxyEnv();
+  process.env.HTTP_PROXY = process.env.HTTPS_PROXY = proxy.url;
+  const enotfound = Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' });
+  await withDnsStub({
+    'rebind.example.test': [{ address: '127.0.0.1', family: 4 }],
+    'meta.example.test': [{ address: '169.254.169.254', family: 4 }, { address: '93.184.216.34', family: 4 }],
+    'v6.example.test': [{ address: '::1', family: 6 }],
+    'intranet-only.example.test': enotfound,
+  }, async () => {
+    for (const url of ['http://rebind.example.test/admin', 'https://rebind.example.test/admin', 'http://meta.example.test/latest', 'http://v6.example.test/x']) {
+      const r = await srv.webFetch({ url });
+      assert.equal(r.ok, false, url + ' ' + JSON.stringify(r));
+      assert.ok(r.blocked, url + ' 应带 blocked:' + JSON.stringify(r));
+    }
+    assert.equal(proxy.seen.length, 0, '被拦的名字没有发给代理:' + JSON.stringify(proxy.seen.map(x => x.url)));
+    // 本机解析失败(只有代理才解析得了的名字)放行,交给代理。
+    const ok = await srv.webFetch({ url: 'http://intranet-only.example.test/wiki' });
+    assert.equal(ok.ok, true, JSON.stringify(ok));
+    assert.equal(ok.viaProxy, true);
+    assert.equal(proxy.seen.length, 1);
+  });
+  clearProxyEnv();
+});
+
+// ── [P8] ────────────────────────────────────────────────────────────────────────────────────────────────
+test('[P8] CONNECT 握手悬住:总期限到点就掐断对代理的连接(不悬到 CONNECT 自己的超时)', async () => {
+  let clientClosed = null;
+  const closed = new Promise(r => { clientClosed = r; });
+  const hang = http.createServer();
+  hang.on('connect', (req, client) => { client.on('end', () => clientClosed(true)); client.on('close', () => clientClosed(true)); client.on('error', () => {}); client.resume(); /* 永不回应;resume 让对端断开能被读到 */ });
+  const port = await listen(hang);
+  clearProxyEnv();
+  process.env.HTTPS_PROXY = 'http://127.0.0.1:' + port;
+  const t0 = process.hrtime.bigint();
+  const enotfound = Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' });
+  const r = await withDnsStub({ 'hang.example.test': enotfound }, () => srv.httpGetGuarded('https://hang.example.test/x', { timeoutMs: 20000, totalTimeoutMs: 400 }));
+  assert.equal(r.ok, false);
+  assert.equal(r.failClass, 'timeout');
+  const took = await Promise.race([closed.then(() => Number(process.hrtime.bigint() - t0) / 1e6), new Promise(res => setTimeout(() => res(-1), 3000))]);
+  assert.ok(took > 0 && took < 2500, '对代理的 CONNECT 连接应在总期限附近被关掉,实际 ' + took);
+  clearProxyEnv();
+});
+
+// ── [P9] ────────────────────────────────────────────────────────────────────────────────────────────────
+test('[P9] https://<IP 字面量> 经 CONNECT 隧道:证书按该 IP 校验,握手成功', async t => {
+  const pki = opensslCert(root, '93.184.216.34', 'IP:93.184.216.34');
+  if (!pki) { t.skip('本机没有 openssl,跳过'); return; }
+  const target = https.createServer({ key: pki.key, cert: pki.cert }, (req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ip-tunnel-ok'); });
+  const tlsPort = await listen(target);
+  const proxy = await startProxy({ tlsPort });
+  const script = `const s=require(${JSON.stringify(SERVER_JS)});s.toolCall('http_request',{url:'https://93.184.216.34/x',timeoutMs:8000},{config:{permissionMode:'default'}}).then(r=>{console.log(JSON.stringify(r));process.exit(0)})`;
+  const env = Object.assign({}, process.env, { RUYI_HOME: path.join(root, 'child-home-ip'), HTTPS_PROXY: proxy.url, NODE_EXTRA_CA_CERTS: pki.certPath, WCW_TEST_NO_NET_ANCHORS: '1' });
+  for (const k of PROXY_VARS) if (k !== 'HTTPS_PROXY') delete env[k];
+  const out = await new Promise((resolve, reject) => {
+    const c = cp.spawn(process.execPath, ['-e', script], { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    let so = '', se = '';
+    c.stdout.on('data', d => { so += d; }); c.stderr.on('data', d => { se += d; });
+    c.on('close', () => resolve({ so, se }));
+    c.on('error', reject);
+  });
+  const r = JSON.parse(out.so.trim().split('\n').pop());
+  assert.equal(r.ok, true, out.so + out.se);
+  assert.equal(r.body, 'ip-tunnel-ok');
+  assert.deepEqual(proxy.seen.map(x => x.kind + ' ' + x.url), ['connect 93.184.216.34:443']);
 });
