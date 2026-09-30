@@ -609,6 +609,15 @@ def test_vision():
               f"wait_for_image timeout: waited_ms + best_confidence (got {r})")
         r = vision.find_template(template_b64=b64, region="1,2,3")
         check("error" in r, "bad region -> error")
+        # timeout clamp: an absurd timeout is capped at 120s (monotonic clock faked so the test is instant)
+        fake_t = {"now": 1000.0}
+        def tick():
+            fake_t["now"] += 30.0
+            return fake_t["now"]
+        with Patch((vision.time, "monotonic", tick), (vision.time, "sleep", lambda s: None)):
+            r = vision.wait_for_image(template_b64=b64, region="500,300,200,90", timeout=10**9, poll_ms=1)
+        check(r["found"] is False and r["timeout"] == 120.0 and r.get("timeout_clamped") is True,
+              f"wait_for_image clamps timeout to 120s (got {r})")
 
 
 def main() -> int:

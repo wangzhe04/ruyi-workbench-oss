@@ -30,6 +30,7 @@ def _unavailable() -> dict:
 _MULTISCALE = [1.0, 1.25, 1.5, 0.8, 0.667, 1.75, 2.0, 0.5, 0.9, 1.1, 0.75]
 # A match this good ends the scale search early (a 1.0 exact hit costs 1 scale instead of all of them).
 _EARLY_EXIT = 0.97
+_MAX_WAIT_S = 120.0  # wait_for_image upper bound on `timeout`
 
 
 def _parse_region(region):
@@ -262,11 +263,19 @@ def wait_for_image(template_path: str | None = None, template_b64: str | None = 
     """Poll the screen until a template appears (or timeout). Returns the match for clicking.
 
     region: optional "x,y,width,height" (virtual-screen coordinates) to poll a smaller/other-monitor area.
+    timeout is capped at 120 s (the result then has 'timeout_clamped': true); poll_ms is at least 50.
     On timeout the result has waited_ms and best_confidence (the closest score seen while polling)."""
     if not _AVAILABLE:
         return _unavailable()
+    try:
+        requested = float(timeout)
+    except (TypeError, ValueError):
+        requested = 10.0
+    timeout = min(max(0.0, requested), _MAX_WAIT_S)  # a huge timeout would pin the server for ever
+    clamped = requested > _MAX_WAIT_S
+    poll_ms = max(50, int(poll_ms))
     started = time.monotonic()
-    deadline = started + max(0.0, float(timeout))
+    deadline = started + timeout
     best_seen = None
     while True:
         res = find_template(template_path=template_path, template_b64=template_b64, confidence=confidence,
@@ -281,6 +290,9 @@ def wait_for_image(template_path: str | None = None, template_b64: str | None = 
         if time.monotonic() >= deadline:
             out = {"found": False, "timeout": timeout,
                    "waited_ms": int((time.monotonic() - started) * 1000), "best_confidence": best_seen}
+            if clamped:
+                out["timeout_clamped"] = True
+                out["requested_timeout"] = requested
             if best_seen is not None and best_seen >= confidence - 0.15:
                 out["hint"] = (f"closest score {best_seen:.2f} < threshold {confidence:.2f}; the template may "
                                "differ slightly (DPI/theme) - lower confidence or re-capture it")
