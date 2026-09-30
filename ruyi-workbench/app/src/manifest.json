@@ -261,6 +261,12 @@
       "note": "shell 会话/git 族/web_search/归档族/桌面桥"
     },
     {
+      "file": "11b-file-text-io.js",
+      "startLine": 0,
+      "endLine": 0,
+      "note": "单文件工具的文本 I/O 内核:编码嗅探/GB18030 编码、有界流式读、原子写、file_edit 未命中诊断;零出边(冻结对象 FileTextIo),不进依赖环"
+    },
+    {
       "file": "12-tool-dispatch.js",
       "startLine": 46293,
       "endLine": 48311,
