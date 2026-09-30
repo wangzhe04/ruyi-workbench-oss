@@ -31,30 +31,45 @@ def _protected_write_guard(path: str, allow_protected: bool):
     return None
 
 
-@mcp.tool()
-def read_document(path: str) -> dict:
-    """Read the text content of a document file (Word .docx, Excel .xlsx, PDF .pdf).
+_READ_DEFAULT_CHARS = 20_000
+_READ_HARD_CHARS = 200_000
 
-    何时用: 只想快速拿走一个小文档的全部文字(一页纸的 docx、小 xlsx、几页的 pdf)。
+
+@mcp.tool()
+def read_document(path: str, max_chars: int = _READ_DEFAULT_CHARS, offset: int = 0) -> dict:
+    """Read the text content of a document file (Word .docx, PowerPoint .pptx, Excel .xlsx, PDF .pdf).
+
+    何时用: 只想快速拿走一个小文档的全部文字(一页纸的 docx、几页的 pdf、一份 pptx 的文字与备注)。
     何时别用(v1.9 收敛, 03 Phase B):
-      * .pdf → 请改用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限);本分支【已弃用】,
+      * .pdf → 请改用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限 + 总预算续读);本分支【已弃用】,
         无分页上限会整本抽取,50 页 PDF 直接爆上下文。
       * .xlsx → 请改用 excel_read(结构化二维 data + 表头 + 公式/数字格式);本分支【已弃用】,
         静默截 500 行且把结构拍平成文本。
-      * .docx 分支仍是本工具的主用途(无 successor)。
+      * .docx / .pptx 分支是本工具的主用途(无 successor)。
+      * .csv/.txt/.md 等纯文本请用 read_file;老 .doc/.xls/.ppt 请先另存为新版格式。
 
     Args:
         path: Path to the document file.
+        max_chars: 单次返回的字符上限(默认 20000,硬上限 200000)。超出时 truncated=true 并给
+            next_offset,用同一 path + offset=next_offset 续读。
+        offset: 从抽取文本的第几个字符开始返回(续读用)。
 
     Returns:
-        dict with 'content' (extracted text), 'type', 'pages'/'sheets' count. 弃用分支附带
-        'deprecated'/'successor' 字段明示替代工具。
+        dict with 'content' (extracted text), 'type', 'total_chars', 'truncated'/'next_offset',
+        'pages'/'sheets'/'slides' count. .docx 按文档顺序输出 markdown 风格结构(# 标题、- 列表、
+        | 表格 |)并附 'headings' 大纲;.pptx 每张幻灯片为「## Slide N: 标题」+ 文字 + 表格 + 备注。
+        加密/损坏文件 → error 明说原因;扫描件 PDF(无文字层) → ok 且 note 建议 OCR。
+        弃用分支附带 'deprecated'/'successor' 字段明示替代工具。
     """
+    from ai_computer_control.tools.office_read import describe_read_error
+
     ext = os.path.splitext(path)[1].lower()
 
     try:
         if ext == ".docx":
             out = _read_docx(path)
+        elif ext == ".pptx":
+            out = _read_pptx(path)
         elif ext == ".xlsx":
             out = _read_xlsx(path)
             out["deprecated"] = True
@@ -64,40 +79,226 @@ def read_document(path: str) -> dict:
             out["deprecated"] = True
             out["successor"] = "pdf_read_pages"
         else:
-            return {"error": f"Unsupported format: {ext}. Supported: .docx, .xlsx, .pdf"}
+            return {"error": f"Unsupported format: {ext}. Supported: .docx, .pptx, .xlsx, .pdf"
+                             "(纯文本/csv 用 read_file;老 .doc/.xls/.ppt 先另存为新版格式)"}
+        if out.get("error"):
+            return {"error": out["error"]}
         content = out.get("content") or ""
-        non_ascii = _non_ascii_report(content)
-        if non_ascii["total"]:
+        try:
+            cap = max(1, min(int(max_chars), _READ_HARD_CHARS))
+        except Exception:
+            cap = _READ_DEFAULT_CHARS
+        try:
+            start = max(0, int(offset))
+        except Exception:
+            start = 0
+        total = len(content)
+        piece = content[start:start + cap]
+        out["content"] = piece
+        out["total_chars"] = total
+        if start + cap < total:
+            out["truncated"] = True
+            out["next_offset"] = start + cap
+            note = f"内容共 {total} 字符,本次返回 [{start}, {start + cap});传 offset={start + cap} 续读。"
+            out["note"] = (out["note"] + " " + note) if out.get("note") else note
+        non_ascii = _non_ascii_report(piece)
+        if non_ascii["samples"]:
             out["non_ascii"] = non_ascii
         return out
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": describe_read_error(e, path)}
+
+
+def _md_cell(text: str) -> str:
+    return (text or "").replace("\r", " ").replace("\n", " ").replace("|", "\\|").strip()
+
+
+def _table_to_md(table) -> str:
+    """Word 表 → markdown 行。合并单元格只在首次出现处写文字(python-docx 的 row.cells 对合并格重复返回同一个
+    单元格),避免「合并表头 | 合并表头 | 合并表头」。"""
+    seen = set()   # 存 <w:tc> 元素本身(会被引用住);别存 id() —— lxml 代理对象释放后 id 会被复用
+    rows = []
+    for row in table.rows:
+        cells = []
+        for cell in row.cells:
+            tc = cell._tc
+            if tc in seen:
+                cells.append("")
+            else:
+                seen.add(tc)
+                cells.append(_md_cell(cell.text))
+        rows.append(cells)
+    if not rows:
+        return ""
+    width = max(len(r) for r in rows)
+    lines = []
+    for i, r in enumerate(rows):
+        r = r + [""] * (width - len(r))
+        lines.append("| " + " | ".join(r) + " |")
+        if i == 0:
+            lines.append("|" + " --- |" * width)
+    return "\n".join(lines)
+
+
+def _iter_block_items(parent_elm, doc):
+    """按文档顺序产出 Paragraph / Table(含 sdt 内容控件里的块)。"""
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    for child in parent_elm.iterchildren():
+        tag = child.tag.rsplit("}", 1)[-1]
+        if tag == "p":
+            yield Paragraph(child, doc)
+        elif tag == "tbl":
+            yield Table(child, doc)
+        elif tag == "sdt":
+            for sub in child.iterchildren():
+                if sub.tag.rsplit("}", 1)[-1] == "sdtContent":
+                    yield from _iter_block_items(sub, doc)
 
 
 def _read_docx(path: str) -> dict:
     from docx import Document
+    from ai_computer_control.tools.office_read import ole_password_hint
 
+    hint = ole_password_hint(path)
+    if hint:
+        return {"error": hint}
     doc = Document(path)
-    paragraphs = [p.text for p in doc.paragraphs]
-
-    # Also read tables
-    tables_text = []
-    for table in doc.tables:
-        rows = []
-        for row in table.rows:
-            cells = [cell.text for cell in row.cells]
-            rows.append(" | ".join(cells))
-        tables_text.append("\n".join(rows))
-
-    content = "\n".join(paragraphs)
-    if tables_text:
-        content += "\n\n--- Tables ---\n" + "\n\n".join(tables_text)
-
-    return {
+    lines: list[str] = []
+    headings: list[dict] = []
+    n_par = n_tbl = 0
+    num_counter = 0   # 连续「编号列表」段落的序号(遇到非列表段落归零)
+    for block in _iter_block_items(doc.element.body, doc):
+        if block.__class__.__name__ == "Table":
+            n_tbl += 1
+            md = _table_to_md(block)
+            if md:
+                lines.append("")
+                lines.append(md)
+                lines.append("")
+            num_counter = 0
+            continue
+        n_par += 1
+        text = block.text
+        try:
+            sname = (block.style.name or "") if block.style is not None else ""
+        except Exception:
+            sname = ""
+        lowered = sname.lower()
+        if not text.strip():
+            lines.append("")
+            num_counter = 0
+            continue
+        level = 0
+        if lowered == "title":
+            level = 1
+        elif lowered.startswith("heading "):
+            try:
+                level = min(6, int(lowered.split()[-1]))
+            except ValueError:
+                level = 0
+        if level:
+            lines.append("")
+            lines.append("#" * level + " " + text.strip())
+            lines.append("")
+            if len(headings) < 100:
+                headings.append({"level": level, "text": text.strip()[:120]})
+            num_counter = 0
+            continue
+        ppr = block._p.pPr
+        numpr = ppr.numPr if ppr is not None else None
+        if "list number" in lowered:
+            num_counter += 1
+            lines.append(f"{num_counter}. {text.strip()}")
+        elif "list bullet" in lowered or "list paragraph" in lowered or numpr is not None:
+            ilvl = 0
+            if numpr is not None and numpr.ilvl is not None:
+                try:
+                    ilvl = int(numpr.ilvl.val)
+                except Exception:
+                    ilvl = 0
+            lines.append("  " * ilvl + "- " + text.strip())
+            num_counter = 0
+        else:
+            lines.append(text)
+            num_counter = 0
+    # 折叠连续空行
+    content = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip("\n")
+    out = {
         "content": content,
         "type": "docx",
-        "paragraphs": len(paragraphs),
-        "tables": len(doc.tables),
+        "paragraphs": n_par,
+        "tables": n_tbl,
+    }
+    if headings:
+        out["headings"] = headings
+    return out
+
+
+def _read_pptx(path: str) -> dict:
+    try:
+        from pptx import Presentation
+    except Exception:
+        return {"error": "读 .pptx 需要 python-pptx。离线包已含,可运行 installer 重装;或 pip install python-pptx"}
+    from ai_computer_control.tools.office_read import ole_password_hint
+
+    hint = ole_password_hint(path)
+    if hint:
+        return {"error": hint}
+    prs = Presentation(path)
+
+    def _shape_lines(shapes, out):
+        for sh in sorted(shapes, key=lambda x: ((getattr(x, "top", 0) or 0), (getattr(x, "left", 0) or 0))):
+            if sh.shape_type == 6 and hasattr(sh, "shapes"):  # GROUP
+                _shape_lines(sh.shapes, out)
+                continue
+            if getattr(sh, "has_table", False) and sh.has_table:
+                rows = [[_md_cell(c.text) for c in r.cells] for r in sh.table.rows]
+                if rows:
+                    w = max(len(r) for r in rows)
+                    for i, r in enumerate(rows):
+                        out.append("| " + " | ".join(r + [""] * (w - len(r))) + " |")
+                        if i == 0:
+                            out.append("|" + " --- |" * w)
+                continue
+            if getattr(sh, "has_text_frame", False) and sh.has_text_frame:
+                for para in sh.text_frame.paragraphs:
+                    t = "".join(r.text for r in para.runs).strip() or para.text.strip()
+                    if t:
+                        out.append(("  " * (para.level or 0) + "- " + t) if (para.level or 0) > 0 else t)
+            elif sh.shape_type == 13:  # PICTURE
+                out.append("[图片]")
+
+    parts = []
+    n_notes = 0
+    for idx, slide in enumerate(prs.slides, 1):
+        title = ""
+        try:
+            if slide.shapes.title is not None:
+                title = (slide.shapes.title.text_frame.text or "").strip()
+        except Exception:
+            title = ""
+        body_shapes = [sh for sh in slide.shapes
+                       if not (slide.shapes.title is not None and sh.shape_id == slide.shapes.title.shape_id)]
+        lines: list[str] = []
+        _shape_lines(body_shapes, lines)
+        head = f"## Slide {idx}" + (f": {title}" if title else "")
+        block = [head] + lines
+        try:
+            if slide.has_notes_slide:
+                nt = (slide.notes_slide.notes_text_frame.text or "").strip()
+                if nt:
+                    n_notes += 1
+                    block.append("[备注] " + nt.replace("\n", "\n[备注] "))
+        except Exception:
+            pass
+        parts.append("\n".join(block))
+    return {
+        "content": "\n\n".join(parts),
+        "type": "pptx",
+        "slides": len(prs.slides),
+        "slides_with_notes": n_notes,
     }
 
 
@@ -160,6 +361,9 @@ def _read_pdf(path: str) -> dict:
     if truncated:
         out["truncated"] = True
         out["note"] = f"only the first {_MAX_PAGES} of {page_count} pages were extracted; use pdf_read_pages for the rest"
+    if not text_parts and page_count:
+        msg = ("没有抽到任何文字:该 PDF 多半是扫描件/图片 PDF(无文字层)。可把页面导出/截图为图片后用 ocr_image 做 OCR 识别。")
+        out["note"] = (out["note"] + " " + msg) if out.get("note") else msg
     return out
 
 

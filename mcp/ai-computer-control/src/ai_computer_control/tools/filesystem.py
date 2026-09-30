@@ -3,6 +3,7 @@
 import os
 import shutil
 import datetime
+import codecs
 import ctypes
 import unicodedata
 from ai_computer_control.server import mcp
@@ -17,24 +18,70 @@ def _system_acp() -> str:
         return "gbk"
 
 
+def _sniff_bom(raw: bytes) -> tuple[str, int] | None:
+    """(codec, bom_length) for a Unicode BOM at the start of raw, else None. UTF-32 first (its LE BOM
+    starts with the UTF-16 LE BOM)."""
+    if raw.startswith(codecs.BOM_UTF32_LE) or raw.startswith(codecs.BOM_UTF32_BE):
+        return "utf-32", 4
+    if raw.startswith(codecs.BOM_UTF8):
+        return "utf-8-sig", 3
+    if raw.startswith(codecs.BOM_UTF16_LE) or raw.startswith(codecs.BOM_UTF16_BE):
+        return "utf-16", 2
+    return None
+
+
+def _guess_bomless_utf16(raw: bytes) -> str | None:
+    """utf-16-le / utf-16-be when NUL bytes sit almost only on one parity of an ASCII-heavy sample
+    (Windows tools sometimes write UTF-16 without BOM); None otherwise."""
+    sample = raw[:4096]
+    if len(sample) < 4:
+        return None
+    half = len(sample) // 2
+    even_nul = sum(1 for i in range(0, len(sample) - 1, 2) if sample[i] == 0)
+    odd_nul = sum(1 for i in range(1, len(sample), 2) if sample[i] == 0)
+    if odd_nul > half * 0.3 and even_nul < half * 0.05:
+        return "utf-16-le"
+    if even_nul > half * 0.3 and odd_nul < half * 0.05:
+        return "utf-16-be"
+    return None
+
+
+def _looks_binary(raw: bytes) -> bool:
+    """NUL byte in the first 8 KB (text in any ASCII-compatible encoding has none)."""
+    return b"\x00" in raw[:8192]
+
+
 def _decode_text(raw: bytes, encoding: str | None) -> tuple[str, str, str | None]:
     """Decode bytes to text. Returns (content, encoding_used, fallback_from).
 
-    Default/'auto'/'utf-8' tries UTF-8 strict first; on UnicodeDecodeError it falls back to the
-    system ANSI code page (cp936 on zh-CN). Native Chinese apps (Notepad ANSI, legacy editors,
-    exported configs) write GBK/cp936, and the old errors="replace" silently turned every multi-byte
-    GBK char into U+FFFD mojibake. `fallback_from` is set when a fallback was applied.
+    Default/'auto'/'utf-8' sniffs a Unicode BOM first (UTF-8 BOM is stripped, UTF-16/32 decoded),
+    then tries UTF-8 strict; on UnicodeDecodeError it falls back to the system ANSI code page
+    (cp936 on zh-CN), and to gb18030 when that code page is unusable. Native Chinese apps
+    (Notepad ANSI, legacy editors, exported configs) write GBK/cp936, and the old errors="replace"
+    silently turned every multi-byte GBK char into U+FFFD mojibake. `fallback_from` is set when a
+    fallback was applied. Raises ValueError("binary") for NUL-bearing non-UTF-16 data.
     """
     enc = (encoding or "utf-8").strip().lower() or "utf-8"
     if enc in ("auto", "utf-8", "utf8"):
+        bom = _sniff_bom(raw)
+        if bom:
+            codec, n = bom
+            data = raw[n:] if codec == "utf-8-sig" else raw
+            return data.decode("utf-8" if codec == "utf-8-sig" else codec, errors="replace"), codec, None
+        guess = _guess_bomless_utf16(raw)
+        if guess:
+            return raw.decode(guess, errors="replace"), guess, None
+        if _looks_binary(raw):
+            raise ValueError("binary")
         try:
             return raw.decode("utf-8"), "utf-8", None
         except UnicodeDecodeError:
-            acp = _system_acp()
-            try:
-                return raw.decode(acp, errors="replace"), acp, "utf-8"
-            except (LookupError, UnicodeDecodeError):
-                return raw.decode("utf-8", errors="replace"), "utf-8", None
+            for acp in (_system_acp(), "gb18030"):
+                try:
+                    return raw.decode(acp, errors="replace"), acp, "utf-8"
+                except (LookupError, UnicodeDecodeError):
+                    continue
+            return raw.decode("utf-8", errors="replace"), "utf-8", None
     try:
         return raw.decode(enc, errors="replace"), enc, None
     except LookupError:
@@ -50,32 +97,59 @@ def _non_ascii_priority(cp: int) -> int:
     return 2
 
 
-def _non_ascii_report(content: str, max_samples: int = 20) -> dict:
-    """List non-ASCII characters (line/column/codepoint/name/context), highest-risk first.
+def _is_cjk_letter(ch: str) -> bool:
+    """Ideographs, kana, hangul and CJK symbols/punctuation (、。「」 U+3000-303F): ordinary text in a
+    Chinese/Japanese/Korean document, not an edit hazard."""
+    cp = ord(ch)
+    return (0x4E00 <= cp <= 0x9FFF or 0x3400 <= cp <= 0x4DBF or 0x20000 <= cp <= 0x2FA1F
+            or 0xF900 <= cp <= 0xFAFF or 0x3000 <= cp <= 0x30FF or 0x31F0 <= cp <= 0x31FF
+            or 0xAC00 <= cp <= 0xD7AF or 0x1100 <= cp <= 0x11FF)
 
-    The JSON payload stays small: at most max_samples samples + a total count, sorted so
-    characters that render nearly identically to ASCII (fullwidth, en/em dashes, arrows,
-    non-breaking space) come first — those are the ones an exact-match edit silently misses.
+
+def _non_ascii_report(content: str, max_samples: int = 20) -> dict:
+    """List SUSPICIOUS non-ASCII characters (line/column/codepoint/name/context), highest-risk first.
+
+    Meant for exact-match edit hazards (fullwidth punctuation next to ASCII, nbsp, dashes, arrows).
+    Ordinary CJK text is NOT listed (it made a 125-byte Chinese doc carry a 2.7 KB report): CJK
+    letters/kana/hangul/CJK punctuation are only counted in `cjk_ordinary`, and fullwidth forms
+    that sit inside CJK text (，：（） between Chinese characters) count as ordinary too. Samples are
+    de-duplicated per character (first position + `count`). `total` counts every non-ASCII char.
     """
-    hits = []
+    hits: dict[str, dict] = {}
     total = 0
+    ordinary = 0
+    n = len(content)
     for i, ch in enumerate(content):
         cp = ord(ch)
         if cp <= 127:
             continue
         total += 1
-        if len(hits) < max_samples:
-            line_start = content.rfind("\n", 0, i) + 1
-            line = content.count("\n", 0, i) + 1
-            col = i - line_start + 1
-            try:
-                name = unicodedata.name(ch)
-            except ValueError:
-                name = "<unnamed>"
-            hits.append({"line": line, "column": col, "char": ch, "codepoint": "U+%04X" % cp,
-                         "name": name, "context": content[max(0, i - 8):i + 9]})
-    hits.sort(key=lambda h: _non_ascii_priority(ord(h["char"][0])))
-    return {"total": total, "samples": hits[:max_samples]}
+        if _is_cjk_letter(ch):
+            ordinary += 1
+            continue
+        if 0xFF01 <= cp <= 0xFF5E and (
+                (i > 0 and _is_cjk_letter(content[i - 1])) or (i + 1 < n and _is_cjk_letter(content[i + 1]))):
+            ordinary += 1
+            continue
+        h = hits.get(ch)
+        if h is not None:
+            h["count"] += 1
+            continue
+        if len(hits) >= max_samples * 4:  # bounded bookkeeping on pathological input
+            continue
+        line_start = content.rfind("\n", 0, i) + 1
+        try:
+            name = unicodedata.name(ch)
+        except ValueError:
+            name = "<unnamed>"
+        hits[ch] = {"line": content.count("\n", 0, i) + 1, "column": i - line_start + 1, "char": ch,
+                    "codepoint": "U+%04X" % cp, "name": name, "context": content[max(0, i - 8):i + 9],
+                    "count": 1}
+    samples = sorted(hits.values(), key=lambda h: _non_ascii_priority(ord(h["char"][0])))[:max_samples]
+    out = {"total": total, "samples": samples}
+    if ordinary:
+        out["cjk_ordinary"] = ordinary
+    return out
 
 
 @mcp.tool()
@@ -109,12 +183,22 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000,
         truncated = len(raw) > limit
         if truncated:
             raw = raw[:limit]
-        content, enc_used, fallback_from = _decode_text(raw, encoding)
+        try:
+            content, enc_used, fallback_from = _decode_text(raw, encoding)
+        except ValueError:
+            return {"error": "看起来是二进制文件(含 NUL 字节),不按文本读取。", "binary": True, "size": size,
+                    "hint": "用 file_info 看类型;文档类用 read_document / pdf_read_pages / excel_read;"
+                            "确需字节内容可用 run_command(如 certutil -encodehex / PowerShell Format-Hex);"
+                            "若确认是特殊编码文本,传 encoding 参数强制解码。"}
+        non_ascii = None
         if annotate_non_ascii:
+            # 已逐字标注码点,不再重复附报告。
             content = "".join("⟨U+%04X⟩" % ord(c) if ord(c) > 127 else c for c in content)
-        non_ascii = _non_ascii_report(content)
+        else:
+            # 报告只在有"易被当成 ASCII 的可疑字符"时附带;普通中文不再产生噪声(见 _non_ascii_report)。
+            non_ascii = _non_ascii_report(content)
         out = {"content": content, "size": size, "truncated": truncated, "encoding_used": enc_used}
-        if non_ascii["total"]:
+        if non_ascii and non_ascii["samples"]:
             out["non_ascii"] = non_ascii
         if fallback_from:
             out["encoding_fallback"] = {"requested": fallback_from, "used": enc_used}
@@ -171,12 +255,16 @@ def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = 
         return {"error": str(e)}
 
 
+_LIST_CAP = 1000
+
+
 @mcp.tool()
 def list_directory(
     path: str = ".",
     pattern: str | None = None,
     recursive: bool = False,
     include_hidden: bool = False,
+    limit: int = _LIST_CAP,
 ) -> dict:
     """List files and directories in a path.
 
@@ -184,80 +272,90 @@ def list_directory(
         path: Directory path to list.
         pattern: Optional glob pattern filter (e.g. "*.txt", "*.py").
         recursive: If True, list recursively.
-        include_hidden: If True, include hidden files (starting with .).
+        include_hidden: If True, include hidden files/dirs (starting with .). When False, hidden
+            directories (e.g. .git) are not descended into either.
+        limit: Max entries returned (default and hard max 1000) — applies to every mode.
 
     Returns:
-        dict with 'entries' list containing name, type, size.
+        dict with 'total' (entries returned), 'capped' (only when the listing was cut — narrow
+        with pattern/path or lower the scope), 'skipped' (only when >0: entries that could not be
+        stat-ed, e.g. broken symlinks), then the 'entries' list (name, path, type, size). The
+        summary keys come BEFORE the entries so a host-side text cut cannot hide them.
     """
     import glob as glob_module
 
     try:
+        cap = max(1, min(int(limit), _LIST_CAP))
         entries = []
         capped = False
+        skipped = 0
+
+        def _entry(name: str, full: str):
+            nonlocal skipped
+            try:
+                st = os.stat(full)
+            except OSError:  # broken symlink / locked file: skip, don't fail the whole listing
+                skipped += 1
+                return None
+            return {
+                "name": name,
+                "path": os.path.abspath(full),
+                "type": "directory" if os.path.isdir(full) else "file",
+                "size": st.st_size,
+            }
 
         if pattern:
             if recursive:
                 search = os.path.join(path, "**", pattern)
             else:
                 search = os.path.join(path, pattern)
-            matches = glob_module.glob(search, recursive=recursive)
-            capped = len(matches) > 1000
-            for match in matches[:1000]:
-                stat = os.stat(match)
-                entries.append({
-                    "name": os.path.relpath(match, path),
-                    "path": os.path.abspath(match),
-                    "type": "directory" if os.path.isdir(match) else "file",
-                    "size": stat.st_size,
-                })
-        else:
-            items = os.listdir(path) if not recursive else []
-            if recursive:
-                # The 1000-entry cap must stop os.walk itself: a bare `break` only exits the
-                # inner per-directory loop, so every further directory appended one more entry
-                # before breaking again (entries could exceed 1000 by the remaining dir count).
-                for root, dirs, files in os.walk(path):
-                    for name in dirs + files:
-                        # Looking at a 1001st item proves the response is partial. Checking before
-                        # appending avoids reporting capped=True for an exactly-1000-entry tree.
-                        if len(entries) >= 1000:
-                            capped = True
-                            break
-                        full = os.path.join(root, name)
-                        if not include_hidden and name.startswith("."):
-                            continue
-                        stat = os.stat(full)
-                        entries.append({
-                            "name": os.path.relpath(full, path),
-                            "path": os.path.abspath(full),
-                            "type": "directory" if os.path.isdir(full) else "file",
-                            "size": stat.st_size,
-                        })
-                    if capped:
-                        break
-            else:
-                for name in sorted(items):
+            matches = glob_module.glob(search, recursive=recursive, include_hidden=include_hidden)
+            for match in matches:
+                # Looking at a (cap+1)th item proves the response is partial.
+                if len(entries) >= cap:
+                    capped = True
+                    break
+                e = _entry(os.path.relpath(match, path), match)
+                if e:
+                    entries.append(e)
+        elif recursive:
+            # The cap must stop os.walk itself (a bare `break` only exits the inner loop).
+            for root, dirs, files in os.walk(path):
+                if not include_hidden:
+                    dirs[:] = [d for d in dirs if not d.startswith(".")]  # prune .git etc.
+                for name in dirs + files:
                     if not include_hidden and name.startswith("."):
                         continue
-                    full = os.path.join(path, name)
-                    try:
-                        stat = os.stat(full)
-                        entries.append({
-                            "name": name,
-                            "path": os.path.abspath(full),
-                            "type": "directory" if os.path.isdir(full) else "file",
-                            "size": stat.st_size,
-                        })
-                    except OSError:
-                        continue
+                    if len(entries) >= cap:
+                        capped = True
+                        break
+                    full = os.path.join(root, name)
+                    e = _entry(os.path.relpath(full, path), full)
+                    if e:
+                        entries.append(e)
+                if capped:
+                    break
+        else:
+            for name in sorted(os.listdir(path)):
+                if not include_hidden and name.startswith("."):
+                    continue
+                if len(entries) >= cap:
+                    capped = True
+                    break
+                e = _entry(name, os.path.join(path, name))
+                if e:
+                    entries.append(e)
 
-        out = {"entries": entries, "total": len(entries)}
+        out = {"total": len(entries)}
         if capped:
             # Honest partial-result marker so the caller knows the listing is truncated.
             out["capped"] = True
+        if skipped:
+            out["skipped"] = skipped
+        out["entries"] = entries
         return out
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e) or type(e).__name__}
 
 
 @mcp.tool(audit=True)
