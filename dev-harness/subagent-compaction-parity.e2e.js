@@ -13,7 +13,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   F2 窗口学习只在强压重试【成功】之后落账(45f P1-1,主回合早就这样):重试成功 → data/context-calibration.json 里出现
 //      这个模型的学习上限(context-calibration.json);重试也失败(其实不是超窗)→ 一条都不写。修前子代理在重试之前就落账,误判会永久压窗。
 // 做法:阶段 0 用一个超大窗口把同一段剧本跑一遍,量出子代理每一发请求的真实估算;阶段 1 按量出来的数设窗口,
-// 让「读完两份中等文件之后」恰好越过预算、而蒸发掉那份大文件之后回到预算以内(只走 L1,不需要 L2)。
+// 让「读完两份中等文件之后」恰好越过预算、而蒸发掉那份大文件之后压到 L1 低水位以下(只走 L1,不需要 L2)。
 const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -40,7 +40,9 @@ const SUMMARY = ['【目标】读文件', '【已确认的决定】无', '【未
 const filler = (tag, n) => Array.from({ length: n }, (_, i) => `${tag} line ${String(i).padStart(5, '0')} lorem ipsum dolor sit amet consectetur`).join('\n');
 fs.mkdirSync(WORK, { recursive: true });
 {
-  const lines = filler('big', 640).split('\n');
+  // 大文件要大到「蒸发掉它」能把估算压到 L1 低水位(预算 × compactionPlan.l1SufficientRatio)以下 —— 只回到预算以内
+  // 不再算 L1 够了(会当场升 L2)。820 行 ≈ 12.7K 估算 token,仍在 file_read 截断上限以内。
+  const lines = filler('big', 820).split('\n');
   lines.splice(60, 0, `the answer is ${FACT}`);
   fs.writeFileSync(path.join(WORK, 'big.txt'), lines.join('\n'), 'utf8');
   fs.writeFileSync(path.join(WORK, 's1.txt'), filler('one', 240), 'utf8');
@@ -145,7 +147,9 @@ function logRecords(home) {
     // 预算落在「读完 s1」与「读完 s2」之间:第 4 发之前越线、之前三发都不越;窗口 = 预算 / 0.8(autoCompactThreshold 缺省)
     const budget = Math.round((est[2] + est[3]) / 2);
     const bigTokens = est[1] - est[0];
-    ok(est[3] - bigTokens + 800 < budget, `阶段 0 蒸发大文件之后能回到预算以内(${est[3]} - ${bigTokens} < ${budget})`);
+    // 运行时的估算比这里量到的高 ~1.7K(校准与工具表口径),缩减视图本身也有 ~1.7K;两样一起留 3500 的余量。
+    const sufficient = Math.floor(budget * require('../ruyi-workbench/app/src/context-governance-rules.json').compactionPlan.l1SufficientRatio);
+    ok(est[3] - bigTokens + 3500 < sufficient, `阶段 0 蒸发大文件之后能压到 L1 低水位以下(${est[3]} - ${bigTokens} + 3500 < ${sufficient})`);
     const windowTokens = Math.ceil(budget / 0.8);
     subBodies.length = 0;
 

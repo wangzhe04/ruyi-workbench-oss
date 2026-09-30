@@ -172,7 +172,8 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     // estimation / 105g factTable / 105h refine)都是 additive 不 bump;`schema` 那道闸拦的是
     // 结构不兼容,新增可选键不是。25 号文 §1.2 写的是「版本号 +1」,这里显式按仓内既成惯例走,
     // 理由记在 44 号文 §7。
-    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000, reattachRatio: 0.1, reattachMaxTokens: 8000, reattachHeadLines: 40, reattachMaxFiles: 8 },
+    // l1SufficientRatio:L1 之后「够了」的线 = 预算 × 它(默认 0.8 窗口 × 0.75 = 60% 窗口),见 runAutoCompaction。
+    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000, reattachRatio: 0.1, reattachMaxTokens: 8000, reattachHeadLines: 40, reattachMaxFiles: 8, l1SufficientRatio: 0.75 },
     // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
     // noteEstimateSample EMA 用真实 usage 校准;样本 <3 时 estimateFactor=1 即纯静态估算。
     // 与 context-governance-rules.json 的 estimation 块逐字同构(additive)。
@@ -2301,7 +2302,13 @@ async function runAutoCompaction(ctx) {
     if (typeof onLevel1 === 'function') onLevel1({ evaporated, before, after: after1 });
     logEvent({ kind: 'auto_compact', mode: 'evaporate', ...logFields, beforeTokens: before, afterTokens: after1, evaporated });
     compacted = true;
-    if (after1 <= budget) return { compacted, level: 1, before, watermark: after1 }; // level 1 was enough
+    // L1 够不够用另一条更低的线判(低水位 = 预算 × l1SufficientRatio,默认 60% 窗口),而不是「回到预算以下」就算:
+    // L1 只把 80% 压到 78% 时,下一两个工具结果就又越线,再来一次 L1 —— 每次 L1 都改写旧消息、把服务商的前缀缓存
+    // 整段作废(这一截按原价重算);修前实测过「蒸发 1 条:106K→106K」这种每次只挪一点的连发(45f 的滞回只把它从
+    // 每迭代一次压到每越线一次)。压不到低水位就当场升 L2,一次腾出余量。L1 仍然先做 —— 它免费、不丢细节,
+    // 多数会话里工具结果占大头,一次 L1 就能降到线下,用不着付 L2 的摘要调用。
+    const sufficient = Math.floor(budget * CONTEXT_GOVERNANCE_RULES.compactionPlan.l1SufficientRatio);
+    if (after1 <= sufficient) return { compacted, level: 1, before, watermark: after1 }; // level 1 was enough
   }
 
   // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────

@@ -128,6 +128,8 @@ function autoCompactHarness(estimates) {
     // 「没压缩」,于是本文件两条断言红成「该触发却没触发」(实测就是这么红的)。
     evaporateBudgetBoundaryEnabled: srv.evaporateBudgetBoundaryEnabled,
     historyReadDedupEnabled: srv.historyReadDedupEnabled, // 126-111e:同上,注真函数
+    // L1「够了」的低水位(compactionPlan.l1SufficientRatio)同样注真规则(规则 JSON 是唯一可审计输入)。
+    CONTEXT_GOVERNANCE_RULES: require('../../ruyi-workbench/app/src/context-governance-rules.json'),
     sessionObjectIsStale: srv.sessionObjectIsStale, // 128b:历史快照前判「是不是撤回之前的对象」—— 同上,注真函数(沙箱里缺了它照样红成「没压缩」)
     writeHistorySnapshot: async (...a) => { snapshots.push(a); return 'raw'; },
     evaporateHistory: history => {
@@ -158,10 +160,11 @@ const historyOf = n => Array.from({ length: n }, (_, i) => ({ role: i % 2 ? 'ass
 test('滞回水位:压完后小幅回升直接跳过,显著越过水位才再武装', async () => {
   const budget = 0.8 * 131072; // 104857.6
   const session = { id: 's', messages: historyOf(6), providerHistory: historyOf(6) };
-  const h = autoCompactHarness([budget + 500, budget - 2000]); // 触发蒸发 → 压后低于预算
+  // 触发蒸发 → 压后低于预算但高于 L1 低水位 → 升 L2(本 harness 里恒败)→ 保留 L1 结果,水位 = 压后估算
+  const h = autoCompactHarness([budget + 500, budget - 2000, budget - 2000, budget - 2000]);
   assert.equal(await h.turn(session), true);
   assert.equal(session.autoCompactWatermark, budget - 2000);
-  assert.equal(h.events.filter(e => e.type === 'compact').length, 1);
+  assert.deepEqual(h.events.filter(e => e.type === 'compact').map(e => e.phase || e.mode), ['evaporate', 'started', 'failed']);
   const marks = session.messages.filter(m => m.source === 'compact');
   assert.equal(marks.length, 1);
 
@@ -176,16 +179,35 @@ test('滞回水位:压完后小幅回升直接跳过,显著越过水位才再武
   assert.equal(await h3.turn(session), true);
 });
 
+test('L1 够不够按低水位判(预算 × l1SufficientRatio):压到线下只做 L1;只压到预算与低水位之间就当场升 L2', async () => {
+  const budget = 0.8 * 131072;
+  const ratio = require('../../ruyi-workbench/app/src/context-governance-rules.json').compactionPlan.l1SufficientRatio;
+  assert.equal(ratio, 0.75);
+  const low = Math.floor(budget * ratio);
+  // 压到低水位以下:L1 就够,不打摘要
+  summaryCalls.n = 0;
+  const s1 = { id: 's1', messages: historyOf(6), providerHistory: historyOf(6) };
+  const h1 = autoCompactHarness([budget + 500, low - 10]);
+  assert.equal(await h1.turn(s1), true);
+  assert.equal(summaryCalls.n, 0, 'L1 压到低水位以下 → 不升 L2');
+  assert.equal(s1.autoCompactWatermark, low - 10);
+  // 只压到预算以下、低水位以上(修前这就算「够了」,下一两个工具结果又越线、再蒸发一次、再作废一次前缀缓存)
+  const s2 = { id: 's2', messages: historyOf(6), providerHistory: historyOf(6) };
+  const h2 = autoCompactHarness([budget + 500, low + 10, low + 10, low + 10]);
+  assert.equal(await h2.turn(s2), true);
+  assert.equal(summaryCalls.n, 1, '只压到预算与低水位之间 → 当场升 L2');
+});
+
 test('L2 失败保持 L1 结果并入同一行并落水位;压缩集跨触发合并计数', async () => {
   const budget = 0.8 * 131072;
   const session = { id: 's', messages: historyOf(6), providerHistory: historyOf(6) };
-  const h = autoCompactHarness([budget + 400, budget - 2600, budget - 2400]);
-  assert.equal(await h.turn(session), true); // L1 成功 → still over budget → L2 failed → keep L1
+  const h = autoCompactHarness([budget + 400, budget - 2600, budget - 2600, budget - 2400]);
+  assert.equal(await h.turn(session), true); // L1 有斩获但没压到低水位 → L2 failed → keep L1
   assert.equal(session.messages.filter(m => m.source === 'compact').length, 1);
   assert.ok(Number.isFinite(session.autoCompactWatermark));
   const wm = session.autoCompactWatermark;
 
-  const h2 = autoCompactHarness([wm + 5000, wm - 1000]); // 越过水位再次触发
+  const h2 = autoCompactHarness([wm + 5000, wm - 1000, wm - 1000, wm - 1000]); // 越过水位再次触发
   assert.equal(await h2.turn(session), true);
   assert.equal(session.messages.filter(m => m.source === 'compact').length, 1, '两次触发行数不变');
   assert.equal(session.messages.find(m => m.source === 'compact').compactMeta.passes, 2);
