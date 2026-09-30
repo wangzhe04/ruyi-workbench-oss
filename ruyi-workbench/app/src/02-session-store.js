@@ -2714,7 +2714,8 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     const r = asResultObject(result);
     irreversible.push({ kind, name: String(name || ''), detail: irreversibleDetail(input), ok: !(r && r.ok === false) });
   };
-  for (const tc of (Array.isArray(toolCalls) ? toolCalls : [])) {
+  for (const tc0 of (Array.isArray(toolCalls) ? toolCalls : [])) {
+    const tc = unwrapToolInvokeCall(tc0); // 审计 N1:tool_invoke_* 按真正被调用的工具名进账
     if (!tc || !tc.name) continue;
     const name = String(tc.name);
     const input = (tc.input && typeof tc.input === 'object') ? tc.input : {};
@@ -2776,7 +2777,8 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
     if (je.op === 'create') addArtifact(je.path);
     else if (je.op === 'modify' && ARTIFACT_MODIFY_KINDS.has(kindForPath(je.path))) addArtifact(je.path);
   }
-  for (const tc of (Array.isArray(toolCalls) ? toolCalls : [])) {
+  for (const tc0 of (Array.isArray(toolCalls) ? toolCalls : [])) {
+    const tc = unwrapToolInvokeCall(tc0);
     if (!tc) continue;
     const r = asResultObject(tc.result);
     if (!r || r.ok === false) continue; // failed calls produced nothing

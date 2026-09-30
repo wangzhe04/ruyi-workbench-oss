@@ -2813,7 +2813,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (grantHit) { gate = 'allow'; onEvent({ type: 'autonomy_grant_consumed', grantId: grantHit.grantId, tool: grantHit.tool, tier: grantHit.tier, remaining: grantHit.remaining }); }
           }
           // resultObj declared above (shared with the agent-tools branch, which `continue`s before reaching here).
-          if (gate === 'block') {
+          // 审计 N4:设置里关掉的命令/桌面工具在分发点拒绝(不弹权限窗、不执行;offer 面只是藏 schema,bypass/auto 下 gate 恒放行)。
+          const policyOff = (!bridge && !isStewardTurn) ? nativeToolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(session)) : '';
+          if (policyOff) {
+            resultObj = toolDisabledResult(tc.name, policyOff);
+          } else if (gate === 'block') {
             resultObj = { ok: false, error: `blocked by permission mode '${config.permissionMode}' (${tier} tool)` };
           } else {
             if (gate === 'ask' && !bridge) resultObj = (await preflightWriteBoundary(tc.name, args, { session, config, workingDir })) || undefined;   // 走查 U5:越界的写不弹窗
@@ -2833,7 +2837,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (!resultObj) {
               if (bridge) {
                 const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
-                if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+                if (!client) resultObj = { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
                   const gateRefusal = bridgedOfficeScriptGate(tc.name, args)
@@ -2912,10 +2916,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   resultObj = await awaitProviderTool(
                     tc,
                     signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
-                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
+                    // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
+                    INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)
                 }
-                catch (e) { resultObj = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
+                catch (e) { resultObj = toolFailureResult(e, allTools.map(t => t.function && t.function.name)); } // 审计 N5:未知工具附 did-you-mean
                 finally { releaseResourceLease(toolLease); }
                 }
               }
@@ -2988,6 +2993,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               const note = `[以下是工具 ${tc.name} 的屏幕截图]`;
               pendingToolImages.push({ toolCallId: tc.id, note, parts: [{ type: 'text', text: note }, ...imgs.map(u => ({ type: 'image_url', image_url: { url: u } }))] });
             }
+          } else if (VisualPipeline.extractToolImages(resultObj).length) {
+            // 审计 N7:非视觉模型看不了图 —— 历史里换成一行占位,不再把 40 KB 的 base64 当文字塞进上下文(UI 事件仍用原 resultObj)。
+            toolResultForHistory = VisualPipeline.stripToolImageFields(resultObj, 'no-vision');
           }
           // v0.8-S5: tiered truncation — file_read keeps head+tail, others flat 60KB (truncateToolResult).
           session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(toolResultForHistory)) });

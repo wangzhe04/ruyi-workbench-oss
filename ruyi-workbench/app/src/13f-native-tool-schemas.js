@@ -324,7 +324,7 @@ const MCP_TOOLS = [
       inputSchema: {
         type: 'object',
         properties: {
-          root: { type: 'string' }, pattern: { type: 'string' },
+          root: { type: 'string' }, pattern: { type: 'string', minLength: 1 }, // 审计 N5:空 pattern 会匹配每一行
           maxResults: { type: 'number' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' },
           ignoreDirs: { type: 'array', items: { type: 'string' } },
           context: { type: 'number', description: '0-5 lines of context before/after each match' },

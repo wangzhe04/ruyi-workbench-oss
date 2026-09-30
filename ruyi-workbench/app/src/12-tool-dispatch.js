@@ -124,7 +124,10 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const config = await readConfig();
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
-  if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
+  if (!item) {
+    const didYouMean = suggestToolNames(targetName, catalog.map(x => x.name).filter(n => !isControlPlaneToolName(n)));
+    return { ok: false, code: 'unknown-tool', error: `tool not found: ${targetName}. Call tool_search first.${didYouMean.length ? ` Did you mean: ${didYouMean.join(', ')}?` : ''}`, didYouMean, hint: 'use tool_search {query} to find the exact tool name and its tier' };
+  }
   if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const bridge = resolveBridge(bridged.route, targetName);
   // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
@@ -134,9 +137,15 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
     if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, not '${proxyTier}'` };
   }
-  if (!bridge) return toolCall(targetName, targetArgs || {});
+  // 审计 N1:原生目标必须带着 ctx(session/turnSeq/config/workingDir/signal)进 toolCall —— 修前 ctx=null:写文件没有检查点
+  // (checkpointWarn: no_session_context)、根目录回落数据目录默认工作区、steer/stop 的中止信号到不了 script_run。
+  // MCP 子进程里 ctx 本就为空(按 WCW_SESSION_ID 兜底,见 journalSessionCtx),行为不变。
+  if (!bridge) {
+    try { return await toolCall(targetName, targetArgs || {}, ctx || null); }
+    catch (e) { return toolFailureResult(e); }
+  }
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
-  if (!client) return { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
+  if (!client) return { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
   const gateRefusal = bridgedOfficeScriptGate(targetName, targetArgs || {});
   if (gateRefusal) return gateRefusal;
   const relArg = bridgedWriteRelativePathArg(targetName, targetArgs || {});
@@ -149,7 +158,7 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
     if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
-    return await client.callTool(bridge.toolName, targetArgs || {});
+    return await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
   } catch (e) {
     return { ok: false, error: (e && e.message) || String(e) };
   }
@@ -1245,6 +1254,33 @@ const SHELL_TOOL_HANDLERS = {
   } },
 };
 
+// 审计 NE-12:desktop_screenshot 修前只回一个路径 —— 视觉模型永远看不到这张图(file_read 对图片的拒绝提示还指回本工具)。
+// 现在 PowerShell 顺手存一份缩略 JPEG 副本(<outPath>.vision.jpg,长边 <= 1600);这里读回、以 image_base64 返回
+// (与 ACC 截图同一条工具图像通道:视觉开的模型经 extractToolImages 收到真图,非视觉模型由 N7 换成占位),路径照旧保留。
+// 副本缺失(PS 缩放失败 / 旧路径)回落到 PNG 本体,但超过上限就不内嵌(只回路径 + 说明),避免一张 4K PNG 把历史撑爆。
+const VISION_SIDECAR_SUFFIX = '.vision.jpg';
+const SCREENSHOT_EMBED_MAX_BYTES = 2500000;
+async function attachScreenshotImage(result, outPath) {
+  if (!result || result.ok === false) return result;
+  const sidecar = outPath + VISION_SIDECAR_SUFFIX;
+  try {
+    let buf = null;
+    try { buf = await fsp.readFile(sidecar); } catch { buf = null; }
+    finally { await fsp.rm(sidecar, { force: true }).catch(() => {}); }
+    if (!buf || !buf.length) {
+      const st = await fsp.stat(outPath).catch(() => null);
+      if (!st || !st.isFile()) return result;
+      if (st.size > SCREENSHOT_EMBED_MAX_BYTES) return { ...result, imageOmitted: `screenshot is ${st.size} bytes; not embedded (use ocr / a smaller region via the desktop control tools)` };
+      buf = await fsp.readFile(outPath);
+    }
+    if (buf.length > SCREENSHOT_EMBED_MAX_BYTES) return { ...result, imageOmitted: `screenshot is ${buf.length} bytes; not embedded` };
+    const b64 = buf.toString('base64');
+    const mime = VisualPipeline.sniffImageMime(b64) || 'image/png';
+    const dims = VisualPipeline.imageSizeFromBuffer(buf);
+    return { ...result, image_base64: b64, image_mime: mime, format: mime === 'image/jpeg' ? 'jpeg' : 'png', ...(dims ? { width: dims.width, height: dims.height } : {}) };
+  } catch { return result; }
+}
+
 const DESKTOP_TOOL_HANDLERS = {
   desktop_screenshot: { paths: "conditional", guardNote: '', handler: async (args, ctx) => {
       const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
@@ -1265,12 +1301,24 @@ $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
 $graphics = [System.Drawing.Graphics]::FromImage($bmp)
 $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
 $bmp.Save('${outPath.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
+try {
+  # 审计 NE-12:给视觉模型的缩略副本(长边 <= 1600 的 JPEG,落在 <outPath>.vision.jpg)。失败只是没有副本,主截图不受影响。
+  $scale = [Math]::Min(1.0, 1600.0 / [Math]::Max($bounds.Width, $bounds.Height))
+  $nw = [int][Math]::Max(1, [Math]::Round($bounds.Width * $scale)); $nh = [int][Math]::Max(1, [Math]::Round($bounds.Height * $scale))
+  $small = New-Object System.Drawing.Bitmap $nw, $nh
+  $g2 = [System.Drawing.Graphics]::FromImage($small)
+  $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $g2.DrawImage($bmp, 0, 0, $nw, $nh)
+  $g2.Dispose()
+  $small.Save('${(outPath + VISION_SIDECAR_SUFFIX).replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
+  $small.Dispose()
+} catch { }
 $graphics.Dispose()
 $bmp.Dispose()
 Write-Output '${outPath.replace(/'/g, "''")}'
 `;
-      const result = await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000);
-      return { ...result, path: outPath };
+      const result = await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal);
+      return await attachScreenshotImage({ ...result, path: outPath }, outPath);
   } },
   keyboard_send_keys: { paths: null, guardNote: "键盘注入,不触文件路径", handler: async (args, ctx) => {
       const keys = String(args.keys || '');
@@ -1598,9 +1646,145 @@ const TOOL_HANDLERS = Object.freeze(Object.assign({},
   if (declared !== Object.keys(TOOL_HANDLERS).length) throw new Error('TOOL_HANDLERS: 组间存在重名工具,注册表被静默覆盖');
 }
 
+// ── 审计 N5:分发前的两道公共闸(未知名 did-you-mean / 入参按工具自己的 JSON schema 校验) ─────────────────────
+// 校验只认 13f schema 实际用到的子集:type(object/array/string/number/integer/boolean)、required、enum、items、minLength。
+// 标量宽松强转(handler 本来就 String()/Number() 它们):string 收 string/number/boolean,number/integer 收数字与可解析的
+// 数字串,boolean 收布尔与 'true'/'false'。目的只是把「缺必填 / 类型明显不对」变成点名字段的可行动错误,不是收紧协议。
+// 未知键不拒(HTTP /api/tools 路由把整个 body 当 args,里面带 sessionId/turnSeq)。
+function isControlPlaneToolName(n) {
+  return n === 'permission_prompt' || n === 'list_tools' || n === 'tool_search' || n === 'tool_load' || String(n).startsWith('tool_invoke_');
+}
+const TOOL_NAME_ALIASES = {
+  list_directory: 'file_list', list_dir: 'file_list', ls: 'file_list', read_file: 'file_read', cat: 'file_read',
+  write_file: 'file_write', create_file: 'file_write', edit_file: 'file_edit', replace_in_file: 'file_edit',
+  delete_file: 'file_delete', grep: 'file_search', search_files: 'file_search', find_files: 'glob',
+  run_command: 'powershell_run', shell: 'powershell_run', bash: 'powershell_run', run_script: 'script_run',
+  fetch: 'http_request', web_fetch: 'http_request', screenshot: 'desktop_screenshot',
+};
+function suggestToolNames(name, candidates, limit = 3) {
+  const target = String(name || '').toLowerCase();
+  const pool = [...new Set((Array.isArray(candidates) ? candidates : []).map(String))];
+  if (!target || !pool.length) return [];
+  const tokens = str => new Set(str.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+  const tt = tokens(target);
+  const out = [];
+  const alias = TOOL_NAME_ALIASES[target];
+  if (alias && pool.includes(alias)) out.push(alias);
+  const scored = pool.filter(n => !out.includes(n)).map(n => {
+    const lower = n.toLowerCase();
+    let shared = 0;
+    for (const t of tokens(lower)) if (tt.has(t)) shared += 1;
+    const contains = lower.includes(target) || target.includes(lower) ? 1 : 0;
+    // 编辑距离为主;共享 token(list_directory ↔ file_list 共享 list)与互相包含各抵掉几步,让语义近的名字排到前面。
+    return { n, score: levenshtein(target, lower, 80) - 3 * shared - 4 * contains };
+  });
+  scored.sort((a, b) => a.score - b.score || a.n.localeCompare(b.n));
+  for (const x of scored) { if (out.length >= limit) break; out.push(x.n); }
+  return out.slice(0, limit);
+}
+function unknownToolError(name, offered) {
+  const own = Object.keys(TOOL_HANDLERS).filter(n => !isControlPlaneToolName(n) && !isStewardToolName(n));
+  const didYouMean = suggestToolNames(name, own.concat(Array.isArray(offered) ? offered : []));
+  // message 保持 `Unknown tool: X`(tool-dispatch.e2e B1 逐字断言);建议走属性,由 toolFailureResult 摊进结果。
+  const err = new Error(`Unknown tool: ${name}`);
+  err.toolFailure = { code: 'unknown-tool', didYouMean, hint: 'use tool_search {query} to find tools by capability; only exact tool names can be called' };
+  return err;
+}
+// catch 点统一把工具抛出的错误变成 {ok:false,...} 结果:普通 Error 只带 error 文本(与修前逐字一致),未知工具附 did-you-mean。
+function toolFailureResult(e, offered) {
+  const msg = (e && e.message) ? e.message : String(e);
+  const tf = e && e.toolFailure;
+  if (!tf) return { ok: false, error: msg };
+  let didYouMean = tf.didYouMean || [];
+  if (tf.code === 'unknown-tool' && Array.isArray(offered) && offered.length) {
+    const m = /^Unknown tool: (.*)$/.exec(msg);
+    if (m) didYouMean = suggestToolNames(m[1], offered.concat(didYouMean));
+  }
+  return { ok: false, code: tf.code, error: didYouMean.length ? `${msg}. Did you mean: ${didYouMean.join(', ')}?` : msg, didYouMean, hint: tf.hint };
+}
+function jsonSchemaTypeName(v) { return v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v; }
+function jsonSchemaValueProblems(schema, value, at) {
+  if (!schema || typeof schema !== 'object') return [];
+  const t = schema.type;
+  const here = at || 'value';
+  if (Array.isArray(schema.enum) && schema.enum.length && !schema.enum.some(x => x === value || (typeof x === 'string' && typeof value !== 'object' && String(value) === x))) {
+    return [`'${here}' must be one of ${schema.enum.map(x => JSON.stringify(x)).join(' | ')} (got ${JSON.stringify(value)})`];
+  }
+  if (t === 'string') {
+    if (typeof value === 'string') return (schema.minLength > 0 && value.length < schema.minLength) ? [`'${here}' must not be empty (string)`] : [];
+    return (typeof value === 'number' || typeof value === 'boolean') ? [] : [`'${here}' must be a string (got ${jsonSchemaTypeName(value)})`];
+  }
+  if (t === 'number' || t === 'integer') {
+    const ok = (typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)));
+    return ok ? [] : [`'${here}' must be a ${t} (got ${typeof value === 'string' ? JSON.stringify(value) : jsonSchemaTypeName(value)})`];
+  }
+  if (t === 'boolean') {
+    return (typeof value === 'boolean' || value === 'true' || value === 'false') ? [] : [`'${here}' must be a boolean (got ${typeof value === 'string' ? JSON.stringify(value) : jsonSchemaTypeName(value)})`];
+  }
+  if (t === 'array') {
+    if (!Array.isArray(value)) return [`'${here}' must be an array (got ${jsonSchemaTypeName(value)})`];
+    if (!schema.items) return [];
+    const bad = [];
+    for (let i = 0; i < value.length && bad.length < 3; i += 1) bad.push(...jsonSchemaValueProblems(schema.items, value[i], `${here}[${i}]`));
+    return bad;
+  }
+  if (t === 'object') {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return [`'${here}' must be an object (got ${jsonSchemaTypeName(value)})`];
+    return jsonSchemaObjectProblems(schema, value, at);
+  }
+  return [];
+}
+function jsonSchemaObjectProblems(schema, obj, at) {
+  const problems = [];
+  const props = (schema && schema.properties) || {};
+  const prefix = at ? `${at}.` : '';
+  for (const key of Array.isArray(schema && schema.required) ? schema.required : []) {
+    if (obj[key] === undefined || obj[key] === null) {
+      const sub = props[key];
+      problems.push(`missing required '${prefix}${key}'${sub && sub.type ? ` (${sub.type})` : ''}`);
+    }
+  }
+  for (const key of Object.keys(props)) {
+    if (obj[key] === undefined || obj[key] === null) continue;
+    problems.push(...jsonSchemaValueProblems(props[key], obj[key], `${prefix}${key}`));
+  }
+  return problems;
+}
+let _nativeToolSchemaByName = null;
+function nativeToolSchema(name) {
+  if (!_nativeToolSchemaByName) {
+    _nativeToolSchemaByName = new Map();
+    for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
+  }
+  return _nativeToolSchemaByName.get(name) || null;
+}
+// 返回 null = 通过;否则是可直接回给模型的 {ok:false, code:'invalid-arguments', ...}。
+function validateNativeToolArgs(name, args) {
+  const schema = nativeToolSchema(name);
+  if (!schema) return null;
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) {
+    return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
+  }
+  const problems = jsonSchemaObjectProblems(schema, args, '');
+  if (!problems.length) return null;
+  const props = schema.properties || {};
+  const expected = {};
+  for (const k of Array.isArray(schema.required) ? schema.required : []) expected[k] = (props[k] && props[k].type) || 'any';
+  return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: ${problems.join('; ')}`, expected, hint: `fix the argument(s) and call ${name} again; required fields: ${Object.keys(expected).join(', ') || '(none)'}` };
+}
+
 async function toolCall(name, args = {}, ctx = null) {
-  const entry = TOOL_HANDLERS[name];
-  if (!entry) throw new Error(`Unknown tool: ${name}`);
+  const entry = Object.prototype.hasOwnProperty.call(TOOL_HANDLERS, name) ? TOOL_HANDLERS[name] : null;
+  if (!entry) throw unknownToolError(name);
+  // 审计 N4:设置里关掉的命令/桌面工具在【分发点】也拒绝(offer 面只是藏 schema;bypass/auto 下 gate 恒放行)。
+  // ctx 带 config 的调用(主循环 / 子代理 / tool_invoke_* 转发)才判;MCP 子进程与 HTTP 回环不带 config,由 offer 面把关。
+  if (ctx && ctx.config) {
+    const disabled = nativeToolDisabledByPolicy(name, ctx.config, ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
+    if (disabled) return toolDisabledResult(name, disabled);
+  }
+  // 审计 N5:必填/类型校验(按工具自己的 13f schema)。修前 file_read {} 得到 EISDIR、file_search {} 命中 61 条垃圾。
+  const invalid = validateNativeToolArgs(name, args);
+  if (invalid) return invalid;
   return entry.handler(args, ctx);
 }
 
