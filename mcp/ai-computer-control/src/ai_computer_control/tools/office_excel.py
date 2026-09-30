@@ -17,6 +17,7 @@ import os
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
 from ai_computer_control.tools import office_style as style_tokens
+from ai_computer_control.tools import office_io
 
 
 def _protected_write_guard(path: str, allow_protected: bool):
@@ -243,7 +244,7 @@ def excel_beautify(
             "cols": max_col,
         }
     except Exception as e:  # noqa: BLE001
-        return {"error": f"美化失败：{e}"}
+        return office_io.io_failure(e, path, prefix="美化失败：")
 
 
 def _rich_title(text: str, font_name: str):
@@ -604,4 +605,4 @@ def excel_chart(
             "y_title": applied_y,
         }
     except Exception as e:  # noqa: BLE001
-        return {"error": f"插入图表失败：{e}"}
+        return office_io.io_failure(e, path, prefix="插入图表失败：")
