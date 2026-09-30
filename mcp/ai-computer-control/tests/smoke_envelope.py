@@ -238,10 +238,9 @@ def run_command_output():
                              "import sys; sys.stdout.buffer.write('中文内容'.encode('gbk'))"]), timeout=20)
         check("中文内容" in r.get("stdout", ""), f"GBK child output still decodes via the OEM page (got {r.get('stdout')!r})")
 
-        code = ("import sys\n"
-                "for i in range(5000): print('line %06d of a very long build log' % i)\n"
-                "sys.stderr.write('ERR-LINE-AT-END\\n')\n"
-                "print('TAIL-MARKER-LINE')\n")
+        # 单行、不含 % 与换行:Windows 上 run_command 走 cmd /c,命令行遇到换行就截断,% 还会被当变量展开。
+        code = ("import sys; [print('line ' + str(i).zfill(6) + ' of a very long build log') for i in range(5000)]; "
+                "sys.stderr.write('ERR-LINE-AT-END' + chr(10)); print('TAIL-MARKER-LINE')")
         r = fn(command=_cmd([sys.executable, "-c", code]), timeout=60)
         blob = json.dumps(r, ensure_ascii=False)
         keys = list(r)

@@ -132,6 +132,22 @@ def section_read_file():
     r = _FNS["read_file"](path=f)
     check(r.get("content") == "line one\nline two\n", f"无 BOM 的 UTF-16-LE 也识别 (got {r.get('content')!r})")
 
+    # 英文/西欧 Windows(ACP=cp1252,单字节页什么字节都解得开):GBK 文件不能被静默解成 cp1252 乱码,
+    # 真西文 cp1252 文件也仍按 ACP 解。CI 的 Windows runner 正是 cp1252。
+    _orig_acp = fs._system_acp
+    fs._system_acp = lambda: "cp1252"
+    try:
+        f = P("gbk_on_1252.txt")
+        wb_bytes(f, "中文内容,来自记事本 ANSI".encode("gbk"))
+        r = _FNS["read_file"](path=f)
+        check("中文内容" in r.get("content", ""), f"ACP=cp1252 时 GBK 文件仍解成中文 (enc={r.get('encoding_used')})")
+        f = P("latin_on_1252.txt")
+        wb_bytes(f, "Café crème — naïve résumé\n".encode("cp1252"))
+        r = _FNS["read_file"](path=f)
+        check(r.get("content") == "Café crème — naïve résumé\n", f"ACP=cp1252 时西文文件仍按 cp1252 (enc={r.get('encoding_used')})")
+    finally:
+        fs._system_acp = _orig_acp
+
     f = P("gbk.txt")
     wb_bytes(f, "中文内容,来自记事本 ANSI".encode("gbk"))
     r = _FNS["read_file"](path=f)

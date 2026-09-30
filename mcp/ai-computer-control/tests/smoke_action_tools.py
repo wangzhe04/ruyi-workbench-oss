@@ -522,8 +522,8 @@ def test_act_and_verify():
         left = os.listdir(d)
         check("keep-me.txt" in left and len([f for f in left if f != "keep-me.txt"]) == 8,
               "prune keeps unrelated files and at most N shot files")
-        im = Image.open(paths[-1])
-        check(im.format == "JPEG" and im.width <= a._SHOT_WIDTH, "saved shots are JPEG and bounded in width")
+        with Image.open(paths[-1]) as im:  # 关掉句柄:Windows 上开着的文件删不掉,TemporaryDirectory 收尾会 WinError 32
+            check(im.format == "JPEG" and im.width <= a._SHOT_WIDTH, "saved shots are JPEG and bounded in width")
 
     bbox = a._diff_bbox(base, changed)
     check(bbox is not None and bbox[0] <= 20 and bbox[2] >= 120, "diff region bounds the changed pixels")

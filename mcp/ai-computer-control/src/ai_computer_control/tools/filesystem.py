@@ -11,6 +11,9 @@ from ai_computer_control.tools.office_io import replace_with_retry as _replace_w
 from ai_computer_control.tools.safety import protected_path_reason
 
 
+_CJK_ACPS = frozenset({"cp936", "cp950", "cp932", "cp949", "gbk"})
+
+
 def _system_acp() -> str:
     """The system ANSI code page (cp936 on zh-CN). GBK fallback for non-UTF-8 text files."""
     try:
@@ -91,9 +94,19 @@ def _decode_text(raw: bytes, encoding: str | None, truncated: bool = False) -> t
         try:
             return (_trim_partial_utf8(raw) if truncated else raw).decode("utf-8"), "utf-8", None
         except UnicodeDecodeError:
-            for acp in (_system_acp(), "gb18030"):
+            acp = _system_acp()
+            # 中文系统(ACP 是 936/950/932/949 这类双字节页)照旧 ACP 优先。英文/西欧 Windows 的 ACP 是 cp1252 这类
+            # 单字节页:任何字节都「解得开」,GBK 文件会被静默解成乱码 —— 先试【严格】GB18030(西文重音字母几乎
+            # 不可能恰好构成合法 GBK 双字节序列),解不开再落 ACP。截断读时尾部半个字留在增量解码器里不算错。
+            if acp.lower() not in _CJK_ACPS:
                 try:
-                    return raw.decode(acp, errors="replace"), acp, "utf-8"
+                    dec = codecs.getincrementaldecoder("gb18030")(errors="strict")
+                    return dec.decode(raw, final=not truncated), "gb18030", "utf-8"
+                except UnicodeDecodeError:
+                    pass
+            for codec in (acp, "gb18030"):
+                try:
+                    return raw.decode(codec, errors="replace"), codec, "utf-8"
                 except (LookupError, UnicodeDecodeError):
                     continue
             return raw.decode("utf-8", errors="replace"), "utf-8", None
