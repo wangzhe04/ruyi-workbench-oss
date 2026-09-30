@@ -4,6 +4,7 @@ Covers: DPI awareness (set once at import so coordinates are consistent), pixel 
 image read, monitor enumeration, and wait-for-window / wait-for-window-idle primitives.
 """
 
+import asyncio
 import base64
 import ctypes
 import io
@@ -13,6 +14,7 @@ from ctypes import wintypes
 
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import protected_path_reason
+from ai_computer_control.utils.waits import capped_fields, clamp_wait_s
 
 _user32 = ctypes.windll.user32
 _kernel32 = ctypes.windll.kernel32
@@ -244,12 +246,12 @@ def _window_rect(hwnd) -> dict:
 
 
 @mcp.tool()
-def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250, exact: bool = False) -> dict:
+async def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250, exact: bool = False) -> dict:
     """Wait until a top-level window whose title matches `title` appears.
 
     Args:
         title: Substring (default) or exact title (exact=True), case-insensitive.
-        timeout: Max seconds to wait (wall-clock bounded).
+        timeout: Max seconds to wait (wall-clock bounded; capped at 120, 'capped' is set when cut).
         poll_ms: Poll interval in ms.
         exact: Require an exact (case-insensitive) title match.
 
@@ -257,15 +259,18 @@ def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250, exact
         dict with 'found', and on success 'hwnd', 'title', 'rect'.
     """
     target = title.lower()
-    deadline = time.monotonic() + max(0.0, float(timeout))
+    timeout_s, capped = clamp_wait_s(timeout)
+    extra = capped_fields(timeout, capped)
+    poll_s = max(0.05, min(5.0, int(poll_ms) / 1000.0))
+    deadline = time.monotonic() + timeout_s
     while True:
         for hwnd, wtitle in _enum_windows():
             wl = wtitle.lower()
             if (wl == target) if exact else (target in wl):
-                return {"found": True, "hwnd": int(hwnd), "title": wtitle, "rect": _window_rect(hwnd)}
+                return {"found": True, "hwnd": int(hwnd), "title": wtitle, "rect": _window_rect(hwnd), **extra}
         if time.monotonic() >= deadline:
-            return {"found": False, "title": title, "timeout": timeout}
-        time.sleep(poll_ms / 1000.0)
+            return {"found": False, "title": title, "timeout": timeout_s, **extra}
+        await asyncio.sleep(poll_s)
 
 
 @mcp.tool()

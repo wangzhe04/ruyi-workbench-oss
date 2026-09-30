@@ -1,8 +1,10 @@
 """Automation synchronization primitives (poll-until-condition)."""
 
+import asyncio
 import time
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.waits import capped_fields, clamp_wait_s
 
 
 def _parse_hex(color_hex: str) -> tuple[int, int, int] | None:
@@ -18,8 +20,8 @@ def _parse_hex(color_hex: str) -> tuple[int, int, int] | None:
 
 
 @mcp.tool()
-def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
-                   tolerance: int = 10, poll_ms: int = 100) -> dict:
+async def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
+                         tolerance: int = 10, poll_ms: int = 100) -> dict:
     """Poll the pixel at (x, y) until it matches color_hex (within tolerance) or timeout.
 
     A synchronization primitive: block until the screen visibly changes to an expected color.
@@ -27,7 +29,7 @@ def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
     Args:
         x, y: Screen coordinates to sample.
         color_hex: Target color like "#3399ff" (or "39f").
-        timeout_ms: Max time to wait, in milliseconds.
+        timeout_ms: Max time to wait, in milliseconds (capped at 120000; 'capped' is set when cut).
         tolerance: Per-channel absolute tolerance (0-255).
         poll_ms: Poll interval in milliseconds.
 
@@ -46,7 +48,14 @@ def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
     tol = max(0, int(tolerance))
     # b3-P2: poll_ms 钳制到 [10, 5000] —— 0/负值会导致忙轮询空转 CPU,过大则错过瞬时状态。
     poll = max(10, min(5000, int(poll_ms)))
-    deadline = time.monotonic() + max(0, int(timeout_ms)) / 1000.0
+    # F8: 超时钳制到 120s(过长的等待与卡死无法区分,桥的唯一手段是杀进程)。
+    try:
+        requested_ms = int(timeout_ms)
+    except (TypeError, ValueError):
+        requested_ms = 10000
+    timeout_s, capped = clamp_wait_s(requested_ms / 1000.0)
+    extra = capped_fields(requested_ms, capped)
+    deadline = time.monotonic() + timeout_s
     start = time.monotonic()
     last = None
     while True:
@@ -56,14 +65,16 @@ def wait_for_pixel(x: int, y: int, color_hex: str, timeout_ms: int = 10000,
             if abs(r - tr) <= tol and abs(g - tg) <= tol and abs(b - tb) <= tol:
                 waited = int((time.monotonic() - start) * 1000)
                 return {"ok": True, "matched": True, "waited_ms": waited,
-                        "x": x, "y": y, "rgb": [r, g, b], "hex": f"#{r:02x}{g:02x}{b:02x}"}
+                        "x": x, "y": y, "rgb": [r, g, b], "hex": f"#{r:02x}{g:02x}{b:02x}", **extra}
         except Exception as e:  # noqa: BLE001
             return {"ok": False, "error": f"pixel read failed: {e}", "x": x, "y": y}
         if time.monotonic() >= deadline:
             waited = int((time.monotonic() - start) * 1000)
-            res = {"ok": True, "matched": False, "waited_ms": waited, "x": x, "y": y}
+            res = {"ok": True, "matched": False, "waited_ms": waited, "x": x, "y": y, **extra}
             if last is not None:
                 res["rgb"] = [last[0], last[1], last[2]]
                 res["hex"] = f"#{last[0]:02x}{last[1]:02x}{last[2]:02x}"
             return res
-        time.sleep(poll / 1000.0)
+        # Yield to the event loop between polls (pings/cancellation stay serviced); the pixel read
+        # itself still runs on the loop thread, so pyautogui keeps its single-thread semantics.
+        await asyncio.sleep(poll / 1000.0)
