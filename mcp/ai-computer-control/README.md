@@ -119,17 +119,17 @@
 
 | 工具 | 说明 | 关键参数 |
 |------|------|----------|
-| `diagnostics` | 版本 / Python / 管理员 / 显示器 / DPI / 可选模块可用性 / 工具数 | — |
+| `diagnostics` | 版本 / Python / 管理员 / 显示器 / DPI / 可选模块可用性 / 工具数 / `load_errors`（导入失败的工具模块，其余工具照常） | — |
 | `version_info` | 精简版本 + 工具数 | — |
 | `safety_info` | 生效护栏（内置 + 数据目录 safety.json 覆盖）及来源标注 | — |
-| `audit_tail` | 读取最近 n 条改动型工具审计记录（NDJSON） | `n=50` |
+| `audit_tail` | 读取最近 n 条改动型工具审计记录（NDJSON；含 ok/error/ms，args 为已脱敏对象；按 5MB 轮转、保留最新 30 个文件） | `n=50` |
 | `window_screenshot` | 按标题模糊匹配截取指定窗口，优先 PrintWindow，失败回退裁剪 | `title_substring`, `output_path` |
 | `ocr_find_text` | OCR 屏幕/区域，跨相邻词定位文本，返回中心坐标；可点击（需 winsdk） | `text`, `region`, `click` |
 | `vision_click` | 多尺度模板匹配定位并可点击中心（需 cv2） | `template_path`, `threshold`, `click` |
 | `wait_for_pixel` | 轮询 (x,y) 像素直到匹配 color_hex 或超时 | `x`, `y`, `color_hex`, `timeout_ms`, `tolerance` |
 | `scroll_at` | 在 (x,y) 处滚轮滚动 amount | `x`, `y`, `amount` |
 
-> 说明：所有工具统一返回带 `ok` 布尔字段的字典；改动型工具（键鼠/文件/进程/剪贴板/命令/窗口/宏等）自动写入数据目录审计日志 `logs/audit-YYYYMMDD.ndjson`。可选依赖（uiautomation / winsdk / opencv / **playwright / pynput**）缺失时对应工具返回 `{ok:false, error:...}` 并附安装提示，不会导致服务崩溃。护栏可通过数据目录 `safety.json` **仅加严**（额外保护路径 / 禁止命令 / 禁杀进程名）。
+> 说明：所有工具统一返回带 `ok` 布尔字段的字典（任何存在的 `error` 键都算失败，常见失败附 `hint`；`run_command` 的子进程无 stdin、每流默认最多 16000 字符头尾）；改动型工具（键鼠/文件/进程/剪贴板/命令/窗口/宏等）自动写入数据目录审计日志 `logs/audit-YYYYMMDD.ndjson`。可选依赖（uiautomation / winsdk / opencv / **playwright / pynput**）缺失时对应工具返回 `{ok:false, error:...}` 并附安装提示，不会导致服务崩溃。护栏可通过数据目录 `safety.json` **仅加严**（额外保护路径 / 禁止命令 / 禁杀进程名）。
 
 ## 快速开始 (开发模式)
 

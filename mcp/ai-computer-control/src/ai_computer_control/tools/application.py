@@ -123,28 +123,26 @@ def launch_application(
     ready_timeout: float = 2.0,
     wait_timeout: float = 120.0,
 ) -> dict:
-    """Launch an application and report whether it actually started.
+    """Launch an application and confirm it really started (real pid, main window when one appears).
 
-    Unlike a naive shell launch, this resolves the target to a real executable, spawns it WITHOUT a
-    shell (so the returned pid is the application itself, not a transient cmd.exe), and confirms the
-    process is alive — a bad path returns an error instead of a false success.
+    何时用: open a GUI/console program or a document/URL. 何时别用: shell pipelines, builds, scripts whose
+    output you need (use run_command); killing/closing (kill_process / close_window).
+    Spawned WITHOUT a shell, so the pid is the app itself; a bad path is an error, not a false success.
+    The child gets no stdin (EOF).
 
     Args:
-        path: Executable path ("notepad.exe", "C:/Program Files/app/app.exe"), a name on PATH, a
-              registered app name (calc, mspaint, msedge, chrome, code), OR a document/URL to open
-              with its default handler.
-        args: Optional command-line arguments (quoted paths with spaces are handled).
-        working_dir: Optional working directory.
-        wait: If True, block until the process exits and capture its output (for console programs;
-              meaningless for GUI apps — use wait=False + the returned 'window'/wait_for_window).
-        ready_timeout: Seconds to wait for the app's main window to appear (0 to skip, max 60). The window
-              info is returned so you can focus/click it immediately without a separate poll.
-        wait_timeout: Seconds to wait for process exit when wait=True (default 120, clamped to
-              [1, 600]); independent of ready_timeout. The child gets no stdin (EOF).
+        path: Executable path ("notepad.exe", "C:/Program Files/app/app.exe"), a name on PATH, a registered
+              app name (calc, mspaint, msedge, chrome, code), or a document/URL for its default handler.
+        args: Command-line arguments (quoted paths with spaces are handled). Not allowed with a document/URL.
+        working_dir: Working directory.
+        wait: Block until exit and capture output (console programs only; for GUI apps use wait=False).
+        ready_timeout: Seconds to wait for the main window (0 skips, max 60); its hwnd/title/rect come back
+              so you can focus/click at once.
+        wait_timeout: Seconds to wait for exit when wait=True (default 120, clamped to [1, 600]).
 
     Returns:
-        dict with 'success' + real 'pid' + 'name'; plus 'window' {hwnd,title,rect} and 'ready' when
-        a window was found. On a bad launch: {success: False, ...} or {error: ...}.
+        dict with success, pid, name; plus window {hwnd,title,rect} and ready when a window was found.
+        A bad launch gives {success: False, ...} or {error: ...}.
     """
     exe = _resolve_executable(path)
     try:

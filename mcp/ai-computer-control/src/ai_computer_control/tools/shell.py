@@ -143,24 +143,23 @@ def run_command(
 ) -> dict:
     """Execute a shell command and return its output.
 
-    The child gets NO stdin (EOF immediately), so a command that waits for input (a prompt, `pause`,
-    `python` without a script) fails fast instead of hanging or eating the server's own protocol stream.
+    何时用: builds, git, scripts, one-off system queries. 何时别用: reading/writing files (read_file /
+    write_file / edit_file), starting GUI apps (launch_application).
+    The child gets NO stdin (EOF), so a command waiting for input fails fast instead of hanging.
 
     Args:
         command: The command to execute.
-        working_dir: Optional working directory.
-        timeout: Maximum execution time in seconds (default 60; capped at 600 so a hung command can't
-                 wedge the server).
-        shell: If True (default), execute through the shell.
-        encoding: Output encoding. Default (None) auto-decodes: strict UTF-8 first, then the Windows
-                  OEM/console code page (cp936 on zh-CN). Pass a name to force it (tried first).
-        allow_dangerous: Override the destructive-command denylist (default off).
-        max_output_chars: Per-stream character budget for stdout (stderr gets half, min 2000); a longer stream
-                  is returned as head + tail with an "[…N chars omitted…]" marker (default 16000, max 200000).
+        working_dir: Working directory.
+        timeout: Seconds (default 60, capped at 600); on expiry the whole process tree is killed.
+        shell: Run through the shell (default True).
+        encoding: Force an output encoding (tried first). Default: strict UTF-8, then the Windows
+                  OEM/console code page (cp936 on zh-CN).
+        allow_dangerous: Override the destructive-command denylist.
+        max_output_chars: Per-stream budget (stdout; stderr gets half, min 2000), default 16000, max 200000.
+                  Longer output keeps head + tail with an "[…N chars omitted…]" marker.
 
     Returns:
-        dict with status fields first ('ok', 'return_code', 'timed_out', '*_truncated' flags, 'hint'), then
-        'stderr' BEFORE 'stdout', and the 'encoding' actually used.
+        dict: status first (ok, return_code, timed_out, *_truncated, hint), then stderr, then stdout, encoding.
     """
     reason = dangerous_command_reason(command)
     if reason and not allow_dangerous:

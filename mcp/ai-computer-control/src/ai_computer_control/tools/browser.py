@@ -22,15 +22,12 @@ import sys
 import time
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.optional import module_available
 
-try:
-    from playwright.async_api import async_playwright  # type: ignore
-    _AVAILABLE = True
-    _IMPORT_ERROR = ""
-except Exception as e:  # noqa: BLE001 — optional dependency; server must still start
-    async_playwright = None  # type: ignore
-    _AVAILABLE = False
-    _IMPORT_ERROR = str(e)
+# Optional dependency; probed WITHOUT importing (playwright pulls in greenlet/pyee/...). The real import runs
+# when a session is first started (see _ensure_browser); the server must still start without it.
+_AVAILABLE, _IMPORT_ERROR = module_available("playwright")
+async_playwright = None  # type: ignore  # bound on first use
 
 # Global browser state (only ever touched under _lock, once _AVAILABLE is True).
 _browser = None
@@ -121,7 +118,7 @@ async def _ensure_browser(mode: str | None = None):
     Raises RuntimeError with an install hint if the Chromium binary is absent (package imported but
     `playwright install chromium` never run) so the caller can convert it to a graceful envelope.
     """
-    global _browser, _page, _playwright, _backend
+    global _browser, _page, _playwright, _backend, async_playwright
     chosen = (mode or _backend or _configured_mode()).strip().lower()
     if chosen == "system":
         raise RuntimeError(
@@ -130,6 +127,9 @@ async def _ensure_browser(mode: str | None = None):
         )
     if _page is None or _page.is_closed():
         if _playwright is None:
+            if async_playwright is None:  # first use: the real (lazy) import
+                from playwright.async_api import async_playwright as _ap  # type: ignore
+                async_playwright = _ap
             _playwright = await async_playwright().start()
         if _browser is None or not _browser.is_connected():
             try:

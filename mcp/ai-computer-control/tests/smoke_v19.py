@@ -251,8 +251,8 @@ def main() -> int:
 
     r = _FNS["run_command"](command=_shell_command([sys.executable, "-c", "print('x' * 1200000)"]), timeout=10)
     check(r.get("ok") is True and r.get("stdout_truncated") is True
-          and r.get("stdout_bytes", 0) > 1024 * 1024 and len(r.get("stdout", "")) < 1100000,
-          "超大/二进制式输出以 1MiB 头尾有界返回")
+          and r.get("stdout_bytes", 0) > 1024 * 1024 and len(r.get("stdout", "")) < 20000,
+          "超大/二进制式输出以头尾 + omitted 标记有界返回(默认 16000 字符/流)")
 
     # ---------------------------------------------------------------- summary
     print()
