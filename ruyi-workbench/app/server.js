@@ -34432,6 +34432,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
   let subLoopSig = null, subLoopCount = 0, subLoopRecoveryAttempts = 0;
+  const subCompactionRefetch = createCompactionRefetchGuard(); // 压缩后重取守卫(与主回合同一个,10)
   // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
   let subFingerprint = null, subNoProgressCount = 0;
   const SUB_SEMANTIC_WARN_AT = 4;
@@ -34670,6 +34671,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             continue;
           }
+          // 压缩后重取守卫(与主回合同):同一调用本回合被压缩省略后反复重取,第 2 次提醒、第 3 次起不执行。
+          const refetch = loopAbortExempt(loopBare) ? null : subCompactionRefetch(subHistory, tc.name, tc.rawArgs);
+          if (refetch && refetch.action) logEvent({ kind: 'compaction_refetch', action: refetch.action, scope: 'subagent', ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}), tool: loopBare, count: refetch.count });
+          if (refetch && refetch.action === 'refuse') {
+            resultObj = compactionRefetchRefusal(refetch.count);
+            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            continue;
+          }
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
           // toolCall,那里拿不到 runtime/run),且已在上方豁免 role.openaiTools 白名单、此处不过 bridge/tier 判定(它们
           // 本就是 read tier、非业务能力)。放在禁嵌套守卫之前,故永不会被误判为代理工具(回归见 e2e 白名单豁免断言)。
@@ -34760,6 +34770,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
           if (subLoopCount >= SUB_LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
             try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
+          }
+          if (refetch && refetch.action === 'warn' && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+            try { resultObj.compactionWarning = compactionRefetchWarning(refetch.count); } catch { /* frozen result — skip */ }
           }
           // A1:子回合语义指纹 -- 换参数但结果内容摘要不变(语义死循环),warn nudge(不 abort);同签名已 warn 时跳过避免双 warn
           if (resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) && subLoopCount < SUB_LOOP_WARN_AT) {
@@ -38647,6 +38660,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 误报防护:探索类工具(read/search/glob/grep/web_search/ocr/ui_find)宽阈值--换路径读不同内容是正常进展
   // (结果内容变->指纹变->reset),只有真反复得到相同结果才 warn。计数 turn-local(同 loopSig,不跨回合泄漏)。
   let lastResultFp = null, noProgressRun = 0;
+  // 压缩后重取守卫(10 createCompactionRefetchGuard):抓工作集装不下预算时的交替重读抖动 —— 上面两条守卫都只看相邻调用。
+  const compactionRefetch = createCompactionRefetchGuard();
   const NO_PROGRESS_WARN_AT = 4, EXPLORATORY_WARN_AT = 8;
   const EXPLORATORY_TOOLS = new Set(['file_read', 'read_file', 'list_directory', 'grep', 'glob', 'find_template', 'web_search', 'ocr_screen', 'ocr_find_text', 'ocr_image', 'ui_find', 'ui_inspect', 'screenshot', 'find_on_screen', 'find_all_templates']);
   // 结果指纹: ok + toolName(不同工具结果不混比) + 结果内容摘要(前200字+长度)。【不含】调用参数--"换参数但
@@ -39314,6 +39329,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             if (reg.state !== 'running') { aborted = true; ok = false; break; }
             continue;
           }
+          // 同一调用本回合被压缩省略后又重取:第 2 次在结果上附提醒(见下方 compactionWarning),第 3 次起不执行。
+          // 轮询原语(loopAbortExempt)本来就是反复调、结果被压掉也无妨,不计。
+          const refetch = loopAbortExempt(loopBare) ? null : compactionRefetch(session.providerHistory, tc.name, tc.rawArgs);
+          if (refetch && refetch.action) logEvent({ kind: 'compaction_refetch', action: refetch.action, sessionId: session.id, turnSeq: session.turnSeq, tool: loopBare, count: refetch.count });
+          if (refetch && refetch.action === 'refuse') {
+            const refused = compactionRefetchRefusal(refetch.count);
+            onEvent({ type: 'tool_result', id: tc.id, content: refused, isError: true });
+            toolCalls.push({ id: tc.id, name: tc.name, input: args, result: refused });
+            session.providerHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(refused)) });
+            await notifyToolHookEnd(tc, refused, iter, 'compaction_refetch_refused');
+            touch();
+            if (reg.state !== 'running') { aborted = true; ok = false; break; }
+            continue;
+          }
           // Adaptive discovery tools are turn-local control-plane operations. They never cross the
           // filesystem/permission dispatcher; tool_load only changes the schemas attached to NEXT call.
           if (tc.name === 'list_tools' || tc.name === 'tool_search' || tc.name === 'tool_load') {
@@ -39521,6 +39550,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // here). Applied whether the call succeeded or failed — a succeeding-but-repeating loop is still a loop.
           if (loopCount >= LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object') {
             resultObj.loopWarning = '检测到连续第 3 次相同调用;若结果不符合预期,请改变参数或换用其它工具,不要原样重试。';
+          }
+          if (refetch && refetch.action === 'warn' && resultObj && typeof resultObj === 'object') {
+            try { resultObj.compactionWarning = compactionRefetchWarning(refetch.count); } catch { /* frozen result */ }
           }
           // 04 Phase D 语义 loop-guard: 结果指纹无进展判定(同签名连击未覆盖的盲区)。与上面 loopWarning 互补--
           // !resultObj.loopWarning 守卫:若同签名连击已 warn,语义判定跳过(避免双 warn)。
@@ -40062,7 +40094,8 @@ const CONTEXT_GOVERNANCE_RULES = (() => {
     // estimation / 105g factTable / 105h refine)都是 additive 不 bump;`schema` 那道闸拦的是
     // 结构不兼容,新增可选键不是。25 号文 §1.2 写的是「版本号 +1」,这里显式按仓内既成惯例走,
     // 理由记在 44 号文 §7。
-    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000, reattachRatio: 0.1, reattachMaxTokens: 8000, reattachHeadLines: 40, reattachMaxFiles: 8 },
+    // l1SufficientRatio:L1 之后「够了」的线 = 预算 × 它(默认 0.8 窗口 × 0.75 = 60% 窗口),见 runAutoCompaction。
+    compactionPlan: { defaultThreshold: 0.8, tailBudgetRatio: 0.5, minimumTailTokens: 1, l1ProtectRatio: 0.25, l1ProtectMinTokens: 4000, l1ProtectMaxTokens: 32000, reattachRatio: 0.1, reattachMaxTokens: 8000, reattachHeadLines: 40, reattachMaxFiles: 8, l1SufficientRatio: 0.75 },
     // 105e: 估算分桶因子与分类阈值(JSON/代码比散文 token 密度高,拍定保守默认),由
     // noteEstimateSample EMA 用真实 usage 校准;样本 <3 时 estimateFactor=1 即纯静态估算。
     // 与 context-governance-rules.json 的 estimation 块逐字同构(additive)。
@@ -40669,6 +40702,96 @@ function evaporateHistory(history, opts) {
   // 一共缩了几条观测」,调用方拿它判「L1 做没做事」,两种缩法都算数。
   if (dedupeReads) count += dedupeRepeatedReads(history, boundary, toolNames, opts && opts.rawRefPrefix);
   return count;
+}
+
+// ── 压缩后重取守卫(回合内)───────────────────────────────────────────────────────────────────────────
+// L1 无条件护住最近一次观测、L2 按单元退化时无条件留下最后一个单元,所以「刚拿到的结果还没看就被压掉 → 重取」
+// 这种直接循环不会发生。会发生的是工作集装不下预算时的【抖动】:模型同时要参考 A、B 两份大结果,读 B 把 A 挤出去,
+// 回头重读 A 又把 B 挤出去…… 两条既有守卫都抓不到它 —— 同签名连击只认【连续】相同调用(A、B 交替每次都换签名),
+// 结果指纹只比【相邻】两次结果(交替的两份内容本就不同);主回合迭代又不设上限。
+// 这里按签名(工具名 + 原始参数串,与 09 同签名连击同口径)数:本回合里执行过、而此刻历史中已经没有它的任何一份
+// 完整结果(被 L1 缩减/蒸发、或被 L2 重播种整段换掉)时再调一次 = 一次「压缩后重取」。同一签名第 WARN_AT 次提醒模型
+// 先记要点或缩小范围,第 REFUSE_AT 次起不执行、回一条说明(配对照常)。被拒后原样重试仍算重取、仍被拒,
+// 再连击就交给同签名连击守卫收尾 —— 所以任何签名的抖动都有界。换参数(缩小范围)是新签名,照常执行。
+// 「同参数 = 同内容」只对内容型读取成立(review:按全体工具算时,边改边测里第 4 次 `npm test` 会被当成重取拒掉;
+// 改完文件再读一遍核对、git_status、截图也一样)。所以:① 只数 COMPACTION_REFETCH_TOOLS 里这些内容型读取;
+// ② 本回合一旦有非 read 档的调用(改文件、跑命令、外部 MCP 工具……)就整张表清零 —— 世界可能变了,再读是新信息。
+// 纯粹的 A、B 来回重读中间没有任何写动作,照样抓得到。
+const COMPACTION_REFETCH_LIMITS = Object.freeze({ WARN_AT: 2, REFUSE_AT: 3 });
+const COMPACTION_REFETCH_TOOLS = new Set([
+  'file_read', 'file_list', 'file_search', 'glob', 'docs_search', 'codebase_symbol_search', 'project_snapshot',
+  'dependency_inventory', 'git_log', 'web_fetch', 'web_search', 'skill_read', 'workbench_memory_read', 'observation_recall',
+  'steward_file_read', 'steward_web_fetch', 'steward_web_search', 'steward_thread_read', 'steward_thread_artifact_read',
+]);
+const COMPACTION_REFETCH_REFUSED = 'compaction_refetch_refused';
+// 这条工具消息还是不是完整结果:蒸发占位、缩减视图(文本头尾版 / 结构化版)、本守卫自己的拒绝都不算。
+// 结构化缩减视图的判据带着未转义的引号 —— 工具结果里若只是【正文】含这几个字(比如读到本文件),
+// 它在 JSON 串里是 \" 转义过的,不会误判。
+function toolResultIsFull(content) {
+  if (typeof content !== 'string') return false;
+  if (content.startsWith(EVAPORATED_PREFIX) || content.startsWith('[Ruyi observation reduced')) return false;
+  if (content.includes('"_ruyiObservation":{"reduced":true')) return false;
+  if (content.includes(`"error":"${COMPACTION_REFETCH_REFUSED}"`)) return false;
+  return true;
+}
+// 历史里是否还有「name + rawArgs」这次调用的一份完整结果。按单元就近配对(服务商跨迭代复用 call_1 这类 id)。
+function historyHasFullToolResult(history, name, rawArgs) {
+  const want = String(rawArgs == null ? '' : rawArgs);
+  let ids = null;
+  for (const m of Array.isArray(history) ? history : []) {
+    if (!m) continue;
+    if (m.role === 'assistant') {
+      ids = null;
+      for (const call of Array.isArray(m.tool_calls) ? m.tool_calls : []) {
+        const fn = call && call.function;
+        if (fn && fn.name === name && String(fn.arguments == null ? '' : fn.arguments) === want) (ids || (ids = new Set())).add(String(call.id));
+      }
+    } else if (m.role === 'tool') {
+      if (ids && ids.has(String(m.tool_call_id)) && toolResultIsFull(m.content)) return true;
+    } else {
+      ids = null;
+    }
+  }
+  return false;
+}
+// 每个回合(主回合 / 子回合)建一个;check 在执行前对每个调用都调(清零要看到非 read 档的调用),
+// 返回 { count, action: '' | 'warn' | 'refuse' }。
+function createCompactionRefetchGuard() {
+  const seen = new Set();
+  const counts = new Map();
+  return function check(history, name, rawArgs) {
+    const bare = String(name || '');
+    if (nativeToolTier(bare) !== 'read') { seen.clear(); counts.clear(); return { count: 0, action: '' }; } // 桥接工具不在表里 → exec → 清零
+    if (!COMPACTION_REFETCH_TOOLS.has(bare)) return { count: 0, action: '' };
+    const sig = bare + ' ' + String(rawArgs == null ? '' : rawArgs);
+    if (!seen.has(sig)) { seen.add(sig); return { count: 0, action: '' }; }
+    if (historyHasFullToolResult(history, name, rawArgs)) return { count: counts.get(sig) || 0, action: '' };
+    const count = (counts.get(sig) || 0) + 1;
+    counts.set(sig, count);
+    const action = count >= COMPACTION_REFETCH_LIMITS.REFUSE_AT ? 'refuse' : (count >= COMPACTION_REFETCH_LIMITS.WARN_AT ? 'warn' : '');
+    return { count, action };
+  };
+}
+function compactionRefetchRefusal(count) {
+  return {
+    ok: false,
+    error: COMPACTION_REFETCH_REFUSED,
+    message: `这份结果本回合已有 ${count} 次在被上下文压缩省略后又被重新获取 —— 上下文装不下你同时要用的全部原文,整份重取只会被再次压掉、原地打转,所以这次没有执行。`
+      + '请换做法:① 先把已经看到的关键事实、数字、结论写进回复或 todo,再往下做;② 用更窄的参数只取需要的部分(offset/limit、行号范围、更精确的查询);'
+      + '③ 分步处理,一次只依赖一份大结果。',
+  };
+}
+function compactionRefetchWarning(count) {
+  return `这份结果本回合已第 ${count} 次在被上下文压缩省略后重新获取。若还要同时参考多份大结果,请先把要点记下来或缩小读取范围;再整份重取将被拒绝。`;
+}
+// 每回合配额的回合键(observation_recall 与管家深读预算共用):优先 turnSeq(09 在回合开始时定好,回合内稳定,
+// 压缩不动它)。修前用「providerHistory 里 user 消息条数」—— L2 重播种把历史换成「摘要 user + 尾部」,条数一变
+// 配额桶就换了一个,回合内的配额随每次压缩清零,恰好让「recall → 压掉 → 再 recall」绕过配额。
+function providerTurnQuotaKey(session) {
+  const seq = Number(session && session.turnSeq);
+  if (Number.isFinite(seq) && seq > 0) return 't' + seq;
+  const history = Array.isArray(session && session.providerHistory) ? session.providerHistory : [];
+  return 'u' + history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
 }
 
 // True shadow evaluation for 20-C1. Both policies run on shallow message copies; the live providerHistory
@@ -42073,6 +42196,10 @@ const CompactionPlan = (() => {
 //   summaryAuxCtx / promptOverride / planOpts L2 摘要的台账上下文、提示词覆盖(管家)、重播种计划的额外参数
 // 返回 { compacted, level: 0|1|2, before, watermark?, reseeded?, sc?, summaryProvider?, before2?, after2? }。
 // 调用方负责兜 try/catch(压缩绝不阻断回合)。
+// 摘要服务商(id|模型)→ 最近一次摘要失败的时刻。只给「低水位升级」这条可选路径看(见 runAutoCompaction):
+// 冷却期内不为腾余量去碰一个刚失败过的摘要服务;超预算必须压的那条路照旧(由滞回水位管节奏)。
+const compactionSummaryFailures = new Map();
+const COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS = 10 * 60 * 1000;
 async function runAutoCompaction(ctx) {
   const { history, scope, provider, model, sys, tools, config, budget, window, watermark, snapshot, onEvent, eventFields = {}, logFields = {}, onLevel1, summaryAuxCtx, promptOverride, planOpts = {} } = ctx;
   // 重入滞回(45f 观感/空转修复):一次成功压缩后,重新武装水位 = 压后估算 + max(2K, 2% 窗口)。
@@ -42098,6 +42225,7 @@ async function runAutoCompaction(ctx) {
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
 
   let compacted = false;
+  let lowWaterEscalation = false, sufficient = 0, l1After = 0;
   // ── Level 1: evaporate ──────────────────────────────────────────────────────────────────────────
   const evaporated = evaporateHistory(history, {
     config, rawRefPrefix,
@@ -42114,13 +42242,45 @@ async function runAutoCompaction(ctx) {
     if (typeof onLevel1 === 'function') onLevel1({ evaporated, before, after: after1 });
     logEvent({ kind: 'auto_compact', mode: 'evaporate', ...logFields, beforeTokens: before, afterTokens: after1, evaporated });
     compacted = true;
-    if (after1 <= budget) return { compacted, level: 1, before, watermark: after1 }; // level 1 was enough
+    // L1 够不够用另一条更低的线判(低水位 = 预算 × l1SufficientRatio,默认 60% 窗口),而不是「回到预算以下」就算:
+    // L1 只把 80% 压到 78% 时,下一两个工具结果就又越线,再来一次 L1 —— 每次 L1 都改写旧消息、把服务商的前缀缓存
+    // 整段作废(这一截按原价重算);修前实测过「蒸发 1 条:106K→106K」这种每次只挪一点的连发(45f 的滞回只把它从
+    // 每迭代一次压到每越线一次)。压不到低水位就当场升 L2,一次腾出余量。L1 仍然先做 —— 它免费、不丢细节,
+    // 多数会话里工具结果占大头,一次 L1 就能降到线下,用不着付 L2 的摘要调用。
+    // 低水位按「可压部分」算:系统提示 + 工具表这块固定开销(实测 8K 上下)压不掉,小窗口下 预算×0.75 可能只比它高一点,
+    // L1 永远「不够」、每次越线都被迫 L2(review 实测 16K 窗口 L2 从 12 次涨到 26 次)。所以线 = 开销 + (预算 − 开销)×比例,
+    // 与 预算×比例 取大。规则里缺这个键(新产物配旧规则文件)时退回 0.75,不让 NaN 把 L1 判成永远不够。
+    const ratioRaw = Number(CONTEXT_GOVERNANCE_RULES.compactionPlan.l1SufficientRatio);
+    const ratio = ratioRaw > 0 && ratioRaw <= 1 ? ratioRaw : 0.75;
+    const overhead = calibratedEstimate(provider, model, [sysMsg], tools);
+    sufficient = Math.max(Math.floor(budget * ratio), Math.floor(overhead + Math.max(0, budget - overhead) * ratio));
+    if (after1 <= sufficient) return { compacted, level: 1, before, watermark: after1 }; // level 1 was enough
+    lowWaterEscalation = after1 <= budget;
+    l1After = after1;
   }
 
   // ── Level 2: summary reseed (still over budget) ─────────────────────────────────────────────────
   const before2 = estimate();
   const compactTarget = resolveCompactionProvider(config, provider);
   const summaryProvider = compactTarget.provider || provider;
+  const summaryKey = String((summaryProvider && (summaryProvider.id || summaryProvider.baseUrl)) || '') + '|' + String(compactTarget.model || (summaryProvider && summaryProvider.model) || '');
+  const plan = CompactionPlan.create({ scope, trigger: 'auto', history, provider, model, config, ...planOpts });
+  // 「低水位升级」= L1 已经回到预算以内、只为腾余量才升 L2(修前这里就停了)。它是优化,不是必需,所以两道闸任一不过
+  // 就退回修前行为(L1 算够):
+  //   ① 这个摘要服务商最近失败过 → 不为腾余量去碰它。否则摘要端点坏着时,L1 落在 低水位~预算 之间、失败后水位又低于
+  //      预算(滞回挡不住),每个越线的迭代边界都白等一次摘要超时(review 实测 128K 窗口 57 次迭代 57 次失败的 L2)。
+  //   ② 重播种压不到低水位以下 → 不升。重播种至少留下 plan.kept 那一截(按单元退化时最后一个单元无条件留下)再加摘要
+  //      本身(按单发摘要的输出预留估),大工具结果在尾部时可能比 L1 已经压到的还大(review 实测 104.6K → 106.5K)——
+  //      付了摘要的钱、作废了整段前缀缓存,还更满。
+  if (lowWaterEscalation) {
+    const lastFailedAt = compactionSummaryFailures.get(summaryKey) || 0;
+    const reserve = Number(CONTEXT_GOVERNANCE_RULES.summary.singleShotReserve && CONTEXT_GOVERNANCE_RULES.summary.singleShotReserve.expectedOutputTokens) || 6144;
+    const projected = calibratedEstimate(provider, model, [sysMsg, ...(Array.isArray(plan.kept) ? plan.kept : [])], tools) + reserve;
+    if (Date.now() - lastFailedAt < COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS || projected > sufficient) {
+      logEvent({ kind: 'auto_compact', mode: 'low_water_skip', ...logFields, afterTokens: estimate(), projected, reason: Date.now() - lastFailedAt < COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS ? 'summary_cooldown' : 'reseed_not_smaller' });
+      return { compacted, level: 1, before, watermark: estimate() };
+    }
+  }
   // 摘要调用要几十秒到几分钟(回合在迭代边界上等它):先报 started,前端活动条与压缩指示条据此显示「压缩中」;
   // 收尾必有一条 completed(下面带 afterTokens 的那条)或 failed,不会把状态条挂在压缩态。
   onEvent({ type: 'compact', mode: 'summary', phase: 'started', trigger: 'auto', ...eventFields, beforeTokens: before2, contextWindow: window });
@@ -42136,15 +42296,23 @@ async function runAutoCompaction(ctx) {
     logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: false, error: sc && sc.error });
     // L1 也没斩获时同样落水位(= 这次的估算):修前不落,滞回永不武装,摘要端点坏着的时候每个迭代边界、每个回合都再
     // 白等一次摘要超时(最长几分钟)、再报一次失败。历史再涨过「水位 + 余量」才会重试。
+    compactionSummaryFailures.set(summaryKey, Date.now());
     return compacted ? { compacted, level: 1, before, watermark: estimate() } : { compacted, level: 0, before, watermark: before, summaryFailed: true };
   }
-  const plan = CompactionPlan.create({ scope, trigger: 'auto', history, provider, model, config, ...planOpts });
+  compactionSummaryFailures.delete(summaryKey);
   const reseeded = CompactionPlan.reseed(plan, sc.summary);
   // 126-111b:按单元退化保留时,切口是「非 tool 的那一条」,配对天然不会被劈开。这里仍然过一遍
   // 既有的 repairProviderHistoryPairing 当安全网 —— **它应当一条都修不到**(e2e 就是这么断言的);
   // 真修到了说明边界算错了,而修掉孤儿比让下一次请求 400 强。开关关时不调,老路逐字节不变。
   if (reseedTailUnitsEnabled(config)) { try { repairProviderHistoryPairing(reseeded); } catch { /* 安全网失手不该拖住压缩 */ } }
   const after2 = estimateHistoryTokens([sysMsg, ...reseeded], '', tools);
+  // 事后兜底(闸②是事前估算):低水位升级换来的重播种实际没比 L1 小 → 丢掉它,保留 L1 的结果(历史只被 L1 原地改过,
+  // 重播种还没装回去)。摘要已付费,但至少不再作废前缀缓存、不把更满的历史交出去。
+  if (lowWaterEscalation && after2 >= l1After) {
+    onEvent({ type: 'compact', mode: 'summary', phase: 'failed', trigger: 'auto', ...eventFields, error: 'reseed not smaller than level 1' });
+    logEvent({ kind: 'auto_compact', mode: 'low_water_skip', ...logFields, afterTokens: l1After, projected: after2, reason: 'reseed_larger' });
+    return { compacted, level: 1, before, watermark: l1After };
+  }
   onEvent({ type: 'compact', mode: 'summary', phase: 'completed', trigger: 'auto', ...eventFields, beforeTokens: before2, afterTokens: after2 });
   logEvent({ kind: 'auto_compact', mode: 'summary', ...logFields, ok: true, beforeTokens: before2, afterTokens: after2, summaryChars: sc.summary.length });
   return { compacted: true, level: 2, before, before2, after2, watermark: after2, reseeded, sc, summaryProvider };
@@ -45453,8 +45621,8 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   }
 }
 
-// 105a: observation_recall 每回合配额。回合键 = 当前会话 providerHistory 的 user 消息数(回合内稳定、
-// 下一回合自增,无需新管线);每会话只保留最近 4 个桶,全局最多 64 个会话,先进先出。
+// 105a: observation_recall 每回合配额。回合键见 10 providerTurnQuotaKey(优先 turnSeq —— 修前用 user 消息数,
+// L2 重播种一改条数配额就清零);每会话只保留最近 4 个桶,全局最多 64 个会话,先进先出。
 const OBSERVATION_RECALL_QUOTA = 8;
 const OBSERVATION_RECALL_MAX_CHARS = { min: 1000, max: 60000, dflt: 8000 };
 const _recallQuota = new Map(); // sessionId -> Map(turnKey -> used)
@@ -45514,8 +45682,7 @@ const CORE_TOOL_HANDLERS = {
       const session = (ctx && ctx.session) || null;
       const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
-      const history = session && Array.isArray(session.providerHistory) ? session.providerHistory : [];
-      const turnKey = history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+      const turnKey = providerTurnQuotaKey(session);
       if (!observationRecallQuotaTake(sessionId, turnKey)) {
         return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
       }
@@ -57359,8 +57526,8 @@ function stewardMutateMemory(mutator) {
 }
 
 // ── §11.2 深读预算:每回合 ≤6 次、累计字符 ≤ stewardReadBudgetChars ─────────────────────────
-// 桶键与 105a observation_recall 同款:会话 id + 回合序号(= providerHistory 里 user 消息条数,回合内
-// 稳定、下回合自增,不需要新管线)。每会话保留最近 4 个桶,全局最多 64 个会话,先进先出。
+// 桶键与 105a observation_recall 同款:会话 id + 回合键(10 providerTurnQuotaKey:优先 turnSeq,回合内稳定、
+// 压缩不改它)。每会话保留最近 4 个桶,全局最多 64 个会话,先进先出。
 const _stewardReadBudget = new Map(); // sessionId -> Map(turnKey -> { calls, chars })
 function stewardReadBucket(sessionId, turnKey) {
   let buckets = _stewardReadBudget.get(sessionId);
@@ -57373,9 +57540,7 @@ function stewardReadBucket(sessionId, turnKey) {
   return buckets.get(turnKey);
 }
 function stewardTurnKeyOf(ctx) {
-  const session = ctx && ctx.session;
-  const history = Array.isArray(session && session.providerHistory) ? session.providerHistory : [];
-  return history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+  return providerTurnQuotaKey(ctx && ctx.session);
 }
 
 // 每回合配额桶:复用 116c 的 stewardReadBucket 形状(会话 id + 回合序号),但各族一张自己的表 ——

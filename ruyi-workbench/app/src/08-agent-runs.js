@@ -732,6 +732,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
   // (runOpenAiTurn loopSig/loopCount, same threshold). Without it a wedged sub-agent repeating one failing
   // tool burns its whole iteration budget (now up to 100 provider calls). Signature = tool name + raw args.
   let subLoopSig = null, subLoopCount = 0, subLoopRecoveryAttempts = 0;
+  const subCompactionRefetch = createCompactionRefetchGuard(); // 压缩后重取守卫(与主回合同一个,10)
   // A1:子回合语义指纹(结果无进展判定,与主回合 09:1411-1420 对齐)-- 抓"换参数但结果内容不变"的语义死循环,同签名连击覆盖不到的盲区
   let subFingerprint = null, subNoProgressCount = 0;
   const SUB_SEMANTIC_WARN_AT = 4;
@@ -970,6 +971,15 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
             continue;
           }
+          // 压缩后重取守卫(与主回合同):同一调用本回合被压缩省略后反复重取,第 2 次提醒、第 3 次起不执行。
+          const refetch = loopAbortExempt(loopBare) ? null : subCompactionRefetch(subHistory, tc.name, tc.rawArgs);
+          if (refetch && refetch.action) logEvent({ kind: 'compaction_refetch', action: refetch.action, scope: 'subagent', ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}), tool: loopBare, count: refetch.count });
+          if (refetch && refetch.action === 'refuse') {
+            resultObj = compactionRefetchRefusal(refetch.count);
+            onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
+            subHistory.push({ role: 'tool', tool_call_id: tc.id, content: truncateToolResult(tc.name, JSON.stringify(resultObj)) });
+            continue;
+          }
           // 团队模式 v2 (A1/B1): propose_task/send_to_agent 是编排元工具,经 runSubAgent 注入的闭包分发(不走全局
           // toolCall,那里拿不到 runtime/run),且已在上方豁免 role.openaiTools 白名单、此处不过 bridge/tier 判定(它们
           // 本就是 read tier、非业务能力)。放在禁嵌套守卫之前,故永不会被误判为代理工具(回归见 e2e 白名单豁免断言)。
@@ -1060,6 +1070,9 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
           // hard abort. Injected into the (successful-but-repeating) tool result the model reads next turn.
           if (subLoopCount >= SUB_LOOP_WARN_AT && !loopAbortExempt(String(tc.name || '').replace(/^.+?__/, '')) && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
             try { resultObj.loopWarning = `第 ${subLoopCount} 次连续相同调用；再重复将停止子任务`; } catch { /* frozen result — skip */ }
+          }
+          if (refetch && refetch.action === 'warn' && resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj)) {
+            try { resultObj.compactionWarning = compactionRefetchWarning(refetch.count); } catch { /* frozen result — skip */ }
           }
           // A1:子回合语义指纹 -- 换参数但结果内容摘要不变(语义死循环),warn nudge(不 abort);同签名已 warn 时跳过避免双 warn
           if (resultObj && typeof resultObj === 'object' && !Array.isArray(resultObj) && subLoopCount < SUB_LOOP_WARN_AT) {

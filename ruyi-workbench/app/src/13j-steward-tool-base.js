@@ -413,8 +413,8 @@ function stewardMutateMemory(mutator) {
 }
 
 // ── §11.2 深读预算:每回合 ≤6 次、累计字符 ≤ stewardReadBudgetChars ─────────────────────────
-// 桶键与 105a observation_recall 同款:会话 id + 回合序号(= providerHistory 里 user 消息条数,回合内
-// 稳定、下回合自增,不需要新管线)。每会话保留最近 4 个桶,全局最多 64 个会话,先进先出。
+// 桶键与 105a observation_recall 同款:会话 id + 回合键(10 providerTurnQuotaKey:优先 turnSeq,回合内稳定、
+// 压缩不改它)。每会话保留最近 4 个桶,全局最多 64 个会话,先进先出。
 const _stewardReadBudget = new Map(); // sessionId -> Map(turnKey -> { calls, chars })
 function stewardReadBucket(sessionId, turnKey) {
   let buckets = _stewardReadBudget.get(sessionId);
@@ -427,9 +427,7 @@ function stewardReadBucket(sessionId, turnKey) {
   return buckets.get(turnKey);
 }
 function stewardTurnKeyOf(ctx) {
-  const session = ctx && ctx.session;
-  const history = Array.isArray(session && session.providerHistory) ? session.providerHistory : [];
-  return history.reduce((n, m) => n + (m && m.role === 'user' ? 1 : 0), 0);
+  return providerTurnQuotaKey(ctx && ctx.session);
 }
 
 // 每回合配额桶:复用 116c 的 stewardReadBucket 形状(会话 id + 回合序号),但各族一张自己的表 ——

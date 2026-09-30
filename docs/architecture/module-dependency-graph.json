@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3131,
-    "requiredSymbols": 2938,
-    "edges": 512,
+    "providedSymbols": 3142,
+    "requiredSymbols": 2947,
+    "edges": 513,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -7582,6 +7582,27 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchWarning",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "createCompactionRefetchGuard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -9223,6 +9244,27 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchWarning",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "createCompactionRefetchGuard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -9327,6 +9369,10 @@
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
+        "COMPACTION_REFETCH_LIMITS",
+        "COMPACTION_REFETCH_REFUSED",
+        "COMPACTION_REFETCH_TOOLS",
+        "COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS",
         "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
@@ -9388,11 +9434,15 @@
         "chunkHistoryByBudget",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionRefetchRefusal",
+        "compactionRefetchWarning",
+        "compactionSummaryFailures",
         "compactionTaskText",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
         "contextWindowOverrideKey",
+        "createCompactionRefetchGuard",
         "ctxProbeKey",
         "dedupeRepeatedReads",
         "economicsShadowEnabledCached",
@@ -9404,6 +9454,7 @@
         "extractSummaryEntities",
         "fileReadDedupKey",
         "fitHistoryForSummary",
+        "historyHasFullToolResult",
         "historyStartsWithCompactionSummary",
         "historyUnitStarts",
         "isContextOverflowError",
@@ -9431,6 +9482,7 @@
         "providerConversationContextWindow",
         "providerSummaryCall",
         "providerSummaryCallCore",
+        "providerTurnQuotaKey",
         "recentFileReads",
         "recentTurnsBoundary",
         "recordCompactUsage",
@@ -9459,6 +9511,7 @@
         "summarySingleShotReserveTokens",
         "summarySourceText",
         "summaryUnsupportedParameterFields",
+        "toolResultIsFull",
         "truncateToolResult",
         "upsertCompactMarker",
         "userBlockStarts",
@@ -9988,6 +10041,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
           "kinds": [
             "call"
           ]
@@ -10916,6 +10976,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "getAgentWorkflows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "providerTurnQuotaKey",
           "kinds": [
             "call"
           ]
@@ -15164,6 +15231,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "providerTurnQuotaKey",
           "kinds": [
             "call"
           ]
@@ -26411,6 +26485,9 @@
       "from": "08-agent-runs.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "compactionRefetchRefusal",
+        "compactionRefetchWarning",
+        "createCompactionRefetchGuard",
         "estimateFactor",
         "isContextOverflowError",
         "maybeCompactSubHistory",
@@ -26817,6 +26894,9 @@
         "appendPromptToLastUserMessage",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "compactionRefetchRefusal",
+        "compactionRefetchWarning",
+        "createCompactionRefetchGuard",
         "estimateFactor",
         "historyStartsWithCompactionSummary",
         "isContextOverflowError",
@@ -27044,7 +27124,8 @@
       "from": "10-context-governance.js",
       "to": "07-autonomy.js",
       "symbols": [
-        "fetchOpenAiModels"
+        "fetchOpenAiModels",
+        "nativeToolTier"
       ],
       "direction": "backward"
     },
@@ -27292,6 +27373,7 @@
       "from": "12-tool-dispatch.js",
       "to": "10-context-governance.js",
       "symbols": [
+        "providerTurnQuotaKey",
         "rehydrateObservation"
       ],
       "direction": "backward"
@@ -28645,6 +28727,14 @@
         "STEWARD_MEMORY_LIMITS",
         "STEWARD_NOTIFY_WINDOW_MS",
         "stewardSanitizeText"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13j-steward-tool-base.js",
+      "to": "10-context-governance.js",
+      "symbols": [
+        "providerTurnQuotaKey"
       ],
       "direction": "backward"
     },

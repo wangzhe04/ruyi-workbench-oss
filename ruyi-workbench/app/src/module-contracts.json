@@ -7496,6 +7496,27 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchWarning",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "createCompactionRefetchGuard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -9131,6 +9152,27 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchRefusal",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "compactionRefetchWarning",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "createCompactionRefetchGuard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "estimateFactor",
           "kinds": [
             "call"
@@ -9233,6 +9275,10 @@
       "file": "10-context-governance.js",
       "layer": "orchestration",
       "provides": [
+        "COMPACTION_REFETCH_LIMITS",
+        "COMPACTION_REFETCH_REFUSED",
+        "COMPACTION_REFETCH_TOOLS",
+        "COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS",
         "COMPACTION_TASK_PREFIX",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
@@ -9294,11 +9340,15 @@
         "chunkHistoryByBudget",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionRefetchRefusal",
+        "compactionRefetchWarning",
+        "compactionSummaryFailures",
         "compactionTaskText",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
         "contextWindowOverrideKey",
+        "createCompactionRefetchGuard",
         "ctxProbeKey",
         "dedupeRepeatedReads",
         "economicsShadowEnabledCached",
@@ -9310,6 +9360,7 @@
         "extractSummaryEntities",
         "fileReadDedupKey",
         "fitHistoryForSummary",
+        "historyHasFullToolResult",
         "historyStartsWithCompactionSummary",
         "historyUnitStarts",
         "isContextOverflowError",
@@ -9337,6 +9388,7 @@
         "providerConversationContextWindow",
         "providerSummaryCall",
         "providerSummaryCallCore",
+        "providerTurnQuotaKey",
         "recentFileReads",
         "recentTurnsBoundary",
         "recordCompactUsage",
@@ -9365,6 +9417,7 @@
         "summarySingleShotReserveTokens",
         "summarySourceText",
         "summaryUnsupportedParameterFields",
+        "toolResultIsFull",
         "truncateToolResult",
         "upsertCompactMarker",
         "userBlockStarts",
@@ -9894,6 +9947,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolTier",
           "kinds": [
             "call"
           ]
@@ -10818,6 +10878,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "getAgentWorkflows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "providerTurnQuotaKey",
           "kinds": [
             "call"
           ]
@@ -15050,6 +15117,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardSanitizeText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
+          "symbol": "providerTurnQuotaKey",
           "kinds": [
             "call"
           ]

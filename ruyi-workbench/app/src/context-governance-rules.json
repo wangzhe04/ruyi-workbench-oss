@@ -523,7 +523,8 @@
     "reattachRatio": 0.1,
     "reattachMaxTokens": 8000,
     "reattachHeadLines": 40,
-    "reattachMaxFiles": 8
+    "reattachMaxFiles": 8,
+    "l1SufficientRatio": 0.75
   },
   "estimation": {
     "sampleChars": 2048,
