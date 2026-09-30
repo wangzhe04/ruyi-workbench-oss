@@ -54362,9 +54362,12 @@ async function handleMissionsApiRoutes(req, res, pathname) {
     return send(res, json(result.body, result.status));
   }
   // 详情:单会话稳定任务快照(EC-E:mission + Agent Run + 产物 + 变更 + 检查点 + 用量 + 游标)。
-  if (req.method === 'GET' && pathname.startsWith('/api/missions/')) {
+  // 只认 /api/missions/<一段>(与 13d 单条会话路由同一个口径):修前是 startsWith + path.basename,
+  // /api/missions/随便/什么/<id> 与 /api/missions/<id>/ 都被当成 <id>,以后加 GET 子路由会被这里先吞掉。
+  const missionDetail = req.method === 'GET' ? pathname.match(/^\/api\/missions\/([^/]+)$/) : null;
+  if (missionDetail) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    const sessionId = safeSessionId(safeDecodeURIComponent(missionDetail[1]) || '');
     if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const indexed = index.sessions.find(row => row.sessionId === sessionId) || null;
@@ -55046,9 +55049,11 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     }, 200, { etag }));
   }
   // 第71波:会话的持久化 Intervention 只读派生(注册/决策/超时/清理/重启终态化的旁路记录,02 NDJSON)。
-  if (req.method === 'GET' && pathname.startsWith('/api/interventions/')) {
+  // 只认 /api/interventions/<一段>(同上:不再用 path.basename 给多段路径当别名)。
+  const interventionsOf = req.method === 'GET' ? pathname.match(/^\/api\/interventions\/([^/]+)$/) : null;
+  if (interventionsOf) {
     if (!tokenOk(req)) return send(res, json({ ok: false, error: 'missing or invalid workbench token' }, 403));
-    const sessionId = safeSessionId(path.basename(pathname)); // basename 挡穿越
+    const sessionId = safeSessionId(safeDecodeURIComponent(interventionsOf[1]) || '');
     if (!sessionId) return send(res, apiSessionIdInvalid());
     const index = await getPretenderProjectionIndex();
     const slice = index.sessions.find(row => row.sessionId === sessionId) || null;

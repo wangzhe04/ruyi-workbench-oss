@@ -11,6 +11,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   P4 开放读口 GET /api/status?sessionId= / GET /api/models?sessionId=(不带 token、跨站来源)只读会话头:
 //      头缺默认字段的会话头逐字节不变(修前 loadSession 回写);保留名不长出任何文件
 //   P5 /api/sessions/<多段>/<id> 不再是 <id> 的别名(修前 GET 200、DELETE 真删);子路由 /background 与 /search 照常
+//   P5b /api/missions/<多段>/<id>、/api/interventions/<多段>/<id> 同样不再是 <id> 的别名(修前 200);单段照常
 //   P6 POST /api/sessions 带 messages:[null] → 200,不合形的条目被丢掉(修前 500)
 const cp = require('child_process');
 const fs = require('fs');
@@ -121,6 +122,15 @@ function req(port, method, route, payload, headers = {}) {
     ok(direct.status === 200 && (jsonOf(direct) || {}).session && jsonOf(direct).session.id === sid, `P5 GET /api/sessions/<id> 照常(${direct.status})`);
     const bg = await req(port, 'GET', '/api/sessions/' + sid + '/background', null, hdr);
     ok(bg.status === 200 && (jsonOf(bg) || {}).sessionId === sid, `P5 子路由 /api/sessions/<id>/background 照常(${bg.status})`);
+
+    for (const base of ['/api/missions/', '/api/interventions/']) {
+      const aliasMulti = await req(port, 'GET', base + 'anything/at/all/' + sid, null, hdr);
+      ok(aliasMulti.status === 404, `P5b GET ${base}anything/at/all/<id> → 404(${aliasMulti.status})`);
+      const aliasSlash = await req(port, 'GET', base + sid + '/', null, hdr);
+      ok(aliasSlash.status === 404, `P5b GET ${base}<id>/ → 404(${aliasSlash.status})`);
+      const one = await req(port, 'GET', base + encodeURIComponent(sid), null, hdr);
+      ok(one.status === 200 && (jsonOf(one) || {}).ok !== false, `P5b GET ${base}<id> 照常(${one.status})`);
+    }
 
     const imported = await req(port, 'POST', '/api/sessions', { title: 'imp', cwd: HOME, messages: [null, 5, 'x', { role: 'user', content: 'kept' }] }, hdr);
     const impJson = jsonOf(imported);
