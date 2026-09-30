@@ -37,7 +37,8 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
             match is an error, which is the safety catch against ambiguous edits. True replaces
             every occurrence.
         encoding: Text encoding used for both read and write (default utf-8). The file is
-            re-written with the same encoding it was decoded with.
+            re-written with the same encoding it was decoded with. 文件的 UTF-8 BOM 与 CRLF/LF
+            行尾会原样保留(.bat/.ps1 等改完仍是 CRLF);old_string/new_string 用 LF 书写即可。
         allow_protected: Override the protected-system-root guard (default off).
 
     Returns:
@@ -59,18 +60,42 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
         return {"error": str(e)}
     if size > _MAX_EDIT_BYTES:
         return {"error": f"file too large to edit in memory ({size} bytes > {_MAX_EDIT_BYTES}); 请分段处理或用 write_file 重写。"}
+    # F5: 以字节读入,自己处理 BOM 与换行 —— 文本模式(universal newlines)会把 CRLF 静默改成 LF,
+    # 且 encoding="utf-8" 不剥 BOM(BOM 会作为 \ufeff 留在 text 里,写回时再补一次就成了双 BOM)。
     try:
-        with open(path, "r", encoding=encoding) as f:
-            text = f.read()
+        with open(path, "rb") as f:
+            raw = f.read()
+    except Exception as e:
+        return {"error": str(e)}
+    is_utf8 = encoding.lower().replace("_", "-") in ("utf-8", "utf8")
+    has_bom = is_utf8 and raw.startswith(codecs.BOM_UTF8)
+    try:
+        text = (raw[len(codecs.BOM_UTF8):] if has_bom else raw).decode(encoding)
     except UnicodeDecodeError as e:
         return {"error": f"按 {encoding} 解码失败({e})—— 文件可能是别的编码(如 gbk)或二进制;换 encoding 参数重试。"}
+    except LookupError as e:
+        return {"error": f"未知编码 {encoding}: {e}"}
     except Exception as e:
         return {"error": str(e)}
 
+    # 行尾:文件以 CRLF 为主就把 old/new 的换行都对齐到 CRLF(模型给的通常是 LF),写回时原样保留。
+    crlf_n = text.count("\r\n")
+    lf_only_n = text.count("\n") - crlf_n
+    file_eol = "\r\n" if crlf_n > lf_only_n else "\n"
+    mixed = crlf_n > 0 and lf_only_n > 0
+    if not mixed:
+        old_string = old_string.replace("\r\n", "\n")
+        new_string = new_string.replace("\r\n", "\n")
+        if file_eol == "\r\n":
+            old_string = old_string.replace("\n", "\r\n")
+            new_string = new_string.replace("\n", "\r\n")
+
     occurrences = text.count(old_string)
     if occurrences == 0:
-        file_crlf = _file_uses_crlf(path)
-        diag = _diagnose_mismatch(text, old_string, file_crlf)
+        # 诊断用 LF 归一化的文本,行/列号与 read_file 看到的一致。
+        diag = _diagnose_mismatch(text.replace("\r\n", "\n"), old_string.replace("\r\n", "\n"), False)
+        if mixed:
+            diag = "(文件混用 CRLF/LF 换行,须与磁盘上该处的换行逐字匹配)" + diag
         return {"error": "old_string 在文件中未出现(0 次)。" + diag}
     if occurrences > 1 and not replace_all:
         return {"error": f"old_string 出现 {occurrences} 次,不唯一 —— 请把前后文多带几行使它唯一,或确认后传 replace_all=true 全部替换。"}
@@ -78,16 +103,10 @@ def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = F
     replaced = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
     n = occurrences if replace_all else 1
     # b2-P0: 原子写 —— 先写同目录临时文件再 os.replace,任何写失败(编码/磁盘满)都不会截断原文。
-    # 同时保留原 UTF-8 BOM(文本读取剥 BOM,写回恢复),避免旧文件 BOM 被无声丢弃。
+    # BOM 只在原文件有时补回一次(上面已剥掉,不会双写)。
     try:
-        has_bom = False
-        try:
-            with open(path, "rb") as _rb:
-                has_bom = _rb.read(3) == codecs.BOM_UTF8
-        except Exception:
-            has_bom = False
         encoded = replaced.encode(encoding)
-        if has_bom and encoding.lower() in ("utf-8", "utf8"):
+        if has_bom:
             encoded = codecs.BOM_UTF8 + encoded
         dirn = os.path.dirname(os.path.abspath(path)) or "."
         fd, tmp = tempfile.mkstemp(dir=dirn, prefix=".edit-", suffix=".tmp")
@@ -159,16 +178,6 @@ def _find_closest_single_line(text: str, old_string: str):
                 old_string[min(len(seg), len(old_string))] if len(old_string) > len(seg) else "<END>",
                 ratio)
     return (ln, off + 1, "<same>", "<same>", ratio)
-
-
-def _file_uses_crlf(path: str) -> bool:
-    """True when the file on disk uses CRLF line endings (binary probe — the in-memory text was
-    already normalized by universal newlines, so \"\\r\\n\" in text is always False)."""
-    try:
-        with open(path, "rb") as f:
-            return b"\r\n" in f.read(65536)
-    except Exception:
-        return False
 
 
 def _diagnose_mismatch(text: str, old_string: str, file_crlf: bool = False) -> str:
