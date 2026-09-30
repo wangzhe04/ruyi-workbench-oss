@@ -185,7 +185,47 @@ function shellSliceFrom(sess, cursor) {
   if (from < sess.baseOffset) { from = sess.baseOffset; truncated = true; }
   if (from > end) from = end;
   const output = sess.buf.slice(from - sess.baseOffset);
-  return { output, cursor: end, truncated };
+  return { output, cursor: end, truncated, from };
+}
+
+// NE-2:shell_poll / shell_send 的输出整形。修前一次最多回 200K 字符,且 output 排在 cursor/running/exitCode 前面 —— 超过 60K 后
+// 模型看不到「作业结束了没」。现在:状态字段在前;output 封顶 maxChars(默认 16000,范围 500..30000)。
+// cursor 语义统一:cursor = 本次返回的输出【结束处】的绝对偏移(UTF-16 单位,不是字节)—— 原样传回下一次 shell_poll 即续读,不丢不重。
+//   · 不传 cursor(或 0)= 「看最新」:缓冲超过 maxChars 时取 开头 20% + 结尾 80%,中间写明省略区间 omittedFrom..omittedTo(绝对偏移),
+//     cursor 落在缓冲末尾;想读回中间某段,用 cursor=omittedFrom 分页。
+//   · 传 cursor>0 = 「往后翻页」:从 cursor 起最多 maxChars 字符,more:true 表示后面还有,cursor 是这一页的末尾。
+const SHELL_OUTPUT_DEFAULT_CHARS = 16000;
+const SHELL_OUTPUT_MIN_CHARS = 500;
+const SHELL_OUTPUT_MAX_CHARS = 30000;
+const SHELL_POLL_WAIT_MAX_MS = 30000;
+function shellOutputCap(args) {
+  const n = Number(args && args.maxChars);
+  if (!Number.isFinite(n) || n <= 0) return SHELL_OUTPUT_DEFAULT_CHARS;
+  return Math.min(SHELL_OUTPUT_MAX_CHARS, Math.max(SHELL_OUTPUT_MIN_CHARS, Math.floor(n)));
+}
+const isHighSurrogate = c => c >= 0xd800 && c <= 0xdbff;
+const isLowSurrogate = c => c >= 0xdc00 && c <= 0xdfff;
+// slice = shellSliceFrom 的结果;paging=true 走「往后翻页」。返回 { output, cursor, more?, omittedChars?, omittedFrom?, omittedTo?, hint? }。
+function shellShapeOutput(slice, cap, paging) {
+  const text = slice.output;
+  if (text.length <= cap) return { output: text, cursor: slice.cursor };
+  if (paging) {
+    let n = cap;
+    if (isHighSurrogate(text.charCodeAt(n - 1))) n -= 1;
+    const cursor = slice.from + n;
+    return { output: text.slice(0, n), cursor, more: true, remainingChars: slice.cursor - cursor,
+      hint: `后面还有 ${slice.cursor - cursor} 字符;用 cursor=${cursor} 继续读下一页` };
+  }
+  let headN = Math.floor(cap * 0.2);
+  if (isHighSurrogate(text.charCodeAt(headN - 1))) headN -= 1;
+  let tailStart = text.length - (cap - headN);
+  if (isLowSurrogate(text.charCodeAt(tailStart))) tailStart += 1;
+  const omittedFrom = slice.from + headN;
+  const omittedTo = slice.from + tailStart;
+  const omittedChars = tailStart - headN;
+  const marker = `\n[...省略偏移 ${omittedFrom}..${omittedTo} 共 ${omittedChars} 字符;shell_poll({shellId, cursor:${omittedFrom}}) 可读回...]\n`;
+  return { output: text.slice(0, headN) + marker + text.slice(tailStart), cursor: slice.cursor, omittedChars, omittedFrom, omittedTo,
+    hint: '输出过长,只返回了开头和最新一段;中间被省略的部分可用 cursor=omittedFrom 分页读回' };
 }
 
 // Spawn a persistent powershell child. Returns { ok, shellId, name, cwd } or { ok:false, error, hint }.
@@ -209,6 +249,9 @@ function shellStart(args, config, ctx = {}) {
   }
   // 107-S0:工具分发(12 shell_start)总是传入执行闸解析好的 cwd;家目录兜底只留给没有 cwd 的直接调用方。
   const cwd = args.cwd ? path.resolve(String(args.cwd)) : os.homedir();
+  // NE-13:cwd 不存在时 Node 报的是 `spawn powershell.exe ENOENT`,模型会误以为没装 PowerShell —— 先明说目录不存在。
+  try { if (!fs.statSync(cwd).isDirectory()) throw new Error('not a directory'); }
+  catch { return { ok: false, error: `工作目录不存在: ${cwd}`, hint: '确认 cwd 是已存在的目录(Windows 用完整盘符路径),或省略 cwd 用线程工作目录' }; }
   const name = args.name ? String(args.name).slice(0, 80) : shellId;
   const command = args.command == null ? '' : String(args.command).trim();
   const mode = command ? 'background' : 'interactive';
@@ -253,21 +296,47 @@ function shellStart(args, config, ctx = {}) {
   const outDecoder = createConsoleLineDecoder();
   const errDecoder = createConsoleLineDecoder();
   let idleFlush = null;
+  let exitAt = 0;
+  let exitTimer = null;
+  let finalized = false;
+  // 收尾只做一次:'close'(管道都关了)与后台任务的 'exit' 宽限(下面)两条路径共用。
+  const finalize = (code, note) => {
+    if (finalized) return;
+    finalized = true;
+    clearTimeout(deadline);
+    if (exitTimer) { clearTimeout(exitTimer); exitTimer = null; }
+    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
+    shellAppend(sess, outDecoder.end() + errDecoder.end());
+    if (note) shellAppend(sess, note);
+    sess.running = false; sess.exitCode = (code === null || code === undefined ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
+  };
+  // NE-4:后台命令的主进程已退出,但一个脱离的孙进程(gradle/adb/docker daemon、Start-Process)还占着输出管道 → 'close' 迟迟不来,
+  // sess.running 永远 true:不弹完成通知、一直占 shell 会话名额、空闲收割也不碰它(它把「后台运行中」的会话当活的)。
+  // exit 后给一小段静默宽限排空管道(仍有输出就顺延,总共 ≤3s),之后销毁我们这一侧的流,按已收到的输出收尾。只管后台命令;
+  // 交互式 shell 自己退出就是会话结束,不套这条。
+  const armExitTimer = () => {
+    if (exitTimer) clearTimeout(exitTimer);
+    exitTimer = setTimeout(() => {
+      exitTimer = null;
+      if (finalized) return;
+      try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* already closed */ }
+      finalize(exitInfoCode, '\n[process exited; a background child kept the output pipe open — later output is not captured]\n');
+    }, 500);
+    if (exitTimer.unref) exitTimer.unref();
+  };
+  let exitInfoCode = null;
   const feed = (decoder, d) => {
     shellAppend(sess, decoder.write(d));
     if (idleFlush) clearTimeout(idleFlush);
     idleFlush = setTimeout(() => { idleFlush = null; shellAppend(sess, outDecoder.flush() + errDecoder.flush()); }, 150);
     if (idleFlush.unref) idleFlush.unref();
+    if (exitAt && !finalized && Date.now() - exitAt < 3000) armExitTimer();
   };
   child.stdout?.on('data', d => feed(outDecoder, d));
   child.stderr?.on('data', d => feed(errDecoder, d));
   child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
-  child.on('close', code => {
-    clearTimeout(deadline);
-    if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
-    shellAppend(sess, outDecoder.end() + errDecoder.end());
-    sess.running = false; sess.exitCode = (code === null ? null : code); sess.lastUsedAt = Date.now(); completeBackgroundJob(shellId, sess);
-  });
+  if (command) child.on('exit', code => { exitInfoCode = code; exitAt = Date.now(); armExitTimer(); });
+  child.on('close', code => finalize(code));
   shellSessions.set(shellId, sess);
   return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
@@ -316,42 +385,75 @@ async function shellSend(args, ctx) {
     catch (e) { return { ok: false, error: `写入失败: ${e && e.message ? e.message : e}` }; }
   } else if (!sess.running) {
     // Child already exited — still return whatever fresh output exists, but flag not-running.
-    const slice = shellSliceFrom(sess, startCursor);
-    return { ok: true, output: slice.output, cursor: slice.cursor, running: false, exitCode: sess.exitCode };
+    return shellSendResult(sess, shellSliceFrom(sess, startCursor), args, 'exit');
   }
   // Settle loop: poll every 60ms; resolve once ~300ms passes with no growth, or on timeout / child exit.
   const deadline = Date.now() + timeoutMs;
   const sentAt = Date.now();
   let lastLen = shellEndOffset(sess);
   let stableSince = Date.now();
+  let settled = 'timeout';   // NE-15:告诉模型这次是怎么返回的 —— exit=进程退出 / quiet=输出安静了(命令大概率跑完) / silent=没输出 / timeout=超时仍在出
   for (;;) {
     await new Promise(r => setTimeout(r, 60));
     const nowLen = shellEndOffset(sess);
     if (nowLen !== lastLen) { lastLen = nowLen; stableSince = Date.now(); }
-    if (!sess.running) break;
-    if (Date.now() - stableSince >= 300 && nowLen > startCursor) break; // grew then went quiet
+    if (!sess.running) { settled = 'exit'; break; }
+    if (Date.now() - stableSince >= 300 && nowLen > startCursor) { settled = 'quiet'; break; } // grew then went quiet
     if (nowLen === startCursor && Date.now() - sentAt >= Math.min(5000, timeoutMs)) {
       // No output at all within a settle window (e.g. a command that prints nothing) — don't hang.
+      settled = 'silent';
       break;
     }
     if (Date.now() >= deadline) break;
   }
   sess.lastUsedAt = Date.now();
-  const slice = shellSliceFrom(sess, startCursor);
-  return { ok: true, output: slice.output, cursor: slice.cursor, truncated: slice.truncated || false, running: sess.running, exitCode: sess.running ? undefined : sess.exitCode };
+  return shellSendResult(sess, shellSliceFrom(sess, startCursor), args, settled);
+}
+// shell_send 的返回:状态字段在前,output(封顶,见 shellShapeOutput)在最后。
+function shellSendResult(sess, slice, args, settled) {
+  const shaped = shellShapeOutput(slice, shellOutputCap(args), false);
+  const out = { ok: true, running: sess.running };
+  if (!sess.running) out.exitCode = sess.exitCode;
+  out.cursor = shaped.cursor;
+  out.settled = settled;
+  if (slice.truncated) out.truncated = true;
+  if (shaped.omittedChars) { out.omittedChars = shaped.omittedChars; out.omittedFrom = shaped.omittedFrom; out.omittedTo = shaped.omittedTo; out.hint = shaped.hint; }
+  out.output = shaped.output;
+  return out;
 }
 
-function shellPoll(args, ctx) {
+// shell_poll {shellId, cursor?, maxChars?, waitMs?}。返回键序:ok/running/exitCode/timedOut/mode/cursor 在前,output 最后(NE-2)。
+// waitMs(≤30s):长轮询 —— 当前没有可返回的新输出且作业还在跑时,等到有新输出或进程退出再返回;省得模型每隔几秒烧一整轮 LLM 去轮询。
+async function shellPoll(args, ctx) {
   const shellId = String(args.shellId || '');
   const sess = shellLookup(shellId, ctx);
   // v0.8-S7 error guidance: same unknown-shellId hint as shell_send.
   if (!sess) return { ok: false, error: `未知 shellId '${shellId}'`, hint: '用 shell_list 查看现有会话,或 shell_start 新建' };
   sess.lastUsedAt = Date.now();
-  const cursor = args.cursor === undefined || args.cursor === null ? 0 : Number(args.cursor);
-  const slice = shellSliceFrom(sess, cursor);
-  const out = { ok: true, output: slice.output, cursor: slice.cursor, running: sess.running, mode: sess.mode || 'interactive', timedOut: sess.timedOut === true };
-  if (slice.truncated) out.truncated = true;
+  const cursorNum = args.cursor === undefined || args.cursor === null ? 0 : Number(args.cursor);
+  const paging = Number.isFinite(cursorNum) && cursorNum > 0;
+  const waitMs = Math.min(SHELL_POLL_WAIT_MAX_MS, Math.max(0, Number(args.waitMs) || 0));
+  if (waitMs > 0) {
+    const until = Date.now() + waitMs;
+    const signal = ctx && ctx.signal;
+    while (sess.running && shellEndOffset(sess) <= Math.max(paging ? cursorNum : 0, 0) && Date.now() < until) {
+      if (signal && signal.aborted) break;
+      await new Promise(r => setTimeout(r, 50));
+      sess.lastUsedAt = Date.now();
+    }
+  }
+  const slice = shellSliceFrom(sess, cursorNum);
+  const shaped = shellShapeOutput(slice, shellOutputCap(args), paging);
+  const out = { ok: true, running: sess.running };
   if (!sess.running) out.exitCode = sess.exitCode;
+  out.timedOut = sess.timedOut === true;
+  out.mode = sess.mode || 'interactive';
+  out.cursor = shaped.cursor;
+  if (slice.truncated) out.truncated = true;
+  if (shaped.more) { out.more = true; out.remainingChars = shaped.remainingChars; }
+  if (shaped.omittedChars) { out.omittedChars = shaped.omittedChars; out.omittedFrom = shaped.omittedFrom; out.omittedTo = shaped.omittedTo; }
+  if (shaped.hint) out.hint = shaped.hint;
+  out.output = shaped.output;
   return out;
 }
 
@@ -1249,7 +1351,30 @@ async function readIfExists(file, limit = 200000) {
 // 两个引擎路径都注册(serve 进程 provider 循环 + `node server.js mcp` 子进程),因为这是无状态一次性命令,
 // 同 file_read/powershell_run 一样自然工作 —— 不像 shell 会话那样需要 provider-only 护栏。
 // ============================================================================
-const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断加注(200KB)
+// NE-7:git_diff 上限按【序列化后的 JSON 字符】算,并要低于模型可见上限(10 truncateToolResult 的 60K)。修前 200KB 的 diff 序列化后
+// 超过 60K,会被下游平切 —— 「已截断」说明和 truncated 字段恰好落在被切掉的尾部,模型不知道自己没看到哪些文件。
+// 截断时另附 --stat 文件清单(≤ STAT 字符),模型据此用 path 参数逐个文件看。
+const GIT_DIFF_MAX_CHARS = 40000;
+const GIT_DIFF_STAT_MAX_CHARS = 6000;
+const GIT_DIFF_MAX_BUFFER = 8 * 1024 * 1024; // diff 只需要开头一段;超出就停,不再把几十 MB 读进内存(整体 maxBuffer 24MB 会让超大 diff 直接失败)
+const GIT_UNTRACKED_LIST_MAX = 50;
+// 只保留开头、使序列化(JSON 转义后:换行/引号会变长)长度不超过 budget,尽量收在整行边界。返回 { text }。
+// (不复用 04 DesktopShell 的同类函数:11 引用 04 会在依赖图里新增一条循环边。)
+function gitHeadToJsonBudget(text, budget) {
+  const s = String(text == null ? '' : text);
+  const len = x => JSON.stringify(x).length;
+  if (len(s) <= budget) return { text: s };
+  let n = Math.min(s.length, budget);
+  let cut = s.slice(0, n);
+  for (let i = 0; i < 8 && len(cut) > budget; i += 1) {
+    n = Math.max(1, Math.floor(n * (budget / len(cut)) * 0.95));
+    cut = s.slice(0, n);
+  }
+  const nl = cut.lastIndexOf('\n');
+  if (nl >= cut.length * 0.5) cut = cut.slice(0, nl + 1);
+  else if (/[\ud800-\udbff]/.test(cut[cut.length - 1] || '')) cut = cut.slice(0, -1);
+  return { text: cut };
+}
 // v1.0 收官安全加固(对抗复核 CONFIRMED·CRITICAL):git 会执行由被操作仓库自带 `.git/config` 指定的
 // 外部程序 —— `core.fsmonitor`(status/diff 读 index 时执行)、`diff.external` / textconv(diff 时执行)。
 // git_status/git_diff 是 read 档、所有权限模式恒放行零弹窗,若不覆盖这些键,「看一眼陌生仓库的 git 状态」
@@ -1259,7 +1384,8 @@ const GIT_DIFF_MAX_BYTES = 200 * 1024; // git_diff 输出超此上限即截断�
 // 的外部差异器」而报 `external diff died`,反而破坏正常 diff;diff.external / textconv 面改由 gitDiff 的
 // `--no-ext-diff --no-textconv` 关闭(diff 子命令专用选项,见 gitDiff)。GIT_SAFE_FLAGS 对 ALL git 调用统一
 // 前置(commit 亦安全:它不读 fsmonitor;合法 pre-commit hook 走 core.hooksPath,未被触碰,仍在 exec 档权限门下)。
-const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0'];
+// NE-7:core.quotepath=false —— 否则中文路径在 status/diff 里被写成 "\346\226\260..." 八进制转义,模型和用户都读不了。
+const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0', '-c', 'core.quotepath=false'];
 // execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
 // opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
@@ -1273,7 +1399,7 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
         cwd: cwd || process.cwd(),
         windowsHide: true,
         timeout: Math.max(1000, Number(timeoutMs || 15000)),
-        maxBuffer: 24 * 1024 * 1024,
+        maxBuffer: opts && opts.maxBuffer ? opts.maxBuffer : 24 * 1024 * 1024,
         encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
@@ -1320,16 +1446,19 @@ function gitReadOnlyGuardError(guard, cwd) {
   }
   return gitHumanError(guard && guard.res, cwd);
 }
-// Resolve the working directory a git tool runs in. Mirrors powershell_run's lenient handling: an explicit,
-// existing absolute dir wins; anything unusable falls back to the session/home workspace (never throws).
+// Resolve the working directory a git tool runs in. 工具分发(12)总是传入执行闸/会话解析好的绝对 cwd;这里只兜住没有 cwd 的
+// 直接调用方(缺省家目录)。NE-6:显式给了却不存在/不是目录 → 返回 null(调用方报「目录不存在」),不再悄悄换成家目录 ——
+// 修前手滑的 cwd 会让 git_status 在 $HOME 上报「不是 Git 仓库」、git_commit 甚至提交到 $HOME 所在的别的仓库。
 function resolveGitCwd(raw) {
-  const home = os.homedir();
   const candidate = String(raw || '').trim();
-  if (!candidate) return home;
+  if (!candidate) return os.homedir();
   let resolved;
-  try { resolved = path.resolve(candidate); } catch { return home; }
+  try { resolved = path.resolve(candidate); } catch { return null; }
   try { if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) return resolved; } catch { /* fall through */ }
-  return home;
+  return null;
+}
+function gitCwdMissingError(raw) {
+  return { ok: false, error: `目录不存在: ${String(raw || '').trim()}`, hint: '确认 cwd 是已存在的仓库目录(Windows 用完整盘符路径),或省略 cwd 使用当前对话的工作目录。' };
 }
 // Map a failed git invocation to a 中文人话引导错误. Order matters: binary-missing first (nothing else is
 // meaningful without git), then the common "not a repo" and "missing identity" cases, else the raw stderr.
@@ -1381,6 +1510,7 @@ function summarizeGitStatus(stdout) {
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:关掉仓库自带过滤器与子模块递归
   if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
   const res = await runGit([...guard.flags, '-C', cwd, 'status', '--porcelain=v1', '-b', '--ignore-submodules=dirty'], cwd, args.timeoutMs || 15000);
@@ -1394,14 +1524,17 @@ async function gitStatus(args = {}) {
 // SECURITY: any model-controllable path goes AFTER `--`; a lone `-`-leading path with no separator is refused.
 async function gitDiff(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   // 安全加固(对抗复核 CRITICAL 的 diff 面):--no-ext-diff 忽略仓库配置的 diff.external 外部差异器,
   // --no-textconv 关掉 gitattributes 指定的 textconv 过滤器 —— 两者都会执行仓库自带的外部程序,是 read 档
   // git_diff 下的代码执行面。用 diff 子命令专用选项关闭(不能用 `-c diff.external=` 空值,那会让 git 尝试
   // spawn 空命令而报错)。正常 diff 输出不受影响(已实弹验证:+/- 行照常产出、恶意 diff.external 不触发)。
   const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:clean/smudge/process 过滤器与子模块递归
   if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
-  const gitArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
-  if (args.staged === true) gitArgs.push('--cached');
+  const baseArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
+  const gitArgs = [...baseArgs];
+  const staged = args.staged === true;
+  if (staged) gitArgs.push('--cached');
   // contextLines → -U<n> (clamped 0..50). Passed as a single joined arg so it can't be split/走私.
   const ctx = Number(args.contextLines);
   if (Number.isFinite(ctx)) gitArgs.push('-U' + String(Math.max(0, Math.min(50, Math.floor(ctx)))));
@@ -1409,23 +1542,56 @@ async function gitDiff(args = {}) {
   // never a git flag. (We still pass it verbatim — execFile means no shell, so no further quoting needed.)
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath);
-  const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
-  if (!res.ok) return gitHumanError(res, cwd);
-  let diff = res.stdout || '';
+  // diff 按原始字节取、再按行判 UTF-8/GBK(GBK 源文件的 diff 不再变成 U+FFFD);maxBuffer 8MB —— 撞上限不算失败,按「太大」处理。
+  const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
+  const asText = b => (Buffer.isBuffer(b) ? decodeConsoleText(b) : String(b || ''));
+  const overflow = !res.ok && res.error && res.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+  if (!res.ok && !overflow) return gitHumanError({ ...res, stdout: asText(res.stdout), stderr: asText(res.stderr) }, cwd);
+  const full = asText(res.stdout);
+  let diff = full;
   let truncated = false;
-  if (Buffer.byteLength(diff, 'utf8') > GIT_DIFF_MAX_BYTES) {
-    // Truncate on a byte budget, then trim back to a whole-character boundary and add a 人话 note.
-    diff = Buffer.from(diff, 'utf8').slice(0, GIT_DIFF_MAX_BYTES).toString('utf8');
+  let stat = '';
+  if (overflow || JSON.stringify(full).length > GIT_DIFF_MAX_CHARS) {
     truncated = true;
-    diff += `\n\n[已截断:diff 超过 ${Math.round(GIT_DIFF_MAX_BYTES / 1024)}KB。可用 path 参数只看单个文件,或减小 contextLines。]`;
+    const cut = gitHeadToJsonBudget(full, GIT_DIFF_MAX_CHARS);
+    const total = overflow ? `超过 ${Math.round(GIT_DIFF_MAX_BUFFER / 1024 / 1024)}MB` : `${full.length} 字符`;
+    diff = cut.text + `\n\n[已截断:diff 共 ${total},只显示前 ${cut.text.length} 字符。文件清单见 stat;用 path 参数只看单个文件,或减小 contextLines。]`;
+    const statArgs = [...baseArgs, '--stat=120,60', '--stat-count=60'];
+    if (staged) statArgs.push('--cached');
+    if (rawPath) statArgs.push('--', rawPath);
+    const st = await runGit(statArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
+    if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) stat = gitHeadToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
   }
-  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated,
-    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
+  const out = { ok: true, cwd, staged, path: rawPath || undefined, truncated };
+  // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
+  let untracked = [];
+  let untrackedCount = 0;
+  if (!truncated && diff.trim() === '' && !staged) {
+    const lsArgs = [...guard.flags, '-C', cwd, 'ls-files', '--others', '--exclude-standard', '-z'];
+    if (rawPath) lsArgs.push('--', rawPath);
+    const ls = await runGit(lsArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer' });
+    if (ls.ok) {
+      const names = asText(ls.stdout).split('\0').filter(Boolean);
+      untrackedCount = names.length;
+      untracked = names.slice(0, GIT_UNTRACKED_LIST_MAX);
+    }
+  }
+  out.empty = diff.trim() === '' && untrackedCount === 0;
+  if (untrackedCount) {
+    out.untracked = untracked;
+    out.untrackedCount = untrackedCount;
+    out.hint = `没有已跟踪文件的改动,但有 ${untrackedCount} 个未跟踪的新文件(git diff 不含它们);用 file_read 看内容,或 git_commit 时用 paths/addAll 纳入。`;
+  }
+  if (stat) out.stat = stat;
+  out.diff = diff;
+  if (guard.names.length) out.filtersNeutralized = guard.names;
+  return out;
 }
 
 // git_log {cwd?, maxCount?, path?}: recent commits as a row table. tier: read.
 async function gitLog(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
   // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
   const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
@@ -1444,6 +1610,7 @@ async function gitLog(args = {}) {
 // SECURITY: message via `-m <message>` (two elements); paths after `--`; NEVER --no-verify; NEVER fake identity.
 async function gitCommit(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
+  if (!cwd) return gitCwdMissingError(args.cwd);
   const message = String(args.message != null ? args.message : '').trim();
   if (!message) return { ok: false, error: 'message 不能为空', hint: '请给这次提交写一句说明(例如「修好登录按钮」)。', cwd };
   const paths = Array.isArray(args.paths) ? args.paths.filter(p => typeof p === 'string' && p.trim() !== '') : [];
@@ -1463,7 +1630,7 @@ async function gitCommit(args = {}) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
     if (/nothing to commit|no changes added|nothing added to commit/.test(low)) {
-      return { ok: false, error: '没有可提交的改动', hint: '工作区没有变化,或改动还没被暂存。先确认有改动再提交。', cwd, detail: (res.stdout || res.stderr || '').trim() };
+      return { ok: false, error: '没有可提交的改动', hint: '工作区没有变化,或改动还没被暂存。有改动时传 addAll:true(暂存全部)或 paths:[...](只暂存这些文件)再提交。', cwd, detail: (res.stdout || res.stderr || '').trim() };
     }
     return gitHumanError(res, cwd);
   }
@@ -1525,9 +1692,12 @@ async function codeReviewScan(root, opts = {}) {
   });
   const patterns = [
     { id: 'hardcoded-secret', severity: 'high', re: /(api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]{8,}/i, hint: 'Possible hardcoded credential' },
-    { id: 'shell-exec', severity: 'medium', re: /\b(exec|execSync|Invoke-Expression|IEX|shell_exec|system)\s*\(/i, hint: 'Shell execution needs input validation' },
-    { id: 'sql-concat', severity: 'medium', re: /(SELECT|UPDATE|DELETE|INSERT).{0,80}(\+|\$\{)/i, hint: 'Possible SQL string interpolation' },
-    { id: 'xss-html', severity: 'medium', re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
+    // NE-14:修前 `\bexec\s*\(` 把每一处 `regex.exec(` 都当成 shell 执行(本仓 app/src 60 处命中 51 处是正则),sql-concat 不带词界又开了 i,
+    // 命中的全是 querySelector/.delete(/Update 散文。收紧:裸调用要求前面不是 `.`/字母(排除 re.exec、fooexec),对象方法只认
+    // child_process/cp 这类子进程对象;SQL 要求出现在字符串字面量里、有 SELECT…FROM / INSERT INTO / UPDATE…SET / DELETE FROM 的形状且拼接了变量。
+    { id: 'shell-exec', severity: 'medium', codeOnly: true, re: /(?<![.\w$])(?<!\bfunction\s+)(?:execSync|exec|shell_exec|system)\(|\bInvoke-Expression\b|\bIEX\s|\b(?:child_process|childProcess|cp)\.(?:exec|execSync)\s*\(|\brequire\(\s*['"](?:node:)?child_process['"]\s*\)\.(?:exec|execSync)\s*\(|\bos\.system\s*\(|\bshell\s*[:=]\s*(?:true|True)\b/, hint: 'Shell execution needs input validation' },
+    { id: 'sql-concat', severity: 'medium', codeOnly: true, re: /(['"`])\s*(?:SELECT\s[^'"`]{1,200}?\sFROM\s|INSERT\s+INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s)[^'"`]*(?:\$\{|\1\s*\+)/i, hint: 'Possible SQL string interpolation' },
+    { id: 'xss-html', severity: 'medium', codeOnly: true, re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
     { id: 'broad-cors', severity: 'medium', re: /(Access-Control-Allow-Origin.{0,40}\*|cors\(\s*\))/i, hint: 'Review CORS policy' },
     { id: 'disabled-tls', severity: 'high', re: /(NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0|rejectUnauthorized\s*:\s*false)/i, hint: 'TLS verification disabled' },
     { id: 'todo-marker', severity: 'low', re: /\b(TODO|FIXME|HACK|XXX)\b/i, hint: 'Unresolved engineering note' },
@@ -1541,7 +1711,10 @@ async function codeReviewScan(root, opts = {}) {
     const lines = raw.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
       if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(lines[i])) continue;
+      // codeOnly 规则不看纯注释行(//、/*、*、#、<!--):注释里提到 exec( / innerHTML 不是风险点(hardcoded-secret 与 todo-marker 照旧全行扫)。
+      const commentLine = /^\s*(?:\/\/|\/\*|\*|#|<!--)/.test(lines[i]);
       for (const ptn of patterns) {
+        if (ptn.codeOnly && commentLine) continue;
         if (ptn.re.test(lines[i])) {
           findings.push({
             id: ptn.id,
@@ -1549,7 +1722,7 @@ async function codeReviewScan(root, opts = {}) {
             path: file.path,
             relativePath: file.relativePath,
             line: i + 1,
-            text: lines[i].trim().slice(0, 500),
+            text: lines[i].trim().slice(0, 200),
             hint: ptn.hint,
           });
           break;
@@ -1562,7 +1735,10 @@ async function codeReviewScan(root, opts = {}) {
     acc[f.severity] = (acc[f.severity] || 0) + 1;
     return acc;
   }, {});
-  return { ok: true, root: cwd, counts, findings };
+  // NE-14:高危排前面(稳定排序,同级保持遍历顺序);counts 在 findings 之前 —— 名单再长被下游平切,也先看得到总数。
+  const sevRank = { high: 0, medium: 1, low: 2 };
+  const sorted = findings.map((f, i) => [f, i]).sort((a, b) => (sevRank[a[0].severity] - sevRank[b[0].severity]) || (a[1] - b[1])).map(x => x[0]);
+  return { ok: true, root: cwd, counts, total: sorted.length, findings: sorted };
 }
 
 async function frontendAudit(root, opts = {}) {
@@ -1578,7 +1754,8 @@ async function frontendAudit(root, opts = {}) {
   for (const file of files.filter(f => f.type === 'file' && /\.(html|css|js|jsx|ts|tsx|vue|svelte)$/i.test(f.path))) {
     if (file.size > 1024 * 1024) continue;
     const raw = await readIfExists(file.path, 1024 * 1024);
-    const lines = raw.split(/\r?\n/).filter(line => !/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line));
+    const allLines = raw.split(/\r?\n/);
+    const lines = allLines.filter(line => !/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line));
     const checks = [
       { id: 'external-asset', re: /https?:\/\/(cdn|fonts|unpkg|jsdelivr|cdnjs|googleapis|gstatic)\./i, hint: 'External CDN/font asset will fail offline' },
       { id: 'missing-viewport', re: /<html[\s\S]*<\/html>/i, hint: 'HTML page may need a viewport meta tag', custom: text => /<html[\s\S]*<\/html>/i.test(text) && !/<meta[^>]+viewport/i.test(text) },
@@ -1587,11 +1764,20 @@ async function frontendAudit(root, opts = {}) {
       { id: 'one-note-gradient', re: /(radial-gradient|linear-gradient).{0,80}(purple|violet|slate|blue)/i, hint: 'Review for generic gradient-heavy visual style' },
     ];
     for (const check of checks) {
-      const match = check.custom ? check.custom(raw) : lines.some(line => {
-        check.re.lastIndex = 0;
-        return check.re.test(line);
-      });
-      if (match) issues.push({ id: check.id, path: file.path, relativePath: file.relativePath, hint: check.hint });
+      // NE-14:给出首个命中行号与片段(行号按原文件,规则定义行被滤掉也不偏);external-asset 不看注释行里的 CDN 链接。
+      let hitLine = 0;
+      let hitText = '';
+      if (!check.custom) {
+        for (let li = 0; li < allLines.length; li += 1) {
+          const line = allLines[li];
+          if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line)) continue;
+          if (check.id === 'external-asset' && /^\s*(?:\/\/|\*|\/\*|<!--)/.test(line)) continue;
+          check.re.lastIndex = 0;
+          if (check.re.test(line)) { hitLine = li + 1; hitText = line.trim().slice(0, 160); break; }
+        }
+      }
+      const match = check.custom ? check.custom(raw) : hitLine > 0;
+      if (match) issues.push({ id: check.id, path: file.path, relativePath: file.relativePath, ...(hitLine ? { line: hitLine, text: hitText } : {}), hint: check.hint });
     }
   }
   return { ok: true, root: cwd, issues };
@@ -1604,11 +1790,12 @@ async function claudeMdAudit(root) {
   for (const f of files.filter(_ => _.type === 'file')) {
     const content = await readIfExists(f.path, 200000);
     const checks = [
-      { id: 'purpose', ok: /purpose|overview|目标|说明/i.test(content) },
-      { id: 'commands', ok: /test|build|lint|run|命令|测试|构建/i.test(content) },
-      { id: 'style', ok: /style|convention|pattern|规范|约定/i.test(content) },
-      { id: 'safety', ok: /permission|secret|credential|安全|权限|密钥/i.test(content) },
-      { id: 'offline', ok: /offline|air.?gap|intranet|内网|离线/i.test(content) },
+      // NE-14:英文关键词加词界 —— 修前 `test` 会命中 "latest",一份「latest thoughts, nothing else here」的 CLAUDE.md 也算写了命令。
+      { id: 'purpose', ok: /\b(?:purpose|overview)\b|目标|说明/i.test(content) },
+      { id: 'commands', ok: /\b(?:tests?|build|builds|lint|linting|run|npm|node|make|pytest)\b|```|命令|测试|构建/i.test(content) },
+      { id: 'style', ok: /\b(?:style|conventions?|patterns?)\b|规范|约定/i.test(content) },
+      { id: 'safety', ok: /\b(?:permissions?|secrets?|credentials?)\b|安全|权限|密钥/i.test(content) },
+      { id: 'offline', ok: /\b(?:offline|air.?gap|intranet)\b|内网|离线/i.test(content) },
     ];
     audits.push({
       path: f.path,
@@ -1835,6 +2022,10 @@ function debugHypothesis(args = {}) {
     hypotheses: ledger.hypotheses.slice(0, 50).map(h => ({
       id: String(h && h.id || '').trim().slice(0, 64),
       description: String(h && h.description || '').trim().slice(0, 500),
+      // NE-14:重入时保留 init 写下的 mechanism / expectedEvidence / verification(修前每次 test 之后这三项就没了)。
+      mechanism: String(h && h.mechanism || '').trim().slice(0, 500),
+      expectedEvidence: String(h && h.expectedEvidence || '').trim().slice(0, 500),
+      verification: String(h && h.verification || '').trim().slice(0, 500),
       status: ['pending', 'supported', 'refuted', 'confirmed'].includes(h && h.status) ? h.status : 'pending',
       tests: Array.isArray(h && h.tests) ? h.tests.slice(0, 50).map(t => ({ result: ['supports', 'refutes', 'inconclusive'].includes(t && t.result) ? t.result : 'inconclusive', evidence: String(t && t.evidence || '').trim().slice(0, 2000) })) : [],
     })).filter(h => h.id && h.description),

@@ -108,13 +108,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'powershell_run',
-    description: 'Run a one-shot PowerShell command on Windows. For a persistent/interactive terminal that keeps state across calls, use shell_start/shell_send instead.',
+    description: 'Run a one-shot PowerShell command on Windows (non-interactive: stdin is closed, prompts fail fast). Result: {ok, code, timedOut, error?, hint?, stderr, stdout}; very long output keeps head+tail with an omitted-chars marker (stdoutOmitted). For long jobs use shell_start({command}); for a persistent terminal use shell_start/shell_send.',
     inputSchema: {
       type: 'object',
       properties: {
         command: { type: 'string' },
-        cwd: { type: 'string' },
-        timeoutMs: { type: 'number' },
+        cwd: { type: 'string', description: 'working directory (defaults to the conversation working folder; must exist)' },
+        timeoutMs: { type: 'number', description: 'default 60000, clamped to 1000..1800000' },
       },
       required: ['command'],
     },
@@ -139,25 +139,28 @@ const MCP_TOOLS = [
   },
   {
     name: 'shell_send',
-    description: 'Send a line of input to a shell session and return the output that settles within timeoutMs (best-effort; long tasks: track with shell_poll). output is the increment since the last cursor.',
+    description: 'Send a line of input to a shell session and return the output that settles within timeoutMs (best-effort; long tasks: track with shell_poll). output is the increment since this call, capped at maxChars; result has settled:quiet|silent|timeout|exit (exit = process ended; timeout = still printing).',
     inputSchema: {
       type: 'object',
       properties: {
         shellId: { type: 'string' },
         input: { type: 'string' },
         timeoutMs: { type: 'number', description: 'max wait for output to settle (default 10000)' },
+        maxChars: { type: 'number', description: 'output cap (default 16000, 500..30000)' },
       },
       required: ['shellId', 'input'],
     },
   },
   {
     name: 'shell_poll',
-    description: 'Read new output from a shell or background command. Returns {output, cursor, running, exitCode?, timedOut, mode, truncated?}. Background completion requires running:false; check exitCode and timedOut. Interactive running only means the shell process is alive. Pass the returned cursor back unchanged (UTF-16 offset, not bytes).',
+    description: 'Read output from a shell or background command. Returns {running, exitCode?, timedOut, mode, cursor, more?, omittedFrom?, omittedTo?, output}; status fields come first. Background completion requires running:false; check exitCode and timedOut. Interactive running only means the shell process is alive. cursor is the UTF-16 offset (not bytes) where the returned output ends: pass it back unchanged to continue. Output is capped at maxChars: with no cursor you get the beginning plus the latest part and the omitted range; with cursor>0 you get the next page (more:true when there is more).',
     inputSchema: {
       type: 'object',
       properties: {
         shellId: { type: 'string' },
-        cursor: { type: 'number', description: 'absolute byte offset to read from (default 0)' },
+        cursor: { type: 'number', description: 'UTF-16 offset to read from: omit (or 0) for the latest output, or pass the cursor from the previous call / omittedFrom' },
+        maxChars: { type: 'number', description: 'output cap (default 16000, 500..30000)' },
+        waitMs: { type: 'number', description: 'long-poll: if nothing new is available and the job is still running, wait up to this long (max 30000) for new output or exit' },
       },
       required: ['shellId'],
     },
@@ -178,14 +181,14 @@ const MCP_TOOLS = [
   },
   {
     name: 'script_run',
-    description: 'Run a temporary PowerShell, Python, or Node script',
+    description: 'Run a temporary PowerShell, Python (UTF-8 mode), or Node script (default powershell). Non-interactive: stdin is closed. Result: {ok, code, timedOut, error?, hint?, stderr, stdout}; very long output keeps head+tail with an omitted-chars marker.',
     inputSchema: {
       type: 'object',
       properties: {
         language: { type: 'string', enum: ['powershell', 'python', 'node', 'javascript'] },
         code: { type: 'string' },
-        cwd: { type: 'string' },
-        timeoutMs: { type: 'number' },
+        cwd: { type: 'string', description: 'working directory (defaults to the conversation working folder; must exist)' },
+        timeoutMs: { type: 'number', description: 'default 60000, clamped to 1000..1800000' },
       },
       required: ['code'],
     },
@@ -460,17 +463,17 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the session/home workspace)' },
+        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
       },
     },
   },
   {
     name: 'git_diff',
-    description: 'Show what changed in a git repo as a unified diff (the +added / -removed lines). Read-only. Use staged:true to see staged changes, path to limit to one file, contextLines to widen/narrow context.',
+    description: 'Show what changed in a git repo as a unified diff (the +added / -removed lines). Read-only. Use staged:true to see staged changes, path to limit to one file, contextLines to widen/narrow context. Untracked files are not part of a diff: they are listed in `untracked`. Very large diffs are cut (truncated:true) and come with a `stat` file summary; use path to see one file.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the session/home workspace)' },
+        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
         path: { type: 'string', description: 'limit the diff to this file/pathspec' },
         staged: { type: 'boolean', description: 'diff the staged (index) changes instead of the working tree' },
         contextLines: { type: 'number', description: 'lines of context around each change (0..50, default git 3)' },
@@ -483,7 +486,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the session/home workspace)' },
+        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
         maxCount: { type: 'number', description: 'how many commits to return (1..100, default 10)' },
         path: { type: 'string', description: 'limit history to this file/pathspec' },
       },
@@ -495,9 +498,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the session/home workspace)' },
+        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
         message: { type: 'string', description: 'the commit message (required) — one line describing the change' },
-        addAll: { type: 'boolean', description: 'stage all changes first with `git add -A` (default true when no explicit paths)' },
+        addAll: { type: 'boolean', description: 'stage all changes first with `git add -A` (default false; without addAll or paths only what is already staged is committed)' },
         paths: { type: 'array', items: { type: 'string' }, description: 'stage only these files (overrides addAll)' },
       },
       required: ['message'],

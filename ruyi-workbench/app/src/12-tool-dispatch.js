@@ -1444,16 +1444,58 @@ const ARCHIVE_TOOL_HANDLERS = {
   } },
 };
 
+// NE-13/NE-6:执行类与 git 工具共用的 cwd 校验。Node 把「cwd 不存在」报成 `spawn python ENOENT`(模型会误判成没装解释器),
+// 所以起进程前先确认目录在,并明说「工作目录不存在」。
+async function execCwdProblem(cwd) {
+  try { if ((await fsp.stat(cwd)).isDirectory()) return null; } catch { /* fall through */ }
+  return { ok: false, error: `工作目录不存在: ${cwd}`, hint: '确认 cwd 是已存在的目录(Windows 用完整盘符路径),或省略 cwd 使用当前对话的工作目录。' };
+}
+// NE-6:git_* 与 powershell_run/script_run/shell_start 同一套 cwd 解析(显式 cwd → 回合工作目录 → 会话 cwd → defaultWorkspace → 家目录)。
+// 读类 git 只要解析 cwd(不做执行闸);git_commit 会跑 hooks,走 guardWorkspaceExecute。显式给了不存在的目录是错误,不再悄悄换成家目录。
+async function resolveGitToolCwd(args, ctx, { exec = false } = {}) {
+  let cwd;
+  if (exec) {
+    const g = await guardWorkspaceExecute(args && args.cwd, ctx);
+    if (!g.ok) return { ok: false, error: g.error, code: g.code };
+    cwd = g.cwd;
+  } else {
+    let config = ctx && ctx.config ? ctx.config : null;
+    if (!config) { try { config = await readConfig(); } catch { config = {}; } }
+    cwd = resolveExecCwd(args && args.cwd, ctx, config);
+  }
+  const problem = await execCwdProblem(cwd);
+  return problem || { ok: true, cwd };
+}
+// NE-13:python 解释器候选。Windows 全新机器上裸 `python` 常是 Microsoft Store 占位程序(退出码 9009)或根本没有,`py -3` 才是官方启动器;
+// 非 Windows 有些发行版只有 python3。找不到(ENOENT / 9009)才换下一个候选。
+async function runPythonScript(scriptPath, opts) {
+  const win = process.platform === 'win32';
+  const candidates = win ? [['python', []], ['py', ['-3']]] : [['python', []], ['python3', []]];
+  // NE-13:管道下 Windows 中文系统的 python 按 cp936 写 stdout / 读文件,脚本里的 ✓ → emoji 会 UnicodeEncodeError —— 强制 UTF-8。
+  const env = { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' };
+  let last = null;
+  for (const [cmd, pre] of candidates) {
+    last = await DesktopShell.runProcess(cmd, [...pre, scriptPath], { ...opts, env, shape: true });
+    const notFound = (last.code === -1 && /ENOENT/i.test(String(last.stderr || ''))) || (win && last.code === 9009);
+    if (!notFound) return last;
+  }
+  return { ...last, error: '未找到可用的 Python 解释器', hint: '可改用 language:"powershell" 或 "node",或请用户安装 Python(python.org)后重试' };
+}
+
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
       // 107-S0:三个执行工具一律跑在闸交回的 g.cwd(03 resolveExecCwd)—— 判的目录就是跑的目录;修前缺省 cwd 落家目录。
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
-      return DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal);
+      const badCwd = await execCwdProblem(g.cwd);
+      if (badCwd) return badCwd;
+      return DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal, { shape: true });
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
+      const badCwd = await execCwdProblem(g.cwd);
+      if (badCwd) return badCwd;
       // v1.2 返修(用户实测证明:Office 产出规程提示词在续聊/惯性场景拦不住)——脚本手写 Office 的
       // 【工具层】软闸。现成 Office 工具走统一模板且进检查点可撤销;脚本现场发挥二者皆失。检测到
       // Office 写意图 → 拒绝并给配方;确有现成工具覆盖不了的特殊需求时,模型加 force:true 重调即放行
@@ -1477,21 +1519,23 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'python') {
         const p = path.join(dir, `${id}.py`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess('python', [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return runPythonScript(p, { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
       }
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal });
+        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true });
       }
       const p = path.join(dir, `${id}.ps1`);
       // hunt2 #10:带 BOM 落盘 —— Windows PowerShell 5.1 按 ANSI 读无 BOM 的 .ps1,脚本里的中文字面量会被读成乱码
       // (04 runPowerShell 头注同一条)。
-      await fsp.writeFile(p, '\ufeff' + String(args.code || ''), 'utf8');
-      return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', p], {
+      await fsp.writeFile(p, '\ufeff' + DesktopShell.withQuietProgress(String(args.code || '')), 'utf8');
+      // NE-3:-NonInteractive(提示立刻报错而不是挂到超时);stdin 由 runProcess 关掉;NE-15:脚本头静音进度条。
+      return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p], {
         cwd: g.cwd,
         timeoutMs: args.timeoutMs || 60000,
         signal: ctx && ctx.signal,
+        shape: true,
       });
   } },
   shell_start: { paths: null, guardNote: "持久 shell 会话状态面,exec tier 门+MCP 子进程拒;不直接触文件路径", handler: async (args, ctx) => {
@@ -1500,6 +1544,8 @@ const SHELL_TOOL_HANDLERS = {
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
       if (RUNTIME.isMcpChild) return shellMcpChildGuard();
+      const badCwd = await execCwdProblem(g.cwd);
+      if (badCwd) return badCwd;
       const cfg = await readConfig().catch(() => ({ shellSessionMax: 3 }));
       // 107-S0(45 号文 §9.6 发现 3):shell 起在闸判过的那个目录(显式 cwd → 回合工作目录 → 会话 cwd → defaultWorkspace
       // → 家目录),不再缺省落家目录。
@@ -1642,18 +1688,26 @@ const NETWORK_TOOL_HANDLERS = {
 };
 
 const CODE_TOOL_HANDLERS = {
-  git_status: { paths: null, guardNote: "git 子进程 execFile 无 shell;cwd 经 resolveGitCwd(存在的目录才用);只读检查", handler: async (args, ctx) => {
+  git_status: { paths: null, guardNote: "git 子进程 execFile 无 shell;cwd 经 resolveGitToolCwd(与执行类工具同一套解析,目录必须存在);只读检查", handler: async (args, ctx) => {
     // v1.0-S4 git 工具族 — 无状态 execFile('git',…),两个引擎路径都命中(同 file_read)。
-      return gitStatus(args);
+      const g = await resolveGitToolCwd(args, ctx);
+      if (!g.ok) return g;
+      return gitStatus({ ...args, cwd: g.cwd });
   } },
   git_diff: { paths: null, guardNote: "同 git_status;另 --no-ext-diff/--no-textconv 关外部执行面", handler: async (args, ctx) => {
-      return gitDiff(args);
+      const g = await resolveGitToolCwd(args, ctx);
+      if (!g.ok) return g;
+      return gitDiff({ ...args, cwd: g.cwd });
   } },
   git_log: { paths: null, guardNote: "同 git_status", handler: async (args, ctx) => {
-      return gitLog(args);
+      const g = await resolveGitToolCwd(args, ctx);
+      if (!g.ok) return g;
+      return gitLog({ ...args, cwd: g.cwd });
   } },
-  git_commit: { paths: null, guardNote: "git 子进程 execFile 无 shell;exec tier(commit 触发 hooks)录在案;cwd 经 resolveGitCwd", handler: async (args, ctx) => {
-      return gitCommit(args);
+  git_commit: { paths: null, guardNote: "git 子进程 execFile 无 shell;exec tier(commit 触发 hooks)录在案;cwd 经 guardWorkspaceExecute(同 powershell_run)", handler: async (args, ctx) => {
+      const g = await resolveGitToolCwd(args, ctx, { exec: true });
+      if (!g.ok) return g;
+      return gitCommit({ ...args, cwd: g.cwd });
   } },
   dependency_inventory: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
