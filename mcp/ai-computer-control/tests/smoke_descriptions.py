@@ -25,7 +25,20 @@ _FAILURES: list[str] = []
 _CONVENTION_REQUIRED = {
     "edit_file", "fetch", "memory_save", "memory_read", "memory_list", "memory_delete",
     "sequential_thinking", "read_document",
+    # server-surface hardening: rewritten with the convention and without changelog text.
+    "run_command", "launch_application",
 }
+
+# Tool-list size budget (tokens sent on every `tool_load` / in toolLoadingMode 'full'). Ceilings sit just above
+# the measured size so growth is a deliberate decision; tighten them when descriptions are trimmed.
+_MAX_TOTAL_DESC_CHARS = 58000
+_MAX_ONE_DESC_CHARS = 3000
+_MAX_TOTAL_SCHEMA_CHARS = 20000
+# Changelog-style provenance ("v1.8 新增…") belongs in git, not in the prompt. Hard-locked for the tools whose
+# docstrings were cleaned; report-only for the rest.
+_NO_CHANGELOG_TOOLS = {"run_command", "launch_application", "diagnostics", "audit_tail", "safety_info",
+                       "version_info"}
+_CHANGELOG_RX = __import__("re").compile(r"\bv\d+\.\d+|第\s*\d+\s*波|Previously|此前|新增")
 
 
 def main() -> int:
@@ -82,6 +95,28 @@ def main() -> int:
         elif not (t.description or "").strip():
             _FAILURES.append(f"{name}: description 为空")
 
+    import json
+    total_desc = sum(len((t.description or "")) for t in tools)
+    total_schema = len(json.dumps([t.parameters for t in tools], separators=(",", ":"), ensure_ascii=False))
+    heavy = sorted(((len(t.description or ""), t.name) for t in tools), reverse=True)[:5]
+    print(f"# 体积: description 共 {total_desc} 字符 (预算 {_MAX_TOTAL_DESC_CHARS}), "
+          f"input schema 共 {total_schema} 字符 (预算 {_MAX_TOTAL_SCHEMA_CHARS}); 最重 5 件: {heavy}")
+    if total_desc > _MAX_TOTAL_DESC_CHARS:
+        _FAILURES.append(f"description 总量 {total_desc} 超预算 {_MAX_TOTAL_DESC_CHARS}")
+    if total_schema > _MAX_TOTAL_SCHEMA_CHARS:
+        _FAILURES.append(f"input schema 总量 {total_schema} 超预算 {_MAX_TOTAL_SCHEMA_CHARS}")
+    for t in tools:
+        if len(t.description or "") > _MAX_ONE_DESC_CHARS:
+            _FAILURES.append(f"{t.name}: description {len(t.description)} 字符,超单件上限 {_MAX_ONE_DESC_CHARS}")
+        if "title" in (t.parameters or {}):
+            _FAILURES.append(f"{t.name}: 入参 schema 仍带 pydantic 顶层 title(应被 server 后处理去掉)")
+        if t.name in _NO_CHANGELOG_TOOLS and _CHANGELOG_RX.search(t.description or ""):
+            _FAILURES.append(f"{t.name}: description 含更新日志式文字 ({_CHANGELOG_RX.search(t.description).group(0)!r})")
+    with_changelog = sorted(t.name for t in tools
+                            if t.name not in _NO_CHANGELOG_TOOLS and _CHANGELOG_RX.search(t.description or ""))
+    if with_changelog:
+        print(f"#   仍含更新日志式文字(报告不强制): {', '.join(with_changelog)}")
+
     print()
     if _FAILURES:
         print(f"FAILED: {len(_FAILURES)} assertion(s)")
@@ -89,7 +124,7 @@ def main() -> int:
             print("  -", f)
         print("ACC-DESCRIPTIONS AUDIT: FAIL")
         return 1
-    print("ACC-DESCRIPTIONS AUDIT: ALL PASS (硬锁 8 件约定合规)")
+    print("ACC-DESCRIPTIONS AUDIT: ALL PASS (硬锁 10 件约定合规 + 体积预算)")
     return 0
 
 

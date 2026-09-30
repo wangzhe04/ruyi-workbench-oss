@@ -7,9 +7,19 @@ import subprocess
 import tempfile
 from ai_computer_control.server import mcp
 from ai_computer_control.tools.safety import dangerous_command_reason
+from ai_computer_control.utils.errors import exc_text
 
 
-_MAX_CAPTURE_BYTES = 1024 * 1024
+# Per-stream character budget returned to the model. The host cuts a tool result at ~60K chars from the
+# HEAD, which would drop the tail (where a build/test failure lives) and every field serialized after
+# stdout, so the budget is kept far below that: head+tail with an explicit omitted-marker, status fields first.
+_DEFAULT_OUTPUT_CHARS = 16000
+_MIN_OUTPUT_CHARS = 1000
+_MAX_OUTPUT_CHARS = 200000
+_HEAD_SHARE = 4  # head gets 1/4 of the budget, tail 3/4 (errors are at the end)
+_TRUNCATION_HINT = ("output was truncated (head + tail kept, middle omitted). Redirect to a file and read_file it, "
+                    "filter at the source (findstr / Select-String / | Select-Object -Last 50), or raise "
+                    "max_output_chars (max 200000).")
 
 
 def _default_console_encoding() -> str:
@@ -28,43 +38,69 @@ def _default_console_encoding() -> str:
             return "utf-8"
 
 
-def _decode(b, enc: str) -> str:
-    """Decode bytes trying the OEM code page first, then UTF-8 (for programs that emit UTF-8, e.g.
-    git configured for UTF-8), and only then fall back to a lossy replace so nothing ever raises."""
+def _decode(b, enc: str, cut_start: bool = False, cut_end: bool = False, enc_first: bool = False) -> str:
+    """Decode bytes: strict UTF-8 first, then the console/OEM code page, then a lossy replace.
+
+    UTF-8 goes first because valid UTF-8 text (git, node, python -X utf8, PowerShell 7, chcp 65001) is very
+    often ALSO a valid GBK byte string and would decode as mojibake there, whereas real GBK text almost never
+    validates as UTF-8. ``cut_start`` / ``cut_end`` mark a chunk sliced out of a larger stream, so a
+    character split at the boundary is trimmed instead of pushing the whole chunk into lossy replace.
+    ``enc_first`` honours an encoding the caller asked for explicitly (tried before UTF-8).
+    """
     if b is None:
         return ""
     if isinstance(b, str):
         return b
-    for e in (enc, "utf-8"):
-        if not e:
+    order = ((enc, 2), ("utf-8", 4)) if enc_first else (("utf-8", 4), (enc, 2))
+    for codec, span in order:
+        if not codec:
             continue
-        try:
-            return b.decode(e)
-        except (UnicodeDecodeError, LookupError):
-            continue
+        for s0 in (range(span) if cut_start else (0,)):
+            for e0 in (range(span) if cut_end else (0,)):
+                chunk = b[s0:len(b) - e0] if e0 else b[s0:]
+                try:
+                    return chunk.decode(codec)
+                except (UnicodeDecodeError, LookupError):
+                    continue
     return b.decode(enc or "utf-8", errors="replace")
 
 
-def _read_capture(stream, enc: str) -> tuple[str, bool, int]:
+def _clip_text(text: str, max_chars: int) -> tuple[str, bool]:
+    """Keep a head and a (larger) tail of ``text`` with an explicit omitted-chars marker."""
+    if len(text) <= max_chars:
+        return text, False
+    head_n = max_chars // _HEAD_SHARE
+    tail_n = max_chars - head_n
+    omitted = len(text) - head_n - tail_n
+    return f"{text[:head_n]}\n[…{omitted} chars omitted…]\n{text[len(text) - tail_n:]}", True
+
+
+def _read_capture(stream, enc: str, max_chars: int = _DEFAULT_OUTPUT_CHARS,
+                  enc_first: bool = False) -> tuple[str, bool, int]:
     """Read a bounded head+tail from a seekable temporary capture file.
 
-    Real commands occasionally print a downloaded image or an unbounded build log. Returning megabytes of
-    binary-looking text through MCP makes the tool card appear frozen while JSON is encoded and rendered, so
-    keep useful evidence from both ends and report the truncation explicitly.
+    Returns ``(text, truncated, total_bytes)``. Real commands occasionally print a downloaded image or an
+    unbounded build log; the text is cut to ``max_chars`` characters (head + larger tail + marker) and the
+    file is never read whole when it is much bigger than that.
     """
     stream.flush()
     stream.seek(0, os.SEEK_END)
     size = stream.tell()
     stream.seek(0)
-    if size <= _MAX_CAPTURE_BYTES:
-        return _decode(stream.read(), enc), False, size
-    half = _MAX_CAPTURE_BYTES // 2
-    head = stream.read(half)
-    stream.seek(max(0, size - half))
-    tail = stream.read(half)
-    omitted = max(0, size - len(head) - len(tail))
-    marker = f"\n...[{omitted} output bytes omitted]...\n"
-    return _decode(head, enc) + marker + _decode(tail, enc), True, size
+    window = max_chars * 4  # worst case: 4 bytes per character
+    if size <= window:
+        text, cut = _clip_text(_decode(stream.read(), enc, enc_first=enc_first), max_chars)
+        return text, cut, size
+    head_n = max_chars // _HEAD_SHARE
+    tail_n = max_chars - head_n
+    head_b = stream.read(head_n * 4)
+    stream.seek(max(0, size - tail_n * 4))
+    tail_b = stream.read()
+    head = _decode(head_b, enc, cut_end=True, enc_first=enc_first)[:head_n]
+    tail_text = _decode(tail_b, enc, cut_start=True, enc_first=enc_first)
+    tail = tail_text[len(tail_text) - tail_n:] if len(tail_text) > tail_n else tail_text
+    omitted = max(0, size - len(head_b) - len(tail_b))
+    return f"{head}\n[…~{omitted} bytes omitted (stream is {size} bytes)…]\n{tail}", True, size
 
 
 def _terminate_process_tree(proc: subprocess.Popen) -> None:
@@ -103,21 +139,27 @@ def run_command(
     shell: bool = True,
     encoding: str | None = None,
     allow_dangerous: bool = False,
+    max_output_chars: int = _DEFAULT_OUTPUT_CHARS,
 ) -> dict:
     """Execute a shell command and return its output.
 
+    何时用: builds, git, scripts, one-off system queries. 何时别用: reading/writing files (read_file /
+    write_file / edit_file), starting GUI apps (launch_application).
+    The child gets NO stdin (EOF), so a command waiting for input fails fast instead of hanging.
+
     Args:
         command: The command to execute.
-        working_dir: Optional working directory.
-        timeout: Maximum execution time in seconds (default 60; capped at 600 so a hung command can't
-                 wedge the server).
-        shell: If True (default), execute through the shell.
-        encoding: Output encoding. Default (None) auto-decodes with the Windows OEM/console code page
-                  (cp936 on zh-CN) then UTF-8 — pass "utf-8" to force it for a UTF-8-emitting program.
-        allow_dangerous: Override the destructive-command denylist (default off).
+        working_dir: Working directory.
+        timeout: Seconds (default 60, capped at 600); on expiry the whole process tree is killed.
+        shell: Run through the shell (default True).
+        encoding: Force an output encoding (tried first). Default: strict UTF-8, then the Windows
+                  OEM/console code page (cp936 on zh-CN).
+        allow_dangerous: Override the destructive-command denylist.
+        max_output_chars: Per-stream budget (stdout; stderr gets half, min 2000), default 16000, max 200000.
+                  Longer output keeps head + tail with an "[…N chars omitted…]" marker.
 
     Returns:
-        dict with an explicit 'ok', 'stdout', 'stderr', 'return_code' (and the 'encoding' actually used).
+        dict: status first (ok, return_code, timed_out, *_truncated, hint), then stderr, then stdout, encoding.
     """
     reason = dangerous_command_reason(command)
     if reason and not allow_dangerous:
@@ -126,6 +168,11 @@ def run_command(
         timeout = max(1, min(int(timeout), 600))
     except (TypeError, ValueError):
         timeout = 60
+    try:
+        max_chars = max(_MIN_OUTPUT_CHARS, min(int(max_output_chars), _MAX_OUTPUT_CHARS))
+    except (TypeError, ValueError):
+        max_chars = _DEFAULT_OUTPUT_CHARS
+    err_chars = min(max_chars, max(2000, max_chars // 2))
     enc = encoding or _default_console_encoding()
     try:
         # Pipes make subprocess.run()/communicate() wait for EOF from every descendant that inherited the
@@ -136,6 +183,9 @@ def run_command(
             popen_kwargs = {
                 "shell": shell,
                 "cwd": working_dir,
+                # Never inherit our stdin: it is the MCP JSON-RPC pipe. A child that reads stdin would block
+                # until the timeout AND swallow the next protocol requests (they'd never be answered).
+                "stdin": subprocess.DEVNULL,
                 "stdout": stdout_capture,
                 "stderr": stderr_capture,
             }
@@ -158,37 +208,28 @@ def run_command(
                     except Exception:
                         pass
                     return_code = proc.poll()
-            stdout, stdout_truncated, stdout_bytes = _read_capture(stdout_capture, enc)
-            stderr, stderr_truncated, stderr_bytes = _read_capture(stderr_capture, enc)
+            stdout, stdout_truncated, stdout_bytes = _read_capture(stdout_capture, enc, max_chars, bool(encoding))
+            stderr, stderr_truncated, stderr_bytes = _read_capture(stderr_capture, enc, err_chars, bool(encoding))
+            # Field order matters: the host cuts a long serialized result from the head, so status and
+            # truncation flags come first and the (shorter, more diagnostic) stderr before stdout.
+            result = {"ok": (not timed_out) and return_code == 0}
             if timed_out:
-                return {
-                    "ok": False,
-                    "error": f"Command timed out after {timeout} seconds; process tree terminated",
-                    "timed_out": True,
-                    "stdout": stdout,
-                    "stderr": stderr,
-                    "return_code": return_code,
-                    "encoding": enc,
-                    "stdout_truncated": stdout_truncated,
-                    "stderr_truncated": stderr_truncated,
-                    "stdout_bytes": stdout_bytes,
-                    "stderr_bytes": stderr_bytes,
-                }
-            result = {
-                "ok": return_code == 0,
-                "stdout": stdout,
-                "stderr": stderr,
-                "return_code": return_code,
-                "encoding": enc,
-            }
+                result["error"] = f"Command timed out after {timeout} seconds; process tree terminated"
+                result["timed_out"] = True
+            elif return_code != 0:
+                result["error"] = f"Command exited with code {return_code}"
+            result["return_code"] = return_code
             if stdout_truncated:
                 result["stdout_truncated"] = True
                 result["stdout_bytes"] = stdout_bytes
             if stderr_truncated:
                 result["stderr_truncated"] = True
                 result["stderr_bytes"] = stderr_bytes
-            if return_code != 0:
-                result["error"] = f"Command exited with code {return_code}"
+            if stdout_truncated or stderr_truncated:
+                result["hint"] = _TRUNCATION_HINT
+            result["stderr"] = stderr
+            result["stdout"] = stdout
+            result["encoding"] = enc
             return result
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": exc_text(e)}

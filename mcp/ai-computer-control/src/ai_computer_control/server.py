@@ -7,7 +7,11 @@ envelope and a safety net:
     success/error/found/state semantics — legacy keys are preserved for back-compat);
   * an uncaught exception becomes ``{"ok": False, "error": ...}`` instead of a raw MCP protocol
     error (much friendlier for the calling agent);
-  * mutating tools opt into the audit log via ``@mcp.tool(audit=True)``.
+  * mutating tools opt into the audit log via ``@mcp.tool(audit=True)`` (or by name in
+    ``_AUDITED_BY_NAME`` — the single choke point for tools whose module is edited elsewhere);
+  * a tool module that fails to import does not take the server down: the failure is logged to stderr and
+    surfaced by ``diagnostics().load_errors`` while every other tool stays registered;
+  * failures carry a non-empty message and (where an obvious next step exists) a ``hint``.
 """
 
 import sys
@@ -39,8 +43,11 @@ if sys.platform == "win32":
 
 import functools
 import inspect
+import time
 
 from mcp.server.fastmcp import FastMCP
+
+from ai_computer_control.utils.errors import exc_text, hint_for
 
 VERSION = "1.9.1"
 
@@ -56,6 +63,57 @@ mcp = FastMCP(
 _raw_tool = mcp.tool
 
 
+def _slim_schema(node):
+    """Strip pydantic boilerplate from a JSON-schema node in place (semantics-preserving for a model).
+
+    Removes the auto-generated ``title`` of every schema node (never a *property named* "title"), collapses
+    ``anyOf: [T, {type: null}]`` (Optional[T]) into T and drops the then-redundant ``default: null``.
+    Validation is unaffected: FastMCP validates against the pydantic model, not this advertised schema, so an
+    explicit null is still accepted. Measured ~40% of the tool-list schema characters.
+    """
+    if not isinstance(node, dict):
+        return node
+    node.pop("title", None)
+    any_of = node.get("anyOf")
+    if isinstance(any_of, list):
+        rest = [m for m in any_of if not (isinstance(m, dict) and m.get("type") == "null")]
+        if len(rest) == 1 and len(rest) < len(any_of) and isinstance(rest[0], dict):
+            node.pop("anyOf")
+            for k, v in rest[0].items():
+                node.setdefault(k, v)
+            if node.get("default", 0) is None:
+                node.pop("default")
+    for key in ("anyOf", "oneOf", "allOf"):
+        if isinstance(node.get(key), list):
+            for m in node[key]:
+                _slim_schema(m)
+    props = node.get("properties")
+    if isinstance(props, dict):
+        for child in props.values():
+            _slim_schema(child)
+    for key in ("items", "additionalProperties", "not"):
+        if isinstance(node.get(key), dict):
+            _slim_schema(node[key])
+    for key in ("$defs", "definitions"):
+        if isinstance(node.get(key), dict):
+            for child in node[key].values():
+                _slim_schema(child)
+    return node
+
+
+def _slim_registered_schema(name: str) -> None:
+    """Post-process the advertised input schema of the tool just registered under ``name`` (best effort)."""
+    try:
+        t = mcp._tool_manager.get_tool(name)
+        if t is not None and isinstance(t.parameters, dict):
+            _slim_schema(t.parameters)
+    except Exception:  # noqa: BLE001 — cosmetic; never block registration
+        pass
+
+
+_EMPTY_ERROR_TEXT = "unknown error (the tool returned an empty error message)"
+
+
 def _normalize(result):
     """Guarantee the result is a dict carrying a boolean 'ok', preserving existing keys.
 
@@ -65,18 +123,19 @@ def _normalize(result):
     tool loop must not read ok:false (execution failed) as "found nothing" and blindly retry.
 
     ok is False only when there is a genuine execution error:
-      * 'error' key is truthy, OR
+      * an 'error' key is PRESENT with a value other than None — even "" (``str(e)`` is "" for
+        TimeoutError()/KeyError()/some OSErrors; an empty message used to read as success), OR
       * explicit 'success' is falsy, OR
       * 'state' == 'error' (e.g. wait_for_window_idle failed to open the process).
     Result fields 'found' / 'has_image' / 'not_found' / 'matched' are left untouched and do NOT
-    drive 'ok'.
+    drive 'ok'. A failure always ends up with a non-empty 'error' string, and gets a 'hint' with the obvious
+    next step when the message matches a known failure class and the tool did not supply its own hint.
     """
     if not isinstance(result, dict):
         return {"ok": True, "result": result}
     if "ok" in result:
         result["ok"] = bool(result["ok"])
-        return result
-    if result.get("error"):
+    elif result.get("error") is not None:
         result["ok"] = False
     elif "success" in result:
         result["ok"] = bool(result["success"])
@@ -86,7 +145,38 @@ def _normalize(result):
         # No error signal -> the call executed. Query fields like found/has_image/not_found
         # describe the *outcome*, not a failure, so ok stays True.
         result["ok"] = True
+    if not result["ok"] and "error" in result:
+        err = result["error"]
+        if err is None or (isinstance(err, str) and not err.strip()):
+            result["error"] = err = _EMPTY_ERROR_TEXT
+        if isinstance(err, str) and "hint" not in result:
+            h = hint_for(err)
+            if h:
+                result["hint"] = h
     return result
+
+
+def _fail_envelope(e: BaseException) -> dict:
+    """Envelope for an exception that escaped a tool: 'Type: message' + a hint when one applies."""
+    text = exc_text(e)
+    out = {"ok": False, "error": text}
+    h = hint_for(text)
+    if h:
+        out["hint"] = h
+    return out
+
+
+# Mutating / exfiltrating tools that are audited without carrying ``audit=True`` at their definition.
+# Kept here so one file owns the policy and the tool modules stay untouched (many are edited concurrently):
+# the Office writers (also in the workbench's snapshot table), network egress (fetch), browser actions that
+# change page state, secret reads, and user-visible popups.
+_AUDITED_BY_NAME = frozenset({
+    "write_document", "write_excel", "write_pdf",
+    "fetch",
+    "browser_open", "browser_click", "browser_type", "browser_navigate", "browser_switch_tab", "browser_close",
+    "get_environment_variable",
+    "message_box", "show_notification", "notify_attention",
+})
 
 
 def tool(*d_args, audit: bool = False, **d_kwargs):
@@ -97,6 +187,7 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
 
     def decorator(fn):
         tool_name = getattr(fn, "__name__", "tool")
+        do_audit = audit or tool_name in _AUDITED_BY_NAME
         try:
             sig = inspect.signature(fn)
         except (TypeError, ValueError):
@@ -112,45 +203,46 @@ def tool(*d_args, audit: bool = False, **d_kwargs):
                     pass
             return kwargs or ({"_args": list(args)} if args else {})
 
+        def _record(out, args, kwargs, t0):
+            if do_audit:
+                _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True),
+                            None if out.get("ok", True) else out.get("error"),
+                            int((time.monotonic() - t0) * 1000))
+
         if inspect.iscoroutinefunction(fn):
             @functools.wraps(fn)
             async def wrapper(*args, **kwargs):
+                t0 = time.monotonic()
                 try:
-                    result = await fn(*args, **kwargs)
+                    out = _normalize(await fn(*args, **kwargs))
                 except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
-                    out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-                    if audit:
-                        _audit_safe(tool_name, _bind(args, kwargs), False)
-                    return out
-                out = _normalize(result)
-                if audit:
-                    _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True))
+                    out = _fail_envelope(e)
+                _record(out, args, kwargs, t0)
                 return out
         else:
             @functools.wraps(fn)
             def wrapper(*args, **kwargs):
+                t0 = time.monotonic()
                 try:
-                    result = fn(*args, **kwargs)
+                    out = _normalize(fn(*args, **kwargs))
                 except Exception as e:  # noqa: BLE001 — clean envelope, never a protocol error
-                    out = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-                    if audit:
-                        _audit_safe(tool_name, _bind(args, kwargs), False)
-                    return out
-                out = _normalize(result)
-                if audit:
-                    _audit_safe(tool_name, _bind(args, kwargs), out.get("ok", True))
+                    out = _fail_envelope(e)
+                _record(out, args, kwargs, t0)
                 return out
 
-        return _raw_tool(*d_args, **d_kwargs)(wrapper)
+        registered = _raw_tool(*d_args, **d_kwargs)(wrapper)
+        _slim_registered_schema(d_kwargs.get("name") or (d_args[0] if d_args and isinstance(d_args[0], str)
+                                                         else tool_name))
+        return registered
 
     return decorator
 
 
-def _audit_safe(tool_name, args, ok):
+def _audit_safe(tool_name, args, ok, error=None, ms=None):
     """Call the audit logger without ever letting it raise into the tool path."""
     try:
         from ai_computer_control.tools.audit import log_action
-        log_action(tool_name, args, ok)
+        log_action(tool_name, args, ok, error, ms)
     except Exception:
         pass
 
@@ -216,9 +308,24 @@ def _active_modules() -> list[str]:
 
 import importlib as _importlib  # noqa: E402
 
-for _mod in _active_modules():
-    _importlib.import_module(f"ai_computer_control.tools.{_mod}")
-del _mod
+# Tool modules that failed to import: {module: "ExcType: message"}. One broken hard dependency (a pywin32 DLL,
+# pyautogui without a display, psutil) must not take out unrelated tools (filesystem/office/fetch), so each
+# module is imported on its own. The failure is never silent: one stderr line here and
+# diagnostics().load_errors (which the workbench probe reads).
+_LOAD_ERRORS: dict[str, str] = {}
+
+
+def _load_tool_modules() -> None:
+    for mod in _active_modules():
+        try:
+            _importlib.import_module(f"ai_computer_control.tools.{mod}")
+        except Exception as e:  # noqa: BLE001 — degrade, don't die
+            _LOAD_ERRORS[mod] = exc_text(e)
+            print(f"[ai-computer-control] tool module '{mod}' failed to load and its tools are unavailable: "
+                  f"{_LOAD_ERRORS[mod]}", file=sys.stderr)
+
+
+_load_tool_modules()
 
 
 def main():

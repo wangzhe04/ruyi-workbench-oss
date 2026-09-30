@@ -55,6 +55,7 @@ def show_notification(title: str, message: str, duration: int = 5) -> dict:
         subprocess.Popen(
             ["powershell", "-NoProfile", "-Command", _TOAST_PS],
             env=env,
+            stdin=subprocess.DEVNULL,  # never inherit the MCP stdio pipe
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )

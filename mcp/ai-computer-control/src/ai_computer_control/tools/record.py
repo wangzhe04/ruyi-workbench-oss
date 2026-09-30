@@ -16,6 +16,7 @@ import threading
 import time
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.errors import exc_text
 from ai_computer_control.paths import data_dir
 
 try:
@@ -350,5 +351,5 @@ def macro_list() -> dict:
     except FileNotFoundError:
         pass
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": exc_text(e)}
     return {"ok": True, "count": len(macros), "macros": macros, "macros_dir": d}

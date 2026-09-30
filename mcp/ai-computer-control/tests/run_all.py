@@ -30,7 +30,7 @@ PYTHON = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
 # smoke_fetch_transport / smoke_office_read_v2: 本机回环 http.server + 临时目录现造文件,无显示依赖、
 # 各约 3-10 秒;可选依赖(reportlab/python-pptx)缺失时相关断言自行跳过。
 CI_SUBSET = ("smoke_registry", "smoke_stdio", "smoke_async_contracts", "smoke_toolsets", "smoke_descriptions",
-             "smoke_action_tools", "smoke_fetch_transport", "smoke_office_read_v2")
+             "smoke_envelope", "smoke_action_tools", "smoke_fetch_transport", "smoke_office_read_v2")
 
 TIMEOUT_S = 300
 

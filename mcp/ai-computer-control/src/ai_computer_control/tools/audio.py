@@ -2,6 +2,7 @@
 
 import winsound
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.errors import exc_text
 
 _BEEP_ALIASES = {
     "asterisk": winsound.MB_ICONASTERISK,
@@ -28,7 +29,7 @@ def beep(frequency: int = 800, duration_ms: int = 250) -> dict:
         winsound.Beep(max(37, min(32767, int(frequency))), max(1, int(duration_ms)))
         return {"success": True}
     except Exception as e:  # noqa: BLE001 — RDP/headless sessions may lack a device
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
 
 
 @mcp.tool()
@@ -42,7 +43,7 @@ def notify_attention(sound: str = "asterisk") -> dict:
         winsound.MessageBeep(_BEEP_ALIASES.get(sound.lower(), winsound.MB_OK))
         return {"success": True, "sound": sound}
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
 
 
 @mcp.tool()
@@ -62,4 +63,4 @@ def play_sound(path: str | None = None, alias: str | None = None) -> dict:
             return {"success": True, "played": alias}
         return {"error": "provide path or alias"}
     except Exception as e:  # noqa: BLE001
-        return {"error": str(e)}
+        return {"error": exc_text(e)}
