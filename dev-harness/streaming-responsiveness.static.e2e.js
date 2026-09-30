@@ -51,7 +51,7 @@ ok(seal.includes('MARKDOWN_SYNC_MAX_CHARS') && seal.includes("classList.add('pla
 const remember = fnBody('rememberTurnLine');
 ok(remember.includes('turn.eventHead++') && !remember.includes('eventLines.shift('), 'post-cap stream replay eviction uses an O(1) logical head, never Array.shift');
 ok(src.includes('MESSAGE_WINDOW_RENDER_BUDGET') && src.includes('weightedMessageTailStart(msgs'), 'history window is bounded by content weight as well as row count');
-const highlight = fnBody('highlightIn');
+const highlight = fnBody('highlightIn') + fnBody('highlightCodeBlock');   // 单块高亮拆成 highlightCodeBlock(长会话屏外懒高亮共用)
 ok(highlight.includes('requestIdleCallback') && highlight.includes('block.textContent.length > 16_000'), 'large code highlighting is skipped/batched through idle slices');
 
 if (fail) { console.log(`\nSTREAMING RESPONSIVENESS STATIC E2E: FAIL (${fail})`); process.exitCode = 1; }

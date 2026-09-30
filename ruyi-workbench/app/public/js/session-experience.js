@@ -1143,6 +1143,9 @@ function paintLiveTurnCard(opts) {
   // 这张气泡没有 data-message-key，keyed 那条路找不到自己的锚点，会落到「在底部就贴底 / 不在底部
   // 就按数值 scrollTop 复位」两条兜底 —— 本场景（内容只在页尾长出来）够用。
   if (box) restoreScrollAnchor(box, scroll);
+  // 正文是在文档外画好再换上来的,代码块走的是懒高亮(IntersectionObserver 回调晚于这一帧的绘制);
+  // 布局刚被 restoreScrollAnchor 算过,把视口附近的当场高亮,免得每次重画都闪一帧没着色的代码(审查轮)。
+  if (box) highlightIn(els.row, { nearView: true });
   return true;
 }
 // 117o-A7：把 liveTurn 画成 2.0 的样子。返回 false = 这一份账本画不出东西（调用方据此回落到纯文本）。
@@ -1290,6 +1293,8 @@ function renderCurrentSession() {
   reconcileMessageChildren(box, nodes);
   settleLog();
   restoreScrollAnchor(box, anchor || { atBottom: true });
+  // 新建的行在文档外画好、刚挂上:布局已被 restoreScrollAnchor 算过,视口附近的代码块当场高亮(懒高亮的回调晚一帧,会闪一下)。
+  highlightIn(box, { nearView: true });
   renderContextMeter(latestUsage(session));
   refreshKimiContextForSession(session);
 }

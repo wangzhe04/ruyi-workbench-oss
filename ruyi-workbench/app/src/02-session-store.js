@@ -639,6 +639,49 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
 function sessionLineHash(line) {
   return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
 }
+
+// ── perf(前端长会话):展示消息的【前缀戳】与增量取(GET /api/sessions/:id?fromIndex=N&prefixStamp=S)──────────────
+// 经典壳在自己起的回合收尾时要把会话换成落盘后的那一份。修前是整份重取(2000 条消息 7.8–19 MB,主线程 1.1–1.7 s),
+// 而前 N 条它手上早就有了。增量取只回 messages[N..];前提是服务端能证明「客户端手上那 N 条 === 服务端此刻的前 N 条」。
+// 戳 = 'm1.<N>.<sha1(JSON(m0) + '\n' + … + JSON(m[N-1]) + '\n')>' —— 对【实际下发的内容】逐条取哈希,而不是对盘上的行、
+// 消息 id 或某个修订号。理由:历史被改写的路径很多且分散(撤回/回溯的截断、压缩、慢路径整份重写、蒸发改写中间行的
+// content、loadSession 里的 normalize 补字段与残留 pending 叙事段的惰性清理、后台任务账本合并、编辑),其中几条是
+// 装载时才发生、而且未必落盘的;对下发内容取哈希就不必逐条认领它们 —— 前 N 条有任何一个字节不同,戳就对不上,
+// 调用方落回全量,与修前逐字节一致。JSON 往返是稳定的(stringify(parse(stringify(x))) === stringify(x)),所以
+// 客户端从一次下发里解析出来的那份,与服务端下次装载再算出来的那份,内容相同就一定同戳。
+// 代价:O(前缀字节数) 的 stringify + sha1(15 MB 约 60 ms),只在带了参数的请求与经典壳回合起点那一发上付。
+const SESSION_MESSAGES_STAMP_VERSION = 'm1';
+function sessionMessageStampLine(message) {
+  const line = JSON.stringify(message);
+  return line === undefined ? 'null' : line; // 与数组元素的序列化同口径(undefined/函数在数组里写成 null)
+}
+// 整份 messages 的戳;不可序列化 → null(调用方不发戳,下次自然走全量)。
+function sessionMessagesStamp(messages) {
+  const list = Array.isArray(messages) ? messages : [];
+  try {
+    const hash = crypto.createHash('sha1');
+    for (const message of list) hash.update(sessionMessageStampLine(message) + '\n');
+    return `${SESSION_MESSAGES_STAMP_VERSION}.${list.length}.${hash.digest('hex')}`;
+  } catch { return null; }
+}
+// 增量取的判定。fromRaw / stampRaw 是查询串原样;任何一处不成立(不是非负整数、N 超出现有条数、戳的版本或条数
+// 对不上、前 N 条的哈希对不上、有条目不可序列化)都返回 null = 调用方回全量。成立时返回尾巴与新整份的戳
+// (同一趟哈希接着算下去,不再多走一遍)。
+function sessionMessagesDelta(messages, fromRaw, stampRaw) {
+  const list = Array.isArray(messages) ? messages : [];
+  const text = String(fromRaw == null ? '' : fromRaw);
+  if (!/^\d{1,9}$/.test(text)) return null;
+  const from = Number(text);
+  const claimed = String(stampRaw == null ? '' : stampRaw);
+  if (from > list.length || !claimed.startsWith(`${SESSION_MESSAGES_STAMP_VERSION}.${from}.`)) return null;
+  try {
+    const hash = crypto.createHash('sha1');
+    for (let i = 0; i < from; i++) hash.update(sessionMessageStampLine(list[i]) + '\n');
+    if (`${SESSION_MESSAGES_STAMP_VERSION}.${from}.${hash.copy().digest('hex')}` !== claimed) return null;
+    for (let i = from; i < list.length; i++) hash.update(sessionMessageStampLine(list[i]) + '\n');
+    return { from, count: list.length, tail: list.slice(from), stamp: `${SESSION_MESSAGES_STAMP_VERSION}.${list.length}.${hash.digest('hex')}` };
+  } catch { return null; }
+}
 // 进程内「已落盘正文」状态:id → { msgHashes:[sha1-16/行], provHashes:[...], bodiesOk }
 // bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。
 // 内存占用 16B/行,万行会话 ≈ 160KB,可忽略;进程重启后由 loadSession 重建。

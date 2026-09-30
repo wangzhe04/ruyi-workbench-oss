@@ -301,12 +301,16 @@ async function sessionEnvelopeStamp(id) {
 // 标签 = 盘上戳 + 装载会改变响应的全部【内存】输入:活态四件(见 sessionEnvelopeLiveParts)、会话级权限档/桌面工具覆盖表
 // (loadSession 会把它们盖到返回的会话对象上)、垂死回合收尾窗口(turnSettlers:窗口内 loadSession 不做残留 pending 叙事段的
 // 惰性清理,出窗后同一份盘面装载出的会话就不同了)、以及 ?since 参数(管家会话的尾巴切片,响应体不同)。
-function sessionEnvelopeEtag(id, stamp, liveParts, sinceRaw) {
+// deltaKey:增量取的两个查询参数(见路由体 fromIndex/prefixStamp)—— 它们改变响应体(尾巴 vs 全量),所以进标签;
+// 不带这两个参数时哈希输入与修前逐项相同(不追加这一项),无参 GET 的标签逐字节不变。
+function sessionEnvelopeEtag(id, stamp, liveParts, sinceRaw, deltaKey) {
   const overrides = [
     sessionPermissionModeOverrides.has(id) ? [sessionPermissionModeOverrides.get(id)] : null,
     sessionDesktopToolsOverrides.has(id) ? [sessionDesktopToolsOverrides.get(id)] : null,
   ];
-  return pretenderEtag('session', pretenderHash([stamp, overrides, turnSettlers.has(id), liveParts, sinceRaw == null ? null : String(sinceRaw)]));
+  const parts = [stamp, overrides, turnSettlers.has(id), liveParts, sinceRaw == null ? null : String(sinceRaw)];
+  if (deltaKey) parts.push(['delta', deltaKey]);
+  return pretenderEtag('session', pretenderHash(parts));
 }
 // 会话信封上【只来自内存】的那几样(活回合标志 / liveTail / liveTurn / 递话通道):GET /api/sessions/:id 的 200 体与
 // 条件 GET 的 ETag 共用这一份取样 —— 判据只写一处,响应里放了什么,ETag 就带什么(sessionEnvelopeEtag 直接哈希它)。
@@ -479,6 +483,13 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
       // providerHistory 仍在 200 体里:大量 e2e 与外部脚本从这条路由读它(前端虽不读,也不删 —— 断言只加不改)。
       const sinceRaw = id === STEWARD_SESSION_ID ? new URL(req.url, 'http://x').searchParams.get('since') : null;
+      // perf(前端长会话):?fromIndex=N&prefixStamp=S —— 经典壳在自己起的回合收尾时只要 messages[N..]。S 是 02 sessionMessagesStamp
+      // 给出的前缀戳(回合起点那条 session 事件上带着);服务端对【此刻要下发的】前 N 条重算一遍,相等才回尾巴,否则(历史被改写过、
+      // N 超长、参数是垃圾)回与不带参数时逐字节相同的全量体。与 since 互斥(since 优先,管家会话的尾巴切片语义不动)。
+      const deltaQuery = sinceRaw == null ? new URL(req.url, 'http://x').searchParams : null;
+      const deltaFromRaw = deltaQuery ? deltaQuery.get('fromIndex') : null;
+      const deltaStampRaw = deltaQuery ? deltaQuery.get('prefixStamp') : null;
+      const deltaKey = deltaFromRaw != null || deltaStampRaw != null ? [deltaFromRaw, deltaStampRaw] : null;
       // perf(前端长会话):?view=live —— 经典壳看「别处起的回合」时每条 thread.live 推送(约 1 次/秒)来一发,只读信封上的在跑部分
       // (liveTail / liveTurn / relay / resumable.live)。修前每发都整份装载并下发全部历史(2000 条消息约 7.7 MB)。
       // 真有活回合时只读会话头、回轻量信封(view:'live',session 只带几个标量,不是完整会话);没有活回合就落回下面的全量路径
@@ -504,7 +515,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const preLive = sessionEnvelopeLiveParts(id);
       const envelopeStamp = await sessionEnvelopeStamp(id);
       if (envelopeStamp) {
-        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw);
+        const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw, deltaKey);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
       const session = await loadSession(id);
@@ -516,7 +527,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       const liveParts = sessionEnvelopeLiveParts(id);
       const { live, liveTail, liveTurn, relay } = liveParts;
       // 200 体的标签:盘上戳是装载前取的(见上),内存活态是这一刻取的;没有戳(读不到头/正文)就不发 ETag,照旧无条件全量。
-      const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw), 'cache-control': 'no-store' } : {};
+      const envelopeHeaders = envelopeStamp ? { etag: sessionEnvelopeEtag(id, envelopeStamp, liveParts, sinceRaw, deltaKey), 'cache-control': 'no-store' } : {};
       // 117l-A1-fix2(§11.9;B1 实现抽屉时发现,主会话核对源码):抽屉 steward-drawer.js 的
       // isLive() 第一判据是 `resumable && resumable.live === true`,而这个活回合分支修前没有
       // `live` 键,那条判据从没走通过,一直静默回落到「事项行五态 === 'running'」——挂在
@@ -540,6 +551,21 @@ async function handleSessionApiRoutes(req, res, pathname) {
           return Number.isFinite(at) && at > sinceMs;
         });
         return send(res, json({ ok: true, session: { ...session, messages: tail }, resumable, since: String(sinceRaw), messageCount: all.length, ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}) }, 200, envelopeHeaders));
+      }
+      // 增量取:前缀戳对得上才回尾巴。信封与全量同形(同一组键、同一份 resumable/displayTitle/活态),只有三处不同 ——
+      // session.messages 只是 messages[N..];session 上不带 providerHistory(前端从不读它,全量里照旧有);信封上多
+      // messagesFrom(= N,客户端据此拼接)/ messageCount(整份条数,客户端拼完自检)/ messagesStamp(整份的新戳,可接着再增量)。
+      // 对不上就什么都不做,落到下面的全量 —— 标签里带着参数,所以同一状态下全量与增量的标签不同,304 各认各的。
+      if (deltaKey) {
+        const delta = sessionMessagesDelta(session.messages, deltaFromRaw, deltaStampRaw);
+        if (delta) {
+          const { providerHistory: _providerHistory, ...sessionHead } = session;
+          return send(res, json({
+            ok: true, session: { ...sessionHead, messages: delta.tail }, resumable, displayTitle: sessionDisplayTitle(session),
+            messagesFrom: delta.from, messageCount: delta.count, messagesStamp: delta.stamp,
+            ...(liveTail ? { liveTail } : {}), ...(liveTurn ? { liveTurn } : {}), ...(relay ? { relay } : {}),
+          }, 200, envelopeHeaders));
+        }
       }
       // 116-5b(§11.8.5):这条线程该显示什么名字,由 02 的 sessionDisplayTitle 一处判定。
       // 放在【信封】上而不是往 session 里塞:session 就是会话头本身,路由不许改写它的形状

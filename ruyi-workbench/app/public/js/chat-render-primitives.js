@@ -184,8 +184,54 @@ export function createChatRenderPrimitives(deps = {}) {
     container.innerHTML = renderMarkdown(text);
     return container;
   }
-  function highlightIn(container) {
+  function highlightCodeBlock(block) {
+    if (block.dataset.hl) return;
+    const pre = block.parentElement;
+    if (pre && !pre.querySelector('.copy-code')) {
+      const btn = el('button', 'copy-code', t('common.copy'));
+      btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast(t("toast.copyCode"), 'ok')); };
+      pre.appendChild(btn);
+    }
+    // Highlight.js is synchronous. Very large individual blocks stay readable/copyable plain text;
+    // smaller blocks are processed in idle slices when their combined weight is high.
+    if (block.textContent.length > 16_000) { block.dataset.hl = 'plain'; return; }
+    try { hljs.highlightElement(block); } catch { /* ignore */ }
+    block.dataset.hl = '1';
+  }
+  // perf(长会话):列表渲染时行先在文档外建好、再整批挂进去 —— 调这里时容器还没连进文档。这种容器里的代码块交给
+  // 一个共享的 IntersectionObserver,离可见区 800px 以内才高亮、才补复制按钮:打开长会话 / 「加载更早」时屏外那几十个
+  // 代码块不再同步走 hljs(实测省 240–300 ms,hljs 的 span 占长会话 DOM 节点的 28%)。scrollMargin 让 #messages 这种
+  // 滚动容器也按 800px 提前量算(不支持该选项的浏览器忽略它,退化成滚进可见区才高亮)。pre code 不换行,高亮前后高度相同。
+  // 已经在文档里的容器(流式回合收尾、帮助页、文件预览……)照旧当场高亮。
+  let lazyHighlightObserver = null;
+  function lazyHighlight(blocks) {
+    if (!lazyHighlightObserver) {
+      lazyHighlightObserver = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          lazyHighlightObserver.unobserve(entry.target);
+          highlightCodeBlock(entry.target);
+        }
+      }, { rootMargin: '800px 0px', scrollMargin: '800px 0px' });
+    }
+    for (const block of blocks) lazyHighlightObserver.observe(block);
+  }
+  // opts.nearView:只把容器里还没高亮、且离视口 800px 以内的代码块当场高亮(调用方刚挂上一批在文档外画好的行、
+  // 布局也刚算过时用 —— 懒高亮的 IntersectionObserver 回调晚于这一帧的绘制,不补这一下会闪一帧没着色的代码)。
+  // 远处的照旧留给懒高亮;看不见的(display:none,矩形为零)不动。
+  function highlightNearView(container, margin = 800) {
+    if (typeof hljs === 'undefined' || container.isConnected === false) return;
+    const viewport = globalThis.innerHeight || 0;
+    for (const block of container.querySelectorAll('pre code:not([data-hl])')) {
+      if (block.classList.contains('language-mermaid')) continue;
+      const rect = block.getBoundingClientRect();
+      if (!rect.width && !rect.height) continue;
+      if (rect.bottom >= -margin && rect.top <= viewport + margin) highlightCodeBlock(block);
+    }
+  }
+  function highlightIn(container, opts) {
     if (!container || typeof container.querySelectorAll !== 'function') return;
+    if (opts && opts.nearView) { highlightNearView(container); return; }
     // 109a: 在同一趟里分流 mermaid 围栏: `pre > code.language-mermaid` 不进 hljs,交给懒加载的
     // 图表运行时;vendor/mermaid.min.js 缺失或渲染失败时它把原代码块留在原地并补一行提示。
     // 异步且不阻塞高亮;失败已在运行时内部收敛,这里只兜住 promise 防未处理拒绝。
@@ -193,22 +239,10 @@ export function createChatRenderPrimitives(deps = {}) {
     if (typeof hljs === 'undefined') return;
     const blocks = Array.from(container.querySelectorAll('pre code'))
       .filter(block => !block.dataset.hl && !(block.classList && block.classList.contains('language-mermaid')));
-    const highlightOne = block => {
-      if (block.dataset.hl) return;
-      const pre = block.parentElement;
-      if (pre && !pre.querySelector('.copy-code')) {
-        const btn = el('button', 'copy-code', t('common.copy'));
-        btn.onclick = () => { navigator.clipboard?.writeText(block.textContent).then(() => toast(t("toast.copyCode"), 'ok')); };
-        pre.appendChild(btn);
-      }
-      // Highlight.js is synchronous. Very large individual blocks stay readable/copyable plain text;
-      // smaller blocks are processed in idle slices when their combined weight is high.
-      if (block.textContent.length > 16_000) { block.dataset.hl = 'plain'; return; }
-      try { hljs.highlightElement(block); } catch { /* ignore */ }
-      block.dataset.hl = '1';
-    };
+    if (!blocks.length) return;
+    if (container.isConnected === false && typeof IntersectionObserver === 'function') { lazyHighlight(blocks); return; }
     const totalChars = blocks.reduce((sum, block) => sum + Math.min(16_001, block.textContent.length), 0);
-    if (blocks.length <= 6 && totalChars <= 32_000) { blocks.forEach(highlightOne); return; }
+    if (blocks.length <= 6 && totalChars <= 32_000) { blocks.forEach(highlightCodeBlock); return; }
     let cursor = 0;
     const scheduleIdle = globalThis.requestIdleCallback
       ? callback => globalThis.requestIdleCallback(callback, { timeout: 250 })
@@ -216,7 +250,7 @@ export function createChatRenderPrimitives(deps = {}) {
     const run = deadline => {
       let painted = 0;
       while (cursor < blocks.length && (painted === 0 || deadline.timeRemaining() > 4)) {
-        highlightOne(blocks[cursor++]); painted += 1;
+        highlightCodeBlock(blocks[cursor++]); painted += 1;
       }
       if (cursor < blocks.length) scheduleIdle(run);
     };

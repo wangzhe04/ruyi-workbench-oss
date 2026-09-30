@@ -21,6 +21,11 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离（见 lib 
 //   R10 长回复流式期间正文分块(perf):尾巴攒满且有换行就把前面封进块级 .live-chunk —— 屏上文本与流出的逐字相同、
 //       只剩尾巴一个裸文本节点在长;没有换行的一整段不切;回合收尾照旧换成一份 Markdown(不留分块)。
 //       R10f 用户在尾巴里选着字时不切(挪走文本会清掉选区),松手后照常切;R10g 思维链面板同样分块、文本逐字相同。
+//   R11 回合收尾的增量取(perf):回合起点 session 事件带 messagesStamp → 收尾只发一发 ?fromIndex=N&prefixStamp=S 并拼接;
+//       不带戳 / 服务端落回全量 / 拼接自检不符 三种对照。四遍收尾后的会话与标题、元信息、步骤条、事项条、电量表、续跑横幅
+//       拿到的输入逐项一致,乐观 user 行重绑到同一条持久化消息。
+//   R12 屏外代码块懒高亮(perf,真 chat-render-primitives.js + vendor hljs):在文档外建好的一批行挂进滚动容器后,
+//       可见区附近的代码块高亮了、离得远的还没动(连复制按钮都没补);滚过去之后它们也高亮了。已在文档里的容器照旧当场高亮。
 // 判定行：`CHAT STREAM REMOUNT BROWSER E2E: ALL PASS`。
 const { startBrowserFixture, sleep } = require('./lib/browser-fixture');
 const { createRunner } = require('./lib/harness');
@@ -308,6 +313,137 @@ true`;
     ok(r10b.selected === 'gamma' && r10b.chunks === 0, `R10f 选着字时不切、选区还在(选中「${r10b.selected}」,块数 ${r10b.chunks})`);
     ok(r10b.released >= 1, `R10f 松手后下一帧照常切(块数 ${r10b.released})`);
     ok(r10b.think.chunks >= 2 && r10b.think.same, `R10g 思维链面板分块、文本逐字相同(块数 ${r10b.think.chunks})`);
+
+    // R11:回合收尾的增量取(perf)。同一个回合跑四遍,只换「底子带不带戳」与「服务端怎么答」:
+    //   delta  = 回合起点 session 事件带 messagesStamp,服务端答增量 → 一发 ?fromIndex=2&prefixStamp=…,拼接;
+    //   full   = 不带戳(修前的形状)→ 一发无参全量;
+    //   server-full = 带戳但服务端落回全量(前缀被改写过)→ 一发,原样收下;
+    //   bad-splice  = 增量条数自检不符 → 再补一发无参全量。
+    // 判据:四遍收尾后 state.currentSession(去掉 providerHistory)一致,标题 / 元信息 / 步骤条 / 事项条 / 电量表 / 续跑横幅
+    // 拿到的输入一致,乐观 user 行重绑到同一条持久化消息;底子那份 messages 一条没多。
+    const r11 = await fx.evaluate(`(async () => {
+      const canon = v => JSON.stringify(v, (k, x) => (x && typeof x === 'object' && !Array.isArray(x)) ? Object.fromEntries(Object.keys(x).sort().map(key => [key, x[key]])) : x);
+      const dropPH = s => { if (!s) return s; const { providerHistory, ...rest } = s; return rest; };
+      const u0 = { role: 'user', content: 'earlier', createdAt: '2026-01-01T00:00:00.000Z', turnSeq: 1 };
+      const a0 = { role: 'assistant', content: 'earlier answer', createdAt: '2026-01-01T00:00:01.000Z', turnSeq: 1, usage: { inputTokens: 5 } };
+      const u1 = { role: 'user', content: 'hello', createdAt: '2026-01-01T00:01:00.000Z', turnSeq: 2 };
+      const a1 = { role: 'assistant', content: 'fresh answer', createdAt: '2026-01-01T00:01:01.000Z', turnSeq: 2, usage: { inputTokens: 9, outputTokens: 3 } };
+      const BASE = { id: 'A', title: 'old title', turnSeq: 1, todos: [], messages: [u0, a0], providerHistory: [{ role: 'user', content: 'earlier' }] };
+      const FULL = { ok: true, session: { id: 'A', title: 'new title', turnSeq: 2, todos: [{ content: 'step', status: 'in_progress' }], mission: { goal: 'g', changeSeq: 3 },
+        messages: [u0, a0, u1, a1], providerHistory: [{ role: 'user', content: 'earlier' }, { role: 'user', content: 'hello' }] },
+        resumable: { dangling: false, kind: null }, displayTitle: 'new title' };
+      const { providerHistory: _ph, ...fullHead } = FULL.session;
+      const DELTA = { ok: true, session: { ...fullHead, messages: [u1, a1] }, resumable: FULL.resumable, displayTitle: FULL.displayTitle,
+        messagesFrom: 2, messageCount: 4, messagesStamp: 'm1.4.' + 'b'.repeat(40) };
+      const clone = v => JSON.parse(JSON.stringify(v));
+      const out = {};
+      for (const mode of ['delta', 'full', 'server-full', 'bad-splice']) {
+        const rec = { paths: [] };
+        await window.__mk({ deps: {
+          api: async u => {
+            rec.paths.push(u);
+            if (u === '/api/sessions/A') return clone(FULL);
+            if (u.startsWith('/api/sessions/A?')) return mode === 'server-full' ? clone(FULL) : (mode === 'bad-splice' ? { ...clone(DELTA), messageCount: 5 } : clone(DELTA));
+            return { ok: true };
+          },
+          renderStaticMessage: m => { const row = document.createElement('div'); row.className = 'user-row'; row.textContent = m.content; const bar = document.createElement('div'); bar.className = 'msg-actions'; row.appendChild(bar); return row; },
+          msgActions: m => { rec.rebound = canon(m); const d = document.createElement('div'); d.className = 'msg-actions'; return d; },
+          paintSessionMeta: (node, s) => { rec.meta = canon(dropPH(s)); },
+          renderStepBar: todos => { rec.todos = canon(todos); },
+          renderMissionBar: mission => { rec.mission = canon(mission); },
+          latestUsage: s => { rec.usageInput = canon((s && s.messages) || []); return null; },
+          renderContextMeter: v => { rec.meter = canon(v); },
+          renderResumeBanner: () => { rec.resumable = canon(window.__h.state.resumable); },
+        } });
+        const h = window.__h;
+        const base = clone(BASE);
+        h.state.currentSession = base;
+        h.$('promptInput').value = 'hello'; const sp = h.rt.sendPrompt(); await h.sleep(40);
+        const baseMessages = clone(BASE).messages;
+        const evt = { type: 'session', session: { ...clone(BASE), messages: baseMessages } };
+        if (mode !== 'full') evt.messagesStamp = 'm1.2.' + 'a'.repeat(40);
+        h.push(evt); await h.sleep(20);
+        h.push({ type: 'assistant_delta', text: 'fresh answer' }); h.push({ type: 'result', ok: true }); h.end();
+        await sp; await h.sleep(40);
+        out[mode] = { ...rec, state: canon(dropPH(h.state.currentSession)), hasPH: Array.isArray(h.state.currentSession.providerHistory),
+          title: h.$('sessionTitle').textContent, baseLen: baseMessages.length, sameArray: h.state.currentSession.messages === baseMessages };
+      }
+      return { out, expectState: canon(dropPH(FULL.session)), expectRebound: canon(u1) };
+    })()`);
+    {
+      const { out, expectState, expectRebound } = r11;
+      ok(out.delta.paths.length === 1 && out.delta.paths[0] === `/api/sessions/A?fromIndex=2&prefixStamp=m1.2.${'a'.repeat(40)}`, `R11a 带戳的底子 → 只发一发增量(${out.delta.paths.join(' , ')})`);
+      ok(out.full.paths.length === 1 && out.full.paths[0] === '/api/sessions/A', `R11b 不带戳 → 与修前同一发无参全量(${out.full.paths.join(' , ')})`);
+      ok(out['server-full'].paths.length === 1 && out['bad-splice'].paths.length === 2 && out['bad-splice'].paths[1] === '/api/sessions/A',
+        `R11c 服务端落回全量 → 原样收下(1 发);拼接自检不符 → 补一发无参全量(${out['bad-splice'].paths.join(' , ')})`);
+      for (const mode of ['delta', 'full', 'server-full', 'bad-splice']) {
+        ok(out[mode].state === expectState, `R11d[${mode}] 收尾后的 state.currentSession 与全量(去掉 providerHistory)一致`);
+      }
+      ok(!out.delta.hasPH && out.full.hasPH, 'R11e 增量拼出来的会话不带 providerHistory(前端不读它);全量照旧带');
+      const fields = ['title', 'meta', 'todos', 'mission', 'usageInput', 'meter', 'resumable', 'rebound'];
+      const diff = fields.filter(key => ['full', 'server-full', 'bad-splice'].some(mode => out[mode][key] !== out.delta[key]));
+      ok(diff.length === 0 && out.delta.title === 'new title', `R11f 标题/元信息/步骤条/事项条/电量表/续跑横幅的输入四遍一致${diff.length ? '(不同:' + diff.join(',') + ')' : ''}`);
+      ok(out.delta.rebound === expectRebound, 'R11g 乐观 user 行重绑到增量尾巴里那条持久化的 user 消息');
+      ok(out.delta.baseLen === 2 && !out.delta.sameArray, 'R11h 拼接出的是新数组,底子那份 messages 一条没多');
+    }
+    // R12:屏外代码块懒高亮
+    const r12 = await fx.evaluate(`(async () => {
+      if (!window.hljs) await new Promise((resolve, reject) => { const sc = document.createElement('script'); sc.src = '/vendor/highlight.min.js'; sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc); });
+      const { createChatRenderPrimitives } = await import('/js/chat-render-primitives.js');
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      const p = createChatRenderPrimitives({ $: id => document.getElementById(id), el, t: k => k, tCount: k => k, toast() {}, hljs: window.hljs, state: {}, escapeHtml: s => String(s), icon: () => null });
+      const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      document.body.innerHTML = '';
+      const box = el('div'); box.style.cssText = 'height:400px;overflow-y:auto;';
+      document.body.appendChild(box);
+      const rows = [];
+      for (let i = 0; i < 60; i++) {
+        const row = el('div'); row.style.cssText = 'height:300px;';
+        const pre = el('pre'); const code = el('code', 'language-js', 'const value' + i + ' = function () { return ' + i + '; };');
+        pre.appendChild(code); row.appendChild(pre);
+        p.highlightIn(row);   // 行还在文档外:交给懒高亮
+        rows.push(row);
+      }
+      const syncNow = rows.filter(r => r.querySelector('code').dataset.hl).length;
+      rows.forEach(r => box.appendChild(r));
+      box.scrollTop = box.scrollHeight;
+      await frame(); await frame();
+      const hl = r => Boolean(r.querySelector('code').dataset.hl);
+      const bottom = { last: hl(rows[59]), first: hl(rows[0]), firstCopy: Boolean(rows[0].querySelector('.copy-code')), lastSpans: rows[59].querySelectorAll('code span').length };
+      box.scrollTop = 0;
+      await frame(); await frame();
+      const top = { first: hl(rows[0]), firstCopy: Boolean(rows[0].querySelector('.copy-code')) };
+      // 对照:已在文档里的容器当场高亮
+      const live = el('div'); const lp = el('pre'); lp.appendChild(el('code', 'language-js', 'let x = 1;')); live.appendChild(lp); box.appendChild(live);
+      p.highlightIn(live);
+      return { syncNow, bottom, top, liveNow: Boolean(live.querySelector('code').dataset.hl) };
+    })()`);
+    ok(r12.syncNow === 0, `R12a 行还在文档外时不当场高亮(当场高亮了 ${r12.syncNow} 块)`);
+    ok(r12.bottom.last && r12.bottom.lastSpans > 0, `R12b 挂进去滚到底:可见的最后一块高亮了(${r12.bottom.lastSpans} 个 span)`);
+    ok(!r12.bottom.first && !r12.bottom.firstCopy, 'R12c 离可见区很远的第一块还没动(没高亮、没补复制按钮)');
+    ok(r12.top.first && r12.top.firstCopy, 'R12d 滚到顶之后第一块也高亮了、复制按钮补上了');
+    ok(r12.liveNow, 'R12e 已在文档里的容器照旧当场高亮');
+    // R12f(审查轮):刚挂上的一批行,调用方在同一拍补一下 nearView —— 视口附近的当场着色(不等懒高亮晚一帧的回调,
+    // 否则每次重画都闪一帧没着色的代码),远处的照旧留给懒高亮。
+    const r12f = await fx.evaluate(`(async () => {
+      const { createChatRenderPrimitives } = await import('/js/chat-render-primitives.js');
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      const p = createChatRenderPrimitives({ $: id => document.getElementById(id), el, t: k => k, tCount: k => k, toast() {}, hljs: window.hljs, state: {}, escapeHtml: s => String(s), icon: () => null });
+      document.body.innerHTML = '';
+      const box = el('div'); box.style.cssText = 'height:400px;overflow-y:auto;';
+      document.body.appendChild(box);
+      const rows = [];
+      for (let i = 0; i < 60; i++) {
+        const row = el('div'); row.style.cssText = 'height:300px;';
+        const pre = el('pre'); pre.appendChild(el('code', 'language-js', 'const v' + i + ' = ' + i + ';'));
+        row.appendChild(pre); p.highlightIn(row); rows.push(row); box.appendChild(row);
+      }
+      box.scrollTop = box.scrollHeight;
+      p.highlightIn(box, { nearView: true });   // 同一拍,不等帧
+      const hl = r => Boolean(r.querySelector('code').dataset.hl);
+      return { last: hl(rows[59]), first: hl(rows[0]) };
+    })()`);
+    ok(r12f.last && !r12f.first, `R12f 挂上后同一拍补 nearView:视口附近当场着色、远处不动(最后一块 ${r12f.last} / 第一块 ${r12f.first})`);
 
     // R9:文件树后发先至(同一套同源空白页夹具,顺带钉 file-browser.js 的加载序号)
     const r9 = await fx.evaluate(`(async () => {

@@ -277,9 +277,11 @@ export function createStewardBoard({
   // （F1 立的「两套信号不混用」：修前看板那颗点既是身份又是状态，一个视觉信号说两件事）。
   // 121-K6b（§5）：第二个形参是【任务 id】。传不传都拿得到同一个号（登记表已经记下归属），
   // 传是为了任务行那一处 —— 它画的本来就是任务，不该借领头线程的身份去问号。
+  // 色号只问登记表这一处：卡片落色与左栏复用行的签名（renderRail）读的是同一个号。
+  function threadHueOf(sessionId, missionId) { return String(stewardThreadHueFor(sessionId, missionId)); }
   function paintThreadCard(node, sessionId, missionId) {
     node.classList.add('steward-tcard');
-    if (sessionId) node.dataset.threadHue = String(stewardThreadHueFor(sessionId, missionId));
+    if (sessionId) node.dataset.threadHue = threadHueOf(sessionId, missionId);
     const bar = el('span', 'steward-tcard-bar');
     bar.setAttribute('aria-hidden', 'true');
     node.appendChild(bar);
@@ -862,6 +864,11 @@ export function createStewardBoard({
     const metas = (state && Array.isArray(state.sessions)) ? state.sessions : [];
     return metas.find(meta => meta && String(meta.id) === id) || { id, title: row.title || '' };
   }
+  // 这一行的 chip 喂当前会话（chip 就地重画自己的字），并回答「这一拍印不印」。新建行与复用行都走这里。
+  function railRowChips(row, chipHost) {
+    chipsFor(String(row.sessionId || '')).setSession(sessionForRow(row));
+    return chipsWorthPrinting(sessionForRow(row), (state && state.config) || {}, chipHost);
+  }
 
   // F5a：动作 = 图标 ＋ 原来那句人话（不做纯图标 —— 停止／回退这类动作不该让人靠猜）。
   // 字形名是第四个参数，缺席就还是纯文字按钮；文案与 dataset 一个字没动。
@@ -1029,13 +1036,13 @@ export function createStewardBoard({
     if (sub) item.appendChild(el('p', 'steward-board-sub', sub));
 
     const chipHost = el('div', 'steward-board-chips');
-    const control = chipsFor(sessionId);
-    control.mount(chipHost);
-    control.setSession(sessionForRow(row));
+    chipsFor(sessionId).mount(chipHost);
     // B3：跟全局一样就不印（判据见 steward-chips.js 的 chipsWorthPrinting，看板与线程详情栏同一份）。
     // 控件本身照建不误 —— 下一拍它可能就该出场了，而 chipsFor 是每条会话一份的长命实例，不该因为
-    // 这一拍没挂上去就被丢掉。
-    if (chipsWorthPrinting(sessionForRow(row), (state && state.config) || {}, chipHost)) item.appendChild(chipHost);
+    // 这一拍没挂上去就被丢掉。喂会话 ＋ 判「印不印」住 railRowChips 一处：复用行（见 renderRail）每次重画也走它。
+    const chipsShown = railRowChips(row, chipHost);
+    if (chipsShown) item.appendChild(chipHost);
+    if (options.chips) options.chips.set(sessionId, { host: chipHost, shown: chipsShown });
 
     // B4 卡尾一行：等什么 · 钱与验收 · 次级动作。
     const tail = el('div', 'steward-board-tail');
@@ -1159,7 +1166,7 @@ export function createStewardBoard({
   }
 
   // 展开容器：`grid-template-rows: 0fr → 1fr` 的那一层（§2.9 表倒数第二行；内容高度未知也能顺）。
-  function railThreadList(group, selected) {
+  function railThreadList(group, selected, chips = null) {
     const wrap = el('div', `rail-threads${railTaskOpen(group) ? ' is-open' : ''}`);
     wrap.dataset.missionId = group.missionId;
     const inner = el('div', 'rail-threads-inner');
@@ -1169,6 +1176,7 @@ export function createStewardBoard({
         missionId: group.missionId,
         selected,
         facts: null,   // 验收 a/b 在任务行上印过了，整件事只印一次
+        chips,
       }));
     }
     inner.appendChild(list);
@@ -1181,6 +1189,107 @@ export function createStewardBoard({
   // 抽屉页签消费的是同一份序 —— 这里只把任务分进五组、组内按最后动静新的在前，不重排线程。
   // 128f：左栏上一次按哪一条画的选中（null＝还没画过）。syncNow 拿它与焦点对账，见那里的注释。
   let railRenderedSelected = null;
+  // ── 左栏按「件」复用，不再整栏重建（perf）────────────────────────────────────────
+  // 修前每次 renderRail 都 clear(#railList) 再把每一行重建一遍（每行十来个节点 ＋ 图标 ＋ 一份 chip 挂载）：
+  // 300 条会话（约 200 行）一次 30–40 ms，自己发一轮对话要画六次。现在每一「件」（单线程任务＝那一行；
+  // 多线程任务＝任务行 ＋ 展开容器）先算签名 —— 覆盖它的构建函数读到的【每一样】输入 —— 签名没变就原样留着
+  // 那几个节点（身份、焦点、行上别人挂的东西都不动），变了才重建；组与组头按组键复用；最后按顺序对账子节点
+  // （reconcileRailChildren，与会话正文的 reconcileMessageChildren 同形）。什么都没变的一次重画不碰 #railList 一个节点。
+  // 签名的输入清单（漏一样＝左栏停在旧样子，比慢更糟；往 renderThreadRow／railTaskRow／missionFacts 加输入时这里跟着加）：
+  //   · 行本身：railRowJson 整行（标题、五态证据、asksYou、wait、lastRun、origin、quick、验收、liveTail…；只剔掉
+  //     响应元数据 freshness），不逐字段挑 —— 行上将来多一个字段也不会漏；分组键 missionId、任务名、聚合态、线程数都从行来；
+  //   · 行外的事实：选中（railSelectedId：管家＝焦点，工作台＝当前会话）、删除在飞（sessionRemoval.pending）、
+  //     色号（threadHueOf）、置顶（会话元数据 pinned）、任务展开态、搜索摘录；
+  //     chip 的字由 railRowChips 每拍喂会话就地重画，「印不印」那一位不同也重建；
+  //   · 随时间变的字：「多久以前」与第二行按此刻算好放进签名（railAgoLabel／railSubLine）；「今天／更早」每拍按此刻重分组；
+  //   · 语言：railLocaleStamp（<html lang> ＋ 行上用到的全部固定文案）一变就整栏重建。
+  // 被就地改过的行（paintRailLive 改第二行）签名作废；background-tray 的 ⟳ 标记与 chip 自己对账，不进签名。
+  const RAIL_STAMP_KEYS = Object.freeze(['session.untitled', 'common.more', 'stewardShell.board.updated',
+    'rail.liveRunning', 'rail.liveTool', 'rail.justNow', 'stewardShell.board.stopBlocker', 'stewardShell.board.prioritize',
+    'stewardShell.board.stop', 'stewardShell.board.openThread', 'stewardShell.board.newThread', 'session.pin',
+    'session.unpin', 'session.rename', 'session.delete', 'rail.collapse', 'rail.expand',
+    'stewardShell.drawer.missionUnfiled', 'mission.state.quick_ask', 'stewardShell.board.threadCount']);
+  let railUnits = new Map();            // 件键 -> { sig, nodes, chips: Map(sessionId -> { host, shown }) }
+  let railSections = new Map();         // 组键 -> { section, head, headSig, tasks }
+  const railUnitBySession = new Map();  // sessionId -> 件键（paintRailLive 按它作废签名）
+  let railStamp = '';
+  function railLocaleStamp() {
+    const document_ = doc();
+    const lang = (document_ && document_.documentElement && document_.documentElement.lang) || '';
+    const run = runTextKeys('v3');
+    const keys = [...RAIL_STAMP_KEYS, run.pause, run.resume, ...Object.values(STEWARD_BOARD_ASKS_YOU_KEYS),
+      ...Object.values(ACCEPTANCE_KEYS), ...Object.values(RAIL_GROUP_LABELS), ...Object.values(RAIL_ORIGIN_KEYS)];
+    return lang + '\u0001' + keys.map(key => t(key)).join('\u0001');
+  }
+  // freshness 是【这一发响应】的元数据（overlayAt 每一发都写「此刻」），左栏一个字都不读它 —— 放进签名，
+  // 每一发 200 都会让整栏重建。行上其余字段一个不挑地全进签名。
+  function railRowJson(row) {
+    const { freshness: _responseMeta, ...facts } = row;
+    return JSON.stringify(facts);
+  }
+  function railRowSig(row, selected) {
+    const sessionId = String(row.sessionId || '');
+    const removal = removalOf();
+    const meta = sessionForRow(row);
+    const threadState = threadStateOf(row);
+    return [railRowJson(row), selected && String(selected) === sessionId ? 1 : 0,
+      removal && removal.pending.has(sessionId) ? 1 : 0, threadHueOf(sessionId), stateLabel(threadState),
+      railAgoLabel(row.updatedAt), railSubLine(row, threadState), meta && meta.pinned ? 1 : 0].join('\u0001');
+  }
+  // 任务行那一段排在前面：与构建顺序一致（任务行先问色号，再轮到它的线程行）。
+  function railUnitSig(group, selected, snippet) {
+    const parts = [];
+    if (group.rows.length > 1) {
+      const lead = group.rows[0] || {};
+      const aggregate = String(group.aggregateState || '');
+      parts.push([railTaskOpen(group) ? 1 : 0, group.rows.some(row => String(row.sessionId || '') === String(selected || '')) ? 1 : 0,
+        threadHueOf(String(lead.sessionId || group.missionId), String(group.missionId || '')),
+        stateLabel(aggregate), railSubLine(lead, aggregate)].join('\u0001'));
+    }
+    for (const row of group.rows) parts.push(railRowSig(row, selected));
+    parts.push(String(snippet || ''));
+    return parts.join('\u0002');
+  }
+  // 一件：签名相同且每行 chip「印不印」没变 → 原样复用上一拍那几个节点；否则照原样重建。
+  function railUnit(group, selected, filter) {
+    const multi = group.rows.length > 1;
+    const key = (multi ? 'm:' : 's:') + group.missionId;
+    const snippet = !multi && filter ? filter.snippets.get(String(group.rows[0].sessionId || '')) : '';
+    const sig = railUnitSig(group, selected, snippet);
+    const cached = railUnits.get(key);
+    if (cached && cached.sig === sig && group.rows.every(row => {
+      const chips = cached.chips.get(String(row.sessionId || ''));
+      return Boolean(chips) && railRowChips(row, chips.host) === chips.shown;
+    })) return [key, cached];
+    const chips = new Map();
+    if (multi) return [key, { sig, chips, nodes: [railTaskRow(group, selected), railThreadList(group, selected, chips)] }];
+    // 单线程任务：那一行【就是】它的线程行（不画任务层）。验收 a/b 落在它的卡尾。
+    const threadRow = renderThreadRow(group.rows[0], { missionId: group.missionId, selected, facts: missionFacts(group), chips });
+    if (snippet) threadRow.appendChild(el('div', 'steward-board-sub rail-search-snippet', snippet));
+    return [key, { sig, chips, nodes: [threadRow] }];
+  }
+  // 按 wanted 的顺序对账 parent 的子节点：已在位的不动，其余插入／挪动，多出来的摘掉。
+  function reconcileRailChildren(parent, wanted) {
+    const keep = new Set(wanted);
+    let cur = parent.firstChild;
+    for (const node of wanted) {
+      while (cur && cur !== node && !keep.has(cur)) { const next = cur.nextSibling; parent.removeChild(cur); cur = next; }
+      if (cur === node) cur = cur.nextSibling; else parent.insertBefore(node, cur);
+    }
+    while (cur) { const next = cur.nextSibling; parent.removeChild(cur); cur = next; }
+  }
+  function railSection(key, count, open) {
+    let entry = railSections.get(key);
+    if (!entry) {
+      entry = { section: el('section', 'rail-group'), head: null, headSig: '', tasks: el('ul', 'rail-tasks') };
+      entry.section.dataset.group = key;
+    }
+    if (entry.section.classList.contains('is-collapsed') === open) entry.section.classList.toggle('is-collapsed', !open);
+    const headSig = `${count}|${open ? 1 : 0}`;
+    if (headSig !== entry.headSig) { entry.head = railGroupHead(key, count, open); entry.headSig = headSig; }
+    reconcileRailChildren(entry.section, [entry.head, entry.tasks]);
+    return entry;
+  }
   function renderRail() {
     renderStatusLine();
     renderArbiterFacts();
@@ -1188,15 +1297,20 @@ export function createStewardBoard({
     // 128f-⑫ 续：行内菜单开着（或在开的路上）时先不重画这一栏，记一笔；菜单一收就补（见 railInteractionLive 头注）。
     if (railInteractionLive()) { railRenderDeferred = true; return 0; }
     railRenderDeferred = false;
-    const host = clear(byId('railList'));
+    const host = byId('railList');
     if (!host) return 0;
     railRenderedSelected = railSelectedId();
     const filter = railFilter();
     loadSearchExtras(filter);
     const groups = groupRows({ withSearchExtras: Boolean(filter) }).filter(group => group.rows.some(row => railRowMatches(row, filter)));
     const railCount = byId('railCount');
-    if (railCount) railCount.textContent = groups.length ? String(groups.length) : '';
+    const countText = groups.length ? String(groups.length) : '';
+    if (railCount && railCount.textContent !== countText) railCount.textContent = countText;
     if (!groups.length) {
+      clear(host);
+      railUnits = new Map();
+      railSections = new Map();
+      railUnitBySession.clear();
       // 117l-B2 ②（用户第五轮走查 2）：空态是「一句话 ＋ 一个出口」。搜索没命中时说的是另一句
       // （既有键 session.noMatch），不把「还没有任务」这句假话印给一个正在搜索的人。
       const empty = el('div', 'steward-board-empty');
@@ -1205,41 +1319,35 @@ export function createStewardBoard({
       host.appendChild(empty);
       return 0;
     }
+    const stamp = railLocaleStamp();
+    if (stamp !== railStamp) { railStamp = stamp; railUnits = new Map(); railSections = new Map(); }
     const selected = railSelectedId();
     const buckets = new Map(RAIL_GROUP_KEYS.map(key => [key, []]));
     const now = new Date();
     for (const group of groups) buckets.get(railGroupFor(group.aggregateState, group.updatedAt, now, group.rows.some(threadLastTurnFailed), group.rows.length > 0 && group.rows.every(threadIsBlank))).push(group);
+    const units = new Map();
+    const sections = new Map();
     let printed = 0;
     for (const key of RAIL_GROUP_KEYS) {
       const list = buckets.get(key);
       if (!list.length) continue;
       list.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-      const section = el('section', 'rail-group');
-      section.dataset.group = key;
-      const open = railGroupOpen(key);
-      if (!open) section.classList.add('is-collapsed');
-      section.appendChild(railGroupHead(key, list.length, open));
-      const tasks = el('ul', 'rail-tasks');
+      const entry = railSection(key, list.length, railGroupOpen(key));
+      const wanted = [];
       for (const group of list) {
-        if (group.rows.length > 1) {
-          tasks.appendChild(railTaskRow(group, selected));
-          tasks.appendChild(railThreadList(group, selected));
-        } else {
-          // 单线程任务：那一行【就是】它的线程行（不画任务层）。验收 a/b 落在它的卡尾。
-          const threadRow = renderThreadRow(group.rows[0], {
-            missionId: group.missionId,
-            selected,
-            facts: missionFacts(group),
-          });
-          const snippet = filter && filter.snippets.get(String(group.rows[0].sessionId || ''));
-          if (snippet) threadRow.appendChild(el('div', 'steward-board-sub rail-search-snippet', snippet));
-          tasks.appendChild(threadRow);
-        }
+        const [unitKey, unit] = railUnit(group, selected, filter);
+        units.set(unitKey, unit);
+        wanted.push(...unit.nodes);
         printed += 1;
       }
-      section.appendChild(tasks);
-      host.appendChild(section);
+      reconcileRailChildren(entry.tasks, wanted);
+      sections.set(key, entry);
     }
+    reconcileRailChildren(host, [...sections.values()].map(entry => entry.section));
+    railUnits = units;
+    railSections = sections;
+    railUnitBySession.clear();
+    for (const [unitKey, unit] of units) for (const sessionId of unit.chips.keys()) railUnitBySession.set(sessionId, unitKey);
     return printed;
   }
 
@@ -1807,6 +1915,9 @@ export function createStewardBoard({
     const sid = String(row.sessionId || '');
     const host = doc() && doc().querySelector(`#railList .steward-board-thread[data-session-id="${sid}"]`);
     if (!host) { renderRail(); return true; }
+    // 这一行被就地改了：它那一件的签名作废，下一次 renderRail 按行重建它（见 renderRail 头注）。
+    const unit = railUnits.get(railUnitBySession.get(sid) || '');
+    if (unit) unit.sig = '';
     const text = railSubLine(row, threadStateOf(row));
     let line = host.querySelector('.steward-board-sub');
     if (!text) { if (line) line.remove(); return true; }
