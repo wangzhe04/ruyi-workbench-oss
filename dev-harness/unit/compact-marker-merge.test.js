@@ -113,7 +113,7 @@ function extract(name) {
   return match[0];
 }
 const summaryCalls = { n: 0 };
-function autoCompactHarness(estimates) {
+function autoCompactHarness(estimates, { overhead = 3000, failures = new Map() } = {}) {
   const events = [], saves = [], snapshots = [];
   const ctx = {
     providerConversationContextWindow: () => 131072,
@@ -121,7 +121,9 @@ function autoCompactHarness(estimates) {
       create: ({ config }) => ({ window: 131072, budget: (Number(config && config.autoCompactThreshold) || 0.8) * 131072 }),
       reseed: () => [],
     },
-    calibratedEstimate: () => estimates.shift() ?? estimates.at(-1),
+    // 只有系统提示那一条(runAutoCompaction 算固定开销、预估重播种下限时各问一次)→ 固定 3000,不占用下面排好的估算序列
+    calibratedEstimate: (p, m, h) => (Array.isArray(h) && h.length <= 1 ? overhead : (estimates.shift() ?? estimates.at(-1))),
+    compactionSummaryFailures: failures, COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS: 10 * 60 * 1000, // 低水位升级的摘要失败冷却(缺省每个 harness 一张新表)
     // 126-111a:maybeAutoCompact 现在会问一声「L1 边界要不要按 token 预算算」。注进来的是
     // **真函数**(srv 导出的那一个),不是这里另写一份假的 —— 判据只有一处,这条纪律在沙箱里
     // 也得成立。沙箱里缺了它会 ReferenceError,被 maybeAutoCompact 自己的 try/catch 吞成
@@ -183,7 +185,8 @@ test('L1 够不够按低水位判(预算 × l1SufficientRatio):压到线下只�
   const budget = 0.8 * 131072;
   const ratio = require('../../ruyi-workbench/app/src/context-governance-rules.json').compactionPlan.l1SufficientRatio;
   assert.equal(ratio, 0.75);
-  const low = Math.floor(budget * ratio);
+  const overhead = 3000; // harness 里「只有系统提示」那一问的固定回答
+  const low = Math.max(Math.floor(budget * ratio), Math.floor(overhead + (budget - overhead) * ratio)); // 低水位按可压部分算
   // 压到低水位以下:L1 就够,不打摘要
   summaryCalls.n = 0;
   const s1 = { id: 's1', messages: historyOf(6), providerHistory: historyOf(6) };
@@ -232,4 +235,28 @@ test('L1 无斩获、L2 失败:也落水位,贴线不再每个迭代边界重打
   const h3 = autoCompactHarness([budget + 500 + 2621 + 100]);
   await h3.turn(session);
   assert.equal(summaryCalls.n, 2);
+});
+
+test('低水位升级的两道闸:摘要服务刚失败过 → 冷却期内不为腾余量再碰它;重播种压不到低水位以下 → 不升(都退回 L1 算够)', async () => {
+  const budget = 0.8 * 131072;
+  const low = Math.max(Math.floor(budget * 0.75), Math.floor(3000 + (budget - 3000) * 0.75));
+  const seq = () => [budget + 500, low + 10, low + 10, low + 10];
+  // ① 冷却:两次越线共用一张失败表(同一进程),第一次低水位升级 L2 失败,第二次就不再打摘要
+  summaryCalls.n = 0;
+  const failures = new Map();
+  const s1 = { id: 'c1', messages: historyOf(6), providerHistory: historyOf(6) };
+  assert.equal(await autoCompactHarness(seq(), { failures }).turn(s1), true);
+  assert.equal(summaryCalls.n, 1, '第一次:升 L2(失败)');
+  assert.equal(failures.size, 1, '失败记进冷却表');
+  s1.autoCompactWatermark = 0; // 撤掉滞回水位,只看冷却这一道闸
+  assert.equal(await autoCompactHarness(seq(), { failures }).turn(s1), true, 'L1 照做');
+  assert.equal(summaryCalls.n, 1, '冷却期内的低水位升级不再打摘要');
+  // ② 重播种下限:固定开销 + 保留尾部 + 摘要预留 超过低水位 → 不升
+  summaryCalls.n = 0;
+  const s2 = { id: 'c2', messages: historyOf(6), providerHistory: historyOf(6) };
+  // 固定开销离预算只差 4000:低水位 = 开销 + 3000,L1 落在它与预算之间;预估重播种 = 开销 + 6144(摘要预留)> 低水位
+  const overhead = Math.floor(budget) - 4000;
+  const lowBig = Math.floor(overhead + (budget - overhead) * 0.75);
+  assert.equal(await autoCompactHarness([budget + 500, lowBig + 500, lowBig + 500, lowBig + 500], { overhead }).turn(s2), true);
+  assert.equal(summaryCalls.n, 0, '重播种不会比 L1 小 → 不打摘要');
 });

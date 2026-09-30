@@ -139,9 +139,9 @@ const repairProviderHistoryPairing = require(SERVER).repairProviderHistoryPairin
 // 第四次:runAutoCompaction 读 compactionPlan.l1SufficientRatio(L1「够了」的低水位)—— 注真规则(规则 JSON 是唯一可审计输入)。
 const CONTEXT_GOVERNANCE_RULES = require('../ruyi-workbench/app/src/context-governance-rules.json');
 const maybeCompactSubHistory = new Function(
-  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled', 'historyReadDedupEnabled', 'reseedTailUnitsEnabled', 'repairProviderHistoryPairing', 'logEvent', 'CONTEXT_GOVERNANCE_RULES',
+  'providerContextWindow', 'estimateHistoryTokens', 'calibratedEstimate', 'evaporateHistory', 'providerSummaryCall', 'recentTurnsBoundary', 'recordCompactUsage', 'resolveCompactionProvider', 'COMPACT_RESEED_TAIL_MAX_TOKENS', 'CompactionPlan', 'evaporateBudgetBoundaryEnabled', 'historyReadDedupEnabled', 'reseedTailUnitsEnabled', 'repairProviderHistoryPairing', 'logEvent', 'CONTEXT_GOVERNANCE_RULES', 'compactionSummaryFailures', 'COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS',
   km[0] + '\n' + mm[0] + '\nreturn maybeCompactSubHistory;'
-)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled, historyReadDedupEnabled, reseedTailUnitsEnabled, repairProviderHistoryPairing, () => {}, CONTEXT_GOVERNANCE_RULES);
+)(providerContextWindow, estimateHistoryTokens, calibratedEstimate, evaporateHistory, providerSummaryCall, recentTurnsBoundary, recordCompactUsage, resolveCompactionProvider, 16000, CompactionPlan, evaporateBudgetBoundaryEnabled, historyReadDedupEnabled, reseedTailUnitsEnabled, repairProviderHistoryPairing, () => {}, CONTEXT_GOVERNANCE_RULES, new Map(), 10 * 60 * 1000);
 
 // ============ A2: truncateToolResult 的 base64 图片字段专用处理(防 60KB 平切切坏图) ============
 // 抽真 truncateToolResult + IMG_B64_TRIM_RE(保真);TOOL_RESULT_CAP / FILE_READ_* 注入常量。
