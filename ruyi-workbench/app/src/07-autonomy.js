@@ -92,10 +92,36 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
   return tools;
 }
 
+// 审计 N4:allowCommandTools / allowDesktopTools 不只是「不 offer」—— 分发点也按同一判据拒绝(bypass/auto 下 gate 恒 allow,
+// 光藏 schema 拦不住模型直接吐出的 script_run)。offer 面(buildOpenAiTools)与分发面(09 主循环 / 08 子代理 / 12 toolCall)共用本函数。
+// 返回空串 = 放行;否则是给模型看的中文原因。desktopOverride 语义同 buildOpenAiTools(null = 跟随全局)。
+const NATIVE_COMMAND_TOOL_NAMES = new Set(['powershell_run', 'script_run', 'shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
+const NATIVE_DESKTOP_TOOL_NAMES = new Set(['desktop_screenshot', 'keyboard_send_keys']);
+function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
+  const cfg = config || {};
+  if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
+  if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) {
+    const allowDesk = desktopOverride == null ? cfg.allowDesktopTools !== false : desktopOverride === true;
+    if (!allowDesk) return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
+  }
+  return '';
+}
+function toolDisabledResult(name, reason) {
+  return { ok: false, code: 'tool-disabled', error: `tool '${name}' is disabled by settings (${reason})`, hint: '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
+}
+// 审计 N5:按名字取原生工具自己的 JSON schema(13f MCP_TOOLS),供分发前的入参校验(12 validateNativeToolArgs)。
+// 放在 07 而不是 12:07 本就读 MCP_TOOLS,12 再读就是新增一条前向边(module-dependency-graph 的债务上限会红)。
+let _nativeToolSchemaByName = null;
+function nativeToolSchema(name) {
+  if (!_nativeToolSchemaByName) {
+    _nativeToolSchemaByName = new Map();
+    for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
+  }
+  return _nativeToolSchemaByName.get(name) || null;
+}
 function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
   const stewardSession = !!(opts && opts.stewardSession === true);
-  const allowCmd = config.allowCommandTools !== false;
   // 117z-E2 提交①(27 号文 §11.21.3):桌面工具从「全局唯一一把闸」变成「全局闸 + 会话级覆盖」。
   // 【全局闸一个字没动】—— config.allowDesktopTools 仍然是 forbidden 清册里那一个键(06i:776),
   // 管家改不了它。opts.desktopOverride 是【另一把钥匙】,由调用方从会话头 session.desktopTools 取:
@@ -105,9 +131,7 @@ function buildOpenAiTools(config, caps, opts) {
   // 拿不到 session 的调用方(子代理 08-agent-runs、各类探针与 e2e 直调)传 null 或干脆不传 —— 它们
   // 没有「这一条线程」这个概念,一律跟随全局。
   const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
-  const allowDesk = desktopOverride == null ? config.allowDesktopTools !== false : desktopOverride === true;
   const out = [];
-  const SHELL_TOOLS = new Set(['shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
   const tierRank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从本文件移出)
   const tierFilter = opts && opts.tierFilter;
   const maxRank = (tierFilter && tierFilter in tierRank) ? tierRank[tierFilter] : null; // null → no tier filter
@@ -126,8 +150,7 @@ function buildOpenAiTools(config, caps, opts) {
     if (t.name === 'permission_prompt') continue;
     if (t.name === 'request_user_input' && noAgentTools) continue;
     if (AGENT_TOOL_NAMES.has(t.name) && !agentToolsEnabled) continue;
-    if (!allowCmd && (t.name === 'powershell_run' || t.name === 'script_run' || SHELL_TOOLS.has(t.name))) continue;
-    if (!allowDesk && (t.name === 'desktop_screenshot' || t.name === 'keyboard_send_keys')) continue;
+    if (nativeToolDisabledByPolicy(t.name, config, desktopOverride)) continue; // allowCommandTools / allowDesktopTools(offer 与分发共用同一判据)
     // 105a: observation_recall 仅在 recall+reducer 双开关生效时 offer;默认关 → 不出现在工具集。
     if (t.name === 'observation_recall' && !observationRecallEnabled(config)) continue;
     // 116c(27 号文 §3.5「分离」):管家工具族只对 kind==='steward' 的管家会话 offer —— 这是四个 offer
@@ -314,6 +337,19 @@ const BRIDGED_READ_TOOLS = new Set([
   'find_template', 'find_all_templates', 'find_on_screen',
   'ui_inspect', 'ui_find', 'diagnostics', 'version_info', 'safety_info', 'audit_tail',
   'read_file', 'file_info', 'clipboard_get', 'clipboard_read', 'get_clipboard',
+  // 审计 A10:ACC 里其余【纯读、不点不敲不写】的工具(逐个对过 tools/*.py 的签名)。修前它们落到默认 exec,default 模式下
+  // 每次调用都弹窗 —— 而 screenshot 不弹,推荐的「一步感知」observe(截图+UIA+OCR)反而每次弹。
+  //   · observe(不动桌面;act_and_verify 会动 → 仍 exec);
+  //   · 读文档族 read_document / excel_read / pdf_read_pages / image_info —— 路径读闸另有 BRIDGED_READ_PATH_ARGS
+  //     (03-bridge-guard,三个分发点同一个函数),工作区外/数据目录照拒;
+  //   · 浏览器只读族(状态/标签/文本/元素/截图;打开、点击、输入、执行 JS、导航仍 exec);
+  //   · 记忆只读 memory_read / memory_list(save/delete 仍 exec)、macro_list、ocr_available_languages、
+  //     wait(纯休眠)、sequential_thinking(只在进程内记推理链)。
+  // 【刻意不进】ocr_find_text(click 参数会物理点击;且 tool_invoke_* 的档校验要求目录档=入参档,按入参降档会让代理路径自相矛盾)、
+  // get_environment_variable(BRIDGED_NOT_READ 钉着)、beep/play_sound(出声)、fetch(联网)。
+  'observe', 'read_document', 'excel_read', 'pdf_read_pages', 'image_info',
+  'browser_backend_status', 'browser_list_tabs', 'browser_get_text', 'browser_get_elements', 'browser_screenshot',
+  'memory_read', 'memory_list', 'macro_list', 'ocr_available_languages', 'wait', 'sequential_thinking',
 ]);
 // Prefix rules for read-only families that share a common verb (e.g. get_windows, list_processes,
 // wait_for_window_idle). Kept narrow so an 'exec'-shaped verb can't sneak in under a broad prefix.

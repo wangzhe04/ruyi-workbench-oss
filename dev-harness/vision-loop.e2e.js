@@ -231,11 +231,12 @@ function hasEvictedPlaceholder(ph) {
     const sysD = capsD.length && { content: (capsD[0].messages || []).filter(m => m && (m.role === 'system' || m.role === 'user')).map(m => typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(p => p && p.text || '').join('\n') : '')).join('\n') };
     ok(sysD && /桌面操控\(文本路径\)/.test(String(sysD.content || '')), '(d) system prompt has 桌面操控(文本路径) regimen');
     ok(sysD && !/桌面操控\(视觉路径\)/.test(String(sysD.content || '')), '(d) text path does NOT inject the vision-path regimen');
-    // (d2) tool screenshot fields are RETAINED in the tool result (NOT converted to an image message).
+    // (d2) 审计 N7:非视觉模型的历史里图像字段换成一行占位(修前原样保留 base64 文字 —— 模型看不了,只白占上下文);
+    //      也不转成图像消息。
     const gotD = await getJson(WB_PORT, '/api/sessions/' + sidD, hdr);
     const phD = (gotD.session && gotD.session.providerHistory) || [];
-    const toolMsgD = phD.find(m => m && m.role === 'tool' && /FAKE_IMAGE_B64/.test(String(m.content || '')));
-    ok(!!toolMsgD, '(d) no-vision: tool result KEEPS its image field (not stripped)');
+    const toolMsgD = phD.find(m => m && m.role === 'tool' && /image omitted: .*model has no vision/.test(String(m.content || '')));
+    ok(!!toolMsgD && !/FAKE_IMAGE_B64/.test(String(toolMsgD.content || '')), '(d) no-vision: tool result image replaced by a one-line placeholder (not raw base64)');
     ok(!phD.some(m => m && m.role === 'user' && Array.isArray(m.content) && m.content.some(p => p && p.type === 'image_url')), '(d) no-vision: NO user image message was injected');
 
     killp(fake); fake = null;

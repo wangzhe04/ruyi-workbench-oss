@@ -353,7 +353,7 @@ const MCP_TOOLS = [
         type: 'object',
         properties: {
           root: { type: 'string', description: 'Directory to search (absolute path; defaults to the session workspace).' },
-          pattern: { type: 'string', description: 'Regex to look for (a literal is fine). An invalid regex is searched as literal text and patternNote says so.' },
+          pattern: { type: 'string', minLength: 1, description: 'Regex to look for (a literal is fine). An invalid regex is searched as literal text and patternNote says so.' },
           maxResults: { type: 'number', description: 'Max matches returned (default 200).' },
           maxFiles: { type: 'number', description: 'Max files scanned by the built-in scanner (default 5000).' },
           maxDepth: { type: 'number', description: 'Max directory depth (default 8).' },
