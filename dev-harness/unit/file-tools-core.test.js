@@ -403,3 +403,98 @@ describe('单文件工具优化批(files-core)', () => {
     assert.equal(again.unchanged, true);
   });
 });
+
+// ── 审计 native-files 复核(review/native-files.md)的回归 ─────────────────────────────────────────────────────
+//   R4  相对 root / audio_transcribe 的相对 path 按工作区解析(不是进程 cwd)
+//   R5  临时文件建不了但目标可写 → 退回原地写;悬空符号链接经链接写出目标
+//   R10 首块(4MB)之后才出现的非 UTF-8 字节 → encodingWarning
+//   R13 GBK 编码器(Buffer 构建)大文本往返
+describe('[R] native-files 复核回归', () => {
+  it('R4 相对 root(file_list/glob/file_search/project_snapshot)按工作区解析,不落到进程 cwd', async () => {
+    const ws = freshWs();
+    fs.mkdirSync(path.join(ws, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(ws, 'src', 'only_here.txt'), 'NEEDLE_R4\n');
+    const want = path.join(ws, 'src');
+    for (const [name, args] of [['file_list', {}], ['glob', { pattern: '**/*.txt' }], ['file_search', { pattern: 'NEEDLE_R4' }], ['project_snapshot', {}]]) {
+      const r = await tc(name, { root: 'src', ...args }, ws, 'sess_core_r4_' + name);
+      assert.equal(r.ok, true, name + ': ' + JSON.stringify(r).slice(0, 300));
+      assert.equal(r.root, want, name);
+    }
+    const r = await tc('file_list', { root: 'src' }, ws, 'sess_core_r4_l');
+    assert.deepEqual(r.files.map(f => f.relativePath), ['only_here.txt']);
+  });
+
+  it('R4 audio_transcribe 的相对 path 按工作区解析', async () => {
+    const ws = freshWs();
+    const r = await tc('audio_transcribe', { path: 'clip.wav' }, ws, 'sess_core_r4_audio');
+    assert.equal(r.path, path.join(ws, 'clip.wav'), JSON.stringify(r).slice(0, 300));
+  });
+
+  it('R5 临时文件建不了(EACCES)但目标可写:file_write / file_edit 退回原地写', async () => {
+    const ws = freshWs();
+    const f = path.join(ws, 'f.txt');
+    fs.writeFileSync(f, 'alpha beta');
+    const h = failHook('writeFile', file => /\.tmp$/.test(String(file)) && String(file).startsWith(ws), 'EACCES', Infinity);
+    let r1, r2;
+    try {
+      r1 = await tc('file_edit', { path: f, oldText: 'beta', newText: 'gamma' }, ws, 'sess_core_r5a');
+      r2 = await tc('file_write', { path: f, content: 'whole new' }, ws, 'sess_core_r5b');
+    } finally { h.restore(); }
+    assert.ok(h.hits >= 2, '卡子必须命中过');
+    assert.equal(r1.ok, true, JSON.stringify(r1));
+    assert.equal(r2.ok, true, JSON.stringify(r2));
+    assert.equal(fs.readFileSync(f, 'utf8'), 'whole new');
+    assert.deepEqual(fs.readdirSync(ws).filter(n => n.endsWith('.tmp')), []);
+  });
+
+  it('R5 临时文件和原地写都失败 → 仍报原错误(permission_or_locked),目标不变', async () => {
+    const ws = freshWs();
+    const f = path.join(ws, 'g.txt');
+    fs.writeFileSync(f, 'keep me');
+    const h1 = failHook('writeFile', file => /\.tmp$/.test(String(file)) && String(file).startsWith(ws), 'EACCES', Infinity);
+    const h2 = failHook('writeFile', file => String(file) === f, 'EACCES', Infinity);
+    let r;
+    try { r = await tc('file_write', { path: f, content: 'nope' }, ws, 'sess_core_r5c'); } finally { h1.restore(); h2.restore(); }
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'permission_or_locked');
+    assert.equal(fs.readFileSync(f, 'utf8'), 'keep me');
+  });
+
+  it('R5 悬空符号链接:file_write 经链接把目标写出来(不是假 not_found)', async () => {
+    const ws = freshWs();
+    fs.mkdirSync(path.join(ws, 'realdir'));
+    const link = path.join(ws, 'dangling.txt');
+    try { fs.symlinkSync(path.join(ws, 'realdir', 'made.txt'), link); } catch { return; }   // 无符号链接权限的机器跳过
+    const r = await tc('file_write', { path: link, content: 'via link' }, ws, 'sess_core_r5d');
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.equal(fs.readFileSync(path.join(ws, 'realdir', 'made.txt'), 'utf8'), 'via link');
+    assert.ok(fs.lstatSync(link).isSymbolicLink(), '链接本身保留');
+  });
+
+  it('R10 首块之后才出现的 GBK 字节:file_read 给 encodingWarning(不再静默乱码)', async () => {
+    const ws = freshWs();
+    const f = path.join(ws, 'late.txt');
+    fs.writeFileSync(f, Buffer.concat([Buffer.alloc(4 * 1024 * 1024 + 100, 'A'), Buffer.from([0xc4, 0xe3, 0xba, 0xc3]), Buffer.from('tail')]));
+    const r = await tc('file_read', { path: f, offset: 4 * 1024 * 1024 + 50, limit: 200 }, ws, 'sess_core_r10');
+    assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
+    assert.match(String(r.encodingWarning || ''), /GBK|UTF-8/, JSON.stringify(Object.keys(r)));
+    // 纯 ASCII 的大文件不该有警告
+    const g = path.join(ws, 'plain.txt');
+    fs.writeFileSync(g, Buffer.alloc(4 * 1024 * 1024 + 100, 'A'));
+    const r2 = await tc('file_read', { path: g, offset: 4 * 1024 * 1024, limit: 50 }, ws, 'sess_core_r10b');
+    assert.equal(r2.ok, true);
+    assert.equal(r2.encodingWarning, undefined);
+  });
+
+  it('R13 GBK 编码器(Buffer 构建):大文本含生僻/增补平面字符往返不变', async () => {
+    const ws = freshWs();
+    const f = path.join(ws, 'big.txt');
+    const chunk = '你好,世界 abc 𠀀 € 「」\n';
+    fs.writeFileSync(f, Buffer.from('placeholder'));
+    const text = chunk.repeat(60000);
+    const w = await tc('file_write', { path: f, content: text, encoding: 'gbk' }, ws, 'sess_core_r13');
+    assert.equal(w.ok, true, JSON.stringify(w).slice(0, 300));
+    const back = new TextDecoder('gb18030').decode(fs.readFileSync(f));
+    assert.equal(back, text);
+  });
+});

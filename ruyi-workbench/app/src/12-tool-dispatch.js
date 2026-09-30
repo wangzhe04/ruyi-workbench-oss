@@ -136,8 +136,8 @@ function withFileToolWriteLock(filePaths, work) {
   return enter(0);
 }
 
-async function resolveFileToolRoot(args, ctx) {
-  if (args && args.root) return path.resolve(String(args.root));
+// 工作区目录(相对路径的基准):ctx.workingDir > 会话 cwd > MCP 会话 > 默认工作区。
+async function fileToolWorkspaceDir(ctx) {
   const session = ctx && ctx.session;
   const fromCtx = (ctx && ctx.workingDir) || (session && session.cwd);
   if (fromCtx) return path.resolve(String(fromCtx));
@@ -150,6 +150,16 @@ async function resolveFileToolRoot(args, ctx) {
   }
   const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
   return normalizeCwd(null, cfg && cfg.defaultWorkspace);
+}
+// root 参数:绝对路径原样规范化;【相对】路径按工作区解析(与 resolveFileToolPath 同一条链),不再落到服务进程的 cwd
+// (修前 root:'src' 会被报成「工作区外」并点名安装目录下的 src,开了越界或本机模型时更会静默列出/搜索启动目录)。
+async function resolveFileToolRoot(args, ctx) {
+  if (args && args.root) {
+    const s = String(args.root);
+    if (path.isAbsolute(s)) return path.resolve(s);
+    return path.resolve(await fileToolWorkspaceDir(ctx), s);
+  }
+  return fileToolWorkspaceDir(ctx);
 }
 
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
@@ -1216,11 +1226,13 @@ const FILE_TOOL_HANDLERS = {
         pattern: cls.kind === 'regex' ? String(args.pattern) : '', accept: cls.kind === 'glob' ? cls.accept : null,
         // 递归列举:广度优先(先把浅层列全);非递归 = 目录浏览,只藏 node_modules/.git/.venv(build/dist 也要能点开看)。
         bfs: true, browse: !recursive, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
+        // 调用方在 pattern(正则或 glob)/ root 里显式点名的目录不剪(`^dist/`、root=…/build)。
+        allowDirs: explicitAllowDirs(root, cls.kind === 'regex' ? explicitSegmentsOfRegex(args.pattern) : cls.kind === 'glob' ? explicitSegmentsOfGlob(args.pattern) : []),
       });
       // F12:信封只带相对路径(root 已在顶层);absolute:true 才补绝对 path。
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'file_list'); }
-      if (walked.prunedDirs && recursive) resp.prunedDirs = walked.prunedDirs;
+      if (walked.prunedDirs && recursive) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('file_list'); }
       if (cls.kind === 'glob') resp.patternNote = cls.note;
       // 审计 F 后续:pattern 撞了时间预算(可能是灾难性回溯)—— 已匹配到的照给,如实说「可能不全」(口径同 file_search)。
       if (walked.patternTimedOut) resp.patternNote = 'pattern matching hit its time budget (pattern too slow, possible catastrophic backtracking); listing may be incomplete';
@@ -1255,6 +1267,8 @@ const FILE_TOOL_HANDLERS = {
       } else if (meta.engine === 'rg') resp.maxFileBytes = meta.maxFileBytes;
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (meta.patternNote) resp.patternNote = meta.patternNote;
+      // 被默认清单剪掉的目录(build/dist/out/target/coverage …):两个引擎都报,并说怎么放开(修前 handler 把它丢了)。
+      if (Array.isArray(meta.prunedDirs) && meta.prunedDirs.length) { resp.prunedDirs = meta.prunedDirs; resp.prunedHint = prunedDirsHint('file_search'); }
       return resp;
   } },
   glob: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -1274,6 +1288,7 @@ const FILE_TOOL_HANDLERS = {
       const all = await walkFiles(root, {
         recursive: true, maxFiles: scanCap, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 12,
         emitDirs: false, accept: rel => globRe.test(rel), ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true,
+        allowDirs: explicitAllowDirs(root, explicitSegmentsOfGlob(pattern)),   // `dist/**/*.js` 点名了 dist → 不剪
       });
       const matched = all.filter(f => f.type === 'file').map(f => ({ path: f.path, relativePath: f.relativePath, mtime: f.mtimeMs || 0 }));
       matched.sort((a, b) => b.mtime - a.mtime);
@@ -1282,7 +1297,7 @@ const FILE_TOOL_HANDLERS = {
       const resp = { ok: true, root, files: matched.slice(0, maxResults).map(m => (args.absolute === true ? { relativePath: m.relativePath, path: m.path, mtime: m.mtime } : { relativePath: m.relativePath, mtime: m.mtime })), truncated };
       if (all.truncated) resp.hint = walkTruncationHint(all, 'glob') + ' (newest-first ordering only covers the files visited)';
       else if (matched.length > maxResults) resp.hint = 'glob: ' + matched.length + ' files matched, showing the newest ' + maxResults + '; raise maxResults or narrow the pattern/root';
-      if (all.prunedDirs) resp.prunedDirs = all.prunedDirs;
+      if (all.prunedDirs) { resp.prunedDirs = all.prunedDirs; resp.prunedHint = prunedDirsHint('glob'); }
       return resp;
   } },
   project_snapshot: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -1293,10 +1308,10 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
-      const walked = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true });
+      const walked = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
-      if (walked.prunedDirs) resp.prunedDirs = walked.prunedDirs;
+      if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
       return resp;
   } },
 };
@@ -1344,7 +1359,7 @@ const ARCHIVE_TOOL_HANDLERS = {
   archive_unzip: { paths: "both", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) archive_unzip(src, destDir, overwrite=false): 解 .zip 到 destDir（stored/deflate）。
     //   【Zip Slip 防御·安全命门】每个条目 resolve 后必须仍在 destDir 内，任一 '..' 越界 → 整包拒绝（不解压任何文件）。
-    //   符号链接条目跳过。条目数 ≤65535（zip 格式上限）、声明/解压累计 ≤500MB 且逐条核对大小与 CRC32（zip 炸弹，超限中止）；list:true 只列不解。
+    //   符号链接条目跳过。条目数 ≤65534（zip 格式上限,65535 是 zip64 哨兵）、声明/解压累计 ≤500MB 且逐条核对大小与 CRC32（zip 炸弹，超限中止）；list:true 只列不解。
     //   覆盖到已存在文件时逐个 before 快照（op:modify，回滚=写回）；新建文件 op:create（回滚=删）。
       // F9:list:true 只列条目(名字/大小/编码)不解压 —— 中央目录本来就要解析,列出来几乎零成本;此时不需要 destDir。
       const listOnly = args.list === true;
@@ -1802,7 +1817,7 @@ const CODE_TOOL_HANDLERS = {
   // 经 114b 同一支出站体(05 的事实源)转写。tier exec(用户文件出网),pack files_read;返回值标
   // untrusted:true(26 号文 §4:转写文本一律不可信)。扩展名白名单与 ④ 附件同一张,25 MB 与 ASR 闸同源。
   audio_transcribe: { paths: "read", guardNote: '', handler: async (args, ctx) => {
-      const p = path.resolve(String(args.path || ''));
+      const p = await resolveFileToolPath(args.path, ctx);   // 相对路径按工作区解析(同 file_read),不落到进程 cwd
       { const g = await guardFileToolPath(p, ctx, { tool: 'audio_transcribe', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       if (!/\.(wav|mp3|m4a|webm|ogg|flac)$/i.test(p)) {
         return { ok: false, error: '不支持的音频扩展名(仅 wav/mp3/m4a/webm/ogg/flac)', path: p };

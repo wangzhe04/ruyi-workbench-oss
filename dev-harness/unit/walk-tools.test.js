@@ -10,6 +10,8 @@
 //   [W7]  codebase_symbol_search 默认区分大小写(caseSensitive:false 放开)
 //   [W8]  data_profile:5MB CSV 不再谎称 sampled:false;超窗口的文件 truncatedInput+estimatedRowCount;合法大 JSON 不再判「不合法」;
 //         超大 JSON 数组流式取样;GBK CSV 正确解码;错误分类
+//   [W10] 审计复核(review/native-files):显式点名的目录不剪 + 剪了必报 prunedDirs;rg 深度默认不限;隐藏文件默认不搜(includeHidden);
+//         file_list pattern 按 '/' 归一路径求值;rg 排除 glob 在 Windows 上 --iglob;zip 不写 65535 条;data_profile 流式数组 sampled 准确
 //   [W9]  archive:自己打的包自己能解(>2000 条目);默认排除清单;GBK 条目名;CRC 篡改被拒;声明体积炸弹被拒;list 模式;压缩不卡事件循环
 //
 // 强制走 JS 引擎:模式里带前瞻 (?=.*)(rg 的 Rust regex 拒环视 → 退回 JS),CI 机器上有没有 rg 都测得到同一条路径。
@@ -17,9 +19,12 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const fsp = require('fs/promises');   // 与 server.js 里的 fsp 是同一个对象
 const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
+const cp = require('child_process');
+const { EventEmitter } = require('events');
 const { describe, it, after } = require('node:test');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-walk-tools-'));
@@ -147,18 +152,22 @@ describe('[W4] file_search 大文件 / 隐藏文件 / 二进制', () => {
     assert.match(r.skippedLargeHint, /maxFileBytes/);
   });
 
-  it('[W4] 隐藏文件:rg 与 JS 引擎口径一致(都搜 .github/,都不套 .gitignore)', async () => {
+  it('[W4] 隐藏文件:rg 与 JS 引擎口径一致(默认都不搜 .github/,includeHidden:true 才搜;JS 不读 .gitignore)', async () => {
     const ws = freshWs();
     put(path.join(ws, '.github', 'workflows', 'ci.yml'), 'env:\n  SECRET_TOKEN_W4: abc\n');
     put(path.join(ws, 'src', 'deep.js'), 'var SECRET_TOKEN_W4 = 2;\n');
     put(path.join(ws, 'ignored', 'x.js'), 'var SECRET_TOKEN_W4 = 3;\n');
     put(path.join(ws, '.gitignore'), 'ignored/\n');
     put(path.join(ws, 'dist', 'bundle.js'), 'var SECRET_TOKEN_W4 = 4;\n');
+    const set = r => r.matches.map(m => norm(m.relativePath)).sort();
     const a = await srv.toolCall('file_search', { root: ws, pattern: 'SECRET_TOKEN_W4' }, ctxFor(ws));
     const b = await srv.toolCall('file_search', { root: ws, pattern: 'SECRET_TOKEN_W4' + JS_ONLY }, ctxFor(ws));
-    const set = r => r.matches.map(m => norm(m.relativePath)).sort();
-    assert.deepEqual(set(b), ['.github/workflows/ci.yml', 'ignored/x.js', 'src/deep.js']);
-    assert.deepEqual(set(a), set(b), `engine ${a.engine} vs ${b.engine}`);
+    assert.deepEqual(set(b), ['ignored/x.js', 'src/deep.js']);
+    assert.deepEqual(set(a), set(b), `engine ${a.engine} vs ${b.engine}`);   // 非 git 目录里 rg 也不套 .gitignore
+    const c = await srv.toolCall('file_search', { root: ws, pattern: 'SECRET_TOKEN_W4', includeHidden: true }, ctxFor(ws));
+    const d = await srv.toolCall('file_search', { root: ws, pattern: 'SECRET_TOKEN_W4' + JS_ONLY, includeHidden: true }, ctxFor(ws));
+    assert.deepEqual(set(d), ['.github/workflows/ci.yml', 'ignored/x.js', 'src/deep.js']);
+    assert.deepEqual(set(c), set(d), `engine ${c.engine} vs ${d.engine}`);
   });
 
   it('[W4] JS 引擎跳过含 NUL 的二进制文件', async () => {
@@ -456,5 +465,199 @@ describe('[W9] archive_zip / archive_unzip', () => {
     const u = await srv.toolCall('archive_unzip', { src: path.join(ws, 'big.zip'), destDir: path.join(ws, 'un') }, ctxFor(ws));
     assert.equal(u.ok, true);
     assert.equal(fs.readFileSync(path.join(ws, 'un', 'big', 'r1.bin')).equals(fs.readFileSync(path.join(ws, 'big', 'r1.bin'))), true);
+  });
+});
+
+// ── [W10] 审计复核回归 ─────────────────────────────────────────────────────────────────────────────────────
+const hasRgBinary = (() => { try { return cp.spawnSync('rg', ['--version']).status === 0; } catch { return false; } })();
+// 抓 rg 的命令行:换掉 cp.spawn,回一个立刻「无命中」收尾的假子进程。platform 可临时改成 win32。
+async function captureRgArgs(ws, args, platform) {
+  const realSpawn = cp.spawn;
+  const realPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+  let captured = null;
+  cp.spawn = function fake(cmd, a) {
+    if (Array.isArray(a) && a.includes('--json')) {
+      captured = a.slice();
+      const child = new EventEmitter();
+      child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+      child.kill = () => {};
+      setImmediate(() => child.emit('close', 1));
+      return child;
+    }
+    return realSpawn.apply(this, arguments);
+  };
+  if (platform) Object.defineProperty(process, 'platform', { value: platform });
+  try { await srv.toolCall('file_search', { root: ws, ...args }, ctxFor(ws)); }
+  finally { cp.spawn = realSpawn; if (platform) Object.defineProperty(process, 'platform', realPlatform); }
+  return captured;
+}
+
+describe('[W10] 显式点名不剪 + prunedDirs 必报', () => {
+  function seed() {
+    const ws = freshWs();
+    put(path.join(ws, 'src', 'build', 'compile.js'), 'NEEDLE_W10\n');
+    put(path.join(ws, 'src', 'out', 'emit.js'), 'NEEDLE_W10\n');
+    put(path.join(ws, 'dist', 'bundle.js'), 'NEEDLE_W10\n');
+    put(path.join(ws, 'lib', 'plain.js'), 'NEEDLE_W10\n');
+    return ws;
+  }
+  it('[W10] glob `dist/**/*.js` 点名了 dist → 不剪;`**/compile.js` 没点名 → 剪,且 prunedDirs + prunedHint 必报', async () => {
+    const ws = seed();
+    const a = await srv.toolCall('glob', { root: ws, pattern: 'dist/**/*.js' }, ctxFor(ws));
+    assert.deepEqual(rels(a.files), ['dist/bundle.js'], JSON.stringify(a));
+    assert.ok(!(a.prunedDirs || []).includes('dist'));
+    const b = await srv.toolCall('glob', { root: ws, pattern: '**/compile.js' }, ctxFor(ws));
+    assert.deepEqual(b.files, []);
+    assert.ok(b.prunedDirs.includes('src/build'), JSON.stringify(b));
+    assert.match(b.prunedHint, /includeIgnored:true/);
+    const c = await srv.toolCall('glob', { root: ws, pattern: 'src/build/*.js' }, ctxFor(ws));
+    assert.deepEqual(rels(c.files), ['src/build/compile.js'], '中段点名(src/build)也算');
+  });
+
+  for (const [label, suffix] of [['默认引擎', ''], ['JS 引擎', JS_ONLY]]) {
+    it(`[W10] file_search(${label}):默认剪 build/out/dist 并披露;glob 点名 dist 则搜它;includeIgnored 全搜`, async () => {
+      const ws = seed();
+      const r = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10' + suffix }, ctxFor(ws));
+      assert.deepEqual(r.matches.map(m => norm(m.relativePath)), ['lib/plain.js'], JSON.stringify(r).slice(0, 400));
+      assert.ok(r.prunedDirs.includes('dist') && r.prunedDirs.includes('src/build') && r.prunedDirs.includes('src/out'), JSON.stringify(r.prunedDirs));
+      assert.match(r.prunedHint, /includeIgnored:true/);
+      const g = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10' + suffix, glob: 'dist/**' }, ctxFor(ws));
+      assert.deepEqual(g.matches.map(m => norm(m.relativePath)), ['dist/bundle.js'], JSON.stringify(g).slice(0, 400));
+      const all = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10' + suffix, includeIgnored: true }, ctxFor(ws));
+      assert.equal(all.matches.length, 4);
+      assert.equal(all.prunedDirs, undefined);
+    });
+  }
+
+  it('[W10] root 本身叫 build:其下同名子目录不剪', async () => {
+    const ws = freshWs();
+    put(path.join(ws, 'build', 'build', 'inner.js'), 'NEEDLE_W10R\n');
+    const r = await srv.toolCall('file_search', { root: path.join(ws, 'build'), pattern: 'NEEDLE_W10R' + JS_ONLY }, ctxFor(ws));
+    assert.deepEqual(r.matches.map(m => norm(m.relativePath)), ['build/inner.js'], JSON.stringify(r).slice(0, 300));
+  });
+
+  it('[W10] file_list / project_snapshot 也带 prunedHint', async () => {
+    const ws = seed();
+    const l = await srv.toolCall('file_list', { root: ws }, ctxFor(ws));
+    assert.ok(l.prunedDirs.includes('dist'));
+    assert.match(l.prunedHint, /includeIgnored:true/);
+    const p = await srv.toolCall('project_snapshot', { root: ws }, ctxFor(ws));
+    assert.match(p.prunedHint, /includeIgnored:true/);
+    const d = await srv.toolCall('file_list', { root: ws, pattern: '^dist/' }, ctxFor(ws));
+    assert.deepEqual(rels(d.files), ['dist/bundle.js'], '正则里点名 dist → 不剪');
+  });
+});
+
+describe('[W10] 深度 / 隐藏 / gitignore 两个引擎同口径', () => {
+  it('[W10] 深度默认不限:10 层深的文件两个引擎都搜得到;传 maxDepth 才限', async () => {
+    const ws = freshWs();
+    put(path.join(ws, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'deep.java'), 'NEEDLE_W10D\n');
+    for (const suffix of ['', JS_ONLY]) {
+      const r = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10D' + suffix }, ctxFor(ws));
+      assert.equal(r.matches.length, 1, `engine ${r.engine}: ` + JSON.stringify(r).slice(0, 300));
+      const shallow = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10D' + suffix, maxDepth: 3 }, ctxFor(ws));
+      assert.equal(shallow.matches.length, 0, `engine ${shallow.engine} maxDepth:3`);
+      const exact = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10D' + suffix, maxDepth: 10 }, ctxFor(ws));
+      assert.equal(exact.matches.length, 1, `engine ${exact.engine} maxDepth:10(10 层目录 + 文件)`);
+    }
+  });
+
+  it('[W10] 默认不搜 .ssh/.env;includeHidden:true 才搜;glob 字面点名 .github/** 则搜它(两个引擎)', async () => {
+    const ws = freshWs();
+    put(path.join(ws, '.ssh', 'id_rsa'), 'NEEDLE_W10H\n');
+    put(path.join(ws, '.env'), 'NEEDLE_W10H=1\n');
+    put(path.join(ws, '.github', 'workflows', '.hidden.yml'), 'NEEDLE_W10H\n');
+    put(path.join(ws, 'src', 'a.js'), 'NEEDLE_W10H\n');
+    const set = r => r.matches.map(m => norm(m.relativePath)).sort();
+    for (const suffix of ['', JS_ONLY]) {
+      const a = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10H' + suffix }, ctxFor(ws));
+      assert.deepEqual(set(a), ['src/a.js'], `engine ${a.engine}`);
+      const b = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10H' + suffix, includeHidden: true }, ctxFor(ws));
+      assert.deepEqual(set(b), ['.env', '.github/workflows/.hidden.yml', '.ssh/id_rsa', 'src/a.js'], `engine ${b.engine}`);
+      const c = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10H' + suffix, glob: '.github/**' }, ctxFor(ws));
+      assert.deepEqual(set(c), ['.github/workflows/.hidden.yml'], `engine ${c.engine}`);
+    }
+  });
+
+  it('[W10] rg 引擎遵守 .gitignore(git 仓库内);includeIgnored:true 才 --no-ignore', { skip: !hasRgBinary }, async () => {
+    const ws = freshWs();
+    fs.mkdirSync(path.join(ws, '.git'));
+    put(path.join(ws, '.gitignore'), 'vendorx/\n');
+    put(path.join(ws, 'vendorx', 'lib.js'), 'NEEDLE_W10G\n');
+    put(path.join(ws, 'src', 'a.js'), 'NEEDLE_W10G\n');
+    const a = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10G' }, ctxFor(ws));
+    if (a.engine !== 'rg') return;
+    assert.deepEqual(a.matches.map(m => norm(m.relativePath)), ['src/a.js']);
+    const b = await srv.toolCall('file_search', { root: ws, pattern: 'NEEDLE_W10G', includeIgnored: true }, ctxFor(ws));
+    assert.deepEqual(b.matches.map(m => norm(m.relativePath)).sort(), ['src/a.js', 'vendorx/lib.js']);
+  });
+
+  it('[W10] rg 命令行:默认无 --max-depth / --hidden / --no-ignore;传了才加;win32 排除 glob 走 --iglob', { skip: !hasRgBinary }, async () => {
+    const ws = freshWs();
+    put(path.join(ws, 'a.txt'), 'x\n');
+    await srv.toolCall('file_search', { root: ws, pattern: 'warm' }, ctxFor(ws));   // 预热 rg 探测(探测结果进程内缓存)
+    const a = await captureRgArgs(ws, { pattern: 'x' });
+    if (!a) return;   // 这台机器最终走了 JS 引擎
+    assert.ok(!a.includes('--max-depth'), a.join(' '));
+    assert.ok(!a.includes('--hidden') && !a.includes('--no-ignore'), a.join(' '));
+    const b = await captureRgArgs(ws, { pattern: 'x', maxDepth: 4, includeHidden: true, includeIgnored: true });
+    assert.equal(b[b.indexOf('--max-depth') + 1], '5');
+    assert.ok(b.includes('--hidden') && b.includes('--no-ignore'));
+    const w = await captureRgArgs(ws, { pattern: 'x', glob: '*.TXT' }, 'win32');
+    if (w) {
+      const i = w.indexOf('!build/');
+      assert.ok(i > 0 && w[i - 1] === '--iglob', '排除 glob 必须 --iglob(rg 的 -g 区分大小写): ' + w.join(' '));
+      assert.equal(w[w.indexOf('*.TXT') - 1], '-g', '调用方自己的 glob 不动');
+    }
+  });
+});
+
+describe('[W10] file_list pattern 按 "/" 归一路径(Windows)', () => {
+  it('[W10] 路径分隔符是反斜杠时 ^src/.*\\.ts$ 仍匹配(path.sep 模拟 Windows)', async () => {
+    const ws = freshWs();
+    put(path.join(ws, 'src', 'a.ts'), 'x');
+    put(path.join(ws, 'src', 'deep', 'b.ts'), 'x');
+    put(path.join(ws, 'other', 'c.ts'), 'x');
+    // 别处(护栏 guardFileToolPath / isSensitiveDataPath)也读 path.sep,整个调用都改会被它们当成非法路径;
+    // 所以只对 walkFiles / toSlash 自己的读取返回 '\\'(按调用栈判定),模拟 Windows 上 rel 用反斜杠拼接。
+    const realSepDesc = Object.getOwnPropertyDescriptor(path, 'sep');
+    Object.defineProperty(path, 'sep', { get: () => (/^\s*at (?:async )?(?:toSlash|walkFiles)\b/.test(String(new Error().stack).split('\n')[2] || '') ? '\\' : '/'), configurable: true });
+    let r;
+    try { r = await srv.toolCall('file_list', { root: ws, pattern: '^src/.*\\.ts$' }, ctxFor(ws)); }
+    finally { Object.defineProperty(path, 'sep', realSepDesc); }
+    assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
+        assert.deepEqual(rels(r.files).sort(), ['src/a.ts', 'src/deep/b.ts']);
+  });
+});
+
+describe('[W10] zip 条目上限 / data_profile 流式数组', () => {
+  it('[W10] archive_zip 不写 65535 条(0xFFFF 是 zip64 哨兵);65534 条的包 archive_unzip 能列', async () => {
+    const ws = freshWs();
+    const big = path.join(ws, 'many');
+    fs.mkdirSync(big);
+    for (let i = 0; i < 65534; i++) fs.writeFileSync(path.join(big, 'f' + i), '');
+    const ctx = ctxFor(ws);
+    // 65534 个文件 + 根目录条目 = 65535 条:必须被拒(修前写成功,自己又解不开)。
+    const z = await srv.toolCall('archive_zip', { paths: [big], dest: path.join(ws, 'a.zip') }, ctx);
+    assert.equal(z.ok, false, JSON.stringify(z).slice(0, 300));
+    assert.match(String(z.error), /65534/);
+    fs.unlinkSync(path.join(big, 'f0'));
+    const y = await srv.toolCall('archive_zip', { paths: [big], dest: path.join(ws, 'b.zip') }, ctx);
+    assert.equal(y.ok, true, JSON.stringify(y).slice(0, 300));
+    const l = await srv.toolCall('archive_unzip', { src: path.join(ws, 'b.zip'), list: true }, ctx);
+    assert.equal(l.ok, true, JSON.stringify(l).slice(0, 300));
+  });
+
+  it('[W10] data_profile:顶层数组在 `]` 处结束、后面还有大量空白 → sampled:false,rowCount 精确', async () => {
+    const ws = freshWs();
+    const f = path.join(ws, 'tail.json');
+    const arr = JSON.stringify(Array.from({ length: 1500 }, (_, i) => ({ id: i, v: 'x' + i })));
+    fs.writeFileSync(f, arr);
+    fs.appendFileSync(f, ' '.repeat(17 * 1024 * 1024));
+    const r = await srv.toolCall('data_profile', { path: f }, ctxFor(ws));
+    assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
+    assert.equal(r.rowCount, 1500);
+    assert.equal(r.sampled, false, JSON.stringify(r).slice(0, 300));
+    assert.equal(r.truncatedInput, undefined);
   });
 });

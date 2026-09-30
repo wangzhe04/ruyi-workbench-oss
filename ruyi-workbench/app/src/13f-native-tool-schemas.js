@@ -288,7 +288,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'archive_zip',
-    description: '把工作区内的文件/文件夹打成 .zip（deflate，中文名保留）。子目录里的 node_modules、.git、venv、dist、build 等默认不打包（结果列 skippedExcluded/excludedDirs；includeIgnored=true 才包含）。dest 已存在先存检查点。单文件上限 100MB、总量 500MB、条目 65535。',
+    description: '把工作区内的文件/文件夹打成 .zip（deflate，中文名保留）。子目录里的 node_modules、.git、venv、dist、build 等默认不打包（结果列 skippedExcluded/excludedDirs；includeIgnored=true 才包含）。dest 已存在先存检查点。单文件上限 100MB、总量 500MB、条目 65534。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -348,7 +348,7 @@ const MCP_TOOLS = [
   },
   {
       name: 'file_search',
-      description: 'Regex search (per line, case-insensitive by default) in files under a directory (default: workspace; caps maxResults 200, maxFiles 5000, maxDepth 8). Hidden files are searched, .gitignore is not applied; dependency/build/cache folders are skipped unless includeIgnored:true (ignoreDirs adds more). Binary files and files over maxFileBytes (default 20MB) are skipped (listed in skippedLargeFiles). truncated:true = cap hit or scan stopped early (see hint); a miss is conclusive only when truncated is absent.',
+      description: 'Regex search (per line, case-insensitive by default) in files under a directory (default: workspace; caps maxResults 200, maxFiles 5000; depth unlimited unless maxDepth). Hidden (dot) files/folders are skipped unless includeHidden:true or the glob names them; dependency/build/cache folders (node_modules, dist, build, out, target, coverage, …) are skipped unless includeIgnored:true or the glob/root names them (the skipped ones are listed in prunedDirs; ignoreDirs adds more). Binary files and files over maxFileBytes (default 20MB) are skipped (skippedLargeFiles). truncated:true = cap hit or scan stopped early (see hint). A miss is conclusive only when truncated is absent and prunedDirs holds nothing you need.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -359,6 +359,7 @@ const MCP_TOOLS = [
           maxDepth: { type: 'number' },
           ignoreDirs: { type: 'array', items: { type: 'string' } },
           includeIgnored: { type: 'boolean' },
+          includeHidden: { type: 'boolean', description: 'also search dot-files/folders (.env, .ssh, .github …)' },
           ignoreCase: { type: 'boolean' },
           maxFileBytes: { type: 'number', description: 'default 20MB, max 200MB' },
           context: { type: 'number', description: '0-5 context lines per match' },
