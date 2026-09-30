@@ -5,10 +5,12 @@ return an install hint. Complements the built-in `find_on_screen` with multi-sca
 """
 
 import base64
+import asyncio
 import io
 import time
 
 from ai_computer_control.server import mcp
+from ai_computer_control.utils.waits import clamp_wait_s
 
 try:
     import cv2  # type: ignore
@@ -30,7 +32,6 @@ def _unavailable() -> dict:
 _MULTISCALE = [1.0, 1.25, 1.5, 0.8, 0.667, 1.75, 2.0, 0.5, 0.9, 1.1, 0.75]
 # A match this good ends the scale search early (a 1.0 exact hit costs 1 scale instead of all of them).
 _EARLY_EXIT = 0.97
-_MAX_WAIT_S = 120.0  # wait_for_image upper bound on `timeout`
 
 
 def _parse_region(region):
@@ -255,9 +256,9 @@ def vision_click(template_path: str | None = None, template_b64: str | None = No
 
 
 @mcp.tool()
-def wait_for_image(template_path: str | None = None, template_b64: str | None = None,
-                   confidence: float = 0.8, timeout: float = 10.0, poll_ms: int = 400,
-                   region: str | None = None) -> dict:
+async def wait_for_image(template_path: str | None = None, template_b64: str | None = None,
+                         confidence: float = 0.8, timeout: float = 10.0, poll_ms: int = 400,
+                         region: str | None = None) -> dict:
     """Poll the screen until a template appears (or timeout). Returns the match for clicking.
 
     region: optional "x,y,width,height" (virtual-screen coordinates) to poll a smaller/other-monitor area.
@@ -269,8 +270,7 @@ def wait_for_image(template_path: str | None = None, template_b64: str | None = 
         requested = float(timeout)
     except (TypeError, ValueError):
         requested = 10.0
-    timeout = min(max(0.0, requested), _MAX_WAIT_S)  # a huge timeout would pin the server for ever
-    clamped = requested > _MAX_WAIT_S
+    timeout, clamped = clamp_wait_s(requested)  # a huge timeout would pin the server for ever
     poll_ms = max(50, int(poll_ms))
     started = time.monotonic()
     deadline = started + timeout
@@ -295,4 +295,4 @@ def wait_for_image(template_path: str | None = None, template_b64: str | None = 
                 out["hint"] = (f"closest score {best_seen:.2f} < threshold {confidence:.2f}; the template may "
                                "differ slightly (DPI/theme) - lower confidence or re-capture it")
             return out
-        time.sleep(poll_ms / 1000.0)
+        await asyncio.sleep(poll_ms / 1000.0)   # yield: pings / other calls stay serviced between polls

@@ -18,6 +18,7 @@ import time
 
 from ai_computer_control.paths import data_dir
 from ai_computer_control.server import mcp
+from ai_computer_control.tools.office_io import replace_with_retry
 
 _MAX_ENTRIES = 500
 _MAX_CONTENT_CHARS = 4000
@@ -80,10 +81,19 @@ _MEMORY_LOCK = threading.Lock()
 
 def _save(store: dict) -> None:
     path = _store_path()
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(store, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, path)
+    # Per-process temp name: Claude Code and Kimi each spawn their own ACC on the same data dir, and a
+    # shared fixed name lets two writers interleave on one file (the in-process lock cannot see the other).
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(store, f, ensure_ascii=False, indent=1)
+        replace_with_retry(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 @mcp.tool(audit=True)

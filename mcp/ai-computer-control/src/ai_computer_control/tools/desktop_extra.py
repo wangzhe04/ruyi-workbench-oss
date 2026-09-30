@@ -278,29 +278,46 @@ async def wait_for_window(title: str, timeout: float = 10.0, poll_ms: int = 250,
         await asyncio.sleep(poll_s)
 
 
+_IDLE_POLL_S = 0.1
+
+
 @mcp.tool()
-def wait_for_window_idle(pid: int, timeout_ms: int = 5000) -> dict:
+async def wait_for_window_idle(pid: int, timeout_ms: int = 5000) -> dict:
     """Wait until a process's UI message queue is idle (WaitForInputIdle).
 
-    Useful right after launching an app before driving its UI. Returns dict with 'state'
-    (idle | timeout | error).
+    Useful right after launching an app before driving its UI. timeout_ms is capped at 120000 ('capped' is
+    set when cut). Returns dict with 'state' (idle | timeout | not_gui_process | error).
     """
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000  # works across integrity levels (Vista+)
     PROCESS_QUERY_INFORMATION = 0x0400
     SYNCHRONIZE = 0x00100000
+    try:
+        requested_ms = int(timeout_ms)
+    except (TypeError, ValueError):
+        requested_ms = 5000
+    timeout_s, capped = clamp_wait_s(requested_ms / 1000.0, default=5.0)
+    extra = capped_fields(requested_ms, capped)
     h = _kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid))
     if not h:
         h = _kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE, False, int(pid))
     if not h:
         return {"state": "error", "error": f"OpenProcess failed for pid {pid}"}
     try:
-        res = _user32.WaitForInputIdle(h, int(timeout_ms))
+        # Poll with a zero-timeout WaitForInputIdle and yield to the event loop between polls, so a long
+        # wait never stops the server from servicing pings / other calls.
+        deadline = time.monotonic() + timeout_s
+        while True:
+            res = _user32.WaitForInputIdle(h, 0)
+            if res == 0:
+                return {"state": "idle", **extra}
+            if res == 0x102:  # WAIT_TIMEOUT: not idle yet
+                if time.monotonic() >= deadline:
+                    return {"state": "timeout", **extra}
+                await asyncio.sleep(_IDLE_POLL_S)
+                continue
+            break
     finally:
         _kernel32.CloseHandle(h)
-    if res == 0:
-        return {"state": "idle"}
-    if res == 0x102:  # WAIT_TIMEOUT
-        return {"state": "timeout"}
     if res == 0xFFFFFFFF:  # WAIT_FAILED — commonly "process has no GUI message queue"
         return {"state": "not_gui_process",
                 "hint": "this pid has no GUI input queue (console or UWP-hosted UI). "

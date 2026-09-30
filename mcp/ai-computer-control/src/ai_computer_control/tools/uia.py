@@ -32,6 +32,7 @@ _MAX_NODES = 5000          # tree-walk node cap shared by ui_find / ui_invoke
 _DEFAULT_DEPTH = 8         # default tree depth for ui_find / ui_invoke (kept identical on purpose)
 _CANDIDATE_CAP = 10        # ui_invoke: how many matches it collects to report ambiguity
 _ACTION_TIMEOUT_S = 10     # bound for a single pattern action (Invoke/SetValue/Toggle/...)
+_READ_TIMEOUT_S = 15       # bound for reading properties of the matched controls (after the walk)
 
 # A single ctrl.GetChildren() (or Invoke/SetValue/SendKeys) on an unresponsive window is a
 # synchronous COM call with no per-call timeout. SetGlobalSearchTimeout only bounds search ops, not
@@ -402,7 +403,14 @@ def ui_find(name: str | None = None, control_type: str | None = None, automation
                          visible_only=visible_only, enabled_only=enabled_only)
     if err:
         return err
-    matches = [_node(c, include_state=True) for c in found["controls"]]
+    try:   # property reads are cross-process COM calls too: bound them like the walk
+        matches = _run_bounded(lambda: [_node(c, include_state=True) for c in found["controls"]],
+                               _READ_TIMEOUT_S)
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"{type(e).__name__}: {e}"}
+    if matches is _TIMEOUT_SENTINEL:
+        return {"error": "UIA property read timed out (>%ds); the window may be unresponsive" % _READ_TIMEOUT_S,
+                "window": _window_identity(root)}
     out = {"success": True, "count": len(matches), "matches": matches,
            "window": _window_identity(root), **_walk_report(found)}
     if not matches:
@@ -509,7 +517,9 @@ def _perform(act: str, ctrl, text: str, info: dict) -> dict:
             # rect makes the click a silent no-op, so re-check before clicking.
             r = None
             try:
-                r = ctrl.BoundingRectangle
+                r, rtmo = _bounded_action(lambda: ctrl.BoundingRectangle, "BoundingRectangle read")
+                if rtmo:
+                    return {**rtmo, "control": info}
             except Exception:
                 r = None
             empty = (r is None or (r.left == r.right and r.top == r.bottom)
@@ -527,7 +537,12 @@ def _perform(act: str, ctrl, text: str, info: dict) -> dict:
         method, tmo = _bounded_action(lambda: _write_value(ctrl, text), "set_value")
         if tmo:
             return {**tmo, "control": info}
-        conf = _confirm_set_value(ctrl, text)
+        try:
+            conf, ctmo = _bounded_action(lambda: _confirm_set_value(ctrl, text), "set_value read-back")
+        except Exception:
+            conf, ctmo = {"confirmed": None, "note": "value set; the read-back failed, so it could not be confirmed"}, None
+        if ctmo:   # the value was written; only the read-back stalled -> unverifiable, not a failure
+            conf = {"confirmed": None, "note": "value set; the read-back timed out, so it could not be confirmed"}
         if conf["confirmed"] is False:
             return {"success": False, "error": "set_value not confirmed", "expected": text,
                     "actual": conf.get("actual"), "read_back_via": conf.get("read_back_via"),
@@ -616,28 +631,41 @@ def ui_invoke(action: str = "invoke", name: str | None = None, control_type: str
                     out[key] = limitation[key]
         return out
 
-    # Rank: enabled + on-screen first (stable within each group), then the rest.
-    ranked = []
-    for c in found["controls"]:
-        enabled, offscreen, empty = _actionable_state(c)
-        ranked.append((c, enabled and not offscreen and not empty))
-    ranked.sort(key=lambda t: not t[1])
-    total = len(ranked)
+    # Rank: enabled + on-screen first (stable within each group), then the rest. The property reads run
+    # bounded (one worker call) so a window that stalls after the walk cannot block the server.
+    def _rank_and_describe():
+        ranked = []
+        for c in found["controls"]:
+            enabled, offscreen, empty = _actionable_state(c)
+            ranked.append((c, enabled and not offscreen and not empty))
+        ranked.sort(key=lambda t: not t[1])
+        total = len(ranked)
+        try:
+            idx = int(nth)
+        except (TypeError, ValueError):
+            idx = 0
+        if not (0 <= idx < total):
+            return ranked, total, idx, None, []
+        return (ranked, total, idx, _node(ranked[idx][0]),
+                [dict(_node(c, include_state=True), nth=i) for i, (c, _a) in enumerate(ranked[:5])]
+                if total > 1 or found["more"] else [])
     try:
-        idx = int(nth)
-    except (TypeError, ValueError):
-        idx = 0
-    if not (0 <= idx < total):
+        rd = _run_bounded(_rank_and_describe, _READ_TIMEOUT_S)
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"{type(e).__name__}: {e}", **report}
+    if rd is _TIMEOUT_SENTINEL:
+        return {"error": "UIA property read timed out (>%ds); the window may be unresponsive" % _READ_TIMEOUT_S,
+                "window": _window_identity(root), **report}
+    ranked, total, idx, info, candidates = rd
+    if info is None:
         return {"error": f"nth={nth} out of range (0..{total - 1})", "matched_count": total, **report}
     ctrl, actionable = ranked[idx]
-    info = _node(ctrl)
     extra = {}
     if total > 1 or found["more"]:
         extra["matched_count"] = total
         if found["more"]:
             extra["matched_more"] = True   # capped at _CANDIDATE_CAP: at least this many
-        extra["candidates"] = [dict(_node(c, include_state=True), nth=i)
-                               for i, (c, _a) in enumerate(ranked[:5])]
+        extra["candidates"] = candidates
         extra["note"] = (f"{total}{'+' if found['more'] else ''} controls matched; acted on nth={idx}. "
                          f"Pass `nth` or tighter selectors (automation_id / control_type) to choose another.")
     if not actionable:

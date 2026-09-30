@@ -495,8 +495,9 @@ def test_window():
     # tool level
     seen = {}
 
-    def fake_cap(title, restore_minimized=True):
+    def fake_cap(title, restore_minimized=True, disambiguate=False):
         seen["args"] = (title, restore_minimized)
+        seen["disambiguate"] = disambiguate
         return {"ok": True, "img": Image.new("RGB", (3000, 2000), (5, 5, 5)), "matched_title": "Calculator",
                 "method": "printwindow", "origin": {"x": 40, "y": 60},
                 "window_rect": {"left": 40, "top": 60, "width": 3000, "height": 2000}}
@@ -504,6 +505,7 @@ def test_window():
     with Patch((wincap, "capture_window", fake_cap)):
         r = TOOLS["screenshot"](window_title="calc")
         check(seen["args"] == ("calc", False), "screenshot(window_title) delegates to the shared capture (substring, no auto-restore)")
+        check(seen["disambiguate"] is True, "screenshot(window_title) asks the shared capture not to guess among several matches")
         check(r["ok"] and r["matched_title"] == "Calculator" and r["method"] == "printwindow" and r["origin"] == {"x": 40, "y": 60},
               "screenshot(window_title) returns matched_title/method/origin")
         r = TOOLS["window_screenshot"](title_substring="calc")
@@ -514,7 +516,25 @@ def test_window():
         r = TOOLS["window_screenshot"](title_substring="calc", format="jpeg")
         check(r["format"] == "jpeg", "window_screenshot reports format:'jpeg'")
 
-    with Patch((wincap, "capture_window", lambda t, restore_minimized=True: {"ok": False, "found": False, "error": "no visible window matches 'x'"})):
+    # exact title beats substring; several substring matches and no exact one -> candidates, never a guess
+    pick = wincap._pick_window
+    notepad_pp = (11, "Untitled - Notepad++")
+    notepad = (22, "notepad")
+    doc = (33, "Release notes - Google Chrome")
+    check(pick("Notepad", [notepad_pp, notepad])[0] == notepad, "exact (case-insensitive) title wins over an earlier substring match")
+    check(pick("release", [doc])[0] == doc, "a unique substring match is used")
+    chosen, amb = pick("notepad", [notepad_pp, doc, (44, "Notepad docs")])
+    check(chosen is None and len(amb) == 3, "several substring matches and no exact title -> ambiguous, nothing chosen")
+    check(pick("x", []) == (None, []), "no match -> (None, [])")
+    with Patch((wincap, "_enum_matches", lambda t: [notepad_pp, doc, (44, "Notepad docs")]),
+               (wincap, "_is_minimized", lambda h: False)):
+        r = wincap.capture_window("notepad", restore_minimized=False, disambiguate=True)
+        check(r["ok"] is False and r.get("ambiguous") is True and r["matched_count"] == 3
+              and {c["handle"] for c in r["candidates"]} == {11, 33, 44} and all("title" in c for c in r["candidates"]),
+              "screenshot-style capture of an ambiguous title returns candidates (handle/title) instead of guessing")
+        check(wincap._find_hwnd("notepad") == notepad_pp, "_find_hwnd keeps first-in-Z-order for legacy callers")
+
+    with Patch((wincap, "capture_window", lambda t, restore_minimized=True, **kw: {"ok": False, "found": False, "error": "no visible window matches 'x'"})):
         r = TOOLS["screenshot"](window_title="zzz")
         check(r["ok"] is False and "not found" in r["error"].lower(), "screenshot(window_title) miss -> Window not found")
 
@@ -604,7 +624,23 @@ def test_vision():
         r = vision.vision_click(template_b64=b64, region="500,300,200,90", click=False)
         check(r["ok"] and r["found"] is False and r.get("best_confidence") is not None, "vision_click miss carries best_confidence")
         t0 = time.monotonic()
-        r = vision.wait_for_image(template_b64=b64, region="500,300,200,90", timeout=0.3, poll_ms=50)
+        check(__import__("inspect").iscoroutinefunction(vision.wait_for_image),
+              "wait_for_image is async (yields between polls instead of pinning the event loop)")
+        # a concurrent task keeps running while wait_for_image polls (the loop is not blocked)
+        async def _with_heartbeat():
+            beats = []
+
+            async def hb():
+                for _ in range(40):
+                    beats.append(1)
+                    await asyncio.sleep(0.02)
+            task = asyncio.ensure_future(hb())
+            res = await vision.wait_for_image(template_b64=b64, region="500,300,200,90", timeout=0.4, poll_ms=50)
+            task.cancel()
+            return res, len(beats)
+        r, nbeats = asyncio.run(_with_heartbeat())
+        check(r["found"] is False and nbeats >= 5, f"other tasks run while wait_for_image polls (heartbeats {nbeats})")
+        r = asyncio.run(vision.wait_for_image(template_b64=b64, region="500,300,200,90", timeout=0.3, poll_ms=50))
         check(r["found"] is False and r.get("waited_ms", -1) >= 250 and r.get("best_confidence") is not None,
               f"wait_for_image timeout: waited_ms + best_confidence (got {r})")
         r = vision.find_template(template_b64=b64, region="1,2,3")
@@ -614,8 +650,10 @@ def test_vision():
         def tick():
             fake_t["now"] += 30.0
             return fake_t["now"]
-        with Patch((vision.time, "monotonic", tick), (vision.time, "sleep", lambda s: None)):
-            r = vision.wait_for_image(template_b64=b64, region="500,300,200,90", timeout=10**9, poll_ms=1)
+        async def _nosleep(s):
+            return None
+        with Patch((vision.time, "monotonic", tick), (vision.asyncio, "sleep", _nosleep)):
+            r = asyncio.run(vision.wait_for_image(template_b64=b64, region="500,300,200,90", timeout=10**9, poll_ms=1))
         check(r["found"] is False and r["timeout"] == 120.0 and r.get("timeout_clamped") is True,
               f"wait_for_image clamps timeout to 120s (got {r})")
 

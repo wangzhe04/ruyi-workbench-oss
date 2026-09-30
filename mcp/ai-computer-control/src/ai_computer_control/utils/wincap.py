@@ -62,8 +62,9 @@ class _BITMAPINFO(ctypes.Structure):
     _fields_ = [("bmiHeader", _BITMAPINFOHEADER), ("bmiColors", wintypes.DWORD * 3)]
 
 
-def _find_hwnd(title_sub: str):
-    """Return (hwnd, matched_title) for the first visible top-level window matching the substring."""
+def _enum_matches(title_sub: str) -> list:
+    """[(hwnd, title)] of every visible, titled top-level window whose title contains the substring
+    (case-insensitive), in Z-order."""
     target = title_sub.lower()
     found = []
     EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -78,12 +79,36 @@ def _find_hwnd(title_sub: str):
         _user32.GetWindowTextW(hwnd, buf, n + 1)
         if target in buf.value.lower():
             found.append((hwnd, buf.value))
-            return False
         return True
 
     _user32.EnumWindows(EnumProc(_cb), 0)
-    if found:
-        return found[0]
+    return found
+
+
+def _pick_window(title_sub: str, matches: list):
+    """Choose among substring `matches`: an exact (case-insensitive, trimmed) title wins, else the only
+    match. Returns (chosen (hwnd, title) | None, ambiguous matches list — non-empty only when several
+    windows match and none is an exact title)."""
+    if not matches:
+        return None, []
+    want = title_sub.strip().lower()
+    for m in matches:
+        if m[1].strip().lower() == want:
+            return m, []
+    if len(matches) == 1:
+        return matches[0], []
+    return None, matches
+
+
+def _find_hwnd(title_sub: str):
+    """Return (hwnd, matched_title): the exact-title window if there is one, else the first visible
+    top-level window containing the substring (Z-order)."""
+    matches = _enum_matches(title_sub)
+    chosen, _amb = _pick_window(title_sub, matches)
+    if chosen:
+        return chosen
+    if matches:
+        return matches[0]
     return None, None
 
 
@@ -205,8 +230,11 @@ def _printwindow_bounded(hwnd, width, height):
         return None
 
 
-def capture_window(title_substring: str, restore_minimized: bool = True) -> dict:
-    """Capture one window by (case-insensitive) title substring.
+def capture_window(title_substring: str, restore_minimized: bool = True, disambiguate: bool = False) -> dict:
+    """Capture one window by title: an exact (case-insensitive) title wins, else a substring match.
+
+    With `disambiguate=True` (screenshot(window_title=)) several substring matches and no exact title is an
+    error listing `candidates` ({handle, title}) instead of capturing whichever is topmost.
 
     Order: PrintWindow (works while occluded) -> if it fails / times out / returns an all-black frame,
     bring the window forward and crop the virtual desktop (`occluded_possible` then flags that other
@@ -220,7 +248,16 @@ def capture_window(title_substring: str, restore_minimized: bool = True) -> dict
     from ai_computer_control.utils.image import (
         BLANK_FRAME_HINT, BLANK_FRAME_WARNING, grab_screen, is_blank_frame)
 
-    hwnd, matched = _find_hwnd(title_substring)
+    if disambiguate:
+        chosen, amb = _pick_window(title_substring, _enum_matches(title_substring))
+        if amb:
+            return {"ok": False, "ambiguous": True, "matched_count": len(amb),
+                    "candidates": [{"handle": int(h), "title": t} for h, t in amb[:10]],
+                    "error": f"{len(amb)} windows match '{title_substring}' and none has exactly that title",
+                    "hint": "Retry with the full exact title of one of the candidates."}
+        hwnd, matched = chosen if chosen else (None, None)
+    else:
+        hwnd, matched = _find_hwnd(title_substring)
     if not hwnd:
         return {"ok": False, "found": False, "error": f"no visible window matches '{title_substring}'"}
 

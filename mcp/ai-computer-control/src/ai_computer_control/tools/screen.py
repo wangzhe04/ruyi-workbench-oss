@@ -23,7 +23,7 @@ def screenshot(
 
     Args:
         region: Optional "x,y,width,height" (e.g. "100,200,800,600"); may lie on any monitor.
-        window_title: Capture this window (case-insensitive substring) via PrintWindow, so a covered window works;
+        window_title: Capture this window (exact title, else a unique substring; ambiguous -> candidates) via PrintWindow, so a covered window works;
             falls back to a screen crop ('occluded_possible': true) if it renders blank. Minimized -> error with a
             hint (window_screenshot auto-restores).
         max_width: If >0, downscale to this width; 0 = original. x_screen = origin.x + x_in_image / scale.
@@ -41,7 +41,7 @@ def screenshot(
         if window_title:
             from ai_computer_control.utils import wincap
 
-            cap = wincap.capture_window(window_title, restore_minimized=False)
+            cap = wincap.capture_window(window_title, restore_minimized=False, disambiguate=True)
             if not cap.get("ok"):
                 if cap.get("found") is False:
                     cap["error"] = f"Window not found: {window_title}"

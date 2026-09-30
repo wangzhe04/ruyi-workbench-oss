@@ -287,6 +287,51 @@ def test_uia_find_invoke():
             uia._ACTION_TIMEOUT_S = saved
         check("did not return" in r.get("error", "") and time.monotonic() - t0 < 0.5,
               "SetFocus is bounded by the action timeout instead of hanging")
+
+        # property reads AFTER the walk (ui_find matches / ui_invoke ranking, set_value read-back) are bounded too
+        tgt = Ctl(name="Slow", ctype="ButtonControl")
+        state = {"walked": False}
+        orig_find, orig_node = uia._find_controls, uia._node
+
+        def walked_find(*a, **k):
+            r = orig_find(*a, **k)
+            state["walked"] = True
+            return r
+
+        def stalling_node(c, **k):
+            if state["walked"]:
+                time.sleep(0.8)
+            return orig_node(c, **k)
+        uia._root = lambda t: tgt
+        uia._find_controls, uia._node = walked_find, stalling_node
+        uia._READ_TIMEOUT_S, saved_read = 0.15, uia._READ_TIMEOUT_S
+        try:
+            t0 = time.monotonic()
+            r = uia.ui_find(name="Slow")
+            check("timed out" in r.get("error", "") and time.monotonic() - t0 < 0.6,
+                  "ui_find bounds the post-walk property reads (returns a timeout error, not a hang)")
+            state["walked"] = False
+            amb = Ctl(name="root", ctype="WindowControl", children=[Ctl(name="Slow"), Ctl(name="Slow2")])
+            uia._root = lambda t: amb
+            t0 = time.monotonic()
+            r = uia.ui_invoke("focus", name="Slow")
+            check("timed out" in r.get("error", "") and time.monotonic() - t0 < 0.6,
+                  "ui_invoke bounds the post-walk ranking/describe reads")
+        finally:
+            uia._find_controls, uia._node, uia._READ_TIMEOUT_S = orig_find, orig_node, saved_read
+        e5 = Ctl(name="Box")
+        e5.legacy_readable = True
+        uia._root = lambda t: e5
+        orig_conf = uia._confirm_set_value
+        uia._confirm_set_value = lambda c, t: time.sleep(0.8) or {"confirmed": True}
+        uia._ACTION_TIMEOUT_S = 0.15
+        t0 = time.monotonic()
+        try:
+            r = uia.ui_invoke("set_value", name="Box", text="v")
+        finally:
+            uia._confirm_set_value, uia._ACTION_TIMEOUT_S = orig_conf, saved
+        check(r.get("success") is True and r.get("confirmed") is None and time.monotonic() - t0 < 0.6,
+              "a stalled set_value read-back degrades to confirmed:null instead of blocking")
     finally:
         _unpatch_uia(old)
 
@@ -370,6 +415,34 @@ def test_waits():
         check(r.get("found") is True and r.get("capped") is True, "wait_for_window clamps a huge timeout and says so")
     finally:
         desktop_extra._enum_windows, desktop_extra._window_rect = old_enum, old_rect
+
+    # wait_for_window_idle: zero-timeout polling that yields, clamped; maps the WaitForInputIdle results
+    check(asyncio.iscoroutinefunction(tools["wait_for_window_idle"].fn),
+          "wait_for_window_idle is async (it polls and yields instead of blocking in WaitForInputIdle)")
+    seq = {"res": [0x102, 0x102, 0x102, 0], "calls": [], "closed": []}
+
+    def fake_idle(h, ms):
+        seq["calls"].append(ms)
+        return seq["res"].pop(0) if len(seq["res"]) > 1 else seq["res"][0]
+    fake_u = types.SimpleNamespace(WaitForInputIdle=fake_idle)
+    fake_k = types.SimpleNamespace(OpenProcess=lambda *a: 99, CloseHandle=lambda h: seq["closed"].append(h))
+    old_uk = (desktop_extra._user32, desktop_extra._kernel32, desktop_extra._IDLE_POLL_S)
+    desktop_extra._user32, desktop_extra._kernel32, desktop_extra._IDLE_POLL_S = fake_u, fake_k, 0.01
+    try:
+        r = asyncio.run(desktop_extra.wait_for_window_idle(1234, timeout_ms=5000))
+        check(r.get("state") == "idle" and set(seq["calls"]) == {0} and seq["closed"] == [99],
+              "wait_for_window_idle polls with a zero timeout until idle, then closes the handle")
+        seq.update(res=[0x102], calls=[], closed=[])
+        r = asyncio.run(desktop_extra.wait_for_window_idle(1234, timeout_ms=60))
+        check(r.get("state") == "timeout" and len(seq["calls"]) >= 2, "wait_for_window_idle times out after polling")
+        seq.update(res=[0xFFFFFFFF], calls=[], closed=[])
+        r = asyncio.run(desktop_extra.wait_for_window_idle(1234, timeout_ms=60))
+        check(r.get("state") == "not_gui_process", "WAIT_FAILED -> not_gui_process")
+        seq.update(res=[0], calls=[], closed=[])
+        r = asyncio.run(desktop_extra.wait_for_window_idle(1234, timeout_ms=10**9))
+        check(r.get("state") == "idle" and r.get("capped") is True, "wait_for_window_idle clamps a huge timeout and says so")
+    finally:
+        desktop_extra._user32, desktop_extra._kernel32, desktop_extra._IDLE_POLL_S = old_uk
 
     # message_box: the join must not hold the loop
     def slow_box(hwnd, text, caption, style, lang, ms):
@@ -457,6 +530,37 @@ def test_act_and_verify():
     img = a._result_image("diff", base, changed)
     check(img.get("image") and img["width"] <= 640 and "diff_region" in img, "return_image=diff yields a small cropped image")
     check("image_note" in a._result_image("diff", base, base), "no diff region when nothing changed")
+
+    # a region running past the primary screen: pyautogui pads an unclipped region with black at FULL size,
+    # so polling the raw region compared different-sized frames and a STATIC screen read as "changed"
+    from PIL import Image as _Img
+    with tempfile.TemporaryDirectory() as d:
+        old = (a._grab, a._do_action, a._shots_dir, a._foreground_rect, a.time.sleep)
+        static = _Img.effect_noise((200, 100), 64).convert("RGB")
+        asked = []
+
+        def padded_grab(region=None):
+            if not region:
+                return static
+            asked.append(tuple(region))
+            x, y, w, h = region
+            out = _Img.new("RGB", (w, h), (0, 0, 0))   # what pyscreeze does off-screen
+            out.paste(static.crop((max(0, x), max(0, y), min(200, x + w), min(100, y + h))),
+                      (max(0, -x), max(0, -y)))
+            return out
+        a._grab = padded_grab
+        a._do_action = lambda act: {"ok": True}
+        a._shots_dir = lambda: d
+        a._foreground_rect = lambda: None
+        a.time.sleep = lambda s: None
+        try:
+            r = a.act_and_verify({"type": "key", "key": "x"}, region="150,50,200,100", settle_ms=100)
+            check(r.get("ok") and asked and all(b == (150, 50, 50, 50) for b in asked),
+                  f"the settle poll grabs exactly the clipped box before_roi came from (asked {set(asked)})")
+            check(r.get("changed_pixels") == 0 and r["waited_ms"] >= 150,
+                  f"a static screen is not read as changed early (waited {r.get('waited_ms')}ms)")
+        finally:
+            a._grab, a._do_action, a._shots_dir, a._foreground_rect, a.time.sleep = old
 
     # the tool end to end with faked grab / action: default writes NO files, no-change writes evidence
     with tempfile.TemporaryDirectory() as d:

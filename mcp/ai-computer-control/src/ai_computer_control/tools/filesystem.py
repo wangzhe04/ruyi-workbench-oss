@@ -7,6 +7,7 @@ import codecs
 import ctypes
 import unicodedata
 from ai_computer_control.server import mcp
+from ai_computer_control.tools.office_io import replace_with_retry as _replace_with_retry
 from ai_computer_control.tools.safety import protected_path_reason
 
 
@@ -51,7 +52,20 @@ def _looks_binary(raw: bytes) -> bool:
     return b"\x00" in raw[:8192]
 
 
-def _decode_text(raw: bytes, encoding: str | None) -> tuple[str, str, str | None]:
+def _trim_partial_utf8(b: bytes) -> bytes:
+    """Drop an incomplete UTF-8 sequence at the END of `b` (a byte-budget cut can land mid-character).
+    Complete data, or a tail that is not a truncated multi-byte character, is returned unchanged."""
+    n = len(b)
+    for k in range(1, min(4, n) + 1):
+        c = b[n - k]
+        if c & 0xC0 == 0x80:          # continuation byte: keep looking for its lead byte
+            continue
+        need = 1 if c < 0x80 else 2 if c >> 5 == 0b110 else 3 if c >> 4 == 0b1110 else 4 if c >> 3 == 0b11110 else 1
+        return b[:n - k] if need > k else b
+    return b
+
+
+def _decode_text(raw: bytes, encoding: str | None, truncated: bool = False) -> tuple[str, str, str | None]:
     """Decode bytes to text. Returns (content, encoding_used, fallback_from).
 
     Default/'auto'/'utf-8' sniffs a Unicode BOM first (UTF-8 BOM is stripped, UTF-16/32 decoded),
@@ -59,7 +73,8 @@ def _decode_text(raw: bytes, encoding: str | None) -> tuple[str, str, str | None
     (cp936 on zh-CN), and to gb18030 when that code page is unusable. Native Chinese apps
     (Notepad ANSI, legacy editors, exported configs) write GBK/cp936, and the old errors="replace"
     silently turned every multi-byte GBK char into U+FFFD mojibake. `fallback_from` is set when a
-    fallback was applied. Raises ValueError("binary") for NUL-bearing non-UTF-16 data.
+    fallback was applied. `truncated` = the bytes were cut at a byte budget: a dangling partial UTF-8
+    character is dropped before the strict attempt (it must not flip the WHOLE file to GBK). Raises ValueError("binary") for NUL-bearing non-UTF-16 data.
     """
     enc = (encoding or "utf-8").strip().lower() or "utf-8"
     if enc in ("auto", "utf-8", "utf8"):
@@ -74,7 +89,7 @@ def _decode_text(raw: bytes, encoding: str | None) -> tuple[str, str, str | None
         if _looks_binary(raw):
             raise ValueError("binary")
         try:
-            return raw.decode("utf-8"), "utf-8", None
+            return (_trim_partial_utf8(raw) if truncated else raw).decode("utf-8"), "utf-8", None
         except UnicodeDecodeError:
             for acp in (_system_acp(), "gb18030"):
                 try:
@@ -172,7 +187,7 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000,
         size = os.path.getsize(path)
         # Read max_bytes+1 raw bytes so truncation is detected from the read itself (a getsize
         # race or a grow-while-reading file can't fool a size comparison). Decode afterwards:
-        # a multi-byte char split at the cut boundary becomes U+FFFD via errors="replace".
+        # a multi-byte char split at the cut boundary is trimmed by _decode_text (truncated=True).
         limit = min(max(0, int(max_bytes)), 10_000_000)  # 10MB 硬顶:防 max_bytes 传超大值导致 OOM(下游 truncateToolResult 60KB 再截)
         with open(path, "rb") as f:
             raw = f.read(limit + 1)
@@ -180,7 +195,7 @@ def read_file(path: str, encoding: str = "utf-8", max_bytes: int = 1_000_000,
         if truncated:
             raw = raw[:limit]
         try:
-            content, enc_used, fallback_from = _decode_text(raw, encoding)
+            content, enc_used, fallback_from = _decode_text(raw, encoding, truncated)
         except ValueError:
             return {"error": "看起来是二进制文件(含 NUL 字节),不按文本读取。", "binary": True, "size": size,
                     "hint": "用 file_info 看类型;文档类用 read_document / pdf_read_pages / excel_read;"
@@ -239,7 +254,7 @@ def write_file(path: str, content: str, encoding: str = "utf-8", append: bool = 
                 try: os.unlink(tmp)
                 except Exception: pass
             else:
-                os.replace(tmp, path)
+                _replace_with_retry(tmp, path)
         except Exception:
             try: os.unlink(tmp)
             except Exception: pass

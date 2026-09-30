@@ -202,6 +202,9 @@ class _TextExtractor(HTMLParser):
         self.skip_depth = 0
         self.title = ""
         self._in_title = False
+        self._title_done = False
+        self._svg = 0
+        self._title_ignore = False    # inside a <title> that is not the page title (its text is dropped)
         self._pre = 0
         self.out: list[str] = []
         self._link: tuple[str, int] | None = None
@@ -215,8 +218,15 @@ class _TextExtractor(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         if tag == "title":
-            self._in_title = True
+            # only the page's own first <title> (it lives in the skipped <head>); an inline
+            # <svg><title>menu icon</title> is an accessible label, not the page title
+            if not self._svg and not self._title_done:
+                self._in_title = True
+            else:
+                self._title_ignore = True
             return
+        if tag == "svg":
+            self._svg += 1
         if tag == "body":
             self.skip_depth = 0  # sloppy pages may leave <head> unclosed; the body always shows
             return
@@ -257,8 +267,13 @@ class _TextExtractor(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == "title":
+            if self._in_title:
+                self._title_done = True
             self._in_title = False
+            self._title_ignore = False
             return
+        if tag == "svg" and self._svg:
+            self._svg -= 1
         if tag in self.skip:
             if self.skip_depth:
                 self.skip_depth -= 1
@@ -284,6 +299,8 @@ class _TextExtractor(HTMLParser):
         if self._in_title:
             self.title += data
             return
+        if self._title_ignore:
+            return
         if self.skip_depth:
             return
         if self._pre:
@@ -293,7 +310,8 @@ class _TextExtractor(HTMLParser):
 
     def text(self) -> str:
         t = "".join(self.out)
-        t = re.sub(r"[ \t]*\n[ \t]*", "\n", t)          # trim around newlines
+        # trim around newlines (linear: a regex with `[ \t]*\n` rescans a long space run from every start)
+        t = "\n".join(line.strip(" \t") for line in t.split("\n"))
         t = re.sub(r"[ \t]{2,}", " ", t)
         t = re.sub(r"(?m)^ ?\| ", "| ", t)
         t = re.sub(r"\n{3,}", "\n\n", t)
@@ -354,7 +372,7 @@ def fetch(url: str, max_bytes: int = _DEFAULT_MAX_BYTES, timeout: int = 15,
         if ferr:
             return {"error": ferr, "url": current}
         if status in (301, 302, 303, 307, 308):
-            loc = headers.get("Location") or headers.get("location")
+            loc = _header(headers, "location")
             if not loc:
                 return {"error": f"收到 {status} 重定向但无 Location 头。", "url": current}
             current = urllib.parse.urljoin(current, loc)

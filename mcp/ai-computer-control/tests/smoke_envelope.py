@@ -118,6 +118,36 @@ def envelope():
     }
     bad = [k for k, want in samples.items() if want.lower() not in (hint_for(k) or "").lower()]
     check(not bad, f"every hint class fires on a representative message (miss: {bad})")
+    # table-driven: (tool, error text) -> substring the hint must contain, or None for "no hint at all"
+    table = [
+        (None, "nth=5 out of range (0..2)", None),
+        (None, "page 9 out of range (1..3)", None),
+        (None, "Sheet index out of range", None),
+        (None, "tab index 3 out of range (0..1)", None),
+        (None, "x=99999 out of range for the screen", "get_screen_info"),
+        (None, "click target (9999,9999) is outside the virtual desktop (x 0..1919)", "get_screen_info"),
+        ("fetch", "fetch failed: Connection closed by remote host", None),
+        ("browser_click", "Connection closed while waiting", "browser_open"),
+        ("browser_click", "Target page, context or browser has been closed", "browser_open"),
+        ("ocr_text", "ocr recognize timed out (>45s); the language pack may be corrupt or the image too large.",
+         "timed out"),
+        ("read_document", "file contains 12 corrupt rows", None),
+        ("read_document", "zipfile.BadZipFile: File is not a zip file", "valid Office"),
+        ("read_document", "the workbook is corrupt", "valid Office"),
+        (None, "network is not available", None),
+        (None, "OCR language pack not available for 'ja'", None),
+        (None, "ModuleNotFoundError: No module named 'pptx'", "Retrying will not help"),
+    ]
+    wrong = []
+    for tool, text, want in table:
+        got = hint_for(text, tool)
+        if (want is None and got) or (want is not None and want.lower() not in (got or "").lower()):
+            wrong.append((tool, text[:40], (got or "-")[:30]))
+    check(not wrong, f"hint_for is anchored: no misleading hints on look-alike messages (wrong: {wrong})")
+    check("retrying will not help" not in (hint_for("service not available, try later") or "").lower(),
+          "a transient 'not available' never says retrying will not help")
+    r = server._normalize({"error": "fetch failed: Connection closed by remote host"}, "fetch")
+    check("hint" not in r, f"_normalize passes the tool name through to the hint table (got {r.get('hint')!r})")
     check(exc_text(TimeoutError()) == "TimeoutError" and exc_text(ValueError("x")) == "ValueError: x",
           "exc_text names the type and never yields an empty string")
 

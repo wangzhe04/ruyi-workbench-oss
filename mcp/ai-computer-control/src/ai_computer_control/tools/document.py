@@ -245,9 +245,17 @@ def _read_pptx(path: str) -> dict:
         return {"error": hint}
     prs = Presentation(path)
 
+    def _stype(sh):
+        # python-pptx raises NotImplementedError for an <p:sp> it cannot classify (no prstGeom/custGeom,
+        # not a txBox: seen in decks from some exporters); such a shape must not fail the whole deck.
+        try:
+            return sh.shape_type
+        except Exception:
+            return None
+
     def _shape_lines(shapes, out):
         for sh in sorted(shapes, key=lambda x: ((getattr(x, "top", 0) or 0), (getattr(x, "left", 0) or 0))):
-            if sh.shape_type == 6 and hasattr(sh, "shapes"):  # GROUP
+            if _stype(sh) == 6 and hasattr(sh, "shapes"):  # GROUP
                 _shape_lines(sh.shapes, out)
                 continue
             if getattr(sh, "has_table", False) and sh.has_table:
@@ -264,7 +272,7 @@ def _read_pptx(path: str) -> dict:
                     t = "".join(r.text for r in para.runs).strip() or para.text.strip()
                     if t:
                         out.append(("  " * (para.level or 0) + "- " + t) if (para.level or 0) > 0 else t)
-            elif sh.shape_type == 13:  # PICTURE
+            elif _stype(sh) == 13:  # PICTURE
                 out.append("[图片]")
 
     parts = []
@@ -1140,21 +1148,37 @@ def write_document(
         return office_io.io_failure(e, path)
 
 
+_NUM_SYNTAX = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
+_THOUSANDS_SYNTAX = re.compile(r"[+-]?[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?")
+
+
+def _numeric_text(value):
+    """float for a numeric-looking string (optional thousands commas / % / ¥ / $), else None.
+
+    Strict on purpose: commas only as real thousands groups ('3,14' and '1,2,3' stay text), no underscores
+    ('2024_01'), and never inf / nan / overflow ('inf', 'Infinity', '1e999' stay text)."""
+    s = value.strip().replace("%", "").replace("¥", "").replace("$", "").strip()
+    if "," in s:
+        if not _THOUSANDS_SYNTAX.fullmatch(s):
+            return None
+        s = s.replace(",", "")
+    if not _NUM_SYNTAX.fullmatch(s):
+        return None
+    try:
+        f = float(s)
+    except ValueError:
+        return None
+    return f if math.isfinite(f) else None
+
+
 def _looks_numeric(value) -> bool:
     """True if `value` (possibly a numeric string) should be treated as a number for formatting."""
     if isinstance(value, bool) or value is None:
         return False
     if isinstance(value, (int, float)):
-        return True
+        return not (isinstance(value, float) and not math.isfinite(value))
     if isinstance(value, str):
-        s = value.strip().replace(",", "").replace("%", "").replace("¥", "").replace("$", "").strip()
-        if s in ("", "-", "."):
-            return False
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False
+        return _numeric_text(value) is not None
     return False
 
 
@@ -1167,16 +1191,12 @@ def _numeric_value(value):
         # Identifiers and high precision integers must survive an Excel round trip unchanged.
         if re.fullmatch(r"[+-]?0\d+", raw) or re.fullmatch(r"[+-]?\d{16,}", raw):
             return value
-        s = raw.replace(",", "").replace("%", "").replace("¥", "").replace("$", "").strip()
-        try:
-            f = float(s)
-            if not math.isfinite(f):
-                return value
-            if raw.endswith('%'):
-                return f / 100
-            return int(f) if f == int(f) else f
-        except ValueError:
+        f = _numeric_text(raw)
+        if f is None:
             return value
+        if raw.endswith('%'):
+            return f / 100
+        return int(f) if f == int(f) and abs(f) < 1e15 else f
     return value
 
 
@@ -1247,11 +1267,20 @@ def _column_number_format(header, sample_values) -> str | None:
     if numeric and len(numeric) >= max(1, len(sample_values) // 2):
         try:
             nums = [float(_numeric_value(v)) for v in numeric]
+            nums = [x for x in nums if math.isfinite(x)]
             if any(abs(x) > 999 for x in nums):
                 return "#,##0.00" if any(x != int(x) for x in nums) else "#,##0"
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             pass
     return None
+
+
+_FORMULA_START = re.compile(r"=[A-Za-z0-9_(\-+@'$.]")
+
+
+def _looks_like_formula(text: str) -> bool:
+    """A leading '=' string that can be a real formula (=SUM(..), =1+2, =A1*2); '=== 汇总 ===' or '= 说明' cannot."""
+    return bool(_FORMULA_START.match(text)) and not text.startswith("==")
 
 
 _XLSX_BAD_SHEET_CHARS = set('[]:*?/\\')
@@ -1344,7 +1373,11 @@ def write_excel(
         start_row = 1
         if headers:
             for col, header in enumerate(headers, 1):
+                if isinstance(header, str):
+                    header = _XML_BAD_CHARS.sub("", header)
                 c = ws.cell(row=1, column=col, value=header)
+                if isinstance(header, str) and header.startswith("=") and not _looks_like_formula(header):
+                    c.data_type = "s"
                 c.font = header_font
                 if header_border is not None:
                     c.border = header_border
@@ -1355,11 +1388,17 @@ def write_excel(
             for col_idx, value in enumerate(row_data, 1):
                 if value is None:
                     continue
-                if col_idx in ident_cols and isinstance(value, str) and re.fullmatch(r"\s*[+-]?\d{12,}\s*", value):
+                if isinstance(value, str):
+                    value = _XML_BAD_CHARS.sub("", value)    # ESC/BEL from pasted console output must not abort the sheet
+                if isinstance(value, float) and not math.isfinite(value):
+                    coerced = str(value)                      # inf / nan have no xlsx representation: keep as text
+                elif col_idx in ident_cols and isinstance(value, str) and re.fullmatch(r"\s*[+-]?\d{12,}\s*", value):
                     coerced = value.strip()      # 12+ 位标识串(证件/卡号):数字化会显示成科学计数法,保留文本
                 else:
                     coerced = _numeric_value(value)
                 c = ws.cell(row=row_idx, column=col_idx, value=coerced)
+                if isinstance(coerced, str) and coerced.startswith("=") and not _looks_like_formula(coerced):
+                    c.data_type = "s"            # "=== 汇总 ===" is a label, not a formula (Excel would offer a repair)
                 c.font = base_font
                 if isinstance(value, str) and value.strip().endswith('%') and isinstance(c.value, (int, float)):
                     c.number_format = '0.0%'

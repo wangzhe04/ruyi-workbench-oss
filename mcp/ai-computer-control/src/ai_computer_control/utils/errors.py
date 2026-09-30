@@ -37,8 +37,10 @@ def fail(e: BaseException | str, hint: str | None = None, **extra) -> dict:
 # ---------------------------------------------------------------------------------------------------
 import re as _re
 
-_HINTS: tuple[tuple["_re.Pattern[str]", str], ...] = tuple(
-    (_re.compile(rx, _re.I), hint) for rx, hint in (
+# Entry = (regex, hint) or (regex, hint, tool_prefix): the 3-tuple form only fires for tools whose name starts
+# with that prefix (a bare "connection closed" from `fetch` is a network error, not a closed browser page).
+_HINTS: tuple[tuple, ...] = tuple(
+    (_re.compile(e[0], _re.I), *e[1:]) for e in (
         (r"window not found|no window (?:found|matching)|invalid window handle",
          "Call list_windows() for the exact titles/hwnds (titles change); use wait_for_window(title) if the "
          "app was just launched."),
@@ -54,7 +56,9 @@ _HINTS: tuple[tuple["_re.Pattern[str]", str], ...] = tuple(
         (r"permissionerror|access is denied|permission denied|winerror 5\b|operation not permitted",
          "Access denied: the path/process is protected, read-only or needs elevation. Check "
          "diagnostics().is_admin, pick another location, or close the program holding it."),
-        (r"no module named|modulenotfounderror|importerror|dll load failed|not installed|not available",
+        # Only hard "it is not there" phrasings; a bare "not available" is usually transient (network, a busy
+        # OCR engine), so it gets no hint and never the give-up sentence.
+        (r"no module named|modulenotfounderror|importerror|dll load failed|not installed",
          "An optional dependency is missing or failed to load; call diagnostics() (optional / load_errors) to "
          "see what is available. Retrying will not help."),
         (r"filenotfounderror|no such file|file not found|文件不存在|源文件不存在|cannot find the (?:file|path)",
@@ -65,16 +69,25 @@ _HINTS: tuple[tuple["_re.Pattern[str]", str], ...] = tuple(
          "The directory does not exist or is a file; check it with file_info / list_directory."),
         (r"unicodedecodeerror|codec can't decode|解码失败",
          "The file is not in that encoding; pass encoding='gbk' / 'utf-8-sig', or treat it as binary."),
-        (r"badzipfile|not a zip file|zipfile|corrupt|损坏|非 xlsx",
-         "The file is not a valid Office document (corrupt, renamed, or partially written); check it with "
-         "file_info and re-create it."),
-        (r"target (?:page|closed)|browser has been closed|context or browser has been closed|"
-         r"connection closed|has been closed",
-         "The browser/page was closed; call browser_open to start a fresh session."),
+        # Timeouts come BEFORE the Office-corruption pattern: "ocr recognize timed out; the language pack may
+        # be corrupt" is a timeout, not a broken document.
         (r"timed? ?out|timeouterror",
          "The operation timed out. Check the current state with screenshot/observe, then retry once with a "
          "narrower scope or a longer timeout."),
-        (r"out of range|outside (?:the )?screen|off-?screen|coordinates?.*(?:invalid|bounds)",
+        (r"badzipfile|not a zip file|zipfile|损坏|非 xlsx|"
+         r"\bcorrupt(?:ed)?\s+(?:file|document|workbook|archive|zip|xlsx|docx|pptx)\b|"
+         r"\b(?:file|document|workbook|archive|zip|xlsx|docx|pptx)\s+(?:is |may be |appears |seems )?corrupt",
+         "The file is not a valid Office document (corrupt, renamed, or partially written); check it with "
+         "file_info and re-create it."),
+        (r"target (?:page|closed)|browser has been closed|context or browser has been closed",
+         "The browser/page was closed; call browser_open to start a fresh session."),
+        (r"connection closed|has been closed",
+         "The browser/page was closed; call browser_open to start a fresh session.", "browser_"),
+        # Screen-bounds hint only for errors that are about screen coordinates; "nth=5 out of range",
+        # "page 9 out of range", "Sheet index out of range" are index errors and get no screen hint.
+        (r"(?:coordinates?|pixels?|\bx\b|\by\b|x=|y=|screen|monitor|display|desktop|position|point)\b[^\n]{0,30}"
+         r"out of range|out of range[^\n]{0,30}\b(?:screen|monitor|display|desktop)\b|"
+         r"outside (?:the )?(?:screen|virtual desktop)|off-?screen|coordinates?.*(?:invalid|bounds)",
          "Call get_screen_info() for the screen bounds and re-target inside them."),
         (r"no space left|disk full|winerror 112",
          "The disk is full; free space or write to another drive."),
@@ -82,11 +95,15 @@ _HINTS: tuple[tuple["_re.Pattern[str]", str], ...] = tuple(
 )
 
 
-def hint_for(error_text: str) -> str | None:
-    """First matching next-step hint for an error message, or None."""
+def hint_for(error_text: str, tool: str | None = None) -> str | None:
+    """First matching next-step hint for an error message, or None. `tool` is the failing tool's name
+    (enables tool-scoped patterns such as the browser-closed hint)."""
     if not error_text:
         return None
-    for rx, hint in _HINTS:
-        if rx.search(error_text):
-            return hint
+    tool = tool or ""
+    for entry in _HINTS:
+        if len(entry) > 2 and not tool.startswith(entry[2]):
+            continue
+        if entry[0].search(error_text):
+            return entry[1]
     return None

@@ -27,8 +27,8 @@ _TAB = 4
 _HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 _BULLET = re.compile(r"^([-*+])\s+(.*)$")
 _NUMBER = re.compile(r"^(\d+)[.)]\s+(.*)$")
-_RULE = re.compile(r"^(?:-{3,}|\*{3,}|_{3,})$")
-_FENCE = re.compile(r"^(```|~~~)")
+_RULE = re.compile(r"^(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$")   # ---, - - -, ***, * * *
+_FENCE = re.compile(r"^(`{3,}|~{3,})")
 _GFM_SEP_CELL = re.compile(r"^:?-+:?$")
 
 
@@ -113,7 +113,7 @@ def parse_blocks(content: str) -> list:
 
         # fenced code block --------------------------------------------------
         if _FENCE.match(stripped):
-            fence = stripped[:3]
+            fence = _FENCE.match(stripped).group(1)   # 4+ backticks fence blocks that contain ``` lines
             body = []
             i += 1
             while i < n and not lines[i].strip().startswith(fence):
@@ -232,11 +232,11 @@ def parse_blocks(content: str) -> list:
 # ---------------------------------------------------------------------------------------------
 _INLINE = re.compile(
     r"(?P<esc>\\[\\`*_{}\[\]()#+\-.!|>~])"
-    r"|(?P<tick>`+)(?P<codetext>.+?)(?P=tick)"
+    r"|(?<!`)(?P<tick>`+)(?!`)(?P<codetext>.+?)(?<!`)(?P=tick)(?!`)"
     r"|\[(?P<ltext>[^\]\n]+)\]\((?P<lurl>[^)\s]+)(?:\s+\"[^\"]*\")?\)"
     r"|\*\*\*(?P<bi>[^\s*](?:[^*]*?[^\s*])?)\*\*\*"
-    r"|\*\*(?P<b1>[^\s*](?:.*?[^\s*])?)\*\*"
-    r"|(?<![\w])__(?P<b2>[^\s_](?:.*?[^\s_])?)__(?![\w])"
+    r"|\*\*(?P<b1>[^\s*](?:.*?[^\s*])??)\*\*"
+    r"|(?<![\w])__(?P<b2>[^\s_](?:.*?[^\s_])??)__(?![\w])"
     r"|\*(?P<i1>[^\s*](?:[^*]*?[^\s*])?)\*"
     r"|(?<![\w])_(?P<i2>[^\s_](?:[^_]*?[^\s_])?)_(?![\w])"
 )

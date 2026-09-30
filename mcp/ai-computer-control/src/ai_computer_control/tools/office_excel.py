@@ -221,7 +221,7 @@ def excel_beautify(
         os.close(fd)
         try:
             wb.save(tmp)
-            os.replace(tmp, path)
+            office_io.replace_with_retry(tmp, path)
         except Exception:
             try:
                 os.unlink(tmp)
@@ -562,7 +562,7 @@ def excel_chart(
         os.close(fd)
         try:
             wb.save(tmp)
-            os.replace(tmp, path)
+            office_io.replace_with_retry(tmp, path)
         except Exception:
             try:
                 os.unlink(tmp)
