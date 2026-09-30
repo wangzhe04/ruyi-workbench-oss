@@ -1170,6 +1170,23 @@ const GIT_DIFF_MAX_CHARS = 40000;
 const GIT_DIFF_STAT_MAX_CHARS = 6000;
 const GIT_DIFF_MAX_BUFFER = 8 * 1024 * 1024; // diff 只需要开头一段;超出就停,不再把几十 MB 读进内存(整体 maxBuffer 24MB 会让超大 diff 直接失败)
 const GIT_UNTRACKED_LIST_MAX = 50;
+// 只保留开头、使序列化(JSON 转义后:换行/引号会变长)长度不超过 budget,尽量收在整行边界。返回 { text }。
+// (不复用 04 DesktopShell 的同类函数:11 引用 04 会在依赖图里新增一条循环边。)
+function gitHeadToJsonBudget(text, budget) {
+  const s = String(text == null ? '' : text);
+  const len = x => JSON.stringify(x).length;
+  if (len(s) <= budget) return { text: s };
+  let n = Math.min(s.length, budget);
+  let cut = s.slice(0, n);
+  for (let i = 0; i < 8 && len(cut) > budget; i += 1) {
+    n = Math.max(1, Math.floor(n * (budget / len(cut)) * 0.95));
+    cut = s.slice(0, n);
+  }
+  const nl = cut.lastIndexOf('\n');
+  if (nl >= cut.length * 0.5) cut = cut.slice(0, nl + 1);
+  else if (/[\ud800-\udbff]/.test(cut[cut.length - 1] || '')) cut = cut.slice(0, -1);
+  return { text: cut };
+}
 // v1.0 收官安全加固(对抗复核 CONFIRMED·CRITICAL):git 会执行由被操作仓库自带 `.git/config` 指定的
 // 外部程序 —— `core.fsmonitor`(status/diff 读 index 时执行)、`diff.external` / textconv(diff 时执行)。
 // git_status/git_diff 是 read 档、所有权限模式恒放行零弹窗,若不覆盖这些键,「看一眼陌生仓库的 git 状态」
@@ -1339,7 +1356,7 @@ async function gitDiff(args = {}) {
   if (rawPath) gitArgs.push('--', rawPath);
   // diff 按原始字节取、再按行判 UTF-8/GBK(GBK 源文件的 diff 不再变成 U+FFFD);maxBuffer 8MB —— 撞上限不算失败,按「太大」处理。
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
-  const asText = b => (Buffer.isBuffer(b) ? DesktopShell.decodeBestEffort(b) : String(b || ''));
+  const asText = b => (Buffer.isBuffer(b) ? decodeConsoleText(b) : String(b || ''));
   const overflow = !res.ok && res.error && res.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
   if (!res.ok && !overflow) return gitHumanError({ ...res, stdout: asText(res.stdout), stderr: asText(res.stderr) }, cwd);
   const full = asText(res.stdout);
@@ -1348,14 +1365,14 @@ async function gitDiff(args = {}) {
   let stat = '';
   if (overflow || JSON.stringify(full).length > GIT_DIFF_MAX_CHARS) {
     truncated = true;
-    const cut = DesktopShell.headTextToJsonBudget(full, GIT_DIFF_MAX_CHARS);
+    const cut = gitHeadToJsonBudget(full, GIT_DIFF_MAX_CHARS);
     const total = overflow ? `超过 ${Math.round(GIT_DIFF_MAX_BUFFER / 1024 / 1024)}MB` : `${full.length} 字符`;
     diff = cut.text + `\n\n[已截断:diff 共 ${total},只显示前 ${cut.text.length} 字符。文件清单见 stat;用 path 参数只看单个文件,或减小 contextLines。]`;
     const statArgs = [...baseArgs, '--stat=120,60', '--stat-count=60'];
     if (staged) statArgs.push('--cached');
     if (rawPath) statArgs.push('--', rawPath);
     const st = await runGit(statArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
-    if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) stat = DesktopShell.headTextToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
+    if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) stat = gitHeadToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
   }
   const out = { ok: true, cwd, staged, path: rawPath || undefined, truncated };
   // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
@@ -1488,9 +1505,9 @@ async function codeReviewScan(root, opts = {}) {
     // NE-14:修前 `\bexec\s*\(` 把每一处 `regex.exec(` 都当成 shell 执行(本仓 app/src 60 处命中 51 处是正则),sql-concat 不带词界又开了 i,
     // 命中的全是 querySelector/.delete(/Update 散文。收紧:裸调用要求前面不是 `.`/字母(排除 re.exec、fooexec),对象方法只认
     // child_process/cp 这类子进程对象;SQL 要求出现在字符串字面量里、有 SELECT…FROM / INSERT INTO / UPDATE…SET / DELETE FROM 的形状且拼接了变量。
-    { id: 'shell-exec', severity: 'medium', re: /(?<![.\w$])(?<!\bfunction\s+)(?:execSync|exec|shell_exec|system)\s*\(|\bInvoke-Expression\b|\bIEX\s|\b(?:child_process|childProcess|cp)\.(?:exec|execSync)\s*\(|\bos\.system\s*\(|\bshell\s*[:=]\s*(?:true|True)\b/, hint: 'Shell execution needs input validation' },
-    { id: 'sql-concat', severity: 'medium', re: /(['"`])\s*(?:SELECT\s[^'"`]{1,200}?\sFROM\s|INSERT\s+INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s)[^'"`]*(?:\$\{|\1\s*\+)/i, hint: 'Possible SQL string interpolation' },
-    { id: 'xss-html', severity: 'medium', re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
+    { id: 'shell-exec', severity: 'medium', codeOnly: true, re: /(?<![.\w$])(?<!\bfunction\s+)(?:execSync|exec|shell_exec|system)\(|\bInvoke-Expression\b|\bIEX\s|\b(?:child_process|childProcess|cp)\.(?:exec|execSync)\s*\(|\brequire\(\s*['"](?:node:)?child_process['"]\s*\)\.(?:exec|execSync)\s*\(|\bos\.system\s*\(|\bshell\s*[:=]\s*(?:true|True)\b/, hint: 'Shell execution needs input validation' },
+    { id: 'sql-concat', severity: 'medium', codeOnly: true, re: /(['"`])\s*(?:SELECT\s[^'"`]{1,200}?\sFROM\s|INSERT\s+INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s)[^'"`]*(?:\$\{|\1\s*\+)/i, hint: 'Possible SQL string interpolation' },
+    { id: 'xss-html', severity: 'medium', codeOnly: true, re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
     { id: 'broad-cors', severity: 'medium', re: /(Access-Control-Allow-Origin.{0,40}\*|cors\(\s*\))/i, hint: 'Review CORS policy' },
     { id: 'disabled-tls', severity: 'high', re: /(NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0|rejectUnauthorized\s*:\s*false)/i, hint: 'TLS verification disabled' },
     { id: 'todo-marker', severity: 'low', re: /\b(TODO|FIXME|HACK|XXX)\b/i, hint: 'Unresolved engineering note' },
@@ -1504,7 +1521,10 @@ async function codeReviewScan(root, opts = {}) {
     const lines = raw.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
       if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(lines[i])) continue;
+      // codeOnly 规则不看纯注释行(//、/*、*、#、<!--):注释里提到 exec( / innerHTML 不是风险点(hardcoded-secret 与 todo-marker 照旧全行扫)。
+      const commentLine = /^\s*(?:\/\/|\/\*|\*|#|<!--)/.test(lines[i]);
       for (const ptn of patterns) {
+        if (ptn.codeOnly && commentLine) continue;
         if (ptn.re.test(lines[i])) {
           findings.push({
             id: ptn.id,

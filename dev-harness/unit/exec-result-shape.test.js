@@ -164,6 +164,8 @@ test('[S8] PowerShell 一次性运行:-NonInteractive,脚本头静音进度条(p
   // param()/using 开头的脚本不能被前置语句破坏
   const r2 = await srv.toolCall('script_run', { language: 'powershell', code: 'param($x)\nWrite-Output $x', cwd: ws }, ctx());
   assert.doesNotMatch(JSON.parse(r2.stdout).script, /ProgressPreference/);
+  const r3 = await srv.toolCall('script_run', { language: 'powershell', code: '<#\n.SYNOPSIS\n help\n#>\n[CmdletBinding()]\nparam($x)\nWrite-Output $x', cwd: ws }, ctx());
+  assert.doesNotMatch(JSON.parse(r3.stdout).script, /ProgressPreference/, '帮助注释在前、param 在后也不能前置语句');
 });
 
 async function startJob(mode, shellId) {

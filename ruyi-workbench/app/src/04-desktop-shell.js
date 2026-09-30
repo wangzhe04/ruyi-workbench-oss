@@ -83,18 +83,6 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     const omitted = Math.max(0, s.length - h.length - t.length);
     return { text: h + omitMarker(omitted) + t, omitted };
   }
-  // 只保留开头、使序列化(JSON 转义后)长度不超过 budget。返回 { text, omitted }。
-  function headTextToJsonBudget(text, budget) {
-    const s = String(text == null ? '' : text);
-    if (JSON.stringify(s).length <= budget) return { text: s, omitted: 0 };
-    let n = Math.min(s.length, budget);
-    let cut = cutHead(s, n);
-    for (let i = 0; i < 8 && JSON.stringify(cut).length > budget; i += 1) {
-      n = Math.max(1, Math.floor(n * (budget / JSON.stringify(cut).length) * 0.95));
-      cut = cutHead(s, n);
-    }
-    return { text: cut, omitted: s.length - cut.length };
-  }
   // src: { full } —— 整段都在;或 { head, tail, gapBytes } —— 滚动缓冲丢过旧块,开头/末尾各一段,中间 gapBytes 字节没了。
   function shapeOneStream(src, headN, tailN) {
     if (src.full !== undefined) {
@@ -155,8 +143,6 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
         stdio: options.stdin === 'pipe' ? 'pipe' : ['ignore', 'pipe', 'pipe'],
         ...s.opts,
       });
-      // 审计 P2: 单次结算门 —— close/error/exit 宽限/超时兜底四条路径共用,防重复 resolve。
-      let settled = false;
       let killGraceTimer = null;
       let exitTimer = null;
       let exitAt = 0;
@@ -210,6 +196,8 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
         payload.elapsedMs = Date.now() - start;
         return payload;
       };
+      // 审计 P2: 单次结算门 —— close/error/exit 宽限/超时兜底四条路径共用,防重复 resolve。
+      let settled = false;
       const finish = payload => {
         if (settled) return;
         settled = true;
@@ -279,10 +267,11 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 临时 .ps1 + `-File`:BOM 让 PS 无视控制台代码页、权威按 UTF-8 读脚本,中文 100% 正确进入。输出侧的 GBK
   // 乱码由 runProcess 的 decodeBestEffort 兜底(先 UTF-8、有替换符退 GBK)。两侧合起来彻底解决中文乱码。
   // NE-15:Windows PowerShell 5.1 在有进度条时 Invoke-WebRequest / Expand-Archive 慢一个数量级,无头运行又没人看进度 —— 脚本头静音。
-  // 写在【第一行同一行】不加换行(报错行号不漂);脚本以 param()/using/#requires/[CmdletBinding] 开头时它们必须是第一条语句,不加。
+  // 写在【第一行同一行】不加换行(报错行号不漂);脚本里有 param()/using/#requires/[CmdletBinding] 时它们必须是第一条语句,不加。
   function withQuietProgress(command) {
     const text = String(command == null ? '' : command);
-    if (/^\s*(?:param\s*\(|using\s|#requires|\[CmdletBinding)/i.test(text)) return text;
+    // 「第一条语句」前面可能有 <# 帮助注释 #>,所以不只看开头:任何行首出现 param( / [CmdletBinding / using / #requires 都不动脚本(宁可不静音也不破坏脚本)。
+    if (/^\s*(?:param\s*\(|using\s|#requires|\[CmdletBinding)/im.test(text)) return text;
     return "$ProgressPreference='SilentlyContinue'; " + text;
   }
   // opts.shape:powershell_run 用 —— 结果按 runProcess 的整形模式(头+尾、键序、error/hint)返回;桌面截图等内部调用方要完整 stdout,不传。
@@ -453,5 +442,5 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     if (m && m[1].trim()) return { ok: true, path: path.resolve(m[1].trim()) };
     return { ok: true, cancelled: true };
   }
-  return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, withQuietProgress, normalizeExecTimeout, headTailText, headTextToJsonBudget, condenseTerminalText, revealInExplorer, pickFolder, pickFile });
+  return Object.freeze({ decodeBestEffort, runProcess, runPowerShell, withQuietProgress, revealInExplorer, pickFolder, pickFile });
 })(fs, fsp, path, os, cp, killChildTree, batchSafeSpawn, spawnDetachedChecked, decodeConsoleText);
