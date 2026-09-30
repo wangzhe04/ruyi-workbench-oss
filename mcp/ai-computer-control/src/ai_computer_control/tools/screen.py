@@ -16,33 +16,26 @@ def screenshot(
     quality: int = 80,
     monitor: str | None = None,
 ) -> dict:
-    """Take a screenshot of the primary screen, a specific region, a monitor, or a specific window.
+    """Take a screenshot of the primary screen, a region, a monitor, or a specific window.
 
-    Coordinates are VIRTUAL-SCREEN coordinates (the same space clicks, UIA and OCR use; a monitor
-    left of / above the primary has negative x/y). A region outside the virtual desktop returns an
-    error instead of a black image; a partly-outside one is clipped ('clipped': true).
+    Coordinates are VIRTUAL-SCREEN coordinates (as for clicks, UIA, OCR; monitors left of / above the primary are
+    negative). A region wholly outside the desktop is an error; partly outside is clipped ('clipped': true).
 
     Args:
-        region: Optional region as "x,y,width,height" (e.g. "100,200,800,600"); may lie on any monitor.
-        window_title: Optional window title (case-insensitive substring, like the other window tools)
-            to capture that window. Uses PrintWindow so a covered window is still captured, falls back to
-            a screen crop ('occluded_possible': true) if the window renders blank. A minimized window
-            returns an error with a hint to restore it (use window_screenshot to auto-restore).
-        max_width: If >0, proportionally downscale the returned image to this pixel width to save
-            tokens; 0 = original size. The returned 'scale' (<1.0 when downscaled) and 'origin' map a
-            point in the returned image back to screen pixels:
-            x_screen = origin.x + x_in_image / scale (origin is {x:0,y:0} for a full primary capture).
-        format: 'png' (lossless, default) or 'jpeg' (smaller; uses 'quality'). The result's 'format' key
-            says which one the returned bytes actually are.
+        region: Optional "x,y,width,height" (e.g. "100,200,800,600"); may lie on any monitor.
+        window_title: Capture this window (case-insensitive substring) via PrintWindow, so a covered window works;
+            falls back to a screen crop ('occluded_possible': true) if it renders blank. Minimized -> error with a
+            hint (window_screenshot auto-restores).
+        max_width: If >0, downscale to this width; 0 = original. x_screen = origin.x + x_in_image / scale.
+        format: 'png' (default) or 'jpeg' (smaller; uses 'quality').
         quality: JPEG quality 1-100 (ignored for PNG).
-        monitor: Optional 'all' (whole virtual desktop, all monitors) or a monitor index from
-            list_monitors. Default (omitted) captures the primary monitor only. Ignored when region or
-            window_title is given.
+        monitor: 'all' (whole virtual desktop) or an index from list_monitors. Default: primary only. Ignored when
+            region or window_title is given.
 
     Returns:
-        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format', 'origin' {x,y}; for a
-        window also 'matched_title' and 'method'. 'blank': true + 'warning'/'hint' when the frame is
-        completely black (do not trust it as "the screen is empty").
+        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format', 'origin' {x,y}; for a window also
+        'matched_title' and 'method'. 'blank': true + 'warning'/'hint' = completely black frame (do not trust it as
+        "the screen is empty").
     """
     try:
         if window_title:
@@ -78,21 +71,21 @@ def screenshot(
 @mcp.tool()
 def screenshot_region(x: int, y: int, width: int, height: int,
                       max_width: int = 1280, format: str = "png", quality: int = 80) -> dict:
-    """Take a screenshot of a specific rectangular region (virtual-screen coordinates, any monitor).
+    """Take a screenshot of a rectangular region (virtual-screen coordinates, any monitor).
 
     Args:
         x: Left coordinate (negative on a monitor left of the primary).
         y: Top coordinate.
-        width: Width of the region.
-        height: Height of the region.
-        max_width: If >0, proportionally downscale the returned image to this width (0 = original).
-            Map image points back with x_screen = origin.x + x_in_image / scale.
+        width: Region width.
+        height: Region height.
+        max_width: If >0, downscale to this width (0 = original). Map an image point to screen:
+            x_screen = origin.x + x_in_image / scale.
         format: 'png' (default) or 'jpeg'.
         quality: JPEG quality 1-100 (ignored for PNG).
 
     Returns:
-        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format', 'origin' {x,y}
-        (+ 'clipped' / 'blank' + 'warning' when applicable). A region outside the virtual desktop is an error.
+        dict with 'ok', 'image' (base64), 'width', 'height', 'scale', 'format', 'origin' {x,y} (+ 'clipped' /
+        'blank' + 'warning'). A region wholly outside the virtual desktop is an error.
     """
     try:
         if width <= 0 or height <= 0:

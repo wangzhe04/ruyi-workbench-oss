@@ -211,15 +211,13 @@ def vision_click(template_path: str | None = None, template_b64: str | None = No
         template_b64: Base64-encoded template image (alternative to template_path).
         threshold: Match confidence threshold (0.0-1.0; clamped to [0.05, 1.0]).
         click: If True (default), click the match center.
-        multiscale: Try several scales (0.5x-2x, covering 100-200% DPI ratios) for robustness to
-            DPI/zoom differences; stops early once a scale matches >= 0.97.
-        region: Optional "x,y,width,height" in virtual-screen coordinates. Without it only the PRIMARY
-            monitor is searched; pass a region to search another monitor (also much faster).
+        multiscale: Try scales 0.5x-2x (100-200% DPI robustness); stops early at a >= 0.97 match.
+        region: Optional "x,y,width,height" in virtual-screen coords. Default: PRIMARY monitor only; pass a region
+            to search another monitor (also much faster).
 
     Returns:
-        dict with ok, found, and on success center:{x,y} (screen coordinates), confidence, rect (+ clicked
-        if click). On a miss: found false + best_confidence / best_scale (how close the closest candidate
-        was) + hint.
+        dict with ok, found, and on success center:{x,y} (screen coords), confidence, rect (+ clicked). On a miss:
+        found false + best_confidence / best_scale + hint.
     """
     if not _AVAILABLE:
         return _unavailable()

@@ -41,26 +41,22 @@ def read_document(path: str, max_chars: int = _READ_DEFAULT_CHARS, offset: int =
     """Read the text content of a document file (Word .docx, PowerPoint .pptx, Excel .xlsx, PDF .pdf).
 
     何时用: 只想快速拿走一个小文档的全部文字(一页纸的 docx、几页的 pdf、一份 pptx 的文字与备注)。
-    何时别用(v1.9 收敛, 03 Phase B):
-      * .pdf → 请改用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限 + 总预算续读);本分支【已弃用】,
-        无分页上限会整本抽取,50 页 PDF 直接爆上下文。
-      * .xlsx → 请改用 excel_read(结构化二维 data + 表头 + 公式/数字格式);本分支【已弃用】,
-        静默截 500 行且把结构拍平成文本。
-      * .docx / .pptx 分支是本工具的主用途(无 successor)。
-      * .csv/.txt/.md 等纯文本请用 read_file;老 .doc/.xls/.ppt 请先另存为新版格式。
+    何时别用:
+      * .pdf -> 用 pdf_read_pages(分页点读 + 大纲 + 每页字符上限 + 总预算续读);本分支【已弃用】,无分页上限会
+        整本抽取,50 页 PDF 直接爆上下文。
+      * .xlsx -> 用 excel_read(结构化二维 data + 表头 + 公式/数字格式);本分支【已弃用】,静默截 500 行且拍平成文本。
+      * .docx / .pptx 是本工具的主用途。.csv/.txt/.md 等纯文本用 read_file;老 .doc/.xls/.ppt 先另存为新版格式。
 
     Args:
         path: Path to the document file.
-        max_chars: 单次返回的字符上限(默认 20000,硬上限 200000)。超出时 truncated=true 并给
-            next_offset,用同一 path + offset=next_offset 续读。
-        offset: 从抽取文本的第几个字符开始返回(续读用)。
+        max_chars: 单次返回字符上限(默认 20000,硬上限 200000)。超出时 truncated=true 并给 next_offset。
+        offset: 从抽取文本的第几个字符开始返回;续读用同一 path + offset=next_offset。
 
     Returns:
-        dict with 'content' (extracted text), 'type', 'total_chars', 'truncated'/'next_offset',
-        'pages'/'sheets'/'slides' count. .docx 按文档顺序输出 markdown 风格结构(# 标题、- 列表、
-        | 表格 |)并附 'headings' 大纲;.pptx 每张幻灯片为「## Slide N: 标题」+ 文字 + 表格 + 备注。
-        加密/损坏文件 → error 明说原因;扫描件 PDF(无文字层) → ok 且 note 建议 OCR。
-        弃用分支附带 'deprecated'/'successor' 字段明示替代工具。
+        dict with 'content', 'type', 'total_chars', 'truncated'/'next_offset', 'pages'/'sheets'/'slides' count.
+        .docx 输出 markdown 风格结构(# 标题、- 列表、| 表格 |)并附 'headings' 大纲;.pptx 每张幻灯片为
+        「## Slide N: 标题」+ 文字 + 表格 + 备注。加密/损坏文件 -> error;扫描件 PDF(无文字层) -> ok 且 note 建议 OCR。
+        已弃用分支附带 'deprecated'/'successor' 字段。
     """
     from ai_computer_control.tools.office_read import describe_read_error
 
@@ -1074,47 +1070,31 @@ def write_document(
     page_numbers: bool = False,
     allow_protected: bool = False,
 ) -> dict:
-    """Create or overwrite a styled Word document (.docx) — v1.7「Office 体系 2.0」字体纪律版.
+    """Create or overwrite a styled Word document (.docx); every style carries an explicit font (中文 never falls
+    back to 宋体), token heading colour, line spacing 1.4.
 
-    Every built-in style (Normal / Title / Heading 1-3) is injected with an EXPLICIT font (token
-    body/heading family, all three rFonts links incl. **w:eastAsia** so 中文 no longer falls back to
-    宋体), a size ladder (Normal 11 / H3 14 / H2 16 / H1 20 / Title 28 pt), the token heading colour,
-    行距 1.4 and加大 H1 前段距. Headings get a coloured 2.25pt hairline underline. So no run is 裸奔 and
-    old「字体都不对、中文大小不一」is fixed structurally.
-
-    content markdown-lite (向后兼容 — old plain-text/heading calls work unchanged and auto-inherit the
-    new styles). Supported subset (what models actually emit):
-        '# ' .. '###### '      -> heading levels 1/2/3 (4-6 fold into 3), with the accent hairline
+    content is markdown-lite (plain text works unchanged):
+        '# ' .. '###### '      -> headings 1/2/3 (4-6 fold into 3)
         '- ' / '* ' / '+ '     -> bullet; indent 2+ spaces = nested (up to 3 levels)
-        '1. ' / '1) '          -> numbered point; each separate list restarts (a blank line + '1.' or
-                                  any paragraph in between starts a new list)
-        GFM pipe table         -> '| a | b |' + '|---|:--:|' separator + rows = a token-styled table
-                                  (':---:' / '---:' set column alignment)
-        **bold** *italic* `code` [text](https://url)   -> real runs; links become Word hyperlinks
-        '> quote'  ```fence```  '---' (rule)   -> Quote style / monospace block / hairline
-        blank line             -> spacer
-
-    v1.7 additions:
-      * style: 'business'「青花商务」(default) | 'minimal'「墨白极简」| 'vibrant'「活力现代」. Unknown -> business.
-      * cover: optional {title, subtitle?, date?, author?} — a full-width 深底满铺 title-block (white 大字
-        + 鎏金/强调金 line + subtitle + author·date) on its own page, then a page break before the body.
-      * page_numbers: True adds a centred 「第 X 页」 footer via a live PAGE field.
-      * inline table 段落: a line 'TABLE: h1 | h2 | h3' begins a token-styled table (表头主色白字 + 斑马纹
-        + 细边框); each following '| a | b | c' line is a row; a blank line ends the table. Non-table
-        content is unaffected (向后兼容).
+        '1. ' / '1) '          -> numbered point; a blank line or paragraph in between restarts the list
+        GFM pipe table         -> '| a | b |' + '|---|:--:|' separator + rows (':---:' / '---:' align columns)
+        'TABLE: h1 | h2 | h3'  -> starts a table; following '| a | b | c' lines are rows; a blank line ends it
+        **bold** *italic* `code` [text](https://url)   -> real runs; links become hyperlinks
+        '> quote'  ```fence```  '---' (rule)  blank line (spacer)
 
     Args:
         path: Output file path (must end with .docx).
-        content: Body text in markdown-lite (see above).
-        title: Optional document title — added as a Title-styled heading at the top of the body.
-        style: Design style name (see above).
-        cover: Optional cover-page spec dict (see above).
-        page_numbers: Add a 「第 X 页」 page-number footer (default off).
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        content: Body text in markdown-lite.
+        title: Optional Title-styled heading at the top of the body.
+        style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> business.
+        cover: Optional {title, subtitle?, date?, author?} — a full-width dark title block on its own page, then a
+            page break before the body.
+        page_numbers: True adds a centred 「第 X 页」 footer (live PAGE field). Default off.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'style'. On failure {'error': ...}; when the target is
-        held open by Excel/Word/WPS: {'error', 'code': 'file_locked', 'hint'} and the old file is untouched.
+        dict with 'success', 'path', 'output_path', 'style'. Failure -> {'error': ...}; a target held open by
+        Excel/Word/WPS -> {'error', 'code': 'file_locked', 'hint'}, old file untouched.
     """
     guard = _protected_write_guard(path, allow_protected)
     if guard:
@@ -1285,30 +1265,25 @@ def write_excel(
     style: str = "business",
     allow_protected: bool = False,
 ) -> dict:
-    """Create or overwrite a styled Excel file (.xlsx) — v1.7「Office 体系 2.0」落笔即样式版.
+    """Create or overwrite a styled Excel file (.xlsx); styled on write, no beautify pass needed.
 
-    Unlike the old bare writer (which left ZERO font declarations → mixed Calibri/宋体), every cell is
-    written with the token body font (微软雅黑, 11pt); the header row (if given) is bold on that font;
-    numeric-looking columns get a number format by heuristic (千分位 for quantities >999, 百分比 for '%'
-    columns, 货币 for '$'/'¥'/金额/收入/成本… headers) and numeric-looking strings are coerced to real
-    numbers so Excel can compute on them; column widths auto-fit (CJK-aware) on first write. Year /
-    phone / postcode / ID columns (年份, 手机号, 邮编, 编号, ID …) are NOT thousands-separated, and
-    leading-zero strings stay text. So the
-    sheet 「不跑 beautify 也不难看」. excel_beautify remains the full makeover (frozen header, zebra,
-    borders, auto-filter) — this is the 落笔即样式 baseline.
+    Every cell uses the token body font (微软雅黑, 11pt); the header row (if given) is bold. Number formats by
+    heuristic: 千分位 for quantities >999, 百分比 for '%' columns, 货币 for '$'/'¥'/金额/收入/成本… headers;
+    numeric-looking strings become real numbers; column widths auto-fit (CJK-aware). Year / phone / postcode / ID
+    columns (年份, 手机号, 邮编, 编号, ID …) get no thousands separator; leading-zero strings stay text. Use
+    excel_beautify for frozen header, zebra, borders, auto-filter.
 
     Args:
         path: Output file path (must end with .xlsx).
-        data: 2D list of cell values (list of rows). Cells may be JSON strings, numbers, booleans or null
-              (null = empty cell); real numbers stay numeric in the sheet.
-        sheet_name: Name of the worksheet (<=31 chars, none of [ ] : * ? / \\).
-        headers: Optional list of header row values (rendered bold on the token font).
-        style: Design style — 'business' (default) | 'minimal' | 'vibrant'. Unknown -> business.
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        data: 2D list of rows; cells may be strings, numbers, booleans or null (empty).
+        sheet_name: Worksheet name (<=31 chars, none of [ ] : * ? / \\).
+        headers: Optional header row values.
+        style: 'business' (default) | 'minimal' | 'vibrant'. Unknown -> business.
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path', 'output_path', 'rows', 'style'. On failure {'error': ...}; a target held
-        open by Excel/WPS gives {'error', 'code': 'file_locked', 'hint'}.
+        dict with 'success', 'path', 'output_path', 'rows', 'style'. Failure -> {'error': ...}; a target held open
+        by Excel/WPS -> {'error', 'code': 'file_locked', 'hint'}.
     """
     guard = _protected_write_guard(path, allow_protected)
     if guard:
@@ -1581,36 +1556,24 @@ def write_pdf(
 ) -> dict:
     """Create or overwrite a PDF (.pdf) from markdown-lite text, with full Chinese support.
 
-    content uses the same markdown-lite subset as write_document:
-        '# ' .. '###### '      -> heading levels 1/2/3
-        '- ' / '* ' / '+ '     -> bullet (indent 2+ spaces = nested)
-        '1. ' (any number)     -> numbered point (separate lists restart)
-        GFM pipe table / 'TABLE: a | b' block -> a bordered table (columns sized to content, cells wrap)
-        **bold** *italic* `code` [text](https://url)  -> styled runs; links are clickable
-        '> quote'  ```fence```  '---' -> quote / monospace block / rule
-        blank line             -> vertical spacing
-
-    If table_data is given, a table is rendered after the body (table_headers optional
-    as the header row). Cells may be strings, numbers, booleans or null (null = empty).
-
-    A Chinese-capable font is auto-registered (Microsoft YaHei -> SimSun -> reportlab's
-    built-in STSong-Light CID font -> Helvetica as a last resort). Paragraphs use
-    wordWrap='CJK' so Chinese lines break correctly; table columns are sized from the available page
-    width in proportion to content, so long CJK / unbroken cells wrap instead of overflowing.
+    content uses the same markdown-lite as write_document: '# '..'###### ' headings (1/2/3), '- ' / '* ' / '+ '
+    bullets (indent 2+ = nested), '1. ' numbered points, GFM pipe tables or 'TABLE: a | b' blocks (bordered,
+    cells wrap), **bold** *italic* `code` [text](https://url) (links clickable), '> quote', ```fence```, '---'
+    rule, blank line = spacing. A Chinese-capable font is auto-registered (Helvetica as a last resort).
 
     Args:
         path: Output file path (must end with .pdf).
-        content: Body text in markdown-lite (see above).
-        title: Optional document title (rendered as the top heading).
+        content: Body text in markdown-lite.
+        title: Optional document title (top heading).
         table_headers: Optional header row for the trailing table.
-        table_data: Optional 2D list of rows for the trailing table.
-        page_size: 'A4' or 'letter' (anything else falls back to A4).
-        allow_protected: Override the protected-system-root guard on the destination (default off).
+        table_data: Optional 2D list of rows rendered as a table after the body (cells may be null = empty).
+        page_size: 'A4' or 'letter' (anything else -> A4).
+        allow_protected: Bypass the protected-path guard on the destination (default off).
 
     Returns:
-        dict with 'success', 'path' (abs), 'pages', 'font'. On the Helvetica fallback
-        it also carries 'warning'. Missing reportlab -> {'error': install guidance}. A target held open
-        by another program -> {'error', 'code': 'file_locked', 'hint'}.
+        dict with 'success', 'path' (abs), 'pages', 'font' (+ 'warning' on the Helvetica fallback). Missing
+        reportlab -> {'error': install guidance}. A target held open by another program ->
+        {'error', 'code': 'file_locked', 'hint'}.
     """
     if not str(path).lower().endswith(".pdf"):
         return {"error": "path must end with .pdf"}

@@ -325,23 +325,20 @@ def fetch(url: str, max_bytes: int = _DEFAULT_MAX_BYTES, timeout: int = 15,
         需要登录态/JS 渲染的页面(改用 browser_* 工具);大文件下载(有字节预算,非下载器)。
 
     Args:
-        url: http(s) URL. Every redirect hop is re-validated (max 5 hops).
-        max_bytes: Body byte budget (default 200KB, hard cap 2MB). Truncated bodies are marked.
-        timeout: Per-request timeout in seconds (1-60, default 15).
-        format: "text" (default) — HTML pages are reduced to their visible text (script/style/nav/
-            footer dropped; headings as '#', list items as '- ', links as [text](url)); JSON/plain
-            text is returned as is. "raw" — the decoded body untouched (view source / HTML parsing).
-        offset: Character offset into the (extracted) text, for continuing a long page: pass the
-            previous result's 'next_offset'. Each call re-fetches the URL.
-        max_chars: Max characters returned per call (default 30000, hard cap 200000).
+        url: http(s) URL. Every redirect hop is re-validated (max 5).
+        max_bytes: Body byte budget (default 200KB, cap 2MB).
+        timeout: Per-request seconds (1-60, default 15).
+        format: "text" (default) — HTML reduced to visible text (script/style/nav/footer dropped; '#' headings,
+            '- ' items, [text](url) links); JSON/plain text as is. "raw" — decoded body untouched.
+        offset: Character offset into the extracted text; continue a long page with the previous 'next_offset'
+            (each call re-fetches).
+        max_chars: Max characters returned per call (default 30000, cap 200000).
 
     Returns:
-        dict with 'ok', 'url' (final URL after redirects), 'status', 'content_type', 'content',
-        'title' (HTML only), 'bytes' (downloaded), 'total_chars', 'truncated' (download cut OR more
-        text remains), 'next_offset' (only when more text remains), 'redirects'. Binary responses
-        (PDF/image/zip...) return ok with 'binary': true and a hint instead of garbage text.
-        On refusal/failure a dict with 'error'. Charset: HTTP header > BOM > <meta charset> >
-        UTF-8 > GBK (Chinese pages without declaration decode correctly).
+        dict with 'ok', 'url' (final), 'status', 'content_type', 'content', 'title' (HTML only), 'bytes',
+        'total_chars', 'truncated' (download cut OR more text remains), 'next_offset' (only when more text
+        remains), 'redirects'. Binary responses -> ok with 'binary': true + hint. Failure -> 'error'.
+        Charset: header > BOM > <meta> > UTF-8 > GBK.
     """
     budget = max(1, min(int(max_bytes), _HARD_MAX_BYTES))
     tmo = max(1, min(int(timeout), 60))

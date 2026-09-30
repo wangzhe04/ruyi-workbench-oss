@@ -150,13 +150,12 @@ def run_command(
     Args:
         command: The command to execute.
         working_dir: Working directory.
-        timeout: Seconds (default 60, capped at 600); on expiry the whole process tree is killed.
+        timeout: Seconds (default 60, cap 600); on expiry the whole process tree is killed.
         shell: Run through the shell (default True).
-        encoding: Force an output encoding (tried first). Default: strict UTF-8, then the Windows
-                  OEM/console code page (cp936 on zh-CN).
+        encoding: Force an output encoding. Default: strict UTF-8, then the OEM/console code page (cp936 on zh-CN).
         allow_dangerous: Override the destructive-command denylist.
-        max_output_chars: Per-stream budget (stdout; stderr gets half, min 2000), default 16000, max 200000.
-                  Longer output keeps head + tail with an "[…N chars omitted…]" marker.
+        max_output_chars: Per-stream budget (stderr gets half, min 2000), default 16000, max 200000; longer output
+            keeps head + tail with an "[…N chars omitted…]" marker.
 
     Returns:
         dict: status first (ok, return_code, timed_out, *_truncated, hint), then stderr, then stdout, encoding.

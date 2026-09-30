@@ -94,10 +94,9 @@ def memory_save(key: str, content: str, tags: str = "") -> dict:
     何时别用: 大段文档/代码(有 4000 字上限,放文件里只存路径);一次性临时信息。
 
     Args:
-        key: Short slug identifying the memory (e.g. "user-editor-preference"). Reusing a key
-            overwrites the old content (that IS the update path).
-        content: Free-text memory body (max 4000 chars; longer is truncated with a marker).
-        tags: Optional comma-separated labels for later filtering (e.g. "preference,editor").
+        key: Short slug (e.g. "user-editor-preference"); reusing a key overwrites (that IS the update path).
+        content: Free-text body (max 4000 chars; longer is truncated with a marker).
+        tags: Optional comma-separated labels for filtering (e.g. "preference,editor").
 
     Returns:
         dict with 'success', 'key', 'updated' (iso time), 'overwritten' (bool).

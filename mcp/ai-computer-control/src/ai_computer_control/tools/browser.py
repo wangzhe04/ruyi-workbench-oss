@@ -260,9 +260,6 @@ async def browser_click(
         text: Click the first element containing this text.
         x: Click at specific X coordinate on the page.
         y: Click at specific Y coordinate on the page.
-
-    Returns:
-        dict with 'success'.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -294,9 +291,6 @@ async def browser_type(
         selector: CSS selector of the input element.
         text: Text to type.
         clear: If True, clear the field before typing.
-
-    Returns:
-        dict with 'success'.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -332,14 +326,12 @@ async def browser_screenshot(max_width: int = 1280, format: str = "png", quality
     """Take a screenshot of the current browser page.
 
     Args:
-        max_width: If >0, proportionally downscale the returned image to this width (default 1280;
-            0 = original size). Same budget convention as the desktop `screenshot` tool.
-        format: 'png' (default, lossless) or 'jpeg' (much smaller for photo-heavy pages).
+        max_width: If >0, downscale to this width (default 1280; 0 = original).
+        format: 'png' (default) or 'jpeg' (much smaller for photo-heavy pages).
         quality: JPEG quality 1-100 (ignored for PNG).
 
     Returns:
-        dict with 'image' (base64), 'width', 'height' (of the RETURNED image), 'scale', 'format',
-        'url', 'title'.
+        dict with 'image' (base64), 'width', 'height' (of the RETURNED image), 'scale', 'format', 'url', 'title'.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -361,13 +353,12 @@ async def browser_get_text(selector: str | None = None, max_chars: int = _TEXT_C
     """Extract text content from the page or a specific element.
 
     Args:
-        selector: Optional CSS selector. If None, returns full page text.
-        max_chars: Max characters returned (default 20000). Longer text is cut and marked
-            truncated with 'total_chars' so you can narrow the selector.
+        selector: Optional CSS selector; None = full page text.
+        max_chars: Max characters returned (default 20000); longer text is cut and marked truncated with
+            'total_chars' so you can narrow the selector.
 
     Returns:
-        dict with 'text', 'url', 'total_chars', 'truncated'. A selector that matches nothing is an
-        error (not an empty string).
+        dict with 'text', 'url', 'total_chars', 'truncated'. A selector matching nothing is an error.
     """
     if not _AVAILABLE:
         return _unavailable()
@@ -547,9 +538,6 @@ async def browser_switch_tab(index: int) -> dict:
 @mcp.tool()
 async def browser_close() -> dict:
     """Close the browser instance.
-
-    Returns:
-        dict with 'success'.
     """
     global _browser, _page, _playwright, _backend
     if (_backend or _configured_mode()) == "system":

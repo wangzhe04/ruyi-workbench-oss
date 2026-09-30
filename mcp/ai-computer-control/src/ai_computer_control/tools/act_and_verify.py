@@ -252,29 +252,21 @@ def act_and_verify(action: dict, region: str | None = None, settle_ms: int = 500
     """Do one UI action and report how much the screen changed as a result.
 
     Args:
-        action: {"type": "click"|"type"|"key", ...}.
-            click -> requires x, y (physical screen coords); optional button, clicks.
-            type  -> requires text; optional use_clipboard (better for CJK).
-            key   -> requires key (e.g. "enter", "ctrl+s").
-        region: Optional "x,y,width,height" limiting the diff (screen coords). If omitted, a click is
-            diffed in a ~200x200 box around the click point and a type/key in the foreground window
-            rect — pass the target field's rect here for the tightest, most reliable signal.
-        settle_ms: How long the UI gets to react (capped at 5000). The region is polled every ~80ms for up
-            to 2*settle_ms until it changes, then up to settle_ms until it stops changing; a fast app
-            returns early, a no-op action waits 2*settle_ms. 'settled' / 'waited_ms' report what
-            happened — raise settle_ms for a slow app.
-        save_shots: Also write downscaled before/after JPEGs under <data>/shots (newest 40 kept) and
-            return their paths. They are written automatically when NOTHING changed, as evidence.
-        return_image: "" (default, no image) | "after" (a small after-screenshot) | "diff" (the changed
-            region only) — returned in the same 'image'/'width'/'height'/'scale'/'format' keys as screenshot.
+        action: {"type": "click"|"type"|"key", ...}. click -> x, y (physical screen coords; optional button,
+            clicks). type -> text (optional use_clipboard, better for CJK). key -> key (e.g. "enter", "ctrl+s").
+        region: Optional "x,y,width,height" limiting the diff. Default: ~200x200 around a click, the foreground
+            window for type/key — pass the target field's rect for the tightest signal.
+        settle_ms: Time the UI gets to react (cap 5000): waits up to 2*settle_ms for a change, then up to settle_ms
+            for it to stop; a no-op waits the full 2*settle_ms. Raise for slow apps.
+        save_shots: Also write before/after JPEGs under <data>/shots (newest 40 kept) and return their paths;
+            written automatically when NOTHING changed.
+        return_image: "" (default) | "after" (small after-screenshot) | "diff" (changed region only), returned in
+            screenshot's image/width/height/scale/format keys.
 
     Returns:
-        dict with ok, changed_ratio (fraction changed inside the region of interest), changed_pixels
-        (raw count), changed_ratio_full (whole-screen — catches effects that land elsewhere),
-        action_result, region, settled, waited_ms, and before_path/after_path when shots were saved.
-        A near-zero changed_ratio with a near-zero changed_ratio_full strongly implies the action had
-        no effect; a near-zero region ratio but nonzero full ratio means something changed OUTSIDE the
-        region of interest.
+        dict with ok, changed_ratio (fraction changed inside the region), changed_pixels, changed_ratio_full (whole
+        screen), action_result, region, settled, waited_ms, before_path/after_path when shots were saved.
+        Both ratios ~0 => the action had no effect; region ~0 but full >0 => the change landed OUTSIDE the region.
     """
     # Determine a region of interest. Explicit region wins; otherwise narrow to the action locus so a
     # small real change is distinguishable from ambient churn (and from "nothing happened").

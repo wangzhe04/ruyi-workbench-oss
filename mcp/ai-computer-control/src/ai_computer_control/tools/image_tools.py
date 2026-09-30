@@ -24,17 +24,14 @@ def _protected_write_guard(path: str, allow_protected: bool):
 
 @mcp.tool()
 def image_info(path: str) -> dict:
-    """读取图片的基本信息 (宽/高/格式/模式/文件大小/DPI) —— 处理图片前先看清，别盲操作。
-
-    纯读，零副作用。配合 image_resize: 先 image_info 拿到原始尺寸，再决定缩到多大。
+    """读取图片的基本信息 (宽/高/格式/模式/文件大小/DPI);纯读、无副作用。配合 image_resize:先看原始尺寸再决定缩多大。
 
     Args:
-        path: 图片文件路径 (PNG/JPG/BMP/GIF/WEBP/TIFF 等 Pillow 支持的格式)。
+        path: 图片文件路径 (Pillow 支持的格式)。
 
     Returns:
-        dict with ok, path, width, height, format (如 'PNG'), mode (如 'RGB'/'RGBA'/'L'),
-        file_size (字节), file_size_human, dpi ([x,y] 若图内嵌了 DPI，否则不含此键)。
-        文件不存在 / 非图片 / 缺 Pillow → {'error': 人话说明}。
+        dict with ok, path, width, height, format, mode, file_size (字节), file_size_human, dpi ([x,y],图内嵌了才有)。
+        文件不存在 / 非图片 / 缺 Pillow -> {'error': 人话说明}。
     """
     if not os.path.exists(path):
         return {"error": f"文件不存在: {path}"}
@@ -77,27 +74,23 @@ def image_resize(
     quality: int = 85,
     allow_protected: bool = False,
 ) -> dict:
-    """等比 (或按 scale) 缩放图片，高质量 LANCZOS 重采样，写到 output_path。
+    """等比 (或按 scale) 缩放图片 (LANCZOS),写到 output_path。
 
-    尺寸给法 (三选一，等比缺省):
-      * 只给 width → 按原图宽高比自动算 height (反之亦然) —— 最常用，不变形。
-      * 同时给 width + height → 精确到该尺寸 (可能变形，调用方自负)。
-      * 给 scale (如 0.5 = 半尺寸) → 忽略 width/height，整体按比例缩放。
-    三者都不给 → 报错 (没有「不缩放的缩放」)。
+    尺寸给法:只给 width -> 按原图比例算 height (反之亦然),最常用、不变形;width + height 同给 -> 精确到该尺寸
+    (可能变形);给 scale (如 0.5) -> 忽略 width/height,整体按比例缩放。三者都不给 -> 报错。
 
     Args:
         path: 源图片路径。
-        output_path: 输出路径 (必填；决定格式，如 .jpg → JPEG、.png → PNG)。可与 path 相同 (原地覆盖)。
-        width: 目标宽 (像素)。只给它则等比算高。
-        height: 目标高 (像素)。只给它则等比算宽。
-        scale: 整体缩放系数 (>0)；给了它就忽略 width/height。
-        quality: JPEG 保存质量 1-100 (仅对 .jpg/.jpeg 输出生效)，默认 85。
+        output_path: 输出路径 (必填;扩展名决定格式,.jpg -> JPEG、.png -> PNG);可与 path 相同 (原地覆盖)。
+        width: 目标宽 (像素)。
+        height: 目标高 (像素)。
+        scale: 整体缩放系数 (>0);给了就忽略 width/height。
+        quality: JPEG 质量 1-100 (仅 .jpg/.jpeg 输出),默认 85。
         allow_protected: 覆盖「受保护系统树」护栏 (默认关)。
 
     Returns:
-        dict with ok, path (源), output_path (== 落盘绝对路径，供 workbench 产物收割/撤销),
-        original_size [w,h], new_size [w,h], format。
-        缺尺寸参数 / 源不存在 / 目标受保护 / 缺 Pillow → {'error': 人话说明}。
+        dict with ok, path (源), output_path (落盘绝对路径), original_size [w,h], new_size [w,h], format。
+        缺尺寸参数 / 源不存在 / 目标受保护 / 缺 Pillow -> {'error': 人话说明}。
     """
     if not os.path.exists(path):
         return {"error": f"源文件不存在: {path}"}

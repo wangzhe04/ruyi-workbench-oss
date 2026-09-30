@@ -31,13 +31,18 @@ _CONVENTION_REQUIRED = {
 
 # Tool-list size budget (tokens sent on every `tool_load` / in toolLoadingMode 'full'). Ceilings sit just above
 # the measured size so growth is a deliberate decision; tighten them when descriptions are trimmed.
-_MAX_TOTAL_DESC_CHARS = 58000
-_MAX_ONE_DESC_CHARS = 3000
+_MAX_TOTAL_DESC_CHARS = 57000
+_MAX_ONE_DESC_CHARS = 2600
 _MAX_TOTAL_SCHEMA_CHARS = 20000
 # Changelog-style provenance ("v1.8 新增…") belongs in git, not in the prompt. Hard-locked for the tools whose
 # docstrings were cleaned; report-only for the rest.
 _NO_CHANGELOG_TOOLS = {"run_command", "launch_application", "diagnostics", "audit_tail", "safety_info",
-                       "version_info"}
+                       "version_info",
+                       # description-budget trim: rewritten as present-tense behaviour, no version history.
+                       "chart_image", "excel_beautify", "excel_chart", "read_document", "write_document",
+                       "write_excel", "write_pptx", "write_pdf", "observe", "act_and_verify", "fetch",
+                       "sequential_thinking", "edit_file", "excel_read", "window_screenshot", "ocr_click",
+                       "ocr_find_text", "ui_find", "ui_invoke"}
 _CHANGELOG_RX = __import__("re").compile(r"\bv\d+\.\d+|第\s*\d+\s*波|Previously|此前|新增")
 
 

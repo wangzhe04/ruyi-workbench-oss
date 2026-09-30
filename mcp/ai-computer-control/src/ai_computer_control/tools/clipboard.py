@@ -11,15 +11,14 @@ from ai_computer_control.utils.errors import exc_text
 
 @mcp.tool()
 def get_clipboard() -> dict:
-    """读取系统剪贴板里的【文本】内容 (用户刚复制的文字)。
+    """读取系统剪贴板里的【文本】。
 
-    什么时候用: 用户说「我复制了…你看一下」「把我剪贴板里的内容…」，或你刚让某个 App 执行了「复制」
-    (Ctrl+C / 菜单复制) 后想拿到结果。只读文本；若剪贴板里是图片/文件，本工具会明确告知 (has_image /
-    has_files)，此时改用 get_clipboard_image。
+    什么时候用: 用户说「我复制了…你看一下」,或你刚让某个 App 执行了复制 (Ctrl+C / 菜单) 后想拿到结果。只读文本;
+    剪贴板里是图片/文件时会明确告知 (has_image / has_files),此时改用 get_clipboard_image。
 
     Returns:
-        dict with ok, text；并区分四种状态: 有文本 / has_image / has_files / empty，避免「空串」把
-        「真没内容」和「其实是图片」混为一谈。
+        dict with ok, text;并区分四种状态: 有文本 / has_image / has_files / empty,避免「空串」混淆「真没内容」和
+        「其实是图片」。
     """
     try:
         text = pyperclip.paste()
@@ -59,10 +58,10 @@ def get_clipboard() -> dict:
 
 @mcp.tool(audit=True)
 def set_clipboard(text: str) -> dict:
-    """把一段【文本】写入系统剪贴板，供其它程序粘贴 (Ctrl+V)。
+    """把一段【文本】写入系统剪贴板,供其它程序粘贴 (Ctrl+V)。
 
-    什么时候用: 你算好/写好了一段内容，想让用户直接粘贴；或需要把长文本喂进某个不方便逐字输入的输入框
-    (先 set_clipboard 再在目标里按 Ctrl+V，比 type_text 逐字敲更快更稳)。写图片请用 set_clipboard_image。
+    什么时候用: 写好了一段内容想让用户直接粘贴;或把长文本喂进不方便逐字输入的输入框 (先 set_clipboard 再在目标里
+    按 Ctrl+V,比 type_text 更快更稳)。写图片请用 set_clipboard_image。
     注意: 写入会覆盖用户当前剪贴板 (含已复制的图片/文件)。
 
     Args:

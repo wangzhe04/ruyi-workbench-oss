@@ -133,31 +133,23 @@ def excel_read(
     include_formulas: bool = False,
     max_rows: int = 200,
 ) -> dict:
-    """结构化读取 Excel (.xlsx) —— 让 AI 看清表结构，不再盲操作。
+    """结构化读取 Excel (.xlsx):二维 data + 表头 + 可选公式/数字格式。
 
-    这是 read_document 的【增强版结构化读】(那个粗读把整篇拍平成一段文本；本工具返回可直接遍历的二维
-    data + 表头 + 可选公式/数字格式)。多 sheet 时缺省返回「各 sheet 概要 + active sheet 的数据」，你可再
-    指定 sheet= 精读某张。
+    比 read_document 的粗读(整篇拍平成文本)更适合表格。多 sheet 时缺省返回「各 sheet 概要 + active sheet 的
+    数据」,再用 sheet= 精读某张。
 
     Args:
         path: .xlsx 文件路径。
-        sheet: 要读的工作表名；缺省读活动表 (active sheet)，并在 sheets 里给出全部表的概要。
-        range: A1 记法的区域 (如 'A1:D50' / 单格 'B2')；缺省从 A1 起读到数据末尾 (受 max_rows 限)。
-        include_formulas: True 时【额外】回读公式 (如 {'D2':'=SUM(B2:C2)'}) —— 需再开一次工作簿
-            (data_only=False)，稍慢；缺省 False 只给算好的值。
-        max_rows: 数据行数上限 (防大表爆上下文)，默认 200。超出则截断并在 truncated 标注真实总行数。
+        sheet: 工作表名;缺省读活动表,并在 sheets 里给出全部表的概要。
+        range: A1 记法区域 ('A1:D50' / 单格 'B2');缺省从 A1 读到数据末尾 (受 max_rows 限)。
+        include_formulas: True 时额外回读公式 (如 {'D2':'=SUM(B2:C2)'}),稍慢;缺省只给算好的值。
+        max_rows: 数据行数上限,默认 200;超出则截断并在 truncated 给出真实总行数。
 
     Returns:
-        dict with:
-          ok, path, sheet (实际读的表名),
-          sheets: [{name, rows, cols}, ...]  —— 全部工作表的维度概要,
-          headers: [...]           —— 第一读入行当表头 (纯展示用；data 不含它),
-          data: [[...], ...]       —— 二维单元格值 (字符串/数字/None)，已按 max_rows 截断,
-          truncated: {rows_returned, rows_total, note} | None  —— 截断时给出,
-          formulas: {'A1':'=...'} | None   —— include_formulas 时给出 (仅含真的有公式的格),
-          number_formats: {'B':'¥#,##0.00', ...} | None  —— 有非通用数字格式的列 (列字母→格式串),
-          range: 实际读取的 A1 区域。
-        缺 openpyxl / 文件不存在 / 坏 range / 坏 sheet 名 → {'error': 人话说明}。
+        dict with ok, path, sheet (实际读的表), sheets [{name, rows, cols}], headers (读入的第一行,data 不含它),
+        data [[...]] (字符串/数字/None), truncated {rows_returned, rows_total, note} | None,
+        formulas {'A1':'=...'} | None (仅真有公式的格), number_formats {'B':'¥#,##0.00'} | None (非通用格式的列),
+        range (实际读取的 A1 区域)。缺 openpyxl / 文件不存在 / 坏 range / 坏 sheet 名 -> {'error': 人话说明}。
     """
     if not str(path).lower().endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
         return {"error": f"excel_read 只读 .xlsx 系列，收到 {path!r}。CSV/老 .xls 不支持。"}
@@ -432,28 +424,22 @@ _PDF_TIME_BUDGET_S = 15.0
 @mcp.tool()
 def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000,
                    max_chars: int = 30000) -> dict:
-    """分页读取 PDF —— 只读你点名的页，解决「50 页 PDF 整读爆上下文」。
+    """分页读取 PDF:只读你点名的页,避免「50 页 PDF 整读爆上下文」。
 
-    read_document 会把整本 PDF 拍平成一大段文本 (小文件够用)；本工具让你精确点页 (支持 '3' / '1-5' /
-    '1,3,7-9')，逐页截断、总量有预算，并尽力给出大纲让你先看目录再决定读哪页。
+    比 read_document(整本拍平成一段文本)更精确:逐页截断、总量有预算,并尽力给出大纲,可先看目录再选页。
 
     Args:
         path: .pdf 文件路径。
-        pages: 页码规格，1-based。支持 '3' (单页) / '1-5' (区间) / '1,3,7-9' (混合)。默认 '1-5'。
-        max_chars_per_page: 每页文本上限 (防单页超长爆上下文)，默认 4000。超出截断并 truncated=True。
-        max_chars: 本次调用的总字符预算，默认 30000(另有约 15 秒时间预算)。用尽即停,
-            返回 next_pages / nextPage 让你从断点续读。
+        pages: 1-based 页码规格:'3' / '1-5' / '1,3,7-9'。默认 '1-5'。
+        max_chars_per_page: 每页文本上限,默认 4000;超出截断并 truncated=True。
+        max_chars: 本次调用总字符预算,默认 30000(另有约 15 秒时间预算);用尽即停,返回 next_pages / nextPage。
 
     Returns:
-        dict with:
-          ok, path, total_pages,
-          outline: [{title, page}, ...]  —— PDF 书签大纲 (需 pypdf 且 PDF 有书签),
-          outline_note: str | None,
-          pages: [{page, text, chars, truncated}, ...]  —— 按请求顺序，每页的文本,
-          truncated: True  —— 预算用尽、还有请求的页没读时给出 (连同 next_pages/nextPage/stopped_by),
-          next_pages: '17-100'  —— 直接作为下次调用的 pages 参数,
-          note / no_text_pages —— 有页面没有文字层 (扫描件/图片 PDF) 时给出并建议 OCR。
-        加密 PDF → error 明说需要密码。越界页码 / 坏 pages 格式 / 缺 pdfplumber / 文件不存在 → {'error': 人话说明}。
+        dict with ok, path, total_pages, outline [{title, page}] (书签大纲,需 pypdf 且有书签), outline_note,
+        pages [{page, text, chars, truncated}], truncated: True (预算用尽、仍有请求页没读;连同 next_pages /
+        nextPage / stopped_by), next_pages (如 '17-100',直接作为下次的 pages 参数), note / no_text_pages (无文字层的
+        扫描件/图片页,建议 OCR)。加密 PDF -> error 说明需要密码。越界页码 / 坏 pages 格式 / 缺 pdfplumber /
+        文件不存在 -> {'error': 人话说明}。
     """
     if not str(path).lower().endswith(".pdf"):
         return {"error": f"pdf_read_pages 只读 .pdf，收到 {path!r}。"}

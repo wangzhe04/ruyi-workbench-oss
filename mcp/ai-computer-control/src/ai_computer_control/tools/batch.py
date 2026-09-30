@@ -154,13 +154,13 @@ async def batch_actions(actions: list[dict], on_error: str = "stop", delay_ms: i
 
     Args:
         actions: list of steps, each {"tool": "<tool_name>", "args": {...}}.
-        on_error: "stop" (default) halts on the first failing step; "continue" runs all steps.
+        on_error: "stop" (default) halts on the first failing step; "continue" runs all.
         delay_ms: optional pause between steps (ms).
 
     Returns:
-        dict with 'success', 'completed', 'failed', and 'results' (per-step {tool, ok, result|error}).
-        Screenshots taken by steps are returned in the top-level 'image' (newest; plus 'image_base64'
-        for the one before it) — at most the last 2 — and marked image_lifted/image_omitted in 'results'.
+        dict with 'success', 'completed', 'failed', 'results' (per-step {tool, ok, result|error}). Step screenshots
+        come back in the top-level 'image' (newest; plus 'image_base64' for the one before) — at most the last 2 —
+        and are marked image_lifted/image_omitted in 'results'.
     """
     return await _run_batch(actions, on_error, delay_ms)
 

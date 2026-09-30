@@ -49,16 +49,16 @@ def mouse_click(
     """Click the mouse at the specified coordinates.
 
     Args:
-        x: X coordinate to click.
-        y: Y coordinate to click.
-        button: Mouse button - "left", "right", or "middle".
-        clicks: Number of clicks (1 for single, 2 for double).
+        x: X coordinate.
+        y: Y coordinate.
+        button: "left", "right", or "middle".
+        clicks: Number of clicks (1 single, 2 double).
         interval: Seconds between multiple clicks.
 
     Returns:
-        dict with 'ok', the requested position, and the ACTUAL cursor position ('actual_x/y',
-        'reached') so an off-screen/clamped target does not read as a success. Targets outside the
-        virtual desktop (all monitors; see get_screen_info 'virtual') are refused.
+        dict with 'ok', the requested position, and the ACTUAL cursor position ('actual_x/y', 'reached') so a
+        clamped target does not read as success. Targets outside the virtual desktop (see get_screen_info
+        'virtual') are refused.
     """
     try:
         # b2-P1: 越界预校验 —— 先于点击拦截,避免「先点后报」在屏边缘真实误点
@@ -156,14 +156,14 @@ def mouse_scroll(
     """Scroll the mouse wheel.
 
     Args:
-        clicks: Number of wheel notches. Positive = up/right, negative = down/left.
-        x: Optional X coordinate to scroll at (defaults to current position).
-        y: Optional Y coordinate to scroll at (defaults to current position).
-        direction: "vertical" (default) or "horizontal".
+        clicks: Wheel notches. Positive = up/right, negative = down/left.
+        x: Optional X to scroll at (default: current position).
+        y: Optional Y to scroll at (default: current position).
+        direction: "vertical" (default) or "horizontal" (a real WM_MOUSEHWHEEL event; pyautogui's hscroll is a
+            no-op on Windows).
 
     Returns:
-        dict with 'ok' and scroll details. Horizontal uses a real WM_MOUSEHWHEEL event (pyautogui's
-        hscroll is a no-op on Windows), so it actually scrolls sideways.
+        dict with 'ok' and scroll details.
     """
     try:
         if x is not None and y is not None:
