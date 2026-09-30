@@ -76,7 +76,11 @@ test('N8-B 系统提示里的记忆指引:provider 回合说明维护工具按�
 });
 
 test('N8-C 字符预算棘轮(只减不增)', () => {
-  const BUDGET = { chitchat: 10500, codeEdit: 23000, fullAll: 46500, offeredDefault: 46600 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // opt/native-desc 集成(files-core/files-walk/exec/net 四支给原生工具加了 encoding / offset+nextOffset / includeIgnored /
+  // maxFileBytes / waitMs / list / absolute 等新入参与续读/截断键,13f 描述已压到一句话 + 入参描述 ≤80 字符后的实测:
+  // codeEdit 26026、offeredDefault 51032;再压就得删新入参的语义,故 codeEdit 23000→26500(仍 ≤ master 的 26526)、
+  // offeredDefault 46600→51500。其余不动。
+  const BUDGET = { chitchat: 10500, codeEdit: 26500, fullAll: 46500, offeredDefault: 51500 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);
