@@ -95,6 +95,8 @@ export function createChatStreamRuntime(deps = {}) {
     renderMissionBar,
     // 109b: 工具产出图内联缩略图,tool_result 到达后与 renderGitDiffInto 同一趟补渲染(见下方 case 'tool_result')。
     renderToolImageInto = () => {},
+    // N11: 结果框的富渲染(多行文本块/截图缩略图);缺省退回整份 JSON 文本(与旧行为一致)。
+    renderToolResultInto = null,
     // 125-P2:缓存徽标。与上面那两个补渲染同一个模具 —— 摘要行的徽标位在 tool_use 阶段是空的,
     // 结果到达才知道这次是不是回落了缓存。
     renderStaleBadgeInto = () => {},
@@ -1344,7 +1346,7 @@ export function createChatStreamRuntime(deps = {}) {
         const card = live.toolCards.get(evt.id);
         if (card) {
           if (card.durationTimer) { clearInterval(card.durationTimer); card.durationTimer = 0; }
-          card.resPre.textContent = safeStringify(evt.content);
+          if (renderToolResultInto) renderToolResultInto(card.resPre, card.name, evt.content); else card.resPre.textContent = safeStringify(evt.content);
           // v1.0-S4: if this was git_diff, paint the colorized diff view now that the result is in.
           if (!evt.isError) renderGitDiffInto(card.diffHost, card.name, evt.content);
           // 109b: 工具产出图内联缩略图。tool_use 阶段 toolCard() 还没有 result,这里补一次(imageHost

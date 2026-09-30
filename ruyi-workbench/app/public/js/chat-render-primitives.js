@@ -34,6 +34,54 @@ export function detectToolImagePath(toolName, result) {
   return null;
 }
 
+// N11: 工具结果的「富渲染」判定。纯函数(零 DOM/deps),可独立单元测试。
+// 结果是普通对象且含 ① 多行/很长的字符串字段(stdout/stderr/content/text/diff…)或 ② 内嵌图片时返回
+// { meta, texts:[{key,text}], images:[{kind:'attachment',att}|{kind:'data',src,field}] },其余键进 meta(紧凑 JSON);
+// 否则返回 null —— 调用方照旧把整份结果当 JSON 文本显示(小结果的外观逐字不变)。
+// 图片来源:服务端 N3 落盘后的 imageAttachments[{id,name,…}](走既有 /api/upload/content 附件回显通路),
+// 以及 N3 之前存下的老会话里直接内嵌的 image/image_base64/screenshot.image(按 data URI 直接画,不再当整墙 base64 文本)。
+const RESULT_TEXT_LONG = 400;           // 单行但很长的字符串也当文本块
+const RESULT_IMAGE_KEY_RE = /image|base64|screenshot|thumbnail|b64/i;
+const RESULT_IMAGE_MIN_CHARS = 2000;
+const RESULT_IMAGE_INLINE_MAX = 8000000; // 老会话里内嵌图超过这么大就不画了(只留占位说明)
+const RESULT_OMITTED_IMAGE_RE = /^\[image omitted from stored result/;
+function resultImageDataUri(key, v) {
+  if (typeof v !== 'string' || v.length < RESULT_IMAGE_MIN_CHARS || !RESULT_IMAGE_KEY_RE.test(key)) return '';
+  if (v.startsWith('data:image/')) return /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+$/i.test(v) ? v : '';
+  const mime = v.startsWith('iVBOR') ? 'image/png' : v.startsWith('/9j/') ? 'image/jpeg' : v.startsWith('R0lGO') ? 'image/gif'
+    : v.startsWith('UklGR') ? 'image/webp' : v.startsWith('Qk') ? 'image/bmp' : '';
+  return mime && /^[A-Za-z0-9+/=\s]+$/.test(v) ? `data:${mime};base64,${v}` : '';
+}
+export function toolResultRichParts(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return null;
+  const texts = [], images = [], meta = {};
+  for (const [key, v] of Object.entries(result)) {
+    if (key === 'imageAttachments' && Array.isArray(v)) {
+      for (const att of v) if (att && typeof att === 'object' && att.id && att.name) images.push({ kind: 'attachment', att });
+      continue;
+    }
+    if (typeof v === 'string') {
+      const uri = resultImageDataUri(key, v);
+      if (uri) { images.push({ kind: 'data', src: uri, field: key, tooBig: v.length > RESULT_IMAGE_INLINE_MAX }); continue; }
+      if (RESULT_OMITTED_IMAGE_RE.test(v)) continue;
+      if (v.includes('\n') || v.length >= RESULT_TEXT_LONG) { texts.push({ key, text: v }); continue; }
+    } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+      let copy = null;
+      for (const [k2, v2] of Object.entries(v)) {
+        const uri = resultImageDataUri(k2, v2);
+        if (!uri && !(typeof v2 === 'string' && RESULT_OMITTED_IMAGE_RE.test(v2))) continue;
+        if (!copy) copy = { ...v };
+        delete copy[k2];
+        if (uri) images.push({ kind: 'data', src: uri, field: `${key}.${k2}`, tooBig: v2.length > RESULT_IMAGE_INLINE_MAX });
+      }
+      if (copy) { meta[key] = copy; continue; }
+    }
+    meta[key] = v;
+  }
+  if (!texts.length && !images.length) return null;
+  return { meta, texts, images };
+}
+
 export function createChatRenderPrimitives(deps = {}) {
   const {
     $,
@@ -50,6 +98,9 @@ export function createChatRenderPrimitives(deps = {}) {
     escapeHtml,
     // 109b: 工具结果图内联缩略图的取图函数。默认走既有 /api/file/preview 端点(与 file-browser.js 的
     // renderFilePreviewInto 同一鉴权 api() 封装),不新造事实源、不新增端点。deps 可覆盖以便单元测试打桩。
+    // N11: 落盘后的截图(result.imageAttachments)经既有 /api/upload/content 取回,返回 objectURL 的 Promise。
+    // 默认拒绝(=不画图,只留文字);组合根注入 app.js 的 attachmentImageUrl(带鉴权头的 fetch → blob)。
+    fetchAttachmentImage = () => Promise.reject(new Error('no attachment loader')),
     fetchFilePreview = filePath => {
       const sessionId = state && state.currentSession && state.currentSession.id;
       const query = '?path=' + encodeURIComponent(filePath) + (sessionId ? '&sessionId=' + encodeURIComponent(sessionId) : '');
@@ -402,7 +453,7 @@ export function createChatRenderPrimitives(deps = {}) {
   function wrapPreWithCopy(pre) {
     const wrap = el('div', 'tc-pre-wrap');
     const btn = el('button', 'copy-code', t('common.copy')); btn.type = 'button';
-    btn.onclick = e => { e.preventDefault(); e.stopPropagation(); navigator.clipboard?.writeText(pre.textContent || '').then(() => toast(t("toast.copied"), 'ok')); };
+    btn.onclick = e => { e.preventDefault(); e.stopPropagation(); navigator.clipboard?.writeText((typeof pre.copyText === 'function' ? pre.copyText() : pre.textContent) || '').then(() => toast(t("toast.copied"), 'ok')); };
     wrap.append(pre, btn);
     return wrap;
   }
@@ -518,8 +569,8 @@ export function createChatRenderPrimitives(deps = {}) {
     const inp = el('pre'); inp.textContent = safeStringify(tc.input) || argSource; detail.appendChild(wrapPreWithCopy(inp));
     const resLabel = el('div', 'tc-label', t('chat.result')); detail.appendChild(resLabel);
     const resPre = el('pre');
-    resPre.textContent = tc.result !== undefined ? safeStringify(tc.result)
-      : (settled ? t('chat.liveTurn.resultOffEnvelope') : t('chat.waitingResult'));
+    if (tc.result !== undefined) renderToolResultInto(resPre, tc.name, tc.result);
+    else resPre.textContent = settled ? t('chat.liveTurn.resultOffEnvelope') : t('chat.waitingResult');
     detail.appendChild(wrapPreWithCopy(resPre));
     body.appendChild(detail);
     // 109b: 结果图内联缩略图,挂在含 result <pre> 的 detail 之后,只在终态(done)且非错误时懒请求预览。
@@ -606,6 +657,76 @@ export function createChatRenderPrimitives(deps = {}) {
     if (v == null) return '';
     if (typeof v === 'string') return v;
     try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+  }
+  // N11: 把工具结果画进结果框。大多数结果仍是一段 JSON 文本(外观不变);含多行文本字段/截图的结果改画成
+  // 真正的多行文本块(不再是一行转义的 "\n")+ <img> 缩略图,其余键紧凑 JSON;长文本默认只展开前若干行,可展开。
+  // 全程 textContent / <img>.src(objectURL 或 data:image/…),不走 innerHTML。幂等:每次先清空再画。
+  const RESULT_COLLAPSE_LINES = 40;
+  const RESULT_VIEW_CHAR_CAP = 100000;
+  function resultTextBlock(key, text) {
+    const block = el('div', 'tc-res-block' + (/^(?:stderr|error)$/.test(key) ? ' err' : ''));
+    let view = text, omitted = 0;
+    if (text.length > RESULT_VIEW_CHAR_CAP) {
+      omitted = text.length - RESULT_VIEW_CHAR_CAP;
+      view = text.slice(0, RESULT_VIEW_CHAR_CAP / 2) + '\n…\n' + text.slice(text.length - RESULT_VIEW_CHAR_CAP / 2);
+    }
+    const lines = view.split('\n');
+    const head = el('div', 'tc-res-key', key);
+    head.appendChild(el('span', 'tc-res-len', t('chat.result.stats', { chars: text.length, lines: lines.length })
+      + (omitted ? ' · ' + t('chat.result.viewTruncated', { omitted }) : '')));
+    block.appendChild(head);
+    const body = el('div', 'tc-res-text');
+    block.appendChild(body);
+    if (lines.length <= RESULT_COLLAPSE_LINES) { body.textContent = view; return block; }
+    const first = lines.slice(0, RESULT_COLLAPSE_LINES).join('\n');
+    let expanded = false;
+    body.textContent = first;
+    const more = el('button', 'tc-res-more', t('chat.result.showAll', { lines: lines.length })); more.type = 'button';
+    more.onclick = e => {
+      e.preventDefault(); e.stopPropagation();
+      expanded = !expanded;
+      body.textContent = expanded ? view : first;
+      block.classList.toggle('expanded', expanded);
+      more.textContent = expanded ? t('chat.result.collapse') : t('chat.result.showAll', { lines: lines.length });
+    };
+    block.appendChild(more);
+    return block;
+  }
+  function resultImageBlock(img) {
+    const wrap = el('div', 'tool-image tc-res-img');
+    const label = img.kind === 'attachment' ? String(img.att.name || '') : String(img.field || '');
+    const show = src => {
+      const im = el('img', 'tool-image-img'); im.src = src; im.alt = label;   // objectURL/data URI 都是本地的,不用 lazy(卡片折叠时 lazy 图永远不解码)
+      wrap.appendChild(im);
+      const toggle = el('button', 'tool-image-toggle', t('chat.toolImage.expand')); toggle.type = 'button';
+      toggle.onclick = e => {
+        e.preventDefault(); e.stopPropagation();
+        const expanded = wrap.classList.toggle('expanded');
+        toggle.textContent = expanded ? t('chat.toolImage.collapse') : t('chat.toolImage.expand');
+      };
+      wrap.appendChild(toggle);
+    };
+    if (img.kind === 'data') {
+      if (img.tooBig) wrap.appendChild(el('div', 'tc-res-key', t('chat.result.imageTooBig', { name: label })));
+      else show(img.src);
+    } else {
+      wrap.appendChild(el('div', 'tc-res-key', label));
+      Promise.resolve().then(() => fetchAttachmentImage(img.att)).then(url => { if (url) show(url); }, () => {
+        wrap.appendChild(el('div', 'tc-res-key', t('chat.result.imageMissing')));
+      });
+    }
+    return wrap;
+  }
+  function renderToolResultInto(resPre, name, result) {
+    if (!resPre) return;
+    const parts = toolResultRichParts(result);
+    resPre.classList.toggle('tc-result-rich', Boolean(parts));
+    resPre.copyText = parts ? () => safeStringify(result) : undefined;
+    if (!parts) { resPre.textContent = safeStringify(result); return; }
+    resPre.textContent = '';
+    if (Object.keys(parts.meta).length) resPre.appendChild(el('div', 'tc-res-meta', safeStringify(parts.meta)));
+    for (const img of parts.images) resPre.appendChild(resultImageBlock(img));
+    for (const tx of parts.texts) resPre.appendChild(resultTextBlock(tx.key, tx.text));
   }
   /* ---------------- v1.0.2 (G4): 同回合多工具卡折叠成组 ---------------- */
   function toolGroupSummaryText(n) { return tCount('tool.group.completed', n); }
@@ -1124,6 +1245,7 @@ export function createChatRenderPrimitives(deps = {}) {
     renderMarkdown,
     renderMarkdownInto,
     renderToolImageInto,
+    renderToolResultInto,
     renderStaleBadgeInto,
     staleCacheDays,
     saveAsPlaybook,
