@@ -767,6 +767,34 @@ async function storageSweep(policy, targets = null) {
   return result;
 }
 
+// 桌面 audit_tail 结果 → 时间线行。ACC 的形状是 {ok,count,records:[{ts,tool,ok,args:'<json 字符串>'}|{raw}],log_dir}
+// (tools/audit.py;审计 A2:修前只认 entries/items/audit/裸数组,`records` 不在其中 → 桌面源标 available 却一行都没有)。
+// 仍兼容 {entries}/{items}/{audit}/裸数组。ACC 的 args 是脱敏后的 JSON 字符串,能解析就摊成对象,detail 不再是双重编码。
+function desktopAuditEntriesFromResult(res) {
+  const rows = Array.isArray(res) ? res
+    : (res && Array.isArray(res.entries) ? res.entries
+      : (res && Array.isArray(res.records) ? res.records
+        : (res && Array.isArray(res.items) ? res.items
+          : (res && Array.isArray(res.audit) ? res.audit : []))));
+  const entries = [];
+  for (const r0 of rows) {
+    if (!r0 || typeof r0 !== 'object') continue;
+    const r = { ...r0 };
+    if (typeof r.args === 'string') { const a = safeJsonParse(r.args, undefined); if (a && typeof a === 'object') r.args = a; }
+    const failed = r.ok === false;
+    const name = String(r.action || r.type || r.tool || r.name || (r.raw !== undefined ? 'raw' : 'action'));
+    const detailStr = redact(JSON.stringify(r));
+    entries.push({
+      ts: r.ts || r.time || r.timestamp || '',
+      source: 'desktop',
+      type: name,
+      summary: r.summary ? String(r.summary) : (failed ? `${name}（失败）` : String(r.action || r.type || r.tool || r.name || '桌面操作')),
+      detail: safeJsonParse(detailStr, { redacted: true }),
+    });
+  }
+  return entries;
+}
+
 // Pull the desktop MCP's audit tail via the live ai-computer-control bridge, if present. Returns
 // { entries, available }: available=false means the bridge isn't live or the call failed (degraded — the
 // caller marks sources.desktop='unavailable' and simply omits desktop rows; never an error).
@@ -783,22 +811,7 @@ async function readDesktopAudit(config, limit) {
     let res;
     try { res = await client.callTool('audit_tail', { n: limit }); } catch { return result; }
     if (!res || res.ok === false) return result;
-    // Best-effort shape: accept {entries:[…]} | {items:[…]} | {audit:[…]} | a bare array.
-    const rows = Array.isArray(res) ? res
-      : (Array.isArray(res.entries) ? res.entries
-        : (Array.isArray(res.items) ? res.items
-          : (Array.isArray(res.audit) ? res.audit : [])));
-    for (const r of rows) {
-      if (!r || typeof r !== 'object') continue;
-      const detailStr = redact(JSON.stringify(r));
-      result.entries.push({
-        ts: r.ts || r.time || r.timestamp || '',
-        source: 'desktop',
-        type: String(r.action || r.type || r.tool || r.name || 'action'),
-        summary: String(r.summary || r.action || r.type || r.tool || r.name || '桌面操作'),
-        detail: safeJsonParse(detailStr, { redacted: true }),
-      });
-    }
+    result.entries = desktopAuditEntriesFromResult(res);
     result.available = true;
     return result;
   } catch { return result; }
