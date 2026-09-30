@@ -727,5 +727,8 @@ module.exports = {
   buildMissionAggregateRows,
   listAgentRunDigests,
   saveAgentRun,
-  perfCounters: { missionAggregate: missionAggregateStats, agentRunDigest: agentRunDigestStats },
+  // 会话正文 perf(逐行 sha1 去重 + 增量取不读 provider 正文):unit/session-body-line-cache.test.js 读 perfCounters.sessionBody
+  //   的确定性计数器,并把 sessionMessagesDelta 的字节戳路径与逐条序列化路径逐格比对。
+  perfCounters: { missionAggregate: missionAggregateStats, agentRunDigest: agentRunDigestStats, sessionBody: sessionBodyPerfStats },
+  sessionMessagesDelta,
 };

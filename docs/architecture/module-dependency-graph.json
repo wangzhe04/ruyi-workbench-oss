@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3110,
-    "requiredSymbols": 2934,
+    "providedSymbols": 3129,
+    "requiredSymbols": 2938,
     "edges": 512,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1008,6 +1008,7 @@
         "MISSION_REPLAN_LIMIT",
         "MISSION_STALL_LIMIT",
         "MISSION_STALL_SIGNAL_WINDOW_MS",
+        "SESSION_BODY_LINE_CACHE_CHARS",
         "SESSION_BODY_READ_TRANSIENT",
         "SESSION_BRIEF_GIST_CHARS",
         "SESSION_BRIEF_TITLE_CHARS",
@@ -1017,6 +1018,7 @@
         "SESSION_HEAD_TRANSIENT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
+        "SESSION_LOAD_OMIT_PROVIDER",
         "SESSION_MESSAGES_STAMP_VERSION",
         "SESSION_META_DEFER_TIMEOUT_MS",
         "SESSION_META_STALE_REPLAYS",
@@ -1057,9 +1059,12 @@
         "compactInterventionJournal",
         "createMissionContainer",
         "createSession",
+        "danglingTurnState",
         "deleteSession",
+        "demoteSessionBodyRecord",
         "detectDanglingTurn",
         "dirSize",
+        "dropSessionBodyState",
         "evaluateMissionCheck",
         "finalizeMissionAfterTurn",
         "flushSessionIndex",
@@ -1165,6 +1170,7 @@
         "readMissionChangesWithMeta",
         "readMissionContainer",
         "readMissionSessionHead",
+        "readSessionBodiesOmittingProvider",
         "readSessionBodyFile",
         "readSessionHeadResilient",
         "readSessionIndex",
@@ -1176,6 +1182,7 @@
         "recordMissionCheckResult",
         "recordMissionStalledChange",
         "registerIntervention",
+        "releaseSessionBodyLineCache",
         "rememberLastUsedEngineRoute",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
@@ -1185,7 +1192,16 @@
         "saveSession",
         "scheduleSessionIndexUpdate",
         "serializeSessionBody",
+        "sessionBodyDanglingFromLines",
+        "sessionBodyFileStamp",
+        "sessionBodyLineCache",
+        "sessionBodyLineCacheChars",
+        "sessionBodyLineMatches",
         "sessionBodyPaths",
+        "sessionBodyPerfStats",
+        "sessionBodyRecord",
+        "sessionBodyRecordFromRead",
+        "sessionBodyStamp",
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
@@ -1217,9 +1233,12 @@
         "sessionNotesPath",
         "sessionNotesWriteChains",
         "sessionObjectIsStale",
+        "sessionOmittedProviderHistory",
+        "sessionProviderHistoryLength",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
         "sortSessionMetas",
@@ -13838,6 +13857,20 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionOmittedProviderHistory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionProviderHistoryLength",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "settleIntervention",
           "kinds": [
             "call"
@@ -21127,7 +21160,21 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionBodyPerfStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
           "kinds": [
             "read"
           ]
@@ -27938,6 +27985,8 @@
         "sessionMessagesDelta",
         "sessionMeta",
         "sessionMissionId",
+        "sessionOmittedProviderHistory",
+        "sessionProviderHistoryLength",
         "settleIntervention",
         "transitionInterventionState",
         "updateSessionMeta"
@@ -30154,7 +30203,9 @@
         "rewindSession",
         "saveSession",
         "sessionBodyPaths",
+        "sessionBodyPerfStats",
         "sessionDisplayTitle",
+        "sessionMessagesDelta",
         "sessionMeta",
         "sessionNotesPath",
         "sessionObjectIsStale",

@@ -1913,7 +1913,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
 // 251 行是压缩行,全部视觉上挂在「最后一条用户消息」与最终回复之间。改为同一压缩集原位合并:
 //   · 尾部压缩标记之后还没有新的 user/assistant 行 → 视为同一压缩集,更新那一行(passes/累计蒸发/最新前后
 //     token),不再追加新行;对话一旦继续,旧标记自然闭环,下次压缩才开新行;
-//   · 落盘安全:行内容变化令 planSessionBodyAppend 的前缀哈希失配,saveSession 自动走全量重写慢路径 ——
+//   · 落盘安全:行内容变化令 planSessionBodyAppend 的前缀逐行比对失配,saveSession 自动走全量重写慢路径 ——
 //     蒸发改写 providerHistory 本就走该路径,合并不引入额外成本。
 // 零收益门槛:「蒸发 1 条:106K→106K」这类噪声 pass 只留审计账(logEvent 照旧),不再凭空造出行来。
 const COMPACT_MARKER_MIN_SAVED_TOKENS = 1200;
