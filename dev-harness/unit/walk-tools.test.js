@@ -626,11 +626,13 @@ describe('[W10] file_list pattern 按 "/" 归一路径(Windows)', () => {
     put(path.join(ws, 'other', 'c.ts'), 'x');
     // 别处(护栏 guardFileToolPath / isSensitiveDataPath)也读 path.sep,整个调用都改会被它们当成非法路径;
     // 所以只对 walkFiles / toSlash 自己的读取返回 '\\'(按调用栈判定),模拟 Windows 上 rel 用反斜杠拼接。
+    // 真 Windows 上 path.sep 本来就是 '\\',不用模拟 —— 模拟时其余调用拿到的 '/' 反而会让护栏误判真 Windows 路径。
+    const simulate = process.platform !== 'win32';
     const realSepDesc = Object.getOwnPropertyDescriptor(path, 'sep');
-    Object.defineProperty(path, 'sep', { get: () => (/^\s*at (?:async )?(?:toSlash|walkFiles)\b/.test(String(new Error().stack).split('\n')[2] || '') ? '\\' : '/'), configurable: true });
+    if (simulate) Object.defineProperty(path, 'sep', { get: () => (/^\s*at (?:async )?(?:toSlash|walkFiles)\b/.test(String(new Error().stack).split('\n')[2] || '') ? '\\' : '/'), configurable: true });
     let r;
     try { r = await srv.toolCall('file_list', { root: ws, pattern: '^src/.*\\.ts$' }, ctxFor(ws)); }
-    finally { Object.defineProperty(path, 'sep', realSepDesc); }
+    finally { if (simulate) Object.defineProperty(path, 'sep', realSepDesc); }
     assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300));
         assert.deepEqual(rels(r.files).sort(), ['src/a.ts', 'src/deep/b.ts']);
   });
