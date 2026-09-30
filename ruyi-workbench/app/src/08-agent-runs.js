@@ -997,7 +997,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
             const bridge = resolveBridge(bridgedRoute, tc.name);
-            const ntier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+            const ntier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
             if (!allows(tc.name, bridge)) {
               resultObj = { ok: false, error: `Agent 角色 '${role && role.id || ''}' 未授权工具 ${tc.name}` };
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
@@ -1033,7 +1033,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                const subGateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                const subGateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                  || await bridgedReadPathGate(tc.name, args, { sessionId: parentSession.id, session: parentSession, config, workingDir, effectivePermissionMode: effMode });   // 审计 A②:桥接读文件过读边界
                 const subRelArg = subGateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                 if (subGateRefusal) { resultObj = subGateRefusal; }
                 else if (subRelArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${subRelArg}」是相对路径,无法建立检查点/回撤。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }

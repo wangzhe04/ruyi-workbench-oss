@@ -795,6 +795,26 @@ function mcpServerRequestReply(msg) {
   return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'method not supported by client: ' + String(msg.method).slice(0, 80) } };
 }
 
+// 安全修复(审计 A①):桥接 MCP 服务器(ACC 桌面控制、第三方 stdio MCP)不得继承工作台自己的回环凭据。
+// 每会话 MCP 子进程(`server.js mcp`)的环境里有 WCW_TOKEN / WCW_PORT / WCW_HOST / WCW_SESSION_ID(01 generateSessionMcpConfig
+// 塞进去的),修前它再 spawn 桥接服务器时整份 process.env 原样传下去 —— ACC 的 get_environment_variable 一问就把
+// 令牌交给了模型(令牌 = 可调 /api/permission/decision 等 body-token 路由,自己批自己的权限)。
+// 规则:继承来的环境里去掉所有 WCW_*(工作台内部键;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
+// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
+// (01 buildClaudeCliEnv;桌面/文档类 MCP 用不到)。服务器条目【自己声明】的 env(ownEnv)原样叠在最后,仍然生效。
+const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedServerSpawnEnv(baseEnv, ownEnv) {
+  const out = {};
+  for (const [k, v] of Object.entries(baseEnv || {})) {
+    const up = String(k).toUpperCase();
+    if (BRIDGED_ENV_KEEP.has(up)) { out[k] = v; continue; }
+    if (up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up)) continue;
+    out[k] = v;
+  }
+  return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -928,7 +948,7 @@ class McpStdioClient {
     try {
       child = cp.spawn(s.command, s.args, {
         cwd: this.cwd,
-        env: { ...process.env, ...this.env },
+        env: bridgedServerSpawnEnv(process.env, this.env),
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         ...s.opts,

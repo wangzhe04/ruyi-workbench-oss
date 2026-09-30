@@ -120,17 +120,19 @@ async function resolveFileToolRoot(args, ctx) {
   return normalizeCwd(null, cfg && cfg.defaultWorkspace);
 }
 
-async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
+async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const config = await readConfig();
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
   if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
   if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
-  if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
+  // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
+  // 目录档与入参档不一致时以入参档为准,否则带落盘参数的这一次既过不了 _read(抬档)也过不了 _edit(目录说 read)。
+  if (!bridge && item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
-    const actualTier = bridgedToolTier(bridge.toolName, config);
-    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}', not '${proxyTier}'` };
+    const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
+    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, not '${proxyTier}'` };
   }
   if (!bridge) return toolCall(targetName, targetArgs || {});
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
@@ -141,8 +143,12 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
   try {
     const sid = process.env.WCW_SESSION_ID || '';
-    const session = sid ? await loadSession(sid).catch(() => null) : null;
-    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, { sessionId: sid, turnSeq: session.turnSeq });
+    const sidSession = sid ? await loadSession(sid).catch(() => null) : null;
+    const session = (ctx && ctx.session) || sidSession;
+    // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
+    const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
+    if (readRefusal) return readRefusal;
+    if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
     return await client.callTool(bridge.toolName, targetArgs || {});
   } catch (e) {
     return { ok: false, error: (e && e.message) || String(e) };
@@ -253,13 +259,13 @@ const CORE_TOOL_HANDLERS = {
       return { ok: true, note: 'Claude CLI schemas are fixed for this process. Use tool_search then tool_invoke_read/edit/exec. OpenAI-compatible turns load concrete schemas on the next iteration.' };
   } },
   tool_invoke_read: { paths: null, guardNote: "代理分发:桥接工具经 bridgedWriteRelativePathArg/journalBridgedWrite;原生目标递归回本注册表走各自 guard", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {}, ctx);
   } },
   tool_invoke_edit: { paths: null, guardNote: "代理分发:同 tool_invoke_read", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {}, ctx);
   } },
   tool_invoke_exec: { paths: null, guardNote: "代理分发:同 tool_invoke_read", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {}, ctx);
   } },
   permission_prompt: { paths: null, guardNote: "CLI 权限桥 loopback,不触文件路径(fail-closed)", handler: async (args, ctx) => {
       // Bridge: the CLI (via --permission-prompt-tool) asks us to approve a tool call. We run inside
@@ -981,10 +987,11 @@ const FILE_TOOL_HANDLERS = {
       let matches = await searchFileContent(root, String(args.pattern || ''), args);
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
+      const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
       if (Array.isArray(matches)) { const pn = matches.patternNote; matches = matches.filter(m => !isSensitiveDataPath(m && m.path)); if (pn) matches.patternNote = pn; }
       const maxResults = Number(args.maxResults != null ? args.maxResults : 200);
       const resp = { ok: true, root, matches };
-      if (Array.isArray(matches) && matches.length >= maxResults) resp.truncated = true;
+      if ((Array.isArray(matches) && matches.length >= maxResults) || regexTimedOut) resp.truncated = true;
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
       return resp;

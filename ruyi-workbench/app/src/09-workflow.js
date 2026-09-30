@@ -1253,7 +1253,7 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
     const name = String(tc.name || '').trim();
     if (!name || PLAN_DISCOVERY_BLOCKED_TOOLS.has(name)) return false;
     const bridge = resolveBridge(bridgedRoute || {}, name);
-    return (bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(name)) === 'read';
+    return (bridge ? bridgedToolTier(bridge.toolName, config, tc.rawArgs || tc.input || {}) : nativeToolTier(name)) === 'read';
   });
 }
 
@@ -2737,7 +2737,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // MCP stdio client. v0.8-S0: their tier now comes from BRIDGED_TOOL_TIERS (keyed by the
           // unprefixed bridge.toolName) so ACC's read-only family auto-allows in 'default' mode.
           const bridge = resolveBridge(bridgedRoute, tc.name);
-          const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+          const tier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
           // 116f(§3.5 末段):管家会话用独立权限模式 'steward'(不进 PERMISSION_MODES)—— steward_* 一律
           // allow(read/edit/exec 都不弹权限窗:真正的边界由 13g 工具内部的 stewardMayAct、永久豁免清单与
           // 自理清单执行,那是按【目标线程】权限判的,不是按管家自己的档);非管家工具在管家会话里根本
@@ -2794,7 +2794,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                    || await bridgedReadPathGate(tc.name, args, { sessionId: session.id, session, config, workingDir });   // 审计 A②:桥接读文件过读边界
                   const relArg = gateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                   if (gateRefusal) { resultObj = gateRefusal; }
                   else if (relArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${relArg}」是相对路径,无法建立检查点/回撤(会变成不可撤销的写)。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }

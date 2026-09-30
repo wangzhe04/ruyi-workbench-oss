@@ -1489,6 +1489,18 @@ function stewardExemptPendingSummary(iv) {
 //            没有活回合 'no_live_turn';登记表没有 liveSegments(Kimi 的就没有)'no_live_segments'。
 //            粘性位优先读活回合里那一份会话对象(10 的 emit 写的就是它,比盘上新),盘上的会话头兜底。
 //            10 只在读外部内容的那条工具调用【结果回来】时置位 —— 这条待决自己(还没执行、没有结果)不会把自己算进去。
+// 审计 E:非代批的待决判 mayAct 也要看【活回合此刻的实效档】—— 定时任务(请求级 autonomy.permissionMode)与
+// 交办卡的请求级收紧只活在回合里,不在会话头上。只读档位,不碰污染判定(那是代批十道闸的事)。
+// 09 的登记表挂 effectivePermissionMode();Claude CLI 的登记表只有 spawn 时的解析档 permissionMode(05);
+// 都没有(Kimi、无活回合、调用抛错)→ 空串,由调用方决定怎么兜底。
+function stewardLiveTurnPermissionMode(liveSessionId) {
+  const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
+  if (!liveReg) return '';
+  try {
+    if (typeof liveReg.effectivePermissionMode === 'function') return String(liveReg.effectivePermissionMode() || '');
+  } catch { return ''; }
+  return typeof liveReg.permissionMode === 'string' ? liveReg.permissionMode : '';
+}
 function stewardExemptLiveTurn(liveSessionId, liveInterventionId, liveHead) {
   const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
   if (!liveReg) return { live: false, mode: '', taint: { tainted: true, taintBy: 'no_live_turn' } };

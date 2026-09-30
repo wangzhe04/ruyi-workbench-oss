@@ -409,16 +409,20 @@ async function schedulerRecover(schedFireRows) {
 }
 
 // ── 触发四段(§3.2)────────────────────────────────────────────────────────
-// 权限档:任务自带的档是【天花板 = 全局档去掉 bypass】。任务没给(''),或给的档不在
-// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档。这一句是 06j 那半条校验
+// 权限档:【天花板 = 全局档,永不含 bypass】。任务没给(''),或给的档不在
+// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档;给了就与全局档取更紧的那个。这一句是 06j 那半条校验
 // (「不是 bypass 的非空字符串就留着」)的另一半:只有这里读得到 config。
+// 安全修复(审计 D):修前「天花板」只挡了 bypass —— 任务档比全局档【宽】时照样生效(全局 plan、任务 auto
+// → 定时回合按 auto 跑),全局是 bypass 而任务没给档时也原样拿到 bypass(与「永不含 bypass」相悖)。
+// 现在按 06i 的全序(plan < default < acceptEdits < auto < bypass)取 min(任务档 || 全局档, 全局档),
+// 结果若仍是 bypass(只可能来自全局档)一律落到 default。全局档本身不认识 → 按 default 算(fail-closed)。
 function schedulerPermissionModeFor(schedTask, schedConfig) {
-  const wanted = String((schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
-  const globalMode = String((schedConfig && schedConfig.permissionMode) || 'default');
-  if (!wanted) return globalMode;
-  if (wanted === 'bypass' || wanted === 'bypassPermissions') return globalMode;
-  if (!PERMISSION_MODES.includes(wanted)) return globalMode;
-  return wanted;
+  const wanted0 = String((schedTask && schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
+  const globalRaw = String((schedConfig && schedConfig.permissionMode) || 'default');
+  const globalMode = stewardPermissionRank(globalRaw) >= 0 ? globalRaw : 'default';
+  const wanted = (wanted0 && wanted0 !== 'bypass' && wanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(wanted0)) ? wanted0 : globalMode;
+  const narrowest = stewardPermissionRank(wanted) <= stewardPermissionRank(globalMode) ? wanted : globalMode;
+  return (narrowest === 'bypass' || narrowest === 'bypassPermissions') ? 'default' : narrowest;
 }
 
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。

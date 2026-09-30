@@ -3936,7 +3936,11 @@ async function workspaceBaselineGitNames(repoRoot, head, deadline = Date.now() +
     if (!result.ok) { truncated = true; return; }
     paths.push(...workspaceBaselineNulPaths(result.stdout));
   };
-  await collect(['-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--name-only', '-z', head, '--']);
+  // 审计 B:回合开头自动跑的这条 diff 同样会触发仓库自带的 clean 过滤器与子模块递归(比 git_status 还隐蔽:
+  // 不需要任何工具调用)—— 与 11 的只读 git 工具共用同一道护栏;护栏读不出配置就当扫描不完整(truncated)。
+  const guard = await gitReadOnlyGuard(repoRoot, workspaceBaselineRemainingMs(deadline) || 1000);
+  if (!guard.ok) return { paths: [], truncated: true };
+  await collect([...guard.flags, '-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty', '--name-only', '-z', head, '--']);
   await collect(['-C', repoRoot, 'ls-files', '--others', '--exclude-standard', '-z', '--']);
   if (Date.now() >= deadline) truncated = true;
   return { paths: [...new Set(paths)], truncated };

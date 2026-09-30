@@ -759,6 +759,32 @@ async function preflightWriteBoundary(toolName, args, ctx) {
   }
   return null;
 }
+// 安全修复(审计 A②):桥接(ACC 等)的【读文件内容】族工具走与原生 file_read 同一道读边界。
+// 修前 read_file / list_directory / file_info / ocr_image 在 read 档(任何权限模式都零弹窗放行),却从不经
+// guardFileToolPath —— 远端模型一句话就能读 <dataRoot>\config.json(API 密钥)、runtime.json(回环令牌)、
+// ~\.ssh\*。现在分发前(callTool 之前、三个分发点同一个函数)对这些工具的路径参数过读闸:
+//   · 应用内部数据(配置/会话/记忆/日志)一律拒(与 file_read 同一条 isSensitiveDataPath 地板);
+//   · 工作区外:本机模型放行、远端模型拒(allowOutsideWorkspace 是唯一逃生舱)—— 口径逐字同 file_read;
+//   · 必须是绝对路径:相对路径由 ACC 按它自己的工作目录解析,工作台这边判不准,缺省 '.' 同理 → 拒并提示改绝对路径。
+// 仍是 read 档:工作区里的读照旧零弹窗,桌面自动化的日常用法不受影响。表按【裸名】登记,对任何桥接服务器
+// 同名工具一视同仁(第三方 MCP 的 read_file 也是读文件)。
+const BRIDGED_READ_PATH_ARGS = Object.freeze({
+  read_file: ['path'], list_directory: ['path'], file_info: ['path'], ocr_image: ['path'],
+});
+async function bridgedReadPathGate(bridgedName, args, ctx) {
+  const bare = unprefixedBridgedName(bridgedName);
+  if (!Object.prototype.hasOwnProperty.call(BRIDGED_READ_PATH_ARGS, bare)) return null;
+  const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  for (const field of BRIDGED_READ_PATH_ARGS[bare]) {
+    const raw = typeof a[field] === 'string' ? a[field].trim() : '';
+    if (!raw || !path.isAbsolute(raw)) {
+      return { ok: false, code: 'path-not-absolute', error: `桌面控制读文件必须用【绝对路径】。参数「${field}」${raw ? '是相对路径' : '缺失'},工作台无法判断它指向哪里。请用完整绝对路径重试。` };
+    }
+    const g = await guardFileToolPath(raw, ctx, { tool: bare, write: false });
+    if (!g.ok) return { ok: false, error: g.error, code: g.code, path: raw };
+  }
+  return null;
+}
 // v2.7 (workspace permissions): exec gate. A configured workspace with execute === false denies the exec-tier
 // command/shell tools (powershell_run / script_run / shell_*) when their effective cwd resolves inside it.
 // Backward compatible: no workspace entries, or every entry execute:true, leaves behavior unchanged (exec

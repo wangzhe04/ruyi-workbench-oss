@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3164,
-    "requiredSymbols": 2954,
-    "edges": 513,
+    "providedSymbols": 3179,
+    "requiredSymbols": 2963,
+    "edges": 514,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -1756,6 +1756,13 @@
         },
         {
           "provider": "11-native-tools.js",
+          "symbol": "gitReadOnlyGuard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
           "symbol": "runGit",
           "kinds": [
             "call"
@@ -1777,6 +1784,7 @@
       "note": "桥接写族覆盖审计/工作区护栏",
       "provides": [
         "AUTOEXEC_DENYLIST",
+        "BRIDGED_READ_PATH_ARGS",
         "BRIDGED_SCRIPT_TOOLS",
         "BRIDGED_WRITE_AUDIT_EXEMPT",
         "BRIDGED_WRITE_NAME_PATTERN",
@@ -1810,6 +1818,7 @@
         "_gitCliProbe",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
+        "bridgedReadPathGate",
         "buildAttachmentPrompt",
         "buildBrowserOpenSpawn",
         "buildCodeEditorSpawn",
@@ -2074,6 +2083,8 @@
         "ACTIVE_CHILD_EVENT_TAPS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
+        "BRIDGED_ENV_DROP",
+        "BRIDGED_ENV_KEEP",
         "BRIDGED_TOOL_TIMEOUTS",
         "BRIDGED_TOOL_TIMEOUT_DEFAULT_MS",
         "CLAUDE_RECOVERY_HISTORY_CHARS",
@@ -2118,6 +2129,7 @@
         "activeChildren",
         "appendLiveTail",
         "bridgedCatalogCache",
+        "bridgedServerSpawnEnv",
         "bridgedToolCallTimeoutMs",
         "bridgedToolFunctionName",
         "bridgedToolTimeoutMs",
@@ -6404,6 +6416,7 @@
         "ACTION_VIEW_MIN_CHARS",
         "ACTION_VIEW_TOOLS",
         "AGENT_TOOL_NAMES",
+        "BRIDGED_NOT_READ",
         "BRIDGED_READ_PREFIXES",
         "BRIDGED_READ_TOOLS",
         "CLAUDE_PROGRESS_CHAR_STEP",
@@ -6436,7 +6449,9 @@
         "agentRunWriteChains",
         "agentWorktreePathOwned",
         "applyAgentWorktree",
+        "bridgedCallTierFloor",
         "bridgedToolTier",
+        "bridgedToolTierByName",
         "buildActionEnvelope",
         "buildCallHint",
         "buildClaudeAgentDefinitions",
@@ -7283,6 +7298,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
           "kinds": [
             "call"
           ]
@@ -8209,6 +8231,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
           "kinds": [
             "call"
           ]
@@ -10151,7 +10180,10 @@
         "CODE_SYMBOL_SUFFIXES",
         "CRC32_TABLE",
         "GIT_DIFF_MAX_BYTES",
+        "GIT_READ_ONLY_FLAGS",
         "GIT_SAFE_FLAGS",
+        "REGEX_SCAN_MAX_MS",
+        "REGEX_SCAN_WORKER_SRC",
         "SEARCH_CJK_RE",
         "SHELL_BUF_MAX",
         "SHELL_IDLE_MS",
@@ -10190,6 +10222,8 @@
         "gitDiff",
         "gitHumanError",
         "gitLog",
+        "gitReadOnlyGuard",
+        "gitReadOnlyGuardError",
         "gitStatus",
         "globToRegExp",
         "hasRg",
@@ -10221,6 +10255,7 @@
         "readBackgroundJobs",
         "readIfExists",
         "readWebCache",
+        "regexScanFilesBounded",
         "resolveGitCwd",
         "rgExeName",
         "rgProbeCandidates",
@@ -10781,6 +10816,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
           "kinds": [
             "call"
           ]
@@ -15344,6 +15386,7 @@
         "stewardInheritableCwd",
         "stewardKnownWorkspaces",
         "stewardLaunchTurn",
+        "stewardLiveTurnPermissionMode",
         "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
         "stewardQuickClose",
@@ -16488,6 +16531,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardPermissionRank",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardSamePath",
           "kinds": [
             "call"
@@ -16881,6 +16931,13 @@
         {
           "provider": "13k-steward-threads.js",
           "symbol": "stewardKnownWorkspaces",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardLiveTurnPermissionMode",
           "kinds": [
             "call"
           ]
@@ -19802,6 +19859,13 @@
           ]
         },
         {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPermissionRank",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06j-scheduler-core.js",
           "symbol": "describeSchedule",
           "kinds": [
@@ -21448,6 +21512,13 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
           "kinds": [
             "read"
           ]
@@ -24514,6 +24585,13 @@
         },
         {
           "provider": "13s-scheduler.js",
+          "symbol": "schedulerPermissionModeFor",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13s-scheduler.js",
           "symbol": "schedulerRuntimeSnapshot",
           "kinds": [
             "read"
@@ -24896,6 +24974,7 @@
       "from": "02-session-store.js",
       "to": "11-native-tools.js",
       "symbols": [
+        "gitReadOnlyGuard",
         "runGit"
       ],
       "direction": "forward"
@@ -26442,6 +26521,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "bridgedOfficeScriptGate",
+        "bridgedReadPathGate",
         "guardWorkspacePath",
         "journalBridgedWrite",
         "normalizeCwd"
@@ -26697,6 +26777,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "bridgedOfficeScriptGate",
+        "bridgedReadPathGate",
         "buildAttachmentPrompt",
         "cwdWarning",
         "journalBridgedWrite",
@@ -27358,6 +27439,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "bridgedOfficeScriptGate",
+        "bridgedReadPathGate",
         "buildOpenSpawn",
         "guardFileToolPath",
         "isSensitiveDataPath",
@@ -29135,6 +29217,7 @@
         "stewardMayAct",
         "stewardMemoryTerms",
         "stewardPermissionLabel",
+        "stewardPermissionRank",
         "stewardSamePath",
         "stewardSanitizeText",
         "stewardStateLabel",
@@ -29262,6 +29345,7 @@
         "stewardExemptLiveTurn",
         "stewardExemptPendingSummary",
         "stewardKnownWorkspaces",
+        "stewardLiveTurnPermissionMode",
         "stewardSeatedByUser",
         "stewardSeatedFail",
         "stewardTriggerOf",
@@ -29990,6 +30074,14 @@
     },
     {
       "from": "13s-scheduler.js",
+      "to": "06i-steward-core.js",
+      "symbols": [
+        "stewardPermissionRank"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13s-scheduler.js",
       "to": "06j-scheduler-core.js",
       "symbols": [
         "SCHEDULER_LIMITS",
@@ -30429,6 +30521,7 @@
         "AUTOEXEC_DENYLIST",
         "auditBridgedWriteCoverage",
         "bridgedOfficeScriptGate",
+        "bridgedReadPathGate",
         "buildBrowserOpenSpawn",
         "buildCodeEditorSpawn",
         "buildOpenSpawn",
@@ -31076,6 +31169,7 @@
       "to": "13s-scheduler.js",
       "symbols": [
         "handleSchedulerApiRoutes",
+        "schedulerPermissionModeFor",
         "schedulerRuntimeSnapshot",
         "startScheduler",
         "stopScheduler"

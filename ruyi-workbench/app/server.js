@@ -10158,7 +10158,11 @@ async function workspaceBaselineGitNames(repoRoot, head, deadline = Date.now() +
     if (!result.ok) { truncated = true; return; }
     paths.push(...workspaceBaselineNulPaths(result.stdout));
   };
-  await collect(['-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--name-only', '-z', head, '--']);
+  // 审计 B:回合开头自动跑的这条 diff 同样会触发仓库自带的 clean 过滤器与子模块递归(比 git_status 还隐蔽:
+  // 不需要任何工具调用)—— 与 11 的只读 git 工具共用同一道护栏;护栏读不出配置就当扫描不完整(truncated)。
+  const guard = await gitReadOnlyGuard(repoRoot, workspaceBaselineRemainingMs(deadline) || 1000);
+  if (!guard.ok) return { paths: [], truncated: true };
+  await collect([...guard.flags, '-C', repoRoot, 'diff', '--no-renames', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty', '--name-only', '-z', head, '--']);
   await collect(['-C', repoRoot, 'ls-files', '--others', '--exclude-standard', '-z', '--']);
   if (Date.now() >= deadline) truncated = true;
   return { paths: [...new Set(paths)], truncated };
@@ -12068,6 +12072,32 @@ async function preflightWriteBoundary(toolName, args, ctx) {
   }
   return null;
 }
+// 安全修复(审计 A②):桥接(ACC 等)的【读文件内容】族工具走与原生 file_read 同一道读边界。
+// 修前 read_file / list_directory / file_info / ocr_image 在 read 档(任何权限模式都零弹窗放行),却从不经
+// guardFileToolPath —— 远端模型一句话就能读 <dataRoot>\config.json(API 密钥)、runtime.json(回环令牌)、
+// ~\.ssh\*。现在分发前(callTool 之前、三个分发点同一个函数)对这些工具的路径参数过读闸:
+//   · 应用内部数据(配置/会话/记忆/日志)一律拒(与 file_read 同一条 isSensitiveDataPath 地板);
+//   · 工作区外:本机模型放行、远端模型拒(allowOutsideWorkspace 是唯一逃生舱)—— 口径逐字同 file_read;
+//   · 必须是绝对路径:相对路径由 ACC 按它自己的工作目录解析,工作台这边判不准,缺省 '.' 同理 → 拒并提示改绝对路径。
+// 仍是 read 档:工作区里的读照旧零弹窗,桌面自动化的日常用法不受影响。表按【裸名】登记,对任何桥接服务器
+// 同名工具一视同仁(第三方 MCP 的 read_file 也是读文件)。
+const BRIDGED_READ_PATH_ARGS = Object.freeze({
+  read_file: ['path'], list_directory: ['path'], file_info: ['path'], ocr_image: ['path'],
+});
+async function bridgedReadPathGate(bridgedName, args, ctx) {
+  const bare = unprefixedBridgedName(bridgedName);
+  if (!Object.prototype.hasOwnProperty.call(BRIDGED_READ_PATH_ARGS, bare)) return null;
+  const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  for (const field of BRIDGED_READ_PATH_ARGS[bare]) {
+    const raw = typeof a[field] === 'string' ? a[field].trim() : '';
+    if (!raw || !path.isAbsolute(raw)) {
+      return { ok: false, code: 'path-not-absolute', error: `桌面控制读文件必须用【绝对路径】。参数「${field}」${raw ? '是相对路径' : '缺失'},工作台无法判断它指向哪里。请用完整绝对路径重试。` };
+    }
+    const g = await guardFileToolPath(raw, ctx, { tool: bare, write: false });
+    if (!g.ok) return { ok: false, error: g.error, code: g.code, path: raw };
+  }
+  return null;
+}
 // v2.7 (workspace permissions): exec gate. A configured workspace with execute === false denies the exec-tier
 // command/shell tools (powershell_run / script_run / shell_*) when their effective cwd resolves inside it.
 // Backward compatible: no workspace entries, or every entry execute:true, leaves behavior unchanged (exec
@@ -13375,6 +13405,26 @@ function mcpServerRequestReply(msg) {
   return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'method not supported by client: ' + String(msg.method).slice(0, 80) } };
 }
 
+// 安全修复(审计 A①):桥接 MCP 服务器(ACC 桌面控制、第三方 stdio MCP)不得继承工作台自己的回环凭据。
+// 每会话 MCP 子进程(`server.js mcp`)的环境里有 WCW_TOKEN / WCW_PORT / WCW_HOST / WCW_SESSION_ID(01 generateSessionMcpConfig
+// 塞进去的),修前它再 spawn 桥接服务器时整份 process.env 原样传下去 —— ACC 的 get_environment_variable 一问就把
+// 令牌交给了模型(令牌 = 可调 /api/permission/decision 等 body-token 路由,自己批自己的权限)。
+// 规则:继承来的环境里去掉所有 WCW_*(工作台内部键;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
+// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
+// (01 buildClaudeCliEnv;桌面/文档类 MCP 用不到)。服务器条目【自己声明】的 env(ownEnv)原样叠在最后,仍然生效。
+const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedServerSpawnEnv(baseEnv, ownEnv) {
+  const out = {};
+  for (const [k, v] of Object.entries(baseEnv || {})) {
+    const up = String(k).toUpperCase();
+    if (BRIDGED_ENV_KEEP.has(up)) { out[k] = v; continue; }
+    if (up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up)) continue;
+    out[k] = v;
+  }
+  return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
+}
+
 class McpStdioClient {
   constructor({ id, command, args, cwd, env, startupTimeoutMs, toolTimeoutMs, enabledTools, disabledTools }) {
     this.id = id;
@@ -13508,7 +13558,7 @@ class McpStdioClient {
     try {
       child = cp.spawn(s.command, s.args, {
         cwd: this.cwd,
-        env: { ...process.env, ...this.env },
+        env: bridgedServerSpawnEnv(process.env, this.env),
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         ...s.opts,
@@ -18038,7 +18088,7 @@ async function runClaudeTurn({
   const child = cp.spawn(spawnCmd, spawnArgs, { cwd: workingDir, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...spawnOpts });
   // P2-3: hold a reference to the in-memory session so a mid-turn POST /api/session/skills can update
   // session.skills on the LIVE turn object (otherwise the turn's end-of-turn saveSession clobbers it).
-  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, liveSegments: turnSegments }; // 47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
+  const reg = { child, pid: child.pid, exited: false, pausePending: false, state: 'running', startedAt: Date.now(), lastEventAt: Date.now(), interactive, onEvent: null, session, kind: 'claude', traceId: activeTraceId, questionContext: '', liveTail: { text: '', tool: '', updatedAt: '' }, permissionMode: String(config.permissionMode || ''), liveSegments: turnSegments }; // 审计 C:permissionMode = 本回合 spawn CLI 时用的解析档(请求级 > 会话级 > 全局),13d 的 CLI 权限桥按它判而不是按全局档;47a: kind 供 /api/steer 按引擎分派;117l: liveTail 同 09;117o-A7: liveSegments 同 09(活回合的有序叙事账本,13d 只读它的 liveSnapshot())
   // MCP-triggered workflows report progress through the active turn registry rather than through Claude's
   // stdout.  Count those events as activity too; otherwise Claude can be quietly waiting on an active DAG while
   // the parent CLI watchdog mistakes it for an idle process.
@@ -32396,12 +32446,40 @@ const BRIDGED_READ_TOOLS = new Set([
 // Prefix rules for read-only families that share a common verb (e.g. get_windows, list_processes,
 // wait_for_window_idle). Kept narrow so an 'exec'-shaped verb can't sneak in under a broad prefix.
 const BRIDGED_READ_PREFIXES = ['get_', 'list_', 'wait_for_'];
+// 安全修复(审计 A②):前缀规则会把「读出秘密」的工具也收进 read 档(任何模式都零弹窗放行)。
+// get_environment_variable 能读出宿主进程环境里的任何值(令牌、密钥、代理口令)—— 它不是「看一眼桌面」,
+// 按未知工具的缺省口径落回 exec(非 bypass/auto 模式下先问人)。
+const BRIDGED_NOT_READ = new Set(['get_environment_variable']);
+// 安全修复(审计 A③):同一个工具按入参有两副面孔 —— get_clipboard_image / window_screenshot 不带落盘参数时
+// 只回图,带了就往任意路径写文件(allow_protected:true 还会绕过 ACC 自己的系统目录护栏)。它们的写路径
+// 参数本来就登记在 BRIDGED_WRITE_PATH_ARGS(检查点要用),这里复用同一张表:给了写路径参数的这一次调用,
+// 档位至少是 edit;再带 allow_protected:true 就是 exec。只抬不降,用户覆盖表也压不下这道地板。
+// args 缺省(目录/清单等不看入参的调用方)= 修前口径。args 可以是对象或 JSON 字符串。
+function bridgedCallTierFloor(unprefixedName, args) {
+  let a = args;
+  if (typeof a === 'string') { try { a = JSON.parse(a); } catch { a = null; } }
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return '';
+  const spec = Object.prototype.hasOwnProperty.call(BRIDGED_WRITE_PATH_ARGS, unprefixedName) ? BRIDGED_WRITE_PATH_ARGS[unprefixedName] : null;
+  if (!spec) return '';
+  const fields = Array.isArray(spec.multi) ? spec.multi : [spec];
+  const writes = fields.some(f => typeof a[f.field] === 'string' && a[f.field].trim());
+  if (!writes) return '';
+  return a.allow_protected === true ? 'exec' : 'edit';
+}
 // Resolve a bridged tool's tier: user override (config.bridgedToolTiers) wins, then the built-in table,
 // then default 'exec'. `unprefixedName` is bridge.toolName (never the serverId__tool form).
-function bridgedToolTier(unprefixedName, config) {
+// 第三参 args(可选):按本次调用的入参抬档(见 bridgedCallTierFloor)。
+function bridgedToolTier(unprefixedName, config, args) {
+  const base = bridgedToolTierByName(unprefixedName, config);
+  const floor = args === undefined ? '' : bridgedCallTierFloor(unprefixedName, args);
+  const rank = { read: 0, edit: 1, exec: 2 };
+  return floor && rank[floor] > rank[base] ? floor : base;
+}
+function bridgedToolTierByName(unprefixedName, config) {
   const overrides = (config && config.bridgedToolTiers && typeof config.bridgedToolTiers === 'object') ? config.bridgedToolTiers : {};
   const ov = overrides[unprefixedName];
   if (ov === 'read' || ov === 'edit' || ov === 'exec') return ov;
+  if (BRIDGED_NOT_READ.has(unprefixedName)) return 'exec';
   if (BRIDGED_READ_TOOLS.has(unprefixedName)) return 'read';
   if (BRIDGED_READ_PREFIXES.some(p => unprefixedName.startsWith(p))) return 'read';
   return 'exec';
@@ -34927,7 +35005,7 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
             resultObj = { ok: false, error: '子代理不可再派生子代理' };
           } else {
             const bridge = resolveBridge(bridgedRoute, tc.name);
-            const ntier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+            const ntier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
             if (!allows(tc.name, bridge)) {
               resultObj = { ok: false, error: `Agent 角色 '${role && role.id || ''}' 未授权工具 ${tc.name}` };
               onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: true, subagentId });
@@ -34963,7 +35041,8 @@ async function runSubAgentCore({ parentSession, provider, config, task, displayT
               if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
               else {
                 // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                const subGateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                const subGateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                  || await bridgedReadPathGate(tc.name, args, { sessionId: parentSession.id, session: parentSession, config, workingDir, effectivePermissionMode: effMode });   // 审计 A②:桥接读文件过读边界
                 const subRelArg = subGateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                 if (subGateRefusal) { resultObj = subGateRefusal; }
                 else if (subRelArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${subRelArg}」是相对路径,无法建立检查点/回撤。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
@@ -38154,7 +38233,7 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
     const name = String(tc.name || '').trim();
     if (!name || PLAN_DISCOVERY_BLOCKED_TOOLS.has(name)) return false;
     const bridge = resolveBridge(bridgedRoute || {}, name);
-    return (bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(name)) === 'read';
+    return (bridge ? bridgedToolTier(bridge.toolName, config, tc.rawArgs || tc.input || {}) : nativeToolTier(name)) === 'read';
   });
 }
 
@@ -39638,7 +39717,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           // MCP stdio client. v0.8-S0: their tier now comes from BRIDGED_TOOL_TIERS (keyed by the
           // unprefixed bridge.toolName) so ACC's read-only family auto-allows in 'default' mode.
           const bridge = resolveBridge(bridgedRoute, tc.name);
-          const tier = bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(tc.name);
+          const tier = bridge ? bridgedToolTier(bridge.toolName, config, args) : nativeToolTier(tc.name);   // 审计 A③:按本次入参抬档
           // 116f(§3.5 末段):管家会话用独立权限模式 'steward'(不进 PERMISSION_MODES)—— steward_* 一律
           // allow(read/edit/exec 都不弹权限窗:真正的边界由 13g 工具内部的 stewardMayAct、永久豁免清单与
           // 自理清单执行,那是按【目标线程】权限判的,不是按管家自己的档);非管家工具在管家会话里根本
@@ -39695,7 +39774,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 if (!client) resultObj = { ok: false, error: `bridged MCP server '${bridge.serverId}' is not available` };
                 else {
                   // v1.2: Office 软闸(工具层)——终端命令内联手写 Office 在分发前拦截(force 泄压)。
-                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args);
+                  const gateRefusal = bridgedOfficeScriptGate(tc.name, args)
+                    || await bridgedReadPathGate(tc.name, args, { sessionId: session.id, session, config, workingDir });   // 审计 A②:桥接读文件过读边界
                   const relArg = gateRefusal ? null : bridgedWriteRelativePathArg(tc.name, args); // v1.4.1 audit #9
                   if (gateRefusal) { resultObj = gateRefusal; }
                   else if (relArg) { resultObj = { ok: false, error: `桌面控制写文件必须用【绝对路径】。参数「${relArg}」是相对路径,无法建立检查点/回撤(会变成不可撤销的写)。请用完整绝对路径(如 盘符:\\文件夹\\文件.xlsx)重试。` }; }
@@ -43849,6 +43929,11 @@ async function searchFileContent(root, pattern, opts = {}) {
   // Carry the literal-fallback note on the array (JSON.stringify of an array drops extra props, so the
   // file_search handler lifts it into the response as `patternNote`; other callers safely ignore it).
   if (norm.note) results.patternNote = norm.note;
+  // 审计 F:JS 路径的正则撞了时间预算 —— 已找到的照常给,并如实说「可能不全」(同一个 patternNote 出口)。
+  if (results.regexTimedOut) {
+    results.patternNote = (results.patternNote ? results.patternNote + '; ' : '')
+      + 'regex search hit its time budget (pattern too slow, possible catastrophic backtracking); results may be incomplete';
+  }
   return results;
 }
 
@@ -43864,30 +43949,31 @@ function maybeGroup(results, group) {
   return Array.from(byFile.values());
 }
 
-async function searchFileContentJs(root, pattern, opts = {}) {
-  const files = await walkFiles(root, {
-    recursive: true,
-    maxFiles: opts.maxFiles || 2000,
-    maxDepth: opts.maxDepth || 8,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
-  });
-  // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
-  const re = new RegExp(pattern, (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || ''));
-  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
-  const ctx = Math.max(0, Math.min(5, Number(opts.context || 0) || 0));
-  const maxResults = Number(opts.maxResults || 200);
-  const results = [];
-  for (const file of files.filter(f => f.type === 'file')) {
-    if (results.length >= maxResults) break;
-    if (file.size > Number(opts.maxFileBytes || 1024 * 1024)) continue;
-    if (globRe && !globRe.test(file.relativePath)) continue;
+// 安全修复(审计 F · ReDoS):模型给的正则在 JS 扫描路径上是逐行同步 `re.test` —— `(a+)+$` 对 30 个 a 加一个 b
+// 这一行就要回溯 2^30 步,整个服务的事件循环被冻住(实测 81 s,期间 SSE/其它会话全停)。rg 不在(PATH 里没有、
+// 随包缺失)或 rg 拒绝了这个模式(Rust regex 不支持回溯引用/环视 → 退到 JS)时都会走到这里。
+// 修法:匹配放进 worker_threads(Node 内建,零依赖)里跑,主线程只等消息;超过时间预算(默认 10 s,调用方只能
+// 往小调)就 terminate 掉 worker —— 一个卡死的正则能拖住的只是它自己那个线程。已找到的命中照常返回,
+// 另挂 regexTimedOut 让调用方把「结果可能不全」说出来。文件读取也在 worker 里(同步读不再占主线程)。
+const REGEX_SCAN_MAX_MS = 10000;
+const REGEX_SCAN_WORKER_SRC = `
+(() => {
+  const { parentPort, workerData } = require('worker_threads');
+  const fs = require('fs');
+  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars } = workerData;
+  let re;
+  try { re = new RegExp(pattern, flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  let count = 0;
+  for (const file of files) {
+    if (count >= maxResults) break;
     let raw = '';
-    try {
-      raw = await fsp.readFile(file.path, 'utf8');
-    } catch {
+    try { raw = fs.readFileSync(file.path, 'utf8'); } catch { continue; }
+    if (wholeFile) {
+      re.lastIndex = 0;
+      if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
       continue;
     }
-    const lines = raw.split(/\r?\n/);
+    const lines = raw.split(/\\r?\\n/);
     for (let i = 0; i < lines.length; i += 1) {
       re.lastIndex = 0;
       if (re.test(lines[i])) {
@@ -43899,12 +43985,67 @@ async function searchFileContentJs(root, pattern, opts = {}) {
           }
           rec.context = block;
         }
-        results.push(rec);
-        if (results.length >= maxResults) break;
+        parentPort.postMessage({ type: 'match', rec });
+        count += 1;
+        if (count >= maxResults) break;
       }
     }
   }
-  return maybeGroup(results, opts.group);
+  parentPort.postMessage({ type: 'done' });
+})();
+`;
+// files: [{path, relativePath}];返回 { results, timedOut, error }。永不 reject。
+function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+  const budgetMs = Math.max(50, Math.min(REGEX_SCAN_MAX_MS, Number(opts.regexTimeoutMs) || REGEX_SCAN_MAX_MS));
+  return new Promise(resolve => {
+    const results = [];
+    let settled = false, worker = null, timer = null;
+    const finish = extra => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (worker) { try { worker.terminate(); } catch { /* already gone */ } }
+      resolve({ results, timedOut: false, error: '', ...extra });
+    };
+    try {
+      const { Worker } = require('worker_threads');
+      worker = new Worker(REGEX_SCAN_WORKER_SRC, {
+        eval: true,
+        workerData: {
+          files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
+          ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
+          wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
+        },
+      });
+    } catch (e) { finish({ error: String((e && e.message) || e) }); return; }
+    timer = setTimeout(() => finish({ timedOut: true }), budgetMs);
+    worker.on('message', m => {
+      if (!m || settled) return;
+      if (m.type === 'match') results.push(m.rec);
+      else if (m.type === 'done') finish({});
+      else if (m.type === 'error') finish({ error: String(m.error || 'regex error') });
+    });
+    worker.on('error', e => finish({ error: String((e && e.message) || e) }));
+    worker.on('exit', () => finish({}));
+  });
+}
+
+async function searchFileContentJs(root, pattern, opts = {}) {
+  const files = await walkFiles(root, {
+    recursive: true,
+    maxFiles: opts.maxFiles || 2000,
+    maxDepth: opts.maxDepth || 8,
+    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
+  });
+  // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
+  const flags = (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || '');
+  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
+  const maxFileBytes = Number(opts.maxFileBytes || 1024 * 1024);
+  const scanFiles = files.filter(f => f.type === 'file' && !(f.size > maxFileBytes) && !(globRe && !globRe.test(f.relativePath)));
+  const scan = await regexScanFilesBounded(scanFiles, pattern, flags, opts);
+  const grouped = maybeGroup(scan.results, opts.group);
+  if (scan.timedOut) grouped.regexTimedOut = true;
+  return grouped;
 }
 
 // rg --json emits NDJSON: one JSON object per line. We care about type:'match' events. The matched
@@ -44052,6 +44193,40 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
     child.on('error', () => { /* handled via the callback's `error` arg */ });
   });
 }
+// 安全修复(审计 B):read 档的 git 调用还会执行仓库自带配置指定的【过滤器】—— `.gitattributes` 里一行
+// `* filter=x` 加 `.git/config` 里 `[filter "x"] clean = <命令>`,git status / git diff 在比对工作区文件时就会
+// spawn 那条命令(stat 变了就重算哈希,先过 clean)。子模块同理:status/diff 会在子模块里再起一个 git,
+// 子模块自己的 config 里的过滤器不归上面那几个 -c 管。修法:
+//   ① 先读一遍配置里【所有】filter.<name>.(clean|smudge|process) 键(git config 只读配置、不执行任何东西),
+//      对每个 name 追加 `-c filter.<name>.clean= -c …smudge= -c …process= -c …required=false`(空值 = 不跑;
+//      实弹验证 status/diff 不再触发,输出照常);名字里带 `=`(`-c` 的键值分隔符,覆盖不到)一律拒绝执行(fail-closed);
+//   ② `--ignore-submodules=dirty`:不进子模块跑 status(子模块提交指针变了仍会报,只是不看子模块工作区脏不脏);
+//   ③ 另外关掉会 spawn 子进程的展示项:status.submoduleSummary(跑子模块 log)、log.showSignature(跑 gpg.program)。
+// 代价:用 git-lfs 之类 clean 过滤器的仓库,stat 变过的受管文件会被报成「已修改」(按原始字节比);结果里
+// filtersNeutralized 如实列出被关掉的过滤器名。git_commit(exec 档,要真的按过滤器入库)不走这条。
+const GIT_READ_ONLY_FLAGS = ['-c', 'status.submoduleSummary=false', '-c', 'log.showSignature=false', '-c', 'diff.submodule=short'];
+async function gitReadOnlyGuard(cwd, timeoutMs) {
+  const res = await runGit(['-C', cwd, 'config', '-z', '--get-regexp', '^filter\\..*\\.(clean|smudge|process)$'], cwd, timeoutMs || 15000);
+  // exit 1 = 没有匹配的键(也包括「不是仓库」时只剩全局/系统配置且没有过滤器);其余非零 = 读配置本身就失败了。
+  if (!res.ok && res.code !== 1) return { ok: false, res };
+  const names = [];
+  for (const entry of String(res.stdout || '').split('\0')) {
+    const key = entry.split('\n')[0];
+    const m = /^filter\.(.+)\.(?:clean|smudge|process)$/i.exec(key);
+    if (m && !names.includes(m[1])) names.push(m[1]);
+  }
+  const bad = names.find(n => /[=\r\n]/.test(n));
+  if (bad) return { ok: false, refused: true, name: bad };
+  const flags = [...GIT_READ_ONLY_FLAGS];
+  for (const n of names) flags.push('-c', `filter.${n}.clean=`, '-c', `filter.${n}.smudge=`, '-c', `filter.${n}.process=`, '-c', `filter.${n}.required=false`);
+  return { ok: true, flags, names };
+}
+function gitReadOnlyGuardError(guard, cwd) {
+  if (guard && guard.refused) {
+    return { ok: false, error: '这个仓库的 git 配置里有无法安全关闭的过滤器,已拒绝执行只读 git 命令', hint: '过滤器名含「=」。请在终端里检查 .git/config 的 [filter] 段后再试。', cwd };
+  }
+  return gitHumanError(guard && guard.res, cwd);
+}
 // Resolve the working directory a git tool runs in. Mirrors powershell_run's lenient handling: an explicit,
 // existing absolute dir wins; anything unusable falls back to the session/home workspace (never throws).
 function resolveGitCwd(raw) {
@@ -44113,10 +44288,13 @@ function summarizeGitStatus(stdout) {
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
-  const res = await runGit(['-C', cwd, 'status', '--porcelain=v1', '-b'], cwd, args.timeoutMs || 15000);
+  const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:关掉仓库自带过滤器与子模块递归
+  if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
+  const res = await runGit([...guard.flags, '-C', cwd, 'status', '--porcelain=v1', '-b', '--ignore-submodules=dirty'], cwd, args.timeoutMs || 15000);
   if (!res.ok) return gitHumanError(res, cwd);
   const parsed = summarizeGitStatus(res.stdout);
-  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout };
+  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout,
+    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
 // git_diff {cwd?, path?, staged?, contextLines?}: unified diff text. tier: read.
@@ -44127,7 +44305,9 @@ async function gitDiff(args = {}) {
   // --no-textconv 关掉 gitattributes 指定的 textconv 过滤器 —— 两者都会执行仓库自带的外部程序,是 read 档
   // git_diff 下的代码执行面。用 diff 子命令专用选项关闭(不能用 `-c diff.external=` 空值,那会让 git 尝试
   // spawn 空命令而报错)。正常 diff 输出不受影响(已实弹验证:+/- 行照常产出、恶意 diff.external 不触发)。
-  const gitArgs = ['-C', cwd, 'diff', '--no-ext-diff', '--no-textconv'];
+  const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:clean/smudge/process 过滤器与子模块递归
+  if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
+  const gitArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
   if (args.staged === true) gitArgs.push('--cached');
   // contextLines → -U<n> (clamped 0..50). Passed as a single joined arg so it can't be split/走私.
   const ctx = Number(args.contextLines);
@@ -44146,14 +44326,16 @@ async function gitDiff(args = {}) {
     truncated = true;
     diff += `\n\n[已截断:diff 超过 ${Math.round(GIT_DIFF_MAX_BYTES / 1024)}KB。可用 path 参数只看单个文件,或减小 contextLines。]`;
   }
-  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated };
+  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated,
+    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
 // git_log {cwd?, maxCount?, path?}: recent commits as a row table. tier: read.
 async function gitLog(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
-  const gitArgs = ['-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
+  // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
+  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath); // UNTRUSTED path after the `--` separator
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
@@ -44372,8 +44554,9 @@ async function docsSearch(root, query, opts = {}) {
     const stat = await fsp.stat(r).catch(() => null);
     if (!stat) continue;
     if (stat.isFile()) {
-      const content = await readIfExists(r, 400000);
-      if (fileRe && fileRe.test(content)) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
+      // 审计 F:整文件(≤40 万字)上的模型正则同样可能灾难回溯 —— 与 file_search 的 JS 路径同一个有界 worker。
+      const hit = fileRe ? await regexScanFilesBounded([{ path: r, relativePath: path.relative(cwd, r) }], nq.pattern, 'i' + (nq.extraFlags || ''), { wholeFile: true, wholeFileChars: 400000, maxResults: 1 }) : null;
+      if (hit && hit.results.length) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
       continue;
     }
     const partial = await searchFileContent(r, query, {
@@ -45829,17 +46012,19 @@ async function resolveFileToolRoot(args, ctx) {
   return normalizeCwd(null, cfg && cfg.defaultWorkspace);
 }
 
-async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
+async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const config = await readConfig();
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
   if (!item) return { ok: false, error: `tool not found: ${targetName}. Call tool_search first.` };
   if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
-  if (item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   const bridge = resolveBridge(bridged.route, targetName);
+  // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
+  // 目录档与入参档不一致时以入参档为准,否则带落盘参数的这一次既过不了 _read(抬档)也过不了 _edit(目录说 read)。
+  if (!bridge && item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
   if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
-    const actualTier = bridgedToolTier(bridge.toolName, config);
-    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}', not '${proxyTier}'` };
+    const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
+    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, not '${proxyTier}'` };
   }
   if (!bridge) return toolCall(targetName, targetArgs || {});
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
@@ -45850,8 +46035,12 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs) {
   if (relArg) return { ok: false, error: `desktop/document writes require an absolute path; '${relArg}' is relative` };
   try {
     const sid = process.env.WCW_SESSION_ID || '';
-    const session = sid ? await loadSession(sid).catch(() => null) : null;
-    if (session) await journalBridgedWrite(targetName, targetArgs || {}, session, config, { sessionId: sid, turnSeq: session.turnSeq });
+    const sidSession = sid ? await loadSession(sid).catch(() => null) : null;
+    const session = (ctx && ctx.session) || sidSession;
+    // 审计 A②:桥接读文件过读边界(与 09/08 两个分发点同一个函数)。MCP 子进程里 ctx 为空 → 按 WCW_SESSION_ID 装会话。
+    const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
+    if (readRefusal) return readRefusal;
+    if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
     return await client.callTool(bridge.toolName, targetArgs || {});
   } catch (e) {
     return { ok: false, error: (e && e.message) || String(e) };
@@ -45962,13 +46151,13 @@ const CORE_TOOL_HANDLERS = {
       return { ok: true, note: 'Claude CLI schemas are fixed for this process. Use tool_search then tool_invoke_read/edit/exec. OpenAI-compatible turns load concrete schemas on the next iteration.' };
   } },
   tool_invoke_read: { paths: null, guardNote: "代理分发:桥接工具经 bridgedWriteRelativePathArg/journalBridgedWrite;原生目标递归回本注册表走各自 guard", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('read', String(args.name || ''), args.arguments || {}, ctx);
   } },
   tool_invoke_edit: { paths: null, guardNote: "代理分发:同 tool_invoke_read", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('edit', String(args.name || ''), args.arguments || {}, ctx);
   } },
   tool_invoke_exec: { paths: null, guardNote: "代理分发:同 tool_invoke_read", handler: async (args, ctx) => {
-      return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {});
+      return invokeAdaptiveMcpTool('exec', String(args.name || ''), args.arguments || {}, ctx);
   } },
   permission_prompt: { paths: null, guardNote: "CLI 权限桥 loopback,不触文件路径(fail-closed)", handler: async (args, ctx) => {
       // Bridge: the CLI (via --permission-prompt-tool) asks us to approve a tool call. We run inside
@@ -46690,10 +46879,11 @@ const FILE_TOOL_HANDLERS = {
       let matches = await searchFileContent(root, String(args.pattern || ''), args);
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
+      const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
       if (Array.isArray(matches)) { const pn = matches.patternNote; matches = matches.filter(m => !isSensitiveDataPath(m && m.path)); if (pn) matches.patternNote = pn; }
       const maxResults = Number(args.maxResults != null ? args.maxResults : 200);
       const resp = { ok: true, root, matches };
-      if (Array.isArray(matches) && matches.length >= maxResults) resp.truncated = true;
+      if ((Array.isArray(matches) && matches.length >= maxResults) || regexTimedOut) resp.truncated = true;
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (matches && matches.patternNote) resp.patternNote = matches.patternNote;
       return resp;
@@ -54788,7 +54978,11 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     // 弹窗实际显示的 Claude 名(Bash/Edit/Write)匹配,与签发卡片同名口径。范围外回落到下方正常弹窗。session 仅需 .id。
     const bridgeTier = Object.prototype.hasOwnProperty.call(CLI_TOOL_TIER, String(body.toolName || '')) ? CLI_TOOL_TIER[String(body.toolName)] : nativeToolTier(String(body.toolName || ''));   // CLI 报的是 Claude 名(Edit/Write/Bash),查 CLI 表;修前查原生表,一律落成 exec
     // 117m-A3(配 A1 的 D1):高风险判据要吃到工具名与入参,否则 CLI 桥这一侧的 auto 档还是老口径。
-    const bridgeMode = String(config.permissionMode || '');
+    // 审计 C:按【这一回合】的实效档判,不按全局档。runClaudeTurn 登记活回合时记下了 spawn CLI 用的解析档
+    // (请求级 > 会话级 > 全局,10 runSessionTurn 解析);修前读 config.permissionMode —— 全局 auto 时,一条被
+    // 收紧到 default/plan 的线程(或交办卡/定时任务的请求级收紧)经 CLI 桥发来的 edit/exec 请求被静默放行。
+    // 登记表上没有这个值(Kimi 等其它引擎)就按会话头 + 全局解析,仍比「只看全局」更紧或相等。
+    const bridgeMode = String((reg && reg.permissionMode) || resolvePermissionMode({ session: reg && reg.session, config }) || '');
     const bridgeGate = nativeToolGate(bridgeMode, bridgeTier, String(body.toolName || ''), body.input || {});
     // auto 档的低风险动作在原生引擎里已经不弹窗了,CLI 桥必须同口径 —— 否则同一个「全自动」在两个引擎
     // 下行为不一致。只对 auto 档短路(其余档位一行不变:read/bypass 的既有落点仍走下面那条路)。
@@ -59415,6 +59609,18 @@ function stewardExemptPendingSummary(iv) {
 //            没有活回合 'no_live_turn';登记表没有 liveSegments(Kimi 的就没有)'no_live_segments'。
 //            粘性位优先读活回合里那一份会话对象(10 的 emit 写的就是它,比盘上新),盘上的会话头兜底。
 //            10 只在读外部内容的那条工具调用【结果回来】时置位 —— 这条待决自己(还没执行、没有结果)不会把自己算进去。
+// 审计 E:非代批的待决判 mayAct 也要看【活回合此刻的实效档】—— 定时任务(请求级 autonomy.permissionMode)与
+// 交办卡的请求级收紧只活在回合里,不在会话头上。只读档位,不碰污染判定(那是代批十道闸的事)。
+// 09 的登记表挂 effectivePermissionMode();Claude CLI 的登记表只有 spawn 时的解析档 permissionMode(05);
+// 都没有(Kimi、无活回合、调用抛错)→ 空串,由调用方决定怎么兜底。
+function stewardLiveTurnPermissionMode(liveSessionId) {
+  const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
+  if (!liveReg) return '';
+  try {
+    if (typeof liveReg.effectivePermissionMode === 'function') return String(liveReg.effectivePermissionMode() || '');
+  } catch { return ''; }
+  return typeof liveReg.permissionMode === 'string' ? liveReg.permissionMode : '';
+}
 function stewardExemptLiveTurn(liveSessionId, liveInterventionId, liveHead) {
   const liveReg = activeChildren.get(String(liveSessionId || '')) || null;
   if (!liveReg) return { live: false, mode: '', taint: { tainted: true, taintBy: 'no_live_turn' } };
@@ -59781,10 +59987,19 @@ async function stewardImplDecide(args, ctx, config) {
   // 可以不一致 —— 会话头 auto、回合 default 已被闸 2 拦下;反过来会话头 default、回合按请求级 auto 在跑
   // (定时任务的 autonomy.permissionMode),线程此刻确实是「智能自动」,拿会话头去判会把一条合规的代批说成
   // 「档位不够」。非代批的待决口径一个字不变。
-  const mayAct = stewardMayAct(delegation ? delegation.liveMode : permissionMode, type === 'permission' ? 'permission' : type, tier);
+  // 审计 E:非代批那一支修前只看会话头 / 全局档。全局 auto、会话头没设档,而定时任务按 autonomy.permissionMode
+  // 'default'(或交办卡把这一单收紧到 plan/default)在跑时,管家拿「auto」去判 → 替用户批掉了回合自己该问人的那一步。
+  // 现在取【会话头档与活回合实效档中更紧的那一个】(只收不放:活回合档更宽时仍按会话头判,口径与修前一致);
+  // 定时任务开出来的线程读不到活回合档(回合已结束 / 引擎登记表不带档)时按 default 算 —— 天花板语义见 13s。
+  const liveActMode = stewardLiveTurnPermissionMode(missionId);
+  let actMode = permissionMode;
+  if (liveActMode && stewardPermissionRank(liveActMode) >= 0 && stewardPermissionRank(liveActMode) < stewardPermissionRank(actMode)) actMode = liveActMode;
+  if (!liveActMode && threadOriginOf(head) === 'schedule' && stewardPermissionRank(actMode) > stewardPermissionRank('default')) actMode = 'default';
+  const mayAct = stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
   if (mayAct !== 'auto') {
-    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
+    return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(delegation ? permissionMode : actMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
+      ...(!delegation && actMode !== permissionMode ? { effectivePermissionMode: actMode } : {}),
     });
   }
 
@@ -65712,16 +65927,20 @@ async function schedulerRecover(schedFireRows) {
 }
 
 // ── 触发四段(§3.2)────────────────────────────────────────────────────────
-// 权限档:任务自带的档是【天花板 = 全局档去掉 bypass】。任务没给(''),或给的档不在
-// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档。这一句是 06j 那半条校验
+// 权限档:【天花板 = 全局档,永不含 bypass】。任务没给(''),或给的档不在
+// PERMISSION_MODES 白名单里,或给的是 bypass —— 一律回落全局默认档;给了就与全局档取更紧的那个。这一句是 06j 那半条校验
 // (「不是 bypass 的非空字符串就留着」)的另一半:只有这里读得到 config。
+// 安全修复(审计 D):修前「天花板」只挡了 bypass —— 任务档比全局档【宽】时照样生效(全局 plan、任务 auto
+// → 定时回合按 auto 跑),全局是 bypass 而任务没给档时也原样拿到 bypass(与「永不含 bypass」相悖)。
+// 现在按 06i 的全序(plan < default < acceptEdits < auto < bypass)取 min(任务档 || 全局档, 全局档),
+// 结果若仍是 bypass(只可能来自全局档)一律落到 default。全局档本身不认识 → 按 default 算(fail-closed)。
 function schedulerPermissionModeFor(schedTask, schedConfig) {
-  const wanted = String((schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
-  const globalMode = String((schedConfig && schedConfig.permissionMode) || 'default');
-  if (!wanted) return globalMode;
-  if (wanted === 'bypass' || wanted === 'bypassPermissions') return globalMode;
-  if (!PERMISSION_MODES.includes(wanted)) return globalMode;
-  return wanted;
+  const wanted0 = String((schedTask && schedTask.autonomy && schedTask.autonomy.permissionMode) || '');
+  const globalRaw = String((schedConfig && schedConfig.permissionMode) || 'default');
+  const globalMode = stewardPermissionRank(globalRaw) >= 0 ? globalRaw : 'default';
+  const wanted = (wanted0 && wanted0 !== 'bypass' && wanted0 !== 'bypassPermissions' && PERMISSION_MODES.includes(wanted0)) ? wanted0 : globalMode;
+  const narrowest = stewardPermissionRank(wanted) <= stewardPermissionRank(globalMode) ? wanted : globalMode;
+  return (narrowest === 'bypass' || narrowest === 'bypassPermissions') ? 'default' : narrowest;
 }
 
 // 一次触发。mode ∈ ontime|late|manual。返回本次的 outcome(e2e 与 run-now 都读它)。
@@ -68034,6 +68253,7 @@ module.exports = {
   repairProviderHistoryPairing, // 配对铁律自愈(孤儿 tool_calls 补合成 tool 回复) — exposed for e2e 直测
   repairProviderHistoryToolArgs, // 参数铁律自愈(arguments 不是 JSON 对象 -> 改写成实际执行用的 '{}') — exposed for e2e 直测
   bridgedToolTier,
+  bridgedReadPathGate,   // 安全修复(审计 A②):桥接读文件的读边界 —— unit/security-audit-fixes.test.js 直调
   cwdWarning,
   defaultConfig,
   DurableJsonStore,
@@ -68436,6 +68656,8 @@ module.exports = {
   startScheduler,
   stopScheduler,
   schedulerRuntimeSnapshot,
+  // 安全修复(审计 D):定时回合权限档的天花板(= 全局档,永不含 bypass)—— unit/security-permission-ceilings.test.js 直调整张真值表。
+  schedulerPermissionModeFor,
   // 127 波 2-ter S-b:六条路由的处理函数本体 —— exposed for scheduler-steward.e2e.js 在进程内挂一个 http 壳直测
   //   「HTTP 新建 / PATCH 写不进 workdir、PATCH 保住服务端那一份」(workdir 只在管家开着且真触发过之后才有,
   //   而那件是进程内夹具;鉴权表是另一件事,由 scheduler-api.e2e.js 经真服务钉着)。

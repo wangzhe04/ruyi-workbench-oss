@@ -672,6 +672,11 @@ async function searchFileContent(root, pattern, opts = {}) {
   // Carry the literal-fallback note on the array (JSON.stringify of an array drops extra props, so the
   // file_search handler lifts it into the response as `patternNote`; other callers safely ignore it).
   if (norm.note) results.patternNote = norm.note;
+  // 审计 F:JS 路径的正则撞了时间预算 —— 已找到的照常给,并如实说「可能不全」(同一个 patternNote 出口)。
+  if (results.regexTimedOut) {
+    results.patternNote = (results.patternNote ? results.patternNote + '; ' : '')
+      + 'regex search hit its time budget (pattern too slow, possible catastrophic backtracking); results may be incomplete';
+  }
   return results;
 }
 
@@ -687,30 +692,31 @@ function maybeGroup(results, group) {
   return Array.from(byFile.values());
 }
 
-async function searchFileContentJs(root, pattern, opts = {}) {
-  const files = await walkFiles(root, {
-    recursive: true,
-    maxFiles: opts.maxFiles || 2000,
-    maxDepth: opts.maxDepth || 8,
-    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
-  });
-  // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
-  const re = new RegExp(pattern, (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || ''));
-  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
-  const ctx = Math.max(0, Math.min(5, Number(opts.context || 0) || 0));
-  const maxResults = Number(opts.maxResults || 200);
-  const results = [];
-  for (const file of files.filter(f => f.type === 'file')) {
-    if (results.length >= maxResults) break;
-    if (file.size > Number(opts.maxFileBytes || 1024 * 1024)) continue;
-    if (globRe && !globRe.test(file.relativePath)) continue;
+// 安全修复(审计 F · ReDoS):模型给的正则在 JS 扫描路径上是逐行同步 `re.test` —— `(a+)+$` 对 30 个 a 加一个 b
+// 这一行就要回溯 2^30 步,整个服务的事件循环被冻住(实测 81 s,期间 SSE/其它会话全停)。rg 不在(PATH 里没有、
+// 随包缺失)或 rg 拒绝了这个模式(Rust regex 不支持回溯引用/环视 → 退到 JS)时都会走到这里。
+// 修法:匹配放进 worker_threads(Node 内建,零依赖)里跑,主线程只等消息;超过时间预算(默认 10 s,调用方只能
+// 往小调)就 terminate 掉 worker —— 一个卡死的正则能拖住的只是它自己那个线程。已找到的命中照常返回,
+// 另挂 regexTimedOut 让调用方把「结果可能不全」说出来。文件读取也在 worker 里(同步读不再占主线程)。
+const REGEX_SCAN_MAX_MS = 10000;
+const REGEX_SCAN_WORKER_SRC = `
+(() => {
+  const { parentPort, workerData } = require('worker_threads');
+  const fs = require('fs');
+  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars } = workerData;
+  let re;
+  try { re = new RegExp(pattern, flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  let count = 0;
+  for (const file of files) {
+    if (count >= maxResults) break;
     let raw = '';
-    try {
-      raw = await fsp.readFile(file.path, 'utf8');
-    } catch {
+    try { raw = fs.readFileSync(file.path, 'utf8'); } catch { continue; }
+    if (wholeFile) {
+      re.lastIndex = 0;
+      if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
       continue;
     }
-    const lines = raw.split(/\r?\n/);
+    const lines = raw.split(/\\r?\\n/);
     for (let i = 0; i < lines.length; i += 1) {
       re.lastIndex = 0;
       if (re.test(lines[i])) {
@@ -722,12 +728,67 @@ async function searchFileContentJs(root, pattern, opts = {}) {
           }
           rec.context = block;
         }
-        results.push(rec);
-        if (results.length >= maxResults) break;
+        parentPort.postMessage({ type: 'match', rec });
+        count += 1;
+        if (count >= maxResults) break;
       }
     }
   }
-  return maybeGroup(results, opts.group);
+  parentPort.postMessage({ type: 'done' });
+})();
+`;
+// files: [{path, relativePath}];返回 { results, timedOut, error }。永不 reject。
+function regexScanFilesBounded(files, pattern, flags, opts = {}) {
+  const budgetMs = Math.max(50, Math.min(REGEX_SCAN_MAX_MS, Number(opts.regexTimeoutMs) || REGEX_SCAN_MAX_MS));
+  return new Promise(resolve => {
+    const results = [];
+    let settled = false, worker = null, timer = null;
+    const finish = extra => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (worker) { try { worker.terminate(); } catch { /* already gone */ } }
+      resolve({ results, timedOut: false, error: '', ...extra });
+    };
+    try {
+      const { Worker } = require('worker_threads');
+      worker = new Worker(REGEX_SCAN_WORKER_SRC, {
+        eval: true,
+        workerData: {
+          files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
+          ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
+          wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
+        },
+      });
+    } catch (e) { finish({ error: String((e && e.message) || e) }); return; }
+    timer = setTimeout(() => finish({ timedOut: true }), budgetMs);
+    worker.on('message', m => {
+      if (!m || settled) return;
+      if (m.type === 'match') results.push(m.rec);
+      else if (m.type === 'done') finish({});
+      else if (m.type === 'error') finish({ error: String(m.error || 'regex error') });
+    });
+    worker.on('error', e => finish({ error: String((e && e.message) || e) }));
+    worker.on('exit', () => finish({}));
+  });
+}
+
+async function searchFileContentJs(root, pattern, opts = {}) {
+  const files = await walkFiles(root, {
+    recursive: true,
+    maxFiles: opts.maxFiles || 2000,
+    maxDepth: opts.maxDepth || 8,
+    ignoreDirs: opts.ignoreDirs || ['node_modules', '.git', '.venv'],
+  });
+  // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
+  const flags = (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || '');
+  const globRe = opts.glob ? globToRegExp(opts.glob) : null;
+  const maxFileBytes = Number(opts.maxFileBytes || 1024 * 1024);
+  const scanFiles = files.filter(f => f.type === 'file' && !(f.size > maxFileBytes) && !(globRe && !globRe.test(f.relativePath)));
+  const scan = await regexScanFilesBounded(scanFiles, pattern, flags, opts);
+  const grouped = maybeGroup(scan.results, opts.group);
+  if (scan.timedOut) grouped.regexTimedOut = true;
+  return grouped;
 }
 
 // rg --json emits NDJSON: one JSON object per line. We care about type:'match' events. The matched
@@ -875,6 +936,40 @@ function runGit(args, cwd, timeoutMs, opts = {}) {
     child.on('error', () => { /* handled via the callback's `error` arg */ });
   });
 }
+// 安全修复(审计 B):read 档的 git 调用还会执行仓库自带配置指定的【过滤器】—— `.gitattributes` 里一行
+// `* filter=x` 加 `.git/config` 里 `[filter "x"] clean = <命令>`,git status / git diff 在比对工作区文件时就会
+// spawn 那条命令(stat 变了就重算哈希,先过 clean)。子模块同理:status/diff 会在子模块里再起一个 git,
+// 子模块自己的 config 里的过滤器不归上面那几个 -c 管。修法:
+//   ① 先读一遍配置里【所有】filter.<name>.(clean|smudge|process) 键(git config 只读配置、不执行任何东西),
+//      对每个 name 追加 `-c filter.<name>.clean= -c …smudge= -c …process= -c …required=false`(空值 = 不跑;
+//      实弹验证 status/diff 不再触发,输出照常);名字里带 `=`(`-c` 的键值分隔符,覆盖不到)一律拒绝执行(fail-closed);
+//   ② `--ignore-submodules=dirty`:不进子模块跑 status(子模块提交指针变了仍会报,只是不看子模块工作区脏不脏);
+//   ③ 另外关掉会 spawn 子进程的展示项:status.submoduleSummary(跑子模块 log)、log.showSignature(跑 gpg.program)。
+// 代价:用 git-lfs 之类 clean 过滤器的仓库,stat 变过的受管文件会被报成「已修改」(按原始字节比);结果里
+// filtersNeutralized 如实列出被关掉的过滤器名。git_commit(exec 档,要真的按过滤器入库)不走这条。
+const GIT_READ_ONLY_FLAGS = ['-c', 'status.submoduleSummary=false', '-c', 'log.showSignature=false', '-c', 'diff.submodule=short'];
+async function gitReadOnlyGuard(cwd, timeoutMs) {
+  const res = await runGit(['-C', cwd, 'config', '-z', '--get-regexp', '^filter\\..*\\.(clean|smudge|process)$'], cwd, timeoutMs || 15000);
+  // exit 1 = 没有匹配的键(也包括「不是仓库」时只剩全局/系统配置且没有过滤器);其余非零 = 读配置本身就失败了。
+  if (!res.ok && res.code !== 1) return { ok: false, res };
+  const names = [];
+  for (const entry of String(res.stdout || '').split('\0')) {
+    const key = entry.split('\n')[0];
+    const m = /^filter\.(.+)\.(?:clean|smudge|process)$/i.exec(key);
+    if (m && !names.includes(m[1])) names.push(m[1]);
+  }
+  const bad = names.find(n => /[=\r\n]/.test(n));
+  if (bad) return { ok: false, refused: true, name: bad };
+  const flags = [...GIT_READ_ONLY_FLAGS];
+  for (const n of names) flags.push('-c', `filter.${n}.clean=`, '-c', `filter.${n}.smudge=`, '-c', `filter.${n}.process=`, '-c', `filter.${n}.required=false`);
+  return { ok: true, flags, names };
+}
+function gitReadOnlyGuardError(guard, cwd) {
+  if (guard && guard.refused) {
+    return { ok: false, error: '这个仓库的 git 配置里有无法安全关闭的过滤器,已拒绝执行只读 git 命令', hint: '过滤器名含「=」。请在终端里检查 .git/config 的 [filter] 段后再试。', cwd };
+  }
+  return gitHumanError(guard && guard.res, cwd);
+}
 // Resolve the working directory a git tool runs in. Mirrors powershell_run's lenient handling: an explicit,
 // existing absolute dir wins; anything unusable falls back to the session/home workspace (never throws).
 function resolveGitCwd(raw) {
@@ -936,10 +1031,13 @@ function summarizeGitStatus(stdout) {
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
-  const res = await runGit(['-C', cwd, 'status', '--porcelain=v1', '-b'], cwd, args.timeoutMs || 15000);
+  const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:关掉仓库自带过滤器与子模块递归
+  if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
+  const res = await runGit([...guard.flags, '-C', cwd, 'status', '--porcelain=v1', '-b', '--ignore-submodules=dirty'], cwd, args.timeoutMs || 15000);
   if (!res.ok) return gitHumanError(res, cwd);
   const parsed = summarizeGitStatus(res.stdout);
-  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout };
+  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout,
+    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
 // git_diff {cwd?, path?, staged?, contextLines?}: unified diff text. tier: read.
@@ -950,7 +1048,9 @@ async function gitDiff(args = {}) {
   // --no-textconv 关掉 gitattributes 指定的 textconv 过滤器 —— 两者都会执行仓库自带的外部程序,是 read 档
   // git_diff 下的代码执行面。用 diff 子命令专用选项关闭(不能用 `-c diff.external=` 空值,那会让 git 尝试
   // spawn 空命令而报错)。正常 diff 输出不受影响(已实弹验证:+/- 行照常产出、恶意 diff.external 不触发)。
-  const gitArgs = ['-C', cwd, 'diff', '--no-ext-diff', '--no-textconv'];
+  const guard = await gitReadOnlyGuard(cwd, args.timeoutMs || 15000);   // 审计 B:clean/smudge/process 过滤器与子模块递归
+  if (!guard.ok) return gitReadOnlyGuardError(guard, cwd);
+  const gitArgs = [...guard.flags, '-C', cwd, 'diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=dirty'];
   if (args.staged === true) gitArgs.push('--cached');
   // contextLines → -U<n> (clamped 0..50). Passed as a single joined arg so it can't be split/走私.
   const ctx = Number(args.contextLines);
@@ -969,14 +1069,16 @@ async function gitDiff(args = {}) {
     truncated = true;
     diff += `\n\n[已截断:diff 超过 ${Math.round(GIT_DIFF_MAX_BYTES / 1024)}KB。可用 path 参数只看单个文件,或减小 contextLines。]`;
   }
-  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated };
+  return { ok: true, cwd, staged: args.staged === true, path: rawPath || undefined, diff, empty: diff.trim() === '', truncated,
+    ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
 // git_log {cwd?, maxCount?, path?}: recent commits as a row table. tier: read.
 async function gitLog(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
-  const gitArgs = ['-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
+  // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
+  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath); // UNTRUSTED path after the `--` separator
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
@@ -1195,8 +1297,9 @@ async function docsSearch(root, query, opts = {}) {
     const stat = await fsp.stat(r).catch(() => null);
     if (!stat) continue;
     if (stat.isFile()) {
-      const content = await readIfExists(r, 400000);
-      if (fileRe && fileRe.test(content)) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
+      // 审计 F:整文件(≤40 万字)上的模型正则同样可能灾难回溯 —— 与 file_search 的 JS 路径同一个有界 worker。
+      const hit = fileRe ? await regexScanFilesBounded([{ path: r, relativePath: path.relative(cwd, r) }], nq.pattern, 'i' + (nq.extraFlags || ''), { wholeFile: true, wholeFileChars: 400000, maxResults: 1 }) : null;
+      if (hit && hit.results.length) matches.push({ path: r, relativePath: path.relative(cwd, r), line: 1, text: `File contains: ${query}` });
       continue;
     }
     const partial = await searchFileContent(r, query, {
