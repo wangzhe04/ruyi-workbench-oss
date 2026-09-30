@@ -331,7 +331,9 @@ const ALLOWED_CJK_CODE = Object.freeze({
     // 长回复 / 思维链分块(sealTextTailChunk,前面加了 21 行)—— 1532 → 1553,同一行原样位移。
     // 回合收尾增量取(perf):sendPrompt 回合末那一发与 catch 里那一发各多一行(注释 / 链式 .then 换行)—— 1553 → 1555,
     // 逐行 byte 比对过(与位移前的 1553 逐字相同,是位移不是新增)。
-    1555:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
+    // 回合起点 session 事件增量(perf round 4 S3):发送前记 knownMessages 5 行、session 事件分支展开 8 行 —— 1555 → 1569,同一行原样位移。
+    // review 跟进:rememberTurnLine / surfaceBackgroundQuestion 先按子串筛再解析(+4 行)—— 1569 → 1573,同一行原样位移。
+    1573:'正则字面量（匹配 SSE 文本用的「后台/异步/代理/任务/已启动/运行中」词表），不是渲染给用户的文案，不受本锁约束',
   },
   // 前端架构债第一批：节点 aria-label／判定／置信度／依赖四处已改走 t()（workflow.node.ariaLabel、
   // workflow.detail.verdict、workflow.meta.confidence、workflow.node.dependsOn），白名单清空。

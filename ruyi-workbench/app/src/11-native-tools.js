@@ -54,6 +54,7 @@ function persistBackgroundJob(job) {
 }
 // A separate completion ledger cannot be overwritten by an older turn snapshot. Both session load
 // and save merge it by stable job id, so a reconnect/restart still displays the receipt exactly once.
+// Append-only on purpose: it never edits an existing message (02 sessionMessagesDelta's byte stamp relies on that).
 EventStreamHooks.mergeBackgroundJobs = session => {
   if (!session || !Array.isArray(session.messages)) return;
   const seen = new Set(session.messages.map(m => m.backgroundJobId).filter(Boolean));

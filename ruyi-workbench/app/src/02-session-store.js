@@ -6,8 +6,9 @@
 //   <id>.provider.ndjson   provider 引擎历史正文,同上
 // 快路径(saveSession):两个数组只在尾部增长 → 每文件一次 append,O(增量)/轮。
 // 慢路径(全量重写正文):任何前缀变化自动触发 —— rewind(slice)/compaction(reseed)/pop/蒸发改写。
-// 检测机制【不靠调用方自觉打标记】:进程内状态表存每行的 sha1-16 hash,save 时前缀逐行重算比对;
-// 任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写 —— 失配只可能损失性能,不可能丢数据。
+// 检测机制【不靠调用方自觉打标记】:进程内状态表记着盘上每一行(行原文;内存预算不够时退成每行 sha1-16),
+// save 时把前缀逐条重新序列化、逐行比对;任何对不上(含未来新代码忘了声明的中间改写)都安全降级为全量重写
+// —— 失配只可能损失性能,不可能丢数据。(perf:比对用的是行原文,见 sessionBodyState 头注。)
 // 崩溃语义:头是提交点(正文先写、头后写)。append 崩溃中途 → 无 \n 终结的撕裂尾行,读取时物理截断;
 // append 完成但头写未完成 → 正文比头声明的多出「未提交尾巴」,读取时按头计数截断;慢路径(全量重写)
 // 崩溃 → .prevbody 快照(重写前旧正文)恢复与旧头重新配对;正文比头声明的短 / 中间行损坏且无快照可退
@@ -636,7 +637,17 @@ async function transitionInterventionState(sessionId, ivId, expectedVersion, toS
     return { ok: true, status: resolvedStatus, interventionVersion: curVer + 2, result, response };
   }
 }
+// ── perf(会话正文逐行 sha1 的去重):进程内确定性计数器 ───────────────────────────────────────────────────
+// perfCounters.sessionBody(unit/session-body-line-cache 读):只数「做了多少活」,不计时,断言不受机器快慢影响。
+//   lineHashes           单行 sha1 算了几次。修前:每次装载 = 两个正文的总行数,每次保存 = 两个数组的总条数(外加
+//                        严格前缀判定那一遍);现在只在行原文被挤出内存预算、退成 hash 时才算(见 sessionBodyState 头注)。
+//   bodyReads            正文文件读了几次(messages / provider 各算一次)。
+//   providerBodySkips    增量取的装载有几次证明了 provider 正文没变、没去读它(loadSession 的 omitProviderHistory 视图)。
+//   deltaStampFromBytes  增量取的前缀戳有几次是直接对盘上字节算的(不逐条 JSON.stringify)。
+//   deltaStampSerialized 同上,逐条序列化算的(修前的算法;字节路径的前提不成立时仍走它)。
+const sessionBodyPerfStats = { lineHashes: 0, bodyReads: 0, providerBodySkips: 0, deltaStampFromBytes: 0, deltaStampSerialized: 0 };
 function sessionLineHash(line) {
+  sessionBodyPerfStats.lineHashes++;
   return crypto.createHash('sha1').update(line).digest('hex').slice(0, 16);
 }
 
@@ -667,25 +678,136 @@ function sessionMessagesStamp(messages) {
 // 增量取的判定。fromRaw / stampRaw 是查询串原样;任何一处不成立(不是非负整数、N 超出现有条数、戳的版本或条数
 // 对不上、前 N 条的哈希对不上、有条目不可序列化)都返回 null = 调用方回全量。成立时返回尾巴与新整份的戳
 // (同一趟哈希接着算下去,不再多走一遍)。
-function sessionMessagesDelta(messages, fromRaw, stampRaw) {
+// perf:第四参 body(可选)只由 loadSession 的 omitProviderHistory 视图给出(sessionOmittedProviderHistory(s).body):
+// 盘上 messages 正文的原始字节 buf + 行尾偏移 lineEndBytes + 行数 count,并且装载时已经证明了两件事 ——
+// ① messages[0..count) 就是这 count 行逐行 JSON.parse 的结果、装载没有改过它们(normalize/惰性清理一旦要改,
+// 那个视图整个让位给完整装载);② 每一行都是 JSON.stringify 的原样输出(canonical,见 sessionBodyState 头注)。
+// 于是「JSON(m[i]) + '\n'」逐字节就是盘上第 i 行加换行,前缀戳直接对字节取 sha1,不再逐条 stringify + 转 utf8
+// (2000 条 / 15 MB:≈ 45 ms → ≈ 9 ms)。count 之后的条目(装载时合并进来的后台任务回执)照旧逐条序列化。
+// 两条路算出的是同一个 sha1 输入,结果逐字节相同(unit/session-body-line-cache 在形状表上逐格比对)。
+function sessionMessagesDelta(messages, fromRaw, stampRaw, body = null) {
   const list = Array.isArray(messages) ? messages : [];
   const text = String(fromRaw == null ? '' : fromRaw);
   if (!/^\d{1,9}$/.test(text)) return null;
   const from = Number(text);
   const claimed = String(stampRaw == null ? '' : stampRaw);
   if (from > list.length || !claimed.startsWith(`${SESSION_MESSAGES_STAMP_VERSION}.${from}.`)) return null;
+  const disk = body && Buffer.isBuffer(body.buf) && Array.isArray(body.lineEndBytes)
+    && Number.isInteger(body.count) && body.count <= list.length && body.lineEndBytes.length >= body.count ? body : null;
+  if (disk) sessionBodyPerfStats.deltaStampFromBytes++; else sessionBodyPerfStats.deltaStampSerialized++;
   try {
     const hash = crypto.createHash('sha1');
-    for (let i = 0; i < from; i++) hash.update(sessionMessageStampLine(list[i]) + '\n');
+    const byteEnd = k => (k > 0 ? disk.lineEndBytes[k - 1] : 0);
+    const feed = (a, b) => {   // 把 list[a..b) 喂进哈希:盘上那一段按字节,其后逐条序列化
+      if (disk && a < disk.count) {
+        const upto = Math.min(b, disk.count);
+        hash.update(disk.buf.subarray(byteEnd(a), byteEnd(upto)));
+        a = upto;
+      }
+      for (let i = a; i < b; i++) hash.update(sessionMessageStampLine(list[i]) + '\n');
+    };
+    feed(0, from);
     if (`${SESSION_MESSAGES_STAMP_VERSION}.${from}.${hash.copy().digest('hex')}` !== claimed) return null;
-    for (let i = from; i < list.length; i++) hash.update(sessionMessageStampLine(list[i]) + '\n');
+    feed(from, list.length);
     return { from, count: list.length, tail: list.slice(from), stamp: `${SESSION_MESSAGES_STAMP_VERSION}.${list.length}.${hash.digest('hex')}` };
   } catch { return null; }
 }
-// 进程内「已落盘正文」状态:id → { msgHashes:[sha1-16/行], provHashes:[...], bodiesOk }
-// bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。
-// 内存占用 16B/行,万行会话 ≈ 160KB,可忽略;进程重启后由 loadSession 重建。
+// 进程内「已落盘正文」状态:id → { msg: 记录, prov: 记录, bodiesOk }。
+// 用途只有三处:① saveSession 判「内存数组的前缀 === 盘上的行」→ 快路径只 append 增量,否则全量重写;
+// ② saveSession 判「调用方手里是盘上正文的严格前缀(旧副本)」→ 先补齐尾巴(rebaseStaleSessionBody);
+// ③ 增量取不读 provider 正文(loadSession 的 omitProviderHistory 视图)。
+// 记录 = { count, lines, hashes, chars, stamp, canonical, dangling }:
+//   · lines     盘上每一行的原文。前缀比对是 JSON.stringify(entry) === lines[i](字符串比较,15 MB ≈ 2 ms),
+//               修前是对每行算 sha1-16 再比(≈ 20 ms,外加装载时对整个文件再算一遍)。行原文是白来的:save 刚序列化
+//               出来、load 刚解码出来、本来就要丢给 GC 的那一份留下来而已。
+//   · hashes    行原文占内存(≈ 正文字符数),所以全进程有预算 SESSION_BODY_LINE_CACHE_CHARS,按最近写/读淘汰;
+//               被淘汰或单条会话就超预算的记录退成每行 sha1-16(与修前同一个口径:sha1(行的 utf8)),比对照旧逐行 hash。
+//               两种形态只经 sessionBodyLineMatches 比对,调用方不分辨。
+//   · stamp     正文文件的 size|mtimeNs|ino(bigint stat):save 写完取;load 在读的前后各取一次,相等且与读到的字节数
+//               相符才记,读完又截断过就记 null。只有两处信它:退成 hashes 时同一个戳的上一份 hashes 直接沿用(不重算);
+//               增量取凭 provider 正文的戳没变就不去读它(与条件 GET 的 ETag 用同一类戳:size + mtime + inode)。
+//   · canonical 每一行都是 JSON.stringify 的原样输出:save 写下的行天然是;load 读到的行只有与上一份 canonical 记录的
+//               行原文逐行相等(字符串比较,不信戳)才继承。增量取按字节算前缀戳要它(见 sessionMessagesDelta)。
+//   · dangling  只在 provider 记录上:detectDanglingTurn 对这份正文的判定 { dangling, kind },增量取不读正文也能回 resumable。
+// 这张表只可能让事情变慢、不可能让数据变错:比对失配 → 全量重写;记录缺失 / bodiesOk=false → 全量重写;
+// 增量取的任何一个前提不成立 → 落回完整装载。
+// bodiesOk=false 表示上次正文写失败(可能半成品)→ 下次 save 强制全量重写自愈。进程重启后由 loadSession 重建。
+const SESSION_BODY_LINE_CACHE_CHARS = 32 * 1024 * 1024;
 const sessionBodyState = new Map();
+const sessionBodyLineCache = new Map();   // id → 该会话记录里行原文的字符数(Map 插入序 = 最近写/读序,最旧的先被淘汰)
+let sessionBodyLineCacheChars = 0;
+function sessionBodyStamp(st) { return st ? `${st.size}|${st.mtimeNs}|${st.ino}` : null; }
+async function sessionBodyFileStamp(file) {
+  try { return sessionBodyStamp(await fsp.stat(file, { bigint: true })); } catch { return null; }
+}
+function sessionBodyRecord(lines, { stamp = null, canonical = false, dangling = null } = {}) {
+  let chars = 0;
+  for (const line of lines) chars += line.length;
+  return { count: lines.length, lines, hashes: null, chars, stamp, canonical, dangling };
+}
+// 盘上第 i 行是不是 line。记录两种形态(行原文 / 行 hash)在这里统一。
+function sessionBodyLineMatches(record, i, line) {
+  if (typeof line !== 'string') return false;
+  return record.lines ? record.lines[i] === line : record.hashes[i] === sessionLineHash(line);
+}
+// 行原文 → 每行 sha1-16(就地改,同步完成,读者任何时刻看到的都是完整的一种形态)。
+// prev 是同一会话的上一份记录:同一个文件戳、同样行数 = 同一份正文,直接沿用它的 hashes,不重算。
+function demoteSessionBodyRecord(record, prev) {
+  if (!record || !record.lines) return;
+  record.hashes = (prev && prev.hashes && record.stamp && prev.stamp === record.stamp && prev.count === record.count)
+    ? prev.hashes
+    : record.lines.map(sessionLineHash);
+  record.lines = null;
+}
+function releaseSessionBodyLineCache(id) {
+  const held = sessionBodyLineCache.get(id);
+  if (held == null) return;
+  sessionBodyLineCacheChars -= held;
+  sessionBodyLineCache.delete(id);
+}
+function setSessionBodyState(id, state) {
+  const prev = sessionBodyState.get(id);
+  releaseSessionBodyLineCache(id);
+  sessionBodyState.set(id, state);
+  const held = [state.msg, state.prov].reduce((n, rec) => n + (rec && rec.lines ? rec.chars : 0), 0);
+  if (held > SESSION_BODY_LINE_CACHE_CHARS) {   // 单条会话就超预算:不占缓存,直接退成 hash(与修前同样的活)
+    demoteSessionBodyRecord(state.msg, prev && prev.msg);
+    demoteSessionBodyRecord(state.prov, prev && prev.prov);
+    return;
+  }
+  if (held > 0) { sessionBodyLineCache.set(id, held); sessionBodyLineCacheChars += held; }
+  for (const [otherId] of sessionBodyLineCache) {
+    if (sessionBodyLineCacheChars <= SESSION_BODY_LINE_CACHE_CHARS) break;
+    if (otherId === id) continue;
+    const other = sessionBodyState.get(otherId);
+    if (other) { demoteSessionBodyRecord(other.msg, null); demoteSessionBodyRecord(other.prov, null); }
+    releaseSessionBodyLineCache(otherId);
+  }
+}
+function dropSessionBodyState(id) {
+  releaseSessionBodyLineCache(id);
+  sessionBodyState.delete(id);
+}
+// 装载读到的正文 → 记录。与上一份 canonical 记录逐行相等(字符串比较)就继承 canonical,并沿用那一份的行对象(新解码的丢给 GC)。
+function sessionBodyRecordFromRead(body, prev, { stampOk = true, dangling = null } = {}) {
+  let lines = body.lines, canonical = false;
+  if (prev && prev.lines && prev.canonical && prev.count === lines.length) {
+    let same = true;
+    for (let i = 0; i < lines.length; i++) if (lines[i] !== prev.lines[i]) { same = false; break; }
+    if (same) { lines = prev.lines; canonical = true; }
+  }
+  return sessionBodyRecord(lines, { stamp: stampOk ? body.stamp : null, canonical, dangling });
+}
+// provider 正文行 → detectDanglingTurn 的判定。只从尾巴往回解析用得着的那几行;解析不了就不给(增量取随之落回完整装载)。
+function sessionBodyDanglingFromLines(lines) {
+  const parsed = new Map();
+  try {
+    return danglingTurnState(lines.length, i => {
+      if (!parsed.has(i)) parsed.set(i, JSON.parse(lines[i]));
+      return parsed.get(i);
+    });
+  } catch { return null; }
+}
 // 进程内「这条会话被写过几次盘」:saveSession 落盘前后各 +1。loadSession 开读时记下它,读完后仍相等才说明
 // 这一眼期间没有写者 —— 只有那时才许把读到的正文状态交给 sessionBodyState、把补齐默认字段后的副本回写、
 // 截断撕裂尾行。否则拿旧快照去做这三件事,都会把并发 save 刚写进去的消息盖掉/截掉(Windows CI 上
@@ -693,7 +815,7 @@ const sessionBodyState = new Map();
 const sessionDiskWriteSeq = new Map();
 function bumpSessionDiskWriteSeq(id) { sessionDiskWriteSeq.set(id, (sessionDiskWriteSeq.get(id) || 0) + 1); }
 function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
-// 读一个 NDJSON 正文文件。返回 { entries, hashes } | null(文件缺失) | { corrupt:true }(中间行坏)。
+// 读一个 NDJSON 正文文件。返回 { entries, lines, lineEndBytes, tornAt, stamp, buf } | null(文件缺失) | { corrupt:true }(中间行坏)。
 // 崩溃语义:写入侧永远「整行 + 尾随 \n」一次 append,所以【无 \n 终结的尾行 = 撕裂】(append 崩溃中途,
 // 其所属的头写未完成,等于那次 save 没发生)—— 发现即【物理截断】到最后一个好行边界,而不是只在内存里
 // 容忍:否则磁盘上留着半行,下次快路径 append 会接在撕裂字节之后,把新的真消息焊进坏行 → 中间坏行 →
@@ -701,94 +823,105 @@ function sessionDiskWriteSeqOf(id) { return sessionDiskWriteSeq.get(id) || 0; }
 // hunt2-P3:只有 ENOENT 才是「文件缺失」(null)。EBUSY/EPERM/EACCES(Windows 杀软/索引器短暂持锁)、
 // EMFILE/ENFILE(句柄一时耗尽)这类读失败先有界重试;仍失败回 { unreadable:true } —— 修前一律 null,
 // loadSession 把它当「正文丢了」,整条会话连头带正文改名 .corrupt(一次瞬时锁 = 会话从列表里消失)。
+// perf:按字节读、在字节上找 '\n'、逐行解码再 JSON.parse。修前是整份解码成一个大字符串再 split:正文里只要有一个
+// 中文字符,整份(连同 split 出来的每一行)就都是双字节串,解码、解析都慢一截;行尾字节偏移还要每行再 Buffer.byteLength
+// 一遍。现在偏移直接就是字节下标(对非法 utf8 字节也精确 —— 修前按解码后的 U+FFFD 计 3 字节,截断点会偏)。
+// 不再在这里算每行 hash:要比对的人拿 lines(行原文)比,见 sessionBodyState 头注。
+// 分行判据与修前逐字节相同:'\n' 不会出现在任何 utf8 多字节序列里,按字节切与按字符切切在同一处。
 const SESSION_BODY_READ_TRANSIENT = new Set(['EPERM', 'EBUSY', 'EACCES', 'EMFILE', 'ENFILE', 'EAGAIN']);
 async function readSessionBodyFile(p) {
-  let txt;
+  let buf, before = null;
   for (let attempt = 0; ; attempt++) {
-    try { txt = await fsp.readFile(p, 'utf8'); break; }
-    catch (error) {
+    try {
+      before = await fsp.stat(p, { bigint: true }).catch(() => null);
+      buf = await fsp.readFile(p);
+      break;
+    } catch (error) {
       const code = String((error && error.code) || '');
       if (code === 'ENOENT') return null;
       if (!SESSION_BODY_READ_TRANSIENT.has(code) || attempt >= SESSION_HEAD_READ_RETRIES) return { unreadable: true, code: code || 'EREAD' };
       await new Promise(resolve => setTimeout(resolve, 5 + attempt * 10));
     }
   }
-  const lines = txt.split('\n');
-  const entries = [], hashes = [], lineEndBytes = [];
-  let goodBytes = 0; // 已确认好行的 utf8 字节数(含每行结尾 \n),撕裂截断点
-  let torn = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (i === lines.length - 1) { // split 尾元:文件以 \n 结尾 → '';非空 = 无终结尾行(撕裂)
-      if (line !== '') torn = true;
-      break;
-    }
-    if (line === '') return { corrupt: true }; // 中间空行 = 坏
+  sessionBodyPerfStats.bodyReads++;
+  if (!Buffer.isBuffer(buf)) buf = Buffer.from(String(buf), 'utf8');
+  const after = await fsp.stat(p, { bigint: true }).catch(() => null);
+  const stampBefore = sessionBodyStamp(before);
+  const stamp = stampBefore && stampBefore === sessionBodyStamp(after) && after.size === BigInt(buf.length) ? stampBefore : null;
+  const entries = [], lines = [], lineEndBytes = [];
+  let start = 0; // 已确认好行的字节数(含每行结尾 \n),撕裂截断点
+  for (;;) {
+    const nl = buf.indexOf(10, start);
+    if (nl < 0) break;   // 其后若还有字节 = 无 \n 终结的尾行(撕裂)
+    if (nl === start) return { corrupt: true }; // 中间空行 = 坏
+    const line = buf.toString('utf8', start, nl);
     try { entries.push(JSON.parse(line)); }
     catch { return { corrupt: true }; } // 中间坏行 = 坏
-    hashes.push(sessionLineHash(line));
-    goodBytes += Buffer.byteLength(line, 'utf8') + 1;
-    lineEndBytes.push(goodBytes);
+    lines.push(line);
+    start = nl + 1;
+    lineEndBytes.push(start);
   }
   // 撕裂尾行【只报告、不就地截断】:读的这一瞬可能正有 saveSession 在 append(Windows 上并发读能看到写了一半
   // 的行),在这里截断等于删掉正在落盘的那一行。截断交给 loadSession 在确认「没有写者」之后做。
-  return { entries, hashes, lineEndBytes, tornAt: torn ? goodBytes : null };
+  return { entries, lines, lineEndBytes, tornAt: start < buf.length ? start : null, stamp, buf };
 }
-// 快路径判定:entries 的前 persistedHashes.length 行逐行 hash 全等 → 返回 {appendLines, appendHashes, allHashes};
-// 否则(前缀变/缩短/无状态)返回 null → 调用方全量重写。注意:必须逐行重算 hash,不能只比长度+尾行 ——
-// 蒸发(evaporateHistory)会在保持长度不变的情况下原地改写中间行的 content。
-function planSessionBodyAppend(entries, persistedHashes) {
-  if (!persistedHashes || persistedHashes.length > entries.length) return null;
-  const allHashes = new Array(entries.length);
+// 快路径判定:entries 的前 record.count 条逐条序列化后与盘上的行全等 → 返回 { appendLines, allLines };
+// 否则(前缀变/缩短/无记录/有条目不可序列化)返回 null → 调用方全量重写。注意:必须逐条重新序列化比对,不能只比
+// 长度+尾行 —— 蒸发(evaporateHistory)会在保持长度不变的情况下原地改写中间行的 content;也不能凭对象身份跳过,
+// 活回合、惰性清理都是就地改对象(见文件头「检测机制不靠调用方自觉打标记」)。省掉的只是「再对每行算一遍 sha1」。
+function planSessionBodyAppend(entries, record) {
+  if (!record || record.count > entries.length) return null;
   const allLines = new Array(entries.length);
   for (let i = 0; i < entries.length; i++) {
     let line;
     try { line = JSON.stringify(entries[i]); } catch { return null; } // 不可序列化 → 全量重写兜底
-    const h = sessionLineHash(line);
-    if (i < persistedHashes.length && h !== persistedHashes[i]) return null; // 前缀变 → 全量重写
-    allHashes[i] = h;
-    allLines[i] = line;
+    if (typeof line !== 'string') return null;                        // undefined/函数:同上(全量重写那里会拒绝落盘)
+    if (i < record.count && !sessionBodyLineMatches(record, i, line)) return null; // 前缀变 → 全量重写
+    // 前缀行与记录里那一份逐字相同:沿用记录里的旧串,刚序列化出来的这份当场可回收(review:否则每次 save 都把
+    // 整份正文的新串留进下一份记录,长会话一次 12 MB 升进老生代,Mark-Compact 次数 4 → 1)。
+    allLines[i] = i < record.count && record.lines ? record.lines[i] : line;
   }
-  return {
-    appendLines: allLines.slice(persistedHashes.length),
-    appendHashes: allHashes.slice(persistedHashes.length),
-    allLines,
-    allHashes,
-  };
+  return { appendLines: allLines.slice(record.count), allLines };
 }
-// 全量重写用的整体序列化(行数组 + hash 数组)。返回 null = 有条目不可序列化(调用方跳过正文写并标
-// bodiesOk=false —— 宁可下次再试,绝不写出半个正文文件)。
+// 全量重写用的整体序列化(行数组)。返回 null = 有条目不可序列化(调用方拒绝这次写并标 bodiesOk=false ——
+// 宁可下次再试,绝不写出半个正文文件)。
 function serializeSessionBody(entries) {
-  const lines = new Array(entries.length), hashes = new Array(entries.length);
+  const lines = new Array(entries.length);
   for (let i = 0; i < entries.length; i++) {
     let line;
     try { line = JSON.stringify(entries[i]); } catch { return null; }
+    if (typeof line !== 'string') return null;
     lines[i] = line;
-    hashes[i] = sessionLineHash(line);
   }
-  return { lines, hashes };
+  return lines;
 }
 function sessionBodyText(lines) { return lines.length ? lines.join('\n') + '\n' : ''; }
-// entries 是否为 persistedHashes 的【严格】前缀（更短且逐行 hash 相同）。
-function isStrictSessionBodyPrefix(entries, persistedHashes) {
-  if (!persistedHashes || entries.length >= persistedHashes.length) return false;
-  const ser = serializeSessionBody(entries);
-  return !!ser && ser.hashes.every((h, i) => h === persistedHashes[i]);
+// entries 是否为 record 所记盘上正文的【严格】前缀(更短且逐行相同)。
+function isStrictSessionBodyPrefix(entries, record) {
+  if (!record || entries.length >= record.count) return false;
+  for (let i = 0; i < entries.length; i++) {
+    let line;
+    try { line = JSON.stringify(entries[i]); } catch { return false; }
+    if (!sessionBodyLineMatches(record, i, line)) return false;
+  }
+  return true;
 }
 // saveSession 写链内调用（见调用点注释）。只在消息是严格前缀时动手；providerHistory 只在它也是严格前缀
 // 时一并补齐 —— 它会被合法地缩短（被停止的回合弹掉悬空的 user 行、压缩），消息更短才是
 // 「这是一份旧副本」的证据。就地往调用方的数组里补，返回 true 表示补过（头计数要重算）。
+// 盘上正文是现读的、逐行拿原文与记录比(不信文件戳):行数相同且最后一行相同才补。
 async function rebaseStaleSessionBody(id, bp, state, messages, providerHistory) {
-  if (!isStrictSessionBodyPrefix(messages, state.msgHashes)) return false;
+  const msgRec = state.msg, provRec = state.prov;
+  if (!isStrictSessionBodyPrefix(messages, msgRec)) return false;
   const disk = await readSessionBodyFile(bp.messages);
-  if (!disk || disk.corrupt || disk.unreadable || disk.hashes.length !== state.msgHashes.length
-    || disk.hashes[disk.hashes.length - 1] !== state.msgHashes[state.msgHashes.length - 1]) return false;
+  if (!disk || disk.corrupt || disk.unreadable || disk.lines.length !== msgRec.count
+    || !sessionBodyLineMatches(msgRec, msgRec.count - 1, disk.lines[msgRec.count - 1])) return false;
   const addedMessages = disk.entries.length - messages.length;
   messages.push(...disk.entries.slice(messages.length));
   let addedProvider = 0;
-  if (isStrictSessionBodyPrefix(providerHistory, state.provHashes)) {
+  if (isStrictSessionBodyPrefix(providerHistory, provRec)) {
     const prov = await readSessionBodyFile(bp.provider);
-    if (prov && !prov.corrupt && !prov.unreadable && prov.hashes.length === state.provHashes.length) {
+    if (prov && !prov.corrupt && !prov.unreadable && prov.lines.length === provRec.count) {
       addedProvider = prov.entries.length - providerHistory.length;
       providerHistory.push(...prov.entries.slice(providerHistory.length));
     }
@@ -1514,7 +1647,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
     proposalSessionId ? fsp.unlink(path.join(paths.sessions, 'background-jobs', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
   ]);
-  sessionBodyState.delete(id);
+  dropSessionBodyState(id);
   bumpSessionDiskWriteSeq(id);   // 删除前开读的装载不得把旧副本回写成「复活」的会话
   sessionEngineRouteOverrides.delete(id);
   sessionPermissionModeOverrides.delete(id); // 116-2a: 会话销毁 = 覆盖表条目一并销毁(否则同名新会话会继承)
@@ -2610,31 +2743,39 @@ function buildTurnSummary(turnSeq, toolCalls, engine, journalEntries) {
 //   - the tail assistant carries tool_calls but not every tool_call_id has a matching role:'tool' reply
 //     (turn was arrested mid tool-loop). Returns { dangling, kind } — kind: 'user'|'tool_calls'|null.
 function detectDanglingTurn(session) {
-  const h = (session && Array.isArray(session.providerHistory)) ? session.providerHistory : [];
+  // perf:不读 provider 正文的装载视图(SESSION_LOAD_OMIT_PROVIDER)带着这份正文的判定与条数,形状与下面逐键相同。
+  const omitted = sessionOmittedProviderHistory(session);
+  const h = omitted ? null : ((session && Array.isArray(session.providerHistory)) ? session.providerHistory : []);
   // turnSeq + historyLength form a stable UI-dismiss fingerprint: reopening the same interrupted turn stays
   // dismissed, while a later interruption automatically gets a fresh banner instead of inheriting the old ×.
-  const meta = { turnSeq: Math.max(0, Number(session && session.turnSeq) || 0), historyLength: h.length };
-  if (!h.length) return { dangling: false, kind: null, ...meta };
-  const last = h[h.length - 1];
-  if (last && last.role === 'user') return { dangling: true, kind: 'user', ...meta };
+  const meta = { turnSeq: Math.max(0, Number(session && session.turnSeq) || 0), historyLength: omitted ? omitted.count : h.length };
+  const state = omitted ? omitted.dangling : danglingTurnState(h.length, i => h[i]);
+  return { dangling: state.dangling, kind: state.kind, ...meta };
+}
+// detectDanglingTurn 的判定本体:只看 providerHistory 的尾巴,at(i) 取第 i 条(数组下标,或 02 正文记录按行惰性解析)。
+function danglingTurnState(length, at) {
+  if (!length) return { dangling: false, kind: null };
+  const last = at(length - 1);
+  if (last && last.role === 'user') return { dangling: true, kind: 'user' };
   // A tail of role:'tool' is the persisted shape of Stop-mid-loop (the MOST common interruption): the
   // abort lands after the tool results were pushed but before the next model call (the `if (aborted)
   // break` right after the per-tool-result push in runOpenAiTurn), and the closing assistant text is
   // only pushed on normal completion. Every tool_call_id is answered, yet the turn never concluded.
-  if (last && last.role === 'tool') return { dangling: true, kind: 'tool_calls', ...meta };
+  if (last && last.role === 'tool') return { dangling: true, kind: 'tool_calls' };
   // Walk back to the most recent assistant message that requested tools; verify each id was answered.
-  for (let i = h.length - 1; i >= 0; i--) {
-    const m = h[i];
+  for (let i = length - 1; i >= 0; i--) {
+    const m = at(i);
     if (!m || m.role !== 'assistant') continue;
     if (!Array.isArray(m.tool_calls) || m.tool_calls.length === 0) break; // plain assistant → complete
     const answered = new Set();
-    for (let j = i + 1; j < h.length; j++) {
-      if (h[j] && h[j].role === 'tool' && h[j].tool_call_id != null) answered.add(String(h[j].tool_call_id));
+    for (let j = i + 1; j < length; j++) {
+      const r = at(j);
+      if (r && r.role === 'tool' && r.tool_call_id != null) answered.add(String(r.tool_call_id));
     }
     const unanswered = m.tool_calls.some(tc => tc && !answered.has(String(tc.id)));
-    return unanswered ? { dangling: true, kind: 'tool_calls', ...meta } : { dangling: false, kind: null, ...meta };
+    return unanswered ? { dangling: true, kind: 'tool_calls' } : { dangling: false, kind: null };
   }
-  return { dangling: false, kind: null, ...meta };
+  return { dangling: false, kind: null };
 }
 
 // 配对铁律自愈(strict provider 400 永久卡死会话的修复面):detectDanglingTurn 只【检测】悬挂,而
@@ -2834,7 +2975,50 @@ async function truncateSessionBody(file, len) {
 // 谁恰好在回合写盘的那一瞬触发一次 loadSession（打开会话、改元数据、投影重建都会），谁就中招。
 // 修法：动手之前把头**再读一遍**。头变了 = 刚才那一眼已经旧了，重跑一次 load（有界一次），
 // 不做任何破坏动作；头没变才说明两次读之间没有写者，判据才成立。
-async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
+// ── perf(增量取):不读 provider 正文的装载视图 loadSession(id, 0, 0, SESSION_LOAD_OMIT_PROVIDER) ──────────────
+// GET /api/sessions/:id?fromIndex=N&prefixStamp=S 只回 messages[N..] 与信封,从不回 providerHistory;修前它照样整份装载
+// (两个正文都读、都解析,heavy 会话 provider 正文 8 MB)。这个视图只在【能证明结果与完整装载的 messages 逐字节相同】时
+// 跳过 provider 正文,否则(包括任何一个前提拿不准)原样交给完整装载 —— 调用方拿到的就是一份完整会话。前提:
+//   ① 本进程对这条会话的 provider 正文有记录、上次写/读成功(bodiesOk),且此刻没有写者在链上;
+//   ② 盘上 provider 正文的文件戳(size|mtimeNs|ino)与记录相同,头声明的条数 = 记录的条数
+//      (提交点语义:正文完整、没有未提交尾巴、没有撕裂尾行 —— 这正是完整装载在这一半上会确认的事);
+//   ③ messages 正文读得出、没有坏行、没有撕裂尾行、条数与头声明相同(完整装载会动手截断/隔离/回退的情形一律让位);
+//   ④ 读的这一段里本进程没有人落过盘(sessionDiskWriteSeq 不变);
+//   ⑤ 装载后半段(normalize 补字段、残留 pending 叙事段的惰性清理)不需要回写 —— 要回写就让位给完整装载去写,
+//      绝不拿一份没有 providerHistory 的对象去 saveSession(saveSession 见到本视图的对象直接拒绝)。
+// 其余步骤(撤回代数自愈、内存覆盖表、changeSeq 水位、后台任务账本合并)与完整装载是同一段代码。
+// 返回的对象上 providerHistory 是占位的 [](键序与完整装载相同),另挂一个不可枚举的 __providerHistoryOmitted =
+// { count, dangling, body }:resumable 由 detectDanglingTurn 从 dangling/count 给出;body 是 messages 正文的字节视图
+// (只在每一行都已证明是 canonical 时给出),sessionMessagesDelta 用它按字节算前缀戳。
+// 唯一的信任点是 ② 的文件戳(与条件 GET 的 ETag 同一类判据):同 size、同 mtime、同 inode 的外部改写看不出来。
+const SESSION_LOAD_OMIT_PROVIDER = 'omitProviderHistory';
+function sessionOmittedProviderHistory(session) {
+  return (session && session.__providerHistoryOmitted) || null;
+}
+function sessionProviderHistoryLength(session) {
+  const omitted = sessionOmittedProviderHistory(session);
+  if (omitted) return omitted.count;
+  return session && Array.isArray(session.providerHistory) ? session.providerHistory.length : 0;
+}
+async function readSessionBodiesOmittingProvider(id, parsed, bp, writeSeqAtRead) {
+  const state = sessionBodyState.get(id);
+  const provRec = state && state.bodiesOk ? state.prov : null;
+  if (!provRec || !provRec.stamp || !provRec.dangling || sessionWriteChains.has(id)) return null;
+  if (!Number.isInteger(parsed.providerHistoryCount) || parsed.providerHistoryCount !== provRec.count) return null;
+  if (await sessionBodyFileStamp(bp.provider) !== provRec.stamp) return null;
+  const msg = await readSessionBodyFile(bp.messages);
+  if (!msg || msg.corrupt || msg.unreadable || msg.tornAt != null) return null;
+  if (Number.isInteger(parsed.messageCount) && msg.entries.length !== parsed.messageCount) return null;
+  if (sessionDiskWriteSeqOf(id) !== writeSeqAtRead || sessionWriteChains.has(id)) return null;
+  const cur = sessionBodyState.get(id);
+  if (!cur || cur.prov !== provRec || !cur.bodiesOk) return null;
+  // 与完整装载同样把读到的 messages 正文交给状态表(同一拍、同一个「没有写者」判据)。
+  const msgRec = sessionBodyRecordFromRead(msg, cur.msg);
+  setSessionBodyState(id, { msg: msgRec, prov: provRec, bodiesOk: true });
+  const body = msgRec.canonical ? { buf: msg.buf, lineEndBytes: msg.lineEndBytes, count: msg.lines.length } : null;
+  return { messages: msg.entries, omitted: { count: provRec.count, dangling: provRec.dangling, body } };
+}
+async function loadSession(id, reloadDepth = 0, staleRetry = 0, view = null) {
   if (safeSessionId(id) === null) return null; // 不合形的 id 就是「没有这个会话」(sessionPath 会拒绝拼路径)
   const writeSeqAtRead = sessionDiskWriteSeqOf(id);
   let raw;
@@ -2856,7 +3040,19 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   }
   if (Array.isArray(parsed)) return null; // sessions/index.json is an array, not a session; never load it as one
   let legacy = true;
-  if (parsed && parsed.storageVersion === SESSION_STORAGE_VERSION) {
+  const omitView = view === SESSION_LOAD_OMIT_PROVIDER;
+  const lite = omitView && parsed && parsed.storageVersion === SESSION_STORAGE_VERSION
+    ? await readSessionBodiesOmittingProvider(id, parsed, sessionBodyPaths(id), writeSeqAtRead) : null;
+  if (omitView && !lite) return loadSession(id, reloadDepth, staleRetry);   // 前提拿不准 → 完整装载(见视图头注)
+  if (lite) {
+    sessionBodyPerfStats.providerBodySkips++;
+    parsed.messages = lite.messages;
+    parsed.providerHistory = [];   // 占位:与完整装载同一个键位,normalize 不会因「缺数组」判 changed
+    delete parsed.storageVersion;
+    delete parsed.messageCount;
+    delete parsed.providerHistoryCount;
+    legacy = false;
+  } else if (parsed && parsed.storageVersion === SESSION_STORAGE_VERSION) {
     const bp = sessionBodyPaths(id);
     let msg = await readSessionBodyFile(bp.messages);
     let prov = await readSessionBodyFile(bp.provider);
@@ -2908,7 +3104,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     const hasPrev = await fsp.stat(pm).then(() => true).catch(() => false)
       && await fsp.stat(pp).then(() => true).catch(() => false);
     if (hasPrev && (bodyBad() || countsDiffer())) {
-      sessionBodyState.delete(id);
+      dropSessionBodyState(id);
       await fsp.rename(pm, bp.messages).catch(() => {});
       await fsp.rename(pp, bp.provider).catch(() => {});
       msg = await readSessionBodyFile(bp.messages);
@@ -2917,7 +3113,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     }
     if (bodyBad()) {
       // 磁盘正文已不可信 → 先作废进程内镜像,否则 save 的快路径会拿旧 hash 往坏正文上 append。
-      sessionBodyState.delete(id);
+      dropSessionBodyState(id);
       // 正文缺失/损坏 → 迁移备份回退(v1 原文重走迁移,等价于回到迁移前一刻)。
       const bak = await loadSessionV1Backup(id);
       if (bak) return bak;
@@ -2928,23 +3124,33 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     }
     // 撕裂尾行截断(从 readSessionBodyFile 挪到这里):到这一步已确认没有写者,半行是崩溃残留而非正在 append。
     let truncatedOk = true;   // 任何一刀没落地 → 盘上正文与内存不符,只许走全量重写(见 truncateSessionBody)
+    for (const body of [msg, prov]) body.cut = false;   // 这一趟动过刀的正文,读时取的文件戳作废(见 sessionBodyState 头注)
     for (const [body, file] of [[msg, bp.messages], [prov, bp.provider]]) {
-      if (body.tornAt != null && !await truncateSessionBody(file, body.tornAt)) truncatedOk = false;
+      if (body.tornAt != null) { body.cut = true; if (!await truncateSessionBody(file, body.tornAt)) truncatedOk = false; }
     }
     // 未提交尾巴截断:不物理截断的话,磁盘上多出的行会在下次快路径 append 后「复活」进会话。
     for (const [body, count, file] of [[msg, parsed.messageCount, bp.messages], [prov, parsed.providerHistoryCount, bp.provider]]) {
       if (Number.isInteger(count) && body.entries.length > count) {
         const cut = count > 0 ? body.lineEndBytes[count - 1] : 0;
+        body.cut = true;
         if (!await truncateSessionBody(file, cut)) truncatedOk = false;
-        body.entries.length = count; body.hashes.length = count;
+        body.entries.length = count; body.lines.length = count;
       }
     }
     parsed.messages = msg.entries;
     parsed.providerHistory = prov.entries;
-    // 读完到这里期间有人落过盘 → 这份 hash 已旧,交出去会让下一次快路径按旧前缀 append(重复行/丢行)。
+    // 读完到这里期间有人落过盘 → 这份行记录已旧,交出去会让下一次快路径按旧前缀 append(重复行/丢行)。
     // 写者自己会把准确的状态放进来,这里什么都不放。
-    if (!truncatedOk) sessionBodyState.set(id, { msgHashes: null, provHashes: null, bodiesOk: false });
-    else if (sessionDiskWriteSeqOf(id) === writeSeqAtRead) sessionBodyState.set(id, { msgHashes: msg.hashes, provHashes: prov.hashes, bodiesOk: true });
+    if (!truncatedOk) setSessionBodyState(id, { msg: null, prov: null, bodiesOk: false });
+    else if (sessionDiskWriteSeqOf(id) === writeSeqAtRead) {
+      const prev = sessionBodyState.get(id);
+      // dangling 在这里同步算(交出去的 prov.entries 之后归调用方,可能被就地改)。
+      setSessionBodyState(id, {
+        msg: sessionBodyRecordFromRead(msg, prev && prev.msg, { stampOk: !msg.cut }),
+        prov: sessionBodyRecordFromRead(prov, prev && prev.prov, { stampOk: !prov.cut, dangling: danglingTurnState(prov.entries.length, i => prov.entries[i]) }),
+        bodiesOk: true,
+      });
+    }
     // v2 完整可读 → 迁移残留的 v1bak 与慢路径残留 prevbody 快照一并清掉(备份使命已完成;也防无界堆积)。
     await fsp.unlink(sessionPath(id) + '.v1bak').catch(() => {});
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
@@ -2965,7 +3171,7 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   if ((Number(session.rewindGen) || 0) < (sessionRewindGenHighWater.get(id) || 0) && staleRetry < 2) {
     const inFlight = sessionWriteChains.get(id);
     if (inFlight) await inFlight.catch(() => {});
-    return loadSession(id, reloadDepth, staleRetry + 1);
+    return loadSession(id, reloadDepth, staleRetry + 1, view);
   }
   // 116-2a: 内存权威副本盖到装载结果上 —— 用户刚切、但因活回合而延后落盘的那一档,对读者必须立刻生效。
   // 覆盖表没有本会话条目(= 绝大多数情况,含全部存量会话)时这一行是零操作,不置 changed、不触发回写。
@@ -2978,6 +3184,8 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
   if (!activeChildren.has(session.id) && !turnSettlers.has(session.id)) {
     try { healed = healStalePendingSegments(session); } catch { healed = false; }
   }
+  // 不读 provider 正文的视图(见 SESSION_LOAD_OMIT_PROVIDER 头注 ⑤):要回写就让位给完整装载,由它补齐、由它落盘。
+  if (lite && (changed || healed)) return loadSession(id, reloadDepth, staleRetry);
   if (legacy) {
     // 懒迁移:标记后无条件 save —— 老会话首次被真正使用时一次性转 v2,之后读写全走新格式。
     Object.defineProperty(session, '__v1bakPending', { value: true, enumerable: false, configurable: true, writable: true });
@@ -2991,7 +3199,10 @@ async function loadSession(id, reloadDepth = 0, staleRetry = 0) {
     // never lower that in-memory high-water mark to the (briefly older) head-file value.
     missionChangeSeqHighWater.set(sid, Math.max(missionChangeSeqHighWater.get(sid) || 0, Number(session.mission.changeSeq) || 0));
   }
+  // 账本合并只往 messages 末尾追加(11 的实现:按 backgroundJobId 去重后 push),从不改已有条目 ——
+  // 增量取的字节戳(sessionMessagesDelta 的 body)依赖这一点:盘上那 count 条之后的才逐条序列化。
   if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
+  if (lite) Object.defineProperty(session, '__providerHistoryOmitted', { value: lite.omitted, enumerable: false, configurable: true });
   return session;
 }
 
@@ -3048,6 +3259,8 @@ function claimRewindGeneration(session) {
   return { gen, prevHighWater };
 }
 async function saveSession(session, opts) {
+  // 不读 provider 正文的装载视图(SESSION_LOAD_OMIT_PROVIDER)给出的对象 providerHistory 是占位的 [] —— 落盘就是把真历史清空。
+  if (sessionOmittedProviderHistory(session)) throw new Error('refusing to save a session loaded without its provider history');
   await ensureDirs();
   if (EventStreamHooks.mergeBackgroundJobs) EventStreamHooks.mergeBackgroundJobs(session);
   session.updatedAt = nowIso();
@@ -3121,15 +3334,15 @@ async function saveSession(session, opts) {
       payload = buildHeadPayload();
       metaSnapshot = sessionMeta(session);
     }
-    const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msgHashes) : null;
-    const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.provHashes) : null;
-    let nextMsgHashes, nextProvHashes;
+    const msgPlan = state && state.bodiesOk ? planSessionBodyAppend(messages, state.msg) : null;
+    const provPlan = state && state.bodiesOk ? planSessionBodyAppend(providerHistory, state.prov) : null;
+    let nextMsgLines, nextProvLines;
     if (msgPlan && provPlan) {
       // 快路径:只 append 增量行(0 增量 = 不动正文文件,仅更新头)。
       if (msgPlan.appendLines.length) await fsp.appendFile(bp.messages, msgPlan.appendLines.join('\n') + '\n', 'utf8');
       if (provPlan.appendLines.length) await fsp.appendFile(bp.provider, provPlan.appendLines.join('\n') + '\n', 'utf8');
-      nextMsgHashes = msgPlan.allHashes;
-      nextProvHashes = provPlan.allHashes;
+      nextMsgLines = msgPlan.allLines;
+      nextProvLines = provPlan.allLines;
     } else {
       // 慢路径:全量重写两个正文。【崩溃窗口设防】重写前把旧正文快照为 .prevbody(EXCL:已有快照不覆盖
       // —— 在场快照必属「上一个未干净完成的慢路径」,其配对的头更老,覆盖会把一致态快照冲成未提交内容)。
@@ -3141,16 +3354,16 @@ async function saveSession(session, opts) {
       await fsp.copyFile(bp.messages, bp.messages + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
       await fsp.copyFile(bp.provider, bp.provider + '.prevbody', fs.constants.COPYFILE_EXCL).catch(() => {});
       try {
-        await atomicWriteJson(bp.messages, sessionBodyText(msgSer.lines));
-        await atomicWriteJson(bp.provider, sessionBodyText(provSer.lines));
+        await atomicWriteJson(bp.messages, sessionBodyText(msgSer));
+        await atomicWriteJson(bp.provider, sessionBodyText(provSer));
       } catch (werr) {
         // 进程内写失败(非崩溃)→ 立即回滚快照,磁盘回到重写前的一致态;bodiesOk=false 由外层标。
         await fsp.rename(bp.messages + '.prevbody', bp.messages).catch(() => {});
         await fsp.rename(bp.provider + '.prevbody', bp.provider).catch(() => {});
         throw werr;
       }
-      nextMsgHashes = msgSer.hashes;
-      nextProvHashes = provSer.hashes;
+      nextMsgLines = msgSer;
+      nextProvLines = provSer;
     }
     // 头最后写:头指向的正文状态必须先于头落盘(头=「正文有效」的声明)。
     await atomicWriteJson(finalPath, payload);
@@ -3158,7 +3371,13 @@ async function saveSession(session, opts) {
     // 顺带清除,见 loadSession)。
     await fsp.unlink(bp.messages + '.prevbody').catch(() => {});
     await fsp.unlink(bp.provider + '.prevbody').catch(() => {});
-    sessionBodyState.set(id, { msgHashes: nextMsgHashes, provHashes: nextProvHashes, bodiesOk: true });
+    // 刚写下的行就是盘上的行(canonical);文件戳在写完之后取(链内,没有别的写者)。
+    const [msgStamp, provStamp] = await Promise.all([sessionBodyFileStamp(bp.messages), sessionBodyFileStamp(bp.provider)]);
+    setSessionBodyState(id, {
+      msg: sessionBodyRecord(nextMsgLines, { stamp: msgStamp, canonical: true }),
+      prov: sessionBodyRecord(nextProvLines, { stamp: provStamp, canonical: true, dangling: sessionBodyDanglingFromLines(nextProvLines) }),
+      bodiesOk: true,
+    });
   };
   const thisWrite = prevWrite.catch(() => {}).then(async () => {
     // hunt2-P2:删除墓碑闸。同撤回代数闸,必须在【链内】看:删除可能发生在这次 save 入链之后、执行之前
@@ -3203,8 +3422,7 @@ async function saveSession(session, opts) {
   catch (e) {
     // 正文/头任何一步失败:标 bodiesOk=false(下次 save 全量重写自愈),再把错误抛给调用方(与旧语义一致:
     // save 失败对调用方可见,回合层自会 .catch)。
-    const st = sessionBodyState.get(id);
-    sessionBodyState.set(id, { msgHashes: st ? st.msgHashes : null, provHashes: st ? st.provHashes : null, bodiesOk: false });
+    setSessionBodyState(id, { msg: null, prov: null, bodiesOk: false });
     throw e;
   }
   finally { if (sessionWriteChains.get(id) === thisWrite) sessionWriteChains.delete(id); }

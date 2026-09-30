@@ -21,6 +21,9 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
  *     戳对得上 → 只回 messages[N..](messagesFrom/messageCount/messagesStamp,不带 providerHistory),其余与全量相同;
  *     前端 fetchSessionAfterTurn 拼出来的信封与全量(去掉 providerHistory)深相等;增量与全量 ETag 不同、各自 304;
  *     垃圾/过期参数 → 与无参全量逐字节相同的体。
+ *   S 回合起点 session 事件的增量(发送体带 knownMessages:{count,stamp}):戳对得上 → 事件只带 messages[N..]
+ *     (messagesFrom/messageCount/messagesStamp,无 providerHistory),拼回前缀后的整份戳等于事件给的新戳、会话头与全量事件相同;
+ *     垃圾/过期 knownMessages → 与不带时同形的全量事件(带 providerHistory 与 messagesStamp)。
  *   R 历史改写:原地改写前缀(条数不变)、撤回截断、撤回后再补回条数 → 落回全量;账本合并与压缩(只往末尾追加)→ 增量照样对,
  *     且可以拿增量回的新戳链式接着增量。
  */
@@ -399,6 +402,62 @@ function kill(proc) { if (proc && proc.pid) try { killOwnTree(proc); } catch { /
     ok(r4bRoute.includes(`fromIndex=${baseR4.messages.length}&`) && r4b.status === 200 && r4b.json.messagesFrom === undefined && r4b.text === fullR4b.text, 'R4 条数够了但前缀内容已变 → 旧戳对不上 → 全量');
     const r4bClient = await clientFetch(sidM, baseR4);
     ok(same(r4bClient.result, fullR4b.json), 'R4 客户端拿到的就是全量');
+
+    // ── S 回合起点 session 事件的增量(发送体带 knownMessages)────────────────────────────────────────────
+    // 真值:同一时刻服务端的整份 messages 的戳(测试端按 02 的口径 m1.<n>.<sha1(每条 JSON + '\n')> 自己算一遍)。
+    const crypto = require('crypto');
+    const stampOf = list => `m1.${list.length}.${list.reduce((h, m) => h.update(JSON.stringify(m) + '\n'), crypto.createHash('sha1')).digest('hex')}`;
+    const turnWith = (id, message, extra) => request(WP, 'POST', '/api/chat/stream', { headers: auth, body: { sessionId: id, message, cwd: HOME, ...extra } });
+    const startEventWith = async (id, message, extra) => String((await turnWith(id, message, extra)).text || '').split('\n').filter(Boolean)
+      .map(line => { try { return JSON.parse(line); } catch { return null; } }).find(evt => evt && evt.type === 'session') || null;
+    const startS0 = await startEvent(sidM, 'start delta base');
+    await steadyFull(sidM);
+    const known = { count: startS0.session.messages.length, stamp: startS0.messagesStamp };
+    // 底子是 startS0 那一刻的前 N 条;回合收尾后服务端又多了助手回复,所以这里用收尾后的整份当底子(与经典壳收尾后手上那份同形)。
+    runtime.rememberMessagesStamp(startS0.session.messages, startS0.messagesStamp);
+    const baseS = (await clientFetch(sidM, startS0.session)).result.session;
+    const knownS = runtime.knownMessagesFor(baseS);
+    ok(knownS && knownS.count === baseS.messages.length && knownS.count > known.count, `S0 前提:收尾拼出来的底子带着新戳(${knownS && knownS.count} 条)`);
+    const startS1 = await startEventWith(sidM, 'start delta one', { knownMessages: knownS });
+    // 起点事件发在「把这一回合的 user 消息写进 messages」之前,所以常见情形尾巴是空的 —— 整条事件只剩会话头。
+    ok(startS1 && startS1.messagesFrom === knownS.count && Number.isInteger(startS1.messageCount) && startS1.messageCount >= knownS.count,
+      `S1 带 knownMessages 且戳对得上 → 起点事件是增量(messagesFrom=${startS1 && startS1.messagesFrom}、messageCount=${startS1 && startS1.messageCount})`);
+    ok(startS1 && startS1.session.providerHistory === undefined && startS1.session.messages.length === startS1.messageCount - knownS.count,
+      'S2 增量事件不带 providerHistory,messages 只是尾巴');
+    const splicedS1 = runtime.spliceSessionDelta(baseS.messages, startS1);
+    ok(splicedS1 && stampOf(splicedS1.session.messages) === startS1.messagesStamp && startS1.messagesStamp.startsWith(`m1.${startS1.messageCount}.`),
+      'S3 拼回前缀后整份的戳 = 事件给的新戳(与服务端那一刻的整份逐条相同)');
+    ok(splicedS1 && runtime.knownMessagesFor(splicedS1.session)?.stamp === startS1.messagesStamp, 'S4 拼出来的新数组记着新戳(收尾那一发可以接着增量)');
+    const fullS1 = await steadyFull(sidM);
+    ok(splicedS1 && same(splicedS1.session.messages, fullS1.json.session.messages.slice(0, startS1.messageCount)), 'S5 拼出来的 messages 是回合收尾后全量的前缀');
+    // 会话头:与不带 knownMessages 的全量起点事件对比(同一会话的下一回合;turnSeq/updatedAt 这类随回合变的字段除外)。
+    const startS2full = await startEvent(sidM, 'start delta two');
+    {
+      const volatile = ['turnSeq', 'updatedAt', 'lastTurnAt', 'lastActivityAt', 'stewardTaint'];
+      const pick = sess => Object.keys(sess).filter(k => !['messages', 'providerHistory', ...volatile].includes(k)).sort();
+      ok(startS2full && same(pick(startS1.session), pick(startS2full.session)), `S6 增量事件的会话头键集与全量事件相同(除 messages/providerHistory)`);
+      ok(startS2full && startS2full.messagesFrom === undefined && Array.isArray(startS2full.session.providerHistory) && /^m1\./.test(startS2full.messagesStamp || ''),
+        'S7 不带 knownMessages → 修前那条全量事件(带 providerHistory 与 messagesStamp)');
+    }
+    await steadyFull(sidM);
+    const fullNow = (await get(sidM)).json.session.messages;
+    const goodNow = { count: fullNow.length, stamp: stampOf(fullNow) };
+    const zerosS = '0'.repeat(40);
+    const badKnown = [
+      ['字符串', 'garbage'],
+      ['count 非整数', { count: 1.5, stamp: goodNow.stamp }],
+      ['count 为字符串垃圾', { count: 'abc', stamp: goodNow.stamp }],
+      ['count 与戳条数不符', { count: goodNow.count - 1, stamp: goodNow.stamp }],
+      ['戳哈希不对', { count: goodNow.count, stamp: `m1.${goodNow.count}.${zerosS}` }],
+      ['count 超出条数', { count: 999999, stamp: `m1.999999.${zerosS}` }],
+      ['缺 stamp', { count: goodNow.count }],
+    ];
+    for (const [label, bad] of badKnown) {
+      await steadyFull(sidM);
+      const evt = await startEventWith(sidM, 'bad known ' + label, { knownMessages: bad });
+      ok(evt && evt.messagesFrom === undefined && Array.isArray(evt.session.providerHistory) && stampOf(evt.session.messages) === evt.messagesStamp,
+        `S8 knownMessages ${label} → 全量事件(带 providerHistory,戳与整份相符)`);
+    }
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));
   } finally {

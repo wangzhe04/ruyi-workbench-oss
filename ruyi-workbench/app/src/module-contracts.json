@@ -972,6 +972,7 @@
         "MISSION_REPLAN_LIMIT",
         "MISSION_STALL_LIMIT",
         "MISSION_STALL_SIGNAL_WINDOW_MS",
+        "SESSION_BODY_LINE_CACHE_CHARS",
         "SESSION_BODY_READ_TRANSIENT",
         "SESSION_BRIEF_GIST_CHARS",
         "SESSION_BRIEF_TITLE_CHARS",
@@ -981,6 +982,7 @@
         "SESSION_HEAD_TRANSIENT",
         "SESSION_INDEX_FILE",
         "SESSION_INDEX_FLUSH_MS",
+        "SESSION_LOAD_OMIT_PROVIDER",
         "SESSION_MESSAGES_STAMP_VERSION",
         "SESSION_META_DEFER_TIMEOUT_MS",
         "SESSION_META_STALE_REPLAYS",
@@ -1021,9 +1023,12 @@
         "compactInterventionJournal",
         "createMissionContainer",
         "createSession",
+        "danglingTurnState",
         "deleteSession",
+        "demoteSessionBodyRecord",
         "detectDanglingTurn",
         "dirSize",
+        "dropSessionBodyState",
         "evaluateMissionCheck",
         "finalizeMissionAfterTurn",
         "flushSessionIndex",
@@ -1129,6 +1134,7 @@
         "readMissionChangesWithMeta",
         "readMissionContainer",
         "readMissionSessionHead",
+        "readSessionBodiesOmittingProvider",
         "readSessionBodyFile",
         "readSessionHeadResilient",
         "readSessionIndex",
@@ -1140,6 +1146,7 @@
         "recordMissionCheckResult",
         "recordMissionStalledChange",
         "registerIntervention",
+        "releaseSessionBodyLineCache",
         "rememberLastUsedEngineRoute",
         "repairMissionChangeTornTail",
         "repairProviderHistoryPairing",
@@ -1149,7 +1156,16 @@
         "saveSession",
         "scheduleSessionIndexUpdate",
         "serializeSessionBody",
+        "sessionBodyDanglingFromLines",
+        "sessionBodyFileStamp",
+        "sessionBodyLineCache",
+        "sessionBodyLineCacheChars",
+        "sessionBodyLineMatches",
         "sessionBodyPaths",
+        "sessionBodyPerfStats",
+        "sessionBodyRecord",
+        "sessionBodyRecordFromRead",
+        "sessionBodyStamp",
         "sessionBodyState",
         "sessionBodyText",
         "sessionBriefOf",
@@ -1181,9 +1197,12 @@
         "sessionNotesPath",
         "sessionNotesWriteChains",
         "sessionObjectIsStale",
+        "sessionOmittedProviderHistory",
+        "sessionProviderHistoryLength",
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
         "sortSessionMetas",
@@ -6770,7 +6789,7 @@
         },
         {
           "provider": "09d-token-estimation.js",
-          "symbol": "estimateTextTokens",
+          "symbol": "estimateTextTokensMemo",
           "kinds": [
             "call"
           ]
@@ -7611,15 +7630,29 @@
       "provides": [
         "CJK_RE",
         "CONTEXT_WINDOW_FALLBACK",
+        "ESTIMATE_CHAR_CLASS",
+        "ESTIMATE_KEYWORD_RE",
         "EVAPORATED_PREFIX",
+        "TOKEN_ESTIMATE_MEMO_HASHED_CHARS",
+        "TOKEN_ESTIMATE_MEMO_MAX_CHARS",
+        "TOKEN_ESTIMATE_MEMO_MAX_ENTRIES",
+        "TOKEN_ESTIMATE_MEMO_MIN_CHARS",
         "classifyTextForEstimate",
         "countCjkCodeUnits",
+        "countEstimateKeywords",
         "estimateBucketsV1On",
         "estimateContentTokens",
+        "estimateContentTokensBy",
         "estimateHistoryTokens",
         "estimateTextTokens",
+        "estimateTextTokensMemo",
         "fmtTokensServer",
-        "setEstimateBucketsV1"
+        "isRegexSpaceCodeUnit",
+        "setEstimateBucketsV1",
+        "tokenEstimateMemo",
+        "tokenEstimateMemoEntry",
+        "tokenEstimateMemoKey",
+        "tokensFromTextCounts"
       ],
       "requires": [
         {
@@ -9651,6 +9684,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "saveSession",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
           "kinds": [
             "call"
           ]
@@ -13705,6 +13745,20 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionOmittedProviderHistory",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionProviderHistoryLength",
           "kinds": [
             "call"
           ]
@@ -20966,7 +21020,21 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionBodyPerfStats",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionMessagesDelta",
           "kinds": [
             "read"
           ]

@@ -1913,7 +1913,7 @@ async function runAgentExternalCompact(sessionId, configOverride, trigger = 'man
 // 251 行是压缩行,全部视觉上挂在「最后一条用户消息」与最终回复之间。改为同一压缩集原位合并:
 //   · 尾部压缩标记之后还没有新的 user/assistant 行 → 视为同一压缩集,更新那一行(passes/累计蒸发/最新前后
 //     token),不再追加新行;对话一旦继续,旧标记自然闭环,下次压缩才开新行;
-//   · 落盘安全:行内容变化令 planSessionBodyAppend 的前缀哈希失配,saveSession 自动走全量重写慢路径 ——
+//   · 落盘安全:行内容变化令 planSessionBodyAppend 的前缀逐行比对失配,saveSession 自动走全量重写慢路径 ——
 //     蒸发改写 providerHistory 本就走该路径,合并不引入额外成本。
 // 零收益门槛:「蒸发 1 条:106K→106K」这类噪声 pass 只留审计账(logEvent 照旧),不再凭空造出行来。
 const COMPACT_MARKER_MIN_SAVED_TOKENS = 1200;
@@ -2690,7 +2690,17 @@ async function runSessionTurn(input) {
     // messagesStamp 是 02 sessionMessagesStamp 对【这一刻】messages 的前缀戳,与下面这次同步序列化是同一拍
     // (emit → onEvent → streamChat 的 writeEvent 当场 JSON.stringify,中间没有 await),所以戳与客户端收到的内容一致。
     // 别的来源(管家/调度)的流没人拿它做增量,不付这笔 O(历史) 的哈希。
-    emit(source === 'http' ? { type: 'session', session, messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session });
+    // perf(round 4 S3):页面手上已有前 N 条(发送时带 knownMessages:{count,stamp},即它上次从服务端拿到的那份的戳)
+    // 就只下发尾巴 —— 与 13d 增量 GET 同一套判据与信封:session 上没有 providerHistory、messages 只是 messages[N..],
+    // 事件上多 messagesFrom / messageCount / messagesStamp。戳对不上(撤回、压缩、另一个标签页改过……)照旧整份。
+    const knownMessages = source === 'http' && body.knownMessages && typeof body.knownMessages === 'object' ? body.knownMessages : null;
+    const knownDelta = knownMessages ? sessionMessagesDelta(session.messages, knownMessages.count, knownMessages.stamp) : null;
+    if (knownDelta) {
+      const { providerHistory: _providerHistory, ...sessionHead } = session;
+      emit({ type: 'session', session: { ...sessionHead, messages: knownDelta.tail }, messagesFrom: knownDelta.from, messageCount: knownDelta.count, messagesStamp: knownDelta.stamp });
+    } else {
+      emit(source === 'http' ? { type: 'session', session, messagesStamp: sessionMessagesStamp(session.messages) } : { type: 'session', session });
+    }
     // 116h:回合级并发位与同工作文件夹写互斥。位置在 session 事件【之后】(调用方先拿到 sessionId,
     // 排队期间的 agent_resource 事件才有归属)、引擎分派【之前】(等的是「能不能开始跑」)。
     // 判据读【原始】 session.kind:管家会话自己不是线程,不受并发上限约束(与 09/10 既有分叉同口径)。
@@ -2860,6 +2870,7 @@ async function streamChat(req, res) {
       cwd: body.cwd,
       agentTeam: body.agentTeam,
       permissionMode: body.permissionMode,
+      knownMessages: body.knownMessages,
       source: 'http',
       onEvent: writeEvent,
       onFlush: flushDeltas,

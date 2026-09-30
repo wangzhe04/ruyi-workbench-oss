@@ -98,7 +98,9 @@ const runner = ['13m-steward-runner-base.js', '13n-steward-arbiter.js', '13o-ste
   // 117l-A1-fix2:抽屉 isLive() 第一判据是 resumable.live === true,而【活回合】分支修前没有这个
   // 键,判据从没走通过。钉住活回合分支带 live:true,且悬挂检测(detectDanglingTurn)那一支原样不动
   // —— 只加了这一个键,没有顺手改别的。
-  ok(/\{ dangling: false, kind: null, turnSeq: Math\.max\(0, Number\(session\.turnSeq\) \|\| 0\), historyLength: Array\.isArray\(session\.providerHistory\) \? session\.providerHistory\.length : 0, live: true \}/.test(domain),
+  // (会话正文 perf:historyLength 改由 02 sessionProviderHistoryLength(session) 给出 —— 增量取的装载视图不读 provider
+  //  正文,条数从它的记录来;完整会话上它就是 providerHistory.length。两种写法都认,live:true 这一条判据不变。)
+  ok(/\{ dangling: false, kind: null, turnSeq: Math\.max\(0, Number\(session\.turnSeq\) \|\| 0\), historyLength: (?:Array\.isArray\(session\.providerHistory\) \? session\.providerHistory\.length : 0|sessionProviderHistoryLength\(session\)), live: true \}/.test(domain),
     '② 117l-A1-fix2:GET /api/sessions/:id 活回合分支的 resumable 带 live:true(抽屉 isLive() 靠它)');
   ok(/: detectDanglingTurn\(session\);/.test(domain),
     '② 117l-A1-fix2 companion:非活回合分支仍是 detectDanglingTurn(session) 原样,没被顺手改动');

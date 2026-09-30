@@ -809,7 +809,8 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
 
 function estimateToolSchemaTokens(tools) {
   if (!Array.isArray(tools) || !tools.length) return 0;
-  return Math.round(estimateTextTokens(JSON.stringify(tools)));
+  // 每个 API 迭代前随整段历史估一遍,工具表多数回合一字不变 —— 走 09d 的按内容记忆(与直算逐位同值)。
+  return Math.round(estimateTextTokensMemo(JSON.stringify(tools)));
 }
 
 // Decide gate for a tool call given the permission mode. Returns 'allow' | 'ask' | 'block'.

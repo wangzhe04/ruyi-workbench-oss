@@ -310,7 +310,9 @@ export function createChatStreamRuntime(deps = {}) {
     if (!turn || !line || !line.trim()) return;
     // raw_line is already available in the debug stream and can be extremely large; the visible
     // progress replay only needs normalized events.
-    try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; }
+    // 只有提到 "raw_line" 的行才值得整行解析去认它(大块 tool_result 行不再为这一问多 parse 一遍);
+    // 其余行即使不是合法 JSON 也无妨 —— 重放时解析失败的行本就跳过。
+    if (line.includes('"raw_line"')) { try { if (JSON.parse(line).type === 'raw_line') return; } catch { return; } }
     turn.eventLines.push(line); turn.eventChars += line.length;
     turn.eventHead = Number(turn.eventHead) || 0;
     while (turn.eventChars > ACTIVE_TURN_EVENT_CAP && turn.eventLines.length - turn.eventHead > 1) {
@@ -323,7 +325,9 @@ export function createChatStreamRuntime(deps = {}) {
       turn.eventHead = 0;
     }
   }
+  const BACKGROUND_PROMPT_EVENT_RE = /"(?:ask_user|permission_request|permission_decision|question_answer)"/;
   function surfaceBackgroundQuestion(line, sessionId) {
+    if (!BACKGROUND_PROMPT_EVENT_RE.test(line)) return; // 后台回合的每一行都过这里:不是这四类就不整行解析
     let evt; try { evt = JSON.parse(line); } catch { return; }
     if (evt?.type === 'ask_user') showAskUserModal(evt.questionId || evt.id, evt.questions, sessionId, evt.context || '', Number(evt.deadlineAt) || 0);
     // 135:后台线程的权限申请修前只能等你切过去、或在 120 s 后被自动拒绝;现在同样进「等你处理」队列。
@@ -727,6 +731,11 @@ export function createChatStreamRuntime(deps = {}) {
     const turnState = { abort: turnAbort, startedAt: Date.now(), initialTurnSeq: Number(state.currentSession?.turnSeq) || 0, message, optimisticUserRow, eventLines: [], eventHead: 0, eventChars: 0, answeredQuestions: new Set(), live, main,
       engine: turnEngine, agentCliType: agentCliMeta(turnMeta.agentCliType).id,
       claudeInteractive: turnEngine !== 'claude' || agentCliMeta(turnMeta.agentCliType).alwaysInteractive || state.config.engineMode === 'interactive' };
+    // 手上已有前 N 条(服务端给过戳)就告诉服务端,回合起点那条 session 事件只回尾巴;knownPrefix 是拼接用的那一个数组。
+    if (state.currentSession?.id === turnSessionId) {
+      turnState.knownMessages = knownMessagesFor(state.currentSession);
+      if (turnState.knownMessages) turnState.knownPrefix = state.currentSession.messages;
+    }
     activeTurns.set(turnSessionId, turnState);
     // 112c: 新回合 = 状态机清零重开(状态条只反映当前打开的会话)。
     if (turnActivity && state.currentSession?.id === turnSessionId) {
@@ -745,6 +754,7 @@ export function createChatStreamRuntime(deps = {}) {
           attachments: sentAttachments,
           agentTeam,
           ...(options.permissionMode ? { permissionMode: options.permissionMode } : {}),
+          ...(turnState.knownMessages ? { knownMessages: turnState.knownMessages } : {}),
         }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());
@@ -1177,7 +1187,15 @@ export function createChatStreamRuntime(deps = {}) {
     }
     switch (evt.type) {
       case 'session':
-        if (evt.session && state.currentSession?.id === streamSessionId) { state.currentSession = evt.session; rememberMessagesStamp(evt.session.messages, evt.messagesStamp); renderSessions(); }
+        if (evt.session && state.currentSession?.id === streamSessionId) {
+          // 回合起点的增量版(发送时带了 knownMessages):拼回发送那一刻手上的前缀;拼不上(前缀在途中被整个换掉)就整份取一次。
+          const turn = activeTurns.get(streamSessionId);
+          const merged = Number.isInteger(evt.messagesFrom) ? spliceSessionDelta(turn?.knownPrefix, evt) : evt;
+          if (merged) { state.currentSession = merged.session; rememberMessagesStamp(merged.session.messages, merged.messagesStamp); renderSessions(); }
+          else api(`/api/sessions/${streamSessionId}`).then(p => {
+            if (p?.session && state.currentSession?.id === streamSessionId && activeTurns.get(streamSessionId) === turn) { state.currentSession = p.session; renderSessions(); }
+          }).catch(() => {});
+        }
         break;
       case 'raw_line':
         pushRawEvent(evt.seq, evt.line);
@@ -1704,13 +1722,19 @@ const sessionMessagesStamps = new WeakMap();
 export function rememberMessagesStamp(messages, stamp) {
   if (Array.isArray(messages) && typeof stamp === 'string' && stamp) sessionMessagesStamps.set(messages, stamp);
 }
+// 手上这份 messages 服务端给过戳、且没长没短 → { count, stamp };否则 null(只能整份)。
+export function knownMessagesFor(base) {
+  const messages = base && Array.isArray(base.messages) ? base.messages : null;
+  const stamp = messages ? sessionMessagesStamps.get(messages) : '';
+  if (!stamp || !stamp.startsWith(`m1.${messages.length}.`)) return null;
+  return { count: messages.length, stamp };
+}
 // 回合收尾该发哪一发:能增量就带参数,否则就是修前那条无参路径(逐字不变)。
 export function sessionRefetchPath(sessionId, base) {
   const path = `/api/sessions/${sessionId}`;
-  const messages = base && Array.isArray(base.messages) ? base.messages : null;
-  const stamp = messages ? sessionMessagesStamps.get(messages) : '';
-  if (!stamp || !stamp.startsWith(`m1.${messages.length}.`)) return path;
-  return `${path}?fromIndex=${messages.length}&prefixStamp=${encodeURIComponent(stamp)}`;
+  const known = knownMessagesFor(base);
+  if (!known) return path;
+  return `${path}?fromIndex=${known.count}&prefixStamp=${encodeURIComponent(known.stamp)}`;
 }
 // 把增量回包拼回与全量同形的信封:session.messages = 手上前 N 条 + 尾巴(新数组,不动任何人手里的旧数组),
 // 去掉 messagesFrom / messageCount / messagesStamp 三个增量专用键(新戳记到新数组上,下次还能接着增量)。

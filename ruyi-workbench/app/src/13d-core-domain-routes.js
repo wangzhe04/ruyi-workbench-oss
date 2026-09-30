@@ -477,7 +477,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
     const id = path.basename(pathname); // guards traversal
     if (req.method === 'GET') {
       // 条件 GET(perf):这条路由每 3 s(直播回合)/ 5–30 s(管家抽屉)被轮询一次,而 loadSession 要读整份头 + 两个
-      // 正文并逐行 sha1(18 MB 会话 250–350 ms)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
+      // 正文并逐行 sha1(18 MB 会话 250–350 ms;逐行 sha1 后来去掉了,见 02 sessionBodyState)。ETag 在【装载之前】用「头文件内容哈希 + 两个正文的大小 + 后台任务账本 +
       // 内存覆盖表 + 内存活态」算出,与 If-None-Match 相等就直接 304,连会话都不装载。取样顺序有讲究:盘上的戳在装载【之前】取,
       // 装载期间若有写者落盘,下一次比对必然不等 → 只会多回一次 200,绝不会拿旧标签配新内容(只可能多刷新,不会漏刷新)。
       // 内存活态在 200 体里现算(与体里放的东西同一份取样);304 判定用装载前的取样:活态没变才相等。
@@ -518,8 +518,20 @@ async function handleSessionApiRoutes(req, res, pathname) {
         const preEtag = sessionEnvelopeEtag(id, envelopeStamp, preLive, sinceRaw, deltaKey);
         if (pretenderNotModified(req, preEtag)) return send(res, { status: 304, headers: { etag: preEtag, 'cache-control': 'no-store' }, body: '' });
       }
-      const session = await loadSession(id);
-      if (!session) return send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      const notFound = () => send(res, id === STEWARD_SESSION_ID ? json({ ok: true, session: { id: STEWARD_SESSION_ID, messages: [] }, resumable: null, displayTitle: '', created: false }) : apiSessionNotFound()); // 管家会话懒创建:首个管家回合落盘前回空历史(created:false),不再每次加载页面都在控制台留一条 404;别的会话照旧 404
+      // perf(增量取):带 fromIndex/prefixStamp 的请求先用「不读 provider 正文」的装载视图(02 SESSION_LOAD_OMIT_PROVIDER:
+      // 前提拿不准它自己就是一次完整装载)。前缀戳对不上 = 要回全量,全量体里有 providerHistory,于是换一份完整装载再往下走。
+      let session = await loadSession(id, 0, 0, deltaKey ? SESSION_LOAD_OMIT_PROVIDER : null);
+      if (!session) return notFound();
+      let delta = null;
+      if (deltaKey) {
+        const omitted = sessionOmittedProviderHistory(session);
+        delta = sessionMessagesDelta(session.messages, deltaFromRaw, deltaStampRaw, omitted ? omitted.body : null);
+        if (!delta && omitted) {
+          session = await loadSession(id);
+          if (!session) return notFound();
+        }
+      }
       // v0.8-S0 A6: surface whether the last turn dangles (arrested mid-flight) so the UI can offer resume.
       // 运行中豁免:活回合/活 agent run 在跑时,providerHistory 尾部恰好就是 detectDanglingTurn
       // 判悬挂的形状(user 尾/tool 尾/未答 tool_calls)——切到还在正常跑的会话不能弹「未正常结束」
@@ -535,7 +547,7 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // (活 5s／闲 15s)与 activitySnapshot 都跟着错。只加这一个键;detectDanglingTurn 那一支
       // (真正判悬挂的形状)一个字不动。
       const resumable = live
-        ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: Array.isArray(session.providerHistory) ? session.providerHistory.length : 0, live: true }
+        ? { dangling: false, kind: null, turnSeq: Math.max(0, Number(session.turnSeq) || 0), historyLength: sessionProviderHistoryLength(session), live: true }
         : detectDanglingTurn(session);
       // 116-4（27 号文 §11.7 第 3 项「唤醒链诚实」）：GET /api/sessions/steward?since=<ISO> 只回
       // 该时刻【之后】的消息。117b 的轮询发现 state.lastReply.at 变了（trigger:'inbox'）之后要把新
@@ -556,8 +568,8 @@ async function handleSessionApiRoutes(req, res, pathname) {
       // session.messages 只是 messages[N..];session 上不带 providerHistory(前端从不读它,全量里照旧有);信封上多
       // messagesFrom(= N,客户端据此拼接)/ messageCount(整份条数,客户端拼完自检)/ messagesStamp(整份的新戳,可接着再增量)。
       // 对不上就什么都不做,落到下面的全量 —— 标签里带着参数,所以同一状态下全量与增量的标签不同,304 各认各的。
+      // (delta 在装载之后就算好了,见上。)
       if (deltaKey) {
-        const delta = sessionMessagesDelta(session.messages, deltaFromRaw, deltaStampRaw);
         if (delta) {
           const { providerHistory: _providerHistory, ...sessionHead } = session;
           return send(res, json({
