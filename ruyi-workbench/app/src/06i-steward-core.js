@@ -855,7 +855,7 @@ const STEWARD_THREAD_STATE_RULES = Object.freeze([
   { id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },
   { id: 'pending', state: 'needs_you', when: s => s.pendingTotal > 0 },
   { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
-  { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+  { id: 'live', state: 'running', when: s => s.activeTurn || s.queued || s.autoMode === 'until-done' || s.liveRuns > 0 },
   { id: 'untouched', state: 'dispatching',
     when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
   { id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },
@@ -877,6 +877,10 @@ function deriveStewardThreadState(n) {
     resultStatus: input.resultStatus || '',
     pendingTotal: stewardPendingTotal(input.pending),
     activeTurn: input.activeTurn === true,
+    // hunt3:这条线程有一个回合正在 13n 仲裁器里排队(等锁 / 等预算 / 等并发位)。它还没进 activeChildren,
+    // 修前只认 activeTurn,于是一条已经被用户/管家续上一句、正在等预算的线程被报成「已收工」,
+    // 与同一行上的 wait(「等预算:……」)自相矛盾。排队中的回合是【已经交出去的活】,归 running。
+    queued: input.queued === true,
     liveRuns: Math.max(0, Number(input.liveRuns) || 0),
     runCount: Math.max(0, Number(input.runCount) || 0),
     turnSeq: Math.max(0, Number(input.turnSeq) || 0),
@@ -897,6 +901,13 @@ function deriveStewardThreadState(n) {
   const rule = STEWARD_THREAD_STATE_RULES.find(r => r.when(src));
   const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
+}
+// hunt3:「这条线程有回合在仲裁器里排队」的唯一读法 —— 五态的 queued 证据键由它喂(卡片叠加层 13e / 会话头适配器)。
+// 仲裁器住 13n(拼在本文件之后),经 StewardHooks.arbiterWait 延迟绑定取;没填充 / 抛错一律当「没在排队」。
+function stewardThreadTurnQueued(sessionId) {
+  try {
+    return !!(sessionId && typeof StewardHooks.arbiterWait === 'function' && StewardHooks.arbiterWait(sessionId));
+  } catch { return false; }
 }
 // hunt2-steward ④:stewardLastTurn 只在【盖得住当前回合】(last.seq >= turnSeq)时才算数 —— 与 13i 收集
 // 第四源、stewardStoppedTarget 同一条纪律。它只由管家/调度器发起的回合在 settle 之后写;用户在 2.0 里
@@ -925,6 +936,7 @@ function stewardThreadStateFromCard(card) {
     resultStatus: (m.result && m.result.status) || '',
     pending: card && card.pending,
     activeTurn: card && card.activeTurn === true,
+    queued: card && card.queued === true,   // hunt3:13e 叠加层现算(持久卡片上恒无此键)
     liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
     runCount: card && card.runCount,
     // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
@@ -954,6 +966,8 @@ function stewardThreadStateFromHead(head, extra) {
     turnSeq: h.turnSeq,
     ledgerless: !mission,
     lastTurnFailed: !!(last && (last.ok === false || last.aborted === true)),
+    // hunt3:排队中的回合是此刻的内存事实,与会话头无关 —— 按 id 现问仲裁器(调用方 extra 显式给了就以它为准)。
+    queued: stewardThreadTurnQueued(h.id),
     ...((extra && typeof extra === 'object') ? extra : {}),
   });
 }

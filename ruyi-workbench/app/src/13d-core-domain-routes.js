@@ -824,6 +824,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
       : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
+    ...(opts.persistent ? {} : { queued: stewardThreadTurnQueued(head.id) }), // hunt3:排队中的回合,同上只活在叠加层
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
       autoMode: mm.autoMode || 'off',
@@ -1406,6 +1407,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
         activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
+        queued: stewardThreadTurnQueued(sessionId), // hunt3:回合在仲裁器里排队(前端 fromSnapshot 读它,同 activeTurn 一档)
         mission: session.mission || null,
         acceptance,
         // 班组图只需最近 6 轮；更旧历史仍保留标量 digest，可在经典工作台查看完整节点。

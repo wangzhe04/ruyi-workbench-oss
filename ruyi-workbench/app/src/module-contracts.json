@@ -5419,6 +5419,7 @@
         "stewardThreadStateFromCard",
         "stewardThreadStateFromHead",
         "stewardThreadStateRank",
+        "stewardThreadTurnQueued",
         "stewardToolPermanentlyExempt",
         "stewardTrimSayAtSentence",
         "stewardTurnTaint",
@@ -14112,6 +14113,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadTurnQueued",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "waitReasonFor",
           "kinds": [
             "call"
@@ -14605,6 +14613,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardAsksYouForThread",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardThreadTurnQueued",
           "kinds": [
             "call"
           ]
@@ -17437,15 +17452,21 @@
         "STEWARD_ARBITER_COST_CACHE_MS",
         "STEWARD_ARBITER_DURATION_SAMPLES",
         "STEWARD_ARBITER_QUEUE_MAX",
+        "STEWARD_ARBITER_RETRY_ERROR_MS",
+        "STEWARD_ARBITER_RETRY_MAX_MS",
+        "STEWARD_ARBITER_RETRY_MIN_MS",
+        "STEWARD_ARBITER_RETRY_SLACK_MS",
         "STEWARD_ARBITER_STARVE_FACTOR",
         "STEWARD_ARBITER_STARVE_MIN_MS",
         "STEWARD_ARBITER_STARVE_OVERRIDE_MS",
         "stewardAcquireTurnSlot",
         "stewardArbiter",
         "stewardArbiterAhead",
+        "stewardArbiterArmRetry",
         "stewardArbiterBlocked",
         "stewardArbiterBudget",
         "stewardArbiterCancel",
+        "stewardArbiterClearRetry",
         "stewardArbiterCwdKey",
         "stewardArbiterCwdLock",
         "stewardArbiterDayCost",
@@ -17460,6 +17481,7 @@
         "stewardArbiterRecordBudget",
         "stewardArbiterRefresh",
         "stewardArbiterResourceOf",
+        "stewardArbiterRetryDelayMs",
         "stewardArbiterScheduleDrain",
         "stewardArbiterSetWait",
         "stewardArbiterStarvationBump",
@@ -17495,6 +17517,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
           ]

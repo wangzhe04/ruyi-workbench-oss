@@ -1068,7 +1068,9 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
-    const settled = rows.every(row => row && !row.live);
+    // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
+    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(最长 60 秒)。只有【活的】 run 才值得等。
+    const settled = rows.every(row => !row || !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
     await new Promise(resolve => {
       let done = false;
@@ -1092,8 +1094,10 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
     if (row.live && !AGENT_RUN_TERMINAL.has(env.status)) env.status = 'running';
     return env;
   });
+  // settled 口径不变(有 not_found 就不算「全部结果到手」,信封里照样标 status:'not_found');
+  // timedOut 只看【活的】 run —— not_found 不是等超时了,是压根没有这个 run。
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
-  return { ok: true, settled, timedOut: !settled, runs };
+  return { ok: true, settled, timedOut: runs.some(run => run.live === true), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3156 | 2951 | 513 | 68 | 0 | 1 |
+| 66 | 3164 | 2954 | 513 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -44,7 +44,7 @@
 | 26 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
 | 27 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
 | 28 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
-| 29 | `06i-steward-core.js` | engine | 154 | 0 | 0 |
+| 29 | `06i-steward-core.js` | engine | 155 | 0 | 0 |
 | 30 | `06d-memory-domain.js` | engine | 129 | 36 | 10 |
 | 31 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
 | 32 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
@@ -63,15 +63,15 @@
 | 45 | `13-http-router.js` | transport | 65 | 236 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 48 | `13d-core-domain-routes.js` | transport | 58 | 135 | 16 |
-| 49 | `13e-pretender-index.js` | transport | 57 | 35 | 8 |
+| 48 | `13d-core-domain-routes.js` | transport | 58 | 136 | 16 |
+| 49 | `13e-pretender-index.js` | transport | 57 | 36 | 8 |
 | 50 | `13i-steward-inbox.js` | transport | 77 | 26 | 8 |
 | 51 | `13j-steward-tool-base.js` | transport | 76 | 23 | 9 |
 | 52 | `13k-steward-threads.js` | transport | 46 | 111 | 15 |
 | 53 | `13l-steward-ops.js` | transport | 36 | 104 | 18 |
 | 54 | `13g-steward.js` | transport | 12 | 66 | 9 |
 | 55 | `13m-steward-runner-base.js` | transport | 42 | 16 | 7 |
-| 56 | `13n-steward-arbiter.js` | transport | 35 | 17 | 6 |
+| 56 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
 | 57 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
 | 58 | `13p-steward-runner-actions.js` | transport | 29 | 48 | 10 |
 | 59 | `13q-steward-runner-turn.js` | transport | 31 | 65 | 18 |
@@ -384,7 +384,7 @@
 | `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `runAutomaticInterventionDecision`, `turnSettlers` |
 | `13d-core-domain-routes.js` | `06f-autonomy-grants.js` | backward | `CLI_TOOL_TIER`, `consumeGrant` |
 | `13d-core-domain-routes.js` | `06h-retrieval-index.js` | backward | `createRetrievalCorpusCache`, `rankRetrievalCorpus`, `retrievalTerms` |
-| `13d-core-domain-routes.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks`, `aggregateMissionState`, `deriveStewardThreadState`, `stewardRuyiOwnedPath`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardThreadStateFromHead`, `stewardThreadStateRank`, `waitReasonFor` |
+| `13d-core-domain-routes.js` | `06i-steward-core.js` | backward | `STEWARD_SESSION_ID`, `StewardHooks`, `aggregateMissionState`, `deriveStewardThreadState`, `stewardRuyiOwnedPath`, `stewardSanitizeText`, `stewardThreadStateFromCard`, `stewardThreadStateFromHead`, `stewardThreadStateRank`, `stewardThreadTurnQueued`, `waitReasonFor` |
 | `13d-core-domain-routes.js` | `07-autonomy.js` | backward | `STEER_QUEUE_MAX`, `activeAgentRuns`, `agentRunFile`, `applyAgentWorktree`, `cleanupAgentWorktree`, `getAgentRoleLibrary`, `nativeToolGate`, `nativeToolTier`, `toolIsRevertible` |
 | `13d-core-domain-routes.js` | `08-agent-runs.js` | backward | `agentRunDigestCache`, `agentRunDigestRow`, `agentRunDigestWriteSeq`, `agentRunEventsFile`, `appendAgentRunEvent`, `bumpRunIntervention`, `computeWaveSeq`, `listAgentRunDigests`, `listAgentRuns`, `materializePoolItem`, `nodeDeliveryEligibility`, `readAgentRunEvents`, `saveAgentRun` |
 | `13d-core-domain-routes.js` | `09-workflow.js` | backward | `launchPersistedAgentRun` |
@@ -394,7 +394,7 @@
 | `13e-pretender-index.js` | `01-config.js` | backward | `THREAD_INDEX_RECENT_DEFAULT`, `THREAD_INDEX_RECENT_MAX`, `THREAD_INDEX_RECENT_MIN`, `atomicWriteJson`, `readConfig`, `safeSessionId`, `sessionPath`, `sessionsDirOwnWriteSeq` |
 | `13e-pretender-index.js` | `02-session-store.js` | backward | `compactInterventionJournal`, `interventionFilePath`, `readInterventionsWithMeta`, `sessionKind`, `sessionMissionId` |
 | `13e-pretender-index.js` | `04-permission-runtime.js` | backward | `activeChildren` |
-| `13e-pretender-index.js` | `06i-steward-core.js` | backward | `stewardAsksYouForThread`, `stewardWatchedThread`, `threadOriginOf`, `threadVisible` |
+| `13e-pretender-index.js` | `06i-steward-core.js` | backward | `stewardAsksYouForThread`, `stewardThreadTurnQueued`, `stewardWatchedThread`, `threadOriginOf`, `threadVisible` |
 | `13e-pretender-index.js` | `07-autonomy.js` | backward | `activeAgentRuns`, `agentRunDir` |
 | `13e-pretender-index.js` | `08-agent-runs.js` | backward | `listAgentRuns` |
 | `13e-pretender-index.js` | `13d-core-domain-routes.js` | backward | `buildMissionCard`, `missionRunDigest` |
@@ -477,7 +477,7 @@
 | `13m-steward-runner-base.js` | `04-permission-runtime.js` | backward | `logEvent`, `stopSession` |
 | `13m-steward-runner-base.js` | `06-provider-engine.js` | backward | `ERROR_CLASSES` |
 | `13m-steward-runner-base.js` | `06i-steward-core.js` | backward | `STEWARD_PERMISSION_MODE`, `STEWARD_SESSION_ID`, `STEWARD_SESSION_TITLE`, `stewardSanitizeText` |
-| `13n-steward-arbiter.js` | `00-boot.js` | backward | `crypto`, `forEachUsageRow`, `fs`, `path`, `usageDayKey`, `usageDayKeyMemo`, `usageRangeLowerMs` |
+| `13n-steward-arbiter.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `crypto`, `forEachUsageRow`, `fs`, `path`, `usageDayKey`, `usageDayKeyMemo`, `usageRangeLowerMs` |
 | `13n-steward-arbiter.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `13n-steward-arbiter.js` | `02-session-store.js` | backward | `readInterventions`, `recordMissionBudgetTrippedChange` |
 | `13n-steward-arbiter.js` | `04-permission-runtime.js` | backward | `logEvent` |

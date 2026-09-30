@@ -470,138 +470,165 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   task.state.lastMode = schedMode;
   task.state.runsToday = { date: day, count: task.state.runsToday.count + 1 };
   schedulerRuntime.globalRuns = { date: day, count: schedulerRuntime.globalRuns.count + 1 };
-  await schedulerSaveTasks();
-  await schedulerAppendFire({ ...fireBase, phase: 'registered' });
-  schedulerRuntime.firedTotal += 1;
-  schedulerEmitChanged(task.id, 'registered', '');
-  schedulerMaybeCrash('after-register');
-
-  // ── ② 派单 ────────────────────────────────────────────────────────────────
-  const config = await readConfig();
+  // hunt3:从这里起到收尾之前,任何一步抛错(tasks-v1.json / fires-v1.ndjson 写不进去、readConfig、
+  // createSession/saveSession ……)都【不许】越过收尾段直接冒出去。修前异常冒到 schedulerDispatchFire 只落一条
+  // 日志:inFlightRunId 永远留在任务上(盘上也是)、没有 reconciled 行、nextFireAt 不推进 —— tick 从此永远跳过它,
+  // run-now 永远 409,直到重启走崩溃残留恢复。现在一律按 failed 走同一段收尾(清 inFlightRunId、推进 nextFireAt、
+  // 计入连败熔断、补 reconciled 行);收尾自己再写不进去,内存里的状态也已经先摆正了,下一拍照常能派。
   let outcome = 'succeeded';
   let error = '';
   let sessionId = '';
   let costTokens = 0;
+  let targetBusy = false;   // 8a:目标线程正被别处的回合占着(SESSION_TURN_BUSY_ELSEWHERE),见下
+  try {
+    await schedulerSaveTasks();
+    await schedulerAppendFire({ ...fireBase, phase: 'registered' });
+    schedulerRuntime.firedTotal += 1;
+    schedulerEmitChanged(task.id, 'registered', '');
+    schedulerMaybeCrash('after-register');
 
-  if (task.payload.kind === 'reminder') {
-    // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
-    await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
-    schedulerEmitChanged(task.id, 'dispatched', '');
-    schedulerMaybeCrash('after-dispatch');
-    schedulerMaybeCrash('mid-run');
-    await schedulerNotify('onReminderDue', {
-      taskId: task.id, title: task.title, text: task.payload.text,
-      occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
-      ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
-    });
-  } else {
-    let session = null;
-    if (task.target.mode === 'existing-session' && task.target.sessionId) {
-      session = await loadSession(task.target.sessionId).catch(() => null);
-    }
-    if (!session) {
-      // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
-      // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
-      // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
-      session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
-      session.kind = 'mission';
-      session.launchedBy = 'steward';
-      session.createdBy = 'steward';
-      session.titleSource = 'steward';
-      // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
-      // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
-      // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
-      // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
-      // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
-      // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
-      // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
-      const workdirBefore = String(task.workdir || '');
-      const prepared = await schedulerNotify('prepareThread', { session, task, config });
-      // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
-      // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
-      if (prepared && prepared.workdir === 'fallback') {
-        try {
-          logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
-        } catch { /* 观测不反噬触发 */ }
-      }
-      await saveSession(session);
-      // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
-      // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
-      if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
-    }
-    sessionId = session.id;
-    await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
-    schedulerEmitChanged(task.id, 'dispatched', '');
-    schedulerMaybeCrash('after-dispatch');
-    await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
-    schedulerMaybeCrash('mid-run');
+    // ── ② 派单 ────────────────────────────────────────────────────────────────
+    const config = await readConfig();
 
-    // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
-    // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
-    schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
-    let permissionDenied = 0;
-    const onEvent = evt => {
-      if (!evt || typeof evt !== 'object') return;
-      if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
-      if (evt.type === 'usage' && evt.usage) {
-        const u = evt.usage;
-        costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
-          + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
-      }
-    };
-    let timedOut = false;
-    // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
-    // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
-    // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
-    // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
-    // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
-    // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
-    const timer = setTimeout(() => {
-      timedOut = true;
-      try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
-    }, Math.max(1000, task.policy.timeoutMinutes * 60000));
-    if (timer && typeof timer.unref === 'function') timer.unref();
-    let result = null;
-    try {
-      result = await runSessionTurn({
-        sessionId,
-        message: task.payload.text,
-        cwd: session.cwd,
-        permissionMode: schedulerPermissionModeFor(task, config),
-        source: 'scheduler',
-        requestMeta: { taskId: task.id, runId },
-        onEvent,
+    if (task.payload.kind === 'reminder') {
+      // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
+      await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
+      schedulerEmitChanged(task.id, 'dispatched', '');
+      schedulerMaybeCrash('after-dispatch');
+      schedulerMaybeCrash('mid-run');
+      await schedulerNotify('onReminderDue', {
+        taskId: task.id, title: task.title, text: task.payload.text,
+        occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
+        ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
       });
-    } catch (e) {
-      error = String((e && e.message) || e).slice(0, 400);
-    } finally {
-      clearTimeout(timer);
-      schedulerAskWaitSessions.delete(sessionId);
+    } else {
+      let session = null;
+      if (task.target.mode === 'existing-session' && task.target.sessionId) {
+        session = await loadSession(task.target.sessionId).catch(() => null);
+      }
+      if (!session) {
+        // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
+        // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
+        // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
+        session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
+        session.kind = 'mission';
+        session.launchedBy = 'steward';
+        session.createdBy = 'steward';
+        session.titleSource = 'steward';
+        // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
+        // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
+        // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
+        // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
+        // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
+        // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
+        // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
+        const workdirBefore = String(task.workdir || '');
+        const prepared = await schedulerNotify('prepareThread', { session, task, config });
+        // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
+        // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
+        if (prepared && prepared.workdir === 'fallback') {
+          try {
+            logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
+          } catch { /* 观测不反噬触发 */ }
+        }
+        await saveSession(session);
+        // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
+        // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
+        if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
+      }
+      sessionId = session.id;
+      await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
+      schedulerEmitChanged(task.id, 'dispatched', '');
+      schedulerMaybeCrash('after-dispatch');
+      await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
+      schedulerMaybeCrash('mid-run');
+
+      // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
+      // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
+      schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
+      let permissionDenied = 0;
+      const onEvent = evt => {
+        if (!evt || typeof evt !== 'object') return;
+        if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
+        if (evt.type === 'usage' && evt.usage) {
+          const u = evt.usage;
+          costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
+            + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
+        }
+      };
+      let timedOut = false;
+      // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
+      // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
+      // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
+      // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
+      // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
+      // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
+      const timer = setTimeout(() => {
+        timedOut = true;
+        try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
+      }, Math.max(1000, task.policy.timeoutMinutes * 60000));
+      if (timer && typeof timer.unref === 'function') timer.unref();
+      let result = null;
+      try {
+        result = await runSessionTurn({
+          sessionId,
+          message: task.payload.text,
+          cwd: session.cwd,
+          permissionMode: schedulerPermissionModeFor(task, config),
+          source: 'scheduler',
+          requestMeta: { taskId: task.id, runId },
+          onEvent,
+        });
+      } catch (e) {
+        error = String((e && e.message) || e).slice(0, 400);
+        // 8a:目标线程(existing-session)此刻有一个别处发起的回合在跑 —— runSessionTurn 在起回合【之前】
+        // 就回 409,一个字节都没动那条线程。这不是这条任务的失败:修前记成 failed、计入连败,用户在那条线程里
+        // 连着聊三次就把任务熔断停用了。判据只认稳定错误码,不认文案。
+        if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') targetBusy = true;
+      } finally {
+        clearTimeout(timer);
+        schedulerAskWaitSessions.delete(sessionId);
+      }
+      // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
+      // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
+      const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
+      const turnOk = inner ? inner.ok === true : !!(result && result.ok);
+      if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+      else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
+      else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
+      else outcome = 'succeeded';
+      if (targetBusy) {
+        // 8a:按「这一次不跑」记 skipped(与撞上限同一个结果值,原因 target_busy),不计连败;日程推进到【下一个】
+        // 时点(收尾段对非 manual 一律如此)—— 不选「下一拍重试」:用户在那条线程里一聊半小时,每 30 秒一拍的
+        // 重试会在他每说完一句话的空档里立刻插进一个定时回合,而 cron 的下一个时点本来就是这条任务的节奏。
+        // 登记时预扣的两份当日计数退回(什么都没跑,不该占今天的上限)。
+        outcome = 'skipped';
+        error = 'target_busy';
+        if (task.state.runsToday && task.state.runsToday.date === day) task.state.runsToday = { date: day, count: Math.max(0, task.state.runsToday.count - 1) };
+        if (schedulerRuntime.globalRuns.date === day) schedulerRuntime.globalRuns = { date: day, count: Math.max(0, schedulerRuntime.globalRuns.count - 1) };
+      }
+      // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
+      // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
+      // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
+      // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
+      // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
+      // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
+      // 8a:target_busy 时这条线程上根本没有定时回合,不往别人的回合头上记一笔「管家末回合」。
+      if (!targetBusy) void updateSessionMeta(sessionId, {
+        launchedBy: 'steward',
+        stewardLastTurn: {
+          seq: Math.max(0, Number(result && result.turnSeq) || 0),
+          ok: outcome === 'succeeded',
+          aborted: !!(inner ? inner.aborted : (result && result.stopped)),
+          errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
+          at: nowIso(),
+        },
+      }).catch(() => null);
     }
-    // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
-    // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
-    const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
-    const turnOk = inner ? inner.ok === true : !!(result && result.ok);
-    if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
-    else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
-    else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
-    else outcome = 'succeeded';
-    // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
-    // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
-    // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
-    // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
-    // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
-    // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
-    void updateSessionMeta(sessionId, {
-      launchedBy: 'steward',
-      stewardLastTurn: {
-        seq: Math.max(0, Number(result && result.turnSeq) || 0),
-        ok: outcome === 'succeeded',
-        aborted: !!(inner ? inner.aborted : (result && result.stopped)),
-        errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
-        at: nowIso(),
-      },
-    }).catch(() => null);
+  } catch (e) {
+    outcome = 'failed';
+    error = 'dispatch_error: ' + String((e && (e.code || e.message)) || e).slice(0, 380);
+    try { logEvent({ kind: 'scheduler_fire_error', taskId: task.id, runId, detail: String((e && e.message) || e).slice(0, 400) }); } catch { /* 观测不反噬 */ }
   }
 
   // ── ④ 收尾 ────────────────────────────────────────────────────────────────
@@ -609,7 +636,9 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   const finishedMs = schedulerClockNow();
   task.state.inFlightRunId = '';
   task.state.lastResult = outcome;
-  task.state.consecutiveFailures = outcome === 'failed' ? (Number(task.state.consecutiveFailures) || 0) + 1 : 0;
+  // skipped(撞上限 / 8a 目标线程忙)既不是失败也不是成功:连败计数原样不动(与上面撞上限那一支同口径)。
+  if (outcome === 'failed') task.state.consecutiveFailures = (Number(task.state.consecutiveFailures) || 0) + 1;
+  else if (outcome !== 'skipped') task.state.consecutiveFailures = 0;
   let tripped = false;
   if (task.state.consecutiveFailures >= SCHEDULER_LIMITS.consecutiveFailuresTrip) {
     task.state.enabled = false;      // 熔断优先于重试(29 号文 §10)
@@ -669,6 +698,13 @@ async function schedulerTick() {
   schedulerRuntime.ticking = true;
   const generation = schedulerRuntime.generation;
   try {
+    // hunt3:总开关是【活的】。startScheduler 只在启动时读一次 schedulerEnabledV1,修前用户在设置里把它关掉之后
+    // interval 照跑、到点照派(「关了所有定时承诺一起停」只在重启后才兑现)。每一拍先重读配置(readConfig 走
+    // 文件指纹缓存,一拍一次 stat),关着就这一拍什么都不做 —— 不派单、不动补跑队列、不写盘;interval 留着,
+    // 用户再打开时下一拍就接着走,不必重启。已经派出去的那一次照常收尾(它的回合可能已经在跑)。
+    const liveConfig = await readConfig().catch(() => null);
+    if (liveConfig && !schedulerEnabled(liveConfig)) return;
+    if (generation !== schedulerRuntime.generation) return;
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
       if (generation !== schedulerRuntime.generation) return;

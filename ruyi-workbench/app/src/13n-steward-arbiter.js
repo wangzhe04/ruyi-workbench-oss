@@ -68,6 +68,15 @@ const STEWARD_ARBITER_STARVE_FACTOR = 3;
 const STEWARD_ARBITER_DURATION_SAMPLES = 20;   // 平均回合时长的样本数
 const STEWARD_ARBITER_COST_CACHE_MS = 2000;    // 当日费用记账缓存(配置【不缓存】,费用台账缓存 2 秒)
 const STEWARD_ARBITER_QUEUE_MAX = 500;         // 队列硬顶:超出宁可放行也不无限堆积(排队不是背压手段)
+// hunt3:预算闸的自唤醒。队列只在「有回合释放 / 取消 / 插队 / 改配置」时被唤醒 —— 被 turns_per_hour /
+// cost_per_day 挡住、而此刻又没有任何回合在跑的条目,修前就再也没有人来叫它(小时窗滑过去了也照样挂着)。
+// 现在 drain 收尾时若队里还有被预算挡着的条目,就挂【一个】unref 的定时器,到「最早能放行的时刻」再唤醒一次:
+// 小时口径 = 窗口内最早那一笔回合滑出窗口;当日费用口径 = 下一个本地 0 点。drain 自己抛错时 15 秒后重试。
+// 上限封顶 30 分钟:机器睡眠 / 改时钟之后不至于一觉睡到明天;队列空了就撤掉。
+const STEWARD_ARBITER_RETRY_MIN_MS = 1000;
+const STEWARD_ARBITER_RETRY_MAX_MS = 30 * 60 * 1000;
+const STEWARD_ARBITER_RETRY_ERROR_MS = 15000;
+const STEWARD_ARBITER_RETRY_SLACK_MS = 1000;   // 到点后多等一秒,免得正好卡在窗口边界上再判一次「还满」
 
 const stewardArbiter = {
   running: new Map(),      // token -> { token, sessionId, title, cwdKey, startedAt }
@@ -86,6 +95,8 @@ const stewardArbiter = {
   drainAgain: false,
   costCache: { at: 0, value: 0 },
   budgetNotified: new Map(), // sessionId -> 上次落 budget 通知的小时桶(同一条线程一小时最多提醒一次)
+  retryTimer: null,        // hunt3:预算闸 / drain 出错后的自唤醒定时器(至多一个,unref)
+  retryAt: 0,              // 它预定在哪一刻触发(ms);0 = 没挂
 };
 
 // 工作文件夹的锁键:规范化成绝对路径,Windows 折大小写,再取 sha1 前 12 位。用哈希而不是原路径是
@@ -312,6 +323,8 @@ function stewardArbiterCancel(entry, reason) {
   stewardArbiterDetach(entry);
   if (entry.waited) stewardArbiterEmit(entry, 'released', entry.lastResource || 'steward:slot');
   if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve({ granted: false, reason: String(reason || 'cancelled') }); }
+  // hunt3:真的排过队的条目被撤走 = 五态的 queued 证据变了(running -> done/stopped),推一帧让左栏跟上。
+  if (entry.waited) { try { RUYI_EVENTS.emit('thread.state', { sessionId: entry.sessionId }); } catch { /* 观测不反噬 */ } }
   stewardArbiterScheduleDrain();
   return true;
 }
@@ -331,13 +344,69 @@ function stewardCancelQueuedTurn(sessionId) {
 function stewardArbiterScheduleDrain() {
   if (stewardArbiter.draining) { stewardArbiter.drainAgain = true; return; }
   stewardArbiter.draining = true;
+  let failed = false;
   Promise.resolve()
     .then(() => stewardArbiterDrain())
-    .catch(() => { /* 唤醒失败不该让队列永久卡死:下一次释放会再唤醒 */ })
+    .catch(error => {
+      // 唤醒失败不该让队列永久卡死:修前只寄望于「下一次释放」,而队里的条目可能正是因为没人在跑才排着 ——
+      // 那就没有下一次释放。记下来,下面挂一个短延时的重试。
+      failed = true;
+      try { logEvent({ kind: 'steward_arbiter_drain_error', error: String((error && error.message) || error).slice(0, 300) }); } catch { /* ignore */ }
+    })
     .then(() => {
       stewardArbiter.draining = false;
-      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); }
+      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); return; }
+      stewardArbiterArmRetry(failed);
     });
+}
+
+// hunt3:队里还有没放行的条目时,下一次该在什么时候自己醒(ms 延时;null = 不必自醒,释放/取消会唤醒它)。
+// 只有两种条目需要自醒:被预算挡着的(没有释放事件会来),以及 drain 本身出了错(条目的等待原因都不可信)。
+// 被锁 / 并发位挡着的条目不在此列 —— 挡着它们的是一个正在跑的回合,那个回合的 release 一定会唤醒队列。
+function stewardArbiterRetryDelayMs(failed, now) {
+  const live = stewardArbiter.queue.filter(entry => !entry.cancelled);
+  if (!live.length) return null;
+  if (failed) return STEWARD_ARBITER_RETRY_ERROR_MS;
+  let oldest = now;   // 小时窗里最早那一笔(turns 按放行先后追加,但不假设有序)
+  for (const ts of stewardArbiter.turns) if (ts > now - STEWARD_TURN_WINDOW_MS && ts < oldest) oldest = ts;
+  let delay = null;
+  for (const entry of live) {
+    const budget = entry.wait && entry.wait.budget;
+    if (!budget) continue;
+    let wake;
+    if (budget.axis === 'turns_per_hour') {
+      wake = oldest + STEWARD_TURN_WINDOW_MS - now;
+    } else if (budget.axis === 'cost_per_day') {
+      const d = new Date(now);
+      wake = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - now;   // 下一个本地 0 点(同 usageDayKey 的日界)
+    } else {
+      wake = STEWARD_ARBITER_RETRY_MAX_MS;
+    }
+    delay = delay == null ? wake : Math.min(delay, wake);
+  }
+  if (delay == null) return null;
+  return Math.min(STEWARD_ARBITER_RETRY_MAX_MS, Math.max(STEWARD_ARBITER_RETRY_MIN_MS, delay + STEWARD_ARBITER_RETRY_SLACK_MS));
+}
+function stewardArbiterClearRetry() {
+  if (stewardArbiter.retryTimer) clearTimeout(stewardArbiter.retryTimer);
+  stewardArbiter.retryTimer = null;
+  stewardArbiter.retryAt = 0;
+}
+function stewardArbiterArmRetry(failed) {
+  const now = Date.now();
+  const delay = stewardArbiterRetryDelayMs(failed, now);
+  if (delay == null) { stewardArbiterClearRetry(); return; }
+  const at = now + delay;
+  // 已经挂着一个不晚于它的就留着(至多一个定时器;更早的唤醒不必被推迟)。
+  if (stewardArbiter.retryTimer && stewardArbiter.retryAt && stewardArbiter.retryAt <= at) return;
+  stewardArbiterClearRetry();
+  stewardArbiter.retryAt = at;
+  stewardArbiter.retryTimer = setTimeout(() => {
+    stewardArbiter.retryTimer = null;
+    stewardArbiter.retryAt = 0;
+    stewardArbiterScheduleDrain();
+  }, delay);
+  if (stewardArbiter.retryTimer && typeof stewardArbiter.retryTimer.unref === 'function') stewardArbiter.retryTimer.unref();
 }
 
 function stewardArbiterStarveThresholdMs() {
@@ -392,7 +461,12 @@ async function stewardArbiterDrain() {
     if (entry.cancelled || at < 0) continue;
     // 116-3 P0-5:waited 在这里置(而不是入队时)—— 全新条目现在也先入队,只有【真的被挡住】的那些
     // 才该在事件流里出现 waiting/acquired/released 三帧。
-    if (blocked) { entry.waited = true; stewardArbiterSetWait(entry, blocked); continue; }
+    if (blocked) {
+      // hunt3:第一次真的被挡住 = 这条线程的五态从 done/stopped 变成 running(queued 证据),推一帧让事件流跟上。
+      // 没被挡住直接放行的回合不推:回合起跑时 05/09 自己会派 thread.state。
+      if (!entry.waited) { try { RUYI_EVENTS.emit('thread.state', { sessionId: entry.sessionId }); } catch { /* 观测不反噬 */ } }
+      entry.waited = true; stewardArbiterSetWait(entry, blocked); continue;
+    }
     stewardArbiter.queue.splice(at, 1);
     stewardArbiterDetach(entry);
     if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve(stewardArbiterGrant(entry)); }

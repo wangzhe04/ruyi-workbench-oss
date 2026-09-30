@@ -27466,7 +27466,7 @@ const STEWARD_THREAD_STATE_RULES = Object.freeze([
   { id: 'facts_unknown', state: 'quick_ask', when: s => s.factsUnknown },
   { id: 'pending', state: 'needs_you', when: s => s.pendingTotal > 0 },
   { id: 'result_complete', state: 'done', when: s => s.resultStatus === 'complete' },
-  { id: 'live', state: 'running', when: s => s.activeTurn || s.autoMode === 'until-done' || s.liveRuns > 0 },
+  { id: 'live', state: 'running', when: s => s.activeTurn || s.queued || s.autoMode === 'until-done' || s.liveRuns > 0 },
   { id: 'untouched', state: 'dispatching',
     when: s => s.runCount === 0 && s.turnSeq === 0 && s.milestonesDone === 0 && s.resultStatus !== 'stopped' },
   { id: 'ledgerless_ran', state: s => (s.lastTurnFailed ? 'stopped' : 'done'), when: s => s.ledgerless && s.turnSeq > 0 },
@@ -27488,6 +27488,10 @@ function deriveStewardThreadState(n) {
     resultStatus: input.resultStatus || '',
     pendingTotal: stewardPendingTotal(input.pending),
     activeTurn: input.activeTurn === true,
+    // hunt3:这条线程有一个回合正在 13n 仲裁器里排队(等锁 / 等预算 / 等并发位)。它还没进 activeChildren,
+    // 修前只认 activeTurn,于是一条已经被用户/管家续上一句、正在等预算的线程被报成「已收工」,
+    // 与同一行上的 wait(「等预算:……」)自相矛盾。排队中的回合是【已经交出去的活】,归 running。
+    queued: input.queued === true,
     liveRuns: Math.max(0, Number(input.liveRuns) || 0),
     runCount: Math.max(0, Number(input.runCount) || 0),
     turnSeq: Math.max(0, Number(input.turnSeq) || 0),
@@ -27508,6 +27512,13 @@ function deriveStewardThreadState(n) {
   const rule = STEWARD_THREAD_STATE_RULES.find(r => r.when(src));
   const state = typeof rule.state === 'function' ? rule.state(src) : rule.state;
   return { state, label: stewardStateLabel(state), sources: src };
+}
+// hunt3:「这条线程有回合在仲裁器里排队」的唯一读法 —— 五态的 queued 证据键由它喂(卡片叠加层 13e / 会话头适配器)。
+// 仲裁器住 13n(拼在本文件之后),经 StewardHooks.arbiterWait 延迟绑定取;没填充 / 抛错一律当「没在排队」。
+function stewardThreadTurnQueued(sessionId) {
+  try {
+    return !!(sessionId && typeof StewardHooks.arbiterWait === 'function' && StewardHooks.arbiterWait(sessionId));
+  } catch { return false; }
 }
 // hunt2-steward ④:stewardLastTurn 只在【盖得住当前回合】(last.seq >= turnSeq)时才算数 —— 与 13i 收集
 // 第四源、stewardStoppedTarget 同一条纪律。它只由管家/调度器发起的回合在 settle 之后写;用户在 2.0 里
@@ -27536,6 +27547,7 @@ function stewardThreadStateFromCard(card) {
     resultStatus: (m.result && m.result.status) || '',
     pending: card && card.pending,
     activeTurn: card && card.activeTurn === true,
+    queued: card && card.queued === true,   // hunt3:13e 叠加层现算(持久卡片上恒无此键)
     liveRuns: lr && lr.live && !lr.paused ? 1 : 0,
     runCount: card && card.runCount,
     // 117p-S2:卡片自 13e schema 4 起带 turnSeq / lastTurn(13d buildMissionCard 的会话头投影)。
@@ -27565,6 +27577,8 @@ function stewardThreadStateFromHead(head, extra) {
     turnSeq: h.turnSeq,
     ledgerless: !mission,
     lastTurnFailed: !!(last && (last.ok === false || last.aborted === true)),
+    // hunt3:排队中的回合是此刻的内存事实,与会话头无关 —— 按 id 现问仲裁器(调用方 extra 显式给了就以它为准)。
+    queued: stewardThreadTurnQueued(h.id),
     ...((extra && typeof extra === 'object') ? extra : {}),
   });
 }
@@ -37955,7 +37969,9 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   let rows = [];
   for (;;) {
     rows = await Promise.all(runIds.map(readOne));
-    const settled = rows.every(row => row && !row.live);
+    // hunt3:不存在的 runId(读不到 = null)没有什么可等 —— 修前 `row && !row.live` 把它算成「未结算」,
+    // 一个打错的 runId 就让 wait_agents 白白挂满整个超时(最长 60 秒)。只有【活的】 run 才值得等。
+    const settled = rows.every(row => !row || !row.live);
     if (settled || Date.now() >= deadline || (signal && signal.aborted)) break;
     await new Promise(resolve => {
       let done = false;
@@ -37979,8 +37995,10 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
     if (row.live && !AGENT_RUN_TERMINAL.has(env.status)) env.status = 'running';
     return env;
   });
+  // settled 口径不变(有 not_found 就不算「全部结果到手」,信封里照样标 status:'not_found');
+  // timedOut 只看【活的】 run —— not_found 不是等超时了,是压根没有这个 run。
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
-  return { ok: true, settled, timedOut: !settled, runs };
+  return { ok: true, settled, timedOut: runs.some(run => run.live === true), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -53502,6 +53520,7 @@ async function buildMissionCard(head, runs, opts = {}) {
       ? { seq: Math.max(0, Number(head.stewardLastTurn.seq) || 0), ok: head.stewardLastTurn.ok !== false, aborted: head.stewardLastTurn.aborted === true }
       : null,
     activeTurn: opts.persistent ? false : activeChildren.has(head.id), // 75c:live overlay 不写进可重建持久索引
+    ...(opts.persistent ? {} : { queued: stewardThreadTurnQueued(head.id) }), // hunt3:排队中的回合,同上只活在叠加层
     mission: {
       goal: mm.goal || '', createdAt: mm.createdAt || '', updatedAt: mm.updatedAt || '',
       autoMode: mm.autoMode || 'off',
@@ -54084,6 +54103,7 @@ async function handleMissionsApiRoutes(req, res, pathname) {
         cwd: session.cwd || '', createdAt: session.createdAt || '', updatedAt: session.updatedAt || '',
         status: missionCardStatus(session.mission),
         activeTurn: activeChildren.has(sessionId), // 第56波:活回合标志(五态派生的「进行中」权威信号之一,与 run.live 同型内存叠加)
+        queued: stewardThreadTurnQueued(sessionId), // hunt3:回合在仲裁器里排队(前端 fromSnapshot 读它,同 activeTurn 一档)
         mission: session.mission || null,
         acceptance,
         // 班组图只需最近 6 轮；更旧历史仍保留标量 digest，可在经典工作台查看完整节点。
@@ -55950,6 +55970,8 @@ function overlayMissionCard(slice, overlayAt) {
   liveRuns.sort((a, b) => String(a.updatedAt || '').localeCompare(String(b.updatedAt || '')));
   const latestLive = liveRuns.length ? liveRuns[liveRuns.length - 1] : null;
   const activeTurn = activeChildren.has(slice.sessionId);
+  // hunt3:回合排在 13n 仲裁器里(还没进 activeChildren)—— 五态 queued 证据键,与 activeTurn 同一条「只活在叠加层」纪律。
+  const queued = stewardThreadTurnQueued(slice.sessionId);
   // 117l D4(§11.9):「它在问你」只活在叠加层 —— 待决的死活与活回合都是此刻的事实,写进持久卡片
   // 就会在下一次重建前一直说谎(与 activeTurn / lastRun 同一条纪律)。判据单点同样是 06i 的 stewardAsksYou。
   // 117m-A2:判据单点从 stewardAsksYou 换成 stewardAsksYouForThread —— 后者认【四类待决】
@@ -55993,13 +56015,14 @@ function overlayMissionCard(slice, overlayAt) {
     liveTail,
     seatedBy,
     activeTurn,
+    queued,
     asksYou,
     runCount: Math.max(Number(card.runCount) || 0, liveRuns.length),
     lastRun: latestLive ? missionRunDigest(latestLive, true) : card.lastRun,
     freshness: {
       persistentRevision: slice.cardRevision || slice.missionRevision,
       indexedAt: slice.indexedAt,
-      liveOverlay: activeTurn || liveRuns.length > 0,
+      liveOverlay: activeTurn || queued || liveRuns.length > 0,
       overlayAt: overlayAt || nowIso(),
     },
   };
@@ -56814,7 +56837,12 @@ function stewardAppendInboxRows(rows) {
   const next = stewardAppendChain.catch(() => {}).then(async () => {
     await fsp.mkdir(stewardDir(), { recursive: true });
     await repairMissionChangeTornTail(file); // 尾部半行先截干净,再整行 append(防焊接)
-    await fsp.appendFile(file, payload, 'utf8');
+    // Windows 上杀软/备份软件短暂持锁的 EBUSY/EPERM/EACCES:与 02 appendIntervention 同款有界重试。
+    // 仍失败就抛给 stewardTickOnce —— 那里把这一批原始事件放回结转队列,下一拍重来(见那里的注释)。
+    for (let attempt = 0; ; attempt++) {
+      try { await fsp.appendFile(file, payload, 'utf8'); break; }
+      catch (e) { if (attempt >= 3 || !/^(EPERM|EBUSY|EACCES)$/.test(String(e && e.code))) throw e; await new Promise(r => setTimeout(r, 10 + attempt * 20)); }
+    }
     // 121-K2a(§6.1 第 3 条):箱子真的多了这些行之后才派。正文不进事件面 —— 只有「哪条线程、哪一类」;
     // 想看内容仍走 GET /api/steward/inbox(§6.1 红线:事件流不承载正文)。
     // 121-K6a(34 号文 §4.3 安静卡):补 quiet(在场门②情形打的旗)与卡上要印的一句话(ask)——
@@ -57183,6 +57211,7 @@ async function stewardTickOnce() {
     logEvent({ kind: 'steward_inbox_deferred', deferred: kept.length, dropped: rest.length - kept.length });
   }
   const merged = stewardMergeInboxEvents(head, STEWARD_MERGE_WINDOW_MS);
+  const seqBefore = stewardRuntime.inboxSeq;
   const rows = [];
   for (const row of merged) {
     stewardRuntime.inboxSeq += 1;
@@ -57204,7 +57233,21 @@ async function stewardTickOnce() {
   if (rows.length && typeof StewardHooks.enrichInboxRows === 'function') {
     try { await StewardHooks.enrichInboxRows(rows); } catch { /* 增强失败只是少两个字段,不反噬轮询器 */ }
   }
-  if (rows.length) await stewardAppendInboxRows(rows);
+  // 落盘失败(有界重试之后仍是 EBUSY/EIO/ENOSPC …)不许丢事件:四源游标、待决集合、budgetSeen、交接队列
+  // 在 stewardCollectEvents 里都已经越过了这一批 —— 修前异常直接冒出去,这些事件从此永远读不回来
+  // (一条「需要你」的权限请求就此从收件箱里消失)。这里不去逐个回滚游标(交接队列与 budgetSeen 是内存态,
+  // 回滚不全),而是把这一批【原始】事件整批放回结转队列的最前面 —— 与 P0-3 的单轮上限结转同一条通路:
+  // 下一拍它们排在最前、照样过去重、不再过在场门(已经过过一次)。inboxSeq 退回本批之前,
+  // 不留空号;游标这一拍不落盘(异常照旧冒到 stewardRunTick 记 lastError),重启则从旧游标重读 + seen 去重。
+  if (rows.length) {
+    try { await stewardAppendInboxRows(rows); }
+    catch (error) {
+      stewardRuntime.inboxSeq = seqBefore;
+      stewardRuntime.carry = head.concat(stewardRuntime.carry).slice(0, STEWARD_CARRY_MAX_EVENTS);
+      try { logEvent({ kind: 'steward_inbox_append_failed', code: String((error && error.code) || ''), requeued: head.length }); } catch { /* 观测绝不反噬 */ }
+      throw error;
+    }
+  }
   if (rows.length) stewardRuntime.lastInboxAt = nowIso();   // 116-4:唤醒链诚实 —— 「箱子最后一次真的收到东西」
   for (const row of rows) for (const key of stewardInboxRowDedupeKeys(row)) stewardRuntime.seen.add(key);
   // 去重集合在长跑进程里只增不减 —— 超过硬顶就按「装载时」的口径从 inbox 尾部重建(旧键本来也已经
@@ -61433,6 +61476,15 @@ const STEWARD_ARBITER_STARVE_FACTOR = 3;
 const STEWARD_ARBITER_DURATION_SAMPLES = 20;   // 平均回合时长的样本数
 const STEWARD_ARBITER_COST_CACHE_MS = 2000;    // 当日费用记账缓存(配置【不缓存】,费用台账缓存 2 秒)
 const STEWARD_ARBITER_QUEUE_MAX = 500;         // 队列硬顶:超出宁可放行也不无限堆积(排队不是背压手段)
+// hunt3:预算闸的自唤醒。队列只在「有回合释放 / 取消 / 插队 / 改配置」时被唤醒 —— 被 turns_per_hour /
+// cost_per_day 挡住、而此刻又没有任何回合在跑的条目,修前就再也没有人来叫它(小时窗滑过去了也照样挂着)。
+// 现在 drain 收尾时若队里还有被预算挡着的条目,就挂【一个】unref 的定时器,到「最早能放行的时刻」再唤醒一次:
+// 小时口径 = 窗口内最早那一笔回合滑出窗口;当日费用口径 = 下一个本地 0 点。drain 自己抛错时 15 秒后重试。
+// 上限封顶 30 分钟:机器睡眠 / 改时钟之后不至于一觉睡到明天;队列空了就撤掉。
+const STEWARD_ARBITER_RETRY_MIN_MS = 1000;
+const STEWARD_ARBITER_RETRY_MAX_MS = 30 * 60 * 1000;
+const STEWARD_ARBITER_RETRY_ERROR_MS = 15000;
+const STEWARD_ARBITER_RETRY_SLACK_MS = 1000;   // 到点后多等一秒,免得正好卡在窗口边界上再判一次「还满」
 
 const stewardArbiter = {
   running: new Map(),      // token -> { token, sessionId, title, cwdKey, startedAt }
@@ -61451,6 +61503,8 @@ const stewardArbiter = {
   drainAgain: false,
   costCache: { at: 0, value: 0 },
   budgetNotified: new Map(), // sessionId -> 上次落 budget 通知的小时桶(同一条线程一小时最多提醒一次)
+  retryTimer: null,        // hunt3:预算闸 / drain 出错后的自唤醒定时器(至多一个,unref)
+  retryAt: 0,              // 它预定在哪一刻触发(ms);0 = 没挂
 };
 
 // 工作文件夹的锁键:规范化成绝对路径,Windows 折大小写,再取 sha1 前 12 位。用哈希而不是原路径是
@@ -61677,6 +61731,8 @@ function stewardArbiterCancel(entry, reason) {
   stewardArbiterDetach(entry);
   if (entry.waited) stewardArbiterEmit(entry, 'released', entry.lastResource || 'steward:slot');
   if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve({ granted: false, reason: String(reason || 'cancelled') }); }
+  // hunt3:真的排过队的条目被撤走 = 五态的 queued 证据变了(running -> done/stopped),推一帧让左栏跟上。
+  if (entry.waited) { try { RUYI_EVENTS.emit('thread.state', { sessionId: entry.sessionId }); } catch { /* 观测不反噬 */ } }
   stewardArbiterScheduleDrain();
   return true;
 }
@@ -61696,13 +61752,69 @@ function stewardCancelQueuedTurn(sessionId) {
 function stewardArbiterScheduleDrain() {
   if (stewardArbiter.draining) { stewardArbiter.drainAgain = true; return; }
   stewardArbiter.draining = true;
+  let failed = false;
   Promise.resolve()
     .then(() => stewardArbiterDrain())
-    .catch(() => { /* 唤醒失败不该让队列永久卡死:下一次释放会再唤醒 */ })
+    .catch(error => {
+      // 唤醒失败不该让队列永久卡死:修前只寄望于「下一次释放」,而队里的条目可能正是因为没人在跑才排着 ——
+      // 那就没有下一次释放。记下来,下面挂一个短延时的重试。
+      failed = true;
+      try { logEvent({ kind: 'steward_arbiter_drain_error', error: String((error && error.message) || error).slice(0, 300) }); } catch { /* ignore */ }
+    })
     .then(() => {
       stewardArbiter.draining = false;
-      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); }
+      if (stewardArbiter.drainAgain) { stewardArbiter.drainAgain = false; stewardArbiterScheduleDrain(); return; }
+      stewardArbiterArmRetry(failed);
     });
+}
+
+// hunt3:队里还有没放行的条目时,下一次该在什么时候自己醒(ms 延时;null = 不必自醒,释放/取消会唤醒它)。
+// 只有两种条目需要自醒:被预算挡着的(没有释放事件会来),以及 drain 本身出了错(条目的等待原因都不可信)。
+// 被锁 / 并发位挡着的条目不在此列 —— 挡着它们的是一个正在跑的回合,那个回合的 release 一定会唤醒队列。
+function stewardArbiterRetryDelayMs(failed, now) {
+  const live = stewardArbiter.queue.filter(entry => !entry.cancelled);
+  if (!live.length) return null;
+  if (failed) return STEWARD_ARBITER_RETRY_ERROR_MS;
+  let oldest = now;   // 小时窗里最早那一笔(turns 按放行先后追加,但不假设有序)
+  for (const ts of stewardArbiter.turns) if (ts > now - STEWARD_TURN_WINDOW_MS && ts < oldest) oldest = ts;
+  let delay = null;
+  for (const entry of live) {
+    const budget = entry.wait && entry.wait.budget;
+    if (!budget) continue;
+    let wake;
+    if (budget.axis === 'turns_per_hour') {
+      wake = oldest + STEWARD_TURN_WINDOW_MS - now;
+    } else if (budget.axis === 'cost_per_day') {
+      const d = new Date(now);
+      wake = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - now;   // 下一个本地 0 点(同 usageDayKey 的日界)
+    } else {
+      wake = STEWARD_ARBITER_RETRY_MAX_MS;
+    }
+    delay = delay == null ? wake : Math.min(delay, wake);
+  }
+  if (delay == null) return null;
+  return Math.min(STEWARD_ARBITER_RETRY_MAX_MS, Math.max(STEWARD_ARBITER_RETRY_MIN_MS, delay + STEWARD_ARBITER_RETRY_SLACK_MS));
+}
+function stewardArbiterClearRetry() {
+  if (stewardArbiter.retryTimer) clearTimeout(stewardArbiter.retryTimer);
+  stewardArbiter.retryTimer = null;
+  stewardArbiter.retryAt = 0;
+}
+function stewardArbiterArmRetry(failed) {
+  const now = Date.now();
+  const delay = stewardArbiterRetryDelayMs(failed, now);
+  if (delay == null) { stewardArbiterClearRetry(); return; }
+  const at = now + delay;
+  // 已经挂着一个不晚于它的就留着(至多一个定时器;更早的唤醒不必被推迟)。
+  if (stewardArbiter.retryTimer && stewardArbiter.retryAt && stewardArbiter.retryAt <= at) return;
+  stewardArbiterClearRetry();
+  stewardArbiter.retryAt = at;
+  stewardArbiter.retryTimer = setTimeout(() => {
+    stewardArbiter.retryTimer = null;
+    stewardArbiter.retryAt = 0;
+    stewardArbiterScheduleDrain();
+  }, delay);
+  if (stewardArbiter.retryTimer && typeof stewardArbiter.retryTimer.unref === 'function') stewardArbiter.retryTimer.unref();
 }
 
 function stewardArbiterStarveThresholdMs() {
@@ -61757,7 +61869,12 @@ async function stewardArbiterDrain() {
     if (entry.cancelled || at < 0) continue;
     // 116-3 P0-5:waited 在这里置(而不是入队时)—— 全新条目现在也先入队,只有【真的被挡住】的那些
     // 才该在事件流里出现 waiting/acquired/released 三帧。
-    if (blocked) { entry.waited = true; stewardArbiterSetWait(entry, blocked); continue; }
+    if (blocked) {
+      // hunt3:第一次真的被挡住 = 这条线程的五态从 done/stopped 变成 running(queued 证据),推一帧让事件流跟上。
+      // 没被挡住直接放行的回合不推:回合起跑时 05/09 自己会派 thread.state。
+      if (!entry.waited) { try { RUYI_EVENTS.emit('thread.state', { sessionId: entry.sessionId }); } catch { /* 观测不反噬 */ } }
+      entry.waited = true; stewardArbiterSetWait(entry, blocked); continue;
+    }
     stewardArbiter.queue.splice(at, 1);
     stewardArbiterDetach(entry);
     if (typeof entry.resolve === 'function') { const resolve = entry.resolve; entry.resolve = null; resolve(stewardArbiterGrant(entry)); }
@@ -65656,138 +65773,165 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   task.state.lastMode = schedMode;
   task.state.runsToday = { date: day, count: task.state.runsToday.count + 1 };
   schedulerRuntime.globalRuns = { date: day, count: schedulerRuntime.globalRuns.count + 1 };
-  await schedulerSaveTasks();
-  await schedulerAppendFire({ ...fireBase, phase: 'registered' });
-  schedulerRuntime.firedTotal += 1;
-  schedulerEmitChanged(task.id, 'registered', '');
-  schedulerMaybeCrash('after-register');
-
-  // ── ② 派单 ────────────────────────────────────────────────────────────────
-  const config = await readConfig();
+  // hunt3:从这里起到收尾之前,任何一步抛错(tasks-v1.json / fires-v1.ndjson 写不进去、readConfig、
+  // createSession/saveSession ……)都【不许】越过收尾段直接冒出去。修前异常冒到 schedulerDispatchFire 只落一条
+  // 日志:inFlightRunId 永远留在任务上(盘上也是)、没有 reconciled 行、nextFireAt 不推进 —— tick 从此永远跳过它,
+  // run-now 永远 409,直到重启走崩溃残留恢复。现在一律按 failed 走同一段收尾(清 inFlightRunId、推进 nextFireAt、
+  // 计入连败熔断、补 reconciled 行);收尾自己再写不进去,内存里的状态也已经先摆正了,下一拍照常能派。
   let outcome = 'succeeded';
   let error = '';
   let sessionId = '';
   let costTokens = 0;
+  let targetBusy = false;   // 8a:目标线程正被别处的回合占着(SESSION_TURN_BUSY_ELSEWHERE),见下
+  try {
+    await schedulerSaveTasks();
+    await schedulerAppendFire({ ...fireBase, phase: 'registered' });
+    schedulerRuntime.firedTotal += 1;
+    schedulerEmitChanged(task.id, 'registered', '');
+    schedulerMaybeCrash('after-register');
 
-  if (task.payload.kind === 'reminder') {
-    // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
-    await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
-    schedulerEmitChanged(task.id, 'dispatched', '');
-    schedulerMaybeCrash('after-dispatch');
-    schedulerMaybeCrash('mid-run');
-    await schedulerNotify('onReminderDue', {
-      taskId: task.id, title: task.title, text: task.payload.text,
-      occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
-      ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
-    });
-  } else {
-    let session = null;
-    if (task.target.mode === 'existing-session' && task.target.sessionId) {
-      session = await loadSession(task.target.sessionId).catch(() => null);
-    }
-    if (!session) {
-      // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
-      // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
-      // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
-      session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
-      session.kind = 'mission';
-      session.launchedBy = 'steward';
-      session.createdBy = 'steward';
-      session.titleSource = 'steward';
-      // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
-      // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
-      // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
-      // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
-      // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
-      // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
-      // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
-      const workdirBefore = String(task.workdir || '');
-      const prepared = await schedulerNotify('prepareThread', { session, task, config });
-      // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
-      // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
-      if (prepared && prepared.workdir === 'fallback') {
-        try {
-          logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
-        } catch { /* 观测不反噬触发 */ }
-      }
-      await saveSession(session);
-      // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
-      // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
-      if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
-    }
-    sessionId = session.id;
-    await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
-    schedulerEmitChanged(task.id, 'dispatched', '');
-    schedulerMaybeCrash('after-dispatch');
-    await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
-    schedulerMaybeCrash('mid-run');
+    // ── ② 派单 ────────────────────────────────────────────────────────────────
+    const config = await readConfig();
 
-    // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
-    // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
-    schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
-    let permissionDenied = 0;
-    const onEvent = evt => {
-      if (!evt || typeof evt !== 'object') return;
-      if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
-      if (evt.type === 'usage' && evt.usage) {
-        const u = evt.usage;
-        costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
-          + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
-      }
-    };
-    let timedOut = false;
-    // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
-    // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
-    // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
-    // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
-    // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
-    // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
-    const timer = setTimeout(() => {
-      timedOut = true;
-      try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
-    }, Math.max(1000, task.policy.timeoutMinutes * 60000));
-    if (timer && typeof timer.unref === 'function') timer.unref();
-    let result = null;
-    try {
-      result = await runSessionTurn({
-        sessionId,
-        message: task.payload.text,
-        cwd: session.cwd,
-        permissionMode: schedulerPermissionModeFor(task, config),
-        source: 'scheduler',
-        requestMeta: { taskId: task.id, runId },
-        onEvent,
+    if (task.payload.kind === 'reminder') {
+      // reminder 【不调模型】(29 号文 §5:永远安全)。出箱那一头是 M2 的活,这里只敲回调口。
+      await schedulerAppendFire({ ...fireBase, phase: 'dispatched' });
+      schedulerEmitChanged(task.id, 'dispatched', '');
+      schedulerMaybeCrash('after-dispatch');
+      schedulerMaybeCrash('mid-run');
+      await schedulerNotify('onReminderDue', {
+        taskId: task.id, title: task.title, text: task.payload.text,
+        occurrenceKey: occKey, dueAt, firedAt: new Date(startedMs).toISOString(), mode: schedMode,
+        ...(task.payload.sourceRef ? { sourceRef: task.payload.sourceRef } : {}),
       });
-    } catch (e) {
-      error = String((e && e.message) || e).slice(0, 400);
-    } finally {
-      clearTimeout(timer);
-      schedulerAskWaitSessions.delete(sessionId);
+    } else {
+      let session = null;
+      if (task.target.mode === 'existing-session' && task.target.sessionId) {
+        session = await loadSession(task.target.sessionId).catch(() => null);
+      }
+      if (!session) {
+        // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
+        // origin 用 'schedule'(02-session-store:2819 早已为 119/123 波留好的第三值);launchedBy/createdBy
+        // 仍是 'steward' —— 13i 的第四源按 launchedBy 收 done/failed,那条路不能断。
+        session = await createSession({ title: String(task.title).slice(0, SCHEDULER_TITLE_IN_FIRE_MAX), origin: 'schedule' });
+        session.kind = 'mission';
+        session.launchedBy = 'steward';
+        session.createdBy = 'steward';
+        session.titleSource = 'steward';
+        // 127 波 2-ter(45 号文 §2-quinquies):档位(S-a)与这条任务自己固定的工作文件夹(S-b)。
+        // 位置与 13k stewardImplThreadNew 同款:createSession 之后改内存副本,跟着下面那一次 saveSession
+        // 落盘,零额外写;下面起回合传的 cwd 正是这里换过的 session.cwd,所以仲裁器的写锁键跟着变
+        // (修前所有定时线程都在 defaultWorkspace 上,互相抢、也跟手工线程抢同一把 cwd-write 锁)。
+        // 实现住 13t(SchedulerHooks.prepareThread,契约见 06j):它要 13k 的派生原语与管家的 applyThreadTier,
+        // 本文件直调 13k 会是一条把 13k 拉进环的新边。没填 = 两件都不做,与修前逐字节同路;填充方两件各自
+        // 兜住自己的异常,哪件出错哪件回落(档位跟随全局 / 文件夹回落 defaultWorkspace)。
+        const workdirBefore = String(task.workdir || '');
+        const prepared = await schedulerNotify('prepareThread', { session, task, config });
+        // 派生不成(表满 / 根不可用 / 撞名试满 / 写配置失败)不让触发失败:线程照旧落在 defaultWorkspace,
+        // 但留一条日志 —— 否则用户只会看到「又在等锁」而无从知道是表满了。
+        if (prepared && prepared.workdir === 'fallback') {
+          try {
+            logEvent({ kind: 'scheduler_workdir_fallback', taskId: task.id, sessionId: session.id, reason: String(prepared.fallbackReason || '') });
+          } catch { /* 观测不反噬触发 */ }
+        }
+        await saveSession(session);
+        // 首次派生(或原文件夹不在表里、重新派生)出了新路径:立刻写回任务表,不等回合收尾 ——
+        // 回合可能跑半个小时,期间进程没了的话下一次会再派生一个 `-2` 目录、再占一行候选表。
+        if (String(task.workdir || '') !== workdirBefore) await schedulerSaveTasks();
+      }
+      sessionId = session.id;
+      await schedulerAppendFire({ ...fireBase, phase: 'dispatched', sessionId });
+      schedulerEmitChanged(task.id, 'dispatched', '');
+      schedulerMaybeCrash('after-dispatch');
+      await schedulerAppendFire({ ...fireBase, phase: 'running', sessionId });
+      schedulerMaybeCrash('mid-run');
+
+      // 无人值守的 ask:只把「等多久」换掉(见 07-autonomy 的 schedulerAskWaitSessions);
+      // 成对写/清 —— finally 里删,否则一条被换过窗口的会话会把这个值带到后面的手动回合上。
+      schedulerAskWaitSessions.set(sessionId, schedulerAskWaitMs(config));
+      let permissionDenied = 0;
+      const onEvent = evt => {
+        if (!evt || typeof evt !== 'object') return;
+        if (evt.type === 'permission_decision' && evt.behavior !== 'allow') permissionDenied += 1;
+        if (evt.type === 'usage' && evt.usage) {
+          const u = evt.usage;
+          costTokens += (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0)
+            + (Number(u.cache_read_input_tokens) || 0) + (Number(u.cache_creation_input_tokens) || 0);
+        }
+      };
+      let timedOut = false;
+      // 127 波 2-ter 登记的已知债(C18 code-review finding)已在本刀修:回合在仲裁器里等锁/等并发位、
+      // 或本身跑得慢时,下面这个 await 一直挂着只挡【这一条任务自己】—— 不再借道 schedulerRuntime.ticking
+      // 把整个调度器一起拖住(见 schedulerDispatchFire / schedulerTick 头注:tick 不再 await 单条任务的
+      // schedulerFireOnce)。仍然没解的是超时计时器那一半:stopSession 只认活回合,这条任务如果此刻还
+      // 【排队中】(还没真的起 runSessionTurn),它不会被出队 —— 那要等它排到、真的起了回合才轮到超时计时器。
+      // S-b 让定时线程不再与 defaultWorkspace 上的手工线程抢同一把锁,缓解了排队最常见的一个来源。
+      const timer = setTimeout(() => {
+        timedOut = true;
+        try { stopSession(sessionId, 'scheduler_timeout'); } catch { /* 会话已经收尾 */ }
+      }, Math.max(1000, task.policy.timeoutMinutes * 60000));
+      if (timer && typeof timer.unref === 'function') timer.unref();
+      let result = null;
+      try {
+        result = await runSessionTurn({
+          sessionId,
+          message: task.payload.text,
+          cwd: session.cwd,
+          permissionMode: schedulerPermissionModeFor(task, config),
+          source: 'scheduler',
+          requestMeta: { taskId: task.id, runId },
+          onEvent,
+        });
+      } catch (e) {
+        error = String((e && e.message) || e).slice(0, 400);
+        // 8a:目标线程(existing-session)此刻有一个别处发起的回合在跑 —— runSessionTurn 在起回合【之前】
+        // 就回 409,一个字节都没动那条线程。这不是这条任务的失败:修前记成 failed、计入连败,用户在那条线程里
+        // 连着聊三次就把任务熔断停用了。判据只认稳定错误码,不认文案。
+        if (e && e.code === 'SESSION_TURN_BUSY_ELSEWHERE') targetBusy = true;
+      } finally {
+        clearTimeout(timer);
+        schedulerAskWaitSessions.delete(sessionId);
+      }
+      // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
+      // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
+      const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
+      const turnOk = inner ? inner.ok === true : !!(result && result.ok);
+      if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
+      else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
+      else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
+      else outcome = 'succeeded';
+      if (targetBusy) {
+        // 8a:按「这一次不跑」记 skipped(与撞上限同一个结果值,原因 target_busy),不计连败;日程推进到【下一个】
+        // 时点(收尾段对非 manual 一律如此)—— 不选「下一拍重试」:用户在那条线程里一聊半小时,每 30 秒一拍的
+        // 重试会在他每说完一句话的空档里立刻插进一个定时回合,而 cron 的下一个时点本来就是这条任务的节奏。
+        // 登记时预扣的两份当日计数退回(什么都没跑,不该占今天的上限)。
+        outcome = 'skipped';
+        error = 'target_busy';
+        if (task.state.runsToday && task.state.runsToday.date === day) task.state.runsToday = { date: day, count: Math.max(0, task.state.runsToday.count - 1) };
+        if (schedulerRuntime.globalRuns.date === day) schedulerRuntime.globalRuns = { date: day, count: Math.max(0, schedulerRuntime.globalRuns.count - 1) };
+      }
+      // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
+      // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
+      // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
+      // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
+      // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
+      // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
+      // 8a:target_busy 时这条线程上根本没有定时回合,不往别人的回合头上记一笔「管家末回合」。
+      if (!targetBusy) void updateSessionMeta(sessionId, {
+        launchedBy: 'steward',
+        stewardLastTurn: {
+          seq: Math.max(0, Number(result && result.turnSeq) || 0),
+          ok: outcome === 'succeeded',
+          aborted: !!(inner ? inner.aborted : (result && result.stopped)),
+          errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
+          at: nowIso(),
+        },
+      }).catch(() => null);
     }
-    // 成败口径与 13k stewardRecordLaunchOutcome 逐字同源:取【内层】 result.result.ok ——
-    // 外层 ok 只表示「这次调用完成了」,一条 HTTP 500 的回合外层仍然是 ok:true(116-4 实测)。
-    const inner = (result && typeof result === 'object' && result.result && typeof result.result === 'object') ? result.result : null;
-    const turnOk = inner ? inner.ok === true : !!(result && result.ok);
-    if (timedOut) { outcome = 'failed'; error = error || 'timeout'; }
-    else if (!result || !turnOk) { outcome = 'failed'; error = error || String((inner && inner.errorClass) || 'turn_failed'); }
-    else if (permissionDenied > 0) { outcome = 'needs_you'; error = 'permission_denied'; }
-    else outcome = 'succeeded';
-    // 第四源(13i 按 launchedBy:'steward' 收 done/failed):把身份与成败落到【会话头】上。
-    // 为什么必须落盘:收件箱只读磁盘上的账,runSessionTurn 的返回值只活在这一个闭包里(116-4 的教训)。
-    // 判据与 13k stewardRecordLaunchOutcome 【同口径】—— 取内层 result.result.ok、aborted 看内层、
-    // errorClass 从内层拿;这里不调它而是就地写,是因为上面那三行已经把 inner/turnOk 算出来了,
-    // 再调一遍等于把同一个判断算两次(两次的口径将来会各自漂)。走 updateSessionMeta 而不是
-    // loadSession+saveSession:它会避开活回合的写竞态。旁路纪律:写失败只是少一条账,绝不反噬触发。
-    void updateSessionMeta(sessionId, {
-      launchedBy: 'steward',
-      stewardLastTurn: {
-        seq: Math.max(0, Number(result && result.turnSeq) || 0),
-        ok: outcome === 'succeeded',
-        aborted: !!(inner ? inner.aborted : (result && result.stopped)),
-        errorClass: String((inner && inner.errorClass) || (timedOut ? 'timeout' : '')),
-        at: nowIso(),
-      },
-    }).catch(() => null);
+  } catch (e) {
+    outcome = 'failed';
+    error = 'dispatch_error: ' + String((e && (e.code || e.message)) || e).slice(0, 380);
+    try { logEvent({ kind: 'scheduler_fire_error', taskId: task.id, runId, detail: String((e && e.message) || e).slice(0, 400) }); } catch { /* 观测不反噬 */ }
   }
 
   // ── ④ 收尾 ────────────────────────────────────────────────────────────────
@@ -65795,7 +65939,9 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
   const finishedMs = schedulerClockNow();
   task.state.inFlightRunId = '';
   task.state.lastResult = outcome;
-  task.state.consecutiveFailures = outcome === 'failed' ? (Number(task.state.consecutiveFailures) || 0) + 1 : 0;
+  // skipped(撞上限 / 8a 目标线程忙)既不是失败也不是成功:连败计数原样不动(与上面撞上限那一支同口径)。
+  if (outcome === 'failed') task.state.consecutiveFailures = (Number(task.state.consecutiveFailures) || 0) + 1;
+  else if (outcome !== 'skipped') task.state.consecutiveFailures = 0;
   let tripped = false;
   if (task.state.consecutiveFailures >= SCHEDULER_LIMITS.consecutiveFailuresTrip) {
     task.state.enabled = false;      // 熔断优先于重试(29 号文 §10)
@@ -65855,6 +66001,13 @@ async function schedulerTick() {
   schedulerRuntime.ticking = true;
   const generation = schedulerRuntime.generation;
   try {
+    // hunt3:总开关是【活的】。startScheduler 只在启动时读一次 schedulerEnabledV1,修前用户在设置里把它关掉之后
+    // interval 照跑、到点照派(「关了所有定时承诺一起停」只在重启后才兑现)。每一拍先重读配置(readConfig 走
+    // 文件指纹缓存,一拍一次 stat),关着就这一拍什么都不做 —— 不派单、不动补跑队列、不写盘;interval 留着,
+    // 用户再打开时下一拍就接着走,不必重启。已经派出去的那一次照常收尾(它的回合可能已经在跑)。
+    const liveConfig = await readConfig().catch(() => null);
+    if (liveConfig && !schedulerEnabled(liveConfig)) return;
+    if (generation !== schedulerRuntime.generation) return;
     // ① 启动恢复排的补跑(只跑一次:出队即消费)
     while (schedulerRuntime.lateQueue.length) {
       if (generation !== schedulerRuntime.generation) return;
