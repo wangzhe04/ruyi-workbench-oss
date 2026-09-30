@@ -231,8 +231,12 @@ function bindRailSessionActions() {
   return true;
 }
 
+// 后发先至:两次刷新并发时,晚回来的旧列表不许盖掉已经画上的新列表(只认最后一次发出的那一发)。
+let refreshSessionsSeq = 0;
 async function refreshSessions() {
+  const seq = ++refreshSessionsSeq;
   const res = await api('/api/sessions');
+  if (seq !== refreshSessionsSeq) return;
   state.sessions = res.sessions || [];
   renderSessions();
 }
@@ -430,8 +434,9 @@ function renderAutonomyBar(grants) {
 }
 async function loadAutonomyGrants() {
   const s = state.currentSession; if (!s) { renderAutonomyBar([]); return; }
-  try { const r = await api('/api/autonomy/grants?sessionId=' + encodeURIComponent(s.id)); renderAutonomyBar(r && r.ok ? r.grants : []); }
-  catch { renderAutonomyBar([]); }
+  // await 期间切到了别的会话:不把 A 的授权画进 B 的授权条(撤销按钮会拿 B 的会话 id 去撤 A 的 grantId,必然失败)。
+  try { const r = await api('/api/autonomy/grants?sessionId=' + encodeURIComponent(s.id)); if (state.currentSession?.id !== s.id) return; renderAutonomyBar(r && r.ok ? r.grants : []); }
+  catch { if (state.currentSession?.id === s.id) renderAutonomyBar([]); }
 }
 async function revokeOneGrant(grantId) {
   const s = state.currentSession; if (!s) return;

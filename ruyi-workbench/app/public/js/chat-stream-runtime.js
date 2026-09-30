@@ -134,6 +134,7 @@ export function createChatStreamRuntime(deps = {}) {
   // aborts another session's request. Streams for background sessions keep draining so the server connection
   // stays alive, and their final persisted message appears when that session is opened again.
   const activeTurns = new Map(); // sessionId -> { abort, startedAt, eventLines, eventChars, live, main }
+  let replayingStream = false;   // mountActiveTurn 重放事件期间为真:handleStreamLine 里的一次性副作用据此跳过
   function notifySessionStream(event) {
     try { emitSessionStream(event); } catch { /* Preview observer is best-effort and never owns execution */ }
   }
@@ -371,16 +372,21 @@ export function createChatStreamRuntime(deps = {}) {
       if (evt.type === 'permission_decision') settlePrompt(evt.requestId);
       else if (evt.type === 'question_answer') settlePrompt(evt.questionId || evt.id);
     }
-    for (let index = Number(turn.eventHead) || 0; index < turn.eventLines.length; index++) {
-      const line = turn.eventLines[index];
-      let evt; try { evt = JSON.parse(line); } catch { continue; }
-      if (evt.type === 'session') continue;
-      if (evt.type === 'ask_user' && turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))) continue;
-      if (evt.type === 'assistant_delta') { if (thinkingParts.length) flush(); textParts.push(evt.text || ''); continue; }
-      if (evt.type === 'thinking_delta') { if (textParts.length) flush(); thinkingParts.push(evt.text || ''); continue; }
-      flush(); handleStreamLine(line, turn.live, turn.main, sessionId);
-    }
-    flush();
+    // 重放只重建画面:toast、调试面板追加、授权刷新这类「一次性副作用」在第一次到达时已经发生过,不再重来
+    // (修前每切回一次就再弹一遍「已切换备用服务商」「权限已暂停」、调试面板再追加一份 meta/stderr)。
+    replayingStream = true;
+    try {
+      for (let index = Number(turn.eventHead) || 0; index < turn.eventLines.length; index++) {
+        const line = turn.eventLines[index];
+        let evt; try { evt = JSON.parse(line); } catch { continue; }
+        if (evt.type === 'session') continue;
+        if (evt.type === 'ask_user' && turn.answeredQuestions?.has(String(evt.questionId || evt.id || ''))) continue;
+        if (evt.type === 'assistant_delta') { if (thinkingParts.length) flush(); textParts.push(evt.text || ''); continue; }
+        if (evt.type === 'thinking_delta') { if (textParts.length) flush(); thinkingParts.push(evt.text || ''); continue; }
+        flush(); handleStreamLine(line, turn.live, turn.main, sessionId);
+      }
+      flush();
+    } finally { replayingStream = false; }
   }
   // The proc-dot moved into the model chip (.mc-dot) in v0.7b. setProc now drives that dot's three
   // states (running/stopped/idle) + an engine-aware title, reusing the pulse animation via CSS.
@@ -681,6 +687,8 @@ export function createChatStreamRuntime(deps = {}) {
     // On failure preserve the draft/attachments and do not send with a different context limit.
     try { await syncContextWindowManual(); }
     catch (e) { toast(apiErrText(e), 'err'); return; }
+    // await 期间换了会话:这句话是对着原来那条会话打的,不能发进新打开的这条。不发、不清输入框,由用户决定。
+    if (selectedId && state.currentSession?.id !== selectedId) return;
     // 117s-G:await 之后再判一次(同上,判据同一个)—— syncContextWindowManual 期间回合可能刚起来。
     if (state.currentSession?.id && !options.skipSteer && sessionAcceptsSteer(state.currentSession.id)) return steerPrompt(overrideText, options);
     if (!state.currentSession) await newSession();
@@ -818,10 +826,22 @@ export function createChatStreamRuntime(deps = {}) {
       else { appendMsgError(main, live, apiErrText(err)); toast(t("toast.error", { p1: apiErrText(err) }), 'err'); }
       finalizeLive(live);
       // 失败/中止路径没有成功路径的回合末重取 —— 单独拉一次,把乐观行的操作条重绑到持久化真身。
+      // 也把重取回来的会话装回 state(与成功路径同口径,不重画):中止/断流时服务端已经落了半截回答,修前 state 里没有它,
+      // 之后任何一次 renderCurrentSession(固定、改名、加载更早……)都会把屏上那段回答抹掉,直到重新打开会话。
+      // 只在「还停在这条会话、而且没有新回合接着跑」时装 —— 新回合的状态由它自己的流维护。
       fetchSessionAfterTurn(api, turnSessionId, state.currentSession?.id === turnSessionId ? state.currentSession : null)
-        .then(s => rebindOptimisticUserRow(s && s.session)).catch(() => {});
+        .then(s => {
+          if (s && s.session && state.currentSession?.id === turnSessionId && !activeTurns.has(turnSessionId)) {
+            state.currentSession = s.session; state.resumable = s.resumable || null;
+          }
+          rebindOptimisticUserRow(s && s.session);
+        }).catch(() => {});
     } finally {
-      activeTurns.delete(turnSessionId);
+      // 只收拾【自己这一回合】:回合末 await(重取会话、刷新列表)期间用户可能已经发出下一句 —— 插话被服务端回
+      // 「没有进行中的回合」后落回 sendPrompt,新回合已经把 activeTurns 这一格换成了它自己。修前这里无条件 delete,
+      // 新回合还在流,页面却以为空闲(按钮回到「发送」;再发一句就 supersede 掉正在跑的回合;切走切回也重建不了实时壳)。
+      const ownsTurn = activeTurns.get(turnSessionId) === turnState;
+      if (ownsTurn) activeTurns.delete(turnSessionId);
       // 124 真机 bug（用户 2026-09-15：「回合结束后新发送东西，却显示插话且插话失败」）：
       // **回合一结束，这条会话那份 relay 快照的依据就没了**，必须当场作废。
       // 它全仓只有一个写入口 —— session-experience 的 captureLiveTurn（跟着 GET /api/sessions/:id
@@ -834,11 +854,13 @@ export function createChatStreamRuntime(deps = {}) {
       // 碰巧补上了这里本该发生的那一次刷新。
       // 作废是安全的：一条会话同一时刻只有一个回合（09 的 supersede 就是在保这条），
       // 刚结束的正是它；真有新回合（比如管家接着起一条），下一次 GET 会把它重新写回来。
-      if (state.sessionRelay && state.sessionRelay.sessionId === turnSessionId) state.sessionRelay = null;
-      if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle(); renderTurnActivityBar(); }
-      // 流内 'started' 起的压缩指示条随本回合收尾静默收掉(回合被停/断流时服务端的 completed 到不了)。
-      if (compactState.active && compactState.stream === turnSessionId) endCompactIndicator();
-      notifySessionStream({ type: 'settled', sessionId: turnSessionId });
+      if (ownsTurn) {
+        if (state.sessionRelay && state.sessionRelay.sessionId === turnSessionId) state.sessionRelay = null;
+        if (turnActivity && state.currentSession?.id === turnSessionId) { turnActivity.settle(); renderTurnActivityBar(); }
+        // 流内 'started' 起的压缩指示条随本回合收尾静默收掉(回合被停/断流时服务端的 completed 到不了)。
+        if (compactState.active && compactState.stream === turnSessionId) endCompactIndicator();
+        notifySessionStream({ type: 'settled', sessionId: turnSessionId });
+      }
       syncStreamingUi();
       renderSessions();
       updateSendBtn();   // 同上：判据刚变，按钮要在同一拍从「插话」回到「发送」
@@ -1207,12 +1229,12 @@ export function createChatStreamRuntime(deps = {}) {
         const memoryLine = !mc ? '' : (!mc.enabled
           ? '\n' + t('memory.check.disabled')
           : (!mc.checked ? '\n' + t('memory.check.unavailable') : '\n' + t('memory.check.done', { candidates: mc.candidateCount || 0, matches: mc.matchCount || 0, project: mc.projectMatches || 0, global: mc.globalMatches || 0 })));
-        appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n${t('chat.meta.modelPermission', { model: String(evt.model), permission: String(evt.permissionMode) })}${memoryLine}`);
+        if (!replayingStream) appendToolOutput(`[${engTag}] ${evt.command} ${(evt.args || []).join(' ')}\ncwd=${evt.cwd}\n${t('chat.meta.modelPermission', { model: String(evt.model), permission: String(evt.permissionMode) })}${memoryLine}`);
         // v0.8-S0 cwd guardrail: warn once per turn when the working dir is the user's home/Desktop/
         // Documents/Downloads root (acting on everything the user owns is the highest-risk misfire).
         if (evt.cwdWarning && live && !live.cwdWarned) {
           live.cwdWarned = true;
-          toast(t("toast.homeCwdWarn"), 'err');
+          if (!replayingStream) toast(t("toast.homeCwdWarn"), 'err');
         }
         break;
       }
@@ -1378,8 +1400,10 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       case 'autonomy_grant_consumed':
         // 第27波:一次范围内的免弹窗放行 —— 低调提示 + 刷新计数(可观测,不打断)。
-        toast(t('toast.grantAuto', { tool: evt.tool || '', remaining: evt.remaining != null ? evt.remaining : '?' }), 'ok');
-        loadAutonomyGrants();
+        if (!replayingStream) {
+          toast(t('toast.grantAuto', { tool: evt.tool || '', remaining: evt.remaining != null ? evt.remaining : '?' }), 'ok');
+          loadAutonomyGrants();
+        }
         break;
       case 'steered': {
         // v0.8-S7: the server injected a steering interjection at a boundary. If this UI already rendered it
@@ -1490,7 +1514,7 @@ export function createChatStreamRuntime(deps = {}) {
         break;
       }
       case 'stderr':
-        appendToolOutput(`[stderr] ${evt.text}`, true);
+        if (!replayingStream) appendToolOutput(`[stderr] ${evt.text}`, true);
         break;
       case 'ask_user':
         registerLiveSemanticCard(live, { ...evt, type: 'question', status: 'pending' });
@@ -1515,7 +1539,7 @@ export function createChatStreamRuntime(deps = {}) {
         // 第27f波:无人值守回合的权限弹窗超时后【存档暂停】(不立即拒),延长等待窗口。弹窗仍在,你的决定仍被接受;
         // 超过设定时限(autonomyPauseTtlMs)才回落拒绝。低调提示,不打断。
         updateLiveSemanticCard(live, evt.requestId, { ...evt, type: 'permission', status: 'paused' });
-        toast(t("toast.permPaused", { p1: Math.round((evt.ttlMs || 2700000) / 60000) }), 'warn');
+        if (!replayingStream) toast(t("toast.permPaused", { p1: Math.round((evt.ttlMs || 2700000) / 60000) }), 'warn');
         break;
       case 'permission_decision':
         updateLiveSemanticCard(live, evt.requestId, {
@@ -1546,7 +1570,7 @@ export function createChatStreamRuntime(deps = {}) {
         // v1.0-S6 (B4): the provider's primary endpoint failed pre-first-byte and the turn switched to a backup.
         // Surface a warn-level toast so the user knows the request is now going elsewhere. The raw event is also
         // visible in the 调试 (debug) 原始事件流 automatically — no extra work needed there.
-        toast(t("toast.failoverSwitched", { p1: evt.to || '' }), 'warn');
+        if (!replayingStream) toast(t("toast.failoverSwitched", { p1: evt.to || '' }), 'warn');
         break;
       case 'error':
         // v1.0.2 (F6c): CLI 缺失 → 友好引导卡(向后兼容:无 code 字段走原始 .msg-error 文本块)。
