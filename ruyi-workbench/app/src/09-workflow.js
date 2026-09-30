@@ -1257,6 +1257,26 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
   });
 }
 
+// N9: 并行只读「岛」规划(纯函数,可独立测试)。修前「整批全是安全只读」才并发,批里混进一个 todo_write / tool_search
+// (模型几乎总这么发)或一次编辑,整批就退回串行 —— [web_search ×3, todo_write] 耗时是 4 倍。
+// 现在:岛 = 批里【排在第一个有副作用/阻塞调用之前】的安全只读调用,它们并发预执行;之后的调用照旧按原顺序串行,
+// 结果仍按原顺序消费(预执行结果按 id 存表,串行循环取用 —— 配对/历史/hook/事件顺序不变)。
+// 为什么只取「第一个阻塞调用之前」:串行语义里排在编辑之后的读要看见编辑的结果([file_read A, file_edit A, file_read A]
+// 的第二次读必须读到改后内容),把它提前并发执行就读到旧内容 —— 所以阻塞调用一出现岛就关门,其后的读不入岛。
+// 中性调用(不影响后面的读、也不被读影响:todo_write / tool_search / list_tools / tool_load,以及参数坏了、串行路径会直接拒绝
+// 的调用)不关门。岛不足 2 个时返回 []:单个只读没有并发收益,保持原串行路径(hook/事件时序逐字节不变)。
+// isSafeRead(tc):原生、read 档、非控制面/非桥接、参数有效;isRefused(tc):串行路径会按参数错误直接拒绝它。
+const PARALLEL_READ_NEUTRAL = new Set(['todo_write', 'tool_search', 'list_tools', 'tool_load']);
+function planParallelReadIsland(calls, isSafeRead, isRefused) {
+  const island = [];
+  for (const tc of (Array.isArray(calls) ? calls : [])) {
+    if (isSafeRead(tc)) { island.push(tc); continue; }
+    if (tc && tc.name && (PARALLEL_READ_NEUTRAL.has(tc.name) || isRefused(tc))) continue;   // 中性:不关门
+    break;                                                                                   // 阻塞:岛到此为止
+  }
+  return island.length >= 2 ? island : [];
+}
+
 // One native turn against an OpenAI-compatible provider. v0.6: agent loop — the model may call the
 // workbench's tools (executed in-process via toolCall(), permission-gated) and we loop until it stops.
 // 106 #1 (21-E4 §7.3): 布局 shadow —— 采样调用上同时构建 current/candidate 两种易变层布局的
@@ -2572,12 +2592,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         //    ③ loopWarning/语义指纹在下方取结果后按原顺序照常应用。任一条件不满足 → null → 走原串行。
         let parallelReadResults = null;
         let poolStrategy = null;   // 21-E2: 'parallel'(≤8 全量) | 'pool_read'(>8 有界并发) | null
+        let parallelIslandWidth = 0; // N9: 并发预执行的只读岛宽度(0 = 无岛/串行)
         let poolQueueWaitMs = 0;   // 21-E2: pool 内资源锁排队总时长(串行/全量路径恒 0)
         if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
-          const allSafeRead = localToolCalls.every(tc => tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
+          const isSafeRead = tc => Boolean(tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
             && !toolArgsRefusal(tc)); // 参数坏了的调用不预执行(串行路径会拒绝它,见 toolArgsRefusal)
+          // N9: 只读岛(见 planParallelReadIsland):整批全是安全只读时 = 整批(与修前逐字节等价);混批时 = 第一个阻塞调用之前的只读。
+          const islandCalls = planParallelReadIsland(localToolCalls, isSafeRead, tc => toolArgsRefusal(tc));
           let simSig = loopSig, simCount = loopCount, loopTrip = false;
           for (const tc0 of localToolCalls) {
             const s0 = tc0.name + ' ' + tc0.rawArgs;
@@ -2586,14 +2609,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             else if (s0 === simSig) simCount += 1; else { simSig = s0; simCount = 1; }
             if (simCount >= LOOP_ABORT_AT && !loopAbortExempt(b0) && !loopWarnOnly(b0)) { loopTrip = true; break; }
           }
-          const withinLegacyWidth = localToolCalls.length <= 8;
+          const withinLegacyWidth = islandCalls.length <= 8;
           const usePool = config.boundedReadSchedulerV1 === true; // 21-E2: 主动开关,>8 才触发 pool 分支
-          if (allSafeRead && !loopTrip && (withinLegacyWidth || usePool)) {
+          if (islandCalls.length >= 2 && !loopTrip && (withinLegacyWidth || usePool)) {
+            parallelIslandWidth = islandCalls.length;
             parallelReadResults = new Map();
             poolStrategy = withinLegacyWidth ? 'parallel' : 'pool_read';
             if (withinLegacyWidth) {
               // 现状全量并发路径(逐字节等价,仅供 E1 埋点延续)
-              await Promise.all(localToolCalls.map(async tc => {
+              await Promise.all(islandCalls.map(async tc => {
                 let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
                 let res, lease = '';
                 if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 并行预执行真实起点
@@ -2612,11 +2636,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             } else {
               // 21-E2: >8 纯 read —— 有界 worker pool。worker 数 = min(width, min(8, max(4, width))),
               // 提交顺序推进(完成顺序可乱),结果仍按 id 存表,下方按原顺序消费 → 配对/历史顺序不变。
-              const poolWorkers = Math.min(localToolCalls.length, Math.min(8, Math.max(4, localToolCalls.length)));
+              const poolWorkers = Math.min(islandCalls.length, Math.min(8, Math.max(4, islandCalls.length)));
               let poolNext = 0;
               await Promise.all(Array.from({ length: poolWorkers }, async () => {
-                while (poolNext < localToolCalls.length) {
-                  const tc = localToolCalls[poolNext++];
+                while (poolNext < islandCalls.length) {
+                  const tc = islandCalls[poolNext++];
                   let pargs = {}; try { pargs = JSON.parse(tc.rawArgs || '{}'); } catch { pargs = {}; }
                   let res, lease = '', tWait0 = Date.now();
                   if (econOn && econSampledIter(iter) && tc && tc.id) econToolStartAt.set(String(tc.id), Date.now()); // 21-E0: 预执行真实起点
@@ -3059,8 +3083,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // 21-E2: strategy 扩展 pool_read(>8 有界并发)/pool_island(混合批岛, E2b); 旧并行批保持 'parallel'。
             strategy: poolStrategy || ((parallelReadResults && parallelReadResults.size) ? 'parallel' : 'serial'),
             maxConcurrency: poolStrategy === 'pool_read'
-              ? Math.min(localToolCalls.length, Math.min(8, Math.max(4, localToolCalls.length)))
-              : ((parallelReadResults && parallelReadResults.size) ? localToolCalls.length : 1),
+              ? Math.min(parallelIslandWidth, Math.min(8, Math.max(4, parallelIslandWidth)))
+              : ((parallelReadResults && parallelReadResults.size) ? parallelIslandWidth : 1),
             toolsMs: econToolsMs,
             criticalPathMs: econMax,
             serialEstimateMs: econSum,
