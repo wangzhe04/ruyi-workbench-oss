@@ -45,6 +45,57 @@ def _load_workbook_bounded(path, timeout=20, **kwargs):
 
 
 
+_OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+_OOXML_EXTS = (".docx", ".docm", ".xlsx", ".xlsm", ".xltx", ".xltm", ".pptx", ".pptm")
+
+
+def ole_password_hint(path: str) -> str | None:
+    """OOXML 扩展名却是 OLE 复合文档头(D0 CF 11 E0): 设了「打开密码」的 Office 文件就是这种封装
+    (旧版 .xls/.doc/.ppt 改扩展名也是)。给人话,而不是「File is not a zip file」。"""
+    if not str(path).lower().endswith(_OOXML_EXTS):
+        return None
+    try:
+        with open(path, "rb") as f:
+            head = f.read(8)
+    except Exception:
+        return None
+    if head == _OLE_MAGIC:
+        return ("文件是 OLE 复合文档而非 OOXML 压缩包:多半设置了【打开密码】(加密的 Office 文件会变成这种封装),"
+                "也可能是旧版 .xls/.doc/.ppt 直接改了扩展名。请让用户解除密码保护,或另存为未加密的新版格式后重试。")
+    return None
+
+
+def _exc_chain_names(e: BaseException) -> list[str]:
+    names, seen, cur = [], set(), e
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        names.append(type(cur).__name__)
+        for a in getattr(cur, "args", ()):
+            if isinstance(a, BaseException):
+                names.append(type(a).__name__)
+        cur = cur.__cause__ or cur.__context__
+    return names
+
+
+def describe_read_error(e: BaseException, path: str = "") -> str:
+    """把读文档时的异常翻成人话(非空!)。加密 PDF / 加密 Office / 损坏或改名的文件都给明确原因;
+    空消息异常回落到类型名 —— 空 error 会被 server 归一化成 ok:true(F9)。"""
+    names = _exc_chain_names(e)
+    msg = str(e).strip()
+    low = msg.lower()
+    if any(n in ("PDFPasswordIncorrect", "PDFEncryptionError") for n in names) or ("password" in low and "pdf" in low):
+        return "PDF 已加密(password-protected),需要密码才能读取。请让用户先解除密码保护,或另存为未加密的副本。"
+    hint = ole_password_hint(path) if path else None
+    if hint:
+        return hint
+    ext = os.path.splitext(str(path))[1].lower()
+    if any(n in ("BadZipFile", "PackageNotFoundError") for n in names) or "not a zip file" in low:
+        return f"不是有效的 {ext or 'Office'} 文件(已损坏,或是改了扩展名的其他格式如旧版 .doc/.xls)。"
+    if not msg:
+        return type(e).__name__
+    return f"{type(e).__name__}: {msg}"
+
+
 # =============================================================================================
 # T1 excel_read —— 结构化读表
 # =============================================================================================
@@ -123,6 +174,10 @@ def excel_read(
     except Exception:
         mr = 200
 
+    ole = ole_password_hint(path)
+    if ole:
+        return {"error": ole}
+
     try:
         # read_only=True: 流式读，防大文件把内存/时间吃爆 (用户明确要求)。data_only=True: 取算好的值。
         wb, wb_err = _load_workbook_bounded(path, timeout=20, read_only=True, data_only=True)
@@ -131,17 +186,19 @@ def excel_read(
         if wb is None:
             return {"error": f"打不开工作簿 (可能损坏或非 xlsx): {wb_err}"}
     except Exception as e:
-        return {"error": f"打不开工作簿 (可能损坏或非 xlsx): {e}"}
+        return {"error": f"打不开工作簿 (可能损坏或非 xlsx): {describe_read_error(e, path)}"}
 
     try:
         # 全表概要 (维度) —— 多 sheet 时让 AI 一眼看清有哪些表、各多大。
+        # 没写 <dimension> 的工作表(部分生成器)read_only 下 max_row/max_column 是 None: 报 None(未知),
+        # 不要报 0 —— 0 会让模型以为是空表。
         sheets_summary = []
         for nm in wb.sheetnames:
             w = wb[nm]
             sheets_summary.append({
                 "name": nm,
-                "rows": int(w.max_row or 0),
-                "cols": int(w.max_column or 0),
+                "rows": int(w.max_row) if w.max_row else None,
+                "cols": int(w.max_column) if w.max_column else None,
             })
 
         # 选表: 显式 sheet= 优先，否则活动表。
@@ -156,7 +213,8 @@ def excel_read(
             active_name = ws.title
 
         # 区域: 显式 range= 优先，否则整表 (A1 起)。
-        if range is not None:
+        explicit = range is not None
+        if explicit:
             try:
                 min_row, min_col, max_row, max_col = _parse_a1_range(range)
             except ValueError as ve:
@@ -164,33 +222,73 @@ def excel_read(
                 return {"error": str(ve)}
         else:
             min_row, min_col = 1, 1
-            max_row = int(ws.max_row or 1)
-            max_col = int(ws.max_column or 1)
+            max_row = int(ws.max_row) if ws.max_row else None
+            max_col = int(ws.max_column) if ws.max_column else None
+            # 声明的维度不可信(缺失,或只有 A1 却有数据): 不按维度截,改成逐行迭代到 max_rows。
+            if not max_row or not max_col or (max_row <= 1 and max_col <= 1):
+                max_row = max_col = None
 
-        rows_total = max_row - min_row + 1
-        row_cap = min(rows_total, mr)
-        hard_max_row = min_row + row_cap - 1
+        # 读值: 一遍 read_only 迭代同时取 值 + 数字格式(read_only 的 ReadOnlyCell 自带 number_format,
+        # 不必再整本非只读重开 —— 那一遍在 5 万行表上就是 3 秒)。
+        bounded = max_row is not None and max_col is not None
+        if bounded:
+            rows_total = max_row - min_row + 1
+            row_cap = min(rows_total, mr)
+            it = ws.iter_rows(min_row=min_row, max_row=min_row + row_cap - 1,
+                              min_col=min_col, max_col=max_col, values_only=False)
+        else:
+            rows_total = None
+            row_cap = mr
+            it = ws.iter_rows(min_row=min_row, min_col=min_col,
+                              max_col=max_col, values_only=False)
 
-        # 读值 (逐行，read_only 迭代器)。
         data = []
-        for row in ws.iter_rows(min_row=min_row, max_row=hard_max_row,
-                                min_col=min_col, max_col=max_col, values_only=True):
-            data.append([cell for cell in row])
+        col_formats: dict[int, str] = {}   # 绝对列号 -> 首个非 General 格式(跳过表头行)
+        more = False
+        width = 0
+        for ridx, row in enumerate(it):
+            if ridx >= row_cap:
+                more = True    # 多看到第 row_cap+1 行 = 确有更多(未声明维度时用它判截断)
+                break
+            vals = []
+            for cidx, cell in enumerate(row):
+                vals.append(getattr(cell, "value", None))
+                if ridx >= 1 or row_cap == 1:
+                    nf = getattr(cell, "number_format", None)
+                    col = (getattr(cell, "column", None) or (min_col + cidx))
+                    if nf and nf != "General" and col not in col_formats:
+                        col_formats[col] = nf
+            width = max(width, len(vals))
+            data.append(vals)
+        if not bounded:
+            max_col = min_col + max(width, 1) - 1
+        for r_ in data:            # 未声明维度时各行长短不一: 补齐成矩形
+            if len(r_) < width:
+                r_.extend([None] * (width - len(r_)))
+        n_read = len(data)
+        hard_max_row = min_row + max(n_read, 1) - 1
+        if not bounded and not more:
+            rows_total = n_read
 
         headers = [("" if v is None else v) for v in data[0]] if data else []
         body = data[1:] if len(data) > 1 else []
+        number_formats = {_col_letter(c): f for c, f in sorted(col_formats.items())}
 
         truncated = None
-        if rows_total > row_cap:
+        if more or (rows_total is not None and rows_total > n_read):
             truncated = {
-                "rows_returned": row_cap,
-                "rows_total": rows_total,
-                "note": f"数据超 max_rows={mr}，只返回前 {row_cap} 行 (共 {rows_total} 行)。"
-                        f"缩小 range= 或调大 max_rows= 读更多。",
+                "rows_returned": n_read,
+                "rows_total": rows_total,      # None = 工作表未声明维度,总行数未知
+                "next_start_row": min_row + n_read,
+                "note": (f"数据超 max_rows={mr}，只返回前 {n_read} 行"
+                         + (f" (共 {rows_total} 行)" if rows_total is not None else " (工作表未声明维度,总行数未知)")
+                         + "。缩小 range= (如续读用 next_range) 或调大 max_rows= 读更多。"),
             }
-
-        # 数字格式: read_only 模式的 cell 不带 number_format，需要普通模式补一遍 (只扫第一数据行的每列)。
-        number_formats = _column_number_formats(path, active_name, min_row, min_col, max_col, hard_max_row)
+            if rows_total is not None:
+                truncated["next_range"] = (f"{_col_letter(min_col)}{min_row + n_read}:"
+                                           f"{_col_letter(max_col)}{max_row}")
+            else:
+                truncated["next_range"] = f"{_col_letter(min_col)}{min_row + n_read}:{_col_letter(max_col)}{min_row + n_read + mr - 1}"
 
         wb.close()
 
@@ -209,7 +307,8 @@ def excel_read(
 
         # include_formulas: 单独开一次 data_only=False (values 变成公式串)，只挑真有公式的格。
         if include_formulas:
-            out["formulas"] = _read_formulas(path, active_name, min_row, min_col, max_row, max_col, mr)
+            out["formulas"] = _read_formulas(path, active_name, min_row, min_col,
+                                             max_row if max_row is not None else hard_max_row, max_col, mr)
 
         return out
     except Exception as e:
@@ -217,33 +316,7 @@ def excel_read(
             wb.close()
         except Exception:
             pass
-        return {"error": f"读表失败: {type(e).__name__}: {e}"}
-
-
-def _column_number_formats(path, sheet_name, min_row, min_col, max_col, max_row) -> dict:
-    """扫每列首个数据格的 number_format，非 'General' 则记 (列字母→格式串)。read_only 拿不到格式，故普通开。"""
-    out = {}
-    try:
-        wb, _ = _load_workbook_bounded(path, timeout=20, read_only=False, data_only=True)
-        if wb is None:
-            return {}
-        ws = wb[sheet_name]
-        # 从表头下一行 (若有) 起找首个非空格取格式；单行区域就用该行。
-        probe_start = min_row + 1 if max_row > min_row else min_row
-        for col in range(min_col, max_col + 1):
-            fmt = None
-            for r in range(probe_start, max_row + 1):
-                c = ws.cell(row=r, column=col)
-                nf = c.number_format
-                if nf and nf != "General":
-                    fmt = nf
-                    break
-            if fmt:
-                out[_col_letter(col)] = fmt
-        wb.close()
-    except Exception:
-        return {}
-    return out
+        return {"error": f"读表失败: {describe_read_error(e, path)}"}
 
 
 def _read_formulas(path, sheet_name, min_row, min_col, max_row, max_col, mr) -> dict:
@@ -341,26 +414,46 @@ def _pdf_outline(path: str) -> list[dict]:
         return []
 
 
+def _compress_pages(pages: list[int]) -> str:
+    """[17,18,19,25] -> '17-19,25' (续读用的 pages 规格)。"""
+    out, i = [], 0
+    while i < len(pages):
+        j = i
+        while j + 1 < len(pages) and pages[j + 1] == pages[j] + 1:
+            j += 1
+        out.append(str(pages[i]) if i == j else f"{pages[i]}-{pages[j]}")
+        i = j + 1
+    return ",".join(out)
+
+
+_PDF_TIME_BUDGET_S = 15.0
+
+
 @mcp.tool()
-def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000) -> dict:
+def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000,
+                   max_chars: int = 30000) -> dict:
     """分页读取 PDF —— 只读你点名的页，解决「50 页 PDF 整读爆上下文」。
 
     read_document 会把整本 PDF 拍平成一大段文本 (小文件够用)；本工具让你精确点页 (支持 '3' / '1-5' /
-    '1,3,7-9')，逐页截断，并尽力给出大纲让你先看目录再决定读哪页。
+    '1,3,7-9')，逐页截断、总量有预算，并尽力给出大纲让你先看目录再决定读哪页。
 
     Args:
         path: .pdf 文件路径。
         pages: 页码规格，1-based。支持 '3' (单页) / '1-5' (区间) / '1,3,7-9' (混合)。默认 '1-5'。
         max_chars_per_page: 每页文本上限 (防单页超长爆上下文)，默认 4000。超出截断并 truncated=True。
+        max_chars: 本次调用的总字符预算，默认 30000(另有约 15 秒时间预算)。用尽即停,
+            返回 next_pages / nextPage 让你从断点续读。
 
     Returns:
         dict with:
           ok, path, total_pages,
-          outline: [{title, page}, ...]  —— PDF 书签大纲；pdfplumber 拿不到，若装了 pypdf 则用它，
-                   否则为 [] 并在 outline_note 说明「未装 pypdf，无法读大纲」,
+          outline: [{title, page}, ...]  —— PDF 书签大纲 (需 pypdf 且 PDF 有书签),
           outline_note: str | None,
-          pages: [{page, text, chars, truncated}, ...]  —— 按请求顺序，每页的文本。
-        越界页码 / 坏 pages 格式 / 缺 pdfplumber / 文件不存在 → {'error': 人话说明}。
+          pages: [{page, text, chars, truncated}, ...]  —— 按请求顺序，每页的文本,
+          truncated: True  —— 预算用尽、还有请求的页没读时给出 (连同 next_pages/nextPage/stopped_by),
+          next_pages: '17-100'  —— 直接作为下次调用的 pages 参数,
+          note / no_text_pages —— 有页面没有文字层 (扫描件/图片 PDF) 时给出并建议 OCR。
+        加密 PDF → error 明说需要密码。越界页码 / 坏 pages 格式 / 缺 pdfplumber / 文件不存在 → {'error': 人话说明}。
     """
     if not str(path).lower().endswith(".pdf"):
         return {"error": f"pdf_read_pages 只读 .pdf，收到 {path!r}。"}
@@ -376,8 +469,14 @@ def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000
         cap = max(1, int(max_chars_per_page))
     except Exception:
         cap = 4000
+    try:
+        budget = max(1, int(max_chars))
+    except Exception:
+        budget = 30000
 
     try:
+        import time
+        t0 = time.monotonic()
         with pdfplumber.open(path) as pdf:
             total = len(pdf.pages)
             try:
@@ -386,13 +485,29 @@ def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000
                 return {"error": str(ve)}
 
             out_pages = []
-            for pno in want:
+            used = 0
+            stopped_by = None
+            remaining: list[int] = []
+            for idx, pno in enumerate(want):
+                if out_pages and used >= budget:
+                    stopped_by, remaining = "max_chars", want[idx:]
+                    break
+                if out_pages and time.monotonic() - t0 > _PDF_TIME_BUDGET_S:
+                    stopped_by, remaining = "time", want[idx:]
+                    break
                 page = pdf.pages[pno - 1]  # 1-based → 0-based
                 text = page.extract_text() or ""
                 truncated = False
-                if len(text) > cap:
-                    text = text[:cap]
+                room = budget - used
+                if out_pages and min(len(text), cap) > room:
+                    # 这一页装不下剩余预算: 整页留给下一次调用(不切半页)。
+                    stopped_by, remaining = "max_chars", want[idx:]
+                    break
+                lim = min(cap, budget)   # 首页即便超预算也只给预算内的部分(保证有进展)
+                if len(text) > lim:
+                    text = text[:lim]
                     truncated = True
+                used += len(text)
                 out_pages.append({
                     "page": pno,
                     "text": text,
@@ -403,9 +518,9 @@ def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000
         outline = _pdf_outline(path)
         outline_note = None
         if not outline:
-            outline_note = "未读到大纲 (PDF 无书签，或未安装 pypdf —— pypdf 非默认依赖，装后可读大纲)。"
+            outline_note = "未读到大纲 (PDF 无书签，或未安装 pypdf —— 离线依赖清单含 pypdf，装好后可读大纲)。"
 
-        return {
+        out = {
             "ok": True,
             "path": os.path.abspath(path),
             "total_pages": total,
@@ -413,5 +528,17 @@ def pdf_read_pages(path: str, pages: str = "1-5", max_chars_per_page: int = 4000
             "outline_note": outline_note,
             "pages": out_pages,
         }
+        no_text = [p["page"] for p in out_pages if p["chars"] == 0]
+        if no_text:
+            out["no_text_pages"] = no_text
+            out["note"] = (f"第 {_compress_pages(no_text)} 页没有文字层(多半是扫描件/图片 PDF)。"
+                           "可把该页导出/截图为图片后用 ocr_image 做 OCR 识别(或对屏幕上打开的 PDF 用 ocr_screen)。")
+        if stopped_by:
+            out["truncated"] = True
+            out["stopped_by"] = stopped_by
+            out["next_pages"] = _compress_pages(remaining)
+            out["nextPage"] = remaining[0]
+        return out
     except Exception as e:
-        return {"error": f"读 PDF 失败: {type(e).__name__}: {e}"}
+        msg = describe_read_error(e, path)
+        return {"error": msg if msg.startswith("PDF 已加密") else f"读 PDF 失败: {msg}"}
