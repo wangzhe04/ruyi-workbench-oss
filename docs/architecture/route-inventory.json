@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-30T10:50:12.053Z",
+  "generatedAt": "2026-09-30T10:57:50.154Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -2308,6 +2308,7 @@
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
@@ -3057,6 +3058,7 @@
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
@@ -3287,6 +3289,7 @@
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-cmdline-guard.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
@@ -4114,6 +4117,7 @@
       "domain": "intervention",
       "auth": "body-token",
       "coveredBy": [
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js"
       ]
     },
@@ -4132,6 +4136,7 @@
       "coveredBy": [
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
+        "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
         "dev-harness\\interventions-snapshot.e2e.js",

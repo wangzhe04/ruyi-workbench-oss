@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 66 | 3189 | 2967 | 514 | 68 | 0 | 1 |
+| 66 | 3198 | 2970 | 515 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -22,7 +22,7 @@
 | 4 | `01d-win-cmdline.js` | foundation | 10 | 0 | 0 |
 | 5 | `01e-permission-modes.js` | foundation | 10 | 1 | 1 |
 | 6 | `01f-agent-cli-types.js` | foundation | 4 | 1 | 1 |
-| 7 | `01-config.js` | foundation | 173 | 55 | 12 |
+| 7 | `01-config.js` | foundation | 178 | 55 | 12 |
 | 8 | `02c-turn-segments.js` | foundation | 1 | 0 | 0 |
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
@@ -30,7 +30,7 @@
 | 12 | `02-session-store.js` | foundation | 289 | 71 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 87 | 25 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 2 | 1 |
-| 15 | `04-permission-runtime.js` | foundation | 148 | 36 | 9 |
+| 15 | `04-permission-runtime.js` | foundation | 146 | 37 | 9 |
 | 16 | `04-desktop-shell.js` | foundation | 1 | 9 | 3 |
 | 17 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
 | 18 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
@@ -57,13 +57,13 @@
 | 39 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 40 | `09-workflow.js` | orchestration | 17 | 225 | 25 |
 | 41 | `10-context-governance.js` | orchestration | 152 | 83 | 17 |
-| 42 | `11-native-tools.js` | tools | 125 | 33 | 5 |
+| 42 | `11-native-tools.js` | tools | 131 | 33 | 5 |
 | 43 | `12-tool-dispatch.js` | tools | 39 | 85 | 14 |
 | 44 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 45 | `13-http-router.js` | transport | 65 | 236 | 28 |
 | 46 | `13b-api-domain-routes.js` | transport | 36 | 59 | 7 |
 | 47 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 48 | `13d-core-domain-routes.js` | transport | 58 | 136 | 16 |
+| 48 | `13d-core-domain-routes.js` | transport | 58 | 138 | 17 |
 | 49 | `13e-pretender-index.js` | transport | 57 | 36 | 8 |
 | 50 | `13i-steward-inbox.js` | transport | 77 | 26 | 8 |
 | 51 | `13j-steward-tool-base.js` | transport | 76 | 23 | 9 |
@@ -134,7 +134,7 @@
 | `04-desktop-shell.js` | `04-permission-runtime.js` | backward | `killChildTree` |
 | `04-permission-runtime.js` | `00-boot.js` | backward | `URL`, `VERSION`, `cp`, `crypto`, `dataRoot`, `ensureDirs`, `externalRoot`, `fs`, `fsp`, `http`, `makeId`, `nowIso`, `os`, `path`, `paths`, `safeJsonParse`, `text` |
 | `04-permission-runtime.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_SERVER_ID`, `isRuyiMcpServerId` |
-| `04-permission-runtime.js` | `01-config.js` | backward | `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
+| `04-permission-runtime.js` | `01-config.js` | backward | `bridgedEnvKeyStripped`, `detectDesktopMcp`, `ensureDesktopMcpWarm`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `selectedAgentCli` |
 | `04-permission-runtime.js` | `01d-win-cmdline.js` | backward | `batchSafeSpawn` |
 | `04-permission-runtime.js` | `02-session-store.js` | backward | `registerIntervention`, `settleIntervention` |
 | `04-permission-runtime.js` | `05-claude-engine.js` | forward | `collectDisplayUrlRestores`, `maskKey`, `mcpArgsForDisplay`, `restoreExternalMcpServerSecrets`, `sanitizeExternalMcpServer` |
@@ -375,12 +375,13 @@
 | `13c-overlay-routes.js` | `01-config.js` | backward | `readJsonBody`, `send`, `tokenOk` |
 | `13c-overlay-routes.js` | `04-permission-runtime.js` | backward | `logEvent` |
 | `13d-core-domain-routes.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `crypto`, `dataRootAliases`, `fsp`, `json`, `makeId`, `nowIso`, `path`, `paths`, `safeDecodeURIComponent`, `safeJsonParse`, `text` |
+| `13d-core-domain-routes.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `13d-core-domain-routes.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `sessionPath`, `tokenMatches`, `tokenOk` |
 | `13d-core-domain-routes.js` | `01c-runtime-flags.js` | backward | `sessionSearchIndexEnabled` |
 | `13d-core-domain-routes.js` | `01e-permission-modes.js` | backward | `PERMISSION_MODES`, `PERMISSION_MODES_REQUIRING_CONFIRM`, `resolvePermissionMode` |
 | `13d-core-domain-routes.js` | `02-session-store.js` | backward | `buildMissionAcceptanceProjection`, `bulkDeleteUnpinnedSessions`, `bumpMissionChangeSeq`, `compactInterventionJournal`, `createMissionContainer`, `createSession`, `deleteSession`, `detectDanglingTurn`, `foldTurnSummaries`, `journalReadIndex`, `listMissionContainers`, `listSessions`, `loadSession`, `missionAttachThread`, `missionContainerAcceptanceStamp`, `missionControlCommand`, `missionControlView`, `missionDetachThread`, `missionMergeInto`, `missionSplitThreads`, `patchMissionContainer`, `readInterventions`, `readMissionChangesWithMeta`, `readMissionContainer`, `readMissionSessionHead`, `readSessionHeadResilient`, `registerIntervention`, `saveSession`, `sessionBodyPaths`, `sessionBriefOf`, `sessionDisplayTitle`, `sessionKind`, `sessionMessagesDelta`, `sessionMeta`, `sessionMissionId`, `sessionOmittedProviderHistory`, `sessionProviderHistoryLength`, `settleIntervention`, `transitionInterventionState`, `updateSessionMeta` |
 | `13d-core-domain-routes.js` | `02d-session-overrides.js` | backward | `sessionDesktopToolsOf`, `sessionDesktopToolsOverrides`, `sessionPermissionModeOverrides` |
-| `13d-core-domain-routes.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
+| `13d-core-domain-routes.js` | `03-bridge-guard.js` | backward | `bridgedReadPathGate`, `normalizeCwd` |
 | `13d-core-domain-routes.js` | `04-permission-runtime.js` | backward | `activeChildren`, `driverAutoSessions`, `extendUserQuestion`, `logEvent`, `normalizeQuestionAnswer`, `pendingPermissions`, `pendingPlans`, `pendingQuestions`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `runAutomaticInterventionDecision`, `turnSettlers` |
 | `13d-core-domain-routes.js` | `06f-autonomy-grants.js` | backward | `CLI_TOOL_TIER`, `consumeGrant` |
 | `13d-core-domain-routes.js` | `06h-retrieval-index.js` | backward | `createRetrievalCorpusCache`, `rankRetrievalCorpus`, `retrievalTerms` |

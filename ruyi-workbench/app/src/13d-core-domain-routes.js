@@ -2089,6 +2089,22 @@ async function handleInterventionApiRoutes(req, res, pathname) {
       // No live UI stream to ask — fail closed.
       return send(res, json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
     }
+    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
+    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
+    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
+    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
+    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
+    {
+      const cliToolName = String(body.toolName || '');
+      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
+        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
+        if (readRefusal) {
+          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
+          return send(res, json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
+        }
+      }
+    }
     // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
     // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/
     // Write/Bash/…); toolIsRevertible only matches the workbench file_* set, so a native CLI Edit shows

@@ -978,6 +978,8 @@ const FILE_TOOL_HANDLERS = {
       const files = await walkFiles(root, args);
       const resp = { ok: true, root, files };
       if (files && files.truncated) resp.truncated = true;
+      // 审计 F 后续:pattern 撞了时间预算(可能是灾难性回溯)—— 已匹配到的照给,如实说「可能不全」(口径同 file_search)。
+      if (files && files.patternTimedOut) resp.patternNote = 'pattern matching hit its time budget (pattern too slow, possible catastrophic backtracking); listing may be incomplete';
       return resp;
   } },
   file_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {

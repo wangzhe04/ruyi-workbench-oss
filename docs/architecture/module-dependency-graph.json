@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 66,
-    "providedSymbols": 3189,
-    "requiredSymbols": 2967,
-    "edges": 514,
+    "providedSymbols": 3198,
+    "requiredSymbols": 2970,
+    "edges": 515,
     "forwardEdges": 68,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -347,6 +347,9 @@
       "note": "defaultConfig/normalizeConfig/readConfig/launcher 解析/ROUTE_AUTH",
       "provides": [
         "AGENT_CLI_HOST",
+        "BRIDGED_CLI_ENV_BLANK_KEYS",
+        "BRIDGED_ENV_DROP",
+        "BRIDGED_ENV_KEEP",
         "CLAUDEPATH_CACHE_MS",
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_THINKING_EFFORTS",
@@ -390,6 +393,8 @@
         "atomicWriteJson",
         "authorizeRoute",
         "autoImportClaudeCodeMcp",
+        "bridgedCliServerEnv",
+        "bridgedEnvKeyStripped",
         "buildClaudeCliEnv",
         "buildUserEnvelope",
         "bundledNodeExe",
@@ -2092,8 +2097,6 @@
         "ACTIVE_CHILD_EVENT_TAPS",
         "BRIDGED_CATALOG_SCAN_TIMEOUT_MS",
         "BRIDGED_ENTRY_START_TIMEOUT_MS",
-        "BRIDGED_ENV_DROP",
-        "BRIDGED_ENV_KEEP",
         "BRIDGED_TOOL_TIMEOUTS",
         "BRIDGED_TOOL_TIMEOUT_DEFAULT_MS",
         "CLAUDE_RECOVERY_HISTORY_CHARS",
@@ -2370,6 +2373,13 @@
           "symbol": "RUYI_MCP_SERVER_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "bridgedEnvKeyStripped",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10225,11 +10235,15 @@
         "GIT_DIFF_MAX_BYTES",
         "GIT_READ_ONLY_FLAGS",
         "GIT_SAFE_FLAGS",
+        "PATH_MATCH_WORKER_SRC",
         "REGEX_SCAN_MAX_MS",
         "REGEX_SCAN_WORKER_SRC",
         "SEARCH_CJK_RE",
         "SHELL_BUF_MAX",
         "SHELL_IDLE_MS",
+        "WALK_PATTERN_BATCH",
+        "WALK_PATTERN_BUDGET_MS",
+        "WALK_PATTERN_MAX_CHARS",
         "ZIP_MAX_ENTRIES",
         "ZIP_MAX_SINGLE_FILE",
         "ZIP_MAX_TOTAL",
@@ -10247,6 +10261,7 @@
         "columnProfile",
         "completeBackgroundJob",
         "crc32",
+        "createBoundedPathMatcher",
         "dataProfile",
         "debugHypStats",
         "debugHypWarnings",
@@ -10298,6 +10313,7 @@
         "readBackgroundJobs",
         "readIfExists",
         "readWebCache",
+        "regexBacktrackBounded",
         "regexScanFilesBounded",
         "resolveGitCwd",
         "rgExeName",
@@ -13724,6 +13740,13 @@
           ]
         },
         {
+          "provider": "00b-ruyi-names.js",
+          "symbol": "RUYI_MCP_CLI_TOOL_PREFIX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "01-config.js",
           "symbol": "atomicWriteJson",
           "kinds": [
@@ -14106,6 +14129,13 @@
           "symbol": "sessionPermissionModeOverrides",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "bridgedReadPathGate",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -25183,6 +25213,7 @@
       "from": "04-permission-runtime.js",
       "to": "01-config.js",
       "symbols": [
+        "bridgedEnvKeyStripped",
         "detectDesktopMcp",
         "ensureDesktopMcpWarm",
         "generateMcpConfig",
@@ -28199,6 +28230,14 @@
     },
     {
       "from": "13d-core-domain-routes.js",
+      "to": "00b-ruyi-names.js",
+      "symbols": [
+        "RUYI_MCP_CLI_TOOL_PREFIX"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13d-core-domain-routes.js",
       "to": "01-config.js",
       "symbols": [
         "atomicWriteJson",
@@ -28291,6 +28330,7 @@
       "from": "13d-core-domain-routes.js",
       "to": "03-bridge-guard.js",
       "symbols": [
+        "bridgedReadPathGate",
         "normalizeCwd"
       ],
       "direction": "backward"

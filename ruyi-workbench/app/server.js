@@ -5350,9 +5350,37 @@ function desktopMcpDetectionPending(config) {
 // Shell-session tools guard on it: their state lives in the serve process, so the child cannot serve them.
 const RUNTIME = { port: DEFAULT_PORT, host: '127.0.0.1', token: '', isMcpChild: false };
 
+// 安全修复(审计 A①)的判据:桥接 MCP 服务器(ACC 桌面控制、第三方 stdio MCP)不得从启动它的进程继承工作台凭据。
+// 去掉所有 WCW_*(工作台内部键:回环令牌 / 端口 / 会话号等;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
+// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
+// (buildClaudeCliEnv;桌面/文档类 MCP 用不到)。两处共用这一个判据:
+//   · 工作台自己 spawn 桥接服务器(04 bridgedServerSpawnEnv:直接从继承环境里删);
+//   · 交给 agent CLI 去 spawn(下面 bridgedCliServerEnv:写进 --mcp-config / Kimi mcp.json 的条目 env 块)。
+const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
+const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedEnvKeyStripped(key) {
+  const up = String(key).toUpperCase();
+  if (BRIDGED_ENV_KEEP.has(up)) return false;
+  return up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up);
+}
+// 后续补漏(审计 A① 的 CLI 直挂面):toolLoadingMode:'full' 的会话与 exec 档 Claude DAG 节点把桥接服务器直接写进
+// --mcp-config,由 Claude CLI 自己 spawn —— 子进程环境 = CLI 的环境叠条目 env。CLI 的环境里有工作台注入的模型密钥
+// (buildClaudeCliEnv),Kimi 进程的环境里还有回合级 WCW_TOKEN 等(05b 靠继承把它们交给如意的 MCP 子进程),
+// 修前 ACC 的 get_environment_variable 一问就拿到。配置文件只能【加/盖】变量、不能删,所以把这些键在条目 env 块里
+// 盖成空串:固定一组已知凭据键,再加本进程环境里此刻存在的其它 WCW_*(被别的如意回合拉起时继承来的)。
+// 条目自己声明的 env 叠在最后,照常生效(与 04 同口径)。
+const BRIDGED_CLI_ENV_BLANK_KEYS = Object.freeze(['WCW_TOKEN', 'WCW_PORT', 'WCW_HOST', 'WCW_SESSION_ID', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
+  const blanks = {};
+  for (const k of BRIDGED_CLI_ENV_BLANK_KEYS) blanks[k] = '';
+  for (const k of Object.keys(baseEnv || {}).sort()) if (bridgedEnvKeyStripped(k)) blanks[k] = '';
+  return { ...blanks, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
+}
+
 // v0.7d: mutate an mcpServers map in place, adding the desktop MCP (id 'ai-computer-control') and every
 // enabled user externalMcpServers entry. Back-compat: when nothing is detected/configured, the map is
 // left exactly as it was, so the generated config equals the pre-0.7d output.
+// stdio 条目一律带 env 块(bridgedCliServerEnv:置空工作台凭据 + 条目自己的 env);远程(sse/http)条目没有子进程。
 function addExternalMcpServersToMap(mcpServers, config) {
   if (!config) return;
   try {
@@ -5366,7 +5394,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
       } else {
         server = { type: 'stdio', command: entry.command, args: entry.args || [] };
         if (entry.cwd) server.cwd = entry.cwd;
-        if (entry.env && Object.keys(entry.env).length) server.env = entry.env;
+        server.env = bridgedCliServerEnv(entry.env);
       }
       mcpServers[entry.id] = server;
     }
@@ -12131,15 +12159,29 @@ async function preflightWriteBoundary(toolName, args, ctx) {
 //   · 必须是绝对路径:相对路径由 ACC 按它自己的工作目录解析,工作台这边判不准,缺省 '.' 同理 → 拒并提示改绝对路径。
 // 仍是 read 档:工作区里的读照旧零弹窗,桌面自动化的日常用法不受影响。表按【裸名】登记,对任何桥接服务器
 // 同名工具一视同仁(第三方 MCP 的 read_file 也是读文件)。
+// 后续补漏:表覆盖 ACC 【全部只读】且带路径入参的工具(逐个对过 mcp/ai-computer-control 的函数签名)——
+//   · 读内容 / 列目录 / 看元数据:path 必填(缺省即 ACC 按自己的 cwd 解析,判不准 → 拒);
+//   · 模板匹配:find_template / find_all_templates / wait_for_image 的 template_path 与 template_b64 二选一
+//     (vision.py _load_template_gray)→ 【给了才查】;find_on_screen 只收 template_path(screen.py,必填)。
+//     修前它们在 read 档零弹窗,template_path 指向 config.json 也照读不误。
+// 要动桌面 / 动文件的工具(vision_click、copy_file、image_resize、set_clipboard_image、play_sound ……)不在此表:
+// 它们是 exec 档(非 bypass/auto 先问人),写路径另有 BRIDGED_WRITE_PATH_ARGS 与检查点。
+// 条目形状:{ required: [参数名...], optional: [参数名...] }。
 const BRIDGED_READ_PATH_ARGS = Object.freeze({
-  read_file: ['path'], list_directory: ['path'], file_info: ['path'], ocr_image: ['path'],
+  read_file: { required: ['path'] }, list_directory: { required: ['path'] }, file_info: { required: ['path'] }, ocr_image: { required: ['path'] },
+  read_document: { required: ['path'] }, excel_read: { required: ['path'] }, pdf_read_pages: { required: ['path'] }, image_info: { required: ['path'] },
+  find_on_screen: { required: ['template_path'] },
+  find_template: { optional: ['template_path'] }, find_all_templates: { optional: ['template_path'] }, wait_for_image: { optional: ['template_path'] },
 });
 async function bridgedReadPathGate(bridgedName, args, ctx) {
   const bare = unprefixedBridgedName(bridgedName);
   if (!Object.prototype.hasOwnProperty.call(BRIDGED_READ_PATH_ARGS, bare)) return null;
   const a = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
-  for (const field of BRIDGED_READ_PATH_ARGS[bare]) {
+  const spec = BRIDGED_READ_PATH_ARGS[bare];
+  const fields = [...(spec.required || []).map(f => [f, true]), ...(spec.optional || []).map(f => [f, false])];
+  for (const [field, required] of fields) {
     const raw = typeof a[field] === 'string' ? a[field].trim() : '';
+    if (!raw && !required) continue;
     if (!raw || !path.isAbsolute(raw)) {
       return { ok: false, code: 'path-not-absolute', error: `桌面控制读文件必须用【绝对路径】。参数「${field}」${raw ? '是相对路径' : '缺失'},工作台无法判断它指向哪里。请用完整绝对路径重试。` };
     }
@@ -13459,17 +13501,13 @@ function mcpServerRequestReply(msg) {
 // 每会话 MCP 子进程(`server.js mcp`)的环境里有 WCW_TOKEN / WCW_PORT / WCW_HOST / WCW_SESSION_ID(01 generateSessionMcpConfig
 // 塞进去的),修前它再 spawn 桥接服务器时整份 process.env 原样传下去 —— ACC 的 get_environment_variable 一问就把
 // 令牌交给了模型(令牌 = 可调 /api/permission/decision 等 body-token 路由,自己批自己的权限)。
-// 规则:继承来的环境里去掉所有 WCW_*(工作台内部键;唯一例外 WCW_DATA_DIR —— ACC paths.py 认的数据目录覆盖,
-// 由用户/测试设置,不是凭据),以及工作台按配置注入 CLI 环境的模型凭据 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY
-// (01 buildClaudeCliEnv;桌面/文档类 MCP 用不到)。服务器条目【自己声明】的 env(ownEnv)原样叠在最后,仍然生效。
-const BRIDGED_ENV_KEEP = new Set(['WCW_DATA_DIR']);
-const BRIDGED_ENV_DROP = new Set(['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+// 规则见 01 bridgedEnvKeyStripped(与交给 agent CLI 去 spawn 的 --mcp-config 条目同一个判据):继承来的环境里去掉
+// 所有 WCW_*(WCW_DATA_DIR 除外)与 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY。服务器条目【自己声明】的 env(ownEnv)
+// 原样叠在最后,仍然生效。
 function bridgedServerSpawnEnv(baseEnv, ownEnv) {
   const out = {};
   for (const [k, v] of Object.entries(baseEnv || {})) {
-    const up = String(k).toUpperCase();
-    if (BRIDGED_ENV_KEEP.has(up)) { out[k] = v; continue; }
-    if (up.startsWith('WCW_') || BRIDGED_ENV_DROP.has(up)) continue;
+    if (bridgedEnvKeyStripped(k)) continue;
     out[k] = v;
   }
   return { ...out, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
@@ -44027,11 +44065,107 @@ function probeRg() { const info = probeRgInfoSync(); return info ? info.path : n
 function hasRg() { return !!probeRg(); }
 async function hasRgAsync() { return !!(await probeRgAsync()); }
 
+// 安全修复(审计 F · ReDoS 后续):file_list 的 pattern 是模型给的正则,逐项同步 `re.test(相对路径)`。
+// `(a+)+$` 碰上一个 60 个 a 加 b 的文件名(模型自己就能用 file_write 造出来)要回溯 2^60 步,整个服务的事件循环
+// 冻死 —— 与 file_search 修前同一类问题(见下方 regexScanFilesBounded)。file_list 是热路径,不能每次都起 worker:
+//   · 词法上「回溯有界」的模式(无分组、无分支、无反向引用、至多一个量词 —— 常见的 `\.js$`、`^src/.*\.ts$`)
+//     仍在主线程直接匹配:最坏 O(n²),n = 相对路径长度;
+//   · 其余模式交给一个随本次遍历存活的 worker 分批匹配(每批 WALK_PATTERN_BATCH 条相对路径),worker 实际计算
+//     累计超过 WALK_PATTERN_BUDGET_MS 就 terminate —— 已匹配到的照常返回,另挂 patternTimedOut(调用方标
+//     truncated + patternNote),遍历就此停下;
+//   · 模式超过 WALK_PATTERN_MAX_CHARS 直接拒。遍历顺序、maxFiles 截断与 truncated 口径与主线程路径一致。
+const WALK_PATTERN_MAX_CHARS = 1000;
+const WALK_PATTERN_BUDGET_MS = 1500;
+const WALK_PATTERN_BATCH = 1000;
+function regexBacktrackBounded(src) {
+  let quantifiers = 0;
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === '\\') {
+      const n = src[i + 1];
+      if (n === undefined || /[1-9k]/.test(n)) return false;   // 反向引用 → 不判有界
+      i += 1;
+      continue;
+    }
+    if (c === '[') {   // 字符类整体是一个原子
+      i += 1;
+      if (src[i] === '^') i += 1;
+      if (src[i] === ']') i += 1;
+      while (i < src.length && src[i] !== ']') { if (src[i] === '\\') i += 1; i += 1; }
+      continue;
+    }
+    if (c === '(' || c === ')' || c === '|') return false;
+    if (c === '*' || c === '+' || c === '?') {
+      quantifiers += 1;
+      if (src[i + 1] === '?') i += 1;   // 惰性量词后缀
+      continue;
+    }
+    if (c === '{') {
+      const m = /^\{\d+(?:,\d*)?\}/.exec(src.slice(i));
+      if (m) { quantifiers += 1; i += m[0].length - 1; if (src[i + 1] === '?') i += 1; }
+    }
+  }
+  return quantifiers <= 1;
+}
+const PATH_MATCH_WORKER_SRC = `
+(() => {
+  const { parentPort, workerData } = require('worker_threads');
+  let re;
+  try { re = new RegExp(workerData.pattern, workerData.flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  parentPort.on('message', m => {
+    const hits = [];
+    for (let i = 0; i < m.subjects.length; i += 1) { if (re.test(m.subjects[i])) hits.push(i); }
+    parentPort.postMessage({ type: 'hits', hits });
+  });
+})();
+`;
+// 一次遍历一个 worker;match(subjects) → { hits, timedOut, error },永不 reject;close() 必调(幂等)。
+function createBoundedPathMatcher(pattern, flags, budgetMs) {
+  let worker = null, dead = '', spent = 0;
+  try {
+    const { Worker } = require('worker_threads');
+    worker = new Worker(PATH_MATCH_WORKER_SRC, { eval: true, workerData: { pattern: String(pattern), flags: String(flags || '') } });
+  } catch (e) { dead = String((e && e.message) || e) || 'worker unavailable'; }
+  const close = () => { if (worker) { const w = worker; worker = null; try { w.terminate(); } catch { /* gone */ } } };
+  const match = subjects => new Promise(resolve => {
+    if (dead || !worker) { resolve({ hits: [], timedOut: false, error: dead || 'closed' }); return; }
+    const w = worker;
+    const t0 = Date.now();
+    let settled = false, timer = null;
+    const onMessage = m => {
+      if (m && m.type === 'hits') finish({ hits: Array.isArray(m.hits) ? m.hits : [] });
+      else if (m && m.type === 'error') finish({ error: String(m.error || 'regex error') });
+    };
+    const onError = e => finish({ error: String((e && e.message) || e) });
+    const onExit = () => finish({ error: 'worker exited' });
+    function finish(r) {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      w.off('message', onMessage); w.off('error', onError); w.off('exit', onExit);
+      spent += Date.now() - t0;
+      if (r.timedOut || r.error) { dead = r.error || 'timed out'; close(); }
+      resolve({ hits: [], timedOut: false, error: '', ...r });
+    }
+    w.on('message', onMessage); w.on('error', onError); w.on('exit', onExit);
+    timer = setTimeout(() => finish({ timedOut: true }), Math.max(1, budgetMs - spent));
+    try { w.postMessage({ subjects }); } catch (e) { finish({ error: String((e && e.message) || e) }); }
+  });
+  return { match, close };
+}
+
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
   const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
   const recursive = opts.recursive !== false;
-  const pattern = opts.pattern ? new RegExp(opts.pattern, opts.ignoreCase === false ? '' : 'i') : null;
+  const patternSrc = opts.pattern ? String(opts.pattern) : '';
+  const patternFlags = opts.ignoreCase === false ? '' : 'i';
+  if (patternSrc.length > WALK_PATTERN_MAX_CHARS) throw new Error(`pattern too long (max ${WALK_PATTERN_MAX_CHARS} characters)`);
+  const pattern = patternSrc ? new RegExp(patternSrc, patternFlags) : null;   // 语法错照旧在这里抛
+  // 回溯可能失控的模式交给 worker(见上方 WALK_PATTERN_* 头注);deferred 按遍历顺序攒待匹配项。
+  const matcher = pattern && !regexBacktrackBounded(patternSrc) ? createBoundedPathMatcher(patternSrc, patternFlags, WALK_PATTERN_BUDGET_MS) : null;
+  let deferred = [];
+  let patternTimedOut = false;
   const ignoredDirs = new Set(opts.ignoreDirs || ['node_modules', '.git', '.venv']);
   const out = [];
   // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
@@ -44040,26 +44174,55 @@ async function walkFiles(root, opts = {}) {
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
+  const emit = async (full, rel, isDir) => {
+    const stat = await fsp.stat(full).catch(() => null);
+    out.push({ path: full, relativePath: rel, type: isDir ? 'directory' : 'file', size: stat?.size || 0 });
+  };
+  async function flushDeferred() {
+    if (!deferred.length || patternTimedOut) { deferred = []; return; }
+    const batch = deferred;
+    deferred = [];
+    const r = await matcher.match(batch.map(c => c.rel));
+    if (r.timedOut || r.error) patternTimedOut = true;
+    let last = -1;
+    for (const i of r.hits) {
+      if (out.length >= maxFiles) { hitCap = true; break; }
+      await emit(batch[i].full, batch[i].rel, batch[i].isDir);
+      last = i;
+    }
+    // 与主线程路径同口径:凑满 maxFiles 之后还见到了别的条目 → 可能不全。
+    if (out.length >= maxFiles && last >= 0 && last < batch.length - 1) hitCap = true;
+  }
   async function walk(dir, depth) {
     if (out.length >= maxFiles) { hitCap = true; return; }
+    if (patternTimedOut) return;
     const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
       if (out.length >= maxFiles) { hitCap = true; break; }
+      if (patternTimedOut) return;
       if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue;
       const full = path.join(dir, entry.name);
       if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
       const rel = path.relative(base, full) || '.';
-      if (!pattern || pattern.test(rel)) {
-        const stat = await fsp.stat(full).catch(() => null);
-        out.push({ path: full, relativePath: rel, type: entry.isDirectory() ? 'directory' : 'file', size: stat?.size || 0 });
+      if (matcher) {
+        deferred.push({ full, rel, isDir: entry.isDirectory() });
+        if (deferred.length >= WALK_PATTERN_BATCH) await flushDeferred();
+      } else if (!pattern || pattern.test(rel)) {
+        await emit(full, rel, entry.isDirectory());
       }
       if (recursive && entry.isDirectory() && depth < Number(opts.maxDepth != null ? opts.maxDepth : 8)) {
         await walk(full, depth + 1);
       }
     }
   }
-  await walk(base, 0);
-  if (hitCap) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  try {
+    await walk(base, 0);
+    if (matcher) await flushDeferred();
+  } finally {
+    if (matcher) matcher.close();
+  }
+  if (hitCap || patternTimedOut) out.truncated = true;  // 审计 P1:早停需告知调用方(file_list/glob/project_snapshot 消费);hitCap 防个数恰等时的误判
+  if (patternTimedOut) out.patternTimedOut = true;   // 审计 F 后续:模式撞了时间预算(file_list 据此给 patternNote)
   return out;
 }
 
@@ -47055,6 +47218,8 @@ const FILE_TOOL_HANDLERS = {
       const files = await walkFiles(root, args);
       const resp = { ok: true, root, files };
       if (files && files.truncated) resp.truncated = true;
+      // 审计 F 后续:pattern 撞了时间预算(可能是灾难性回溯)—— 已匹配到的照给,如实说「可能不全」(口径同 file_search)。
+      if (files && files.patternTimedOut) resp.patternNote = 'pattern matching hit its time budget (pattern too slow, possible catastrophic backtracking); listing may be incomplete';
       return resp;
   } },
   file_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -55159,6 +55324,22 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     if (!reg || !reg.onEvent) {
       // No live UI stream to ask — fail closed.
       return send(res, json({ behavior: 'deny', message: 'no active UI to prompt', requestId }));
+    }
+    // 审计 A② 后续(CLI 直挂面):toolLoadingMode:'full' 时桥接服务器(ACC 等)直接写进 --mcp-config,由 CLI 自己调,
+    // 不经工作台的三个分发点 —— 唯一还能插手的地方就是这里:CLI 为 mcp__<server>__<tool> 来问权限时,按与分发点
+    // 同一个 bridgedReadPathGate 判读路径,越界 / 内部数据 / 相对路径直接拒(不弹窗、不走授权书、不走 auto 短路)。
+    // 覆盖不到的:CLI 不来问的时候 —— bypass / auto 档(不带 --permission-prompt-tool)与 exec 档 DAG 节点(bypass 起)。
+    // 如意自己的 MCP 工具(mcp__ruyi__*)在它自己的 toolCall 里已有文件闸,这里不重复判。
+    {
+      const cliToolName = String(body.toolName || '');
+      if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
+        const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
+        if (readRefusal) {
+          logEvent({ kind: 'permission_bridge_path_deny', sessionId, tool: cliToolName, code: readRefusal.code || '' });
+          return send(res, json({ behavior: 'deny', message: readRefusal.error || 'path not allowed', requestId }));
+        }
+      }
     }
     // v0.8-S4b: mirror the native path — carry tier + revertible so the popup renders the badge + the
     // revertibility line for CLI-bridge permission prompts too. The CLI reports its own tool names (Edit/
