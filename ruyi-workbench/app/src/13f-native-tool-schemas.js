@@ -609,7 +609,7 @@ const MCP_TOOLS = [
     description: 'Make an HTTP request to a local or intranet endpoint for API debugging. String bodies are sent with Content-Length (an object body is sent as JSON); timeoutMs is a hard total deadline; 4xx/5xx come back ok:false with error "HTTP <status>" plus statusCode/body. Honors HTTPS_PROXY/HTTP_PROXY/NO_PROXY (loopback/private addresses bypass the proxy).',
     inputSchema: {
       type: 'object',
-      properties: { url: { type: 'string' }, method: { type: 'string' }, headers: { type: 'object' }, body: { type: 'string' }, timeoutMs: { type: 'number' }, maxBodyChars: { type: 'number' } },
+      properties: { url: { type: 'string' }, method: { type: 'string' }, headers: { type: 'object' }, body: { description: 'Request body: a string is sent as-is; an object is sent as JSON (content-type defaults to application/json).' }, timeoutMs: { type: 'number' }, maxBodyChars: { type: 'number' } },
       required: ['url'],
     },
   },

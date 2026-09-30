@@ -115,11 +115,19 @@ test('[S4] 主进程退出后,占着输出管道的脱离孙进程不拖住工�
   assert.match(String(r.note || ''), /后台子进程/);
 });
 
-test('[S5] timeoutMs 非数字用默认值,不再 9ms 就被杀', async () => {
-  const r = await run('node', "setTimeout(() => console.log('alive'), 1500);", { timeoutMs: 'abc' });
-  assert.equal(r.timedOut, false, JSON.stringify(r).slice(0, 300));
-  assert.equal(r.ok, true);
-  assert.match(r.stdout, /alive/);
+test('[S5] timeoutMs 非数字:分发层按 schema 拒并点名字段;非正数用默认值,不再 9ms 就被杀', async () => {
+  // 'abc' 在 toolCall 的参数校验处就被拦下(可操作的纠错信息),根本到不了 runProcess。
+  const bad = await run('node', "console.log('never');", { timeoutMs: 'abc' });
+  assert.equal(bad.ok, false);
+  assert.equal(bad.code, 'invalid-arguments');
+  assert.match(String(bad.error), /timeoutMs/);
+  // 数值型的坏值(0 / 负数)能过校验,由 runProcess 自己兜成默认超时,而不是立刻杀掉。
+  for (const t of [0, -5]) {
+    const r = await run('node', "setTimeout(() => console.log('alive'), 1500);", { timeoutMs: t });
+    assert.equal(r.timedOut, false, JSON.stringify(r).slice(0, 300));
+    assert.equal(r.ok, true);
+    assert.match(r.stdout, /alive/);
+  }
 });
 
 test('[S5] 超时结果:error + hint + 已产生的部分输出', async () => {
