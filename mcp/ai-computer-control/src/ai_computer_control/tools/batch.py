@@ -16,6 +16,77 @@ def _tool_map() -> dict:
     return {t.name: t for t in mcp._tool_manager.list_tools() if t.name not in _NON_BATCHABLE}
 
 
+# F14: a screenshot/observe step inside a batch returns its base64 in results[i].result.image, which the
+# Ruyi workbench never sees (extractToolImages only reads TOP-LEVEL `image` / `image_base64` /
+# `screenshot.image`), so the pixels were paid for and thrown away. We lift the newest images into
+# those top-level keys (same names as the single screenshot tool) and cap them so a batch of many
+# screenshots cannot flood the context.
+_MAX_LIFTED_IMAGES = 2
+_MIN_IMAGE_B64 = 1000          # anything shorter is not a real image payload
+_LIFT_KEYS = ("image", "image_base64")   # top-level keys the workbench reads, in its order
+_META_KEYS = ("width", "height", "scale", "format")
+
+
+def _find_step_image(res):
+    """(container_dict, key, b64) of the image payload inside one step result, or None."""
+    if not isinstance(res, dict):
+        return None
+    for k in _LIFT_KEYS:
+        v = res.get(k)
+        if isinstance(v, str) and len(v) >= _MIN_IMAGE_B64:
+            return res, k, v
+    shot = res.get("screenshot")
+    if isinstance(shot, dict):
+        v = shot.get("image")
+        if isinstance(v, str) and len(v) >= _MIN_IMAGE_B64:
+            return shot, "image", v
+    return None
+
+
+def lift_batch_images(out: dict, max_images: int = _MAX_LIFTED_IMAGES) -> dict:
+    """Move image payloads out of out['results'][i]['result'] into the top-level image channel.
+
+    The NEWEST image lands in `image` (with its width/height/scale/format at top level, exactly like the
+    screenshot tool); a second one, if any, in `image_base64`. `lifted_images` records which step each
+    came from. Older images are dropped with `image_omitted: true` so the batch stays small.
+    """
+    results = out.get("results") if isinstance(out, dict) else None
+    if not isinstance(results, list):
+        return out
+    found = []   # (result_index, container, key, b64)
+    for i, r in enumerate(results):
+        hit = _find_step_image(r.get("result")) if isinstance(r, dict) else None
+        if hit:
+            found.append((i, *hit))
+    if not found:
+        return out
+    keep = found[-max(0, int(max_images)):] if max_images > 0 else []
+    keep_ids = {f[0] for f in keep}
+    lifted = []
+    for slot, (i, cont, key, b64) in zip(_LIFT_KEYS, reversed(keep)):   # newest first
+        res = results[i]["result"]
+        entry = {"step": results[i].get("step", i), "tool": results[i].get("tool"), "key": slot}
+        entry.update({k: res[k] for k in _META_KEYS if k in res})
+        if slot == "image":
+            out.update({k: res[k] for k in _META_KEYS if k in res})
+        out[slot] = b64
+        lifted.append(entry)
+    for i, cont, key, b64 in found:
+        clean = dict(results[i]["result"])
+        if cont is not results[i]["result"]:   # nested screenshot.image
+            clean["screenshot"] = {k: v for k, v in cont.items() if k != "image"}
+        else:
+            clean.pop(key, None)
+        if i in keep_ids:
+            clean["image_lifted"] = True
+        else:
+            clean["image_omitted"] = True
+            clean["hint"] = f"only the last {max_images} batch images are returned; call screenshot separately"
+        results[i]["result"] = clean
+    out["lifted_images"] = lifted
+    return out
+
+
 async def _invoke(tool, args: dict):
     fn = tool.fn
     if getattr(tool, "is_async", False):
@@ -73,7 +144,8 @@ async def _run_batch(actions: list[dict], on_error: str, delay_ms: int) -> dict:
                 break
         if delay_ms:
             await asyncio.sleep(delay_ms / 1000.0)
-    return {"success": failed == 0, "completed": completed, "failed": failed, "results": results}
+    return lift_batch_images({"success": failed == 0, "completed": completed, "failed": failed,
+                              "results": results})
 
 
 @mcp.tool(audit=True)
@@ -87,6 +159,8 @@ async def batch_actions(actions: list[dict], on_error: str = "stop", delay_ms: i
 
     Returns:
         dict with 'success', 'completed', 'failed', and 'results' (per-step {tool, ok, result|error}).
+        Screenshots taken by steps are returned in the top-level 'image' (newest; plus 'image_base64'
+        for the one before it) — at most the last 2 — and marked image_lifted/image_omitted in 'results'.
     """
     return await _run_batch(actions, on_error, delay_ms)
 
