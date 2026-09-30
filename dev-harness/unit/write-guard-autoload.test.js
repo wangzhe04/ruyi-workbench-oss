@@ -245,6 +245,12 @@ describe('安全审计 #8 · 检查点回滚重验 index.json 里的 path', () =
 
   it('伪造条目(工作区外 / autoexec / 受保护数据 / 畸形序号)不落盘、记进 failed;真实条目照常回滚', async () => {
     const ws = freshWs();
+    // 回滚的包含判定用读根集合,其中有 config.defaultWorkspace —— 没有 config.json 时它默认是真机家目录,
+    // 而 Windows 的 %TEMP% 就在家目录里(C:\Users\<u>\AppData\Local\Temp):下面 mkdtemp 出来的「工作区外」
+    // 在 Windows 上其实在根内,Linux 上(/tmp)才在根外。钉住配置,让「外」在两个平台上都真是外。
+    fs.writeFileSync(path.join(dataRootDir, 'config.json'), JSON.stringify({ configSchema: 9, defaultWorkspace: ws, recentWorkspaces: [], workspaces: [] }));
+    const cfg = await srv.readConfig();
+    assert.strictEqual(path.resolve(cfg.defaultWorkspace), path.resolve(ws), 'test config must be picked up');
     const sid = await seedSession(ws);
     // 真实条目:经 file_write 记账的一次修改。
     const real = path.join(ws, 'real.txt');
