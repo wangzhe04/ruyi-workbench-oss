@@ -831,18 +831,39 @@ const DEFAULT_IGNORE_DIRS = Object.freeze([
   '.claude/worktrees',
 ]);
 const DOTNET_PROJECT_RE = /\.(?:csproj|fsproj|vbproj)$/i;
+// 调用方【显式点名】的目录不剪(审计 native-files #1):glob / 正则 / root 里以字面段出现的名字(`dist/**/*.js`、root=…/build)。
+// 只豁免默认清单(DEFAULT_IGNORE_DIRS)里的项;.git/.svn/.hg 与调用方自己传的 ignoreDirs 照剪。
+// 不是字面段的(`*`、`{a,b}`、含通配的段)不算点名 —— 宁可保守地剪,剪掉的会在 prunedDirs 里说出来。
+function explicitSegmentsOfGlob(glob) {
+  return String(glob == null ? '' : glob).replace(/\\/g, '/').split('/').map(x => x.trim()).filter(x => x && !/[*?[\]{}]/.test(x));
+}
+// file_list.pattern 是正则:去掉转义的点与首尾锚,按 '/' 切,只认 [\w.-]+ 的整段。
+function explicitSegmentsOfRegex(src) {
+  return String(src == null ? '' : src).replace(/\\\./g, '.').replace(/\\\//g, '/').replace(/^\^/, '').replace(/\$$/, '')
+    .split('/').map(x => x.trim()).filter(x => /^[\w.-]+$/.test(x));
+}
 function buildIgnoreMatcher(opts = {}) {
   const fold = s => (process.platform === 'win32' ? String(s).toLowerCase() : String(s));
   const base = opts.includeIgnored === true ? HARD_IGNORE_DIRS : (opts.browse === true ? BROWSE_IGNORE_DIRS : DEFAULT_IGNORE_DIRS);
   const extra = Array.isArray(opts.ignoreDirs) ? opts.ignoreDirs : [];
+  const allow = new Set((Array.isArray(opts.allowDirs) ? opts.allowDirs : []).map(x => fold(String(x || '').trim())).filter(Boolean));
+  const hard = new Set(HARD_IGNORE_DIRS.map(fold));
   const names = new Set();
   const paths = new Set();
-  for (const raw of [...base, ...extra]) {
-    const s = String(raw || '').trim().replace(/\\/g, '/').replace(/^\.?\/+/, '').replace(/\/+$/, '');
+  const norm1 = raw => String(raw || '').trim().replace(/\\/g, '/').replace(/^\.?\/+/, '').replace(/\/+$/, '');
+  for (const raw of base) {
+    const s = norm1(raw);
+    if (!s) continue;
+    const f = fold(s);
+    if (s.includes('/')) { if (!s.split('/').every(seg => allow.has(fold(seg)))) paths.add(f); }
+    else if (hard.has(f) || !allow.has(f)) names.add(f);
+  }
+  for (const raw of extra) {
+    const s = norm1(raw);
     if (!s) continue;
     (s.includes('/') ? paths : names).add(fold(s));
   }
-  const dotnet = opts.includeIgnored !== true && opts.browse !== true;
+  const dotnet = opts.includeIgnored !== true && opts.browse !== true && !(allow.has('bin') || allow.has('obj'));
   // dirEntries:该目录的 Dirent 列表(判 .NET 用);relSlash:相对遍历根、以 '/' 分隔的路径。
   return {
     dotnet, names, paths,
@@ -864,7 +885,10 @@ function buildIgnoreMatcher(opts = {}) {
 //   emitDirs      false → 目录不进结果(仍下钻);内容类工具用,目录不再吃文件配额
 //   bfs           true → 广度优先(先把浅层列全再往下;project_snapshot / 递归 file_list 用)
 //   maxVisited    最多检视这么多目录项(默认 300000),兜住「几乎没有命中的超大树」的耗时
-//   ignoreDirs / includeIgnored / browse   见 buildIgnoreMatcher
+//   ignoreDirs / includeIgnored / browse / allowDirs   见 buildIgnoreMatcher(allowDirs = 调用方显式点名、不剪的目录名)
+//   skipHidden    true → 跳过 '.' 开头的文件/目录(内容搜索默认;file_list/glob 不用,.github/ 之类要看得见);
+//                 allowHidden:[名字] 是显式点名的例外(其子树内的隐藏项一并放行)
+//   pattern 对【以 '/' 分隔】的相对路径求值(Windows 上也是,否则文档里的 ^src/.*\.ts$ 永远配不上)
 // 返回数组,另挂:truncated / truncatedReason('maxFiles'|'maxVisited'|'patternTimeout')/ patternTimedOut / visited / prunedDirs。
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
@@ -883,6 +907,10 @@ async function walkFiles(root, opts = {}) {
   let deferred = [];
   let patternTimedOut = false;
   const ignore = buildIgnoreMatcher(opts);
+  const foldName = n => (process.platform === 'win32' ? String(n).toLowerCase() : String(n));
+  const skipHidden = opts.skipHidden === true;
+  const allowHidden = new Set((Array.isArray(opts.allowHidden) ? opts.allowHidden : []).map(foldName));
+  const toSlash = r => (path.sep === '/' ? r : r.split(path.sep).join('/'));
   const pruned = new Set();
   const out = [];
   // 审计 P1(对抗轮补漏): 遍历类工具(file_list/glob,以及经 searchFileContentJs 的 file_search)会递归进 dataRoot,
@@ -906,7 +934,7 @@ async function walkFiles(root, opts = {}) {
     if (!deferred.length || patternTimedOut) { deferred = []; return; }
     const batch = deferred;
     deferred = [];
-    const r = await matcher.match(batch.map(c => c.rel));
+    const r = await matcher.match(batch.map(c => toSlash(c.rel)));
     if (r.timedOut || r.error) patternTimedOut = true;
     let last = -1;
     for (const i of r.hits) {
@@ -918,13 +946,13 @@ async function walkFiles(root, opts = {}) {
     if (out.length >= maxFiles && last >= 0 && last < batch.length - 1) capped('maxFiles');
   }
   // 待读目录队列:bfs 先进先出;dfs 后进先出(子目录倒序压栈 → 仍按名字顺序下钻)。
-  const pending = [{ dir: base, relDir: '', depth: 0 }];
+  const pending = [{ dir: base, relDir: '', depth: 0, hiddenOk: false }];
   let qi = 0;
   const nextDir = () => (opts.bfs === true ? pending[qi++] : pending.pop());
   const hasDir = () => (opts.bfs === true ? qi < pending.length : pending.length > 0);
   try {
     while (hasDir() && !stopped && !patternTimedOut) {
-      const { dir, relDir, depth } = nextDir();
+      const { dir, relDir, depth, hiddenOk } = nextDir();
       const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
       // 排序:各平台 readdir 顺序不同(Linux 不定序、NTFS 字典序),截断时「取到哪些」必须可复现。
       entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
@@ -935,8 +963,13 @@ async function walkFiles(root, opts = {}) {
         if (++visited > maxVisited) { capped('maxVisited'); stopped = true; break; }
         const isDir = entry.isDirectory();
         const rel = relDir ? relDir + path.sep + entry.name : entry.name;
+        let entryHiddenOk = hiddenOk;
+        if (skipHidden && !hiddenOk && entry.name.charCodeAt(0) === 46) {
+          if (!allowHidden.has(foldName(entry.name))) continue;
+          entryHiddenOk = true;
+        }
         if (isDir) {
-          const relSlash = path.sep === '/' ? rel : rel.split(path.sep).join('/');
+          const relSlash = toSlash(rel);
           if (ignore.pruneName(entry.name, relSlash, dotnetDir)) { if (pruned.size < 12) pruned.add(relSlash); continue; }
         }
         const full = path.join(dir, entry.name);
@@ -946,12 +979,12 @@ async function walkFiles(root, opts = {}) {
             deferred.push({ full, rel, isDir });
             if (deferred.length >= WALK_PATTERN_BATCH) await flushDeferred();
             if (out.length >= maxFiles) { stopped = true; if (hasDir() || entry !== entries[entries.length - 1] || deferred.length) hitCap = true; if (hitCap && !reason) reason = 'maxFiles'; break; }
-          } else if (!pattern || pattern.test(rel)) {
+          } else if (!pattern || pattern.test(toSlash(rel))) {
             if (out.length >= maxFiles) { capped('maxFiles'); stopped = true; break; }   // 已满之后又见到一个【命中】才算截断
             await emit(full, rel, isDir);
           }
         }
-        if (recursive && isDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1 });
+        if (recursive && isDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
       }
       if (opts.bfs === true) pending.push(...subdirs);
       else for (let k = subdirs.length - 1; k >= 0; k -= 1) pending.push(subdirs[k]);
@@ -1055,7 +1088,12 @@ async function searchFileContent(root, pattern, opts = {}) {
   if (await hasRgAsync()) {
     try {
       const viaRg = await searchFileContentRg(root, norm.pattern, effOpts);
-      if (viaRg) results = viaRg;
+      if (viaRg) {
+        results = viaRg;
+        // rg 不报被剪掉的目录;补一次有界探查,让「没搜到」不再静默地可能落在 build/dist/out/target 里。
+        const pd = await discoverPrunedDirs(root, effOpts, searchExplicitNames(root, effOpts)).catch(() => []);
+        if (pd.length) results.prunedDirs = pd;
+      }
     } catch { /* fall through to JS path */ }
   }
   if (!results) results = await searchFileContentJs(root, norm.pattern, effOpts);
@@ -1174,19 +1212,76 @@ function searchMaxFileBytes(opts) {
   return Number.isFinite(n) && n > 0 ? Math.min(Math.round(n), SEARCH_MAX_FILE_BYTES_CEILING) : SEARCH_DEFAULT_MAX_FILE_BYTES;
 }
 const SEARCH_JS_DEFAULT_MAX_FILES = 5000;
+// 深度默认【不限】(两个引擎同一口径):调用方传 maxDepth 才限。JS 的 maxDepth=N = 最多下钻 N 层目录(文件最深 N+1 段),
+// rg 的 --max-depth 数路径段,故传给 rg 时 +1。修前 rg 无条件 --max-depth 9(Maven/Gradle/monorepo 的深层源码静默搜不到),
+// JS 是 8 —— 两边还各说各话。无限深度由 maxFiles / maxVisited 兜底(dirent 不跟符号链接,不会环)。
+function searchMaxDepth(opts) {
+  const n = Number(opts && opts.maxDepth);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+// 内容搜索里「调用方点名了谁」:glob 的字面段(`dist/**`、`.github/**`)与 root 的末段 → 这些默认清单里的目录不剪;
+// glob 里字面的 '.' 开头段 → 隐藏项放行(glob 本身把搜索范围框死在它之内,不会借此扫全部隐藏目录)。
+function explicitAllowDirs(root, segs) {
+  let rootName = '';
+  try { rootName = path.basename(path.resolve(root || '.')); } catch { rootName = ''; }
+  return rootName ? [...segs, rootName] : segs;
+}
+function searchExplicitNames(root, opts) {
+  const segs = explicitSegmentsOfGlob(opts && opts.glob);
+  return { allowDirs: explicitAllowDirs(root, segs), allowHidden: segs.filter(x => x.startsWith('.') && x.length > 1) };
+}
+// 被默认清单剪掉的目录名的提示语(file_search/glob/file_list/project_snapshot 共用):剪了就说,并说怎么放开。
+function prunedDirsHint(tool) {
+  return `${tool}: skipped dependency/build/cache folders (see prunedDirs); a miss may be inside them - pass includeIgnored:true to include them`;
+}
+// rg 引擎自己不报剪了谁:对同一棵树做一次有界的、只读目录的探查(深度 ≤ 6、最多读 2000 个目录),列出默认清单会剪的目录。
+async function discoverPrunedDirs(root, opts, names) {
+  if (opts.includeIgnored === true) return [];
+  const ignore = buildIgnoreMatcher({ ignoreDirs: opts.ignoreDirs, allowDirs: names.allowDirs });
+  const found = [];
+  const base = path.resolve(root || process.cwd());
+  const queue = [{ dir: base, rel: '', depth: 0, hiddenOk: false }];
+  const allowH = new Set(names.allowHidden.map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
+  let reads = 0;
+  const maxDepth = Math.min(searchMaxDepth(opts) || 6, 6);
+  for (let qi = 0; qi < queue.length && reads < 2000 && found.length < 12; qi += 1) {
+    const { dir, rel, depth, hiddenOk } = queue[qi];
+    reads += 1;
+    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    const dotnetDir = ignore.dotnet && entries.some(e => !e.isDirectory() && DOTNET_PROJECT_RE.test(e.name));
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      let ok = hiddenOk;
+      if (!hiddenOk && opts.includeHidden !== true && e.name.charCodeAt(0) === 46) {
+        if (!allowH.has(process.platform === 'win32' ? e.name.toLowerCase() : e.name)) continue;
+        ok = true;
+      }
+      const r = rel ? rel + '/' + e.name : e.name;
+      if (ignore.pruneName(e.name, r, dotnetDir)) { if (found.length < 12 && !found.includes(r)) found.push(r); continue; }
+      if (depth < maxDepth) queue.push({ dir: path.join(dir, e.name), rel: r, depth: depth + 1, hiddenOk: ok });
+    }
+  }
+  return found;
+}
 
 async function searchFileContentJs(root, pattern, opts = {}) {
   // 不含 '/' 的 glob(`*.js`)按文件名在任意层级匹配(与 rg 的 -g 同一语义;修前 JS 引擎只配根下的文件)。
   const globRe = opts.glob ? globToRegExp(/[\\/]/.test(String(opts.glob)) ? String(opts.glob) : '**/' + String(opts.glob)) : null;
   // glob 在遍历时就过滤(accept),配额只数「真会被扫描的文件」;修前先按遍历顺序截 2000 条再滤,
   // 前 2000 条是 .github / __pycache__ 时后面的源码一个都搜不到,而且 truncated 被丢掉。
+  const names = searchExplicitNames(root, opts);
   const files = await walkFiles(root, {
     recursive: true,
     maxFiles: opts.maxFiles || SEARCH_JS_DEFAULT_MAX_FILES,
-    maxDepth: opts.maxDepth || 8,
+    maxDepth: searchMaxDepth(opts) || Infinity,
     emitDirs: false,
     ignoreDirs: opts.ignoreDirs,
     includeIgnored: opts.includeIgnored === true,
+    allowDirs: names.allowDirs,
+    // 隐藏文件/目录(.ssh/.aws/.env …)默认不搜,includeHidden:true 才搜;glob 字面点名的隐藏段(.github/**)例外。
+    skipHidden: opts.includeHidden !== true,
+    allowHidden: names.allowHidden,
     accept: globRe ? (rel => globRe.test(rel)) : null,
   });
   // F2: extraFlags carries m/s harvested from a stripped inline-flag prefix (normalizeSearchPattern).
@@ -1211,8 +1306,8 @@ async function searchFileContentJs(root, pattern, opts = {}) {
 }
 
 // rg 的 glob 是 gitignore 语法:不含 '/' 的名字在任意层级匹配目录,含 '/' 的按相对 cwd 锚定。
-function ignoreGlobsForRg(opts) {
-  const m = buildIgnoreMatcher({ includeIgnored: opts.includeIgnored === true, ignoreDirs: opts.ignoreDirs });
+function ignoreGlobsForRg(opts, allowDirs) {
+  const m = buildIgnoreMatcher({ includeIgnored: opts.includeIgnored === true, ignoreDirs: opts.ignoreDirs, allowDirs });
   const globs = [];
   for (const n of m.names) globs.push('!' + n + '/');
   for (const p of m.paths) globs.push('!**/' + p + '/');
@@ -1247,18 +1342,27 @@ function searchFileContentRg(root, pattern, opts = {}) {
   const base = path.resolve(root || process.cwd());
   const ctx = Math.max(0, Math.min(5, Number(opts.context || 0) || 0));
   const maxResults = Number(opts.maxResults || 200);
-  // F7:与 JS 引擎同一口径 —— 搜隐藏文件(.github/…)、不套 .gitignore(忽略靠共用清单)、跳二进制。
-  // 修前 rg 用默认值(跳隐藏 + 遵守 .gitignore),同一次查询 rg 在与不在的机器上答案不同。
-  const args = ['--json', '--no-messages', '--hidden', '--no-ignore'];
+  // 与 JS 引擎同一口径:跳二进制、默认不搜隐藏(.ssh/.aws/.env …,includeHidden:true 才搜;glob 字面点名的隐藏段例外)、
+  // 目录忽略靠共用清单。rg 额外遵守 .gitignore(仅在 git 仓库内生效,rg 的默认行为),includeIgnored:true 或调用方
+  // 显式点名了默认清单里的目录(dist/**)时才 --no-ignore —— 否则 gitignore 会把点名的 dist 又吞掉。
+  const names = searchExplicitNames(base, opts);
+  const args = ['--json', '--no-messages'];
+  if (opts.includeHidden === true || names.allowHidden.length) args.push('--hidden');
+  const defaultNames = new Set(DEFAULT_IGNORE_DIRS.filter(x => !x.includes('/')).map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
+  const namedIgnored = names.allowDirs.some(x => defaultNames.has(process.platform === 'win32' ? String(x).toLowerCase() : String(x)));
+  if (opts.includeIgnored === true || namedIgnored) args.push('--no-ignore');
   if (opts.ignoreCase !== false) args.push('-i');
   if (ctx > 0) { args.push('-C', String(ctx)); }
+  // rg 的 -g 区分大小写(Windows 也是),而忽略清单在 Windows 上是小写化、不分大小写剪的(Build/、用户的 ignoreDirs:['Vendor'])。
+  // 所以 win32 上排除类 glob 走 --iglob(不分大小写);调用方自己的 glob 仍用 -g,原样不动。
+  const exclFlag = process.platform === 'win32' ? '--iglob' : '-g';
   if (opts.glob) { args.push('-g', String(opts.glob)); }
-  for (const g of ignoreGlobsForRg(opts)) args.push('-g', g);
-  for (const g of sensitiveGlobsForRg(base)) args.push('-g', g);
-  // Align rg's scan limits with the JS path so both paths skip the same big files / deep dirs.
-  // (JS 的 maxDepth=N 表示最多下钻 N 层目录,文件最深 N+1 段;rg 的 --max-depth 数的是路径段,故 +1。)
+  for (const g of ignoreGlobsForRg(opts, names.allowDirs)) args.push(exclFlag, g);
+  for (const g of sensitiveGlobsForRg(base)) args.push(exclFlag, g);
   args.push('--max-filesize', String(searchMaxFileBytes(opts)));
-  args.push('--max-depth', String((Number(opts.maxDepth) || 8) + 1));
+  // 深度:调用方没传就不限(见 searchMaxDepth);传了按路径段 +1 与 JS 对齐。
+  const depthCap = searchMaxDepth(opts);
+  if (depthCap) args.push('--max-depth', String(depthCap + 1));
   args.push('--', String(pattern), base);
   return new Promise(resolve => {
     let stdout = '', stderr = '', done = false;
@@ -2317,9 +2421,13 @@ async function dataProfile(filePath, args = {}) {
       for (const it of items) if (it && typeof it === 'object') for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
       const columns = keys.map(k => columnProfile(k, items.map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
       const meta = { fileBytes, bytesRead };
-      if (!streamedEnded || bytesRead < fileBytes) meta.truncatedInput = true;
-      return { ok: true, path: p, format: 'json', rowCount: items.length, colCount: keys.length, sampled: meta.truncatedInput === true || !streamedEnded, ...meta, columns,
-        note: `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,只流式读取了顶层数组的前 ${items.length} 个元素做画像,总元素数未知。` };
+      // 只有数组【没读到结尾】才算采样:bytesRead 是按块对齐的扫描位置,`]` 之后的空白 / 别的文档让它 < fileBytes,
+      // 但元素已经全在 items 里(rowCount 即精确总数),不能因此谎报 sampled。
+      if (!streamedEnded) meta.truncatedInput = true;
+      return { ok: true, path: p, format: 'json', rowCount: items.length, colCount: keys.length, sampled: !streamedEnded, ...meta, columns,
+        note: streamedEnded
+          ? `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,已流式读完顶层数组(${items.length} 个元素),rowCount 为精确总数。`
+          : `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,只流式读取了顶层数组的前 ${items.length} 个元素做画像,总元素数未知。` };
     }
     // 对抗验证(MEDIUM): 首字符 {/[ 的多行 JSONL(无扩展名)会被 sniff 成 json 而整体解析失败 —— 回落逐行解析。
     if (parsed == null) {
@@ -3628,7 +3736,8 @@ const ZIP_MAX_TOTAL = 500 * 1024 * 1024;         // 总量 500MB（打包 + 解�
 // F9:条目数上限与写入端对齐 —— 经典 zip 的条目数字段是 UInt16(本实现不写 zip64),所以两端都是 65535。
 // 修前打包无上限、解包 2000 封顶:archive_zip 打出 2506 个条目的包,archive_unzip 却把它当 zip 炸弹拒收(拒绝自己的产物)。
 // 炸弹防御本来就该看体积:解压前先核对中央目录声明的总大小(≤ZIP_MAX_TOTAL),解压时逐条核对实际大小与 CRC。
-const ZIP_MAX_ENTRIES = 65535;
+// 65534 而非 65535:EOCD 的条目数字段 0xFFFF 是 zip64 哨兵,写满 65535 条的包我们自己的 archive_unzip 会当 zip64 拒掉。
+const ZIP_MAX_ENTRIES = 65534;
 
 // 让出事件循环一拍(大数据的 CRC / 压缩 / 解压循环之间调用,SSE 与其它会话不被卡住)。
 const zipYield = () => new Promise(resolve => setImmediate(resolve));

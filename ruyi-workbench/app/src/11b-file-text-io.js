@@ -132,23 +132,28 @@ const FileTextIo = (() => {
   function encodeGb18030(text) {
     if (!gb18030Supported()) { const e = new Error('GB18030 codec unavailable in this Node runtime'); e.code = 'NO_GB18030'; throw e; }
     const map = gbTable();
-    const out = [];
+    // 写进按需翻倍的 Buffer(修前是逐字节 push 的 JS 数组:40MB 的 GBK 文件 file_edit 要 ~600MB 内存 / ~2.7s 同步计算)。
+    let out = Buffer.allocUnsafe(Math.max(16, text.length * 2 + 16));
+    let n = 0;
+    const need = k => { if (n + k > out.length) { const bigger = Buffer.allocUnsafe(Math.max(out.length * 2, n + k)); out.copy(bigger, 0, 0, n); out = bigger; } };
     for (let i = 0; i < text.length; i += 1) {
       const cp = text.codePointAt(i);
       if (cp > 0xffff) {
         const p = cp - 0x10000 + 189000;
-        out.push(Math.floor(p / 12600) + 0x81, Math.floor((p % 12600) / 1260) + 0x30, Math.floor((p % 1260) / 10) + 0x81, (p % 10) + 0x30);
+        need(4);
+        out[n++] = Math.floor(p / 12600) + 0x81; out[n++] = Math.floor((p % 12600) / 1260) + 0x30; out[n++] = Math.floor((p % 1260) / 10) + 0x81; out[n++] = (p % 10) + 0x30;
         i += 1;
         continue;
       }
-      if (cp < 0x80) { out.push(cp); continue; }
+      need(4);
+      if (cp < 0x80) { out[n++] = cp; continue; }
       const code = map.get(cp);
       if (code === undefined) throw new UnencodableError(String.fromCodePoint(cp), i, 'gb18030');
-      if (code > 0xffffff) out.push((code >>> 24) & 0xff, (code >>> 16) & 0xff, (code >>> 8) & 0xff, code & 0xff);
-      else if (code > 0xff) out.push((code >>> 8) & 0xff, code & 0xff);
-      else out.push(code);
+      if (code > 0xffffff) { out[n++] = (code >>> 24) & 0xff; out[n++] = (code >>> 16) & 0xff; out[n++] = (code >>> 8) & 0xff; out[n++] = code & 0xff; }
+      else if (code > 0xff) { out[n++] = (code >>> 8) & 0xff; out[n++] = code & 0xff; }
+      else out[n++] = code;
     }
-    const buf = Buffer.from(out);
+    const buf = out.subarray(0, n);
     if (new TextDecoder('gb18030', { ignoreBOM: true }).decode(buf) !== text) throw new UnencodableError(text.charAt(0) || ' ', 0, 'gb18030');
     return buf;
   }
@@ -324,6 +329,11 @@ const FileTextIo = (() => {
       };
 
       // 泵:首块已在手,其余按块读。
+      // 编码只嗅探了首块(4MB)。自动判成 UTF-8、后面的块却解出了 U+FFFD(常见:前面全是 ASCII,后面才出现 GBK 中文)→
+      // 不静默给乱码,在结果里发 encodingWarning(让模型改用 encoding:"gbk" 重读)。
+      const sniffedOnlyHead = !(req.encoding && req.encoding !== 'auto') && sn.encoding === 'utf8' && !sn.warning;
+      let laterBad = false;
+      const laterText = t => { if (sniffedOnlyHead && !laterBad && t && t.indexOf('\ufffd') >= 0) laterBad = true; return t; };
       let pos = got, atEof = got >= size;
       onText(decoder.write(head.subarray(sn.bomLength)));
       while (!stop && !atEof) {
@@ -331,15 +341,16 @@ const FileTextIo = (() => {
         const { bytesRead } = await fh.read(buf, 0, buf.length, pos);
         if (!bytesRead) { atEof = true; break; }
         pos += bytesRead;
-        onText(decoder.write(buf.subarray(0, bytesRead)));
+        onText(laterText(decoder.write(buf.subarray(0, bytesRead))));
         if (pos >= size) atEof = true;
       }
-      if (atEof && !stop) onText(decoder.end());
+      if (atEof && !stop) onText(laterText(decoder.end()));
 
       const base = {
         ok: true, encoding: sn.encoding, bom: sn.bom === true, encodingDetected: sn.detected === true,
         ...(sn.warning ? { encodingWarning: sn.warning } : {}),
-        ...(!sn.warning && sn.encoding === 'utf8' && sn.hasNul ? { encodingWarning: '文件含 NUL 字节:可能是无 BOM 的 UTF-16 文本,内容已按 UTF-8 解码;如是请传 encoding:"utf-16le"' } : {}),
+        ...(laterBad ? { encodingWarning: '文件前 4MB 是合法 UTF-8,但更靠后的内容含无法按 UTF-8 解码的字节(显示为 U+FFFD),可能是 GBK 等其他编码;请用 encoding:"gbk"(或 latin1 / utf-16le)重读该部分' } : {}),
+        ...(!sn.warning && !laterBad && sn.encoding === 'utf8' && sn.hasNul ? { encodingWarning: '文件含 NUL 字节:可能是无 BOM 的 UTF-16 文本,内容已按 UTF-8 解码;如是请传 encoding:"utf-16le"' } : {}),
         size, eol: eol.kind(),
       };
       if (linesMode) {
@@ -392,13 +403,25 @@ const FileTextIo = (() => {
     let st = null;
     try { st = await nodeFsp.lstat(target); } catch { st = null; }
     const inPlace = async () => { await nodeFsp.writeFile(target, data); };
+    // 符号链接 / 多硬链接:直接原地写(writeFile 自己会在无权时报 EACCES)。必须在 access 之前 —— 悬空链接的 access 会
+    // 跟随链接报 ENOENT(假的 not_found),而原地写正好会经链接把目标创建出来(与改前 writeFile 行为一致)。
+    if (st && (st.isSymbolicLink() || st.nlink > 1)) { await inPlace(); return { atomic: false, reason: st.isSymbolicLink() ? 'symlink' : 'hardlink' }; }
     // rename 会无视目标文件自身的只读位(只看目录权限),原地写不会 —— 先确认我们本来就有权写它,保持「只读文件写不进去」的语义。
     if (st) await nodeFsp.access(target, 2);
-    if (st && (st.isSymbolicLink() || st.nlink > 1)) { await inPlace(); return { atomic: false, reason: st.isSymbolicLink() ? 'symlink' : 'hardlink' }; }
     const dir = nodePath.dirname(target);
     const tmp = nodePath.join(dir, '.' + nodePath.basename(target) + '.' + process.pid + '.' + nodeCrypto.randomBytes(4).toString('hex') + '.tmp');
     try { await nodeFsp.writeFile(tmp, data); }
-    catch (e) { nodeFsp.unlink(tmp).catch(() => {}); throw e; }
+    catch (e) {
+      nodeFsp.unlink(tmp).catch(() => {});
+      // 建不了临时文件(目录没有「创建文件」权 / 只读目录 / 加了临时名后路径超长 …)但目标文件本身可写:退回原地写(改前的行为),
+      // 只有原地写也失败才报原错误。ENOSPC 不退(原地写会先截断目标,写不满就丢数据)。
+      const c = e && e.code;
+      if (c === 'EACCES' || c === 'EPERM' || c === 'EROFS' || c === 'ENAMETOOLONG' || c === 'ENOENT') {
+        try { await inPlace(); return { atomic: false, reason: 'tmp_create_failed:' + c }; }
+        catch { throw e; }
+      }
+      throw e;
+    }
     if (st && !(process.platform === 'win32')) { try { await nodeFsp.chmod(tmp, st.mode & 0o7777); } catch { /* 权限位尽力保留 */ } }
     const retries = Number.isFinite(opts.retries) ? opts.retries : 8;
     let lastErr = null;
