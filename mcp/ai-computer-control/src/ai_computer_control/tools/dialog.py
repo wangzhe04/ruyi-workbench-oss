@@ -1,5 +1,6 @@
 """Dialog and notification tools for Windows."""
 
+import asyncio
 import ctypes
 from ai_computer_control.server import mcp
 
@@ -98,7 +99,7 @@ IDTIMEOUT = 32000
 
 
 @mcp.tool()
-def message_box(
+async def message_box(
     title: str,
     message: str,
     buttons: str = "ok",
@@ -123,6 +124,10 @@ def message_box(
     """
     import threading
 
+    try:
+        timeout_ms = max(1000, min(60000, int(timeout_ms)))   # the docstring's promised [1s, 60s] clamp
+    except (TypeError, ValueError):
+        timeout_ms = 30000
     style = _BUTTON_MAP.get(buttons, MB_OK) | _ICON_MAP.get(icon, MB_ICONINFO)
     holder: dict = {}
 
@@ -141,9 +146,10 @@ def message_box(
 
     t = threading.Thread(target=_show, daemon=True)
     t.start()
-    # Bounded wait: the blocking C call releases the GIL, so the event loop is free during the join;
-    # worst case we wait timeout_ms (+slack) instead of forever.
-    t.join(timeout=(int(timeout_ms) / 1000.0) + 2.0)
+    # Bounded wait, OFF the event loop: this tool is async and the join runs in a worker thread
+    # (asyncio.to_thread), so pings/cancellation stay serviced while the dialog is open. Worst case
+    # we wait timeout_ms (+slack) instead of forever.
+    await asyncio.to_thread(t.join, (int(timeout_ms) / 1000.0) + 2.0)
 
     if "e" in holder:
         return {"ok": False, "error": str(holder["e"])}

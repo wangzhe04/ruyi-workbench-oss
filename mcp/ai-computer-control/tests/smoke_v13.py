@@ -119,6 +119,8 @@ def main() -> int:
         r, g, b = pyautogui.pixel(0, 0)
         hexc = f"#{r:02x}{g:02x}{b:02x}"
         wp = _FNS["wait_for_pixel"](0, 0, hexc, timeout_ms=1000)
+        if asyncio.iscoroutine(wp):  # wait_for_pixel is async (yields between polls)
+            wp = asyncio.run(wp)
         check(wp.get("ok") is True and wp.get("matched") is True, f"wait_for_pixel matched immediately ({hexc})")
     except Exception as e:  # noqa: BLE001 — environment gate (GetDC handle overflow), not a code path under test
         print(f"SKIP wait_for_pixel — pixel sampling unavailable on this session (needs interactive desktop): {e}")

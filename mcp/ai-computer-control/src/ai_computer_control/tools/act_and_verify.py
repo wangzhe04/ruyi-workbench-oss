@@ -1,18 +1,31 @@
 """`act_and_verify` — perform one UI action and measure whether the screen actually changed.
 
-Pattern: capture BEFORE -> execute the action (click / type / key) -> brief settle wait -> capture
-AFTER -> compute the fraction of pixels that differ. To keep the signal meaningful, a click with no
+Pattern: capture BEFORE -> execute the action (click / type / key) -> poll the region of interest until
+it changes and then stops changing (bounded by settle_ms) -> capture AFTER -> compute the fraction of
+pixels that differ. Everything is diffed in memory; shots are written to disk only when asked (or when
+nothing changed, as evidence), downscaled, with collision-free names, and the directory is pruned. To keep the signal meaningful, a click with no
 explicit region is diffed inside a tight box around the click point (whole-screen ambient churn — a
 blinking clock, a toast — would otherwise swamp a small real change, or a one-char edit would read as
 "nothing happened"). A whole-screen `changed_ratio_full` is always returned too so a change that
 lands elsewhere (a dropdown, a dialog) is never missed.
 """
 
+import itertools
 import os
+import re
 import time
 
 from ai_computer_control.server import mcp
 from ai_computer_control.paths import data_dir
+from ai_computer_control.utils import geometry
+
+_POLL_MS = 80              # poll interval while waiting for the ROI to change / settle
+_MIN_CHANGE_PX = 8         # fewer changed pixels than this in a poll is treated as ambient noise
+_MAX_SETTLE_MS = 5000      # hard cap on settle_ms
+_KEEP_SHOTS = 40           # newest before-/after- files kept in <data>/shots
+_SHOT_WIDTH = 960          # saved shots are downscaled to this width
+_SHOT_RE = re.compile(r"^(before|after)-.*\.(png|jpg)$")
+_shot_counter = itertools.count(1)
 
 _VALID_ACTIONS = ("click", "type", "key")
 
@@ -33,10 +46,7 @@ def _grab(region_tuple):
 
 def _virtual_bounds():
     """(x, y, w, h) of the whole virtual desktop (all monitors)."""
-    import ctypes
-    u = ctypes.windll.user32
-    return (u.GetSystemMetrics(76), u.GetSystemMetrics(77),
-            u.GetSystemMetrics(78), u.GetSystemMetrics(79))
+    return geometry.virtual_desktop_bounds()
 
 
 def _clamp_roi(x, y, w, h):
@@ -104,6 +114,114 @@ def _crop(img, region):
         return None
 
 
+def _wait_settled(grab_roi, before_roi, settle_ms, sleep=time.sleep, clock=time.monotonic,
+                  poll_ms=_POLL_MS):
+    """Poll the region of interest until it differs from `before_roi` and then stops changing.
+
+    Replaces a fixed sleep: a fast app returns as soon as the frame is stable. We wait up to
+    2*settle_ms for the FIRST change (so an app that reacts after ~700ms is not read as "no effect"
+    under the default settle_ms=500), then up to settle_ms more for it to stop changing. An action with
+    no visible effect therefore costs 2*settle_ms. Returns (last_frame, waited_ms, changed, settled)
+    where `settled` means two consecutive frames were equal (or nothing ever changed within the budget).
+    """
+    budget = max(0, min(int(settle_ms), _MAX_SETTLE_MS)) / 1000.0
+    poll = max(10, int(poll_ms)) / 1000.0
+    if budget <= 0:
+        return grab_roi(), 0, False, True
+    start = clock()
+    first_deadline = start + 2 * budget
+    frame, changed, prev = None, False, None
+    stable_deadline = None
+    while True:
+        sleep(poll)
+        frame = grab_roi()
+        if not changed:
+            _, px, _ = _changed_stats(before_roi, frame)
+            if px >= _MIN_CHANGE_PX:
+                changed, prev = True, frame
+                stable_deadline = clock() + budget
+            elif clock() >= first_deadline:
+                return frame, int((clock() - start) * 1000), False, True
+        else:
+            _, px, _ = _changed_stats(prev, frame)
+            if px < _MIN_CHANGE_PX:
+                return frame, int((clock() - start) * 1000), True, True
+            prev = frame
+            if clock() >= stable_deadline:
+                return frame, int((clock() - start) * 1000), True, False
+
+
+def _prune_shots(directory: str, keep: int = _KEEP_SHOTS) -> int:
+    """Delete all but the newest `keep` before-/after- shot files (legacy PNGs included). Returns #deleted."""
+    try:
+        names = [n for n in os.listdir(directory) if _SHOT_RE.match(n)]
+        stamped = []
+        for n in names:
+            try:
+                stamped.append((os.path.getmtime(os.path.join(directory, n)), n))
+            except OSError:
+                pass
+        stamped.sort(reverse=True)
+        gone = 0
+        for _, n in stamped[max(0, int(keep)):]:
+            try:
+                os.remove(os.path.join(directory, n))
+                gone += 1
+            except OSError:
+                pass
+        return gone
+    except Exception:
+        return 0
+
+
+def _save_shots(before, after, directory: str, keep: int = _KEEP_SHOTS) -> dict:
+    """Write downscaled JPEG shots with collision-free names, then prune the directory."""
+    os.makedirs(directory, exist_ok=True)
+    stem = f"{time.strftime('%Y%m%d-%H%M%S')}-{time.time_ns() % 10**9:09d}-{next(_shot_counter)}"
+    out = {}
+    for label, img in (("before", before), ("after", after)):
+        if img is None:
+            continue
+        im = img.convert("RGB")
+        if im.width > _SHOT_WIDTH:
+            im = im.resize((_SHOT_WIDTH, max(1, round(im.height * _SHOT_WIDTH / im.width))))
+        path = os.path.join(directory, f"{label}-{stem}.jpg")
+        im.save(path, "JPEG", quality=70)
+        out[f"{label}_path"] = path
+    _prune_shots(directory, keep)
+    return out
+
+
+def _diff_bbox(before, after, pad: int = 12):
+    """Bounding box (l, t, r, b) of the changed pixels between two same-origin frames, padded; None if identical."""
+    try:
+        from PIL import Image, ImageChops
+        if before.size != after.size:
+            after = after.resize(before.size, Image.NEAREST)
+        gray = ImageChops.difference(before.convert("RGB"), after.convert("RGB")).convert("L")
+        box = gray.point(lambda v: 255 if v >= 16 else 0).getbbox()
+        if not box:
+            return None
+        l, t, r, b = box
+        return (max(0, l - pad), max(0, t - pad), min(before.width, r + pad), min(before.height, b + pad))
+    except Exception:
+        return None
+
+
+def _result_image(mode: str, before_full, after_full) -> dict:
+    """Small image payload for return_image='after'|'diff' (same keys as the screenshot tool)."""
+    from ai_computer_control.utils.image import encode_with_budget
+    img, note = after_full, None
+    if mode == "diff":
+        box = _diff_bbox(before_full, after_full)
+        if box is None:
+            return {"image_note": "nothing changed; no diff region to return"}
+        img = after_full.crop(box)
+        note = {"diff_region": {"x": box[0], "y": box[1], "width": box[2] - box[0], "height": box[3] - box[1]}}
+    enc = encode_with_budget(img, max_width=640, fmt="png")
+    return {**enc, **(note or {})}
+
+
 def _do_action(action: dict) -> dict:
     """Execute a single {type: click|type|key, ...} action via the existing tool functions."""
     atype = (action.get("type") or "").lower()
@@ -130,7 +248,7 @@ def _do_action(action: dict) -> dict:
 
 @mcp.tool(audit=True)
 def act_and_verify(action: dict, region: str | None = None, settle_ms: int = 500,
-                   save_shots: bool = True) -> dict:
+                   save_shots: bool = False, return_image: str = "") -> dict:
     """Do one UI action and report how much the screen changed as a result.
 
     Args:
@@ -141,15 +259,22 @@ def act_and_verify(action: dict, region: str | None = None, settle_ms: int = 500
         region: Optional "x,y,width,height" limiting the diff (screen coords). If omitted, a click is
             diffed in a ~200x200 box around the click point and a type/key in the foreground window
             rect — pass the target field's rect here for the tightest, most reliable signal.
-        settle_ms: Milliseconds to wait after the action before the AFTER capture (UI settle).
-        save_shots: Persist before/after PNGs under <data>/shots and return their paths.
+        settle_ms: How long the UI gets to react (capped at 5000). The region is polled every ~80ms for up
+            to 2*settle_ms until it changes, then up to settle_ms until it stops changing; a fast app
+            returns early, a no-op action waits 2*settle_ms. 'settled' / 'waited_ms' report what
+            happened — raise settle_ms for a slow app.
+        save_shots: Also write downscaled before/after JPEGs under <data>/shots (newest 40 kept) and
+            return their paths. They are written automatically when NOTHING changed, as evidence.
+        return_image: "" (default, no image) | "after" (a small after-screenshot) | "diff" (the changed
+            region only) — returned in the same 'image'/'width'/'height'/'scale'/'format' keys as screenshot.
 
     Returns:
         dict with ok, changed_ratio (fraction changed inside the region of interest), changed_pixels
         (raw count), changed_ratio_full (whole-screen — catches effects that land elsewhere),
-        action_result, region, and before_path/after_path when save_shots. A near-zero changed_ratio
-        with a near-zero changed_ratio_full strongly implies the action had no effect; a near-zero
-        region ratio but nonzero full ratio means something changed OUTSIDE the region of interest.
+        action_result, region, settled, waited_ms, and before_path/after_path when shots were saved.
+        A near-zero changed_ratio with a near-zero changed_ratio_full strongly implies the action had
+        no effect; a near-zero region ratio but nonzero full ratio means something changed OUTSIDE the
+        region of interest.
     """
     # Determine a region of interest. Explicit region wins; otherwise narrow to the action locus so a
     # small real change is distinguishable from ambient churn (and from "nothing happened").
@@ -181,9 +306,26 @@ def act_and_verify(action: dict, region: str | None = None, settle_ms: int = 500
 
     action_result = _do_action(action or {})
     if not action_result.get("ok", False):
-        return {"ok": False, "error": "action failed", "action_result": action_result}
+        out = {"ok": False, "error": "action failed", "action_result": action_result}
+        try:  # on failure keep the BEFORE frame as evidence (downscaled, pruned)
+            out.update(_save_shots(before_full, None, _shots_dir()))
+        except Exception as e:  # noqa: BLE001
+            out["shot_error"] = str(e)
+        return out
 
-    time.sleep(max(0, int(settle_ms)) / 1000.0)
+    # Poll the region of interest (small grab) instead of a fixed sleep; fall back to the plain wait
+    # when the ROI is off the primary grab (nothing to poll against).
+    waited_ms, settled = None, None
+    before_roi = _crop(before_full, region_tuple) if region_tuple else None
+    if region_tuple and before_roi is not None:
+        try:
+            _, waited_ms, _changed, settled = _wait_settled(lambda: _grab(region_tuple), before_roi, settle_ms)
+        except Exception:  # noqa: BLE001 — polling is best-effort; the final capture below decides
+            waited_ms, settled = None, None
+    if waited_ms is None:
+        pre = time.monotonic()
+        time.sleep(max(0, min(int(settle_ms), _MAX_SETTLE_MS)) / 1000.0)
+        waited_ms = int((time.monotonic() - pre) * 1000)
 
     try:
         after_full = _grab(None)
@@ -203,19 +345,23 @@ def act_and_verify(action: dict, region: str | None = None, settle_ms: int = 500
         ratio, px = ratio_full, px_full
 
     out = {"ok": True, "changed_ratio": ratio, "changed_pixels": px,
-           "changed_ratio_full": ratio_full, "action_result": action_result, "region": region_tuple}
+           "changed_ratio_full": ratio_full, "action_result": action_result, "region": region_tuple,
+           "waited_ms": waited_ms}
+    if settled is not None:
+        out["settled"] = settled
     if region_auto:
         out["region_auto"] = region_auto
-    if save_shots:
+    no_change = px == 0 and ratio_full == 0
+    if save_shots or no_change:
         try:
-            ts = time.strftime("%Y%m%d-%H%M%S")
-            d = _shots_dir()
-            bpath = os.path.join(d, f"before-{ts}.png")
-            apath = os.path.join(d, f"after-{ts}.png")
-            before_full.save(bpath, "PNG")
-            after_full.save(apath, "PNG")
-            out["before_path"] = bpath
-            out["after_path"] = apath
+            out.update(_save_shots(before_full, after_full, _shots_dir()))
+            if no_change and not save_shots:
+                out["shots_reason"] = "no_change"
         except Exception as e:  # noqa: BLE001
             out["shot_error"] = str(e)
+    if str(return_image or "").lower() in ("after", "diff"):
+        try:
+            out.update(_result_image(str(return_image).lower(), before_full, after_full))
+        except Exception as e:  # noqa: BLE001
+            out["image_error"] = str(e)
     return out

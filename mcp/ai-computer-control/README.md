@@ -105,7 +105,7 @@
 | 工具 | 说明 | 关键参数 |
 |------|------|----------|
 | `observe` | 一次调用返回预算后截图 + 焦点窗口 + UIA 元素(≤80) + OCR 词(≤200)；坐标为未缩放物理屏幕坐标 | `max_width=1280`, `window_title`, `include_uia`, `include_ocr`, `format`, `quality` |
-| `act_and_verify` | 前截图 → 执行 click/type/key → 等待稳定 → 后截图 → 区域像素 diff 比率 | `action{type,...}`, `region`, `settle_ms=500`, `save_shots` |
+| `act_and_verify` | 前截图 → 执行 click/type/key → 轮询区域直到变化并稳定（最多 2×`settle_ms`）→ 后截图 → 区域像素 diff 比率；默认只在内存 diff，`save_shots` 或「无变化」时才落盘缩小的 JPEG（保留最新 40 张） | `action{type,...}`, `region`, `settle_ms=500`, `save_shots=false`, `return_image=""\|after\|diff` |
 | `record_start` | 开始录制真实鼠标/键盘为可回放宏（需 pynput） | — |
 | `record_stop` | 停止录制，返回 macro_run 兼容步骤，可存 `<data>/macros/<name>.json` | `save_as` |
 | `macro_list` | 列出已存宏（无需 pynput，仅读目录） | — |
@@ -126,7 +126,7 @@
 | `window_screenshot` | 按标题模糊匹配截取指定窗口，优先 PrintWindow，失败回退裁剪 | `title_substring`, `output_path` |
 | `ocr_find_text` | OCR 屏幕/区域，跨相邻词定位文本，返回中心坐标；可点击（需 winsdk） | `text`, `region`, `click` |
 | `vision_click` | 多尺度模板匹配定位并可点击中心（需 cv2） | `template_path`, `threshold`, `click` |
-| `wait_for_pixel` | 轮询 (x,y) 像素直到匹配 color_hex 或超时 | `x`, `y`, `color_hex`, `timeout_ms`, `tolerance` |
+| `wait_for_pixel` | 轮询 (x,y) 像素直到匹配 color_hex 或超时（超时上限 120 s，超出会返回 `capped`） | `x`, `y`, `color_hex`, `timeout_ms`, `tolerance` |
 | `scroll_at` | 在 (x,y) 处滚轮滚动 amount | `x`, `y`, `amount` |
 
 > 说明：所有工具统一返回带 `ok` 布尔字段的字典；改动型工具（键鼠/文件/进程/剪贴板/命令/窗口/宏等）自动写入数据目录审计日志 `logs/audit-YYYYMMDD.ndjson`。可选依赖（uiautomation / winsdk / opencv / **playwright / pynput**）缺失时对应工具返回 `{ok:false, error:...}` 并附安装提示，不会导致服务崩溃。护栏可通过数据目录 `safety.json` **仅加严**（额外保护路径 / 禁止命令 / 禁杀进程名）。
