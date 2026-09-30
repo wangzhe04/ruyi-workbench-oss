@@ -168,7 +168,9 @@ test('[B] git_status / git_diff 不执行仓库自带的 clean 过滤器(含子�
     const st = await srv.toolCall('git_status', { cwd: repo });
     assert.equal(st.ok, true, JSON.stringify(st));
     assert.ok(/a\.txt/.test(st.status), 'status still reports the change');
-    assert.deepEqual(st.filtersNeutralized, ['evil']);
+    // toolCall 用的是本进程的真环境(不是上面 env 里隔离掉的全局配置):CI 机器全局配着 git-lfs,
+    // filter.lfs.* 也会被一并中和 —— 那是对的。这里只钉「仓库自带的 evil 在里面」,不钉清单全等。
+    assert.ok(Array.isArray(st.filtersNeutralized) && st.filtersNeutralized.includes('evil'), JSON.stringify(st.filtersNeutralized));
     assert.equal(fs.existsSync(marker), false, 'git_status must not execute the repo clean filter');
 
     touch(path.join(repo, 'a.txt'), 'lello\n', 15000);
