@@ -147,8 +147,8 @@ try {
   t.fail('fatal: ' + (e && e.stack || e));
 } finally {
   try { killOwnTree(wb.pid); } catch { /* already gone */ }
-  await fake.close();
+  await Promise.race([fake.close(), sleep(3000)]);   // 保活连接偶发拖住 close,不让收尾挂死
   try { fs.rmSync(HOME, { recursive: true, force: true }); } catch { /* best effort */ }
-  t.done();
+  t.done({ exit: true });
 }
 })();
