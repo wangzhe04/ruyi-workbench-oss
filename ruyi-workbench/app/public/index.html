@@ -1600,7 +1600,7 @@
             <div id="providersList" class="providers-list"></div>
             <div class="prov-add">
               <select id="providerPresetSelect"></select>
-              <button type="button" id="addProviderBtn" class="file-label" data-i18n="settings.providers.add">+ 添加 Provider</button>
+              <button type="button" id="addProviderBtn" class="btn btn-sm" data-i18n="settings.providers.add">+ 添加 Provider</button>
             </div>
             <div class="prov-savebar" id="providersSaveBar">
               <span id="providersDirtyNote" class="muted prov-dirty-note" role="status" aria-live="polite"></span>
@@ -1620,6 +1620,8 @@
           <div class="settings-tab" id="stab-claude">
             <p id="agentCliCurrentHint" class="muted prov-hint"></p>
             <p id="agentCliCapabilityHint" class="field-help muted"></p>
+            <section class="settings-section" id="settingsSecCliEngine" aria-labelledby="settingsSecCliEngineHeading">
+              <h4 id="settingsSecCliEngineHeading" class="settings-subhead" data-i18n="settings.agentCli.sectionEngine">命令行引擎</h4>
             <div class="field-block" data-agent-cli-path="claude">
               <label for="claudePathInput" data-i18n="settings.claudePath">Claude CLI 路径</label>
               <input id="claudePathInput" type="text" placeholder="claude.cmd 或内网 CLI 完整路径" data-i18n-attr="placeholder:settings.claudePathPlaceholder" />
@@ -1663,8 +1665,9 @@
                 <option value="interactive" data-i18n="settings.engineMode.interactive">interactive（可触发提问弹窗/权限）</option>
               </select>
             </div>
-            <hr class="settings-sep" data-agent-cli-only="claude" />
-            <h4 class="settings-subhead" data-agent-cli-only="claude" data-i18n="settings.anthropicEndpoint.title">第三方 Anthropic 兼容端点（Coding Plan）</h4>
+            </section>
+            <section class="settings-section" id="settingsSecCliEndpoint" data-agent-cli-only="claude" aria-labelledby="settingsSecCliEndpointHeading">
+              <h4 id="settingsSecCliEndpointHeading" class="settings-subhead" data-i18n="settings.anthropicEndpoint.title">第三方 Anthropic 兼容端点（Coding Plan）</h4>
             <p class="muted prov-hint" data-agent-cli-only="claude" data-i18n="settings.anthropicEndpoint.hint">在此配置的端点/密钥/模型会直接注入 Claude CLI 子进程的环境变量，驱动真实对话（不再只是模型清单探测），无需手动 setx。模型可在顶栏「模型」里热切。</p>
             <div class="field-row" data-agent-cli-only="claude">
               <label for="cfgClaudeEndpointPreset" data-i18n="settings.preset">预设</label>
@@ -1710,8 +1713,9 @@
               </div>
             </div>
             <p class="muted prov-hint" data-agent-cli-only="claude" data-i18n="settings.pricing.hint">若上方端点是第三方 Coding Plan，此处单价供成本估算参考（后端支持时生效）。当前第三方计划内用量默认只显 token 消耗；计划内（订阅）计费不等于按量扣费，切勿当作实际花费。</p>
-            <hr class="settings-sep" data-agent-cli-only="claude" />
-            <h4 class="settings-subhead" data-agent-cli-only="claude" data-i18n="settings.modelDiscovery">模型清单发现</h4>
+            </section>
+            <section class="settings-section" id="settingsSecCliModels" data-agent-cli-only="claude" aria-labelledby="settingsSecCliModelsHeading">
+              <h4 id="settingsSecCliModelsHeading" class="settings-subhead" data-i18n="settings.modelDiscovery">模型清单发现</h4>
             <div class="field-row" data-agent-cli-only="claude">
               <label class="check"><input type="checkbox" id="cfgDiscoverModels" /> <span data-i18n="settings.discoverModels">自动向上方端点拉取可用模型（GET /v1/models；失败自动回退到内置清单）</span></label>
             </div>
@@ -1719,6 +1723,7 @@
               <label for="cfgExtraModels" data-i18n="settings.extraModels">自定义模型（每行一个，可写 id 或 id|显示名）</label>
               <textarea id="cfgExtraModels" rows="2" placeholder="claude-opus-4-8|我的Opus&#10;my-internal-model" data-i18n-attr="placeholder:settings.extraModelsPlaceholder"></textarea>
             </div>
+            </section>
           </div>
 
           <!-- ===== Agent roles ===== -->
@@ -1740,27 +1745,30 @@
           <!-- ===== 联网搜索 (v1.0-S3 B1) ===== -->
           <div class="settings-tab" id="stab-network">
             <p class="muted prov-hint" data-i18n="settings.network.hint">配置后 AI 可以联网搜索；断网时自动读本地缓存。</p>
-            <div class="field-block">
-              <label for="cfgSearchType" data-i18n="settings.searchService">搜索服务</label>
-              <select id="cfgSearchType">
-                <option value="none" data-i18n="settings.search.none">不启用</option>
-                <option value="builtin" data-i18n="settings.search.builtin">内置免费搜索（开箱即用）</option>
-                <option value="searxng" data-i18n="settings.search.searxng">SearXNG（自建实例）</option>
-                <option value="bing" data-i18n="settings.search.bing">Bing 搜索 API</option>
-                <option value="brave" data-i18n="settings.search.brave">Brave 搜索 API</option>
-                <option value="tavily" data-i18n="settings.search.tavily">Tavily（AI 搜索 API）</option>
-                <option value="bocha" data-i18n="settings.search.bocha">博查 Bocha（中文搜索 API）</option>
-                <option value="custom" data-i18n="settings.search.custom">自定义（兼容 SearXNG JSON）</option>
-              </select>
-            </div>
-            <div class="field-block" id="cfgSearchBaseUrlRow">
-              <label for="cfgSearchBaseUrl" data-i18n="settings.searchBaseUrl">端点 Base URL</label>
-              <input id="cfgSearchBaseUrl" type="text" placeholder="例如 http://127.0.0.1:8888" data-i18n-attr="placeholder:settings.searchBaseUrlPlaceholder" />
-            </div>
-            <div class="field-block" id="cfgSearchApiKeyRow">
-              <label for="cfgSearchApiKey" data-i18n="settings.apiKey">API 密钥</label>
-              <input id="cfgSearchApiKey" type="password" autocomplete="off" placeholder="留空=不改动已保存的密钥" data-i18n-attr="placeholder:settings.apiKeyPlaceholder" />
-            </div>
+            <section class="settings-section" id="settingsSecSearch" aria-labelledby="settingsSecSearchHeading">
+              <h4 id="settingsSecSearchHeading" class="settings-subhead" data-i18n="settings.network.sectionSearch">搜索服务</h4>
+              <div class="field-block">
+                <label for="cfgSearchType" data-i18n="settings.searchService">搜索服务</label>
+                <select id="cfgSearchType">
+                  <option value="none" data-i18n="settings.search.none">不启用</option>
+                  <option value="builtin" data-i18n="settings.search.builtin">内置免费搜索（开箱即用）</option>
+                  <option value="searxng" data-i18n="settings.search.searxng">SearXNG（自建实例）</option>
+                  <option value="bing" data-i18n="settings.search.bing">Bing 搜索 API</option>
+                  <option value="brave" data-i18n="settings.search.brave">Brave 搜索 API</option>
+                  <option value="tavily" data-i18n="settings.search.tavily">Tavily（AI 搜索 API）</option>
+                  <option value="bocha" data-i18n="settings.search.bocha">博查 Bocha（中文搜索 API）</option>
+                  <option value="custom" data-i18n="settings.search.custom">自定义（兼容 SearXNG JSON）</option>
+                </select>
+              </div>
+              <div class="field-block" id="cfgSearchBaseUrlRow">
+                <label for="cfgSearchBaseUrl" data-i18n="settings.searchBaseUrl">端点 Base URL</label>
+                <input id="cfgSearchBaseUrl" type="text" placeholder="例如 http://127.0.0.1:8888" data-i18n-attr="placeholder:settings.searchBaseUrlPlaceholder" />
+              </div>
+              <div class="field-block" id="cfgSearchApiKeyRow">
+                <label for="cfgSearchApiKey" data-i18n="settings.apiKey">API 密钥</label>
+                <input id="cfgSearchApiKey" type="password" autocomplete="off" placeholder="留空=不改动已保存的密钥" data-i18n-attr="placeholder:settings.apiKeyPlaceholder" />
+              </div>
+            </section>
           </div>
 
           <!-- ===== 集成与 MCP ===== -->
@@ -1822,8 +1830,8 @@
               <h4 id="settingsSecMcpHeading" class="settings-subhead" data-i18n="settings.mcp.title">MCP 连接器运维</h4>
               <p class="muted prov-hint" data-i18n="settings.mcp.hint">查看全部连接器（内置桌面 / 用户导入 / drop-in 目录）的连接状态与失败原因，可重测、启停或移除，无需手改 JSON 配置。</p>
               <div class="adv-row">
-                <button type="button" id="mcpRefreshBtn" class="file-label btn-ic" data-icon="refresh" data-icon-size="14" data-i18n="settings.mcp.refreshAll">全部重测</button>
-                <button type="button" id="mcpImportBtn" class="file-label btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.mcp.import">从文件夹导入 MCP…</button>
+                <button type="button" id="mcpRefreshBtn" class="btn btn-sm btn-ic" data-icon="refresh" data-icon-size="14" data-i18n="settings.mcp.refreshAll">全部重测</button>
+                <button type="button" id="mcpImportBtn" class="btn btn-sm btn-ic" data-icon="folder" data-icon-size="14" data-i18n="settings.mcp.import">从文件夹导入 MCP…</button>
               </div>
               <p class="field-help muted" id="mcpListHint"> </p>
               <div class="mcp-conn-list" id="mcpConnList"></div>
@@ -1941,78 +1949,90 @@
           <!-- ===== 高级 ===== -->
           <!-- W6：只剩真高级项。子代理的端点／模型去了「模型分配」，回合／并发／工作流上限去了「用量与限额」。 -->
           <div class="settings-tab" id="stab-advanced">
-            <div class="field-block">
-              <label for="cfgToolLoadingMode" data-i18n="settings.advanced.toolLoadingMode">工具提示词装载</label>
-              <select id="cfgToolLoadingMode">
-                <option value="auto" data-i18n="settings.advanced.toolLoadingAuto">智能按需（推荐）</option>
-                <option value="full" data-i18n="settings.advanced.toolLoadingFull">全部常驻（兼容模式）</option>
-              </select>
-              <p class="field-help muted" data-i18n="settings.advanced.toolLoadingMode.hint">智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。</p>
-            </div>
-            <!-- 105f: 摘要单发上限三档(仅「单发优先」开关开启时生效;默认 32K)。 -->
-            <div class="field-block">
-              <label for="cfgSummarySingleShotMax" data-i18n="settings.advanced.summarySingleShotMax">摘要单发输入上限</label>
-              <select id="cfgSummarySingleShotMax">
-                <option value="16384" data-i18n="settings.advanced.summarySingleShot16">16K（保守）</option>
-                <option value="32768" data-i18n="settings.advanced.summarySingleShot32">32K（推荐）</option>
-                <option value="65536" data-i18n="settings.advanced.summarySingleShot64">64K（激进）</option>
-              </select>
-              <p class="field-help muted" data-i18n="settings.advanced.summarySingleShotMax.hint">估算不超过此上限的摘要走单次调用，超出自动分块。实测 32K 单发约需 40–51 秒（22-S0 基线），远程摘要超时 180 秒；64K 档贴近超时线，慢模型有作废风险。仅在「摘要单发优先」实验开关开启时生效。</p>
-            </div>
-            <div class="field-grid">
-              <div class="field-block"><label data-i18n="settings.advanced.version">版本</label><code id="advVersion" class="adv-val"></code></div>
-              <div class="field-block"><label>Overlay ID</label><code id="advOverlayId" class="adv-val"></code></div>
-            </div>
+            <section class="settings-section" id="settingsSecAdvTools" aria-labelledby="settingsSecAdvToolsHeading">
+              <h4 id="settingsSecAdvToolsHeading" class="settings-subhead" data-i18n="settings.advanced.sectionTools">工具与摘要</h4>
+              <div class="field-block">
+                <label for="cfgToolLoadingMode" data-i18n="settings.advanced.toolLoadingMode">工具提示词装载</label>
+                <select id="cfgToolLoadingMode">
+                  <option value="auto" data-i18n="settings.advanced.toolLoadingAuto">智能按需（推荐）</option>
+                  <option value="full" data-i18n="settings.advanced.toolLoadingFull">全部常驻（兼容模式）</option>
+                </select>
+                <p class="field-help muted" data-i18n="settings.advanced.toolLoadingMode.hint">智能按需会先判断任务，只装载相关工具；缺少能力时 AI 可继续搜索并装载。Claude CLI 与 OpenAI 兼容引擎都会生效。</p>
+              </div>
+              <!-- 105f: 摘要单发上限三档(仅「单发优先」开关开启时生效;默认 32K)。 -->
+              <div class="field-block">
+                <label for="cfgSummarySingleShotMax" data-i18n="settings.advanced.summarySingleShotMax">摘要单发输入上限</label>
+                <select id="cfgSummarySingleShotMax">
+                  <option value="16384" data-i18n="settings.advanced.summarySingleShot16">16K（保守）</option>
+                  <option value="32768" data-i18n="settings.advanced.summarySingleShot32">32K（推荐）</option>
+                  <option value="65536" data-i18n="settings.advanced.summarySingleShot64">64K（激进）</option>
+                </select>
+                <p class="field-help muted" data-i18n="settings.advanced.summarySingleShotMax.hint">估算不超过此上限的摘要走单次调用，超出自动分块。实测 32K 单发约需 40–51 秒（22-S0 基线），远程摘要超时 180 秒；64K 档贴近超时线，慢模型有作废风险。仅在「摘要单发优先」实验开关开启时生效。</p>
+              </div>
+            </section>
+            <section class="settings-section" id="settingsSecAdvVersion" aria-labelledby="settingsSecAdvVersionHeading">
+              <h4 id="settingsSecAdvVersionHeading" class="settings-subhead" data-i18n="settings.advanced.sectionVersion">版本</h4>
+              <div class="field-grid">
+                <div class="field-block"><label data-i18n="settings.advanced.version">版本</label><code id="advVersion" class="adv-val"></code></div>
+                <div class="field-block"><label>Overlay ID</label><code id="advOverlayId" class="adv-val"></code></div>
+              </div>
+            </section>
           </div>
 
           <!-- ===== 更新中心(第53波 EC-B)===== -->
           <div class="settings-tab" id="stab-update">
-            <div class="field-block">
-              <label data-i18n="settings.update.current">当前状态</label>
-              <div class="adv-row"><code id="ovCurrent" class="adv-val">—</code></div>
-              <p class="field-help muted" id="ovCurrentHint"> </p>
-            </div>
-            <div class="field-block">
-              <label data-i18n="settings.update.selectZip">选择增量更新包(zip)</label>
-              <div class="adv-row">
-                <button type="button" id="ovPickBtn" class="file-label" data-i18n="settings.update.browse">选择 zip…</button>
-                <code id="ovZipPath" class="adv-val" style="flex:1;overflow:hidden;text-overflow:ellipsis">—</code>
+            <section class="settings-section" id="settingsSecUpdateInstall" aria-labelledby="settingsSecUpdateInstallHeading">
+              <h4 id="settingsSecUpdateInstallHeading" class="settings-subhead" data-i18n="settings.update.sectionInstall">安装更新包</h4>
+              <div class="field-block">
+                <label data-i18n="settings.update.current">当前状态</label>
+                <div class="adv-row"><code id="ovCurrent" class="adv-val">—</code></div>
+                <p class="field-help muted" id="ovCurrentHint"> </p>
               </div>
-              <p class="field-help muted" data-i18n="settings.update.selectZip.hint">先预检(路径/完整性/版本兼容/幂等)再决定是否应用。CLI 救援:Manage-Overlay.cmd apply。</p>
-            </div>
-            <div class="field-block">
-              <div class="adv-row">
-                <button type="button" id="ovPrecheckBtn" class="file-label" data-i18n="settings.update.precheck">预检</button>
-                <button type="button" id="ovApplyBtn" class="primary" disabled data-i18n="settings.update.apply">应用更新</button>
-                <label class="muted" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="ovForceChk" /> <span data-i18n="settings.update.force">强制重装</span></label>
+              <div class="field-block">
+                <label data-i18n="settings.update.selectZip">选择增量更新包(zip)</label>
+                <div class="adv-row">
+                  <button type="button" id="ovPickBtn" class="btn btn-sm" data-i18n="settings.update.browse">选择 zip…</button>
+                  <code id="ovZipPath" class="adv-val" style="flex:1;overflow:hidden;text-overflow:ellipsis">—</code>
+                </div>
+                <p class="field-help muted" data-i18n="settings.update.selectZip.hint">先预检(路径/完整性/版本兼容/幂等)再决定是否应用。CLI 救援:Manage-Overlay.cmd apply。</p>
               </div>
-              <p class="field-help muted" id="ovPrecheckHint"> </p>
-            </div>
-            <div class="field-block" id="ovPreviewBox" style="display:none">
-              <label data-i18n="settings.update.preview">变更预览</label>
-              <div class="field-grid">
-                <div><span class="muted" data-i18n="settings.update.newFiles">新增</span> <code id="ovNew">0</code></div>
-                <div><span class="muted" data-i18n="settings.update.overwritten">覆盖</span> <code id="ovOverw">0</code></div>
-                <div><span class="muted" data-i18n="settings.update.unchanged">未变</span> <code id="ovUnch">0</code></div>
-                <div><span class="muted" data-i18n="settings.update.deleted">移除</span> <code id="ovDel">0</code></div>
+              <div class="field-block">
+                <div class="adv-row">
+                  <button type="button" id="ovPrecheckBtn" class="btn btn-sm" data-i18n="settings.update.precheck">预检</button>
+                  <button type="button" id="ovApplyBtn" class="primary" disabled data-i18n="settings.update.apply">应用更新</button>
+                  <label class="check muted ov-force"><input type="checkbox" id="ovForceChk" /> <span data-i18n="settings.update.force">强制重装</span></label>
+                </div>
+                <p class="field-help muted" id="ovPrecheckHint"> </p>
               </div>
-              <p class="field-help muted" id="ovCompat"> </p>
-              <div id="ovErrors" class="error-card-next" style="display:none"></div>
-            </div>
-            <div class="field-block" id="ovResultBox" style="display:none">
-              <div id="ovResult" class="adv-row"> </div>
-            </div>
-            <div class="field-block">
-              <div class="adv-row">
-                <button type="button" id="ovRollbackBtn" class="file-label" data-i18n="settings.update.rollback">回滚到上一版</button>
-                <button type="button" id="ovRefreshBtn" class="file-label" data-i18n="settings.update.refresh">刷新</button>
+              <div class="field-block" id="ovPreviewBox" style="display:none">
+                <label data-i18n="settings.update.preview">变更预览</label>
+                <div class="field-grid">
+                  <div><span class="muted" data-i18n="settings.update.newFiles">新增</span> <code id="ovNew">0</code></div>
+                  <div><span class="muted" data-i18n="settings.update.overwritten">覆盖</span> <code id="ovOverw">0</code></div>
+                  <div><span class="muted" data-i18n="settings.update.unchanged">未变</span> <code id="ovUnch">0</code></div>
+                  <div><span class="muted" data-i18n="settings.update.deleted">移除</span> <code id="ovDel">0</code></div>
+                </div>
+                <p class="field-help muted" id="ovCompat"> </p>
+                <div id="ovErrors" class="error-card-next" style="display:none"></div>
               </div>
-              <p class="field-help muted" id="ovRollbackHint"> </p>
-            </div>
-            <div class="field-block">
-              <label data-i18n="settings.update.audit">最近更新记录</label>
-              <div id="ovAudit" class="muted" style="max-height:180px;overflow:auto;font-size:12px"> </div>
-            </div>
+              <div class="field-block" id="ovResultBox" style="display:none">
+                <div id="ovResult" class="adv-row"> </div>
+              </div>
+            </section>
+            <section class="settings-section" id="settingsSecUpdateHistory" aria-labelledby="settingsSecUpdateHistoryHeading">
+              <h4 id="settingsSecUpdateHistoryHeading" class="settings-subhead" data-i18n="settings.update.sectionHistory">回滚与记录</h4>
+              <div class="field-block">
+                <div class="adv-row">
+                  <button type="button" id="ovRollbackBtn" class="btn btn-sm" data-i18n="settings.update.rollback">回滚到上一版</button>
+                  <button type="button" id="ovRefreshBtn" class="btn btn-sm" data-i18n="settings.update.refresh">刷新</button>
+                </div>
+                <p class="field-help muted" id="ovRollbackHint"> </p>
+              </div>
+              <div class="field-block">
+                <label data-i18n="settings.update.audit">最近更新记录</label>
+                <div id="ovAudit" class="muted" style="max-height:180px;overflow:auto;font-size:12px"> </div>
+              </div>
+            </section>
           </div>
         </div>
         </div><!-- /.settings-main（左导航 ＋ 右面板） -->

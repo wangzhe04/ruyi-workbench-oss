@@ -243,6 +243,218 @@
 /* 段内的小标题（例如「花费」里的「月度成本预算」）：比段标题低一级。 */
 #settingsModal .settings-minor-head { margin: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); }
 
+/* ══ 2026-10 设置补全（用户：「把所有能配置的都放进设置页，且要美观」）══════════════════════════
+   走查（四路审计 + 每页截图）记下的观感问题一次收口，仍守本层纪律：只加覆盖、全走 token。
+   ① 弹窗定高、实底：修前高度随内容撑（670～880px），切页签时上下边缘与「关闭」按钮跟着跳；
+      玻璃底在密排表单后面透出页面文字。
+   ② 每一段都是同一张卡：.settings-section（公用页）、.steward-settings-group（管家页）与基础页的
+      details.settings-fold 原是三种样子，现在同一个边框、圆角、底色与内边距。
+   ③ 设置目录（js/settings-catalog.js）的行：左边「这一项管什么 ＋ 一句说明」，右边控件；开关做成拨钮。
+   ④ 基础页「工作区权限」横向溢出（.workspace-perm-list 的隐式 auto 列取 min-content，行被撑到 935px，
+      读／写／执行与删除被推出可视区）。
+   ⑤ 按钮一种口径：设置里的 .file-label（6px 方角、16px 字）收成与 .btn 同一枚胶囊。
+   ⑥ 段内锚点条吸顶：长页滚下去仍能跳段。 */
+#settingsModal .modal {
+  height: min(880px, 88vh);
+  background: var(--panel);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+#settingsModal .settings-tab > .prov-hint:first-child,
+#settingsModal .settings-tab > .settings-jumplist + .prov-hint {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+#settingsModal .settings-section,
+#settingsModal .steward-settings-group {
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+}
+#settingsModal .settings-section:last-child { border-bottom: 1px solid var(--line); }
+#settingsModal .settings-section .settings-subhead,
+#settingsModal .steward-settings-group .settings-subhead {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+#settingsModal .settings-section > .prov-hint,
+#settingsModal .steward-settings-group > .prov-hint { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
+#settingsModal .settings-fold { padding: var(--sp-3) var(--sp-4); }
+#settingsModal .settings-fold > summary { font-size: var(--fs-md); color: var(--ink); }
+#settingsModal .settings-section .field-block:last-child,
+#settingsModal .steward-settings-group .field-block:last-child,
+#settingsModal .settings-fold .field-block:last-child { margin-bottom: 0; }
+#settingsModal .field-grid { grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--sp-3) var(--sp-4); align-items: start; }
+#settingsModal .settings-section > hr.settings-sep,
+#settingsModal .steward-settings-group > hr.settings-sep { display: none; }
+#settingsModal input[type="checkbox"] { accent-color: var(--accent); }
+
+/* 运行时画进来的三块（迁移中心、语音识别、扩展组件）也穿同一张卡。 */
+#settingsModal .migration-center,
+#settingsModal .asr-settings,
+#settingsModal .toolbox-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+}
+#settingsModal .migration-center h4 { margin: 0; font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+#settingsModal .migration-center .migration-subhead { margin: var(--sp-3) 0 0; padding-top: var(--sp-3); border-top: 1px solid var(--line); font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+#settingsModal .migration-center .migration-group-title { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); }
+#settingsModal .migration-center .field-help,
+#settingsModal .migration-center p { margin: 0; }
+#settingsModal .asr-settings .field-block:last-child,
+#settingsModal .toolbox-settings .field-block:last-child { margin-bottom: 0; }
+/* 不能按的主按钮别再是淡蓝紫（浅色下看着像能点）。 */
+#settingsModal button.primary:disabled {
+  background: var(--panel-3);
+  border-color: var(--line);
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* ③ 设置目录的段与行 */
+#settingsModal .setcat-section .settings-fold.setcat-fold {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+#settingsModal .setcat-section .setcat-fold > summary { margin: 0; }
+#settingsModal .setcat-section .setcat-fold > summary .settings-subhead { margin: 0; }
+#settingsModal .setcat-section .setcat-fold[open] > summary { margin-bottom: var(--sp-2); }
+#settingsModal .setcat-list { display: flex; flex-direction: column; }
+#settingsModal .setcat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+#settingsModal .setcat-list > .setcat-row:first-child { border-top: none; padding-top: var(--sp-1); }
+#settingsModal .setcat-row-wide { grid-template-columns: minmax(0, 1fr); }
+#settingsModal .setcat-text { min-width: 0; }
+#settingsModal .setcat-label {
+  display: block;
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+}
+#settingsModal .setcat-hint { margin: 2px 0 0; font-size: var(--fs-xs); line-height: 1.5; color: var(--muted); }
+#settingsModal .setcat-control { display: flex; justify-content: flex-end; min-width: 0; }
+#settingsModal .setcat-row-wide .setcat-control { justify-content: stretch; }
+#settingsModal .setcat-row-wide .setcat-control > * { width: 100%; }
+#settingsModal .setcat-control select { min-width: 11rem; }
+#settingsModal .setcat-number { display: inline-flex; align-items: center; gap: var(--sp-2); }
+#settingsModal .setcat-number input { width: 7.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+#settingsModal .setcat-unit { min-width: 2.5em; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+#settingsModal .setcat-row.is-off .setcat-text,
+#settingsModal .setcat-row.is-off .setcat-control { opacity: .55; }
+/* 拨钮：原生 checkbox 换皮（键盘、读屏、change 事件一切照旧）。 */
+#settingsModal input.setcat-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--muted) 30%, var(--panel));
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+#settingsModal input.setcat-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: var(--elev-1);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+#settingsModal input.setcat-switch:checked { background: var(--accent); border-color: var(--accent); }
+#settingsModal input.setcat-switch:checked::after { transform: translateX(16px); background: var(--accent-ink); }
+#settingsModal input.setcat-switch:focus-visible { outline: none; box-shadow: var(--ring); }
+#settingsModal input.setcat-switch:disabled { cursor: not-allowed; }
+/* 「总是允许」清单与外部工具权限档 */
+#settingsModal .setcat-empty { margin: 0; padding: var(--sp-1) 0; font-size: var(--fs-sm); color: var(--muted); }
+#settingsModal .setcat-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+#settingsModal .setcat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px 4px 2px var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  font-size: var(--fs-sm);
+}
+#settingsModal .setcat-chip code,
+#settingsModal .setcat-tier-tool { font-size: var(--fs-xs); color: var(--ink-2); overflow-wrap: anywhere; }
+#settingsModal .setcat-chip-btn { min-height: 0; padding: 2px var(--sp-2); font-size: var(--fs-xs); border-radius: var(--r-pill); }
+#settingsModal .setcat-tier-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+#settingsModal .setcat-tier-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+#settingsModal .setcat-tier-list > .setcat-tier-row:first-child { border-top: none; }
+#settingsModal .setcat-tier-add { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--sp-2); margin-top: var(--sp-2); }
+#settingsModal .setcat-tier { width: auto; min-width: 6.5rem; }
+#settingsModal .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+#settingsModal .setcat-inline-select { width: auto; min-width: 8rem; }
+
+/* ④ 工作区权限：一列铺满，行内不再撑出横向滚动。 */
+#settingsModal .workspace-perm-list { grid-template-columns: minmax(0, 1fr); }
+#settingsModal .ws-perm-row { min-width: 0; flex-wrap: wrap; }
+#settingsModal .ws-perm-path { flex: 1 1 12rem; }
+
+/* ⑤ 按钮一种口径 */
+#settingsModal .file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border-radius: var(--r-pill);
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+#settingsModal .adv-row { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+#settingsModal .adv-row > .adv-val { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#settingsModal .adv-row > button { flex: none; }
+#settingsModal .check { white-space: normal; }
+#settingsModal .ov-force { white-space: nowrap; font-size: var(--fs-sm); }
+#settingsModal .adv-row { flex-wrap: wrap; }
+#settingsModal .check > input { flex: none; }
+
+/* ⑥ 段内锚点条吸顶 */
+#settingsModal .settings-jumplist {
+  position: sticky;
+  top: calc(var(--sp-3) * -1);
+  z-index: 2;
+  background: var(--panel);
+  box-shadow: 0 6px 10px -10px rgba(0, 0, 0, .35);
+}
+
 /* ── W6「模型分配」：一行 ＝ 左边这一行管什么 ＋ 右边「服务商 → 模型」两枚下拉（每行同一个组件）。
    ≤640px 两栏收成一栏，下拉整行宽。 ── */
 #settingsModal .model-assign-list { display: flex; flex-direction: column; }

@@ -318,7 +318,8 @@ function renderValueControl(doc, field, t) {
       input.step = String(field.step || (field.scale && field.scale < 1 ? 1 : 1));
       input.inputMode = 'numeric';
       wrap.appendChild(input);
-      if (field.unitKey) wrap.appendChild(make(doc, 'span', 'setcat-unit', t(field.unitKey)));
+      // 单位格恒在（没有单位也占位），一段里的数字框右缘才对得齐。
+      wrap.appendChild(make(doc, 'span', 'setcat-unit', field.unitKey ? t(field.unitKey) : ''));
       return wrap;
     }
     case 'select': {

@@ -3614,4 +3614,10 @@
   ,"settings.catalog.runtimeToolTimeBudgetShadowV1.hint": "只记下命令耗时，不提醒也不结束。"
   ,"settings.catalog.toolByteBudgetShadowBytesV1": "大输出计数阈值"
   ,"settings.catalog.toolByteBudgetShadowBytesV1.hint": "0 = 不计数。"
+  ,"settings.network.sectionSearch": "搜索服务"
+  ,"settings.advanced.sectionTools": "工具与摘要"
+  ,"settings.advanced.sectionVersion": "版本"
+  ,"settings.update.sectionInstall": "安装更新包"
+  ,"settings.update.sectionHistory": "回滚与记录"
+  ,"settings.agentCli.sectionEngine": "命令行引擎"
 }

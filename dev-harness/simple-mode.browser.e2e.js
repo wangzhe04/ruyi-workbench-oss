@@ -8,10 +8,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   S1 出厂默认真的落成简易:<html data-ui-mode="simple">、根字号 15px(简易档 +1px);
 //   S2 两个视角都画得出来:宽窄两档视口都没有横向滚动,当前视角的输入框看得见;
 //   S3 工作台右栏:「用量」「记录」两枚页签藏起来,其余五枚看得见;原始输出槽 #toolOutput 不显示;
-//   S4 设置弹窗:看得见的页签恰好是白名单九枚(基础／权限与安全／用量与限额／管家／模型分配／服务商／联网搜索／
-//      体检／更新中心),其余四枚藏起来、五组都没有空组头;九枚逐枚点过去,面板真的切过去、不是空的;
-//      (W6 设置重组翻面重钉:修前是六枚 + 「集成」整组藏起来 ——「MCP 运维」并进「集成与 MCP」,「联网搜索」挪进
-//      「工具与集成」组,那一组在简易档有可见页签,于是「整组藏起来」换成「没有任何一组是空组头」这条更一般的判据。)
+//   S4 设置弹窗:2026-10 设置补全之后【所有】页签在简易档都看得见(修前只留九枚,迁移中心／MCP／扩展组件对出厂默认的
+//      简易档用户全部不可达);五组都没有空组头;逐枚点过去,面板真的切过去、不是空的;点「高级」就落在「高级」。
 //   S5 一个真回合(在简易档的输入框里打字、按 Enter 发送,假 provider 要一次 file_read):工具卡显示人话动词、
 //      藏起原始工具名,「详情」折叠头看得见;对照组:切到专家档,同一张卡反过来 —— 证明判据分得清两档;
 //   S6 齿轮菜单里的「界面」切换真的落盘(服务端配置 uiMode 跟着变),再切回来也落盘;
@@ -34,8 +32,8 @@ const WIDE_W = 1440;
 const WIDE_H = 900;
 const NARROW_W = 640;
 const NARROW_H = 800;
-const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'providers', 'network', 'doctor', 'update'];
-const PRO_ONLY_TABS = ['claude', 'agents', 'integrations', 'advanced'];
+// 2026-10 设置补全：设置弹窗不再按界面模式藏页签 —— 简易档看得见的就是全部页签（修前只有九枚，迁移中心、MCP、扩展组件都够不着）。
+const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'providers', 'voice', 'claude', 'agents', 'network', 'integrations', 'toolbox', 'skills', 'migration', 'doctor', 'storage', 'advanced', 'update'];
 
 (async () => {
   let fx = null;
@@ -119,9 +117,8 @@ const PRO_ONLY_TABS = ['claude', 'agents', 'integrations', 'advanced'];
     }))()`);
     const visibleStabs = stabs.buttons.filter(b => b.shown).map(b => b.stab).sort();
     ok(JSON.stringify(visibleStabs) === JSON.stringify([...SIMPLE_TABS].sort()),
-      `S4 看得见的设置页签恰好是白名单九枚(实见 ${JSON.stringify(visibleStabs)})`);
-    ok(PRO_ONLY_TABS.every(s => stabs.buttons.some(b => b.stab === s && !b.shown)),
-      `S4b 专家页签四枚都在 DOM 里、都藏着(${PRO_ONLY_TABS.join('/')})`);
+      `S4 简易档看得见全部设置页签(实见 ${JSON.stringify(visibleStabs)})`);
+    ok(stabs.buttons.every(b => b.shown), `S4b 没有一枚页签被藏(实藏 ${JSON.stringify(stabs.buttons.filter(b => !b.shown).map(b => b.stab))})`);
     ok(stabs.emptyGroups.length === 0, `S4c 没有空组头:每一组在简易档至少有一枚看得见的页签(实见空组 ${JSON.stringify(stabs.emptyGroups)})`);
     const switched = [];
     for (const stab of SIMPLE_TABS) {
@@ -134,11 +131,11 @@ const PRO_ONLY_TABS = ['claude', 'agents', 'integrations', 'advanced'];
       switched.push(`${stab}:${panel ? panel.text : 'x'}`);
       ok(Boolean(panel) && panel.text > 20, `S4d 点「${stab}」面板真的切过去且不是空的(${panel ? panel.text + ' 字' : '没切过去'})`);
     }
-    // 专家页签在简易档被 JS 兜底拦回「基础」(死键的反面:藏起来的确实点不到,就算被程序化调用也落回基础)。
+    // 修前简易档点「高级」会被 JS 兜底拦回「基础」;现在不拦 —— 点哪枚就是哪枚。
     await ev(`(() => { document.querySelector('#settingsTabs button[data-stab="advanced"]').click(); return true; })()`);
     await sleep(150);
-    const fallback = await ev(`(document.querySelector('.settings-tab.active') || {}).id || ''`);
-    ok(fallback === 'stab-basic', `S4e 程序化点一枚藏着的专家页签,落回「基础」(实 ${fallback})`);
+    const landed = await ev(`(document.querySelector('.settings-tab.active') || {}).id || ''`);
+    ok(landed === 'stab-advanced', `S4e 简易档点「高级」就落在「高级」(实 ${landed})`);
     await fx.escape();
     ok(Boolean(await fx.waitForEval(`(() => document.getElementById('settingsModal').classList.contains('hidden') ? 1 : null)()`, 100)),
       'S4f Esc 关掉设置弹窗');

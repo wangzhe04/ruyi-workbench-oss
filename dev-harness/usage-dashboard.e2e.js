@@ -144,8 +144,8 @@ const panelOf = id => {
 const stabLimits = panelOf('stab-limits');
 ok(/id="cfgUsageBudgetMonthly"/.test(stabLimits) && /id="cfgUsageBudgetCurrency"/.test(stabLimits)
   && !/id="cfgUsageBudgetMonthly"/.test(panelOf('stab-basic'))
-  && /SETTINGS_SIMPLE_TABS = new Set\(\[[^\]]*'limits'/.test(src),
-  '⑩ 月度预算配置在「用量与限额」tab（简易可见）');
+  && !/SETTINGS_SIMPLE_TABS/.test(src),
+  '⑩ 月度预算配置在「用量与限额」tab（所有界面模式可见）');
 const stabClaude = panelOf('stab-claude');
 ok(/id="cfgClaudePriceIn"/.test(stabClaude) && /id="cfgClaudePriceOut"/.test(stabClaude), '⑩ Claude 第三方端点单价在「Claude CLI」tab');
 ok(/usageBudget:/.test(src) && /claudePricing:/.test(src), '⑩ 设置页（W6 起逐项即存）提交 usageBudget / claudePricing');

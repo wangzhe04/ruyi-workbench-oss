@@ -3614,4 +3614,10 @@
   ,"settings.catalog.runtimeToolTimeBudgetShadowV1.hint": "Only records command durations; never warns or stops."
   ,"settings.catalog.toolByteBudgetShadowBytesV1": "Large-output counting threshold"
   ,"settings.catalog.toolByteBudgetShadowBytesV1.hint": "0 = don't count."
+  ,"settings.network.sectionSearch": "Search service"
+  ,"settings.advanced.sectionTools": "Tools & summaries"
+  ,"settings.advanced.sectionVersion": "Version"
+  ,"settings.update.sectionInstall": "Install an update"
+  ,"settings.update.sectionHistory": "Rollback & history"
+  ,"settings.agentCli.sectionEngine": "CLI engine"
 }

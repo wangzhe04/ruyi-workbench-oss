@@ -485,20 +485,13 @@ const ok = (condition, label) => {
     const nav = read('js/navigation-controls.js');
     const uiModeCss = read('css/themes/ui-modes.css');
 
-    // H1 简易模式下的「死键」：JS 白名单与 CSS 隐藏清单必须【互补】。
-    // 出厂默认 uiMode='simple'，而管家总开关只住在管家页 —— 白名单漏了 steward 就等于
-    // 「第一次把管家打开」无路可走（按钮看得见、点了静默落回基础）。
+    // H1 简易模式下的「死键」（117k）：修前靠 JS 白名单与 CSS 隐藏清单互补来防。2026-10 设置补全之后设置页不再按界面模式
+    // 藏页签，两张表都退役 —— 死键这一族从根上没了；这里改钉「两张表都不在了」，防有人只回退一半又造出死键。
     const stabs = [...html.matchAll(/data-stab="([a-z]+)"/g)].map(m => m[1]);
-    const allowed = new Set([...(/SETTINGS_SIMPLE_TABS = new Set\(\[([^\]]*)\]\)/.exec(nav) || [, ''])[1]
-      .matchAll(/'([a-z]+)'/g)].map(m => m[1]));
-    const hidden = new Set([...uiModeCss.matchAll(/:root\[data-ui-mode="simple"\] #settingsTabs button\[data-stab="([a-z]+)"\]/g)].map(m => m[1]));
-    const dead = stabs.filter(stab => !allowed.has(stab) && !hidden.has(stab));
-    const ghost = stabs.filter(stab => allowed.has(stab) && hidden.has(stab));
-    ok(stabs.length > 0 && dead.length === 0,
-      'H1 简易模式没有死键：每个设置页签要么在 JS 白名单里、要么被 CSS 藏起来' + (dead.length ? '（死键：' + dead.join('、') + '）' : ''));
-    ok(ghost.length === 0,
-      'H1b 也没有反过来的：被 CSS 藏掉的页签不该还留在白名单里' + (ghost.length ? '（' + ghost.join('、') + '）' : ''));
-    ok(allowed.has('steward'), 'H1c 管家页签在简易模式可达（管家总开关是它唯一的入口）');
+    const hidden = [...uiModeCss.matchAll(/:root\[data-ui-mode="simple"\] #settingsTabs button\[data-stab="([a-z]+)"\]/g)].map(m => m[1]);
+    ok(stabs.length > 0 && hidden.length === 0 && !/SETTINGS_SIMPLE_TABS/.test(nav),
+      'H1 简易模式没有死键：设置页签既没有 CSS 隐藏清单、也没有 JS 白名单' + (hidden.length ? '（仍被藏：' + hidden.join('、') + '）' : ''));
+    ok(stabs.includes('steward') && !hidden.includes('steward'), 'H1c 管家页签在简易模式可达（管家总开关是它唯一的入口）');
 
     // H2 恢复位那句话只写不清 → 进得去就擦掉。
     ok(/const clearStatusText = \(\) => \{/.test(shell) && /clearStatusText\(\);/.test(shell)

@@ -865,7 +865,7 @@ const SETTINGS_JUMP_PANELS = Object.freeze({
   'stab-security': SETTINGS_SECTION_SELECTOR,
   'stab-limits': SETTINGS_SECTION_SELECTOR,
   'stab-steward': SETTINGS_SECTION_SELECTOR,
-  'stab-claude': 'h4.settings-subhead:not(.setcat-section h4), section.setcat-section',
+  'stab-claude': SETTINGS_SECTION_SELECTOR,
   'stab-network': SETTINGS_SECTION_SELECTOR,
   'stab-integrations': SETTINGS_SECTION_SELECTOR,
   'stab-storage': SETTINGS_SECTION_SELECTOR,

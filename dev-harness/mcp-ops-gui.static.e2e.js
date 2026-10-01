@@ -55,9 +55,9 @@ ok(/mcpRefreshBtn.{0,140}onclick = \(\) => refreshMcpOps\(true\)/.test(operation
 ok(/mcpImportBtn[\s\S]{0,240}importMcpFromFolder/.test(operations), 'M8 导入按钮复用 importMcpFromFolder');
 ok(operations.includes("'/api/mcp/connectors'") && operations.includes("'/api/mcp/connectors/health'") && operations.includes("'/api/mcp/connectors/toggle'"), 'M9 operations 模块调 list/health/toggle 三条 API');
 ok(/api\('\/api\/mcp\/connectors', \{[\s\S]{0,100}method: 'POST',[\s\S]{0,100}headers: \{ 'x-http-method': 'DELETE' \}/.test(operations), 'M10 移除走 POST + x-http-method:DELETE');
-// 简易模式:mcp 不在 JS 白名单,CSS 隐藏页签按钮(开发者向功能不进人人可用界面)。
-ok(!/SETTINGS_SIMPLE_TABS = new Set\(\[[^\]]*'mcp'/.test(appjs), 'M11 简易模式白名单不含 mcp(JS 兜底)');
-ok(css.includes(':root[data-ui-mode="simple"] #settingsTabs button[data-stab="integrations"]'), 'M12 简易模式 CSS 隐藏「集成与 MCP」页签（连接器运维随它一起收起）');
+// 2026-10 设置补全:「集成与 MCP」对所有界面模式可见(修前简易模式整页藏掉,出厂默认的用户找不到 MCP 与迁移中心)。
+ok(!/SETTINGS_SIMPLE_TABS/.test(appjs), 'M11 不再有简易模式设置页签白名单');
+ok(!css.includes(':root[data-ui-mode="simple"] #settingsTabs button[data-stab="integrations"]'), 'M12 简易模式不藏「集成与 MCP」页签');
 // 渲染纪律:连接器字段走 textContent(el 辅助),新块不用 innerHTML 拼接(配置串注入面)。
 const block = operations.slice(operations.indexOf('MCP 运维页签'));
 ok(block.length > 500 && !/\.innerHTML\s*=/.test(block), 'M13 55c 块零 innerHTML 赋值(textContent 渲染)');
