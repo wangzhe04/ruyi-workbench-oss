@@ -513,6 +513,12 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       let session = null;
       if (task.target.mode === 'existing-session' && task.target.sessionId) {
         session = await loadSession(task.target.sessionId).catch(() => null);
+        // 第二轮工具走查(F15):指名的既有线程不存在(被删了 / 一开始就填错),或者就是管家自己的会话时,修前会落到下面
+        // 「没有会话就新开一条」的分支 —— 悄悄开新线程、照样记 succeeded,用户以为它一直在原线程里接着做。
+        // 目标是用户明确指的那一条,找不到就是这一次失败(进 failed / 连败计数,三次熔断停用,用户能看见),不替他改目标。
+        if (!session || session.kind === 'steward' || session.id === STEWARD_SESSION_ID) {
+          throw new Error(`target_session_not_found: ${String(task.target.sessionId).slice(0, 64)}`);
+        }
       }
       if (!session) {
         // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。

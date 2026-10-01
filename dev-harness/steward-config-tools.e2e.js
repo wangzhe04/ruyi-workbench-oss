@@ -179,8 +179,11 @@ try {
     const g = await call('steward_config_get', { keys: ['externalMcpServers'] });
     const srvView = g && g.values && Array.isArray(g.values.externalMcpServers) ? g.values.externalMcpServers.find(s => s.id === 'stew-mcp') : null;
     ok(g && g.ok === true && g.tiers.externalMcpServers === 'confirm', 'I1 externalMcpServers 是 confirm 档、get 能读到');
-    ok(srvView && srvView.env && srvView.env.GITHUB_TOKEN === '••••' + MCP_GH.slice(-4) && srvView.args[3] === '«redacted»',
-      `I2 get 回的 env 值是掩码、args 显示脱敏(got env=${srvView && JSON.stringify(String(srvView.env && srvView.env.GITHUB_TOKEN).slice(0, 6))})`);
+    // 2026-10 工具走查第二轮(F11)有意改变的行为:管家这条面的 env 掩码不再露末 4 位(只留「••••」前缀)——
+    // 与 steward_providers 只给 hasKey 布尔同一个理由:掩码串会暴露长度与前缀形状,管家不需要「认是不是我填的那把」。
+    // 设置页(maskProviders 的其它出口)仍是 ••••<末4位>,那一头没动。
+    ok(srvView && srvView.env && srvView.env.GITHUB_TOKEN === '••••' && srvView.args[3] === '«redacted»',
+      `I2 get 回的 env 值是全遮的掩码(不露末 4 位)、args 显示脱敏(got env=${srvView && JSON.stringify(String(srvView.env && srvView.env.GITHUB_TOKEN).slice(0, 6))})`);
     ok(plain(JSON.stringify(g)), 'I3 get 返回体里零明文');
     const s = await call('steward_config_set', { patch: { externalMcpServers: g.values.externalMcpServers } }, ctxPressed);
     ok(s && s.ok === true, `I4 把掩码原样 set 回去(用户按了)-> ok(got ${s && (s.error || 'ok')};非 invalid_request 说明 sanitize 探针先还原再比)`);

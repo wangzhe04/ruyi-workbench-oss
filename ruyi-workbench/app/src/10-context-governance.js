@@ -3278,17 +3278,21 @@ async function runSessionTurn(input) {
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
-    // 回合成败账(会话头 stewardLastTurn):管家盯着的线程,回合不管是谁发起的都要落这一笔。修前只有管家/调度器
+    // 回合成败账(会话头 stewardLastTurn):【每条】线程的回合,不管是谁发起的都要落这一笔。修前只有管家/调度器
     // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
     // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
     // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
     // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    // 第二轮工具走查(F5):这里原先还要求 stewardWatchedThread(只给「被盯」的线程落账),于是没标 stewardWatch 的
+    // 普通线程失败了也没有账,steward_thread_status / threads_search / missions 一律读成「已收工 done」,而它最后
+    // 一句其实是错误信息。账本只是事实记录,【不】等于「管家要为它动手」—— 后者仍由收件箱第四源自己的
+    // stewardWatchedThread 判据把关(13i stewardCollectSessionTurn 末尾 `!watched` 直接 return null),所以对
+    // 未被盯的线程多写这一笔账不会多出任何收件箱事件。
     const outcomeId = session.id;
     let outcomePatch = null;
     try {
       if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
-          && !(lastResult && lastResult.superseded)
-          && stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) {
+          && !(lastResult && lastResult.superseded)) {
         if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
         else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
       }

@@ -614,6 +614,12 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   if (!state.nextFireAt && !String(raw.id || '') && kind === 'once') {
     return schedulerFail('invalid_request', 'schedule.date/at is already in the past');
   }
+  // 第二轮工具走查(F15):【新建】的 cron 扫满五年也没有下一个时点(`0 0 31 2 *`:2 月没有 31 号)—— 修前照单全收,
+  // 落一条 nextFireAt:'' 的任务,界面上它「开着」、工具回 ok,实际永远不会触发(而且看不出来)。once 过期那一支
+  // 早就拒了,这里补上同一类的 cron。同样只拒新建(带 id 的是装载 / PATCH 老任务,不能因为这条把用户存量任务连带删掉)。
+  if (!state.nextFireAt && !String(raw.id || '') && kind === 'cron') {
+    return schedulerFail('invalid_request', 'schedule.expr never fires (no matching day within the next 5 years, e.g. "0 0 31 2 *": February has no 31st); fix the expression');
+  }
 
   const idRaw = String(raw.id || '');
   const task = {

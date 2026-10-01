@@ -465,8 +465,17 @@ try {
   /* ═════════ (I) 记忆最小版 ═════════ */
   console.log('── (I) 管家记忆 ──');
   {
+    // 2026-10 工具走查第二轮(F17)有意改变的行为:管家发起的那条用户消息(thread_new 委托书 / thread_continue 递话)现在落盘带
+    // meta.origin:'steward',steward_memory_write 的来源校验【拒】它 —— 那是管家转述的话,不是用户本人说的(见 tool-audit-r2-steward R17)。
+    // 这一组要的是「合法来源 = 用户本人的话」,所以往线程里补一条用户本人的消息(与 F1c 同一手法:装载 → 追加 → 落盘),
+    // 下面所有 sourceRef 都指它;I1(来源回合里没有用户消息)不受影响。
+    {
+      const withUser = await srv.loadSession(threadId);
+      withUser.messages.push({ role: 'user', content: '我习惯用深色主题,报告都写成中文', turnSeq: Math.max(1, Number(withUser.turnSeq) || 1) + 1, createdAt: new Date().toISOString() });
+      await srv.saveSession(withUser);
+    }
     const rows = fs.readFileSync(path.join(HOME, 'sessions', threadId + '.messages.ndjson'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
-    const userMsg = rows.find(m => m && m.role === 'user' && Number.isFinite(Number(m.turnSeq)));
+    const userMsg = rows.find(m => m && m.role === 'user' && Number.isFinite(Number(m.turnSeq)) && !(m.meta && m.meta.origin === 'steward'));
     const asstMsg = rows.find(m => m && m.role === 'assistant' && Number.isFinite(Number(m.turnSeq)));
     ok(!!userMsg, 'I0 找到一条带 turnSeq 的用户消息作为合法来源');
 

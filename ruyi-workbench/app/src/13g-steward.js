@@ -188,6 +188,37 @@ function stewardWithTurnTrigger(ctx) {
   return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
 }
 
+// 第二轮工具走查(F8):管家工具族整体被 12 的 validateNativeToolArgs 豁免(「自带逐字段校验与专属错误码」),
+// 实际上各 impl 只校验了自己关心的那几个字段,于是类型不对的参数被悄悄吞成「看似成功」:
+// thread_rename {title:{a:1}} 把标题改成 "[object Object]"、thread_new {tier:'ultra'} 静默按 strong、
+// usage {day:'yesterday'} 回全期累计……豁免的理由(专属错误码逐字钉着)只对【必填缺失】那一类成立,
+// 所以这里只补【类型 / 枚举】这一类,而且:
+//   · 只查 schema 里【声明过】的属性、只查【出现了】的值(缺失一律放给各 impl 自己报 invalid_request / not_found,
+//     它们的先后次序与措辞有 e2e 钉着);
+//   · 不做 12 那套宽进的就地规范化(枚举大小写、0/1 当布尔……一概不做);唯一例外是 STEWARD_STRING_AS_ARRAY 登记的参数(字符串换成数组);
+//     数字/布尔当字符串、数字串当整数这类 12 一贯放行的宽松照旧放行;
+//   · 运行器注入的 basis / stewardBasis / userPressed 等不在 schema 里,不会被查到(additionalProperties 不检);
+//   · 返回码仍是管家族自己的 invalid_request。
+const STEWARD_STRING_AS_ARRAY = Object.freeze({ steward_config_get: ['keys'], steward_audit_tail: ['kinds'] });
+function stewardArgTypeProblems(toolName, args) {
+  const schema = typeof nativeToolSchema === 'function' ? nativeToolSchema(toolName) : null;
+  const props = schema && schema.properties;
+  if (!props || typeof props !== 'object') return [];
+  const problems = [];
+  for (const key of Object.keys(props)) {
+    if (args[key] === undefined || args[key] === null) continue;
+    // 「一个值写成字符串」的宽进只对登记过的参数开(目前是 config_get 的 keys(模型常写 keys:'activeProvider')与 audit_tail 的 kinds):
+    // 就地换成数组 —— args 是门控壳自己的副本,不碰调用方的对象。其它数组参数(如 skill_toggle 的 skills:'skill-1')
+    // 仍按「必须是数组」报,steward-content-tools B9 钉着。
+    const sub = props[key];
+    if ((STEWARD_STRING_AS_ARRAY[toolName] || []).includes(key) && sub && sub.type === 'array' && typeof args[key] === 'string') {
+      args[key] = args[key].split(',').map(x => x.trim()).filter(Boolean);
+    }
+    for (const p of jsonSchemaValueProblems(props[key], args[key], key)) { problems.push(p); if (problems.length >= 3) return problems; }
+  }
+  return problems;
+}
+
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
@@ -206,6 +237,8 @@ function stewardToolHandler(toolName, impl) {
       const raw = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
       const clean = {};
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
+      const typeProblems = stewardArgTypeProblems(toolName, clean);
+      if (typeProblems.length) return stewardFail('invalid_request', `${toolName}: ${typeProblems.join('; ')}`);
       return await impl(clean, stewardWithTurnTrigger(ctx), config);
     } catch (error) {
       const message = String((error && error.message) || error);
