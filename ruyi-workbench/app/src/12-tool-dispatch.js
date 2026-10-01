@@ -1565,14 +1565,17 @@ async function runPythonScript(scriptPath, opts) {
 
 const SHELL_TOOL_HANDLERS = {
   powershell_run: { paths: null, guardNote: "任意 shell 命令,exec tier+权限弹窗/授权书把守;路径闸对自由命令不可施", handler: async (args, ctx) => {
+      if (!String(args.command == null ? '' : args.command).trim()) return { ok: false, code: 'invalid_args', error: 'command 不能为空', hint: '传入要执行的 PowerShell 命令文本' };
       // 107-S0:三个执行工具一律跑在闸交回的 g.cwd(03 resolveExecCwd)—— 判的目录就是跑的目录;修前缺省 cwd 落家目录。
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
       const badCwd = await execCwdProblem(g.cwd);
       if (badCwd) return badCwd;
-      return DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal, { shape: true });
+      // 找不到 powershell.exe(非 Windows / 没装)→ 人话的 windows_only / powershell_missing,不再甩裸的 `spawn powershell.exe ENOENT`。
+      return powershellMissingOr(await DesktopShell.runPowerShell(String(args.command || ''), g.cwd, args.timeoutMs, ctx && ctx.signal, { shape: true }));
   } },
   script_run: { paths: null, guardNote: "任意脚本执行(落 generated/scripts 应用自选目录),exec tier+权限链把守;Office 手写软闸内置", handler: async (args, ctx) => {
+      if (!String(args.code == null ? '' : args.code).trim()) return { ok: false, code: 'invalid_args', error: 'code 不能为空', hint: '传入要执行的脚本源码(language 缺省为 powershell,也可选 python / node)' };
       const g = await guardWorkspaceExecute(args.cwd, ctx);
       if (!g.ok) return { ok: false, error: g.error, code: g.code };
       const badCwd = await execCwdProblem(g.cwd);
@@ -1615,12 +1618,13 @@ const SHELL_TOOL_HANDLERS = {
       // (04 runPowerShell 头注同一条)。
       await fsp.writeFile(p, '\ufeff' + DesktopShell.withQuietProgress(String(args.code || '')), 'utf8');
       // NE-3:-NonInteractive(提示立刻报错而不是挂到超时);stdin 由 runProcess 关掉;NE-15:脚本头静音进度条。
-      return DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p], {
+      // language 缺省是 powershell:非 Windows 上没有 powershell.exe,回 windows_only 并指路 python / node(而不是裸 ENOENT)。
+      return powershellMissingOr(await DesktopShell.runProcess('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', p], {
         cwd: g.cwd,
         timeoutMs: args.timeoutMs || 60000,
         signal: ctx && ctx.signal,
         shape: true,
-      });
+      }), '本机没有 PowerShell;script_run 的 language 缺省就是 powershell,请显式传 language:"python" 或 language:"node"');
   } },
   shell_start: { paths: null, guardNote: "持久 shell 会话状态面,exec tier 门+MCP 子进程拒;不直接触文件路径", handler: async (args, ctx) => {
     // v0.8-S2 shell session族 — provider-engine only. In the one-shot MCP child (Claude CLI engine) the
@@ -1680,19 +1684,30 @@ async function attachScreenshotImage(result, outPath) {
   } catch { return result; }
 }
 
-const DESKTOP_TOOL_HANDLERS = {
-  desktop_screenshot: { paths: "conditional", guardNote: '', handler: async (args, ctx) => {
-      const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
-      // 第36波(v1.7): 模型【给定】的 outputPath 过工作区写闸(越界写恒拒,与 file_write 同闸;bypass 模式下这是
-      // 唯一防线)。缺省落 generated/ 是应用自选路径,不过此闸 —— generated 属 isSensitiveDataPath 敏感名单
-      // (内含带 token 的会话 MCP 配置),文件工具闸会连缺省路径一起误拒;应用自身写自己的产物目录本就合法。
-      let outPath = outPathRaw;
-      if (args.outputPath) {
-        const gShot = await guardFileToolPath(outPathRaw, ctx, { tool: 'desktop_screenshot', write: true });
-        if (!gShot.ok) return { ok: false, error: gShot.error, code: gShot.code, path: outPathRaw };
-        outPath = gShot.absPath;
-      }
-      const ps = `
+// SendKeys 把 + ^ % ~ ( ) { } [ ] 当控制符(Shift / Ctrl / Alt / 回车 / 分组 / 大括号语法):「Hello (world)」发出去括号会吞掉、「a+b」变成 Shift+b。
+// literal:true 时按【字面文字】发送 —— 每个控制符包进花括号({+} {^} {%} {~} {(} {)} {{} {}} {[} {]}),换行 / 制表符换成 {ENTER} / {TAB}
+// (SendKeys 对裸 LF 的行为不确定)。不开 literal 时 keys 原样交给 SendKeys,模型照 SendKeys 语法写组合键(如 ^c、%{F4}、{ENTER})。
+function sendKeysEscapeLiteral(text) {
+  let out = '';
+  for (const ch of String(text)) {
+    if ('+^%~(){}[]'.includes(ch)) out += '{' + ch + '}';
+    else if (ch === '\n') out += '{ENTER}';
+    else if (ch === '\r') continue;
+    else if (ch === '\t') out += '{TAB}';
+    else out += ch;
+  }
+  return out;
+}
+// desktop_screenshot 的 PowerShell 脚本。DPI 感知必须在碰 System.Windows.Forms 之前设好:修前进程不感知 DPI,在 125% / 150% 缩放的屏幕上
+// Screen.PrimaryScreen.Bounds 给的是缩放后的「逻辑」尺寸,CopyFromScreen 只截到左上角的一部分。SetProcessDPIAware(user32,Vista+ 都有)
+// 之后 Bounds 就是物理像素。放在 try 里:调不成只是退回旧行为,不影响截图本身。
+// 【只在 Windows 上有意义,这里(Linux 云端)无法真机验证】—— 由 dev-harness/tool-audit-r2-netexec.e2e.js 对生成的脚本文本做静态断言。
+function buildDesktopScreenshotScript(outPath) {
+  return `
+try {
+  Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();' -Name 'RuyiDpi' -Namespace 'RuyiNative' -ErrorAction Stop
+  [void][RuyiNative.RuyiDpi]::SetProcessDPIAware()
+} catch { }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -1716,17 +1731,47 @@ $graphics.Dispose()
 $bmp.Dispose()
 Write-Output '${psSingleQuoted(outPath)}'
 `;
-      const result = await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal);
+}
+
+const DESKTOP_TOOL_HANDLERS = {
+  desktop_screenshot: { paths: "conditional", guardNote: '', handler: async (args, ctx) => {
+      // outputPath 不是字符串(模型传了数字 / 对象)时 path.resolve 抛 TypeError 变成工具异常:明说参数不对。
+      if (args.outputPath != null && typeof args.outputPath !== 'string') return { ok: false, code: 'invalid_args', error: 'outputPath 必须是字符串路径', hint: '省略 outputPath 则存到应用的 generated 目录' };
+      const outPathRaw = path.resolve(args.outputPath || path.join(paths.generated, `screenshot-${Date.now()}.png`));
+      // 第36波(v1.7): 模型【给定】的 outputPath 过工作区写闸(越界写恒拒,与 file_write 同闸;bypass 模式下这是
+      // 唯一防线)。缺省落 generated/ 是应用自选路径,不过此闸 —— generated 属 isSensitiveDataPath 敏感名单
+      // (内含带 token 的会话 MCP 配置),文件工具闸会连缺省路径一起误拒;应用自身写自己的产物目录本就合法。
+      let outPath = outPathRaw;
+      if (args.outputPath) {
+        const gShot = await guardFileToolPath(outPathRaw, ctx, { tool: 'desktop_screenshot', write: true });
+        if (!gShot.ok) return { ok: false, error: gShot.error, code: gShot.code, path: outPathRaw };
+        outPath = gShot.absPath;
+      }
+      const ps = buildDesktopScreenshotScript(outPath);
+      const result = powershellMissingOr(await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal), '桌面截图只能在 Windows 上使用(依赖 Windows PowerShell 与 System.Drawing)');
+      // path 只在文件【真的存在】时才给:修前失败(没有 PowerShell / 脚本出错)也回一个从未创建的 path,模型会拿着它去 file_read。
+      const made = await fsp.stat(outPath).then(st => st.isFile()).catch(() => false);
+      if (!made) {
+        const { path: _omit, ...rest } = result || {};
+        if (rest.ok !== false) return { ...rest, ok: false, error: '截图脚本执行完了,但没有生成图片文件', hint: '可能没有可截的桌面会话(服务以无桌面的服务账户 / 远程会话运行),或目标目录不可写' };
+        return rest;
+      }
       return await attachScreenshotImage({ ...result, path: outPath }, outPath);
   } },
   keyboard_send_keys: { paths: null, guardNote: "键盘注入,不触文件路径", handler: async (args, ctx) => {
-      const keys = String(args.keys || '');
-      if (!keys) throw new Error('keys is required');
-      const delayMs = Number.isFinite(Number(args.delayMs)) ? Math.max(0, Number(args.delayMs)) : 200; // b2-P1: 非法值回退默认,不再 NaN 进 PS 脚本
-      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${psSingleQuoted(keys)}')`;
-      return DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 10000);
+      const keys = String(args.keys == null ? '' : args.keys);
+      if (!keys) return { ok: false, code: 'invalid_args', error: 'keys 不能为空', hint: '传入要发送的按键(SendKeys 语法,如 ^c、%{F4}、{ENTER});要发的是普通文字就加 literal:true' };
+      // delayMs:发送前的等待(给目标窗口切到前台的时间)。限在 0..10000:修前不设上限,一个 99999999 能让工具挂上一天。
+      const delayMs = Number.isFinite(Number(args.delayMs)) ? Math.min(10000, Math.max(0, Number(args.delayMs))) : 200; // b2-P1: 非法值回退默认,不再 NaN 进 PS 脚本
+      const sendText = args.literal === true ? sendKeysEscapeLiteral(keys) : keys;
+      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${Math.floor(delayMs)}; $wshell.SendKeys('${psSingleQuoted(sendText)}')`;
+      // 超时 = 调用方给的(缺省 10s)与「等待 + 5s」取大者,免得最长的等待把自己杀了;signal 接上用户 Stop。
+      const timeoutMs = Math.max(Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : 10000, delayMs + 5000);
+      return powershellMissingOr(await DesktopShell.runPowerShell(ps, os.homedir(), timeoutMs, ctx && ctx.signal), '键盘注入只能在 Windows 上使用(依赖 Windows PowerShell 的 SendKeys)');
   } },
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
+      // path 为空时 path.resolve('') 是【服务进程的当前目录】—— 修前会把它在资源管理器里打开。
+      if (!String(args.path == null ? '' : args.path).trim()) return { ok: false, code: 'invalid_args', error: 'path 不能为空', hint: '传入要打开的文档 / 图片 / 文件夹的完整路径' };
       const target = path.resolve(String(args.path || ''));
       // 只「打开」查看类文件(与 /api/file/reveal 同一张白名单 REVEAL_OPEN_SAFE_EXTS):修前 office_open 一个 .bat/.exe/.lnk
       // 就是交给关联程序【执行】—— allowCommandTools:false 时命令工具全关,这条路照样能跑脚本。其余扩展名只在资源管理器里
@@ -1761,10 +1806,10 @@ const NETWORK_TOOL_HANDLERS = {
       return webSearch(args, cfg);
   } },
   web_fetch: { paths: null, guardNote: "纯网络读,SSRF 全套护栏内置(ssrfCheck/dnsResolvesToPrivate 逐跳)", handler: async (args, ctx) => {
-      return webFetch(args);
+      return webFetch(args, { signal: ctx && ctx.signal });   // 用户 Stop / 插话要能取消进行中的抓取
   } },
   http_request: { paths: null, guardNote: "纯网络调用,不触文件路径", handler: async (args, ctx) => {
-      return httpRequest(args);
+      return httpRequest(args, { signal: ctx && ctx.signal });
   } },
   http_download: { paths: "write", guardNote: '', handler: async (args, ctx) => {
     // v1.1-W2 (T1) http_download(url, dest, maxBytes=100MB): 下载文件到工作区。复用 web_fetch 的 SSRF 全套护栏
@@ -1778,28 +1823,57 @@ const NETWORK_TOOL_HANDLERS = {
       const pre = ssrfCheck(url);
       if (!pre.allowed) return { ok: false, error: pre.reason, blocked: pre.host };
       // ② 落盘目标护栏（工作区内）。
-      const guard = await guardDownloadDest(args.dest, ctx);
+      const rawDest = String(args.dest);
+      const guard = await guardDownloadDest(rawDest, ctx);
       if (!guard.ok) return { ok: false, error: guard.error, ...(guard.code ? { code: guard.code } : {}) };
-      const dest = guard.absPath;
+      let dest = guard.absPath;
+      // dest 是文件夹:已存在的目录,或以 / \ 结尾(path.resolve 会吞掉结尾分隔符,所以看原始串)—— 文件存进去,名字取响应头 / URL。
+      // 修前:已存在的目录直接抛裸 EISDIR;`x/newdir/` 悄悄写成一个叫 newdir 的文件。
+      const destStat = await fsp.stat(dest).catch(() => null);
+      const intoDir = /[\\/]$/.test(rawDest) || !!(destStat && destStat.isDirectory());
+      if (intoDir && destStat && !destStat.isDirectory()) {
+        return { ok: false, code: 'ENOTDIR', error: `dest 以 / 结尾表示文件夹,但 ${dest} 是一个已存在的文件`, hint: '去掉结尾的分隔符,或换一个文件夹路径' };
+      }
       // ③ 下载（httpGetGuarded 逐跳 SSRF + DNS 重绑定防御 + Content-Length 预拒 + maxBytes 实收截断）。
-      const got = await httpGetGuarded(url, { maxBytes, timeoutMs: Number(args.timeoutMs) || 30000, rejectOverMaxBytes: true });
+      // timeoutMs:空闲超时(多久没收到数据就放弃)。修前只有这一道 —— 对端每秒滴一个字节能把下载拖到天荒地老(timeoutMs:1500 实测跑了 9 秒以上);
+      // 现在显式给了 timeoutMs 就同时是整个下载的总期限,没给则空闲 30s、总期限 30 分钟(大文件慢网也够用)。ctx.signal = 用户 Stop,取消下载。
+      const idleMs = Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : 30000;
+      const totalMs = Number(args.timeoutMs) > 0 ? Number(args.timeoutMs) : 30 * 60 * 1000;
+      const got = await httpGetGuarded(url, { maxBytes, timeoutMs: idleMs, totalTimeoutMs: totalMs, rejectOverMaxBytes: true, signal: (ctx && ctx.signal) || null });
       if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
       if (got.failClass === 'too-big') return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, contentLength: got.contentLength, hint: '增大 maxBytes 或改用其它方式下载' };
       if (!got.ok || !got.body) {
         const mapped = webFetchFailMessage(got);
-        return { ok: false, error: mapped.error, failClass: got.failClass || 'other', statusCode: got.statusCode, hint: mapped.hint };
+        return { ok: false, error: mapped.error, failClass: got.failClass || 'other', statusCode: got.statusCode, ...(mapped.hint ? { hint: mapped.hint } : {}) };
       }
       // 实收字节卡上限：httpGetGuarded 在 maxBytes 处截断并置 truncated → 视为超限拒绝（不落半截文件）。
       if (got.truncated) return { ok: false, error: `文件超过大小上限（${Math.round(maxBytes / 1024 / 1024)}MB）`, hint: '增大 maxBytes 或改用其它方式下载' };
-      // ④ 检查点 + 落盘。
-      const exists = await fsp.stat(dest).then(() => true).catch(() => false);
-      const before = exists ? await fsp.readFile(dest) : null;
-      const jctx = await journalSessionCtx(ctx);
-      const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', path.resolve(String(args.dest)), exists ? 'modify' : 'create', exists ? before : null);
-      await fsp.mkdir(path.dirname(dest), { recursive: true });
-      await fsp.writeFile(dest, got.body);
+      let pathForJournal = path.resolve(rawDest);
+      if (intoDir) {
+        dest = path.join(dest, downloadFileNameFrom(got.contentDisposition, got.finalUrl || url));
+        pathForJournal = dest;
+        // 拼出的完整路径再过一遍写闸(名字已清洗成单个文件名,这里是兜底)。
+        const g2 = await guardDownloadDest(dest, ctx);
+        if (!g2.ok) return { ok: false, error: g2.error, ...(g2.code ? { code: g2.code } : {}) };
+        dest = g2.absPath;
+      }
+      // ④ 检查点 + 落盘。fs 的失败(EISDIR / ENAMETOOLONG / EACCES …)翻成 {ok:false, code, error},不再把裸异常甩出去。
+      let exists = false, before = null, jr = null;
+      try {
+        const st2 = await fsp.stat(dest).catch(() => null);
+        if (st2 && st2.isDirectory()) return { ok: false, code: 'EISDIR', error: `${dest} 是一个文件夹,不能当文件写`, hint: '给 dest 一个文件名,或以 / 结尾表示存进该文件夹' };
+        exists = !!st2;
+        before = exists ? await fsp.readFile(dest) : null;
+        const jctx = await journalSessionCtx(ctx);
+        jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'http_download', pathForJournal, exists ? 'modify' : 'create', exists ? before : null);
+        await fsp.mkdir(path.dirname(dest), { recursive: true });
+        await fsp.writeFile(dest, got.body);
+      } catch (e) {
+        return describeFsWriteError(e, dest);
+      }
       markNetworkOnline(); // 成功下载 = 在线证据，顺手刷新能力缓存
       const ret = { ok: true, path: dest, bytes: got.body.length, contentType: (got.contentType || null), op: exists ? 'modify' : 'create' };
+      if (got.decodedFrom) ret.decodedFrom = got.decodedFrom;   // 服务器回了压缩体,落盘的是解压后的内容
       // b2-P2: 200 但返回 HTML(常见于「错误页伪装成 200」/登录页/验证页)且目标非 .html/.htm 时提示 —— 防止模型误把网页当二进制文件
       const ct = String(got.contentType || '');
       const destExt = path.extname(dest).toLowerCase();

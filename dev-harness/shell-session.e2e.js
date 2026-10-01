@@ -71,6 +71,9 @@ function postStream(port, payload) {
   });
 }
 
+// 2026-10(net-exec 第二轮)注:本件跑真 PowerShell,Windows CI 是准绳。没有 powershell.exe 的环境(Linux 云端)里 shell_start 现在回
+// {ok:false, code:'windows_only'}(此前是 ok:true 的死会话,下面 (a)(c)(d)(e)(f1) 的一部分断言在 Linux 上是靠死会话「碰巧」通过的)——
+// 这是有意的行为变更(见 tool-audit-r2-netexec.e2e.js 的 N5d/N5e),Linux 基线因此多红几条,不是回归。
 (async () => {
   let fail = 0;
   const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.log('FAIL ' + l); } };

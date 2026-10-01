@@ -184,6 +184,8 @@ function normalizeCapText(raw) {
     finally { await D.cleanup(); }
   }
 
+  // 注(2026-10 net-exec 第二轮):powershell_run 在没有 powershell.exe 的环境(Linux 云端)现在回 windows_only 信封,不再带
+  // `spawn powershell.exe ENOENT` 的 stderr;E28 的「字节轴」计数在 Linux 上靠的正是那段 stderr,因此 Linux 多红一条 —— 有意的变更,Windows CI 照旧。
   // ═══ [E-13a-t] 长命令时间预算(真实 powershell_run)═══
   console.log('── [E] #13a-t dead-long-runner 硬终态 / shadow / 字节计数 / 零触发等价 ──');
   const WB_FAST = { WCW_TOOL_HEARTBEAT_MS: '300' };

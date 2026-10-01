@@ -149,6 +149,8 @@ try {
   const set = await reqJson('PATCH', '/api/sessions/' + A, { permissionMode: 'auto', confirm: true });
   ok(set.status === 200 && set.json && set.json.sessionMeta && set.json.sessionMeta.permissionMode === 'auto', 'H01 线程切到全自动(与用户真机那条同档)');
 
+  // 注(2026-10 net-exec 第二轮):没有 powershell.exe 的环境(Linux 云端)里 shell_start 现在回 ok:false/windows_only(此前是死会话 ok:true),
+  // H0 在 Linux 上因此红 —— 有意的行为变更,Windows CI 照旧起真会话。
   // H0 起一个真 PowerShell 会话(shell_start 名字不命中任何判据,全自动档本来就不问)。
   {
     nextTool = { name: 'shell_start', args: { shellId: SHELL_ID, cwd: HOME } };
