@@ -814,8 +814,14 @@ async function bridgedReadPathGate(bridgedName, args, ctx) {
 // /api/tools 直调、MCP 子进程)逐字节同修前的判法。
 function resolveExecCwd(cwd, ctx, config) {
   const session = ctx && ctx.session ? ctx.session : null;
-  const effective = cwd || (ctx && ctx.workingDir) || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
-  return path.resolve(String(effective));
+  const base = (ctx && ctx.workingDir) || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
+  if (!cwd) return path.resolve(String(base));
+  // 相对 cwd(`src`、`sub\\repo`)接在【回合工作目录】下面:修前直接 path.resolve(cwd),落到服务进程自己的
+  // 启动目录,报出来的「工作目录不存在: <进程目录>\\src」模型从没见过。按 Windows 形判绝对路径(盘符/UNC),
+  // 宿主上的绝对路径也认。
+  const raw = String(cwd);
+  if (path.win32.isAbsolute(raw) || path.isAbsolute(raw)) return path.resolve(raw);
+  return path.resolve(String(base), raw);
 }
 async function guardWorkspaceExecute(cwd, ctx) {
   let config = ctx && ctx.config ? ctx.config : null;

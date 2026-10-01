@@ -219,10 +219,11 @@ function writeConfig(home, extra) {
   finally { try { bingSrv.close(); } catch { /* ignore */ } }
 
   // (T3-b) Fallback / empty handling. With a baseUrl override to a DEAD bing root, the 百度 fallback is
-  // SKIPPED by design (the override owns the whole path) → ok:true, empty list, explanatory note.
+  // SKIPPED by design (the override owns the whole path). 2026-10 工具走查:引擎根本连不上是【失败】不是「没搜到」——
+  // 修前回 ok:true + 空表,模型以为关键词不好、换着说法反复重搜。现在 ok:false + failClass:'network' + 人话 hint。
   try {
     const r = await mod.webSearch({ query: 'x', maxResults: 3 }, { searchBackend: { type: 'builtin', baseUrl: 'http://127.0.0.1:1', apiKey: '' } });
-    ok(r.ok === true && r.results.length === 0 && /跳过百度兜底/.test(r.note || ''), 'builtin: dead bing override → empty + skip-baidu note (not an error)');
+    ok(r.ok === false && r.failClass === 'network' && /换关键词没有用/.test(r.hint || ''), 'builtin: dead bing override → network failure, not "no results" (' + JSON.stringify(r).slice(0, 160) + ')');
   } catch (e) { console.log('ERROR(builtin fallback) ' + (e && e.stack || e)); fail++; }
 
   // (T3-b2) Baidu fallback ACTUALLY triggers when there is NO override and bing yields <1 result. We simulate

@@ -1338,7 +1338,21 @@ function stewardSamePath(a, b) {
 // 自己登记过的目录 —— 管家照样能读里面的交付(steward_file_read)、能把线程挪进去(thread_workspace)。
 function stewardWorkspaceRootFor(rawPath, config) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
-  const target = norm(rawPath);
+  // 先把 `.` / `..` 段词法消掉再比前缀:修前 `<ws>/../../etc/passwd` 以 `<ws>/` 开头就算「在工作区里」,
+  // steward_file_read 读到了工作区外的文件、steward_thread_workspace 把线程目录设成了 /etc。
+  // 退到根之上(`..` 比段数多)的一律不认。符号链接/联接的真实落点由调用方按 realpath 再判一道。
+  const lexical = v => {
+    const s = norm(v);
+    const lead = s.startsWith('/') ? '/' : '';
+    const out = [];
+    for (const seg of s.split('/')) {
+      if (!seg || seg === '.') continue;
+      if (seg === '..') { if (!out.length) return ''; out.pop(); continue; }
+      out.push(seg);
+    }
+    return out.length ? lead + out.join('/') : '';
+  };
+  const target = lexical(rawPath);
   if (!target) return '';
   const rows = [
     ...(Array.isArray(config && config.workspaces) ? config.workspaces : []),

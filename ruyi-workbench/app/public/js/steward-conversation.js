@@ -1780,6 +1780,10 @@ export function createStewardConversation({
       others.length ? [t('stewardShell.chat.otherCandidates', { list: others.join(t('stewardShell.chat.listSeparator')) })] : []);
     focusThread(sid);
     const undoRef = (result && result.undoRef) || null;
+    // 只有带着显式回退锚点(新开的那一回合)的递话才给「撤回」:答提问 / 插话落在已有回合里,回退会删错东西。
+    if (!handOffRewindTarget(undoRef)) {
+      return { sessionId: sid, undoRef, row, actsRow: null };
+    }
     const actsRow = el('div', 'steward-acts');
     const undoBtn = button('steward-act', t('stewardShell.chat.undo'), () => {
       stopUndoCountdown();
@@ -1805,19 +1809,23 @@ export function createStewardConversation({
     return { sessionId: sid, undoRef, row, actsRow };
   }
 
+  // 撤回锚点：只认后端 117d 第 0 步补出的 undoRef.rewindTargetTurnSeq（= 被递那一回合将拥有的 seq，与 09-workflow
+  // 的 plannedTurnSeq 同口径）。修前缺省时回落到「undoRef.turnSeq + 1」，没有 turnSeq 就是 0 + 1 —— 答提问那一支
+  // 交回的 undoRef 恰好两样都没有，「撤回」把整条线程从第 1 回合起删光。没有显式锚点就不给撤回。
+  function handOffRewindTarget(undoRef) {
+    if (!undoRef || typeof undoRef !== 'object' || undoRef.kind === 'none') return 0;
+    const explicit = Number(undoRef.rewindTargetTurnSeq);
+    return Number.isFinite(explicit) && explicit > 0 ? explicit : 0;
+  }
+
   // 撤回 = 先 stop 再 rewind（顺序不能反：还在跑的回合不停下来就回退，回退完它还会接着往回写）。
   async function undoHandOff({ sessionId, undoRef, actsRow }) {
     const sid = String(sessionId || '');
     let filesReverted = 0;
+    const target = handOffRewindTarget(undoRef);
+    if (!target) return false;   // 没有锚点:连 stop 都不发(不能停掉用户自己那一回合)
     try {
       await api('/api/stop', { method: 'POST', body: JSON.stringify({ sessionId: sid }) });
-      // 回退锚点：优先用后端 117d 第 0 步补出的 undoRef.rewindTargetTurnSeq（= 被递那一回合将拥有的
-      // seq，与 09-workflow 的 plannedTurnSeq 同口径）。缺省才回落到「undoRef.turnSeq + 1」：turnSeq
-      // 语义是递话【前】，而 rewindSession 按「要删掉的那一回合的第一条用户消息」定位，差一格直接传
-      // 会得 'target turn not found in this session'（117c 交付记录登记项①）。
-      const explicit = undoRef && Number(undoRef.rewindTargetTurnSeq);
-      const before = undoRef && Number.isFinite(Number(undoRef.turnSeq)) ? Number(undoRef.turnSeq) : 0;
-      const target = Number.isFinite(explicit) && explicit > 0 ? explicit : before + 1;
       const rewound = await api('/api/session/rewind', {
         method: 'POST',
         body: JSON.stringify({ sessionId: sid, targetTurnSeq: target, rollbackFiles: true }),

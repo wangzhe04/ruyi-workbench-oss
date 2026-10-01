@@ -661,8 +661,16 @@ function stewardRecordLaunchOutcome(sessionId, result) {
   }).catch(() => null);
 }
 
+// 管家刚发起、但 runSessionTurn 还没走到登记 turnSettlers 的那几个 await 窗口里,线程既不在 activeChildren
+// 也不在 turnSettlers:修前前后脚两次 steward_thread_continue 都判成 turn 通道,第二个回合在 09 里把第一个
+// superseded 掉,第一句话连回合一起没了,两次却都回 ok:true。这里【同步】记一笔,13q 的通道判定据此判成
+// queued(settling)。回合整个结束(不论成败)才摘掉;回合真跑起来之后 activeChildren 会先于它命中(steer)。
+const stewardLaunchingTurns = new Set();
 function stewardLaunchTurn(input, tool) {
+  const launchSid = String(input.sessionId || '');
+  if (launchSid) stewardLaunchingTurns.add(launchSid);
   const promise = runSessionTurn({ ...input, onEvent: () => {} });
+  promise.finally(() => { if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
     void stewardRecordLaunchOutcome(input.sessionId, result);
@@ -684,6 +692,12 @@ function stewardLaunchTurn(input, tool) {
 // skill_toggle 的「须确认」判定,加 117z-E2 给 thread_permission 的桌面【放宽】那一处),
 // 「按钮 ≠ 扩权」—— 线程族的在不在场判定不该去挤那个字段。
 // 其余调用面(工具循环里模型直接调、进程内直调)没有 trigger —— 保持既有直递语义。
+// 核心层的失败可能是裸串,也可能是 apiFailure 的 {code,message,params}:修前一律 String() 掉,模型看到的拒绝理由
+// 是「[object Object]」。
+function stewardErrorDetail(error) {
+  if (error && typeof error === 'object') return String(error.message || error.code || '');
+  return String(error == null ? '' : error);
+}
 function stewardTriggerOf(ctx) {
   const raw = String((ctx && ctx.trigger) || '');
   return raw === 'inbox' || raw === 'user' ? raw : '';
@@ -1102,6 +1116,11 @@ async function stewardImplThreadContinue(args, ctx, config) {
     },
   });
   if (delivered && delivered.ok === false) return delivered;
+  // 只有开了【新回合】的那一支(turn)才有可回退的锚点。答提问(answer)与插话(steer)都落在一个已有的回合里:
+  // 修前 answer 交回的 undoRef 没有回合号,前端「撤回」按 0+1 回退 = 把整条线程从第 1 回合起删光;steer 交回的
+  // 锚点指着正在跑的那一回合,撤回先停掉用户的回合再回退失败。这两支一律不给撤回锚点(kind:'none')。
+  const deliveredChannel = String((delivered && delivered.channel) || 'turn');
+  const finalUndoRef = deliveredChannel === 'turn' ? undoRef : { kind: 'none', sessionId, channel: deliveredChannel };
 
   stewardAppendDecision({
     tool: 'steward_thread_continue',
@@ -1112,12 +1131,12 @@ async function stewardImplThreadContinue(args, ctx, config) {
     // 116-3 P0-2:写【真实】判定值,不再是硬编码 'auto' —— 决策日志要能事后对账
     // 「这个动作到底是不是该提议而没提议」。
     mayAct,
-    undoRef: (delivered && delivered.undoRef) || undoRef,
+    undoRef: finalUndoRef,
     // 129g:代答那一支把核实过的出处并进 basis —— 行动流水里「管家替我答了那道题」必须能点开
     // 看见凭什么。没走代答(用户原话直递 / 别的通道)时 gate.used 为 null,basis 一字不变。
     basis: gate.used ? { ...basis, ...(gate.used.memoryIds.length ? { memoryIds: gate.used.memoryIds } : {}), ...(gate.used.briefRef ? { briefRef: gate.used.briefRef } : {}), answeredFor: 'user' } : basis,
   });
-  return { ok: true, sessionId, undoRef, ...(delivered && typeof delivered === 'object' ? delivered : {}) };
+  return { ok: true, sessionId, ...(delivered && typeof delivered === 'object' ? delivered : {}), undoRef: finalUndoRef };
 }
 
 // 12) steward_thread_rename —— undoRef 带旧标题(一键改回)。
@@ -1193,6 +1212,16 @@ async function stewardImplThreadWorkspace(args, ctx, config) {
   const root = stewardWorkspaceRootFor(want, config);
   if (!root) {
     return stewardFail('outside_workspace', 'cwd must be one of the registered workspaces; pick a path from the workspace table', { cwd: stewardSanitizeText(want).slice(0, 200) });
+  }
+  // 真实落点也得在区内(链接/联接指向区外的不认),且得是一个已存在的目录:修前不存在的路径、甚至一个文件
+  // 都能被设成线程的工作目录,线程下一回合直接起不来。
+  const [realWant, realRoot] = await Promise.all([realpathForContainment(want), realpathForContainment(root)]);
+  if (!pathWithinRoot(realWant, realRoot)) {
+    return stewardFail('outside_workspace', 'that path is a link that points outside the registered workspace; pick a real folder inside it', { cwd: stewardSanitizeText(want).slice(0, 200) });
+  }
+  const wantStat = await fsp.stat(want).catch(() => null);
+  if (!wantStat || !wantStat.isDirectory()) {
+    return stewardFail('invalid_request', wantStat ? 'cwd must be a folder, not a file' : 'that folder does not exist; pick an existing folder from the workspace table', { cwd: stewardSanitizeText(want).slice(0, 200) });
   }
   if (activeChildren.has(sessionId)) {
     return stewardFail('steward.busy', `thread ${sessionId} has a turn in flight; change its working folder after the turn settles`, { sessionId });
@@ -1339,12 +1368,29 @@ async function stewardImplThreadNote(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot receive a steward note');
+  // 插话与递话走同一条注入通道,无人值守时也该过同样两道闸(修前写死 mayAct:'auto',「只做计划」档的线程
+  // 照样被收件箱回合插进话去):自理清单 relay 勾选 + 目标线程权限档。
+  const permissionMode = stewardThreadPermissionMode(head, config);
+  let mayAct = 'auto';
+  if (stewardUnattendedByModel(ctx)) {
+    if (!stewardRelayAutoAllowed(config)) {
+      return stewardFail('propose_required', '「任务内自动交接」没有勾选,无人值守时的插话只能作为提议交给用户,不要重试', {
+        reason: 'self_serve_off', sessionId, permissionMode,
+      });
+    }
+    mayAct = stewardMayAct(permissionMode, 'relay', 'edit');
+    if (mayAct !== 'auto') {
+      return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,管家不能在你不在场时直接往它里面插话;把它作为提议交给用户,不要重试`, {
+        reason: 'target_permission', sessionId, permissionMode,
+      });
+    }
+  }
 
   const outcome = await steerSessionCore({ sessionId, text: STEWARD_NOTE_PREFIX + text });
   // 核心的两种"没成"(apiFailure 形态的 400/409 与裸 json 的 {ok:false,error}) 归一成同一个稳定信封:
   // 对模型来说它们是同一件事 —— 现在没法把这句话插进去,别重试。
   if (outcome.kind === 'failure' || !(outcome.body && outcome.body.ok === true)) {
-    const detail = String((outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)) || '').slice(0, 300);
+    const detail = stewardErrorDetail(outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)).slice(0, 300);
     return stewardFail('steward.no_active_turn', `thread ${sessionId} cannot take a note right now: ${detail} —— do not retry; use steward_thread_continue to start a new turn instead`, { sessionId });
   }
   const body = outcome.body;
@@ -1355,8 +1401,8 @@ async function stewardImplThreadNote(args, ctx, config) {
     tool: 'steward_thread_note',
     args: { textChars: text.length },
     targetSessionId: sessionId,
-    permissionMode: stewardThreadPermissionMode(head, config),
-    mayAct: 'auto',
+    permissionMode,
+    mayAct,
     undoRef,
     basis: {},
   });

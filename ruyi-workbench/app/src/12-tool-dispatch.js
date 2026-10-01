@@ -267,11 +267,17 @@ const CORE_TOOL_HANDLERS = {
       const session = (ctx && ctx.session) || null;
       const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
+      // 精简视图里印的是 `rawRef=history:…`,模型常连前缀、引号、换行一起抄回来:先剥掉再认。形状不对的直接回
+      // invalid_ref,【不】扣本回合配额(修前先扣后判,8 次抄错之后正确的 ref 也只能拿到 quota_exceeded)。
+      const rawRef = String(args && args.rawRef || '').trim().replace(/^["'`]+|["'`]+$/g, '').replace(/^rawRef\s*[=:]\s*/i, '').trim();
+      if (!/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(rawRef)) {
+        return { ok: false, error: 'invalid_ref', message: 'rawRef must look like history:<turn>:<hash16>:<index>:<hash16> (copy it exactly from the reduced observation, without the "rawRef=" label)' };
+      }
       const turnKey = providerTurnQuotaKey(session);
       if (!observationRecallQuotaTake(sessionId, turnKey)) {
         return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
       }
-      const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
+      const result = await rehydrateObservation(sessionId, rawRef);
       if (!result.ok) {
         const code = observationRecallError(result.error);
         // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
@@ -300,10 +306,10 @@ const CORE_TOOL_HANDLERS = {
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
-      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 1 });
+      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
       if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
         try {
-          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 1 });
+          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 3 });
           const comparison = compareToolRetrievalShadow(result, candidate);
           const sessionId = (ctx && ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || '';
           logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
@@ -547,7 +553,9 @@ const execResultCacheBySession = new Map(); // sessionId -> Map(cacheKey -> { ve
 // 行为不同而 key 相同会出错)。annotate 按 handler 的布尔口径归一;encoding 按缺省归一。
 function execCacheKeyFileRead(p, args) {
   return 'file_read\0' + p + '\0' + JSON.stringify({
-    e: args.encoding || 'utf8',
+    // 不传 encoding = 自动识别(GBK/UTF-16 照解),与显式 encoding:'utf8'(强制按 UTF-8)是两回事:修前两者共用
+    // 一个键,先强制读出的乱码会被后来的自动识别读当成缓存命中原样交回,反之亦然。
+    e: args.encoding ? String(args.encoding).toLowerCase() : 'auto',
     o: args.offset === undefined ? null : args.offset,
     l: args.limit === undefined ? null : args.limit,
     lo: args.lineOffset === undefined ? null : args.lineOffset,
@@ -1222,6 +1230,8 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       // F13:pattern 是正则;写成 glob(`*.js`)的按 glob 处理并说明,真正非法的给 bad_pattern + hint(修前是原始 SyntaxError)。
       const cls = classifyListPattern(args.pattern);
       if (cls.kind === 'invalid') return { ok: false, error: cls.error, code: 'bad_pattern', hint: cls.hint, root };
@@ -1247,6 +1257,8 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       let matches = await searchFileContent(root, String(args.pattern || ''), args);
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
@@ -1274,6 +1286,11 @@ const FILE_TOOL_HANDLERS = {
       if (meta.patternNote) resp.patternNote = meta.patternNote;
       // 被默认清单剪掉的目录(build/dist/out/target/coverage …):两个引擎都报,并说怎么放开(修前 handler 把它丢了)。
       if (Array.isArray(meta.prunedDirs) && meta.prunedDirs.length) { resp.prunedDirs = meta.prunedDirs; resp.prunedHint = prunedDirsHint('file_search'); }
+      // rg 引擎在 git 仓库里遵守 .gitignore(既有设计),被忽略的文件不搜、返回里却没有任何信号:零命中时如实说一句,
+      // 免得模型把「被忽略了」读成「确实没有」(2026-10 工具走查)。
+      if (meta.engine === 'rg' && args.includeIgnored !== true && Array.isArray(matches) && matches.length === 0 && await nearestGitignore(root)) {
+        resp.ignoreNote = 'searched with .gitignore respected (git-ignored files were not searched); pass includeIgnored:true to include them';
+      }
       return resp;
   } },
   glob: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -1283,6 +1300,8 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'glob', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       const pattern = String(args.pattern || '');
       if (!pattern) throw new Error('pattern is required');
       const maxResults = Math.max(1, Number(args.maxResults || 500) || 500);
@@ -1311,6 +1330,8 @@ const FILE_TOOL_HANDLERS = {
       // 注册表声明让这条不对称现形,补上同族读闸(本地模型越界读仍放行,与 file_list 完全同闸,行为只收不松)。
       const g = await guardFileToolPath(root, ctx, { tool: 'project_snapshot', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
       const walked = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
@@ -1473,6 +1494,31 @@ const ARCHIVE_TOOL_HANDLERS = {
   } },
 };
 
+// PowerShell 单引号字面量转义:除了 ASCII `'`,PowerShell 还把 ‘ ’ ‚ ‛ 四个弯引号也当单引号定界符。修前只双写 ASCII
+// 引号,模型文本里常见的 it’s 让脚本解析失败,`x’); Start-Process calc; ('` 则直接注入一条命令。四种都按「连写两个 = 一个字面」转义。
+function psSingleQuoted(value) {
+  return String(value == null ? '' : value).replace(/['\u2018\u2019\u201A\u201B]/g, ch => ch + ch);
+}
+// root 或它往上几级有没有 .gitignore(只为 file_search 零命中时的那一句提示,不求精确)。
+async function nearestGitignore(root) {
+  let dir = path.resolve(String(root || ''));
+  for (let i = 0; i < 8; i += 1) {
+    if (await fsp.stat(path.join(dir, '.gitignore')).then(st => st.isFile(), () => false)) return true;
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return false;
+}
+// 遍历/扫描类工具的 root 必须是一个已存在的目录:修前 root 写错(不存在、或是一个文件)时 file_list/glob/
+// file_search/project_snapshot/各类扫描一律回 ok:true + 空结果,模型把「路径写错了」读成「这里什么都没有」。
+async function toolRootProblem(root) {
+  let st = null;
+  try { st = await fsp.stat(root); } catch { st = null; }
+  if (!st) return { ok: false, code: 'not_found', error: `目录不存在: ${root}`, hint: '确认 root 拼写(相对路径接在当前工作目录下),或省略 root 使用当前工作目录。', root };
+  if (!st.isDirectory()) return { ok: false, code: 'not_a_directory', error: `root 是一个文件,不是目录: ${root}`, hint: '读单个文件用 file_read;要在它所在的目录里找,把 root 设成那个目录(可配 glob 只看这个文件)。', root };
+  return null;
+}
 // NE-13/NE-6:执行类与 git 工具共用的 cwd 校验。Node 把「cwd 不存在」报成 `spawn python ENOENT`(模型会误判成没装解释器),
 // 所以起进程前先确认目录在,并明说「工作目录不存在」。
 async function execCwdProblem(cwd) {
@@ -1491,6 +1537,11 @@ async function resolveGitToolCwd(args, ctx, { exec = false } = {}) {
     let config = ctx && ctx.config ? ctx.config : null;
     if (!config) { try { config = await readConfig(); } catch { config = {}; } }
     cwd = resolveExecCwd(args && args.cwd, ctx, config);
+    // 读类 git 是 read 档(不弹窗),范围要与 file_read 同一道工作区围栏:修前 git_diff 能把工作区外仓库里
+    // 文件的改动内容整段读出来,而 file_read 读同一个文件是 not-allowed。git_commit 是 exec 档,与 powershell_run
+    // 同样走执行闸,不在这里拦。
+    const fence = await guardFileToolPath(cwd, ctx, { tool: 'git', write: false });
+    if (!fence.ok) return { ok: false, error: fence.error, code: fence.code, cwd };
   }
   const problem = await execCwdProblem(cwd);
   return problem || { ok: true, cwd };
@@ -1501,7 +1552,8 @@ async function runPythonScript(scriptPath, opts) {
   const win = process.platform === 'win32';
   const candidates = win ? [['python', []], ['py', ['-3']]] : [['python', []], ['python3', []]];
   // NE-13:管道下 Windows 中文系统的 python 按 cp936 写 stdout / 读文件,脚本里的 ✓ → emoji 会 UnicodeEncodeError —— 强制 UTF-8。
-  const env = { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' };
+  // PYTHONPATH 补上工作目录:脚本文件在应用目录里,修前 `import helper`(工作区里的 helper.py)找不到。
+  const env = { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8', PYTHONPATH: [opts && opts.cwd, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter) };
   let last = null;
   for (const [cmd, pre] of candidates) {
     last = await DesktopShell.runProcess(cmd, [...pre, scriptPath], { ...opts, env, shape: true });
@@ -1553,7 +1605,10 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true });
+        // 脚本文件落在应用目录(generated/scripts),Node 按脚本所在目录找模块:修前工作区里装好的 node_modules 一个都 require 不到。
+        // NODE_PATH 补上工作目录的 node_modules(裸模块名);相对路径的 require 仍按脚本目录算,提示里用 path.join(process.cwd(), …)。
+        const nodePath = [path.join(g.cwd, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
+        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true, env: { NODE_PATH: nodePath } });
       }
       const p = path.join(dir, `${id}.ps1`);
       // hunt2 #10:带 BOM 落盘 —— Windows PowerShell 5.1 按 ANSI 读无 BOM 的 .ps1,脚本里的中文字面量会被读成乱码
@@ -1644,7 +1699,7 @@ $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
 $graphics = [System.Drawing.Graphics]::FromImage($bmp)
 $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-$bmp.Save('${outPath.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Save('${psSingleQuoted(outPath)}', [System.Drawing.Imaging.ImageFormat]::Png)
 try {
   # 审计 NE-12:给视觉模型的缩略副本(长边 <= 1600 的 JPEG,落在 <outPath>.vision.jpg)。失败只是没有副本,主截图不受影响。
   $scale = [Math]::Min(1.0, 1600.0 / [Math]::Max($bounds.Width, $bounds.Height))
@@ -1654,12 +1709,12 @@ try {
   $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   $g2.DrawImage($bmp, 0, 0, $nw, $nh)
   $g2.Dispose()
-  $small.Save('${(outPath + VISION_SIDECAR_SUFFIX).replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
+  $small.Save('${psSingleQuoted(outPath + VISION_SIDECAR_SUFFIX)}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
   $small.Dispose()
 } catch { }
 $graphics.Dispose()
 $bmp.Dispose()
-Write-Output '${outPath.replace(/'/g, "''")}'
+Write-Output '${psSingleQuoted(outPath)}'
 `;
       const result = await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal);
       return await attachScreenshotImage({ ...result, path: outPath }, outPath);
@@ -1668,11 +1723,24 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       const keys = String(args.keys || '');
       if (!keys) throw new Error('keys is required');
       const delayMs = Number.isFinite(Number(args.delayMs)) ? Math.max(0, Number(args.delayMs)) : 200; // b2-P1: 非法值回退默认,不再 NaN 进 PS 脚本
-      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${keys.replace(/'/g, "''")}')`;
+      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${psSingleQuoted(keys)}')`;
       return DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 10000);
   } },
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
       const target = path.resolve(String(args.path || ''));
+      // 只「打开」查看类文件(与 /api/file/reveal 同一张白名单 REVEAL_OPEN_SAFE_EXTS):修前 office_open 一个 .bat/.exe/.lnk
+      // 就是交给关联程序【执行】—— allowCommandTools:false 时命令工具全关,这条路照样能跑脚本。其余扩展名只在资源管理器里
+      // 定位出来,让用户自己决定要不要运行。
+      const ext = path.extname(target).slice(1).toLowerCase();
+      if (!REVEAL_OPEN_SAFE_EXTS.has(ext)) {
+        const st = await fsp.stat(target).catch(() => null);
+        if (!(st && st.isDirectory())) {
+          const r = buildRevealSpawn('select', target);
+          const shown = await spawnDetachedChecked(r.command, r.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+          if (!shown.ok) return { ok: false, error: `无法启动资源管理器:${shown.error}`, target };
+          return { ok: true, opened: false, revealed: target, note: `.${ext || '(无扩展名)'} 不是文档/图片/音视频类文件,出于安全没有直接打开(可能会被执行),只在资源管理器里选中了它;要运行请让用户自己决定` };
+        }
+      }
       // 第36波(v1.7) 评审结论:本工具【不】加工作区读闸,理由记录在案防复报 —— 打开的文件内容不回流模型
       // (无 S3 外传通道),"打开桌面/下载里的文档"正是非程序员用户的正当主流程,读闸会误杀;模型可控路径
       // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
@@ -1743,8 +1811,17 @@ const NETWORK_TOOL_HANDLERS = {
       return ret;
   } },
   browser_open: { paths: null, guardNote: "spawn 默认浏览器(buildBrowserOpenSpawn 无 shell);exec tier 门,不触文件路径", handler: async (args, ctx) => {
-      const target = String(args.url || '');
-      if (!target) throw new Error('url is required');
+      const target = String(args.url || '').trim();
+      if (!target) return { ok: false, error: 'url is required', hint: '传一个 http(s) 网址或本地 .html 文件路径' };
+      // 以 `-` 开头的值会被浏览器当成命令行开关(--renderer-cmd-prefix=… 这类),不是网址。
+      if (target.startsWith('-')) return { ok: false, error: 'url 不能以 - 开头', target };
+      // 网址 / 本地 HTML 之外只放行【文件夹】(资源管理器打开)。修前 calc.exe、.bat 之类的路径会落到系统关联打开 = 执行。
+      if (!isBrowserDocumentTarget(target)) {
+        const st = await fsp.stat(path.resolve(target)).catch(() => null);
+        if (!(st && st.isDirectory())) {
+          return { ok: false, error: 'browser_open 只打开网址(http/https/file)、本地 .html 文件或文件夹', target, hint: '打开文档用 office_open;运行程序用命令工具' };
+        }
+      }
       // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
       // default-browser executable is available; folders keep the safe Explorer handoff behavior.
       const s = buildBrowserOpenSpawn(target);
@@ -1781,30 +1858,40 @@ const CODE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'dependency_inventory', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return dependencyInventory(root);
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'code_review_scan', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return codeReviewScan(root, args);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'frontend_audit', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return frontendAudit(root, args);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'claude_md_audit', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return claudeMdAudit(root);
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'docs_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return docsSearch(root, String(args.query || ''), args);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -1813,6 +1900,8 @@ const CODE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'codebase_symbol_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return codebaseSymbolSearch(root, args);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
@@ -2167,11 +2256,20 @@ async function toolCall(name, args = {}, ctx = null) {
   if (!entry) throw unknownToolError(name);
   // 审计 N4:设置里关掉的命令/桌面工具在【分发点】也拒绝(offer 面只是藏 schema;bypass/auto 下 gate 恒放行)。
   // ctx 带 config 的调用(主循环 / 子代理 / tool_invoke_* 转发)才判;MCP 子进程与 HTTP 回环不带 config,由 offer 面把关。
-  if (ctx && ctx.config) {
-    const disabled = nativeToolDisabledByPolicy(name, ctx.config, ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
-    if (disabled) return toolDisabledResult(name, disabled);
+  // 不带 config 的调用面(MCP 子进程 / HTTP 回环)修前直接放行 —— allowCommandTools:false 时 script_run、shell_start
+  // 经这条路照样跑得起来,与设置页「关掉后模型只能读写文件、不能跑命令」不符。现在没带就读一次盘上配置,同一判据。
+  {
+    let policyConfig = ctx && ctx.config ? ctx.config : null;
+    if (!policyConfig && (NATIVE_COMMAND_TOOL_NAMES.has(name) || NATIVE_DESKTOP_TOOL_NAMES.has(name))) {
+      try { policyConfig = await readConfig(); } catch { policyConfig = null; }
+    }
+    if (policyConfig) {
+      const disabled = nativeToolDisabledByPolicy(name, policyConfig, ctx && ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
+      if (disabled) return toolDisabledResult(name, disabled);
+    }
   }
   // 审计 N5:必填/类型校验(按工具自己的 13f schema)。修前 file_read {} 得到 EISDIR、file_search {} 命中 61 条垃圾。
+  args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
   return entry.handler(args, ctx);

@@ -2196,9 +2196,11 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   let upstream = null, upstreamText = '';
   try {
     upstream = await fetch(target, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(120000) });
-    // 上游回体只读 8 KB(错误回显裁 1000 字符;成功体的 text 字段自有限度——恶意巨体不伺候)。
+    // 错误体只留 8 KB(下面再脱敏、裁到 1000 字符回显);成功体留 4 MB —— 修前成功体也裁在 8 KB,一段十几分钟的
+    // 录音转出来的 JSON 被拦腰截断,解析失败报成「上游响应缺少 text 字段」。恶意巨体仍不伺候。
     upstreamText = await upstream.text();
-    if (upstreamText.length > 8192) upstreamText = upstreamText.slice(0, 8192);
+    const bodyCap = upstream.ok ? 4 * 1024 * 1024 : 8192;
+    if (upstreamText.length > bodyCap) upstreamText = upstreamText.slice(0, bodyCap);
   } catch (err) {
     const isTimeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
     return failed({ code: 'asr.upstream_unreachable', params: {}, message: isTimeout ? 'ASR 上游超时(120s)' : ('ASR 上游不可达: ' + String(err && err.message || err)), status: 502 }, isTimeout ? 'timeout' : redact(String(err && err.message || err)));

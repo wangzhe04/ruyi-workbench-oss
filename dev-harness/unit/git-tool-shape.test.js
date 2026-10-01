@@ -47,7 +47,9 @@ test('[G1] git_status 不传 cwd:落在对话工作目录', opts, async () => {
 
 test('[G2] 显式 cwd 不存在:报错并点名路径,不换成家目录', opts, async () => {
   const repo = mkRepo('g2');
-  const bad = path.join(root, 'typo-dir');
+  // 写错的目录放在线程工作目录【里面】:读类 git 先过工作区围栏(2026-10 工具走查,与 file_read 同一道),
+  // 区外的路径先报 not-allowed,不替区外探测「这个目录在不在」。
+  const bad = path.join(repo, 'typo-dir');
   for (const tool of ['git_status', 'git_diff', 'git_log']) {
     const r = await srv.toolCall(tool, { cwd: bad }, ctxFor(repo));
     assert.equal(r.ok, false, tool);

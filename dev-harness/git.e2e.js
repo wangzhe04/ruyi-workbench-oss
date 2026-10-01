@@ -128,7 +128,10 @@ function gitAvailable() {
   let wb;
   try {
     // 临时 HOME 起服务(bypass 权限模式;直击 /api/tools 本就不过权限门,仅需 token)。
-    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass' }, null, 2));
+    // 2026-10 工具走查:读类 git 与 file_read 守同一道工作区围栏 —— 测试仓库与「仓库外目录」都登记成工作区,
+    // 另一个没登记的目录用来验围栏(⑤b)。
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({ configSchema: 7, version: '1.0.0', permissionMode: 'bypass',
+      workspaces: [{ path: REPO, read: true, write: true, execute: true }, { path: OUTSIDE, read: true, write: true, execute: true }] }, null, 2));
     const env = { ...process.env }; delete env.RUYI_HOME; env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
     wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env, windowsHide: true });
     wb.stderr.on('data', d => String(d).split(/\r?\n/).forEach(l => l.trim() && console.log('[wb!] ' + l.trim())));
@@ -172,6 +175,12 @@ function gitAvailable() {
     const outSt = await callTool(WB_PORT, token, 'git_status', { cwd: OUTSIDE });
     ok(outSt && outSt.ok === false, '⑤ 仓库外 git_status ok:false(非崩溃)');
     ok(outSt && typeof outSt.error === 'string' && /Git 仓库/.test(outSt.error), '⑤ 人话引导错误含「Git 仓库」(got "' + (outSt && outSt.error) + '")');
+    // ⑤b 没登记的目录:读类 git 与 file_read 同一道围栏,拒(修前 git_diff 能把区外仓库的改动内容整段读出来)。
+    const FENCED = fs.mkdtempSync(path.join(os.tmpdir(), 'wcw-git-e2e-fenced-'));
+    git(FENCED, ['init', '-b', 'main']);
+    const fenced = await callTool(WB_PORT, token, 'git_diff', { cwd: FENCED });
+    ok(fenced && fenced.ok === false && fenced.code === 'not-allowed', '⑤b 工作区外的仓库:读类 git 拒(got ' + JSON.stringify(fenced).slice(0, 120) + ')');
+    fs.rmSync(FENCED, { recursive: true, force: true });
 
     // ⑥ 安全防回潮(对抗复核 CONFIRMED·CRITICAL):被操作仓库自带的恶意 core.fsmonitor 不得经 read 档 git 工具
     // 执行(git_status/git_diff 零弹窗 → 若不加固即无提示 RCE)。武装一个会留痕的 sh fsmonitor hook,先用裸

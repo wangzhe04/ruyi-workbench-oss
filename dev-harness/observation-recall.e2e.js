@@ -80,7 +80,10 @@ function writeCfg(flags) {
   ok(r5.ok === false && r5.error === 'not_found', 'U5 不存在快照 → not_found');
   const r6 = await srv.toolCall('observation_recall', { rawRef, sessionId: 'evil-other-session' }, ctx);
   ok(r6.ok === true && r6.content === BIG, 'U6 args.sessionId 伪造被忽略(仍按 ctx 会话解析)');
-  // 已用 6 次(失败调用同样计配额定,防滥用循环);第 7/8 次成功,第 9 次超额
+  // 已计 5 次:真去读盘的失败(hash_mismatch / not_found)同样计配额,防滥用循环;U3 那种【形状】就不对的 ref
+  // 不读盘、不计配额(2026-10 工具走查:修前先扣后判,8 次抄错之后正确的 ref 也只能拿到 quota_exceeded)。
+  // 第 6/7/8 次成功,第 9 次超额。
+  await srv.toolCall('observation_recall', { rawRef }, ctx);
   await srv.toolCall('observation_recall', { rawRef }, ctx);
   await srv.toolCall('observation_recall', { rawRef }, ctx);
   const r9 = await srv.toolCall('observation_recall', { rawRef }, ctx);

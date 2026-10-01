@@ -1,7 +1,9 @@
 'use strict';
 // 11 globToRegExp:glob 匹配器(file_search 的 glob、glob 工具、授权书的 pathGlob 共用)。
 // 修前把 glob 译成正则,`*a*a*a*a*a*b` 这类 glob 在长文件名上多项式回溯、卡死主线程;现在是逐字符推进的 NFA。
-//   [G1] 与修前的正则译法在随机 glob × 随机路径的网格上逐格一致(参照实现就是修前那段代码,原样抄在下面);
+//   [G1] 与参照正则译法在随机 glob × 随机路径的网格上逐格一致(参照实现是修前那段代码,只按 2026-10 工具走查改了
+//        `**/` 一处语义:段首的 `**/` = 零个或多个【完整】目录段 `(?:[^/]+/)*` —— 修前是「任意字符 + 可省分隔符」,
+//        `**/test.py` 连 `mytest.py` 也配上;不在段首的 `**` 仍是 `.*`,其后的分隔符照常必须出现);
 //   [G2] 手写的边角:`**/x` 配根下的 x、两种分隔符互认、`*`/`?` 不跨段、大小写不敏感、整串锚定、正则元字符当字面;
 //   [G3] 病态 glob 对长文件名:修前的正则要跑几秒,匹配器在 50ms 内给出同样的答案。
 const { test } = require('node:test');
@@ -11,21 +13,23 @@ const { functionBlock } = require('../lib/source-slice');
 
 const globToMatcher = new Function(functionBlock(readServerSource(), 'globToRegExp') + '\nreturn globToRegExp;')();
 
-// 修前的实现(参照):glob → 锚定、大小写不敏感的正则。
+// 参照实现:glob → 锚定、大小写不敏感的正则(修前那段代码 + 段首 `**/` 的语义修正,见头注)。
 function legacyGlobToRegExp(glob) {
   const g = String(glob || '');
   let re = '';
+  let segStart = true;
   for (let i = 0; i < g.length; i += 1) {
     const c = g[i];
     if (c === '*') {
       if (g[i + 1] === '*') {
-        re += '.*';
         i += 1;
-        if (g[i + 1] === '/' || g[i + 1] === '\\') { re += '(?:[\\\\/])?'; i += 1; }
+        if (segStart && (g[i + 1] === '/' || g[i + 1] === '\\')) { re += '(?:[^\\\\/]+[\\\\/])*'; i += 1; segStart = true; continue; }
+        re += '.*';
       } else re += '[^\\\\/]*';
     } else if (c === '?') re += '[^\\\\/]';
-    else if (c === '/' || c === '\\') re += '[\\\\/]';
+    else if (c === '/' || c === '\\') { re += '[\\\\/]'; segStart = true; continue; }
     else re += c.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    segStart = false;
   }
   return new RegExp('^' + re + '$', 'i');
 }

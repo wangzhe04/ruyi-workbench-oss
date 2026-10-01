@@ -1952,12 +1952,52 @@ function normalizeSession(raw) {
 // missing/invalid; id defaults to t1..tN when absent. Non-array input yields an empty list.
 const TODO_MAX_ITEMS = 50;
 const TODO_MAX_TEXT = 200;
+// 状态同义词:模型多半带着 Claude Code TodoWrite 的习惯(status:'completed'、字段名 content),也常写成
+// in-progress / DONE。修前这些一律落成 pending、文本落成空串 —— 计划条永远 0/N,「没做完就续」也跟着误判。
+// 三个引擎(provider 闭包 / Kimi 桥 / 回环 /api/todo)都经这里,所以在数据层认一次就全覆盖。
+function canonicalTodoStatus(raw) {
+  const v = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (v === 'done' || v === 'completed' || v === 'complete' || v === 'finished' || v === 'success' || v === 'succeeded') return 'done';
+  if (v === 'in_progress' || v === 'inprogress' || v === 'doing' || v === 'active' || v === 'running' || v === 'started') return 'in_progress';
+  if (v === 'blocked') return 'blocked';
+  return v === 'pending' || v === 'todo' || v === 'not_started' || v === 'open' || v === '' ? 'pending' : '';
+}
+// todo_write 入参的同义词归一(分发前的 schema 校验之前用,13f 只认 text/三种状态):content/title/activeForm → text,
+// 状态同义词 → 规范值,纯字符串条目 → {text}。不认识的状态原样留着,让校验报出允许值。
+function normalizeTodoWriteArgs(args) {
+  if (!args || typeof args !== 'object' || !Array.isArray(args.items)) return args;
+  return { ...args, items: args.items.map(it => {
+    if (typeof it === 'string') return { text: it };
+    if (!it || typeof it !== 'object') return it;
+    const o = { ...it };
+    if (o.text == null) { const alt = o.content != null ? o.content : (o.title != null ? o.title : o.activeForm); if (alt != null) o.text = alt; }
+    if (o.status != null) { const c = canonicalTodoStatus(o.status); if (c && c !== 'blocked') o.status = c; }
+    return o;
+  }) };
+}
+// mission_update 的里程碑状态同理(13f 只认 pending/done/blocked;in-progress 一类在账本里就是 pending)。
+function normalizeMissionUpdateArgs(args) {
+  if (!args || typeof args !== 'object' || !Array.isArray(args.milestones)) return args;
+  return { ...args, milestones: args.milestones.map(m => {
+    if (!m || typeof m !== 'object' || m.status == null) return m;
+    const c = canonicalTodoStatus(m.status);
+    return c ? { ...m, status: c === 'in_progress' ? 'pending' : c } : m;
+  }) };
+}
+// 分发前统一入口(12 toolCall 与 09 闭包特例共用)。
+function normalizeMetaToolArgs(name, args) {
+  if (name === 'todo_write') return normalizeTodoWriteArgs(args);
+  if (name === 'mission_update') return normalizeMissionUpdateArgs(args);
+  return args;
+}
 function normalizeTodoItems(raw) {
   const arr = Array.isArray(raw) ? raw.slice(0, TODO_MAX_ITEMS) : [];
   return arr.map((it, i) => {
-    const o = (it && typeof it === 'object') ? it : {};
-    const status = (o.status === 'in_progress' || o.status === 'done') ? o.status : 'pending';
-    const text = String(o.text == null ? '' : o.text).slice(0, TODO_MAX_TEXT);
+    const o = (it && typeof it === 'object') ? it : (typeof it === 'string' ? { text: it } : {});
+    const canon = canonicalTodoStatus(o.status);
+    const status = (canon === 'in_progress' || canon === 'done') ? canon : 'pending';
+    const textRaw = o.text != null ? o.text : (o.content != null ? o.content : (o.title != null ? o.title : o.activeForm));
+    const text = String(textRaw == null ? '' : textRaw).slice(0, TODO_MAX_TEXT);
     const id = (o.id != null && String(o.id).trim()) ? String(o.id).slice(0, 64) : `t${i + 1}`;
     return { id, text, status };
   });
@@ -2098,9 +2138,10 @@ function applyMissionUpdate(prev, patch, trusted = false) {
     if (!id) continue;
     const existing = byId.get(id);
     if (existing) {
-      if (uo.status === 'done' || uo.status === 'blocked' || uo.status === 'pending') {
+      const uoStatus = canonicalTodoStatus(uo.status);   // completed / in-progress 等同义词(见 canonicalTodoStatus)
+      if (uoStatus === 'done' || uoStatus === 'blocked' || uoStatus === 'pending') {
         // 对抗轮 P3: 不可信来源不得把 done 回退为 pending/blocked(防抖动拖住循环);pending↔blocked、→done 允许。
-        if (!(existing.status === 'done' && uo.status !== 'done' && !trusted)) existing.status = uo.status;
+        if (!(existing.status === 'done' && uoStatus !== 'done' && !trusted)) existing.status = uoStatus;
       }
       if (uo.desc != null) existing.desc = String(uo.desc).slice(0, MISSION_MAX_TEXT);
       if (uo.evidence != null) existing.evidence = String(uo.evidence).slice(0, MISSION_MAX_TEXT);
@@ -2108,7 +2149,7 @@ function applyMissionUpdate(prev, patch, trusted = false) {
       if (uo.check && trusted) existing.check = normalizeMissionCheck(uo.check, true);
     } else if (next.milestones.length < MISSION_MAX_MILESTONES) {
       // 新里程碑的 check 同样按 trusted 门控:模型新增里程碑不能自带机器检查(降级 'none')。
-      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (uo.status === 'done' || uo.status === 'blocked') ? uo.status : 'pending', check: normalizeMissionCheck(uo.check, trusted), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (canonicalTodoStatus(uo.status) === 'done' || canonicalTodoStatus(uo.status) === 'blocked') ? canonicalTodoStatus(uo.status) : 'pending', check: normalizeMissionCheck(uo.check, trusted), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
       next.milestones.push(nm); byId.set(id, nm);
     }
   }

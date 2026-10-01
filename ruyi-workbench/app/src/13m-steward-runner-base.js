@@ -149,6 +149,8 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_decide: 'decide',
   steward_run_action: 'runAction',
   steward_thread_stop: 'threadStop',               // 117m-A4:线程级停止(不在表里 = 按钮按下去 4xx)
+  // 2026-10 工具走查:插话补充在无人值守时也过 relay + 权限档两道闸,会回 propose_required → 进表(①e)。
+  steward_thread_note: 'threadNote',
   steward_memory_write: 'memoryWrite',
   steward_memory_veto: 'memoryVeto',
   // 116-2e:两个「须确认」的写工具。它们在模型回合里一定回 propose_required(ctx 里没有
@@ -187,6 +189,7 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   steward_memory_write: '记下', steward_memory_veto: '别记',
   steward_thread_prioritize: '插到最前',
   steward_thread_stop: '暂停这条线程',                            // 117m-A4
+  steward_thread_note: '补一句',
   steward_config_set: '改设置', steward_skill_toggle: '改技能',   // 116-2e
   // 117z-E2b 提交①:这是行动流水与兜底用的总称;真正降级成按钮的只有 capabilities.desktop === true
   // 那一支,13o 的 stewardActLabel 按 args 把它写成「给它开桌面」(按钮上写用户要做的那件事,§8.4)。

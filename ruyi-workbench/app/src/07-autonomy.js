@@ -627,7 +627,14 @@ function searchToolCatalog(catalog, args, config, opts) {
   const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
   const forceV1 = !!(opts && opts.forceV1);
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
-    return legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+    const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+    // 子串匹配零命中(「读文件」「执行命令」「截图」这类中文说法在英文描述里一个都配不上)时,退到带别名/能力词的
+    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时结果与修前逐字节一致。
+    if (query.trim() && Array.isArray(legacy.matches) && legacy.matches.length === 0) {
+      const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
+      if (Array.isArray(v1.matches) && v1.matches.length) return { ...v1, fallback: 'alias_ranker' };
+    }
+    return legacy;
   }
   const startedAt = Date.now();
   const qNorm = normalizeToolSearchText(query);
@@ -864,10 +871,14 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   };
   const load = args => {
     const before = new Set(current().map(t => t.function.name));
-    for (const p of Array.isArray(args && args.packs) ? args.packs : []) if (TOOL_PACK_DESCRIPTIONS[p]) activePacks.add(p);
-    for (const n of Array.isArray(args && args.tools) ? args.tools : []) if (catalog.some(x => x.name === n)) activeNames.add(n);
+    // packs/tools 收单个字符串也认;认不出的名字记下来如实交回(修前静默忽略,回 loaded:[] 的 ok:true)。
+    const asList = v => (Array.isArray(v) ? v : (typeof v === 'string' && v.trim() ? [v.trim()] : []));
+    const unknown = [];
+    for (const p of asList(args && args.packs)) { if (TOOL_PACK_DESCRIPTIONS[p]) activePacks.add(p); else unknown.push(String(p)); }
+    for (const n of asList(args && args.tools)) { if (catalog.some(x => x.name === n)) activeNames.add(n); else unknown.push(String(n)); }
     const after = current().map(t => t.function.name);
-    return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
+    return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length,
+      ...(unknown.length ? { unknown, hint: '这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名' } : {}) };
   };
   const list = args => listCompactTools(catalog, args);
   return { catalog, activePacks, current, list, search, shadowSearch, load, fullCount: catalog.length };

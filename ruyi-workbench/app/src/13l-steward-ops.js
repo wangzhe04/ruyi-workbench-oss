@@ -560,9 +560,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
     const existing = revive || store.entries.find(e => e.state === 'active' && e.kind === kind && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
     // 128h-J12:复活会让生效条数 +1,所以它和「新写一条」一样要过容量闸(合并不加条数,不过)。
     // 漏这一条的话,库满之后复活就成了绕过上限的后门。
-    // 今天这一支够不到:读库本身把总条数截在 maxEntries(13j),200 条生效 + 至少 1 条被否决 = 201 条,
-    // 读上来就已经被截掉了。留着是因为它守的是【两个上限的关系】—— 哪天谁把读的那道上限抬了,
-    // 或者让读库跳过 vetoed,后门就当场开了,而那时不会有人想起这里。
+    // 2026-10 起这一支真的够得到:读库改成生效条与被否决条各自封顶(13j),200 条生效之外的否决条不再挤掉生效条。
     if (revive && store.entries.filter(e => e.state === 'active').length >= STEWARD_MEMORY_LIMITS.maxEntries) {
       return { persist: false, result: stewardFail('capacity_exceeded', `steward memory is full (${STEWARD_MEMORY_LIMITS.maxEntries} active entries); veto something before writing more`) };
     }
@@ -873,6 +871,13 @@ function stewardEyesTake(ctx, config, chars) {
   bucket.chars += Math.max(0, Number(chars) || 0);
   return null;
 }
+// 预扣按上限扣,读完按【实际交回的字数】退差:修前每次固定扣 STEWARD_EYES_CHARS(12000),读一个 25 字节的
+// 文件也算 12000,四次就把默认 48000 的预算吃光;失败的读也照扣。次数(calls)不退 —— 那是另一道闸。
+function stewardEyesSettle(ctx, charged, used) {
+  const bucket = stewardReadBucket(String((ctx.session && ctx.session.id) || 'steward'), stewardTurnKeyOf(ctx));
+  const refund = Math.max(0, (Number(charged) || 0) - Math.max(0, Number(used) || 0));
+  bucket.chars = Math.max(0, bucket.chars - refund);
+}
 
 // 27) steward_web_search
 async function stewardImplWebSearch(args, ctx, config) {
@@ -883,6 +888,7 @@ async function stewardImplWebSearch(args, ctx, config) {
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
   const raw = await webSearch({ query: q, maxResults: stewardClampInt(args && args.count, 1, 10, 5) }, config).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_search');
+  if (!raw || raw.ok === false) stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
   if (!raw || raw.ok === false) return stewardFail('search_failed', stewardSanitizeText(String((raw && raw.error) || 'web search failed')).slice(0, 200));
   const rows = (Array.isArray(raw.results) ? raw.results : []).slice(0, 10).map(r => ({
     title: stewardSanitizeText(String((r && r.title) || '')).slice(0, 160),
@@ -891,6 +897,7 @@ async function stewardImplWebSearch(args, ctx, config) {
   }));
   // 结果为空时把原因(被人机验证拦下 / 两个引擎都没结果)带上,管家才知道该换说法重搜还是告诉用户换搜索后端。
   const note = raw.note ? stewardSanitizeText(String(raw.note)).slice(0, 200) : '';
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, JSON.stringify(rows).length);
   return { ok: true, query: q, total: rows.length, tainted: true, results: rows, ...(note ? { note } : {}) };
 }
 
@@ -903,11 +910,13 @@ async function stewardImplWebFetch(args, ctx, config) {
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。
   const raw = await webFetch({ url, maxChars: STEWARD_EYES_CHARS }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_fetch');
-  if (!raw || raw.ok === false) return stewardFail('fetch_failed', stewardSanitizeText(String((raw && raw.error) || 'web fetch failed')).slice(0, 200));
-  return {
-    ok: true, url: stewardSanitizeText(url).slice(0, 300), tainted: true,
-    content: stewardExternalBlock('web', url, raw.content || raw.text || '', STEWARD_EYES_CHARS),
-  };
+  if (!raw || raw.ok === false) {
+    stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
+    return stewardFail('fetch_failed', stewardSanitizeText(String((raw && raw.error) || 'web fetch failed')).slice(0, 200));
+  }
+  const content = stewardExternalBlock('web', url, raw.content || raw.text || '', STEWARD_EYES_CHARS);
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
+  return { ok: true, url: stewardSanitizeText(url).slice(0, 300), tainted: true, content };
 }
 
 // 29) steward_file_read —— **只在 config.workspaces 之内**。
@@ -920,6 +929,11 @@ async function stewardImplFileRead(args, ctx, config) {
   if (!root) {
     return stewardFail('outside_workspace', 'path is outside every registered workspace; only paths inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
+  // 词法判过了,再按【真实落点】判一次:工作区里指向区外的符号链接/联接不能当成区内文件读。
+  const [realTarget, realRoot] = await Promise.all([realpathForContainment(raw), realpathForContainment(root)]);
+  if (!pathWithinRoot(realTarget, realRoot)) {
+    return stewardFail('outside_workspace', 'that path is a link that points outside the registered workspace; only files really inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
+  }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 敏感路径(配置/会话/记忆/日志)、二进制与大小上限全走 12 那一道既有守卫 —— 这里只换围栏,
@@ -929,11 +943,13 @@ async function stewardImplFileRead(args, ctx, config) {
     { config, session: { id: String((ctx.session && ctx.session.id) || 'steward'), cwd: root } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_file_read');
-  if (!out || out.ok === false) return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
-  return {
-    ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true,
-    content: stewardExternalBlock('file', raw, out.content || out.text || '', STEWARD_EYES_CHARS),
-  };
+  if (!out || out.ok === false) {
+    stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
+    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+  }
+  const content = stewardExternalBlock('file', raw, out.content || out.text || '', STEWARD_EYES_CHARS);
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
+  return { ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
 }
 
 // 30) steward_thread_artifact_read —— 读一条线程【自己在交付里列出来的】那些文件。
@@ -958,11 +974,13 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
     { config, session: { id: sessionId, cwd: String(head.cwd || '') } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_thread_artifact_read');
-  if (!out || out.ok === false) return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
-  return {
-    ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true,
-    content: stewardExternalBlock('artifact', hit, out.content || out.text || '', STEWARD_EYES_CHARS),
-  };
+  if (!out || out.ok === false) {
+    stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
+    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+  }
+  const content = stewardExternalBlock('artifact', hit, out.content || out.text || '', STEWARD_EYES_CHARS);
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
+  return { ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1103,6 +1121,29 @@ async function stewardImplConfigSet(args, ctx, config) {
   const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(restoredPatch[k]));
   if (rejected.length) {
     return stewardFail('invalid_request', `these values did not survive config sanitize (illegal value or out of range): ${rejected.join(', ')}`, { keys: rejected });
+  }
+  // sanitize 只钳它认识的键;它原样放过的那些「自由键」再补两道最要命的:①类型要与出厂值同类(开关只收
+  // true/false —— 修前 killOnDisconnect:'maybe' 原样落盘);②stewardProviderId 必须是已配置的服务商
+  // (修前写一个不存在的 id,管家自己当场再也醒不过来,只能用户去设置页救)。
+  const defaults = normalizeConfig(null).config;
+  const typeMismatch = keys.filter(k => {
+    const d = defaults[k];
+    const v = restoredPatch[k];
+    if (typeof d === 'boolean') return typeof v !== 'boolean';
+    if (typeof d === 'number') return typeof v !== 'number' || !Number.isFinite(v);
+    if (typeof d === 'string') return typeof v !== 'string';
+    if (Array.isArray(d)) return !Array.isArray(v);
+    return false;
+  });
+  if (typeMismatch.length) {
+    const expect = typeMismatch.map(k => `${k}: ${Array.isArray(defaults[k]) ? 'array' : typeof defaults[k]}`).join(', ');
+    return stewardFail('invalid_request', `these values have the wrong type (expected ${expect})`, { keys: typeMismatch });
+  }
+  if (Object.prototype.hasOwnProperty.call(restoredPatch, 'stewardProviderId') && String(restoredPatch.stewardProviderId || '')) {
+    const ids = (Array.isArray(config.providers) ? config.providers : []).map(p => String((p && p.id) || ''));
+    if (!ids.includes(String(restoredPatch.stewardProviderId))) {
+      return stewardFail('invalid_request', `stewardProviderId must be one of the configured providers (${ids.filter(Boolean).join(', ') || 'none'}), or "" to follow the active provider`, { keys: ['stewardProviderId'] });
+    }
   }
 
   // 107-S0b:before／applied 会落进决策日志(磁盘、GET /api/steward/decisions、steward_audit_tail)并回给模型 ——

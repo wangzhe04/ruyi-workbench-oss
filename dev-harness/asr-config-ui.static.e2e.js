@@ -251,7 +251,9 @@ assert.match(src05, /const realOut = chatAudio \? pick\('completion_tokens', 'ou
   const body = fn.slice(0, fn.indexOf('\n}\n') + 3);
   assert.ok(body.includes("const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);"), '05: 目标 URL 只来自配置（⑦c）');
   assert.equal((body.match(/AbortSignal\.timeout\(120000\)/g) || []).length, 1, '05: 120s 超时只有一处（⑦c 两协议共用）');
-  assert.equal((body.match(/if \(upstreamText\.length > 8192\) upstreamText = upstreamText\.slice\(0, 8192\);/g) || []).length, 1, '05: 8KB 回体上限只有一处（⑦c）');
+  // 2026-10 工具走查重钉:成功体上限放到 4MB(长录音的转写 JSON 修前被 8KB 拦腰截断),错误体仍是 8KB —— 还是只有一处。
+  assert.equal((body.match(/const bodyCap = upstream\.ok \? 4 \* 1024 \* 1024 : 8192;/g) || []).length, 1, '05: 回体上限只有一处,错误体 8KB / 成功体 4MB（⑦c）');
+  assert.equal((body.match(/if \(upstreamText\.length > bodyCap\) upstreamText = upstreamText\.slice\(0, bodyCap\);/g) || []).length, 1, '05: 回体上限只裁一处（⑦c）');
   assert.equal((body.match(/const snippet = redact\(/g) || []).length, 1, '05: 上游错误体脱敏只有一处（⑦c）');
   assert.match(body, /redact\(upstreamText\.replace\([^)]*\)\)\.slice\(0, 1000\)/, '05: 顺序仍是【先脱敏再裁 1000】（⑦c，107-S1 的教训）');
   assert.equal((body.match(/kind: 'aux', note: 'asr'/g) || []).length, 1, "05: 记账 kind:'aux' note:'asr' 只有一处（⑦c）");
