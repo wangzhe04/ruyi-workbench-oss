@@ -973,8 +973,10 @@
         "JOURNAL_GC_RECALIBRATE_EVERY",
         "JOURNAL_GC_SCAN_HYSTERESIS",
         "JOURNAL_GLOBAL_MAX_BYTES",
+        "JOURNAL_KEEP_HISTORY_SNAPSHOTS",
         "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "JOURNAL_SWEEP_BACKOFF_MS",
         "MISSIONS_DIR_NAME",
         "MISSION_CHANGE_TYPES",
         "MISSION_CONTAINER_LIMITS",
@@ -1089,8 +1091,11 @@
         "journalResolveTurnSeq",
         "journalRollback",
         "journalSessionCtx",
+        "journalSweepBackoffUntil",
         "journalSweepInFlight",
+        "journalSweepProtect",
         "journalSweeping",
+        "journalTrimProtectedSnapshots",
         "journalWriteChains",
         "journalWriteIndex",
         "kindForPath",
@@ -2789,6 +2794,7 @@
         "noRetryOn400",
         "normalizeProviderApiStyle",
         "providerReasoningEffort",
+        "providerServerSearchCard",
         "providerWireDecoded",
         "providerWireFailureDetail",
         "providerWireIncomplete",
@@ -7390,6 +7396,13 @@
         },
         {
           "provider": "04i-provider-wire.js",
+          "symbol": "providerServerSearchCard",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
           "symbol": "providerWireOutputLimited",
           "kinds": [
             "call"
@@ -8404,6 +8417,13 @@
         },
         {
           "provider": "04h-provider-http.js",
+          "symbol": "providerCallIsTransient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04h-provider-http.js",
           "symbol": "withTransientRetry",
           "kinds": [
             "call"
@@ -8412,6 +8432,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "applyProviderReasoningEffort",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04i-provider-wire.js",
+          "symbol": "providerServerSearchCard",
           "kinds": [
             "call"
           ]

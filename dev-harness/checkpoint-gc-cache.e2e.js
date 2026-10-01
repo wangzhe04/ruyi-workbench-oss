@@ -119,6 +119,28 @@ const sessDirExists = sid => fs.existsSync(path.join(CK, sid));
     ok(histTotal <= CAP, '④ over-cap history-only tree was purged back under the cap (' + histTotal + ' <= ' + CAP + ')');
     ok(!sessDirExists('sess_ckgc_hist_a'), '④ oldest history-only session (hist_a) purged (cap enforced, not soft)');
     ok(sessDirExists('sess_ckgc_hist_e'), '④ newest history-only session (hist_e) survives');
+
+    // ── ⑤ 正在写快照的那一条会话,自己的检查点树就超过整仓上限:不许把它整个目录当「最旧」清掉 ────────────────
+    //     (用户报告 observation_recall → `observation recall failed: ENOENT` 的根因:清扫把刚写完快照的活会话连目录删光,
+    //      刚给出去的 rawRef 立刻失效、文件回滚点也一并消失。)旧会话照旧被清;受保护会话最多被削掉自己最旧的历史快照,最近几份与回滚点留着。
+    await sleep(35);
+    await srv.journalRecord('sess_ckgc_old_unrelated', 1, 'file_edit', path.join(HOME, 'u.txt'), 'modify', rnd(CHUNK));
+    await sleep(60);
+    const PROT = 'sess_ckgc_protected';
+    await srv.journalRecord(PROT, 1, 'file_edit', path.join(HOME, 'p.txt'), 'modify', rnd(2 * 1024));
+    let lastRef = '';
+    for (let i = 1; i <= 8; i++) {
+      await sleep(15);
+      lastRef = await srv.writeHistorySnapshot(PROT, 7, [{ role: 'user', content: rnd(15 * 1024).toString('base64') }], true);
+    }
+    await sleep(400); // 让每次写后的 fire-and-forget journalGc / 清扫落定
+    const protFiles = fs.existsSync(path.join(CK, PROT)) ? fs.readdirSync(path.join(CK, PROT)) : [];
+    const protSnaps = protFiles.filter(f => /^history-7-[a-f0-9]{16}\.json\.gz$/.test(f));
+    ok(sessDirExists(PROT), '⑤ 自己就超限的活会话(' + PROT + ')目录没被整仓清扫删掉(修前:整个目录消失)');
+    ok(lastRef && protSnaps.includes(lastRef.replace(/^history:(\d+):/, 'history-$1-') + '.json.gz'), '⑤ 它刚写的最新快照(' + lastRef + ')仍在盘上,rawRef 可回读');
+    ok(protFiles.includes('1-0.gz'), '⑤ 它的文件回滚点(1-0.gz)一份没动');
+    ok(protSnaps.length >= 4, '⑤ 最近几份历史快照被保留(≥4,实际 ' + protSnaps.length + ')');
+    ok(!sessDirExists('sess_ckgc_old_unrelated'), '⑤ 与本会话无关的旧会话照旧被按上限清掉(上限没被放弃)');
   } catch (e) {
     console.log('ERROR ' + (e && e.stack || e.message || e)); fail++;
   } finally {

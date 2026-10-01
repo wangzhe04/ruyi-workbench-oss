@@ -140,7 +140,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 各自独立临时家;第一行已 require self-isolate-home;进程内的 fake provider 不带 RUYI_HOME,不计入),167 -> 168。
 // 审计 A①/A② 后续(CLI 直挂面):新增 dev-harness/claude-cli-bridged-read-guard.e2e.js(一处带 RUYI_HOME 的 spawn 起服务 +
 // 临时目录里的假 CLI;第一行已 require self-isolate-home),168 -> 169。工具分发批:新增 tool-dispatch-hardening.e2e 与 audit-desktop-records.e2e(各起一台带临时 HOME 的工作台),169 -> 171。 工具结果边界(N9/N3):新增 tool-result-bounds.e2e 与 parallel-read-island.e2e(各一处带 RUYI_HOME 的 spawn),171 -> 173。
-const RUYI_HOME_SPAWN_SITES = 173;
+const RUYI_HOME_SPAWN_SITES = 176; // 173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 

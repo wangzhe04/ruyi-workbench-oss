@@ -274,7 +274,12 @@ const CORE_TOOL_HANDLERS = {
       const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
       if (!result.ok) {
         const code = observationRecallError(result.error);
-        return { ok: false, error: code, message: `observation recall failed: ${result.error}` };
+        // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
+        // 点明:原件已不可取回、视图里的头尾是仅存的内容、该怎么办(重跑当初那次工具调用)、别重试同一 rawRef。信封 error 码不变。
+        const gone = result.error === 'ENOENT'
+          ? ' — the raw snapshot is no longer on disk (removed by the checkpoint size cap or the session folder was moved/deleted), so this original cannot be recovered; do not retry the same rawRef. Re-run the original tool call (same query/url/path) to get the content again.'
+          : '';
+        return { ok: false, error: code, message: `observation recall failed: ${result.error}${gone}` };
       }
       const raw = Number(args && args.maxChars);
       const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;

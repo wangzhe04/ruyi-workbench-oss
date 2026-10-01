@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 67 | 3232 | 2995 | 524 | 68 | 0 | 1 |
+| 67 | 3238 | 2998 | 524 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,7 +27,7 @@
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 15 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 291 | 72 | 16 |
+| 12 | `02-session-store.js` | foundation | 296 | 72 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 87 | 25 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 3 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 151 | 37 | 9 |
@@ -35,7 +35,7 @@
 | 17 | `04f-toolbox-services.js` | foundation | 26 | 13 | 3 |
 | 18 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
 | 19 | `04i-provider-anthropic.js` | foundation | 48 | 1 | 1 |
-| 20 | `04i-provider-wire.js` | foundation | 32 | 15 | 2 |
+| 20 | `04i-provider-wire.js` | foundation | 33 | 15 | 2 |
 | 21 | `05-claude-engine.js` | engine | 64 | 132 | 22 |
 | 22 | `05b-kimi-bridge.js` | engine | 127 | 73 | 12 |
 | 23 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
@@ -52,10 +52,10 @@
 | 34 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 35 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
 | 36 | `07-autonomy.js` | orchestration | 98 | 65 | 17 |
-| 37 | `08-agent-runs.js` | orchestration | 112 | 94 | 18 |
+| 37 | `08-agent-runs.js` | orchestration | 112 | 95 | 18 |
 | 38 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 39 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 40 | `09-workflow.js` | orchestration | 19 | 229 | 25 |
+| 40 | `09-workflow.js` | orchestration | 19 | 231 | 25 |
 | 41 | `10-context-governance.js` | orchestration | 175 | 86 | 17 |
 | 42 | `11-native-tools.js` | tools | 107 | 45 | 10 |
 | 43 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
@@ -262,7 +262,7 @@
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd` |
 | `08-agent-runs.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `collectBridgedTools`, `getBridgedClient`, `logEvent`, `redact`, `resolveBridge` |
 | `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `withTransientRetry` |
-| `08-agent-runs.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerWireOutputLimited`, `providerWireProtocol` |
+| `08-agent-runs.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerServerSearchCard`, `providerWireOutputLimited`, `providerWireProtocol` |
 | `08-agent-runs.js` | `05-claude-engine.js` | backward | `resolveProvider` |
 | `08-agent-runs.js` | `06-provider-engine.js` | backward | `TOOL_ITERATION_BUDGETS`, `appendResponseLanguagePolicy`, `buildProviderSystemPrompt`, `getCapabilities`, `readProjectMemory`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget` |
 | `08-agent-runs.js` | `06g-resource-leases.js` | backward | `acquireResourceLease`, `inferToolResources`, `normalizeAgentResources`, `releaseResourceLease` |
@@ -281,8 +281,8 @@
 | `09-workflow.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `buildAttachmentPrompt`, `cwdWarning`, `journalBridgedWrite`, `normalizeCwd`, `preflightWriteBoundary` |
 | `09-workflow.js` | `04-permission-runtime.js` | backward | `activeChildren`, `appendLiveTail`, `bridgedServerUnavailableMessage`, `clearPendingPermissions`, `clearPendingPlans`, `clearPendingQuestions`, `collectBridgedTools`, `getBridgedClient`, `hasPendingPermissionForSession`, `hasPendingQuestionForSession`, `installActiveChildEventFanout`, `lastAssistantEngine`, `logEvent`, `permissionWaitMs`, `redact`, `requestUserQuestion`, `resolveBridge`, `stopSession` |
 | `09-workflow.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
-| `09-workflow.js` | `04h-provider-http.js` | backward | `withTransientRetry` |
-| `09-workflow.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerWireOutputLimited`, `providerWireProtocol` |
+| `09-workflow.js` | `04h-provider-http.js` | backward | `providerCallIsTransient`, `withTransientRetry` |
+| `09-workflow.js` | `04i-provider-wire.js` | backward | `applyProviderReasoningEffort`, `providerServerSearchCard`, `providerWireOutputLimited`, `providerWireProtocol` |
 | `09-workflow.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `resolveProvider`, `stripUrlUserinfo` |
 | `09-workflow.js` | `06-provider-engine.js` | backward | `appendTurnPolicies`, `buildPromptTaskContext`, `buildStableSystemPrompt`, `buildVolatileParts`, `evalPlaybookAvailability`, `getCapabilities`, `loadAllPlaybooks`, `readProjectMemory`, `repairNodeJsonViaProvider`, `resolveToolIterationBudget`, `shouldExtendToolIterationBudget`, `softwareEngineeringTaskProfile` |
 | `09-workflow.js` | `06b-prompt-registry.js` | backward | `PROMPT_EN`, `PROMPT_PACK_VERSION`, `getPromptPack` |
