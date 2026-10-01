@@ -546,3 +546,60 @@
   #settingsModal .settings-fold > summary::before { transition: none; }
   #settingsTabs .settings-nav-group.is-open button[data-stab] { animation: none; }
 }
+
+/* ── 服务商卡片补字段（2026-10）── */
+/* 「协议与能力」折叠组里新增的字段：标题在上、控件在中、说明在下，竖排；两列并排的放进 .prov-cap-grid，窄了自动折成一列。 */
+#settingsModal .prov-cap .prov-cap-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+  min-width: 0;
+  margin: var(--sp-2) 0;
+  white-space: normal;
+  color: var(--muted);
+  cursor: default;
+}
+#settingsModal .prov-cap .prov-cap-caption { font-size: var(--fs-sm); color: var(--ink); }
+#settingsModal .prov-cap .prov-cap-field select,
+#settingsModal .prov-cap .prov-cap-field input[type="text"] { width: 100%; max-width: none; }
+#settingsModal .prov-cap .prov-cap-hint { margin: 0; font-size: var(--fs-xs); line-height: 1.5; white-space: normal; }
+/* 置灰不隐藏：关着「推理链」时思考强度还在，只是点不动，说明文字照样可读。 */
+#settingsModal .prov-cap .prov-cap-field.is-disabled .prov-cap-caption { color: var(--muted); }
+#settingsModal .prov-cap .prov-cap-field select:disabled { opacity: .55; cursor: not-allowed; }
+#settingsModal .prov-cap .prov-effort { max-width: 360px; }
+#settingsModal .prov-cap .prov-cap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 var(--sp-4);
+  margin-top: var(--sp-1);
+}
+#settingsModal .prov-cap .prov-cap-subhead,
+#settingsModal .prov-cap .prov-anthropic-opts .prov-anthropic-fallbacks { grid-column: 1 / -1; }
+#settingsModal .prov-cap .prov-cap-subhead {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--line);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+#settingsModal .prov-cap .prov-cap-field.check { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+#settingsModal .prov-cap .prov-cap-field.check .prov-cap-hint { flex-basis: 100%; }
+
+/* Agent 角色颜色：下拉旁的色块，与折叠头上的小圆点同一套 --role-* 调色板（两主题通用）。 */
+#settingsModal .agent-role-color-row { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+#settingsModal .agent-role-color-row select { flex: 1 1 auto; min-width: 0; }
+#settingsModal .agent-role-color-swatch,
+#settingsModal .agent-role-dot {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: transparent;
+}
+#settingsModal .agent-role-dot { width: 10px; height: 10px; margin-inline-end: var(--sp-2); vertical-align: baseline; }
+#settingsModal .agent-role-color-swatch.is-empty,
+#settingsModal .agent-role-dot.is-empty { background-image: linear-gradient(135deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%); }

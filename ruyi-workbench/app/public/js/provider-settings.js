@@ -19,7 +19,7 @@ import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONB
 // 每个 Agent CLI 的知识（品牌名、路径键、思考强度档位、头像字母……）只问这一张登记表（ENGINEERING-SPEC §11.1）。
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
-import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta } from './provider-api-styles.js';
+import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
 // 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
 import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
 
@@ -1714,8 +1714,22 @@ function providerCard(p, idx) {
   // 对抗轮(critic B):重绘后恢复 open 状态;toggle 时写入记忆 Map(按 provider id)。
   if (providerCapOpen.get(p.id)) cap.open = true;
   cap.addEventListener('toggle', () => providerCapOpen.set(p.id, cap.open));
-  const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning; rc.onchange = () => { p.reasoning = rc.checked; };
+  const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning;
   reason.appendChild(rc); reason.appendChild(document.createTextNode(' ' + t('provider.reasoning')));
+  // 2026-10 补字段：思考强度（providers[].reasoningEffort）。与线程头模型菜单里的那一个是同一个字段、同一组候选；
+  // 只有「支持思考」打开时才会被发出去 → 关着时置灰不隐藏（用户能看见它存在、知道先开哪个）。空 = 按模型默认、不发送。
+  const effortLbl = el('label', 'prov-cap-field prov-effort');
+  effortLbl.append(el('span', 'prov-cap-caption', t('provider.reasoningEffort')));
+  const effortSel = el('select', 'prov-effort-select');
+  for (const value of PROVIDER_REASONING_EFFORT_CHOICES) {
+    const o = el('option'); o.value = value; o.textContent = t(`provider.reasoningEffort.${value || 'default'}`); effortSel.appendChild(o);
+  }
+  effortSel.value = PROVIDER_REASONING_EFFORT_CHOICES.includes(p.reasoningEffort) ? p.reasoningEffort : '';
+  effortSel.onchange = () => { p.reasoningEffort = effortSel.value; };
+  effortLbl.append(effortSel, el('p', 'field-help muted prov-cap-hint', t('provider.reasoningEffort.hint')));
+  const syncEffortEnabled = () => { effortSel.disabled = !rc.checked; effortLbl.classList.toggle('is-disabled', !rc.checked); };
+  rc.onchange = () => { p.reasoning = rc.checked; syncEffortEnabled(); };
+  syncEffortEnabled();
   // v1.7: protocol 选择,选项由协议登记表生成(provider-api-styles.js;chat 缺省)。存 p.apiStyle;
   // 后端 sanitizeProvider 经 normalizeProviderApiStyle 归一。
   const styleLbl = el('label', 'check prov-style'); styleLbl.appendChild(document.createTextNode(' ' + t('provider.apiStyle') + ' '));
@@ -1742,6 +1756,7 @@ function providerCard(p, idx) {
     if (sc.value !== PROVIDER_API_STYLE_DEFAULT) p.apiStyle = sc.value; else delete p.apiStyle;
     if (!providerApiStyleMeta(sc.value).serverWebSearch) delete p.serverWebSearch;
     syncServerSearchVisibility();
+    syncAnthropicVisibility();
   };
   styleLbl.appendChild(sc);
   // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
@@ -1771,8 +1786,49 @@ function providerCard(p, idx) {
   asrLbl.appendChild(ac);
   const asrHint = el('p', 'field-help muted prov-asr-protocol-hint'); asrHint.textContent = t('provider.asrProtocol.hint');
   asrLbl.appendChild(asrHint);
-  cap.append(reason, visionLbl, styleLbl, serverSearchLbl, asrLbl);
+  // 2026-10 补字段：语音转写端点 / 子代理模型（所有协议都有）。草稿写法同卡片里别的字段：就地改 p，空值不写成空串
+  // （audioBaseUrl 服务端空不落字段，这里空就 delete；subagentModel 服务端缺省就是 ''，与 p.model 同款直接赋值）。
+  const audioLbl = el('label', 'prov-cap-field prov-audio-base');
+  audioLbl.append(el('span', 'prov-cap-caption', t('provider.audioBaseUrl')));
+  const audioIn = el('input'); audioIn.type = 'text'; audioIn.value = p.audioBaseUrl || ''; audioIn.placeholder = t('provider.audioBaseUrl.placeholder');
+  audioIn.oninput = () => { const v = audioIn.value.trim(); if (v) p.audioBaseUrl = v; else delete p.audioBaseUrl; };
+  audioLbl.append(audioIn, el('p', 'field-help muted prov-cap-hint', t('provider.audioBaseUrl.hint')));
+  const subLbl = el('label', 'prov-cap-field prov-subagent-model');
+  subLbl.append(el('span', 'prov-cap-caption', t('provider.subagentModel')));
+  const subSel = el('select', 'prov-subagent-select');
+  bindModelSelect(subSel, { provider: () => p, value: p.subagentModel || '', emptyLabel: () => t('provider.subagentModel.follow') });
+  subSel.onchange = () => { p.subagentModel = subSel.value; };
+  subLbl.append(subSel, el('p', 'field-help muted prov-cap-hint', t('provider.subagentModel.hint')));
+  const extraGrid = el('div', 'prov-cap-grid'); extraGrid.append(audioLbl, subLbl);
+
+  // 2026-10 补字段：Anthropic 协议专属三项（认证方式 / 思考方式 / 拒答自动改派）。是否显示只问协议登记表的 anthropicOptions 能力位。
+  // 与「服务端搜索」同口径：切协议只改显隐，不删已存的值。空 = 缺省、不落字段（存量 config 零漂移）。
+  const anthropicBox = el('div', 'prov-cap-grid prov-anthropic-opts');
+  anthropicBox.append(el('div', 'prov-cap-subhead', t('provider.anthropic.title')));
+  const choiceField = (cls, captionKey, hintKey, choices, labelKeyOf, field) => {
+    const lbl = el('label', 'prov-cap-field ' + cls); lbl.append(el('span', 'prov-cap-caption', t(captionKey)));
+    const sel = el('select');
+    for (const value of choices) { const o = el('option'); o.value = value; o.textContent = t(labelKeyOf(value)); sel.appendChild(o); }
+    sel.value = choices.includes(p[field]) ? p[field] : '';
+    sel.onchange = () => { if (sel.value) p[field] = sel.value; else delete p[field]; };
+    lbl.append(sel, el('p', 'field-help muted prov-cap-hint', t(hintKey)));
+    return lbl;
+  };
+  anthropicBox.append(
+    choiceField('prov-anthropic-auth', 'provider.anthropicAuth', 'provider.anthropicAuth.hint', ANTHROPIC_AUTH_CHOICES,
+      v => ({ '': 'provider.anthropicAuth.auto', 'x-api-key': 'provider.anthropicAuth.xApiKey', bearer: 'provider.anthropicAuth.bearer' })[v], 'anthropicAuth'),
+    choiceField('prov-anthropic-thinking', 'provider.anthropicThinking', 'provider.anthropicThinking.hint', ANTHROPIC_THINKING_CHOICES,
+      v => ({ '': 'provider.anthropicThinking.auto', adaptive: 'provider.anthropicThinking.adaptive', off: 'provider.anthropicThinking.off' })[v], 'anthropicThinking'));
+  const fbLbl = el('label', 'check prov-cap-field prov-anthropic-fallbacks');
+  const fbc = el('input'); fbc.type = 'checkbox'; fbc.checked = p.anthropicFallbacks !== 'off';
+  fbc.onchange = () => { if (fbc.checked) delete p.anthropicFallbacks; else p.anthropicFallbacks = 'off'; };
+  fbLbl.append(fbc, document.createTextNode(' ' + t('provider.anthropicFallbacks')), el('p', 'field-help muted prov-cap-hint', t('provider.anthropicFallbacks.hint')));
+  anthropicBox.append(fbLbl);
+  const syncAnthropicVisibility = () => { anthropicBox.style.display = providerApiStyleMeta(sc.value).anthropicOptions ? '' : 'none'; };
+
+  cap.append(reason, effortLbl, visionLbl, styleLbl, serverSearchLbl, asrLbl, extraGrid, anthropicBox);
   syncServerSearchVisibility();
+  syncAnthropicVisibility();
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
   const bi = el('input'); bi.type = 'text'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);

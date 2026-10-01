@@ -48,6 +48,8 @@ function stream(port, body) { return new Promise((resolve, reject) => { const ra
   ok(library.some(r => r.id === 'explorer' && r.label === 'Project Explorer' && r.source === 'project'), 'project role overrides built-in role');
   ok(library.some(r => r.id === 'worker' && r.label === 'Global Worker' && r.models.openai === 'worker-model'), 'global override configures built-in worker model');
   ok(library.some(r => r.id === 'project-specialist'), 'project custom role joins the library');
+  // 2026-10:覆盖(这里的 project explorer / global worker 都没写 color,清洗后是 '')不抹内置角色的颜色 —— 修前画布上的角色胶囊会变灰。
+  ok(library.find(r => r.id === 'explorer').color === 'blue' && library.find(r => r.id === 'worker').color === 'green', 'role overrides without a color keep the built-in role color');
   const native = await readClaudeProjectAgentRoles(PROJECT);
   ok(native.length === 1 && native[0].nativeClaude && native[0].claudeTools.includes('Read'), 'native .claude/agents role is discovered for display');
   const defs = await buildClaudeAgentDefinitions(PROJECT, cfg);

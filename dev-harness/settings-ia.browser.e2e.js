@@ -62,7 +62,8 @@ const SIMPLE_TABS = PRO_TABS;
     // 服务端落盘了还不够：页面这一侧要等保存的回包回来（state.config 换成新值、保存期间置灰的下拉恢复）再点下一枚 ——
     // 真人手速不会在几十毫秒里连点两枚，测试会，不等就是在量竞态而不是在量功能。
     const settled = clientPred => fx.waitForEval(`(() => {
-      if ([...document.querySelectorAll('#settingsModal select')].some(s => s.disabled)) return null;
+      // 「保存期间置灰」才算在等回包;服务商卡片里「推理链」没开时置灰的思考强度(.prov-effort-select)是常态不是保存中。
+      if ([...document.querySelectorAll('#settingsModal select')].some(s => s.disabled && !s.classList.contains('prov-effort-select'))) return null;
       const c = (window.state && window.state.config) || {};
       try { return (${clientPred})(c) ? 1 : null; } catch { return null; }
     })()`, 150);

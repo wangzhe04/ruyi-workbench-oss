@@ -1,5 +1,6 @@
 'use strict';
-// Keep thinking effort with the engine/model switcher, not in the Provider settings form.
+// 思考强度的主入口仍是引擎/模型切换器(线程头模型菜单);2026-10 起服务商卡片「协议与能力」折叠组里也补了一个下拉(同一个 reasoningEffort 字段,
+// 仅「推理链」打开时可选)。下面两条 doesNotMatch 钉的是【旧形状不回来】:不另立 hint 键、不再用 prov-reason 开关样式冒充强度选择器。
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
@@ -25,5 +26,9 @@ assert.match(navigation, /thinkingEffort\.\$\{value \|\| .default.\}/);
 assert.match(navigation, /provider\.reasoningEffort\.\$\{value \|\| .default.\}/);
 assert.doesNotMatch(providers, /provider\.reasoningEffortHint/);
 assert.doesNotMatch(providers, /const effort = el\('label', 'check prov-reason'\)/);
+// 2026-10：卡片里的下拉走协议表导出的候选、写同一个 p.reasoningEffort，且随「推理链」开关置灰（不隐藏）。
+assert.match(providers, /for \(const value of PROVIDER_REASONING_EFFORT_CHOICES\)/);
+assert.match(providers, /effortSel\.onchange = \(\) => \{ p\.reasoningEffort = effortSel\.value; \};/);
+assert.match(providers, /effortSel\.disabled = !rc\.checked/);
 
 console.log('PROVIDER REASONING EFFORT UI STATIC E2E: ALL PASS');
