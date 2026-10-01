@@ -1246,7 +1246,19 @@ const REGEX_SCAN_WORKER_SRC = `
 (() => {
   const { parentPort, workerData } = require('worker_threads');
   const fs = require('fs');
-  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars } = workerData;
+  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars, autoDecode } = workerData;
+  // autoDecode(docs_search):BOM 优先(UTF-8 BOM 剥掉、UTF-16 LE/BE),其次严格 UTF-8,再试 GB18030(中文 Windows 的 .md/.txt 常是 GBK),
+  // 都不是才宽松 UTF-8。修前一律 buf.toString('utf8'):UTF-16 文档搜不到、GBK 中文查询零命中且英文命中显示成乱码、
+  // UTF-8 BOM 让 ^# 标题永远配不上第 1 行、命中文本以 U+FEFF 开头。带 BOM 的 UTF-16 天然含 NUL,所以 BOM 判断在二进制(NUL)跳过之前。
+  const decodeAuto = buf => {
+    if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return buf.subarray(3).toString('utf8');
+    if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return new TextDecoder('utf-16le').decode(buf.subarray(2));
+    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return new TextDecoder('utf-16be').decode(buf.subarray(2));
+    if (buf.subarray(0, 8192).includes(0)) return null;
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch { /* 不是 UTF-8 */ }
+    try { return new TextDecoder('gb18030', { fatal: true }).decode(buf); } catch { /* 也不是(或运行时没有 GB18030) */ }
+    return buf.toString('utf8');
+  };
   let re;
   try { re = new RegExp(pattern, flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
   let count = 0;
@@ -1254,7 +1266,11 @@ const REGEX_SCAN_WORKER_SRC = `
     if (count >= maxResults) break;
     let raw = '';
     // F7:含 NUL 的文件按二进制跳过(与 rg 口径一致;此前 JS 引擎会在随机二进制里命中)。
-    try { const buf = fs.readFileSync(file.path); if (buf.subarray(0, 8192).includes(0)) continue; raw = buf.toString('utf8'); } catch { continue; }
+    try {
+      const buf = fs.readFileSync(file.path);
+      if (autoDecode) { const t = decodeAuto(buf); if (t === null) continue; raw = t; }
+      else { if (buf.subarray(0, 8192).includes(0)) continue; raw = buf.toString('utf8'); }
+    } catch { continue; }
     if (wholeFile) {
       re.lastIndex = 0;
       if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
@@ -1302,6 +1318,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
           files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
           ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
           wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
+          autoDecode: opts.autoDecode === true,
         },
       });
     } catch (e) { finish({ error: String((e && e.message) || e) }); return; }
@@ -1579,6 +1596,7 @@ const GIT_DIFF_MAX_CHARS = 40000;
 const GIT_DIFF_STAT_MAX_CHARS = 6000;
 const GIT_DIFF_MAX_BUFFER = 8 * 1024 * 1024; // diff 只需要开头一段;超出就停,不再把几十 MB 读进内存(整体 maxBuffer 24MB 会让超大 diff 直接失败)
 const GIT_UNTRACKED_LIST_MAX = 50;
+const GIT_STATUS_MAX_LINES = 300;   // git_status 回给模型的 porcelain 行数上限(计数不受影响)
 // 只保留开头、使序列化(JSON 转义后:换行/引号会变长)长度不超过 budget,尽量收在整行边界。返回 { text }。
 // (不复用 04 DesktopShell 的同类函数:11 引用 04 会在依赖图里新增一条循环边。)
 function gitHeadToJsonBudget(text, budget) {
@@ -1691,8 +1709,13 @@ function gitHumanError(res, cwd) {
   }
   const stderr = String((res && res.stderr) || '').trim();
   const low = stderr.toLowerCase();
-  if (/not a git repository/.test(low)) {
-    return { ok: false, error: '这个文件夹还不是 Git 仓库', hint: '可以让 AI 运行 `git init` 把它变成一个 Git 仓库,再重试。', cwd, detail: stderr };
+  // 仓库外的 `git diff` 会退化成 `git diff --no-index` 并打印 7KB 的用法说明(退出码 129);那等于「不是仓库」,别把整段用法塞进 detail。
+  if (/not a git repository/.test(low) || /^usage: git diff --no-index/m.test(low)) {
+    return { ok: false, error: '这个文件夹还不是 Git 仓库', hint: '可以让 AI 运行 `git init` 把它变成一个 Git 仓库,再重试。', cwd, detail: /^usage: git diff --no-index/m.test(low) ? stderr.split('\n')[0].slice(0, 200) : stderr.slice(0, 300) };   // --no-index 退化时 stderr 带 7KB 用法说明,只留第一行警告
+  }
+  // 给了不存在的 ref / 范围(`git log nosuch`、`git diff a..b`)。
+  if (/unknown revision or path|bad revision|ambiguous argument|bad object|not a valid object name|invalid revision range/.test(low)) {
+    return { ok: false, error: '指定的 ref(提交/分支/范围)不存在或写法不对', hint: '用 git_log 看有哪些提交(hash 列),分支名可用 `git branch` 确认;范围写成 A..B。', cwd, detail: stderr.slice(0, 500) };
   }
   // git_commit without a configured identity — DO NOT auto-inject a fake user; guide the human instead.
   if (/please tell me who you are|user\.name|user\.email|empty ident/.test(low)) {
@@ -1702,7 +1725,53 @@ function gitHumanError(res, cwd) {
       cwd, detail: stderr,
     };
   }
-  return { ok: false, error: 'Git 命令执行失败', hint: '请查看下方 detail 的原始报错,调整后重试。', cwd, detail: stderr || (err && err.message) || '未知错误' };
+  return { ok: false, error: 'Git 命令执行失败', hint: '请查看下方 detail 的原始报错,调整后重试。', cwd, detail: String(stderr || (err && err.message) || '未知错误').slice(0, 2000) };
+}
+// ref(提交/分支/范围)是模型给的、不可信:不允许以 `-` 开头(否则会被 git 当成选项 —— `--output=x` 之类),只允许 git 引用常见字符
+// [A-Za-z0-9._/~^@{}:-](含 `..` / `...` 范围、HEAD~1、v1.0、origin/main、HEAD@{1}、abc123:path),不含空白/控制字符/引号/反引号/`!`;
+// 并且调用处一律把它放在子命令之后、`--` 之前,即便合法也只可能被读作修订而不是路径。返回 { ref } 或 { error }。
+const GIT_REF_RE = /^[A-Za-z0-9._\/~^@{}:][A-Za-z0-9._\/~^@{}:-]*$/;
+function validateGitRef(raw) {
+  const ref = String(raw == null ? '' : raw).trim();
+  if (!ref) return { ref: '' };
+  if (ref.length > 200) return { error: 'ref 过长(≤200 字符)' };
+  if (ref.startsWith('-')) return { error: 'ref 不能以 - 开头(会被 git 当成选项)' };
+  if (!GIT_REF_RE.test(ref)) return { error: 'ref 含非法字符;只允许字母数字和 . _ / ~ ^ @ { } : -(范围写成 A..B)' };
+  return { ref };
+}
+// git_log 的 author / since:作为 `--author=<值>` / `--since=<值>` 单个参数传入(前缀固定,值再怪也成不了另一个选项)。
+function validateGitLogFilter(raw, what, maxLen) {
+  const v = String(raw == null ? '' : raw).trim();
+  if (!v) return { value: '' };
+  if (v.length > maxLen) return { error: `${what} 过长(≤${maxLen} 字符)` };
+  if (/[\x00-\x1f\x7f]/.test(v)) return { error: `${what} 含控制字符` };
+  return { value: v };
+}
+// 钩子是否存在:core.hooksPath(相对路径相对仓库顶层)优先,否则 `git rev-parse --git-path hooks`。只用于失败时的归因,不执行任何东西。
+async function gitHookNames(cwd, names) {
+  try {
+    let dir = '';
+    const hp = await runGit(['-C', cwd, 'config', '--get', 'core.hooksPath'], cwd, 5000);
+    if (hp.ok && String(hp.stdout || '').trim()) {
+      dir = String(hp.stdout).trim();
+      if (!path.isAbsolute(dir)) {
+        const top = await runGit(['-C', cwd, 'rev-parse', '--show-toplevel'], cwd, 5000);
+        dir = path.resolve(top.ok ? String(top.stdout).trim() : cwd, dir);
+      }
+    } else {
+      const gp = await runGit(['-C', cwd, 'rev-parse', '--git-path', 'hooks'], cwd, 5000);
+      if (!gp.ok) return [];
+      dir = path.resolve(cwd, String(gp.stdout || '').trim());
+    }
+    return names.filter(n => fs.existsSync(path.join(dir, n)));
+  } catch { return []; }
+}
+// 提交失败时已暂存的文件:修前 add 成功、commit 失败(缺身份/钩子拒绝)后文件还留在暂存区,失败结果只字不提。
+async function gitStagedSnapshot(cwd) {
+  const res = await runGit(['-C', cwd, 'diff', '--cached', '--name-only', '-z', '--no-ext-diff'], cwd, 8000);
+  if (!res.ok) return null;
+  const names = String(res.stdout || '').split('\0').filter(Boolean);
+  return { staged: names.slice(0, 50), stagedCount: names.length };
 }
 // Parse `git status --porcelain=v1 -b` into a human summary line. First line is the branch header
 // (## branch...tracking [ahead N, behind M]); remaining lines are XY-coded change entries.
@@ -1742,7 +1811,19 @@ async function gitStatus(args = {}) {
   const res = await runGit([...guard.flags, '-C', cwd, 'status', '--porcelain=v1', '-b', '--ignore-submodules=dirty'], cwd, args.timeoutMs || 15000);
   if (!res.ok) return gitHumanError(res, cwd);
   const parsed = summarizeGitStatus(res.stdout);
-  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout,
+  // 计数(summary / changes / untracked)按【完整】输出算、始终精确;回给模型的 porcelain 文本封顶 GIT_STATUS_MAX_LINES 行
+  // (修前 8000 个改动文件回 151KB,自己就超过 60K 模型可见上限被拦腰截断)。
+  const all = String(res.stdout || '').split('\n');
+  if (all.length && all[all.length - 1] === '') all.pop();
+  const statusTruncated = all.length > GIT_STATUS_MAX_LINES + 1;   // +1:分支头行 `## …` 不算改动
+  const statusText = statusTruncated ? all.slice(0, GIT_STATUS_MAX_LINES + 1).join('\n') + '\n' : res.stdout;
+  // 未跟踪【目录】在 porcelain 里折叠成一条 `?? dir/`(内含多少文件要 -uall 才展开);untracked 计数因此是「条目数」不是「文件数」。
+  const untrackedDirs = all.filter(l => l.startsWith('?? ') && l.endsWith('/')).length;
+  const hints = [];
+  if (statusTruncated) hints.push(`改动共 ${parsed.changes} 项,status 只列出前 ${GIT_STATUS_MAX_LINES} 项(summary / changes / untracked 仍是完整计数);用 git_diff 的 path 看具体文件,或先 git_commit 分批提交`);
+  if (untrackedDirs) hints.push(`其中 ${untrackedDirs} 个未跟踪【目录】在 status 里折叠成一条(untracked 按条目计,不是文件数),目录里可能有很多文件;用 file_list 查看内容`);
+  return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: statusText,
+    ...(statusTruncated ? { statusTruncated: true, statusLinesShown: GIT_STATUS_MAX_LINES } : {}), ...(untrackedDirs ? { untrackedDirs } : {}), ...(hints.length ? { hint: hints.join(';') } : {}),
     ...(parsed.unborn ? { unborn: true } : {}), ...(parsed.detached ? { detached: true } : {}), ...(parsed.conflicts ? { conflicts: parsed.conflicts } : {}),
     ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
@@ -1752,6 +1833,9 @@ async function gitStatus(args = {}) {
 async function gitDiff(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
   if (!cwd) return gitCwdMissingError(args.cwd);
+  const refV = validateGitRef(args.ref);
+  if (refV.error) return { ok: false, error: refV.error, code: 'invalid_ref', cwd };
+  const ref = refV.ref;
   // 安全加固(对抗复核 CRITICAL 的 diff 面):--no-ext-diff 忽略仓库配置的 diff.external 外部差异器,
   // --no-textconv 关掉 gitattributes 指定的 textconv 过滤器 —— 两者都会执行仓库自带的外部程序,是 read 档
   // git_diff 下的代码执行面。用 diff 子命令专用选项关闭(不能用 `-c diff.external=` 空值,那会让 git 尝试
@@ -1768,7 +1852,11 @@ async function gitDiff(args = {}) {
   // path is UNTRUSTED. Place it strictly after `--` so a value like `--output=x` is treated as a pathspec,
   // never a git flag. (We still pass it verbatim — execFile means no shell, so no further quoting needed.)
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
-  if (rawPath) gitArgs.push('--', rawPath);
+  // ref(修订/范围):校验过的、不以 `-` 开头的单个参数,放在 `--` 之前;有 ref 就一定补 `--`,即便没给 path ——
+  // 这样 git 永远不会把它当成路径、路径也永远不会被当成修订。
+  if (ref) gitArgs.push(ref);
+  if (rawPath || ref) gitArgs.push('--');
+  if (rawPath) gitArgs.push(rawPath);
   // diff 按原始字节取、再按行判 UTF-8/GBK(GBK 源文件的 diff 不再变成 U+FFFD);maxBuffer 8MB —— 撞上限不算失败,按「太大」处理。
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
   const asText = b => (Buffer.isBuffer(b) ? decodeConsoleText(b) : String(b || ''));
@@ -1785,15 +1873,18 @@ async function gitDiff(args = {}) {
     diff = cut.text + `\n\n[已截断:diff 共 ${total},只显示前 ${cut.text.length} 字符。文件清单见 stat;用 path 参数只看单个文件,或减小 contextLines。]`;
     const statArgs = [...baseArgs, '--stat=120,60', '--stat-count=60'];
     if (staged) statArgs.push('--cached');
-    if (rawPath) statArgs.push('--', rawPath);
+    if (ref) statArgs.push(ref);
+    if (rawPath || ref) statArgs.push('--');
+    if (rawPath) statArgs.push(rawPath);
     const st = await runGit(statArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer', maxBuffer: GIT_DIFF_MAX_BUFFER });
     if (st.ok || (st.error && st.error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) stat = gitHeadToJsonBudget(asText(st.stdout), GIT_DIFF_STAT_MAX_CHARS).text.trimEnd();
   }
-  const out = { ok: true, cwd, staged, path: rawPath || undefined, truncated };
+  const out = { ok: true, cwd, staged, path: rawPath || undefined, ...(ref ? { ref } : {}), truncated };
   // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
+  // 给了 ref 就是在比修订,未跟踪文件与之无关,不列。
   let untracked = [];
   let untrackedCount = 0;
-  if (!truncated && !staged) {
+  if (!truncated && !staged && !ref) {
     const lsArgs = [...guard.flags, '-C', cwd, 'ls-files', '--others', '--exclude-standard', '-z'];
     if (rawPath) lsArgs.push('--', rawPath);
     const ls = await runGit(lsArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer' });
@@ -1812,36 +1903,78 @@ async function gitDiff(args = {}) {
       : `另有 ${untrackedCount} 个未跟踪的新文件不在上面的 diff 里(见 untracked);用 file_read 看内容。`;
   }
   // 未暂存那边是空的、改动却全在暂存区:修前只回 empty:true,模型以为没有改动。
-  if (!staged && diff.trim() === '' && !untrackedCount) {
+  if (!staged && !ref && diff.trim() === '' && !untrackedCount) {
     const cached = await runGit([...guard.flags, '-C', cwd, 'diff', '--cached', '--quiet', '--ignore-submodules=dirty', ...(rawPath ? ['--', rawPath] : [])], cwd, args.timeoutMs || 15000);
     if (!cached.ok && cached.code === 1) {
       out.empty = false;
       out.hint = '未暂存的改动是空的,但暂存区里有改动;传 staged:true 查看。';
     }
   }
+  if (rawPath && out.empty && !out.hint) {
+    const missing = gitMissingPathHint(cwd, rawPath);
+    if (missing) out.hint = missing;
+  }
   if (stat) out.stat = stat;
   out.diff = diff;
   if (guard.names.length) out.filtersNeutralized = guard.names;
   return out;
 }
+// path 指向工作区里根本不存在的东西时,「空结果」其实是拼写错误:修前 git_diff/git_log {path:'nonexistent'} 成功返回空、没有任何提示。
+// 只对【不含通配/pathspec 魔法】且【落在 cwd 之内】的路径判断(区外路径不替它探测存在与否);已删除但有历史的文件 log 非空,不会走到这里。
+function gitMissingPathHint(cwd, rawPath) {
+  if (/[*?[\]:]/.test(rawPath)) return '';
+  try {
+    const full = path.resolve(cwd, rawPath);
+    const rel = path.relative(cwd, full);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return '';
+    if (fs.existsSync(full)) return '';
+  } catch { return ''; }
+  return `路径 ${JSON.stringify(rawPath)} 在 ${cwd} 里不存在(相对 cwd 解析),所以结果为空;检查拼写与大小写,可用 glob / file_list 确认路径。`;
+}
 
-// git_log {cwd?, maxCount?, path?}: recent commits as a row table. tier: read.
+// git_log {cwd?, maxCount?, path?, ref?, author?, since?}: recent commits as a row table. tier: read.
+// ref:修订或范围(A..B 形式的两个分支之间、HEAD~5、某个 hash 起往前的历史);author / since:按作者(子串)/ 时间过滤。
 async function gitLog(args = {}) {
   const cwd = resolveGitCwd(args.cwd);
   if (!cwd) return gitCwdMissingError(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
+  const refV = validateGitRef(args.ref);
+  if (refV.error) return { ok: false, error: refV.error, code: 'invalid_ref', cwd };
+  const authorV = validateGitLogFilter(args.author, 'author', 200);
+  if (authorV.error) return { ok: false, error: authorV.error, code: 'invalid_author', cwd };
+  const sinceV = validateGitLogFilter(args.since, 'since', 64);
+  if (sinceV.error) return { ok: false, error: sinceV.error, code: 'invalid_since', cwd };
   // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
-  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h%x1f%ad%x1f%an%x1f%s', '-n', String(n)];
+  // 字段:短 hash / 完整 hash / 日期 / 作者 / 标题(\x1f 分隔)。
+  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h%x1f%H%x1f%ad%x1f%an%x1f%s', '-n', String(n)];
+  // author / since 以 `--author=<值>` / `--since=<值>` 的单参数形式传入(前缀固定,值不可能变成另一个选项);
+  // --fixed-strings 让 author 按字面子串匹配(否则是正则,作者名里的 . + 会误伤)。
+  if (authorV.value) gitArgs.push('--fixed-strings', '--regexp-ignore-case', '--author=' + authorV.value);
+  if (sinceV.value) gitArgs.push('--since=' + sinceV.value);
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
-  if (rawPath) gitArgs.push('--', rawPath); // UNTRUSTED path after the `--` separator
+  // ref 在 `--` 之前(已校验、不以 `-` 开头);有 ref 或 path 就补 `--`,路径(不可信)永远在它之后。
+  if (refV.ref) gitArgs.push(refV.ref);
+  if (rawPath || refV.ref) gitArgs.push('--');
+  if (rawPath) gitArgs.push(rawPath); // UNTRUSTED path after the `--` separator
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
-  if (!res.ok) return gitHumanError(res, cwd);
+  if (!res.ok) {
+    // 空仓库(还没有任何提交):不是故障,如实说「还没有提交」,不要报成通用的「Git 命令执行失败」。
+    if (/does not have any commits yet|bad default revision 'HEAD'|unknown revision or path not in the working tree/i.test(String(res.stderr || '')) && !refV.ref) {
+      return { ok: true, cwd, count: 0, maxCount: n, path: rawPath || undefined, commits: [], unborn: true, hint: '这个仓库还没有任何提交(git_commit 做第一次提交后这里才有历史)。' };
+    }
+    return gitHumanError(res, cwd);
+  }
   const commits = String(res.stdout || '').split('\n').filter(l => l.length > 0).map(line => {
     // 字段间用 \x1f(单元分隔符):修前用 `|`,作者名里带竖线就把 subject 拆坏了。
-    const [hash, date, author, ...rest] = line.split('\x1f');
-    return { hash: hash || '', date: date || '', author: author || '', subject: rest.join('\x1f') };
+    const [hash, fullHash, date, author, ...rest] = line.split('\x1f');
+    return { hash: hash || '', fullHash: fullHash || '', date: date || '', author: author || '', subject: rest.join('\x1f') };
   });
-  return { ok: true, cwd, count: commits.length, maxCount: n, path: rawPath || undefined, commits };
+  const out = { ok: true, cwd, count: commits.length, maxCount: n, path: rawPath || undefined, ...(refV.ref ? { ref: refV.ref } : {}), ...(authorV.value ? { author: authorV.value } : {}), ...(sinceV.value ? { since: sinceV.value } : {}), commits };
+  if (!commits.length && rawPath) {
+    const missing = gitMissingPathHint(cwd, rawPath);
+    if (missing) out.hint = missing;
+  }
+  return out;
 }
 
 // git_commit {cwd?, message(必填), addAll?, paths?}: stage then commit. tier: exec (hooks run arbitrary code).
@@ -1875,7 +2008,25 @@ async function gitCommit(args = {}) {
     if (/nothing to commit|no changes added|nothing added to commit/.test(low)) {
       return { ok: false, error: '没有可提交的改动', hint: '工作区没有变化,或改动还没被暂存。有改动时传 addAll:true(暂存全部)或 paths:[...](只暂存这些文件)再提交。', cwd, detail: (res.stdout || res.stderr || '').trim() };
     }
-    return gitHumanError(res, cwd);
+    // 暂存之后才失败(缺身份 / 钩子拒绝 / …):文件还留在暂存区,失败结果要说 —— 否则模型以为「什么都没发生」,下一次提交会把它们一起带走。
+    const failure = gitHumanError(res, cwd);
+    const merged = (String(res.stdout || '') + '\n' + String(res.stderr || '')).trim();
+    if (failure.error === 'Git 命令执行失败') {
+      // 钩子拒绝:git 自己不打任何标签,只有钩子的输出;失败码非 0 且仓库里确有 pre-commit / commit-msg 钩子时归因于钩子。
+      const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
+      if (hooks.length && !/^fatal:/m.test(merged)) {
+        failure.error = `提交被 ${hooks.join(' / ')} 钩子拒绝`;
+        failure.hint = '钩子返回了非零退出码(下方 detail 是钩子的输出)。按提示修好问题后重新 git_commit;不要用 --no-verify 绕过钩子。';
+        failure.hookRejected = true;
+        failure.detail = merged.slice(0, 2000);
+      }
+    }
+    const snap = await gitStagedSnapshot(cwd);
+    if (snap && snap.stagedCount) {
+      Object.assign(failure, snap);
+      failure.hint = (failure.hint ? failure.hint + ' ' : '') + `注意:${snap.stagedCount} 个文件已在暂存区(见 staged),这次提交没成功,它们仍是已暂存状态;修好后再 git_commit,或让 AI 运行 \`git reset\` 取消暂存。`;
+    }
+    return failure;
   }
   // Resolve the new commit's short hash for the return payload.
   const head = await runGit(['-C', cwd, 'rev-parse', '--short', 'HEAD'], cwd, 5000);
@@ -1901,8 +2052,37 @@ async function dependencyInventory(root) {
     'composer.json',
     '.tool-versions',
     '.node-version',
+    // 2026-10 走查补:.NET / Ruby / Python 旧式与 uv / Conda / Bun / Deno / 版本钉文件(修前 .NET 项目一个清单都认不出,回 files:[])。
+    'packages.config',
+    'Directory.Packages.props',
+    'Directory.Build.props',
+    'NuGet.config',
+    'Gemfile',
+    'Gemfile.lock',
+    'setup.py',
+    'setup.cfg',
+    'uv.lock',
+    'bun.lockb',
+    'bun.lock',
+    'environment.yml',
+    'environment.yaml',
+    '.nvmrc',
+    '.python-version',
+    'deno.json',
+    'deno.jsonc',
+    'deno.lock',
   ];
+  // 名字带通配的清单:*.csproj / *.fsproj / *.vbproj / *.sln、requirements-*.txt / requirements/*.txt 风格的 requirements*.txt。
+  const MANIFEST_PATTERN_RE = /^(?:.+\.(?:csproj|fsproj|vbproj|sln|slnx)|requirements[-_.][\w.-]+\.txt|constraints[-_.][\w.-]+\.txt)$/i;
   const files = [];
+  let rootNames = [];
+  try { rootNames = await fsp.readdir(cwd); } catch { rootNames = []; }
+  for (const name of rootNames.slice().sort()) {
+    if (MANIFEST_PATTERN_RE.test(name) && !candidates.includes(name)) {
+      const full = path.join(cwd, name);
+      try { if ((await fsp.stat(full)).isFile()) candidates.push(name); } catch { /* 坏链接等:不算 */ }
+    }
+  }
   for (const rel of candidates) {
     const full = path.join(cwd, rel);
     if (fs.existsSync(full)) {
@@ -1930,36 +2110,106 @@ async function dependencyInventory(root) {
       };
     }
   }
-  return { ok: true, root: cwd, files: files.map(({ content, ...f }) => f), npm };
+  const out = { ok: true, root: cwd, files: files.map(({ content, ...f }) => f), npm };
+  // 只看根这一层:monorepo 的根目录常常什么清单都没有(包都在 packages/*、src/*)。根下一个都没找到时,多看一层子目录并列出,
+  // 免得回 files:[] 让人以为「没有依赖」。仍只下一层、跳过 node_modules/dist 等默认忽略目录、有数量上限。
+  if (!files.length) {
+    const ignore = buildIgnoreMatcher({});
+    const nested = [];
+    let scanned = 0;
+    for (const name of rootNames.slice().sort()) {
+      if (nested.length >= 100 || scanned >= 200) break;
+      if (name.startsWith('.') || ignore.pruneName(name, name, false)) continue;
+      const dir = path.join(cwd, name);
+      let kids;
+      try { if (!(await fsp.stat(dir)).isDirectory()) continue; kids = await fsp.readdir(dir); } catch { continue; }
+      scanned += 1;
+      for (const k of kids.slice().sort()) {
+        if (candidates.includes(k) || MANIFEST_PATTERN_RE.test(k)) nested.push({ relativePath: name + '/' + k, path: path.join(dir, k) });
+      }
+    }
+    if (nested.length) {
+      out.nestedManifests = nested.slice(0, 100);
+      out.note = '根目录下没有依赖清单;nestedManifests 是一层子目录里找到的(monorepo/多项目)。本工具只看根这一层的内容,对子目录请把 root 指到具体项目。';
+    } else {
+      out.note = '根目录及一层子目录都没有认得出的依赖清单;本工具只看顶层。更深的子项目请把 root 指过去。';
+    }
+  }
+  return out;
 }
 
+// 上限参数:0 是合法的显式值(「不要」/「只看根」),不能被 `|| 默认值` 吞成默认;缺省/非数/负数才回落默认。
+function auditLimit(v, dflt) {
+  if (v == null || v === '') return dflt;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : dflt;
+}
+// 测试/夹具/假件:里面的「密钥」「innerHTML」是故意写的样例,不是风险(本仓 300 条 high 里 86 条是它们)。
+// 默认跳过(报 skippedTestFiles 让模型知道),includeTests:true 才扫。只按【相对 root】的路径判,root 自己叫 tests 不影响。
+const AUDIT_TEST_DIR_RE = /^(?:dev-harness|tests?|__tests__|__mocks__|fixtures?|mocks?|mockups?|testdata|test-data)$/i;
+const AUDIT_TEST_FILE_RE = /(?:\.(?:test|spec|e2e)\.[A-Za-z0-9]+$|[_.]test\.(?:go|py|rb|rs|php)$|(?:^|[\\/])test_[^\\/]*\.py$|(?:^|[\\/])conftest\.py$)/i;
+function isAuditTestPath(relativePath) {
+  const segs = String(relativePath || '').split(/[\\/]/);
+  return segs.slice(0, -1).some(seg => AUDIT_TEST_DIR_RE.test(seg)) || AUDIT_TEST_FILE_RE.test(relativePath);
+}
+// hardcoded-secret 的「值」判据:只有像真密钥的字面量才报。修前 `/(token|…)\s*[:=]\s*['"][^'"]{8,}/` 把三元式
+// `includes(token) ? token : 'not-installed'`、`modelsApiKey: 'test-key'`、i18n 里「Password must be…」都报成 high。
+// 值必须:≥8 个字符、无空白(说明文字排除)、不是占位符/模板/环境变量引用、不是纯字母(+ - _ .)的标识符/短语,
+// 即要有数字或其它符号,且全是可打印 ASCII。known 前缀(sk-/ghp_/AKIA/xox…)或 ≥16 位字母数字混合 → confidence high,其余 medium。
+const SECRET_PLACEHOLDER_RE = /^(?:\$\{|\{\{|<.*>$|%[^%]+%$|\*+$|x+$|\.+$)|(?:example|changeme|change[-_]?me|your[-_]|placeholder|dummy|sample|redacted|xxxx|fixme|todo|fake|mock|not[-_]installed|undefined|process\.env)/i;
+function judgeSecretValue(value) {
+  const v = String(value || '');
+  if (v.length < 8 || /\s/.test(v)) return null;
+  if (/[^\x21-\x7e]/.test(v)) return null;                    // 含中文/全角等非 ASCII:是本地化文案,不是密钥
+  if (SECRET_PLACEHOLDER_RE.test(v)) return null;
+  const hasDigit = /\d/.test(v), hasLetter = /[A-Za-z]/.test(v), hasSym = /[^A-Za-z0-9_.\-]/.test(v);
+  // 没有数字也没有 . _ - 之外的符号 = 一个词 / 标识符 / 点分 i18n 键(`provider.auth.xApiKey`、`passwordInputField`、`not-installed`),不是密钥。
+  if (!hasDigit && !hasSym) return null;
+  if (/^(?:sk-|ghp_|gho_|ghs_|github_pat_|AKIA|xox[bap]-|AIza|eyJ)/.test(v) || (v.length >= 16 && hasDigit && hasLetter)) return 'high';
+  return 'medium';
+}
 async function codeReviewScan(root, opts = {}) {
   const cwd = path.resolve(root || process.cwd());
+  const maxFiles = auditLimit(opts.maxFiles, 1200);
+  const maxFindings = auditLimit(opts.maxFindings, 300);
+  const maxFileBytes = auditLimit(opts.maxFileBytes, 1024 * 1024) || 1024 * 1024;
+  const includeTests = opts.includeTests === true;
+  const absolute = opts.absolute === true;
   const files = await walkFiles(cwd, {
     recursive: true,
-    maxFiles: opts.maxFiles || 1200,
-    maxDepth: opts.maxDepth || 8,
+    maxFiles,   // walkFiles 内部 Math.max(1, …):0 实际只取 1 个文件,下面照实报 truncated
+    maxDepth: auditLimit(opts.maxDepth, 8),
     ignoreDirs: opts.ignoreDirs,   // F2:追加到共用清单(buildIgnoreMatcher)
     includeIgnored: opts.includeIgnored === true,
   });
   const patterns = [
-    { id: 'hardcoded-secret', severity: 'high', re: /(api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]{8,}/i, hint: 'Possible hardcoded credential' },
+    // value 取捕获组 2,由 judgeSecretValue 判;字符串字面量里不含引号/空白才算候选(`[^'"\s]`)。键名后允许跟一个引号(JSON/YAML 风格 "password": "…")。
+    { id: 'hardcoded-secret', severity: 'high', re: /(api[_-]?key|secret|token|passw(?:or)?d|pwd)['"]?\s*[:=]\s*['"]([^'"\s]{8,})['"]/i, hint: 'Possible hardcoded credential',
+      judge: m => judgeSecretValue(m[2]) },
     // NE-14:修前 `\bexec\s*\(` 把每一处 `regex.exec(` 都当成 shell 执行(本仓 app/src 60 处命中 51 处是正则),sql-concat 不带词界又开了 i,
     // 命中的全是 querySelector/.delete(/Update 散文。收紧:裸调用要求前面不是 `.`/字母(排除 re.exec、fooexec),对象方法只认
     // child_process/cp 这类子进程对象;SQL 要求出现在字符串字面量里、有 SELECT…FROM / INSERT INTO / UPDATE…SET / DELETE FROM 的形状且拼接了变量。
-    { id: 'shell-exec', severity: 'medium', codeOnly: true, re: /(?<![.\w$])(?<!\bfunction\s+)(?:execSync|exec|shell_exec|system)\(|\bInvoke-Expression\b|\bIEX\s|\b(?:child_process|childProcess|cp)\.(?:exec|execSync)\s*\(|\brequire\(\s*['"](?:node:)?child_process['"]\s*\)\.(?:exec|execSync)\s*\(|\bos\.system\s*\(|\bshell\s*[:=]\s*(?:true|True)\b/, hint: 'Shell execution needs input validation' },
-    { id: 'sql-concat', severity: 'medium', codeOnly: true, re: /(['"`])\s*(?:SELECT\s[^'"`]{1,200}?\sFROM\s|INSERT\s+INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s)[^'"`]*(?:\$\{|\1\s*\+)/i, hint: 'Possible SQL string interpolation' },
-    { id: 'xss-html', severity: 'medium', codeOnly: true, re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface' },
-    { id: 'broad-cors', severity: 'medium', re: /(Access-Control-Allow-Origin.{0,40}\*|cors\(\s*\))/i, hint: 'Review CORS policy' },
-    { id: 'disabled-tls', severity: 'high', re: /(NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0|rejectUnauthorized\s*:\s*false)/i, hint: 'TLS verification disabled' },
-    { id: 'todo-marker', severity: 'low', re: /\b(TODO|FIXME|HACK|XXX)\b/i, hint: 'Unresolved engineering note' },
+    { id: 'shell-exec', severity: 'medium', confidence: 'low', codeOnly: true, re: /(?<![.\w$])(?<!\bfunction\s+)(?:execSync|exec|shell_exec|system)\(|\bInvoke-Expression\b|\bIEX\s|\b(?:child_process|childProcess|cp)\.(?:exec|execSync)\s*\(|\brequire\(\s*['"](?:node:)?child_process['"]\s*\)\.(?:exec|execSync)\s*\(|\bos\.system\s*\(|\bshell\s*[:=]\s*(?:true|True)\b/, hint: 'Shell execution needs input validation' },
+    { id: 'sql-concat', severity: 'medium', confidence: 'medium', codeOnly: true, re: /(['"`])\s*(?:SELECT\s[^'"`]{1,200}?\sFROM\s|INSERT\s+INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s)[^'"`]*(?:\$\{|\1\s*\+)/i, hint: 'Possible SQL string interpolation' },
+    // `x.innerHTML = ''`(清空容器)不是注入面:行里去掉所有「给 innerHTML 赋空字符串」之后再没有 innerHTML/document.write 才豁免。
+    { id: 'xss-html', severity: 'medium', confidence: 'low', codeOnly: true, re: /(innerHTML|dangerouslySetInnerHTML|document\.write)\b/i, hint: 'HTML injection surface',
+      judge: (m, line) => (/(?:innerHTML|dangerouslySetInnerHTML|document\.write)\b/i.test(line.replace(/\binnerHTML\s*=\s*(['"`])\1/g, '')) ? 'low' : null) },
+    { id: 'broad-cors', severity: 'medium', confidence: 'medium', re: /(Access-Control-Allow-Origin.{0,40}\*|cors\(\s*\))/i, hint: 'Review CORS policy' },
+    { id: 'disabled-tls', severity: 'high', confidence: 'high', re: /(NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*['"]?0|rejectUnauthorized\s*:\s*false)/i, hint: 'TLS verification disabled' },
+    { id: 'todo-marker', severity: 'low', confidence: 'high', re: /\b(TODO|FIXME|HACK|XXX)\b/i, hint: 'Unresolved engineering note' },
   ];
   const findings = [];
-  for (const file of files.filter(f => f.type === 'file')) {
-    if (findings.length >= Number(opts.maxFindings || 300)) break;
-    if (file.size > Number(opts.maxFileBytes || 1024 * 1024)) continue;
+  let scannedFiles = 0;
+  let skippedTestFiles = 0;
+  let capped = false;
+  const skippedLargeFiles = [];
+  outer: for (const file of files.filter(f => f.type === 'file')) {
+    if (findings.length >= maxFindings) { capped = true; break; }
     if (!/\.(js|jsx|ts|tsx|py|ps1|sh|php|rb|go|rs|java|cs|html|vue|svelte|sql|env|json|yml|yaml)$/i.test(file.path)) continue;
-    const raw = await readIfExists(file.path, Number(opts.maxFileBytes || 1024 * 1024));
+    if (!includeTests && isAuditTestPath(file.relativePath)) { skippedTestFiles += 1; continue; }
+    if (file.size > maxFileBytes) { skippedLargeFiles.push(file.relativePath); continue; }
+    scannedFiles += 1;
+    const raw = await readIfExists(file.path, maxFileBytes);
     const lines = raw.split(/\r?\n/);
     for (let i = 0; i < lines.length; i += 1) {
       if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(lines[i])) continue;
@@ -1967,20 +2217,27 @@ async function codeReviewScan(root, opts = {}) {
       const commentLine = /^\s*(?:\/\/|\/\*|\*|#|<!--)/.test(lines[i]);
       for (const ptn of patterns) {
         if (ptn.codeOnly && commentLine) continue;
-        if (ptn.re.test(lines[i])) {
-          findings.push({
-            id: ptn.id,
-            severity: ptn.severity,
-            path: file.path,
-            relativePath: file.relativePath,
-            line: i + 1,
-            text: lines[i].trim().slice(0, 200),
-            hint: ptn.hint,
-          });
-          break;
+        const m = ptn.re.exec(lines[i]);
+        if (!m) continue;
+        let confidence = ptn.confidence || 'medium';
+        if (ptn.judge) {
+          const j = ptn.judge(m, lines[i]);
+          if (!j) continue;   // 判据不过:这条规则不报,但同一行还可能命中后面的规则 → 继续而不是 break
+          confidence = j;
         }
+        findings.push({
+          id: ptn.id,
+          severity: ptn.severity,
+          confidence,
+          relativePath: file.relativePath,
+          ...(absolute ? { path: file.path } : {}),
+          line: i + 1,
+          text: lines[i].trim().slice(0, 200),
+          hint: ptn.hint,
+        });
+        break;
       }
-      if (findings.length >= Number(opts.maxFindings || 300)) break;
+      if (findings.length >= maxFindings) { capped = true; break outer; }
     }
   }
   const counts = findings.reduce((acc, f) => {
@@ -1990,49 +2247,114 @@ async function codeReviewScan(root, opts = {}) {
   // NE-14:高危排前面(稳定排序,同级保持遍历顺序);counts 在 findings 之前 —— 名单再长被下游平切,也先看得到总数。
   const sevRank = { high: 0, medium: 1, low: 2 };
   const sorted = findings.map((f, i) => [f, i]).sort((a, b) => (sevRank[a[0].severity] - sevRank[b[0].severity]) || (a[1] - b[1])).map(x => x[0]);
-  return { ok: true, root: cwd, counts, total: sorted.length, findings: sorted };
+  const out = { ok: true, root: cwd, counts, total: sorted.length, scannedFiles, findings: sorted };
+  // 截断必须说出来(修前 300 条到顶、maxFiles 太小扫不到东西都「total: N」静悄悄):findings 数到 maxFindings,或遍历撞了文件数/耗时上限。
+  const hints = [];
+  if (capped) hints.push(`已达 maxFindings(${maxFindings}),后面还有发现没列出;调大 maxFindings,或缩小 root`);
+  if (files.truncated === true) hints.push('文件数/耗时上限已到,部分文件没扫到;缩小 root 或调大 maxFiles');
+  if (maxFiles === 0 || maxFindings === 0) hints.push('maxFiles / maxFindings 为 0:几乎不会扫描任何内容');
+  if (!includeTests && skippedTestFiles) hints.push(`默认跳过了 ${skippedTestFiles} 个测试/夹具文件(dev-harness、test(s)、__tests__、fixtures、mockups、*.test.*、*.spec.*);includeTests:true 才扫`);
+  if (hints.length) out.hint = hints.join(';');
+  if (capped || files.truncated === true || maxFiles === 0 || maxFindings === 0) out.truncated = true;
+  if (!includeTests && skippedTestFiles) out.skippedTestFiles = skippedTestFiles;
+  if (skippedLargeFiles.length) out.skippedLargeFiles = skippedLargeFiles.slice(0, 20);
+  if (files.prunedDirs) out.prunedDirs = files.prunedDirs;
+  return out;
 }
 
+// frontend_audit 的「外部资源」判据。这是离线优先产品:任何指向外部 http(s) / `//` 主机的 src / href / url() / @import 都会在断网时加载失败。
+// 修前的正则 `https?://(cdn|fonts|unpkg|jsdelivr|cdnjs|googleapis|gstatic)\.` 只认【第一个】主机标签叫这几个名字,
+// ajax.googleapis.com / code.jquery.com / use.fontawesome.com / stackpath.bootstrapcdn.com / googletagmanager / `//cdn.x` / 任意 https://example.com/x.png 全漏。
+// 排除:本机主机(localhost / 127.x / ::1 / 0.0.0.0,断网也通)、`<a href>` 导航链接(点了才出网,不影响页面加载)、
+// 模板占位(`${}` / `{{}}` 开头的主机)。
+// 单段主机名(`intranet`、`e`)与私网 IP 也排除:那是内网/本机,断外网也通,不是公网 CDN。
+const FRONTEND_LOCAL_HOST_RE = /^(?:localhost|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}|0\.0\.0\.0|\[::1\]|[^.:]+)(?::\d+)?$/i;
+const FRONTEND_EXT_URL_RES = [
+  { kind: 'attr', re: /\b(?:src|href|srcset|poster|data-src)\s*=\s*["']?((?:https?:)?\/\/[^\s"'<>)\\/?#]+)/gi },
+  { kind: 'css', re: /\burl\(\s*["']?((?:https?:)?\/\/[^\s"'<>)\\/?#]+)/gi },
+  { kind: 'import', re: /@import\s+(?:url\(\s*)?["']?((?:https?:)?\/\/[^\s"'<>)\\/?#]+)/gi },
+];
+// 一行里第一个外部资源引用的主机,没有返回 null。
+function findExternalAssetHost(line) {
+  for (const { kind, re } of FRONTEND_EXT_URL_RES) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(line))) {
+      if (kind === 'attr' && /^href/i.test(m[0])) {
+        if (/<a\b[^>]*$/i.test(line.slice(0, m.index))) continue;   // <a href> 是导航不是资源
+        if (/\brel\s*=\s*["']?(?:canonical|alternate|author|license|help|dns-prefetch|bookmark|next|prev)\b/i.test(line)) continue;   // 元信息链接,不会被加载
+      }
+      const host = m[1].replace(/^(?:https?:)?\/\//i, '');
+      if (!host || /^[$({]/.test(host) || FRONTEND_LOCAL_HOST_RE.test(host)) continue;
+      return host;
+    }
+  }
+  return null;
+}
 async function frontendAudit(root, opts = {}) {
   const cwd = path.resolve(root || process.cwd());
+  const maxFiles = auditLimit(opts.maxFiles, 800);
   const files = await walkFiles(cwd, {
     recursive: true,
-    maxFiles: opts.maxFiles || 800,
-    maxDepth: opts.maxDepth || 6,
+    maxFiles,   // walkFiles 内部 Math.max(1, …):0 实际只取 1 个文件
+    maxDepth: auditLimit(opts.maxDepth, 6),
     ignoreDirs: opts.ignoreDirs,   // F2:追加到共用清单(buildIgnoreMatcher)
     includeIgnored: opts.includeIgnored === true,
   });
   const issues = [];
-  for (const file of files.filter(f => f.type === 'file' && /\.(html|css|js|jsx|ts|tsx|vue|svelte)$/i.test(f.path))) {
-    if (file.size > 1024 * 1024) continue;
+  let scannedFiles = 0;
+  const skippedLargeFiles = [];
+  for (const file of files.filter(f => f.type === 'file' && /\.(html|htm|css|js|jsx|ts|tsx|vue|svelte)$/i.test(f.path))) {
+    if (file.size > 1024 * 1024) { skippedLargeFiles.push(file.relativePath); continue; }
+    scannedFiles += 1;
     const raw = await readIfExists(file.path, 1024 * 1024);
     const allLines = raw.split(/\r?\n/);
-    const lines = allLines.filter(line => !/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line));
     const checks = [
-      { id: 'external-asset', re: /https?:\/\/(cdn|fonts|unpkg|jsdelivr|cdnjs|googleapis|gstatic)\./i, hint: 'External CDN/font asset will fail offline' },
-      { id: 'missing-viewport', re: /<html[\s\S]*<\/html>/i, hint: 'HTML page may need a viewport meta tag', custom: text => /<html[\s\S]*<\/html>/i.test(text) && !/<meta[^>]+viewport/i.test(text) },
+      { id: 'external-asset', host: true, hint: 'External asset (CDN/font/script/image/stylesheet) will fail offline; bundle it locally' },
+      // 只对「整页」文件有意义:.js/.ts 里常有一段 `<html>…</html>` 字符串模板(邮件/报告),不是页面。给出 <html 所在行。
+      { id: 'missing-viewport', pageOnly: true, hint: 'HTML page may need a viewport meta tag', custom: text => (/<html[\s\S]*<\/html>/i.test(text) && !/<meta[^>]+viewport/i.test(text) ? (text.slice(0, text.search(/<html/i)).split(/\r?\n/).length) : 0) },
       { id: 'negative-letter-spacing', re: /letter-spacing\s*:\s*-\d/i, hint: 'Negative letter spacing often hurts UI polish' },
       { id: 'viewport-font-scaling', re: /font-size\s*:\s*[^;]*(vw|vmin|vmax)/i, hint: 'Viewport-scaled font size can overflow controls' },
       { id: 'one-note-gradient', re: /(radial-gradient|linear-gradient).{0,80}(purple|violet|slate|blue)/i, hint: 'Review for generic gradient-heavy visual style' },
     ];
     for (const check of checks) {
+      if (check.pageOnly && !/\.(html?|vue|svelte)$/i.test(file.path)) continue;
       // NE-14:给出首个命中行号与片段(行号按原文件,规则定义行被滤掉也不偏);external-asset 不看注释行里的 CDN 链接。
       let hitLine = 0;
       let hitText = '';
-      if (!check.custom) {
+      let hitCount = 0;
+      let hitHost = '';
+      if (check.custom) {
+        hitLine = check.custom(raw);
+        if (hitLine) hitText = (allLines[hitLine - 1] || '').trim().slice(0, 160);
+      } else {
         for (let li = 0; li < allLines.length; li += 1) {
           const line = allLines[li];
           if (/\{\s*id:\s*['"][\w-]+['"].*\bre:\s*\//.test(line)) continue;
           if (check.id === 'external-asset' && /^\s*(?:\/\/|\*|\/\*|<!--)/.test(line)) continue;
-          check.re.lastIndex = 0;
-          if (check.re.test(line)) { hitLine = li + 1; hitText = line.trim().slice(0, 160); break; }
+          let hit = false;
+          if (check.host) {
+            const host = findExternalAssetHost(line);
+            if (host) { hit = true; if (!hitHost) hitHost = host; }
+          } else {
+            check.re.lastIndex = 0;
+            hit = check.re.test(line);
+          }
+          if (hit) { hitCount += 1; if (!hitLine) { hitLine = li + 1; hitText = line.trim().slice(0, 160); } }
         }
       }
-      const match = check.custom ? check.custom(raw) : hitLine > 0;
-      if (match) issues.push({ id: check.id, path: file.path, relativePath: file.relativePath, ...(hitLine ? { line: hitLine, text: hitText } : {}), hint: check.hint });
+      if (hitLine > 0) issues.push({ id: check.id, relativePath: file.relativePath, path: file.path, line: hitLine, text: hitText, ...(hitHost ? { host: hitHost } : {}), ...(hitCount > 1 ? { count: hitCount } : {}), hint: check.hint });
     }
   }
-  return { ok: true, root: cwd, issues };
+  const out = { ok: true, root: cwd, scannedFiles, issues };
+  // 截断要说出来:修前 maxFiles:3 只扫到 3 个文件,回 issues:[] 像「没问题」。
+  const hints = [];
+  if (files.truncated === true) hints.push('文件数/耗时上限已到,部分文件没扫到;缩小 root 或调大 maxFiles');
+  if (maxFiles === 0) hints.push('maxFiles 为 0:几乎不会扫描任何内容');
+  if (hints.length) { out.truncated = true; out.hint = hints.join(';'); }
+  if (skippedLargeFiles.length) out.skippedLargeFiles = skippedLargeFiles.slice(0, 20);
+  if (files.prunedDirs) out.prunedDirs = files.prunedDirs;
+  return out;
 }
 
 async function claudeMdAudit(root) {
@@ -2061,9 +2383,17 @@ async function claudeMdAudit(root) {
     root: cwd,
     found: audits.length,
     audits,
+    // 修前只要找到了文件就一律说「Update missing sections…」,即使 missing 全是空数组 —— 没缺东西却叫人去补。
+    // 现在:没找到 → 建;有缺 → 点名缺哪些章节;都不缺 → 如实说「关键词都在」。检查本身只是关键词级(不评内容质量),note 照直说。
     recommendation: audits.length === 0
       ? 'Create CLAUDE.md with project overview, commands, conventions, safety/offline notes.'
-      : 'Update missing sections before relying on long-running agent work.',
+      : (() => {
+        const lacking = [...new Set(audits.flatMap(a => a.missing))];
+        return lacking.length
+          ? `Update missing sections (${lacking.join(', ')}) before relying on long-running agent work.`
+          : 'No missing sections detected (keyword-level check only; it does not judge whether the content is accurate or complete).';
+      })(),
+    ...(audits.length ? { note: 'keyword-level check: a section counts as present when its keywords appear anywhere in the file; content quality is not judged.' } : {}),
   };
 }
 
@@ -2073,6 +2403,10 @@ async function claudeMdAudit(root) {
 const DOCS_SEARCH_SUFFIXES = /\.(?:md|mdx|markdown|txt|rst|adoc|asciidoc|org)$/i;
 async function docsSearch(root, query, opts = {}) {
   const cwd = path.resolve(root || process.cwd());
+  // 空查询(或全空白)会匹配每一行的每个文件:修前返回满额 200 条无意义命中,还当成功。
+  if (String(query == null ? '' : query).trim() === '') {
+    return { ok: false, error: 'query 不能为空', hint: 'docs_search 需要要找的词或正则(例如 "安装" 或 "TODO|FIXME")。', root: cwd };
+  }
   // v0.8-S3fix: normalize once via the shared sanitizer(见 file_search 的 (?i) 内联标志说明)。
   const nq = normalizeSearchPattern(query);
   const maxResults = Math.max(1, Number(opts.maxResults || 200));
@@ -2091,9 +2425,24 @@ async function docsSearch(root, query, opts = {}) {
     if (/^(?:docs?|documentation)$/i.test(segs[0])) return 1;
     return 2;
   };
-  const cands = files.filter(f => f.type === 'file' && f.size <= 4 * 1024 * 1024)
+  // 体积上限与 file_search 同一口径(默认 20MB,maxFileBytes 可调);修前 4MB 且超限的文件悄悄丢掉、scannedFiles 也不数。
+  const maxFileBytes = searchMaxFileBytes(opts);
+  const skippedLargeFiles = [];
+  const cands = files.filter(f => f.type === 'file')
+    .filter(f => { if (f.size > maxFileBytes) { skippedLargeFiles.push(f.relativePath); return false; } return true; })
     .sort((a, b) => rank(a) - rank(b) || (a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0));
-  const scan = await regexScanFilesBounded(cands, nq.pattern, 'gi' + (nq.extraFlags || ''), { maxResults: maxResults + 1, regexTimeoutMs: opts.regexTimeoutMs });
+  const scanOnce = pattern => regexScanFilesBounded(cands, pattern, 'gi' + (nq.extraFlags || ''), { maxResults: maxResults + 1, regexTimeoutMs: opts.regexTimeoutMs, autoDecode: true });
+  let scan = await scanOnce(nq.pattern);
+  let literalRetryNote = '';
+  // 「合法但本意不是正则」的查询(`C:\Users`、`TODO (urgent)`、`foo[bar]`)能编译、却匹配不到本意的文本,修前静悄悄返回 0 条。
+  // 零命中且没超时:按字面文本再搜一遍,命中了就说明是按字面搜到的(patternNote)。
+  if (!scan.results.length && !scan.timedOut && !nq.note) {
+    const lit = nq.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (lit !== nq.pattern) {
+      const retry = await scanOnce(lit);
+      if (retry.results.length) { scan = retry; literalRetryNote = 'regex matched nothing; matches below are for the query as literal text'; }
+    }
+  }
   const hits = scan.results;
   const truncated = hits.length > maxResults || files.truncated === true || scan.timedOut;
   const out = { ok: true, root: cwd, query, matches: hits.slice(0, maxResults), scannedFiles: cands.length };
@@ -2103,7 +2452,11 @@ async function docsSearch(root, query, opts = {}) {
       : scan.timedOut ? 'docs_search: regex hit its time budget; results may be incomplete'
         : 'docs_search: file limit reached before all docs were scanned; pass a narrower root or raise maxFiles';
   }
-  if (nq.note) out.patternNote = nq.note;
+  if (nq.note || literalRetryNote) out.patternNote = nq.note || literalRetryNote;
+  if (skippedLargeFiles.length) {
+    out.skippedLargeFiles = skippedLargeFiles.slice(0, 20);
+    out.maxFileBytes = maxFileBytes;
+  }
   if (files.prunedDirs) out.prunedDirs = files.prunedDirs;
   return out;
 }
@@ -2118,7 +2471,100 @@ function escapeRegexLiteral(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, c => '\\' + c);
 }
 
-const CODE_SYMBOL_SUFFIXES = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|java|cs|rb|php|c|h|cc|cpp|hpp|sh|ps1|sql|vue|svelte)$/i;
+// 后缀表:2026-10 走查补上 psm1/vb/kt/kts/swift/scala/dart/lua/bat/cmd(修前这些语言的文件根本不扫,符号永远「没找到」),
+// 以及 C++ 的 cxx/hxx。
+const CODE_SYMBOL_SUFFIXES = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|java|cs|rb|php|c|h|cc|cpp|cxx|hpp|hxx|sh|ps1|psm1|vb|kt|kts|swift|scala|dart|lua|bat|cmd|sql|vue|svelte)$/i;
+// 按语言分叉的定义写法(通用 function/class/type/const 关键字之外)。键 = 后缀正则,值 = 构造该语言额外 def 规则的函数。
+// 全部是行级启发式(非 AST):宁可少报,也不把调用当定义 —— 方法定义要求「行首(可带修饰符)NAME(...) {」或「至少一个修饰符/返回类型」。
+const SYMBOL_JS_LIKE = /\.(?:js|mjs|cjs|jsx|ts|tsx|vue|svelte)$/i;
+const SYMBOL_C_FAMILY = /\.(?:c|h|cc|cpp|cxx|hpp|hxx)$/i;
+const SYMBOL_TYPED_METHOD = /\.(?:c|h|cc|cpp|cxx|hpp|hxx|cs|java|dart)$/i;
+const SYMBOL_JVM_SWIFT = /\.(?:kt|kts|swift|scala)$/i;
+const SYMBOL_VB = /\.vb$/i;
+const SYMBOL_PS = /\.(?:ps1|psm1)$/i;
+const SYMBOL_BAT = /\.(?:bat|cmd)$/i;
+const SYMBOL_NOT_METHOD = 'if|for|while|switch|catch|return|function|else|do|try|with|await|yield|typeof|new|throw|delete|case|using|lock|foreach|sizeof';
+// 控制流/表达式关键字开头的行不是「返回类型 NAME(」形状的定义。
+const SYMBOL_TYPED_NOT_DEF = '(?!(?:return|else|new|throw|await|yield|delete|case|goto|typeof|using|namespace|if|for|while|switch|do|catch|sizeof|foreach|lock|print|echo)\\b)';
+// 关键字大小写不敏感、符号本身仍按 caseSensitive 走:把 sub → [Ss][Uu][Bb](一个 i 标志会连符号一起放开,`Foo` 就会命中 `FOO`)。
+const symbolCi = w => String(w).replace(/[a-z]/gi, c => '[' + c.toUpperCase() + c.toLowerCase() + ']');
+function symbolLanguageDefPatterns(file, esc, b, symFlag) {
+  const out = [];
+  const re = (src, flags) => new RegExp(src, flags === undefined ? symFlag : flags);
+  const ciAlt = words => '(?:' + words.split('|').map(symbolCi).join('|') + ')';
+  if (SYMBOL_JS_LIKE.test(file)) {
+    // `function* gen` / `async function* gen`(通用 `function NAME` 要求 function 后是空白,生成器的 `*` 挡住了)。
+    out.push({ kind: 'function', re: re('\\bfunction\\s*\\*\\s*' + esc + b) });
+    // class 方法 / 对象字面量方法:行首(可带 static/async/get/set/访问修饰符/`*`)NAME(params) [: 返回类型] {。
+    // 参数括号允许一层嵌套(默认值里的调用);以 `{` 结束才算定义,`foo(x);` / `foo(bar, function() {` 这类调用不中。
+    // (符号本身是 if/for/catch… 这类控制流关键字时不出方法规则,否则 `if (x) {` 全算定义。)
+    if (!new RegExp('^(?:' + SYMBOL_NOT_METHOD + ')$').test(esc)) {
+      out.push({ kind: 'method', re: re('^\\s*(?:(?:public|private|protected|static|async|override|abstract|readonly|get|set|declare)\\s+|\\*\\s*)*(?:#)?' + esc + '\\s*(?:<[^>()]*>)?\\s*\\([^()]*(?:\\([^()]*\\)[^()]*)*\\)\\s*(?::\\s*[^;={]+)?\\{') });
+    }
+    // `NAME: function(` / `NAME: async (…) =>` 对象属性写成的函数。
+    out.push({ kind: 'function', re: re('^\\s*' + esc + '\\s*:\\s*(?:async\\s+)?(?:function\\b|\\([^)]*\\)\\s*=>)') });
+  }
+  if (/\.go$/i.test(file)) {
+    // 方法:`func (s *Server) Handle()`(接收者在 func 与方法名之间,通用 `func NAME` 够不着)。
+    out.push({ kind: 'method', re: re('\\bfunc\\s*\\([^)]*\\)\\s*' + esc + b) });
+  }
+  if (/\.cs$/i.test(file)) {
+    // 属性/字段:`public string Name { get; set; }`、`public int Count = 0;`、表达式体 `public int X => 1;`(修饰符是硬要求)。
+    out.push({ kind: 'property', re: re('^\\s*(?:(?:public|private|protected|internal|static|readonly|virtual|override|abstract|sealed|new|required|const|volatile)\\s+)+[\\w<>\\[\\],.?]+\\s+' + esc + '\\s*(?:\\{|=>|=|;)') });
+    // record / record struct / record class / delegate / namespace
+    out.push({ kind: 'class', re: re('\\b(?:record(?:\\s+(?:struct|class))?|delegate\\s+[\\w<>\\[\\].?]+|namespace)\\s+' + esc + b) });
+  }
+  if (SYMBOL_TYPED_METHOD.test(file)) {
+    // 带返回类型/修饰符的函数与方法(C / C++ / C# / Java / Dart):`int main(void)`、`public static void Main(string[] a)`、
+    // `void Foo::bar()`、构造函数 `public Foo(int x)`。要求 NAME 前至少有一个类型/修饰符词,所以单独的 `Handle(x);` 调用不中。
+    out.push({ kind: 'function', re: re('^\\s*' + SYMBOL_TYPED_NOT_DEF + '(?:[\\w:<>,.?\\[\\]]+\\s*[*&]*\\s+)+[*&]*(?:\\w+::)*' + esc + '\\s*(?:<[^>()]*>)?\\s*\\(') });
+  }
+  if (/\.java$/i.test(file)) out.push({ kind: 'class', re: re('\\brecord\\s+' + esc + b) });
+  if (SYMBOL_C_FAMILY.test(file)) {
+    // `} Foo_t;`(typedef struct {…} Foo_t,含单行写法)与 `typedef … Foo_t;`:别名名字才是被定义的那个。
+    out.push({ kind: 'type', re: re('\\}\\s*(?:\\w+\\s*,\\s*)*' + esc + '\\s*[,;\\[]') });
+    out.push({ kind: 'type', re: re('^\\s*typedef\\b[^;{]*[\\s*]' + esc + '\\s*(?:\\[[^\\]]*\\]\\s*)*;') });
+    out.push({ kind: 'macro', re: re('^\\s*#\\s*define\\s+' + esc + b) });
+  }
+  if (SYMBOL_JVM_SWIFT.test(file)) {
+    // Kotlin `fun Type.NAME`(扩展函数)/ `object NAME`;Swift `protocol|extension|actor|typealias`;Scala `object|case class`。
+    out.push({ kind: 'function', re: re('\\bfun\\s+(?:<[^>]*>\\s*)?(?:[\\w.<>?]+\\.)?' + esc + b) });
+    out.push({ kind: 'class', re: re('\\b(?:object|protocol|extension|actor|typealias|mixin)\\s+' + esc + b) });
+  }
+  if (/\.dart$/i.test(file)) out.push({ kind: 'class', re: re('\\b(?:mixin|extension|typedef)\\s+' + esc + b) });
+  if (/\.lua$/i.test(file)) {
+    // `function M.NAME(` / `function M:NAME(` / `local NAME =` / `M.NAME = function`
+    out.push({ kind: 'function', re: re('\\bfunction\\s+(?:[\\w.]+[.:])?' + esc + b) });
+    out.push({ kind: 'variable', re: re('\\blocal\\s+' + esc + b) });
+    out.push({ kind: 'function', re: re('^\\s*(?:[\\w.]+\\.)?' + esc + '\\s*=\\s*function\\b') });
+  }
+  if (/\.rb$/i.test(file)) {
+    out.push({ kind: 'function', re: re('\\bdef\\s+(?:self\\.)?' + esc + b) });
+    out.push({ kind: 'class', re: re('\\bmodule\\s+(?:\\w+::)*' + esc + b) });
+  }
+  if (/\.rs$/i.test(file)) out.push({ kind: 'type', re: re('\\b(?:mod|union|static|macro_rules!)\\s+' + esc + b) });
+  if (SYMBOL_PS.test(file)) {
+    // PowerShell 关键字大小写不敏感:`Function Get-Foo`、`FUNCTION`、`filter`、`workflow`;`function global:Name`。
+    out.push({ kind: 'function', re: re('\\b' + ciAlt('function|filter|workflow|configuration') + '\\s+(?:[\\w]+:)?' + esc + b) });
+    out.push({ kind: 'class', re: re('\\b' + ciAlt('class|enum') + '\\s+' + esc + b) });
+  }
+  if (SYMBOL_VB.test(file)) {
+    // VB 关键字大小写不敏感:Sub/Function/Property/Class/Module/Structure/Interface/Enum/Delegate/Event;Dim/Const。
+    out.push({ kind: 'function', re: re('\\b(?:' + ciAlt('sub|function|property|event') + '|' + symbolCi('delegate') + '\\s+' + ciAlt('sub|function') + ')\\s+' + esc + b) });
+    out.push({ kind: 'class', re: re('\\b' + ciAlt('class|module|structure|interface|enum') + '\\s+' + esc + b) });
+    out.push({ kind: 'variable', re: re('\\b' + ciAlt('dim|const') + '\\s+' + esc + b) });
+  }
+  if (SYMBOL_BAT.test(file)) {
+    // 批处理:`:label` 是子程序定义(`call :label` 是引用);`set NAME=` / `set /a NAME=` 是变量赋值。
+    out.push({ kind: 'function', re: re('^\\s*:' + esc + '(?:\\s|$)') });
+    out.push({ kind: 'variable', re: re('^\\s*@?' + symbolCi('set') + '\\s+(?:/[AaPp]\\s+)?"?' + esc + '=') });
+  }
+  return out;
+}
+// C/C++ 里 `struct Foo` / `class Foo` 只有后面接 `{`、`;`(前置声明)、`: 基类`、行尾才是定义;`typedef struct Foo Foo_t;` /
+// `struct Foo *p;` 里的 Foo 只是引用。修前 `typedef struct Foo Foo_t` 被报成 Foo 的定义。
+const SYMBOL_C_TYPE_TAIL = /^\s*(?:final\s*)?(?::[^;{]*)?(?:\{.*)?;?\s*$/;
+
 
 async function codebaseSymbolSearch(root, opts = {}) {
   const cwd = path.resolve(root || process.cwd());
@@ -2139,12 +2585,19 @@ async function codebaseSymbolSearch(root, opts = {}) {
   const wordRe = new RegExp(b + esc + b, symFlag);
   // 关键字带首字母大写变体(VB 的 Sub/Function),符号本身才区分大小写。
   const kw = (words, tail) => new RegExp('(?:\\b(?:' + words.split('|').flatMap(w => [w, w[0].toUpperCase() + w.slice(1)]).join('|') + ')\\s+)' + '(?:' + esc + ')' + tail, symFlag);
-  const defPatterns = [
+  const baseDefPatterns = [
     { kind: 'function', re: kw('function|func|fn|def|sub', b) },
-    { kind: 'class', re: kw('class|interface|struct|enum|trait', b) },
+    { kind: 'class', re: kw('class|interface|struct|enum|trait', b), cTail: true },
     { kind: 'type', re: kw('type', b) },
     { kind: 'variable', re: kw('const|let|var|val', b) },
   ];
+  const patternsByFile = new Map();
+  const defPatternsFor = relativePath => {
+    const key = (/\.[A-Za-z0-9]+$/.exec(relativePath) || [''])[0].toLowerCase();
+    let ps = patternsByFile.get(key);
+    if (!ps) { ps = [...baseDefPatterns, ...symbolLanguageDefPatterns(key, esc, b, symFlag)]; patternsByFile.set(key, ps); }
+    return ps;
+  };
 
   // F2:后缀过滤放进遍历(accept),1500 的配额只数代码文件 —— 修前对【所有】文件先截 1500 再筛后缀,
   // 前 1500 个是别的东西时符号一个都找不到,还回 truncated:false。
@@ -2158,6 +2611,9 @@ async function codebaseSymbolSearch(root, opts = {}) {
     includeIgnored: opts.includeIgnored === true,
   });
   const maxResults = Math.max(1, Number(opts.maxResults || 200));
+  // 结果体积:每条命中只带相对路径(root 在顶层只出现一次),absolute:true 才补回绝对 path —— 修前 path 与 relativePath 在
+  // definitions / references / files 三处各出现一遍,默认调用 76KB,自己就超过模型可见上限被拦腰截断(同 file_list 的 F12)。
+  const absolute = opts.absolute === true;
   const definitions = [];
   const references = [];
   const fileMap = new Map();
@@ -2170,11 +2626,17 @@ async function codebaseSymbolSearch(root, opts = {}) {
     scannedFiles += 1;
     const raw = await readIfExists(file.path, 1024 * 1024);
     const lines = raw.split(/\r?\n/);
+    const defPatterns = defPatternsFor(file.relativePath);
+    const cFamily = SYMBOL_C_FAMILY.test(file.relativePath);
     for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
       let defKind = null;
-      for (const p of defPatterns) {
-        if (p.re.test(line)) { defKind = p.kind; break; }
+      // 超长行(压缩产物/数据表)不跑定义规则:行级正则在它们上面只会白烧时间,引用照旧计。
+      for (const p of (line.length > 4000 ? [] : defPatterns)) {
+        const m = p.re.exec(line);
+        if (!m) continue;
+        if (cFamily && p.cTail && !SYMBOL_C_TYPE_TAIL.test(line.slice(m.index + m[0].length))) continue;
+        defKind = p.kind; break;
       }
       if (!defKind && !wordRe.test(line)) continue;
       const isDef = !!defKind;
@@ -2184,12 +2646,12 @@ async function codebaseSymbolSearch(root, opts = {}) {
       // 已满 maxResults → 这是第 maxResults+1 条未过滤命中,截断(hitCap 语义,恰好满时不误报 truncated)。
       if (definitions.length + references.length >= maxResults) { truncated = true; break outer; }
       let rec = fileMap.get(file.relativePath);
-      if (!rec) { rec = { relativePath: file.relativePath, path: file.path, definitions: 0, references: 0 }; fileMap.set(file.relativePath, rec); }
+      if (!rec) { rec = { relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), definitions: 0, references: 0 }; fileMap.set(file.relativePath, rec); }
       if (isDef) {
-        definitions.push({ path: file.path, relativePath: file.relativePath, line: i + 1, text: line.trim().slice(0, 500), kind: defKind });
+        definitions.push({ relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), line: i + 1, text: line.trim().slice(0, 500), kind: defKind });
         rec.definitions += 1;
       } else {
-        references.push({ path: file.path, relativePath: file.relativePath, line: i + 1, text: line.trim().slice(0, 500) });
+        references.push({ relativePath: file.relativePath, ...(absolute ? { path: file.path } : {}), line: i + 1, text: line.trim().slice(0, 500) });
         rec.references += 1;
       }
     }
@@ -2204,7 +2666,17 @@ async function codebaseSymbolSearch(root, opts = {}) {
     definitions, references, files: Array.from(fileMap.values()),
     note: 'grep-level lexical identifier scan; definition classification is keyword-pattern heuristic, not AST-accurate. Method definitions vs calls are not reliably distinguished.' + (opts.caseSensitive === false ? '' : ' Matching is case-sensitive (pass caseSensitive:false to ignore case).'),
   };
-  if (walkTruncated) res.hint = 'codebase_symbol_search: file limit reached before all code files were scanned, so a missing symbol may just be unscanned; narrow root or raise maxFiles';
+  const hints = [];
+  if (walkTruncated) hints.push('codebase_symbol_search: file limit reached before all code files were scanned, so a missing symbol may just be unscanned; narrow root or raise maxFiles');
+  // 截断要说出来:撞 maxResults 时模型只看到前 N 条,不知道还有没有、怎么办。
+  if (truncated) hints.push(`已达 maxResults(${maxResults}),后面还有命中没列出;调大 maxResults,或缩小 root / 用 kind:'definition' 只看定义`);
+  // 一条定义都没有 ≠ 符号不存在:可能全是用法,也可能该语言的定义写法不在识别范围内。
+  if (wantDef && !definitions.length) {
+    hints.push(references.length
+      ? '没有识别到定义,下面的命中可能只是用法(或该语言的定义写法不在识别范围内:支持 JS/TS/Python/Go/Rust/Java/C#/C/C++/Kotlin/Swift/Scala/Dart/Lua/Ruby/PHP/VB/PowerShell/批处理);可对命中行 file_read 确认,或用 file_search 精确找声明'
+      : '没有找到该符号的任何定义或引用:确认拼写与大小写(默认区分大小写,caseSensitive:false 放开)、root 是否正确,或该语言的文件后缀不在扫描范围内');
+  }
+  if (hints.length) res.hint = hints.join(';');
   if (skippedLargeFiles.length) res.skippedLargeFiles = skippedLargeFiles.slice(0, 20);
   if (files.prunedDirs) res.prunedDirs = files.prunedDirs;
   return res;
@@ -2231,6 +2703,8 @@ function debugHypWarnings(ledger) {
   for (const h of hyps) {
     const counts = { supports: 0, refutes: 0, inconclusive: 0 };
     for (const t of (h.tests || [])) if (counts[t.result] !== undefined) counts[t.result] += 1;
+    // 被修剪掉的旧实验(见 debugHypTrimTests)仍计入,否则 50 条以上的实验会让重复/矛盾告警失真。
+    if (h.trimmedCounts) for (const k of Object.keys(counts)) counts[k] += Number(h.trimmedCounts[k]) || 0;
     if (counts.supports >= 2) dup.push(h.id + '(supports x' + counts.supports + ')');
     if (counts.refutes >= 2) dup.push(h.id + '(refutes x' + counts.refutes + ')');
     if (counts.supports >= 1 && counts.refutes >= 1) contra.push(h.id);
@@ -2240,14 +2714,27 @@ function debugHypWarnings(ledger) {
   if (contra.length) out.contradictionWarning = '矛盾证据: ' + contra.join(', ') + '——同一假设既有支持又有证伪,请复核实验或拆分假设';
   return out;
 }
+// 单个假设的实验记录上限:台账由模型每轮原样传回,必须有界。修前超过 50 条时【最新】的悄悄被切掉(slice(0,50)),
+// 且之后的计数、重复/矛盾告警都按被切后的算 —— 现在保留最早 10 条 + 最近 40 条,中间的折进 trimmedCounts / trimmedTests,
+// testCount 始终是真实总数,并在结果里明说发生过修剪。
+const DEBUG_HYP_MAX_TESTS = 50;
+const DEBUG_HYP_KEEP_HEAD = 10;
+function debugHypTrimTests(h) {
+  if (h.tests.length <= DEBUG_HYP_MAX_TESTS) return;
+  const drop = h.tests.splice(DEBUG_HYP_KEEP_HEAD, h.tests.length - DEBUG_HYP_MAX_TESTS);
+  const tc = h.trimmedCounts || { supports: 0, refutes: 0, inconclusive: 0 };
+  for (const t of drop) if (tc[t.result] !== undefined) tc[t.result] += 1;
+  h.trimmedCounts = tc;
+  h.trimmedTests = (h.trimmedTests || 0) + drop.length;
+}
 function debugHypothesis(args = {}) {
   const action = String(args.action || '');
-  if (!['init', 'test', 'conclude', 'status'].includes(action)) {
-    return { ok: false, error: 'action 非法: ' + action + '(仅 init|test|conclude|status)' };
+  if (!['init', 'test', 'conclude', 'reopen', 'status'].includes(action)) {
+    return { ok: false, error: 'action 非法: ' + action + '(仅 init|test|conclude|reopen|status)' };
   }
-  const normHyp = (h, i) => {
+  const normHyp = (h, i, idOverride) => {
     const hh = h && typeof h === 'object' ? h : {};
-    const id = String(hh.id || ('H' + (i + 1))).trim().slice(0, 64);
+    const id = idOverride || String(hh.id || ('H' + (i + 1))).trim().slice(0, 64);
     const description = String(hh.description || '').trim().slice(0, 500);
     if (!description) return null;
     return {
@@ -2259,11 +2746,35 @@ function debugHypothesis(args = {}) {
     };
   };
   if (action === 'init') {
-    const hyps = (Array.isArray(args.hypotheses) ? args.hypotheses : []).slice(0, 50);
-    const hypotheses = hyps.map(normHyp).filter(Boolean);
+    const allHyps = Array.isArray(args.hypotheses) ? args.hypotheses : [];
+    const hyps = allHyps.slice(0, 50);
+    const dropped = allHyps.length - hyps.length;
+    // id 必须唯一(test/conclude 按 id 找第一个,重复的那个永远够不着)。显式给的 id 先占位(先到先得),
+    // 缺 id 的按 H<序号> 往后找没被占的;显式 id 重复的第二个起改名。修前 [{id:'H2',…},{description:…}] 会出两个 H2。
+    const used = new Set();
+    const entries = hyps.map(h => {
+      const hh = h && typeof h === 'object' ? h : {};
+      return { h: hh, explicit: String(hh.id || '').trim().slice(0, 64), valid: String(hh.description || '').trim() !== '', id: '' };
+    });
+    for (const e of entries) if (e.valid && e.explicit && !used.has(e.explicit)) { used.add(e.explicit); e.id = e.explicit; }
+    const renamed = [];
+    entries.forEach((e, i) => {
+      if (!e.valid || e.id) return;
+      let n = i + 1;
+      while (used.has('H' + n)) n += 1;
+      e.id = 'H' + n;
+      used.add(e.id);
+      if (e.explicit) renamed.push({ from: e.explicit, to: e.id });
+    });
+    const hypotheses = entries.filter(e => e.valid).map(e => normHyp(e.h, 0, e.id));
     if (!hypotheses.length) return { ok: false, error: 'init 需要至少一个假设(hypotheses 数组,每项至少含 description)' };
     const ledger = { hypotheses, concluded: null };
-    return { ok: true, ledger, stats: debugHypStats(ledger) };
+    const warnings = [];
+    if (dropped > 0) warnings.push(`hypotheses 超过 50 个,只登记了前 50 个,丢掉了 ${dropped} 个;请合并同类假设`);
+    if (renamed.length) warnings.push('重复的假设 id 已改名: ' + renamed.map(r => r.from + ' -> ' + r.to).join(', '));
+    const noDesc = hyps.length - hypotheses.length;
+    if (noDesc > 0) warnings.push(`有 ${noDesc} 项缺少 description,已忽略`);
+    return { ok: true, ledger, stats: debugHypStats(ledger), ...(renamed.length ? { renamed } : {}), ...(warnings.length ? { warning: warnings.join(';') } : {}) };
   }
   const ledger = args.ledger && typeof args.ledger === 'object' ? args.ledger : null;
   if (!ledger || !Array.isArray(ledger.hypotheses)) {
@@ -2279,12 +2790,30 @@ function debugHypothesis(args = {}) {
       expectedEvidence: String(h && h.expectedEvidence || '').trim().slice(0, 500),
       verification: String(h && h.verification || '').trim().slice(0, 500),
       status: ['pending', 'supported', 'refuted', 'confirmed'].includes(h && h.status) ? h.status : 'pending',
-      tests: Array.isArray(h && h.tests) ? h.tests.slice(0, 50).map(t => ({ result: ['supports', 'refutes', 'inconclusive'].includes(t && t.result) ? t.result : 'inconclusive', evidence: String(t && t.evidence || '').trim().slice(0, 2000) })) : [],
+      tests: Array.isArray(h && h.tests) ? h.tests.map(t => ({ result: ['supports', 'refutes', 'inconclusive'].includes(t && t.result) ? t.result : 'inconclusive', evidence: String(t && t.evidence || '').trim().slice(0, 2000) })) : [],
+      // 上一轮修剪留下的账(见 debugHypTrimTests),原样带回。
+      ...(Number(h && h.trimmedTests) > 0 ? { trimmedTests: Math.floor(Number(h.trimmedTests)), trimmedCounts: { supports: Number(h.trimmedCounts && h.trimmedCounts.supports) || 0, refutes: Number(h.trimmedCounts && h.trimmedCounts.refutes) || 0, inconclusive: Number(h.trimmedCounts && h.trimmedCounts.inconclusive) || 0 } } : {}),
     })).filter(h => h.id && h.description),
     concluded: ledger.concluded || null,
   };
+  for (const h of ledger2.hypotheses) { debugHypTrimTests(h); h.testCount = h.tests.length + (h.trimmedTests || 0); }
+  const trimNote = () => {
+    const t = ledger2.hypotheses.filter(h => h.trimmedTests > 0);
+    return t.length ? { testsTrimmedWarning: '实验记录过多已修剪(保留最早 10 条 + 最近 40 条,中间的只保留计数): ' + t.map(h => `${h.id} 共 ${h.testCount} 条,已修剪 ${h.trimmedTests} 条`).join(', ') } : {};
+  };
   if (action === 'status') {
-    return { ok: true, ledger: ledger2, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2) };
+    return { ok: true, ledger: ledger2, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2), ...trimNote() };
+  }
+  // reopen:conclude 之前不可逆 —— 结论下错了没有出路。解锁后被锁定的假设回到 supported(它曾有支持证据),可以继续 test / 改判。
+  if (action === 'reopen') {
+    if (!ledger2.concluded) return { ok: false, error: '当前没有已锁定的根因,无需 reopen' };
+    const wanted = String(args.hypothesisId || '').trim();
+    if (wanted && wanted !== ledger2.concluded) return { ok: false, error: '已锁定的根因是 ' + ledger2.concluded + ',不是 ' + wanted };
+    const was = ledger2.concluded;
+    const locked = ledger2.hypotheses.find(h => h.id === was);
+    if (locked && locked.status === 'confirmed') locked.status = 'supported';
+    ledger2.concluded = null;
+    return { ok: true, ledger: ledger2, reopened: was, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2), ...trimNote() };
   }
   const hid = String(args.hypothesisId || '').trim();
   if (!hid) return { ok: false, error: 'hypothesisId 不能为空' };
@@ -2293,18 +2822,24 @@ function debugHypothesis(args = {}) {
   if (action === 'test') {
     const result = ['supports', 'refutes', 'inconclusive'].includes(args.result) ? args.result : null;
     if (!result) return { ok: false, error: 'result 非法: ' + String(args.result) + '(仅 supports|refutes|inconclusive)' };
-    if (hyp.status === 'confirmed') return { ok: false, error: '假设 ' + hid + ' 已锁定为根因(confirmed),不能再实验' };
+    if (hyp.status === 'confirmed') return { ok: false, error: '假设 ' + hid + ' 已锁定为根因(confirmed),不能再实验;结论要改请先 action=reopen' };
+    // 根因已锁定后,再给【别的】假设记「支持」证据会让台账自相矛盾(两个假设都像根因);排除其余假设(refutes/inconclusive)仍允许 —— 那正是 earlyStopWarning 要求的收尾动作。
+    if (ledger2.concluded && result === 'supports') {
+      return { ok: false, error: '根因已锁定为 ' + ledger2.concluded + ',不能再为 ' + hid + ' 记录支持证据;如要改判请先 action=reopen 解除锁定' };
+    }
     if (result === 'supports' && hyp.status === 'refuted') {
       return { ok: false, error: '假设 ' + hid + ' 已被证伪(refuted),支持证据不能使其复活;如结论变化请拆分为新假设' };
     }
     hyp.tests.push({ result, evidence: String(args.evidence || '').trim().slice(0, 2000) });
+    debugHypTrimTests(hyp);
+    hyp.testCount = hyp.tests.length + (hyp.trimmedTests || 0);
     if (result === 'refutes') hyp.status = 'refuted';
     else if (result === 'supports') hyp.status = 'supported';
     // inconclusive 保持原状态(pending/supported 不变)
-    return { ok: true, ledger: ledger2, hypothesis: { id: hyp.id, status: hyp.status }, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2) };
+    return { ok: true, ledger: ledger2, hypothesis: { id: hyp.id, status: hyp.status, testCount: hyp.testCount }, stats: debugHypStats(ledger2), ...debugHypWarnings(ledger2), ...trimNote() };
   }
   if (action === 'conclude') {
-    if (ledger2.concluded) return { ok: false, error: '已锁定根因 ' + ledger2.concluded + ',不能重复 conclude' };
+    if (ledger2.concluded) return { ok: false, error: '已锁定根因 ' + ledger2.concluded + ',不能重复 conclude;要改判请先 action=reopen' };
     if (hyp.status !== 'supported') {
       return { ok: false, error: '假设 ' + hid + ' 状态为 ' + hyp.status + ',不能 conclude(仅 supported 且未被证伪的假设可锁定为根因)' };
     }
@@ -2335,6 +2870,7 @@ function parseCsv(text, delimiter, maxRows) {
   let row = [];
   let field = '';
   let inQuotes = false;
+  let quoted = false;   // 当前字段是否出现过引号:`""` 是显式的空值,不是空行
   for (let i = 0; i < text.length && rows.length < maxRows; i += 1) {
     const c = text[i];
     if (inQuotes) {
@@ -2343,11 +2879,13 @@ function parseCsv(text, delimiter, maxRows) {
         else inQuotes = false;
       } else field += c;
     } else if (c === '"') {
-      inQuotes = true;
+      inQuotes = true; quoted = true;
     } else if (c === delimiter) {
-      row.push(field); field = '';
+      row.push(field); field = ''; quoted = false;
     } else if (c === '\n') {
-      row.push(field); rows.push(row); row = []; field = '';
+      // 空行(整行只有一个空字段)不是数据行:修前 `a,b\n1,2\n\n3,4\n\n\n` 报 rowCount 5、nullCount 3。
+      if (!(row.length === 0 && field === '' && !quoted)) { row.push(field); rows.push(row); }
+      row = []; field = ''; quoted = false;
     } else if (c === '\r') {
       // skip (CRLF 的 \r 由随后的 \n 结束行;引号内的 \r 不在此分支)
     } else {
@@ -2391,17 +2929,59 @@ function numericStats(values) {
   const fin = x => Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null;
   return { min, max, mean: fin(mean), median: fin(median), std: fin(std), outlierCount };
 }
-function columnProfile(name, values, maxSampleValues) {
-  const nonNull = values.filter(v => v !== '' && v !== null && v !== undefined);
+// 单元格 → 展示/去重用的文本。缺失(undefined/null)不是字符串 "undefined"/"null";JSON 里的对象/数组用 JSON.stringify
+// (截断),不再是 "[object Object]"。返回 null 表示缺失,空串仍是空串(调用方一并当缺失统计)。
+const PROFILE_CELL_MAX_CHARS = 80;
+function profileCellValue(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'object') {
+    let t;
+    try { t = JSON.stringify(v); } catch { t = String(v); }
+    return t.length > PROFILE_CELL_MAX_CHARS ? t.slice(0, PROFILE_CELL_MAX_CHARS) + '…' : t;
+  }
+  return v;
+}
+function columnProfile(name, rawValues, maxSampleValues) {
+  const values = rawValues.map(profileCellValue);
+  const nonNull = values.filter(v => v !== '' && v !== null);
   const type = inferColumnType(values);
+  // 样例值与唯一值只看【有值】的单元格:空串/缺失统计在 nullCount 里,不再冒充一个取值(修前 JSON 缺字段的样例里混着 "undefined")。
   const seen = [];
-  for (const v of values) { const s = String(v); if (!seen.includes(s) && seen.length < maxSampleValues) seen.push(s); }
+  const uniq = new Set();
+  for (const v of nonNull) {
+    const s = String(v);
+    uniq.add(s);
+    if (seen.length < maxSampleValues && !seen.includes(s)) seen.push(s);
+  }
   const prof = {
     name, type, nonNullCount: nonNull.length, nullCount: values.length - nonNull.length,
-    uniqueCount: new Set(values.map(v => String(v))).size, sampleValues: seen,
+    uniqueCount: uniq.size, sampleValues: seen,
   };
   if (type === 'numeric') { const ns = numericStats(values); if (ns) Object.assign(prof, ns); }
   return prof;
+}
+// 列数上限:几千列的宽表逐列画像会产出几百 KB 的结果、把上下文冲掉。超出只画前 N 列并如实标 columnsTruncated。
+const DATA_PROFILE_MAX_COLUMNS = 200;
+function profileColumnCapMeta(total) {
+  return total > DATA_PROFILE_MAX_COLUMNS ? { columnsTruncated: true, columnsShown: DATA_PROFILE_MAX_COLUMNS } : {};
+}
+// JSON 数组元素 → 列。对象元素按键并集成列(缺字段 = 缺失);全是标量/数组(如 `[1,2,3]`)时画成单个 `value` 列,
+// 修前这种文件报 colCount 0、columns [] 而没有任何说明。混合时只画对象的键,并说明有多少非对象元素被忽略。
+function profileJsonColumns(items, maxSampleValues) {
+  const isObj = it => it && typeof it === 'object' && !Array.isArray(it);
+  const keys = [];
+  const seenKey = new Set();
+  let nonObject = 0;
+  for (const it of items) {
+    if (isObj(it)) { for (const k of Object.keys(it)) if (!seenKey.has(k)) { seenKey.add(k); keys.push(k); } }
+    else nonObject += 1;
+  }
+  if (!keys.length && nonObject) {
+    return { colCount: 1, columns: [columnProfile('value', items, maxSampleValues)], note: '顶层数组的元素不是对象(标量/数组),按单个 value 列画像。' };
+  }
+  const shown = keys.slice(0, DATA_PROFILE_MAX_COLUMNS);
+  const columns = shown.map(k => columnProfile(k, items.map(it => (isObj(it) && Object.prototype.hasOwnProperty.call(it, k) ? it[k] : undefined)), maxSampleValues));
+  return { colCount: keys.length, columns, ...(nonObject ? { note: `有 ${nonObject} 个非对象元素没有进入列画像。` } : {}) };
 }
 // F8:data_profile 读盘。修前 readIfExists 把整个文件读进内存再 slice(0,1MB)(292MB 的文件 +564MB RSS 只为看 2000 行;
 // 几 GB 的文件直接抛错并被吞成「不存在」),而且 1MB 截断对调用方不可见(5000 行的 CSV 报 1044 行 sampled:false,
@@ -2503,10 +3083,64 @@ async function profileJsonArrayHead(p, maxItems) {
     return { items, scannedBytes: pos, arrayEnded, bad };
   } finally { try { await fh.close(); } catch { /* ignore */ } }
 }
+// 二进制文件识别:xlsx/docx/zip(PK\x03\x04)、pdf、图片、gzip、旧版 Office(OLE)按魔数认;其余看头 8KB 里有没有 NUL
+// (带 BOM 的 UTF-16 文本天然含 NUL,不算)。修前这些文件被当文本/CSV 画像,出一堆乱码列,
+// 还附一句「本机 Node 不支持 GB18030」的误导性说明。
+function profileBinaryKind(buf) {
+  const b = buf;
+  const starts = (...bytes) => b.length >= bytes.length && bytes.every((x, i) => b[i] === x);
+  if (starts(0x50, 0x4B, 0x03, 0x04) || starts(0x50, 0x4B, 0x05, 0x06)) return 'ZIP 容器(.xlsx/.docx/.pptx/.zip 等)';
+  if (starts(0x25, 0x50, 0x44, 0x46)) return 'PDF';
+  if (starts(0x89, 0x50, 0x4E, 0x47) || starts(0xFF, 0xD8, 0xFF) || starts(0x47, 0x49, 0x46, 0x38)) return '图片';
+  if (starts(0x1F, 0x8B)) return 'gzip 压缩包';
+  if (starts(0xD0, 0xCF, 0x11, 0xE0)) return '旧版 Office 文件(.xls/.doc)';
+  if (starts(0xFF, 0xFE) || starts(0xFE, 0xFF)) return null;   // UTF-16 BOM:文本
+  const n = Math.min(b.length, 8192);
+  for (let i = 0; i < n; i += 1) if (b[i] === 0) return '含 NUL 字节';
+  return null;
+}
+// delimiter 参数:允许 tab/comma/semicolon/pipe/space 这些名字与 `\t` 转义,其余必须恰好一个字符(多字符分隔符
+// 解析器不支持 —— 修前 `::` 被默默接受,整张表塌成 1 列)。返回 { delim } 或 { error }。
+const PROFILE_DELIMITER_NAMES = { tab: '\t', '\\t': '\t', comma: ',', semicolon: ';', pipe: '|', space: ' ' };
+function normalizeProfileDelimiter(raw) {
+  const s = String(raw == null ? '' : raw);
+  if (s === '') return { delim: '' };
+  const named = PROFILE_DELIMITER_NAMES[s.toLowerCase()];
+  const d = named !== undefined ? named : s;
+  if (d.length !== 1) return { error: `delimiter 只支持单个字符(或 tab/comma/semicolon/pipe/space 这些名字),收到 ${JSON.stringify(s)}` };
+  if (d === '"' || d === '\n' || d === '\r') return { error: 'delimiter 不能是引号或换行符' };
+  return { delim: d };
+}
+// 自动探测分隔符:看开头几行,哪个候选在表头行出现过、且在最多的行里次数与表头一致就是它(欧洲式 `1,5;2,5` 里
+// 逗号是小数点,按总次数数会选错)。都不成立时退回按总次数多少。候选 , \t ; |,平局按这个顺序。
+function detectProfileDelimiter(raw) {
+  const cands = [',', '\t', ';', '|'];
+  const lines = raw.slice(0, 4000).split(/\r?\n/).filter(l => l.length).slice(0, 6);
+  const cnt = (l, d) => l.split(d).length - 1;
+  let best = null;
+  for (const d of cands) {
+    const head = lines.length ? cnt(lines[0], d) : 0;
+    if (!head) continue;
+    const score = lines.filter(l => cnt(l, d) === head).length;
+    if (!best || score > best.score || (score === best.score && head > best.head)) best = { d, score, head };
+  }
+  if (best) return best.d;
+  const sample = raw.slice(0, 1000);
+  let pick = ',', max = 0;
+  for (const d of cands) { const c = sample.split(d).length - 1; if (c > max) { max = c; pick = d; } }
+  return pick;
+}
 async function dataProfile(filePath, args = {}) {
   const p = String(filePath || '');
   const win = await readProfileWindow(p, DATA_PROFILE_WINDOW_BYTES);
   if (win.error) return { ok: false, error: win.error, code: win.code, path: p };
+  const binKind = profileBinaryKind(win.buf);
+  if (binKind) {
+    return { ok: false, error: `这是二进制文件(${binKind}),data_profile 只能画像文本数据(CSV/TSV/JSON/JSONL/日志)`, code: 'binary_file', path: p, fileBytes: win.fileBytes,
+      hint: 'xlsx/xls 先在 Excel 里另存为 CSV(UTF-8)再画像;若已连接桌面控制连接器,可用它的 excel_read / read_document 读取内容。' };
+  }
+  const delimArg = normalizeProfileDelimiter(args.delimiter);
+  if (delimArg.error) return { ok: false, error: delimArg.error, code: 'bad_delimiter', path: p };
   const fileBytes = win.fileBytes;
   let truncatedInput = win.buf.length < fileBytes;
   let dec = decodeProfileText(win.buf, truncatedInput);
@@ -2524,7 +3158,7 @@ async function dataProfile(filePath, args = {}) {
   else {
     const head = raw.trimStart().slice(0, 1);
     if (head === '[' || head === '{') format = 'json';
-    else if (args.delimiter) format = 'csv';
+    else if (delimArg.delim) format = 'csv';
     else if (/[,\t|]/.test(raw.slice(0, 200))) format = 'csv';
   }
   // 窗口只是文件的前缀:最后一行多半是半截的,丢掉,免得多出一个假行。
@@ -2537,7 +3171,10 @@ async function dataProfile(filePath, args = {}) {
   const inputMeta = (totalRows) => {
     const m = { fileBytes };
     if (dec.encoding !== 'utf-8') m.encoding = dec.encoding;
-    if (dec.lossy) m.encodingNote = '文件不是 UTF-8 且本机 Node 不支持 GB18030,已按 UTF-8 宽松解码,可能有乱码';
+    // 说明要和真实原因一致:Node 带 GB18030 解码器时,「宽松解码」是因为文件两种编码都不合法(多半不是文本),不是「不支持」。
+    if (dec.lossy) m.encodingNote = profileGb18030Decoder()
+      ? '文件既不是合法的 UTF-8 也不是合法的 GB18030(可能含二进制内容或别的编码),已按 UTF-8 宽松解码,可能有乱码'
+      : '文件不是 UTF-8 且本机 Node 不支持 GB18030,已按 UTF-8 宽松解码,可能有乱码';
     if (truncatedInput) {
       m.truncatedInput = true; m.bytesRead = bytesRead;
       if (Number.isFinite(totalRows.estimate)) m.estimatedRowCount = totalRows.estimate;
@@ -2565,17 +3202,15 @@ async function dataProfile(filePath, args = {}) {
       if (!head.notArray && !head.bad) { items = head.items; streamedEnded = head.arrayEnded; bytesRead = head.scannedBytes; }
     }
     if (items) {
-      const keys = [];
-      for (const it of items) if (it && typeof it === 'object') for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
-      const columns = keys.map(k => columnProfile(k, items.map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
+      const jc = profileJsonColumns(items, maxSampleValues);
       const meta = { fileBytes, bytesRead };
       // 只有数组【没读到结尾】才算采样:bytesRead 是按块对齐的扫描位置,`]` 之后的空白 / 别的文档让它 < fileBytes,
       // 但元素已经全在 items 里(rowCount 即精确总数),不能因此谎报 sampled。
       if (!streamedEnded) meta.truncatedInput = true;
-      return { ok: true, path: p, format: 'json', rowCount: items.length, colCount: keys.length, sampled: !streamedEnded, ...meta, columns,
-        note: streamedEnded
+      return { ok: true, path: p, format: 'json', rowCount: items.length, colCount: jc.colCount, sampled: !streamedEnded, ...meta, columns: jc.columns, ...profileColumnCapMeta(jc.colCount),
+        note: (jc.note ? jc.note + ' ' : '') + (streamedEnded
           ? `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,已流式读完顶层数组(${items.length} 个元素),rowCount 为精确总数。`
-          : `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,只流式读取了顶层数组的前 ${items.length} 个元素做画像,总元素数未知。` };
+          : `JSON 文件(${Math.round(fileBytes / 1048576)}MB)超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB,只流式读取了顶层数组的前 ${items.length} 个元素做画像,总元素数未知。`) };
     }
     // 对抗验证(MEDIUM): 首字符 {/[ 的多行 JSONL(无扩展名)会被 sniff 成 json 而整体解析失败 —— 回落逐行解析。
     if (parsed == null) {
@@ -2584,39 +3219,28 @@ async function dataProfile(filePath, args = {}) {
       const rows = [];
       for (const l of lines) { if (rows.length >= maxRows) break; const o = safeJsonParse(l, null); if (o != null && typeof o === 'object') rows.push(o); }
       if (rows.length) {
-        const keys = [];
-        for (const it of rows) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
-        const columns = keys.map(k => columnProfile(k, rows.map(it => it[k]), maxSampleValues));
-        return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), columns, note: '采样画像(grep 级启发式)。' };
+        const jc = profileJsonColumns(rows, maxSampleValues);
+        return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: jc.colCount, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), columns: jc.columns, ...profileColumnCapMeta(jc.colCount), note: jc.note || '采样画像(grep 级启发式)。' };
       }
       if (truncatedInput) return { ok: false, error: `JSON 文件超过 ${Math.round(DATA_PROFILE_JSON_FULL_BYTES / 1048576)}MB 且顶层不是数组(或不是 UTF-8),无法做画像`, code: 'json_too_large', path: p, fileBytes, hint: '用 file_read 看开头几行了解结构,或先拆成 JSONL/数组再画像' };
       return { ok: false, error: 'JSON 解析失败,不是合法 JSON', path: p, fileBytes };
     }
     const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
     const objs = arr.slice(0, maxRows);
-    const keys = [];
-    for (const it of objs) if (it && typeof it === 'object') for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
-    const columns = keys.map(k => columnProfile(k, objs.map(it => (it && typeof it === 'object' ? it[k] : '')), maxSampleValues));
-    return { ok: true, path: p, format: 'json', rowCount: Math.min(arr.length, maxRows), colCount: keys.length, sampled: arr.length > maxRows, ...inputMeta({ exact: arr.length }), columns, note: '采样画像(grep 级启发式): 列类型/离群点是统计启发式,非数据血缘。' };
+    const jc = profileJsonColumns(objs, maxSampleValues);
+    return { ok: true, path: p, format: 'json', rowCount: Math.min(arr.length, maxRows), colCount: jc.colCount, sampled: arr.length > maxRows, ...inputMeta({ exact: arr.length }), columns: jc.columns, ...profileColumnCapMeta(jc.colCount), note: (jc.note ? jc.note + ' ' : '') + '采样画像(grep 级启发式): 列类型/离群点是统计启发式,非数据血缘。' };
   }
   if (format === 'jsonl') {
     cutPartialLine();
     const lines = raw.split(/\r?\n/).filter(l => l.trim());
     const rows = [];
     for (const l of lines) { if (rows.length >= maxRows) break; const o = safeJsonParse(l, null); if (o != null && typeof o === 'object') rows.push(o); }
-    const keys = [];
-    for (const it of rows) for (const k of Object.keys(it)) if (!keys.includes(k)) keys.push(k);
-    const columns = keys.map(k => columnProfile(k, rows.map(it => it[k]), maxSampleValues));
-    return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: keys.length, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), columns, note: '采样画像(grep 级启发式)。' };
+    const jc = profileJsonColumns(rows, maxSampleValues);
+    return { ok: true, path: p, format: 'jsonl', rowCount: rows.length, colCount: jc.colCount, sampled: lines.length > maxRows || truncatedInput, ...inputMeta({ exact: lines.length, estimate: estimateLines() }), columns: jc.columns, ...profileColumnCapMeta(jc.colCount), note: jc.note || '采样画像(grep 级启发式)。' };
   }
   if (format === 'csv' || format === 'tsv') {
     cutPartialLine();
-    let delim = String(args.delimiter || '');
-    if (!delim) {
-      const sample = raw.slice(0, 1000);
-      const counts = { ',': (sample.match(/,/g) || []).length, '\t': (sample.match(/\t/g) || []).length, '|': (sample.match(/\|/g) || []).length };
-      delim = counts[','] >= counts['\t'] && counts[','] >= counts['|'] ? ',' : (counts['\t'] >= counts['|'] ? '\t' : '|');
-    }
+    const delim = delimArg.delim || detectProfileDelimiter(raw);
     // 窗口读完了 → 整段解析得到精确总行数(≤8MB,可控);只有前缀 → 解析到 maxRows+1 行即止,总行数靠外推。
     const allRows = parseCsv(raw, delim, truncatedInput ? maxRows + 1 : Infinity);
     let header, dataRows;
@@ -2624,13 +3248,13 @@ async function dataProfile(filePath, args = {}) {
     if (!header || !header.length) return { ok: false, error: 'CSV/TSV 无法解析出表头', path: p };
     const colCount = header.length;
     const columns = [];
-    for (let c = 0; c < colCount; c += 1) {
+    for (let c = 0; c < Math.min(colCount, DATA_PROFILE_MAX_COLUMNS); c += 1) {
       const name = String(header[c] || '').trim() || ('col' + (c + 1));
       const values = dataRows.map(r => (r[c] !== undefined ? r[c] : ''));
       columns.push(columnProfile(name, values, maxSampleValues));
     }
     const est = estimateLines();
-    return { ok: true, path: p, format: format === 'tsv' && delim === '\t' ? 'tsv' : 'csv', delimiter: delim, rowCount: dataRows.length, colCount, sampled: allRows.length - 1 > maxRows || truncatedInput, ...inputMeta({ exact: allRows.length - 1, estimate: est == null ? null : Math.max(0, est - 1) }), columns, note: '采样画像(grep 级启发式): CSV 简单状态机解析,不保证兼容所有方言(BOM/多字符分隔符/嵌入引号边缘)。' };
+    return { ok: true, path: p, format: format === 'tsv' && delim === '\t' ? 'tsv' : 'csv', delimiter: delim, rowCount: dataRows.length, colCount, sampled: allRows.length - 1 > maxRows || truncatedInput, ...inputMeta({ exact: allRows.length - 1, estimate: est == null ? null : Math.max(0, est - 1) }), columns, ...profileColumnCapMeta(colCount), note: '采样画像(grep 级启发式): CSV 简单状态机解析,不保证兼容所有方言(BOM/多字符分隔符/嵌入引号边缘);分隔符支持 , ; tab |(delimiter 参数可指定,多字符不支持);空行不计入。' };
   }
   // text/log: 逐行为一行,无结构化列 → 行数 + 行长度统计 + 常见行首。
   cutPartialLine();
