@@ -10042,13 +10042,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionMissionId",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -10267,13 +10260,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -15481,6 +15467,8 @@
         "STEWARD_MEMORY_MERGED_FROM_MAX",
         "STEWARD_MEMORY_NEW_WINDOW_MS",
         "STEWARD_MEMORY_SCHEMA",
+        "STEWARD_MISSIONS_LIMIT_DEFAULT",
+        "STEWARD_MISSIONS_LIMIT_MAX",
         "STEWARD_NOTE_PREFIX",
         "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
@@ -15510,6 +15498,7 @@
         "stewardDecisionSeq",
         "stewardDecisionsPath",
         "stewardDecisionsRead",
+        "stewardDisplayKind",
         "stewardEmptyMemoryStore",
         "stewardEngineOf",
         "stewardExemptDelegationRecord",
@@ -15542,6 +15531,7 @@
         "stewardTurnAssistantText",
         "stewardTurnFiles",
         "stewardTurnKeyOf",
+        "stewardTurnQuotaRefund",
         "stewardTurnQuotaTake",
         "stewardTurnTaintedBy"
       ],
@@ -15748,6 +15738,7 @@
         "stewardLiveTurnPermissionMode",
         "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
+        "stewardMissionExists",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
         "stewardRecordMissionWorkspace",
@@ -15757,6 +15748,7 @@
         "stewardSeatedByUser",
         "stewardSeatedFail",
         "stewardToolCallLine",
+        "stewardToolCallVerdict",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
         "stewardValidateCwd",
@@ -16311,6 +16303,13 @@
           ]
         },
         {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "SESSION_SEARCH_MIN_QUERY",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
           "kinds": [
@@ -16452,6 +16451,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardDisplayKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardEngineOf",
           "kinds": [
             "call"
@@ -16561,15 +16567,19 @@
       "file": "13l-steward-ops.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_AUDIT_TELEMETRY_KINDS",
         "STEWARD_CONFIG_KEYS",
+        "STEWARD_ENV_TEMPLATE_RE",
         "STEWARD_RUN_ACTION_KIND",
         "STEWARD_RUN_ADVANCING",
         "STEWARD_RUN_TIGHTENING",
+        "STEWARD_SECRET_FILE_RE",
         "stewardAddUsageRow",
         "stewardEmptyUsageBucket",
         "stewardExternalBlock",
         "stewardEyesSettle",
         "stewardEyesTake",
+        "stewardFileLooksBinary",
         "stewardImplAuditTail",
         "stewardImplConfigGet",
         "stewardImplConfigSet",
@@ -16594,6 +16604,7 @@
         "stewardImplUsage",
         "stewardImplWebFetch",
         "stewardImplWebSearch",
+        "stewardIsSecretFilePath",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
@@ -16630,6 +16641,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -16647,6 +16665,13 @@
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKey",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -16710,6 +16735,13 @@
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "KEY_MASK_PREFIX",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17106,6 +17138,20 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MISSIONS_LIMIT_DEFAULT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MISSIONS_LIMIT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
           "kinds": [
             "read"
@@ -17267,6 +17313,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnQuotaRefund",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnQuotaTake",
           "kinds": [
             "call"
@@ -17348,7 +17401,9 @@
       "file": "13g-steward.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_STRING_AS_ARRAY",
         "handleStewardApiRoutes",
+        "stewardArgTypeProblems",
         "stewardCtxIsSteward",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
@@ -17479,6 +17534,14 @@
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "call",
+            "read"
           ]
         },
         {
@@ -20323,6 +20386,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -20408,8 +20478,11 @@
         "SCHEDULER_INBOX_KIND",
         "SCHEDULER_INBOX_TEXT_MAX",
         "SCHEDULER_NOTICE_TEXT",
+        "STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN",
         "schedulerCommitmentsSince",
         "schedulerInboxAppend",
+        "schedulerMinGapMinutes",
+        "schedulerNormalizationNotes",
         "schedulerOnReminderDue",
         "schedulerOnSchedulerNotice",
         "schedulerPrepareThread",
@@ -20461,6 +20534,20 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
@@ -20477,6 +20564,13 @@
         {
           "provider": "06j-scheduler-core.js",
           "symbol": "describeSchedule",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "nextFireAt",
           "kinds": [
             "call"
           ]
@@ -20561,6 +20655,20 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadSessionHead",
           "kinds": [
             "call"
           ]

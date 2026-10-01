@@ -24473,21 +24473,41 @@ function auditSummaryFor(rec) {
 
 // Read the most recent workbench NDJSON log file (by filename, which sorts chronologically since the day
 // stamp is ISO), tail up to `limit` lines, JSON-parse each (bad lines skipped), and normalize. Never throws.
-async function readWorkbenchAudit(limit) {
+// 第二轮工具走查(F6)给管家的 steward_audit_tail 加了两个可选口子(HTTP /api/audit 不传 = 行为逐字不变):
+//   · opts.kinds / opts.excludeKinds —— 按 rec.kind 在【取尾之前】过滤。修前只能在取尾之后过滤(collectAudit 的
+//     typeFilter),于是「最近 20 条里恰好有几条 intervention」才拿得到,而最近 20 条几乎全是遥测;
+//   · opts.maxFiles —— 最近一个日志文件不够 limit 条时往前再读几天(默认 1 = 旧行为;跨零点后第一条事件之前
+//     最新文件几乎是空的,管家问「刚才发生了什么」就只剩那几行)。
+async function readWorkbenchAudit(limit, opts) {
   const out = [];
+  const kinds = opts && opts.kinds instanceof Set && opts.kinds.size ? opts.kinds : null;
+  const excludeKinds = opts && opts.excludeKinds instanceof Set && opts.excludeKinds.size ? opts.excludeKinds : null;
+  const maxFiles = Math.max(1, Math.min(7, Number(opts && opts.maxFiles) || 1));
   let files;
   try { files = await fsp.readdir(paths.logs); } catch { return out; }
   const logs = files.filter(f => /^workbench-.*\.ndjson$/.test(f)).sort();
   if (!logs.length) return out;
   // Most recent file only (spec: 取最近文件, 尾部 limit 条). Read, split, tail.
-  const latest = logs[logs.length - 1];
-  let raw;
-  try { raw = await fsp.readFile(path.join(paths.logs, latest), 'utf8'); } catch { return out; }
-  const lines = raw.split('\n').filter(l => l.trim());
-  const tail = lines.slice(-limit);
-  for (const line of tail) {
-    const rec = safeJsonParse(line, null);
-    if (!rec || typeof rec !== 'object') continue;   // corrupt line → skip
+  // 多文件时按【从新到旧】逐个读,凑够 limit 条为止;最终 out 仍按文件内行序(旧 → 新)排列,
+  // 与单文件时同一个次序(collectAudit 随后统一排序)。
+  const picked = [];
+  for (let fi = logs.length - 1; fi >= 0 && fi >= logs.length - maxFiles && picked.length < limit; fi -= 1) {
+    let raw;
+    try { raw = await fsp.readFile(path.join(paths.logs, logs[fi]), 'utf8'); } catch { continue; }
+    const lines = raw.split('\n').filter(l => l.trim());
+    const recs = [];
+    // 没有 kind 过滤时先取尾再解析(与修前同一个代价:大日志不必整份 JSON.parse)。
+    for (const line of (kinds || excludeKinds) ? lines : lines.slice(-(limit - picked.length))) {
+      const rec = safeJsonParse(line, null);
+      if (!rec || typeof rec !== 'object') continue;   // corrupt line → skip
+      const kind = String(rec.kind || 'event');
+      if (kinds && !kinds.has(kind)) continue;
+      if (excludeKinds && excludeKinds.has(kind)) continue;
+      recs.push(rec);
+    }
+    picked.unshift(...recs.slice(-(limit - picked.length)));
+  }
+  for (const rec of picked) {
     const detailStr = redact(JSON.stringify(rec));   // 脱敏: secrets never reach the audit response
     out.push({
       ts: rec.ts || '',
@@ -24955,7 +24975,7 @@ async function readDesktopAudit(config, limit) {
 
 // Aggregate both sources → merged, filtered, ts-descending, limit-capped timeline. `sourceFilter` (one of
 // 'workbench'|'desktop') restricts to a single source; `typeFilter` matches entry.type exactly.
-async function collectAudit(config, { limit, sourceFilter, typeFilter }) {
+async function collectAudit(config, { limit, sourceFilter, typeFilter, kinds, excludeKinds, maxFiles }) {
   const cap = Math.max(1, Math.min(500, Number(limit) || 100)); // clamp 1..500 (default 100)
   const sources = { workbench: false, desktop: false };
   let entries = [];
@@ -24963,7 +24983,7 @@ async function collectAudit(config, { limit, sourceFilter, typeFilter }) {
   const wantDesktop = !sourceFilter || sourceFilter === 'desktop';
 
   if (wantWorkbench) {
-    const wb = await readWorkbenchAudit(cap);
+    const wb = await readWorkbenchAudit(cap, { kinds, excludeKinds, maxFiles });
     entries = entries.concat(wb);
     sources.workbench = true; // the workbench log source is always available (empty is still "available")
   }
@@ -24977,6 +24997,9 @@ async function collectAudit(config, { limit, sourceFilter, typeFilter }) {
 
   if (typeFilter) entries = entries.filter(e => e.type === typeFilter);
   // Sort ts-descending (new→old). Empty ts sorts last (localeCompare treats '' as smallest → reverse it).
+  // 同一毫秒的事件(一个回合的 turn_start / turn_end 常常同 ts)靠【稳定排序 + 先把行序倒过来】保持「后写的在前」:
+  // 各源给的都是文件行序(旧 → 新),不倒就是同 ts 里旧的排在前面,limit:1 取到的不是最新那条(第二轮走查 F6)。
+  entries.reverse();
   entries.sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
   const truncated = entries.length > cap;
   if (truncated) entries = entries.slice(0, cap);
@@ -25195,14 +25218,15 @@ async function deleteUserPlaybook(id) {
 async function draftPlaybookFromSession(sessionId) {
   const config = await readConfig();
   const provider = activeOpenAiProvider(config);
-  if (!provider) return { ok: false, error: '存为 playbook 需要 provider 引擎' };
+  // noModelCall:true = 这次失败发生在调模型之前(管家的 steward_playbook_draft 据此把本回合的起草名额还回去;其它调用方不看它)。
+  if (!provider) return { ok: false, noModelCall: true, error: '存为 playbook 需要 provider 引擎' };
   let session;
-  try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, error: 'session not found' }; }
-  if (!session) return { ok: false, error: 'session not found' };
+  try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, noModelCall: true, error: 'session not found' }; }
+  if (!session) return { ok: false, noModelCall: true, error: 'session not found' };
   const msgs = Array.isArray(session.messages) ? session.messages : [];
   const lastUser = [...msgs].reverse().find(m => m && m.role === 'user' && String(m.content || '').trim());
   const lastUserText = lastUser ? String(lastUser.content || '').trim() : '';
-  if (!lastUserText) return { ok: false, error: '本会话没有可参考的用户消息' };
+  if (!lastUserText) return { ok: false, noModelCall: true, error: '本会话没有可参考的用户消息' };
   // 取最近一条 assistant 的 turn_summary(哪些文件被改/命令数),给起草更多上下文。
   const lastSummaryMsg = [...msgs].reverse().find(m => m && m.role === 'assistant' && m.turnSummary);
   const summaryHint = lastSummaryMsg && lastSummaryMsg.turnSummary
@@ -32752,6 +32776,12 @@ function normalizeSchedulerTask(schedRawTask, schedNowMs) {
   // 它可能只是想改标题,把一条跑完的 once 连带删掉不是用户的意思。
   if (!state.nextFireAt && !String(raw.id || '') && kind === 'once') {
     return schedulerFail('invalid_request', 'schedule.date/at is already in the past');
+  }
+  // 第二轮工具走查(F15):【新建】的 cron 扫满五年也没有下一个时点(`0 0 31 2 *`:2 月没有 31 号)—— 修前照单全收,
+  // 落一条 nextFireAt:'' 的任务,界面上它「开着」、工具回 ok,实际永远不会触发(而且看不出来)。once 过期那一支
+  // 早就拒了,这里补上同一类的 cron。同样只拒新建(带 id 的是装载 / PATCH 老任务,不能因为这条把用户存量任务连带删掉)。
+  if (!state.nextFireAt && !String(raw.id || '') && kind === 'cron') {
+    return schedulerFail('invalid_request', 'schedule.expr never fires (no matching day within the next 5 years, e.g. "0 0 31 2 *": February has no 31st); fix the expression');
   }
 
   const idRaw = String(raw.id || '');
@@ -44588,17 +44618,21 @@ async function runSessionTurn(input) {
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
-    // 回合成败账(会话头 stewardLastTurn):管家盯着的线程,回合不管是谁发起的都要落这一笔。修前只有管家/调度器
+    // 回合成败账(会话头 stewardLastTurn):【每条】线程的回合,不管是谁发起的都要落这一笔。修前只有管家/调度器
     // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
     // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
     // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
     // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    // 第二轮工具走查(F5):这里原先还要求 stewardWatchedThread(只给「被盯」的线程落账),于是没标 stewardWatch 的
+    // 普通线程失败了也没有账,steward_thread_status / threads_search / missions 一律读成「已收工 done」,而它最后
+    // 一句其实是错误信息。账本只是事实记录,【不】等于「管家要为它动手」—— 后者仍由收件箱第四源自己的
+    // stewardWatchedThread 判据把关(13i stewardCollectSessionTurn 末尾 `!watched` 直接 return null),所以对
+    // 未被盯的线程多写这一笔账不会多出任何收件箱事件。
     const outcomeId = session.id;
     let outcomePatch = null;
     try {
       if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
-          && !(lastResult && lastResult.superseded)
-          && stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) {
+          && !(lastResult && lastResult.superseded)) {
         if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
         else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
       }
@@ -54272,8 +54306,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['q'],
       properties: {
-        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason。' },
+        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: '返回条数上限,夹取到 1..50,默认 10。' },
+        includeClosed: { type: 'boolean', description: '可选。true 时把【已收工的速查线程】(steward_quick_ask 开的、答完那一句就收了的)也算进结果;默认 false 不出现 —— 它们答完就没用了,留着只会挤掉真正的任务线程。用户问「刚才那条速查说了啥」时才开。' },
       },
     },
   },
@@ -54287,7 +54322,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_read',
-    description: '按需深读一条线程最近若干回合的原话:用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。读到的内容不写入任何持久化,也不进管家记忆。',
+    description: '按需深读一条线程最近若干回合的原话:用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。读到的内容不写入任何持久化,也不进管家记忆。正文里的密钥/口令会先脱敏;工具行带 ok:true/false(这一步成败;拿不到结果记录时为 null),看线程卡在哪一步先看 ok:false 的行。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
@@ -54302,7 +54337,10 @@ const MCP_TOOLS = [
     description: '读【事项】清单:一个事项是跨会话的容器(一件事可以有好几条线程)。每条返回事项标题与目标、事项级聚合状态(任一线程需要你则事项就是需要你;全部收工才算收工)、验收项进度(已勾选/总数)、累计费用与预算、以及它下面每条线程的 id/标题/五态/权限档/最后一句。何时用:用户问「XX 那件事进展怎么样/还差什么/花了多少」,或你要在开新线程前决定它该并进哪个事项。何时别用:要看某一条线程自己在干嘛用 steward_thread_status;要看班组节点用 steward_runs_status。没有事项文件的线程会以「未归类」事项出现(derived:true),标题取线程标题——这不是错误,是存量会话的正常形态。',
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' } },
+      properties: {
+        includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 50, description: '可选。最多返回几个事项(按看板顺序取前 N 个),夹取到 1..200,默认 50。返回里的 total 是事项总数,truncated:true 表示还有没列出来的 —— 想看某一件请改用 steward_threads_search 定位,不要靠加大 limit 全量拉。' },
+      },
     },
   },
   {
@@ -54331,7 +54369,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false,
       properties: {
         sessionId: { type: 'string', description: '可选。只统计这条线程。' },
-        day: { type: 'string', description: "可选。只统计某一天,格式 YYYY-MM-DD(本地日历日)。" },
+        day: { type: 'string', description: "可选。只统计某一天,格式 YYYY-MM-DD(本地日历日),也认 today / yesterday;其它写法返回 invalid_request(不再静默当成「全期」)。省略 = 全期累计。" },
       },
     },
   },
@@ -54342,10 +54380,14 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_audit_tail',
-    description: '读审计时间线尾部(最近的工作台事件,已过既有脱敏)。何时用:用户问「刚才发生了什么/是谁改的/我批准过什么」,或你要为一个决定给出可查证的依据时。何时别用:找线程内容用 steward_threads_search;找待办事件用 steward_inbox_read。limit 夹取到 1..100。',
+    description: '读审计时间线尾部(最近的工作台事件,已过既有脱敏)。何时用:用户问「刚才发生了什么/是谁改的/我批准过什么」,或你要为一个决定给出可查证的依据时。**问「我批准/答复过什么」传 kinds:["intervention"]**(用户的批准/拒绝/插话都落这一类);授权书用 kinds:["autonomy_grant_issued","autonomy_grant_consume","autonomy_grant_revoked"]。默认已排除模型调用/布局/经济性这类纯遥测(它们两个回合就能占满 20 条),需要时 includeTelemetry:true。条目按时间从新到旧,同一毫秒的按写入先后(后写的在前)。何时别用:找线程内容用 steward_threads_search;找待办事件用 steward_inbox_read。limit 夹取到 1..100。',
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '返回条数上限,夹取到 1..100,默认 20。' } },
+      properties: {
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '返回条数上限,夹取到 1..100,默认 20(数的是过滤之后的条数)。' },
+        kinds: { type: 'array', items: { type: 'string' }, maxItems: 12, description: '可选。只要这些事件类型(精确匹配 type 字段,如 "intervention"、"turn_end"、"mission_start"、"autonomy_grant_issued")。给了就不再默认排除遥测。' },
+        includeTelemetry: { type: 'boolean', description: '可选。true 时不排除 model_call_* / layout_shadow / econ_call_totals 等遥测类事件,默认 false。' },
+      },
     },
   },
   {
@@ -54357,7 +54399,7 @@ const MCP_TOOLS = [
         // 117s-A D2(27 号文 §11.13 ⑤a):修前这句写的是「线程标题;省略则由首条消息自动命名」,
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
-        missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
+        missionId: { type: 'string', description: '可选。把新线程归入已有事项(必须是真实存在的事项,来自 steward_missions;不存在回 not_found,不会凭空造一个);省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
         cwd: { type: 'string', description: '可选。填你上下文里「已知工作区」清单中的【名字】(或它的完整路径)→ 就用那个工作区;活明显属于某个工作区时就填它。省略时工作台按顺序选:带了 missionId → 沿用那个事项的工作区;带了 relatedSessionId → 沿用那条线程的目录;都没有 → 在我自己的文件夹里给它新开一个(不会出现在用户的常用工作区里)。清单外的值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
         relatedSessionId: { type: 'string', description: '可选。这件事是接着哪条线程的活(线程 id,来自总览或 steward_threads_search)。没给 cwd 时新线程就开在那条线程的目录里;id 不是一条线程会被拒(not_found)。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
@@ -54457,7 +54499,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_decide',
-    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 300 字(就是你看到的那段命令摘录 —— 看不全的不准批),删数据类的目标是相对路径(写了盘符、以 / 开头、~、$env:、%变量% 的一律不代批),命令里没有拼接/编码/求值这类间接构造,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令超过摘录长度或没扫全,你看不全/indirect_command 命令是拼接、编码或求值出来的,判不出真正要跑什么/absolute_target 删数据的目标写了绝对或家目录路径/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
+    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。**拒绝类(action:deny / reject)不受上面这些闸限制**:拒绝只会让事情少发生,任何权限档、命中永久豁免的待决都可以直接拒(仍记决策日志);放行类(allow / approve / answer)一个字不松。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 300 字(就是你看到的那段命令摘录 —— 看不全的不准批),删数据类的目标是相对路径(写了盘符、以 / 开头、~、$env:、%变量% 的一律不代批),命令里没有拼接/编码/求值这类间接构造,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令超过摘录长度或没扫全,你看不全/indirect_command 命令是拼接、编码或求值出来的,判不出真正要跑什么/absolute_target 删数据的目标写了绝对或家目录路径/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['missionId', 'interventionId', 'action'],
       properties: {
@@ -54516,7 +54558,7 @@ const MCP_TOOLS = [
         text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
         scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
-        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
+        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
@@ -54531,7 +54573,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_veto',
-    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。返回 {ok,id,undoRef}。',
+    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。已经是否决状态的再否决一次返回 {ok,id,state:"vetoed",unchanged:true},不写库、不记决策。返回 {ok,id,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '记忆条目 id。' } },
@@ -54613,7 +54655,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_file_read',
-    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
+    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 凭据类文件一律拒(sensitive_path:.env / 私钥 id_rsa·*.pem·*.key / .git/config / .ssh 与 .aws 目录 / .npmrc 等,.env.example 这类模板放行),二进制文件拒(binary_file:前 8KB 含 NUL 字节)——别换个写法再试;④ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'],
       properties: {
@@ -54659,7 +54701,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_playbook_draft',
-    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
+    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型;还没调模型就失败的——如线程里没有用户消息——不占名额),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: { sessionId: { type: 'string', description: '要起草的线程 id。' } },
@@ -54678,7 +54720,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_quick_ask',
-    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
+    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。question 是用户的原话,逐字递给线程(尖括号、换行都不改);答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
@@ -54693,7 +54735,7 @@ const MCP_TOOLS = [
   // 实现住 13t-steward-schedule.js,门控壳仍是 13g 的 stewardToolHandler。
   {
     name: 'steward_schedule_create',
-    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
+    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条;⑤ cron 扫满五年也不会触发的(如 "0 0 31 2 *")会被拒;⑥ prompt 载荷每次到点都调模型,cron 触发间隔不能短于 15 分钟(invalid_request / interval_too_short),更频繁的只能是 reminder;⑦ target.mode:existing-session 的 sessionId 必须是一条真实存在的线程(管家自己的会话不行,not_found),到点时那条线程没了也记失败而不是悄悄新开。返回 {ok,task,describeKey,describeParams};文本超长被截、tier / permissionMode 没生效这类【被悄悄改掉的部分】会列在 notes 里(同时 normalized:true)——有 notes 就如实转述给用户。describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {
@@ -54738,7 +54780,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_pause',
-    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。返回 {ok,task}。',
+    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。已经是暂停状态再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
@@ -54746,7 +54788,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_resume',
-    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。返回 {ok,task}。',
+    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。已经在运行的任务再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
@@ -54754,7 +54796,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_run_now',
-    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
+    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试;③ 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——立刻真跑一次(prompt 载荷会开线程调模型)与排新任务、删任务同一档,把它作为提议交给用户,不要重试。**暂停中的任务也能手动跑一次**(暂停只管到点自动触发),这时返回里带 wasPaused:true 与说明,且不会把它恢复。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
@@ -63324,6 +63366,7 @@ const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
 const STEWARD_READ_ROW_OVERHEAD = 16;       // 每行的行首开销(角色/回合号那一截),算预算时按行计
 const STEWARD_READ_CLIP_MARK = '…';         // 117s-H3:被截了头的那一行的行首标记
 const STEWARD_AUDIT_LIMIT_DEFAULT = 20, STEWARD_AUDIT_LIMIT_MAX = 100;
+const STEWARD_MISSIONS_LIMIT_DEFAULT = 50, STEWARD_MISSIONS_LIMIT_MAX = 200;   // 第二轮走查 F7:steward_missions 的条数帽子
 const STEWARD_TITLE_MAX = 80;
 const STEWARD_STEER_TEXT_MAX = 2000;
 // 116-2b steward_thread_note:管家给【已在跑】的线程补一句上下文。600 字上限比 steer_node 的 2000
@@ -63727,6 +63770,14 @@ function stewardTurnQuotaTake(bucket, ctx, max) {
   while (table.size > 64) table.delete(table.keys().next().value);
   return true;
 }
+// 退一次:take 成功之后发现这一次其实没有做那件「花钱的事」(第二轮工具走查 F11:playbook_draft 在没调模型就失败时),
+// 把刚占的名额还回去。桶或键不在(已被淘汰)时什么都不做。
+function stewardTurnQuotaRefund(bucket, ctx) {
+  const key = String(ctx && ctx.sessionId ? ctx.sessionId : '') + ' ' + stewardTurnKeyOf(ctx);
+  const table = _stewardTurnQuota.get(bucket);
+  const used = table ? Number(table.get(key)) || 0 : 0;
+  if (used > 1) table.set(key, used - 1); else if (used === 1) table.delete(key);
+}
 
 // ── 129c(31 号文 §1 红线 4「污染规则」)：管家【自己这一回合】读过外界内容的标记 ────────────
 // 红线原文:「管家在一个回合里读过外界内容(网页、文件、线程交付里引用的外部文本),这一回合的
@@ -63809,6 +63860,15 @@ function stewardQuickClosed(head) {
 function stewardQuickThread(head) {
   const quick = head && head.stewardQuick;
   return !!(quick && typeof quick === 'object');
+}
+// 第二轮工具走查(F10):给管家看的 `kind` 字段。修前直接吐 stewardRawKind —— 会话头上没写 kind 的普通对话
+// 兜底成 sessionKind 的「纯问答默认档」quick_ask,于是用户进行中的普通对话在 thread_status / threads_search 里
+// 全被标成「速查线程」,而同一个返回里 stateSources.kind 却是 mission(五态判据早在 116-3 P1-5 改成了
+// stewardQuickThread)。这里与五态判据同口径:只有头上带 stewardQuick 的才是 quick_ask,其余一律 mission;
+// 管家自己的会话照旧 steward(调用方都已经把它挡在外面,留着只是不撒谎)。
+function stewardDisplayKind(head) {
+  if (stewardRawKind(head) === 'steward') return 'steward';
+  return stewardQuickThread(head) ? 'quick_ask' : 'mission';
 }
 
 // ============================================================================
@@ -64165,6 +64225,9 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
   const includeClosed = args.includeClosed === true;   // 116-2e:把已收工的速查线程也算进来
   if (!q) return { ok: true, query: '', results: [], indexed: 0, reason: 'query_empty' };
+  // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
+  // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
   const metas = await listSessions().catch(() => []);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
 
@@ -64234,7 +64297,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       missionTitle: await missionTitleOf(missionId),
       title: stewardSanitizeText(meta.title || (head && head.title) || ''),
       ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
-      kind: rawKind,
+      kind: stewardDisplayKind(head),
       state: derived.state,
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
@@ -64305,7 +64368,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     // W7:它在哪个工作区里 —— { name, ruyiOwned }(name 是已知工作区清单里的那个名字,可以原样填回
     // steward_thread_new 的 cwd;ruyiOwned = 如意自己开的文件夹)。缺 cwd 时为 null。只加字段。
     workspace: stewardWorkspaceNameOf(head.cwd, config),
-    kind: rawKind,
+    kind: stewardDisplayKind(head),
     state: derived.state,
     stateLabel: derived.label,
     stateSources: derived.sources,
@@ -64361,8 +64424,20 @@ function stewardToolCallLine(call) {
   } catch { inputHint = '{…}'; }
   let resultChars = 0;
   try { resultChars = JSON.stringify((call && call.result) != null ? call.result : '').length; } catch { resultChars = -1; }
+  // 第二轮工具走查(F15):修前只有结果长度,失败的 {ok:false,error} 也有几十~几百字符,看不出成败 ——
+  // 而「线程为什么卡住」恰恰最需要知道哪一步失败了。成败取结果对象自己的 ok(失败信封都是 {ok:false,…},
+  // 或带 error / threw 字段);拿不到结果(Claude 引擎只记调用不记结果)或结果是裸文本时诚实地给 null,不猜。
+  const verdict = stewardToolCallVerdict(call);
+  const mark = verdict === true ? ' ✓' : verdict === false ? ' ✗失败' : '';
   // 工具输出只给长度(与既有 observation reducer 的缩减视图同一诚实口径:不给全文,给可回读的把手)。
-  return `[工具] ${name} ${inputHint} → ${resultChars >= 0 ? resultChars + ' 字符' : '不可序列化'}${call && call.id ? ' (id=' + stewardSanitizeText(call.id) + ')' : ''}`;
+  return `[工具] ${name} ${inputHint} → ${resultChars >= 0 ? resultChars + ' 字符' : '不可序列化'}${mark}${call && call.id ? ' (id=' + stewardSanitizeText(call.id) + ')' : ''}`;
+}
+function stewardToolCallVerdict(call) {
+  const result = call && call.result;
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return null;
+  if (result.ok === false || result.threw || result.error) return false;
+  if (result.ok === true) return true;
+  return null;
 }
 async function stewardImplThreadRead(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -64396,11 +64471,15 @@ async function stewardImplThreadRead(args, ctx, config) {
     const seq = Number(m.turnSeq);
     if (Number.isFinite(seq) && !wanted.has(seq)) continue;
     if (!Number.isFinite(seq) && turnSeqs.length) continue; // 无 turnSeq 的历史消息在有回合号时跳过
-    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'user', text: stewardSanitizeBlock(m.content || '') });
+    // 第二轮工具走查(F9):用户/助手正文也要先 redact 再中和 —— 用户在线程里随口贴的 sk-… / ghp_… 修前原样交给了
+    // 管家模型(并进了那一轮的会话文件),而同一个函数对工具入参早就脱敏了。顺序照 stewardToolCallLine 的教训:
+    // redact 在【之前】,后面按 maxChars 裁剪时不会把密钥切成半截让正则咬不到。
+    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'user', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
     else if (m.role === 'assistant') {
-      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(m.content || '') });
+      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
       for (const call of (Array.isArray(m.toolCalls) ? m.toolCalls : [])) {
-        rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', text: stewardToolCallLine(call) });
+        // ok:工具这一步成败(true/false;拿不到结果记录时为 null),给模型排查「线程卡在哪一步」用。
+        rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', ok: stewardToolCallVerdict(call), text: stewardToolCallLine(call) });
       }
     }
   }
@@ -64482,7 +64561,13 @@ const stewardLaunchingTurns = new Set();
 function stewardLaunchTurn(input, tool) {
   const launchSid = String(input.sessionId || '');
   if (launchSid) stewardLaunchingTurns.add(launchSid);
-  const promise = runSessionTurn({ ...input, onEvent: () => {} });
+  // 第二轮工具走查(F17):给管家发起的那条【用户消息】盖上出身标 meta.origin:'steward'(随会话正文落盘,与收件箱回合的
+  // origin:'inbox' 同一个机制)。修前 thread_new 的委托书、thread_continue 的递话、quick_ask 的问题落在线程里都是一条
+  // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceIsUserMessage)分不出
+  // 「用户本人说的」和「管家自己转发过去的」—— 管家能把自己写的委托书引成「用户说过」记进记忆。
+  // 只覆盖 Provider 引擎的线程(09 runOpenAiTurn 才接 messageMeta;CLI 引擎的回合不接,与收件箱标同一个边界)。
+  // input 里调用方自己给的 messageMeta 优先(目前没有)。
+  const promise = runSessionTurn({ messageMeta: { origin: 'steward', tool: String(tool || '') }, ...input, onEvent: () => {} });
   promise.finally(() => { if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
@@ -64529,6 +64614,17 @@ function stewardUnattendedByModel(ctx) {
 function stewardRelayAutoAllowed(config) {
   const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
   return auto.relay === true;
+}
+
+// thread_new 的 missionId 是不是一个真实存在的事项(见调用处的说明)。
+async function stewardMissionExists(stewardMissionIdArg) {
+  const missionId = safeSessionId(stewardMissionIdArg);
+  if (!missionId) return false;
+  if (await readMissionContainer(missionId).catch(() => null)) return true;
+  const own = await stewardReadSessionHead(missionId);
+  if (own && own.id && stewardRawKind(own) !== 'steward') return true;
+  const metas = await listSessions().catch(() => []);
+  return metas.some(meta => meta && !sessionMetaIsSteward(meta) && String(meta.missionId || '') === missionId);
 }
 
 // 10) steward_thread_new —— 委托书。原话逐字在最前,管家补充经中和后进围栏(见 06i buildStewardBrief)。
@@ -64592,6 +64688,13 @@ async function stewardImplThreadNew(args, ctx, config) {
     : brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
   if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
+  // 第二轮工具走查(F14):missionId 格式合法但【根本没有这个事项】时,修前照样把新线程挂到它名下 —— 凭空造出一个
+  // 只有一条线程、没有事项文件的「幽灵事项」(relatedSessionId 同样的错早就返回 not_found 了)。
+  // 认三种真事项:有事项容器文件的;就是某条线程自己的 id(未归类事项的 missionId === 线程 id,不是管家会话);
+  // 已有线程头上的 missionId 指着它的。都不是 -> not_found,排在 createSession 之前(拒的是「开线程」,不是开完再回滚)。
+  if (requestedMissionId && !await stewardMissionExists(requestedMissionId)) {
+    return stewardFail('not_found', `missionId ${requestedMissionId} 不是一个已有的事项(没有这个事项,也没有这条线程);不确定就省掉 missionId 让新线程自成事项,不要重试同一个值`, { reason: 'mission_not_found' });
+  }
   // W7:cwd 选择顺序(见文件头 stewardResolveThreadCwd):明确给的 > 事项记着的 > 相关线程的 > 新开。
   // 给了但不合法(已知工作区之外的 cwd、不存在的 relatedSessionId)一律拒,不静默回落;排在 createSession
   // 之前:拒的是「开线程」,不是「开完再回滚」。
@@ -64859,6 +64962,9 @@ async function stewardAnswerGate(o) {
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  // 第二轮工具走查(F8):message 是【原话直递】—— 门控壳的类型校验对「数字当字符串」一贯宽松,
+  // 但把 12345 当成用户的话递给线程等于模型自己编了一句原话,这里收紧到必须真是字符串。
+  if (args.message != null && typeof args.message !== 'string') return stewardFail('invalid_request', 'message must be a string (the user\'s words, passed through verbatim)');
   const message = String(args.message == null ? '' : args.message);
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
   const head = await stewardReadSessionHead(sessionId);
@@ -64956,6 +65062,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
 async function stewardImplThreadRename(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  // 第二轮工具走查(F8):title:{a:1} 修前被 String() 成 "[object Object]" 写进会话头(门控壳现在也会拦对象/数组,
+  // 这里再收紧到「必须是字符串」—— 标题是给人看的名字,数字、布尔当标题都是模型传串了位)。
+  if (args.title != null && typeof args.title !== 'string') return stewardFail('invalid_request', 'title must be a string');
   const title = String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim().slice(0, STEWARD_TITLE_MAX);
   if (!title) return stewardFail('invalid_request', 'title is required');
   const head = await stewardReadSessionHead(sessionId);
@@ -65227,7 +65336,12 @@ async function stewardImplThreadNote(args, ctx, config) {
 //     管家自己就知道,开一条线程去问等于让用户白等一次回合。
 //     不进任何事项;权限用新线程默认权限(即全局 permissionMode),照常受 116h 仲裁;答完自动收工。
 async function stewardImplQuickAsk(args, ctx, config) {
-  const question = stewardSanitizeText(args.question).trim();
+  // 第二轮工具走查(F14):question 是【用户的话】,与 thread_new 的 brief.userText 同一待遇 —— 逐字递进线程。
+  // 修前过 stewardSanitizeText:`List<String>`、`a<b` 里的尖括号被换成全角 ＜＞,换行折成空格,线程收到的已经不是用户写的那句
+  // (问代码泛型/不等式的速查全被改了意思)。中和是为了防【管家自己提示词里】的围栏标记被冒充,而这句话进的是线程的
+  // 首条用户消息,不是管家提示词;只有管家自己写的补充才需要中和(buildStewardBrief 的 supplement)。
+  // 返回给管家的回显与线程标题仍走 stewardSanitizeText(单行、中和),它们是给管家/看板读的展示面。
+  const question = String(args.question == null ? '' : args.question).trim();
   if (!question) return stewardFail('invalid_request', 'question is required');
   if (question.length > STEWARD_QUICK_QUESTION_CHARS) {
     return stewardFail('invalid_request', `question must be at most ${STEWARD_QUICK_QUESTION_CHARS} characters`);
@@ -65240,7 +65354,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }
   const session = await createSession({
-    title: question.slice(0, STEWARD_TITLE_MAX),
+    title: stewardSanitizeText(question).slice(0, STEWARD_TITLE_MAX),
     cwd: quickCwdPick.cwd,
     origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });
@@ -65301,7 +65415,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     basis: stewardBasisOf(args),
   });
   return {
-    ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef,
+    ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question: stewardSanitizeText(question), tier: quickTier.tier, engine: quickTier.engine, undoRef,
     workspace: (stewardWorkspaceNameOf(session.cwd, config) || { name: '' }).name, cwdSource: quickCwdSource,   // W7:同 thread_new
   };
 }
@@ -65562,7 +65676,16 @@ function stewardAddUsageRow(bucket, row) {
 async function stewardImplUsage(args) {
   const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
   if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
+  // 第二轮工具走查(F8):修前非法的 day('yesterday' / '2026/10/01')被静默当成「没给」,回的是全期累计,
+  // 调用方还以为是那一天的数。现在只认 YYYY-MM-DD(本地日历日)与 today / yesterday 两个口语写法,其余明确拒。
+  let day = '';
+  if (args.day !== undefined && args.day !== null && String(args.day).trim() !== '') {
+    const wantDay = String(args.day).trim().toLowerCase();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(wantDay)) day = wantDay;
+    else if (wantDay === 'today') day = usageDayKey(Date.now());
+    else if (wantDay === 'yesterday') { const t = new Date(); day = usageDayKey(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1, 12).getTime()); }   // 取昨天正午:避开午夜跳 DST 的 0 点不存在
+    else return stewardFail('invalid_request', `day must be YYYY-MM-DD (local calendar day), "today" or "yesterday" (got ${JSON.stringify(stewardSanitizeText(String(args.day)).slice(0, 40))}); omit it for all-time totals`);
+  }
   const total = stewardEmptyUsageBucket();
   const steward = stewardEmptyUsageBucket();
   const bySession = new Map();
@@ -65598,10 +65721,32 @@ async function stewardImplHealth(args, ctx, config) {
 
 // 9) steward_audit_tail —— 既有 collectAudit(内部已过 redact 脱敏),只取 workbench 源(桌面 MCP 审计
 //    要起桥,管家的「刚才发生了什么」不该为此拉起一个子进程)。
+// 第二轮工具走查(F6):修前 type 过滤被硬编码成 null、也没有任何过滤参数 —— 返回的 20 条几乎全是模型调用遥测
+// (model_call_*、layout_shadow、econ_call_totals……两个回合就把 20 条占满),「我批准过什么」那类 intervention /
+// 授权书事件被挤得拿不到。现在:
+//   · kinds:[…] 只要这些 kind(精确匹配,最多 12 个);给了就【不再】默认排除遥测(明确要什么就给什么);
+//   · 没给 kinds:默认排除纯遥测 kind(STEWARD_AUDIT_TELEMETRY_KINDS),includeTelemetry:true 才放回来;
+//   · 过滤发生在【取尾之前】(06 readWorkbenchAudit),limit 数的是过滤后的条数;最近日志文件不够时往前读至 3 天。
+const STEWARD_AUDIT_TELEMETRY_KINDS = Object.freeze([
+  'model_call_started', 'model_call_completed', 'model_call_retry', 'assistant_tool_batch', 'tool_call_completed',
+  'tool_phase_completed', 'layout_shadow', 'econ_call_totals', 'tool_schema_freeze', 'tool_retrieval_shadow',
+  'tool_retrieval_ranked', 'tool_byte_budget_shadow', 'observation_reduction_shadow', 'observation_reduced',
+  'session_notes_inject', 'iter_timing', 'exec_result_cache', 'summary_entity_check', 'compaction_refetch',
+]);
 async function stewardImplAuditTail(args, ctx, config) {
   const limit = stewardClampInt(args.limit, 1, STEWARD_AUDIT_LIMIT_MAX, STEWARD_AUDIT_LIMIT_DEFAULT);
-  const audit = await collectAudit(config, { limit, sourceFilter: 'workbench', typeFilter: null });
-  return { ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated) };
+  // kinds 接数组,也容忍单个字符串(模型常把「一个 kind」写成字符串);其余形状当没给。
+  const rawKinds = Array.isArray(args.kinds) ? args.kinds : (typeof args.kinds === 'string' ? [args.kinds] : []);
+  const kinds = new Set(rawKinds.map(k => String(k == null ? '' : k).trim()).filter(k => /^[a-z0-9_.:-]{1,64}$/i.test(k)).slice(0, 12));
+  const wantTelemetry = args.includeTelemetry === true;
+  const audit = await collectAudit(config, {
+    limit, sourceFilter: 'workbench', typeFilter: null,
+    kinds, excludeKinds: kinds.size || wantTelemetry ? null : new Set(STEWARD_AUDIT_TELEMETRY_KINDS), maxFiles: 3,
+  });
+  return {
+    ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated),
+    filter: { kinds: [...kinds], excludedTelemetry: !(kinds.size || wantTelemetry) },
+  };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -65660,8 +65805,14 @@ async function stewardImplDecide(args, ctx, config) {
   //   闸 10 窗口  —— 13j 的滚动一小时计数。
   // 不读 ctx.userPressed:用户按下管家给的按钮(/api/steward/act)与模型直调走同一套闸 —— 永久豁免那一格
   // 从来不因为「用户点了一下管家的按钮」而放宽(06i 契约;用户要亲自批,在线程里按)。
+  // 第二轮工具走查(F13):拒绝类(deny / reject)是【收紧类】动作 —— 与 steward_run_action 的 pause/stop、steward_thread_stop
+  // 同一条理由:它只会让事情【少】发生。修前 deny 与 allow 过一模一样的闸:命中永久豁免(rm -rf / git push 这类本该最想拒的)
+  // 反而被 propose_required 挡下「必须用户亲自决定」,线程权限档不够(每步都问 / 只做计划)同样被挡 —— 越危险越拒不了。
+  // 现在拒绝类跳过永久豁免 / 代批十道闸与权限档判定(目标待决存在、没有被用户当面坐着,这两道前置闸仍在);
+  // 放行类(allow / approve / answer)一个字不松。决策日志照常记,mayAct 如实写 'auto'。
+  const refusing = action === 'deny' || action === 'reject';
   let delegation = null;
-  if (type === 'permission' && exemptHit) {
+  if (type === 'permission' && exemptHit && !refusing) {
     const safeTool = stewardSanitizeText(toolName);
     const categoryLabel = exemptHit.category ? (STEWARD_EXEMPT_CATEGORY_LABELS[exemptHit.category] || exemptHit.category) : '';
     const because = exemptHit.by === 'tool_name'
@@ -65734,7 +65885,7 @@ async function stewardImplDecide(args, ctx, config) {
   let actMode = permissionMode;
   if (liveActMode && stewardPermissionRank(liveActMode) >= 0 && stewardPermissionRank(liveActMode) < stewardPermissionRank(actMode)) actMode = liveActMode;
   if (!liveActMode && threadOriginOf(head) === 'schedule' && stewardPermissionRank(actMode) > stewardPermissionRank('default')) actMode = 'default';
-  const mayAct = stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
+  const mayAct = refusing ? 'auto' : stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
   if (mayAct !== 'auto') {
     return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(delegation ? permissionMode : actMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
@@ -65871,6 +66022,12 @@ async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   const runId = safeSessionId(args.runId);
   const action = String(args.action || '');
+  // 第二轮工具走查(F10):runId【给了但格式不对】('../../x' 之类)修前也落进下面「缺 runId 的收紧类 → no_agent_run」那一支,
+  // 回一句「这条线程没有班组可暂停」—— 把一个明明是请求非法的值说成了「没班组」,模型会据此放弃找班组。
+  // 给了就是给了:格式不对如实报 invalid runId;只有真的【没给】runId 才走 117m-A4 那条「问错了工具」的口径。
+  if (sessionId && args.runId != null && String(args.runId).trim() !== '' && !runId) {
+    return stewardFail('invalid_request', `invalid runId ${JSON.stringify(stewardSanitizeText(String(args.runId)).slice(0, 60))}; use a runId from steward_runs_status`, { sessionId });
+  }
   if (!sessionId || !runId) return (sessionId && STEWARD_RUN_TIGHTENING.includes(action)) ? stewardFail('no_agent_run', '这条线程没有班组可暂停;要停的是它这一回合的话,用 steward_thread_stop', { sessionId, action }) : stewardFail('invalid_request', 'sessionId and runId are required');  // 117m-A4:缺 runId 的收紧类是【问错了工具】(普通线程没有班组),不是请求非法;其余动作逐字不变。全部理由见 13h 的 stewardImplThreadStop 头注
   if (!STEWARD_RUN_TIGHTENING.includes(action) && !STEWARD_RUN_ADVANCING.includes(action)) {
     return stewardFail('invalid_request', `unknown action: ${stewardSanitizeText(action)}`);
@@ -65957,8 +66114,10 @@ async function stewardSourceIsUserMessage(sourceRef) {
   // 几十条系统事件归成一段文本发给模型),但那不是用户本人说的话。13h 在那条消息上落了
   // meta.origin === 'inbox'(随会话正文持久化,重启后仍在),这里确定性拒绝它。同理拒绝
   // 驱动器自动续跑的消息(source:'mission-driver')—— 也不是人说的。
+  // 第二轮工具走查(F17):再拒一类 —— 管家自己发起的那条用户消息(thread_new 委托书 / thread_continue 递话 /
+  // quick_ask 问题,13k stewardLaunchTurn 落 meta.origin:'steward')。它是管家转述的,不是用户本人这一回合说的话。
   return messages.some(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq
-    && !(m.meta && typeof m.meta === 'object' && m.meta.origin === 'inbox')
+    && !(m.meta && typeof m.meta === 'object' && (m.meta.origin === 'inbox' || m.meta.origin === 'steward'))
     && m.source !== 'mission-driver');
 }
 
@@ -65985,6 +66144,11 @@ async function stewardImplMemoryWrite(args, ctx, config) {
   // 写的时候允许留空 —— 「我用 Windows」这种事实本来就不该有到期日;该写的是
   //「这两周在赶 A 项目」那一类必然过期的。给不给由模型按提示词判断,服务端只管清洗与过滤。
   const expiresAt = cleanMemoryDate(args && args.expiresAt);
+  // 第二轮工具走查(F12):到期日【已经过去】修前被静默收下 —— 条目一落库就是「已过期」,既不进提示词也搜不到,
+  // 模型却收到 ok:true,以为这条记住了(又一个「说 ok 其实没用」)。拒绝并如实说原因;要记就给将来的日期或不给。
+  if (expiresAt && memoryIsExpired({ expiresAt })) {
+    return stewardFail('invalid_request', `expiresAt ${stewardSanitizeText(String(args.expiresAt)).slice(0, 40)} is already in the past, so the entry would be expired on arrival and never used; give a future date or omit it`);
+  }
   // 126-M01:作用域。模型只说「这条是不是项目级的」,**键由服务端从来源那条会话的 cwd 推出来** ——
   // 让模型自己填项目键 = 让它推断「这条管得着谁」,正是 31 号文 §2.6 的红线禁止的。
   // 来源会话读不出 cwd(或模型没说 project)时落全局:宁可多用一条,不可凭空把它锁进某个项目。
@@ -66088,6 +66252,9 @@ async function stewardImplMemoryVeto(args) {
   return stewardMutateMemory(async store => {
     const entry = store.entries.find(e => e.id === id);
     if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
+    // 第二轮工具走查(F12):已经是否决状态再否决一次,修前照样回 ok、undoRef.prev 记成 'vetoed'(撤销它等于「还原成否决」,
+    // 即什么都没撤)、还多写一行决策日志 —— 行动流水里一件事被记两遍。幂等:不写库、不记决策,如实说「没变」。
+    if (entry.state === 'vetoed') return { persist: false, result: { ok: true, id, state: 'vetoed', unchanged: true } };
     const prev = entry.state;
     entry.state = 'vetoed';
     entry.updatedAt = nowIso();
@@ -66172,7 +66339,13 @@ async function stewardImplMissions(args, ctx, config) {
     if (row.archivedAt) mission.archivedAt = row.archivedAt;
     return mission;
   });
-  return { ok: true, missions, count: missions.length };
+  // 第二轮工具走查(F7):修前一次返回全部事项(151 个 = 77KB,约 2~3 万 token,管家一次调用就把上下文吃掉)。
+  // 现在与 steward_threads_search 同一个纪律:limit(默认 50,夹取 1..200)+ total + truncated。
+  // 取的是 buildMissionAggregateRows 已经排好的前 N 行(它的顺序就是看板顺序),count 保持「本次返回条数」的旧语义,
+  // total 才是库里一共有多少。
+  const limit = stewardClampInt(args && args.limit, 1, STEWARD_MISSIONS_LIMIT_MAX, STEWARD_MISSIONS_LIMIT_DEFAULT);
+  const shown = missions.slice(0, limit);
+  return { ok: true, missions: shown, count: shown.length, total: missions.length, truncated: missions.length > shown.length, limit };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -66381,6 +66554,40 @@ async function stewardImplWebFetch(args, ctx, config) {
   return { ok: true, url: stewardSanitizeText(url).slice(0, 300), tainted: true, content };
 }
 
+// 第二轮工具走查(F3):管家读文件回来的内容只做了尖括号中和,没有走 redact(而 thread_read 的工具入参、audit_tail 都走了),
+// 工作区里的 `.env` / `.git/config`(带 token 的远端地址)/ `.ssh/id_rsa` 就原样交给了模型。管家是「动如意」的,
+// 没有任何理由去读一份凭据文件的内容 —— 与其对内容做不可靠的正则脱敏,不如按文件【名】整个拒绝(fail-closed)。
+// 判据只看路径(按 Windows 形处理:`\` 与 `/` 都认,大小写不敏感):
+//   · 文件名:.env / .env.*(模板 .env.example / .sample / .template / .dist 放行,那是给人抄的占位符)、
+//     id_rsa / id_dsa / id_ecdsa / id_ed25519(.pub 公钥放行)、*.pem / *.key / *.p12 / *.pfx / *.ppk / *.jks / *.keystore、
+//     .npmrc / .pypirc / .netrc / _netrc / .git-credentials / credentials / credentials.json / secrets.json;
+//   · 路径段:`.ssh` / `.gnupg` / `.aws` 目录下的任何文件;`.git/config`。
+const STEWARD_SECRET_FILE_RE = /^(?:\.env(?:\..+)?|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..+)?|.+\.(?:pem|key|p12|pfx|ppk|jks|keystore)|\.npmrc|\.pypirc|\.netrc|_netrc|\.git-credentials|credentials(?:\.json)?|secrets\.json)$/i;
+const STEWARD_ENV_TEMPLATE_RE = /^\.env\.(?:example|sample|template|dist|defaults?)$/i;
+function stewardIsSecretFilePath(rawPath) {
+  const segs = String(rawPath || '').replace(/\\/g, '/').split('/').filter(Boolean).map(seg => seg.toLowerCase());
+  if (!segs.length) return false;
+  const name = segs[segs.length - 1];
+  const dirs = segs.slice(0, -1);
+  if (dirs.some(seg => seg === '.ssh' || seg === '.gnupg' || seg === '.aws')) return true;
+  if (name === 'config' && dirs[dirs.length - 1] === '.git') return true;
+  if (/^id_(?:rsa|dsa|ecdsa|ed25519)\.pub$/.test(name) || STEWARD_ENV_TEMPLATE_RE.test(name)) return false;
+  return STEWARD_SECRET_FILE_RE.test(name);
+}
+// 二进制判据:前 8KB 里出现 NUL 字节(与 13 的 diff 预览同一个口径)。12 的 file_read 只看扩展名,
+// bin.dat 这类无扩展名/冷门扩展名的二进制会被当文本回成乱码 —— 乱码进模型上下文既费 token 又没法读。
+// 读不到(不存在/没权限)时返回 false,把错误留给后面真正读文件的那一步报。
+async function stewardFileLooksBinary(realPath) {
+  let fh = null;
+  try {
+    fh = await fsp.open(realPath, 'r');
+    const buf = Buffer.alloc(8192);
+    const { bytesRead } = await fh.read(buf, 0, 8192, 0);
+    return buf.subarray(0, bytesRead).includes(0);
+  } catch { return false; }
+  finally { if (fh) { try { await fh.close(); } catch { /* best-effort */ } } }
+}
+
 // 29) steward_file_read —— **只在 config.workspaces 之内**。
 async function stewardImplFileRead(args, ctx, config) {
   const raw = String((args && args.path) || '').trim();
@@ -66395,6 +66602,12 @@ async function stewardImplFileRead(args, ctx, config) {
   const [realTarget, realRoot] = await Promise.all([realpathForContainment(raw), realpathForContainment(root)]);
   if (!pathWithinRoot(realTarget, realRoot)) {
     return stewardFail('outside_workspace', 'that path is a link that points outside the registered workspace; only files really inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
+  }
+  if (stewardIsSecretFilePath(raw) || stewardIsSecretFilePath(realTarget)) {
+    return stewardFail('sensitive_path', 'that looks like a credential file (.env / private key / .git/config / .ssh / token store); the steward does not read those', { path: stewardSanitizeText(raw).slice(0, 200) });
+  }
+  if (await stewardFileLooksBinary(realTarget)) {
+    return stewardFail('binary_file', 'that file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
@@ -66428,6 +66641,12 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
   const hit = files.find(f => stewardSamePath(f, want));
   if (!hit) {
     return stewardFail('not_in_artifacts', 'that path is not in this thread\'s delivered files; only files the thread itself listed can be read here', { files: files.slice(0, 20) });
+  }
+  // 与 steward_file_read 同一道二进制判据(交付清单里的 .dat / 无扩展名文件同样会被当文本回成乱码)。
+  const artifactAbs = path.isAbsolute(hit) ? hit : path.resolve(String(head.cwd || ''), hit);   // 清单里可能是相对线程 cwd 的写法
+  const artifactReal = await realpathForContainment(artifactAbs).catch(() => artifactAbs);
+  if (await stewardFileLooksBinary(artifactReal)) {
+    return stewardFail('binary_file', 'that delivered file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(hit).slice(0, 200) });
   }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
@@ -66505,6 +66724,19 @@ async function stewardImplNotify(args, ctx, config) {
 //     并暗示它的形状,而 forbidden 的意思是「这一族根本不经管家」。
 async function stewardImplConfigGet(args, ctx, config) {
   const masked = maskProviders(config);
+  // 第二轮工具走查(F11):maskProviders 是给设置页回显用的 —— 外部 MCP 的 env / headers 值掩成「••••<末 4 位>」,
+  // 那 4 位是给用户认「是不是我填的那把」的。管家这条面不需要认,steward_providers 刻意只给 hasKey 布尔
+  // 正是因为掩码串会暴露长度与前缀形状;这里同一个口径:只留掩码前缀,末位字符一个都不给(值非空才有前缀,空值仍是空串)。
+  if (Array.isArray(masked.externalMcpServers)) {
+    const bare = valueMap => {
+      if (!valueMap || typeof valueMap !== 'object' || Array.isArray(valueMap)) return valueMap;
+      const out = {};
+      for (const [name, value] of Object.entries(valueMap)) out[name] = (typeof value === 'string' && value.startsWith(KEY_MASK_PREFIX)) ? KEY_MASK_PREFIX : value;
+      return out;
+    };
+    masked.externalMcpServers = masked.externalMcpServers.map(entry => (entry && typeof entry === 'object')
+      ? { ...entry, ...(entry.env ? { env: bare(entry.env) } : {}), ...(entry.headers ? { headers: bare(entry.headers) } : {}) } : entry);
+  }
   const requested = Array.isArray(args.keys)
     ? args.keys.map(k => String(k || '').trim()).filter(Boolean).slice(0, 64)
     : Object.keys(masked);
@@ -66657,6 +66889,10 @@ async function stewardImplPlaybookDraft(args, ctx, config) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_PLAYBOOK_DRAFTS_PER_TURN} playbook draft per steward turn; do not retry - tell the user what you have`);
   }
   const draft = await draftPlaybookFromSession(sessionId);
+  // 第二轮工具走查(F11):名额是为「起草要调一次模型」设的;修前先扣名额再试,于是「本会话没有可参考的用户消息」
+  // 这类【根本没调模型】的失败也把本回合唯一的名额烧掉,同一回合里换一条对的线程再起草就被 quota_exceeded 挡死。
+  // 06 在三个调模型之前的早退里带 noModelCall:true —— 那种失败把名额还回去;真调过模型(哪怕没解析出合法 JSON)照旧算一次。
+  if (draft && draft.ok === false && draft.noModelCall === true) stewardTurnQuotaRefund('playbook_draft', ctx);
   if (!draft || draft.ok === false) {
     return stewardFail('draft_failed', String((draft && draft.error) || 'the engine could not draft a playbook from this thread'));
   }
@@ -66889,6 +67125,37 @@ function stewardWithTurnTrigger(ctx) {
   return (kind === 'user' || kind === 'inbox') ? { ...base, trigger: kind } : base;
 }
 
+// 第二轮工具走查(F8):管家工具族整体被 12 的 validateNativeToolArgs 豁免(「自带逐字段校验与专属错误码」),
+// 实际上各 impl 只校验了自己关心的那几个字段,于是类型不对的参数被悄悄吞成「看似成功」:
+// thread_rename {title:{a:1}} 把标题改成 "[object Object]"、thread_new {tier:'ultra'} 静默按 strong、
+// usage {day:'yesterday'} 回全期累计……豁免的理由(专属错误码逐字钉着)只对【必填缺失】那一类成立,
+// 所以这里只补【类型 / 枚举】这一类,而且:
+//   · 只查 schema 里【声明过】的属性、只查【出现了】的值(缺失一律放给各 impl 自己报 invalid_request / not_found,
+//     它们的先后次序与措辞有 e2e 钉着);
+//   · 不做 12 那套宽进的就地规范化(枚举大小写、0/1 当布尔……一概不做);唯一例外是 STEWARD_STRING_AS_ARRAY 登记的参数(字符串换成数组);
+//     数字/布尔当字符串、数字串当整数这类 12 一贯放行的宽松照旧放行;
+//   · 运行器注入的 basis / stewardBasis / userPressed 等不在 schema 里,不会被查到(additionalProperties 不检);
+//   · 返回码仍是管家族自己的 invalid_request。
+const STEWARD_STRING_AS_ARRAY = Object.freeze({ steward_config_get: ['keys'], steward_audit_tail: ['kinds'] });
+function stewardArgTypeProblems(toolName, args) {
+  const schema = typeof nativeToolSchema === 'function' ? nativeToolSchema(toolName) : null;
+  const props = schema && schema.properties;
+  if (!props || typeof props !== 'object') return [];
+  const problems = [];
+  for (const key of Object.keys(props)) {
+    if (args[key] === undefined || args[key] === null) continue;
+    // 「一个值写成字符串」的宽进只对登记过的参数开(目前是 config_get 的 keys(模型常写 keys:'activeProvider')与 audit_tail 的 kinds):
+    // 就地换成数组 —— args 是门控壳自己的副本,不碰调用方的对象。其它数组参数(如 skill_toggle 的 skills:'skill-1')
+    // 仍按「必须是数组」报,steward-content-tools B9 钉着。
+    const sub = props[key];
+    if ((STEWARD_STRING_AS_ARRAY[toolName] || []).includes(key) && sub && sub.type === 'array' && typeof args[key] === 'string') {
+      args[key] = args[key].split(',').map(x => x.trim()).filter(Boolean);
+    }
+    for (const p of jsonSchemaValueProblems(props[key], args[key], key)) { problems.push(p); if (problems.length >= 3) return problems; }
+  }
+  return problems;
+}
+
 // 17 个工具共用的门控壳:开关 -> 身份 -> 实现 -> 异常兜底。单一判定点(12 的 handler 不重复判断)。
 function stewardToolHandler(toolName, impl) {
   return async (args, ctx) => {
@@ -66907,6 +67174,8 @@ function stewardToolHandler(toolName, impl) {
       const raw = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
       const clean = {};
       for (const key of Object.keys(raw)) { if (key !== 'userPressed') clean[key] = raw[key]; }
+      const typeProblems = stewardArgTypeProblems(toolName, clean);
+      if (typeProblems.length) return stewardFail('invalid_request', `${toolName}: ${typeProblems.join('; ')}`);
       return await impl(clean, stewardWithTurnTrigger(ctx), config);
     } catch (error) {
       const message = String((error && error.message) || error);
@@ -68002,6 +68271,13 @@ function stewardArbiterPrioritize(sessionId) {
   // 插到队首,但排在「已被饥饿保护提上来」的那一段之后 —— 见 stewardArbiterStarvedHead 的头注。
   const head = stewardArbiterStarvedHead();
   if (i > head) { stewardArbiter.queue.splice(i, 1); stewardArbiter.queue.splice(head, 0, entry); }
+  // 第二轮工具走查(F9):队伍刚动过,「前面还有几条」要立刻重算 —— 修前只在下一轮 drain 里才重算(drain 是异步排的),
+  // 所以 steward_thread_prioritize 刚把它提到队首,回包里的 wait 还是插队前的 ahead:1(自相矛盾),看板同一瞬间也是旧数。
+  // 与 drain 末尾那一段同一个写法(只重算等并发位的;等锁/等预算的不受队伍次序影响)。
+  for (const row of stewardArbiter.queue) {
+    if (row.cancelled || !row.wait || !row.wait.slot) continue;
+    stewardArbiterSetWait(row, { slot: { ahead: stewardArbiterAhead(row) } });
+  }
   stewardArbiterScheduleDrain();
   return { ok: true, sessionId: sid, prioritized: true };
 }
@@ -71995,6 +72271,12 @@ async function schedulerFireOnce(schedTask, schedMode, schedDueMs) {
       let session = null;
       if (task.target.mode === 'existing-session' && task.target.sessionId) {
         session = await loadSession(task.target.sessionId).catch(() => null);
+        // 第二轮工具走查(F15):指名的既有线程不存在(被删了 / 一开始就填错),或者就是管家自己的会话时,修前会落到下面
+        // 「没有会话就新开一条」的分支 —— 悄悄开新线程、照样记 succeeded,用户以为它一直在原线程里接着做。
+        // 目标是用户明确指的那一条,找不到就是这一次失败(进 failed / 连败计数,三次熔断停用,用户能看见),不替他改目标。
+        if (!session || session.kind === 'steward' || session.id === STEWARD_SESSION_ID) {
+          throw new Error(`target_session_not_found: ${String(task.target.sessionId).slice(0, 64)}`);
+        }
       }
       if (!session) {
         // 与 13k stewardImplThreadNew 同一条路:createSession → 三个身份字段 → saveSession → 起回合。
@@ -72633,6 +72915,27 @@ async function stewardImplScheduleCreate(args, ctx, config) {
     revision: 0,
   }, schedulerClockNow());
   if (!normalized.ok) return stewardFail(normalized.code, normalized.message);
+  // 第二轮工具走查(F15)三道补充校验,都只在【管家这条面】(用户自己经 HTTP 下单不受影响):
+  // ① existing-session 的目标必须是一条真实存在的、不是管家自己的线程。修前 sessionId 随便填(`sess_0000…` / 'steward')
+  //    都收,到点(或 run_now)时 13s 找不到会话就【静默新开一条线程】并报 succeeded —— 用户以为它在原线程里接着做,
+  //    其实每次都开新线程;指向 'steward' 更糟(往管家自己的会话里投定时回合)。
+  if (normalized.task.target.mode === 'existing-session') {
+    const targetId = normalized.task.target.sessionId;
+    const targetHead = safeSessionId(targetId) ? await stewardReadSessionHead(targetId) : null;
+    if (!targetHead || !targetHead.id || targetId === STEWARD_SESSION_ID || stewardRawKind(targetHead) === 'steward') {
+      return stewardFail('not_found', `target.sessionId ${stewardSanitizeText(targetId)} 不是一条已有的线程(管家自己的会话也不行);先用 steward_threads_search 找到真实的线程 id,或者把 target 改成 new-session`, { reason: 'target_session_not_found' });
+    }
+  }
+  // ② prompt 载荷每次到点都会【调模型】(花钱),不许排成分钟级:cron 取最近几个触发点里最小的间隔,低于下限就拒。
+  //    提醒(reminder)不调模型,仍可到每分钟一次(cron 本身的最小粒度)。daily/weekly/monthly/once 间隔天然 ≥ 1 天,不必算。
+  if (normalized.task.payload.kind === 'prompt' && normalized.task.schedule.kind === 'cron') {
+    const gapMin = schedulerMinGapMinutes(normalized.task.schedule, schedulerClockNow());
+    if (gapMin !== null && gapMin < STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN) {
+      return stewardFail('invalid_request', `这条任务每次到点都会调用模型,触发间隔不能短于 ${STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN} 分钟(你给的 cron 最短间隔 ${gapMin} 分钟)。要更频繁的只能用 reminder(提醒不调模型),或把 cron 放宽`, { reason: 'interval_too_short', minGapMinutes: gapMin, limitMinutes: STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN });
+    }
+  }
+  // ③ 静默归一要如实说:修前文本超长被截、tier / permissionMode 被丢,返回里一个字都不提,模型以为都生效了。
+  const notes = schedulerNormalizationNotes(args, normalized.task);
   normalized.task.id = makeId('sch');
   schedulerRuntime.tasks.push(normalized.task);
   await schedulerSaveTasks();
@@ -72647,7 +72950,40 @@ async function stewardImplScheduleCreate(args, ctx, config) {
     undoRef: { kind: 'schedule', id: row.id, prev: null },
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
-  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams, ...(tier ? { tier } : {}) };
+  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams, ...(tier ? { tier } : {}), ...(notes.length ? { normalized: true, notes } : {}) };
+}
+
+// prompt 载荷的最短触发间隔(分钟)。每次到点开一条线程、调一次模型,一分钟一次等于每天上千次调用。
+const STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN = 15;
+// 一条计划接下来几个触发点之间【最小】的间隔(分钟);算不出两个以上触发点返回 null。cron 可以是不规则的
+// (`0,5 * * * *` 的间隔是 5、55、5、55……),所以不能只看头两个,看前 8 个。
+function schedulerMinGapMinutes(schedPlan, schedFromMs) {
+  let prev = nextFireAt(schedPlan, schedFromMs);
+  let min = null;
+  for (let i = 0; i < 8 && prev != null; i++) {
+    const next = nextFireAt(schedPlan, prev);
+    if (next == null) break;
+    const gap = Math.round((next - prev) / 60000);
+    if (min === null || gap < min) min = gap;
+    prev = next;
+  }
+  return min;
+}
+// 把「模型给的」与「归一化之后落下的」对一遍,列出被悄悄改掉 / 丢掉的部分(人话,给模型转述给用户)。
+function schedulerNormalizationNotes(schedArgs, schedTask) {
+  const notes = [];
+  const given = (schedArgs && typeof schedArgs === 'object') ? schedArgs : {};
+  const givenText = (given.payload && typeof given.payload === 'object') ? String(given.payload.text == null ? '' : given.payload.text).trim() : '';
+  if (givenText.length > schedTask.payload.text.length) notes.push(`payload.text 有 ${givenText.length} 字,超过上限 ${SCHEDULER_LIMITS.textChars},已截成 ${schedTask.payload.text.length} 字`);
+  const givenTitle = String(given.title == null ? '' : given.title).trim();
+  if (givenTitle.length > schedTask.title.length) notes.push(`title 超过 ${SCHEDULER_LIMITS.titleChars} 字,已截断`);
+  const givenTier = given.tier !== undefined ? given.tier : (given.target && typeof given.target === 'object' ? given.target.tier : undefined);
+  if (givenTier && !schedTask.target.tier) notes.push('tier 被忽略:它只对 prompt 载荷 + 每次开新线程(target.mode:new-session)有意义');
+  const givenMode = String(given.permissionMode == null ? '' : given.permissionMode).trim();
+  if (givenMode && !schedTask.autonomy.permissionMode) notes.push(`permissionMode「${stewardSanitizeText(givenMode).slice(0, 20)}」没有生效(bypass 永远不给定时任务),这条任务跟随全局默认权限档`);
+  const givenTargetMode = given.target && typeof given.target === 'object' ? String(given.target.mode || '') : '';
+  if (givenTargetMode && givenTargetMode !== schedTask.target.mode) notes.push(`target.mode「${stewardSanitizeText(givenTargetMode).slice(0, 20)}」不认识,按 ${schedTask.target.mode} 处理`);
+  return notes;
 }
 
 // 2) steward_schedule_list —— 只读。不进决策日志(读工具没有「做过什么」可记)。
@@ -72666,6 +73002,10 @@ async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName)
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
   const was = task.state.enabled === true;
+  // 第二轮工具走查(F12):已经是目标状态再来一次,修前照样 revision+1、写盘、发变更事件、记决策日志(undoRef.prev 还是同一个值),
+  // 用户在行动流水里看到「管家暂停了它」两遍,界面上的修订号也白涨。幂等:原样回任务行 + unchanged:true,什么都不写。
+  // (从熔断里重开不在这条里:熔断 = state.enabled 已经是 false,继续它 was=false → 照常走下面的重开。)
+  if (was === wantEnabled) return { ok: true, task: schedulerToolRow(task), unchanged: true };
   task.state.enabled = wantEnabled;
   // 从熔断里被重新打开:连败计数清零(与 PATCH /api/scheduler/tasks/:id 同口径 —— 不清零的话
   // 下一次失败会立刻再熔断,用户会以为「继续」这枚按钮没生效)。
@@ -72697,10 +73037,22 @@ async function stewardImplScheduleResume(args, ctx, config) {
 //    ticking —— 一条慢任务能把管家的手动运行和 tick 的到点派单一起挡住。
 async function stewardImplScheduleRunNow(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
+  // 第二轮工具走查(F16):run_now 修前没有无人值守闸,而 create / delete 在 inbox 触发下都回 propose_required ——
+  // 同一族里「排新的 / 删旧的」要问人,「立刻真跑一次(prompt 载荷 = 开线程、调模型、动文件)」反而不问,
+  // 无人值守回合里模型自己就能让一条定时任务现在就开跑。与 create / delete 同一道闸、同一个信封形状。
+  if (stewardUnattendedByModel(ctx)) {
+    return stewardFail('propose_required',
+      '无人值守时不能替用户立刻运行定时任务;把它作为一条提议交给用户,不要重试', {
+        reason: 'unattended', tool: 'steward_schedule_run_now',
+      });
+  }
   await schedulerLoad();
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
+  // 暂停中的任务(enabled:false,含被熔断停用的)修前也照跑、返回里一个字不提。决定:仍然允许(「立刻再跑一次」
+  // 本来就是计划之外的手动动作,暂停只管【到点自动】触发),但如实说出来 —— 不替用户在两种读法里悄悄选一种。
+  const wasPaused = task.state.enabled !== true;
   const ran = await schedulerRunNow(task);
   if (ran.busy) {
     return stewardFail('steward.busy', '这条定时任务正在跑,等它跑完再说(不要重试)', { id: task.id });
@@ -72712,7 +73064,10 @@ async function stewardImplScheduleRunNow(args, ctx, config) {
     undoRef: null,
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
-  return { ok: true, outcome, task: schedulerToolRow(task) };
+  return {
+    ok: true, outcome, task: schedulerToolRow(task),
+    ...(wasPaused ? { wasPaused: true, note: '这条任务当时是暂停的:手动运行照常执行了一次,但没有恢复它(到点自动触发仍是停着的);要恢复用 steward_schedule_resume。' } : {}),
+  };
 }
 
 // 6) steward_schedule_delete —— 删【定义】,不删历史回执(fires-v1.ndjson 一个字节不动)。

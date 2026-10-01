@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 67,
-    "providedSymbols": 3292,
-    "requiredSymbols": 3023,
-    "edges": 522,
+    "providedSymbols": 3308,
+    "requiredSymbols": 3036,
+    "edges": 523,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -10136,13 +10136,6 @@
         },
         {
           "provider": "02-session-store.js",
-          "symbol": "sessionMissionId",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -10361,13 +10354,6 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -15597,6 +15583,8 @@
         "STEWARD_MEMORY_MERGED_FROM_MAX",
         "STEWARD_MEMORY_NEW_WINDOW_MS",
         "STEWARD_MEMORY_SCHEMA",
+        "STEWARD_MISSIONS_LIMIT_DEFAULT",
+        "STEWARD_MISSIONS_LIMIT_MAX",
         "STEWARD_NOTE_PREFIX",
         "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
@@ -15626,6 +15614,7 @@
         "stewardDecisionSeq",
         "stewardDecisionsPath",
         "stewardDecisionsRead",
+        "stewardDisplayKind",
         "stewardEmptyMemoryStore",
         "stewardEngineOf",
         "stewardExemptDelegationRecord",
@@ -15658,6 +15647,7 @@
         "stewardTurnAssistantText",
         "stewardTurnFiles",
         "stewardTurnKeyOf",
+        "stewardTurnQuotaRefund",
         "stewardTurnQuotaTake",
         "stewardTurnTaintedBy"
       ],
@@ -15866,6 +15856,7 @@
         "stewardLiveTurnPermissionMode",
         "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
+        "stewardMissionExists",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
         "stewardRecordMissionWorkspace",
@@ -15875,6 +15866,7 @@
         "stewardSeatedByUser",
         "stewardSeatedFail",
         "stewardToolCallLine",
+        "stewardToolCallVerdict",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
         "stewardValidateCwd",
@@ -16429,6 +16421,13 @@
           ]
         },
         {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "SESSION_SEARCH_MIN_QUERY",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
           "kinds": [
@@ -16570,6 +16569,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardDisplayKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardEngineOf",
           "kinds": [
             "call"
@@ -16681,15 +16687,19 @@
       "layer": "transport",
       "note": "第117波 T1(32 号文 §2.1 拆分):管家观察/决策/记忆/设置/内容管理族工具(零行为搬家自 13g)",
       "provides": [
+        "STEWARD_AUDIT_TELEMETRY_KINDS",
         "STEWARD_CONFIG_KEYS",
+        "STEWARD_ENV_TEMPLATE_RE",
         "STEWARD_RUN_ACTION_KIND",
         "STEWARD_RUN_ADVANCING",
         "STEWARD_RUN_TIGHTENING",
+        "STEWARD_SECRET_FILE_RE",
         "stewardAddUsageRow",
         "stewardEmptyUsageBucket",
         "stewardExternalBlock",
         "stewardEyesSettle",
         "stewardEyesTake",
+        "stewardFileLooksBinary",
         "stewardImplAuditTail",
         "stewardImplConfigGet",
         "stewardImplConfigSet",
@@ -16714,6 +16724,7 @@
         "stewardImplUsage",
         "stewardImplWebFetch",
         "stewardImplWebSearch",
+        "stewardIsSecretFilePath",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
@@ -16750,6 +16761,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -16767,6 +16785,13 @@
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKey",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -16830,6 +16855,13 @@
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "KEY_MASK_PREFIX",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17226,6 +17258,20 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MISSIONS_LIMIT_DEFAULT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MISSIONS_LIMIT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
           "kinds": [
             "read"
@@ -17387,6 +17433,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnQuotaRefund",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnQuotaTake",
           "kinds": [
             "call"
@@ -17470,7 +17523,9 @@
       "layer": "transport",
       "note": "第116波116c(117波 T1 拆分):/api/steward/* 域路由、记忆面板、工具门控壳与 StewardHooks 注册表(工具实现已前移至 13j/13k/13l)",
       "provides": [
+        "STEWARD_STRING_AS_ARRAY",
         "handleStewardApiRoutes",
+        "stewardArgTypeProblems",
         "stewardCtxIsSteward",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
@@ -17601,6 +17656,14 @@
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "call",
+            "read"
           ]
         },
         {
@@ -20461,6 +20524,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -20548,8 +20618,11 @@
         "SCHEDULER_INBOX_KIND",
         "SCHEDULER_INBOX_TEXT_MAX",
         "SCHEDULER_NOTICE_TEXT",
+        "STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN",
         "schedulerCommitmentsSince",
         "schedulerInboxAppend",
+        "schedulerMinGapMinutes",
+        "schedulerNormalizationNotes",
         "schedulerOnReminderDue",
         "schedulerOnSchedulerNotice",
         "schedulerPrepareThread",
@@ -20601,6 +20674,20 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
@@ -20617,6 +20704,13 @@
         {
           "provider": "06j-scheduler-core.js",
           "symbol": "describeSchedule",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "nextFireAt",
           "kinds": [
             "call"
           ]
@@ -20701,6 +20795,20 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadSessionHead",
           "kinds": [
             "call"
           ]
@@ -27747,7 +27855,6 @@
         "saveSession",
         "sessionMessagesDelta",
         "sessionMessagesStamp",
-        "sessionMissionId",
         "sessionObjectIsStale",
         "sessionTodosSignature",
         "toolImageSessionTag",
@@ -27842,8 +27949,7 @@
       "symbols": [
         "STEWARD_SESSION_ID",
         "StewardHooks",
-        "stewardTaintToolCall",
-        "stewardWatchedThread"
+        "stewardTaintToolCall"
       ],
       "direction": "backward"
     },
@@ -29163,6 +29269,14 @@
     },
     {
       "from": "13g-steward.js",
+      "to": "07-autonomy.js",
+      "symbols": [
+        "nativeToolSchema"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13g-steward.js",
       "to": "13i-steward-inbox.js",
       "symbols": [
         "startStewardInbox",
@@ -29707,6 +29821,7 @@
       "from": "13k-steward-threads.js",
       "to": "13d-core-domain-routes.js",
       "symbols": [
+        "SESSION_SEARCH_MIN_QUERY",
         "buildMissionAggregateRows",
         "missionPendingCounts",
         "searchSessionsByContent"
@@ -29744,6 +29859,7 @@
         "stewardAppendDecision",
         "stewardBasisOf",
         "stewardClampInt",
+        "stewardDisplayKind",
         "stewardEngineOf",
         "stewardFail",
         "stewardLastAssistantText",
@@ -29771,8 +29887,10 @@
         "fsp",
         "makeId",
         "nowIso",
+        "path",
         "safeJsonParse",
         "text",
+        "usageDayKey",
         "usageDayKeyMemo"
       ],
       "direction": "backward"
@@ -29817,6 +29935,7 @@
       "from": "13l-steward-ops.js",
       "to": "05-claude-engine.js",
       "symbols": [
+        "KEY_MASK_PREFIX",
         "maskProviders",
         "maskedSecretConflictMessage",
         "maskedSecretConflicts",
@@ -29950,6 +30069,8 @@
         "STEWARD_AUDIT_LIMIT_DEFAULT",
         "STEWARD_AUDIT_LIMIT_MAX",
         "STEWARD_MEMORY_MERGED_FROM_MAX",
+        "STEWARD_MISSIONS_LIMIT_DEFAULT",
+        "STEWARD_MISSIONS_LIMIT_MAX",
         "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
         "STEWARD_READ_CALLS_PER_TURN",
         "STEWARD_RUNS_MAX",
@@ -29973,6 +30094,7 @@
         "stewardReadSessionHead",
         "stewardThreadPermissionMode",
         "stewardTurnKeyOf",
+        "stewardTurnQuotaRefund",
         "stewardTurnQuotaTake",
         "stewardTurnTaintedBy"
       ],
@@ -30738,6 +30860,7 @@
       "from": "13s-scheduler.js",
       "to": "06i-steward-core.js",
       "symbols": [
+        "STEWARD_SESSION_ID",
         "stewardPermissionRank"
       ],
       "direction": "backward"
@@ -30788,7 +30911,8 @@
       "from": "13t-steward-schedule.js",
       "to": "01-config.js",
       "symbols": [
-        "readConfig"
+        "readConfig",
+        "safeSessionId"
       ],
       "direction": "backward"
     },
@@ -30796,6 +30920,7 @@
       "from": "13t-steward-schedule.js",
       "to": "06i-steward-core.js",
       "symbols": [
+        "STEWARD_SESSION_ID",
         "StewardHooks",
         "stewardSanitizeText"
       ],
@@ -30808,6 +30933,7 @@
         "SCHEDULER_LIMITS",
         "SchedulerHooks",
         "describeSchedule",
+        "nextFireAt",
         "normalizeSchedulerTask"
       ],
       "direction": "backward"
@@ -30838,7 +30964,9 @@
       "to": "13j-steward-tool-base.js",
       "symbols": [
         "stewardAppendDecision",
-        "stewardFail"
+        "stewardFail",
+        "stewardRawKind",
+        "stewardReadSessionHead"
       ],
       "direction": "backward"
     },
