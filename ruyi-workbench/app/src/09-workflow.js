@@ -2370,19 +2370,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
       // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
       // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
-      // (可被停止截断);502/503/504 与连接失败仍只走 streamWithFailover 的端点切换,不在这里重打。流式已开始的失败
-      // 不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      // (可被停止截断)。流式已开始的失败不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      // 2026-10(用户真机日志:一条 21 分钟、89 次工具调用的回合在第 51 次模型调用时 network_down 整回合失败):修前首字节前的
+      // 连接失败与 502/503/504 只走 streamWithFailover 的端点切换 —— 只配了一个 Base URL(最常见)就没有可切的,一次瞬断就
+      // 把整回合打死。现在与子代理同一份判据 providerCallIsTransient(04h:transportError / 502/503/504 / 429 / 529);
+      // 端点切换仍在 streamWithFailover 里先走完,这里只在【所有候选都失败】之后整组再试。transportError 只在首字节前产生
+      // (07 openAiStreamOnce:流式开始后的失败直接抛出,不进这里),所以同样不会重放已显示的内容。
       const sent = await withTransientRetry({
         maxRetries: 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
         attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
-        classify: c => (/^HTTP 529\b|^HTTP 429\b/.test(String(c && c.httpError || '')) ? 'retry' : 'done'),
+        classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
           touch();
-          onEvent({ type: 'stderr', text: `[provider] 服务商限流/过载(${String(c.httpError).slice(0, 8)}),稍后重试(${n}/3)` });
+          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)})`;
+          onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
+          logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
       });
       if (sent.aborted) { aborted = true; ok = false; break; }
