@@ -80,7 +80,10 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // maxFileBytes / waitMs / list / absolute 等新入参与续读/截断键,13f 描述已压到一句话 + 入参描述 ≤80 字符后的实测:
   // codeEdit 26026、offeredDefault 51032;再压就得删新入参的语义,故 codeEdit 23000→26500(仍 ≤ master 的 26526)、
   // offeredDefault 46600→51500。其余不动。
-  const BUDGET = { chitchat: 10500, codeEdit: 26500, fullAll: 46500, offeredDefault: 51500 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // 2026-10 工具走查 R2(files):file_write 新增 lineEnding 入参(lf|crlf|preserve)+ file_edit.oldText / glob.pattern 的 minLength:1
+  // (空串修前是抛异常),三处合计 +151 字符:codeEdit 26340→26491(仍 ≤ 26500),offeredDefault 51429→51580,故 51500→51600。
+  // 描述文字没有加(新行为的说明放在工具结果的 hint / note 里,不占每回合的 schema)。
+  const BUDGET = { chitchat: 10500, codeEdit: 26500, fullAll: 46500, offeredDefault: 51600 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);

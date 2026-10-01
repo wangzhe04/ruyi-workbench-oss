@@ -695,6 +695,29 @@ function levenshtein(a, b, cap = 500) {
   return prev[n];
 }
 
+// 2026-10 走查(R2):glob 的 pattern 是【相对 root】的。模型常写 `./src/*.js`(前导 ./ 或 .\\ 让整条配不上任何东西)或把绝对路径当 pattern
+// (`C:\\ws\\src\\*.js`)—— 修前都是静默 ok:true + 空表。这里:剥掉前导 ./ 与 .\\;绝对路径落在 root 之内的改成相对 root 的写法,
+// 在 root 之外的不匹配任何东西并明说。返回 { pattern, note, outside }(note 非空 = 做过改写/有话要说)。纯函数(只用 path)。
+function normalizeGlobPatternForRoot(raw, root) {
+  let p = String(raw == null ? '' : raw);
+  const notes = [];
+  if (/^\.[\\/]+/.test(p)) { p = p.replace(/^(?:\.[\\/]+)+/, ''); notes.push('the leading "./" was ignored (patterns are relative to root)'); }
+  const winAbs = /^(?:[A-Za-z]:[\\/]|\\\\)/.test(p);
+  if (winAbs || path.isAbsolute(p)) {
+    const base = path.resolve(String(root || '.'));
+    // 跨平台:Windows 形绝对路径在非 Windows 宿主上 path.resolve 不认,用 win32 解析;宿主形的用宿主 path。
+    const useWin = process.platform === 'win32' || (winAbs && !path.isAbsolute(p));
+    const rel = useWin ? path.win32.relative(path.win32.resolve(base), path.win32.resolve(p)) : path.relative(base, path.resolve(p));
+    if (rel && !/^\.\.(?:[\\/]|$)/.test(rel) && !path.isAbsolute(rel) && !path.win32.isAbsolute(rel)) {
+      p = rel.replace(/\\/g, '/');
+      notes.push('the absolute pattern lies inside root and was applied relative to it');
+    } else {
+      return { pattern: p, outside: true, note: 'the pattern is an absolute path outside root, so it matches nothing; use a pattern relative to root, or set root to that directory' };
+    }
+  }
+  return { pattern: p, outside: false, note: notes.join('; ') };
+}
+
 // v0.8-S1: image/binary suffixes that file_read refuses (routes user to the vision channel instead).
 // NOTE: 'svg' is deliberately NOT here — SVG is XML text with real read/edit workflows.
 const BINARY_READ_SUFFIXES = new Set([
@@ -702,10 +725,27 @@ const BINARY_READ_SUFFIXES = new Set([
   'pdf', 'zip', 'gz', 'tar', 'rar', '7z', 'exe', 'dll', 'so', 'dylib', 'bin',
   'mp3', 'mp4', 'avi', 'mov', 'mkv', 'wav', 'flac', 'woff', 'woff2', 'ttf', 'otf', 'eot',
   'class', 'o', 'obj', 'pyc', 'wasm',
+  // 2026-10 走查(R2):Office / 压缩容器 / 数据库。它们按 UTF-8 宽松解码是一堆乱码,修前 file_read 回 ok:true 还把乱码当内容交给模型
+  // (.docx/.xlsx/.pptx 本质是 zip;.jar/.apk 同理;.sqlite/.db 是二进制页)。按扩展名直接拒,并在 hint 里指向该用的工具。
+  'doc', 'docx', 'docm', 'dot', 'dotx', 'xls', 'xlsx', 'xlsm', 'xlsb', 'ppt', 'pptx', 'pptm', 'odt', 'ods', 'odp',
+  'jar', 'war', 'ear', 'apk', 'whl', 'nupkg', 'bz2', 'xz', 'zst', 'cab', 'iso', 'msi',
+  'sqlite', 'sqlite3', 'db', 'mdb', 'accdb',
 ]);
 function isBinaryReadPath(p) {
   const ext = path.extname(String(p || '')).replace(/^\./, '').toLowerCase();
   return ext !== '' && BINARY_READ_SUFFIXES.has(ext);
+}
+// 被 file_read 按扩展名拒绝时的下一步:按文件类型指向真正该用的工具(模型据此改道,而不是反复重试 file_read)。
+const BINARY_READ_OFFICE = new Set(['doc', 'docx', 'docm', 'dot', 'dotx', 'xls', 'xlsx', 'xlsm', 'xlsb', 'ppt', 'pptx', 'pptm', 'odt', 'ods', 'odp']);
+const BINARY_READ_ZIPLIKE = new Set(['zip', 'jar', 'war', 'ear', 'apk', 'whl', 'nupkg']);
+const BINARY_READ_DB = new Set(['sqlite', 'sqlite3', 'db', 'mdb', 'accdb']);
+function binaryReadHint(p) {
+  const ext = path.extname(String(p || '')).replace(/^\./, '').toLowerCase();
+  if (BINARY_READ_OFFICE.has(ext)) return 'Office 文档不是纯文本:已启用桌面控制 MCP 时用 read_document / excel_read 读取;.docx/.xlsx/.pptx 本质是 zip,也可用 archive_unzip 解压后 file_read 里面的 xml;或用 script_run 写脚本解析';
+  if (ext === 'pdf') return 'PDF 不是纯文本:已启用桌面控制 MCP 时用 pdf_read_pages / read_document 读取;或用 script_run 写脚本提取文字';
+  if (BINARY_READ_ZIPLIKE.has(ext)) return '这是 zip 类压缩包:先用 archive_unzip {list:true} 看条目清单,再解压到工作区后读取需要的文件';
+  if (BINARY_READ_DB.has(ext)) return '这是数据库文件,不是文本:没有原生读取工具,请用 script_run 写 python(sqlite3 模块)或命令行查询';
+  return '图片请作为附件走视觉通道(v0.9)或用 desktop_screenshot 相关工具;其它二进制文件不能用 file_read 读取';
 }
 
 // v0.8-S1: ripgrep fast-path probe. Prefer an explicit override / vendored binary, then accept a
@@ -951,7 +991,10 @@ function buildIgnoreMatcher(opts = {}) {
 // 返回数组,另挂:truncated / truncatedReason('maxFiles'|'maxVisited'|'patternTimeout')/ patternTimedOut / visited / prunedDirs。
 async function walkFiles(root, opts = {}) {
   const base = path.resolve(root || process.cwd());
-  const maxFiles = Math.max(1, Number(opts.maxFiles != null ? opts.maxFiles : 500));  // Math.max(1,...) 防 0 导致空结果+误判 truncated
+  // ≤0 / 非数字按「没传」取默认 500(修前 maxFiles:0 或 -1 被抬成 1:返回一条 + truncated,模型以为目录里只有一个文件);
+  // Infinity 仍放行(内部调用方用)。
+  const maxFilesReq = Number(opts.maxFiles);
+  const maxFiles = opts.maxFiles != null && !Number.isNaN(maxFilesReq) && maxFilesReq >= 1 ? maxFilesReq : 500;
   const recursive = opts.recursive !== false;
   const maxDepth = Number(opts.maxDepth != null ? opts.maxDepth : 8);
   const emitDirs = opts.emitDirs !== false;
@@ -982,6 +1025,8 @@ async function walkFiles(root, opts = {}) {
   // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
   const baseReal = await realpathForContainment(base);
   let skippedLinks = 0;
+  const depthExamples = [];   // 到 maxDepth 不再下钻、且里面非空的目录(最多 5 个例子)
+  let depthProbes = 0;
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
   let reason = '';
   let stopped = false;
@@ -1050,6 +1095,15 @@ async function walkFiles(root, opts = {}) {
           }
         }
         if (recursive && isDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
+        else if (recursive && isDir) {
+          // 2026-10 走查(R2):到了 maxDepth 的目录不再下钻 —— 修前这一刀完全静默,glob/file_list 在 12/8 层之下「什么都没有」,
+          // 与「确实没有」无法区分。只在目录【非空】时才算被截(空目录没东西可漏),探查有上限(200 次 readdir),够给几个例子就停。
+          if (depthExamples.length < 5 && depthProbes < 200) {
+            depthProbes += 1;
+            const kids = await fsp.readdir(full).catch(() => []);
+            if (kids.length) depthExamples.push(toSlash(rel));
+          } else if (depthProbes >= 200 && !depthExamples.length) depthExamples.push('…');
+        }
       }
       if (opts.bfs === true) pending.push(...subdirs);
       else for (let k = subdirs.length - 1; k >= 0; k -= 1) pending.push(subdirs[k]);
@@ -1065,7 +1119,13 @@ async function walkFiles(root, opts = {}) {
   out.visited = visited;
   if (pruned.size) out.prunedDirs = [...pruned];
   if (skippedLinks) out.skippedLinks = skippedLinks;
+  if (depthExamples.length) { out.depthLimited = true; out.depthCutDirs = depthExamples; out.maxDepthUsed = maxDepth; }
   return out;
+}
+// 深度截断的提示语(file_list / glob / project_snapshot 共用):截了就说,并说怎么放开。
+function walkDepthHint(files, tool) {
+  const eg = (files.depthCutDirs || []).slice(0, 3).join(', ');
+  return `${tool}: directories at depth ${files.maxDepthUsed} were not entered (e.g. ${eg}); results below that depth are missing - pass a larger maxDepth to include them`;
 }
 
 // F12:file_list / glob / project_snapshot 的信封。每条只带相对路径(root 在顶层只出现一次,模型自己拼);
@@ -1091,7 +1151,7 @@ function walkTruncationHint(files, tool) {
 // F13:file_list.pattern 是正则(对相对路径、默认不区分大小写)。模型常把它当 glob 写(`*.js`、`**/*.ts`)—— 修前直接抛
 // 「Nothing to repeat」的原始 SyntaxError。这里:含 `*` 又不含任何正则专属字符 → 按 glob 处理(无 '/' 的按文件名任意层级匹配,
 // 与 glob 工具的 `**/` 前缀写法一致);既不像 glob 又编译不过 → 给 bad_pattern + 人话 hint。
-function classifyListPattern(raw) {
+function classifyListPattern(raw, root) {
   const p = String(raw == null ? '' : raw);
   if (!p) return { kind: 'none' };
   let compiles = true;
@@ -1099,8 +1159,13 @@ function classifyListPattern(raw) {
   // `.*` / `.?` 在能编译时按正则理解(`src/.*` 是正则);编译不过的(以 `*` 开头,如 `*.*`)只可能是 glob。
   const globish = p.includes('*') && !/[\^$()|\\+{}[\]]/.test(p) && (!compiles || !/\.[*?]/.test(p));
   if (globish) {
-    const re = globToRegExp(/[\\/]/.test(p) ? p : '**/' + p);
-    return { kind: 'glob', accept: rel => re.test(rel), note: 'pattern looks like a glob and was applied as one (no "/" in it → matches the file name at any depth); pass a regular expression such as \\.js$ to use regex matching' };
+    // 前导 ./、落在 root 里的绝对路径 → 相对 root 的写法;root 之外的绝对路径什么也配不上(明说)。
+    const gp = normalizeGlobPatternForRoot(p, root);
+    const baseNote = 'pattern looks like a glob and was applied as one (no "/" in it → matches the file name at any depth); pass a regular expression such as \\.js$ to use regex matching';
+    if (gp.outside) return { kind: 'glob', accept: () => false, note: gp.note };
+    const g = gp.pattern;
+    const re = globToRegExp(/[\\/]/.test(g) ? g : '**/' + g);
+    return { kind: 'glob', accept: rel => re.test(rel), note: baseNote + (gp.note ? '; ' + gp.note : '') };
   }
   if (compiles) return { kind: 'regex' };
   {
@@ -1197,15 +1262,35 @@ const REGEX_SCAN_WORKER_SRC = `
 (() => {
   const { parentPort, workerData } = require('worker_threads');
   const fs = require('fs');
-  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars } = workerData;
+  const { files, pattern, flags, ctx, maxResults, wholeFile, wholeFileChars, onlyNonUtf8 } = workerData;
   let re;
   try { re = new RegExp(pattern, flags); } catch (e) { parentPort.postMessage({ type: 'error', error: String((e && e.message) || e) }); return; }
+  // 2026-10 走查(R2):按文件判编码再解码(与 file_read 同一口径:BOM > 严格 UTF-8 > GB18030),不再一律当 UTF-8 ——
+  // 修前 GBK 文件里的中文搜不到、ASCII 命中行的中文部分显示成乱码。UTF-16 带 BOM 的文本含 NUL,先认 BOM 再做二进制判定。
+  // 既不是合法 UTF-8 也不是合法 GBK 的按 UTF-8 宽松解码(lossy),并上报。
+  const decodeFile = (buf) => {
+    if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return { text: buf.toString('utf8', 3), enc: 'utf8' };
+    if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) { try { return { text: new TextDecoder('utf-16le').decode(buf.subarray(2)), enc: 'utf16le' }; } catch { return null; } }
+    if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) { try { return { text: new TextDecoder('utf-16be').decode(buf.subarray(2)), enc: 'utf16be' }; } catch { return null; } }
+    // F7:含 NUL 的文件按二进制跳过(与 rg 口径一致;此前 JS 引擎会在随机二进制里命中)。
+    if (buf.subarray(0, 8192).includes(0)) return null;
+    try { return { text: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(buf), enc: 'utf8' }; } catch { /* 不是 UTF-8 */ }
+    try { return { text: new TextDecoder('gb18030', { fatal: true }).decode(buf), enc: 'gb18030' }; } catch { /* 也不是 GBK / 运行时无 GB18030 */ }
+    return { text: buf.toString('utf8'), enc: 'utf8', lossy: true };
+  };
   let count = 0;
   for (const file of files) {
     if (count >= maxResults) break;
     let raw = '';
-    // F7:含 NUL 的文件按二进制跳过(与 rg 口径一致;此前 JS 引擎会在随机二进制里命中)。
-    try { const buf = fs.readFileSync(file.path); if (buf.subarray(0, 8192).includes(0)) continue; raw = buf.toString('utf8'); } catch { continue; }
+    try {
+      const dec = decodeFile(fs.readFileSync(file.path));
+      if (!dec) continue;
+      const nonUtf8 = dec.enc !== 'utf8' || dec.lossy === true;
+      if (nonUtf8) parentPort.postMessage({ type: 'enc', path: file.path, relativePath: file.relativePath, enc: dec.lossy ? 'lossy' : dec.enc });
+      // onlyNonUtf8:rg 引擎的补扫 —— UTF-8 文件 rg 已经搜过了,这里只重搜 rg 看不懂的(GBK / UTF-16);lossy 的 rg 本来就按 U+FFFD 给过命中,不重复。
+      if (onlyNonUtf8 && (!nonUtf8 || dec.lossy)) continue;
+      raw = dec.text;
+    } catch { continue; }
     if (wholeFile) {
       re.lastIndex = 0;
       if (re.test(raw.slice(0, wholeFileChars))) { parentPort.postMessage({ type: 'match', rec: { path: file.path, relativePath: file.relativePath, line: 1 } }); count += 1; }
@@ -1237,13 +1322,14 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
   const budgetMs = Math.max(50, Math.min(REGEX_SCAN_MAX_MS, Number(opts.regexTimeoutMs) || REGEX_SCAN_MAX_MS));
   return new Promise(resolve => {
     const results = [];
+    const encs = [];   // 非 UTF-8 文件的编码上报 [{path, relativePath, enc}]
     let settled = false, worker = null, timer = null;
     const finish = extra => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
       if (worker) { try { worker.terminate(); } catch { /* already gone */ } }
-      resolve({ results, timedOut: false, error: '', ...extra });
+      resolve({ results, encs, timedOut: false, error: '', ...extra });
     };
     try {
       const { Worker } = require('worker_threads');
@@ -1253,6 +1339,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
           files: files.map(f => ({ path: f.path, relativePath: f.relativePath })), pattern: String(pattern), flags: String(flags || ''),
           ctx: Math.max(0, Math.min(5, Number(opts.context || 0) || 0)), maxResults: Math.max(1, Number(opts.maxResults || 200)),
           wholeFile: opts.wholeFile === true, wholeFileChars: Math.max(1, Number(opts.wholeFileChars) || 400000),
+          onlyNonUtf8: opts.onlyNonUtf8 === true,
         },
       });
     } catch (e) { finish({ error: String((e && e.message) || e) }); return; }
@@ -1260,6 +1347,7 @@ function regexScanFilesBounded(files, pattern, flags, opts = {}) {
     worker.on('message', m => {
       if (!m || settled) return;
       if (m.type === 'match') results.push(m.rec);
+      else if (m.type === 'enc') encs.push({ path: m.path, relativePath: m.relativePath, enc: m.enc });
       else if (m.type === 'done') finish({});
       else if (m.type === 'error') finish({ error: String(m.error || 'regex error') });
     });
@@ -1359,8 +1447,14 @@ async function searchFileContentJs(root, pattern, opts = {}) {
     if (f.type !== 'file') continue;
     if (f.size > maxFileBytes) skippedLarge.push(f.relativePath); else scanFiles.push(f);
   }
-  const scan = await regexScanFilesBounded(scanFiles, pattern, flags, opts);
+  // 多要一条用来判「是否还有更多」:恰好 maxResults 条命中时不该报 truncated(修前 `>= maxResults` 一律报截断)。
+  const wantMax = Math.max(1, Number(opts.maxResults || 200));
+  const scan = await regexScanFilesBounded(scanFiles, pattern, flags, { ...opts, maxResults: wantMax + 1 });
+  const moreMatches = scan.results.length > wantMax;
+  if (moreMatches) scan.results.length = wantMax;
   const grouped = maybeGroup(scan.results, opts.group);
+  if (moreMatches) grouped.moreMatches = true;
+  applyNonUtf8Report(grouped, scan.encs);
   if (scan.timedOut) grouped.regexTimedOut = true;
   grouped.engine = 'js';
   grouped.scannedFiles = scanFiles.length;
@@ -1397,6 +1491,54 @@ function sensitiveGlobsForRg(base) {
   return globs;
 }
 
+// 把非 UTF-8 文件的编码上报挂到结果数组上(file_search 的信封据此给 nonUtf8Files / skippedNonUtf8)。
+// encs: [{path, relativePath, enc}];enc = 'gb18030' / 'utf16le' / 'utf16be'(已按该编码解码搜过)或 'lossy'(既非 UTF-8 也非 GBK,只能按 U+FFFD 宽松解码)。
+function applyNonUtf8Report(target, encs) {
+  const list = Array.isArray(encs) ? encs : [];
+  const decoded = list.filter(e => e.enc !== 'lossy');
+  const lossy = list.filter(e => e.enc === 'lossy');
+  if (decoded.length) { target.nonUtf8Files = decoded.slice(0, 20).map(e => ({ relativePath: e.relativePath, encoding: e.enc })); target.nonUtf8Count = decoded.length; }
+  if (lossy.length) { target.skippedNonUtf8 = lossy.slice(0, 20).map(e => e.relativePath); target.skippedNonUtf8Count = lossy.length; }
+}
+// 模式里有没有可能命中非 ASCII 字符:有 → GBK 文件里的中文只能靠补扫才搜得到(rg 把它们当字节串,UTF-8 的中文模式永远配不上)。
+function patternMayMatchNonAscii(pattern) {
+  const p = String(pattern == null ? '' : pattern);
+  return /[^\x00-\x7f]/.test(p) || /\\(?:x\{|u|[pP]\{|[wWSD])/.test(p);
+}
+// rg -l:列出含 0x80 以上字节的文件(UTF-8 中文文件与 GBK 文件都在内;纯 ASCII 文件不在)。参数用与主搜索相同的 filt。
+function rgListHighByteFiles(rg, base, filt, timeoutMs) {
+  return new Promise(resolve => {
+    let out = '', done = false;
+    const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
+    const child = cp.spawn(rg, ['--no-messages', '-l', '--crlf', ...filt, '--', '(?-u)[\\x80-\\xFF]', base], { cwd: base, windowsHide: true });
+    const timer = setTimeout(() => { try { child.kill('SIGTERM'); } catch {} finish(null); }, timeoutMs);
+    child.stdout.on('data', d => { out += d.toString('utf8'); if (out.length > 8_000_000) { try { child.kill('SIGTERM'); } catch {} } });
+    child.on('error', () => finish(null));
+    child.on('close', code => finish(code === 2 && !out ? null : out.split(/\r?\n/).filter(Boolean)));
+  });
+}
+const RG_REPAIR_MAX_FILES = 3000;
+async function rgRepairNonUtf8(c) {
+  const { rg, base, filt, pattern, opts, results, suspectPaths, maxResults } = c;
+  const files = new Map();
+  for (const f of suspectPaths) files.set(f, path.relative(base, f) || '.');
+  if (patternMayMatchNonAscii(pattern)) {
+    const listed = await rgListHighByteFiles(rg, base, filt, 8000);
+    for (const line of listed || []) { const full = path.resolve(base, line); if (!files.has(full)) files.set(full, path.relative(base, full) || '.'); }
+  }
+  if (!files.size) return null;
+  const list = [...files.entries()].slice(0, RG_REPAIR_MAX_FILES).map(([p, r]) => ({ path: p, relativePath: r }));
+  const flags = (opts.ignoreCase === false ? 'g' : 'gi') + (opts.extraFlags || '');
+  const scan = await regexScanFilesBounded(list, pattern, flags, { ...opts, maxResults: maxResults + 1, onlyNonUtf8: true, regexTimeoutMs: 6000 });
+  if (scan.error) return null;
+  const decoded = new Set(scan.encs.filter(e => e.enc !== 'lossy').map(e => e.path));
+  if (!decoded.size && !scan.encs.length) return null;
+  const merged = results.filter(r => !decoded.has(r.path)).concat(scan.results);
+  const more = merged.length > maxResults;
+  if (more) merged.length = maxResults;
+  return { results: merged, moreMatches: more, encs: scan.encs };
+}
+
 // rg --json emits NDJSON: one JSON object per line. We care about type:'match' events. The matched
 // line text lives at data.lines.text, OR (for non-UTF8 content) at data.lines.bytes as base64 — both
 // branches handled. Context lines arrive as type:'context' events between matches (rg -C N). We map
@@ -1414,24 +1556,26 @@ function searchFileContentRg(root, pattern, opts = {}) {
   const names = searchExplicitNames(base, opts);
   // --crlf:CRLF 文件里 `$` 也锚在 \r 之前(修前 `hello$` / `^b$` 在 Windows 换行的文件里一条都配不上,
   // 而空结果被当成「确实没有」)。
+  // filt = 决定「搜哪些文件」的那部分参数(隐藏/忽略/glob/体积/深度);非 UTF-8 文件的补扫(rgRepairNonUtf8)用同一份,保证范围一致。
   const args = ['--json', '--no-messages', '--crlf'];
-  if (opts.includeHidden === true || names.allowHidden.length) args.push('--hidden');
+  const filt = [];
+  if (opts.includeHidden === true || names.allowHidden.length) filt.push('--hidden');
   const defaultNames = new Set(DEFAULT_IGNORE_DIRS.filter(x => !x.includes('/')).map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
   const namedIgnored = names.allowDirs.some(x => defaultNames.has(process.platform === 'win32' ? String(x).toLowerCase() : String(x)));
-  if (opts.includeIgnored === true || namedIgnored) args.push('--no-ignore');
+  if (opts.includeIgnored === true || namedIgnored) filt.push('--no-ignore');
   if (opts.ignoreCase !== false) args.push('-i');
   if (ctx > 0) { args.push('-C', String(ctx)); }
   // rg 的 -g 区分大小写(Windows 也是),而忽略清单在 Windows 上是小写化、不分大小写剪的(Build/、用户的 ignoreDirs:['Vendor'])。
   // 所以 win32 上排除类 glob 走 --iglob(不分大小写);调用方自己的 glob 仍用 -g,原样不动。
   const exclFlag = process.platform === 'win32' ? '--iglob' : '-g';
-  if (opts.glob) { args.push('-g', String(opts.glob)); }
-  for (const g of ignoreGlobsForRg(opts, names.allowDirs)) args.push(exclFlag, g);
-  for (const g of sensitiveGlobsForRg(base)) args.push(exclFlag, g);
-  args.push('--max-filesize', String(searchMaxFileBytes(opts)));
+  if (opts.glob) { filt.push('-g', String(opts.glob)); }
+  for (const g of ignoreGlobsForRg(opts, names.allowDirs)) filt.push(exclFlag, g);
+  for (const g of sensitiveGlobsForRg(base)) filt.push(exclFlag, g);
+  filt.push('--max-filesize', String(searchMaxFileBytes(opts)));
   // 深度:调用方没传就不限(见 searchMaxDepth);传了按路径段 +1 与 JS 对齐。
   const depthCap = searchMaxDepth(opts);
-  if (depthCap) args.push('--max-depth', String(depthCap + 1));
-  args.push('--', String(pattern), base);
+  if (depthCap) filt.push('--max-depth', String(depthCap + 1));
+  args.push(...filt, '--', String(pattern), base);
   return new Promise(resolve => {
     let stdout = '', stderr = '', done = false;
     const finish = v => { if (!done) { done = true; try { clearTimeout(timer); } catch {} resolve(v); } };
@@ -1440,10 +1584,12 @@ function searchFileContentRg(root, pattern, opts = {}) {
     child.stdout.on('data', d => { stdout += d.toString('utf8'); if (stdout.length > 32_000_000) { try { child.kill('SIGTERM'); } catch {} } });
     child.stderr.on('data', d => { stderr += d.toString('utf8'); });
     child.on('error', () => finish(null));
-    child.on('close', code => {
+    child.on('close', async code => {
       // rg exit 1 = no matches (valid: empty result). exit 2 = error → fall back.
       if (code === 2 && !stdout) return finish(null);
       const results = [];
+      const suspectPaths = new Set();   // 命中行不是合法 UTF-8(rg 给的是 bytes 而非 text)的文件 —— 多半是 GBK
+      let sweepEncs = null;
       // rg -C N emits `context` events BOTH before and after each `match` (interleaved per file). We
       // buffer leading context in pendingCtx; a context event within `ctx` lines AFTER the last match is
       // appended to that match's block (trailing context). Blocks are then sorted by line to match the
@@ -1452,6 +1598,7 @@ function searchFileContentRg(root, pattern, opts = {}) {
       // shared line once), whereas the JS path gives every match its full ±ctx window — an acceptable
       // display-level difference.
       let pendingCtx = [];
+      let moreMatches = false;   // 上限之后还见到了命中 → 才算「还有更多」
       let lastMatch = null; // most recent match record (for trailing-context attachment)
       const rel = full => path.relative(base, full) || '.';
       const decode = data => {
@@ -1460,6 +1607,7 @@ function searchFileContentRg(root, pattern, opts = {}) {
         if (data.lines.bytes) { try { return Buffer.from(data.lines.bytes, 'base64').toString('utf8').replace(/\r?\n$/, ''); } catch { return ''; } }
         return '';
       };
+      const lineIsBytes = data => !!(data && data.lines && typeof data.lines.text !== 'string' && data.lines.bytes);
       const finalizeBlock = rec => { if (rec && rec.context) rec.context.sort((a, b) => a.line - b.line); };
       for (const line of stdout.split(/\r?\n/)) {
         if (!line.trim()) continue;
@@ -1480,12 +1628,13 @@ function searchFileContentRg(root, pattern, opts = {}) {
           continue;
         }
         if (ev.type === 'match') {
-          if (results.length >= maxResults) break;
+          if (results.length >= maxResults) { moreMatches = true; break; }
           finalizeBlock(lastMatch);
           const d = ev.data || {};
           const full = d.path && d.path.text ? path.resolve(base, d.path.text) : base;
           const lineNo = Number(d.line_number || 0);
           const text = decode(d).slice(0, 500);
+          if (lineIsBytes(d)) suspectPaths.add(full);
           const rec = { path: full, relativePath: rel(full), line: lineNo, text };
           if (ctx > 0) {
             rec.context = [...pendingCtx.map(c => ({ ...c })), { line: lineNo, text, match: true }];
@@ -1496,8 +1645,18 @@ function searchFileContentRg(root, pattern, opts = {}) {
         }
       }
       finalizeBlock(lastMatch);
-      const grouped = maybeGroup(results, opts.group);
+      // 2026-10 走查(R2):非 UTF-8(GBK / UTF-16 无 BOM 以外的本地编码)文件 rg 看不懂 —— 中文搜不到、ASCII 命中行里的中文显示成乱码。
+      // 补扫:这类文件交给 JS 引擎的解码路径(与 file_read 同一口径)重搜,用它的命中替换 rg 对这些文件给的(乱码)命中,
+      // 并把「哪些文件按什么编码解的」报给调用方(nonUtf8Files);既非 UTF-8 也非 GBK 的列进 skippedNonUtf8。补扫失败不影响 rg 原结果。
+      let finalResults = results;
+      try {
+        const rep = await rgRepairNonUtf8({ rg, base, filt, pattern, opts, results, suspectPaths, maxResults });
+        if (rep) { finalResults = rep.results; if (rep.moreMatches) moreMatches = true; sweepEncs = rep.encs; }
+      } catch { /* 补扫是增强,失败就用 rg 原结果 */ }
+      const grouped = maybeGroup(finalResults, opts.group);
       grouped.engine = 'rg';
+      if (moreMatches) grouped.moreMatches = true;
+      if (sweepEncs) applyNonUtf8Report(grouped, sweepEncs);
       grouped.maxFileBytes = searchMaxFileBytes(opts);
       finish(grouped);
     });
@@ -3895,10 +4054,19 @@ async function zipCollectEntries(rootPaths, opts = {}) {
   entries.skippedExcluded = 0;
   entries.excludedDirs = [];
   const ignore = buildIgnoreMatcher({ includeIgnored: opts.includeIgnored === true, ignoreDirs: opts.ignoreDirs });
+  // 2026-10 走查(R2):① skipPaths(dest 自己)不入包 —— 修前 dest 落在被打包的目录里,第二次打包就把上一次的 zip 也装进去(越滚越大);
+  // ② 符号链接仍不入包,但计数上报(skippedLinks),不再静默;③ 同名顶层输入的包内名字去重(见 zipTopLevelNames)。
+  const foldP = x => (process.platform === 'win32' ? String(x).toLowerCase() : String(x));
+  const skipSet = new Set((Array.isArray(opts.skipPaths) ? opts.skipPaths : []).map(x => foldP(path.resolve(String(x)))));
+  entries.skippedLinks = 0;
+  entries.skippedDest = false;
+  entries.dedupedInputs = [];
+  entries.renamedInputs = [];
   const addFile = async (absPath, zipName, relFromTop) => {
+    if (skipSet.has(foldP(path.resolve(absPath)))) { entries.skippedDest = true; return; }
     if (isSensitiveDataPath(absPath)) { entries.skippedSensitive += 1; return; }
     const st = await fsp.lstat(absPath);
-    if (st.isSymbolicLink()) return; // 安全：符号链接不入包（避免打进包外内容）
+    if (st.isSymbolicLink()) { entries.skippedLinks += 1; return; } // 安全：符号链接不入包（避免打进包外内容）
     if (st.isDirectory()) {
       entries.push({ name: zipName.replace(/\/?$/, '/'), data: Buffer.alloc(0), isDir: true });
       const kids = await fsp.readdir(absPath, { withFileTypes: true });
@@ -3923,13 +4091,50 @@ async function zipCollectEntries(rootPaths, opts = {}) {
     const data = await fsp.readFile(absPath);
     entries.push({ name: zipName, data, isDir: false });
   };
+  // 顶层输入去重 + 包内名字(同名的保留相对结构)。
+  const uniq = [];
+  const seenTop = new Set();
   for (const raw of rootPaths) {
     const abs = path.resolve(String(raw));
+    if (seenTop.has(foldP(abs))) { entries.dedupedInputs.push(abs); continue; }
+    seenTop.add(foldP(abs));
+    uniq.push(abs);
+  }
+  const topNames = zipTopLevelNames(uniq);
+  for (let i = 0; i < uniq.length; i += 1) {
+    const abs = uniq[i];
     const st = await fsp.lstat(abs).catch(() => null);
-    if (!st) throw new Error(`路径不存在：${raw}`);
-    await addFile(abs, path.win32.basename(abs), '');
+    if (!st) throw new Error(`路径不存在：${abs}`);
+    if (topNames[i] !== path.win32.basename(abs)) entries.renamedInputs.push({ path: abs, zipName: topNames[i] });
+    await addFile(abs, topNames[i], '');
+  }
+  // 兜底:仍有重名条目(例如 ['d1', 'd1/n.txt'] 被改名后撞上 d1 里的 n.txt)—— 一个包里两个同名条目解压时后者静默覆盖前者,宁可拒绝。
+  const seenNames = new Map();
+  for (const e of entries) {
+    const k = foldP(e.name);
+    if (seenNames.has(k)) throw new Error(`包内出现重名条目「${e.name}」:打包的路径之间有重叠或同名;请分开打包,或去掉重复的路径`);
+    seenNames.set(k, true);
   }
   return entries;
+}
+// 顶层输入在包内的名字:默认取 basename;basename 相同(['d1/n.txt','d2/n.txt'] 都叫 n.txt)的几项,
+// 逐步补上父目录段(d1/n.txt、d2/n.txt)直到互不相同 —— 解压后各自在各自的子目录里,不会互相覆盖。Windows 盘符的冒号去掉。
+function zipTopLevelNames(absPaths) {
+  const fold = x => String(x).toLowerCase();   // zip 在 Windows 上解压不分大小写,这里一律按小写判重
+  const segs = absPaths.map(a => String(a).split(/[\\/]+/).filter(Boolean).map(x => x.replace(/:/g, '')));
+  const names = segs.map(sg => sg[sg.length - 1] || 'root');
+  const groups = new Map();
+  names.forEach((n, i) => { const k = fold(n); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+  for (const idxs of groups.values()) {
+    if (idxs.length < 2) continue;
+    const maxK = Math.max(...idxs.map(i => segs[i].length));
+    for (let k = 2; k <= maxK; k += 1) {
+      const cand = idxs.map(i => segs[i].slice(-k).join('/'));
+      idxs.forEach((i, j) => { names[i] = cand[j]; });
+      if (new Set(cand.map(fold)).size === cand.length) break;
+    }
+  }
+  return names;
 }
 
 // 把 {name,data,isDir} 条目数组写成一个 ZIP Buffer。deflate 压缩（空数据 stored）。手写 local header +

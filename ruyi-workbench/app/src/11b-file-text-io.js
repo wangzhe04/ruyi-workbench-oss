@@ -246,7 +246,7 @@ const FileTextIo = (() => {
       } else {
         sn = sniffEncoding(head, complete);
         if (!sn.bom && sn.hasNul && req.refuseNul) {
-          return { ok: false, code: 'binary', error: 'binary file (NUL bytes in the first 8KB)', hint: '这看起来是二进制文件;如果其实是无 BOM 的 UTF-16 文本,请传 encoding:"utf-16le"(或 utf-16be)' };
+          return { ok: false, code: 'binary', error: 'binary file (NUL bytes in the first 8KB)', hint: '这看起来是二进制文件(不是文本);如果其实是无 BOM 的 UTF-16 文本,请传 encoding:"utf-16le"(或 utf-16be)。其它二进制:压缩包用 archive_unzip,Office/PDF 用 read_document / pdf_read_pages(桌面控制 MCP),数据库用 script_run 查询' };
         }
       }
       const decoder = makeDecoder(sn.encoding, false);
@@ -457,6 +457,13 @@ const FileTextIo = (() => {
       case 'ENOTDIR': return { ...base, code: 'not_a_directory', error: '路径中有一段不是目录', hint: '检查路径里的父级是否其实是一个文件' };
       case 'EROFS': return { ...base, code: 'read_only_fs', error: '目标位置是只读的', hint: '换一个可写位置' };
       case 'ENOENT': return { ...base, code: 'not_found', error: '文件或目录不存在', hint: '先用 glob 或 file_list 确认路径' };
+      // 2026-10 走查(R2):父级是文件(file_write 到 a.txt/x.txt)、zip 条目 f 与 f/g.txt 互相冲突等 —— 修前是裸 EEXIST 异常。
+      case 'EEXIST': return { ...base, code: 'already_exists', error: '路径上已存在同名的文件或目录,与要创建的类型冲突', hint: '检查路径里的某一段是不是已经存在、且是文件而不是目录(或反过来);换一个路径,或先移走/删除冲突项' };
+      case 'ENOTEMPTY': return { ...base, code: 'not_empty', error: '目录非空', hint: '目标是一个非空目录;换一个路径' };
+      // 路径里带 NUL(模型偶尔会把 "\0" 写进路径):Node 抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError。
+      case 'ERR_INVALID_ARG_VALUE': case 'ERR_INVALID_ARG_TYPE':
+        if (/null bytes/i.test(String((e && e.message) || ''))) return { ...base, code: 'bad_path', error: '路径含有 NUL 字符(\\0),不是合法路径', hint: '检查路径里有没有混入不可见的控制字符;重新给出一个正常的路径' };
+        return null;
       default: return null;
     }
   }

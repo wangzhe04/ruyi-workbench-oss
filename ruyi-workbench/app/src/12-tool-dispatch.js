@@ -151,11 +151,41 @@ async function fileToolWorkspaceDir(ctx) {
   const cfg = (ctx && ctx.config) || await readConfig().catch(() => null);
   return normalizeCwd(null, cfg && cfg.defaultWorkspace);
 }
+// 2026-10 走查(R2):路径开头的 `~`(~ / ~/ / ~\\)与 %USERPROFILE% / %HOMEPATH% / %APPDATA% / %LOCALAPPDATA% / %TEMP% / %TMP% 先展开成真实目录。
+// 修前它们按普通相对路径接在工作区下,file_write {path:'~/x.txt'} 在工作区里凭空建出一个名叫「~」的文件夹还回 ok:true。
+// 展开发生在工作区围栏之【前】(围栏照常判展开后的绝对路径:家目录在工作区外就拒);只认路径【开头】且 `~` 后必须是分隔符或结尾,
+// 所以 `~$doc.docx`(Office 锁文件)、`~backup.txt` 这类真实文件名不受影响。取不到环境变量时(Linux 上没有 %USERPROFILE%)用 os.homedir()。
+// 纯函数:env / home 可注入,便于单测。
+function expandFileToolPathVars(raw, env, home) {
+  const s = String(raw == null ? '' : raw);
+  // 路径里混进 NUL(\0)在最前面就拦:Node 的 fs 会抛 ERR_INVALID_ARG_VALUE,而 stat(...).catch(() => null) 这类写法会把它读成
+  // 「文件不存在」(file_delete)。这里抛带 code 的 TypeError,toolCall 的出口把它变成 bad_path 信封。
+  if (s.includes('\0')) { const e = new TypeError('The argument \'path\' must be a string without null bytes'); e.code = 'ERR_INVALID_ARG_VALUE'; throw e; }
+  const E = env || process.env;
+  const h = () => { try { return home || os.homedir(); } catch { return ''; } };
+  if (s === '~' || s.startsWith('~/') || s.startsWith('~\\')) {
+    const hd = h();
+    return hd ? hd + s.slice(1) : s;
+  }
+  const m = /^%([A-Za-z]+)%(?=$|[\\/])/.exec(s);
+  if (!m) return s;
+  const key = m[1].toUpperCase();
+  let val = '';
+  switch (key) {
+    case 'USERPROFILE': val = E.USERPROFILE || h(); break;
+    case 'HOMEPATH': val = E.HOMEPATH ? ((E.HOMEDRIVE || '') + E.HOMEPATH) : h(); break;
+    case 'APPDATA': val = E.APPDATA || ''; break;
+    case 'LOCALAPPDATA': val = E.LOCALAPPDATA || ''; break;
+    case 'TEMP': case 'TMP': val = E[key] || E.TEMP || E.TMP || ''; break;
+    default: return s;
+  }
+  return val ? val + s.slice(m[0].length) : s;
+}
 // root 参数:绝对路径原样规范化;【相对】路径按工作区解析(与 resolveFileToolPath 同一条链),不再落到服务进程的 cwd
 // (修前 root:'src' 会被报成「工作区外」并点名安装目录下的 src,开了越界或本机模型时更会静默列出/搜索启动目录)。
 async function resolveFileToolRoot(args, ctx) {
   if (args && args.root) {
-    const s = String(args.root);
+    const s = expandFileToolPathVars(String(args.root));
     if (path.isAbsolute(s)) return path.resolve(s);
     return path.resolve(await fileToolWorkspaceDir(ctx), s);
   }
@@ -652,7 +682,7 @@ async function execCacheStore(c, result) {
 // 路径;开了「允许工作区外读写」或本机模型时更糟 —— 相对路径的写入静默落进服务的启动目录并回 ok:true。
 // 绝对路径原样规范化(与旧行为一致);报错里的 path 一律是【解析后的绝对路径】。
 async function resolveFileToolPath(raw, ctx) {
-  const s = String(raw == null ? '' : raw);
+  const s = expandFileToolPathVars(raw);
   if (path.isAbsolute(s)) return path.resolve(s);
   return path.resolve(await resolveFileToolRoot({}, ctx), s);
 }
@@ -793,13 +823,27 @@ function buildFileEditMiss(p, raw, oldText, sourceLineEnding) {
   return out;
 }
 
+// file_move / file_copy 的「源与目标是不是同一个文件」判定(纯函数,便于单测;不碰盘):
+//   'identical' = 解析后路径逐字相同;
+//   'case-only' = 只有大小写不同、且 stat 显示是同一个文件(同 dev + 非零 ino)—— 大小写不敏感文件系统(NTFS / macOS 默认)上的改名;
+//   null        = 不是同一个文件(含 Linux 上 data.csv 与 DATA.csv 本来就是两个文件、以及硬链接)。
+// platform 可注入。Windows 实测未做(云端只有 Linux),判据只用 Node 的 stat 字段与路径字符串。
+function fileMoveSameFileKind(from, to, fromSt, toSt, platform) {
+  if (!toSt || !fromSt) return null;
+  if (from === to) return 'identical';
+  const plat = platform || process.platform;
+  if (plat !== 'win32' && plat !== 'darwin') return null;   // 其余平台默认大小写敏感:大小写不同就是两个文件(同 ino = 硬链接,别当改名)
+  const sameStat = fromSt.dev === toSt.dev && fromSt.ino !== undefined && Number(fromSt.ino) !== 0 && fromSt.ino === toSt.ino;
+  return sameStat && String(from).toLowerCase() === String(to).toLowerCase() ? 'case-only' : null;
+}
+
 const FILE_TOOL_HANDLERS = {
   file_read: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_read', write: false }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       // v0.8-S1: image/binary suffixes are refused — the model should route these to the vision channel.
       if (isBinaryReadPath(p)) {
-        return { ok: false, code: 'binary', error: 'binary or image file', path: p, hint: '图片请作为附件走视觉通道(v0.9)或用 desktop_screenshot 相关工具' };
+        return { ok: false, code: 'binary', error: 'binary or image file', path: p, hint: binaryReadHint(p) };
       }
       // 106 #2a: 权限守卫之后、读盘之前的缓存查找 —— 命中即返回(带 cacheHit 标记),未命中
       // 走原路径并在成功结果上存储。cctx 为 null(开关关/非白名单/无会话)时零额外开销。
@@ -832,9 +876,15 @@ const FILE_TOOL_HANDLERS = {
       // 并且只从 fd 读到「够返回窗口」为止(<=8MB 的文件读到尾以给出精确总数,更大的只读窗口)。
       const hasLineParams = args.lineOffset !== undefined || args.lineLimit !== undefined;
       const lineOffset = Math.max(1, Math.floor(Number(args.lineOffset != null ? args.lineOffset : 1)) || 1);
-      const lineLimit = args.lineLimit != null ? Math.max(0, Math.floor(Number(args.lineLimit)) || 0) : FILE_READ_LINE_DEFAULT;
+      // 2026-10 走查(R2):limit / lineLimit ≤ 0(或非数字)按「没传」处理,至少读 1 —— 修前 limit:0 返回空内容 + truncated:true +
+      // nextOffset 与当前 offset 相同,模型照 nextOffset 继续读就是死循环。
+      const lineLimitNum = Math.floor(Number(args.lineLimit));
+      const lineLimit = args.lineLimit != null && lineLimitNum >= 1 ? lineLimitNum : FILE_READ_LINE_DEFAULT;
       const start = Math.max(0, Math.floor(Number(args.offset != null ? args.offset : 0)) || 0);
-      let limit = args.limit != null ? Math.max(0, Math.floor(Number(args.limit)) || 0) : FILE_READ_CHAR_DEFAULT;
+      const limitNum = Math.floor(Number(args.limit));
+      // 至少 2:limit:1 落在增补平面字符(emoji / 生僻汉字,占 2 个 UTF-16 单元)上时窗口收尾会把代理对劈开、被收回成空串,
+      // 同样得到「内容为空 + nextOffset 不变」的死循环。
+      let limit = args.limit != null && limitNum >= 1 ? Math.max(2, limitNum) : FILE_READ_CHAR_DEFAULT;
       const limitClamped = limit > FILE_READ_CHAR_MAX;
       if (limitClamped) limit = FILE_READ_CHAR_MAX;
       let w;
@@ -842,7 +892,9 @@ const FILE_TOOL_HANDLERS = {
         w = await FileTextIo.readTextWindow(p, st, {
           encoding: encReq.enc, mode: hasLineParams ? 'lines' : 'chars', offset: start, limit, lineOffset, lineLimit,
           jsonBudget: FILE_READ_JSON_BUDGET, xform: annotateFlag ? accAnnotateNonAscii : null,
-          refuseNul: path.extname(p) === '',
+          // 2026-10 走查(R2):前 8KB 含 NUL 的(无 BOM)一律当二进制拒绝,不再只管无扩展名文件 —— 修前 .dat/.log/改了后缀的
+          // 容器文件回 ok:true + 乱码。带 UTF-16 BOM 的文本不受影响(readTextWindow 里 BOM 优先);无 BOM 的 UTF-16 传 encoding 即可。
+          refuseNul: true,
         });
       } catch (e) {
         if (e && e.code === 'ENOENT') return fileToolNotFound(p, args.path);
@@ -924,9 +976,17 @@ const FILE_TOOL_HANDLERS = {
         const isUtf8Target = targetEnc === 'utf8' && !legacyEncoding;
         const headText = existed && head ? FileTextIo.decodeBuffer(head, existingEnc).text : '';
         const sourceLineEnding = existed && canNormalizeLineEnding ? detectTextLineEnding(headText) : 'none';
-        const targetLineEnding = canNormalizeLineEnding
-          ? ((sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') ? sourceLineEnding : (!existed ? defaultTextLineEnding(p) : null))
-          : null;
+        // 2026-10 走查(R2):换行风格的决定顺序 = 显式 lineEnding(lf/crlf 强制;preserve 原样写入 content 里的换行)>
+        // 已存在文件的原风格(统一 LF/CRLF 才跟,混合/无换行不猜)> 新文件:content 本身统一 CRLF 就保留(修前一律被压成 LF,
+        // 要写 Windows 换行的 .txt/.csv/.reg 做不到),否则按扩展名默认(.cmd/.bat/.ps1 = CRLF,其余 LF)。
+        const leReq = String(args.lineEnding == null ? '' : args.lineEnding).trim().toLowerCase();
+        let targetLineEnding = null;
+        if (canNormalizeLineEnding) {
+          if (leReq === 'lf' || leReq === 'crlf') targetLineEnding = leReq;
+          else if (leReq === 'preserve') targetLineEnding = null;
+          else if (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf') targetLineEnding = sourceLineEnding;
+          else if (!existed) targetLineEnding = detectTextLineEnding(String(args.content)) === 'crlf' ? 'crlf' : defaultTextLineEnding(p);
+        }
         let content = targetLineEnding ? normalizeTextLineEndings(String(args.content), targetLineEnding) : String(args.content);
         // hunt2 #10:保住 UTF-8 BOM。模型给的 content 从不带 BOM,整份覆写曾把原文件的 BOM 剥掉(file_edit 保得住);
         // 新建的 .ps1 也补上 BOM —— 否则 Windows PowerShell 5.1 按 ANSI 读,中文字面量变乱码。
@@ -937,8 +997,18 @@ const FILE_TOOL_HANDLERS = {
         // 断点续跑重放同内容写不再产生新检查点条目/mtime 扰动;「touch」语义不受支持是有意的。
         // 按将实际落盘的字节比较(尊重编码),而非字符串比较,避免编码歧义。
         let payload;
-        if (legacyEncoding) payload = Buffer.from(content, legacyEncoding);
-        else {
+        if (legacyEncoding) {
+          // 2026-10 走查(R2):latin1 / binary / ascii 是单字节编码 —— 含超出范围的字符(中文)时 Buffer.from 静默取低字节
+          // ("你好abc" 落成 607d616263,回读是乱码)。与 GBK 路径同口径:写不进去就拒绝并说明,文件不动。
+          // base64 / hex 等是「content 本身就是编码文本」的另一种语义,不在此列。
+          const le = String(legacyEncoding).toLowerCase();
+          if (le === 'latin1' || le === 'binary' || le === 'ascii') {
+            const badRe = le === 'ascii' ? /[^\x00-\x7f]/u : /[^\x00-\xff]/u;
+            const bad = badRe.exec(content);
+            if (bad) return fileToolUnencodable({ message: `character ${JSON.stringify(bad[0])} (U+${bad[0].codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}) at index ${bad.index} cannot be encoded as ${le}`, char: bad[0] }, p, le, 'content ');
+          }
+          payload = Buffer.from(content, legacyEncoding);
+        } else {
           try { payload = FileTextIo.encodeText(content, targetEnc, wantBom); }
           catch (e) {
             if (e && e.code === 'UNENCODABLE') return fileToolUnencodable(e, p, targetEnc, 'content ');
@@ -979,7 +1049,8 @@ const FILE_TOOL_HANDLERS = {
       const p = await resolveFileToolPath(args.path, ctx);
       { const g = await guardFileToolPath(p, ctx, { tool: 'file_edit', write: true }); if (!g.ok) return { ok: false, error: g.error, code: g.code, path: p }; }
       const oldText = String(args.oldText || '');
-      if (!oldText) throw new Error('oldText is required');
+      // 空 oldText 修前是抛异常(其余失败都是 {ok:false} 信封);schema 另有 minLength:1 先在公共闸里拦一道。
+      if (!oldText) return { ok: false, code: 'invalid-arguments', error: 'oldText is required and must be non-empty', path: p, hint: '要在文件里插入内容:把相邻的一段原文作为 oldText,newText 写成「原文 + 新内容」;要新建/整体重写文件用 file_write' };
       // hunt2 #9:newText 缺省曾按 '' 处理 = 模型漏传参数就静默删掉 oldText。删除文本请显式传空串。
       if (args.newText == null) return { ok: false, error: 'newText is required', path: p, hint: '要删除 oldText 请显式传 newText:""' };
       const newText = String(args.newText);
@@ -994,7 +1065,7 @@ const FILE_TOOL_HANDLERS = {
         }
         // b2-P1: 超大文件编辑需整文件进内存 + 双份快照 —— 拒绝并提示改用人话行定位/分段处理
         if (rawBytes.length > 50 * 1024 * 1024) {
-          return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 read_file + file_write 分段处理', path: p, hint: '大文件建议先 read_file 定位,再 file_write 整段重写' };
+          return { ok: false, error: '文件超过 50MB,编辑需整文件进内存,请改用 file_read(行模式 / offset)定位 + powershell_run 或 script_run 分段处理', path: p, hint: '大文件建议先用 file_read 的 lineOffset/lineLimit 定位,再用脚本按行分段改写(file_write 会整份覆盖)' };
         }
         // hunt2 #2:只编辑「能无损往返」的文本。修前按 utf8 宽松解码 —— GBK/ANSI 源文件里每个汉字都变成 U+FFFD,替换一处
         // ASCII 就把全文件的中文写成乱码并回 ok:true。F3:现在按 BOM / 严格 UTF-8 / GB18030 判编码,【原编码写回】
@@ -1003,7 +1074,7 @@ const FILE_TOOL_HANDLERS = {
         const dm = FileTextIo.decodeBuffer(rawBytes, 'auto');
         if (dm.lossy) {
           return { ok: false, code: 'not_utf8', path: p,
-            error: '文件不是有效的 UTF-8 文本(可能是 GBK/ANSI 等本地编码);file_edit 只编辑 UTF-8 文件,为免把中文写成乱码已拒绝',
+            error: '文件既不是有效的 UTF-8 / GBK / UTF-16 文本(可能是其它本地编码或二进制);file_edit 只编辑能无损往返的文本,为免写坏文件已拒绝',
             hint: '先确认文件编码;GBK 文件可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
         }
         const raw = dm.text;
@@ -1051,6 +1122,12 @@ const FILE_TOOL_HANDLERS = {
         const writeText = (sourceLineEnding === 'lf' || sourceLineEnding === 'crlf')
           ? normalizeTextLineEndings(newText, sourceLineEnding) : newText;
         const updated = raw.split(matchText).join(writeText); // v2.6 fix: split/join literal replace (NOT raw.replace) - JS String.replace treats the string newText as a REPLACEMENT pattern and expands $& / $1 / $' / $$ into match content, corrupting files
+        // 2026-10 走查(R2):替换后与原文逐字符相同(oldText == newText,或换行规范化后等价)—— 不写盘、不记检查点
+        // (修前照样原子重写 + 记一条空检查点,mtime 被扰动、撤回列表里多一条什么也没改的条目)。与 file_write 的幂等跳过同口径。
+        if (updated === raw) {
+          return { ok: true, path: p, op: 'skip', unchanged: true, replacements: 0, sourceLineEnding, writtenLineEnding: sourceLineEnding, normalizedOldText,
+            note: '替换后与原文一致(oldText 与 newText 相同),未改动文件(未产生新检查点)' };
+        }
         let payload;
         try { payload = FileTextIo.encodeText(updated, fileEnc, fileBom); }
         catch (e) {
@@ -1128,15 +1205,24 @@ const FILE_TOOL_HANDLERS = {
       if (!args.from || !args.to) return { ok: false, error: 'from 与 to 都不能为空' };
       const from = await resolveFileToolPath(args.from, ctx);
       const to = await resolveFileToolPath(args.to, ctx);
+      // v1.4.6-S3: a move both reads+deletes `from` and writes `to` — guard both as writes (out-of-bounds → deny).
+      // 2026-10 走查(R2):围栏在【任何 stat 之前】—— 修前先 stat(from) 再过围栏,工作区外路径「存在 → 越界拒绝 / 不存在 → not_found」
+      // 的差别把区外文件系统的存在性泄给了模型(对 /etc/xxx、别的用户目录逐个探测)。
+      { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
+      { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
       const fromSt = await fsp.stat(from).catch(() => null);
       if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
       if (fromSt.isDirectory()) return { ok: false, error: '暂不支持移动文件夹', hint: '仅支持移动单个文件' };
-      // v1.4.6-S3: a move both reads+deletes `from` and writes `to` — guard both as writes (out-of-bounds → deny).
-      { const gf = await guardFileToolPath(from, ctx, { tool: 'file_move', write: true }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
-      { const gt = await guardFileToolPath(to, ctx, { tool: 'file_move', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
       return withFileToolWriteLock([from, to], async () => {
         const toSt = await fsp.stat(to).catch(() => null);
-        const toExists = !!toSt;
+        // 目标是目录:rename / 记检查点读目录都会炸(修前是裸 EISDIR 异常)—— 明说,并提示把文件名写进 to。
+        if (toSt && toSt.isDirectory()) return { ok: false, code: 'target_is_directory', error: '目标是一个已存在的目录', path: to, hint: 'to 要写成「目录/新文件名」(含文件名),file_move 不会自动把文件放进目录里' };
+        // 源与目标是同一个文件:路径逐字相同 → 什么也不用做(修前 overwrite:true 会记两条空检查点;没带 overwrite 还谎报「目标已存在」)。
+        // 仅大小写不同(NTFS / macOS 默认大小写不敏感:data.csv → DATA.csv)→ 是合法的改名,不是「目标已存在」(见 fileMoveSameFileKind)。
+        const sameKind = fileMoveSameFileKind(from, to, fromSt, toSt);
+        if (sameKind === 'identical') return { ok: true, from, to, op: 'move', overwritten: false, unchanged: true, note: '源与目标是同一个路径,未做任何改动' };
+        const caseOnly = sameKind === 'case-only';
+        const toExists = !!toSt && !caseOnly;
         if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
         // F10:超过检查点上限的只给 skippedBytes 标记,不把 300MB 读进内存只为记一条「存不下」。
         const fromBefore = await fileToolBeforeForCheckpoint(from, fromSt.size);
@@ -1169,7 +1255,13 @@ const FILE_TOOL_HANDLERS = {
         }
         await fsp.mkdir(path.dirname(to), { recursive: true });
         try {
-          await fsp.rename(from, to);
+          if (caseOnly) {
+            // 大小写不敏感文件系统上的纯改大小写:经一个临时名中转两步改(直接 rename 在个别驱动 / 同步盘上不会真的改大小写)。
+            const tmp = path.join(path.dirname(from), `.${path.win32.basename(from)}.${process.pid}.${Date.now().toString(36)}.rn`);
+            await fsp.rename(from, tmp);
+            try { await fsp.rename(tmp, to); }
+            catch (e2) { await fsp.rename(tmp, from).catch(() => {}); throw e2; }
+          } else await fsp.rename(from, to);
         } catch (e) {
           if (e && e.code === 'EXDEV') {
             // 跨盘（EXDEV）退化：copy + delete。fs.rename 不能跨卷。
@@ -1200,14 +1292,18 @@ const FILE_TOOL_HANDLERS = {
       if (!args.from || !args.to) return { ok: false, error: 'from 与 to 都不能为空' };
       const from = await resolveFileToolPath(args.from, ctx);
       const to = await resolveFileToolPath(args.to, ctx);
+      // v1.4.6-S3: copy READS `from` (exfil vector if out of bounds) and WRITES `to` — guard each accordingly.
+      // 2026-10 走查(R2):围栏先于 stat(同 file_move:不让区外路径的存在性经「拒绝 / not_found」的差别泄给模型)。
+      { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
+      { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
       const fromSt = await fsp.stat(from).catch(() => null);
       if (!fromSt) return { ...fileToolNotFound(from, args.from), error: '源文件不存在', hint: '先用 glob 或 file_list 确认路径' };
       if (fromSt.isDirectory()) return { ok: false, error: '暂不支持复制文件夹', hint: '仅支持复制单个文件' };
-      // v1.4.6-S3: copy READS `from` (exfil vector if out of bounds) and WRITES `to` — guard each accordingly.
-      { const gf = await guardFileToolPath(from, ctx, { tool: 'file_copy', write: false }); if (!gf.ok) return { ok: false, error: gf.error, code: gf.code, path: from }; }
-      { const gt = await guardFileToolPath(to, ctx, { tool: 'file_copy', write: true }); if (!gt.ok) return { ok: false, error: gt.error, code: gt.code, path: to }; }
       return withFileToolWriteLock([from, to], async () => {
         const toSt = await fsp.stat(to).catch(() => null);
+        if (toSt && toSt.isDirectory()) return { ok: false, code: 'target_is_directory', error: '目标是一个已存在的目录', path: to, hint: 'to 要写成「目录/新文件名」(含文件名),file_copy 不会自动把文件放进目录里' };
+        // 复制到自己身上:copyFile 会报错 / 在个别平台截断成空文件 —— 同一个文件就什么也不做。
+        if (fileMoveSameFileKind(from, to, fromSt, toSt) !== null) return { ok: true, from, to, op: 'copy', overwritten: false, unchanged: true, note: '源与目标是同一个文件,未做任何改动' };
         const toExists = !!toSt;
         if (toExists && !args.overwrite) return { ok: false, error: '目标已存在', path: to, hint: '若要覆盖请设置 overwrite=true' };
         const toBefore = toExists ? await fileToolBeforeForCheckpoint(to, toSt.size) : null;
@@ -1233,7 +1329,7 @@ const FILE_TOOL_HANDLERS = {
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
       // F13:pattern 是正则;写成 glob(`*.js`)的按 glob 处理并说明,真正非法的给 bad_pattern + hint(修前是原始 SyntaxError)。
-      const cls = classifyListPattern(args.pattern);
+      const cls = classifyListPattern(args.pattern, root);
       if (cls.kind === 'invalid') return { ok: false, error: cls.error, code: 'bad_pattern', hint: cls.hint, root };
       const recursive = args.recursive !== false;
       const walked = await walkFiles(root, {
@@ -1248,6 +1344,7 @@ const FILE_TOOL_HANDLERS = {
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'file_list'); }
       if (walked.prunedDirs && recursive) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('file_list'); }
+      if (walked.depthLimited && recursive) { resp.depthLimited = true; resp.depthCutDirs = walked.depthCutDirs; resp.depthHint = walkDepthHint(walked, 'file_list'); }
       if (cls.kind === 'glob') resp.patternNote = cls.note;
       // 审计 F 后续:pattern 撞了时间预算(可能是灾难性回溯)—— 已匹配到的照给,如实说「可能不全」(口径同 file_search)。
       if (walked.patternTimedOut) resp.patternNote = 'pattern matching hit its time budget (pattern too slow, possible catastrophic backtracking); listing may be incomplete';
@@ -1259,17 +1356,20 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      let matches = await searchFileContent(root, String(args.pattern || ''), args);
+      // maxResults ≤0 / 非数字按没传(200)—— 修前 0 或负数让两个引擎都立刻停在 0 条并报 truncated。
+      const maxResultsReq = Number(args.maxResults);
+      const maxResults = args.maxResults != null && maxResultsReq >= 1 ? Math.floor(maxResultsReq) : 200;
+      let matches = await searchFileContent(root, String(args.pattern || ''), { ...args, maxResults });
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
       const regexTimedOut = !!(matches && matches.regexTimedOut);   // 审计 F:JS 正则撞了时间预算
       // 数组上挂的元数据(JSON.stringify 会丢),filter 之前先取出来。
       const meta = matches || {};
       if (Array.isArray(matches)) matches = matches.filter(m => !isSensitiveDataPath(m && m.path));
-      const maxResults = Number(args.maxResults != null ? args.maxResults : 200);
       const resp = { ok: true, root, matches };
       if (meta.engine) resp.engine = meta.engine;
-      if ((Array.isArray(matches) && matches.length >= maxResults) || regexTimedOut) resp.truncated = true;
+      // 只有【上限之后确实还有命中】才报截断(修前命中数恰好等于 maxResults 也报 truncated:true,模型白白再搜一轮)。
+      if (meta.moreMatches || regexTimedOut) resp.truncated = true;
       // F2:JS 引擎的遍历撞了 maxFiles / 耗时上限 —— 之前这个信号被丢掉,「没搜到」与「没搜完」无法区分。
       if (meta.walkTruncated) {
         resp.truncated = true;
@@ -1282,6 +1382,10 @@ const FILE_TOOL_HANDLERS = {
         resp.skippedLargeCount = meta.skippedLargeFiles.length;
         resp.skippedLargeHint = 'files larger than maxFileBytes (' + meta.maxFileBytes + ' bytes) were not searched; raise maxFileBytes (max 200MB) to include them';
       } else if (meta.engine === 'rg') resp.maxFileBytes = meta.maxFileBytes;
+      // 2026-10 走查(R2):非 UTF-8 文件如实上报。nonUtf8Files = 已按 GBK / UTF-16 解码后搜过的文件(命中文本是解码后的,
+      // 中文可搜);skippedNonUtf8 = 既不是合法 UTF-8 也不是合法 GBK 的文件(只能按 U+FFFD 宽松解码,命中可能不全)。
+      if (meta.nonUtf8Files) { resp.nonUtf8Files = meta.nonUtf8Files; resp.nonUtf8Count = meta.nonUtf8Count; resp.nonUtf8Hint = 'these files are not UTF-8 (GBK / UTF-16); they were decoded accordingly before matching - file_read decodes them the same way'; }
+      if (meta.skippedNonUtf8) { resp.skippedNonUtf8 = meta.skippedNonUtf8; resp.skippedNonUtf8Count = meta.skippedNonUtf8Count; resp.skippedNonUtf8Hint = 'these files are neither valid UTF-8 nor GBK; they were matched as lossy UTF-8 so hits may be missing or garbled - try file_read with an explicit encoding'; }
       // F2: literal-fallback marker (invalid regex was searched as escaped literal text) — additive field.
       if (meta.patternNote) resp.patternNote = meta.patternNote;
       // 被默认清单剪掉的目录(build/dist/out/target/coverage …):两个引擎都报,并说怎么放开(修前 handler 把它丢了)。
@@ -1302,9 +1406,14 @@ const FILE_TOOL_HANDLERS = {
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
       const rootBad = await toolRootProblem(root);
       if (rootBad) return rootBad;
-      const pattern = String(args.pattern || '');
-      if (!pattern) throw new Error('pattern is required');
-      const maxResults = Math.max(1, Number(args.maxResults || 500) || 500);
+      const rawPattern = String(args.pattern || '');
+      if (!rawPattern) return { ok: false, code: 'invalid-arguments', error: 'pattern is required and must be non-empty', root, hint: '例如 "**/*.js" 或 "src/**/test_*.py"' };
+      // 前导 ./ 与「落在 root 内的绝对路径 pattern」改写成相对 root 的写法;root 之外的绝对 pattern 配不到任何东西 —— 明说,别静默回空表。
+      const gp = normalizeGlobPatternForRoot(rawPattern, root);
+      if (gp.outside) return { ok: true, root, files: [], truncated: false, patternNote: gp.note };
+      const pattern = gp.pattern;
+      if (!pattern) return { ok: false, code: 'invalid-arguments', error: 'pattern is empty after removing "./"', root, hint: '例如 "**/*.js" 或 "src/**/test_*.py"' };
+      const maxResults = Number(args.maxResults) >= 1 ? Math.floor(Number(args.maxResults)) : 500;
       const globRe = globToRegExp(pattern);
       // F2:glob 在遍历时过滤(accept),maxFiles 只数【命中】的文件 —— 修前先按遍历顺序取前 max(4×maxResults,4000)
       // 个条目(含目录、无关文件)再事后匹配,前面塞满 __pycache__/.github 时 `**/*.md` 一个都找不到。
@@ -1322,6 +1431,8 @@ const FILE_TOOL_HANDLERS = {
       if (all.truncated) resp.hint = walkTruncationHint(all, 'glob') + ' (newest-first ordering only covers the files visited)';
       else if (matched.length > maxResults) resp.hint = 'glob: ' + matched.length + ' files matched, showing the newest ' + maxResults + '; raise maxResults or narrow the pattern/root';
       if (all.prunedDirs) { resp.prunedDirs = all.prunedDirs; resp.prunedHint = prunedDirsHint('glob'); }
+      if (all.depthLimited) { resp.depthLimited = true; resp.depthCutDirs = all.depthCutDirs; resp.depthHint = walkDepthHint(all, 'glob'); }
+      if (gp.note) resp.patternNote = gp.note;
       return resp;
   } },
   project_snapshot: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -1334,10 +1445,11 @@ const FILE_TOOL_HANDLERS = {
       if (rootBad) return rootBad;
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
-      const walked = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
+      const walked = await walkFiles(root, { recursive: true, maxFiles: Number(args.maxFiles) >= 1 ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
       const resp = { ok: true, root, files: walkEnvelopeEntries(walked, args.absolute === true) };
       if (walked.truncated) { resp.truncated = true; resp.hint = walkTruncationHint(walked, 'project_snapshot') + ' (entries are listed breadth-first: every top-level entry comes before deeper ones)'; }
       if (walked.prunedDirs) { resp.prunedDirs = walked.prunedDirs; resp.prunedHint = prunedDirsHint('project_snapshot'); }
+      if (walked.depthLimited) { resp.depthLimited = true; resp.depthCutDirs = walked.depthCutDirs; resp.depthHint = walkDepthHint(walked, 'project_snapshot'); }
       return resp;
   } },
 };
@@ -1362,22 +1474,40 @@ const ARCHIVE_TOOL_HANDLERS = {
         if (!gp.ok) return { ok: false, error: gp.error, code: gp.code, path: raw };
       }
       { const gd = await guardFileToolPath(dest, ctx, { tool: 'archive_zip', write: true }); if (!gd.ok) return { ok: false, error: gd.error, code: gd.code, path: dest }; }
+      // 2026-10 走查(R2):dest 是已存在的目录 —— 修前读它当「旧 zip」做检查点,抛裸 EISDIR。
+      const destSt0 = await fsp.stat(dest).catch(() => null);
+      if (destSt0 && destSt0.isDirectory()) return { ok: false, code: 'target_is_directory', error: 'dest 是一个已存在的目录,不是 .zip 文件', path: dest, hint: 'dest 要写成「目录/名字.zip」(含文件名)' };
       let entries;
       // F9:子目录默认按共用忽略清单剪枝(node_modules/.git/__pycache__/venv/dist/build …);exclude 追加目录名,
       // includeIgnored:true 全部放开。被剪掉的在结果里如实报告(skippedExcluded / excludedDirs)。
-      try { entries = await zipCollectEntries(inputs, { ignoreDirs: Array.isArray(args.exclude) ? args.exclude.filter(x => typeof x === 'string') : [], includeIgnored: args.includeIgnored === true }); }
+      // skipPaths:[dest] —— 输出文件自己不入包(dest 落在被打包的目录里时,第二次打包不再把上一次的 zip 装进去)。
+      try { entries = await zipCollectEntries(inputs, { ignoreDirs: Array.isArray(args.exclude) ? args.exclude.filter(x => typeof x === 'string') : [], includeIgnored: args.includeIgnored === true, skipPaths: [dest] }); }
       catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
-      if (!entries.length) return { ok: false, error: '没有可打包的文件（源为空或全是符号链接）' };
+      if (!entries.length) return { ok: false, error: '没有可打包的文件（源为空、全是符号链接,或只有 dest 自己）', ...(entries.skippedLinks ? { skippedLinks: entries.skippedLinks } : {}) };
       const zipBuf = await zipWriteAsync(entries);   // F9:压缩走线程池 + 让出事件循环,不再同步卡住服务
       const destExists = await fsp.stat(dest).then(() => true).catch(() => false);
       const destBefore = destExists ? await fsp.readFile(dest) : null;
       const jctx = await journalSessionCtx(ctx);
       const jr = await journalRecord(jctx.sessionId, jctx.turnSeq, 'archive_zip', dest, destExists ? 'modify' : 'create', destExists ? destBefore : null);
-      await fsp.mkdir(path.dirname(dest), { recursive: true });
-      await fsp.writeFile(dest, zipBuf);
+      // 2026-10 走查(R2):原子写(同目录临时文件 + rename),与 file_write / file_edit 同一条路 —— 修前 writeFile 直写,
+      // 中途失败(磁盘满 / 被占用)会留下半个 zip 并把旧包写坏;失败时撤掉刚记的检查点,把错误变成带 hint 的信封。
+      try {
+        await fsp.mkdir(path.dirname(dest), { recursive: true });
+        await FileTextIo.writeFileAtomic(dest, zipBuf);
+      } catch (e) {
+        const dropped = await fileToolDropPhantom(jctx, 'archive_zip', dest, jr);
+        const f = fileToolFsFailure(e, dest, { checkpointRolledBack: !!(dropped && dropped.ok) });
+        if (f) return f;
+        throw e;
+      }
       const fileCount = entries.filter(e => !e.isDir).length;
       const checkpointWarn = journalCheckpointWarn(jr); // hunt2 #17
       return { ok: true, dest, op: destExists ? 'modify' : 'create', entries: entries.length, files: fileCount, bytes: zipBuf.length,
+        // 被悄悄丢掉的东西如实报:符号链接(不入包,免得打进包外内容)、dest 自己、重复的输入、因同名而改了包内名字的输入。
+        ...(entries.skippedLinks ? { skippedLinks: entries.skippedLinks, linksHint: 'symbolic links are never packed (they could point outside the packed folder)' } : {}),
+        ...(entries.skippedDest ? { skippedDest: true, destHint: 'dest lies inside a packed folder; the output file itself was left out of the archive' } : {}),
+        ...(entries.dedupedInputs.length ? { dedupedInputs: entries.dedupedInputs } : {}),
+        ...(entries.renamedInputs.length ? { renamedInputs: entries.renamedInputs, renamedHint: 'inputs sharing a file name were stored under their parent folder names so they do not overwrite each other when extracted' } : {}),
         ...(entries.skippedSensitive ? { skippedSensitive: entries.skippedSensitive } : {}),
         ...(entries.skippedExcluded ? { skippedExcluded: entries.skippedExcluded, excludedDirs: entries.excludedDirs, excludedHint: 'directories such as node_modules/.git/__pycache__/dist were left out; pass includeIgnored:true to include them' } : {}),
         ...(checkpointWarn ? { checkpointWarn } : {}) };
@@ -1398,10 +1528,16 @@ const ARCHIVE_TOOL_HANDLERS = {
       if (!listOnly) { const gdd = await guardFileToolPath(destDir, ctx, { tool: 'archive_unzip', write: true }); if (!gdd.ok) return { ok: false, error: gdd.error, code: gdd.code, path: destDir }; }
       const srcSt = await fsp.stat(src).catch(() => null);
       if (!srcSt) return { ok: false, error: '压缩包不存在', path: src, hint: '先用 file_list 确认路径' };
+      // 2026-10 走查(R2):src 是目录 → is_directory 信封(修前是 readFile 的 EISDIR 原话);destDir 是已存在的文件 → not_a_directory。
+      if (srcSt.isDirectory()) return fileToolFsFailure({ code: 'EISDIR', message: 'EISDIR' }, src);
+      if (!listOnly) {
+        const ddSt = await fsp.stat(destDir).catch(() => null);
+        if (ddSt && !ddSt.isDirectory()) return { ok: false, code: 'not_a_directory', error: 'destDir 是一个已存在的文件,不是目录', path: destDir, hint: '换一个目录路径作为 destDir' };
+      }
       if (srcSt.size > ZIP_MAX_TOTAL) return { ok: false, error: `压缩包超过大小上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）` };
       let buf, records;
       try { buf = await fsp.readFile(src); records = zipReadCentralDir(buf); }
-      catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
+      catch (e) { return { ok: false, ...(fileToolFsFailure(e, src) || {}), error: (e && e.message) || String(e) }; }
       if (records.length > ZIP_MAX_ENTRIES) return { ok: false, error: `压缩包条目数超过上限（${ZIP_MAX_ENTRIES}）`, hint: '疑似 zip 炸弹，已拒绝' };
       // F9:炸弹防御看【体积】:解压前先把中央目录声明的总大小与最大单条核对(不用先展开)。修前只有 2000 条目上限,
       // archive_zip 自己打出的 2506 条目包都被拒;真正的炸弹(少数条目、体积巨大)靠这里与逐条 maxOutputLength 拦。
@@ -1428,6 +1564,22 @@ const ARCHIVE_TOOL_HANDLERS = {
         }
         plan.push({ rec, absPath: target });
       }
+      // 2026-10 走查(R2):包内路径自相矛盾(`f` 是文件、`f/g.txt` 又要求 f 是目录)→ 落任何盘之前就整包拒绝。
+      // 修前写到冲突那条才抛 EEXIST,前面已写的文件留在盘上、而且没有任何报告。
+      {
+        const fk = x => (process.platform === 'win32' ? String(x).toLowerCase() : String(x));
+        const destKey = fk(destReal);
+        const fileEntries = new Map();
+        const dirKeys = new Set();
+        for (const { rec, absPath } of plan) {
+          if (rec.isDir || rec.name.endsWith('/')) dirKeys.add(fk(absPath)); else fileEntries.set(fk(absPath), rec.name);
+          let d = path.dirname(absPath);
+          while (fk(d) !== destKey && fk(d).startsWith(destKey) && d !== path.dirname(d)) { dirKeys.add(fk(d)); d = path.dirname(d); }
+        }
+        for (const [k, name] of fileEntries) {
+          if (dirKeys.has(k)) return { ok: false, code: 'entry_conflict', error: `压缩包内的条目路径互相冲突:「${name}」既被当作文件、又被当作其它条目的上级目录`, entry: name, filesExtracted: 0, hint: '这个包本身有问题(同一路径既是文件又是目录),未解压任何文件' };
+        }
+      }
       // 安全审计 #4:词法落在 destDir 内还不够 —— destDir 是家目录 / 工作区时,包里的 data/config.json、
       // ws/.git/hooks/pre-commit、.claude/settings.json 同样「在 destDir 内」,修前照写不误(实测覆写了配置、种下了
       // git hook)。每个条目(含目录条目)在【落任何盘之前】逐个过文件工具的同一个写闸(敏感/受保护数据、autoexec、
@@ -1451,16 +1603,30 @@ const ARCHIVE_TOOL_HANDLERS = {
       // 2000 个条目实测 ~22s。纪律不变:一批的检查点先落,再写这一批的文件;失败返回前先把已备好的一批落完,
       // 「已写 N 个」的计数与盘上一致。按条数/字节分批,内存不随整包增长。
       let pending = [], pendingBytes = 0;
+      // 2026-10 走查(R2):落盘失败(包里 `f` 文件与 `f/g.txt` 互相冲突 → EEXIST / ENOTDIR、占用、磁盘满…)不再抛出裸异常 ——
+      // 修前写了一半的文件无人报告。记在 writeErr 里:这一批里没写成的条目撤掉它们的检查点(描述的是没发生的写入),
+      // 之后的 flush 变成空操作,调用方统一经 failWithWritten 回 {ok:false, partial:true, filesExtracted:N}。
+      let writeErr = null;
       const flush = async () => {
+        if (writeErr) { pending = []; pendingBytes = 0; return; }
         if (!pending.length) return;
         const batch = pending;
         pending = []; pendingBytes = 0;
         const results = await journalRecordMany(jctx.sessionId, jctx.turnSeq, batch.map(b => ({
           tool: 'archive_unzip', filePath: b.absPath, op: b.exists ? 'modify' : 'create', beforeContent: b.exists ? b.before : null })));
         for (const r of results) if (!checkpointWarn) checkpointWarn = journalCheckpointWarn(r); // hunt2 #17
-        for (const b of batch) {
-          await fsp.mkdir(path.dirname(b.absPath), { recursive: true });
-          await fsp.writeFile(b.absPath, b.data);
+        for (let bi = 0; bi < batch.length; bi += 1) {
+          const b = batch[bi];
+          try {
+            await fsp.mkdir(path.dirname(b.absPath), { recursive: true });
+            await fsp.writeFile(b.absPath, b.data);
+          } catch (e) {
+            writeErr = { e, absPath: b.absPath, name: b.name };
+            const rest = batch.slice(bi);
+            const seqs = rest.map((_, k) => results[bi + k] && results[bi + k].entrySeq).filter(Number.isFinite);
+            if (seqs.length) await journalDropEntries(jctx.sessionId, jctx.turnSeq, 'archive_unzip', rest.map(x => x.absPath), seqs).catch(() => ({ ok: false }));
+            return;
+          }
           written.push(b.absPath);
         }
       };
@@ -1468,27 +1634,41 @@ const ARCHIVE_TOOL_HANDLERS = {
         await flush();
         // b2-P1: 部分解压失败必须带 written 计数 —— 模型/用户需要知道已落盘多少文件才能准确回滚/清理
         const o = { ok: false, error: msg, filesExtracted: written.length, bytesExtracted: extractedBytes, ...(extra || {}) };
+        if (writeErr) {
+          // 落盘失败优先于调用方想说的话:带上哪个条目、什么原因(并给 code/hint)。
+          const f = fileToolFsFailure(writeErr.e, writeErr.absPath);
+          Object.assign(o, { error: `解压写入失败: ${(writeErr.e && writeErr.e.message) || String(writeErr.e)}`, path: writeErr.absPath, ...(writeErr.name ? { entry: writeErr.name } : {}), ...(f ? { code: f.code, hint: f.hint } : {}) });
+        }
         if (written.length) o.partial = true;
         if (checkpointWarn) o.checkpointWarn = checkpointWarn;
         return o;
       };
       for (const { rec, absPath } of plan) {
-        if (rec.isDir || rec.name.endsWith('/')) { await fsp.mkdir(absPath, { recursive: true }); continue; }
+        if (rec.isDir || rec.name.endsWith('/')) {
+          try { await fsp.mkdir(absPath, { recursive: true }); }
+          catch (e) { await flush(); writeErr = writeErr || { e, absPath, name: rec.name }; return failWithWritten('目录条目创建失败'); }
+          continue;
+        }
+        if (writeErr) return failWithWritten('解压写入失败');
         let data;
         try { data = await zipReadEntryDataAsync(buf, rec); }   // F9:异步解压 + CRC32/大小核对
         catch (e) { return failWithWritten((e && e.message) || String(e), { entry: rec.name }); }
         extractedBytes += data.length;
         if (extractedBytes > ZIP_MAX_TOTAL) return failWithWritten(`解压总大小超过上限（${Math.round(ZIP_MAX_TOTAL / 1024 / 1024)}MB）`, { hint: '疑似 zip 炸弹，已中止' });
         // 同一批里前面的条目还没落盘:同名条目(包里重复的路径)先把前一批落完再判存在,免得 exists 判错。
-        if (pending.some(b => fileToolWriteLockKey(b.absPath) === fileToolWriteLockKey(absPath))) await flush();
-        const exists = await fsp.stat(absPath).then(() => true).catch(() => false);
+        if (pending.some(b => fileToolWriteLockKey(b.absPath) === fileToolWriteLockKey(absPath))) { await flush(); if (writeErr) return failWithWritten('解压写入失败'); }
+        const exSt = await fsp.stat(absPath).catch(() => null);
+        const exists = !!exSt;
         if (exists && !args.overwrite) return failWithWritten('目标文件已存在', { path: absPath, hint: '若要覆盖请设置 overwrite=true' });
+        // 目标位置是个目录(包里的文件名与已有目录同名):读它当「旧内容」做检查点会抛 EISDIR —— 明说冲突。
+        if (exSt && exSt.isDirectory()) return failWithWritten('目标位置已存在同名目录,无法写成文件', { path: absPath, entry: rec.name, code: 'target_is_directory', hint: '包内的这个文件名与磁盘上的目录冲突;换一个 destDir,或先移走该目录' });
         const before = exists ? await fsp.readFile(absPath) : null;
-        pending.push({ absPath, exists, before, data });
+        pending.push({ absPath, exists, before, data, name: rec.name });
         pendingBytes += data.length + (before ? before.length : 0);
-        if (pending.length >= 200 || pendingBytes >= 32 * 1024 * 1024) await flush();
+        if (pending.length >= 200 || pendingBytes >= 32 * 1024 * 1024) { await flush(); if (writeErr) return failWithWritten('解压写入失败'); }
       }
       await flush();
+      if (writeErr) return failWithWritten('解压写入失败');
       return { ok: true, src, destDir, files: written.length, bytes: extractedBytes,
         ...(records.some(r => r.nameEncoding === 'gb18030') ? { namesDecodedAs: 'gb18030' } : {}), ...(checkpointWarn ? { checkpointWarn } : {}) };
   } },
@@ -1920,6 +2100,8 @@ const CODE_TOOL_HANDLERS = {
       try { audio = await fsp.readFile(p); }
       catch (e) {
         if (e && e.code === 'ENOENT') return { ok: false, error: '文件不存在', path: p, hint: '文件不存在;先用 glob 或 file_list 确认路径' };
+        // 2026-10 走查(R2):路径是个目录(叫 x.wav 的文件夹)/ 被占用 / 无权限 —— 修前是裸 EISDIR 异常。
+        const f = fileToolFsFailure(e, p); if (f) return f;
         throw e;
       }
       if (!audio.length) return { ok: false, error: '空音频文件', path: p };
@@ -2272,7 +2454,16 @@ async function toolCall(name, args = {}, ctx = null) {
   args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
-  return entry.handler(args, ctx);
+  try { return await entry.handler(args, ctx); }
+  catch (e) {
+    // 路径里混进 NUL(\0):Node 在 stat/open 上抛 ERR_INVALID_ARG_VALUE,修前是裸 TypeError 一路抛给模型。
+    // 只认这一类(fsErrorEnvelope 给 bad_path),其余异常照旧向上抛。
+    if (e && e.code === 'ERR_INVALID_ARG_VALUE') {
+      const f = FileTextIo.fsErrorEnvelope(e, String((args && (args.path || args.from || args.src || args.dest || args.root)) || ''));
+      if (f && f.code === 'bad_path') return f;
+    }
+    throw e;
+  }
 }
 
 let LAUNCH_MODE = 'unknown';
