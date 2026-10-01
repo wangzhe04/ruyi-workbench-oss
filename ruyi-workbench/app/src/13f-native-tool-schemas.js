@@ -8,8 +8,8 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false,
       properties: {
         query: { type: 'string', description: 'Optional relevance query. Omit to list newest entries.' },
-        scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all' },
-        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+        scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all', description: 'filter by scope' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'max entries' },
       },
     },
   },
@@ -19,7 +19,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: {
-        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
+        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'id from workbench_memory_list' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Optional unless the same id exists in both scopes.' },
       },
     },
@@ -30,9 +30,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['name', 'description', 'type', 'scope', 'body', 'reason'],
       properties: {
-        name: { type: 'string', minLength: 1, maxLength: 120 },
+        name: { type: 'string', minLength: 1, maxLength: 120, description: 'short title' },
         description: { type: 'string', minLength: 1, maxLength: 400, description: 'When this memory is useful.' },
-        type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'] },
+        type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'habit | project rule | pitfall | pointer, in enum order' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
         body: { type: 'string', minLength: 1, maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
         reason: { type: 'string', minLength: 1, maxLength: 240, description: 'Why this will remain useful across future sessions.' },
@@ -112,9 +112,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        command: { type: 'string' },
+        command: { type: 'string', description: 'command text' },
         cwd: { type: 'string', description: 'default: conversation folder; must exist' },
-        timeoutMs: { type: 'number' },
+        timeoutMs: { type: 'number', description: 'ms, default 60000' },
       },
       required: ['command'],
     },
@@ -143,8 +143,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        shellId: { type: 'string' },
-        input: { type: 'string' },
+        shellId: { type: 'string', description: 'id from shell_start' },
+        input: { type: 'string', description: 'one input line' },
         timeoutMs: { type: 'number', description: 'max settle wait, default 10000' },
         maxChars: { type: 'number', description: 'default 16000, 500..30000' },
       },
@@ -157,7 +157,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        shellId: { type: 'string' },
+        shellId: { type: 'string', description: 'id from shell_start' },
         cursor: { type: 'number', description: 'omit/0 = latest; else previous cursor or omittedFrom' },
         maxChars: { type: 'number', description: 'default 16000, 500..30000' },
         waitMs: { type: 'number', description: 'long-poll for new output/exit, max 30000' },
@@ -185,10 +185,10 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        language: { type: 'string', enum: ['powershell', 'python', 'node', 'javascript'] },
-        code: { type: 'string' },
+        language: { type: 'string', enum: ['powershell', 'python', 'node', 'javascript'], description: 'default powershell' },
+        code: { type: 'string', description: 'script source' },
         cwd: { type: 'string', description: 'default: conversation folder; must exist' },
-        timeoutMs: { type: 'number' },
+        timeoutMs: { type: 'number', description: 'ms, default 60000' },
       },
       required: ['code'],
     },
@@ -218,7 +218,7 @@ const MCP_TOOLS = [
       properties: {
         path: { type: 'string', description: 'absolute or workspace-relative' },
         content: { type: 'string', description: 'full new content' },
-        createDirs: { type: 'boolean' },
+        createDirs: { type: 'boolean', description: 'default true' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk; default: keep existing' },
       },
       required: ['path', 'content'],
@@ -334,15 +334,15 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        root: { type: 'string' },
+        root: { type: 'string', description: 'default: workspace' },
         pattern: { type: 'string', description: 'case-insensitive regex on the relative path, or a glob ("*.js", "**/*.ts"); bad regex -> code:"bad_pattern"' },
-        recursive: { type: 'boolean' },
-        maxFiles: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
-        absolute: { type: 'boolean' },
-        ignoreCase: { type: 'boolean' },
+        recursive: { type: 'boolean', description: 'false = one level' },
+        maxFiles: { type: 'number', description: 'max entries' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
+        absolute: { type: 'boolean', description: 'add absolute paths' },
+        ignoreCase: { type: 'boolean', description: 'false = case-sensitive' },
       },
     },
   },
@@ -352,19 +352,19 @@ const MCP_TOOLS = [
       inputSchema: {
         type: 'object',
         properties: {
-          root: { type: 'string' },
+          root: { type: 'string', description: 'default: workspace' },
           pattern: { type: 'string', minLength: 1, description: 'regex (a literal is fine); invalid regex is searched as literal, patternNote says so' },
-          maxResults: { type: 'number' },
-          maxFiles: { type: 'number' },
-          maxDepth: { type: 'number' },
-          ignoreDirs: { type: 'array', items: { type: 'string' } },
-          includeIgnored: { type: 'boolean' },
+          maxResults: { type: 'number', description: 'max matches' },
+          maxFiles: { type: 'number', description: 'max files' },
+          maxDepth: { type: 'number', description: 'max depth' },
+          ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+          includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
           includeHidden: { type: 'boolean', description: 'also search dot-files/folders (.env, .ssh, .github …)' },
-          ignoreCase: { type: 'boolean' },
+          ignoreCase: { type: 'boolean', description: 'false = case-sensitive' },
           maxFileBytes: { type: 'number', description: 'default 20MB, max 200MB' },
           context: { type: 'number', description: '0-5 context lines per match' },
           glob: { type: 'string', description: 'path glob filter; without "/" matches file names at any depth' },
-          group: { type: 'boolean' },
+          group: { type: 'boolean', description: 'group by file' },
         },
         required: ['pattern'],
       },
@@ -376,12 +376,12 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         pattern: { type: 'string', description: 'e.g. "src/**/test_*.py"' },
-        root: { type: 'string' },
-        maxResults: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
-        absolute: { type: 'boolean' },
+        root: { type: 'string', description: 'default: workspace' },
+        maxResults: { type: 'number', description: 'max files' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
+        absolute: { type: 'boolean', description: 'add absolute paths' },
       },
       required: ['pattern'],
     },
@@ -406,7 +406,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        operation: { type: 'string', enum: ['upsert', 'remove', 'set-enabled', 'set-browser'] },
+        operation: { type: 'string', enum: ['upsert', 'remove', 'set-enabled', 'set-browser'], description: 'set-browser needs browser; others need id' },
         id: { type: 'string', description: 'External MCP id for upsert/remove/set-enabled.' },
         enabled: { type: 'boolean', description: 'For set-enabled.' },
         server: { type: 'object', description: 'For upsert: {id,label,command,args[],cwd,env{},enabled}. Keep credentials only in env and never echo them after saving.' },
@@ -429,7 +429,7 @@ const MCP_TOOLS = [
     description: 'Capture the primary Windows screen to a PNG file',
     inputSchema: {
       type: 'object',
-      properties: { outputPath: { type: 'string' }, timeoutMs: { type: 'number' } },
+      properties: { outputPath: { type: 'string', description: 'PNG path; default: app generated folder' }, timeoutMs: { type: 'number', description: 'ms' } },
     },
   },
   {
@@ -437,7 +437,7 @@ const MCP_TOOLS = [
     description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
     inputSchema: {
       type: 'object',
-      properties: { keys: { type: 'string' }, delayMs: { type: 'number' }, timeoutMs: { type: 'number' } },
+      properties: { keys: { type: 'string', description: 'SendKeys string' }, delayMs: { type: 'number', description: 'ms before send' }, timeoutMs: { type: 'number', description: 'ms' } },
       required: ['keys'],
     },
   },
@@ -447,12 +447,12 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        root: { type: 'string' },
-        maxFiles: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
-        absolute: { type: 'boolean' },
+        root: { type: 'string', description: 'default: workspace' },
+        maxFiles: { type: 'number', description: 'max entries' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
+        absolute: { type: 'boolean', description: 'add absolute paths' },
       },
     },
   },
@@ -520,7 +520,7 @@ const MCP_TOOLS = [
     description: 'Run a lightweight offline code review scan for common security and quality risks',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, maxFindings: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
+      properties: { root: { type: 'string', description: 'default: workspace' }, maxFiles: { type: 'number', description: 'max files' }, maxDepth: { type: 'number', description: 'max depth' }, maxFindings: { type: 'number', description: 'max findings' }, ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' } },
     },
   },
   {
@@ -528,7 +528,7 @@ const MCP_TOOLS = [
     description: 'Audit frontend files for offline asset and UI polish issues',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
+      properties: { root: { type: 'string', description: 'default: workspace' }, maxFiles: { type: 'number', description: 'max files' }, maxDepth: { type: 'number', description: 'max depth' }, ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' } },
     },
   },
   {
@@ -545,13 +545,13 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        root: { type: 'string' },
+        root: { type: 'string', description: 'default: workspace' },
         query: { type: 'string', description: 'regex or plain text' },
-        maxResults: { type: 'number' },
-        maxFiles: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
+        maxResults: { type: 'number', description: 'max matches' },
+        maxFiles: { type: 'number', description: 'max files' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
       },
       required: ['query'],
     },
@@ -562,7 +562,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string' },
+        symbol: { type: 'string', description: 'literal identifier' },
         root: { type: 'string', description: 'default: workspace' },
         kind: { type: 'string', enum: ['any', 'definition', 'reference'], description: 'default any' },
         maxResults: { type: 'number', description: 'default 200' },
@@ -610,7 +610,7 @@ const MCP_TOOLS = [
     description: 'HTTP request to a local/intranet endpoint for API debugging. Object body is sent as JSON; timeoutMs is a hard total deadline; 4xx/5xx return ok:false, error "HTTP <status>", statusCode/body. Honors HTTPS_PROXY/NO_PROXY (loopback/private bypass the proxy).',
     inputSchema: {
       type: 'object',
-      properties: { url: { type: 'string' }, method: { type: 'string' }, headers: { type: 'object' }, body: { description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number' }, maxBodyChars: { type: 'number' } },
+      properties: { url: { type: 'string', description: 'http(s) URL' }, method: { type: 'string', description: 'default GET' }, headers: { type: 'object', description: 'header name/value map' }, body: { type: ['string', 'object'], description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number', description: 'ms, hard deadline' }, maxBodyChars: { type: 'number', description: 'response cap' } },
       required: ['url'],
     },
   },
@@ -635,7 +635,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        url: { type: 'string' },
+        url: { type: 'string', description: 'http(s) URL' },
         maxChars: { type: 'number', description: 'per call, default 20000, max 60000' },
         offset: { type: 'number', description: 'char offset; use the previous nextOffset' },
       },
@@ -718,7 +718,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         milestones: {
-          type: 'array',
+          type: 'array', description: 'merged by id',
           items: {
             type: 'object',
             properties: {
@@ -730,7 +730,7 @@ const MCP_TOOLS = [
             required: ['id'],
           },
         },
-        goal: { type: 'string' },
+        goal: { type: 'string', description: 'new goal text' },
       },
     },
   },
@@ -1237,7 +1237,7 @@ const MCP_TOOLS = [
     description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1245,7 +1245,7 @@ const MCP_TOOLS = [
     description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1253,7 +1253,7 @@ const MCP_TOOLS = [
     description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1261,7 +1261,7 @@ const MCP_TOOLS = [
     description: '删掉一条定时任务的定义(历史执行回执不删——「它当初真的跑过」是既成事实)。何时用:用户明确说这件事不用再做了。何时别用:① 只是想暂时停用 -> steward_schedule_pause;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"},把它作为提议交给用户,不要重试;③ 删之前先确认是哪一条(id 拿错就删错了,而这一步没有撤销键)。返回 {ok,id,deleted,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   // 代理模式 v2(2026-09-24):模型侧只有 orchestrate_agents 一个启动入口(旧 spawn_agent 已并入 —— 单代理写顶层
@@ -1271,12 +1271,12 @@ const MCP_TOOLS = [
   // 完成信封经后台任务账本恰好投递一次。子代理自身拿不到这三个工具(禁嵌套:07 buildOpenAiTools noAgentTools)。
   {
     name: 'orchestrate_agents',
-    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent — pass top-level {task, role?, toolTier?, model?, resources?} and it runs as a one-node run; (2) author `nodes` inline for a one-off DAG; (3) pass `workflowId` to reuse a saved/built-in template (ids and when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since template node tasks are generic placeholders. Prefer (3) for complex multi-step tasks that match a listed template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work to do: the call returns {runId, status:'running'} immediately, the run keeps going even after this turn ends, and its delivery envelope is injected into the conversation exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you must have the result before continuing. The result you receive is a bounded delivery envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; call agent_result({runId, nodeId?}) for the full text of a node. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
+    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent: top-level {task, role?, toolTier?, model?, resources?} runs as a one-node run; (2) inline `nodes` for a one-off DAG; (3) `workflowId` of a saved/built-in template (ids are in the system prompt) plus `context`, a short description of THIS run's subject (template node tasks are generic placeholders). Prefer (3) for complex multi-step tasks matching a template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work: the call returns {runId, status:'running'} at once, the run outlives this turn, and its delivery envelope is injected exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you need the result before continuing. The result is a bounded envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; agent_result({runId, nodeId?}) returns a node's full text. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the grace period. Supports JSON Schema outputs, Reviewer/Verifier gates, voting/dedupe, cross-review, loop progress keys, tool-evidence requirements and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes built to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
     inputSchema: {
       type: 'object',
       properties: {
         nodes: {
-          type: 'array', minItems: 1, maxItems: 64,
+          type: 'array', minItems: 1, maxItems: 64, description: 'DAG nodes; not with task',
           items: {
             type: 'object',
             properties: {

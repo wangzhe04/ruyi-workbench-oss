@@ -82,6 +82,20 @@ function unwrapToolInvokeCall(tc) {
   const inner = (input.arguments && typeof input.arguments === 'object' && !Array.isArray(input.arguments)) ? input.arguments : {};
   return { ...tc, name: target, input: inner };
 }
+// tool_invoke_* 入参归一:name 去首尾空白(修前带空格的 ' file_read ' 报「tool not found」);arguments 给成 JSON 字符串
+// (模型常这么写)时解析成对象 —— 解析不出对象的原样保留,交给入参校验给出「arguments 必须是对象」。
+function normalizeToolInvokeArgs(args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  let out = args;
+  if (typeof out.name === 'string' && out.name !== out.name.trim()) out = { ...out, name: out.name.trim() };
+  if (typeof out.arguments === 'string') {
+    try {
+      const v = JSON.parse(out.arguments);
+      if (v && typeof v === 'object' && !Array.isArray(v)) out = { ...out, arguments: v };
+    } catch { /* 不是 JSON:保持字符串,由入参校验报错 */ }
+  }
+  return out;
+}
 const IRREVERSIBLE_LEDGER_MAX = 50;
 function irreversibleToolKind(name) {
   const n = String(name || '');

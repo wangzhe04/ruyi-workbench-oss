@@ -80,7 +80,11 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // maxFileBytes / waitMs / list / absolute 等新入参与续读/截断键,13f 描述已压到一句话 + 入参描述 ≤80 字符后的实测:
   // codeEdit 26026、offeredDefault 51032;再压就得删新入参的语义,故 codeEdit 23000→26500(仍 ≤ master 的 26526)、
   // offeredDefault 46600→51500。其余不动。
-  const BUDGET = { chitchat: 10500, codeEdit: 26500, fullAll: 46500, offeredDefault: 51500 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // 工具走查 R2(meta 组 item 9):给 ~90 个缺描述的入参补了 ≤30 字符的一句话(file_list/file_search/glob/project_snapshot 的
+  // root·maxFiles·maxDepth·ignoreDirs…、exec 档的 command/timeoutMs、记忆/任务/管家定时的几个入参),同时把 orchestrate_agents
+  // 的描述压短约 270 字符。实测净增:改代码回合 +2038、默认 offered +2165 —— 这是【有意的、一次性的】上调:codeEdit 26500→28200、
+  // offeredDefault 51500→53700;闲聊回合(core 包里没有这些工具)不涨,仍是 10500。之后照旧只减不增。
+  const BUDGET = { chitchat: 10500, codeEdit: 28200, fullAll: 46500, offeredDefault: 53700 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);
