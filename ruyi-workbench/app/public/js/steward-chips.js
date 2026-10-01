@@ -194,6 +194,9 @@ export const STEWARD_TOOL_LABEL_KEYS = Object.freeze({
   // steward_thread_stop 这个内部 id 原样显给用户（§8.1 原则 7：界面不出现系统内部词）。
   steward_thread_stop: 'settings.steward.tool.threadStop',
   steward_thread_note: 'settings.steward.tool.threadNote',
+  // 「没做完就续一轮」达到上限(或计划没往前走)而停下时落的那一行流水 —— 不是 13m 的 ACTION_HOOKS 工具,
+  // 只是行动流水里要给用户一句人话:为什么管家没再自动续。
+  steward_continue_stopped: 'settings.steward.tool.continueStopped',
   // 117z-E2b 提交①：线程权限进了 13m 的 STEWARD_ACTION_HOOKS（desktop:true 恒提议 -> 降级成按钮），
   // 漏登记在这里 = steward-settings.static H5 红，且「行动流水」把 steward_thread_permission 原样显给用户。
   steward_thread_permission: 'settings.steward.tool.threadPermission',

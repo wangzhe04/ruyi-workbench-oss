@@ -953,7 +953,8 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const head = await stewardReadTurnHead(sid);
   if (!head || !head.id) return null;
   const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  if (activeChildren.has(sid)) {
+  if (activeChildren.has(sid) || turnOutcomePending.has(sid)) {
+    // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,
     // 基线必须是【这一回合之前】那个号。turnSeq 在回合【开始】那一刻就 +1 落盘(05:88 / 09:1292,

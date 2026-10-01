@@ -2224,6 +2224,7 @@
         "stopSession",
         "subscribeActiveChildEvents",
         "toolboxComponentsDir",
+        "turnOutcomePending",
         "turnSettlers"
       ],
       "requires": [
@@ -9995,6 +9996,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -10003,6 +10011,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "toolImageSessionTag",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionMeta",
           "kinds": [
             "call"
           ]
@@ -10075,6 +10090,13 @@
           "symbol": "stopSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10177,6 +10199,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -10185,6 +10214,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -15302,6 +15338,13 @@
           ]
         },
         {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "STEWARD_EVENT_KINDS",
           "kinds": [
@@ -17718,6 +17761,10 @@
         "STEWARD_ACT_CONFIRM_LABEL_MAX",
         "STEWARD_ACT_CONFIRM_VALUE_CHARS",
         "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_CONTINUE_FRESH_MS",
+        "STEWARD_CONTINUE_NOPLAN_MAX",
+        "STEWARD_CONTINUE_PLAN_MAX",
+        "STEWARD_CONTINUE_PROMPT",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DECIDE_LABELS",
         "STEWARD_DIGEST_KIND_TEXT",
@@ -18520,6 +18567,7 @@
         "STEWARD_ROUTE_HINT_MAX",
         "STEWARD_ROUTE_HINT_REASON_CHARS",
         "stewardCircuitCheck",
+        "stewardContinueUnfinishedGate",
         "stewardDayCost",
         "stewardDeliverableBlock",
         "stewardDisplayTitleOf",
@@ -18527,6 +18575,7 @@
         "stewardEventLine",
         "stewardExecuteActions",
         "stewardExemptCommandBlock",
+        "stewardHourWindowFull",
         "stewardHumanizeSay",
         "stewardInboxMessage",
         "stewardLastAssistantContent",
@@ -18542,6 +18591,8 @@
         "stewardTargetPermission",
         "stewardTriggerStamp",
         "stewardTurnsInWindow",
+        "stewardUnfinishedBrief",
+        "stewardUnfinishedFacts",
         "stewardUntrustedSummaryNote"
       ],
       "requires": [
@@ -18596,6 +18647,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "detectDanglingTurn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "call"
@@ -18610,9 +18668,30 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readInterventions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_LOAD_OMIT_PROVIDER",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -18653,6 +18732,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardActConfirmSpec",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAsksYouForThread",
           "kinds": [
             "call"
           ]
@@ -18715,7 +18801,21 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardAppendDecision",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardLastAssistantText",
           "kinds": [
             "call"
           ]
@@ -18737,6 +18837,13 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnTaintedBy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13k-steward-threads.js",
+          "symbol": "stewardSeatedByUser",
           "kinds": [
             "call"
           ]
@@ -18772,6 +18879,27 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_ACTS_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_CONTINUE_FRESH_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_CONTINUE_NOPLAN_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_CONTINUE_PROMPT",
           "kinds": [
             "read"
           ]

@@ -3697,4 +3697,7 @@
   ,"settings.skills.templates.deleteTitle": "Delete template"
   ,"settings.skills.templates.deleteBody": "Delete the template “{{name}}”? This cannot be undone."
   ,"settings.skills.templates.deleted": "Deleted template “{{name}}”"
+  ,"settings.steward.auto.continueUnfinished": "Keep an unfinished thread going on its own"
+  ,"settings.steward.auto.continueUnfinishedHint": "When a thread ends a turn but its plan still has open steps, or the \"previous task is unfinished\" banner is showing, the steward presses Continue for you. A thread is continued only a few times in a row and stops when the plan makes no progress; every continuation is logged in the action log."
+  ,"settings.steward.tool.continueStopped": "Unfinished, no more auto-continue"
 }

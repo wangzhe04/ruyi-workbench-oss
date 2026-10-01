@@ -3697,4 +3697,7 @@
   ,"settings.skills.templates.deleteTitle": "删除模板"
   ,"settings.skills.templates.deleteBody": "确定删除模板「{{name}}」吗？不能恢复。"
   ,"settings.skills.templates.deleted": "已删除模板「{{name}}」"
+  ,"settings.steward.auto.continueUnfinished": "任务没做完时，自己让线程接着做"
+  ,"settings.steward.auto.continueUnfinishedHint": "线程这一回合收了，但计划还有没完成的步骤、或界面亮着「上次任务未完成」时，管家替你点一下「继续」。同一条线程最多连续续几次，计划没往前走就停；每一次都记进行动流水。"
+  ,"settings.steward.tool.continueStopped": "没做完，不再自动续"
 }

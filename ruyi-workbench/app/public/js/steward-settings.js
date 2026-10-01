@@ -608,6 +608,7 @@ export function createStewardSettingsDomain({
     if (basis.inboxSeq) parts.push(t('settings.steward.decisions.basisInbox', { seq: String(basis.inboxSeq) }));
     if (basis.auto === true) parts.push(t('settings.steward.decisions.basisAuto'));
     if (basis.origin) parts.push(String(basis.origin));
+    if (basis.reason) parts.push(String(basis.reason));
     if (basis.interventionId) parts.push(String(basis.interventionId));
     if (Array.isArray(basis.memoryIds) && basis.memoryIds.length) {
       parts.push(t('settings.steward.decisions.basisMemory', { count: basis.memoryIds.length }));
@@ -1123,6 +1124,7 @@ export function createStewardSettingsDomain({
       const newThread = byId('cfgStewardAutoNewThread'); if (newThread) newThread.checked = auto.newThread !== false;
       // 129g：代答默认【关】，所以判的是 === true（与 relay 同向，与 retry/newThread 反向）。
       const answer = byId('cfgStewardAutoAnswer'); if (answer) answer.checked = auto.answer === true;
+      const cont = byId('cfgStewardAutoContinue'); if (cont) cont.checked = auto.continueUnfinished !== false;
       const resume = byId('cfgStewardAutoResume');
       if (resume) resume.value = RESUME_TO_SELECT[String(auto.resume)] || '';
       renderProviderSelect();
@@ -1197,12 +1199,13 @@ export function createStewardSettingsDomain({
         relay: byId('cfgStewardAutoRelay') ? byId('cfgStewardAutoRelay').checked === true : false,
         newThread: byId('cfgStewardAutoNewThread') ? byId('cfgStewardAutoNewThread').checked === true : true,
         answer: byId('cfgStewardAutoAnswer') ? byId('cfgStewardAutoAnswer').checked === true : false,
+        continueUnfinished: byId('cfgStewardAutoContinue') ? byId('cfgStewardAutoContinue').checked === true : true,
       };
     };
     // 这张名单漏一个键 = 那个键被【静默重置】：autoPatch() 整份覆写 stewardAutoActions，
     // 用户随手勾一下别的框就把漏掉的那一格打回默认，而界面上什么都看不出来。
     // 机械锁在 dev-harness/steward-config.static.e2e.js：后端 DEF_AA 的每个键都必须在这里出现。
-    for (const id of ['cfgStewardAutoRetry', 'cfgStewardAutoResume', 'cfgStewardAutoRelay', 'cfgStewardAutoNewThread', 'cfgStewardAutoAnswer']) {
+    for (const id of ['cfgStewardAutoRetry', 'cfgStewardAutoResume', 'cfgStewardAutoRelay', 'cfgStewardAutoNewThread', 'cfgStewardAutoAnswer', 'cfgStewardAutoContinue']) {
       onChange(id, () => saveConfig({ stewardAutoActions: autoPatch() }));
     }
 
