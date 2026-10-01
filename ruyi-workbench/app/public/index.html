@@ -1277,6 +1277,8 @@
               <p class="field-help muted" data-i18n="settings.steward.auto.relayHint">同一件事里，上一条线程的结论自动交给下一条；关掉就只提议。</p>
               <label class="check"><input type="checkbox" id="cfgStewardAutoNewThread" /> <span data-i18n="settings.steward.auto.newThread">需要时自己新开线程</span></label>
               <p class="field-help muted" data-i18n="settings.steward.auto.newThreadHint">定时任务到点、或接力需要一条新线程时，管家自己开一条，不再等你按。</p>
+              <label class="check"><input type="checkbox" id="cfgStewardAutoContinue" /> <span data-i18n="settings.steward.auto.continueUnfinished">任务没做完时，自己让线程接着做</span></label>
+              <p class="field-help muted" data-i18n="settings.steward.auto.continueUnfinishedHint">线程这一回合收了，但计划还有没完成的步骤、或界面亮着「上次任务未完成」时，管家替你点一下「继续」。同一条线程最多连续续几次，计划没往前走就停；每一次都记进行动流水。</p>
               <!-- 129g（31 号文 §2.5）：代答。独立一格，不搭在「事项内自动交接」上——那一格是让上一条线程的结论流到下一条，与「替我说话」是两件事。默认关。 -->
               <label class="check"><input type="checkbox" id="cfgStewardAutoAnswer" /> <span data-i18n="settings.steward.auto.answer">你不在时，管家可以替你回答线程的提问</span></label>
               <p class="field-help muted" data-i18n="settings.steward.auto.answerHint">只在答案有出处时才答：出处必须是管家记忆里的一条，或者你那份委托书里的原话，服务端逐条核实。没有出处、这一回合读过网页、或者那条线程不是「智能自动」档，都照旧转给你。每一次代答都记进行动流水，可以回退。</p>

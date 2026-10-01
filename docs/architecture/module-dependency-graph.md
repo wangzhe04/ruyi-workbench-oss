@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 67 | 3232 | 2995 | 524 | 68 | 0 | 1 |
+| 67 | 3240 | 3006 | 525 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -71,10 +71,10 @@
 | 53 | `13k-steward-threads.js` | transport | 47 | 111 | 15 |
 | 54 | `13l-steward-ops.js` | transport | 36 | 104 | 17 |
 | 55 | `13g-steward.js` | transport | 12 | 66 | 9 |
-| 56 | `13m-steward-runner-base.js` | transport | 42 | 16 | 7 |
+| 56 | `13m-steward-runner-base.js` | transport | 46 | 16 | 7 |
 | 57 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
 | 58 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
-| 59 | `13p-steward-runner-actions.js` | transport | 29 | 48 | 10 |
+| 59 | `13p-steward-runner-actions.js` | transport | 33 | 59 | 11 |
 | 60 | `13q-steward-runner-turn.js` | transport | 31 | 65 | 18 |
 | 61 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 62 | `13r-event-stream.js` | transport | 23 | 17 | 6 |
@@ -510,13 +510,14 @@
 | `13o-steward-runner-prompt.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
 | `13p-steward-runner-actions.js` | `00-boot.js` | backward | `forEachUsageRow`, `text`, `usageDayKey`, `usageDayKeyMemo`, `usageRangeLowerMs` |
 | `13p-steward-runner-actions.js` | `01-config.js` | backward | `configValueEquals`, `safeSessionId` |
-| `13p-steward-runner-actions.js` | `02-session-store.js` | backward | `loadSession`, `mutateSession`, `sessionDisplayTitle` |
-| `13p-steward-runner-actions.js` | `04-permission-runtime.js` | backward | `logEvent` |
+| `13p-steward-runner-actions.js` | `02-session-store.js` | backward | `SESSION_LOAD_OMIT_PROVIDER`, `detectDanglingTurn`, `loadSession`, `mutateSession`, `readInterventions`, `sessionDisplayTitle` |
+| `13p-steward-runner-actions.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `13p-steward-runner-actions.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
-| `13p-steward-runner-actions.js` | `06i-steward-core.js` | backward | `STEWARD_ANSWER_BASIS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardActConfirmSpec`, `stewardHumanizeIds`, `stewardMayAct`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStoppedRefusal`, `stewardStoppedTarget` |
-| `13p-steward-runner-actions.js` | `13j-steward-tool-base.js` | backward | `stewardFail`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnTaintedBy` |
+| `13p-steward-runner-actions.js` | `06i-steward-core.js` | backward | `STEWARD_ANSWER_BASIS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardActConfirmSpec`, `stewardAsksYouForThread`, `stewardHumanizeIds`, `stewardMayAct`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStoppedRefusal`, `stewardStoppedTarget` |
+| `13p-steward-runner-actions.js` | `13j-steward-tool-base.js` | backward | `stewardAppendDecision`, `stewardFail`, `stewardLastAssistantText`, `stewardReadSessionHead`, `stewardThreadPermissionMode`, `stewardTurnTaintedBy` |
+| `13p-steward-runner-actions.js` | `13k-steward-threads.js` | backward | `stewardSeatedByUser` |
 | `13p-steward-runner-actions.js` | `13l-steward-ops.js` | backward | `stewardReadRunSnapshot`, `stewardRunResumeTier` |
-| `13p-steward-runner-actions.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_INBOX_DELIVERABLE_CHARS`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_INBOX_EVENT_CHARS`, `STEWARD_INBOX_MESSAGE_CHARS`, `STEWARD_NO_PROGRESS_MAX`, `STEWARD_SELF_SERVE_ATTEMPT_MAX`, `STEWARD_SELF_SERVE_PER_TURN_MAX`, `STEWARD_SELF_SERVE_RETRY_WINDOW_MS`, `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `stewardFailureExplain`, `stewardRunnerRuntime` |
+| `13p-steward-runner-actions.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_ACTS_MAX`, `STEWARD_ACT_LABEL_MAX`, `STEWARD_CONTINUE_FRESH_MS`, `STEWARD_CONTINUE_NOPLAN_MAX`, `STEWARD_CONTINUE_PROMPT`, `STEWARD_INBOX_DELIVERABLE_CHARS`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_INBOX_EVENT_CHARS`, `STEWARD_INBOX_MESSAGE_CHARS`, `STEWARD_NO_PROGRESS_MAX`, `STEWARD_SELF_SERVE_ATTEMPT_MAX`, `STEWARD_SELF_SERVE_PER_TURN_MAX`, `STEWARD_SELF_SERVE_RETRY_WINDOW_MS`, `STEWARD_TURN_DAY_MS`, `STEWARD_TURN_WINDOW_MS`, `stewardFailureExplain`, `stewardRunnerRuntime` |
 | `13p-steward-runner-actions.js` | `13o-steward-runner-prompt.js` | backward | `stewardActConfirmLines`, `stewardActLabel`, `stewardNormalizeAct` |
 | `13q-steward-runner-turn.js` | `00-boot.js` | backward | `RUYI_EVENTS`, `fsp`, `nowIso`, `path` |
 | `13q-steward-runner-turn.js` | `01-config.js` | backward | `atomicWriteJson`, `readConfig`, `safeSessionId` |
