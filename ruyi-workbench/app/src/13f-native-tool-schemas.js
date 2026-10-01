@@ -129,11 +129,11 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'working directory (defaults to the current working folder of this conversation)' },
-        name: { type: 'string', description: 'human-readable label' },
+        cwd: { type: 'string', description: 'default: conversation folder' },
+        name: { type: 'string', description: 'label' },
         command: { type: 'string', description: 'Optional finite PowerShell command to run in the background; shell_poll.running becomes false on completion. Do not send input to this mode.' },
         timeoutMs: { type: 'number', description: 'Background command deadline (default 30 minutes, maximum 24 hours). Polling does not extend it.' },
-        shellId: { type: 'string', description: 'optional deterministic id ([a-zA-Z0-9_-]{1,32}); auto-generated if omitted' },
+        shellId: { type: 'string', description: 'optional id [a-zA-Z0-9_-]{1,32}' },
       },
     },
   },
@@ -321,9 +321,9 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         url: { type: 'string', description: '要下载的 http(s) 网址' },
-        dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）' },
+        dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）；文件夹（或以 / 结尾）则存进其中' },
         maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
-        timeoutMs: { type: 'number', description: '单请求超时（毫秒），默认 30s' },
+        timeoutMs: { type: 'number', description: '总期限（毫秒），默认空闲30s/总30分钟' },
       },
       required: ['url', 'dest'],
     },
@@ -434,10 +434,10 @@ const MCP_TOOLS = [
   },
   {
     name: 'keyboard_send_keys',
-    description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
+    description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4) unless literal:true (plain text). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
     inputSchema: {
       type: 'object',
-      properties: { keys: { type: 'string', description: 'SendKeys string' }, delayMs: { type: 'number', description: 'ms before send' }, timeoutMs: { type: 'number', description: 'ms' } },
+      properties: { keys: { type: 'string', description: 'SendKeys string' }, literal: { type: 'boolean', description: 'true = type as plain text' }, delayMs: { type: 'number', description: 'ms before send' }, timeoutMs: { type: 'number', description: 'ms' } },
       required: ['keys'],
     },
   },
@@ -607,7 +607,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'http_request',
-    description: 'HTTP request to a local/intranet endpoint for API debugging. Object body is sent as JSON; timeoutMs is a hard total deadline; 4xx/5xx return ok:false, error "HTTP <status>", statusCode/body. Honors HTTPS_PROXY/NO_PROXY (loopback/private bypass the proxy).',
+    description: 'HTTP request to a local/intranet endpoint for API debugging. Object body is sent as JSON; timeoutMs is a hard total deadline; 4xx/5xx return ok:false with statusCode/body. Redirects are not followed (3xx returns `location`); binary responses return binary:true, no body (use http_download). Honors HTTPS_PROXY/NO_PROXY (loopback/private bypass the proxy).',
     inputSchema: {
       type: 'object',
       properties: { url: { type: 'string', description: 'http(s) URL' }, method: { type: 'string', description: 'default GET' }, headers: { type: 'object', description: 'header name/value map' }, body: { description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number', description: 'ms, hard deadline' }, maxBodyChars: { type: 'number', description: 'response cap' } },
@@ -631,7 +631,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'web_fetch',
-    description: 'Fetch a public http(s) page: extracted main text + title (links as "text [n]", URLs in `links`; GBK/Big5 decoded). Non-text URLs (PDF, images, zip, Office) are refused: use http_download. ≤3 redirects, 30s, ≤2MB; internal/loopback addresses refused. Long pages are paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline serves a cached copy if any (fromCache:true).',
+    description: 'Fetch a public http(s) page: extracted main text + title (links as "text [n]", URLs in `links`; GBK/Big5 decoded). Non-text URLs (PDF, images, zip, Office) are refused: use http_download. ≤3 redirects, 30s, ≤2MB; internal/loopback addresses refused. Paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline serves a cached copy if any (fromCache:true).',
     inputSchema: {
       type: 'object',
       properties: {

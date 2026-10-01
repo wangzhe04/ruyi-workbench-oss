@@ -151,6 +151,10 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       let abortHandler = null;
       const isBudgetKill = () => Boolean(signal && signal.reason === 'tool_time_budget');
       const abortSuffix = () => isBudgetKill() ? '\n[已触发工具时间预算硬上限;进程树已回收]' : '\n[interrupted by user steer; process tree killed]';
+      // 可执行文件本身找不到(ENOENT 且工作目录是存在的 —— 目录不存在时 Node 报的也是 ENOENT,那是另一回事):
+      // 带上 commandNotFound 标记,让调用方(12 的 powershell 系工具)把裸的「spawn powershell.exe ENOENT」换成人话,
+      // 而不是各自去解析 stderr 文案。
+      const commandMissing = extra => !!(extra && extra.spawnError && extra.spawnError.code === 'ENOENT' && !(options.cwd && !fs.existsSync(options.cwd)));
       // 收尾载荷。code = 退出码;extra.spawnError / extra.exitNote / extra.forceFail 见各调用点。
       const compose = (code, extra = {}) => {
         const ok = !extra.forceFail && code === 0 && !timedOut && !interrupted;
@@ -159,7 +163,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
         if (!shape) {
           const stdout = decodeBestEffort(Buffer.concat(outS.chunks));
           const stderr = decodeBestEffort(Buffer.concat(errS.chunks)) + suffix;
-          return { ok, code, stdout, stderr, elapsedMs: Date.now() - start, timedOut, interrupted, ...(budgetKilled ? { budgetKilled: true } : {}), ...(extra.exitNote ? { note: extra.exitNote } : {}) };
+          return { ok, code, stdout, stderr, elapsedMs: Date.now() - start, timedOut, interrupted, ...(budgetKilled ? { budgetKilled: true } : {}), ...(extra.exitNote ? { note: extra.exitNote } : {}), ...(commandMissing(extra) ? { commandNotFound: true } : {}) };
         }
         const sh = shapeExecStreams(streamSrc(outS), streamSrc(errS));
         const payload = { ok, code, timedOut, interrupted };
@@ -189,6 +193,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
           payload.hint = payload.hint ? payload.hint + ';' + h : h;
         }
         if (extra.exitNote) payload.note = extra.exitNote;
+        if (commandMissing(extra)) payload.commandNotFound = true;
         payload.stderr = sh.stderr + suffix;
         if (sh.stderrOmitted) payload.stderrOmitted = sh.stderrOmitted;
         payload.stdout = sh.stdout;

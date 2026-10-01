@@ -228,15 +228,44 @@ function shellShapeOutput(slice, cap, paging) {
     hint: '输出过长,只返回了开头和最新一段;中间被省略的部分可用 cursor=omittedFrom 分页读回' };
 }
 
+// PowerShell 不可用时的统一回复:非 Windows(Linux / macOS)没有 powershell.exe,Windows 上则是 PATH 被改坏 / 精简系统。
+// 修前各个工具把 Node 的 `spawn powershell.exe ENOENT` 原样甩给模型(shell_start 甚至回 ok:true 的死会话),模型无从判断「是环境没有」还是「命令写错了」。
+function powershellUnavailable(extra = {}) {
+  const win = process.platform === 'win32';
+  return {
+    ok: false,
+    code: win ? 'powershell_missing' : 'windows_only',
+    error: win ? '没有找到 PowerShell(powershell.exe 不在 PATH 上)' : `本机不是 Windows(${process.platform}),没有 powershell.exe;这个工具依赖 Windows PowerShell,在此无法使用`,
+    hint: extra.hint || (win ? '确认 Windows PowerShell 5.1 可用(系统自带),并且 %SystemRoot%\\System32\\WindowsPowerShell\\v1.0 在 PATH 上' : '改用 script_run 的 language:"python" 或 "node" 来执行脚本'),
+  };
+}
+// runProcess / runPowerShell 的结果里带 commandNotFound(找不到 powershell.exe 本身)→ 换成上面的统一回复;其余原样。
+function powershellMissingOr(result, hint) {
+  return result && result.commandNotFound ? powershellUnavailable(hint ? { hint } : {}) : result;
+}
+// 持久 shell 的数量上限。cap(config.shellSessionMax,默认 3)是【每个会话】的:shell_list / shell_kill 本来就只看得见、管得了本会话开的
+// (见 shellVisibleTo),修前上限却是全进程共用的 —— 会话 B 被「已达上限 3」拒绝,自己的 shell_list 却是空的、也杀不掉 A 开的。
+// 全局另设一个安全上限(防止多会话 / 多子代理合起来把机器的进程撑爆),它与每会话上限取大者。
+const SHELL_GLOBAL_MAX = 12;
+// -EncodedCommand 把命令按 UTF-16LE 再 Base64,体积约 2.67 倍;Windows 命令行总长上限 32767 字符(Linux 单个参数 128KB 的 E2BIG)。
+// 编码后超过这个值直接给人话,不让 CreateProcess 抛「文件名或扩展名太长」。≈ 12000 字符的命令。
+const SHELL_ENCODED_COMMAND_MAX = 32000;
+
 // Spawn a persistent powershell child. Returns { ok, shellId, name, cwd } or { ok:false, error, hint }.
-function shellStart(args, config, ctx = {}) {
+// 异步:要等到子进程【真的起来了】(spawn 事件)才回 ok —— 没有 powershell.exe 时 spawn 的 ENOENT 是异步 error 事件,修前回 ok:true 却是个死会话。
+async function shellStart(args, config, ctx = {}) {
   const max = (config && Number.isFinite(config.shellSessionMax)) ? config.shellSessionMax : 3;
   // The cap counts LIVE sessions only. Exited (running:false) sessions stay in the Map so their output
   // tail remains pollable — that's their value — but they must not eat concurrency slots (a naturally
   // exited shell would otherwise block new starts with a confusing "limit reached").
-  const active = [...shellSessions.values()].filter(s => s.running).length;
-  if (active >= max) {
-    return { ok: false, error: `已达 shell 会话上限 ${max}`, hint: '先 shell_kill 释放(shell_list 可见全部,含已退出)' };
+  const live = [...shellSessions.values()].filter(s => s.running);
+  const mine = live.filter(s => shellVisibleTo(s, ctx)).length;
+  if (mine >= max) {
+    return { ok: false, error: `本会话的 shell 已达上限 ${max}(运行中 ${mine} 个)`, hint: '先 shell_kill 释放(shell_list 可见本会话全部,含已退出)' };
+  }
+  const globalMax = Math.max(SHELL_GLOBAL_MAX, max);
+  if (live.length >= globalMax) {
+    return { ok: false, error: `工作台全局 shell 数已达安全上限 ${globalMax}(含其它会话开的 ${live.length - mine} 个,本会话看不到也杀不了它们)`, hint: '稍后再试,或等其它会话 / 线程的 shell 结束、被空闲回收' };
   }
   let shellId = args.shellId;
   if (shellId !== undefined && shellId !== null && shellId !== '') {
@@ -262,7 +291,12 @@ function shellStart(args, config, ctx = {}) {
     // rather than an interactive prompt that stays alive forever after its command completed.
     const script = "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
       + "\n}\nif (-not $?) { exit 1 }\nexit $LASTEXITCODE\n} catch { [Console]::Error.WriteLine($_.ToString()); exit 1 }";
-    launchArgs.push('-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'));
+    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    if (encoded.length > SHELL_ENCODED_COMMAND_MAX) {
+      return { ok: false, code: 'command_too_long', error: `命令太长(${command.length} 字符),超过命令行长度上限(约 12000 字符)`,
+        hint: '把长脚本用 script_run 执行(代码落成文件再运行,没有这个长度限制),或先 file_write 写成 .ps1 再在 shell_start 里 & 调用它' };
+    }
+    launchArgs.push('-NonInteractive', '-EncodedCommand', encoded);
   }
   let child;
   try {
@@ -304,6 +338,7 @@ function shellStart(args, config, ctx = {}) {
     if (finalized) return;
     finalized = true;
     clearTimeout(deadline);
+    if (sess.spawnFailed) return; // 根本没起来的进程不算一次「作业完成」:不弹完成通知、不留死会话(shellStart 已回 ok:false)
     if (exitTimer) { clearTimeout(exitTimer); exitTimer = null; }
     if (idleFlush) { clearTimeout(idleFlush); idleFlush = null; }
     shellAppend(sess, outDecoder.end() + errDecoder.end());
@@ -334,10 +369,24 @@ function shellStart(args, config, ctx = {}) {
   };
   child.stdout?.on('data', d => feed(outDecoder, d));
   child.stderr?.on('data', d => feed(errDecoder, d));
-  child.on('error', err => { clearTimeout(deadline); shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
+  let spawned = false;
+  child.once('spawn', () => { spawned = true; });
+  child.on('error', err => { clearTimeout(deadline); if (!spawned) sess.spawnFailed = true; shellAppend(sess, `\n[shell error] ${err && err.message ? err.message : err}\n`); sess.running = false; });
   if (command) child.on('exit', code => { exitInfoCode = code; exitAt = Date.now(); armExitTimer(); });
   child.on('close', code => finalize(code));
   shellSessions.set(shellId, sess);
+  // 等子进程真的起来(或起不来):起不来就别留一个 running:false 的空壳,直接说明原因。
+  const spawnErr = await new Promise(resolve => {
+    if (spawned) { resolve(null); return; }
+    child.once('spawn', () => resolve(null));
+    child.once('error', e => resolve(e || new Error('spawn failed')));
+  });
+  if (spawnErr) {
+    clearTimeout(deadline);
+    shellSessions.delete(shellId);
+    if (spawnErr.code === 'ENOENT') return powershellUnavailable();
+    return { ok: false, error: `无法启动 PowerShell:${(spawnErr && spawnErr.message) || spawnErr}` };
+  }
   return { ok: true, shellId, name, cwd, mode, ...(command ? { jobId: sess.jobId, notification: sess.sessionId ? 'session_push' : 'unbound', running: true, timeoutMs, cursor: 0 } : {}) };
 }
 
@@ -3128,19 +3177,71 @@ function classifyFetchedBody(contentType, buf) {
   return { kind: 'text', type };
 }
 
+// ── 响应体的 Content-Encoding 解码(web_fetch / http_download / http_request 共用)──────────────────────────────────
+// 我们不发 Accept-Encoding,但有的服务器 / CDN 仍然回 gzip / br:修前 web_fetch 把压缩字节当文本解码成乱码,http_download
+// 把压缩字节原样存盘(.txt 打开是 1f 8b 开头的二进制)。现在按响应头逐层解开(gzip / deflate / br / zstd,多层按相反顺序)。
+// 大小上限看的是【解压后】的字节(调用方在解码后的流上数字节、超限即掐断)—— 一个几 KB 的压缩炸弹解开几个 GB,不能只卡压缩前的长度。
+// 截断的压缩流(对端中途断开)用 Z_SYNC_FLUSH 容忍:拿到多少解多少,而不是整体报错。
+// deflate 在野外既有 zlib 封装(RFC 1950)也有裸 deflate(RFC 1951),按首两字节的 zlib 头判别。
+function createDeflateAutoStream() {
+  const { Transform } = require('stream');
+  const z = require('zlib');
+  let inner = null;
+  const t = new Transform({
+    transform(chunk, _enc, cb) {
+      if (!inner) {
+        const zlibWrapped = chunk.length < 2 || (((chunk[0] & 0x0f) === 8) && (((chunk[0] << 8) | chunk[1]) % 31 === 0));
+        inner = zlibWrapped ? z.createInflate({ finishFlush: z.constants.Z_SYNC_FLUSH }) : z.createInflateRaw({ finishFlush: z.constants.Z_SYNC_FLUSH });
+        inner.on('data', d => { t.push(d); });
+        inner.on('error', e => t.destroy(e));
+        inner.on('end', () => { t.push(null); });
+      }
+      inner.write(chunk, cb);
+    },
+    flush(cb) { if (!inner) { cb(); return; } inner.end(); cb(); },
+    destroy(err, cb) { try { if (inner) inner.destroy(); } catch { /* ignore */ } cb(err); },
+  });
+  return t;
+}
+// → { stream, encoding, decoders } 或 { unsupported: '<编码名>' }。encoding 为 null = 没有内容编码,stream 就是 res 本身。
+function responseBodyStream(res) {
+  const names = String((res.headers && res.headers['content-encoding']) || '').toLowerCase().split(',').map(x => x.trim()).filter(x => x && x !== 'identity');
+  if (!names.length) return { stream: res, encoding: null, decoders: [] };
+  const z = require('zlib');
+  const decoders = [];
+  for (const enc of names.slice().reverse()) {
+    let d = null;
+    if (enc === 'gzip' || enc === 'x-gzip') d = z.createGunzip({ finishFlush: z.constants.Z_SYNC_FLUSH });
+    else if (enc === 'deflate') d = createDeflateAutoStream();
+    else if (enc === 'br') d = z.createBrotliDecompress();
+    else if (enc === 'zstd' && typeof z.createZstdDecompress === 'function') d = z.createZstdDecompress();
+    else { for (const x of decoders) { try { x.destroy(); } catch { /* ignore */ } } return { unsupported: enc }; }
+    decoders.push(d);
+  }
+  let stream = res;
+  for (const d of decoders) stream = stream.pipe(d);
+  return { stream, encoding: names.join(', '), decoders };
+}
+// 取消一个已建好的解码链(掐连接 / 超限 / 中断时调用,免得解码器挂着)。
+function destroyBodyDecoders(body) {
+  for (const d of ((body && body.decoders) || [])) { try { d.destroy(); } catch { /* ignore */ } }
+}
+
 // Low-level http(s) GET with a redirect chain, re-running ssrfCheck on EVERY hop (≤maxRedirects). Returns
 // { ok, status, finalUrl, body(Buffer, ≤maxBytes), truncated } on success, else { ok:false, error, failClass,
 //  statusCode?, blocked? }. v1.1-W1a: a 'reset' failure (对端掐线 / aborted) is retried ONCE automatically
 // before surfacing — anti-scrape edges often reset the first probe but serve the second. Never throws.
+// signal(可选 AbortSignal)= 用户中断:中断即返回 failClass:'aborted' 并掐断连接。
 // timeoutMs 是【空闲】超时(下载大文件靠它);totalTimeoutMs(可选)是整条重定向链的硬期限 —— 修前对端每 400ms 滴一个字节,
 // timeoutMs:1000 的请求能挂 4.8 秒(NE-11)。走代理(NE-10)时 DNS 预检照跑、只是不锁定连接地址,见上文。
-function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTimeoutMs = 0, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, _retriedReset = false } = {}) {
+function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTimeoutMs = 0, maxBytes = 2 * 1024 * 1024, userAgent = BROWSER_UA, rejectOverMaxBytes = false, signal = null, _retriedReset = false } = {}) {
   return new Promise(resolveOuter => {
-    let hops = 0, settled = false, usedProxy = false, curReq = null, overall = null;
+    let hops = 0, settled = false, usedProxy = false, curReq = null, overall = null, onAbort = null;
     const startedAt = performance.now();
     const resolve = v => {
       if (settled) return; settled = true;
       if (overall) clearTimeout(overall);
+      if (signal && onAbort) { try { signal.removeEventListener('abort', onAbort); } catch { /* ignore */ } }
       if (usedProxy && v && typeof v === 'object') v.viaProxy = true;
       resolveOuter(v);
     };
@@ -3149,6 +3250,15 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
         resolve({ ok: false, error: `timeout after ${totalTimeoutMs}ms (total)`, failClass: 'timeout' });
         try { if (curReq) curReq.destroy(); } catch { /* ignore */ }
       }, Math.min(totalTimeoutMs, 2147483647));
+    }
+    // 用户中断(Stop / 插话)必须能取消正在进行的下载:修前 signal 根本没传进来,Stop 之后连接还挂着直到抓完。
+    if (signal) {
+      onAbort = () => {
+        resolve({ ok: false, error: '请求已被用户中断', failClass: 'aborted' });
+        try { if (curReq) curReq.destroy(); } catch { /* ignore */ }
+      };
+      if (signal.aborted) { onAbort(); return; }
+      signal.addEventListener('abort', onAbort, { once: true });
     }
     const visit = async current => {
       if (settled) return;
@@ -3201,9 +3311,19 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
             return;
           }
         }
+        const body = responseBodyStream(res);
+        if (body.unsupported) {
+          res.resume();
+          resolve({ ok: false, error: `服务器返回了本工具不支持的内容编码(Content-Encoding: ${body.unsupported})`, failClass: 'other' });
+          return;
+        }
         const chunks = [];
         let total = 0, truncated = false;
-        res.on('data', d => {
+        const done = () => ({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null,
+          contentDisposition: res.headers['content-disposition'] || null, ...(body.encoding ? { decodedFrom: body.encoding } : {}) });
+        // 解码链上的错误(损坏的压缩流)要接住,否则是 uncaughtException。
+        for (const d of body.decoders) d.on('error', e => { resolve({ ok: false, error: `响应体解压失败(Content-Encoding: ${body.encoding}):${(e && e.message) || e}`, failClass: 'other' }); try { res.destroy(); } catch { /* ignore */ } });
+        body.stream.on('data', d => {
           if (truncated) return;
           total += d.length;
           if (total > maxBytes) {
@@ -3211,13 +3331,15 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
             truncated = true;
             // 先把截到上限的正文交出去,再掐连接:修前先 destroy,res 先发 'error' 后发 'end',整次抓取被报成
             // 「对方服务器中断了连接(可能有反爬限制)」—— 任何超过上限(web_fetch 默认 2MB)的页面都抓不下来。
-            resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null });
+            // maxBytes 数的是【解码后】的字节(压缩炸弹在这里被掐断)。
+            resolve(done());
+            destroyBodyDecoders(body);
             try { req.destroy(); } catch { /* ignore */ }
             return;
           }
           chunks.push(d);
         });
-        res.on('end', () => resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null }));
+        body.stream.on('end', () => resolve(done()));
         res.on('error', e => resolve({ ok: false, error: (e && e.message) || 'response error', failClass: classifyFetchError(e) }));
       };
       const onErr = async e => {
@@ -3233,7 +3355,7 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
           // 重试只用剩余的总期限,不重新计满(否则总时长可到 2 倍)。
           let remaining = totalTimeoutMs;
           if (totalTimeoutMs > 0) { remaining = totalTimeoutMs - (performance.now() - startedAt); if (remaining <= 0) { resolve({ ok: false, error: `timeout after ${totalTimeoutMs}ms (total)`, failClass: 'timeout' }); return; } }
-          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, totalTimeoutMs: remaining, maxBytes, userAgent, _retriedReset: true });
+          const retry = await httpGetGuarded(rawUrl, { maxRedirects, timeoutMs, totalTimeoutMs: remaining, maxBytes, userAgent, signal, rejectOverMaxBytes, _retriedReset: true });
           resolve(retry); return;
         }
         resolve({ ok: false, error: (e && e.message) || 'request error', failClass });
@@ -3277,7 +3399,7 @@ function webFetchPageLinks(pageText, links) {
   }
   return { links: out, linksTruncated: cut };
 }
-async function webFetch(args = {}) {
+async function webFetch(args = {}, opts = {}) {
   const url = String(args.url || '').trim();
   const maxChars = Math.min(WEB_FETCH_MAX_CHARS, Math.max(500, Number(args.maxChars) || WEB_FETCH_DEFAULT_CHARS));
   const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
@@ -3309,7 +3431,7 @@ async function webFetch(args = {}) {
     const age = hit && hit.ts ? Date.parse(hit.ts) : NaN;
     if (hit && Number.isFinite(age) && Date.parse(nowIso()) - age < WEB_FETCH_PAGE_TTL_MS) return pageOf(hit, { fromCache: true });
   }
-  const got = await httpGetGuarded(url, { totalTimeoutMs: 30000 });
+  const got = await httpGetGuarded(url, { totalTimeoutMs: 30000, signal: (opts && opts.signal) || null });
   if (got.ok && got.body) {
     const kind = classifyFetchedBody(got.contentType, got.body);
     if (kind.kind === 'binary') {
@@ -3342,8 +3464,13 @@ async function webFetch(args = {}) {
   if (got.blocked) return { ok: false, error: got.error, blocked: got.blocked };
   // v1.1-W1a (T1): the fetch failed. Map the structured failClass to 中文人话 — NEVER blindly claim "离线".
   const mapped = webFetchFailMessage(got);
-  // Cache fallback still applies (an air-gapped session reuses a prior fetch).
-  const cached = await readWebCache(url);
+  // 用户中断:不是网络故障,不回落缓存、不做联网探测,如实说「被中断」。
+  if (got.failClass === 'aborted') return { ok: false, error: mapped.error, failClass: 'aborted' };
+  // Cache fallback still applies (an air-gapped session reuses a prior fetch) —— 但只在【网络故障】时。
+  // 对端明确答复「页面不存在 / 已删除」(HTTP 404 / 410)是权威的答复:修前这里也回落缓存,抓过一次的页面被删后,
+  // 再抓回 ok:true + fromCache:true,把已下线的页面当成功读出来。这两个状态码不读缓存,照实报错。
+  const pageGone = got.failClass === 'http' && (got.statusCode === 404 || got.statusCode === 410);
+  const cached = pageGone ? null : await readWebCache(url);
   if (cached) return pageOf(cached, { fromCache: true, staleReason: mapped.error });
   // No cache. Decide the hint by a FAST live probe (multi-target, 2s) — only if that also fails do we say 离线.
   // 走了代理时不做这一探:探测走的是本机直连,代理网络里它必然失败,会把「代理没配好」误报成「当前疑似离线」。
@@ -3370,6 +3497,7 @@ function webFetchFailMessage(got) {
     case 'reset': return { error: '对方服务器中断了连接(可能有反爬限制)', hint: '可尝试用 web_search 搜索该内容替代' };
     case 'tls': return { error: 'HTTPS 证书/握手失败', hint: '该站点的安全证书异常,谨慎访问' };
     case 'timeout': return { error: '抓取超时', hint: '网站响应过慢,稍后重试或换个来源' };
+    case 'aborted': return { error: '请求已被用户中断', hint: '' };
     case 'http': {
       if (code === 403 || code === 401) return { error: `网站拒绝了请求(HTTP ${code},可能反爬)`, hint: '可尝试用 web_search 搜索该内容替代' };
       if (code === 429) return { error: `请求过于频繁被限流(HTTP ${code})`, hint: '稍后再试' };
@@ -3743,13 +3871,17 @@ async function webSearchViaBackend(args, config) {
   }
 }
 
+// 严格 UTF-8 校验(容忍末尾被字节上限切在半个字符上)。http_request 用它区分「声明成二进制但其实是文本」与真二进制。
+function isStrictUtf8(buf) {
+  try { new TextDecoder('utf-8', { fatal: true }).decode(buf, { stream: true }); return true; } catch { return false; }
+}
 // http_request 工具体(也是 web_search 各 API 后端与 builtin 抓取、以及 loopback 桥接的共用底层)。
 // NE-11:① 字符串 / Buffer 请求体发 Content-Length(修前 req.write 不带长度 → chunked POST,部分 WAF / IIS / 老 Java 网关回
 // 411 / 400);对象体按 JSON 序列化(修前变成 "[object Object]"),没给 content-type 就补 application/json;② timeoutMs 是
 // 【整个请求的硬期限】,同时保留空闲超时(修前只有空闲超时,对端每 400ms 滴一字节 timeoutMs:1000 能挂 4.8 秒);③ 4xx / 5xx
 // 带 error:'HTTP 404'(仍保留 statusCode / body,ok:false),连接类失败带 failClass 与 hint,坏 URL 返回 {ok:false,error}
 // 而不是抛异常;④ NE-10:按 HTTPS_PROXY / HTTP_PROXY / NO_PROXY 走代理(loopback 与私网地址默认不走,见 proxyForUrl)。
-async function httpRequest(args = {}) {
+async function httpRequest(args = {}, opts = {}) {
   const target = String(args.url || '');
   if (!/^https?:\/\//i.test(target)) return { ok: false, error: 'url must start with http:// or https://', failClass: 'other' };
   let u;
@@ -3764,27 +3896,58 @@ async function httpRequest(args = {}) {
     else body = String(args.body);
   }
   if (body !== null && body.length > 0 && !hasHeader('content-length') && !hasHeader('transfer-encoding')) headers['content-length'] = String(Buffer.byteLength(body));
-  const timeoutMs = Number(args.timeoutMs || 20000);
+  // timeoutMs 非法(负数 / NaN / 非数字)回落默认 20s:修前负数原样交给 Node,报「The value of "timeout" is out of range」
+  // 还被归成 failClass:'timeout',模型会以为是对端慢。0 = 沿用既有语义(取默认)。
+  const timeoutMs = (n => (Number.isFinite(n) && n > 0 ? n : 20000))(Number(args.timeoutMs));
   const maxChars = Number(args.maxBodyChars != null ? args.maxBodyChars : 200000);
+  const signal = (opts && opts.signal) || null;
   // v1.4.1 (audit #11):此前把整个响应体缓冲进内存再截断 —— 恶意/失控端点可无上限撑爆内存。加【字节硬顶】,
   // 超顶即返回已收的截断体并 destroy 连接停止下载。done 守护防双 resolve / 防 destroy 后的 error 事件误触。
   const hardCap = Math.max(1, maxChars) * 4 + 65536; // utf8 每字符 ≤4 字节 + 余量
   const proxy = proxyForUrl(u);
   return new Promise(resolve => {
     let done = false, req = null, deadline = null;
-    const finish = v => { if (done) return; done = true; if (deadline) clearTimeout(deadline); if (proxy && v && typeof v === 'object') v.viaProxy = true; resolve(v); };
+    const cleanups = [];
+    const finish = v => { if (done) return; done = true; if (deadline) clearTimeout(deadline); for (const c of cleanups) c(); if (proxy && v && typeof v === 'object') v.viaProxy = true; resolve(v); };
     const fail = (message, failClass) => {
       const out = { ok: false, error: message, failClass };
       const hint = failClass === 'other' ? '' : webFetchFailMessage({ failClass }).hint;
       if (hint) out.hint = hint;
       finish(out);
     };
-    const result = (res, bodyBuf, truncated) => {
+    const result = (res, bodyBuf, truncated, decodedFrom) => {
       const st = res.statusCode;
-      const text = bodyBuf.toString('utf8');
-      // 按 maxBodyChars 切掉的也算截断:修前只有字节硬上限才置 truncated,30 万字的响应切成 20 万字还报 truncated:false。
-      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: text.slice(0, maxChars), truncated: truncated || text.length > maxChars };
-      if (text.length > maxChars) out.totalChars = text.length;
+      const ctype = res.headers['content-type'] || '';
+      // 二进制响应(图片 / PDF / zip / 声明成 octet-stream 且确实不是文本的)不当文本返回:修前一律 utf8 解码,二进制被糊成 U+FFFD 满屏、
+      // 还报 ok:true 且无任何标记。不内联正文,标 binary:true 并说怎么拿(http_download 存盘)。声明成二进制但内容其实是合法 UTF-8 文本的
+      // (有的 API 把 JSON 标成 octet-stream)照常当文本。
+      const kind = classifyFetchedBody(ctype, bodyBuf);
+      const isBinary = kind.kind === 'binary' && (bodyBuf.subarray(0, 8192).includes(0) || !isStrictUtf8(bodyBuf));
+      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers };
+      if (decodedFrom) out.decodedFrom = decodedFrom;
+      if (st >= 300 && st < 400 && res.headers.location) {
+        // 本工具不跟随重定向(留给调用方看清每一跳,内网 API 常靠它);把目标地址直接给出来,免得去翻 headers。
+        try { out.location = new URL(res.headers.location, u).toString(); } catch { out.location = String(res.headers.location); }
+      }
+      if (isBinary) {
+        Object.assign(out, { binary: true, body: '', bytes: bodyBuf.length, truncated: truncated || false,
+          note: `响应是二进制内容(${kind.type || '未声明类型'}),没有按文本返回;要保存请用 http_download` });
+      } else {
+        // 按响应声明的字符集解码(Content-Type charset → BOM → <meta> → 严格 UTF-8 → GB18030),与 web_fetch 同一个解码器:
+        // 修前一律 utf8,GBK 的接口 / 老站点返回 U+FFFD 乱码。
+        // 没声明字符集的 JSON / 纯文本接口默认就是 UTF-8,不去嗅 <meta>(JSON 字符串里恰好带 <meta charset=…> 会被误判);
+        // 只有声明了字符集、是 HTML / XML、或不是合法 UTF-8 时才走完整的识别链。
+        const declared = charsetFromContentType(ctype);
+        const htmlish = /html|xml/.test(kind.type || '');
+        const dec = (declared || htmlish || !isStrictUtf8(bodyBuf)) ? decodeHtmlBody(bodyBuf, ctype) : { text: bodyBuf.toString('utf8').replace(/^\uFEFF/, ''), charset: 'utf-8' };
+        const text = dec.text;
+        out.body = text.slice(0, maxChars);
+        // 按 maxBodyChars 切掉的也算截断:修前只有字节硬上限才置 truncated,30 万字的响应切成 20 万字还报 truncated:false。
+        out.truncated = truncated || text.length > maxChars;
+        if (text.length > maxChars) out.totalChars = text.length;
+        if (dec.charset && dec.charset !== 'utf-8') out.charset = dec.charset;
+        if (dec.warning) out.warning = dec.warning;
+      }
       if (st >= 400) { out.error = `HTTP ${st}`; out.failClass = 'http'; }
       return out;
     };
@@ -3794,17 +3957,29 @@ async function httpRequest(args = {}) {
         try { if (req) req.destroy(); } catch { /* ignore */ }
       }, Math.min(timeoutMs, 2147483647));
     }
+    // 用户中断(Stop / 插话):取消请求并如实说「被中断」。
+    if (signal) {
+      const onAbort = () => { fail('请求已被用户中断', 'aborted'); try { if (req) req.destroy(); } catch { /* ignore */ } };
+      if (signal.aborted) { onAbort(); return; }
+      signal.addEventListener('abort', onAbort, { once: true });
+      cleanups.push(() => { try { signal.removeEventListener('abort', onAbort); } catch { /* ignore */ } });
+    }
     const onRes = res => {
+      // Content-Encoding(gzip / deflate / br / zstd)先解开再数字节:hardCap 管的是解压后的大小,压缩炸弹在这里被掐断。
+      const body = responseBodyStream(res);
+      if (body.unsupported) { res.resume(); fail(`服务器返回了本工具不支持的内容编码(Content-Encoding: ${body.unsupported})`, 'other'); try { req.destroy(); } catch { /* ignore */ } return; }
       const chunks = []; let total = 0;
-      res.on('data', d => {
+      for (const d of body.decoders) d.on('error', e => { fail(`响应体解压失败(Content-Encoding: ${body.encoding}):${(e && e.message) || e}`, 'other'); try { res.destroy(); } catch { /* ignore */ } });
+      body.stream.on('data', d => {
         if (done) return;
         chunks.push(d); total += d.length;
         if (total >= hardCap) {
-          finish(result(res, Buffer.concat(chunks), true));
+          finish(result(res, Buffer.concat(chunks), true, body.encoding));
+          destroyBodyDecoders(body);
           try { req.destroy(); } catch { /* ignore */ }
         }
       });
-      res.on('end', () => finish(result(res, Buffer.concat(chunks), false)));
+      body.stream.on('end', () => finish(result(res, Buffer.concat(chunks), false, body.encoding)));
       res.on('error', e => fail((e && e.message) || 'response error', classifyFetchError(e)));
     };
     const onErr = e => {
@@ -4133,6 +4308,42 @@ async function zipReadEntryDataAsync(buf, rec) {
   } else throw new Error(`不支持的压缩方式（method ${rec.method}），仅支持 stored/deflate`);
   zipVerifyEntry(rec, data, await crc32Async(data));
   return data;
+}
+
+// ── http_download 的文件名与错误翻译 ──────────────────────────────────────────────────────────────────────────
+// dest 是文件夹(已存在的目录,或以 / \ 结尾)时,文件存进这个文件夹里,名字取 Content-Disposition 的 filename(优先 RFC 5987 的 filename*),
+// 没有就取最终 URL 路径的最后一段,再没有叫 download。名字只留「一个文件名」:去掉任何目录部分(path.win32.basename 同时认 \ 与 /)、
+// Windows 不允许的字符、保留设备名,并限长 —— 服务器给的名字不可信,不能借它跳出 dest 目录。
+function downloadFileNameFrom(contentDisposition, finalUrl) {
+  let name = '';
+  const cd = String(contentDisposition || '');
+  let m = /filename\*\s*=\s*(?:UTF-8|utf-8)?'[^']*'([^;]+)/i.exec(cd);
+  if (m) { try { name = decodeURIComponent(m[1].trim().replace(/^"|"$/g, '')); } catch { name = m[1].trim(); } }
+  if (!name) { m = /filename\s*=\s*"([^"]*)"/i.exec(cd) || /filename\s*=\s*([^;]+)/i.exec(cd); if (m) name = m[1].trim(); }
+  if (!name) {
+    try { const seg = new URL(String(finalUrl || '')).pathname.split('/').filter(Boolean).pop() || ''; name = decodeURIComponent(seg); } catch { /* 取不到就用兜底名 */ }
+  }
+  name = path.win32.basename(String(name || '').replace(/\0/g, ''));
+  name = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/, '').replace(/^\.+$/, '');
+  if (/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(name)) name = '_' + name;
+  if (name.length > 150) { const ext = path.extname(name).slice(0, 20); name = name.slice(0, 150 - ext.length) + ext; }
+  return name || 'download';
+}
+// fs 写盘失败的人话(原样的 EISDIR / ENAMETOOLONG 对模型没有可行动的信息)。
+function describeFsWriteError(e, target) {
+  const code = (e && e.code) || '';
+  const msg = {
+    EISDIR: '目标路径是一个文件夹,不能当文件写',
+    ENAMETOOLONG: '文件名或路径太长(单个名字上限 255 个字符,Windows 整条路径通常上限约 260)',
+    EACCES: '没有写入权限',
+    EPERM: '没有写入权限(文件可能是只读,或被系统保护)',
+    ENOENT: '目标路径的某一级不存在或无法创建',
+    ENOTDIR: '目标路径中有一段是文件而不是文件夹',
+    ENOSPC: '磁盘空间不足',
+    EBUSY: '文件正被其它程序占用',
+    EROFS: '目标位置是只读的',
+  }[code] || ((e && e.message) || '写入失败');
+  return { ok: false, code: code || 'write_failed', error: `无法保存到 ${target}:${msg}`, path: target };
 }
 
 // v1.1-W2 (T1) — http_download 的落盘目标护栏。thread 进来的 ctx 可能带 session/config（provider 引擎路径）
