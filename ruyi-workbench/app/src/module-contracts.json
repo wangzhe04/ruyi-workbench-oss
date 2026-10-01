@@ -324,6 +324,7 @@
         "BRIDGED_CLI_ENV_BLANK_KEYS",
         "BRIDGED_ENV_DROP",
         "BRIDGED_ENV_KEEP",
+        "BROWSER_AUTOMATION_MODES",
         "CLAUDEPATH_CACHE_MS",
         "CLAUDE_NPM_EXE_REL",
         "CLAUDE_THINKING_EFFORTS",
@@ -957,6 +958,7 @@
         "irreversibleDetail",
         "irreversibleToolKind",
         "isBridgedWriteTool",
+        "normalizeToolInvokeArgs",
         "unprefixedBridgedName",
         "unwrapToolInvokeCall"
       ],
@@ -2094,6 +2096,7 @@
         "MCP_COMPAT_MATRIX",
         "MCP_CONFIG_JSON_MAX_BYTES",
         "MCP_CONFIG_OTHER_MAX_BYTES",
+        "MCP_CONNECTOR_ID_RE",
         "MCP_DROPIN_CACHE_MS",
         "MCP_DROPIN_MAX",
         "MCP_DROPIN_SHADOW_WARNING",
@@ -2226,11 +2229,13 @@
         "scanMcpDropIns",
         "scanMcpSources",
         "scanToolboxComponents",
+        "splitMcpArgsString",
         "stopSession",
         "subscribeActiveChildEvents",
         "toolboxComponentsDir",
         "turnOutcomePending",
-        "turnSettlers"
+        "turnSettlers",
+        "validateBrowserTargetPatch"
       ],
       "requires": [
         {
@@ -2371,6 +2376,13 @@
           "symbol": "bridgedEnvKeyStripped",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "BROWSER_AUTOMATION_MODES",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -5574,6 +5586,7 @@
         "effectiveMemorySelection",
         "extractMemoryRelationProposals",
         "filterMemoryForNativeCli",
+        "findMemoryProposalDuplicate",
         "fmBool",
         "fmVal",
         "inspectAgentInstructionEntries",
@@ -6994,6 +7007,7 @@
         "EVIDENCE_REFS_MAX_ITEMS",
         "NODE_SUMMARY_MAX",
         "NODE_WRITE_FAMILY",
+        "ORCHESTRATE_TOOL_TIERS",
         "QUALITY_GATE_OUTPUT_SCHEMA",
         "accumulateRunUsage",
         "agentEnvelopeArtifacts",
@@ -7050,6 +7064,8 @@
         "normalizeWaitSpec",
         "normalizeWorkflowCondition",
         "normalizeWorkflowLoop",
+        "orchestrateArgsProblem",
+        "orchestrateModelNotes",
         "parseEventWindow",
         "parseStructuredAgentOutput",
         "poolChainDepth",
@@ -7852,6 +7868,8 @@
         "LEGACY_SPAWN_NOTE",
         "PARALLEL_READ_NEUTRAL",
         "PLAN_DISCOVERY_BLOCKED_TOOLS",
+        "PROXY_UNWRAP_AGENT_TARGETS",
+        "PROXY_UNWRAP_TARGETS",
         "appendDisplayMessagesToProviderHistory",
         "commonPrefixChars",
         "deliverAgentRunEnvelope",
@@ -7866,6 +7884,7 @@
         "settleWaitEnvelopes",
         "syncProviderHistoryFromDisplay",
         "unmarkAgentEnvelopeDelivered",
+        "unwrapProxiedControlCall",
         "waitForAgentRunResults"
       ],
       "requires": [
@@ -8243,6 +8262,13 @@
         {
           "provider": "02d-session-overrides.js",
           "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "normalizeToolInvokeArgs",
           "kinds": [
             "call"
           ]
@@ -9161,6 +9187,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "normalizeWorkflowLoop",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "orchestrateModelNotes",
           "kinds": [
             "call"
           ]
@@ -10328,7 +10361,10 @@
       "file": "11-native-tools.js",
       "layer": "tools",
       "provides": [
+        "BINARY_READ_DB",
+        "BINARY_READ_OFFICE",
         "BINARY_READ_SUFFIXES",
+        "BINARY_READ_ZIPLIKE",
         "BROWSE_IGNORE_DIRS",
         "DEFAULT_IGNORE_DIRS",
         "DOTNET_PROJECT_RE",
@@ -10336,16 +10372,21 @@
         "GIT_DIFF_MAX_CHARS",
         "GIT_DIFF_STAT_MAX_CHARS",
         "GIT_READ_ONLY_FLAGS",
+        "GIT_REF_RE",
         "GIT_SAFE_FLAGS",
+        "GIT_STATUS_MAX_LINES",
         "GIT_UNTRACKED_LIST_MAX",
         "HARD_IGNORE_DIRS",
         "PATH_MATCH_WORKER_SRC",
         "REGEX_SCAN_MAX_MS",
         "REGEX_SCAN_WORKER_SRC",
+        "RG_REPAIR_MAX_FILES",
         "SEARCH_DEFAULT_MAX_FILE_BYTES",
         "SEARCH_JS_DEFAULT_MAX_FILES",
         "SEARCH_MAX_FILE_BYTES_CEILING",
         "SHELL_BUF_MAX",
+        "SHELL_ENCODED_COMMAND_MAX",
+        "SHELL_GLOBAL_MAX",
         "SHELL_IDLE_MS",
         "SHELL_OUTPUT_DEFAULT_CHARS",
         "SHELL_OUTPUT_MAX_CHARS",
@@ -10356,9 +10397,11 @@
         "WALK_PATTERN_MAX_CHARS",
         "_rgProbe",
         "_rgProbeInflight",
+        "applyNonUtf8Report",
         "backgroundJobFile",
         "backgroundJobText",
         "backgroundShellCountsBySession",
+        "binaryReadHint",
         "buildIgnoreMatcher",
         "classifyListPattern",
         "completeBackgroundJob",
@@ -10371,9 +10414,11 @@
         "gitCwdMissingError",
         "gitDiff",
         "gitHeadToJsonBudget",
+        "gitHookNames",
         "gitHumanError",
         "gitReadOnlyGuard",
         "gitReadOnlyGuardError",
+        "gitStagedSnapshot",
         "gitStatus",
         "globToRegExp",
         "hasRg",
@@ -10385,9 +10430,13 @@
         "killAllShellSessions",
         "levenshtein",
         "maybeGroup",
+        "normalizeGlobPatternForRoot",
         "normalizeSearchPattern",
+        "patternMayMatchNonAscii",
         "peekRgProbe",
         "persistBackgroundJob",
+        "powershellMissingOr",
+        "powershellUnavailable",
         "probeRg",
         "probeRgAsync",
         "probeRgInfoSync",
@@ -10398,8 +10447,10 @@
         "regexScanFilesBounded",
         "resolveGitCwd",
         "rgExeName",
+        "rgListHighByteFiles",
         "rgProbeCandidates",
         "rgProbeResolve",
+        "rgRepairNonUtf8",
         "runGit",
         "searchExplicitNames",
         "searchFileContent",
@@ -10431,6 +10482,9 @@
         "shellStripClixml",
         "shellVisibleTo",
         "summarizeGitStatus",
+        "validateGitLogFilter",
+        "validateGitRef",
+        "walkDepthHint",
         "walkEnvelopeEntries",
         "walkFiles",
         "walkTruncationHint",
@@ -10496,13 +10550,6 @@
         {
           "provider": "00-boot.js",
           "symbol": "fsp",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "00-boot.js",
-          "symbol": "json",
           "kinds": [
             "read"
           ]
@@ -10609,13 +10656,6 @@
         },
         {
           "provider": "01-config.js",
-          "symbol": "RUNTIME",
-          "kinds": [
-            "read"
-          ]
-        },
-        {
-          "provider": "01-config.js",
           "symbol": "safeSessionId",
           "kinds": [
             "call"
@@ -10624,20 +10664,6 @@
         {
           "provider": "01-config.js",
           "symbol": "sessionPath",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "01c-runtime-flags.js",
-          "symbol": "observationRecallEnabled",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "02-session-store.js",
-          "symbol": "loadSession",
           "kinds": [
             "call"
           ]
@@ -10659,13 +10685,6 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "existsExecutableAsync",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "03-bridge-guard.js",
-          "symbol": "guardFileToolPath",
           "kinds": [
             "call"
           ]
@@ -10696,13 +10715,6 @@
           "symbol": "activeChildren",
           "kinds": [
             "read"
-          ]
-        },
-        {
-          "provider": "04-permission-runtime.js",
-          "symbol": "collectBridgedTools",
-          "kinds": [
-            "call"
           ]
         },
         {
@@ -10745,27 +10757,6 @@
           "symbol": "probeAny",
           "kinds": [
             "call"
-          ]
-        },
-        {
-          "provider": "06i-steward-core.js",
-          "symbol": "isStewardToolName",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
-          "symbol": "buildToolCatalog",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "13f-native-tool-schemas.js",
-          "symbol": "MCP_TOOLS",
-          "kinds": [
-            "read"
           ]
         }
       ]
@@ -10828,6 +10819,8 @@
         "execCacheStore",
         "execCacheVersionOf",
         "execResultCacheBySession",
+        "expandFileToolPathVars",
+        "fileMoveSameFileKind",
         "fileToolBeforeForCheckpoint",
         "fileToolDropPhantom",
         "fileToolFsFailure",
@@ -11118,6 +11111,13 @@
           ]
         },
         {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "normalizeToolInvokeArgs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
           "kinds": [
@@ -11134,6 +11134,20 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "buildBrowserOpenSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "buildOpenSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "buildRevealSpawn",
           "kinds": [
             "call"
           ]
@@ -11178,6 +11192,13 @@
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "REVEAL_OPEN_SAFE_EXTS",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11274,6 +11295,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "markNetworkOnline",
           "kinds": [
             "call"
           ]
@@ -11444,6 +11472,13 @@
           "symbol": "TOOL_RESULT_CAP",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
+          "symbol": "binaryReadHint",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -15446,6 +15481,8 @@
         "STEWARD_MEMORY_MERGED_FROM_MAX",
         "STEWARD_MEMORY_NEW_WINDOW_MS",
         "STEWARD_MEMORY_SCHEMA",
+        "STEWARD_MISSIONS_LIMIT_DEFAULT",
+        "STEWARD_MISSIONS_LIMIT_MAX",
         "STEWARD_NOTE_PREFIX",
         "STEWARD_NOTE_TEXT_MAX",
         "STEWARD_PENDING_SUMMARY_MAX",
@@ -15475,6 +15512,7 @@
         "stewardDecisionSeq",
         "stewardDecisionsPath",
         "stewardDecisionsRead",
+        "stewardDisplayKind",
         "stewardEmptyMemoryStore",
         "stewardEngineOf",
         "stewardExemptDelegationRecord",
@@ -15507,6 +15545,7 @@
         "stewardTurnAssistantText",
         "stewardTurnFiles",
         "stewardTurnKeyOf",
+        "stewardTurnQuotaRefund",
         "stewardTurnQuotaTake",
         "stewardTurnTaintedBy"
       ],
@@ -15713,6 +15752,7 @@
         "stewardLiveTurnPermissionMode",
         "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
+        "stewardMissionExists",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
         "stewardRecordMissionWorkspace",
@@ -15722,6 +15762,7 @@
         "stewardSeatedByUser",
         "stewardSeatedFail",
         "stewardToolCallLine",
+        "stewardToolCallVerdict",
         "stewardTriggerOf",
         "stewardUnattendedByModel",
         "stewardValidateCwd",
@@ -16276,6 +16317,13 @@
           ]
         },
         {
+          "provider": "13d-core-domain-routes.js",
+          "symbol": "SESSION_SEARCH_MIN_QUERY",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "13e-pretender-index.js",
           "symbol": "getPretenderProjectionIndex",
           "kinds": [
@@ -16417,6 +16465,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardDisplayKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardEngineOf",
           "kinds": [
             "call"
@@ -16526,15 +16581,19 @@
       "file": "13l-steward-ops.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_AUDIT_TELEMETRY_KINDS",
         "STEWARD_CONFIG_KEYS",
+        "STEWARD_ENV_TEMPLATE_RE",
         "STEWARD_RUN_ACTION_KIND",
         "STEWARD_RUN_ADVANCING",
         "STEWARD_RUN_TIGHTENING",
+        "STEWARD_SECRET_FILE_RE",
         "stewardAddUsageRow",
         "stewardEmptyUsageBucket",
         "stewardExternalBlock",
         "stewardEyesSettle",
         "stewardEyesTake",
+        "stewardFileLooksBinary",
         "stewardImplAuditTail",
         "stewardImplConfigGet",
         "stewardImplConfigSet",
@@ -16559,6 +16618,7 @@
         "stewardImplUsage",
         "stewardImplWebFetch",
         "stewardImplWebSearch",
+        "stewardIsSecretFilePath",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
@@ -16595,6 +16655,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -16612,6 +16679,13 @@
           "symbol": "text",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "usageDayKey",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -16675,6 +16749,13 @@
           "symbol": "realpathForContainment",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "KEY_MASK_PREFIX",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -17071,6 +17152,20 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MISSIONS_LIMIT_DEFAULT",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "STEWARD_MISSIONS_LIMIT_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "STEWARD_PLAYBOOK_DRAFTS_PER_TURN",
           "kinds": [
             "read"
@@ -17232,6 +17327,13 @@
         },
         {
           "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardTurnQuotaRefund",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
           "symbol": "stewardTurnQuotaTake",
           "kinds": [
             "call"
@@ -17313,7 +17415,9 @@
       "file": "13g-steward.js",
       "layer": "transport",
       "provides": [
+        "STEWARD_STRING_AS_ARRAY",
         "handleStewardApiRoutes",
+        "stewardArgTypeProblems",
         "stewardCtxIsSteward",
         "stewardMemoryPanelClear",
         "stewardMemoryPanelEdit",
@@ -17444,6 +17548,14 @@
           "symbol": "stewardSanitizeText",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolSchema",
+          "kinds": [
+            "call",
+            "read"
           ]
         },
         {
@@ -20288,6 +20400,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -20373,8 +20492,11 @@
         "SCHEDULER_INBOX_KIND",
         "SCHEDULER_INBOX_TEXT_MAX",
         "SCHEDULER_NOTICE_TEXT",
+        "STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN",
         "schedulerCommitmentsSince",
         "schedulerInboxAppend",
+        "schedulerMinGapMinutes",
+        "schedulerNormalizationNotes",
         "schedulerOnReminderDue",
         "schedulerOnSchedulerNotice",
         "schedulerPrepareThread",
@@ -20426,6 +20548,20 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
@@ -20442,6 +20578,13 @@
         {
           "provider": "06j-scheduler-core.js",
           "symbol": "describeSchedule",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06j-scheduler-core.js",
+          "symbol": "nextFireAt",
           "kinds": [
             "call"
           ]
@@ -20526,6 +20669,20 @@
         {
           "provider": "13j-steward-tool-base.js",
           "symbol": "stewardFail",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardRawKind",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13j-steward-tool-base.js",
+          "symbol": "stewardReadSessionHead",
           "kinds": [
             "call"
           ]

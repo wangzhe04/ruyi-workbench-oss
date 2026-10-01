@@ -100,7 +100,16 @@ function stewardAddUsageRow(bucket, row) {
 async function stewardImplUsage(args) {
   const sessionId = args.sessionId ? safeSessionId(args.sessionId) : '';
   if (args.sessionId && !sessionId) return stewardFail('not_found', 'invalid sessionId');
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(args.day || '')) ? String(args.day) : '';
+  // 第二轮工具走查(F8):修前非法的 day('yesterday' / '2026/10/01')被静默当成「没给」,回的是全期累计,
+  // 调用方还以为是那一天的数。现在只认 YYYY-MM-DD(本地日历日)与 today / yesterday 两个口语写法,其余明确拒。
+  let day = '';
+  if (args.day !== undefined && args.day !== null && String(args.day).trim() !== '') {
+    const wantDay = String(args.day).trim().toLowerCase();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(wantDay)) day = wantDay;
+    else if (wantDay === 'today') day = usageDayKey(Date.now());
+    else if (wantDay === 'yesterday') { const t = new Date(); day = usageDayKey(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1, 12).getTime()); }   // 取昨天正午:避开午夜跳 DST 的 0 点不存在
+    else return stewardFail('invalid_request', `day must be YYYY-MM-DD (local calendar day), "today" or "yesterday" (got ${JSON.stringify(stewardSanitizeText(String(args.day)).slice(0, 40))}); omit it for all-time totals`);
+  }
   const total = stewardEmptyUsageBucket();
   const steward = stewardEmptyUsageBucket();
   const bySession = new Map();
@@ -136,10 +145,32 @@ async function stewardImplHealth(args, ctx, config) {
 
 // 9) steward_audit_tail —— 既有 collectAudit(内部已过 redact 脱敏),只取 workbench 源(桌面 MCP 审计
 //    要起桥,管家的「刚才发生了什么」不该为此拉起一个子进程)。
+// 第二轮工具走查(F6):修前 type 过滤被硬编码成 null、也没有任何过滤参数 —— 返回的 20 条几乎全是模型调用遥测
+// (model_call_*、layout_shadow、econ_call_totals……两个回合就把 20 条占满),「我批准过什么」那类 intervention /
+// 授权书事件被挤得拿不到。现在:
+//   · kinds:[…] 只要这些 kind(精确匹配,最多 12 个);给了就【不再】默认排除遥测(明确要什么就给什么);
+//   · 没给 kinds:默认排除纯遥测 kind(STEWARD_AUDIT_TELEMETRY_KINDS),includeTelemetry:true 才放回来;
+//   · 过滤发生在【取尾之前】(06 readWorkbenchAudit),limit 数的是过滤后的条数;最近日志文件不够时往前读至 3 天。
+const STEWARD_AUDIT_TELEMETRY_KINDS = Object.freeze([
+  'model_call_started', 'model_call_completed', 'model_call_retry', 'assistant_tool_batch', 'tool_call_completed',
+  'tool_phase_completed', 'layout_shadow', 'econ_call_totals', 'tool_schema_freeze', 'tool_retrieval_shadow',
+  'tool_retrieval_ranked', 'tool_byte_budget_shadow', 'observation_reduction_shadow', 'observation_reduced',
+  'session_notes_inject', 'iter_timing', 'exec_result_cache', 'summary_entity_check', 'compaction_refetch',
+]);
 async function stewardImplAuditTail(args, ctx, config) {
   const limit = stewardClampInt(args.limit, 1, STEWARD_AUDIT_LIMIT_MAX, STEWARD_AUDIT_LIMIT_DEFAULT);
-  const audit = await collectAudit(config, { limit, sourceFilter: 'workbench', typeFilter: null });
-  return { ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated) };
+  // kinds 接数组,也容忍单个字符串(模型常把「一个 kind」写成字符串);其余形状当没给。
+  const rawKinds = Array.isArray(args.kinds) ? args.kinds : (typeof args.kinds === 'string' ? [args.kinds] : []);
+  const kinds = new Set(rawKinds.map(k => String(k == null ? '' : k).trim()).filter(k => /^[a-z0-9_.:-]{1,64}$/i.test(k)).slice(0, 12));
+  const wantTelemetry = args.includeTelemetry === true;
+  const audit = await collectAudit(config, {
+    limit, sourceFilter: 'workbench', typeFilter: null,
+    kinds, excludeKinds: kinds.size || wantTelemetry ? null : new Set(STEWARD_AUDIT_TELEMETRY_KINDS), maxFiles: 3,
+  });
+  return {
+    ok: true, entries: (audit && audit.entries) || [], truncated: !!(audit && audit.truncated),
+    filter: { kinds: [...kinds], excludedTelemetry: !(kinds.size || wantTelemetry) },
+  };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -198,8 +229,14 @@ async function stewardImplDecide(args, ctx, config) {
   //   闸 10 窗口  —— 13j 的滚动一小时计数。
   // 不读 ctx.userPressed:用户按下管家给的按钮(/api/steward/act)与模型直调走同一套闸 —— 永久豁免那一格
   // 从来不因为「用户点了一下管家的按钮」而放宽(06i 契约;用户要亲自批,在线程里按)。
+  // 第二轮工具走查(F13):拒绝类(deny / reject)是【收紧类】动作 —— 与 steward_run_action 的 pause/stop、steward_thread_stop
+  // 同一条理由:它只会让事情【少】发生。修前 deny 与 allow 过一模一样的闸:命中永久豁免(rm -rf / git push 这类本该最想拒的)
+  // 反而被 propose_required 挡下「必须用户亲自决定」,线程权限档不够(每步都问 / 只做计划)同样被挡 —— 越危险越拒不了。
+  // 现在拒绝类跳过永久豁免 / 代批十道闸与权限档判定(目标待决存在、没有被用户当面坐着,这两道前置闸仍在);
+  // 放行类(allow / approve / answer)一个字不松。决策日志照常记,mayAct 如实写 'auto'。
+  const refusing = action === 'deny' || action === 'reject';
   let delegation = null;
-  if (type === 'permission' && exemptHit) {
+  if (type === 'permission' && exemptHit && !refusing) {
     const safeTool = stewardSanitizeText(toolName);
     const categoryLabel = exemptHit.category ? (STEWARD_EXEMPT_CATEGORY_LABELS[exemptHit.category] || exemptHit.category) : '';
     const because = exemptHit.by === 'tool_name'
@@ -272,7 +309,7 @@ async function stewardImplDecide(args, ctx, config) {
   let actMode = permissionMode;
   if (liveActMode && stewardPermissionRank(liveActMode) >= 0 && stewardPermissionRank(liveActMode) < stewardPermissionRank(actMode)) actMode = liveActMode;
   if (!liveActMode && threadOriginOf(head) === 'schedule' && stewardPermissionRank(actMode) > stewardPermissionRank('default')) actMode = 'default';
-  const mayAct = stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
+  const mayAct = refusing ? 'auto' : stewardMayAct(delegation ? delegation.liveMode : actMode, type === 'permission' ? 'permission' : type, tier);
   if (mayAct !== 'auto') {
     return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(delegation ? permissionMode : actMode)}」,这类待决只能由用户决定;把它作为提议交给用户,不要重试`, {
       reason: 'permission_mode', missionId, interventionId, type, toolName, tier, permissionMode,
@@ -409,6 +446,12 @@ async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   const runId = safeSessionId(args.runId);
   const action = String(args.action || '');
+  // 第二轮工具走查(F10):runId【给了但格式不对】('../../x' 之类)修前也落进下面「缺 runId 的收紧类 → no_agent_run」那一支,
+  // 回一句「这条线程没有班组可暂停」—— 把一个明明是请求非法的值说成了「没班组」,模型会据此放弃找班组。
+  // 给了就是给了:格式不对如实报 invalid runId;只有真的【没给】runId 才走 117m-A4 那条「问错了工具」的口径。
+  if (sessionId && args.runId != null && String(args.runId).trim() !== '' && !runId) {
+    return stewardFail('invalid_request', `invalid runId ${JSON.stringify(stewardSanitizeText(String(args.runId)).slice(0, 60))}; use a runId from steward_runs_status`, { sessionId });
+  }
   if (!sessionId || !runId) return (sessionId && STEWARD_RUN_TIGHTENING.includes(action)) ? stewardFail('no_agent_run', '这条线程没有班组可暂停;要停的是它这一回合的话,用 steward_thread_stop', { sessionId, action }) : stewardFail('invalid_request', 'sessionId and runId are required');  // 117m-A4:缺 runId 的收紧类是【问错了工具】(普通线程没有班组),不是请求非法;其余动作逐字不变。全部理由见 13h 的 stewardImplThreadStop 头注
   if (!STEWARD_RUN_TIGHTENING.includes(action) && !STEWARD_RUN_ADVANCING.includes(action)) {
     return stewardFail('invalid_request', `unknown action: ${stewardSanitizeText(action)}`);
@@ -495,8 +538,10 @@ async function stewardSourceIsUserMessage(sourceRef) {
   // 几十条系统事件归成一段文本发给模型),但那不是用户本人说的话。13h 在那条消息上落了
   // meta.origin === 'inbox'(随会话正文持久化,重启后仍在),这里确定性拒绝它。同理拒绝
   // 驱动器自动续跑的消息(source:'mission-driver')—— 也不是人说的。
+  // 第二轮工具走查(F17):再拒一类 —— 管家自己发起的那条用户消息(thread_new 委托书 / thread_continue 递话 /
+  // quick_ask 问题,13k stewardLaunchTurn 落 meta.origin:'steward')。它是管家转述的,不是用户本人这一回合说的话。
   return messages.some(m => m && m.role === 'user' && Number(m.turnSeq) === turnSeq
-    && !(m.meta && typeof m.meta === 'object' && m.meta.origin === 'inbox')
+    && !(m.meta && typeof m.meta === 'object' && (m.meta.origin === 'inbox' || m.meta.origin === 'steward'))
     && m.source !== 'mission-driver');
 }
 
@@ -523,6 +568,11 @@ async function stewardImplMemoryWrite(args, ctx, config) {
   // 写的时候允许留空 —— 「我用 Windows」这种事实本来就不该有到期日;该写的是
   //「这两周在赶 A 项目」那一类必然过期的。给不给由模型按提示词判断,服务端只管清洗与过滤。
   const expiresAt = cleanMemoryDate(args && args.expiresAt);
+  // 第二轮工具走查(F12):到期日【已经过去】修前被静默收下 —— 条目一落库就是「已过期」,既不进提示词也搜不到,
+  // 模型却收到 ok:true,以为这条记住了(又一个「说 ok 其实没用」)。拒绝并如实说原因;要记就给将来的日期或不给。
+  if (expiresAt && memoryIsExpired({ expiresAt })) {
+    return stewardFail('invalid_request', `expiresAt ${stewardSanitizeText(String(args.expiresAt)).slice(0, 40)} is already in the past, so the entry would be expired on arrival and never used; give a future date or omit it`);
+  }
   // 126-M01:作用域。模型只说「这条是不是项目级的」,**键由服务端从来源那条会话的 cwd 推出来** ——
   // 让模型自己填项目键 = 让它推断「这条管得着谁」,正是 31 号文 §2.6 的红线禁止的。
   // 来源会话读不出 cwd(或模型没说 project)时落全局:宁可多用一条,不可凭空把它锁进某个项目。
@@ -626,6 +676,9 @@ async function stewardImplMemoryVeto(args) {
   return stewardMutateMemory(async store => {
     const entry = store.entries.find(e => e.id === id);
     if (!entry) return { persist: false, result: stewardFail('not_found', `memory ${stewardSanitizeText(id)} not found`) };
+    // 第二轮工具走查(F12):已经是否决状态再否决一次,修前照样回 ok、undoRef.prev 记成 'vetoed'(撤销它等于「还原成否决」,
+    // 即什么都没撤)、还多写一行决策日志 —— 行动流水里一件事被记两遍。幂等:不写库、不记决策,如实说「没变」。
+    if (entry.state === 'vetoed') return { persist: false, result: { ok: true, id, state: 'vetoed', unchanged: true } };
     const prev = entry.state;
     entry.state = 'vetoed';
     entry.updatedAt = nowIso();
@@ -710,7 +763,13 @@ async function stewardImplMissions(args, ctx, config) {
     if (row.archivedAt) mission.archivedAt = row.archivedAt;
     return mission;
   });
-  return { ok: true, missions, count: missions.length };
+  // 第二轮工具走查(F7):修前一次返回全部事项(151 个 = 77KB,约 2~3 万 token,管家一次调用就把上下文吃掉)。
+  // 现在与 steward_threads_search 同一个纪律:limit(默认 50,夹取 1..200)+ total + truncated。
+  // 取的是 buildMissionAggregateRows 已经排好的前 N 行(它的顺序就是看板顺序),count 保持「本次返回条数」的旧语义,
+  // total 才是库里一共有多少。
+  const limit = stewardClampInt(args && args.limit, 1, STEWARD_MISSIONS_LIMIT_MAX, STEWARD_MISSIONS_LIMIT_DEFAULT);
+  const shown = missions.slice(0, limit);
+  return { ok: true, missions: shown, count: shown.length, total: missions.length, truncated: missions.length > shown.length, limit };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -919,6 +978,40 @@ async function stewardImplWebFetch(args, ctx, config) {
   return { ok: true, url: stewardSanitizeText(url).slice(0, 300), tainted: true, content };
 }
 
+// 第二轮工具走查(F3):管家读文件回来的内容只做了尖括号中和,没有走 redact(而 thread_read 的工具入参、audit_tail 都走了),
+// 工作区里的 `.env` / `.git/config`(带 token 的远端地址)/ `.ssh/id_rsa` 就原样交给了模型。管家是「动如意」的,
+// 没有任何理由去读一份凭据文件的内容 —— 与其对内容做不可靠的正则脱敏,不如按文件【名】整个拒绝(fail-closed)。
+// 判据只看路径(按 Windows 形处理:`\` 与 `/` 都认,大小写不敏感):
+//   · 文件名:.env / .env.*(模板 .env.example / .sample / .template / .dist 放行,那是给人抄的占位符)、
+//     id_rsa / id_dsa / id_ecdsa / id_ed25519(.pub 公钥放行)、*.pem / *.key / *.p12 / *.pfx / *.ppk / *.jks / *.keystore、
+//     .npmrc / .pypirc / .netrc / _netrc / .git-credentials / credentials / credentials.json / secrets.json;
+//   · 路径段:`.ssh` / `.gnupg` / `.aws` 目录下的任何文件;`.git/config`。
+const STEWARD_SECRET_FILE_RE = /^(?:\.env(?:\..+)?|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..+)?|.+\.(?:pem|key|p12|pfx|ppk|jks|keystore)|\.npmrc|\.pypirc|\.netrc|_netrc|\.git-credentials|credentials(?:\.json)?|secrets\.json)$/i;
+const STEWARD_ENV_TEMPLATE_RE = /^\.env\.(?:example|sample|template|dist|defaults?)$/i;
+function stewardIsSecretFilePath(rawPath) {
+  const segs = String(rawPath || '').replace(/\\/g, '/').split('/').filter(Boolean).map(seg => seg.toLowerCase());
+  if (!segs.length) return false;
+  const name = segs[segs.length - 1];
+  const dirs = segs.slice(0, -1);
+  if (dirs.some(seg => seg === '.ssh' || seg === '.gnupg' || seg === '.aws')) return true;
+  if (name === 'config' && dirs[dirs.length - 1] === '.git') return true;
+  if (/^id_(?:rsa|dsa|ecdsa|ed25519)\.pub$/.test(name) || STEWARD_ENV_TEMPLATE_RE.test(name)) return false;
+  return STEWARD_SECRET_FILE_RE.test(name);
+}
+// 二进制判据:前 8KB 里出现 NUL 字节(与 13 的 diff 预览同一个口径)。12 的 file_read 只看扩展名,
+// bin.dat 这类无扩展名/冷门扩展名的二进制会被当文本回成乱码 —— 乱码进模型上下文既费 token 又没法读。
+// 读不到(不存在/没权限)时返回 false,把错误留给后面真正读文件的那一步报。
+async function stewardFileLooksBinary(realPath) {
+  let fh = null;
+  try {
+    fh = await fsp.open(realPath, 'r');
+    const buf = Buffer.alloc(8192);
+    const { bytesRead } = await fh.read(buf, 0, 8192, 0);
+    return buf.subarray(0, bytesRead).includes(0);
+  } catch { return false; }
+  finally { if (fh) { try { await fh.close(); } catch { /* best-effort */ } } }
+}
+
 // 29) steward_file_read —— **只在 config.workspaces 之内**。
 async function stewardImplFileRead(args, ctx, config) {
   const raw = String((args && args.path) || '').trim();
@@ -933,6 +1026,12 @@ async function stewardImplFileRead(args, ctx, config) {
   const [realTarget, realRoot] = await Promise.all([realpathForContainment(raw), realpathForContainment(root)]);
   if (!pathWithinRoot(realTarget, realRoot)) {
     return stewardFail('outside_workspace', 'that path is a link that points outside the registered workspace; only files really inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
+  }
+  if (stewardIsSecretFilePath(raw) || stewardIsSecretFilePath(realTarget)) {
+    return stewardFail('sensitive_path', 'that looks like a credential file (.env / private key / .git/config / .ssh / token store); the steward does not read those', { path: stewardSanitizeText(raw).slice(0, 200) });
+  }
+  if (await stewardFileLooksBinary(realTarget)) {
+    return stewardFail('binary_file', 'that file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
@@ -966,6 +1065,12 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
   const hit = files.find(f => stewardSamePath(f, want));
   if (!hit) {
     return stewardFail('not_in_artifacts', 'that path is not in this thread\'s delivered files; only files the thread itself listed can be read here', { files: files.slice(0, 20) });
+  }
+  // 与 steward_file_read 同一道二进制判据(交付清单里的 .dat / 无扩展名文件同样会被当文本回成乱码)。
+  const artifactAbs = path.isAbsolute(hit) ? hit : path.resolve(String(head.cwd || ''), hit);   // 清单里可能是相对线程 cwd 的写法
+  const artifactReal = await realpathForContainment(artifactAbs).catch(() => artifactAbs);
+  if (await stewardFileLooksBinary(artifactReal)) {
+    return stewardFail('binary_file', 'that delivered file is binary (NUL bytes in its first 8KB); the steward only reads text files', { path: stewardSanitizeText(hit).slice(0, 200) });
   }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
@@ -1043,6 +1148,19 @@ async function stewardImplNotify(args, ctx, config) {
 //     并暗示它的形状,而 forbidden 的意思是「这一族根本不经管家」。
 async function stewardImplConfigGet(args, ctx, config) {
   const masked = maskProviders(config);
+  // 第二轮工具走查(F11):maskProviders 是给设置页回显用的 —— 外部 MCP 的 env / headers 值掩成「••••<末 4 位>」,
+  // 那 4 位是给用户认「是不是我填的那把」的。管家这条面不需要认,steward_providers 刻意只给 hasKey 布尔
+  // 正是因为掩码串会暴露长度与前缀形状;这里同一个口径:只留掩码前缀,末位字符一个都不给(值非空才有前缀,空值仍是空串)。
+  if (Array.isArray(masked.externalMcpServers)) {
+    const bare = valueMap => {
+      if (!valueMap || typeof valueMap !== 'object' || Array.isArray(valueMap)) return valueMap;
+      const out = {};
+      for (const [name, value] of Object.entries(valueMap)) out[name] = (typeof value === 'string' && value.startsWith(KEY_MASK_PREFIX)) ? KEY_MASK_PREFIX : value;
+      return out;
+    };
+    masked.externalMcpServers = masked.externalMcpServers.map(entry => (entry && typeof entry === 'object')
+      ? { ...entry, ...(entry.env ? { env: bare(entry.env) } : {}), ...(entry.headers ? { headers: bare(entry.headers) } : {}) } : entry);
+  }
   const requested = Array.isArray(args.keys)
     ? args.keys.map(k => String(k || '').trim()).filter(Boolean).slice(0, 64)
     : Object.keys(masked);
@@ -1195,6 +1313,10 @@ async function stewardImplPlaybookDraft(args, ctx, config) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_PLAYBOOK_DRAFTS_PER_TURN} playbook draft per steward turn; do not retry - tell the user what you have`);
   }
   const draft = await draftPlaybookFromSession(sessionId);
+  // 第二轮工具走查(F11):名额是为「起草要调一次模型」设的;修前先扣名额再试,于是「本会话没有可参考的用户消息」
+  // 这类【根本没调模型】的失败也把本回合唯一的名额烧掉,同一回合里换一条对的线程再起草就被 quota_exceeded 挡死。
+  // 06 在三个调模型之前的早退里带 noModelCall:true —— 那种失败把名额还回去;真调过模型(哪怕没解析出合法 JSON)照旧算一次。
+  if (draft && draft.ok === false && draft.noModelCall === true) stewardTurnQuotaRefund('playbook_draft', ctx);
   if (!draft || draft.ok === false) {
     return stewardFail('draft_failed', String((draft && draft.error) || 'the engine could not draft a playbook from this thread'));
   }

@@ -53,6 +53,7 @@ const STEWARD_READ_CALLS_PER_TURN = 6;      // §11.2:每回合 ≤6 次深读
 const STEWARD_READ_ROW_OVERHEAD = 16;       // 每行的行首开销(角色/回合号那一截),算预算时按行计
 const STEWARD_READ_CLIP_MARK = '…';         // 117s-H3:被截了头的那一行的行首标记
 const STEWARD_AUDIT_LIMIT_DEFAULT = 20, STEWARD_AUDIT_LIMIT_MAX = 100;
+const STEWARD_MISSIONS_LIMIT_DEFAULT = 50, STEWARD_MISSIONS_LIMIT_MAX = 200;   // 第二轮走查 F7:steward_missions 的条数帽子
 const STEWARD_TITLE_MAX = 80;
 const STEWARD_STEER_TEXT_MAX = 2000;
 // 116-2b steward_thread_note:管家给【已在跑】的线程补一句上下文。600 字上限比 steer_node 的 2000
@@ -456,6 +457,14 @@ function stewardTurnQuotaTake(bucket, ctx, max) {
   while (table.size > 64) table.delete(table.keys().next().value);
   return true;
 }
+// 退一次:take 成功之后发现这一次其实没有做那件「花钱的事」(第二轮工具走查 F11:playbook_draft 在没调模型就失败时),
+// 把刚占的名额还回去。桶或键不在(已被淘汰)时什么都不做。
+function stewardTurnQuotaRefund(bucket, ctx) {
+  const key = String(ctx && ctx.sessionId ? ctx.sessionId : '') + ' ' + stewardTurnKeyOf(ctx);
+  const table = _stewardTurnQuota.get(bucket);
+  const used = table ? Number(table.get(key)) || 0 : 0;
+  if (used > 1) table.set(key, used - 1); else if (used === 1) table.delete(key);
+}
 
 // ── 129c(31 号文 §1 红线 4「污染规则」)：管家【自己这一回合】读过外界内容的标记 ────────────
 // 红线原文:「管家在一个回合里读过外界内容(网页、文件、线程交付里引用的外部文本),这一回合的
@@ -538,4 +547,13 @@ function stewardQuickClosed(head) {
 function stewardQuickThread(head) {
   const quick = head && head.stewardQuick;
   return !!(quick && typeof quick === 'object');
+}
+// 第二轮工具走查(F10):给管家看的 `kind` 字段。修前直接吐 stewardRawKind —— 会话头上没写 kind 的普通对话
+// 兜底成 sessionKind 的「纯问答默认档」quick_ask,于是用户进行中的普通对话在 thread_status / threads_search 里
+// 全被标成「速查线程」,而同一个返回里 stateSources.kind 却是 mission(五态判据早在 116-3 P1-5 改成了
+// stewardQuickThread)。这里与五态判据同口径:只有头上带 stewardQuick 的才是 quick_ask,其余一律 mission;
+// 管家自己的会话照旧 steward(调用方都已经把它挡在外面,留着只是不撒谎)。
+function stewardDisplayKind(head) {
+  if (stewardRawKind(head) === 'steward') return 'steward';
+  return stewardQuickThread(head) ? 'quick_ask' : 'mission';
 }

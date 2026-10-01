@@ -1097,7 +1097,14 @@ async function waitForAgentRunResults(sessionId, rawRunIds, timeoutMs, signal) {
   // settled 口径不变(有 not_found 就不算「全部结果到手」,信封里照样标 status:'not_found');
   // timedOut 只看【活的】 run —— not_found 不是等超时了,是压根没有这个 run。
   const settled = runs.every(run => run.status !== 'not_found' && run.live !== true);
-  return { ok: true, settled, timedOut: runs.some(run => run.live === true), runs };
+  // 请求的 runId 全都不存在:修前回 ok:true settled:false timedOut:false,读起来像「还在跑」,模型会接着等。
+  // 全不存在 → 顶层 ok:false + error 点名是哪些(settled 口径照旧:not_found 不算结果到手,单测钉着);
+  // 部分不存在 → 保持 ok:true,另列 notFound。
+  const notFound = runs.filter(run => run.status === 'not_found').map(run => run.runId);
+  if (notFound.length && notFound.length === runs.length) {
+    return { ok: false, error: `没有找到这些后台代理 run:${notFound.join(', ')}(runId 打错,或不属于当前会话);它们不是「仍在运行」。runId 以 orchestrate_agents{background:true} 的返回为准,或省略 runIds 收取本会话的后台代理。`, settled, timedOut: false, notFound, runs };
+  }
+  return { ok: true, settled, timedOut: runs.some(run => run.live === true), ...(notFound.length ? { notFound } : {}), runs };
 }
 // wait_agents 的结算 —— 同一份信封在【两种先后顺序】下都只送达一次(wave137 集成期竞态):
 //  ① wait 先取走(run 在 wait 期间才结束)→ 登记已读,之后的迭代边界 / 回合开头不再注入完成通知;
@@ -1239,6 +1246,33 @@ function syncProviderHistoryFromDisplay(session) {
   appendDisplayMessagesToProviderHistory(session, cursor);
 }
 
+// 引擎在回合闭包里特判的工具(需要活的 session / onEvent / provider 闭包,不能经 toolCall 的无上下文 handler 跑)。
+// 模型常常不直接调,而是 tool_invoke_read/edit/exec {name:'todo_write', arguments:{...}} 走代理 —— 代理分发到 toolCall,
+// 命中的是无回合上下文的兜底 handler:todo_write / mission_update 回 ok:true 却没有任何落盘/事件(静默空操作),
+// agent_result / wait_agents / request_user_input / orchestrate_agents 报「仅在 provider 回合可用」(人就在 provider 回合里)。
+// 所以代理调用这些名字时在入口【解开】,等价于直调、走同一条特判与同一套闸。
+const PROXY_UNWRAP_TARGETS = new Set([
+  'todo_write', 'mission_update', 'request_user_input', 'list_tools', 'tool_search', 'tool_load',
+  'orchestrate_agents', 'spawn_agent', 'wait_agents', 'agent_result',
+]);
+const PROXY_UNWRAP_AGENT_TARGETS = new Set(['orchestrate_agents', 'spawn_agent', 'wait_agents', 'agent_result']);
+// tc: {id, name, rawArgs}。返回原对象(不需要解开 / 解不开)或 {...tc, name: 目标, rawArgs: 内层参数}。
+// offered:可选的「本回合可用工具名」集合 —— 给了就要求代理目标里的代理类工具在其中(功能关闭 / 子回合禁嵌套时它们本就不 offer,
+// 不能借代理绕开);不给(计划阶段判定)则一律解开,按直调同样严格地判。
+function unwrapProxiedControlCall(tc, offered) {
+  if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
+  let outer;
+  try { outer = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  outer = normalizeToolInvokeArgs(outer);
+  if (!outer || typeof outer !== 'object' || Array.isArray(outer)) return tc;
+  const target = typeof outer.name === 'string' ? outer.name.trim() : '';
+  if (!PROXY_UNWRAP_TARGETS.has(target)) return tc;
+  if (offered && PROXY_UNWRAP_AGENT_TARGETS.has(target) && !offered.has(target)) return tc;
+  const inner = outer.arguments;
+  if (inner !== undefined && (inner === null || typeof inner !== 'object' || Array.isArray(inner))) return tc; // 参数坏了:留给原路径给 invalid-arguments
+  return { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
+}
+
 // Plan mode may investigate before proposing a plan, but it must stay observational. The normal permission
 // tier is the source of truth for file/web/bridge reads; planning metadata and agent coordination are excluded
 // even though some are classified as read-tier for the regular autonomous loop. Unknown tools fail closed via
@@ -1250,8 +1284,11 @@ const PLAN_DISCOVERY_BLOCKED_TOOLS = new Set([
 function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
   const calls = Array.isArray(toolCalls) ? toolCalls.filter(Boolean) : [];
   if (!calls.length) return false;
-  return calls.every(tc => {
-    if (tc.serverSide) return true; // Provider-executed search/open calls are observational.
+  return calls.every(tc0 => {
+    if (tc0.serverSide) return true; // Provider-executed search/open calls are observational.
+    // tool_invoke_* 代理的目标是这轮会被引擎特判的工具时,按【目标】判(下方 unwrapProxiedControlCall 会把它当直调执行):
+    // 否则 tool_invoke_read{name:'todo_write'} 凭代理名的 read 档溜过计划阶段的拦截。
+    const tc = unwrapProxiedControlCall(tc0);
     const name = String(tc.name || '').trim();
     if (!name || PLAN_DISCOVERY_BLOCKED_TOOLS.has(name)) return false;
     const bridge = resolveBridge(bridgedRoute || {}, name);
@@ -2150,6 +2187,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       return { ok: false, error: `本回合代理数已达上限(${subagentTurnCap}):已启动 ${subagentTotal},本次请求 ${nodeCount}`, startedCount: 0 };
     }
     const background = args.background === true;
+    const modelNotes = orchestrateModelNotes(resolved.nodes, provider);   // model 不在服务商清单里:只提示,不拒绝
     const runId = makeId('run');
     const common = {
       parentSession: session, provider, config, nodes: resolved.nodes, parentEngine: 'openai', parentModel: model,
@@ -2182,13 +2220,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       return {
         ok: true, accepted: true, background: true, status: 'running', runId, nodes: resolved.nodes.map(n => n && n.id).filter(Boolean),
         note: '代理已在后台运行;本回合可继续推进。完成后交付信封会自动送达一次(也可 wait_agents 收件);全文用 agent_result 取。',
+        ...(modelNotes.length ? { notes: modelNotes } : {}),
       };
     }
     let completedRun = null;
     const res = await runAgentWorkflow({ ...common, onEvent: onNestedEvent, ctrl, onComplete: async run => { completedRun = run; } });
     subagentTotal += Math.max(0, Number(res && res.startedCount) || 0);
     if (!completedRun) return { ok: false, error: (res && res.error) || '代理启动失败', runId: (res && res.runId) || runId, startedCount: 0 };
-    return buildAgentRunEnvelope(completedRun);
+    const envelope = buildAgentRunEnvelope(completedRun);
+    return modelNotes.length && envelope && typeof envelope === 'object' ? { ...envelope, notes: modelNotes } : envelope;
   };
 
   // v1.0-S6 (B): failover-aware wrapper around openAiStreamOnce. For ONE logical API call it walks the
@@ -2609,6 +2649,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         if (localToolCalls.length > 1) {
           const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
           const isSafeRead = tc => Boolean(tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
+            && unwrapProxiedControlCall(tc) === tc   // 代理到引擎特判工具的调用不预执行(串行循环里会被解开成直调)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
             && !toolArgsRefusal(tc)); // 参数坏了的调用不预执行(串行路径会拒绝它,见 toolArgsRefusal)
           // N9: 只读岛(见 planParallelReadIsland):整批全是安全只读时 = 整批(与修前逐字节等价);混批时 = 第一个阻塞调用之前的只读。
@@ -2676,7 +2717,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // 本批已应答的 id 只看【本批】的记录:toolCalls 是整回合的,服务商跨迭代复用 id(call_1 每轮都有)时,
         // 按整回合判会把本批还没应答的 call_1 当成「已答」而漏补配对,留下孤儿 tool_call。
         const batchToolCallsStart = toolCalls.length;
-        for (const tc of localToolCalls) {
+        const offeredToolNames = new Set(allTools.map(t => t && t.function && t.function.name).filter(Boolean));
+        for (const tc0 of localToolCalls) {
+          const tc = unwrapProxiedControlCall(tc0, offeredToolNames);   // tool_invoke_* → 引擎特判工具时解开成直调(见该函数头注)
           let args = {}; try { args = JSON.parse(tc.rawArgs || '{}'); } catch { args = {}; }
           await notifyToolHookStart(tc, args, iter);
           // v0.8-S7 loop detection (§4 A3): update the consecutive-signature run BEFORE executing so we

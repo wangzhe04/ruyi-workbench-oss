@@ -624,7 +624,9 @@ function buildCallHint(item, loadedNames, config, blockedReason) {
 
 function searchToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
-  const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
+  // limit ≤ 0 / 非数字一律回默认(修前 0 → 默认、-5 → 1,同一参数两种口径)。
+  const limitNum = Number(args && args.limit);
+  const limit = limitNum > 0 ? Math.min(20, Math.max(1, limitNum)) : 8;
   const forceV1 = !!(opts && opts.forceV1);
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
     const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
@@ -772,7 +774,8 @@ function classifyRuntimeToolFailure(toolName, result, meta) {
 function listCompactTools(catalog, args) {
   const pack = String(args && args.pack || '').trim();
   const cursor = Math.max(0, Math.floor(Number(args && args.cursor) || 0));
-  const limit = Math.min(200, Math.max(1, Math.floor(Number(args && args.limit) || 200)));
+  const limitNum = Math.floor(Number(args && args.limit));   // ≤ 0 / 非数字回默认 200(与 tool_search 同口径)
+  const limit = limitNum > 0 ? Math.min(200, limitNum) : 200;
   const available = (catalog || []).filter(x => !pack || x.pack === pack)
     .slice().sort((a, b) => a.pack.localeCompare(b.pack) || a.name.localeCompare(b.name));
   const page = available.slice(cursor, cursor + limit);

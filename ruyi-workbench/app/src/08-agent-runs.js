@@ -1871,7 +1871,37 @@ function singleAgentShorthandNode(args) {
   if (args.engine) node.engine = args.engine;
   return node;
 }
+// 入口形状校验(回合内 orchestrate_agents 与 /api/agent-workflow/launch 共用)。修前:toolTier:'superuser' 静默按 read 档跑
+// (节点规范化把不认识的档位丢成空),task 与 nodes 同时给时 task 被悄悄忽略(schema 明说二者互斥)。
+// 空串档位 = 「继承角色」(画布里的下拉就是这么存的),放行。返回错误文本或 null。
+const ORCHESTRATE_TOOL_TIERS = ['read', 'edit', 'exec'];
+function orchestrateArgsProblem(args) {
+  const a = (args && typeof args === 'object') ? args : {};
+  const badTier = v => v != null && v !== '' && !ORCHESTRATE_TOOL_TIERS.includes(v);
+  if (badTier(a.toolTier)) return `toolTier 无效:${JSON.stringify(a.toolTier)};允许值 ${ORCHESTRATE_TOOL_TIERS.join(' / ')}`;
+  if (Array.isArray(a.nodes) && a.nodes.length) {
+    for (const n of a.nodes) {
+      if (n && typeof n === 'object' && badTier(n.toolTier)) return `节点 ${String(n.id || '(未命名)')} 的 toolTier 无效:${JSON.stringify(n.toolTier)};允许值 ${ORCHESTRATE_TOOL_TIERS.join(' / ')}`;
+    }
+    if (String(a.task || '').trim()) return 'task(单代理简写)与 nodes 互斥,只给其一:单个代理只写 task;多个代理把各自的任务写进 nodes[].task';
+  }
+  return null;
+}
+// 节点的 model 不在服务商的模型清单里时给提示(不拒绝:服务商可能认清单外的型号 / 别名),交给调用方放进结果的 notes。
+function orchestrateModelNotes(nodes, provider) {
+  const listed = (provider && Array.isArray(provider.models) ? provider.models : []).map(m => String((m && m.id) || m || '').trim()).filter(Boolean);
+  if (!listed.length) return [];
+  const notes = [];
+  for (const n of (Array.isArray(nodes) ? nodes : [])) {
+    const m = String((n && n.model) || '').trim();
+    if (!m || m === 'inherit' || (n && n.engine === 'claude') || listed.includes(m)) continue;
+    notes.push(`节点 ${String((n && n.id) || 'agent')} 的 model "${m.slice(0, 80)}" 不在服务商 ${String(provider.label || provider.id || '')} 的模型清单里(${listed.slice(0, 6).join(', ')}${listed.length > 6 ? ' …' : ''});已原样传给服务商,若被拒请改用清单内的型号或省略 model。`);
+  }
+  return notes.slice(0, 4);
+}
 async function resolveOrchestrateNodes(args, cwd) {
+  const problem = orchestrateArgsProblem(args);
+  if (problem) return { nodes: null, error: problem };
   if (Array.isArray(args && args.nodes) && args.nodes.length) return { nodes: args.nodes, error: null };
   const workflowId = String((args && args.workflowId) || '').trim();
   if (!workflowId) {

@@ -1,3 +1,6 @@
+// 浏览器目标的合法模式(normalizeConfig 清洗与 mcp_configure set-browser 的入口校验共用一份,别再各抄一个数组)。
+const BROWSER_AUTOMATION_MODES = ['system', 'managed', 'custom', 'cdp', 'bundled'];
+
 function defaultConfig() {
   return {
     configSchema: CONFIG_SCHEMA,
@@ -954,9 +957,8 @@ function normalizeConfig(raw, opts = {}) {
   }
   {
     const raw0 = (config.browserAutomation && typeof config.browserAutomation === 'object' && !Array.isArray(config.browserAutomation)) ? config.browserAutomation : {};
-    const modes = ['system', 'managed', 'custom', 'cdp', 'bundled'];
     const b = {
-      mode: modes.includes(raw0.mode) ? raw0.mode : 'system',
+      mode: BROWSER_AUTOMATION_MODES.includes(raw0.mode) ? raw0.mode : 'system',
       executable: typeof raw0.executable === 'string' ? raw0.executable.trim().slice(0, 1000) : '',
       cdpUrl: typeof raw0.cdpUrl === 'string' && raw0.cdpUrl.trim() ? raw0.cdpUrl.trim().slice(0, 1000) : 'http://127.0.0.1:9222',
     };

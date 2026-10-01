@@ -2103,15 +2103,59 @@ async function mutateMcpConnector({ op, id, enabled, server }) {
 // 工具面入口(mcp_configure)。117n-M2 起只剩「工具形状 + set-browser」,连接器三操作全部转
 // mutateMcpConnector。第二个参数 currentConfig 保留在签名里只为兼容既有调用点(12-tool-dispatch),
 // 【有意不再使用】:落盘前的读必须发生在 mutateConfig 的锁内,回合起点的快照到这里已可能陈旧。
+// 把 args 字符串按 shell 口径切开(空白分隔,单/双引号成组,不处理反斜杠转义 —— Windows 路径里全是反斜杠)。
+function splitMcpArgsString(text) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(String(text || '')))) out.push(m[1] != null ? m[1] : (m[2] != null ? m[2] : m[3]));
+  return out;
+}
+// 外部 MCP 连接器 id 的合法形(与 upsert 落盘文件名/CLI 键名兼容;含空格/斜杠/.. 的 id 会让 .mcp.json 键与路径判断出岔子)。
+const MCP_CONNECTOR_ID_RE = /^[A-Za-z0-9_.-]{1,64}$/;
+// set-browser 的入参校验与合并 —— 修前对非法输入一律静默改写成默认值还回 ok:true(mode:'bogus' 存成 system、
+// 缺 browser 对象把自定义的 executable/cdpUrl 重置、cdpUrl:'not a url' 原样落盘、custom 没有 executable 也存)。
+// 现在:只改显式给出的字段(其余沿用磁盘上的现值);任何一项不合法就整次拒绝并点名允许值。返回 { error } 或 { browser }。
+function validateBrowserTargetPatch(raw, current) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !Object.keys(raw).length) {
+    return { error: `set-browser 需要 browser 对象:{mode: ${BROWSER_AUTOMATION_MODES.join('|')}, executable?, cdpUrl?}` };
+  }
+  const next = { ...(current || {}) };
+  if (raw.mode !== undefined) {
+    const mode = String(raw.mode).trim().toLowerCase();
+    if (!BROWSER_AUTOMATION_MODES.includes(mode)) return { error: `browser.mode 无效:${JSON.stringify(raw.mode)};允许值 ${BROWSER_AUTOMATION_MODES.join(' / ')}` };
+    next.mode = mode;
+  }
+  if (raw.executable !== undefined) {
+    if (typeof raw.executable !== 'string') return { error: 'browser.executable 必须是字符串(浏览器可执行文件路径)' };
+    next.executable = raw.executable.trim();
+  }
+  if (raw.cdpUrl !== undefined) {
+    const url = typeof raw.cdpUrl === 'string' ? raw.cdpUrl.trim() : '';
+    let ok = false;
+    try { ok = /^(https?|wss?):$/.test(new URL(url).protocol); } catch { ok = false; }
+    if (!ok) return { error: `browser.cdpUrl 不是合法地址:${JSON.stringify(raw.cdpUrl)};需要 http(s):// 或 ws(s):// 开头,如 http://127.0.0.1:9222` };
+    next.cdpUrl = url;
+  }
+  if (next.mode === 'custom' && !String(next.executable || '').trim()) return { error: "browser.mode 为 custom 时必须同时给出 executable(浏览器可执行文件的完整路径)" };
+  return { browser: { mode: next.mode, executable: next.executable, cdpUrl: next.cdpUrl } };
+}
+
+// 工具面入口(mcp_configure)。117n-M2 起只剩「工具形状 + set-browser」,连接器三操作全部转
+// mutateMcpConnector。第二个参数 currentConfig 保留在签名里只为兼容既有调用点(12-tool-dispatch),
+// 【有意不再使用】:落盘前的读必须发生在 mutateConfig 的锁内,回合起点的快照到这里已可能陈旧。
 async function configureMcpFromTool(args, currentConfig) {
   void currentConfig; // 见上:有意不用
   const operation = String(args && args.operation || '').trim();
   if (operation === 'set-browser') {
-    const raw = (args && args.browser && typeof args.browser === 'object') ? args.browser : {};
+    // 校验与合并都在 mutateConfig 的锁内、基于锁内刚读到的那份现值(同连接器写入的纪律)。
     const r = await mutateConfig(async (config) => {
-      config.browserAutomation = { mode: raw.mode, executable: raw.executable, cdpUrl: raw.cdpUrl };
+      const checked = validateBrowserTargetPatch(args && args.browser, config.browserAutomation);
+      if (checked.error) return { abort: { ok: false, operation, error: checked.error } };
+      config.browserAutomation = checked.browser;
       return {};
     });
+    if (!r.ok) return r.value;
     invalidateMcpRuntime('ai-computer-control');
     return { ok: true, operation, browserAutomation: r.config.browserAutomation,
       note: '浏览器目标已保存；当前桌面 MCP 连接已刷新，下一次工具发现会按新策略启动。' };
@@ -2121,7 +2165,18 @@ async function configureMcpFromTool(args, currentConfig) {
   if (operation !== 'upsert' && operation !== 'remove' && operation !== 'set-enabled') {
     return { ok: false, error: 'operation 必须是 upsert、remove、set-enabled 或 set-browser' };
   }
-  const r = await mutateMcpConnector({ op: operation, id, enabled: args && args.enabled, server: (args && args.server) || null });
+  let server = (args && args.server) || null;
+  if (operation === 'upsert') {
+    // 新建/改写的入口形状校验(remove / set-enabled 不卡:历史导入的 id 可能带别的字符,照样要能停用/删除)。
+    if (!MCP_CONNECTOR_ID_RE.test(id)) return { ok: false, operation, id, error: 'MCP id 只能含字母、数字、下划线、点和连字符(1-64 个字符),不能含空格或斜杠。' };
+    if (server !== null && (typeof server !== 'object' || Array.isArray(server))) return { ok: false, operation, id, error: 'server 必须是对象:{command, args[], cwd, env{}, enabled},远程连接器用 {transport, url}' };
+    if (server && server.args !== undefined) {
+      // args 给成一个字符串(模型常这么写)修前被静默存成 [];按 shell 口径切开,数组里混进非字符串则拒绝。
+      if (typeof server.args === 'string') server = { ...server, args: splitMcpArgsString(server.args) };
+      else if (!Array.isArray(server.args) || server.args.some(a => typeof a !== 'string')) return { ok: false, operation, id, error: 'server.args 必须是字符串数组(或一个按空格切分的字符串)。' };
+    }
+  }
+  const r = await mutateMcpConnector({ op: operation, id, enabled: args && args.enabled, server });
   if (!r.ok) return { ok: false, operation, id, error: r.error };
   const saved = r.server;
   return { ok: true, operation, id, removed: r.removed, ...(r.warning ? { warning: r.warning } : {}),

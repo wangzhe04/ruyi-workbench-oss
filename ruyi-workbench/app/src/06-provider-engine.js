@@ -337,21 +337,41 @@ function auditSummaryFor(rec) {
 
 // Read the most recent workbench NDJSON log file (by filename, which sorts chronologically since the day
 // stamp is ISO), tail up to `limit` lines, JSON-parse each (bad lines skipped), and normalize. Never throws.
-async function readWorkbenchAudit(limit) {
+// 第二轮工具走查(F6)给管家的 steward_audit_tail 加了两个可选口子(HTTP /api/audit 不传 = 行为逐字不变):
+//   · opts.kinds / opts.excludeKinds —— 按 rec.kind 在【取尾之前】过滤。修前只能在取尾之后过滤(collectAudit 的
+//     typeFilter),于是「最近 20 条里恰好有几条 intervention」才拿得到,而最近 20 条几乎全是遥测;
+//   · opts.maxFiles —— 最近一个日志文件不够 limit 条时往前再读几天(默认 1 = 旧行为;跨零点后第一条事件之前
+//     最新文件几乎是空的,管家问「刚才发生了什么」就只剩那几行)。
+async function readWorkbenchAudit(limit, opts) {
   const out = [];
+  const kinds = opts && opts.kinds instanceof Set && opts.kinds.size ? opts.kinds : null;
+  const excludeKinds = opts && opts.excludeKinds instanceof Set && opts.excludeKinds.size ? opts.excludeKinds : null;
+  const maxFiles = Math.max(1, Math.min(7, Number(opts && opts.maxFiles) || 1));
   let files;
   try { files = await fsp.readdir(paths.logs); } catch { return out; }
   const logs = files.filter(f => /^workbench-.*\.ndjson$/.test(f)).sort();
   if (!logs.length) return out;
   // Most recent file only (spec: 取最近文件, 尾部 limit 条). Read, split, tail.
-  const latest = logs[logs.length - 1];
-  let raw;
-  try { raw = await fsp.readFile(path.join(paths.logs, latest), 'utf8'); } catch { return out; }
-  const lines = raw.split('\n').filter(l => l.trim());
-  const tail = lines.slice(-limit);
-  for (const line of tail) {
-    const rec = safeJsonParse(line, null);
-    if (!rec || typeof rec !== 'object') continue;   // corrupt line → skip
+  // 多文件时按【从新到旧】逐个读,凑够 limit 条为止;最终 out 仍按文件内行序(旧 → 新)排列,
+  // 与单文件时同一个次序(collectAudit 随后统一排序)。
+  const picked = [];
+  for (let fi = logs.length - 1; fi >= 0 && fi >= logs.length - maxFiles && picked.length < limit; fi -= 1) {
+    let raw;
+    try { raw = await fsp.readFile(path.join(paths.logs, logs[fi]), 'utf8'); } catch { continue; }
+    const lines = raw.split('\n').filter(l => l.trim());
+    const recs = [];
+    // 没有 kind 过滤时先取尾再解析(与修前同一个代价:大日志不必整份 JSON.parse)。
+    for (const line of (kinds || excludeKinds) ? lines : lines.slice(-(limit - picked.length))) {
+      const rec = safeJsonParse(line, null);
+      if (!rec || typeof rec !== 'object') continue;   // corrupt line → skip
+      const kind = String(rec.kind || 'event');
+      if (kinds && !kinds.has(kind)) continue;
+      if (excludeKinds && excludeKinds.has(kind)) continue;
+      recs.push(rec);
+    }
+    picked.unshift(...recs.slice(-(limit - picked.length)));
+  }
+  for (const rec of picked) {
     const detailStr = redact(JSON.stringify(rec));   // 脱敏: secrets never reach the audit response
     out.push({
       ts: rec.ts || '',
@@ -819,7 +839,7 @@ async function readDesktopAudit(config, limit) {
 
 // Aggregate both sources → merged, filtered, ts-descending, limit-capped timeline. `sourceFilter` (one of
 // 'workbench'|'desktop') restricts to a single source; `typeFilter` matches entry.type exactly.
-async function collectAudit(config, { limit, sourceFilter, typeFilter }) {
+async function collectAudit(config, { limit, sourceFilter, typeFilter, kinds, excludeKinds, maxFiles }) {
   const cap = Math.max(1, Math.min(500, Number(limit) || 100)); // clamp 1..500 (default 100)
   const sources = { workbench: false, desktop: false };
   let entries = [];
@@ -827,7 +847,7 @@ async function collectAudit(config, { limit, sourceFilter, typeFilter }) {
   const wantDesktop = !sourceFilter || sourceFilter === 'desktop';
 
   if (wantWorkbench) {
-    const wb = await readWorkbenchAudit(cap);
+    const wb = await readWorkbenchAudit(cap, { kinds, excludeKinds, maxFiles });
     entries = entries.concat(wb);
     sources.workbench = true; // the workbench log source is always available (empty is still "available")
   }
@@ -841,6 +861,9 @@ async function collectAudit(config, { limit, sourceFilter, typeFilter }) {
 
   if (typeFilter) entries = entries.filter(e => e.type === typeFilter);
   // Sort ts-descending (new→old). Empty ts sorts last (localeCompare treats '' as smallest → reverse it).
+  // 同一毫秒的事件(一个回合的 turn_start / turn_end 常常同 ts)靠【稳定排序 + 先把行序倒过来】保持「后写的在前」:
+  // 各源给的都是文件行序(旧 → 新),不倒就是同 ts 里旧的排在前面,limit:1 取到的不是最新那条(第二轮走查 F6)。
+  entries.reverse();
   entries.sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
   const truncated = entries.length > cap;
   if (truncated) entries = entries.slice(0, cap);
@@ -1059,14 +1082,15 @@ async function deleteUserPlaybook(id) {
 async function draftPlaybookFromSession(sessionId) {
   const config = await readConfig();
   const provider = activeOpenAiProvider(config);
-  if (!provider) return { ok: false, error: '存为 playbook 需要 provider 引擎' };
+  // noModelCall:true = 这次失败发生在调模型之前(管家的 steward_playbook_draft 据此把本回合的起草名额还回去;其它调用方不看它)。
+  if (!provider) return { ok: false, noModelCall: true, error: '存为 playbook 需要 provider 引擎' };
   let session;
-  try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, error: 'session not found' }; }
-  if (!session) return { ok: false, error: 'session not found' };
+  try { session = await loadSession(String(sessionId || '')); } catch { return { ok: false, noModelCall: true, error: 'session not found' }; }
+  if (!session) return { ok: false, noModelCall: true, error: 'session not found' };
   const msgs = Array.isArray(session.messages) ? session.messages : [];
   const lastUser = [...msgs].reverse().find(m => m && m.role === 'user' && String(m.content || '').trim());
   const lastUserText = lastUser ? String(lastUser.content || '').trim() : '';
-  if (!lastUserText) return { ok: false, error: '本会话没有可参考的用户消息' };
+  if (!lastUserText) return { ok: false, noModelCall: true, error: '本会话没有可参考的用户消息' };
   // 取最近一条 assistant 的 turn_summary(哪些文件被改/命令数),给起草更多上下文。
   const lastSummaryMsg = [...msgs].reverse().find(m => m && m.role === 'assistant' && m.turnSummary);
   const summaryHint = lastSummaryMsg && lastSummaryMsg.turnSummary

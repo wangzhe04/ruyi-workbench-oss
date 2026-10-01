@@ -669,13 +669,20 @@ async function listWorkbenchMemories(args, ctx) {
   const { cwd, config } = await resolveWorkbenchMemoryToolContext(ctx);
   const scope = args && args.scope === 'global' ? 'global' : (args && args.scope === 'project' ? 'project' : 'all');
   const query = String(args && args.query || '').trim();
-  const limit = Math.min(50, Math.max(1, Math.floor(Number(args && args.limit) || 20)));
+  const limitNum = Math.floor(Number(args && args.limit));   // ≤ 0 / 非数字回默认 20(修前 0 → 20、-5 → 1)
+  const limit = limitNum > 0 ? Math.min(50, limitNum) : 20;
   const coreState = await resolveCoreMemoryState(cwd, await loadMemoryRegistry(cwd), config);
   let registry = coreState.all;
   if (scope !== 'all') registry = registry.filter(m => m.scope === scope);
-  if (query) registry = rankRelevantMemories(registry, query, limit);
-  else registry = registry.slice(0, limit);
-  if (query) await touchMemoryUsage(registry, cwd, 'relevant');
+  // 带 query 时 preference/convention 无词命中也会入榜(默认应遵守的稳定规则,列出来是对的),但它们【没有被这次检索
+  // 选中】—— 只给真命中的条目记一次使用(useCount/lastUsedAt 喂记忆的新鲜度与淘汰判断,不该被不相干的查询刷高)。
+  let matched = null;
+  if (query) {
+    const ranked = rankRelevantMemoriesScored(registry, query).slice(0, limit);
+    registry = ranked.map(x => x.entry);
+    matched = ranked.filter(x => x.shared > 0).map(x => x.entry);
+  } else registry = registry.slice(0, limit);
+  if (matched && matched.length) await touchMemoryUsage(matched, cwd, 'relevant');
   return { ok: true, query, scope, count: registry.length, core: coreState.stats,
     memories: registry.map(m => ({ id: m.id, scope: m.scope, name: m.name, description: m.description, type: m.type,
       createdAt: m.createdAt, updatedAt: m.updatedAt, core: m.core, coreStatus: m.coreStatus, importance: m.importance,
@@ -720,7 +727,15 @@ async function proposeWorkbenchMemory(args, ctx) {
   if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) { proposal.scope = 'project'; scopeAdjusted = true; }
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
   const registry = await loadMemoryRegistry(cwd).catch(() => []);
-  if (memoryProposalIsDuplicate(proposal, registry, state)) return { ok: false, duplicate: true, error: 'same or very similar memory already exists or was already reviewed' };
+  const dup = findMemoryProposalDuplicate(proposal, registry, state);
+  if (dup) {
+    if (dup.existing && dup.existing.id) {
+      const ex = dup.existing;
+      return { ok: false, duplicate: true, existingId: ex.id, existingScope: ex.scope, existingName: ex.name,
+        error: `same or very similar memory already exists: id=${ex.id} (${ex.scope}, "${String(ex.name || '').slice(0, 80)}"). To change it call workbench_memory_revise {id:"${ex.id}", scope:"${ex.scope}", ...}; do not propose a new one.` };
+    }
+    return { ok: false, duplicate: true, error: 'same or very similar memory was already reviewed in this session (accepted or dismissed earlier); not proposing it again' };
+  }
   const id = makeId('proposal'); // 117q-B2(P2-15):统一走 makeId
   const safeProposal = { ...proposal, sourceSessionId: sid, sourceTurnSeq: turnSeq };
   if (state.current && state.current.status === 'pending') {
@@ -783,13 +798,21 @@ async function proposeMemoryRelationTool(args, ctx) {
   const type = String(args && args.type || '');
   const from = String(args && args.from || '').trim();
   const to = String(args && args.to || '').trim();
-  const scope = (args && args.scope) === 'global' ? 'global' : 'project';
   if (!MEMORY_RELATION_TYPES.has(type)) return { ok: false, error: 'relation type 须为 supports/contradicts/supersedes/derived_from' };
   if (!SKILL_ID_RE.test(from) || !SKILL_ID_RE.test(to) || from === to) return { ok: false, error: 'from/to 须为合法记忆 id 且互不相同' };
   // from/to 须在目标 scope 内已存在(与 proposeMemoryRelation 同红线,防跨 scope/幽灵 id)。
-  const dir = scope === 'global' ? memoryGlobalDir() : memoryProjectDir(cwd);
-  const reg = await readMemoryDir(dir, scope);
-  if (!reg.has(from) || !reg.has(to)) return { ok: false, error: 'from 或 to 在目标 scope 内不存在(拒绝跨 scope 或幽灵 id 建边)' };
+  // scope 没给时与 workbench_memory_read 同口径自动判定(只有一个 scope 同时含 from 与 to 就用它);修前一律当 project,
+  // 只存在于 global 的记忆读得到、建边却说不存在。
+  const scopeArg = (args && (args.scope === 'global' || args.scope === 'project')) ? args.scope : '';
+  const regs = { project: await readMemoryDir(memoryProjectDir(cwd), 'project'), global: await readMemoryDir(memoryGlobalDir(), 'global') };
+  let scope = scopeArg;
+  if (!scope) {
+    const both = ['project', 'global'].filter(sc => regs[sc].has(from) && regs[sc].has(to));
+    if (both.length > 1) return { ok: false, error: 'from/to 在 project 与 global 两个 scope 里都存在;请指定 scope' };
+    scope = both[0] || 'project';
+  }
+  const reg = regs[scope];
+  if (!reg.has(from) || !reg.has(to)) return { ok: false, error: `from 或 to 在 ${scope} scope 内不存在${scopeArg ? '' : '(未指定 scope,已在 project 与 global 里查找,没有哪个 scope 同时含二者)'}(拒绝跨 scope 或幽灵 id 建边)` };
   const note = fmVal(String((args && args.note) || '')).slice(0, 200);
   const reason = fmVal(String((args && args.reason) || '')).slice(0, 240) || note;
   if (memoryProposalLooksSensitive({ name: note, description: reason, body: '' })) return { ok: false, error: '候选看起来敏感，未提交' };
@@ -812,10 +835,19 @@ async function proposeMemoryRevision(args, ctx) {
     return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true, alreadyPending: true, source: 'tool', note: '本回合已有记忆维护候选；保持先到候选，不重复生成或覆盖。' };
   }
   const targetId = String(args && args.id || '').trim();
-  const targetScope = (args && args.scope) === 'global' ? 'global' : 'project';
   if (!SKILL_ID_RE.test(targetId)) return { ok: false, error: 'invalid memory id' };
-  const target = await readMemoryItem(targetId, targetScope, cwd);
-  if (!target.ok) return { ok: false, error: '目标记忆不存在' };
+  // scope 没给时与 workbench_memory_read 同口径自动判定(修前一律当 project:只在 global 的记忆读得到、改却说「不存在」)。
+  const scopeArg = (args && (args.scope === 'global' || args.scope === 'project')) ? args.scope : '';
+  let targetScope = scopeArg || 'project';
+  let target;
+  if (scopeArg) target = await readMemoryItem(targetId, scopeArg, cwd);
+  else {
+    const [pItem, gItem] = await Promise.all([readMemoryItem(targetId, 'project', cwd), readMemoryItem(targetId, 'global', cwd)]);
+    if (pItem.ok && gItem.ok) return { ok: false, error: 'memory id exists in both scopes; specify scope' };
+    target = gItem.ok ? gItem : pItem;
+    targetScope = gItem.ok ? 'global' : 'project';
+  }
+  if (!target.ok) return { ok: false, error: `目标记忆不存在(id=${targetId},${scopeArg ? `scope=${scopeArg}` : '已在 project 与 global 两个 scope 里查找'})` };
   // 敏感过滤用【原始输入】(未 fmVal 抹换行),避免跨行敏感串(如 PEM key/多行凭据)被换行粘连后逃过正则。
   const rawName = String((args && args.name) || '');
   const rawDescription = String((args && args.description) || '');
@@ -1053,20 +1085,25 @@ function memoryProposalLooksSensitive(proposal) {
   return /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|密码|密钥|authorization)\s*[:=]\s*[^\s*]{6,}|\b(?:sk|ghp|github_pat|xox[baprs])-[-A-Za-z0-9_]{12,}|\bAKIA[0-9A-Z]{16}\b|\beyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b|(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql):\/\/[^\s:@/]+:[^\s@/]+@/i.test(text);
 }
 
-function memoryProposalIsDuplicate(proposal, registry, state) {
+// 找出让候选算「重复」的那一条:{ existing: <注册表条目> }(已有记忆)或 { reviewed: true }(本会话评审过的候选),没有则 null。
+// 工具面据此在错误里点名已有记忆的 id / 名字 —— 修前只回「已存在」,模型不知道是哪一条,没法改走 workbench_memory_revise。
+function findMemoryProposalDuplicate(proposal, registry, state) {
   const candidate = [proposal.name, proposal.description].join(' ');
   const normalizedName = proposal.name.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
   for (const entry of (Array.isArray(registry) ? registry : [])) {
     const entryName = String(entry && entry.name || '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
-    if (entryName && entryName === normalizedName) return true;
-    if (memoryProposalSimilarity(candidate, [entry && entry.name, entry && entry.description].filter(Boolean).join(' ')) >= 0.72) return true;
+    if (entryName && entryName === normalizedName) return { existing: entry };
+    if (memoryProposalSimilarity(candidate, [entry && entry.name, entry && entry.description].filter(Boolean).join(' ')) >= 0.72) return { existing: entry };
   }
   const key = memoryProposalSemanticKey(proposal);
   for (const item of (Array.isArray(state && state.history) ? state.history : [])) {
-    if (item && item.semanticKey === key) return true;
-    if (item && item.summary && memoryProposalSimilarity(candidate, item.summary) >= 0.78) return true;
+    if (item && item.semanticKey === key) return { reviewed: true };
+    if (item && item.summary && memoryProposalSimilarity(candidate, item.summary) >= 0.78) return { reviewed: true };
   }
-  return false;
+  return null;
+}
+function memoryProposalIsDuplicate(proposal, registry, state) {
+  return findMemoryProposalDuplicate(proposal, registry, state) !== null;
 }
 
 function memoryProposalStateFile(sessionId) {

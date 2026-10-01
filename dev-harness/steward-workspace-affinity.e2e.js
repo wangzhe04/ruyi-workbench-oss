@@ -290,7 +290,9 @@ try {
     const st2 = await srv.toolCall('steward_thread_status', { sessionId: a1.sessionId }, ctx);
     ok(st2 && st2.workspace && st2.workspace.name === 'A' && st2.workspace.ruyiOwned === false && st2.mission && st2.mission.workspace && st2.mission.workspace.name === 'A',
       `F2 用户工作区里的线程 ruyiOwned:false,事项的工作区也带出来(got ${JSON.stringify(st2 && [st2.workspace, st2.mission && st2.mission.workspace])})`);
-    const ms = await srv.toolCall('steward_missions', {}, ctx);
+    // 2026-10 工具走查第二轮(F7)有意改变的行为:steward_missions 默认只回前 50 个事项(带 total / truncated)。本件前面造了 128 个事项,
+    // 要找的那一个不一定在前 50 里 —— 这里要验的是工作区名字,不是默认条数,所以显式要满(200 是上限)。
+    const ms = await srv.toolCall('steward_missions', { limit: 200 }, ctx);
     const mRow = ms && Array.isArray(ms.missions) ? ms.missions.find(m => m.missionId === missionId) : null;
     ok(mRow && mRow.workspace === 'A' && mRow.threads.every(t => typeof t.workspace === 'string') && !JSON.stringify(mRow).includes(path.basename(TMP)),
       `F3 steward_missions 带事项与线程的工作区名字,零全路径(got ${JSON.stringify(mRow && [mRow.workspace, mRow.threads.map(t => t.workspace)])})`);

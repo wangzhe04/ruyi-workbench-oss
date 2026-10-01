@@ -8,8 +8,8 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false,
       properties: {
         query: { type: 'string', description: 'Optional relevance query. Omit to list newest entries.' },
-        scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all' },
-        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 },
+        scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all', description: 'filter by scope' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'max entries' },
       },
     },
   },
@@ -19,7 +19,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: {
-        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$' },
+        id: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,64}$', description: 'id from workbench_memory_list' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Optional unless the same id exists in both scopes.' },
       },
     },
@@ -30,9 +30,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['name', 'description', 'type', 'scope', 'body', 'reason'],
       properties: {
-        name: { type: 'string', minLength: 1, maxLength: 120 },
+        name: { type: 'string', minLength: 1, maxLength: 120, description: 'short title' },
         description: { type: 'string', minLength: 1, maxLength: 400, description: 'When this memory is useful.' },
-        type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'] },
+        type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'habit | project rule | pitfall | pointer, in enum order' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
         body: { type: 'string', minLength: 1, maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
         reason: { type: 'string', minLength: 1, maxLength: 240, description: 'Why this will remain useful across future sessions.' },
@@ -112,9 +112,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        command: { type: 'string' },
+        command: { type: 'string', description: 'command text' },
         cwd: { type: 'string', description: 'default: conversation folder; must exist' },
-        timeoutMs: { type: 'number' },
+        timeoutMs: { type: 'number', description: 'ms, default 60000' },
       },
       required: ['command'],
     },
@@ -129,11 +129,11 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'working directory (defaults to the current working folder of this conversation)' },
-        name: { type: 'string', description: 'human-readable label' },
+        cwd: { type: 'string', description: 'default: conversation folder' },
+        name: { type: 'string', description: 'label' },
         command: { type: 'string', description: 'Optional finite PowerShell command to run in the background; shell_poll.running becomes false on completion. Do not send input to this mode.' },
         timeoutMs: { type: 'number', description: 'Background command deadline (default 30 minutes, maximum 24 hours). Polling does not extend it.' },
-        shellId: { type: 'string', description: 'optional deterministic id ([a-zA-Z0-9_-]{1,32}); auto-generated if omitted' },
+        shellId: { type: 'string', description: 'optional id [a-zA-Z0-9_-]{1,32}' },
       },
     },
   },
@@ -143,8 +143,8 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        shellId: { type: 'string' },
-        input: { type: 'string' },
+        shellId: { type: 'string', description: 'id from shell_start' },
+        input: { type: 'string', description: 'one input line' },
         timeoutMs: { type: 'number', description: 'max settle wait, default 10000' },
         maxChars: { type: 'number', description: 'default 16000, 500..30000' },
       },
@@ -157,7 +157,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        shellId: { type: 'string' },
+        shellId: { type: 'string', description: 'id from shell_start' },
         cursor: { type: 'number', description: 'omit/0 = latest; else previous cursor or omittedFrom' },
         maxChars: { type: 'number', description: 'default 16000, 500..30000' },
         waitMs: { type: 'number', description: 'long-poll for new output/exit, max 30000' },
@@ -185,10 +185,10 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        language: { type: 'string', enum: ['powershell', 'python', 'node', 'javascript'] },
-        code: { type: 'string' },
+        language: { type: 'string', enum: ['powershell', 'python', 'node', 'javascript'], description: 'default powershell' },
+        code: { type: 'string', description: 'script source' },
         cwd: { type: 'string', description: 'default: conversation folder; must exist' },
-        timeoutMs: { type: 'number' },
+        timeoutMs: { type: 'number', description: 'ms, default 60000' },
       },
       required: ['code'],
     },
@@ -218,8 +218,9 @@ const MCP_TOOLS = [
       properties: {
         path: { type: 'string', description: 'absolute or workspace-relative' },
         content: { type: 'string', description: 'full new content' },
-        createDirs: { type: 'boolean' },
+        createDirs: { type: 'boolean', description: 'default true' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk; default: keep existing' },
+        lineEnding: { type: 'string', enum: ['lf', 'crlf', 'preserve'], description: 'default: keep file style; preserve = as given' },
       },
       required: ['path', 'content'],
     },
@@ -244,7 +245,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'absolute or workspace-relative' },
-        oldText: { type: 'string', description: 'exact text (multi-line ok)' },
+        oldText: { type: 'string', minLength: 1, description: 'exact text (multi-line ok)' },
         newText: { type: 'string', description: 'replacement ("" deletes oldText)' },
         replaceAll: { type: 'boolean', description: 'replace every occurrence' },
       },
@@ -321,28 +322,28 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         url: { type: 'string', description: '要下载的 http(s) 网址' },
-        dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）' },
+        dest: { type: 'string', description: '保存到的绝对路径（须在工作区内）；文件夹（或以 / 结尾）则存进其中' },
         maxBytes: { type: 'number', description: '最大字节数，默认 100MB' },
-        timeoutMs: { type: 'number', description: '单请求超时（毫秒），默认 30s' },
+        timeoutMs: { type: 'number', description: '总期限（毫秒），默认空闲30s/总30分钟' },
       },
       required: ['url', 'dest'],
     },
   },
   {
     name: 'file_list',
-    description: 'List files/folders under a directory (recursive, breadth-first; defaults maxFiles 500, maxDepth 8; root defaults to the workspace): {root, files:[{relativePath,type,size}]}, join onto root (absolute:true adds absolute paths). Recursive mode prunes dependency/build/cache folders (node_modules, dist, build, …; see prunedDirs; includeIgnored:true enters them, ignoreDirs adds more); recursive:false lists one directory. truncated:true comes with a hint on how to narrow.',
+    description: 'List files/folders under a directory (recursive, breadth-first; defaults maxFiles 500, maxDepth 8; root defaults to the workspace): {root, files:[{relativePath,type,size}]}, join onto root (absolute:true adds absolute paths). Recursive mode prunes dependency/build/cache folders (node_modules, dist, build, …; see prunedDirs; includeIgnored:true enters them, ignoreDirs adds more); recursive:false lists one directory. truncated:true comes with a hint on how to narrow',
     inputSchema: {
       type: 'object',
       properties: {
-        root: { type: 'string' },
+        root: { type: 'string', description: 'default: workspace' },
         pattern: { type: 'string', description: 'case-insensitive regex on the relative path, or a glob ("*.js", "**/*.ts"); bad regex -> code:"bad_pattern"' },
-        recursive: { type: 'boolean' },
-        maxFiles: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
-        absolute: { type: 'boolean' },
-        ignoreCase: { type: 'boolean' },
+        recursive: { type: 'boolean', description: 'false = one level' },
+        maxFiles: { type: 'number', description: 'max entries' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
+        absolute: { type: 'boolean', description: 'add absolute paths' },
+        ignoreCase: { type: 'boolean', description: 'false = case-sensitive' },
       },
     },
   },
@@ -352,36 +353,36 @@ const MCP_TOOLS = [
       inputSchema: {
         type: 'object',
         properties: {
-          root: { type: 'string' },
+          root: { type: 'string', description: 'default: workspace' },
           pattern: { type: 'string', minLength: 1, description: 'regex (a literal is fine); invalid regex is searched as literal, patternNote says so' },
-          maxResults: { type: 'number' },
-          maxFiles: { type: 'number' },
-          maxDepth: { type: 'number' },
-          ignoreDirs: { type: 'array', items: { type: 'string' } },
-          includeIgnored: { type: 'boolean' },
+          maxResults: { type: 'number', description: 'max matches' },
+          maxFiles: { type: 'number', description: 'max files' },
+          maxDepth: { type: 'number', description: 'max depth' },
+          ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+          includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
           includeHidden: { type: 'boolean', description: 'also search dot-files/folders (.env, .ssh, .github …)' },
-          ignoreCase: { type: 'boolean' },
+          ignoreCase: { type: 'boolean', description: 'false = case-sensitive' },
           maxFileBytes: { type: 'number', description: 'default 20MB, max 200MB' },
           context: { type: 'number', description: '0-5 context lines per match' },
           glob: { type: 'string', description: 'path glob filter; without "/" matches file names at any depth' },
-          group: { type: 'boolean' },
+          group: { type: 'boolean', description: 'group by file' },
         },
         required: ['pattern'],
       },
   },
   {
     name: 'glob',
-    description: 'Find files by glob (** crosses dirs, * within a segment, ? one char; matched against the path relative to root, so "*.md" = top level only, "**/*.md" = everywhere). Returns {root, files:[{relativePath, mtime}]} newest first (root defaults to the workspace; maxResults 500, maxDepth 12; absolute:true adds absolute paths). Skips dependency/build/cache folders (see prunedDirs; includeIgnored:true, ignoreDirs). truncated:true + hint when more matched or the tree was too large to finish.',
+    description: 'Find files by glob (** crosses dirs, * within a segment, ? one char; matched against the path relative to root, so "*.md" = top level only, "**/*.md" = everywhere). Returns {root, files:[{relativePath, mtime}]} newest first (root defaults to the workspace; maxResults 500, maxDepth 12; absolute:true adds absolute paths). Skips dependency/build/cache folders (see prunedDirs; includeIgnored:true, ignoreDirs). truncated:true + hint when more matched or the tree was too large to finish',
     inputSchema: {
       type: 'object',
       properties: {
-        pattern: { type: 'string', description: 'e.g. "src/**/test_*.py"' },
-        root: { type: 'string' },
-        maxResults: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
-        absolute: { type: 'boolean' },
+        pattern: { type: 'string', minLength: 1, description: 'e.g. "src/**/test_*.py"' },
+        root: { type: 'string', description: 'default: workspace' },
+        maxResults: { type: 'number', description: 'max files' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
+        absolute: { type: 'boolean', description: 'add absolute paths' },
       },
       required: ['pattern'],
     },
@@ -406,7 +407,7 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        operation: { type: 'string', enum: ['upsert', 'remove', 'set-enabled', 'set-browser'] },
+        operation: { type: 'string', enum: ['upsert', 'remove', 'set-enabled', 'set-browser'], description: 'set-browser needs browser; others need id' },
         id: { type: 'string', description: 'External MCP id for upsert/remove/set-enabled.' },
         enabled: { type: 'boolean', description: 'For set-enabled.' },
         server: { type: 'object', description: 'For upsert: {id,label,command,args[],cwd,env{},enabled}. Keep credentials only in env and never echo them after saving.' },
@@ -429,15 +430,15 @@ const MCP_TOOLS = [
     description: 'Capture the primary Windows screen to a PNG file',
     inputSchema: {
       type: 'object',
-      properties: { outputPath: { type: 'string' }, timeoutMs: { type: 'number' } },
+      properties: { outputPath: { type: 'string', description: 'PNG path; default: app generated folder' }, timeoutMs: { type: 'number', description: 'ms' } },
     },
   },
   {
     name: 'keyboard_send_keys',
-    description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
+    description: 'Send keystrokes to the active Windows application. CAUTION: keys go to whatever window currently has focus; SendKeys meta characters + ^ % ~ ( ) { } [ ] are live modifiers (e.g. ^s = Ctrl+S, %{F4} = Alt+F4) unless literal:true (plain text). Confirm the focus target before sending, and prefer explicit app control over raw keys when possible.',
     inputSchema: {
       type: 'object',
-      properties: { keys: { type: 'string' }, delayMs: { type: 'number' }, timeoutMs: { type: 'number' } },
+      properties: { keys: { type: 'string', description: 'SendKeys string' }, literal: { type: 'boolean', description: 'true = type as plain text' }, delayMs: { type: 'number', description: 'ms before send' }, timeoutMs: { type: 'number', description: 'ms' } },
       required: ['keys'],
     },
   },
@@ -447,12 +448,12 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        root: { type: 'string' },
-        maxFiles: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
-        absolute: { type: 'boolean' },
+        root: { type: 'string', description: 'default: workspace' },
+        maxFiles: { type: 'number', description: 'max entries' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
+        absolute: { type: 'boolean', description: 'add absolute paths' },
       },
     },
   },
@@ -460,36 +461,40 @@ const MCP_TOOLS = [
   // execFile('git',…) 无 shell,模型可控路径一律在 `--` 之后,git 缺失/非仓库/缺身份 → 人话引导错误。
   {
     name: 'git_status',
-    description: 'Show the git status of a folder (current branch, ahead/behind, and how many files changed). Read-only. Returns a plain-language summary plus the raw porcelain status.',
+    description: 'Git status of a folder: branch, ahead/behind, change counts, plain summary + raw porcelain (first 300 lines; statusTruncated). Read-only.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
       },
     },
   },
   {
     name: 'git_diff',
-    description: 'Unified diff of a git repo (read-only). staged:true = index changes; path limits to one file. Untracked files are listed in `untracked`, not diffed. Huge diffs are cut (truncated:true) with a `stat` summary; use path for one file.',
+    description: 'Unified diff (read-only): working tree vs index; staged:true = index vs HEAD; ref = revision/range (HEAD~1, A..B). Untracked files go in `untracked`. Big diffs: truncated:true + `stat`; use path.',
     inputSchema: {
       type: 'object',
       properties: {
         cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
         path: { type: 'string', description: 'file/pathspec' },
-        staged: { type: 'boolean', description: 'diff the index instead of the working tree' },
+        staged: { type: 'boolean', description: 'diff the index' },
+        ref: { type: 'string', description: 'e.g. HEAD~1, main..feature (no leading -)' },
         contextLines: { type: 'number', description: '0..50, default 3' },
       },
     },
   },
   {
     name: 'git_log',
-    description: 'List recent git commits (hash, date, author, subject) as a table. Read-only. maxCount defaults to 10 (clamped 1..100); path limits history to one file.',
+    description: 'Recent commits (hash, fullHash, date, author, subject). Read-only. maxCount 1..100 (default 10); filter by path, ref (e.g. main..feature), author, since.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
-        maxCount: { type: 'number', description: 'how many commits to return (1..100, default 10)' },
-        path: { type: 'string', description: 'limit history to this file/pathspec' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
+        maxCount: { type: 'number', description: 'default 10' },
+        path: { type: 'string', description: 'file/pathspec' },
+        ref: { type: 'string', description: 'revision/range (no leading -)' },
+        author: { type: 'string', description: 'name/email substring' },
+        since: { type: 'string', description: 'e.g. "2 weeks ago"' },
       },
     },
   },
@@ -509,7 +514,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'dependency_inventory',
-    description: 'List dependency/runtime config files (package.json, lockfiles, requirements.txt, pyproject.toml, Cargo.toml, go.mod, pom.xml, …) directly in root, without installing; for package.json also scripts/dependencies/engines names. Top level only; no versions from non-npm manifests.',
+    description: 'List dependency manifests/lockfiles in root (package.json, requirements*.txt, pyproject, Cargo.toml, go.mod, pom.xml, *.csproj, Gemfile, uv.lock, .nvmrc, …) without installing; package.json also scripts/deps/engines. Root only; if none, nestedManifests lists one level down.',
     inputSchema: {
       type: 'object',
       properties: { root: { type: 'string' } },
@@ -517,18 +522,18 @@ const MCP_TOOLS = [
   },
   {
     name: 'code_review_scan',
-    description: 'Run a lightweight offline code review scan for common security and quality risks',
+    description: 'Offline code review scan: secrets, shell exec, SQL concat, innerHTML, CORS, TLS off, TODO. Skips tests/fixtures unless includeTests. Findings: severity+confidence; truncated:true at caps.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, maxFindings: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
+      properties: { root: { type: 'string', description: 'default: workspace' }, maxFiles: { type: 'number', description: 'max files' }, maxDepth: { type: 'number', description: 'max depth' }, maxFindings: { type: 'number', description: 'max findings' }, ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' }, includeTests: { type: 'boolean', description: 'scan tests too' } },
     },
   },
   {
     name: 'frontend_audit',
-    description: 'Audit frontend files for offline asset and UI polish issues',
+    description: 'Audit frontend files: external assets that break offline (http(s) or // src/href/url()/@import), missing viewport, UI polish. Line numbers; truncated:true at caps.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
+      properties: { root: { type: 'string', description: 'default: workspace' }, maxFiles: { type: 'number', description: 'max files' }, maxDepth: { type: 'number', description: 'max depth' }, ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' } },
     },
   },
   {
@@ -541,49 +546,51 @@ const MCP_TOOLS = [
   },
   {
     name: 'docs_search',
-    description: 'Regex search (case-insensitive) in project docs only (.md .mdx .markdown .txt .rst .adoc .org; for code use file_search). Root README/CHANGELOG first, then docs/ (root defaults to the workspace; maxResults 200, maxFiles 3000, maxDepth 8). Returns {matches:[{relativePath,line,text}], scannedFiles}; truncated:true + hint when more matches exist or the file limit was hit.',
+    description: 'Regex search (case-insensitive) in project docs only (.md .mdx .markdown .txt .rst .adoc .org; for code use file_search), README/CHANGELOG first, then docs/. Auto-decodes UTF-8/BOM/UTF-16/GBK; retries as literal text if the regex finds nothing. Returns {matches:[{relativePath,line,text}], scannedFiles}; truncated:true + hint when capped.',
     inputSchema: {
       type: 'object',
       properties: {
-        root: { type: 'string' },
+        root: { type: 'string', description: 'default: workspace' },
         query: { type: 'string', description: 'regex or plain text' },
-        maxResults: { type: 'number' },
-        maxFiles: { type: 'number' },
-        maxDepth: { type: 'number' },
-        ignoreDirs: { type: 'array', items: { type: 'string' } },
-        includeIgnored: { type: 'boolean' },
+        maxResults: { type: 'number', description: 'max matches' },
+        maxFiles: { type: 'number', description: 'max files' },
+        maxDepth: { type: 'number', description: 'max depth' },
+        maxFileBytes: { type: 'number', description: 'default 20MB' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' },
+        includeIgnored: { type: 'boolean', description: 'include node_modules etc.' },
       },
       required: ['query'],
     },
   },
   {
     name: 'codebase_symbol_search',
-    description: "Find where a symbol (function/class/method/variable) is defined and referenced; file-level evidence grouped by file. Lexical word-boundary scan, not AST/type-aware; the symbol is matched literally. Use it to ground claims in real file:line evidence; for semantic or cross-language resolution use a language server.",
+    description: "Find where a symbol is defined and referenced (file:line evidence, grouped by file). Lexical word-boundary scan, not AST/type-aware; symbol matched literally. Hits carry relativePath (absolute:true adds path); hint when no definition found or capped.",
     inputSchema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string' },
+        symbol: { type: 'string', description: 'literal identifier' },
         root: { type: 'string', description: 'default: workspace' },
         kind: { type: 'string', enum: ['any', 'definition', 'reference'], description: 'default any' },
         maxResults: { type: 'number', description: 'default 200' },
-        maxFiles: { type: 'number', description: 'default 5000; if reached, truncated:true + hint (a missing symbol may be unscanned)' },
+        maxFiles: { type: 'number', description: 'default 5000; truncated:true + hint if reached' },
         maxDepth: { type: 'number', description: 'default 8' },
-        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra folder names to skip (node_modules, .git, dist, … are skipped already)' },
-        includeIgnored: { type: 'boolean', description: 'also scan default-skipped folders; .git always skipped' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra folder names to skip' },
+        includeIgnored: { type: 'boolean', description: 'also scan default-skipped folders' },
         caseSensitive: { type: 'boolean', description: 'default true' },
+        absolute: { type: 'boolean' },
       },
       required: ['symbol'],
     },
   },
   {
     name: 'debug_hypothesis',
-    description: "Advisory, stateless hypothesis/experiment ledger for structured debugging (elimination method): pass the ledger returned by the previous call back on every call. Actions: init(hypotheses[]) creates it; test(hypothesisId,result,evidence) records a refuting/supporting experiment (refutation is sticky, a refuted hypothesis cannot be revived); conclude(hypothesisId) locks the root cause (only a supported hypothesis; warns if alternatives remain unexcluded); status shows stats + duplicate/contradiction warnings. Skip when the bug is already obvious.",
+    description: "Stateless hypothesis ledger for elimination-method debugging; pass the previous call's ledger back every time. init(hypotheses[]); test(hypothesisId,result,evidence) (a refuted hypothesis stays refuted); conclude(hypothesisId) locks the root cause (supported only; warns if alternatives remain; then no new supporting evidence for others); reopen unlocks it; status = stats + duplicate/contradiction warnings. Skip when the bug is obvious.",
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['init', 'test', 'conclude', 'status'], description: 'State-machine action.' },
-        hypotheses: { type: 'array', items: { type: 'object' }, description: 'init: array of {id?, description, mechanism?, expectedEvidence?, verification?}.' },
-        ledger: { type: 'object', description: 'Current ledger snapshot (previous call\'s returned ledger); required for test/conclude/status, ignored by init.' },
+        action: { type: 'string', enum: ['init', 'test', 'conclude', 'reopen', 'status'], description: 'State-machine action.' },
+        hypotheses: { type: 'array', items: { type: 'object' }, description: 'init: [{id?, description, mechanism?, expectedEvidence?, verification?}] (max 50)' },
+        ledger: { type: 'object', description: 'previous call\'s ledger; required except for init' },
         hypothesisId: { type: 'string', description: 'test/conclude: target hypothesis id.' },
         result: { type: 'string', enum: ['supports', 'refutes', 'inconclusive'], description: 'test: experiment result.' },
         evidence: { type: 'string', description: 'test: what you did and what you observed.' },
@@ -593,13 +600,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'data_profile',
-    description: 'Read-only profile of a data file (CSV/TSV/JSON/JSONL/text log): row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outliers, sample values. Use instead of eyeballing a large file with file_read; skip for small files. Types/outliers are heuristics. Input is a bounded prefix (8MB; JSON arrays up to 16MB): truncatedInput:true = counts cover the prefix (estimatedRowCount extrapolates); sampled:true = fewer rows profiled than exist. GBK/UTF-16 auto-decoded (encoding).',
+    description: 'Read-only profile of a text data file (CSV/TSV/JSON/JSONL/log): row/column counts, per-column type, null/unique counts, numeric stats + IQR outliers, samples (max 200 columns). Use instead of eyeballing big files with file_read. Heuristic types/outliers. Bounded prefix (8MB; JSON arrays 16MB): truncatedInput:true = counts cover the prefix; sampled:true = fewer rows than exist. GBK/UTF-16 auto-decoded; binary files (xlsx, pdf, ...) refused.',
     inputSchema: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'absolute path' },
         maxRows: { type: 'number', description: 'default 2000, max 50000' },
-        delimiter: { type: 'string', description: 'default auto-detect' },
+        delimiter: { type: 'string', description: 'one char or tab/comma/semicolon/pipe; default auto-detect' },
         maxSampleValues: { type: 'number', description: 'per column, default 5' },
       },
       required: ['path'],
@@ -607,10 +614,10 @@ const MCP_TOOLS = [
   },
   {
     name: 'http_request',
-    description: 'HTTP request to a local/intranet endpoint for API debugging. Object body is sent as JSON; timeoutMs is a hard total deadline; 4xx/5xx return ok:false, error "HTTP <status>", statusCode/body. Honors HTTPS_PROXY/NO_PROXY (loopback/private bypass the proxy).',
+    description: 'HTTP request to a local/intranet endpoint for API debugging. Object body is sent as JSON; timeoutMs is a hard total deadline; 4xx/5xx return ok:false with statusCode/body. Redirects are not followed (3xx returns `location`); binary responses return binary:true, no body (use http_download). Honors HTTPS_PROXY/NO_PROXY (loopback/private bypass the proxy).',
     inputSchema: {
       type: 'object',
-      properties: { url: { type: 'string' }, method: { type: 'string' }, headers: { type: 'object' }, body: { description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number' }, maxBodyChars: { type: 'number' } },
+      properties: { url: { type: 'string', description: 'http(s) URL' }, method: { type: 'string', description: 'default GET' }, headers: { type: 'object', description: 'header name/value map' }, body: { description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number', description: 'ms, hard deadline' }, maxBodyChars: { type: 'number', description: 'response cap' } },
       required: ['url'],
     },
   },
@@ -631,11 +638,11 @@ const MCP_TOOLS = [
   },
   {
     name: 'web_fetch',
-    description: 'Fetch a public http(s) page: extracted main text + title (links as "text [n]", URLs in `links`; GBK/Big5 decoded). Non-text URLs (PDF, images, zip, Office) are refused: use http_download. ≤3 redirects, 30s, ≤2MB; internal/loopback addresses refused. Long pages are paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline serves a cached copy if any (fromCache:true).',
+    description: 'Fetch a public http(s) page: extracted main text + title (links as "text [n]", URLs in `links`; GBK/Big5 decoded). Non-text URLs (PDF, images, zip, Office) are refused: use http_download. ≤3 redirects, 30s, ≤2MB; internal/loopback addresses refused. Paged: when `nextOffset` is returned, call again with offset=nextOffset. Offline serves a cached copy if any (fromCache:true).',
     inputSchema: {
       type: 'object',
       properties: {
-        url: { type: 'string' },
+        url: { type: 'string', description: 'http(s) URL' },
         maxChars: { type: 'number', description: 'per call, default 20000, max 60000' },
         offset: { type: 'number', description: 'char offset; use the previous nextOffset' },
       },
@@ -718,7 +725,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         milestones: {
-          type: 'array',
+          type: 'array', description: 'merged by id',
           items: {
             type: 'object',
             properties: {
@@ -730,7 +737,7 @@ const MCP_TOOLS = [
             required: ['id'],
           },
         },
-        goal: { type: 'string' },
+        goal: { type: 'string', description: 'new goal text' },
       },
     },
   },
@@ -768,8 +775,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['q'],
       properties: {
-        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason。' },
+        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: '返回条数上限,夹取到 1..50,默认 10。' },
+        includeClosed: { type: 'boolean', description: '可选。true 时把【已收工的速查线程】(steward_quick_ask 开的、答完那一句就收了的)也算进结果;默认 false 不出现 —— 它们答完就没用了,留着只会挤掉真正的任务线程。用户问「刚才那条速查说了啥」时才开。' },
       },
     },
   },
@@ -783,7 +791,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_read',
-    description: '按需深读一条线程最近若干回合的原话:用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。读到的内容不写入任何持久化,也不进管家记忆。',
+    description: '按需深读一条线程最近若干回合的原话:用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。读到的内容不写入任何持久化,也不进管家记忆。正文里的密钥/口令会先脱敏;工具行带 ok:true/false(这一步成败;拿不到结果记录时为 null),看线程卡在哪一步先看 ok:false 的行。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
@@ -798,7 +806,10 @@ const MCP_TOOLS = [
     description: '读【事项】清单:一个事项是跨会话的容器(一件事可以有好几条线程)。每条返回事项标题与目标、事项级聚合状态(任一线程需要你则事项就是需要你;全部收工才算收工)、验收项进度(已勾选/总数)、累计费用与预算、以及它下面每条线程的 id/标题/五态/权限档/最后一句。何时用:用户问「XX 那件事进展怎么样/还差什么/花了多少」,或你要在开新线程前决定它该并进哪个事项。何时别用:要看某一条线程自己在干嘛用 steward_thread_status;要看班组节点用 steward_runs_status。没有事项文件的线程会以「未归类」事项出现(derived:true),标题取线程标题——这不是错误,是存量会话的正常形态。',
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' } },
+      properties: {
+        includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 50, description: '可选。最多返回几个事项(按看板顺序取前 N 个),夹取到 1..200,默认 50。返回里的 total 是事项总数,truncated:true 表示还有没列出来的 —— 想看某一件请改用 steward_threads_search 定位,不要靠加大 limit 全量拉。' },
+      },
     },
   },
   {
@@ -827,7 +838,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false,
       properties: {
         sessionId: { type: 'string', description: '可选。只统计这条线程。' },
-        day: { type: 'string', description: "可选。只统计某一天,格式 YYYY-MM-DD(本地日历日)。" },
+        day: { type: 'string', description: "可选。只统计某一天,格式 YYYY-MM-DD(本地日历日),也认 today / yesterday;其它写法返回 invalid_request(不再静默当成「全期」)。省略 = 全期累计。" },
       },
     },
   },
@@ -838,10 +849,14 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_audit_tail',
-    description: '读审计时间线尾部(最近的工作台事件,已过既有脱敏)。何时用:用户问「刚才发生了什么/是谁改的/我批准过什么」,或你要为一个决定给出可查证的依据时。何时别用:找线程内容用 steward_threads_search;找待办事件用 steward_inbox_read。limit 夹取到 1..100。',
+    description: '读审计时间线尾部(最近的工作台事件,已过既有脱敏)。何时用:用户问「刚才发生了什么/是谁改的/我批准过什么」,或你要为一个决定给出可查证的依据时。**问「我批准/答复过什么」传 kinds:["intervention"]**(用户的批准/拒绝/插话都落这一类);授权书用 kinds:["autonomy_grant_issued","autonomy_grant_consume","autonomy_grant_revoked"]。默认已排除模型调用/布局/经济性这类纯遥测(它们两个回合就能占满 20 条),需要时 includeTelemetry:true。条目按时间从新到旧,同一毫秒的按写入先后(后写的在前)。何时别用:找线程内容用 steward_threads_search;找待办事件用 steward_inbox_read。limit 夹取到 1..100。',
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '返回条数上限,夹取到 1..100,默认 20。' } },
+      properties: {
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '返回条数上限,夹取到 1..100,默认 20(数的是过滤之后的条数)。' },
+        kinds: { type: 'array', items: { type: 'string' }, maxItems: 12, description: '可选。只要这些事件类型(精确匹配 type 字段,如 "intervention"、"turn_end"、"mission_start"、"autonomy_grant_issued")。给了就不再默认排除遥测。' },
+        includeTelemetry: { type: 'boolean', description: '可选。true 时不排除 model_call_* / layout_shadow / econ_call_totals 等遥测类事件,默认 false。' },
+      },
     },
   },
   {
@@ -853,7 +868,7 @@ const MCP_TOOLS = [
         // 117s-A D2(27 号文 §11.13 ⑤a):修前这句写的是「线程标题;省略则由首条消息自动命名」,
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
-        missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
+        missionId: { type: 'string', description: '可选。把新线程归入已有事项(必须是真实存在的事项,来自 steward_missions;不存在回 not_found,不会凭空造一个);省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
         cwd: { type: 'string', description: '可选。填你上下文里「已知工作区」清单中的【名字】(或它的完整路径)→ 就用那个工作区;活明显属于某个工作区时就填它。省略时工作台按顺序选:带了 missionId → 沿用那个事项的工作区;带了 relatedSessionId → 沿用那条线程的目录;都没有 → 在我自己的文件夹里给它新开一个(不会出现在用户的常用工作区里)。清单外的值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
         relatedSessionId: { type: 'string', description: '可选。这件事是接着哪条线程的活(线程 id,来自总览或 steward_threads_search)。没给 cwd 时新线程就开在那条线程的目录里;id 不是一条线程会被拒(not_found)。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
@@ -953,7 +968,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_decide',
-    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 300 字(就是你看到的那段命令摘录 —— 看不全的不准批),删数据类的目标是相对路径(写了盘符、以 / 开头、~、$env:、%变量% 的一律不代批),命令里没有拼接/编码/求值这类间接构造,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令超过摘录长度或没扫全,你看不全/indirect_command 命令是拼接、编码或求值出来的,判不出真正要跑什么/absolute_target 删数据的目标写了绝对或家目录路径/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
+    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。**拒绝类(action:deny / reject)不受上面这些闸限制**:拒绝只会让事情少发生,任何权限档、命中永久豁免的待决都可以直接拒(仍记决策日志);放行类(allow / approve / answer)一个字不松。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 300 字(就是你看到的那段命令摘录 —— 看不全的不准批),删数据类的目标是相对路径(写了盘符、以 / 开头、~、$env:、%变量% 的一律不代批),命令里没有拼接/编码/求值这类间接构造,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令超过摘录长度或没扫全,你看不全/indirect_command 命令是拼接、编码或求值出来的,判不出真正要跑什么/absolute_target 删数据的目标写了绝对或家目录路径/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['missionId', 'interventionId', 'action'],
       properties: {
@@ -1012,7 +1027,7 @@ const MCP_TOOLS = [
         text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
         scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
-        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
+        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
@@ -1027,7 +1042,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_veto',
-    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。返回 {ok,id,undoRef}。',
+    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。已经是否决状态的再否决一次返回 {ok,id,state:"vetoed",unchanged:true},不写库、不记决策。返回 {ok,id,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '记忆条目 id。' } },
@@ -1109,7 +1124,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_file_read',
-    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
+    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 凭据类文件一律拒(sensitive_path:.env / 私钥 id_rsa·*.pem·*.key / .git/config / .ssh 与 .aws 目录 / .npmrc 等,.env.example 这类模板放行),二进制文件拒(binary_file:前 8KB 含 NUL 字节)——别换个写法再试;④ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'],
       properties: {
@@ -1155,7 +1170,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_playbook_draft',
-    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
+    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型;还没调模型就失败的——如线程里没有用户消息——不占名额),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: { sessionId: { type: 'string', description: '要起草的线程 id。' } },
@@ -1174,7 +1189,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_quick_ask',
-    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
+    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。question 是用户的原话,逐字递给线程(尖括号、换行都不改);答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
@@ -1189,7 +1204,7 @@ const MCP_TOOLS = [
   // 实现住 13t-steward-schedule.js,门控壳仍是 13g 的 stewardToolHandler。
   {
     name: 'steward_schedule_create',
-    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
+    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条;⑤ cron 扫满五年也不会触发的(如 "0 0 31 2 *")会被拒;⑥ prompt 载荷每次到点都调模型,cron 触发间隔不能短于 15 分钟(invalid_request / interval_too_short),更频繁的只能是 reminder;⑦ target.mode:existing-session 的 sessionId 必须是一条真实存在的线程(管家自己的会话不行,not_found),到点时那条线程没了也记失败而不是悄悄新开。返回 {ok,task,describeKey,describeParams};文本超长被截、tier / permissionMode 没生效这类【被悄悄改掉的部分】会列在 notes 里(同时 normalized:true)——有 notes 就如实转述给用户。describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {
@@ -1234,26 +1249,26 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_pause',
-    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。返回 {ok,task}。',
+    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。已经是暂停状态再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
     name: 'steward_schedule_resume',
-    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。返回 {ok,task}。',
+    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。已经在运行的任务再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
     name: 'steward_schedule_run_now',
-    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
+    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试;③ 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——立刻真跑一次(prompt 载荷会开线程调模型)与排新任务、删任务同一档,把它作为提议交给用户,不要重试。**暂停中的任务也能手动跑一次**(暂停只管到点自动触发),这时返回里带 wasPaused:true 与说明,且不会把它恢复。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   {
@@ -1261,7 +1276,7 @@ const MCP_TOOLS = [
     description: '删掉一条定时任务的定义(历史执行回执不删——「它当初真的跑过」是既成事实)。何时用:用户明确说这件事不用再做了。何时别用:① 只是想暂时停用 -> steward_schedule_pause;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"},把它作为提议交给用户,不要重试;③ 删之前先确认是哪一条(id 拿错就删错了,而这一步没有撤销键)。返回 {ok,id,deleted,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
-      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
+      properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object', description: '可选。依据(事件 seq/记忆 id)' } },
     },
   },
   // 代理模式 v2(2026-09-24):模型侧只有 orchestrate_agents 一个启动入口(旧 spawn_agent 已并入 —— 单代理写顶层
@@ -1271,12 +1286,12 @@ const MCP_TOOLS = [
   // 完成信封经后台任务账本恰好投递一次。子代理自身拿不到这三个工具(禁嵌套:07 buildOpenAiTools noAgentTools)。
   {
     name: 'orchestrate_agents',
-    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent — pass top-level {task, role?, toolTier?, model?, resources?} and it runs as a one-node run; (2) author `nodes` inline for a one-off DAG; (3) pass `workflowId` to reuse a saved/built-in template (ids and when to reach for each are listed in the system prompt) plus `context` — a short description of THIS run's actual subject/task, since template node tasks are generic placeholders. Prefer (3) for complex multi-step tasks that match a listed template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work to do: the call returns {runId, status:'running'} immediately, the run keeps going even after this turn ends, and its delivery envelope is injected into the conversation exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you must have the result before continuing. The result you receive is a bounded delivery envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; call agent_result({runId, nodeId?}) for the full text of a node. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the bounded grace period. Supports structured JSON Schema outputs, automatic Reviewer/Verifier quality gates, explicit vote-contract validation, deterministic voting/deduplication, cross-review, semantic loop progress keys, tool-evidence requirements, and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes designed to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must explicitly output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
+    description: "Delegate work to isolated sub-agents (the ONLY agent launch tool). Call shapes: (1) single agent: top-level {task, role?, toolTier?, model?, resources?} runs as a one-node run; (2) inline `nodes` for a one-off DAG; (3) `workflowId` of a saved/built-in template (ids are in the system prompt) plus `context`, a short description of THIS run's subject (template node tasks are generic placeholders). Prefer (3) for complex multi-step tasks matching a template; skip templates for simple one-shot requests. Set background:true whenever you still have independent work: the call returns {runId, status:'running'} at once, the run outlives this turn, and its delivery envelope is injected exactly once when it finishes (or collect earlier with wait_agents). Omit background only when you need the result before continuing. The result is a bounded envelope {runId, status, nodes:[{nodeId, role, status, summary, artifacts, error?}], usage, more}; agent_result({runId, nodeId?}) returns a node's full text. The runtime emits workflow heartbeats during quiet windows, asks an overlong model node to wrap up, and stops only that node if it ignores the grace period. Supports JSON Schema outputs, Reviewer/Verifier gates, voting/dedupe, cross-review, loop progress keys, tool-evidence requirements and per-node failure/dependency policies. Reliability guidance: give factual probes minSuccessfulToolCalls>=1; make unavailable schema fields nullable; use dependencyPolicy:'all_settled' only on fan-in nodes built to consume failed inputs; set loop.progressPath to a stable structured field; every dependency of a vote node must output {verdict,confidence}. vote/dedupe nodes are deterministic aggregators and do NOT execute their task text, so keep synthesis in a preceding node. Sub-agents cannot launch further sub-agents.",
     inputSchema: {
       type: 'object',
       properties: {
         nodes: {
-          type: 'array', minItems: 1, maxItems: 64,
+          type: 'array', minItems: 1, maxItems: 64, description: 'DAG nodes; not with task',
           items: {
             type: 'object',
             properties: {

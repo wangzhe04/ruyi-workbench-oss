@@ -581,6 +581,13 @@ function stewardArbiterPrioritize(sessionId) {
   // 插到队首,但排在「已被饥饿保护提上来」的那一段之后 —— 见 stewardArbiterStarvedHead 的头注。
   const head = stewardArbiterStarvedHead();
   if (i > head) { stewardArbiter.queue.splice(i, 1); stewardArbiter.queue.splice(head, 0, entry); }
+  // 第二轮工具走查(F9):队伍刚动过,「前面还有几条」要立刻重算 —— 修前只在下一轮 drain 里才重算(drain 是异步排的),
+  // 所以 steward_thread_prioritize 刚把它提到队首,回包里的 wait 还是插队前的 ahead:1(自相矛盾),看板同一瞬间也是旧数。
+  // 与 drain 末尾那一段同一个写法(只重算等并发位的;等锁/等预算的不受队伍次序影响)。
+  for (const row of stewardArbiter.queue) {
+    if (row.cancelled || !row.wait || !row.wait.slot) continue;
+    stewardArbiterSetWait(row, { slot: { ahead: stewardArbiterAhead(row) } });
+  }
   stewardArbiterScheduleDrain();
   return { ok: true, sessionId: sid, prioritized: true };
 }

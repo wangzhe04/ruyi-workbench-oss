@@ -45,8 +45,10 @@ fs.mkdirSync(WORK, { recursive: true });
   const lines = filler('big', 820).split('\n');
   lines.splice(60, 0, `the answer is ${FACT}`);
   fs.writeFileSync(path.join(WORK, 'big.txt'), lines.join('\n'), 'utf8');
-  fs.writeFileSync(path.join(WORK, 's1.txt'), filler('one', 240), 'utf8');
-  fs.writeFileSync(path.join(WORK, 's2.txt'), filler('two', 240), 'utf8');
+  // 两份中等文件 300 行(修前 240):L1 会保护末尾 l1ProtectRatio(25%)预算的新近内容,两份中等文件合起来得比它大,
+  // 大文件才落在可蒸发区(否则 L1 没东西可蒸、直接升 L2)。条件约为 s1+s2 > (首发估算 + 大文件)/3,Linux 上首发更大,240 行不够。
+  fs.writeFileSync(path.join(WORK, 's1.txt'), filler('one', 300), 'utf8');
+  fs.writeFileSync(path.join(WORK, 's2.txt'), filler('two', 300), 'utf8');
 }
 
 const subBodies = [];
@@ -145,8 +147,10 @@ function logRecords(home) {
     ok(p0.run && p0.run.status === 'succeeded', `阶段 0 子代理跑完(${p0.run && p0.run.status})`);
     const est = subBodies.map(b => srv.estimateHistoryTokens(b.messages, '', b.tools));
     ok(est.length >= 4 && est[1] > est[0] && est[3] > est[2], `阶段 0 量到 4 发请求的估算 ${JSON.stringify(est)}`);
-    // 预算落在「读完 s1」与「读完 s2」之间:第 4 发之前越线、之前三发都不越;窗口 = 预算 / 0.8(autoCompactThreshold 缺省)
-    const budget = Math.round((est[2] + est[3]) / 2);
+    // 预算落在「读完 s1」与「读完 s2」之间:第 4 发之前越线、之前三发都不越;窗口 = 预算 / 0.8(autoCompactThreshold 缺省)。
+    // 放在第 4 发下方 300(修前取两者中点):运行时估算比这里量到的高 ~1.7K 且随工具表变大而变大,中点留的余量只有
+    // (est3-est2)/2,2026-10 补了入参描述之后在 Windows CI 上被吃光 —— 第 3 发就越线、大文件还在保护区里,L1 蒸不动直接升 L2。
+    const budget = est[3] - 300;
     const bigTokens = est[1] - est[0];
     // 运行时的估算比这里量到的高 ~1.7K(校准与工具表口径),缩减视图本身也有 ~1.7K;两样一起留 3500 的余量。
     const sufficient = Math.floor(budget * require('../ruyi-workbench/app/src/context-governance-rules.json').compactionPlan.l1SufficientRatio);
