@@ -213,12 +213,17 @@ const rewindAt = conversation.indexOf("api('/api/session/rewind'");
 ok(stopAt > 0 && rewindAt > stopAt,
   'E2 撤回的顺序是「先 stop 再 rewind」（还在跑的回合不停下来就回退，回退完它还会往回写）');
 // 117d 第 0 步重钉（语义收紧，不是放宽）：后端补出了显式字段 undoRef.rewindTargetTurnSeq
-// （= 被递那一回合的 seq，与 09-workflow 的 plannedTurnSeq 同口径），前端改为【优先读它】，
-// 只有旧后端（字段缺失）才回落到原来的「undoRef.turnSeq + 1」。两条路径都锚在这里。
+// （= 被递那一回合的 seq，与 09-workflow 的 plannedTurnSeq 同口径）。2026-10 工具走查再收紧：只认这个显式锚点，
+// 删掉「undoRef.turnSeq + 1」回落 —— 答提问那一支交回的 undoRef 两样都没有，回落成 0 + 1 = 把整条线程删光。
+// 没有锚点（kind:'none' / 缺字段）就不给撤回按钮，连 stop 也不发。
 ok(/targetTurnSeq: target, rollbackFiles: true/.test(conversation)
-  && /const explicit = undoRef && Number\(undoRef\.rewindTargetTurnSeq\);/.test(conversation)
-  && /const target = Number\.isFinite\(explicit\) && explicit > 0 \? explicit : before \+ 1;/.test(conversation),
-  'E3 rewind 的锚点优先取 undoRef.rewindTargetTurnSeq，缺省才回落 turnSeq + 1，并请求文件回退');
+  && /function handOffRewindTarget\(undoRef\)/.test(conversation)
+  && /undoRef\.kind === 'none'/.test(conversation)
+  && !/before \+ 1/.test(conversation),
+  'E3 rewind 的锚点只取 undoRef.rewindTargetTurnSeq（无回落），并请求文件回退');
+ok(conversation.indexOf('if (!target) return false;') > 0 && conversation.indexOf('if (!target) return false;') < stopAt
+  && /if \(!handOffRewindTarget\(undoRef\)\)/.test(conversation),
+  'E3b 没有回退锚点：不出撤回按钮，撤回也不先 stop');
 ok(/if \(!rewound \|\| rewound\.ok === false\) \{/.test(conversation),
   'E3a 回退没成真就不说「已撤回」（诚实优先；按钮行留着可重试）');
 ok(/filesReverted > 0 \? t\('stewardShell\.chat\.undone'\) : t\('stewardShell\.chat\.undoneFilesKept'\)/.test(conversation),

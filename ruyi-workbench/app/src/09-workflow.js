@@ -1130,7 +1130,9 @@ async function deliverAgentRunEnvelope(sessionId, run) {
 // 旧 spawn_agent 调用 → 单节点 orchestrate 参数(dependsOn 在单节点里无意义,提示改为一次 orchestrate 的 nodes)。
 function legacySpawnToOrchestrateArgs(args) {
   const a = args && typeof args === 'object' ? args : {};
-  const out = { task: a.task, background: a.background === true };
+  // 旧模型常把任务写在 prompt / description 里(Claude Code Task 工具的字段名):修前只认 task,于是零节点启动,
+  // 还配着一句「本次已按单节点代理执行」的说明。
+  const out = { task: a.task != null ? a.task : (a.prompt != null ? a.prompt : a.description), background: a.background === true };
   for (const k of ['role', 'agentKey', 'toolTier', 'maxIters', 'model', 'resources']) if (a[k] != null) out[k] = a[k];
   return out;
 }
@@ -2803,7 +2805,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             } else {
               const legacy = tc.name === 'spawn_agent';
               resultObj = await launchOrchestrateFromTurn(legacy ? legacySpawnToOrchestrateArgs(args) : args, onNestedEvent);
-              if (legacy && resultObj && typeof resultObj === 'object') resultObj.note = LEGACY_SPAWN_NOTE + (resultObj.note ? ' ' + resultObj.note : '');
+              if (legacy && resultObj && typeof resultObj === 'object') {
+                // 没起来就别说「已按单节点代理执行」(修前 startedCount:0 也配这句)。
+                const started = resultObj.ok !== false && !(Number(resultObj.startedCount) === 0);
+                const lead = started ? LEGACY_SPAWN_NOTE : 'spawn_agent 已并入 orchestrate_agents,这次没有启动任何代理(见 error)。请改调 orchestrate_agents({task, role?, background?})。';
+                resultObj.note = lead + (resultObj.note ? ' ' + resultObj.note : '');
+              }
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
@@ -2912,6 +2919,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
+              } else if ((tc.name === 'todo_write' || tc.name === 'mission_update' || tc.name === 'request_user_input')
+                  && validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args))) {
+                // 闭包特例不经 toolCall,修前也就跳过了 13f 的入参校验:todo_write {} / {items:'a, b'} 回 ok:true 并把计划清空。
+                // 先过同一道校验(先认同义词),不合格就把校验信封原样交回,让模型照提示重调。
+                resultObj = validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args));
               } else if (tc.name === 'todo_write') {
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,

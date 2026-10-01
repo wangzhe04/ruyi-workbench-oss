@@ -856,6 +856,8 @@ function stewardRelayChannelFor(sessionId) {
   // 这两个窗口都很短,执行单点(stewardRelayDeliver)会先等一小会儿再重判一次,不急着退回给用户。
   // (回合收尾那一段同样落在这里:09 先把回合移出 activeChildren,再做收尾的几次存盘。)
   if (turnSettlers.has(sid)) return { channel: 'queued', wait: null, settling: true };
+  // 管家自己刚发起的回合还在起步(13k stewardLaunchingTurns,同步登记):同上,判成 settling,不再开第二个回合。
+  if (stewardLaunchingTurns.has(sid)) return { channel: 'queued', wait: null, settling: true };
   return { channel: 'turn' };
 }
 
@@ -941,7 +943,7 @@ async function stewardRelayDeliver(input) {
       return { ok: true, channel: 'steer', sessionId: sid, queued: Number(body.queued) || 0, injected: body.injected === true };
     }
     // 插不进去(Claude legacy/print、队列满、引擎不支持)。这时候才是「忙」—— 而且要说清是【线程】忙。
-    const why = String((body && body.error) || (outcome && outcome.message) || '这一步不能插话');
+    const why = stewardErrorDetail((body && body.error) || (outcome && outcome.message)) || '这一步不能插话';
     return stewardFail('steward.busy', `线程「${title || sid}」正忙且这一步不能插话:${stewardSanitizeText(why)}`, {
       channel: 'steer', sessionId: sid, reason: 'steer_ineligible',
     });

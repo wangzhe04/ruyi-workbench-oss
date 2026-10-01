@@ -165,7 +165,9 @@ test('[B] git_status / git_diff 不执行仓库自带的 clean 过滤器(含子�
     fs.rmSync(marker, { force: true });
 
     touch(path.join(repo, 'a.txt'), 'kello\n', 10000);
-    const st = await srv.toolCall('git_status', { cwd: repo });
+    // 读类 git 守工作区围栏(2026-10 工具走查,与 file_read 同一道):把这个临时仓库作为线程的工作目录传进去。
+    const inRepo = { config: { permissionMode: 'default', workspaces: [{ path: base, read: true, write: true, execute: true }] }, session: { id: 's-audit-b', cwd: base } };
+    const st = await srv.toolCall('git_status', { cwd: repo }, inRepo);
     assert.equal(st.ok, true, JSON.stringify(st));
     assert.ok(/a\.txt/.test(st.status), 'status still reports the change');
     // toolCall 用的是本进程的真环境(不是上面 env 里隔离掉的全局配置):CI 机器全局配着 git-lfs,
@@ -174,7 +176,7 @@ test('[B] git_status / git_diff 不执行仓库自带的 clean 过滤器(含子�
     assert.equal(fs.existsSync(marker), false, 'git_status must not execute the repo clean filter');
 
     touch(path.join(repo, 'a.txt'), 'lello\n', 15000);
-    const df = await srv.toolCall('git_diff', { cwd: repo });
+    const df = await srv.toolCall('git_diff', { cwd: repo }, inRepo);
     assert.equal(df.ok, true, JSON.stringify(df));
     assert.ok(/\+lello/.test(df.diff), 'diff still produced');
     assert.equal(fs.existsSync(marker), false, 'git_diff must not execute the repo clean filter');
@@ -194,11 +196,11 @@ test('[B] git_status / git_diff 不执行仓库自带的 clean 过滤器(含子�
     git(sup, ['commit', '-q', '-m', 'sup']);
     fs.appendFileSync(path.join(sup, '.git', 'modules', 'sm', 'config'), `[filter "Evil2"]\n\tclean = ${filterCmd}\n`);
     touch(path.join(sup, 'sm', 's.txt'), 't\n', 20000);
-    const st2 = await srv.toolCall('git_status', { cwd: sup });
+    const st2 = await srv.toolCall('git_status', { cwd: sup }, inRepo);
     assert.equal(st2.ok, true, JSON.stringify(st2));
     assert.equal(fs.existsSync(marker), false, 'git_status must not recurse into a submodule and run its filter');
     touch(path.join(sup, 'sm', 's.txt'), 'u\n', 25000);
-    const df2 = await srv.toolCall('git_diff', { cwd: sup });
+    const df2 = await srv.toolCall('git_diff', { cwd: sup }, inRepo);
     assert.equal(df2.ok, true, JSON.stringify(df2));
     assert.equal(fs.existsSync(marker), false, 'git_diff must not recurse into a submodule and run its filter');
   } finally {

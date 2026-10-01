@@ -390,12 +390,23 @@ async function stewardReadMemoryStore() {
   try { raw = safeJsonParse(await fsp.readFile(stewardMemoryPath(), 'utf8'), null); } catch { raw = null; }
   // 损坏/缺失/错 schema = 空库(不抢救、不 mkdir):记忆是旁路增强,坏了不该拖住任何回合。
   if (!raw || raw.schema !== STEWARD_MEMORY_SCHEMA || !Array.isArray(raw.entries)) return stewardEmptyMemoryStore();
-  const entries = [];
+  // 生效条与被否决条【各自】封顶 maxEntries:写入闸只数生效条(13l),修前读库却把【总条数】截在 maxEntries ——
+  // 200 条生效 + 否决过 1 条后再写,新条落在第 201 位,写入回 ok:true、读回来却没了,下一次写盘就永久丢掉。
+  // 被否决条要留着(去重闸靠它挡「否决过的话换个说法再写回来」),超出时留最近的那些。原顺序不变。
+  const normalized = [];
   for (const item of raw.entries) {
     const entry = stewardNormalizeMemoryEntry(item);
-    if (entry) entries.push(entry);
-    if (entries.length >= STEWARD_MEMORY_LIMITS.maxEntries) break;
+    if (entry) normalized.push(entry);
   }
+  const cap = STEWARD_MEMORY_LIMITS.maxEntries;
+  let activeLeft = cap;
+  let vetoedSkip = Math.max(0, normalized.filter(e => e.state === 'vetoed').length - cap);
+  const entries = normalized.filter(e => {
+    if (e.state === 'vetoed') { if (vetoedSkip > 0) { vetoedSkip -= 1; return false; } return true; }
+    if (activeLeft <= 0) return false;
+    activeLeft -= 1;
+    return true;
+  });
   return { schema: STEWARD_MEMORY_SCHEMA, updatedAt: String(raw.updatedAt || ''), entries };
 }
 // 读-改-写全程串在一条 per-process 链上(同 usage/inbox 纪律),两次并发写不会互相盖掉。

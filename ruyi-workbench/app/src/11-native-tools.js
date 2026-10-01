@@ -557,61 +557,120 @@ function globToRegExp(glob) {
   // 返回一个只有 test(str) 的匹配器(调用点只用 .test)。修前把 glob 译成正则:每个 `*` 是 `[^\\/]*`,
   // 模型给的 `*a*a*a*a*a*b` 这类 glob 在长文件名上是多项式回溯(星号越多次方越高),卡死主线程。
   // 这里把 glob 切成记号,按 NFA 同时推进所有可能位置:每个字符 O(记号数),整条 O(路径长 × 记号数),与 glob 形状无关。
-  // 语义与修前逐条一致:`**` 跨分隔符任意长(紧跟的分隔符可省,让 `**/x` 也配根下的 x);`*` 段内任意长;
-  // `?` 段内一个字符;`/` 与 `\` 互认;其余字面、大小写不敏感;整串锚定。
+  // 语义:`**/` = 零个或多个【完整】目录段(修前是「任意字符 + 可省分隔符」,`**/test.py` 连 `mytest.py` 也配上,
+  // `**/.*` 配上所有带点的文件);结尾或段中的 `**` 跨分隔符任意长;`*` 段内任意长;`?` 段内一个字符;
+  // `[a-z]` / `[!x]` 字符类(段内一个字符);`{a,b}` 花括号展开(可嵌套);`/` 与 `\` 互认;其余字面、
+  // 大小写不敏感;整串锚定。修前花括号与字符类按字面配,`**/*.{js,py}` 静默配不到任何文件。
   // 自包含(不引用本文件别处的名字):autonomy-grant.e2e 从源码切出这个函数单独求值。
-  const g = String(glob || '');
-  const toks = [];
-  for (let i = 0; i < g.length; i += 1) {
-    const c = g[i];
-    if (c === '*') {
-      if (g[i + 1] === '*') {
-        toks.push({ t: 'any' });
-        i += 1;
-        if (g[i + 1] === '/' || g[i + 1] === '\\') { toks.push({ t: 'optsep' }); i += 1; }
-      } else toks.push({ t: 'star' });
-    } else if (c === '?') toks.push({ t: 'one' });
-    else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
-    else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
-  }
-  const m = toks.length;
-  const isSep = ch => ch === '/' || ch === '\\';
-  // 可空记号(`*`、`**`、可省分隔符)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
-  const close = (on, i) => {
-    while (i <= m && !on[i]) {
-      on[i] = 1;
-      const tk = toks[i];
-      if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'optsep')) break;
-      i += 1;
+  const expand = (pat, depth) => {
+    const open = pat.indexOf('{');
+    if (open < 0 || depth > 8) return [pat];
+    let level = 0, close = -1;
+    const commas = [];
+    for (let i = open; i < pat.length; i += 1) {
+      if (pat[i] === '{') level += 1;
+      else if (pat[i] === '}') { level -= 1; if (level === 0) { close = i; break; } }
+      else if (pat[i] === ',' && level === 1) commas.push(i);
     }
+    if (close < 0 || !commas.length) {
+      // 没有配对或没有逗号:这一对花括号按字面,继续展开后面的
+      if (close < 0) return [pat];
+      return expand(pat.slice(close + 1), depth + 1).map(rest => pat.slice(0, close + 1) + rest);
+    }
+    const head = pat.slice(0, open), tail = pat.slice(close + 1);
+    const parts = [];
+    let from = open + 1;
+    for (const c of [...commas, close]) { parts.push(pat.slice(from, c)); from = c + 1; }
+    const out = [];
+    for (const part of parts) for (const e of expand(head + part + tail, depth + 1)) { if (out.length < 64) out.push(e); }
+    return out;
   };
-  return {
-    source: g,
-    test(str) {
+  const compile = g => {
+    const toks = [];
+    for (let i = 0; i < g.length; i += 1) {
+      const c = g[i];
+      if (c === '*') {
+        if (g[i + 1] === '*') {
+          i += 1;
+          const atSegStart = toks.length === 0 || toks[toks.length - 1].t === 'sep' || toks[toks.length - 1].t === 'dirs';
+          if (atSegStart && (g[i + 1] === '/' || g[i + 1] === '\\')) { toks.push({ t: 'dirs' }); i += 1; }
+          else toks.push({ t: 'any' });
+        } else toks.push({ t: 'star' });
+      } else if (c === '?') toks.push({ t: 'one' });
+      else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
+      else if (c === '[') {
+        const endAt = g.indexOf(']', i + 2);
+        if (endAt < 0) { toks.push({ t: 'lit', c: '[', u: '[' }); continue; }
+        let body = g.slice(i + 1, endAt);
+        const neg = body[0] === '!' || body[0] === '^';
+        if (neg) body = body.slice(1);
+        const ranges = [];
+        for (let k = 0; k < body.length; k += 1) {
+          if (body[k + 1] === '-' && k + 2 < body.length) { ranges.push([body[k].toLowerCase(), body[k + 2].toLowerCase()]); k += 2; }
+          else ranges.push([body[k].toLowerCase(), body[k].toLowerCase()]);
+        }
+        toks.push({ t: 'cls', neg, ranges });
+        i = endAt;
+      } else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
+    }
+    return toks;
+  };
+  const isSep = ch => ch === '/' || ch === '\\';
+  const inClass = (tk, ch) => {
+    const lo = ch.toLowerCase();
+    const hit = tk.ranges.some(([a, b]) => lo >= a && lo <= b);
+    return tk.neg ? !hit : hit;
+  };
+  const makeMatcher = toks => {
+    const m = toks.length;
+    // 可空记号(`*`、`**`、零个目录段)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
+    const close = (on, i) => {
+      while (i <= m && !on[i]) {
+        on[i] = 1;
+        const tk = toks[i];
+        if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'dirs')) break;
+        i += 1;
+      }
+    };
+    return str => {
       const s = String(str == null ? '' : str);
       let cur = new Uint8Array(m + 1);
+      let curIn = new Uint8Array(m + 1);   // 'dirs' 记号的段内态:已经吃进了一个目录段的若干字符,等它的分隔符
       close(cur, 0);
       for (let k = 0; k < s.length; k += 1) {
         const ch = s[k];
         const lo = ch.toLowerCase();
         const next = new Uint8Array(m + 1);
+        const nextIn = new Uint8Array(m + 1);
         let any = false;
         for (let i = 0; i < m; i += 1) {
-          if (!cur[i]) continue;
           const tk = toks[i];
+          if (curIn[i]) {
+            if (isSep(ch)) { close(next, i); any = true; } else { nextIn[i] = 1; any = true; }
+          }
+          if (!cur[i]) continue;
           let to = -1;
           if (tk.t === 'lit') { if (lo === tk.c || ch === tk.u) to = i + 1; }
           else if (tk.t === 'one') { if (!isSep(ch)) to = i + 1; }
-          else if (tk.t === 'sep' || tk.t === 'optsep') { if (isSep(ch)) to = i + 1; }
+          else if (tk.t === 'cls') { if (!isSep(ch) && inClass(tk, ch)) to = i + 1; }
+          else if (tk.t === 'sep') { if (isSep(ch)) to = i + 1; }
           else if (tk.t === 'star') { if (!isSep(ch)) to = i; }
           else if (tk.t === 'any') to = i;
+          else if (tk.t === 'dirs') { if (!isSep(ch)) { nextIn[i] = 1; any = true; } }
           if (to >= 0) { close(next, to); any = true; }
         }
         if (!any) return false;
         cur = next;
+        curIn = nextIn;
       }
       return cur[m] === 1;
-    },
+    };
+  };
+  const g = String(glob || '');
+  const matchers = expand(g, 0).map(p => makeMatcher(compile(p)));
+  return {
+    source: g,
+    test(str) { return matchers.some(fn => fn(str)); },
   };
 }
 
@@ -918,6 +977,11 @@ async function walkFiles(root, opts = {}) {
   // home/.ruyi-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
+  // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
+  // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
+  const baseReal = await realpathForContainment(base);
+  let skippedLinks = 0;
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
   let reason = '';
   let stopped = false;
@@ -974,6 +1038,7 @@ async function walkFiles(root, opts = {}) {
         }
         const full = path.join(dir, entry.name);
         if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
+        if (entry.isSymbolicLink() && !pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
         if ((emitDirs || !isDir) && (!accept || accept(rel, isDir))) {
           if (matcher) {
             deferred.push({ full, rel, isDir });
@@ -999,6 +1064,7 @@ async function walkFiles(root, opts = {}) {
   if (patternTimedOut) out.patternTimedOut = true;   // 审计 F 后续:模式撞了时间预算(file_list 据此给 patternNote)
   out.visited = visited;
   if (pruned.size) out.prunedDirs = [...pruned];
+  if (skippedLinks) out.skippedLinks = skippedLinks;
   return out;
 }
 
@@ -1346,7 +1412,9 @@ function searchFileContentRg(root, pattern, opts = {}) {
   // 目录忽略靠共用清单。rg 额外遵守 .gitignore(仅在 git 仓库内生效,rg 的默认行为),includeIgnored:true 或调用方
   // 显式点名了默认清单里的目录(dist/**)时才 --no-ignore —— 否则 gitignore 会把点名的 dist 又吞掉。
   const names = searchExplicitNames(base, opts);
-  const args = ['--json', '--no-messages'];
+  // --crlf:CRLF 文件里 `$` 也锚在 \r 之前(修前 `hello$` / `^b$` 在 Windows 换行的文件里一条都配不上,
+  // 而空结果被当成「确实没有」)。
+  const args = ['--json', '--no-messages', '--crlf'];
   if (opts.includeHidden === true || names.allowHidden.length) args.push('--hidden');
   const defaultNames = new Set(DEFAULT_IGNORE_DIRS.filter(x => !x.includes('/')).map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
   const namedIgnored = names.allowDirs.some(x => defaultNames.has(process.platform === 'win32' ? String(x).toLowerCase() : String(x)));
@@ -1591,25 +1659,30 @@ function gitHumanError(res, cwd) {
 // (## branch...tracking [ahead N, behind M]); remaining lines are XY-coded change entries.
 function summarizeGitStatus(stdout) {
   const lines = String(stdout || '').split('\n').filter(l => l.length > 0);
-  let branch = '(未知分支)', ahead = 0, behind = 0, changes = 0, untracked = 0;
+  let branch = '(未知分支)', ahead = 0, behind = 0, changes = 0, untracked = 0, unborn = false, detached = false, conflicts = 0;
   for (const line of lines) {
     if (line.startsWith('## ')) {
       const head = line.slice(3);
       // "branch...upstream [ahead 1, behind 2]" or "No commits yet on main" or "HEAD (no branch)"
-      const nameMatch = head.match(/^([^\s.]+(?:\.\.\.[^\s]+)?)/);
-      branch = head.startsWith('No commits yet') ? head : (nameMatch ? nameMatch[1].split('...')[0] : head);
+      // 分支名本身可以带点(release-1.0、feature/v1.2.3):先按字面 `...` 切掉上游,再取到第一个空格。
+      // 修前的正则在第一个点处截断,release-1.0 报成 release-1。
+      if (head.startsWith('No commits yet on ')) { branch = head.slice('No commits yet on '.length).trim(); unborn = true; }
+      else if (head.startsWith('HEAD (no branch)')) { branch = 'HEAD'; detached = true; }
+      else branch = head.split('...')[0].split(' ')[0] || head;
       const am = head.match(/ahead (\d+)/); if (am) ahead = Number(am[1]);
       const bm = head.match(/behind (\d+)/); if (bm) behind = Number(bm[1]);
       continue;
     }
     changes++;
     if (line.startsWith('??')) untracked++;
+    else if (/^(DD|AU|UD|UA|DU|AA|UU) /.test(line)) conflicts++;
   }
-  const parts = [`分支 ${branch}`];
+  const parts = [unborn ? `分支 ${branch}(还没有任何提交)` : detached ? '游离 HEAD(不在任何分支上)' : `分支 ${branch}`];
+  if (conflicts) parts.push(`${conflicts} 个冲突未解决`);
   if (ahead) parts.push(`领先 ${ahead}`);
   if (behind) parts.push(`落后 ${behind}`);
   parts.push(changes === 0 ? '工作区干净,无改动' : `${changes} 个改动` + (untracked ? `(含 ${untracked} 个未跟踪)` : ''));
-  return { summary: parts.join(' · '), branch, ahead, behind, changes, untracked };
+  return { summary: parts.join(' · '), branch, ahead, behind, changes, untracked, ...(unborn ? { unborn } : {}), ...(detached ? { detached } : {}), ...(conflicts ? { conflicts } : {}) };
 }
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
@@ -1621,6 +1694,7 @@ async function gitStatus(args = {}) {
   if (!res.ok) return gitHumanError(res, cwd);
   const parsed = summarizeGitStatus(res.stdout);
   return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout,
+    ...(parsed.unborn ? { unborn: true } : {}), ...(parsed.detached ? { detached: true } : {}), ...(parsed.conflicts ? { conflicts: parsed.conflicts } : {}),
     ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
@@ -1670,7 +1744,7 @@ async function gitDiff(args = {}) {
   // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
   let untracked = [];
   let untrackedCount = 0;
-  if (!truncated && diff.trim() === '' && !staged) {
+  if (!truncated && !staged) {
     const lsArgs = [...guard.flags, '-C', cwd, 'ls-files', '--others', '--exclude-standard', '-z'];
     if (rawPath) lsArgs.push('--', rawPath);
     const ls = await runGit(lsArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer' });
@@ -1684,7 +1758,17 @@ async function gitDiff(args = {}) {
   if (untrackedCount) {
     out.untracked = untracked;
     out.untrackedCount = untrackedCount;
-    out.hint = `没有已跟踪文件的改动,但有 ${untrackedCount} 个未跟踪的新文件(git diff 不含它们);用 file_read 看内容,或 git_commit 时用 paths/addAll 纳入。`;
+    out.hint = diff.trim() === ''
+      ? `没有已跟踪文件的改动,但有 ${untrackedCount} 个未跟踪的新文件(git diff 不含它们);用 file_read 看内容,或 git_commit 时用 paths/addAll 纳入。`
+      : `另有 ${untrackedCount} 个未跟踪的新文件不在上面的 diff 里(见 untracked);用 file_read 看内容。`;
+  }
+  // 未暂存那边是空的、改动却全在暂存区:修前只回 empty:true,模型以为没有改动。
+  if (!staged && diff.trim() === '' && !untrackedCount) {
+    const cached = await runGit([...guard.flags, '-C', cwd, 'diff', '--cached', '--quiet', '--ignore-submodules=dirty', ...(rawPath ? ['--', rawPath] : [])], cwd, args.timeoutMs || 15000);
+    if (!cached.ok && cached.code === 1) {
+      out.empty = false;
+      out.hint = '未暂存的改动是空的,但暂存区里有改动;传 staged:true 查看。';
+    }
   }
   if (stat) out.stat = stat;
   out.diff = diff;
@@ -1698,14 +1782,15 @@ async function gitLog(args = {}) {
   if (!cwd) return gitCwdMissingError(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
   // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
-  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
+  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h%x1f%ad%x1f%an%x1f%s', '-n', String(n)];
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath); // UNTRUSTED path after the `--` separator
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
   if (!res.ok) return gitHumanError(res, cwd);
   const commits = String(res.stdout || '').split('\n').filter(l => l.length > 0).map(line => {
-    const [hash, date, author, ...rest] = line.split('|');
-    return { hash: hash || '', date: date || '', author: author || '', subject: rest.join('|') };
+    // 字段间用 \x1f(单元分隔符):修前用 `|`,作者名里带竖线就把 subject 拆坏了。
+    const [hash, date, author, ...rest] = line.split('\x1f');
+    return { hash: hash || '', date: date || '', author: author || '', subject: rest.join('\x1f') };
   });
   return { ok: true, cwd, count: commits.length, maxCount: n, path: rawPath || undefined, commits };
 }
@@ -1729,7 +1814,12 @@ async function gitCommit(args = {}) {
   }
   // Commit. `-m <message>` as two separate array elements (no shell → no injection). No --no-verify: hooks
   // are honest behavior, gated by the exec-tier permission门.
-  const res = await runGit(['-C', cwd, 'commit', '-m', message], cwd, args.timeoutMs || 30000);
+  // 给了 paths 就【只】提交这些文件(--only):修前是 add 之后裸 commit,索引里早就暂存着的别的文件被一起提交了,
+  // 与 schema「只暂存这些文件」不符。路径照旧严格放在 `--` 之后。
+  const commitArgs = paths.length
+    ? ['-C', cwd, 'commit', '--only', '-m', message, '--', ...paths]
+    : ['-C', cwd, 'commit', '-m', message];
+  const res = await runGit(commitArgs, cwd, args.timeoutMs || 30000);
   if (!res.ok) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
@@ -1774,13 +1864,22 @@ async function dependencyInventory(root) {
   const packageJson = files.find(f => f.relativePath === 'package.json');
   let npm = null;
   if (packageJson) {
-    const parsed = safeJsonParse(packageJson.content, {});
-    npm = {
-      scripts: parsed.scripts || {},
-      dependencies: Object.keys(parsed.dependencies || {}),
-      devDependencies: Object.keys(parsed.devDependencies || {}),
-      engines: parsed.engines || {},
-    };
+    // PowerShell 5.1 写出的 package.json 带 UTF-8 BOM;内容是 null / 数组 / 坏 JSON 时如实报 parseError,
+    // 修前前者静默变成「没有任何依赖」,null 直接抛 TypeError。
+    const raw = String(packageJson.content || '').replace(/^\uFEFF/, '');
+    const BAD = Symbol('bad-json');
+    const parsed = safeJsonParse(raw, BAD);
+    const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+    if (!isObj(parsed)) {
+      npm = { parseError: parsed === BAD ? 'package.json 不是合法的 JSON' : 'package.json 顶层不是对象', scripts: {}, dependencies: [], devDependencies: [], engines: {} };
+    } else {
+      npm = {
+        scripts: isObj(parsed.scripts) ? parsed.scripts : {},
+        dependencies: isObj(parsed.dependencies) ? Object.keys(parsed.dependencies) : [],
+        devDependencies: isObj(parsed.devDependencies) ? Object.keys(parsed.devDependencies) : [],
+        engines: isObj(parsed.engines) ? parsed.engines : {},
+      };
+    }
   }
   return { ok: true, root: cwd, files: files.map(({ content, ...f }) => f), npm };
 }
@@ -2551,7 +2650,9 @@ function ssrfCheck(rawUrl) {
   try { u = new URL(String(rawUrl)); } catch { return { allowed: false, reason: 'URL 无法解析', host: '' }; }
   const proto = u.protocol.toLowerCase();
   if (proto !== 'http:' && proto !== 'https:') return { allowed: false, reason: '仅允许 http/https 协议', host: u.hostname };
-  let host = String(u.hostname || '').toLowerCase();
+  // 末尾的点是合法 FQDN 写法(`localhost.`、`x.internal.`),不剥掉的话下面的名字黑名单一条都配不上,只剩 DNS 那道闸
+  // —— 而经代理解析时 DNS 闸是跳过的。
+  let host = String(u.hostname || '').toLowerCase().replace(/\.+$/, '');
   // Strip an IPv6 bracket form ([::1]) that URL leaves in hostname.
   const bare = host.replace(/^\[|\]$/g, '');
   // TEST HOOK (v1.1-W2): env WCW_TEST_ALLOW_LOOPBACK=1 permits 127.0.0.1 (loopback only) so the http_download
@@ -3105,7 +3206,15 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
         res.on('data', d => {
           if (truncated) return;
           total += d.length;
-          if (total > maxBytes) { chunks.push(d.slice(0, Math.max(0, d.length - (total - maxBytes)))); truncated = true; try { req.destroy(); } catch { /* ignore */ } return; }
+          if (total > maxBytes) {
+            chunks.push(d.slice(0, Math.max(0, d.length - (total - maxBytes))));
+            truncated = true;
+            // 先把截到上限的正文交出去,再掐连接:修前先 destroy,res 先发 'error' 后发 'end',整次抓取被报成
+            // 「对方服务器中断了连接(可能有反爬限制)」—— 任何超过上限(web_fetch 默认 2MB)的页面都抓不下来。
+            resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null });
+            try { req.destroy(); } catch { /* ignore */ }
+            return;
+          }
           chunks.push(d);
         });
         res.on('end', () => resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null }));
@@ -3456,9 +3565,9 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
   const fetchPage = async (url, parse) => {
     try {
       const r = await httpRequest({ url, headers: browserHeaders(), timeoutMs, maxBodyChars: 1200000 });
-      if (!r.ok || typeof r.body !== 'string') return { results: [], failed: true };
+      if (!r.ok || typeof r.body !== 'string') return { results: [], failed: true, error: String((r && (r.error || (r.statusCode ? 'HTTP ' + r.statusCode : ''))) || 'request failed') };
       return { results: parse(r.body), blocked: searchPageBlocked(r.body) };
-    } catch { return { results: [], failed: true }; }
+    } catch (e) { return { results: [], failed: true, error: String((e && e.message) || e) }; }
   };
   // 纯英文查询走 Bing 国际版结果(ensearch=1),中文查询走国内版。
   const bingUrl = first => `${bingRoot}/search?q=${enc}${cjk ? '' : '&ensearch=1'}${first > 1 ? '&first=' + first : ''}`;
@@ -3484,6 +3593,14 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
   if (bing.blocked || baidu.blocked) {
     return { ok: true, results: [], backend: 'builtin', blocked: true,
       note: '搜索引擎返回了人机验证页(反爬拦截),这次拿不到结果;稍后再试,或到 设置→搜索后端 换成 tavily / 博查 / searxng 等接口型后端' };
+  }
+  // 引擎根本没连上(断网/代理/DNS):这是失败,不是「没搜到」。修前一律 ok:true + 空结果,模型以为关键词不好、
+  // 换着说法反复重搜。
+  const tried = [bing, ...(baiduEarly || baidu.failed || (baidu.results && baidu.results.length) ? [baidu] : [])];
+  if (tried.every(x => x && x.failed)) {
+    return { ok: false, results: [], backend: 'builtin', failClass: 'network',
+      error: '搜索引擎连不上(' + String(bing.error || 'request failed').slice(0, 160) + ')',
+      hint: '多半是网络/代理问题,换关键词没有用;检查网络或 设置→网络代理,或到 设置→搜索后端 换一个接口型后端' };
   }
   if (!baiduRoot) return { ok: true, results: [], backend: 'builtin', engine: 'bing', note: 'Bing 未返回结果(已覆写引擎地址,跳过百度兜底)' };
   return { ok: true, results: [], backend: 'builtin', note: '两个引擎都未返回结果' };
@@ -3664,7 +3781,10 @@ async function httpRequest(args = {}) {
     };
     const result = (res, bodyBuf, truncated) => {
       const st = res.statusCode;
-      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: bodyBuf.toString('utf8').slice(0, maxChars), truncated };
+      const text = bodyBuf.toString('utf8');
+      // 按 maxBodyChars 切掉的也算截断:修前只有字节硬上限才置 truncated,30 万字的响应切成 20 万字还报 truncated:false。
+      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: text.slice(0, maxChars), truncated: truncated || text.length > maxChars };
+      if (text.length > maxChars) out.totalChars = text.length;
       if (st >= 400) { out.error = `HTTP ${st}`; out.failClass = 'http'; }
       return out;
     };

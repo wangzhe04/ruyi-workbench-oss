@@ -8231,12 +8231,52 @@ function normalizeSession(raw) {
 // missing/invalid; id defaults to t1..tN when absent. Non-array input yields an empty list.
 const TODO_MAX_ITEMS = 50;
 const TODO_MAX_TEXT = 200;
+// 状态同义词:模型多半带着 Claude Code TodoWrite 的习惯(status:'completed'、字段名 content),也常写成
+// in-progress / DONE。修前这些一律落成 pending、文本落成空串 —— 计划条永远 0/N,「没做完就续」也跟着误判。
+// 三个引擎(provider 闭包 / Kimi 桥 / 回环 /api/todo)都经这里,所以在数据层认一次就全覆盖。
+function canonicalTodoStatus(raw) {
+  const v = String(raw == null ? '' : raw).trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (v === 'done' || v === 'completed' || v === 'complete' || v === 'finished' || v === 'success' || v === 'succeeded') return 'done';
+  if (v === 'in_progress' || v === 'inprogress' || v === 'doing' || v === 'active' || v === 'running' || v === 'started') return 'in_progress';
+  if (v === 'blocked') return 'blocked';
+  return v === 'pending' || v === 'todo' || v === 'not_started' || v === 'open' || v === '' ? 'pending' : '';
+}
+// todo_write 入参的同义词归一(分发前的 schema 校验之前用,13f 只认 text/三种状态):content/title/activeForm → text,
+// 状态同义词 → 规范值,纯字符串条目 → {text}。不认识的状态原样留着,让校验报出允许值。
+function normalizeTodoWriteArgs(args) {
+  if (!args || typeof args !== 'object' || !Array.isArray(args.items)) return args;
+  return { ...args, items: args.items.map(it => {
+    if (typeof it === 'string') return { text: it };
+    if (!it || typeof it !== 'object') return it;
+    const o = { ...it };
+    if (o.text == null) { const alt = o.content != null ? o.content : (o.title != null ? o.title : o.activeForm); if (alt != null) o.text = alt; }
+    if (o.status != null) { const c = canonicalTodoStatus(o.status); if (c && c !== 'blocked') o.status = c; }
+    return o;
+  }) };
+}
+// mission_update 的里程碑状态同理(13f 只认 pending/done/blocked;in-progress 一类在账本里就是 pending)。
+function normalizeMissionUpdateArgs(args) {
+  if (!args || typeof args !== 'object' || !Array.isArray(args.milestones)) return args;
+  return { ...args, milestones: args.milestones.map(m => {
+    if (!m || typeof m !== 'object' || m.status == null) return m;
+    const c = canonicalTodoStatus(m.status);
+    return c ? { ...m, status: c === 'in_progress' ? 'pending' : c } : m;
+  }) };
+}
+// 分发前统一入口(12 toolCall 与 09 闭包特例共用)。
+function normalizeMetaToolArgs(name, args) {
+  if (name === 'todo_write') return normalizeTodoWriteArgs(args);
+  if (name === 'mission_update') return normalizeMissionUpdateArgs(args);
+  return args;
+}
 function normalizeTodoItems(raw) {
   const arr = Array.isArray(raw) ? raw.slice(0, TODO_MAX_ITEMS) : [];
   return arr.map((it, i) => {
-    const o = (it && typeof it === 'object') ? it : {};
-    const status = (o.status === 'in_progress' || o.status === 'done') ? o.status : 'pending';
-    const text = String(o.text == null ? '' : o.text).slice(0, TODO_MAX_TEXT);
+    const o = (it && typeof it === 'object') ? it : (typeof it === 'string' ? { text: it } : {});
+    const canon = canonicalTodoStatus(o.status);
+    const status = (canon === 'in_progress' || canon === 'done') ? canon : 'pending';
+    const textRaw = o.text != null ? o.text : (o.content != null ? o.content : (o.title != null ? o.title : o.activeForm));
+    const text = String(textRaw == null ? '' : textRaw).slice(0, TODO_MAX_TEXT);
     const id = (o.id != null && String(o.id).trim()) ? String(o.id).slice(0, 64) : `t${i + 1}`;
     return { id, text, status };
   });
@@ -8377,9 +8417,10 @@ function applyMissionUpdate(prev, patch, trusted = false) {
     if (!id) continue;
     const existing = byId.get(id);
     if (existing) {
-      if (uo.status === 'done' || uo.status === 'blocked' || uo.status === 'pending') {
+      const uoStatus = canonicalTodoStatus(uo.status);   // completed / in-progress 等同义词(见 canonicalTodoStatus)
+      if (uoStatus === 'done' || uoStatus === 'blocked' || uoStatus === 'pending') {
         // 对抗轮 P3: 不可信来源不得把 done 回退为 pending/blocked(防抖动拖住循环);pending↔blocked、→done 允许。
-        if (!(existing.status === 'done' && uo.status !== 'done' && !trusted)) existing.status = uo.status;
+        if (!(existing.status === 'done' && uoStatus !== 'done' && !trusted)) existing.status = uoStatus;
       }
       if (uo.desc != null) existing.desc = String(uo.desc).slice(0, MISSION_MAX_TEXT);
       if (uo.evidence != null) existing.evidence = String(uo.evidence).slice(0, MISSION_MAX_TEXT);
@@ -8387,7 +8428,7 @@ function applyMissionUpdate(prev, patch, trusted = false) {
       if (uo.check && trusted) existing.check = normalizeMissionCheck(uo.check, true);
     } else if (next.milestones.length < MISSION_MAX_MILESTONES) {
       // 新里程碑的 check 同样按 trusted 门控:模型新增里程碑不能自带机器检查(降级 'none')。
-      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (uo.status === 'done' || uo.status === 'blocked') ? uo.status : 'pending', check: normalizeMissionCheck(uo.check, trusted), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
+      const nm = { id, desc: String(uo.desc || '').slice(0, MISSION_MAX_TEXT), status: (canonicalTodoStatus(uo.status) === 'done' || canonicalTodoStatus(uo.status) === 'blocked') ? canonicalTodoStatus(uo.status) : 'pending', check: normalizeMissionCheck(uo.check, trusted), evidence: uo.evidence ? String(uo.evidence).slice(0, MISSION_MAX_TEXT) : '' };
       next.milestones.push(nm); byId.set(id, nm);
     }
   }
@@ -12320,8 +12361,14 @@ async function bridgedReadPathGate(bridgedName, args, ctx) {
 // /api/tools 直调、MCP 子进程)逐字节同修前的判法。
 function resolveExecCwd(cwd, ctx, config) {
   const session = ctx && ctx.session ? ctx.session : null;
-  const effective = cwd || (ctx && ctx.workingDir) || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
-  return path.resolve(String(effective));
+  const base = (ctx && ctx.workingDir) || (session && session.cwd) || (config && config.defaultWorkspace) || os.homedir();
+  if (!cwd) return path.resolve(String(base));
+  // 相对 cwd(`src`、`sub\\repo`)接在【回合工作目录】下面:修前直接 path.resolve(cwd),落到服务进程自己的
+  // 启动目录,报出来的「工作目录不存在: <进程目录>\\src」模型从没见过。按 Windows 形判绝对路径(盘符/UNC),
+  // 宿主上的绝对路径也认。
+  const raw = String(cwd);
+  if (path.win32.isAbsolute(raw) || path.isAbsolute(raw)) return path.resolve(raw);
+  return path.resolve(String(base), raw);
 }
 async function guardWorkspaceExecute(cwd, ctx) {
   let config = ctx && ctx.config ? ctx.config : null;
@@ -20177,9 +20224,11 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   let upstream = null, upstreamText = '';
   try {
     upstream = await fetch(target, { method: 'POST', headers, body: payload, signal: AbortSignal.timeout(120000) });
-    // 上游回体只读 8 KB(错误回显裁 1000 字符;成功体的 text 字段自有限度——恶意巨体不伺候)。
+    // 错误体只留 8 KB(下面再脱敏、裁到 1000 字符回显);成功体留 4 MB —— 修前成功体也裁在 8 KB,一段十几分钟的
+    // 录音转出来的 JSON 被拦腰截断,解析失败报成「上游响应缺少 text 字段」。恶意巨体仍不伺候。
     upstreamText = await upstream.text();
-    if (upstreamText.length > 8192) upstreamText = upstreamText.slice(0, 8192);
+    const bodyCap = upstream.ok ? 4 * 1024 * 1024 : 8192;
+    if (upstreamText.length > bodyCap) upstreamText = upstreamText.slice(0, bodyCap);
   } catch (err) {
     const isTimeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
     return failed({ code: 'asr.upstream_unreachable', params: {}, message: isTimeout ? 'ASR 上游超时(120s)' : ('ASR 上游不可达: ' + String(err && err.message || err)), status: 502 }, isTimeout ? 'timeout' : redact(String(err && err.message || err)));
@@ -28594,7 +28643,21 @@ function stewardSamePath(a, b) {
 // 自己登记过的目录 —— 管家照样能读里面的交付(steward_file_read)、能把线程挪进去(thread_workspace)。
 function stewardWorkspaceRootFor(rawPath, config) {
   const norm = v => String(v == null ? '' : v).replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
-  const target = norm(rawPath);
+  // 先把 `.` / `..` 段词法消掉再比前缀:修前 `<ws>/../../etc/passwd` 以 `<ws>/` 开头就算「在工作区里」,
+  // steward_file_read 读到了工作区外的文件、steward_thread_workspace 把线程目录设成了 /etc。
+  // 退到根之上(`..` 比段数多)的一律不认。符号链接/联接的真实落点由调用方按 realpath 再判一道。
+  const lexical = v => {
+    const s = norm(v);
+    const lead = s.startsWith('/') ? '/' : '';
+    const out = [];
+    for (const seg of s.split('/')) {
+      if (!seg || seg === '.') continue;
+      if (seg === '..') { if (!out.length) return ''; out.pop(); continue; }
+      out.push(seg);
+    }
+    return out.length ? lead + out.join('/') : '';
+  };
+  const target = lexical(rawPath);
   if (!target) return '';
   const rows = [
     ...(Array.isArray(config && config.workspaces) ? config.workspaces : []),
@@ -30117,15 +30180,16 @@ async function proposeWorkbenchMemory(args, ctx) {
   if (state.current && state.current.status === 'pending'
     && Number(state.current.proposal && state.current.proposal.sourceTurnSeq) === turnSeq) {
     return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true,
-      alreadyPending: true, source: state.current.source || 'automatic', note: '本回合已有记忆候选；保持先到候选，不重复生成或覆盖。' };
+      alreadyPending: true, submitted: false, source: state.current.source || 'automatic', note: '本回合已有一条记忆候选(见 proposal)；这一次的内容【没有】提交，也不会覆盖它。需要的话下一回合再提。' };
   }
-  const parsed = parseMemoryDraft(JSON.stringify(args || {}));
+  const parsed = parseMemoryDraft(args || {});
   if (!parsed) return { ok: false, error: 'name and body are required' };
   if (!parsed.description || parsed.body.length > 4000 || !fmVal(args && args.reason)) return { ok: false, error: 'description/reason are required and body must be at most 4000 characters' };
   const proposal = { ...parsed, scope: args && args.scope === 'global' ? 'global' : 'project', reason: fmVal(args && args.reason).slice(0, 240) };
   const lastUser = [...(Array.isArray(session.messages) ? session.messages : [])].reverse().find(m => m && m.role === 'user' && !m.steered);
   const userText = String(lastUser && lastUser.content || '');
-  if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) proposal.scope = 'project';
+  let scopeAdjusted = false;
+  if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) { proposal.scope = 'project'; scopeAdjusted = true; }
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
   const registry = await loadMemoryRegistry(cwd).catch(() => []);
   if (memoryProposalIsDuplicate(proposal, registry, state)) return { ok: false, duplicate: true, error: 'same or very similar memory already exists or was already reviewed' };
@@ -30140,7 +30204,8 @@ async function proposeWorkbenchMemory(args, ctx) {
   state.current = { id, status: 'pending', source: 'tool', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
   state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
   await writeMemoryProposalState(sid, state);
-  return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。' };
+  return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。'
+    + (scopeAdjusted ? '（scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : ''), ...(scopeAdjusted ? { scopeAdjusted: 'global->project' } : {}) };
 }
 
 // R4 主回合记忆维护工具(建边/改记忆/撤边)。三者与 workbench_memory_propose 共用同一个候选单槽
@@ -30357,12 +30422,17 @@ async function draftMemoryFromSession(sessionId) {
 
 // 容错解析模型的记忆 JSON:剥 markdown 围栏、取最外层 {…}、JSON.parse、字段消毒。返回 {name,description,type,body} 或 null。
 function parseMemoryDraft(text) {
+  // 已经是对象(工具入参)就直接用:修前 workbench_memory_propose 把 args 先 JSON.stringify 再按自由文本解析,
+  // 正文里带 ``` 代码块时围栏正则在 JSON 串里截出半截,报「name and body are required」。
+  if (text && typeof text === 'object') return memoryDraftFromObject(text);
   let s = String(text || '').trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
   const first = s.indexOf('{'), last = s.lastIndexOf('}');
   if (first >= 0 && last > first) s = s.slice(first, last + 1);
-  const raw = safeJsonParse(s, null);
+  return memoryDraftFromObject(safeJsonParse(s, null));
+}
+function memoryDraftFromObject(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const name = fmVal(raw.name).slice(0, 120);
   const body = String(raw.body || '').trim();
@@ -33387,7 +33457,14 @@ function searchToolCatalog(catalog, args, config, opts) {
   const limit = Math.min(20, Math.max(1, Number(args && args.limit) || 8));
   const forceV1 = !!(opts && opts.forceV1);
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
-    return legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+    const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+    // 子串匹配零命中(「读文件」「执行命令」「截图」这类中文说法在英文描述里一个都配不上)时,退到带别名/能力词的
+    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时结果与修前逐字节一致。
+    if (query.trim() && Array.isArray(legacy.matches) && legacy.matches.length === 0) {
+      const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
+      if (Array.isArray(v1.matches) && v1.matches.length) return { ...v1, fallback: 'alias_ranker' };
+    }
+    return legacy;
   }
   const startedAt = Date.now();
   const qNorm = normalizeToolSearchText(query);
@@ -33624,10 +33701,14 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   };
   const load = args => {
     const before = new Set(current().map(t => t.function.name));
-    for (const p of Array.isArray(args && args.packs) ? args.packs : []) if (TOOL_PACK_DESCRIPTIONS[p]) activePacks.add(p);
-    for (const n of Array.isArray(args && args.tools) ? args.tools : []) if (catalog.some(x => x.name === n)) activeNames.add(n);
+    // packs/tools 收单个字符串也认;认不出的名字记下来如实交回(修前静默忽略,回 loaded:[] 的 ok:true)。
+    const asList = v => (Array.isArray(v) ? v : (typeof v === 'string' && v.trim() ? [v.trim()] : []));
+    const unknown = [];
+    for (const p of asList(args && args.packs)) { if (TOOL_PACK_DESCRIPTIONS[p]) activePacks.add(p); else unknown.push(String(p)); }
+    for (const n of asList(args && args.tools)) { if (catalog.some(x => x.name === n)) activeNames.add(n); else unknown.push(String(n)); }
     const after = current().map(t => t.function.name);
-    return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length };
+    return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length,
+      ...(unknown.length ? { unknown, hint: '这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名' } : {}) };
   };
   const list = args => listCompactTools(catalog, args);
   return { catalog, activePacks, current, list, search, shadowSearch, load, fullCount: catalog.length };
@@ -38796,7 +38877,9 @@ async function deliverAgentRunEnvelope(sessionId, run) {
 // 旧 spawn_agent 调用 → 单节点 orchestrate 参数(dependsOn 在单节点里无意义,提示改为一次 orchestrate 的 nodes)。
 function legacySpawnToOrchestrateArgs(args) {
   const a = args && typeof args === 'object' ? args : {};
-  const out = { task: a.task, background: a.background === true };
+  // 旧模型常把任务写在 prompt / description 里(Claude Code Task 工具的字段名):修前只认 task,于是零节点启动,
+  // 还配着一句「本次已按单节点代理执行」的说明。
+  const out = { task: a.task != null ? a.task : (a.prompt != null ? a.prompt : a.description), background: a.background === true };
   for (const k of ['role', 'agentKey', 'toolTier', 'maxIters', 'model', 'resources']) if (a[k] != null) out[k] = a[k];
   return out;
 }
@@ -40469,7 +40552,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             } else {
               const legacy = tc.name === 'spawn_agent';
               resultObj = await launchOrchestrateFromTurn(legacy ? legacySpawnToOrchestrateArgs(args) : args, onNestedEvent);
-              if (legacy && resultObj && typeof resultObj === 'object') resultObj.note = LEGACY_SPAWN_NOTE + (resultObj.note ? ' ' + resultObj.note : '');
+              if (legacy && resultObj && typeof resultObj === 'object') {
+                // 没起来就别说「已按单节点代理执行」(修前 startedCount:0 也配这句)。
+                const started = resultObj.ok !== false && !(Number(resultObj.startedCount) === 0);
+                const lead = started ? LEGACY_SPAWN_NOTE : 'spawn_agent 已并入 orchestrate_agents,这次没有启动任何代理(见 error)。请改调 orchestrate_agents({task, role?, background?})。';
+                resultObj.note = lead + (resultObj.note ? ' ' + resultObj.note : '');
+              }
             }
             // Share the normal tool-result tail (event + records + history push) via the block below.
             const isErr = !!(resultObj && resultObj.ok === false);
@@ -40578,6 +40666,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 resultObj = answer && answer.ok
                   ? { ok: true, answers: answer.answers, content: answer.content }
                   : { ok: false, error: (answer && (answer.error || answer.content)) || 'question cancelled' };
+              } else if ((tc.name === 'todo_write' || tc.name === 'mission_update' || tc.name === 'request_user_input')
+                  && validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args))) {
+                // 闭包特例不经 toolCall,修前也就跳过了 13f 的入参校验:todo_write {} / {items:'a, b'} 回 ok:true 并把计划清空。
+                // 先过同一道校验(先认同义词),不合格就把校验信封原样交回,让模型照提示重调。
+                resultObj = validateNativeToolArgs(tc.name, normalizeMetaToolArgs(tc.name, args));
               } else if (tc.name === 'todo_write') {
                 // v0.8-S3 provider-engine special-case: unlike other tools, todo_write must persist to the
                 // session (session.todos) and drive the UI step-bar. This closure holds the session + onEvent,
@@ -45002,61 +45095,120 @@ function globToRegExp(glob) {
   // 返回一个只有 test(str) 的匹配器(调用点只用 .test)。修前把 glob 译成正则:每个 `*` 是 `[^\\/]*`,
   // 模型给的 `*a*a*a*a*a*b` 这类 glob 在长文件名上是多项式回溯(星号越多次方越高),卡死主线程。
   // 这里把 glob 切成记号,按 NFA 同时推进所有可能位置:每个字符 O(记号数),整条 O(路径长 × 记号数),与 glob 形状无关。
-  // 语义与修前逐条一致:`**` 跨分隔符任意长(紧跟的分隔符可省,让 `**/x` 也配根下的 x);`*` 段内任意长;
-  // `?` 段内一个字符;`/` 与 `\` 互认;其余字面、大小写不敏感;整串锚定。
+  // 语义:`**/` = 零个或多个【完整】目录段(修前是「任意字符 + 可省分隔符」,`**/test.py` 连 `mytest.py` 也配上,
+  // `**/.*` 配上所有带点的文件);结尾或段中的 `**` 跨分隔符任意长;`*` 段内任意长;`?` 段内一个字符;
+  // `[a-z]` / `[!x]` 字符类(段内一个字符);`{a,b}` 花括号展开(可嵌套);`/` 与 `\` 互认;其余字面、
+  // 大小写不敏感;整串锚定。修前花括号与字符类按字面配,`**/*.{js,py}` 静默配不到任何文件。
   // 自包含(不引用本文件别处的名字):autonomy-grant.e2e 从源码切出这个函数单独求值。
-  const g = String(glob || '');
-  const toks = [];
-  for (let i = 0; i < g.length; i += 1) {
-    const c = g[i];
-    if (c === '*') {
-      if (g[i + 1] === '*') {
-        toks.push({ t: 'any' });
-        i += 1;
-        if (g[i + 1] === '/' || g[i + 1] === '\\') { toks.push({ t: 'optsep' }); i += 1; }
-      } else toks.push({ t: 'star' });
-    } else if (c === '?') toks.push({ t: 'one' });
-    else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
-    else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
-  }
-  const m = toks.length;
-  const isSep = ch => ch === '/' || ch === '\\';
-  // 可空记号(`*`、`**`、可省分隔符)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
-  const close = (on, i) => {
-    while (i <= m && !on[i]) {
-      on[i] = 1;
-      const tk = toks[i];
-      if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'optsep')) break;
-      i += 1;
+  const expand = (pat, depth) => {
+    const open = pat.indexOf('{');
+    if (open < 0 || depth > 8) return [pat];
+    let level = 0, close = -1;
+    const commas = [];
+    for (let i = open; i < pat.length; i += 1) {
+      if (pat[i] === '{') level += 1;
+      else if (pat[i] === '}') { level -= 1; if (level === 0) { close = i; break; } }
+      else if (pat[i] === ',' && level === 1) commas.push(i);
     }
+    if (close < 0 || !commas.length) {
+      // 没有配对或没有逗号:这一对花括号按字面,继续展开后面的
+      if (close < 0) return [pat];
+      return expand(pat.slice(close + 1), depth + 1).map(rest => pat.slice(0, close + 1) + rest);
+    }
+    const head = pat.slice(0, open), tail = pat.slice(close + 1);
+    const parts = [];
+    let from = open + 1;
+    for (const c of [...commas, close]) { parts.push(pat.slice(from, c)); from = c + 1; }
+    const out = [];
+    for (const part of parts) for (const e of expand(head + part + tail, depth + 1)) { if (out.length < 64) out.push(e); }
+    return out;
   };
-  return {
-    source: g,
-    test(str) {
+  const compile = g => {
+    const toks = [];
+    for (let i = 0; i < g.length; i += 1) {
+      const c = g[i];
+      if (c === '*') {
+        if (g[i + 1] === '*') {
+          i += 1;
+          const atSegStart = toks.length === 0 || toks[toks.length - 1].t === 'sep' || toks[toks.length - 1].t === 'dirs';
+          if (atSegStart && (g[i + 1] === '/' || g[i + 1] === '\\')) { toks.push({ t: 'dirs' }); i += 1; }
+          else toks.push({ t: 'any' });
+        } else toks.push({ t: 'star' });
+      } else if (c === '?') toks.push({ t: 'one' });
+      else if (c === '/' || c === '\\') toks.push({ t: 'sep' });
+      else if (c === '[') {
+        const endAt = g.indexOf(']', i + 2);
+        if (endAt < 0) { toks.push({ t: 'lit', c: '[', u: '[' }); continue; }
+        let body = g.slice(i + 1, endAt);
+        const neg = body[0] === '!' || body[0] === '^';
+        if (neg) body = body.slice(1);
+        const ranges = [];
+        for (let k = 0; k < body.length; k += 1) {
+          if (body[k + 1] === '-' && k + 2 < body.length) { ranges.push([body[k].toLowerCase(), body[k + 2].toLowerCase()]); k += 2; }
+          else ranges.push([body[k].toLowerCase(), body[k].toLowerCase()]);
+        }
+        toks.push({ t: 'cls', neg, ranges });
+        i = endAt;
+      } else toks.push({ t: 'lit', c: c.toLowerCase(), u: c.toUpperCase() });
+    }
+    return toks;
+  };
+  const isSep = ch => ch === '/' || ch === '\\';
+  const inClass = (tk, ch) => {
+    const lo = ch.toLowerCase();
+    const hit = tk.ranges.some(([a, b]) => lo >= a && lo <= b);
+    return tk.neg ? !hit : hit;
+  };
+  const makeMatcher = toks => {
+    const m = toks.length;
+    // 可空记号(`*`、`**`、零个目录段)可以直接跳过:从 i 出发能到的位置集合写进 on(去重)。
+    const close = (on, i) => {
+      while (i <= m && !on[i]) {
+        on[i] = 1;
+        const tk = toks[i];
+        if (!tk || !(tk.t === 'star' || tk.t === 'any' || tk.t === 'dirs')) break;
+        i += 1;
+      }
+    };
+    return str => {
       const s = String(str == null ? '' : str);
       let cur = new Uint8Array(m + 1);
+      let curIn = new Uint8Array(m + 1);   // 'dirs' 记号的段内态:已经吃进了一个目录段的若干字符,等它的分隔符
       close(cur, 0);
       for (let k = 0; k < s.length; k += 1) {
         const ch = s[k];
         const lo = ch.toLowerCase();
         const next = new Uint8Array(m + 1);
+        const nextIn = new Uint8Array(m + 1);
         let any = false;
         for (let i = 0; i < m; i += 1) {
-          if (!cur[i]) continue;
           const tk = toks[i];
+          if (curIn[i]) {
+            if (isSep(ch)) { close(next, i); any = true; } else { nextIn[i] = 1; any = true; }
+          }
+          if (!cur[i]) continue;
           let to = -1;
           if (tk.t === 'lit') { if (lo === tk.c || ch === tk.u) to = i + 1; }
           else if (tk.t === 'one') { if (!isSep(ch)) to = i + 1; }
-          else if (tk.t === 'sep' || tk.t === 'optsep') { if (isSep(ch)) to = i + 1; }
+          else if (tk.t === 'cls') { if (!isSep(ch) && inClass(tk, ch)) to = i + 1; }
+          else if (tk.t === 'sep') { if (isSep(ch)) to = i + 1; }
           else if (tk.t === 'star') { if (!isSep(ch)) to = i; }
           else if (tk.t === 'any') to = i;
+          else if (tk.t === 'dirs') { if (!isSep(ch)) { nextIn[i] = 1; any = true; } }
           if (to >= 0) { close(next, to); any = true; }
         }
         if (!any) return false;
         cur = next;
+        curIn = nextIn;
       }
       return cur[m] === 1;
-    },
+    };
+  };
+  const g = String(glob || '');
+  const matchers = expand(g, 0).map(p => makeMatcher(compile(p)));
+  return {
+    source: g,
+    test(str) { return matchers.some(fn => fn(str)); },
   };
 }
 
@@ -45363,6 +45515,11 @@ async function walkFiles(root, opts = {}) {
   // home/.ruyi-workbench)时,config.json/sessions/token 配置的内容仍被搜出返回。这里在遍历处逐项跳过敏感子树
   // (既不入结果也不下钻)。ensureDataRootReal 已在上游 guardFileToolPath(root) 预热,此处 sync 判定即可。
   await ensureDataRootReal();
+  // 指向遍历根之外的符号链接/联接不返回:guardFileToolPath 只判了 root,修前 ws/link.md -> /outside/secret.md 被当成
+  // 普通文件列出来,docs_search / codebase_symbol_search / code_review_scan 接着就把区外文件的内容读出来了
+  // (file_read 读同一个链接是 not-allowed)。只对链接条目多做一次 realpath,普通文件不受影响。
+  const baseReal = await realpathForContainment(base);
+  let skippedLinks = 0;
   let hitCap = false;  // 审计 P2 对抗修正:用 hitCap 标志而非 out.length>=maxFiles 事后判断,避免"正好 maxFiles 个文件"误判 truncated
   let reason = '';
   let stopped = false;
@@ -45419,6 +45576,7 @@ async function walkFiles(root, opts = {}) {
         }
         const full = path.join(dir, entry.name);
         if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
+        if (entry.isSymbolicLink() && !pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
         if ((emitDirs || !isDir) && (!accept || accept(rel, isDir))) {
           if (matcher) {
             deferred.push({ full, rel, isDir });
@@ -45444,6 +45602,7 @@ async function walkFiles(root, opts = {}) {
   if (patternTimedOut) out.patternTimedOut = true;   // 审计 F 后续:模式撞了时间预算(file_list 据此给 patternNote)
   out.visited = visited;
   if (pruned.size) out.prunedDirs = [...pruned];
+  if (skippedLinks) out.skippedLinks = skippedLinks;
   return out;
 }
 
@@ -45791,7 +45950,9 @@ function searchFileContentRg(root, pattern, opts = {}) {
   // 目录忽略靠共用清单。rg 额外遵守 .gitignore(仅在 git 仓库内生效,rg 的默认行为),includeIgnored:true 或调用方
   // 显式点名了默认清单里的目录(dist/**)时才 --no-ignore —— 否则 gitignore 会把点名的 dist 又吞掉。
   const names = searchExplicitNames(base, opts);
-  const args = ['--json', '--no-messages'];
+  // --crlf:CRLF 文件里 `$` 也锚在 \r 之前(修前 `hello$` / `^b$` 在 Windows 换行的文件里一条都配不上,
+  // 而空结果被当成「确实没有」)。
+  const args = ['--json', '--no-messages', '--crlf'];
   if (opts.includeHidden === true || names.allowHidden.length) args.push('--hidden');
   const defaultNames = new Set(DEFAULT_IGNORE_DIRS.filter(x => !x.includes('/')).map(x => (process.platform === 'win32' ? x.toLowerCase() : x)));
   const namedIgnored = names.allowDirs.some(x => defaultNames.has(process.platform === 'win32' ? String(x).toLowerCase() : String(x)));
@@ -46036,25 +46197,30 @@ function gitHumanError(res, cwd) {
 // (## branch...tracking [ahead N, behind M]); remaining lines are XY-coded change entries.
 function summarizeGitStatus(stdout) {
   const lines = String(stdout || '').split('\n').filter(l => l.length > 0);
-  let branch = '(未知分支)', ahead = 0, behind = 0, changes = 0, untracked = 0;
+  let branch = '(未知分支)', ahead = 0, behind = 0, changes = 0, untracked = 0, unborn = false, detached = false, conflicts = 0;
   for (const line of lines) {
     if (line.startsWith('## ')) {
       const head = line.slice(3);
       // "branch...upstream [ahead 1, behind 2]" or "No commits yet on main" or "HEAD (no branch)"
-      const nameMatch = head.match(/^([^\s.]+(?:\.\.\.[^\s]+)?)/);
-      branch = head.startsWith('No commits yet') ? head : (nameMatch ? nameMatch[1].split('...')[0] : head);
+      // 分支名本身可以带点(release-1.0、feature/v1.2.3):先按字面 `...` 切掉上游,再取到第一个空格。
+      // 修前的正则在第一个点处截断,release-1.0 报成 release-1。
+      if (head.startsWith('No commits yet on ')) { branch = head.slice('No commits yet on '.length).trim(); unborn = true; }
+      else if (head.startsWith('HEAD (no branch)')) { branch = 'HEAD'; detached = true; }
+      else branch = head.split('...')[0].split(' ')[0] || head;
       const am = head.match(/ahead (\d+)/); if (am) ahead = Number(am[1]);
       const bm = head.match(/behind (\d+)/); if (bm) behind = Number(bm[1]);
       continue;
     }
     changes++;
     if (line.startsWith('??')) untracked++;
+    else if (/^(DD|AU|UD|UA|DU|AA|UU) /.test(line)) conflicts++;
   }
-  const parts = [`分支 ${branch}`];
+  const parts = [unborn ? `分支 ${branch}(还没有任何提交)` : detached ? '游离 HEAD(不在任何分支上)' : `分支 ${branch}`];
+  if (conflicts) parts.push(`${conflicts} 个冲突未解决`);
   if (ahead) parts.push(`领先 ${ahead}`);
   if (behind) parts.push(`落后 ${behind}`);
   parts.push(changes === 0 ? '工作区干净,无改动' : `${changes} 个改动` + (untracked ? `(含 ${untracked} 个未跟踪)` : ''));
-  return { summary: parts.join(' · '), branch, ahead, behind, changes, untracked };
+  return { summary: parts.join(' · '), branch, ahead, behind, changes, untracked, ...(unborn ? { unborn } : {}), ...(detached ? { detached } : {}), ...(conflicts ? { conflicts } : {}) };
 }
 // git_status {cwd?}: porcelain v1 + branch header, plus a 人话 summary line. tier: read.
 async function gitStatus(args = {}) {
@@ -46066,6 +46232,7 @@ async function gitStatus(args = {}) {
   if (!res.ok) return gitHumanError(res, cwd);
   const parsed = summarizeGitStatus(res.stdout);
   return { ok: true, cwd, summary: parsed.summary, branch: parsed.branch, ahead: parsed.ahead, behind: parsed.behind, changes: parsed.changes, untracked: parsed.untracked, status: res.stdout,
+    ...(parsed.unborn ? { unborn: true } : {}), ...(parsed.detached ? { detached: true } : {}), ...(parsed.conflicts ? { conflicts: parsed.conflicts } : {}),
     ...(guard.names.length ? { filtersNeutralized: guard.names } : {}) };
 }
 
@@ -46115,7 +46282,7 @@ async function gitDiff(args = {}) {
   // NE-7:git diff 不含未跟踪文件 —— 只有新文件时不能对模型说「没有改动」。列出来(≤50)并提示用 file_read 看内容。
   let untracked = [];
   let untrackedCount = 0;
-  if (!truncated && diff.trim() === '' && !staged) {
+  if (!truncated && !staged) {
     const lsArgs = [...guard.flags, '-C', cwd, 'ls-files', '--others', '--exclude-standard', '-z'];
     if (rawPath) lsArgs.push('--', rawPath);
     const ls = await runGit(lsArgs, cwd, args.timeoutMs || 15000, { encoding: 'buffer' });
@@ -46129,7 +46296,17 @@ async function gitDiff(args = {}) {
   if (untrackedCount) {
     out.untracked = untracked;
     out.untrackedCount = untrackedCount;
-    out.hint = `没有已跟踪文件的改动,但有 ${untrackedCount} 个未跟踪的新文件(git diff 不含它们);用 file_read 看内容,或 git_commit 时用 paths/addAll 纳入。`;
+    out.hint = diff.trim() === ''
+      ? `没有已跟踪文件的改动,但有 ${untrackedCount} 个未跟踪的新文件(git diff 不含它们);用 file_read 看内容,或 git_commit 时用 paths/addAll 纳入。`
+      : `另有 ${untrackedCount} 个未跟踪的新文件不在上面的 diff 里(见 untracked);用 file_read 看内容。`;
+  }
+  // 未暂存那边是空的、改动却全在暂存区:修前只回 empty:true,模型以为没有改动。
+  if (!staged && diff.trim() === '' && !untrackedCount) {
+    const cached = await runGit([...guard.flags, '-C', cwd, 'diff', '--cached', '--quiet', '--ignore-submodules=dirty', ...(rawPath ? ['--', rawPath] : [])], cwd, args.timeoutMs || 15000);
+    if (!cached.ok && cached.code === 1) {
+      out.empty = false;
+      out.hint = '未暂存的改动是空的,但暂存区里有改动;传 staged:true 查看。';
+    }
   }
   if (stat) out.stat = stat;
   out.diff = diff;
@@ -46143,14 +46320,15 @@ async function gitLog(args = {}) {
   if (!cwd) return gitCwdMissingError(args.cwd);
   const n = Math.max(1, Math.min(100, Math.floor(Number(args.maxCount) || 10)));
   // 审计 B:log.showSignature=true 的仓库会让 git log 跑 gpg.program(仓库配置可指任意程序)—— 显式关掉。
-  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h|%ad|%an|%s', '-n', String(n)];
+  const gitArgs = [...GIT_READ_ONLY_FLAGS, '-C', cwd, 'log', '--date=iso', '--pretty=format:%h%x1f%ad%x1f%an%x1f%s', '-n', String(n)];
   const rawPath = (args.path != null && String(args.path).trim() !== '') ? String(args.path) : null;
   if (rawPath) gitArgs.push('--', rawPath); // UNTRUSTED path after the `--` separator
   const res = await runGit(gitArgs, cwd, args.timeoutMs || 15000);
   if (!res.ok) return gitHumanError(res, cwd);
   const commits = String(res.stdout || '').split('\n').filter(l => l.length > 0).map(line => {
-    const [hash, date, author, ...rest] = line.split('|');
-    return { hash: hash || '', date: date || '', author: author || '', subject: rest.join('|') };
+    // 字段间用 \x1f(单元分隔符):修前用 `|`,作者名里带竖线就把 subject 拆坏了。
+    const [hash, date, author, ...rest] = line.split('\x1f');
+    return { hash: hash || '', date: date || '', author: author || '', subject: rest.join('\x1f') };
   });
   return { ok: true, cwd, count: commits.length, maxCount: n, path: rawPath || undefined, commits };
 }
@@ -46174,7 +46352,12 @@ async function gitCommit(args = {}) {
   }
   // Commit. `-m <message>` as two separate array elements (no shell → no injection). No --no-verify: hooks
   // are honest behavior, gated by the exec-tier permission门.
-  const res = await runGit(['-C', cwd, 'commit', '-m', message], cwd, args.timeoutMs || 30000);
+  // 给了 paths 就【只】提交这些文件(--only):修前是 add 之后裸 commit,索引里早就暂存着的别的文件被一起提交了,
+  // 与 schema「只暂存这些文件」不符。路径照旧严格放在 `--` 之后。
+  const commitArgs = paths.length
+    ? ['-C', cwd, 'commit', '--only', '-m', message, '--', ...paths]
+    : ['-C', cwd, 'commit', '-m', message];
+  const res = await runGit(commitArgs, cwd, args.timeoutMs || 30000);
   if (!res.ok) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
@@ -46219,13 +46402,22 @@ async function dependencyInventory(root) {
   const packageJson = files.find(f => f.relativePath === 'package.json');
   let npm = null;
   if (packageJson) {
-    const parsed = safeJsonParse(packageJson.content, {});
-    npm = {
-      scripts: parsed.scripts || {},
-      dependencies: Object.keys(parsed.dependencies || {}),
-      devDependencies: Object.keys(parsed.devDependencies || {}),
-      engines: parsed.engines || {},
-    };
+    // PowerShell 5.1 写出的 package.json 带 UTF-8 BOM;内容是 null / 数组 / 坏 JSON 时如实报 parseError,
+    // 修前前者静默变成「没有任何依赖」,null 直接抛 TypeError。
+    const raw = String(packageJson.content || '').replace(/^\uFEFF/, '');
+    const BAD = Symbol('bad-json');
+    const parsed = safeJsonParse(raw, BAD);
+    const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+    if (!isObj(parsed)) {
+      npm = { parseError: parsed === BAD ? 'package.json 不是合法的 JSON' : 'package.json 顶层不是对象', scripts: {}, dependencies: [], devDependencies: [], engines: {} };
+    } else {
+      npm = {
+        scripts: isObj(parsed.scripts) ? parsed.scripts : {},
+        dependencies: isObj(parsed.dependencies) ? Object.keys(parsed.dependencies) : [],
+        devDependencies: isObj(parsed.devDependencies) ? Object.keys(parsed.devDependencies) : [],
+        engines: isObj(parsed.engines) ? parsed.engines : {},
+      };
+    }
   }
   return { ok: true, root: cwd, files: files.map(({ content, ...f }) => f), npm };
 }
@@ -46996,7 +47188,9 @@ function ssrfCheck(rawUrl) {
   try { u = new URL(String(rawUrl)); } catch { return { allowed: false, reason: 'URL 无法解析', host: '' }; }
   const proto = u.protocol.toLowerCase();
   if (proto !== 'http:' && proto !== 'https:') return { allowed: false, reason: '仅允许 http/https 协议', host: u.hostname };
-  let host = String(u.hostname || '').toLowerCase();
+  // 末尾的点是合法 FQDN 写法(`localhost.`、`x.internal.`),不剥掉的话下面的名字黑名单一条都配不上,只剩 DNS 那道闸
+  // —— 而经代理解析时 DNS 闸是跳过的。
+  let host = String(u.hostname || '').toLowerCase().replace(/\.+$/, '');
   // Strip an IPv6 bracket form ([::1]) that URL leaves in hostname.
   const bare = host.replace(/^\[|\]$/g, '');
   // TEST HOOK (v1.1-W2): env WCW_TEST_ALLOW_LOOPBACK=1 permits 127.0.0.1 (loopback only) so the http_download
@@ -47550,7 +47744,15 @@ function httpGetGuarded(rawUrl, { maxRedirects = 3, timeoutMs = 10000, totalTime
         res.on('data', d => {
           if (truncated) return;
           total += d.length;
-          if (total > maxBytes) { chunks.push(d.slice(0, Math.max(0, d.length - (total - maxBytes)))); truncated = true; try { req.destroy(); } catch { /* ignore */ } return; }
+          if (total > maxBytes) {
+            chunks.push(d.slice(0, Math.max(0, d.length - (total - maxBytes))));
+            truncated = true;
+            // 先把截到上限的正文交出去,再掐连接:修前先 destroy,res 先发 'error' 后发 'end',整次抓取被报成
+            // 「对方服务器中断了连接(可能有反爬限制)」—— 任何超过上限(web_fetch 默认 2MB)的页面都抓不下来。
+            resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null });
+            try { req.destroy(); } catch { /* ignore */ }
+            return;
+          }
           chunks.push(d);
         });
         res.on('end', () => resolve({ ok: true, status, finalUrl: u.toString(), body: Buffer.concat(chunks), truncated, contentType: res.headers['content-type'] || null }));
@@ -47901,9 +48103,9 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
   const fetchPage = async (url, parse) => {
     try {
       const r = await httpRequest({ url, headers: browserHeaders(), timeoutMs, maxBodyChars: 1200000 });
-      if (!r.ok || typeof r.body !== 'string') return { results: [], failed: true };
+      if (!r.ok || typeof r.body !== 'string') return { results: [], failed: true, error: String((r && (r.error || (r.statusCode ? 'HTTP ' + r.statusCode : ''))) || 'request failed') };
       return { results: parse(r.body), blocked: searchPageBlocked(r.body) };
-    } catch { return { results: [], failed: true }; }
+    } catch (e) { return { results: [], failed: true, error: String((e && e.message) || e) }; }
   };
   // 纯英文查询走 Bing 国际版结果(ensearch=1),中文查询走国内版。
   const bingUrl = first => `${bingRoot}/search?q=${enc}${cjk ? '' : '&ensearch=1'}${first > 1 ? '&first=' + first : ''}`;
@@ -47929,6 +48131,14 @@ async function builtinSearch(query, maxResults, baseUrlOverride, timeoutMs, baid
   if (bing.blocked || baidu.blocked) {
     return { ok: true, results: [], backend: 'builtin', blocked: true,
       note: '搜索引擎返回了人机验证页(反爬拦截),这次拿不到结果;稍后再试,或到 设置→搜索后端 换成 tavily / 博查 / searxng 等接口型后端' };
+  }
+  // 引擎根本没连上(断网/代理/DNS):这是失败,不是「没搜到」。修前一律 ok:true + 空结果,模型以为关键词不好、
+  // 换着说法反复重搜。
+  const tried = [bing, ...(baiduEarly || baidu.failed || (baidu.results && baidu.results.length) ? [baidu] : [])];
+  if (tried.every(x => x && x.failed)) {
+    return { ok: false, results: [], backend: 'builtin', failClass: 'network',
+      error: '搜索引擎连不上(' + String(bing.error || 'request failed').slice(0, 160) + ')',
+      hint: '多半是网络/代理问题,换关键词没有用;检查网络或 设置→网络代理,或到 设置→搜索后端 换一个接口型后端' };
   }
   if (!baiduRoot) return { ok: true, results: [], backend: 'builtin', engine: 'bing', note: 'Bing 未返回结果(已覆写引擎地址,跳过百度兜底)' };
   return { ok: true, results: [], backend: 'builtin', note: '两个引擎都未返回结果' };
@@ -48109,7 +48319,10 @@ async function httpRequest(args = {}) {
     };
     const result = (res, bodyBuf, truncated) => {
       const st = res.statusCode;
-      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: bodyBuf.toString('utf8').slice(0, maxChars), truncated };
+      const text = bodyBuf.toString('utf8');
+      // 按 maxBodyChars 切掉的也算截断:修前只有字节硬上限才置 truncated,30 万字的响应切成 20 万字还报 truncated:false。
+      const out = { ok: st >= 200 && st < 400, redirected: st >= 300 && st < 400, statusCode: st, headers: res.headers, body: text.slice(0, maxChars), truncated: truncated || text.length > maxChars };
+      if (text.length > maxChars) out.totalChars = text.length;
       if (st >= 400) { out.error = `HTTP ${st}`; out.failClass = 'http'; }
       return out;
     };
@@ -49360,11 +49573,17 @@ const CORE_TOOL_HANDLERS = {
       const session = (ctx && ctx.session) || null;
       const sessionId = String((session && session.id) || process.env.WCW_SESSION_ID || '');
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to resolve rawRef against' };
+      // 精简视图里印的是 `rawRef=history:…`,模型常连前缀、引号、换行一起抄回来:先剥掉再认。形状不对的直接回
+      // invalid_ref,【不】扣本回合配额(修前先扣后判,8 次抄错之后正确的 ref 也只能拿到 quota_exceeded)。
+      const rawRef = String(args && args.rawRef || '').trim().replace(/^["'`]+|["'`]+$/g, '').replace(/^rawRef\s*[=:]\s*/i, '').trim();
+      if (!/^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(rawRef)) {
+        return { ok: false, error: 'invalid_ref', message: 'rawRef must look like history:<turn>:<hash16>:<index>:<hash16> (copy it exactly from the reduced observation, without the "rawRef=" label)' };
+      }
       const turnKey = providerTurnQuotaKey(session);
       if (!observationRecallQuotaTake(sessionId, turnKey)) {
         return { ok: false, error: 'quota_exceeded', message: `observation_recall quota exhausted for this turn (${OBSERVATION_RECALL_QUOTA}); do not retry the same ref` };
       }
-      const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
+      const result = await rehydrateObservation(sessionId, rawRef);
       if (!result.ok) {
         const code = observationRecallError(result.error);
         // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
@@ -49393,10 +49612,10 @@ const CORE_TOOL_HANDLERS = {
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
       const { catalog } = await adaptiveCatalogForMcp(config);
-      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 1 });
+      const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
       if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
         try {
-          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 1 });
+          const candidate = searchToolCatalog(catalog, args, config, { forceV1: true, legacyNameBoost: 3 });
           const comparison = compareToolRetrievalShadow(result, candidate);
           const sessionId = (ctx && ctx.session && ctx.session.id) || process.env.WCW_SESSION_ID || '';
           logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
@@ -49640,7 +49859,9 @@ const execResultCacheBySession = new Map(); // sessionId -> Map(cacheKey -> { ve
 // 行为不同而 key 相同会出错)。annotate 按 handler 的布尔口径归一;encoding 按缺省归一。
 function execCacheKeyFileRead(p, args) {
   return 'file_read\0' + p + '\0' + JSON.stringify({
-    e: args.encoding || 'utf8',
+    // 不传 encoding = 自动识别(GBK/UTF-16 照解),与显式 encoding:'utf8'(强制按 UTF-8)是两回事:修前两者共用
+    // 一个键,先强制读出的乱码会被后来的自动识别读当成缓存命中原样交回,反之亦然。
+    e: args.encoding ? String(args.encoding).toLowerCase() : 'auto',
     o: args.offset === undefined ? null : args.offset,
     l: args.limit === undefined ? null : args.limit,
     lo: args.lineOffset === undefined ? null : args.lineOffset,
@@ -50315,6 +50536,8 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_list', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       // F13:pattern 是正则;写成 glob(`*.js`)的按 glob 处理并说明,真正非法的给 bad_pattern + hint(修前是原始 SyntaxError)。
       const cls = classifyListPattern(args.pattern);
       if (cls.kind === 'invalid') return { ok: false, error: cls.error, code: 'bad_pattern', hint: cls.hint, root };
@@ -50340,6 +50563,8 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'file_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       let matches = await searchFileContent(root, String(args.pattern || ''), args);
       // 审计 P1(对抗轮补漏): JS 扫描路径已在 walkFiles 跳过敏感子树;rg 路径不经 walkFiles,这里补一道结果层过滤
       // (对 flat 与 group:true 两种形态,项内都带 .path)。ensureDataRootReal 已由上游 guardFileToolPath(root) 预热。
@@ -50367,6 +50592,11 @@ const FILE_TOOL_HANDLERS = {
       if (meta.patternNote) resp.patternNote = meta.patternNote;
       // 被默认清单剪掉的目录(build/dist/out/target/coverage …):两个引擎都报,并说怎么放开(修前 handler 把它丢了)。
       if (Array.isArray(meta.prunedDirs) && meta.prunedDirs.length) { resp.prunedDirs = meta.prunedDirs; resp.prunedHint = prunedDirsHint('file_search'); }
+      // rg 引擎在 git 仓库里遵守 .gitignore(既有设计),被忽略的文件不搜、返回里却没有任何信号:零命中时如实说一句,
+      // 免得模型把「被忽略了」读成「确实没有」(2026-10 工具走查)。
+      if (meta.engine === 'rg' && args.includeIgnored !== true && Array.isArray(matches) && matches.length === 0 && await nearestGitignore(root)) {
+        resp.ignoreNote = 'searched with .gitignore respected (git-ignored files were not searched); pass includeIgnored:true to include them';
+      }
       return resp;
   } },
   glob: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -50376,6 +50606,8 @@ const FILE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'glob', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       const pattern = String(args.pattern || '');
       if (!pattern) throw new Error('pattern is required');
       const maxResults = Math.max(1, Number(args.maxResults || 500) || 500);
@@ -50404,6 +50636,8 @@ const FILE_TOOL_HANDLERS = {
       // 注册表声明让这条不对称现形,补上同族读闸(本地模型越界读仍放行,与 file_list 完全同闸,行为只收不松)。
       const g = await guardFileToolPath(root, ctx, { tool: 'project_snapshot', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       // F2/F12:广度优先 + 共用忽略清单 —— 顶层条目永远先于任何子目录内容列出(修前 DFS 先到先得,
       // 本仓库上 300 个名额全被 .claude/worktrees 吃掉);信封只带相对路径。
       const walked = await walkFiles(root, { recursive: true, maxFiles: args.maxFiles != null ? args.maxFiles : 300, maxDepth: args.maxDepth != null ? Number(args.maxDepth) : 4, bfs: true, ignoreDirs: args.ignoreDirs, includeIgnored: args.includeIgnored === true, allowDirs: explicitAllowDirs(root, []) });
@@ -50566,6 +50800,31 @@ const ARCHIVE_TOOL_HANDLERS = {
   } },
 };
 
+// PowerShell 单引号字面量转义:除了 ASCII `'`,PowerShell 还把 ‘ ’ ‚ ‛ 四个弯引号也当单引号定界符。修前只双写 ASCII
+// 引号,模型文本里常见的 it’s 让脚本解析失败,`x’); Start-Process calc; ('` 则直接注入一条命令。四种都按「连写两个 = 一个字面」转义。
+function psSingleQuoted(value) {
+  return String(value == null ? '' : value).replace(/['\u2018\u2019\u201A\u201B]/g, ch => ch + ch);
+}
+// root 或它往上几级有没有 .gitignore(只为 file_search 零命中时的那一句提示,不求精确)。
+async function nearestGitignore(root) {
+  let dir = path.resolve(String(root || ''));
+  for (let i = 0; i < 8; i += 1) {
+    if (await fsp.stat(path.join(dir, '.gitignore')).then(st => st.isFile(), () => false)) return true;
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return false;
+}
+// 遍历/扫描类工具的 root 必须是一个已存在的目录:修前 root 写错(不存在、或是一个文件)时 file_list/glob/
+// file_search/project_snapshot/各类扫描一律回 ok:true + 空结果,模型把「路径写错了」读成「这里什么都没有」。
+async function toolRootProblem(root) {
+  let st = null;
+  try { st = await fsp.stat(root); } catch { st = null; }
+  if (!st) return { ok: false, code: 'not_found', error: `目录不存在: ${root}`, hint: '确认 root 拼写(相对路径接在当前工作目录下),或省略 root 使用当前工作目录。', root };
+  if (!st.isDirectory()) return { ok: false, code: 'not_a_directory', error: `root 是一个文件,不是目录: ${root}`, hint: '读单个文件用 file_read;要在它所在的目录里找,把 root 设成那个目录(可配 glob 只看这个文件)。', root };
+  return null;
+}
 // NE-13/NE-6:执行类与 git 工具共用的 cwd 校验。Node 把「cwd 不存在」报成 `spawn python ENOENT`(模型会误判成没装解释器),
 // 所以起进程前先确认目录在,并明说「工作目录不存在」。
 async function execCwdProblem(cwd) {
@@ -50584,6 +50843,11 @@ async function resolveGitToolCwd(args, ctx, { exec = false } = {}) {
     let config = ctx && ctx.config ? ctx.config : null;
     if (!config) { try { config = await readConfig(); } catch { config = {}; } }
     cwd = resolveExecCwd(args && args.cwd, ctx, config);
+    // 读类 git 是 read 档(不弹窗),范围要与 file_read 同一道工作区围栏:修前 git_diff 能把工作区外仓库里
+    // 文件的改动内容整段读出来,而 file_read 读同一个文件是 not-allowed。git_commit 是 exec 档,与 powershell_run
+    // 同样走执行闸,不在这里拦。
+    const fence = await guardFileToolPath(cwd, ctx, { tool: 'git', write: false });
+    if (!fence.ok) return { ok: false, error: fence.error, code: fence.code, cwd };
   }
   const problem = await execCwdProblem(cwd);
   return problem || { ok: true, cwd };
@@ -50594,7 +50858,8 @@ async function runPythonScript(scriptPath, opts) {
   const win = process.platform === 'win32';
   const candidates = win ? [['python', []], ['py', ['-3']]] : [['python', []], ['python3', []]];
   // NE-13:管道下 Windows 中文系统的 python 按 cp936 写 stdout / 读文件,脚本里的 ✓ → emoji 会 UnicodeEncodeError —— 强制 UTF-8。
-  const env = { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' };
+  // PYTHONPATH 补上工作目录:脚本文件在应用目录里,修前 `import helper`(工作区里的 helper.py)找不到。
+  const env = { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8', PYTHONPATH: [opts && opts.cwd, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter) };
   let last = null;
   for (const [cmd, pre] of candidates) {
     last = await DesktopShell.runProcess(cmd, [...pre, scriptPath], { ...opts, env, shape: true });
@@ -50646,7 +50911,10 @@ const SHELL_TOOL_HANDLERS = {
       if (language === 'node' || language === 'javascript') {
         const p = path.join(dir, `${id}.js`);
         await fsp.writeFile(p, String(args.code || ''), 'utf8');
-        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true });
+        // 脚本文件落在应用目录(generated/scripts),Node 按脚本所在目录找模块:修前工作区里装好的 node_modules 一个都 require 不到。
+        // NODE_PATH 补上工作目录的 node_modules(裸模块名);相对路径的 require 仍按脚本目录算,提示里用 path.join(process.cwd(), …)。
+        const nodePath = [path.join(g.cwd, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
+        return DesktopShell.runProcess(process.execPath, [p], { cwd: g.cwd, timeoutMs: args.timeoutMs || 60000, signal: ctx && ctx.signal, shape: true, env: { NODE_PATH: nodePath } });
       }
       const p = path.join(dir, `${id}.ps1`);
       // hunt2 #10:带 BOM 落盘 —— Windows PowerShell 5.1 按 ANSI 读无 BOM 的 .ps1,脚本里的中文字面量会被读成乱码
@@ -50737,7 +51005,7 @@ $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
 $graphics = [System.Drawing.Graphics]::FromImage($bmp)
 $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-$bmp.Save('${outPath.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
+$bmp.Save('${psSingleQuoted(outPath)}', [System.Drawing.Imaging.ImageFormat]::Png)
 try {
   # 审计 NE-12:给视觉模型的缩略副本(长边 <= 1600 的 JPEG,落在 <outPath>.vision.jpg)。失败只是没有副本,主截图不受影响。
   $scale = [Math]::Min(1.0, 1600.0 / [Math]::Max($bounds.Width, $bounds.Height))
@@ -50747,12 +51015,12 @@ try {
   $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   $g2.DrawImage($bmp, 0, 0, $nw, $nh)
   $g2.Dispose()
-  $small.Save('${(outPath + VISION_SIDECAR_SUFFIX).replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
+  $small.Save('${psSingleQuoted(outPath + VISION_SIDECAR_SUFFIX)}', [System.Drawing.Imaging.ImageFormat]::Jpeg)
   $small.Dispose()
 } catch { }
 $graphics.Dispose()
 $bmp.Dispose()
-Write-Output '${outPath.replace(/'/g, "''")}'
+Write-Output '${psSingleQuoted(outPath)}'
 `;
       const result = await DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 15000, ctx && ctx.signal);
       return await attachScreenshotImage({ ...result, path: outPath }, outPath);
@@ -50761,11 +51029,24 @@ Write-Output '${outPath.replace(/'/g, "''")}'
       const keys = String(args.keys || '');
       if (!keys) throw new Error('keys is required');
       const delayMs = Number.isFinite(Number(args.delayMs)) ? Math.max(0, Number(args.delayMs)) : 200; // b2-P1: 非法值回退默认,不再 NaN 进 PS 脚本
-      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${keys.replace(/'/g, "''")}')`;
+      const ps = `$wshell = New-Object -ComObject wscript.shell; Start-Sleep -Milliseconds ${delayMs}; $wshell.SendKeys('${psSingleQuoted(keys)}')`;
       return DesktopShell.runPowerShell(ps, os.homedir(), args.timeoutMs || 10000);
   } },
   office_open: { paths: null, guardNote: "第36波录在案:不加读闸(打开不回流模型;exec tier 权限门);v1.4.6-S2 无 shell spawn", handler: async (args, ctx) => {
       const target = path.resolve(String(args.path || ''));
+      // 只「打开」查看类文件(与 /api/file/reveal 同一张白名单 REVEAL_OPEN_SAFE_EXTS):修前 office_open 一个 .bat/.exe/.lnk
+      // 就是交给关联程序【执行】—— allowCommandTools:false 时命令工具全关,这条路照样能跑脚本。其余扩展名只在资源管理器里
+      // 定位出来,让用户自己决定要不要运行。
+      const ext = path.extname(target).slice(1).toLowerCase();
+      if (!REVEAL_OPEN_SAFE_EXTS.has(ext)) {
+        const st = await fsp.stat(target).catch(() => null);
+        if (!(st && st.isDirectory())) {
+          const r = buildRevealSpawn('select', target);
+          const shown = await spawnDetachedChecked(r.command, r.args, { detached: true, windowsHide: true, stdio: 'ignore' });
+          if (!shown.ok) return { ok: false, error: `无法启动资源管理器:${shown.error}`, target };
+          return { ok: true, opened: false, revealed: target, note: `.${ext || '(无扩展名)'} 不是文档/图片/音视频类文件,出于安全没有直接打开(可能会被执行),只在资源管理器里选中了它;要运行请让用户自己决定` };
+        }
+      }
       // 第36波(v1.7) 评审结论:本工具【不】加工作区读闸,理由记录在案防复报 —— 打开的文件内容不回流模型
       // (无 S3 外传通道),"打开桌面/下载里的文档"正是非程序员用户的正当主流程,读闸会误杀;模型可控路径
       // 的风险面是命令注入(S2 已修)与关联程序执行,后者由 exec tier 权限弹窗/授权书把守,与其它 exec 工具同级。
@@ -50836,8 +51117,17 @@ const NETWORK_TOOL_HANDLERS = {
       return ret;
   } },
   browser_open: { paths: null, guardNote: "spawn 默认浏览器(buildBrowserOpenSpawn 无 shell);exec tier 门,不触文件路径", handler: async (args, ctx) => {
-      const target = String(args.url || '');
-      if (!target) throw new Error('url is required');
+      const target = String(args.url || '').trim();
+      if (!target) return { ok: false, error: 'url is required', hint: '传一个 http(s) 网址或本地 .html 文件路径' };
+      // 以 `-` 开头的值会被浏览器当成命令行开关(--renderer-cmd-prefix=… 这类),不是网址。
+      if (target.startsWith('-')) return { ok: false, error: 'url 不能以 - 开头', target };
+      // 网址 / 本地 HTML 之外只放行【文件夹】(资源管理器打开)。修前 calc.exe、.bat 之类的路径会落到系统关联打开 = 执行。
+      if (!isBrowserDocumentTarget(target)) {
+        const st = await fsp.stat(path.resolve(target)).catch(() => null);
+        if (!(st && st.isDirectory())) {
+          return { ok: false, error: 'browser_open 只打开网址(http/https/file)、本地 .html 文件或文件夹', target, hint: '打开文档用 office_open;运行程序用命令工具' };
+        }
+      }
       // Shell-free and non-destructive: URLs/local HTML open in an explicit new browser tab where the
       // default-browser executable is available; folders keep the safe Explorer handoff behavior.
       const s = buildBrowserOpenSpawn(target);
@@ -50874,30 +51164,40 @@ const CODE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'dependency_inventory', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return dependencyInventory(root);
   } },
   code_review_scan: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'code_review_scan', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return codeReviewScan(root, args);
   } },
   frontend_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'frontend_audit', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return frontendAudit(root, args);
   } },
   claude_md_audit: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'claude_md_audit', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return claudeMdAudit(root);
   } },
   docs_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'docs_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return docsSearch(root, String(args.query || ''), args);
   } },
   codebase_symbol_search: { paths: "read", guardNote: '', handler: async (args, ctx) => {
@@ -50906,6 +51206,8 @@ const CODE_TOOL_HANDLERS = {
       const root = await resolveFileToolRoot(args, ctx);
       const g = await guardFileToolPath(root, ctx, { tool: 'codebase_symbol_search', write: false });
       if (!g.ok) return { ok: false, error: g.error, code: g.code, root };
+      const rootBad = await toolRootProblem(root);
+      if (rootBad) return rootBad;
       return codebaseSymbolSearch(root, args);
   } },
   debug_hypothesis: { paths: null, guardNote: "纯确定性状态机计算,不触文件路径", handler: async (args, ctx) => {
@@ -51260,11 +51562,20 @@ async function toolCall(name, args = {}, ctx = null) {
   if (!entry) throw unknownToolError(name);
   // 审计 N4:设置里关掉的命令/桌面工具在【分发点】也拒绝(offer 面只是藏 schema;bypass/auto 下 gate 恒放行)。
   // ctx 带 config 的调用(主循环 / 子代理 / tool_invoke_* 转发)才判;MCP 子进程与 HTTP 回环不带 config,由 offer 面把关。
-  if (ctx && ctx.config) {
-    const disabled = nativeToolDisabledByPolicy(name, ctx.config, ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
-    if (disabled) return toolDisabledResult(name, disabled);
+  // 不带 config 的调用面(MCP 子进程 / HTTP 回环)修前直接放行 —— allowCommandTools:false 时 script_run、shell_start
+  // 经这条路照样跑得起来,与设置页「关掉后模型只能读写文件、不能跑命令」不符。现在没带就读一次盘上配置,同一判据。
+  {
+    let policyConfig = ctx && ctx.config ? ctx.config : null;
+    if (!policyConfig && (NATIVE_COMMAND_TOOL_NAMES.has(name) || NATIVE_DESKTOP_TOOL_NAMES.has(name))) {
+      try { policyConfig = await readConfig(); } catch { policyConfig = null; }
+    }
+    if (policyConfig) {
+      const disabled = nativeToolDisabledByPolicy(name, policyConfig, ctx && ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
+      if (disabled) return toolDisabledResult(name, disabled);
+    }
   }
   // 审计 N5:必填/类型校验(按工具自己的 13f schema)。修前 file_read {} 得到 EISDIR、file_search {} 命中 61 条垃圾。
+  args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
   return entry.handler(args, ctx);
@@ -61842,12 +62153,23 @@ async function stewardReadMemoryStore() {
   try { raw = safeJsonParse(await fsp.readFile(stewardMemoryPath(), 'utf8'), null); } catch { raw = null; }
   // 损坏/缺失/错 schema = 空库(不抢救、不 mkdir):记忆是旁路增强,坏了不该拖住任何回合。
   if (!raw || raw.schema !== STEWARD_MEMORY_SCHEMA || !Array.isArray(raw.entries)) return stewardEmptyMemoryStore();
-  const entries = [];
+  // 生效条与被否决条【各自】封顶 maxEntries:写入闸只数生效条(13l),修前读库却把【总条数】截在 maxEntries ——
+  // 200 条生效 + 否决过 1 条后再写,新条落在第 201 位,写入回 ok:true、读回来却没了,下一次写盘就永久丢掉。
+  // 被否决条要留着(去重闸靠它挡「否决过的话换个说法再写回来」),超出时留最近的那些。原顺序不变。
+  const normalized = [];
   for (const item of raw.entries) {
     const entry = stewardNormalizeMemoryEntry(item);
-    if (entry) entries.push(entry);
-    if (entries.length >= STEWARD_MEMORY_LIMITS.maxEntries) break;
+    if (entry) normalized.push(entry);
   }
+  const cap = STEWARD_MEMORY_LIMITS.maxEntries;
+  let activeLeft = cap;
+  let vetoedSkip = Math.max(0, normalized.filter(e => e.state === 'vetoed').length - cap);
+  const entries = normalized.filter(e => {
+    if (e.state === 'vetoed') { if (vetoedSkip > 0) { vetoedSkip -= 1; return false; } return true; }
+    if (activeLeft <= 0) return false;
+    activeLeft -= 1;
+    return true;
+  });
   return { schema: STEWARD_MEMORY_SCHEMA, updatedAt: String(raw.updatedAt || ''), entries };
 }
 // 读-改-写全程串在一条 per-process 链上(同 usage/inbox 纪律),两次并发写不会互相盖掉。
@@ -62644,8 +62966,16 @@ function stewardRecordLaunchOutcome(sessionId, result) {
   }).catch(() => null);
 }
 
+// 管家刚发起、但 runSessionTurn 还没走到登记 turnSettlers 的那几个 await 窗口里,线程既不在 activeChildren
+// 也不在 turnSettlers:修前前后脚两次 steward_thread_continue 都判成 turn 通道,第二个回合在 09 里把第一个
+// superseded 掉,第一句话连回合一起没了,两次却都回 ok:true。这里【同步】记一笔,13q 的通道判定据此判成
+// queued(settling)。回合整个结束(不论成败)才摘掉;回合真跑起来之后 activeChildren 会先于它命中(steer)。
+const stewardLaunchingTurns = new Set();
 function stewardLaunchTurn(input, tool) {
+  const launchSid = String(input.sessionId || '');
+  if (launchSid) stewardLaunchingTurns.add(launchSid);
   const promise = runSessionTurn({ ...input, onEvent: () => {} });
+  promise.finally(() => { if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
     void stewardRecordLaunchOutcome(input.sessionId, result);
@@ -62667,6 +62997,12 @@ function stewardLaunchTurn(input, tool) {
 // skill_toggle 的「须确认」判定,加 117z-E2 给 thread_permission 的桌面【放宽】那一处),
 // 「按钮 ≠ 扩权」—— 线程族的在不在场判定不该去挤那个字段。
 // 其余调用面(工具循环里模型直接调、进程内直调)没有 trigger —— 保持既有直递语义。
+// 核心层的失败可能是裸串,也可能是 apiFailure 的 {code,message,params}:修前一律 String() 掉,模型看到的拒绝理由
+// 是「[object Object]」。
+function stewardErrorDetail(error) {
+  if (error && typeof error === 'object') return String(error.message || error.code || '');
+  return String(error == null ? '' : error);
+}
 function stewardTriggerOf(ctx) {
   const raw = String((ctx && ctx.trigger) || '');
   return raw === 'inbox' || raw === 'user' ? raw : '';
@@ -63085,6 +63421,11 @@ async function stewardImplThreadContinue(args, ctx, config) {
     },
   });
   if (delivered && delivered.ok === false) return delivered;
+  // 只有开了【新回合】的那一支(turn)才有可回退的锚点。答提问(answer)与插话(steer)都落在一个已有的回合里:
+  // 修前 answer 交回的 undoRef 没有回合号,前端「撤回」按 0+1 回退 = 把整条线程从第 1 回合起删光;steer 交回的
+  // 锚点指着正在跑的那一回合,撤回先停掉用户的回合再回退失败。这两支一律不给撤回锚点(kind:'none')。
+  const deliveredChannel = String((delivered && delivered.channel) || 'turn');
+  const finalUndoRef = deliveredChannel === 'turn' ? undoRef : { kind: 'none', sessionId, channel: deliveredChannel };
 
   stewardAppendDecision({
     tool: 'steward_thread_continue',
@@ -63095,12 +63436,12 @@ async function stewardImplThreadContinue(args, ctx, config) {
     // 116-3 P0-2:写【真实】判定值,不再是硬编码 'auto' —— 决策日志要能事后对账
     // 「这个动作到底是不是该提议而没提议」。
     mayAct,
-    undoRef: (delivered && delivered.undoRef) || undoRef,
+    undoRef: finalUndoRef,
     // 129g:代答那一支把核实过的出处并进 basis —— 行动流水里「管家替我答了那道题」必须能点开
     // 看见凭什么。没走代答(用户原话直递 / 别的通道)时 gate.used 为 null,basis 一字不变。
     basis: gate.used ? { ...basis, ...(gate.used.memoryIds.length ? { memoryIds: gate.used.memoryIds } : {}), ...(gate.used.briefRef ? { briefRef: gate.used.briefRef } : {}), answeredFor: 'user' } : basis,
   });
-  return { ok: true, sessionId, undoRef, ...(delivered && typeof delivered === 'object' ? delivered : {}) };
+  return { ok: true, sessionId, ...(delivered && typeof delivered === 'object' ? delivered : {}), undoRef: finalUndoRef };
 }
 
 // 12) steward_thread_rename —— undoRef 带旧标题(一键改回)。
@@ -63176,6 +63517,16 @@ async function stewardImplThreadWorkspace(args, ctx, config) {
   const root = stewardWorkspaceRootFor(want, config);
   if (!root) {
     return stewardFail('outside_workspace', 'cwd must be one of the registered workspaces; pick a path from the workspace table', { cwd: stewardSanitizeText(want).slice(0, 200) });
+  }
+  // 真实落点也得在区内(链接/联接指向区外的不认),且得是一个已存在的目录:修前不存在的路径、甚至一个文件
+  // 都能被设成线程的工作目录,线程下一回合直接起不来。
+  const [realWant, realRoot] = await Promise.all([realpathForContainment(want), realpathForContainment(root)]);
+  if (!pathWithinRoot(realWant, realRoot)) {
+    return stewardFail('outside_workspace', 'that path is a link that points outside the registered workspace; pick a real folder inside it', { cwd: stewardSanitizeText(want).slice(0, 200) });
+  }
+  const wantStat = await fsp.stat(want).catch(() => null);
+  if (!wantStat || !wantStat.isDirectory()) {
+    return stewardFail('invalid_request', wantStat ? 'cwd must be a folder, not a file' : 'that folder does not exist; pick an existing folder from the workspace table', { cwd: stewardSanitizeText(want).slice(0, 200) });
   }
   if (activeChildren.has(sessionId)) {
     return stewardFail('steward.busy', `thread ${sessionId} has a turn in flight; change its working folder after the turn settles`, { sessionId });
@@ -63322,12 +63673,29 @@ async function stewardImplThreadNote(args, ctx, config) {
   const head = await stewardReadSessionHead(sessionId);
   if (!head || !head.id) return stewardFail('not_found', `thread ${sessionId} not found`);
   if (stewardRawKind(head) === 'steward') return stewardFail('invalid_target', 'the steward session cannot receive a steward note');
+  // 插话与递话走同一条注入通道,无人值守时也该过同样两道闸(修前写死 mayAct:'auto',「只做计划」档的线程
+  // 照样被收件箱回合插进话去):自理清单 relay 勾选 + 目标线程权限档。
+  const permissionMode = stewardThreadPermissionMode(head, config);
+  let mayAct = 'auto';
+  if (stewardUnattendedByModel(ctx)) {
+    if (!stewardRelayAutoAllowed(config)) {
+      return stewardFail('propose_required', '「任务内自动交接」没有勾选,无人值守时的插话只能作为提议交给用户,不要重试', {
+        reason: 'self_serve_off', sessionId, permissionMode,
+      });
+    }
+    mayAct = stewardMayAct(permissionMode, 'relay', 'edit');
+    if (mayAct !== 'auto') {
+      return stewardFail('propose_required', `目标线程的权限档为「${stewardPermissionLabel(permissionMode)}」,管家不能在你不在场时直接往它里面插话;把它作为提议交给用户,不要重试`, {
+        reason: 'target_permission', sessionId, permissionMode,
+      });
+    }
+  }
 
   const outcome = await steerSessionCore({ sessionId, text: STEWARD_NOTE_PREFIX + text });
   // 核心的两种"没成"(apiFailure 形态的 400/409 与裸 json 的 {ok:false,error}) 归一成同一个稳定信封:
   // 对模型来说它们是同一件事 —— 现在没法把这句话插进去,别重试。
   if (outcome.kind === 'failure' || !(outcome.body && outcome.body.ok === true)) {
-    const detail = String((outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)) || '').slice(0, 300);
+    const detail = stewardErrorDetail(outcome.kind === 'failure' ? outcome.message : (outcome.body && outcome.body.error)).slice(0, 300);
     return stewardFail('steward.no_active_turn', `thread ${sessionId} cannot take a note right now: ${detail} —— do not retry; use steward_thread_continue to start a new turn instead`, { sessionId });
   }
   const body = outcome.body;
@@ -63338,8 +63706,8 @@ async function stewardImplThreadNote(args, ctx, config) {
     tool: 'steward_thread_note',
     args: { textChars: text.length },
     targetSessionId: sessionId,
-    permissionMode: stewardThreadPermissionMode(head, config),
-    mayAct: 'auto',
+    permissionMode,
+    mayAct,
     undoRef,
     basis: {},
   });
@@ -64146,9 +64514,7 @@ async function stewardImplMemoryWrite(args, ctx, config) {
     const existing = revive || store.entries.find(e => e.state === 'active' && e.kind === kind && stewardTermJaccard(terms, e.text) >= STEWARD_MEMORY_LIMITS.dedupeJaccard);
     // 128h-J12:复活会让生效条数 +1,所以它和「新写一条」一样要过容量闸(合并不加条数,不过)。
     // 漏这一条的话,库满之后复活就成了绕过上限的后门。
-    // 今天这一支够不到:读库本身把总条数截在 maxEntries(13j),200 条生效 + 至少 1 条被否决 = 201 条,
-    // 读上来就已经被截掉了。留着是因为它守的是【两个上限的关系】—— 哪天谁把读的那道上限抬了,
-    // 或者让读库跳过 vetoed,后门就当场开了,而那时不会有人想起这里。
+    // 2026-10 起这一支真的够得到:读库改成生效条与被否决条各自封顶(13j),200 条生效之外的否决条不再挤掉生效条。
     if (revive && store.entries.filter(e => e.state === 'active').length >= STEWARD_MEMORY_LIMITS.maxEntries) {
       return { persist: false, result: stewardFail('capacity_exceeded', `steward memory is full (${STEWARD_MEMORY_LIMITS.maxEntries} active entries); veto something before writing more`) };
     }
@@ -64459,6 +64825,13 @@ function stewardEyesTake(ctx, config, chars) {
   bucket.chars += Math.max(0, Number(chars) || 0);
   return null;
 }
+// 预扣按上限扣,读完按【实际交回的字数】退差:修前每次固定扣 STEWARD_EYES_CHARS(12000),读一个 25 字节的
+// 文件也算 12000,四次就把默认 48000 的预算吃光;失败的读也照扣。次数(calls)不退 —— 那是另一道闸。
+function stewardEyesSettle(ctx, charged, used) {
+  const bucket = stewardReadBucket(String((ctx.session && ctx.session.id) || 'steward'), stewardTurnKeyOf(ctx));
+  const refund = Math.max(0, (Number(charged) || 0) - Math.max(0, Number(used) || 0));
+  bucket.chars = Math.max(0, bucket.chars - refund);
+}
 
 // 27) steward_web_search
 async function stewardImplWebSearch(args, ctx, config) {
@@ -64469,6 +64842,7 @@ async function stewardImplWebSearch(args, ctx, config) {
   // 直接调 11 的实现(11 排在 13l 之前,后向边);搜索后端是管理端可信端点,SSRF 豁免录在案。
   const raw = await webSearch({ query: q, maxResults: stewardClampInt(args && args.count, 1, 10, 5) }, config).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_search');
+  if (!raw || raw.ok === false) stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
   if (!raw || raw.ok === false) return stewardFail('search_failed', stewardSanitizeText(String((raw && raw.error) || 'web search failed')).slice(0, 200));
   const rows = (Array.isArray(raw.results) ? raw.results : []).slice(0, 10).map(r => ({
     title: stewardSanitizeText(String((r && r.title) || '')).slice(0, 160),
@@ -64477,6 +64851,7 @@ async function stewardImplWebSearch(args, ctx, config) {
   }));
   // 结果为空时把原因(被人机验证拦下 / 两个引擎都没结果)带上,管家才知道该换说法重搜还是告诉用户换搜索后端。
   const note = raw.note ? stewardSanitizeText(String(raw.note)).slice(0, 200) : '';
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, JSON.stringify(rows).length);
   return { ok: true, query: q, total: rows.length, tainted: true, results: rows, ...(note ? { note } : {}) };
 }
 
@@ -64489,11 +64864,13 @@ async function stewardImplWebFetch(args, ctx, config) {
   // SSRF 全套护栏在 12 的实现里(逐跳 ssrfCheck + dnsResolvesToPrivate),这里【不】另写一份。
   const raw = await webFetch({ url, maxChars: STEWARD_EYES_CHARS }).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_web_fetch');
-  if (!raw || raw.ok === false) return stewardFail('fetch_failed', stewardSanitizeText(String((raw && raw.error) || 'web fetch failed')).slice(0, 200));
-  return {
-    ok: true, url: stewardSanitizeText(url).slice(0, 300), tainted: true,
-    content: stewardExternalBlock('web', url, raw.content || raw.text || '', STEWARD_EYES_CHARS),
-  };
+  if (!raw || raw.ok === false) {
+    stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
+    return stewardFail('fetch_failed', stewardSanitizeText(String((raw && raw.error) || 'web fetch failed')).slice(0, 200));
+  }
+  const content = stewardExternalBlock('web', url, raw.content || raw.text || '', STEWARD_EYES_CHARS);
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
+  return { ok: true, url: stewardSanitizeText(url).slice(0, 300), tainted: true, content };
 }
 
 // 29) steward_file_read —— **只在 config.workspaces 之内**。
@@ -64506,6 +64883,11 @@ async function stewardImplFileRead(args, ctx, config) {
   if (!root) {
     return stewardFail('outside_workspace', 'path is outside every registered workspace; only paths inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
   }
+  // 词法判过了,再按【真实落点】判一次:工作区里指向区外的符号链接/联接不能当成区内文件读。
+  const [realTarget, realRoot] = await Promise.all([realpathForContainment(raw), realpathForContainment(root)]);
+  if (!pathWithinRoot(realTarget, realRoot)) {
+    return stewardFail('outside_workspace', 'that path is a link that points outside the registered workspace; only files really inside config.workspaces can be read here', { path: stewardSanitizeText(raw).slice(0, 200) });
+  }
   const gate = stewardEyesTake(ctx, config, STEWARD_EYES_CHARS);
   if (gate) return gate;
   // 敏感路径(配置/会话/记忆/日志)、二进制与大小上限全走 12 那一道既有守卫 —— 这里只换围栏,
@@ -64515,11 +64897,13 @@ async function stewardImplFileRead(args, ctx, config) {
     { config, session: { id: String((ctx.session && ctx.session.id) || 'steward'), cwd: root } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_file_read');
-  if (!out || out.ok === false) return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
-  return {
-    ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true,
-    content: stewardExternalBlock('file', raw, out.content || out.text || '', STEWARD_EYES_CHARS),
-  };
+  if (!out || out.ok === false) {
+    stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
+    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+  }
+  const content = stewardExternalBlock('file', raw, out.content || out.text || '', STEWARD_EYES_CHARS);
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
+  return { ok: true, path: stewardSanitizeText(raw).slice(0, 300), workspace: stewardSanitizeText(root).slice(0, 300), tainted: true, content };
 }
 
 // 30) steward_thread_artifact_read —— 读一条线程【自己在交付里列出来的】那些文件。
@@ -64544,11 +64928,13 @@ async function stewardImplThreadArtifactRead(args, ctx, config) {
     { config, session: { id: sessionId, cwd: String(head.cwd || '') } })
     .catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   stewardMarkTurnTainted(ctx, 'steward_thread_artifact_read');
-  if (!out || out.ok === false) return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
-  return {
-    ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true,
-    content: stewardExternalBlock('artifact', hit, out.content || out.text || '', STEWARD_EYES_CHARS),
-  };
+  if (!out || out.ok === false) {
+    stewardEyesSettle(ctx, STEWARD_EYES_CHARS, 0);
+    return stewardFail('read_failed', stewardSanitizeText(String((out && out.error) || 'read failed')).slice(0, 200));
+  }
+  const content = stewardExternalBlock('artifact', hit, out.content || out.text || '', STEWARD_EYES_CHARS);
+  stewardEyesSettle(ctx, STEWARD_EYES_CHARS, content.length);
+  return { ok: true, sessionId, path: stewardSanitizeText(hit).slice(0, 300), tainted: true, content };
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -64689,6 +65075,29 @@ async function stewardImplConfigSet(args, ctx, config) {
   const rejected = keys.filter(k => JSON.stringify(probe[k]) !== JSON.stringify(restoredPatch[k]));
   if (rejected.length) {
     return stewardFail('invalid_request', `these values did not survive config sanitize (illegal value or out of range): ${rejected.join(', ')}`, { keys: rejected });
+  }
+  // sanitize 只钳它认识的键;它原样放过的那些「自由键」再补两道最要命的:①类型要与出厂值同类(开关只收
+  // true/false —— 修前 killOnDisconnect:'maybe' 原样落盘);②stewardProviderId 必须是已配置的服务商
+  // (修前写一个不存在的 id,管家自己当场再也醒不过来,只能用户去设置页救)。
+  const defaults = normalizeConfig(null).config;
+  const typeMismatch = keys.filter(k => {
+    const d = defaults[k];
+    const v = restoredPatch[k];
+    if (typeof d === 'boolean') return typeof v !== 'boolean';
+    if (typeof d === 'number') return typeof v !== 'number' || !Number.isFinite(v);
+    if (typeof d === 'string') return typeof v !== 'string';
+    if (Array.isArray(d)) return !Array.isArray(v);
+    return false;
+  });
+  if (typeMismatch.length) {
+    const expect = typeMismatch.map(k => `${k}: ${Array.isArray(defaults[k]) ? 'array' : typeof defaults[k]}`).join(', ');
+    return stewardFail('invalid_request', `these values have the wrong type (expected ${expect})`, { keys: typeMismatch });
+  }
+  if (Object.prototype.hasOwnProperty.call(restoredPatch, 'stewardProviderId') && String(restoredPatch.stewardProviderId || '')) {
+    const ids = (Array.isArray(config.providers) ? config.providers : []).map(p => String((p && p.id) || ''));
+    if (!ids.includes(String(restoredPatch.stewardProviderId))) {
+      return stewardFail('invalid_request', `stewardProviderId must be one of the configured providers (${ids.filter(Boolean).join(', ') || 'none'}), or "" to follow the active provider`, { keys: ['stewardProviderId'] });
+    }
   }
 
   // 107-S0b:before／applied 会落进决策日志(磁盘、GET /api/steward/decisions、steward_audit_tail)并回给模型 ——
@@ -65330,6 +65739,8 @@ const STEWARD_ACTION_HOOKS = Object.freeze({
   steward_decide: 'decide',
   steward_run_action: 'runAction',
   steward_thread_stop: 'threadStop',               // 117m-A4:线程级停止(不在表里 = 按钮按下去 4xx)
+  // 2026-10 工具走查:插话补充在无人值守时也过 relay + 权限档两道闸,会回 propose_required → 进表(①e)。
+  steward_thread_note: 'threadNote',
   steward_memory_write: 'memoryWrite',
   steward_memory_veto: 'memoryVeto',
   // 116-2e:两个「须确认」的写工具。它们在模型回合里一定回 propose_required(ctx 里没有
@@ -65368,6 +65779,7 @@ const STEWARD_TOOL_LABELS = Object.freeze({
   steward_memory_write: '记下', steward_memory_veto: '别记',
   steward_thread_prioritize: '插到最前',
   steward_thread_stop: '暂停这条线程',                            // 117m-A4
+  steward_thread_note: '补一句',
   steward_config_set: '改设置', steward_skill_toggle: '改技能',   // 116-2e
   // 117z-E2b 提交①:这是行动流水与兜底用的总称;真正降级成按钮的只有 capabilities.desktop === true
   // 那一支,13o 的 stewardActLabel 按 args 把它写成「给它开桌面」(按钮上写用户要做的那件事,§8.4)。
@@ -68564,6 +68976,8 @@ function stewardRelayChannelFor(sessionId) {
   // 这两个窗口都很短,执行单点(stewardRelayDeliver)会先等一小会儿再重判一次,不急着退回给用户。
   // (回合收尾那一段同样落在这里:09 先把回合移出 activeChildren,再做收尾的几次存盘。)
   if (turnSettlers.has(sid)) return { channel: 'queued', wait: null, settling: true };
+  // 管家自己刚发起的回合还在起步(13k stewardLaunchingTurns,同步登记):同上,判成 settling,不再开第二个回合。
+  if (stewardLaunchingTurns.has(sid)) return { channel: 'queued', wait: null, settling: true };
   return { channel: 'turn' };
 }
 
@@ -68649,7 +69063,7 @@ async function stewardRelayDeliver(input) {
       return { ok: true, channel: 'steer', sessionId: sid, queued: Number(body.queued) || 0, injected: body.injected === true };
     }
     // 插不进去(Claude legacy/print、队列满、引擎不支持)。这时候才是「忙」—— 而且要说清是【线程】忙。
-    const why = String((body && body.error) || (outcome && outcome.message) || '这一步不能插话');
+    const why = stewardErrorDetail((body && body.error) || (outcome && outcome.message)) || '这一步不能插话';
     return stewardFail('steward.busy', `线程「${title || sid}」正忙且这一步不能插话:${stewardSanitizeText(why)}`, {
       channel: 'steer', sessionId: sid, reason: 'steer_ineligible',
     });

@@ -708,15 +708,16 @@ async function proposeWorkbenchMemory(args, ctx) {
   if (state.current && state.current.status === 'pending'
     && Number(state.current.proposal && state.current.proposal.sourceTurnSeq) === turnSeq) {
     return { ok: true, proposalId: state.current.id, proposal: state.current.proposal, pendingUserConfirmation: true,
-      alreadyPending: true, source: state.current.source || 'automatic', note: '本回合已有记忆候选；保持先到候选，不重复生成或覆盖。' };
+      alreadyPending: true, submitted: false, source: state.current.source || 'automatic', note: '本回合已有一条记忆候选(见 proposal)；这一次的内容【没有】提交，也不会覆盖它。需要的话下一回合再提。' };
   }
-  const parsed = parseMemoryDraft(JSON.stringify(args || {}));
+  const parsed = parseMemoryDraft(args || {});
   if (!parsed) return { ok: false, error: 'name and body are required' };
   if (!parsed.description || parsed.body.length > 4000 || !fmVal(args && args.reason)) return { ok: false, error: 'description/reason are required and body must be at most 4000 characters' };
   const proposal = { ...parsed, scope: args && args.scope === 'global' ? 'global' : 'project', reason: fmVal(args && args.reason).slice(0, 240) };
   const lastUser = [...(Array.isArray(session.messages) ? session.messages : [])].reverse().find(m => m && m.role === 'user' && !m.steered);
   const userText = String(lastUser && lastUser.content || '');
-  if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) proposal.scope = 'project';
+  let scopeAdjusted = false;
+  if (proposal.scope === 'global' && !/(所有项目|跨项目|任何项目|个人偏好|all projects|across projects|every project|personal preference)/i.test(userText)) { proposal.scope = 'project'; scopeAdjusted = true; }
   if (memoryProposalLooksSensitive(proposal)) return { ok: false, error: 'candidate looks sensitive and was not proposed' };
   const registry = await loadMemoryRegistry(cwd).catch(() => []);
   if (memoryProposalIsDuplicate(proposal, registry, state)) return { ok: false, duplicate: true, error: 'same or very similar memory already exists or was already reviewed' };
@@ -731,7 +732,8 @@ async function proposeWorkbenchMemory(args, ctx) {
   state.current = { id, status: 'pending', source: 'tool', semanticKey: memoryProposalSemanticKey(safeProposal), summary: [safeProposal.name, safeProposal.description].join(' '), proposal: safeProposal, createdAt: nowIso(), projectKey: projectKeyForCwd(cwd) };
   state.history = state.history.slice(-MEMORY_PROPOSAL_HISTORY_MAX);
   await writeMemoryProposalState(sid, state);
-  return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。' };
+  return { ok: true, proposalId: id, pendingUserConfirmation: true, proposal: safeProposal, note: '候选已提交；只有用户在回合后的记忆卡片中确认后才会写入工作台记忆。'
+    + (scopeAdjusted ? '（scope 已从 global 改成 project：用户这一轮没有说要跨项目生效。）' : ''), ...(scopeAdjusted ? { scopeAdjusted: 'global->project' } : {}) };
 }
 
 // R4 主回合记忆维护工具(建边/改记忆/撤边)。三者与 workbench_memory_propose 共用同一个候选单槽
@@ -948,12 +950,17 @@ async function draftMemoryFromSession(sessionId) {
 
 // 容错解析模型的记忆 JSON:剥 markdown 围栏、取最外层 {…}、JSON.parse、字段消毒。返回 {name,description,type,body} 或 null。
 function parseMemoryDraft(text) {
+  // 已经是对象(工具入参)就直接用:修前 workbench_memory_propose 把 args 先 JSON.stringify 再按自由文本解析,
+  // 正文里带 ``` 代码块时围栏正则在 JSON 串里截出半截,报「name and body are required」。
+  if (text && typeof text === 'object') return memoryDraftFromObject(text);
   let s = String(text || '').trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
   const first = s.indexOf('{'), last = s.lastIndexOf('}');
   if (first >= 0 && last > first) s = s.slice(first, last + 1);
-  const raw = safeJsonParse(s, null);
+  return memoryDraftFromObject(safeJsonParse(s, null));
+}
+function memoryDraftFromObject(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const name = fmVal(raw.name).slice(0, 120);
   const body = String(raw.body || '').trim();
