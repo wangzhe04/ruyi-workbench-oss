@@ -246,7 +246,7 @@
 /* ══ 2026-10 设置补全（用户：「把所有能配置的都放进设置页，且要美观」）══════════════════════════
    走查（四路审计 + 每页截图）记下的观感问题一次收口，仍守本层纪律：只加覆盖、全走 token。
    ① 弹窗定高、实底：修前高度随内容撑（670～880px），切页签时上下边缘与「关闭」按钮跟着跳；
-      玻璃底在密排表单后面透出页面文字。
+      玻璃底在密排表单后面透出页面文字（实底之后背景模糊看不出来，不另写 backdrop-filter —— 那是 ui-v4-glass 白名单管的）。
    ② 每一段都是同一张卡：.settings-section（公用页）、.steward-settings-group（管家页）与基础页的
       details.settings-fold 原是三种样子，现在同一个边框、圆角、底色与内边距。
    ③ 设置目录（js/settings-catalog.js）的行：左边「这一项管什么 ＋ 一句说明」，右边控件；开关做成拨钮。
@@ -257,8 +257,6 @@
 #settingsModal .modal {
   height: min(880px, 88vh);
   background: var(--panel);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 #settingsModal .settings-tab > .prov-hint:first-child,
 #settingsModal .settings-tab > .settings-jumplist + .prov-hint {

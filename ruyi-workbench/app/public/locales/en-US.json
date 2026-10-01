@@ -1370,7 +1370,7 @@
   "settings.title": "Settings",
   "settings.uiMode": "Interface mode",
   "settings.uiMode.pro": "Expert (full three-pane layout / diagnostics)",
-  "settings.uiMode.simple": "Simple (plain-language chat, developer details tucked away)",
+  "settings.uiMode.simple": "Simple (plain-language replies, developer details tucked away)",
   "settings.workingDirectory": "Working directory (leave blank for automatic)",
   "skills.badge": "Skills",
   "skills.badgeWithCount": "Skills · {{count}}",
@@ -3448,7 +3448,7 @@
   ,"settings.catalog.budgetGuard.hint": "Warns as a single turn nears the limit and wraps it up when reached, so one runaway turn cannot burn through your quota."
   ,"settings.catalog.toolTime.title": "Long-command time budget"
   ,"settings.catalog.toolTime.hint": "Warns the model when a command runs long, then ends it at the hard limit. 0 means that level is off."
-  ,"settings.catalog.context.title": "Context & sessions"
+  ,"settings.catalog.context.title": "Context & shells"
   ,"settings.catalog.taskPool.title": "Workflow task pool"
   ,"settings.catalog.taskPool.hint": "Whether nodes in a multi-agent workflow need your approval before adding tasks to the shared pool."
   ,"settings.catalog.memoryCap.title": "Memory capacity"
@@ -3510,8 +3510,8 @@
   ,"settings.catalog.toolTimeBudgetHardMsV1.hint": "0 = never force-stop."
   ,"settings.catalog.autoCompactThreshold": "Auto-compact at"
   ,"settings.catalog.autoCompactThreshold.hint": "When the conversation fills this share of the context window, earlier content is compacted into a summary."
-  ,"settings.catalog.shellSessionMax": "Persistent shell sessions"
-  ,"settings.catalog.shellSessionMax.hint": "How many persistent PowerShell sessions the model may keep open."
+  ,"settings.catalog.shellSessionMax": "Persistent shells"
+  ,"settings.catalog.shellSessionMax.hint": "How many PowerShell windows the model may keep open."
   ,"settings.catalog.agentTaskPoolPolicy": "Approval for new tasks"
   ,"settings.catalog.agentTaskPoolPolicy.hint": "\"Ask me every time\" is safest; \"don't allow\" restricts a workflow to its initial plan."
   ,"settings.catalog.agentTaskPoolAutoCap": "Auto-approve cap"

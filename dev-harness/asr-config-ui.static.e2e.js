@@ -140,7 +140,8 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   assert.match(providersJs, /function buildAsrFixBlock\(\)/, '前端: 131b 句尾改错独立成一栏');
   // 133c:三栏收进折叠的「高级」区(顺序不变),上面是档位一栏;无候选与有候选两条分支都这样画。
   assert.ok((providersJs.match(/advanced\.append\(streamBlock, block, fixBlock\);/g) || []).length === 2, '前端: 三栏顺序 实时识别 → 整段识别 → 句尾改错,收进高级区(两条分支都追加)');
-  assert.ok((providersJs.match(/asrSettingsBlock\.append\(sep, presetBlock, advanced\);/g) || []).length === 2, '前端: 档位栏在前、高级区在后(两条分支)');
+  // 2026-10 设置补全:语音识别有了自己的页签,块顶那条分隔线随之撤掉(append 不再带 sep)。
+  assert.ok((providersJs.match(/asrSettingsBlock\.append\(presetBlock, advanced\);/g) || []).length === 2, '前端: 档位栏在前、高级区在后(两条分支)');
   assert.match(providersJs, /const ASR_PRESETS = \['light', 'standard', 'heavy'\];/, '前端: 133c 三档');
   assert.ok(!/asrPreset(Id)?:/.test(providersJs) && !/asrPreset\b/.test(fs.readFileSync(path.join(APP, 'src', '01-config.js'), 'utf8')), '前端: 档位不是配置键 —— 由现有三对键推算(不与既有键冲突)');
   {
