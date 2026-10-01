@@ -1360,6 +1360,15 @@ async function listSessions() {
   return sortSessionMetas(rebuilt.map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
+// 计划条(session.todos)的指纹:管家「没做完就续」只认【这一回合里动过的】计划(13p stewardContinueUnfinishedGate)——
+// 回合开头记一笔、收尾写进 stewardLastTurn.todosStartSig,与收尾时的现值不同才算这一回合在推进这份计划。
+// 早就搁下、用户已经换了话题的旧计划不该让每个新回合都被当成「没做完」。
+function sessionTodosSignature(todos) {
+  const items = (Array.isArray(todos) ? todos : []).filter(t => t && typeof t === 'object')
+    .map(t => [String(t.content || t.title || t.text || ''), String(t.status || '')]);
+  return crypto.createHash('sha1').update(JSON.stringify(items)).digest('hex').slice(0, 16);
+}
+
 // 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
 function applySessionMetaPatch(session, patch) {
@@ -1462,7 +1471,11 @@ function applySessionMetaPatch(session, patch) {
   // 写 false 对管家自己开的线程同样生效(= 用户接手,别再盯了)。
   if (patch.stewardWatch === true) session.stewardWatch = true;
   else if (patch.stewardWatch === false) session.stewardWatch = false;
-  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
+  // 成败账只进不退:turnSeq 单调(rewind 也不回退它),两笔写入乱序落盘时(10 的收尾写与 13k/13s 的写不在一条链上)
+  // 旧回合那笔不能盖掉新回合那笔;同号允许覆盖(同一回合的后写者带的是更完整的那份)。
+  const prevLastTurnSeq = session.stewardLastTurn && typeof session.stewardLastTurn === 'object' ? Number(session.stewardLastTurn.seq) : NaN;
+  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)
+      && !(Number.isFinite(prevLastTurnSeq) && Number(patch.stewardLastTurn.seq) < prevLastTurnSeq)) {
     const t = patch.stewardLastTurn;
     const seq = Number(t.seq);
     session.stewardLastTurn = {
@@ -1471,6 +1484,7 @@ function applySessionMetaPatch(session, patch) {
       aborted: t.aborted === true,
       errorClass: String(t.errorClass || '').slice(0, 64),
       at: String(t.at || ''),
+      todosStartSig: String(t.todosStartSig || '').slice(0, 64),
     };
   }
   // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与

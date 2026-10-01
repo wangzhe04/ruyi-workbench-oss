@@ -89,7 +89,7 @@ function normalizeAgentRole(raw, opts = {}) {
 function mergeAgentRole(base, override, source) {
   // 空颜色不覆盖底座的颜色:设置页以前存角色时不带 color,normalizeAgentRole 把缺失收成 '',落进 agentRoleOverrides 后
   // {...base, ...override} 就用 '' 把内置角色的颜色抹掉(工作流画布上的角色胶囊与左色条随之变灰)。老配置里已存的 color:'' 也靠这一条自愈。
-  if (override && !String(override.color || '').trim() && base && String(base.color || '').trim()) override = { ...override, color: base.color };
+  if (override && !String(override.color || '').trim() && base && base.builtin && String(base.color || '').trim()) override = { ...override, color: base.color };
   const merged = normalizeAgentRole({ ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } }, { source: source || override.source || base.source, builtin: !!base.builtin });
   if (merged && base.builtin) merged.builtin = true;
   return merged;

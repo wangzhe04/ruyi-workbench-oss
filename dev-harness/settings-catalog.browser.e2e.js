@@ -92,6 +92,9 @@ const { ok } = t;
     await switchTab('limits');
     ok(await setValue(id('autoCompactThreshold'), '70') && Boolean(await waitConfig(c => c.autoCompactThreshold === 0.7)), 'C3a 上下文 70% → autoCompactThreshold 0.7');
     ok(await setValue(id('autoCompactThreshold'), '200') && Boolean(await waitConfig(c => c.autoCompactThreshold === 0.95)), 'C3b 乱填 200 → 钳成 95% 落盘');
+    // 钳位后框里立刻显示落盘的那个数(同一拍同步读:证明是 change 处理器写回的,不是之后的整页回填)。
+    const shownAfterClamp = await ev(`(() => { const n = document.querySelector(${JSON.stringify(id('autoCompactThreshold'))}); n.focus(); n.value = '300'; n.dispatchEvent(new Event('change', { bubbles: true })); const v = n.value; n.blur(); return v; })()`);
+    ok(shownAfterClamp === '95', `C3b2 乱填 300 → 框里随即显示 95(got ${shownAfterClamp})`);
     ok(Boolean(await fx.waitForEval(`(() => document.querySelector(${JSON.stringify(id('autoCompactThreshold'))}).value === '95' ? 1 : null)()`, 60)), 'C3c 框里回显钳过的 95');
     ok(await setValue(id('memoryRelevanceMaxV1'), '12') && Boolean(await waitConfig(c => c.memoryRelevanceMaxV1 === 12)), 'C3d 记忆容量（折叠段里的数字框）照样即存');
 

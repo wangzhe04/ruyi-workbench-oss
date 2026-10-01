@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 67 | 3247 | 3015 | 525 | 68 | 0 | 1 |
+| 67 | 3249 | 3017 | 525 | 68 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,7 +27,7 @@
 | 9 | `02d-session-overrides.js` | foundation | 10 | 1 | 1 |
 | 10 | `02e-session-engine-route.js` | foundation | 4 | 1 | 1 |
 | 11 | `02f-turn-effect-kinds.js` | foundation | 15 | 0 | 0 |
-| 12 | `02-session-store.js` | foundation | 296 | 72 | 16 |
+| 12 | `02-session-store.js` | foundation | 297 | 72 | 16 |
 | 13 | `03-bridge-guard.js` | foundation | 87 | 25 | 7 |
 | 14 | `04-visual-pipeline.js` | foundation | 1 | 3 | 1 |
 | 15 | `04-permission-runtime.js` | foundation | 152 | 37 | 9 |
@@ -56,7 +56,7 @@
 | 38 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 39 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 40 | `09-workflow.js` | orchestration | 19 | 231 | 25 |
-| 41 | `10-context-governance.js` | orchestration | 175 | 91 | 17 |
+| 41 | `10-context-governance.js` | orchestration | 175 | 92 | 17 |
 | 42 | `11-native-tools.js` | tools | 107 | 45 | 10 |
 | 43 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
 | 44 | `12-tool-dispatch.js` | tools | 52 | 95 | 18 |
@@ -74,7 +74,7 @@
 | 56 | `13m-steward-runner-base.js` | transport | 46 | 16 | 7 |
 | 57 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
 | 58 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
-| 59 | `13p-steward-runner-actions.js` | transport | 33 | 59 | 11 |
+| 59 | `13p-steward-runner-actions.js` | transport | 34 | 60 | 11 |
 | 60 | `13q-steward-runner-turn.js` | transport | 31 | 65 | 18 |
 | 61 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 62 | `13r-event-stream.js` | transport | 23 | 17 | 6 |
@@ -304,7 +304,7 @@
 | `10-context-governance.js` | `01-config.js` | backward | `DurableJsonStore`, `readConfig`, `readJsonBody`, `safeSessionId`, `send` |
 | `10-context-governance.js` | `01c-runtime-flags.js` | backward | `evaporateBudgetBoundaryEnabled`, `historyReadDedupEnabled`, `observationRecallEnabled`, `reseedReattachFilesEnabled`, `reseedTailUnitsEnabled`, `sessionNotesEnabled`, `sessionNotesInjectEnabled`, `sessionNotesMergeEnabled`, `summaryEntityCheckEnabled`, `summaryFactTableCap`, `summaryFactTableEnabled`, `summaryPromptI18nEnabled`, `summaryRefineEnabled`, `summarySingleShotEnabled` |
 | `10-context-governance.js` | `01e-permission-modes.js` | backward | `permissionModeFrom`, `resolvePermissionMode` |
-| `10-context-governance.js` | `02-session-store.js` | backward | `createSession`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `mutateSession`, `readSessionNotes`, `rememberLastUsedEngineRoute`, `repairProviderHistoryPairing`, `saveSession`, `sessionMessagesDelta`, `sessionMessagesStamp`, `sessionMissionId`, `sessionObjectIsStale`, `toolImageSessionTag`, `updateSessionMeta`, `withJournalWriteLock`, `writeSessionNotes` |
+| `10-context-governance.js` | `02-session-store.js` | backward | `createSession`, `journalBytesAdjust`, `journalDir`, `journalGc`, `loadSession`, `mutateSession`, `readSessionNotes`, `rememberLastUsedEngineRoute`, `repairProviderHistoryPairing`, `saveSession`, `sessionMessagesDelta`, `sessionMessagesStamp`, `sessionMissionId`, `sessionObjectIsStale`, `sessionTodosSignature`, `toolImageSessionTag`, `updateSessionMeta`, `withJournalWriteLock`, `writeSessionNotes` |
 | `10-context-governance.js` | `02e-session-engine-route.js` | backward | `configForSessionEngineRoute`, `inferSessionEngineRoute`, `normalizeSessionEngineRoute`, `sessionEngineRouteFromConfig` |
 | `10-context-governance.js` | `04-permission-runtime.js` | backward | `driverAutoSessions`, `logEvent`, `redact`, `stopSession`, `turnOutcomePending`, `turnSettlers` |
 | `10-context-governance.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
@@ -510,7 +510,7 @@
 | `13o-steward-runner-prompt.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
 | `13p-steward-runner-actions.js` | `00-boot.js` | backward | `forEachUsageRow`, `text`, `usageDayKey`, `usageDayKeyMemo`, `usageRangeLowerMs` |
 | `13p-steward-runner-actions.js` | `01-config.js` | backward | `configValueEquals`, `safeSessionId` |
-| `13p-steward-runner-actions.js` | `02-session-store.js` | backward | `SESSION_LOAD_OMIT_PROVIDER`, `detectDanglingTurn`, `loadSession`, `mutateSession`, `readInterventions`, `sessionDisplayTitle` |
+| `13p-steward-runner-actions.js` | `02-session-store.js` | backward | `SESSION_LOAD_OMIT_PROVIDER`, `detectDanglingTurn`, `loadSession`, `mutateSession`, `readInterventions`, `sessionDisplayTitle`, `sessionTodosSignature` |
 | `13p-steward-runner-actions.js` | `04-permission-runtime.js` | backward | `activeChildren`, `logEvent` |
 | `13p-steward-runner-actions.js` | `06b-prompt-registry.js` | backward | `getPromptPack` |
 | `13p-steward-runner-actions.js` | `06i-steward-core.js` | backward | `STEWARD_ANSWER_BASIS`, `STEWARD_EXEMPT_CATEGORY_LABELS`, `STEWARD_SESSION_ID`, `StewardHooks`, `stewardActConfirmSpec`, `stewardAsksYouForThread`, `stewardHumanizeIds`, `stewardMayAct`, `stewardPermissionLabel`, `stewardSanitizeBlock`, `stewardSanitizeText`, `stewardStoppedRefusal`, `stewardStoppedTarget` |

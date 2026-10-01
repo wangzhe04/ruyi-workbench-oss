@@ -432,6 +432,8 @@ function wireField(doc, field, onSave) {
   node.addEventListener('change', () => {
     const input = field.type === 'toggle' ? node.checked : node.value;
     const stored = catalogStoredValue(field, input);
+    // 数字框被钳位/取整后,框里要显示真正落盘的那个数(否则用户看到 9999、盘上是 600)。
+    if (field.type === 'number' && stored !== undefined) node.value = catalogDisplayValue(field, catalogPatch(field, stored, {}));
     void onSave(field, stored);
   });
 }

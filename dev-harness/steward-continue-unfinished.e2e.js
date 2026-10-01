@@ -22,7 +22,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //      B5 一直被截断 → 最多连续续 STEWARD_CONTINUE_NOPLAN_MAX 次,之后停下(降级成提议 + 行动流水 steward_continue_stopped);
 //      B6 有计划但续一轮计划纹丝不动 → 停(no_progress),落流水;
 //      B7 开关关 → 只提议、零执行;          B8 线程「每步都问」档 → 只提议;
-//      B9 小时回合数到顶 → 熔断,线程不动;   B10 管家总开关关 → 整个到访不跑。
+//      B9 小时回合数到顶 → 熔断,线程不动;   B10 管家总开关关 → 整个到访不跑;
+//      B11 计划是之前回合留下的、上一回合(用户换了话题)没碰它 → 不续(旧计划不算「没做完」);
+//      B12 同一批里同一线程既有收工(续跑候选被 silent)又有失败 → 失败那条照样自理重试(收工那条不占位);
+//      B13 成败账只进不退:旧回合的那笔晚到也盖不掉新回合的。
 //
 // 判定行:`STEWARD CONTINUE UNFINISHED E2E: ALL PASS`。
 (async () => {
@@ -74,6 +77,8 @@ function threadScript(req) {
     case 'S3': if (cont) return text('好了,已经完成。');                                                   // 被截断,续一轮后收口
                return readOne();
     case 'S4': return readOne();                                                                          // 永远被截断
+    case 'S7': if (textOf(msgs[lastUser]).includes('换个话题')) return text('好的,这个问题的答案是 42。');     // 第二回合:用户换了话题,计划没碰
+               return toolsAfter === 0 ? planCall(1) : text('先做完第一步。');
     case 'S5': if (!cont) return toolsAfter === 0 ? planCall(1) : text('做完了第一步。');
                return text('还在想,这一轮没有新进展。');                                                    // 计划纹丝不动
     default: return text('ok');
@@ -238,7 +243,11 @@ async function mkThread(tag, opts) {
 }
 async function runTurn(th, message) {
   await srv.runSessionTurn({ sessionId: th.sid, message, cwd: th.cwd, source: 'http', onEvent: () => {} });
-  return srv.loadSession(th.sid);
+  // 成败账是回合收尾旁路写的(不 await):等它落盘,到访才读得到「这一回合动没动过计划」。
+  return waitFor(async () => {
+    const s = await srv.loadSession(th.sid);
+    return s && s.stewardLastTurn && s.stewardLastTurn.seq === s.turnSeq ? s : null;
+  }, 10000, 50);
 }
 const idle = sid => String((srv.StewardHooks.relayChannel(sid) || {}).channel || '') === 'turn';
 async function waitTurn(sid, seq) {
@@ -386,6 +395,39 @@ try {
     await sleep(300);
     ok((await srv.loadSession(th.sid)).turnSeq === 1 && continueRows(th.sid).length === 0, 'B10b 线程没被续');
     writeConfig({});
+  }
+  {
+    // B11 旧计划:第一回合留下 1/5 的计划,第二回合用户换了话题、回合正常答完、计划没动 → 不续。
+    const th = await mkThread('B11 旧计划');
+    await runTurn(th, '[S7] 做五步');
+    const s2 = await runTurn(th, '[S7] 换个话题:答案是多少');
+    ok(s2 && s2.turnSeq === 2 && doneCount(s2) === 1 && todosOf(s2).length === 5 && srv.detectDanglingTurn(s2).dangling === false,
+      'B11.0 前置:第二回合正常收,计划还是第一回合留下的 1/5');
+    const r = await visit(th.sid, 2);
+    ok(r && r.ok === true && !autoRow(r), 'B11 上一回合没碰过的旧计划 → 不自动续');
+    await sleep(300);
+    ok((await srv.loadSession(th.sid)).turnSeq === 2 && continueRows(th.sid).length === 0, 'B11b 线程没动、零流水');
+  }
+  {
+    // B12 同一批:收工(做完了 → 续跑候选 silent)排在失败前面。修前收工那条先占了「同一目标只处置一次」的位,失败的自理重试被吞掉。
+    const th = await mkThread('B12 同批');
+    await runTurn(th, '[S0] 做五步');
+    const failedEvent = { inboxSeq: ++evtSeq, kind: 'failed', sessionId: th.sid, missionId: th.sid, seq: 1, at: new Date().toISOString(), payload: { source: 'session_turn', turnSeq: 1, summary: '会话第 1 回合失败' }, count: 1 };
+    const r = await srv.runStewardTurn({ trigger: 'inbox', events: [doneEvent(th.sid, 1), failedEvent] });
+    const retry = ((r && r.actions) || []).find(a => a && a.auto === true && a.intent === 'retry' && a.sessionId === th.sid);
+    ok(!!retry && retry.result && retry.result.ok === true, `B12 失败那条照样自理重试(got ${retry ? JSON.stringify(retry.result && (retry.result.error || retry.result.ok)) : 'no row'})`);
+    ok(!autoRow(r), 'B12b 收工那条没有出续跑行');
+    await waitTurn(th.sid, 2);
+  }
+  {
+    // B13 成败账只进不退。
+    const th = await mkThread('B13 账序');
+    await srv.updateSessionMeta(th.sid, { stewardLastTurn: { seq: 5, ok: false, aborted: false, errorClass: 'network_down', at: 'x' } });
+    await srv.updateSessionMeta(th.sid, { stewardLastTurn: { seq: 4, ok: true, aborted: false, errorClass: '', at: 'y' } });
+    const h1 = await srv.loadSession(th.sid);
+    ok(h1.stewardLastTurn.seq === 5 && h1.stewardLastTurn.ok === false, `B13 旧回合的账晚到不覆盖(got ${JSON.stringify(h1.stewardLastTurn)})`);
+    await srv.updateSessionMeta(th.sid, { stewardLastTurn: { seq: 5, ok: true, aborted: false, errorClass: '', at: 'z' } });
+    ok((await srv.loadSession(th.sid)).stewardLastTurn.ok === true, 'B13b 同号可覆盖');
   }
 } catch (e) {
   t.fail('fatal: ' + (e && e.stack || e));

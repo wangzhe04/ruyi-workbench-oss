@@ -1972,7 +1972,7 @@ function normalizeAgentRole(raw, opts = {}) {
 function mergeAgentRole(base, override, source) {
   // 空颜色不覆盖底座的颜色:设置页以前存角色时不带 color,normalizeAgentRole 把缺失收成 '',落进 agentRoleOverrides 后
   // {...base, ...override} 就用 '' 把内置角色的颜色抹掉(工作流画布上的角色胶囊与左色条随之变灰)。老配置里已存的 color:'' 也靠这一条自愈。
-  if (override && !String(override.color || '').trim() && base && String(base.color || '').trim()) override = { ...override, color: base.color };
+  if (override && !String(override.color || '').trim() && base && base.builtin && String(base.color || '').trim()) override = { ...override, color: base.color };
   const merged = normalizeAgentRole({ ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } }, { source: source || override.source || base.source, builtin: !!base.builtin });
   if (merged && base.builtin) merged.builtin = true;
   return merged;
@@ -7639,6 +7639,15 @@ async function listSessions() {
   return sortSessionMetas(rebuilt.map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
+// 计划条(session.todos)的指纹:管家「没做完就续」只认【这一回合里动过的】计划(13p stewardContinueUnfinishedGate)——
+// 回合开头记一笔、收尾写进 stewardLastTurn.todosStartSig,与收尾时的现值不同才算这一回合在推进这份计划。
+// 早就搁下、用户已经换了话题的旧计划不该让每个新回合都被当成「没做完」。
+function sessionTodosSignature(todos) {
+  const items = (Array.isArray(todos) ? todos : []).filter(t => t && typeof t === 'object')
+    .map(t => [String(t.content || t.title || t.text || ''), String(t.status || '')]);
+  return crypto.createHash('sha1').update(JSON.stringify(items)).digest('hex').slice(0, 16);
+}
+
 // 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
 function applySessionMetaPatch(session, patch) {
@@ -7741,7 +7750,11 @@ function applySessionMetaPatch(session, patch) {
   // 写 false 对管家自己开的线程同样生效(= 用户接手,别再盯了)。
   if (patch.stewardWatch === true) session.stewardWatch = true;
   else if (patch.stewardWatch === false) session.stewardWatch = false;
-  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
+  // 成败账只进不退:turnSeq 单调(rewind 也不回退它),两笔写入乱序落盘时(10 的收尾写与 13k/13s 的写不在一条链上)
+  // 旧回合那笔不能盖掉新回合那笔;同号允许覆盖(同一回合的后写者带的是更完整的那份)。
+  const prevLastTurnSeq = session.stewardLastTurn && typeof session.stewardLastTurn === 'object' ? Number(session.stewardLastTurn.seq) : NaN;
+  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)
+      && !(Number.isFinite(prevLastTurnSeq) && Number(patch.stewardLastTurn.seq) < prevLastTurnSeq)) {
     const t = patch.stewardLastTurn;
     const seq = Number(t.seq);
     session.stewardLastTurn = {
@@ -7750,6 +7763,7 @@ function applySessionMetaPatch(session, patch) {
       aborted: t.aborted === true,
       errorClass: String(t.errorClass || '').slice(0, 64),
       at: String(t.at || ''),
+      todosStartSig: String(t.todosStartSig || '').slice(0, 64),
     };
   }
   // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
@@ -44017,6 +44031,9 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
+  // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
+  const todosStartSig = sessionTodosSignature(session.todos);
   // 116-3 A2(会话/权限口径子审查):管家会话【只能】由管家运行器发起回合。任何别的调用面
   // (直连 POST /api/chat/stream 打 sessionId=steward 是最直接的一条)都会拿到 core/shell/steward
   // 三个工具包整份offer,并且完全绕开 13h 的编排、熔断、预算、抢占与决策日志 —— 那等于用普通会话
@@ -44300,16 +44317,19 @@ async function runSessionTurn(input) {
       if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
           && !(lastResult && lastResult.superseded)
           && stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) {
-        if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso() };
-        else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso() };
+        if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
+        else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
     if (outcomePatch) {
-      try { await updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }); }
-      catch { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ }
-      finally { turnOutcomePending.delete(outcomeId); }
+      // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
+      // turnOutcomePending 挂着期间按「账在路上」处理(04),落盘或失败后摘掉。
+      Promise.resolve()
+        .then(() => updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }))
+        .catch(() => { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ })
+        .finally(() => { turnOutcomePending.delete(outcomeId); });
     }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
     //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
@@ -67174,7 +67194,8 @@ async function stewardSelfServeGate(plan, config) {
 //   ① 「上次任务未完成」横幅 = 02 的 detectDanglingTurn(GET /api/sessions/:id 的 resumable.dangling,
 //      前端 renderResumeBanner 读它):providerHistory 的尾巴是 user / tool(回合被工具次数上限、预算保护、
 //      重复调用护栏截断而没有收口);
-//   ② 计划条「已完成 n/m」读的 session.todos:还有 status !== 'done' 的步骤(与 02 摘要的 todosOpen 同口径)。
+//   ② 计划条「已完成 n/m」读的 session.todos:还有 status !== 'done' 的步骤(与 02 摘要的 todosOpen 同口径),
+//      且这份计划是【上一回合动过的】(或本就在管家的续跑链上)—— 搁下的旧计划不算。
 // 「该不该自己续」的闸,顺序即安全(任一不过就 silent 或降级成提议,不是失败):
 //   silent(不留痕):线程其实做完了 / 还在跑 / 在问用户(正式待决或软问句)/ 用户正坐在上面 / 事项驱动器
 //                    (until-done)自己会续 / 上一回合是被停下的;
@@ -67192,30 +67213,39 @@ async function stewardUnfinishedFacts(sessionId) {
   const total = todos.length;
   const done = todos.filter(t => t.status === 'done').length;
   const open = total - done;
-  const pending = (await readInterventions(sid).catch(() => [])).filter(iv => iv && iv.status === 'pending');
-  const asks = stewardAsksYouForThread({
-    pending, activeTurn: activeChildren.has(sid),
-    lastAssistantText: stewardLastAssistantText(session),
-  });
+  const turnSeq = Math.max(0, Number(session.turnSeq) || 0);
+  // ② 的计划只认【上一回合动过的】:成败账带着回合开头的计划指纹(10 写),与现值不同 = 这一回合在推进它。
+  // 早就搁下的旧计划(用户之后换了话题、回合正常答完)不算「没做完」—— 否则每个新回合收工都会被拉去续那份旧计划。
+  const last = session.stewardLastTurn && typeof session.stewardLastTurn === 'object' ? session.stewardLastTurn : null;
+  const todosTouched = !!(last && Number(last.seq) === turnSeq && last.todosStartSig
+    && last.todosStartSig !== sessionTodosSignature(session.todos));
   const mission = session.mission || null;
   return {
     sessionId: sid,
     head: session,
-    turnSeq: Math.max(0, Number(session.turnSeq) || 0),
-    unfinished: dangling.dangling === true || open > 0,
+    turnSeq,
     dangling: dangling.dangling === true ? String(dangling.kind || '') : '',
     todos: { total, done, open },
-    asks,
-    pendingCount: pending.length,
+    todosTouched,
     active: activeChildren.has(sid),
     missionDone: !!(mission && mission.result && mission.result.status === 'complete'),
     driverOwns: !!(mission && mission.autoMode === 'until-done'),
   };
 }
+// 「在问用户」:只在确实没做完时才读待决(读的是磁盘上的一份文件,收工事件每条都来一遍不划算)。
+async function stewardUnfinishedAsks(facts) {
+  const sid = facts.sessionId;
+  const pending = (await readInterventions(sid).catch(() => [])).filter(iv => iv && iv.status === 'pending');
+  const asks = stewardAsksYouForThread({
+    pending, activeTurn: activeChildren.has(sid),
+    lastAssistantText: stewardLastAssistantText(facts.head),
+  });
+  return !!asks || pending.length > 0;
+}
 // 行动流水 / 提示里那一句「没做完」的人话:横幅判据与计划进度各说各的,都有就并说。
 function stewardUnfinishedBrief(facts) {
   const bits = [];
-  if (facts.todos.total > 0 && facts.todos.open > 0) bits.push(`计划已完成 ${facts.todos.done}/${facts.todos.total}`);
+  if (facts.planOpen && facts.todos.total > 0) bits.push(`计划已完成 ${facts.todos.done}/${facts.todos.total}`);
   if (facts.dangling) bits.push('回合没有收口(被工具次数上限等截断,界面上亮着「上次任务未完成」)');
   return bits.join(';') || '回合没有收口';
 }
@@ -67226,9 +67256,17 @@ async function stewardContinueUnfinishedGate(plan, config) {
   const rt = stewardRunnerRuntime.continueUnfinished;
   const facts = await stewardUnfinishedFacts(sid);
   if (!facts || facts.active) return silent;
-  if (!facts.unfinished || facts.missionDone) { rt.delete(sid); return silent; }   // 做完了:账清零,什么都不说
+  const now = Date.now();
+  // 上限与「计划有没有往前走」。账只认【连续】的自动续跑:中间若有别人(用户)插进来说了话 —— 当前回合号不是
+  // 「上次续跑前的回合号 + 1」—— 或者隔了太久,就当这是一次全新的没做完,从 0 数。
+  let prev = rt.get(sid) || null;
+  if (prev && (facts.turnSeq !== prev.turnSeq + 1 || now - prev.at > STEWARD_CONTINUE_FRESH_MS)) { rt.delete(sid); prev = null; }
+  // 计划证据:上一回合动过计划,或者这本就是管家续跑链上的一环(续跑回合由 13k 记账、不带指纹)。
+  const planOpen = facts.todos.open > 0 && (facts.todosTouched || !!prev);
+  if ((!facts.dangling && !planOpen) || facts.missionDone) { rt.delete(sid); return silent; }   // 做完了:账清零,什么都不说
+  facts.planOpen = planOpen;
   // 在问用户 / 有待决:不是「没做完」,是「等你」—— 那条路归 needs_you 与代答那一格,这里不插手。
-  if (facts.asks || facts.pendingCount > 0) return silent;
+  if (await stewardUnfinishedAsks(facts)) return silent;
   if (facts.driverOwns) return silent;                     // until-done 驱动器会自己续,不抢
   if (stewardSeatedByUser(sid)) return silent;             // §4.5 用户正坐在这条线程上:他自己看得见横幅
   if (stewardStoppedTarget(facts.head, null)) return silent;   // 上一回合是被停下来的:不撤销别人按下的停
@@ -67237,7 +67275,6 @@ async function stewardContinueUnfinishedGate(plan, config) {
 
   const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
   if (auto.continueUnfinished === false) return deny('「任务没做完时自动续上」没有勾选,只能提议');
-  const now = Date.now();
   const hourFull = stewardHourWindowFull(config, now);
   if (hourFull) return deny(`本小时管家的动作已经到上限(${hourFull.limit}),这件事只能提议`);
   const maxCost = Number(config && config.stewardMaxCostPerDay);
@@ -67245,14 +67282,11 @@ async function stewardContinueUnfinishedGate(plan, config) {
     const spent = await stewardDayCost(config);
     if (spent >= maxCost) return deny(`今天管家已经花了 ${spent},到了上限 ${maxCost},没做完的任务只能提议`);
   }
-  const mode = await stewardTargetPermission(plan.args, config);
+  // 会话头已经在手上:直接取它的权限档,不再经 stewardTargetPermission 把整份会话再读一遍。
+  const mode = stewardThreadPermissionMode(facts.head, config);
   if (stewardMayAct(mode, 'failed', 'exec') !== 'auto') {
     return deny(`目标线程权限为「${stewardPermissionLabel(mode)}」,没做完的任务只能提议`);
   }
-  // 上限与「计划有没有往前走」。账只认【连续】的自动续跑:中间若有别人(用户)插进来说了话 —— 当前回合号不是
-  // 「上次续跑前的回合号 + 1」—— 或者隔了太久,就当这是一次全新的没做完,从 0 数。
-  let prev = rt.get(sid) || null;
-  if (prev && (facts.turnSeq !== prev.turnSeq + 1 || now - prev.at > STEWARD_CONTINUE_FRESH_MS)) { rt.delete(sid); prev = null; }
   if (prev) {
     const hasPlan = facts.todos.total > 0;
     const cap = hasPlan ? STEWARD_CONTINUE_PLAN_MAX : STEWARD_CONTINUE_NOPLAN_MAX;
@@ -67273,13 +67307,16 @@ async function stewardSelfServeInbox(events, session, config) {
   const executed = [];
   const notes = [];
   const seen = new Set();
-  for (const evt of (Array.isArray(events) ? events : [])) {
+  // 「没做完就续」排在重试/诊断之后:同一线程同一批里既有失败又有收工时,失败那条先占这个目标;
+  // 且 seen 只在闸门【不 silent】之后才记 —— 被 silent 掉的候选不该挡住同目标的下一条事件。
+  const planned = (Array.isArray(events) ? events : [])
+    .map(evt => ({ evt, plan: stewardSelfServePlan(evt) }))
+    .filter(x => x.plan);
+  planned.sort((a, b) => (a.plan.intent === 'continue' ? 1 : 0) - (b.plan.intent === 'continue' ? 1 : 0));
+  for (const { evt, plan } of planned) {
     if (executed.length >= STEWARD_SELF_SERVE_PER_TURN_MAX) break;
-    const plan = stewardSelfServePlan(evt);
-    if (!plan) continue;
     const key = stewardSelfServeKey(plan.sessionId, plan.runId);
     if (seen.has(key)) continue;
-    seen.add(key);
     const inboxSeq = Number(evt && evt.inboxSeq) || 0;
     // 117l D5:自理 notes 也进模型的回合层,同样要带名字(三处口径一致:事件行、notes、总览行)。
     const planTitle = await stewardDisplayTitleOf(plan.sessionId);
@@ -67287,6 +67324,7 @@ async function stewardSelfServeInbox(events, session, config) {
     const isContinue = plan.intent === 'continue';
     const gate = isContinue ? await stewardContinueUnfinishedGate(plan, config) : await stewardSelfServeGate(plan, config);
     if (gate.silent) continue;   // 「没做完就续」的候选其实不需要处置(做完了/在问你/用户在场…):不进行、不留话
+    seen.add(key);
     const row = { tool: plan.tool, args: plan.args, auto: true, label: plan.label, intent: plan.intent, sessionId: plan.sessionId, inboxSeq };
     if (!gate.allowed) {
       row.result = stewardFail('propose_required', gate.reason, { reason: 'self_serve_gate', sessionId: plan.sessionId });

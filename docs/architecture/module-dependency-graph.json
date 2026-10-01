@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 67,
-    "providedSymbols": 3247,
-    "requiredSymbols": 3015,
+    "providedSymbols": 3249,
+    "requiredSymbols": 3017,
     "edges": 525,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -1266,6 +1266,7 @@
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
@@ -10104,6 +10105,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionTodosSignature",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "toolImageSessionTag",
           "kinds": [
             "call"
@@ -18721,6 +18729,7 @@
         "stewardTargetPermission",
         "stewardTriggerStamp",
         "stewardTurnsInWindow",
+        "stewardUnfinishedAsks",
         "stewardUnfinishedBrief",
         "stewardUnfinishedFacts",
         "stewardUntrustedSummaryNote"
@@ -18813,6 +18822,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTodosSignature",
           "kinds": [
             "call"
           ]
@@ -27637,6 +27653,7 @@
         "sessionMessagesStamp",
         "sessionMissionId",
         "sessionObjectIsStale",
+        "sessionTodosSignature",
         "toolImageSessionTag",
         "updateSessionMeta",
         "withJournalWriteLock",
@@ -30231,7 +30248,8 @@
         "loadSession",
         "mutateSession",
         "readInterventions",
-        "sessionDisplayTitle"
+        "sessionDisplayTitle",
+        "sessionTodosSignature"
       ],
       "direction": "backward"
     },

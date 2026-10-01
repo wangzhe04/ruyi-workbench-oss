@@ -1230,6 +1230,7 @@
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
         "settleIntervention",
@@ -10010,6 +10011,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionTodosSignature",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "toolImageSessionTag",
           "kinds": [
             "call"
@@ -18591,6 +18599,7 @@
         "stewardTargetPermission",
         "stewardTriggerStamp",
         "stewardTurnsInWindow",
+        "stewardUnfinishedAsks",
         "stewardUnfinishedBrief",
         "stewardUnfinishedFacts",
         "stewardUntrustedSummaryNote"
@@ -18683,6 +18692,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "sessionDisplayTitle",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "sessionTodosSignature",
           "kinds": [
             "call"
           ]

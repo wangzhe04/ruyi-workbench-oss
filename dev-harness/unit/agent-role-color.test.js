@@ -51,6 +51,14 @@ test('[S] 非空的覆盖颜色照常生效;自定义角色的颜色按自己的
   assert.equal(lib.find(r => r.id === 'plain-role').color, '', '自定义角色没选颜色就是无色');
 });
 
+test('[S] 让位只给内置色:自定义角色在项目层把颜色清空就是清空', async () => {
+  const cwd = fs.mkdtempSync(path.join(root, 'proj-'));
+  await srv.saveProjectAgentRoles(cwd, [{ id: 'my-role', label: 'Mine', color: '' }, { id: 'explorer', label: 'E', color: '' }]);
+  const lib = await srv.getAgentRoleLibrary(cwd, { agentRoleOverrides: [srv.normalizeAgentRole({ id: 'my-role', color: 'teal' }, { source: 'global' })] });
+  assert.equal(lib.find(r => r.id === 'my-role').color, '', '自定义角色:项目层的空颜色是用户的选择');
+  assert.equal(lib.find(r => r.id === 'explorer').color, 'blue', '内置角色:空颜色仍让位给内置色');
+});
+
 test('[C] 读卡把颜色原样带回', async () => {
   const { readRoleCard } = await loadRoles();
   const card = color => {
