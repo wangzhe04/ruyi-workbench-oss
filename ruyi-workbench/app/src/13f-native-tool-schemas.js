@@ -525,7 +525,7 @@ const MCP_TOOLS = [
     description: 'Offline code review scan: secrets, shell exec, SQL concat, innerHTML, CORS, TLS off, TODO. Skips tests/fixtures unless includeTests. Findings: severity+confidence; truncated:true at caps.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string', description: 'default: workspace' }, maxFiles: { type: 'number', description: 'max files' }, maxDepth: { type: 'number', description: 'max depth' }, maxFindings: { type: 'number', description: 'max findings' }, ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' }, includeTests: { type: 'boolean', description: 'also scan tests/fixtures' } },
+      properties: { root: { type: 'string', description: 'default: workspace' }, maxFiles: { type: 'number', description: 'max files' }, maxDepth: { type: 'number', description: 'max depth' }, maxFindings: { type: 'number', description: 'max findings' }, ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra dirs to skip' }, includeTests: { type: 'boolean', description: 'scan tests too' } },
     },
   },
   {
