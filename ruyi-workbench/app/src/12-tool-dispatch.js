@@ -2194,7 +2194,8 @@ const CODE_TOOL_HANDLERS = {
       const ext = p.toLowerCase().match(/\.([a-z0-9]+)$/);
       const mime = { wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', webm: 'audio/webm', ogg: 'audio/ogg', flac: 'audio/flac' }[(ext && ext[1]) || ''] || 'application/octet-stream';
       const language = String(args.language || '').trim().slice(0, 40);
-      const result = await transcribeAudioViaProvider(resolved.provider, resolved.asrModel, { audio, contentType: mime, filename: path.basename(p), language, prompt: '' });
+      const prompt = await voiceLexiconAsrPromptFor(resolved.provider, '');   // 59 号文:语音词库里的个人词当提示
+      const result = await transcribeAudioViaProvider(resolved.provider, resolved.asrModel, { audio, contentType: mime, filename: path.basename(p), language, prompt });
       if (result.failure) return { ok: false, error: result.failure.message, code: result.failure.code };
       return { ok: true, text: result.text, ...(result.outLanguage ? { language: result.outLanguage } : {}), durationMs: result.durationMs, providerId: result.providerId, model: result.model, estimated: result.estimated, untrusted: true };
   } },

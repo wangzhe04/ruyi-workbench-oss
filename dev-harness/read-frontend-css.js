@@ -79,9 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 走查 U17 续钉(前值 3afc1cb2…＝走查 U13 续钉):零新增、零删除层,改一层 ——
-//   `css/layout.css`:980px 图标栏每行只留居中那一颗色点 —— 收起行头 8px 小点(`.steward-tcard-dot`)与行尾「⋯」。
-// 算法自证:同上(HEAD 重算 = 3afc1cb2…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
 // N11 续钉(前值 62741739…＝走查 U17 续钉):零新增、零删除层,改一层 ——
 //   `css/states/chat-live.css`:工具结果富渲染(`.tc-result-rich` / `.tc-res-meta` / `.tc-res-block` / `.tc-res-text` /
 //   `.tc-res-more`):多行 stdout/stderr 画成真文本块、超 40 行折叠、截图缩略图复用既有 `.tool-image`。颜色全走既有 token,零新增动效。
@@ -94,7 +91,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 // 算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
 //   同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
 //   算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
-const LEGACY_STYLES_SHA256 = '45ad3f9eefa22840b3b705a4ea23de10d1b4ca14cc17c7621b6123f74f174d8e';
+// 59 号文语音词库续钉(前值 45ad3f9e…＝2026-10 设置补全同批续钉):零新增、零删除层,改两层 ——
+//   `css/views/chat-shell.css`:设置页「语音输入」下的语音词库一块(`.asr-lexicon-*`:等宽文本框、保存钮与计数一行、
+//   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
+//   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
+// 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'b0b677a39927d31a515950edfa4f06b78e118e52a3068233879f38070999ce11';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

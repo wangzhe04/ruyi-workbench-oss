@@ -1220,12 +1220,118 @@ function buildAsrPresetBlock(advanced) {
   block.append(row, hint);
   return block;
 }
+// 59 号文：语音词库 —— 个人词（一行一条「词 = 被听成的样子1, 样子2」）＋ 内置常用词表开关。数据不在 config 里（单独一份
+// <data>/voice-lexicon.json，经 GET/POST /api/audio/lexicon 读写），所以不进底部「保存」那份整体补丁：文本框有自己的「保存词库」，
+// 内置表开关选中即存。块只建一次、挂在上面几栏之后 —— renderAsrSettings 每存一次语音配置都会重画上面几栏，编辑到一半的词不能被冲掉；
+// 文本框没动过才从服务端重读（第二步从修改里学来的词会在这里冒出来）。index.html 照旧零静态 asr 标记。
+let asrLexiconBlock = null;
+let asrLexiconDirty = false;
+let asrLexiconLoad = null;
+let asrLexiconRelabel = null;
+function asrLexiconErrorKey(e) {
+  const code = apiErrorInfo(e).code;
+  if (code === 'voice.lexicon_too_many') return 'settings.asrLexicon.error.tooMany';
+  if (code === 'voice.lexicon_too_large') return 'settings.asrLexicon.error.tooLarge';
+  return 'settings.asrLexicon.error.failed';
+}
+function buildAsrLexiconBlock() {
+  const block = el('div', 'field-block asr-lexicon');
+  const title = el('label', '', '');
+  const help = el('p', 'field-help muted', '');
+  const area = el('textarea', 'asr-lexicon-text');
+  area.rows = 6;
+  area.spellcheck = false;
+  const save = el('button', 'asr-lexicon-save', '');
+  save.type = 'button';
+  const count = el('span', 'field-help muted asr-lexicon-count', '');
+  const actions = el('div', 'asr-lexicon-actions');
+  actions.append(save, count);
+  const baseRow = el('label', 'asr-lexicon-base');
+  const baseBox = el('input');
+  baseBox.type = 'checkbox';
+  const baseText = el('span', '', '');
+  baseRow.append(baseBox, baseText);
+  const viewBase = el('button', 'asr-lexicon-view-base', '');
+  viewBase.type = 'button';
+  const baseList = el('pre', 'asr-lexicon-base-list');
+  baseList.hidden = true;
+  const note = el('p', 'field-help muted', '');
+  block.append(title, help, area, actions, baseRow, viewBase, baseList, note);
+  let last = null;   // 最近一次从服务端拿到的视图（换界面语言时重写计数与内置表那一行要用）
+  // 块只建一次，所以文案不能只在建的时候写一遍：每次 renderAsrSettings 都重写（换了界面语言也跟着换）。
+  asrLexiconRelabel = () => {
+    title.textContent = t('settings.asrLexicon.title');
+    help.textContent = t('settings.asrLexicon.help');
+    note.textContent = t('settings.asrLexicon.note');
+    area.placeholder = t('settings.asrLexicon.placeholder');
+    area.setAttribute('aria-label', t('settings.asrLexicon.title'));
+    save.textContent = t('settings.asrLexicon.save');
+    viewBase.textContent = t(baseList.hidden ? 'settings.asrLexicon.viewBase' : 'settings.asrLexicon.hideBase');
+    if (last) {
+      count.textContent = t('settings.asrLexicon.count', { count: Number(last.count) || 0 });
+      baseText.textContent = t('settings.asrLexicon.base', { count: Number(last.base && last.base.count) || 0 });
+    }
+  };
+  // keepText：读回来的时候用户已经动了文本框（打开设置后抢先打了字）→ 只更新计数与开关，不覆盖他打的字。
+  const paint = (view, keepText = false) => {
+    if (!view) return;
+    last = view;
+    if (!keepText) { area.value = String(view.text || ''); asrLexiconDirty = false; }
+    baseBox.checked = !(view.base && view.base.enabled === false);
+    asrLexiconRelabel();
+  };
+  area.addEventListener('input', () => { asrLexiconDirty = true; });
+  asrLexiconLoad = async () => {
+    try { const view = await api('/api/audio/lexicon'); paint(view, asrLexiconDirty); }
+    catch { count.textContent = t('settings.asrLexicon.loadFailed'); }
+  };
+  save.onclick = async () => {
+    save.disabled = true;
+    try {
+      const r = await api('/api/audio/lexicon', { method: 'POST', body: JSON.stringify({ text: area.value }) });
+      paint(r);
+      toast(r.skipped ? t('settings.asrLexicon.savedSkipped', { count: r.count, skipped: r.skipped }) : t('settings.asrLexicon.saved', { count: r.count }), 'ok');
+    } catch (e) {
+      toast(t(asrLexiconErrorKey(e), apiErrorInfo(e).params || {}), 'err');
+    } finally { save.disabled = false; }
+  };
+  baseBox.onchange = async () => {
+    const want = baseBox.checked;
+    baseBox.disabled = true;
+    try {
+      const r = await api('/api/audio/lexicon', { method: 'POST', body: JSON.stringify({ base: want }) });
+      paint(r, true);   // 只回写开关与计数：文本框里没存的改动留着
+      toast(t(baseBox.checked ? 'settings.asrLexicon.baseOn' : 'settings.asrLexicon.baseOff'), 'ok');
+    } catch {
+      baseBox.checked = !want;
+      toast(t('settings.asrLexicon.error.failed'), 'err');
+    } finally { baseBox.disabled = false; }
+  };
+  viewBase.onclick = async () => {
+    if (!baseList.hidden) { baseList.hidden = true; asrLexiconRelabel(); return; }
+    try {
+      const r = await api('/api/audio/lexicon?base=1');
+      baseList.textContent = String((r.base && r.base.text) || '');
+      baseList.hidden = false;
+      asrLexiconRelabel();
+    } catch { toast(t('settings.asrLexicon.loadFailed'), 'err'); }
+  };
+  asrLexiconRelabel();
+  return block;
+}
+function renderAsrLexicon(host) {
+  if (!asrLexiconBlock) asrLexiconBlock = buildAsrLexiconBlock();
+  if (asrLexiconBlock.parentNode !== host || asrSettingsBlock.nextSibling !== asrLexiconBlock) host.insertBefore(asrLexiconBlock, asrSettingsBlock.nextSibling);
+  if (asrLexiconRelabel) asrLexiconRelabel();
+  if (!asrLexiconDirty && asrLexiconLoad) void asrLexiconLoad();
+}
 function renderAsrSettings() {
   // 2026-10 设置补全：语音识别有了自己的页签 #stab-voice（修前追加在服务商页最底下，被服务商卡片淹没）。
   const host = $('stab-voice') || $('stab-providers');
   if (!host) return;
   const options = asrCapableOptions();
   if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
+  renderAsrLexicon(host);   // 59 号文：语音词库挂在下面几栏之后（只建一次，见 buildAsrLexiconBlock 头注）
   const wasOpen = Boolean(asrSettingsBlock.querySelector('.asr-advanced[open]'));
   asrSettingsBlock.textContent = '';
   const streamBlock = buildAsrStreamBlock();   // 130：实时识别在前（先出字），整段识别／校正在后

@@ -333,6 +333,8 @@ shows no microphone at all — there is no fallback path.
 **Also**: you can **attach a recording as a file**. Ruyi transcribes it best-effort and hands the text to the
 model with the file. A failed transcription never blocks the upload, and the original file stays downloadable.
 
+**Names and jargon keep coming out wrong? Use the voice vocabulary.** Settings → Voice recognition, the last card: one term per line for words you say often that keep getting misrecognized (names, projects, jargon), optionally followed by how they tend to be misheard, e.g. `Kubernetes = 酷伯奈提斯`; then click "Save vocabulary". These are **hints, never blind replacements**: live recognition uses them as hotwords, and the end-of-sentence re-listening (local Qwen3-ASR or a Whisper-style cloud endpoint) and LLM correction switch to a term only when both the sound and the context fit. A built-in list of 472 common Chinese/English terms (tech, office, AI, game engines) is on by default and is only hinted when a sentence looks like a mishearing of one; you can turn it off. Conversational cloud recognizers (e.g. MiMo) don't get the list yet.
+
 ### Scheduled tasks: handing a job to the clock
 
 **Where.** Settings → **Steward** tab → **Scheduled tasks** → **New**.

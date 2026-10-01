@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 59,
+  "count": 60,
   "lifecycleCounts": {
     "dedicated-exemption": 20,
     "external-exemption": 10,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 22
+    "shared-lifecycle": 23
   },
   "entries": [
     {
@@ -639,6 +639,20 @@
       "recovery": "sanitized defaults then safe write",
       "lifecycle": "shared-lifecycle",
       "exemptionReason": "103c representative full-lifecycle migration"
+    },
+    {
+      "id": "voice-lexicon",
+      "pattern": "<data>/voice-lexicon.json",
+      "owner": "05-claude-engine.js",
+      "anchor": "'voice-lexicon.json'",
+      "schema": "object / schema 1 (base: use the built-in list; terms.<lower-cased term>: {term, heard[<=8 misheard forms], src manual|learned|typed, n, at, off})",
+      "writePrimitive": "DurableJsonStore -> atomicWriteJson; read-modify-write serialized per key through runKeyedChain (voiceLexiconUpdate, the only writer: the settings page today, learning from edits next)",
+      "corruption": "copy byte-for-byte to .corrupt; diagnostic event voice_lexicon_corrupt; defaults = empty personal list with the built-in list on",
+      "capacity": "500 terms; keys are re-derived from term on every sanitize; deleted learned terms stay as off:true tombstones placed first, so capacity trims them first",
+      "cache": "process cache + write-through",
+      "recovery": "sanitized defaults then safe write; the user re-enters personal terms on the settings page (the built-in list ships in 04j source)",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "small workbench-owned JSON on the shared DurableJsonStore lifecycle"
     },
     {
       "id": "web-cache",
