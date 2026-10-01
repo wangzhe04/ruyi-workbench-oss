@@ -1370,7 +1370,7 @@
   "settings.title": "设置",
   "settings.uiMode": "界面模式",
   "settings.uiMode.pro": "专家（完整三栏 / 调试面板）",
-  "settings.uiMode.simple": "精简（人人可用 / 隐藏高级项）",
+  "settings.uiMode.simple": "精简（对话里说人话、收起开发者细节）",
   "settings.workingDirectory": "工作目录 cwd（留空 = 自动）",
   "skills.badge": "技能",
   "skills.badgeWithCount": "技能 · {{count}}",

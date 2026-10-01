@@ -445,6 +445,9 @@
 #settingsModal .ov-force { white-space: nowrap; font-size: var(--fs-sm); }
 #settingsModal .adv-row { flex-wrap: wrap; }
 #settingsModal .check > input { flex: none; }
+/* 拨框下面那句说明贴着它、和文字左缘对齐（修前隔一整行，读着像下一项的前言）。 */
+#settingsModal label.check + .field-help,
+#settingsModal .field-row + .field-help { margin: -2px 0 var(--sp-2); padding-inline-start: 24px; font-size: var(--fs-xs); }
 
 /* ⑥ 段内锚点条吸顶 */
 #settingsModal .settings-jumplist {

@@ -1370,7 +1370,7 @@
   "settings.title": "Settings",
   "settings.uiMode": "Interface mode",
   "settings.uiMode.pro": "Expert (full three-pane layout / diagnostics)",
-  "settings.uiMode.simple": "Simple (for everyone / hide advanced items)",
+  "settings.uiMode.simple": "Simple (plain-language chat, developer details tucked away)",
   "settings.workingDirectory": "Working directory (leave blank for automatic)",
   "skills.badge": "Skills",
   "skills.badgeWithCount": "Skills · {{count}}",
