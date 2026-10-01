@@ -2219,6 +2219,7 @@
         "stopSession",
         "subscribeActiveChildEvents",
         "toolboxComponentsDir",
+        "turnOutcomePending",
         "turnSettlers"
       ],
       "requires": [
@@ -9968,6 +9969,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -9976,6 +9984,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "toolImageSessionTag",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionMeta",
           "kinds": [
             "call"
           ]
@@ -10048,6 +10063,13 @@
           "symbol": "stopSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10150,6 +10172,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -10158,6 +10187,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -15272,6 +15308,13 @@
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
           ]
         },
         {

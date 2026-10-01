@@ -249,6 +249,11 @@ function installActiveChildEventFanout(reg) {
 // 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
+// 「回合成败账」正在落盘的会话(10 runSessionTurn 收尾)。turnSettlers 在回合 saveSession 之后就删了,而成败账
+// (会话头 stewardLastTurn)是紧跟着再写的 —— 这中间的几毫秒里收件箱第四源读到头会看见「回合跑完、没有成败账」
+// 并按「账缺席 = done」报,于是一个失败回合被报成收工(2026-10 真机:network_down 失败回合被管家说成「已收工」)。
+// 收件箱收集(13i)把本表与活回合同等对待:在表里就等下一拍。只活在内存。
+const turnOutcomePending = new Set();
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
 

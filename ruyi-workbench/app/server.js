@@ -13074,6 +13074,11 @@ function installActiveChildEventFanout(reg) {
 // 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
+// 「回合成败账」正在落盘的会话(10 runSessionTurn 收尾)。turnSettlers 在回合 saveSession 之后就删了,而成败账
+// (会话头 stewardLastTurn)是紧跟着再写的 —— 这中间的几毫秒里收件箱第四源读到头会看见「回合跑完、没有成败账」
+// 并按「账缺席 = done」报,于是一个失败回合被报成收工(2026-10 真机:network_down 失败回合被管家说成「已收工」)。
+// 收件箱收集(13i)把本表与活回合同等对待:在表里就等下一拍。只活在内存。
+const turnOutcomePending = new Set();
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
 
@@ -44193,7 +44198,28 @@ async function runSessionTurn(input) {
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
+    // 回合成败账(会话头 stewardLastTurn):管家盯着的线程,回合不管是谁发起的都要落这一笔。修前只有管家/调度器
+    // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
+    // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
+    // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
+    // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    const outcomeId = session.id;
+    let outcomePatch = null;
+    try {
+      if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
+          && !(lastResult && lastResult.superseded)
+          && stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) {
+        if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso() };
+        else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso() };
+      }
+    } catch { outcomePatch = null; }
+    if (outcomePatch) turnOutcomePending.add(outcomeId);
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    if (outcomePatch) {
+      try { await updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }); }
+      catch { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ }
+      finally { turnOutcomePending.delete(outcomeId); }
+    }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
     //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
     //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
@@ -60895,7 +60921,8 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const head = await stewardReadTurnHead(sid);
   if (!head || !head.id) return null;
   const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  if (activeChildren.has(sid)) {
+  if (activeChildren.has(sid) || turnOutcomePending.has(sid)) {
+    // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,
     // 基线必须是【这一回合之前】那个号。turnSeq 在回合【开始】那一刻就 +1 落盘(05:88 / 09:1292,

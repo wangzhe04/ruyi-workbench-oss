@@ -10,6 +10,11 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //  (A) 真进程、真收件箱路径:线程勾了「交给管家盯」、智能自动档,假模型第一回合建 5 步计划只做 1 步就收 →
 //      收件箱 done 事件 → 管家到访 → 自动递「请继续完成上一个未完成的任务。」→ 第二回合做完;
 //      行动流水落一行 steward_thread_continue(basis.origin=steward-continue,reason 写明计划进度与第几次)。
+//  (A2) 真收件箱 · 失败回合(2026-10 日志补充):用户自己发起的回合在第 3 次模型调用时断线(传输失败,回合 ok:false
+//      errorClass:network_down),线程勾了「交给管家盯」。修前:用户发起的回合不写成败账 → 收件箱第四源按「账缺席 = done」
+//      报收工 → 管家说「已收工」、「失败自动重试」等不到 failed 事件、五态读不到 lastTurnFailed。
+//      现在:回合收尾落 stewardLastTurn{ok:false,errorClass} → 事件 failed → 自理「重试」递「继续」→ 第二回合恢复;
+//      同一事件不走两条路(没有 continue 流水)。
 //  (B) 进程内、逐条判据与闸(同一份 srv):
 //      B1 计划全部做完 → 不续、不留话;     B2 最后一句在向用户提问(计划没做完)→ 不续;
 //      B3 计划没做完、回合正常收 → 续一轮,续完做完了就不再续;
@@ -58,6 +63,10 @@ function threadScript(req) {
   const planCall = done => toolCallFrames('todo_write', { items: plan5(done) }, 'call_p' + (++readSeq));
   const text = s => [...textFrames(s), usageFrame(8, 4)];
   switch (marker) {
+    case 'S6': if (textOf(msgs[lastUser]).trim() === '继续') return text('恢复了,这次做完了。');   // 管家自理重试递的那句
+               if (toolsAfter < 2) return readOne();
+               req.res.socket.destroy();                                                                // 第 3 发起断线(传输失败)
+               return undefined;
     case 'S0': return toolsAfter === 0 ? planCall(5) : text('五步都做完了。');                              // 计划全勾完
     case 'S1': if (!cont) return toolsAfter === 0 ? planCall(1) : text('先做完第一步,其余的下一回合接着做。');
                return toolsAfter === 0 ? planCall(5) : text('五步全部完成。');                            // 续一轮后做完
@@ -112,6 +121,7 @@ const continueRows = sid => readDecisions().filter(r => r.tool === 'steward_thre
 const stoppedRows = sid => readDecisions().filter(r => r.tool === 'steward_continue_stopped' && r.targetSessionId === sid);
 
 let wb = null;
+let failedHeadA2 = null;
 function kill(c) { if (c && c.pid) { try { killOwnTree(c); } catch { /* already gone */ } } }
 
 try {
@@ -172,6 +182,33 @@ try {
   await request('POST', '/api/steward/start', {});
   await sleep(7000);
   ok(continueRows(sid).length === 1, 'A9 做完之后不再续');
+
+  /* ── (A2) 失败回合:network_down ── */
+  console.log('── (A2) 真收件箱:回合 network_down 失败 → 不是 done,管家自动重试 ──');
+  const created2 = await request('POST', '/api/sessions', { title: '断线线程', cwd: HOME });
+  const sid2 = created2.json && created2.json.session && created2.json.session.id;
+  await request('PATCH', '/api/sessions/' + sid2, { stewardWatch: true });
+  await request('POST', '/api/chat/stream', { sessionId: sid2, message: '[S6] 读几个文件再总结', cwd: HOME });
+  const failedHead = await waitFor(async () => {
+    const r = (await request('GET', '/api/sessions/' + sid2)).json || {};
+    return r.session && r.session.turnSeq === 1 && r.session.stewardLastTurn ? r.session : null;
+  }, 20000, 300);
+  ok(failedHead && failedHead.stewardLastTurn.ok === false && failedHead.stewardLastTurn.aborted === false && failedHead.stewardLastTurn.seq === 1,
+    `A2.1 用户发起的回合失败,会话头落了成败账(got ${JSON.stringify(failedHead && failedHead.stewardLastTurn)})`);
+  ok(failedHead && failedHead.stewardLastTurn.errorClass === 'network_down', `A2.2 errorClass=network_down(got ${failedHead && failedHead.stewardLastTurn && failedHead.stewardLastTurn.errorClass})`);
+  failedHeadA2 = failedHead;   // A2.3 的五态断言要进程内的 srv,等 (B) 起来再判
+  const recovered = await waitFor(async () => {
+    await request('POST', '/api/steward/start', {});
+    const r = (await request('GET', '/api/sessions/' + sid2)).json || {};
+    return r.session && r.session.turnSeq >= 2 && !(r.resumable && r.resumable.live) ? r : null;
+  }, 90000, 1500);
+  ok(!!recovered, 'A2.4 管家自动重试了一次,线程第二回合起来了');
+  const retryRows = readDecisions().filter(r => r.tool === 'steward_thread_continue' && r.targetSessionId === sid2);
+  ok(retryRows.length === 1 && retryRows[0].basis && retryRows[0].basis.origin === 'steward-retry' && retryRows[0].basis.auto === true,
+    `A2.5 行动流水:一行自理重试(origin=steward-retry;got ${JSON.stringify(retryRows.map(r => r.basis && r.basis.origin))})`);
+  ok(continueRows(sid2).length === 0, 'A2.6 同一事件只走一条路:没有「没做完就续」的流水');
+  const rec = (await request('GET', '/api/sessions/' + sid2)).json || {};
+  ok(rec.session && rec.session.stewardLastTurn && rec.session.stewardLastTurn.ok === true && rec.session.stewardLastTurn.seq >= 2, 'A2.7 重试回合成功,成败账翻成 ok:true');
 } finally {
   kill(wb); wb = null;
 }
@@ -183,6 +220,11 @@ process.env.RUYI_HOME = HOME;
 process.env.WIN_CLAUDE_WORKBENCH_HOME = HOME;
 writeConfig({});
 const srv = require(SERVER);
+{
+  // A2.3 同一份会话头喂五态适配器(06i 与前端 mission-state.js 读同一个 lastTurn 证据,两张表由差分测试逐格比对)
+  const st = failedHeadA2 ? srv.stewardThreadStateFromHead(failedHeadA2) : null;
+  ok(st && st.state === 'stopped' && st.sources.lastTurnFailed === true, `A2.3 失败回合的线程五态不再是 done(got ${st && st.state},lastTurnFailed=${st && st.sources.lastTurnFailed})`);
+}
 let evtSeq = 70000;
 const doneEvent = (sid, turnSeq) => ({ inboxSeq: ++evtSeq, kind: 'done', sessionId: sid, missionId: sid, seq: turnSeq, at: new Date().toISOString(), payload: { source: 'session_turn', turnSeq, summary: `会话第 ${turnSeq} 回合跑完了` }, count: 1 });
 let threadN = 0;

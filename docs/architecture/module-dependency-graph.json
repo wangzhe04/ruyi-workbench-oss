@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 67,
-    "providedSymbols": 3240,
-    "requiredSymbols": 3006,
+    "providedSymbols": 3241,
+    "requiredSymbols": 3012,
     "edges": 525,
     "forwardEdges": 68,
     "duplicateProvides": 0,
@@ -2261,6 +2261,7 @@
         "stopSession",
         "subscribeActiveChildEvents",
         "toolboxComponentsDir",
+        "turnOutcomePending",
         "turnSettlers"
       ],
       "requires": [
@@ -10062,6 +10063,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -10070,6 +10078,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "toolImageSessionTag",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionMeta",
           "kinds": [
             "call"
           ]
@@ -10142,6 +10157,13 @@
           "symbol": "stopSession",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -10244,6 +10266,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "STEWARD_SESSION_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
@@ -10252,6 +10281,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -15386,6 +15422,13 @@
           "symbol": "logEvent",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "turnOutcomePending",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -27562,8 +27605,10 @@
         "saveSession",
         "sessionMessagesDelta",
         "sessionMessagesStamp",
+        "sessionMissionId",
         "sessionObjectIsStale",
         "toolImageSessionTag",
+        "updateSessionMeta",
         "withJournalWriteLock",
         "writeSessionNotes"
       ],
@@ -27588,6 +27633,7 @@
         "logEvent",
         "redact",
         "stopSession",
+        "turnOutcomePending",
         "turnSettlers"
       ],
       "direction": "backward"
@@ -27651,8 +27697,10 @@
       "from": "10-context-governance.js",
       "to": "06i-steward-core.js",
       "symbols": [
+        "STEWARD_SESSION_ID",
         "StewardHooks",
-        "stewardTaintToolCall"
+        "stewardTaintToolCall",
+        "stewardWatchedThread"
       ],
       "direction": "backward"
     },
@@ -29263,7 +29311,8 @@
       "to": "04-permission-runtime.js",
       "symbols": [
         "activeChildren",
-        "logEvent"
+        "logEvent",
+        "turnOutcomePending"
       ],
       "direction": "backward"
     },
