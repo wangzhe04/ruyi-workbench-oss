@@ -395,6 +395,11 @@ function decodeResponsesCompletion(j) {
 // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
 function createResponsesStreamDecoder({ onEvent, markUsage }) {
   let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '', emitted = false;
+  // 「服务端搜索已在本次回复内跑完并接着作答」的判据:web_search_call 项出现之后又到了正文(DashScope / OpenAI 的 hosted web_search
+  // 就是这个形状:搜索与作答在同一个 response 里,结果只在模型这一发里用掉,不会再恢复给下一发)。DeepSeek 的形状是搜索项之后
+  // 回复就结束、正文要等回传搜索项的下一发才来 —— 不满足这个判据,仍走回传。判据由调用方(09 / 08 的工具循环)消费:成立时
+  // 这一发的正文就是最终回答,不再把搜索项回传、也不再为它多请求一轮。
+  let serverCallSeen = false, textAfterServerCall = false;
   // 用量只记最后一份、finish() 报一次(同 chat:中途事件自带的 usage 与终止事件的 usage 是同一次调用的累计值,
   // 逐个 markUsage 会重复计费);incomplete / failed 的回体也带 usage,照样要记(截断的那一发同样花了钱)。
   let lastUsage = null;
@@ -429,6 +434,7 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         let s = slots.find(x => x.id === id);
         if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
         curSlot = s;
+        serverCallSeen = true;
         return false;
       }
       if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
@@ -442,14 +448,22 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
           //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
           //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
           // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
+          // 百炼 / OpenAI 官方形状另有两样:单数 `action.query`(字符串),与 `action.sources`([{type:'url',url}])—— 修前只认
+          // queries / url,于是这类端点的卡片永远是占位词「服务端搜索」,命中的来源也一条看不见。
           const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
           let q = '';
+          let sources = [];
           if (action) {
             if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
+            else if (typeof action.query === 'string') q = action.query;
             else if (typeof action.url === 'string') q = action.url;
+            if (Array.isArray(action.sources)) {
+              sources = action.sources.map(x => (typeof x === 'string' ? x : (x && typeof x.url === 'string' ? x.url : ''))).filter(Boolean).slice(0, 20);
+            }
           }
-          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
+          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q, ...(sources.length ? { sources } : {}) });
         }
+        serverCallSeen = true;
         return false;
       }
       if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
@@ -483,7 +497,9 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
       }
       if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta });
+        if (serverCallSeen) textAfterServerCall = true;
+        return false;
       }
       if (t === 'response.completed') {
         // Final event: the full response object (with usage) rides on the event.
@@ -526,9 +542,21 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
       // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
       if (responsesFailedError) return { text: outText, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
-      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId };
+      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId, ...(textAfterServerCall && outText.trim() ? { serverSearchInline: true } : {}) };
     },
   };
+}
+
+// 服务端 web_search_call 在工具卡上怎么显示(09 主回合与 08 子代理共用一份):query 取解析出的检索词(没有才退到占位词),
+// 有来源就带上 sources;resultObj 是给界面看的「无需本地执行」结果,不进模型历史。
+function providerServerSearchCard(stc) {
+  let wsArgs = {}; try { wsArgs = JSON.parse((stc && stc.rawArgs) || '{}'); } catch { wsArgs = {}; }
+  const display = { query: wsArgs.query || '服务端搜索' };
+  if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+  if (wsArgs.status) display.status = wsArgs.status;
+  const resultObj = { ok: true, serverSide: true, note: '服务端搜索已完成;结果由服务端自动恢复或已并入本次回答,无需本地执行' };
+  if (Array.isArray(wsArgs.sources) && wsArgs.sources.length) resultObj.sources = wsArgs.sources;
+  return { display, resultObj };
 }
 
 // ── 登记表 ────────────────────────────────────────────────────────────────────────────────────────────

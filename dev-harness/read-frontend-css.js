@@ -79,10 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 走查 U13 续钉(前值 22f8eb52…＝体验走查 #5 续钉):零新增、零删除层,改一层 ——
-//   `css/components/tool-pane.css`:提示条 `.toast-tray` 点击穿透(pointer-events:none),管家视角下改到中栏输入框上方居中
-//   (修前「引导完成」那条压着右栏底部的「停止」)。
-// 算法自证:同上(HEAD 重算 = 22f8eb52…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
 // 走查 U17 续钉(前值 3afc1cb2…＝走查 U13 续钉):零新增、零删除层,改一层 ——
 //   `css/layout.css`:980px 图标栏每行只留居中那一颗色点 —— 收起行头 8px 小点(`.steward-tcard-dot`)与行尾「⋯」。
 // 算法自证:同上(HEAD 重算 = 3afc1cb2…,与被替换的旧值逐字相同),按工作区重算得下面这个值。
@@ -90,7 +86,15 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `css/states/chat-live.css`:工具结果富渲染(`.tc-result-rich` / `.tc-res-meta` / `.tc-res-block` / `.tc-res-text` /
 //   `.tc-res-more`):多行 stdout/stderr 画成真文本块、超 40 行折叠、截图缩略图复用既有 `.tool-image`。颜色全走既有 token,零新增动效。
 // 算法自证:把 chat-live.css 换回 HEAD 重算 = 62741739…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '8ace18e5b0371f34e63ea0426bf42268a1febff407c395caba2572fa3770b6ec';
+// 2026-10 设置补全续钉(前值 8ace18e5…＝N11 续钉):零新增、零删除层,改两层 ——
+//   `css/views/settings.css`:设置弹窗定高实底、每段同一张卡(.settings-section／.steward-settings-group／运行时画进来的
+//   迁移中心、语音识别、扩展组件)、设置目录的行与拨钮(.setcat-*)、锚点条吸顶、按钮一种口径、工作区权限不再横向溢出;
+//   服务商卡片补字段(思考强度、语音转写地址、子代理模型、Anthropic 三项)与 Agent 角色色块。
+//   `css/themes/ui-modes.css`:删掉简易模式藏设置页签与 .settings-expert-only 的两条(设置页不再按界面模式收敛)。
+// 算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+//   同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
+//   算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
+const LEGACY_STYLES_SHA256 = '45ad3f9eefa22840b3b705a4ea23de10d1b4ca14cc17c7621b6123f74f174d8e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

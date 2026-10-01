@@ -103,22 +103,15 @@ const SHORT_INSTR = '回答尽量简短，直接给结果，不解释过程除�
     const appjs = require('./read-frontend-src.js').readFrontendSrc();
     const zh = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'docs', 'i18n', 'locales', 'zh-CN.json'), 'utf8'));
 
-    // ── (S1) 设置弹窗按 uiMode 收敛（§1.2）──────────────────────────────────────────────────────
-    for (const stab of ['claude', 'agents', 'integrations', 'advanced']) {
-      ok(new RegExp(`\\[data-ui-mode="simple"\\][^{]*#settingsTabs button\\[data-stab="${stab}"\\]`).test(css),
-        `(S1) 简易模式隐藏设置页签 ${stab}（CSS）`);
+    // ── (S1) 设置弹窗【不】按 uiMode 收敛（2026-10 设置补全；修前 §1.2 在简易模式藏四枚页签，迁移中心、扩展组件、MCP
+    //         对出厂默认的简易模式用户全部不可达）。简易模式只管对话区与右栏，设置里的每一枚页签都在。
+    for (const stab of ['basic', 'providers', 'network', 'claude', 'agents', 'integrations', 'advanced', 'migration', 'toolbox']) {
+      ok(!new RegExp(`\\[data-ui-mode="simple"\\][^{]*#settingsTabs button\\[data-stab="${stab}"\\]`).test(css),
+        `(S1) 简易模式不藏设置页签 ${stab}`);
     }
-    // 白名单页签（基础/服务商/联网搜索）不得被简易模式规则藏掉。
-    for (const stab of ['basic', 'providers', 'network']) {
-      ok(!new RegExp(`\\[data-ui-mode="simple"\\][^{]*#settingsTabs button\\[data-stab="${stab}"\\][^{]*\\{[^}]*display:\\s*none`).test(css),
-        `(S1) 简易模式保留设置页签 ${stab}`);
-    }
-    ok(/SETTINGS_SIMPLE_TABS\s*=\s*new Set\(\[[^\]]*'basic'[^\]]*'providers'[^\]]*'network'/.test(appjs),
-      '(S1) app.js 定义 SETTINGS_SIMPLE_TABS 白名单（basic/providers/network）');
-    ok(/function switchSettingsTab\(name,\s*force\)/.test(appjs) && /!SETTINGS_SIMPLE_TABS\.has\(name\)/.test(appjs),
-      '(S1) switchSettingsTab 按 uiMode 收敛（非白名单落回 basic，force 逃生门可绕过）');
-    ok(/settingsModal'\)[\s\S]{0,320}SETTINGS_SIMPLE_TABS\.has\([\s\S]{0,60}switchSettingsTab\('basic'\)/.test(appjs),
-      '(S1) applyUiMode 切到简易时若设置停在隐藏页签则落回 basic（实时生效）');
+    ok(!/SETTINGS_SIMPLE_TABS/.test(appjs), '(S1) 不再有简易模式设置页签白名单');
+    ok(/function switchSettingsTab\(name,\s*force\)/.test(appjs) && !/data-ui-mode'\) === 'simple' && !SETTINGS/.test(appjs),
+      '(S1) switchSettingsTab 不按 uiMode 改投页签');
 
     // ── (S2) 首次连接失败故障卡（§1.3）─────────────────────────────────────────────────────────
     ok(/function buildBootFailureCard\(/.test(appjs) && /function renderBootFailure\(/.test(appjs),

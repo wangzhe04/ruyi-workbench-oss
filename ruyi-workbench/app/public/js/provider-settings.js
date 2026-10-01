@@ -19,7 +19,9 @@ import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONB
 // 每个 Agent CLI 的知识（品牌名、路径键、思考强度档位、头像字母……）只问这一张登记表（ENGINEERING-SPEC §11.1）。
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
-import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta } from './provider-api-styles.js';
+import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta, PROVIDER_REASONING_EFFORT_CHOICES, ANTHROPIC_AUTH_CHOICES, ANTHROPIC_THINKING_CHOICES } from './provider-api-styles.js';
+// 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
+import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -745,6 +747,7 @@ function fillSettings() {
     && $('settingsModal') && $('settingsModal').contains(focused) && !($('providersList') && $('providersList').contains(focused))
     ? { node: focused, value: focused.value } : null;
   bindInstantSettings();
+  refreshSettingsCatalog();
   wireProvidersDraftUi();
   wireSubagentAssignRow();
   updateAgentTeamButton();
@@ -1218,13 +1221,13 @@ function buildAsrPresetBlock(advanced) {
   return block;
 }
 function renderAsrSettings() {
-  const host = $('stab-providers');
+  // 2026-10 设置补全：语音识别有了自己的页签 #stab-voice（修前追加在服务商页最底下，被服务商卡片淹没）。
+  const host = $('stab-voice') || $('stab-providers');
   if (!host) return;
   const options = asrCapableOptions();
   if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
   const wasOpen = Boolean(asrSettingsBlock.querySelector('.asr-advanced[open]'));
   asrSettingsBlock.textContent = '';
-  const sep = el('hr', 'settings-sep');
   const streamBlock = buildAsrStreamBlock();   // 130：实时识别在前（先出字），整段识别／校正在后
   const fixBlock = buildAsrFixBlock();         // 131b：句尾改错最后（说完一句之后怎么改）
   // 133c：三栏收进折叠的「高级」区；档位对不上任何一档（自定义）时默认展开，否则记住用户刚才开没开
@@ -1238,7 +1241,7 @@ function renderAsrSettings() {
   if (!options.length) {
     block.append(label, roleHint, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
     advanced.append(streamBlock, block, fixBlock);
-    asrSettingsBlock.append(sep, presetBlock, advanced);
+    asrSettingsBlock.append(presetBlock, advanced);
     return;
   }
   const select = el('select', 'asr-select');
@@ -1262,7 +1265,7 @@ function renderAsrSettings() {
   };
   block.append(label, roleHint, select, hint, buildAsrAddRow());
   advanced.append(streamBlock, block, fixBlock);
-  asrSettingsBlock.append(sep, presetBlock, advanced);
+  asrSettingsBlock.append(presetBlock, advanced);
 }
 // ruyi-toolbox 扩展组件(用户 2026-09-21:「toolbox 下的都自动识别接入,开箱即用」)。服务端 04f 在启动时已经把登记过的组件
 // 拉起／接好了,这里只做两件事:① 设置页「MCP」页签底部画一栏「扩展组件」—— 看得见接了什么、各自什么状态,能逐个停用、
@@ -1280,10 +1283,11 @@ async function saveToolboxPatch(patch) {
   return true;
 }
 function renderToolboxSettings() {
-  // W6：「MCP 运维」并进「集成与 MCP」之后，这一栏落在那一页的 #toolboxSettingsHost（迁移中心在它之后追加）。
+  // 2026-10 设置补全：#toolboxSettingsHost 搬进独立的「扩展组件」页签；没有组件时那一页显示空态句（#toolboxSettingsEmpty）。
   const host = $('toolboxSettingsHost') || $('stab-integrations');
   const view = (state.status && state.status.toolbox) || null;
   const components = (view && Array.isArray(view.components)) ? view.components : [];
+  { const empty = $('toolboxSettingsEmpty'); if (empty) empty.hidden = components.length > 0; }
   if (!host || !components.length) { if (toolboxSettingsBlock) { toolboxSettingsBlock.remove(); toolboxSettingsBlock = null; } return; }
   if (!toolboxSettingsBlock) { toolboxSettingsBlock = el('div', 'toolbox-settings'); host.appendChild(toolboxSettingsBlock); }
   toolboxSettingsBlock.textContent = '';
@@ -1317,7 +1321,7 @@ function renderToolboxSettings() {
     list.appendChild(row);
   }
   block.appendChild(list);
-  toolboxSettingsBlock.append(el('hr', 'settings-sep'), block);
+  toolboxSettingsBlock.append(block);
 }
 // 第一次见到某个已经接好的组件 → 说一句。记在 localStorage(每个浏览器说一次就够,不值得为它开一条服务端路由)。
 function announceNewToolboxComponents() {
@@ -1556,6 +1560,19 @@ const INSTANT_SETTINGS = Object.freeze([
   // 105f: 摘要单发上限;后端 sanitize 再钳 [8192,131072],UI 只出三档。
   { ids: ['cfgSummarySingleShotMax'], patch: () => ({ summarySingleShotMaxTokensV1: clampedInt('cfgSummarySingleShotMax', 32768, 8192, 131072) }) },
 ]);
+// 2026-10 设置补全：目录里每一项都是「改了就存」，与上面这张即存表同一个口径（saveConfigPartial 一处写盘、一处刷读面）。
+// 输入无效（数字框清空、非数字）→ 不写盘，直接按落盘值回显。存完重填一次：依赖项的置灰态、总是允许清单都跟着变。
+async function saveCatalogField(field, stored) {
+  if (stored === undefined) { refreshSettingsCatalog(); return false; }
+  const saved = await saveConfigPartial(catalogPatch(field, stored, state.config));
+  if (saved && field.key === 'theme') applyTheme(stored);
+  refreshSettingsCatalog();
+  return saved;
+}
+function refreshSettingsCatalog() {
+  mountSettingsCatalog({ t, onSave: saveCatalogField });
+  fillSettingsCatalog({ t, config: state.config || {}, onSave: saveCatalogField });
+}
 let instantSettingsBound = false;
 function bindInstantSettings() {
   if (instantSettingsBound) return;
@@ -1697,8 +1714,22 @@ function providerCard(p, idx) {
   // 对抗轮(critic B):重绘后恢复 open 状态;toggle 时写入记忆 Map(按 provider id)。
   if (providerCapOpen.get(p.id)) cap.open = true;
   cap.addEventListener('toggle', () => providerCapOpen.set(p.id, cap.open));
-  const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning; rc.onchange = () => { p.reasoning = rc.checked; };
+  const reason = el('label', 'check prov-reason'); const rc = el('input'); rc.type = 'checkbox'; rc.checked = !!p.reasoning;
   reason.appendChild(rc); reason.appendChild(document.createTextNode(' ' + t('provider.reasoning')));
+  // 2026-10 补字段：思考强度（providers[].reasoningEffort）。与线程头模型菜单里的那一个是同一个字段、同一组候选；
+  // 只有「支持思考」打开时才会被发出去 → 关着时置灰不隐藏（用户能看见它存在、知道先开哪个）。空 = 按模型默认、不发送。
+  const effortLbl = el('label', 'prov-cap-field prov-effort');
+  effortLbl.append(el('span', 'prov-cap-caption', t('provider.reasoningEffort')));
+  const effortSel = el('select', 'prov-effort-select');
+  for (const value of PROVIDER_REASONING_EFFORT_CHOICES) {
+    const o = el('option'); o.value = value; o.textContent = t(`provider.reasoningEffort.${value || 'default'}`); effortSel.appendChild(o);
+  }
+  effortSel.value = PROVIDER_REASONING_EFFORT_CHOICES.includes(p.reasoningEffort) ? p.reasoningEffort : '';
+  effortSel.onchange = () => { p.reasoningEffort = effortSel.value; };
+  effortLbl.append(effortSel, el('p', 'field-help muted prov-cap-hint', t('provider.reasoningEffort.hint')));
+  const syncEffortEnabled = () => { effortSel.disabled = !rc.checked; effortLbl.classList.toggle('is-disabled', !rc.checked); };
+  rc.onchange = () => { p.reasoning = rc.checked; syncEffortEnabled(); };
+  syncEffortEnabled();
   // v1.7: protocol 选择,选项由协议登记表生成(provider-api-styles.js;chat 缺省)。存 p.apiStyle;
   // 后端 sanitizeProvider 经 normalizeProviderApiStyle 归一。
   const styleLbl = el('label', 'check prov-style'); styleLbl.appendChild(document.createTextNode(' ' + t('provider.apiStyle') + ' '));
@@ -1725,6 +1756,7 @@ function providerCard(p, idx) {
     if (sc.value !== PROVIDER_API_STYLE_DEFAULT) p.apiStyle = sc.value; else delete p.apiStyle;
     if (!providerApiStyleMeta(sc.value).serverWebSearch) delete p.serverWebSearch;
     syncServerSearchVisibility();
+    syncAnthropicVisibility();
   };
   styleLbl.appendChild(sc);
   // 对抗轮(P2-2):协议选择下的帮助文字(解释 Responses API 适用场景 + 其它服务商无 /v1/responses 的警告),
@@ -1754,8 +1786,49 @@ function providerCard(p, idx) {
   asrLbl.appendChild(ac);
   const asrHint = el('p', 'field-help muted prov-asr-protocol-hint'); asrHint.textContent = t('provider.asrProtocol.hint');
   asrLbl.appendChild(asrHint);
-  cap.append(reason, visionLbl, styleLbl, serverSearchLbl, asrLbl);
+  // 2026-10 补字段：语音转写端点 / 子代理模型（所有协议都有）。草稿写法同卡片里别的字段：就地改 p，空值不写成空串
+  // （audioBaseUrl 服务端空不落字段，这里空就 delete；subagentModel 服务端缺省就是 ''，与 p.model 同款直接赋值）。
+  const audioLbl = el('label', 'prov-cap-field prov-audio-base');
+  audioLbl.append(el('span', 'prov-cap-caption', t('provider.audioBaseUrl')));
+  const audioIn = el('input'); audioIn.type = 'text'; audioIn.value = p.audioBaseUrl || ''; audioIn.placeholder = t('provider.audioBaseUrl.placeholder');
+  audioIn.oninput = () => { const v = audioIn.value.trim(); if (v) p.audioBaseUrl = v; else delete p.audioBaseUrl; };
+  audioLbl.append(audioIn, el('p', 'field-help muted prov-cap-hint', t('provider.audioBaseUrl.hint')));
+  const subLbl = el('label', 'prov-cap-field prov-subagent-model');
+  subLbl.append(el('span', 'prov-cap-caption', t('provider.subagentModel')));
+  const subSel = el('select', 'prov-subagent-select');
+  bindModelSelect(subSel, { provider: () => p, value: p.subagentModel || '', emptyLabel: () => t('provider.subagentModel.follow') });
+  subSel.onchange = () => { p.subagentModel = subSel.value; };
+  subLbl.append(subSel, el('p', 'field-help muted prov-cap-hint', t('provider.subagentModel.hint')));
+  const extraGrid = el('div', 'prov-cap-grid'); extraGrid.append(audioLbl, subLbl);
+
+  // 2026-10 补字段：Anthropic 协议专属三项（认证方式 / 思考方式 / 拒答自动改派）。是否显示只问协议登记表的 anthropicOptions 能力位。
+  // 与「服务端搜索」同口径：切协议只改显隐，不删已存的值。空 = 缺省、不落字段（存量 config 零漂移）。
+  const anthropicBox = el('div', 'prov-cap-grid prov-anthropic-opts');
+  anthropicBox.append(el('div', 'prov-cap-subhead', t('provider.anthropic.title')));
+  const choiceField = (cls, captionKey, hintKey, choices, labelKeyOf, field) => {
+    const lbl = el('label', 'prov-cap-field ' + cls); lbl.append(el('span', 'prov-cap-caption', t(captionKey)));
+    const sel = el('select');
+    for (const value of choices) { const o = el('option'); o.value = value; o.textContent = t(labelKeyOf(value)); sel.appendChild(o); }
+    sel.value = choices.includes(p[field]) ? p[field] : '';
+    sel.onchange = () => { if (sel.value) p[field] = sel.value; else delete p[field]; };
+    lbl.append(sel, el('p', 'field-help muted prov-cap-hint', t(hintKey)));
+    return lbl;
+  };
+  anthropicBox.append(
+    choiceField('prov-anthropic-auth', 'provider.anthropicAuth', 'provider.anthropicAuth.hint', ANTHROPIC_AUTH_CHOICES,
+      v => ({ '': 'provider.anthropicAuth.auto', 'x-api-key': 'provider.anthropicAuth.xApiKey', bearer: 'provider.anthropicAuth.bearer' })[v], 'anthropicAuth'),
+    choiceField('prov-anthropic-thinking', 'provider.anthropicThinking', 'provider.anthropicThinking.hint', ANTHROPIC_THINKING_CHOICES,
+      v => ({ '': 'provider.anthropicThinking.auto', adaptive: 'provider.anthropicThinking.adaptive', off: 'provider.anthropicThinking.off' })[v], 'anthropicThinking'));
+  const fbLbl = el('label', 'check prov-cap-field prov-anthropic-fallbacks');
+  const fbc = el('input'); fbc.type = 'checkbox'; fbc.checked = p.anthropicFallbacks !== 'off';
+  fbc.onchange = () => { if (fbc.checked) delete p.anthropicFallbacks; else p.anthropicFallbacks = 'off'; };
+  fbLbl.append(fbc, document.createTextNode(' ' + t('provider.anthropicFallbacks')), el('p', 'field-help muted prov-cap-hint', t('provider.anthropicFallbacks.hint')));
+  anthropicBox.append(fbLbl);
+  const syncAnthropicVisibility = () => { anthropicBox.style.display = providerApiStyleMeta(sc.value).anthropicOptions ? '' : 'none'; };
+
+  cap.append(reason, effortLbl, visionLbl, styleLbl, serverSearchLbl, asrLbl, extraGrid, anthropicBox);
   syncServerSearchVisibility();
+  syncAnthropicVisibility();
 
   const b2 = el('div', 'field-block'); b2.append(el('label', '', 'Base URL'));
   const bi = el('input'); bi.type = 'text'; bi.value = p.baseUrl || ''; bi.placeholder = 'https://api.deepseek.com'; bi.oninput = () => { p.baseUrl = bi.value.trim(); }; b2.append(bi);
@@ -2282,6 +2355,7 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
     renderStatusLine,
     saveConfigPartial,
     saveSettings,
+    saveTemplates,   // 设置页「技能与模板」改名/删除模板写回 wcw.templates 走这一个口
     updateEngineDependentUI,
     updateSearchBackendVisibility,
     focusAsrSettings,   // 128f-⑭：输入框里那枚待开启的麦克风被点时，组合根把人带到语音识别那一栏

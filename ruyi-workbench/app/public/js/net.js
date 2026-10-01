@@ -58,8 +58,29 @@ function invalidTokenResponse(status, body) {
 // res.json()、不对非 2xx 抛错)，供需要读状态码/响应头的调用方自己判断(例如 steward-board.js
 // 靠 304 + etag 省一次重画)。非 ok 且不满足重放条件时，返回的 Response 的 body 仍可安全读取一次
 // (内部用 clone() 探测 token 失效，不会消费掉原始 body 流)。
+// 2026-10（用户：「提问回答有时候会显示 Failed to fetch」）：网络层失败（fetch 抛 TypeError，不是 HTTP 状态码）时，
+// 只读请求（GET/HEAD）隔 300ms 重发一次 —— 后台进程重启、本机代理抖一下这一类瞬断，用户不该看见。
+// 写请求不盲重发：/api/chat/answer 之类第一发可能已经送达，重发会撞 409（question.not_pending），交给调用方按人话报。
+export const NETWORK_RETRY_DELAY_MS = 300;
+export function isNetworkError(e) {
+  if (!e || e.name === 'AbortError') return false;
+  const text = String((e && e.message) || e || '');
+  return (e instanceof TypeError || e.name === 'TypeError') && /failed to fetch|networkerror|network error|load failed|err_connection/i.test(text);
+}
+function retryableMethod(options) {
+  const method = String((options && options.method) || 'GET').toUpperCase();
+  return method === 'GET' || method === 'HEAD';
+}
 export async function apiRaw(path, options = {}) {
-  const request = () => fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+  const once = () => fetch(path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+  const request = async () => {
+    try { return await once(); }
+    catch (e) {
+      if (!isNetworkError(e) || !retryableMethod(options) || (options.signal && options.signal.aborted)) throw e;
+      await new Promise(resolve => setTimeout(resolve, NETWORK_RETRY_DELAY_MS));
+      return once();
+    }
+  };
   let res = await request();
   if (!res.ok) {
     const body = await res.clone().text();
@@ -132,7 +153,13 @@ export function resetConditionalApiCache() { conditionalCache.clear(); }
 // The server P2 error contract is additive during migration:
 // { ok:false, error:{ code, params, message? } }. Older routes still send error as a string.
 // Normalize both shapes so callers can localize stable codes while retaining an actionable fallback.
+// 网络层失败的人话。net.js 不 import i18n（本模块零依赖），组合根启动时用 setNetworkErrorMessage 注入翻译过的那句；
+// 没注入（单测、早期启动故障）时用下面的中文兜底，总之不再把浏览器原生的英文「Failed to fetch」端给用户。
+export const NETWORK_ERROR_CODE = 'net.disconnected';
+let networkErrorMessage = () => '与后台服务的连接断了（服务可能刚退出或正在重启），请稍候再试；一直这样就重启如意。';
+export function setNetworkErrorMessage(fn) { if (typeof fn === 'function') networkErrorMessage = fn; }
 export function apiErrorInfo(e) {
+  if (isNetworkError(e)) return { code: NETWORK_ERROR_CODE, params: {}, message: String(networkErrorMessage() || '') };
   // Business-level failures often arrive as an already-parsed JSON response ({ok:false,error:{...}})
   // instead of an Error thrown for a non-2xx response. Accept that direct structured shape too; otherwise
   // callers interpolating apiErrText(result.error) would see "[object Object]".

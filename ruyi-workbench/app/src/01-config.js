@@ -410,7 +410,9 @@ function defaultConfig() {
     // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 把用户的话递给对的线程是管家的
     // 本职,默认只提议等于每句话都多问一遍。answer(代答)仍默认关:那是唯一【替用户说话】的一格(129g)。
     // 不迁移存量:config.json 里已显式落 relay:false 的老用户原样保留(与 117m-A1 同一条纪律)。
-    stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false },
+    // continueUnfinished(用户 2026-10「像这种情况,管家要能自主让线程恢复啊」):回合正常收了、但任务没做完
+    // (「上次任务未完成」横幅同一判据 / 计划还有没勾完的步骤)时,管家自己给线程续一轮;默认开,有上限(13m)。
+    stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false, continueUnfinished: true },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
     stewardContextBudgetTokens: 200000,
     // 136(同上「上下文太紧」):预算的几成触发 L2 压缩,clamp [0.3,0.95],非法回默认 0.6。
@@ -1381,7 +1383,7 @@ function normalizeConfig(raw, opts = {}) {
   // 修前它搭在 relay 上:用户勾「事项内自动交接」是要让上一条线程的结论流到下一条,顺带却把
   // 「替我回答」也给了出去。一格两权,用户按的时候看不出第二个。
   {
-    const DEF_AA = { retry: true, resume: null, relay: true, newThread: true, answer: false };   // 136:relay 默认开,与默认表同值(两处必须同值,否则缺省与填垃圾落到不同行为)
+    const DEF_AA = { retry: true, resume: null, relay: true, newThread: true, answer: false, continueUnfinished: true };   // 136:relay 默认开,与默认表同值(两处必须同值,否则缺省与填垃圾落到不同行为)
     const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
     const aa = raw0 ? {
       retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
@@ -1389,6 +1391,7 @@ function normalizeConfig(raw, opts = {}) {
       relay: typeof raw0.relay === 'boolean' ? raw0.relay : DEF_AA.relay,
       newThread: typeof raw0.newThread === 'boolean' ? raw0.newThread : DEF_AA.newThread,
       answer: typeof raw0.answer === 'boolean' ? raw0.answer : DEF_AA.answer,
+      continueUnfinished: typeof raw0.continueUnfinished === 'boolean' ? raw0.continueUnfinished : DEF_AA.continueUnfinished,
     } : { ...DEF_AA };
     if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
     else config.stewardAutoActions = aa;

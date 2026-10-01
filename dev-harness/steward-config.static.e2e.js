@@ -55,8 +55,10 @@ ok(/stewardMaxCostPerDay:\s*1,/.test(configSrc), '默认值: stewardMaxCostPerDa
 // 把「替我回答线程的提问」也给出去(一格两权,用户按的时候看不见第二个)。
 // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 递话是管家本职,默认只提议
 // 等于每句话都多问一遍。answer 仍默认关。不迁移存量(117m-A1 同一条纪律:显式落过 false 的原样保留)。
-ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*true,\s*newThread:\s*true,\s*answer:\s*false\s*\},/.test(configSrc),
-  "默认值: stewardAutoActions={retry:true,resume:null,relay:true,newThread:true,answer:false}(136:relay 翻默认)");
+// 第六格 continueUnfinished(2026-10「像这种情况,管家要能自主让线程恢复啊」):回合收了但任务没做完就自己续一轮,**默认开**
+// (有上限、记流水、受每小时回合数与日费用约束,见 13m 的 STEWARD_CONTINUE_*);关掉就退回只提议。
+ok(/stewardAutoActions:\s*\{\s*retry:\s*true,\s*resume:\s*null,\s*relay:\s*true,\s*newThread:\s*true,\s*answer:\s*false,\s*continueUnfinished:\s*true\s*\},/.test(configSrc),
+  "默认值: stewardAutoActions={retry:true,resume:null,relay:true,newThread:true,answer:false,continueUnfinished:true}(136:relay 翻默认;continueUnfinished 默认开)");
 ok(/stewardContextBudgetTokens:\s*200000,/.test(configSrc), '默认值: stewardContextBudgetTokens=200000');
 // 136:触发线系数(0.6)与人设两键(空串)的默认值字面量。
 ok(/stewardContextBudgetRatio:\s*0\.6,/.test(configSrc), '默认值: stewardContextBudgetRatio=0.6(136 新增)');
@@ -112,6 +114,8 @@ ok(/typeof raw0\.newThread === 'boolean' \? raw0\.newThread : DEF_AA\.newThread/
   'sanitize: stewardAutoActions.newThread 严格布尔回该键默认');
 ok(/typeof raw0\.answer === 'boolean' \? raw0\.answer : DEF_AA\.answer/.test(configSrc),
   'sanitize: stewardAutoActions.answer 严格布尔回该键默认');
+ok(/typeof raw0\.continueUnfinished === 'boolean' \? raw0\.continueUnfinished : DEF_AA\.continueUnfinished/.test(configSrc),
+  'sanitize: stewardAutoActions.continueUnfinished 严格布尔回该键默认');
 
 // 136:人设两键的归一 —— trim + 上限截断(20/200),非字符串先 String()。
 ok(/String\(config\.stewardPersonaName \|\| ''\)\.trim\(\)\.slice\(0, 20\)/.test(configSrc),
@@ -128,7 +132,7 @@ ok(/String\(config\.stewardPersonaStyle \|\| ''\)\.trim\(\)\.slice\(0, 200\)/.te
   const m = configSrc.match(/const DEF_AA = \{([^}]*)\}/);
   ok(Boolean(m), '129g-lock0 扫得到 DEF_AA(扫不到 = 本条静默失效)');
   const keys = m ? [...m[1].matchAll(/(\w+):/g)].map(x => x[1]) : [];
-  ok(keys.length === 5, `129g-lock1 自理清单当前 5 格(实得 ${keys.length}: ${keys.join('/')})`);
+  ok(keys.length === 6, `129g-lock1 自理清单当前 6 格(实得 ${keys.length}: ${keys.join('/')})`);
   const settingsSrc = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'public', 'js', 'steward-settings.js'), 'utf8');
   const patchAt = settingsSrc.indexOf('const autoPatch = ()');
   const patch = patchAt < 0 ? '' : settingsSrc.slice(patchAt, patchAt + 1400);
@@ -192,7 +196,7 @@ const dirty = {
   stewardPollMs: 1,                   // 越界低 -> clamp 到 5000(注:1 非法? 是有限数,故 clamp 而非回默认)
   stewardMaxTurnsPerHour: -5,         // 越界低 -> clamp 到 1
   stewardMaxCostPerDay: 'free',       // 非数字 -> 回默认 1
-  stewardAutoActions: { retry: 'yes', resume: 'sometimes', relay: 1, newThread: false, extraJunkKey: 'drop-me' },
+  stewardAutoActions: { retry: 'yes', resume: 'sometimes', relay: 1, newThread: false, continueUnfinished: 'maybe', extraJunkKey: 'drop-me' },
   stewardContextBudgetTokens: 999999999, // 越界高 -> clamp 到 2000000
   stewardContextBudgetRatio: 99,         // 越界高 -> clamp 到 0.95(136)
   stewardPersonaName: 'x'.repeat(30),    // 超长 -> 截断到 20 字(136)
@@ -214,7 +218,8 @@ ok(c1.stewardPollMs === 5000, 'stewardPollMs=1 clamp 到下限 5000');
 ok(c1.stewardMaxTurnsPerHour === 1, 'stewardMaxTurnsPerHour=-5 clamp 到下限 1');
 ok(c1.stewardMaxCostPerDay === 1, "非法 stewardMaxCostPerDay='free' 回默认 1");
 ok(c1.stewardAutoActions.retry === true && c1.stewardAutoActions.resume === null && c1.stewardAutoActions.relay === true
-  && c1.stewardAutoActions.newThread === false && !('extraJunkKey' in c1.stewardAutoActions),
+  && c1.stewardAutoActions.newThread === false && !('extraJunkKey' in c1.stewardAutoActions)
+  && c1.stewardAutoActions.continueUnfinished === true,   // 非布尔回默认(开)
   'stewardAutoActions:非布尔回默认(136 起 relay 默认 true)、resume 非三态回 null、未知键丢弃、合法布尔 false 被尊重');
 ok(c1.stewardContextBudgetTokens === 2000000, 'stewardContextBudgetTokens 越界高 clamp 到 2000000');
 ok(c1.stewardContextBudgetRatio === 0.95, 'stewardContextBudgetRatio=99 越界高 clamp 到 0.95(136)');

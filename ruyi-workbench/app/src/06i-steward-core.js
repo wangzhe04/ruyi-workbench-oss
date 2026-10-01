@@ -1580,7 +1580,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['browserAutomation', '浏览器自动化目标:system / 指定可执行文件 / CDP 地址', 'Browser automation target: system / executable / CDP URL'],
   ['permissionMode', '新线程默认权限:default / acceptEdits / plan / bypass / auto', 'Default permission for new threads: default / acceptEdits / plan / bypass / auto'],
   ['stewardEnabledV1', '管家总开关', 'Steward master switch'],
-  ['stewardAutoActions', '管家可以自己做的事:重试／续跑／递话／开线程／代答', 'Things the steward may do on its own: retry / resume / relay / newThread / answer'],
+  ['stewardAutoActions', '管家可以自己做的事:重试／续跑／递话／开线程／代答／没做完就续一轮', 'Things the steward may do on its own: retry / resume / relay / newThread / answer / continueUnfinished'],
   ['stewardThreadBriefV1', '自动给每条新线程起名与一句概括(每条花一次钱)', 'Auto-name each new thread with a one-line gist (costs one call each)'],
   ['asrProviderId', '整段语音识别用哪个端点', 'Endpoint for full-clip speech recognition'],
   ['asrModel', '整段语音识别用哪个模型', 'Model for full-clip speech recognition'],

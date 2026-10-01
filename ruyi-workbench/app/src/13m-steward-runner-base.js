@@ -84,6 +84,17 @@ const STEWARD_USER_QUEUE_WAIT_MS = 5 * 60 * 1000;
 const STEWARD_SELF_SERVE_ATTEMPT_MAX = 2;    // 同一目标连续 2 次自理动作后仍失败 -> 停自动、只提议
 const STEWARD_SELF_SERVE_RETRY_WINDOW_MS = 60 * 60 * 1000; // 同一目标本小时只自动重试一次
 const STEWARD_SELF_SERVE_PER_TURN_MAX = 3;   // 一个收件箱回合最多自理 3 个目标(其余进回合层)
+// ── 「回合收了但任务没做完」的自动续跑(stewardAutoActions.continueUnfinished)的上限 ─────────────────
+// 防死循环烧钱,两道,都按【同一条线程连续自动续跑】数,线程自己正常收工(不再未完成)就清零:
+//   · 有计划(todo)的线程:最多连续续 STEWARD_CONTINUE_PLAN_MAX 次,且【每一次续跑之后计划都要往前走】
+//     (已完成步数增加)—— 续了一轮计划纹丝不动就停,不再续;
+//   · 没有计划、只靠「上次任务未完成」横幅判据(回合被工具次数/预算截断)的线程:没有进度可量,
+//     只续 STEWARD_CONTINUE_NOPLAN_MAX 次。
+// 超过上限的那一次不是静默放弃:降级成一条提议按钮,并落一行行动流水(见 stewardContinueUnfinishedGate)。
+const STEWARD_CONTINUE_PLAN_MAX = 5;
+const STEWARD_CONTINUE_NOPLAN_MAX = 2;
+const STEWARD_CONTINUE_FRESH_MS = 6 * 60 * 60 * 1000;   // 上次自动续跑过去这么久,再遇到没做完就当全新的一次,账从 0 数
+const STEWARD_CONTINUE_PROMPT = '请继续完成上一个未完成的任务。';   // 与前端「继续」横幅发的那一句同文(chat.resume.prompt)
 
 // ── 到访摘要的五类人话(确定性归纳,不调模型;§8.9「每次打开只汇报」)──────────────────────────
 const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
@@ -206,6 +217,10 @@ const stewardRunnerRuntime = {
   // 116-2b:自理动作的每目标账。targetKey = sessionId|runId。只在内存(进程重启 = 重新开始数;
   // 与 §11.1 第 7 项「重启即新到访」同一立场:重启后第一次仍值得试一次,连着失败才该停手)。
   selfServe: new Map(),  // targetKey -> { attempts, lastRetryAt, lastActionAt }
+  // 「没做完就续一轮」的每线程账:sessionId -> { count, doneAt, turnSeq, at }。count = 连续自动续跑次数;
+  // doneAt = 上次续跑那一刻计划已完成的步数(下一次到访拿它判「计划有没有往前走」);turnSeq = 续跑前的回合号。
+  // 只在内存,与上面 selfServe 同一立场(重启即重新数)。线程恢复正常收工时删除该条。
+  continueUnfinished: new Map(),
 };
 
 function stewardStopRunner() {

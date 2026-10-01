@@ -1970,6 +1970,9 @@ function normalizeAgentRole(raw, opts = {}) {
   return role;
 }
 function mergeAgentRole(base, override, source) {
+  // 空颜色不覆盖底座的颜色:设置页以前存角色时不带 color,normalizeAgentRole 把缺失收成 '',落进 agentRoleOverrides 后
+  // {...base, ...override} 就用 '' 把内置角色的颜色抹掉(工作流画布上的角色胶囊与左色条随之变灰)。老配置里已存的 color:'' 也靠这一条自愈。
+  if (override && !String(override.color || '').trim() && base && base.builtin && String(base.color || '').trim()) override = { ...override, color: base.color };
   const merged = normalizeAgentRole({ ...base, ...override, models: { ...(base.models || {}), ...(override.models || {}) }, budgets: { ...(base.budgets || {}), ...(override.budgets || {}) } }, { source: source || override.source || base.source, builtin: !!base.builtin });
   if (merged && base.builtin) merged.builtin = true;
   return merged;
@@ -2456,7 +2459,9 @@ function defaultConfig() {
     // 136(用户 2026-09-23「管家不够省心」):relay 默认 false → true —— 把用户的话递给对的线程是管家的
     // 本职,默认只提议等于每句话都多问一遍。answer(代答)仍默认关:那是唯一【替用户说话】的一格(129g)。
     // 不迁移存量:config.json 里已显式落 relay:false 的老用户原样保留(与 117m-A1 同一条纪律)。
-    stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false },
+    // continueUnfinished(用户 2026-10「像这种情况,管家要能自主让线程恢复啊」):回合正常收了、但任务没做完
+    // (「上次任务未完成」横幅同一判据 / 计划还有没勾完的步骤)时,管家自己给线程续一轮;默认开,有上限(13m)。
+    stewardAutoActions: { retry: true, resume: null, relay: true, newThread: true, answer: false, continueUnfinished: true },
     // 第 116 波 116a(27 号文 §11.3):一次到访内管家上下文预算(token),clamp [16000,2000000]。
     stewardContextBudgetTokens: 200000,
     // 136(同上「上下文太紧」):预算的几成触发 L2 压缩,clamp [0.3,0.95],非法回默认 0.6。
@@ -3427,7 +3432,7 @@ function normalizeConfig(raw, opts = {}) {
   // 修前它搭在 relay 上:用户勾「事项内自动交接」是要让上一条线程的结论流到下一条,顺带却把
   // 「替我回答」也给了出去。一格两权,用户按的时候看不出第二个。
   {
-    const DEF_AA = { retry: true, resume: null, relay: true, newThread: true, answer: false };   // 136:relay 默认开,与默认表同值(两处必须同值,否则缺省与填垃圾落到不同行为)
+    const DEF_AA = { retry: true, resume: null, relay: true, newThread: true, answer: false, continueUnfinished: true };   // 136:relay 默认开,与默认表同值(两处必须同值,否则缺省与填垃圾落到不同行为)
     const raw0 = (config.stewardAutoActions && typeof config.stewardAutoActions === 'object' && !Array.isArray(config.stewardAutoActions)) ? config.stewardAutoActions : null;
     const aa = raw0 ? {
       retry: typeof raw0.retry === 'boolean' ? raw0.retry : DEF_AA.retry,
@@ -3435,6 +3440,7 @@ function normalizeConfig(raw, opts = {}) {
       relay: typeof raw0.relay === 'boolean' ? raw0.relay : DEF_AA.relay,
       newThread: typeof raw0.newThread === 'boolean' ? raw0.newThread : DEF_AA.newThread,
       answer: typeof raw0.answer === 'boolean' ? raw0.answer : DEF_AA.answer,
+      continueUnfinished: typeof raw0.continueUnfinished === 'boolean' ? raw0.continueUnfinished : DEF_AA.continueUnfinished,
     } : { ...DEF_AA };
     if (JSON.stringify(aa) !== JSON.stringify(config.stewardAutoActions)) { config.stewardAutoActions = aa; changed = true; }
     else config.stewardAutoActions = aa;
@@ -7633,6 +7639,15 @@ async function listSessions() {
   return sortSessionMetas(rebuilt.map(sessionMeta).filter(meta => !sessionMetaIsSteward(meta))); // 116f: 同上,只滤返回值
 }
 
+// 计划条(session.todos)的指纹:管家「没做完就续」只认【这一回合里动过的】计划(13p stewardContinueUnfinishedGate)——
+// 回合开头记一笔、收尾写进 stewardLastTurn.todosStartSig,与收尾时的现值不同才算这一回合在推进这份计划。
+// 早就搁下、用户已经换了话题的旧计划不该让每个新回合都被当成「没做完」。
+function sessionTodosSignature(todos) {
+  const items = (Array.isArray(todos) ? todos : []).filter(t => t && typeof t === 'object')
+    .map(t => [String(t.content || t.title || t.text || ''), String(t.status || '')]);
+  return crypto.createHash('sha1').update(JSON.stringify(items)).digest('hex').slice(0, 16);
+}
+
 // 116-2a: patch 的应用规则单列一处 —— 立即落盘路径与「延后到回合 settle 之后」的重做路径必须逐字
 // 一致(重做时是在一份【重新装载的新副本】上再应用一次同一个 patch)。
 function applySessionMetaPatch(session, patch) {
@@ -7735,7 +7750,11 @@ function applySessionMetaPatch(session, patch) {
   // 写 false 对管家自己开的线程同样生效(= 用户接手,别再盯了)。
   if (patch.stewardWatch === true) session.stewardWatch = true;
   else if (patch.stewardWatch === false) session.stewardWatch = false;
-  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)) {
+  // 成败账只进不退:turnSeq 单调(rewind 也不回退它),两笔写入乱序落盘时(10 的收尾写与 13k/13s 的写不在一条链上)
+  // 旧回合那笔不能盖掉新回合那笔;同号允许覆盖(同一回合的后写者带的是更完整的那份)。
+  const prevLastTurnSeq = session.stewardLastTurn && typeof session.stewardLastTurn === 'object' ? Number(session.stewardLastTurn.seq) : NaN;
+  if (patch.stewardLastTurn && typeof patch.stewardLastTurn === 'object' && !Array.isArray(patch.stewardLastTurn)
+      && !(Number.isFinite(prevLastTurnSeq) && Number(patch.stewardLastTurn.seq) < prevLastTurnSeq)) {
     const t = patch.stewardLastTurn;
     const seq = Number(t.seq);
     session.stewardLastTurn = {
@@ -7744,6 +7763,7 @@ function applySessionMetaPatch(session, patch) {
       aborted: t.aborted === true,
       errorClass: String(t.errorClass || '').slice(0, 64),
       at: String(t.at || ''),
+      todosStartSig: String(t.todosStartSig || '').slice(0, 64),
     };
   }
   // 116-5a(27 号文 §11.8「线程自动摘要」):线程的名字与一句概括。严格归一成固定六字段,与
@@ -10616,23 +10636,52 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
+    // 上一轮因为【受保护会话自己就超限】而没能清到线下:在冷却期内别每次写都再全量扫一遍(那是 O(全部检查点文件),且清不动)。
+    if (Date.now() < journalSweepBackoffUntil) return;
     // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
     // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
     // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
     // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
     // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
     const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
-    if (overBudget) await journalGlobalSweepOnce();
-    else void journalGlobalSweepOnce();
+    // 触发这次清扫的会话就是此刻正在写快照 / 检查点的那一条 —— 清扫不许把它自己的目录当「最旧」清掉(见 journalGlobalSweep)。
+    if (overBudget) await journalGlobalSweepOnce(sessionId);
+    else void journalGlobalSweepOnce(sessionId);
   } catch { /* silent */ }
 }
 
 let journalSweepInFlight = null;
-function journalGlobalSweepOnce() {
+// 清扫期间「别动」的会话(触发它的写者,含单飞期间并进来的后到写者)。清扫在每次 rm 之前现查这张表;清扫结束即清空,
+// 所以它只管【这一轮】,不会让陈旧条目长期免疫(上限仍然有效,见 e2e checkpoint-gc-cache ②/④)。
+const journalSweepProtect = new Set();
+let journalSweepBackoffUntil = 0;          // 受保护会话自己超限、清不到线下时的冷却截止时刻(见 journalGlobalSweep 末尾)
+const JOURNAL_SWEEP_BACKOFF_MS = 30 * 1000;
+function journalGlobalSweepOnce(protectSessionId) {
+  if (protectSessionId) journalSweepProtect.add(String(protectSessionId));
   if (!journalSweepInFlight) {
-    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; journalSweepProtect.clear(); });
   }
   return journalSweepInFlight;
+}
+// 受保护会话在整仓仍超上限时,最多再清掉它自己最旧的历史快照(history-*.json.gz),但永远保留最近这么几份:
+// 刚写下、模型视图里 rawRef 正指着的快照不能被「瘦身」清掉。检查点原件(<回合>-<序号>.gz,回滚用)一份都不动。
+const JOURNAL_KEEP_HISTORY_SNAPSHOTS = 4;
+async function journalTrimProtectedSnapshots(dir, bytesToFree) {
+  let freed = 0;
+  const ents = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const rows = [];
+  for (const ent of ents) {
+    if (!ent.isFile() || !/^history-\d+(?:-[a-f0-9]{16})?\.json\.gz$/.test(ent.name)) continue;
+    const st = await fsp.stat(path.join(dir, ent.name)).catch(() => null);
+    if (st) rows.push({ name: ent.name, size: st.size, mtime: st.mtimeMs });
+  }
+  rows.sort((a, b) => a.mtime - b.mtime); // 最旧在前
+  const removable = rows.slice(0, Math.max(0, rows.length - JOURNAL_KEEP_HISTORY_SNAPSHOTS));
+  for (const r of removable) {
+    if (freed >= bytesToFree) break;
+    await fsp.unlink(path.join(dir, r.name)).then(() => { freed += r.size; }).catch(() => {});
+  }
+  return freed;
 }
 async function journalGlobalSweep() {
   journalGcProbe.fullScans++;
@@ -10657,11 +10706,32 @@ async function journalGlobalSweep() {
     }
     if (total > JOURNAL_GLOBAL_MAX_BYTES) {
       dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      // 修前这里谁最旧清谁,连【正在写快照的那一条会话】自己也在内:一条会话自己的检查点树超过上限(1M 窗口模型每次压缩都写一份
+      // 带内容哈希的整史快照,几十份就是上百 MB),清扫把它整个目录删光 —— 刚返回给上下文压缩的 rawRef 立刻 ENOENT,
+      // observation_recall 回 `observation recall failed: ENOENT`,连它的文件回滚点也一并消失。现在:触发清扫的写者与有活回合的会话
+      // 不整目录清;其余照旧最旧优先。仍超限时只削受保护会话自己最旧的历史快照(见 journalTrimProtectedSnapshots)。
+      const isProtected = d => { const name = path.basename(d.p); return journalSweepProtect.has(name) || activeChildren.has(name); };
       for (const d of dirs) {
         if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        if (isProtected(d)) continue;
         await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
         total -= d.size;
       }
+      let trimmedBytes = 0;
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        for (const d of dirs) {
+          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+          if (!isProtected(d)) continue;
+          const freed = await journalTrimProtectedSnapshots(d.p, total - JOURNAL_GLOBAL_MAX_BYTES);
+          total -= freed; trimmedBytes += freed;
+        }
+      }
+      // 受保护会话自己仍超限:宁可暂时超上限(下一次它不再是写者时照常按最旧优先清),也不删正在用的回滚点与最近快照。
+      // 这一轮一点都削不动(只剩保留份额内的快照 / 回滚点)才进冷却,否则每次写都白扫一遍全仓。
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        if (trimmedBytes === 0) journalSweepBackoffUntil = Date.now() + JOURNAL_SWEEP_BACKOFF_MS;
+        logEvent({ kind: 'journal_cap_exceeded_protected', totalBytes: total, capBytes: JOURNAL_GLOBAL_MAX_BYTES });
+      } else journalSweepBackoffUntil = 0;
     }
     // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
     // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
@@ -13071,6 +13141,11 @@ function installActiveChildEventFanout(reg) {
 // 若只看 activeChildren 就会在这个窗口截断落盘,然后被 dying turn 的收尾 save 整份盖回(丢失写:
 // 「回溯了但消息又回来」)。rewindSession 先等本表 settle 再截断,顺序由此确定。
 const turnSettlers = new Map();
+// 「回合成败账」正在落盘的会话(10 runSessionTurn 收尾)。turnSettlers 在回合 saveSession 之后就删了,而成败账
+// (会话头 stewardLastTurn)是紧跟着再写的 —— 这中间的几毫秒里收件箱第四源读到头会看见「回合跑完、没有成败账」
+// 并按「账缺席 = done」报,于是一个失败回合被报成收工(2026-10 真机:network_down 失败回合被管家说成「已收工」)。
+// 收件箱收集(13i)把本表与活回合同等对待:在表里就等下一拍。只活在内存。
+const turnOutcomePending = new Set();
 // --- Pending tool-permission prompts awaiting a UI decision (v3 bridge). ---
 const pendingPermissions = new Map(); // requestId -> { resolve, sessionId, timer, deadlineAt }
 
@@ -17635,6 +17710,11 @@ function decodeResponsesCompletion(j) {
 // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
 function createResponsesStreamDecoder({ onEvent, markUsage }) {
   let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '', emitted = false;
+  // 「服务端搜索已在本次回复内跑完并接着作答」的判据:web_search_call 项出现之后又到了正文(DashScope / OpenAI 的 hosted web_search
+  // 就是这个形状:搜索与作答在同一个 response 里,结果只在模型这一发里用掉,不会再恢复给下一发)。DeepSeek 的形状是搜索项之后
+  // 回复就结束、正文要等回传搜索项的下一发才来 —— 不满足这个判据,仍走回传。判据由调用方(09 / 08 的工具循环)消费:成立时
+  // 这一发的正文就是最终回答,不再把搜索项回传、也不再为它多请求一轮。
+  let serverCallSeen = false, textAfterServerCall = false;
   // 用量只记最后一份、finish() 报一次(同 chat:中途事件自带的 usage 与终止事件的 usage 是同一次调用的累计值,
   // 逐个 markUsage 会重复计费);incomplete / failed 的回体也带 usage,照样要记(截断的那一发同样花了钱)。
   let lastUsage = null;
@@ -17669,6 +17749,7 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         let s = slots.find(x => x.id === id);
         if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
         curSlot = s;
+        serverCallSeen = true;
         return false;
       }
       if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
@@ -17682,14 +17763,22 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
           //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
           //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
           // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
+          // 百炼 / OpenAI 官方形状另有两样:单数 `action.query`(字符串),与 `action.sources`([{type:'url',url}])—— 修前只认
+          // queries / url,于是这类端点的卡片永远是占位词「服务端搜索」,命中的来源也一条看不见。
           const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
           let q = '';
+          let sources = [];
           if (action) {
             if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
+            else if (typeof action.query === 'string') q = action.query;
             else if (typeof action.url === 'string') q = action.url;
+            if (Array.isArray(action.sources)) {
+              sources = action.sources.map(x => (typeof x === 'string' ? x : (x && typeof x.url === 'string' ? x.url : ''))).filter(Boolean).slice(0, 20);
+            }
           }
-          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
+          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q, ...(sources.length ? { sources } : {}) });
         }
+        serverCallSeen = true;
         return false;
       }
       if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
@@ -17723,7 +17812,9 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
       }
       if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta });
+        if (serverCallSeen) textAfterServerCall = true;
+        return false;
       }
       if (t === 'response.completed') {
         // Final event: the full response object (with usage) rides on the event.
@@ -17766,9 +17857,21 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
       // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
       if (responsesFailedError) return { text: outText, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
-      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId };
+      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId, ...(textAfterServerCall && outText.trim() ? { serverSearchInline: true } : {}) };
     },
   };
+}
+
+// 服务端 web_search_call 在工具卡上怎么显示(09 主回合与 08 子代理共用一份):query 取解析出的检索词(没有才退到占位词),
+// 有来源就带上 sources;resultObj 是给界面看的「无需本地执行」结果,不进模型历史。
+function providerServerSearchCard(stc) {
+  let wsArgs = {}; try { wsArgs = JSON.parse((stc && stc.rawArgs) || '{}'); } catch { wsArgs = {}; }
+  const display = { query: wsArgs.query || '服务端搜索' };
+  if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+  if (wsArgs.status) display.status = wsArgs.status;
+  const resultObj = { ok: true, serverSide: true, note: '服务端搜索已完成;结果由服务端自动恢复或已并入本次回答,无需本地执行' };
+  if (Array.isArray(wsArgs.sources) && wsArgs.sources.length) resultObj.sources = wsArgs.sources;
+  return { display, resultObj };
 }
 
 // ── 登记表 ────────────────────────────────────────────────────────────────────────────────────────────
@@ -28733,7 +28836,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['browserAutomation', '浏览器自动化目标:system / 指定可执行文件 / CDP 地址', 'Browser automation target: system / executable / CDP URL'],
   ['permissionMode', '新线程默认权限:default / acceptEdits / plan / bypass / auto', 'Default permission for new threads: default / acceptEdits / plan / bypass / auto'],
   ['stewardEnabledV1', '管家总开关', 'Steward master switch'],
-  ['stewardAutoActions', '管家可以自己做的事:重试／续跑／递话／开线程／代答', 'Things the steward may do on its own: retry / resume / relay / newThread / answer'],
+  ['stewardAutoActions', '管家可以自己做的事:重试／续跑／递话／开线程／代答／没做完就续一轮', 'Things the steward may do on its own: retry / resume / relay / newThread / answer / continueUnfinished'],
   ['stewardThreadBriefV1', '自动给每条新线程起名与一句概括(每条花一次钱)', 'Auto-name each new thread with a one-line gist (costs one call each)'],
   ['asrProviderId', '整段语音识别用哪个端点', 'Endpoint for full-clip speech recognition'],
   ['asrModel', '整段语音识别用哪个模型', 'Model for full-clip speech recognition'],
@@ -35487,23 +35590,24 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, subModel, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      if (call.toolCalls && call.toolCalls.length) {
+      // 服务端搜索已在这一发里跑完并接着作答(百炼 / OpenAI hosted web_search 形状,见 04i 解码器 serverSearchInline):
+      // 正文就是子任务的最终回答(与主回合 09 同判据);不回传搜索项、不再多请求一轮。
+      const subServerCalls = Array.isArray(call.toolCalls) ? call.toolCalls.filter(tc => tc && tc.serverSide) : [];
+      const subInlineServerAnswer = call.serverSearchInline === true && subServerCalls.length > 0 && subServerCalls.length === call.toolCalls.length;
+      const subSurfaceServerSearch = (stc, echo) => {
+        const item = stc.item || { type: 'web_search_call', id: stc.id };
+        const { display, resultObj } = providerServerSearchCard(stc);
+        onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
+        onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
+        if (echo) subServerToolItems.push(item);
+      };
+      if (subInlineServerAnswer) for (const stc of subServerCalls) subSurfaceServerSearch(stc, false);
+      if (call.toolCalls && call.toolCalls.length && !subInlineServerAnswer) {
         // v1.8: server-side tool calls (web_search_call) — DeepSeek already executed them; echo back verbatim
         // into the next request via subServerToolItems (buildBody appends). Never paired as function_call_output.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
-        for (const stc of serverToolCalls) {
-          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
-          const item = stc.item || { type: 'web_search_call', id: stc.id };
-          // v1.8.1: surface the parsed action type too (search / open_page) for an accurate tool card.
-          const display = { query: wsArgs.query || '服务端搜索' };
-          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
-          if (wsArgs.status) display.status = wsArgs.status;
-          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
-          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
-          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
-          subServerToolItems.push(item);
-        }
+        for (const stc of serverToolCalls) subSurfaceServerSearch(stc, call.serverSearchInline !== true);
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
         // 不能让本批还没答的 call_1 漏补配对。
@@ -39932,19 +40036,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
       // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
       // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
-      // (可被停止截断);502/503/504 与连接失败仍只走 streamWithFailover 的端点切换,不在这里重打。流式已开始的失败
-      // 不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      // (可被停止截断)。流式已开始的失败不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      // 2026-10(用户真机日志:一条 21 分钟、89 次工具调用的回合在第 51 次模型调用时 network_down 整回合失败):修前首字节前的
+      // 连接失败与 502/503/504 只走 streamWithFailover 的端点切换 —— 只配了一个 Base URL(最常见)就没有可切的,一次瞬断就
+      // 把整回合打死。现在与子代理同一份判据 providerCallIsTransient(04h:transportError / 502/503/504 / 429 / 529);
+      // 端点切换仍在 streamWithFailover 里先走完,这里只在【所有候选都失败】之后整组再试。transportError 只在首字节前产生
+      // (07 openAiStreamOnce:流式开始后的失败直接抛出,不进这里),所以同样不会重放已显示的内容。
       const sent = await withTransientRetry({
         maxRetries: 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
         attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
-        classify: c => (/^HTTP 529\b|^HTTP 429\b/.test(String(c && c.httpError || '')) ? 'retry' : 'done'),
+        classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
           touch();
-          onEvent({ type: 'stderr', text: `[provider] 服务商限流/过载(${String(c.httpError).slice(0, 8)}),稍后重试(${n}/3)` });
+          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)})`;
+          onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
+          logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
       });
       if (sent.aborted) { aborted = true; ok = false; break; }
@@ -40100,7 +40210,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         // Not a plan-shaped message and no tool_calls → fall through to normal handling.
       }
-      if (call.toolCalls && call.toolCalls.length) {
+      // 服务端搜索已在这一发里跑完并接着作答(百炼 / OpenAI hosted web_search 的形状,见 04i 解码器 serverSearchInline):这一发的正文
+      // 就是最终回答。修前这里不分形状,一律「回传搜索项 → 再请求一轮」,而回传的 web_search_call 在这类端点上不会恢复出结果、
+      // 那份正文也没进历史 —— 模型第二发看到的是一条没有结果的搜索项,于是回「搜索后端返空 / 引擎异常」并退回用 web_fetch 抓搜索页。
+      const serverCallsInline = Array.isArray(call.toolCalls) ? call.toolCalls.filter(tc => tc && tc.serverSide) : [];
+      const inlineServerAnswer = call.serverSearchInline === true && serverCallsInline.length > 0 && serverCallsInline.length === call.toolCalls.length;
+      // 服务端搜索调用在界面上的一张卡(无本地执行、不进历史配对)。echo = 把原始 item 回传给下一发(DeepSeek 形状才需要)。
+      const surfaceServerSearchCall = async (stc, echo) => {
+        const item = stc.item || { type: 'web_search_call', id: stc.id };
+        const { display, resultObj } = providerServerSearchCard(stc);
+        await notifyToolHookStart(stc, display, iter, 'server_tool');
+        onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
+        onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
+        toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
+        if (echo) serverToolItems.push(item); // echo back verbatim → next request's `input`
+        await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
+      };
+      if (inlineServerAnswer) for (const stc of serverCallsInline) await surfaceServerSearchCall(stc, false);
+      if (call.toolCalls && call.toolCalls.length && !inlineServerAnswer) {
         // v1.8: split server-side tool calls (web_search_call — DeepSeek already executed the search) from
         // local function calls. Server-side calls NEVER enter providerHistory (they are not function_calls
         // and must not be paired as function_call_output); their raw item is echoed back into the next
@@ -40123,21 +40250,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             rawArgsBytes: localToolCalls.reduce((s, t) => s + econArgsBytes(t.rawArgs), 0),
           })) econTotals.batchesLogged += 1;
         }
-        for (const stc of serverToolCalls) {
-          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
-          const item = stc.item || { type: 'web_search_call', id: stc.id };
-          // v1.8.1: surface the parsed action type too (search / open_page) so the UI can render the tool card accurately.
-          const display = { query: wsArgs.query || '服务端搜索' };
-          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
-          if (wsArgs.status) display.status = wsArgs.status;
-          await notifyToolHookStart(stc, display, iter, 'server_tool');
-          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
-          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
-          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
-          toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
-          serverToolItems.push(item); // echo back verbatim → next request's `input`
-          await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
-        }
+        for (const stc of serverToolCalls) await surfaceServerSearchCall(stc, call.serverSearchInline !== true);
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
         if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
@@ -43918,6 +44031,9 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
+  // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
+  const todosStartSig = sessionTodosSignature(session.todos);
   // 116-3 A2(会话/权限口径子审查):管家会话【只能】由管家运行器发起回合。任何别的调用面
   // (直连 POST /api/chat/stream 打 sessionId=steward 是最直接的一条)都会拿到 core/shell/steward
   // 三个工具包整份offer,并且完全绕开 13h 的编排、熔断、预算、抢占与决策日志 —— 那等于用普通会话
@@ -44190,7 +44306,31 @@ async function runSessionTurn(input) {
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
+    // 回合成败账(会话头 stewardLastTurn):管家盯着的线程,回合不管是谁发起的都要落这一笔。修前只有管家/调度器
+    // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
+    // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
+    // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
+    // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    const outcomeId = session.id;
+    let outcomePatch = null;
+    try {
+      if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
+          && !(lastResult && lastResult.superseded)
+          && stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) {
+        if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
+        else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
+      }
+    } catch { outcomePatch = null; }
+    if (outcomePatch) turnOutcomePending.add(outcomeId);
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    if (outcomePatch) {
+      // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
+      // turnOutcomePending 挂着期间按「账在路上」处理(04),落盘或失败后摘掉。
+      Promise.resolve()
+        .then(() => updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }))
+        .catch(() => { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ })
+        .finally(() => { turnOutcomePending.delete(outcomeId); });
+    }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
     //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
     //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
@@ -49227,7 +49367,12 @@ const CORE_TOOL_HANDLERS = {
       const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
       if (!result.ok) {
         const code = observationRecallError(result.error);
-        return { ok: false, error: code, message: `observation recall failed: ${result.error}` };
+        // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
+        // 点明:原件已不可取回、视图里的头尾是仅存的内容、该怎么办(重跑当初那次工具调用)、别重试同一 rawRef。信封 error 码不变。
+        const gone = result.error === 'ENOENT'
+          ? ' — the raw snapshot is no longer on disk (removed by the checkpoint size cap or the session folder was moved/deleted), so this original cannot be recovered; do not retry the same rawRef. Re-run the original tool call (same query/url/path) to get the content again.'
+          : '';
+        return { ok: false, error: code, message: `observation recall failed: ${result.error}${gone}` };
       }
       const raw = Number(args && args.maxChars);
       const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
@@ -60892,7 +61037,8 @@ async function stewardCollectSessionTurn(sid, missionId, row, now) {
   const head = await stewardReadTurnHead(sid);
   if (!head || !head.id) return null;
   const turnSeq = Math.max(0, Number(head.turnSeq) || 0);
-  if (activeChildren.has(sid)) {
+  if (activeChildren.has(sid) || turnOutcomePending.has(sid)) {
+    // (turnOutcomePending:回合已收、成败账正在写 —— 同样等下一拍,见 04 的头注)
     // 回合还在跑:不入箱,而且【不】记指纹 —— 记了下一轮就会跳过这个头,等它跑完再也没人看它一眼。
     // 117p(用户第七轮走查:「2.0 回合已经跑完了,管家没有收到体现也没收工」):首见就撞上活回合时,
     // 基线必须是【这一回合之前】那个号。turnSeq 在回合【开始】那一刻就 +1 落盘(05:88 / 09:1292,
@@ -61482,6 +61628,8 @@ function stewardBasisOf(args, extra) {
   if (raw.inboxSeq != null) base.inboxSeq = Number(raw.inboxSeq) || 0;
   if (raw.auto != null) base.auto = raw.auto === true;
   if (raw.origin) base.origin = String(raw.origin).slice(0, 40);
+  // 「没做完就续」自理动作的理由(计划进度 / 回合没收口 / 第几次),给行动流水点开时看;只是注解,不参与任何判定。
+  if (raw.reason) base.reason = String(raw.reason).slice(0, 120);
   return base;
 }
 
@@ -65117,6 +65265,17 @@ const STEWARD_USER_QUEUE_WAIT_MS = 5 * 60 * 1000;
 const STEWARD_SELF_SERVE_ATTEMPT_MAX = 2;    // 同一目标连续 2 次自理动作后仍失败 -> 停自动、只提议
 const STEWARD_SELF_SERVE_RETRY_WINDOW_MS = 60 * 60 * 1000; // 同一目标本小时只自动重试一次
 const STEWARD_SELF_SERVE_PER_TURN_MAX = 3;   // 一个收件箱回合最多自理 3 个目标(其余进回合层)
+// ── 「回合收了但任务没做完」的自动续跑(stewardAutoActions.continueUnfinished)的上限 ─────────────────
+// 防死循环烧钱,两道,都按【同一条线程连续自动续跑】数,线程自己正常收工(不再未完成)就清零:
+//   · 有计划(todo)的线程:最多连续续 STEWARD_CONTINUE_PLAN_MAX 次,且【每一次续跑之后计划都要往前走】
+//     (已完成步数增加)—— 续了一轮计划纹丝不动就停,不再续;
+//   · 没有计划、只靠「上次任务未完成」横幅判据(回合被工具次数/预算截断)的线程:没有进度可量,
+//     只续 STEWARD_CONTINUE_NOPLAN_MAX 次。
+// 超过上限的那一次不是静默放弃:降级成一条提议按钮,并落一行行动流水(见 stewardContinueUnfinishedGate)。
+const STEWARD_CONTINUE_PLAN_MAX = 5;
+const STEWARD_CONTINUE_NOPLAN_MAX = 2;
+const STEWARD_CONTINUE_FRESH_MS = 6 * 60 * 60 * 1000;   // 上次自动续跑过去这么久,再遇到没做完就当全新的一次,账从 0 数
+const STEWARD_CONTINUE_PROMPT = '请继续完成上一个未完成的任务。';   // 与前端「继续」横幅发的那一句同文(chat.resume.prompt)
 
 // ── 到访摘要的五类人话(确定性归纳,不调模型;§8.9「每次打开只汇报」)──────────────────────────
 const STEWARD_DIGEST_KIND_TEXT = Object.freeze({
@@ -65239,6 +65398,10 @@ const stewardRunnerRuntime = {
   // 116-2b:自理动作的每目标账。targetKey = sessionId|runId。只在内存(进程重启 = 重新开始数;
   // 与 §11.1 第 7 项「重启即新到访」同一立场:重启后第一次仍值得试一次,连着失败才该停手)。
   selfServe: new Map(),  // targetKey -> { attempts, lastRetryAt, lastActionAt }
+  // 「没做完就续一轮」的每线程账:sessionId -> { count, doneAt, turnSeq, at }。count = 连续自动续跑次数;
+  // doneAt = 上次续跑那一刻计划已完成的步数(下一次到访拿它判「计划有没有往前走」);turnSeq = 续跑前的回合号。
+  // 只在内存,与上面 selfServe 同一立场(重启即重新数)。线程恢复正常收工时删除该条。
+  continueUnfinished: new Map(),
 };
 
 function stewardStopRunner() {
@@ -66946,6 +67109,14 @@ function stewardSelfServePlan(evt) {
         args: { sessionId, runId, action: 'resume' }, origin: 'steward-resume' };
     }
   }
+  // 「回合收了、可任务没做完」:只有【线程回合收工】那一类 done(第四源 session_turn)才进来,
+  // 速查线程(quick)与被停下的回合(aborted)不算。它只是个【候选】——到底没做完没有、能不能自己续,
+  // 要读线程现场才知道,由 stewardContinueUnfinishedGate 判(不是这个纯函数的事);判出来「其实做完了」
+  // 的,闸门回 silent,不留任何痕迹。
+  if (e.kind === 'done' && payload.source === 'session_turn' && payload.quick !== true && payload.aborted !== true) {
+    return { intent: 'continue', label: '继续', tool: 'steward_thread_continue', sessionId, runId: '',
+      args: { sessionId, message: STEWARD_CONTINUE_PROMPT }, origin: 'steward-continue' };
+  }
   return null;
 }
 
@@ -66954,6 +67125,14 @@ function stewardSelfServePlan(evt) {
 // 116-3 P0-4:判定本体搬去 13g 的 stewardRunResumeTier(与 steward_run_action 工具内部共用同一份
 // ——「唯一权威判据」要真的唯一);本文件的自理预闸只是调它,不再另写一份。13h -> 13g 是后向边。
 
+// 小时窗是否已满:自理动作(含下面的「没做完就续」)与管家回合共用 stewardMaxTurnsPerHour。
+// 满了回 { limit },没满回 null。单点,免得几道闸各写一遍 `>= maxTurns`。
+function stewardHourWindowFull(config, now) {
+  const maxTurns = Math.max(0, Math.round(Number(config && config.stewardMaxTurnsPerHour) || 0));
+  if (maxTurns > 0 && stewardTurnsInWindow(now, STEWARD_TURN_WINDOW_MS) >= maxTurns) return { limit: maxTurns };
+  return null;
+}
+
 async function stewardSelfServeGate(plan, config) {
   const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
   const key = stewardSelfServeKey(plan.sessionId, plan.runId);
@@ -66961,10 +67140,8 @@ async function stewardSelfServeGate(plan, config) {
   const now = Date.now();
 
   // ② 小时窗:自理动作与管家回合共用 stewardMaxTurnsPerHour(§11.3「自理动作计入同一窗口」)。
-  const maxTurns = Math.max(0, Math.round(Number(config.stewardMaxTurnsPerHour) || 0));
-  if (maxTurns > 0 && stewardTurnsInWindow(now, STEWARD_TURN_WINDOW_MS) >= maxTurns) {
-    return { allowed: false, reason: `本小时管家的动作已经到上限(${maxTurns}),这件事只能提议` };
-  }
+  const hourFull = stewardHourWindowFull(config, now);
+  if (hourFull) return { allowed: false, reason: `本小时管家的动作已经到上限(${hourFull.limit}),这件事只能提议` };
   // ③ 无进展熔断:同一目标连着自理两次还在报问题,说明自动重试解决不了,交回给人。
   if (entry.attempts >= STEWARD_SELF_SERVE_ATTEMPT_MAX) {
     return { allowed: false, reason: `这条线程已经自动处置过 ${entry.attempts} 次仍未好转,不再自动动手,只提议` };
@@ -67004,6 +67181,125 @@ async function stewardSelfServeGate(plan, config) {
   return { allowed: false, reason: '这类事件没有确定性处置,交给你判断' };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 「回合收了、任务没做完」→ 管家自己给线程续一轮(stewardAutoActions.continueUnfinished)
+//
+// 用户 2026-10(真机截图):线程「GPT6与Claude旗舰模型对比」计划 0/5、89 次工具调用后回合收了,线程头上亮着
+// 「上次任务未完成 [继续]」,管家那一侧却把它报成「已收工」,还反过来问用户「要我拉出来报一报吗」——
+// 「像这种情况,管家要能自主让线程恢复啊」。五态本身不看这件事(无账本线程:回合跑完且没失败 = done),
+// 所以补的是【自理动作】:收到「线程回合收工」(done · session_turn)时,管家读一眼线程现场,没做完且
+// 该自己续的,就替用户点那一下「继续」。
+//
+// 「没做完」的判据【不另写】,两条都是界面已经在用的:
+//   ① 「上次任务未完成」横幅 = 02 的 detectDanglingTurn(GET /api/sessions/:id 的 resumable.dangling,
+//      前端 renderResumeBanner 读它):providerHistory 的尾巴是 user / tool(回合被工具次数上限、预算保护、
+//      重复调用护栏截断而没有收口);
+//   ② 计划条「已完成 n/m」读的 session.todos:还有 status !== 'done' 的步骤(与 02 摘要的 todosOpen 同口径),
+//      且这份计划是【上一回合动过的】(或本就在管家的续跑链上)—— 搁下的旧计划不算。
+// 「该不该自己续」的闸,顺序即安全(任一不过就 silent 或降级成提议,不是失败):
+//   silent(不留痕):线程其实做完了 / 还在跑 / 在问用户(正式待决或软问句)/ 用户正坐在上面 / 事项驱动器
+//                    (until-done)自己会续 / 上一回合是被停下的;
+//   提议:开关没勾 / 小时窗满 / 当日花费到顶 / 线程是「每步都问」档 / 达到上限(记行动流水)。
+// 上限见 13m 的 STEWARD_CONTINUE_*:有计划 = 每次续跑之后已完成步数必须增加、且最多连续 5 次;
+// 无计划 = 最多 2 次。全局的并发/小时/日费用仲裁由 runSessionTurn 里的 13n 仲裁器照常管着(续跑也是一个回合)。
+// ────────────────────────────────────────────────────────────────────────────
+async function stewardUnfinishedFacts(sessionId) {
+  const sid = safeSessionId(sessionId);
+  if (!sid) return null;
+  const session = await loadSession(sid, 0, 0, SESSION_LOAD_OMIT_PROVIDER).catch(() => null);
+  if (!session || !session.id) return null;
+  const dangling = detectDanglingTurn(session);   // 横幅同一判据(见上 ①)
+  const todos = (Array.isArray(session.todos) ? session.todos : []).filter(t => t && typeof t === 'object');
+  const total = todos.length;
+  const done = todos.filter(t => t.status === 'done').length;
+  const open = total - done;
+  const turnSeq = Math.max(0, Number(session.turnSeq) || 0);
+  // ② 的计划只认【上一回合动过的】:成败账带着回合开头的计划指纹(10 写),与现值不同 = 这一回合在推进它。
+  // 早就搁下的旧计划(用户之后换了话题、回合正常答完)不算「没做完」—— 否则每个新回合收工都会被拉去续那份旧计划。
+  const last = session.stewardLastTurn && typeof session.stewardLastTurn === 'object' ? session.stewardLastTurn : null;
+  const todosTouched = !!(last && Number(last.seq) === turnSeq && last.todosStartSig
+    && last.todosStartSig !== sessionTodosSignature(session.todos));
+  const mission = session.mission || null;
+  return {
+    sessionId: sid,
+    head: session,
+    turnSeq,
+    dangling: dangling.dangling === true ? String(dangling.kind || '') : '',
+    todos: { total, done, open },
+    todosTouched,
+    active: activeChildren.has(sid),
+    missionDone: !!(mission && mission.result && mission.result.status === 'complete'),
+    driverOwns: !!(mission && mission.autoMode === 'until-done'),
+  };
+}
+// 「在问用户」:只在确实没做完时才读待决(读的是磁盘上的一份文件,收工事件每条都来一遍不划算)。
+async function stewardUnfinishedAsks(facts) {
+  const sid = facts.sessionId;
+  const pending = (await readInterventions(sid).catch(() => [])).filter(iv => iv && iv.status === 'pending');
+  const asks = stewardAsksYouForThread({
+    pending, activeTurn: activeChildren.has(sid),
+    lastAssistantText: stewardLastAssistantText(facts.head),
+  });
+  return !!asks || pending.length > 0;
+}
+// 行动流水 / 提示里那一句「没做完」的人话:横幅判据与计划进度各说各的,都有就并说。
+function stewardUnfinishedBrief(facts) {
+  const bits = [];
+  if (facts.planOpen && facts.todos.total > 0) bits.push(`计划已完成 ${facts.todos.done}/${facts.todos.total}`);
+  if (facts.dangling) bits.push('回合没有收口(被工具次数上限等截断,界面上亮着「上次任务未完成」)');
+  return bits.join(';') || '回合没有收口';
+}
+
+async function stewardContinueUnfinishedGate(plan, config) {
+  const silent = { allowed: false, silent: true };
+  const sid = plan.sessionId;
+  const rt = stewardRunnerRuntime.continueUnfinished;
+  const facts = await stewardUnfinishedFacts(sid);
+  if (!facts || facts.active) return silent;
+  const now = Date.now();
+  // 上限与「计划有没有往前走」。账只认【连续】的自动续跑:中间若有别人(用户)插进来说了话 —— 当前回合号不是
+  // 「上次续跑前的回合号 + 1」—— 或者隔了太久,就当这是一次全新的没做完,从 0 数。
+  let prev = rt.get(sid) || null;
+  if (prev && (facts.turnSeq !== prev.turnSeq + 1 || now - prev.at > STEWARD_CONTINUE_FRESH_MS)) { rt.delete(sid); prev = null; }
+  // 计划证据:上一回合动过计划,或者这本就是管家续跑链上的一环(续跑回合由 13k 记账、不带指纹)。
+  const planOpen = facts.todos.open > 0 && (facts.todosTouched || !!prev);
+  if ((!facts.dangling && !planOpen) || facts.missionDone) { rt.delete(sid); return silent; }   // 做完了:账清零,什么都不说
+  facts.planOpen = planOpen;
+  // 在问用户 / 有待决:不是「没做完」,是「等你」—— 那条路归 needs_you 与代答那一格,这里不插手。
+  if (await stewardUnfinishedAsks(facts)) return silent;
+  if (facts.driverOwns) return silent;                     // until-done 驱动器会自己续,不抢
+  if (stewardSeatedByUser(sid)) return silent;             // §4.5 用户正坐在这条线程上:他自己看得见横幅
+  if (stewardStoppedTarget(facts.head, null)) return silent;   // 上一回合是被停下来的:不撤销别人按下的停
+  const brief = stewardUnfinishedBrief(facts);
+  const deny = (reason, extra) => ({ allowed: false, reason, facts, brief, ...(extra || {}) });
+
+  const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
+  if (auto.continueUnfinished === false) return deny('「任务没做完时自动续上」没有勾选,只能提议');
+  const hourFull = stewardHourWindowFull(config, now);
+  if (hourFull) return deny(`本小时管家的动作已经到上限(${hourFull.limit}),这件事只能提议`);
+  const maxCost = Number(config && config.stewardMaxCostPerDay);
+  if (Number.isFinite(maxCost) && maxCost > 0) {
+    const spent = await stewardDayCost(config);
+    if (spent >= maxCost) return deny(`今天管家已经花了 ${spent},到了上限 ${maxCost},没做完的任务只能提议`);
+  }
+  // 会话头已经在手上:直接取它的权限档,不再经 stewardTargetPermission 把整份会话再读一遍。
+  const mode = stewardThreadPermissionMode(facts.head, config);
+  if (stewardMayAct(mode, 'failed', 'exec') !== 'auto') {
+    return deny(`目标线程权限为「${stewardPermissionLabel(mode)}」,没做完的任务只能提议`);
+  }
+  if (prev) {
+    const hasPlan = facts.todos.total > 0;
+    const cap = hasPlan ? STEWARD_CONTINUE_PLAN_MAX : STEWARD_CONTINUE_NOPLAN_MAX;
+    if (hasPlan && facts.todos.done <= prev.doneAt) {
+      return deny(`上次自动续跑之后计划没有往前走(仍是 ${facts.todos.done}/${facts.todos.total}),不再自动续,只提议`, { capped: 'no_progress' });
+    }
+    if (prev.count >= cap) {
+      return deny(`已经连续自动续跑 ${prev.count} 次,仍没做完,不再自动续,只提议`, { capped: 'max' });
+    }
+  }
+  return { allowed: true, facts, brief, mode, count: (prev ? prev.count : 0) + 1 };
+}
+
 // 一批收件箱事件 -> 自理结果行。每个目标最多处置一次(同一线程同一批里连报三条失败不该重试三遍)。
 // 返回的行与模型 actions 的执行结果【同形】({tool,args,result}),额外带 auto:true 与 label ——
 // 于是「propose_required 自动降级成一条按钮」这条既有路径原样复用,不必另写一套降级。
@@ -67011,39 +67307,64 @@ async function stewardSelfServeInbox(events, session, config) {
   const executed = [];
   const notes = [];
   const seen = new Set();
-  for (const evt of (Array.isArray(events) ? events : [])) {
+  // 「没做完就续」排在重试/诊断之后:同一线程同一批里既有失败又有收工时,失败那条先占这个目标;
+  // 且 seen 只在闸门【不 silent】之后才记 —— 被 silent 掉的候选不该挡住同目标的下一条事件。
+  const planned = (Array.isArray(events) ? events : [])
+    .map(evt => ({ evt, plan: stewardSelfServePlan(evt) }))
+    .filter(x => x.plan);
+  planned.sort((a, b) => (a.plan.intent === 'continue' ? 1 : 0) - (b.plan.intent === 'continue' ? 1 : 0));
+  for (const { evt, plan } of planned) {
     if (executed.length >= STEWARD_SELF_SERVE_PER_TURN_MAX) break;
-    const plan = stewardSelfServePlan(evt);
-    if (!plan) continue;
     const key = stewardSelfServeKey(plan.sessionId, plan.runId);
     if (seen.has(key)) continue;
-    seen.add(key);
     const inboxSeq = Number(evt && evt.inboxSeq) || 0;
     // 117l D5:自理 notes 也进模型的回合层,同样要带名字(三处口径一致:事件行、notes、总览行)。
     const planTitle = await stewardDisplayTitleOf(plan.sessionId);
     const planWho = planTitle ? `线程「${planTitle}」(${plan.sessionId})` : `线程 ${plan.sessionId}`;
-    const gate = await stewardSelfServeGate(plan, config);
+    const isContinue = plan.intent === 'continue';
+    const gate = isContinue ? await stewardContinueUnfinishedGate(plan, config) : await stewardSelfServeGate(plan, config);
+    if (gate.silent) continue;   // 「没做完就续」的候选其实不需要处置(做完了/在问你/用户在场…):不进行、不留话
+    seen.add(key);
     const row = { tool: plan.tool, args: plan.args, auto: true, label: plan.label, intent: plan.intent, sessionId: plan.sessionId, inboxSeq };
     if (!gate.allowed) {
       row.result = stewardFail('propose_required', gate.reason, { reason: 'self_serve_gate', sessionId: plan.sessionId });
       executed.push(row);
-      notes.push(`- [${inboxSeq}] ${planWho}:管家没有自动${plan.label}(${gate.reason}),已作为提议留给用户。`);
+      notes.push(isContinue
+        ? `- [${inboxSeq}] ${planWho}:回合收了但任务没做完(${gate.brief}),管家没有自动继续(${gate.reason}),已作为提议留给用户;不要把它说成已收工。`
+        : `- [${inboxSeq}] ${planWho}:管家没有自动${plan.label}(${gate.reason}),已作为提议留给用户。`);
+      // 达到上限而停:额外落一行行动流水(用户在设置·管家·行动流水里看得见「为什么没再续」)。
+      if (gate.capped) {
+        stewardAppendDecision({
+          tool: 'steward_continue_stopped',
+          args: { reason: gate.capped, todosDone: gate.facts.todos.done, todosTotal: gate.facts.todos.total },
+          targetSessionId: plan.sessionId,
+          permissionMode: stewardThreadPermissionMode(gate.facts.head, config),
+          mayAct: 'propose',
+          undoRef: null,
+          basis: { inboxSeq, auto: true, origin: 'steward-continue', reason: gate.reason.slice(0, 80) },
+        });
+      }
       continue;
     }
     const hookKey = STEWARD_ACTION_HOOKS[plan.tool];
-    const entry = stewardSelfServeEntry(key);
     row.acted = true;   // 116-3 P2-11:闸门放行、真的发出去了 —— 这条目标要计进「每回合 ≤3 个目标」
     // 计账在【发起前】:动作发出去了就算用过一次配额,哪怕它失败 —— 否则失败会变成免费重试。
     stewardRunnerRuntime.turns.push(Date.now());
-    entry.attempts += 1;
-    entry.lastActionAt = Date.now();
-    if (plan.intent === 'retry') entry.lastRetryAt = Date.now();
+    if (isContinue) {
+      stewardRunnerRuntime.continueUnfinished.set(plan.sessionId, { count: gate.count, doneAt: gate.facts.todos.done, turnSeq: gate.facts.turnSeq, at: Date.now() });
+    } else {
+      const entry = stewardSelfServeEntry(key);
+      entry.attempts += 1;
+      entry.lastActionAt = Date.now();
+      if (plan.intent === 'retry') entry.lastRetryAt = Date.now();
+    }
     try {
       row.result = await StewardHooks[hookKey]({
         ...plan.args,
         // 决策日志的 basis:哪条收件箱事件触发的、是不是自理、什么来源。13g 的两个实现把它并进
         // basis 落盘(args 本身照旧只记摘要字段,不落这一坨)。
-        stewardBasis: { inboxSeq, auto: true, origin: plan.origin || ('steward-' + plan.intent) },
+        // 「没做完就续」另带 reason:行动流水里点开就能看到续的理由(计划进度 / 回合没收口)和是第几次。
+        stewardBasis: { inboxSeq, auto: true, origin: plan.origin || ('steward-' + plan.intent), ...(isContinue ? { reason: `${gate.brief};第 ${gate.count} 次自动续跑` } : {}) },
         // 116-3 P0-2:确定性自理【只】发生在收件箱回合(runStewardTurn 里 trigger==='inbox' 才调本函数),
         // 故 ctx.trigger 恒为 'inbox';同时置 selfServe:true —— 这一条已经过了上面 stewardSelfServeGate
         // 的七道闸(含按事件类别的 stewardMayAct(mode,'failed','exec')),13g 不该再按 'relay' 档判第二遍。
@@ -67053,9 +67374,15 @@ async function stewardSelfServeInbox(events, session, config) {
     }
     const okDone = !!(row.result && row.result.ok);
     executed.push(row);
-    notes.push(okDone
-      ? `- [${inboxSeq}] ${planWho}:管家已经自动${plan.label}了(${plan.tool}),把这件事讲给用户听即可,不要再重复动手。`
-      : `- [${inboxSeq}] ${planWho}:管家试了自动${plan.label}但没成(${stewardSanitizeText(row.result && (row.result.message || row.result.error))}),已作为提议留给用户。`);
+    if (isContinue) {
+      notes.push(okDone
+        ? `- [${inboxSeq}] ${planWho}:回合收了但任务没做完(${gate.brief}),管家已经自动让它继续了一轮(第 ${gate.count} 次);把这件事讲给用户听即可,不要再重复动手,也不要把它说成已收工。`
+        : `- [${inboxSeq}] ${planWho}:回合收了但任务没做完(${gate.brief}),管家试了自动继续但没成(${stewardSanitizeText(row.result && (row.result.message || row.result.error))}),已作为提议留给用户。`);
+    } else {
+      notes.push(okDone
+        ? `- [${inboxSeq}] ${planWho}:管家已经自动${plan.label}了(${plan.tool}),把这件事讲给用户听即可,不要再重复动手。`
+        : `- [${inboxSeq}] ${planWho}:管家试了自动${plan.label}但没成(${stewardSanitizeText(row.result && (row.result.message || row.result.error))}),已作为提议留给用户。`);
+    }
     logEvent({ kind: 'steward_self_serve', intent: plan.intent, tool: plan.tool, sessionId: plan.sessionId, runId: plan.runId, ok: okDone, inboxSeq });
   }
   return { executed, notes };

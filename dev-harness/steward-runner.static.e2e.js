@@ -572,8 +572,10 @@ const srv = require(path.join(APP, 'server.js'));
   const planBody = planAt < 0 ? '' : (planEnd < 0 ? src13p.slice(planAt) : src13p.slice(planAt, planEnd));
   ok(planBody.length > 200, `⑦f stewardSelfServePlan 函数体切得到(实得 ${planBody.length})`);
   const intents = [...new Set((codeOnly(planBody).match(/intent: '([a-z_]+)'/g) || []).map(s => s.slice(9, -1)))].sort();
-  ok(intents.length === 2 && intents[0] === 'resume' && intents[1] === 'retry',
-    `⑦f2 自理只会「重试」与「续跑」两种意图 —— 不许长出「换个更贵的模型再试一次」(实得 ${JSON.stringify(intents)})`);
+  // 2026-10 加了第三种 continue(回合收了、任务没做完 → 原模型原权限再续一轮,不换模型、不升档;闸与上限见 13p 的
+  // stewardContinueUnfinishedGate)。值域仍是封闭的三个,「换个更贵的模型再试一次」之类照旧不许长出来。
+  ok(intents.length === 3 && intents[0] === 'continue' && intents[1] === 'resume' && intents[2] === 'retry',
+    `⑦f2 自理只会「重试」「续跑」「没做完就续」三种意图 —— 不许长出「换个更贵的模型再试一次」(实得 ${JSON.stringify(intents)})`);
 }
 
 // ── ⑧ 125-P1(42 号文 §4 第二把锁):失败原因只有一张表、只有一个取话口 ──────────────────────

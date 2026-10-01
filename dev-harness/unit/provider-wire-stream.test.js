@@ -165,6 +165,19 @@ const CASES = {
     { type: 'response.output_item.done', item: { type: 'web_search_call', status: 'completed' } },
     { type: 'response.output_text.delta', delta: '搜到了' },
     { type: 'response.completed', response: { id: 'resp_ws' } }) }] },
+  // 百炼 / OpenAI hosted web_search 形状:单数 action.query + action.sources,搜索项之后同一发里接着作答(serverSearchInline);
+  // DeepSeek 形(搜索项后无正文)的上一条语料不带该标记。
+  'responses.web-search-inline-answer': { body: RESP_BODY_TOOLS, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.output_item.added', item: { type: 'web_search_call', id: 'ws_q1', status: 'in_progress' } },
+    { type: 'response.output_item.done', item: { type: 'web_search_call', id: 'ws_q1', status: 'completed', action: { type: 'search', query: 'qwen3.8 发布', sources: [{ type: 'url', url: 'https://a.example/1' }, 'https://b.example/2', { type: 'url' }, null] } } },
+    { type: 'response.output_text.delta', delta: '结论:' },
+    { type: 'response.output_text.delta', delta: '已发布' },
+    { type: 'response.completed', response: { id: 'resp_q' } }) }] },
+  'responses.web-search-no-text-after': { body: RESP_BODY_TOOLS, steps: [{ chunk: 64, sse: sse(
+    { type: 'response.output_text.delta', delta: '先说一句,' },
+    { type: 'response.output_item.added', item: { type: 'web_search_call', id: 'ws_p1', status: 'in_progress' } },
+    { type: 'response.output_item.done', item: { type: 'web_search_call', id: 'ws_p1', status: 'completed', action: { type: 'search', queries: ['x'] } } },
+    { type: 'response.completed', response: { id: 'resp_p' } }) }] },
   'responses.usage-on-intermediate-event': { body: RESP_BODY, steps: [{ chunk: 64, sse: sse(
     { type: 'response.output_text.delta', delta: 'x', usage: { input_tokens: 1, output_tokens: 1 } },
     { type: 'response.completed', response: { usage: { input_tokens: 2, output_tokens: 2 } } }) }] },

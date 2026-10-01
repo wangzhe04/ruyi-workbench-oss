@@ -988,7 +988,8 @@
      }
     }
    ],
-   "providerResponseId": "resp_ws"
+   "providerResponseId": "resp_ws",
+   "serverSearchInline": true
   },
   "thrown": null,
   "events": [
@@ -1035,6 +1036,159 @@
     "type": "raw_line",
     "line": "{\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ws\"}}",
     "seq": 7
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true,\"tools\":[{\"type\":\"function\",\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.web-search-inline-answer": {
+  "result": {
+   "text": "结论:已发布",
+   "reasoning": "",
+   "finishReason": "stop",
+   "toolCalls": [
+    {
+     "id": "ws_q1",
+     "name": "web_search",
+     "rawArgs": "{\"status\":\"completed\",\"actionType\":\"search\",\"query\":\"qwen3.8 发布\",\"sources\":[\"https://a.example/1\",\"https://b.example/2\"]}",
+     "serverSide": true,
+     "item": {
+      "type": "web_search_call",
+      "id": "ws_q1",
+      "status": "completed",
+      "action": {
+       "type": "search",
+       "query": "qwen3.8 发布",
+       "sources": [
+        {
+         "type": "url",
+         "url": "https://a.example/1"
+        },
+        "https://b.example/2",
+        {
+         "type": "url"
+        },
+        null
+       ]
+      }
+     }
+    }
+   ],
+   "providerResponseId": "resp_q",
+   "serverSearchInline": true
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.added\",\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_q1\",\"status\":\"in_progress\"}}",
+    "seq": 0
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.done\",\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_q1\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"query\":\"qwen3.8 发布\",\"sources\":[{\"type\":\"url\",\"url\":\"https://a.example/1\"},\"https://b.example/2\",{\"type\":\"url\"},null]}}}",
+    "seq": 1
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_text.delta\",\"delta\":\"结论:\"}",
+    "seq": 2
+   },
+   {
+    "type": "assistant_delta",
+    "text": "结论:"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_text.delta\",\"delta\":\"已发布\"}",
+    "seq": 3
+   },
+   {
+    "type": "assistant_delta",
+    "text": "已发布"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.completed\",\"response\":{\"id\":\"resp_q\"}}",
+    "seq": 4
+   }
+  ],
+  "usages": [],
+  "touchedAtLeastOnce": true,
+  "fetches": [
+   {
+    "url": "http://127.0.0.1:1/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": "{\"model\":\"m\",\"instructions\":\"sys\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"q\"}]}],\"stream\":true,\"tools\":[{\"type\":\"function\",\"name\":\"file_read\",\"parameters\":{\"type\":\"object\"}}],\"tool_choice\":\"auto\"}"
+   }
+  ],
+  "unusedSteps": 0
+ },
+ "responses.web-search-no-text-after": {
+  "result": {
+   "text": "先说一句,",
+   "reasoning": "",
+   "finishReason": "stop",
+   "toolCalls": [
+    {
+     "id": "ws_p1",
+     "name": "web_search",
+     "rawArgs": "{\"status\":\"completed\",\"actionType\":\"search\",\"query\":\"x\"}",
+     "serverSide": true,
+     "item": {
+      "type": "web_search_call",
+      "id": "ws_p1",
+      "status": "completed",
+      "action": {
+       "type": "search",
+       "queries": [
+        "x"
+       ]
+      }
+     }
+    }
+   ],
+   "providerResponseId": "resp_p"
+  },
+  "thrown": null,
+  "events": [
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_text.delta\",\"delta\":\"先说一句,\"}",
+    "seq": 0
+   },
+   {
+    "type": "assistant_delta",
+    "text": "先说一句,"
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.added\",\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_p1\",\"status\":\"in_progress\"}}",
+    "seq": 1
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.output_item.done\",\"item\":{\"type\":\"web_search_call\",\"id\":\"ws_p1\",\"status\":\"completed\",\"action\":{\"type\":\"search\",\"queries\":[\"x\"]}}}",
+    "seq": 2
+   },
+   {
+    "type": "raw_line",
+    "line": "{\"type\":\"response.completed\",\"response\":{\"id\":\"resp_p\"}}",
+    "seq": 3
    }
   ],
   "usages": [],

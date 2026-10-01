@@ -11,7 +11,7 @@
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
 import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta } from './js/util.js';
-import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
+import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken, setNetworkErrorMessage } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
 import { activeTurnUserIsPersisted, captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId } from './js/turn-narrative.js';
@@ -25,7 +25,7 @@ import { createAgentRolesDomain } from './js/agent-roles.js';
 import { createSkillsMemoryDomain } from './js/skills-memory.js';
 import { createProviderSettingsDomain } from './js/provider-settings.js';
 import { createAgentWorkflowsDomain } from './js/agent-workflows.js';
-import { createNavigationControlsDomain } from './js/navigation-controls.js';
+import { createNavigationControlsDomain } from './js/navigation-controls.js'; import { createSettingsSkillsDomain } from './js/settings-skills.js'; // 设置页「技能与模板」
 import { createSessionExperienceDomain } from './js/session-experience.js';
 import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
@@ -195,7 +195,7 @@ const {
   playbookStatusText,
   renderSkillList,
   saveAsMemory,
-  suggestMemoryFromTurn,
+  settingsSkillsApi, suggestMemoryFromTurn,
   updateSkillBadge,
 } = createSkillsMemoryDomain({
   apiErrText,
@@ -232,7 +232,7 @@ const {
   renderProviders,
   renderStatusLine,
   saveConfigPartial,
-  saveSettings,
+  saveSettings, saveTemplates,
   updateEngineDependentUI,
   updateSearchBackendVisibility,
   focusAsrSettings,
@@ -454,6 +454,7 @@ const {
   renderSessions: () => renderSessions(), scrollIsSticky: () => isStickyScroll(),
 });
 
+const settingsSkillsDomain = createSettingsSkillsDomain({ t, api, toast, apiErrText, confirmDanger, skills: settingsSkillsApi, getTemplates, saveTemplates, refreshPlaybooks: () => refreshPlaybooks(), openSkillPanel: () => openSkillPanel() }); // 设置页「技能与模板」(技能段取技能域同一份实现,模板读写走 provider-settings)
 const {
   closeModal,
   closeToolDrawer,
@@ -514,7 +515,7 @@ const {
   toggleTheme: () => toggleTheme(),
   compactContext: () => compactContext(),
   refreshStatus: () => refreshStatus(),
-  openSkillPanel: () => openSkillPanel(),
+  openSkillPanel: () => openSkillPanel(), openSettingsSkills: () => settingsSkillsDomain.open(),
   patchSession: (id, patch) => patchSession(id, patch),
   toggleUiMode: () => toggleUiMode(),
   focusFirstInteractive: container => focusFirstInteractive(container),
@@ -1045,7 +1046,7 @@ function bindEvents() {
   bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
   bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
   bindRailPocket({ api, state, t, eventStream, openStewardPanel: section => stewardShellDomain.openStewardPanel(section), openUsage: () => { openToolPane(); switchTab('usage'); }, openDoctor: () => { openModal('settingsModal'); switchSettingsTab('doctor', true); }, isStewardMode: () => document.documentElement.getAttribute('data-shell-mode') === 'steward' }); // 121-K7：口袋四项（§2.3／§7.2；「体检 · 用量」两视角两条路）
-  bindMigrationCenter({ openIntegrations: () => { openModal('settingsModal'); switchSettingsTab('integrations', true); } }); // W2：迁移中心挂进 #stab-integrations；首启卡两视角都出
+  bindMigrationCenter({ openIntegrations: () => { openModal('settingsModal'); switchSettingsTab('migration', true); } }); // W2：迁移中心（2026-10 起有自己的页签 #stab-migration）；首启卡两视角都出
   // sidebar
   $('newSessionBtn').onclick = () => { void startFromRail(); };
   bindRailSessionActions(); // 121-K4：左栏行上「置顶／重命名／删除」的委托（会话怎么改仍在 session-experience 一处）
@@ -1109,7 +1110,7 @@ function bindEvents() {
   $('sendBtn').onclick = () => sendPrompt();
   createComposerVoice({ state, t, id: 'composerVoiceBtn', input: () => $('promptInput'), anchor: () => $('sendBtn') }); // 127-⑦：只回填不发送
   // 128f-⑭：两个视角的待开启麦克风都派这一帧。定位排在 openModal 自己那一拍「聚焦第一个可交互件」（setTimeout 0）之后，否则被它抢走。
-  document.addEventListener(COMPOSER_VOICE_SETUP_EVENT, () => { openModal('settingsModal'); switchSettingsTab('providers', true); setTimeout(() => { focusAsrSettings(); }, 0); });
+  document.addEventListener(COMPOSER_VOICE_SETUP_EVENT, () => { openModal('settingsModal'); switchSettingsTab('voice', true); setTimeout(() => { focusAsrSettings(); }, 0); });
   $('agentTeamBtn').onclick = toggleAgentTeamTurn;
   bindSkillsMemory(); // EC-D：技能按钮与搜索键盘交互由技能/记忆领域自持
   // v3 (§B2): 「AI 工作」面板顶部的用量/审计 mini 链接 —— 简易模式经此切到隐藏页签(switchTab 不拦这两个 tab)。
@@ -1217,7 +1218,7 @@ const { bootFailureKind, tagBootStep, bootStep, bootStepSync, renderBootFailure 
 
 async function boot() {
   await initToken(); // 47c(S1):bootstrap 握手取 token 进 sessionStorage(HTML 不再明文下发);须在任何 api() 前
-  await initI18n('auto');
+  await initI18n('auto'); setNetworkErrorMessage(() => t('net.disconnected')); // 2026-10：网络层失败（Failed to fetch）报人话（组合根 D45 护栏：同一行）
   hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
   setStreaming(false);
   bindEvents();

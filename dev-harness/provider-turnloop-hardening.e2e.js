@@ -13,6 +13,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       不能因为上一轮答过 call_1 就当成已答。
 //   [F] 429 在首字节前自动退避重试(一次限流不再整回合失败);一直 429 则归 errorClass rate_limited(不是 tool_error)。
 //   [H] 子代理回合(08)同 [B]:半截参数的工具调用回「截断、未执行」的配对结果,不按 {} 执行。
+//   [I] 2026-10(用户真机日志:21 分钟的回合在第 51 次模型调用 network_down 整回合失败):首字节前连接被掐断(只配一个
+//       Base URL,没有端点可切)也退避重试,一次瞬断不再打死整回合;[J] 一次 503 同样重试。
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -87,6 +89,12 @@ const fake = await startFakeProvider({
         return textFrames('限流后成功');
       case 'G':
         return { status: 429, json: { error: { message: 'rate limited', type: 'rate_limit_exceeded' } } };
+      case 'I': // 首发:连接在回响应头之前被掐断(undici 报 fetch failed / other side closed)
+        if (n === 1) { req.res.socket.destroy(); return undefined; }
+        return textFrames('断线后成功');
+      case 'J':
+        if (n === 1) return { status: 503, json: { error: { message: 'service unavailable', type: 'unavailable' } } };
+        return textFrames('503 后成功');
       case 'H': // 子代理(08 runSubAgentCore):半截参数的 file_write 同样不执行
         if (toolsAnswered) return textFrames('子任务完成');
         return toolCallFrames('file_write', '{"path":"' + path.join(HOME, 'h-out.txt').replace(/\\/g, '\\\\') + '","content":"半截', 'h1', { finish: 'length' });
@@ -256,6 +264,17 @@ try {
     ok(res2 && res2.ok === false && res2.errorClass === 'rate_limited', `F4 重试用尽归 rate_limited(实得 ${res2 && res2.errorClass})`);
     const status = await request('GET', '/api/status', null, H);
     ok(status.json && status.json.errorClasses && status.json.errorClasses.rate_limited && status.json.errorClasses.rate_limited.zh, 'F5 ERROR_CLASSES 有 rate_limited 的人话');
+  }
+
+  // ── [I] 首字节前断线 / [J] 503 也退避重试 ──
+  {
+    const evs = await stream({ message: 'SCN-I 你好' });
+    const res = evs.find(e => e.type === 'result');
+    ok(res && res.ok === true && scnRequests('I').length === 2, `I1 首字节前连接被掐断后自动重试成功(实得 ${scnRequests('I').length} 发,${JSON.stringify(res)})`);
+    ok(evs.some(e => e.type === 'stderr' && /连接中断/.test(e.text || '')), 'I2 重试时说的是「连接中断」');
+    const evs2 = await stream({ message: 'SCN-J 你好' });
+    const res2 = evs2.find(e => e.type === 'result');
+    ok(res2 && res2.ok === true && scnRequests('J').length === 2, `J1 一次 503 后自动重试成功(实得 ${scnRequests('J').length} 发)`);
   }
 
   // ── [H] 子代理回合同样不执行半截参数的工具调用 ──

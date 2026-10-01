@@ -2370,19 +2370,25 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
       // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
       // 而子代理早有有界重试(08,同一份 withTransientRetry 骨架)。这里至多重试 3 次,退避 500ms 起倍增并加 ±20% 抖动
-      // (可被停止截断);502/503/504 与连接失败仍只走 streamWithFailover 的端点切换,不在这里重打。流式已开始的失败
-      // 不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      // (可被停止截断)。流式已开始的失败不会报成 HTTP 429(04i 只在尚未吐出内容时才给流内错误带状态码),所以不会重放已显示的内容。
+      // 2026-10(用户真机日志:一条 21 分钟、89 次工具调用的回合在第 51 次模型调用时 network_down 整回合失败):修前首字节前的
+      // 连接失败与 502/503/504 只走 streamWithFailover 的端点切换 —— 只配了一个 Base URL(最常见)就没有可切的,一次瞬断就
+      // 把整回合打死。现在与子代理同一份判据 providerCallIsTransient(04h:transportError / 502/503/504 / 429 / 529);
+      // 端点切换仍在 streamWithFailover 里先走完,这里只在【所有候选都失败】之后整组再试。transportError 只在首字节前产生
+      // (07 openAiStreamOnce:流式开始后的失败直接抛出,不进这里),所以同样不会重放已显示的内容。
       const sent = await withTransientRetry({
         maxRetries: 3,
         signal: ctrl && ctrl.signal,
         isAborted: () => reg.state !== 'running' || Boolean(ctrl && ctrl.signal && ctrl.signal.aborted),
         backoffMs: n => Math.round(500 * 2 ** (n - 1) * (0.8 + Math.random() * 0.4)),
         attempt: () => streamWithFailover(sendBody), // v1.0-S6 (B): pre-first-byte failover over [baseUrl, ...extraBaseUrls]
-        classify: c => (/^HTTP 529\b|^HTTP 429\b/.test(String(c && c.httpError || '')) ? 'retry' : 'done'),
+        classify: c => (providerCallIsTransient(c) ? 'retry' : 'done'),
         onRetry: (c, n) => {
           econTotals.modelCallAttempts += 1;
           touch();
-          onEvent({ type: 'stderr', text: `[provider] 服务商限流/过载(${String(c.httpError).slice(0, 8)}),稍后重试(${n}/3)` });
+          const what = c && c.transportError && !/^HTTP \d{3}/.test(String(c.httpError || '')) ? '连接中断' : `服务商限流/过载/暂不可用(${String(c.httpError).slice(0, 8)})`;
+          onEvent({ type: 'stderr', text: `[provider] ${what},稍后重试(${n}/3)` });
+          logEvent({ kind: 'model_call_retry', sessionId: session.id, provider: provider.id, attempt: n, reason: c && c.transportError ? 'transport' : String(c && c.httpError || '').slice(0, 8) });
         },
       });
       if (sent.aborted) { aborted = true; ok = false; break; }
@@ -2538,7 +2544,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         // Not a plan-shaped message and no tool_calls → fall through to normal handling.
       }
-      if (call.toolCalls && call.toolCalls.length) {
+      // 服务端搜索已在这一发里跑完并接着作答(百炼 / OpenAI hosted web_search 的形状,见 04i 解码器 serverSearchInline):这一发的正文
+      // 就是最终回答。修前这里不分形状,一律「回传搜索项 → 再请求一轮」,而回传的 web_search_call 在这类端点上不会恢复出结果、
+      // 那份正文也没进历史 —— 模型第二发看到的是一条没有结果的搜索项,于是回「搜索后端返空 / 引擎异常」并退回用 web_fetch 抓搜索页。
+      const serverCallsInline = Array.isArray(call.toolCalls) ? call.toolCalls.filter(tc => tc && tc.serverSide) : [];
+      const inlineServerAnswer = call.serverSearchInline === true && serverCallsInline.length > 0 && serverCallsInline.length === call.toolCalls.length;
+      // 服务端搜索调用在界面上的一张卡(无本地执行、不进历史配对)。echo = 把原始 item 回传给下一发(DeepSeek 形状才需要)。
+      const surfaceServerSearchCall = async (stc, echo) => {
+        const item = stc.item || { type: 'web_search_call', id: stc.id };
+        const { display, resultObj } = providerServerSearchCard(stc);
+        await notifyToolHookStart(stc, display, iter, 'server_tool');
+        onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
+        onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
+        toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
+        if (echo) serverToolItems.push(item); // echo back verbatim → next request's `input`
+        await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
+      };
+      if (inlineServerAnswer) for (const stc of serverCallsInline) await surfaceServerSearchCall(stc, false);
+      if (call.toolCalls && call.toolCalls.length && !inlineServerAnswer) {
         // v1.8: split server-side tool calls (web_search_call — DeepSeek already executed the search) from
         // local function calls. Server-side calls NEVER enter providerHistory (they are not function_calls
         // and must not be paired as function_call_output); their raw item is echoed back into the next
@@ -2561,21 +2584,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             rawArgsBytes: localToolCalls.reduce((s, t) => s + econArgsBytes(t.rawArgs), 0),
           })) econTotals.batchesLogged += 1;
         }
-        for (const stc of serverToolCalls) {
-          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
-          const item = stc.item || { type: 'web_search_call', id: stc.id };
-          // v1.8.1: surface the parsed action type too (search / open_page) so the UI can render the tool card accurately.
-          const display = { query: wsArgs.query || '服务端搜索' };
-          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
-          if (wsArgs.status) display.status = wsArgs.status;
-          await notifyToolHookStart(stc, display, iter, 'server_tool');
-          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
-          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
-          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
-          toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
-          serverToolItems.push(item); // echo back verbatim → next request's `input`
-          await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
-        }
+        for (const stc of serverToolCalls) await surfaceServerSearchCall(stc, call.serverSearchInline !== true);
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
         if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user

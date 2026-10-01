@@ -12,7 +12,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //      默认」、管家改配置走的都是这种路）改了服务商的推理强度与缺省模型；再打开设置、改一张卡片、期间又有一次外部改动，
 //      按「保存服务商」—— 三处外部改动与用户的改动都在盘上，一个字没回滚；保存条与导航小圆点跟着干净；
 //   S6 「放弃改动」把卡片与保存条都还原；
-//   S7 简易档：可见页签恰好 9 枚、五组都没有空组头、页内 .settings-expert-only 的行收起；
+//   S7 简易档（2026-10 设置补全翻面重钉）：全部页签都看得见、五组都没有空组头、页内原 .settings-expert-only 的行也照常显示；
 //   S8 全程页面上没有未捕获异常、没有 console.error。
 // 判定行：`SETTINGS IA BROWSER E2E: ALL PASS`。
 const fs = require('fs');
@@ -25,8 +25,9 @@ const ok = (condition, label) => {
   else { fail += 1; console.log('FAIL ' + label); }
 };
 
-const PRO_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'providers', 'claude', 'agents', 'network', 'integrations', 'doctor', 'advanced', 'update'];
-const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'providers', 'network', 'doctor', 'update'];
+// 2026-10 设置补全：新增语音识别／扩展组件／技能与模板／迁移中心／存储与数据五枚；简易档与专家档看得见的是同一份。
+const PRO_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'providers', 'voice', 'claude', 'agents', 'network', 'integrations', 'toolbox', 'skills', 'migration', 'doctor', 'storage', 'advanced', 'update'];
+const SIMPLE_TABS = PRO_TABS;
 
 (async () => {
   let fx = null;
@@ -61,7 +62,8 @@ const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'provid
     // 服务端落盘了还不够：页面这一侧要等保存的回包回来（state.config 换成新值、保存期间置灰的下拉恢复）再点下一枚 ——
     // 真人手速不会在几十毫秒里连点两枚，测试会，不等就是在量竞态而不是在量功能。
     const settled = clientPred => fx.waitForEval(`(() => {
-      if ([...document.querySelectorAll('#settingsModal select')].some(s => s.disabled)) return null;
+      // 「保存期间置灰」才算在等回包;服务商卡片里「推理链」没开时置灰的思考强度(.prov-effort-select)是常态不是保存中。
+      if ([...document.querySelectorAll('#settingsModal select')].some(s => s.disabled && !s.classList.contains('prov-effort-select'))) return null;
       const c = (window.state && window.state.config) || {};
       try { return (${clientPred})(c) ? 1 : null; } catch { return null; }
     })()`, 150);
@@ -108,7 +110,7 @@ const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'provid
     /* ═════════ S1 专家档：13 枚页签、新顺序、逐枚切得过去 ═════════ */
     ok(Boolean(await openSettings()), 'S1a 设置弹窗打开了');
     const tabs = await ev(`[...document.querySelectorAll('#settingsTabs button[data-stab]')].map(b => b.dataset.stab)`);
-    ok(JSON.stringify(tabs) === JSON.stringify(PRO_TABS), `S1b 13 枚页签按新结构排（实见 ${JSON.stringify(tabs)}）`);
+    ok(JSON.stringify(tabs) === JSON.stringify(PRO_TABS), `S1b ${PRO_TABS.length} 枚页签按新结构排（实见 ${JSON.stringify(tabs)}）`);
     for (const stab of PRO_TABS) {
       const panel = await switchTab(stab);
       ok(Boolean(panel) && panel.text > 20, `S1c 点「${stab}」面板真的切过去且不是空的（${panel ? panel.text + ' 字' : '没切过去'}）`);
@@ -116,8 +118,9 @@ const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'provid
     ok(!(await ev(`Boolean(document.getElementById('stab-mcp')) || Boolean(document.querySelector('#settingsTabs button[data-stab="mcp"]'))`))
       && await ev(`Boolean(document.querySelector('#stab-integrations #mcpConnList')) && document.querySelectorAll('#settingsModal [id="mcpImportBtn"]').length === 1 && !document.getElementById('importMcpFolderBtn')`),
       'S1d 「MCP 运维」并进了「集成与 MCP」：旧页签与旧面板都不在，连接器清单在集成页，导入按钮只剩一枚');
-    ok(await ev(`Boolean(document.querySelector('#stab-integrations'))`) && !(await ev(`Boolean(document.querySelector('.modal-foot #saveConfigBtn'))`)),
-      'S1e 迁移中心的挂载点 #stab-integrations 在；页脚不再有整份「保存」（保存键在服务商卡片下方）');
+    ok(await ev(`Boolean(document.querySelector('#stab-migration #migrationCenter'))`) && !(await ev(`Boolean(document.querySelector('#stab-integrations #migrationCenter'))`))
+      && !(await ev(`Boolean(document.querySelector('.modal-foot #saveConfigBtn'))`)),
+      'S1e 迁移中心住自己的页签 #stab-migration（不再追加在「集成与 MCP」末尾）；页脚不再有整份「保存」（保存键在服务商卡片下方）');
 
     /* ═════════ S2 模型分配：每一行能选、选中即存 ═════════ */
     await switchTab('models');
@@ -236,20 +239,23 @@ const SIMPLE_TABS = ['basic', 'security', 'limits', 'steward', 'models', 'provid
       emptyGroups: [...document.querySelectorAll('#settingsTabs .settings-nav-group')].filter(g => getComputedStyle(g).display !== 'none'
         && ![...g.querySelectorAll('button[data-stab]')].some(b => b.offsetParent !== null && getComputedStyle(b).display !== 'none')).map(g => g.dataset.group),
     }))()`);
-    ok(JSON.stringify(nav.shown) === JSON.stringify(SIMPLE_TABS), `S7b 简易档看得见的页签恰好 9 枚（实见 ${JSON.stringify(nav.shown)}）`);
+    ok(JSON.stringify(nav.shown) === JSON.stringify(SIMPLE_TABS), `S7b 简易档看得见全部 ${SIMPLE_TABS.length} 枚页签（实见 ${JSON.stringify(nav.shown)}）`);
     ok(nav.emptyGroups.length === 0, `S7c 没有空组头（实见 ${JSON.stringify(nav.emptyGroups)}）`);
     await switchTab('models');
-    ok(!(await visible('#modelAssignList [data-assign="subagent"]')) && await visible('#modelAssignList [data-assign="steward"]'),
-      'S7d 模型分配：子代理那一行（开发者向）收起，管家那一行照常');
+    ok(await visible('#modelAssignList [data-assign="subagent"]') && await visible('#modelAssignList [data-assign="steward"]'),
+      'S7d 模型分配：子代理那一行简易档也看得见（不再收起），管家那一行照常');
     await switchTab('limits');
-    ok(!(await visible('#cfgOpenaiMaxToolIterations')) && !(await visible('#settingsSecWorkflow')) && await visible('#cfgUsageBudgetMonthly'),
-      'S7e 用量与限额：工具调用上限与工作流那一段收起，月度预算照常');
+    ok(await visible('#cfgOpenaiMaxToolIterations') && await visible('#settingsSecWorkflow') && await visible('#cfgUsageBudgetMonthly'),
+      'S7e 用量与限额：工具调用上限、工作流、月度预算简易档都看得见');
     await switchTab('security');
-    ok(await visible('#cfgStewardDefaultPermission') && !(await visible('#settingsSecCliPermission')),
-      'S7f 权限与安全：全局默认权限简易档也够得着，命令行引擎那一段收起');
+    // 命令行引擎那一段只对 Claude Code 显示（data-agent-cli-only，S2d 把命令行引擎切成了 Kimi）—— 这里只钉「简易档不再额外藏它」：
+    // 它若不显示，唯一的原因只能是按引擎显隐的 .hidden。
+    ok(await visible('#cfgStewardDefaultPermission')
+      && await ev(`(() => { const n = document.getElementById('settingsSecCliPermission'); return Boolean(n) && (n.offsetParent !== null || n.classList.contains('hidden')); })()`),
+      'S7f 权限与安全：全局默认权限简易档够得着；命令行引擎那一段不再被简易档藏（只按命令行引擎显隐）');
     await ev(`(() => { document.querySelector('#settingsTabs button[data-stab="advanced"]').click(); return true; })()`);
     await sleep(150);
-    ok((await ev(`(document.querySelector('.settings-tab.active') || {}).id || ''`)) === 'stab-basic', 'S7g 藏着的专家页签程序化点一下落回「基础」');
+    ok((await ev(`(document.querySelector('.settings-tab.active') || {}).id || ''`)) === 'stab-advanced', 'S7g 简易档点「高级」就落在「高级」（不再被拦回「基础」）');
     await switchTab('basic');
     ok(await pick('#cfgUiMode', 'pro') && Boolean(await waitConfig(c => c.uiMode === 'pro')), 'S7h 切回专家档');
 

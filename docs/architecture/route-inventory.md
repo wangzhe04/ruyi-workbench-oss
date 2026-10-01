@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 151(精确 128 / 前缀 11 / 正则 12),ROUTE_AUTH 137 条,生成于 2026-09-30T17:17:39.783Z。
+> 判定点 151(精确 128 / 前缀 11 / 正则 12),ROUTE_AUTH 137 条,生成于 2026-10-01T02:17:51.049Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -29,28 +29,28 @@
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | POST | `/api/bootstrap` | exact | open | 13-http-router.js · `handleApi` | context-compact-v2.e2e.js, dom-smoke.e2e.js, external-code-diff.e2e.js 等 13 件 |
-| GET | `/api/status` | exact | open | 13-http-router.js · `handleApi` | agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 60 件 |
+| GET | `/api/status` | exact | open | 13-http-router.js · `handleApi` | agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 64 件 |
 | GET | `/api/capabilities` | exact | open | 13-http-router.js · `handleApi` | capabilities.e2e.js, playbooks.e2e.js, service-match.browser.e2e.js |
-| GET | `/api/playbooks` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 5 件 |
+| GET | `/api/playbooks` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 6 件 |
 | POST | `/api/playbooks/service-match` | exact | token-browser | 13-http-router.js · `handleApi` | playbooks.e2e.js |
 | POST | `/api/playbooks/draft` | exact | token | 13-http-router.js · `handleApi` | playbooks.e2e.js |
-| POST | `/api/playbooks` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 5 件 |
+| POST | `/api/playbooks` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 6 件 |
 | DELETE/POST | `/api/playbooks/` | prefix | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, playbooks.e2e.js |
 | POST | `/api/workspace/resolve` | exact | token | 13-http-router.js · `handleApi` | workspace-resolve.e2e.js |
 | POST | `/api/pick-folder` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js, workspace-resolve.e2e.js |
 | POST | `/api/workspace/dedicated` | exact | token | 13-http-router.js · `handleApi` | onboarding-workspace.browser.e2e.js |
 | POST | `/api/pick-file` | exact | token | 13-http-router.js · `handleApi` | overlay-update-gui.static.e2e.js |
 | GET | `/api/models` | exact | open | 13-http-router.js · `handleApi` | asr-config-ui.static.e2e.js, claude-models-cache.e2e.js, context-window.e2e.js 等 7 件 |
-| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-team-mode.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 50 件 |
+| POST | `/api/config` | exact | token | 13-http-router.js · `handleApi` | agent-team-mode.e2e.js, asr-transcribe.e2e.js, asr-warmup.e2e.js 等 51 件 |
 | GET | `/api/agent-roles` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 5 件 |
 | POST | `/api/agent-roles` | exact | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js 等 5 件 |
 | GET | `/api/agent-workflows` | exact | token-browser | 13-http-router.js · `handleApi` | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 5 件 |
 | POST | `/api/agent-workflows` | exact | token | 13-http-router.js · `handleApi` | agent-workflow-audit-fixes.e2e.js, auth-deny-default.e2e.js, meta-guard.e2e.js 等 5 件 |
 | DELETE/POST | `/api/agent-workflows/` | prefix | token | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js |
 | POST | `/api/provider/test` | exact | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, config-providers-guard.e2e.js, meta-guard.e2e.js 等 6 件 |
-| GET | `/api/skills` | exact | token-browser | 13-http-router.js · `handleApi` | audit-w23.e2e.js, meta-guard.e2e.js, migration-center.browser.e2e.js 等 6 件 |
+| GET | `/api/skills` | exact | token-browser | 13-http-router.js · `handleApi` | audit-w23.e2e.js, meta-guard.e2e.js, migration-center.browser.e2e.js 等 7 件 |
 | POST | `/api/session/skills` | exact | token-browser | 13-http-router.js · `handleApi` | claude-cmdline-guard.e2e.js, index-dedup.e2e.js, session-id-path-guard.e2e.js 等 6 件 |
-| DELETE | `/api/skills` | exact | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, meta-guard.e2e.js, migration-center.browser.e2e.js 等 6 件 |
+| DELETE | `/api/skills` | exact | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, meta-guard.e2e.js, migration-center.browser.e2e.js 等 7 件 |
 | POST | `/api/session/memories` | exact | token-browser | 13-http-router.js · `handleApi` | session-id-path-guard.e2e.js, workbench-memory.e2e.js |
 | GET | `/api/memory` | exact | token self | 13-http-router.js · `handleApi` | action-feedback.static.e2e.js, agent-quality-workflow.e2e.js, auth-deny-default.e2e.js 等 8 件 |
 | GET | `/api/memory/item` | exact | token self | 13-http-router.js · `handleApi` | workbench-memory.e2e.js |
@@ -94,7 +94,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js · `handleApi` | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js · `handleApi` | steward-conversation.static.e2e.js, tool-result-render.browser.e2e.js, tool-result-shrink.test.js 等 4 件 |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js · `handleApi` | tool-result-render.browser.e2e.js, tool-result-shrink.test.js, vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 161 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, action-feedback.browser.e2e.js 等 164 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 17 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js · `startServerInner` | — |
 
@@ -112,7 +112,7 @@
 | POST | `/api/missions/:missionId/interventions/:interventionId/decision` | regex | token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | acceptance-provenance.e2e.js, action-feedback.browser.e2e.js, agent-workflow-replan-approve.e2e.js 等 26 件 |
 | GET | `/api/interventions` | exact | token-browser self | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | agent-workflow-replan-approve.e2e.js, agent-workflow-replan-review.e2e.js, event-stream-client.browser.e2e.js 等 22 件 |
 | GET | `/api/interventions/:sessionId` | regex | token-browser self | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | interventions-persist.e2e.js, mission-index-scale.e2e.js, session-id-path-guard.e2e.js 等 4 件 |
-| POST | `/api/chat/answer` | exact | token-browser | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | event-stream-client.browser.e2e.js, event-stream-replay.browser.e2e.js, event-stream.e2e.js 等 15 件 |
+| POST | `/api/chat/answer` | exact | token-browser | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | event-stream-client.browser.e2e.js, event-stream-replay.browser.e2e.js, event-stream.e2e.js 等 16 件 |
 | POST | `/api/question/heartbeat` | exact | token-browser | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | — |
 | POST | `/api/question/request` | exact | body-token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | — |
 | POST | `/api/permission/request` | exact | body-token | 13d-core-domain-routes.js · `handleInterventionApiRoutes` | claude-cli-bridged-read-guard.e2e.js, claude-permission-bridge-mode.e2e.js |
@@ -184,12 +184,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 200 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 203 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-id-path-guard.e2e.js, session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 200 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acceptance-provenance.e2e.js 等 203 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | — |
-| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | action-feedback.browser.e2e.js, agent-mode-v2.e2e.js, agent-roles.e2e.js 等 106 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | action-feedback.browser.e2e.js, agent-mode-v2.e2e.js, agent-roles.e2e.js 等 109 件 |
 
 ## steer(2)
 
@@ -202,7 +202,7 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| POST | `/api/steward/start` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-runner.e2e.js 等 5 件 |
+| POST | `/api/steward/start` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-continue-unfinished.e2e.js, steward-events.static.e2e.js, steward-inbox.e2e.js 等 6 件 |
 | POST | `/api/steward/stop` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-preroute.e2e.js 等 5 件 |
 | GET | `/api/steward/state` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | mission-index-late-materialize.e2e.js, rail-pocket.browser.e2e.js, steward-deliverable.e2e.js 等 10 件 |
 | GET | `/api/steward/inbox` | exact | token self | 13g-steward.js · `handleStewardApiRoutes` | steward-events.static.e2e.js, steward-inbox.e2e.js, steward-presence-gate.e2e.js 等 4 件 |

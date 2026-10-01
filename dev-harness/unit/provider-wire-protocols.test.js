@@ -57,7 +57,8 @@ test('[R] 登记表成员齐全、冻结;前端表与服务端逐一相同', asy
   const locales = ['zh-CN', 'en-US'].map(l => JSON.parse(fs.readFileSync(path.join(app, 'public', 'locales', l + '.json'), 'utf8')));
   for (const [id, row] of Object.entries(fe.PROVIDER_API_STYLES)) {
     assert.ok(Object.isFrozen(row), `前端 ${id} 冻结`);
-    assert.deepEqual(Object.keys(row).sort(), ['id', 'labelKey', 'serverWebSearch']);
+    assert.deepEqual(Object.keys(row).sort(), ['anthropicOptions', 'id', 'labelKey', 'serverWebSearch']);
+    assert.equal(typeof row.anthropicOptions, 'boolean', `${id}.anthropicOptions 是布尔`);
     assert.equal(row.id, id);
     assert.equal(row.serverWebSearch, PROVIDER_WIRE_PROTOCOLS[id].serverWebSearch, `${id}.serverWebSearch 两边同值`);
     for (const loc of locales) assert.equal(typeof loc[row.labelKey], 'string', `${row.labelKey} 两份语言包都有`);
@@ -79,6 +80,30 @@ test('[N] 协议值归一与修前三元式逐项相同(服务端与前端两份
   const normalized = srv.normalizeConfig({ providers: [{ id: 'a', apiStyle: 'responses' }, { id: 'b', apiStyle: 'Responses' }, { id: 'c' }] });
   const cfg = normalized.config || normalized;
   assert.deepEqual(cfg.providers.filter(p => ['a', 'b', 'c'].includes(p.id)).map(p => p.apiStyle), ['responses', 'chat', 'chat']);
+});
+
+test('[U] 服务商卡片的协议能力位与候选值和服务端清洗口径一致', async () => {
+  const fe = await loadFrontend();
+  // anthropicOptions 只有 anthropic 为真(卡片按它显隐 Anthropic 专属三项,不写 apiStyle === 'anthropic' 的散判断)
+  assert.deepEqual(Object.entries(fe.PROVIDER_API_STYLES).filter(([, row]) => row.anthropicOptions).map(([id]) => id), ['anthropic']);
+  const get = raw => {
+    const normalized = srv.normalizeConfig({ providers: [{ id: 'u', apiStyle: 'anthropic', ...raw }] });
+    return (normalized.config || normalized).providers.find(p => p.id === 'u');
+  };
+  // 下拉里的每一个候选值,服务端清洗后原样落盘(空串 = 缺省:推理强度为 '',Anthropic 三项不落字段)
+  for (const v of fe.PROVIDER_REASONING_EFFORT_CHOICES) assert.equal(get({ reasoning: true, reasoningEffort: v }).reasoningEffort, v, `reasoningEffort ${JSON.stringify(v)}`);
+  for (const v of fe.ANTHROPIC_AUTH_CHOICES) assert.equal(get({ anthropicAuth: v }).anthropicAuth || '', v, `anthropicAuth ${JSON.stringify(v)}`);
+  for (const v of fe.ANTHROPIC_THINKING_CHOICES) assert.equal(get({ anthropicThinking: v }).anthropicThinking || '', v, `anthropicThinking ${JSON.stringify(v)}`);
+  assert.equal(get({ anthropicFallbacks: 'off' }).anthropicFallbacks, 'off');
+  assert.equal('anthropicFallbacks' in get({ anthropicFallbacks: '' }), false, '空 = 缺省(开),不落字段');
+  // 服务端认的值前端候选里一个不缺:每个候选之外的值都会被清成缺省
+  assert.equal(get({ reasoning: true, reasoningEffort: 'ultra' }).reasoningEffort, '');
+  assert.equal('anthropicAuth' in get({ anthropicAuth: 'basic' }), false);
+  // 语音端点与子代理模型:空串不会盖掉服务端缺省(audioBaseUrl 不落字段,subagentModel 落空串)
+  assert.equal('audioBaseUrl' in get({ audioBaseUrl: '' }), false);
+  assert.equal(get({ audioBaseUrl: ' https://asr.example.com/v1 ' }).audioBaseUrl, 'https://asr.example.com/v1');
+  assert.equal(get({ subagentModel: ' m1 ' }).subagentModel, 'm1');
+  assert.equal(get({}).subagentModel, '');
 });
 
 test('[M] 端点、模型清单、请求头', () => {

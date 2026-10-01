@@ -176,6 +176,8 @@ function stewardBasisOf(args, extra) {
   if (raw.inboxSeq != null) base.inboxSeq = Number(raw.inboxSeq) || 0;
   if (raw.auto != null) base.auto = raw.auto === true;
   if (raw.origin) base.origin = String(raw.origin).slice(0, 40);
+  // 「没做完就续」自理动作的理由(计划进度 / 回合没收口 / 第几次),给行动流水点开时看;只是注解,不参与任何判定。
+  if (raw.reason) base.reason = String(raw.reason).slice(0, 120);
   return base;
 }
 

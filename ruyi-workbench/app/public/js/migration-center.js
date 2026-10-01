@@ -15,7 +15,7 @@ import { confirmDanger } from './confirm-panel.js';
 //      「全部改到新版」「撤销上次迁移」「移到回收站」。
 // 后端全在 /api/migration/*（13u，经 MigrationHooks 迟绑定）；本文件只渲染与转发，判据一个都不在这里。
 //
-// 挂点：设置弹窗「集成」页签 #stab-integrations 的末尾，运行时追加 <section id="migrationCenter">。
+// 挂点：设置弹窗「迁移中心」页签 #stab-migration（2026-10 前是「集成」页签末尾），运行时追加 <section id="migrationCenter">。
 // 设置页的标记由 W6 重组，这里【不改】index.html，只认这个面板 id（W6 知道这个挂点）。
 // 首启提示：scan 回 prompt.show（有用户没看过的候选键）→ 两个视角都在右上角起一张一次性、非模态的卡
 // （沿用安静卡的外观类 .quiet-card*），「查看并迁移」「以后再说」都会记「看过了」（apply markSeen）。
@@ -24,7 +24,7 @@ import { confirmDanger } from './confirm-panel.js';
 
 export const MIGRATION_CENTER_ID = 'migrationCenter';
 export const MIGRATION_CARD_HOST_ID = 'migrationCardHost';
-export const MIGRATION_MOUNT_PANEL_ID = 'stab-integrations';
+export const MIGRATION_MOUNT_PANEL_ID = 'stab-migration';   // 2026-10 设置补全：独立页签（修前追加在「集成与 MCP」末尾）
 
 // 状态 → 文案键。未知状态落回原样（服务端新加了状态也不至于空白）。
 const STATUS_KEYS = Object.freeze({
@@ -128,7 +128,6 @@ export function bindMigrationCenter({ openIntegrations = () => {}, promptDelayMs
     root = el('section', 'migration-center');
     root.id = MIGRATION_CENTER_ID;
     root.setAttribute('aria-labelledby', MIGRATION_CENTER_ID + 'Title');
-    host.appendChild(el('hr', 'settings-sep'));
     host.appendChild(root);
     // 标题当场就画:aria-labelledby 指向的 id 必须一挂上就在(a11y-lint A3),不能等第一次 scan 回来。
     renderHead(root);

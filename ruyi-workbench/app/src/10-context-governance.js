@@ -3003,6 +3003,9 @@ async function runSessionTurn(input) {
   // A missing/corrupt session id must not crash the turn: fall back to a fresh session (loadSession
   // already isolated the corrupt file as .corrupt).
   const session = (body.sessionId ? await loadSession(body.sessionId) : null) || await createSession({ title: body.title, cwd: body.cwd });
+  // 回合开头的计划条指纹:收尾时随成败账一起落(stewardLastTurn.todosStartSig),管家据此分辨「这一回合推进过的计划」
+  // 与「早就搁下的旧计划」(见 02 sessionTodosSignature)。
+  const todosStartSig = sessionTodosSignature(session.todos);
   // 116-3 A2(会话/权限口径子审查):管家会话【只能】由管家运行器发起回合。任何别的调用面
   // (直连 POST /api/chat/stream 打 sessionId=steward 是最直接的一条)都会拿到 core/shell/steward
   // 三个工具包整份offer,并且完全绕开 13h 的编排、熔断、预算、抢占与决策日志 —— 那等于用普通会话
@@ -3275,7 +3278,31 @@ async function runSessionTurn(input) {
     try { revokeGrantsForRun(session.id, driverRunId); } catch { /* best-effort */ }
     if (activeDriverRuns.get(session.id) === driverRunId) activeDriverRuns.delete(session.id);
     if (settleResolve) { try { settleResolve(); } catch { /* best-effort */ } }
+    // 回合成败账(会话头 stewardLastTurn):管家盯着的线程,回合不管是谁发起的都要落这一笔。修前只有管家/调度器
+    // 发起的回合会写(13k stewardRecordLaunchOutcome / 13s),用户自己在界面上发起的回合没有 —— 收件箱第四源读不到
+    // 成败账就按「账缺席 = done」报,于是 ok:false 的 network_down 回合被管家说成「已收工」、「失败自动重试」也
+    // 永远等不到 failed 事件;五态两张表读的 lastTurnFailed 同样读不到。判据取回合自己发出的 result 事件(ok/aborted/
+    // errorClass,三引擎同形),与 13k 同口径。管家/调度器发起的回合照旧由它们自己写;被新回合顶掉的不写(新回合会写)。
+    const outcomeId = session.id;
+    let outcomePatch = null;
+    try {
+      if (outcomeId !== STEWARD_SESSION_ID && source !== 'steward' && source !== 'scheduler'
+          && !(lastResult && lastResult.superseded)
+          && stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) {
+        if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
+        else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
+      }
+    } catch { outcomePatch = null; }
+    if (outcomePatch) turnOutcomePending.add(outcomeId);
     if (turnSettlers.get(session.id) === settleEntry) turnSettlers.delete(session.id); // 只删自己的条目;supersede 的新回合条目不动
+    if (outcomePatch) {
+      // 不 await:成败账是旁路,回合的收尾(brief 补写、返回值)不该排在一次会话头写盘后面;读侧在
+      // turnOutcomePending 挂着期间按「账在路上」处理(04),落盘或失败后摘掉。
+      Promise.resolve()
+        .then(() => updateSessionMeta(outcomeId, { stewardLastTurn: outcomePatch }))
+        .catch(() => { /* 旁路:少一笔账只是退回「账缺席」,不反噬回合 */ })
+        .finally(() => { turnOutcomePending.delete(outcomeId); });
+    }
     // 116-5a(§11.8.4)收工这一刻做两件事,都在 06 的 settleThreadBrief 里:
     //   ① **补写** —— 首回合那次算出来的 brief 可能刚被回合自己的收尾 saveSession 盖掉(它手里那份
     //      内存副本不含 brief,谁后写谁赢)。补写不调模型,幂等。116-5a 实测抓到的就是这条丢写。
