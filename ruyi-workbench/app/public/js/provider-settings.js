@@ -2355,6 +2355,7 @@ function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; au
     renderStatusLine,
     saveConfigPartial,
     saveSettings,
+    saveTemplates,   // 设置页「技能与模板」改名/删除模板写回 wcw.templates 走这一个口
     updateEngineDependentUI,
     updateSearchBackendVisibility,
     focusAsrSettings,   // 128f-⑭：输入框里那枚待开启的麦克风被点时，组合根把人带到语音识别那一栏

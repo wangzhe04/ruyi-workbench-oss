@@ -25,7 +25,7 @@ import { createAgentRolesDomain } from './js/agent-roles.js';
 import { createSkillsMemoryDomain } from './js/skills-memory.js';
 import { createProviderSettingsDomain } from './js/provider-settings.js';
 import { createAgentWorkflowsDomain } from './js/agent-workflows.js';
-import { createNavigationControlsDomain } from './js/navigation-controls.js';
+import { createNavigationControlsDomain } from './js/navigation-controls.js'; import { createSettingsSkillsDomain } from './js/settings-skills.js'; // 设置页「技能与模板」
 import { createSessionExperienceDomain } from './js/session-experience.js';
 import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
@@ -195,7 +195,7 @@ const {
   playbookStatusText,
   renderSkillList,
   saveAsMemory,
-  suggestMemoryFromTurn,
+  settingsSkillsApi, suggestMemoryFromTurn,
   updateSkillBadge,
 } = createSkillsMemoryDomain({
   apiErrText,
@@ -232,7 +232,7 @@ const {
   renderProviders,
   renderStatusLine,
   saveConfigPartial,
-  saveSettings,
+  saveSettings, saveTemplates,
   updateEngineDependentUI,
   updateSearchBackendVisibility,
   focusAsrSettings,
@@ -454,6 +454,7 @@ const {
   renderSessions: () => renderSessions(), scrollIsSticky: () => isStickyScroll(),
 });
 
+const settingsSkillsDomain = createSettingsSkillsDomain({ t, api, toast, apiErrText, confirmDanger, skills: settingsSkillsApi, getTemplates, saveTemplates, refreshPlaybooks: () => refreshPlaybooks(), openSkillPanel: () => openSkillPanel() }); // 设置页「技能与模板」(技能段取技能域同一份实现,模板读写走 provider-settings)
 const {
   closeModal,
   closeToolDrawer,
@@ -514,7 +515,7 @@ const {
   toggleTheme: () => toggleTheme(),
   compactContext: () => compactContext(),
   refreshStatus: () => refreshStatus(),
-  openSkillPanel: () => openSkillPanel(),
+  openSkillPanel: () => openSkillPanel(), openSettingsSkills: () => settingsSkillsDomain.open(),
   patchSession: (id, patch) => patchSession(id, patch),
   toggleUiMode: () => toggleUiMode(),
   focusFirstInteractive: container => focusFirstInteractive(container),
@@ -1217,8 +1218,7 @@ const { bootFailureKind, tagBootStep, bootStep, bootStepSync, renderBootFailure 
 
 async function boot() {
   await initToken(); // 47c(S1):bootstrap 握手取 token 进 sessionStorage(HTML 不再明文下发);须在任何 api() 前
-  await initI18n('auto');
-  setNetworkErrorMessage(() => t('net.disconnected')); // 2026-10：网络层失败（Failed to fetch）报人话，不端浏览器原生英文
+  await initI18n('auto'); setNetworkErrorMessage(() => t('net.disconnected')); // 2026-10：网络层失败（Failed to fetch）报人话（组合根 D45 护栏：同一行）
   hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
   setStreaming(false);
   bindEvents();

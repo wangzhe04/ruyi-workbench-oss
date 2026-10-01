@@ -601,3 +601,101 @@
 #settingsModal .agent-role-dot { width: 10px; height: 10px; margin-inline-end: var(--sp-2); vertical-align: baseline; }
 #settingsModal .agent-role-color-swatch.is-empty,
 #settingsModal .agent-role-dot.is-empty { background-image: linear-gradient(135deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%); }
+
+/* ── 技能与模板页（2026-10）──
+   三段（技能／一键任务／提示词模板）都是同一种列表：一行 ＝ 左边名称 ＋ 灰色说明，右边开关或按钮，
+   行间 1px 分隔线（与「模型分配」的 .model-assign-row 同一个节奏）。所有规则限定在 #stab-skills 内。 */
+#stab-skills .setskill-body { display: flex; flex-direction: column; gap: var(--sp-2); }
+#stab-skills .setskill-note { margin: 0; font-size: var(--fs-sm); line-height: 1.5; }
+#stab-skills .setskill-note.setskill-error { color: var(--danger-fg, var(--danger)); }
+#stab-skills .setskill-local { padding-top: var(--sp-1); }
+#stab-skills .setcat-empty { margin: 0; padding: var(--sp-3) 0; font-size: var(--fs-sm); line-height: 1.5; }
+#stab-skills .setskill-list { display: flex; flex-direction: column; }
+#stab-skills .setskill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--sp-4);
+  row-gap: var(--sp-2);
+  align-items: center;
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--line);
+}
+#stab-skills .setskill-list > .setskill-row:first-child { border-top: none; }
+/* 带图标的行（一键任务）：图标占第一栏。 */
+#stab-skills .setskill-row:has(> .setskill-icon) { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-3); }
+#stab-skills .setskill-icon { font-size: var(--fs-lg); line-height: 1; }
+#stab-skills .setskill-text { min-width: 0; }
+#stab-skills .setskill-name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); color: var(--ink); font-size: var(--fs-md); font-weight: 500; }
+#stab-skills .setskill-title { overflow-wrap: anywhere; }
+#stab-skills .setskill-tag {
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  line-height: 1.6;
+}
+#stab-skills .setskill-desc {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#stab-skills .setskill-row.is-unavailable .setskill-title { color: var(--muted); }
+#stab-skills .setskill-row.is-ghost .setskill-desc { -webkit-line-clamp: 3; line-clamp: 3; }
+#stab-skills .setskill-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); flex-wrap: wrap; }
+#stab-skills .setskill-footer { display: flex; justify-content: flex-start; padding-top: var(--sp-2); }
+/* 「常驻」开关：标签字 ＋ 圆角开关（原生 checkbox 换皮，保留键盘与读屏语义）。 */
+#stab-skills .setskill-switchlabel { display: inline-flex; align-items: center; gap: var(--sp-2); margin: 0; color: var(--ink-2); font-size: var(--fs-sm); cursor: pointer; }
+#stab-skills .setskill-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  background: var(--panel-3);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+#stab-skills .setskill-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+#stab-skills .setskill-switch:checked { background: var(--accent); border-color: var(--accent); }
+#stab-skills .setskill-switch:checked::after { transform: translateX(14px); background: var(--accent-ink); }
+#stab-skills .setskill-switch:focus-visible { outline: none; box-shadow: var(--ring); }
+#stab-skills .setskill-switch:disabled { opacity: .45; cursor: not-allowed; }
+/* 就地编辑（改名／改模板）：输入框占满左侧，保存取消在右。 */
+#stab-skills .setskill-row.is-editing { align-items: start; }
+#stab-skills .setskill-edit { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+#stab-skills .setskill-input { width: 100%; box-sizing: border-box; }
+#stab-skills textarea.setskill-input { resize: vertical; min-height: 6em; line-height: 1.5; }
+@media (max-width: 640px) {
+  #stab-skills .setskill-row,
+  #stab-skills .setskill-row:has(> .setskill-icon) { grid-template-columns: minmax(0, 1fr); }
+  #stab-skills .setskill-icon { display: none; }
+  #stab-skills .setskill-actions { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #stab-skills .setskill-switch,
+  #stab-skills .setskill-switch::after { transition: none; }
+}

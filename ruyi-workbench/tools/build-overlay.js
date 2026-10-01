@@ -137,6 +137,8 @@ const PAYLOAD_FILES = [
   // 127-⑦:输入框麦克风(两个视角共用)。app.js 与 steward-composer.js 都静态 import 它 —— 缺文件
   // 两个视角的输入区一起挂掉,同 rail-pocket.js 的理由。
   'app/public/js/composer-voice.js',
+  // 2026-10 设置补全：设置页「技能与模板」。app.js 静态 import 它 —— 缺文件整页挂掉，同上。
+  'app/public/js/settings-skills.js',
   // W2:迁移中心(设置「集成」页签末尾的区块 + 两个视角的首启卡)。app.js 静态 import 它 —— 缺文件整页挂掉,同上。
   'app/public/js/migration-center.js',
   // 2026-10 设置补全：设置目录（修前没有控件的 config 键）。provider-settings.js 静态 import 它 —— 缺文件整页挂掉，同上。

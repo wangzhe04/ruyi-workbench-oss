@@ -203,12 +203,17 @@ function residentSkillEntries() {
 function residentSkillIds() {
   return residentSkillEntries().map(x => (typeof x === 'string' ? x : (x && x.id))).filter(Boolean);
 }
+// 重拉 /api/skills 进注册表并返回它(失败照抛:技能库弹窗自己兜成空表,设置页「技能与模板」要把失败说出来)。
+async function refreshSkillRegistry() {
+  skillRegistry = (await api('/api/skills?cwd=' + encodeURIComponent(currentWorkspace() || ''))).skills || [];
+  return skillRegistry;
+}
 async function openSkillPanel() {
   openModal('skillModal');
   const s = $('skillSearch'); s.value = ''; skillIndex = 0; s.focus();
   $('skillList').innerHTML = `<div class="muted">${escapeHtml(t('skills.loading'))}</div>`;
   // 每次打开都刷新:项目级技能随 cwd 变、可用性随能力矩阵变、启用状态随会话变。cwd 传当前会话工作目录。
-  try { skillRegistry = (await api('/api/skills?cwd=' + encodeURIComponent(currentWorkspace() || ''))).skills || []; }
+  try { await refreshSkillRegistry(); }
   catch { skillRegistry = []; }
   renderSkillList();
 }
@@ -427,8 +432,9 @@ function openSkillDetail(entry) {
 // v2.5: 删除用户技能的确认弹窗。「不要太简单」的摩擦:二次点击确认 --
 // 第一次点「确认删除」只 arm(按钮文案变为「再次点击确认删除」,3 秒内不点自动收回),第二次点击才真删。
 // 仅 source==='user' 可达此入口(buildSkillRow 只为 user 源渲染删除键);服务端仍独立校验 confirm===id。
+// 设置页「技能与模板」也走这一个确认件:afterDelete 给了就用它刷新自己那一页(先重拉注册表),不再弹开技能库。
 let skillDeletePending = false;
-async function confirmDeleteSkill(entry) {
+async function confirmDeleteSkill(entry, { afterDelete = null } = {}) {
   if (skillDeletePending || !entry || entry.source !== 'user') return;
   const id = String(entry.id || '');
   const name = skillDisplayName(entry);
@@ -469,7 +475,13 @@ async function confirmDeleteSkill(entry) {
       await api('/api/skills', { method: 'DELETE', body: JSON.stringify({ id, confirm: id }) });
       toast(t('skills.toast.deleted', { name }));
       modal.close();
-      await openSkillPanel(); // 重拉 /api/skills 刷新注册表(被删技能自然消失)
+      if (typeof afterDelete === 'function') { // 设置页:只重拉注册表并让它重画自己,不打开技能库弹窗
+        let fresh = null; // 重拉失败给 null,调用方自己决定怎么办
+        try { fresh = await refreshSkillRegistry(); } catch { /* 交给调用方 */ }
+        await afterDelete(fresh);
+      } else {
+        await openSkillPanel(); // 重拉 /api/skills 刷新注册表(被删技能自然消失)
+      }
       updateSkillBadge();
     } catch (e) {
       toast(t('skills.toast.deleteFailed', { reason: apiErrText(e) }), 'err');
@@ -481,6 +493,7 @@ async function confirmDeleteSkill(entry) {
   }
 }
 
+const RESIDENT_SKILL_MAX = 8; // 常驻技能上限(设置页「技能与模板」的开关锁也读它)
 let residentSkillTogglePending = false;
 async function toggleResidentSkill(entry) {
   if (residentSkillTogglePending || entry.available === false) return;
@@ -488,7 +501,7 @@ async function toggleResidentSkill(entry) {
   const on = current.some(x => (typeof x === 'string' ? x : x && x.id) === entry.id);
   let next = current.filter(x => (typeof x === 'string' ? x : x && x.id) !== entry.id);
   if (!on) {
-    if (next.length >= 8) { toast(t('skills.toast.maxResident', { count: 8 }), 'err'); return; }
+    if (next.length >= RESIDENT_SKILL_MAX) { toast(t('skills.toast.maxResident', { count: RESIDENT_SKILL_MAX }), 'err'); return; }
     next.push({ id: entry.id, source: entry.source || '' });
   }
   residentSkillTogglePending = true;
@@ -1216,7 +1229,21 @@ async function openMemoryEditModal(m) {
     });
   }
 
+  // 设置页「技能与模板」(settings-skills.js)要用的那几件:显示名/说明/来源、常驻判据与开关、删除确认,都是上面同一份实现。
+  const settingsSkillsApi = Object.freeze({
+    RESIDENT_SKILL_MAX,
+    confirmDeleteSkill,
+    refreshSkillRegistry,
+    residentSkillIds,
+    skillDisplayDescription,
+    skillDisplayName,
+    skillDisplaySource,
+    skillDisplayUnavailableReason,
+    toggleResidentSkill,
+  });
+
   return Object.freeze({
+    settingsSkillsApi,
     bindSkillsMemory,
     builtinPlaybookTextKey,
     openMemoryPanel,

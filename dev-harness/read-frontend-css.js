@@ -92,7 +92,9 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   服务商卡片补字段(思考强度、语音转写地址、子代理模型、Anthropic 三项)与 Agent 角色色块。
 //   `css/themes/ui-modes.css`:删掉简易模式藏设置页签与 .settings-expert-only 的两条(设置页不再按界面模式收敛)。
 // 算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '80e7178de3a62ab99dcca1ae82fc3b121c50a6a787aebd756e57407bb5c5e2d6';
+//   同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
+//   算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
+const LEGACY_STYLES_SHA256 = '45ad3f9eefa22840b3b705a4ea23de10d1b4ca14cc17c7621b6123f74f174d8e';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
