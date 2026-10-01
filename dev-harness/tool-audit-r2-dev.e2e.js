@@ -145,16 +145,20 @@ try {
   ok(refOnly.definitionCount >= 1, 'S5c 有定义时不误报零定义 hint');
 
   /* ═════════ (R) code_review_scan ═════════ */
-  w('rev/src/cfg.js', "const a = includes(token) ? token : 'not-installed';\nconst apiKey = 'sk-abcdef0123456789abcdef';\nel.innerHTML = '';\nel.innerHTML = userHtml;\nconst t = { password: 'Password must be at least 8 characters' };\nconst l = { 'x-api-key': 'provider.anthropicAuth.xApiKey' };\nconst z = { token: '令牌缺失或无效，请重新登录' };\n");
+  // 「真密钥」夹具在运行时拼出来:源码里写整串会被 repo-hygiene (b) 的密钥扫描当成泄露(Windows CI 实测)。
+  const FAKE_KEY = 'sk' + '-' + 'abcdef0123456789abcdef';
+  w('rev/src/cfg.js', "const a = includes(token) ? token : 'not-installed';\nconst apiKey = '" + FAKE_KEY + "';\nel.innerHTML = '';\nel.innerHTML = userHtml;\nconst t = { password: 'Password must be at least 8 characters' };\nconst l = { 'x-api-key': 'provider.anthropicAuth.xApiKey' };\nconst z = { token: '令牌缺失或无效，请重新登录' };\n");
   w('rev/tests/t.js', "const modelsApiKey = 'abcdefgh12345678';\n");
   w('rev/dev-harness/x.e2e.js', "const apiKey = 'abcdefgh12345678';\n");
   w('rev/src/a.test.js', "const apiKey = 'abcdefgh12345678';\n");
   const rv = await call('code_review_scan', { root: 'rev' });
-  const rvIds = (rv.findings || []).map(f => `${f.id}:${f.relativePath}:${f.line}`);
+  // relativePath 用的是宿主分隔符(Windows 上是 src\\cfg.js,与 file_list 同口径),比较前统一成 /。
+  const fwd = p => String(p || '').replace(/\\/g, '/');
+  const rvIds = (rv.findings || []).map(f => `${f.id}:${fwd(f.relativePath)}:${f.line}`);
   ok(rvIds.join(',') === 'hardcoded-secret:src/cfg.js:2,xss-html:src/cfg.js:4', `R1/R2/R3 只剩真密钥与非空 innerHTML,测试/夹具与误报全跳过(got ${JSON.stringify(rvIds)})`);
   ok(rv.skippedTestFiles === 3 && /includeTests/.test(String(rv.hint || '')), `R1b 报 skippedTestFiles 并说怎么放开(got ${rv.skippedTestFiles})`);
   const rvAll = await call('code_review_scan', { root: 'rev', includeTests: true });
-  ok((rvAll.findings || []).some(f => f.relativePath.startsWith('tests/')) && (rvAll.findings || []).some(f => f.relativePath === 'src/a.test.js'), 'R1c includeTests:true 才扫测试/夹具');
+  ok((rvAll.findings || []).some(f => fwd(f.relativePath).startsWith('tests/')) && (rvAll.findings || []).some(f => fwd(f.relativePath) === 'src/a.test.js'), 'R1c includeTests:true 才扫测试/夹具');
   ok(rv.findings.every(f => ['high', 'medium', 'low'].includes(f.confidence) && f.path === undefined && typeof f.relativePath === 'string'), 'R4 每条带 confidence、路径只给相对');
   const rvCap = await call('code_review_scan', { root: 'rev', maxFindings: 1 });
   ok(rvCap.truncated === true && /maxFindings/.test(String(rvCap.hint || '')), `R5 撞 maxFindings → truncated + hint(got ${rvCap.truncated})`);

@@ -44635,6 +44635,10 @@ async function runSessionTurn(input) {
           && !(lastResult && lastResult.superseded)) {
         if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
         else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
+        // 没被盯的线程只记【没成】的回合:成功回合的账缺席本来就读成 done(stewardCoveringLastTurn 只认 seq 覆盖到当前回合的那笔,
+        // 旧的失败账不会被误读),而每个成功回合都多一次收尾后的会话头写盘,会让前端刚拿到的 ETag 立刻过期
+        // (Windows CI session-get-etag 实测 304 变 200)。被盯的线程照旧每回合都记(todosStartSig 要用)。
+        if (outcomePatch && outcomePatch.ok === true && !stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) outcomePatch = null;
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
@@ -45967,7 +45971,10 @@ function classifyListPattern(raw, root) {
   let compiles = true;
   try { new RegExp(p, 'i'); } catch { compiles = false; }
   // `.*` / `.?` 在能编译时按正则理解(`src/.*` 是正则);编译不过的(以 `*` 开头,如 `*.*`)只可能是 glob。
-  const globish = p.includes('*') && !/[\^$()|\\+{}[\]]/.test(p) && (!compiles || !/\.[*?]/.test(p));
+  // 绝对路径(`C:\\ws\\src\\*.js` / `/ws/src/*.js`)带 `*` 只可能是 glob:正则是拿【相对】路径去配的,绝对路径当正则什么也配不上;
+  // 而 Windows 形绝对路径满是反斜杠,下面的「不含正则专属字符」判据会把它挡在 glob 之外(Windows CI 实测 file_list 空表)。
+  const absLike = path.win32.isAbsolute(p) || path.isAbsolute(p);
+  const globish = p.includes('*') && (absLike || (!/[\^$()|\\+{}[\]]/.test(p) && (!compiles || !/\.[*?]/.test(p))));
   if (globish) {
     // 前导 ./、落在 root 里的绝对路径 → 相对 root 的写法;root 之外的绝对路径什么也配不上(明说)。
     const gp = normalizeGlobPatternForRoot(p, root);

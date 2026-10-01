@@ -185,11 +185,13 @@ try {
   /* ═════════ (N3) http_download ═════════ */
   const dir1 = path.join(WS, 'dl'); fs.mkdirSync(dir1);
   const into = await call('http_download', { url: B + '/file.bin', dest: dir1 });
-  ok(into.ok === true && into.path === path.join(dir1, 'report 2024.bin') && fs.readFileSync(into.path, 'utf8') === 'BINDATA', `N3a dest 是已存在的文件夹 → 存进去,名字取 Content-Disposition(修前抛裸 EISDIR;got ${JSON.stringify(into).slice(0, 200)})`);
+  // Windows runner 上临时目录有 8.3 短名(RUNNER~1)与长名(runneradmin)两种拼法,工具交回的是长名:按真实路径比。
+  const samePath = (a, b) => { try { return fs.realpathSync.native(a).toLowerCase() === fs.realpathSync.native(b).toLowerCase(); } catch { return false; } };
+  ok(into.ok === true && samePath(into.path, path.join(dir1, 'report 2024.bin')) && fs.readFileSync(into.path, 'utf8') === 'BINDATA', `N3a dest 是已存在的文件夹 → 存进去,名字取 Content-Disposition(修前抛裸 EISDIR;got ${JSON.stringify(into).slice(0, 200)})`);
   const slash = await call('http_download', { url: B + '/path/named.dat', dest: path.join(WS, 'newdir') + path.sep });
-  ok(slash.ok === true && slash.path === path.join(WS, 'newdir', 'named.dat') && fs.statSync(path.join(WS, 'newdir')).isDirectory(), `N3b dest 以分隔符结尾 = 文件夹,名字取 URL 末段(修前悄悄写成叫 newdir 的文件;got ${JSON.stringify(slash).slice(0, 200)})`);
+  ok(slash.ok === true && samePath(slash.path, path.join(WS, 'newdir', 'named.dat')) && fs.statSync(path.join(WS, 'newdir')).isDirectory(), `N3b dest 以分隔符结尾 = 文件夹,名字取 URL 末段(修前悄悄写成叫 newdir 的文件;got ${JSON.stringify(slash).slice(0, 200)})`);
   const evil = await call('http_download', { url: B + '/evil', dest: dir1 + path.sep });
-  ok(evil.ok === true && path.dirname(evil.path) === dir1 && !fs.existsSync(path.join(WS, 'escape.txt')), `N3c 服务器给的文件名里的 ..\\ 不能让文件跳出 dest 文件夹(got ${JSON.stringify(evil).slice(0, 200)})`);
+  ok(evil.ok === true && samePath(path.dirname(evil.path), dir1) && !fs.existsSync(path.join(WS, 'escape.txt')), `N3c 服务器给的文件名里的 ..\\ 不能让文件跳出 dest 文件夹(got ${JSON.stringify(evil).slice(0, 200)})`);
   const long = await call('http_download', { url: B + '/gz', dest: path.join(WS, 'a'.repeat(300)) });
   ok(long.ok === false && typeof long.error === 'string' && !long.threw && (IS_WIN || long.code === 'ENAMETOOLONG'), `N3d 名字过长 → {ok:false, code, error} 信封,不抛(修前裸异常 ENAMETOOLONG;got ${JSON.stringify(long).slice(0, 160)})`);
   const fileAsDir = await call('http_download', { url: B + '/gz', dest: dlz + path.sep });

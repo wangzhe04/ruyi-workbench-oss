@@ -5,7 +5,7 @@
   "summary": {
     "modules": 67,
     "providedSymbols": 3308,
-    "requiredSymbols": 3036,
+    "requiredSymbols": 3038,
     "edges": 523,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -10136,6 +10136,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "sessionMissionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "sessionObjectIsStale",
           "kinds": [
             "call"
@@ -10354,6 +10361,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "stewardTaintToolCall",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardWatchedThread",
           "kinds": [
             "call"
           ]
@@ -27855,6 +27869,7 @@
         "saveSession",
         "sessionMessagesDelta",
         "sessionMessagesStamp",
+        "sessionMissionId",
         "sessionObjectIsStale",
         "sessionTodosSignature",
         "toolImageSessionTag",
@@ -27949,7 +27964,8 @@
       "symbols": [
         "STEWARD_SESSION_ID",
         "StewardHooks",
-        "stewardTaintToolCall"
+        "stewardTaintToolCall",
+        "stewardWatchedThread"
       ],
       "direction": "backward"
     },

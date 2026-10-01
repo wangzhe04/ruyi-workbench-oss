@@ -3295,6 +3295,10 @@ async function runSessionTurn(input) {
           && !(lastResult && lastResult.superseded)) {
         if (lastResult) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: lastResult.ok === true, aborted: lastResult.aborted === true, errorClass: String(lastResult.errorClass || ''), at: nowIso(), todosStartSig };
         else if (turnError) outcomePatch = { seq: Number(session.turnSeq) || 0, ok: false, aborted: false, errorClass: '', at: nowIso(), todosStartSig };
+        // 没被盯的线程只记【没成】的回合:成功回合的账缺席本来就读成 done(stewardCoveringLastTurn 只认 seq 覆盖到当前回合的那笔,
+        // 旧的失败账不会被误读),而每个成功回合都多一次收尾后的会话头写盘,会让前端刚拿到的 ETag 立刻过期
+        // (Windows CI session-get-etag 实测 304 变 200)。被盯的线程照旧每回合都记(todosStartSig 要用)。
+        if (outcomePatch && outcomePatch.ok === true && !stewardWatchedThread(session, outcomeId, sessionMissionId(session) || outcomeId)) outcomePatch = null;
       }
     } catch { outcomePatch = null; }
     if (outcomePatch) turnOutcomePending.add(outcomeId);
