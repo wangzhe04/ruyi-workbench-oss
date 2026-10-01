@@ -84,7 +84,9 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // root·maxFiles·maxDepth·ignoreDirs…、exec 档的 command/timeoutMs、记忆/任务/管家定时的几个入参),同时把 orchestrate_agents
   // 的描述压短约 270 字符。实测净增:改代码回合 +2038、默认 offered +2165 —— 这是【有意的、一次性的】上调:codeEdit 26500→28200、
   // offeredDefault 51500→53700;闲聊回合(core 包里没有这些工具)不涨,仍是 10500。之后照旧只减不增。
-  const BUDGET = { chitchat: 10500, codeEdit: 28200, fullAll: 46500, offeredDefault: 53700 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  const BUDGET = { chitchat: 10500, codeEdit: 28200, fullAll: 46500, offeredDefault: 53800 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // 同轮 files 组:file_write.lineEnding + file_edit.oldText / glob.pattern 的 minLength:1(空串修前是抛异常)+151 字符,
+  // 只把 offeredDefault 再抬 100(53700→53800);描述文字没有加(说明放在工具结果的 hint / note 里)。
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);

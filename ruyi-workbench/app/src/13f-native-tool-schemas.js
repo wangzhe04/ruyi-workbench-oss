@@ -220,6 +220,7 @@ const MCP_TOOLS = [
         content: { type: 'string', description: 'full new content' },
         createDirs: { type: 'boolean', description: 'default true' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk; default: keep existing' },
+        lineEnding: { type: 'string', enum: ['lf', 'crlf', 'preserve'], description: 'default: keep file style; preserve = as given' },
       },
       required: ['path', 'content'],
     },
@@ -244,7 +245,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         path: { type: 'string', description: 'absolute or workspace-relative' },
-        oldText: { type: 'string', description: 'exact text (multi-line ok)' },
+        oldText: { type: 'string', minLength: 1, description: 'exact text (multi-line ok)' },
         newText: { type: 'string', description: 'replacement ("" deletes oldText)' },
         replaceAll: { type: 'boolean', description: 'replace every occurrence' },
       },
@@ -330,7 +331,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'file_list',
-    description: 'List files/folders under a directory (recursive, breadth-first; defaults maxFiles 500, maxDepth 8; root defaults to the workspace): {root, files:[{relativePath,type,size}]}, join onto root (absolute:true adds absolute paths). Recursive mode prunes dependency/build/cache folders (node_modules, dist, build, …; see prunedDirs; includeIgnored:true enters them, ignoreDirs adds more); recursive:false lists one directory. truncated:true comes with a hint on how to narrow.',
+    description: 'List files/folders under a directory (recursive, breadth-first; defaults maxFiles 500, maxDepth 8; root defaults to the workspace): {root, files:[{relativePath,type,size}]}, join onto root (absolute:true adds absolute paths). Recursive mode prunes dependency/build/cache folders (node_modules, dist, build, …; see prunedDirs; includeIgnored:true enters them, ignoreDirs adds more); recursive:false lists one directory. truncated:true comes with a hint on how to narrow',
     inputSchema: {
       type: 'object',
       properties: {
@@ -371,11 +372,11 @@ const MCP_TOOLS = [
   },
   {
     name: 'glob',
-    description: 'Find files by glob (** crosses dirs, * within a segment, ? one char; matched against the path relative to root, so "*.md" = top level only, "**/*.md" = everywhere). Returns {root, files:[{relativePath, mtime}]} newest first (root defaults to the workspace; maxResults 500, maxDepth 12; absolute:true adds absolute paths). Skips dependency/build/cache folders (see prunedDirs; includeIgnored:true, ignoreDirs). truncated:true + hint when more matched or the tree was too large to finish.',
+    description: 'Find files by glob (** crosses dirs, * within a segment, ? one char; matched against the path relative to root, so "*.md" = top level only, "**/*.md" = everywhere). Returns {root, files:[{relativePath, mtime}]} newest first (root defaults to the workspace; maxResults 500, maxDepth 12; absolute:true adds absolute paths). Skips dependency/build/cache folders (see prunedDirs; includeIgnored:true, ignoreDirs). truncated:true + hint when more matched or the tree was too large to finish',
     inputSchema: {
       type: 'object',
       properties: {
-        pattern: { type: 'string', description: 'e.g. "src/**/test_*.py"' },
+        pattern: { type: 'string', minLength: 1, description: 'e.g. "src/**/test_*.py"' },
         root: { type: 'string', description: 'default: workspace' },
         maxResults: { type: 'number', description: 'max files' },
         maxDepth: { type: 'number', description: 'max depth' },
