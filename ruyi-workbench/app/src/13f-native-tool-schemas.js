@@ -610,7 +610,7 @@ const MCP_TOOLS = [
     description: 'HTTP request to a local/intranet endpoint for API debugging. Object body is sent as JSON; timeoutMs is a hard total deadline; 4xx/5xx return ok:false, error "HTTP <status>", statusCode/body. Honors HTTPS_PROXY/NO_PROXY (loopback/private bypass the proxy).',
     inputSchema: {
       type: 'object',
-      properties: { url: { type: 'string', description: 'http(s) URL' }, method: { type: 'string', description: 'default GET' }, headers: { type: 'object', description: 'header name/value map' }, body: { type: ['string', 'object'], description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number', description: 'ms, hard deadline' }, maxBodyChars: { type: 'number', description: 'response cap' } },
+      properties: { url: { type: 'string', description: 'http(s) URL' }, method: { type: 'string', description: 'default GET' }, headers: { type: 'object', description: 'header name/value map' }, body: { description: 'string as-is; object as JSON' }, timeoutMs: { type: 'number', description: 'ms, hard deadline' }, maxBodyChars: { type: 'number', description: 'response cap' } },
       required: ['url'],
     },
   },

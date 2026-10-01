@@ -14,7 +14,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //  (7) workbench_memory_list 带 query 时不给没命中的条目记使用;memory_propose 的重复错误点名已有记忆。
 //  (8) permission_prompt 不进 list_tools / tool_search;skill_read(null) 回信封不抛;limit ≤ 0 一律回默认;
 //      tool_invoke_* 去 name 空白、接受 JSON 字符串 arguments。
-//  (9) 缺描述的入参补了描述(11 个工具抽样 + 全表无遗漏 + http_request.body 带 type)。
+//  (9) 缺描述的入参补了描述(11 个工具抽样 + 全表无遗漏 + http_request.body 说明两种形态)。
 //
 // 判定行:`TOOL AUDIT R2 META E2E: ALL PASS`。
 (async () => {
@@ -181,7 +181,9 @@ try {
   }
   ok(lacking.length === 0, `G1 清单里每个入参都有描述(缺:${lacking.join(', ') || '无'})`);
   const body = byName.get('http_request').parameters.properties.body;
-  ok(Array.isArray(body.type) && body.type.includes('string') && body.type.includes('object'), `G2 http_request.body 带 type: string|object(got ${JSON.stringify(body.type)})`);
+  // body 可以是字符串或对象:不写 type(多类型 type 数组有的服务商 schema 校验不认,会整份工具表 400),
+  // 只用描述说明两种形态。
+  ok(body.type === undefined && /object as JSON/.test(String(body.description || '')), `G2 http_request.body 不带多类型 type、描述说明两种形态(got ${JSON.stringify(body)})`);
   const tooLong = [];
   for (const [tool, props] of Object.entries(WANT)) for (const k of props) { const d = String(byName.get(tool).parameters.properties[k].description || ''); if (tool !== 'orchestrate_agents' && d.length > 70) tooLong.push(`${tool}.${k}=${d.length}`); }
   ok(tooLong.length === 0, `G3 新补的入参描述保持简短(≤70 字符;超:${tooLong.join(', ') || '无'})`);
