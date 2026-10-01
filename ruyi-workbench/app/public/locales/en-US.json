@@ -3620,4 +3620,5 @@
   ,"settings.update.sectionInstall": "Install an update"
   ,"settings.update.sectionHistory": "Rollback & history"
   ,"settings.agentCli.sectionEngine": "CLI engine"
+  ,"net.disconnected": "Lost the connection to the background service (it may have just exited or be restarting). Try again in a moment; if it keeps happening, restart Ruyi."
 }

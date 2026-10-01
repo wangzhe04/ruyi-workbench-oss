@@ -11,7 +11,7 @@
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
 import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta } from './js/util.js';
-import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken } from './js/net.js';
+import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken, setNetworkErrorMessage } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
 import { activeTurnUserIsPersisted, captureScrollAnchor, messageDomKey, messageRenderSignature, normalizeTurnSegments, restoreScrollAnchor, turnToolAnchorId } from './js/turn-narrative.js';
@@ -1218,6 +1218,7 @@ const { bootFailureKind, tagBootStep, bootStep, bootStepSync, renderBootFailure 
 async function boot() {
   await initToken(); // 47c(S1):bootstrap 握手取 token 进 sessionStorage(HTML 不再明文下发);须在任何 api() 前
   await initI18n('auto');
+  setNetworkErrorMessage(() => t('net.disconnected')); // 2026-10：网络层失败（Failed to fetch）报人话，不端浏览器原生英文
   hydrateIcons(); // UI v3 (§2.15): 把 index.html 静态 chrome 按钮/徽标的 [data-icon] 填充为内联 SVG
   setStreaming(false);
   bindEvents();

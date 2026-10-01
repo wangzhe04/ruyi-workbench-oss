@@ -3620,4 +3620,5 @@
   ,"settings.update.sectionInstall": "安装更新包"
   ,"settings.update.sectionHistory": "回滚与记录"
   ,"settings.agentCli.sectionEngine": "命令行引擎"
+  ,"net.disconnected": "与后台服务的连接断了（服务可能刚退出或正在重启），请稍候再试；一直这样就重启如意。"
 }
