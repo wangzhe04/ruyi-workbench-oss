@@ -163,6 +163,8 @@ async function resolveFileToolRoot(args, ctx) {
 }
 
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
+  // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
+  if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const config = await readConfig();
   const { bridged, catalog } = await adaptiveCatalogForMcp(config);
   const item = catalog.find(x => x.name === targetName);
@@ -170,7 +172,6 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const didYouMean = suggestToolNames(targetName, catalog.map(x => x.name).filter(n => !isControlPlaneToolName(n)));
     return { ok: false, code: 'unknown-tool', error: `tool not found: ${targetName}. Call tool_search first.${didYouMean.length ? ` Did you mean: ${didYouMean.join(', ')}?` : ''}`, didYouMean, hint: 'use tool_search {query} to find the exact tool name and its tier' };
   }
-  if (item.name === 'permission_prompt' || item.name === 'list_tools' || item.name === 'tool_search' || item.name.startsWith('tool_invoke_')) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const bridge = resolveBridge(bridged.route, targetName);
   // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
   // 目录档与入参档不一致时以入参档为准,否则带落盘参数的这一次既过不了 _read(抬档)也过不了 _edit(目录说 read)。
@@ -396,7 +397,12 @@ const CORE_TOOL_HANDLERS = {
           return { ok: false, error: `todo loopback error: ${(e && e.message) || String(e)}` };
         }
       }
-      return { ok: true, count: items.length };
+      // 非 MCP 子进程且走到这里 = 没有活的 provider 回合(回合内的 todo_write 由 09 的回合闭包特判,先于 toolCall):
+      // 没有会话可落盘、也没有 UI 事件。有会话上下文(/api/tools 带 sessionId、直调)时只能算「校验通过、未落盘」,
+      // 明说 persisted:false;连会话都没有则 ok:false(修前一律 ok:true,模型以为清单已更新)。
+      const hasSession = !!((ctx && (ctx.session || ctx.sessionId)) || process.env.WCW_SESSION_ID);
+      if (!hasSession) return { ok: false, error: 'todo_write 需要工作台会话上下文(没有会话可保存任务清单)', hint: '在对话回合中直接调用 todo_write' };
+      return { ok: true, count: items.length, persisted: false, note: '仅校验通过,未写入会话(当前不在对话回合内)' };
   } },
   mission_update: { paths: null, guardNote: "任务账本经 loopback /api/mission 落会话,不触任意文件路径", handler: async (args, ctx) => {
       // 第26波b: 与 todo_write 同款双路径。serve 进程(provider)由 runOpenAiTurn 特例拦截(持 session);
@@ -415,7 +421,9 @@ const CORE_TOOL_HANDLERS = {
           return r && r.ok ? { ok: true, mission: r.mission } : r;
         } catch (e) { return { ok: false, error: `mission loopback error: ${(e && e.message) || String(e)}` }; }
       }
-      return { ok: true, note: '账本更新需在工作台会话上下文中生效(独立调用仅校验)' };
+      const hasSession = !!((ctx && (ctx.session || ctx.sessionId)) || process.env.WCW_SESSION_ID);
+      if (!hasSession) return { ok: false, error: 'mission_update 需要工作台会话上下文(没有会话可更新任务账本)', hint: '在对话回合中直接调用 mission_update' };
+      return { ok: true, persisted: false, note: '账本更新需在对话回合内生效(当前仅校验,未写入)' };
   } },
   // 108c: 只读原生工具 —— 自身运行时详情(第 49 波「新工具入库全部门」纪律)。复用 108a
   // buildRuntimeIdentityFacts() 与 /api/status 同源装配(computeHealth/getCapabilities/loadSkillRegistry/
@@ -2064,7 +2072,8 @@ const INTEGRATION_TOOL_HANDLERS = {
       };
   } },
   mcp_list: { paths: null, guardNote: "配置盘点(env 脱敏),不触文件路径", handler: async (args, ctx) => {
-      const cfg = (ctx && ctx.config) || await readConfig();
+      // 读盘上最新配置而不是 ctx.config(回合起点的快照):同一回合里 mcp_configure 刚 upsert 的连接器,mcp_list 要看得到。
+      const cfg = await readConfig();
       return { ok: true, servers: safeMcpInventory(cfg), browserAutomation: cfg.browserAutomation || defaultConfig().browserAutomation,
         note: 'env 仅返回键名，不返回可能含密钥的值。' };
   } },
@@ -2269,6 +2278,12 @@ async function toolCall(name, args = {}, ctx = null) {
     }
   }
   // 审计 N5:必填/类型校验(按工具自己的 13f schema)。修前 file_read {} 得到 EISDIR、file_search {} 命中 61 条垃圾。
+  // 参数整个是 null / 非对象:统一回 invalid-arguments 信封。没有 13f schema 的工具(skill_read 等)修前在 handler 里
+  // `args.id` 抛 TypeError;有 schema 的工具下面的校验本来就给同一句话。
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) {
+    return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
+  }
+  if (name.startsWith('tool_invoke_')) args = normalizeToolInvokeArgs(args);   // name 去空白 / arguments 给成 JSON 字符串时解析
   args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;

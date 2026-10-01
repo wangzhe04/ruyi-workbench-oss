@@ -4173,7 +4173,7 @@ async function adaptiveCatalogForMcp(config, opts) {
   const recallEnabled = observationRecallEnabled(config);
   const stewardSession = !!(opts && opts.stewardSession === true);
   const native = MCP_TOOLS
-    .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load')
+    .filter(t => t && t.name && !t.name.startsWith('tool_invoke_') && t.name !== 'tool_load' && t.name !== 'permission_prompt') // permission_prompt 是 CLI 权限桥的内部入口,不能代理调用,别进 list_tools / tool_search
     .filter(t => t.name !== 'observation_recall' || recallEnabled) // 105a: 目录同样按双开关隐藏
     .filter(t => !isStewardToolName(t.name) || stewardSession) // 116c: 管家工具只进管家会话的目录
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
