@@ -912,23 +912,24 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, subModel, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      if (call.toolCalls && call.toolCalls.length) {
+      // 服务端搜索已在这一发里跑完并接着作答(百炼 / OpenAI hosted web_search 形状,见 04i 解码器 serverSearchInline):
+      // 正文就是子任务的最终回答(与主回合 09 同判据);不回传搜索项、不再多请求一轮。
+      const subServerCalls = Array.isArray(call.toolCalls) ? call.toolCalls.filter(tc => tc && tc.serverSide) : [];
+      const subInlineServerAnswer = call.serverSearchInline === true && subServerCalls.length > 0 && subServerCalls.length === call.toolCalls.length;
+      const subSurfaceServerSearch = (stc, echo) => {
+        const item = stc.item || { type: 'web_search_call', id: stc.id };
+        const { display, resultObj } = providerServerSearchCard(stc);
+        onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
+        onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
+        if (echo) subServerToolItems.push(item);
+      };
+      if (subInlineServerAnswer) for (const stc of subServerCalls) subSurfaceServerSearch(stc, false);
+      if (call.toolCalls && call.toolCalls.length && !subInlineServerAnswer) {
         // v1.8: server-side tool calls (web_search_call) — DeepSeek already executed them; echo back verbatim
         // into the next request via subServerToolItems (buildBody appends). Never paired as function_call_output.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
-        for (const stc of serverToolCalls) {
-          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
-          const item = stc.item || { type: 'web_search_call', id: stc.id };
-          // v1.8.1: surface the parsed action type too (search / open_page) for an accurate tool card.
-          const display = { query: wsArgs.query || '服务端搜索' };
-          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
-          if (wsArgs.status) display.status = wsArgs.status;
-          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
-          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
-          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
-          subServerToolItems.push(item);
-        }
+        for (const stc of serverToolCalls) subSurfaceServerSearch(stc, call.serverSearchInline !== true);
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
         // 不能让本批还没答的 call_1 漏补配对。

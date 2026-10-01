@@ -4343,23 +4343,52 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
+    // 上一轮因为【受保护会话自己就超限】而没能清到线下:在冷却期内别每次写都再全量扫一遍(那是 O(全部检查点文件),且清不动)。
+    if (Date.now() < journalSweepBackoffUntil) return;
     // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
     // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
     // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
     // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
     // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
     const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
-    if (overBudget) await journalGlobalSweepOnce();
-    else void journalGlobalSweepOnce();
+    // 触发这次清扫的会话就是此刻正在写快照 / 检查点的那一条 —— 清扫不许把它自己的目录当「最旧」清掉(见 journalGlobalSweep)。
+    if (overBudget) await journalGlobalSweepOnce(sessionId);
+    else void journalGlobalSweepOnce(sessionId);
   } catch { /* silent */ }
 }
 
 let journalSweepInFlight = null;
-function journalGlobalSweepOnce() {
+// 清扫期间「别动」的会话(触发它的写者,含单飞期间并进来的后到写者)。清扫在每次 rm 之前现查这张表;清扫结束即清空,
+// 所以它只管【这一轮】,不会让陈旧条目长期免疫(上限仍然有效,见 e2e checkpoint-gc-cache ②/④)。
+const journalSweepProtect = new Set();
+let journalSweepBackoffUntil = 0;          // 受保护会话自己超限、清不到线下时的冷却截止时刻(见 journalGlobalSweep 末尾)
+const JOURNAL_SWEEP_BACKOFF_MS = 30 * 1000;
+function journalGlobalSweepOnce(protectSessionId) {
+  if (protectSessionId) journalSweepProtect.add(String(protectSessionId));
   if (!journalSweepInFlight) {
-    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; journalSweepProtect.clear(); });
   }
   return journalSweepInFlight;
+}
+// 受保护会话在整仓仍超上限时,最多再清掉它自己最旧的历史快照(history-*.json.gz),但永远保留最近这么几份:
+// 刚写下、模型视图里 rawRef 正指着的快照不能被「瘦身」清掉。检查点原件(<回合>-<序号>.gz,回滚用)一份都不动。
+const JOURNAL_KEEP_HISTORY_SNAPSHOTS = 4;
+async function journalTrimProtectedSnapshots(dir, bytesToFree) {
+  let freed = 0;
+  const ents = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const rows = [];
+  for (const ent of ents) {
+    if (!ent.isFile() || !/^history-\d+(?:-[a-f0-9]{16})?\.json\.gz$/.test(ent.name)) continue;
+    const st = await fsp.stat(path.join(dir, ent.name)).catch(() => null);
+    if (st) rows.push({ name: ent.name, size: st.size, mtime: st.mtimeMs });
+  }
+  rows.sort((a, b) => a.mtime - b.mtime); // 最旧在前
+  const removable = rows.slice(0, Math.max(0, rows.length - JOURNAL_KEEP_HISTORY_SNAPSHOTS));
+  for (const r of removable) {
+    if (freed >= bytesToFree) break;
+    await fsp.unlink(path.join(dir, r.name)).then(() => { freed += r.size; }).catch(() => {});
+  }
+  return freed;
 }
 async function journalGlobalSweep() {
   journalGcProbe.fullScans++;
@@ -4384,11 +4413,32 @@ async function journalGlobalSweep() {
     }
     if (total > JOURNAL_GLOBAL_MAX_BYTES) {
       dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      // 修前这里谁最旧清谁,连【正在写快照的那一条会话】自己也在内:一条会话自己的检查点树超过上限(1M 窗口模型每次压缩都写一份
+      // 带内容哈希的整史快照,几十份就是上百 MB),清扫把它整个目录删光 —— 刚返回给上下文压缩的 rawRef 立刻 ENOENT,
+      // observation_recall 回 `observation recall failed: ENOENT`,连它的文件回滚点也一并消失。现在:触发清扫的写者与有活回合的会话
+      // 不整目录清;其余照旧最旧优先。仍超限时只削受保护会话自己最旧的历史快照(见 journalTrimProtectedSnapshots)。
+      const isProtected = d => { const name = path.basename(d.p); return journalSweepProtect.has(name) || activeChildren.has(name); };
       for (const d of dirs) {
         if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        if (isProtected(d)) continue;
         await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
         total -= d.size;
       }
+      let trimmedBytes = 0;
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        for (const d of dirs) {
+          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+          if (!isProtected(d)) continue;
+          const freed = await journalTrimProtectedSnapshots(d.p, total - JOURNAL_GLOBAL_MAX_BYTES);
+          total -= freed; trimmedBytes += freed;
+        }
+      }
+      // 受保护会话自己仍超限:宁可暂时超上限(下一次它不再是写者时照常按最旧优先清),也不删正在用的回滚点与最近快照。
+      // 这一轮一点都削不动(只剩保留份额内的快照 / 回滚点)才进冷却,否则每次写都白扫一遍全仓。
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        if (trimmedBytes === 0) journalSweepBackoffUntil = Date.now() + JOURNAL_SWEEP_BACKOFF_MS;
+        logEvent({ kind: 'journal_cap_exceeded_protected', totalBytes: total, capBytes: JOURNAL_GLOBAL_MAX_BYTES });
+      } else journalSweepBackoffUntil = 0;
     }
     // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
     // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->

@@ -10616,23 +10616,52 @@ async function journalGc(sessionId, knownIndex) {
       || journalGcSinceScan >= JOURNAL_GC_RECALIBRATE_EVERY
       || journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
     if (!needSweep) return; // fast path: confidently under budget, no sweep
+    // 上一轮因为【受保护会话自己就超限】而没能清到线下:在冷却期内别每次写都再全量扫一遍(那是 O(全部检查点文件),且清不动)。
+    if (Date.now() < journalSweepBackoffUntil) return;
     // 性能批 C3:只是「定期重新校准」(冷启动、每 64 次)而估算明显低于上限时,全量扫描(逐个 stat 所有检查点文件,
     // 6 万个文件要 4 秒多)挪到后台、单飞 —— 修前这一次扫描就压在某一次文件编辑的工具调用上。估算已经接近 / 超过上限
     // (真要删东西)时照旧同步等它做完。例外是冷启动后的第一次(估算还没有):那一轮也在后台跑,首次编辑返回时超额的
     // 旧检查点可能还在,几秒内由这一轮清掉 —— 上限在启动后头一轮扫描结束前是「尽快」而不是「硬」(审查轮如实记下)。
     // 每会话自己的修剪(上面)仍然同步,不碰 v1.4.1 那条竞争。
     const overBudget = journalGlobalBytes != null && journalGlobalBytes >= JOURNAL_GLOBAL_MAX_BYTES * JOURNAL_GC_SCAN_HYSTERESIS;
-    if (overBudget) await journalGlobalSweepOnce();
-    else void journalGlobalSweepOnce();
+    // 触发这次清扫的会话就是此刻正在写快照 / 检查点的那一条 —— 清扫不许把它自己的目录当「最旧」清掉(见 journalGlobalSweep)。
+    if (overBudget) await journalGlobalSweepOnce(sessionId);
+    else void journalGlobalSweepOnce(sessionId);
   } catch { /* silent */ }
 }
 
 let journalSweepInFlight = null;
-function journalGlobalSweepOnce() {
+// 清扫期间「别动」的会话(触发它的写者,含单飞期间并进来的后到写者)。清扫在每次 rm 之前现查这张表;清扫结束即清空,
+// 所以它只管【这一轮】,不会让陈旧条目长期免疫(上限仍然有效,见 e2e checkpoint-gc-cache ②/④)。
+const journalSweepProtect = new Set();
+let journalSweepBackoffUntil = 0;          // 受保护会话自己超限、清不到线下时的冷却截止时刻(见 journalGlobalSweep 末尾)
+const JOURNAL_SWEEP_BACKOFF_MS = 30 * 1000;
+function journalGlobalSweepOnce(protectSessionId) {
+  if (protectSessionId) journalSweepProtect.add(String(protectSessionId));
   if (!journalSweepInFlight) {
-    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; });
+    journalSweepInFlight = journalGlobalSweep().catch(() => {}).finally(() => { journalSweepInFlight = null; journalSweepProtect.clear(); });
   }
   return journalSweepInFlight;
+}
+// 受保护会话在整仓仍超上限时,最多再清掉它自己最旧的历史快照(history-*.json.gz),但永远保留最近这么几份:
+// 刚写下、模型视图里 rawRef 正指着的快照不能被「瘦身」清掉。检查点原件(<回合>-<序号>.gz,回滚用)一份都不动。
+const JOURNAL_KEEP_HISTORY_SNAPSHOTS = 4;
+async function journalTrimProtectedSnapshots(dir, bytesToFree) {
+  let freed = 0;
+  const ents = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
+  const rows = [];
+  for (const ent of ents) {
+    if (!ent.isFile() || !/^history-\d+(?:-[a-f0-9]{16})?\.json\.gz$/.test(ent.name)) continue;
+    const st = await fsp.stat(path.join(dir, ent.name)).catch(() => null);
+    if (st) rows.push({ name: ent.name, size: st.size, mtime: st.mtimeMs });
+  }
+  rows.sort((a, b) => a.mtime - b.mtime); // 最旧在前
+  const removable = rows.slice(0, Math.max(0, rows.length - JOURNAL_KEEP_HISTORY_SNAPSHOTS));
+  for (const r of removable) {
+    if (freed >= bytesToFree) break;
+    await fsp.unlink(path.join(dir, r.name)).then(() => { freed += r.size; }).catch(() => {});
+  }
+  return freed;
 }
 async function journalGlobalSweep() {
   journalGcProbe.fullScans++;
@@ -10657,11 +10686,32 @@ async function journalGlobalSweep() {
     }
     if (total > JOURNAL_GLOBAL_MAX_BYTES) {
       dirs.sort((a, b) => a.mtime - b.mtime); // oldest first
+      // 修前这里谁最旧清谁,连【正在写快照的那一条会话】自己也在内:一条会话自己的检查点树超过上限(1M 窗口模型每次压缩都写一份
+      // 带内容哈希的整史快照,几十份就是上百 MB),清扫把它整个目录删光 —— 刚返回给上下文压缩的 rawRef 立刻 ENOENT,
+      // observation_recall 回 `observation recall failed: ENOENT`,连它的文件回滚点也一并消失。现在:触发清扫的写者与有活回合的会话
+      // 不整目录清;其余照旧最旧优先。仍超限时只削受保护会话自己最旧的历史快照(见 journalTrimProtectedSnapshots)。
+      const isProtected = d => { const name = path.basename(d.p); return journalSweepProtect.has(name) || activeChildren.has(name); };
       for (const d of dirs) {
         if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+        if (isProtected(d)) continue;
         await fsp.rm(d.p, { recursive: true, force: true }).catch(() => {});
         total -= d.size;
       }
+      let trimmedBytes = 0;
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        for (const d of dirs) {
+          if (total <= JOURNAL_GLOBAL_MAX_BYTES) break;
+          if (!isProtected(d)) continue;
+          const freed = await journalTrimProtectedSnapshots(d.p, total - JOURNAL_GLOBAL_MAX_BYTES);
+          total -= freed; trimmedBytes += freed;
+        }
+      }
+      // 受保护会话自己仍超限:宁可暂时超上限(下一次它不再是写者时照常按最旧优先清),也不删正在用的回滚点与最近快照。
+      // 这一轮一点都削不动(只剩保留份额内的快照 / 回滚点)才进冷却,否则每次写都白扫一遍全仓。
+      if (total > JOURNAL_GLOBAL_MAX_BYTES) {
+        if (trimmedBytes === 0) journalSweepBackoffUntil = Date.now() + JOURNAL_SWEEP_BACKOFF_MS;
+        logEvent({ kind: 'journal_cap_exceeded_protected', totalBytes: total, capBytes: JOURNAL_GLOBAL_MAX_BYTES });
+      } else journalSweepBackoffUntil = 0;
     }
     // Recalibrate from measured truth, then replay the writer bytes that landed DURING this window so a
     // concurrent journalRecord's increment isn't clobbered (PF1: without this the cache could drift LOW ->
@@ -17635,6 +17685,11 @@ function decodeResponsesCompletion(j) {
 // No `data: [DONE]` — the stream ends on response.completed/incomplete/failed.
 function createResponsesStreamDecoder({ onEvent, markUsage }) {
   let outText = '', reasoning = '', finishReason = null, providerResponseId = '', responsesFailedError = '', emitted = false;
+  // 「服务端搜索已在本次回复内跑完并接着作答」的判据:web_search_call 项出现之后又到了正文(DashScope / OpenAI 的 hosted web_search
+  // 就是这个形状:搜索与作答在同一个 response 里,结果只在模型这一发里用掉,不会再恢复给下一发)。DeepSeek 的形状是搜索项之后
+  // 回复就结束、正文要等回传搜索项的下一发才来 —— 不满足这个判据,仍走回传。判据由调用方(09 / 08 的工具循环)消费:成立时
+  // 这一发的正文就是最终回答,不再把搜索项回传、也不再为它多请求一轮。
+  let serverCallSeen = false, textAfterServerCall = false;
   // 用量只记最后一份、finish() 报一次(同 chat:中途事件自带的 usage 与终止事件的 usage 是同一次调用的累计值,
   // 逐个 markUsage 会重复计费);incomplete / failed 的回体也带 usage,照样要记(截断的那一发同样花了钱)。
   let lastUsage = null;
@@ -17669,6 +17724,7 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         let s = slots.find(x => x.id === id);
         if (!s) { s = { id, index: null, name: 'web_search', args: '', itemId: id, serverSide: true, item: ws }; slots.push(s); }
         curSlot = s;
+        serverCallSeen = true;
         return false;
       }
       if (t === 'response.output_item.done' && evt.item && evt.item.type === 'web_search_call') {
@@ -17682,14 +17738,22 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
           //   { type:'web_search_call', id, status, action:{ type:'search', queries:[...] } }
           //   { type:'web_search_call', id, status, action:{ type:'open_page', url } }
           // Parse both so the UI shows the REAL search terms / opened URL instead of an empty placeholder.
+          // 百炼 / OpenAI 官方形状另有两样:单数 `action.query`(字符串),与 `action.sources`([{type:'url',url}])—— 修前只认
+          // queries / url,于是这类端点的卡片永远是占位词「服务端搜索」,命中的来源也一条看不见。
           const action = ws.action && typeof ws.action === 'object' ? ws.action : null;
           let q = '';
+          let sources = [];
           if (action) {
             if (Array.isArray(action.queries)) q = action.queries.filter(Boolean).join(' | ');
+            else if (typeof action.query === 'string') q = action.query;
             else if (typeof action.url === 'string') q = action.url;
+            if (Array.isArray(action.sources)) {
+              sources = action.sources.map(x => (typeof x === 'string' ? x : (x && typeof x.url === 'string' ? x.url : ''))).filter(Boolean).slice(0, 20);
+            }
           }
-          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q });
+          s.args = JSON.stringify({ status: ws.status || '', actionType: (action && action.type) || '', query: q, ...(sources.length ? { sources } : {}) });
         }
+        serverCallSeen = true;
         return false;
       }
       if (t === 'response.function_call_arguments.delta' && typeof evt.delta === 'string' && evt.delta) {
@@ -17723,7 +17787,9 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
         reasoning += evt.delta; onEvent({ type: 'thinking_delta', text: evt.delta }); return false;
       }
       if (t === 'response.output_text.delta' && typeof evt.delta === 'string' && evt.delta) {
-        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta }); return false;
+        outText += evt.delta; emitted = true; onEvent({ type: 'assistant_delta', text: evt.delta });
+        if (serverCallSeen) textAfterServerCall = true;
+        return false;
       }
       if (t === 'response.completed') {
         // Final event: the full response object (with usage) rides on the event.
@@ -17766,9 +17832,21 @@ function createResponsesStreamDecoder({ onEvent, markUsage }) {
       // v1.7 (Responses): a `response.failed` terminal event is a protocol-level failure with no HTTP error
       // status — surface it through the caller's existing httpError path so attribution/retry behaves uniformly.
       if (responsesFailedError) return { text: outText, reasoning, finishReason, toolCalls, httpError: responsesFailedError, providerResponseId };
-      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId };
+      return { text: outText, reasoning, finishReason, toolCalls, providerResponseId, ...(textAfterServerCall && outText.trim() ? { serverSearchInline: true } : {}) };
     },
   };
+}
+
+// 服务端 web_search_call 在工具卡上怎么显示(09 主回合与 08 子代理共用一份):query 取解析出的检索词(没有才退到占位词),
+// 有来源就带上 sources;resultObj 是给界面看的「无需本地执行」结果,不进模型历史。
+function providerServerSearchCard(stc) {
+  let wsArgs = {}; try { wsArgs = JSON.parse((stc && stc.rawArgs) || '{}'); } catch { wsArgs = {}; }
+  const display = { query: wsArgs.query || '服务端搜索' };
+  if (wsArgs.actionType) display.actionType = wsArgs.actionType;
+  if (wsArgs.status) display.status = wsArgs.status;
+  const resultObj = { ok: true, serverSide: true, note: '服务端搜索已完成;结果由服务端自动恢复或已并入本次回答,无需本地执行' };
+  if (Array.isArray(wsArgs.sources) && wsArgs.sources.length) resultObj.sources = wsArgs.sources;
+  return { display, resultObj };
 }
 
 // ── 登记表 ────────────────────────────────────────────────────────────────────────────────────────────
@@ -35487,23 +35565,24 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
       if (pendingOvershootLearn) { noteWindowOvershoot(provider.id, subModel, pendingOvershootLearn); pendingOvershootLearn = 0; }
       if (call.text) resultText += call.text;
       if (ctrl && ctrl.signal && ctrl.signal.aborted) { subOk = false; subErr = '已中止'; break; }
-      if (call.toolCalls && call.toolCalls.length) {
+      // 服务端搜索已在这一发里跑完并接着作答(百炼 / OpenAI hosted web_search 形状,见 04i 解码器 serverSearchInline):
+      // 正文就是子任务的最终回答(与主回合 09 同判据);不回传搜索项、不再多请求一轮。
+      const subServerCalls = Array.isArray(call.toolCalls) ? call.toolCalls.filter(tc => tc && tc.serverSide) : [];
+      const subInlineServerAnswer = call.serverSearchInline === true && subServerCalls.length > 0 && subServerCalls.length === call.toolCalls.length;
+      const subSurfaceServerSearch = (stc, echo) => {
+        const item = stc.item || { type: 'web_search_call', id: stc.id };
+        const { display, resultObj } = providerServerSearchCard(stc);
+        onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
+        onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
+        if (echo) subServerToolItems.push(item);
+      };
+      if (subInlineServerAnswer) for (const stc of subServerCalls) subSurfaceServerSearch(stc, false);
+      if (call.toolCalls && call.toolCalls.length && !subInlineServerAnswer) {
         // v1.8: server-side tool calls (web_search_call) — DeepSeek already executed them; echo back verbatim
         // into the next request via subServerToolItems (buildBody appends). Never paired as function_call_output.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
         const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
-        for (const stc of serverToolCalls) {
-          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
-          const item = stc.item || { type: 'web_search_call', id: stc.id };
-          // v1.8.1: surface the parsed action type too (search / open_page) for an accurate tool card.
-          const display = { query: wsArgs.query || '服务端搜索' };
-          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
-          if (wsArgs.status) display.status = wsArgs.status;
-          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display, subagentId });
-          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
-          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false, subagentId });
-          subServerToolItems.push(item);
-        }
+        for (const stc of serverToolCalls) subSurfaceServerSearch(stc, call.serverSearchInline !== true);
         if (localToolCalls.length) subHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { ...(parentSession && parentSession.id ? { sessionId: String(parentSession.id) } : {}), ...(subagentId ? { subagentId: String(subagentId) } : {}) }) });
         // 本批的配对去重只看本批之后的 role:'tool'(与主回合同):服务商跨迭代复用 id 时,上一轮答过的 call_1
         // 不能让本批还没答的 call_1 漏补配对。
@@ -40100,7 +40179,24 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         }
         // Not a plan-shaped message and no tool_calls → fall through to normal handling.
       }
-      if (call.toolCalls && call.toolCalls.length) {
+      // 服务端搜索已在这一发里跑完并接着作答(百炼 / OpenAI hosted web_search 的形状,见 04i 解码器 serverSearchInline):这一发的正文
+      // 就是最终回答。修前这里不分形状,一律「回传搜索项 → 再请求一轮」,而回传的 web_search_call 在这类端点上不会恢复出结果、
+      // 那份正文也没进历史 —— 模型第二发看到的是一条没有结果的搜索项,于是回「搜索后端返空 / 引擎异常」并退回用 web_fetch 抓搜索页。
+      const serverCallsInline = Array.isArray(call.toolCalls) ? call.toolCalls.filter(tc => tc && tc.serverSide) : [];
+      const inlineServerAnswer = call.serverSearchInline === true && serverCallsInline.length > 0 && serverCallsInline.length === call.toolCalls.length;
+      // 服务端搜索调用在界面上的一张卡(无本地执行、不进历史配对)。echo = 把原始 item 回传给下一发(DeepSeek 形状才需要)。
+      const surfaceServerSearchCall = async (stc, echo) => {
+        const item = stc.item || { type: 'web_search_call', id: stc.id };
+        const { display, resultObj } = providerServerSearchCard(stc);
+        await notifyToolHookStart(stc, display, iter, 'server_tool');
+        onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
+        onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
+        toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
+        if (echo) serverToolItems.push(item); // echo back verbatim → next request's `input`
+        await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
+      };
+      if (inlineServerAnswer) for (const stc of serverCallsInline) await surfaceServerSearchCall(stc, false);
+      if (call.toolCalls && call.toolCalls.length && !inlineServerAnswer) {
         // v1.8: split server-side tool calls (web_search_call — DeepSeek already executed the search) from
         // local function calls. Server-side calls NEVER enter providerHistory (they are not function_calls
         // and must not be paired as function_call_output); their raw item is echoed back into the next
@@ -40123,21 +40219,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             rawArgsBytes: localToolCalls.reduce((s, t) => s + econArgsBytes(t.rawArgs), 0),
           })) econTotals.batchesLogged += 1;
         }
-        for (const stc of serverToolCalls) {
-          let wsArgs = {}; try { wsArgs = JSON.parse(stc.rawArgs || '{}'); } catch { wsArgs = {}; }
-          const item = stc.item || { type: 'web_search_call', id: stc.id };
-          // v1.8.1: surface the parsed action type too (search / open_page) so the UI can render the tool card accurately.
-          const display = { query: wsArgs.query || '服务端搜索' };
-          if (wsArgs.actionType) display.actionType = wsArgs.actionType;
-          if (wsArgs.status) display.status = wsArgs.status;
-          await notifyToolHookStart(stc, display, iter, 'server_tool');
-          onEvent({ type: 'tool_use', id: stc.id, name: 'web_search', input: display });
-          const resultObj = { ok: true, serverSide: true, note: 'DeepSeek 服务端搜索已完成;结果由服务端自动恢复,无需本地执行' };
-          onEvent({ type: 'tool_result', id: stc.id, content: resultObj, isError: false });
-          toolCalls.push({ id: stc.id, name: 'web_search', input: display, result: resultObj });
-          serverToolItems.push(item); // echo back verbatim → next request's `input`
-          await notifyToolHookEnd(stc, resultObj, iter, 'server_tool');
-        }
+        for (const stc of serverToolCalls) await surfaceServerSearchCall(stc, call.serverSearchInline !== true);
         // Push the assistant turn (with its LOCAL tool_calls), then run each tool and push its result.
         if (localToolCalls.length) session.providerHistory.push({ role: 'assistant', content: call.text || '', ...wire.assistantHistoryFields(call), tool_calls: providerHistoryToolCalls(localToolCalls, { sessionId: session.id }) });
         // v0.9-S7 视觉回路: a tool screenshot (bridged desktop tool returning image/…) is turned into a user
@@ -49227,7 +49309,12 @@ const CORE_TOOL_HANDLERS = {
       const result = await rehydrateObservation(sessionId, String(args && args.rawRef || ''));
       if (!result.ok) {
         const code = observationRecallError(result.error);
-        return { ok: false, error: code, message: `observation recall failed: ${result.error}` };
+        // 快照文件不在了(ENOENT)时,裸「ENOENT」对模型没有可行动信息(它会以为是引擎故障、反复重试同一个 rawRef)。
+        // 点明:原件已不可取回、视图里的头尾是仅存的内容、该怎么办(重跑当初那次工具调用)、别重试同一 rawRef。信封 error 码不变。
+        const gone = result.error === 'ENOENT'
+          ? ' — the raw snapshot is no longer on disk (removed by the checkpoint size cap or the session folder was moved/deleted), so this original cannot be recovered; do not retry the same rawRef. Re-run the original tool call (same query/url/path) to get the content again.'
+          : '';
+        return { ok: false, error: code, message: `observation recall failed: ${result.error}${gone}` };
       }
       const raw = Number(args && args.maxChars);
       const maxChars = Number.isFinite(raw) ? Math.min(OBSERVATION_RECALL_MAX_CHARS.max, Math.max(OBSERVATION_RECALL_MAX_CHARS.min, Math.round(raw))) : OBSERVATION_RECALL_MAX_CHARS.dflt;
