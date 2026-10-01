@@ -1045,7 +1045,7 @@ function bindEvents() {
   bindStewardShell(); // 117a：管家壳骨架与「回到工作台视角」
   bindNotifySettings({ t }); // 121-K1：「提醒」设置块（本机偏好与系统通知授权；投递归 K6 的安静卡）
   bindRailPocket({ api, state, t, eventStream, openStewardPanel: section => stewardShellDomain.openStewardPanel(section), openUsage: () => { openToolPane(); switchTab('usage'); }, openDoctor: () => { openModal('settingsModal'); switchSettingsTab('doctor', true); }, isStewardMode: () => document.documentElement.getAttribute('data-shell-mode') === 'steward' }); // 121-K7：口袋四项（§2.3／§7.2；「体检 · 用量」两视角两条路）
-  bindMigrationCenter({ openIntegrations: () => { openModal('settingsModal'); switchSettingsTab('integrations', true); } }); // W2：迁移中心挂进 #stab-integrations；首启卡两视角都出
+  bindMigrationCenter({ openIntegrations: () => { openModal('settingsModal'); switchSettingsTab('migration', true); } }); // W2：迁移中心（2026-10 起有自己的页签 #stab-migration）；首启卡两视角都出
   // sidebar
   $('newSessionBtn').onclick = () => { void startFromRail(); };
   bindRailSessionActions(); // 121-K4：左栏行上「置顶／重命名／删除」的委托（会话怎么改仍在 session-experience 一处）

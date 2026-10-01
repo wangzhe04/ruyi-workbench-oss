@@ -70,6 +70,7 @@ export function createNavigationControlsDomain({
   openAuditTab = () => {},
   openUsageDashboard = () => {},
   openStorageTab = () => {},
+  openSettingsSkills = () => {},
   loadAgentWorkflows = async () => {},
   loadUsage = async () => {},
   loadAgentRuns = async () => {},
@@ -96,6 +97,11 @@ function initHelpEntries() {
   const menuBtn = $('helpMenuBtn'); if (menuBtn) menuBtn.onclick = () => openHelpMenu();
   const tabBtn = $('settingsHelpBtn'); if (tabBtn) tabBtn.onclick = () => openSettingsTabHelp();
   const dataBtn = $('openDataDirBtn'); if (dataBtn) dataBtn.onclick = () => helpMenu.openWorkbenchFolder('data');
+  // 2026-10 设置补全「存储与数据」：会话导出／导入与日志查看器修前只在命令面板与帮助菜单里。
+  const exportBtn = $('settingsExportSessionBtn');
+  if (exportBtn) exportBtn.onclick = () => exportSession(($('settingsExportFormat') || {}).value || 'md');
+  const importBtn = $('settingsImportSessionBtn'); if (importBtn) importBtn.onclick = () => importSession();
+  const logsBtn = $('settingsViewLogsBtn'); if (logsBtn) logsBtn.onclick = () => helpMenu.openLogPanel();
 }
 function paletteActions() {
   const acts = [
@@ -791,16 +797,10 @@ function closeModal(id) {
   if (t) { try { t.focus(); } catch { /* ignore */ } }
 }
 function anyModalOpen() { return [...document.querySelectorAll('.modal-backdrop')].some(m => !m.classList.contains('hidden')); }
-// v1.5 (§1.2): 简易模式可见的设置页签白名单 —— 只留「基础/服务商/联网搜索」。其余(Claude CLI/Agent 角色/
-// 集成 MCP/高级)含 MAX_THINKING_TOKENS / --max-turns / Overlay ID 等开发者字段,对非程序员主画像纯劝退,
-// 一律隐藏。CSS(styles.css)隐藏页签按钮,这里的 JS 兜底防「隐藏页签的面板悬空显示」。
-// 117k（用户走查①）：这张白名单必须与 ui-modes.css 那条隐藏清单互补 —— 只被 JS 拦、没被 CSS
-// 藏的页签就是一枚【死键】：看得见、点了静默落回「基础」。steward 与 update 正是漏的两枚，
-// 而管家总开关只住在管家页，于是「第一次把管家打开」在出厂默认（uiMode='simple'）下无路可走。
-// 互补关系由 uimode-style 的 S1b 机械看住（新增页签时忘了这里，那条断言会红）。
-// W6 设置重组：三枚公用页（权限与安全／用量与限额／模型分配）简易模式可见 —— 全局默认权限、月度预算与主模型
-// 本来就在简易可见的页里，搬家不能搬丢；页内开发者向的行由 .settings-expert-only 在 ui-modes.css 收起。
-const SETTINGS_SIMPLE_TABS = new Set(['basic', 'security', 'limits', 'steward', 'models', 'providers', 'network', 'doctor', 'update']);
+// 2026-10 设置补全（用户：「工具与集成里啥都没有」「把所有能配置的都放进设置页」）：设置弹窗不再按界面模式藏页签。
+// 修前简易模式（出厂默认）把 Agent CLI／Agent 角色／集成与 MCP／高级四枚页签连同页内 .settings-expert-only 的行一起藏掉，
+// 迁移中心、扩展组件、MCP 都住在被藏的那一页里 —— 用户看到的「工具与集成」只剩一枚联网搜索，而且没有任何提示说还藏着东西。
+// 简易模式现在只管对话区与右栏的呈现（工具卡人话、开发者页签），设置里的每一项对所有人都看得见、改得了。
 // W6：「MCP 运维」并进「集成与 MCP」。旧页签名（程序化入口、state._settingsTab 里记着的上一次）一律改投新家，不落空。
 const SETTINGS_TAB_ALIASES = Object.freeze({ mcp: 'integrations' });
 // 123-S2 设置弹窗左侧导航：五枚分组升级为可折叠二级菜单。全部纯新增 ——
@@ -858,13 +858,18 @@ function ensureSettingsNavWiring() {
 // W6：三枚公用页与合并后的「集成与 MCP」也按段出锚点（段是 section.settings-section，权限页里还有一段搬来的
 // section.steward-settings-group）；只有一段的页（模型分配）不出（下面 targets.length < 2 自动跳过）。
 const SETTINGS_SECTION_SELECTOR = 'section.settings-section, section.steward-settings-group';
+// 2026-10 设置补全：settings-catalog.js 补进来的段（section.settings-section.setcat-section）也进锚点条；
+// 段数够两段的页（高级、存储与数据、联网搜索、管家……）都出 chip 条。
 const SETTINGS_JUMP_PANELS = Object.freeze({
-  'stab-basic': 'details.settings-fold',
+  'stab-basic': 'details.settings-fold, section.settings-section',
   'stab-security': SETTINGS_SECTION_SELECTOR,
   'stab-limits': SETTINGS_SECTION_SELECTOR,
-  'stab-steward': 'section.steward-settings-group',
-  'stab-claude': 'h4.settings-subhead',
+  'stab-steward': SETTINGS_SECTION_SELECTOR,
+  'stab-claude': 'h4.settings-subhead:not(.setcat-section h4), section.setcat-section',
+  'stab-network': SETTINGS_SECTION_SELECTOR,
   'stab-integrations': SETTINGS_SECTION_SELECTOR,
+  'stab-storage': SETTINGS_SECTION_SELECTOR,
+  'stab-advanced': SETTINGS_SECTION_SELECTOR,
 });
 function jumpTargetLabel(node) {
   if (node.matches('details.settings-fold')) return node.querySelector('summary')?.textContent.trim() || '';
@@ -903,7 +908,6 @@ function buildSettingsJumpList(panelId) {
 // 「配置 Claude CLI」逃生门)绕过收敛,直达目标页签。
 function switchSettingsTab(name, force) {
   if (Object.prototype.hasOwnProperty.call(SETTINGS_TAB_ALIASES, name)) name = SETTINGS_TAB_ALIASES[name];
-  if (!force && document.documentElement.getAttribute('data-ui-mode') === 'simple' && !SETTINGS_SIMPLE_TABS.has(name)) name = 'basic';
   state._settingsTab = name;
   { const sw = $('stab-steward'); if (sw && sw.dataset.only) { delete sw.dataset.only; const bar = sw.querySelector(':scope > .steward-only-bar'); if (bar) bar.remove(); } }   // 走查 #6：「只看这一块」只活到下一次切页签／重开设置
   ensureSettingsNavWiring();        // 123-S2：首挂事件委托 ＋ 按 localStorage 还原各组折叠态
@@ -914,9 +918,10 @@ function switchSettingsTab(name, force) {
   if (name === 'agents') loadAgentRoles();
   if (name === 'doctor') {
     refreshStatus();
-    openStorageTab();
     renderRawEventSnapshot();
   }
+  if (name === 'storage') openStorageTab();   // 2026-10：占用／清理／保留策略从体检页搬到「存储与数据」
+  if (name === 'skills') openSettingsSkills();
   if (name === 'update') refreshOverlayStatus();
   if (name === 'integrations') refreshMcpOps(false); // 55c:打开页签先取清单(不 probe);「全部重测」按钮才 probe=1。W6:连接器清单并进了「集成与 MCP」
 }
@@ -1103,11 +1108,6 @@ function initRightResize() {
     if (mode !== 'simple') return;
     const active = document.querySelector('.tool-pane .tool-tabs button.active');
     if (active && DEV_TABS.has(active.dataset.tab)) switchTab('files');
-    const settings = document.getElementById('settingsModal');
-    if (settings && !settings.classList.contains('hidden')) {
-      const activeSettings = document.querySelector('#settingsTabs button.active');
-      if (activeSettings && !SETTINGS_SIMPLE_TABS.has(activeSettings.dataset.stab)) switchSettingsTab('basic');
-    }
   }
 
   return Object.freeze({

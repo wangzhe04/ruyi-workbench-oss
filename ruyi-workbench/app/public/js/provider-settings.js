@@ -20,6 +20,8 @@ import { providerKeyOptional, localEndpointDownKey, LOCAL_MODELS_ANCHOR_KEY, ONB
 import { AGENT_CLI_DEFAULT_ID, AGENT_CLI_IDS, agentCliMeta, knownAgentCliMeta, normalizeAgentCliType } from './agent-cli-registry.js';
 // 服务商线协议(provider.apiStyle)只问这一张表(58 号方案批 1;键集合与服务端 04i PROVIDER_WIRE_PROTOCOLS 相同)。
 import { PROVIDER_API_STYLE_DEFAULT, PROVIDER_API_STYLES, normalizeProviderApiStyle, providerApiStyleMeta } from './provider-api-styles.js';
+// 2026-10 设置补全：修前没有任何控件的约 70 个 config 键，由这一张目录统一渲染、回填、即存。
+import { mountSettingsCatalog, fillSettingsCatalog, catalogPatch } from './settings-catalog.js';
 
 // 118a: the ONE place a PROVIDER_PRESETS template turns into a providers[] entry. Extracted from
 // addProviderFromPreset() verbatim (zero behavior change) so the welcome wizard writes byte-identical
@@ -745,6 +747,7 @@ function fillSettings() {
     && $('settingsModal') && $('settingsModal').contains(focused) && !($('providersList') && $('providersList').contains(focused))
     ? { node: focused, value: focused.value } : null;
   bindInstantSettings();
+  refreshSettingsCatalog();
   wireProvidersDraftUi();
   wireSubagentAssignRow();
   updateAgentTeamButton();
@@ -1218,13 +1221,13 @@ function buildAsrPresetBlock(advanced) {
   return block;
 }
 function renderAsrSettings() {
-  const host = $('stab-providers');
+  // 2026-10 设置补全：语音识别有了自己的页签 #stab-voice（修前追加在服务商页最底下，被服务商卡片淹没）。
+  const host = $('stab-voice') || $('stab-providers');
   if (!host) return;
   const options = asrCapableOptions();
   if (!asrSettingsBlock) { asrSettingsBlock = el('div', 'asr-settings'); host.appendChild(asrSettingsBlock); }
   const wasOpen = Boolean(asrSettingsBlock.querySelector('.asr-advanced[open]'));
   asrSettingsBlock.textContent = '';
-  const sep = el('hr', 'settings-sep');
   const streamBlock = buildAsrStreamBlock();   // 130：实时识别在前（先出字），整段识别／校正在后
   const fixBlock = buildAsrFixBlock();         // 131b：句尾改错最后（说完一句之后怎么改）
   // 133c：三栏收进折叠的「高级」区；档位对不上任何一档（自定义）时默认展开，否则记住用户刚才开没开
@@ -1238,7 +1241,7 @@ function renderAsrSettings() {
   if (!options.length) {
     block.append(label, roleHint, el('p', 'field-help muted', t('settings.asr.none')), buildAsrAddRow());
     advanced.append(streamBlock, block, fixBlock);
-    asrSettingsBlock.append(sep, presetBlock, advanced);
+    asrSettingsBlock.append(presetBlock, advanced);
     return;
   }
   const select = el('select', 'asr-select');
@@ -1262,7 +1265,7 @@ function renderAsrSettings() {
   };
   block.append(label, roleHint, select, hint, buildAsrAddRow());
   advanced.append(streamBlock, block, fixBlock);
-  asrSettingsBlock.append(sep, presetBlock, advanced);
+  asrSettingsBlock.append(presetBlock, advanced);
 }
 // ruyi-toolbox 扩展组件(用户 2026-09-21:「toolbox 下的都自动识别接入,开箱即用」)。服务端 04f 在启动时已经把登记过的组件
 // 拉起／接好了,这里只做两件事:① 设置页「MCP」页签底部画一栏「扩展组件」—— 看得见接了什么、各自什么状态,能逐个停用、
@@ -1280,10 +1283,11 @@ async function saveToolboxPatch(patch) {
   return true;
 }
 function renderToolboxSettings() {
-  // W6：「MCP 运维」并进「集成与 MCP」之后，这一栏落在那一页的 #toolboxSettingsHost（迁移中心在它之后追加）。
+  // 2026-10 设置补全：#toolboxSettingsHost 搬进独立的「扩展组件」页签；没有组件时那一页显示空态句（#toolboxSettingsEmpty）。
   const host = $('toolboxSettingsHost') || $('stab-integrations');
   const view = (state.status && state.status.toolbox) || null;
   const components = (view && Array.isArray(view.components)) ? view.components : [];
+  { const empty = $('toolboxSettingsEmpty'); if (empty) empty.hidden = components.length > 0; }
   if (!host || !components.length) { if (toolboxSettingsBlock) { toolboxSettingsBlock.remove(); toolboxSettingsBlock = null; } return; }
   if (!toolboxSettingsBlock) { toolboxSettingsBlock = el('div', 'toolbox-settings'); host.appendChild(toolboxSettingsBlock); }
   toolboxSettingsBlock.textContent = '';
@@ -1317,7 +1321,7 @@ function renderToolboxSettings() {
     list.appendChild(row);
   }
   block.appendChild(list);
-  toolboxSettingsBlock.append(el('hr', 'settings-sep'), block);
+  toolboxSettingsBlock.append(block);
 }
 // 第一次见到某个已经接好的组件 → 说一句。记在 localStorage(每个浏览器说一次就够,不值得为它开一条服务端路由)。
 function announceNewToolboxComponents() {
@@ -1556,6 +1560,19 @@ const INSTANT_SETTINGS = Object.freeze([
   // 105f: 摘要单发上限;后端 sanitize 再钳 [8192,131072],UI 只出三档。
   { ids: ['cfgSummarySingleShotMax'], patch: () => ({ summarySingleShotMaxTokensV1: clampedInt('cfgSummarySingleShotMax', 32768, 8192, 131072) }) },
 ]);
+// 2026-10 设置补全：目录里每一项都是「改了就存」，与上面这张即存表同一个口径（saveConfigPartial 一处写盘、一处刷读面）。
+// 输入无效（数字框清空、非数字）→ 不写盘，直接按落盘值回显。存完重填一次：依赖项的置灰态、总是允许清单都跟着变。
+async function saveCatalogField(field, stored) {
+  if (stored === undefined) { refreshSettingsCatalog(); return false; }
+  const saved = await saveConfigPartial(catalogPatch(field, stored, state.config));
+  if (saved && field.key === 'theme') applyTheme(stored);
+  refreshSettingsCatalog();
+  return saved;
+}
+function refreshSettingsCatalog() {
+  mountSettingsCatalog({ t, onSave: saveCatalogField });
+  fillSettingsCatalog({ t, config: state.config || {}, onSave: saveCatalogField });
+}
 let instantSettingsBound = false;
 function bindInstantSettings() {
   if (instantSettingsBound) return;

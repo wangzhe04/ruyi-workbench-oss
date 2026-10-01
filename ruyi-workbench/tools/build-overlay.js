@@ -139,6 +139,8 @@ const PAYLOAD_FILES = [
   'app/public/js/composer-voice.js',
   // W2:迁移中心(设置「集成」页签末尾的区块 + 两个视角的首启卡)。app.js 静态 import 它 —— 缺文件整页挂掉,同上。
   'app/public/js/migration-center.js',
+  // 2026-10 设置补全：设置目录（修前没有控件的 config 键）。provider-settings.js 静态 import 它 —— 缺文件整页挂掉，同上。
+  'app/public/js/settings-catalog.js',
   'app/public/locales/zh-CN.json',
   'app/public/locales/en-US.json',
   'app/public/css/tokens.css',

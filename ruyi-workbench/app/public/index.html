@@ -951,6 +951,7 @@
               <button type="button" class="settings-nav-label" data-group="models" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.models">模型与服务</span></button>
               <button type="button" data-stab="models" data-i18n="settings.models.tab">模型分配</button>
               <button type="button" data-stab="providers" data-i18n="settings.providers">服务商</button>
+              <button type="button" data-stab="voice" data-i18n="settings.nav.voice">语音识别</button>
               <button type="button" data-stab="claude" data-i18n="settings.agentCli.tab">Agent CLI</button>
               <button type="button" data-stab="agents" data-i18n="settings.agents">Agent 角色</button>
             </section>
@@ -958,10 +959,14 @@
               <button type="button" class="settings-nav-label" data-group="integrations" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.integrations">工具与集成</span></button>
               <button type="button" data-stab="network" data-i18n="settings.network">联网搜索</button>
               <button type="button" data-stab="integrations" data-i18n="settings.integrations">集成与 MCP</button>
+              <button type="button" data-stab="toolbox" data-i18n="settings.nav.toolbox">扩展组件</button>
+              <button type="button" data-stab="skills" data-i18n="settings.nav.skills">技能与模板</button>
+              <button type="button" data-stab="migration" data-i18n="settings.nav.migration">迁移中心</button>
             </section>
             <section class="settings-nav-group" data-group="system">
               <button type="button" class="settings-nav-label" data-group="system" aria-expanded="false"><span class="settings-nav-chevron" aria-hidden="true"></span><span data-i18n="settings.group.system">系统</span></button>
               <button type="button" data-stab="doctor" data-i18n="navigation.doctor">体检</button>
+              <button type="button" data-stab="storage" data-i18n="settings.nav.storage">存储与数据</button>
               <button type="button" data-stab="advanced" data-i18n="settings.advanced">高级</button>
               <button type="button" data-stab="update" data-i18n="settings.update">更新中心</button>
             </section>
@@ -1607,6 +1612,11 @@
           <!-- ===== Agent CLI (Claude Code / Kimi Code) ===== -->
           <!-- W6：只留命令行引擎自己的项。「用哪个命令行引擎」并进了「模型分配」的主模型那一行（原 #cfgAgentCliType）， -->
           <!-- --max-turns 去了「用量与限额」、权限弹窗桥接去了「权限与安全」、MCP 命令模式去了「集成与 MCP」。 -->
+<!-- ===== 语音识别（2026-10 设置补全：修前 renderAsrSettings 追加在「服务商」页最底下）===== -->
+          <div class="settings-tab" id="stab-voice">
+            <p class="muted prov-hint" data-i18n="settings.voice.pageHint">输入框麦克风用哪个语音识别、实时还是整段、句尾要不要改错。</p>
+          </div>
+
           <div class="settings-tab" id="stab-claude">
             <p id="agentCliCurrentHint" class="muted prov-hint"></p>
             <p id="agentCliCapabilityHint" class="field-help muted"></p>
@@ -1833,7 +1843,24 @@
                 <div class="mcp-compat" id="mcpCompatBox"></div>
               </div>
             </section>
+          </div>
+
+          <!-- ===== 扩展组件（2026-10 设置补全：从「集成与 MCP」末尾拆出成独立页签，provider-settings.js 的 renderToolboxSettings 画进 #toolboxSettingsHost）===== -->
+          <div class="settings-tab" id="stab-toolbox">
+            <p class="muted prov-hint" data-i18n="settings.toolbox.pageHint">ruyi-toolbox 里的可选组件（本地语音识别、文档解析等）装好之后会自动出现在这里；可以逐个停用。</p>
             <div id="toolboxSettingsHost"></div>
+            <p class="setcat-empty muted" id="toolboxSettingsEmpty" data-i18n="settings.toolbox.empty">还没有发现任何扩展组件。</p>
+          </div>
+
+          <!-- ===== 技能与模板（2026-10 设置补全：技能库、存下来的一键任务、提示词模板，修前只在输入栏按钮、命令面板与消息菜单里）===== -->
+          <div class="settings-tab" id="stab-skills">
+            <p class="muted prov-hint" data-i18n="settings.skills.pageHint">技能、存下来的一键任务和提示词模板都在这里管理。</p>
+            <div id="settingsSkillsHost"></div>
+          </div>
+
+          <!-- ===== 迁移中心（2026-10 设置补全：修前运行时追加在「集成与 MCP」末尾、简易模式下整页被藏，用户找不到。区块仍由 migration-center.js 运行时挂进来）===== -->
+          <div class="settings-tab" id="stab-migration">
+            <p class="muted prov-hint" data-i18n="settings.migration.pageHint">从 Claude Code、Codex、Kimi Code 和老版本如意导入指令、MCP 与技能；每一步都可以撤销。</p>
           </div>
 
           <!-- ===== 体检 ===== -->
@@ -1847,34 +1874,6 @@
             </div>
             <div id="doctorPanel" class="doctor-panel settings-doctor-panel"></div>
 
-            <details class="diagnostic-details">
-              <summary>
-                <span data-i18n="settings.doctor.storageTitle">存储与性能</span>
-                <span class="muted" data-i18n="settings.doctor.storageHint">空间占用、保留策略和运行指标</span>
-              </summary>
-              <div class="diagnostic-details-body">
-                <div class="debug-head">
-                  <label data-i18n="settings.doctor.storageUsage">存储占用</label>
-                  <div class="row-actions"><button id="storageRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button><button id="storageCleanBtn" class="mini" data-i18n="settings.doctor.cleanNow">立即清理</button></div>
-                </div>
-                <p class="changes-hint muted" data-i18n="settings.doctor.storageDescription">按保留策略清理过期日志、已结束工作流的归档和无人引用的引擎转录。检查点使用独立的自动上限。</p>
-                <div id="storageSummary" class="storage-panel" aria-live="polite"></div>
-                <div class="debug-head"><label data-i18n="settings.doctor.retentionPolicy">保留策略</label></div>
-                <div class="storage-policy">
-                  <label class="storage-policy-row"><span data-i18n="settings.doctor.logsDays">日志保留天数</span><input id="storagePolicyLogsDays" type="number" min="7" max="365" step="1" /></label>
-                  <label class="storage-policy-row"><span data-i18n="settings.doctor.compressDays">事件日志压缩天数(0=关)</span><input id="storagePolicyCompressDays" type="number" min="0" max="365" step="1" /></label>
-                  <label class="storage-policy-row"><span data-i18n="settings.doctor.webcacheMax">网页缓存条目上限(0=不限)</span><input id="storagePolicyWebcacheMax" type="number" min="0" max="100000" step="100" /></label>
-                  <label class="storage-policy-row"><span data-i18n="settings.doctor.transcriptDays">引擎转录保留天数(0=不清)</span><input id="storagePolicyTranscriptDays" type="number" min="0" max="365" step="1" /></label>
-                  <button id="storagePolicySaveBtn" class="mini primary" data-i18n="settings.doctor.savePolicy">保存策略</button>
-                </div>
-                <div class="debug-head">
-                  <label data-i18n="settings.doctor.performance">性能观测</label>
-                  <button id="metricsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
-                </div>
-                <p class="changes-hint muted" data-i18n="settings.doctor.performanceHint">查看内存、请求耗时和最慢请求；请求统计在重启后重置。</p>
-                <div id="metricsPanel" class="storage-panel" aria-live="polite"></div>
-              </div>
-            </details>
 
             <details class="diagnostic-details">
               <summary>
@@ -1893,6 +1892,50 @@
                 <pre id="rawEvents" class="raw-events"></pre>
               </div>
             </details>
+          </div>
+
+          <!-- ===== 存储与数据（2026-10 设置补全：占用／清理／保留策略从「体检」的折叠里搬出，数据目录从「高级」搬来；控件 id 一个没改）===== -->
+          <div class="settings-tab" id="stab-storage">
+            <section class="settings-section" id="settingsSecDataDir" aria-labelledby="settingsSecDataDirHeading">
+              <h4 id="settingsSecDataDirHeading" class="settings-subhead" data-i18n="settings.storage.dataTitle">数据与日志</h4>
+              <div class="field-block">
+                <label data-i18n="settings.advanced.dataDirectory">数据目录</label>
+                <div class="adv-row"><code id="advDataRoot" class="adv-val"></code><button type="button" id="openDataDirBtn" class="btn btn-sm" data-i18n="settings.advanced.openDataDirectory">打开数据目录</button></div>
+              </div>
+              <div class="settings-actions">
+                <select id="settingsExportFormat" class="setcat-inline-select" aria-label="导出格式" data-i18n-attr="aria-label:settings.storage.exportFormat">
+                  <option value="md">Markdown</option>
+                  <option value="html">HTML</option>
+                  <option value="json">JSON</option>
+                </select>
+                <button type="button" id="settingsExportSessionBtn" class="btn btn-sm" data-i18n="settings.storage.exportSession">导出当前线程</button>
+                <button type="button" id="settingsImportSessionBtn" class="btn btn-sm" data-i18n="settings.storage.importSession">导入线程（.json）</button>
+                <button type="button" id="settingsViewLogsBtn" class="btn btn-sm" data-i18n="settings.storage.viewLogs">查看日志</button>
+              </div>
+            </section>
+            <section class="settings-section" id="settingsSecStorage" aria-labelledby="settingsSecStorageHeading">
+              <h4 id="settingsSecStorageHeading" class="settings-subhead" data-i18n="settings.doctor.storageTitle">存储与性能</h4>
+              <div class="debug-head">
+                <label data-i18n="settings.doctor.storageUsage">存储占用</label>
+                <div class="row-actions"><button id="storageRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button><button id="storageCleanBtn" class="mini" data-i18n="settings.doctor.cleanNow">立即清理</button></div>
+              </div>
+              <p class="changes-hint muted" data-i18n="settings.doctor.storageDescription">按保留策略清理过期日志、已结束工作流的归档和无人引用的引擎转录。检查点使用独立的自动上限。</p>
+              <div id="storageSummary" class="storage-panel" aria-live="polite"></div>
+              <div class="debug-head"><label data-i18n="settings.doctor.retentionPolicy">保留策略</label></div>
+              <div class="storage-policy">
+                <label class="storage-policy-row"><span data-i18n="settings.doctor.logsDays">日志保留天数</span><input id="storagePolicyLogsDays" type="number" min="7" max="365" step="1" /></label>
+                <label class="storage-policy-row"><span data-i18n="settings.doctor.compressDays">事件日志压缩天数(0=关)</span><input id="storagePolicyCompressDays" type="number" min="0" max="365" step="1" /></label>
+                <label class="storage-policy-row"><span data-i18n="settings.doctor.webcacheMax">网页缓存条目上限(0=不限)</span><input id="storagePolicyWebcacheMax" type="number" min="0" max="100000" step="100" /></label>
+                <label class="storage-policy-row"><span data-i18n="settings.doctor.transcriptDays">引擎转录保留天数(0=不清)</span><input id="storagePolicyTranscriptDays" type="number" min="0" max="365" step="1" /></label>
+                <button id="storagePolicySaveBtn" class="mini primary" data-i18n="settings.doctor.savePolicy">保存策略</button>
+              </div>
+              <div class="debug-head">
+                <label data-i18n="settings.doctor.performance">性能观测</label>
+                <button id="metricsRefreshBtn" class="mini" data-i18n="common.refresh">刷新</button>
+              </div>
+              <p class="changes-hint muted" data-i18n="settings.doctor.performanceHint">查看内存、请求耗时和最慢请求；请求统计在重启后重置。</p>
+              <div id="metricsPanel" class="storage-panel" aria-live="polite"></div>
+            </section>
           </div>
 
           <!-- ===== 高级 ===== -->
@@ -1915,10 +1958,6 @@
                 <option value="65536" data-i18n="settings.advanced.summarySingleShot64">64K（激进）</option>
               </select>
               <p class="field-help muted" data-i18n="settings.advanced.summarySingleShotMax.hint">估算不超过此上限的摘要走单次调用，超出自动分块。实测 32K 单发约需 40–51 秒（22-S0 基线），远程摘要超时 180 秒；64K 档贴近超时线，慢模型有作废风险。仅在「摘要单发优先」实验开关开启时生效。</p>
-            </div>
-            <div class="field-block">
-              <label data-i18n="settings.advanced.dataDirectory">数据目录</label>
-              <div class="adv-row"><code id="advDataRoot" class="adv-val"></code><button type="button" id="openDataDirBtn" class="file-label" data-i18n="settings.advanced.openDataDirectory">打开数据目录</button></div>
             </div>
             <div class="field-grid">
               <div class="field-block"><label data-i18n="settings.advanced.version">版本</label><code id="advVersion" class="adv-val"></code></div>
