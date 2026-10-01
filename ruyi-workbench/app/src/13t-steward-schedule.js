@@ -94,6 +94,27 @@ async function stewardImplScheduleCreate(args, ctx, config) {
     revision: 0,
   }, schedulerClockNow());
   if (!normalized.ok) return stewardFail(normalized.code, normalized.message);
+  // 第二轮工具走查(F15)三道补充校验,都只在【管家这条面】(用户自己经 HTTP 下单不受影响):
+  // ① existing-session 的目标必须是一条真实存在的、不是管家自己的线程。修前 sessionId 随便填(`sess_0000…` / 'steward')
+  //    都收,到点(或 run_now)时 13s 找不到会话就【静默新开一条线程】并报 succeeded —— 用户以为它在原线程里接着做,
+  //    其实每次都开新线程;指向 'steward' 更糟(往管家自己的会话里投定时回合)。
+  if (normalized.task.target.mode === 'existing-session') {
+    const targetId = normalized.task.target.sessionId;
+    const targetHead = safeSessionId(targetId) ? await stewardReadSessionHead(targetId) : null;
+    if (!targetHead || !targetHead.id || targetId === STEWARD_SESSION_ID || stewardRawKind(targetHead) === 'steward') {
+      return stewardFail('not_found', `target.sessionId ${stewardSanitizeText(targetId)} 不是一条已有的线程(管家自己的会话也不行);先用 steward_threads_search 找到真实的线程 id,或者把 target 改成 new-session`, { reason: 'target_session_not_found' });
+    }
+  }
+  // ② prompt 载荷每次到点都会【调模型】(花钱),不许排成分钟级:cron 取最近几个触发点里最小的间隔,低于下限就拒。
+  //    提醒(reminder)不调模型,仍可到每分钟一次(cron 本身的最小粒度)。daily/weekly/monthly/once 间隔天然 ≥ 1 天,不必算。
+  if (normalized.task.payload.kind === 'prompt' && normalized.task.schedule.kind === 'cron') {
+    const gapMin = schedulerMinGapMinutes(normalized.task.schedule, schedulerClockNow());
+    if (gapMin !== null && gapMin < STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN) {
+      return stewardFail('invalid_request', `这条任务每次到点都会调用模型,触发间隔不能短于 ${STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN} 分钟(你给的 cron 最短间隔 ${gapMin} 分钟)。要更频繁的只能用 reminder(提醒不调模型),或把 cron 放宽`, { reason: 'interval_too_short', minGapMinutes: gapMin, limitMinutes: STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN });
+    }
+  }
+  // ③ 静默归一要如实说:修前文本超长被截、tier / permissionMode 被丢,返回里一个字都不提,模型以为都生效了。
+  const notes = schedulerNormalizationNotes(args, normalized.task);
   normalized.task.id = makeId('sch');
   schedulerRuntime.tasks.push(normalized.task);
   await schedulerSaveTasks();
@@ -108,7 +129,40 @@ async function stewardImplScheduleCreate(args, ctx, config) {
     undoRef: { kind: 'schedule', id: row.id, prev: null },
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
-  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams, ...(tier ? { tier } : {}) };
+  return { ok: true, task: row, describeKey: row.describeKey, describeParams: row.describeParams, ...(tier ? { tier } : {}), ...(notes.length ? { normalized: true, notes } : {}) };
+}
+
+// prompt 载荷的最短触发间隔(分钟)。每次到点开一条线程、调一次模型,一分钟一次等于每天上千次调用。
+const STEWARD_SCHEDULE_PROMPT_MIN_GAP_MIN = 15;
+// 一条计划接下来几个触发点之间【最小】的间隔(分钟);算不出两个以上触发点返回 null。cron 可以是不规则的
+// (`0,5 * * * *` 的间隔是 5、55、5、55……),所以不能只看头两个,看前 8 个。
+function schedulerMinGapMinutes(schedPlan, schedFromMs) {
+  let prev = nextFireAt(schedPlan, schedFromMs);
+  let min = null;
+  for (let i = 0; i < 8 && prev != null; i++) {
+    const next = nextFireAt(schedPlan, prev);
+    if (next == null) break;
+    const gap = Math.round((next - prev) / 60000);
+    if (min === null || gap < min) min = gap;
+    prev = next;
+  }
+  return min;
+}
+// 把「模型给的」与「归一化之后落下的」对一遍,列出被悄悄改掉 / 丢掉的部分(人话,给模型转述给用户)。
+function schedulerNormalizationNotes(schedArgs, schedTask) {
+  const notes = [];
+  const given = (schedArgs && typeof schedArgs === 'object') ? schedArgs : {};
+  const givenText = (given.payload && typeof given.payload === 'object') ? String(given.payload.text == null ? '' : given.payload.text).trim() : '';
+  if (givenText.length > schedTask.payload.text.length) notes.push(`payload.text 有 ${givenText.length} 字,超过上限 ${SCHEDULER_LIMITS.textChars},已截成 ${schedTask.payload.text.length} 字`);
+  const givenTitle = String(given.title == null ? '' : given.title).trim();
+  if (givenTitle.length > schedTask.title.length) notes.push(`title 超过 ${SCHEDULER_LIMITS.titleChars} 字,已截断`);
+  const givenTier = given.tier !== undefined ? given.tier : (given.target && typeof given.target === 'object' ? given.target.tier : undefined);
+  if (givenTier && !schedTask.target.tier) notes.push('tier 被忽略:它只对 prompt 载荷 + 每次开新线程(target.mode:new-session)有意义');
+  const givenMode = String(given.permissionMode == null ? '' : given.permissionMode).trim();
+  if (givenMode && !schedTask.autonomy.permissionMode) notes.push(`permissionMode「${stewardSanitizeText(givenMode).slice(0, 20)}」没有生效(bypass 永远不给定时任务),这条任务跟随全局默认权限档`);
+  const givenTargetMode = given.target && typeof given.target === 'object' ? String(given.target.mode || '') : '';
+  if (givenTargetMode && givenTargetMode !== schedTask.target.mode) notes.push(`target.mode「${stewardSanitizeText(givenTargetMode).slice(0, 20)}」不认识,按 ${schedTask.target.mode} 处理`);
+  return notes;
 }
 
 // 2) steward_schedule_list —— 只读。不进决策日志(读工具没有「做过什么」可记)。
@@ -127,6 +181,10 @@ async function schedulerToolSetEnabled(args, ctx, config, wantEnabled, toolName)
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
   const was = task.state.enabled === true;
+  // 第二轮工具走查(F12):已经是目标状态再来一次,修前照样 revision+1、写盘、发变更事件、记决策日志(undoRef.prev 还是同一个值),
+  // 用户在行动流水里看到「管家暂停了它」两遍,界面上的修订号也白涨。幂等:原样回任务行 + unchanged:true,什么都不写。
+  // (从熔断里重开不在这条里:熔断 = state.enabled 已经是 false,继续它 was=false → 照常走下面的重开。)
+  if (was === wantEnabled) return { ok: true, task: schedulerToolRow(task), unchanged: true };
   task.state.enabled = wantEnabled;
   // 从熔断里被重新打开:连败计数清零(与 PATCH /api/scheduler/tasks/:id 同口径 —— 不清零的话
   // 下一次失败会立刻再熔断,用户会以为「继续」这枚按钮没生效)。
@@ -158,10 +216,22 @@ async function stewardImplScheduleResume(args, ctx, config) {
 //    ticking —— 一条慢任务能把管家的手动运行和 tick 的到点派单一起挡住。
 async function stewardImplScheduleRunNow(args, ctx, config) {
   const gate = schedulerToolGate(config); if (gate) return gate;
+  // 第二轮工具走查(F16):run_now 修前没有无人值守闸,而 create / delete 在 inbox 触发下都回 propose_required ——
+  // 同一族里「排新的 / 删旧的」要问人,「立刻真跑一次(prompt 载荷 = 开线程、调模型、动文件)」反而不问,
+  // 无人值守回合里模型自己就能让一条定时任务现在就开跑。与 create / delete 同一道闸、同一个信封形状。
+  if (stewardUnattendedByModel(ctx)) {
+    return stewardFail('propose_required',
+      '无人值守时不能替用户立刻运行定时任务;把它作为一条提议交给用户,不要重试', {
+        reason: 'unattended', tool: 'steward_schedule_run_now',
+      });
+  }
   await schedulerLoad();
   const found = schedulerToolFind(args.id);
   if (!found.task) return stewardFail('not_found', `没有 id 为 ${stewardSanitizeText(found.id)} 的定时任务`);
   const task = found.task;
+  // 暂停中的任务(enabled:false,含被熔断停用的)修前也照跑、返回里一个字不提。决定:仍然允许(「立刻再跑一次」
+  // 本来就是计划之外的手动动作,暂停只管【到点自动】触发),但如实说出来 —— 不替用户在两种读法里悄悄选一种。
+  const wasPaused = task.state.enabled !== true;
   const ran = await schedulerRunNow(task);
   if (ran.busy) {
     return stewardFail('steward.busy', '这条定时任务正在跑,等它跑完再说(不要重试)', { id: task.id });
@@ -173,7 +243,10 @@ async function stewardImplScheduleRunNow(args, ctx, config) {
     undoRef: null,
     basis: (args.basis && typeof args.basis === 'object') ? args.basis : {},
   });
-  return { ok: true, outcome, task: schedulerToolRow(task) };
+  return {
+    ok: true, outcome, task: schedulerToolRow(task),
+    ...(wasPaused ? { wasPaused: true, note: '这条任务当时是暂停的:手动运行照常执行了一次,但没有恢复它(到点自动触发仍是停着的);要恢复用 steward_schedule_resume。' } : {}),
+  };
 }
 
 // 6) steward_schedule_delete —— 删【定义】,不删历史回执(fires-v1.ndjson 一个字节不动)。

@@ -253,8 +253,18 @@ try {
     const future = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
     const srcG = await makeUserTurn('这两周在赶 A 项目');
 
-    const gExpired = await call('steward_memory_write', { kind: 'focus', text: '用户这两周在赶 A 项目', sourceRef: srcG, expiresAt: past });
+    // 2026-10 工具走查第二轮(F12)有意改变的行为:steward_memory_write 现在【拒】已经过去的 expiresAt(修前静默收下,
+    // 条目一落库就是过期的,模型却收到 ok:true 以为记住了)。这一组要的是「已过期条目」的读侧行为(过滤不是删除、
+    // 面板标 expired、合并清到期日……),所以先用将来的日期写进去,再把落盘的那一条改回过去 —— 与「时间流逝」等价。
+    const gPastWrite = await call('steward_memory_write', { kind: 'focus', text: '用户这两周在赶 B 项目', sourceRef: srcG, expiresAt: past });
+    ok(gPastWrite && gPastWrite.ok === false && gPastWrite.error === 'invalid_request' && !(readStore().entries || []).some(e => String(e.text).includes('B 项目')), 'G1a 已经过去的到期日 -> 拒,不落库(第二轮走查 F12)');
+    const gExpired = await call('steward_memory_write', { kind: 'focus', text: '用户这两周在赶 A 项目', sourceRef: srcG, expiresAt: future });
     ok(gExpired && gExpired.ok === true, 'G1 带过期时间的写入成功');
+    {
+      const aged = readStore();
+      aged.entries.find(e => e.id === gExpired.id).expiresAt = past;   // 时间过去了
+      fs.writeFileSync(memoryFile, JSON.stringify(aged));
+    }
     ok((readStore().entries.find(e => e.id === gExpired.id) || {}).expiresAt === past, 'G1b expiresAt 原样落盘');
 
     const srcG2 = await makeUserTurn('下个月要交季度总结');
@@ -325,8 +335,12 @@ try {
     // 模型编一个键进来 —— 一律回落全局,绝不静默把它锁进某个项目。
     const srcH3 = await makeUserTurn('随便写点什么');
     const hBad = await call('steward_memory_write', { kind: 'habit', text: '用户习惯早上处理邮件', sourceRef: srcH3, scope: 'project:deadbeefdeadbeef' });
-    ok((readStore().entries.find(e => e.id === hBad.id) || {}).scope === '',
-      'H3 **模型自己填的键不算数** —— scope 只认 global/project 两个词,键永远服务端推(31 号文 §2.6 红线)');
+    // 2026-10 工具走查第二轮(F8)有意改变的行为:门控壳现在按 13f schema 校验枚举,scope 的 enum 是 ['global','project'],
+    // 「编一个键」修前是静默回落全局(写进去、scope 空串),现在直接 invalid_request 拒掉。红线(§2.6)的意图不变且更严:
+    // 模型自己填的键【永远不会】进到条目的 scope 里 —— 不是回落成全局,而是整条拒绝、不落库。
+    ok(hBad && hBad.ok === false && hBad.error === 'invalid_request'
+      && !(readStore().entries || []).some(e => String(e.scope || '').includes('deadbeef') || String(e.text).includes('早上处理邮件')),
+      'H3 **模型自己填的键不算数** —— scope 只认 global/project 两个词(枚举校验直接拒),键永远服务端推(31 号文 §2.6 红线)');
 
     // 检索:不传 scope 不筛(管家是跨项目的看护者);传了就只剩「全局 + 那个项目」。
     const all = await call('steward_memory_search', { limit: 50 });

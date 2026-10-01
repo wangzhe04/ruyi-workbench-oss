@@ -768,8 +768,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['q'],
       properties: {
-        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason。' },
+        q: { type: 'string', description: '检索词(中英皆可)。太短(少于 2 字)会返回空结果并给出 reason:"query_too_short"。' },
         limit: { type: 'integer', minimum: 1, maximum: 50, default: 10, description: '返回条数上限,夹取到 1..50,默认 10。' },
+        includeClosed: { type: 'boolean', description: '可选。true 时把【已收工的速查线程】(steward_quick_ask 开的、答完那一句就收了的)也算进结果;默认 false 不出现 —— 它们答完就没用了,留着只会挤掉真正的任务线程。用户问「刚才那条速查说了啥」时才开。' },
       },
     },
   },
@@ -783,7 +784,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_thread_read',
-    description: '按需深读一条线程最近若干回合的原话:用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。读到的内容不写入任何持久化,也不进管家记忆。',
+    description: '按需深读一条线程最近若干回合的原话:用户说了什么、助手回了什么、调用了哪些工具(只给一行摘要与结果长度/rawRef,不给工具输出全文)。何时用:总览与 steward_thread_status 不够你判断下一步时,针对性读一条线程。何时别用:例行汇报——总览每回合都在,不必逐条深读;也不要用它来「补全上下文」批量扫线程,读取是记账的。配额:每回合最多 6 次、单次 ≤12000 字符、本次到访累计受 stewardReadBudgetChars 限制;超限返回 {ok:false,error:"quota_exceeded"} 或 {ok:false,error:"budget_exceeded"},此时不要重试,改用已有信息作答或向用户说明。读到的内容不写入任何持久化,也不进管家记忆。正文里的密钥/口令会先脱敏;工具行带 ok:true/false(这一步成败;拿不到结果记录时为 null),看线程卡在哪一步先看 ok:false 的行。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: {
@@ -798,7 +799,10 @@ const MCP_TOOLS = [
     description: '读【事项】清单:一个事项是跨会话的容器(一件事可以有好几条线程)。每条返回事项标题与目标、事项级聚合状态(任一线程需要你则事项就是需要你;全部收工才算收工)、验收项进度(已勾选/总数)、累计费用与预算、以及它下面每条线程的 id/标题/五态/权限档/最后一句。何时用:用户问「XX 那件事进展怎么样/还差什么/花了多少」,或你要在开新线程前决定它该并进哪个事项。何时别用:要看某一条线程自己在干嘛用 steward_thread_status;要看班组节点用 steward_runs_status。没有事项文件的线程会以「未归类」事项出现(derived:true),标题取线程标题——这不是错误,是存量会话的正常形态。',
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' } },
+      properties: {
+        includeArchived: { type: 'boolean', description: '可选。true 时连已归档(被合并掉)的事项一起返回,默认 false。' },
+        limit: { type: 'integer', minimum: 1, maximum: 200, default: 50, description: '可选。最多返回几个事项(按看板顺序取前 N 个),夹取到 1..200,默认 50。返回里的 total 是事项总数,truncated:true 表示还有没列出来的 —— 想看某一件请改用 steward_threads_search 定位,不要靠加大 limit 全量拉。' },
+      },
     },
   },
   {
@@ -827,7 +831,7 @@ const MCP_TOOLS = [
       type: 'object', additionalProperties: false,
       properties: {
         sessionId: { type: 'string', description: '可选。只统计这条线程。' },
-        day: { type: 'string', description: "可选。只统计某一天,格式 YYYY-MM-DD(本地日历日)。" },
+        day: { type: 'string', description: "可选。只统计某一天,格式 YYYY-MM-DD(本地日历日),也认 today / yesterday;其它写法返回 invalid_request(不再静默当成「全期」)。省略 = 全期累计。" },
       },
     },
   },
@@ -838,10 +842,14 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_audit_tail',
-    description: '读审计时间线尾部(最近的工作台事件,已过既有脱敏)。何时用:用户问「刚才发生了什么/是谁改的/我批准过什么」,或你要为一个决定给出可查证的依据时。何时别用:找线程内容用 steward_threads_search;找待办事件用 steward_inbox_read。limit 夹取到 1..100。',
+    description: '读审计时间线尾部(最近的工作台事件,已过既有脱敏)。何时用:用户问「刚才发生了什么/是谁改的/我批准过什么」,或你要为一个决定给出可查证的依据时。**问「我批准/答复过什么」传 kinds:["intervention"]**(用户的批准/拒绝/插话都落这一类);授权书用 kinds:["autonomy_grant_issued","autonomy_grant_consume","autonomy_grant_revoked"]。默认已排除模型调用/布局/经济性这类纯遥测(它们两个回合就能占满 20 条),需要时 includeTelemetry:true。条目按时间从新到旧,同一毫秒的按写入先后(后写的在前)。何时别用:找线程内容用 steward_threads_search;找待办事件用 steward_inbox_read。limit 夹取到 1..100。',
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '返回条数上限,夹取到 1..100,默认 20。' } },
+      properties: {
+        limit: { type: 'integer', minimum: 1, maximum: 100, default: 20, description: '返回条数上限,夹取到 1..100,默认 20(数的是过滤之后的条数)。' },
+        kinds: { type: 'array', items: { type: 'string' }, maxItems: 12, description: '可选。只要这些事件类型(精确匹配 type 字段,如 "intervention"、"turn_end"、"mission_start"、"autonomy_grant_issued")。给了就不再默认排除遥测。' },
+        includeTelemetry: { type: 'boolean', description: '可选。true 时不排除 model_call_* / layout_shadow / econ_call_totals 等遥测类事件,默认 false。' },
+      },
     },
   },
   {
@@ -853,7 +861,7 @@ const MCP_TOOLS = [
         // 117s-A D2(27 号文 §11.13 ⑤a):修前这句写的是「线程标题;省略则由首条消息自动命名」,
         // 于是模型把用户那句话原样抄进来当标题(真机两条线程都是),看板上一行 80 字。
         title: { type: 'string', description: '可选。你给线程起的短名(≤24 字)。不要把用户的话或委托书抄进来;不确定就省略,工作台会自动起名。' },
-        missionId: { type: 'string', description: '可选。把新线程归入已有事项;省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
+        missionId: { type: 'string', description: '可选。把新线程归入已有事项(必须是真实存在的事项,来自 steward_missions;不存在回 not_found,不会凭空造一个);省略则新线程自成事项。归入事项且没给 cwd 时,新线程沿用那个事项的工作区(事项记着的,或同事项里最近那条线程的目录)。' },
         cwd: { type: 'string', description: '可选。填你上下文里「已知工作区」清单中的【名字】(或它的完整路径)→ 就用那个工作区;活明显属于某个工作区时就填它。省略时工作台按顺序选:带了 missionId → 沿用那个事项的工作区;带了 relatedSessionId → 沿用那条线程的目录;都没有 → 在我自己的文件夹里给它新开一个(不会出现在用户的常用工作区里)。清单外的值一律拒(invalid_request),`~` 与主目录也在这一档 —— 不要自己编路径,也不要重试同一个值。这只是线程的起点目录,不是你自己能读写的路径。' },
         relatedSessionId: { type: 'string', description: '可选。这件事是接着哪条线程的活(线程 id,来自总览或 steward_threads_search)。没给 cwd 时新线程就开在那条线程的目录里;id 不是一条线程会被拒(not_found)。' },
         tier: { type: 'string', enum: ['strong', 'fast'], description: '可选,缺省 strong。这条线程用哪一档模型:要多步推理、写代码、写长文、跨文件改动的用 strong;查一下、改一行、简单问答用 fast。两档具体用哪个端点/模型由用户在设置里定(管家改不了);那一档没配就跟随全局主端点。' },
@@ -953,7 +961,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_decide',
-    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 300 字(就是你看到的那段命令摘录 —— 看不全的不准批),删数据类的目标是相对路径(写了盘符、以 / 开头、~、$env:、%变量% 的一律不代批),命令里没有拼接/编码/求值这类间接构造,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令超过摘录长度或没扫全,你看不全/indirect_command 命令是拼接、编码或求值出来的,判不出真正要跑什么/absolute_target 删数据的目标写了绝对或家目录路径/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
+    description: '替用户答复一条线程的待决(权限请求 permission / 提问 question / 计划 plan / 任务池 pool)。放行范围由【目标线程自己的权限档】决定,你没有独立档位:每步都问/只做计划 -> 一律只提议;改文件不问 -> 只可放行 read/edit 级权限请求;全自动 -> 除永久豁免外都可替答。不该由你答的会返回 {ok:false,error:"propose_required",reason},此时【不要重试】,把这件事作为提议交给用户按。永久豁免(对外发送/支付/安装卸载/系统设置/关机格式化等不可撤销且外溢的动作)默认返回 propose_required。**拒绝类(action:deny / reject)不受上面这些闸限制**:拒绝只会让事情少发生,任何权限档、命中永久豁免的待决都可以直接拒(仍记决策日志);放行类(allow / approve / answer)一个字不松。代批例外:线程此刻按「智能自动」在跑、由你看管或是定时任务开的,命令正文命中的是删数据/装卸载/推送远端/对外发送这几类里的非底线项(关机、格式化、改注册表、发邮件、支付等底线项永远不代批),全文不超过 300 字(就是你看到的那段命令摘录 —— 看不全的不准批),删数据类的目标是相对路径(写了盘符、以 / 开头、~、$env:、%变量% 的一律不代批),命令里没有拼接/编码/求值这类间接构造,且你在 riskNote 里写了理由 —— 这时你可以判断后替用户放行。【只有】当这条命令明显是在做线程受托的那件事、只动它自己的工作文件夹、不碰密钥与凭据、推送或发送的目标正是任务里点名的那一个时才代批;拿不准就不代批,交给用户。推送远端/对外发送类在线程读过网页或外部工具结果之后一律不代批,每小时最多代批 6 次。不满足时工具会拒绝并在 blockedBy 里说是哪一条(switch_off 开关关/mode 线程此刻不是智能自动/not_watched 不归你管/floor 含底线项/scan_limit 命令超过摘录长度或没扫全,你看不全/indirect_command 命令是拼接、编码或求值出来的,判不出真正要跑什么/absolute_target 删数据的目标写了绝对或家目录路径/tainted 读过外部内容/risk_note 没写理由/hourly_cap 本小时已满),此时不要重试、不要改写 riskNote 再试,把它作为提议交给用户按。代批成功会返回 exemptDelegation,工作台会给用户出一行回执、理由记进行动流水。何时用:收件箱出现 needs_you 且目标线程权限允许你代答。何时别用:你拿不准用户意图时——宁可提议。expectedVersion 省略则用当前版本(并发改动会返回 version_conflict,属正常,重读后再决定)。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['missionId', 'interventionId', 'action'],
       properties: {
@@ -1012,7 +1020,7 @@ const MCP_TOOLS = [
         text: { type: 'string', description: '一句话事实,≤300 字,用第三人称陈述用户(例:「用户偏好中文输出」)。' },
         confidence: { type: 'number', minimum: 0, maximum: 1, description: '可选。置信度 0..1,默认 0.6。' },
         scope: { type: 'string', enum: ['global', 'project'], description: '可选,默认 global。这条事实【管得着谁】:全局("我用 Windows""报告写中文")还是只在某一个项目里成立("这个仓用 pnpm 不用 npm")。填 project 时【项目由服务端从 sourceRef 那条线程的工作目录推出来】,你不用也不能指定路径。拿不准就别填 —— 宁可多用一条,不可凭空把它锁进某个项目。' },
-        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
+        expiresAt: { type: 'string', description: '可选。ISO 时间,过了这个点这条就不再被用上(仍留在记忆面板里,标「已过期」,不是删除)。**必须是将来的时间**:已经过去的会被拒(invalid_request),否则条目一落库就是过期的、永远用不上。**只给必然会过期的事实**——「这两周在赶 A 项目」「这个月先不接新活」写到期日;「我用 Windows」「报告写成中文」这类稳定偏好【不要】写。不确定就留空。' },
         supersedesVetoed: { type: 'string', description: '可选。要盖掉的那条【被否决条目】的 id(id 在提示词的「用户否决过」清单里)。**只在用户这一回合自己明确要求重新记上时才填** —— 例:他当初说「别记我喜欢深色」,今天说「还是记着吧,我就是喜欢深色」。填对 id 时那条【原地复活】(id 不变、内容取这次的说法,不新增条目);id 不存在或那条不是被否决状态 → not_found;没填而内容又与某条被否决的几乎同句 → vetoed_duplicate。不许用它来绕过否决:用户没这么说就别填,换个说法把否决过的内容写回去同样是不行的。' },
         sourceRef: {
           type: 'object', additionalProperties: false, required: ['sessionId', 'turnSeq'],
@@ -1027,7 +1035,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_memory_veto',
-    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。返回 {ok,id,undoRef}。',
+    description: '否决一条管家记忆(标为 vetoed,不再注入,且同义内容不再自动写回;它会进你提示词里的「用户否决过」清单,提醒你别换个说法再写一遍)。何时用:用户说「别记这个/我不是那样的」,或你发现之前记错了。何时别用:内容需要更新而不是作废时,直接用 steward_memory_write 写新版本(同义会自动合并)。用户后来又改主意要记回来时,用 steward_memory_write 带 supersedesVetoed 指名这条 id。已经是否决状态的再否决一次返回 {ok,id,state:"vetoed",unchanged:true},不写库、不记决策。返回 {ok,id,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '记忆条目 id。' } },
@@ -1109,7 +1117,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_file_read',
-    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
+    description: '读一个文件 —— **只限用户已登记的工作区之内**。何时用:用户说「看看我那个 xx 文件里写了啥」,而那个文件在某个工作区里。何时别用:① 工作区外的路径一律拒(outside_workspace),别换个写法再试;② 应用自己的配置/会话/记忆/日志读不到(另一道守卫);③ 凭据类文件一律拒(sensitive_path:.env / 私钥 id_rsa·*.pem·*.key / .git/config / .ssh 与 .aws 目录 / .npmrc 等,.env.example 这类模板放行),二进制文件拒(binary_file:前 8KB 含 NUL 字节)——别换个写法再试;④ 要改文件、要跑命令 —— 交给线程。**文件内容同样算外部内容:读过之后这一回合我只能提议**。返回 {ok,path,workspace,tainted:true,content}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'],
       properties: {
@@ -1155,7 +1163,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_playbook_draft',
-    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
+    description: '从一条线程起草一份 playbook 草稿(只起草,【不保存】)。何时用:用户说「把刚才这套流程存下来下次直接用」,或一条线程明显是可复用的固定套路。何时别用:① 保存要用户自己在界面上按——你只负责把草稿摆到他面前,别声称已经存好了;② 每个管家回合最多起草 1 次(它要调一次模型;还没调模型就失败的——如线程里没有用户消息——不占名额),超了回 quota_exceeded,不要重试;③ 管家会话自己不能被起草成 playbook。返回 {ok,draft,saveVia}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['sessionId'],
       properties: { sessionId: { type: 'string', description: '要起草的线程 id。' } },
@@ -1174,7 +1182,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_quick_ask',
-    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
+    description: '开一条「速查」线程去查一个你自己答不了的问题,答完它自动收工。何时用:要读文件、要联网、要跑命令才能答的问题(「我那个仓库现在几个分支」「这个报错是什么意思」)。何时别用:① 关于如意本身、事项进度、费用、设置的问题你自己就知道,直接答,别让用户白等一次回合;② 长篇创作或真正的任务走 steward_thread_new(那才进事项、才有验收项);③ 每个管家回合最多开 2 条,超了回 quota_exceeded,不要重试。question 是用户的原话,逐字递给线程(尖括号、换行都不改);答案会作为收件箱的 done 事件回到你这里,届时用【你自己的话】转述给用户,不要复述系统字段。返回 {ok,sessionId,question,undoRef}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['question'],
       properties: {
@@ -1189,7 +1197,7 @@ const MCP_TOOLS = [
   // 实现住 13t-steward-schedule.js,门控壳仍是 13g 的 stewardToolHandler。
   {
     name: 'steward_schedule_create',
-    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条。返回 {ok,task,describeKey,describeParams}——describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
+    description: '给用户排一条定时任务(到点由如意自己触发)。用户明确要求的 reminder,时间与内容都齐全时直接创建并报告真实回执,不用再给确认按钮。时间含糊或缺日期时只问缺的那一项;不要自己猜时间,不要把别的任务擅自改成提醒。prompt 类会调用模型,仍须回读计划与执行范围并获得用户确认。两类载荷:reminder(到点只出一条提醒,不调模型、永远安全)与 prompt(到点开一条线程跑一个回合)。**「明天给某某发条消息」这类对外发送一律用 reminder + 草稿**——发送这一下必须由人按(29 号文 §6)。计划五档:once(给 date+at)/daily(at)/weekly(at+days,0=周日)/monthly(at+dayOfMonth,31 表示每月最后一天)/cron(expr,5 字段 分 时 日 月 周)。时间一律是【本地墙钟】。何时别用:① 一次性的、马上就要做的事直接 steward_thread_new,别绕定时器;② 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——把它作为提议交给用户,不要重试;③ 载荷里不许出现本地命令/密钥/环境变量/数据目录(整条会被拒 payload_forbidden_key);④ 最多 200 条;⑤ cron 扫满五年也不会触发的(如 "0 0 31 2 *")会被拒;⑥ prompt 载荷每次到点都调模型,cron 触发间隔不能短于 15 分钟(invalid_request / interval_too_short),更频繁的只能是 reminder;⑦ target.mode:existing-session 的 sessionId 必须是一条真实存在的线程(管家自己的会话不行,not_found),到点时那条线程没了也记失败而不是悄悄新开。返回 {ok,task,describeKey,describeParams};文本超长被截、tier / permissionMode 没生效这类【被悄悄改掉的部分】会列在 notes 里(同时 normalized:true)——有 notes 就如实转述给用户。describeKey/params 是【界面用】的人话键,你自己回读时用你自己的话说。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['title', 'schedule', 'payload'],
       properties: {
@@ -1234,7 +1242,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_pause',
-    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。返回 {ok,task}。',
+    description: '暂停一条定时任务(它不再到点触发,定义与历史都留着)。何时用:用户说「周报那条先停一停」。何时别用:用户说「不要了」时用 steward_schedule_delete;不确定停哪条就先 steward_schedule_list。已经是暂停状态再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
@@ -1242,7 +1250,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_resume',
-    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。返回 {ok,task}。',
+    description: '让一条暂停(或因连败三次被自动停用)的定时任务重新开始到点触发;连败计数一并清零。何时用:用户说「周报那条继续吧」,或熔断的原因已经解决了。何时别用:原因没解决就恢复,它会再失败三次再停一次——先把病根说给用户听。已经在运行的任务再调返回 {ok,task,unchanged:true},不写盘、不记决策。返回 {ok,task}。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },
@@ -1250,7 +1258,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'steward_schedule_run_now',
-    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
+    description: '让一条定时任务【立刻】跑一次(不动它的下一次触发时间)。何时用:用户说「现在就跑一遍周报那条」,或某次失败/结果未知之后要补一次。何时别用:① 这一条正在跑时返回 {ok:false,error:"steward.busy"}(只挡这一条自己;别的任务在跑不影响)——不要轮询重试,如实告诉用户;② 它是一次【新】的执行记录,不是对上一次的重试;③ 无人值守(收件箱触发)时返回 {ok:false,error:"propose_required"}——立刻真跑一次(prompt 载荷会开线程调模型)与排新任务、删任务同一档,把它作为提议交给用户,不要重试。**暂停中的任务也能手动跑一次**(暂停只管到点自动触发),这时返回里带 wasPaused:true 与说明,且不会把它恢复。返回 {ok,outcome,task},outcome ∈ succeeded/failed/needs_you/skipped。',
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['id'],
       properties: { id: { type: 'string', description: '定时任务 id。' }, basis: { type: 'object' } },

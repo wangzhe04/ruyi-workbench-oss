@@ -352,6 +352,9 @@ async function stewardImplThreadsSearch(args, ctx, config) {
   const limit = stewardClampInt(args.limit, 1, STEWARD_SEARCH_LIMIT_MAX, STEWARD_SEARCH_LIMIT_DEFAULT);
   const includeClosed = args.includeClosed === true;   // 116-2e:把已收工的速查线程也算进来
   if (!q) return { ok: true, query: '', results: [], indexed: 0, reason: 'query_empty' };
+  // 第二轮工具走查(F8):13f 的描述一直写「太短(少于 2 字)返回空结果并给 reason」,实现却放行了 1 个字
+  // (走词法兜底,于是 q:'x' 满屏命中)。与经典壳 GET /api/sessions/search(13d)同一个下限、同一个 reason 码。
+  if (q.length < SESSION_SEARCH_MIN_QUERY) return { ok: true, query: q, results: [], indexed: 0, reason: 'query_too_short' };
   const metas = await listSessions().catch(() => []);
   const byId = new Map(metas.map(meta => [meta.id, meta]));
 
@@ -421,7 +424,7 @@ async function stewardImplThreadsSearch(args, ctx, config) {
       missionTitle: await missionTitleOf(missionId),
       title: stewardSanitizeText(meta.title || (head && head.title) || ''),
       ...(sessionBriefOf(head) || sessionBriefOf(meta) ? { brief: sessionBriefOf(head) || sessionBriefOf(meta) } : {}),   // 116-5b(§11.8.5):title 仍是原话(管家凭它认出用户当时的说法),名字与概括另给一个键,缺席时不出现;经典壳那一面在 13d 的 searchSessionsByContent
-      kind: rawKind,
+      kind: stewardDisplayKind(head),
       state: derived.state,
       stateLabel: derived.label,
       // 诚实:总览与搜索结果里的「最后一句」用会话摘要(= 助手原话经既有收尾裁剪),不做模型改写。
@@ -492,7 +495,7 @@ async function stewardImplThreadStatus(args, ctx, config) {
     // W7:它在哪个工作区里 —— { name, ruyiOwned }(name 是已知工作区清单里的那个名字,可以原样填回
     // steward_thread_new 的 cwd;ruyiOwned = 如意自己开的文件夹)。缺 cwd 时为 null。只加字段。
     workspace: stewardWorkspaceNameOf(head.cwd, config),
-    kind: rawKind,
+    kind: stewardDisplayKind(head),
     state: derived.state,
     stateLabel: derived.label,
     stateSources: derived.sources,
@@ -548,8 +551,20 @@ function stewardToolCallLine(call) {
   } catch { inputHint = '{…}'; }
   let resultChars = 0;
   try { resultChars = JSON.stringify((call && call.result) != null ? call.result : '').length; } catch { resultChars = -1; }
+  // 第二轮工具走查(F15):修前只有结果长度,失败的 {ok:false,error} 也有几十~几百字符,看不出成败 ——
+  // 而「线程为什么卡住」恰恰最需要知道哪一步失败了。成败取结果对象自己的 ok(失败信封都是 {ok:false,…},
+  // 或带 error / threw 字段);拿不到结果(Claude 引擎只记调用不记结果)或结果是裸文本时诚实地给 null,不猜。
+  const verdict = stewardToolCallVerdict(call);
+  const mark = verdict === true ? ' ✓' : verdict === false ? ' ✗失败' : '';
   // 工具输出只给长度(与既有 observation reducer 的缩减视图同一诚实口径:不给全文,给可回读的把手)。
-  return `[工具] ${name} ${inputHint} → ${resultChars >= 0 ? resultChars + ' 字符' : '不可序列化'}${call && call.id ? ' (id=' + stewardSanitizeText(call.id) + ')' : ''}`;
+  return `[工具] ${name} ${inputHint} → ${resultChars >= 0 ? resultChars + ' 字符' : '不可序列化'}${mark}${call && call.id ? ' (id=' + stewardSanitizeText(call.id) + ')' : ''}`;
+}
+function stewardToolCallVerdict(call) {
+  const result = call && call.result;
+  if (!result || typeof result !== 'object' || Array.isArray(result)) return null;
+  if (result.ok === false || result.threw || result.error) return false;
+  if (result.ok === true) return true;
+  return null;
 }
 async function stewardImplThreadRead(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
@@ -583,11 +598,15 @@ async function stewardImplThreadRead(args, ctx, config) {
     const seq = Number(m.turnSeq);
     if (Number.isFinite(seq) && !wanted.has(seq)) continue;
     if (!Number.isFinite(seq) && turnSeqs.length) continue; // 无 turnSeq 的历史消息在有回合号时跳过
-    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'user', text: stewardSanitizeBlock(m.content || '') });
+    // 第二轮工具走查(F9):用户/助手正文也要先 redact 再中和 —— 用户在线程里随口贴的 sk-… / ghp_… 修前原样交给了
+    // 管家模型(并进了那一轮的会话文件),而同一个函数对工具入参早就脱敏了。顺序照 stewardToolCallLine 的教训:
+    // redact 在【之前】,后面按 maxChars 裁剪时不会把密钥切成半截让正则咬不到。
+    if (m.role === 'user') rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'user', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
     else if (m.role === 'assistant') {
-      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(m.content || '') });
+      rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'assistant', text: stewardSanitizeBlock(redact(String(m.content || ''))) });
       for (const call of (Array.isArray(m.toolCalls) ? m.toolCalls : [])) {
-        rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', text: stewardToolCallLine(call) });
+        // ok:工具这一步成败(true/false;拿不到结果记录时为 null),给模型排查「线程卡在哪一步」用。
+        rows.push({ turnSeq: Number.isFinite(seq) ? seq : null, role: 'tool', ok: stewardToolCallVerdict(call), text: stewardToolCallLine(call) });
       }
     }
   }
@@ -669,7 +688,13 @@ const stewardLaunchingTurns = new Set();
 function stewardLaunchTurn(input, tool) {
   const launchSid = String(input.sessionId || '');
   if (launchSid) stewardLaunchingTurns.add(launchSid);
-  const promise = runSessionTurn({ ...input, onEvent: () => {} });
+  // 第二轮工具走查(F17):给管家发起的那条【用户消息】盖上出身标 meta.origin:'steward'(随会话正文落盘,与收件箱回合的
+  // origin:'inbox' 同一个机制)。修前 thread_new 的委托书、thread_continue 的递话、quick_ask 的问题落在线程里都是一条
+  // 没有任何标记的 role:'user' 消息,于是 steward_memory_write 的来源校验(13l stewardSourceIsUserMessage)分不出
+  // 「用户本人说的」和「管家自己转发过去的」—— 管家能把自己写的委托书引成「用户说过」记进记忆。
+  // 只覆盖 Provider 引擎的线程(09 runOpenAiTurn 才接 messageMeta;CLI 引擎的回合不接,与收件箱标同一个边界)。
+  // input 里调用方自己给的 messageMeta 优先(目前没有)。
+  const promise = runSessionTurn({ messageMeta: { origin: 'steward', tool: String(tool || '') }, ...input, onEvent: () => {} });
   promise.finally(() => { if (launchSid) stewardLaunchingTurns.delete(launchSid); }).catch(() => {});
   promise.then(result => {
     logEvent({ kind: 'steward_turn_done', tool, sessionId: String(input.sessionId || ''), ok: !!(result && result.ok), stopped: !!(result && result.stopped) });
@@ -716,6 +741,17 @@ function stewardUnattendedByModel(ctx) {
 function stewardRelayAutoAllowed(config) {
   const auto = (config && config.stewardAutoActions && typeof config.stewardAutoActions === 'object') ? config.stewardAutoActions : {};
   return auto.relay === true;
+}
+
+// thread_new 的 missionId 是不是一个真实存在的事项(见调用处的说明)。
+async function stewardMissionExists(stewardMissionIdArg) {
+  const missionId = safeSessionId(stewardMissionIdArg);
+  if (!missionId) return false;
+  if (await readMissionContainer(missionId).catch(() => null)) return true;
+  const own = await stewardReadSessionHead(missionId);
+  if (own && own.id && stewardRawKind(own) !== 'steward') return true;
+  const metas = await listSessions().catch(() => []);
+  return metas.some(meta => meta && !sessionMetaIsSteward(meta) && String(meta.missionId || '') === missionId);
 }
 
 // 10) steward_thread_new —— 委托书。原话逐字在最前,管家补充经中和后进围栏(见 06i buildStewardBrief)。
@@ -779,6 +815,13 @@ async function stewardImplThreadNew(args, ctx, config) {
     : brief);
   const requestedMissionId = args.missionId ? safeSessionId(args.missionId) : '';
   if (args.missionId && !requestedMissionId) return stewardFail('invalid_request', 'invalid missionId');
+  // 第二轮工具走查(F14):missionId 格式合法但【根本没有这个事项】时,修前照样把新线程挂到它名下 —— 凭空造出一个
+  // 只有一条线程、没有事项文件的「幽灵事项」(relatedSessionId 同样的错早就返回 not_found 了)。
+  // 认三种真事项:有事项容器文件的;就是某条线程自己的 id(未归类事项的 missionId === 线程 id,不是管家会话);
+  // 已有线程头上的 missionId 指着它的。都不是 -> not_found,排在 createSession 之前(拒的是「开线程」,不是开完再回滚)。
+  if (requestedMissionId && !await stewardMissionExists(requestedMissionId)) {
+    return stewardFail('not_found', `missionId ${requestedMissionId} 不是一个已有的事项(没有这个事项,也没有这条线程);不确定就省掉 missionId 让新线程自成事项,不要重试同一个值`, { reason: 'mission_not_found' });
+  }
   // W7:cwd 选择顺序(见文件头 stewardResolveThreadCwd):明确给的 > 事项记着的 > 相关线程的 > 新开。
   // 给了但不合法(已知工作区之外的 cwd、不存在的 relatedSessionId)一律拒,不静默回落;排在 createSession
   // 之前:拒的是「开线程」,不是「开完再回滚」。
@@ -1046,6 +1089,9 @@ async function stewardAnswerGate(o) {
 async function stewardImplThreadContinue(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  // 第二轮工具走查(F8):message 是【原话直递】—— 门控壳的类型校验对「数字当字符串」一贯宽松,
+  // 但把 12345 当成用户的话递给线程等于模型自己编了一句原话,这里收紧到必须真是字符串。
+  if (args.message != null && typeof args.message !== 'string') return stewardFail('invalid_request', 'message must be a string (the user\'s words, passed through verbatim)');
   const message = String(args.message == null ? '' : args.message);
   if (!message.trim()) return stewardFail('invalid_request', 'message is required');
   const head = await stewardReadSessionHead(sessionId);
@@ -1143,6 +1189,9 @@ async function stewardImplThreadContinue(args, ctx, config) {
 async function stewardImplThreadRename(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);
   if (!sessionId) return stewardFail('not_found', 'invalid sessionId');
+  // 第二轮工具走查(F8):title:{a:1} 修前被 String() 成 "[object Object]" 写进会话头(门控壳现在也会拦对象/数组,
+  // 这里再收紧到「必须是字符串」—— 标题是给人看的名字,数字、布尔当标题都是模型传串了位)。
+  if (args.title != null && typeof args.title !== 'string') return stewardFail('invalid_request', 'title must be a string');
   const title = String(args.title == null ? '' : args.title).replace(/[\r\n]+/g, ' ').trim().slice(0, STEWARD_TITLE_MAX);
   if (!title) return stewardFail('invalid_request', 'title is required');
   const head = await stewardReadSessionHead(sessionId);
@@ -1414,7 +1463,12 @@ async function stewardImplThreadNote(args, ctx, config) {
 //     管家自己就知道,开一条线程去问等于让用户白等一次回合。
 //     不进任何事项;权限用新线程默认权限(即全局 permissionMode),照常受 116h 仲裁;答完自动收工。
 async function stewardImplQuickAsk(args, ctx, config) {
-  const question = stewardSanitizeText(args.question).trim();
+  // 第二轮工具走查(F14):question 是【用户的话】,与 thread_new 的 brief.userText 同一待遇 —— 逐字递进线程。
+  // 修前过 stewardSanitizeText:`List<String>`、`a<b` 里的尖括号被换成全角 ＜＞,换行折成空格,线程收到的已经不是用户写的那句
+  // (问代码泛型/不等式的速查全被改了意思)。中和是为了防【管家自己提示词里】的围栏标记被冒充,而这句话进的是线程的
+  // 首条用户消息,不是管家提示词;只有管家自己写的补充才需要中和(buildStewardBrief 的 supplement)。
+  // 返回给管家的回显与线程标题仍走 stewardSanitizeText(单行、中和),它们是给管家/看板读的展示面。
+  const question = String(args.question == null ? '' : args.question).trim();
   if (!question) return stewardFail('invalid_request', 'question is required');
   if (question.length > STEWARD_QUICK_QUESTION_CHARS) {
     return stewardFail('invalid_request', `question must be at most ${STEWARD_QUICK_QUESTION_CHARS} characters`);
@@ -1427,7 +1481,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     return stewardFail('quota_exceeded', `at most ${STEWARD_QUICK_ASKS_PER_TURN} quick-ask threads per steward turn; do not retry - answer with what you already know or tell the user`);
   }
   const session = await createSession({
-    title: question.slice(0, STEWARD_TITLE_MAX),
+    title: stewardSanitizeText(question).slice(0, STEWARD_TITLE_MAX),
     cwd: quickCwdPick.cwd,
     origin: 'steward',   // 121-K3:速查线程也是管家开的(与 thread_new 同一口径,见那里的注释)
   });
@@ -1488,7 +1542,7 @@ async function stewardImplQuickAsk(args, ctx, config) {
     basis: stewardBasisOf(args),
   });
   return {
-    ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question, tier: quickTier.tier, engine: quickTier.engine, undoRef,
+    ok: true, sessionId: session.id, kind: STEWARD_QUICK_KIND, question: stewardSanitizeText(question), tier: quickTier.tier, engine: quickTier.engine, undoRef,
     workspace: (stewardWorkspaceNameOf(session.cwd, config) || { name: '' }).name, cwdSource: quickCwdSource,   // W7:同 thread_new
   };
 }
