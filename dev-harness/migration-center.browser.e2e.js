@@ -4,12 +4,12 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 // W2 迁移中心的前端那一半(真浏览器;公共夹具 lib/browser-fixture 起工作台 + 无头 Edge)。
 // 现场:夹具的临时家里放一份 ~/.claude/CLAUDE.md(服务起来之后放 —— 由 scan 的自动同步导入,也就有了「没看过」的候选)。
 // 判据:
-//   M1 迁移区块挂进设置「集成」页签:#stab-integrations 里有 #migrationCenter(index.html 不改,运行时追加)
+//   M1 迁移区块挂进设置「迁移中心」页签:#stab-migration 里有 #migrationCenter(2026-10 起独立成页;运行时追加)
 //   M2 首启卡在工作台视角出现(非模态,不抢焦点)
 //   M3 切到管家视角,同一张卡仍然看得见(两个视角都出)
 //   M4 「以后再说」→ 卡消失;服务端记了「看过了」(scan.prompt.show=false)
 //   M5 刷新页面后卡不再出现
-//   M6 打开设置 → 集成页签:区块渲染出 claude-md 那一行,状态「已导入」;老版本一栏说「没有发现」
+//   M6 打开设置 → 迁移中心页签:区块渲染出 claude-md 那一行,状态「已导入」;老版本一栏说「没有发现」
 //   M7 整个过程页面零未捕获异常
 //   M8 (W8)技能组:~/.claude/skills/w8-browser-skill 一行默认不勾、「复制到如意」禁用;勾上 → 可点;点了 → 行状态
 //      变「已复制到如意」、结果就地显示(带撤销)、注册表里来源 user 且 copiedFrom=claude-code
@@ -43,9 +43,9 @@ const CARD = `(() => { const c = document.querySelector('#migrationCardHost .mig
     });
     const zh = await fx.evaluate(`(async () => (await fetch('/locales/zh-CN.json')).json())()`);
 
-    const mounted = await fx.waitForEval(`(() => { const p = document.getElementById('stab-integrations'); const m = document.getElementById('migrationCenter');
+    const mounted = await fx.waitForEval(`(() => { const p = document.getElementById('stab-migration'); const m = document.getElementById('migrationCenter');
       return p && m && p.contains(m) ? 1 : null; })()`, 200);
-    ok(Boolean(mounted), 'M1 #migrationCenter 挂进设置「集成」页签 #stab-integrations');
+    ok(Boolean(mounted), 'M1 #migrationCenter 挂进设置「迁移中心」页签 #stab-migration');
 
     await fx.setLens('classic');
     const card = await fx.waitForEval(CARD, 400);
@@ -77,10 +77,10 @@ const CARD = `(() => { const c = document.querySelector('#migrationCardHost .mig
     await fx.setLens('classic');
     await fx.evaluate(`(document.getElementById('openSettingsBtn') || { click() {} }).click(), true`);
     await sleep(300);
-    await fx.evaluate(`(document.querySelector('#settingsTabs button[data-stab="integrations"]') || { click() {} }).click(), true`);
+    await fx.evaluate(`(document.querySelector('#settingsTabs button[data-stab="migration"]') || { click() {} }).click(), true`);
     const row = await fx.waitForEval(`(() => { const r = document.querySelector('#migrationCenter .migration-row-instruction[data-key="claude-md"]');
       const chip = r && r.querySelector('.migration-chip'); return chip ? { status: chip.dataset.status, text: chip.textContent } : null; })()`, 400);
-    ok(row && row.status === 'imported' && row.text === zh['migration.status.imported'], 'M6 集成页签里渲染出 claude-md 那一行,状态「已导入」' + (row ? '' : ' → 没渲染'));
+    ok(row && row.status === 'imported' && row.text === zh['migration.status.imported'], 'M6 迁移中心页签里渲染出 claude-md 那一行,状态「已导入」' + (row ? '' : ' → 没渲染'));
     const noneText = await fx.evaluate(`(() => { const g = document.querySelector('#migrationCenter [data-group="packages"]'); return g ? g.textContent : ''; })()`);
     ok(noneText.includes(zh['migration.old.none']), 'M6b 老版本一栏如实说「没有发现」');
 

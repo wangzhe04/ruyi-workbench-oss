@@ -1110,7 +1110,7 @@ function bindEvents() {
   $('sendBtn').onclick = () => sendPrompt();
   createComposerVoice({ state, t, id: 'composerVoiceBtn', input: () => $('promptInput'), anchor: () => $('sendBtn') }); // 127-⑦：只回填不发送
   // 128f-⑭：两个视角的待开启麦克风都派这一帧。定位排在 openModal 自己那一拍「聚焦第一个可交互件」（setTimeout 0）之后，否则被它抢走。
-  document.addEventListener(COMPOSER_VOICE_SETUP_EVENT, () => { openModal('settingsModal'); switchSettingsTab('providers', true); setTimeout(() => { focusAsrSettings(); }, 0); });
+  document.addEventListener(COMPOSER_VOICE_SETUP_EVENT, () => { openModal('settingsModal'); switchSettingsTab('voice', true); setTimeout(() => { focusAsrSettings(); }, 0); });
   $('agentTeamBtn').onclick = toggleAgentTeamTurn;
   bindSkillsMemory(); // EC-D：技能按钮与搜索键盘交互由技能/记忆领域自持
   // v3 (§B2): 「AI 工作」面板顶部的用量/审计 mini 链接 —— 简易模式经此切到隐藏页签(switchTab 不拦这两个 tab)。

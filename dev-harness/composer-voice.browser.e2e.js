@@ -285,7 +285,7 @@ const WAIT_FILLED = (sel, inputSel, original) => `(() => {
   return { value: box.value, caret: box.selectionStart, caretEnd: box.selectionEnd, active: document.activeElement === box, pressed: b.getAttribute('aria-pressed'), draft };
 })()`;
 const SET_ASR = model => `(async () => {
-  const select = document.querySelector('#stab-providers .asr-settings select');
+  const select = document.querySelector('#stab-voice .asr-settings select');
   if (!select) return { error: 'no asr select' };
   const wantedModel = ${JSON.stringify(model)};
   const option = wantedModel ? Array.from(select.options).find(o => o.value.endsWith(String.fromCharCode(31) + wantedModel)) : { value: '' };

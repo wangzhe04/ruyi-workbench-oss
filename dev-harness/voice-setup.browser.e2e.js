@@ -46,15 +46,15 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     await fx.evaluate(`(document.getElementById('composerVoiceBtn').click(), true)`);
     const landed = await fx.waitForEval(`(() => {
       const modal = document.getElementById('settingsModal');
-      const tab = document.getElementById('stab-providers');
-      const block = document.querySelector('#stab-providers .asr-settings');
+      const tab = document.getElementById('stab-voice');
+      const block = document.querySelector('#stab-voice .asr-settings');
       const visible = node => Boolean(node && node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden');
       if (!visible(modal) || !visible(tab) || !block) return null;
       const active = document.activeElement;
       return { focused: active ? active.className : '', text: block.textContent, hasAdd: Boolean(block.querySelector('.asr-add-provider') && block.querySelector('.asr-add-model') && block.querySelector('.asr-add-btn')) };
     })()`, 150);
     ok(Boolean(landed) && landed.hasAdd && landed.text.includes(ZH['settings.asr.none']),
-      `V2 设置页打开、落在「服务商」页签,「语音识别」那一栏无候选也在,带添加口(实测 ${JSON.stringify(landed && { hasAdd: landed.hasAdd, focused: landed.focused })})`);
+      `V2 设置页打开、落在「语音识别」页签(2026-10 起独立成页),「语音识别」那一栏无候选也在,带添加口(实测 ${JSON.stringify(landed && { hasAdd: landed.hasAdd, focused: landed.focused })})`);
     ok(Boolean(landed) && /asr-add-model/.test(landed.focused), `V2b 焦点落在「模型名」输入框(实测 activeElement.className=${landed && landed.focused})`);
 
     /* ── V3 添加并启用 ── */
@@ -64,7 +64,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     await fx.evaluate(`(async () => { const m = await import('/js/model-catalog.js');
       m.publishProviderModels(window.state.config.providers.find(p => p.id === 'fake'), [{ id: 'fake-asr' }]); return true; })()`);
     await fx.evaluate(`(() => {
-      const block = document.querySelector('#stab-providers .asr-settings');
+      const block = document.querySelector('#stab-voice .asr-settings');
       block.querySelector('.asr-add-provider').value = 'fake';
       const input = block.querySelector('.asr-add-model');
       input.value = 'fake-asr';
@@ -82,7 +82,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
 
     /* ── V4 不用重载,两枚麦克风都能录了 ── */
     ok(Boolean(await waitMic('composerVoiceBtn', 'idle')), `V4a 工作台那一枚当场变成能录(实测 ${JSON.stringify(await mic('composerVoiceBtn'))})`);
-    const select = await fx.waitForEval(`(() => { const s = document.querySelector('#stab-providers .asr-settings .asr-select'); return s && s.value && s.value.includes('fake-asr') ? 1 : null; })()`, 100);
+    const select = await fx.waitForEval(`(() => { const s = document.querySelector('#stab-voice .asr-settings .asr-select'); return s && s.value && s.value.includes('fake-asr') ? 1 : null; })()`, 100);
     ok(Boolean(select), '设置页那一栏变成选择器、选中了刚添加的模型'.replace(/^/, 'V4b '));
     // V4d（用户 2026-09-20 实报「保存了语音模型后，再点保存会消失」）：添加之后设置弹窗还开着，再点底部「保存」。
     // 修前底部保存把【没并进这次添加的旧草稿】整份盖回去，caps:['asr'] 被抹掉、选择器回落成无候选。
@@ -93,7 +93,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     ok(Boolean(kept) && Array.isArray(kept.caps) && kept.caps.includes('asr') && disk2.asrModel === 'fake-asr',
       `V4d 添加后再点底部「保存」,那条语音模型还在(实测 ${JSON.stringify(kept)} asrModel=${disk2.asrModel})`);
     await fx.evaluate(`(() => { document.dispatchEvent(new CustomEvent('ruyi:open-voice-settings')); return true; })()`);
-    ok(Boolean(await fx.waitForEval(`(() => { const s = document.querySelector('#stab-providers .asr-settings .asr-select'); return s && s.value && s.value.includes('fake-asr') ? 1 : null; })()`, 100)),
+    ok(Boolean(await fx.waitForEval(`(() => { const s = document.querySelector('#stab-voice .asr-settings .asr-select'); return s && s.value && s.value.includes('fake-asr') ? 1 : null; })()`, 100)),
       'V4e 再打开设置,选择器里仍选中它');
     await fx.escape();
     ok(Boolean(await fx.setLens('steward')) && Boolean(await waitMic('stewardComposerVoice', 'idle')), 'V4c 管家那一枚也当场变成能录');
@@ -103,7 +103,7 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     // 能录态点麦克风是开始录音(无头环境没有假麦克风),这里直接派「去语音识别设置」那一帧打开设置页。
     await fx.evaluate(`(() => { document.dispatchEvent(new CustomEvent('ruyi:open-voice-settings')); return true; })()`);
     await sleep(300);
-    const offed = await fx.evaluate(`(() => { const s = document.querySelector('#stab-providers .asr-settings .asr-select'); if (!s) return false; s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+    const offed = await fx.evaluate(`(() => { const s = document.querySelector('#stab-voice .asr-settings .asr-select'); if (!s) return false; s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
     ok(offed, 'V5b 设置页选择器切到「不启用」');
     ok(Boolean(await waitMic('composerVoiceBtn', 'setup')), `V5 麦克风回到待开启、没被拆掉(实测 ${JSON.stringify(await mic('composerVoiceBtn'))})`);
 
