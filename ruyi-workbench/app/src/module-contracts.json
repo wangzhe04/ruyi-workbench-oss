@@ -2940,12 +2940,43 @@
       ]
     },
     {
+      "file": "04j-hanzi-pinyin.js",
+      "layer": "foundation",
+      "provides": [
+        "HanziPinyin"
+      ],
+      "requires": []
+    },
+    {
       "file": "04j-voice-lexicon.js",
       "layer": "foundation",
       "provides": [
         "VoiceLexicon"
       ],
       "requires": []
+    },
+    {
+      "file": "04j-voice-learn.js",
+      "layer": "foundation",
+      "provides": [
+        "VoiceLearn"
+      ],
+      "requires": [
+        {
+          "provider": "04j-hanzi-pinyin.js",
+          "symbol": "HanziPinyin",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-lexicon.js",
+          "symbol": "VoiceLexicon",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
     },
     {
       "file": "05-claude-engine.js",
@@ -13332,6 +13363,7 @@
         "IMAGE_OCR_MAX_CHARS",
         "IMAGE_SEND_MAX_BYTES",
         "STEER_REFUSAL",
+        "appendAsrFixUsage",
         "audioStreamFailure",
         "audioStreamReap",
         "audioStreamSessions",
@@ -13342,6 +13374,7 @@
         "handleAudioApiRoutes",
         "handleAudioCorrect",
         "handleAudioLexiconGet",
+        "handleAudioLexiconObserve",
         "handleAudioLexiconSave",
         "handleAudioStreamOpen",
         "handleAudioStreamSession",
@@ -13666,6 +13699,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "ToolboxHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-learn.js",
+          "symbol": "VoiceLearn",
           "kinds": [
             "read"
           ]
@@ -22585,6 +22625,13 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "responsesHistoryWithCompleteToolPairs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-learn.js",
+          "symbol": "VoiceLearn",
           "kinds": [
             "read"
           ]

@@ -28,7 +28,9 @@ const VoiceLexicon = (() => {
   const GLOSSARY_HEARD_MAX = 4;   // <glossary> 每行最多列几种错听样子
   const PROMPT_MAX_CHARS = 400;   // 整段识别的 prompt 上限(asr-shim 字段上限 4096 字节;Whisper 形的 prompt 本来就该短)
   const HOTWORDS_MAX = 200;       // asr-stream 会话热词上限
+  const MAX_PENDING = 300;        // 第二步:还没攒够证据的候选(04j-voice-learn 写)
   const SOURCES = ['manual', 'learned', 'typed'];   // 手加 / 从修改里学(第二步)/ 从打过的字里抽(第二步)
+  const PENDING_KINDS = ['pair', 'window', 'typed'];
 
   // 一段词或样子的清洗:控制字符与尖括号换成空格(词条要进 <glossary> 标签,不许借词条串标签)、空白收成一个空格、截长。
   // 一个字母、数字或汉字都没有的(纯标点)不收。
@@ -75,10 +77,35 @@ const VoiceLexicon = (() => {
   }
 
   // ── 落盘形状(05 的 DurableJsonStore 用这两个函数)───────────────────────────────────────────────────
-  // { schema:1, base:true(用不用原厂常用词), terms:{ <小写词>: { term, heard[], src, n, at, off } } }
-  //   n   = 第二步记的「被改过几次」;at = 最近一次改动的时间;off = 停用的墓碑(学来的词被用户删掉 → 别再学回来)。
+  // { schema:1, base:true(用不用原厂常用词), learn:true(从用户手改里学,第二步,缺省开),
+  //   terms:{ <小写词>: { term, heard[], src, n, at, off } },
+  //   pending:{ <小写词>: { term, heard[], n, at, kind, group } } }
+  //   n   = 被改过(或打过)几次;at = 最近一次的时间;off = 停用的墓碑(学来的词被用户删掉 → 别再学回来)。
+  //   pending 是还没攒够证据的候选(04j-voice-learn 的 apply 写、到数就挪进 terms);kind:pair(整段改动)／window(人名这种
+  //   只改了一个字、要靠前后几个字拼出整个词)／typed(打过的英文词);group = 同一处改动的几个窗口共用的组名。
   //   键一律由 term 重算(手改坏的键不认);对象键的插入序 = 新旧序,超出容量时 DurableJsonStore 从最早的键裁起。
-  function defaultState() { return { schema: SCHEMA, base: true, terms: {} }; }
+  function defaultState() { return { schema: SCHEMA, base: true, learn: true, terms: {}, pending: {} }; }
+  function sanitizePending(src) {
+    const pending = {};
+    for (const raw of Object.values(src && typeof src === 'object' && !Array.isArray(src) ? src : {})) {
+      if (!raw || typeof raw !== 'object') continue;
+      const term = clean(raw.term, MAX_TERM_CHARS);
+      if (!term) continue;
+      const entry = { term, heard: [] };
+      for (const h of Array.isArray(raw.heard) ? raw.heard : []) addHeard(entry, h);
+      const key = term.toLowerCase();
+      delete pending[key];
+      const n = Number(raw.n);
+      pending[key] = {
+        term, heard: entry.heard,
+        n: Number.isFinite(n) && n > 0 ? Math.min(1e6, Math.floor(n)) : 1,
+        at: typeof raw.at === 'string' ? raw.at.slice(0, 40) : '',
+        kind: PENDING_KINDS.includes(raw.kind) ? raw.kind : 'pair',
+        group: typeof raw.group === 'string' ? raw.group.slice(0, 60) : '',
+      };
+    }
+    return pending;
+  }
   function sanitizeState(value) {
     const v = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const src = v.terms && typeof v.terms === 'object' && !Array.isArray(v.terms) ? v.terms : {};
@@ -100,7 +127,7 @@ const VoiceLexicon = (() => {
         off: raw.off === true,
       };
     }
-    return { schema: SCHEMA, base: v.base !== false, terms };
+    return { schema: SCHEMA, base: v.base !== false, learn: v.learn !== false, terms, pending: sanitizePending(v.pending) };
   }
   const activeTerms = state => Object.values(sanitizeState(state).terms).filter(t => !t.off);
 
@@ -123,9 +150,10 @@ const VoiceLexicon = (() => {
       if (live[key] || old.src === 'manual') continue;
       tombs[key] = { ...old, off: true };
     }
-    return { state: { schema: SCHEMA, base: prev.base, terms: { ...tombs, ...live } }, skipped, overflow, count: Math.min(entries.length, MAX_TERMS) };
+    return { state: { ...prev, terms: { ...tombs, ...live } }, skipped, overflow, count: Math.min(entries.length, MAX_TERMS) };
   }
   function setBase(state, enabled) { const s = sanitizeState(state); s.base = enabled !== false; return s; }
+  function setLearn(state, enabled) { const s = sanitizeState(state); s.learn = enabled !== false; return s; }
 
   // ── 原厂常用词表 ───────────────────────────────────────────────────────────────────────────────────
   // 格式与设置页同一份(parseText 读)。收词原则:说中文时常夹着说的英文词、常被识别错的中文技术词;
@@ -658,6 +686,8 @@ RTX
 
   // 返回 [{ term, heard, src:'user'|'base', hit }],hit = 这一句里有它的错听样子(或英文大小写不对)。
   // 个人词:全带(最多 PICK_USER_MAX 个),命中的排前面,其次被改得多的(第二步的 n),再次原顺序。
+  // 从打过的字里抽来的英文词(src:'typed')不全带,只在这一句命中时带 —— 它们多是项目名/产品名的正经写法,数量可能不少,
+  // 全带会把手加的、从改字里学来的词挤出上限。
   // 原厂词:总开关开着、且这一句命中时才带(最多 PICK_BASE_MAX 个);已经正确写出来的不带;与个人词同名的让给个人词。
   // text 为空(整段识别前、开实时识别会话时还没有字)= 只带个人词。
   // (参数用一个对象收、按属性读:模块依赖图的扫描器认不全解构默认值里的局部绑定,同名的 text 会被当成 00-boot 的 text())
@@ -671,7 +701,7 @@ RTX
       const hits = hay ? hitsOf(t.heard.map(h => ({ h, find: finder(h) })), hay, hayLow) : [];
       const casing = Boolean(hay) && isLatin(t.term) && !hay.includes(t.term) && finder(t.term)(hay, hayLow);
       return { t, i, hits, hit: hits.length > 0 || casing };
-    });
+    }).filter(u => u.t.src !== 'typed' || u.hit);
     user.sort((a, b) => (Number(b.hit) - Number(a.hit)) || (b.t.n - a.t.n) || (a.i - b.i));
     for (const u of user.slice(0, Math.max(0, userMax))) {
       out.push({ term: u.t.term, heard: orderHeard(u.t.heard, u.hits), src: 'user', hit: u.hit });
@@ -710,9 +740,10 @@ RTX
     }
     return out;
   }
-  // 实时识别的会话热词:只给个人词(原厂通用词当热词几乎没用,52 号文 §2);太短的不给(单字热词在流式第一遍里容易被硬插)。
+  // 实时识别的会话热词:只给个人词(原厂通用词当热词几乎没用,52 号文 §2);太短的不给(单字热词在流式第一遍里容易被硬插);
+  // 从打过的字里抽来的英文词不给(那是写法,不是常说的话)。
   function hotwords(state) {
-    const list = activeTerms(state).map((t, i) => ({ t, i }));
+    const list = activeTerms(state).filter(t => t.src !== 'typed').map((t, i) => ({ t, i }));
     list.sort((a, b) => (b.t.n - a.t.n) || (a.i - b.i));
     const out = [];
     for (const { t } of list) {
@@ -730,16 +761,19 @@ RTX
     return {
       text: formatText(active),
       count: active.length,
-      learned: active.filter(t => t.src !== 'manual').length,
+      learned: active.filter(t => t.src === 'learned').length,
+      typed: active.filter(t => t.src === 'typed').length,
+      pending: Object.keys(s.pending).length,
+      learn: s.learn,
       base: { enabled: s.base, count: BASE.length, ...(withBase ? { text: BASE_TEXT.trim() } : {}) },
       limits: { maxTerms: MAX_TERMS, maxTermChars: MAX_TERM_CHARS, maxHeard: MAX_HEARD, maxTextChars: MAX_TEXT_CHARS },
     };
   }
 
   return Object.freeze({
-    SCHEMA, MAX_TERMS, MAX_TERM_CHARS, MAX_HEARD, MAX_HEARD_CHARS, MAX_TEXT_CHARS, PICK_USER_MAX, PICK_BASE_MAX, PROMPT_MAX_CHARS, HOTWORDS_MAX,
+    SCHEMA, MAX_TERMS, MAX_TERM_CHARS, MAX_HEARD, MAX_HEARD_CHARS, MAX_TEXT_CHARS, PICK_USER_MAX, PICK_BASE_MAX, PROMPT_MAX_CHARS, HOTWORDS_MAX, MAX_PENDING,
     BASE, BASE_TEXT,
-    clean, parseText, formatText, defaultState, sanitizeState, applyText, setBase, activeTerms,
+    clean, addHeard, parseText, formatText, defaultState, sanitizeState, applyText, setBase, setLearn, activeTerms,
     pick, glossaryLines, asrPrompt, hotwords, view,
   });
 })();

@@ -1064,6 +1064,10 @@
   "settings.asrLexicon.error.failed": "词库保存失败",
   "settings.asrLexicon.error.tooMany": "词太多了：{{count}} 个，最多 {{maxTerms}} 个",
   "settings.asrLexicon.error.tooLarge": "词库文本太长（最多 {{maxChars}} 字）",
+  "settings.asrLexicon.learn": "从我的修改里学：语音输入后你手动改过的字（人名、项目名、术语）会自动记进这份词库，你打过的英文专名也会收进来；学会新词时提示一句。删掉学来的词，就不会再学回来",
+  "settings.asrLexicon.learnOn": "已开启：从我的修改里学",
+  "settings.asrLexicon.learnOff": "已关闭：从我的修改里学（学会的词留着）",
+  "settings.asrLexicon.countLearned": "共 {{count}} 个词（学来的 {{learned}} 个，打字里收的 {{typed}} 个；还在攒证据的 {{pending}} 个）",
   "settings.toolbox.kind.asrStream": "本地实时语音识别",
   "settings.apiKey": "API 密钥",
   "settings.apiKeyPlaceholder": "留空=不改动已保存的密钥",
@@ -3308,6 +3312,9 @@
   ,"composer.voice.warming.ready": "语音识别已就绪，请说话"
   ,"composer.voice.warming.readyIdle": "语音识别已就绪，点一下麦克风开始说话"
   ,"composer.voice.warming.failed": "更准的本地识别模型没能加载好，这次先用实时识别，说完的字可能不会被校正"
+  ,"composer.voice.learned": "记住了：{{heard}} → {{term}}{{more}}（可在 设置 → 语音识别 → 语音词库 里管理）"
+  ,"composer.voice.learnedTerm": "记住了：{{term}}{{more}}（可在 设置 → 语音识别 → 语音词库 里管理）"
+  ,"composer.voice.learnedMore": "（另有 {{count}} 个）"
   ,"promptQueue.dock.title": "等你处理的提问与权限"
   ,"promptQueue.dock.label": "等你处理"
   ,"promptQueue.dock.longest": "最久 {{time}}"

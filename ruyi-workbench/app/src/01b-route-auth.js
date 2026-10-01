@@ -90,6 +90,7 @@ const ROUTE_AUTH = [
   // 59 号文:语音词库(个人词里有人名、项目名 —— 内容敏感)。读写同档 token 级。
   { m: 'GET', p: '/api/audio/lexicon', auth: 'token' },
   { m: 'POST', p: '/api/audio/lexicon', auth: 'token' },
+  { m: 'POST', p: '/api/audio/lexicon/observe', auth: 'token' },
   { m: 'POST', p: '/api/workspace/resolve', auth: 'token' },
   { m: 'POST', p: '/api/pick-folder', auth: 'token' },
   { m: 'POST', p: '/api/workspace/dedicated', auth: 'token' },  // 体验走查 #7:建（或复用）专用工作文件夹「文档\如意工作区」

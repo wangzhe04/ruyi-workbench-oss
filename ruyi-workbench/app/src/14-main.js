@@ -50,6 +50,8 @@ module.exports = {
   resolveAsrFixProvider,
   // 59 号文:语音词库的纯函数内核(04j 冻结对象,一个键收口)—— unit/voice-lexicon.test.js 直调(文本读写、清洗、挑词、三处出形、原厂表自检)。
   VoiceLexicon,
+  // 59 号文 §6:从修改里学的纯函数内核(04j 冻结对象,一个键收口;拼音表经它的 HanziPinyin 属性带出)—— unit/voice-learn.test.js 直调。
+  VoiceLearn,
   McpStdioClient,
   McpHttpClient, // 49c: 远程 MCP transport(sse/streamable-http) — exposed for e2e 直连契约断言。
   estimateHistoryTokens, // v0.8-S5: exposed for e2e direct unit testing (parts-aware token estimate v2)

@@ -99,6 +99,53 @@ ACC 是独立打包的桌面控制 MCP。其运行时依赖在 `mcp/ai-computer-
 
 > 上表为便于审阅的概览;确切版本与许可条款以实际安装的 wheels 元数据(`*.dist-info/METADATA`、`LICENSE`)为准。
 
+
+---
+
+## 4. 随产物分发的数据
+
+| 数据 | 许可 | 上游 | 说明 |
+|---|---|---|---|
+| Unicode 汉字数据库 Unihan(读音字段 kMandarin、kXHC1983) | Unicode License v3 | https://www.unicode.org/charts/unihan.html | 语音词库判断「改动读音像不像」用的汉字 → 普通话读音小表(`ruyi-workbench/app/src/04j-hanzi-pinyin.js`,随 `server.js` 分发)。只取 CJK 统一汉字基本区 U+4E00–U+9FFF 有读音的 20,898 字,去掉声调后重新编码;由 `dev-harness/hanzi-pinyin-generate.js` 从 `Unihan_Readings.txt` 生成。本次生成所用的读音取自 npm 包 cjk-unihan 0.0.3 所附 Unihan 原样转储(SQLite)。Copyright © 1991-2024 Unicode, Inc. |
+
+**Unicode License v3(Unihan)**
+
+```
+UNICODE LICENSE V3
+
+COPYRIGHT AND PERMISSION NOTICE
+
+Copyright © 1991-2024 Unicode, Inc.
+
+NOTICE TO USER: Carefully read the following legal agreement. BY DOWNLOADING, INSTALLING,
+COPYING OR OTHERWISE USING DATA FILES, AND/OR SOFTWARE, YOU UNEQUIVOCALLY ACCEPT, AND AGREE
+TO BE BOUND BY, ALL OF THE TERMS AND CONDITIONS OF THIS AGREEMENT. IF YOU DO NOT AGREE, DO
+NOT DOWNLOAD, INSTALL, COPY, DISTRIBUTE OR USE THE DATA FILES OR SOFTWARE.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of data files
+and any associated documentation (the "Data Files") or software and any associated
+documentation (the "Software") to deal in the Data Files or Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+and/or sell copies of the Data Files or Software, and to permit persons to whom the Data
+Files or Software are furnished to do so, provided that either (a) this copyright and
+permission notice appear with all copies of the Data Files or Software, or (b) this
+copyright and permission notice appear in associated Documentation.
+
+THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY RIGHTS.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN THIS NOTICE BE LIABLE FOR ANY
+CLAIM, OR ANY SPECIAL INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING
+FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THE DATA
+FILES OR SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall not be used in
+advertising or otherwise to promote the sale, use or other dealings in these Data Files or
+Software without prior written authorization of the copyright holder.
+```
+
 ---
 
 _本文件随组件增删更新。如发现遗漏或错误,请提 issue。_

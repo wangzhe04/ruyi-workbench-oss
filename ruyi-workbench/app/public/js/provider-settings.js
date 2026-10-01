@@ -1246,7 +1246,13 @@ function buildAsrLexiconBlock() {
   const count = el('span', 'field-help muted asr-lexicon-count', '');
   const actions = el('div', 'asr-lexicon-actions');
   actions.append(save, count);
-  const baseRow = el('label', 'asr-lexicon-base');
+  // 59 号文 §6：从我的修改里学（缺省开；关掉只是不再学，学会的词留着）。与内置表开关同一个模具：选中即存。
+  const learnRow = el('label', 'asr-lexicon-toggle asr-lexicon-learn');
+  const learnBox = el('input');
+  learnBox.type = 'checkbox';
+  const learnText = el('span', '', '');
+  learnRow.append(learnBox, learnText);
+  const baseRow = el('label', 'asr-lexicon-toggle asr-lexicon-base');
   const baseBox = el('input');
   baseBox.type = 'checkbox';
   const baseText = el('span', '', '');
@@ -1256,7 +1262,7 @@ function buildAsrLexiconBlock() {
   const baseList = el('pre', 'asr-lexicon-base-list');
   baseList.hidden = true;
   const note = el('p', 'field-help muted', '');
-  block.append(title, help, area, actions, baseRow, viewBase, baseList, note);
+  block.append(title, help, area, actions, learnRow, baseRow, viewBase, baseList, note);
   let last = null;   // 最近一次从服务端拿到的视图（换界面语言时重写计数与内置表那一行要用）
   // 块只建一次，所以文案不能只在建的时候写一遍：每次 renderAsrSettings 都重写（换了界面语言也跟着换）。
   asrLexiconRelabel = () => {
@@ -1267,8 +1273,12 @@ function buildAsrLexiconBlock() {
     area.setAttribute('aria-label', t('settings.asrLexicon.title'));
     save.textContent = t('settings.asrLexicon.save');
     viewBase.textContent = t(baseList.hidden ? 'settings.asrLexicon.viewBase' : 'settings.asrLexicon.hideBase');
+    learnText.textContent = t('settings.asrLexicon.learn');
     if (last) {
-      count.textContent = t('settings.asrLexicon.count', { count: Number(last.count) || 0 });
+      const learned = Number(last.learned) || 0, typed = Number(last.typed) || 0, pending = Number(last.pending) || 0;
+      count.textContent = learned || typed || pending
+        ? t('settings.asrLexicon.countLearned', { count: Number(last.count) || 0, learned, typed, pending })
+        : t('settings.asrLexicon.count', { count: Number(last.count) || 0 });
       baseText.textContent = t('settings.asrLexicon.base', { count: Number(last.base && last.base.count) || 0 });
     }
   };
@@ -1278,6 +1288,7 @@ function buildAsrLexiconBlock() {
     last = view;
     if (!keepText) { area.value = String(view.text || ''); asrLexiconDirty = false; }
     baseBox.checked = !(view.base && view.base.enabled === false);
+    learnBox.checked = view.learn !== false;
     asrLexiconRelabel();
   };
   area.addEventListener('input', () => { asrLexiconDirty = true; });
@@ -1295,18 +1306,23 @@ function buildAsrLexiconBlock() {
       toast(t(asrLexiconErrorKey(e), apiErrorInfo(e).params || {}), 'err');
     } finally { save.disabled = false; }
   };
-  baseBox.onchange = async () => {
-    const want = baseBox.checked;
-    baseBox.disabled = true;
-    try {
-      const r = await api('/api/audio/lexicon', { method: 'POST', body: JSON.stringify({ base: want }) });
-      paint(r, true);   // 只回写开关与计数：文本框里没存的改动留着
-      toast(t(baseBox.checked ? 'settings.asrLexicon.baseOn' : 'settings.asrLexicon.baseOff'), 'ok');
-    } catch {
-      baseBox.checked = !want;
-      toast(t('settings.asrLexicon.error.failed'), 'err');
-    } finally { baseBox.disabled = false; }
+  // 两个开关同一个模具：选中即存，只回写开关与计数（文本框里没存的改动留着）；存不上就把勾还原。
+  const bindToggle = (box, field, onKey, offKey) => {
+    box.onchange = async () => {
+      const want = box.checked;
+      box.disabled = true;
+      try {
+        const r = await api('/api/audio/lexicon', { method: 'POST', body: JSON.stringify({ [field]: want }) });
+        paint(r, true);
+        toast(t(box.checked ? onKey : offKey), 'ok');
+      } catch {
+        box.checked = !want;
+        toast(t('settings.asrLexicon.error.failed'), 'err');
+      } finally { box.disabled = false; }
+    };
   };
+  bindToggle(learnBox, 'learn', 'settings.asrLexicon.learnOn', 'settings.asrLexicon.learnOff');
+  bindToggle(baseBox, 'base', 'settings.asrLexicon.baseOn', 'settings.asrLexicon.baseOff');
   viewBase.onclick = async () => {
     if (!baseList.hidden) { baseList.hidden = true; asrLexiconRelabel(); return; }
     try {

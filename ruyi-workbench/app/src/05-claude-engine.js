@@ -2093,8 +2093,9 @@ function asrFixMessages(firstPass, audioText, context, glossary) {
 }
 // ── 59 号文:语音词库的落盘与取用(纯函数在 04j VoiceLexicon;这里只管存与「给哪一路什么」)────────────────
 // 一个小 JSON(<data>/voice-lexicon.json),DurableJsonStore 管 schema/清洗/坏文件隔离/容量/串行原子写/进程缓存。
-// 写面只有设置页(13b POST /api/audio/lexicon)一处,经 voiceLexiconUpdate 按同一个键串行「读-改-写」;
-// 第二步从修改里学也走这一个口子。日志只记条数,不记词。
+// 写面两处:设置页(13b POST /api/audio/lexicon)与从修改里学(13b POST /api/audio/lexicon/observe,59 号文 §6),
+// 都经 voiceLexiconUpdate 按同一个键串行「读-改-写」。日志只记条数,不记词。
+// 容量:词条 500(04j 学词时自己先腾位置,手加的不挤);还没攒够证据的候选 300(从最久没见的裁起)。
 const voiceLexiconStore = DurableJsonStore.create({
   id: 'voice-lexicon',
   file: () => path.join(paths.data, 'voice-lexicon.json'),
@@ -2102,7 +2103,7 @@ const voiceLexiconStore = DurableJsonStore.create({
   defaultValue: () => VoiceLexicon.defaultState(),
   sanitize: VoiceLexicon.sanitizeState,
   validate: value => value.schema === VoiceLexicon.SCHEMA && Boolean(value.terms) && typeof value.terms === 'object',
-  capacity: [{ path: 'terms', max: VoiceLexicon.MAX_TERMS }],
+  capacity: [{ path: 'terms', max: VoiceLexicon.MAX_TERMS }, { path: 'pending', max: VoiceLexicon.MAX_PENDING }],
   onCorrupt(error) {
     try { logEvent({ kind: 'voice_lexicon_corrupt', error: String(error && error.message || error).slice(0, 200) }); } catch { /* 诊断永不阻断 */ }
   },

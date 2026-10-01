@@ -46,6 +46,11 @@
 //      （转圈＋计时＋一句人话，再点／Esc 取消），装好才去拿麦克风。只在会用到本地识别组件时才问（composerVoiceNeedsWarmup）。
 //      预热失败不拦：流式路第一遍（asr-stream）不依赖它，照录并说一句；没有第一遍的（按停顿切段）录了也转不出字，当场说清原因。
 //      等了一阵才装好、而页面已不在前台（切走了标签／窗口）就不替他开麦克风：回到空闲，下一次点击就是热的。
+//   ⑪ 从修改里学（59 号文 §6，用户 2026-10-01「默认从用户手改的错字里去学习」「好友包括人名字这种，似乎必须的从用户修改中学」）：
+//      每句机器写进输入框的字记一笔（流式路记第一遍原文与句尾改错后的那一版；按停顿切段那一路两份相同），只在内存里；
+//      发送那一刻（两个视角的发送路各派一次 COMPOSER_VOICE_SENT_EVENT）把「这几句 ＋ 最终发出去的字」交给
+//      POST /api/audio/lexicon/observe，随即清账。服务端判哪处是听错、学进语音词库；学会新词时这里提示一句（可在设置里关）。
+//      没配语音识别就不交（词库只服务语音）；没用麦克风的消息也交（sentences 为空 —— 只从打的字里抽英文专名，冷启动）。
 
 import { apiRaw, apiErrorInfo } from './net.js';
 import { icon } from './icons.js';
@@ -64,6 +69,23 @@ export const COMPOSER_VOICE_CONTEXT_CHARS = 600;               // 133a：句尾�
 export const COMPOSER_VOICE_PAUSE_MS = 700;                    // 停这么久算「一句说完」
 export const COMPOSER_VOICE_SEGMENT_MIN_MS = 2000;             // 一段至少这么长才切（太碎的段转写不准，也多出网）
 export const COMPOSER_VOICE_SEGMENT_MAX_MS = 30000;            // 一口气说这么久还没停顿就硬切一刀
+// ⑪ 从修改里学：发送事件（在输入框上派、冒泡；detail.text = 发出去的字）与账的上限（与服务端 04j VoiceLearn 同值）。
+// chat-stream-runtime.js 锁死零 import，那边内联派同名事件（unit/voice-learn-front.test.js 钉两边一致）。
+export const COMPOSER_VOICE_SENT_EVENT = 'ruyi:composer-sent';
+export const COMPOSER_VOICE_LEDGER_MAX = 60;
+export const COMPOSER_VOICE_LEARN_MAX_CHARS = 20000;
+const COMPOSER_VOICE_LEARN_SENTENCE_MAX_CHARS = 1000;
+export function composerSent(box, text) {
+  try { box.dispatchEvent(new CustomEvent(COMPOSER_VOICE_SENT_EVENT, { bubbles: true, detail: { text: String(text || '') } })); } catch { /* 没有 DOM 的宿主 */ }
+}
+// 学会的新词 → 那一句提示（只说第一个，多的报个数）。纯函数：浏览器件与单测直调。
+export function composerVoiceLearnedText(learned, t = key => key) {
+  const list = Array.isArray(learned) ? learned.filter(x => x && typeof x.term === 'string' && x.term) : [];
+  if (!list.length) return '';
+  const head = list[0];
+  const more = list.length > 1 ? t('composer.voice.learnedMore', { count: list.length - 1 }) : '';
+  return head.heard ? t('composer.voice.learned', { term: head.term, heard: head.heard, more }) : t('composer.voice.learnedTerm', { term: head.term, more });
+}
 const COMPOSER_VOICE_VAD_TICK_MS = 100;                        // 响度多久看一次
 const COMPOSER_VOICE_VAD_MIN_RMS = 0.012;                      // 判「在说话」的响度下限（另有随底噪浮动的门限，取大的）
 
@@ -302,6 +324,31 @@ export function createComposerVoice({
   let startedAt = 0;
   let ticker = 0;
   let escapeBound = false;
+  // ⑪ 这次落进输入框、还没发出去的几句机器写的字。流式路记的就是 streamApply 的句子对象本身（句尾改错换字时 text 跟着变，
+  // first 留着第一遍原文）；按停顿切段那一路记 { text, first } 两份相同。发送时交出去并清空；输入框空着时开录也清空。
+  const ledger = [];
+  function remember(item) {
+    ledger.push(item);
+    if (ledger.length > COMPOSER_VOICE_LEDGER_MAX) ledger.splice(0, ledger.length - COMPOSER_VOICE_LEDGER_MAX);
+  }
+  async function learnFromSend(event) {
+    const box = input();
+    if (!box || event.target !== box) return;
+    const sentences = ledger.splice(0, ledger.length)
+      .map(x => ({ text: String(x.text || ''), first: String(x.first || x.text || '') }))
+      .filter(x => x.text && x.text.length <= COMPOSER_VOICE_LEARN_SENTENCE_MAX_CHARS && x.first.length <= COMPOSER_VOICE_LEARN_SENTENCE_MAX_CHARS);
+    const final = String((event.detail && event.detail.text) || '');
+    if (!final.trim() || final.length > COMPOSER_VOICE_LEARN_MAX_CHARS || !composerVoiceConfigured(state && state.config)) return;
+    let body = null;
+    try {
+      const res = await request('/api/audio/lexicon/observe', { method: 'POST', body: JSON.stringify({ sentences, final }), headers: { 'content-type': 'application/json' } });
+      if (!res.ok) return;   // 学不成不打扰（发送早就成了）
+      body = await res.json();
+    } catch { return; }
+    const note = composerVoiceLearnedText(body && body.learned, t);
+    if (note) { try { notify(note, 'ok'); } catch { /* 无托盘宿主 */ } }
+  }
+  try { globalThis.document.addEventListener(COMPOSER_VOICE_SENT_EVENT, event => { void learnFromSend(event); }); } catch { /* 没有 document 的宿主 */ }
 
   function announce(text) {
     if (live) live.textContent = text;
@@ -535,6 +582,8 @@ export function createComposerVoice({
     if (mine !== attempt || phase !== 'starting') { releaseTracks(media); return; }
     // 一次录音 = 一个 session：各段按先后排队转写（queue 是一条 Promise 链，保证字按说的顺序落进输入框）。
     const session = { id: mine, discard: false, failedKey: '', sent: 0, inserted: 0, anchor: null, queue: Promise.resolve() };
+    const boxAtStart = input();
+    if (!boxAtStart || !String(boxAtStart.value || '').trim()) ledger.length = 0;   // ⑪ 框是空的：上次没发出去的机器字早不在框里了
     // 130：配了实时识别就先试流式路；开会话失败（组件没起来／服务端 409）→ 说一句、原样走按停顿切段。
     if (composerVoiceStreamConfigured(state && state.config) && streamCapable()) {
       try { await startStreaming(media, session); }
@@ -678,7 +727,7 @@ export function createComposerVoice({
     for (const f of (Array.isArray(body.finals) ? body.finals : [])) {
       const text = String((f && f.text) || '').trim();
       if (!text) continue;
-      fresh.push({ text, startMs: Math.max(0, Number(f.startMs) || 0), endMs: Math.max(0, Number(f.endMs) || 0), start: 0, end: 0 });
+      fresh.push({ text, first: text, startMs: Math.max(0, Number(f.startMs) || 0), endMs: Math.max(0, Number(f.endMs) || 0), start: 0, end: 0 });
     }
     const box = input();
     if (!box) { for (const f of fresh) { s.sentences.push(f); s.session.inserted += 1; } return; }
@@ -688,6 +737,7 @@ export function createComposerVoice({
       else { const r = streamInsertAt(s, box, streamAnchor(s, box), f.text); f.start = r.start; f.end = r.end; }
       s.pend = null;
       s.sentences.push(f);
+      remember(f);
       s.session.inserted += 1;
     }
     const partial = String(body.partial || '').trim();
@@ -898,6 +948,7 @@ export function createComposerVoice({
     const box = input();
     if (!box) return;
     insertSegment(session, box, text);
+    remember({ text, first: text });
     session.inserted += 1;
   }
 

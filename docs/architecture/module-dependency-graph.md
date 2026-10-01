@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 68 | 3319 | 3047 | 526 | 67 | 0 | 1 |
+| 70 | 3323 | 3051 | 530 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -36,53 +36,55 @@
 | 18 | `04h-provider-http.js` | foundation | 10 | 0 | 0 |
 | 19 | `04i-provider-anthropic.js` | foundation | 48 | 1 | 1 |
 | 20 | `04i-provider-wire.js` | foundation | 33 | 15 | 2 |
-| 21 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
-| 22 | `05-claude-engine.js` | engine | 72 | 135 | 23 |
-| 23 | `05b-kimi-bridge.js` | engine | 127 | 73 | 12 |
-| 24 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
-| 25 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
-| 26 | `06-provider-engine.js` | engine | 131 | 55 | 16 |
-| 27 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
-| 28 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
-| 29 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
-| 30 | `06i-steward-core.js` | engine | 155 | 0 | 0 |
-| 31 | `06d-memory-domain.js` | engine | 131 | 36 | 10 |
-| 32 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
-| 33 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
-| 34 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
-| 35 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
-| 36 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 37 | `07-autonomy.js` | orchestration | 98 | 65 | 17 |
-| 38 | `08-agent-runs.js` | orchestration | 115 | 95 | 18 |
-| 39 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
-| 40 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 41 | `09-workflow.js` | orchestration | 22 | 234 | 26 |
-| 42 | `10-context-governance.js` | orchestration | 175 | 92 | 17 |
-| 43 | `11-native-tools.js` | tools | 128 | 38 | 5 |
-| 44 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 45 | `12-tool-dispatch.js` | tools | 54 | 99 | 17 |
-| 46 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
-| 47 | `13-http-router.js` | transport | 65 | 236 | 28 |
-| 48 | `13b-api-domain-routes.js` | transport | 38 | 63 | 8 |
-| 49 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
-| 50 | `13d-core-domain-routes.js` | transport | 58 | 138 | 17 |
-| 51 | `13e-pretender-index.js` | transport | 57 | 36 | 8 |
-| 52 | `13i-steward-inbox.js` | transport | 77 | 27 | 8 |
-| 53 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
-| 54 | `13k-steward-threads.js` | transport | 51 | 115 | 16 |
-| 55 | `13l-steward-ops.js` | transport | 42 | 112 | 18 |
-| 56 | `13g-steward.js` | transport | 14 | 67 | 10 |
-| 57 | `13m-steward-runner-base.js` | transport | 46 | 16 | 7 |
-| 58 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
-| 59 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
-| 60 | `13p-steward-runner-actions.js` | transport | 34 | 60 | 11 |
-| 61 | `13q-steward-runner-turn.js` | transport | 31 | 67 | 18 |
-| 62 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
-| 63 | `13r-event-stream.js` | transport | 23 | 17 | 6 |
-| 64 | `13s-scheduler.js` | transport | 51 | 36 | 9 |
-| 65 | `13t-steward-schedule.js` | transport | 22 | 39 | 10 |
-| 66 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
-| 67 | `14-main.js` | entrypoint | 1 | 577 | 45 |
+| 21 | `04j-hanzi-pinyin.js` | foundation | 1 | 0 | 0 |
+| 22 | `04j-voice-lexicon.js` | foundation | 1 | 0 | 0 |
+| 23 | `04j-voice-learn.js` | foundation | 1 | 2 | 2 |
+| 24 | `05-claude-engine.js` | engine | 72 | 135 | 23 |
+| 25 | `05b-kimi-bridge.js` | engine | 127 | 73 | 12 |
+| 26 | `05c-kimi-search-policy.js` | engine | 42 | 11 | 2 |
+| 27 | `05d-kimi-prompt-parts.js` | engine | 15 | 4 | 2 |
+| 28 | `06-provider-engine.js` | engine | 131 | 55 | 16 |
+| 29 | `06b-prompt-registry.js` | engine | 6 | 1 | 1 |
+| 30 | `06c-agent-loop-hooks.js` | engine | 1 | 3 | 2 |
+| 31 | `06h-retrieval-index.js` | engine | 15 | 0 | 0 |
+| 32 | `06i-steward-core.js` | engine | 155 | 0 | 0 |
+| 33 | `06d-memory-domain.js` | engine | 131 | 36 | 10 |
+| 34 | `06e-mission-domain.js` | engine | 3 | 14 | 5 |
+| 35 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
+| 36 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
+| 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
+| 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
+| 39 | `07-autonomy.js` | orchestration | 98 | 65 | 17 |
+| 40 | `08-agent-runs.js` | orchestration | 115 | 95 | 18 |
+| 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
+| 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
+| 43 | `09-workflow.js` | orchestration | 22 | 234 | 26 |
+| 44 | `10-context-governance.js` | orchestration | 175 | 92 | 17 |
+| 45 | `11-native-tools.js` | tools | 128 | 38 | 5 |
+| 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
+| 47 | `12-tool-dispatch.js` | tools | 54 | 99 | 17 |
+| 48 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
+| 49 | `13-http-router.js` | transport | 65 | 236 | 28 |
+| 50 | `13b-api-domain-routes.js` | transport | 40 | 64 | 9 |
+| 51 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
+| 52 | `13d-core-domain-routes.js` | transport | 58 | 138 | 17 |
+| 53 | `13e-pretender-index.js` | transport | 57 | 36 | 8 |
+| 54 | `13i-steward-inbox.js` | transport | 77 | 27 | 8 |
+| 55 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
+| 56 | `13k-steward-threads.js` | transport | 51 | 115 | 16 |
+| 57 | `13l-steward-ops.js` | transport | 42 | 112 | 18 |
+| 58 | `13g-steward.js` | transport | 14 | 67 | 10 |
+| 59 | `13m-steward-runner-base.js` | transport | 46 | 16 | 7 |
+| 60 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
+| 61 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
+| 62 | `13p-steward-runner-actions.js` | transport | 34 | 60 | 11 |
+| 63 | `13q-steward-runner-turn.js` | transport | 31 | 67 | 18 |
+| 64 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
+| 65 | `13r-event-stream.js` | transport | 23 | 17 | 6 |
+| 66 | `13s-scheduler.js` | transport | 51 | 36 | 9 |
+| 67 | `13t-steward-schedule.js` | transport | 22 | 39 | 10 |
+| 68 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
+| 69 | `14-main.js` | entrypoint | 1 | 578 | 46 |
 
 ## 模块边
 
@@ -150,6 +152,8 @@
 | `04i-provider-anthropic.js` | `04h-provider-http.js` | backward | `providerBaseWithV1` |
 | `04i-provider-wire.js` | `04h-provider-http.js` | backward | `providerApiBase`, `providerBaseWithV1`, `providerCompletionUrl`, `providerRequestHeaders` |
 | `04i-provider-wire.js` | `04i-provider-anthropic.js` | backward | `anthropicMessagesUrl`, `anthropicRequestHeaders`, `anthropicRetryBodyOn400`, `applyAnthropicEffort`, `applyAnthropicTemperature`, `applyAnthropicTools`, `createAnthropicStreamDecoder`, `decodeAnthropicCompletion`, `encodeAnthropicMessages`, `encodeAnthropicQuick`, `normalizeAnthropicUsage` |
+| `04j-voice-learn.js` | `04j-hanzi-pinyin.js` | backward | `HanziPinyin` |
+| `04j-voice-learn.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
 | `05-claude-engine.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `URL`, `appendUsageLedger`, `claudeCostFields`, `computeProviderCost`, `cp`, `createCappedDiagnosticText`, `createNdjsonLineFeeder`, `crypto`, `fsp`, `normalizePricing`, `nowIso`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `text` |
 | `05-claude-engine.js` | `00b-ruyi-names.js` | backward | `RUYI_MCP_CLI_TOOL_PREFIX` |
 | `05-claude-engine.js` | `01-config.js` | backward | `DurableJsonStore`, `buildUserEnvelope`, `decodeClaudeCliText`, `effectiveAnthropicEnv`, `generateSessionMcpConfig`, `isAskUserTool`, `prepareAgentCliSpawn`, `probeAgentCliLauncher`, `readConfig`, `selectedAgentCli`, `syncMcpServersToKimi`, `writeToChild` |
@@ -375,6 +379,7 @@
 | `13b-api-domain-routes.js` | `01-config.js` | backward | `buildUserEnvelope`, `generateMcpConfig`, `mutateConfig`, `readConfig`, `readJsonBody`, `safeSessionId`, `send`, `writeToChild` |
 | `13b-api-domain-routes.js` | `02-session-store.js` | backward | `bumpMissionChangeSeq`, `journalRollback`, `mutateSession`, `rewindSession`, `saveSession` |
 | `13b-api-domain-routes.js` | `04-permission-runtime.js` | backward | `MCP_COMPAT_MATRIX`, `ToolboxHooks`, `activeChildren`, `buildMcpConnectorInventory`, `collectBridgedTools`, `getBridgedClient`, `hasPendingQuestionForSession`, `invalidateMcpRuntime`, `logEvent`, `mutateMcpConnector`, `probeMcpConnector`, `redact`, `resolveBridge`, `resolveExternalMcpServers`, `scanMcpSources` |
+| `13b-api-domain-routes.js` | `04j-voice-learn.js` | backward | `VoiceLearn` |
 | `13b-api-domain-routes.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
 | `13b-api-domain-routes.js` | `05-claude-engine.js` | backward | `activeOpenAiProvider`, `asrFixMessages`, `asrFixModeOf`, `asrFixSanity`, `maskExternalMcpServerForDisplay`, `providerFixCompletion`, `resolveAsrFixProvider`, `resolveAsrProvider`, `resolveAsrStreamProvider`, `sanitizeExternalMcpServer`, `transcribeAudioViaProvider`, `voiceLexiconAsrPromptFor`, `voiceLexiconRead`, `voiceLexiconUpdate` |
 | `13b-api-domain-routes.js` | `06-provider-engine.js` | backward | `normalizeStoragePolicy`, `storageSweep` |
@@ -586,6 +591,7 @@
 | `14-main.js` | `04-visual-pipeline.js` | backward | `VisualPipeline` |
 | `14-main.js` | `04h-provider-http.js` | backward | `abortableDelay`, `providerApiBase`, `providerBaseWithV1`, `providerCallIsTransient`, `providerCompletionUrl`, `providerRequestHeaders`, `providerResponsesBase`, `withTransientRetry` |
 | `14-main.js` | `04i-provider-wire.js` | backward | `PROVIDER_WIRE_PROTOCOLS`, `applyProviderReasoningEffort`, `buildResponsesInputItems`, `normalizeProviderApiStyle`, `providerReasoningEffort`, `providerWireProtocol`, `responsesHistoryWithCompleteToolPairs` |
+| `14-main.js` | `04j-voice-learn.js` | backward | `VoiceLearn` |
 | `14-main.js` | `04j-voice-lexicon.js` | backward | `VoiceLexicon` |
 | `14-main.js` | `05-claude-engine.js` | backward | `AGENT_CLI_ADAPTERS`, `agentCliAdapter`, `asrFixMessages`, `asrFixSanity`, `maskSecrets`, `maskedSecretConflicts`, `providerFixCompletion`, `providerLaunchVectorKey`, `resolveAsrFixProvider`, `sanitizeExternalMcpServer`, `unmaskProviders`, `unmaskSecrets` |
 | `14-main.js` | `05b-kimi-bridge.js` | backward | `consumeKimiAcpApproval`, `isKimiAcpPlanFilePath`, `kimiAcpFreshActualForOperation`, `kimiAcpInferConcreteToolInput`, `kimiAcpModeOptionFromActivated`, `kimiAcpNativeBashWrapperCandidate`, `kimiAcpNativeBashWrapperTexts`, `kimiAcpNativeShellQuote`, `kimiAcpPermissionToolCall`, `kimiAcpSessionRestoreMethods`, `kimiAcpSuccessfulEnterPlanMode`, `kimiAcpUnknownSessionError`, `kimiSessionStatus`, `parseKimiWireAgentEvents`, `parseKimiWireCompaction`, `prepareKimiAcpSpawn`, `resolveKimiAcpPlanFilePath`, `runKimiCompact`, `watchKimiWire` |
