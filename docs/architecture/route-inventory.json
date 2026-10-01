@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-09-30T17:17:39.783Z",
+  "generatedAt": "2026-10-01T01:55:44.880Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -939,6 +939,7 @@
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
+        "dev-harness\\settings-skills.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\simple-mode.browser.e2e.js",
         "dev-harness\\start-error-surface.e2e.js",
@@ -998,6 +999,7 @@
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js",
+        "dev-harness\\settings-skills.browser.e2e.js",
         "dev-harness\\steward-content-tools.e2e.js"
       ]
     },
@@ -1050,6 +1052,7 @@
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\service-match.browser.e2e.js",
+        "dev-harness\\settings-skills.browser.e2e.js",
         "dev-harness\\steward-content-tools.e2e.js"
       ]
     },
@@ -1359,6 +1362,7 @@
         "dev-harness\\migration-center.browser.e2e.js",
         "dev-harness\\migration-center.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\settings-skills.browser.e2e.js",
         "dev-harness\\skills-registry.e2e.js"
       ]
     },
@@ -1401,6 +1405,7 @@
         "dev-harness\\migration-center.browser.e2e.js",
         "dev-harness\\migration-center.e2e.js",
         "dev-harness\\playbooks.e2e.js",
+        "dev-harness\\settings-skills.browser.e2e.js",
         "dev-harness\\skills-registry.e2e.js"
       ]
     },

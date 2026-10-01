@@ -25,7 +25,7 @@ import { createAgentRolesDomain } from './js/agent-roles.js';
 import { createSkillsMemoryDomain } from './js/skills-memory.js';
 import { createProviderSettingsDomain } from './js/provider-settings.js';
 import { createAgentWorkflowsDomain } from './js/agent-workflows.js';
-import { createNavigationControlsDomain } from './js/navigation-controls.js';
+import { createNavigationControlsDomain } from './js/navigation-controls.js'; import { createSettingsSkillsDomain } from './js/settings-skills.js'; // 设置页「技能与模板」
 import { createSessionExperienceDomain } from './js/session-experience.js';
 import { createInteractionPromptsDomain } from './js/interaction-prompts.js';
 import { createToolRuntimeDomain } from './js/tool-runtime.js';
@@ -195,7 +195,7 @@ const {
   playbookStatusText,
   renderSkillList,
   saveAsMemory,
-  suggestMemoryFromTurn,
+  settingsSkillsApi, suggestMemoryFromTurn,
   updateSkillBadge,
 } = createSkillsMemoryDomain({
   apiErrText,
@@ -232,7 +232,7 @@ const {
   renderProviders,
   renderStatusLine,
   saveConfigPartial,
-  saveSettings,
+  saveSettings, saveTemplates,
   updateEngineDependentUI,
   updateSearchBackendVisibility,
   focusAsrSettings,
@@ -454,6 +454,7 @@ const {
   renderSessions: () => renderSessions(), scrollIsSticky: () => isStickyScroll(),
 });
 
+const settingsSkillsDomain = createSettingsSkillsDomain({ t, api, toast, apiErrText, confirmDanger, skills: settingsSkillsApi, getTemplates, saveTemplates, refreshPlaybooks: () => refreshPlaybooks(), openSkillPanel: () => openSkillPanel() }); // 设置页「技能与模板」(技能段取技能域同一份实现,模板读写走 provider-settings)
 const {
   closeModal,
   closeToolDrawer,
@@ -514,7 +515,7 @@ const {
   toggleTheme: () => toggleTheme(),
   compactContext: () => compactContext(),
   refreshStatus: () => refreshStatus(),
-  openSkillPanel: () => openSkillPanel(),
+  openSkillPanel: () => openSkillPanel(), openSettingsSkills: () => settingsSkillsDomain.open(),
   patchSession: (id, patch) => patchSession(id, patch),
   toggleUiMode: () => toggleUiMode(),
   focusFirstInteractive: container => focusFirstInteractive(container),
