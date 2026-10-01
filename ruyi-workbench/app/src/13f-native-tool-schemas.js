@@ -460,36 +460,40 @@ const MCP_TOOLS = [
   // execFile('git',…) 无 shell,模型可控路径一律在 `--` 之后,git 缺失/非仓库/缺身份 → 人话引导错误。
   {
     name: 'git_status',
-    description: 'Show the git status of a folder (current branch, ahead/behind, and how many files changed). Read-only. Returns a plain-language summary plus the raw porcelain status.',
+    description: 'Git status of a folder: branch, ahead/behind, change counts, plain summary + raw porcelain (first 300 lines; statusTruncated). Read-only.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
       },
     },
   },
   {
     name: 'git_diff',
-    description: 'Unified diff of a git repo (read-only). staged:true = index changes; path limits to one file. Untracked files are listed in `untracked`, not diffed. Huge diffs are cut (truncated:true) with a `stat` summary; use path for one file.',
+    description: 'Unified diff (read-only): working tree vs index; staged:true = index vs HEAD; ref = revision/range (HEAD~1, A..B). Untracked files go in `untracked`. Big diffs: truncated:true + `stat`; use path.',
     inputSchema: {
       type: 'object',
       properties: {
         cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
         path: { type: 'string', description: 'file/pathspec' },
-        staged: { type: 'boolean', description: 'diff the index instead of the working tree' },
+        staged: { type: 'boolean', description: 'diff the index' },
+        ref: { type: 'string', description: 'e.g. HEAD~1, main..feature (no leading -)' },
         contextLines: { type: 'number', description: '0..50, default 3' },
       },
     },
   },
   {
     name: 'git_log',
-    description: 'List recent git commits (hash, date, author, subject) as a table. Read-only. maxCount defaults to 10 (clamped 1..100); path limits history to one file.',
+    description: 'Recent commits (hash, fullHash, date, author, subject). Read-only. maxCount 1..100 (default 10); filter by path, ref (e.g. main..feature), author, since.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'the repo folder (defaults to the conversation working folder; an explicit folder that does not exist is an error)' },
-        maxCount: { type: 'number', description: 'how many commits to return (1..100, default 10)' },
-        path: { type: 'string', description: 'limit history to this file/pathspec' },
+        cwd: { type: 'string', description: 'repo folder (default: working folder; must exist)' },
+        maxCount: { type: 'number', description: 'default 10' },
+        path: { type: 'string', description: 'file/pathspec' },
+        ref: { type: 'string', description: 'revision/range (no leading -)' },
+        author: { type: 'string', description: 'name/email substring' },
+        since: { type: 'string', description: 'e.g. "2 weeks ago"' },
       },
     },
   },
@@ -509,7 +513,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'dependency_inventory',
-    description: 'List dependency/runtime config files (package.json, lockfiles, requirements.txt, pyproject.toml, Cargo.toml, go.mod, pom.xml, …) directly in root, without installing; for package.json also scripts/dependencies/engines names. Top level only; no versions from non-npm manifests.',
+    description: 'List dependency manifests/lockfiles in root (package.json, requirements*.txt, pyproject, Cargo.toml, go.mod, pom.xml, *.csproj, Gemfile, uv.lock, .nvmrc, …) without installing; package.json also scripts/deps/engines. Root only; if none, nestedManifests lists one level down.',
     inputSchema: {
       type: 'object',
       properties: { root: { type: 'string' } },
@@ -517,15 +521,15 @@ const MCP_TOOLS = [
   },
   {
     name: 'code_review_scan',
-    description: 'Run a lightweight offline code review scan for common security and quality risks',
+    description: 'Offline code review scan: secrets, shell exec, SQL concat, innerHTML, CORS, TLS off, TODO. Skips tests/fixtures unless includeTests. Findings: severity+confidence; truncated:true at caps.',
     inputSchema: {
       type: 'object',
-      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, maxFindings: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
+      properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, maxFindings: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } }, includeTests: { type: 'boolean' } },
     },
   },
   {
     name: 'frontend_audit',
-    description: 'Audit frontend files for offline asset and UI polish issues',
+    description: 'Audit frontend files: external assets that break offline (http(s) or // src/href/url()/@import), missing viewport, UI polish. Line numbers; truncated:true at caps.',
     inputSchema: {
       type: 'object',
       properties: { root: { type: 'string' }, maxFiles: { type: 'number' }, maxDepth: { type: 'number' }, ignoreDirs: { type: 'array', items: { type: 'string' } } },
@@ -541,7 +545,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'docs_search',
-    description: 'Regex search (case-insensitive) in project docs only (.md .mdx .markdown .txt .rst .adoc .org; for code use file_search). Root README/CHANGELOG first, then docs/ (root defaults to the workspace; maxResults 200, maxFiles 3000, maxDepth 8). Returns {matches:[{relativePath,line,text}], scannedFiles}; truncated:true + hint when more matches exist or the file limit was hit.',
+    description: 'Regex search (case-insensitive) in project docs only (.md .mdx .markdown .txt .rst .adoc .org; for code use file_search), README/CHANGELOG first, then docs/. Auto-decodes UTF-8/BOM/UTF-16/GBK; retries as literal text if the regex finds nothing. Returns {matches:[{relativePath,line,text}], scannedFiles}; truncated:true + hint when capped.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -550,6 +554,7 @@ const MCP_TOOLS = [
         maxResults: { type: 'number' },
         maxFiles: { type: 'number' },
         maxDepth: { type: 'number' },
+        maxFileBytes: { type: 'number', description: 'default 20MB' },
         ignoreDirs: { type: 'array', items: { type: 'string' } },
         includeIgnored: { type: 'boolean' },
       },
@@ -558,7 +563,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'codebase_symbol_search',
-    description: "Find where a symbol (function/class/method/variable) is defined and referenced; file-level evidence grouped by file. Lexical word-boundary scan, not AST/type-aware; the symbol is matched literally. Use it to ground claims in real file:line evidence; for semantic or cross-language resolution use a language server.",
+    description: "Find where a symbol is defined and referenced (file:line evidence, grouped by file). Lexical word-boundary scan, not AST/type-aware; symbol matched literally. Hits carry relativePath (absolute:true adds path); hint when no definition found or capped.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -566,24 +571,25 @@ const MCP_TOOLS = [
         root: { type: 'string', description: 'default: workspace' },
         kind: { type: 'string', enum: ['any', 'definition', 'reference'], description: 'default any' },
         maxResults: { type: 'number', description: 'default 200' },
-        maxFiles: { type: 'number', description: 'default 5000; if reached, truncated:true + hint (a missing symbol may be unscanned)' },
+        maxFiles: { type: 'number', description: 'default 5000; truncated:true + hint if reached' },
         maxDepth: { type: 'number', description: 'default 8' },
-        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra folder names to skip (node_modules, .git, dist, … are skipped already)' },
-        includeIgnored: { type: 'boolean', description: 'also scan default-skipped folders; .git always skipped' },
+        ignoreDirs: { type: 'array', items: { type: 'string' }, description: 'extra folder names to skip' },
+        includeIgnored: { type: 'boolean', description: 'also scan default-skipped folders' },
         caseSensitive: { type: 'boolean', description: 'default true' },
+        absolute: { type: 'boolean' },
       },
       required: ['symbol'],
     },
   },
   {
     name: 'debug_hypothesis',
-    description: "Advisory, stateless hypothesis/experiment ledger for structured debugging (elimination method): pass the ledger returned by the previous call back on every call. Actions: init(hypotheses[]) creates it; test(hypothesisId,result,evidence) records a refuting/supporting experiment (refutation is sticky, a refuted hypothesis cannot be revived); conclude(hypothesisId) locks the root cause (only a supported hypothesis; warns if alternatives remain unexcluded); status shows stats + duplicate/contradiction warnings. Skip when the bug is already obvious.",
+    description: "Stateless hypothesis ledger for elimination-method debugging; pass the previous call's ledger back every time. init(hypotheses[]); test(hypothesisId,result,evidence) (a refuted hypothesis stays refuted); conclude(hypothesisId) locks the root cause (supported only; warns if alternatives remain; then no new supporting evidence for others); reopen unlocks it; status = stats + duplicate/contradiction warnings. Skip when the bug is obvious.",
     inputSchema: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['init', 'test', 'conclude', 'status'], description: 'State-machine action.' },
-        hypotheses: { type: 'array', items: { type: 'object' }, description: 'init: array of {id?, description, mechanism?, expectedEvidence?, verification?}.' },
-        ledger: { type: 'object', description: 'Current ledger snapshot (previous call\'s returned ledger); required for test/conclude/status, ignored by init.' },
+        action: { type: 'string', enum: ['init', 'test', 'conclude', 'reopen', 'status'], description: 'State-machine action.' },
+        hypotheses: { type: 'array', items: { type: 'object' }, description: 'init: [{id?, description, mechanism?, expectedEvidence?, verification?}] (max 50)' },
+        ledger: { type: 'object', description: 'previous call\'s ledger; required except for init' },
         hypothesisId: { type: 'string', description: 'test/conclude: target hypothesis id.' },
         result: { type: 'string', enum: ['supports', 'refutes', 'inconclusive'], description: 'test: experiment result.' },
         evidence: { type: 'string', description: 'test: what you did and what you observed.' },
@@ -593,13 +599,13 @@ const MCP_TOOLS = [
   },
   {
     name: 'data_profile',
-    description: 'Read-only profile of a data file (CSV/TSV/JSON/JSONL/text log): row/column counts, per-column type, null/unique counts, numeric min/max/mean/median/std + IQR outliers, sample values. Use instead of eyeballing a large file with file_read; skip for small files. Types/outliers are heuristics. Input is a bounded prefix (8MB; JSON arrays up to 16MB): truncatedInput:true = counts cover the prefix (estimatedRowCount extrapolates); sampled:true = fewer rows profiled than exist. GBK/UTF-16 auto-decoded (encoding).',
+    description: 'Read-only profile of a text data file (CSV/TSV/JSON/JSONL/log): row/column counts, per-column type, null/unique counts, numeric stats + IQR outliers, samples (max 200 columns). Use instead of eyeballing big files with file_read. Heuristic types/outliers. Bounded prefix (8MB; JSON arrays 16MB): truncatedInput:true = counts cover the prefix; sampled:true = fewer rows than exist. GBK/UTF-16 auto-decoded; binary files (xlsx, pdf, ...) refused.',
     inputSchema: {
       type: 'object',
       properties: {
         path: { type: 'string', description: 'absolute path' },
         maxRows: { type: 'number', description: 'default 2000, max 50000' },
-        delimiter: { type: 'string', description: 'default auto-detect' },
+        delimiter: { type: 'string', description: 'one char or tab/comma/semicolon/pipe; default auto-detect' },
         maxSampleValues: { type: 'number', description: 'per column, default 5' },
       },
       required: ['path'],
