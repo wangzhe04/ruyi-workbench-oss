@@ -374,6 +374,14 @@
 .asr-advanced { font-size: var(--fs-sm); margin-top: 6px; }
 .asr-advanced > summary { cursor: pointer; color: var(--muted); padding: 2px 0; }
 .asr-advanced[open] > summary { margin-bottom: 6px; }
+/* 59 号文：语音词库 —— 个人词一行一条的文本框（等宽，方便对齐「词 = 样子」）、保存钮与计数一行、内置表开关、只读的内置表。
+   外面那张卡与「语音识别」同一张（settings.css「运行时画进来的四块」）。 */
+.asr-lexicon-text { width: 100%; min-height: 96px; resize: vertical; font-family: var(--mono); font-size: var(--fs-sm); }
+.asr-lexicon-actions { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.asr-lexicon-toggle { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
+.asr-lexicon-toggle input[type="checkbox"] { width: auto; flex: none; }
+.asr-lexicon-view-base { align-self: flex-start; font-size: var(--fs-sm); }
+.asr-lexicon-base-list { max-height: 240px; overflow: auto; margin: 6px 0 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--mono); font-size: var(--fs-xs); white-space: pre-wrap; }
 /* 设置页「添加语音识别模型」一行：服务商｜模型名｜接口类型｜添加并启用，窄了自动折行。 */
 .asr-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .asr-add-row select { width: auto; flex: 0 1 auto; max-width: 100%; }

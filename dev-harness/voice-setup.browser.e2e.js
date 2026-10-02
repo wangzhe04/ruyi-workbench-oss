@@ -107,6 +107,46 @@ const ZH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench
     ok(offed, 'V5b 设置页选择器切到「不启用」');
     ok(Boolean(await waitMic('composerVoiceBtn', 'setup')), `V5 麦克风回到待开启、没被拆掉(实测 ${JSON.stringify(await mic('composerVoiceBtn'))})`);
 
+    /* ── V6(59 号文)语音词库:同一页签里,上面几栏之后;存个人词、开关内置表、看内置表;重画上面几栏不冲掉没存的字 ── */
+    const lexPath = path.join(fx.home, 'voice-lexicon.json');
+    const lexDisk = () => { try { return JSON.parse(fs.readFileSync(lexPath, 'utf8')); } catch { return null; } };
+    const lex = await fx.waitForEval(`(() => {
+      const block = document.querySelector('#stab-voice .asr-lexicon');
+      const settings = document.querySelector('#stab-voice .asr-settings');
+      if (!block || !settings) return null;
+      const count = block.querySelector('.asr-lexicon-count');
+      if (!count || !count.textContent) return null;
+      return { after: settings.nextElementSibling === block, count: count.textContent, base: block.querySelector('.asr-lexicon-base input').checked,
+        baseText: block.querySelector('.asr-lexicon-base span').textContent, text: block.querySelector('.asr-lexicon-text').value };
+    })()`, 100);
+    ok(Boolean(lex) && lex.after && lex.count === ZH['settings.asrLexicon.count'].replace('{{count}}', '0') && lex.base === true && lex.text === '' && /\d{3}/.test(lex.baseText),
+      `V6a 语音词库一块挂在上面几栏之后:个人词空、计数 0、内置表开着并报条数(实测 ${JSON.stringify(lex)})`);
+    await fx.evaluate(`(() => {
+      const area = document.querySelector('#stab-voice .asr-lexicon-text');
+      area.value = 'HB360 = 爱趣比三六零\\n如意 = 如艺, 如一\\n???';
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#stab-voice .asr-lexicon-save').click();
+      return true;
+    })()`);
+    const savedLex = await fx.waitForEval(`(() => { const c = document.querySelector('#stab-voice .asr-lexicon-count'); return c && c.textContent === ${JSON.stringify(ZH['settings.asrLexicon.count'].replace('{{count}}', '2'))} ? 1 : null; })()`, 100);
+    const d1 = lexDisk();
+    ok(Boolean(savedLex) && d1 && Object.keys(d1.terms).join() === 'hb360,如意' && d1.terms['如意'].heard.join() === '如艺,如一',
+      `V6b 点「保存词库」:盘上 voice-lexicon.json 两条、计数变 2、认不出的那行跳过(实测 ${JSON.stringify(d1 && d1.terms)})`);
+    ok((await fx.evaluate(`document.querySelector('#stab-voice .asr-lexicon-text').value`)) === 'HB360 = 爱趣比三六零\n如意 = 如艺, 如一', 'V6c 文本框换成服务端规整后的那一份');
+    await fx.evaluate(`(() => { const b = document.querySelector('#stab-voice .asr-lexicon-base input'); b.click(); return true; })()`);
+    ok(Boolean(await fx.waitForEval(`(() => { const b = document.querySelector('#stab-voice .asr-lexicon-base input'); return b && !b.disabled && !b.checked ? 1 : null; })()`, 100)) && (lexDisk() || {}).base === false,
+      'V6d 内置表开关选中即存:盘上 base:false');
+    await fx.evaluate(`(() => { document.querySelector('#stab-voice .asr-lexicon-view-base').click(); return true; })()`);
+    const baseList = await fx.waitForEval(`(() => { const pre = document.querySelector('#stab-voice .asr-lexicon-base-list'); return pre && !pre.hidden && pre.textContent.includes('debug = 低报') ? pre.textContent.length : null; })()`, 100);
+    ok(Boolean(baseList) && baseList > 2000, `V6e 「查看内置词表」展开只读全文(实测 ${baseList} 字)`);
+    // 没存的字不被重画冲掉:打开「去语音识别设置」会重画上面几栏(renderAsrSettings),词库一块只建一次、文本框动过就不从服务端重读
+    await fx.evaluate(`(() => { const area = document.querySelector('#stab-voice .asr-lexicon-text'); area.value += '\\n还没存的词'; area.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+    await fx.evaluate(`(() => { document.dispatchEvent(new CustomEvent('ruyi:open-voice-settings')); return true; })()`);
+    await sleep(600);
+    const kept2 = await fx.evaluate(`(() => ({ n: document.querySelectorAll('#stab-voice .asr-lexicon').length, text: document.querySelector('#stab-voice .asr-lexicon-text').value }))()`);
+    ok(kept2.n === 1 && kept2.text.endsWith('还没存的词'), `V6f 重画上面几栏不冲掉没存的字、词库一块只有一份(实测 ${JSON.stringify(kept2)})`);
+    ok(!fs.readFileSync(path.join(__dirname, '..', 'ruyi-workbench', 'app', 'public', 'index.html'), 'utf8').includes('asr-lexicon'), 'V6g index.html 零静态词库标记');
+
     ok(fx.exceptions.length === 0, `V9 页面没有未捕获异常(${fx.exceptions.slice(0, 3).join(' | ') || '无'})`);
   } catch (error) {
     fail += 1;

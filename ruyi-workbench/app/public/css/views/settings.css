@@ -292,9 +292,10 @@
 #settingsModal .steward-settings-group > hr.settings-sep { display: none; }
 #settingsModal input[type="checkbox"] { accent-color: var(--accent); }
 
-/* 运行时画进来的三块（迁移中心、语音识别、扩展组件）也穿同一张卡。 */
+/* 运行时画进来的四块（迁移中心、语音识别、语音词库、扩展组件）也穿同一张卡。 */
 #settingsModal .migration-center,
 #settingsModal .asr-settings,
+#settingsModal .asr-lexicon,
 #settingsModal .toolbox-settings {
   display: flex;
   flex-direction: column;

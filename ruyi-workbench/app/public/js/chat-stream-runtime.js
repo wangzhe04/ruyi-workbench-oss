@@ -697,7 +697,7 @@ export function createChatStreamRuntime(deps = {}) {
     // Slash-command/override turns (for example /compact) must neither consume nor inherit the visible toggle.
     const agentTeam = overrideText == null && agentTeamTurnEnabled && agentTeamAvailable();
     if (agentTeam) { agentTeamTurnEnabled = false; updateAgentTeamButton(); }
-    if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); }
+    if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text: message } })); $('promptInput').value = ''; autoGrow($('promptInput')); } // 59 §6: composer-voice 学改字(COMPOSER_VOICE_SENT_EVENT)
     try { localStorage.removeItem('wcw.draft'); } catch { /* ignore */ }
 
     const box = $('messages');
@@ -979,7 +979,7 @@ export function createChatStreamRuntime(deps = {}) {
         return sendPrompt(overrideText, { ...options, skipSteer: true });
       }
       if (!r || !r.ok) { toast(t("toast.steerFail", { p1: r?.error ? apiErrText(r.error) : t('common.unknownError') }), 'err'); return; }
-      if (overrideText == null) { $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」
+      if (overrideText == null) { $('promptInput').dispatchEvent(new CustomEvent('ruyi:composer-sent', { bubbles: true, detail: { text } })); $('promptInput').value = ''; autoGrow($('promptInput')); updateSendBtn(); } // 50-fix:清空后按钮回落「停止」;59 §6 同上
       steeredSeen.push({ text, ts: Date.now() });
       if (steeredSeen.length > 50) steeredSeen.splice(0, steeredSeen.length - 50); // 50-fix:cap 防无限积
       renderSteeredMessage(text);

@@ -31,7 +31,7 @@ import { stewardShortTitle } from './util.js';
 import { autoGrow, fmtBytes } from './util.js';   // 133e：输入框随内容长高（与工作台 #promptInput 同一个 autoGrow）；附件 pill 的体积
 // 127-⑦（45 号文 §2-quinquies）：输入行里发送键前那枚麦克风。录音计时器、转写与回填全住 composer-voice.js ——
 // 本文件「恰好一处 setTimeout、零 setInterval」的纪律（I3/I4）因此一个字不用动。
-import { createComposerVoice } from './composer-voice.js';
+import { createComposerVoice, composerSent } from './composer-voice.js';
 
 // 121-K5（34 号文 §13.7 登记⑧）：F2 频道条那条 steward:pick-channel 的常量与监听器已删。
 // K4-3 删掉了频道条与它【唯一】的生产者（steward-conversation.js 的 pickChannelTarget），此后
@@ -331,6 +331,7 @@ export function createStewardComposer({
     const target = currentTarget();
     const files = attachments.splice(0, attachments.length);   // 133e：这一句带走托盘里全部附件，托盘随即清空
     renderTray();
+    composerSent(input, text);                                 // 59 号文 §6：麦克风拿这次机器写的几句与发出去的字去学改字
     input.value = '';
     input.style.height = '';                                   // 133e：发完收回一行高
     input.placeholder = t('stewardShell.compose.placeholder');

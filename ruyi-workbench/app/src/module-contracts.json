@@ -2940,12 +2940,53 @@
       ]
     },
     {
+      "file": "04j-hanzi-pinyin.js",
+      "layer": "foundation",
+      "provides": [
+        "HanziPinyin"
+      ],
+      "requires": []
+    },
+    {
+      "file": "04j-voice-lexicon.js",
+      "layer": "foundation",
+      "provides": [
+        "VoiceLexicon"
+      ],
+      "requires": []
+    },
+    {
+      "file": "04j-voice-learn.js",
+      "layer": "foundation",
+      "provides": [
+        "VoiceLearn"
+      ],
+      "requires": [
+        {
+          "provider": "04j-hanzi-pinyin.js",
+          "symbol": "HanziPinyin",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-lexicon.js",
+          "symbol": "VoiceLexicon",
+          "kinds": [
+            "read"
+          ]
+        }
+      ]
+    },
+    {
       "file": "05-claude-engine.js",
       "layer": "engine",
       "provides": [
         "AGENT_CLI_ADAPTERS",
         "ASR_FIX_CONTEXT",
         "ASR_FIX_CONTEXT_MAX",
+        "ASR_FIX_GLOSSARY",
+        "ASR_FIX_GLOSSARY_MAX",
         "ASR_FIX_HARDEN",
         "ASR_FIX_MODES",
         "ASR_FIX_SYSTEM_MERGE",
@@ -2960,6 +3001,7 @@
         "agentCliAdapter",
         "asrChatContentText",
         "asrFixContextTail",
+        "asrFixGlossaryBlock",
         "asrFixMessages",
         "asrFixModeOf",
         "asrFixSanity",
@@ -3006,7 +3048,12 @@
         "transcribeAudioViaProvider",
         "unmaskProviders",
         "unmaskSecrets",
-        "urlStillMasked"
+        "urlStillMasked",
+        "voiceLexiconAsrPromptFor",
+        "voiceLexiconChains",
+        "voiceLexiconRead",
+        "voiceLexiconStore",
+        "voiceLexiconUpdate"
       ],
       "requires": [
         {
@@ -3102,6 +3149,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -3147,6 +3201,13 @@
           "symbol": "decodeClaudeCliText",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -3616,6 +3677,13 @@
           "symbol": "providerWireProtocol",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "04j-voice-lexicon.js",
+          "symbol": "VoiceLexicon",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -11272,6 +11340,13 @@
           ]
         },
         {
+          "provider": "05-claude-engine.js",
+          "symbol": "voiceLexiconAsrPromptFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06-provider-engine.js",
           "symbol": "buildRuntimeIdentityFacts",
           "kinds": [
@@ -13288,6 +13363,7 @@
         "IMAGE_OCR_MAX_CHARS",
         "IMAGE_SEND_MAX_BYTES",
         "STEER_REFUSAL",
+        "appendAsrFixUsage",
         "audioStreamFailure",
         "audioStreamReap",
         "audioStreamSessions",
@@ -13297,6 +13373,9 @@
         "bridgedToolClient",
         "handleAudioApiRoutes",
         "handleAudioCorrect",
+        "handleAudioLexiconGet",
+        "handleAudioLexiconObserve",
+        "handleAudioLexiconSave",
         "handleAudioStreamOpen",
         "handleAudioStreamSession",
         "handleAudioTranscribe",
@@ -13625,6 +13704,20 @@
           ]
         },
         {
+          "provider": "04j-voice-learn.js",
+          "symbol": "VoiceLearn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-lexicon.js",
+          "symbol": "VoiceLexicon",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
           "provider": "05-claude-engine.js",
           "symbol": "activeOpenAiProvider",
           "kinds": [
@@ -13697,6 +13790,27 @@
         {
           "provider": "05-claude-engine.js",
           "symbol": "transcribeAudioViaProvider",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "voiceLexiconAsrPromptFor",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "voiceLexiconRead",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "05-claude-engine.js",
+          "symbol": "voiceLexiconUpdate",
           "kinds": [
             "call"
           ]
@@ -22511,6 +22625,20 @@
         {
           "provider": "04i-provider-wire.js",
           "symbol": "responsesHistoryWithCompleteToolPairs",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-learn.js",
+          "symbol": "VoiceLearn",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04j-voice-lexicon.js",
+          "symbol": "VoiceLexicon",
           "kinds": [
             "read"
           ]

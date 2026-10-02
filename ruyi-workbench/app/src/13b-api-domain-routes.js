@@ -488,7 +488,103 @@ async function handleAudioApiRoutes(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/audio/warmup') {
     return await handleAudioWarmup(req, res);
   }
+  // 59 号文:语音词库 —— 设置页读(?base=1 附原厂表全文)与整份写(个人词那份文本 + 原厂表开关)。
+  if (req.method === 'GET' && pathname === '/api/audio/lexicon') {
+    return await handleAudioLexiconGet(req, res);
+  }
+  if (req.method === 'POST' && pathname === '/api/audio/lexicon') {
+    return await handleAudioLexiconSave(req, res);
+  }
+  // 59 号文 §6:从修改里学 —— 发送时前端交来「这次落进输入框的几句机器写的字 ＋ 最终发出去的字」。
+  if (req.method === 'POST' && pathname === '/api/audio/lexicon/observe') {
+    return await handleAudioLexiconObserve(req, res);
+  }
   return false;
+}
+// ── 59 号文:语音词库的两条路由 ─────────────────────────────────────────────────────────────────────
+// 读:{ ok, text(个人词,一行一条「词 = 样子1, 样子2」), count, learned, typed, pending, learn, base:{enabled,count[,text]}, limits }。
+// 写:体 { text?: string, base?: boolean, learn?: boolean } —— text 给了就整份替换个人词(04j applyText:留下的保留来源与次数、
+// 学来的删掉留墓碑),base 开关原厂常用词,learn 开关「从我的修改里学」(59 号文 §6,缺省开);三样都没给 400。
+// 文本超长 413、条数超上限 400 —— 整份拒收,不静默截断。只记条数的审计。
+async function handleAudioLexiconGet(req, res) {
+  const withBase = new URL(req.url, 'http://x').searchParams.get('base') === '1';
+  return send(res, json({ ok: true, ...VoiceLexicon.view(await voiceLexiconRead(), { withBase }) }));
+}
+async function handleAudioLexiconSave(req, res) {
+  let body;
+  try { body = await readJsonBody(req); } catch { return send(res, apiFailure('voice.lexicon_bad_request', {}, '请求体不是合法 JSON', 400)); }
+  const hasText = body && typeof body.text === 'string';
+  const hasBase = body && typeof body.base === 'boolean';
+  const hasLearn = body && typeof body.learn === 'boolean';
+  if (!hasText && !hasBase && !hasLearn) return send(res, apiFailure('voice.lexicon_bad_request', {}, 'text(字符串)、base(布尔)、learn(布尔)至少给一个', 400));
+  if (hasText && body.text.length > VoiceLexicon.MAX_TEXT_CHARS) {
+    return send(res, apiFailure('voice.lexicon_too_large', { maxChars: VoiceLexicon.MAX_TEXT_CHARS }, '词库文本超过上限', 413));
+  }
+  let rejected = null, skipped = 0;
+  const saved = await voiceLexiconUpdate(state => {
+    let next = state;
+    if (hasText) {
+      const r = VoiceLexicon.applyText(next, body.text, nowIso());
+      if (r.overflow) { rejected = { count: r.count + r.overflow }; return null; }
+      next = r.state; skipped = r.skipped;
+    }
+    if (hasBase) next = VoiceLexicon.setBase(next, body.base);
+    if (hasLearn) next = VoiceLexicon.setLearn(next, body.learn);
+    return next;
+  });
+  if (rejected) {
+    return send(res, apiFailure('voice.lexicon_too_many', { count: rejected.count, maxTerms: VoiceLexicon.MAX_TERMS }, '词条超过上限', 400));
+  }
+  const view = VoiceLexicon.view(saved);
+  logEvent({ kind: 'voice_lexicon_save', terms: view.count, base: view.base.enabled, learn: view.learn, skipped });
+  return send(res, json({ ok: true, ...view, skipped }));
+}
+// ── 59 号文 §6:从修改里学 ─────────────────────────────────────────────────────────────────────────
+// 体 { sentences:[{ text(机器最后写进输入框的那一版), first?(第一遍原文) }], final(最终发出去的字) } —— 前端在发送那一刻交来
+// (只有麦克风这一路记 sentences;没用语音的消息 sentences 为空,只从打的字里抽英文专名)。学习关着 → { ok, learn:false },什么都不做。
+// 编排:04j VoiceLearn.extract 抽候选 → 有要判的、且配了改字大模型(与句尾改错同一个端点,resolveAsrFixProvider)就请它判一发
+// (aux/voice-learn 记账;没配/失败就只靠读音规则与次数)→ voiceLexiconUpdate 串行落盘(VoiceLearn.apply)。
+// 回 { ok, learn:true, learned:[{ term, heard }](这次新学会的,前端据此提示一句), reversed(这次被扣分的词数) }。
+// 文本只在内存里走一趟:日志只记条数(几句、对上几句、几处改动、问了几处、学会几个),不记字。
+async function handleAudioLexiconObserve(req, res) {
+  const t0 = Date.now();
+  let body;
+  try { body = await readJsonBody(req); } catch { return send(res, apiFailure('voice.observe_bad_request', {}, '请求体不是合法 JSON', 400)); }
+  const final = body && typeof body.final === 'string' ? body.final : null;
+  const sentences = body && body.sentences != null ? body.sentences : [];
+  if (final == null || !Array.isArray(sentences) || sentences.some(x => !x || typeof x !== 'object' || typeof x.text !== 'string' || (x.first != null && typeof x.first !== 'string'))) {
+    return send(res, apiFailure('voice.observe_bad_request', {}, 'final 是字符串,sentences 是 [{ text, first? }]', 400));
+  }
+  if (final.length > VoiceLearn.MAX_FINAL_CHARS || sentences.length > VoiceLearn.MAX_SENTENCES
+    || sentences.some(x => x.text.length > VoiceLearn.MAX_SENTENCE_CHARS || String(x.first || '').length > VoiceLearn.MAX_SENTENCE_CHARS)) {
+    return send(res, apiFailure('voice.observe_too_large', { maxChars: VoiceLearn.MAX_FINAL_CHARS, maxSentences: VoiceLearn.MAX_SENTENCES }, '要学的文字超过上限', 413));
+  }
+  const before = await voiceLexiconRead();
+  if (!before.learn) return send(res, json({ ok: true, learn: false, learned: [], reversed: 0 }));
+  const plan = VoiceLearn.extract({ sentences, final });
+  const ask = VoiceLearn.judgeMessages(plan, before);
+  let verdicts = null, judge = 'none';
+  if (ask) {
+    const llmRes = resolveAsrFixProvider(await readConfig());
+    if (llmRes.failure) judge = 'off';
+    else {
+      const r = await providerFixCompletion(llmRes.provider, llmRes.model, ask.messages);
+      judge = r.ok ? 'ok' : 'failed';
+      if (r.ok) verdicts = VoiceLearn.parseJudge(plan, ask.ids, r.content);
+      appendAsrFixUsage(llmRes, r, ask.messages.reduce((n, m) => n + String(m.content).length, 0), 'voice-learn');
+    }
+  }
+  let result = null;
+  await voiceLexiconUpdate(state => {
+    result = VoiceLearn.apply(state, plan, verdicts, nowIso());
+    return result.changed ? result.state : null;
+  });
+  logEvent({
+    kind: 'voice_learn', sentences: plan.stats.sentences, fitted: plan.stats.fitted, edits: plan.items.length, typed: plan.typed.length,
+    judge, asked: ask ? ask.ids.length : 0, judged: verdicts ? verdicts.size : 0, learned: result.learned.length, reversed: result.reversed.length,
+    pending: result.pending, durationMs: Date.now() - t0,
+  });
+  return send(res, json({ ok: true, learn: true, learned: result.learned.slice(0, 5).map(x => ({ term: x.term, heard: x.heard })), reversed: result.reversed.length }));
 }
 // ── 133f(用户 2026-09-21「标准/重度第一次又卡又不准」):预热 —— 语音识别的本地模型装好了没,没好就现在装 ─────────────
 // 成因(日志实证,2026-09-21 asr_transcribe_ok):toolbox 的 asr-shim 空转时不 import torch(约定 §2.2「空转要轻」),第一发转写才加载 ——
@@ -551,6 +647,22 @@ async function handleAudioWarmup(req, res) {
 //   audio = 只重听;llm = 只改字;off = 409。
 // 结果优先级:大模型改出来的(过了合理性)> 重听的 > 空(两条路都没成 → 502,前端保留第一遍)。
 // 上游地址只来自配置;音频只在内存;日志只记元数据(模式、两条路各自成没成、字数、耗时),不记文本。记账:大模型一发 aux/asr-fix。
+// 改字大模型一发的记账(aux;句尾改错 note:'asr-fix'、从修改里学的复核 note:'voice-learn'):与 /api/audio/transcribe 同口径 ——
+// 有 usage 记真数,没有就按字数估算(inChars ≈ 送出去的字数)并标 estimated。正文为空那一发也花了钱,照记;连 usage 都没有的失败不记。
+function appendAsrFixUsage(llmRes, r, inChars, note) {
+  if (!r.usage && !r.ok) return;
+  const u = r.usage && typeof r.usage === 'object' ? r.usage : null;
+  const num = n => { const v = Number(u && u[n]); return Number.isFinite(v) && v > 0 ? Math.round(v) : 0; };
+  const realIn = num('prompt_tokens') || num('input_tokens'), realOut = num('completion_tokens') || num('output_tokens');
+  const hasUsage = (realIn + realOut) > 0;
+  const inTok = hasUsage ? realIn : Math.max(1, Math.ceil(inChars / 2));
+  const outTok = hasUsage ? realOut : Math.max(1, Math.ceil(String((r.ok && r.content) || '').length / 2));
+  const { cost, currency } = computeProviderCost(llmRes.provider, inTok, outTok, 0, llmRes.model);
+  appendUsageLedger({
+    sessionId: '', engine: 'openai', provider: llmRes.provider.id, model: llmRes.model,
+    inTok, outTok, cachedInTok: 0, cost, currency, costTrusted: cost != null, estimated: !hasUsage, kind: 'aux', note,
+  });
+}
 const AUDIO_FIX_MAX_TEXT = 4000;
 const AUDIO_FIX_MAX_AUDIO_B64 = 2 * 1024 * 1024;   // 一句 ≤ 20 s 的 16 kHz WAV 约 640 KB,base64 后约 860 KB
 async function handleAudioCorrect(req, res) {
@@ -575,45 +687,37 @@ async function handleAudioCorrect(req, res) {
   if (!canAudio && !canLlm) {
     return send(res, apiFailure('asr.fix_not_configured', { mode }, '句尾改错没有可用的端点(整段识别与大模型都没配)', 409));
   }
+  // 59 号文:语音词库 —— 重听那一路带 prompt(按第一遍文字挑出来的词),改字那一路带 <glossary>(按两版文字挑)。
+  const lexicon = await voiceLexiconRead();
   let audioText = null, audioErr = '';
   if (canAudio) {
     let audio = null;
     try { audio = Buffer.from(audioB64, 'base64'); } catch { audio = null; }
     if (audio && audio.length) {
       const ct = String((body && body.contentType) || 'audio/wav').split(';')[0].trim().toLowerCase();
+      const prompt = await voiceLexiconAsrPromptFor(audioRes.provider, text, lexicon);
       const r = await transcribeAudioViaProvider(audioRes.provider, audioRes.asrModel, {
-        audio, contentType: ct.startsWith('audio/') ? ct : 'audio/wav', filename: 'voice.wav', language: '', prompt: '',
+        audio, contentType: ct.startsWith('audio/') ? ct : 'audio/wav', filename: 'voice.wav', language: '', prompt,
       });
       if (r.failure) audioErr = String(r.failure.code || 'failed'); else audioText = String(r.text || '').trim();
     } else audioErr = 'asr.fix_bad_audio';
   }
-  let llmText = null, llmErr = '';
+  let llmText = null, llmErr = '', glossaryLen = 0;
   if (canLlm && (text || audioText)) {
-    const r = await providerFixCompletion(llmRes.provider, llmRes.model, asrFixMessages(text, audioText, context));
+    const glossary = VoiceLexicon.glossaryLines(VoiceLexicon.pick({ text: [text, audioText || ''].join('\n'), state: lexicon }));
+    glossaryLen = glossary.length;
+    const r = await providerFixCompletion(llmRes.provider, llmRes.model, asrFixMessages(text, audioText, context, glossary));
     if (!r.ok) llmErr = String(r.error || 'failed').slice(0, 200);
     else {
       llmText = asrFixSanity((audioText && audioText.length > text.length) ? audioText : text, r.content) || null;
       if (!llmText) llmErr = 'sanity';
     }
-    // 记账(aux/asr-fix):与 /api/audio/transcribe 同口径 —— 有 usage 记真数,没有就估算并标 estimated。正文为空那一发也花了钱,照记。
-    if (r.usage || r.ok) {
-      const u = r.usage && typeof r.usage === 'object' ? r.usage : null;
-      const num = n => { const v = Number(u && u[n]); return Number.isFinite(v) && v > 0 ? Math.round(v) : 0; };
-      const realIn = num('prompt_tokens') || num('input_tokens'), realOut = num('completion_tokens') || num('output_tokens');
-      const hasUsage = (realIn + realOut) > 0;
-      const inTok = hasUsage ? realIn : Math.max(1, Math.ceil((text.length + (audioText || '').length + 320) / 2));
-      const outTok = hasUsage ? realOut : Math.max(1, Math.ceil(String((r.ok && r.content) || '').length / 2));
-      const { cost, currency } = computeProviderCost(llmRes.provider, inTok, outTok, 0, llmRes.model);
-      appendUsageLedger({
-        sessionId: '', engine: 'openai', provider: llmRes.provider.id, model: llmRes.model,
-        inTok, outTok, cachedInTok: 0, cost, currency, costTrusted: cost != null, estimated: !hasUsage, kind: 'aux', note: 'asr-fix',
-      });
-    }
+    appendAsrFixUsage(llmRes, r, text.length + (audioText || '').length + 320, 'asr-fix');
   }
   const final = llmText || audioText || '';
   logEvent({
     kind: 'asr_fix', mode, audio: canAudio ? (audioText != null ? 'ok' : (audioErr || 'skip')) : 'off',
-    llm: canLlm ? (llmText ? 'ok' : (llmErr || 'skip')) : 'off', inLen: text.length, ctxLen: context.length, outLen: final.length, durationMs: Date.now() - t0,
+    llm: canLlm ? (llmText ? 'ok' : (llmErr || 'skip')) : 'off', inLen: text.length, ctxLen: context.length, outLen: final.length, glossary: glossaryLen, durationMs: Date.now() - t0,
   });
   if (!final) return send(res, apiFailure('asr.fix_failed', { audio: audioErr, llm: llmErr }, '两条路都没改出结果', 502));
   return send(res, json({ ok: true, text: final, used: { audio: audioText != null, llm: Boolean(llmText) }, durationMs: Date.now() - t0 }));
@@ -662,7 +766,9 @@ async function handleAudioStreamOpen(req, res) {
   catch (err) { if (err && err.statusCode === 413) return send(res, apiFailure('asr.stream_bad_request', {}, '请求体过大', 413)); throw err; }
   const parsed = raw.length ? safeJsonParse(raw.toString('utf8'), null) : {};
   if (raw.length && (!parsed || typeof parsed !== 'object')) return send(res, apiFailure('asr.stream_bad_request', {}, '请求体不是合法 JSON', 400));
-  const hotwords = Array.isArray(parsed.hotwords) ? parsed.hotwords.filter(w => typeof w === 'string').map(w => w.trim().slice(0, 40)).filter(Boolean).slice(0, 200) : [];
+  let hotwords = Array.isArray(parsed.hotwords) ? parsed.hotwords.filter(w => typeof w === 'string').map(w => w.trim().slice(0, 40)).filter(Boolean).slice(0, 200) : [];
+  // 59 号文:前端没给热词(今天它开会话只发 {})就用语音词库里的个人词。原厂通用词不当热词(52 号文 §2:几乎没用)。
+  if (!hotwords.length) hotwords = VoiceLexicon.hotwords(await voiceLexiconRead());
   audioStreamReap();
   if (audioStreamSessions.size >= AUDIO_STREAM_MAX_SESSIONS) return send(res, apiFailure('asr.stream_busy', { max: AUDIO_STREAM_MAX_SESSIONS }, '实时识别会话太多,稍后再试', 429));
   const upstream = String(resolved.provider.baseUrl || '').replace(/\/+$/, '');
@@ -755,7 +861,8 @@ async function maybeTranscribeAudioAttachment(file) {
     if (!audio.length) return;
     const ext = String(file.name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
     const mime = { wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', webm: 'audio/webm', ogg: 'audio/ogg', flac: 'audio/flac' }[(ext && ext[1]) || ''] || 'application/octet-stream';
-    const result = await transcribeAudioViaProvider(resolved.provider, resolved.asrModel, { audio, contentType: mime, filename: file.name, language: '', prompt: '' });
+    const prompt = await voiceLexiconAsrPromptFor(resolved.provider, '');   // 59 号文:个人词当提示(会议录音里的人名、项目名)
+    const result = await transcribeAudioViaProvider(resolved.provider, resolved.asrModel, { audio, contentType: mime, filename: file.name, language: '', prompt });
     if (result.failure) { file.transcribeError = result.failure.code; return; }
     file.transcript = String(result.text || '').slice(0, 12000);
   } catch { file.transcribeError = 'asr.internal'; }
@@ -836,7 +943,8 @@ async function handleAudioTranscribe(req, res) {
   const filename = (rawName && rawName.length <= 255 && rawName === path.basename(rawName) && rawName !== '.' && rawName !== '..')
     ? rawName : ('audio' + ({ 'audio/webm': '.webm', 'audio/wav': '.wav', 'audio/wave': '.wav', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/ogg': '.ogg', 'audio/flac': '.flac' }[contentType] || '.bin'));
   const language = String(q.get('language') || '').trim().slice(0, 40);
-  const hint = String(q.get('prompt') || '').slice(0, 4000);
+  // 调用方给了 prompt 就用它的;没给(麦克风按停顿切段那条路今天都不给)就用语音词库里的个人词(59 号文)。
+  const hint = String(q.get('prompt') || '').slice(0, 4000) || await voiceLexiconAsrPromptFor(provider, '');
   let audio;
   try {
     audio = await readAudioBody(req);

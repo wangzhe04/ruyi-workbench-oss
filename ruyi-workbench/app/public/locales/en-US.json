@@ -1047,6 +1047,27 @@
   "settings.asrPreset.need.light": "Install the ruyi-toolbox asr-stream add-on first (includes SenseVoice)",
   "settings.asrPreset.need.standard": "Install the ruyi-toolbox asr-shim add-on first (local Qwen3-ASR, 0.6B)",
   "settings.asrPreset.need.heavy": "Download the 1.7B model in asr-shim first: download-model.ps1 -Model qwen3-asr-1.7b",
+  "settings.asrLexicon.title": "Voice vocabulary",
+  "settings.asrLexicon.help": "Words you say often that keep getting misrecognized (names, project names, jargon). One per line; optionally list how it tends to be misheard, e.g. \"Ruyi = 如艺, 如一\".",
+  "settings.asrLexicon.placeholder": "Kubernetes = 酷伯奈提斯\nRuyi = 如艺, 如一\nZhang Wei",
+  "settings.asrLexicon.save": "Save vocabulary",
+  "settings.asrLexicon.count": "{{count}} term(s)",
+  "settings.asrLexicon.saved": "Vocabulary saved ({{count}} term(s))",
+  "settings.asrLexicon.savedSkipped": "Vocabulary saved ({{count}} term(s)); skipped {{skipped}} unreadable line(s)",
+  "settings.asrLexicon.base": "Also use the built-in list ({{count}} common tech, office, AI and game-engine terms; hinted only when a sentence looks like a mishearing of one)",
+  "settings.asrLexicon.baseOn": "Built-in list enabled",
+  "settings.asrLexicon.baseOff": "Built-in list disabled",
+  "settings.asrLexicon.viewBase": "View built-in list",
+  "settings.asrLexicon.hideBase": "Hide built-in list",
+  "settings.asrLexicon.note": "These are hints, never blind replacements: live recognition uses your terms as hotwords; end-of-sentence re-listening and LLM correction switch to a term only when both the sound and the context fit. Cloud conversational recognizers (e.g. MiMo) don't get the list yet.",
+  "settings.asrLexicon.loadFailed": "Could not load the vocabulary",
+  "settings.asrLexicon.error.failed": "Could not save the vocabulary",
+  "settings.asrLexicon.error.tooMany": "Too many terms: {{count}} (max {{maxTerms}})",
+  "settings.asrLexicon.error.tooLarge": "The vocabulary text is too long (max {{maxChars}} characters)",
+  "settings.asrLexicon.learn": "Learn from my edits: words you fix by hand after dictating (names, project names, jargon) are added to this vocabulary automatically, and English proper nouns you type are collected too. You get a short notice whenever a new word is learned. Delete a learned word and it won't be learned again",
+  "settings.asrLexicon.learnOn": "Learning from your edits is on",
+  "settings.asrLexicon.learnOff": "Learning from your edits is off (learned words are kept)",
+  "settings.asrLexicon.countLearned": "{{count}} term(s) ({{learned}} learned from edits, {{typed}} from typing; {{pending}} still gathering evidence)",
   "settings.toolbox.kind.asrStream": "Local live speech recognition",
   "settings.apiKey": "API key",
   "settings.apiKeyPlaceholder": "Leave blank to keep the saved key unchanged",
@@ -3291,6 +3312,9 @@
   ,"composer.voice.warming.ready": "Speech recognition is ready, go ahead and speak"
   ,"composer.voice.warming.readyIdle": "Speech recognition is ready, click the microphone to start"
   ,"composer.voice.warming.failed": "The more accurate local model could not be loaded; using live recognition this time, so finished sentences may not be corrected"
+  ,"composer.voice.learned": "Learned: {{heard}} → {{term}}{{more}} (manage it in Settings → Speech recognition → Voice vocabulary)"
+  ,"composer.voice.learnedTerm": "Learned: {{term}}{{more}} (manage it in Settings → Speech recognition → Voice vocabulary)"
+  ,"composer.voice.learnedMore": " (+{{count}} more)"
   ,"promptQueue.dock.title": "Questions and permissions waiting for you"
   ,"promptQueue.dock.label": "Waiting for you"
   ,"promptQueue.dock.longest": "oldest {{time}}"
