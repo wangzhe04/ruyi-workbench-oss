@@ -17,7 +17,7 @@ import { apiRaw } from './net.js';
 //      裸 fetch 会在退避循环里拿着旧 token 永远 403（117q-B3a 拿看板那一次真 bug 换来的纪律，
 //      30 号文 §4.6 P1-6）—— 而推送这条线断了之后四处兜底轮询就是唯一的眼睛，还得靠它自愈。
 //      本文件因此不碰 token、不拼第二份头、也不直调 fetch。
-//   ② 在场信号（§4.3）只在【连接时】由 `?lens=&sessionId=` 报给服务端（13r 的连接表就是那份快照，
+//   ② 在场信号（§4.3）只在【连接时】由 `?lens=&sessionId=`（2026-10 起另有可缺的 `&viewing=`）报给服务端（13r 的连接表就是那份快照，
 //      **没有第二个写口**）。所以「换视角／换会话」这件事的唯一落实方式是【重连】：去抖 300 ms
 //      合并连点，再断开旧连接、带 `Last-Event-ID` 重连。
 //   ③ 页面隐藏【不断连】：在场信号要真（用户只是切走标签页，人还在壳里坐着）。真正的收摊信号是
@@ -78,10 +78,15 @@ export function createEventStream({
   // 在场信号的两个读口（组合根注入：视角读 data-shell-mode，会话读 state.currentSession）。
   lensProvider = () => '',
   sessionIdProvider = () => '',
+  // 2026-10：第三个在场读口 —— 此刻摆在用户面前、且人在跟前的那几条线程（js/presence-viewing.js 判），
+  // 服务端据此让管家对它们「不插手」。缺省空数组 = 不报（今天的行为）。也可以事后由 setViewingProvider 装上
+  // （interaction-prompts 在 bindPromptQueueEvents 里装，组合根一行不加）；变了由装的那一方调 sync() 重连。
+  viewingProvider = () => [],
   // 测试与非浏览器环境的接缝；生产一律走 net.js 的 apiRaw 与全局 document。
   requestImpl = null,
   documentImpl = null,
 } = {}) {
+  let viewingSource = viewingProvider;
   const listeners = new Map();          // event name -> Set<fn>
   let controller = null;                // 当前连接的 AbortController
   let started = false;                  // start() 过、还没 stop()
@@ -140,13 +145,19 @@ export function createEventStream({
     let sessionId = '';
     try { lens = String(lensProvider() || ''); } catch { lens = ''; }
     try { sessionId = String(sessionIdProvider() || ''); } catch { sessionId = ''; }
-    return { lens, sessionId, key: `${lens}|${sessionId}` };
+    let viewing = '';
+    try {
+      const ids = viewingSource();
+      viewing = [...new Set((Array.isArray(ids) ? ids : []).map(id => String(id || '')).filter(Boolean))].sort().join(',');
+    } catch { viewing = ''; }
+    return { lens, sessionId, viewing, key: `${lens}|${sessionId}|${viewing}` };
   }
 
   function urlFor(presence) {
     const params = new URLSearchParams();
     params.set('lens', presence.lens);
     params.set('sessionId', presence.sessionId);
+    if (presence.viewing) params.set('viewing', presence.viewing);
     return `${EVENT_STREAM_PATH}?${params.toString()}`;
   }
 
@@ -346,6 +357,7 @@ export function createEventStream({
     on,
     off,
     publishLocal,
+    setViewingProvider: fn => { viewingSource = typeof fn === 'function' ? fn : () => []; },
     isConnected: () => connected === true,
     // 只读实况（给 e2e 与诊断用；不挂全局、不给写口）。
     stats: () => ({ connected, frames, connects, lastEventId, presenceKey, retryMs, lastSeenSeq, replayed, replayWindow }),

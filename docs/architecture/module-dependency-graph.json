@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3327,
-    "requiredSymbols": 3051,
-    "edges": 530,
+    "providedSymbols": 3352,
+    "requiredSymbols": 3063,
+    "edges": 531,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -5523,6 +5523,7 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
         "STEWARD_BRIEF_CLOSE",
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
@@ -5612,6 +5613,7 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardAutoAskIndirect",
         "stewardChatCapableProvider",
         "stewardClipSay",
         "stewardConfigHelpFor",
@@ -7081,6 +7083,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskIndirect",
           "kinds": [
             "call"
           ]
@@ -15463,10 +15472,12 @@
         "STEWARD_SOURCE_EVENT_MAP",
         "STEWARD_SUMMARY_CHARS",
         "STEWARD_TICK_MAX_EVENTS",
+        "STEWARD_WAKE_DELAYS_MS",
         "startStewardInbox",
         "stewardAppendChain",
         "stewardAppendInboxRows",
         "stewardApplyPresenceGate",
+        "stewardClearWake",
         "stewardClipSummary",
         "stewardCollectEvents",
         "stewardCollectSessionTurn",
@@ -15492,6 +15503,8 @@
         "stewardNormalizeSessionTurn",
         "stewardNormalizeThreadAdopted",
         "stewardParseInboxText",
+        "stewardPendingKeyOf",
+        "stewardPendingStillOpen",
         "stewardPresenceRows",
         "stewardQueueThreadAdopted",
         "stewardReadInboxRows",
@@ -15505,9 +15518,11 @@
         "stewardRunTick",
         "stewardRuntime",
         "stewardSaveCursor",
+        "stewardScheduleWake",
         "stewardThreadBackgroundBusy",
         "stewardTickOnce",
         "stewardTrimCursorMap",
+        "stewardViewingSessionIds",
         "stopStewardInbox"
       ],
       "requires": [
@@ -15994,6 +16009,7 @@
         "stewardLiveTurnPermissionMode",
         "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
+        "stewardMediatesPermissions",
         "stewardMissionExists",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
@@ -16518,6 +16534,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "threadOriginOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "waitReasonFor",
           "kinds": [
             "call"
@@ -16827,12 +16850,15 @@
       "provides": [
         "STEWARD_AUDIT_TELEMETRY_KINDS",
         "STEWARD_CONFIG_KEYS",
+        "STEWARD_DECIDE_ATTEMPTS_MAX",
         "STEWARD_ENV_TEMPLATE_RE",
         "STEWARD_RUN_ACTION_KIND",
         "STEWARD_RUN_ADVANCING",
         "STEWARD_RUN_TIGHTENING",
         "STEWARD_SECRET_FILE_RE",
         "stewardAddUsageRow",
+        "stewardDecideAttempted",
+        "stewardDecideAttempts",
         "stewardEmptyUsageBucket",
         "stewardExternalBlock",
         "stewardEyesSettle",
@@ -16863,6 +16889,7 @@
         "stewardImplWebFetch",
         "stewardImplWebSearch",
         "stewardIsSecretFilePath",
+        "stewardNoteDecideAttempt",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
@@ -17133,6 +17160,13 @@
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskIndirect",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18165,6 +18199,7 @@
         "STEWARD_ACT_CONFIRM_LABEL_MAX",
         "STEWARD_ACT_CONFIRM_VALUE_CHARS",
         "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_BLOCKING_DEBOUNCE_MS",
         "STEWARD_CONTINUE_FRESH_MS",
         "STEWARD_CONTINUE_NOPLAN_MAX",
         "STEWARD_CONTINUE_PLAN_MAX",
@@ -18193,6 +18228,8 @@
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
         "STEWARD_USER_QUEUE_WAIT_MS",
+        "STEWARD_VIEW_HELD_MAX",
+        "STEWARD_VIEW_RECHECK_MS",
         "STEWARD_VISITS_DIR",
         "STEWARD_VISITS_KEEP",
         "STEWARD_VISIT_DIGEST_MAX",
@@ -18979,6 +19016,7 @@
         "stewardCircuitCheck",
         "stewardContinueUnfinishedGate",
         "stewardDayCost",
+        "stewardDecideNudgeNote",
         "stewardDeliverableBlock",
         "stewardDisplayTitleOf",
         "stewardDowngradeActions",
@@ -19444,16 +19482,21 @@
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
+        "stewardDecideNudged",
         "stewardDeferredNotified",
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardEnsureOpenAiRoute",
+        "stewardHoldViewedEvents",
+        "stewardInboxDebounceMs",
         "stewardInboxRetryCounts",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
         "stewardPendingList",
+        "stewardQueueHasBlockingAsk",
         "stewardQueueHasQuickAnswer",
+        "stewardRecheckViewHeld",
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
         "stewardRequeueFailedInboxBatch",
@@ -19462,6 +19505,7 @@
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
         "stewardUserWaiters",
+        "stewardViewedPendingStillOpen",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
@@ -19701,6 +19745,34 @@
           ]
         },
         {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardPendingKeyOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardPendingStillOpen",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardPresenceRows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardViewingSessionIds",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13j-steward-tool-base.js",
           "symbol": "_stewardReadBudget",
           "kinds": [
@@ -19737,7 +19809,14 @@
         },
         {
           "provider": "13k-steward-threads.js",
-          "symbol": "stewardMediatedPermissionWaitMs",
+          "symbol": "stewardMediatesPermissions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardDecideAttempted",
           "kinds": [
             "call"
           ]
@@ -19752,6 +19831,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_ACTION_HOOKS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_BLOCKING_DEBOUNCE_MS",
           "kinds": [
             "read"
           ]
@@ -19793,7 +19879,28 @@
         },
         {
           "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_QUICK_DEBOUNCE_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_USER_QUEUE_WAIT_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VIEW_HELD_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VIEW_RECHECK_MS",
           "kinds": [
             "read"
           ]
@@ -20295,6 +20402,7 @@
         "EVENT_STREAM_ROW_SIG_MAX",
         "EVENT_STREAM_SUMMARY_MAX",
         "EVENT_STREAM_TEXT_TAIL",
+        "EVENT_STREAM_VIEWING_MAX",
         "eventStreamClients",
         "eventStreamEmitThreadState",
         "eventStreamIsStewardSession",
@@ -20307,6 +20415,7 @@
         "eventStreamSeq",
         "eventStreamStateAgain",
         "eventStreamStateBusy",
+        "eventStreamViewingFrom",
         "eventStreamWriteFrame",
         "handleEventStreamApiRoutes",
         "stewardPresenceSnapshot"
@@ -27251,6 +27360,7 @@
       "to": "06i-steward-core.js",
       "symbols": [
         "isStewardToolName",
+        "stewardAutoAskIndirect",
         "stewardToolPermanentlyExempt"
       ],
       "direction": "backward"
@@ -29997,6 +30107,7 @@
         "stewardWatchedThread",
         "stewardWorkspaceLabels",
         "stewardWorkspaceRootFor",
+        "threadOriginOf",
         "waitReasonFor"
       ],
       "direction": "backward"
@@ -30176,6 +30287,7 @@
         "STEWARD_NOTIFY_KINDS",
         "STEWARD_NOTIFY_TEXT_CHARS",
         "STEWARD_SESSION_ID",
+        "stewardAutoAskIndirect",
         "stewardConfigHelpFor",
         "stewardConfigTierFor",
         "stewardExemptDelegationVerdict",
@@ -30858,7 +30970,11 @@
       "to": "13i-steward-inbox.js",
       "symbols": [
         "stewardDir",
-        "stewardInboxRead"
+        "stewardInboxRead",
+        "stewardPendingKeyOf",
+        "stewardPendingStillOpen",
+        "stewardPresenceRows",
+        "stewardViewingSessionIds"
       ],
       "direction": "backward"
     },
@@ -30878,7 +30994,15 @@
       "symbols": [
         "stewardErrorDetail",
         "stewardLaunchingTurns",
-        "stewardMediatedPermissionWaitMs"
+        "stewardMediatesPermissions"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "13q-steward-runner-turn.js",
+      "to": "13l-steward-ops.js",
+      "symbols": [
+        "stewardDecideAttempted"
       ],
       "direction": "backward"
     },
@@ -30887,12 +31011,16 @@
       "to": "13m-steward-runner-base.js",
       "symbols": [
         "STEWARD_ACTION_HOOKS",
+        "STEWARD_BLOCKING_DEBOUNCE_MS",
         "STEWARD_DEBOUNCE_MS",
         "STEWARD_DIGEST_KIND_TEXT",
         "STEWARD_INBOX_EVENTS_PER_TURN",
         "STEWARD_PENDING_LIST_MAX",
         "STEWARD_PREEMPT_WAIT_MS",
+        "STEWARD_QUICK_DEBOUNCE_MS",
         "STEWARD_USER_QUEUE_WAIT_MS",
+        "STEWARD_VIEW_HELD_MAX",
+        "STEWARD_VIEW_RECHECK_MS",
         "STEWARD_VISITS_DIR",
         "STEWARD_VISITS_KEEP",
         "STEWARD_VISIT_DIGEST_MAX",

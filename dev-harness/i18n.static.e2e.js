@@ -220,7 +220,11 @@ const placeholders = value => [...String(value).matchAll(/{{\s*([\w.-]+)\s*}}/g)
   // 121-K5（34 号文 §3.1）：2.0 那张四档单选卡（permission.mode.title）随 #permChip 退役 ——
   // 权限自此只有两处：线程头那一枚 chip（会话级，steward-chips.js）与顶栏盾牌（新任务默认，
   // steward-settings.js）。钉的事实一个字没变：权限的人话仍然全部走目录，没有硬编码。
-  assert.ok(app.includes("t('stewardShell.permission.confirmTitle')"), 'permission confirm must use the catalog');
+  // 2026-10 重钉：全自动（bypass）回界面后确认文案按档取（confirm-panel.js 的 permissionConfirmSpec），
+  // 标题键住登记表、调用点 t(spec.titleKey) —— 仍然全部走目录。
+  assert.ok(app.includes("titleKey: 'stewardShell.permission.confirmTitle'")
+    && app.includes("titleKey: 'stewardShell.permission.bypassConfirmTitle'")
+    && app.includes('t(spec.titleKey)'), 'permission confirm must use the catalog');
   assert.ok(app.includes("t('capability.networkAndEngine'"), 'capability popover must use the catalog');
   assert.ok(artifactChanges.includes("t('tool.artifacts.turn'"), 'artifact turn headings must use the catalog');
   assert.ok(app.includes("tCount('tool.group.completed'"), 'tool group summaries must use localized pluralization');

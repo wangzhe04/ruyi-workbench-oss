@@ -5,7 +5,7 @@ import { toast } from './util.js';
 import {
   STEWARD_PERMISSION_MODES,
   STEWARD_PERMISSION_CONFIRM_MODES,
-  STEWARD_CONFIRM_KEYS,
+  permissionConfirmSpec,
   permissionLabelKey,
   permissionHintKey,
   stewardEscapeStack,
@@ -301,20 +301,21 @@ export function createStewardSettingsDomain({
     if (box) box.hidden = true;
   }
 
-  // 二次确认：文案与顺序【就是】js/confirm-panel.js 登记表里那一份 STEWARD_CONFIRM_KEYS
-  // （§8.6 那五条，经 chips re-export 取得），不复制第二份。
+  // 二次确认：文案与顺序【就是】js/confirm-panel.js 登记表里那一份（permissionConfirmSpec：智能自动是 §8.6
+  // 那五条 STEWARD_CONFIRM_KEYS，全自动是它自己的四条；经 chips re-export 取得），不复制第二份。
   function showPermissionConfirm(mode, onAccept, onCancel) {
     const box = byId('cfgStewardPermissionConfirm');
     if (!box) { onAccept(); return; }
+    const spec = permissionConfirmSpec(mode);
     const title = byId('cfgStewardPermissionConfirmTitle');
-    if (title) title.textContent = t('stewardShell.permission.confirmTitle');
+    if (title) title.textContent = t(spec.titleKey);
     const list = byId('cfgStewardPermissionConfirmList');
     clear(list);
-    if (list) for (const key of STEWARD_CONFIRM_KEYS) list.appendChild(el('li', '', t(key)));
+    if (list) for (const key of spec.listKeys) list.appendChild(el('li', '', t(key)));
     const cancel = byId('cfgStewardPermissionCancel');
     const accept = byId('cfgStewardPermissionOk');
-    if (cancel) { cancel.textContent = t('stewardShell.permission.confirmCancel'); cancel.onclick = () => { hidePermissionConfirm(); onCancel(); }; }
-    if (accept) { accept.textContent = t('stewardShell.permission.confirmOk'); accept.onclick = () => { hidePermissionConfirm(); onAccept(mode); }; }
+    if (cancel) { cancel.textContent = t(spec.cancelKey); cancel.onclick = () => { hidePermissionConfirm(); onCancel(); }; }
+    if (accept) { accept.textContent = t(spec.okKey); accept.onclick = () => { hidePermissionConfirm(); onAccept(mode); }; }
     box.hidden = false;
     if (accept) accept.focus();
   }
@@ -374,20 +375,22 @@ export function createStewardSettingsDomain({
     btn.setAttribute('aria-label', btn.title);
   }
 
-  // 二次确认就地展开在盾牌菜单里：文案就是 STEWARD_CONFIRM_KEYS 那一份，不复制第二份。
+  // 二次确认就地展开在盾牌菜单里：文案就是 permissionConfirmSpec 那一份（含 STEWARD_CONFIRM_KEYS），不复制第二份。
   function showShieldConfirm(menu, mode) {
     clear(menu);
+    const spec = permissionConfirmSpec(mode);
     const box = el('div', 'steward-chip-confirm');
-    box.appendChild(el('strong', '', t('stewardShell.permission.confirmTitle')));
+    box.dataset.permissionMode = mode;
+    box.appendChild(el('strong', '', t(spec.titleKey)));
     const list = el('ul');
-    for (const key of STEWARD_CONFIRM_KEYS) list.appendChild(el('li', '', t(key)));
+    for (const key of spec.listKeys) list.appendChild(el('li', '', t(key)));
     box.appendChild(list);
     const actions = el('div', 'steward-chip-confirm-actions');
-    const cancel = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmCancel'));
+    const cancel = el('button', 'steward-drawer-btn', t(spec.cancelKey));
     cancel.type = 'button';
     cancel.dataset.confirm = 'cancel';
     cancel.onclick = () => closeShield();
-    const accept = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmOk'));
+    const accept = el('button', 'steward-drawer-btn', t(spec.okKey));
     accept.type = 'button';
     accept.dataset.confirm = 'ok';
     accept.onclick = () => { closeShield(); setDefaultPermission(mode); };

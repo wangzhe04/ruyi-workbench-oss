@@ -308,6 +308,9 @@
   box-shadow: var(--elev-2);
 }
 .steward-chip-menu[hidden] { display: none; }
+/* 2026-10：下面放不下、上面更宽敞时往上展开（js/steward-chips.js 的 placeChipMenu 判，加这个类）。
+   左栏靠下的行最常见：线程列表是滚动容器，底下压着「口袋」那一格（walkthrough-round1.browser 的 E4）。 */
+.steward-chip-menu.is-flip-up { top: auto; bottom: 100%; margin-top: 0; margin-bottom: var(--sp-1); }
 .steward-chip-option {
   min-height: 0;
   display: flex;

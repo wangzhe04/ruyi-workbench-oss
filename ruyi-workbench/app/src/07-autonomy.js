@@ -915,7 +915,9 @@ function nativeToolGate(mode, tier, toolName, input) {
   if (mode === 'acceptEdits' && tier === 'edit') return 'allow';
   if (mode === 'auto') {
     if (!toolName) return 'ask';                                    // 调用方没给名字 = 保守问
-    return stewardToolPermanentlyExempt(toolName, input) ? 'ask' : 'allow';
+    // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(强信号,06i stewardAutoAskIndirect)也停下来问 ——
+    // 字面量判据看不穿它真正要跑什么。管家对这一类不代批(13l),只能用户亲自按。
+    return (stewardToolPermanentlyExempt(toolName, input) || stewardAutoAskIndirect(input)) ? 'ask' : 'allow';
   }
   return 'ask';
 }

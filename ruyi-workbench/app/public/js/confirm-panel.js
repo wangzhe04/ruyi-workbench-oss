@@ -38,12 +38,21 @@ const PERMISSION_CONFIRM_BODY_KEYS = Object.freeze([
   'stewardShell.permission.confirm4',
   'stewardShell.permission.confirm5',
 ]);
+// 2026-10 用户要回「全自动（bypass）」档：它和智能自动不是一回事 —— 什么都不问、管家也不把关，连付款／关机／
+// 发邮件这些底线动作都直接做（07 nativeToolGate 对 bypass 恒 allow；CLI 引擎起 bypassPermissions）。
+// 所以它要一套【自己的】确认文案，不能借智能自动那五条（那五条里「底线项永远等你按」对它是假话）。
+const PERMISSION_BYPASS_CONFIRM_BODY_KEYS = Object.freeze([
+  'stewardShell.permission.bypassConfirm1',
+  'stewardShell.permission.bypassConfirm2',
+  'stewardShell.permission.bypassConfirm3',
+  'stewardShell.permission.bypassConfirm4',
+]);
 
 // 「切哪一档权限要先出确认」的判据数据 —— 与那五条文案键同住这一份登记表：全仓唯一一处定义。
-// 与 01-config 的 PERMISSION_MODES_REQUIRING_CONFIRM 同口径：四档里只有「全自动」要二次确认。
+// 与 01-config 的 PERMISSION_MODES_REQUIRING_CONFIRM 同口径：智能自动与全自动两档要二次确认。
 // 117d 起它住在 steward-chips.js；本刀把它和文案键一起收进本文件，chips 就地 re-export，
 // 所以 chips 菜单口与 settings 设置页（onPermissionChange / toggleShield）读的是同一个数组对象。
-export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto']);
+export const STEWARD_PERMISSION_CONFIRM_MODES = Object.freeze(['auto', 'bypass']);
 
 // 确认文案键登记表：全仓唯一一处。加一处新的危险操作确认 = 在这里加一条，不在调用点拼键。
 // titleKey/okKey/cancelKey 走既有的 locale 键（common.confirm / common.cancel 两个语言下都有），
@@ -101,10 +110,25 @@ export const CONFIRM_TEXT = Object.freeze({
     okKey: 'stewardShell.permission.confirmOk',
     cancelKey: 'stewardShell.permission.confirmCancel',
   }),
+  permissionBypass: Object.freeze({
+    titleKey: 'stewardShell.permission.bypassConfirmTitle',
+    bodyKey: '',
+    listKeys: PERMISSION_BYPASS_CONFIRM_BODY_KEYS,
+    okKey: 'stewardShell.permission.bypassConfirmOk',
+    cancelKey: 'stewardShell.permission.confirmCancel',
+  }),
 });
 
 // 旧名沿用（117d 起的公开面）：§8.6 那五条的正身。steward-chips.js 从这里 re-export。
 export { PERMISSION_CONFIRM_BODY_KEYS as STEWARD_CONFIRM_KEYS };
+
+// 切某一档前那张确认的文案（标题／逐条／确认键）。三个就地确认口（线程 chip 菜单、盾牌菜单、设置页）都从这里取，
+// 档名 → 登记表里 permission<Mode> 那一条；不在 STEWARD_PERMISSION_CONFIRM_MODES 里的档返回 null（调用方不弹）。
+export function permissionConfirmSpec(mode) {
+  const key = String(mode || '');
+  if (!STEWARD_PERMISSION_CONFIRM_MODES.includes(key)) return null;
+  return CONFIRM_TEXT['permission' + key.charAt(0).toUpperCase() + key.slice(1)] || null;
+}
 
 // 单一确认件。两种用法：
 //   confirmDanger({ name: 'stopBlocker', bodyParams: { title } })   ← 键从登记表取（推荐）

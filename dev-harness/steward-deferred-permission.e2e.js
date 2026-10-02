@@ -12,6 +12,7 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   [P1] W 过了缺省窗口(22 s)仍挂着 —— 窗口真的拉长了;也没被 8 s 的 idle 看门狗当成空闲杀掉。
 //   [P2] 管家收件箱回合(假管家只说一句、不调 steward_decide)结束后,事件流上来一帧 steward.deferred:
 //        W 的那条请求、截止时刻 ≈ 请求时刻 + 45 s、摘要里是工具名 —— 而且早于缺省窗口(「立刻」)。
+//   [P2f] 2026-10:报之前先追问一次 —— 假管家第一回合一个态不表,下一回合收到点名的「追问:」行;每条只追问一次。
 //   [P3] 同一条请求只报一次。
 //   [P4] W 到 45 s 按【超时拒】落定(不是看门狗中止回合),回合正常收尾、流里没有 [watchdog]。
 //   [C1] U 没交给管家:缺省 20 s 就按超时拒;管家看过它(还挂着的时候)也【不】报 steward.deferred。
@@ -33,6 +34,9 @@ const BASE_MS = 20000, MEDIATED_MS = 45000, IDLE_MS = 8000;
 const PROVIDER_PORT = await getFreePort();
 const toolNamesOf = body => (Array.isArray(body && body.tools) ? body.tools : []).map(t => String((t && t.function && t.function.name) || t.name || ''));
 let stewardTurns = 0;
+// 2026-10「追问」:收件箱回合里管家对一条经手的权限请求一个态都没表,下一回合会被点名再问一次(13p 的「追问:」行)。
+// 只看【最后一条】用户消息 —— 管家会话的历史里会带着前面回合的消息,按全部消息数会把后面的回合也算进去。
+let nudgeTurns = 0;
 const providerServer = http.createServer(async (req, res) => {
   let raw = ''; req.on('data', c => { raw += c; }); await new Promise(r => req.on('end', r));
   if (req.url.includes('/models')) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ data: [{ id: 'fake-model' }] })); }
@@ -45,6 +49,8 @@ const providerServer = http.createServer(async (req, res) => {
   const say = text => { frame({ choices: [{ index: 0, delta: { content: text } }] }); frame({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }); };
   if (names.includes('steward_decide')) {
     stewardTurns += 1;
+    const lastUser = [...msgs].reverse().find(m => m && m.role === 'user');
+    if (lastUser && /追问:/.test(String(lastUser.content || ''))) nudgeTurns += 1;
     say(JSON.stringify({ say: '这条我不代批,留在那儿等你过目。', why: '128f-⑪ 夹具', acts: [], actions: [] }));
   } else if (names.includes('powershell_run') && last && last.role === 'user') {
     frame({ choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: 'call_' + Date.now() + '_' + Math.floor(Math.random() * 1e6), type: 'function', function: { name: 'powershell_run', arguments: '' } }] } }] });
@@ -170,6 +176,8 @@ try {
     ok(dW.at - t0W < BASE_MS, `P2d 早于缺省窗口就报了(请求后 ${Math.round((dW.at - t0W) / 1000)} s;「立刻」)`);
   }
   ok(stewardTurns >= 1, `P2e 管家确实跑过收件箱回合(${stewardTurns} 次)`);
+  // 2026-10 追问:假管家第一回合只说一句、一个态不表 → 先被点名追问一次,追问那回合还不表态才报「留给你」(P2 那一帧)。
+  ok(nudgeTurns === 1 && stewardTurns >= 2, `P2f 报「留给你」之前先追问过一次、只追问一次(追问回合 ${nudgeTurns} 次,管家回合共 ${stewardTurns} 次)`);
 
   // [P1] 过了缺省窗口仍挂着
   await waitFor(() => Date.now() >= t0W + BASE_MS + 2000, BASE_MS + 5000, 200);

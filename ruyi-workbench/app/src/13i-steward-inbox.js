@@ -585,6 +585,7 @@ const stewardRuntime = {
   // 管家关着时没人来取,队列不能无限长(溢出丢【最早】的 —— 最近那次交接才是用户还记得的那次)。
   adopted: [],
   adoptedRecent: new Map(),   // 135:重复交接去重窗口(sid+委托 -> 时刻),只在内存
+  wakeTimers: [],             // 2026-10:待决一产生就提前补拍的定时器(见 stewardScheduleWake)
 };
 const STEWARD_ADOPTED_QUEUE_MAX = 50;
 const STEWARD_ADOPTED_DEDUPE_MS = 10 * 60 * 1000;   // 135:同一线程同一句委托在 10 分钟内重复交接只算一次
@@ -598,6 +599,37 @@ RUYI_EVENTS.subscribe((name, payload) => {
   if (String(data.by || '') !== 'user') return;   // missionAttachThread 派的那一路是【归并到事项】,不是交接
   stewardQueueThreadAdopted(data);
 });
+// 2026-10(智能自动的应答速度):待决一产生就叫醒轮询器补一拍,不再干等下一次 interval(默认 15 秒)。
+// 修前「线程停下来问 → 管家代批」的实测中位数 30 秒上下,其中轮询等待与回合去抖占了大半(45 号文 §2-quater 证据 9)。
+// 仍然只是【补拍】:收件箱的写面照旧只有 stewardTickOnce 一处(去重/合并/在场门一道不少),这里不读盘、不落盘。
+// 两拍是因为 thread.needs_you 在待决【落盘之前】就派(02 registerIntervention:内存态是执行权威源),而轮询读的
+// 投影认的是磁盘上的 .interventions.ndjson —— 第一拍通常已能看见,第二拍兜住慢盘;两拍都没赶上就回落到常规轮询。
+// 同一阵连来的待决只留最后一组定时器(先清后排),轮询器本身串行(stewardRunTick 的 ticking 闸)。
+const STEWARD_WAKE_DELAYS_MS = Object.freeze([400, 2500]);
+RUYI_EVENTS.subscribe((name, payload) => {
+  if (name !== 'thread.needs_you') return;
+  const sid = safeSessionId(payload && payload.sessionId);
+  if (!sid || sid === STEWARD_SESSION_ID) return;
+  stewardScheduleWake();
+});
+function stewardClearWake() {
+  for (const timer of (Array.isArray(stewardRuntime.wakeTimers) ? stewardRuntime.wakeTimers : [])) clearTimeout(timer);
+  stewardRuntime.wakeTimers = [];
+}
+function stewardScheduleWake() {
+  if (!stewardRuntime.running) return;   // 管家关着 / 停机:没人取,不补拍
+  stewardClearWake();
+  const generation = stewardRuntime.generation;
+  for (const delay of STEWARD_WAKE_DELAYS_MS) {
+    const timer = setTimeout(() => {
+      stewardRuntime.wakeTimers = stewardRuntime.wakeTimers.filter(item => item !== timer);
+      if (!stewardRuntime.running || stewardRuntime.generation !== generation) return;
+      void stewardRunTick();
+    }, delay);
+    if (timer && typeof timer.unref === 'function') timer.unref();
+    stewardRuntime.wakeTimers.push(timer);
+  }
+}
 function stewardQueueThreadAdopted(data) {
   const sid = safeSessionId(data && data.sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return;
@@ -642,7 +674,28 @@ function stewardQueueThreadAdopted(data) {
 // (进箱 + quiet),而不是像 done 那样丢掉 —— 丢掉它们等于用户回到管家视角时永远补不上这两类。
 // ③ 排在 ② 之前:两个视角同时连着时,管家视角开着就说明收件箱那一面正被人看着,它才是该收东西的那面。
 // adopted 不过门:它是用户【刚刚亲手按下】的交接,他要的就是管家应一声,不存在打扰问题。
+//
+// 2026-10(用户:「如果用户在看提问、权限,管家被立刻唤醒也不要插手」):viewing(13r 头注)【不】在这道门里处理 ——
+// 入箱的是事实与通知(安静卡、到访摘要都读它),用户正看着一道提问不该让那张安静卡消失。「管家不插手」落在两处:
+// 13q 的回合排空器把被看着的待决扣在回合队列外(不为它起回合),13k stewardSeatedByUser 让代批 / 代答工具拒绝。
+// 下面两个小工具给 13q 用(它们读的是本文件同一份在场快照)。
 // ────────────────────────────────────────────────────────────────────────────
+function stewardViewingSessionIds(presence) {
+  const out = new Set();
+  for (const row of (Array.isArray(presence) ? presence : [])) {
+    for (const sid of (row && Array.isArray(row.viewing) ? row.viewing : [])) if (sid) out.add(String(sid));
+  }
+  return out;
+}
+function stewardPendingKeyOf(evt) {
+  const iv = evt && evt.payload && evt.payload.interventionId;
+  return iv ? String(evt.sessionId || '') + '\u0000' + String(iv) : '';
+}
+// 这条待决此刻还挂着吗(读本文件游标上那份全局待决集合;13q 放行被扣住的事件前问它)。
+function stewardPendingStillOpen(evt) {
+  const key = stewardPendingKeyOf(evt);
+  return Boolean(key) && stewardRuntime.cursor.pendingIds.has(key);
+}
 function stewardPresenceRows() {
   try {
     const rows = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
@@ -1289,6 +1342,7 @@ function stopStewardInbox() {
   // 放在最前:即使下面清 timer 抛错,回合队列也已经停了。线程自己的回合不受影响(那由线程的权限门管)。
   if (typeof StewardHooks.stopRunner === 'function') { try { StewardHooks.stopRunner(); } catch { /* 旁路 */ } }
   if (stewardRuntime.timer) { clearInterval(stewardRuntime.timer); stewardRuntime.timer = null; }
+  stewardClearWake();
   stewardRuntime.running = false;
   stewardRuntime.generation += 1; // 在途 tick 看到代际变化即放弃写入
   return { ok: true, running: false };

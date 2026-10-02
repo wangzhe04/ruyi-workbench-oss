@@ -762,3 +762,16 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   `css/states/chat-live.css`:工具结果富渲染(`.tc-result-rich` / `.tc-res-meta` / `.tc-res-block` / `.tc-res-text` /
 //   `.tc-res-more`):多行 stdout/stderr 画成真文本块、超 40 行折叠、截图缩略图复用既有 `.tool-image`。颜色全走既有 token,零新增动效。
 // 算法自证:把 chat-live.css 换回 HEAD 重算 = 62741739…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 设置补全续钉(前值 8ace18e5…＝N11 续钉):零新增、零删除层,改两层 ——
+//   `css/views/settings.css`:设置弹窗定高实底、每段同一张卡(.settings-section／.steward-settings-group／运行时画进来的
+//   迁移中心、语音识别、扩展组件)、设置目录的行与拨钮(.setcat-*)、锚点条吸顶、按钮一种口径、工作区权限不再横向溢出;
+//   服务商卡片补字段(思考强度、语音转写地址、子代理模型、Anthropic 三项)与 Agent 角色色块。
+//   `css/themes/ui-modes.css`:删掉简易模式藏设置页签与 .settings-expert-only 的两条(设置页不再按界面模式收敛)。
+// 算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+//   同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
+//   算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
+// 59 号文语音词库续钉(前值 45ad3f9e…＝2026-10 设置补全同批续钉):零新增、零删除层,改两层 ——
+//   `css/views/chat-shell.css`:设置页「语音输入」下的语音词库一块(`.asr-lexicon-*`:等宽文本框、保存钮与计数一行、
+//   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
+//   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
+// 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。

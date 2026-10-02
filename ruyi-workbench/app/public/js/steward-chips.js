@@ -39,7 +39,7 @@ import { AGENT_CLI_IDS, agentCliMeta, normalizeAgentCliType } from './agent-cli-
 // 33 号文 §4（M3-a）：确认类知识（§8.6 那五条文案键 + 「哪一档要二次确认」的判据数据）的
 // 【唯一登记表】住在危险操作确认的共用件 js/confirm-panel.js。本模块只从那边取，再 re-export
 // 维持 117d 起的公开面（settings 与经典壳仍从本模块 import 同名导出，拿到的是同一个数组对象）。
-import { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES } from './confirm-panel.js';
+import { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES, permissionConfirmSpec } from './confirm-panel.js';
 
 const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
@@ -84,10 +84,12 @@ export const stewardEscapeStack = Object.freeze({
   size: () => escapeLayers.length,
 });
 
-export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto']);
+// 2026-10：bypass（全自动）回到界面 —— 121-K5 拆掉经典壳 #permSelect 之后它只剩后端认、界面选不到，
+// 已经是 bypass 的线程 chip 还显示成「跟随全局」。顺序按「线程自己能做的事」由少到多（与 06i 的 RANK 同序走向）。
+export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto', 'bypass']);
 // 「哪一档要二次确认」的判据数据与 §8.6 那五条文案键都不在本模块定义（下面那行 re-export）：
 // 正身在 js/confirm-panel.js，这里只把同一个数组对象再导出一次，公开面与 117d 起一致。
-export { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES };
+export { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES, permissionConfirmSpec };
 // 117v-V2（27 号文 §11.16.2 V2 行；§11.16.5 经主会话裁决后的那一版）：切模型／引擎的那句说明摆在
 // 哪两个菜单里。这句话是【无条件常显】的一句事实陈述，不接任何「在不在跑」的信号，理由三条：
 //   ① 「下一回合生效、不打断正在跑的回合」在两种情形下都为真：在跑时它回答「会不会打断」，
@@ -113,6 +115,48 @@ export const STEWARD_SWITCH_NOTE_KEY = 'stewardShell.chips.switchTakesEffect';
 // （验收：仓内 `public/` 对它们的旧导出名零命中；测试文件里钉真值表的条目已改钉「不存在」——见
 // steward-walkthrough.static.e2e.js F1）。STEWARD_PERMISSION_CONFIRM_MODES／STEWARD_CONFIRM_KEYS
 // 两个常量仍有真实调用点，不动。
+
+// 2026-10：chip 菜单往哪边展开。.steward-chip-menu 是就地浮层（popover 的 layer 模式，位置交给 CSS 的 top:100%），
+// 2.0 那条路径的「底部放不下就翻上去」它从来没有 —— 权限菜单变成五档、带说明之后更高了，左栏靠下那几行的菜单
+// 被线程列表这个滚动容器裁掉，底下「口袋」那一格叠在它上面（walkthrough-round1.browser 的 E4，CI 实测）。
+// 判法：从菜单往上找第一层会裁切的祖先（overflow 不是 visible），连同视口一起取可见范围；往下放不下、
+// 而上面空间比下面大，就加 .is-flip-up 往上展开；哪边都放不全时把高度收到那一侧的空间（菜单本来就能竖向滚动）。
+// 只在打开 / 换内容时判一次，不跟滚动重定位（与 layer 模式「位置交给 CSS」的约定一致）。
+const CHIP_MENU_EDGE = 8;
+function chipMenuClipBounds(menu) {
+  const view = globalThis.innerHeight || (menu.ownerDocument && menu.ownerDocument.documentElement.clientHeight) || 0;
+  let top = 0;
+  let bottom = view;
+  const win = menu.ownerDocument && menu.ownerDocument.defaultView;
+  for (let node = menu.parentElement; node && node !== menu.ownerDocument.body; node = node.parentElement) {
+    let overflowY = 'visible';
+    try { overflowY = win.getComputedStyle(node).overflowY; } catch { overflowY = 'visible'; }
+    if (overflowY === 'visible') continue;
+    const rect = node.getBoundingClientRect();
+    top = Math.max(top, rect.top);
+    bottom = Math.min(bottom, rect.bottom);
+  }
+  return { top, bottom };
+}
+function placeChipMenu(menu) {
+  if (!menu || menu.hidden || typeof menu.getBoundingClientRect !== 'function') return;
+  try {
+    menu.classList.remove('is-flip-up');
+    menu.style.maxHeight = '';
+    // 量的是菜单真正的包含块（offsetParent：top:100% / bottom:100% 相对的那一层），不是外面那层 wrap ——
+    // 左栏行里两者差着一截（实测 wrap 底 386、菜单顶 416），拿 wrap 量会把空间多算一截、照样被裁。
+    const anchor = (menu.offsetParent || menu.parentElement || menu).getBoundingClientRect();
+    const height = menu.getBoundingClientRect().height;
+    const bounds = chipMenuClipBounds(menu);
+    const below = bounds.bottom - anchor.bottom - CHIP_MENU_EDGE;
+    const above = anchor.top - bounds.top - CHIP_MENU_EDGE;
+    if (height <= below) return;
+    const up = above > below;
+    if (up) menu.classList.add('is-flip-up');
+    const room = up ? above : below;
+    if (height > room && room > 0) menu.style.maxHeight = Math.max(120, Math.floor(room)) + 'px';
+  } catch { /* 量不出来就按 CSS 缺省往下展开 —— 与修前一致 */ }
+}
 
 export function permissionLabelKey(mode) {
   return STEWARD_PERMISSION_MODES.includes(mode) ? `stewardShell.permission.${mode}.label` : '';
@@ -652,7 +696,7 @@ export function createQuickSwitchChips({
     }
   }
 
-  // ── 权限菜单（四档人话 + 全自动二次确认） ────────────────────────────────────
+  // ── 权限菜单（五档人话 + 智能自动／全自动二次确认） ────────────────────────────────────
   function buildPermissionMenu(menu) {
     const current = session && session.permissionMode ? String(session.permissionMode) : '';
     for (const mode of STEWARD_PERMISSION_MODES) {
@@ -687,16 +731,19 @@ export function createQuickSwitchChips({
   function showAutoConfirm(menu, mode) {
     while (menu.firstChild) menu.removeChild(menu.firstChild);
     const box = el('div', 'steward-chip-confirm');
-    box.appendChild(el('strong', '', t('stewardShell.permission.confirmTitle')));
+    // 智能自动与全自动各有一套文案（confirm-panel.js 的 permissionConfirmSpec），不能共用：两档放开的东西不一样。
+    const spec = permissionConfirmSpec(mode);
+    box.dataset.permissionMode = mode;
+    box.appendChild(el('strong', '', t(spec.titleKey)));
     const list = el('ul');
-    for (const key of STEWARD_CONFIRM_KEYS) list.appendChild(el('li', '', t(key)));
+    for (const key of spec.listKeys) list.appendChild(el('li', '', t(key)));
     box.appendChild(list);
     const actions = el('div', 'steward-chip-confirm-actions');
-    const cancel = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmCancel'));
+    const cancel = el('button', 'steward-drawer-btn', t(spec.cancelKey));
     cancel.type = 'button';
     cancel.dataset.confirm = 'cancel';
     cancel.onclick = () => closeMenu();
-    const accept = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmOk'));
+    const accept = el('button', 'steward-drawer-btn', t(spec.okKey));
     accept.type = 'button';
     accept.dataset.confirm = 'ok';
     // 服务端要 confirm:true 才肯切（13d：否则 409 permission.confirm_required）。这是那道门的界面一半。
@@ -704,6 +751,7 @@ export function createQuickSwitchChips({
     actions.append(cancel, accept);
     box.appendChild(actions);
     menu.appendChild(box);
+    placeChipMenu(menu);   // 内容换成了确认区，高度变了 —— 重新判一次往哪边展开
   }
 
   // ── 引擎菜单 ──────────────────────────────────────────────────────────────────
@@ -1004,6 +1052,7 @@ export function createQuickSwitchChips({
         // 117x-M2：焦点必须在 hidden = false【之后】才交（藏着的元素 focus() 不动），而 popover 的
         // onOpen 正好跑在那一步之后。pendingFocus 由 buildModelMenu 在刚建菜单时记下（有搜索框才有）。
         if (pendingFocus) { const target = pendingFocus; pendingFocus = null; try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ } }
+        placeChipMenu(chip.menu);
       },
       onClose: forgetOpenMenu,
     });

@@ -28,7 +28,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //       ② 本回合 web_fetch 后 push → tainted、删文件 → 代批;粘性位:下一回合由管家递话起(非用户亲发)只 push
 //          → tainted(sticky:web_fetch);用户亲发一句之后 → 清掉、代批;经 tool_invoke_read 代理调 web_fetch 之后 push
 //          → 仍 tainted(段表上只有代理名,由同一回合的粘性位接住);
-//       看管对照:用户自己开、没交给管家的线程 → not_watched;
+//       看管对照:用户按过「别盯了」的线程 → not_watched;用户自己开、没交给管家的线程(2026-10 放宽)→ 过闸 3,额度满时停在 hourly_cap;
 //       回执:管家用户回合里模型直调 steward_decide 代批,steward_reply.actions 里出现「代批…」那一行;
 //       ⑤ 本实例第 7 次 → hourly_cap(第 6 次是回执那一条)。
 //
@@ -611,14 +611,27 @@ try {
     ok(!!res && res.blockedBy === 'tainted' && res.taintBy === 'sticky:web_fetch' && !fs.existsSync(push8),
       `D75 ② 经 tool_invoke_read 代理调 web_fetch 之后 push → blockedBy:tainted(代理目标由粘性位在同一回合接住,taintBy:sticky:web_fetch)(实得 ${brief(res)})`);
   }
-  // 看管对照:用户自己开、没交给管家
+  // 看管对照(2026-10 重钉:用户拍板「用户自己开的线程可以适当放宽」):闸 3 只认显式「别盯了」。
+  // 用户自己开、按过 stewardWatch:false 的线程 → not_watched;没按过的用户线程能走到哪一道,见 D97b(放在额度用完之后测,
+  // 免得它占掉 D95/D98 数着的那六次)。
   {
     const U = (await reqJson(D, 'POST', '/api/sessions', { title: 'B2 用户自己的线程', cwd: D.WORK })).json.session.id;
+    await reqJson(D, 'PATCH', '/api/sessions/' + U, { stewardWatch: false });
     mkWorkDir(D, 'd8');
     const { out } = await turn(U, '清理 d8', 'auto', [ps('Remove-Item .\\d8 -Recurse')], p => act(U, p.id, { riskNote: RISK_NOTE }));
     const res = out[0] && out[0].r.json && out[0].r.json.result;
     ok(!!res && res.blockedBy === 'not_watched' && fs.existsSync(path.join(D.WORK, 'd8')),
-      `D80 用户自己开、管家没接手的线程 → blockedBy:not_watched(实得 ${brief(res)})`);
+      `D80 用户按过「别盯了」(stewardWatch:false)的线程 → blockedBy:not_watched(实得 ${brief(res)})`);
+  }
+  // 2026-10(用户拍板「绕开写法拦不住 —— 看你判断」):不在五类豁免里、但命令是拼出来的 —— 智能自动下修前直接跑,
+  // 现在停下来问;管家的 steward_decide 放行一律回 propose_required(blockedBy:indirect_command),不占代批额度。
+  {
+    const marker = path.join(D.WORK, 'ind1.txt');
+    const { out } = await turn(T, '跑一下', 'auto', [ps(`& ('Set-' + 'Content') -Path ${psQuote(marker)} -Value x`)], p => act(T, p.id, { riskNote: RISK_NOTE }));
+    const res = out[0] && out[0].r.json && out[0].r.json.result;
+    ok(out.length === 1, `D85 智能自动线程里拼出来的命令(& ('Set-' + 'Content') …)停下来问了(实得待决 ${out.length} 条)`);
+    ok(!!res && res.ok === false && res.error === 'propose_required' && res.blockedBy === 'indirect_command' && !fs.existsSync(marker),
+      `D86 管家放行它 → propose_required / indirect_command,命令没跑(实得 ${brief(res)})`);
   }
   // 回执:管家用户回合里模型直调 steward_decide 代批,回复里不提、actions 为空
   {
@@ -647,6 +660,14 @@ try {
     const { out } = await turn(T, '再清一个', 'auto', [ps('Remove-Item .\\c7 -Recurse')], p => act(T, p.id, { riskNote: RISK_NOTE }));
     const seventh = out[0] && out[0].r.json && out[0].r.json.result;
     ok(!!seventh && seventh.blockedBy === 'hourly_cap' && fs.existsSync(path.join(D.WORK, 'c7')), `D97 ⑤ 第 7 次 → blockedBy:hourly_cap、c7 仍在(实得 ${brief(seventh)})`);
+    // 2026-10 放宽:用户自己开、没交给管家、也没按过「别盯了」的智能自动线程,修前停在闸 3(not_watched);
+    // 现在一路过到闸 10 —— 此刻额度已满,所以落在 hourly_cap,同时证明闸 3~9 都过了,而且不占那六次。
+    const U2 = (await reqJson(D, 'POST', '/api/sessions', { title: 'B2 用户自己开的另一条', cwd: D.WORK })).json.session.id;
+    mkWorkDir(D, 'c8');
+    const { out: out2 } = await turn(U2, '清理 c8', 'auto', [ps('Remove-Item .\\c8 -Recurse')], p => act(U2, p.id, { riskNote: RISK_NOTE }));
+    const userOpened = out2[0] && out2[0].r.json && out2[0].r.json.result;
+    ok(!!userOpened && userOpened.blockedBy === 'hourly_cap' && fs.existsSync(path.join(D.WORK, 'c8')),
+      `D97b 用户自己开、没交给管家的智能自动线程过了闸 3(修前 not_watched),额度用完时停在 hourly_cap(实得 ${brief(userOpened)})`);
   }
   stamp('D scenarios done');
   // 账本:本实例六次代批各一行 basis.delegation;被拦下的一行都不落

@@ -86,6 +86,7 @@ const PAYLOAD_FILES = [
   'app/public/js/session-experience.js',
   'app/public/js/interaction-prompts.js',
   'app/public/js/prompt-queue.js', // 135:interaction-prompts.js 静态 import 它,漏发即提问/权限弹窗全挂
+  'app/public/js/presence-viewing.js', // 2026-10:interaction-prompts.js 静态 import 它(用户正看着的提问/权限,管家不插手),漏发即弹窗全挂
   'app/public/js/background-tray.js', // 135c:app.js 静态 import 它,漏发即整页白屏
   'app/public/js/tool-runtime.js',
   'app/public/js/workspace-preferences.js',

@@ -9,7 +9,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   ③ 「它刚说」＝最后一条助手消息【原话】的前 ≤3 句（不是摘要，也不是全文）；
 //   ④ A 无待决且最后一句是问句 → 「你可以说」给「好，就这样」「先不要」；
 //   ⑤ 权限 chip 切「改文件不问」→ GET /api/sessions/A 的 permissionMode === 'acceptEdits' 且 chip 回填；
-//   ⑥ 权限 chip 切「全自动」→ 出二次确认 → 取消不变；再来一次 → 确认后变 'auto'；
+//   ⑥ 权限 chip 切「智能自动」→ 出二次确认 → 取消不变；再来一次 → 确认后变 'auto'；切「全自动」→ 它自己的四条确认 → 'bypass'；
 //   ⑦ 点兄弟页签切到 B（同事项内换线程）；再开线程 C（自成事项、挂着 question 待决）→
 //      「你可以说」来自待决的候选答案；点其中一条 → 该待决消失；
 //      —— C 之所以不挂在事项 M 下：既有后端在「线程被 attach 进显式事项容器」后，
@@ -682,12 +682,13 @@ try {
   // ── ⑤ 权限 chip 切「改文件不问」 ────────────────────────────────────────────
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="permission"]').click(), true`);
   ok(Boolean(await waitForEval(cdp, `!!document.querySelector('#stewardDrawerChips [data-permission-mode="acceptEdits"]')`)),
-    'C1 权限 chip 点开四档菜单');
+    'C1 权限 chip 点开五档菜单');
   const menuText = await cdp.evaluate(`(() => [...document.querySelectorAll('#stewardDrawerChips [data-permission-mode]')]
     .map(node => node.textContent.trim()))()`);
-  ok(menuText.length === 5 && menuText.slice(0, 4).every(text => text.length > 12)
-    && menuText[4] === zh['stewardShell.chips.followGlobal'],
-    `C1b 四档各带一句人话，末行是「跟随全局」（实测 ${JSON.stringify(menuText)}）`);
+  // 2026-10 重钉 C1b：全自动（bypass）回到菜单，四档 → 五档，末行仍是「跟随全局」。
+  ok(menuText.length === 6 && menuText.slice(0, 5).every(text => text.length > 12)
+    && menuText[5] === zh['stewardShell.chips.followGlobal'],
+    `C1b 五档各带一句人话，末行是「跟随全局」（实测 ${JSON.stringify(menuText)}）`);
   await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-permission-mode="acceptEdits"]').click(), true`);
   const acceptEdits = await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`,
     result => result.json && result.json.session && result.json.session.permissionMode === 'acceptEdits', token);
@@ -730,6 +731,29 @@ try {
     const snapshot = ${DRAWER};
     return snapshot.chipValues[0] === ${JSON.stringify(zh['stewardShell.permission.auto.label'])} ? snapshot : null;
   })()`)), 'D3b chip 回填成「全自动」');
+
+  // ── 2026-10：全自动（bypass）回到 chip 菜单 —— 第五档，自己的一套确认文案（不是智能自动那五条）──
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-chip="permission"]').click(), true`);
+  const bypassOffered = await waitForEval(cdp, `!!document.querySelector('#stewardDrawerChips [data-permission-mode="bypass"]') || null`);
+  ok(Boolean(bypassOffered), 'D5 权限菜单里有「全自动」（bypass）这一档');
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-permission-mode="bypass"]').click(), true`);
+  const bypassConfirm = await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    return snapshot.confirmVisible === 1 ? snapshot : null;
+  })()`);
+  const BYPASS_LINES = [1, 2, 3, 4].map(n => zh[`stewardShell.permission.bypassConfirm${n}`]);
+  ok(bypassConfirm && JSON.stringify(bypassConfirm.confirmLines) === JSON.stringify(BYPASS_LINES),
+    `D5b 切全自动出的是它自己的四条确认（写明底线动作也不再停），不是智能自动那五条（实测 ${JSON.stringify(bypassConfirm && bypassConfirm.confirmLines)}）`);
+  await cdp.evaluate(`document.querySelector('#stewardDrawerChips [data-confirm="ok"]').click(), true`);
+  const bypass = await waitForHttp(appPort, 'GET', `/api/sessions/${idA}`,
+    result => result.json && result.json.session && result.json.session.permissionMode === 'bypass', token);
+  ok(Boolean(bypass), 'D5c 确认后 permissionMode 变 "bypass"');
+  ok(Boolean(await waitForEval(cdp, `(() => {
+    const snapshot = ${DRAWER};
+    return snapshot.chipValues[0] === ${JSON.stringify(zh['stewardShell.permission.bypass.label'])} ? snapshot : null;
+  })()`)), 'D5d chip 回填成「全自动」（修前 bypass 线程显示成「跟随全局」）');
+  // 还原成智能自动，后面各段照旧按 auto 线程走。
+  await request(appPort, 'PATCH', `/api/sessions/${idA}`, { permissionMode: 'auto', confirm: true }, token);
 
   // ── 117v-V2：切模型/引擎的菜单里各有一句「下一回合生效、不打断」（27 号文 §11.16.2 V2 行）──
   // 真夹具量的是【菜单真的画出来了这一句】，不是源码里有这个字符串。A 此刻是已收工的线程 ——

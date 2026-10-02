@@ -11,6 +11,7 @@ import { t } from './i18n.js';
 import { buildModal as openModal, focusFirstInteractive, installFocusTrap } from './modal.js';
 // 135：多条提问／权限排队 + 右下角「等你处理」小窗（排队、计时、对账都在叶子里，弹窗长相仍归本域）。
 import { createPromptQueue } from './prompt-queue.js';
+import { createViewingTracker } from './presence-viewing.js';
 
 export function createInteractionPromptsDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -37,6 +38,7 @@ const promptQueue = createPromptQueue({
   api, t, el,
   humanizeToolName: name => humanizeToolName(name),
   sessionTitle: sessionTitleOf,
+  onViewChange: () => viewingTracker.check(),
   openItem: (item, ctx) => (item.type === 'question' ? renderAskModal(item, ctx) : renderPermissionModal(item, ctx)),
   allowToolForThread: async (sessionId, tool, payloads) => {
     sessionAllowAdd(sessionId, tool);
@@ -44,6 +46,22 @@ const promptQueue = createPromptQueue({
   },
 });
 setTimeout(() => promptQueue.start(), 1500);   // 首拍对账：刷新前就挂着的、别的页面发起的申请
+// 2026-10（用户：「如果用户在看提问、权限，管家被立刻唤醒也不要插手」）：此刻摆在用户面前、而且人在跟前的线程，
+// 经事件流的在场信号 viewing 报给服务端（13i 在场门扣住它们的待决、13k 代批工具拒绝动手）。候选三处：开着的
+// 权限／提问弹窗、展开的待办小窗（promptQueue 给），以及管家视角里开着的焦点栏 —— 它那条线程正有待决时。
+// 「人在不在跟前」归 js/presence-viewing.js 判；接到事件流上在 bindPromptQueueEvents（组合根一行不加）。
+function viewingCandidates() {
+  const ids = promptQueue.viewingSessionIds();
+  const drawer = document.getElementById('stewardDrawer');
+  const sid = drawer && !drawer.hidden && document.documentElement.getAttribute('data-shell-mode') === 'steward' ? String(drawer.dataset.sessionId || '') : '';
+  if (sid && promptQueue.queuedSessionIds().includes(sid)) ids.push(sid);
+  return ids;
+}
+let viewingStream = null;
+const viewingTracker = createViewingTracker({
+  candidates: viewingCandidates,
+  onChange: () => { if (viewingStream) viewingStream.sync(); },
+});
 
 // 弹窗头下的一行：这一条已经等了多久／还剩多久，以及后面还排着几条。每秒刷新，弹窗关掉即停。
 function attachQueueStatus(modal, item, { time: showTime = true } = {}) {
@@ -620,6 +638,13 @@ function handleAgentWorkflowEvent(evt, live) {
     settlePrompt,
     showAskUserModal,
     // 135:组合根把那一条共用的事件流交进来(app.js 里事件流建在本域之后)。
-    bindPromptQueueEvents: eventStream => promptQueue.bindEventStream(eventStream),
+    bindPromptQueueEvents: eventStream => {
+      if (eventStream && typeof eventStream.setViewingProvider === 'function') {
+        viewingStream = eventStream;
+        eventStream.setViewingProvider(() => viewingTracker.current());
+        viewingTracker.start();
+      }
+      return promptQueue.bindEventStream(eventStream);
+    },
   });
 }

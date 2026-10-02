@@ -76,8 +76,23 @@ function stewardPresenceSnapshot() {
   return [...eventStreamClients].map(client => ({
     lens: String(client.lens || ''),
     sessionId: String(client.sessionId || ''),
+    viewing: Array.isArray(client.viewing) ? client.viewing.slice() : [],
     at: String(client.at || ''),
   }));
+}
+// 2026-10(用户:「用户在看提问、权限时,管家被立刻唤醒也不要插手」):第三个在场参数 viewing —— 此刻【摆在用户
+// 面前】、且用户人在跟前的那几条线程(权限/提问弹窗、展开的「等你处理」小窗、管家视角里开着且有待决的焦点栏)。
+// 前端只在窗口有焦点、近 60 秒有操作时才报(js/presence-viewing.js),服务端只做形状清洗:逗号分隔、
+// 每个过 safeSessionId、去重、至多 EVENT_STREAM_VIEWING_MAX 条。消费者是 13i 的在场门与 13k 的 stewardSeatedByUser。
+const EVENT_STREAM_VIEWING_MAX = 8;
+function eventStreamViewingFrom(raw) {
+  const out = [];
+  for (const part of String(raw || '').split(',')) {
+    const sid = safeSessionId(part.trim());
+    if (sid && !out.includes(sid)) out.push(sid);
+    if (out.length >= EVENT_STREAM_VIEWING_MAX) break;
+  }
+  return out;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -346,6 +361,7 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
     res,
     lens: (lensRaw === 'steward' || lensRaw === 'classic') ? lensRaw : '',
     sessionId: safeSessionId(query.get('sessionId') || '') || '',
+    viewing: eventStreamViewingFrom(query.get('viewing')),
     at: nowIso(),
     heartbeat: null,
   };
@@ -366,7 +382,7 @@ async function handleEventStreamApiRoutes(req, res, pathname) {
     for (const frame of eventStreamRing) if (frame.id > lastSeen) eventStreamWriteFrame(client, frame);
   }
   // 连接私有帧:回显在场参数。不带 id(见 eventStreamRing 头注)。
-  eventStreamWriteFrame(client, { id: 0, event: 'presence.ack', data: { lens: client.lens, sessionId: client.sessionId, at: client.at } });
+  eventStreamWriteFrame(client, { id: 0, event: 'presence.ack', data: { lens: client.lens, sessionId: client.sessionId, viewing: client.viewing, at: client.at } });
 
   client.heartbeat = setInterval(() => {
     if (res.writableEnded) return;

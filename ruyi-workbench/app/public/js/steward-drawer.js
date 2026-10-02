@@ -1635,6 +1635,7 @@ export function createStewardDrawer({
       : (lastFrame && lastFrame.sessionId === id && (Date.now() - lastFrame.at) < STEWARD_DRAWER_FRAME_KEEP_MS ? lastFrame : null);
     lastFrame = null;
     sessionId = id;
+    drawer.dataset.sessionId = id;   // 2026-10：在场信号 viewing 读它（js/interaction-prompts.js：用户正看着的待决，管家不插手）
     if (keep) {
       ({ session, resumable, snapshot, pendingForThread, displayTitle, missionRow, missionRows } = keep);
       if (!sameOpen) liveTail = null;
@@ -1668,7 +1669,7 @@ export function createStewardDrawer({
     const drawer = byId('stewardDrawer');
     const shell = byId('stewardShell');
     const wasOpen = isOpen();
-    if (drawer) { drawer.hidden = true; drawer.removeAttribute('aria-modal'); }
+    if (drawer) { drawer.hidden = true; drawer.removeAttribute('aria-modal'); delete drawer.dataset.sessionId; }
     if (shell) delete shell.dataset.drawer;
     chips.closeMenu();
     // 128f-④：记下收摊前这一帧，重开同一条时先画它（见 openThread 头注）。离开管家视角时收摊会连来两次（看板的

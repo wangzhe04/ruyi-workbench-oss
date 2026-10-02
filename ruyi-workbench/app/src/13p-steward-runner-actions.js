@@ -725,9 +725,12 @@ function stewardExemptCommandBlock(row, title, delegationOn) {
     .map(key => STEWARD_EXEMPT_CATEGORY_LABELS[key] || stewardSanitizeText(key)).filter(Boolean);
   const kinds = labels.length ? `「${labels.join('」「')}」类` : '工具名本身';
   const floorNote = exempt.floor === true ? ',含底线项' : '';
+  // 2026-10(用户拍板「管家常常只说留给你、不表态 —— 加强」):可代批的那一支从「你可以判断」改成「这一条等你表态」——
+  // 真模型实测多半一个工具都不调、只说一句留给你(45 号文 §9.6.5 (b))。要求的是【表态】,不是【放行】:
+  // 该批带理由批,越界就拒,只有工具挡回或真判断不了才交给用户、并说清卡在哪。底线项那一支一字不改。
   const stance = (exempt.floor === true || delegationOn !== true)
     ? '只能由用户亲自按'
-    : '不含底线项:你可以按 steward_decide 的代批规则判断,确属线程受托的事才带 riskNote 替用户放行,规则不满足时工具会拒绝,拿不准就交给用户';
+    : '不含底线项,这一条等你表态:用 steward_decide 判断 —— 确属线程受托的事就带 riskNote 替用户放行,明显越出受托范围就拒绝并写明理由;规则不满足时工具会拒绝,那时或确实判断不了才交给用户,并说清卡在哪';
   const excerpt = stewardSanitizeBlock(exempt.commandExcerpt);
   if (!excerpt.trim()) {
     return `> ${who}在等的这条权限命中了永久豁免清单(${kinds}${floorNote}),${stance};这一档不带命令原文。`;
@@ -738,6 +741,15 @@ function stewardExemptCommandBlock(row, title, delegationOn) {
     excerpt,
     STEWARD_EXEMPT_FENCE_CLOSE,
   ].join('\n');
+}
+
+// 2026-10:被追问的那条权限待决(13q 回合收尾时发现管家对它一个态都没表 —— 没调 steward_decide、也没做成按钮 ——
+// 就带 nudge:true 排回队头,每条最多一次)。这一行点名要它表态;其余行返回空串,消息与修前逐字节相同。
+function stewardDecideNudgeNote(row, title) {
+  const payload = (row && row.payload && typeof row.payload === 'object') ? row.payload : {};
+  if (!row || row.kind !== 'needs_you' || payload.interventionType !== 'permission' || payload.nudge !== true) return '';
+  const who = title ? `线程「${stewardSanitizeText(title)}」` : `线程 ${stewardSanitizeText(row.sessionId)}`;
+  return `> 追问:${who}这条权限请求上一回合你没有表态,它还停着等。用户不在跟前,这是你的事:用 steward_decide 判断 —— 确属线程受托的那件事就放行(命中豁免的按代批规则带 riskNote),明显越出受托范围就拒绝并写明理由;只有工具回 propose_required、或你确实判断不了,才交给用户,并在 say 里一句话说清卡在哪。`;
 }
 
 async function stewardInboxMessage(events, config, selfServeNotes) {
@@ -758,6 +770,8 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
   const exemptBlocks = rows.map(row => stewardExemptCommandBlock(row, titles.get(safeSessionId(row && row.sessionId)) || '', !!(config && config.stewardExemptDelegationV1 === true)));
   // 107-S1 ⑤:question / plan / 任务池三类 needs_you 的不可信标注行(其余行是空串,消息与修前逐字节相同)。
   const untrustedNotes = rows.map(row => stewardUntrustedSummaryNote(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
+  // 2026-10:追问行(与豁免摘录块同级、永不丢)。
+  const nudgeNotes = rows.map(row => stewardDecideNudgeNote(row, titles.get(safeSessionId(row && row.sessionId)) || ''));
 
   // 117s-H1 的预算:标题行【永不丢】(它是「发生了什么」的唯一载体),超预算时从【最旧】的那一条
   // 交付正文开始丢 —— 与 stewardEventLine 的整体口径一致:最近的最有用。丢掉几条要如实说,
@@ -766,7 +780,7 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
   const header = pack.steward.inboxHeader({ count: rows.length });
   const trailer = pack.steward.inboxTrailer;
   const noteLines = notes.length ? ['[管家已自理] 下面这些事工作台已经按你勾的「管家可以自己做的事」处置过了:', ...notes] : [];
-  let used = [header, ...headlines, ...exemptBlocks.filter(Boolean), ...untrustedNotes.filter(Boolean), ...noteLines, trailer].reduce((n, s) => n + String(s).length + 1, 0);
+  let used = [header, ...headlines, ...exemptBlocks.filter(Boolean), ...untrustedNotes.filter(Boolean), ...nudgeNotes.filter(Boolean), ...noteLines, trailer].reduce((n, s) => n + String(s).length + 1, 0);
   const keepBody = new Array(rows.length).fill(false);
   let dropped = 0;
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -781,6 +795,7 @@ async function stewardInboxMessage(events, config, selfServeNotes) {
     lines.push(headlines[i]);
     if (untrustedNotes[i]) lines.push(untrustedNotes[i]);
     if (exemptBlocks[i]) lines.push(exemptBlocks[i]);
+    if (nudgeNotes[i]) lines.push(nudgeNotes[i]);
     if (keepBody[i]) lines.push(bodies[i]);
   }
   if (dropped) lines.push(`> (另有 ${dropped} 条交付正文没装下这条消息的字数预算,需要时用 steward_thread_read 去读)`);

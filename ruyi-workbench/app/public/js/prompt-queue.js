@@ -95,6 +95,9 @@ export function createPromptQueue({
   shellMode = () => document.documentElement.dataset.shellMode || 'classic',
   now = () => Date.now(),
   doc = () => document,
+  // 2026-10：「摆在用户面前的提问／权限」变了（弹窗开／关、小窗展开／收起、条目进出）就通知一声，
+  // 组合根据此重算在场信号里的 viewing（js/presence-viewing.js）—— 用户看着的那几条，管家不插手。
+  onViewChange = () => {},
 } = {}) {
   const items = new Map();       // id -> { id, type, sessionId, requestedAt, deadlineAt, payload, addedAt }
   const settled = new Set();     // 已答/已决定的 id：重放与对账都不许把它复活
@@ -443,7 +446,23 @@ export function createPromptQueue({
     restoreFocus();
   }
 
+  // 此刻摆在用户面前的那几条所属的线程：开着的那一个弹窗；小窗展开时列表里的全部。
+  function viewingSessionIds() {
+    const ids = new Set();
+    if (active) { const item = items.get(active.id); if (item) ids.add(item.sessionId); }
+    if (expanded && !active) for (const item of items.values()) ids.add(item.sessionId);
+    return [...ids];
+  }
+  let viewSig = '';
+  function notifyView() {
+    const sig = viewingSessionIds().sort().join(',');
+    if (sig === viewSig) return;
+    viewSig = sig;
+    try { onViewChange(); } catch { /* 旁路 */ }
+  }
+
   function render() {
+    notifyView();   // render 是开／关／展开／收起／进出各条路径都会过的那一处
     const show = items.size > 0 && !active && DOCK_SHELL_MODES.includes(shellMode());
     if (!show) {
       if (!items.size && dock?.contains(doc().activeElement)) doc().querySelector('#promptInput')?.focus();
@@ -505,6 +524,8 @@ export function createPromptQueue({
     list: () => ordered(),
     queuedBehind: () => Math.max(0, items.size - (active ? 1 : 0)),
     activeId: () => (active ? active.id : ''),
+    viewingSessionIds,
+    queuedSessionIds: () => [...new Set([...items.values()].map(item => item.sessionId))],
     timeText: id => { const item = items.get(String(id || '')); return item ? timeText(item, now()) : ''; },
   });
 }

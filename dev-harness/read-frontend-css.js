@@ -79,19 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 设置补全续钉(前值 8ace18e5…＝N11 续钉):零新增、零删除层,改两层 ——
-//   `css/views/settings.css`:设置弹窗定高实底、每段同一张卡(.settings-section／.steward-settings-group／运行时画进来的
-//   迁移中心、语音识别、扩展组件)、设置目录的行与拨钮(.setcat-*)、锚点条吸顶、按钮一种口径、工作区权限不再横向溢出;
-//   服务商卡片补字段(思考强度、语音转写地址、子代理模型、Anthropic 三项)与 Agent 角色色块。
-//   `css/themes/ui-modes.css`:删掉简易模式藏设置页签与 .settings-expert-only 的两条(设置页不再按界面模式收敛)。
-// 算法自证:把两层换回 master(dbe2b228)重算 = 8ace18e5…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
-//   同批续钉(前值 80e7178d…):并入「技能与模板」页那一段(settings.css 末尾,规则限定在 #stab-skills 内)。
-//   算法自证:换回合并前的 HEAD 重算 = 80e7178d…,逐字相同。
-// 59 号文语音词库续钉(前值 45ad3f9e…＝2026-10 设置补全同批续钉):零新增、零删除层,改两层 ——
-//   `css/views/chat-shell.css`:设置页「语音输入」下的语音词库一块(`.asr-lexicon-*`:等宽文本框、保存钮与计数一行、
-//   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
-//   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
-// 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
 // 59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
 //   `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
 //   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
@@ -102,7 +89,18 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'cdcc8edd833e3137b033febbcc8540b6f9d34e5043e10f9c249ab9cfc8fc97ed';
+// 2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
+//   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
+//   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
+//   js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '5e1ed875bceff267ffb5bedb72745f1c96f7519c068b97840d078d67e292eedd';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

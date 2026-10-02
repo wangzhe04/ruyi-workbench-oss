@@ -300,9 +300,13 @@
 .steward-stop-btn:hover { color: var(--danger); }
 .steward-shield:focus-visible,
 .steward-stop-btn:focus-visible { outline: none; box-shadow: var(--ring); }
-/* §8.6：每步都问（安静）／改文件不问（青花蓝）／全自动（金底）；只做计划不改盾牌色。 */
+/* §8.6：每步都问（安静）／改文件不问（青花蓝）／智能自动（金底）／全自动（警示底）；只做计划不改盾牌色。 */
 .steward-shield[data-permission="acceptEdits"] { color: var(--accent); }
 .steward-shield[data-permission="auto"] { color: var(--gold); background: var(--gold-soft); border-color: var(--gold-line); }
+/* 全自动（bypass）：连底线动作都不拦 —— 盾牌与两处菜单里那一项的档名都用警示色，一眼和智能自动分开。 */
+.steward-shield[data-permission="bypass"] { color: var(--danger-fg); background: var(--danger-soft); border-color: var(--danger); }
+.steward-shield-option[data-permission-mode="bypass"] .steward-shield-option-label,
+.steward-chip-option[data-permission-mode="bypass"] .steward-chip-option-label { color: var(--danger-fg); }
 .steward-stop-btn[data-stopped="true"] { color: var(--ok); }
 
 .steward-shield-menu {

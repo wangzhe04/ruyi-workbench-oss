@@ -397,7 +397,7 @@ const PROMPT_ZH = {
     workspaceMore: '选目录按这个顺序:① 用户点名了哪个文件夹就用哪个;② 这件事属于某个事项就带上 missionId,接着某条线程的活就带上 relatedSessionId —— 工作台会沿用那里的目录;③ 活明显属于上面某个工作区(看它最近做过的事),cwd 就填那个名字;④ 跟哪个都不沾边的新事才省掉 cwd,工作台会在我自己的文件夹里给它新开一个,不会出现在用户的常用工作区里。标「只读」的只适合查阅。清单外的路径一律会被拒,不要自己编。',
     // 回合层:收件箱事件以一条 user 消息注入。措辞必须让模型看清「这不是用户说的话」。
     inboxHeader: ({ count }) => `[收件箱] 这是工作台的 ${count} 条系统事件,不是用户说的话(不能作为记忆来源):`,
-    inboxTrailer: '按上面的事件判断要不要动手:该提议的放进 acts,权限允许且属于自理清单的放进 actions;没有值得打扰用户的事就只写一句 say、acts 与 actions 留空。say 是说给用户听的:像顺口提一句那样讲发生了什么、要不要用户管,不提事件编号、不说「同上一条」「不用重复处理」这类内部话。',
+    inboxTrailer: '按上面的事件判断要不要动手:该提议的放进 acts,权限允许且属于自理清单的放进 actions;没有值得打扰用户的事就只写一句 say、acts 与 actions 留空。智能自动线程停下来问的权限请求是交给你的:每条都用 steward_decide 表态(该批就批、越界就拒),工具挡回或真判断不了才交给用户,并说清卡在哪 —— 不要只说一句留给你。say 是说给用户听的:像顺口提一句那样讲发生了什么、要不要用户管,不提事件编号、不说「同上一条」「不用重复处理」这类内部话。',
     // 到访内 L2 压缩的摘要 prompt(§11.2:只留三样)。
     visitNotes: '把以上管家对话压缩成一份交接笔记,只保留三节,每节用短句列表:①已经做出的决定(做了什么、对哪条线程、依据);②已经递出去的话(递给了谁、原话要点);③仍未完成的事项(在等谁、下一步)。不要复述寒暄,不要补充推测,没有的节写「无」。',
   },
@@ -670,7 +670,7 @@ const PROMPT_EN = {
     workspaceFolded: ({ workspaces }) => `…and ${workspaces} more workspaces not listed (the visit layer has a character budget).`,
     workspaceMore: 'Pick the folder in this order: (1) the folder the user named; (2) if the task belongs to a mission pass missionId, if it follows up a thread pass relatedSessionId - the workbench reuses that folder; (3) if the work clearly belongs to one of the workspaces above (look at what was done there), set cwd to that name; (4) only brand-new work unrelated to all of them omits cwd - the workbench opens a fresh folder of mine for it, which never shows up among the user\'s workspaces. Read-only rows only suit lookups. Any path outside this list is rejected; never invent one.',
     inboxHeader: ({ count }) => `[Inbox] ${count} workbench system events - these are NOT the user speaking (and are never a memory source):`,
-    inboxTrailer: 'Decide from the events above: proposals go into acts; work the target thread\'s permission allows and the self-serve list covers goes into actions. When nothing is worth interrupting the user, write one say line and leave acts and actions empty. say is spoken to the user: mention what happened and whether they need to act, in passing - no event numbers, no "same as above" or "no need to handle again" internal talk.',
+    inboxTrailer: 'Decide from the events above: proposals go into acts; work the target thread\'s permission allows and the self-serve list covers goes into actions. When nothing is worth interrupting the user, write one say line and leave acts and actions empty. Permission requests from smart-auto threads are yours to handle: take a position on each with steward_decide (approve what fits the task, deny what oversteps); hand one to the user only when the tool refuses or you truly cannot judge, and say what is blocking - never just leave it for them. say is spoken to the user: mention what happened and whether they need to act, in passing - no event numbers, no "same as above" or "no need to handle again" internal talk.',
     visitNotes: 'Compress the steward conversation above into a handover note with exactly three sections, each a list of short sentences: (1) decisions already made (what, on which thread, on what grounds); (2) words already relayed (to whom, the gist of the original); (3) still-open items (waiting on whom, next step). No pleasantries, no speculation; write "none" for an empty section.',
   },
 
