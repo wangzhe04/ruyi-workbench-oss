@@ -520,7 +520,7 @@ python -X utf8 tests\smoke_v13.py       # 语义 / 审计 / 降级
 | `schedulerEnabledV1` | 定时任务 | ⚠ 假时钟 e2e | `false`（无任务时本来就零轮询） |
 | `newThreadEngine: 'last'` | 新线程跟随**上次用的**引擎 | ⚠ API 级 e2e；**改变了存量用户的默认行为** | 设成 `'global'` |
 | `stewardExemptDelegationV1` | 管家代批永久豁免的非底线动作（十道闸，见用户手册第 9 章） | ⚠ 假端点 46 条；**真管家模型延迟实测**：轮询 5 s 档均值 17.7 s／最大 30.6 s，轮询 15 s 档（出厂值）均值 31.5 s／最大 42.7 s，5 次全部代批成功、审计行逐条对得上 —— 都远低于 `permissionTimeoutMs` 120 s | `false`（设置页「管家」→「它可以自己做的事」同一个键；**管家自己改不了它**） |
-| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风结构上不存在）；缺省协议（OpenAI 形 `/audio/transcriptions`）在四个候选端点上**全部 404**，需逐服务商把「语音识别协议」改成「对话形」（`providers[].asrProtocol='chat-audio'`）——MiMo 与百炼实测可用，混元未验，见 §7.5 | 语音识别选「不启用」，或把两个键清空 |
+| 语音识别（`asrProviderId`／`asrModel`，出厂两空） | 语音输入 | **未配置＝零行为**已验（麦克风结构上不存在）；缺省协议（OpenAI 形 `/audio/transcriptions`）在四个候选端点上**全部 404**，需逐服务商把「语音识别协议」改成「对话形」（`providers[].asrProtocol='chat-audio'`）——MiMo 与百炼实测可用，混元未验，见 §7.5。百炼的 Fun-ASR（`fun-asr-*`）不在兼容口上（回 400 `{}`），对话形服务商上这类模型自动改走 DashScope 原生口 `/api/v1/services/aigc/multimodal-generation/generation`，同一家的 Qwen3-ASR 照旧走 `/chat/completions` | 语音识别选「不启用」，或把两个键清空 |
 | 记忆条目的到期日与作用域 | 管家记忆 `expiresAt`／`scope` | e2e；纯增量字段 | 无开关（不填＝永久有效、到处有效，与 2.7.0 行为相同） |
 
 ### 7.3 第 126 波压缩 v2 五个开关（三个已翻默认开，两个仍在实验档）

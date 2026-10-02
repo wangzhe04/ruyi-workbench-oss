@@ -934,10 +934,12 @@ function withAsrModel(providers, providerId, modelId, protocol) {
   });
 }
 // 接口类型的预选：这家已经选过对话式就照旧；没选过的按地址认 —— 百炼与 MiMo 实测只有对话式（Whisper 形 404）。
+// 百炼除了 dashscope(-intl).aliyuncs.com 还有业务空间专属地址 {WorkspaceId}.cn-beijing.maas.aliyuncs.com（2026-10 用户实报：
+// 修前这类地址被预选成通用型，第一次加模型就 404）。百炼的 Fun-ASR 也选对话型，服务端会替它改走原生口（05 asrUsesDashscopeNative）。
 function asrProtocolGuess(p) {
   if (p && p.asrProtocol === 'chat-audio') return 'chat-audio';
   const base = String((p && (p.audioBaseUrl || p.baseUrl)) || '').toLowerCase();
-  return /dashscope\.aliyuncs\.com|xiaomimimo\.com/.test(base) ? 'chat-audio' : 'transcriptions';
+  return /dashscope(-intl)?\.aliyuncs\.com|\.maas\.aliyuncs\.com|xiaomimimo\.com/.test(base) ? 'chat-audio' : 'transcriptions';
 }
 async function addAsrModel(providerId, modelId, protocol) {
   const providersNext = withAsrModel(state.config && state.config.providers, providerId, modelId, protocol);
@@ -1372,7 +1374,7 @@ function renderAsrSettings() {
   const curValue = (curP && curM) ? curP + ASR_VALUE_SEP + curM : '';
   bindModelSelect(select, {
     models: () => asrCapableOptions().map(o => ({ id: o.providerId + ASR_VALUE_SEP + o.modelId, label: o.providerLabel + ' / ' + o.modelLabel })),
-    value: curValue, emptyLabel: () => t('settings.asr.disabled'),
+    value: curValue, emptyLabel: () => t('settings.asr.disabled'), labelOnly: true,   // 值是「服务商␟模型」拼的，不能再拼进可见文字（修前显示成「… · openai-compatible□fun-asr…」）
   });
   const hint = el('p', 'field-help muted', select.value ? t('settings.asr.hintSet') : t('settings.asr.hintUnset'));
   select.onchange = async () => {
