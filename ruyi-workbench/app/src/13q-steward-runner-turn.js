@@ -31,6 +31,8 @@
 //   · 用户回合撞用户回合:排队等前一个收尾(不取消 —— 用户自己的两句话都要答)。
 // 128f-⑪:已经报过「留给你」的权限请求 id(每条只报一次;有界,超过 512 条先进先出)。
 const stewardDeferredNotified = new Set();
+// 2026-10(用户拍板「管家常常只说留给你、不表态 —— 加强」):已经追问过一次的权限请求 id(每条最多追问一次;有界同上)。
+const stewardDecideNudged = new Set();
 // hunt2-steward ①:排队等槽位的用户回合(到达先后;只有排头能认领。见 runStewardTurn 的等待循环)。
 const stewardUserWaiters = [];
 async function runStewardTurn(input) {
@@ -363,6 +365,7 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
   // 回合结束时还挂着 = 管家没替你批、留给你了。真模型实测管家常常【不调】steward_decide、只说一句「留在那儿等你过目」
   // (45 号文 §9.6.5 (b)),所以判据是「还挂着」,不是「调了拒」。每条请求只报一次;窗口已经过了的不报。
   if (trigger === 'inbox') {
+    const nudges = [];
     for (const evt of events) {
       const payload = (evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {};
       if (!evt || evt.kind !== 'needs_you' || payload.interventionType !== 'permission') continue;
@@ -370,11 +373,21 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
       const pending = interventionId ? pendingPermissions.get(interventionId) : null;
       if (!pending || stewardDeferredNotified.has(interventionId)) continue;
       if (Number(pending.deadlineAt) && Number(pending.deadlineAt) <= Date.now()) continue;
-      // 只报管家【经手】的线程(与 600 s 窗口同一个判据,13k):没交给管家盯的线程,管家本来就不替你按,
-      // 那条请求的通知是收件箱 needs_you 自己那一路;用户此刻就坐在那条线程上,也不报(请求是当面弹着的)。
+      // 只报管家【经手】的线程(13k stewardMediatesPermissions;2026-10 起含用户自己开、按智能自动在跑的):
+      // 不归管家处理的线程,那条请求的通知是收件箱 needs_you 自己那一路;用户此刻就坐在 / 看着那条线程,也不报(请求是当面弹着的)。
       const sid = String(evt.sessionId || '');
       const head = await stewardReadSessionHead(sid).catch(() => null);
-      if (!stewardMediatedPermissionWaitMs(sid, config, head)) continue;
+      if (!stewardMediatesPermissions(sid, config, head)) continue;
+      // 2026-10 追问:这一回合管家对它【一个态都没表】—— 没调 steward_decide(13l 记着,被工具挡回也算表过态),
+      // 也没把它做成按钮交给用户 —— 就先不报「留给你」,把它带一个 nudge 标记排回队头,让下一回合专门表态
+      // (13p 给这种行加一句点名要求)。每条最多追问一次:追问那一回合还不表态,照旧报「留给你」。
+      const proposed = acts.some(act => act && act.tool === 'steward_decide' && act.args && String(act.args.interventionId || '') === interventionId);
+      if (!proposed && !stewardDecideAttempted(interventionId) && !stewardDecideNudged.has(interventionId)) {
+        stewardDecideNudged.add(interventionId);
+        if (stewardDecideNudged.size > 512) stewardDecideNudged.delete(stewardDecideNudged.values().next().value);
+        nudges.push({ ...evt, payload: { ...payload, nudge: true } });
+        continue;
+      }
       stewardDeferredNotified.add(interventionId);
       if (stewardDeferredNotified.size > 512) stewardDeferredNotified.delete(stewardDeferredNotified.values().next().value);
       RUYI_EVENTS.emit('steward.deferred', {
@@ -384,6 +397,11 @@ async function stewardRunClaimedTurn(trigger, opts, config, entry, controller, o
         // 不限时的请求没有截止时刻:给空串,前端就说「留给你」而不是「还等你 35000 分钟」。
         deadlineAt: promptDeadlineIsReal(pending.deadlineAt) ? new Date(Number(pending.deadlineAt)).toISOString() : '',
       });
+    }
+    // 追问排回队头:收件箱排空器在本回合结束后自己接着排(权限待决走 1 s 去抖,见 stewardInboxDebounceMs)。
+    if (nudges.length && !stewardRunnerRuntime.stopped) {
+      stewardRunnerRuntime.queue.unshift(...nudges);
+      logEvent({ kind: 'steward_decide_nudge', count: nudges.length });
     }
   }
 
@@ -442,11 +460,21 @@ function stewardRequeueFailedInboxBatch(events, reason) {
 function stewardQueueHasQuickAnswer(rows) {
   return (Array.isArray(rows) ? rows : []).some(r => r && r.kind === 'done' && r.payload && r.payload.quick === true);
 }
+// 2026-10:队列里有没有「线程正卡在上面等」的权限/提问待决(13i 投影出来的那一路:payload 带 interventionId)。
+function stewardQueueHasBlockingAsk(rows) {
+  return (Array.isArray(rows) ? rows : []).some(r => r && r.payload && r.payload.interventionId
+    && (r.payload.interventionType === 'permission' || r.payload.interventionType === 'question'));
+}
+function stewardInboxDebounceMs(rows) {
+  if (stewardQueueHasQuickAnswer(rows)) return STEWARD_QUICK_DEBOUNCE_MS;
+  if (stewardQueueHasBlockingAsk(rows)) return STEWARD_BLOCKING_DEBOUNCE_MS;
+  return STEWARD_DEBOUNCE_MS;
+}
 function stewardScheduleInboxDrain() {
   if (stewardRunnerRuntime.stopped) return;
   if (!stewardRunnerRuntime.queue.length) return;
   // 116-4:去抖时长由【队列内容】决定,不由调用方决定 —— 五个调用点一行都不用改,新语义自动覆盖全部。
-  const delay = stewardQueueHasQuickAnswer(stewardRunnerRuntime.queue) ? STEWARD_QUICK_DEBOUNCE_MS : STEWARD_DEBOUNCE_MS;
+  const delay = stewardInboxDebounceMs(stewardRunnerRuntime.queue);
   if (stewardRunnerRuntime.debounceTimer) {
     // 已经排着的那个更快或一样快:不动。更慢:重排 —— 否则一条先到的普通通知会把速查答案一起按住 5 秒。
     if (delay >= stewardRunnerRuntime.debounceMs) return;

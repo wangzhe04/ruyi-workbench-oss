@@ -266,9 +266,14 @@ ok(!/permissionMode/.test(drawerCode),
 ok(/method: 'PATCH'/.test(chipsCode) && count(chipsCode, /method: 'PATCH'/g) === 1
   && /async function patchSession\(patch\)/.test(chips),
   'E7 chip 模块里也只有一处 PATCH（权限与引擎路由同端点同形状，不许各写一条）');
-ok(JSON.stringify(chipsMod.STEWARD_PERMISSION_MODES) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto'])
-  && JSON.stringify(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES) === JSON.stringify(['auto']),
-  'E8 四档与「只有全自动要二次确认」是导出常量，与 01-config 的 PERMISSION_MODES 同口径');
+// 2026-10 重钉 E8：bypass（全自动）回到界面成第五档，二次确认档随之成 auto＋bypass —— 与 01-config 的
+// PERMISSION_MODES／PERMISSION_MODES_REQUIRING_CONFIRM 同口径（后者本来就列着 bypass）。
+ok(JSON.stringify(chipsMod.STEWARD_PERMISSION_MODES) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto', 'bypass'])
+  && JSON.stringify(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES) === JSON.stringify(['auto', 'bypass'])
+  && chipsMod.permissionConfirmSpec('auto').listKeys === chipsMod.STEWARD_CONFIRM_KEYS
+  && chipsMod.permissionConfirmSpec('bypass').listKeys !== chipsMod.STEWARD_CONFIRM_KEYS
+  && chipsMod.permissionConfirmSpec('default') === null,
+  'E8 五档与「智能自动／全自动要二次确认」是导出常量，与 01-config 的 PERMISSION_MODES 同口径；两档各用各的确认文案');
 ok(chipsMod.STEWARD_CONFIRM_KEYS.length === 5
   && /accept\.onclick = \(\) => \{ closeMenu\(\); patchSession\(\{ permissionMode: mode, confirm: true \}\); \};/.test(chips),
   'E9 §8.6 的二次确认写明五条，确认后才带 confirm:true 发出（服务端还有同一道门）');

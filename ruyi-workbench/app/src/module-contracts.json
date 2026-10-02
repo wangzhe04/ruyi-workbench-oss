@@ -5447,6 +5447,7 @@
       "provides": [
         "STEWARD_ANSWER_BASIS",
         "STEWARD_ASKS_YOU_CHARS",
+        "STEWARD_AUTO_ASK_INDIRECT_PATTERNS",
         "STEWARD_BRIEF_CLOSE",
         "STEWARD_BRIEF_LIMITS",
         "STEWARD_BRIEF_OPEN",
@@ -5536,6 +5537,7 @@
         "stewardAsksYou",
         "stewardAsksYouForThread",
         "stewardAssemblePlaybookPrompt",
+        "stewardAutoAskIndirect",
         "stewardChatCapableProvider",
         "stewardClipSay",
         "stewardConfigHelpFor",
@@ -6991,6 +6993,13 @@
         {
           "provider": "06i-steward-core.js",
           "symbol": "isStewardToolName",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskIndirect",
           "kinds": [
             "call"
           ]
@@ -15343,10 +15352,13 @@
         "STEWARD_SOURCE_EVENT_MAP",
         "STEWARD_SUMMARY_CHARS",
         "STEWARD_TICK_MAX_EVENTS",
+        "STEWARD_VIEW_HELD_MAX",
+        "STEWARD_WAKE_DELAYS_MS",
         "startStewardInbox",
         "stewardAppendChain",
         "stewardAppendInboxRows",
         "stewardApplyPresenceGate",
+        "stewardClearWake",
         "stewardClipSummary",
         "stewardCollectEvents",
         "stewardCollectSessionTurn",
@@ -15372,6 +15384,7 @@
         "stewardNormalizeSessionTurn",
         "stewardNormalizeThreadAdopted",
         "stewardParseInboxText",
+        "stewardPendingKeyOf",
         "stewardPresenceRows",
         "stewardQueueThreadAdopted",
         "stewardReadInboxRows",
@@ -15385,9 +15398,12 @@
         "stewardRunTick",
         "stewardRuntime",
         "stewardSaveCursor",
+        "stewardScheduleWake",
+        "stewardTakeViewHeld",
         "stewardThreadBackgroundBusy",
         "stewardTickOnce",
         "stewardTrimCursorMap",
+        "stewardViewingSessionIds",
         "stopStewardInbox"
       ],
       "requires": [
@@ -15870,6 +15886,7 @@
         "stewardLiveTurnPermissionMode",
         "stewardMatchKnownWorkspace",
         "stewardMediatedPermissionWaitMs",
+        "stewardMediatesPermissions",
         "stewardMissionExists",
         "stewardQuickClose",
         "stewardRecordLaunchOutcome",
@@ -16394,6 +16411,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "threadOriginOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "waitReasonFor",
           "kinds": [
             "call"
@@ -16701,12 +16725,15 @@
       "provides": [
         "STEWARD_AUDIT_TELEMETRY_KINDS",
         "STEWARD_CONFIG_KEYS",
+        "STEWARD_DECIDE_ATTEMPTS_MAX",
         "STEWARD_ENV_TEMPLATE_RE",
         "STEWARD_RUN_ACTION_KIND",
         "STEWARD_RUN_ADVANCING",
         "STEWARD_RUN_TIGHTENING",
         "STEWARD_SECRET_FILE_RE",
         "stewardAddUsageRow",
+        "stewardDecideAttempted",
+        "stewardDecideAttempts",
         "stewardEmptyUsageBucket",
         "stewardExternalBlock",
         "stewardEyesSettle",
@@ -16737,6 +16764,7 @@
         "stewardImplWebFetch",
         "stewardImplWebSearch",
         "stewardIsSecretFilePath",
+        "stewardNoteDecideAttempt",
         "stewardReadRunSnapshot",
         "stewardRunResumeTier",
         "stewardSourceCwd",
@@ -17007,6 +17035,13 @@
           "symbol": "STEWARD_SESSION_ID",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardAutoAskIndirect",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -18035,6 +18070,7 @@
         "STEWARD_ACT_CONFIRM_LABEL_MAX",
         "STEWARD_ACT_CONFIRM_VALUE_CHARS",
         "STEWARD_ACT_LABEL_MAX",
+        "STEWARD_BLOCKING_DEBOUNCE_MS",
         "STEWARD_CONTINUE_FRESH_MS",
         "STEWARD_CONTINUE_NOPLAN_MAX",
         "STEWARD_CONTINUE_PLAN_MAX",
@@ -18843,6 +18879,7 @@
         "stewardCircuitCheck",
         "stewardContinueUnfinishedGate",
         "stewardDayCost",
+        "stewardDecideNudgeNote",
         "stewardDeliverableBlock",
         "stewardDisplayTitleOf",
         "stewardDowngradeActions",
@@ -19306,15 +19343,18 @@
         "runStewardTurn",
         "stewardApplyThreadTier",
         "stewardArchiveConversation",
+        "stewardDecideNudged",
         "stewardDeferredNotified",
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardEnsureOpenAiRoute",
+        "stewardInboxDebounceMs",
         "stewardInboxRetryCounts",
         "stewardLastAssistantCreatedAt",
         "stewardMergeDelegationReceipts",
         "stewardOnInboxBatch",
         "stewardPendingList",
+        "stewardQueueHasBlockingAsk",
         "stewardQueueHasQuickAnswer",
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
@@ -19599,7 +19639,14 @@
         },
         {
           "provider": "13k-steward-threads.js",
-          "symbol": "stewardMediatedPermissionWaitMs",
+          "symbol": "stewardMediatesPermissions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13l-steward-ops.js",
+          "symbol": "stewardDecideAttempted",
           "kinds": [
             "call"
           ]
@@ -19614,6 +19661,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_ACTION_HOOKS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_BLOCKING_DEBOUNCE_MS",
           "kinds": [
             "read"
           ]
@@ -19649,6 +19703,13 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_PREEMPT_WAIT_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_QUICK_DEBOUNCE_MS",
           "kinds": [
             "read"
           ]
@@ -20153,6 +20214,7 @@
         "EVENT_STREAM_ROW_SIG_MAX",
         "EVENT_STREAM_SUMMARY_MAX",
         "EVENT_STREAM_TEXT_TAIL",
+        "EVENT_STREAM_VIEWING_MAX",
         "eventStreamClients",
         "eventStreamEmitThreadState",
         "eventStreamIsStewardSession",
@@ -20165,6 +20227,7 @@
         "eventStreamSeq",
         "eventStreamStateAgain",
         "eventStreamStateBusy",
+        "eventStreamViewingFrom",
         "eventStreamWriteFrame",
         "handleEventStreamApiRoutes",
         "stewardPresenceSnapshot"

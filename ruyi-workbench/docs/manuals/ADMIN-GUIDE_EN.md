@@ -219,14 +219,16 @@ today; only the test harness does.
 - **Speech transcription has no concurrency cap.** There is a 25 MB gate and a 120 s timeout per request, but a
   page holding a UI token can issue them back to back. Single-user on loopback behind the token gate, this is
   assessed as low risk; assess it yourself if a machine is shared.
-- **`needs_you` has no event wake-up.** The steward path is poll, debounce, queue, model — there is no "a decision
-  is pending, wake the steward now" edge. Measured end-to-end delegation latency: at a 5 s poll, mean 17.7 s and
-  max 30.6 s; at the 15 s factory poll, mean 31.5 s and max 42.7 s. Both are well inside `permissionTimeoutMs`
-  (120 s), by 2.8x to 11.8x. **But those readings were taken with the steward unthrottled**: when
-  `stewardMaxTurnsPerHour` is reached, or the steward is queued behind another turn, a non-scheduled thread can
-  wait out the full 120 s and then auto-reject. **Operational line**: lower `stewardPollMs` (factory **15000**,
-  clampable down to 5000 — the 5 s readings are clearly better) and leave headroom in `stewardMaxTurnsPerHour`
-  (factory **30**), because at the cap the steward cannot run a turn either.
+- **`needs_you` event wake-up (added 2026-10; this entry is withdrawn).** Before, the steward path was poll,
+  debounce, queue, model, with a measured mean delegation latency of 31.5 s at the 15 s factory poll. Now a new
+  pending decision immediately triggers an extra inbox tick (the `thread.needs_you` event, ticks at 0.4 s and
+  2.5 s), and the steward's turn debounce drops from 5 s to 1 s whenever a thread is blocked on a permission or
+  question: pending-to-inbox measured about 0.45 s against a fake endpoint, leaving one round trip of the steward
+  model. **A second correction**: `permissionTimeoutMs` has shipped as **0 (no limit)** since 2026-09-24, so an
+  ordinary thread's permission request is never auto-rejected because the steward was slow; only when you set a
+  limit in Settings does a steward-mediated thread wait at least 600 s; unattended scheduled tasks reject after
+  `schedulerAskWaitMinutes` (factory 30 minutes). Keep headroom in `stewardMaxTurnsPerHour` (factory **30**):
+  at the cap the steward cannot run a turn either.
 - **`git_*` tools still default to the home directory.** They do not go through the exec gate, so they are not
   part of the "judged here, ran there" class fixed in section 3.
 - **The steward decision log is not scrubbed retroactively.** If the steward used `steward_config_set` on

@@ -937,13 +937,22 @@ function stewardSeatedByUser(sessionId) {
   if (!sid) return false;
   try {
     const presence = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
-    return Array.isArray(presence) && presence.some(row => row && row.lens === 'classic' && String(row.sessionId || '') === sid);
+    // 2026-10(用户:「用户在看提问、权限,管家被立刻唤醒也不要插手」):第二种「在跟前」—— 任一视角的连接在
+    // viewing 里报了这条线程(它的权限/提问弹窗、展开的待办小窗、管家焦点栏正摆在用户面前,且人在,见 13r 头注)。
+    // 同一个单点:代批(13l steward_decide)、代答、递话、续跑的门都从这里过,不各补一份。
+    return Array.isArray(presence) && presence.some(row => row && (
+      (row.lens === 'classic' && String(row.sessionId || '') === sid)
+      || (Array.isArray(row.viewing) && row.viewing.includes(sid))));
   } catch { return false; }
 }
-// 128f-⑪(用户拍板 A):管家盯着的线程,权限请求等 600 s —— 04 的 permissionWaitMs 迟绑定的 steward 一格填在这里
+// 128f-⑪(用户拍板 A):管家盯着的线程,权限请求至少等 600 s —— 04 的 permissionWaitMs 迟绑定的 steward 一格填在这里
 // (本文件是第一个同时够得着 06i 的 stewardWatchedThread 与本文件 stewardSeatedByUser 的地方)。三个条件同时成立才算:
-// 管家开着;线程由管家盯着(与收件箱、代批闸 3 同一个判据);用户此刻没坐在它前面(坐着 = 当面弹的,照旧 120 s,
-// 管家也不插手 —— 见上面的 stewardSeatedByUser)。WCW_TEST_STEWARD_PERMISSION_WAIT_MS 是测试口(e2e 不等 10 分钟)。
+// 管家开着;线程由管家盯着(stewardWatchedThread);用户此刻没坐在 / 没看着它(那是当面弹的,按基础时限等 ——
+// 缺省不限时,128f 时代的「120 s」已经不是缺省值 —— 管家也不插手,见上面的 stewardSeatedByUser)。
+// WCW_TEST_STEWARD_PERMISSION_WAIT_MS 是测试口(e2e 不等 10 分钟)。
+// 注:04 的 permissionTimeoutMs 自 2026-09-24 起缺省 0(不限时),那时这 600 s 只是 max(不限时, 600 s) = 仍不限时;
+// 只有用户在设置里给权限请求配了时限,这一格才把它抬到至少 10 分钟。2026-10 的放宽(见下面 stewardMediatesPermissions)
+// 【不】碰这一格:用户给自己开的线程配了时限,那是他的意思,不因为线程按智能自动在跑就被悄悄拉长到 10 分钟。
 const STEWARD_MEDIATED_PERMISSION_WAIT_MS = 600000;
 function stewardMediatedPermissionWaitMs(sessionId, config, head) {
   if (!config || config.stewardEnabledV1 !== true) return 0;
@@ -955,11 +964,27 @@ function stewardMediatedPermissionWaitMs(sessionId, config, head) {
   return Number.isFinite(test) && test > 0 ? test : STEWARD_MEDIATED_PERMISSION_WAIT_MS;
 }
 PermissionWaitHooks.steward = stewardMediatedPermissionWaitMs;
+// 2026-10(用户拍板「用户自己开的线程可以适当放宽」):「这条线程停下来问的权限请求归管家处理」的单点 ——
+// 13q 回合收尾的「留给你」通知与「追问一次」都读它。比上面那条等待判据宽:
+//   · 管家开着、不是管家自己的会话、用户此刻没坐在 / 没看着它(stewardSeatedByUser);
+//   · 用户按过「别盯了」(stewardWatch:false)—— 不算,那是用户说「这条我自己看着」;
+//   · 管家盯着的线程(stewardWatchedThread)、定时任务开的线程 —— 算;
+//   · 2026-10 放宽:用户自己开、按「智能自动」在跑的线程 —— 也算。用户把档位定成智能自动,就是把「停下来问的
+//     那几条」交给了管家;代批本身仍要过 06i 的十道闸(闸 3 同样只认显式「别盯了」)。
+function stewardMediatesPermissions(sessionId, config, head) {
+  if (!config || config.stewardEnabledV1 !== true) return false;
+  const sid = String(sessionId || '');
+  if (!sid || sid === STEWARD_SESSION_ID || !head || typeof head !== 'object' || String(head.id || '') !== sid) return false;
+  if (head.stewardWatch === false || stewardSeatedByUser(sid)) return false;
+  if (stewardWatchedThread(head, sid, sessionMissionId(head) || sid)) return true;
+  if (threadOriginOf(head) === 'schedule') return true;
+  return stewardThreadPermissionMode(head, config) === 'auto';
+}
 // 结构化拒绝:错误码 'seated_by_user',人话直说「你正在这条线程里,我不插手」。
 // 与 propose_required 那一族一样带 `reason`,行动流水事后能分清「管家没做」的两种原因。
 function stewardSeatedFail(sessionId) {
   return stewardFail('seated_by_user',
-    '你正在这条线程里,我不插手 —— 等你离开它我再接手;要我现在就动手,先把这条线程留给我',
+    '你正在这条线程里(或正看着它的提问/权限),我不插手 —— 等你离开它我再接手;要我现在就动手,先把这条线程留给我',
     { sessionId: String(sessionId || ''), reason: 'seated_by_user' });
 }
 

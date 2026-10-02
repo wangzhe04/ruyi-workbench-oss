@@ -82,6 +82,30 @@ export function toolResultRichParts(result) {
   return { meta, texts, images };
 }
 
+// 2026-10（用户实报：管家回复里「单核快 20%~25%，多核快 10%~15%」中间一大段被画成删除线）：marked 的 GFM
+// 删除线把【单个】波浪线也当成一对（vendor 里 del 规则是 /^(~~?)…\1/），而中文里 `~` 是写区间的常用记号 ——
+// 一句话里出现两个区间，两个 `~` 之间的字就全被划掉。这里只认 `~~成对双波浪~~`；落单的 `~` 原样当字。
+// 用自己的 Marked 实例而不是 marked.use：不改全局的 marked（vendor 是全仓共享的那一份）。纯函数，入参是 marked
+// 库本身（浏览器里是全局 marked，单测里 require vendor 那一份），建不出来返回 null（调用方回落 marked.parse）。
+const TILDE_DEL = /^~~(?=[^\s~])([\s\S]*?[^\s~])~~(?=[^~]|$)/;
+export function createMarkdownParser(markedLib) {
+  if (!markedLib || typeof markedLib.Marked !== 'function') return null;
+  try {
+    return new markedLib.Marked({
+      gfm: true,
+      breaks: true,
+      tokenizer: {
+        del(src) {
+          const cap = TILDE_DEL.exec(src);
+          if (cap) return { type: 'del', raw: cap[0], text: cap[1], tokens: this.lexer.inlineTokens(cap[1]) };
+          if (src[0] === '~') return { type: 'text', raw: '~', text: '~' };
+          return false;
+        },
+      },
+    });
+  } catch { return null; }
+}
+
 export function createChatRenderPrimitives(deps = {}) {
   const {
     $,
@@ -198,6 +222,12 @@ export function createChatRenderPrimitives(deps = {}) {
       } catch { /* sanitizeNode already removed malformed/unsafe href values */ }
     }
   }
+  // 2026-10:只认 ~~双波浪~~ 的删除线(理由见模块级 createMarkdownParser 头注)。建一次、按需建。
+  let mdParser;
+  function markdownParser() {
+    if (mdParser === undefined) mdParser = createMarkdownParser(typeof marked === 'undefined' ? null : marked);
+    return mdParser;
+  }
   function renderMarkdown(text) {
     const key = String(text || '');
     const cacheable = key.length > 0 && key.length <= MD_CACHE_MAX_CHARS;
@@ -213,7 +243,8 @@ export function createChatRenderPrimitives(deps = {}) {
     try {
       if (typeof marked === 'undefined') out = `<div class="plain">${escapeHtml(key)}</div>`;
       else {
-        const html = marked.parse(key, { gfm: true, breaks: true });
+        const parser = markdownParser();
+        const html = parser ? parser.parse(key) : marked.parse(key, { gfm: true, breaks: true });
         const tpl = document.createElement('template');
         tpl.innerHTML = html;
         sanitizeNode(tpl.content);

@@ -50,14 +50,19 @@ separate chats for unrelated work to keep histories clear.
 
 ### Permission modes
 
+Pick the default for new threads from the **shield** at the top right of the steward view (or Settings →
+Permissions & safety); set a single thread from the **permission chip** in its header.
+
 | Mode | Meaning | Good for |
 |---|---|---|
-| Ask every time | Requests approval before each action. | First use and important files. |
-| Auto-apply minor edits | File edits proceed; sensitive operations still ask. | Trusted editing tasks. |
-| Plan before acting | Ruyi proposes a plan and waits for approval. | Complex work requiring review. |
-| Full automation | No routine approval prompts. | Only deliberate, low-risk tasks. |
+| Ask every time | Asks before editing files or running commands (reads never ask). | First use and important files. |
+| Edit files without asking | File edits proceed; commands and outbound actions still ask. | Trusted editing tasks. |
+| Plan only | Ruyi writes a plan and does not act. | Complex work you want to review first. |
+| Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, and spliced or encoded commands whose real intent cannot be read still stop; the steward may approve the non-floor ones under its rules (see section 9). | Handing the work to the steward without step-by-step interruptions. |
+| Fully automatic | Never asks and nothing is vetted - even floor actions such as payments, shutdown, or sending mail run straight away; only system folders stay write-protected (red warning style). | Only in an isolated environment or when you fully trust the task. Scheduled tasks never use it. |
 
-When unsure, use Ask every time. Changing mode takes effect immediately.
+Both Smart auto and Fully automatic ask you to confirm first, each with its own explanation. When unsure, use
+Ask every time. A change applies from the next turn and does not interrupt a turn in progress.
 
 ### Questions from the AI
 
@@ -437,8 +442,11 @@ that button for you within the rules**, so a scheduled task does not sit blocked
 1. The switch is on (it ships on).
 2. The **effective** permission profile of this turn is **smart auto** ("ask every step" and "plan only" do not
    count; full automation never stops to ask in the first place).
-3. The thread is one the **steward is watching**, or one a **scheduled task opened** — a thread you opened and
-   are watching yourself still asks you.
+3. You have not told the steward to leave this thread alone (from 2026-10, a thread you opened yourself is in
+   scope as long as it runs in smart auto; one you marked "stop watching" still asks you). And **while you are
+   sitting in that thread, or its permission dialog, the pending-items panel, or its focus pane is in front of
+   you, the steward stays out of it** — that one waits for your own hand until you minimize it or have been away
+   for more than a minute.
 4. **Not one** of the matched rules is a floor item (floor items are listed below).
 5. The command text was **scanned in full** and is no longer than **the 300 characters the steward can actually
    see** — what it receives is a 300-character excerpt of the command, so a command that is too long, a scan that
@@ -481,6 +489,12 @@ press confirm**. Cancelling sends nothing at all. The wording on those buttons a
 workbench from the arguments — the model does not get to name them — and any secret in a value is masked before
 it is shown.
 
+**Will the steward just say "left for you"?** A permission request from a smart-auto thread is the steward's to
+handle: it approves, denies, or hands it to you saying what is blocking. If it takes no position in a turn, the
+workbench asks it once more by name; only if it still takes none do you get the "left for you" notice.
+
 **Nothing was delegated and the job is stuck?** Open that thread and press the button yourself — **the path you
-press by hand was never restricted**. If it waited too long (120 seconds with no answer rejects automatically; it
-never approves on your behalf by timing out), go back and press **Run now** to run it again.
+press by hand was never restricted**. Permission requests on ordinary threads **wait without a time limit by
+default** until you answer (you can set one in Settings); an unattended scheduled-task thread waits 30 minutes
+(configurable) and then rejects automatically — it never approves on your behalf by timing out — so go back and
+press **Run now** to run it again.

@@ -585,7 +585,10 @@ const stewardRuntime = {
   // 管家关着时没人来取,队列不能无限长(溢出丢【最早】的 —— 最近那次交接才是用户还记得的那次)。
   adopted: [],
   adoptedRecent: new Map(),   // 135:重复交接去重窗口(sid+委托 -> 时刻),只在内存
+  wakeTimers: [],             // 2026-10:待决一产生就提前补拍的定时器(见 stewardScheduleWake)
+  viewHeld: new Map(),        // 2026-10:用户正看着的待决先扣住(pendingKey -> 事件),见 stewardApplyPresenceGate 头注 ⑤
 };
+const STEWARD_VIEW_HELD_MAX = 200;
 const STEWARD_ADOPTED_QUEUE_MAX = 50;
 const STEWARD_ADOPTED_DEDUPE_MS = 10 * 60 * 1000;   // 135:同一线程同一句委托在 10 分钟内重复交接只算一次
 let stewardAppendChain = Promise.resolve();
@@ -598,6 +601,37 @@ RUYI_EVENTS.subscribe((name, payload) => {
   if (String(data.by || '') !== 'user') return;   // missionAttachThread 派的那一路是【归并到事项】,不是交接
   stewardQueueThreadAdopted(data);
 });
+// 2026-10(智能自动的应答速度):待决一产生就叫醒轮询器补一拍,不再干等下一次 interval(默认 15 秒)。
+// 修前「线程停下来问 → 管家代批」的实测中位数 30 秒上下,其中轮询等待与回合去抖占了大半(45 号文 §2-quater 证据 9)。
+// 仍然只是【补拍】:收件箱的写面照旧只有 stewardTickOnce 一处(去重/合并/在场门一道不少),这里不读盘、不落盘。
+// 两拍是因为 thread.needs_you 在待决【落盘之前】就派(02 registerIntervention:内存态是执行权威源),而轮询读的
+// 投影认的是磁盘上的 .interventions.ndjson —— 第一拍通常已能看见,第二拍兜住慢盘;两拍都没赶上就回落到常规轮询。
+// 同一阵连来的待决只留最后一组定时器(先清后排),轮询器本身串行(stewardRunTick 的 ticking 闸)。
+const STEWARD_WAKE_DELAYS_MS = Object.freeze([400, 2500]);
+RUYI_EVENTS.subscribe((name, payload) => {
+  if (name !== 'thread.needs_you') return;
+  const sid = safeSessionId(payload && payload.sessionId);
+  if (!sid || sid === STEWARD_SESSION_ID) return;
+  stewardScheduleWake();
+});
+function stewardClearWake() {
+  for (const timer of (Array.isArray(stewardRuntime.wakeTimers) ? stewardRuntime.wakeTimers : [])) clearTimeout(timer);
+  stewardRuntime.wakeTimers = [];
+}
+function stewardScheduleWake() {
+  if (!stewardRuntime.running) return;   // 管家关着 / 停机:没人取,不补拍
+  stewardClearWake();
+  const generation = stewardRuntime.generation;
+  for (const delay of STEWARD_WAKE_DELAYS_MS) {
+    const timer = setTimeout(() => {
+      stewardRuntime.wakeTimers = stewardRuntime.wakeTimers.filter(item => item !== timer);
+      if (!stewardRuntime.running || stewardRuntime.generation !== generation) return;
+      void stewardRunTick();
+    }, delay);
+    if (timer && typeof timer.unref === 'function') timer.unref();
+    stewardRuntime.wakeTimers.push(timer);
+  }
+}
 function stewardQueueThreadAdopted(data) {
   const sid = safeSessionId(data && data.sessionId);
   if (!sid || sid === STEWARD_SESSION_ID) return;
@@ -642,7 +676,33 @@ function stewardQueueThreadAdopted(data) {
 // (进箱 + quiet),而不是像 done 那样丢掉 —— 丢掉它们等于用户回到管家视角时永远补不上这两类。
 // ③ 排在 ② 之前:两个视角同时连着时,管家视角开着就说明收件箱那一面正被人看着,它才是该收东西的那面。
 // adopted 不过门:它是用户【刚刚亲手按下】的交接,他要的就是管家应一声,不存在打扰问题。
+//
+// ⑤ 2026-10(用户:「如果用户在看提问、权限,管家被立刻唤醒也不要插手」):任一连接(不分视角)在 viewing 里报了
+//    这条线程 = 那道权限/提问此刻正摆在用户面前、而且人在跟前(13r 头注)。这条线程的待决事件【扣住、不丢】:
+//    不入箱、不叫醒管家;每一拍都拿当时的在场重判一次(stewardTakeViewHeld),用户收起弹窗或走开就放进箱子,
+//    待决已经被结算(不在 pendingIds 里了)就悄悄扔掉。为什么不能像 ① 那样丢:游标已经越过这条待决
+//    (stewardCollectEvents 对已知 pendingKey 不再出事件),丢了就是用户走开之后管家永远不知道它还挂着。
+//    只扣待决(payload 带 interventionId 的),同线程的 failed/stalled 等照旧走下面四种情形。
 // ────────────────────────────────────────────────────────────────────────────
+function stewardViewingSessionIds(presence) {
+  const out = new Set();
+  for (const row of (Array.isArray(presence) ? presence : [])) {
+    for (const sid of (row && Array.isArray(row.viewing) ? row.viewing : [])) if (sid) out.add(String(sid));
+  }
+  return out;
+}
+function stewardPendingKeyOf(evt) {
+  const iv = evt && evt.payload && evt.payload.interventionId;
+  return iv ? String(evt.sessionId || '') + '\u0000' + String(iv) : '';
+}
+// 取出上一拍扣住的待决里【仍然挂着】的那些(交给本拍的在场门重判);已结算的就此作罢。
+function stewardTakeViewHeld() {
+  const held = stewardRuntime.viewHeld instanceof Map ? stewardRuntime.viewHeld : new Map();
+  stewardRuntime.viewHeld = new Map();
+  const out = [];
+  for (const [key, evt] of held) if (stewardRuntime.cursor.pendingIds.has(key)) out.push(evt);
+  return out;
+}
 function stewardPresenceRows() {
   try {
     const rows = typeof EventStreamHooks.presenceSnapshot === 'function' ? EventStreamHooks.presenceSnapshot() : [];
@@ -650,9 +710,17 @@ function stewardPresenceRows() {
   } catch { return []; }
 }
 function stewardApplyPresenceGate(events) {
-  const list = Array.isArray(events) ? events : [];
+  const all = Array.isArray(events) ? events : [];
   const presence = stewardPresenceRows();
-  if (!presence.length) return list;                       // ④
+  if (!presence.length) return all;                        // ④
+  const viewing = stewardViewingSessionIds(presence);
+  const list = [];
+  for (const evt of all) {
+    const key = viewing.has(String((evt && evt.sessionId) || '')) ? stewardPendingKeyOf(evt) : '';
+    if (!key) { list.push(evt); continue; }
+    if (!(stewardRuntime.viewHeld instanceof Map)) stewardRuntime.viewHeld = new Map();
+    if (stewardRuntime.viewHeld.size < STEWARD_VIEW_HELD_MAX) stewardRuntime.viewHeld.set(key, evt);   // ⑤ 扣住
+  }
   const seated = new Set();
   let classicPresent = false, stewardPresent = false;
   for (const row of presence) {
@@ -691,6 +759,7 @@ function stewardResetRuntimeState() {
   stewardRuntime.carry = [];
   stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
   stewardRuntime.adoptedRecent = new Map();   // 135:重复交接的去重窗口,同上
+  stewardRuntime.viewHeld = new Map();        // 2026-10:扣住的待决只在内存,重置即清(游标重读会再出事件)
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
@@ -1168,7 +1237,8 @@ async function stewardTickOnce() {
   stewardRuntime.carry = [];
   // 121-K3(§4.3):在场门只作用于【本轮新收的】事件。结转下来的那批上一轮已经过过门了,
   // 再过一次会拿【此刻】的在场状态去重判一件几分钟前发生的事,那是两个时刻的事实相互污染。
-  const gated = stewardApplyPresenceGate(events);
+  // 2026-10:上一拍因「用户正看着」扣住的待决,本拍与新事件一起【重新】过门(⑤ 的另一半)。
+  const gated = stewardApplyPresenceGate(stewardTakeViewHeld().concat(events));
   const fresh = carried.concat(gated)
     .filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)));
@@ -1289,6 +1359,7 @@ function stopStewardInbox() {
   // 放在最前:即使下面清 timer 抛错,回合队列也已经停了。线程自己的回合不受影响(那由线程的权限门管)。
   if (typeof StewardHooks.stopRunner === 'function') { try { StewardHooks.stopRunner(); } catch { /* 旁路 */ } }
   if (stewardRuntime.timer) { clearInterval(stewardRuntime.timer); stewardRuntime.timer = null; }
+  stewardClearWake();
   stewardRuntime.running = false;
   stewardRuntime.generation += 1; // 在途 tick 看到代际变化即放弃写入
   return { ok: true, running: false };

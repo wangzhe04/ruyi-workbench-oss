@@ -39,7 +39,7 @@ import { AGENT_CLI_IDS, agentCliMeta, normalizeAgentCliType } from './agent-cli-
 // 33 号文 §4（M3-a）：确认类知识（§8.6 那五条文案键 + 「哪一档要二次确认」的判据数据）的
 // 【唯一登记表】住在危险操作确认的共用件 js/confirm-panel.js。本模块只从那边取，再 re-export
 // 维持 117d 起的公开面（settings 与经典壳仍从本模块 import 同名导出，拿到的是同一个数组对象）。
-import { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES } from './confirm-panel.js';
+import { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES, permissionConfirmSpec } from './confirm-panel.js';
 
 const escapeLayers = [];
 export const stewardEscapeStack = Object.freeze({
@@ -84,10 +84,12 @@ export const stewardEscapeStack = Object.freeze({
   size: () => escapeLayers.length,
 });
 
-export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto']);
+// 2026-10：bypass（全自动）回到界面 —— 121-K5 拆掉经典壳 #permSelect 之后它只剩后端认、界面选不到，
+// 已经是 bypass 的线程 chip 还显示成「跟随全局」。顺序按「线程自己能做的事」由少到多（与 06i 的 RANK 同序走向）。
+export const STEWARD_PERMISSION_MODES = Object.freeze(['default', 'acceptEdits', 'plan', 'auto', 'bypass']);
 // 「哪一档要二次确认」的判据数据与 §8.6 那五条文案键都不在本模块定义（下面那行 re-export）：
 // 正身在 js/confirm-panel.js，这里只把同一个数组对象再导出一次，公开面与 117d 起一致。
-export { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES };
+export { STEWARD_CONFIRM_KEYS, STEWARD_PERMISSION_CONFIRM_MODES, permissionConfirmSpec };
 // 117v-V2（27 号文 §11.16.2 V2 行；§11.16.5 经主会话裁决后的那一版）：切模型／引擎的那句说明摆在
 // 哪两个菜单里。这句话是【无条件常显】的一句事实陈述，不接任何「在不在跑」的信号，理由三条：
 //   ① 「下一回合生效、不打断正在跑的回合」在两种情形下都为真：在跑时它回答「会不会打断」，
@@ -652,7 +654,7 @@ export function createQuickSwitchChips({
     }
   }
 
-  // ── 权限菜单（四档人话 + 全自动二次确认） ────────────────────────────────────
+  // ── 权限菜单（五档人话 + 智能自动／全自动二次确认） ────────────────────────────────────
   function buildPermissionMenu(menu) {
     const current = session && session.permissionMode ? String(session.permissionMode) : '';
     for (const mode of STEWARD_PERMISSION_MODES) {
@@ -687,16 +689,19 @@ export function createQuickSwitchChips({
   function showAutoConfirm(menu, mode) {
     while (menu.firstChild) menu.removeChild(menu.firstChild);
     const box = el('div', 'steward-chip-confirm');
-    box.appendChild(el('strong', '', t('stewardShell.permission.confirmTitle')));
+    // 智能自动与全自动各有一套文案（confirm-panel.js 的 permissionConfirmSpec），不能共用：两档放开的东西不一样。
+    const spec = permissionConfirmSpec(mode);
+    box.dataset.permissionMode = mode;
+    box.appendChild(el('strong', '', t(spec.titleKey)));
     const list = el('ul');
-    for (const key of STEWARD_CONFIRM_KEYS) list.appendChild(el('li', '', t(key)));
+    for (const key of spec.listKeys) list.appendChild(el('li', '', t(key)));
     box.appendChild(list);
     const actions = el('div', 'steward-chip-confirm-actions');
-    const cancel = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmCancel'));
+    const cancel = el('button', 'steward-drawer-btn', t(spec.cancelKey));
     cancel.type = 'button';
     cancel.dataset.confirm = 'cancel';
     cancel.onclick = () => closeMenu();
-    const accept = el('button', 'steward-drawer-btn', t('stewardShell.permission.confirmOk'));
+    const accept = el('button', 'steward-drawer-btn', t(spec.okKey));
     accept.type = 'button';
     accept.dataset.confirm = 'ok';
     // 服务端要 confirm:true 才肯切（13d：否则 409 permission.confirm_required）。这是那道门的界面一半。

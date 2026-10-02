@@ -503,12 +503,12 @@ for (const [group, commands] of Object.entries(HIT)) {
   // 顺序即判定顺序：从「八道全不过」开始逐道修好，blockedBy 必须按闸名表逐项往后走。
   {
     const bad = {
-      enabled: false, liveMode: 'default', watched: false, origin: 'user', explicitUnwatch: false,
+      enabled: false, liveMode: 'default', watched: false, origin: 'user', explicitUnwatch: true,
       scan: scanOf('git push origin main && shutdown /s ' + 'x'.repeat(1200)),
       taint: { tainted: true, taintBy: 'turn:web_fetch' }, riskNote: '', recentCount: STEWARD_EXEMPT_DELEGATIONS_PER_HOUR,
     };
     const fixes = [
-      { enabled: true }, { liveMode: 'auto' }, { watched: true }, { scan: scanOf('git push origin main ' + 'x'.repeat(1200)) },
+      { enabled: true }, { liveMode: 'auto' }, { explicitUnwatch: false }, { scan: scanOf('git push origin main ' + 'x'.repeat(1200)) },
       // 107-S1 ②③：修好长度这一道之后，接着依次露出间接构造与绝对删除目标那两道。
       { scan: scanOf("git push origin main; & ('a' + 'b')") },
       { scan: scanOf('git push origin main; rm -rf /home/me/notes') },
@@ -527,10 +527,11 @@ for (const [group, commands] of Object.entries(HIT)) {
   // 闸 2 档位：只认 'auto'（bypass / 空 / 会话头之类的别的档都不算）。
   ok(['default', 'acceptEdits', 'plan', 'bypass', 'bypassPermissions', '', 'AUTO'].every(m => verdictOf(facts(DEL, { liveMode: m })).blockedBy === 'mode'),
     '⑧ 闸 2：活回合实效档不是 auto（含 bypass、空串、大小写变体）→ mode');
-  // 闸 3 看管：watched 或定时任务出身；显式 stewardWatch:false 压过两者。
+  // 闸 3 看管(2026-10 重钉:用户拍板「用户自己开的线程可以适当放宽」):只认显式 stewardWatch:false;
+  // 修前「没被看管、也不是定时任务开的」一律 not_watched,现在出身与是否看管都不再参与判定(其余九道闸照旧)。
   ok(verdictOf(facts(DEL, { watched: false, origin: 'schedule' })).delegable === true, '⑧ 闸 3：没被看管但定时任务开的线程 → 过');
-  ok(verdictOf(facts(DEL, { watched: false, origin: 'user' })).blockedBy === 'not_watched'
-    && verdictOf(facts(DEL, { watched: false, origin: 'steward' })).blockedBy === 'not_watched', '⑧ 闸 3：用户自己开、管家没接手 → not_watched');
+  ok(verdictOf(facts(DEL, { watched: false, origin: 'user' })).delegable === true
+    && verdictOf(facts(DEL, { watched: false, origin: 'steward' })).delegable === true, '⑧ 闸 3：用户自己开、管家没接手的智能自动线程 → 过(2026-10 放宽)');
   ok(verdictOf(facts(DEL, { watched: true, origin: 'schedule', explicitUnwatch: true })).blockedBy === 'not_watched',
     '⑧ 闸 3：用户显式按过「别盯了」（stewardWatch:false）→ not_watched，出身是定时任务也一样');
   // 闸 4 底线：看【全部】命中。

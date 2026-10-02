@@ -393,10 +393,10 @@ try {
   await cdp.evaluate(`(document.getElementById('stewardShieldBtn').click(), true)`);
   const shieldOpen = await waitForEval(cdp, `(() => { const s = ${HEADER}; return s.menuHidden === false ? s : null; })()`);
   ok(shieldOpen && shieldOpen.shieldExpanded === 'true'
-    && JSON.stringify(shieldOpen.menuModes) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto'])
-    && JSON.stringify(shieldOpen.menuLabels) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto']
+    && JSON.stringify(shieldOpen.menuModes) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto', 'bypass'])
+    && JSON.stringify(shieldOpen.menuLabels) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto', 'bypass']
       .map(mode => zh[`stewardShell.permission.${mode}.label`])),
-    `C0e F5a：胶囊点开的仍是那【同一个】四档菜单，顺序与人话都来自 chips 那一份表（实测 ${JSON.stringify(shieldOpen && shieldOpen.menuLabels)}）`);
+    `C0e F5a：胶囊点开的仍是那【同一个】档位菜单（2026-10 起五档，末尾加回全自动），顺序与人话都来自 chips 那一份表（实测 ${JSON.stringify(shieldOpen && shieldOpen.menuLabels)}）`);
   // 收回菜单走「再点一次」这条与壳模式无关的路：Esc 那一路的唯一监听点在 steward-shell.js
   // （`if (event.key !== 'Escape' || !isStewardMode()) return;`），本组此刻还站在经典壳里，
   // 在这里按 Esc 本来就不该有反应 —— 键盘那一半由 steward-settings.static 的 K8 钉住接线未动。
@@ -469,6 +469,26 @@ try {
     && new Set([headerDefault.shieldGlyph, headerAccept.shieldGlyph, headerAuto.shieldGlyph]).size === 3
     && headerAuto.shieldGlyph.includes(SHIELD_OUTLINE),
     `D4c F5a：走过的三档各是一枚【不同】的盾内字形（问号／铅笔／闪电），共享同一条盾牌轮廓（实测「${headerAuto.shieldLabel}」，三档互不相同=${new Set([headerDefault.shieldGlyph, headerAccept.shieldGlyph, headerAuto.shieldGlyph]).size === 3}）`);
+
+  // 2026-10：全自动（bypass）回到默认档可选 —— 它自己的四条确认（不是智能自动那五条），确认后落盘、盾牌换警示字形。
+  await cdp.evaluate(`(() => {
+    const select = document.getElementById('cfgStewardDefaultPermission');
+    select.value = 'bypass';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
+  const bypassConfirming = await waitForEval(cdp, `(() => { const s = ${PANEL}; return s.confirmHidden === false ? s : null; })()`);
+  ok(bypassConfirming && JSON.stringify(bypassConfirming.confirmLines) === JSON.stringify([1, 2, 3, 4].map(n => zh[`stewardShell.permission.bypassConfirm${n}`])),
+    `D5 切「全自动」出它自己的四条确认（实测 ${JSON.stringify(bypassConfirming && bypassConfirming.confirmLines)}）`);
+  await cdp.evaluate(`(document.getElementById('cfgStewardPermissionOk').click(), true)`);
+  const bypassSaved = await waitForHttp(appPort, 'GET', '/api/status',
+    result => result.json && result.json.config && result.json.config.permissionMode === 'bypass', token);
+  ok(Boolean(bypassSaved), 'D5b 确认后落盘 bypass（设置页选择器里是正经一档，不再是「保存的值」占位）');
+  const headerBypass = await waitForEval(cdp, `(() => { const s = ${HEADER}; return s.shieldLabel === ${JSON.stringify(zh['stewardShell.permission.bypass.label'])} ? s : null; })()`);
+  ok(headerBypass && headerBypass.shieldGlyph !== headerAuto.shieldGlyph && headerBypass.shieldGlyph.includes(SHIELD_OUTLINE),
+    `D5c 盾牌写「全自动」、盾内字形与智能自动不同（实测「${headerBypass && headerBypass.shieldLabel}」）`);
+  // 还原成智能自动，后面各段照旧。
+  await request(appPort, 'POST', '/api/config', { permissionMode: 'auto', confirm: true }, token);
 
   /* ═════════ ④ 自理清单 ═════════ */
   console.log('── ④ 管家可以自己做的事 ──');

@@ -140,7 +140,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
 // 各自独立临时家;第一行已 require self-isolate-home;进程内的 fake provider 不带 RUYI_HOME,不计入),167 -> 168。
 // 审计 A①/A② 后续(CLI 直挂面):新增 dev-harness/claude-cli-bridged-read-guard.e2e.js(一处带 RUYI_HOME 的 spawn 起服务 +
 // 临时目录里的假 CLI;第一行已 require self-isolate-home),168 -> 169。工具分发批:新增 tool-dispatch-hardening.e2e 与 audit-desktop-records.e2e(各起一台带临时 HOME 的工作台),169 -> 171。 工具结果边界(N9/N3):新增 tool-result-bounds.e2e 与 parallel-read-island.e2e(各一处带 RUYI_HOME 的 spawn),171 -> 173。
-const RUYI_HOME_SPAWN_SITES = 180; // 179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
+const RUYI_HOME_SPAWN_SITES = 181; // 180 -> 181:2026-10 新增 steward-viewing-gate.e2e(带 RUYI_HOME 起真服务的 spawn 点)。179 -> 180:59 号文 §6 新增 voice-learn.e2e(带 RUYI_HOME 起真服务的 spawn 点)。178 -> 179:59 号文新增 voice-lexicon.e2e(带 RUYI_HOME 起真服务的 spawn 点)。177 -> 178:新增 tool-audit-r2-meta.e2e(带 RUYI_HOME 起真服务的 spawn 点)。176 -> 177:新增 steward-continue-unfinished.e2e 的 spawn 点。173 -> 176:新增 observation-recall-snapshot-cap.e2e 与 responses-websearch-inline.e2e 里带 RUYI_HOME 的 spawn 点
 const SCANNED_LIB_FIXTURES = ['lib/browser-fixture.js'];
 const RUYI_HOME_SPAWN_FLOOR = 100;   // 扫描器还能"看见东西"的下限,防正则失效后静默全绿
 
@@ -377,7 +377,9 @@ try {
   // 3000ms,判的是「同拍里排在慢任务后面的任务不再被它拖到界满」,不是量噪声)→ 28。
   // 回合引擎审计 +1 件:turn-stop-supersede(A2 / C2「停止到结果」两处就地豁免 —— 修后实得几十 ms,界 3000 ms;失败形态是等满
   // 不可中断工具的超时 / 摘要慢回的整段)→ 29。
-  const WALLCLOCK_OWNER_FILES = 29;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  // 2026-10 +1 件:steward-viewing-gate(W2「待决产生到进收件箱」一处就地豁免 —— 实得 ~450 ms,界 8000 ms;失败形态是
+  // 等满 120 s 的轮询间隔,与调度噪声差两个数量级)→ 30。
+  const WALLCLOCK_OWNER_FILES = 30;   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];

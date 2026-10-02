@@ -167,7 +167,9 @@ const imports = [...settings.matchAll(/^import \{([\s\S]*?)\} from '([^']+)';$/g
   .map(match => ({ names: match[1].split(',').map(name => name.trim()).filter(Boolean), from: match[2] }));
 const fromChips = imports.find(entry => entry.from === './steward-chips.js');
 ok(Boolean(fromChips), 'B1 steward-settings.js 从 steward-chips.js import 权限档位');
-ok(fromChips && ['STEWARD_PERMISSION_MODES', 'STEWARD_PERMISSION_CONFIRM_MODES', 'STEWARD_CONFIRM_KEYS',
+// 2026-10 重钉 B2：确认文案改按档取（permissionConfirmSpec：智能自动仍是 STEWARD_CONFIRM_KEYS 那五条，全自动另有四条），
+// settings 不再直接 import STEWARD_CONFIRM_KEYS，改 import 取文案的那一个函数。
+ok(fromChips && ['STEWARD_PERMISSION_MODES', 'STEWARD_PERMISSION_CONFIRM_MODES', 'permissionConfirmSpec',
   'permissionLabelKey', 'permissionHintKey'].every(name => fromChips.names.includes(name)),
   `B2 四档表、确认档、确认文案键、两个人话键全部复用（实测 ${JSON.stringify(fromChips && fromChips.names)}）`);
 ok(imports.every(entry => entry.from.startsWith('./')), 'B3 import 全部是本域内相对路径（零第三方库）');
@@ -202,17 +204,21 @@ ok(/^import \{[^}]*\bSTEWARD_CONFIRM_KEYS\b[^}]*\} from '\.\/confirm-panel\.js';
   'B5b chips 不再自列那五条：从 confirm-panel.js import 后原样 re-export（117d 起的公开面一字未改）');
 ok(chipsMod.STEWARD_CONFIRM_KEYS === confirmPanelMod.STEWARD_CONFIRM_KEYS
   && chipsMod.STEWARD_CONFIRM_KEYS.length === 5
+  && chipsMod.permissionConfirmSpec === confirmPanelMod.permissionConfirmSpec
+  && confirmPanelMod.permissionConfirmSpec('auto').listKeys === confirmPanelMod.STEWARD_CONFIRM_KEYS
   && !/confirmTitle[\s\S]{0,200}confirm1/.test(settingsCode)
-  && (settingsCode.match(/STEWARD_CONFIRM_KEYS/g) || []).length >= 1,
+  && !/permission\.bypassConfirm/.test(settingsCode)
+  && (settingsCode.match(/permissionConfirmSpec\(mode\)/g) || []).length === 2,
   'B5c 运行时同一性：chips 那份就是 confirm-panel 登记表那个数组（同一个对象），settings 只引用常量、不复制文案');
 // 「要不要二次确认」的判据也只有一份：chips 菜单口与 settings 两处判定（onPermissionChange / toggleShield）
 // 读的是同一个数组对象；判据表达式的形状仍由 K8 与 steward-drawer.static 的 E10 逐字钉着（没放宽）。
 ok(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES === confirmPanelMod.STEWARD_PERMISSION_CONFIRM_MODES
   && !/export const STEWARD_PERMISSION_CONFIRM_MODES/.test(chips),
   'B5d 「哪一档要二次确认」同样只有一份定义（confirm-panel.js），chips 与 settings 读同一个数组对象');
-ok(JSON.stringify(chipsMod.STEWARD_PERMISSION_MODES) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto'])
-  && JSON.stringify(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES) === JSON.stringify(['auto']),
-  'B6 复用到的四档表本身没被改动（顺序与内容仍是 117d 钉住的那一份）');
+// 2026-10 重钉 B6：117d 那四档末尾加回 bypass（全自动），前四档顺序不动。
+ok(JSON.stringify(chipsMod.STEWARD_PERMISSION_MODES) === JSON.stringify(['default', 'acceptEdits', 'plan', 'auto', 'bypass'])
+  && JSON.stringify(chipsMod.STEWARD_PERMISSION_CONFIRM_MODES) === JSON.stringify(['auto', 'bypass']),
+  'B6 复用到的档位表：117d 的四档顺序不动，末尾加回全自动；智能自动与全自动都要二次确认');
 ok(Array.isArray(mod.STEWARD_MEMORY_KINDS)
   && JSON.stringify(mod.STEWARD_MEMORY_KINDS) === JSON.stringify(['profile', 'preference', 'habit', 'focus', 'policy']),
   'B7 记忆五类与后端 STEWARD_MEMORY_KINDS 同序');

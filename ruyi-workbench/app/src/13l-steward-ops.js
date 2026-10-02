@@ -180,11 +180,28 @@ async function stewardImplAuditTail(args, ctx, config) {
 // 13) steward_decide。判定顺序(顺序即安全):
 //     读待决 -> 永久豁免正则 -> stewardMayAct(目标线程权限) -> 才真正 decideIntervention。
 //     前两道拦下的一律【不落决策日志】—— 没做决定就没有决定可记(只记「做过什么」,不记「想做什么」)。
+// 2026-10(用户拍板「管家常常只说留给你、不表态 —— 加强」):管家【表过态】的待决。收件箱回合收尾时(13q)拿它判
+// 「这一条管家有没有经手」:调过 steward_decide(不论放行、拒绝,还是被工具挡回 propose_required)就算经手,
+// 不再追问。只在内存、有界(老的先丢),重启即空 —— 与 13q 那张「已经追问过」的表同一立场。
+const STEWARD_DECIDE_ATTEMPTS_MAX = 512;
+const stewardDecideAttempts = new Set();
+function stewardNoteDecideAttempt(interventionId) {
+  const id = String(interventionId || '');
+  if (!id) return;
+  stewardDecideAttempts.delete(id);
+  stewardDecideAttempts.add(id);
+  while (stewardDecideAttempts.size > STEWARD_DECIDE_ATTEMPTS_MAX) stewardDecideAttempts.delete(stewardDecideAttempts.values().next().value);
+}
+function stewardDecideAttempted(interventionId) {
+  return stewardDecideAttempts.has(String(interventionId || ''));
+}
+
 async function stewardImplDecide(args, ctx, config) {
   const missionId = safeSessionId(args.missionId);
   const interventionId = String(args.interventionId || '');
   const action = String(args.action || '');
   if (!missionId || !interventionId || !action) return stewardFail('invalid_request', 'missionId, interventionId and action are required');
+  stewardNoteDecideAttempt(interventionId);
   const head = await stewardReadSessionHead(missionId);
   if (!head || !head.id) return stewardFail('not_found', 'mission or intervention not found');
   const current = (await readInterventions(missionId).catch(() => [])).find(iv => iv && String(iv.id) === interventionId);
@@ -221,7 +238,7 @@ async function stewardImplDecide(args, ctx, config) {
   // 事实来源逐条:
   //   闸 1 开关   —— config.stewardExemptDelegationV1(forbidden 档,管家自己改不了);
   //   闸 2 档位   —— 13k stewardExemptLiveTurn 读活回合登记表上的实效档,【不是】上面那个 permissionMode(会话头);
-  //   闸 3 看管   —— 会话头:stewardWatchedThread / threadOriginOf === 'schedule' / 显式 stewardWatch:false;
+  //   闸 3 看管   —— 会话头:显式 stewardWatch:false 才拦(2026-10 起;watched / origin 照喂、不再参与判定);
   //   闸 4/5      —— stewardExemptHits 的全部命中(不看首中)、scannedFully / textLength 与【交给管家那段摘录的长度】;
   //   闸 6/7      —— 107-S1:同一份 stewardExemptHits 里的 indirect / absoluteDeleteTarget 两个形状标记;
   //   闸 8 污染   —— 13k stewardExemptLiveTurn(活回合段表 + 粘性污染位;判不出算污染);
@@ -235,6 +252,14 @@ async function stewardImplDecide(args, ctx, config) {
   // 现在拒绝类跳过永久豁免 / 代批十道闸与权限档判定(目标待决存在、没有被用户当面坐着,这两道前置闸仍在);
   // 放行类(allow / approve / answer)一个字不松。决策日志照常记,mayAct 如实写 'auto'。
   const refusing = action === 'deny' || action === 'reject';
+  // 2026-10:命令是拼出来 / 编码出来 / 求值出来的(06i stewardAutoAskIndirect,智能自动正是因为它才停下来问):
+  // 不在五类豁免里,但管家同样判不出它真正要跑什么 —— 放行类一律交回用户,拒绝类照常可以。
+  if (type === 'permission' && !exemptHit && !refusing && stewardAutoAskIndirect(exemptInput)) {
+    return stewardFail('propose_required', `工具 ${stewardSanitizeText(toolName)} 这次要执行的命令是拼接、编码或求值出来的,看不出真正要跑什么 —— 这一条必须你亲自决定`, {
+      reason: 'indirect_command', missionId, interventionId, type, toolName, tier, permissionMode,
+      delegable: false, blockedBy: 'indirect_command',
+    });
+  }
   let delegation = null;
   if (type === 'permission' && exemptHit && !refusing) {
     const safeTool = stewardSanitizeText(toolName);

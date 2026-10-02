@@ -392,6 +392,30 @@ function stewardExemptIndirectConstruction(scanText) {
   if (!scanBody) return false;
   return STEWARD_EXEMPT_INDIRECT_PATTERNS.some(pattern => pattern.test(scanBody));
 }
+// 2026-10(用户拍板「绕开写法拦不住 —— 这个看你判断」):上面那张表只拦【代批】,而「智能自动」档的原生闸门
+// (07 nativeToolGate)只认五类字面量 —— `& ('shut' + 'down') /s` 一条都不命中,于是根本不停下来问、直接跑了。
+// 判断:把上表里【强信号】的那一半也接进智能自动的停问判据(本表),弱信号的那一半(裸字符串拼接、单独的
+// [char] / -join)不接 —— 它们在正常脚本里太常见,接进来会让智能自动隔三岔五停下来问一条无害的拼接。
+// 强信号 = 「字面量不等于真正要跑的东西」几乎只为了这个目的才写:求值(iex / Invoke-Expression)、
+// base64 解码与 powershell -EncodedCommand、调用运算符 / Start-Process 作用在【拼出来的】名字上、
+// [char] 与 -join 一起逐字拼装、cmd /c 里拿 ^ 打断关键词。
+// 停下来之后:13l steward_decide 对这一类一律回 propose_required(blockedBy indirect_command)—— 管家判不出它
+// 要跑什么,就不替用户批。仍然【不进】STEWARD_EXEMPT_CONTENT_GROUPS:「命中哪一类」的概念与输出逐字节不变。
+// 已知没覆盖的:先把拼好的串存进变量、隔几行再 `& $x` —— 要治得有一个 shell 求值器;由执行闸与审计兜底。
+const STEWARD_AUTO_ASK_INDIRECT_PATTERNS = Object.freeze([
+  /\biex\b/i, /\binvoke-expression\b/i,
+  /\bfrombase64string\b/i,
+  /\b(?:powershell|pwsh)(?:\.exe)?\b[^\n]{0,120}?\s-(?:e|ec|enc|encodedcommand)\s+[A-Za-z0-9+/=]{16,}/i,
+  /(?:^|[^&])&(?!&)[ \t]*\(\s*(?:(['"])[^'"\n]*\1|\$[\w:]+)\s*\+/,
+  /\b(?:start-process|saps|invoke-item)\b[ \t]*(?:-filepath[ \t]*)?\(\s*(?:(['"])[^'"\n]*\1|\$[\w:]+)\s*\+/i,
+  /\[\s*char\s*(?:\[\s*\])?\s*\][^\n]{0,80}?-join|-join[^\n]{0,80}?\[\s*char/i,
+  /\bcmd\b[^\n]{0,40}?\/c[^\n]{0,200}?\^/i,
+]);
+function stewardAutoAskIndirect(input) {
+  if (input == null) return false;
+  const composed = stewardExemptInputText(input).slice(0, STEWARD_EXEMPT_INPUT_CHARS);
+  return !!composed && STEWARD_AUTO_ASK_INDIRECT_PATTERNS.some(pattern => pattern.test(composed));
+}
 // 107-S1 ③(46 号文 §5 ⑦b H2 实验 E1):**删数据类只在目标是相对路径时才可代批**。
 // 实测 `Remove-Item C:\Users -Recurse -Force`、`rm -rf /home/me/notes`、
 // `Remove-Item $env:USERPROFILE\Documents -Recurse` 全是 `delete_data / floor:false` 且可代批 ——
@@ -697,9 +721,10 @@ function stewardExemptRiskNote(riskNoteRaw) {
 //                   会话头与回合实效档可以不一致(定时任务与请求级 permissionMode 走请求级,45 号文 §2-quater.1
 //                   取证 2),判「能不能代批」必须看线程此刻真正按哪一档在跑。只认 'auto'(智能自动);
 //                   bypass 从来不停下来问,也就没有东西可代批。
-//   watched / origin / explicitUnwatch —— 闸 3:管家看管(stewardWatchedThread)或定时任务开的线程
-//                   (threadOriginOf === 'schedule');但用户显式按过「别盯了」(stewardWatch === false)
-//                   一律不过 —— 那是用户说「这条我自己看着」,出身是定时任务也一样。
+//   watched / origin / explicitUnwatch —— 闸 3:2026-10 起只看 explicitUnwatch —— 用户显式按过「别盯了」
+//                   (stewardWatch === false)一律不过,那是用户说「这条我自己看着」,出身是定时任务也一样。
+//                   修前还要求「管家看管(stewardWatchedThread)或定时任务开的」,用户自己开的线程一律不代批;
+//                   watched / origin 仍照喂(决策日志要),不再参与判定。
 //   scan         —— stewardExemptHits 的完整返回(闸 4 看【全部】命中有没有底线,闸 5 看扫没扫全与全文长度);
 //   taint        —— stewardTurnTaint 的返回(或调用方就地给的「判不出」);只在命中含两类外联时才问(闸 8);
 //   riskNote     —— stewardExemptRiskNote 之后的串(闸 9);
@@ -713,7 +738,12 @@ function stewardExemptDelegationVerdict(delegationFacts) {
   const blocked = gate => ({ delegable: false, blockedBy: gate, categories, taintBy: null });
   if (f.enabled !== true) return blocked('switch_off');
   if (String(f.liveMode == null ? '' : f.liveMode) !== 'auto') return blocked('mode');
-  if (f.explicitUnwatch === true || !(f.watched === true || String(f.origin || '') === 'schedule')) return blocked('not_watched');
+  // 2026-10(用户拍板「用户自己开的线程可以适当放宽」):修前闸 3 只放「管家看管或定时任务开的」线程,用户自己开的
+  // 普通线程哪怕按「智能自动」在跑、人也不在跟前,删个构建目录都得等用户亲自按。现在闸 3 只认用户的【显式】
+  // 意愿:按过「别盯了」(stewardWatch:false)的不代批;其余交给另外九道闸 —— 档位必须是智能自动(闸 2)、用户
+  // 此刻没坐在 / 没看着它(13l 在十道闸之前先判 stewardSeatedByUser)、底线 / 污染 / 间接构造 / 绝对目标 /
+  // 理由 / 每小时上限一道不松。watched / origin 两个事实仍由调用方喂(决策日志与单测要它们),不再参与判定。
+  if (f.explicitUnwatch === true) return blocked('not_watched');
   if (!hitList.length || hitList.some(hit => !hit || hit.floor !== false)) return blocked('floor');
   // 闸 5(107-S1 ①):扫全了、全文不超过摘录长度、且真正交给管家的那段摘录没有被截。
   // excerptChars 缺席(老调用方 / 纯函数单测)时 Number(undefined) = NaN,NaN >= 300 为 false —— 行为与修前一致。

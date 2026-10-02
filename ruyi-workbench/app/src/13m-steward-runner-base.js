@@ -70,6 +70,10 @@ const STEWARD_DEBOUNCE_MS = 5000;             // 收件箱去抖窗口
 // 5 秒去抖,用户的体感就是「问一次要等两趟」。带 quick:true 的 done 行把本次去抖压到 0,其余事件
 // 仍走 5 秒 —— 它们是通知,不是有人正等着的答案。
 const STEWARD_QUICK_DEBOUNCE_MS = 0;          // 速查答案:不去抖,立刻起回合
+// 2026-10(智能自动的应答速度):队列里有【线程正卡在上面等】的权限/提问待决时,去抖压到 1 秒。
+// 那条线程此刻停着,5 秒去抖加上轮询间隔是「管家代批要等半分钟」的大头;1 秒仍够把同一阵涌来的
+// 几条待决并成一个回合(真机里一个回合内连发的工具请求彼此相隔远小于 1 秒)。其余通知照旧 5 秒。
+const STEWARD_BLOCKING_DEBOUNCE_MS = 1000;
 const STEWARD_NO_PROGRESS_MAX = 5;            // 连续 5 次收件箱回合零 acts 零 actions -> 退避
 const STEWARD_VISIT_DIGEST_MAX = 5;           // 到访摘要 ≤5 条人话
 const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上限

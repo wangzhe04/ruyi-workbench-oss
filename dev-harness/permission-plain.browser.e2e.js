@@ -56,6 +56,10 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       prepare: async f => { workDir = f.work; },
     });
     const target = path.join(fx.work, 'report.md');
+    // V1/V2 用:事件流每次(重)连的请求 URL —— 流式 fetch 不收尾就进不了 resource timing,只能在网络层看。
+    const streamReqs = [];
+    fx.cdp.on('Network.requestWillBeSent', p => { const u = String((p && p.request && p.request.url) || ''); if (u.includes('/api/events/stream')) streamReqs.push(u); });
+    await fx.cdp.send('Network.enable');
     const killOnDisconnect = await fx.waitForEval(`window.state && window.state.config && 'killOnDisconnect' in window.state.config ? String(window.state.config.killOnDisconnect) : null`, 200);
     ok(killOnDisconnect === 'false', `P7 新装的 killOnDisconnect 缺省是 false（实测 ${killOnDisconnect}）`);
 
@@ -106,6 +110,13 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       `P4 原始工具名与 JSON 收在默认收起的「技术详情」里（实测 open=${modal && modal.techOpen}）`);
     ok(Boolean(modal) && !/file_write/.test(modal.outside), 'P5 技术详情之外看不到 file_write');
     ok(Boolean(modal) && modal.sessionBox === true, 'P10a 改文件档的弹窗给「本次线程自动允许此工具」');
+    // 2026-10（用户：「如果用户在看提问、权限，管家被立刻唤醒也不要插手」）：弹窗摆在面前时，事件流按在场信号
+    // 重连并带上 viewing=<这条线程>（服务端据此扣住它的待决、管家代批拒绝动手）；收起之后再重连、不再带。
+    // 读的是 CDP 网络层看到的事件流重连 URL（上面 streamReqs）。
+    const viewingSid = await fx.evaluate(`String((window.state && window.state.currentSession && window.state.currentSession.id) || '')`);
+    let viewingUrl = null;
+    for (let i = 0; i < 60 && !viewingUrl; i++) { const u = streamReqs[streamReqs.length - 1] || ''; if (viewingSid && u.includes('viewing=' + viewingSid)) viewingUrl = u; else await sleep(100); }
+    ok(Boolean(viewingSid) && Boolean(viewingUrl), `V1 权限弹窗摆在面前时，在场信号带上 viewing=当前线程（实测 ${JSON.stringify(viewingUrl)}）`);
 
     // 走查 #5：按「稍后处理」把弹窗收起 → 对话里那张待决卡就地给「允许／拒绝」，卡头说人话动词、不印 file_write。
     await fx.evaluate(`(() => { const m = document.querySelector('.modal-backdrop.permission-modal'); [...m.querySelectorAll('button')].find(b => /稍后处理/.test(b.textContent || '')).click(); return true; })()`);
@@ -116,6 +127,9 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
       if (!actions) return null;
       return { head: (card.querySelector('.narrative-state-title') || {}).textContent || '', buttons: [...actions.querySelectorAll('button')].map(b => b.textContent) };
     })()`, 100);
+    let minimizedUrl = null;
+    for (let i = 0; i < 60 && !minimizedUrl; i++) { const u = streamReqs[streamReqs.length - 1] || ''; if (u && !u.includes('viewing=')) minimizedUrl = u; else await sleep(100); }
+    ok(Boolean(minimizedUrl), `V2 收进小窗之后在场信号不再带 viewing（管家可以接手；实测 ${JSON.stringify(minimizedUrl)}）`);
     ok(Boolean(inline) && inline.buttons.join('/') === '允许/拒绝' && !/file_write/.test(inline.head),
       `P5b 弹窗收起后，对话里的待决卡就地给「允许／拒绝」、卡头说人话（实测 ${JSON.stringify(inline)}）`);
     await fx.evaluate(`(() => { [...document.querySelectorAll('.narrative-permission .narrative-perm-actions button')].find(b => b.classList.contains('primary')).click(); return true; })()`);
