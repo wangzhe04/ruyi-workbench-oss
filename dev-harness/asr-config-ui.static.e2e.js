@@ -174,7 +174,7 @@ assert.ok(providersJs.includes("if (saved && state.providersDraftSeeded === true
   }
 }
 assert.ok(providersJs.includes('const saved = await addAsrModel(providerId, modelId, protocolSelect.value);'), '前端: 添加行把接口类型一起写进去');
-assert.ok(providersJs.includes('/dashscope\\.aliyuncs\\.com|xiaomimimo\\.com/.test(base)'), '前端: 百炼／MiMo 预选对话型（实测 Whisper 形 404）');
+assert.ok(providersJs.includes('/dashscope(-intl)?\\.aliyuncs\\.com|\\.maas\\.aliyuncs\\.com|xiaomimimo\\.com/.test(base)'), '前端: 百炼（含业务空间 maas 地址）／MiMo 预选对话型（实测 Whisper 形 404）');
 assert.ok(providersJs.includes("if (/realtime/i.test(modelId)) { toast(t('settings.asr.addRealtime'), 'err');"), '前端: realtime 型号当场拦下');
 assert.match(providersJs, /saveConfigPartial\(\{ asrProviderId, asrModel \}\)/, '前端: 选中即存部分补丁');
 assert.match(providersJs, /const ASR_VALUE_SEP = String\.fromCharCode\(31\);/, '前端: 分隔符 fromCharCode 构造（零控制字符）');

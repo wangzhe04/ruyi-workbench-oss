@@ -16,6 +16,7 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //   prompt_tokens+completion_tokens 映射(estimated:false,账本记真值) / H3 webm 被上游 400 拒
 //   (浏览器端转 WAV 的理由) / H4 回体解析不出文本 → 与 Whisper 分支同一个 asr.bad_response。
 //   反向:把 05 的协议分叉改成永远走 transcriptions → H2 红(回显来自 chat 支的桩,Whisper 支给不出)。
+// 2026-10 追加 H5-H7:对话型服务商上的百炼 fun-asr-* 改打 DashScope 原生口(兼容口真机回 400 `{}`);通用型上的 fun-asr 不改道。
 // 判定行:`ASR TRANSCRIBE E2E: ALL PASS`。
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const cp = require('child_process'), http = require('http'), fs = require('fs'), os = require('os'), path = require('path');
@@ -242,6 +243,34 @@ function readUsageRows() {
       r = await reqAsr('?filename=voice.wav', wav2048, 'audio/wav');
       ok(r.status === 502 && r.json && r.json.error && r.json.error.code === 'asr.bad_response',
         'H4 chat 回体没有 choices → 502 asr.bad_response (status ' + r.status + ' code ' + (r.json && r.json.error && r.json.error.code) + ')');
+    }
+    // H5 2026-10(用户实报百炼 fun-asr-flash 用不了;真机实测兼容口回 400 `{}`):对话型服务商 + fun-asr 模型 → 改打
+    // DashScope 原生口(桩只有那一支给得出 [fake-asr-native]),带 parameters.format,语言给 language_hints;
+    // 回体没有 token 用量 → estimated:true。反向:把 05 的 asrUsesDashscopeNative 摘掉 → 打回兼容口吃 400,H5 红。
+    {
+      const setModel = m => reqRaw('POST', '/api/config', Buffer.from(JSON.stringify({ asrModel: m })), { 'x-wcw-token': TOKEN, 'content-type': 'application/json' });
+      ok((await setModel('fun-asr-flash-2026-06-15')).status === 200, 'H5 切 asrModel=fun-asr-flash-2026-06-15');
+      r = await reqAsr('?filename=voice.wav&language=zh-CN', wav2048, 'audio/wav');
+      ok(r.status === 200 && r.json && r.json.ok === true
+        && /^\[fake-asr-native\] model=fun-asr-flash-2026-06-15 mime=audio\/wav format=wav bytes=2048 hints=zh$/.test(r.json.text || ''),
+        'H5 fun-asr 走 DashScope 原生口(format=wav、zh-CN → language_hints zh) (' + JSON.stringify((r.json && r.json.text) || (r.json && r.json.error) || '').slice(0, 120) + ')');
+      ok(r.json && r.json.estimated === true, 'H5b 原生口回体只有 duration、没有 token → estimated:true (' + (r.json && r.json.estimated) + ')');
+      r = await reqAsr('?filename=clip.mp3', wav2048, 'audio/mpeg');
+      ok(r.status === 200 && r.json && / mime=audio\/mpeg format=mp3 bytes=2048$/.test(r.json.text || ''),
+        'H5c audio/mpeg → parameters.format=mp3 (' + JSON.stringify((r.json && r.json.text) || '').slice(0, 120) + ')');
+      ok((await setModel('fun-asr-nativebadshape')).status === 200, 'H6 切 asrModel=fun-asr-nativebadshape');
+      r = await reqAsr('?filename=voice.wav', wav2048, 'audio/wav');
+      ok(r.status === 502 && r.json && r.json.error && r.json.error.code === 'asr.bad_response' && r.json.error.params && r.json.error.params.protocol === 'dashscope-native',
+        'H6 原生口回体没有文本 → 502 asr.bad_response,params.protocol=dashscope-native (status ' + r.status + ')');
+      // H7 反向:通用型(transcriptions)服务商上的 fun-asr 模型(本地 FunASR 组件这类)照旧打 /audio/transcriptions,不被改道。
+      const status = await reqRaw('GET', '/api/status');
+      const providers = (status.json && status.json.config && status.json.config.providers) || [];
+      const plain = providers.map(p => { const n = { ...p, apiKey: ASR_FAKE_KEY }; delete n.asrProtocol; return n; });
+      ok((await reqRaw('POST', '/api/config', Buffer.from(JSON.stringify({ providers: plain, asrModel: 'fun-asr-nano' })), { 'x-wcw-token': TOKEN, 'content-type': 'application/json' })).status === 200,
+        'H7 去掉 asrProtocol(通用型)、asrModel=fun-asr-nano');
+      r = await reqAsr('?filename=voice.wav', wav2048, 'audio/wav');
+      ok(r.status === 200 && r.json && /^\[fake-asr\] model=fun-asr-nano /.test(r.json.text || ''),
+        'H7 通用型上的 fun-asr 仍走 /audio/transcriptions (' + JSON.stringify((r.json && r.json.text) || '').slice(0, 90) + ')');
     }
   } catch (e) {
     fail++; console.log('FAIL exception ' + (e && e.stack || e));

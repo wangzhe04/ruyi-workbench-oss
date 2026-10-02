@@ -97,7 +97,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
 // 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = b0b677a3…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '6e88cdc0e63ea93a97597b1251f9fa78c7f603c516909fd9e24c1feb195910e8';
+// 2026-10 词库框光标续钉(前值 6e88cdc0…＝59 号文 §6 从修改里学续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-shell.css`:`.asr-lexicon-text` 添一条 cursor —— 自带白描边的深色 I 形光标(SVG data URI,退回系统 text)。
+//   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = 'cdcc8edd833e3137b033febbcc8540b6f9d34e5043e10f9c249ab9cfc8fc97ed';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

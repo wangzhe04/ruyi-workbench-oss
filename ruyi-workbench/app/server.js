@@ -22067,6 +22067,42 @@ function asrChatContentText(parsed) {
   }
   return null;
 }
+// 2026-10(用户实报「百炼的 fun-asr-flash 接上用不了」,真机真 key 实测):百炼的 Fun-ASR 系【不走】OpenAI 兼容口 ——
+// 阿里文档原话只有 Qwen3-ASR 系支持兼容模式;fun-asr-* 打 {base}/chat/completions 一律 400、回体只有 `{}`,
+// 打 /audio/transcriptions 是 404。它走 DashScope 原生口 POST {host}/api/v1/services/aigc/multimodal-generation/generation,
+// 请求体 {model, input:{messages:[…input_audio…]}, parameters:{format}}(缺 parameters.format 照样 400 `{}`),
+// 文本在回体顶层 text / output.text(另有 sentence.text)。同一家服务商里 Qwen3-ASR 照旧走 chat-audio,所以按模型族分、
+// 不另设协议值:配的是对话型(chat-audio,即「阿里百炼这类」)且模型名以 fun-asr 开头 → 原生口。本地 FunASR 组件走
+// transcriptions,不受影响。
+function asrUsesDashscopeNative(provider, asrModel) {
+  return provider.asrProtocol === 'chat-audio' && /^fun-asr/i.test(String(asrModel || ''));
+}
+// 原生口路径接在服务根上:兼容口 base 是 {host}/compatible-mode/v1,剥掉这一段(或末尾的 /vN)就是服务根,前面有代理前缀的照留。
+function asrDashscopeNativeUrl(base) {
+  return String(base || '').replace(/\/compatible-mode\/v\d+$/i, '').replace(/\/v\d+$/i, '') + '/api/v1/services/aigc/multimodal-generation/generation';
+}
+// parameters.format:按 contentType 的子类型给(audio/mpeg → mp3、audio/x-wav → wav),认不出来按文件扩展名,再不行就 wav
+// (麦克风那条在浏览器端已转 WAV)。实测格式写错它也照样识别,但不能缺。
+function asrAudioFormat(contentType, filename) {
+  const sub = String(contentType || '').toLowerCase().split(';')[0].replace(/^audio\//, '').replace(/^x-/, '');
+  const map = { mpeg: 'mp3', mp3: 'mp3', wav: 'wav', wave: 'wav', vnd_wave: 'wav' };
+  if (map[sub]) return map[sub];
+  if (/^[a-z0-9]{2,8}$/.test(sub) && sub !== 'octet') return sub;
+  const ext = (String(filename || '').toLowerCase().match(/\.([a-z0-9]{2,8})$/) || [])[1];
+  return ext || 'wav';
+}
+// 原生口回体取文本:顶层 text → output.text → sentence(单句对象或多句数组)→ 万一回了标准多模态形 output.choices。都没有 → null。
+function asrDashscopeNativeText(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  for (const o of [parsed, parsed.output]) {
+    if (!o || typeof o !== 'object') continue;
+    if (typeof o.text === 'string') return o.text;
+    const s = o.sentence;
+    if (Array.isArray(s)) return s.map(x => (x && typeof x.text === 'string' ? x.text : '')).join('');
+    if (s && typeof s.text === 'string') return s.text;
+  }
+  return parsed.output ? asrChatContentText(parsed.output) : null;
+}
 // 107-A1(46 号文 §5 A1;45 号文 §9.6.3 真机实测):两种出站协议共用这一支。协议只决定三件事 ——
 // 打哪个路径、请求体长什么样、回体的文本/usage 从哪个字段读。端点解析、鉴权头、120s 超时、
 // 回体 8KB 上限、错误体【先脱敏再裁 1000】、三个错误码、kind:'aux'/note:'asr' 记账全部只有一份:
@@ -22087,11 +22123,12 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   const base = providerBaseWithV1(provider.audioBaseUrl || provider.baseUrl);
   if (!base) return { failure: { code: 'asr.not_configured', params: {}, message: '语音识别端点 baseUrl 为空', status: 409 } };
   const chatAudio = provider.asrProtocol === 'chat-audio';
+  const dashscopeNative = asrUsesDashscopeNative(provider, asrModel);   // 2026-10:百炼 Fun-ASR 系(见 asrUsesDashscopeNative 头注)
   // 2026-09-20(用户实报「点了语音输入收不到字」):修前转写失败【不落任何日志】,本地运行记录里查不到痕迹,
   // 只能靠重放请求才知道上游回了 404。这里只记元数据(04 logEvent 的纪律:不记原始内容)——
   // 失败码、上游状态、走的哪种协议、哪家哪个模型、音频字节数、耗时;上游错误体只留脱敏后的前 200 字。
   // protocol 同时进失败信封的 params:前端据此把「404 + Whisper 形」说成「接口类型选错了」,而不是一句「稍后再试」。
-  const protocol = chatAudio ? 'chat-audio' : 'transcriptions';
+  const protocol = dashscopeNative ? 'dashscope-native' : (chatAudio ? 'chat-audio' : 'transcriptions');
   const failed = (failure, detail) => {
     failure.params = { ...(failure.params || {}), protocol };
     logEvent({ kind: 'asr_transcribe_failed', code: failure.code, upstreamStatus: failure.params.status || 0, protocol, provider: provider.id, model: asrModel, bytes: audio ? audio.length : 0, durationMs: Date.now() - t0, ...(warmup ? { warmup: true } : {}), ...(detail ? { detail: String(detail).slice(0, 200) } : {}) });
@@ -22101,7 +22138,17 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   const headers = { ...(provider.extraHeaders || {}) };
   if (provider.apiKey) headers.authorization = `Bearer ${provider.apiKey}`;
   let target = '', payload = null;
-  if (chatAudio) {
+  if (dashscopeNative) {
+    // 同 chat-audio 一样用 input_audio data URI(mime 原样);提示词不带(原生口的这条路不认),语言给 language_hints。
+    const mime = /^audio\/[-\w.+]{1,60}$/.test(String(contentType || '')) ? contentType : 'application/octet-stream';
+    target = asrDashscopeNativeUrl(base);
+    headers['content-type'] = 'application/json';
+    payload = JSON.stringify({
+      model: asrModel,
+      input: { messages: [{ role: 'user', content: [{ type: 'input_audio', input_audio: { data: 'data:' + mime + ';base64,' + audio.toString('base64') } }] }] },
+      parameters: { format: asrAudioFormat(contentType, filename), ...(language ? { language_hints: [String(language).split(/[-_]/)[0].toLowerCase()] } : {}) },
+    });
+  } else if (chatAudio) {
     // data URI 的 mime 用调用方给的 contentType【原样】。不替上游猜格式:把 webm 说成 wav 会让上游
     // 解码出噪声,远不如它自己 400 说清楚 —— MiMo 实测正是 400「input_audio.data mime type must be
     // one of: audio/wav, audio/mpeg, audio/mp3. Got: audio/webm」。麦克风那条已在浏览器端转 WAV。
@@ -22153,7 +22200,13 @@ async function transcribeAudioViaProvider(provider, asrModel, { audio, contentTy
   // 107-A1:解析分叉。transcriptions 读顶层 text;chat-audio 读 choices[0].message.content
   // (两种形状见 asrChatContentText)。chat 分支解析不出文本 → 同一个 asr.bad_response。
   let text = '', outLanguage = '';
-  if (chatAudio) {
+  if (dashscopeNative) {
+    const content = asrDashscopeNativeText(parsed);
+    if (content === null) {
+      return failed({ code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 text / output.text', status: 502 });
+    }
+    text = content;
+  } else if (chatAudio) {
     const content = parsed ? asrChatContentText(parsed) : null;
     if (content === null) {
       return failed({ code: 'asr.bad_response', params: {}, message: 'ASR 上游响应缺少 choices[0].message.content', status: 502 });

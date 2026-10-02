@@ -49,7 +49,10 @@ Speech recognition, when configured, reuses the same provider record: `audioBase
 plus the same API key. Which dialect Ruyi speaks to it is a per-provider setting, `providers[].asrProtocol`:
 `transcriptions` (the OpenAI-shaped multipart `/audio/transcriptions`, the default, and the only shape before
 2.8.0) or `chat-audio` (`/chat/completions` with an `input_audio` data URI, which is how MiMo and Bailian
-document ASR). A provider that speaks neither cannot do voice at all, and Ruyi says so rather than guessing.
+document ASR). Bailian's Fun-ASR models (`fun-asr-*`) are not served on the OpenAI-compatible path
+(it answers 400 with an empty `{}`), so on a chat-style provider Ruyi sends those models to DashScope's native
+`/api/v1/services/aigc/multimodal-generation/generation` instead; Qwen3-ASR on the same provider stays on
+`/chat/completions`. A provider that speaks neither cannot do voice at all, and Ruyi says so rather than guessing.
 Chat style only accepts the formats the upstream declares — MiMo refuses webm with a plain 400 — so microphone
 recordings are converted to 16 kHz mono WAV in the browser before upload, while audio attachments and the
 `audio_transcribe` tool send the user's original file untranscoded.

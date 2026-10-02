@@ -462,6 +462,27 @@ const server = http.createServer((req, res) => {
       res.end();
       return;
     }
+    // 2026-10:百炼 DashScope 原生口的 Fun-ASR 桩(真机实测形状):缺 parameters.format → 400 `{}`;
+    // 成功回顶层 sentence/text + output 下同一份 + usage.duration(秒,没有 token)。model 含 'nativebadshape' 回没有文本的 200。
+    if (req.method === 'POST' && url.endsWith('/api/v1/services/aigc/multimodal-generation/generation')) {
+      let np = {};
+      try { np = JSON.parse(body); } catch { /* ignore */ }
+      const model = String(np.model || '');
+      const msg = np.input && Array.isArray(np.input.messages) ? np.input.messages[0] : null;
+      const part = msg && Array.isArray(msg.content) ? msg.content.find(c => c && c.type === 'input_audio') : null;
+      const data = String((part && part.input_audio && part.input_audio.data) || '');
+      const head = data.match(/^data:([^;,]*);base64,/);
+      const params = np.parameters || {};
+      if (!head || !params.format) { res.writeHead(400, { 'content-type': 'application/json' }); res.end('{}'); return; }
+      if (model.includes('nativebadshape')) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ request_id: 'fake', output: {} })); return; }
+      const bytes = Buffer.from(data.slice(head[0].length), 'base64').length;
+      const hints = Array.isArray(params.language_hints) ? params.language_hints.join(',') : '';
+      const text = '[fake-asr-native] model=' + model + ' mime=' + head[1] + ' format=' + params.format + ' bytes=' + bytes + (hints ? ' hints=' + hints : '');
+      const sentence = { sentence_id: 1, begin_time: 0, end_time: 1000, text, sentence_end: true };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ sentence, text, request_id: 'fake', output: { sentence, text, request_id: 'fake' }, usage: { duration: 1 } }));
+      return;
+    }
     if (req.method === 'POST' && url.includes('/chat/completions')) {
       chatRequestCount += 1; // v1.0-S6 (B): served-request tally (read via GET /__count)
       capture(body); // v0.8-S6: persist the raw request body (system prompt inspection by e2e)
@@ -502,6 +523,12 @@ const server = http.createServer((req, res) => {
           const mime = head ? head[1] : '';
           const byteLen = head ? Buffer.from(data.slice(head[0].length), 'base64').length : 0;
           const lang = String((parsed.asr_options && parsed.asr_options.language) || '');
+          // 2026-10 真机实测:百炼的 fun-asr-* 不认兼容口,回 400 且回体只有 `{}`(工作台应改打下面的 DashScope 原生口)。
+          if (/^fun-asr/i.test(model)) {
+            res.writeHead(400, { 'content-type': 'application/json' });
+            res.end('{}');
+            return;
+          }
           if (model.includes('upstream500')) {
             res.writeHead(500, { 'content-type': 'application/json' });
             res.end(JSON.stringify({ error: { message: 'fake asr chat exploded', type: 'fake_error', code: 500 } }));
