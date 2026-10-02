@@ -79,11 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 59 号文语音词库续钉(前值 45ad3f9e…＝2026-10 设置补全同批续钉):零新增、零删除层,改两层 ——
-//   `css/views/chat-shell.css`:设置页「语音输入」下的语音词库一块(`.asr-lexicon-*`:等宽文本框、保存钮与计数一行、
-//   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
-//   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
-// 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
 // 59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
 //   `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
 //   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
@@ -99,7 +94,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '16c9bd864be9bb056f6c732469a0760c102b8a8810a1407747abbd1e83bdf24e';
+// 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
+//   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
+//   js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '5e1ed875bceff267ffb5bedb72745f1c96f7519c068b97840d078d67e292eedd';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

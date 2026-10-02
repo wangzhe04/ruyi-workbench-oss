@@ -586,9 +586,7 @@ const stewardRuntime = {
   adopted: [],
   adoptedRecent: new Map(),   // 135:重复交接去重窗口(sid+委托 -> 时刻),只在内存
   wakeTimers: [],             // 2026-10:待决一产生就提前补拍的定时器(见 stewardScheduleWake)
-  viewHeld: new Map(),        // 2026-10:用户正看着的待决先扣住(pendingKey -> 事件),见 stewardApplyPresenceGate 头注 ⑤
 };
-const STEWARD_VIEW_HELD_MAX = 200;
 const STEWARD_ADOPTED_QUEUE_MAX = 50;
 const STEWARD_ADOPTED_DEDUPE_MS = 10 * 60 * 1000;   // 135:同一线程同一句委托在 10 分钟内重复交接只算一次
 let stewardAppendChain = Promise.resolve();
@@ -677,12 +675,10 @@ function stewardQueueThreadAdopted(data) {
 // ③ 排在 ② 之前:两个视角同时连着时,管家视角开着就说明收件箱那一面正被人看着,它才是该收东西的那面。
 // adopted 不过门:它是用户【刚刚亲手按下】的交接,他要的就是管家应一声,不存在打扰问题。
 //
-// ⑤ 2026-10(用户:「如果用户在看提问、权限,管家被立刻唤醒也不要插手」):任一连接(不分视角)在 viewing 里报了
-//    这条线程 = 那道权限/提问此刻正摆在用户面前、而且人在跟前(13r 头注)。这条线程的待决事件【扣住、不丢】:
-//    不入箱、不叫醒管家;每一拍都拿当时的在场重判一次(stewardTakeViewHeld),用户收起弹窗或走开就放进箱子,
-//    待决已经被结算(不在 pendingIds 里了)就悄悄扔掉。为什么不能像 ① 那样丢:游标已经越过这条待决
-//    (stewardCollectEvents 对已知 pendingKey 不再出事件),丢了就是用户走开之后管家永远不知道它还挂着。
-//    只扣待决(payload 带 interventionId 的),同线程的 failed/stalled 等照旧走下面四种情形。
+// 2026-10(用户:「如果用户在看提问、权限,管家被立刻唤醒也不要插手」):viewing(13r 头注)【不】在这道门里处理 ——
+// 入箱的是事实与通知(安静卡、到访摘要都读它),用户正看着一道提问不该让那张安静卡消失。「管家不插手」落在两处:
+// 13q 的回合排空器把被看着的待决扣在回合队列外(不为它起回合),13k stewardSeatedByUser 让代批 / 代答工具拒绝。
+// 下面两个小工具给 13q 用(它们读的是本文件同一份在场快照)。
 // ────────────────────────────────────────────────────────────────────────────
 function stewardViewingSessionIds(presence) {
   const out = new Set();
@@ -695,13 +691,10 @@ function stewardPendingKeyOf(evt) {
   const iv = evt && evt.payload && evt.payload.interventionId;
   return iv ? String(evt.sessionId || '') + '\u0000' + String(iv) : '';
 }
-// 取出上一拍扣住的待决里【仍然挂着】的那些(交给本拍的在场门重判);已结算的就此作罢。
-function stewardTakeViewHeld() {
-  const held = stewardRuntime.viewHeld instanceof Map ? stewardRuntime.viewHeld : new Map();
-  stewardRuntime.viewHeld = new Map();
-  const out = [];
-  for (const [key, evt] of held) if (stewardRuntime.cursor.pendingIds.has(key)) out.push(evt);
-  return out;
+// 这条待决此刻还挂着吗(读本文件游标上那份全局待决集合;13q 放行被扣住的事件前问它)。
+function stewardPendingStillOpen(evt) {
+  const key = stewardPendingKeyOf(evt);
+  return Boolean(key) && stewardRuntime.cursor.pendingIds.has(key);
 }
 function stewardPresenceRows() {
   try {
@@ -710,17 +703,9 @@ function stewardPresenceRows() {
   } catch { return []; }
 }
 function stewardApplyPresenceGate(events) {
-  const all = Array.isArray(events) ? events : [];
+  const list = Array.isArray(events) ? events : [];
   const presence = stewardPresenceRows();
-  if (!presence.length) return all;                        // ④
-  const viewing = stewardViewingSessionIds(presence);
-  const list = [];
-  for (const evt of all) {
-    const key = viewing.has(String((evt && evt.sessionId) || '')) ? stewardPendingKeyOf(evt) : '';
-    if (!key) { list.push(evt); continue; }
-    if (!(stewardRuntime.viewHeld instanceof Map)) stewardRuntime.viewHeld = new Map();
-    if (stewardRuntime.viewHeld.size < STEWARD_VIEW_HELD_MAX) stewardRuntime.viewHeld.set(key, evt);   // ⑤ 扣住
-  }
+  if (!presence.length) return list;                       // ④
   const seated = new Set();
   let classicPresent = false, stewardPresent = false;
   for (const row of presence) {
@@ -759,7 +744,6 @@ function stewardResetRuntimeState() {
   stewardRuntime.carry = [];
   stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
   stewardRuntime.adoptedRecent = new Map();   // 135:重复交接的去重窗口,同上
-  stewardRuntime.viewHeld = new Map();        // 2026-10:扣住的待决只在内存,重置即清(游标重读会再出事件)
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
@@ -1237,8 +1221,7 @@ async function stewardTickOnce() {
   stewardRuntime.carry = [];
   // 121-K3(§4.3):在场门只作用于【本轮新收的】事件。结转下来的那批上一轮已经过过门了,
   // 再过一次会拿【此刻】的在场状态去重判一件几分钟前发生的事,那是两个时刻的事实相互污染。
-  // 2026-10:上一拍因「用户正看着」扣住的待决,本拍与新事件一起【重新】过门(⑤ 的另一半)。
-  const gated = stewardApplyPresenceGate(stewardTakeViewHeld().concat(events));
+  const gated = stewardApplyPresenceGate(events);
   const fresh = carried.concat(gated)
     .filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)));

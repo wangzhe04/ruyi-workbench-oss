@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3348,
-    "requiredSymbols": 3057,
+    "providedSymbols": 3352,
+    "requiredSymbols": 3063,
     "edges": 531,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -15472,7 +15472,6 @@
         "STEWARD_SOURCE_EVENT_MAP",
         "STEWARD_SUMMARY_CHARS",
         "STEWARD_TICK_MAX_EVENTS",
-        "STEWARD_VIEW_HELD_MAX",
         "STEWARD_WAKE_DELAYS_MS",
         "startStewardInbox",
         "stewardAppendChain",
@@ -15505,6 +15504,7 @@
         "stewardNormalizeThreadAdopted",
         "stewardParseInboxText",
         "stewardPendingKeyOf",
+        "stewardPendingStillOpen",
         "stewardPresenceRows",
         "stewardQueueThreadAdopted",
         "stewardReadInboxRows",
@@ -15519,7 +15519,6 @@
         "stewardRuntime",
         "stewardSaveCursor",
         "stewardScheduleWake",
-        "stewardTakeViewHeld",
         "stewardThreadBackgroundBusy",
         "stewardTickOnce",
         "stewardTrimCursorMap",
@@ -18229,6 +18228,8 @@
         "STEWARD_TURN_DAY_MS",
         "STEWARD_TURN_WINDOW_MS",
         "STEWARD_USER_QUEUE_WAIT_MS",
+        "STEWARD_VIEW_HELD_MAX",
+        "STEWARD_VIEW_RECHECK_MS",
         "STEWARD_VISITS_DIR",
         "STEWARD_VISITS_KEEP",
         "STEWARD_VISIT_DIGEST_MAX",
@@ -19486,6 +19487,7 @@
         "stewardDelegationReceiptLabel",
         "stewardDelegationToolCalls",
         "stewardEnsureOpenAiRoute",
+        "stewardHoldViewedEvents",
         "stewardInboxDebounceMs",
         "stewardInboxRetryCounts",
         "stewardLastAssistantCreatedAt",
@@ -19494,6 +19496,7 @@
         "stewardPendingList",
         "stewardQueueHasBlockingAsk",
         "stewardQueueHasQuickAnswer",
+        "stewardRecheckViewHeld",
         "stewardRelayChannelFor",
         "stewardRelayDeliver",
         "stewardRequeueFailedInboxBatch",
@@ -19502,6 +19505,7 @@
         "stewardScheduleInboxDrain",
         "stewardTrimVisits",
         "stewardUserWaiters",
+        "stewardViewedPendingStillOpen",
         "stewardVisit",
         "stewardVisitDigest",
         "stewardVisitFileName",
@@ -19741,6 +19745,34 @@
           ]
         },
         {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardPendingKeyOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardPendingStillOpen",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardPresenceRows",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "13i-steward-inbox.js",
+          "symbol": "stewardViewingSessionIds",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "13j-steward-tool-base.js",
           "symbol": "_stewardReadBudget",
           "kinds": [
@@ -19855,6 +19887,20 @@
         {
           "provider": "13m-steward-runner-base.js",
           "symbol": "STEWARD_USER_QUEUE_WAIT_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VIEW_HELD_MAX",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "13m-steward-runner-base.js",
+          "symbol": "STEWARD_VIEW_RECHECK_MS",
           "kinds": [
             "read"
           ]
@@ -30924,7 +30970,11 @@
       "to": "13i-steward-inbox.js",
       "symbols": [
         "stewardDir",
-        "stewardInboxRead"
+        "stewardInboxRead",
+        "stewardPendingKeyOf",
+        "stewardPendingStillOpen",
+        "stewardPresenceRows",
+        "stewardViewingSessionIds"
       ],
       "direction": "backward"
     },
@@ -30969,6 +31019,8 @@
         "STEWARD_PREEMPT_WAIT_MS",
         "STEWARD_QUICK_DEBOUNCE_MS",
         "STEWARD_USER_QUEUE_WAIT_MS",
+        "STEWARD_VIEW_HELD_MAX",
+        "STEWARD_VIEW_RECHECK_MS",
         "STEWARD_VISITS_DIR",
         "STEWARD_VISITS_KEEP",
         "STEWARD_VISIT_DIGEST_MAX",

@@ -64562,9 +64562,7 @@ const stewardRuntime = {
   adopted: [],
   adoptedRecent: new Map(),   // 135:重复交接去重窗口(sid+委托 -> 时刻),只在内存
   wakeTimers: [],             // 2026-10:待决一产生就提前补拍的定时器(见 stewardScheduleWake)
-  viewHeld: new Map(),        // 2026-10:用户正看着的待决先扣住(pendingKey -> 事件),见 stewardApplyPresenceGate 头注 ⑤
 };
-const STEWARD_VIEW_HELD_MAX = 200;
 const STEWARD_ADOPTED_QUEUE_MAX = 50;
 const STEWARD_ADOPTED_DEDUPE_MS = 10 * 60 * 1000;   // 135:同一线程同一句委托在 10 分钟内重复交接只算一次
 let stewardAppendChain = Promise.resolve();
@@ -64653,12 +64651,10 @@ function stewardQueueThreadAdopted(data) {
 // ③ 排在 ② 之前:两个视角同时连着时,管家视角开着就说明收件箱那一面正被人看着,它才是该收东西的那面。
 // adopted 不过门:它是用户【刚刚亲手按下】的交接,他要的就是管家应一声,不存在打扰问题。
 //
-// ⑤ 2026-10(用户:「如果用户在看提问、权限,管家被立刻唤醒也不要插手」):任一连接(不分视角)在 viewing 里报了
-//    这条线程 = 那道权限/提问此刻正摆在用户面前、而且人在跟前(13r 头注)。这条线程的待决事件【扣住、不丢】:
-//    不入箱、不叫醒管家;每一拍都拿当时的在场重判一次(stewardTakeViewHeld),用户收起弹窗或走开就放进箱子,
-//    待决已经被结算(不在 pendingIds 里了)就悄悄扔掉。为什么不能像 ① 那样丢:游标已经越过这条待决
-//    (stewardCollectEvents 对已知 pendingKey 不再出事件),丢了就是用户走开之后管家永远不知道它还挂着。
-//    只扣待决(payload 带 interventionId 的),同线程的 failed/stalled 等照旧走下面四种情形。
+// 2026-10(用户:「如果用户在看提问、权限,管家被立刻唤醒也不要插手」):viewing(13r 头注)【不】在这道门里处理 ——
+// 入箱的是事实与通知(安静卡、到访摘要都读它),用户正看着一道提问不该让那张安静卡消失。「管家不插手」落在两处:
+// 13q 的回合排空器把被看着的待决扣在回合队列外(不为它起回合),13k stewardSeatedByUser 让代批 / 代答工具拒绝。
+// 下面两个小工具给 13q 用(它们读的是本文件同一份在场快照)。
 // ────────────────────────────────────────────────────────────────────────────
 function stewardViewingSessionIds(presence) {
   const out = new Set();
@@ -64671,13 +64667,10 @@ function stewardPendingKeyOf(evt) {
   const iv = evt && evt.payload && evt.payload.interventionId;
   return iv ? String(evt.sessionId || '') + '\u0000' + String(iv) : '';
 }
-// 取出上一拍扣住的待决里【仍然挂着】的那些(交给本拍的在场门重判);已结算的就此作罢。
-function stewardTakeViewHeld() {
-  const held = stewardRuntime.viewHeld instanceof Map ? stewardRuntime.viewHeld : new Map();
-  stewardRuntime.viewHeld = new Map();
-  const out = [];
-  for (const [key, evt] of held) if (stewardRuntime.cursor.pendingIds.has(key)) out.push(evt);
-  return out;
+// 这条待决此刻还挂着吗(读本文件游标上那份全局待决集合;13q 放行被扣住的事件前问它)。
+function stewardPendingStillOpen(evt) {
+  const key = stewardPendingKeyOf(evt);
+  return Boolean(key) && stewardRuntime.cursor.pendingIds.has(key);
 }
 function stewardPresenceRows() {
   try {
@@ -64686,17 +64679,9 @@ function stewardPresenceRows() {
   } catch { return []; }
 }
 function stewardApplyPresenceGate(events) {
-  const all = Array.isArray(events) ? events : [];
+  const list = Array.isArray(events) ? events : [];
   const presence = stewardPresenceRows();
-  if (!presence.length) return all;                        // ④
-  const viewing = stewardViewingSessionIds(presence);
-  const list = [];
-  for (const evt of all) {
-    const key = viewing.has(String((evt && evt.sessionId) || '')) ? stewardPendingKeyOf(evt) : '';
-    if (!key) { list.push(evt); continue; }
-    if (!(stewardRuntime.viewHeld instanceof Map)) stewardRuntime.viewHeld = new Map();
-    if (stewardRuntime.viewHeld.size < STEWARD_VIEW_HELD_MAX) stewardRuntime.viewHeld.set(key, evt);   // ⑤ 扣住
-  }
+  if (!presence.length) return list;                       // ④
   const seated = new Set();
   let classicPresent = false, stewardPresent = false;
   for (const row of presence) {
@@ -64735,7 +64720,6 @@ function stewardResetRuntimeState() {
   stewardRuntime.carry = [];
   stewardRuntime.adopted = [];   // 121-K3:交接队列随运行时一起重置(它不落盘,重置即清)
   stewardRuntime.adoptedRecent = new Map();   // 135:重复交接的去重窗口,同上
-  stewardRuntime.viewHeld = new Map();        // 2026-10:扣住的待决只在内存,重置即清(游标重读会再出事件)
 }
 
 // inbox 尾窗读取:小文件整读;大文件只读尾窗并丢弃首个半行(换行是单字节 0x0A,永不落在 UTF-8
@@ -65213,8 +65197,7 @@ async function stewardTickOnce() {
   stewardRuntime.carry = [];
   // 121-K3(§4.3):在场门只作用于【本轮新收的】事件。结转下来的那批上一轮已经过过门了,
   // 再过一次会拿【此刻】的在场状态去重判一件几分钟前发生的事,那是两个时刻的事实相互污染。
-  // 2026-10:上一拍因「用户正看着」扣住的待决,本拍与新事件一起【重新】过门(⑤ 的另一半)。
-  const gated = stewardApplyPresenceGate(stewardTakeViewHeld().concat(events));
+  const gated = stewardApplyPresenceGate(events);
   const fresh = carried.concat(gated)
     .filter(evt => !stewardRuntime.seen.has(stewardEventDedupeKey(evt)))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)));
@@ -69593,6 +69576,11 @@ const STEWARD_QUICK_DEBOUNCE_MS = 0;          // 速查答案:不去抖,立刻�
 // 那条线程此刻停着,5 秒去抖加上轮询间隔是「管家代批要等半分钟」的大头;1 秒仍够把同一阵涌来的
 // 几条待决并成一个回合(真机里一个回合内连发的工具请求彼此相隔远小于 1 秒)。其余通知照旧 5 秒。
 const STEWARD_BLOCKING_DEBOUNCE_MS = 1000;
+// 2026-10(用户:「用户在看提问、权限,管家被立刻唤醒也不要插手」):用户正看着的那几条待决,回合排空器先扣在
+// 回合队列外(13q stewardHoldViewedEvents),每 5 s 拿当时的在场重判一次;扣着的条数有上限(老的先丢 —— 丢的
+// 只是「管家替你处理」的那次机会,收件箱里的那一行与安静卡都还在)。
+const STEWARD_VIEW_RECHECK_MS = 5000;
+const STEWARD_VIEW_HELD_MAX = 200;
 const STEWARD_NO_PROGRESS_MAX = 5;            // 连续 5 次收件箱回合零 acts 零 actions -> 退避
 const STEWARD_VISIT_DIGEST_MAX = 5;           // 到访摘要 ≤5 条人话
 const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上限
@@ -69735,6 +69723,8 @@ const stewardRunnerRuntime = {
   noProgress: 0,        // 连续零进展的收件箱回合数
   inflight: null,       // { kind:'user'|'inbox', promise, controller, cancelled, events }
   queue: [],            // 待处理的收件箱事件(抢占时回排在这里)
+  viewHeld: [],         // 2026-10:用户正看着的待决,先不起回合(见 STEWARD_VIEW_RECHECK_MS)
+  viewHeldTimer: null,
   debounceTimer: null,
   debounceMs: -1,       // 116-4:当前那个定时器排的是多久(用来判「该不该重排成更快的」)
   lastReply: null,      // 最近一次 steward_reply 的精简副本(供 /api/steward/state)
@@ -72545,6 +72535,52 @@ function stewardInboxDebounceMs(rows) {
   if (stewardQueueHasBlockingAsk(rows)) return STEWARD_BLOCKING_DEBOUNCE_MS;
   return STEWARD_DEBOUNCE_MS;
 }
+// 2026-10(用户:「用户在看提问、权限,管家被立刻唤醒也不要插手」):起回合之前,把【用户此刻正看着】的那几条待决
+// (在场信号 viewing,见 13r / 13i)从这一批里拿出来先扣着 —— 不为它起回合,也就不会去插手。收件箱那一行照常在
+// (安静卡、到访摘要都读它),扣的只是「管家处理」这一步。每 STEWARD_VIEW_RECHECK_MS 重判一次:已经结算的作罢;
+// 用户不看了(收起弹窗 / 走开一分钟)就排回队头、照常排空。工具层另有一道同判据的门(13k stewardSeatedByUser)。
+function stewardViewedPendingStillOpen(evt) {
+  const payload = (evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {};
+  if (payload.interventionType === 'permission') return pendingPermissions.has(String(payload.interventionId || ''));
+  return stewardPendingStillOpen(evt);
+}
+function stewardRecheckViewHeld() {
+  const held = Array.isArray(stewardRunnerRuntime.viewHeld) ? stewardRunnerRuntime.viewHeld : [];
+  const viewing = stewardViewingSessionIds(stewardPresenceRows());
+  const keep = [];
+  const release = [];
+  for (const evt of held) {
+    if (!stewardViewedPendingStillOpen(evt)) continue;
+    if (viewing.has(String(evt.sessionId || ''))) keep.push(evt); else release.push(evt);
+  }
+  stewardRunnerRuntime.viewHeld = keep;
+  if (!keep.length && stewardRunnerRuntime.viewHeldTimer) {
+    clearInterval(stewardRunnerRuntime.viewHeldTimer);
+    stewardRunnerRuntime.viewHeldTimer = null;
+  }
+  if (release.length && !stewardRunnerRuntime.stopped) {
+    stewardRunnerRuntime.queue.unshift(...release);
+    stewardScheduleInboxDrain();
+  }
+}
+function stewardHoldViewedEvents(batch) {
+  const list = Array.isArray(batch) ? batch : [];
+  const viewing = stewardViewingSessionIds(stewardPresenceRows());
+  if (!viewing.size) return list;
+  const run = [];
+  for (const evt of list) {
+    const key = viewing.has(String((evt && evt.sessionId) || '')) ? stewardPendingKeyOf(evt) : '';
+    if (!key) { run.push(evt); continue; }
+    if (!stewardRunnerRuntime.viewHeld.some(item => stewardPendingKeyOf(item) === key)) stewardRunnerRuntime.viewHeld.push(evt);
+  }
+  while (stewardRunnerRuntime.viewHeld.length > STEWARD_VIEW_HELD_MAX) stewardRunnerRuntime.viewHeld.shift();
+  if (stewardRunnerRuntime.viewHeld.length && !stewardRunnerRuntime.viewHeldTimer) {
+    const timer = setInterval(stewardRecheckViewHeld, STEWARD_VIEW_RECHECK_MS);
+    if (timer && typeof timer.unref === 'function') timer.unref();
+    stewardRunnerRuntime.viewHeldTimer = timer;
+  }
+  return run;
+}
 function stewardScheduleInboxDrain() {
   if (stewardRunnerRuntime.stopped) return;
   if (!stewardRunnerRuntime.queue.length) return;
@@ -72561,8 +72597,8 @@ function stewardScheduleInboxDrain() {
     stewardRunnerRuntime.debounceTimer = null;
     stewardRunnerRuntime.debounceMs = -1;
     if (stewardRunnerRuntime.stopped) return;
-    const batch = stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN);
-    if (!batch.length) return;
+    const batch = stewardHoldViewedEvents(stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN));
+    if (!batch.length) { stewardScheduleInboxDrain(); return; }
     void runStewardTurn({ trigger: 'inbox', events: batch }).then(
       // 熔断(停机 / 小时窗触顶 / 日费用触顶 / 无进展退避)时【不】自排下一轮:那一路会把这批事件
       // 原样退回队列,再排就是一个 5 秒一次的空转循环,而解除熔断的条件(用户说话)本来就会在

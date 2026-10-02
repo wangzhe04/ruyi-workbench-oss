@@ -470,6 +470,52 @@ function stewardInboxDebounceMs(rows) {
   if (stewardQueueHasBlockingAsk(rows)) return STEWARD_BLOCKING_DEBOUNCE_MS;
   return STEWARD_DEBOUNCE_MS;
 }
+// 2026-10(用户:「用户在看提问、权限,管家被立刻唤醒也不要插手」):起回合之前,把【用户此刻正看着】的那几条待决
+// (在场信号 viewing,见 13r / 13i)从这一批里拿出来先扣着 —— 不为它起回合,也就不会去插手。收件箱那一行照常在
+// (安静卡、到访摘要都读它),扣的只是「管家处理」这一步。每 STEWARD_VIEW_RECHECK_MS 重判一次:已经结算的作罢;
+// 用户不看了(收起弹窗 / 走开一分钟)就排回队头、照常排空。工具层另有一道同判据的门(13k stewardSeatedByUser)。
+function stewardViewedPendingStillOpen(evt) {
+  const payload = (evt && evt.payload && typeof evt.payload === 'object') ? evt.payload : {};
+  if (payload.interventionType === 'permission') return pendingPermissions.has(String(payload.interventionId || ''));
+  return stewardPendingStillOpen(evt);
+}
+function stewardRecheckViewHeld() {
+  const held = Array.isArray(stewardRunnerRuntime.viewHeld) ? stewardRunnerRuntime.viewHeld : [];
+  const viewing = stewardViewingSessionIds(stewardPresenceRows());
+  const keep = [];
+  const release = [];
+  for (const evt of held) {
+    if (!stewardViewedPendingStillOpen(evt)) continue;
+    if (viewing.has(String(evt.sessionId || ''))) keep.push(evt); else release.push(evt);
+  }
+  stewardRunnerRuntime.viewHeld = keep;
+  if (!keep.length && stewardRunnerRuntime.viewHeldTimer) {
+    clearInterval(stewardRunnerRuntime.viewHeldTimer);
+    stewardRunnerRuntime.viewHeldTimer = null;
+  }
+  if (release.length && !stewardRunnerRuntime.stopped) {
+    stewardRunnerRuntime.queue.unshift(...release);
+    stewardScheduleInboxDrain();
+  }
+}
+function stewardHoldViewedEvents(batch) {
+  const list = Array.isArray(batch) ? batch : [];
+  const viewing = stewardViewingSessionIds(stewardPresenceRows());
+  if (!viewing.size) return list;
+  const run = [];
+  for (const evt of list) {
+    const key = viewing.has(String((evt && evt.sessionId) || '')) ? stewardPendingKeyOf(evt) : '';
+    if (!key) { run.push(evt); continue; }
+    if (!stewardRunnerRuntime.viewHeld.some(item => stewardPendingKeyOf(item) === key)) stewardRunnerRuntime.viewHeld.push(evt);
+  }
+  while (stewardRunnerRuntime.viewHeld.length > STEWARD_VIEW_HELD_MAX) stewardRunnerRuntime.viewHeld.shift();
+  if (stewardRunnerRuntime.viewHeld.length && !stewardRunnerRuntime.viewHeldTimer) {
+    const timer = setInterval(stewardRecheckViewHeld, STEWARD_VIEW_RECHECK_MS);
+    if (timer && typeof timer.unref === 'function') timer.unref();
+    stewardRunnerRuntime.viewHeldTimer = timer;
+  }
+  return run;
+}
 function stewardScheduleInboxDrain() {
   if (stewardRunnerRuntime.stopped) return;
   if (!stewardRunnerRuntime.queue.length) return;
@@ -486,8 +532,8 @@ function stewardScheduleInboxDrain() {
     stewardRunnerRuntime.debounceTimer = null;
     stewardRunnerRuntime.debounceMs = -1;
     if (stewardRunnerRuntime.stopped) return;
-    const batch = stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN);
-    if (!batch.length) return;
+    const batch = stewardHoldViewedEvents(stewardRunnerRuntime.queue.splice(0, STEWARD_INBOX_EVENTS_PER_TURN));
+    if (!batch.length) { stewardScheduleInboxDrain(); return; }
     void runStewardTurn({ trigger: 'inbox', events: batch }).then(
       // 熔断(停机 / 小时窗触顶 / 日费用触顶 / 无进展退避)时【不】自排下一轮:那一路会把这批事件
       // 原样退回队列,再排就是一个 5 秒一次的空转循环,而解除熔断的条件(用户说话)本来就会在

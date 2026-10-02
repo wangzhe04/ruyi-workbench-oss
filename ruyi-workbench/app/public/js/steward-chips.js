@@ -116,6 +116,48 @@ export const STEWARD_SWITCH_NOTE_KEY = 'stewardShell.chips.switchTakesEffect';
 // steward-walkthrough.static.e2e.js F1）。STEWARD_PERMISSION_CONFIRM_MODES／STEWARD_CONFIRM_KEYS
 // 两个常量仍有真实调用点，不动。
 
+// 2026-10：chip 菜单往哪边展开。.steward-chip-menu 是就地浮层（popover 的 layer 模式，位置交给 CSS 的 top:100%），
+// 2.0 那条路径的「底部放不下就翻上去」它从来没有 —— 权限菜单变成五档、带说明之后更高了，左栏靠下那几行的菜单
+// 被线程列表这个滚动容器裁掉，底下「口袋」那一格叠在它上面（walkthrough-round1.browser 的 E4，CI 实测）。
+// 判法：从菜单往上找第一层会裁切的祖先（overflow 不是 visible），连同视口一起取可见范围；往下放不下、
+// 而上面空间比下面大，就加 .is-flip-up 往上展开；哪边都放不全时把高度收到那一侧的空间（菜单本来就能竖向滚动）。
+// 只在打开 / 换内容时判一次，不跟滚动重定位（与 layer 模式「位置交给 CSS」的约定一致）。
+const CHIP_MENU_EDGE = 8;
+function chipMenuClipBounds(menu) {
+  const view = globalThis.innerHeight || (menu.ownerDocument && menu.ownerDocument.documentElement.clientHeight) || 0;
+  let top = 0;
+  let bottom = view;
+  const win = menu.ownerDocument && menu.ownerDocument.defaultView;
+  for (let node = menu.parentElement; node && node !== menu.ownerDocument.body; node = node.parentElement) {
+    let overflowY = 'visible';
+    try { overflowY = win.getComputedStyle(node).overflowY; } catch { overflowY = 'visible'; }
+    if (overflowY === 'visible') continue;
+    const rect = node.getBoundingClientRect();
+    top = Math.max(top, rect.top);
+    bottom = Math.min(bottom, rect.bottom);
+  }
+  return { top, bottom };
+}
+function placeChipMenu(menu) {
+  if (!menu || menu.hidden || typeof menu.getBoundingClientRect !== 'function') return;
+  try {
+    menu.classList.remove('is-flip-up');
+    menu.style.maxHeight = '';
+    // 量的是菜单真正的包含块（offsetParent：top:100% / bottom:100% 相对的那一层），不是外面那层 wrap ——
+    // 左栏行里两者差着一截（实测 wrap 底 386、菜单顶 416），拿 wrap 量会把空间多算一截、照样被裁。
+    const anchor = (menu.offsetParent || menu.parentElement || menu).getBoundingClientRect();
+    const height = menu.getBoundingClientRect().height;
+    const bounds = chipMenuClipBounds(menu);
+    const below = bounds.bottom - anchor.bottom - CHIP_MENU_EDGE;
+    const above = anchor.top - bounds.top - CHIP_MENU_EDGE;
+    if (height <= below) return;
+    const up = above > below;
+    if (up) menu.classList.add('is-flip-up');
+    const room = up ? above : below;
+    if (height > room && room > 0) menu.style.maxHeight = Math.max(120, Math.floor(room)) + 'px';
+  } catch { /* 量不出来就按 CSS 缺省往下展开 —— 与修前一致 */ }
+}
+
 export function permissionLabelKey(mode) {
   return STEWARD_PERMISSION_MODES.includes(mode) ? `stewardShell.permission.${mode}.label` : '';
 }
@@ -709,6 +751,7 @@ export function createQuickSwitchChips({
     actions.append(cancel, accept);
     box.appendChild(actions);
     menu.appendChild(box);
+    placeChipMenu(menu);   // 内容换成了确认区，高度变了 —— 重新判一次往哪边展开
   }
 
   // ── 引擎菜单 ──────────────────────────────────────────────────────────────────
@@ -1009,6 +1052,7 @@ export function createQuickSwitchChips({
         // 117x-M2：焦点必须在 hidden = false【之后】才交（藏着的元素 focus() 不动），而 popover 的
         // onOpen 正好跑在那一步之后。pendingFocus 由 buildModelMenu 在刚建菜单时记下（有搜索框才有）。
         if (pendingFocus) { const target = pendingFocus; pendingFocus = null; try { target.focus(); } catch { /* 宿主没有 focus 的环境 */ } }
+        placeChipMenu(chip.menu);
       },
       onClose: forgetOpenMenu,
     });

@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3348 | 3057 | 531 | 67 | 0 | 1 |
+| 70 | 3352 | 3063 | 531 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -69,16 +69,16 @@
 | 51 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 52 | `13d-core-domain-routes.js` | transport | 58 | 138 | 17 |
 | 53 | `13e-pretender-index.js` | transport | 57 | 36 | 8 |
-| 54 | `13i-steward-inbox.js` | transport | 84 | 27 | 8 |
+| 54 | `13i-steward-inbox.js` | transport | 83 | 27 | 8 |
 | 55 | `13j-steward-tool-base.js` | transport | 80 | 23 | 9 |
 | 56 | `13k-steward-threads.js` | transport | 52 | 116 | 16 |
 | 57 | `13l-steward-ops.js` | transport | 46 | 113 | 18 |
 | 58 | `13g-steward.js` | transport | 14 | 67 | 10 |
-| 59 | `13m-steward-runner-base.js` | transport | 47 | 16 | 7 |
+| 59 | `13m-steward-runner-base.js` | transport | 49 | 16 | 7 |
 | 60 | `13n-steward-arbiter.js` | transport | 42 | 18 | 6 |
 | 61 | `13o-steward-runner-prompt.js` | transport | 22 | 62 | 15 |
 | 62 | `13p-steward-runner-actions.js` | transport | 35 | 60 | 11 |
-| 63 | `13q-steward-runner-turn.js` | transport | 34 | 70 | 19 |
+| 63 | `13q-steward-runner-turn.js` | transport | 37 | 76 | 19 |
 | 64 | `13h-steward-runner.js` | transport | 7 | 46 | 12 |
 | 65 | `13r-event-stream.js` | transport | 25 | 17 | 6 |
 | 66 | `13s-scheduler.js` | transport | 51 | 36 | 9 |
@@ -536,11 +536,11 @@
 | `13q-steward-runner-turn.js` | `13b-api-domain-routes.js` | backward | `steerSessionCore` |
 | `13q-steward-runner-turn.js` | `13d-core-domain-routes.js` | backward | `decideIntervention` |
 | `13q-steward-runner-turn.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex` |
-| `13q-steward-runner-turn.js` | `13i-steward-inbox.js` | backward | `stewardDir`, `stewardInboxRead` |
+| `13q-steward-runner-turn.js` | `13i-steward-inbox.js` | backward | `stewardDir`, `stewardInboxRead`, `stewardPendingKeyOf`, `stewardPendingStillOpen`, `stewardPresenceRows`, `stewardViewingSessionIds` |
 | `13q-steward-runner-turn.js` | `13j-steward-tool-base.js` | backward | `_stewardReadBudget`, `stewardFail`, `stewardReadSessionHead` |
 | `13q-steward-runner-turn.js` | `13k-steward-threads.js` | backward | `stewardErrorDetail`, `stewardLaunchingTurns`, `stewardMediatesPermissions` |
 | `13q-steward-runner-turn.js` | `13l-steward-ops.js` | backward | `stewardDecideAttempted` |
-| `13q-steward-runner-turn.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_BLOCKING_DEBOUNCE_MS`, `STEWARD_DEBOUNCE_MS`, `STEWARD_DIGEST_KIND_TEXT`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_PENDING_LIST_MAX`, `STEWARD_PREEMPT_WAIT_MS`, `STEWARD_QUICK_DEBOUNCE_MS`, `STEWARD_USER_QUEUE_WAIT_MS`, `STEWARD_VISITS_DIR`, `STEWARD_VISITS_KEEP`, `STEWARD_VISIT_DIGEST_MAX`, `STEWARD_VISIT_SCHEMA`, `ensureStewardSession`, `stewardAbortInflight`, `stewardRunnerRuntime` |
+| `13q-steward-runner-turn.js` | `13m-steward-runner-base.js` | backward | `STEWARD_ACTION_HOOKS`, `STEWARD_BLOCKING_DEBOUNCE_MS`, `STEWARD_DEBOUNCE_MS`, `STEWARD_DIGEST_KIND_TEXT`, `STEWARD_INBOX_EVENTS_PER_TURN`, `STEWARD_PENDING_LIST_MAX`, `STEWARD_PREEMPT_WAIT_MS`, `STEWARD_QUICK_DEBOUNCE_MS`, `STEWARD_USER_QUEUE_WAIT_MS`, `STEWARD_VIEW_HELD_MAX`, `STEWARD_VIEW_RECHECK_MS`, `STEWARD_VISITS_DIR`, `STEWARD_VISITS_KEEP`, `STEWARD_VISIT_DIGEST_MAX`, `STEWARD_VISIT_SCHEMA`, `ensureStewardSession`, `stewardAbortInflight`, `stewardRunnerRuntime` |
 | `13q-steward-runner-turn.js` | `13n-steward-arbiter.js` | backward | `stewardArbiterWait` |
 | `13q-steward-runner-turn.js` | `13o-steward-runner-prompt.js` | backward | `stewardParseReply`, `stewardThreadDigestRows` |
 | `13q-steward-runner-turn.js` | `13p-steward-runner-actions.js` | backward | `stewardCircuitCheck`, `stewardDowngradeActions`, `stewardExecuteActions`, `stewardHumanizeSay`, `stewardInboxMessage`, `stewardLastAssistantContent`, `stewardLastAssistantFinalSegment`, `stewardNormalizeRouteHint`, `stewardSelfServeInbox`, `stewardStampReply`, `stewardTriggerStamp` |

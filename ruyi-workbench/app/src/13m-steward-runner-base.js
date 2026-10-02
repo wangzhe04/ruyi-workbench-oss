@@ -74,6 +74,11 @@ const STEWARD_QUICK_DEBOUNCE_MS = 0;          // 速查答案:不去抖,立刻�
 // 那条线程此刻停着,5 秒去抖加上轮询间隔是「管家代批要等半分钟」的大头;1 秒仍够把同一阵涌来的
 // 几条待决并成一个回合(真机里一个回合内连发的工具请求彼此相隔远小于 1 秒)。其余通知照旧 5 秒。
 const STEWARD_BLOCKING_DEBOUNCE_MS = 1000;
+// 2026-10(用户:「用户在看提问、权限,管家被立刻唤醒也不要插手」):用户正看着的那几条待决,回合排空器先扣在
+// 回合队列外(13q stewardHoldViewedEvents),每 5 s 拿当时的在场重判一次;扣着的条数有上限(老的先丢 —— 丢的
+// 只是「管家替你处理」的那次机会,收件箱里的那一行与安静卡都还在)。
+const STEWARD_VIEW_RECHECK_MS = 5000;
+const STEWARD_VIEW_HELD_MAX = 200;
 const STEWARD_NO_PROGRESS_MAX = 5;            // 连续 5 次收件箱回合零 acts 零 actions -> 退避
 const STEWARD_VISIT_DIGEST_MAX = 5;           // 到访摘要 ≤5 条人话
 const STEWARD_PENDING_LIST_MAX = 20;          // 到访返回的待决列表上限
@@ -216,6 +221,8 @@ const stewardRunnerRuntime = {
   noProgress: 0,        // 连续零进展的收件箱回合数
   inflight: null,       // { kind:'user'|'inbox', promise, controller, cancelled, events }
   queue: [],            // 待处理的收件箱事件(抢占时回排在这里)
+  viewHeld: [],         // 2026-10:用户正看着的待决,先不起回合(见 STEWARD_VIEW_RECHECK_MS)
+  viewHeldTimer: null,
   debounceTimer: null,
   debounceMs: -1,       // 116-4:当前那个定时器排的是多久(用来判「该不该重排成更快的」)
   lastReply: null,      // 最近一次 steward_reply 的精简副本(供 /api/steward/state)

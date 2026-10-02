@@ -7,10 +7,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   W  待决一产生就叫醒收件箱(13i stewardScheduleWake):轮询间隔拉到上限 120 s,新线程挂上待决之后
 //      几秒内就进收件箱 —— 只能是被叫醒的,轮询那一拍要两分钟后才来。
 //   V  用户正看着(在场信号 `?viewing=<线程>`,任一视角):
-//      V1 这条线程的待决【不进箱】(不叫醒管家去插手);
+//      V1 这条线程的待决照常进收件箱(安静卡、到访摘要都读它),但管家【不为它起回合】(不插手);
 //      V2 管家的 steward_decide 对它返回结构化拒绝 seated_by_user;
-//      V3 人一走(断连),扣住的那条【不丢】—— 下一拍原样进箱(游标早已越过它,丢了就再也回不来);
-//      V4 只扣被看着的那一条:同时挂着待决的别的线程照常进箱。
+//      V3 人一走(断连),扣住的那条【不丢】—— 几秒内管家就为它起回合(13q 每 5 s 重判一次);
+//      V4 只扣被看着的那一条:同时挂着待决的别的线程照常进箱、管家照常处理。
 //
 // 夹具:temp HOME + 进程内假 OpenAI 兼容 provider,不开浏览器。判定行:`STEWARD VIEWING GATE E2E: ALL PASS`。
 const { createRunner } = require('./lib/harness');
@@ -107,11 +107,16 @@ async function waitAck(stream) {
   const WS = ['w', 'y', 'z'];
   for (const name of WS) fs.mkdirSync(path.join(home, 'ws-' + name), { recursive: true });
   let fake = null, server = null, seat = null;
+  const stewardInputs = [];   // 每次管家回合的最后一条用户消息(收件箱回合就是那段事件文字)
   try {
     fake = await startFakeProvider({
       async handler(req) {
         const sys = req.messages.filter(m => m && m.role === 'system').map(m => String(m.content || '')).join('\n');
-        if (/我是如意/.test(sys)) return textFrames(JSON.stringify({ say: '看过了。', why: '总览', acts: [], actions: [] }));
+        if (/我是如意/.test(sys)) {
+          const lastUser = [...req.messages].reverse().find(m => m && m.role === 'user');
+          stewardInputs.push({ at: Date.now(), text: String((lastUser && lastUser.content) || '') });
+          return textFrames(JSON.stringify({ say: '看过了。', why: '总览', acts: [], actions: [] }));
+        }
         if (!req.messages.some(m => m && m.role === 'tool')) {
           await sleep(QUESTION_DELAY_MS);
           return toolCallFrames('request_user_input', { questions: [{ header: '框架', question: '用哪个框架?', options: [{ label: 'React' }, { label: 'Vue' }], multiSelect: false }] }, 'call_q1');
@@ -180,7 +185,11 @@ async function waitAck(stream) {
       `V0c presence.ack 回显 viewing(实得 ${JSON.stringify(ack && ack.data && ack.data.viewing)})`);
     ok(Boolean(await waitFor(async () => (await pendingOf(Y)).length > 0, 20000, 100)), 'V0d 线程 Y 挂上了一条待决');
     await sleep(4000);   // 叫醒的两拍(0.4 s / 2.5 s)都过去了
-    ok(!(await inboxHas(Y)), 'V1 用户正看着 Y 的提问:Y 的 needs_you 没进收件箱(没去叫管家插手)');
+    // 管家回合里提没提到 Y:只看「[收件箱]」那一段事件行(第一条用户消息前面还拼着全体线程的总览,Y 在那里出现不算)。
+    const inboxPart = text => { const at = text.indexOf('[收件箱]'); return at >= 0 ? text.slice(at) : ''; };
+    const stewardSawY = since => stewardInputs.some(item => item.at >= since && (inboxPart(item.text).includes(Y) || inboxPart(item.text).includes('我正看着它的提问')));
+    ok(await inboxHas(Y), 'V1a Y 的 needs_you 照常进了收件箱(安静卡、到访摘要读它,用户看着也不该让它消失)');
+    ok(!stewardSawY(0), `V1 用户正看着 Y 的提问:管家没有为它起回合(管家回合 ${stewardInputs.length} 次,没有一次提到 Y)`);
     const iv = (await pendingOf(Y))[0] || null;
     const decided = await request(appPort, 'POST', '/api/steward/act', {
       act: { kind: 'tool', tool: 'steward_decide', args: { missionId: Y, interventionId: iv && iv.id, action: 'answer', answer: 'React' } },
@@ -190,14 +199,18 @@ async function waitAck(stream) {
       `V2 管家此刻替用户答 Y 的提问 → seated_by_user(实得 ${JSON.stringify(decidedResult && decidedResult.error)})`);
     ok((await pendingOf(Y)).length === 1, 'V2b 那条待决原样还挂着(没被替用户答掉)');
 
+    const leftAt = Date.now();
     seat.close();
     seat = null;
-    await sleep(800);   // 13r 收到断连、把这条连接从在场表里摘掉
-    // 下一拍由另一条线程的新待决叫醒 —— 顺带验 V4:别的线程照常进箱。
+    // 13r 收到断连把这条连接摘掉,13q 下一次重判(≤ 5 s)就把扣住的 Y 排回队头、去抖 1 s 起回合。
+    ok(Boolean(await waitFor(() => stewardSawY(leftAt), 15000, 200)),
+      `V3 人走了之后,先前扣住的 Y 那条待决几秒内交还管家(扣住不是丢掉;走开后 ${Math.round((Date.now() - leftAt) / 100) / 10} s)`);
+    // V4:别的线程不受影响 —— 进箱、管家照常为它起回合。
+    const zAt = Date.now();
     const Z = await newThread('另一条线程', 'z');
-    ok(Boolean(Z), `V3a 开出线程 Z(${Z || '失败'})`);
+    ok(Boolean(Z), `V4a 开出线程 Z(${Z || '失败'})`);
     ok(Boolean(await waitFor(() => inboxHas(Z), 20000, 200)), 'V4 别的线程(Z)的待决照常进箱');
-    ok(await inboxHas(Y), 'V3 人走了之后,先前扣住的 Y 那条待决进了收件箱(扣住不是丢掉)');
+    ok(Boolean(await waitFor(() => stewardInputs.some(item => item.at >= zAt && inboxPart(item.text).includes(Z)), 15000, 200)), 'V4b 管家照常为 Z 起回合');
   } catch (e) {
     t.fail('fatal: ' + (e && e.stack || e));
   } finally {
@@ -212,7 +225,7 @@ async function waitAck(stream) {
 
 // REVERSE VERIFICATION
 //   1. W2:把 13i 的 `RUYI_EVENTS.subscribe` 里 thread.needs_you 那一段删掉 -> W2 必须 FAIL(只能等 120 s 轮询)。
-//   2. V1:把 stewardApplyPresenceGate 里「⑤ 扣住」那几行删掉 -> V1 必须 FAIL。
+//   2. V1:把 13q 排空器里的 stewardHoldViewedEvents(...) 拆掉(直接用 splice 出来的那一批)-> V1 必须 FAIL。
 //   3. V2:把 13k stewardSeatedByUser 里 viewing 那一支删掉 -> V2 必须 FAIL。
-//   4. V3:把 stewardTickOnce 里 `stewardTakeViewHeld().concat(events)` 改回 `events` -> V3 必须 FAIL(扣住变成丢掉)。
+//   4. V3:把 13q stewardRecheckViewHeld 里排回队头那一段删掉 -> V3 必须 FAIL(扣住变成丢掉)。
 // 每改一次都要 `node ruyi-workbench/app/build.js` 再单跑本件;跑完照原样改回来。
