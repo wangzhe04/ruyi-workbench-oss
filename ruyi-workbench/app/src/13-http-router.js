@@ -1660,7 +1660,7 @@ async function handleApi(req, res, pathname) {
       return send(res, apiFailure('tool.failed', { name }, String(error.message || error), 400));
     }
     // 审计 N5:toolCall 的入参校验以结果对象回(invalid-arguments),HTTP 面仍按修前口径 —— 参数错是 400 tool.failed,不是 200。
-    if (result && result.ok === false && result.code === 'invalid-arguments') return send(res, apiFailure('tool.failed', { name }, String(result.error || 'invalid arguments'), 400));
+    if (result && result.ok === false && result.code === 'invalid-arguments') return send(res, apiFailure('tool.failed', { name, ...(typeof result.argsGuide === 'string' ? { argsGuide: result.argsGuide } : {}) }, String(result.error || 'invalid arguments'), 400));   // 代叫参数错递的骨架别在 HTTP 面丢掉
     return send(res, json({ ok: true, result }));
   }
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));

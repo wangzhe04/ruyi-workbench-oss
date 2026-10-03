@@ -34992,7 +34992,7 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
     },
     {
       name: 'tool_search',
-      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, short descriptions and argument outlines without injecting every schema.',
       inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
     },
     {
@@ -35586,7 +35586,125 @@ function buildCallHint(item, loadedNames, config, blockedReason) {
   return { requiredArgs: required, argTypes, callHint, state, ...(blockedReason ? { blockedReason } : {}) };
 }
 
+// 2026-10 代叫「叫得对」:把一个工具的 JSON Schema 压成一行参数骨架 —— `path*:string, mode?:a|b`(* 必填、? 可选)。
+// 代叫不把完整说明书装进上下文,模型手里只有目录卡;骨架让它第一次就知道该传哪几个键、什么类型、哪些取值。
+//   brief:目录卡用 —— 全部必填(至多 6 个)+ 至多 2 个可选,总长 ≤140 字符,超出的记成 …(+N);
+//   full :代叫参数错时随错误递回(12 withToolArgsGuide)—— 至多 16 个,每个带 ≤60 字的用途说明。
+// 认 pydantic 的可空写法(anyOf [T, null])、类型数组、$ref → $defs(FastMCP 的 Enum / 模型参数就是这么出的)、allOf 单包装、
+// const;对象 / 数组只标 object / array<T>,不往里展开(展开就是把说明书搬回来了)。
+// 返回值:'none' = 明确没有参数(properties 是空对象,也没有 $ref / allOf / 额外键这些说不清的形状);
+//         ''     = 这份 schema 压不成骨架(根上是 $ref / allOf / 自由对象 / 没给)—— 调用方不加 args / argsGuide,不拿「无参」误导模型。
+const TOOL_ARGS_BRIEF_CHARS = 140;
+const TOOL_ARG_ENUM_VALUE_CHARS = 24;
+function toolArgsResolveRef(p, root, depth) {
+  let cur = p;
+  for (let i = 0; i < 4 && cur && typeof cur === 'object'; i += 1) {
+    if (typeof cur.$ref === 'string') {
+      const m = /^#\/(\$defs|definitions)\/(.+)$/.exec(cur.$ref);
+      const defs = m && root && root[m[1]];
+      const next = defs && typeof defs === 'object' ? defs[m[2]] : null;
+      if (!next) return cur;
+      cur = next; continue;
+    }
+    if (Array.isArray(cur.allOf) && cur.allOf.length === 1 && !cur.type && !cur.enum) { cur = cur.allOf[0]; continue; }
+    break;
+  }
+  return depth > 6 ? null : cur;
+}
+function toolArgEnumText(values) {
+  const shown = values.slice(0, 5).map(v => {
+    const s = (v !== null && typeof v === 'object') ? JSON.stringify(v) : String(v);
+    return s.length > TOOL_ARG_ENUM_VALUE_CHARS ? s.slice(0, TOOL_ARG_ENUM_VALUE_CHARS) + '…' : s;
+  });
+  return shown.join('|') + (values.length > 5 ? '|…' : '');
+}
+function toolArgTypeText(p0, root, depth = 0) {
+  const p = toolArgsResolveRef(p0, root, depth);
+  if (!p || typeof p !== 'object' || depth > 6) return 'any';
+  if (Array.isArray(p.enum) && p.enum.length) return toolArgEnumText(p.enum);
+  if (Object.prototype.hasOwnProperty.call(p, 'const')) return toolArgEnumText([p.const]);
+  const alts = Array.isArray(p.anyOf) ? p.anyOf : (Array.isArray(p.oneOf) ? p.oneOf : null);
+  if (alts && !p.type) {
+    const nonNull = alts.filter(a => a && typeof a === 'object' && a.type !== 'null');
+    const texts = [...new Set(nonNull.map(a => toolArgTypeText(a, root, depth + 1)))];
+    return texts.length ? texts.join('/') : 'any';
+  }
+  let t = p.type;
+  if (Array.isArray(t)) { t = t.filter(x => x !== 'null'); t = t.length === 1 ? t[0] : t.join('/'); }
+  if (t === 'array') {
+    const it = (p.items && typeof p.items === 'object' && !Array.isArray(p.items)) ? toolArgTypeText(p.items, root, depth + 1) : 'any';
+    return it !== 'any' ? `array<${it}>` : 'array';
+  }
+  return (typeof t === 'string' && t) ? t : 'any';
+}
+function toolArgsSkeleton(schema0, mode) {
+  const full = mode === 'full';
+  const schema = toolArgsResolveRef(schema0, schema0, 0);
+  if (!schema || typeof schema !== 'object') return '';
+  const props = (schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) ? schema.properties : null;
+  const names = props ? Object.keys(props) : [];
+  if (!names.length) {
+    const opaque = !props || schema.$ref || schema.allOf || schema.anyOf || schema.oneOf || (schema.additionalProperties && schema.additionalProperties !== false);
+    return opaque ? '' : 'none';
+  }
+  const required = new Set((Array.isArray(schema.required) ? schema.required : []).filter(k => Object.prototype.hasOwnProperty.call(props, k)));
+  const req = names.filter(n => required.has(n));
+  const opt = names.filter(n => !required.has(n));
+  const part = n => {
+    const p = props[n] || {};
+    let s = `${n}${required.has(n) ? '*' : '?'}:${toolArgTypeText(p, schema0)}`;
+    if (full) {
+      const d = String((toolArgsResolveRef(p, schema0, 0) || {}).description || p.description || '').replace(/\s+/g, ' ').trim();
+      if (d) s += ` — ${d.length > 60 ? d.slice(0, 60) + '…' : d}`;
+    }
+    return s;
+  };
+  // 尾注:没列出来的个数,其中有必填时点明 —— 「…(+5, 3 required)」,模型就知道该去要完整说明而不是当它们可有可无。
+  const tail = shownNames => {
+    const hidden = names.filter(n => !shownNames.includes(n));
+    if (!hidden.length) return '';
+    const hiddenReq = hidden.filter(n => required.has(n)).length;
+    return `…(+${hidden.length}${hiddenReq ? `, ${hiddenReq} required` : ''})`;
+  };
+  if (full) {
+    const pick = req.concat(opt).slice(0, 16);
+    const t = tail(pick);
+    return pick.map(part).join('; ') + (t ? `; ${t}` : '');
+  }
+  // brief:必填在前、可选至多 2 个;总长(含尾注)守住 140 —— 只有第一个参数本身就超长时例外(参数名不能截,模型要原样传)。
+  const order = req.slice(0, 6).concat(opt.slice(0, 2));
+  const kept = [];
+  for (const n of order) {
+    const next = kept.concat(n);
+    const t = tail(next);
+    const text = next.map(part).join(', ') + (t ? `, ${t}` : '');
+    if (kept.length && text.length > TOOL_ARGS_BRIEF_CHARS) break;
+    kept.push(n);
+  }
+  const t = tail(kept);
+  return kept.map(part).join(', ') + (t ? `, ${t}` : '');
+}
+// 检索结果统一出口:还没装进工具表的命中带上参数骨架(args)。已装的不带 —— 它的完整说明书本来就在工具表里。
+// opts.loadedNames 只有模型服务商回合给(09 的 toolLoading.search);MCP / CLI 路径不知道 CLI 手里有什么,一律带。
+// 与 metaToolHintsV1(requiredArgs / callHint / 待办去重)无关:那个开关仍管它自己那几样,这里默认开。
+function withToolArgSkeletons(result, catalog, opts) {
+  if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
+  const loaded = (opts && opts.loadedNames instanceof Set) ? opts.loadedNames : null;
+  const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  const matches = result.matches.map(m => {
+    if (!m || m.args !== undefined || (loaded && loaded.has(m.name))) return m;
+    const item = byName.get(m.name);
+    const params = item && item.tool && item.tool.function && item.tool.function.parameters;
+    const args = toolArgsSkeleton(params, 'brief');
+    return args ? { ...m, args } : m;   // 压不成骨架的(根上是 $ref / 自由对象)不加,别拿「无参」误导
+  });
+  return { ...result, matches };
+}
 function searchToolCatalog(catalog, args, config, opts) {
+  return withToolArgSkeletons(rankToolCatalog(catalog, args, config, opts), catalog, opts);
+}
+
+function rankToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
   // limit ≤ 0 / 非数字一律回默认(修前 0 → 默认、-5 → 1,同一参数两种口径)。
   const limitNum = Number(args && args.limit);
@@ -35595,9 +35713,9 @@ function searchToolCatalog(catalog, args, config, opts) {
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
     const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
     // 子串匹配零命中(「读文件」「执行命令」「截图」这类中文说法在英文描述里一个都配不上)时,退到带别名/能力词的
-    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时结果与修前逐字节一致。
+    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时排序与修前一致(出口另加 args 骨架,见上)。
     if (query.trim() && Array.isArray(legacy.matches) && legacy.matches.length === 0) {
-      const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
+      const v1 = rankToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
       if (Array.isArray(v1.matches) && v1.matches.length) return { ...v1, fallback: 'alias_ranker' };
     }
     return legacy;
@@ -41805,6 +41923,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (!target || target.startsWith('tool_invoke_') || !result || typeof result !== 'object' || Array.isArray(result)) return result;
     const item = toolLoading.catalog.find(x => x && x.name === target);
     if (!item || item.bridged) return result;
+    // 原生目标的完整说明书此刻(或下一发)就在工具表里:12 随参数错递的 argsGuide 是重复的,拿掉,省得同一份说明书带两遍。
+    if (typeof result.argsGuide === 'string') { const { argsGuide, ...rest } = result; result = rest; }
     if (toolLoading.current().some(t => t && t.function && t.function.name === target)) {
       return { ...result, proxyNote: `${target} 已在你的工具表里:下次直接调用 ${target},不要再经 tool_invoke_*` };
     }
@@ -41897,6 +42017,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           resultBytes: econResultBytes(result),
           ...econProxyFields(tc),
           ...(status === 'failed' && result && (typeof result.code === 'string' || result.argsInvalid === true) ? { errorCode: typeof result.code === 'string' ? result.code.slice(0, 40) : 'args_invalid' } : {}),
+          ...(result && typeof result.argsGuide === 'string' ? { argsGuided: true } : {}),   // 代叫参数错时递过参数骨架(12 withToolArgsGuide)
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
         })) econTotals.toolCallsLogged += 1;
@@ -52930,12 +53051,19 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
     if (!toolInvokeTierCovers(proxyTier, actualTier)) return { ok: false, code: 'tier-mismatch', error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, higher than '${proxyTier}'`, hint: `call tool_invoke_${actualTier} for this tool with these arguments` };
   }
+  const targetSchema = item.tool && item.tool.function ? item.tool.function.parameters : null;
   // 审计 N1:原生目标必须带着 ctx(session/turnSeq/config/workingDir/signal)进 toolCall —— 修前 ctx=null:写文件没有检查点
   // (checkpointWarn: no_session_context)、根目录回落数据目录默认工作区、steer/stop 的中止信号到不了 script_run。
   // MCP 子进程里 ctx 本就为空(按 WCW_SESSION_ID 兜底,见 journalSessionCtx),行为不变。
   if (!bridge) {
-    try { return await toolCall(targetName, targetArgs || {}, ctx || null); }
+    try { return withToolArgsGuide(await toolCall(targetName, targetArgs || {}, ctx || null), targetSchema, false); }
     catch (e) { return toolFailureResult(e); }
+  }
+  // 2026-10:桥接目标在发给它自己的服务之前,先在本地对一遍【必填】(只查缺没缺,不改值、不判类型 —— 类型 / 取值留给服务端
+  // 自己的校验,免得我们这套子集校验误伤)。缺了直接退回并递上参数骨架,省一次进程往返,也不会带着残参数去动桌面。
+  const missingArgs = toolArgsMissingRequired(targetSchema, targetArgs);
+  if (missingArgs.length) {
+    return withToolArgsGuide({ ok: false, code: 'invalid-arguments', tool: targetName, error: `${targetName}: missing required ${missingArgs.map(k => `'${k}'`).join(', ')}` }, targetSchema, true);
   }
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
   if (!client) return { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
@@ -52951,10 +53079,48 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
     if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
-    return await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
-    return { ok: false, error: (e && e.message) || String(e) };
+    return withToolArgsGuide({ ok: false, error: (e && e.message) || String(e) }, targetSchema, true);
   }
+}
+
+// 2026-10 代叫「叫得对」:代叫不带完整说明书,第一次可能叫错 —— 叫错时(而且只在叫错时)把这个工具的完整参数骨架
+// (07 toolArgsSkeleton 'full')随错误递回(argsGuide),模型下一次照着改。只在出错时花这点 token,不破坏「说明书不进门」。
+// 判「参数错」:我们自己的 invalid-arguments 信封;桥接目标(bridged=true)且结果【没有自带 code】时,另认服务端参数校验
+// 的标志性报错 —— pydantic「N validation error(s) for XArguments」/「Field required」/「Input should be」、MCP JSON-RPC
+// 「Invalid params」(-32602)、「Invalid arguments for tool」。只认这几句锚定的说法:裸的 missing required / invalid
+// argument 会撞上业务报错(「Sheet 缺少 required 列」、Windows「[Errno 22] Invalid argument」)。自带 code 的结果
+// (mcp-child-exited 之类、数字退出码)一律不动 —— 那个 code 有它自己的意思,不能被一段 stderr 改写成「参数错」。
+// 原生工具的报错各有自己的意思(命令的 stderr、网页的 404),不按文字猜。正确的调用、其它失败一律原样返回(同一引用)。
+// schema 压不成骨架(toolArgsSkeleton 回 '')时只校正 code、不递 argsGuide。
+const TOOL_ARGS_ERROR_TEXT = /\b\d+ validation errors? for \w+|\bfield required\b|\binput should be\b|\binvalid params\b|-32602\b|\binvalid arguments? for tool\b/i;
+function withToolArgsGuide(result, schema, bridged) {
+  if (!result || typeof result !== 'object' || Array.isArray(result) || result.ok !== false || result.argsGuide !== undefined) return result;
+  const noOwnCode = result.code === undefined || result.code === null;
+  const isArgsError = result.code === 'invalid-arguments'
+    || (bridged && noOwnCode && TOOL_ARGS_ERROR_TEXT.test([result.error, result.text, result.message].filter(v => typeof v === 'string').join(' ')));
+  if (!isArgsError) return result;
+  const guide = toolArgsSkeleton(schema, 'full');
+  return { ...result, code: 'invalid-arguments', ...(guide ? { argsGuide: guide } : {}) };
+}
+// schema 声明的必填里,这次入参缺了哪几个。只算「值为 undefined」且服务端也不会替它补的:属性带 default、或允许 null
+// (type 含 'null' / anyOf 里有 null / nullable:true)的不算缺 —— 有些 schema 把所有键都列进 required、可选的靠
+// default / 可空表达,本地按字面判会误拒一条服务端照收的调用。入参不是对象:按空对象算。
+function toolArgPropertyLenient(p) {
+  if (!p || typeof p !== 'object') return false;
+  if (Object.prototype.hasOwnProperty.call(p, 'default') || p.nullable === true) return true;
+  if (p.type === 'null' || (Array.isArray(p.type) && p.type.includes('null'))) return true;
+  const alts = Array.isArray(p.anyOf) ? p.anyOf : (Array.isArray(p.oneOf) ? p.oneOf : []);
+  return alts.some(a => a && typeof a === 'object' && a.type === 'null');
+}
+function toolArgsMissingRequired(schema, args) {
+  const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+  const required = Array.isArray(schema && schema.required) ? schema.required : [];
+  const obj = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  return required.filter(k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(props, k)
+    && obj[k] === undefined && !toolArgPropertyLenient(props[k]));
 }
 
 // 105a: observation_recall 每回合配额。回合键见 10 providerTurnQuotaKey(优先 turnSeq —— 修前用 user 消息数,
@@ -58734,7 +58900,7 @@ async function handleApi(req, res, pathname) {
       return send(res, apiFailure('tool.failed', { name }, String(error.message || error), 400));
     }
     // 审计 N5:toolCall 的入参校验以结果对象回(invalid-arguments),HTTP 面仍按修前口径 —— 参数错是 400 tool.failed,不是 200。
-    if (result && result.ok === false && result.code === 'invalid-arguments') return send(res, apiFailure('tool.failed', { name }, String(result.error || 'invalid arguments'), 400));
+    if (result && result.ok === false && result.code === 'invalid-arguments') return send(res, apiFailure('tool.failed', { name, ...(typeof result.argsGuide === 'string' ? { argsGuide: result.argsGuide } : {}) }, String(result.error || 'invalid arguments'), 400));   // 代叫参数错递的骨架别在 HTTP 面丢掉
     return send(res, json({ ok: true, result }));
   }
   return send(res, apiFailure('api.route_not_found', {}, 'Not found', 404));
@@ -76805,7 +76971,7 @@ if (require.main === module) {
 
 module.exports = {
   // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调。
-  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)

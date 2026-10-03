@@ -1847,6 +1847,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (!target || target.startsWith('tool_invoke_') || !result || typeof result !== 'object' || Array.isArray(result)) return result;
     const item = toolLoading.catalog.find(x => x && x.name === target);
     if (!item || item.bridged) return result;
+    // 原生目标的完整说明书此刻(或下一发)就在工具表里:12 随参数错递的 argsGuide 是重复的,拿掉,省得同一份说明书带两遍。
+    if (typeof result.argsGuide === 'string') { const { argsGuide, ...rest } = result; result = rest; }
     if (toolLoading.current().some(t => t && t.function && t.function.name === target)) {
       return { ...result, proxyNote: `${target} 已在你的工具表里:下次直接调用 ${target},不要再经 tool_invoke_*` };
     }
@@ -1939,6 +1941,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           resultBytes: econResultBytes(result),
           ...econProxyFields(tc),
           ...(status === 'failed' && result && (typeof result.code === 'string' || result.argsInvalid === true) ? { errorCode: typeof result.code === 'string' ? result.code.slice(0, 40) : 'args_invalid' } : {}),
+          ...(result && typeof result.argsGuide === 'string' ? { argsGuided: true } : {}),   // 代叫参数错时递过参数骨架(12 withToolArgsGuide)
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
         })) econTotals.toolCallsLogged += 1;
