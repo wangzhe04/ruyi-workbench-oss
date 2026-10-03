@@ -428,6 +428,13 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   // 116c: 管家专属包。只对 kind==='steward' 的会话 offer(四个 offer 面各自门控),普通会话永不进入。
   steward: 'workbench steward: observe threads, delegate work, decide pending items and keep steward memory',
 });
+// 2026-10 起手工具:模型服务商回合的按需装载里,不论这句话分到哪些包,第一发就带上的几个原生工具(相当于给 core 扩一小圈;
+// 不改 core 包本身 —— core 同时决定 Claude CLI 的 MCP 工具清单,而 CLI 有自己的 Read/WebSearch/WebFetch/Bash)。
+// 依据(本机 4 天真实调用):联网 web_search + web_fetch 占全部工具调用的六成多(147/230),3 个会话里 2 个用到;
+// 命令行 3 个会话都用到(powershell_run 27 次、script_run 9 次)。开局没装、中途补装时,提供方的前缀缓存会整段失效
+// (实测命中率 97%→3%、94%→8%,下一发几乎整段上下文按未缓存计);三个合计约 630 token,每发基本都命中缓存,比中途断一次便宜。
+// file_read 不进:分包对文件类说法的召回本就高(文件/目录/路径/代码/项目/查看/搜索…),tool-loading e2e 也用它钉「按需注入」。
+const PROVIDER_STARTER_TOOLS = Object.freeze(['web_search', 'web_fetch', 'powershell_run']);
 const NATIVE_TOOL_PACKS = Object.freeze({
   permission_prompt: 'core', request_user_input: 'core', todo_write: 'core', mission_update: 'core',
   workbench_memory_list: 'core', workbench_memory_read: 'core', workbench_memory_propose: 'core',
@@ -565,8 +572,14 @@ function classifyToolPacks(message, attachments) {
   const add = (...xs) => xs.forEach(x => packs.add(x));
   if (Array.isArray(attachments) && attachments.length) add('files_read');
   if (/(文件|目录|路径|源码|代码|项目|repo|repository|file|folder|directory|source|workspace|read|读取|查看|搜索|查找|分析|审查)/i.test(s)) add('files_read');
-  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write', 'code');
-  if (/(代码|编码|编程|bug|测试|构建|依赖|git|commit|push|pull request|typescript|javascript|python|java|rust|go\b|npm|pnpm|yarn|编译)/i.test(s)) add('files_read', 'code');
+  // 2026-10:泛化的动词(修改/编辑/更新/写入/创建/删除…)只带文件读写,不再顺带 code 包。code 包(git/依赖/审查/符号检索等
+  // 12 个工具、约 2.3K token)本机 4 天 0 次使用,却被「file_edit」里的 edit、「更新」这类词带进来;而会话工具表只增不减,
+  // 带进来就跟着整个会话。只有明确的代码意图(实现/修复/重构,或下一条的代码词)才装 code。
+  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write');
+  if (/(实现|修复|重构|implement|fix|refactor)/i.test(s)) add('code');
+  // 「编码」多指「编码能力」或字符编码、「测试」多指「测一下」,都不再单独算代码意图(「测试」仍带 shell:跑测试要命令行);
+  // 明确的「单测 / 单元测试」照旧算。
+  if (/(代码|编程|bug|单测|单元测试|构建|依赖|git|commit|push|pull request|typescript|javascript|python|java|rust|go\b|npm|pnpm|yarn|编译)/i.test(s)) add('files_read', 'code');
   if (/(运行|执行|命令|终端|shell|powershell|脚本|测试|构建|安装|启动|重启|部署|run|execute|command|terminal|script|test|build|install|start|restart|deploy)/i.test(s)) add('shell');
   // 2026-10:补实时信息类说法(行情/走势/股/汇率/天气/新闻…)。修前「查一下美股这周与下周的走势」只分到 core,
   // 整个会话 36 次联网全绕 tool_invoke_read 代理(web 包 schema 合计不到 1K token)。
@@ -577,7 +590,9 @@ function classifyToolPacks(message, attachments) {
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
   if (/(技能|skill)/i.test(s)) add('skills');
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
-  if (/(记住|记忆|偏好|以后别忘|修订记忆|更正记忆|过时|关系边|remember|memorize|memory|memories|preference|recall|outdated|supersede|contradict)/i.test(s)) add('memory');
+  // 「偏好 / preference」不再单独装 memory 包:记下一条偏好用的是 core 里的 workbench_memory_propose,memory 包是关系边 /
+  // 修订 / 撤销这几件维护工具;修前「这两家模型谁更强…偏好」这类话题词就把它带进来、跟着整个会话。
+  if (/(记住|记忆|以后别忘|修订记忆|更正记忆|过时|关系边|remember|memorize|memory|memories|recall|outdated|supersede|contradict)/i.test(s)) add('memory');
   if (/(思考|推理|分析|对比|决策|规划|方案|权衡|think|reason|analy|compare|decide|plan|strateg)/i.test(s)) add('thinking');
   return [...packs];
 }
@@ -842,7 +857,21 @@ function toolSchemaFreezeFor(freezeKey) {
   return freeze;
 }
 
-function createToolLoadingState(config, message, attachments, tools, bridgedRoute, freezeKey) {
+// 会话头上的工具表(session.toolSchemaNames)只认工具名形状的字符串,去重、限长;不是数组 / 坏元素一律当没有。
+const TOOL_SCHEMA_NAMES_MAX = 200;
+function sanitizeToolSchemaNames(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const n of v) {
+    if (typeof n !== 'string' || !/^[A-Za-z_][A-Za-z0-9_.-]{0,127}$/.test(n) || seen.has(n)) continue;
+    seen.add(n); out.push(n);
+    if (out.length >= TOOL_SCHEMA_NAMES_MAX) break;
+  }
+  return out;
+}
+
+function createToolLoadingState(config, message, attachments, tools, bridgedRoute, freezeKey, opts) {
   const catalog = buildToolCatalog(tools, bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
@@ -852,14 +881,33 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
   if (catalog.some(x => x && x.pack === 'steward')) activePacks.add('steward');
   const activeNames = new Set();
   const metaNames = new Set(['list_tools', 'tool_search', 'tool_load']);
+  // 名字 → 它为什么进了工具表(starter / tool_load / proxy_promote;缺省 = 分包)。只给冻结表的追加日志分桶,不影响装载。
+  const reasonOf = new Map();
+  // 起手工具:目录里有、且不是桥接的才装(管家会话的目录里没有它们;被设置关掉的命令工具本来就不在目录里)。
+  if (!full) for (const n of PROVIDER_STARTER_TOOLS) {
+    const item = catalog.find(x => x && x.name === n);
+    if (item && !item.bridged) { activeNames.add(n); reasonOf.set(n, 'starter'); }
+  }
   // 106 #1 G2: 冻结仅在有会话权属的主循环启用(freezeKey = session.id);子代理/一次性调用不传,
   // 保持现状逐字节一致。
   const freeze = (appendOnlyToolSchemasEnabled(config) && typeof freezeKey === 'string' && freezeKey) ? toolSchemaFreezeFor(freezeKey) : null;
+  // 2026-10:会话工具表跨重启。冻结表只在进程内存里,重启(或被 LRU 挤掉)后会话退回只按这一句话分包 —— 漏装的包要中途补,
+  // 每补一次提供方的前缀缓存就整段失效;工具表顺序也和重启前不同,缓存哪怕没过期也接不上。这里在进程内冻结表还是空的时候,
+  // 用会话头上记下的表(opts.restoredNames,由 09 每次变化后写回 session.toolSchemaNames)按原顺序恢复;目录里已经没有的名字
+  // (桥接离线 / 被设置关掉)不恢复。
+  if (freeze && !freeze.names.length) {
+    const restored = sanitizeToolSchemaNames(opts && opts.restoredNames).filter(n => catalog.some(x => x && x.name === n));
+    if (restored.length) {
+      for (const n of restored) { freeze.nameSet.add(n); freeze.names.push(n); }
+      try { logEvent({ kind: 'tool_schema_freeze', state: 'restore', sessionId: freezeKey, count: restored.length }); } catch { /* 遥测绝不阻断 */ }
+    }
+  }
   // O1 (hb360): auto 模式下桥接工具不按包自动注入 schema（走 tool_invoke_* 代理或 tool_load 显式拉入），
   // 避免单任务注入 100-280 个桥接 schema 导致 input 膨胀（实测均值 303K tokens）。full 模式与元工具/显式拉入不受影响。
   // O4 (hb360) 对抗验证回退: 高频白名单(file_read 始终注入)破坏 adaptive loading 的"按需注入"语义
   // (tool-loading e2e 断言 file_read 在 tool_load 前不注入);且真实任务 classifyToolPacks 已激活 files_read,
   // 白名单仅对纯闲聊任务有用(而闲聊不需要 file_read),收益不抵语义破坏,故回退。
+  // 2026-10 的起手工具(PROVIDER_STARTER_TOOLS)是按另一笔账加的 —— 中途补装的缓存代价,见那张表的头注;file_read 仍不在里面。
   const liveList = () => catalog.filter(x => full || metaNames.has(x.name) || activeNames.has(x.name) || (!x.bridged && activePacks.has(x.pack)));
   const current = () => {
     const live = liveList();
@@ -877,7 +925,11 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
         freeze.initLogged = true;
         logEvent({ kind: 'tool_schema_freeze', state: 'init', sessionId: freezeKey, count: freeze.names.length });
       }
-      if (added.length) logEvent({ kind: 'tool_schema_freeze', state: 'append', sessionId: freezeKey, added, count: freeze.names.length });
+      if (added.length) {
+        const addedBy = {};
+        for (const n of added) { const r = reasonOf.get(n) || 'classifier'; addedBy[r] = (addedBy[r] || 0) + 1; }
+        logEvent({ kind: 'tool_schema_freeze', state: 'append', sessionId: freezeKey, added, addedBy, count: freeze.names.length });
+      }
       if (missingKey !== freeze.missingKey) {
         freeze.missingKey = missingKey;
         // catalog 缺失(MCP 离线/撤权/caps 变化)= 必然缓存断裂,按 E4 §7.2 记录原因,不为命中率保留错误授权
@@ -903,19 +955,23 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     const loadedNames = new Set(current().map(t => t.function && t.function.name).filter(Boolean));
     return searchToolCatalog(catalog, { query, limit }, config, { forceV1: true, legacyNameBoost: 3, loadedNames });
   };
-  const load = args => {
+  // reason:这次装载的来由(模型调 tool_load = 'tool_load';09 的代理自动装载 = 'proxy_promote'),只进冻结追加日志。
+  const load = (args, reason) => {
     const before = new Set(current().map(t => t.function.name));
     // packs/tools 收单个字符串也认;认不出的名字记下来如实交回(修前静默忽略,回 loaded:[] 的 ok:true)。
     const asList = v => (Array.isArray(v) ? v : (typeof v === 'string' && v.trim() ? [v.trim()] : []));
     const unknown = [];
     for (const p of asList(args && args.packs)) { if (TOOL_PACK_DESCRIPTIONS[p]) activePacks.add(p); else unknown.push(String(p)); }
     for (const n of asList(args && args.tools)) { if (catalog.some(x => x.name === n)) activeNames.add(n); else unknown.push(String(n)); }
+    for (const x of liveList()) if (!before.has(x.name) && !reasonOf.has(x.name)) reasonOf.set(x.name, reason || 'tool_load');
     const after = current().map(t => t.function.name);
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length,
       ...(unknown.length ? { unknown, hint: '这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名' } : {}) };
   };
   const list = args => listCompactTools(catalog, args);
-  return { catalog, activePacks, current, list, search, shadowSearch, load, fullCount: catalog.length };
+  // 冻结表的当前内容(按序),09 写回 session.toolSchemaNames 供重启后恢复;没开冻结时为 null。
+  const frozenNames = () => (freeze ? freeze.names.slice(0, TOOL_SCHEMA_NAMES_MAX) : null);
+  return { catalog, activePacks, current, list, search, shadowSearch, load, frozenNames, fullCount: catalog.length };
 }
 
 function estimateToolSchemaTokens(tools) {

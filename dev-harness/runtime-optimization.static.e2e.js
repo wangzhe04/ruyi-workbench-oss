@@ -68,7 +68,8 @@ ok(/if \(turnVolatile && volatileTail\) appendPromptToLastUserMessage\(msgs, tur
 ok(/const buildBodyWithLayout = \(withTools, layoutOverride\) =>/.test(src) && /buildBodyWithLayout\(useTools, altLayout\)/.test(src), 'S G1 shadow 双布局构建(candidate 只计量不发送)');
 ok(/econLog\('layout_shadow',/.test(src) && /stablePrefixCharsSent/.test(src) && /stablePrefixCharsAlt/.test(src), 'S G1 layout_shadow 事件含双布局 stablePrefixChars(E4 §7.3)');
 ok(/function toolSchemaFreezeFor\(freezeKey\)/.test(src) && /kind: 'tool_schema_freeze'/.test(src), 'S G2 会话级冻结表与冻结事件存在(init/append/cache_break)');
-ok(/createToolLoadingState\(config, fullPrompt, attachments, allTools, bridgedRoute, session\.id\)/.test(src), 'S G2 freezeKey=session.id 接入主循环唯一调用点');
+// 2026-10:调用点多了第 7 个参数 { restoredNames: session.toolSchemaNames }(会话工具表跨重启恢复);判据仍是 freezeKey=session.id。
+ok(/createToolLoadingState\(config, fullPrompt, attachments, allTools, bridgedRoute, session\.id[,)]/.test(src), 'S G2 freezeKey=session.id 接入主循环唯一调用点');
 // 106 #2a: 受限执行结果缓存 —— 22 §6.1 白名单(首批仅 file_read)+ 版本验证失效 + 命中仍验权,
 // 默认关,逐项取证。命中带 cacheHit 诚实标记;错误/中断/竞态不缓存。
 ok(/runtimeExecResultCacheV1: true/.test(src) && /execResultCacheMaxEntriesV1: 200/.test(src), 'S #2a 大文件真实门后默认开启、条数上限缺省 200(显式 false 回退)');
