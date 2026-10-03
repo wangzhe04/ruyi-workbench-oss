@@ -63,11 +63,18 @@
 .mermaid-tools .mermaid-btn { position: static; opacity: 1; min-height: 0; padding: 3px 8px; font-size: var(--fs-xs); }
 .mermaid-hint { margin-top: 6px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; }
 /* 2026-09-22 用户反馈「大图缩在消息栏里看不全」:点图或工具条「放大」开全屏灯箱,
-   滚轮缩放(指针为锚)/拖拽平移/适应窗口,Esc、点遮罩或「关闭」退出。配色全走 token,亮暗自适应。 */
+   滚轮缩放(指针为锚)/拖拽平移/适应窗口,Esc、点遮罩或「关闭」退出。
+   2026-10-03 用户反馈「浅色下点开图片后鼠标很容易看不到」:修前遮罩是 --glass-bg-3(浅色下 46% 白)
+   的毛玻璃、图是透明底,白芯黑边的抓手光标落在一片发白的糊底上。现在遮罩是两套主题都压暗的实色幕布
+   (与 .modal-backdrop 同一路数),图放在 --panel-2 实底卡片上(内边距由 JS 写,适应窗口要用同一个数):
+   幕布上光标白芯醒目,卡片上黑边醒目。 */
 .mermaid-lightbox { position: fixed; inset: 0; z-index: 1000; overflow: hidden;
-  background: var(--glass-bg-3); backdrop-filter: var(--glass-blur-1); cursor: grab; }
+  background: rgba(8, 12, 20, .78); backdrop-filter: var(--glass-blur-1); cursor: grab; }
+:root[data-theme="light"] .mermaid-lightbox { background: rgba(20, 28, 44, .62); }
 .mermaid-lightbox:active { cursor: grabbing; }
-.mermaid-lightbox-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.mermaid-lightbox-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0;
+  background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .45); }
 .mermaid-lightbox-stage svg { display: block; max-width: none; }
 .mermaid-lightbox-controls { position: absolute; top: 14px; right: 16px; z-index: 1001;
   display: flex; gap: 6px; cursor: default; }

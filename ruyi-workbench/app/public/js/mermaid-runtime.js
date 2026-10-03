@@ -12,7 +12,10 @@ import { installFocusTrap } from './modal.js';
 //   4. 流式:聊天流式期间正文是纯文本节点,只有封段(sealLiveTextSegment)与整会话重绘才走 Markdown。
 //      重绘会重建 DOM,所以按「源码哈希 + 主题」在包裹节点上做缓存键,源码未变则跳过重渲染。
 //
-// 导出:ensureMermaid / renderMermaidBlocks / mermaidSourceHash / mermaidThemeFor。
+//   5. 主题:两套色板(MERMAID_PALETTES)对齐工作台 token;亮暗切换时已画好的图按新主题重画
+//      (watchThemeChanges),不会把亮色图留在暗底上。
+//
+// 导出:ensureMermaid / renderMermaidBlocks / mermaidSourceHash / mermaidThemeFor / mermaidThemeVariables / mermaidThemeCss。
 
 export const MERMAID_SCRIPT_SRC = '/vendor/mermaid.min.js';
 export const MERMAID_LOAD_TIMEOUT_MS = 8000;
@@ -37,8 +40,216 @@ export function mermaidSourceHash(text) {
 }
 
 // 主题映射:工作台只有 dark / light 两个有效值(data-theme 已把 system 解析掉)。
+// 返回值是本模块的色板键(也是包裹节点上的缓存键),不是 mermaid 的主题名 —— 两套都走 mermaid 的 base 主题。
 export function mermaidThemeFor(isDark) {
-  return isDark ? 'dark' : 'default';
+  return isDark ? 'dark' : 'light';
+}
+
+// ── 色板(2026-10-03 用户反馈「暗色下 mermaid 不好看」)──────────────────────────────
+// 修前直接用 mermaid 自带的 dark / default:暗色下节点是近黑块、连线与标签糊进深蓝面板,甘特图的
+// 已完成任务是浅灰条配浅色字。现在两套都走 base 主题 + 显式 themeVariables,取值对齐
+// css/themes/color-schemes.css 的 token(行尾注释标出对应项);没给的变量由 base 主题自行推导。
+// mermaid 只认十六进制色值(内部用 khroma 推导明暗),所以这里写死色值而不是读 CSS 变量。
+// 分类色(饼图扇区 / 思维导图与时间线分支 / gitGraph 分支 / xychart 系列)两套主题共用:中等明度,
+// 白字压在上面对比度 ≥ 4:1,先走 accent / accent-2 再铺开色相。
+export const MERMAID_CATEGORICAL = Object.freeze([
+  '#4467d6', '#8159dc', '#23866a', '#a86c14', '#c04566', '#21809f',
+  '#518c2f', '#b45431', '#56688c', '#9a48b0', '#3672c4', '#7d7822',
+]);
+
+const MERMAID_PALETTES = Object.freeze({
+  dark: Object.freeze({
+    darkMode: true,
+    background: '#1a2436',              // --panel-2(.mermaid-view 的底)
+    primaryColor: '#22335a',            // 节点:accent 压暗
+    primaryBorderColor: '#5b7de3',
+    primaryTextColor: '#e9edf5',        // --ink
+    secondaryColor: '#2c2752',
+    secondaryBorderColor: '#9a72f0',    // --accent-2
+    secondaryTextColor: '#e9edf5',
+    tertiaryColor: '#1f2a40',
+    tertiaryBorderColor: '#33425e',     // --line-2
+    tertiaryTextColor: '#c4cee0',       // --ink-2
+    lineColor: '#8fa0b8',               // --muted
+    arrowheadColor: '#8fa0b8',
+    textColor: '#c4cee0',
+    titleColor: '#e9edf5',
+    edgeLabelBackground: '#1a2436',
+    clusterBkg: '#1e2840',
+    clusterBorder: '#33425e',
+    noteBkgColor: '#3a3324',
+    noteBorderColor: '#b8913f',
+    noteTextColor: '#f2e7cc',
+    actorBkg: '#22335a',
+    actorBorder: '#5b7de3',
+    actorTextColor: '#e9edf5',
+    actorLineColor: '#4f6080',
+    signalColor: '#aab7cc',
+    signalTextColor: '#e9edf5',
+    labelBoxBkgColor: '#22335a',
+    labelBoxBorderColor: '#5b7de3',
+    labelTextColor: '#e9edf5',
+    loopTextColor: '#c4cee0',
+    activationBkgColor: '#2b3d68',
+    activationBorderColor: '#5b7de3',
+    sequenceNumberColor: '#0f1520',     // --bg:序号圈是 signalColor 的浅底
+    sectionBkgColor: '#4a6cd9',         // --accent(甘特区段带,mermaid 再叠 0.2 不透明度)
+    altSectionBkgColor: '#8fa0b8',
+    sectionBkgColor2: '#4a6cd9',
+    taskBkgColor: '#3f5fc7',
+    taskBorderColor: '#6f8cf0',
+    taskTextColor: '#ffffff',
+    taskTextLightColor: '#ffffff',
+    taskTextDarkColor: '#e9edf5',
+    taskTextOutsideColor: '#e9edf5',
+    taskTextClickableColor: '#8fb0ff',
+    activeTaskBkgColor: '#2b4384',
+    activeTaskBorderColor: '#8aa4f2',
+    doneTaskBkgColor: '#2e3a52',
+    doneTaskBorderColor: '#62728f',
+    critBkgColor: '#9e3a44',
+    critBorderColor: '#e56060',         // --danger
+    gridColor: '#33425e',
+    todayLineColor: '#e56060',
+    vertLineColor: '#9a72f0',
+    excludeBkgColor: '#1f2738',
+    attributeBackgroundColorOdd: '#1f2b45',
+    attributeBackgroundColorEven: '#1a2436',
+    rowOdd: '#1f2b45',
+    rowEven: '#1a2436',
+    relationLabelBackground: '#1a2436',
+    commitLabelColor: '#e9edf5',
+    commitLabelBackground: '#2c3a58',
+    tagLabelColor: '#e9edf5',
+    tagLabelBackground: '#22335a',
+    tagLabelBorder: '#5b7de3',
+    pieStrokeColor: '#1a2436',
+    pieOuterStrokeColor: '#1a2436',
+    pieOpacity: '1',
+    pieSectionTextColor: '#ffffff',
+    pieTitleTextColor: '#e9edf5',
+    pieLegendTextColor: '#c4cee0',
+    errorBkgColor: '#3a2228',
+    errorTextColor: '#f2b8b8',
+  }),
+  light: Object.freeze({
+    darkMode: false,
+    background: '#f7f9fc',              // --panel-2
+    primaryColor: '#e7edfa',            // --accent-soft
+    primaryBorderColor: '#7d97dc',
+    primaryTextColor: '#1b2436',        // --ink
+    secondaryColor: '#efe9fb',
+    secondaryBorderColor: '#a08be0',
+    secondaryTextColor: '#1b2436',
+    tertiaryColor: '#eef2f8',           // --panel-3
+    tertiaryBorderColor: '#c6d1e3',     // --line-2
+    tertiaryTextColor: '#33405a',       // --ink-2
+    lineColor: '#5f6c85',               // --muted
+    arrowheadColor: '#5f6c85',
+    textColor: '#33405a',
+    titleColor: '#1b2436',
+    edgeLabelBackground: '#f7f9fc',
+    clusterBkg: '#f0f4fa',
+    clusterBorder: '#c6d1e3',
+    noteBkgColor: '#fdf3d8',
+    noteBorderColor: '#d8b25a',
+    noteTextColor: '#4a3a12',
+    actorBkg: '#e7edfa',
+    actorBorder: '#7d97dc',
+    actorTextColor: '#1b2436',
+    actorLineColor: '#a3b0c6',
+    signalColor: '#4a5670',
+    signalTextColor: '#1b2436',
+    labelBoxBkgColor: '#e7edfa',
+    labelBoxBorderColor: '#7d97dc',
+    labelTextColor: '#1b2436',
+    loopTextColor: '#33405a',
+    activationBkgColor: '#d5dff6',
+    activationBorderColor: '#7d97dc',
+    sequenceNumberColor: '#ffffff',
+    sectionBkgColor: '#4a6cd9',
+    altSectionBkgColor: '#9aa8c0',
+    sectionBkgColor2: '#4a6cd9',
+    taskBkgColor: '#3f63d0',
+    taskBorderColor: '#2050c8',         // --accent
+    taskTextColor: '#ffffff',
+    taskTextLightColor: '#ffffff',
+    taskTextDarkColor: '#1b2436',
+    taskTextOutsideColor: '#1b2436',
+    taskTextClickableColor: '#2050c8',
+    activeTaskBkgColor: '#cfdcf8',
+    activeTaskBorderColor: '#2050c8',
+    doneTaskBkgColor: '#e1e6ee',
+    doneTaskBorderColor: '#9aa8c0',
+    critBkgColor: '#c8463c',
+    critBorderColor: '#b42318',         // --danger
+    gridColor: '#dbe2ee',               // --line
+    todayLineColor: '#b42318',
+    vertLineColor: '#7a5fd0',           // --accent-2
+    excludeBkgColor: '#eceff4',
+    attributeBackgroundColorOdd: '#ffffff',
+    attributeBackgroundColorEven: '#f2f5fa',
+    rowOdd: '#ffffff',
+    rowEven: '#f2f5fa',
+    relationLabelBackground: '#f7f9fc',
+    commitLabelColor: '#1b2436',
+    commitLabelBackground: '#e7edfa',
+    tagLabelColor: '#1b2436',
+    tagLabelBackground: '#e7edfa',
+    tagLabelBorder: '#7d97dc',
+    pieStrokeColor: '#f7f9fc',
+    pieOuterStrokeColor: '#f7f9fc',
+    pieOpacity: '1',
+    pieSectionTextColor: '#ffffff',
+    pieTitleTextColor: '#1b2436',
+    pieLegendTextColor: '#33405a',
+    errorBkgColor: '#fbe4e1',
+    errorTextColor: '#8a1c12',
+  }),
+});
+
+// mermaid.initialize 的 themeVariables:主题色板 + 分类色展开。
+// base 主题在暗色下会把 cScale 再压暗 75%(分支几乎成黑块)、git 色再提亮,显式给值才稳得住;
+// cScalePeer / cScaleInv 由压暗后的值推导,也一并给。
+export function mermaidThemeVariables(theme, fontFamily) {
+  const palette = MERMAID_PALETTES[theme === 'light' ? 'light' : 'dark'];
+  const vars = { ...palette };
+  MERMAID_CATEGORICAL.forEach((color, i) => {
+    vars[`pie${i + 1}`] = color;
+    vars[`cScale${i}`] = color;
+    vars[`cScalePeer${i}`] = color;
+    vars[`cScaleInv${i}`] = '#ffffff';
+    vars[`cScaleLabel${i}`] = '#ffffff';
+    if (i < 8) {
+      vars[`git${i}`] = color;
+      vars[`gitBranchLabel${i}`] = '#ffffff';
+    }
+  });
+  vars.xyChart = {
+    backgroundColor: palette.background,
+    titleColor: palette.titleColor,
+    xAxisLabelColor: palette.textColor,
+    xAxisTitleColor: palette.textColor,
+    xAxisTickColor: palette.lineColor,
+    xAxisLineColor: palette.lineColor,
+    yAxisLabelColor: palette.textColor,
+    yAxisTitleColor: palette.textColor,
+    yAxisTickColor: palette.lineColor,
+    yAxisLineColor: palette.lineColor,
+    plotColorPalette: MERMAID_CATEGORICAL.join(','),
+  };
+  if (fontFamily) vars.fontFamily = fontFamily;
+  return vars;
+}
+
+// 色板管不到的两处线色,用 mermaid 的 themeCSS 补(它会被 mermaid 按图 id 作用域化,只影响这张图):
+//   · 甘特图网格线:d3 坐标轴把刻度线写成 stroke="currentColor",继承的是页面正文色 ——
+//     暗色下成了一排亮白竖线,亮色下是一排深色竖线;改回 gridColor。
+//   · 时间线 / 思维导图的主轴与事件虚线:mermaid 拿分支标签色(cScaleLabel,我们给的白)描线,
+//     亮色下整条轴看不见;改回 lineColor。
+export function mermaidThemeCss(theme) {
+  const palette = MERMAID_PALETTES[theme === 'light' ? 'light' : 'dark'];
+  return `.grid .tick line { stroke: ${palette.gridColor}; }\n.lineWrapper line { stroke: ${palette.lineColor}; }`;
 }
 
 function docOf(node, opts) {
@@ -110,7 +321,10 @@ function initializeOnce(lib, theme, fontFamily) {
   const signature = `${theme}|${fontFamily}`;
   if (initSignature === signature) return;
   try {
-    lib.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true, theme, fontFamily });
+    lib.initialize({
+      startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true,
+      theme: 'base', themeVariables: mermaidThemeVariables(theme, fontFamily), themeCSS: mermaidThemeCss(theme), fontFamily,
+    });
     initSignature = signature;
   } catch { /* 初始化失败按未初始化处理,render 会随之失败并降级 */ }
 }
@@ -250,6 +464,9 @@ function exportPng(doc, view, notify) {
         canvas.width = width * scale;
         canvas.height = height * scale;
         const ctx = canvas.getContext('2d');
+        // 先铺图的底色(paintSvgBackground 写在 SVG 上的那个):暗色图是浅字,透明 PNG 在白底看图器里看不见。
+        const background = svg.style && svg.style.backgroundColor;
+        if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height); }
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(pngBlob => {
           cleanup();
@@ -279,6 +496,10 @@ function exportPng(doc, view, notify) {
 const VIEWER_MIN_SCALE = 0.1;
 const VIEWER_MAX_SCALE = 8;
 const VIEWER_ZOOM_STEP = 1.25;
+// 图落在一张实底卡片上(2026-10-03 用户反馈「浅色下点开图片后鼠标很容易看不到」:修前遮罩是半透明
+// 毛玻璃、SVG 透明底,光标压在一片发白的糊底与图形混在一起)。卡片内边距写在这里而不是 CSS,
+// 「适应窗口」的算式要用同一个数。
+const VIEWER_STAGE_PAD = 20;
 
 function closeMermaidViewer(doc) {
   const open = doc && doc.__ruyiMermaidViewer;
@@ -305,6 +526,7 @@ function openMermaidViewer(doc, markup, t) {
 
   const stage = doc.createElement('div');
   stage.className = 'mermaid-lightbox-stage';
+  stage.style.padding = `${VIEWER_STAGE_PAD}px`;
   // 与 .mermaid-view 同源的一段:strict 消毒之后、受控写入,不再过第二道解析器。
   stage.innerHTML = markup;
   const diagram = stage.querySelector('svg');
@@ -325,7 +547,9 @@ function openMermaidViewer(doc, markup, t) {
     height: overlay.clientHeight || (globalThis.innerHeight || 540),
   });
   const fit = () => {
-    const { width: svgW, height: svgH } = svgNaturalSize(stage.querySelector('svg'));
+    const natural = svgNaturalSize(stage.querySelector('svg'));
+    const svgW = natural.width + VIEWER_STAGE_PAD * 2;
+    const svgH = natural.height + VIEWER_STAGE_PAD * 2;
     const { width, height } = overlaySize();
     const pad = 48;
     state.scale = Math.min(VIEWER_MAX_SCALE, Math.max(VIEWER_MIN_SCALE,
@@ -453,6 +677,118 @@ function buildToolbar(doc, ctx) {
   return bar;
 }
 
+// ── 渲染宽度 ──────────────────────────────────────────────────────────────────────
+// mermaid 在私有离屏宿主里量版面;甘特图拿宿主的 offsetWidth 当画布宽。修前宿主是不定宽的
+// fixed 块(收缩到内容宽),甘特图被排成三四百像素一条:任务条挤成小方块、刻度字互相压住。
+// 现在宿主取图将落位的那一栏宽(减去 .mermaid-view 的内边距与边框);量不到(容器还没进文档 /
+// 被折叠)时退到一个常见栏宽。
+const MERMAID_VIEW_CHROME_PX = 26;
+const MERMAID_FALLBACK_WIDTH = 760;
+function renderWidthFor(wrapper) {
+  let width = 0;
+  try {
+    width = Number(wrapper && wrapper.clientWidth) || 0;
+    if (!width && wrapper && typeof wrapper.getBoundingClientRect === 'function') {
+      width = Number(wrapper.getBoundingClientRect().width) || 0;
+    }
+  } catch { width = 0; }
+  if (!(width > 0)) return MERMAID_FALLBACK_WIDTH;
+  return Math.max(320, Math.floor(width - MERMAID_VIEW_CHROME_PX));
+}
+
+// ── 甘特图收尾 ────────────────────────────────────────────────────────────────────
+// mermaid 甘特图自身两处瑕疵,渲染后就地修(只动本模块刚写进视图的那份 SVG):
+//   ① 刻度按 d3 默认约 10 格取:6 天的跨度会落到 12 小时一格,axisFormat 只到「日」时同一日期
+//      连标两遍(用户截图里的 10-05 10-05 10-06 …)。与前一格同字的整格去掉(连同那条网格线,
+//      剩下的线正好落在日界上);剩下的字若仍互相压住,按实测字宽隔开、只摘字不摘线
+//      (量不到字宽的环境只做去重)。
+//   ② 「今天」那条线无条件画:今天落在排期范围外时,它会压在左侧区段标题上。超出任务范围就去掉。
+function translateXOf(node) {
+  const transform = node && typeof node.getAttribute === 'function' ? node.getAttribute('transform') : '';
+  const match = /translate\(\s*(-?[\d.]+)/.exec(String(transform || ''));
+  return match ? Number(match[1]) : NaN;
+}
+
+function tidyGanttSvg(svg) {
+  if (!svg || typeof svg.querySelectorAll !== 'function') return;
+  if (svg.getAttribute('aria-roledescription') !== 'gantt') return;
+  let previous = null;
+  let lastRight = -Infinity;
+  for (const tick of Array.from(svg.querySelectorAll('.grid .tick'))) {
+    const text = tick.querySelector('text');
+    if (!text) continue;
+    const label = String(text.textContent || '');
+    if (label && label === previous) { tick.remove(); continue; }
+    previous = label;
+    let width = 0;
+    try { width = text.getBBox().width; } catch { width = 0; }
+    const x = translateXOf(tick);
+    if (!(width > 0) || !Number.isFinite(x)) continue;
+    if (x - width / 2 < lastRight + 6) { text.remove(); continue; }
+    lastRight = x + width / 2;
+  }
+  const today = svg.querySelector('line.today');
+  if (today) {
+    const x = Number(today.getAttribute('x1'));
+    let min = Infinity;
+    let max = -Infinity;
+    for (const bar of Array.from(svg.querySelectorAll('rect.task'))) {
+      const left = Number(bar.getAttribute('x'));
+      const right = left + Number(bar.getAttribute('width'));
+      if (Number.isFinite(left)) min = Math.min(min, left);
+      if (Number.isFinite(right)) max = Math.max(max, right);
+    }
+    if (Number.isFinite(x) && Number.isFinite(min) && Number.isFinite(max) && (x < min - 1 || x > max + 1)) {
+      const group = today.parentNode;
+      if (group && group.classList && group.classList.contains('today')) group.remove();
+      else today.remove();
+    }
+  }
+}
+
+// SVG 自带底色:视图里与 .mermaid-view 的底同色(看不出差别),要紧的是灯箱与导出 ——
+// 暗色图是浅字,透明底的 SVG/PNG 拿到看图软件的白底上就看不见了。
+function paintSvgBackground(svg, theme) {
+  if (!svg || !svg.style) return;
+  const palette = MERMAID_PALETTES[theme === 'light' ? 'light' : 'dark'];
+  try { svg.style.backgroundColor = palette.background; } catch { /* 测试桩无 style 写入不致命 */ }
+}
+
+// ── 跟随亮暗切换 ──────────────────────────────────────────────────────────────────
+// 修前图只在画的那一刻取主题:在亮色下画好、再切到暗色,旧图原样留着(浅紫节点压在深蓝底上,
+// 时序图的消息字几乎看不见 —— 用户 2026-10-03 截图的就是这种)。现在监听 <html data-theme>,
+// 把已画好、主题不符的块按新主题重画;源码哈希不变,所以只是换色,不改内容。
+// 重画串行排队:连点切换时后一轮等前一轮画完再按【当时】的主题比对,最终一定收敛到当前主题。
+const blockRenderOptions = new WeakMap();
+
+function rethemeRenderedBlocks(doc) {
+  const previous = doc.__ruyiMermaidRetheme || Promise.resolve();
+  const next = previous.then(async () => {
+    const theme = mermaidThemeFor(isDarkTheme(doc));
+    let wrappers = [];
+    try { wrappers = Array.from(doc.querySelectorAll('.mermaid-block[data-mermaid-state="ok"]')); } catch { wrappers = []; }
+    for (const wrapper of wrappers) {
+      if (!wrapper.isConnected || (wrapper.dataset && wrapper.dataset.mermaidTheme === theme)) continue;
+      const opts = blockRenderOptions.get(wrapper) || {};
+      try { await renderMermaidBlocks(wrapper, { ...opts, document: doc }); } catch { /* 单块失败不挡后面的块 */ }
+    }
+  }).catch(() => {});
+  doc.__ruyiMermaidRetheme = next;
+  return next;
+}
+
+function watchThemeChanges(doc) {
+  if (!doc || doc.__ruyiMermaidThemeWatch) return;
+  const view = doc.defaultView || globalThis;
+  const Observer = view && view.MutationObserver;
+  if (typeof Observer !== 'function' || !doc.documentElement) return;
+  try {
+    const observer = new Observer(() => { rethemeRenderedBlocks(doc); });
+    observer.observe(doc.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    doc.__ruyiMermaidThemeWatch = observer;
+  } catch { /* 没有 MutationObserver 的宿主:不跟随切换,刷新页面后按新主题画 */ }
+}
+
 function degrade(doc, wrapper, pre, hash, theme, message) {
   resetWrapper(wrapper, pre);
   pre.hidden = false;
@@ -503,11 +839,13 @@ export async function renderMermaidBlocks(container, opts = {}) {
     return 0;
   }
   initializeOnce(lib, theme, appFontFamily(doc));
+  watchThemeChanges(doc);
 
   let rendered = 0;
   for (const item of pending) {
     renderSeq += 1;
     let svgMarkup = '';
+    blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure });
     // Mermaid measures in the live DOM. Keep its temporary SVGs in a private,
     // offscreen host and always remove that host, including on parser failures.
     const renderHost = doc.createElement('div');
@@ -515,6 +853,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
     renderHost.setAttribute('aria-hidden', 'true');
     renderHost.style.position = 'fixed';
     renderHost.style.left = '-100000px';
+    renderHost.style.width = `${renderWidthFor(item.wrapper)}px`;
     (doc.body || doc.documentElement).appendChild(renderHost);
     try {
       const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, item.source, renderHost);
@@ -541,6 +880,10 @@ export async function renderMermaidBlocks(container, opts = {}) {
       item.wrapper.appendChild(view);
       item.wrapper.appendChild(toolbar);
     }
+    // 进了文档再收尾:甘特图刻度要量字宽。
+    const svg = typeof view.querySelector === 'function' ? view.querySelector('svg') : null;
+    paintSvgBackground(svg, theme);
+    try { tidyGanttSvg(svg); } catch { /* 收尾失败保留 mermaid 原样输出 */ }
     item.pre.hidden = true;
     if (item.pre.classList) item.pre.classList.add('mermaid-source-hidden');
     item.wrapper.dataset.mermaidState = 'ok';

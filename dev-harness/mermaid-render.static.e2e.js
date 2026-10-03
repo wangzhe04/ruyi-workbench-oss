@@ -3,7 +3,7 @@
 // 静态锁 + DOM 桩行为件(第109波 109a):Mermaid 渲染链路与降级契约。
 //
 // 断言四个方向:
-//   ① 懒加载契约:js/mermaid-runtime.js 导出四个名字、只从本源 /vendor/mermaid.min.js 取库、
+//   ① 懒加载契约:js/mermaid-runtime.js 导出那几个名字、只从本源 /vendor/mermaid.min.js 取库、
 //      securityLevel 恒为 'strict'、模块内零 CDN/外链字符串、从不调用 bindFunctions(click 指令不接线)。
 //   ② 分流契约:chat-render-primitives.js 在 highlightIn() 同一趟里把 code.language-mermaid 交给运行时,
 //      并把它排除在 hljs 之外;组合根 app.js 注入真实实现。
@@ -12,10 +12,14 @@
 //   ④ 行为(纯 DOM 桩,不需要浏览器/服务/vendor 文件):
 //      缺库 -> 代码块原样保留 + 一行提示;有库 -> SVG 就位、源码收起、工具条四个按钮;
 //      同源码重复调用命中哈希缓存,mermaid.render 只跑一次。
+//   ⑤ 色板(2026-10-03 用户反馈「暗色下 mermaid 不好看」):两套都走 base 主题 + 显式 themeVariables,
+//      锚点色与 css/themes/color-schemes.css 的 token 一致、全是十六进制(mermaid 只认这个)、
+//      分类色压白字够对比;initialize 收到的就是这一套。真浏览器里的成色由 mermaid-viewer.browser.e2e.js 钉。
 //
 // 判定行:`MERMAID RENDER STATIC E2E: ALL PASS`。
 const fs = require('fs');
 const path = require('path');
+const { bracedBlock } = require('./lib/source-slice.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'ruyi-workbench', 'app', 'public');
@@ -33,7 +37,7 @@ const runtimePath = path.join(ROOT, runtimeRel);
 // ═══════════ ① 懒加载契约 ═══════════
 ok(fs.existsSync(runtimePath), 'A1 js/mermaid-runtime.js 存在');
 const runtime = fs.readFileSync(runtimePath, 'utf8');
-for (const name of ['ensureMermaid', 'renderMermaidBlocks', 'mermaidSourceHash', 'mermaidThemeFor']) {
+for (const name of ['ensureMermaid', 'renderMermaidBlocks', 'mermaidSourceHash', 'mermaidThemeFor', 'mermaidThemeVariables', 'mermaidThemeCss']) {
   ok(new RegExp(`export (?:async )?function ${name}\\b`).test(runtime), `A2 运行时导出 ${name}()`);
 }
 ok(runtime.includes("securityLevel: 'strict'"), "A3 mermaid.initialize 恒用 securityLevel: 'strict'");
@@ -240,8 +244,51 @@ function buildContainer(doc, source = SOURCE) {
   const mod = await import(require('url').pathToFileURL(runtimePath).href);
 
   // 纯函数
-  ok(mod.mermaidThemeFor(true) === 'dark' && mod.mermaidThemeFor(false) === 'default',
-    'D1 mermaidThemeFor 亮暗映射(dark/default)');
+  ok(mod.mermaidThemeFor(true) === 'dark' && mod.mermaidThemeFor(false) === 'light',
+    'D1 mermaidThemeFor 亮暗映射到本模块的色板键(dark/light)');
+
+  // ⑤ 色板:锚点色对齐 token,全是十六进制,分类色压白字够对比。
+  const schemes = read('ruyi-workbench/app/public/css/themes/color-schemes.css');
+  const tokensOf = theme => {
+    const block = bracedBlock(schemes, `:root[data-theme="${theme}"]`);
+    const tokens = {};
+    for (const match of block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})\b/gi)) tokens[match[1]] = match[2].toLowerCase();
+    return tokens;
+  };
+  const luminance = hex => {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  for (const theme of ['dark', 'light']) {
+    const tokens = tokensOf(theme);
+    const vars = mod.mermaidThemeVariables(theme, 'X Font');
+    ok(Object.keys(tokens).length > 10, `D1a ${theme}: 从 color-schemes.css 切到 token 块(${Object.keys(tokens).length} 个色值)`);
+    const anchors = { background: 'panel-2', primaryTextColor: 'ink', textColor: 'ink-2', lineColor: 'muted', tertiaryBorderColor: 'line-2' };
+    const drift = Object.entries(anchors).filter(([key, token]) => vars[key] !== tokens[token]);
+    ok(drift.length === 0, `D1b ${theme}: 色板锚点与 token 一致(底=--panel-2、字=--ink/--ink-2、线=--muted)` + (drift.length ? ' → 漂移: ' + drift.map(([k, tk]) => `${k}=${vars[k]} vs --${tk}=${tokens[tk]}`).join(', ') : ''));
+    ok(vars.darkMode === (theme === 'dark') && vars.fontFamily === 'X Font', `D1c ${theme}: darkMode 与字体随主题/参数走`);
+    const nonHex = Object.entries(vars).filter(([key, value]) => typeof value === 'string' && !['fontFamily', 'pieOpacity'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value));
+    ok(nonHex.length === 0, `D1d ${theme}: 色值全是六位十六进制(mermaid 用 khroma 推导,不认 CSS 变量)` + (nonHex.length ? ' → ' + nonHex.map(([k, v]) => `${k}=${v}`).join(', ') : ''));
+    ok(contrast(vars.primaryTextColor, vars.primaryColor) >= 7 && contrast(vars.textColor, vars.background) >= 4.5
+      && contrast(vars.lineColor, vars.background) >= 3,
+      `D1e ${theme}: 节点字/标签字/连线对底色的对比度够(${contrast(vars.primaryTextColor, vars.primaryColor).toFixed(1)} / ${contrast(vars.textColor, vars.background).toFixed(1)} / ${contrast(vars.lineColor, vars.background).toFixed(1)})`);
+    ok(contrast(vars.taskTextColor, vars.taskBkgColor) >= 4.5 && contrast(vars.taskTextDarkColor, vars.doneTaskBkgColor) >= 4.5
+      && contrast(vars.taskTextDarkColor, vars.activeTaskBkgColor) >= 4.5 && contrast(vars.taskTextDarkColor, vars.background) >= 4.5,
+      `D1f ${theme}: 甘特图任务条上/条外的字都读得清(修前暗色下「已完成」是浅灰条配浅字)`);
+    ok(vars.pie1 === mod.MERMAID_CATEGORICAL[0] && vars.cScale0 === mod.MERMAID_CATEGORICAL[0] && vars.git0 === mod.MERMAID_CATEGORICAL[0]
+      && vars.xyChart && vars.xyChart.plotColorPalette === mod.MERMAID_CATEGORICAL.join(','),
+      `D1g ${theme}: 饼图 / 分支 / gitGraph / xychart 共用同一组分类色(暗色下不再被 base 主题压成黑块)`);
+    const css = mod.mermaidThemeCss(theme);
+    ok(css.includes(`.grid .tick line { stroke: ${vars.gridColor}; }`) && css.includes(`.lineWrapper line { stroke: ${vars.lineColor}; }`),
+      `D1h ${theme}: themeCSS 把甘特网格线与时间线主轴改回色板线色`);
+  }
+  const weak = mod.MERMAID_CATEGORICAL.filter(color => contrast('#ffffff', color) < 4);
+  ok(mod.MERMAID_CATEGORICAL.length === 12 && weak.length === 0, `D1i 12 个分类色压白字对比度都 ≥ 4:1` + (weak.length ? ' → ' + weak.join(',') : ''));
   ok(mod.mermaidSourceHash(SOURCE) === mod.mermaidSourceHash(SOURCE)
     && mod.mermaidSourceHash(SOURCE) !== mod.mermaidSourceHash(SOURCE + ' '),
     'D2 mermaidSourceHash 稳定且对源码变化敏感');
@@ -264,13 +311,20 @@ function buildContainer(doc, source = SOURCE) {
   const b = buildContainer(docB);
   let renderCalls = 0;
   let initCalls = 0;
+  let initConfig = null;
+  let hostWidth = '';
   const stub = {
-    initialize() { initCalls += 1; },
-    render: async () => { renderCalls += 1; return { svg: '<svg data-stub="1"></svg>' }; },
+    initialize(config) { initCalls += 1; initConfig = config; },
+    render: async (id, text, host) => { renderCalls += 1; hostWidth = host && host.style ? host.style.width : ''; return { svg: '<svg data-stub="1"></svg>' }; },
   };
   const renderedB = await mod.renderMermaidBlocks(b.container, { t, ensure: async () => stub });
   const wrapperB = b.pre.parentElement;
   ok(renderedB === 1 && renderCalls === 1 && initCalls === 1, 'D9 有库时渲染一次并初始化一次');
+  ok(Boolean(initConfig) && initConfig.theme === 'base' && initConfig.securityLevel === 'strict'
+    && initConfig.themeVariables && initConfig.themeVariables.background === mod.mermaidThemeVariables('dark').background
+    && initConfig.themeCSS === mod.mermaidThemeCss('dark'),
+    'D9b initialize 收到 base 主题 + 暗色色板 + themeCSS(securityLevel 仍是 strict)');
+  ok(/^\d+px$/.test(hostWidth), `D9c 离屏渲染宿主有确定宽度(甘特图按它排版;修前不定宽,被排成一小条;实得 ${hostWidth || '(空)'})`);
   const views = wrapperB.querySelectorAll('.mermaid-view');
   ok(views.length === 1 && views[0].innerHTML.includes('data-stub="1"'), 'D10 SVG 落入 .mermaid-view');
   ok(views[0].getAttribute('aria-label') === zh['mermaid.diagramAria'], 'D11 图表视图带无障碍标签');

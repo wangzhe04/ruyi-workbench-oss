@@ -22,6 +22,7 @@ This file records user-facing release highlights; it does not replace the comple
 - **旧名字全部换成如意命名**：数据目录 `~/.win-claude-workbench` → `~/.ruyi-workbench`（首次启动自动搬过去，旧路径留一个指回来的目录联接）；MCP server id `win-claude-workbench` → `ruyi`（Claude Code／Kimi Code 里的工具名变成 `mcp__ruyi__*`，旧登记由 `install` 与安装脚本清掉）；离线插件市场 `win-workbench-offline` → `ruyi-offline`；环境变量只写 `RUYI_HOME`（旧的 `WIN_CLAUDE_WORKBENCH_HOME` 仍可读）。
 - 修复：工作流「重试节点」之后立刻「暂停／停止」偶尔提示「工作流当前未运行」。
 - 修复：模型服务商会话里，自动压缩走到第二级（摘要重建，要等一次模型调用，可能几十秒到几分钟）时，活动条和输入框上方不显示「压缩中」，看起来像卡住；服务端判定超窗后的强制压缩结束后，活动条反而一直停在「压缩中」。现在两者都会显示「压缩中」，并在完成或失败时收起。
+- **图表（mermaid）亮暗两套配色重做**：节点、连线、标签、时序图消息、甘特图任务条都改用和工作台同一套颜色，暗色下不再是近黑方块、看不清的灰线和浅底浅字；切换亮暗时已经画好的图会跟着换色（修前亮色下画的图切到暗色后原样留着）。甘特图按消息栏实际宽度排版（修前被挤成一小条），同一天的刻度不再连标两遍，不在排期范围里的「今天」红线不再画在区段标题上。点开放大时背后是压暗的幕布、图放在实底卡片上，浅色下鼠标不再看不见；导出的 SVG/PNG 带图的底色，暗色图在看图软件里也看得清。
 
 ### English
 
@@ -40,6 +41,7 @@ This file records user-facing release highlights; it does not replace the comple
 - **Legacy names replaced with Ruyi names**: data directory `~/.win-claude-workbench` → `~/.ruyi-workbench` (moved on first start, junction left at the old path); MCP server id `win-claude-workbench` → `ruyi` (tools are `mcp__ruyi__*`; `install` and the installer remove the old registration); offline plugin marketplace `win-workbench-offline` → `ruyi-offline`; child processes get `RUYI_HOME` only (the legacy `WIN_CLAUDE_WORKBENCH_HOME` is still read).
 - Fix: pausing or stopping a workflow right after "retry node" could fail with "workflow not running".
 - Fix: in provider sessions, the second level of automatic compaction (summary rebuild, which waits on a model call) showed no "compacting" status and looked stuck, while the forced compaction after a context-overflow error left the activity bar on "compacting" after it finished. Both now show "compacting" and clear it on completion or failure.
+- **Mermaid diagrams restyled for both themes**: nodes, edges, labels, sequence messages and Gantt bars now use the workbench palette, so dark mode no longer shows near-black boxes, faint grey lines or light-on-light text; switching between light and dark re-colours diagrams that are already on screen (previously they kept the theme they were drawn in). Gantt charts are laid out at the real column width (previously squeezed into a narrow strip), no longer label the same day twice, and no longer draw the "today" line over the section titles when today is outside the schedule. The zoom viewer now dims the page and shows the diagram on a solid card, so the pointer stays visible in light mode; exported SVG/PNG files keep the diagram background so dark diagrams stay readable in image viewers.
 
 ## 如意 Ruyi Pretender 3.0 Preview 2 · v3.0.0-preview.2 · 2026-09-25 · 预览版
 
