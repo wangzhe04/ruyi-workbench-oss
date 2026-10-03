@@ -73,7 +73,7 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
     },
     {
       name: 'tool_search',
-      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, short descriptions and argument outlines without injecting every schema.',
       inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
     },
     {
@@ -667,7 +667,78 @@ function buildCallHint(item, loadedNames, config, blockedReason) {
   return { requiredArgs: required, argTypes, callHint, state, ...(blockedReason ? { blockedReason } : {}) };
 }
 
+// 2026-10 代叫「叫得对」:把一个工具的 JSON Schema 压成一行参数骨架 —— `path*:string, mode?:a|b`(* 必填、? 可选)。
+// 代叫不把完整说明书装进上下文,模型手里只有目录卡;骨架让它第一次就知道该传哪几个键、什么类型、哪些取值。
+//   brief:目录卡用 —— 全部必填(至多 6 个)+ 至多 2 个可选,总长 ≤140 字符,超出的记成 …(+N);
+//   full :代叫参数错时随错误递回(12 withToolArgsGuide)—— 至多 16 个,每个带 ≤60 字的用途说明。
+// 认 pydantic 的可空写法(anyOf [T, null])与类型数组;对象 / 数组只标 object / array<T>,不往里展开(展开就是把说明书搬回来了)。
+const TOOL_ARGS_BRIEF_CHARS = 140;
+function toolArgTypeText(p) {
+  if (!p || typeof p !== 'object') return 'any';
+  const enumOf = v => (Array.isArray(v) && v.length ? v : null);
+  let e = enumOf(p.enum);
+  let t = p.type;
+  const alts = Array.isArray(p.anyOf) ? p.anyOf : (Array.isArray(p.oneOf) ? p.oneOf : null);
+  if (alts) {
+    const nonNull = alts.filter(a => a && typeof a === 'object' && a.type !== 'null');
+    if (!e && nonNull.length === 1) return toolArgTypeText(nonNull[0]);
+    if (!e) for (const a of nonNull) { const ae = enumOf(a.enum); if (ae) { e = ae; break; } }
+    if (!t && !e) t = nonNull.map(a => a.type).filter(x => typeof x === 'string');
+  }
+  if (e) return e.slice(0, 5).map(v => String(v)).join('|') + (e.length > 5 ? '|…' : '');
+  if (Array.isArray(t)) { t = t.filter(x => x !== 'null'); t = t.length === 1 ? t[0] : t.join('/'); }
+  if (t === 'array') {
+    const it = (p.items && typeof p.items === 'object') ? toolArgTypeText(p.items) : 'any';
+    return (it !== 'any' && !it.includes('|')) ? `array<${it}>` : 'array';
+  }
+  return (typeof t === 'string' && t) ? t : 'any';
+}
+function toolArgsSkeleton(schema, mode) {
+  const full = mode === 'full';
+  const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+  const names = Object.keys(props);
+  if (!names.length) return 'none';
+  const required = new Set((Array.isArray(schema.required) ? schema.required : []).filter(k => Object.prototype.hasOwnProperty.call(props, k)));
+  const req = names.filter(n => required.has(n));
+  const opt = names.filter(n => !required.has(n));
+  const pick = full ? req.concat(opt).slice(0, 16) : req.slice(0, 6).concat(opt.slice(0, 2));
+  const parts = pick.map(n => {
+    const p = props[n] || {};
+    let s = `${n}${required.has(n) ? '*' : '?'}:${toolArgTypeText(p)}`;
+    if (full) {
+      const d = String(p.description || '').replace(/\s+/g, ' ').trim();
+      if (d) s += ` — ${d.length > 60 ? d.slice(0, 60) + '…' : d}`;
+    }
+    return s;
+  });
+  if (full) return parts.join('; ') + (names.length > pick.length ? `; …(+${names.length - pick.length} more)` : '');
+  const kept = [];
+  for (const s of parts) {
+    if (kept.length && kept.concat(s).join(', ').length > TOOL_ARGS_BRIEF_CHARS) break;
+    kept.push(s);
+  }
+  return kept.join(', ') + (names.length > kept.length ? `, …(+${names.length - kept.length})` : '');
+}
+// 检索结果统一出口:还没装进工具表的命中带上参数骨架(args)。已装的不带 —— 它的完整说明书本来就在工具表里。
+// opts.loadedNames 只有模型服务商回合给(09 的 toolLoading.search);MCP / CLI 路径不知道 CLI 手里有什么,一律带。
+// 与 metaToolHintsV1(requiredArgs / callHint / 待办去重)无关:那个开关仍管它自己那几样,这里默认开。
+function withToolArgSkeletons(result, catalog, opts) {
+  if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
+  const loaded = (opts && opts.loadedNames instanceof Set) ? opts.loadedNames : null;
+  const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  const matches = result.matches.map(m => {
+    if (!m || m.args !== undefined || (loaded && loaded.has(m.name))) return m;
+    const item = byName.get(m.name);
+    const params = item && item.tool && item.tool.function && item.tool.function.parameters;
+    return { ...m, args: toolArgsSkeleton(params, 'brief') };
+  });
+  return { ...result, matches };
+}
 function searchToolCatalog(catalog, args, config, opts) {
+  return withToolArgSkeletons(rankToolCatalog(catalog, args, config, opts), catalog, opts);
+}
+
+function rankToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
   // limit ≤ 0 / 非数字一律回默认(修前 0 → 默认、-5 → 1,同一参数两种口径)。
   const limitNum = Number(args && args.limit);
@@ -676,9 +747,9 @@ function searchToolCatalog(catalog, args, config, opts) {
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
     const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
     // 子串匹配零命中(「读文件」「执行命令」「截图」这类中文说法在英文描述里一个都配不上)时,退到带别名/能力词的
-    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时结果与修前逐字节一致。
+    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时排序与修前一致(出口另加 args 骨架,见上)。
     if (query.trim() && Array.isArray(legacy.matches) && legacy.matches.length === 0) {
-      const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
+      const v1 = rankToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
       if (Array.isArray(v1.matches) && v1.matches.length) return { ...v1, fallback: 'alias_ranker' };
     }
     return legacy;

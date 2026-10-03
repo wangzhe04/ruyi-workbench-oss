@@ -14,6 +14,8 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   [P6] 起手工具:第一发里就有 web_search / web_fetch / powershell_run。
 //   [P7] 会话工具表跨重启:重启服务后同一会话的下一回合,第一发的工具表与重启前最后一发【逐项同序】(提供方缓存接得上),
 //        并记一条 tool_schema_freeze state:'restore'。
+//   [P8] 代叫「叫得对」:tool_search 的目录卡带参数骨架;照着漏了必填去代叫 → 不执行、错误里递完整骨架(argsGuide)、
+//        埋点记 argsGuided;改对后执行成功。
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -57,6 +59,11 @@ const fake = await startFakeProvider({
         return textFrames('done');
       case 'SELFWRAP':
         if (step === 0) return toolCallFrames('tool_invoke_exec', { name: 'tool_invoke_read', arguments: { name: 'git_status', arguments: {} } }, 's1');
+        return textFrames('done');
+      case 'GUIDE':   // 搜 → 照目录卡漏了一个必填去代叫 → 拿到骨架 → 改对
+        if (step === 0) return toolCallFrames('tool_search', { query: 'zip archive' }, 'g1');
+        if (step === 1) return toolCallFrames('tool_invoke_edit', { name: 'archive_zip', arguments: { dest: path.join(WS, 'guide.zip') } }, 'g2');
+        if (step === 2) return toolCallFrames('tool_invoke_edit', { name: 'archive_zip', arguments: { paths: [path.join(WS, 'marker-promote.txt')], dest: path.join(WS, 'guide.zip') } }, 'g3');
         return textFrames('done');
       default: return textFrames('default');
     }
@@ -147,8 +154,24 @@ try {
   // 工作区不是 Git 仓库:git_status 回它自己的「还不是 Git 仓库」—— 这正说明壳被还原、真的跑到了目标。
   ok(/Git 仓库/.test(stool) && !/control-plane/.test(stool) && !/missing required/.test(stool), `P5 自套娃的壳还原后跑到了 git_status(got ${stool.slice(0, 200)})`);
 
+  // ── GUIDE ──(代叫「叫得对」:目录卡带骨架 → 叫错递完整骨架 → 改对)
+  await stream({ message: 'SCN-GUIDE 你好' });
+  const greqs = fake.requests.filter(r => r.stream && scenarioOf(r.messages) === 'GUIDE');
+  const toolMsg = (req, id) => (req ? contentText((req.messages.find(m => m.role === 'tool' && m.tool_call_id === id) || {}).content) : '');
+  const searchCard = toolMsg(greqs[1], 'g1');
+  ok(/"name":"archive_zip"/.test(searchCard) && /"args":"paths\*:array<string>, dest\*:string/.test(searchCard), `P8 tool_search 的目录卡带参数骨架(got ${searchCard.slice(0, 400)})`);
+  const wrong = toolMsg(greqs[2], 'g2');
+  ok(/invalid-arguments/.test(wrong) && /missing required 'paths'/.test(wrong) && /"argsGuide":"paths\*:array<string>/.test(wrong),
+    `P8 漏了必填:不执行(校验在执行前),错误里递完整骨架(got ${wrong.slice(0, 400)})`);
+  const fixed = toolMsg(greqs[3], 'g3');
+  ok(!/invalid-arguments/.test(fixed) && fs.existsSync(path.join(WS, 'guide.zip')), `P8 照骨架改对后执行成功(got ${fixed.slice(0, 300)})`);
+
   // ── 埋点 ──
-  let logs = await waitLogs(ls => ls.some(e => e.kind === 'tool_call_completed' && e.toolCallId === 's1'));
+  let logs = await waitLogs(ls => ls.some(e => e.kind === 'tool_call_completed' && e.toolCallId === 's1') && ls.some(e => e.kind === 'tool_call_completed' && e.toolCallId === 'g3'));
+  const g2 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'g2');
+  ok(g2 && g2.errorCode === 'invalid-arguments' && g2.argsGuided === true && g2.proxyTarget === 'archive_zip', `P8 叫错那次记 argsGuided(got ${JSON.stringify(g2)})`);
+  const g3 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'g3');
+  ok(g3 && g3.status === 'completed' && g3.argsGuided === undefined, `P8 叫对那次不记 argsGuided(got ${JSON.stringify(g3)})`);
   const c1 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'p1');
   ok(c1 && c1.proxyTarget === 'file_list' && c1.proxyRepair === 'nested_name' && c1.proxyTargetTier === 'read', `P4 tool_call_completed 带代理目标与还原类型(got ${JSON.stringify(c1)})`);
   const c2 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'p2');

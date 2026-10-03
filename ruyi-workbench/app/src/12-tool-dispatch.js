@@ -249,12 +249,19 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
     if (!toolInvokeTierCovers(proxyTier, actualTier)) return { ok: false, code: 'tier-mismatch', error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, higher than '${proxyTier}'`, hint: `call tool_invoke_${actualTier} for this tool with these arguments` };
   }
+  const targetSchema = item.tool && item.tool.function ? item.tool.function.parameters : null;
   // 审计 N1:原生目标必须带着 ctx(session/turnSeq/config/workingDir/signal)进 toolCall —— 修前 ctx=null:写文件没有检查点
   // (checkpointWarn: no_session_context)、根目录回落数据目录默认工作区、steer/stop 的中止信号到不了 script_run。
   // MCP 子进程里 ctx 本就为空(按 WCW_SESSION_ID 兜底,见 journalSessionCtx),行为不变。
   if (!bridge) {
-    try { return await toolCall(targetName, targetArgs || {}, ctx || null); }
+    try { return withToolArgsGuide(await toolCall(targetName, targetArgs || {}, ctx || null), targetSchema, false); }
     catch (e) { return toolFailureResult(e); }
+  }
+  // 2026-10:桥接目标在发给它自己的服务之前,先在本地对一遍【必填】(只查缺没缺,不改值、不判类型 —— 类型 / 取值留给服务端
+  // 自己的校验,免得我们这套子集校验误伤)。缺了直接退回并递上参数骨架,省一次进程往返,也不会带着残参数去动桌面。
+  const missingArgs = toolArgsMissingRequired(targetSchema, targetArgs);
+  if (missingArgs.length) {
+    return withToolArgsGuide({ ok: false, code: 'invalid-arguments', tool: targetName, error: `${targetName}: missing required ${missingArgs.map(k => `'${k}'`).join(', ')}` }, targetSchema, true);
   }
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
   if (!client) return { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
@@ -270,10 +277,33 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
     if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
-    return await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
-    return { ok: false, error: (e && e.message) || String(e) };
+    return withToolArgsGuide({ ok: false, error: (e && e.message) || String(e) }, targetSchema, true);
   }
+}
+
+// 2026-10 代叫「叫得对」:代叫不带完整说明书,第一次可能叫错 —— 叫错时(而且只在叫错时)把这个工具的完整参数骨架
+// (07 toolArgsSkeleton 'full')随错误递回(argsGuide),模型下一次照着改。只在出错时花这点 token,不破坏「说明书不进门」。
+// 判「参数错」:我们自己的 invalid-arguments 信封;桥接目标(bridged=true)另认服务端校验的报错文字(pydantic 的
+// validation error / Field required / Input should be,通用的 missing required / invalid argument)—— 原生工具的报错各有
+// 自己的意思(命令的 stderr、网页的 404),不按文字猜。正确的调用、其它失败一律原样返回(同一引用)。
+const TOOL_ARGS_ERROR_TEXT = /validation error|field required|input should be|missing required|invalid argument|invalid params/i;
+function withToolArgsGuide(result, schema, bridged) {
+  if (!result || typeof result !== 'object' || Array.isArray(result) || result.ok !== false || result.argsGuide !== undefined) return result;
+  const isArgsError = result.code === 'invalid-arguments'
+    || (bridged && TOOL_ARGS_ERROR_TEXT.test([result.error, result.text, result.message].filter(v => typeof v === 'string').join(' ')));
+  if (!isArgsError) return result;
+  return { ...result, ...(typeof result.code === 'string' ? {} : { code: 'invalid-arguments' }), argsGuide: toolArgsSkeleton(schema, 'full') };
+}
+// schema 声明的必填里,这次入参缺了哪几个(值为 undefined 才算缺;显式给 null 的交给服务端判 —— pydantic 的
+// Optional 必填字段本就收 null)。schema 不像样 / 入参不是对象:入参非对象时全部必填都算缺。
+function toolArgsMissingRequired(schema, args) {
+  const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+  const required = Array.isArray(schema && schema.required) ? schema.required : [];
+  const obj = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  return required.filter(k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(props, k) && obj[k] === undefined);
 }
 
 // 105a: observation_recall 每回合配额。回合键见 10 providerTurnQuotaKey(优先 turnSeq —— 修前用 user 消息数,

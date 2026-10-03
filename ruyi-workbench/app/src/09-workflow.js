@@ -1939,6 +1939,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           resultBytes: econResultBytes(result),
           ...econProxyFields(tc),
           ...(status === 'failed' && result && (typeof result.code === 'string' || result.argsInvalid === true) ? { errorCode: typeof result.code === 'string' ? result.code.slice(0, 40) : 'args_invalid' } : {}),
+          ...(result && typeof result.argsGuide === 'string' ? { argsGuided: true } : {}),   // 代叫参数错时递过参数骨架(12 withToolArgsGuide)
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
         })) econTotals.toolCallsLogged += 1;

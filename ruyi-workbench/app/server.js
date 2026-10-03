@@ -34992,7 +34992,7 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
     },
     {
       name: 'tool_search',
-      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, short descriptions and argument outlines without injecting every schema.',
       inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
     },
     {
@@ -35586,7 +35586,78 @@ function buildCallHint(item, loadedNames, config, blockedReason) {
   return { requiredArgs: required, argTypes, callHint, state, ...(blockedReason ? { blockedReason } : {}) };
 }
 
+// 2026-10 代叫「叫得对」:把一个工具的 JSON Schema 压成一行参数骨架 —— `path*:string, mode?:a|b`(* 必填、? 可选)。
+// 代叫不把完整说明书装进上下文,模型手里只有目录卡;骨架让它第一次就知道该传哪几个键、什么类型、哪些取值。
+//   brief:目录卡用 —— 全部必填(至多 6 个)+ 至多 2 个可选,总长 ≤140 字符,超出的记成 …(+N);
+//   full :代叫参数错时随错误递回(12 withToolArgsGuide)—— 至多 16 个,每个带 ≤60 字的用途说明。
+// 认 pydantic 的可空写法(anyOf [T, null])与类型数组;对象 / 数组只标 object / array<T>,不往里展开(展开就是把说明书搬回来了)。
+const TOOL_ARGS_BRIEF_CHARS = 140;
+function toolArgTypeText(p) {
+  if (!p || typeof p !== 'object') return 'any';
+  const enumOf = v => (Array.isArray(v) && v.length ? v : null);
+  let e = enumOf(p.enum);
+  let t = p.type;
+  const alts = Array.isArray(p.anyOf) ? p.anyOf : (Array.isArray(p.oneOf) ? p.oneOf : null);
+  if (alts) {
+    const nonNull = alts.filter(a => a && typeof a === 'object' && a.type !== 'null');
+    if (!e && nonNull.length === 1) return toolArgTypeText(nonNull[0]);
+    if (!e) for (const a of nonNull) { const ae = enumOf(a.enum); if (ae) { e = ae; break; } }
+    if (!t && !e) t = nonNull.map(a => a.type).filter(x => typeof x === 'string');
+  }
+  if (e) return e.slice(0, 5).map(v => String(v)).join('|') + (e.length > 5 ? '|…' : '');
+  if (Array.isArray(t)) { t = t.filter(x => x !== 'null'); t = t.length === 1 ? t[0] : t.join('/'); }
+  if (t === 'array') {
+    const it = (p.items && typeof p.items === 'object') ? toolArgTypeText(p.items) : 'any';
+    return (it !== 'any' && !it.includes('|')) ? `array<${it}>` : 'array';
+  }
+  return (typeof t === 'string' && t) ? t : 'any';
+}
+function toolArgsSkeleton(schema, mode) {
+  const full = mode === 'full';
+  const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+  const names = Object.keys(props);
+  if (!names.length) return 'none';
+  const required = new Set((Array.isArray(schema.required) ? schema.required : []).filter(k => Object.prototype.hasOwnProperty.call(props, k)));
+  const req = names.filter(n => required.has(n));
+  const opt = names.filter(n => !required.has(n));
+  const pick = full ? req.concat(opt).slice(0, 16) : req.slice(0, 6).concat(opt.slice(0, 2));
+  const parts = pick.map(n => {
+    const p = props[n] || {};
+    let s = `${n}${required.has(n) ? '*' : '?'}:${toolArgTypeText(p)}`;
+    if (full) {
+      const d = String(p.description || '').replace(/\s+/g, ' ').trim();
+      if (d) s += ` — ${d.length > 60 ? d.slice(0, 60) + '…' : d}`;
+    }
+    return s;
+  });
+  if (full) return parts.join('; ') + (names.length > pick.length ? `; …(+${names.length - pick.length} more)` : '');
+  const kept = [];
+  for (const s of parts) {
+    if (kept.length && kept.concat(s).join(', ').length > TOOL_ARGS_BRIEF_CHARS) break;
+    kept.push(s);
+  }
+  return kept.join(', ') + (names.length > kept.length ? `, …(+${names.length - kept.length})` : '');
+}
+// 检索结果统一出口:还没装进工具表的命中带上参数骨架(args)。已装的不带 —— 它的完整说明书本来就在工具表里。
+// opts.loadedNames 只有模型服务商回合给(09 的 toolLoading.search);MCP / CLI 路径不知道 CLI 手里有什么,一律带。
+// 与 metaToolHintsV1(requiredArgs / callHint / 待办去重)无关:那个开关仍管它自己那几样,这里默认开。
+function withToolArgSkeletons(result, catalog, opts) {
+  if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
+  const loaded = (opts && opts.loadedNames instanceof Set) ? opts.loadedNames : null;
+  const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  const matches = result.matches.map(m => {
+    if (!m || m.args !== undefined || (loaded && loaded.has(m.name))) return m;
+    const item = byName.get(m.name);
+    const params = item && item.tool && item.tool.function && item.tool.function.parameters;
+    return { ...m, args: toolArgsSkeleton(params, 'brief') };
+  });
+  return { ...result, matches };
+}
 function searchToolCatalog(catalog, args, config, opts) {
+  return withToolArgSkeletons(rankToolCatalog(catalog, args, config, opts), catalog, opts);
+}
+
+function rankToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
   // limit ≤ 0 / 非数字一律回默认(修前 0 → 默认、-5 → 1,同一参数两种口径)。
   const limitNum = Number(args && args.limit);
@@ -35595,9 +35666,9 @@ function searchToolCatalog(catalog, args, config, opts) {
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
     const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
     // 子串匹配零命中(「读文件」「执行命令」「截图」这类中文说法在英文描述里一个都配不上)时,退到带别名/能力词的
-    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时结果与修前逐字节一致。
+    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时排序与修前一致(出口另加 args 骨架,见上)。
     if (query.trim() && Array.isArray(legacy.matches) && legacy.matches.length === 0) {
-      const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
+      const v1 = rankToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
       if (Array.isArray(v1.matches) && v1.matches.length) return { ...v1, fallback: 'alias_ranker' };
     }
     return legacy;
@@ -41897,6 +41968,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           resultBytes: econResultBytes(result),
           ...econProxyFields(tc),
           ...(status === 'failed' && result && (typeof result.code === 'string' || result.argsInvalid === true) ? { errorCode: typeof result.code === 'string' ? result.code.slice(0, 40) : 'args_invalid' } : {}),
+          ...(result && typeof result.argsGuide === 'string' ? { argsGuided: true } : {}),   // 代叫参数错时递过参数骨架(12 withToolArgsGuide)
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
         })) econTotals.toolCallsLogged += 1;
@@ -52930,12 +53002,19 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
     if (!toolInvokeTierCovers(proxyTier, actualTier)) return { ok: false, code: 'tier-mismatch', error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, higher than '${proxyTier}'`, hint: `call tool_invoke_${actualTier} for this tool with these arguments` };
   }
+  const targetSchema = item.tool && item.tool.function ? item.tool.function.parameters : null;
   // 审计 N1:原生目标必须带着 ctx(session/turnSeq/config/workingDir/signal)进 toolCall —— 修前 ctx=null:写文件没有检查点
   // (checkpointWarn: no_session_context)、根目录回落数据目录默认工作区、steer/stop 的中止信号到不了 script_run。
   // MCP 子进程里 ctx 本就为空(按 WCW_SESSION_ID 兜底,见 journalSessionCtx),行为不变。
   if (!bridge) {
-    try { return await toolCall(targetName, targetArgs || {}, ctx || null); }
+    try { return withToolArgsGuide(await toolCall(targetName, targetArgs || {}, ctx || null), targetSchema, false); }
     catch (e) { return toolFailureResult(e); }
+  }
+  // 2026-10:桥接目标在发给它自己的服务之前,先在本地对一遍【必填】(只查缺没缺,不改值、不判类型 —— 类型 / 取值留给服务端
+  // 自己的校验,免得我们这套子集校验误伤)。缺了直接退回并递上参数骨架,省一次进程往返,也不会带着残参数去动桌面。
+  const missingArgs = toolArgsMissingRequired(targetSchema, targetArgs);
+  if (missingArgs.length) {
+    return withToolArgsGuide({ ok: false, code: 'invalid-arguments', tool: targetName, error: `${targetName}: missing required ${missingArgs.map(k => `'${k}'`).join(', ')}` }, targetSchema, true);
   }
   const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
   if (!client) return { ok: false, error: bridgedServerUnavailableMessage(bridge.serverId) };
@@ -52951,10 +53030,33 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
     const readRefusal = await bridgedReadPathGate(targetName, targetArgs || {}, { ...(ctx || {}), session, config: (ctx && ctx.config) || config });
     if (readRefusal) return readRefusal;
     if (sidSession) await journalBridgedWrite(targetName, targetArgs || {}, sidSession, config, { sessionId: sid, turnSeq: sidSession.turnSeq });
-    return await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    const res = await client.callTool(bridge.toolName, targetArgs || {}, undefined, ctx && ctx.signal ? { signal: ctx.signal } : undefined);   // 审计 N1:中止信号一路带到桥接目标
+    return withToolArgsGuide(res, targetSchema, true);
   } catch (e) {
-    return { ok: false, error: (e && e.message) || String(e) };
+    return withToolArgsGuide({ ok: false, error: (e && e.message) || String(e) }, targetSchema, true);
   }
+}
+
+// 2026-10 代叫「叫得对」:代叫不带完整说明书,第一次可能叫错 —— 叫错时(而且只在叫错时)把这个工具的完整参数骨架
+// (07 toolArgsSkeleton 'full')随错误递回(argsGuide),模型下一次照着改。只在出错时花这点 token,不破坏「说明书不进门」。
+// 判「参数错」:我们自己的 invalid-arguments 信封;桥接目标(bridged=true)另认服务端校验的报错文字(pydantic 的
+// validation error / Field required / Input should be,通用的 missing required / invalid argument)—— 原生工具的报错各有
+// 自己的意思(命令的 stderr、网页的 404),不按文字猜。正确的调用、其它失败一律原样返回(同一引用)。
+const TOOL_ARGS_ERROR_TEXT = /validation error|field required|input should be|missing required|invalid argument|invalid params/i;
+function withToolArgsGuide(result, schema, bridged) {
+  if (!result || typeof result !== 'object' || Array.isArray(result) || result.ok !== false || result.argsGuide !== undefined) return result;
+  const isArgsError = result.code === 'invalid-arguments'
+    || (bridged && TOOL_ARGS_ERROR_TEXT.test([result.error, result.text, result.message].filter(v => typeof v === 'string').join(' ')));
+  if (!isArgsError) return result;
+  return { ...result, ...(typeof result.code === 'string' ? {} : { code: 'invalid-arguments' }), argsGuide: toolArgsSkeleton(schema, 'full') };
+}
+// schema 声明的必填里,这次入参缺了哪几个(值为 undefined 才算缺;显式给 null 的交给服务端判 —— pydantic 的
+// Optional 必填字段本就收 null)。schema 不像样 / 入参不是对象:入参非对象时全部必填都算缺。
+function toolArgsMissingRequired(schema, args) {
+  const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+  const required = Array.isArray(schema && schema.required) ? schema.required : [];
+  const obj = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
+  return required.filter(k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(props, k) && obj[k] === undefined);
 }
 
 // 105a: observation_recall 每回合配额。回合键见 10 providerTurnQuotaKey(优先 turnSeq —— 修前用 user 消息数,
@@ -76805,7 +76907,7 @@ if (require.main === module) {
 
 module.exports = {
   // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调。
-  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
