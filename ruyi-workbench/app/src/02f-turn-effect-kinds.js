@@ -76,17 +76,50 @@ const CLAUDE_IRREVERSIBLE_KIND = {
 // 代理目标读不出来(缺 name / 不是字符串)原样返回,按代理名字记(不谎称账全)。
 function unwrapToolInvokeCall(tc) {
   if (!tc || typeof tc !== 'object' || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
-  const input = (tc.input && typeof tc.input === 'object') ? tc.input : null;
+  const input = (tc.input && typeof tc.input === 'object') ? normalizeToolInvokeArgs(tc.input) : null;   // 写歪的壳按实际执行的那份记
   const target = input && typeof input.name === 'string' ? input.name.trim() : '';
   if (!target || target.startsWith('tool_invoke_')) return tc;
   const inner = (input.arguments && typeof input.arguments === 'object' && !Array.isArray(input.arguments)) ? input.arguments : {};
   return { ...tc, name: target, input: inner };
 }
-// tool_invoke_* 入参归一:name 去首尾空白(修前带空格的 ' file_read ' 报「tool not found」);arguments 给成 JSON 字符串
-// (模型常这么写)时解析成对象 —— 解析不出对象的原样保留,交给入参校验给出「arguments 必须是对象」。
+// 2026-10 真机复盘(4 天 86 次代理调用、17 次失败):失败几乎全在 {name, arguments} 这层壳上,目标工具自己的参数一次没错过。
+// 其中两种写歪的壳可以【确定地】还原成正统形状:
+//   self_wrap    {name:'tool_invoke_read', arguments:{name:'file_read', arguments:{…}}} —— 把整次函数调用当成了代理参数(3 次)
+//   nested_name  {arguments:{name:'web_search', arguments:{…}}}                            —— 目标名塞进了 arguments(4 次)
+// 只认内层【恰好就是一层 {name, arguments?} 壳】、且 name 长得像工具名的形状:内层还有别的键(那是目标工具自己的参数)一律不动,
+// 交给原路径报错。完全没写 name({arguments:{query}})猜不出目标,不在这里补(12 回一条带正确形状示例的错误)。
+// 返回 { args, repair };repair 为 null 表示没动(args 是同一个引用)。
+const TOOL_INVOKE_TARGET_NAME = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+function toolInvokeInnerEnvelope(v) {
+  let inner = v;
+  if (typeof inner === 'string') { try { inner = JSON.parse(inner); } catch { return null; } }
+  if (!inner || typeof inner !== 'object' || Array.isArray(inner)) return null;
+  if (typeof inner.name !== 'string' || !TOOL_INVOKE_TARGET_NAME.test(inner.name.trim())) return null;
+  if (!Object.keys(inner).every(k => k === 'name' || k === 'arguments')) return null;
+  return inner.arguments === undefined ? { name: inner.name } : { name: inner.name, arguments: inner.arguments };
+}
+function toolInvokeEnvelopeRepair(args) {
+  let out = args;
+  let repair = null;
+  // 最多剥两层(真机只见过一层)。上限不能再放:Claude CLI 路径上权限桥看到的是【还原前】的原始入参,06i 高风险扫描只摊平
+  // 4 层(STEWARD_EXEMPT_INPUT_DEPTH);剥两层时能被执行的形状里,命令串最深在第 4 层,全在扫描范围内。剥不开的照旧被拒。
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (!out || typeof out !== 'object' || Array.isArray(out)) break;
+    const inner = toolInvokeInnerEnvelope(out.arguments);
+    if (!inner) break;
+    const outerName = typeof out.name === 'string' ? out.name.trim() : '';
+    if (outerName.startsWith('tool_invoke_')) { out = inner; repair = repair || 'self_wrap'; continue; }
+    const outerOnlyEnvelope = Object.keys(out).every(k => k === 'name' || k === 'arguments');
+    if (!outerName && outerOnlyEnvelope && (out.name == null || typeof out.name === 'string')) { out = inner; repair = repair || 'nested_name'; continue; }
+    break;
+  }
+  return { args: out, repair };
+}
+// tool_invoke_* 入参归一:先还原上面两种写歪的壳;name 去首尾空白(修前带空格的 ' file_read ' 报「tool not found」);arguments 给成
+// JSON 字符串(模型常这么写)时解析成对象 —— 解析不出对象的原样保留,交给入参校验给出「arguments 必须是对象」。
 function normalizeToolInvokeArgs(args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
-  let out = args;
+  let out = toolInvokeEnvelopeRepair(args).args;
   if (typeof out.name === 'string' && out.name !== out.name.trim()) out = { ...out, name: out.name.trim() };
   if (typeof out.arguments === 'string') {
     try {

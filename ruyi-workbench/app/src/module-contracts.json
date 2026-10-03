@@ -952,6 +952,7 @@
         "IRREVERSIBLE_BRIDGED_KIND",
         "IRREVERSIBLE_LEDGER_MAX",
         "IRREVERSIBLE_NATIVE_KIND",
+        "TOOL_INVOKE_TARGET_NAME",
         "TURN_SUMMARY_COMMAND_TOOLS",
         "TURN_SUMMARY_FILE_TOOLS",
         "TURN_SUMMARY_KNOWN_TOOLS",
@@ -959,6 +960,8 @@
         "irreversibleToolKind",
         "isBridgedWriteTool",
         "normalizeToolInvokeArgs",
+        "toolInvokeEnvelopeRepair",
+        "toolInvokeInnerEnvelope",
         "unprefixedBridgedName",
         "unwrapToolInvokeCall"
       ],
@@ -6569,9 +6572,11 @@
         "nativeToolGate",
         "nativeToolSchema",
         "nativeToolTier",
+        "nativeToolsAcceptingArgKeys",
         "neutralizeInjectedPrefixes",
         "normalizeToolSearchText",
         "openAiStreamOnce",
+        "packDescriptionsFor",
         "parseSimpleYamlValue",
         "projectActionModelView",
         "projectAgentRoleFile",
@@ -7952,6 +7957,7 @@
         "PROXY_UNWRAP_AGENT_TARGETS",
         "PROXY_UNWRAP_TARGETS",
         "appendDisplayMessagesToProviderHistory",
+        "canonicalToolInvokeCall",
         "commonPrefixChars",
         "deliverAgentRunEnvelope",
         "emptyReplyNotice",
@@ -8350,6 +8356,13 @@
         {
           "provider": "02f-turn-effect-kinds.js",
           "symbol": "normalizeToolInvokeArgs",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "toolInvokeEnvelopeRepair",
           "kinds": [
             "call"
           ]
@@ -10922,6 +10935,8 @@
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
+        "toolInvokeMissingNameResult",
+        "toolInvokeTierCovers",
         "withFileToolWriteLock"
       ],
       "requires": [
@@ -11033,6 +11048,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "TOOL_TIER_RANK",
           "kinds": [
             "read"
           ]
@@ -11502,6 +11524,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "nativeToolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "nativeToolsAcceptingArgKeys",
           "kinds": [
             "call"
           ]
@@ -22276,6 +22305,13 @@
         {
           "provider": "02f-turn-effect-kinds.js",
           "symbol": "IRREVERSIBLE_NATIVE_KIND",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02f-turn-effect-kinds.js",
+          "symbol": "toolInvokeEnvelopeRepair",
           "kinds": [
             "read"
           ]
