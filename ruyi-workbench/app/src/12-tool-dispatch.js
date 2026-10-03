@@ -192,6 +192,39 @@ async function resolveFileToolRoot(args, ctx) {
   return fileToolWorkspaceDir(ctx);
 }
 
+// 未知档一律按 exec 算(与 nativeToolTier 的 unknown → exec 同口径);代理档本身只会是 read/edit/exec。
+function toolInvokeTierCovers(proxyTier, targetTier) {
+  const rank = t => (Object.prototype.hasOwnProperty.call(TOOL_TIER_RANK, t) ? TOOL_TIER_RANK[t] : TOOL_TIER_RANK.exec);
+  return rank(proxyTier) >= rank(targetTier);
+}
+// 代理漏写目标名({arguments:{query:'…'}} 这种,真机 4 次)时的错误:修前只回「missing required 'name'」,模型照字面把 name
+// 塞进 arguments 里,再撞同一句(真机连撞 4 次)。这里给出【用它自己这份参数】拼好的正统形状,外加按参数键猜的候选目标
+// (只做提示,不替它执行 —— 猜错一个写/执行工具代价太大)。args 已过 normalizeToolInvokeArgs;有 name 时返回 null。
+function toolInvokeMissingNameResult(proxyName, args) {
+  if (typeof args.name === 'string' && args.name.trim()) return null;
+  const proxyTier = proxyName.slice('tool_invoke_'.length);
+  const given = (args.arguments && typeof args.arguments === 'object' && !Array.isArray(args.arguments)) ? args.arguments : {};
+  const keys = Object.keys(given);
+  const didYouMean = nativeToolsAcceptingArgKeys(keys)
+    .filter(c => !isControlPlaneToolName(c.name) && !isStewardToolName(c.name) && toolInvokeTierCovers(proxyTier, c.tier))
+    .sort((a, b) => (b.tier === proxyTier) - (a.tier === proxyTier) || b.required - a.required || a.name.localeCompare(b.name))
+    .slice(0, 3).map(c => c.name);
+  const shown = {};   // 示例里只回显键和截短的值:参数可能是十几 KB 的文件内容
+  for (const k of keys.slice(0, 6)) {
+    const v = given[k];
+    shown[k] = typeof v === 'string' ? (v.length > 40 ? v.slice(0, 40) + '…' : v) : (v && typeof v === 'object' ? '…' : v);
+  }
+  // 示例里的名字只在候选唯一时填:{query} 同时配得上 web_search / docs_search,填第一个会把模型带去错的工具。
+  const example = { name: didYouMean.length === 1 ? didYouMean[0] : '<exact tool name from tool_search>', arguments: shown };
+  return {
+    ok: false, code: 'invalid-arguments', tool: proxyName,
+    error: `${proxyName}: missing required 'name' — the target tool's exact name goes at the TOP level next to 'arguments', not inside it. Correct shape: ${JSON.stringify(example)}`,
+    expected: { name: 'string', arguments: 'object' }, example,
+    ...(didYouMean.length ? { didYouMean } : {}),
+    hint: `call ${proxyName} again with {"name": "<tool>", "arguments": {...}}${didYouMean.length ? `; tools at or below ${proxyTier} tier that take these arguments: ${didYouMean.join(', ')}` : ''}`,
+  };
+}
+
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
@@ -205,10 +238,13 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const bridge = resolveBridge(bridged.route, targetName);
   // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
   // 目录档与入参档不一致时以入参档为准,否则带落盘参数的这一次既过不了 _read(抬档)也过不了 _edit(目录说 read)。
-  if (!bridge && item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
+  // 2026-10:代理档【不低于】目标档就放行 —— 权限闸按代理档判,用 edit/exec 档的代理调 read 工具只会多问、不会少问;
+  // 只拒「低档代理调高档目标」(read 代理调 file_write 是越权,tool-loading e2e 钉着)。修前要求严格相等,
+  // tool_invoke_edit{file_read} 这种无害的高报被拒,模型白跑一轮。
+  if (!bridge && !toolInvokeTierCovers(proxyTier, item.tier)) return { ok: false, code: 'tier-mismatch', error: `risk tier mismatch: ${targetName} is '${item.tier}', higher than '${proxyTier}'`, hint: `call tool_invoke_${item.tier} for this tool` };
   if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
     const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
-    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, not '${proxyTier}'` };
+    if (!toolInvokeTierCovers(proxyTier, actualTier)) return { ok: false, code: 'tier-mismatch', error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, higher than '${proxyTier}'`, hint: `call tool_invoke_${actualTier} for this tool with these arguments` };
   }
   // 审计 N1:原生目标必须带着 ctx(session/turnSeq/config/workingDir/signal)进 toolCall —— 修前 ctx=null:写文件没有检查点
   // (checkpointWarn: no_session_context)、根目录回落数据目录默认工作区、steer/stop 的中止信号到不了 script_run。
@@ -2540,7 +2576,11 @@ async function toolCall(name, args = {}, ctx = null) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
     return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
   }
-  if (name.startsWith('tool_invoke_')) args = normalizeToolInvokeArgs(args);   // name 去空白 / arguments 给成 JSON 字符串时解析
+  if (name.startsWith('tool_invoke_')) {
+    args = normalizeToolInvokeArgs(args);   // 还原写歪的壳 / name 去空白 / arguments 给成 JSON 字符串时解析
+    const missingName = toolInvokeMissingNameResult(name, args);
+    if (missingName) return missingName;
+  }
   args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;

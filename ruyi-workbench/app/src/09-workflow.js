@@ -1273,6 +1273,19 @@ function unwrapProxiedControlCall(tc, offered) {
   return { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
 }
 
+// 代理壳还原(02f toolInvokeEnvelopeRepair)放在【入批处】做、直接改写 rawArgs:权限闸、hook、循环签名、并行只读岛、
+// providerHistory(下一发里模型看到的是自己这次调用的正统写法,照着抄就不再错)、回合账,看到的都是同一份参数 ——
+// 与 providerHistoryToolCalls 的「历史说的就是实际跑的那份参数」同一条不变量。不需要还原 / 参数坏了的原样返回(同一引用)。
+// tc: {id, name, rawArgs};还原过的多带 proxyRepair('self_wrap' | 'nested_name'),只给埋点用。
+function canonicalToolInvokeCall(tc) {
+  if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
+  let parsed;
+  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  const { args, repair } = toolInvokeEnvelopeRepair(parsed);
+  if (!repair) return tc;
+  return { ...tc, rawArgs: JSON.stringify(args), proxyRepair: repair };
+}
+
 // Plan mode may investigate before proposing a plan, but it must stay observational. The normal permission
 // tier is the source of truth for file/web/bridge reads; planning metadata and agent coordination are excluded
 // even though some are classified as read-tier for the regular autonomous loop. Unknown tools fail closed via
@@ -1811,6 +1824,34 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 具体工具调用在 60s 内继承同一 discoverySeq(awaitingOutcome 标记链终点),让 E1 报表能按链聚合
   // search→load→invoke/direct_call→outcome 而无需纯时序猜测。纯观测,不影响分发。
   const discoveryState = { seq: 0, openedAt: 0, awaitingOutcome: false };
+  // 2026-10 真机复盘:代理调用的目标 100% 是没装载的【原生】工具 —— 分包没命中时,一整个会话 36 次联网全绕 tool_invoke_read,
+  // 一次 tool_load 都没调(web 包 schema 合计不到 1K token)。代理调到原生工具时顺手把它装进下一发的工具表(一次隐式 tool_load),
+  // 模型下一步就能直调:省掉的是每次都要套一层壳的出错面(套壳出错占代理失败的八成),多付的只是这一个 schema。
+  // 目标已经在工具表里还走代理的(模型照着历史惯性抄),结果上附一句提醒。桥接工具不提升:100–280 个桥接 schema 才是代理真正省的地方。
+  // proxyArgs 已过 canonicalToolInvokeCall;只在代理真的分发了(过了权限闸)之后调。返回原结果或加了 proxyNote 的浅拷贝。
+  const promoteProxiedNativeTool = (proxyArgs, result) => {
+    const target = proxyArgs && typeof proxyArgs.name === 'string' ? proxyArgs.name.trim() : '';
+    if (!target || target.startsWith('tool_invoke_') || !result || typeof result !== 'object' || Array.isArray(result)) return result;
+    const item = toolLoading.catalog.find(x => x && x.name === target);
+    if (!item || item.bridged) return result;
+    if (toolLoading.current().some(t => t && t.function && t.function.name === target)) {
+      return { ...result, proxyNote: `${target} 已在你的工具表里:下次直接调用 ${target},不要再经 tool_invoke_*` };
+    }
+    const loaded = toolLoading.load({ tools: [target] });
+    if (!Array.isArray(loaded.loaded) || !loaded.loaded.includes(target)) return result;
+    onEvent({ type: 'tool_catalog', state: 'loaded', source: 'proxy_promote', ...loaded, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
+    try { logEvent({ kind: 'tool_proxy_promoted', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, tool: target }); } catch { /* telemetry must never break a turn */ }
+    return { ...result, proxyNote: `${target} 已装载为直接工具:下次直接调用 ${target}(参数就是这次 arguments 里那份),不必再经 tool_invoke_*` };
+  };
+  // tool_call_completed 的代理字段:真正被调的目标、它的档、壳有没有被还原。目标名形状不对(乱写的长串)只记 'invalid'。
+  const econProxyFields = tc => {
+    if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return {};
+    let target = '';
+    try { const a = JSON.parse(tc.rawArgs || '{}'); target = a && typeof a.name === 'string' ? a.name.trim() : ''; } catch { /* args_invalid */ }
+    const named = /^[A-Za-z_][A-Za-z0-9_.-]{0,79}$/.test(target) ? target : (target ? 'invalid' : '');
+    const item = named && named !== 'invalid' ? toolLoading.catalog.find(x => x && x.name === named) : null;
+    return { proxyTarget: named || 'missing', ...(item ? { proxyTargetTier: item.tier } : {}), ...(tc.proxyRepair ? { proxyRepair: tc.proxyRepair } : {}) };
+  };
   const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
     if (!tc) return;
     const key = String(tc.id || `${tc.name}:${iteration}`);
@@ -1881,6 +1922,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           tier: econTier, status, toolMs,
           argsBytes: econArgsBytes(tc.rawArgs),
           resultBytes: econResultBytes(result),
+          ...econProxyFields(tc),
+          ...(status === 'failed' && result && (typeof result.code === 'string' || result.argsInvalid === true) ? { errorCode: typeof result.code === 'string' ? result.code.slice(0, 40) : 'args_invalid' } : {}),
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
         })) econTotals.toolCallsLogged += 1;
@@ -2609,7 +2652,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // and must not be paired as function_call_output); their raw item is echoed back into the next
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
-        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall);   // 写歪的代理壳先还原(见该函数头注)
         const outputLimited = providerWireOutputLimited(call.finishReason);
         const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
@@ -3020,6 +3063,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 catch (e) { resultObj = toolFailureResult(e, allTools.map(t => t.function && t.function.name)); } // 审计 N5:未知工具附 did-you-mean
                 finally { releaseResourceLease(toolLease); }
                 }
+                if (tc.name.startsWith('tool_invoke_')) resultObj = promoteProxiedNativeTool(args, resultObj);   // 代理到原生工具 → 装进下一发的工具表
               }
             }
           }

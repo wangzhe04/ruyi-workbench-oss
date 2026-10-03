@@ -85,7 +85,8 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
   if (includeInvoke) {
     for (const tier of ['read', 'edit', 'exec']) tools.push({
       name: `tool_invoke_${tier}`,
-      description: `Invoke one discovered ${tier}-tier Ruyi tool by exact name. The workbench independently verifies the target risk tier and rejects mismatches.`,
+      // 2026-10:写明两层各放什么(真机失败几乎全是把目标名塞进 arguments / 把整次调用当参数),档位口径改成「不高于本档」。比修前短 13 字符。
+      description: `Invoke one discovered Ruyi tool: name = its exact name, arguments = its own parameters. Targets above ${tier} tier are rejected.`,
       inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'Exact tool name from tool_search.' }, arguments: { type: 'object', description: 'Arguments matching that tool schema.' } }, required: ['name'] },
     });
   }
@@ -118,6 +119,22 @@ function nativeToolSchema(name) {
     for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
   }
   return _nativeToolSchemaByName.get(name) || null;
+}
+// 12 的「代理漏写目标名」错误按模型给的参数键猜候选目标(只做提示):给出的键全是该工具的参数、且该工具的必填全在其中。
+// 返回 [{ name, tier, required }](required = 必填个数,越多越具体);放在 07 的理由同上(07 本就读 MCP_TOOLS)。
+function nativeToolsAcceptingArgKeys(keys) {
+  const want = (Array.isArray(keys) ? keys : []).filter(k => typeof k === 'string' && k);
+  if (!want.length) return [];
+  const out = [];
+  for (const t of MCP_TOOLS) {
+    const schema = t && t.inputSchema;
+    const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+    const required = Array.isArray(schema && schema.required) ? schema.required : [];
+    if (!want.every(k => Object.prototype.hasOwnProperty.call(props, k))) continue;
+    if (!required.every(k => want.includes(k))) continue;
+    out.push({ name: t.name, tier: nativeToolTier(t.name), required: required.length });
+  }
+  return out;
 }
 function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
@@ -551,7 +568,9 @@ function classifyToolPacks(message, attachments) {
   if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write', 'code');
   if (/(代码|编码|编程|bug|测试|构建|依赖|git|commit|push|pull request|typescript|javascript|python|java|rust|go\b|npm|pnpm|yarn|编译)/i.test(s)) add('files_read', 'code');
   if (/(运行|执行|命令|终端|shell|powershell|脚本|测试|构建|安装|启动|重启|部署|run|execute|command|terminal|script|test|build|install|start|restart|deploy)/i.test(s)) add('shell');
-  if (/(联网|网页|网站|搜索网络|查新闻|最新|url|https?:|web|internet|online|search the web|fetch)/i.test(s)) add('web');
+  // 2026-10:补实时信息类说法(行情/走势/股/汇率/天气/新闻…)。修前「查一下美股这周与下周的走势」只分到 core,
+  // 整个会话 36 次联网全绕 tool_invoke_read 代理(web 包 schema 合计不到 1K token)。
+  if (/(联网|网页|网站|搜索网络|查新闻|新闻|最新|行情|走势|股价|股市|美股|港股|a股|汇率|天气|热搜|票房|url|https?:|web|internet|online|search the web|fetch)/i.test(s)) add('web');
   if (/(excel|word|powerpoint|pptx?|docx?|pdf|表格|电子表格|工作簿|幻灯片|演示文稿|文档排版)/i.test(s)) add('office', 'files_read', 'files_write');
   if (/(截图|桌面|窗口|鼠标|键盘|点击|屏幕|ocr|screenshot|desktop|window|mouse|keyboard|click)/i.test(s)) add('desktop');
   if (/(压缩|解压|zip|archive|unzip)/i.test(s)) add('archive', 'files_read', 'files_write');
@@ -587,7 +606,18 @@ function legacyToolCatalogSearch(catalog, query, limit, nameBoost) {
     const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? nameBoost : 1) : 0), 0);
     return { x, score };
   }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit);
-  return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+  const matches = scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description }));
+  return { ok: true, query: String(query || ''), matches, packs: packDescriptionsFor(matches) };
+}
+// tool_search 结果只带【命中条目所在的那几个包】的说明。修前每次都附整张 15 个包的表:实测一次检索结果 3302 B 里它占 1049 B,
+// 一个会话检索几次就重复几次。整张表归 list_tools(它本来就是「不知道搜什么时先看目录」的入口)。
+function packDescriptionsFor(matches) {
+  const out = {};
+  for (const m of Array.isArray(matches) ? matches : []) {
+    const p = m && m.pack;
+    if (p && !out[p] && Object.prototype.hasOwnProperty.call(TOOL_PACK_DESCRIPTIONS, p)) out[p] = TOOL_PACK_DESCRIPTIONS[p];
+  }
+  return out;
 }
 
 function runtimeToolBlockedReason(item, config) {
@@ -678,20 +708,21 @@ function searchToolCatalog(catalog, args, config, opts) {
   }).filter(r => !qTokens.length || r.score > 0)
     .sort((a, b) => b.score - a.score || a.doc.item.name.localeCompare(b.doc.item.name)).slice(0, limit);
   const loadedNames = opts && opts.loadedNames instanceof Set ? opts.loadedNames : null;
+  const matches = ranked.map(r => {
+    const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
+    return {
+      name: x.name, pack: x.pack, tier: x.tier, description: x.description,
+      score: Number(r.score.toFixed(3)), matchedOn: r.matchedOn,
+      loaded: loadedNames ? loadedNames.has(x.name) : undefined,
+      blockedReason: blockedReason || undefined,
+    };
+  });
   return {
     ok: true, query, retrievalVersion: 'deterministic-v1',
     queryHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(qNorm).digest('hex').slice(0, 16),
     elapsedMs: Date.now() - startedAt,
-    matches: ranked.map(r => {
-      const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
-      return {
-        name: x.name, pack: x.pack, tier: x.tier, description: x.description,
-        score: Number(r.score.toFixed(3)), matchedOn: r.matchedOn,
-        loaded: loadedNames ? loadedNames.has(x.name) : undefined,
-        blockedReason: blockedReason || undefined,
-      };
-    }),
-    packs: TOOL_PACK_DESCRIPTIONS,
+    matches,
+    packs: packDescriptionsFor(matches),
   };
 }
 
@@ -787,7 +818,7 @@ function listCompactTools(catalog, args) {
   const nextCursor = cursor + page.length < available.length ? cursor + page.length : null;
   return {
     ok: true, pack: pack || null, total: available.length, cursor, count: page.length, nextCursor,
-    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS),
+    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS), packs: TOOL_PACK_DESCRIPTIONS,   // 包说明全表只在这里给(tool_search 只带命中的包)
     next: nextCursor === null ? 'Use tool_search with a capability or exact name for descriptions and risk tiers.' : `Call list_tools again with cursor ${nextCursor}.`,
   };
 }

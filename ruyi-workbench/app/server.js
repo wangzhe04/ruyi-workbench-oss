@@ -6257,17 +6257,50 @@ const CLAUDE_IRREVERSIBLE_KIND = {
 // 代理目标读不出来(缺 name / 不是字符串)原样返回,按代理名字记(不谎称账全)。
 function unwrapToolInvokeCall(tc) {
   if (!tc || typeof tc !== 'object' || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
-  const input = (tc.input && typeof tc.input === 'object') ? tc.input : null;
+  const input = (tc.input && typeof tc.input === 'object') ? normalizeToolInvokeArgs(tc.input) : null;   // 写歪的壳按实际执行的那份记
   const target = input && typeof input.name === 'string' ? input.name.trim() : '';
   if (!target || target.startsWith('tool_invoke_')) return tc;
   const inner = (input.arguments && typeof input.arguments === 'object' && !Array.isArray(input.arguments)) ? input.arguments : {};
   return { ...tc, name: target, input: inner };
 }
-// tool_invoke_* 入参归一:name 去首尾空白(修前带空格的 ' file_read ' 报「tool not found」);arguments 给成 JSON 字符串
-// (模型常这么写)时解析成对象 —— 解析不出对象的原样保留,交给入参校验给出「arguments 必须是对象」。
+// 2026-10 真机复盘(4 天 86 次代理调用、17 次失败):失败几乎全在 {name, arguments} 这层壳上,目标工具自己的参数一次没错过。
+// 其中两种写歪的壳可以【确定地】还原成正统形状:
+//   self_wrap    {name:'tool_invoke_read', arguments:{name:'file_read', arguments:{…}}} —— 把整次函数调用当成了代理参数(3 次)
+//   nested_name  {arguments:{name:'web_search', arguments:{…}}}                            —— 目标名塞进了 arguments(4 次)
+// 只认内层【恰好就是一层 {name, arguments?} 壳】、且 name 长得像工具名的形状:内层还有别的键(那是目标工具自己的参数)一律不动,
+// 交给原路径报错。完全没写 name({arguments:{query}})猜不出目标,不在这里补(12 回一条带正确形状示例的错误)。
+// 返回 { args, repair };repair 为 null 表示没动(args 是同一个引用)。
+const TOOL_INVOKE_TARGET_NAME = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+function toolInvokeInnerEnvelope(v) {
+  let inner = v;
+  if (typeof inner === 'string') { try { inner = JSON.parse(inner); } catch { return null; } }
+  if (!inner || typeof inner !== 'object' || Array.isArray(inner)) return null;
+  if (typeof inner.name !== 'string' || !TOOL_INVOKE_TARGET_NAME.test(inner.name.trim())) return null;
+  if (!Object.keys(inner).every(k => k === 'name' || k === 'arguments')) return null;
+  return inner.arguments === undefined ? { name: inner.name } : { name: inner.name, arguments: inner.arguments };
+}
+function toolInvokeEnvelopeRepair(args) {
+  let out = args;
+  let repair = null;
+  // 最多剥两层(真机只见过一层)。上限不能再放:Claude CLI 路径上权限桥看到的是【还原前】的原始入参,06i 高风险扫描只摊平
+  // 4 层(STEWARD_EXEMPT_INPUT_DEPTH);剥两层时能被执行的形状里,命令串最深在第 4 层,全在扫描范围内。剥不开的照旧被拒。
+  for (let depth = 0; depth < 2; depth += 1) {
+    if (!out || typeof out !== 'object' || Array.isArray(out)) break;
+    const inner = toolInvokeInnerEnvelope(out.arguments);
+    if (!inner) break;
+    const outerName = typeof out.name === 'string' ? out.name.trim() : '';
+    if (outerName.startsWith('tool_invoke_')) { out = inner; repair = repair || 'self_wrap'; continue; }
+    const outerOnlyEnvelope = Object.keys(out).every(k => k === 'name' || k === 'arguments');
+    if (!outerName && outerOnlyEnvelope && (out.name == null || typeof out.name === 'string')) { out = inner; repair = repair || 'nested_name'; continue; }
+    break;
+  }
+  return { args: out, repair };
+}
+// tool_invoke_* 入参归一:先还原上面两种写歪的壳;name 去首尾空白(修前带空格的 ' file_read ' 报「tool not found」);arguments 给成
+// JSON 字符串(模型常这么写)时解析成对象 —— 解析不出对象的原样保留,交给入参校验给出「arguments 必须是对象」。
 function normalizeToolInvokeArgs(args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
-  let out = args;
+  let out = toolInvokeEnvelopeRepair(args).args;
   if (typeof out.name === 'string' && out.name !== out.name.trim()) out = { ...out, name: out.name.trim() };
   if (typeof out.arguments === 'string') {
     try {
@@ -34971,7 +35004,8 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
   if (includeInvoke) {
     for (const tier of ['read', 'edit', 'exec']) tools.push({
       name: `tool_invoke_${tier}`,
-      description: `Invoke one discovered ${tier}-tier Ruyi tool by exact name. The workbench independently verifies the target risk tier and rejects mismatches.`,
+      // 2026-10:写明两层各放什么(真机失败几乎全是把目标名塞进 arguments / 把整次调用当参数),档位口径改成「不高于本档」。比修前短 13 字符。
+      description: `Invoke one discovered Ruyi tool: name = its exact name, arguments = its own parameters. Targets above ${tier} tier are rejected.`,
       inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'Exact tool name from tool_search.' }, arguments: { type: 'object', description: 'Arguments matching that tool schema.' } }, required: ['name'] },
     });
   }
@@ -35004,6 +35038,22 @@ function nativeToolSchema(name) {
     for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
   }
   return _nativeToolSchemaByName.get(name) || null;
+}
+// 12 的「代理漏写目标名」错误按模型给的参数键猜候选目标(只做提示):给出的键全是该工具的参数、且该工具的必填全在其中。
+// 返回 [{ name, tier, required }](required = 必填个数,越多越具体);放在 07 的理由同上(07 本就读 MCP_TOOLS)。
+function nativeToolsAcceptingArgKeys(keys) {
+  const want = (Array.isArray(keys) ? keys : []).filter(k => typeof k === 'string' && k);
+  if (!want.length) return [];
+  const out = [];
+  for (const t of MCP_TOOLS) {
+    const schema = t && t.inputSchema;
+    const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
+    const required = Array.isArray(schema && schema.required) ? schema.required : [];
+    if (!want.every(k => Object.prototype.hasOwnProperty.call(props, k))) continue;
+    if (!required.every(k => want.includes(k))) continue;
+    out.push({ name: t.name, tier: nativeToolTier(t.name), required: required.length });
+  }
+  return out;
 }
 function buildOpenAiTools(config, caps, opts) {
   // 116f: 管家会话标记。为 true 时本函数【只】返回 steward_*(收口在末尾的唯一出口,见那里的注释)。
@@ -35437,7 +35487,9 @@ function classifyToolPacks(message, attachments) {
   if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write', 'code');
   if (/(代码|编码|编程|bug|测试|构建|依赖|git|commit|push|pull request|typescript|javascript|python|java|rust|go\b|npm|pnpm|yarn|编译)/i.test(s)) add('files_read', 'code');
   if (/(运行|执行|命令|终端|shell|powershell|脚本|测试|构建|安装|启动|重启|部署|run|execute|command|terminal|script|test|build|install|start|restart|deploy)/i.test(s)) add('shell');
-  if (/(联网|网页|网站|搜索网络|查新闻|最新|url|https?:|web|internet|online|search the web|fetch)/i.test(s)) add('web');
+  // 2026-10:补实时信息类说法(行情/走势/股/汇率/天气/新闻…)。修前「查一下美股这周与下周的走势」只分到 core,
+  // 整个会话 36 次联网全绕 tool_invoke_read 代理(web 包 schema 合计不到 1K token)。
+  if (/(联网|网页|网站|搜索网络|查新闻|新闻|最新|行情|走势|股价|股市|美股|港股|a股|汇率|天气|热搜|票房|url|https?:|web|internet|online|search the web|fetch)/i.test(s)) add('web');
   if (/(excel|word|powerpoint|pptx?|docx?|pdf|表格|电子表格|工作簿|幻灯片|演示文稿|文档排版)/i.test(s)) add('office', 'files_read', 'files_write');
   if (/(截图|桌面|窗口|鼠标|键盘|点击|屏幕|ocr|screenshot|desktop|window|mouse|keyboard|click)/i.test(s)) add('desktop');
   if (/(压缩|解压|zip|archive|unzip)/i.test(s)) add('archive', 'files_read', 'files_write');
@@ -35473,7 +35525,18 @@ function legacyToolCatalogSearch(catalog, query, limit, nameBoost) {
     const score = words.reduce((n, w) => n + (hay.includes(w) ? (x.name.toLowerCase().includes(w) ? nameBoost : 1) : 0), 0);
     return { x, score };
   }).filter(r => !words.length || r.score > 0).sort((a, b) => b.score - a.score || a.x.name.localeCompare(b.x.name)).slice(0, limit);
-  return { ok: true, query: String(query || ''), matches: scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description })), packs: TOOL_PACK_DESCRIPTIONS };
+  const matches = scored.map(({ x }) => ({ name: x.name, pack: x.pack, tier: x.tier, description: x.description }));
+  return { ok: true, query: String(query || ''), matches, packs: packDescriptionsFor(matches) };
+}
+// tool_search 结果只带【命中条目所在的那几个包】的说明。修前每次都附整张 15 个包的表:实测一次检索结果 3302 B 里它占 1049 B,
+// 一个会话检索几次就重复几次。整张表归 list_tools(它本来就是「不知道搜什么时先看目录」的入口)。
+function packDescriptionsFor(matches) {
+  const out = {};
+  for (const m of Array.isArray(matches) ? matches : []) {
+    const p = m && m.pack;
+    if (p && !out[p] && Object.prototype.hasOwnProperty.call(TOOL_PACK_DESCRIPTIONS, p)) out[p] = TOOL_PACK_DESCRIPTIONS[p];
+  }
+  return out;
 }
 
 function runtimeToolBlockedReason(item, config) {
@@ -35564,20 +35627,21 @@ function searchToolCatalog(catalog, args, config, opts) {
   }).filter(r => !qTokens.length || r.score > 0)
     .sort((a, b) => b.score - a.score || a.doc.item.name.localeCompare(b.doc.item.name)).slice(0, limit);
   const loadedNames = opts && opts.loadedNames instanceof Set ? opts.loadedNames : null;
+  const matches = ranked.map(r => {
+    const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
+    return {
+      name: x.name, pack: x.pack, tier: x.tier, description: x.description,
+      score: Number(r.score.toFixed(3)), matchedOn: r.matchedOn,
+      loaded: loadedNames ? loadedNames.has(x.name) : undefined,
+      blockedReason: blockedReason || undefined,
+    };
+  });
   return {
     ok: true, query, retrievalVersion: 'deterministic-v1',
     queryHash: crypto.createHmac('sha256', RUNTIME_TELEMETRY_KEY).update(qNorm).digest('hex').slice(0, 16),
     elapsedMs: Date.now() - startedAt,
-    matches: ranked.map(r => {
-      const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
-      return {
-        name: x.name, pack: x.pack, tier: x.tier, description: x.description,
-        score: Number(r.score.toFixed(3)), matchedOn: r.matchedOn,
-        loaded: loadedNames ? loadedNames.has(x.name) : undefined,
-        blockedReason: blockedReason || undefined,
-      };
-    }),
-    packs: TOOL_PACK_DESCRIPTIONS,
+    matches,
+    packs: packDescriptionsFor(matches),
   };
 }
 
@@ -35673,7 +35737,7 @@ function listCompactTools(catalog, args) {
   const nextCursor = cursor + page.length < available.length ? cursor + page.length : null;
   return {
     ok: true, pack: pack || null, total: available.length, cursor, count: page.length, nextCursor,
-    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS),
+    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS), packs: TOOL_PACK_DESCRIPTIONS,   // 包说明全表只在这里给(tool_search 只带命中的包)
     next: nextCursor === null ? 'Use tool_search with a capability or exact name for descriptions and risk tiers.' : `Call list_tools again with cursor ${nextCursor}.`,
   };
 }
@@ -41111,6 +41175,19 @@ function unwrapProxiedControlCall(tc, offered) {
   return { ...tc, name: target, rawArgs: JSON.stringify(inner || {}) };
 }
 
+// 代理壳还原(02f toolInvokeEnvelopeRepair)放在【入批处】做、直接改写 rawArgs:权限闸、hook、循环签名、并行只读岛、
+// providerHistory(下一发里模型看到的是自己这次调用的正统写法,照着抄就不再错)、回合账,看到的都是同一份参数 ——
+// 与 providerHistoryToolCalls 的「历史说的就是实际跑的那份参数」同一条不变量。不需要还原 / 参数坏了的原样返回(同一引用)。
+// tc: {id, name, rawArgs};还原过的多带 proxyRepair('self_wrap' | 'nested_name'),只给埋点用。
+function canonicalToolInvokeCall(tc) {
+  if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
+  let parsed;
+  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  const { args, repair } = toolInvokeEnvelopeRepair(parsed);
+  if (!repair) return tc;
+  return { ...tc, rawArgs: JSON.stringify(args), proxyRepair: repair };
+}
+
 // Plan mode may investigate before proposing a plan, but it must stay observational. The normal permission
 // tier is the source of truth for file/web/bridge reads; planning metadata and agent coordination are excluded
 // even though some are classified as read-tier for the regular autonomous loop. Unknown tools fail closed via
@@ -41649,6 +41726,34 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 具体工具调用在 60s 内继承同一 discoverySeq(awaitingOutcome 标记链终点),让 E1 报表能按链聚合
   // search→load→invoke/direct_call→outcome 而无需纯时序猜测。纯观测,不影响分发。
   const discoveryState = { seq: 0, openedAt: 0, awaitingOutcome: false };
+  // 2026-10 真机复盘:代理调用的目标 100% 是没装载的【原生】工具 —— 分包没命中时,一整个会话 36 次联网全绕 tool_invoke_read,
+  // 一次 tool_load 都没调(web 包 schema 合计不到 1K token)。代理调到原生工具时顺手把它装进下一发的工具表(一次隐式 tool_load),
+  // 模型下一步就能直调:省掉的是每次都要套一层壳的出错面(套壳出错占代理失败的八成),多付的只是这一个 schema。
+  // 目标已经在工具表里还走代理的(模型照着历史惯性抄),结果上附一句提醒。桥接工具不提升:100–280 个桥接 schema 才是代理真正省的地方。
+  // proxyArgs 已过 canonicalToolInvokeCall;只在代理真的分发了(过了权限闸)之后调。返回原结果或加了 proxyNote 的浅拷贝。
+  const promoteProxiedNativeTool = (proxyArgs, result) => {
+    const target = proxyArgs && typeof proxyArgs.name === 'string' ? proxyArgs.name.trim() : '';
+    if (!target || target.startsWith('tool_invoke_') || !result || typeof result !== 'object' || Array.isArray(result)) return result;
+    const item = toolLoading.catalog.find(x => x && x.name === target);
+    if (!item || item.bridged) return result;
+    if (toolLoading.current().some(t => t && t.function && t.function.name === target)) {
+      return { ...result, proxyNote: `${target} 已在你的工具表里:下次直接调用 ${target},不要再经 tool_invoke_*` };
+    }
+    const loaded = toolLoading.load({ tools: [target] });
+    if (!Array.isArray(loaded.loaded) || !loaded.loaded.includes(target)) return result;
+    onEvent({ type: 'tool_catalog', state: 'loaded', source: 'proxy_promote', ...loaded, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
+    try { logEvent({ kind: 'tool_proxy_promoted', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, tool: target }); } catch { /* telemetry must never break a turn */ }
+    return { ...result, proxyNote: `${target} 已装载为直接工具:下次直接调用 ${target}(参数就是这次 arguments 里那份),不必再经 tool_invoke_*` };
+  };
+  // tool_call_completed 的代理字段:真正被调的目标、它的档、壳有没有被还原。目标名形状不对(乱写的长串)只记 'invalid'。
+  const econProxyFields = tc => {
+    if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return {};
+    let target = '';
+    try { const a = JSON.parse(tc.rawArgs || '{}'); target = a && typeof a.name === 'string' ? a.name.trim() : ''; } catch { /* args_invalid */ }
+    const named = /^[A-Za-z_][A-Za-z0-9_.-]{0,79}$/.test(target) ? target : (target ? 'invalid' : '');
+    const item = named && named !== 'invalid' ? toolLoading.catalog.find(x => x && x.name === named) : null;
+    return { proxyTarget: named || 'missing', ...(item ? { proxyTargetTier: item.tier } : {}), ...(tc.proxyRepair ? { proxyRepair: tc.proxyRepair } : {}) };
+  };
   const notifyToolHookStart = async (tc, input, iteration, disposition = 'execute') => {
     if (!tc) return;
     const key = String(tc.id || `${tc.name}:${iteration}`);
@@ -41719,6 +41824,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           tier: econTier, status, toolMs,
           argsBytes: econArgsBytes(tc.rawArgs),
           resultBytes: econResultBytes(result),
+          ...econProxyFields(tc),
+          ...(status === 'failed' && result && (typeof result.code === 'string' || result.argsInvalid === true) ? { errorCode: typeof result.code === 'string' ? result.code.slice(0, 40) : 'args_invalid' } : {}),
           ...discoveryFields,
           ...(result && result.unchanged === true ? { deduped: true } : {}),
         })) econTotals.toolCallsLogged += 1;
@@ -42447,7 +42554,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // and must not be paired as function_call_output); their raw item is echoed back into the next
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
-        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide);
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall);   // 写歪的代理壳先还原(见该函数头注)
         const outputLimited = providerWireOutputLimited(call.finishReason);
         const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
@@ -42858,6 +42965,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                 catch (e) { resultObj = toolFailureResult(e, allTools.map(t => t.function && t.function.name)); } // 审计 N5:未知工具附 did-you-mean
                 finally { releaseResourceLease(toolLease); }
                 }
+                if (tc.name.startsWith('tool_invoke_')) resultObj = promoteProxiedNativeTool(args, resultObj);   // 代理到原生工具 → 装进下一发的工具表
               }
             }
           }
@@ -52675,6 +52783,39 @@ async function resolveFileToolRoot(args, ctx) {
   return fileToolWorkspaceDir(ctx);
 }
 
+// 未知档一律按 exec 算(与 nativeToolTier 的 unknown → exec 同口径);代理档本身只会是 read/edit/exec。
+function toolInvokeTierCovers(proxyTier, targetTier) {
+  const rank = t => (Object.prototype.hasOwnProperty.call(TOOL_TIER_RANK, t) ? TOOL_TIER_RANK[t] : TOOL_TIER_RANK.exec);
+  return rank(proxyTier) >= rank(targetTier);
+}
+// 代理漏写目标名({arguments:{query:'…'}} 这种,真机 4 次)时的错误:修前只回「missing required 'name'」,模型照字面把 name
+// 塞进 arguments 里,再撞同一句(真机连撞 4 次)。这里给出【用它自己这份参数】拼好的正统形状,外加按参数键猜的候选目标
+// (只做提示,不替它执行 —— 猜错一个写/执行工具代价太大)。args 已过 normalizeToolInvokeArgs;有 name 时返回 null。
+function toolInvokeMissingNameResult(proxyName, args) {
+  if (typeof args.name === 'string' && args.name.trim()) return null;
+  const proxyTier = proxyName.slice('tool_invoke_'.length);
+  const given = (args.arguments && typeof args.arguments === 'object' && !Array.isArray(args.arguments)) ? args.arguments : {};
+  const keys = Object.keys(given);
+  const didYouMean = nativeToolsAcceptingArgKeys(keys)
+    .filter(c => !isControlPlaneToolName(c.name) && !isStewardToolName(c.name) && toolInvokeTierCovers(proxyTier, c.tier))
+    .sort((a, b) => (b.tier === proxyTier) - (a.tier === proxyTier) || b.required - a.required || a.name.localeCompare(b.name))
+    .slice(0, 3).map(c => c.name);
+  const shown = {};   // 示例里只回显键和截短的值:参数可能是十几 KB 的文件内容
+  for (const k of keys.slice(0, 6)) {
+    const v = given[k];
+    shown[k] = typeof v === 'string' ? (v.length > 40 ? v.slice(0, 40) + '…' : v) : (v && typeof v === 'object' ? '…' : v);
+  }
+  // 示例里的名字只在候选唯一时填:{query} 同时配得上 web_search / docs_search,填第一个会把模型带去错的工具。
+  const example = { name: didYouMean.length === 1 ? didYouMean[0] : '<exact tool name from tool_search>', arguments: shown };
+  return {
+    ok: false, code: 'invalid-arguments', tool: proxyName,
+    error: `${proxyName}: missing required 'name' — the target tool's exact name goes at the TOP level next to 'arguments', not inside it. Correct shape: ${JSON.stringify(example)}`,
+    expected: { name: 'string', arguments: 'object' }, example,
+    ...(didYouMean.length ? { didYouMean } : {}),
+    hint: `call ${proxyName} again with {"name": "<tool>", "arguments": {...}}${didYouMean.length ? `; tools at or below ${proxyTier} tier that take these arguments: ${didYouMean.join(', ')}` : ''}`,
+  };
+}
+
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
@@ -52688,10 +52829,13 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   const bridge = resolveBridge(bridged.route, targetName);
   // 审计 A③:桥接目标的档按【本次入参】判(get_clipboard_image 带 save_path 是写,目录里无参的档是 read)——
   // 目录档与入参档不一致时以入参档为准,否则带落盘参数的这一次既过不了 _read(抬档)也过不了 _edit(目录说 read)。
-  if (!bridge && item.tier !== proxyTier) return { ok: false, error: `risk tier mismatch: ${targetName} is '${item.tier}', not '${proxyTier}'` };
+  // 2026-10:代理档【不低于】目标档就放行 —— 权限闸按代理档判,用 edit/exec 档的代理调 read 工具只会多问、不会少问;
+  // 只拒「低档代理调高档目标」(read 代理调 file_write 是越权,tool-loading e2e 钉着)。修前要求严格相等,
+  // tool_invoke_edit{file_read} 这种无害的高报被拒,模型白跑一轮。
+  if (!bridge && !toolInvokeTierCovers(proxyTier, item.tier)) return { ok: false, code: 'tier-mismatch', error: `risk tier mismatch: ${targetName} is '${item.tier}', higher than '${proxyTier}'`, hint: `call tool_invoke_${item.tier} for this tool` };
   if (bridge) {  // B1:resolveBridge 后强制重校 tier(不依赖 catalog 单一来源,防 drop-in/override 声明与实际不符)
     const actualTier = bridgedToolTier(bridge.toolName, config, targetArgs || {});
-    if (actualTier !== proxyTier) return { ok: false, error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, not '${proxyTier}'` };
+    if (!toolInvokeTierCovers(proxyTier, actualTier)) return { ok: false, code: 'tier-mismatch', error: `tier mismatch (bridged recheck): ${bridge.toolName} is '${actualTier}' for these arguments, higher than '${proxyTier}'`, hint: `call tool_invoke_${actualTier} for this tool with these arguments` };
   }
   // 审计 N1:原生目标必须带着 ctx(session/turnSeq/config/workingDir/signal)进 toolCall —— 修前 ctx=null:写文件没有检查点
   // (checkpointWarn: no_session_context)、根目录回落数据目录默认工作区、steer/stop 的中止信号到不了 script_run。
@@ -55023,7 +55167,11 @@ async function toolCall(name, args = {}, ctx = null) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) {
     return { ok: false, code: 'invalid-arguments', tool: name, error: `${name}: arguments must be a JSON object (got ${jsonSchemaTypeName(args)})`, hint: 'pass arguments as an object of named fields' };
   }
-  if (name.startsWith('tool_invoke_')) args = normalizeToolInvokeArgs(args);   // name 去空白 / arguments 给成 JSON 字符串时解析
+  if (name.startsWith('tool_invoke_')) {
+    args = normalizeToolInvokeArgs(args);   // 还原写歪的壳 / name 去空白 / arguments 给成 JSON 字符串时解析
+    const missingName = toolInvokeMissingNameResult(name, args);
+    if (missingName) return missingName;
+  }
   args = normalizeMetaToolArgs(name, args);   // todo_write/mission_update:content/completed 等同义词先归一,再校验
   const invalid = validateNativeToolArgs(name, args);
   if (invalid) return invalid;
@@ -76564,7 +76712,7 @@ if (require.main === module) {
 
 module.exports = {
   // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调。
-  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)
