@@ -481,6 +481,8 @@ try {
     const sources = [
       'gantt\\n  title 整理\\n  dateFormat YYYY-MM-DD\\n  axisFormat %m-%d\\n  section 盘点\\n  扫描 :done, a1, 2020-01-06, 1d\\n  识别 :done, a2, after a1, 1d\\n  section 执行\\n  方案 :active, b1, after a2, 1d\\n  归档 :b2, after b1, 2d\\n  section 收尾\\n  报告 :crit, c1, after b2, 1d',
       'gantt\\n  dateFormat YYYY-MM-DD\\n  axisFormat %m-%d\\n  section 本周\\n  进行中 :active, n1, ' + iso(Date.now() - 2 * day) + ', 5d',
+      '%%{init: {"gantt": {"topAxis": true}}}%%\\ngantt\\n  dateFormat YYYY-MM-DD\\n  axisFormat %m-%d\\n  section A\\n  a :a1, 2020-01-06, 6d',
+      'gantt\\n  dateFormat YYYY-MM-DD\\n  axisFormat %b\\n  tickInterval 1week\\n  section A\\n  a :a1, 2020-01-06, 20d',
     ];
     for (const source of sources) {
       const pre = document.createElement('pre');
@@ -494,6 +496,8 @@ try {
     const result = Array.from(host.querySelectorAll('.mermaid-view svg')).map(svg => {
       const line = svg.querySelector('.grid .tick line');
       return {
+        axes: Array.from(svg.querySelectorAll('g.grid')).map(grid => Array.from(grid.querySelectorAll('.tick text')).map(text => text.textContent)),
+        ticks: svg.querySelectorAll('.grid .tick').length,
         labels: Array.from(svg.querySelectorAll('.grid .tick text')).map(text => text.textContent),
         width: svg.viewBox.baseVal.width,
         today: Boolean(svg.querySelector('line.today')),
@@ -503,8 +507,8 @@ try {
     host.remove();
     return { count, result };
   })()`);
-  const [outOfRange, inRange] = (gantt && gantt.result) || [];
-  ok(gantt && gantt.count === 2 && outOfRange && inRange, `B9 两张甘特图都画出来（${gantt && gantt.count}）`);
+  const [outOfRange, inRange, topAxis, weekly] = (gantt && gantt.result) || [];
+  ok(gantt && gantt.count === 4 && outOfRange && inRange && topAxis && weekly, `B9 四张甘特图都画出来（${gantt && gantt.count}）`);
   const repeated = outOfRange ? outOfRange.labels.filter((label, i, all) => i > 0 && label === all[i - 1]) : ['?'];
   ok(outOfRange && outOfRange.labels.length >= 4 && repeated.length === 0,
     `B9a 刻度不再同日连标两遍（${outOfRange && outOfRange.labels.join(' ')}）`);
@@ -512,6 +516,11 @@ try {
   ok(outOfRange && outOfRange.today === false && inRange.today === true,
     `B9c 「今天」线：排期外去掉（${outOfRange && outOfRange.today}）、排期内保留（${inRange && inRange.today}）`);
   ok(outOfRange && outOfRange.grid === 'rgb(51, 66, 94)', `B9d 网格线用色板线色而不是继承页面正文色（${outOfRange && outOfRange.grid}）`);
+  const sameDay = labels => labels.filter((label, i, all) => i > 0 && label === all[i - 1]).length;
+  ok(topAxis && topAxis.axes.length === 2 && topAxis.axes.every(labels => labels.length >= 4 && sameDay(labels) === 0),
+    `B9e 上下两条坐标轴（gantt.topAxis）各自去重、各自留字（${topAxis && topAxis.axes.map(labels => labels.length).join(' / ')}）`);
+  ok(weekly && weekly.ticks >= 3 && sameDay(weekly.labels) === 0,
+    `B9f 源码自己写了 tickInterval：刻度线一根不少（${weekly && weekly.ticks}），只摘重复的字（${weekly && weekly.labels.join(' ')}）`);
 
   /* ═════════ B10 浅色下灯箱：压暗幕布 + 实底卡片 ═════════ */
   const lightBox = await cdp.evaluate(`(async () => {

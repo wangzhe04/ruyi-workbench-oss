@@ -130,6 +130,12 @@ class FakeElement {
     this.listeners = {};
   }
   get parentElement() { return this.parentNode; }
+  get isConnected() {
+    let node = this;
+    while (node.parentNode) node = node.parentNode;
+    const doc = this.ownerDocument;
+    return Boolean(doc) && (node === doc.body || node === doc.documentElement);
+  }
   get className() { return this._className; }
   set className(value) { this.classList.setFrom(value); }
   append(...nodes) { for (const node of nodes) this.appendChild(node); }
@@ -199,13 +205,30 @@ class FakeElement {
 }
 
 class FakeDocument {
-  constructor() {
+  constructor({ observable = false } = {}) {
     this.documentElement = new FakeElement('html', this);
     this.documentElement.setAttribute('data-theme', 'dark');
     this.head = new FakeElement('head', this);
     this.body = new FakeElement('body', this);
+    // observable:带一个记下回调的 MutationObserver 桩,测试里改 data-theme 后手动 flip() 触发。
+    this.observers = [];
+    if (observable) {
+      const doc = this;
+      this.defaultView = {
+        MutationObserver: class {
+          constructor(callback) { this.callback = callback; }
+          observe(target, options) { doc.observers.push({ target, options, callback: this.callback }); }
+          disconnect() {}
+        },
+      };
+    }
   }
   createElement(tag) { return new FakeElement(tag, this); }
+  querySelectorAll(selector) { return this.body.querySelectorAll(selector); }
+  flip(theme) {
+    this.documentElement.setAttribute('data-theme', theme);
+    for (const entry of this.observers) entry.callback([{ type: 'attributes', attributeName: 'data-theme' }]);
+  }
 }
 
 const SOURCE = 'graph TD; A-->B';
@@ -409,6 +432,94 @@ function buildContainer(doc, source = SOURCE) {
   let touched = false;
   await mod.renderMermaidBlocks(plain, { t, ensure: async () => { touched = true; return stub; } });
   ok(!touched && plainPre.parentElement === plain, 'D24 无 mermaid 围栏时不加载库、不改 DOM');
+
+  // (e) 切亮暗(2026-10-03):桩 render 像真 mermaid 一样在异步几步之后才读全局配置,把读到的主题写进 SVG;
+  //     看每张图的内容与标记是否最终都是当前主题。
+  const settle = async doc => {
+    for (let i = 0; i < 50; i++) {
+      const chain = doc.__ruyiMermaidRetheme;
+      await chain;
+      await new Promise(resolve => setTimeout(resolve, 5));
+      if (doc.__ruyiMermaidRetheme === chain) return;
+    }
+  };
+  const themedStub = ({ failWhen } = {}) => {
+    // 模块级 initialize 签名是全页一份:同签名不会再调 initialize,所以桩的「当前全局主题」从
+    // 模块上一次初始化的主题起步(前面 (b) 是暗色)—— 与真 mermaid 的全局配置一致。
+    let current = 'dark';
+    const calls = [];
+    return {
+      calls,
+      lib: {
+        initialize(config) { current = config.themeVariables && config.themeVariables.darkMode ? 'dark' : 'light'; },
+        render: async (id, text) => {
+          calls.push(current);
+          await new Promise(resolve => setTimeout(resolve, 15));
+          const at = current;
+          if (failWhen && failWhen(at)) throw new Error('boom');
+          return { svg: `<svg data-drawn="${at}">${text}</svg>` };
+        },
+      },
+    };
+  };
+  const drawnOf = block => (/data-drawn="(\w+)"/.exec((block.querySelectorAll('.mermaid-view')[0] || { innerHTML: '' }).innerHTML) || [])[1];
+  const allMatch = (blocks, theme) => blocks.every(block => block.dataset.mermaidState === 'ok'
+    && block.dataset.mermaidTheme === theme && drawnOf(block) === theme);
+  const describe = blocks => blocks.map(block => `${block.dataset.mermaidTheme}/${drawnOf(block)}`).join(',');
+  const midRender = async ({ early }) => {
+    const doc = new FakeDocument({ observable: true });
+    const stub = themedStub();
+    if (early) {
+      const first = buildContainer(doc, 'graph TD; G0-->H');
+      doc.body.appendChild(first.container);
+      await mod.renderMermaidBlocks(first.container, { t, ensure: async () => stub.lib });
+    }
+    const host = doc.createElement('div');
+    doc.body.appendChild(host);
+    for (let i = 0; i < 3; i++) host.appendChild(buildContainer(doc, `graph TD; E${i}-->F`).container);
+    const before = stub.calls.length;
+    const run = mod.renderMermaidBlocks(host, { t, ensure: async () => stub.lib });
+    while (stub.calls.length === before) await new Promise(resolve => setTimeout(resolve, 1));
+    doc.flip('light');
+    await run;
+    await settle(doc);
+    return { doc, blocks: doc.body.querySelectorAll('.mermaid-block') };
+  };
+  // ① 三张图还在画时切到浅色:切换那一刻它们还是 pending,重画队列看不见 —— 修前画完就停在暗色。
+  const e1 = await midRender({ early: false });
+  ok(e1.doc.observers.length === 1 && e1.doc.observers[0].options.attributeFilter.join() === 'data-theme',
+    'D27a 首次渲染后挂上 <html data-theme> 的监听(只听这一个属性)');
+  ok(e1.blocks.length === 3 && allMatch(e1.blocks, 'light'),
+    'D27b 画到一半切主题:这一轮画完后按当前主题补画,标记与内容一致 → ' + describe(e1.blocks));
+  // ② 另有一张早已画好的图在切换那一刻被重画队列接走,与那三张的渲染交错:两路 initialize 互相改全局配色,
+  //    没有全页渲染队列时会出现「标着浅色、画成暗色」且再也不会被补画的块。
+  const e2 = await midRender({ early: true });
+  ok(e2.blocks.length === 4 && allMatch(e2.blocks, 'light'),
+    'D27c 两路渲染交错(整页重绘 + 切主题重画):全页一条渲染队列,每块按自己的主题画 → ' + describe(e2.blocks));
+
+  // (f) 换色重画:「源码」开着的仍开着;重画失败留着旧图,不降级成源码 + 报错。
+  const docF = new FakeDocument({ observable: true });
+  const f = buildContainer(docF, 'graph TD; P-->Q');
+  docF.body.appendChild(f.container);
+  let stubFFail = false;
+  const stubF = themedStub({ failWhen: at => at === 'dark' && stubFFail });
+  await mod.renderMermaidBlocks(f.container, { t, ensure: async () => stubF.lib });
+  const wrapperF = f.pre.parentElement;
+  wrapperF.querySelectorAll('.mermaid-tools')[0].children[0].onclick();
+  ok(f.pre.hidden === false, 'D28a 前置:「源码」已打开');
+  docF.flip('light');
+  await settle(docF);
+  const toggleF = wrapperF.querySelectorAll('.mermaid-tools')[0].children[0];
+  ok(wrapperF.dataset.mermaidTheme === 'light' && wrapperF.querySelectorAll('.mermaid-view')[0].innerHTML.includes('data-drawn="light"')
+    && f.pre.hidden === false && toggleF.getAttribute('aria-expanded') === 'true',
+    'D28b 换色重画后「源码」仍开着(aria-expanded 同步),图已是新主题');
+  stubFFail = true;
+  docF.flip('dark');
+  await settle(docF);
+  const viewsF = wrapperF.querySelectorAll('.mermaid-view');
+  ok(viewsF.length === 1 && viewsF[0].innerHTML.includes('data-drawn="light"') && wrapperF.dataset.mermaidState === 'ok'
+    && wrapperF.querySelectorAll('.mermaid-hint').length === 0,
+    'D28c 换色重画失败:留着旧图、状态仍是 ok、不出降级提示');
 
   console.log('\nMERMAID RENDER STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
   process.exit(fail ? 1 : 0);

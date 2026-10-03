@@ -15,7 +15,8 @@ import { installFocusTrap } from './modal.js';
 //   5. 主题:两套色板(MERMAID_PALETTES)对齐工作台 token;亮暗切换时已画好的图按新主题重画
 //      (watchThemeChanges),不会把亮色图留在暗底上。
 //
-// 导出:ensureMermaid / renderMermaidBlocks / mermaidSourceHash / mermaidThemeFor / mermaidThemeVariables / mermaidThemeCss。
+// 导出:ensureMermaid / renderMermaidBlocks / mermaidSourceHash / mermaidThemeFor / mermaidThemeVariables /
+//      mermaidThemeCss / MERMAID_CATEGORICAL。
 
 export const MERMAID_SCRIPT_SRC = '/vendor/mermaid.min.js';
 export const MERMAID_LOAD_TIMEOUT_MS = 8000;
@@ -25,6 +26,14 @@ let loadPromise = null;
 // 已初始化的 (theme, fontFamily) 签名。主题切换后需要重新 initialize。
 let initSignature = '';
 let renderSeq = 0;
+// 全页一条渲染队列:mermaid 的主题是全局配置(initialize),两路渲染交错时(整会话重绘 + 切主题重画),
+// 后一路的 initialize 会改掉前一路还没画的块的配色。每块在队里先按【自己的】主题 initialize 再 render。
+let renderQueue = Promise.resolve();
+function enqueueRender(task) {
+  const run = renderQueue.then(task, task);
+  renderQueue = run.then(() => {}, () => {});
+  return run;
+}
 
 // 稳定的源码指纹(FNV-1a 变体 + 位置加权 + 长度),仅用于缓存命中判定,不作安全用途。
 export function mermaidSourceHash(text) {
@@ -247,9 +256,17 @@ export function mermaidThemeVariables(theme, fontFamily) {
 //     暗色下成了一排亮白竖线,亮色下是一排深色竖线;改回 gridColor。
 //   · 时间线 / 思维导图的主轴与事件虚线:mermaid 拿分支标签色(cScaleLabel,我们给的白)描线,
 //     亮色下整条轴看不见;改回 lineColor。
+//   · 暗色下桑基图的流带:mermaid 在元素上内联写死 mix-blend-mode:multiply,深底上正片叠底成一片近黑,
+//     只能 !important 盖回 normal(浅色下叠底本来就对,不动)。
 export function mermaidThemeCss(theme) {
-  const palette = MERMAID_PALETTES[theme === 'light' ? 'light' : 'dark'];
-  return `.grid .tick line { stroke: ${palette.gridColor}; }\n.lineWrapper line { stroke: ${palette.lineColor}; }`;
+  const dark = theme !== 'light';
+  const palette = MERMAID_PALETTES[dark ? 'dark' : 'light'];
+  const rules = [
+    `.grid .tick line { stroke: ${palette.gridColor}; }`,
+    `.lineWrapper line { stroke: ${palette.lineColor}; }`,
+  ];
+  if (dark) rules.push('g.links > g.link { mix-blend-mode: normal !important; }');
+  return rules.join('\n');
 }
 
 function docOf(node, opts) {
@@ -647,7 +664,7 @@ function openMermaidViewer(doc, markup, t) {
 function buildToolbar(doc, ctx) {
   const bar = doc.createElement('div');
   bar.className = 'mermaid-tools';
-  const { pre, view, source, t, toast } = ctx;
+  const { pre, view, source, t, toast, sourceOpen } = ctx;
   const notify = { fail: () => { if (typeof toast === 'function') toast(t('mermaid.exportFailed'), 'err'); } };
   const toggle = makeButton(doc, t('mermaid.toggleSource'), () => {
     const hidden = !pre.hidden;
@@ -655,7 +672,7 @@ function buildToolbar(doc, ctx) {
     if (pre.classList) pre.classList.toggle('mermaid-source-hidden', hidden);
     toggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
   });
-  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-expanded', sourceOpen ? 'true' : 'false');
   const copy = makeButton(doc, t('common.copy'), () => {
     try {
       const clipboard = globalThis.navigator && globalThis.navigator.clipboard;
@@ -697,11 +714,12 @@ function renderWidthFor(wrapper) {
 }
 
 // ── 甘特图收尾 ────────────────────────────────────────────────────────────────────
-// mermaid 甘特图自身两处瑕疵,渲染后就地修(只动本模块刚写进视图的那份 SVG):
+// mermaid 甘特图自身两处瑕疵,渲染后在离屏宿主里就地修(只动本模块刚拿到的那份 SVG):
 //   ① 刻度按 d3 默认约 10 格取:6 天的跨度会落到 12 小时一格,axisFormat 只到「日」时同一日期
 //      连标两遍(用户截图里的 10-05 10-05 10-06 …)。与前一格同字的整格去掉(连同那条网格线,
-//      剩下的线正好落在日界上);剩下的字若仍互相压住,按实测字宽隔开、只摘字不摘线
-//      (量不到字宽的环境只做去重)。
+//      剩下的线正好落在日界上);源码自己写了 tickInterval 时刻度是作者要的,只摘重复的字不摘线。
+//      剩下的字若仍互相压住,按实测字宽隔开、只摘字不摘线(量不到字宽的环境只做去重)。
+//      上下两条坐标轴(gantt.topAxis)是两个 g.grid,各算各的。
 //   ② 「今天」那条线无条件画:今天落在排期范围外时,它会压在左侧区段标题上。超出任务范围就去掉。
 function translateXOf(node) {
   const transform = node && typeof node.getAttribute === 'function' ? node.getAttribute('transform') : '';
@@ -709,16 +727,14 @@ function translateXOf(node) {
   return match ? Number(match[1]) : NaN;
 }
 
-function tidyGanttSvg(svg) {
-  if (!svg || typeof svg.querySelectorAll !== 'function') return;
-  if (svg.getAttribute('aria-roledescription') !== 'gantt') return;
+function tidyGanttAxis(grid, explicitTicks) {
   let previous = null;
   let lastRight = -Infinity;
-  for (const tick of Array.from(svg.querySelectorAll('.grid .tick'))) {
+  for (const tick of Array.from(grid.querySelectorAll('.tick'))) {
     const text = tick.querySelector('text');
     if (!text) continue;
     const label = String(text.textContent || '');
-    if (label && label === previous) { tick.remove(); continue; }
+    if (label && label === previous) { (explicitTicks ? text : tick).remove(); continue; }
     previous = label;
     let width = 0;
     try { width = text.getBBox().width; } catch { width = 0; }
@@ -727,6 +743,12 @@ function tidyGanttSvg(svg) {
     if (x - width / 2 < lastRight + 6) { text.remove(); continue; }
     lastRight = x + width / 2;
   }
+}
+
+function tidyGanttSvg(svg, { explicitTicks = false } = {}) {
+  if (!svg || typeof svg.querySelectorAll !== 'function') return;
+  if (svg.getAttribute('aria-roledescription') !== 'gantt') return;
+  for (const grid of Array.from(svg.querySelectorAll('g.grid'))) tidyGanttAxis(grid, explicitTicks);
   const today = svg.querySelector('line.today');
   if (today) {
     const x = Number(today.getAttribute('x1'));
@@ -754,6 +776,41 @@ function paintSvgBackground(svg, theme) {
   try { svg.style.backgroundColor = palette.background; } catch { /* 测试桩无 style 写入不致命 */ }
 }
 
+// 在离屏宿主里收尾(它已挂进文档、有确定宽度):甘特图要量字宽,而调用方的容器可能还没进文档
+// (逐条画好再一次性挂上的那些路径)。写入的仍是 mermaid 在 strict 下消毒过的那段 SVG,与写进视图同级。
+function finishSvgInHost(host, markup, theme, source) {
+  try {
+    host.innerHTML = markup;
+    const svg = typeof host.querySelector === 'function' ? host.querySelector('svg') : null;
+    if (!svg) return markup;
+    paintSvgBackground(svg, theme);
+    try { tidyGanttSvg(svg, { explicitTicks: /\btickInterval\b/.test(source) }); } catch { /* 收尾失败保留 mermaid 原样输出 */ }
+    return host.innerHTML || markup;
+  } catch { return markup; }
+}
+
+async function renderOneSvg(doc, lib, item, theme, fontFamily) {
+  initializeOnce(lib, theme, fontFamily);
+  renderSeq += 1;
+  // Mermaid measures in the live DOM. Keep its temporary SVGs in a private,
+  // offscreen host and always remove that host, including on parser failures.
+  const renderHost = doc.createElement('div');
+  renderHost.className = 'mermaid-render-host';
+  renderHost.setAttribute('aria-hidden', 'true');
+  renderHost.style.position = 'fixed';
+  renderHost.style.left = '-100000px';
+  renderHost.style.width = `${renderWidthFor(item.wrapper)}px`;
+  (doc.body || doc.documentElement).appendChild(renderHost);
+  let markup = '';
+  try {
+    const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, item.source, renderHost);
+    markup = result && typeof result === 'object' ? String(result.svg || '') : String(result || '');
+    if (markup) markup = finishSvgInHost(renderHost, markup, theme, item.source);
+  } catch { markup = ''; }
+  finally { renderHost.remove(); }
+  return markup;
+}
+
 // ── 跟随亮暗切换 ──────────────────────────────────────────────────────────────────
 // 修前图只在画的那一刻取主题:在亮色下画好、再切到暗色,旧图原样留着(浅紫节点压在深蓝底上,
 // 时序图的消息字几乎看不见 —— 用户 2026-10-03 截图的就是这种)。现在监听 <html data-theme>,
@@ -768,7 +825,8 @@ function rethemeRenderedBlocks(doc) {
     let wrappers = [];
     try { wrappers = Array.from(doc.querySelectorAll('.mermaid-block[data-mermaid-state="ok"]')); } catch { wrappers = []; }
     for (const wrapper of wrappers) {
-      if (!wrapper.isConnected || (wrapper.dataset && wrapper.dataset.mermaidTheme === theme)) continue;
+      const data = wrapper.dataset || {};
+      if (!wrapper.isConnected || data.mermaidState !== 'ok' || data.mermaidTheme === theme) continue;
       const opts = blockRenderOptions.get(wrapper) || {};
       try { await renderMermaidBlocks(wrapper, { ...opts, document: doc }); } catch { /* 单块失败不挡后面的块 */ }
     }
@@ -825,10 +883,13 @@ export async function renderMermaidBlocks(container, opts = {}) {
     // 缓存键 = 源码哈希 + 主题。流式封段/整会话重绘会重建 DOM(缓存随之失效);
     // 同一 DOM 上重复调用则命中缓存,不再重跑 mermaid。
     if (data.mermaidHash === hash && data.mermaidTheme === theme && data.mermaidState) continue;
+    // 同一份源码换主题重画(切亮暗)时记下旧状态:画失败就留着旧图,「源码」开着的就还开着。
+    const recolor = data.mermaidState === 'ok' && data.mermaidHash === hash;
+    const previous = recolor ? { theme: data.mermaidTheme, sourceOpen: pre.hidden === false } : null;
     wrapper.dataset.mermaidHash = hash;
     wrapper.dataset.mermaidTheme = theme;
     wrapper.dataset.mermaidState = 'pending';
-    pending.push({ code, pre, wrapper, source, hash });
+    pending.push({ code, pre, wrapper, source, hash, previous });
   }
   if (!pending.length) return 0;
 
@@ -838,29 +899,22 @@ export async function renderMermaidBlocks(container, opts = {}) {
     for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'));
     return 0;
   }
-  initializeOnce(lib, theme, appFontFamily(doc));
   watchThemeChanges(doc);
+  const fontFamily = appFontFamily(doc);
 
   let rendered = 0;
   for (const item of pending) {
-    renderSeq += 1;
-    let svgMarkup = '';
     blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure });
-    // Mermaid measures in the live DOM. Keep its temporary SVGs in a private,
-    // offscreen host and always remove that host, including on parser failures.
-    const renderHost = doc.createElement('div');
-    renderHost.className = 'mermaid-render-host';
-    renderHost.setAttribute('aria-hidden', 'true');
-    renderHost.style.position = 'fixed';
-    renderHost.style.left = '-100000px';
-    renderHost.style.width = `${renderWidthFor(item.wrapper)}px`;
-    (doc.body || doc.documentElement).appendChild(renderHost);
-    try {
-      const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, item.source, renderHost);
-      svgMarkup = result && typeof result === 'object' ? String(result.svg || '') : String(result || '');
-    } catch { svgMarkup = ''; }
-    finally { renderHost.remove(); }
+    let svgMarkup = '';
+    try { svgMarkup = await enqueueRender(() => renderOneSvg(doc, lib, item, theme, fontFamily)); } catch { svgMarkup = ''; }
     if (!svgMarkup) {
+      const oldView = item.previous && typeof item.wrapper.querySelector === 'function' ? item.wrapper.querySelector('.mermaid-view') : null;
+      if (oldView) {
+        // 换色重画失败:旧图还是对的内容,留着它,只把状态还原(不降级成源码 + 报错)。
+        item.wrapper.dataset.mermaidTheme = item.previous.theme;
+        item.wrapper.dataset.mermaidState = 'ok';
+        continue;
+      }
       degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'));
       continue;
     }
@@ -872,7 +926,8 @@ export async function renderMermaidBlocks(container, opts = {}) {
     // securityLevel: 'strict' 下 mermaid 自行消毒输出,且我们从不调用 bindFunctions,
     // 所以 click 指令不会接线。此处赋值发生在 sanitizeNode() 之后,是有意的受控写入。
     view.innerHTML = svgMarkup;
-    const toolbar = buildToolbar(doc, { pre: item.pre, view, source: item.source, t, toast });
+    const sourceOpen = Boolean(item.previous && item.previous.sourceOpen);
+    const toolbar = buildToolbar(doc, { pre: item.pre, view, source: item.source, t, toast, sourceOpen });
     if (typeof item.pre.before === 'function') {
       item.pre.before(view);
       item.pre.before(toolbar);
@@ -880,14 +935,15 @@ export async function renderMermaidBlocks(container, opts = {}) {
       item.wrapper.appendChild(view);
       item.wrapper.appendChild(toolbar);
     }
-    // 进了文档再收尾:甘特图刻度要量字宽。
-    const svg = typeof view.querySelector === 'function' ? view.querySelector('svg') : null;
-    paintSvgBackground(svg, theme);
-    try { tidyGanttSvg(svg); } catch { /* 收尾失败保留 mermaid 原样输出 */ }
-    item.pre.hidden = true;
-    if (item.pre.classList) item.pre.classList.add('mermaid-source-hidden');
+    item.pre.hidden = !sourceOpen;
+    if (item.pre.classList) item.pre.classList.toggle('mermaid-source-hidden', !sourceOpen);
     item.wrapper.dataset.mermaidState = 'ok';
     rendered += 1;
+  }
+  // 画的过程中主题变了(长回复里几张图还在画、用户点了切换):这一轮按开始时的主题画完,再交给重画队列
+  // 按当前主题补一遍 —— 切换那一刻这些块还是 pending,rethemeRenderedBlocks 看不见它们。
+  if (opts.isDark === undefined && doc.__ruyiMermaidThemeWatch && mermaidThemeFor(isDarkTheme(doc)) !== theme) {
+    rethemeRenderedBlocks(doc);
   }
   return rendered;
 }
