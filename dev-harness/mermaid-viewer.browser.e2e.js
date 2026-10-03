@@ -15,6 +15,12 @@ require('./lib/self-isolate-home.js'); // 换机器：直跑时家目录自隔�
 //   B4  滚轮缩放真改 transform（放大后 scale 变大），「适应窗口」按回去；
 //   B5  三只退出的手全灵：Esc、「关闭」按钮、点遮罩；点图本身也能再开。
 //
+// 2026-10-03 用户反馈「暗色下 mermaid 不好看、有的图生成得有问题、浅色下点开图片后鼠标很容易看不到」，追加：
+//   B7c PNG 导出带底色（暗色图是浅字，透明底在白底看图器里看不见）；
+//   B8  切换亮暗后已画好的图按新主题重画（修前亮色图原样留在暗底上），切回也收敛；
+//   B9  甘特图按栏宽排版、同日刻度不重复、排期外的「今天」线去掉（排期内保留）、网格线用色板线色；
+//   B10 浅色下灯箱是压暗的实色幕布 + 实底卡片（修前 46% 白毛玻璃 + 透明底图，光标糊在里面）。
+//
 // 夹具：确定性 fake provider —— 回答里带一段 ```mermaid 围栏。后端零改动。
 
 (async () => {
@@ -379,17 +385,31 @@ try {
     const create = URL.createObjectURL;
     const click = HTMLAnchorElement.prototype.click;
     URL.createObjectURL = function(blob) { const url = create.call(URL, blob); blobs.set(url, blob); return url; };
-    HTMLAnchorElement.prototype.click = function() { const blob = blobs.get(this.href); if (blob) saved.push({ name: this.download, type: blob.type, size: blob.size }); };
+    HTMLAnchorElement.prototype.click = function() { const blob = blobs.get(this.href); if (blob) saved.push({ name: this.download, type: blob.type, size: blob.size, blob }); };
     try {
       for (const label of ['导出 SVG', '导出 PNG']) {
         Array.from(document.querySelectorAll('#messages .mermaid-btn')).find(b => b.textContent === label).click();
       }
       for (let i = 0; i < 50 && saved.length < 2; i++) await new Promise(r => setTimeout(r, 100));
-      return saved;
+      const png = saved.find(item => item.type === 'image/png');
+      if (png) {
+        const bitmap = await createImageBitmap(png.blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width; canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        png.cornerAlpha = ctx.getImageData(0, 0, 1, 1).data[3];
+      }
+      const svg = saved.find(item => item.name.endsWith('.svg'));
+      if (svg) svg.text = await svg.blob.text();
+      return saved.map(({ blob, ...rest }) => rest);
     } finally { URL.createObjectURL = create; HTMLAnchorElement.prototype.click = click; }
   })()`);
   ok(exports.some(item => item.name.endsWith('.svg') && item.size > 100), 'B7 SVG export produces a download');
   ok(exports.some(item => item.name.endsWith('.png') && item.type === 'image/png' && item.size > 100), 'B7b PNG export produces a download');
+  ok(exports.some(item => item.name.endsWith('.png') && item.cornerAlpha === 255)
+    && exports.some(item => item.name.endsWith('.svg') && /background-color:\s*rgb\(26, 36, 54\)/.test(item.text || '')),
+    `B7c 导出带图的底色（PNG 角落不透明、SVG 根上写着暗色 --panel-2；实得 alpha=${(exports.find(item => item.name.endsWith('.png')) || {}).cornerAlpha}）`);
   const failures = await cdp.evaluate(`(async () => {
     const { renderMermaidBlocks } = await import('/js/mermaid-runtime.js');
     const root = document.createElement('div');
@@ -418,6 +438,124 @@ try {
     'B6 invalid diagrams preserve source; subsequent valid diagram still renders');
   ok(failures.errors === 0 && failures.hosts === 0,
     'B6b no leaked syntax-error SVG or temporary render hosts');
+
+  /* ═════════ B8 切换亮暗：已画好的图按新主题重画 ═════════ */
+  const themed = await cdp.evaluate(`(async () => {
+    const block = document.querySelector('#messages .mermaid-block');
+    const fillOf = () => {
+      const shape = block.querySelector('.mermaid-view svg .node rect, .mermaid-view svg .node polygon');
+      return shape ? getComputedStyle(shape).fill : '';
+    };
+    const svgBg = () => (block.querySelector('.mermaid-view svg') || { style: {} }).style.backgroundColor || '';
+    const settle = async want => {
+      for (let i = 0; i < 400; i++) {
+        if (block.dataset.mermaidTheme === want && block.dataset.mermaidState === 'ok') return true;
+        await new Promise(r => setTimeout(r, 40));
+      }
+      return false;
+    };
+    const before = { theme: block.dataset.mermaidTheme, fill: fillOf(), bg: svgBg() };
+    document.documentElement.setAttribute('data-theme', 'light');
+    const toLight = await settle('light');
+    const light = { fill: fillOf(), bg: svgBg() };
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const toDark = await settle('dark');
+    const dark = { fill: fillOf(), bg: svgBg() };
+    return { before, toLight, light, toDark, dark };
+  })()`);
+  ok(themed.before.theme === 'dark' && themed.before.fill === 'rgb(34, 51, 90)' && themed.before.bg === 'rgb(26, 36, 54)',
+    `B8a 暗色下节点走工作台色板（填充 ${themed.before.fill}、图底 ${themed.before.bg}；修前是 mermaid 自带的近黑块）`);
+  ok(themed.toLight && themed.light.fill === 'rgb(231, 237, 250)' && themed.light.bg === 'rgb(247, 249, 252)',
+    `B8b 切到浅色后同一张图按浅色色板重画（填充 ${themed.light.fill}、图底 ${themed.light.bg}）`);
+  ok(themed.toDark && themed.dark.fill === 'rgb(34, 51, 90)', `B8c 切回暗色也收敛（填充 ${themed.dark.fill}）`);
+
+  /* ═════════ B9 甘特图：按栏宽排版、刻度去重、排期外的「今天」线去掉 ═════════ */
+  const gantt = await cdp.evaluate(`(async () => {
+    const { renderMermaidBlocks } = await import('/js/mermaid-runtime.js');
+    const host = document.createElement('div');
+    host.className = 'md';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:900px;z-index:-1';
+    document.body.appendChild(host);
+    const day = 86400000;
+    const iso = ms => new Date(ms).toISOString().slice(0, 10);
+    const sources = [
+      'gantt\\n  title 整理\\n  dateFormat YYYY-MM-DD\\n  axisFormat %m-%d\\n  section 盘点\\n  扫描 :done, a1, 2020-01-06, 1d\\n  识别 :done, a2, after a1, 1d\\n  section 执行\\n  方案 :active, b1, after a2, 1d\\n  归档 :b2, after b1, 2d\\n  section 收尾\\n  报告 :crit, c1, after b2, 1d',
+      'gantt\\n  dateFormat YYYY-MM-DD\\n  axisFormat %m-%d\\n  section 本周\\n  进行中 :active, n1, ' + iso(Date.now() - 2 * day) + ', 5d',
+      '%%{init: {"gantt": {"topAxis": true}}}%%\\ngantt\\n  dateFormat YYYY-MM-DD\\n  axisFormat %m-%d\\n  section A\\n  a :a1, 2020-01-06, 6d',
+      'gantt\\n  dateFormat YYYY-MM-DD\\n  axisFormat %b\\n  tickInterval 1week\\n  section A\\n  a :a1, 2020-01-06, 20d',
+    ];
+    for (const source of sources) {
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      code.className = 'language-mermaid';
+      code.textContent = source;
+      pre.appendChild(code);
+      host.appendChild(pre);
+    }
+    const count = await renderMermaidBlocks(host);
+    const result = Array.from(host.querySelectorAll('.mermaid-view svg')).map(svg => {
+      const line = svg.querySelector('.grid .tick line');
+      return {
+        axes: Array.from(svg.querySelectorAll('g.grid')).map(grid => Array.from(grid.querySelectorAll('.tick text')).map(text => text.textContent)),
+        ticks: svg.querySelectorAll('.grid .tick').length,
+        labels: Array.from(svg.querySelectorAll('.grid .tick text')).map(text => text.textContent),
+        width: svg.viewBox.baseVal.width,
+        today: Boolean(svg.querySelector('line.today')),
+        grid: line ? getComputedStyle(line).stroke : '',
+      };
+    });
+    host.remove();
+    return { count, result };
+  })()`);
+  const [outOfRange, inRange, topAxis, weekly] = (gantt && gantt.result) || [];
+  ok(gantt && gantt.count === 4 && outOfRange && inRange && topAxis && weekly, `B9 四张甘特图都画出来（${gantt && gantt.count}）`);
+  const repeated = outOfRange ? outOfRange.labels.filter((label, i, all) => i > 0 && label === all[i - 1]) : ['?'];
+  ok(outOfRange && outOfRange.labels.length >= 4 && repeated.length === 0,
+    `B9a 刻度不再同日连标两遍（${outOfRange && outOfRange.labels.join(' ')}）`);
+  ok(outOfRange && outOfRange.width >= 800, `B9b 按栏宽排版（画布宽 ${outOfRange && outOfRange.width}，栏宽 900；修前离屏宿主不定宽，排成一小条）`);
+  ok(outOfRange && outOfRange.today === false && inRange.today === true,
+    `B9c 「今天」线：排期外去掉（${outOfRange && outOfRange.today}）、排期内保留（${inRange && inRange.today}）`);
+  ok(outOfRange && outOfRange.grid === 'rgb(51, 66, 94)', `B9d 网格线用色板线色而不是继承页面正文色（${outOfRange && outOfRange.grid}）`);
+  const sameDay = labels => labels.filter((label, i, all) => i > 0 && label === all[i - 1]).length;
+  ok(topAxis && topAxis.axes.length === 2 && topAxis.axes.every(labels => labels.length >= 4 && sameDay(labels) === 0),
+    `B9e 上下两条坐标轴（gantt.topAxis）各自去重、各自留字（${topAxis && topAxis.axes.map(labels => labels.length).join(' / ')}）`);
+  ok(weekly && weekly.ticks >= 3 && sameDay(weekly.labels) === 0,
+    `B9f 源码自己写了 tickInterval：刻度线一根不少（${weekly && weekly.ticks}），只摘重复的字（${weekly && weekly.labels.join(' ')}）`);
+
+  /* ═════════ B10 浅色下灯箱：压暗幕布 + 实底卡片 ═════════ */
+  const lightBox = await cdp.evaluate(`(async () => {
+    const block = document.querySelector('#messages .mermaid-block');
+    document.documentElement.setAttribute('data-theme', 'light');
+    for (let i = 0; i < 400 && !(block.dataset.mermaidTheme === 'light' && block.dataset.mermaidState === 'ok'); i++) {
+      await new Promise(r => setTimeout(r, 40));
+    }
+    block.querySelector('.mermaid-view').click();
+    const box = document.querySelector('.mermaid-lightbox');
+    const stage = box && box.querySelector('.mermaid-lightbox-stage');
+    const svg = stage && stage.querySelector('svg');
+    const scrim = box ? getComputedStyle(box).backgroundColor : '';
+    const card = stage ? getComputedStyle(stage) : null;
+    const result = {
+      scrim,
+      cursor: box ? getComputedStyle(box).cursor : '',
+      card: card ? card.backgroundColor : '',
+      pad: card ? card.paddingTop : '',
+      svgBg: svg ? svg.style.backgroundColor : '',
+    };
+    if (box) Array.from(box.querySelectorAll('.mermaid-lightbox-btn')).find(b => b.textContent === '关闭').click();
+    document.documentElement.setAttribute('data-theme', 'dark');
+    for (let i = 0; i < 400 && !(block.dataset.mermaidTheme === 'dark' && block.dataset.mermaidState === 'ok'); i++) {
+      await new Promise(r => setTimeout(r, 40));
+    }
+    return result;
+  })()`);
+  const scrimMatch = /rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/.exec(lightBox.scrim || '');
+  const scrimAlpha = scrimMatch ? Number(scrimMatch[4] === undefined ? 1 : scrimMatch[4]) : 0;
+  const scrimDark = scrimMatch ? Math.max(Number(scrimMatch[1]), Number(scrimMatch[2]), Number(scrimMatch[3])) < 80 : false;
+  ok(scrimDark && scrimAlpha >= 0.5, `B10a 浅色下灯箱幕布是压暗的实色（${lightBox.scrim}；修前是 46% 白毛玻璃，白芯光标糊在里面）`);
+  ok(lightBox.card === 'rgb(247, 249, 252)' && lightBox.pad === '20px' && lightBox.svgBg === 'rgb(247, 249, 252)',
+    `B10b 图落在实底卡片上（卡片 ${lightBox.card}、内边距 ${lightBox.pad}、图底 ${lightBox.svgBg}）`);
+  ok(lightBox.cursor === 'grab', `B10c 灯箱仍是抓手光标（${lightBox.cursor}）`);
   console.log(`SHOTS ${shots.lightbox}`);
 } catch (error) {
   fail += 1;

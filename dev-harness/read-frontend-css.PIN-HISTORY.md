@@ -775,3 +775,13 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
 //   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
 // 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
+//   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
+// 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = b0b677a3…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 词库框光标续钉(前值 6e88cdc0…＝59 号文 §6 从修改里学续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-shell.css`:`.asr-lexicon-text` 添一条 cursor —— 自带白描边的深色 I 形光标(SVG data URI,退回系统 text)。
+//   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
