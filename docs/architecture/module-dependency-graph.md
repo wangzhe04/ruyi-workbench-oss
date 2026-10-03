@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3372 | 3070 | 532 | 67 | 0 | 1 |
+| 70 | 3376 | 3071 | 532 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -54,7 +54,7 @@
 | 36 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 39 | `07-autonomy.js` | orchestration | 108 | 66 | 17 |
+| 39 | `07-autonomy.js` | orchestration | 111 | 66 | 17 |
 | 40 | `08-agent-runs.js` | orchestration | 115 | 95 | 18 |
 | 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
@@ -62,7 +62,7 @@
 | 44 | `10-context-governance.js` | orchestration | 175 | 92 | 17 |
 | 45 | `11-native-tools.js` | tools | 128 | 38 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
-| 47 | `12-tool-dispatch.js` | tools | 59 | 102 | 17 |
+| 47 | `12-tool-dispatch.js` | tools | 60 | 102 | 17 |
 | 48 | `13f-native-tool-schemas.js` | transport | 1 | 1 | 1 |
 | 49 | `13-http-router.js` | transport | 65 | 236 | 28 |
 | 50 | `13b-api-domain-routes.js` | transport | 40 | 64 | 9 |
@@ -84,7 +84,7 @@
 | 66 | `13s-scheduler.js` | transport | 51 | 36 | 9 |
 | 67 | `13t-steward-schedule.js` | transport | 22 | 39 | 10 |
 | 68 | `13u-migration-center.js` | transport | 60 | 34 | 6 |
-| 69 | `14-main.js` | entrypoint | 1 | 581 | 47 |
+| 69 | `14-main.js` | entrypoint | 1 | 582 | 47 |
 
 ## 模块边
 
@@ -610,7 +610,7 @@
 | `14-main.js` | `09d-token-estimation.js` | backward | `CONTEXT_WINDOW_FALLBACK`, `classifyTextForEstimate`, `estimateHistoryTokens`, `estimateTextTokens`, `fmtTokensServer`, `setEstimateBucketsV1` |
 | `14-main.js` | `10-context-governance.js` | backward | `COMPACT_MARKER_MIN_SAVED_TOKENS`, `COMPACT_RESEED_TAIL_MAX_TOKENS`, `CompactionPlan`, `agentConversationContextMeta`, `agentNodeContextWindow`, `appendPromptToLastUserMessage`, `buildObservationRecallPrompt`, `buildSessionNotesInjectPrompt`, `buildSummaryFactTableMessages`, `buildSummaryRefineMessages`, `calibratedEstimate`, `checkSummaryEntities`, `chunkHistoryByBudget`, `configuredConversationWindow`, `contextWindowFromTable`, `contextWindowOverrideKey`, `dedupeRepeatedReads`, `estimateFactor`, `evaporateBudgetBoundary`, `evaporateHistory`, `extractContextLength`, `extractSessionNotes`, `extractSummaryEntities`, `fileReadDedupKey`, `fitHistoryForSummary`, `historyStartsWithCompactionSummary`, `historyUnitStarts`, `isContextOverflowError`, `learnedWindowCap`, `mapSummaryWithLimit`, `maybeWriteSessionNotes`, `measureObservationReductionShadow`, `mergeSessionNotes`, `noteEstimateSample`, `noteWindowOvershoot`, `openCompactMarker`, `parseSessionNotesMarkdown`, `providerContextWindow`, `providerConversationContextWindow`, `providerSummaryCall`, `recentFileReads`, `recentTurnsBoundary`, `reduceObservationContent`, `rehydrateObservation`, `renderSessionNotesMarkdown`, `resolveCompactionProvider`, `resolveContextWindow`, `resolveSummaryCallPolicy`, `runSessionTurn`, `summaryMaxConcurrent`, `summaryPromptWithGuidance`, `summarySingleShotCap`, `summarySingleShotReserveTokens`, `upsertCompactMarker`, `validateStructuredSummary`, `writeHistorySnapshot` |
 | `14-main.js` | `11-native-tools.js` | backward | `peekRgProbe`, `probeRgAsync` |
-| `14-main.js` | `12-tool-dispatch.js` | backward | `withToolArgsGuide` |
+| `14-main.js` | `12-tool-dispatch.js` | backward | `toolArgsMissingRequired`, `withToolArgsGuide` |
 | `14-main.js` | `13-http-router.js` | backward | `doctor`, `installIntegration`, `parseArgs`, `startMcp`, `startServer` |
 | `14-main.js` | `13d-core-domain-routes.js` | backward | `buildMissionAggregateRows`, `missionAggregateStats` |
 | `14-main.js` | `13e-pretender-index.js` | backward | `getPretenderProjectionIndex`, `pretenderIndexTestHooks`, `warmPretenderProjectionIndex` |

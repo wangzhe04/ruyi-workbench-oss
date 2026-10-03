@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3372,
-    "requiredSymbols": 3070,
+    "providedSymbols": 3376,
+    "requiredSymbols": 3071,
     "edges": 532,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -6619,6 +6619,7 @@
         "RUNTIME_TELEMETRY_KEY",
         "STEER_QUEUE_MAX",
         "TOOL_ARGS_BRIEF_CHARS",
+        "TOOL_ARG_ENUM_VALUE_CHARS",
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
         "TOOL_SCHEMA_NAMES_MAX",
@@ -6688,7 +6689,9 @@
         "schedulerAskWaitSessions",
         "searchToolCatalog",
         "tokenizeToolSearchText",
+        "toolArgEnumText",
         "toolArgTypeText",
+        "toolArgsResolveRef",
         "toolArgsSkeleton",
         "toolDisabledResult",
         "toolIsRevertible",
@@ -11051,6 +11054,7 @@
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
+        "toolArgPropertyLenient",
         "toolArgsMissingRequired",
         "toolInvokeMissingNameResult",
         "toolInvokeTierCovers",
@@ -25259,6 +25263,13 @@
         },
         {
           "provider": "12-tool-dispatch.js",
+          "symbol": "toolArgsMissingRequired",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "12-tool-dispatch.js",
           "symbol": "withToolArgsGuide",
           "kinds": [
             "read"
@@ -32264,6 +32275,7 @@
       "from": "14-main.js",
       "to": "12-tool-dispatch.js",
       "symbols": [
+        "toolArgsMissingRequired",
         "withToolArgsGuide"
       ],
       "direction": "backward"

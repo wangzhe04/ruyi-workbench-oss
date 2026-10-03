@@ -6529,6 +6529,7 @@
         "RUNTIME_TELEMETRY_KEY",
         "STEER_QUEUE_MAX",
         "TOOL_ARGS_BRIEF_CHARS",
+        "TOOL_ARG_ENUM_VALUE_CHARS",
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
         "TOOL_SCHEMA_NAMES_MAX",
@@ -6598,7 +6599,9 @@
         "schedulerAskWaitSessions",
         "searchToolCatalog",
         "tokenizeToolSearchText",
+        "toolArgEnumText",
         "toolArgTypeText",
+        "toolArgsResolveRef",
         "toolArgsSkeleton",
         "toolDisabledResult",
         "toolIsRevertible",
@@ -10945,6 +10948,7 @@
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
+        "toolArgPropertyLenient",
         "toolArgsMissingRequired",
         "toolInvokeMissingNameResult",
         "toolInvokeTierCovers",
@@ -25103,6 +25107,13 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "probeRgAsync",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "12-tool-dispatch.js",
+          "symbol": "toolArgsMissingRequired",
           "kinds": [
             "read"
           ]

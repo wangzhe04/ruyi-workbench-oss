@@ -286,24 +286,39 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
 
 // 2026-10 代叫「叫得对」:代叫不带完整说明书,第一次可能叫错 —— 叫错时(而且只在叫错时)把这个工具的完整参数骨架
 // (07 toolArgsSkeleton 'full')随错误递回(argsGuide),模型下一次照着改。只在出错时花这点 token,不破坏「说明书不进门」。
-// 判「参数错」:我们自己的 invalid-arguments 信封;桥接目标(bridged=true)另认服务端校验的报错文字(pydantic 的
-// validation error / Field required / Input should be,通用的 missing required / invalid argument)—— 原生工具的报错各有
-// 自己的意思(命令的 stderr、网页的 404),不按文字猜。正确的调用、其它失败一律原样返回(同一引用)。
-const TOOL_ARGS_ERROR_TEXT = /validation error|field required|input should be|missing required|invalid argument|invalid params/i;
+// 判「参数错」:我们自己的 invalid-arguments 信封;桥接目标(bridged=true)且结果【没有自带 code】时,另认服务端参数校验
+// 的标志性报错 —— pydantic「N validation error(s) for XArguments」/「Field required」/「Input should be」、MCP JSON-RPC
+// 「Invalid params」(-32602)、「Invalid arguments for tool」。只认这几句锚定的说法:裸的 missing required / invalid
+// argument 会撞上业务报错(「Sheet 缺少 required 列」、Windows「[Errno 22] Invalid argument」)。自带 code 的结果
+// (mcp-child-exited 之类、数字退出码)一律不动 —— 那个 code 有它自己的意思,不能被一段 stderr 改写成「参数错」。
+// 原生工具的报错各有自己的意思(命令的 stderr、网页的 404),不按文字猜。正确的调用、其它失败一律原样返回(同一引用)。
+// schema 压不成骨架(toolArgsSkeleton 回 '')时只校正 code、不递 argsGuide。
+const TOOL_ARGS_ERROR_TEXT = /\b\d+ validation errors? for \w+|\bfield required\b|\binput should be\b|\binvalid params\b|-32602\b|\binvalid arguments? for tool\b/i;
 function withToolArgsGuide(result, schema, bridged) {
   if (!result || typeof result !== 'object' || Array.isArray(result) || result.ok !== false || result.argsGuide !== undefined) return result;
+  const noOwnCode = result.code === undefined || result.code === null;
   const isArgsError = result.code === 'invalid-arguments'
-    || (bridged && TOOL_ARGS_ERROR_TEXT.test([result.error, result.text, result.message].filter(v => typeof v === 'string').join(' ')));
+    || (bridged && noOwnCode && TOOL_ARGS_ERROR_TEXT.test([result.error, result.text, result.message].filter(v => typeof v === 'string').join(' ')));
   if (!isArgsError) return result;
-  return { ...result, ...(typeof result.code === 'string' ? {} : { code: 'invalid-arguments' }), argsGuide: toolArgsSkeleton(schema, 'full') };
+  const guide = toolArgsSkeleton(schema, 'full');
+  return { ...result, code: 'invalid-arguments', ...(guide ? { argsGuide: guide } : {}) };
 }
-// schema 声明的必填里,这次入参缺了哪几个(值为 undefined 才算缺;显式给 null 的交给服务端判 —— pydantic 的
-// Optional 必填字段本就收 null)。schema 不像样 / 入参不是对象:入参非对象时全部必填都算缺。
+// schema 声明的必填里,这次入参缺了哪几个。只算「值为 undefined」且服务端也不会替它补的:属性带 default、或允许 null
+// (type 含 'null' / anyOf 里有 null / nullable:true)的不算缺 —— 有些 schema 把所有键都列进 required、可选的靠
+// default / 可空表达,本地按字面判会误拒一条服务端照收的调用。入参不是对象:按空对象算。
+function toolArgPropertyLenient(p) {
+  if (!p || typeof p !== 'object') return false;
+  if (Object.prototype.hasOwnProperty.call(p, 'default') || p.nullable === true) return true;
+  if (p.type === 'null' || (Array.isArray(p.type) && p.type.includes('null'))) return true;
+  const alts = Array.isArray(p.anyOf) ? p.anyOf : (Array.isArray(p.oneOf) ? p.oneOf : []);
+  return alts.some(a => a && typeof a === 'object' && a.type === 'null');
+}
 function toolArgsMissingRequired(schema, args) {
   const props = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : {};
   const required = Array.isArray(schema && schema.required) ? schema.required : [];
   const obj = (args && typeof args === 'object' && !Array.isArray(args)) ? args : {};
-  return required.filter(k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(props, k) && obj[k] === undefined);
+  return required.filter(k => typeof k === 'string' && Object.prototype.hasOwnProperty.call(props, k)
+    && obj[k] === undefined && !toolArgPropertyLenient(props[k]));
 }
 
 // 105a: observation_recall 每回合配额。回合键见 10 providerTurnQuotaKey(优先 turnSeq —— 修前用 user 消息数,
