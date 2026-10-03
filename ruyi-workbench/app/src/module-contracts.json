@@ -6531,6 +6531,8 @@
         "RUNTIME_FAILURE_CLASSIFIER_VERSION",
         "RUNTIME_TELEMETRY_KEY",
         "STEER_QUEUE_MAX",
+        "TOOL_ARGS_BRIEF_CHARS",
+        "TOOL_ARG_ENUM_VALUE_CHARS",
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
         "TOOL_SCHEMA_NAMES_MAX",
@@ -6586,6 +6588,7 @@
         "parseSimpleYamlValue",
         "projectActionModelView",
         "projectAgentRoleFile",
+        "rankToolCatalog",
         "readClaudeProjectAgentRoles",
         "readProjectAgentRoles",
         "requestNativePermission",
@@ -6600,12 +6603,17 @@
         "schedulerAskWaitSessions",
         "searchToolCatalog",
         "tokenizeToolSearchText",
+        "toolArgEnumText",
+        "toolArgTypeText",
+        "toolArgsResolveRef",
+        "toolArgsSkeleton",
         "toolDisabledResult",
         "toolIsRevertible",
         "toolPackForName",
         "toolSchemaFreezeBySessionMap",
         "toolSchemaFreezeFor",
-        "toolSchemaSearchText"
+        "toolSchemaSearchText",
+        "withToolArgSkeletons"
       ],
       "requires": [
         {
@@ -10903,6 +10911,7 @@
         "OBSERVATION_RECALL_QUOTA",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
+        "TOOL_ARGS_ERROR_TEXT",
         "UTF8_BOM_BYTES",
         "_recallQuota",
         "accAnnotateNonAscii",
@@ -10943,9 +10952,12 @@
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
+        "toolArgPropertyLenient",
+        "toolArgsMissingRequired",
         "toolInvokeMissingNameResult",
         "toolInvokeTierCovers",
-        "withFileToolWriteLock"
+        "withFileToolWriteLock",
+        "withToolArgsGuide"
       ],
       "requires": [
         {
@@ -11553,6 +11565,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "searchToolCatalog",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolArgsSkeleton",
           "kinds": [
             "call"
           ]
@@ -24335,6 +24354,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "toolPackForName",
           "kinds": [
             "read"
@@ -25085,6 +25111,20 @@
         {
           "provider": "11-native-tools.js",
           "symbol": "probeRgAsync",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "12-tool-dispatch.js",
+          "symbol": "toolArgsMissingRequired",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "12-tool-dispatch.js",
+          "symbol": "withToolArgsGuide",
           "kinds": [
             "read"
           ]

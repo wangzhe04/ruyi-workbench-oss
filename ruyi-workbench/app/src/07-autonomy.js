@@ -73,7 +73,7 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
     },
     {
       name: 'tool_search',
-      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, and short descriptions without injecting every schema.',
+      description: 'Search the compact Ruyi tool catalog when the currently loaded tools do not cover the task. Returns matching names, packs, risk tiers, short descriptions and argument outlines without injecting every schema.',
       inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Capability or operation to find, e.g. Excel chart, screenshot, git commit.' }, limit: { type: 'number', description: 'Maximum matches, 1..20.' } }, required: ['query'] },
     },
     {
@@ -750,7 +750,125 @@ function buildCallHint(item, loadedNames, config, blockedReason) {
   return { requiredArgs: required, argTypes, callHint, state, ...(blockedReason ? { blockedReason } : {}) };
 }
 
+// 2026-10 代叫「叫得对」:把一个工具的 JSON Schema 压成一行参数骨架 —— `path*:string, mode?:a|b`(* 必填、? 可选)。
+// 代叫不把完整说明书装进上下文,模型手里只有目录卡;骨架让它第一次就知道该传哪几个键、什么类型、哪些取值。
+//   brief:目录卡用 —— 全部必填(至多 6 个)+ 至多 2 个可选,总长 ≤140 字符,超出的记成 …(+N);
+//   full :代叫参数错时随错误递回(12 withToolArgsGuide)—— 至多 16 个,每个带 ≤60 字的用途说明。
+// 认 pydantic 的可空写法(anyOf [T, null])、类型数组、$ref → $defs(FastMCP 的 Enum / 模型参数就是这么出的)、allOf 单包装、
+// const;对象 / 数组只标 object / array<T>,不往里展开(展开就是把说明书搬回来了)。
+// 返回值:'none' = 明确没有参数(properties 是空对象,也没有 $ref / allOf / 额外键这些说不清的形状);
+//         ''     = 这份 schema 压不成骨架(根上是 $ref / allOf / 自由对象 / 没给)—— 调用方不加 args / argsGuide,不拿「无参」误导模型。
+const TOOL_ARGS_BRIEF_CHARS = 140;
+const TOOL_ARG_ENUM_VALUE_CHARS = 24;
+function toolArgsResolveRef(p, root, depth) {
+  let cur = p;
+  for (let i = 0; i < 4 && cur && typeof cur === 'object'; i += 1) {
+    if (typeof cur.$ref === 'string') {
+      const m = /^#\/(\$defs|definitions)\/(.+)$/.exec(cur.$ref);
+      const defs = m && root && root[m[1]];
+      const next = defs && typeof defs === 'object' ? defs[m[2]] : null;
+      if (!next) return cur;
+      cur = next; continue;
+    }
+    if (Array.isArray(cur.allOf) && cur.allOf.length === 1 && !cur.type && !cur.enum) { cur = cur.allOf[0]; continue; }
+    break;
+  }
+  return depth > 6 ? null : cur;
+}
+function toolArgEnumText(values) {
+  const shown = values.slice(0, 5).map(v => {
+    const s = (v !== null && typeof v === 'object') ? JSON.stringify(v) : String(v);
+    return s.length > TOOL_ARG_ENUM_VALUE_CHARS ? s.slice(0, TOOL_ARG_ENUM_VALUE_CHARS) + '…' : s;
+  });
+  return shown.join('|') + (values.length > 5 ? '|…' : '');
+}
+function toolArgTypeText(p0, root, depth = 0) {
+  const p = toolArgsResolveRef(p0, root, depth);
+  if (!p || typeof p !== 'object' || depth > 6) return 'any';
+  if (Array.isArray(p.enum) && p.enum.length) return toolArgEnumText(p.enum);
+  if (Object.prototype.hasOwnProperty.call(p, 'const')) return toolArgEnumText([p.const]);
+  const alts = Array.isArray(p.anyOf) ? p.anyOf : (Array.isArray(p.oneOf) ? p.oneOf : null);
+  if (alts && !p.type) {
+    const nonNull = alts.filter(a => a && typeof a === 'object' && a.type !== 'null');
+    const texts = [...new Set(nonNull.map(a => toolArgTypeText(a, root, depth + 1)))];
+    return texts.length ? texts.join('/') : 'any';
+  }
+  let t = p.type;
+  if (Array.isArray(t)) { t = t.filter(x => x !== 'null'); t = t.length === 1 ? t[0] : t.join('/'); }
+  if (t === 'array') {
+    const it = (p.items && typeof p.items === 'object' && !Array.isArray(p.items)) ? toolArgTypeText(p.items, root, depth + 1) : 'any';
+    return it !== 'any' ? `array<${it}>` : 'array';
+  }
+  return (typeof t === 'string' && t) ? t : 'any';
+}
+function toolArgsSkeleton(schema0, mode) {
+  const full = mode === 'full';
+  const schema = toolArgsResolveRef(schema0, schema0, 0);
+  if (!schema || typeof schema !== 'object') return '';
+  const props = (schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) ? schema.properties : null;
+  const names = props ? Object.keys(props) : [];
+  if (!names.length) {
+    const opaque = !props || schema.$ref || schema.allOf || schema.anyOf || schema.oneOf || (schema.additionalProperties && schema.additionalProperties !== false);
+    return opaque ? '' : 'none';
+  }
+  const required = new Set((Array.isArray(schema.required) ? schema.required : []).filter(k => Object.prototype.hasOwnProperty.call(props, k)));
+  const req = names.filter(n => required.has(n));
+  const opt = names.filter(n => !required.has(n));
+  const part = n => {
+    const p = props[n] || {};
+    let s = `${n}${required.has(n) ? '*' : '?'}:${toolArgTypeText(p, schema0)}`;
+    if (full) {
+      const d = String((toolArgsResolveRef(p, schema0, 0) || {}).description || p.description || '').replace(/\s+/g, ' ').trim();
+      if (d) s += ` — ${d.length > 60 ? d.slice(0, 60) + '…' : d}`;
+    }
+    return s;
+  };
+  // 尾注:没列出来的个数,其中有必填时点明 —— 「…(+5, 3 required)」,模型就知道该去要完整说明而不是当它们可有可无。
+  const tail = shownNames => {
+    const hidden = names.filter(n => !shownNames.includes(n));
+    if (!hidden.length) return '';
+    const hiddenReq = hidden.filter(n => required.has(n)).length;
+    return `…(+${hidden.length}${hiddenReq ? `, ${hiddenReq} required` : ''})`;
+  };
+  if (full) {
+    const pick = req.concat(opt).slice(0, 16);
+    const t = tail(pick);
+    return pick.map(part).join('; ') + (t ? `; ${t}` : '');
+  }
+  // brief:必填在前、可选至多 2 个;总长(含尾注)守住 140 —— 只有第一个参数本身就超长时例外(参数名不能截,模型要原样传)。
+  const order = req.slice(0, 6).concat(opt.slice(0, 2));
+  const kept = [];
+  for (const n of order) {
+    const next = kept.concat(n);
+    const t = tail(next);
+    const text = next.map(part).join(', ') + (t ? `, ${t}` : '');
+    if (kept.length && text.length > TOOL_ARGS_BRIEF_CHARS) break;
+    kept.push(n);
+  }
+  const t = tail(kept);
+  return kept.map(part).join(', ') + (t ? `, ${t}` : '');
+}
+// 检索结果统一出口:还没装进工具表的命中带上参数骨架(args)。已装的不带 —— 它的完整说明书本来就在工具表里。
+// opts.loadedNames 只有模型服务商回合给(09 的 toolLoading.search);MCP / CLI 路径不知道 CLI 手里有什么,一律带。
+// 与 metaToolHintsV1(requiredArgs / callHint / 待办去重)无关:那个开关仍管它自己那几样,这里默认开。
+function withToolArgSkeletons(result, catalog, opts) {
+  if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
+  const loaded = (opts && opts.loadedNames instanceof Set) ? opts.loadedNames : null;
+  const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  const matches = result.matches.map(m => {
+    if (!m || m.args !== undefined || (loaded && loaded.has(m.name))) return m;
+    const item = byName.get(m.name);
+    const params = item && item.tool && item.tool.function && item.tool.function.parameters;
+    const args = toolArgsSkeleton(params, 'brief');
+    return args ? { ...m, args } : m;   // 压不成骨架的(根上是 $ref / 自由对象)不加,别拿「无参」误导
+  });
+  return { ...result, matches };
+}
 function searchToolCatalog(catalog, args, config, opts) {
+  return withToolArgSkeletons(rankToolCatalog(catalog, args, config, opts), catalog, opts);
+}
+
+function rankToolCatalog(catalog, args, config, opts) {
   const query = String(args && args.query || '');
   // limit ≤ 0 / 非数字一律回默认(修前 0 → 默认、-5 → 1,同一参数两种口径)。
   const limitNum = Number(args && args.limit);
@@ -763,9 +881,9 @@ function searchToolCatalog(catalog, args, config, opts) {
     const legacy = /\p{Script=Han}/u.test(query) ? null : legacySearch();
     // 子串匹配零命中(或上面跳过了它)时,退到分词排序再试一次,而不是交回空表让模型以为没有这个工具。
     // 只交得分 > 0 的:单个汉字(「删」)切不出词,分词排序会把整张目录按 0 分垫满;一个都没得分就照旧交子串匹配的结果。
-    // 不含汉字且有命中时结果与修前逐字节一致。注:shadow 对比(compareToolRetrievalShadow)对这类查询是 v1 比 v1,恒一致。
+    // 不含汉字且有命中时排序与修前一致(出口另加 args 骨架,见上)。注:shadow 对比(compareToolRetrievalShadow)对这类查询是 v1 比 v1,恒一致。
     if (query.trim() && (!legacy || (Array.isArray(legacy.matches) && legacy.matches.length === 0))) {
-      const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
+      const v1 = rankToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
       const hits = (Array.isArray(v1.matches) ? v1.matches : []).filter(m => m.score > 0);
       if (hits.length) return { ...v1, matches: hits, packs: packDescriptionsFor(hits), fallback: 'alias_ranker' };
     }

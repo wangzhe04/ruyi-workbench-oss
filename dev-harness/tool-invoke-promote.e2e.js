@@ -14,6 +14,10 @@ require('./lib/self-isolate-home.js'); // 直跑时家目录自隔离(见 lib �
 //   [P6] 起手工具:第一发里就有 web_search / web_fetch / powershell_run。
 //   [P7] 会话工具表跨重启:重启服务后同一会话的下一回合,第一发的工具表与重启前最后一发【逐项同序】(提供方缓存接得上),
 //        并记一条 tool_schema_freeze state:'restore'。
+//   [P8] 代叫「叫得对」(内置目标):tool_search 的目录卡带参数骨架;漏了必填去代叫 → 不执行;它的完整说明书已随整包
+//        装进下一发工具表,所以不重复递 argsGuide;改对后执行成功。
+//   [P9] 代叫「叫得对」(桥接目标,说明书永远不进工具表):漏必填 → 本地拦下不发给服务端、错误里递完整骨架、埋点记
+//        argsGuided;改对后执行成功。
 const { killOwnTree } = require('./lib/kill-own-tree');
 const fs = require('fs');
 const os = require('os');
@@ -58,6 +62,15 @@ const fake = await startFakeProvider({
       case 'SELFWRAP':
         if (step === 0) return toolCallFrames('tool_invoke_exec', { name: 'tool_invoke_read', arguments: { name: 'git_status', arguments: {} } }, 's1');
         return textFrames('done');
+      case 'GUIDE':   // 内置目标:搜 → 漏了一个必填去代叫 → 不执行;它的完整说明书已随整包装进工具表 → 改对
+        if (step === 0) return toolCallFrames('tool_search', { query: 'zip archive' }, 'g1');
+        if (step === 1) return toolCallFrames('tool_invoke_edit', { name: 'archive_zip', arguments: { dest: path.join(WS, 'guide.zip') } }, 'g2');
+        if (step === 2) return toolCallFrames('tool_invoke_edit', { name: 'archive_zip', arguments: { paths: [path.join(WS, 'marker-promote.txt')], dest: path.join(WS, 'guide.zip') } }, 'g3');
+        return textFrames('done');
+      case 'BGUIDE':  // 桥接目标(说明书永远不进工具表):漏必填 → 本地拦下、递骨架 → 照骨架改对
+        if (step === 0) return toolCallFrames('tool_invoke_exec', { name: 'fake__write_file', arguments: { path: path.join(WS, 'bguide-1.txt') } }, 'b1');
+        if (step === 1) return toolCallFrames('tool_invoke_exec', { name: 'fake__write_file', arguments: { path: path.join(WS, 'bguide-2.txt'), content: 'ok' } }, 'b2');
+        return textFrames('done');
       default: return textFrames('default');
     }
   },
@@ -65,6 +78,10 @@ const fake = await startFakeProvider({
 fs.mkdirSync(path.join(HOME, 'sessions'), { recursive: true });
 fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
   configSchema: 4, version: '1.0.0', permissionMode: 'bypass', defaultWorkspace: WS, toolLoadingMode: 'auto', toolEconomicsShadowV1: true,
+  // 桥接目标用假 MCP(P9):它的说明书永远不进工具表,参数错时只能靠代叫递回的骨架
+  bridgeExternalToolsToProvider: true, autoImportClaudeCodeMcp: false, enableMcpDropIn: false,
+  desktopMcp: { enabled: false, command: '', args: [], cwd: '', autodetect: false },
+  externalMcpServers: [{ id: 'fake', label: 'Fake', command: process.execPath, args: [path.join(__dirname, 'fake-mcp.js')], enabled: true }],
   providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: fake.url, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'F' }] }],
   activeProvider: 'fake',
 }));
@@ -147,8 +164,38 @@ try {
   // 工作区不是 Git 仓库:git_status 回它自己的「还不是 Git 仓库」—— 这正说明壳被还原、真的跑到了目标。
   ok(/Git 仓库/.test(stool) && !/control-plane/.test(stool) && !/missing required/.test(stool), `P5 自套娃的壳还原后跑到了 git_status(got ${stool.slice(0, 200)})`);
 
+  // ── GUIDE ──(代叫「叫得对」:目录卡带骨架 → 叫错递完整骨架 → 改对)
+  await stream({ message: 'SCN-GUIDE 你好' });
+  const greqs = fake.requests.filter(r => r.stream && scenarioOf(r.messages) === 'GUIDE');
+  const toolMsg = (req, id) => (req ? contentText((req.messages.find(m => m.role === 'tool' && m.tool_call_id === id) || {}).content) : '');
+  const searchCard = toolMsg(greqs[1], 'g1');
+  ok(/"name":"archive_zip"/.test(searchCard) && /"args":"paths\*:array<string>, dest\*:string/.test(searchCard), `P8 tool_search 的目录卡带参数骨架(got ${searchCard.slice(0, 400)})`);
+  const wrong = toolMsg(greqs[2], 'g2');
+  ok(/invalid-arguments/.test(wrong) && /missing required 'paths'/.test(wrong) && !/argsGuide/.test(wrong),
+    `P8 内置目标漏了必填:不执行(校验在执行前);说明书已随整包进工具表,不重复递 argsGuide(got ${wrong.slice(0, 400)})`);
+  const zipSchema = greqs[2] ? (greqs[2].tools || []).find(t => t.function && t.function.name === 'archive_zip') : null;
+  ok(zipSchema && zipSchema.function.parameters && zipSchema.function.parameters.required.includes('paths'), 'P8 下一发工具表里有 archive_zip 的完整说明书');
+  const fixed = toolMsg(greqs[3], 'g3');
+  ok(!/invalid-arguments/.test(fixed) && fs.existsSync(path.join(WS, 'guide.zip')), `P8 照说明改对后执行成功(got ${fixed.slice(0, 300)})`);
+
+  // ── BGUIDE ──(桥接目标:漏必填 → 本地拦下、递骨架 → 改对)
+  await stream({ message: 'SCN-BGUIDE 你好' });
+  const breqs = fake.requests.filter(r => r.stream && scenarioOf(r.messages) === 'BGUIDE');
+  const bwrong = toolMsg(breqs[1], 'b1');
+  ok(/invalid-arguments/.test(bwrong) && /missing required 'content'/.test(bwrong) && /"argsGuide":"path\*:string; content\*:string/.test(bwrong),
+    `P9 桥接目标漏必填:本地拦下,错误里递完整骨架(got ${bwrong.slice(0, 400)})`);
+  ok(!fs.existsSync(path.join(WS, 'bguide-1.txt')), 'P9 漏必填那次没发给服务端(假 MCP 收到就会建文件)');
+  const bfixed = toolMsg(breqs[2], 'b2');
+  ok(!/invalid-arguments/.test(bfixed) && fs.existsSync(path.join(WS, 'bguide-2.txt')), `P9 照骨架改对后执行成功(got ${bfixed.slice(0, 300)})`);
+
   // ── 埋点 ──
-  let logs = await waitLogs(ls => ls.some(e => e.kind === 'tool_call_completed' && e.toolCallId === 's1'));
+  let logs = await waitLogs(ls => ['s1', 'g3', 'b2'].every(id => ls.some(e => e.kind === 'tool_call_completed' && e.toolCallId === id)));
+  const g2 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'g2');
+  ok(g2 && g2.errorCode === 'invalid-arguments' && g2.argsGuided === undefined && g2.proxyTarget === 'archive_zip', `P8 内置目标叫错:记 errorCode,不记 argsGuided(got ${JSON.stringify(g2)})`);
+  const b1 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'b1');
+  ok(b1 && b1.errorCode === 'invalid-arguments' && b1.argsGuided === true && b1.proxyTarget === 'fake__write_file', `P9 桥接目标叫错记 argsGuided(got ${JSON.stringify(b1)})`);
+  const b2 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'b2');
+  ok(b2 && b2.status === 'completed' && b2.argsGuided === undefined, `P9 叫对那次不记 argsGuided(got ${JSON.stringify(b2)})`);
   const c1 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'p1');
   ok(c1 && c1.proxyTarget === 'file_list' && c1.proxyRepair === 'nested_name' && c1.proxyTargetTier === 'read', `P4 tool_call_completed 带代理目标与还原类型(got ${JSON.stringify(c1)})`);
   const c2 = logs.find(e => e.kind === 'tool_call_completed' && e.toolCallId === 'p2');

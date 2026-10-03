@@ -120,13 +120,15 @@ test('[Z2] 结果形状不变', () => {
   assert.equal(zh.fallback, 'alias_ranker');
   assert.equal(zh.retrievalVersion, 'deterministic-v1');
   assert.deepEqual(Object.keys(zh).sort(), ['elapsedMs', 'fallback', 'matches', 'ok', 'packs', 'query', 'queryHash', 'retrievalVersion']);
-  for (const m of zh.matches) assert.deepEqual(Object.keys(m).sort(), ['blockedReason', 'description', 'loaded', 'matchedOn', 'name', 'pack', 'score', 'tier']);
+  // args = 检索结果统一出口给未装载命中带的参数骨架(压不成骨架的不带),与本条无关,这里只容许它出现
+  const keysOf = m => Object.keys(m).filter(k => k !== 'args').sort();
+  for (const m of zh.matches) assert.deepEqual(keysOf(m), ['blockedReason', 'description', 'loaded', 'matchedOn', 'name', 'pack', 'score', 'tier']);
   assert.deepEqual(Object.keys(zh.packs).sort(), [...new Set(zh.matches.map(m => m.pack))].sort());
   // 纯英文:仍是修前的子串匹配,形状与排序口径都不动(名字含查询词的加权在前)
   const en = state.search('screenshot', 8);
   assert.equal(en.retrievalVersion, undefined);
   assert.equal(en.fallback, undefined);
-  for (const m of en.matches) assert.deepEqual(Object.keys(m).sort(), ['description', 'name', 'pack', 'tier']);
+  for (const m of en.matches) assert.deepEqual(keysOf(m), ['description', 'name', 'pack', 'tier']);
   assert.ok(en.matches.slice(0, 4).every(m => /screenshot/.test(m.name)), en.matches.map(m => m.name).join(','));
   // 带汉字但分词排序一个也没命中:照旧交回子串匹配的结果(空表),不抛
   const none = state.search('龘龘龘', 5);
