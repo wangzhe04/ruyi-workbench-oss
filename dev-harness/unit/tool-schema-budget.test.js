@@ -84,7 +84,11 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // root·maxFiles·maxDepth·ignoreDirs…、exec 档的 command/timeoutMs、记忆/任务/管家定时的几个入参),同时把 orchestrate_agents
   // 的描述压短约 270 字符。实测净增:改代码回合 +2038、默认 offered +2165 —— 这是【有意的、一次性的】上调:codeEdit 26500→28200、
   // offeredDefault 51500→53700;闲聊回合(core 包里没有这些工具)不涨,仍是 10500。之后照旧只减不增。
-  const BUDGET = { chitchat: 10500, codeEdit: 28200, fullAll: 46500, offeredDefault: 53800 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // 2026-10 起手工具(07 PROVIDER_STARTER_TOOLS:web_search / web_fetch / powershell_run,+2277 字符 ≈ 633 token):
+  // 这是【有意的、一次性的】上调 —— 闲聊 10254→12531、改代码 28153→30430(实数),预算 10500→12600、28200→30500。
+  // 理由在那张表的头注:本机这三个工具开局没装、中途补装时,提供方前缀缓存整段失效(命中率 97%→3%),一次的代价远大于每发多带的这点
+  // (且基本命中缓存)。默认 offered 不变(它们本来就在里面)。之后照旧只减不增。
+  const BUDGET = { chitchat: 12600, codeEdit: 30500, fullAll: 46500, offeredDefault: 53800 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   // 同轮 files 组:file_write.lineEnding + file_edit.oldText / glob.pattern 的 minLength:1(空串修前是抛异常)+151 字符,
   // 只把 offeredDefault 再抬 100(53700→53800);描述文字没有加(说明放在工具结果的 hint / note 里)。
   const chit = chars(loaded('你好').current());

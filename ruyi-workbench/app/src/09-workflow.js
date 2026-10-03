@@ -1336,6 +1336,10 @@ function planParallelReadIsland(calls, isSafeRead, isRefused) {
 // 证据用途:跨回合 stablePrefixChars 对比是 G1 flip 判据之一(配合 provider 实报 cachedInputTokens)。
 // 进程内 Map 不持久化,上限 20 会话(每条存两个序列化体,典型 ~400KB/会话),淘汰最久未用。
 const layoutShadowPrevBySessionMap = new Map();
+// 2026-10:每个会话上一次【实际发出】的工具名序列(跨回合)。工具表一变,下一发的前缀缓存基本整段失效 —— 变了就在那一发
+// 结束后落一条 tool_schema_changed(不抽样),带上那一发的输入 / 命中缓存 token,配合冻结表追加日志的 addedBy 就能按原因
+// 算出每次变化的代价。进程内、上限 200 会话;重启后第一发不记(没有可比的上一发)。
+const toolSchemaNamesSentBySession = new Map();
 function commonPrefixChars(a, b) {
   const n = Math.min(a.length, b.length);
   let i = 0;
@@ -1586,8 +1590,15 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
   // 116f: 管家会话的目录里只有 17 个 steward_*,按需装载的意图分类对它没有意义 —— 收口在
   // createToolLoadingState 内部(目录里有 steward 包就把它置为活跃),本调用点逐字节不变。
-  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id);
+  // 2026-10:session.toolSchemaNames = 会话工具表(冻结表)的落盘副本,重启后由 createToolLoadingState 原序恢复;
+  // 每次表变了(回合开头 / tool_load / 代理自动装载)就写回会话头,随本回合的 saveSession 落盘。可选字段,老会话没有就是空。
+  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id, { restoredNames: session.toolSchemaNames });
+  const syncSessionToolSchemaNames = () => {
+    const names = toolLoading.frozenNames();
+    if (names && JSON.stringify(names) !== JSON.stringify(session.toolSchemaNames)) session.toolSchemaNames = names;
+  };
   const initialTools = toolLoading.current();
+  syncSessionToolSchemaNames();
   const agentRoleMap = new Map((await getAgentRoleLibrary(workingDir, config)).map(role => [role.id, role]));
   // v0.8-S6 layered system prompt (§7.6, PROVIDER-ONLY). Identity is pinned to provider.label + model (the
   // product name never enters the prompt). The project-memory layer reads cwd's CLAUDE.md/AGENTS.md (≤16KB,
@@ -1826,7 +1837,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   const discoveryState = { seq: 0, openedAt: 0, awaitingOutcome: false };
   // 2026-10 真机复盘:代理调用的目标 100% 是没装载的【原生】工具 —— 分包没命中时,一整个会话 36 次联网全绕 tool_invoke_read,
   // 一次 tool_load 都没调(web 包 schema 合计不到 1K token)。代理调到原生工具时顺手把它装进下一发的工具表(一次隐式 tool_load),
-  // 模型下一步就能直调:省掉的是每次都要套一层壳的出错面(套壳出错占代理失败的八成),多付的只是这一个 schema。
+  // 模型下一步就能直调:省掉的是每次都要套一层壳的出错面(套壳出错占代理失败的八成)。
+  // 按【包】装,不按单个工具:工具表每变一次,提供方的前缀缓存就整段失效(实测命中率 97%→3%,下一发几乎整段上下文按未缓存计),
+  // 而同包工具常常接着用(web_search 之后 web_fetch、file_read 之后 file_list/glob)—— 一次装齐只断一次;native 包最大约 2.3K token。
   // 目标已经在工具表里还走代理的(模型照着历史惯性抄),结果上附一句提醒。桥接工具不提升:100–280 个桥接 schema 才是代理真正省的地方。
   // proxyArgs 已过 canonicalToolInvokeCall;只在代理真的分发了(过了权限闸)之后调。返回原结果或加了 proxyNote 的浅拷贝。
   const promoteProxiedNativeTool = (proxyArgs, result) => {
@@ -1837,11 +1850,13 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     if (toolLoading.current().some(t => t && t.function && t.function.name === target)) {
       return { ...result, proxyNote: `${target} 已在你的工具表里:下次直接调用 ${target},不要再经 tool_invoke_*` };
     }
-    const loaded = toolLoading.load({ tools: [target] });
+    const loaded = toolLoading.load(item.pack ? { packs: [item.pack], tools: [target] } : { tools: [target] }, 'proxy_promote');
     if (!Array.isArray(loaded.loaded) || !loaded.loaded.includes(target)) return result;
+    syncSessionToolSchemaNames();
     onEvent({ type: 'tool_catalog', state: 'loaded', source: 'proxy_promote', ...loaded, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
-    try { logEvent({ kind: 'tool_proxy_promoted', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, tool: target }); } catch { /* telemetry must never break a turn */ }
-    return { ...result, proxyNote: `${target} 已装载为直接工具:下次直接调用 ${target}(参数就是这次 arguments 里那份),不必再经 tool_invoke_*` };
+    try { logEvent({ kind: 'tool_proxy_promoted', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, tool: target, pack: item.pack || '', loaded: loaded.loaded.length }); } catch { /* telemetry must never break a turn */ }
+    const siblings = loaded.loaded.filter(n => n !== target);
+    return { ...result, proxyNote: `${target} 已装载为直接工具${siblings.length ? `(同包的 ${siblings.slice(0, 6).join('、')}${siblings.length > 6 ? ' 等' : ''} 也已装载)` : ''}:下次直接调用 ${target}(参数就是这次 arguments 里那份),不必再经 tool_invoke_*` };
   };
   // tool_call_completed 的代理字段:真正被调的目标、它的档、壳有没有被还原。目标名形状不对(乱写的长串)只记 'invalid'。
   const econProxyFields = tc => {
@@ -2451,6 +2466,12 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         } catch { /* shadow 绝不阻断 */ }
       }
       const usageSnapshot = { input: turnUsage.input_tokens, output: turnUsage.output_tokens, cached: turnUsage.cached_input_tokens, calls: usageCalls };
+      const sentToolNames = useTools ? toolLoading.current().map(t => t && t.function && t.function.name).filter(Boolean) : [];
+      const prevSentToolNames = toolSchemaNamesSentBySession.get(session.id);
+      toolSchemaNamesSentBySession.delete(session.id);
+      toolSchemaNamesSentBySession.set(session.id, sentToolNames);
+      if (toolSchemaNamesSentBySession.size > 200) toolSchemaNamesSentBySession.delete(toolSchemaNamesSentBySession.keys().next().value);
+      const toolSchemaChanged = Array.isArray(prevSentToolNames) && prevSentToolNames.join('\n') !== sentToolNames.join('\n');
       const tLlm0 = Date.now(); // hb360 C2: 每轮耗时分解(LLM 流式 vs 工具执行),效率观测点
       const sendBody = econThisIter && econBody ? econBody : buildBody(useTools);
       // 限流(429;以及 Anthropic 的过载 529)是首字节前的瞬时失败:修前主回合一次 429 就整回合失败并归成 tool_error,
@@ -2479,6 +2500,19 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       if (sent.aborted) { aborted = true; ok = false; break; }
       const call = sent.result;
       const llmMs = Date.now() - tLlm0;
+      if (toolSchemaChanged && econOn) {
+        try {
+          const prevSet = new Set(prevSentToolNames);
+          const nowSet = new Set(sentToolNames);
+          logEvent({
+            kind: 'tool_schema_changed', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, iter,
+            prevTools: prevSentToolNames.length, tools: sentToolNames.length,
+            added: sentToolNames.filter(n => !prevSet.has(n)).slice(0, 20), removed: prevSentToolNames.filter(n => !nowSet.has(n)).length,
+            inputTokens: turnUsage.input_tokens - usageSnapshot.input, cachedInputTokens: turnUsage.cached_input_tokens - usageSnapshot.cached,
+            usageSource: usageCalls > usageSnapshot.calls ? 'provider' : 'estimated',
+          });
+        } catch { /* telemetry must never break a turn */ }
+      }
       if (econThisIter) {
         econLog('model_call_completed', {
           modelCallId: activeModelCallId, providerResponseId: call.providerResponseId || '',
@@ -2855,7 +2889,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
               ? toolLoading.list(args)
               : (tc.name === 'tool_search' ? toolLoading.search(args.query, args.limit) : toolLoading.load(args));
             onEvent({ type: 'tool_result', id: tc.id, content: resultObj, isError: false });
-            if (tc.name === 'tool_load') onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) });
+            if (tc.name === 'tool_load') { onEvent({ type: 'tool_catalog', state: 'loaded', ...resultObj, toolSchemaTokens: estimateToolSchemaTokens(toolLoading.current()) }); syncSessionToolSchemaNames(); }
             if (tc.name === 'tool_search' && resultObj.retrievalVersion) {
               const retrievalEvent = { type: 'tool_catalog', state: 'searched', retrievalVersion: resultObj.retrievalVersion, queryHash: resultObj.queryHash, resultCount: resultObj.matches.length, topTools: resultObj.matches.slice(0, 5).map(m => m.name), elapsedMs: resultObj.elapsedMs };
               onEvent(retrievalEvent);
