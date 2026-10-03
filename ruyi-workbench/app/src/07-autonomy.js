@@ -496,12 +496,15 @@ function toolPackForName(name, bridgedRoute) {
 // bridge user language (especially Chinese) to a capability name. Unknown/bridged tools still receive
 // deterministic fields derived from name, description and JSON Schema parameters.
 const TOOL_RETRIEVAL_HINTS = Object.freeze({
-  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', 'read workspace file'] },
+  file_read: { capabilities: ['workspace.file.read'], aliases: ['读取文件', '查看文件', '读文件', 'read workspace file'] },
   file_list: { capabilities: ['workspace.file.list'], aliases: ['列出目录', '查看目录', 'list directory'] },
   file_search: { capabilities: ['workspace.text.search'], aliases: ['搜索文件内容', '全文检索', 'search files'] },
   glob: { capabilities: ['workspace.path.glob'], aliases: ['按模式找文件', '文件通配符', 'find files by pattern'] },
   file_write: { capabilities: ['workspace.file.write'], aliases: ['写入文件', '创建文件', 'write file'] },
   file_edit: { capabilities: ['workspace.file.edit'], aliases: ['修改文件', '替换文本', 'edit file'] },
+  file_delete: { capabilities: ['workspace.file.delete'], aliases: ['删除文件', '移除文件', 'delete file'] },
+  file_move: { capabilities: ['workspace.file.move'], aliases: ['移动文件', '重命名文件', 'move file'] },
+  file_copy: { capabilities: ['workspace.file.copy'], aliases: ['复制文件', '拷贝文件', 'copy file'] },
   codebase_symbol_search: { capabilities: ['code.symbol.definition', 'code.symbol.references'], aliases: ['查找符号定义', '查找代码引用', 'find definition references'] },
   docs_search: { capabilities: ['documentation.search'], aliases: ['搜索项目文档', '查文档', 'search documentation'] },
   git_status: { capabilities: ['git.status'], aliases: ['查看代码变更', '仓库状态', 'working tree status'] },
@@ -513,6 +516,9 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   http_request: { capabilities: ['network.http.request'], aliases: ['发送 http 请求', '调用接口', 'http api request'] },
   http_download: { capabilities: ['network.http.download', 'workspace.file.write'], aliases: ['下载文件', '从网址下载', 'download url to file'] },
   desktop_screenshot: { capabilities: ['desktop.screen.capture'], aliases: ['桌面截图', '屏幕截图', 'take screenshot'] },
+  // 下面两件和桥接桌面服务器的 type_text/hotkey、browser_open 是同一件事;给中文叫法,中文检索时与桥接的同分、按原生优先排在前面。
+  keyboard_send_keys: { capabilities: ['desktop.keyboard.send'], aliases: ['键盘输入', '发送按键', '按快捷键', 'send keystrokes'] },
+  browser_open: { capabilities: ['browser.url.open'], aliases: ['打开网页', '浏览器打开', '打开网址', 'open url in browser'] },
   office_open: { capabilities: ['office.document.open'], aliases: ['打开办公文档', '打开 excel word ppt pdf', 'open office document'] },
   orchestrate_agents: { capabilities: ['agent.workflow.orchestrate'], aliases: ['编排多个代理', '多代理工作流', 'orchestrate agents'] },
   wait_agents: { capabilities: ['agent.workflow.wait'], aliases: ['等待代理完成', '收代理结果', 'wait for agents'] },
@@ -522,6 +528,80 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
   workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
 });
+// 2026-10: 桥接(MCP)工具的中文检索词。桥接工具的名字和描述多是英文,模型用中文搜(「截图」「鼠标点击」「关闭窗口」)时
+// 一个词都对不上 —— 实测内置桌面服务器 108 个工具,「截图」只搜出 set_clipboard_image,「鼠标点击」零命中。这两张表按【工具名里的
+// 英文词】给中文说法,不按哪个服务器的清单逐个登记:别的 MCP 服务器里同名词的工具(browser_take_screenshot、list_tabs…)一样受益。
+// 键是 normalizeToolSearchText 之后的词或词组(词组优先、最长匹配;单词再试去掉复数 s/es),值的第一项是主说法;认不出的词
+// (for/on/at/take…)跳过。词组键只给中文语序或说法与逐词拼接对不上的少数工具。只喂 aliases,不碰 tier/pack/schema。
+// 刻意不收 file/directory/folder:桥接服务器自带的 read_file/edit_file/delete_file 与原生 file_* 重复,原生的有工作区护栏、
+// 不用代理,中文搜「删除文件」该排出原生的,不该把桥接的复本顶上去。
+const BRIDGED_TOOL_NAME_TERMS = Object.freeze({
+  // 屏幕 / 截图 / 识别
+  screenshot: ['截图', '截屏', '屏幕截图', '截个图'], screen: ['屏幕'], region: ['区域'],
+  monitor: ['显示器'], pixel: ['像素'], color: ['颜色'], dpi: ['缩放比例', '显示缩放'],
+  'screen info': ['屏幕信息', '屏幕分辨率'], 'find on screen': ['屏幕找图', '在屏幕上找图'],
+  observe: ['观察屏幕', '看屏幕', '屏幕快照'], ocr: ['文字识别', '识别文字'], language: ['语言'],
+  template: ['模板', '找图'], vision: ['识图', '找图'],
+  // 鼠标 / 键盘
+  mouse: ['鼠标'], click: ['点击', '单击'], drag: ['拖拽', '拖动'], scroll: ['滚动', '滚轮'], position: ['位置', '坐标'],
+  'mouse click': ['鼠标点击', '鼠标单击', '双击', '右键点击'],
+  keyboard: ['键盘'], key: ['按键'], hotkey: ['快捷键', '组合键'], text: ['文字', '文本'],
+  'type text': ['输入文字', '键盘输入', '打字', '输入文本'], 'key down': ['按住按键', '按住'], 'key up': ['松开按键', '松开'],
+  // 窗口 / 程序 / 系统
+  window: ['窗口'], topmost: ['置顶'], application: ['程序', '应用', '软件'], process: ['进程'], command: ['命令'],
+  system: ['系统'], environment: ['环境'], variable: ['变量'], notification: ['通知'], notify: ['提醒'],
+  'message box': ['消息框', '弹窗', '对话框'], sound: ['声音'], beep: ['蜂鸣', '提示音'], wait: ['等待'],
+  // 剪贴板
+  clipboard: ['剪贴板', '粘贴板'], 'set clipboard': ['复制到剪贴板', '写入剪贴板', '设置剪贴板'],
+  // 浏览器 / 网页
+  browser: ['浏览器', '网页'], page: ['页面'], tab: ['标签页'], navigate: ['导航', '后退', '前进', '刷新'],
+  element: ['元素'], js: ['脚本'], url: ['网址'], fetch: ['抓取网页', '网页抓取', '请求网址'],
+  // 办公文档 / 图片
+  document: ['文档'], excel: ['表格', '电子表格', '工作簿'], chart: ['图表'], beautify: ['美化', '排版'],
+  pdf: ['pdf', 'pdf文档'], pptx: ['ppt', '幻灯片', '演示文稿'], ppt: ['ppt', '幻灯片', '演示文稿'], image: ['图片', '图像'],
+  // 录制 / 批量 / 记忆 / 杂项
+  record: ['录制'], macro: ['宏'], batch: ['批量'], verify: ['验证', '确认'], memory: ['记忆'],
+  sequential: ['逐步'], thinking: ['思考', '推理'], diagnostics: ['诊断', '自检'], audit: ['审计日志', '审计'],
+  safety: ['安全'], version: ['版本'], ui: ['控件', '界面'],
+});
+// 通用动词与修饰词:只跟上表的词拼成整句,自己撑不起别名(否则「删除」会成为 delete_file 的整句别名,任何带「删除」的查询都加分)。
+const BRIDGED_TOOL_NAME_MODIFIERS = Object.freeze({
+  get: ['获取', '读取'], set: ['设置', '写入'], list: ['列出', '列表'], read: ['读取', '查看'], write: ['写入', '生成', '创建'],
+  edit: ['修改', '编辑'], copy: ['复制'], move: ['移动'], delete: ['删除'], save: ['保存'], open: ['打开'],
+  close: ['关闭'], show: ['显示', '弹出'], find: ['查找', '定位'], run: ['运行', '执行'], execute: ['执行'],
+  start: ['开始'], stop: ['停止'], switch: ['切换'], launch: ['启动', '打开'], kill: ['结束', '杀掉'], play: ['播放'],
+  capture: ['截取', '捕获'],   // capture_screen → 截取屏幕;packet_capture / capture_audio 不该叫「截图」
+  press: ['按下'], type: ['输入'], input: ['输入'], focus: ['切换到', '激活'], resize: ['调整大小', '缩放'],
+  minimize: ['最小化'], maximize: ['最大化'], active: ['活动', '当前'], idle: ['空闲', '就绪'], attention: ['注意'],
+  inspect: ['检查', '结构'], invoke: ['操作', '触发'], act: ['操作'], action: ['操作'],
+  info: ['信息'], status: ['状态'],
+});
+const BRIDGED_TOOL_NAME_TERM_MAX_WORDS = 3;
+// 桥接工具名 → 中文别名。逐词查表后按「第 k 个说法」齐步拼成整句(mouse_click → 鼠标点击 / 鼠标单击 / 双击…),最多 4 句:
+// 每个说法至少在一句里出现,整句又能吃到 v1 的整句/精确别名分。名字里一个 BRIDGED_TOOL_NAME_TERMS 的词都没有就不给别名(修前口径)。
+function bridgedToolAliases(toolName) {
+  const words = normalizeToolSearchText(toolName).split(' ').filter(Boolean);
+  const own = (table, k) => Object.prototype.hasOwnProperty.call(table, k);
+  const units = []; let anchored = false;
+  for (let i = 0; i < words.length;) {
+    let terms = null; let used = 1;
+    for (let n = Math.min(BRIDGED_TOOL_NAME_TERM_MAX_WORDS, words.length - i); n >= 2 && !terms; n--) {
+      const key = words.slice(i, i + n).join(' ');
+      if (own(BRIDGED_TOOL_NAME_TERMS, key)) { terms = BRIDGED_TOOL_NAME_TERMS[key]; used = n; anchored = true; }
+    }
+    const w = words[i];
+    const stems = [w, w.replace(/es$/, ''), w.replace(/s$/, '')].filter(Boolean);
+    if (!terms) { const k = stems.find(s => own(BRIDGED_TOOL_NAME_TERMS, s)); if (k) { terms = BRIDGED_TOOL_NAME_TERMS[k]; anchored = true; } }
+    if (!terms) { const k = stems.find(s => own(BRIDGED_TOOL_NAME_MODIFIERS, s)); if (k) terms = BRIDGED_TOOL_NAME_MODIFIERS[k]; }
+    if (terms) units.push(terms);
+    i += used;
+  }
+  if (!anchored) return [];
+  const width = Math.min(4, Math.max(...units.map(u => u.length)));
+  const out = new Set();
+  for (let k = 0; k < width; k++) out.add(units.map(u => u[Math.min(k, u.length - 1)]).join(''));
+  return [...out];
+}
 const RUNTIME_TELEMETRY_KEY = crypto.randomBytes(32); // process-scoped HMAC key; raw queries/errors are never logged
 
 function normalizeToolSearchText(value) {
@@ -538,6 +618,8 @@ function tokenizeToolSearchText(value) {
     out.add(segment);
     for (const n of [2, 3]) for (let i = 0; i + n <= segment.length; i++) out.add(segment.slice(i, i + n));
   }
+  // 中英混写不留空格(「读取pdf」「做个ppt」「写excel」)时整串是一个词,里面的英文词单独再记一份。
+  for (const part of normalized.split(/[^\p{L}\p{N}]+|\p{Script=Han}+/u)) if (part) out.add(part);
   return [...out].filter(t => t.length > 1 || /^\d+$/.test(t));
 }
 
@@ -557,12 +639,13 @@ function toolSchemaSearchText(schema) {
   return out.join(' ').slice(0, 1200);
 }
 
-function retrievalHintForTool(name, pack) {
+// bridgedToolName:桥接工具去掉服务器前缀的名字(bridge.toolName);给了才按 BRIDGED_TOOL_NAME_TERMS 补中文别名。
+function retrievalHintForTool(name, pack, bridgedToolName) {
   const exact = TOOL_RETRIEVAL_HINTS[name] || {};
   const nameWords = normalizeToolSearchText(name).split(' ').filter(Boolean);
   return {
     capabilities: [...new Set([...(exact.capabilities || []), `${pack}.${nameWords.join('.')}`])],
-    aliases: [...new Set(exact.aliases || [])],
+    aliases: [...new Set([...(exact.aliases || []), ...(bridgedToolName ? bridgedToolAliases(bridgedToolName) : [])])],
   };
 }
 
@@ -602,7 +685,7 @@ function buildToolCatalog(tools, bridgedRoute, config) {
     const fn = t && t.function || {};
     const bridge = resolveBridge(bridgedRoute || {}, fn.name);
     const pack = toolPackForName(fn.name, bridgedRoute);
-    const hint = retrievalHintForTool(fn.name, pack);
+    const hint = retrievalHintForTool(fn.name, pack, bridge ? bridge.toolName : '');
     return {
       name: fn.name || '', pack,
       tier: bridge ? bridgedToolTier(bridge.toolName, config) : nativeToolTier(fn.name),
@@ -674,14 +757,19 @@ function searchToolCatalog(catalog, args, config, opts) {
   const limit = limitNum > 0 ? Math.min(20, Math.max(1, limitNum)) : 8;
   const forceV1 = !!(opts && opts.forceV1);
   if ((!config || config.runtimeToolRetrievalV1 !== true) && !forceV1) {
-    const legacy = legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
-    // 子串匹配零命中(「读文件」「执行命令」「截图」这类中文说法在英文描述里一个都配不上)时,退到带别名/能力词的
-    // 分词排序再试一次,而不是交回空表让模型以为没有这个工具。有命中时结果与修前逐字节一致。
-    if (query.trim() && Array.isArray(legacy.matches) && legacy.matches.length === 0) {
+    const legacySearch = () => legacyToolCatalogSearch(catalog, query, limit, Math.max(1, Number(opts && opts.legacyNameBoost) || 1));
+    // 带汉字的查询不走子串匹配:中文不分词,整段说法只能原样撞上描述里的同一串字 —— 撞上的多半是噪声(「截图」只撞上
+    // set_clipboard_image 描述里的「截图了一张图」),还挡掉了下面的别名排序。这类查询直接用带别名/能力词的分词排序。
+    const legacy = /\p{Script=Han}/u.test(query) ? null : legacySearch();
+    // 子串匹配零命中(或上面跳过了它)时,退到分词排序再试一次,而不是交回空表让模型以为没有这个工具。
+    // 只交得分 > 0 的:单个汉字(「删」)切不出词,分词排序会把整张目录按 0 分垫满;一个都没得分就照旧交子串匹配的结果。
+    // 不含汉字且有命中时结果与修前逐字节一致。注:shadow 对比(compareToolRetrievalShadow)对这类查询是 v1 比 v1,恒一致。
+    if (query.trim() && (!legacy || (Array.isArray(legacy.matches) && legacy.matches.length === 0))) {
       const v1 = searchToolCatalog(catalog, args, config, { ...(opts || {}), forceV1: true });
-      if (Array.isArray(v1.matches) && v1.matches.length) return { ...v1, fallback: 'alias_ranker' };
+      const hits = (Array.isArray(v1.matches) ? v1.matches : []).filter(m => m.score > 0);
+      if (hits.length) return { ...v1, matches: hits, packs: packDescriptionsFor(hits), fallback: 'alias_ranker' };
     }
-    return legacy;
+    return legacy || legacySearch();
   }
   const startedAt = Date.now();
   const qNorm = normalizeToolSearchText(query);
@@ -705,10 +793,15 @@ function searchToolCatalog(catalog, args, config, opts) {
     const components = {}; const matchedOn = new Set(); let score = 0;
     const itemNameNorm = normalizeToolSearchText(doc.item.name);
     if (qNorm && (qNorm === itemNameNorm || qNorm === String(doc.item.name || '').toLowerCase())) { components.exactName = 100; score += 100; matchedOn.add('exact_name'); }
+    // 整句别名:互相包含 +14;一字不差 +24(「截图」是 screenshot 的叫法,只是 browser_screenshot 叫法的一部分)。
+    let aliasPhrase = 0;
     for (const alias of doc.item.aliases || []) {
       const a = normalizeToolSearchText(alias);
-      if (qNorm && a && (qNorm.includes(a) || a.includes(qNorm))) { components.aliasPhrase = (components.aliasPhrase || 0) + 14; score += 14; matchedOn.add('alias'); break; }
+      if (!qNorm || !a) continue;
+      if (qNorm === a) { aliasPhrase = 24; break; }
+      if (!aliasPhrase && (qNorm.includes(a) || a.includes(qNorm))) aliasPhrase = 14;
     }
+    if (aliasPhrase) { components.aliasPhrase = aliasPhrase; score += aliasPhrase; matchedOn.add('alias'); }
     for (const [field, tokens] of Object.entries(doc.fields)) {
       const set = new Set(tokens); let subtotal = 0;
       for (const token of qTokens) {
@@ -721,7 +814,8 @@ function searchToolCatalog(catalog, args, config, opts) {
     }
     return { doc, score, components, matchedOn: [...matchedOn] };
   }).filter(r => !qTokens.length || r.score > 0)
-    .sort((a, b) => b.score - a.score || a.doc.item.name.localeCompare(b.doc.item.name)).slice(0, limit);
+    // 同分时原生工具排在桥接工具前面(ACC 的 read_file 与原生 file_read 同叫「读取文件」时,原生的有工作区护栏、不用代理)。
+    .sort((a, b) => b.score - a.score || (a.doc.item.bridged ? 1 : 0) - (b.doc.item.bridged ? 1 : 0) || a.doc.item.name.localeCompare(b.doc.item.name)).slice(0, limit);
   const loadedNames = opts && opts.loadedNames instanceof Set ? opts.loadedNames : null;
   const matches = ranked.map(r => {
     const x = r.doc.item; const blockedReason = runtimeToolBlockedReason(x, config);
