@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3380 | 3071 | 532 | 67 | 0 | 1 |
+| 70 | 3388 | 3073 | 532 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -15,7 +15,7 @@
 
 | # | 模块 | 层 | provides | requires | 直接依赖 |
 |---:|---|---|---:|---:|---:|
-| 0 | `00-boot.js` | bootstrap | 133 | 7 | 4 |
+| 0 | `00-boot.js` | bootstrap | 134 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
 | 3 | `01c-runtime-flags.js` | foundation | 36 | 0 | 0 |
@@ -54,11 +54,11 @@
 | 36 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 39 | `07-autonomy.js` | orchestration | 115 | 66 | 17 |
+| 39 | `07-autonomy.js` | orchestration | 120 | 66 | 17 |
 | 40 | `08-agent-runs.js` | orchestration | 115 | 95 | 18 |
 | 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
-| 43 | `09-workflow.js` | orchestration | 24 | 235 | 26 |
+| 43 | `09-workflow.js` | orchestration | 26 | 237 | 26 |
 | 44 | `10-context-governance.js` | orchestration | 175 | 92 | 17 |
 | 45 | `11-native-tools.js` | tools | 128 | 38 | 5 |
 | 46 | `11b-file-text-io.js` | tools | 1 | 2 | 1 |
@@ -278,7 +278,7 @@
 | `08-agent-runs.js` | `10-context-governance.js` | forward | `boundToolResultForDisplay`, `compactionRefetchRefusal`, `compactionRefetchWarning`, `createCompactionRefetchGuard`, `estimateFactor`, `isContextOverflowError`, `maybeCompactSubHistory`, `noteWindowOvershoot`, `recordCompactUsage`, `runForcedOverflowCompaction`, `truncateToolResult`, `writeHistorySnapshot` |
 | `08-agent-runs.js` | `13-http-router.js` | forward | `resolveNodeModel` |
 | `08-agent-runs.js` | `13e-pretender-index.js` | forward | `markPretenderIndexDirty` |
-| `09-workflow.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `makeId`, `neutralizeFenceTag`, `nowIso`, `safeJsonParse`, `text` |
+| `09-workflow.js` | `00-boot.js` | backward | `EventStreamHooks`, `RUYI_EVENTS`, `TOOL_TIER_RANK`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `localTurnTimeParts`, `makeId`, `neutralizeFenceTag`, `nowIso`, `safeJsonParse`, `text` |
 | `09-workflow.js` | `01-config.js` | backward | `readConfig`, `safeSessionId` |
 | `09-workflow.js` | `01c-runtime-flags.js` | backward | `budgetGuardDecision`, `budgetGuardEnabled`, `budgetGuardTurnTokens`, `budgetGuardWarnRatio`, `estimateBucketsEnabled`, `sessionNotesInjectEnabled`, `toolByteBudgetShadowBytes`, `toolTimeBudgetEnabled`, `toolTimeBudgetHardMs`, `toolTimeBudgetShadowEnabled`, `toolTimeBudgetWarnMs`, `volatileTailLayoutEnabled` |
 | `09-workflow.js` | `02-session-store.js` | backward | `applyMissionUpdate`, `bridgedWriteRelativePathArg`, `buildTurnSummary`, `bumpMissionChangeSeq`, `captureWorkspaceTurnBaseline`, `finalizeMissionAfterTurn`, `isProviderToolArgsObject`, `isUntitledSessionTitle`, `journalReadIndex`, `loadSession`, `mergeMissionBeforeSave`, `mutateSession`, `normalizeMetaToolArgs`, `normalizeTodoItems`, `providerHistoryToolCalls`, `readSessionNotes`, `reconcileWorkspaceTurnBaseline`, `recordMissionBudgetTrippedChange`, `recordMissionStalledChange`, `registerIntervention`, `repairProviderHistoryPairing`, `repairProviderHistoryToolArgs`, `saveSession`, `saveTurnFinalSession`, `settleIntervention` |

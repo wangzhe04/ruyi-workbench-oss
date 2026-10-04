@@ -135,9 +135,15 @@ ok(/技能库/.test(volatilePb), 'D14d 108b 尾行说明由用户在技能库面
 const pbMany = Array.from({ length: 30 }, (_, i) => ({ id: 'pb' + i, title: '流程' + i, description: '描述'.repeat(20), available: i % 5 !== 0 }));
 const pbSecMany = srv.buildPlaybookIndexSection(pbMany, config);
 const pbLines = (pbSecMany.match(/^- /gm) || []).length;
-ok(pbSecMany.length <= 600, 'D15 108b 整段硬顶 600 字符(30 条合成输入,got ' + pbSecMany.length + ')');
-ok(pbLines <= 12 && pbLines >= 1, 'D15b 108b 条目上限 12 条(got ' + pbLines + ')');
-ok(/已截断/.test(pbSecMany), 'D15c 108b 超限时留省略行(被裁掉这件事不静默丢失)');
+ok(pbSecMany.length <= 900, 'D15 61-B5 整段硬顶 900 字符(30 条合成输入,got ' + pbSecMany.length + ')');
+ok(pbLines <= 12 && pbLines >= 1, 'D15b 108b 整行详情上限 12 条(got ' + pbLines + ')');
+const pbAllVisible = pbMany.every(p => pbSecMany.includes('[' + p.id + ']'));
+ok(pbAllVisible || /已截断/.test(pbSecMany), 'D15c 61-B5 超出整行预算时其余压成简列;连简列都装不下才留省略行(被裁掉这件事不静默丢失)');
+// 61-B5:16 个内置 Playbook 规模(标题 6-12 字、描述 20-40 字)全部可见 —— 修前硬顶 600 字只放得下字母序前 6 个。
+const pbReal = Array.from({ length: 16 }, (_, i) => ({ id: 'playbook-id-' + i, title: '内置流程标题' + i, description: '一句话说明这个预置流程做什么'.repeat(2), available: true }));
+const pbSecReal = srv.buildPlaybookIndexSection(pbReal, config);
+ok(pbReal.every(p => pbSecReal.includes('[' + p.id + ']')) && !/已截断/.test(pbSecReal) && pbSecReal.length <= 900,
+  'D15d 61-B5 16 条内置规模全部可见(整行 + 简列),不截断(got ' + pbSecReal.length + ' 字)');
 ok(!/<playbook-index>/.test(volatile), 'D16 108b 不传 playbook 时 volatile 无索引段(既有夹具路径零漂移)');
 ok(volatile.length > 100 && volatile.length < 5000, 'D17 108b 既有夹具 volatile 仍满足 D6 闸(got ' + volatile.length + ')');
 // 108b 设置边界双语指引:mcp 工具在场时注入,中文包说清「能改什么、不能改什么、去哪儿改」。

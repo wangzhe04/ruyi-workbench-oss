@@ -726,6 +726,19 @@ function usageDayKey(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+// 61-A3:给模型看的本地时间(provider 引擎每条 user 消息落历史时带一行,文案在 06b turnTime)。分钟粒度;
+// weekday 0 = 周日;offset 形如 UTC+08:00(日志 ts 是 UTC,模型要换算时靠它)。
+function localTurnTimeParts(ms) {
+  const d = new Date(ms);
+  const p2 = n => String(n).padStart(2, '0');
+  const off = -d.getTimezoneOffset();
+  const abs = Math.abs(off);
+  return {
+    stamp: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`,
+    weekday: d.getDay(),
+    offset: `UTC${off >= 0 ? '+' : '-'}${p2(Math.floor(abs / 60))}:${p2(abs % 60)}`,
+  };
+}
 // 性能批 P1:账大体按时间追加,相邻行多半同一天。记住上一次算出的那一天的 [本地 0 点, 次日 0 点),落在里面就复用日键 ——
 // 日键只由 ms 决定,区间内处处相同,所以结果与逐行 usageDayKey 相同(NaN 永远不落在区间里,照旧逐次现算)。
 // 边界按日历字段现造(new Date(年, 月, 日) / 日 + 1):午夜跳 DST 的时区(开罗、哈瓦那、贝鲁特、圣地亚哥……)那一天

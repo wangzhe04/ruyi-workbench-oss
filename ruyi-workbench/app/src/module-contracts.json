@@ -82,6 +82,7 @@
         "isDirectServeInvocation",
         "isPkg",
         "json",
+        "localTurnTimeParts",
         "lstatOrNull",
         "makeId",
         "migrateLegacyDataRoot",
@@ -6505,6 +6506,7 @@
         "BRIDGED_NOT_READ",
         "BRIDGED_READ_PREFIXES",
         "BRIDGED_READ_TOOLS",
+        "BRIDGED_SHADOWED_BY_NATIVE",
         "BRIDGED_TOOL_NAME_MODIFIERS",
         "BRIDGED_TOOL_NAME_TERMS",
         "BRIDGED_TOOL_NAME_TERM_MAX_WORDS",
@@ -6536,6 +6538,8 @@
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
         "TOOL_SCHEMA_NAMES_MAX",
+        "TOOL_SEARCH_EMPTY_NOTE",
+        "TOOL_SEARCH_FULL_ARGS_TOP",
         "_nativeToolSchemaByName",
         "actionTargetMeta",
         "activeAgentRuns",
@@ -6546,6 +6550,7 @@
         "agentWorktreePathOwned",
         "applyAgentWorktree",
         "bridgedCallTierFloor",
+        "bridgedShadowNative",
         "bridgedToolAliases",
         "bridgedToolTier",
         "bridgedToolTierByName",
@@ -6613,6 +6618,7 @@
         "toolSchemaFreezeBySessionMap",
         "toolSchemaFreezeFor",
         "toolSchemaSearchText",
+        "withShadowedBridgeHints",
         "withToolArgSkeletons"
       ],
       "requires": [
@@ -7971,6 +7977,7 @@
         "PLAN_DISCOVERY_BLOCKED_TOOLS",
         "PROXY_UNWRAP_AGENT_TARGETS",
         "PROXY_UNWRAP_TARGETS",
+        "RETIER_SKIP_TARGETS",
         "appendDisplayMessagesToProviderHistory",
         "canonicalToolInvokeCall",
         "commonPrefixChars",
@@ -7981,6 +7988,7 @@
         "legacySpawnToOrchestrateArgs",
         "planDiscoveryToolBatchAllowed",
         "planParallelReadIsland",
+        "retierToolInvokeCall",
         "runAgentWorkflow",
         "runOpenAiTurn",
         "settleWaitEnvelopes",
@@ -8035,6 +8043,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "localTurnTimeParts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call"
@@ -8071,6 +8086,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "TOOL_TIER_RANK",
           "kinds": [
             "read"
           ]

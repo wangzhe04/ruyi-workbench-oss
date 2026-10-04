@@ -430,6 +430,8 @@ const CORE_TOOL_HANDLERS = {
           logEvent({ kind: 'tool_retrieval_shadow', engine: 'mcp', sessionId, ...comparison });
         } catch { /* shadow comparison must never affect the MCP result */ }
       }
+      // 61-A4:零命中时 searchToolCatalog 已给 note,不再叫它「调用找到的工具」。
+      if (!Array.isArray(result.matches) || !result.matches.length) return result;
       return { ...result, next: 'Call the concrete tool if visible; otherwise use tool_invoke_read/edit/exec with the matching tier.' };
   } },
   tool_load: { paths: null, guardNote: "元工具提示,不触文件路径", handler: async (args, ctx) => {
@@ -739,7 +741,8 @@ async function execCacheLookup(c) {
   }
   sess.delete(c.key); sess.set(c.key, entry); // LRU 触碰
   logEvent({ kind: 'exec_result_cache', outcome: 'hit', tool: c.tool, sessionId: c.sessionId, bytes: entry.bytes, ageMs: Date.now() - entry.cachedAt, lookupMs: Date.now() - t0 });
-  return { ...entry.result, cacheHit: { cachedAt: entry.cachedAt, ageMs: Date.now() - entry.cachedAt } };
+  // 61-B4:裸的 {cachedAt, ageMs} 模型看不懂;note 说清这是「同会话读过、文件没变」而不是旧快照(命中前已重 stat 比 mtime+size)。
+  return { ...entry.result, cacheHit: { cachedAt: entry.cachedAt, ageMs: Date.now() - entry.cachedAt, note: 'served from the read cache of this session: the file is unchanged since that read (mtime+size re-checked), so the content is current' } };
 }
 // 存储:只收 ok:true;读后 stat 与读前 stat 不一致 = 读取窗口内有外部写入,弃存(竞态不缓存);
 // 读前 stat 缺失(查找时文件不存在)而读后有 = 文件在窗口内新建,以读后版本存(内容即是该版本)。
@@ -2450,7 +2453,8 @@ const TOOL_NAME_ALIASES = {
   write_file: 'file_write', create_file: 'file_write', edit_file: 'file_edit', replace_in_file: 'file_edit',
   delete_file: 'file_delete', grep: 'file_search', search_files: 'file_search', find_files: 'glob',
   run_command: 'powershell_run', shell: 'powershell_run', bash: 'powershell_run', run_script: 'script_run',
-  fetch: 'http_request', web_fetch: 'http_request', screenshot: 'desktop_screenshot',
+  // 61-A6:取网页正文是 web_fetch 的事(http_request 是原始 HTTP、exec 档);web_fetch 本身缺席时才退到 http_request。
+  fetch: 'web_fetch', web_fetch: 'http_request', screenshot: 'desktop_screenshot',
 };
 function suggestToolNames(name, candidates, limit = 3) {
   const target = String(name || '').toLowerCase();

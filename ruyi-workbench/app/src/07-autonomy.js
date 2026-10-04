@@ -851,21 +851,62 @@ function toolArgsSkeleton(schema0, mode) {
 // 检索结果统一出口:还没装进工具表的命中带上参数骨架(args)。已装的不带 —— 它的完整说明书本来就在工具表里。
 // opts.loadedNames 只有模型服务商回合给(09 的 toolLoading.search);MCP / CLI 路径不知道 CLI 手里有什么,一律带。
 // 与 metaToolHintsV1(requiredArgs / callHint / 待办去重)无关:那个开关仍管它自己那几样,这里默认开。
+// 61-B1:排在最前的 3 个未装载命中给 full 骨架(全部参数 + 用途说明),其余仍是 brief。真机里 brief 有 41% 被截成「…(+N)」,
+// 模型要么多一轮 tool_load、要么猜参数代叫;最可能被选中的那几个直接给全,文本落在 tool_result 里,不动工具表(缓存中性)。
+const TOOL_SEARCH_FULL_ARGS_TOP = 3;
 function withToolArgSkeletons(result, catalog, opts) {
   if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
   const loaded = (opts && opts.loadedNames instanceof Set) ? opts.loadedNames : null;
   const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  let fullLeft = TOOL_SEARCH_FULL_ARGS_TOP;
   const matches = result.matches.map(m => {
     if (!m || m.args !== undefined || (loaded && loaded.has(m.name))) return m;
     const item = byName.get(m.name);
     const params = item && item.tool && item.tool.function && item.tool.function.parameters;
-    const args = toolArgsSkeleton(params, 'brief');
-    return args ? { ...m, args } : m;   // 压不成骨架的(根上是 $ref / 自由对象)不加,别拿「无参」误导
+    const full = fullLeft > 0;
+    const args = toolArgsSkeleton(params, full ? 'full' : 'brief');
+    if (!args) return m;   // 压不成骨架的(根上是 $ref / 自由对象)不加,别拿「无参」误导
+    if (full) fullLeft -= 1;
+    return { ...m, args };
   });
   return { ...result, matches };
 }
+// 61-B3:桌面 MCP 里与内置工具同一件事的桥接工具(按桥接裸名)。只做目录标注:对应的内置工具在本回合目录里时,命中卡带
+// preferred、排到同批未遮蔽项之后。不隐藏、不改 tier / 闸 / 分发 —— 桥接版有内置没有的能力(追加写、目录级 move/copy、
+// cmd.exe 语义),模型确有需要时照样能用。内置版受工作区边界与写前检查点保护,这是首选的理由。
+const BRIDGED_SHADOWED_BY_NATIVE = Object.freeze({
+  read_file: 'file_read', write_file: 'file_write', edit_file: 'file_edit',
+  delete_file: 'file_delete', move_file: 'file_move', copy_file: 'file_copy',
+  list_directory: 'file_list', fetch: 'web_fetch', run_command: 'powershell_run',
+});
+function bridgedShadowNative(item, nativeNames) {
+  if (!item || !item.bridged) return '';
+  const raw = String(item.name || '').split('__').pop();
+  const native = Object.prototype.hasOwnProperty.call(BRIDGED_SHADOWED_BY_NATIVE, raw) ? BRIDGED_SHADOWED_BY_NATIVE[raw] : '';
+  return native && nativeNames.has(native) ? native : '';
+}
+function withShadowedBridgeHints(result, catalog) {
+  if (!result || !Array.isArray(result.matches) || !result.matches.length) return result;
+  const nativeNames = new Set((catalog || []).filter(x => x && !x.bridged).map(x => x.name));
+  const byName = new Map((catalog || []).map(x => [x && x.name, x]));
+  let any = false;
+  const tagged = result.matches.map(m => {
+    const native = m && bridgedShadowNative(byName.get(m.name), nativeNames);
+    if (!native) return m;
+    any = true;
+    return { ...m, preferred: native };
+  });
+  if (!any) return result;
+  // 稳定分区:同一批命中里未遮蔽的在前,被遮蔽的桥接项挪到后面(只在已截好的 Top-K 内重排,不动两套排序本身)。
+  return { ...result, matches: tagged.filter(m => !m || !m.preferred).concat(tagged.filter(m => m && m.preferred)) };
+}
+// 61-A4:零命中不再只回一张空表 —— 模型分不清「措辞没对上」和「真没有这类工具」,于是换着说法连搜(真机搜「撤销/回滚」)。
+const TOOL_SEARCH_EMPTY_NOTE = 'No dedicated tool matched. Try other capability words (Chinese or English) or browse with list_tools {pack}; if nothing fits, do it with the general tools you already have (e.g. powershell_run / script_run when available) or tell the user it is not supported.';
 function searchToolCatalog(catalog, args, config, opts) {
-  return withToolArgSkeletons(rankToolCatalog(catalog, args, config, opts), catalog, opts);
+  // 先分区再给骨架:full 骨架的 3 个名额先给未遮蔽项(被遮蔽的桥接项已挪到后面)。
+  const result = withToolArgSkeletons(withShadowedBridgeHints(rankToolCatalog(catalog, args, config, opts), catalog), catalog, opts);
+  if (result && Array.isArray(result.matches) && !result.matches.length && String(args && args.query || '').trim()) return { ...result, note: TOOL_SEARCH_EMPTY_NOTE };
+  return result;
 }
 
 function rankToolCatalog(catalog, args, config, opts) {
@@ -1038,14 +1079,17 @@ function listCompactTools(catalog, args) {
     .slice().sort((a, b) => a.pack.localeCompare(b.pack) || a.name.localeCompare(b.name));
   const page = available.slice(cursor, cursor + limit);
   const groups = {};
+  // 61-B2:代叫要选对 tool_invoke_<tier>,修前 tier 只有 tool_search 给。这里只列非 read 的名字(read 是多数,省 token)。
+  const tiers = {};
   for (const item of page) {
     if (!groups[item.pack]) groups[item.pack] = [];
     groups[item.pack].push(item.name);
+    if (item.tier && item.tier !== 'read') (tiers[item.tier] || (tiers[item.tier] = [])).push(item.name);
   }
   const nextCursor = cursor + page.length < available.length ? cursor + page.length : null;
   return {
     ok: true, pack: pack || null, total: available.length, cursor, count: page.length, nextCursor,
-    groups, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS), packs: TOOL_PACK_DESCRIPTIONS,   // 包说明全表只在这里给(tool_search 只带命中的包)
+    groups, tiers, availablePacks: Object.keys(TOOL_PACK_DESCRIPTIONS), packs: TOOL_PACK_DESCRIPTIONS,   // 包说明全表只在这里给(tool_search 只带命中的包)
     next: nextCursor === null ? 'Use tool_search with a capability or exact name for descriptions and risk tiers.' : `Call list_tools again with cursor ${nextCursor}.`,
   };
 }
@@ -1177,8 +1221,23 @@ function createToolLoadingState(config, message, attachments, tools, bridgedRout
     for (const n of asList(args && args.tools)) { if (catalog.some(x => x.name === n)) activeNames.add(n); else unknown.push(String(n)); }
     for (const x of liveList()) if (!before.has(x.name) && !reasonOf.has(x.name)) reasonOf.set(x.name, reason || 'tool_load');
     const after = current().map(t => t.function.name);
+    // 61-A4:auto 模式下桥接工具不随包装载(见 liveList 头注)。修前 tool_load({packs:['desktop']}) 回 ok:true、loaded:[],
+    // 模型以为装上了。这里如实点名:包里还有哪些桥接工具没装、该怎么拿(只在模型自己调 tool_load 时给,代理自动装载不需要)。
+    const bridgedLeft = {};
+    if (!full && reason !== 'proxy_promote') {
+      for (const p of asList(args && args.packs)) {
+        if (!TOOL_PACK_DESCRIPTIONS[p]) continue;
+        const names = catalog.filter(x => x.bridged && x.pack === p && !activeNames.has(x.name)).map(x => x.name);
+        if (names.length) bridgedLeft[p] = names.slice(0, 12).concat(names.length > 12 ? [`…(+${names.length - 12})`] : []);
+      }
+    }
+    const hasBridgedLeft = Object.keys(bridgedLeft).length > 0;
+    const hints = [];
+    if (unknown.length) hints.push('这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名');
+    if (hasBridgedLeft) hints.push('桥接(桌面/MCP)工具不随包装载:要用时 tool_load {tools:[精确名]},或直接 tool_invoke_<tier> {name, arguments} 代叫');
     return { ok: true, loaded: after.filter(n => !before.has(n)), activePacks: [...activePacks], toolCount: after.length,
-      ...(unknown.length ? { unknown, hint: '这些 pack/工具名不存在;用 list_tools 看可用的 pack,或 tool_search 按用途找工具名' } : {}) };
+      ...(unknown.length ? { unknown } : {}), ...(hasBridgedLeft ? { bridgedNotLoaded: bridgedLeft } : {}),
+      ...(hints.length ? { hint: hints.join(';') } : {}) };
   };
   const list = args => listCompactTools(catalog, args);
   // 冻结表的当前内容(按序),09 写回 session.toolSchemaNames 供重启后恢复;没开冻结时为 null。

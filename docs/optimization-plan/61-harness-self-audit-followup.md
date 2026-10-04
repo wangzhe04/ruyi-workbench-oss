@@ -48,7 +48,7 @@
 - **A5 失败分类器 v3（遥测）**：先读 `failClass/statusCode/code`（http 404/410 → resource_not_found；dns/connect/tls/reset → transient_read；403/反爬 → 新类 `remote_blocked`，
   建议换源而不是「请求授权」）；`tier-mismatch`、代理套代理、「参数不是完整的 JSON 对象」→ invalid_arguments；预算耗尽、计划模式 → policy_blocked；ENOENT/not_found → resource_not_found。
   换版本号即换 cohort，用 `dev-harness/runtime-failure-replay.js` 重放验证。
-- **A6 小错**：`TOOL_NAME_ALIASES` 把 `web_fetch` 误指 `http_request`；`BRIDGED_WRITE_PATH_ARGS` 里的幽灵名 `write_docx`（ACC 没有）。
+- **A6 小错**：`TOOL_NAME_ALIASES` 把 `fetch` 指向 `http_request`（原始 HTTP、exec 档），改指 `web_fetch`。（走查提到的 `BRIDGED_WRITE_PATH_ARGS` 里的 `write_docx` 不是幽灵名：02f 注明它是给「常见 office bridge」预留的写族名，保留。）
 
 ### B 批 · 降低发现成本（直接做）
 
@@ -60,7 +60,7 @@
 - **B3 冗余桥接标「首选」**：07 新表 `BRIDGED_SHADOWED_BY_NATIVE`（`read_file→file_read`、`write_file→file_write`、`edit_file→file_edit`、`delete_file/move_file/copy_file`、
   `list_directory→file_list`、`fetch→web_fetch`、`run_command→powershell_run`）。仅当对应原生工具在本会话可用时：目录卡带 `preferred`、排序排到未遮蔽项之后、描述前缀 `[首选 file_read]`。
   不隐藏、不改 tier/闸/分发（桥接版有 `append`、目录级 move/copy、cmd 语义等内置没有的能力）。
-- **B4 结果自解释**：`cacheHit` 旁加一句说明；写类工具成功信封回 `checkpoint:{turnSeq,entrySeq}`（让模型能对用户说清「这一步可以在第 N 回合撤销」）。
+- **B4 结果自解释**：`cacheHit` 旁加一句说明（同会话读过、文件没变，不是旧快照）。原计划的「写信封回检查点坐标」并入 C4 一起拍板（单独做价值有限，要动七个写工具的信封）。
 - **B5 Playbook 索引不再丢条目**：超预算时降级成只列 id＋标题，16 个全可见（现状字母序前 6 个之后永不可见）。
 
 ### C 批 · 新能力（待拍板）

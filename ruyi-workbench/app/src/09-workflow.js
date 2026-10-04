@@ -1286,6 +1286,29 @@ function canonicalToolInvokeCall(tc) {
   return { ...tc, rawArgs: JSON.stringify(args), proxyRepair: repair };
 }
 
+// 61-B2:代理档低报(tool_invoke_read 去叫 exec 档的 powershell_run)时,在入批处改写成目标档的代理 —— 只升不降。
+// 改写发生在权限闸之前,等价于模型一次就选对:闸照常按改写后的代理档(= 目标真实档)判,不多放一个调用;
+// 12 invokeAdaptiveMcpTool 的 tier-mismatch 检查留作纵深防御。只在模型服务商回合做:MCP / CLI 路径里审批已在 CLI 侧按
+// 低档代理名发生,子进程里升档就是提权,那边只回错误与正确代理名。桥接目标按【本次入参】定档(与 12 的重校同口径)。
+// 历史里记的是改写后的调用(与壳还原同一条「历史即实际执行」的不变量),模型照着抄就不再选错。
+const RETIER_SKIP_TARGETS = new Set(['list_tools', 'tool_search', 'tool_load', 'permission_prompt']);
+function retierToolInvokeCall(tc, catalog, bridgedRoute, config) {
+  if (!tc || typeof tc.name !== 'string' || !tc.name.startsWith('tool_invoke_')) return tc;
+  const proxyTier = tc.name.slice('tool_invoke_'.length);
+  if (!Object.prototype.hasOwnProperty.call(TOOL_TIER_RANK, proxyTier)) return tc;
+  let parsed;
+  try { parsed = JSON.parse(tc.rawArgs || '{}'); } catch { return tc; }
+  const target = parsed && typeof parsed.name === 'string' ? parsed.name.trim() : '';
+  if (!target || RETIER_SKIP_TARGETS.has(target) || target.startsWith('tool_invoke_')) return tc;
+  const item = (catalog || []).find(x => x && x.name === target);
+  if (!item) return tc;   // 目录里没有:原样交给 12,回 unknown-tool + didYouMean
+  const bridge = resolveBridge(bridgedRoute || {}, target);
+  const targetArgs = (parsed.arguments && typeof parsed.arguments === 'object' && !Array.isArray(parsed.arguments)) ? parsed.arguments : {};
+  const targetTier = bridge ? bridgedToolTier(bridge.toolName, config, targetArgs) : item.tier;
+  if (!Object.prototype.hasOwnProperty.call(TOOL_TIER_RANK, targetTier) || TOOL_TIER_RANK[targetTier] <= TOOL_TIER_RANK[proxyTier]) return tc;
+  return { ...tc, name: 'tool_invoke_' + targetTier, proxyRepair: tc.proxyRepair ? tc.proxyRepair + '+retier' : 'retier' };
+}
+
 // Plan mode may investigate before proposing a plan, but it must stay observational. The normal permission
 // tier is the source of truth for file/web/bridge reads; planning metadata and agent coordination are excluded
 // even though some are classified as read-tier for the regular autonomous loop. Unknown tools fail closed via
@@ -1479,12 +1502,16 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // since S5, so this doesn't force a rewrite). vision=false keeps the historical string (pure-text injection
   // via buildAttachmentPrompt) — a text-only model can't see images, so we never bloat its request with them.
   const visionOn = provider && provider.vision === true;
+  // 61-A3:模型原先不知道现在几点 —— 06 的环境说明为保前缀缓存刻意不放时间戳。时间改成随这条 user 消息【落历史】:
+  // 历史只追加、落盘后字节不变,前缀缓存零损失(易变层贴在首条 user 前、尾部临时注入下一回合就消失,两处都会让缓存断);
+  // 跨天续聊时每轮的时间线也都在。只进 providerHistory:session.messages(界面)与 fullPrompt(分包意图、自检判据)不带。
+  const historyPrompt = fullPrompt + '\n\n' + getPromptPack(config && config.locale).turnTime(localTurnTimeParts(Date.now()));
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
-    const parts = await VisualPipeline.buildUserContentParts(fullPrompt, attachments);
+    const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
     session.providerHistory.push({ role: 'user', content: parts });
     VisualPipeline.pruneOldImages(session.providerHistory); // 保图≤2 (first image lands here; a no-op until >2 exist)
   } else {
-    session.providerHistory.push({ role: 'user', content: fullPrompt });
+    session.providerHistory.push({ role: 'user', content: historyPrompt });
   }
   // 122-§2.4:起跑这一存也要落盘前合并 —— 用户「开线程后立刻派回合,再点开始任务」时,start 会落在
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
@@ -2689,7 +2716,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         // and must not be paired as function_call_output); their raw item is echoed back into the next
         // request's `input` via serverToolItems (buildBody appends them), and the server restores the results.
         const serverToolCalls = call.toolCalls.filter(tc => tc && tc.serverSide);
-        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall);   // 写歪的代理壳先还原(见该函数头注)
+        const localToolCalls = call.toolCalls.filter(tc => tc && !tc.serverSide).map(canonicalToolInvokeCall)   // 写歪的代理壳先还原(见该函数头注)
+          .map(tc => retierToolInvokeCall(tc, toolLoading.catalog, bridgedRoute, config));                      // 61-B2:代理档低报只升不降地改道
         const outputLimited = providerWireOutputLimited(call.finishReason);
         const toolArgsRefusal = tc => (isProviderToolArgsObject(tc.rawArgs) ? null : {
           ok: false, argsInvalid: true,
