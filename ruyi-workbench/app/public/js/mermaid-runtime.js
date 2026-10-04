@@ -1,5 +1,7 @@
 'use strict';
 import { installFocusTrap } from './modal.js';
+import { prepareMermaidSource, repairMermaidSource } from './mermaid-source.js';
+import { polishMermaidSvg } from './mermaid-postprocess.js';
 // 109a: Mermaid 图表渲染运行时(纯离线、懒加载、失败即降级)。
 //
 // 设计约束(与 CONTRIBUTING 五条红线对齐):
@@ -8,7 +10,7 @@ import { installFocusTrap } from './modal.js';
 //      调用方保留原始代码块并补一行提示。缺库是正式路径之一,不是错误,不刷控制台、不重试风暴
 //      (首次失败的结果被永久缓存,后续调用直接拿到 null)。
 //   3. 安全:securityLevel: 'strict' 由 mermaid 自身消毒输出;我们不调用 bindFunctions,
-//      因此 click 指令永远不会接线。SVG 注入点在 sanitizeNode() 跑完之后,不经过 Markdown 白名单。
+//      因此 click 回调永远不会接线;click href / 标签里的 <a href> 画出来的链接由 mermaid-postprocess.js 摘掉 href。SVG 注入点在 sanitizeNode() 跑完之后,不经过 Markdown 白名单。
 //   4. 流式:聊天流式期间正文是纯文本节点,只有封段(sealLiveTextSegment)与整会话重绘才走 Markdown。
 //      重绘会重建 DOM,所以按「源码哈希 + 主题」在包裹节点上做缓存键,源码未变则跳过重渲染。
 //
@@ -84,8 +86,8 @@ const MERMAID_PALETTES = Object.freeze({
     textColor: '#c4cee0',
     titleColor: '#e9edf5',
     edgeLabelBackground: '#1a2436',
-    clusterBkg: '#1e2840',
-    clusterBorder: '#33425e',
+    clusterBkg: '#202c47',              // 子图底:修前 #1e2840 与面板只差 1.05:1,子图框几乎看不出
+    clusterBorder: '#3d4e6e',
     noteBkgColor: '#3a3324',
     noteBorderColor: '#b8913f',
     noteTextColor: '#f2e7cc',
@@ -121,7 +123,7 @@ const MERMAID_PALETTES = Object.freeze({
     gridColor: '#33425e',
     todayLineColor: '#e56060',
     vertLineColor: '#9a72f0',
-    excludeBkgColor: '#1f2738',
+    excludeBkgColor: '#2d3a54',         // 甘特 excludes(周末)条纹:修前与面板同色,看不见
     attributeBackgroundColorOdd: '#1f2b45',
     attributeBackgroundColorEven: '#1a2436',
     rowOdd: '#1f2b45',
@@ -140,6 +142,11 @@ const MERMAID_PALETTES = Object.freeze({
     pieLegendTextColor: '#c4cee0',
     errorBkgColor: '#3a2228',
     errorTextColor: '#f2b8b8',
+    secondBkg: '#2c2752',               // 铁路图终结符底:base 主题默认 #ffffde 配浅字
+    dropShadow: 'none',                 // 时序图 box/rect 外的浅灰光晕(深底上像一圈毛边)
+    archGroupBorderColor: '#5f7090',    // 架构图分组框与无图标占位框:默认近黑
+    archEdgeColor: '#8fa0b8',
+    archEdgeArrowColor: '#8fa0b8',
   }),
   light: Object.freeze({
     darkMode: false,
@@ -195,7 +202,7 @@ const MERMAID_PALETTES = Object.freeze({
     gridColor: '#dbe2ee',               // --line
     todayLineColor: '#b42318',
     vertLineColor: '#7a5fd0',           // --accent-2
-    excludeBkgColor: '#eceff4',
+    excludeBkgColor: '#d9e0ec',
     attributeBackgroundColorOdd: '#ffffff',
     attributeBackgroundColorEven: '#f2f5fa',
     rowOdd: '#ffffff',
@@ -214,8 +221,29 @@ const MERMAID_PALETTES = Object.freeze({
     pieLegendTextColor: '#33405a',
     errorBkgColor: '#fbe4e1',
     errorTextColor: '#8a1c12',
+    secondBkg: '#efe9fb',
+    archGroupBorderColor: '#9aa8c0',
+    archEdgeColor: '#5f6c85',
+    archEdgeArrowColor: '#5f6c85',
   }),
 });
+
+// 各图种自己的一组主题变量(base 主题不推导它们,默认值是给白底准备的:暗色下成了黑字黑线)。
+// 2026-10-04 五路走查逐个对过 vendor 包里的键名;只给暗色需要的那一半时,浅色沿用 mermaid 默认。
+const MERMAID_TYPE_THEMES = Object.freeze({
+  dark: Object.freeze({
+    packet: { startByteColor: '#aab7cc', endByteColor: '#aab7cc', labelColor: '#e9edf5', titleColor: '#e9edf5', blockStrokeColor: '#5b7de3', blockFillColor: '#22335a' },
+    treeView: { labelColor: '#e9edf5', lineColor: '#8fa0b8', iconColor: '#8fa0b8' },
+    cynefin: { complexBg: '#1f3a33', complicatedBg: '#1f2f4f', chaoticBg: '#4a2a2f', clearBg: '#4a3f24', confusionBg: '#3a2a4f' },
+    radar: { axisColor: '#8fa0b8', graticuleColor: '#8fa0b8', graticuleOpacity: 0.15 },
+  }),
+  light: Object.freeze({
+    packet: { startByteColor: '#5f6c85', endByteColor: '#5f6c85', labelColor: '#1b2436', titleColor: '#1b2436', blockStrokeColor: '#7d97dc', blockFillColor: '#e7edfa' },
+    treeView: { labelColor: '#1b2436', lineColor: '#5f6c85', iconColor: '#5f6c85' },
+  }),
+});
+// gitGraph 的 HIGHLIGHT 提交标记(gitInv*):mermaid 由压暗/提亮后的分支色反推,深底上 1.6:1、浅底上 1.5:1。
+const MERMAID_GIT_HIGHLIGHT = Object.freeze({ dark: '#ffd166', light: '#b7791f' });
 
 // mermaid.initialize 的 themeVariables:主题色板 + 分类色展开。
 // base 主题在暗色下会把 cScale 再压暗 75%(分支几乎成黑块)、git 色再提亮,显式给值才稳得住;
@@ -232,8 +260,11 @@ export function mermaidThemeVariables(theme, fontFamily) {
     if (i < 8) {
       vars[`git${i}`] = color;
       vars[`gitBranchLabel${i}`] = '#ffffff';
+      vars[`gitInv${i}`] = MERMAID_GIT_HIGHLIGHT[theme === 'light' ? 'light' : 'dark'];
+      vars[`venn${i + 1}`] = color;   // 维恩图:base 主题推导成主色压暗 30%,深底上近黑
     }
   });
+  for (const [key, value] of Object.entries(MERMAID_TYPE_THEMES[theme === 'light' ? 'light' : 'dark'])) vars[key] = { ...value };
   vars.xyChart = {
     backgroundColor: palette.background,
     titleColor: palette.titleColor,
@@ -246,6 +277,8 @@ export function mermaidThemeVariables(theme, fontFamily) {
     yAxisTickColor: palette.lineColor,
     yAxisLineColor: palette.lineColor,
     plotColorPalette: MERMAID_CATEGORICAL.join(','),
+    legendTextColor: palette.textColor,   // 修前回落到默认主题的 #131300:暗色下图例是黑字
+    dataLabelColor: palette.textColor,
   };
   if (fontFamily) vars.fontFamily = fontFamily;
   return vars;
@@ -257,15 +290,35 @@ export function mermaidThemeVariables(theme, fontFamily) {
 //   · 时间线 / 思维导图的主轴与事件虚线:mermaid 拿分支标签色(cScaleLabel,我们给的白)描线,
 //     亮色下整条轴看不见;改回 lineColor。
 //   · 暗色下桑基图的流带:mermaid 在元素上内联写死 mix-blend-mode:multiply,深底上正片叠底成一片近黑,
-//     只能 !important 盖回 normal(浅色下叠底本来就对,不动)。
+//     只能 !important 盖回 normal(浅色下叠底本来就对,不动);节点名压在流带上,给一圈底色描边。
+//   · 时间线事件框:mermaid 自带 filter:brightness(120%),把分支色提亮到白字只剩 2.9:1。
+//   · ER 的「零或一 / 零或多」端点圆:标记里写死 fill="white",暗色下是一颗实心白点(浅色下是空心圈)。
+//   · 暗色下的 C4:关系线、关系文字、边界框写死 #444444(没有主题变量),深底上几乎看不见。
+//   · 暗色下的事件建模图:泳道写死近白底,泳道名与浅色卡片上的浅字都读不出。
+//   · 浅色下的树图:父级标题是白字压在 60% 透明的浅蓝上。
 export function mermaidThemeCss(theme) {
   const dark = theme !== 'light';
   const palette = MERMAID_PALETTES[dark ? 'dark' : 'light'];
   const rules = [
     `.grid .tick line { stroke: ${palette.gridColor}; }`,
     `.lineWrapper line { stroke: ${palette.lineColor}; }`,
+    '.eventWrapper { filter: none; }',
+    `.marker.zeroOrOne circle, .marker.zeroOrMore circle { fill: ${palette.background}; }`,
   ];
-  if (dark) rules.push('g.links > g.link { mix-blend-mode: normal !important; }');
+  if (dark) {
+    rules.push(
+      'g.links > g.link { mix-blend-mode: normal !important; }',
+      `.node-labels text { paint-order: stroke; stroke: ${palette.background}; stroke-width: 3px; }`,
+      'text[fill="#444444"] { fill: #aab7cc; }',
+      'line[stroke="#444444"], path[stroke="#444444"] { stroke: #8fa0b8; }',
+      'rect[stroke="#444444"] { stroke: #5f7090; }',
+      '.em-swimlane rect { fill: #1f2a40; stroke: #33425e; }',
+      '.em-swimlane text { fill: #c4cee0; }',
+      '.em-box foreignObject { color: #1b2436; }',
+    );
+  } else {
+    rules.push('.treemapSectionLabel, .treemapSectionValue { fill: #1b2436 !important; }');
+  }
   return rules.join('\n');
 }
 
@@ -333,6 +386,19 @@ export function ensureMermaid(opts = {}) {
   return loadPromise;
 }
 
+// mermaid 11.17.2 默认的 secure 名单(指令改不动的键);在它之上再锁主题三件。
+// 运行时还会并上库自己报的那份(升级 vendor 后新增的键不会被这份写死的清单漏掉)。
+const MERMAID_SECURE_DEFAULTS = Object.freeze(['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'suppressErrorRendering', 'maxEdges']);
+function secureKeys(lib) {
+  let fromLib = [];
+  try {
+    const api = lib && lib.mermaidAPI;
+    const site = api && typeof api.getSiteConfig === 'function' ? api.getSiteConfig() : null;
+    if (site && Array.isArray(site.secure)) fromLib = site.secure;
+  } catch { fromLib = []; }
+  return [...new Set([...MERMAID_SECURE_DEFAULTS, ...fromLib, 'theme', 'themeVariables', 'themeCSS'])];
+}
+
 // initialize 只在签名变化时重跑(首次 + 主题切换)。startOnLoad:false 阻止 mermaid 自行扫描全页。
 function initializeOnce(lib, theme, fontFamily) {
   const signature = `${theme}|${fontFamily}`;
@@ -341,6 +407,9 @@ function initializeOnce(lib, theme, fontFamily) {
     lib.initialize({
       startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true,
       theme: 'base', themeVariables: mermaidThemeVariables(theme, fontFamily), themeCSS: mermaidThemeCss(theme), fontFamily,
+      // 图里的 %%{init}%% / frontmatter config 不许改主题:作者写 theme:forest 时,forest 写死的节点底色与我们
+      // 钉住的字色混在一起(暗色下浅字压浅绿,1.14:1)。布局类配置(curve、htmlLabels、gantt 边距 ……)照常生效。
+      secure: secureKeys(lib),
     });
     initSignature = signature;
   } catch { /* 初始化失败按未初始化处理,render 会随之失败并降级 */ }
@@ -447,8 +516,24 @@ function svgNaturalSize(svg) {
   return svgPixelSize(svg);
 }
 
+// 导出的 SVG 写上自然宽高:视图里的 <svg width="100%" style="max-width:…"> 拿到看图软件或 <img> 里
+// 没有固有尺寸(实测宽图被量成 300×5)。
+function exportableSvgMarkup(svg, markup) {
+  if (!svg || typeof svg.cloneNode !== 'function') return markup;
+  try {
+    const { width, height } = svgNaturalSize(svg);
+    const copy = svg.cloneNode(true);
+    copy.setAttribute('width', String(Math.round(width)));
+    copy.setAttribute('height', String(Math.round(height)));
+    copy.style.maxWidth = 'none';
+    copy.style.minWidth = '';
+    return new globalThis.XMLSerializer().serializeToString(copy);
+  } catch { return markup; }
+}
+
 function exportSvg(doc, view, notify) {
-  const { markup } = svgMarkupOf(view);
+  const { svg, markup: raw } = svgMarkupOf(view);
+  const markup = exportableSvgMarkup(svg, raw);
   if (!markup) { notify.fail(); return; }
   let url = '';
   try {
@@ -613,15 +698,22 @@ function openMermaidViewer(doc, markup, t) {
     return false;
   };
   // 拖拽平移:在图或遮罩空白处按下都生效,控制条上的按下不算。
+  // 在遮罩空白处拖一下再松手,浏览器照样补发一次 click —— 修前这一下把灯箱关了(走查 2026-10-04)。
+  // 记下「这一按动过」,随后那一次 click 不算点遮罩。
+  let dragged = false;
   overlay.addEventListener('pointerdown', event => {
     const target = event && event.target;
     if (inside(target, controls)) return;
     if (target !== overlay && !inside(target, stage)) return;
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    dragged = false;
     const origin = { px: event.clientX || 0, py: event.clientY || 0, x: state.x, y: state.y };
     const move = e => {
-      state.x = origin.x + (e.clientX || 0) - origin.px;
-      state.y = origin.y + (e.clientY || 0) - origin.py;
+      const dx = (e.clientX || 0) - origin.px;
+      const dy = (e.clientY || 0) - origin.py;
+      if (Math.abs(dx) + Math.abs(dy) > 4) dragged = true;
+      state.x = origin.x + dx;
+      state.y = origin.y + dy;
       apply();
     };
     const up = () => {
@@ -633,23 +725,42 @@ function openMermaidViewer(doc, markup, t) {
     overlay.addEventListener('pointerup', up);
     overlay.addEventListener('pointercancel', up);
   });
-  // 滚轮缩放,以指针位置为锚(不缩放页面本身)。
+  // 滚轮缩放,以指针位置为锚(不缩放页面本身)。倍率随滚动量走:修前每个 wheel 事件一律 ×1.25,
+  // 触控板一次轻扫发十几个小事件,一下就撞到 8 倍上限。单个事件仍封顶 ×1.25。
   overlay.addEventListener('wheel', event => {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
     const rect = typeof overlay.getBoundingClientRect === 'function' ? overlay.getBoundingClientRect() : { left: 0, top: 0 };
     const cx = (event.clientX || 0) - (rect.left || 0);
     const cy = (event.clientY || 0) - (rect.top || 0);
-    zoomAt(cx, cy, state.scale * (event.deltaY < 0 ? VIEWER_ZOOM_STEP : 1 / VIEWER_ZOOM_STEP));
+    const delta = (Number(event.deltaY) || 0) * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1);
+    const factor = Math.min(VIEWER_ZOOM_STEP, Math.max(1 / VIEWER_ZOOM_STEP, Math.exp(-delta * 0.002)));
+    zoomAt(cx, cy, state.scale * factor);
   }, { passive: false });
   overlay.addEventListener('keydown', event => {
-    if (event && event.key === 'Escape') {
+    const key = event && event.key;
+    // Ctrl/Alt/Meta 组合键留给浏览器(Ctrl± 页面缩放、Alt+← 后退),不抢。
+    if (event && (event.ctrlKey || event.altKey || event.metaKey) && key !== 'Escape') return;
+    if (key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       closeMermaidViewer(doc);
+      return;
     }
+    // 键盘也能缩放 / 复位 / 平移(焦点在控制条按钮上时,方向键不抢)。
+    const onButton = event.target && event.target.tagName === 'BUTTON';
+    const pan = { ArrowLeft: [40, 0], ArrowRight: [-40, 0], ArrowUp: [0, 40], ArrowDown: [0, -40] }[key];
+    if (key === '+' || key === '=') zoomAtCenter(state.scale * VIEWER_ZOOM_STEP);
+    else if (key === '-' || key === '_') zoomAtCenter(state.scale / VIEWER_ZOOM_STEP);
+    else if (key === '0') fit();
+    else if (pan && !onButton) { state.x += pan[0]; state.y += pan[1]; apply(); }
+    else return;
+    event.preventDefault();
   });
-  // 点遮罩空白处退出;点在图或控制条上不退出。
-  overlay.onclick = event => { if (event && event.target === overlay) closeMermaidViewer(doc); };
+  // 点遮罩空白处退出;点在图或控制条上不退出;拖拽平移松手补发的那一次 click 也不算。
+  overlay.onclick = event => {
+    if (dragged) { dragged = false; return; }
+    if (event && event.target === overlay) closeMermaidViewer(doc);
+  };
 
   host.appendChild(overlay);
   doc.__ruyiMermaidViewer = overlay;
@@ -659,6 +770,18 @@ function openMermaidViewer(doc, markup, t) {
     else if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
   } catch { /* 测试桩无 focus 不致命 */ }
   return overlay;
+}
+
+// 复制图源(工具条与回落提示共用一份):复制的是模型写的原文,不是预处理后的那份。
+function copySource(source, t, toast, notify) {
+  try {
+    const clipboard = globalThis.navigator && globalThis.navigator.clipboard;
+    if (!clipboard) return;
+    clipboard.writeText(source).then(
+      () => { if (typeof toast === 'function') toast(t('toast.copyCode'), 'ok'); },
+      () => notify.fail(),
+    );
+  } catch { notify.fail(); }
 }
 
 function buildToolbar(doc, ctx) {
@@ -673,16 +796,7 @@ function buildToolbar(doc, ctx) {
     toggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
   });
   toggle.setAttribute('aria-expanded', sourceOpen ? 'true' : 'false');
-  const copy = makeButton(doc, t('common.copy'), () => {
-    try {
-      const clipboard = globalThis.navigator && globalThis.navigator.clipboard;
-      if (!clipboard) return;
-      clipboard.writeText(source).then(
-        () => { if (typeof toast === 'function') toast(t('toast.copyCode'), 'ok'); },
-        () => notify.fail(),
-      );
-    } catch { notify.fail(); }
-  });
+  const copy = makeButton(doc, t('common.copy'), () => copySource(source, t, toast, notify));
   const openViewer = () => openMermaidViewer(doc, svgMarkupOf(view).markup, t);
   const zoomBtn = makeButton(doc, t('mermaid.viewerOpen'), openViewer);
   // 整图本身也可点开灯箱(光标由 CSS 给 zoom-in);工具条按钮走同一入口,行为只有一份。
@@ -713,61 +827,6 @@ function renderWidthFor(wrapper) {
   return Math.max(320, Math.floor(width - MERMAID_VIEW_CHROME_PX));
 }
 
-// ── 甘特图收尾 ────────────────────────────────────────────────────────────────────
-// mermaid 甘特图自身两处瑕疵,渲染后在离屏宿主里就地修(只动本模块刚拿到的那份 SVG):
-//   ① 刻度按 d3 默认约 10 格取:6 天的跨度会落到 12 小时一格,axisFormat 只到「日」时同一日期
-//      连标两遍(用户截图里的 10-05 10-05 10-06 …)。与前一格同字的整格去掉(连同那条网格线,
-//      剩下的线正好落在日界上);源码自己写了 tickInterval 时刻度是作者要的,只摘重复的字不摘线。
-//      剩下的字若仍互相压住,按实测字宽隔开、只摘字不摘线(量不到字宽的环境只做去重)。
-//      上下两条坐标轴(gantt.topAxis)是两个 g.grid,各算各的。
-//   ② 「今天」那条线无条件画:今天落在排期范围外时,它会压在左侧区段标题上。超出任务范围就去掉。
-function translateXOf(node) {
-  const transform = node && typeof node.getAttribute === 'function' ? node.getAttribute('transform') : '';
-  const match = /translate\(\s*(-?[\d.]+)/.exec(String(transform || ''));
-  return match ? Number(match[1]) : NaN;
-}
-
-function tidyGanttAxis(grid, explicitTicks) {
-  let previous = null;
-  let lastRight = -Infinity;
-  for (const tick of Array.from(grid.querySelectorAll('.tick'))) {
-    const text = tick.querySelector('text');
-    if (!text) continue;
-    const label = String(text.textContent || '');
-    if (label && label === previous) { (explicitTicks ? text : tick).remove(); continue; }
-    previous = label;
-    let width = 0;
-    try { width = text.getBBox().width; } catch { width = 0; }
-    const x = translateXOf(tick);
-    if (!(width > 0) || !Number.isFinite(x)) continue;
-    if (x - width / 2 < lastRight + 6) { text.remove(); continue; }
-    lastRight = x + width / 2;
-  }
-}
-
-function tidyGanttSvg(svg, { explicitTicks = false } = {}) {
-  if (!svg || typeof svg.querySelectorAll !== 'function') return;
-  if (svg.getAttribute('aria-roledescription') !== 'gantt') return;
-  for (const grid of Array.from(svg.querySelectorAll('g.grid'))) tidyGanttAxis(grid, explicitTicks);
-  const today = svg.querySelector('line.today');
-  if (today) {
-    const x = Number(today.getAttribute('x1'));
-    let min = Infinity;
-    let max = -Infinity;
-    for (const bar of Array.from(svg.querySelectorAll('rect.task'))) {
-      const left = Number(bar.getAttribute('x'));
-      const right = left + Number(bar.getAttribute('width'));
-      if (Number.isFinite(left)) min = Math.min(min, left);
-      if (Number.isFinite(right)) max = Math.max(max, right);
-    }
-    if (Number.isFinite(x) && Number.isFinite(min) && Number.isFinite(max) && (x < min - 1 || x > max + 1)) {
-      const group = today.parentNode;
-      if (group && group.classList && group.classList.contains('today')) group.remove();
-      else today.remove();
-    }
-  }
-}
-
 // SVG 自带底色:视图里与 .mermaid-view 的底同色(看不出差别),要紧的是灯箱与导出 ——
 // 暗色图是浅字,透明底的 SVG/PNG 拿到看图软件的白底上就看不见了。
 function paintSvgBackground(svg, theme) {
@@ -778,19 +837,52 @@ function paintSvgBackground(svg, theme) {
 
 // 在离屏宿主里收尾(它已挂进文档、有确定宽度):甘特图要量字宽,而调用方的容器可能还没进文档
 // (逐条画好再一次性挂上的那些路径)。写入的仍是 mermaid 在 strict 下消毒过的那段 SVG,与写进视图同级。
-function finishSvgInHost(host, markup, theme, source) {
+function finishSvgInHost(host, markup, theme, source, labels) {
   try {
     host.innerHTML = markup;
     const svg = typeof host.querySelector === 'function' ? host.querySelector('svg') : null;
     if (!svg) return markup;
     paintSvgBackground(svg, theme);
-    try { tidyGanttSvg(svg, { explicitTicks: /\btickInterval\b/.test(source) }); } catch { /* 收尾失败保留 mermaid 原样输出 */ }
+    polishMermaidSvg(svg, { palette: MERMAID_PALETTES[theme === 'light' ? 'light' : 'dark'], source, labels });
     return host.innerHTML || markup;
   } catch { return markup; }
 }
 
+// 解析器原话的第一行(「Parse error on line 3:」之类),回落提示里给出来,好让用户把它连同源码贴回给模型。
+function firstErrorLine(error) {
+  const text = String((error && (error.message || error.str)) || error || '').trim();
+  const line = text.split(/\r?\n/).find(part => part.trim()) || '';
+  return line.length > 160 ? `${line.slice(0, 157)}…` : line;
+}
+
+// 一块图:先过 prepareMermaidSource(只改 mermaid 会静默画错的写法)再画;抛错就过一遍
+// repairMermaidSource(只认今天必然解析失败的写法)再画一次。返回 { markup, error, repaired }。
 async function renderOneSvg(doc, lib, item, theme, fontFamily) {
   initializeOnce(lib, theme, fontFamily);
+  let prepared = item.source;
+  try { prepared = prepareMermaidSource(item.source); } catch { prepared = item.source; }
+  const attempts = [{ source: prepared, labels: null }];
+  let markup = '';
+  let error = null;
+  let repaired = false;
+  for (let i = 0; i < attempts.length && !markup; i += 1) {
+    const attempt = attempts[i];
+    try {
+      markup = await renderAttempt(doc, lib, item, attempt.source, theme, attempt.labels);
+      repaired = i > 0;
+    } catch (failure) {
+      if (!error) error = failure;
+      if (i === 0) {
+        let fix = null;
+        try { fix = repairMermaidSource(prepared); } catch { fix = null; }
+        if (fix && fix.source) attempts.push(fix);
+      }
+    }
+  }
+  return { markup, error: markup ? null : error, repaired };
+}
+
+async function renderAttempt(doc, lib, item, source, theme, labels) {
   renderSeq += 1;
   // Mermaid measures in the live DOM. Keep its temporary SVGs in a private,
   // offscreen host and always remove that host, including on parser failures.
@@ -801,14 +893,12 @@ async function renderOneSvg(doc, lib, item, theme, fontFamily) {
   renderHost.style.left = '-100000px';
   renderHost.style.width = `${renderWidthFor(item.wrapper)}px`;
   (doc.body || doc.documentElement).appendChild(renderHost);
-  let markup = '';
   try {
-    const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, item.source, renderHost);
-    markup = result && typeof result === 'object' ? String(result.svg || '') : String(result || '');
-    if (markup) markup = finishSvgInHost(renderHost, markup, theme, item.source);
-  } catch { markup = ''; }
-  finally { renderHost.remove(); }
-  return markup;
+    const result = await lib.render(`ruyi-mermaid-${Date.now().toString(36)}-${renderSeq}`, source, renderHost);
+    const markup = result && typeof result === 'object' ? String(result.svg || '') : String(result || '');
+    if (!markup) throw new Error('empty render');
+    return finishSvgInHost(renderHost, markup, theme, source, labels);
+  } finally { renderHost.remove(); }
 }
 
 // ── 跟随亮暗切换 ──────────────────────────────────────────────────────────────────
@@ -847,7 +937,33 @@ function watchThemeChanges(doc) {
   } catch { /* 没有 MutationObserver 的宿主:不跟随切换,刷新页面后按新主题画 */ }
 }
 
-function degrade(doc, wrapper, pre, hash, theme, message) {
+// 让一拍:优先 MessageChannel(后台标签页里 setTimeout 被节流到 1 s 一拍,8 张图要等 8 s),没有再退 setTimeout。
+function yieldToEventLoop() {
+  return new Promise(resolve => {
+    const Channel = globalThis.MessageChannel;
+    if (typeof Channel !== 'function') { setTimeout(resolve, 0); return; }
+    const channel = new Channel();
+    channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); resolve(); };
+    channel.port2.postMessage(0);
+  });
+}
+
+// 宽图别缩成一条:.mermaid-view svg 的 max-width:100% 会把 30 个节点的横向流程图压到 0.2 倍(字 3px)。
+// 给 SVG 一个最小宽度 = 自然宽度的 0.6 倍,再宽就让 .mermaid-view(overflow-x:auto)横向滚;
+// 想看全貌点开放大。灯箱与导出各自写死宽高,不受它影响。
+const MERMAID_MIN_SCALE = 0.6;
+function applyScaleFloor(view) {
+  const svg = view && typeof view.querySelector === 'function' ? view.querySelector('svg') : null;
+  if (!svg || !svg.style) return;
+  try {
+    const { width } = svgNaturalSize(svg);
+    if (width > 0) svg.style.minWidth = `${Math.round(width * MERMAID_MIN_SCALE)}px`;
+  } catch { /* 量不到就不设 */ }
+}
+
+// 回落成源码:源码照常显示,下面一行提示;画失败时再补一行解析器原话(第几行出的错),
+// 再给一枚「复制」—— 普通代码块有复制钮,图的回落修前没有(走查 2026-10-04)。
+function degrade(doc, wrapper, pre, hash, theme, message, extra = {}) {
   resetWrapper(wrapper, pre);
   pre.hidden = false;
   if (pre.classList) pre.classList.remove('mermaid-source-hidden');
@@ -855,6 +971,20 @@ function degrade(doc, wrapper, pre, hash, theme, message) {
   hint.className = 'mermaid-hint';
   hint.textContent = message;
   wrapper.appendChild(hint);
+  const { detail, source, t, toast } = extra;
+  if (detail && typeof t === 'function') {
+    const line = doc.createElement('div');
+    line.className = 'mermaid-hint mermaid-hint-detail';
+    line.textContent = t('mermaid.renderFailedDetail', { detail });
+    wrapper.appendChild(line);
+  }
+  if (typeof source === 'string' && typeof t === 'function') {
+    const bar = doc.createElement('div');
+    bar.className = 'mermaid-tools';
+    const notify = { fail: () => { if (typeof toast === 'function') toast(t('mermaid.exportFailed'), 'err'); } };
+    bar.appendChild(makeButton(doc, t('common.copy'), () => copySource(source, t, toast, notify)));
+    wrapper.appendChild(bar);
+  }
   wrapper.dataset.mermaidHash = hash;
   wrapper.dataset.mermaidTheme = theme;
   wrapper.dataset.mermaidState = 'fallback';
@@ -896,17 +1026,20 @@ export async function renderMermaidBlocks(container, opts = {}) {
   let lib = null;
   try { lib = await ensure({ document: doc }); } catch { lib = null; }
   if (!lib || typeof lib.render !== 'function') {
-    for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'));
+    for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'), { source: item.source, t, toast });
     return 0;
   }
   watchThemeChanges(doc);
   const fontFamily = appFontFamily(doc);
 
   let rendered = 0;
-  for (const item of pending) {
+  for (const [index, item] of pending.entries()) {
+    // 一条回复里有好几张图时,块与块之间让一拍主线程(修前 8 张图连着画,一个长任务卡 0.9 s)。
+    if (index > 0) await yieldToEventLoop();
     blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure });
-    let svgMarkup = '';
-    try { svgMarkup = await enqueueRender(() => renderOneSvg(doc, lib, item, theme, fontFamily)); } catch { svgMarkup = ''; }
+    let outcome = { markup: '', error: null, repaired: false };
+    try { outcome = await enqueueRender(() => renderOneSvg(doc, lib, item, theme, fontFamily)); } catch { outcome = { markup: '', error: null, repaired: false }; }
+    const svgMarkup = outcome.markup;
     if (!svgMarkup) {
       const oldView = item.previous && typeof item.wrapper.querySelector === 'function' ? item.wrapper.querySelector('.mermaid-view') : null;
       if (oldView) {
@@ -915,7 +1048,8 @@ export async function renderMermaidBlocks(container, opts = {}) {
         item.wrapper.dataset.mermaidState = 'ok';
         continue;
       }
-      degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'));
+      degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'),
+        { detail: firstErrorLine(outcome.error), source: item.source, t, toast });
       continue;
     }
     resetWrapper(item.wrapper, item.pre);
@@ -937,6 +1071,9 @@ export async function renderMermaidBlocks(container, opts = {}) {
     }
     item.pre.hidden = !sourceOpen;
     if (item.pre.classList) item.pre.classList.toggle('mermaid-source-hidden', !sourceOpen);
+    applyScaleFloor(view);
+    if (outcome.repaired) item.wrapper.dataset.mermaidRepaired = '1';
+    else if (item.wrapper.dataset) delete item.wrapper.dataset.mermaidRepaired;
     item.wrapper.dataset.mermaidState = 'ok';
     rendered += 1;
   }

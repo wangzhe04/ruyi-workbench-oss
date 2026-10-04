@@ -785,3 +785,8 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
+//   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。

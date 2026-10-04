@@ -21,6 +21,13 @@ require('./lib/self-isolate-home.js'); // 换机器：直跑时家目录自隔�
 //   B9  甘特图按栏宽排版、同日刻度不重复、排期外的「今天」线去掉（排期内保留）、网格线用色板线色；
 //   B10 浅色下灯箱是压暗的实色幕布 + 实底卡片（修前 46% 白毛玻璃 + 透明底图，光标糊在里面）。
 //
+// 2026-10-04 用户请 Sonnet 分五路把 mermaid 各种图走查一遍，追加（每条都是走查实测到的毛病）：
+//   B7d 导出的 SVG 带固有宽高（修前 width="100%" 无高，宽图在看图器里量成 300×5）；
+//   B11 模型常写的「画不出来 / 画错」：括号标签、中文 xychart、中文桑基图自动修好再画；浅底节点配深字；
+//       click 链接失效；架构图图标不被挤乱；C4 关系字不再是 #444；时序图 rect 高亮块变淡；宽图不缩成一条；
+//       真画不了的回落里有解析器原话与「复制」钮；
+//   B12 灯箱：在遮罩上拖拽后松手不关；触控板式的小滚动按量缩放（修前每个事件都 ×1.25）。
+//
 // 夹具：确定性 fake provider —— 回答里带一段 ```mermaid 围栏。后端零改动。
 
 (async () => {
@@ -401,7 +408,12 @@ try {
         png.cornerAlpha = ctx.getImageData(0, 0, 1, 1).data[3];
       }
       const svg = saved.find(item => item.name.endsWith('.svg'));
-      if (svg) svg.text = await svg.blob.text();
+      if (svg) {
+        svg.text = await svg.blob.text();
+        const root = new DOMParser().parseFromString(svg.text, 'image/svg+xml').documentElement;
+        svg.width = root.getAttribute('width');
+        svg.height = root.getAttribute('height');
+      }
       return saved.map(({ blob, ...rest }) => rest);
     } finally { URL.createObjectURL = create; HTMLAnchorElement.prototype.click = click; }
   })()`);
@@ -410,6 +422,9 @@ try {
   ok(exports.some(item => item.name.endsWith('.png') && item.cornerAlpha === 255)
     && exports.some(item => item.name.endsWith('.svg') && /background-color:\s*rgb\(26, 36, 54\)/.test(item.text || '')),
     `B7c 导出带图的底色（PNG 角落不透明、SVG 根上写着暗色 --panel-2；实得 alpha=${(exports.find(item => item.name.endsWith('.png')) || {}).cornerAlpha}）`);
+  const svgExport = exports.find(item => item.name.endsWith('.svg')) || {};
+  ok(/^\d+$/.test(String(svgExport.width)) && /^\d+$/.test(String(svgExport.height)) && Number(svgExport.height) > 20,
+    `B7d 导出的 SVG 带固有宽高（实得 width=${svgExport.width} height=${svgExport.height}；修前 width="100%"、无高）`);
   const failures = await cdp.evaluate(`(async () => {
     const { renderMermaidBlocks } = await import('/js/mermaid-runtime.js');
     const root = document.createElement('div');
@@ -556,6 +571,126 @@ try {
   ok(lightBox.card === 'rgb(247, 249, 252)' && lightBox.pad === '20px' && lightBox.svgBg === 'rgb(247, 249, 252)',
     `B10b 图落在实底卡片上（卡片 ${lightBox.card}、内边距 ${lightBox.pad}、图底 ${lightBox.svgBg}）`);
   ok(lightBox.cursor === 'grab', `B10c 灯箱仍是抓手光标（${lightBox.cursor}）`);
+
+  /* ═════════ B11 五路走查实测的毛病（暗色）═════════ */
+  const audit = await cdp.evaluate(`(async () => {
+    const { renderMermaidBlocks } = await import('/js/mermaid-runtime.js');
+    const { t } = await import('/js/i18n.js');
+    const host = document.createElement('div');
+    host.className = 'md';
+    host.style.cssText = 'position:fixed;left:0;top:0;width:900px;z-index:-1';
+    document.body.appendChild(host);
+    const cases = {
+      special: 'flowchart TD\\n A[调用 f(x)] --> B[/api/users]\\n B -->|成功 (200)| C[user@x.com]  %% 注释',
+      xy: 'xychart-beta\\n title 月度收入 (万元)\\n x-axis [一月, 二月, 三月]\\n y-axis 收入 0 --> 100\\n bar [30, 50, 70]',
+      sankey: 'sankey-beta\\n\\n线上渠道,注册用户,120\\n注册用户,付费用户,40',
+      styled: 'flowchart LR\\n A[浅底节点] --> B[普通]\\n style A fill:#ffccff,stroke:#333',
+      click: 'flowchart LR\\n A[官网] --> B[文档]\\n click A "https://example.com" _blank',
+      arch: 'architecture-beta\\n group api(cloud)[API]\\n service db(database)[DB] in api\\n service s(server)[S] in api\\n db:L -- R:s',
+      c4: 'C4Context\\n Person(u, "用户")\\n System(s, "系统")\\n Rel(u, s, "使用")',
+      seqRect: 'sequenceDiagram\\n A->>B: 去\\n rect rgb(191, 223, 255)\\n B->>A: 回\\n end',
+      wide: 'flowchart LR\\n ' + Array.from({ length: 16 }, (_, i) => 'S' + i + '[第' + i + '步处理]').join(' --> '),
+      bad: 'flowchart TD\\n A[未闭合',
+      // 走查复核(2026-10-04)抓到的三处「原本画对、被改坏」:
+      autonum: 'sequenceDiagram\\n autonumber\\n A->>B: 第一步\\n B->>A: 第二步',
+      annot: 'classDiagram\\n class Order{\\n  <<Aggregate Root>>\\n  +List<Item> items\\n }',
+      sankeyAscii: 'sankey-beta\\n\\nN1xa,注册用户,10\\n注册用户,付费,4',
+    };
+    for (const [id, source] of Object.entries(cases)) {
+      const box = document.createElement('div');
+      box.dataset.case = id;
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      code.className = 'language-mermaid';
+      code.textContent = source;
+      pre.appendChild(code);
+      box.appendChild(pre);
+      host.appendChild(box);
+    }
+    await renderMermaidBlocks(host, { t });
+    const box = id => host.querySelector('[data-case="' + id + '"]');
+    const block = id => box(id).querySelector('.mermaid-block');
+    const svg = id => box(id).querySelector('.mermaid-view > svg');
+    const out = {};
+    out.states = Object.fromEntries(Object.keys(cases).map(id => [id, block(id).dataset.mermaidState + (block(id).dataset.mermaidRepaired ? '+repaired' : '')]));
+    out.sankeyText = svg('sankey') ? Array.from(svg('sankey').querySelectorAll('text')).map(n => n.textContent).join('|') : '';
+    // 字落在 span.nodeLabel 里那层 <p> 上（有自己文字节点的那一层），量它。
+    const label = svg('styled') && Array.from(svg('styled').querySelectorAll('g.node foreignObject *'))
+      .find(n => n.childElementCount === 0 && n.textContent === '浅底节点');
+    out.styledColor = label ? getComputedStyle(label).color : '';
+    out.links = svg('click') ? Array.from(svg('click').querySelectorAll('a')).map(a => a.getAttribute('href') || a.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || '') : null;
+    // 修前 .mermaid-view svg{height:auto} 也落在嵌套的图标 <svg> 上:它的视口被撑成整张图的高(实测 262px),
+    // 图标在这么高的框里居中,整排往下错位 ~90px。按几何量:图标实际的上沿 vs 父层变换给它的位置(x/y 属性)。
+    // (计算样式 height 不可靠:Edge 对嵌套 <svg> 一律报 auto。)
+    out.icons = svg('arch') ? Array.from(svg('arch').querySelectorAll('svg svg')).map(n => {
+      const m = n.parentNode.getScreenCTM();
+      const expected = m.f + m.d * (Number(n.getAttribute('y')) || 0);
+      return Math.round(n.getBoundingClientRect().top - expected);
+    }) : [];
+    const rel = svg('c4') && Array.from(svg('c4').querySelectorAll('text')).find(n => n.textContent === '使用');
+    out.c4Rel = rel ? getComputedStyle(rel).fill : '';
+    const region = svg('seqRect') && svg('seqRect').querySelector('rect.rect');
+    out.seqRect = region ? Number(getComputedStyle(region).fillOpacity) : -1;
+    const wideView = box('wide').querySelector('.mermaid-view');
+    out.wide = { minWidth: svg('wide') ? svg('wide').style.minWidth : '', scrolls: wideView ? wideView.scrollWidth > wideView.clientWidth + 10 : false };
+    const digit = svg('autonum') && svg('autonum').querySelector('text.sequenceNumber');
+    out.autonum = digit ? { fill: getComputedStyle(digit).fill, inline: digit.style.getPropertyValue('fill') } : null;
+    out.annot = svg('annot') ? Array.from(svg('annot').querySelectorAll('.label, text, span, p')).map(n => n.textContent).join('|') : '';
+    out.sankeyAscii = svg('sankeyAscii') ? Array.from(svg('sankeyAscii').querySelectorAll('text')).map(n => n.textContent).join('|') : '';
+    out.bad = {
+      detail: (box('bad').querySelector('.mermaid-hint-detail') || {}).textContent || '',
+      buttons: Array.from(box('bad').querySelectorAll('.mermaid-tools .mermaid-btn')).map(b => b.textContent),
+    };
+    host.remove();
+    return out;
+  })()`);
+  const states = audit.states || {};
+  ok(['special', 'xy', 'sankey'].every(id => states[id] === 'ok+repaired'),
+    `B11a 模型常写错的三种（括号标签+行尾注释、中文 xychart、中文桑基图）自动修好再画（实得 ${JSON.stringify(states)}；修前全部回落成源码）`);
+  ok(['styled', 'click', 'arch', 'c4', 'seqRect', 'wide', 'autonum', 'annot'].every(id => states[id] === 'ok')
+    && states.sankeyAscii === 'ok+repaired' && states.bad === 'fallback',
+    'B11b 其余照常画；真写坏的那张仍回落成源码');
+  ok(/线上渠道/.test(audit.sankeyText) && /注册用户/.test(audit.sankeyText) && !/N\d+x/.test(audit.sankeyText),
+    `B11c 桑基图画完把代号换回中文节点名（${audit.sankeyText}）`);
+  ok(audit.styledColor === 'rgb(27, 36, 54)', `B11d style A fill:#ffccff 的节点配深字（${audit.styledColor}；修前浅字压浅粉 1.2:1）`);
+  ok(Array.isArray(audit.links) && audit.links.length > 0 && audit.links.every(href => href === ''),
+    `B11e click 画出的链接摘掉 href（修前点一下整个工作台被导走；实得 ${JSON.stringify(audit.links)}）`);
+  ok(audit.icons.length >= 2 && audit.icons.every(offset => Math.abs(offset) <= 2),
+    `B11f 架构图图标（嵌套 <svg>）落在自己的位置上，不被 .mermaid-view 的 height:auto 撑成整图高、整排下移（偏移 ${JSON.stringify(audit.icons)} px；修前 ~90）`);
+  ok(audit.c4Rel !== '' && audit.c4Rel !== 'rgb(68, 68, 68)', `B11g 暗色下 C4 关系字不再是写死的 #444444（${audit.c4Rel}）`);
+  ok(audit.seqRect > 0 && audit.seqRect < 1, `B11h 时序图浅色 rect 高亮块在暗色下变淡，字与箭头读得清（fill-opacity=${audit.seqRect}）`);
+  ok(/^\d+px$/.test(audit.wide.minWidth) && audit.wide.scrolls === true,
+    `B11i 16 步横向流程图不缩成一条：有最小宽度、改为横向滚动（min-width=${audit.wide.minWidth}）`);
+  ok(audit.autonum && audit.autonum.inline === '' && audit.autonum.fill === 'rgb(15, 21, 32)',
+    `B11k 时序图 autonumber 的序号字色不被对比度兜底翻掉（序号画在箭头标记的圆上；实得 ${JSON.stringify(audit.autonum)}）`);
+  ok(/«Aggregate Root»/.test(audit.annot) && !/<<Aggregate Root>>|#lt;/.test(audit.annot),
+    'B11l 带空格的类注解 <<Aggregate Root>> 仍画成注解（«…»），不被预处理转成实体');
+  ok(/N1xa/.test(audit.sankeyAscii) && /注册用户/.test(audit.sankeyAscii) && !/N\d+x(?!a)/.test(audit.sankeyAscii),
+    `B11m 桑基图真实 ASCII 节点 N1xa 不被当成代号换掉（${audit.sankeyAscii.replace(/\n/g, ' ')}）`);
+  ok(/Parse error|line/i.test(audit.bad.detail) && audit.bad.buttons.join('|') === '复制',
+    `B11j 真画不了的：回落里有解析器原话与「复制」钮（${audit.bad.detail}｜${audit.bad.buttons.join('|')}）`);
+
+  /* ═════════ B12 灯箱：拖拽松手不关、小滚动按量缩放 ═════════ */
+  const viewer = await cdp.evaluate(`(async () => {
+    document.querySelector('#messages .mermaid-view').click();
+    const box = document.querySelector('.mermaid-lightbox');
+    if (!box) return null;
+    const fire = (type, x, y) => box.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    fire('pointerdown', 8, 8); fire('pointermove', 60, 40); fire('pointerup', 60, 40);
+    box.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const stillOpen = Boolean(document.querySelector('.mermaid-lightbox'));
+    const stage = box.querySelector('.mermaid-lightbox-stage');
+    const scaleOf = () => Number((/scale\\(([^)]+)\\)/.exec(stage.style.transform || '') || [0, 0])[1]);
+    const before = scaleOf();
+    for (let i = 0; i < 10; i++) box.dispatchEvent(new WheelEvent('wheel', { deltaY: -4, clientX: 300, clientY: 300, bubbles: true, cancelable: true }));
+    const ratio = scaleOf() / before;
+    box.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return { stillOpen, ratio, closedAfterPlainClick: !document.querySelector('.mermaid-lightbox') };
+  })()`);
+  ok(Boolean(viewer) && viewer.stillOpen === true, 'B12a 在遮罩上拖拽平移后松手，灯箱不关（修前松手补发的 click 把它关了）');
+  ok(Boolean(viewer) && viewer.ratio > 1 && viewer.ratio < 1.2,
+    `B12b 十个 deltaY=-4 的小滚动只放大 ${viewer && viewer.ratio.toFixed(3)} 倍（修前每个事件 ×1.25，一下撞到 8 倍上限）`);
+  ok(Boolean(viewer) && viewer.closedAfterPlainClick === true, 'B12c 不拖拽的单击遮罩照旧关闭');
   console.log(`SHOTS ${shots.lightbox}`);
 } catch (error) {
   fail += 1;

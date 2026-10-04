@@ -82,6 +82,8 @@ ok(notices.includes('mermaid.min.js'), 'C5 通知条目点名 mermaid.min.js 文
 // 架构还债批 3·D:载荷登记读打包器运行时的那两张表(require 零副作用),不再在源码里找字面量。
 const overlayTables = require(path.join(ROOT, 'ruyi-workbench', 'tools', 'build-overlay.js'));
 ok(overlayTables.PAYLOAD_FILES.includes('app/public/js/mermaid-runtime.js'), 'C6 运行时模块进入 overlay 载荷');
+ok(['mermaid-source.js', 'mermaid-postprocess.js'].every(name => overlayTables.PAYLOAD_FILES.includes(`app/public/js/${name}`)),
+  'C6b 109c 的源码预处理 / 画完收尾两个模块也进入 overlay 载荷(运行时静态 import 它们,缺一个整个图表运行时加载失败)');
 ok(overlayTables.OPTIONAL_PAYLOAD_FILES.includes('app/public/vendor/mermaid.min.js'), 'C7 可选 vendor 登记在 OPTIONAL_PAYLOAD_FILES');
 const narrativeCss = fs.readFileSync(path.join(PUBLIC, 'css', 'views', 'chat-narrative.css'), 'utf8');
 for (const selector of ['.mermaid-block', '.mermaid-view', '.mermaid-tools', '.mermaid-hint']) {
@@ -295,7 +297,7 @@ function buildContainer(doc, source = SOURCE) {
     const drift = Object.entries(anchors).filter(([key, token]) => vars[key] !== tokens[token]);
     ok(drift.length === 0, `D1b ${theme}: 色板锚点与 token 一致(底=--panel-2、字=--ink/--ink-2、线=--muted)` + (drift.length ? ' → 漂移: ' + drift.map(([k, tk]) => `${k}=${vars[k]} vs --${tk}=${tokens[tk]}`).join(', ') : ''));
     ok(vars.darkMode === (theme === 'dark') && vars.fontFamily === 'X Font', `D1c ${theme}: darkMode 与字体随主题/参数走`);
-    const nonHex = Object.entries(vars).filter(([key, value]) => typeof value === 'string' && !['fontFamily', 'pieOpacity'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value));
+    const nonHex = Object.entries(vars).filter(([key, value]) => typeof value === 'string' && !['fontFamily', 'pieOpacity', 'dropShadow'].includes(key) && !/^#[0-9a-f]{6}$/i.test(value));
     ok(nonHex.length === 0, `D1d ${theme}: 色值全是六位十六进制(mermaid 用 khroma 推导,不认 CSS 变量)` + (nonHex.length ? ' → ' + nonHex.map(([k, v]) => `${k}=${v}`).join(', ') : ''));
     ok(contrast(vars.primaryTextColor, vars.primaryColor) >= 7 && contrast(vars.textColor, vars.background) >= 4.5
       && contrast(vars.lineColor, vars.background) >= 3,
@@ -306,9 +308,24 @@ function buildContainer(doc, source = SOURCE) {
     ok(vars.pie1 === mod.MERMAID_CATEGORICAL[0] && vars.cScale0 === mod.MERMAID_CATEGORICAL[0] && vars.git0 === mod.MERMAID_CATEGORICAL[0]
       && vars.xyChart && vars.xyChart.plotColorPalette === mod.MERMAID_CATEGORICAL.join(','),
       `D1g ${theme}: 饼图 / 分支 / gitGraph / xychart 共用同一组分类色(暗色下不再被 base 主题压成黑块)`);
+    // 109c(2026-10-04 五路走查):base 主题不推导、默认给白底准备的那些图种变量也要给。
+    ok(vars.gitInv0 && vars.gitInv0 !== vars.git0 && contrast(vars.gitInv0, vars.background) >= 3,
+      `D1j ${theme}: gitGraph 的 HIGHLIGHT 提交标记显式给色,对图底 ≥ 3:1(修前 1.5~1.6:1;实得 ${vars.gitInv0 && contrast(vars.gitInv0, vars.background).toFixed(1)})`);
+    ok(vars.venn1 === mod.MERMAID_CATEGORICAL[0] && vars.venn8 === mod.MERMAID_CATEGORICAL[7],
+      `D1k ${theme}: 维恩图走分类色(修前 base 主题推导成主色压暗 30%,深底上近黑)`);
+    ok(vars.packet && contrast(vars.packet.labelColor, vars.packet.blockFillColor) >= 4.5 && contrast(vars.packet.startByteColor, vars.background) >= 4.5
+      && vars.treeView && contrast(vars.treeView.labelColor, vars.background) >= 4.5,
+      `D1l ${theme}: 报文图 / 树状图的字色对各自底色 ≥ 4.5:1(修前暗色下是黑字)`);
+    ok(vars.xyChart.legendTextColor === vars.textColor && vars.xyChart.dataLabelColor === vars.textColor,
+      `D1m ${theme}: xychart 图例与数据标签用色板字色(修前回落成默认主题的 #131300)`);
+    ok(/^#[0-9a-f]{6}$/i.test(vars.secondBkg || '') && /^#[0-9a-f]{6}$/i.test(vars.archGroupBorderColor || ''),
+      `D1n ${theme}: 铁路图终结符底与架构图分组框显式给色`);
     const css = mod.mermaidThemeCss(theme);
     ok(css.includes(`.grid .tick line { stroke: ${vars.gridColor}; }`) && css.includes(`.lineWrapper line { stroke: ${vars.lineColor}; }`),
       `D1h ${theme}: themeCSS 把甘特网格线与时间线主轴改回色板线色`);
+    ok(css.includes('.eventWrapper { filter: none; }') && css.includes(`.marker.zeroOrOne circle, .marker.zeroOrMore circle { fill: ${vars.background}; }`)
+      && (theme === 'light') !== css.includes('text[fill="#444444"]'),
+      `D1o ${theme}: themeCSS 补时间线事件框、ER 空心端点圈${theme === 'dark' ? '、C4 写死的 #444444' : ''}`);
   }
   const weak = mod.MERMAID_CATEGORICAL.filter(color => contrast('#ffffff', color) < 4);
   ok(mod.MERMAID_CATEGORICAL.length === 12 && weak.length === 0, `D1i 12 个分类色压白字对比度都 ≥ 4:1` + (weak.length ? ' → ' + weak.join(',') : ''));
@@ -347,6 +364,10 @@ function buildContainer(doc, source = SOURCE) {
     && initConfig.themeVariables && initConfig.themeVariables.background === mod.mermaidThemeVariables('dark').background
     && initConfig.themeCSS === mod.mermaidThemeCss('dark'),
     'D9b initialize 收到 base 主题 + 暗色色板 + themeCSS(securityLevel 仍是 strict)');
+  const secure = Array.isArray(initConfig && initConfig.secure) ? initConfig.secure : [];
+  ok(['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'suppressErrorRendering', 'maxEdges', 'theme', 'themeVariables', 'themeCSS']
+    .every(key => secure.includes(key)),
+    `D9d 图里的 %%{init}%% / frontmatter 改不动主题(secure 含 mermaid 默认六项 + theme/themeVariables/themeCSS;实得 ${secure.join(',')})`);
   ok(/^\d+px$/.test(hostWidth), `D9c 离屏渲染宿主有确定宽度(甘特图按它排版;修前不定宽,被排成一小条;实得 ${hostWidth || '(空)'})`);
   const views = wrapperB.querySelectorAll('.mermaid-view');
   ok(views.length === 1 && views[0].innerHTML.includes('data-stub="1"'), 'D10 SVG 落入 .mermaid-view');
