@@ -7,6 +7,15 @@ import { $, el, escapeHtml, autoGrow, toast } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
 
+// 点选一条命令时往输入框里插什么。内置命令(随包 offline-toolkit)两种引擎都插展开后的任务模板:Claude Code 里
+// 它们只以插件命令 `/offline-toolkit:<id>` 存在,而且只有跑过 install-workbench.ps1 装上插件才有;裸 `/<id>` 永远
+// 解析不了(2026-10 走查实测:「no command with that name」)。用户自己的 ~/.claude/commands 在 Agent CLI 下仍插
+// `/name`,由 CLI 自己展开。unit/offline-plugin-bundle.test.js 钉着。
+export function commandInsertionText(entry, providerMode) {
+  const expand = providerMode || entry.source === 'builtin';
+  return expand ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
+}
+
 export function createSkillsMemoryDomain({
   apiErrText = error => String(error && error.message || error || ''),
   currentWorkspace = () => '',
@@ -531,7 +540,7 @@ function buildCommandRow(s, i) {
   return it;
 }
 function commandInsertion(entry) {
-  return isProviderMode() ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
+  return commandInsertionText(entry, isProviderMode());
 }
 // 一键任务卡(Playbook):中文名主显 + playbook emoji 图标。点击走既有 openPlaybookModal。不可用置灰 + 原因。
 function buildPlaybookRow(s, i) {

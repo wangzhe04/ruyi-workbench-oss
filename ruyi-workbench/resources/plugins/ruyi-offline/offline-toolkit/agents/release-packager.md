@@ -1,3 +1,8 @@
+---
+name: release-packager
+description: Prepares and verifies an offline Windows release bundle from the staged output - contents, doctor run, MCP smoke test, static UI serving - without fetching from public package registries. Use when packaging a release or checking a built bundle.
+---
+
 # Release Packager
 
 You prepare offline Windows release bundles.

@@ -55859,6 +55859,10 @@ async function readSkillDir(baseDir, source, caps) {
 // ~/.claude/plugins/installed_plugins.json(v1:{plugins:{"名@市场":{installPath}}};v2:值是安装数组)——
 // marketplaces/ 下是「可装」的全集,不是已装的,不扫。~/.claude/settings.json 的 enabledPlugins 里显式 false 的跳过。
 // 只读、从不抛;每个插件取 <installPath>/skills。
+// 随包的 offline-toolkit(市场 ruyi-offline,3.0 前叫 win-workbench-offline)不算外来插件:它的技能就是 builtin 那一份,
+// 装进 Claude Code 后缓存的是安装时的旧副本。照常读会按优先级把 20 个内置技能顶成 source='claude-plugin' —— 译名丢失、
+// 已启用的 {id, source:'builtin'} 因来源对不上被静默跳过注入、内容停在安装那一刻。所以跳过,内置技能永远活读 resources/。
+const BUNDLED_PLUGIN_MARKETPLACES = ['ruyi-offline', 'win-workbench-offline'];
 async function claudePluginSkillDirs() {
   const claudeDir = agentCliHomes().claude;
   const installed = safeJsonParse(await readIfExists(path.join(claudeDir, 'plugins', 'installed_plugins.json'), 512 * 1024), null);
@@ -55869,6 +55873,7 @@ async function claudePluginSkillDirs() {
   const out = [];
   for (const [name, value] of Object.entries(plugins)) {
     if (enabled[name] === false) continue;
+    if (BUNDLED_PLUGIN_MARKETPLACES.includes(String(name).split('@').pop())) continue;
     const installs = Array.isArray(value) ? value : [value];
     for (const inst of installs) {
       const installPath = inst && typeof inst.installPath === 'string' ? inst.installPath : '';
