@@ -79,11 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
-//   `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
-//   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
 // 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
 //   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
 //   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
@@ -98,7 +93,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   其余规则零改动;图本身的配色在 js/mermaid-runtime.js 的色板里(mermaid 只认十六进制,不走 CSS 变量)。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 366ffa5:<两层>` 重算 = 5e1ed875…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '331a296dd74edfa686d07e636dc384c0102bc2e7edb5e316a3c41eb789ead6f6';
+// 2026-10 mermaid 五路走查续钉(前值 331a296d…＝2026-10 mermaid 图表配色续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-narrative.css`:`.mermaid-view svg` / `.mermaid-lightbox-stage svg` 收窄成子选择器 `> svg`
+//   (修前 height:auto 也落在架构图 / 流程图图标那层嵌套 <svg> 上,计算高度撑成整图高、图标整排错位);
+//   新增 `.mermaid-hint-detail`(回落提示下面那行解析器原话:等宽字、长行可断)。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-narrative.css>` 重算 = 331a296d…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '18e23fa17c4882d6d31ab32a5586adf003988f6ef239581f50ad9a8055f84b32';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

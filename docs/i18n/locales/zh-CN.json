@@ -2474,6 +2474,7 @@
   "mermaid.exportSvg": "导出 SVG",
   "mermaid.fallbackHint": "图表库未就绪，已按源码显示（把 vendor/mermaid.min.js 放好后重开页面即可渲染）。",
   "mermaid.renderFailed": "图表渲染失败，已按源码显示。",
+  "mermaid.renderFailedDetail": "解析器提示：{{detail}}（可连同源码一起复制给模型修正）",
   "mermaid.toggleSource": "源码",
   "mermaid.viewerClose": "关闭",
   "mermaid.viewerFit": "适应窗口",

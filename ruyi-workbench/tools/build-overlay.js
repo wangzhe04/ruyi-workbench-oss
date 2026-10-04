@@ -50,6 +50,9 @@ const PAYLOAD_FILES = [
   'app/public/js/chat-stream-runtime.js',
   // 109a: mermaid 图表运行时(懒加载 vendor/mermaid.min.js;vendor 缺失时原样降级)。
   'app/public/js/mermaid-runtime.js',
+  // 109c: mermaid 源码预处理 / 画完收尾(由 mermaid-runtime.js 静态 import)。
+  'app/public/js/mermaid-source.js',
+  'app/public/js/mermaid-postprocess.js',
   'app/public/js/settings-operations.js',
   'app/public/js/file-browser.js',
   'app/public/js/artifact-changes.js',

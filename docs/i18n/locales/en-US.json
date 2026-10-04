@@ -2474,6 +2474,7 @@
   "mermaid.exportSvg": "Export SVG",
   "mermaid.fallbackHint": "Diagram library unavailable; showing the source instead (add vendor/mermaid.min.js and reload to render it).",
   "mermaid.renderFailed": "Diagram rendering failed; showing the source instead.",
+  "mermaid.renderFailedDetail": "Parser says: {{detail}} (copy it with the source and ask the model to fix it)",
   "mermaid.toggleSource": "Source",
   "mermaid.viewerClose": "Close",
   "mermaid.viewerFit": "Fit to window",
