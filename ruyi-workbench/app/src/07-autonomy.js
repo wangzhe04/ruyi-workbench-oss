@@ -323,6 +323,7 @@ const NATIVE_TOOL_TIER = {
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
   observation_recall: 'read', // 105a: 只读当前会话快照,授权来自 ctx 会话归属 → auto-allow
+  checkpoint_list: 'read', // C4: 只读当前会话的检查点索引与撤销记录(会话取自 ctx,不触文件路径、不回滚;撤销只能由用户在界面做)→ auto-allow
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -523,6 +524,10 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
+  // C4:检查点清单归 files_write 而不是 core / files_read —— 它回答的是「刚才那些写操作哪些能撤」,只有手里有写类工具时才有用,
+  // 随写包一起装(写包本就按「修改/创建/删除…」意图装载,下面 classifyToolPacks 另补了撤销/回滚/检查点);放 core 会每回合常驻
+  // 并泄给 Claude CLI 的 MCP 清单(CLI 自己有 Edit/Write),放 files_read 则读文件的回合白背一个用不上的 schema。
+  checkpoint_list: 'files_write',
   dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code', debug_hypothesis: 'code', data_profile: 'code',
   git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
@@ -602,6 +607,7 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   agent_result: { capabilities: ['agent.workflow.result'], aliases: ['读取代理产出全文', '代理结果', 'read agent result'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  checkpoint_list: { capabilities: ['workspace.checkpoint.list'], aliases: ['查看检查点', '可撤销的修改', '哪些改动能撤销', '已撤销的修改', 'list checkpoints', 'what can be undone'] },
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
   workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
 });
@@ -735,7 +741,7 @@ function classifyToolPacks(message, attachments) {
   // 2026-10:泛化的动词(修改/编辑/更新/写入/创建/删除…)只带文件读写,不再顺带 code 包。code 包(git/依赖/审查/符号检索等
   // 12 个工具、约 2.3K token)本机 4 天 0 次使用,却被「file_edit」里的 edit、「更新」这类词带进来;而会话工具表只增不减,
   // 带进来就跟着整个会话。只有明确的代码意图(实现/修复/重构,或下一条的代码词)才装 code。
-  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write');
+  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|撤销|回滚|检查点|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update|undo|rollback|checkpoint)/i.test(s)) add('files_read', 'files_write');
   if (/(实现|修复|重构|implement|fix|refactor)/i.test(s)) add('code');
   // 「编码」多指「编码能力」或字符编码、「测试」多指「测一下」,都不再单独算代码意图(「测试」仍带 shell:跑测试要命令行);
   // 明确的「单测 / 单元测试」照旧算。

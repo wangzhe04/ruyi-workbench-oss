@@ -1780,6 +1780,7 @@
   "tools.verb.archive_zip": "Zip archive",
   "tools.verb.audio_transcribe": "Transcribe audio",
   "tools.verb.browser_open": "Open in browser",
+  "tools.verb.checkpoint_list": "Check undoable edits",
   "tools.verb.claude_md_audit": "Audit CLAUDE.md",
   "tools.verb.code_review_scan": "Review code",
   "tools.verb.codebase_symbol_search": "Find code symbol",

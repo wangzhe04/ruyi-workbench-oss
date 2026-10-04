@@ -262,6 +262,18 @@ const MCP_TOOLS = [
     },
   },
   {
+    // C4(61 号文):只读。会话只取自调用上下文,不收 sessionId;模型没有回滚能力(撤销只在界面,由用户做)。
+    name: 'checkpoint_list',
+    description: 'List this session\'s file-change checkpoints (undoable / already reverted). Read-only: only the user can undo, in the UI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        turnSeq: { type: 'integer', minimum: 0, description: 'only this turn' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, description: 'max rows (default 20)' },
+      },
+    },
+  },
+  {
     name: 'file_move',
     description: '移动或重命名一个文件（from→to）。已先存检查点，可一键撤销。默认不覆盖已存在的目标（overwrite=true 才覆盖）。仅支持单个文件，不支持文件夹；跨磁盘自动退化为复制+删除。',
     inputSchema: {

@@ -329,7 +329,7 @@ const TOOL_VERB_MAP = {
   // 128d(48 号文 §1,simple-mode.browser S5 查出):这张表当初是给【授权弹窗】写的,只收会弹窗的改/执行类工具;
   // 简易档的工具卡复用同一个函数,于是最常见的读类工具(file_read、web_search……)在出厂默认档里原样显示英文标识。
   // 现在补齐全部原生工具(管家与工作台记忆两族走下面的前缀);tool-verb-coverage.static 钉「每个原生工具都有人话」。
-  audio_transcribe: 'tools.verb.audio_transcribe', browser_open: 'tools.verb.browser_open', claude_md_audit: 'tools.verb.claude_md_audit',
+  audio_transcribe: 'tools.verb.audio_transcribe', browser_open: 'tools.verb.browser_open', checkpoint_list: 'tools.verb.checkpoint_list', claude_md_audit: 'tools.verb.claude_md_audit',
   code_review_scan: 'tools.verb.code_review_scan', codebase_symbol_search: 'tools.verb.codebase_symbol_search', data_profile: 'tools.verb.data_profile',
   debug_hypothesis: 'tools.verb.debug_hypothesis', dependency_inventory: 'tools.verb.dependency_inventory', docs_search: 'tools.verb.docs_search',
   file_list: 'tools.verb.file_list', file_read: 'tools.verb.file_read', file_search: 'tools.verb.file_search', frontend_audit: 'tools.verb.frontend_audit',

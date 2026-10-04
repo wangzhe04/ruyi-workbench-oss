@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 154(精确 131 / 前缀 11 / 正则 12),ROUTE_AUTH 140 条,生成于 2026-10-04T06:06:28.416Z。
+> 判定点 154(精确 131 / 前缀 11 / 正则 12),ROUTE_AUTH 140 条,生成于 2026-10-04T07:22:46.447Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -21,14 +21,14 @@
 |---|---|---|---|---|---|
 | POST | `/api/storage/policy` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | config-mutate-mcp-parity.e2e.js, frontend-domains.static.e2e.js, session-storage-v2.e2e.js 等 4 件 |
 | POST | `/api/storage/clean` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | frontend-domains.static.e2e.js, session-storage-v2.e2e.js, storage-steward.e2e.js |
-| POST | `/api/checkpoints/rollback` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, artifacts.e2e.js, checkpoint-coverage.e2e.js 等 7 件 |
-| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, rewind.e2e.js, session-get-etag.e2e.js 等 8 件 |
+| POST | `/api/checkpoints/rollback` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, artifacts.e2e.js, checkpoint-coverage.e2e.js 等 8 件 |
+| POST | `/api/session/rewind` | exact | token | 13b-api-domain-routes.js · `handleCheckpointApiRoutes` | action-feedback.static.e2e.js, checkpoint-visibility.e2e.js, rewind.e2e.js 等 9 件 |
 
 ## core-inline(69)
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| POST | `/api/bootstrap` | exact | open | 13-http-router.js · `handleApi` | context-compact-v2.e2e.js, dom-smoke.e2e.js, external-code-diff.e2e.js 等 13 件 |
+| POST | `/api/bootstrap` | exact | open | 13-http-router.js · `handleApi` | checkpoint-visibility.e2e.js, context-compact-v2.e2e.js, dom-smoke.e2e.js 等 14 件 |
 | GET | `/api/status` | exact | open | 13-http-router.js · `handleApi` | acc-capability-gates.e2e.js, agent-deadlock-watchdog.e2e.js, asr-transcribe.e2e.js 等 67 件 |
 | GET | `/api/capabilities` | exact | open | 13-http-router.js · `handleApi` | capabilities.e2e.js, playbooks.e2e.js, service-match.browser.e2e.js |
 | GET | `/api/playbooks` | exact | token-browser | 13-http-router.js · `handleApi` | auth-deny-default.e2e.js, meta-guard.e2e.js, playbooks.e2e.js 等 6 件 |
@@ -81,7 +81,7 @@
 | POST | `/api/agent-workflow/result` | exact | body-token self | 13-http-router.js · `handleApi` | — |
 | GET | `/api/usage/summary` | exact | token self | 13-http-router.js · `handleApi` | model-menu-no-shift.browser.e2e.js, steward-drawer.e2e.js, steward-drawer.static.e2e.js 等 10 件 |
 | GET | `/api/ops/metrics` | exact | token self | 13-http-router.js · `handleApi` | monitor-incremental.e2e.js |
-| GET | `/api/checkpoints` | exact | token self | 13-http-router.js · `handleApi` | action-feedback.static.e2e.js, artifacts.e2e.js, changes-diff.e2e.js 等 13 件 |
+| GET | `/api/checkpoints` | exact | token self | 13-http-router.js · `handleApi` | action-feedback.static.e2e.js, artifacts.e2e.js, changes-diff.e2e.js 等 14 件 |
 | POST | `/api/checkpoints/open-external` | exact | token | 13-http-router.js · `handleApi` | external-code-diff.e2e.js |
 | GET | `/api/checkpoints/diff` | exact | token self | 13-http-router.js · `handleApi` | changes-diff.e2e.js, frontend-domains.static.e2e.js, i18n.e2e.js |
 | GET | `/api/help/doc` | exact | token self | 13-http-router.js · `handleApi` | help-viewer.e2e.js, onboarding.static.e2e.js |
@@ -94,7 +94,7 @@
 | GET | `/api/metrics` | exact | token self | 13-http-router.js · `handleApi` | frontend-domains.static.e2e.js, metrics-panel.e2e.js |
 | POST | `/api/upload` | exact | token-browser | 13-http-router.js · `handleApi` | steward-conversation.static.e2e.js, tool-result-render.browser.e2e.js, tool-result-shrink.test.js 等 4 件 |
 | GET | `/api/upload/content` | exact | token self | 13-http-router.js · `handleApi` | tool-result-render.browser.e2e.js, tool-result-shrink.test.js, vision-loop.e2e.js |
-| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 168 件 |
+| POST | `/api/chat/stream` | exact | token-browser | 13-http-router.js · `handleApi` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 169 件 |
 | POST | `/api/tools/` | prefix | token | 13-http-router.js · `handleApi` | audit-w23.e2e.js, autonomy-shell-sandbox.e2e.js, background-completion.e2e.js 等 17 件 |
 | * | `/health` | exact | host-gate | 13-http-router.js · `startServerInner` | — |
 
@@ -187,12 +187,12 @@
 
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
-| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 206 件 |
+| GET | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 207 件 |
 | GET | `/api/sessions/search` | exact | token self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-id-path-guard.e2e.js, session-search.e2e.js, steward-runner.e2e.js |
-| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 206 件 |
+| POST | `/api/sessions` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | a11y-lint.browser.e2e.js, a11y-walkthrough.browser.e2e.js, acc-capability-gates.e2e.js 等 207 件 |
 | POST | `/api/sessions/bulk-delete` | exact | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | session-bulk-cleanup.e2e.js |
 | GET | `/api/sessions/background-counts` | exact | token-browser self | 13d-core-domain-routes.js · `handleSessionApiRoutes` | — |
-| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 112 件 |
+| DELETE/GET/PATCH/POST | `/api/sessions/:id` | regex | token-browser | 13d-core-domain-routes.js · `handleSessionApiRoutes` | acc-capability-gates.e2e.js, action-feedback.browser.e2e.js, agent-mode-v2.e2e.js 等 113 件 |
 
 ## steer(2)
 

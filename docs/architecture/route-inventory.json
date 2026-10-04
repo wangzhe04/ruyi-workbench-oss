@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-04T06:06:28.416Z",
+  "generatedAt": "2026-10-04T07:22:46.447Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -891,6 +891,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
         "dev-harness\\dom-smoke.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
@@ -2074,6 +2075,7 @@
         "dev-harness\\changes-diff.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
@@ -2345,6 +2347,7 @@
         "dev-harness\\capabilities.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
@@ -2795,6 +2798,7 @@
         "dev-harness\\action-feedback.static.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
@@ -2815,6 +2819,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
@@ -3165,6 +3170,7 @@
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
@@ -3404,6 +3410,7 @@
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
@@ -3628,6 +3635,7 @@
         "dev-harness\\autocompact.e2e.js",
         "dev-harness\\background-completion.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",

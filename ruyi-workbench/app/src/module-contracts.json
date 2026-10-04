@@ -998,6 +998,8 @@
         "JOURNAL_KEEP_HISTORY_SNAPSHOTS",
         "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "JOURNAL_REVERT_LOG_MAX",
+        "JOURNAL_REVERT_PATHS_MAX",
         "JOURNAL_SWEEP_BACKOFF_MS",
         "MISSIONS_DIR_NAME",
         "MISSION_CHANGE_TYPES",
@@ -1112,6 +1114,15 @@
         "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
+        "journalRevertChains",
+        "journalRevertLogPath",
+        "journalRevertLogPrune",
+        "journalRevertLogRead",
+        "journalRevertLogRecord",
+        "journalRevertLogWrite",
+        "journalRevertNoticesAck",
+        "journalRevertNoticesPeek",
+        "journalRevertRecordOf",
         "journalRollback",
         "journalSessionCtx",
         "journalSweepBackoffUntil",
@@ -5418,7 +5429,11 @@
         "PROMPT_EN",
         "PROMPT_PACK_VERSION",
         "PROMPT_ZH",
-        "getPromptPack"
+        "REVERT_NOTICE_PATHS_MAX",
+        "REVERT_NOTICE_TURNS_MAX",
+        "getPromptPack",
+        "revertNoticeNames",
+        "revertNoticeTurns"
       ],
       "requires": [
         {
@@ -8339,6 +8354,20 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "journalRevertNoticesAck",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertNoticesPeek",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "call"
@@ -8832,6 +8861,13 @@
           "symbol": "PROMPT_PACK_VERSION",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "revertNoticeTurns",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11013,6 +11049,8 @@
       "file": "12-tool-dispatch.js",
       "layer": "tools",
       "provides": [
+        "CHECKPOINT_LIST_LIMIT",
+        "CHECKPOINT_LIST_PATHS_MAX",
         "CORE_TOOL_HANDLERS",
         "EXEC_CACHE_ENTRY_MAX_BYTES",
         "EXEC_CACHE_MAX_SESSIONS",
@@ -11038,6 +11076,7 @@
         "buildFileEditMiss",
         "buildNonAsciiReport",
         "buildWorkbenchSelfStatus",
+        "checkpointListResult",
         "defaultTextLineEnding",
         "detectTextLineEnding",
         "execCacheContext",
@@ -11250,6 +11289,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "selectedAgentCli",
           "kinds": [
             "call"
@@ -11292,6 +11338,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "JOURNAL_KEEP_TURNS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "JOURNAL_MAX_BEFORE_BYTES",
           "kinds": [
             "read"
@@ -11306,6 +11359,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "journalReadIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalRecord",
           "kinds": [
             "call"
@@ -11314,6 +11374,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalRecordMany",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertLogRead",
           "kinds": [
             "call"
           ]
@@ -13762,6 +13829,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "bumpMissionChangeSeq",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertLogRecord",
           "kinds": [
             "call"
           ]

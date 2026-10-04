@@ -10906,7 +10906,7 @@ async function dirSize(dir) {
 // modify→write `before` back; create→unlink the current file. skipped:true entries fail (no stored
 // content) and are listed in `failed` without aborting the rest. Reverted entries are REMOVED from the
 // index (idempotent: rolling back the same turn again → {ok:false,error:'no entries'}). The rollback
-// action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op}], failed:[{path,reason}]}.
+// action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op,turnSeq,entrySeq,tool,ts}], failed:[{path,reason}]}.
 async function journalRollback(sessionId, turnSeq, entrySeq) {
   const dir = journalDir(sessionId);
   const index = await journalReadIndex(sessionId);
@@ -10966,7 +10966,8 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
         await fsp.rename(tmpRestore, e.path);
         await fsp.unlink(path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`)).catch(() => {});
       }
-      reverted.push({ path: e.path, op: e.op });
+      // C4:turnSeq / entrySeq / tool / ts 是加字段(既有读者只看 path / op)—— 路由据此给 reverts.json 记「哪一回合的哪次修改被撤了」。
+      reverted.push({ path: e.path, op: e.op, turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), tool: typeof e.tool === 'string' ? e.tool : '', ts: typeof e.ts === 'string' ? e.ts : '' });
       revertedKeys.add(key);
     } catch (err) {
       failed.push({ path: e.path, reason: (err && err.message) ? err.message : String(err) });
@@ -10977,6 +10978,118 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   const remaining = index.filter(e => !revertedKeys.has(`${e.turnSeq}-${e.entrySeq}`));
   await journalWriteIndex(sessionId, remaining).catch(() => {});
   return { ok: reverted.length > 0, reverted, failed };
+}
+
+// ── C4(61 号文):检查点对模型可见 —— 「用户在界面撤销了什么」的记录 ──────────────────────────────────────
+// journalRollback 撤销成功的条目会从 index.json 里【删掉】:之后既没有地方回答「这一条已被用户撤销」,模型也无从知道用户
+// 撤过 —— 下一轮它可能基于已被撤回的内容接着干。这里在检查点目录里另起一个旁车 <checkpoints>/<sid>/reverts.json,记两件事:
+//   ① checkpoint_list(12)给撤销过的修改标 reverted:true;
+//   ② 「待告知」:announced:false 的记录由 09 在下一个 provider 回合的 user 消息落历史时读走、写成一行告知,会话落盘后 ack。
+// 为什么是旁车文件而不是会话头字段:会话头是【整份重写】的 —— 回合手里那份内存副本(以及任何 load→await→save 的旁路写者)
+// 收尾时会把头写回「没有该字段」的样子。02d 的覆盖表(权限档/桌面工具/引擎路由)就是为这种陈旧副本写的,但那是给「必须对活回合
+// 立即生效」的开关用的;本数据只在没有活回合时写(rollback 路由对活回合回 409,rewind 先停回合再等 settle),下一回合起跑时读,
+// 不需要对活回合生效。独立文件从根上与会话头的任何一次保存(含撤回代数闸 SESSION_STALE_SAVE 丢掉的那些)都不相交,也就没有
+// 「被回合的陈旧副本吞掉」这一类问题,不必再造一张覆盖表。随会话删除(deleteSession 清整个检查点目录)与全局体积清扫一起走。
+// 记录按 (turnSeq, tool, op) 分组而不是一个文件一条:一次解压几千个文件的撤销也只是一条记录,告知一行说得完。
+// 读失败/文件坏 = 当空(没有告知、没有已撤销标记,模型下一次读文件就会看到真实状态),不隔离、不抛。
+const JOURNAL_REVERT_LOG_MAX = 100;     // 每会话最多留这么多条记录(超出先丢已告知的、再丢最旧的)
+const JOURNAL_REVERT_PATHS_MAX = 5;     // 每条记录最多记几个样例路径(files 是真实个数)
+const journalRevertChains = new Map();  // sessionId -> Promise(同会话的读改写串行)
+function journalRevertLogPath(sessionId) { return path.join(journalDir(sessionId), 'reverts.json'); }
+function journalRevertRecordOf(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const seq = Number(raw.seq), turnSeq = Number(raw.turnSeq);
+  if (!Number.isSafeInteger(seq) || seq < 1 || !Number.isSafeInteger(turnSeq) || turnSeq < 0) return null;
+  const paths = (Array.isArray(raw.paths) ? raw.paths : []).filter(p => typeof p === 'string' && p).slice(0, JOURNAL_REVERT_PATHS_MAX).map(p => p.slice(0, 400));
+  const files = Number.isSafeInteger(Number(raw.files)) && Number(raw.files) > 0 ? Number(raw.files) : Math.max(1, paths.length);
+  return {
+    seq, turnSeq,
+    entrySeq: Number.isSafeInteger(Number(raw.entrySeq)) ? Number(raw.entrySeq) : -1,
+    tool: typeof raw.tool === 'string' ? raw.tool.slice(0, 64) : '',
+    op: raw.op === 'create' || raw.op === 'delete' ? raw.op : 'modify',
+    files, paths,
+    at: typeof raw.at === 'string' ? raw.at.slice(0, 40) : '',
+    revertedAt: typeof raw.revertedAt === 'string' ? raw.revertedAt.slice(0, 40) : '',
+    announced: raw.announced === true,
+  };
+}
+// 从不抛;文件不存在 / 读不动 / 不是预期形状 → []。
+async function journalRevertLogRead(sessionId) {
+  try {
+    const parsed = safeJsonParse(await fsp.readFile(journalRevertLogPath(sessionId), 'utf8'), null);
+    const rows = parsed && typeof parsed === 'object' && Array.isArray(parsed.items) ? parsed.items : [];
+    return rows.map(journalRevertRecordOf).filter(Boolean);
+  } catch { return []; }
+}
+async function journalRevertLogWrite(sessionId, items) {
+  await fsp.mkdir(journalDir(sessionId), { recursive: true });
+  await atomicWriteJson(journalRevertLogPath(sessionId), JSON.stringify({ schema: 1, items }), { retries: 3 });
+}
+// 路由在 journalRollback 成功后调:reverted = journalRollback 回的 [{path, op, turnSeq, entrySeq, tool, ts}]。
+// 同一次撤销里 (turnSeq, tool, op) 相同的并成一条;已有【还没告知】的同键记录就并进去(用户先撤 a 再撤 b,两次都发生在
+// 模型下一回合之前,告知一行说完)。已告知的不并(那次告知已经发出去了,这次是新的事实)。
+async function journalRevertLogRecord(sessionId, reverted) {
+  const rows = (Array.isArray(reverted) ? reverted : []).filter(r => r && typeof r.path === 'string' && r.path && Number.isSafeInteger(Number(r.turnSeq)));
+  if (!rows.length) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    const now = nowIso();
+    let nextSeq = items.reduce((m, r) => Math.max(m, r.seq), 0) + 1;
+    const groups = new Map();
+    for (const r of rows.slice().sort((a, b) => (Number(a.entrySeq) || 0) - (Number(b.entrySeq) || 0))) {   // 主路径 = 本组 entrySeq 最小的那条
+      const op = r.op === 'create' || r.op === 'delete' ? r.op : 'modify';
+      const key = `${Number(r.turnSeq)}|${r.tool || ''}|${op}`;
+      let g = groups.get(key);
+      if (!g) { g = { turnSeq: Number(r.turnSeq), entrySeq: Number.isSafeInteger(Number(r.entrySeq)) ? Number(r.entrySeq) : -1, tool: String(r.tool || ''), op, paths: [], at: '' }; groups.set(key, g); }
+      if (!g.paths.includes(r.path)) g.paths.push(r.path);
+      if (typeof r.ts === 'string' && r.ts > g.at) g.at = r.ts;
+    }
+    for (const g of groups.values()) {
+      const open = items.find(r => !r.announced && r.turnSeq === g.turnSeq && r.tool === g.tool.slice(0, 64) && r.op === g.op);
+      if (open) {
+        open.files += g.paths.length;
+        for (const p of g.paths) if (open.paths.length < JOURNAL_REVERT_PATHS_MAX && !open.paths.includes(p)) open.paths.push(p.slice(0, 400));
+        if (g.entrySeq >= 0 && (open.entrySeq < 0 || g.entrySeq < open.entrySeq)) open.entrySeq = g.entrySeq;
+        if (g.at > open.at) open.at = g.at;
+        open.revertedAt = now;
+        continue;
+      }
+      const rec = journalRevertRecordOf({ seq: nextSeq++, turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, files: g.paths.length, paths: g.paths, at: g.at, revertedAt: now, announced: false });
+      if (rec) items.push(rec);
+    }
+    while (items.length > JOURNAL_REVERT_LOG_MAX) {
+      const i = items.findIndex(r => r.announced);
+      items.splice(i >= 0 ? i : 0, 1);   // 先丢最旧的已告知项,没有才丢最旧的待告知项
+    }
+    await journalRevertLogWrite(sessionId, items);
+  });
+}
+// 09 在 provider 回合起跑时读:还没告知的记录(回合升序)。读不到 = []。
+async function journalRevertNoticesPeek(sessionId) {
+  try { return (await journalRevertLogRead(sessionId)).filter(r => !r.announced).sort((a, b) => a.turnSeq - b.turnSeq || a.seq - b.seq); }
+  catch { return []; }
+}
+// 09 在带着告知的那条 user 消息【已落盘】之后调:只把 peek 到的那几条标成已告知(按 seq),期间新记的不动。
+// 先 peek、落盘后才 ack 的顺序是有意的:中途失败只会让告知多发一次(无害),不会让模型永远收不到。
+async function journalRevertNoticesAck(sessionId, seqs) {
+  const wanted = new Set((Array.isArray(seqs) ? seqs : []).map(Number));
+  if (!wanted.size) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    let touched = false;
+    for (const r of items) if (wanted.has(r.seq) && !r.announced) { r.announced = true; touched = true; }
+    if (touched) await journalRevertLogWrite(sessionId, items);
+  });
+}
+// rewindSession 截断成功后调:回合号 >= fromTurnSeq 的记录都属于已被丢弃的回合,留着只会给模型一句指向「不存在的回合」的告知。
+async function journalRevertLogPrune(sessionId, fromTurnSeq) {
+  const from = Number(fromTurnSeq);
+  if (!Number.isFinite(from)) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    const kept = items.filter(r => r.turnSeq < from);
+    if (kept.length !== items.length) await journalRevertLogWrite(sessionId, kept);
+  });
 }
 
 // v0.8-S4b B2 — conversation REWIND (Claude Code-style "back up to just before this message"). Truncates
@@ -11128,6 +11241,12 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
     }
     throw error;
   }
+  // C4:rewind【不】给模型记「用户撤销了文件」的待告知(rollbackFiles 撤的恰恰是被丢弃回合的改动)。理由:截断之后 providerHistory
+  // 清空、下一回合从幸存的展示消息重新播种,被丢弃的回合对模型而言根本没发生过;它们碰过的文件又被恢复到了修改前 —— 模型看到的
+  // 对话与磁盘是自洽的,再告知「第 N 回合的修改已被撤销」反而是在讲一个它看不到的回合。反过来,截断前已经在待告知里的记录
+  // (用户先在界面撤了第 4 回合的文件、没发消息就回退到第 3 回合)指向的回合同样被丢了,一并清掉,不留一句悬空的告知。
+  // 截断被代数闸顶掉(上面已 return rewind_superseded)时不走到这里。
+  await journalRevertLogPrune(sessionId, target).catch(() => {});
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },
@@ -28253,6 +28372,32 @@ function appendMemorySection(base, memSec, limit) {
 //   answerShape 补「只说查证过的事」;onDemand 压缩。管家 stable 重写(见 steward 段头注)。文字改了 → bump。
 const PROMPT_PACK_VERSION = '2026-w138-1';
 
+// C4(61 号文):「用户已在界面撤销」那一行告知(包里的 revertNotice)的入参归并与路径缩写,两个语言包共用。
+// revertNoticeTurns:02 的撤销记录(announced:false)→ [{ turnSeq, modified:{paths,total}|null, created:{paths,total}|null }](回合升序)。
+// modified 收 modify / delete(撤销之后文件都是「恢复到修改前」),created 收 create(撤销 = 把新建的文件删掉)。纯函数。
+const REVERT_NOTICE_TURNS_MAX = 5;   // 一行里最多点名几个回合,其余只报个数
+const REVERT_NOTICE_PATHS_MAX = 4;   // 每个回合每类最多点名几个路径,其余只报个数
+function revertNoticeTurns(records) {
+  const byTurn = new Map();
+  for (const r of Array.isArray(records) ? records : []) {
+    if (!r || !Number.isFinite(Number(r.turnSeq))) continue;
+    const turnSeq = Number(r.turnSeq);
+    let t = byTurn.get(turnSeq);
+    if (!t) { t = { turnSeq, modified: null, created: null }; byTurn.set(turnSeq, t); }
+    const kind = r.op === 'create' ? 'created' : 'modified';
+    const g = t[kind] || (t[kind] = { paths: [], total: 0 });
+    const sample = Array.isArray(r.paths) ? r.paths : [];
+    for (const p of sample) if (typeof p === 'string' && p && !g.paths.includes(p)) g.paths.push(p);
+    g.total += Math.max(1, Number(r.files) || sample.length || 1);
+  }
+  return [...byTurn.values()].sort((a, b) => a.turnSeq - b.turnSeq);
+}
+function revertNoticeNames(group, sep, more) {
+  const shown = (group.paths || []).slice(0, REVERT_NOTICE_PATHS_MAX).map(p => { const s = String(p); return s.length > 120 ? '…' + s.slice(-119) : s; });
+  const total = Math.max(Number(group.total) || 0, shown.length);
+  return shown.join(sep) + (total > shown.length ? more(total, shown.length) : '');
+}
+
 // ── 128h-J13(41 号文 J13「各自按项目规则;本次显式要求优先」;47 号文 §4.2 B 第 3 条)──────────
 // 缺的是后半句:「本次显式要求优先于存下来的偏好」**在提示词里一个字都没有**。46 号文 D2 取证时
 // 查遍了三处记忆抬头,口径只有「不得覆盖以上守则」—— 守则 = 系统守则,说的是「记忆不能盖过我」,
@@ -28352,7 +28497,7 @@ const PROMPT_ZH = {
     // 时机只有两个判据:答案会改变做法 + 现场查不到。可查的先查,可默认的先做并说明假设(公开提示词指南的共识)。
     questioning: '何时问用户：只在答案会改变做法、又无法用工具从现场查证时才问；能查到的先查（查两三步仍拿不到就说明现状再问），能合理默认的先做并说明所用假设。向用户提问时优先给出 2–5 个具体、互斥且可直接点击的选项；把建议项放在第一位并在标签中标明“（推荐）”，同时保留“其他”输入作为兜底。只有答案确实无法合理枚举时才使用纯文本回答，不能为了省事把本可选择的问题丢给用户手写。',
     onDemand: '工具按需装载：当前只注入任务预判所需的原生工具与元工具，桥接工具（ACC 桌面/Office/MCP 等）的 schema 不自动注入。不知道有哪些能力时先调用 list_tools；知道目标时调用 tool_search，再用 tool_load 装载返回的 pack 或精确工具名后直接调用；只想调一次单个桥接工具时用 tool_invoke_read / tool_invoke_edit / tool_invoke_exec 代理（按 tool_search 返回的 tier 选择，不要用低层代理调高层目标）。不要用终端重造一个可按需装载的现成工具。',
-    priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
+    priority: '工具选用优先级：优先使用内置工具与桌面/文档工具提供的现成能力（文件读写、移动/复制/压缩/解压、下载、Excel/Word/PDF 生成、搜索等）--这些操作受权限确认与一键撤销保护（移动/复制/压缩/下载同样可一键撤销；用 checkpoint_list 查看哪些修改可撤销，撤销只能由用户在界面操作）。仅当现成工具确实满足不了特定需求（例如需要更精细的排版效果、批量系统操作）时，才用终端自写脚本完成，并在动手前权衡：能用现成工具组合完成的，不写脚本。',
     contextBudget: '上下文节流守则：先搜索定位再分段读（单次 ≤600 行），禁止整文件线性通读；列表/搜索大结果先缩小范围再引用；大返回先截断/摘要；长任务交子代理并取结论，不把原始大数据灌进主线上下文。',
   },
   // [无工具兜底] - !hasTools && !identityOnly
@@ -28650,6 +28795,18 @@ const PROMPT_ZH = {
   planApproved: ({ note }) => `<workbench-plan-approved>\nprevious_mode: plan\ncurrent_mode: execution\nplan_status: approved\nexecution_authorized: true\n用户已批准上述计划。现在立即按计划开始执行，不要再次只输出计划或继续等待批准。${note ? `\n用户补充意见：${note}` : ''}\n</workbench-plan-approved>`,
   // 61-A3:provider 引擎每条 user 消息落历史时带的本地时间(参数由 00-boot localTurnTimeParts 给;weekday 0 = 周日)。
   turnTime: ({ stamp, weekday, offset }) => `[本条消息发送于 ${stamp} 周${'日一二三四五六'.charAt(weekday)}(本地时间 ${offset})]`,
+  // C4(61 号文):用户在界面撤销了文件改动后,下一个 provider 回合的 user 消息末尾追加的一行(09 runOpenAiTurn 在 turnTime 之后)。
+  // turns 由 revertNoticeTurns(下方)从 02 的撤销记录归并而来。只讲事实,不下指令。
+  revertNotice: ({ turns }) => {
+    const shown = turns.slice(0, REVERT_NOTICE_TURNS_MAX).map(t => {
+      const bits = [];
+      if (t.modified) bits.push(`对 ${revertNoticeNames(t.modified, '、', n => ` 等共 ${n} 个文件`)} 的修改，${t.modified.total > 1 ? '这些文件' : '该文件'}已恢复到修改前`);
+      if (t.created) bits.push(`新建的 ${revertNoticeNames(t.created, '、', n => ` 等共 ${n} 个文件`)} 已删除`);
+      return `第 ${t.turnSeq} 回合${bits.join('；')}`;
+    });
+    if (turns.length > shown.length) shown.push(`另有 ${turns.length - shown.length} 个回合的改动也已撤销`);
+    return `[用户已在界面撤销：${shown.join('。')}]`;
+  },
 };
 
 // 52a(04 Phase B Phase2):英文提示词包。结构与 PROMPT_ZH 逐层对齐(键名/模板参数完全一致),
@@ -28719,7 +28876,7 @@ const PROMPT_EN = {
     asyncWork: 'Long-task concurrency: use orchestrate_agents({task, background:true}) for independent subtasks (top-level task for one agent, nodes for several) and continue with the runId immediately. On the native provider engine use shell_start({command,cwd,name,timeoutMs}) for finite background commands and continue useful work immediately. Background commands and agents push completion/failure receipts to their conversation; an agent run delivers its envelope (per-node summary + artifact paths) exactly once at the next model iteration or the start of the next turn, so completion discovery requires no polling; fetch full text on demand with agent_result({runId, nodeId?}). Use shell_poll only for incremental output, shell_kill for explicit cancellation. Started is not completed. Commands stop when the Workbench server exits; do not promise restart survival. Claude/Kimi use their actual available tools. Ordinary additions preserve active tools; only explicit interruption cancels them.',
     questioning: 'When to ask the user: only when the answer would change what you do and it cannot be verified with tools on the spot; look up what can be looked up (if two or three attempts still do not settle it, report what you found and ask), and where a reasonable default exists, proceed and state the assumption. When asking, prefer 2–5 concrete, mutually exclusive, directly clickable options. Put the recommended option first and suffix its label with “(Recommended)”, while keeping an Other input as a fallback. Use a text-only answer only when the answer genuinely cannot be enumerated; do not make the user type a choice that could have been offered.',
     onDemand: 'On-demand tool loading: only the native and meta tools the current task likely needs are injected; schemas of bridged tools (ACC desktop/Office/MCP) are not auto-injected. Call list_tools to discover capabilities; call tool_search to find a target, then tool_load its pack or exact tool name and call it directly; to invoke a single bridged tool once, use the tool_invoke_read / tool_invoke_edit / tool_invoke_exec proxy (choose by the tier returned by tool_search; never use a lower-tier proxy for a higher-tier target). Do not reinvent an on-demand-loadable tool via the terminal.',
-    priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
+    priority: 'Tool selection priority: prefer built-in tools and the ready-made capabilities of desktop/document tools (file read/write, move/copy/compress/decompress, download, Excel/Word/PDF generation, search, etc.) -- these are protected by permission confirmation and one-click undo (move/copy/compress/download are also one-click undoable; checkpoint_list shows which edits can be undone, but only the user can undo them, in the UI). Only when a ready-made tool genuinely cannot meet a specific need (e.g. finer layout, bulk system operations) should you write a script via the terminal; weigh this before acting: if a combination of ready-made tools can do it, do not write a script.',
     contextBudget: 'Context throttling: locate via search first, then read in slices (≤600 lines per read); never linearly read whole files. Narrow large list/search results before quoting. Truncate/summarize big returns. Delegate long tasks to a sub-agent and consume its conclusion; do not pour raw big data into the main context.',
   },
 
@@ -28923,6 +29080,16 @@ const PROMPT_EN = {
   planMode: 'Currently in plan mode. Before submitting the plan, you may use read-only tools to inspect code, configuration, tests, and current state, and may ask the user a material clarifying question; do not call modifying, execution, or delegation tools. Once the investigation is sufficient, output one final plan that is directly executable and has no unresolved options: start with `PLAN:` and concisely cover the goal and scope, relevant files/components, selected approach and key contracts, risk/compatibility, and verification. If a question would materially change the approach, ask it before submitting an incomplete plan. Stop after the final plan; the workbench requests approval, so do not separately ask whether the plan is acceptable.',
   planApproved: ({ note }) => `<workbench-plan-approved>\nprevious_mode: plan\ncurrent_mode: execution\nplan_status: approved\nexecution_authorized: true\nThe user approved the plan above. Start executing it now; do not output only another plan or keep waiting for approval.${note ? `\nAdditional user instruction: ${note}` : ''}\n</workbench-plan-approved>`,
   turnTime: ({ stamp, weekday, offset }) => `[Message sent ${stamp} ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekday] || ''} (local time, ${offset})]`,
+  revertNotice: ({ turns }) => {
+    const shown = turns.slice(0, REVERT_NOTICE_TURNS_MAX).map(t => {
+      const bits = [];
+      if (t.modified) bits.push(`edits to ${revertNoticeNames(t.modified, ', ', (n, k) => ` and ${n - k} more (${n} files in all)`)} undone, ${t.modified.total > 1 ? 'these files are' : 'this file is'} restored to the state before the edit`);
+      if (t.created) bits.push(`${revertNoticeNames(t.created, ', ', (n, k) => ` and ${n - k} more (${n} files in all)`)} created in that turn ${t.created.total > 1 ? 'were' : 'was'} deleted`);
+      return `turn ${t.turnSeq}: ${bits.join('; ')}`;
+    });
+    if (turns.length > shown.length) shown.push(`${turns.length - shown.length} more turn(s) were also undone`);
+    return `[The user undid file changes in the UI. ${shown.join('. ')}]`;
+  },
 };
 
 // 52a: locale 感知切换。'en-US' -> PROMPT_EN;其余(zh-CN/auto/未设) -> PROMPT_ZH(基线)。
@@ -35325,6 +35492,7 @@ const NATIVE_TOOL_TIER = {
   workbench_memory_list: 'read', workbench_memory_read: 'read', workbench_memory_propose: 'read',
   workbench_memory_relation_propose: 'read', workbench_memory_revise: 'read', workbench_memory_relation_revoke: 'read',
   observation_recall: 'read', // 105a: 只读当前会话快照,授权来自 ctx 会话归属 → auto-allow
+  checkpoint_list: 'read', // C4: 只读当前会话的检查点索引与撤销记录(会话取自 ctx,不触文件路径、不回滚;撤销只能由用户在界面做)→ auto-allow
   list_tools: 'read', tool_search: 'read', tool_load: 'read', tool_invoke_read: 'read', tool_invoke_edit: 'edit', tool_invoke_exec: 'exec',
   propose_task: 'read', send_to_agent: 'read', // 团队模式 v2 (A1/B1) 编排元工具 → read tier(纯元数据/入队,不落盘)
   request_user_input: 'read', // waits for an explicit UI answer; no filesystem/exec side effect
@@ -35525,6 +35693,10 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)
   file_write: 'files_write', file_edit: 'files_write', file_delete: 'files_write', file_move: 'files_write', file_copy: 'files_write',
+  // C4:检查点清单归 files_write 而不是 core / files_read —— 它回答的是「刚才那些写操作哪些能撤」,只有手里有写类工具时才有用,
+  // 随写包一起装(写包本就按「修改/创建/删除…」意图装载,下面 classifyToolPacks 另补了撤销/回滚/检查点);放 core 会每回合常驻
+  // 并泄给 Claude CLI 的 MCP 清单(CLI 自己有 Edit/Write),放 files_read 则读文件的回合白背一个用不上的 schema。
+  checkpoint_list: 'files_write',
   dependency_inventory: 'code', code_review_scan: 'code', frontend_audit: 'code', claude_md_audit: 'code', docs_search: 'code', codebase_symbol_search: 'code', debug_hypothesis: 'code', data_profile: 'code',
   git_status: 'code', git_diff: 'code', git_log: 'code', git_commit: 'code',
   powershell_run: 'shell', script_run: 'shell', shell_start: 'shell', shell_send: 'shell', shell_poll: 'shell', shell_kill: 'shell', shell_list: 'shell',
@@ -35604,6 +35776,7 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   agent_result: { capabilities: ['agent.workflow.result'], aliases: ['读取代理产出全文', '代理结果', 'read agent result'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
+  checkpoint_list: { capabilities: ['workspace.checkpoint.list'], aliases: ['查看检查点', '可撤销的修改', '哪些改动能撤销', '已撤销的修改', 'list checkpoints', 'what can be undone'] },
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
   workbench_memory_propose: { capabilities: ['memory.propose'], aliases: ['提议保存记忆', '记住经验', 'propose memory'] },
 });
@@ -35737,7 +35910,7 @@ function classifyToolPacks(message, attachments) {
   // 2026-10:泛化的动词(修改/编辑/更新/写入/创建/删除…)只带文件读写,不再顺带 code 包。code 包(git/依赖/审查/符号检索等
   // 12 个工具、约 2.3K token)本机 4 天 0 次使用,却被「file_edit」里的 edit、「更新」这类词带进来;而会话工具表只增不减,
   // 带进来就跟着整个会话。只有明确的代码意图(实现/修复/重构,或下一条的代码词)才装 code。
-  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update)/i.test(s)) add('files_read', 'files_write');
+  if (/(实现|修改|编辑|写入|创建|删除|移动|复制|修复|重构|更新|落盘|撤销|回滚|检查点|implement|modify|edit|write|create|delete|move|copy|fix|refactor|update|undo|rollback|checkpoint)/i.test(s)) add('files_read', 'files_write');
   if (/(实现|修复|重构|implement|fix|refactor)/i.test(s)) add('code');
   // 「编码」多指「编码能力」或字符编码、「测试」多指「测一下」,都不再单独算代码意图(「测试」仍带 shell:跑测试要命令行);
   // 明确的「单测 / 单元测试」照旧算。
@@ -41973,7 +42146,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 61-A3:模型原先不知道现在几点 —— 06 的环境说明为保前缀缓存刻意不放时间戳。时间改成随这条 user 消息【落历史】:
   // 历史只追加、落盘后字节不变,前缀缓存零损失(易变层贴在首条 user 前、尾部临时注入下一回合就消失,两处都会让缓存断);
   // 跨天续聊时每轮的时间线也都在。只进 providerHistory:session.messages(界面)与 fullPrompt(分包意图、自检判据)不带。
-  const historyPrompt = fullPrompt + '\n\n' + getPromptPack(config && config.locale).turnTime(localTurnTimeParts(Date.now()));
+  // C4(61 号文):用户在界面撤销了文件改动(POST /api/checkpoints/rollback)而模型不知道 —— 它下一轮可能基于已被撤回的内容
+  // 接着干。撤销时 02 在检查点目录的 reverts.json 里记了一条「待告知」;这里在 user 消息落历史时把它写成一行追加在时间行之后,
+  // 与时间行同一位置、同一原因:历史只追加、落盘后字节不变(前缀缓存零损失),界面消息不带。告知先 peek、下面这一存落盘【之后】才 ack ——
+  // 中途失败只会让下一回合再说一遍,不会让模型永远收不到。读不到/坏了就不带(它只是附加信息,不是回合的前提)。
+  const packForTurn = getPromptPack(config && config.locale);
+  let revertNotice = '', revertNoticeSeqs = [];
+  try {
+    const pendingReverts = await journalRevertNoticesPeek(session.id);
+    if (pendingReverts.length) {
+      revertNotice = packForTurn.revertNotice({ turns: revertNoticeTurns(pendingReverts) });
+      revertNoticeSeqs = pendingReverts.map(r => r.seq);
+    }
+  } catch { revertNotice = ''; revertNoticeSeqs = []; }
+  const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
     session.providerHistory.push({ role: 'user', content: parts });
@@ -41985,6 +42171,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
   // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
   await saveSession(session, { mergeMissionFromDisk: true });
+  if (revertNoticeSeqs.length) await journalRevertNoticesAck(session.id, revertNoticeSeqs).catch(() => {});
 
   await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,
@@ -53611,6 +53798,68 @@ function observationRecallError(err) {
   return 'not_found'; // 'observation not found' / ENOENT(快照已被 GC) / 其它读取失败
 }
 
+// C4(61 号文):checkpoint_list —— 当前会话文件改动检查点的【只读】视图。数据 = 02 的检查点索引(index.json:还能撤销的)
+// + 撤销记录(reverts.json:用户已经在界面撤销的,journalRevertLogRead)。按 (turnSeq, tool, op) 分组成行 ——
+// 一次解压几千个文件也只是一行(path 取主路径、files 给个数、paths 给至多 5 个样例)。不给模型回滚能力:二次写盘会覆盖用户之后的手改、
+// 与活回合抢写、绕过用户的决定;撤销只能由用户在界面做,模型能做的是告诉用户「第几回合的哪次修改可以撤销」。
+const CHECKPOINT_LIST_LIMIT = Object.freeze({ dflt: 20, max: 50 });
+const CHECKPOINT_LIST_PATHS_MAX = 5;
+async function checkpointListResult(sessionId, args) {
+  const rawTurn = args && args.turnSeq;
+  const turnFilter = (rawTurn === undefined || rawTurn === null || rawTurn === '') ? null : Number(rawTurn);
+  if (turnFilter !== null && !(Number.isSafeInteger(turnFilter) && turnFilter >= 0)) {
+    return { ok: false, error: 'invalid_turnSeq', message: 'turnSeq must be a non-negative integer (a turn number as shown in the checkpoint rows)' };
+  }
+  const rawLimit = Number(args && args.limit);
+  const limit = Number.isFinite(rawLimit) ? Math.min(CHECKPOINT_LIST_LIMIT.max, Math.max(1, Math.floor(rawLimit))) : CHECKPOINT_LIST_LIMIT.dflt;
+  const [index, reverts] = await Promise.all([journalReadIndex(sessionId), journalRevertLogRead(sessionId)]);
+  const opOf = v => (v === 'create' || v === 'delete' ? v : 'modify');
+  const live = new Map();
+  for (const e of index) {
+    if (!e || !Number.isSafeInteger(Number(e.turnSeq)) || !Number.isSafeInteger(Number(e.entrySeq)) || typeof e.path !== 'string' || !e.path) continue;
+    if (turnFilter !== null && Number(e.turnSeq) !== turnFilter) continue;
+    const op = opOf(e.op), tool = typeof e.tool === 'string' ? e.tool : '';
+    const key = `${Number(e.turnSeq)}|${tool}|${op}`;
+    let g = live.get(key);
+    if (!g) { g = { turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), lastSeq: Number(e.entrySeq), tool, op, entries: [], at: '', skipped: new Set() }; live.set(key, g); }
+    g.entries.push({ entrySeq: Number(e.entrySeq), path: e.path });
+    if (Number(e.entrySeq) < g.entrySeq) g.entrySeq = Number(e.entrySeq);
+    if (Number(e.entrySeq) > g.lastSeq) g.lastSeq = Number(e.entrySeq);   // 排序按本组最新一条
+    if (typeof e.ts === 'string' && e.ts > g.at) g.at = e.ts;
+    if (e.skipped) g.skipped.add(e.path);   // 改动前的内容没存下来(超 5MB):这一条撤销不了
+  }
+  const rows = [];
+  for (const g of live.values()) {
+    const paths = [...new Set(g.entries.sort((a, b) => a.entrySeq - b.entrySeq).map(x => x.path))];
+    rows.push({ sortSeq: g.lastSeq, row: { turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, path: paths[0],
+      ...(paths.length > 1 ? { files: paths.length, paths: paths.slice(0, CHECKPOINT_LIST_PATHS_MAX) } : {}),
+      at: g.at, undoable: g.skipped.size === 0, ...(g.skipped.size ? { notUndoable: g.skipped.size } : {}), reverted: false } });
+  }
+  const gone = new Map();
+  for (const r of reverts) {
+    if (turnFilter !== null && r.turnSeq !== turnFilter) continue;
+    const key = `${r.turnSeq}|${r.tool}|${r.op}`;
+    let g = gone.get(key);
+    if (!g) { g = { turnSeq: r.turnSeq, entrySeq: r.entrySeq, tool: r.tool, op: r.op, paths: [], files: 0, at: '', revertedAt: '' }; gone.set(key, g); }
+    g.files += r.files;
+    for (const p of r.paths) if (g.paths.length < CHECKPOINT_LIST_PATHS_MAX && !g.paths.includes(p)) g.paths.push(p);
+    if (r.entrySeq >= 0 && (g.entrySeq < 0 || r.entrySeq < g.entrySeq)) g.entrySeq = r.entrySeq;
+    if (r.at > g.at) g.at = r.at;
+    if (r.revertedAt > g.revertedAt) g.revertedAt = r.revertedAt;
+  }
+  for (const g of gone.values()) {
+    rows.push({ sortSeq: g.entrySeq, row: { turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, path: g.paths[0] || '',
+      ...(g.files > 1 ? { files: g.files, paths: g.paths } : {}),
+      at: g.at || g.revertedAt, undoable: false, reverted: true, revertedAt: g.revertedAt } });
+  }
+  rows.sort((a, b) => b.row.turnSeq - a.row.turnSeq || (a.row.reverted === b.row.reverted ? 0 : a.row.reverted ? 1 : -1) || b.sortSeq - a.sortSeq);
+  const shown = rows.slice(0, limit).map(x => x.row);
+  return {
+    ok: true, total: rows.length, shown: shown.length, ...(rows.length > shown.length ? { truncated: true } : {}), checkpoints: shown,
+    note: `Read-only; newest turn first; only the last ${JOURNAL_KEEP_TURNS} turns are kept. You cannot roll back: only the user can undo, in the UI (the turn's change card). Tell them which turn's change is undoable. reverted:true = the user already undid it and the file is back to its pre-change state, so re-read it before relying on it.`,
+  };
+}
+
 // 第41波(V2.0「立柱」41a): toolCall() 50 分支 switch → 分组表驱动注册表。
 // 每个工具声明 { paths, guardNote, handler }:
 //   paths: 'read'|'write'|'both' → handler 内必须对模型给定路径过 guardFileToolPath(read=读闸/write=写闸/both=双闸);
@@ -53677,6 +53926,13 @@ const CORE_TOOL_HANDLERS = {
       const tail = maxChars - head;
       return { ok: true, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: true,
         content: original.slice(0, head) + `\n[...${original.length - head - tail} chars omitted from a ${original.length}-char observation; re-call with a larger maxChars (max ${OBSERVATION_RECALL_MAX_CHARS.max}) if needed...]\n` + original.slice(-tail) };
+  } },
+  checkpoint_list: { paths: null, guardNote: "C4: 只读当前会话的检查点索引与撤销记录(index.json + reverts.json),不触文件路径、不回滚;sessionId 取自 ctx/WCW_SESSION_ID 而非参数,拿不到别的会话的检查点", handler: async (args, ctx) => {
+      // 授权:会话归属只取 ctx / 桥 env,绝不接受 args 传入(与 observation_recall 同一做法)。
+      const session = (ctx && ctx.session) || null;
+      const sessionId = safeSessionId(String((session && session.id) || (ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || ''));
+      if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to list checkpoints for' };
+      return checkpointListResult(sessionId, args);
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
@@ -56602,6 +56858,18 @@ const MCP_TOOLS = [
       type: 'object',
       properties: { path: { type: 'string', description: 'absolute or workspace-relative' } },
       required: ['path'],
+    },
+  },
+  {
+    // C4(61 号文):只读。会话只取自调用上下文,不收 sessionId;模型没有回滚能力(撤销只在界面,由用户做)。
+    name: 'checkpoint_list',
+    description: 'List this session\'s file-change checkpoints (undoable / already reverted). Read-only: only the user can undo, in the UI.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        turnSeq: { type: 'integer', minimum: 0, description: 'only this turn' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, description: 'max rows (default 20)' },
+      },
     },
   },
   {
@@ -60628,6 +60896,9 @@ async function handleCheckpointApiRoutes(req, res, pathname) {
         },
       });
       await markTurnSummaryReverted(sessionId, Number(body.turnSeq), rollback.reverted).catch(() => {});
+      // C4:记下「用户撤销了哪回合的什么」—— checkpoint_list 据此标 reverted,下一个 provider 回合起跑时 09 把它写成一行告知
+      // 追加到那条 user 消息(见 02 journalRevertLogRecord 头注)。旁路写,失败只是模型少收到一句告知。
+      await journalRevertLogRecord(sessionId, rollback.reverted).catch(() => {});
     }
     return send(res, json(rollback));
   }

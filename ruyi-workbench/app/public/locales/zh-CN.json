@@ -1780,6 +1780,7 @@
   "tools.verb.archive_zip": "压缩打包",
   "tools.verb.audio_transcribe": "转写语音",
   "tools.verb.browser_open": "打开网页",
+  "tools.verb.checkpoint_list": "查看可撤销的修改",
   "tools.verb.claude_md_audit": "检查说明文件",
   "tools.verb.code_review_scan": "审查代码",
   "tools.verb.codebase_symbol_search": "查找代码符号",

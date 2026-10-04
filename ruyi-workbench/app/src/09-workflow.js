@@ -1505,7 +1505,20 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 61-A3:模型原先不知道现在几点 —— 06 的环境说明为保前缀缓存刻意不放时间戳。时间改成随这条 user 消息【落历史】:
   // 历史只追加、落盘后字节不变,前缀缓存零损失(易变层贴在首条 user 前、尾部临时注入下一回合就消失,两处都会让缓存断);
   // 跨天续聊时每轮的时间线也都在。只进 providerHistory:session.messages(界面)与 fullPrompt(分包意图、自检判据)不带。
-  const historyPrompt = fullPrompt + '\n\n' + getPromptPack(config && config.locale).turnTime(localTurnTimeParts(Date.now()));
+  // C4(61 号文):用户在界面撤销了文件改动(POST /api/checkpoints/rollback)而模型不知道 —— 它下一轮可能基于已被撤回的内容
+  // 接着干。撤销时 02 在检查点目录的 reverts.json 里记了一条「待告知」;这里在 user 消息落历史时把它写成一行追加在时间行之后,
+  // 与时间行同一位置、同一原因:历史只追加、落盘后字节不变(前缀缓存零损失),界面消息不带。告知先 peek、下面这一存落盘【之后】才 ack ——
+  // 中途失败只会让下一回合再说一遍,不会让模型永远收不到。读不到/坏了就不带(它只是附加信息,不是回合的前提)。
+  const packForTurn = getPromptPack(config && config.locale);
+  let revertNotice = '', revertNoticeSeqs = [];
+  try {
+    const pendingReverts = await journalRevertNoticesPeek(session.id);
+    if (pendingReverts.length) {
+      revertNotice = packForTurn.revertNotice({ turns: revertNoticeTurns(pendingReverts) });
+      revertNoticeSeqs = pendingReverts.map(r => r.seq);
+    }
+  } catch { revertNotice = ''; revertNoticeSeqs = []; }
+  const historyPrompt = fullPrompt + '\n\n' + packForTurn.turnTime(localTurnTimeParts(Date.now())) + (revertNotice ? '\n' + revertNotice : '');
   if (visionOn && VisualPipeline.hasImageAttachment(attachments)) {
     const parts = await VisualPipeline.buildUserContentParts(historyPrompt, attachments);
     session.providerHistory.push({ role: 'user', content: parts });
@@ -1517,6 +1530,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 「路由把会话读进内存」与这一存之间;这一存若照内存原样写,刚落盘的账本当场没了,回合收尾再怎么
   // 合并也无从恢复(磁盘上已经没有那本账)。合并在写链内做,与路由那一存的先后两个方向都不丢。
   await saveSession(session, { mergeMissionFromDisk: true });
+  if (revertNoticeSeqs.length) await journalRevertNoticesAck(session.id, revertNoticeSeqs).catch(() => {});
 
   await AgentLoopHooks.dispatchAgentLoopHooks('onTurnStart', {
     traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq,

@@ -4524,7 +4524,7 @@ async function dirSize(dir) {
 // modify→write `before` back; create→unlink the current file. skipped:true entries fail (no stored
 // content) and are listed in `failed` without aborting the rest. Reverted entries are REMOVED from the
 // index (idempotent: rolling back the same turn again → {ok:false,error:'no entries'}). The rollback
-// action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op}], failed:[{path,reason}]}.
+// action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op,turnSeq,entrySeq,tool,ts}], failed:[{path,reason}]}.
 async function journalRollback(sessionId, turnSeq, entrySeq) {
   const dir = journalDir(sessionId);
   const index = await journalReadIndex(sessionId);
@@ -4584,7 +4584,8 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
         await fsp.rename(tmpRestore, e.path);
         await fsp.unlink(path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`)).catch(() => {});
       }
-      reverted.push({ path: e.path, op: e.op });
+      // C4:turnSeq / entrySeq / tool / ts 是加字段(既有读者只看 path / op)—— 路由据此给 reverts.json 记「哪一回合的哪次修改被撤了」。
+      reverted.push({ path: e.path, op: e.op, turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), tool: typeof e.tool === 'string' ? e.tool : '', ts: typeof e.ts === 'string' ? e.ts : '' });
       revertedKeys.add(key);
     } catch (err) {
       failed.push({ path: e.path, reason: (err && err.message) ? err.message : String(err) });
@@ -4595,6 +4596,118 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   const remaining = index.filter(e => !revertedKeys.has(`${e.turnSeq}-${e.entrySeq}`));
   await journalWriteIndex(sessionId, remaining).catch(() => {});
   return { ok: reverted.length > 0, reverted, failed };
+}
+
+// ── C4(61 号文):检查点对模型可见 —— 「用户在界面撤销了什么」的记录 ──────────────────────────────────────
+// journalRollback 撤销成功的条目会从 index.json 里【删掉】:之后既没有地方回答「这一条已被用户撤销」,模型也无从知道用户
+// 撤过 —— 下一轮它可能基于已被撤回的内容接着干。这里在检查点目录里另起一个旁车 <checkpoints>/<sid>/reverts.json,记两件事:
+//   ① checkpoint_list(12)给撤销过的修改标 reverted:true;
+//   ② 「待告知」:announced:false 的记录由 09 在下一个 provider 回合的 user 消息落历史时读走、写成一行告知,会话落盘后 ack。
+// 为什么是旁车文件而不是会话头字段:会话头是【整份重写】的 —— 回合手里那份内存副本(以及任何 load→await→save 的旁路写者)
+// 收尾时会把头写回「没有该字段」的样子。02d 的覆盖表(权限档/桌面工具/引擎路由)就是为这种陈旧副本写的,但那是给「必须对活回合
+// 立即生效」的开关用的;本数据只在没有活回合时写(rollback 路由对活回合回 409,rewind 先停回合再等 settle),下一回合起跑时读,
+// 不需要对活回合生效。独立文件从根上与会话头的任何一次保存(含撤回代数闸 SESSION_STALE_SAVE 丢掉的那些)都不相交,也就没有
+// 「被回合的陈旧副本吞掉」这一类问题,不必再造一张覆盖表。随会话删除(deleteSession 清整个检查点目录)与全局体积清扫一起走。
+// 记录按 (turnSeq, tool, op) 分组而不是一个文件一条:一次解压几千个文件的撤销也只是一条记录,告知一行说得完。
+// 读失败/文件坏 = 当空(没有告知、没有已撤销标记,模型下一次读文件就会看到真实状态),不隔离、不抛。
+const JOURNAL_REVERT_LOG_MAX = 100;     // 每会话最多留这么多条记录(超出先丢已告知的、再丢最旧的)
+const JOURNAL_REVERT_PATHS_MAX = 5;     // 每条记录最多记几个样例路径(files 是真实个数)
+const journalRevertChains = new Map();  // sessionId -> Promise(同会话的读改写串行)
+function journalRevertLogPath(sessionId) { return path.join(journalDir(sessionId), 'reverts.json'); }
+function journalRevertRecordOf(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const seq = Number(raw.seq), turnSeq = Number(raw.turnSeq);
+  if (!Number.isSafeInteger(seq) || seq < 1 || !Number.isSafeInteger(turnSeq) || turnSeq < 0) return null;
+  const paths = (Array.isArray(raw.paths) ? raw.paths : []).filter(p => typeof p === 'string' && p).slice(0, JOURNAL_REVERT_PATHS_MAX).map(p => p.slice(0, 400));
+  const files = Number.isSafeInteger(Number(raw.files)) && Number(raw.files) > 0 ? Number(raw.files) : Math.max(1, paths.length);
+  return {
+    seq, turnSeq,
+    entrySeq: Number.isSafeInteger(Number(raw.entrySeq)) ? Number(raw.entrySeq) : -1,
+    tool: typeof raw.tool === 'string' ? raw.tool.slice(0, 64) : '',
+    op: raw.op === 'create' || raw.op === 'delete' ? raw.op : 'modify',
+    files, paths,
+    at: typeof raw.at === 'string' ? raw.at.slice(0, 40) : '',
+    revertedAt: typeof raw.revertedAt === 'string' ? raw.revertedAt.slice(0, 40) : '',
+    announced: raw.announced === true,
+  };
+}
+// 从不抛;文件不存在 / 读不动 / 不是预期形状 → []。
+async function journalRevertLogRead(sessionId) {
+  try {
+    const parsed = safeJsonParse(await fsp.readFile(journalRevertLogPath(sessionId), 'utf8'), null);
+    const rows = parsed && typeof parsed === 'object' && Array.isArray(parsed.items) ? parsed.items : [];
+    return rows.map(journalRevertRecordOf).filter(Boolean);
+  } catch { return []; }
+}
+async function journalRevertLogWrite(sessionId, items) {
+  await fsp.mkdir(journalDir(sessionId), { recursive: true });
+  await atomicWriteJson(journalRevertLogPath(sessionId), JSON.stringify({ schema: 1, items }), { retries: 3 });
+}
+// 路由在 journalRollback 成功后调:reverted = journalRollback 回的 [{path, op, turnSeq, entrySeq, tool, ts}]。
+// 同一次撤销里 (turnSeq, tool, op) 相同的并成一条;已有【还没告知】的同键记录就并进去(用户先撤 a 再撤 b,两次都发生在
+// 模型下一回合之前,告知一行说完)。已告知的不并(那次告知已经发出去了,这次是新的事实)。
+async function journalRevertLogRecord(sessionId, reverted) {
+  const rows = (Array.isArray(reverted) ? reverted : []).filter(r => r && typeof r.path === 'string' && r.path && Number.isSafeInteger(Number(r.turnSeq)));
+  if (!rows.length) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    const now = nowIso();
+    let nextSeq = items.reduce((m, r) => Math.max(m, r.seq), 0) + 1;
+    const groups = new Map();
+    for (const r of rows.slice().sort((a, b) => (Number(a.entrySeq) || 0) - (Number(b.entrySeq) || 0))) {   // 主路径 = 本组 entrySeq 最小的那条
+      const op = r.op === 'create' || r.op === 'delete' ? r.op : 'modify';
+      const key = `${Number(r.turnSeq)}|${r.tool || ''}|${op}`;
+      let g = groups.get(key);
+      if (!g) { g = { turnSeq: Number(r.turnSeq), entrySeq: Number.isSafeInteger(Number(r.entrySeq)) ? Number(r.entrySeq) : -1, tool: String(r.tool || ''), op, paths: [], at: '' }; groups.set(key, g); }
+      if (!g.paths.includes(r.path)) g.paths.push(r.path);
+      if (typeof r.ts === 'string' && r.ts > g.at) g.at = r.ts;
+    }
+    for (const g of groups.values()) {
+      const open = items.find(r => !r.announced && r.turnSeq === g.turnSeq && r.tool === g.tool.slice(0, 64) && r.op === g.op);
+      if (open) {
+        open.files += g.paths.length;
+        for (const p of g.paths) if (open.paths.length < JOURNAL_REVERT_PATHS_MAX && !open.paths.includes(p)) open.paths.push(p.slice(0, 400));
+        if (g.entrySeq >= 0 && (open.entrySeq < 0 || g.entrySeq < open.entrySeq)) open.entrySeq = g.entrySeq;
+        if (g.at > open.at) open.at = g.at;
+        open.revertedAt = now;
+        continue;
+      }
+      const rec = journalRevertRecordOf({ seq: nextSeq++, turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, files: g.paths.length, paths: g.paths, at: g.at, revertedAt: now, announced: false });
+      if (rec) items.push(rec);
+    }
+    while (items.length > JOURNAL_REVERT_LOG_MAX) {
+      const i = items.findIndex(r => r.announced);
+      items.splice(i >= 0 ? i : 0, 1);   // 先丢最旧的已告知项,没有才丢最旧的待告知项
+    }
+    await journalRevertLogWrite(sessionId, items);
+  });
+}
+// 09 在 provider 回合起跑时读:还没告知的记录(回合升序)。读不到 = []。
+async function journalRevertNoticesPeek(sessionId) {
+  try { return (await journalRevertLogRead(sessionId)).filter(r => !r.announced).sort((a, b) => a.turnSeq - b.turnSeq || a.seq - b.seq); }
+  catch { return []; }
+}
+// 09 在带着告知的那条 user 消息【已落盘】之后调:只把 peek 到的那几条标成已告知(按 seq),期间新记的不动。
+// 先 peek、落盘后才 ack 的顺序是有意的:中途失败只会让告知多发一次(无害),不会让模型永远收不到。
+async function journalRevertNoticesAck(sessionId, seqs) {
+  const wanted = new Set((Array.isArray(seqs) ? seqs : []).map(Number));
+  if (!wanted.size) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    let touched = false;
+    for (const r of items) if (wanted.has(r.seq) && !r.announced) { r.announced = true; touched = true; }
+    if (touched) await journalRevertLogWrite(sessionId, items);
+  });
+}
+// rewindSession 截断成功后调:回合号 >= fromTurnSeq 的记录都属于已被丢弃的回合,留着只会给模型一句指向「不存在的回合」的告知。
+async function journalRevertLogPrune(sessionId, fromTurnSeq) {
+  const from = Number(fromTurnSeq);
+  if (!Number.isFinite(from)) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    const kept = items.filter(r => r.turnSeq < from);
+    if (kept.length !== items.length) await journalRevertLogWrite(sessionId, kept);
+  });
 }
 
 // v0.8-S4b B2 — conversation REWIND (Claude Code-style "back up to just before this message"). Truncates
@@ -4746,6 +4859,12 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
     }
     throw error;
   }
+  // C4:rewind【不】给模型记「用户撤销了文件」的待告知(rollbackFiles 撤的恰恰是被丢弃回合的改动)。理由:截断之后 providerHistory
+  // 清空、下一回合从幸存的展示消息重新播种,被丢弃的回合对模型而言根本没发生过;它们碰过的文件又被恢复到了修改前 —— 模型看到的
+  // 对话与磁盘是自洽的,再告知「第 N 回合的修改已被撤销」反而是在讲一个它看不到的回合。反过来,截断前已经在待告知里的记录
+  // (用户先在界面撤了第 4 回合的文件、没发消息就回退到第 3 回合)指向的回合同样被丢了,一并清掉,不留一句悬空的告知。
+  // 截断被代数闸顶掉(上面已 return rewind_superseded)时不走到这里。
+  await journalRevertLogPrune(sessionId, target).catch(() => {});
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },

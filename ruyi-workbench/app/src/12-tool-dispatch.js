@@ -368,6 +368,68 @@ function observationRecallError(err) {
   return 'not_found'; // 'observation not found' / ENOENT(快照已被 GC) / 其它读取失败
 }
 
+// C4(61 号文):checkpoint_list —— 当前会话文件改动检查点的【只读】视图。数据 = 02 的检查点索引(index.json:还能撤销的)
+// + 撤销记录(reverts.json:用户已经在界面撤销的,journalRevertLogRead)。按 (turnSeq, tool, op) 分组成行 ——
+// 一次解压几千个文件也只是一行(path 取主路径、files 给个数、paths 给至多 5 个样例)。不给模型回滚能力:二次写盘会覆盖用户之后的手改、
+// 与活回合抢写、绕过用户的决定;撤销只能由用户在界面做,模型能做的是告诉用户「第几回合的哪次修改可以撤销」。
+const CHECKPOINT_LIST_LIMIT = Object.freeze({ dflt: 20, max: 50 });
+const CHECKPOINT_LIST_PATHS_MAX = 5;
+async function checkpointListResult(sessionId, args) {
+  const rawTurn = args && args.turnSeq;
+  const turnFilter = (rawTurn === undefined || rawTurn === null || rawTurn === '') ? null : Number(rawTurn);
+  if (turnFilter !== null && !(Number.isSafeInteger(turnFilter) && turnFilter >= 0)) {
+    return { ok: false, error: 'invalid_turnSeq', message: 'turnSeq must be a non-negative integer (a turn number as shown in the checkpoint rows)' };
+  }
+  const rawLimit = Number(args && args.limit);
+  const limit = Number.isFinite(rawLimit) ? Math.min(CHECKPOINT_LIST_LIMIT.max, Math.max(1, Math.floor(rawLimit))) : CHECKPOINT_LIST_LIMIT.dflt;
+  const [index, reverts] = await Promise.all([journalReadIndex(sessionId), journalRevertLogRead(sessionId)]);
+  const opOf = v => (v === 'create' || v === 'delete' ? v : 'modify');
+  const live = new Map();
+  for (const e of index) {
+    if (!e || !Number.isSafeInteger(Number(e.turnSeq)) || !Number.isSafeInteger(Number(e.entrySeq)) || typeof e.path !== 'string' || !e.path) continue;
+    if (turnFilter !== null && Number(e.turnSeq) !== turnFilter) continue;
+    const op = opOf(e.op), tool = typeof e.tool === 'string' ? e.tool : '';
+    const key = `${Number(e.turnSeq)}|${tool}|${op}`;
+    let g = live.get(key);
+    if (!g) { g = { turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), lastSeq: Number(e.entrySeq), tool, op, entries: [], at: '', skipped: new Set() }; live.set(key, g); }
+    g.entries.push({ entrySeq: Number(e.entrySeq), path: e.path });
+    if (Number(e.entrySeq) < g.entrySeq) g.entrySeq = Number(e.entrySeq);
+    if (Number(e.entrySeq) > g.lastSeq) g.lastSeq = Number(e.entrySeq);   // 排序按本组最新一条
+    if (typeof e.ts === 'string' && e.ts > g.at) g.at = e.ts;
+    if (e.skipped) g.skipped.add(e.path);   // 改动前的内容没存下来(超 5MB):这一条撤销不了
+  }
+  const rows = [];
+  for (const g of live.values()) {
+    const paths = [...new Set(g.entries.sort((a, b) => a.entrySeq - b.entrySeq).map(x => x.path))];
+    rows.push({ sortSeq: g.lastSeq, row: { turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, path: paths[0],
+      ...(paths.length > 1 ? { files: paths.length, paths: paths.slice(0, CHECKPOINT_LIST_PATHS_MAX) } : {}),
+      at: g.at, undoable: g.skipped.size === 0, ...(g.skipped.size ? { notUndoable: g.skipped.size } : {}), reverted: false } });
+  }
+  const gone = new Map();
+  for (const r of reverts) {
+    if (turnFilter !== null && r.turnSeq !== turnFilter) continue;
+    const key = `${r.turnSeq}|${r.tool}|${r.op}`;
+    let g = gone.get(key);
+    if (!g) { g = { turnSeq: r.turnSeq, entrySeq: r.entrySeq, tool: r.tool, op: r.op, paths: [], files: 0, at: '', revertedAt: '' }; gone.set(key, g); }
+    g.files += r.files;
+    for (const p of r.paths) if (g.paths.length < CHECKPOINT_LIST_PATHS_MAX && !g.paths.includes(p)) g.paths.push(p);
+    if (r.entrySeq >= 0 && (g.entrySeq < 0 || r.entrySeq < g.entrySeq)) g.entrySeq = r.entrySeq;
+    if (r.at > g.at) g.at = r.at;
+    if (r.revertedAt > g.revertedAt) g.revertedAt = r.revertedAt;
+  }
+  for (const g of gone.values()) {
+    rows.push({ sortSeq: g.entrySeq, row: { turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, path: g.paths[0] || '',
+      ...(g.files > 1 ? { files: g.files, paths: g.paths } : {}),
+      at: g.at || g.revertedAt, undoable: false, reverted: true, revertedAt: g.revertedAt } });
+  }
+  rows.sort((a, b) => b.row.turnSeq - a.row.turnSeq || (a.row.reverted === b.row.reverted ? 0 : a.row.reverted ? 1 : -1) || b.sortSeq - a.sortSeq);
+  const shown = rows.slice(0, limit).map(x => x.row);
+  return {
+    ok: true, total: rows.length, shown: shown.length, ...(rows.length > shown.length ? { truncated: true } : {}), checkpoints: shown,
+    note: `Read-only; newest turn first; only the last ${JOURNAL_KEEP_TURNS} turns are kept. You cannot roll back: only the user can undo, in the UI (the turn's change card). Tell them which turn's change is undoable. reverted:true = the user already undid it and the file is back to its pre-change state, so re-read it before relying on it.`,
+  };
+}
+
 // 第41波(V2.0「立柱」41a): toolCall() 50 分支 switch → 分组表驱动注册表。
 // 每个工具声明 { paths, guardNote, handler }:
 //   paths: 'read'|'write'|'both' → handler 内必须对模型给定路径过 guardFileToolPath(read=读闸/write=写闸/both=双闸);
@@ -434,6 +496,13 @@ const CORE_TOOL_HANDLERS = {
       const tail = maxChars - head;
       return { ok: true, toolCallId: result.toolCallId, rawRef: result.rawRef, originalChars: original.length, truncated: true,
         content: original.slice(0, head) + `\n[...${original.length - head - tail} chars omitted from a ${original.length}-char observation; re-call with a larger maxChars (max ${OBSERVATION_RECALL_MAX_CHARS.max}) if needed...]\n` + original.slice(-tail) };
+  } },
+  checkpoint_list: { paths: null, guardNote: "C4: 只读当前会话的检查点索引与撤销记录(index.json + reverts.json),不触文件路径、不回滚;sessionId 取自 ctx/WCW_SESSION_ID 而非参数,拿不到别的会话的检查点", handler: async (args, ctx) => {
+      // 授权:会话归属只取 ctx / 桥 env,绝不接受 args 传入(与 observation_recall 同一做法)。
+      const session = (ctx && ctx.session) || null;
+      const sessionId = safeSessionId(String((session && session.id) || (ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || ''));
+      if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to list checkpoints for' };
+      return checkpointListResult(sessionId, args);
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
