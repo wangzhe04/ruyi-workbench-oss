@@ -409,6 +409,7 @@
         "desktopMcpFromRepoAsync",
         "desktopMcpInstalledEnv",
         "desktopMcpInstalledPickOptions",
+        "desktopMcpPolicyEnv",
         "desktopMcpRepoEnv",
         "desktopMcpRootPlan",
         "desktopMcpWarmInFlight",
@@ -862,9 +863,23 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "accPolicyHiddenToolNames",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "claudePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -3424,6 +3439,13 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -6500,6 +6522,10 @@
       "file": "07-autonomy.js",
       "layer": "orchestration",
       "provides": [
+        "ACC_COMMAND_TOOL_NAMES",
+        "ACC_DESKTOP_TOOL_NAMES",
+        "ACC_DISPATCHER_TOOL_NAMES",
+        "ACC_POLICY_TOOL_FAMILIES",
         "ACTION_VIEW_MIN_CHARS",
         "ACTION_VIEW_TOOLS",
         "AGENT_TOOL_NAMES",
@@ -6513,6 +6539,7 @@
         "CLAUDE_PROGRESS_CHAR_STEP",
         "CLAUDE_SUBAGENT_SAFE_MODES",
         "CLAUDE_SUBAGENT_TIER_TOOLS",
+        "DESKTOP_MCP_SERVER_ID",
         "FAILOVER_CONNECT_CODES",
         "FAILOVER_HTTP_STATUSES",
         "LOOP_GUARD_LIMITS",
@@ -6545,6 +6572,7 @@
         "TOOL_SEARCH_EMPTY_NOTE",
         "TOOL_SEARCH_FULL_ARGS_TOP",
         "_nativeToolSchemaByName",
+        "accPolicyHiddenToolNames",
         "actionTargetMeta",
         "activeAgentRuns",
         "adaptiveMetaToolSchemas",
@@ -6556,6 +6584,7 @@
         "bridgedCallTierFloor",
         "bridgedShadowNative",
         "bridgedToolAliases",
+        "bridgedToolDisabledByPolicy",
         "bridgedToolTier",
         "bridgedToolTierByName",
         "buildActionEnvelope",
@@ -6571,7 +6600,9 @@
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
+        "desktopToolsDisabledReason",
         "drainSteerQueue",
+        "dropPolicyDisabledBridgedTools",
         "estimateToolSchemaTokens",
         "failoverConnectReason",
         "failoverStickyBase",
@@ -6616,6 +6647,7 @@
         "toolArgTypeText",
         "toolArgsResolveRef",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolDisabledResult",
         "toolIsRevertible",
         "toolPackForName",
@@ -7424,6 +7456,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
           "kinds": [
@@ -7684,6 +7723,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
           "kinds": [
             "call"
@@ -7741,6 +7787,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "runClaudeSubAgentOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
           "kinds": [
             "call"
           ]
@@ -8964,6 +9024,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "estimateToolSchemaTokens",
           "kinds": [
             "call"
@@ -9055,13 +9122,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "nativeToolDisabledByPolicy",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
           "kinds": [
             "call"
@@ -9128,6 +9188,13 @@
           "symbol": "resumeInFlight",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -10975,6 +11042,8 @@
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
+        "policyDesktopOverrideFor",
+        "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
@@ -11598,6 +11667,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
           "kinds": [
             "call"
           ]
@@ -14872,6 +14948,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
           "kinds": [
             "call"
@@ -14896,6 +14979,20 @@
           "symbol": "STEER_QUEUE_MAX",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -24205,6 +24302,20 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "ACC_POLICY_TOOL_FAMILIES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "accPolicyHiddenToolNames",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "adaptiveMetaToolSchemas",
           "kinds": [
             "read"
@@ -24283,6 +24394,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "createToolLoadingState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
           "kinds": [
             "read"
           ]
@@ -24381,6 +24499,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
           "kinds": [
             "read"
           ]

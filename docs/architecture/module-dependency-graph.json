@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3392,
-    "requiredSymbols": 3073,
-    "edges": 532,
+    "providedSymbols": 3405,
+    "requiredSymbols": 3089,
+    "edges": 533,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -435,6 +435,7 @@
         "desktopMcpFromRepoAsync",
         "desktopMcpInstalledEnv",
         "desktopMcpInstalledPickOptions",
+        "desktopMcpPolicyEnv",
         "desktopMcpRepoEnv",
         "desktopMcpRootPlan",
         "desktopMcpWarmInFlight",
@@ -888,9 +889,23 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "accPolicyHiddenToolNames",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "claudePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -3484,6 +3499,13 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -6590,6 +6612,10 @@
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
+        "ACC_COMMAND_TOOL_NAMES",
+        "ACC_DESKTOP_TOOL_NAMES",
+        "ACC_DISPATCHER_TOOL_NAMES",
+        "ACC_POLICY_TOOL_FAMILIES",
         "ACTION_VIEW_MIN_CHARS",
         "ACTION_VIEW_TOOLS",
         "AGENT_TOOL_NAMES",
@@ -6603,6 +6629,7 @@
         "CLAUDE_PROGRESS_CHAR_STEP",
         "CLAUDE_SUBAGENT_SAFE_MODES",
         "CLAUDE_SUBAGENT_TIER_TOOLS",
+        "DESKTOP_MCP_SERVER_ID",
         "FAILOVER_CONNECT_CODES",
         "FAILOVER_HTTP_STATUSES",
         "LOOP_GUARD_LIMITS",
@@ -6635,6 +6662,7 @@
         "TOOL_SEARCH_EMPTY_NOTE",
         "TOOL_SEARCH_FULL_ARGS_TOP",
         "_nativeToolSchemaByName",
+        "accPolicyHiddenToolNames",
         "actionTargetMeta",
         "activeAgentRuns",
         "adaptiveMetaToolSchemas",
@@ -6646,6 +6674,7 @@
         "bridgedCallTierFloor",
         "bridgedShadowNative",
         "bridgedToolAliases",
+        "bridgedToolDisabledByPolicy",
         "bridgedToolTier",
         "bridgedToolTierByName",
         "buildActionEnvelope",
@@ -6661,7 +6690,9 @@
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
+        "desktopToolsDisabledReason",
         "drainSteerQueue",
+        "dropPolicyDisabledBridgedTools",
         "estimateToolSchemaTokens",
         "failoverConnectReason",
         "failoverStickyBase",
@@ -6706,6 +6737,7 @@
         "toolArgTypeText",
         "toolArgsResolveRef",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolDisabledResult",
         "toolIsRevertible",
         "toolPackForName",
@@ -7516,6 +7548,13 @@
           ]
         },
         {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "03-bridge-guard.js",
           "symbol": "bridgedOfficeScriptGate",
           "kinds": [
@@ -7776,6 +7815,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
           "kinds": [
             "call"
@@ -7833,6 +7879,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "runClaudeSubAgentOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
           "kinds": [
             "call"
           ]
@@ -9062,6 +9122,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "estimateToolSchemaTokens",
           "kinds": [
             "call"
@@ -9153,13 +9220,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "nativeToolDisabledByPolicy",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
           "kinds": [
             "call"
@@ -9226,6 +9286,13 @@
           "symbol": "resumeInFlight",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11081,6 +11148,8 @@
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
+        "policyDesktopOverrideFor",
+        "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
         "textFileWantsUtf8Bom",
@@ -11704,6 +11773,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
           "kinds": [
             "call"
           ]
@@ -14988,6 +15064,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
           "kinds": [
             "call"
@@ -15012,6 +15095,20 @@
           "symbol": "STEER_QUEUE_MAX",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -24355,6 +24452,20 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "ACC_POLICY_TOOL_FAMILIES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "accPolicyHiddenToolNames",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "adaptiveMetaToolSchemas",
           "kinds": [
             "read"
@@ -24433,6 +24544,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "createToolLoadingState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
           "kinds": [
             "read"
           ]
@@ -24531,6 +24649,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
           "kinds": [
             "read"
           ]
@@ -25806,7 +25931,9 @@
       "from": "01-config.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "DESKTOP_MCP_SERVER_ID",
         "TOOL_PACK_DESCRIPTIONS",
+        "accPolicyHiddenToolNames",
         "claudePermissionMode",
         "getAgentRoleLibrary",
         "nativeToolTier"
@@ -26437,6 +26564,14 @@
       "to": "02c-turn-segments.js",
       "symbols": [
         "createTurnSegmentBuilder"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -27571,7 +27706,8 @@
       "from": "08-agent-runs.js",
       "to": "02d-session-overrides.js",
       "symbols": [
-        "liveSessionPermissionMode"
+        "liveSessionPermissionMode",
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -27666,6 +27802,7 @@
         "bridgedToolTier",
         "buildOpenAiTools",
         "classifyToolPacks",
+        "dropPolicyDisabledBridgedTools",
         "fetchOpenAiModels",
         "loopAbortExempt",
         "loopWarnOnly",
@@ -27674,6 +27811,8 @@
         "neutralizeInjectedPrefixes",
         "openAiStreamOnce",
         "runClaudeSubAgentOnce",
+        "toolDisabledByPolicy",
+        "toolDisabledResult",
         "toolPackForName"
       ],
       "direction": "backward"
@@ -28020,6 +28159,7 @@
         "createAgentWorktree",
         "createToolLoadingState",
         "drainSteerQueue",
+        "dropPolicyDisabledBridgedTools",
         "estimateToolSchemaTokens",
         "failoverStickyBase",
         "finalizeAgentWorktree",
@@ -28028,7 +28168,6 @@
         "looksLikePlan",
         "loopAbortExempt",
         "loopWarnOnly",
-        "nativeToolDisabledByPolicy",
         "nativeToolGate",
         "nativeToolTier",
         "openAiStreamOnce",
@@ -28036,6 +28175,7 @@
         "requestNativePermission",
         "requestPlanApproval",
         "resumeInFlight",
+        "toolDisabledByPolicy",
         "toolDisabledResult"
       ],
       "direction": "backward"
@@ -28646,6 +28786,7 @@
         "nativeToolsAcceptingArgKeys",
         "searchToolCatalog",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolDisabledResult"
       ],
       "direction": "backward"
@@ -29476,6 +29617,7 @@
       "from": "13d-core-domain-routes.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "DESKTOP_MCP_SERVER_ID",
         "STEER_QUEUE_MAX",
         "activeAgentRuns",
         "agentRunFile",
@@ -29484,6 +29626,8 @@
         "getAgentRoleLibrary",
         "nativeToolGate",
         "nativeToolTier",
+        "toolDisabledByPolicy",
+        "toolDisabledResult",
         "toolIsRevertible"
       ],
       "direction": "backward"
@@ -32131,8 +32275,10 @@
       "from": "14-main.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "ACC_POLICY_TOOL_FAMILIES",
         "NATIVE_TOOL_PACKS",
         "NATIVE_TOOL_TIER",
+        "accPolicyHiddenToolNames",
         "adaptiveMetaToolSchemas",
         "applyAgentWorktree",
         "bridgedToolTier",
@@ -32145,6 +32291,7 @@
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
+        "dropPolicyDisabledBridgedTools",
         "fetchOpenAiModels",
         "finalizeAgentWorktree",
         "getAgentRoleLibrary",
@@ -32157,6 +32304,7 @@
         "schedulerAskWaitSessions",
         "searchToolCatalog",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolPackForName"
       ],
       "direction": "backward"

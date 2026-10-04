@@ -4220,7 +4220,9 @@ async function syncMcpServersToClaude(config) {
       if (s._toolbox) continue;
       const remain = SYNC_BUDGET_MS - (Date.now() - t0);
       if (remain <= 0) break;
-      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
+      // 2026-10 能力总闸:如意的 Claude 引擎起 CLI 时不带 --strict-mcp-config,这里写进 ~/.claude.json 的用户级条目在 Claude
+      // 线程里同样会被 CLI 加载(adaptive 模式也一样)—— 直挂 ACC 的条目同样带上被关掉的工具名(全局口径,见 desktopMcpPolicyEnv)。
+      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: { ...(s.env || {}), ...desktopMcpPolicyEnv(s.id, config) } };
       if (s.cwd) sc.cwd = s.cwd;
       try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
@@ -5404,12 +5406,24 @@ function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
   return { ...blanks, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
 }
 
+// 2026-10 能力总闸的 CLI 直挂面:交给 agent CLI 自己 spawn、自己调的 ACC 不经工作台的分发点(09/08/12),唯一能插手的是它的
+// 启动环境 —— 把 07 toolDisabledByPolicy 判下来被关掉的 ACC 工具名(accPolicyHiddenToolNames,与分发面同一张表)经
+// ACC_HIDE_TOOLS 交给 ACC,它在注册表里摘掉:tools/list 里没有,batch_actions / macro_run 也转调不到。只给内置桌面 MCP
+// 条目;一个都没关时不加这个键(生成的配置与修前逐字节相同)。旧版 ACC 不认这个变量 —— 那时只剩 13d 权限桥那道纵深。
+function desktopMcpPolicyEnv(entryId, config, desktopOverride = null) {
+  if (entryId !== DESKTOP_MCP_SERVER_ID || !config) return {};
+  const hidden = accPolicyHiddenToolNames(config, desktopOverride);
+  return hidden.length ? { ACC_HIDE_TOOLS: hidden.join(',') } : {};
+}
+
 // v0.7d: mutate an mcpServers map in place, adding the desktop MCP (id 'ai-computer-control') and every
 // enabled user externalMcpServers entry. Back-compat: when nothing is detected/configured, the map is
 // left exactly as it was, so the generated config equals the pre-0.7d output.
 // stdio 条目一律带 env 块(bridgedCliServerEnv:置空工作台凭据 + 条目自己的 env);远程(sse/http)条目没有子进程。
-function addExternalMcpServersToMap(mcpServers, config) {
+// opts.desktopOverride:会话级 desktopTools(null = 跟随全局;只有按会话生成的配置才传,见 generateSessionMcpConfig)。
+function addExternalMcpServersToMap(mcpServers, config, opts) {
   if (!config) return;
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
   try {
     for (const entry of resolveExternalMcpServers(config)) {
       if (mcpServers[entry.id]) continue;    // never clobber Ruyi's own server (id 'ruyi') or an earlier entry
@@ -5421,7 +5435,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
       } else {
         server = { type: 'stdio', command: entry.command, args: entry.args || [] };
         if (entry.cwd) server.cwd = entry.cwd;
-        server.env = bridgedCliServerEnv(entry.env);
+        server.env = { ...bridgedCliServerEnv(entry.env), ...desktopMcpPolicyEnv(entry.id, config, desktopOverride) };
       }
       mcpServers[entry.id] = server;
     }
@@ -5485,7 +5499,9 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
 
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
-async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
+// opts.desktopOverride:这条线程的会话级 desktopTools(05 Claude 引擎按会话头传;子代理节点不传 = 跟随全局),只影响直挂 ACC
+// 条目的 ACC_HIDE_TOOLS(见 desktopMcpPolicyEnv)。
+async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
   await ensureDirs();
   if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
@@ -5513,7 +5529,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   };
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
-  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg);
+  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg, { desktopOverride: opts && opts.desktopOverride });
   await atomicWriteJson(configPath, mcp);
   return configPath;
 }
@@ -19983,7 +19999,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
       if (config.includeWorkbenchMcp) {
         const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
-        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
+        // 会话级 desktopTools 一并交过去:full 模式直挂的 ACC 按这条线程的桌面闸裁剪(01 desktopMcpPolicyEnv)。
+        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks, { desktopOverride: sessionDesktopToolsOf(session) }));
         // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
         // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
         if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
@@ -34927,6 +34944,13 @@ async function applyConfigPatch(rawBody) {
     }
     await syncMcpServersToClaude(next);
     await syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true });
+  } else if (body && ['allowCommandTools', 'allowDesktopTools'].some(k => Object.prototype.hasOwnProperty.call(body, k)
+      && (current && current[k]) !== (next && next[k]))) {
+    // 2026-10 能力总闸:两个开关一变,写给 CLI 的直挂 ACC 条目里的 ACC_HIDE_TOOLS(01 desktopMcpPolicyEnv)就过时了 —— 推一次
+    // Claude 的用户级条目与 Kimi 的 mcp.json(同一次保存里 externalMcpServers 也改了的话上面那支已经推过)。不等它:claude mcp
+    // add-json 串行可达十几秒,开关的保存不该卡在这里;Kimi 每个回合起手还会再推一次(05b),这里只是把空窗缩短。
+    void syncMcpServersToClaude(next).catch(() => {});
+    void syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true }).catch(() => {});
   }
   // 选中的 CLI 若从用户配置读 MCP(登记表 syncMcpManifest),推一次;从这样一家切走时把如意接管的条目清掉(见 01)。
   if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
@@ -35038,14 +35062,91 @@ function adaptiveMetaToolSchemas(includeInvoke = false) {
 // 返回空串 = 放行;否则是给模型看的中文原因。desktopOverride 语义同 buildOpenAiTools(null = 跟随全局)。
 const NATIVE_COMMAND_TOOL_NAMES = new Set(['powershell_run', 'script_run', 'shell_start', 'shell_send', 'shell_poll', 'shell_kill', 'shell_list']);
 const NATIVE_DESKTOP_TOOL_NAMES = new Set(['desktop_screenshot', 'keyboard_send_keys']);
+// 桌面闸的唯一判法(原生与桥接共用):会话级覆盖 desktopOverride 非 null 时以它为准,否则跟随全局 allowDesktopTools。
+function desktopToolsDisabledReason(cfg, desktopOverride) {
+  const allowDesk = desktopOverride == null ? (cfg || {}).allowDesktopTools !== false : desktopOverride === true;
+  if (allowDesk) return '';
+  return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
+}
 function nativeToolDisabledByPolicy(name, config, desktopOverride = null) {
   const cfg = config || {};
   if (NATIVE_COMMAND_TOOL_NAMES.has(name) && cfg.allowCommandTools === false) return 'allowCommandTools=false';
-  if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) {
-    const allowDesk = desktopOverride == null ? cfg.allowDesktopTools !== false : desktopOverride === true;
-    if (!allowDesk) return desktopOverride === false ? 'desktopTools=false (this session)' : 'allowDesktopTools=false';
-  }
+  if (NATIVE_DESKTOP_TOOL_NAMES.has(name)) return desktopToolsDisabledReason(cfg, desktopOverride);
   return '';
+}
+// 2026-10 能力总闸补上桥接面。设置页承诺「关掉之后,对应的工具在所有线程里既不提供给模型、也不会执行」,修前只兑现了上面
+// 两张原生名单 —— 内置桌面 MCP(ACC:serverId 'ai-computer-control',桥接名前缀 ai_computer_control__)的 run_command /
+// screenshot / mouse_click 等在两个开关都关掉之后照常提供、照常执行。下面按 ACC 的【裸工具名】补两族(逐个对过
+// mcp/ai-computer-control/src/ai_computer_control/tools/*.py:108 件里收 55 件),【只认内置桌面 MCP】—— 外部 MCP 服务器
+// 哪怕有同名工具也不受影响(它们的语义由用户接入时自己负责,工作台不替它猜)。判据收在 toolDisabledByPolicy 一个函数里,
+// offer 面(09 目录 / 08 子代理 / 11 MCP 子进程目录 / 07 createToolLoadingState)与分发面(09 / 08 / 12 代理 / 13d CLI 权限桥)
+// 都调它;CLI 直挂 ACC 的那一路(01 addExternalMcpServersToMap / syncMcpServersToClaude)按同一张表算出 ACC_HIDE_TOOLS 交给
+// ACC 自己在注册表里摘掉。
+//   命令族(随 allowCommandTools):起进程 / 跑命令 / 杀进程,与原生 powershell_run / script_run / shell_* 同一类能力。
+//     list_processes 只读进程表、不执行任何东西,不收。
+//   桌面族(随 allowDesktopTools 与会话级 desktopTools 覆盖,判法与 NATIVE_DESKTOP_TOOL_NAMES 是同一个 desktopToolsDisabledReason):
+//     按「作用于真实桌面」归类 ——
+//     · screen / capture / mouse / keyboard / window / uia / vision / sync / observe / act_and_verify 全族:读屏、点屏、动键鼠、摆窗口;
+//     · ocr 只收读屏的 ocr_screen / ocr_click / ocr_find_text(后者内部就是 ocr_screen);ocr_image 读的是图片文件、
+//       ocr_available_languages 只列语言包,不收;
+//     · desktop_extra 的像素 / 窗口等待 / 显示器与 DPI 查询;它的 get_clipboard_image / set_clipboard_image 与 clipboard
+//       模块一起按剪贴板算(剪贴板是桌面会话的共享状态,原生 keyboard_send_keys 同族);
+//     · record 全族:record_start 装全局键鼠钩子录下用户的真实输入;macro_list 只列宏文件,但它唯一的用途是喂给 macro_run 回放,随宏族一起关。
+//     名单外的(文件、Office、浏览器自动化、提示音 / 通知弹窗、系统信息、诊断、记忆、fetch)不受影响。
+//   转调器(两个开关【任一】关掉都关):batch_actions / macro_run 按步骤名转调 ACC 实时注册表里的【任意】工具(batch.py
+//     _tool_map,含 run_command / launch_application)—— 只随桌面闸关,它就是命令族的后门;只随命令闸关,反过来也一样。
+const DESKTOP_MCP_SERVER_ID = 'ai-computer-control';
+const ACC_POLICY_TOOL_FAMILIES = Object.freeze({
+  command: Object.freeze(['run_command', 'launch_application', 'kill_process']),
+  desktop: Object.freeze([
+    'screenshot', 'screenshot_region', 'get_screen_info', 'find_on_screen',                                    // screen
+    'window_screenshot',                                                                                       // capture
+    'mouse_click', 'mouse_move', 'mouse_drag', 'mouse_scroll', 'scroll_at', 'get_mouse_position',              // mouse
+    'type_text', 'press_key', 'hotkey', 'key_down', 'key_up',                                                  // keyboard
+    'list_windows', 'get_active_window', 'focus_window', 'resize_window', 'move_window',                       // window
+    'minimize_window', 'maximize_window', 'close_window', 'set_window_topmost',
+    'ui_inspect', 'ui_find', 'ui_invoke',                                                                      // uia
+    'find_template', 'find_all_templates', 'vision_click', 'wait_for_image',                                   // vision
+    'ocr_screen', 'ocr_click', 'ocr_find_text',                                                                // ocr(只收读屏的)
+    'wait_for_pixel',                                                                                          // sync
+    'get_pixel_color', 'wait_for_window', 'wait_for_window_idle', 'list_monitors', 'get_dpi_info',             // desktop_extra
+    'observe', 'act_and_verify',                                                                               // observe / act_and_verify
+    'record_start', 'record_stop', 'macro_list',                                                               // record
+    'get_clipboard', 'set_clipboard', 'get_clipboard_image', 'set_clipboard_image',                            // clipboard
+  ]),
+  dispatcher: Object.freeze(['batch_actions', 'macro_run']),
+});
+const ACC_COMMAND_TOOL_NAMES = new Set(ACC_POLICY_TOOL_FAMILIES.command);
+const ACC_DESKTOP_TOOL_NAMES = new Set(ACC_POLICY_TOOL_FAMILIES.desktop);
+const ACC_DISPATCHER_TOOL_NAMES = new Set(ACC_POLICY_TOOL_FAMILIES.dispatcher);
+// bridge = resolveBridge 的结果 { serverId, toolName }(toolName 是裸名)。不是内置桌面 MCP 的一律放行。
+function bridgedToolDisabledByPolicy(bridge, config, desktopOverride = null) {
+  if (!bridge || bridge.serverId !== DESKTOP_MCP_SERVER_ID) return '';
+  const cfg = config || {};
+  const bare = String(bridge.toolName || '');
+  const commandOff = cfg.allowCommandTools === false;
+  if (ACC_COMMAND_TOOL_NAMES.has(bare)) return commandOff ? 'allowCommandTools=false' : '';
+  if (ACC_DESKTOP_TOOL_NAMES.has(bare)) return desktopToolsDisabledReason(cfg, desktopOverride);
+  if (ACC_DISPATCHER_TOOL_NAMES.has(bare)) return desktopToolsDisabledReason(cfg, desktopOverride) || (commandOff ? 'allowCommandTools=false' : '');
+  return '';
+}
+// 唯一入口:bridge 为空 = 原生工具(按名字判),否则按桥接目标判。返回空串 = 放行,否则是原因(给 toolDisabledResult)。
+function toolDisabledByPolicy(name, config, desktopOverride = null, bridge = null) {
+  return bridge ? bridgedToolDisabledByPolicy(bridge, config, desktopOverride) : nativeToolDisabledByPolicy(name, config, desktopOverride);
+}
+// 这份配置(+ 会话覆盖)下内置桌面 MCP 里被关掉的裸工具名(升序)—— 交给 ACC 的 ACC_HIDE_TOOLS 在注册表里摘掉(CLI 直挂面)。
+function accPolicyHiddenToolNames(config, desktopOverride = null) {
+  const names = [...ACC_POLICY_TOOL_FAMILIES.command, ...ACC_POLICY_TOOL_FAMILIES.desktop, ...ACC_POLICY_TOOL_FAMILIES.dispatcher];
+  return names.filter(n => bridgedToolDisabledByPolicy({ serverId: DESKTOP_MCP_SERVER_ID, toolName: n }, config, desktopOverride)).sort();
+}
+// offer 面:从 [openai fn schema] 里去掉被设置关掉的【桥接】工具(原生工具由 buildOpenAiTools 自己滤)。route 不动 ——
+// 分发面要靠它认出「这是被关掉的 ACC 工具」,回 tool-disabled 而不是 unknown-tool。
+function dropPolicyDisabledBridgedTools(tools, bridgedRoute, config, desktopOverride = null) {
+  return (Array.isArray(tools) ? tools : []).filter(t => {
+    const name = t && t.function && t.function.name;
+    const bridge = name ? resolveBridge(bridgedRoute || {}, name) : null;
+    return !bridge || !bridgedToolDisabledByPolicy(bridge, config, desktopOverride);
+  });
 }
 function toolDisabledResult(name, reason) {
   return { ok: false, code: 'tool-disabled', error: `tool '${name}' is disabled by settings (${reason})`, hint: '该工具已被设置关闭;请改用其它已提供的工具,或让用户在设置里开启后再试。' };
@@ -36130,7 +36231,11 @@ function sanitizeToolSchemaNames(v) {
 }
 
 function createToolLoadingState(config, message, attachments, tools, bridgedRoute, freezeKey, opts) {
-  const catalog = buildToolCatalog(tools, bridgedRoute, config);
+  // 2026-10 能力总闸:被设置关掉的内置桌面 MCP 工具不进目录 —— 于是 full 注入、tool_load 按名拉入、tool_search / list_tools
+  // 都看不见它;冻结表里早先记下的名字按「目录里已经没有」处理(下方 current() 只输出仍在目录里的,与原生工具被关时同一条路)。
+  // opts.desktopOverride 语义同 buildOpenAiTools(null = 跟随全局;09 传会话头上的 desktopTools)。
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
+  const catalog = buildToolCatalog(dropPolicyDisabledBridgedTools(tools, bridgedRoute, config, desktopOverride), bridgedRoute, config);
   const full = config && config.toolLoadingMode === 'full';
   const activePacks = new Set(full ? Object.keys(TOOL_PACK_DESCRIPTIONS) : classifyToolPacks(message, attachments));
   // 116f: 目录里出现 steward 包 = 这是管家会话(四个 offer 面已经保证普通会话的目录里永远没有它们)。
@@ -37927,6 +38032,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  // 2026-10 能力总闸补桥接面:被 allowCommandTools / allowDesktopTools 关掉的内置桌面 MCP 工具不 offer —— 与上面 ownTools
+  // 同一个 desktopOverride:null(子代理的 offer 面跟随全局)。换新对象,不就地改 collectBridgedTools 的缓存值。
+  bridged = { tools: dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, null), route: bridged.route };
   if (tier !== 'exec') {
     const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
     bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
@@ -38337,7 +38445,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
             const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
             const gate = nativeToolGate(effMode, ntier, tc.name, args);
-            if (gate !== 'allow') {
+            // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的工具在分发点拒绝(原生工具由下面的 toolCall 按 ctx 判,
+            // 会话覆盖取 parentSession —— 这里取同一个,两边同口径)。
+            const bridgedPolicyOff = bridge ? toolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(parentSession), bridge) : '';
+            if (bridgedPolicyOff) {
+              resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
+            } else if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)
@@ -41924,6 +42037,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (!isStewardTurn) {
     try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   }
+  // 2026-10 能力总闸补桥接面:allowCommandTools / allowDesktopTools(+ 会话级 desktopTools)关掉的内置桌面 MCP 工具不进工具面,
+  // 与上面 ownTools 对原生工具的滤法同一个会话覆盖口径。只滤 tools,route 原样留着:模型硬调被关掉的名字时分发面靠它认出来、
+  // 回 tool-disabled。collectBridgedTools 的结果是带缓存的共享对象,这里换一个新对象,不就地改。
+  const sessionDesktopOverride = sessionDesktopToolsOf(session);
+  bridged = { tools: dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, sessionDesktopOverride), route: bridged.route };
   const bridgedRoute = bridged.route;
   const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
   // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
@@ -41931,7 +42049,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // createToolLoadingState 内部(目录里有 steward 包就把它置为活跃),本调用点逐字节不变。
   // 2026-10:session.toolSchemaNames = 会话工具表(冻结表)的落盘副本,重启后由 createToolLoadingState 原序恢复;
   // 每次表变了(回合开头 / tool_load / 代理自动装载)就写回会话头,随本回合的 saveSession 落盘。可选字段,老会话没有就是空。
-  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id, { restoredNames: session.toolSchemaNames });
+  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id, { restoredNames: session.toolSchemaNames, desktopOverride: sessionDesktopOverride });
   const syncSessionToolSchemaNames = () => {
     const names = toolLoading.frozenNames();
     if (names && JSON.stringify(names) !== JSON.stringify(session.toolSchemaNames)) session.toolSchemaNames = names;
@@ -43326,7 +43444,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
           // resultObj declared above (shared with the agent-tools branch, which `continue`s before reaching here).
           // 审计 N4:设置里关掉的命令/桌面工具在分发点拒绝(不弹权限窗、不执行;offer 面只是藏 schema,bypass/auto 下 gate 恒放行)。
-          const policyOff = (!bridge && !isStewardTurn) ? nativeToolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(session)) : '';
+          // 2026-10:桥接目标同样判(内置桌面 MCP 的命令族 / 桌面族 / 转调器,见 07 toolDisabledByPolicy;外部 MCP 恒放行)。
+          // 管家回合不判:它的工具面只有 steward_*,非管家工具在上面的 gate 里已经一律 block。
+          const policyOff = !isStewardTurn ? toolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(session), bridge) : '';
           if (policyOff) {
             resultObj = toolDisabledResult(tc.name, policyOff);
           } else if (gate === 'block') {
@@ -52470,7 +52590,11 @@ async function adaptiveCatalogForMcp(config, opts) {
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }
-  return { bridged, catalog: buildToolCatalog(native.concat(bridged.tools), bridged.route, config) };
+  // 2026-10 能力总闸补桥接面:被 allowCommandTools / allowDesktopTools(+ opts.desktopOverride,调用方按会话取)关掉的内置
+  // 桌面 MCP 工具不进 list_tools / tool_search / 代理的目录。route 原样交回:12 invokeAdaptiveMcpTool 先按它认出被关的目标、回 tool-disabled。
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
+  const offeredBridged = dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, desktopOverride);
+  return { bridged, catalog: buildToolCatalog(native.concat(offeredBridged), bridged.route, config) };
 }
 
 // 11b-file-text-io.js - 单文件工具(file_read / file_write / file_edit / file_delete)的文本 I/O 内核。
@@ -53291,6 +53415,19 @@ function toolInvokeMissingNameResult(proxyName, args) {
   };
 }
 
+// 能力总闸(allowDesktopTools 的会话级覆盖)要的会话头:回合内的调用 ctx 带 session;MCP 子进程(Claude / Kimi CLI 经如意 MCP)
+// 里 ctx 为空,按注入的 WCW_SESSION_ID 装(与下面桥接分支的 sidSession、journalSessionCtx 同一个来源)。装不到 = null = 跟随全局。
+async function policySessionFor(ctx) {
+  if (ctx && ctx.session) return ctx.session;
+  const sid = process.env.WCW_SESSION_ID || '';
+  if (!sid) return null;
+  try { return (await loadSession(sid)) || null; } catch { return null; }
+}
+async function policyDesktopOverrideFor(ctx) {
+  const session = await policySessionFor(ctx);
+  return session ? sessionDesktopToolsOf(session) : null;
+}
+
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
@@ -53298,7 +53435,16 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 这道闸拦的是 MCP / CLI 路径,以及没被解开的 permission_prompt 与 tool_invoke_* 自指(壳还原最多剥两层,剩下的在这里拒)。
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const config = await readConfig();
-  const { bridged, catalog } = await adaptiveCatalogForMcp(config);
+  const desktopOverride = await policyDesktopOverrideFor(ctx);
+  const { bridged, catalog } = await adaptiveCatalogForMcp(config, { desktopOverride });
+  // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的目标在【目录查找之前】拒,回与原生一致的 tool-disabled ——
+  // 目录里已经没有它(11 adaptiveCatalogForMcp 滤掉了),先查目录只会得到一句误导的 unknown-tool。判据与 09 / 08 同一个
+  // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生目标照旧由下面的 toolCall 判。
+  const policyBridge = resolveBridge(bridged.route, targetName);
+  if (policyBridge) {
+    const off = toolDisabledByPolicy(targetName, (ctx && ctx.config) || config, desktopOverride, policyBridge);
+    if (off) return toolDisabledResult(targetName, off);
+  }
   const item = catalog.find(x => x.name === targetName);
   if (!item) {
     const didYouMean = suggestToolNames(targetName, catalog.map(x => x.name).filter(n => !isControlPlaneToolName(n)));
@@ -53481,12 +53627,12 @@ const CORE_TOOL_HANDLERS = {
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
-      const { catalog } = await adaptiveCatalogForMcp(config);
+      const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 被能力总闸关掉的桥接工具不进目录
       return listCompactTools(catalog, args);
   } },
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
-      const { catalog } = await adaptiveCatalogForMcp(config);
+      const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 同上
       const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
       if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
         try {
@@ -55684,7 +55830,11 @@ async function toolCall(name, args = {}, ctx = null) {
       try { policyConfig = await readConfig(); } catch { policyConfig = null; }
     }
     if (policyConfig) {
-      const disabled = nativeToolDisabledByPolicy(name, policyConfig, ctx && ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
+      // 会话级桌面覆盖:ctx 带 session 就用它;MCP 子进程(ctx 为空)里只为两个原生桌面工具按 WCW_SESSION_ID 装会话头
+      // (与 invokeAdaptiveMcpTool 同一个 policySessionFor),其余工具不多一次 IO。修前这里一律 null:Claude / Kimi CLI 经如意
+      // MCP 调 desktop_screenshot 时,这条线程的 desktopTools:false 不起作用。
+      const policySession = (ctx && ctx.session) || (NATIVE_DESKTOP_TOOL_NAMES.has(name) ? await policySessionFor(ctx) : null);
+      const disabled = nativeToolDisabledByPolicy(name, policyConfig, policySession ? sessionDesktopToolsOf(policySession) : null);
       if (disabled) return toolDisabledResult(name, disabled);
     }
   }
@@ -63389,6 +63539,19 @@ async function handleInterventionApiRoutes(req, res, pathname) {
     {
       const cliToolName = String(body.toolName || '');
       if (cliToolName.startsWith('mcp__') && !cliToolName.startsWith(RUYI_MCP_CLI_TOOL_PREFIX)) {
+        // 2026-10 能力总闸(纵深):CLI 直挂的内置桌面 MCP(mcp__ai-computer-control__<tool>)来问权限时,按与 09/08/12 同一个
+        // toolDisabledByPolicy 判,被 allowCommandTools / allowDesktopTools(+ 这条线程的 desktopTools)关掉的直接拒,不弹窗。
+        // 主防线在源头:01 把同一张表算成 ACC_HIDE_TOOLS 交给 ACC,它根本不注册这些工具;这里兜的是旧版 ACC(不认该变量)。
+        // 同样覆盖不到 CLI 不来问的档(bypass / auto、exec 档 DAG 节点)—— 那几档只靠源头裁剪。
+        const accPrefix = `mcp__${DESKTOP_MCP_SERVER_ID}__`;
+        if (cliToolName.startsWith(accPrefix)) {
+          const policyOff = toolDisabledByPolicy(cliToolName, config, sessionDesktopToolsOf(reg.session),
+            { serverId: DESKTOP_MCP_SERVER_ID, toolName: cliToolName.slice(accPrefix.length) });
+          if (policyOff) {
+            logEvent({ kind: 'permission_bridge_policy_deny', sessionId, tool: cliToolName, reason: policyOff });
+            return send(res, json({ behavior: 'deny', message: toolDisabledResult(cliToolName, policyOff).error, requestId }));
+          }
+        }
         const input = body.input && typeof body.input === 'object' && !Array.isArray(body.input) ? body.input : {};
         const readRefusal = await bridgedReadPathGate(cliToolName, input, { sessionId, session: reg.session, config });
         if (readRefusal) {
@@ -77239,7 +77402,8 @@ if (require.main === module) {
 
 module.exports = {
   // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调。
-  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  // 2026-10 能力总闸补桥接面:toolDisabledByPolicy / accPolicyHiddenToolNames / dropPolicyDisabledBridgedTools / ACC_POLICY_TOOL_FAMILIES 同住这个键(unit/acc-capability-gates.test.js 直调)。
+  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, toolDisabledByPolicy, accPolicyHiddenToolNames, dropPolicyDisabledBridgedTools, ACC_POLICY_TOOL_FAMILIES, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)

@@ -225,6 +225,19 @@ function toolInvokeMissingNameResult(proxyName, args) {
   };
 }
 
+// 能力总闸(allowDesktopTools 的会话级覆盖)要的会话头:回合内的调用 ctx 带 session;MCP 子进程(Claude / Kimi CLI 经如意 MCP)
+// 里 ctx 为空,按注入的 WCW_SESSION_ID 装(与下面桥接分支的 sidSession、journalSessionCtx 同一个来源)。装不到 = null = 跟随全局。
+async function policySessionFor(ctx) {
+  if (ctx && ctx.session) return ctx.session;
+  const sid = process.env.WCW_SESSION_ID || '';
+  if (!sid) return null;
+  try { return (await loadSession(sid)) || null; } catch { return null; }
+}
+async function policyDesktopOverrideFor(ctx) {
+  const session = await policySessionFor(ctx);
+  return session ? sessionDesktopToolsOf(session) : null;
+}
+
 async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 控制面工具(含内部的 permission_prompt、tool_load)不能经代理调:先于目录查找判,给明确的拒绝而不是「tool not found」。
   // 注意作用面:模型服务商回合里,代理到 list_tools / tool_search / tool_load / todo_write / mission_update / 代理工具族的调用
@@ -232,7 +245,16 @@ async function invokeAdaptiveMcpTool(proxyTier, targetName, targetArgs, ctx) {
   // 这道闸拦的是 MCP / CLI 路径,以及没被解开的 permission_prompt 与 tool_invoke_* 自指(壳还原最多剥两层,剩下的在这里拒)。
   if (isControlPlaneToolName(targetName)) return { ok: false, error: 'control-plane tools cannot be invoked through a proxy' };
   const config = await readConfig();
-  const { bridged, catalog } = await adaptiveCatalogForMcp(config);
+  const desktopOverride = await policyDesktopOverrideFor(ctx);
+  const { bridged, catalog } = await adaptiveCatalogForMcp(config, { desktopOverride });
+  // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的目标在【目录查找之前】拒,回与原生一致的 tool-disabled ——
+  // 目录里已经没有它(11 adaptiveCatalogForMcp 滤掉了),先查目录只会得到一句误导的 unknown-tool。判据与 09 / 08 同一个
+  // toolDisabledByPolicy;配置优先用回合 ctx 里那份(主循环),MCP 子进程里没有就用盘上的。原生目标照旧由下面的 toolCall 判。
+  const policyBridge = resolveBridge(bridged.route, targetName);
+  if (policyBridge) {
+    const off = toolDisabledByPolicy(targetName, (ctx && ctx.config) || config, desktopOverride, policyBridge);
+    if (off) return toolDisabledResult(targetName, off);
+  }
   const item = catalog.find(x => x.name === targetName);
   if (!item) {
     const didYouMean = suggestToolNames(targetName, catalog.map(x => x.name).filter(n => !isControlPlaneToolName(n)));
@@ -415,12 +437,12 @@ const CORE_TOOL_HANDLERS = {
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
-      const { catalog } = await adaptiveCatalogForMcp(config);
+      const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 被能力总闸关掉的桥接工具不进目录
       return listCompactTools(catalog, args);
   } },
   tool_search: { paths: null, guardNote: "目录检索控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();
-      const { catalog } = await adaptiveCatalogForMcp(config);
+      const { catalog } = await adaptiveCatalogForMcp(config, { desktopOverride: await policyDesktopOverrideFor(ctx) });   // 同上
       const result = searchToolCatalog(catalog, args, config, { legacyNameBoost: 3 });   // 与引擎路径同一档名字加权(修前 1 = 不加权,read file 排不出 file_read)
       if (config.runtimeOptimizationShadowV1 === true && config.runtimeToolRetrievalV1 !== true) {
         try {
@@ -2618,7 +2640,11 @@ async function toolCall(name, args = {}, ctx = null) {
       try { policyConfig = await readConfig(); } catch { policyConfig = null; }
     }
     if (policyConfig) {
-      const disabled = nativeToolDisabledByPolicy(name, policyConfig, ctx && ctx.session ? sessionDesktopToolsOf(ctx.session) : null);
+      // 会话级桌面覆盖:ctx 带 session 就用它;MCP 子进程(ctx 为空)里只为两个原生桌面工具按 WCW_SESSION_ID 装会话头
+      // (与 invokeAdaptiveMcpTool 同一个 policySessionFor),其余工具不多一次 IO。修前这里一律 null:Claude / Kimi CLI 经如意
+      // MCP 调 desktop_screenshot 时,这条线程的 desktopTools:false 不起作用。
+      const policySession = (ctx && ctx.session) || (NATIVE_DESKTOP_TOOL_NAMES.has(name) ? await policySessionFor(ctx) : null);
+      const disabled = nativeToolDisabledByPolicy(name, policyConfig, policySession ? sessionDesktopToolsOf(policySession) : null);
       if (disabled) return toolDisabledResult(name, disabled);
     }
   }

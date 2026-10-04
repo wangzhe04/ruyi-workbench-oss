@@ -5207,5 +5207,9 @@ async function adaptiveCatalogForMcp(config, opts) {
     .map(t => ({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } }));
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { /* native-only catalog is still useful */ }
-  return { bridged, catalog: buildToolCatalog(native.concat(bridged.tools), bridged.route, config) };
+  // 2026-10 能力总闸补桥接面:被 allowCommandTools / allowDesktopTools(+ opts.desktopOverride,调用方按会话取)关掉的内置
+  // 桌面 MCP 工具不进 list_tools / tool_search / 代理的目录。route 原样交回:12 invokeAdaptiveMcpTool 先按它认出被关的目标、回 tool-disabled。
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
+  const offeredBridged = dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, desktopOverride);
+  return { bridged, catalog: buildToolCatalog(native.concat(offeredBridged), bridged.route, config) };
 }

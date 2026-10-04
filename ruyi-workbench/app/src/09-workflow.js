@@ -1612,6 +1612,11 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   if (!isStewardTurn) {
     try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
   }
+  // 2026-10 能力总闸补桥接面:allowCommandTools / allowDesktopTools(+ 会话级 desktopTools)关掉的内置桌面 MCP 工具不进工具面,
+  // 与上面 ownTools 对原生工具的滤法同一个会话覆盖口径。只滤 tools,route 原样留着:模型硬调被关掉的名字时分发面靠它认出来、
+  // 回 tool-disabled。collectBridgedTools 的结果是带缓存的共享对象,这里换一个新对象,不就地改。
+  const sessionDesktopOverride = sessionDesktopToolsOf(session);
+  bridged = { tools: dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, sessionDesktopOverride), route: bridged.route };
   const bridgedRoute = bridged.route;
   const allTools = ownTools.concat(bridged.tools);   // catalog is collected once, schemas are injected lazily
   // 106 #1 G2: freezeKey = session.id(会话级 schema 冻结,只追加);开关关时该参数不生效。
@@ -1619,7 +1624,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // createToolLoadingState 内部(目录里有 steward 包就把它置为活跃),本调用点逐字节不变。
   // 2026-10:session.toolSchemaNames = 会话工具表(冻结表)的落盘副本,重启后由 createToolLoadingState 原序恢复;
   // 每次表变了(回合开头 / tool_load / 代理自动装载)就写回会话头,随本回合的 saveSession 落盘。可选字段,老会话没有就是空。
-  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id, { restoredNames: session.toolSchemaNames });
+  const toolLoading = createToolLoadingState(config, fullPrompt, attachments, allTools, bridgedRoute, session.id, { restoredNames: session.toolSchemaNames, desktopOverride: sessionDesktopOverride });
   const syncSessionToolSchemaNames = () => {
     const names = toolLoading.frozenNames();
     if (names && JSON.stringify(names) !== JSON.stringify(session.toolSchemaNames)) session.toolSchemaNames = names;
@@ -3014,7 +3019,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
           }
           // resultObj declared above (shared with the agent-tools branch, which `continue`s before reaching here).
           // 审计 N4:设置里关掉的命令/桌面工具在分发点拒绝(不弹权限窗、不执行;offer 面只是藏 schema,bypass/auto 下 gate 恒放行)。
-          const policyOff = (!bridge && !isStewardTurn) ? nativeToolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(session)) : '';
+          // 2026-10:桥接目标同样判(内置桌面 MCP 的命令族 / 桌面族 / 转调器,见 07 toolDisabledByPolicy;外部 MCP 恒放行)。
+          // 管家回合不判:它的工具面只有 steward_*,非管家工具在上面的 gate 里已经一律 block。
+          const policyOff = !isStewardTurn ? toolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(session), bridge) : '';
           if (policyOff) {
             resultObj = toolDisabledResult(tc.name, policyOff);
           } else if (gate === 'block') {

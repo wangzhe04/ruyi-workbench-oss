@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-03T04:08:13.785Z",
+  "generatedAt": "2026-10-04T06:06:28.416Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -919,6 +919,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\asr-warmup.e2e.js",
@@ -2318,6 +2319,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\action-model-view.e2e.js",
         "dev-harness\\adaptive-budget.e2e.js",
@@ -2369,6 +2371,7 @@
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
@@ -3122,6 +3125,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
@@ -3184,6 +3188,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
@@ -3359,6 +3364,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
@@ -3421,6 +3427,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
@@ -3610,6 +3617,7 @@
       "domain": "session",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
@@ -3634,6 +3642,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
@@ -4244,6 +4253,7 @@
       "domain": "intervention",
       "auth": "body-token",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js"
       ]
@@ -4261,6 +4271,7 @@
       "domain": "intervention",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",

@@ -2154,7 +2154,9 @@ async function syncMcpServersToClaude(config) {
       if (s._toolbox) continue;
       const remain = SYNC_BUDGET_MS - (Date.now() - t0);
       if (remain <= 0) break;
-      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: s.env || {} };
+      // 2026-10 能力总闸:如意的 Claude 引擎起 CLI 时不带 --strict-mcp-config,这里写进 ~/.claude.json 的用户级条目在 Claude
+      // 线程里同样会被 CLI 加载(adaptive 模式也一样)—— 直挂 ACC 的条目同样带上被关掉的工具名(全局口径,见 desktopMcpPolicyEnv)。
+      var sc = { type: 'stdio', command: s.command, args: s.args || [], env: { ...(s.env || {}), ...desktopMcpPolicyEnv(s.id, config) } };
       if (s.cwd) sc.cwd = s.cwd;
       try { await DesktopShell.runProcess(config.claudePath, ['mcp', 'add-json', s.id, JSON.stringify(sc), '-s', 'user'], { timeoutMs: Math.min(remain, 10000) }); } catch {}
     }
@@ -3338,12 +3340,24 @@ function bridgedCliServerEnv(ownEnv, baseEnv = process.env) {
   return { ...blanks, ...(ownEnv && typeof ownEnv === 'object' ? ownEnv : {}) };
 }
 
+// 2026-10 能力总闸的 CLI 直挂面:交给 agent CLI 自己 spawn、自己调的 ACC 不经工作台的分发点(09/08/12),唯一能插手的是它的
+// 启动环境 —— 把 07 toolDisabledByPolicy 判下来被关掉的 ACC 工具名(accPolicyHiddenToolNames,与分发面同一张表)经
+// ACC_HIDE_TOOLS 交给 ACC,它在注册表里摘掉:tools/list 里没有,batch_actions / macro_run 也转调不到。只给内置桌面 MCP
+// 条目;一个都没关时不加这个键(生成的配置与修前逐字节相同)。旧版 ACC 不认这个变量 —— 那时只剩 13d 权限桥那道纵深。
+function desktopMcpPolicyEnv(entryId, config, desktopOverride = null) {
+  if (entryId !== DESKTOP_MCP_SERVER_ID || !config) return {};
+  const hidden = accPolicyHiddenToolNames(config, desktopOverride);
+  return hidden.length ? { ACC_HIDE_TOOLS: hidden.join(',') } : {};
+}
+
 // v0.7d: mutate an mcpServers map in place, adding the desktop MCP (id 'ai-computer-control') and every
 // enabled user externalMcpServers entry. Back-compat: when nothing is detected/configured, the map is
 // left exactly as it was, so the generated config equals the pre-0.7d output.
 // stdio 条目一律带 env 块(bridgedCliServerEnv:置空工作台凭据 + 条目自己的 env);远程(sse/http)条目没有子进程。
-function addExternalMcpServersToMap(mcpServers, config) {
+// opts.desktopOverride:会话级 desktopTools(null = 跟随全局;只有按会话生成的配置才传,见 generateSessionMcpConfig)。
+function addExternalMcpServersToMap(mcpServers, config, opts) {
   if (!config) return;
+  const desktopOverride = (opts && opts.desktopOverride != null) ? opts.desktopOverride : null;
   try {
     for (const entry of resolveExternalMcpServers(config)) {
       if (mcpServers[entry.id]) continue;    // never clobber Ruyi's own server (id 'ruyi') or an earlier entry
@@ -3355,7 +3369,7 @@ function addExternalMcpServersToMap(mcpServers, config) {
       } else {
         server = { type: 'stdio', command: entry.command, args: entry.args || [] };
         if (entry.cwd) server.cwd = entry.cwd;
-        server.env = bridgedCliServerEnv(entry.env);
+        server.env = { ...bridgedCliServerEnv(entry.env), ...desktopMcpPolicyEnv(entry.id, config, desktopOverride) };
       }
       mcpServers[entry.id] = server;
     }
@@ -3419,7 +3433,9 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
 
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
-async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
+// opts.desktopOverride:这条线程的会话级 desktopTools(05 Claude 引擎按会话头传;子代理节点不传 = 跟随全局),只影响直挂 ACC
+// 条目的 ACC_HIDE_TOOLS(见 desktopMcpPolicyEnv)。
+async function generateSessionMcpConfig(sessionId, mode, toolPacks, opts) {
   await ensureDirs();
   if (!sessionMcpConfigSweepDone) { sessionMcpConfigSweepDone = true; void sweepStaleSessionMcpConfigs().catch(() => {}); }
   const cfg = await readConfig().catch(() => null);
@@ -3447,7 +3463,7 @@ async function generateSessionMcpConfig(sessionId, mode, toolPacks) {
   };
   // In adaptive mode external schemas stay behind the typed invoke proxies, so a simple Claude turn
   // does not ingest an entire desktop/Office catalog. Full mode retains the historical direct servers.
-  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg);
+  if (!cfg || cfg.toolLoadingMode === 'full') addExternalMcpServersToMap(mcp.mcpServers, cfg, { desktopOverride: opts && opts.desktopOverride });
   await atomicWriteJson(configPath, mcp);
   return configPath;
 }
