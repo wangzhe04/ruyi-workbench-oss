@@ -8,7 +8,7 @@ const { getFreePort } = require('./free-port.js');
 // Ports 9001 (fake-openai) + 9002 (workbench).
 //
 // Scenarios:
-//   ① GET /api/playbooks lists the 8 built-ins with a complete schema (id/title/icon/desc/inputs/
+//   ① GET /api/playbooks lists every built-in on disk with a complete schema (id/title/icon/desc/inputs/
 //      promptTemplate/requires/engineHint/uiMode + available/unavailableReason), inputs typed.
 //   ② requires:['network'] availability — with capabilityProbeUrl at a DEAD port (offline), a network-
 //      requiring playbook is available:false with a reason. The desktopMcp-requiring built-in (ocr-scan)
@@ -140,13 +140,30 @@ const DRAFT_JSON = JSON.stringify({
     ok(!!token, 'UI token scraped');
     const hdr = { 'x-wcw-token': token };
 
-    // ── ① GET list: 8 built-ins, complete schema ─────────────────────────────────────────────────────
+    // ── ① GET list: every built-in, complete schema ─────────────────────────────────────────────────────
     const firstList = await getJson(WB_PORT, '/api/playbooks', {}, FIRST_CAPS_REQUEST_TIMEOUT_MS);
     let list = firstList.json;
     ok(list && list.ok && Array.isArray(list.playbooks), '① GET /api/playbooks returns a list（首请求 ' + shapeOf(firstList) + '）');
     const byId = new Map(((list && list.playbooks) || []).map(p => [p.id, p]));
-    const expected8 = ['merge-excel', 'batch-rename', 'pdf-summarize', 'ocr-scan', 'archive-by-content', 'weekly-report', 'clean-downloads', 'folder-inventory'];
-    ok(expected8.every(id => byId.has(id)), '① all 8 built-in playbooks present (' + [...byId.keys()].length + ' total)');
+    // 2026-10:内置清单从磁盘读(修前写死 8 个,后加的 8 个一个没钉)。
+    const builtinDir = path.join(WB, 'resources', 'playbooks');
+    const builtinIds = fs.readdirSync(builtinDir).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(builtinDir, f), 'utf8').replace(/^\uFEFF/, '')).id);
+    ok(builtinIds.length >= 16 && builtinIds.every(id => byId.has(id) && byId.get(id).builtin === true), '① every built-in under resources/playbooks is listed (' + builtinIds.length + ' on disk, ' + [...byId.keys()].length + ' total)');
+    // 每个内置模板的占位符与 inputs 一一对应:写了没声明的占位不会被替换(原样漏给模型),声明了没用的输入白让用户填。
+    const placeholderDrift = builtinIds.map(id => byId.get(id)).filter(Boolean).filter(pb => {
+      const keys = new Set(pb.inputs.map(i => i.key));
+      const used = new Set([...pb.promptTemplate.matchAll(/\{([A-Za-z0-9_-]{1,40})\}/g)].map(m => m[1]));
+      return [...keys].some(k => !used.has(k)) || [...used].some(k => !keys.has(k));
+    }).map(pb => pb.id);
+    ok(placeholderDrift.length === 0, '① every built-in template uses exactly its declared inputs (drift: ' + placeholderDrift.join(', ') + ')');
+    // 会动文件的卡片:先出清单、停下等用户明确同意;删除进回收站而不是 file_delete(大文件删了没有检查点)。
+    const mustWait = ['archive-by-content', 'batch-rename', 'clean-downloads'];
+    ok(mustWait.every(id => /等我/.test(byId.get(id).promptTemplate) && /(同意|明确指定)/.test(byId.get(id).promptTemplate)),
+      '① destructive cards stop and wait for an explicit go-ahead before touching files');
+    ok(/SendToRecycleBin/.test(byId.get('clean-downloads').promptTemplate) && /不要用 file_delete/.test(byId.get('clean-downloads').promptTemplate),
+      '① clean-downloads deletes via the recycle bin, never file_delete');
+    ok(byId.get('clean-downloads').inputs.find(i => i.key === 'folder').required === true && byId.get('weekly-report').inputs.find(i => i.key === 'output').required === undefined,
+      '① required:true survives normalization (and is only emitted where set)');
     const merge = byId.get('merge-excel');
     const schemaOk = merge && typeof merge.id === 'string' && typeof merge.title === 'string' && typeof merge.icon === 'string'
       && typeof merge.desc === 'string' && Array.isArray(merge.inputs) && typeof merge.promptTemplate === 'string'
@@ -168,8 +185,13 @@ const DRAFT_JSON = JSON.stringify({
     const unitOcr = srv.normalizePlaybook({ id: 'u-ocr', title: 'T', promptTemplate: 'x', requires: ['desktopMcp'] });
     const unitEval = srv.evalPlaybookAvailability(unitOcr, { desktopMcp: { present: false }, network: { online: true }, provider: null });
     ok(unitEval.available === false && /桌面控制/.test(unitEval.unavailableReason), '② evalPlaybookAvailability(desktopMcp, present:false) → unavailable + reason (unit)');
+    // 2026-10:merge-excel / pdf-summarize 读写 Excel、PDF 要靠桌面控制(excel_read / pdf_read_pages),声明了 desktopMcp。
+    ok(merge && merge.requires.includes('desktopMcp') && merge.available === desktopPresent, '② merge-excel (requires desktopMcp) availability agrees with caps (' + desktopPresent + ')');
+    const pdfSum = byId.get('pdf-summarize');
+    ok(pdfSum && pdfSum.requires.includes('desktopMcp') && pdfSum.available === desktopPresent, '② pdf-summarize (requires desktopMcp) availability agrees with caps');
     // Non-requiring built-ins are available even offline (network:false only gates network-requiring ones).
-    ok(merge && merge.available === true, '② merge-excel (no requires) available');
+    const rename = byId.get('batch-rename');
+    ok(rename && rename.requires.length === 0 && rename.available === true, '② batch-rename (no requires) available');
     // Save a user playbook requiring network → with the dead-port probe (offline), it must be unavailable.
     const netPb = { id: 'test-net', title: '联网任务', icon: '🌐', desc: 'x', inputs: [], promptTemplate: '搜索 {q}', requires: ['network'], uiMode: 'both' };
     const saveNet = await reqJson(WB_PORT, 'POST', '/api/playbooks', { playbook: netPb }, hdr);
@@ -180,6 +202,19 @@ const DRAFT_JSON = JSON.stringify({
     // 127-⑧:每条都带 status;离线的联网模板是 unavailable(不是 needs_config —— 改配置补不回网)。
     ok((list.playbooks || []).every(p => ['available', 'needs_config', 'unavailable', 'unknown'].includes(p.status)), '② (⑧) 每条 playbook 都带 status 四态之一');
     ok(net && net.status === 'unavailable', '② (⑧) requires:[network] + 离线 → status:unavailable(实得 ' + JSON.stringify(net && net.status) + ')');
+
+    // 2026-10:记事本「另存为 UTF-8」会带 BOM —— 修前这样的用户 playbook 被 JSON.parse 拒掉、静默不出现。
+    const bomFile = path.join(HOME, 'playbooks', 'bom-user.json');
+    fs.mkdirSync(path.dirname(bomFile), { recursive: true });
+    fs.writeFileSync(bomFile, '\uFEFF' + JSON.stringify({ id: 'bom-user', title: '带 BOM 的模板', inputs: [], promptTemplate: '整理一下', requires: [] }));
+    // 记事本另存「Unicode」= 带 BOM 的 UTF-16LE。
+    const utf16File = path.join(HOME, 'playbooks', 'utf16-user.json');
+    fs.writeFileSync(utf16File, Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from(JSON.stringify({ id: 'utf16-user', title: 'UTF-16 模板', inputs: [], promptTemplate: '整理一下', requires: [] }), 'utf16le')]));
+    const bomList = (await getJson(WB_PORT, '/api/playbooks')).json;
+    ok(((bomList && bomList.playbooks) || []).some(p => p.id === 'bom-user'), '② a user playbook saved with a UTF-8 BOM still loads');
+    ok(((bomList && bomList.playbooks) || []).some(p => p.id === 'utf16-user'), '② a user playbook saved as UTF-16 (Notepad "Unicode") still loads');
+    fs.rmSync(bomFile, { force: true });
+    fs.rmSync(utf16File, { force: true });
 
     // ── ③ user round-trip / override / delete / built-in delete 403 / no-token 403 ───────────────────
     // POST without token → 403.
@@ -229,12 +264,9 @@ const DRAFT_JSON = JSON.stringify({
     ok(draftFieldsOk, '④ draft has all fields (title/promptTemplate/inputs typed/requires/uiMode)');
 
     // ── ⑤ form assembly ──────────────────────────────────────────────────────────────────────────────
-    // Pure substitution logic (mirrors the front-end assemblePlaybookPrompt). Substitute only declared keys.
-    const assemble = (tmpl, inputs, values) => {
-      let out = String(tmpl || '');
-      for (const inp of inputs) { const v = values[inp.key] != null ? String(values[inp.key]) : ''; out = out.split('{' + inp.key + '}').join(v); }
-      return out;
-    };
+    // Substitution logic: the server's own implementation (unit/steward-playbook-run.test.js pins it to the
+    // front-end assemblePlaybookPrompt case by case), not a third hand-copied mirror. Substitutes only declared keys.
+    const assemble = (tmpl, inputs, values) => srv.stewardAssemblePlaybookPrompt({ promptTemplate: tmpl, inputs }, values);
     const assembled = assemble('合并 {folder} 到 {output}', [{ key: 'folder' }, { key: 'output' }], { folder: 'D:\\表格', output: 'all.xlsx' });
     ok(assembled === '合并 D:\\表格 到 all.xlsx', '⑤ placeholder substitution replaces every {key}');
     ok(assemble('留 {unknown}', [{ key: 'folder' }], {}) === '留 {unknown}', '⑤ undeclared {key} left as-is');

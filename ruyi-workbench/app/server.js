@@ -33,11 +33,13 @@ const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // (同一请求流里先撞哪条闸,决定 26 MB 夹具拿到的是 413 还是放行;反向:把本常量换成 MAX_BODY_BYTES
 // 或把判定挪到 readBody 之后,asr-transcribe.e2e.js 的 24.9/26 MB 返回码对照当场红)。
 const ASR_MAX_BODY_BYTES = 25 * 1024 * 1024;
+// 14(2026-10):出厂权限档翻成「智能自动」。<14 的存量文件里没存过档的,迁移钉回当年的默认 'default'
+// (01-config CONFIG_MIGRATIONS to:14)—— 新默认只给全新安装,不悄悄放开老用户。
 // 13(128a,48 号文 §2):配置只落「改过的键」——显式键集合 configExplicitKeysV1 ＋ 稀疏落盘,没碰过的设置跟随
 // 产品当前默认;迁移按显式键判。本号本身不挂迁移(推断每次读都跑),只标记「这份文件是稀疏格式写的」。
 // 12(v2.8 / 107-T1): 126-111b/111d/111e 三个压缩开关翻成默认开,并对 schema<12 的存量配置做一次性
 // 迁移(盘上显式写着的 false → true)。11 = v2.8 selectable Agent CLI driver (Claude Code / Kimi Code)。
-const CONFIG_SCHEMA = 13;
+const CONFIG_SCHEMA = 14;
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 
@@ -1936,7 +1938,7 @@ const BUILTIN_AGENT_ROLES = Object.freeze([
   { id: 'planner', label: 'Planner', description: '把复杂任务拆解为清晰的计划/设计，不实现。', prompt: '你是 Planner。把交办的复杂目标拆解成可执行的计划或设计：明确目标与非目标、硬约束、分步方案及其依赖顺序、每步的交付物与验收点、主要风险与应对。只规划不实现，也不执行有副作用的操作。输出结构化、可直接据以行动的计划。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'teal' },
   { id: 'researcher', label: 'Researcher', description: '联网检索并阅读来源，产出有来源支撑的发现。', prompt: '你是 Researcher。围绕问题联网检索、阅读来源，就每个子问题给出有来源支撑的发现：结论 + 来源(标题/URL) + 置信度，区分事实与观点，主动寻找反面证据。只记录有来源支撑的内容，查不到就如实说明，绝不编造来源或数据。只读不改。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'cyan' },
   { id: 'critic', label: 'Critic', description: '对抗式审查：主动找漏洞、反例和无据主张。', prompt: '你是 Critic（红队）。对交办的内容做对抗式审查：主动寻找漏洞、反例、未覆盖的场景、逻辑跳跃和无证据支撑的主张；默认怀疑，写不出具体触发/反例的疑点予以降级或剔除。区分「确证的问题」与「存疑」，给出可执行的反驳或修正建议。默认不改文件。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash', 'WebSearch', 'WebFetch'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'red' },
-  { id: 'synthesizer', label: 'Synthesizer', description: '把多个上游结果综合成连贯、结构化的成稿。', prompt: '你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。默认只产出文本，不改文件（需要落盘时按节点指派的工具面执行）。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'amber' },
+  { id: 'synthesizer', label: 'Synthesizer', description: '把多个上游结果综合成连贯、结构化的成稿。', prompt: '你是 Synthesizer。把多个上游节点的结果综合成一份连贯、结构化的输出（报告/结论/文档）：合并重复、消解冲突、按主题组织、保留关键依据与出处。只依据上游【已确认】的内容，不引入未经核验的新主张；证据不足处如实标注。只产出文本，不改文件（本角色跑在只做计划档，写不了文件；需要成稿落盘时交给下游可写节点，例如 Worker）。', toolTier: 'read', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob'], mcpServers: [], permissionMode: 'plan', budgets: { openai: 100, claude: 100 }, color: 'amber' },
   { id: 'analyst', label: 'Analyst', description: '分析数据/日志/指标，跑必要脚本，产出发现。', prompt: '你是 Analyst。对交办的数据、日志或指标做分析：必要时运行只读查询或脚本来统计、聚合、交叉验证；区分已验证的观察与推断，给出关键发现、异常点及其证据。不修改源数据；产出结论时说明口径与不确定性。', toolTier: 'exec', models: { openai: '', claude: 'inherit' }, openaiTools: [], claudeTools: ['Read', 'Grep', 'Glob', 'Bash'], mcpServers: [], permissionMode: 'inherit', budgets: { openai: 100, claude: 100 }, color: 'indigo' },
 ]);
 
@@ -2074,7 +2076,10 @@ function defaultConfig() {
     claudePath: detectClaudePath(),
     kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
-    permissionMode: 'default',
+    // 2026-10 拍板:出厂档是「智能自动」。只管没有存过档的新配置 —— 老用户 config.json 里已有的档原样保留;
+    // 「切到」智能自动 / 全自动仍要二次确认(01e PERMISSION_MODES_REQUIRING_CONFIRM),那道门防的是被悄悄放开,
+    // 出厂值不是谁替用户切的。存了一个不认识的档时下面仍回落最保守的 'default',不回落到这里。
+    permissionMode: 'auto',
     includeWorkbenchMcp: true,
     autoResumeClaudeSessions: true,
     model: '',
@@ -2805,8 +2810,23 @@ const CONFIG_MIGRATIONS = Object.freeze([
       return true;
     },
   }),
+  Object.freeze({
+    to: 14,
+    // 2026-10 拍板:出厂权限档 'default' → 'auto'(智能自动)。新默认只给全新安装:稀疏文件(13)里没碰过档的用户
+    // 本来不存这个键,光翻 defaultConfig 会让他们升级后被悄悄放成智能自动 —— 而「切到」智能自动按 01e 是要二次
+    // 确认的。所以盘上已有配置、却没有 permissionMode 的,钉回当年的默认 'default';下面的显式键推断(迁移读看全部键)
+    // 会因它不等于新默认把它记成显式、落盘,之后不再跑。盘上本来就写着档的(<13 整份老文件、手改)原样保留,
+    // 不学 to:13 把旧默认当「没选」—— 权限只收紧不放开。全新安装(无文件 / 空文件)不动,吃到 'auto'。
+    // 读:ctx.rawKeys(盘上原始键)、ctx.rawExplicit。
+    apply(config, ctx) {
+      if (!ctx.rawKeys.size || ctx.rawKeys.has('permissionMode') || ctx.rawExplicit.has('permissionMode')) return false;
+      config.permissionMode = 'default';
+      return true;
+    },
+  }),
 ]);
-// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合 }。返回是否有迁移动过 config。
+// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合, rawKeys: raw 的顶层键集合
+// (无文件 / 空文件为空集) }。返回是否有迁移动过 config。
 function applyConfigMigrations(config, ctx) {
   let moved = false;
   for (const migration of CONFIG_MIGRATIONS) {
@@ -3289,7 +3309,8 @@ function normalizeConfig(raw, opts = {}) {
   }
   // 一次性 schema 迁移的唯一调用点(见 CONFIG_MIGRATIONS 头注):被迁移读到的键到这里都已完成字段级校验,
   // 而下面的工作区表那一段要消费 to:10 播进来的种子。
-  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit })) changed = true;
+  const rawKeys = new Set(raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw) : []);
+  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit, rawKeys })) changed = true;
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
@@ -3995,7 +4016,8 @@ async function readConfig() {
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
     if (lastGoodConfig) return lastGoodConfig;
     configDegraded = true;
-    return normalizeConfig(null).config;   // 只供本次请求使用，绝不落盘
+    // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
+    return { ...normalizeConfig(null).config, permissionMode: 'default' };
   };
   if (readError) {
     if (readError.code !== 'ENOENT') return degrade(String(readError.code || 'EREAD'));
@@ -4010,6 +4032,12 @@ async function readConfig() {
       if (prev) { raw = prev; recoveredFrom = 'prev'; }
       else return degrade('EJSON');
     }
+  }
+  // 2026-10:没有可用配置(文件缺失 / 空文件 / {},且没有 .prev)不一定是全新安装 —— 数据目录里已经有会话,说明是一份
+  // 用过的安装丢了配置。这时不给出厂的智能自动,钉回最保守的 'default'(显式键,落盘后不再走这里)。
+  const rawEmpty = !raw || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0);
+  if (rawEmpty && (await fsp.readdir(paths.sessions).catch(() => [])).length > 0) {
+    raw = { permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] };
   }
   const { config, changed, persisted } = normalizeConfig(raw);
   configDegraded = false;
@@ -4114,9 +4142,14 @@ async function syncClaudeCliSettings(config) {
       if (!settings || typeof settings !== 'object') settings = {};
     } catch { /* file doesn't exist or invalid JSON */ }
 
-    // 1. Permission mode
-    const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-    settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    // 1. Permission mode —— 只在用户【选过】档位时同步(显式键)。2026-10 出厂档改成智能自动后,修前全新安装一启动就把
+    // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
+    // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
+    const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    if (explicitMode) {
+      const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的
@@ -26958,7 +26991,9 @@ function normalizePlaybook(raw) {
     const key = String(it.key || '').trim();
     if (!key || !/^[A-Za-z0-9_-]{1,40}$/.test(key)) continue; // 无 key 的输入无法组装占位 → 丢弃
     const type = PLAYBOOK_INPUT_TYPES.includes(it.type) ? it.type : 'text'; // 类型钳制
-    inputs.push({ key, label: String(it.label || key).slice(0, 120), type });
+    // 2026-10:required 只在为 true 时产出 —— 弹窗据它拒绝留空(批量重命名、清理下载这类卡片的文件夹不能空着发出去);
+    // 管家开线程一向要求全部填齐(13k stewardPlaybookMissingInputs),不受它影响。没写的老 playbook 形状不变。
+    inputs.push({ key, label: String(it.label || key).slice(0, 120), type, ...(it.required === true ? { required: true } : {}) });
     if (inputs.length >= 12) break; // 上限,防滥用
   }
   const requires = Array.isArray(raw.requires) ? [...new Set(raw.requires.filter(r => PLAYBOOK_REQUIRES.includes(r)))] : [];
@@ -26989,7 +27024,11 @@ async function readPlaybooksFromDir(dir) {
   for (const f of files) {
     if (!f.toLowerCase().endsWith('.json')) continue;
     try {
-      const raw = safeJsonParse(await fsp.readFile(path.join(dir, f), 'utf8'), null);
+      // 记事本另存的两种编码都认:「UTF-8」带 BOM、「Unicode」是带 BOM 的 UTF-16LE。修前 JSON.parse 认不得,这份 playbook
+      // 被静默丢弃(SKILL.md 那边早已兼容 UTF-8 BOM)。
+      const buf = await fsp.readFile(path.join(dir, f));
+      const text = (buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf8');
+      const raw = safeJsonParse(text.replace(/^\uFEFF/, ''), null);
       const pb = normalizePlaybook(raw);
       if (pb) out.set(pb.id, pb);
     } catch { /* skip unreadable/corrupt */ }
@@ -27153,7 +27192,7 @@ async function draftPlaybookFromSession(sessionId) {
     '你是一个把「一次成功完成的任务」抽象成可复用 playbook 模板的助手。',
     '根据下面这次任务,产出一个 playbook 的 JSON。要求:',
     '1. 把任务里的具体路径/文件名/参数,抽象成 inputs 里的占位参数(用 {key} 在 promptTemplate 中引用)。',
-    '2. inputs 每项形如 {"key":"folder","label":"中文标签","type":"text|folder|file"};文件夹参数用 type:"folder"。',
+    '2. inputs 每项形如 {"key":"folder","label":"中文标签","type":"text|folder|file"};文件夹参数用 type:"folder";留空就没法做的参数(要处理的文件夹、文件、主题)加 "required":true。',
     '3. promptTemplate 写成给 AI 助手的高质量任务指令(含步骤与验收标准),用 {key} 占位。',
     '4. 输出 JSON 字段:{ "id","title","icon","desc","inputs","promptTemplate","requires","engineHint","uiMode" }。',
     '   - id 用短横线小写英文(如 merge-excel);icon 用一个 emoji;requires 从 ["network","desktopMcp","vision"] 里选(通常为空数组 [])。',
@@ -30109,16 +30148,13 @@ const STEWARD_PLAYBOOK_CLOSE = '</playbook>';
 // 模板里冒出来的野 {foo} 原样留着(它不是参数,是正文)。两处各有一份实现(服务端产物是单文件
 // 拼接,拉不进浏览器模块),由 unit/steward-playbook-run.test.js 用同一组样例把两边钉在一起 ——
 // 与 06i 抄 mission-state.js 那份五态判据同一个模具。
+// 2026-10:单遍替换 —— 修前按 key 逐个 split/join,前一个值里恰好写着 {output} 这类字面量时会被后一轮再替换一次
+// (会议记录里的「{output}」被改成文件名)。现在只扫模板一遍,填进去的值不再被扫描。
 function stewardAssemblePlaybookPrompt(pb, values) {
-  let out = String((pb && pb.promptTemplate) || '');
+  const template = String((pb && pb.promptTemplate) || '');
   const v = (values && typeof values === 'object' && !Array.isArray(values)) ? values : {};
-  for (const inp of ((pb && Array.isArray(pb.inputs)) ? pb.inputs : [])) {
-    const key = String((inp && inp.key) || '');
-    if (!key) continue;
-    const val = v[key] == null ? '' : String(v[key]);
-    out = out.split('{' + key + '}').join(val);
-  }
-  return out;
+  const declared = new Set(((pb && Array.isArray(pb.inputs)) ? pb.inputs : []).map(inp => String((inp && inp.key) || '')).filter(Boolean));
+  return template.replace(/\{([^{}]+)\}/g, (whole, key) => (declared.has(key) ? (v[key] == null ? '' : String(v[key])) : whole));
 }
 
 // 哪些声明过的参数【没给值】。返回的是参数本身(key/label/type),不是一句话 —— 管家要拿它去问用户。
@@ -36810,12 +36846,40 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
 // web_search/web_fetch 定为 read 级的既有裁定对齐(此前 Claude 引擎的研究/审查类 read 节点连检索都不行,两引擎
 // 能力面不对称)。落盘/执行面(Write/Edit/Bash/MCP)分级不变。
 const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], edit: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Write', 'Edit'], exec: [] };
-// Permission modes that resolve without a human/bridge to answer a prompt: 'bypass' skips all asking,
-// 'auto' is the CLI's own built-in risk classifier (v1.4.3, documented above at runClaudeTurn's
-// usePermissionBridge computation), 'dontAsk' skips by name, and 'plan' never executes a mutating tool in
-// the first place. Anything else ('default', 'acceptEdits') can still block on Bash/exec-tier calls with
-// no one to answer — a one-shot unattended DAG node would hang forever, so those get coerced below.
-const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']);
+// Permission modes passed straight to the CLI: 'bypass' skips all asking, 'auto' is the CLI's own built-in
+// risk classifier (v1.4.3, documented above at runClaudeTurn's usePermissionBridge computation), and 'plan'
+// never executes a mutating tool in the first place. 'default'/'acceptEdits' would block on a prompt nobody
+// can answer in a one-shot print-mode node, so they go through claudeSubagentPermission below.
+const CLAUDE_SUBAGENT_PASSTHROUGH_MODES = new Set(['bypass', 'auto', 'plan']);
+// 2026-10 拍板「两引擎都按权限档拒绝」:修前 default/acceptEdits 在 edit/exec 档被抬成 bypass —— 用户选了「每步都问」,
+// 工作流里的 Claude 节点却全自动跑,而 OpenAI 路径同档是拒绝(runSubAgentCore 里 nativeToolGate !== 'allow' → 拒绝结果)。
+// 现在与 nativeToolGate 同一条判据:default / dontAsk 只放 read 级,acceptEdits 再放 edit 级,exec 级(Bash/MCP)一律拒。
+// CLI 侧用 dontAsk 落实 —— 不在 --allowed-tools 里的工具直接拒、不弹窗,子进程不会卡在没人按的那一步。
+// capped=true 表示白名单就是授权本身(参数阶梯不能丢它,exec 档也不挂桥接 MCP:挂上去也全被拒)。
+// 节点档位的硬上限(deny):--allowed-tools 在 auto / bypass 下不是硬边界(实测 auto 档 read 节点照样能 Write / PowerShell),
+// 而 OpenAI 路径的 tierFilter 不管什么档都按节点档位封顶。所以 read / edit 档另给 --disallowed-tools,把改文件、跑命令、
+// 起子代理、对外发布 / 定时这类内建工具从模型手里拿掉(实测 auto 与 bypassPermissions 下都生效)。用拒绝清单而不是
+// --tools 允许清单,是为了兼容还不认 --tools 的旧版 CLI;exec 档不封。
+const CLAUDE_SUBAGENT_EXEC_TOOLS = ['Bash', 'PowerShell', 'BashOutput', 'KillShell', 'KillBash', 'Task', 'Agent', 'Workflow', 'TaskStop',
+  'SendMessage', 'PushNotification', 'RemoteTrigger', 'CronCreate', 'CronDelete', 'ScheduleWakeup', 'Artifact', 'ArtifactData',
+  'ArtifactComments', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
+const CLAUDE_SUBAGENT_EDIT_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+const CLAUDE_SUBAGENT_TIER_DENY = {
+  read: [...CLAUDE_SUBAGENT_EDIT_TOOLS, ...CLAUDE_SUBAGENT_EXEC_TOOLS],
+  edit: CLAUDE_SUBAGENT_EXEC_TOOLS,
+  exec: [],
+};
+const CLAUDE_SUBAGENT_TIER_RANK = { read: 0, edit: 1, exec: 2 };
+function claudeSubagentPermission(requestedMode, tier, roleTools) {
+  const declared = (Array.isArray(roleTools) && roleTools.length) ? roleTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
+  const deny = CLAUDE_SUBAGENT_TIER_DENY[tier] || [];
+  if (CLAUDE_SUBAGENT_PASSTHROUGH_MODES.has(requestedMode)) return { mode: requestedMode, tools: declared, deny, capped: false };
+  // 白名单上限取「档位许可」与「节点档位」里更窄的那个:acceptEdits + read 节点也不许 Write。
+  const modeTier = requestedMode === 'acceptEdits' ? 'edit' : 'read';
+  const ceiling = CLAUDE_SUBAGENT_TIER_TOOLS[CLAUDE_SUBAGENT_TIER_RANK[tier] < CLAUDE_SUBAGENT_TIER_RANK[modeTier] ? tier : modeTier];
+  const base = declared.length ? declared : ceiling; // exec 档的空清单 = 不限 → 收到该档的上限
+  return { mode: 'dontAsk', tools: base.filter(t => ceiling.includes(t)), deny, capped: true };
+}
 
 // One-shot, session-free Claude CLI turn for a single DAG node: spawns `claude -p` with the node/role's
 // own model + tool restriction, feeds stdout through the same parseClaudeEvent normalizer runClaudeTurn
@@ -36885,8 +36949,10 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
   const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
-  const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
+  // 线程 / 工作流下发的只做计划档压过角色自带的档(与 OpenAI 路径 08 runSubAgentCoreBody 同一条优先级)。
+  const requestedMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || config.permissionMode || 'default');
+  const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
+  const effMode = grant.mode;
 
   // Keep the print-mode process input channel open. Claude's documented stream-json input accepts additional
   // user envelopes while a turn is running, which lets the workflow orchestrator steer a long Claude node
@@ -36895,12 +36961,17 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
-  if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
+  if (grant.tools.length) args.push('--allowed-tools', grant.tools.join(','));
+  if (grant.deny.length) args.push('--disallowed-tools', grant.deny.join(',')); // 节点档位硬上限,下面的命令行阶梯永不丢它
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
-  args.push('--append-system-prompt', appendResponseLanguagePolicy('', config, 0, task));
+  // 2026-10:角色提示词(role.prompt)也走这里 —— 修前 Claude 节点只带语言政策,Reviewer 不改文件、Verifier 不改产品代码、
+  // Critic 默认怀疑这些靠提示词立的规矩在 Claude 引擎下全丢(OpenAI 路径 runSubAgentCoreBody 一直把它放进系统提示)。
+  // 下面的命令行阶梯若丢掉 --append-system-prompt,角色提示改放进首条用户消息(stdin,不受命令行长度限制),不会丢。
+  const roleBrief = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}` : '';
+  let roleBriefInTask = false;
+  args.push('--append-system-prompt', appendResponseLanguagePolicy(roleBrief ? roleBrief + '\n\n' : '', config, 0, task));
   if (cwd) args.push('--add-dir', cwd);
   // 第28波(§28a):Claude 引擎【不适用】服务端子代理压缩(maybeCompactSubHistory)—— claude CLI 自管上下文窗口与压缩,
   // 服务端一次性 spawn 后只累积 assistantText/resultText 求聚合结果,不持有可压缩的 history 数组。与上文桥接分级不对称同源
@@ -36912,20 +36983,23 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // role.mcpServers narrows an exec-tier node to just those servers; empty/absent means everything the
   // workbench has configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
   const roleMcpServers = (role && role.mcpServers) || [];
-  const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  const mcpConfigPath = (tier === 'exec' && !grant.capped) ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
 
   // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
-  // 降级阶梯: ① 丢 --append-system-prompt(仅语言政策,可恢复性最低) ② 非 plan 模式丢 --allowed-tools
-  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式下它有意义,不丢)
+  // 降级阶梯: ① 先把角色提示挪进首条用户消息,仍超再丢整条 --append-system-prompt(语言政策) ② 非 plan 模式丢 --allowed-tools
+  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式与按档收紧的 dontAsk 下它就是授权,不丢)
   // ③ 仍超 → 明确报错(分类器把「命令行太长。」列为 definitive,不会无谓重试 3 次)。
   {
     const guardCmd = fakeClaude ? process.execPath : claude;
     const guardBudget = cmdLineBudgetFor(guardCmd);
     if (guardBudget > 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) {
       const pi = args.indexOf('--append-system-prompt');
-      if (pi >= 0) args.splice(pi, 2);
-      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan') {
+      // ①a 先只把角色提示挪进首条用户消息(角色提示可长达 8000 字,是最常见的超预算原因),语言 / 工程政策留在 argv;
+      // ①b 仍超才整条丢掉(修前一步就整条丢,语言政策跟着没了)。
+      if (pi >= 0 && roleBrief) { args[pi + 1] = appendResponseLanguagePolicy('', config, 0, task); roleBriefInTask = true; }
+      if (pi >= 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) args.splice(pi, 2);
+      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan' && !grant.capped) {
         const ti = args.indexOf('--allowed-tools');
         if (ti >= 0) args.splice(ti, 2);
       }
@@ -36987,7 +37061,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
       return delivered;
     };
-    try { child.stdin.write(JSON.stringify(buildUserEnvelope(String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
+    try { child.stdin.write(JSON.stringify(buildUserEnvelope((roleBriefInTask ? roleBrief + '\n\n' : '') + String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
     // Polling is intentionally local to this child attempt. It supports both a user steering a live node and
     // the scheduler's automatic wrap-up instruction; queued messages are consumed in order and acknowledged
     // through the same subagent_steered event as Provider nodes.
@@ -37564,6 +37638,14 @@ function classifyNodeResumeRisk(node) {
 // (permissionModeAtLaunch ≠ 恢复时 config.permissionMode)→ manual:恢复用的是【恢复时】的模式
 // (launchPersistedAgentRun 传 permModeOverride),不同 = 权限面静默变更,无人值守下不自动放行(方案原文:
 // "涉外部副作用或权限变化只恢复到暂停态")。老 run 无该字段则跳过此信号(分级要可用,不因缺字段一刀切)。
+// 2026-10:工作流跑在【它所在线程】的生效权限档(会话级 > 全局,resolvePermissionMode),不是全局档 —— 修前 HTTP 启动
+// 与续跑都直接取 config.permissionMode,线程在自己的权限 chip 上收紧过也照全局放。恢复分级用同一个值比对,否则「线程档
+// 放宽了、全局档没变」会被判成权限面没变而自动续跑。
+async function agentRunPermissionMode(sessionId, config) {
+  const head = safeSessionId(sessionId) ? await readSessionHeadResilient(sessionId).catch(() => null) : null;
+  // 头读路径绕过 loadSession,要自己盖一层会话级权限档的内存覆盖(活回合中途切档、还没落盘时以它为准;同 13j stewardReadSessionHead)。
+  return resolvePermissionMode({ session: head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head, config });
+}
 function classifyRunResumeTier(run, currentPermissionMode) {
   const reasons = [];
   for (const n of (Array.isArray(run && run.nodes) ? run.nodes : [])) {
@@ -37622,7 +37704,7 @@ async function autoResumeInterruptedRuns() {
       // listAgentRuns 到本次处理之间有 syncRunEventSeq 等 await 窗口,故【每个 run append/save 前】即时复检 live 注册:
       // 已 live = 用户/上一轮已接管,跳过(launchPersistedAgentRun 的 9345 has 守卫只拦启动,拦不住这些前置写)。
       if (activeAgentRuns.has(run.id)) return;
-      const cls = classifyRunResumeTier(run, config.permissionMode);
+      const cls = classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config));
       const attempts = Number(run.autoResumeCount) || 0;
       await syncRunEventSeq(run); // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
       if (activeAgentRuns.has(run.id)) return; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
@@ -37685,7 +37767,7 @@ async function markInterruptedAgentRuns() {
       }
       // 29b: 中断时就盖恢复分级戳(UI 有 tier 徽章可看;autoResumeInterruptedRuns 决策时【重算】,戳只做展示,
       // 不做信任来源 —— 分级函数才是单一事实源)。config 读不到则跳过,标死不受影响。
-      if (bootConfig) { const cls = classifyRunResumeTier(run, bootConfig.permissionMode); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
+      if (bootConfig) { const cls = classifyRunResumeTier(run, await agentRunPermissionMode(run.sessionId, bootConfig)); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
@@ -38770,11 +38852,13 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'codebase-audit', title: '代码审计:多维并行 → 核验 → 修复排期',
     description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。审计全程优先用 codebase_symbol_search 检索符号的真实定义/引用,以文件:行证据为准,勿凭名称相似下结论。',
     nodes: [
-      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。用 codebase_symbol_search 抽查关键符号/函数/类的定义与引用,确认模块、入口点与依赖真实存在、命名与文件对应,不要凭名称猜测。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
-      { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
-      { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
-      { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。对发现中引用的符号/函数/类,用 codebase_symbol_search 反查其定义与调用是否真实存在、文件:行是否对得上,否证幻觉与名称相近的误判。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。用 codebase_symbol_search(没有这个工具时改用 Grep / Glob)抽查关键符号/函数/类的定义与引用,确认模块、入口点与依赖真实存在、命名与文件对应,不要凭名称猜测。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
+      // 2026-10:三路审计与下面 debug-root-cause 的 reproduce 是【产出发现】的节点,显式 gate:false —— 不写时 reviewer/verifier
+      // 角色会被 normalizeAgentGate 自动补上 review/verify 门,审计一发现缺陷就判 rejected、运行汇总报「质量门未通过」。核验交给下游 verify。
+      { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', gate: false, dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
+      { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', gate: false, dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
+      { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', gate: false, dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。对发现中引用的符号/函数/类,用 codebase_symbol_search(没有这个工具时改用 Grep / Glob)反查其定义与调用是否真实存在、文件:行是否对得上,否证幻觉与名称相近的误判。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'backlog', task: '把 verify 的成立发现排成可执行修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;标注依赖顺序、建议测试与验收点；识别可在同一次改动里安全带走的同类项，但不要直接修改代码。', role: 'planner', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -38782,11 +38866,11 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'debug-root-cause', title: 'Bug 定位:复现 → 假设 → 验证 → 根因修复',
     description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪(排除法) → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。verify 用 debug_hypothesis 追踪假设证伪状态,确保每个假设都被排除或证实,勿只验证一条就下结论。',
     nodes: [
-      { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', position: { x: 40, y: 220 } },
+      { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', gate: false, position: { x: 40, y: 220 } },
       { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
       { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
-      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。先用 debug_hypothesis(action=init)把两个方向的假设登记成台账,每做一次实验就用 debug_hypothesis(action=test)记录其结果(证伪 refutes / 支持 supports / 无结论 inconclusive),锁定根因前用 action=conclude 并留意 earlyStopWarning(是否还有假设未排除)。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。动手前确认 verify 已用 debug_hypothesis 排除其余主要假设(而非只验证了一条);若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。先用 debug_hypothesis(action=init)把两个方向的假设登记成台账(没有这个工具时在输出里自建同样的台账:假设、实验、结果、结论),每做一次实验就用 debug_hypothesis(action=test)记录其结果(证伪 refutes / 支持 supports / 无结论 inconclusive),锁定根因前用 action=conclude 并留意 earlyStopWarning(是否还有假设未排除)。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。动手前确认 verify 已(用 debug_hypothesis 或它自建的台账)排除其余主要假设(而非只验证了一条);若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -38804,7 +38888,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'data-insights', title: '数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察',
     description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。探查用 data_profile 做机器级数据画像(规模/列类型/缺失/离群),不要靠目测。',
     nodes: [
-      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile 对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
+      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile(没有这个工具时用只读脚本统计同样的指标)对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
       { id: 'plan', task: '基于 profile 定分析方案:要回答的关键问题(可判定)、清洗与口径规则(如何处理缺失/异常/去重、指标如何定义)、每个问题用什么切法与指标、结果如何交叉验证。输出结构化分析方案。', role: 'planner', dependsOn: ['profile'], position: { x: 340, y: 200 } },
       { id: 'analyze_main', task: '按 plan 执行【主线分析】:运行必要的只读查询/脚本,产出关键指标、趋势、分组对比等,每条结论标注口径(样本/时间范围/指标定义)与证据。不修改源数据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 90 } },
       { id: 'analyze_cross', task: '按 plan 执行【交叉与异常分析】:换维度切分、寻找异常点与反直觉现象、验证主线结论在不同切法下是否稳健。同样标注口径与证据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 310 } },
@@ -38927,6 +39011,12 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       maxRetries: Math.max(0, Math.min(5, Math.round(Number(item.maxRetries) || 0))), retryFallback: item.retryFallback === 'continue' ? 'continue' : 'block',
       minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(item.minSuccessfulToolCalls) || 0))),
       condition: normalizeWorkflowCondition(item.condition), loop: normalizeWorkflowLoop(item.loop), position: pos,
+      // 2026-10:节点专属资料、失败后重规划、仅报告的依赖 —— 启动路径(09 runAgentWorkflow)与工具 schema 都认,修前
+      // 写进个人模板或 .ruyi/workflows.json 一加载就被这里丢掉。钳制与启动路径同口径;没写的不产出键(老模板不变形)。
+      ...(item.context ? { context: String(item.context).trim().slice(0, 4000) } : {}),
+      ...(item.replan === true ? { replan: true } : {}),
+      ...(Array.isArray(item.reportedDependsOn) && item.reportedDependsOn.length
+        ? { reportedDependsOn: [...new Set(item.reportedDependsOn.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16) } : {}),
     });
   }
   for (const node of nodes) {
@@ -38959,9 +39049,12 @@ async function getAgentWorkflows(cwd) {
 // --append-system-prompt(runClaudeTurn)——后者此前从不告知有哪些模板,是两引擎能力不对称的缺口。纯函数,workflows 由调用方传入。
 function buildOrchestrateHint(workflows) {
   if (!Array.isArray(workflows) || !workflows.length) return '';
-  const list = workflows.map(w => `${w.id}(${w.title}：${w.description || '无说明'})`).join('；');
+  // 2026-10:个人 / 项目模板(.ruyi/workflows.json 随仓库走)的标题与说明是外来文本,压成单行并截短再进系统提示,
+  // 不让一份模板用换行冒充一段指令。
+  const flat = (v, max) => String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, max);
+  const list = workflows.map(w => `${w.id}(${flat(w.title, 80)}：${flat(w.description, 160) || '无说明'})`).join('；');
   return '\n\n可用工作流模板（orchestrate_agents 的 workflowId）：' + list +
-    '。\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，可用 workflowId 起手再增删节点，或直接手写 nodes。';
+    '。\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；分析数据/日志/指标→data-insights；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，直接手写 nodes（同时给了 nodes 与 workflowId 时以 nodes 为准，模板被忽略）；内置模板必须带 context，否则不会启动。';
 }
 
 // Agent-team default routing is resolved by the runtime, not guessed by the parent model. A configured
@@ -39065,7 +39158,36 @@ async function resolveOrchestrateNodes(args, cwd) {
   }
   const workflow = (await getAgentWorkflows(cwd)).find(x => x.id === workflowId);
   if (!workflow) return { nodes: null, error: `未找到工作流: ${workflowId}` };
+  // 2026-10:内置模板的节点任务是通用写法(「从支持方立场分析议题」「按需求完成代码改动」),本身不含主题 —— 主题全靠
+  // context。修前空 context 也照跑,各节点只能对着一个不存在的议题空转。个人 / 项目模板可能把主题写进了任务,不拦。
+  if (workflow.source === 'builtin' && !String((args && args.context) || '').trim()) {
+    return { nodes: null, error: `内置模板「${workflow.title}」的节点任务不含具体主题:请在 context 里写清对象(议题、需求、要排查的问题、目标文件或数据)再启动` };
+  }
   return { nodes: workflow.nodes, error: null };
+}
+// 2026-10:保存口就把跑不起来的模板挡回去,并说清哪里不对 —— 修前环形依赖与不存在的角色都能存进去,到运行时才以
+// dependency_cycle / 缺角色失败,而保存失败的文案「需要合法 DAG 节点」也不说明是哪一条。只在保存口判,读盘不判:
+// 已经存下的旧模板不会因此从列表里消失(运行时照旧报)。wf 是 normalizeAgentWorkflow 的输出;返回 null = 没问题,
+// 否则 { code, params, message }(前端按 code 本地化,params 带出是哪几个节点)。
+function agentWorkflowSaveProblem(wf, roleIds) {
+  const unknown = wf.nodes.filter(n => n.role && !roleIds.has(n.role)).map(n => `${n.id}(${n.role})`);
+  if (unknown.length) return { code: 'agent_workflow.unknown_role', params: { nodes: unknown.join(', ') }, message: `节点引用了不存在的角色:${unknown.join('、')}` };
+  const deps = new Map(wf.nodes.map(n => [n.id, n.dependsOn || []]));
+  const state = new Map(); // 1 = 正在走, 2 = 走完
+  const stack = [];
+  const visit = id => {
+    if (state.get(id) === 2) return null;
+    if (state.get(id) === 1) return [...stack.slice(stack.indexOf(id)), id];
+    state.set(id, 1); stack.push(id);
+    for (const dep of deps.get(id) || []) { const cycle = visit(dep); if (cycle) return cycle; }
+    stack.pop(); state.set(id, 2);
+    return null;
+  };
+  for (const node of wf.nodes) {
+    const cycle = visit(node.id);
+    if (cycle) return { code: 'agent_workflow.cycle', params: { cycle: cycle.join(' → ') }, message: `依赖成环(箭头指向所依赖的节点):${cycle.join(' → ')}` };
+  }
+  return null;
 }
 async function saveAgentWorkflow(scope, cwd, raw) {
   const wf = normalizeAgentWorkflow(raw, { source: scope }); if (!wf) return null;
@@ -41357,7 +41479,8 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
     ...(background ? { onComplete: r => deliverAgentRunEnvelope(sessionId, r) } : {}),
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
-    permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
+    // 2026-10:续跑也按线程的生效档(会话级 > 全局),与首跑、恢复分级(agentRunPermissionMode)同一个解析。
+    permModeOverride: resolvePermissionMode({ session: parentSession, config }), maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
     onRegistered: () => markRegistered(),
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
@@ -41704,6 +41827,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // LIVE turn object (belt-and-suspenders with the pre-save disk-merge at the turn's end).
     session,
     interactive: false, onEvent, kind: 'openai', traceId: activeTraceId, abort: () => { try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } },
+    // 2026-10:与 05 Claude 回合的登记项同口径 —— 本回合解析出的档(请求级 > 会话级 > 全局);从这条线程直接起的工作流
+    // (POST /api/agent-workflow/launch)按它跑,不是按全局档。
+    permissionMode: String(config.permissionMode || ''),
     // v0.8-S7: steering queue (§4 A3). /api/steer pushes plain user text here (cap 3) while a provider
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).
@@ -55826,6 +55952,10 @@ async function readSkillDir(baseDir, source, caps) {
 // ~/.claude/plugins/installed_plugins.json(v1:{plugins:{"名@市场":{installPath}}};v2:值是安装数组)——
 // marketplaces/ 下是「可装」的全集,不是已装的,不扫。~/.claude/settings.json 的 enabledPlugins 里显式 false 的跳过。
 // 只读、从不抛;每个插件取 <installPath>/skills。
+// 随包的 offline-toolkit(市场 ruyi-offline,3.0 前叫 win-workbench-offline)不算外来插件:它的技能就是 builtin 那一份,
+// 装进 Claude Code 后缓存的是安装时的旧副本。照常读会按优先级把 20 个内置技能顶成 source='claude-plugin' —— 译名丢失、
+// 已启用的 {id, source:'builtin'} 因来源对不上被静默跳过注入、内容停在安装那一刻。所以跳过,内置技能永远活读 resources/。
+const BUNDLED_PLUGIN_IDS = ['offline-toolkit@ruyi-offline', 'offline-toolkit@win-workbench-offline'];
 async function claudePluginSkillDirs() {
   const claudeDir = agentCliHomes().claude;
   const installed = safeJsonParse(await readIfExists(path.join(claudeDir, 'plugins', 'installed_plugins.json'), 512 * 1024), null);
@@ -55836,6 +55966,7 @@ async function claudePluginSkillDirs() {
   const out = [];
   for (const [name, value] of Object.entries(plugins)) {
     if (enabled[name] === false) continue;
+    if (BUNDLED_PLUGIN_IDS.includes(String(name))) continue;
     const installs = Array.isArray(value) ? value : [value];
     for (const inst of installs) {
       const installPath = inst && typeof inst.installPath === 'string' ? inst.installPath : '';
@@ -56462,7 +56593,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
-        message: { type: 'string', description: 'one-line commit message' },
+        message: { type: 'string', description: 'commit message; body may follow a blank line' },
         addAll: { type: 'boolean', description: 'git add -A first (default false: only what is already staged)' },
         paths: { type: 'array', items: { type: 'string' }, description: 'stage only these files (overrides addAll)' },
       },
@@ -57833,8 +57964,11 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/agent-workflows') {
     const body = await readJsonBody(req); const scope = body && body.scope === 'project' ? 'project' : 'personal';
     const config = await readConfig(); const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    const draft = normalizeAgentWorkflow(body && body.workflow, { source: scope });
+    const problem = draft ? agentWorkflowSaveProblem(draft, new Set((await getAgentRoleLibrary(cwd, config)).map(r => r.id))) : null;
+    if (problem) return send(res, apiFailure(problem.code, problem.params, `无效工作流：${problem.message}`, 400));
     const workflow = await saveAgentWorkflow(scope, cwd, body && body.workflow);
-    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id、标题和合法 DAG 节点' }, 400));
+    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id 和标题；节点 id 不重复、任务非空，依赖只能指向其它已有节点' }, 400));
     return send(res, json({ ok: true, scope, workflow }));
   }
   if (pathname.startsWith('/api/agent-workflows/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
@@ -58468,7 +58602,11 @@ async function handleApi(req, res, pathname) {
     // A direct UI/MCP launch has no active parent registry. In a Claude-only installation, defaulting such
     // a launch to OpenAI manufactured an unusable route with provider=null and failed before the fake/real
     // Claude child could start. Choose from actual availability when no live parent turn exists.
-    const parentEngine = reg ? (reg.kind === 'claude' ? 'claude' : 'openai') : (provider ? 'openai' : 'claude');
+    // 2026-10:只有活着的 Claude / provider 父回合才决定默认引擎。Kimi Code 父回合(reg.kind 'kimi-acp')修前被一律当成
+    // 'openai',没配 provider 时路由成 provider=null,节点一启动就抛 Cannot read properties of null —— 节点引擎只有
+    // openai / claude 两种,Kimi 父回合与「没有父回合」一样按实际可用的引擎挑。
+    const parentEngine = reg && reg.kind === 'claude' ? 'claude'
+      : (reg && reg.kind === 'openai' ? 'openai' : (provider ? 'openai' : 'claude'));
     const parentModel = parentEngine === 'claude'
       ? String(config.model || '')
       : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
@@ -58477,8 +58615,14 @@ async function handleApi(req, res, pathname) {
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {
-      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
+      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI（Kimi Code 不能作为工作流节点的引擎）' }, 400));
     }
+    // 2026-10:工作流按【这条线程】的生效权限档跑 —— 修前直接取全局 config.permissionMode,线程在自己的权限 chip 上收紧过也照
+    // 全局放。有活着的父回合就用它起回合时解析出的档(请求级 > 会话级 > 全局,05/09 登记在 reg.permissionMode),否则按
+    // 会话级 > 全局解析(与续跑、恢复分级 agentRunPermissionMode 同一个解析器)。
+    // provider 回合登记了 effectivePermissionMode()(回合中途在线程 chip 上收紧会被它看到),优先用它;其次是起回合时的快照。
+    const liveMode = reg && typeof reg.effectivePermissionMode === 'function' ? (() => { try { return reg.effectivePermissionMode(); } catch { return ''; } })() : (reg && reg.permissionMode);
+    const launchPermissionMode = PERMISSION_MODES.includes(liveMode) ? liveMode : resolvePermissionMode({ session, config });
     // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
     // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。
     const onEvent = reg && reg.onEvent ? (evt => { const live = activeChildren.get(sessionId); if (live === reg && live.onEvent) live.onEvent(evt); }) : () => {};
@@ -58501,7 +58645,7 @@ async function handleApi(req, res, pathname) {
       // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
       let markRegistered = null;
       const registered = new Promise(resolve => { markRegistered = resolve; });
-      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
@@ -58515,7 +58659,7 @@ async function handleApi(req, res, pathname) {
     // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
     // 且当没有活回合时把信封投进账本,让模型下一回合知道这件事。
     let completedRun = null;
-    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: async run => { completedRun = run; }, poolPolicy: body.poolPolicy, parentEngine, parentModel });
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: async run => { completedRun = run; }, poolPolicy: body.poolPolicy, parentEngine, parentModel });
     if (wantEnvelope) {
       if (!completedRun) return send(res, json({ ok: false, error: (result && result.error) || '代理启动失败', runId: result && result.runId || '', startedCount: 0 }));
       if (EventStreamHooks.markAgentEnvelopeDelivered) {
@@ -68654,7 +68798,7 @@ async function stewardRunResumeTier(sessionId, runId, config) {
   }
   const run = safeJsonParse(raw, null);
   if (!run) return 'unknown';
-  return String(classifyRunResumeTier(run, config && config.permissionMode).tier || '');
+  return String(classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config || {})).tier || '');
 }
 async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);

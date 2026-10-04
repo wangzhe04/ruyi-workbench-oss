@@ -497,8 +497,11 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/agent-workflows') {
     const body = await readJsonBody(req); const scope = body && body.scope === 'project' ? 'project' : 'personal';
     const config = await readConfig(); const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
+    const draft = normalizeAgentWorkflow(body && body.workflow, { source: scope });
+    const problem = draft ? agentWorkflowSaveProblem(draft, new Set((await getAgentRoleLibrary(cwd, config)).map(r => r.id))) : null;
+    if (problem) return send(res, apiFailure(problem.code, problem.params, `无效工作流：${problem.message}`, 400));
     const workflow = await saveAgentWorkflow(scope, cwd, body && body.workflow);
-    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id、标题和合法 DAG 节点' }, 400));
+    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id 和标题；节点 id 不重复、任务非空，依赖只能指向其它已有节点' }, 400));
     return send(res, json({ ok: true, scope, workflow }));
   }
   if (pathname.startsWith('/api/agent-workflows/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
@@ -1132,7 +1135,11 @@ async function handleApi(req, res, pathname) {
     // A direct UI/MCP launch has no active parent registry. In a Claude-only installation, defaulting such
     // a launch to OpenAI manufactured an unusable route with provider=null and failed before the fake/real
     // Claude child could start. Choose from actual availability when no live parent turn exists.
-    const parentEngine = reg ? (reg.kind === 'claude' ? 'claude' : 'openai') : (provider ? 'openai' : 'claude');
+    // 2026-10:只有活着的 Claude / provider 父回合才决定默认引擎。Kimi Code 父回合(reg.kind 'kimi-acp')修前被一律当成
+    // 'openai',没配 provider 时路由成 provider=null,节点一启动就抛 Cannot read properties of null —— 节点引擎只有
+    // openai / claude 两种,Kimi 父回合与「没有父回合」一样按实际可用的引擎挑。
+    const parentEngine = reg && reg.kind === 'claude' ? 'claude'
+      : (reg && reg.kind === 'openai' ? 'openai' : (provider ? 'openai' : 'claude'));
     const parentModel = parentEngine === 'claude'
       ? String(config.model || '')
       : String(provider && (provider.model || (provider.models && provider.models[0] && (provider.models[0].id || provider.models[0]))) || '');
@@ -1141,8 +1148,14 @@ async function handleApi(req, res, pathname) {
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {
-      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
+      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI（Kimi Code 不能作为工作流节点的引擎）' }, 400));
     }
+    // 2026-10:工作流按【这条线程】的生效权限档跑 —— 修前直接取全局 config.permissionMode,线程在自己的权限 chip 上收紧过也照
+    // 全局放。有活着的父回合就用它起回合时解析出的档(请求级 > 会话级 > 全局,05/09 登记在 reg.permissionMode),否则按
+    // 会话级 > 全局解析(与续跑、恢复分级 agentRunPermissionMode 同一个解析器)。
+    // provider 回合登记了 effectivePermissionMode()(回合中途在线程 chip 上收紧会被它看到),优先用它;其次是起回合时的快照。
+    const liveMode = reg && typeof reg.effectivePermissionMode === 'function' ? (() => { try { return reg.effectivePermissionMode(); } catch { return ''; } })() : (reg && reg.permissionMode);
+    const launchPermissionMode = PERMISSION_MODES.includes(liveMode) ? liveMode : resolvePermissionMode({ session, config });
     // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
     // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。
     const onEvent = reg && reg.onEvent ? (evt => { const live = activeChildren.get(sessionId); if (live === reg && live.onEvent) live.onEvent(evt); }) : () => {};
@@ -1165,7 +1178,7 @@ async function handleApi(req, res, pathname) {
       // 受理后立刻 pause / stop / 插话也会被 409「工作流当前未运行」拒掉。
       let markRegistered = null;
       const registered = new Promise(resolve => { markRegistered = resolve; });
-      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
+      const finished = runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, runIdOverride: runId, onComplete: completion, poolPolicy: body.poolPolicy, parentEngine, parentModel, background: true, onRegistered: () => markRegistered() }).catch(async e => {
         activeAgentRuns.delete(runId); // 对抗轮 P2: 启动期抛出时兜底清注册(与 launchPersistedAgentRun 的 catch 对齐)
         const run = { schemaVersion: 4, id: runId, sessionId: session.id, turnSeq: session.turnSeq, providerId: provider && provider.id || '', status: 'failed', background: true, createdAt: nowIso(), updatedAt: nowIso(), completedAt: nowIso(), error: String(e && e.message || e), nodes: [] };
         await saveAgentRun(run).catch(() => {});
@@ -1179,7 +1192,7 @@ async function handleApi(req, res, pathname) {
     // 同步:MCP 回环(envelope:true)拿信封,并登记已读(它就是投递本身);UI/管理面(不带 envelope)照旧拿整份结果,
     // 且当没有活回合时把信封投进账本,让模型下一回合知道这件事。
     let completedRun = null;
-    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: async run => { completedRun = run; }, poolPolicy: body.poolPolicy, parentEngine, parentModel });
+    const result = await runAgentWorkflow({ parentSession: session, provider, config, nodes: resolved.nodes, onEvent, permModeOverride: launchPermissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0), contextText, onComplete: async run => { completedRun = run; }, poolPolicy: body.poolPolicy, parentEngine, parentModel });
     if (wantEnvelope) {
       if (!completedRun) return send(res, json({ ok: false, error: (result && result.error) || '代理启动失败', runId: result && result.runId || '', startedCount: 0 }));
       if (EventStreamHooks.markAgentEnvelopeDelivered) {

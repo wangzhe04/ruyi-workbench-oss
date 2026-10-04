@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-03T04:08:13.785Z",
+  "generatedAt": "2026-10-04T08:36:23.375Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1198,6 +1198,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\agent-team-mode.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\asr-warmup.e2e.js",
         "dev-harness\\boot-failure-kind.browser.e2e.js",
@@ -3614,6 +3615,8 @@
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
         "dev-harness\\agent-run-lifecycle.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
+        "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\audit-w23.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
@@ -4335,6 +4338,7 @@
         "dev-harness\\agent-run-lifecycle.e2e.js",
         "dev-harness\\agent-steer-node.e2e.js",
         "dev-harness\\agent-subturn-loop-guard.e2e.js",
+        "dev-harness\\agent-workflow-audit-fixes.e2e.js",
         "dev-harness\\agent-workflow-claude-engine.e2e.js",
         "dev-harness\\agent-workflow-transient-repro.e2e.js",
         "dev-harness\\agent-workflow-ui-progress.e2e.js",

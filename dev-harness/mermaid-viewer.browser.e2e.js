@@ -185,6 +185,36 @@ async function waitForEval(cdp, expression, attempts = 800) {
   return null;
 }
 
+// 打开某条线程:等左栏那一行出现 → 只点一次 → 轮询 currentSession 切过去。修前把「点击」写在 waitForEval 的表达式里,
+// 每 40ms 连同点击整段重跑一次;打开线程是异步加载,慢机器(CI)上还没切完就被下一次点击打断,A9 偶发切不过去,
+// 随后 B2 / B13b 量的是另一条线程(连带红)。8 s 还没切过去才补点一次(防第一次点在首屏重排的空窗里)。
+// 选择器只认线程行本身(.steward-board-thread,与 one-workbench-frame / focus-rail 同口径):左栏里带 data-session-id 的
+// 元素一条线程有好几个(实测 4 个),修前 `#railList [data-session-id=…]` 先命中的那个不一定是线程行,点它不切换会话。
+// 还有视角:配置里 stewardEnabledV1 开着,首屏可能落在管家视角 —— 那里点线程行只是把右栏聚焦到它(steward-board openRow →
+// openThread),不切 state.currentSession;只有工作台视角才 openSession。修前测试默认首屏是工作台视角,实测(本机 / CI)首屏是
+// 管家视角时 A9 切不过去,一直停在开机自动打开的「八张图」那条线程上 —— B2 数到 8 组工具条、B13a「打开」的是本就打开着的
+// 线程(不算换会话,不会贴底),B13b 跟着红。所以先像 one-workbench-frame 的 setLens 那样切到工作台视角,再点。
+async function ensureClassicLens(cdp) {
+  const isClassic = `(() => document.documentElement.getAttribute('data-shell-mode') === 'classic' && !document.documentElement.dataset.vt ? 1 : null)()`;
+  if (await cdp.evaluate(isClassic).catch(() => null)) return 1;
+  await cdp.evaluate(`(document.querySelector('#lensSeg [data-lens="classic"]') || { click() {} }).click(), true`).catch(() => {});
+  return waitForEval(cdp, isClassic);
+}
+async function openThread(cdp, sessionId) {
+  if (!(await ensureClassicLens(cdp))) return null;
+  const ROW = `#railList .steward-board-thread[data-session-id="${sessionId}"]`;
+  const rowExpr = `(() => document.querySelector('${ROW}') ? 1 : null)()`;
+  if (!(await waitForEval(cdp, rowExpr))) return null;
+  const click = `(() => { const row = document.querySelector('${ROW}');
+    if (!row) return null; (row.querySelector('.steward-board-thread-title') || row).click(); return 1; })()`;
+  const switched = `(() => window.state && window.state.currentSession && window.state.currentSession.id === '${sessionId}' ? 1 : null)()`;
+  for (let round = 0; round < 3; round++) {
+    try { await cdp.evaluate(click); } catch { /* 执行上下文刚换 */ }
+    if (await waitForEval(cdp, switched, 200)) return 1;   // 200 × 40ms = 8 s
+  }
+  return null;
+}
+
 const READY = `(() => {
   if (!window.state || !window.state.status || !window.state.config || !window.state.config.configSchema) return null;
   if (!document.getElementById('railList') || !document.getElementById('threadHead')) return null;
@@ -277,11 +307,7 @@ try {
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
   ok(Boolean(await waitForEval(cdp, READY)), 'A8 首屏就绪');
-  ok(Boolean(await waitForEval(cdp, `(() => {
-    const row = document.querySelector('#railList [data-session-id="${sessionId}"]');
-    if (row) { (row.querySelector('.steward-board-thread-title') || row).click(); }
-    return window.state && window.state.currentSession && window.state.currentSession.id === '${sessionId}' ? 1 : null;
-  })()`)), 'A9 打开这条线程');
+  ok(Boolean(await openThread(cdp, sessionId)), 'A9 打开这条线程');
 
   /* ═════════ B1 围栏真渲染成 SVG ═════════ */
   const rendered = await waitForEval(cdp, `(() => {
@@ -705,24 +731,25 @@ try {
   ok(Boolean(viewer) && viewer.closedAfterPlainClick === true, 'B12c 不拖拽的单击遮罩照旧关闭');
 
   /* ═════════ B13 8 张图画完后仍贴着底 ═════════ */
-  ok(Boolean(await waitForEval(cdp, `(() => {
-    const row = document.querySelector('#railList [data-session-id="${manyId}"]');
-    if (row) { (row.querySelector('.steward-board-thread-title') || row).click(); }
-    return window.state && window.state.currentSession && window.state.currentSession.id === '${manyId}' ? 1 : null;
-  })()`)), 'B13a 打开八张图那条线程');
-  const pinned = await waitForEval(cdp, `(async () => {
+  ok(Boolean(await openThread(cdp, manyId)), 'B13a 打开八张图那条线程');
+  // 量到「8 张都画完、且已贴底」为止(轮询),超时再量一次给现场。修前在 8 张都标 ok 后只等两帧就量一次:慢机器上
+  // 图的尺寸与重新贴底还在路上,量到的是半途(CI 实测图共 514 / 1028px、距底 1095px)。断言的仍是同一件事 ——
+  // 画完之后贴着底;不贴底的实现照样等满超时后红(撤掉 app.js 接线时距底 3315px 不会自己归零)。
+  const measure = settledOnly => `(async () => {
     const box = document.getElementById('messages');
     const blocks = Array.from(box.querySelectorAll('.mermaid-block'));
-    if (blocks.length < 8 || !blocks.every(block => block.dataset.mermaidState === 'ok')) return null;
+    if (blocks.length < 8 || !blocks.every(block => block.dataset.mermaidState === 'ok')) return ${settledOnly ? 'null' : '{ blocks: blocks.length, drawnHeight: 0, gap: -1, scrollHeight: box.scrollHeight }'};
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const views = Array.from(box.querySelectorAll('.mermaid-view'));
-    return {
+    const m = {
       blocks: blocks.length,
       drawnHeight: Math.round(views.reduce((sum, view) => sum + view.getBoundingClientRect().height, 0)),
       gap: Math.round(box.scrollHeight - box.scrollTop - box.clientHeight),
       scrollHeight: box.scrollHeight,
     };
-  })()`);
+    return ${settledOnly ? '(m.drawnHeight > 1500 && m.gap <= 2) ? m : null' : 'm'};
+  })()`;
+  const pinned = (await waitForEval(cdp, measure(true), 400)) || (await cdp.evaluate(measure(false)).catch(() => null));
   ok(Boolean(pinned) && pinned.blocks === 8 && pinned.drawnHeight > 1500 && pinned.gap <= 2,
     `B13b 8 张图画完（图共 ${pinned && pinned.drawnHeight}px 高）后聊天区仍贴着底（距底 ${pinned && pinned.gap}px / 总高 ${pinned && pinned.scrollHeight}px；修前停在半途）`);
   console.log(`SHOTS ${shots.lightbox}`);

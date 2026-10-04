@@ -1,6 +1,6 @@
 {
   "name": "Ruyi Offline Bundle",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "createdFor": "Windows intranet or air-gapped Claude CLI environments",
   "contains": [
     "Ruyi.exe when built",
@@ -8,10 +8,12 @@
     "static Web UI",
     "MCP stdio server",
     "PowerShell installer scripts",
-    "offline Claude Code plugin marketplace",
-    "clean-room offline skill replicas for code review, frontend design, commits, local docs, API debugging, CLAUDE.md management, plugin authoring, security guidance, CI reproduction and LSP setup",
-    "offline slash-command prompts and agent role prompts",
-    "Chinese deployment and architecture docs",
+    "offline Claude Code plugin marketplace ruyi-offline (plugin offline-toolkit 0.3.0)",
+    "20 clean-room offline skills: code review, code simplification, commits, feature development, frontend design, browser debugging, API debugging, local docs, document and Office work, spreadsheets, structured writing, research, security, local CI, LSP setup, packaging, plugin authoring, project memory and Windows desktop control",
+    "13 offline slash-command prompts and 4 agent role prompts",
+    "16 built-in one-click playbooks",
+    "8 built-in multi-agent workflow templates and 10 node roles",
+    "Chinese and English deployment and architecture docs",
     "config templates"
   ],
   "doesNotContain": [

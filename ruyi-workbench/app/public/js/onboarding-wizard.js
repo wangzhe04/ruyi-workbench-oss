@@ -138,8 +138,8 @@ export function onboardingStepsFor(config) {
   const c = asObject(config);
   const providers = asArray(c.providers).filter(p => p && !isSpeechOnlyProvider(p));   // 自动接入的本地语音识别不是对话引擎:不能让它把「配置引擎」这一步标成已完成
   const engineReady = providers.length > 0 || Boolean(c.claudePath) || Boolean(c.kimiPath);
-  // 走查 #10：defaultWorkspace 永远有值（缺省＝整个用户目录）、permissionMode 缺省就是 'default' —— 拿它们判「做过了」
-  // 等于新装第一秒就把「文件夹」「安全档」画成绿的。改成要有真凭据：选过文件夹（recentWorkspaces）或整套向导走完过。
+  // 走查 #10：defaultWorkspace 永远有值（缺省＝整个用户目录）、permissionMode 永远有出厂值 —— 拿它们判「做过了」
+  // 等于新装第一秒就把「文件夹」「安全档」画成绿的。改成要有真凭据：选过文件夹（recentWorkspaces）、选过档位（显式键）或整套向导走完过。
   const completed = Boolean(asObject(c.onboarding).completedAt);
   const workspaceReady = asArray(c.recentWorkspaces).length > 0 || (completed && Boolean(c.defaultWorkspace));
   const doneFlag = {
@@ -151,7 +151,10 @@ export function onboardingStepsFor(config) {
     // 有着落（与 engine 同一条判据，不给「留空」硬造一个新字段来记「他真的看过了」）。
     steward: engineReady,
     workspace: workspaceReady,
-    safety: typeof c.permissionMode === 'string' && c.permissionMode !== '' && (completed || c.permissionMode !== 'default'),
+    // 2026-10:出厂档改成智能自动后,「不等于 default」不再是「选过」的凭据(新装第一秒就是 auto)。改看显式键:
+    // 用户在任何地方选过档位,服务端就把 permissionMode 记进 configExplicitKeysV1(存量用户经 to:14 迁移也在里面)。
+    safety: typeof c.permissionMode === 'string' && c.permissionMode !== ''
+      && (completed || (Array.isArray(c.configExplicitKeysV1) && c.configExplicitKeysV1.includes('permissionMode'))),
     done: Boolean(asObject(c.onboarding).completedAt),
   };
   return ONBOARDING_STEP_IDS.map((id, index) => ({
@@ -378,7 +381,9 @@ export function createOnboardingWizardDomain({
       message: '',
       messageKind: '',
       messageAction: null, // 118e: {label, onClick} for the in-app manual jump on a local-endpoint failure
-      permissionMode: ONBOARDING_SAFETY_MODES.includes(config.permissionMode) ? config.permissionMode : 'default',
+      // 照实记盘上的档(含全自动 / dontAsk 这类不在四张卡里的档:那时一张卡都不亮)。修前把它们折成 'default' 显示选中,
+      // 「已是这一档就不落盘」的短路会让这些用户点「每步都问」收紧变成空操作。
+      permissionMode: typeof config.permissionMode === 'string' ? config.permissionMode : '',
       workspaceError: '',  // 走查 #8：选择器失败时就地显示的那句（服务端给的 hint 优先）
       workspacePath: '',   // 手填框里的草稿（重画不丢）
     };
@@ -1019,7 +1024,10 @@ export function createOnboardingWizardDomain({
           title: t('onboarding.wizard.safety.' + mode + '.title'),
           description: t('onboarding.wizard.safety.' + mode + '.description'),
           onSelect: async () => {
-            if (needsConfirm(mode) && wiz.permissionMode !== mode) { wiz.pendingSafety = mode; render(); return; }
+            // 已是这一档就不再落盘:出厂档是智能自动(2026-10),新用户点一下已选中的卡片会不带 confirm 回写 auto,
+            // 被服务端那道二次确认门 409 挡回来,只剩一句报错。
+            if (wiz.permissionMode === mode) { wiz.pendingSafety = ''; render(); return; }
+            if (needsConfirm(mode)) { wiz.pendingSafety = mode; render(); return; }
             wiz.pendingSafety = '';
             await choose(mode);
           },
