@@ -2521,8 +2521,11 @@ function detectClaudePathUncached() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+      // 61-C6:批处理启动器(claude.cmd)经 cmd.exe 探,没装时 cmd 也有退出码(1 / 9009)—— 修前「有退出码就算探到」,
+      // 没装 Claude Code 的机器也报「Claude Code: claude.cmd」。批处理要求退出码 0;直启的 exe 仍是有退出码即可。
+      const found = !ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0);
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(command);
+      if (found) return resolveClaudeLauncher(command);
     } catch {
       // keep scanning
     }
@@ -2535,7 +2538,8 @@ async function detectClaudePathUncachedAsync() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = await spawnProbeAsync(s.command, s.args, s.opts);
-      if (!ok.error && ok.status !== null) return await resolveClaudeLauncherAsync(command);
+      // 判据与同步版逐字相同(61-C6:批处理启动器要求退出码 0)。
+      if (!ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0)) return await resolveClaudeLauncherAsync(command);
     } catch {
       // keep scanning
     }

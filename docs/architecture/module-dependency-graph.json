@@ -5,7 +5,7 @@
   "summary": {
     "modules": 70,
     "providedSymbols": 3409,
-    "requiredSymbols": 3091,
+    "requiredSymbols": 3092,
     "edges": 533,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -2022,6 +2022,13 @@
         {
           "provider": "01d-win-cmdline.js",
           "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
           "kinds": [
             "call"
           ]
@@ -26205,7 +26212,8 @@
       "from": "03-bridge-guard.js",
       "to": "01d-win-cmdline.js",
       "symbols": [
-        "batchSafeSpawn"
+        "batchSafeSpawn",
+        "isBatchLauncher"
       ],
       "direction": "backward"
     },

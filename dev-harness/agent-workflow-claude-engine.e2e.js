@@ -146,6 +146,55 @@ async function tokenFor(port) {
     } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
   }
 
+  // ---- (D) 61-C6:Claude CLI 找不到时,节点错误里说清找过哪、该怎么办(修前只有一句「未找到」)----
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-missing-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const missing = path.join(HOME, 'no-such-dir', 'claude.cmd');
+    // 配一个模型服务商(地址不通也无妨:engine:'claude' 的节点不走它),让启动越过「两个引擎都不可用」的入口拒绝,
+    // 走到逐节点那一层;入口拒绝的文案另由 D2 钉。
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, claudePath: missing,
+      providers: [{ id: 'p', label: 'P', type: 'openai-compat', baseUrl: 'http://127.0.0.1:9', apiKey: 'k', model: 'm', models: [{ id: 'm', label: 'm' }] }], activeProvider: 'p',
+    }, null, 2));
+    const env = { ...process.env, RUYI_HOME: HOME };
+    delete env.WCW_FAKE_CLAUDE;   // 走真的「找可执行文件」判定
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, windowsHide: true, env });
+    try {
+      ok(await up(PORT), 'claude-missing test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'dag-claude-missing', cwd: HOME }, hdr);
+      const run = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: created.session.id, nodes: [{ id: 'cli_node', task: 'say hi', engine: 'claude' }] });
+      const r0 = run && Array.isArray(run.results) ? run.results[0] : null;
+      const err = String((r0 && r0.error) || '');
+      ok(r0 && r0.status !== 'succeeded' && err.includes('Claude CLI 未找到') && err.includes(missing) && /engine:'claude'/.test(err) && /claudePath/.test(err),
+        "D1 Claude CLI 缺失:错误里带找过的路径与修法(去掉 engine:'claude' / 配 claudePath)(got " + JSON.stringify(r0 ? { status: r0.status, error: r0.error } : run) + ')');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+  // ---- (D2) 两个引擎都不可用:入口拒绝也说清找过哪(修前对不存在的 claude.cmd 也判「可用」,根本走不到这条拒绝)----
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-missing-noprov-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const missing = path.join(HOME, 'no-such-dir', 'claude.cmd');
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 7, permissionMode: 'bypass', defaultWorkspace: HOME, providers: [], activeProvider: '', claudePath: missing,
+    }, null, 2));
+    const env = { ...process.env, RUYI_HOME: HOME };
+    delete env.WCW_FAKE_CLAUDE;
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], { cwd: WB, windowsHide: true, env });
+    try {
+      ok(await up(PORT), 'claude-missing/no-provider test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'dag-none', cwd: HOME }, hdr);
+      const run = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: created.session.id, nodes: [{ id: 'n', task: 'say hi' }] });
+      const e0 = run && run.error;
+      const err = String((e0 && typeof e0 === 'object' ? e0.message : e0) || '');   // json() 把裸串 error 包成 {code, params, message} 信封
+      ok(run && run.ok === false && /Claude CLI/.test(err) && err.includes(missing), 'D2 两个引擎都不可用:入口拒绝,并说清找过的 Claude CLI 路径(got ' + JSON.stringify(run) + ')');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+
   console.log('\nAGENT WORKFLOW CLAUDE ENGINE E2E: ' + (failures ? `FAIL (${failures})` : 'ALL PASS'));
   process.exitCode = failures ? 1 : 0;
 })().catch(e => { console.error(e.stack || e); process.exitCode = 1; });

@@ -2159,7 +2159,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
   if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
-    return { ok: false, error: 'Claude CLI 未找到，无法以 Claude 引擎运行该节点', iters: 0, toolCalls: 0 };
+    // 61-C6:修前只回一句「未找到」,模型(和用户)不知道找的是哪、该怎么办 —— 真机上 claude.cmd 没装,模型只能猜。
+    // 走到这里的是指定了 engine:'claude' 的节点,或会话里没有可用的模型服务商;provider 节点走 HTTP,不需要 Claude CLI。
+    // 修法写进 error 本身:节点结果往上只带 error(编排信封、工作流节点卡都读它),另起的 hint 字段到不了模型。
+    const where = claude ? `找过 ${claude}` : '没有配置 claudePath,PATH 里也找不到 claude';
+    return { ok: false, error: `Claude CLI 未找到(${where}),无法以 Claude 引擎运行该节点。可以去掉该节点的 engine:'claude'(或不指定引擎)让它经模型服务商运行;或请用户在设置里填 Claude Code 的路径(claudePath)/安装 Claude Code 后重试`,
+      iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
   const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';

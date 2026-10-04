@@ -1141,7 +1141,9 @@ async function handleApi(req, res, pathname) {
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {
-      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
+      // 61-C6:说清 Claude CLI 找的是哪(修前探测对不存在的 claude.cmd 也判可用,走不到这里;现在走得到,就要说得清)。
+      const where = claudeCli ? `找过 ${claudeCli},不可用` : '没有配置 claudePath,PATH 里也找不到 claude';
+      return send(res, json({ ok: false, error: `Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI(${where})` }, 400));
     }
     // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
     // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。

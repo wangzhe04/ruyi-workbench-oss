@@ -1989,6 +1989,13 @@
           ]
         },
         {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "BRIDGED_WRITE_PATH_ARGS",
           "kinds": [

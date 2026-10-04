@@ -4604,8 +4604,11 @@ function detectClaudePathUncached() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 4000, ...s.opts });
+      // 61-C6:批处理启动器(claude.cmd)经 cmd.exe 探,没装时 cmd 也有退出码(1 / 9009)—— 修前「有退出码就算探到」,
+      // 没装 Claude Code 的机器也报「Claude Code: claude.cmd」。批处理要求退出码 0;直启的 exe 仍是有退出码即可。
+      const found = !ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0);
       // P1: shim(claude.cmd)命中时优先解析出真身 claude.exe(绕过 cmd.exe 8191 上限);解析不出原样返回。
-      if (!ok.error && ok.status !== null) return resolveClaudeLauncher(command);
+      if (found) return resolveClaudeLauncher(command);
     } catch {
       // keep scanning
     }
@@ -4618,7 +4621,8 @@ async function detectClaudePathUncachedAsync() {
       if (mustExist && !fs.existsSync(command)) continue;
       const s = batchSafeSpawn(command, ['--version']);
       const ok = await spawnProbeAsync(s.command, s.args, s.opts);
-      if (!ok.error && ok.status !== null) return await resolveClaudeLauncherAsync(command);
+      // 判据与同步版逐字相同(61-C6:批处理启动器要求退出码 0)。
+      if (!ok.error && ok.status !== null && (!isBatchLauncher(command) || ok.status === 0)) return await resolveClaudeLauncherAsync(command);
     } catch {
       // keep scanning
     }
@@ -12782,7 +12786,8 @@ function existsExecutable(command) {
   if (!command) return false;
   const s = batchSafeSpawn(command, ['--version']);
   const result = cp.spawnSync(s.command, s.args, { stdio: 'ignore', windowsHide: true, timeout: 6000, ...s.opts });
-  return !result.error;
+  if (result.error) return false;
+  return !(isBatchLauncher(command) && result.status !== 0);   // 61-C6:判据同下方异步版(批处理启动器要求退出码 0)
 }
 // 128f-⑬:同一个判据的异步版。服务在跑的时候(请求路径、回合入口、能力矩阵刷新)一律用它 —— 同步那一发会把整个
 // 服务钉住一次 CLI 冷启动(node 起一个进程,几百毫秒到秒级),期间所有请求与推送一起等。同步版只留给启动期与 CLI 子命令。
@@ -12790,7 +12795,12 @@ async function existsExecutableAsync(command) {
   if (!command) return false;
   const s = batchSafeSpawn(command, ['--version']);
   const result = await spawnProbeAsync(s.command, s.args, s.opts, 6000);
-  return !result.error;
+  if (result.error) return false;
+  // 61-C6:.cmd/.bat 启动器经 cmd.exe /c 探测 —— cmd 自己总能起来(spawn 不报错),目标不存在时它回 1/9009 并打印
+  // 「系统找不到指定的路径」。修前只看 spawn 有没有报错,配了个不存在的 claude.cmd 也判「可执行」,真起节点时才报出
+  // 那句看不懂的 cmd 错误。批处理启动器要求退出码 0(真 CLI 的 --version 都回 0);直启的可执行文件仍只看 spawn。
+  if (isBatchLauncher(command) && result.status !== 0) return false;
+  return true;
 }
 
 // v1.0-S4: `gitCli` capability — is `git` installed & runnable? Probes `git --version` (execFile, 3s), result
@@ -37151,7 +37161,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const claude = config.claudePath || detectClaudePath();
   const fakeClaude = process.env.WCW_FAKE_CLAUDE || ''; // off-by-default test seam — see runClaudeTurn
   if (!fakeClaude && (!claude || !(await existsExecutableAsync(claude)))) {   // 128f-⑬:子代理入口不钉事件循环
-    return { ok: false, error: 'Claude CLI 未找到，无法以 Claude 引擎运行该节点', iters: 0, toolCalls: 0 };
+    // 61-C6:修前只回一句「未找到」,模型(和用户)不知道找的是哪、该怎么办 —— 真机上 claude.cmd 没装,模型只能猜。
+    // 走到这里的是指定了 engine:'claude' 的节点,或会话里没有可用的模型服务商;provider 节点走 HTTP,不需要 Claude CLI。
+    // 修法写进 error 本身:节点结果往上只带 error(编排信封、工作流节点卡都读它),另起的 hint 字段到不了模型。
+    const where = claude ? `找过 ${claude}` : '没有配置 claudePath,PATH 里也找不到 claude';
+    return { ok: false, error: `Claude CLI 未找到(${where}),无法以 Claude 引擎运行该节点。可以去掉该节点的 engine:'claude'(或不指定引擎)让它经模型服务商运行;或请用户在设置里填 Claude Code 的路径(claudePath)/安装 Claude Code 后重试`,
+      iters: 0, toolCalls: 0 };
   }
   const role = roleDefinition || null;
   const tier = (toolTier === 'edit' || toolTier === 'exec') ? toolTier : 'read';
@@ -58848,7 +58863,9 @@ async function handleApi(req, res, pathname) {
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {
-      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI' }, 400));
+      // 61-C6:说清 Claude CLI 找的是哪(修前探测对不存在的 claude.cmd 也判可用,走不到这里;现在走得到,就要说得清)。
+      const where = claudeCli ? `找过 ${claudeCli},不可用` : '没有配置 claudePath,PATH 里也找不到 claude';
+      return send(res, json({ ok: false, error: `Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI(${where})` }, 400));
     }
     // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
     // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。
