@@ -1,6 +1,6 @@
 # 61 · 模型自评「harness 不足」的核实与收敛
 
-> 状态：**核实完成，A/B 两批实施中（2026-10-04）**；C 批待拍板。
+> 状态：**A/B 两批已实现（2026-10-04）**；C 批待拍板。实施结果与遗留缺口见 §3。
 >
 > 起因（2026-10-04）：工作台里一个 provider 会话的模型以只读方式自查了一遍 harness，交出一份「我在这套 harness 里干活最别扭的地方」
 > 报告（8 条 + 「只改三件事」）。用户原话：「这是当前 agent 自己探索出来的工作台的不足，你看看验证一下，或者派波 sonnet 走查一下，然后出方案优化」。
@@ -79,3 +79,23 @@
 - 合并三个 `tool_invoke_*`：权限闸、auto 扫描、授权书、子代理过滤、CLI 权限桥与用户 `~/.claude/settings.json` 里的规则都按名字定档，合并＝重做这些＋全局缓存断裂；B2 拿到它的大部分收益。
 - 默认隐藏冗余桥接工具；`desktop_screenshot` 降为 read（产品决策，且要动不可逆账）；给模型回滚检查点。
 - 日志采样：明细采样是 22 号文的既定口径，真实总量已有 `econ_call_totals`，失败分类事件本就不采样。
+
+## §3 实施结果（2026-10-04）
+
+| 项 | 结果 | 钉住它的测试 |
+|---|---|---|
+| A1 PowerShell 中文 | 00-boot `PS_UTF8_OUTPUT_PREAMBLE`（`[Console]::OutputEncoding` 设成无 BOM 的 UTF-8，try/catch 包住）进 `withQuietProgress`、`shell_start` 后台命令脚本头、交互式 shell（`-NoExit -Command <前导>`；不能用 `-EncodedCommand`，它往 stderr 写 CLIXML）、选文件夹/文件弹窗。本机 en-US 修前 `????`、修后正确。共享控制台：windowsHide＋管道 stdio 的子进程拿自己的隐藏控制台，不改父控制台代码页（哨兵 850 实测）；三种启动路径都不共享 | `unit/console-output-decoding` [E5]（真 PowerShell，仅 win32）[E6]、`unit/exec-result-shape` S8 |
+| A2 能力总闸 | 07 `toolDisabledByPolicy` 唯一判据：ACC 命令族 3、桌面族 50、转调器 `batch_actions` / `macro_run`（任一开关关掉都关，否则是另一族的后门）；只认 serverId `ai-computer-control`。offer 面（09/07/08/11）与分发面（09/08/12/13d）共用；CLI 直挂面经 ACC 新增的 `ACC_HIDE_TOOLS` 在注册表里摘掉 | `acc-capability-gates.e2e`、`unit/acc-capability-gates`、`steward-guardrails` R3–R5（原「已知洞」翻成反向断言）、ACC `smoke_toolsets` ⑦ |
+| A3 当前时间 | 00-boot `localTurnTimeParts` ＋ 06b `turnTime`，09 落历史时追加 | `harness-friction.e2e` [T] |
+| A4 / A6 | 零命中 `note`；`tool_load` 回 `bridgedNotLoaded`＋hint；CLI 零命中不带 `next`；`fetch → web_fetch` | `harness-friction.e2e` [E][L] |
+| A5 分类器 v3 | 新类 `remote_blocked`；读 `failClass` / `statusCode` / `blocked` / `argsInvalid`；真机 49 条可配对失败重放 unknown 25（51%）→ 0，permission_denied 4 → 0（全是 403 误判），改动类 `retry_once` 仍为 0 —— **样本内结果**，泛化要看 v3 cohort 积累后的 unknown 占比 | `unit/runtime-failure-classifier`、`runtime-optimization.static`、对抗集 88 条 |
+| B1–B5 | 见 §2 | `harness-friction.e2e` [S][K][R][C]、`tool-invoke-promote` P8、`unit/tool-invoke-args-guide` G2、`prompt-snapshot.static` D15–D15d |
+
+遗留缺口：
+
+- **Kimi 直挂 ACC 只跟全局闸**：Kimi 的 mcp.json 全局共享，会话级桌面开关管不到它直挂的 ACC（经如意 MCP 代理的那条路按会话判）。
+- **用户自装的旧版 ACC 不认 `ACC_HIDE_TOOLS`**：工作台优先用随包新版；若落到旧版，bypass/auto 档下 CLI 直挂面没有兜底（default 档有 13d 权限桥同判兜住）。
+- **ACC `run_command` 的中文同样会变 `?`**（Python 子进程走 cmd.exe，同一个控制台代码页问题）：只能靠 Windows CI 验证，本批未动。
+- **`withQuietProgress` 的豁免规则偏宽**：任意行首出现 `param(` 等就整段不加前导（含函数内缩进的 `param(`），这类脚本的中文输出仍可能是 `?`。
+- **分类器 v3 的 `recoverableHint` 占比从 35% 升到 92%**：评估 6.5 门时要把「换源/换参」与「同参重试」分开算（20 号文 §0.6 已注明）；SSRF 拦截与 http_request 的 401 也归进了 `remote_blocked`，严格说一个是本地策略、一个是凭据问题。
+- **本机测试环境**：`unit/steward-runner-races` 用未改动的 HEAD 跑也挂住不退出；`unit/security-audit-fixes` [B] 的前置检查（裸 `git status` 会执行 clean 过滤器）在本机不成立。两者与本批无关，以 Windows CI 为准。
