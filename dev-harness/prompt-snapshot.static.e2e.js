@@ -86,12 +86,17 @@ console.log('── D 段: 51d C1a 稳定/易变层拆分(prefix-cache 分层基
 const stable = srv.buildStableSystemPrompt(provider, model, cwd, tools, false);
 ok(/本地 AI 工作台/.test(stable) && /先读后改/.test(stable) && /工具批次/.test(stable), 'D1 stable 含身份+工具协议及合批规则(稳定层)');
 ok(!/当前能力/.test(stable) && !/桌面操控/.test(stable) && !/<skill-index>/.test(stable) && !/任务账本/.test(stable), 'D2 stable 不含 volatile 标记(能力/桌面/技能/账本)');
-ok(stable.length < 1800, 'D3 stable 长度 < 1800(稳定层轻量:身份+工具协议+provider;在 contextBudget 后新增授权边界并按 intentional snapshot 上调;108a 身份块新增运行时身份层后再次上调 1500->1800;145-W3 加 mermaid 成图一句后约 1640,闸不动,got ' + stable.length + ')');
+ok(stable.length < 1900, 'D3 stable 长度 < 1900(稳定层轻量:身份+工具协议+provider;在 contextBudget 后新增授权边界并按 intentional snapshot 上调;108a 身份块新增运行时身份层后再次上调 1500->1800;145-W3 加 mermaid 成图一句后约 1640,闸不动;2026-10-04 mermaid 写法建议约 70 字后约 1820,上调 1800->1900,got ' + stable.length + ')');
 // 145-W3(引擎运行环境说明,intentional snapshot 更新):为什么改——用户要求各引擎的线程都知道自己在如意里、
 // 有什么能力;provider 这一路身份层/运行时身份层早已有,只缺「界面会把 mermaid 画成图」(版本级常量 -> 稳定层)
 // 与「当前权限档含义」(随配置变 -> 易变层),rg 那一格改为说清终端里能否直接敲 rg。三件都从 06 buildEngineEnvBrief
 // 同一张事实表出,Claude/Kimi 的 <ruyi-environment> 用的也是它(那两个变体由 engine-env-brief.static 钉)。
 ok(stable.includes('```mermaid') && /画成图/.test(stable), 'D3b 145-W3 stable 含 mermaid 成图一句(版本级常量,稳定层)');
+// 2026-10-04(intentional snapshot 更新):五路走查里模型写的图画不出来,最常见的是标签带括号 / 斜杠 / 冒号没加引号、
+// 注释挂在行尾,其次是横向流程图一长条在消息栏里缩得看不清 —— 成图那一句补三条写法建议,让模型一次写对
+// (前端 mermaid-source.js 的自动修只是兜底)。
+ok(/整段加双引号/.test(stable) && stable.includes('A["调用 f(x)"]') && /注释单独占一行/.test(stable) && /竖排（TD）/.test(stable),
+  'D3d stable 的 mermaid 一句带写法建议:特殊符号标签加双引号(带例子)、注释单独一行、长流程图竖排');
 ok(!/<ruyi-environment>/.test(stable) && !/<ruyi-environment>/.test(full), 'D3c 145-W3 provider 不拿 CLI 的整段 <ruyi-environment>(身份不重复)');
 // buildVolatileParts 含 volatile 标记
 const volatile = srv.buildVolatileParts(provider, tools, caps, config, '', skillEntries, [], null);

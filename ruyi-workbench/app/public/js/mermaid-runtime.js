@@ -990,8 +990,27 @@ function degrade(doc, wrapper, pre, hash, theme, message, extra = {}) {
   wrapper.dataset.mermaidState = 'fallback';
 }
 
+// 每次把图(或回落)换上去都会改块高。宿主可以用 opts.withLayoutChange(mutate) 包住这次改动 —— 聊天区借它在
+// 改动前后保持贴底(app.js 注入 chat-scroll 的 keepPinnedAcross)。宿主须同步调用 mutate;宿主自己抛错不挡画图,
+// mutate 照样执行恰好一次;mutate 本身的错误照旧往外抛。
+function applyLayoutChange(opts, mutate) {
+  let ran = false;
+  let failure = null;
+  const run = () => {
+    if (ran) return;
+    ran = true;
+    try { mutate(); } catch (error) { failure = error; }
+  };
+  const host = opts && opts.withLayoutChange;
+  if (typeof host === 'function') {
+    try { host(run); } catch { /* 宿主回调的毛病不挡画图 */ }
+  }
+  run();
+  if (failure) throw failure;
+}
+
 // 把 container 内的 mermaid 围栏渲染成 SVG,返回本次成功渲染的块数。
-// opts: { t, toast, isDark, document, ensure }(ensure 仅供测试注入替身)。
+// opts: { t, toast, isDark, document, ensure, withLayoutChange }(ensure 仅供测试注入替身)。
 export async function renderMermaidBlocks(container, opts = {}) {
   const blocks = collectMermaidBlocks(container);
   if (!blocks.length) return 0;
@@ -1026,7 +1045,9 @@ export async function renderMermaidBlocks(container, opts = {}) {
   let lib = null;
   try { lib = await ensure({ document: doc }); } catch { lib = null; }
   if (!lib || typeof lib.render !== 'function') {
-    for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'), { source: item.source, t, toast });
+    applyLayoutChange(opts, () => {
+      for (const item of pending) degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.fallbackHint'), { source: item.source, t, toast });
+    });
     return 0;
   }
   watchThemeChanges(doc);
@@ -1036,7 +1057,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
   for (const [index, item] of pending.entries()) {
     // 一条回复里有好几张图时,块与块之间让一拍主线程(修前 8 张图连着画,一个长任务卡 0.9 s)。
     if (index > 0) await yieldToEventLoop();
-    blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure });
+    blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure, withLayoutChange: opts.withLayoutChange });
     let outcome = { markup: '', error: null, repaired: false };
     try { outcome = await enqueueRender(() => renderOneSvg(doc, lib, item, theme, fontFamily)); } catch { outcome = { markup: '', error: null, repaired: false }; }
     const svgMarkup = outcome.markup;
@@ -1048,33 +1069,11 @@ export async function renderMermaidBlocks(container, opts = {}) {
         item.wrapper.dataset.mermaidState = 'ok';
         continue;
       }
-      degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'),
-        { detail: firstErrorLine(outcome.error), source: item.source, t, toast });
+      applyLayoutChange(opts, () => degrade(doc, item.wrapper, item.pre, item.hash, theme, t('mermaid.renderFailed'),
+        { detail: firstErrorLine(outcome.error), source: item.source, t, toast }));
       continue;
     }
-    resetWrapper(item.wrapper, item.pre);
-    const view = doc.createElement('div');
-    view.className = 'mermaid-view';
-    view.setAttribute('role', 'img');
-    view.setAttribute('aria-label', t('mermaid.diagramAria'));
-    // securityLevel: 'strict' 下 mermaid 自行消毒输出,且我们从不调用 bindFunctions,
-    // 所以 click 指令不会接线。此处赋值发生在 sanitizeNode() 之后,是有意的受控写入。
-    view.innerHTML = svgMarkup;
-    const sourceOpen = Boolean(item.previous && item.previous.sourceOpen);
-    const toolbar = buildToolbar(doc, { pre: item.pre, view, source: item.source, t, toast, sourceOpen });
-    if (typeof item.pre.before === 'function') {
-      item.pre.before(view);
-      item.pre.before(toolbar);
-    } else {
-      item.wrapper.appendChild(view);
-      item.wrapper.appendChild(toolbar);
-    }
-    item.pre.hidden = !sourceOpen;
-    if (item.pre.classList) item.pre.classList.toggle('mermaid-source-hidden', !sourceOpen);
-    applyScaleFloor(view);
-    if (outcome.repaired) item.wrapper.dataset.mermaidRepaired = '1';
-    else if (item.wrapper.dataset) delete item.wrapper.dataset.mermaidRepaired;
-    item.wrapper.dataset.mermaidState = 'ok';
+    applyLayoutChange(opts, () => mountDiagram(doc, item, svgMarkup, outcome.repaired, t, toast));
     rendered += 1;
   }
   // 画的过程中主题变了(长回复里几张图还在画、用户点了切换):这一轮按开始时的主题画完,再交给重画队列
@@ -1083,4 +1082,31 @@ export async function renderMermaidBlocks(container, opts = {}) {
     rethemeRenderedBlocks(doc);
   }
   return rendered;
+}
+
+// 把画好的 SVG 换进块里:图 + 工具条放在 <pre> 前,源码收起(换色重画时「源码」开着的还开着)。
+function mountDiagram(doc, item, svgMarkup, repaired, t, toast) {
+  resetWrapper(item.wrapper, item.pre);
+  const view = doc.createElement('div');
+  view.className = 'mermaid-view';
+  view.setAttribute('role', 'img');
+  view.setAttribute('aria-label', t('mermaid.diagramAria'));
+  // securityLevel: 'strict' 下 mermaid 自行消毒输出,且我们从不调用 bindFunctions,
+  // 所以 click 指令不会接线。此处赋值发生在 sanitizeNode() 之后,是有意的受控写入。
+  view.innerHTML = svgMarkup;
+  const sourceOpen = Boolean(item.previous && item.previous.sourceOpen);
+  const toolbar = buildToolbar(doc, { pre: item.pre, view, source: item.source, t, toast, sourceOpen });
+  if (typeof item.pre.before === 'function') {
+    item.pre.before(view);
+    item.pre.before(toolbar);
+  } else {
+    item.wrapper.appendChild(view);
+    item.wrapper.appendChild(toolbar);
+  }
+  item.pre.hidden = !sourceOpen;
+  if (item.pre.classList) item.pre.classList.toggle('mermaid-source-hidden', !sourceOpen);
+  applyScaleFloor(view);
+  if (repaired) item.wrapper.dataset.mermaidRepaired = '1';
+  else if (item.wrapper.dataset) delete item.wrapper.dataset.mermaidRepaired;
+  item.wrapper.dataset.mermaidState = 'ok';
 }
