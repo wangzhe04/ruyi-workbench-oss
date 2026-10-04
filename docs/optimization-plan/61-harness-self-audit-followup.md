@@ -1,0 +1,81 @@
+# 61 · 模型自评「harness 不足」的核实与收敛
+
+> 状态：**核实完成，A/B 两批实施中（2026-10-04）**；C 批待拍板。
+>
+> 起因（2026-10-04）：工作台里一个 provider 会话的模型以只读方式自查了一遍 harness，交出一份「我在这套 harness 里干活最别扭的地方」
+> 报告（8 条 + 「只改三件事」）。用户原话：「这是当前 agent 自己探索出来的工作台的不足，你看看验证一下，或者派波 sonnet 走查一下，然后出方案优化」。
+> 走查分四路：工具发现/调用链路、重复能力与编码、记忆/失败/技能/缓存、本机日志实测（`~/.ruyi-workbench/logs` 5 天 1837 条事件 + 会话工具结果回联）。
+
+## §0 一句话
+
+**报告的方向大体对，但证据有一半是旧构建的：日志里多数 `tool_invoke_*` 失败发生在 10-03 两笔代理修复（4e34d6d5 壳还原 / 0887100a 参数骨架）之前。
+真正要修的反而是报告没看到的几处：非中文代码页机器上 `powershell_run` 的中文全变 `?`、「能力总闸」关不住桌面 MCP 的同类工具、provider 引擎根本不知道现在几点。**
+
+## §1 逐条核实
+
+| # | 报告说法 | 结论 | 纠偏 / 补充 |
+|---|---|---|---|
+| 1 | 166 个工具只认识 17 个，`tool_search` 参数摘要截断，搜→调吃轮次 | **部分属实** | 常驻 17 属实；`args` 骨架规则是必填≤6＋可选≤2、≤140 字，实测 41% 被截（尾注带剩余必填数）。`tool_load` 不回 schema，下一次模型调用才进表。经代理调**原生**工具会自动整包装载（`proxy_promote`），摩擦主要在**桥接**目标。新发现：`tool_load({packs:['desktop']})` 对桥接工具是静默空操作（`ok:true, loaded:[]`，无提示）。「搜索批很窄」不成立：含 `tool_search` 的批均宽 2.45 |
+| 2 | 三个 `tool_invoke_*` 逼模型猜 tier；`list_tools` 不给 tier | **属实但代价被夸大** | 拆三个是有意的：权限闸、auto 扫描、授权书、子代理 tierFilter、CLI 权限桥（`mcp__ruyi__tool_invoke_*` 规则）都按名字定档；高档代理调低档已放行。日志里 tier-mismatch 仅 2 次（其一是元会话的故意探针），自然失败的大头是 10-02 旧构建里「漏写顶层 `name`」×8 —— 已由 `toolInvokeMissingNameResult` 修。`proxyTargetTier` 是遥测字段，模型实际收到 `{code,error,hint}` |
+| 3 | 同一能力多份实现、tier 不一致 | **部分属实，方向有误** | 24 个 ACC 工具与内置重叠（强重叠 9）。桥接 `fetch` 反而更严（exec，`web_fetch` 是 read）。真正的缺口不在 tier 数字：①**「能力总闸」`allowCommandTools` / `allowDesktopTools` / 会话级桌面开关只拦原生工具**，ACC 的 `run_command`、`screenshot`、`mouse_click`、`type_text` 照常提供、照常执行，与设置页「关掉后在所有线程里既不提供给模型也不会执行」的承诺不符；②桥接写族不过工作区写闸（只有绝对路径检查＋写前快照，越界静默不快照）；③目录里没有「首选」标注 |
+| 4 | GBK 文件 `Get-Content` 乱码、文件名成 `?????` | **属实，根因不同** | 本机 en-US（OEM 437 / ANSI 1252）。PowerShell 把输出按控制台代码页编码，**所有中文在源头就变成 `0x3f`**，Node 侧 `decodeConsoleText` 无从还原 —— 不只是 `Get-Content`，`Write-Output '中文'`、`Get-ChildItem`、ACC `run_command` 的 `dir` 全中。现有注释「`[Console]::OutputEncoding` 在无窗口 spawn 下无效」在本机不成立（`windowsHide` 子进程有自己的隐藏控制台；已复现修前 `????` / 修后正确）。另：`file_edit` 两条 hint 让模型「用 powershell_run 按原编码读写」，现状下会把它引向乱码 |
+| 5 | 记忆通道太礼貌，库是空的 | **属实且更紧** | 每会话一个候选槽，`propose/relation_propose/revise/relation_revoke` 四个工具共用，新候选顶掉旧 pending。没有模型可写、即时生效的草稿本（session-notes 由运行时在压缩后写）。ACC `no-source` 是「标准位置没有旧文件」的正常空跑，不是故障 |
+| 6 | 失败反馈不足以自愈，unknown 占 54% | **对遥测属实，对模型基本不成立** | `classifyRuntimeToolFailure` 是 shadow 遥测，不进模型上下文。`web_fetch` 失败信封本就带 `failClass`（dns/connect/tls/reset/timeout/http/…）＋`statusCode`＋`hint`，「分不清 403/反爬/超时」不成立（19 次失败里只有 2 次「request error」不透明）。但分类器确有规则缺口：没读 `failClass/statusCode/code`，13 条网络失败与 7 条代理/参数错落 unknown；**403「网站拒绝了请求」被 `/拒绝/` 误判为 `permission_denied`** |
+| 7 | 技能/Playbook 够不着，`orchestrate_agents` 起不来 | **部分属实** | 内置 20 技能、16 Playbook 在安装目录 `resources/`（`dataDir/skills|playbooks` 是用户自装层，空是正常的；「找不到」不成立）。Playbook 确无工具，且**提示词索引 600 字只放得下 16 个里的前 6 个**；技能 `residentSkills` 默认空，新会话看不到。工作流**可以**经 `orchestrate_agents{workflowId}` 执行；provider 会话的子代理走 HTTP，不依赖 `claude.cmd`（本机确实没装 Claude CLI，失败文案也不给修法） |
+| 8a | 没有 checkpoint 列表/撤销工具 | **属实** | 回滚只在 UI/HTTP（`/api/checkpoints/rollback`）；写成功信封不带 turnSeq/entrySeq；用户撤销后模型不知道 |
+| 8b | 检索噪音 | **属实** | 根因是「撤销」能力对模型不存在＋`file_move/file_copy/http_download` 描述里有「可一键撤销」被 bigram 命中＋无低分阈值、空命中不给任何提示 |
+| 8c | 幂等缓存结果不可见 | **不成立** | 命中带 `cacheHit:{cachedAt,ageMs}`（只缓存 `file_read`，命中前重 stat，内容必新鲜）；实测 14 条全是 miss/store，0 命中。只是字段没说明 |
+| 8d | 描述太长 | **属实** | 原生描述有字符预算棘轮；桥接描述原样透传 ACC docstring（含 Args/Returns）。默认桥接工具不进工具表，只在精确名装载后才占上下文 |
+| 8e | 时间口径 UTC vs 本地 | **比报告更严重** | provider 引擎与管家的提示里**根本没有当前时间**（06 注释为保前缀缓存刻意排除）；模型只能靠 `powershell_run` 取时 |
+
+报告数字的口径问题（不影响结论，记下免得以后再被引用）：`tool_call_completed` 是采样明细（前 12 次模型调用全采、之后每 4 采 1），
+真实总量看回合末 `econ_call_totals`；失败率 39/256 的分母不可复现（真实 52/411≈12.7%）；`web_fetch` 失败真实 19 次；`file_reed` 是元会话里的故意探针。
+
+## §2 方案
+
+### A 批 · 缺陷（直接修）
+
+- **A1 PowerShell 中文输出**：`04-desktop-shell` 的脚本前导（`powershell_run`、`script_run` 的 PS 分支共用）与 `shell_start` 脚本头加
+  `try{[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)}catch{};$OutputEncoding=[Console]::OutputEncoding;`（无 BOM 变体；同一行不加换行，报错行号不漂；
+  `param()`/`using`/`#requires` 开头的脚本沿用豁免）。设不上时退回现状，Node 侧按行 UTF-8→GB18030 仍兜底。订正两处过时注释；改写 `file_edit` 两条 hint
+  （给出 `[IO.File]::ReadAllText(p,[Text.Encoding]::GetEncoding(936))` 配方，或直接指回 `file_read`/`file_edit`）。补 win32 真 PowerShell 的中文输出断言。
+- **A2 能力总闸覆盖桌面 MCP**：`allowCommandTools=false` 时桌面 MCP 的命令/进程类工具、`allowDesktopTools=false`（或会话级桌面关）时桌面 MCP 的屏幕/键鼠/窗口类工具，
+  与原生同名族一样**不提供、不执行**。名单住 07 `nativeToolDisabledByPolicy` 旁（按桥接裸名，仅对内置桌面 MCP 生效），offer 面与 09/08/12 三个分发点共用一个判据。
+- **A3 provider 引擎知道现在几点**：每个 user 回合在**落历史时**带一行本地时间（含星期与 UTC 偏移）。写进历史而不是易变层／尾部临时注入：历史只追加、字节不变，
+  前缀缓存零损失；跨天续聊时模型也能看到每轮的时间线。只发给模型，界面不显示。
+- **A4 发现链路的如实回执**：`tool_load` 的包里全是桥接工具时说明「桥接工具要按精确名装载」并列出名字；`tool_search` 空命中给 `note`（没有匹配的专用工具 → 用 `list_tools` 浏览，
+  或改用命令／脚本），CLI 路径空命中不再说「调用找到的工具」。
+- **A5 失败分类器 v3（遥测）**：先读 `failClass/statusCode/code`（http 404/410 → resource_not_found；dns/connect/tls/reset → transient_read；403/反爬 → 新类 `remote_blocked`，
+  建议换源而不是「请求授权」）；`tier-mismatch`、代理套代理、「参数不是完整的 JSON 对象」→ invalid_arguments；预算耗尽、计划模式 → policy_blocked；ENOENT/not_found → resource_not_found。
+  换版本号即换 cohort，用 `dev-harness/runtime-failure-replay.js` 重放验证。
+- **A6 小错**：`TOOL_NAME_ALIASES` 把 `web_fetch` 误指 `http_request`；`BRIDGED_WRITE_PATH_ARGS` 里的幽灵名 `write_docx`（ACC 没有）。
+
+### B 批 · 降低发现成本（直接做）
+
+- **B1 搜到即会调**：`tool_search` 对前 3 个**未装载**命中直接给完整参数骨架（复用 `toolArgsSkeleton(…,'full')`）＋调用示例。文本落在 tool_result，不动工具表，缓存中性；
+  CLI 路径（只能走代理）收益最大。
+- **B2 tier 低报自动改道（仅 provider 路径）**：在 09 入批处（`canonicalToolInvokeCall` 同位置）把低档代理改写成目标档代理，**只升不降**、发生在权限闸之前（等价于模型一次猜对，
+  闸照常按真实档判，无新旁路），埋点 `proxyRepair:'retier'`；12 的检查保留作纵深防御。CLI/MCP 路径不改道（审批已在 CLI 侧按低档名发生，升档即提权），错误里给可复制的重试形状。
+  `list_tools` 增量字段 `tiers`（只列非 read 的名字）。
+- **B3 冗余桥接标「首选」**：07 新表 `BRIDGED_SHADOWED_BY_NATIVE`（`read_file→file_read`、`write_file→file_write`、`edit_file→file_edit`、`delete_file/move_file/copy_file`、
+  `list_directory→file_list`、`fetch→web_fetch`、`run_command→powershell_run`）。仅当对应原生工具在本会话可用时：目录卡带 `preferred`、排序排到未遮蔽项之后、描述前缀 `[首选 file_read]`。
+  不隐藏、不改 tier/闸/分发（桥接版有 `append`、目录级 move/copy、cmd 语义等内置没有的能力）。
+- **B4 结果自解释**：`cacheHit` 旁加一句说明；写类工具成功信封回 `checkpoint:{turnSeq,entrySeq}`（让模型能对用户说清「这一步可以在第 N 回合撤销」）。
+- **B5 Playbook 索引不再丢条目**：超预算时降级成只列 id＋标题，16 个全可见（现状字母序前 6 个之后永不可见）。
+
+### C 批 · 新能力（待拍板）
+
+| 项 | 内容 | 主要风险 |
+|---|---|---|
+| C1 Playbook / 技能只读工具 | `playbook_list`、`playbook_read`（返回填好参数的模板）、`skill_list`；执行仍须用户点名或确认，模型在本线程照做。06b「你没有执行它的工具」同改 | 用户可写模板是不可信文本，要围栏；`available=false` 不得执行 |
+| C2 会话草稿本 | 模型写即生效、不进长期库的 `scratchpad`（`sessions/<id>.scratchpad.json`，`DurableJsonStore`），有界回注 | 被注入的指令可经草稿持久回注，需围栏＋「非授权」声明 |
+| C3 记忆提案批量 | `workbench_memory_propose` 收 `items[≤3]`，一张批量卡 | 提案状态文件 64KB 判空上限；卡片 UI 要改 |
+| C4 检查点可见 | 只读 `checkpoint_list`；用户在界面撤销后，下一回合告诉模型「某文件已被撤销」 | 低；不给模型回滚（二次写盘、与活回合竞态、绕过用户决定） |
+| C5 桥接写族补工作区写闸 | 与读闸对称：`workspaceWriteRoots`、敏感路径、`.git/hooks` 等自动执行面 | **行为变化**：桌面/Office 写到工作区外会被拦或要问 |
+| C6 依赖缺失给修法 | Claude CLI 缺失时 `orchestrate_agents` 的报错带「配 claudePath / 改 engine」；健康异常同步给模型 | 低 |
+
+### 不做
+
+- 合并三个 `tool_invoke_*`：权限闸、auto 扫描、授权书、子代理过滤、CLI 权限桥与用户 `~/.claude/settings.json` 里的规则都按名字定档，合并＝重做这些＋全局缓存断裂；B2 拿到它的大部分收益。
+- 默认隐藏冗余桥接工具；`desktop_screenshot` 降为 read（产品决策，且要动不可逆账）；给模型回滚检查点。
+- 日志采样：明细采样是 22 号文的既定口径，真实总量已有 `econ_call_totals`，失败分类事件本就不采样。
