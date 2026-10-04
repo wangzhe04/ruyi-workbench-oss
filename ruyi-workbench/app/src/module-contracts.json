@@ -1031,6 +1031,8 @@
         "SESSION_META_STALE_REPLAYS",
         "SESSION_MUTATE_STALE_REPLAYS",
         "SESSION_NOTES_MAX_CHARS",
+        "SESSION_SCRATCHPAD_LIMITS",
+        "SESSION_SCRATCHPAD_SCHEMA",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
         "STEWARD_WATCH_NOTE_MAX",
@@ -1180,6 +1182,9 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeMissionUpdateArgs",
+        "normalizeScratchpadKey",
+        "normalizeScratchpadText",
+        "normalizeScratchpadWriteArgs",
         "normalizeSession",
         "normalizeTodoItems",
         "normalizeTodoWriteArgs",
@@ -1200,6 +1205,7 @@
         "readSessionIndex",
         "readSessionNotes",
         "readSessionRouteHead",
+        "readSessionScratchpad",
         "rebaseStaleSessionBody",
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
@@ -1217,9 +1223,11 @@
         "rewindSession",
         "safeMissionId",
         "sanitizeImportedSessionMessages",
+        "sanitizeSessionScratchpad",
         "saveSession",
         "saveTurnFinalSession",
         "scheduleSessionIndexUpdate",
+        "scratchpadTotalChars",
         "serializeSessionBody",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
@@ -1267,6 +1275,9 @@
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "sessionScratchpadChains",
+        "sessionScratchpadPath",
+        "sessionScratchpadStore",
         "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
@@ -1279,6 +1290,7 @@
         "truncateSessionBody",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
+        "updateSessionScratchpad",
         "waitMissionTurnSettled",
         "withJournalWriteLock",
         "withMissionContainerLock",
@@ -1433,6 +1445,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -7170,6 +7189,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "PROVIDER_SESSION_TOOL_SCHEMAS",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -8436,6 +8462,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionScratchpad",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
           "kinds": [
             "call"
@@ -9683,6 +9716,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "buildSessionScratchpadInjectPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "compactionRefetchRefusal",
           "kinds": [
             "call"
@@ -9838,6 +9878,7 @@
         "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
+        "SESSION_SCRATCHPAD_INJECT_MAX_CHARS",
         "SUMMARY_CALL_CAP_CACHE",
         "SUMMARY_CALL_POLICY_RULE",
         "SUMMARY_EFFORT_ORDER",
@@ -9874,6 +9915,7 @@
         "boundToolResultForDisplay",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "buildSessionScratchpadInjectPrompt",
         "buildSummaryFactTableMessages",
         "buildSummaryRefineMessages",
         "cacheContextLength",
@@ -11084,6 +11126,7 @@
         "FILE_TOOL_HANDLERS",
         "OBSERVATION_RECALL_MAX_CHARS",
         "OBSERVATION_RECALL_QUOTA",
+        "SCRATCHPAD_WRITE_NOTE",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
         "TOOL_ARGS_ERROR_TEXT",
@@ -11129,6 +11172,7 @@
         "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
+        "scratchpadWriteTool",
         "textFileWantsUtf8Bom",
         "toolArgPropertyLenient",
         "toolArgsMissingRequired",
@@ -11185,6 +11229,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11427,7 +11478,49 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "normalizeScratchpadKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeScratchpadText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionScratchpad",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "scratchpadTotalChars",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_SCRATCHPAD_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionScratchpad",
           "kinds": [
             "call"
           ]
@@ -11922,7 +12015,8 @@
       "file": "13f-native-tool-schemas.js",
       "layer": "transport",
       "provides": [
-        "MCP_TOOLS"
+        "MCP_TOOLS",
+        "PROVIDER_SESSION_TOOL_SCHEMAS"
       ],
       "requires": [
         {

@@ -1828,6 +1828,7 @@
   "tools.verb.playbook_read": "读取预置流程步骤",
   "tools.verb.project_snapshot": "概览项目",
   "tools.verb.request_user_input": "向你提问",
+  "tools.verb.scratchpad_write": "记草稿",
   "tools.verb.shell": "终端操作",
   "tools.verb.skill_list": "查看可用技能",
   "tools.verb.skill_read": "读取技能",

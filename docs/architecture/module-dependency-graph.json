@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3439,
-    "requiredSymbols": 3105,
+    "providedSymbols": 3456,
+    "requiredSymbols": 3116,
     "edges": 533,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -1067,6 +1067,8 @@
         "SESSION_META_STALE_REPLAYS",
         "SESSION_MUTATE_STALE_REPLAYS",
         "SESSION_NOTES_MAX_CHARS",
+        "SESSION_SCRATCHPAD_LIMITS",
+        "SESSION_SCRATCHPAD_SCHEMA",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
         "STEWARD_WATCH_NOTE_MAX",
@@ -1216,6 +1218,9 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeMissionUpdateArgs",
+        "normalizeScratchpadKey",
+        "normalizeScratchpadText",
+        "normalizeScratchpadWriteArgs",
         "normalizeSession",
         "normalizeTodoItems",
         "normalizeTodoWriteArgs",
@@ -1236,6 +1241,7 @@
         "readSessionIndex",
         "readSessionNotes",
         "readSessionRouteHead",
+        "readSessionScratchpad",
         "rebaseStaleSessionBody",
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
@@ -1253,9 +1259,11 @@
         "rewindSession",
         "safeMissionId",
         "sanitizeImportedSessionMessages",
+        "sanitizeSessionScratchpad",
         "saveSession",
         "saveTurnFinalSession",
         "scheduleSessionIndexUpdate",
+        "scratchpadTotalChars",
         "serializeSessionBody",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
@@ -1303,6 +1311,9 @@
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "sessionScratchpadChains",
+        "sessionScratchpadPath",
+        "sessionScratchpadStore",
         "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
@@ -1315,6 +1326,7 @@
         "truncateSessionBody",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
+        "updateSessionScratchpad",
         "waitMissionTurnSettled",
         "withJournalWriteLock",
         "withMissionContainerLock",
@@ -1469,6 +1481,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -7260,6 +7279,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "PROVIDER_SESSION_TOOL_SCHEMAS",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -8534,6 +8560,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionScratchpad",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "reconcileWorkspaceTurnBaseline",
           "kinds": [
             "call"
@@ -9781,6 +9814,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "buildSessionScratchpadInjectPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "compactionRefetchRefusal",
           "kinds": [
             "call"
@@ -9938,6 +9978,7 @@
         "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
+        "SESSION_SCRATCHPAD_INJECT_MAX_CHARS",
         "SUMMARY_CALL_CAP_CACHE",
         "SUMMARY_CALL_POLICY_RULE",
         "SUMMARY_EFFORT_ORDER",
@@ -9974,6 +10015,7 @@
         "boundToolResultForDisplay",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "buildSessionScratchpadInjectPrompt",
         "buildSummaryFactTableMessages",
         "buildSummaryRefineMessages",
         "cacheContextLength",
@@ -11190,6 +11232,7 @@
         "FILE_TOOL_HANDLERS",
         "OBSERVATION_RECALL_MAX_CHARS",
         "OBSERVATION_RECALL_QUOTA",
+        "SCRATCHPAD_WRITE_NOTE",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
         "TOOL_ARGS_ERROR_TEXT",
@@ -11235,6 +11278,7 @@
         "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
+        "scratchpadWriteTool",
         "textFileWantsUtf8Bom",
         "toolArgPropertyLenient",
         "toolArgsMissingRequired",
@@ -11291,6 +11335,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11533,7 +11584,49 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "normalizeScratchpadKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeScratchpadText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionScratchpad",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "scratchpadTotalChars",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_SCRATCHPAD_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionScratchpad",
           "kinds": [
             "call"
           ]
@@ -12030,7 +12123,8 @@
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
-        "MCP_TOOLS"
+        "MCP_TOOLS",
+        "PROVIDER_SESSION_TOOL_SCHEMAS"
       ],
       "requires": [
         {
@@ -26130,6 +26224,7 @@
       "from": "02-session-store.js",
       "to": "01-config.js",
       "symbols": [
+        "DurableJsonStore",
         "assertSessionIdForPath",
         "atomicWriteJson",
         "mutateConfig",
@@ -27790,7 +27885,8 @@
       "from": "07-autonomy.js",
       "to": "13f-native-tool-schemas.js",
       "symbols": [
-        "MCP_TOOLS"
+        "MCP_TOOLS",
+        "PROVIDER_SESSION_TOOL_SCHEMAS"
       ],
       "direction": "forward"
     },
@@ -28090,6 +28186,7 @@
         "normalizeTodoItems",
         "providerHistoryToolCalls",
         "readSessionNotes",
+        "readSessionScratchpad",
         "reconcileWorkspaceTurnBaseline",
         "recordMissionBudgetTrippedChange",
         "recordMissionStalledChange",
@@ -28415,6 +28512,7 @@
         "boundToolResultForDisplay",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "buildSessionScratchpadInjectPrompt",
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
         "createCompactionRefetchGuard",
@@ -28777,6 +28875,7 @@
         "externalRoot",
         "fs",
         "fsp",
+        "nowIso",
         "os",
         "path",
         "paths",
@@ -28820,6 +28919,7 @@
       "symbols": [
         "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "SESSION_SCRATCHPAD_LIMITS",
         "bridgedWriteRelativePathArg",
         "journalDropEntries",
         "journalReadIndex",
@@ -28829,7 +28929,12 @@
         "journalSessionCtx",
         "loadSession",
         "normalizeMetaToolArgs",
-        "normalizeTodoItems"
+        "normalizeScratchpadKey",
+        "normalizeScratchpadText",
+        "normalizeTodoItems",
+        "readSessionScratchpad",
+        "scratchpadTotalChars",
+        "updateSessionScratchpad"
       ],
       "direction": "backward"
     },

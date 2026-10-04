@@ -1251,9 +1251,10 @@ function syncProviderHistoryFromDisplay(session) {
 // 命中的是无回合上下文的兜底 handler:todo_write / mission_update 回 ok:true 却没有任何落盘/事件(静默空操作),
 // agent_result / wait_agents / request_user_input / orchestrate_agents 报「仅在 provider 回合可用」(人就在 provider 回合里)。
 // 所以代理调用这些名字时在入口【解开】,等价于直调、走同一条特判与同一套闸。
+// C2 scratchpad_write 同列:它不在 MCP_TOOLS 里,12 的代理目录找不到它(只会回 unknown-tool),解开成直调才走主回合那条路。
 const PROXY_UNWRAP_TARGETS = new Set([
   'todo_write', 'mission_update', 'request_user_input', 'list_tools', 'tool_search', 'tool_load',
-  'orchestrate_agents', 'spawn_agent', 'wait_agents', 'agent_result',
+  'orchestrate_agents', 'spawn_agent', 'wait_agents', 'agent_result', 'scratchpad_write',
 ]);
 const PROXY_UNWRAP_AGENT_TARGETS = new Set(['orchestrate_agents', 'spawn_agent', 'wait_agents', 'agent_result']);
 // tc: {id, name, rawArgs}。返回原对象(不需要解开 / 解不开)或 {...tc, name: 目标, rawArgs: 内层参数}。
@@ -1313,6 +1314,8 @@ function retierToolInvokeCall(tc, catalog, bridgedRoute, config) {
 // tier is the source of truth for file/web/bridge reads; planning metadata and agent coordination are excluded
 // even though some are classified as read-tier for the regular autonomous loop. Unknown tools fail closed via
 // nativeToolTier(...)=exec. Pure and exported so regressions can be tested without starting a provider turn.
+// C2 scratchpad_write 有意【不】在此列:它只写模型自己的会话草稿(不进界面步骤条、不进任务账本、不动用户文件),计划阶段边查边记
+// 正是它的用处;列进来的话 [file_read, scratchpad_write] 这种批会被整批拒掉。
 const PLAN_DISCOVERY_BLOCKED_TOOLS = new Set([
   'permission_prompt', 'todo_write', 'mission_update',
   'propose_task', 'send_to_agent', 'orchestrate_agents', 'wait_agents',
@@ -1341,7 +1344,8 @@ function planDiscoveryToolBatchAllowed(toolCalls, bridgedRoute, config) {
 // 中性调用(不影响后面的读、也不被读影响:todo_write / tool_search / list_tools / tool_load,以及参数坏了、串行路径会直接拒绝
 // 的调用)不关门。岛不足 2 个时返回 []:单个只读没有并发收益,保持原串行路径(hook/事件时序逐字节不变)。
 // isSafeRead(tc):原生、read 档、非控制面/非桥接、参数有效;isRefused(tc):串行路径会按参数错误直接拒绝它。
-const PARALLEL_READ_NEUTRAL = new Set(['todo_write', 'tool_search', 'list_tools', 'tool_load']);
+// C2 scratchpad_write 也是中性的(只动会话草稿,与文件读互不影响);它本身不预执行(PARALLEL_UNSAFE),同批多次写按原顺序串行。
+const PARALLEL_READ_NEUTRAL = new Set(['todo_write', 'tool_search', 'list_tools', 'tool_load', 'scratchpad_write']);
 function planParallelReadIsland(calls, isSafeRead, isRefused) {
   const island = [];
   for (const tc of (Array.isArray(calls) ? calls : [])) {
@@ -1617,7 +1621,8 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 117z-E2 提交①(§11.21.3):会话级桌面覆盖在这里进注册层。null(绝大多数会话)= 跟随全局
   // allowDesktopTools = 修前逐字行为。管家会话自己永远走不到这条支路的「true」那一边:它的 kind
   // 是 'steward',上面那一支只给它 steward_* 工具面,桌面工具压根不在候选里。
-  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, desktopOverride: sessionDesktopToolsOf(session), ...(isStewardTurn ? { stewardSession: true } : {}) });
+  // C2(61 号文):会话草稿本 scratchpad_write 只发给普通会话的主回合(管家会话不传 scratchpadEnabled;子代理走 08,也不传)。
+  const ownTools = buildOpenAiTools(config, caps, { skillsEnabled: enabledSkillEntries.length > 0, desktopOverride: sessionDesktopToolsOf(session), ...(isStewardTurn ? { stewardSession: true } : { scratchpadEnabled: true }) });
   // v0.7d line 2: also expose external/desktop MCP tools (bridged via in-process MCP stdio clients).
   // Done ONCE per turn (not per iteration). route maps bridgedName -> {serverId,toolName}.
   let bridged = { tools: [], route: {} };
@@ -1724,6 +1729,28 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
   // 开关关 = 零文件读取;读取失败得 null 即跳过(notes 是旁车副本,缺文件不是错误)。
   // 子代理不走 runOpenAiTurn(独立 runSubAgentCore 回合),天然不注入(子会话无持久化权属,同 105b 纪律)。
   const sessionNotesText = sessionNotesInjectEnabled(config) ? await readSessionNotes(session.id) : null;
+  // C2(61 号文):会话草稿本回注 —— 与 session notes 同一个通道、同一个断点:贴末条 user 尾部,只改本次请求体副本,
+  // 不写 providerHistory(落盘历史里没有它),有界(10 buildSessionScratchpadInjectPrompt 硬顶),空草稿本零注入。
+  // 缓存账:
+  //   · 跨回合:注入块跟着「末条 user」走,上一回合那条 user 下一回合就不再带尾巴 —— 提供方前缀缓存在它那里断一次,上一回合
+  //     从那条 user 起的内容在下一回合第一发按未缓存计。这与 session notes / recall 索引 / 易变层尾部布局是同一个断点:
+  //     它们在场时草稿本不新增断点;只有草稿本非空的会话才付这份代价,从没写过草稿本的会话请求体逐字节不变。
+  //   · 回合内:快照在回合开头读一次,只在本回合发生压缩之后重读(L2 整段重播种;L1 蒸发最早的工具结果,通常紧跟在末条 user
+  //     之后 —— 缓存本来就从那附近断开,这时换快照几乎不多花)。回合中途的写入【不】立刻
+  //     刷新注入块:否则每写一次末条 user 就变一次,本回合已累积的工具往返整段重新按未缓存计。模型在本回合里看得到自己那次
+  //     写入的工具结果(结果里带当前 key 清单),块头也写明了「本回合后来的写入结果更新、优先」。
+  //   · 预算口径同 session notes:在 buildBody 内追加,不进 budgetPrompt(整块 ≤ 约 5K 字符)。
+  const scratchpadOffered = !isStewardTurn && ownTools.some(t => t && t.function && t.function.name === 'scratchpad_write');
+  let scratchpadPrompt = '';
+  const refreshScratchpadPrompt = async phase => {
+    if (!scratchpadOffered) return;
+    const entries = await readSessionScratchpad(session.id);
+    scratchpadPrompt = buildSessionScratchpadInjectPrompt(entries);
+    if (scratchpadPrompt) {
+      try { logEvent({ kind: 'session_scratchpad_inject', traceId: activeTraceId, sessionId: session.id, turnSeq: session.turnSeq, phase, notes: entries.length, chars: scratchpadPrompt.length }); } catch { /* 遥测绝不阻断 */ }
+    }
+  };
+  await refreshScratchpadPrompt('turn_start');
   const headers = wire.requestHeaders(provider, { model }); // 每个 failover 候选端点都带这同一份
   const temp = (provider.temperature !== '' && provider.temperature != null && Number.isFinite(Number(provider.temperature))) ? Number(provider.temperature) : undefined;
   const appendRecallPrompt = (msgs, history) => {
@@ -1798,6 +1825,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     }
     appendRecallPrompt(msgs, viewHistory);
     appendSessionNotesPrompt(msgs, viewHistory); // 105d-A: 贴最后一条 user,非持久
+    if (scratchpadPrompt) appendPromptToLastUserMessage(msgs, scratchpadPrompt); // C2: 会话草稿本快照,贴在最末(缓存账见 refreshScratchpadPrompt 头注)
     const loadedTools = toolLoading.current();
     const hasTools = Boolean(withTools && loadedTools.length);
     const b = wire.encodeMessages({ model, messages: msgs, stream: true, instructions: sys, serverItems: serverToolItems, provider, hasTools });
@@ -2428,7 +2456,10 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
       // request we are about to send fits the window. It mutates session.providerHistory in place (which
       // buildBody reads) and touches on any work so the watchdog doesn't misfire during a summary call.
       if (skipAutoCompactOnce) skipAutoCompactOnce = false; // 45f P2-5:L1-only 重试的下一迭代跳过 L2 白跑
-      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) touch();
+      else if (await maybeAutoCompact(session, provider, budgetPrompt, config, onEvent, model, toolLoading.current(), ctrl && ctrl.signal)) {
+        touch();
+        await refreshScratchpadPrompt('compaction'); // C2:历史刚被改写、缓存本就断了 —— 顺手换上本回合写入后的草稿本
+      }
       lastEstBeforeCall = estimateHistoryTokens([{ role: 'system', content: String(budgetPrompt || '') }, ...session.providerHistory], '', toolLoading.current()); // 45d(a):预算包含 stable+volatile
       const estBeforeCall = lastEstBeforeCall;
       // 迭代边界 = 估算基数刷新点:maybeAutoCompact / forced_400 重试都在此前完成,压缩后的下降由这次强推立即上表。
@@ -2611,6 +2642,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             // 比预算,用原始估算学的话,因子 < 1 时学到的上限比真实窗口还大,刚超过窗口的历史下一次照样不压。
             pendingOvershootLearn = Math.round(estBeforeCall * estimateFactor(provider.id, model));
             await saveSession(session, turnSaveOpts).catch(() => {});
+            await refreshScratchpadPrompt('compaction'); // C2:同上方自动压缩
             touch();
             iter--; continue; // 重试同一个 API 调用(仅此一次,contextRetried 守门)
           }
@@ -2624,6 +2656,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
             });
             skipAutoCompactOnce = true; // P2-5:下一迭代不再白跑一次 L2(几秒前刚失败过)
             await saveSession(session, turnSaveOpts).catch(() => {});
+            await refreshScratchpadPrompt('compaction'); // C2:同上方自动压缩
             touch();
             iter--; continue; // L2 失败但 L1 有斩获,试最后一次
           }
@@ -2774,7 +2807,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
         let parallelIslandWidth = 0; // N9: 并发预执行的只读岛宽度(0 = 无岛/串行)
         let poolQueueWaitMs = 0;   // 21-E2: pool 内资源锁排队总时长(串行/全量路径恒 0)
         if (localToolCalls.length > 1) {
-          const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt']);
+          const PARALLEL_UNSAFE = new Set(['list_tools', 'tool_search', 'tool_load', 'spawn_agent', 'orchestrate_agents', 'wait_agents', 'agent_result', 'request_user_input', 'todo_write', 'mission_update', 'permission_prompt', 'scratchpad_write']);
           const isSafeRead = tc => Boolean(tc && tc.name && !PARALLEL_UNSAFE.has(tc.name)
             && unwrapProxiedControlCall(tc) === tc   // 代理到引擎特判工具的调用不预执行(串行循环里会被解开成直调)
             && !resolveBridge(bridgedRoute, tc.name) && nativeToolTier(tc.name) === 'read'
@@ -2806,7 +2839,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   lease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                   res = await awaitProviderTool(
                     tc,
-                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                    signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                   );
                 } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -2830,7 +2863,7 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                     poolQueueWaitMs += Date.now() - tWait0; // 21-E2: 资源锁排队时长计量
                     res = await awaitProviderTool(
                       tc,
-                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                      signal => toolCall(tc.name, pargs, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
                       INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name),
                     );
                   } catch (e) { res = { ok: false, error: (e && e.message) ? e.message : String(e) }; }
@@ -3141,7 +3174,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
                   toolLease = await acquireResourceLease(`turn:${session.id}:${session.turnSeq}`, toolResources, ctrl && ctrl.signal, blockers => onEvent({ type: 'agent_resource', state: 'waiting', resources: toolResources.map(r => r.label), blockers }));
                   resultObj = await awaitProviderTool(
                     tc,
-                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal }),
+                    // mainTurn:会话自己的主回合标记(08 子代理、MCP 子进程、/api/tools 都不带)。只写本会话旁车的工具(C2 scratchpad_write)
+                    // 据此 fail-closed;代理 tool_invoke_* 把同一个 ctx 原样转给目标(12 invokeAdaptiveMcpTool)。
+                    signal => toolCall(tc.name, args, { sessionId: session.id, turnSeq: session.turnSeq, session, config, workingDir, signal, mainTurn: true }),
                     // 审计 N1:tool_invoke_* 代理的目标是 powershell_run/script_run 时同样可被 steer/stop 中断(信号经 ctx 一路转发到目标)。
                     INTERRUPTIBLE_NATIVE_TOOLS.has(tc.name) || (tc.name.startsWith('tool_invoke_') && INTERRUPTIBLE_NATIVE_TOOLS.has(String(args && args.name || ''))),
                   ); // P3-4: workingDir 单一真源(skill_read 优先用它)

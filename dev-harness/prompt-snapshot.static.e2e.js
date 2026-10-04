@@ -237,5 +237,19 @@ ok(/只说查证过的事/.test(zhPack.answerShape) && /Say only what you verifi
 ok(/never call unverified work done/i.test(enPack.toolProtocol.rules) && /When to ask the user/i.test(enPack.toolProtocol.questioning),
   'V6b 138 英文包的 rules(改完核实)与 questioning(何时问)同步改了');
 
+console.log('── C2 段: 会话草稿本(61 号文) ──');
+// 工具表里有 scratchpad_write 才在稳定层说「何时用」;既有夹具(没有它)逐字节不变,上面 D3 的长度闸照旧量的是没有它的那份。
+const toolsWithPad = tools.concat([{ function: { name: 'scratchpad_write', description: 'pad', parameters: { type: 'object', properties: {} } } }]);
+const stablePad = srv.buildStableSystemPrompt(provider, model, cwd, toolsWithPad, false, config);
+const padLineZh = zhPack.toolProtocol.scratchpad;
+ok(typeof padLineZh === 'string' && typeof enPack.toolProtocol.scratchpad === 'string', 'C2-1 中英两包的 toolProtocol 都有 scratchpad 一句(结构对齐)');
+ok(stablePad.includes(padLineZh) && !stable.includes(padLineZh), 'C2-2 只在工具表里有 scratchpad_write 时进稳定层');
+ok(/中间结论/.test(padLineZh) && /已确认的事实/.test(padLineZh) && /下一步计划/.test(padLineZh) && /压缩后仍然可见/.test(padLineZh) && /workbench_memory_propose/.test(padLineZh),
+  'C2-3 中文:何时用(中间结论 / 已确认的事实 / 下一步计划)、压缩后仍可见、长期偏好仍走 workbench_memory_propose');
+ok(/interim conclusions/.test(enPack.toolProtocol.scratchpad) && /compaction/.test(enPack.toolProtocol.scratchpad) && /workbench_memory_propose/.test(enPack.toolProtocol.scratchpad),
+  'C2-4 英文是同义翻译');
+ok(srv.buildStableSystemPrompt(provider, model, cwd, toolsWithPad, false, config) === stablePad, 'C2-5 同输入两次构建逐字节相同(稳定层缓存前提)');
+ok(stablePad.length - stable.length <= 260, `C2-6 增量 ≤ 260 字符(got ${stablePad.length - stable.length})`);
+
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

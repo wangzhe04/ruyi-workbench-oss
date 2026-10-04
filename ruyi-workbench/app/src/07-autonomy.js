@@ -189,11 +189,12 @@ function toolDisabledResult(name, reason) {
 }
 // 审计 N5:按名字取原生工具自己的 JSON schema(13f MCP_TOOLS),供分发前的入参校验(12 validateNativeToolArgs)。
 // 放在 07 而不是 12:07 本就读 MCP_TOOLS,12 再读就是新增一条前向边(module-dependency-graph 的债务上限会红)。
+// C2:13f 的 PROVIDER_SESSION_TOOL_SCHEMAS(只发给模型服务商主回合、不进 MCP_TOOLS 的 scratchpad_write)同走这道校验。
 let _nativeToolSchemaByName = null;
 function nativeToolSchema(name) {
   if (!_nativeToolSchemaByName) {
     _nativeToolSchemaByName = new Map();
-    for (const t of MCP_TOOLS) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
+    for (const t of MCP_TOOLS.concat(PROVIDER_SESSION_TOOL_SCHEMAS)) if (t && t.name && t.inputSchema) _nativeToolSchemaByName.set(t.name, t.inputSchema);
   }
   return _nativeToolSchemaByName.get(name) || null;
 }
@@ -256,6 +257,15 @@ function buildOpenAiTools(config, caps, opts) {
     if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
     if (caps && !toolRequirementsMet(t.name, caps, toolRequiresEnabled, config).met) continue; // requirement unmet → drop
     out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
+  }
+  // C2(61 号文)会话草稿本:只在调用方显式传 opts.scratchpadEnabled 时 offer —— 09 主回合对非管家会话传;08 子代理、
+  // 管家会话(末尾唯一出口只留 steward_*)、各类探针不传。schema 在 13f PROVIDER_SESSION_TOOL_SCHEMAS(不进 MCP_TOOLS,
+  // 所以 Claude/Kimi CLI 的 MCP 面、/api/status、代理目录天然没有它)。read 档,tierFilter 也挡不住它,照常过一遍。
+  if (opts && opts.scratchpadEnabled === true) {
+    for (const t of PROVIDER_SESSION_TOOL_SCHEMAS) {
+      if (maxRank !== null && (tierRank[nativeToolTier(t.name)] ?? 2) > maxRank) continue;
+      out.push({ type: 'function', function: { name: t.name, description: t.description || t.name, parameters: t.inputSchema || { type: 'object', properties: {} } } });
+    }
   }
   // 代理模式 v2:wait_agents / agent_result 现随 MCP_TOOLS 一起 offer(上面的 AGENT_TOOL_NAMES 门),不再在此手工追加 ——
   // MCP 子进程侧靠 /api/agent-workflow/wait|result 回环,两面同一份 schema。
@@ -334,6 +344,9 @@ const NATIVE_TOOL_TIER = {
   mcp_list: 'read', mcp_configure: 'exec',
   todo_write: 'read', // v0.8-S3: writing the task list is a planning act, not a filesystem/exec mutation → auto-allow
   mission_update: 'read', // 第26波b: 更新任务账本是规划/元数据写,非文件/exec 变更 → auto-allow
+  // C2(61 号文):会话草稿本与 todo_write 同类 —— 只写工作台自有的会话旁车(sessions/<id>.scratchpad.json),不碰用户文件、
+  // 不执行任何东西,会话只取回合 ctx(12 handler) → read 档 auto-allow。计划阶段也放行(见 09 PLAN_DISCOVERY_BLOCKED_TOOLS 头注)。
+  scratchpad_write: 'read',
   workbench_self_status: 'read', // 108c: 只读自状态(版本/位置/端口/健康/计数/设置掩码),不触文件路径 → auto-allow
   // 116c(27 号文 §3.5 tier 分档):管家工具族。观察族 read(只读如意自身账面,零副作用);线程族 edit
   // (建线程/递话/改名,全部返回 undoRef 可撤销);决策族 exec(替用户答复待决、控制班组运行,最高危)。
@@ -523,6 +536,10 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   // 用户话里提到记忆/修订/关系时 classifyToolPacks 自动装载;没装时仍可 tool_load({packs:['memory']}) 或 tool_invoke_read 调用。
   workbench_memory_relation_propose: 'memory', workbench_memory_revise: 'memory', workbench_memory_relation_revoke: 'memory',
   observation_recall: 'core', workbench_self_status: 'core', // 108c: core 常驻,不依赖 classifyToolPacks 意图分类
+  // C2(61 号文)会话草稿本归 core(开局即在):它的用处在压缩之后,而笔记得在压缩【之前】就记下 —— 放进按需包,模型要么不知道
+  // 有它,要么中途 tool_load 一次,提供方前缀缓存整段失效(起手工具表头注的实测:97%→3%)。常驻的代价是 schema 约 710 字符
+  // (≈200 token),每发基本命中缓存。core 同时决定 Claude CLI 的 MCP 工具清单,但它不在 MCP_TOOLS 里(13f 头注),CLI 那边不受影响。
+  scratchpad_write: 'core',
   list_tools: 'core', tool_search: 'core', tool_load: 'core', tool_invoke_read: 'core', tool_invoke_edit: 'core', tool_invoke_exec: 'core',
   file_read: 'files_read', file_list: 'files_read', file_search: 'files_read', glob: 'files_read', project_snapshot: 'files_read',
   audio_transcribe: 'files_read', // 127-114c③:读本地音频文件转写,目录归 files_read(tier 仍是 exec)

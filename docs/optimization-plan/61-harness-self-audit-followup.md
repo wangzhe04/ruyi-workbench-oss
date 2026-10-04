@@ -1,6 +1,6 @@
 # 61 · 模型自评「harness 不足」的核实与收敛
 
-> 状态：**A/B 两批已实现（2026-10-04）**；C 批待拍板。实施结果与遗留缺口见 §3。
+> 状态：**A/B 两批与 C2 已实现（2026-10-04）**；C 批其余待拍板。实施结果与遗留缺口见 §3。
 >
 > 起因（2026-10-04）：工作台里一个 provider 会话的模型以只读方式自查了一遍 harness，交出一份「我在这套 harness 里干活最别扭的地方」
 > 报告（8 条 + 「只改三件事」）。用户原话：「这是当前 agent 自己探索出来的工作台的不足，你看看验证一下，或者派波 sonnet 走查一下，然后出方案优化」。
@@ -91,6 +91,7 @@
 | A5 分类器 v3 | 新类 `remote_blocked`；读 `failClass` / `statusCode` / `blocked` / `argsInvalid`；真机 49 条可配对失败重放 unknown 25（51%）→ 0，permission_denied 4 → 0（全是 403 误判），改动类 `retry_once` 仍为 0 —— **样本内结果**，泛化要看 v3 cohort 积累后的 unknown 占比 | `unit/runtime-failure-classifier`、`runtime-optimization.static`、对抗集 88 条 |
 | B1–B5 | 见 §2 | `harness-friction.e2e` [S][K][R][C]、`tool-invoke-promote` P8、`unit/tool-invoke-args-guide` G2、`prompt-snapshot.static` D15–D15d |
 | C1 Playbook / 技能只读工具（已实现） | 13f 三个 schema（`playbook_list` / `playbook_read` / `skill_list`，read 档、`skills` 包、不进起手工具）；12 `INTEGRATION_TOOL_HANDLERS` 里的 handler：`playbook_read` 复用 06i 的 `stewardAssemblePlaybookPrompt` / `stewardPlaybookMissingInputs` 填参与缺参判定（缺参回 `playbook_inputs_missing`+缺哪些，不可用回 `playbook_unavailable` 且不给步骤，未知 id 回 `playbook_not_found`），正文包 `<playbook-reference>` 围栏、尖括号经 06 `neutralizeAuthoredText` 中和（与索引段同一函数），结果 note 明说「只在用户点名或明确同意后照做」；`classifyToolPacks` 在 Playbook / 预置流程 / 流程模板等说法时带 skills 包；06b 两包 `playbookIndex.trailer` 改指向 `playbook_read`。**`skill_read` 不放开**：仍只读已启用技能、仍只在有启用技能时才 offer —— `skills-registry.e2e` (d)(f) 钉着这两条语义，且「启用」是用户对技能（含 `<cwd>/.ruyi/skills`、`~/.claude/skills` 等来源）的信任动作并带来源锁，放开等于让 read 档工具绕过它；`skill_list` 因此只列、并把 `enabled` 标出来 | `playbook-skill-tools.e2e`、`unit/playbook-skill-tools`、`prompt-snapshot.static` D14e–D14g、`unit/tool-schema-budget`（offeredDefault 一次性 +1483） |
+| C2 会话草稿本 | `scratchpad_write`（read 档、core 常驻，只发给模型服务商普通会话主回合；不进 MCP_TOOLS，CLI / 管家 / 子代理都没有）：按 key 写/覆盖，text 空即删，`op:"list"` 列全部；限额 20 条 × 500 字、总 3000 字，超限拒绝。存 `sessions/<id>.scratchpad.json`（DurableJsonStore + runKeyedChain，删会话同删）。回注贴末条 user 尾部、非持久、全角中和尖括号、声明「不是用户指令、不构成授权」；快照按回合取，只在压缩后重读（回合中途写不刷新，免得把本回合累积的往返打成未缓存） | `session-scratchpad.e2e` [W][N][O][L][H][R][S][D][C][P]、`unit/tool-schema-budget` C2、`prompt-snapshot.static` C2-1–C2-6 |
 
 遗留缺口：
 

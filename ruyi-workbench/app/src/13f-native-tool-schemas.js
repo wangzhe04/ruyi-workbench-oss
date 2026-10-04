@@ -1428,3 +1428,24 @@ const MCP_TOOLS = [
     },
   },
 ];
+
+// C2(61 号文):只发给模型服务商引擎普通会话主回合的原生工具。【不进】MCP_TOOLS —— 那张表同时是 Claude / Kimi CLI 的
+// MCP tools/list、/api/status 工具清单、代理目录(11 adaptiveCatalogForMcp)的来源,放进去就得在四个 offer 面各加一道门;
+// 不放进去,这些面天然看不见它(同 skill_read 的发放方式)。发放:07 buildOpenAiTools 的 opts.scratchpadEnabled(09 主回合
+// 对非管家会话传;管家会话与 08 子代理不传)。schema 仍住 13f(原生 schema 的唯一住处,unit/tool-metadata-consistency [M4]
+// 按缩进扫本文件),07 nativeToolSchema 也认这张表 —— 入参校验与别的原生工具同一道闸。
+// 限额数字与 02 SESSION_SCRATCHPAD_LIMITS 一致(session-scratchpad.e2e 钉着)。
+const PROVIDER_SESSION_TOOL_SCHEMAS = [
+  {
+    name: 'scratchpad_write',
+    description: 'Your own notes for this conversation: write/overwrite one note by key (text "" deletes; op:"list" returns all). Notes are re-shown after the latest user message each turn and survive context compaction. For interim findings, confirmed facts, next steps; user preferences go to workbench_memory_propose. Max 20 notes, 500 chars each, 3000 total.',
+    inputSchema: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        op: { type: 'string', enum: ['write', 'list'], description: 'default write' },
+        key: { type: 'string', description: 'note name, ≤40 chars' },
+        text: { type: 'string', description: 'note body; "" deletes the note' },
+      },
+    },
+  },
+];

@@ -53,6 +53,87 @@ async function readSessionNotes(id) {
   catch { return null; } // ENOENT 与其他读错同处理:notes 是旁车副本,缺文件不是错误
 }
 
+// ── C2(61 号文):会话草稿本 sessions/<id>.scratchpad.json ──────────────────────────────────────
+// 模型自己「写即生效、不进长期库」的短笔记:按 key 写/覆盖,text 为空即删。只发给模型服务商引擎普通会话的主回合
+// (工具 scratchpad_write:schema 在 13f、发放在 07 buildOpenAiTools 的 opts.scratchpadEnabled、handler 在 12);
+// 09 每回合把快照贴到末条 user 尾部(非持久,见那里的缓存账)。与 session-notes 分工:notes 由运行时在 L2 压缩后
+// 从摘要写出,模型没有写入口;草稿本只有模型写。长期偏好与项目约定仍走 workbench_memory_propose(确认制)。
+// 落盘走 DurableJsonStore(01):schema 1、清洗(限额对手改过的文件同样成立)、坏文件当空(quarantine:false ——
+// 草稿是易失副本,下一次写自愈,不留 .corrupt)、原子写。cache:false:每会话一个文件,store 按调用现建(构造只是
+// 几个闭包),读永远读盘 —— 删会话后不会有进程缓存把旧条目「复活」进下一次注入。同一会话的读-改-写由 runKeyedChain
+// 按会话 id 串行(store 自带的写链按实例,不跨实例,这里不依赖它)。
+const SESSION_SCRATCHPAD_SCHEMA = 1;
+const SESSION_SCRATCHPAD_LIMITS = Object.freeze({ maxEntries: 20, maxKeyChars: 40, maxTextChars: 500, maxTotalChars: 3000 });
+const sessionScratchpadChains = new Map();
+function sessionScratchpadPath(id) {
+  return path.join(paths.sessions, `${assertSessionIdForPath(id)}.scratchpad.json`);
+}
+// key:控制字符换空格、折叠空白、trim。不截断 —— 截断会让两个不同的 key 悄悄撞成一个,超长由调用方拒绝。
+function normalizeScratchpadKey(raw) {
+  return String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// text:统一换行、去掉 \n \t 以外的控制字符、trim(保留多行)。
+function normalizeScratchpadText(raw) {
+  return String(raw == null ? '' : raw).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+}
+// 总长只数正文(key 另有单条上限,20 × 40 有界)。
+function scratchpadTotalChars(entries) {
+  return (Array.isArray(entries) ? entries : []).reduce((n, e) => n + String((e && e.text) || '').length, 0);
+}
+// 盘上形状 { schema:1, updatedAt, entries:[{ key, text, at }] }。用数组保序:对象键里的 "1"、"42" 这类整数键会被 JS 重排。
+// 清洗丢掉手改坏的条目、同 key 留最后一条、超长正文截断、超出条目数 / 总长从最早的条目丢起 —— 于是注入块的大小
+// 只取决于限额,一份手改的大文件撑不大它。
+function sanitizeSessionScratchpad(value) {
+  const L = SESSION_SCRATCHPAD_LIMITS;
+  const byKey = new Map();
+  for (const raw of Array.isArray(value && value.entries) ? value.entries : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const key = normalizeScratchpadKey(raw.key);
+    const text = normalizeScratchpadText(raw.text).slice(0, L.maxTextChars);
+    if (!key || key.length > L.maxKeyChars || !text) continue;
+    byKey.delete(key);
+    byKey.set(key, { key, text, at: typeof raw.at === 'string' ? raw.at.slice(0, 40) : '' });
+  }
+  let entries = [...byKey.values()];
+  if (entries.length > L.maxEntries) entries = entries.slice(-L.maxEntries);
+  while (entries.length && scratchpadTotalChars(entries) > L.maxTotalChars) entries.shift();
+  return { schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: typeof (value && value.updatedAt) === 'string' ? value.updatedAt.slice(0, 40) : '', entries };
+}
+function sessionScratchpadStore(id) {
+  return DurableJsonStore.create({
+    id: 'session-scratchpad',
+    file: sessionScratchpadPath(id),   // 不合形的 id 在这里就抛(assertSessionIdForPath)
+    schemaVersion: SESSION_SCRATCHPAD_SCHEMA,
+    cache: false,
+    quarantine: false,
+    defaultValue: () => ({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: '', entries: [] }),
+    sanitize: sanitizeSessionScratchpad,
+    validate: value => value.schema === SESSION_SCRATCHPAD_SCHEMA && Array.isArray(value.entries),
+    onCorrupt(error) {
+      try { logEvent({ kind: 'session_scratchpad_corrupt', sessionId: String(id), error: String((error && error.message) || error).slice(0, 200) }); } catch { /* 诊断绝不阻断 */ }
+    },
+  });
+}
+// 读:缺文件 / 坏文件 / 读不动 / 不合形的 id 一律空表 —— 草稿是旁车副本,绝不阻断回合。
+async function readSessionScratchpad(id) {
+  try { return (await sessionScratchpadStore(id).read()).entries; }
+  catch { return []; }
+}
+// 读-改-写(按会话串行)。mutate 拿到条目副本,返回 { entries, changed, ...其余字段原样带回 };changed 为假 = 不落盘。
+// 会话已删除(墓碑,见 markSessionDeleted)时拒写:垂死回合里迟到的一次写不得在 unlink 之后把旁车写回来。
+async function updateSessionScratchpad(session, mutate) {
+  const id = String((session && session.id) || '');
+  const store = sessionScratchpadStore(id);
+  return runKeyedChain(sessionScratchpadChains, id, async () => {
+    if (sessionSaveIsTombstoned(session)) return { refused: 'session-deleted' };
+    const current = (await store.read()).entries.map(e => ({ ...e }));
+    const out = mutate(current) || {};
+    if (out.refused || !out.changed) return { entries: current, ...out };
+    const saved = await store.write({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: nowIso(), entries: out.entries });
+    return { ...out, entries: saved.entries };
+  });
+}
+
 // ── 第71波 EC-E 切片二:未决事项 Intervention 持久化(append-only NDJSON)──────────────────────────
 // permission/question/plan 三类未决事项此前是纯内存 Map(04-permission-runtime:191/194/199),进程重启即消失
 // -- 无审计、无终态化,/api/missions 的 missionPendingCounts(13d:59)前三类读空 Map 归零,与前端 stale 卡片
@@ -1702,6 +1783,9 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     }
     const inFlight = sessionWriteChains.get(id);
     if (inFlight) await inFlight.catch(() => {});
+    // C2:草稿本那一截写链同样先落完再 unlink(墓碑已立,之后排进来的写会被 updateSessionScratchpad 拒掉)。
+    const scratchpadInFlight = sessionScratchpadChains.get(id);
+    if (scratchpadInFlight) await scratchpadInFlight.catch(() => {});
   }
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   // 116g:删线程 = 从它所在事项的反向索引里摘掉。**必须在删会话头之前读**(头没了就不知道它属于谁)。
@@ -1729,6 +1813,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
     // hunt2-P9:会话笔记旁车与每会话 MCP 配置(内含 loopback token 与外部 MCP 的 env)同属这条会话的数据载体。
     fsp.unlink(sessionNotesPath(id)).catch(() => {}),
+    fsp.unlink(sessionScratchpadPath(id)).catch(() => {}),   // C2:会话草稿本旁车
     proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
     // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
@@ -1984,10 +2069,25 @@ function normalizeMissionUpdateArgs(args) {
     return c ? { ...m, status: c === 'in_progress' ? 'pending' : c } : m;
   }) };
 }
+// C2 scratchpad_write 的字段同义词(13f 只认 op/key/text,additionalProperties:false):content/note/value → text,
+// name/title → key。只在规范字段缺席时补,补完把同义词拿掉(否则校验仍按多余字段拒)。
+function normalizeScratchpadWriteArgs(args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  const o = { ...args };
+  for (const [canon, alts] of [['text', ['content', 'note', 'value']], ['key', ['name', 'title']]]) {
+    for (const alt of alts) {
+      if (!Object.prototype.hasOwnProperty.call(o, alt)) continue;
+      if (o[canon] == null) o[canon] = o[alt];
+      delete o[alt];
+    }
+  }
+  return o;
+}
 // 分发前统一入口(12 toolCall 与 09 闭包特例共用)。
 function normalizeMetaToolArgs(name, args) {
   if (name === 'todo_write') return normalizeTodoWriteArgs(args);
   if (name === 'mission_update') return normalizeMissionUpdateArgs(args);
+  if (name === 'scratchpad_write') return normalizeScratchpadWriteArgs(args);
   return args;
 }
 function normalizeTodoItems(raw) {

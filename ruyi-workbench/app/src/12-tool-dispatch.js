@@ -430,6 +430,64 @@ async function checkpointListResult(sessionId, args) {
   };
 }
 
+// C2(61 号文):会话草稿本(存储与限额在 02,回注在 09/10)。授权:会话【只】取 ctx,且只认会话自己的主回合 ——
+// 09 在主回合的 toolCall ctx 上带 mainTurn:true。08 子代理的 ctx 也带着父会话的 session 却不带这个标记,MCP 子进程 ctx 为空,
+// /api/tools 直调的 ctx 只有 sessionId/session —— 一律拒:草稿本只属于这条对话的主线,子代理写进去就成了绕过主线的持久回注。
+// 管家会话:07 不发、09 的闸只放 steward_*,这里是第三道。参数里永远不接受会话 id。
+const SCRATCHPAD_WRITE_NOTE = 'Saved. The scratchpad is re-shown after the latest user message from the next turn on and survives context compaction; within this turn, this result is the current state.';
+async function scratchpadWriteTool(args, ctx) {
+  const session = ctx && ctx.mainTurn === true ? ctx.session : null;
+  if (RUNTIME.isMcpChild || !session || !safeSessionId(session.id) || session.kind === 'steward') {
+    return { ok: false, code: 'scratchpad-unavailable', error: 'scratchpad_write is only available in the main turn of a model-provider conversation (not in sub-agents, the steward or CLI engines)' };
+  }
+  const L = SESSION_SCRATCHPAD_LIMITS;
+  const limits = { maxNotes: L.maxEntries, maxCharsPerNote: L.maxTextChars, maxTotalChars: L.maxTotalChars };
+  const op = String(args.op == null || args.op === '' ? 'write' : args.op).trim().toLowerCase();
+  if (op === 'list') {
+    const entries = await readSessionScratchpad(session.id);
+    return { ok: true, op: 'list', count: entries.length, totalChars: scratchpadTotalChars(entries), limits, entries: entries.map(e => ({ key: e.key, text: e.text, at: e.at })) };
+  }
+  const invalid = (error, hint) => ({ ok: false, code: 'invalid-arguments', tool: 'scratchpad_write', error: `scratchpad_write: ${error}`, hint });
+  if (op !== 'write') return invalid(`op must be "write" or "list" (got ${JSON.stringify(op)})`, 'omit op to write; op:"list" returns every note');
+  const key = normalizeScratchpadKey(args.key);
+  if (!key) return invalid('key is required', 'pass {key, text}; text "" deletes the note');
+  if (key.length > L.maxKeyChars) return invalid(`key is ${key.length} chars; keys are limited to ${L.maxKeyChars}`, 'use a short name such as "plan" or "facts"');
+  if (args.text == null) return invalid('text is required (pass "" to delete the note)', 'pass {key, text}');
+  const text = normalizeScratchpadText(args.text);
+  if (text.length > L.maxTextChars) {
+    return { ok: false, code: 'scratchpad-limit', limit: 'note', error: `the note is ${text.length} chars; each note is limited to ${L.maxTextChars}`, hint: 'shorten it, or split it across several keys', limits };
+  }
+  const r = await updateSessionScratchpad(session, entries => {
+    const i = entries.findIndex(e => e.key === key);
+    if (!text) {
+      if (i < 0) return { entries, changed: false, action: 'absent' };
+      entries.splice(i, 1);
+      return { entries, changed: true, action: 'deleted' };
+    }
+    if (i >= 0 && entries[i].text === text) return { entries, changed: false, action: 'unchanged' };
+    if (i < 0 && entries.length >= L.maxEntries) return { refused: 'notes' };
+    const note = { key, text, at: nowIso() };
+    const next = i >= 0 ? entries.map((e, j) => (j === i ? note : e)) : entries.concat([note]);
+    const total = scratchpadTotalChars(next);
+    if (total > L.maxTotalChars) return { refused: 'total', total };
+    return { entries: next, changed: true, action: i >= 0 ? 'updated' : 'created' };
+  });
+  const entries = Array.isArray(r.entries) ? r.entries : [];
+  const state = { count: entries.length, totalChars: scratchpadTotalChars(entries), keys: entries.map(e => e.key) };
+  if (r.refused === 'session-deleted') return { ok: false, code: 'scratchpad-unavailable', error: 'this conversation has been deleted' };
+  if (r.refused === 'notes') {
+    return { ok: false, code: 'scratchpad-limit', limit: 'notes', error: `the scratchpad already holds ${entries.length} notes (limit ${L.maxEntries})`, hint: 'delete a note you no longer need (text ""), or merge into an existing key', limits, ...state };
+  }
+  if (r.refused === 'total') {
+    return { ok: false, code: 'scratchpad-limit', limit: 'total', error: `this write would bring the scratchpad to ${r.total} chars (limit ${L.maxTotalChars} in total)`, hint: 'shorten notes or delete ones you no longer need, then write again', limits, ...state };
+  }
+  const note = r.action === 'absent' ? 'no note with this key; nothing was deleted'
+    : r.action === 'unchanged' ? 'same text as the existing note; nothing changed'
+    : r.action === 'deleted' ? 'Deleted. ' + SCRATCHPAD_WRITE_NOTE.slice('Saved. '.length)
+    : SCRATCHPAD_WRITE_NOTE;
+  return { ok: true, op: 'write', key, action: r.action, ...state, note };
+}
+
 // 第41波(V2.0「立柱」41a): toolCall() 50 分支 switch → 分组表驱动注册表。
 // 每个工具声明 { paths, guardNote, handler }:
 //   paths: 'read'|'write'|'both' → handler 内必须对模型给定路径过 guardFileToolPath(read=读闸/write=写闸/both=双闸);
@@ -503,6 +561,9 @@ const CORE_TOOL_HANDLERS = {
       const sessionId = safeSessionId(String((session && session.id) || (ctx && ctx.sessionId) || process.env.WCW_SESSION_ID || ''));
       if (!sessionId) return { ok: false, error: 'not_found', message: 'no current session to list checkpoints for' };
       return checkpointListResult(sessionId, args);
+  } },
+  scratchpad_write: { paths: null, guardNote: "C2: 只读写本会话旁车 sessions/<id>.scratchpad.json(工作台自有,DurableJsonStore,路径由受校验的会话 id 拼出);会话只取主回合 ctx(mainTurn),不接受参数传 id;子代理/MCP 子进程/HTTP 直调/管家会话 fail-closed", handler: async (args, ctx) => {
+      return scratchpadWriteTool(args, ctx);
   } },
   list_tools: { paths: null, guardNote: "紧凑工具目录控制面,不触文件路径", handler: async (args, ctx) => {
       const config = await readConfig();

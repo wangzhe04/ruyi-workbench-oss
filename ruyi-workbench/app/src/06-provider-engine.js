@@ -1818,6 +1818,11 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
     }
     lines.push(getPromptPack(config && config.locale).toolProtocol.priority);
     lines.push(getPromptPack(config && config.locale).toolProtocol.contextBudget);
+    // C2(61 号文):会话草稿本何时用。工具表里有 scratchpad_write 才说(只有模型服务商普通会话主回合有;它常驻 core,
+    // 会话第一回合起就在,这一行在会话内逐字节稳定,不破稳定层缓存)。子代理、管家、Claude/Kimi 引擎没有这个工具,也就没有这一行。
+    if ((tools || []).some(t => t && t.function && t.function.name === 'scratchpad_write')) {
+      lines.push(getPromptPack(config && config.locale).toolProtocol.scratchpad);
+    }
   } else if (!identityOnly) {
     lines.push(getPromptPack(config && config.locale).noTools);
   }

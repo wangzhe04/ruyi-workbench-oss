@@ -2,12 +2,12 @@
   "schema": 1,
   "generatedBy": "dev-harness/durable-state-inventory.js",
   "scope": "workbench-managed JSON, JSONL/NDJSON and ownership sidecars plus consumed external state",
-  "count": 61,
+  "count": 62,
   "lifecycleCounts": {
     "dedicated-exemption": 20,
     "external-exemption": 10,
     "regenerable-exemption": 7,
-    "shared-lifecycle": 24
+    "shared-lifecycle": 25
   },
   "entries": [
     {
@@ -233,6 +233,20 @@
       "recovery": "replay valid rows",
       "lifecycle": "dedicated-exemption",
       "exemptionReason": "append-only change audit"
+    },
+    {
+      "id": "session-scratchpad",
+      "pattern": "<data>/sessions/<id>.scratchpad.json",
+      "owner": "02-session-store.js",
+      "anchor": "sessionScratchpadStore",
+      "schema": "object / schema 1 ({updatedAt, entries:[{key,text,at}]}, array keeps write order)",
+      "writePrimitive": "DurableJsonStore (quarantine:false, cache:false, one store per call) -> atomicWriteJson; read-modify-write serialized per session by runKeyedChain",
+      "corruption": "missing, unreadable, non-JSON, non-object or wrong schema = empty scratchpad; the bad file stays in place (no .corrupt copy) until the next write replaces it; session_scratchpad_corrupt diagnostic event",
+      "capacity": "20 notes, keys <= 40 chars, <= 500 chars per note, <= 3000 chars in total: the tool refuses over-limit writes and sanitize trims hand-edited files oldest-first",
+      "cache": "none (cache:false: every read hits the disk, so a deleted session can never resurrect notes from a process cache)",
+      "recovery": "empty scratchpad; removed by deleteSession (waits for the in-flight chain; the delete tombstone refuses late writes)",
+      "lifecycle": "shared-lifecycle",
+      "exemptionReason": "shared atomic store for ephemeral model-owned notes"
     },
     {
       "id": "session-index",

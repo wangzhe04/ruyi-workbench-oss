@@ -1828,6 +1828,7 @@
   "tools.verb.playbook_read": "Read playbook",
   "tools.verb.project_snapshot": "Project overview",
   "tools.verb.request_user_input": "Ask you",
+  "tools.verb.scratchpad_write": "Update scratchpad",
   "tools.verb.shell": "Terminal operation",
   "tools.verb.skill_list": "List skills",
   "tools.verb.skill_read": "Read skill",
