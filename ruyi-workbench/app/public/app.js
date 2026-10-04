@@ -66,7 +66,7 @@ const chatScrollController = createChatScrollController({
   isStreaming: () => Boolean(state.streaming),
 });
 const {
-  maybeScrollToBottom, isStickyScroll,
+  maybeScrollToBottom, isStickyScroll, keepPinnedAcross,
   resetStickyScroll,
   scrollMessagesToBottom,
   syncStickToBottom,
@@ -319,8 +319,8 @@ const {
   refreshSessions: (...args) => refreshSessions(...args),
   refreshToolPane: () => refreshToolPane(),   // 128f-⑫（审计 D）：回溯之后右栏页签重读
   renderCurrentSession: (...args) => renderCurrentSession(...args),
-  // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级)。
-  renderMermaidBlocks: (...args) => renderMermaidBlocks(...args),
+  // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级);每张图换上去时经 keepPinnedAcross 保持贴底。
+  renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross }),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   saveAsMemory: (...args) => saveAsMemory(...args),
   sendPrompt: (...args) => sendPrompt(...args),
