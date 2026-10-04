@@ -286,10 +286,18 @@ async function shellStart(args, config, ctx = {}) {
   const mode = command ? 'background' : 'interactive';
   const timeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(1000, Number(args.timeoutMs) || SHELL_IDLE_MS));
   const launchArgs = ['-NoLogo', '-NoProfile'];
-  if (command) {
+  if (!command) {
+    // 交互式 shell:没有脚本可前置,用 -NoExit -Command 先跑一遍 UTF-8 输出编码前导,然后照常读 stdin(2026-10 实测:
+    // 提示符与回显的格式与不带它时一致,启动时不多出任何输出)。注意不能用 -EncodedCommand:它会让 PowerShell 往 stderr
+    // 写一份 CLIXML 进度对象(`#< CLIXML ...`),污染 shell_poll 的输出。前导是纯 ASCII、无需引号转义(spawn 不经 shell)。
+    // 为什么要它:非中文代码页(en-US 的 437/1252)的机器上不设的话,Write-Output '中文' 在源头就是 `?`(见 00-boot 注释)。
+    launchArgs.push('-NoExit', '-Command', PS_UTF8_OUTPUT_PREAMBLE);
+  } else {
     // A finite command has an actual completion/exit code; shell_poll.running now describes the job,
     // rather than an interactive prompt that stays alive forever after its command completed.
-    const script = "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
+    // 第一行前面接 UTF-8 输出编码前导(00-boot PS_UTF8_OUTPUT_PREAMBLE):同一行、不加换行,用户命令的行号不漂。
+    // 不需要像 04 withQuietProgress 那样豁免 param()/using —— 用户命令在 `& { }` 里,不是脚本的第一条语句。
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
       + "\n}\nif (-not $?) { exit 1 }\nexit $LASTEXITCODE\n} catch { [Console]::Error.WriteLine($_.ToString()); exit 1 }";
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
     if (encoded.length > SHELL_ENCODED_COMMAND_MAX) {
@@ -327,6 +335,8 @@ async function shellStart(args, config, ctx = {}) {
   // 每条流一个按行的控制台解码器(00-boot createConsoleLineDecoder):中文 Windows 上无控制台的 powershell.exe
   // 往管道里写的是 GBK(用户实测:shell 会话里的中文输出全是乱码),修前一律按 UTF-8 解。整行才解码(chunk 切开的
   // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
+  // 2026-10 起 PowerShell 的输出编码在源头就设成 UTF-8(上面的 PS_UTF8_OUTPUT_PREAMBLE),这里的按行解码退为兜底
+  // (中文系统上设置失败、原生命令自己写 GBK):UTF-8 优先的判定正好接住源头已是 UTF-8 的输出。
   const outDecoder = createConsoleLineDecoder();
   const errDecoder = createConsoleLineDecoder();
   let idleFlush = null;

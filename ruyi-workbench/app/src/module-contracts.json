@@ -21,6 +21,7 @@
         "MAX_BODY_BYTES",
         "MigrationHooks",
         "OVERLAY_ID",
+        "PS_UTF8_OUTPUT_PREAMBLE",
         "RUYI_DATA_DIR_NAME",
         "RUYI_EVENTS",
         "RUYI_EVENT_SUBSCRIBERS",
@@ -2570,6 +2571,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "path",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "PS_UTF8_OUTPUT_PREAMBLE",
           "kinds": [
             "read"
           ]
@@ -10787,6 +10795,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "PS_UTF8_OUTPUT_PREAMBLE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "RUYI_EVENTS",
           "kinds": [
             "read"
@@ -10995,6 +11010,9 @@
         "EXEC_CACHE_ENTRY_MAX_BYTES",
         "EXEC_CACHE_MAX_SESSIONS",
         "EXEC_CACHE_WHITELIST",
+        "FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP",
+        "FILE_EDIT_ENCODING_HINT_UNDECODABLE",
+        "FILE_EDIT_PS_ENCODING_TIP",
         "FILE_READ_CHAR_DEFAULT",
         "FILE_READ_CHAR_MAX",
         "FILE_READ_JSON_BUDGET",

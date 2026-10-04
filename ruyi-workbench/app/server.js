@@ -342,13 +342,30 @@ function safeJsonParse(raw, fallback = null) {
 // chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
 // 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
 // flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
-// ── 控制台输出解码(PowerShell / cmd / 原生命令)────────────────────────────────────────────────────────
-// 中文 Windows 上,无控制台(windowsHide)起的 powershell.exe 往重定向的 stdout 写的是系统代码页(GBK/cp936),
-// 原生命令也多半如此;而 git、node、python(UTF-8 模式)写的是 UTF-8 —— 同一份输出里两种编码混着来很常见。
-// [Console]::OutputEncoding 那类 PS 侧方案在无控制台 spawn 下无效(04-desktop-shell 头注里实测过),所以在 Node 侧解:
-// 【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
-// 合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
-// 所以按它切是安全的。纯 ASCII 行两种解法结果一样。
+// ── 控制台输出:PowerShell 源头编码 + Node 侧按行解码(PowerShell / cmd / 原生命令)────────────────────────
+// 两层,各管一头:
+// ① 源头(PS_UTF8_OUTPUT_PREAMBLE,04 withQuietProgress 与 11 shellStart 的脚本头加上):powershell.exe 把输出按【控制台代码页】编码。
+//    非中文代码页的机器(en-US:OEM 437 / ANSI 1252)上中文在源头就被写成 `?`(0x3f)—— Write-Output '中文'、Get-ChildItem -Name
+//    列中文文件名、cmd /c dir 全是 `????`,信息已经丢了,Node 侧无从还原。2026-10 在 en-US 机器上实测:windowsHide 起的子进程
+//    有自己的隐藏控制台,脚本头设 [Console]::OutputEncoding 有效(中文输出 / 文件名 / cmd /c dir / Write-Host / stderr 全对)。
+//    旧注释说这类 PS 方案「在无窗口 spawn 下会静默失效」,在这台机器上不成立。必须用 UTF8Encoding($false)(无 BOM):
+//    [Text.Encoding]::UTF8 带 BOM,会污染首行;脚本里 `chcp 65001` 实测无效。设置失败(try/catch 吞掉)
+//    就退回修前行为,由下面 ② 兜底。`$OutputEncoding` 同步是管道往原生命令喂字符串时用的编码(5.1 默认 ASCII,中文也会变 `?`)。
+// ② Node 侧兜底:中文 Windows 上设置失败、个别原生命令自己写 GBK(不看控制台代码页)、git/node/python(UTF-8 模式)
+//    写 UTF-8 —— 同一份输出里两种编码混着来很常见。
+//    【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
+//    合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
+//    所以按它切是安全的。纯 ASCII 行两种解法结果一样。源头设成 UTF-8 后输出被 UTF-8 优先分支正确接住。
+//
+// 共享控制台的副作用(2026-10 实测结论):[Console]::OutputEncoding 的 setter 最终是 SetConsoleOutputCP,理论上改的是
+// 【当前控制台】的代码页。但本进程起 PowerShell 一律是 windowsHide + 管道 stdio(libuv 此时加 CREATE_NO_WINDOW),子进程拿到的是
+// 【自己新建的隐藏控制台】,不与本进程共享。探针(node 挂真控制台,先 chcp 850 做哨兵):生产形态的子进程初始代码页是 437
+// (自己的控制台)、设完 65001,node 所在控制台仍是 850;对照组(stdin 继承 → 子进程共享 node 的控制台,初始看到 850)设 65001 后,
+// PS 进程退出时 node 的控制台也被还原回 850(Windows PowerShell 5.1 / .NET 在退出时还原代码页)。所以两种形态都碰不到
+// 启动本进程的那个终端:RuyiDesktop.exe(CreateNoWindow + 重定向)、Start-Workbench.cmd(Start-Process -WindowStyle Hidden)、
+// 直接 `node server.js serve`(可见控制台,是 node 自己的,子进程不共享)。即便将来有路径让它漏出去,Node 写 TTY 走
+// WriteConsoleW(UTF-16)不受代码页影响,后续子进程输出 UTF-8 也被 ② 正确解码,风险仅限于终端里别的程序的显示编码。
+const PS_UTF8_OUTPUT_PREAMBLE = 'try{[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)}catch{};$OutputEncoding=[Console]::OutputEncoding;';
 let _consoleGbDecoder = null;
 const _consoleUtf8Strict = new TextDecoder('utf-8', { fatal: true });
 function decodeConsoleSegment(buf) {
@@ -16062,10 +16079,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 输出,而非 UTF-8。此前 runProcess 按 UTF-8 逐块 toString → 中文全乱码(GBK 字节 c2a6c9bd… 被读成「¦ɽ」)。
   // 修法:累积原始字节,收尾时智能解码——先按 UTF-8 解;若出现替换符(�,说明不是合法 UTF-8),退回 GBK。
   // 我们自己以 UTF-8 输出的工具不受影响(合法 UTF-8 无替换符,原样保留),GBK 原生命令输出也能正确还原。
-  // **headless 安全**:纯 Node 侧解码,不依赖控制台——[Console]::OutputEncoding 那类 PS 方案在无窗口 spawn 下
-  // 会因无有效控制台句柄而静默失效(实测端到端仍乱码),Node 侧解码无此坑。
   // 2026-09 起改为【按行】判定(00-boot decodeConsoleText):修前整段只要有一处不是合法 UTF-8 就整段按 GBK 解,
   // 混排输出(git 的 UTF-8 + 系统命令的 GBK)里总有一半是乱码。
+  // 2026-10 补【源头】一层:Node 侧解码只能还原「有损但可逆」的 GBK;en-US 等非中文代码页的机器上,PowerShell 按控制台代码页
+  // (OEM 437 / ANSI 1252)编码,中文在源头就变成 `?`,信息已丢。曾有注释称 [Console]::OutputEncoding 那类 PS 方案「在无窗口
+  // spawn 下会静默失效」—— 在 en-US 机器上实测【不成立】:windowsHide 起的子进程有自己的隐藏控制台,脚本头设置后中文输出 /
+  // 文件名 / cmd /c dir / Write-Host / stderr 全部正确。所以 withQuietProgress(见下)给脚本头加 UTF-8 输出编码前导
+  // (00-boot PS_UTF8_OUTPUT_PREAMBLE,含共享控制台副作用的调查结论),Node 侧按行解码保留为兜底
+  // (中文系统上设置失败、原生命令自己写 GBK 等;源头已是 UTF-8 时被 UTF-8 优先分支正确接住)。
   function decodeBestEffort(buf) {
     return decodeConsoleTextFn(buf);
   }
@@ -16323,11 +16344,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 乱码由 runProcess 的 decodeBestEffort 兜底(先 UTF-8、有替换符退 GBK)。两侧合起来彻底解决中文乱码。
   // NE-15:Windows PowerShell 5.1 在有进度条时 Invoke-WebRequest / Expand-Archive 慢一个数量级,无头运行又没人看进度 —— 脚本头静音。
   // 写在【第一行同一行】不加换行(报错行号不漂);脚本里有 param()/using/#requires/[CmdletBinding] 时它们必须是第一条语句,不加。
+  // 2026-10:同一处再加 UTF-8 输出编码前导(PS_UTF8_OUTPUT_PREAMBLE,放在 $ProgressPreference 之前,同样同一行不换行),
+  // 给 powershell_run / script_run(PowerShell)/ runPowerShell 的内部调用方(截图、SendKeys 等)统一修源头编码;
+  // 豁免规则与静音进度条共用同一条 —— 豁免的脚本两样都不加(仍靠 Node 侧按行解码兜底)。
   function withQuietProgress(command) {
     const text = String(command == null ? '' : command);
     // 「第一条语句」前面可能有 <# 帮助注释 #>,所以不只看开头:任何行首出现 param( / [CmdletBinding / using / #requires 都不动脚本(宁可不静音也不破坏脚本)。
     if (/^\s*(?:param\s*\(|using\s|#requires|\[CmdletBinding)/im.test(text)) return text;
-    return "$ProgressPreference='SilentlyContinue'; " + text;
+    return PS_UTF8_OUTPUT_PREAMBLE + "$ProgressPreference='SilentlyContinue'; " + text;
   }
   // opts.shape:powershell_run 用 —— 结果按 runProcess 的整形模式(头+尾、键序、error/hint)返回;桌面截图等内部调用方要完整 stdout,不传。
   // NE-3:-NonInteractive —— Read-Host / pause / -Confirm 这类提示立刻抛错(模型能读到),不再挂到超时。
@@ -16431,7 +16455,9 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     // v1.0.2 返修:无 owner 的 ShowDialog() 常被压在浏览器窗口后面 —— 用户以为「点了没反应」(真机反馈
     // 「工作区改不了」的一大来源)。造一个隐形 TopMost owner form,对话框随 owner 置顶到最前。纯 ASCII 脚本
     // (v1.0.1 编码教训:-Command 里不放中文)。
-    const script = "Add-Type -AssemblyName System.Windows.Forms; "
+    // 2026-10:前导 PS_UTF8_OUTPUT_PREAMBLE(纯 ASCII,见 00-boot)—— 选到中文路径时,非中文代码页(en-US)的机器上
+    // Write-Output 会把它写成 `?`,path.resolve 出一个不存在的目录;设成 UTF-8 后由 runProcess 的按行解码正确接住。
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "Add-Type -AssemblyName System.Windows.Forms; "
       + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
       + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
       + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
@@ -16472,7 +16498,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       return { ok: false, error: '原生文件选择器仅支持 Windows', hint: '请直接粘贴完整路径' };
     }
     const safeFilter = String(filter || 'All files|*.*').replace(/'/g, '');
-    const script = "Add-Type -AssemblyName System.Windows.Forms; "
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "Add-Type -AssemblyName System.Windows.Forms; " // 前导同 pickFolder(中文文件路径不被写成 ?)
       + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
       + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
       + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
@@ -47669,10 +47695,18 @@ async function shellStart(args, config, ctx = {}) {
   const mode = command ? 'background' : 'interactive';
   const timeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(1000, Number(args.timeoutMs) || SHELL_IDLE_MS));
   const launchArgs = ['-NoLogo', '-NoProfile'];
-  if (command) {
+  if (!command) {
+    // 交互式 shell:没有脚本可前置,用 -NoExit -Command 先跑一遍 UTF-8 输出编码前导,然后照常读 stdin(2026-10 实测:
+    // 提示符与回显的格式与不带它时一致,启动时不多出任何输出)。注意不能用 -EncodedCommand:它会让 PowerShell 往 stderr
+    // 写一份 CLIXML 进度对象(`#< CLIXML ...`),污染 shell_poll 的输出。前导是纯 ASCII、无需引号转义(spawn 不经 shell)。
+    // 为什么要它:非中文代码页(en-US 的 437/1252)的机器上不设的话,Write-Output '中文' 在源头就是 `?`(见 00-boot 注释)。
+    launchArgs.push('-NoExit', '-Command', PS_UTF8_OUTPUT_PREAMBLE);
+  } else {
     // A finite command has an actual completion/exit code; shell_poll.running now describes the job,
     // rather than an interactive prompt that stays alive forever after its command completed.
-    const script = "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
+    // 第一行前面接 UTF-8 输出编码前导(00-boot PS_UTF8_OUTPUT_PREAMBLE):同一行、不加换行,用户命令的行号不漂。
+    // 不需要像 04 withQuietProgress 那样豁免 param()/using —— 用户命令在 `& { }` 里,不是脚本的第一条语句。
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "$ErrorActionPreference = 'Stop'\n$global:LASTEXITCODE = 0\ntry {\n& {\n" + command
       + "\n}\nif (-not $?) { exit 1 }\nexit $LASTEXITCODE\n} catch { [Console]::Error.WriteLine($_.ToString()); exit 1 }";
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
     if (encoded.length > SHELL_ENCODED_COMMAND_MAX) {
@@ -47710,6 +47744,8 @@ async function shellStart(args, config, ctx = {}) {
   // 每条流一个按行的控制台解码器(00-boot createConsoleLineDecoder):中文 Windows 上无控制台的 powershell.exe
   // 往管道里写的是 GBK(用户实测:shell 会话里的中文输出全是乱码),修前一律按 UTF-8 解。整行才解码(chunk 切开的
   // 多字节字符不会变成 U+FFFD);不带换行的尾巴(提示符、「[Y/N]」)停 150ms 没有新输出就先吐出来;关闭时 end()。
+  // 2026-10 起 PowerShell 的输出编码在源头就设成 UTF-8(上面的 PS_UTF8_OUTPUT_PREAMBLE),这里的按行解码退为兜底
+  // (中文系统上设置失败、原生命令自己写 GBK):UTF-8 优先的判定正好接住源头已是 UTF-8 的输出。
   const outDecoder = createConsoleLineDecoder();
   const errDecoder = createConsoleLineDecoder();
   let idleFlush = null;
@@ -54021,6 +54057,17 @@ async function fileToolDropPhantom(jctx, tool, p, jr) {
   if (!seqs.length) return { ok: true, dropped: 0 };
   return journalDropEntries(jctx.sessionId, jctx.turnSeq, tool, [p], seqs).catch(() => ({ ok: false }));
 }
+// file_edit 编码类拒绝(not_utf8 / not_roundtrip)的指路。以前写「可用 powershell_run 按原编码读写」—— 模型会直接 Get-Content /
+// Set-Content,而 Windows PowerShell 5.1 对无 BOM 文件按【系统 ANSI 代码页】读写:中文系统恰好是 GBK 勉强能用,非中文代码页
+// (en-US 的 1252)的机器上把 GBK 文件读成乱码、写回时再损坏一次。所以给可靠配方:优先 file_read / file_write(自动识别编码,
+// 或显式 encoding 参数);确需 PowerShell 时一律显式指定编码的 .NET 静态方法,不依赖任何默认编码。
+const FILE_EDIT_PS_ENCODING_TIP = '确需 PowerShell 时用显式编码,不要用 Get-Content / Set-Content(Windows PowerShell 5.1 对无 BOM 文件按系统 ANSI 代码页读写,非中文系统上会乱码):'
+  + '读 [IO.File]::ReadAllText(路径,[Text.Encoding]::GetEncoding(936)),写 [IO.File]::WriteAllText(路径,文本,[Text.Encoding]::GetEncoding(936))'
+  + '(936=GBK,其它编码换对应代码页号;要逐字节处理用 [IO.File]::ReadAllBytes / WriteAllBytes)';
+const FILE_EDIT_ENCODING_HINT_UNDECODABLE = '先确认文件编码:file_read 的 encoding 参数可按 utf-16le / utf-16be / gbk / latin1 指定编码来读(省略则自动识别);'
+  + '要改内容就用 file_write 带同一 encoding 整体写回,或征得用户同意后整体转存为 UTF-8(file_write 传 encoding:"utf8")。' + FILE_EDIT_PS_ENCODING_TIP;
+const FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP = '这类文件按文本替换无法保证其余字节不变。先用 file_read(自动识别编码)看内容;'
+  + '要改就征得用户同意后整体转存为 UTF-8(file_write 传 encoding:"utf8")。必须保留原编码的,' + FILE_EDIT_PS_ENCODING_TIP;
 function fileToolUnencodable(e, p, encoding, what) {
   const hint = `${what}含有 ${encoding} 无法表示的字符 ${JSON.stringify(e.char)};文件未被改动。如确需写入该字符,请显式传 encoding:"utf8" 把文件转存为 UTF-8(先征得用户同意),或换用 ${encoding} 能表示的字符`;
   return { ok: false, code: 'unencodable', error: e.message, path: p, encoding, hint };
@@ -54382,7 +54429,7 @@ const FILE_TOOL_HANDLERS = {
         if (dm.lossy) {
           return { ok: false, code: 'not_utf8', path: p,
             error: '文件既不是有效的 UTF-8 / GBK / UTF-16 文本(可能是其它本地编码或二进制);file_edit 只编辑能无损往返的文本,为免写坏文件已拒绝',
-            hint: '先确认文件编码;GBK 文件可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
+            hint: FILE_EDIT_ENCODING_HINT_UNDECODABLE };
         }
         const raw = dm.text;
         const fileEnc = dm.encoding;
@@ -54393,7 +54440,7 @@ const FILE_TOOL_HANDLERS = {
           if (!rt || !rt.equals(rawBytes)) {
             return { ok: false, code: 'not_roundtrip', path: p, encoding: fileEnc,
               error: `文件是 ${fileEnc} 编码,但无法保证按原编码逐字节写回,为免损坏已拒绝`,
-              hint: '先确认文件编码;可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
+              hint: FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP };
           }
         }
         const sourceLineEnding = detectTextLineEnding(raw);

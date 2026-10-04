@@ -342,13 +342,30 @@ function safeJsonParse(raw, fallback = null) {
 // chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
 // 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
 // flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
-// ── 控制台输出解码(PowerShell / cmd / 原生命令)────────────────────────────────────────────────────────
-// 中文 Windows 上,无控制台(windowsHide)起的 powershell.exe 往重定向的 stdout 写的是系统代码页(GBK/cp936),
-// 原生命令也多半如此;而 git、node、python(UTF-8 模式)写的是 UTF-8 —— 同一份输出里两种编码混着来很常见。
-// [Console]::OutputEncoding 那类 PS 侧方案在无控制台 spawn 下无效(04-desktop-shell 头注里实测过),所以在 Node 侧解:
-// 【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
-// 合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
-// 所以按它切是安全的。纯 ASCII 行两种解法结果一样。
+// ── 控制台输出:PowerShell 源头编码 + Node 侧按行解码(PowerShell / cmd / 原生命令)────────────────────────
+// 两层,各管一头:
+// ① 源头(PS_UTF8_OUTPUT_PREAMBLE,04 withQuietProgress 与 11 shellStart 的脚本头加上):powershell.exe 把输出按【控制台代码页】编码。
+//    非中文代码页的机器(en-US:OEM 437 / ANSI 1252)上中文在源头就被写成 `?`(0x3f)—— Write-Output '中文'、Get-ChildItem -Name
+//    列中文文件名、cmd /c dir 全是 `????`,信息已经丢了,Node 侧无从还原。2026-10 在 en-US 机器上实测:windowsHide 起的子进程
+//    有自己的隐藏控制台,脚本头设 [Console]::OutputEncoding 有效(中文输出 / 文件名 / cmd /c dir / Write-Host / stderr 全对)。
+//    旧注释说这类 PS 方案「在无窗口 spawn 下会静默失效」,在这台机器上不成立。必须用 UTF8Encoding($false)(无 BOM):
+//    [Text.Encoding]::UTF8 带 BOM,会污染首行;脚本里 `chcp 65001` 实测无效。设置失败(try/catch 吞掉)
+//    就退回修前行为,由下面 ② 兜底。`$OutputEncoding` 同步是管道往原生命令喂字符串时用的编码(5.1 默认 ASCII,中文也会变 `?`)。
+// ② Node 侧兜底:中文 Windows 上设置失败、个别原生命令自己写 GBK(不看控制台代码页)、git/node/python(UTF-8 模式)
+//    写 UTF-8 —— 同一份输出里两种编码混着来很常见。
+//    【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
+//    合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
+//    所以按它切是安全的。纯 ASCII 行两种解法结果一样。源头设成 UTF-8 后输出被 UTF-8 优先分支正确接住。
+//
+// 共享控制台的副作用(2026-10 实测结论):[Console]::OutputEncoding 的 setter 最终是 SetConsoleOutputCP,理论上改的是
+// 【当前控制台】的代码页。但本进程起 PowerShell 一律是 windowsHide + 管道 stdio(libuv 此时加 CREATE_NO_WINDOW),子进程拿到的是
+// 【自己新建的隐藏控制台】,不与本进程共享。探针(node 挂真控制台,先 chcp 850 做哨兵):生产形态的子进程初始代码页是 437
+// (自己的控制台)、设完 65001,node 所在控制台仍是 850;对照组(stdin 继承 → 子进程共享 node 的控制台,初始看到 850)设 65001 后,
+// PS 进程退出时 node 的控制台也被还原回 850(Windows PowerShell 5.1 / .NET 在退出时还原代码页)。所以两种形态都碰不到
+// 启动本进程的那个终端:RuyiDesktop.exe(CreateNoWindow + 重定向)、Start-Workbench.cmd(Start-Process -WindowStyle Hidden)、
+// 直接 `node server.js serve`(可见控制台,是 node 自己的,子进程不共享)。即便将来有路径让它漏出去,Node 写 TTY 走
+// WriteConsoleW(UTF-16)不受代码页影响,后续子进程输出 UTF-8 也被 ② 正确解码,风险仅限于终端里别的程序的显示编码。
+const PS_UTF8_OUTPUT_PREAMBLE = 'try{[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)}catch{};$OutputEncoding=[Console]::OutputEncoding;';
 let _consoleGbDecoder = null;
 const _consoleUtf8Strict = new TextDecoder('utf-8', { fatal: true });
 function decodeConsoleSegment(buf) {

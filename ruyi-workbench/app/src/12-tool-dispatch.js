@@ -831,6 +831,17 @@ async function fileToolDropPhantom(jctx, tool, p, jr) {
   if (!seqs.length) return { ok: true, dropped: 0 };
   return journalDropEntries(jctx.sessionId, jctx.turnSeq, tool, [p], seqs).catch(() => ({ ok: false }));
 }
+// file_edit 编码类拒绝(not_utf8 / not_roundtrip)的指路。以前写「可用 powershell_run 按原编码读写」—— 模型会直接 Get-Content /
+// Set-Content,而 Windows PowerShell 5.1 对无 BOM 文件按【系统 ANSI 代码页】读写:中文系统恰好是 GBK 勉强能用,非中文代码页
+// (en-US 的 1252)的机器上把 GBK 文件读成乱码、写回时再损坏一次。所以给可靠配方:优先 file_read / file_write(自动识别编码,
+// 或显式 encoding 参数);确需 PowerShell 时一律显式指定编码的 .NET 静态方法,不依赖任何默认编码。
+const FILE_EDIT_PS_ENCODING_TIP = '确需 PowerShell 时用显式编码,不要用 Get-Content / Set-Content(Windows PowerShell 5.1 对无 BOM 文件按系统 ANSI 代码页读写,非中文系统上会乱码):'
+  + '读 [IO.File]::ReadAllText(路径,[Text.Encoding]::GetEncoding(936)),写 [IO.File]::WriteAllText(路径,文本,[Text.Encoding]::GetEncoding(936))'
+  + '(936=GBK,其它编码换对应代码页号;要逐字节处理用 [IO.File]::ReadAllBytes / WriteAllBytes)';
+const FILE_EDIT_ENCODING_HINT_UNDECODABLE = '先确认文件编码:file_read 的 encoding 参数可按 utf-16le / utf-16be / gbk / latin1 指定编码来读(省略则自动识别);'
+  + '要改内容就用 file_write 带同一 encoding 整体写回,或征得用户同意后整体转存为 UTF-8(file_write 传 encoding:"utf8")。' + FILE_EDIT_PS_ENCODING_TIP;
+const FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP = '这类文件按文本替换无法保证其余字节不变。先用 file_read(自动识别编码)看内容;'
+  + '要改就征得用户同意后整体转存为 UTF-8(file_write 传 encoding:"utf8")。必须保留原编码的,' + FILE_EDIT_PS_ENCODING_TIP;
 function fileToolUnencodable(e, p, encoding, what) {
   const hint = `${what}含有 ${encoding} 无法表示的字符 ${JSON.stringify(e.char)};文件未被改动。如确需写入该字符,请显式传 encoding:"utf8" 把文件转存为 UTF-8(先征得用户同意),或换用 ${encoding} 能表示的字符`;
   return { ok: false, code: 'unencodable', error: e.message, path: p, encoding, hint };
@@ -1192,7 +1203,7 @@ const FILE_TOOL_HANDLERS = {
         if (dm.lossy) {
           return { ok: false, code: 'not_utf8', path: p,
             error: '文件既不是有效的 UTF-8 / GBK / UTF-16 文本(可能是其它本地编码或二进制);file_edit 只编辑能无损往返的文本,为免写坏文件已拒绝',
-            hint: '先确认文件编码;GBK 文件可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
+            hint: FILE_EDIT_ENCODING_HINT_UNDECODABLE };
         }
         const raw = dm.text;
         const fileEnc = dm.encoding;
@@ -1203,7 +1214,7 @@ const FILE_TOOL_HANDLERS = {
           if (!rt || !rt.equals(rawBytes)) {
             return { ok: false, code: 'not_roundtrip', path: p, encoding: fileEnc,
               error: `文件是 ${fileEnc} 编码,但无法保证按原编码逐字节写回,为免损坏已拒绝`,
-              hint: '先确认文件编码;可用 powershell_run 按原编码读写,或征得用户同意后先整体转存为 UTF-8' };
+              hint: FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP };
           }
         }
         const sourceLineEnding = detectTextLineEnding(raw);
