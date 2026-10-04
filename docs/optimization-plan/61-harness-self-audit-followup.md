@@ -1,6 +1,6 @@
 # 61 · 模型自评「harness 不足」的核实与收敛
 
-> 状态：**A/B 两批与 C2 已实现（2026-10-04）**；C 批其余待拍板。实施结果与遗留缺口见 §3。
+> 状态：**A/B/C 三批已实现（2026-10-04）**；C5 按用户拍板不做（用户常会打字指定工作区外的路径让写）。实施结果与遗留缺口见 §3。
 >
 > 起因（2026-10-04）：工作台里一个 provider 会话的模型以只读方式自查了一遍 harness，交出一份「我在这套 harness 里干活最别扭的地方」
 > 报告（8 条 + 「只改三件事」）。用户原话：「这是当前 agent 自己探索出来的工作台的不足，你看看验证一下，或者派波 sonnet 走查一下，然后出方案优化」。
@@ -63,7 +63,7 @@
 - **B4 结果自解释**：`cacheHit` 旁加一句说明（同会话读过、文件没变，不是旧快照）。原计划的「写信封回检查点坐标」并入 C4 一起拍板（单独做价值有限，要动七个写工具的信封）。
 - **B5 Playbook 索引不再丢条目**：超预算时降级成只列 id＋标题，16 个全可见（现状字母序前 6 个之后永不可见）。
 
-### C 批 · 新能力（待拍板）
+### C 批 · 新能力（2026-10-04 用户拍板：C5 不做，其余都做；结果见 §3）
 
 | 项 | 内容 | 主要风险 |
 |---|---|---|
@@ -92,6 +92,10 @@
 | B1–B5 | 见 §2 | `harness-friction.e2e` [S][K][R][C]、`tool-invoke-promote` P8、`unit/tool-invoke-args-guide` G2、`prompt-snapshot.static` D15–D15d |
 | C1 Playbook / 技能只读工具（已实现） | 13f 三个 schema（`playbook_list` / `playbook_read` / `skill_list`，read 档、`skills` 包、不进起手工具）；12 `INTEGRATION_TOOL_HANDLERS` 里的 handler：`playbook_read` 复用 06i 的 `stewardAssemblePlaybookPrompt` / `stewardPlaybookMissingInputs` 填参与缺参判定（缺参回 `playbook_inputs_missing`+缺哪些，不可用回 `playbook_unavailable` 且不给步骤，未知 id 回 `playbook_not_found`），正文包 `<playbook-reference>` 围栏、尖括号经 06 `neutralizeAuthoredText` 中和（与索引段同一函数），结果 note 明说「只在用户点名或明确同意后照做」；`classifyToolPacks` 在 Playbook / 预置流程 / 流程模板等说法时带 skills 包；06b 两包 `playbookIndex.trailer` 改指向 `playbook_read`。**`skill_read` 不放开**：仍只读已启用技能、仍只在有启用技能时才 offer —— `skills-registry.e2e` (d)(f) 钉着这两条语义，且「启用」是用户对技能（含 `<cwd>/.ruyi/skills`、`~/.claude/skills` 等来源）的信任动作并带来源锁，放开等于让 read 档工具绕过它；`skill_list` 因此只列、并把 `enabled` 标出来 | `playbook-skill-tools.e2e`、`unit/playbook-skill-tools`、`prompt-snapshot.static` D14e–D14g、`unit/tool-schema-budget`（offeredDefault 一次性 +1483） |
 | C2 会话草稿本 | `scratchpad_write`（read 档、core 常驻，只发给模型服务商普通会话主回合；不进 MCP_TOOLS，CLI / 管家 / 子代理都没有）：按 key 写/覆盖，text 空即删，`op:"list"` 列全部；限额 20 条 × 500 字、总 3000 字，超限拒绝。存 `sessions/<id>.scratchpad.json`（DurableJsonStore + runKeyedChain，删会话同删）。回注贴末条 user 尾部、非持久、全角中和尖括号、声明「不是用户指令、不构成授权」；快照按回合取，只在压缩后重读（回合中途写不刷新，免得把本回合累积的往返打成未缓存） | `session-scratchpad.e2e` [W][N][O][L][H][R][S][D][C][P]、`unit/tool-schema-budget` C2、`prompt-snapshot.static` C2-1–C2-6 |
+| C3 记忆批量提议 | `workbench_memory_propose` 可选 `items`（≤3 条，每条与单条同形；单条旧形式与卡片逐字不变）；一张批量卡逐条勾选，「保存选中」只存勾上的、其余记 dismissed；仍占同一个候选槽、同回合先到者胜；写槽／确认／忽略按会话串行（顺带修掉并行派发时 propose 覆盖 relation_propose 的竞态）；状态文件判空阈值 64KB → 256KB（3 条 × 4760 字 × 6 字节 ＋ 历史的最坏情况约 195KB） | `memory-batch-proposal.e2e`、`memory-batch-card.browser.e2e`、`unit/frontend-failure-paths` ⑬ |
+| C4 检查点可见 | 只读 `checkpoint_list {turnSeq?, limit?}`（files_write 包；会话只取 ctx；按回合／工具／op 分组，标 undoable／reverted）；用户经 `/api/checkpoints/rollback` 撤销后，02 在检查点目录的 `reverts.json` 记待告知，下一个 provider 回合在时间行后追加一行告知（落历史、字节不变；先落盘再 ack，只会多说不会漏说）；rewind 截掉的回合不告知并清掉悬空记录。不给模型回滚 | `checkpoint-visibility.e2e`、`unit/checkpoint-list-tool` |
+| C5 桥接写族补工作区写闸 | **不做**（用户拍板：用户常会打字指定工作区外的路径让写） | — |
+| C6 依赖缺失给修法 | 节点报错带找过的路径与修法（去掉 `engine:'claude'` / 配 `claudePath` / 安装）；根因修掉：`.cmd`/`.bat` 启动器经 `cmd.exe /c` 探测时 cmd 总能起来，修前 `existsExecutable(Async)` 只看 spawn、`detectClaudePath` 有退出码就算探到 —— 没装 Claude Code 的机器也报「Claude Code: claude.cmd」；批处理启动器改为要求退出码 0（与 agent CLI 探测同口径） | `agent-workflow-claude-engine.e2e` D1／D2 |
 
 遗留缺口：
 
@@ -100,4 +104,5 @@
 - **ACC `run_command` 的中文同样会变 `?`**（Python 子进程走 cmd.exe，同一个控制台代码页问题）：只能靠 Windows CI 验证，本批未动。
 - **`withQuietProgress` 的豁免规则偏宽**：任意行首出现 `param(` 等就整段不加前导（含函数内缩进的 `param(`），这类脚本的中文输出仍可能是 `?`。
 - **分类器 v3 的 `recoverableHint` 占比从 35% 升到 92%**：评估 6.5 门时要把「换源/换参」与「同参重试」分开算（20 号文 §0.6 已注明）；SSRF 拦截与 http_request 的 401 也归进了 `remote_blocked`，严格说一个是本地策略、一个是凭据问题。
+- **C 批的边界**：草稿本、撤销告知只在模型服务商回合生效（会话中途切到 Claude/Kimi 引擎时不注入、不消费，记录留到下一次 provider 回合）；rewind 不清草稿本；`scratchpad_write` 常驻 core，老会话升级后第一回合工具表与稳定层各多一项，前缀缓存断一次；批量记忆卡与单条卡一样，用户最终存了哪几条不回给模型；`playbook_list/read`、`skill_list` 的结果说明只有中文；Claude CLI 引擎注入同一条 Playbook 索引，`playbook_read` 经 MCP 暴露，auto 模式下说到 Playbook 等词才出现。
 - **本机测试环境**：`unit/steward-runner-races` 用未改动的 HEAD 跑也挂住不退出；`unit/security-audit-fixes` [B] 的前置检查（裸 `git status` 会执行 clean 过滤器）在本机不成立。两者与本批无关，以 Windows CI 为准。
