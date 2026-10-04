@@ -1,15 +1,15 @@
 ---
 name: 功能开发
-description: 在离线 Windows 环境中实现项目功能改动
+description: 跨多个文件的功能开发：先读项目约束，再实现并验证
 ---
 
 # Feature Development
 
-Use this skill when implementing a project change in an offline Windows Claude Code environment.
+Use this skill for a feature or behavior change that touches several files and needs the project's own rules read before editing and a real verification afterwards, in an offline Windows environment. A one-line fix or a question does not need it.
 
 Workflow:
 
-1. Use `project_snapshot`, `dependency_inventory`, and `docs_search` to understand the project before editing.
+1. Read the project's rules first (CLAUDE.md, CONTRIBUTING, README), then use `project_snapshot`, `dependency_inventory`, `docs_search` (docs), and `file_search` / `codebase_symbol_search` (code) to understand the project before editing.
 2. Check `git_status` so user work is visible and unrelated changes are not overwritten.
 3. Make a short implementation plan tied to files and tests.
 4. Edit narrowly, following local style and existing helpers.

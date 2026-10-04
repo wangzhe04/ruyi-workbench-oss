@@ -1,11 +1,11 @@
 ---
 name: Office 自动化
-description: 生成与美化可编辑 PPT、Excel、Word；选择版式、复用模板、检查公式和渲染成品
+description: 制作带格式的 PPT、Excel、Word 交付物：版式、图表、样式、模板与成品检查
 ---
 
 # Office 成品制作
 
-用于制作演示文稿、报告、工作簿。交付物是可继续编辑的文件，而非聊天中的大纲。
+用于制作演示文稿、报告、工作簿。交付物是可继续编辑的文件，而非聊天中的大纲。只需读取、摘要、对比或转换已有文档时，改用 document-workflow。
 下列指导为如意独立编写，不要求联网或安装第三方 skill。
 
 ## 选择工具
@@ -19,6 +19,7 @@ description: 生成与美化可编辑 PPT、Excel、Word；选择版式、复用
 | 报告/方案 | write_document | python-docx/docx 精细排版；docxtpl 填充用户 Word 模板 |
 | PDF | write_pdf；有 Office/LibreOffice 时导出最终 Office 文件 | 单独重排的 PDF 不能充当 Office 文件的真实预览 |
 
+write_pptx、write_excel、write_document、write_pdf 都是“创建或覆盖”：目标文件已存在时先向用户确认，或改用新文件名。
 扩展库是可选能力，不是默认已安装。通过 script_run 探测 import/require；缺依赖时选已具备的路线。
 复杂需求可以使用脚本，但先写到新文件；脚本输出不承诺工具检查点可撤销。
 优先保留用户模板中的母版、字体和页眉页脚。大批量导出可在 provider 引擎用 shell_start(command=...) 后台运行，完成通知会主动送达会话。
@@ -51,7 +52,7 @@ COM 自动化只关闭自己创建的文档和应用实例，finally 释放对�
 ### Word
 
 - 用真正的 Title/Heading 1–3、编号列表、表格和 PAGE 域；不要用连续空格伪造对齐。
-- write_document 的表格语法为 `TABLE: 列名 | 列名`，后续 `| 值 | 值` 为行，空行结束；普通 Markdown 管道表应先转换。
+- write_document 与 write_pdf 原生支持 GFM 管道表：`| 列名 | 列名 |` 加 `|---|:--:|` 分隔行，冒号控制对齐；旧的 `TABLE: 列名 | 列名` 写法仍兼容，不必转换。
 - 长报告启用 page_numbers；需要封面时传 cover。标题与下段保持同页，表格跨页重复表头，避免孤行。
 - 列表中的 `4.`、`10.` 等也应是编号段落；不让编号文本混入正文。
 - 有指定纸张、页边距、页眉页脚、交叉引用或图片环绕要求时，走能够表达这些设置的扩展库/模板。

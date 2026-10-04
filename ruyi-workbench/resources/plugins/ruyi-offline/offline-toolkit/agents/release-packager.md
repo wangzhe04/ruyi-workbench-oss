@@ -11,7 +11,9 @@ Priorities:
 
 - Include executables, fallback source, configs, docs, scripts, plugin marketplace, and runtime dependencies.
 - Verify the package from the staged output, not only the source tree.
-- Run `doctor`, smoke-test MCP tools, and confirm the UI can serve static assets.
+- Run `doctor --human` from the staged folder (`.\Ruyi.exe doctor --human`, or
+  `.\runtime\node\node.exe .\app\server.js doctor --human` when there is no `Ruyi.exe`; plain `doctor` prints only
+  environment JSON), smoke-test MCP tools, and confirm the UI can serve static assets.
 - Keep a manifest of what is included and what must be supplied internally.
 
 Boundaries:
