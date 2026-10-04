@@ -23,7 +23,9 @@ The first-run card asks you to:
    Use Settings or contact an administrator when no engine is available.
 3. Try a task card. Cards turn a common task into a clear prompt with a few fields to fill in.
 
-The default permission mode is Ask every time. Ruyi asks before each operation, so it is safe to explore.
+A new install starts in Smart auto: low-risk work runs without asking, while deleting data, installing software, pushing and
+sending outbound still stop for you. An upgraded install keeps the level it had. Switch to Ask every time from the shield
+button when you want Ruyi to ask before each change.
 
 ### Send your first request
 
@@ -61,7 +63,7 @@ Permissions & safety); set a single thread from the **permission chip** in its h
 | Smart auto | Stops asking and reports back. Deleting data, installing software, pushing, sending outbound, and spliced or encoded commands whose real intent cannot be read still stop; the steward may approve the non-floor ones under its rules (see section 9). | Handing the work to the steward without step-by-step interruptions. |
 | Fully automatic | Never asks and nothing is vetted - even floor actions such as payments, shutdown, or sending mail run straight away; only system folders stay write-protected (red warning style). | Only in an isolated environment or when you fully trust the task. Scheduled tasks never use it. |
 
-Both Smart auto and Fully automatic ask you to confirm first, each with its own explanation. When unsure, use
+Switching to Smart auto or Fully automatic asks you to confirm first, each with its own explanation. When unsure, use
 Ask every time. A change applies from the next turn and does not interrupt a turn in progress.
 
 ### Questions from the AI

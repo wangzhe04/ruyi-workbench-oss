@@ -41,8 +41,8 @@ const FLIPPED = ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'run
 // 一份「旧版本写下的整份配置」:当前默认铺满,改几处 —— 与 2.8.0 及以前每一次写盘的形状相同。
 const fullOldFile = (patch = {}) => ({ ...JSON.parse(JSON.stringify(DEFAULTS)), configExplicitKeysV1: undefined, configSchema: 12, version: '2.8.0', ...patch });
 
-test('前提:schema 已抬到 13,默认表里有簿记键 configExplicitKeysV1', () => {
-  assert.equal(CONFIG_SCHEMA, 13);
+test('前提:schema 已抬到 14(13 是稀疏落盘,14 是出厂权限档翻成智能自动),默认表里有簿记键 configExplicitKeysV1', () => {
+  assert.equal(CONFIG_SCHEMA, 14);
   assert.deepEqual(srv.defaultConfig().configExplicitKeysV1, []);
 });
 
@@ -60,8 +60,9 @@ test('[A] 全新安装第一次读只落簿记键', async () => {
   assert.deepEqual(disk.configExplicitKeysV1, ['workspaces']);
   assert.ok(Array.isArray(disk.workspaces) && disk.workspaces.length === 1, '播种出来的那一行工作区落盘了');
   assert.deepEqual(Object.keys(disk).filter(k => !known.includes(k)).sort(), ['searchBackendMigrated', 'subagentBudgetMigrated']);
-  assert.equal(disk.configSchema, 13);
+  assert.equal(disk.configSchema, CONFIG_SCHEMA);
   assert.equal(cfg.permissionMode, DEFAULTS.permissionMode, '内存视图照旧是整份');
+  assert.equal(cfg.permissionMode, 'auto', '全新安装吃到出厂档智能自动(to:14 只钉存量文件,不碰全新安装)');
   assert.ok(Object.keys(cfg).length > 100, `内存视图的键数 ${Object.keys(cfg).length}`);
 });
 
@@ -164,7 +165,7 @@ test('[I] version 戳不被当成显式', async () => {
   const disk = onDisk();
   assert.ok(!disk.configExplicitKeysV1.includes('version'));
   assert.notEqual(disk.version, '2.7.0');
-  assert.equal(disk.configSchema, 13);
+  assert.equal(disk.configSchema, CONFIG_SCHEMA);
 });
 
 test('[J] mutator 删掉已知键 = 恢复默认', async () => {

@@ -1889,12 +1889,23 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
 // web_search/web_fetch 定为 read 级的既有裁定对齐(此前 Claude 引擎的研究/审查类 read 节点连检索都不行,两引擎
 // 能力面不对称)。落盘/执行面(Write/Edit/Bash/MCP)分级不变。
 const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], edit: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Write', 'Edit'], exec: [] };
-// Permission modes that resolve without a human/bridge to answer a prompt: 'bypass' skips all asking,
-// 'auto' is the CLI's own built-in risk classifier (v1.4.3, documented above at runClaudeTurn's
-// usePermissionBridge computation), 'dontAsk' skips by name, and 'plan' never executes a mutating tool in
-// the first place. Anything else ('default', 'acceptEdits') can still block on Bash/exec-tier calls with
-// no one to answer — a one-shot unattended DAG node would hang forever, so those get coerced below.
-const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']);
+// Permission modes passed straight to the CLI: 'bypass' skips all asking, 'auto' is the CLI's own built-in
+// risk classifier (v1.4.3, documented above at runClaudeTurn's usePermissionBridge computation), and 'plan'
+// never executes a mutating tool in the first place. 'default'/'acceptEdits' would block on a prompt nobody
+// can answer in a one-shot print-mode node, so they go through claudeSubagentPermission below.
+const CLAUDE_SUBAGENT_PASSTHROUGH_MODES = new Set(['bypass', 'auto', 'plan']);
+// 2026-10 拍板「两引擎都按权限档拒绝」:修前 default/acceptEdits 在 edit/exec 档被抬成 bypass —— 用户选了「每步都问」,
+// 工作流里的 Claude 节点却全自动跑,而 OpenAI 路径同档是拒绝(runSubAgentCore 里 nativeToolGate !== 'allow' → 拒绝结果)。
+// 现在与 nativeToolGate 同一条判据:default / dontAsk 只放 read 级,acceptEdits 再放 edit 级,exec 级(Bash/MCP)一律拒。
+// CLI 侧用 dontAsk 落实 —— 不在 --allowed-tools 里的工具直接拒、不弹窗,子进程不会卡在没人按的那一步。
+// capped=true 表示白名单就是授权本身(参数阶梯不能丢它,exec 档也不挂桥接 MCP:挂上去也全被拒)。
+function claudeSubagentPermission(requestedMode, tier, roleTools) {
+  const declared = (Array.isArray(roleTools) && roleTools.length) ? roleTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
+  if (CLAUDE_SUBAGENT_PASSTHROUGH_MODES.has(requestedMode)) return { mode: requestedMode, tools: declared, capped: false };
+  const ceiling = CLAUDE_SUBAGENT_TIER_TOOLS[requestedMode === 'acceptEdits' ? 'edit' : 'read'];
+  const base = declared.length ? declared : ceiling; // exec 档的空清单 = 不限 → 收到该档的上限
+  return { mode: 'dontAsk', tools: base.filter(t => ceiling.includes(t)), capped: true };
+}
 
 // One-shot, session-free Claude CLI turn for a single DAG node: spawns `claude -p` with the node/role's
 // own model + tool restriction, feeds stdout through the same parseClaudeEvent normalizer runClaudeTurn
@@ -1964,8 +1975,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
   const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
-  const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
+  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'default';
+  const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
+  const effMode = grant.mode;
 
   // Keep the print-mode process input channel open. Claude's documented stream-json input accepts additional
   // user envelopes while a turn is running, which lets the workflow orchestrator steer a long Claude node
@@ -1974,8 +1986,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
-  if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
+  if (grant.tools.length) args.push('--allowed-tools', grant.tools.join(','));
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
@@ -1991,12 +2002,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // role.mcpServers narrows an exec-tier node to just those servers; empty/absent means everything the
   // workbench has configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
   const roleMcpServers = (role && role.mcpServers) || [];
-  const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  const mcpConfigPath = (tier === 'exec' && !grant.capped) ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
 
   // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
   // 降级阶梯: ① 丢 --append-system-prompt(仅语言政策,可恢复性最低) ② 非 plan 模式丢 --allowed-tools
-  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式下它有意义,不丢)
+  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式与按档收紧的 dontAsk 下它就是授权,不丢)
   // ③ 仍超 → 明确报错(分类器把「命令行太长。」列为 definitive,不会无谓重试 3 次)。
   {
     const guardCmd = fakeClaude ? process.execPath : claude;
@@ -2004,7 +2015,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     if (guardBudget > 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) {
       const pi = args.indexOf('--append-system-prompt');
       if (pi >= 0) args.splice(pi, 2);
-      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan') {
+      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan' && !grant.capped) {
         const ti = args.indexOf('--allowed-tools');
         if (ti >= 0) args.splice(ti, 2);
       }

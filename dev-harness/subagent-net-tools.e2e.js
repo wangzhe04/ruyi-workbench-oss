@@ -59,7 +59,8 @@ const src = readServerSource();
 // ---- ④ Claude 路径 mcp-config 仍 exec-only(安全不变量) ----
 {
   const fnSlice = functionBlock(src, 'runClaudeSubAgentOnce');
-  ok(/tier === 'exec' \? await generateAgentNodeMcpConfig/.test(fnSlice), "④ Claude 子代理 mcp-config 仍仅 exec 级挂载(bypass 下 allowlist 非硬限,不得提前开放)");
+  // 2026-10:按权限档收紧(grant.capped,default/acceptEdits 下 exec 级被拒)时连 exec 档也不挂 —— 只许比 exec-only 更窄。
+  ok(/\(?tier === 'exec'(?: && !grant\.capped\))? \? await generateAgentNodeMcpConfig/.test(fnSlice), "④ Claude 子代理 mcp-config 仍仅 exec 级挂载(bypass 下 allowlist 非硬限,不得提前开放)");
 }
 
 // ---- ⑤ NATIVE_TOOL_TIER 分级不变量 ----

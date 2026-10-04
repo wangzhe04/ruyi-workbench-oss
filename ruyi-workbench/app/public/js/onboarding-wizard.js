@@ -1019,7 +1019,10 @@ export function createOnboardingWizardDomain({
           title: t('onboarding.wizard.safety.' + mode + '.title'),
           description: t('onboarding.wizard.safety.' + mode + '.description'),
           onSelect: async () => {
-            if (needsConfirm(mode) && wiz.permissionMode !== mode) { wiz.pendingSafety = mode; render(); return; }
+            // 已是这一档就不再落盘:出厂档是智能自动(2026-10),新用户点一下已选中的卡片会不带 confirm 回写 auto,
+            // 被服务端那道二次确认门 409 挡回来,只剩一句报错。
+            if (wiz.permissionMode === mode) { wiz.pendingSafety = ''; render(); return; }
+            if (needsConfirm(mode)) { wiz.pendingSafety = mode; render(); return; }
             wiz.pendingSafety = '';
             await choose(mode);
           },

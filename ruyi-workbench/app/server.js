@@ -33,11 +33,13 @@ const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // (同一请求流里先撞哪条闸,决定 26 MB 夹具拿到的是 413 还是放行;反向:把本常量换成 MAX_BODY_BYTES
 // 或把判定挪到 readBody 之后,asr-transcribe.e2e.js 的 24.9/26 MB 返回码对照当场红)。
 const ASR_MAX_BODY_BYTES = 25 * 1024 * 1024;
+// 14(2026-10):出厂权限档翻成「智能自动」。<14 的存量文件里没存过档的,迁移钉回当年的默认 'default'
+// (01-config CONFIG_MIGRATIONS to:14)—— 新默认只给全新安装,不悄悄放开老用户。
 // 13(128a,48 号文 §2):配置只落「改过的键」——显式键集合 configExplicitKeysV1 ＋ 稀疏落盘,没碰过的设置跟随
 // 产品当前默认;迁移按显式键判。本号本身不挂迁移(推断每次读都跑),只标记「这份文件是稀疏格式写的」。
 // 12(v2.8 / 107-T1): 126-111b/111d/111e 三个压缩开关翻成默认开,并对 schema<12 的存量配置做一次性
 // 迁移(盘上显式写着的 false → true)。11 = v2.8 selectable Agent CLI driver (Claude Code / Kimi Code)。
-const CONFIG_SCHEMA = 13;
+const CONFIG_SCHEMA = 14;
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 
@@ -2074,7 +2076,10 @@ function defaultConfig() {
     claudePath: detectClaudePath(),
     kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
-    permissionMode: 'default',
+    // 2026-10 拍板:出厂档是「智能自动」。只管没有存过档的新配置 —— 老用户 config.json 里已有的档原样保留;
+    // 「切到」智能自动 / 全自动仍要二次确认(01e PERMISSION_MODES_REQUIRING_CONFIRM),那道门防的是被悄悄放开,
+    // 出厂值不是谁替用户切的。存了一个不认识的档时下面仍回落最保守的 'default',不回落到这里。
+    permissionMode: 'auto',
     includeWorkbenchMcp: true,
     autoResumeClaudeSessions: true,
     model: '',
@@ -2805,8 +2810,23 @@ const CONFIG_MIGRATIONS = Object.freeze([
       return true;
     },
   }),
+  Object.freeze({
+    to: 14,
+    // 2026-10 拍板:出厂权限档 'default' → 'auto'(智能自动)。新默认只给全新安装:稀疏文件(13)里没碰过档的用户
+    // 本来不存这个键,光翻 defaultConfig 会让他们升级后被悄悄放成智能自动 —— 而「切到」智能自动按 01e 是要二次
+    // 确认的。所以盘上已有配置、却没有 permissionMode 的,钉回当年的默认 'default';下面的显式键推断(迁移读看全部键)
+    // 会因它不等于新默认把它记成显式、落盘,之后不再跑。盘上本来就写着档的(<13 整份老文件、手改)原样保留,
+    // 不学 to:13 把旧默认当「没选」—— 权限只收紧不放开。全新安装(无文件 / 空文件)不动,吃到 'auto'。
+    // 读:ctx.rawKeys(盘上原始键)、ctx.rawExplicit。
+    apply(config, ctx) {
+      if (!ctx.rawKeys.size || ctx.rawKeys.has('permissionMode') || ctx.rawExplicit.has('permissionMode')) return false;
+      config.permissionMode = 'default';
+      return true;
+    },
+  }),
 ]);
-// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合 }。返回是否有迁移动过 config。
+// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合, rawKeys: raw 的顶层键集合
+// (无文件 / 空文件为空集) }。返回是否有迁移动过 config。
 function applyConfigMigrations(config, ctx) {
   let moved = false;
   for (const migration of CONFIG_MIGRATIONS) {
@@ -3289,7 +3309,8 @@ function normalizeConfig(raw, opts = {}) {
   }
   // 一次性 schema 迁移的唯一调用点(见 CONFIG_MIGRATIONS 头注):被迁移读到的键到这里都已完成字段级校验,
   // 而下面的工作区表那一段要消费 to:10 播进来的种子。
-  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit })) changed = true;
+  const rawKeys = new Set(raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw) : []);
+  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit, rawKeys })) changed = true;
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
@@ -3995,7 +4016,8 @@ async function readConfig() {
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
     if (lastGoodConfig) return lastGoodConfig;
     configDegraded = true;
-    return normalizeConfig(null).config;   // 只供本次请求使用，绝不落盘
+    // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
+    return { ...normalizeConfig(null).config, permissionMode: 'default' };
   };
   if (readError) {
     if (readError.code !== 'ENOENT') return degrade(String(readError.code || 'EREAD'));
@@ -36810,12 +36832,23 @@ async function buildClaudeAgentDefinitions(cwd, config, jsonBudget = 6000) {
 // web_search/web_fetch 定为 read 级的既有裁定对齐(此前 Claude 引擎的研究/审查类 read 节点连检索都不行,两引擎
 // 能力面不对称)。落盘/执行面(Write/Edit/Bash/MCP)分级不变。
 const CLAUDE_SUBAGENT_TIER_TOOLS = { read: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'], edit: ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', 'Write', 'Edit'], exec: [] };
-// Permission modes that resolve without a human/bridge to answer a prompt: 'bypass' skips all asking,
-// 'auto' is the CLI's own built-in risk classifier (v1.4.3, documented above at runClaudeTurn's
-// usePermissionBridge computation), 'dontAsk' skips by name, and 'plan' never executes a mutating tool in
-// the first place. Anything else ('default', 'acceptEdits') can still block on Bash/exec-tier calls with
-// no one to answer — a one-shot unattended DAG node would hang forever, so those get coerced below.
-const CLAUDE_SUBAGENT_SAFE_MODES = new Set(['bypass', 'auto', 'dontAsk', 'plan']);
+// Permission modes passed straight to the CLI: 'bypass' skips all asking, 'auto' is the CLI's own built-in
+// risk classifier (v1.4.3, documented above at runClaudeTurn's usePermissionBridge computation), and 'plan'
+// never executes a mutating tool in the first place. 'default'/'acceptEdits' would block on a prompt nobody
+// can answer in a one-shot print-mode node, so they go through claudeSubagentPermission below.
+const CLAUDE_SUBAGENT_PASSTHROUGH_MODES = new Set(['bypass', 'auto', 'plan']);
+// 2026-10 拍板「两引擎都按权限档拒绝」:修前 default/acceptEdits 在 edit/exec 档被抬成 bypass —— 用户选了「每步都问」,
+// 工作流里的 Claude 节点却全自动跑,而 OpenAI 路径同档是拒绝(runSubAgentCore 里 nativeToolGate !== 'allow' → 拒绝结果)。
+// 现在与 nativeToolGate 同一条判据:default / dontAsk 只放 read 级,acceptEdits 再放 edit 级,exec 级(Bash/MCP)一律拒。
+// CLI 侧用 dontAsk 落实 —— 不在 --allowed-tools 里的工具直接拒、不弹窗,子进程不会卡在没人按的那一步。
+// capped=true 表示白名单就是授权本身(参数阶梯不能丢它,exec 档也不挂桥接 MCP:挂上去也全被拒)。
+function claudeSubagentPermission(requestedMode, tier, roleTools) {
+  const declared = (Array.isArray(roleTools) && roleTools.length) ? roleTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
+  if (CLAUDE_SUBAGENT_PASSTHROUGH_MODES.has(requestedMode)) return { mode: requestedMode, tools: declared, capped: false };
+  const ceiling = CLAUDE_SUBAGENT_TIER_TOOLS[requestedMode === 'acceptEdits' ? 'edit' : 'read'];
+  const base = declared.length ? declared : ceiling; // exec 档的空清单 = 不限 → 收到该档的上限
+  return { mode: 'dontAsk', tools: base.filter(t => ceiling.includes(t)), capped: true };
+}
 
 // One-shot, session-free Claude CLI turn for a single DAG node: spawns `claude -p` with the node/role's
 // own model + tool restriction, feeds stdout through the same parseClaudeEvent normalizer runClaudeTurn
@@ -36885,8 +36918,9 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const subModel = String(model || (role && role.models && role.models.claude !== 'inherit' && role.models.claude) || '').trim();
 
   const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
-  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'bypass';
-  const effMode = CLAUDE_SUBAGENT_SAFE_MODES.has(requestedMode) ? requestedMode : (tier === 'read' ? 'plan' : 'bypass');
+  const requestedMode = roleMode || permModeOverride || config.permissionMode || 'default';
+  const grant = claudeSubagentPermission(requestedMode, tier, role && role.claudeTools);
+  const effMode = grant.mode;
 
   // Keep the print-mode process input channel open. Claude's documented stream-json input accepts additional
   // user envelopes while a turn is running, which lets the workflow orchestrator steer a long Claude node
@@ -36895,8 +36929,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const pm = claudePermissionMode(effMode); if (pm) args.push('--permission-mode', pm);
   if (subModel && subModel !== 'inherit') args.push('--model', subModel);
   if (config.claudeThinkingEffort) args.push('--effort', config.claudeThinkingEffort);
-  const allowedTools = (role && role.claudeTools && role.claudeTools.length) ? role.claudeTools : CLAUDE_SUBAGENT_TIER_TOOLS[tier];
-  if (allowedTools && allowedTools.length) args.push('--allowed-tools', allowedTools.join(','));
+  if (grant.tools.length) args.push('--allowed-tools', grant.tools.join(','));
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
@@ -36912,12 +36945,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   // role.mcpServers narrows an exec-tier node to just those servers; empty/absent means everything the
   // workbench has configured (generateAgentNodeMcpConfig mirrors generateSessionMcpConfig, keyed by subagentId).
   const roleMcpServers = (role && role.mcpServers) || [];
-  const mcpConfigPath = tier === 'exec' ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
+  const mcpConfigPath = (tier === 'exec' && !grant.capped) ? await generateAgentNodeMcpConfig(subagentId, config.mcpCommandMode, roleMcpServers) : '';
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
 
   // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
   // 降级阶梯: ① 丢 --append-system-prompt(仅语言政策,可恢复性最低) ② 非 plan 模式丢 --allowed-tools
-  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式下它有意义,不丢)
+  // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式与按档收紧的 dontAsk 下它就是授权,不丢)
   // ③ 仍超 → 明确报错(分类器把「命令行太长。」列为 definitive,不会无谓重试 3 次)。
   {
     const guardCmd = fakeClaude ? process.execPath : claude;
@@ -36925,7 +36958,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     if (guardBudget > 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) {
       const pi = args.indexOf('--append-system-prompt');
       if (pi >= 0) args.splice(pi, 2);
-      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan') {
+      if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan' && !grant.capped) {
         const ti = args.indexOf('--allowed-tools');
         if (ti >= 0) args.splice(ti, 2);
       }

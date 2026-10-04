@@ -7,6 +7,8 @@ require('./lib/self-isolate-home.js'); // 121 换机器：直跑时家目录自�
 //      OpenAI-compatible Provider configured at all — previously the launch handler hard-required one.
 //  (C) a Claude-engine DAG node's exec-tier bridged MCP access is scoped by role.mcpServers (or, if
 //      unset, gets the full workbench MCP config); read/edit tiers get no MCP config at all.
+//  (D) 2026-10: a Claude-engine node is gated by the permission mode like the OpenAI path — default /
+//      acceptEdits run as `dontAsk` with the allowlist capped to the tiers that mode allows (no more bypass).
 const { killOwnTree } = require('./lib/kill-own-tree'); // 128c:只杀自己的树(核创建时间),取代 taskkill /T
 const fs = require('fs');
 const os = require('os');
@@ -143,6 +145,65 @@ async function tokenFor(port) {
       ok(readRun.ok === true && readRun.results[0].status === 'succeeded', 'read-tier Claude-engine node still runs successfully');
       const argv4 = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
       ok(!argv4.includes('--mcp-config'), 'read-tier node gets no --mcp-config at all (bridged MCP is exec-only)');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+
+  // ---- (D) 2026-10「两引擎都按权限档拒绝」:非全自动档下 Claude 节点不再被抬成 bypass ----
+  // 修前 default/acceptEdits 在 edit/exec 档被强转成 bypassPermissions(OpenAI 路径同档却是拒绝)。现在与 nativeToolGate
+  // 同口径:default 只放 read 级,acceptEdits 再放 edit 级,exec 级(Bash/桥接 MCP)拒;CLI 侧用 dontAsk 落实。
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-permgate-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const argvCapture = path.join(HOME, 'argv-capture.json');
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 14, permissionMode: 'default', defaultWorkspace: HOME, providers: [], activeProvider: '',
+      desktopMcp: { enabled: false },
+    }, null, 2));
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], {
+      cwd: WB, windowsHide: true,
+      env: { ...process.env, RUYI_HOME: HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: argvCapture },
+    });
+    try {
+      ok(await up(PORT), 'permission-gate test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const created = await post(PORT, '/api/sessions', { title: 'dag-permgate', cwd: HOME }, hdr);
+      const sid = created.session.id;
+      const launch = async node => {
+        const r = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [node] });
+        return { r, argv: JSON.parse(fs.readFileSync(argvCapture, 'utf8')) };
+      };
+      const flag = (argv, f) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : null; };
+      const READ = 'Read,Grep,Glob,WebSearch,WebFetch';
+
+      let { r, argv } = await launch({ id: 'coder_default', task: 'implement', role: 'coder', engine: 'claude' });
+      ok(r.ok === true && r.results[0].status === 'succeeded', 'D1 exec-tier coder node still runs under the default mode');
+      ok(flag(argv, '--permission-mode') === 'dontAsk', `D1 default mode is no longer coerced to bypass: exec node runs as dontAsk (got ${flag(argv, '--permission-mode')})`);
+      ok(flag(argv, '--allowed-tools') === READ, `D1 default mode: an unrestricted exec role is capped to the read-tier allowlist (got ${flag(argv, '--allowed-tools')})`);
+      ok(!argv.includes('--mcp-config'), 'D1 default mode: no bridged MCP for an exec node whose exec tier is refused');
+
+      ({ r, argv } = await launch({ id: 'verifier_default', task: 'verify', role: 'verifier', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ,
+        `D2 default mode: verifier's declared Bash is filtered out (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+
+      ({ r, argv } = await launch({ id: 'read_default', task: 'look around', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ,
+        `D3 default mode: read-tier node keeps its read allowlist under dontAsk (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+
+      ({ r, argv } = await launch({ id: 'explorer_default', task: 'explore', role: 'explorer', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'plan', "D4 a role's own plan mode still passes straight through");
+
+      const toEdits = await post(PORT, '/api/config', { permissionMode: 'acceptEdits' }, hdr);
+      ok(toEdits && toEdits.config && toEdits.config.permissionMode === 'acceptEdits', 'D5 global mode switched to acceptEdits');
+      ({ r, argv } = await launch({ id: 'coder_edits', task: 'implement', role: 'coder', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ + ',Write,Edit',
+        `D5 acceptEdits: exec node gets read + edit tools, still no Bash (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+
+      const toAuto = await post(PORT, '/api/config', { permissionMode: 'auto', confirm: true }, hdr);
+      ok(toAuto && toAuto.config && toAuto.config.permissionMode === 'auto', 'D6 global mode switched to auto (with confirm)');
+      ({ r, argv } = await launch({ id: 'coder_auto', task: 'implement', role: 'coder', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'auto' && !argv.includes('--allowed-tools'),
+        `D6 auto passes straight to the CLI's own classifier with the exec tier unrestricted (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
     } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
   }
 

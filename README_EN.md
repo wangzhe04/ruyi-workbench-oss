@@ -129,10 +129,10 @@ Letting the AI act only works if you can undo what it did:
 
 | Level | Behaviour | When to use it |
 |---|---|---|
-| **Ask me every step** (default) | Asks before editing files or running commands; reads are not asked | When you are getting started or handling important files |
+| **Ask me every step** | Asks before editing files or running commands; reads are not asked | When you are getting started or handling important files |
 | **Auto-apply small edits** | File edits run automatically; commands and other sensitive actions still ask | You trust its file edits but not free-running commands |
 | **Plan first** | Shows a complete plan and only acts after you approve it | Complex jobs where you want to see the approach first |
-| **Smart auto** | The AI judges risk: low-risk actions run, high-risk ones still ask | Everyday work the steward looks after (switching asks for confirmation) |
+| **Smart auto** (default for new installs) | The AI judges risk: low-risk actions run, high-risk ones still ask | Everyday work the steward looks after (switching to it asks for confirmation; upgraded installs keep their previous level) |
 | **Full auto** | Never asks (shown with a warning style) | Only when you fully understand the task and it is safe (switching asks for confirmation) |
 
 - **Three tool tiers**: read / edit / exec. Exec-tier actions can **never be allowed persistently**; read and edit tiers can be set to "allow for this thread".

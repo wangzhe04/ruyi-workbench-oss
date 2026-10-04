@@ -21,7 +21,10 @@ function defaultConfig() {
     claudePath: detectClaudePath(),
     kimiPath: detectKimiPath(),
     defaultWorkspace: os.homedir(),
-    permissionMode: 'default',
+    // 2026-10 拍板:出厂档是「智能自动」。只管没有存过档的新配置 —— 老用户 config.json 里已有的档原样保留;
+    // 「切到」智能自动 / 全自动仍要二次确认(01e PERMISSION_MODES_REQUIRING_CONFIRM),那道门防的是被悄悄放开,
+    // 出厂值不是谁替用户切的。存了一个不认识的档时下面仍回落最保守的 'default',不回落到这里。
+    permissionMode: 'auto',
     includeWorkbenchMcp: true,
     autoResumeClaudeSessions: true,
     model: '',
@@ -752,8 +755,23 @@ const CONFIG_MIGRATIONS = Object.freeze([
       return true;
     },
   }),
+  Object.freeze({
+    to: 14,
+    // 2026-10 拍板:出厂权限档 'default' → 'auto'(智能自动)。新默认只给全新安装:稀疏文件(13)里没碰过档的用户
+    // 本来不存这个键,光翻 defaultConfig 会让他们升级后被悄悄放成智能自动 —— 而「切到」智能自动按 01e 是要二次
+    // 确认的。所以盘上已有配置、却没有 permissionMode 的,钉回当年的默认 'default';下面的显式键推断(迁移读看全部键)
+    // 会因它不等于新默认把它记成显式、落盘,之后不再跑。盘上本来就写着档的(<13 整份老文件、手改)原样保留,
+    // 不学 to:13 把旧默认当「没选」—— 权限只收紧不放开。全新安装(无文件 / 空文件)不动,吃到 'auto'。
+    // 读:ctx.rawKeys(盘上原始键)、ctx.rawExplicit。
+    apply(config, ctx) {
+      if (!ctx.rawKeys.size || ctx.rawKeys.has('permissionMode') || ctx.rawExplicit.has('permissionMode')) return false;
+      config.permissionMode = 'default';
+      return true;
+    },
+  }),
 ]);
-// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合 }。返回是否有迁移动过 config。
+// ctx = { fromSchema: 读进来的 configSchema(缺/坏为 0), rawExplicit: raw 里的显式键集合, rawKeys: raw 的顶层键集合
+// (无文件 / 空文件为空集) }。返回是否有迁移动过 config。
 function applyConfigMigrations(config, ctx) {
   let moved = false;
   for (const migration of CONFIG_MIGRATIONS) {
@@ -1236,7 +1254,8 @@ function normalizeConfig(raw, opts = {}) {
   }
   // 一次性 schema 迁移的唯一调用点(见 CONFIG_MIGRATIONS 头注):被迁移读到的键到这里都已完成字段级校验,
   // 而下面的工作区表那一段要消费 to:10 播进来的种子。
-  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit })) changed = true;
+  const rawKeys = new Set(raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw) : []);
+  if (applyConfigMigrations(config, { fromSchema: incomingConfigSchema, rawExplicit, rawKeys })) changed = true;
   // v2.7 (workspace permissions): workspaces — priority-ordered array of {path, read, write, execute}; all
   // flags default true (read !== false / write !== false / execute !== false). One-time seed (schema < 10)
   // from defaultWorkspace + recentWorkspaces lives in CONFIG_MIGRATIONS (to:10), which runs just above and
@@ -1942,7 +1961,8 @@ async function readConfig() {
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
     if (lastGoodConfig) return lastGoodConfig;
     configDegraded = true;
-    return normalizeConfig(null).config;   // 只供本次请求使用，绝不落盘
+    // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
+    return { ...normalizeConfig(null).config, permissionMode: 'default' };
   };
   if (readError) {
     if (readError.code !== 'ENOENT') return degrade(String(readError.code || 'EREAD'));
