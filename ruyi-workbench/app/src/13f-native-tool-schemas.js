@@ -521,7 +521,7 @@ const MCP_TOOLS = [
       type: 'object',
       properties: {
         cwd: { type: 'string', description: 'repo folder (default: conversation working folder; must exist)' },
-        message: { type: 'string', description: 'one-line commit message' },
+        message: { type: 'string', description: 'commit message; body may follow a blank line' },
         addAll: { type: 'boolean', description: 'git add -A first (default false: only what is already staged)' },
         paths: { type: 'array', items: { type: 'string' }, description: 'stage only these files (overrides addAll)' },
       },

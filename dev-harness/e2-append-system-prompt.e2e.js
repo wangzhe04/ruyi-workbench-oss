@@ -95,6 +95,30 @@ function postStream(port, payload) {
     fs.rmSync(HOME, { recursive: true, force: true });
   }
 
+  // ── (d3) 2026-10:全新安装(没有 config.json)的出厂档是智能自动,但那不是用户选的 —— 不许把用户自己的
+  // ~/.claude/settings.json 改成 defaultMode:auto(单独用 claude 的人会被悄悄放宽)。用户选过档位(显式键)才同步。
+  {
+    const HOME3 = path.join(os.tmpdir(), 'wcw-e2-append-e2e-d3');
+    const SETTINGS3 = path.join(HOME3, '.claude', 'settings.json');
+    fs.rmSync(HOME3, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(SETTINGS3), { recursive: true });
+    fs.writeFileSync(SETTINGS3, JSON.stringify({ permissions: { defaultMode: 'default' } }, null, 2));
+    const env3 = { ...process.env, WIN_CLAUDE_WORKBENCH_HOME: HOME3, USERPROFILE: HOME3, HOME: HOME3, WCW_FAKE_CLAUDE: FAKE_CLAUDE };
+    const wb3 = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(WB_PORT)], { cwd: WB, env: env3, windowsHide: true });
+    try {
+      let h3 = null; for (let i = 0; i < 40 && !h3; i++) { await sleep(150); h3 = await health(WB_PORT); }
+      ok(!!h3, '(d3) fresh-install workbench listening');
+      await sleep(500);
+      const s3 = JSON.parse(fs.readFileSync(SETTINGS3, 'utf8'));
+      ok(s3.permissions && s3.permissions.defaultMode === 'default', '(d3) fresh install leaves the user\'s own Claude Code defaultMode alone (got ' + JSON.stringify(s3.permissions) + ')');
+    } catch (e) { console.log('ERROR(d3) ' + (e && e.stack || e.message || e)); fail++; }
+    finally {
+      if (wb3 && wb3.pid) { try { killOwnTree(wb3); } catch { /* ignore */ } }
+      await sleep(300);
+      fs.rmSync(HOME3, { recursive: true, force: true });
+    }
+  }
+
   // ── (d2) 第36波: 权属可证时删除照常工作 —— sidecar 记录的上一版同步值仍原样躺在 settings.model 里,
   // 说明那是【我们写的】(非用户手写),工作台无 model 时应予清除(陈旧覆盖不留存)。
   {

@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3456,
-    "requiredSymbols": 3116,
-    "edges": 533,
+    "providedSymbols": 3463,
+    "requiredSymbols": 3124,
+    "edges": 535,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -6695,7 +6695,11 @@
         "BRIDGED_TOOL_NAME_TERMS",
         "BRIDGED_TOOL_NAME_TERM_MAX_WORDS",
         "CLAUDE_PROGRESS_CHAR_STEP",
-        "CLAUDE_SUBAGENT_SAFE_MODES",
+        "CLAUDE_SUBAGENT_EDIT_TOOLS",
+        "CLAUDE_SUBAGENT_EXEC_TOOLS",
+        "CLAUDE_SUBAGENT_PASSTHROUGH_MODES",
+        "CLAUDE_SUBAGENT_TIER_DENY",
+        "CLAUDE_SUBAGENT_TIER_RANK",
         "CLAUDE_SUBAGENT_TIER_TOOLS",
         "DESKTOP_MCP_SERVER_ID",
         "FAILOVER_CONNECT_CODES",
@@ -6754,6 +6758,7 @@
         "classifyRuntimeToolFailure",
         "classifyToolPacks",
         "claudePermissionMode",
+        "claudeSubagentPermission",
         "cleanupAgentWorktree",
         "compareToolRetrievalShadow",
         "createAgentWorktree",
@@ -7329,8 +7334,10 @@
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
+        "agentRunPermissionMode",
         "agentRunResultSlice",
         "agentRunSaveFailures",
+        "agentWorkflowSaveProblem",
         "agentWorkflowStatusText",
         "aggregateAgentVote",
         "aggregateCoverage",
@@ -7553,6 +7560,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "bridgedWriteRelativePathArg",
           "kinds": [
@@ -7603,6 +7617,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "registerIntervention",
           "kinds": [
             "call"
@@ -7611,6 +7632,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -8428,6 +8456,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12756,6 +12791,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01f-agent-cli-types.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -13569,6 +13611,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentWorkflowSaveProblem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
           "kinds": [
             "call"
@@ -13598,6 +13647,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "markInterruptedAgentRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "normalizeAgentWorkflow",
           "kinds": [
             "call"
           ]
@@ -17745,6 +17801,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunPermissionMode",
           "kinds": [
             "call"
           ]
@@ -27933,6 +27996,14 @@
     },
     {
       "from": "08-agent-runs.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "08-agent-runs.js",
       "to": "02-session-store.js",
       "symbols": [
         "MISSION_STALL_SIGNAL_WINDOW_MS",
@@ -27942,6 +28013,7 @@
         "mutateSession",
         "providerHistoryToolCalls",
         "readInterventions",
+        "readSessionHeadResilient",
         "registerIntervention",
         "settleIntervention"
       ],
@@ -27951,6 +28023,7 @@
       "from": "08-agent-runs.js",
       "to": "02d-session-overrides.js",
       "symbols": [
+        "applySessionPermissionModeOverride",
         "liveSessionPermissionMode",
         "sessionDesktopToolsOf"
       ],
@@ -28161,6 +28234,14 @@
         "toolTimeBudgetShadowEnabled",
         "toolTimeBudgetWarnMs",
         "volatileTailLayoutEnabled"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
       ],
       "direction": "backward"
     },
@@ -29207,7 +29288,8 @@
       "symbols": [
         "BUILTIN_AGENT_ROLES",
         "PERMISSION_MODES",
-        "normalizeAgentRole"
+        "normalizeAgentRole",
+        "resolvePermissionMode"
       ],
       "direction": "backward"
     },
@@ -29422,11 +29504,13 @@
       "to": "08-agent-runs.js",
       "symbols": [
         "agentRunResultSlice",
+        "agentWorkflowSaveProblem",
         "autoResumeInterruptedRuns",
         "buildAgentRunEnvelope",
         "deleteAgentWorkflow",
         "getAgentWorkflows",
         "markInterruptedAgentRuns",
+        "normalizeAgentWorkflow",
         "resolveOrchestrateNodes",
         "saveAgentRun",
         "saveAgentWorkflow"
@@ -30852,6 +30936,7 @@
       "from": "13l-steward-ops.js",
       "to": "08-agent-runs.js",
       "symbols": [
+        "agentRunPermissionMode",
         "classifyRunResumeTier",
         "listAgentRuns"
       ],

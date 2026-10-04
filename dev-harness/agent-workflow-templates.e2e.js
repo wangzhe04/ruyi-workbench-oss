@@ -28,6 +28,21 @@ const ok = (value, label) => { if (value) console.log('PASS ' + label); else { f
     // 会让真实模型的自由分析产出 schema_failed(已实证)。
     ok(builtInNodes.filter(n => n.gate && n.gate.requireEvidence).every(hasEvidenceRefsSchema), 'every high-risk evidence gate declares findings[].evidenceRefs output contract');
     ok(builtInNodes.filter(n => !(n.gate && n.gate.requireEvidence)).every(n => !n.outputSchema), 'non-gate source nodes stay free-text without a forced verdict schema');
+    // 2026-10:产出发现的 reviewer / verifier 节点显式 gate:false —— 修前 normalizeAgentGate 给它们自动补 review/verify 门,
+    // 审计一发现缺陷就判 rejected、运行汇总报「质量门未通过」。
+    const auditFlow = initial.find(x => x.id === 'codebase-audit');
+    ok(['audit_correctness', 'audit_security', 'audit_quality'].every(id => auditFlow.nodes.find(n => n.id === id).gate === false), 'codebase-audit finding nodes carry no implicit review gate');
+    ok(debugFlow.nodes.find(n => n.id === 'reproduce').gate === false, 'debug-root-cause reproduce node carries no implicit verify gate');
+    ok(auditFlow.nodes.find(n => n.id === 'verify').gate && auditFlow.nodes.find(n => n.id === 'verify').gate.mode === 'cross_review', 'the downstream verify node still gates the audit');
+    // 2026-10:node.context / replan / reportedDependsOn 在规范化里不再被丢(启动路径与工具 schema 都认)。
+    const kept = server.normalizeAgentWorkflow({ id: 'keep-fields', title: 'K', nodes: [
+      { id: 'a', task: 'A' }, { id: 'b', task: 'B', dependsOn: ['a'], context: '  只给 b 的资料  ', replan: true, reportedDependsOn: ['a', 'a', ''] }] });
+    const kb = kept && kept.nodes.find(n => n.id === 'b');
+    ok(kb && kb.context === '只给 b 的资料' && kb.replan === true && JSON.stringify(kb.reportedDependsOn) === '["a"]', 'context / replan / reportedDependsOn survive normalization');
+    ok(kept && !('context' in kept.nodes[0]) && !('replan' in kept.nodes[0]) && !('reportedDependsOn' in kept.nodes[0]), 'nodes without them keep the old shape');
+    // 2026-10:Synthesizer 跑在只做计划档,提示词不再说「需要落盘时按节点工具面执行」(那做不到)。
+    const synth = (await server.getAgentRoleLibrary(PROJECT, {})).find(r => r.id === 'synthesizer');
+    ok(synth && synth.permissionMode === 'plan' && !/按节点指派的工具面/.test(synth.prompt) && /不改文件/.test(synth.prompt), 'synthesizer prompt matches its plan-mode permissions');
     const highRiskIds = new Set(['judge', 'review', 'decide', 'verify', 'factcheck', 'test']);
     const highRiskNodes = builtInNodes.filter(n => n.gate && n.gate.requireEvidence);
     ok(highRiskNodes.length === 9 && highRiskNodes.every(n => highRiskIds.has(n.id) && n.dependsOn.length > 0), 'only nine upstream-dependent reviewer/verifier nodes enable the evidence-blocking gate');

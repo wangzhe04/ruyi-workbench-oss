@@ -39,14 +39,9 @@ function getBody(src) {
 function thinkingCharCount(text) { return String(text || '').length; }
 function thinkingSummaryLabel(text) { const n = thinkingCharCount(text); return n > 0 ? `思考过程 · ${n} 字` : '思考过程'; }
 
-function assemblePlaybookPrompt(pb, values) {
-  let out = String(pb.promptTemplate || '');
-  for (const inp of (pb.inputs || [])) {
-    const v = (values && values[inp.key] != null) ? String(values[inp.key]) : '';
-    out = out.split('{' + inp.key + '}').join(v);
-  }
-  return out;
-}
+// 2026-10:不再手抄 —— 直接从前端源码把真函数取出来求值(与 steward-playbook-run 同一把尺子),副本与真身不会再漂。
+const { functionBlock } = require('../lib/source-slice.js');
+const assemblePlaybookPrompt = new Function(functionBlock(fs.readFileSync(path.join(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'session-experience.js'), 'utf8'), 'assemblePlaybookPrompt') + ';return assemblePlaybookPrompt;')();
 
 function ctxWindowGuess(model) {
   const m = String(model || '').toLowerCase();
@@ -189,6 +184,10 @@ describe('assemblePlaybookPrompt', () => {
     const pb = { promptTemplate: '{x} and {x} again', inputs: [{ key: 'x' }] };
     const result = assemblePlaybookPrompt(pb, { x: 'A' });
     assert.equal(result, 'A and A again');
+  });
+  it('does not re-substitute a {key} that appears inside a value (single pass)', () => {
+    const pb = { promptTemplate: '{notes} -> {output}', inputs: [{ key: 'notes' }, { key: 'output' }] };
+    assert.equal(assemblePlaybookPrompt(pb, { notes: 'write to {output}', output: 'out.md' }), 'write to {output} -> out.md');
   });
   it('handles special regex chars in key name', () => {
     const pb = { promptTemplate: 'Use {file.name}', inputs: [{ key: 'file.name' }] };

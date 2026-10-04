@@ -1185,7 +1185,8 @@ async function launchPersistedAgentRun({ sessionId, runId, retryNodeId, retryCas
     ...(background ? { onComplete: r => deliverAgentRunEnvelope(sessionId, r) } : {}),
     // maxNodes is unused on the existingRun path (only the fresh-run branch checks it against rawNodes.length)
     // but pass the same config-driven ceiling for consistency rather than a stray hardcoded 32.
-    permModeOverride: config.permissionMode, maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
+    // 2026-10:续跑也按线程的生效档(会话级 > 全局),与首跑、恢复分级(agentRunPermissionMode)同一个解析。
+    permModeOverride: resolvePermissionMode({ session: parentSession, config }), maxNodes: Math.max(0, Number(config.agentWorkflowMaxNodes) || 0),
     onRegistered: () => markRegistered(),
   }).catch(async e => {
     run.status = 'failed'; run.error = String(e && e.message || e); run.completedAt = nowIso();
@@ -1577,6 +1578,9 @@ async function runOpenAiTurn({ session, message, attachments, cwd, onEvent, prov
     // LIVE turn object (belt-and-suspenders with the pre-save disk-merge at the turn's end).
     session,
     interactive: false, onEvent, kind: 'openai', traceId: activeTraceId, abort: () => { try { if (ctrl) ctrl.abort(); } catch { /* ignore */ } },
+    // 2026-10:与 05 Claude 回合的登记项同口径 —— 本回合解析出的档(请求级 > 会话级 > 全局);从这条线程直接起的工作流
+    // (POST /api/agent-workflow/launch)按它跑,不是按全局档。
+    permissionMode: String(config.permissionMode || ''),
     // v0.8-S7: steering queue (§4 A3). /api/steer pushes plain user text here (cap 3) while a provider
     // turn is live; the tool loop drains it at the iteration boundary (before each API call), injecting
     // each as a `[用户插话] …` user message into providerHistory (pairing-safe — see drainSteerQueue).

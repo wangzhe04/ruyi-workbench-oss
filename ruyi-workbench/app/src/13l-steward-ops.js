@@ -465,7 +465,7 @@ async function stewardRunResumeTier(sessionId, runId, config) {
   }
   const run = safeJsonParse(raw, null);
   if (!run) return 'unknown';
-  return String(classifyRunResumeTier(run, config && config.permissionMode).tier || '');
+  return String(classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config || {})).tier || '');
 }
 async function stewardImplRunAction(args, ctx, config) {
   const sessionId = safeSessionId(args.sessionId);

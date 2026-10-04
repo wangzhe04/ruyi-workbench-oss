@@ -2454,13 +2454,14 @@ function addTemplateFromPrompt() {
 function insertTemplate(text) { const ta = $('promptInput'); ta.value = text; autoGrow(ta); ta.focus(); }
 
 /* ---------------- skill library panel (v1 技能体系) ---------------- */
-// 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令在 Claude 下插入 /name,Provider 下插入同一
-// 命令正文作为可编辑任务模板;一键任务走 Playbook 表单。skillFiltered 供键盘上下 + Enter。
+// 「技能库」三分组:技能支持本会话启用 + 全局常驻;命令点选后插入命令正文作为可编辑任务模板(只有 ~/.claude/commands
+// 的用户命令在 Claude Code 下插 /name,见 skills-memory commandInsertionText);一键任务走 Playbook 表单。
   return Object.freeze({
     activeProviderObj,
     addProviderFromPreset,
     addTemplateFromPrompt,   // 命令面板「把当前输入存为模板」(navigation-controls 经组合根取它;修前漏导出,一按就 ReferenceError)
     applyClaudeEndpointPreset,
+    currentAgentCliType,   // 技能库点选用户命令时按 CLI 能力(agent-cli-registry claudeUserCommands)决定插 /name 还是插模板
     currentEngineMeta,
     currentModelId,
     engineLabel,

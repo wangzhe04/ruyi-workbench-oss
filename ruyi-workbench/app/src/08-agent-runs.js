@@ -410,6 +410,14 @@ function classifyNodeResumeRisk(node) {
 // (permissionModeAtLaunch ≠ 恢复时 config.permissionMode)→ manual:恢复用的是【恢复时】的模式
 // (launchPersistedAgentRun 传 permModeOverride),不同 = 权限面静默变更,无人值守下不自动放行(方案原文:
 // "涉外部副作用或权限变化只恢复到暂停态")。老 run 无该字段则跳过此信号(分级要可用,不因缺字段一刀切)。
+// 2026-10:工作流跑在【它所在线程】的生效权限档(会话级 > 全局,resolvePermissionMode),不是全局档 —— 修前 HTTP 启动
+// 与续跑都直接取 config.permissionMode,线程在自己的权限 chip 上收紧过也照全局放。恢复分级用同一个值比对,否则「线程档
+// 放宽了、全局档没变」会被判成权限面没变而自动续跑。
+async function agentRunPermissionMode(sessionId, config) {
+  const head = safeSessionId(sessionId) ? await readSessionHeadResilient(sessionId).catch(() => null) : null;
+  // 头读路径绕过 loadSession,要自己盖一层会话级权限档的内存覆盖(活回合中途切档、还没落盘时以它为准;同 13j stewardReadSessionHead)。
+  return resolvePermissionMode({ session: head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head, config });
+}
 function classifyRunResumeTier(run, currentPermissionMode) {
   const reasons = [];
   for (const n of (Array.isArray(run && run.nodes) ? run.nodes : [])) {
@@ -468,7 +476,7 @@ async function autoResumeInterruptedRuns() {
       // listAgentRuns 到本次处理之间有 syncRunEventSeq 等 await 窗口,故【每个 run append/save 前】即时复检 live 注册:
       // 已 live = 用户/上一轮已接管,跳过(launchPersistedAgentRun 的 9345 has 守卫只拦启动,拦不住这些前置写)。
       if (activeAgentRuns.has(run.id)) return;
-      const cls = classifyRunResumeTier(run, config.permissionMode);
+      const cls = classifyRunResumeTier(run, await agentRunPermissionMode(sessionId, config));
       const attempts = Number(run.autoResumeCount) || 0;
       await syncRunEventSeq(run); // 装载点纪律:append 前快进(见 syncRunEventSeq 注释)
       if (activeAgentRuns.has(run.id)) return; // syncRunEventSeq 的 await 后再复检一次(窗口内可能刚被手动 resume 接管)
@@ -531,7 +539,7 @@ async function markInterruptedAgentRuns() {
       }
       // 29b: 中断时就盖恢复分级戳(UI 有 tier 徽章可看;autoResumeInterruptedRuns 决策时【重算】,戳只做展示,
       // 不做信任来源 —— 分级函数才是单一事实源)。config 读不到则跳过,标死不受影响。
-      if (bootConfig) { const cls = classifyRunResumeTier(run, bootConfig.permissionMode); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
+      if (bootConfig) { const cls = classifyRunResumeTier(run, await agentRunPermissionMode(run.sessionId, bootConfig)); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
@@ -1624,11 +1632,13 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'codebase-audit', title: '代码审计:多维并行 → 核验 → 修复排期',
     description: '建库地图 → 三维度并行审计(正确性/安全/性能与可维护性) → 亲读核验剔除误报 → 按严重度×价值排优先级出修复清单。审计只读、不改代码。模型建议:并行审计(audit_*)可用中等模型;核验(verify)与排期(backlog)建议指派更强模型,以压住误报、抓准优先级。审计全程优先用 codebase_symbol_search 检索符号的真实定义/引用,以文件:行证据为准,勿凭名称相似下结论。',
     nodes: [
-      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。用 codebase_symbol_search 抽查关键符号/函数/类的定义与引用,确认模块、入口点与依赖真实存在、命名与文件对应,不要凭名称猜测。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
-      { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
-      { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
-      { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
-      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。对发现中引用的符号/函数/类,用 codebase_symbol_search 反查其定义与调用是否真实存在、文件:行是否对得上,否证幻觉与名称相近的误判。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'map', task: '快速建立目标代码库地图:核心模块与职责、关键数据流与入口点、外部依赖与信任边界、以及凭经验判断的高风险区域。用 codebase_symbol_search(没有这个工具时改用 Grep / Glob)抽查关键符号/函数/类的定义与引用,确认模块、入口点与依赖真实存在、命名与文件对应,不要凭名称猜测。输出简明地图 + 一份"建议重点审计的文件/区域"清单,供后续各维度聚焦。只读不改。', role: 'explorer', position: { x: 40, y: 220 } },
+      // 2026-10:三路审计与下面 debug-root-cause 的 reproduce 是【产出发现】的节点,显式 gate:false —— 不写时 reviewer/verifier
+      // 角色会被 normalizeAgentGate 自动补上 review/verify 门,审计一发现缺陷就判 rejected、运行汇总报「质量门未通过」。核验交给下游 verify。
+      { id: 'audit_correctness', task: '在 map 指出的重点区域找【正确性缺陷】:边界条件、错误处理缺失、并发/竞态、空值/未初始化、类型或接口契约不一致、资源泄漏。每条给:文件:行、具体触发条件、影响、建议修法。只报你能写出触发路径的,拿不准不报。', role: 'reviewer', gate: false, dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 70 } },
+      { id: 'audit_security', task: '找【安全缺陷】:注入(命令/SQL/路径)、路径穿越、鉴权/越权、敏感信息泄露、SSRF、不安全默认值、反序列化。每条给:文件:行、具体利用路径、影响、修法。只报可利用的,理论风险不报。', role: 'reviewer', gate: false, dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 220 } },
+      { id: 'audit_quality', task: '找【性能与可维护性】问题:热路径/循环内的低效、随数据量或时长恶化的结构、重复三次以上的逻辑、超长函数、死代码、易错的命名/边界。每条给文件:行与可度量的改进点。只报改了确有收益的。', role: 'reviewer', gate: false, dependsOn: ['map'], failurePolicy: 'continue', position: { x: 340, y: 370 } },
+      { id: 'verify', task: '对三路审计的全部发现做对抗核验:亲自读引用位置及上下文确认属实、检查是否已有防线/测试覆盖、剔除误报与重复项。对发现中引用的符号/函数/类,用 codebase_symbol_search(没有这个工具时改用 Grep / Glob)反查其定义与调用是否真实存在、文件:行是否对得上,否证幻觉与名称相近的误判。输出 verdict、confidence、summary 与 findings；每条成立或否证 finding 必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。默认怀疑,写不出具体触发即否证。', role: 'critic', dependsOn: ['audit_correctness', 'audit_security', 'audit_quality'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
       { id: 'backlog', task: '把 verify 的成立发现排成可执行修复清单:按(严重度 × 影响 ÷ 改动成本)分三档——立即修 / 下一轮 / 可选打磨;标注依赖顺序、建议测试与验收点；识别可在同一次改动里安全带走的同类项，但不要直接修改代码。', role: 'planner', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
@@ -1636,11 +1646,11 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'debug-root-cause', title: 'Bug 定位:复现 → 假设 → 验证 → 根因修复',
     description: '系统化定位难缠 Bug:确认最小复现 → 双方向并行提根因假设 → 逐一实验证伪(排除法) → 锁定根因并给最小修复。模型建议:复现(reproduce)与假设(hypo_*)可用快模型;验证(verify)与修复(fix)建议指派更强模型,因为根因判定与"修根因而非症状"最吃推理。verify 用 debug_hypothesis 追踪假设证伪状态,确保每个假设都被排除或证实,勿只验证一条就下结论。',
     nodes: [
-      { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', position: { x: 40, y: 220 } },
+      { id: 'reproduce', task: '确认并最小化复现:写出精确复现步骤、观察到的实际现象(日志/报错/异常状态)、预期现象、以及能稳定触发的最小条件集。若当前信息不足以复现,明确列出还需要哪些信息或环境。输出复现报告。', role: 'verifier', gate: false, position: { x: 40, y: 220 } },
       { id: 'hypo_a', task: '基于 reproduce 提出 2–3 个【最可能】的根因假设。每个假设说明:机制解释(为什么会导致该现象)、若成立应能观察到什么证据、以及最快的验证手段。按可能性排序。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 110 } },
       { id: 'hypo_b', task: '从 hypo_a 未覆盖的方向提出 2–3 个根因假设:环境/依赖版本、并发时序、数据/边界输入、配置/部署差异、上游变更等。同样给机制、预期证据、验证手段。目标是补齐盲区,而非重复 hypo_a。', role: 'explorer', dependsOn: ['reproduce'], failurePolicy: 'continue', position: { x: 340, y: 300 } },
-      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。先用 debug_hypothesis(action=init)把两个方向的假设登记成台账,每做一次实验就用 debug_hypothesis(action=test)记录其结果(证伪 refutes / 支持 supports / 无结论 inconclusive),锁定根因前用 action=conclude 并留意 earlyStopWarning(是否还有假设未排除)。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
-      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。动手前确认 verify 已用 debug_hypothesis 排除其余主要假设(而非只验证了一条);若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
+      { id: 'verify', task: '对 hypo_a/hypo_b 的每个假设逐一验证:能跑实验就跑最小实验、加日志或读代码去证实或证伪。先用 debug_hypothesis(action=init)把两个方向的假设登记成台账(没有这个工具时在输出里自建同样的台账:假设、实验、结果、结论),每做一次实验就用 debug_hypothesis(action=test)记录其结果(证伪 refutes / 支持 supports / 无结论 inconclusive),锁定根因前用 action=conclude 并留意 earlyStopWarning(是否还有假设未排除)。输出 verdict、confidence、summary 与 findings；每条判定必须在 evidenceRefs 中引用可见 Evidence Catalog 的 eventId。综合后锁定最可能的单一根因;若证据指向多因,说清主次。', role: 'verifier', dependsOn: ['hypo_a', 'hypo_b'], gate: C3_HIGH_RISK_GATE, failurePolicy: 'continue', position: { x: 680, y: 220 } },
+      { id: 'fix', task: '针对 verify 锁定且有证据支持的根因实施最小、聚焦的代码修复；先补能稳定复现的回归测试，再修改并运行相关测试，说明为什么修的是根因而非症状、潜在副作用与残余风险。动手前确认 verify 已(用 debug_hypothesis 或它自建的台账)排除其余主要假设(而非只验证了一条);若根因仍存疑，不要猜改。', role: 'coder', dependsOn: ['verify'], position: { x: 1000, y: 220 } },
     ],
   },
   {
@@ -1658,7 +1668,7 @@ const BUILTIN_AGENT_WORKFLOWS = Object.freeze([
     id: 'data-insights', title: '数据洞察:探查 → 方案 → 多角度分析 → 核验 → 洞察',
     description: '对数据/日志/指标做系统化分析:数据画像 → 定分析方案与口径 → 双线并行分析(主线 + 交叉/异常) → 对抗核验剔除不稳健结论 → 综合成洞察报告。模型建议:探查/分析(analyst)可用中等模型;方案(planner)、核验(critic)、洞察综述(synthesizer)建议指派更强模型。分析节点要读数据/跑只读脚本,请给足工具权限(analyst 为 exec 级)。探查用 data_profile 做机器级数据画像(规模/列类型/缺失/离群),不要靠目测。',
     nodes: [
-      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile 对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
+      { id: 'profile', task: '对目标数据/日志做初步探查:先用 data_profile(没有这个工具时用只读脚本统计同样的指标)对每个数据文件做机器级画像(行列规模、每列类型、缺失率、唯一值数、数值列的 min/max/mean/median/std 与离群点、样本值),据此确认字段与结构、数据质量问题(缺失/异常/重复/格式)、时间与口径范围。不要靠 file_read 目测几行就下结论。只读不改。输出数据画像 + 待澄清项。', role: 'analyst', position: { x: 40, y: 200 } },
       { id: 'plan', task: '基于 profile 定分析方案:要回答的关键问题(可判定)、清洗与口径规则(如何处理缺失/异常/去重、指标如何定义)、每个问题用什么切法与指标、结果如何交叉验证。输出结构化分析方案。', role: 'planner', dependsOn: ['profile'], position: { x: 340, y: 200 } },
       { id: 'analyze_main', task: '按 plan 执行【主线分析】:运行必要的只读查询/脚本,产出关键指标、趋势、分组对比等,每条结论标注口径(样本/时间范围/指标定义)与证据。不修改源数据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 90 } },
       { id: 'analyze_cross', task: '按 plan 执行【交叉与异常分析】:换维度切分、寻找异常点与反直觉现象、验证主线结论在不同切法下是否稳健。同样标注口径与证据。', role: 'analyst', dependsOn: ['plan'], failurePolicy: 'continue', position: { x: 640, y: 310 } },
@@ -1781,6 +1791,12 @@ function normalizeAgentWorkflow(raw, opts = {}) {
       maxRetries: Math.max(0, Math.min(5, Math.round(Number(item.maxRetries) || 0))), retryFallback: item.retryFallback === 'continue' ? 'continue' : 'block',
       minSuccessfulToolCalls: Math.max(0, Math.min(20, Math.round(Number(item.minSuccessfulToolCalls) || 0))),
       condition: normalizeWorkflowCondition(item.condition), loop: normalizeWorkflowLoop(item.loop), position: pos,
+      // 2026-10:节点专属资料、失败后重规划、仅报告的依赖 —— 启动路径(09 runAgentWorkflow)与工具 schema 都认,修前
+      // 写进个人模板或 .ruyi/workflows.json 一加载就被这里丢掉。钳制与启动路径同口径;没写的不产出键(老模板不变形)。
+      ...(item.context ? { context: String(item.context).trim().slice(0, 4000) } : {}),
+      ...(item.replan === true ? { replan: true } : {}),
+      ...(Array.isArray(item.reportedDependsOn) && item.reportedDependsOn.length
+        ? { reportedDependsOn: [...new Set(item.reportedDependsOn.map(x => String(x || '').trim()).filter(Boolean))].slice(0, 16) } : {}),
     });
   }
   for (const node of nodes) {
@@ -1813,9 +1829,12 @@ async function getAgentWorkflows(cwd) {
 // --append-system-prompt(runClaudeTurn)——后者此前从不告知有哪些模板,是两引擎能力不对称的缺口。纯函数,workflows 由调用方传入。
 function buildOrchestrateHint(workflows) {
   if (!Array.isArray(workflows) || !workflows.length) return '';
-  const list = workflows.map(w => `${w.id}(${w.title}：${w.description || '无说明'})`).join('；');
+  // 2026-10:个人 / 项目模板(.ruyi/workflows.json 随仓库走)的标题与说明是外来文本,压成单行并截短再进系统提示,
+  // 不让一份模板用换行冒充一段指令。
+  const flat = (v, max) => String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, max);
+  const list = workflows.map(w => `${w.id}(${flat(w.title, 80)}：${flat(w.description, 160) || '无说明'})`).join('；');
   return '\n\n可用工作流模板（orchestrate_agents 的 workflowId）：' + list +
-    '。\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，可用 workflowId 起手再增删节点，或直接手写 nodes。';
+    '。\n主动编排指引：当用户的请求属于【复杂、多步、值得拆解并行或多视角核验】的任务时，优先用 orchestrate_agents（传 workflowId + context，context 填这次的具体主题/任务），复用上面的模板，而不是一个人从头硬做或临时手写 nodes——典型触发：调研/研究某主题→deep-research；审计或体检代码库→codebase-audit；定位难缠的 bug→debug-root-cause；技术选型/架构/多方案权衡→design-and-decide；从零写文档/报告/方案书→doc-from-scratch；实现改动且要质量把关→implement-review-fix-test；分析数据/日志/指标→data-insights；有争议议题要裁决→debate-and-judge。反之，简单、一步能答或纯闲聊的请求【不要】套模板（并行子代理有额外开销与延迟）。已有模板形状不完全吻合时，直接手写 nodes（同时给了 nodes 与 workflowId 时以 nodes 为准，模板被忽略）；内置模板必须带 context，否则不会启动。';
 }
 
 // Agent-team default routing is resolved by the runtime, not guessed by the parent model. A configured
@@ -1919,7 +1938,36 @@ async function resolveOrchestrateNodes(args, cwd) {
   }
   const workflow = (await getAgentWorkflows(cwd)).find(x => x.id === workflowId);
   if (!workflow) return { nodes: null, error: `未找到工作流: ${workflowId}` };
+  // 2026-10:内置模板的节点任务是通用写法(「从支持方立场分析议题」「按需求完成代码改动」),本身不含主题 —— 主题全靠
+  // context。修前空 context 也照跑,各节点只能对着一个不存在的议题空转。个人 / 项目模板可能把主题写进了任务,不拦。
+  if (workflow.source === 'builtin' && !String((args && args.context) || '').trim()) {
+    return { nodes: null, error: `内置模板「${workflow.title}」的节点任务不含具体主题:请在 context 里写清对象(议题、需求、要排查的问题、目标文件或数据)再启动` };
+  }
   return { nodes: workflow.nodes, error: null };
+}
+// 2026-10:保存口就把跑不起来的模板挡回去,并说清哪里不对 —— 修前环形依赖与不存在的角色都能存进去,到运行时才以
+// dependency_cycle / 缺角色失败,而保存失败的文案「需要合法 DAG 节点」也不说明是哪一条。只在保存口判,读盘不判:
+// 已经存下的旧模板不会因此从列表里消失(运行时照旧报)。wf 是 normalizeAgentWorkflow 的输出;返回 null = 没问题,
+// 否则 { code, params, message }(前端按 code 本地化,params 带出是哪几个节点)。
+function agentWorkflowSaveProblem(wf, roleIds) {
+  const unknown = wf.nodes.filter(n => n.role && !roleIds.has(n.role)).map(n => `${n.id}(${n.role})`);
+  if (unknown.length) return { code: 'agent_workflow.unknown_role', params: { nodes: unknown.join(', ') }, message: `节点引用了不存在的角色:${unknown.join('、')}` };
+  const deps = new Map(wf.nodes.map(n => [n.id, n.dependsOn || []]));
+  const state = new Map(); // 1 = 正在走, 2 = 走完
+  const stack = [];
+  const visit = id => {
+    if (state.get(id) === 2) return null;
+    if (state.get(id) === 1) return [...stack.slice(stack.indexOf(id)), id];
+    state.set(id, 1); stack.push(id);
+    for (const dep of deps.get(id) || []) { const cycle = visit(dep); if (cycle) return cycle; }
+    stack.pop(); state.set(id, 2);
+    return null;
+  };
+  for (const node of wf.nodes) {
+    const cycle = visit(node.id);
+    if (cycle) return { code: 'agent_workflow.cycle', params: { cycle: cycle.join(' → ') }, message: `依赖成环(箭头指向所依赖的节点):${cycle.join(' → ')}` };
+  }
+  return null;
 }
 async function saveAgentWorkflow(scope, cwd, raw) {
   const wf = normalizeAgentWorkflow(raw, { source: scope }); if (!wf) return null;

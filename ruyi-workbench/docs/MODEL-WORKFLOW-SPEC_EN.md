@@ -25,14 +25,17 @@ Read before write (read a file before editing it); minimal, precise changes; `fo
 Built-in and desktop/document tools first (protected by permission prompts + one-click undo); terminal scripts as fallback (not auto-undoable, error-prone ad-hoc).
 
 ### 3.4 Sub-agent orchestration
-- `spawn_agent`: parallel within a stage (cap `subagentMaxConcurrent`); dependent work in stages (`dependsOn`, prior conclusions auto-injected into later sub-agents).
-- `orchestrate_agents`: submit the whole dependency graph at once; the runtime parallelizes ready nodes, awaits dependencies, and persists progress — more reliable than per-turn `spawn_agent`.
+- `orchestrate_agents` is the single entry point: submit the whole dependency graph (`nodes`, dependencies via `dependsOn`), or reuse a template with `workflowId` (built-in templates require a `context` naming this run's subject or they will not start; when `nodes` is also given, `nodes` wins and the template is ignored); a single agent uses the top-level shorthand `{task, role?, toolTier?, background?}`. The runtime parallelizes ready nodes (cap `subagentMaxConcurrent` per stage), awaits dependencies, injects prior conclusions into later nodes, and persists progress. The old `spawn_agent` was folded in; a model that still calls it is translated into a single node.
+- **Permissions**: nodes run under the thread's effective permission mode (request > session > global). Both engines apply the same rule: Ask every time allows read-only tools, Auto-apply edits also allows file edits, and commands / bridged MCP are refused; Smart auto, Full auto and Plan behave as usual. A role's own mode (such as Plan) takes precedence.
 - **Resource awareness**: nodes touching the same file / browser profile / desktop / Office document must declare `resources` (e.g. `desktop`, `browser:default`, `file:C:\proj\a.js`, `workspace:C:\proj`; read-only sharing takes a `read:` prefix); conflicting nodes queue automatically, and tool args are locked at call time as a backstop.
 
 ## 4. Check
 
 ### 4.1 Quality gate (DAG-node level)
-A node may declare `outputSchema` (structural validation) + `gate` (pass condition); failure policy `failurePolicy` (fail/retry/block); degraded policy `degradedPolicy` (accept/fail/retry/request_review).
+A node may declare `outputSchema` (structural validation) + `gate` (pass condition); failure policy `failurePolicy` (block/continue/retry); degraded policy `degradedPolicy` (accept/fail/retry/request_review). A reviewer / verifier node without a `gate` gets an automatic review / verify gate (it must output a verdict; anything but pass is rejected); a node that only produces findings and should not pass or reject anything sets `gate: false` (the three audit nodes and the reproduce node in the built-in templates do).
+
+### 4.1a Built-in templates and roles
+Eight built-in templates (`BUILTIN_AGENT_WORKFLOWS` in `08-agent-runs.js`): debate-and-judge, implement-review-fix-test, deep-research, design-and-decide, codebase-audit, debug-root-cause, doc-from-scratch, data-insights. Their node tasks are generic and carry no subject; the subject comes from the launch `context`. Ten built-in roles (`BUILTIN_AGENT_ROLES` in `01e-permission-modes.js`): explorer, worker, coder, reviewer, verifier, planner, researcher, critic, synthesizer, analyst; the role prompt goes into the system prompt on both engines (on the Claude engine via `--append-system-prompt`, moved into the first message when the command line is too long). Personal and project templates (`.ruyi/workflows.json`) with the same id override in the order project > personal > built-in; saving rejects dependency cycles and unknown roles.
 
 ### 4.2 Turn-level output contract (planned)
 Long tasks end with a "completion statement: what was done / what wasn't / how it was verified." Prompt convention first, mechanical checking later (04 Phase D planned item, not yet implemented).
@@ -66,8 +69,9 @@ The signature detector runs first; if it already warned, the semantic detector s
 |---|---|---|
 | standard | 100 | default, most tasks |
 | long | 200 | long task (`isLongToolTask` keyword heuristic: a first turn heavy in exec/read auto-promotes) |
-| hard | 300 | hard limit (`hardLimit`), cannot be exceeded |
-| extension | 50 | dynamic extension increment (`shouldExtendToolIterationBudget`: appended on progress, capped at hard) |
+| standardHard | 300 | hard limit (`hardLimit`) for standard turns, cannot be exceeded |
+| hard | 1000 | hard limit for long-task or agent-team turns |
+| extension | 50 | dynamic extension increment (`shouldExtendToolIterationBudget`: appended on progress, capped at the turn's `hardLimit`) |
 
 ### 6.2 Sub-agent budget
 `subagentMaxConcurrent` (parallel-within-a-stage cap), `subagentMaxPerTurn` (per-turn total cap, 0=disabled, tool kept out of the schema).
