@@ -39,13 +39,11 @@ function getBody(src) {
 function thinkingCharCount(text) { return String(text || '').length; }
 function thinkingSummaryLabel(text) { const n = thinkingCharCount(text); return n > 0 ? `思考过程 · ${n} 字` : '思考过程'; }
 
+// 2026-10:前端改成单遍替换(值里的 {key} 不再被二次替换),这份副本跟着同步。
 function assemblePlaybookPrompt(pb, values) {
-  let out = String(pb.promptTemplate || '');
-  for (const inp of (pb.inputs || [])) {
-    const v = (values && values[inp.key] != null) ? String(values[inp.key]) : '';
-    out = out.split('{' + inp.key + '}').join(v);
-  }
-  return out;
+  const template = String(pb.promptTemplate || '');
+  const declared = new Set((pb.inputs || []).map(inp => String((inp && inp.key) || '')).filter(Boolean));
+  return template.replace(/\{([^{}]+)\}/g, (whole, key) => (declared.has(key) ? ((values && values[key] != null) ? String(values[key]) : '') : whole));
 }
 
 function ctxWindowGuess(model) {

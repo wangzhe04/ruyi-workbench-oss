@@ -906,7 +906,9 @@ function normalizePlaybook(raw) {
     const key = String(it.key || '').trim();
     if (!key || !/^[A-Za-z0-9_-]{1,40}$/.test(key)) continue; // 无 key 的输入无法组装占位 → 丢弃
     const type = PLAYBOOK_INPUT_TYPES.includes(it.type) ? it.type : 'text'; // 类型钳制
-    inputs.push({ key, label: String(it.label || key).slice(0, 120), type });
+    // 2026-10:required 只在为 true 时产出 —— 弹窗据它拒绝留空(批量重命名、清理下载这类卡片的文件夹不能空着发出去);
+    // 管家开线程一向要求全部填齐(13k stewardPlaybookMissingInputs),不受它影响。没写的老 playbook 形状不变。
+    inputs.push({ key, label: String(it.label || key).slice(0, 120), type, ...(it.required === true ? { required: true } : {}) });
     if (inputs.length >= 12) break; // 上限,防滥用
   }
   const requires = Array.isArray(raw.requires) ? [...new Set(raw.requires.filter(r => PLAYBOOK_REQUIRES.includes(r)))] : [];
@@ -937,7 +939,8 @@ async function readPlaybooksFromDir(dir) {
   for (const f of files) {
     if (!f.toLowerCase().endsWith('.json')) continue;
     try {
-      const raw = safeJsonParse(await fsp.readFile(path.join(dir, f), 'utf8'), null);
+      // 去掉 UTF-8 BOM:记事本「另存为 UTF-8」会带上它,JSON.parse 认不得,修前这份 playbook 被静默丢弃(SKILL.md 那边早已兼容)。
+      const raw = safeJsonParse((await fsp.readFile(path.join(dir, f), 'utf8')).replace(/^﻿/, ''), null);
       const pb = normalizePlaybook(raw);
       if (pb) out.set(pb.id, pb);
     } catch { /* skip unreadable/corrupt */ }

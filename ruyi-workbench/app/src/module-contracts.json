@@ -7121,8 +7121,10 @@
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
+        "agentRunPermissionMode",
         "agentRunResultSlice",
         "agentRunSaveFailures",
+        "agentWorkflowSaveProblem",
         "agentWorkflowStatusText",
         "aggregateAgentVote",
         "aggregateCoverage",
@@ -7345,6 +7347,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "bridgedWriteRelativePathArg",
           "kinds": [
@@ -7389,6 +7398,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readInterventions",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
           "kinds": [
             "call"
           ]
@@ -8170,6 +8186,13 @@
         {
           "provider": "01c-runtime-flags.js",
           "symbol": "volatileTailLayoutEnabled",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
           "kinds": [
             "call"
           ]
@@ -12312,6 +12335,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01f-agent-cli-types.js",
           "symbol": "AGENT_CLI_TYPES",
           "kinds": [
@@ -13125,6 +13155,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentWorkflowSaveProblem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
           "kinds": [
             "call"
@@ -13154,6 +13191,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "markInterruptedAgentRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "normalizeAgentWorkflow",
           "kinds": [
             "call"
           ]
@@ -17257,6 +17301,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunPermissionMode",
           "kinds": [
             "call"
           ]

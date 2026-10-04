@@ -30,6 +30,7 @@ const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; conso
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function get(port, p, headers = {}) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 1000, headers }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
 function post(port, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch (e) { reject(e); } }); }); r.on('error', reject); r.write(raw); r.end(); }); }
+function req(port, method, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body || {}); const r = http.request({ host: '127.0.0.1', port, path: p, method, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', reject); r.write(raw); r.end(); }); }
 function stream(port, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = '', events = []; res.on('data', c => { b += c; let i; while ((i = b.indexOf('\n')) >= 0) { const line = b.slice(0, i); b = b.slice(i + 1); try { if (line.trim()) events.push(JSON.parse(line)); } catch { /* ignore */ } } }); res.on('end', () => resolve(events)); }); r.on('error', reject); r.write(raw); r.end(); }); }
 async function up(port, p = '/health') { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
   for (let i = 0; i < 300; i++) { if (await get(port, p)) return true; await sleep(120); } return false; }
@@ -60,6 +61,29 @@ async function up(port, p = '/health') { // 117q:预算 50×120ms=6s 小于本�
     const listed0 = await get(WP, '/api/agent-workflows?cwd=' + encodeURIComponent(HOME), hdr);
     const reloaded = listed0.workflows.find(w => w.id === 'audit-engine-wf');
     ok(!!reloaded && reloaded.nodes[0].engine === 'claude', 'engine survives a save -> reload round-trip (was silently dropped to "")');
+
+    // ---- (E) 2026-10 随包资产走查 ----
+    // E1/E2 保存口挡掉跑不起来的模板(修前环形依赖与不存在的角色都能存,到运行时才失败,文案也不说是哪一条)。
+    const cyc = await post(WP, '/api/agent-workflows', { scope: 'personal', cwd: HOME, workflow: { id: 'audit-cycle', title: '环', nodes: [
+      { id: 'a', task: 'A', dependsOn: ['c'] }, { id: 'b', task: 'B', dependsOn: ['a'] }, { id: 'c', task: 'C', dependsOn: ['b'] }] } }, hdr);
+    ok(cyc.ok === false && cyc.error && cyc.error.code === 'agent_workflow.invalid' && /依赖成环/.test(cyc.error.message) && /a → c → b → a/.test(cyc.error.message),
+      'E1 saving a cyclic workflow is rejected and names the cycle (got ' + JSON.stringify(cyc.error) + ')');
+    const badRole = await post(WP, '/api/agent-workflows', { scope: 'personal', cwd: HOME, workflow: { id: 'audit-badrole', title: '坏角色', nodes: [{ id: 'x', task: 'X', role: 'no-such-role' }] } }, hdr);
+    ok(badRole.ok === false && badRole.error && /不存在的角色/.test(badRole.error.message) && /no-such-role/.test(badRole.error.message), 'E2 saving a node with an unknown role is rejected');
+    const listedE = await get(WP, '/api/agent-workflows?cwd=' + encodeURIComponent(HOME), hdr);
+    ok(!listedE.workflows.some(w => w.id === 'audit-cycle' || w.id === 'audit-badrole'), 'E2b rejected workflows were not written');
+    // E3 内置模板的节点任务不含主题:只传 workflowId、没有 context 的启动被拒,并说明要补什么。
+    const noCtx = await post(WP, '/api/agent-workflow/launch', { token, sessionId: sid, workflowId: 'debate-and-judge' });
+    const noCtxText = noCtx.error && typeof noCtx.error === 'object' ? String(noCtx.error.message || '') : String(noCtx.error || '');
+    ok(noCtx.ok === false && /不含具体主题/.test(noCtxText), 'E3 launching a built-in template with no context is refused (got ' + JSON.stringify(noCtx.error) + ')');
+    // E4 直接起的工作流按【这条线程】的生效权限档(全局是 bypass,线程收紧到 default)。
+    const sidE = (await post(WP, '/api/sessions', { title: 'audit-thread-mode', cwd: HOME }, hdr)).session.id;
+    const narrowed = await req(WP, 'PATCH', '/api/sessions/' + sidE, { permissionMode: 'default' }, hdr);
+    ok(narrowed && narrowed.ok === true, 'E4 thread permission narrowed to default');
+    const modeRun = await post(WP, '/api/agent-workflow/launch', { token, sessionId: sidE, nodes: [{ id: 'mode_probe', task: '只读任务' }] });
+    const runsE = await get(WP, '/api/agent-runs?sessionId=' + encodeURIComponent(sidE), hdr);
+    const runE = (runsE.runs || []).find(r => r.id === modeRun.runId) || (runsE.runs || [])[0];
+    ok(runE && runE.permissionModeAtLaunch === 'default', 'E4 the run uses the thread mode, not the global bypass (got ' + (runE && runE.permissionModeAtLaunch) + ')');
 
     // ---- (B) BUG7: a 6-node fresh launch is NOT rejected under default config (was capped at 4) ----
     const sixNodes = Array.from({ length: 6 }, (_, i) => ({ id: `bug7_n${i}`, task: `独立任务_${i}` }));

@@ -1990,7 +1990,12 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   const turnBudget = Number(maxIters) || (role && role.budgets && role.budgets.claude) || 0;
   if (turnBudget > 0) args.push('--max-turns', String(Math.min(300, Math.round(turnBudget))));
   // DAG subagents do not inherit the main turn's append prompt, so give them the same final language rule.
-  args.push('--append-system-prompt', appendResponseLanguagePolicy('', config, 0, task));
+  // 2026-10:角色提示词(role.prompt)也走这里 —— 修前 Claude 节点只带语言政策,Reviewer 不改文件、Verifier 不改产品代码、
+  // Critic 默认怀疑这些靠提示词立的规矩在 Claude 引擎下全丢(OpenAI 路径 runSubAgentCoreBody 一直把它放进系统提示)。
+  // 下面的命令行阶梯若丢掉 --append-system-prompt,角色提示改放进首条用户消息(stdin,不受命令行长度限制),不会丢。
+  const roleBrief = role && role.prompt ? `角色：${role.label || role.id}\n${role.prompt}` : '';
+  let roleBriefInTask = false;
+  args.push('--append-system-prompt', appendResponseLanguagePolicy(roleBrief ? roleBrief + '\n\n' : '', config, 0, task));
   if (cwd) args.push('--add-dir', cwd);
   // 第28波(§28a):Claude 引擎【不适用】服务端子代理压缩(maybeCompactSubHistory)—— claude CLI 自管上下文窗口与压缩,
   // 服务端一次性 spawn 后只累积 assistantText/resultText 求聚合结果,不持有可压缩的 history 数组。与上文桥接分级不对称同源
@@ -2006,7 +2011,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
   if (mcpConfigPath) args.push('--mcp-config', mcpConfigPath);
 
   // cmd8191 防线(子代理): 子代理 args 小(无技能索引),但自定义 role.claudeTools/超长路径仍可能顶爆 cmd 上限。
-  // 降级阶梯: ① 丢 --append-system-prompt(仅语言政策,可恢复性最低) ② 非 plan 模式丢 --allowed-tools
+  // 降级阶梯: ① 丢 --append-system-prompt(语言政策 + 角色提示;角色提示随即改进首条用户消息) ② 非 plan 模式丢 --allowed-tools
   // (bypass/auto 下它不是硬安全边界——bypass 跳过一切许可,见上方分级注释;plan 模式与按档收紧的 dontAsk 下它就是授权,不丢)
   // ③ 仍超 → 明确报错(分类器把「命令行太长。」列为 definitive,不会无谓重试 3 次)。
   {
@@ -2014,7 +2019,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
     const guardBudget = cmdLineBudgetFor(guardCmd);
     if (guardBudget > 0 && spawnCmdLineLength(guardCmd, args) > guardBudget) {
       const pi = args.indexOf('--append-system-prompt');
-      if (pi >= 0) args.splice(pi, 2);
+      if (pi >= 0) { args.splice(pi, 2); roleBriefInTask = !!roleBrief; }
       if (spawnCmdLineLength(guardCmd, args) > guardBudget && effMode !== 'plan' && !grant.capped) {
         const ti = args.indexOf('--allowed-tools');
         if (ti >= 0) args.splice(ti, 2);
@@ -2077,7 +2082,7 @@ async function runClaudeSubAgentOnce({ config, parentSession, task, displayTask,
       }
       return delivered;
     };
-    try { child.stdin.write(JSON.stringify(buildUserEnvelope(String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
+    try { child.stdin.write(JSON.stringify(buildUserEnvelope((roleBriefInTask ? roleBrief + '\n\n' : '') + String(taskForAttempt || ''))) + '\n', 'utf8'); } catch { /* ignore */ }
     // Polling is intentionally local to this child attempt. It supports both a user steering a live node and
     // the scheduler's automatic wrap-up instruction; queued messages are consumed in order and acknowledged
     // through the same subagent_steered event as Provider nodes.

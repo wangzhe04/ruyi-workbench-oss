@@ -37,7 +37,7 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
   const rest = src.slice(at);
   const end = rest.indexOf('\n}\n');
   const body = end < 0 ? rest : rest.slice(0, end + 2);
-  ok(/out\.split/.test(body), '①0b 取到的确实是那个函数体（自带尺子：里面有 out.split）');
+  ok(/template\.replace\(/.test(body), '①0b 取到的确实是那个函数体（自带尺子：里面有 template.replace —— 2026-10 起单遍替换）');
   const frontend = new Function(body + '\nreturn assemblePlaybookPrompt;')();
 
   const CASES = [
@@ -48,12 +48,16 @@ const ok = (c, l) => { if (c) console.log('PASS ' + l); else { fail++; console.l
     { name: '一个值都没给', pb: { promptTemplate: '[{a}][{b}]', inputs: [{ key: 'a' }, { key: 'b' }] }, v: {} },
     { name: '值里带正则元字符（split/join 才不会炸）', pb: { promptTemplate: '{a}', inputs: [{ key: 'a' }] }, v: { a: '$& \\1 (.*)' } },
     { name: '没有 inputs', pb: { promptTemplate: '原样 {x}', inputs: [] }, v: { x: '不该被替' } },
+    { name: '值里写着别的占位（单遍替换，不被二次替换）', pb: { promptTemplate: '{notes} → {output}', inputs: [{ key: 'notes' }, { key: 'output' }] }, v: { notes: '结论写进 {output} 那份', output: 'out.md' } },
   ];
   for (const c of CASES) {
     const a = frontend(c.pb, c.v);
     const b = srv.stewardAssemblePlaybookPrompt(c.pb, c.v);
     ok(a === b, `① ${c.name}：两份实现同义（前端 ${JSON.stringify(a)} / 服务端 ${JSON.stringify(b)}）`);
   }
+  // 2026-10:修前按 key 逐个 split/join,用户在会议记录里写的「{output}」被后一轮替换成了文件名。
+  ok(srv.stewardAssemblePlaybookPrompt(CASES[CASES.length - 1].pb, CASES[CASES.length - 1].v) === '结论写进 {output} 那份 → out.md',
+    '①b 用户填的值原样进模板，里面的 {output} 不被替换');
 }
 
 /* ② 没给值的参数 */

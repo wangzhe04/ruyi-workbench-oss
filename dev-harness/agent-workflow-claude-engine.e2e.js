@@ -35,6 +35,15 @@ async function tokenFor(port) {
 }
 
 (async () => {
+  // ---- (K) 2026-10:Kimi Code 父回合(reg.kind 'kimi-acp')不再被当成 'openai' ----
+  // 修前 `reg ? (reg.kind === 'claude' ? 'claude' : 'openai') : …`:没配 provider 时路由成 provider=null,节点一启动就抛。
+  // 活的 Kimi 父回合在离线夹具里起不来,这里钉结构:只有活的 provider 父回合才映射成 'openai',其余按可用引擎挑。
+  {
+    const { sliceBlock } = require('./lib/source-slice.js');
+    const routing = sliceBlock(fs.readFileSync(path.join(WB, 'app', 'server.js'), 'utf8'), 'const parentEngine = ', ';', { inclusive: true });
+    ok(/reg && reg\.kind === 'claude' \? 'claude'/.test(routing) && /reg && reg\.kind === 'openai' \? 'openai'/.test(routing) && /provider \? 'openai' : 'claude'/.test(routing),
+      'K launch routing maps only a live provider parent to openai; a Kimi parent (or none) picks from the available engines');
+  }
   // ---- (A) config-driven third-party endpoint/model reaches the actually-spawned CLI child ----
   {
     const HOME = path.join(os.tmpdir(), 'ruyi-claude-env-e2e');
@@ -105,6 +114,9 @@ async function tokenFor(port) {
       ok(argv2.includes('--model') && argv2[argv2.indexOf('--model') + 1] === 'claude-haiku-4-5', 'per-node model override reaches --model, not the role default');
       ok(argv2.includes('--permission-mode') && argv2[argv2.indexOf('--permission-mode') + 1] === 'plan', "explorer role's own permission mode (plan) is honored, distinct from the run default");
       ok(argv2.includes('--allowed-tools') && argv2[argv2.indexOf('--allowed-tools') + 1] === 'Read,Grep,Glob,WebSearch,WebFetch', "role.claudeTools drives --allowed-tools (explorer 内置角色第22波起含联网)");
+      const rolePromptArg = String(argv2[argv2.indexOf('--append-system-prompt') + 1] || '');
+      ok(rolePromptArg.includes('你是 Explorer') && rolePromptArg.includes('<response-language-policy>'),
+        '2026-10: Claude 节点的 --append-system-prompt 带上角色提示词(修前只有语言政策,角色规矩在 Claude 引擎下全丢)');
 
       const listed = await get(PORT, '/api/agent-runs?sessionId=' + encodeURIComponent(sid), hdr);
       ok(listed.runs.every(r => r.nodes.every(n => n.engine === 'claude')), 'persisted run records the engine each node actually used');
