@@ -619,10 +619,14 @@ try {
       .find(n => n.childElementCount === 0 && n.textContent === '浅底节点');
     out.styledColor = label ? getComputedStyle(label).color : '';
     out.links = svg('click') ? Array.from(svg('click').querySelectorAll('a')).map(a => a.getAttribute('href') || a.getAttributeNS('http://www.w3.org/1999/xlink', 'href') || '') : null;
-    // 修前 .mermaid-view svg{height:auto} 也落在嵌套的图标 <svg> 上:它的计算高度变成整张图的高(实测 262px),
-    // 图标在这么高的框里居中,整排往下错位 ~90px(量包围盒仍是 80×80,只有计算高度露馅)。
-    out.icons = svg('arch') ? Array.from(svg('arch').querySelectorAll('svg svg'))
-      .map(n => [n.getAttribute('height'), getComputedStyle(n).height]) : [];
+    // 修前 .mermaid-view svg{height:auto} 也落在嵌套的图标 <svg> 上:它的视口被撑成整张图的高(实测 262px),
+    // 图标在这么高的框里居中,整排往下错位 ~90px。按几何量:图标实际的上沿 vs 父层变换给它的位置(x/y 属性)。
+    // (计算样式 height 不可靠:Edge 对嵌套 <svg> 一律报 auto。)
+    out.icons = svg('arch') ? Array.from(svg('arch').querySelectorAll('svg svg')).map(n => {
+      const m = n.parentNode.getScreenCTM();
+      const expected = m.f + m.d * (Number(n.getAttribute('y')) || 0);
+      return Math.round(n.getBoundingClientRect().top - expected);
+    }) : [];
     const rel = svg('c4') && Array.from(svg('c4').querySelectorAll('text')).find(n => n.textContent === '使用');
     out.c4Rel = rel ? getComputedStyle(rel).fill : '';
     const region = svg('seqRect') && svg('seqRect').querySelector('rect.rect');
@@ -651,8 +655,8 @@ try {
   ok(audit.styledColor === 'rgb(27, 36, 54)', `B11d style A fill:#ffccff 的节点配深字（${audit.styledColor}；修前浅字压浅粉 1.2:1）`);
   ok(Array.isArray(audit.links) && audit.links.length > 0 && audit.links.every(href => href === ''),
     `B11e click 画出的链接摘掉 href（修前点一下整个工作台被导走；实得 ${JSON.stringify(audit.links)}）`);
-  ok(audit.icons.length >= 2 && audit.icons.every(([attr, css]) => attr && css === attr + 'px'),
-    `B11f 架构图图标（嵌套 <svg>）的计算高度就是它自己的 height，不被 .mermaid-view 的 height:auto 撑成整图高、整排错位（${JSON.stringify(audit.icons)}）`);
+  ok(audit.icons.length >= 2 && audit.icons.every(offset => Math.abs(offset) <= 2),
+    `B11f 架构图图标（嵌套 <svg>）落在自己的位置上，不被 .mermaid-view 的 height:auto 撑成整图高、整排下移（偏移 ${JSON.stringify(audit.icons)} px；修前 ~90）`);
   ok(audit.c4Rel !== '' && audit.c4Rel !== 'rgb(68, 68, 68)', `B11g 暗色下 C4 关系字不再是写死的 #444444（${audit.c4Rel}）`);
   ok(audit.seqRect > 0 && audit.seqRect < 1, `B11h 时序图浅色 rect 高亮块在暗色下变淡，字与箭头读得清（fill-opacity=${audit.seqRect}）`);
   ok(/^\d+px$/.test(audit.wide.minWidth) && audit.wide.scrolls === true,
