@@ -79,7 +79,9 @@ const PROMPT_ZH = {
       none: '终端：本机没有可用的 ripgrep，不要在命令行里调用 rg。',
     },
     renderMarkdown: '界面渲染：代码块按语言高亮（围栏上写明语言）。',
-    renderDiagram: '界面会把 ```mermaid 代码块直接画成图（流程图、时序图、甘特图、类图等）：要示意流程或结构时优先画 mermaid，不要用字符画；图片用 Markdown 图片语法引用本地文件即可显示。',
+    // 2026-10-04 走查:模型写的 mermaid 画不出来,最常见的是标签里有括号 / 斜杠 / 冒号没加引号、注释挂在行尾;
+    // 横向流程图一长条在消息栏里缩得看不清。前端能自动修一部分(public/js/mermaid-source.js),这里让模型一次写对。
+    renderDiagram: '界面会把 ```mermaid 代码块直接画成图（流程图、时序图、甘特图、类图等）：要示意流程或结构时优先画 mermaid，不要用字符画；节点或连线文字里有括号、斜杠、冒号就整段加双引号（如 A["调用 f(x)"]），注释单独占一行，步骤多的流程图竖排（TD），不要排成一长条。图片用 Markdown 图片语法引用本地文件即可显示。',
     workspace: '工作区：当前工作目录就是这条线程的工作区，新文件默认放在这里；不要往工作区外写东西，除非用户明确要求。',
     permission: ({ label, meaning }) => `权限：当前是「${label}」模式，${meaning}。`,
     // provider 的工具协议层已有「权限拒绝代表当前决定」那一句,这半句只给 CLI 变体。
@@ -452,7 +454,7 @@ const PROMPT_EN = {
       none: 'Terminal: no usable ripgrep on this machine; do not call rg on the command line.',
     },
     renderMarkdown: 'Interface rendering: code blocks are highlighted by language (tag the fence with it).',
-    renderDiagram: 'The interface draws ```mermaid code blocks as diagrams (flowcharts, sequence diagrams, Gantt charts, class diagrams, etc.): prefer a mermaid diagram over ASCII art when showing a flow or structure; images referenced with Markdown image syntax to local files are displayed.',
+    renderDiagram: 'The interface draws ```mermaid code blocks as diagrams (flowcharts, sequence diagrams, Gantt charts, class diagrams, etc.): prefer a mermaid diagram over ASCII art when showing a flow or structure; wrap node or edge text that contains brackets, slashes or colons in double quotes (e.g. A["call f(x)"]), put comments on their own line, and lay out long flowcharts top-down (TD) instead of one wide row. Images referenced with Markdown image syntax to local files are displayed.',
     workspace: 'Workspace: the current working directory is this thread\'s workspace and new files go there by default; do not write outside it unless the user explicitly asks.',
     permission: ({ label, meaning }) => `Permission: the current mode is "${label}": ${meaning}.`,
     permissionRefusal: ' When the user rejects an action, that is their decision; do not route around it with another tool or another wording.',

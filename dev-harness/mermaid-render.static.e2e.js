@@ -65,8 +65,8 @@ ok(primitives.includes("!(block.classList && block.classList.contains('language-
   'B3 hljs 明确跳过 code.language-mermaid');
 ok(appJs.includes("import { renderMermaidBlocks } from './js/mermaid-runtime.js';"),
   'B4 组合根 app.js 导入 mermaid 运行时');
-ok(appJs.includes('renderMermaidBlocks: (...args) => renderMermaidBlocks(...args),'),
-  'B5 组合根把真实实现注入 chat-render-primitives');
+ok(appJs.includes('renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross }),'),
+  'B5 组合根把真实实现注入 chat-render-primitives,并让每次换图都经聊天区的贴底守卫(keepPinnedAcross)');
 
 // ═══════════ ③ 载荷 / 合规 ═══════════
 const html = read('ruyi-workbench/app/public/index.html');
@@ -541,6 +541,49 @@ function buildContainer(doc, source = SOURCE) {
   ok(viewsF.length === 1 && viewsF[0].innerHTML.includes('data-drawn="light"') && wrapperF.dataset.mermaidState === 'ok'
     && wrapperF.querySelectorAll('.mermaid-hint').length === 0,
     'D28c 换色重画失败:留着旧图、状态仍是 ok、不出降级提示');
+
+  // (g) 2026-10-04:每次把图 / 回落换上去都经宿主的 withLayoutChange(聊天区借它在块高变化前后保持贴底)。
+  //     修前一条回复 8 张图画完,内容从 5.8k 涨到 10.2k px,没人重新贴底,视图停在半途。
+  const docG = new FakeDocument({ observable: true });
+  const g = doc => {
+    const host = doc.createElement('div');
+    for (const src of ['graph TD; G1-->H', 'graph TD; BAD', 'graph TD; G2-->H']) host.appendChild(buildContainer(doc, src).container);
+    doc.body.appendChild(host);
+    return host;
+  };
+  const hostG = g(docG);
+  const seen = [];
+  const stubG = { initialize() {}, render: async (id, text) => { if (/BAD/.test(text)) throw new Error('Parse error on line 1'); return { svg: '<svg></svg>' }; } };
+  await mod.renderMermaidBlocks(hostG, {
+    t, ensure: async () => stubG,
+    withLayoutChange: mutate => {
+      const states = () => hostG.querySelectorAll('.mermaid-block').map(block => block.dataset.mermaidState).join(',');
+      const before = states();
+      mutate();
+      seen.push(`${before}→${states()}`);
+    },
+  });
+  ok(seen.join(' | ') === 'pending,pending,pending→ok,pending,pending | ok,pending,pending→ok,fallback,pending | ok,fallback,pending→ok,fallback,ok',
+    'D29a 三块(成 / 败 / 成)各经宿主包一次,DOM 改动发生在包裹之内 → ' + seen.join(' | '));
+  docG.flip('light');
+  await settle(docG);
+  ok(seen.length === 5, `D29b 切主题重画的两块同样经宿主包裹(重画沿用首画时的宿主选项;共 ${seen.length} 次)`);
+  const docH = new FakeDocument();
+  const hostH = g(docH);
+  let wraps = 0;
+  const renderedH = await mod.renderMermaidBlocks(hostH, { t, ensure: async () => null, withLayoutChange: mutate => { wraps += 1; mutate(); } });
+  ok(renderedH === 0 && wraps === 1 && hostH.querySelectorAll('.mermaid-block').every(block => block.dataset.mermaidState === 'fallback'),
+    'D29c 缺库:三块一起回落,宿主只包一次');
+  const docI = new FakeDocument();
+  const hostI = g(docI);
+  const renderedI = await mod.renderMermaidBlocks(hostI, { t, ensure: async () => stubG, withLayoutChange: () => { throw new Error('host broke'); } });
+  const docJ = new FakeDocument();
+  const hostJ = g(docJ);
+  const renderedJ = await mod.renderMermaidBlocks(hostJ, { t, ensure: async () => stubG, withLayoutChange: () => {} });
+  const statesOf = host => host.querySelectorAll('.mermaid-block').map(block => block.dataset.mermaidState).join(',');
+  ok(renderedI === 2 && statesOf(hostI) === 'ok,fallback,ok' && renderedJ === 2 && statesOf(hostJ) === 'ok,fallback,ok'
+    && hostJ.querySelectorAll('.mermaid-view').length === 2,
+    'D29d 宿主回调抛错或忘了调 mutate:图照样换上去,每块恰好一次');
 
   console.log('\nMERMAID RENDER STATIC E2E: ' + (fail ? `FAIL (${fail})` : 'ALL PASS'));
   process.exit(fail ? 1 : 0);

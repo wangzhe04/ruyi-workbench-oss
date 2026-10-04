@@ -27,6 +27,7 @@ require('./lib/self-isolate-home.js'); // 换机器：直跑时家目录自隔�
 //       click 链接失效；架构图图标不被挤乱；C4 关系字不再是 #444；时序图 rect 高亮块变淡；宽图不缩成一条；
 //       真画不了的回落里有解析器原话与「复制」钮；
 //   B12 灯箱：在遮罩上拖拽后松手不关；触控板式的小滚动按量缩放（修前每个事件都 ×1.25）。
+//   B13 一条回复里 8 张图：打开线程、图一张张画完后聊天区仍贴着底（修前内容涨了几千 px、没人重新贴底，停在半途）。
 //
 // 夹具：确定性 fake provider —— 回答里带一段 ```mermaid 围栏。后端零改动。
 
@@ -52,6 +53,10 @@ const ok = (condition, label) => {
 
 const MERMAID_SOURCE = 'flowchart LR\n  A[拼素材] --> B[便宜的 L1]\n  B --> C{够不够?}\n  C -->|够| D[交付]\n  C -->|不够| E[贵的 L2]\n  E --> D';
 const ANSWER = '先看一张结构图：\n\n```mermaid\n' + MERMAID_SOURCE + '\n```\n\n图看完了。';
+// B13：竖排的 8 张图，每张画出来比源码块高得多。
+const MANY_PROMPT = '画八张图';
+const MANY_ANSWER = Array.from({ length: 8 }, (_, i) => `第 ${i + 1} 张：\n\n\`\`\`mermaid\nflowchart TD\n  A${i}[开始] --> B${i}[读取]\n  B${i} --> C${i}[整理]\n  C${i} --> D${i}[校验]\n  D${i} --> E${i}[交付]\n\`\`\``).join('\n\n')
+  + '\n\n八张图都在上面。';
 
 function request(port, method, pathname, body, token, timeoutMs = 20000) {
   return new Promise(resolve => {
@@ -103,9 +108,12 @@ async function startProvider(port) {
       return res.end('{"data":[{"id":"fake-model"}]}');
     }
     if (!(req.url || '').includes('/chat/completions')) { res.writeHead(404); return res.end(); }
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const content = body.includes(MANY_PROMPT) ? MANY_ANSWER : ANSWER;
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
     const frame = payload => res.write('data: ' + JSON.stringify(payload) + '\n\n');
-    frame({ choices: [{ index: 0, delta: { role: 'assistant', content: ANSWER }, finish_reason: null }] });
+    frame({ choices: [{ index: 0, delta: { role: 'assistant', content }, finish_reason: null }] });
     frame({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] });
     res.write('data: [DONE]\n\n');
     res.end();
@@ -245,6 +253,10 @@ try {
     result => ((result.json && result.json.session && result.json.session.messages) || [])
       .some(message => message && message.role === 'assistant' && String(message.content || '').includes('```mermaid')), token)),
     'A5 落盘的助手消息里带着 ```mermaid 围栏');
+  const many = await request(appPort, 'POST', '/api/sessions', { title: '八张图', cwd: work }, token);
+  const manyId = many && many.json && many.json.session && many.json.session.id;
+  const manyTurn = manyId ? await request(appPort, 'POST', '/api/chat/stream', { sessionId: manyId, message: MANY_PROMPT, cwd: work }, token, 60000) : null;
+  ok(Boolean(manyTurn) && manyTurn.status === 200, `A5b 第二条线程（一条回复 8 张图）已跑完（${manyId || '建线程失败'}）`);
 
   const executable = findBrowserExecutable();
   ok(Boolean(executable), 'A6 Edge/Chrome found');
@@ -691,6 +703,28 @@ try {
   ok(Boolean(viewer) && viewer.ratio > 1 && viewer.ratio < 1.2,
     `B12b 十个 deltaY=-4 的小滚动只放大 ${viewer && viewer.ratio.toFixed(3)} 倍（修前每个事件 ×1.25，一下撞到 8 倍上限）`);
   ok(Boolean(viewer) && viewer.closedAfterPlainClick === true, 'B12c 不拖拽的单击遮罩照旧关闭');
+
+  /* ═════════ B13 8 张图画完后仍贴着底 ═════════ */
+  ok(Boolean(await waitForEval(cdp, `(() => {
+    const row = document.querySelector('#railList [data-session-id="${manyId}"]');
+    if (row) { (row.querySelector('.steward-board-thread-title') || row).click(); }
+    return window.state && window.state.currentSession && window.state.currentSession.id === '${manyId}' ? 1 : null;
+  })()`)), 'B13a 打开八张图那条线程');
+  const pinned = await waitForEval(cdp, `(async () => {
+    const box = document.getElementById('messages');
+    const blocks = Array.from(box.querySelectorAll('.mermaid-block'));
+    if (blocks.length < 8 || !blocks.every(block => block.dataset.mermaidState === 'ok')) return null;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const views = Array.from(box.querySelectorAll('.mermaid-view'));
+    return {
+      blocks: blocks.length,
+      drawnHeight: Math.round(views.reduce((sum, view) => sum + view.getBoundingClientRect().height, 0)),
+      gap: Math.round(box.scrollHeight - box.scrollTop - box.clientHeight),
+      scrollHeight: box.scrollHeight,
+    };
+  })()`);
+  ok(Boolean(pinned) && pinned.blocks === 8 && pinned.drawnHeight > 1500 && pinned.gap <= 2,
+    `B13b 8 张图画完（图共 ${pinned && pinned.drawnHeight}px 高）后聊天区仍贴着底（距底 ${pinned && pinned.gap}px / 总高 ${pinned && pinned.scrollHeight}px；修前停在半途）`);
   console.log(`SHOTS ${shots.lightbox}`);
 } catch (error) {
   fail += 1;
