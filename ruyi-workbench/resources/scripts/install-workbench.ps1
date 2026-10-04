@@ -19,7 +19,7 @@ function Resolve-WorkbenchRoot {
 function ConvertTo-CommandLineToken {
   param([string]$Value)
   if ($Value -ne '' -and $Value -notmatch '[\s"]') { return $Value }
-  return '"' + (($Value -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
+  return '"' + (($Value -replace '(\\*)"', '$1$1\"') -replace '(\\+)\z', '$1$1') + '"'
 }
 
 # Runs a native program with exactly these argv items and returns its exit code (output goes to the console).
@@ -28,6 +28,9 @@ function ConvertTo-CommandLineToken {
 # {command:C:\...} and failed. Building the command line here sidesteps PowerShell's argument rewriting.
 function Invoke-NativeExact {
   param([string]$FilePath, [string[]]$ArgumentList)
+  # Process.Start resolves a relative path against the process directory, not PowerShell's current location.
+  $resolved = Resolve-Path -LiteralPath $FilePath -ErrorAction SilentlyContinue
+  if ($resolved) { $FilePath = $resolved.ProviderPath }
   $psi = New-Object System.Diagnostics.ProcessStartInfo
   $psi.FileName = $FilePath
   $psi.Arguments = (@($ArgumentList) | ForEach-Object { ConvertTo-CommandLineToken $_ }) -join ' '
@@ -40,9 +43,11 @@ function Invoke-NativeExact {
 function Find-Claude {
   param([string]$Preferred)
   if ($Preferred) { return $Preferred }
-  $cmd = Get-Command claude -ErrorAction SilentlyContinue
+  # Applications only (.exe / .cmd): an npm global install also drops a claude.ps1 shim, which PowerShell prefers but
+  # Invoke-NativeExact (Process.Start) cannot launch.
+  $cmd = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($cmd) { return $cmd.Source }
-  $cmd = Get-Command claude.cmd -ErrorAction SilentlyContinue
+  $cmd = Get-Command claude.cmd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($cmd) { return $cmd.Source }
   return ""
 }
@@ -99,8 +104,14 @@ if ($ClaudePath) {
     foreach ($legacyScope in @('local', 'user', 'project')) {
       try { & $ClaudePath mcp remove win-claude-workbench -s $legacyScope *> $null } catch { }
     }
-    $addExit = Invoke-NativeExact $ClaudePath @('mcp', 'add-json', 'ruyi', $serverJson, '-s', $Scope)
-    if ($addExit -ne 0) { Write-Warning "claude mcp add-json failed (exit $addExit). Manually import: $mcpConfigPath" }
+    # A .cmd shim is re-parsed by cmd.exe, which ignores \" escapes: & | ^ % < > inside the JSON would leak out as cmd
+    # syntax. Such a config (the characters can only come from paths) is left for manual import instead of half-running.
+    if ($ClaudePath -match '\.(cmd|bat)$' -and $serverJson -match '[&|^%<>]') {
+      Write-Warning "The MCP config contains characters cmd.exe would misread (& | ^ % < >). Manually import: $mcpConfigPath"
+    } else {
+      $addExit = Invoke-NativeExact $ClaudePath @('mcp', 'add-json', 'ruyi', $serverJson, '-s', $Scope)
+      if ($addExit -ne 0) { Write-Warning "claude mcp add-json failed (exit $addExit). Manually import: $mcpConfigPath" }
+    }
   } catch {
     Write-Warning "claude mcp add-json could not run. You can manually import: $mcpConfigPath"
   }

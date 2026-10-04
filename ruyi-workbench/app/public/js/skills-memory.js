@@ -6,13 +6,15 @@ import { api } from './net.js';
 import { $, el, escapeHtml, autoGrow, toast } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
+import { agentCliMeta } from './agent-cli-registry.js';
 
 // 点选一条命令时往输入框里插什么。内置命令(随包 offline-toolkit)两种引擎都插展开后的任务模板:Claude Code 里
 // 它们只以插件命令 `/offline-toolkit:<id>` 存在,而且只有跑过 install-workbench.ps1 装上插件才有;裸 `/<id>` 永远
-// 解析不了(2026-10 走查实测:「no command with that name」)。用户自己的 ~/.claude/commands 在 Agent CLI 下仍插
-// `/name`,由 CLI 自己展开。unit/offline-plugin-bundle.test.js 钉着。
-export function commandInsertionText(entry, providerMode) {
-  const expand = providerMode || entry.source === 'builtin';
+// 解析不了(2026-10 走查实测:「no command with that name」)。用户自己的 ~/.claude/commands 只在认得它们的 Agent CLI
+// (agent-cli-registry 的 claudeUserCommands:Claude Code 是,Kimi Code 不是)下插 `/name`,由 CLI 自己展开;其余插正文。
+// unit/offline-plugin-bundle.test.js 钉着。
+export function commandInsertionText(entry, providerMode, agentCliType) {
+  const expand = providerMode || entry.source === 'builtin' || !agentCliMeta(agentCliType).claudeUserCommands;
   return expand ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
 }
 
@@ -23,6 +25,7 @@ export function createSkillsMemoryDomain({
   openModal = () => {},
   buildModal = () => null,
   isProviderMode = () => false,
+  currentAgentCliType = () => '',
   openPlaybookModal = () => {},
   renderMarkdown = text => String(text || ''),
   saveConfigPartial = async () => false,
@@ -519,14 +522,15 @@ async function toggleResidentSkill(entry) {
   if (ok) toast(on ? t('skills.toast.residentDisabled', { name: skillDisplayName(entry) }) : t('skills.toast.residentEnabled', { name: skillDisplayName(entry) }));
   renderSkillList(); updateSkillBadge();
 }
-// 命令卡(仅 Claude 模式):中文名主显 + mono /insert 小字。点击插入 /name 到输入框(保留旧行为)。
+// 命令卡:中文名主显 + mono 小字标识。点击按 commandInsertionText 插 /name 或命令正文。内置命令在 Claude Code 里
+// 只有插件名下的 /offline-toolkit:<id>(装了插件才有),小字照实写这个,不印一个打不出来的 /<id>。
 function buildCommandRow(s, i) {
   const it = el('div', `skill-item sk-card${i === skillIndex ? ' sel' : ''}`);
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('command', s));
   head.appendChild(el('span', 'sk-name', skillDisplayName(s)));
   it.appendChild(head);
-  it.appendChild(el('code', 'sk-id', s.insert || ('/' + s.id)));
+  it.appendChild(el('code', 'sk-id', s.source === 'builtin' ? `/offline-toolkit:${s.id}` : (s.insert || ('/' + s.id))));
   const description = skillDisplayDescription(s);
   if (description) it.appendChild(el('div', 'sk-desc', description));
   if (s.detail) {
@@ -540,7 +544,7 @@ function buildCommandRow(s, i) {
   return it;
 }
 function commandInsertion(entry) {
-  return commandInsertionText(entry, isProviderMode());
+  return commandInsertionText(entry, isProviderMode(), currentAgentCliType());
 }
 // 一键任务卡(Playbook):中文名主显 + playbook emoji 图标。点击走既有 openPlaybookModal。不可用置灰 + 原因。
 function buildPlaybookRow(s, i) {

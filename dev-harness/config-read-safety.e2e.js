@@ -105,6 +105,9 @@ try {
   r = await reqJson('POST', '/api/config', { locale: 'en-US' });
   ok(r.status >= 400, `D2 writes are refused while degraded (status ${r.status})`);
   ok(diskText() === '{ broken after restart', 'D3 the refused write left the file untouched');
+  // 2026-10:降级时用的是出厂默认 —— 但权限档不跟出厂的智能自动,钉最保守的 'default'(读不出用户配置时不该放权)。
+  r = await reqJson('GET', '/api/status');
+  ok(r.json && r.json.config && r.json.config.permissionMode === 'default', `D3b while degraded the permission mode is the conservative default (got ${r.json && r.json.config && r.json.config.permissionMode})`);
   fs.writeFileSync(CONFIG, JSON.stringify({ ...seeded, locale: 'en-US' }, null, 2));
   r = await reqJson('GET', '/api/status');
   r = await reqJson('POST', '/api/config', { locale: 'zh-CN' });

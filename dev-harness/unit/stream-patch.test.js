@@ -39,12 +39,9 @@ function getBody(src) {
 function thinkingCharCount(text) { return String(text || '').length; }
 function thinkingSummaryLabel(text) { const n = thinkingCharCount(text); return n > 0 ? `思考过程 · ${n} 字` : '思考过程'; }
 
-// 2026-10:前端改成单遍替换(值里的 {key} 不再被二次替换),这份副本跟着同步。
-function assemblePlaybookPrompt(pb, values) {
-  const template = String(pb.promptTemplate || '');
-  const declared = new Set((pb.inputs || []).map(inp => String((inp && inp.key) || '')).filter(Boolean));
-  return template.replace(/\{([^{}]+)\}/g, (whole, key) => (declared.has(key) ? ((values && values[key] != null) ? String(values[key]) : '') : whole));
-}
+// 2026-10:不再手抄 —— 直接从前端源码把真函数取出来求值(与 steward-playbook-run 同一把尺子),副本与真身不会再漂。
+const { functionBlock } = require('../lib/source-slice.js');
+const assemblePlaybookPrompt = new Function(functionBlock(fs.readFileSync(path.join(__dirname, '..', '..', 'ruyi-workbench', 'app', 'public', 'js', 'session-experience.js'), 'utf8'), 'assemblePlaybookPrompt') + ';return assemblePlaybookPrompt;')();
 
 function ctxWindowGuess(model) {
   const m = String(model || '').toLowerCase();
@@ -187,6 +184,10 @@ describe('assemblePlaybookPrompt', () => {
     const pb = { promptTemplate: '{x} and {x} again', inputs: [{ key: 'x' }] };
     const result = assemblePlaybookPrompt(pb, { x: 'A' });
     assert.equal(result, 'A and A again');
+  });
+  it('does not re-substitute a {key} that appears inside a value (single pass)', () => {
+    const pb = { promptTemplate: '{notes} -> {output}', inputs: [{ key: 'notes' }, { key: 'output' }] };
+    assert.equal(assemblePlaybookPrompt(pb, { notes: 'write to {output}', output: 'out.md' }), 'write to {output} -> out.md');
   });
   it('handles special regex chars in key name', () => {
     const pb = { promptTemplate: 'Use {file.name}', inputs: [{ key: 'file.name' }] };

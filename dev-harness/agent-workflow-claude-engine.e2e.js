@@ -25,6 +25,10 @@ let failures = 0;
 const ok = (v, l) => { if (v) console.log('PASS ' + l); else { failures++; console.error('FAIL ' + l); } };
 function kill(p) { if (p && p.pid) try { killOwnTree(p); } catch { /* ignore */ } }
 function get(port, p, headers = {}) { return new Promise(resolve => { const r = http.get({ host: '127.0.0.1', port, path: p, timeout: 1000, headers }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', () => resolve(null)); r.on('timeout', () => { r.destroy(); resolve(null); }); }); }
+function req(port, method, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body || {}); const r = http.request({ host: '127.0.0.1', port, path: p, method, headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } }); }); r.on('error', reject); r.write(raw); r.end(); }); }
+// spawnCmdLineLength:与运行时同一把尺子量命令行长度(下面 (R) 段据此定预算,不靠猜)。
+const srv = require(path.join(WB, 'app', 'server.js'));
+let longRoleArgvLength = 0;
 function post(port, p, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => { try { resolve(JSON.parse(b)); } catch (e) { reject(e); } }); }); r.on('error', reject); r.write(raw); r.end(); }); }
 function stream(port, body, headers = {}) { return new Promise((resolve, reject) => { const raw = JSON.stringify(body); const r = http.request({ host: '127.0.0.1', port, path: '/api/chat/stream', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(raw), ...headers } }, res => { let b = '', events = []; res.on('data', c => { b += c; let i; while ((i = b.indexOf('\n')) >= 0) { const line = b.slice(0, i); b = b.slice(i + 1); try { if (line.trim()) events.push(JSON.parse(line)); } catch { /* ignore */ } } }); res.on('end', () => resolve(events)); }); r.on('error', reject); r.write(raw); r.end(); }); }
 async function up(port) { // 117q:预算 50×120ms=6s 小于本机冷启动实测 4.6-6.3s,是「FAIL workbench up」假红的根(30 号文 P1-31)
@@ -205,17 +209,82 @@ async function tokenFor(port) {
       ({ r, argv } = await launch({ id: 'explorer_default', task: 'explore', role: 'explorer', engine: 'claude' }));
       ok(flag(argv, '--permission-mode') === 'plan', "D4 a role's own plan mode still passes straight through");
 
+      const denyOf = argv => String(flag(argv, '--disallowed-tools') || '').split(',');
+      ok(['Write', 'Edit', 'PowerShell', 'Bash', 'Task'].every(t => denyOf(argv).includes(t)), 'D3b read-tier node also gets the hard --disallowed-tools cap');
+
+      // 自定义角色:read 档却声明了 Write;角色自带 acceptEdits;超长角色提示(给下面的命令行阶梯用例量长度)。
+      const LONG_MARKER = 'LONG_ROLE_MARKER_77';
+      const roles = await post(PORT, '/api/config', { agentRoleOverrides: [
+        { id: 'read-writer', label: 'Read Writer', prompt: 'reads', toolTier: 'read', claudeTools: ['Read', 'Write'], permissionMode: 'inherit' },
+        { id: 'edits-role', label: 'Edits Role', prompt: 'edits', toolTier: 'edit', permissionMode: 'acceptEdits' },
+        { id: 'long-role', label: 'Long Role', prompt: LONG_MARKER + ' ' + 'x'.repeat(3000), toolTier: 'read' },
+      ] }, hdr);
+      ok(roles && roles.ok !== false, 'D roles configured');
+
       const toEdits = await post(PORT, '/api/config', { permissionMode: 'acceptEdits' }, hdr);
       ok(toEdits && toEdits.config && toEdits.config.permissionMode === 'acceptEdits', 'D5 global mode switched to acceptEdits');
       ({ r, argv } = await launch({ id: 'coder_edits', task: 'implement', role: 'coder', engine: 'claude' }));
       ok(flag(argv, '--permission-mode') === 'dontAsk' && flag(argv, '--allowed-tools') === READ + ',Write,Edit',
         `D5 acceptEdits: exec node gets read + edit tools, still no Bash (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+      ({ r, argv } = await launch({ id: 'rw_edits', task: 'look', role: 'read-writer', engine: 'claude' }));
+      ok(flag(argv, '--allowed-tools') === 'Read' && denyOf(argv).includes('Write'),
+        `D5b acceptEdits + a read-tier node: the node tier caps it (declared Write is dropped; got ${flag(argv, '--allowed-tools')})`);
+
+      // 线程收紧到只做计划:压过角色自带的 acceptEdits(与 OpenAI 路径同一条优先级)。
+      const toPlan = await req(PORT, 'PATCH', '/api/sessions/' + sid, { permissionMode: 'plan' }, hdr);
+      ok(toPlan && toPlan.ok === true, 'D5c thread narrowed to plan');
+      ({ r, argv } = await launch({ id: 'edits_plan', task: 'edit', role: 'edits-role', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'plan', `D5c a thread in plan mode overrides the role's own acceptEdits (got ${flag(argv, '--permission-mode')})`);
+      await req(PORT, 'PATCH', '/api/sessions/' + sid, { permissionMode: null }, hdr);
 
       const toAuto = await post(PORT, '/api/config', { permissionMode: 'auto', confirm: true }, hdr);
       ok(toAuto && toAuto.config && toAuto.config.permissionMode === 'auto', 'D6 global mode switched to auto (with confirm)');
       ({ r, argv } = await launch({ id: 'coder_auto', task: 'implement', role: 'coder', engine: 'claude' }));
-      ok(flag(argv, '--permission-mode') === 'auto' && !argv.includes('--allowed-tools'),
+      ok(flag(argv, '--permission-mode') === 'auto' && !argv.includes('--allowed-tools') && !argv.includes('--disallowed-tools'),
         `D6 auto passes straight to the CLI's own classifier with the exec tier unrestricted (got ${flag(argv, '--permission-mode')} / ${flag(argv, '--allowed-tools')})`);
+      // auto 档的 --allowed-tools 不是硬边界(实测 read 节点照样能 Write / PowerShell):read 节点靠 --disallowed-tools 封顶。
+      ({ r, argv } = await launch({ id: 'read_auto', task: 'look around', engine: 'claude' }));
+      ok(flag(argv, '--permission-mode') === 'auto' && ['Write', 'Edit', 'PowerShell', 'Task', 'CronCreate'].every(t => denyOf(argv).includes(t)),
+        `D7 auto + read-tier node: hard-capped by --disallowed-tools (got ${flag(argv, '--disallowed-tools')})`);
+      ({ r, argv } = await launch({ id: 'long_auto', task: 'look', role: 'long-role', engine: 'claude' }));
+      longRoleArgvLength = srv.spawnCmdLineLength(process.execPath, argv);
+      ok(String(flag(argv, '--append-system-prompt') || '').includes(LONG_MARKER), 'D8 a long role prompt rides on --append-system-prompt when it fits');
+    } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
+  }
+
+  // ---- (R) 2026-10:命令行超预算时角色提示改走首条用户消息,语言政策留在 argv ----
+  // 修前阶梯第一步就把整条 --append-system-prompt 丢掉,语言政策跟着没了。预算定在「带长角色提示放不下、挪走后放得下」之间。
+  {
+    const HOME = path.join(os.tmpdir(), 'ruyi-claude-ladder-e2e');
+    const PORT = await getFreePort();
+    fs.rmSync(HOME, { recursive: true, force: true }); fs.mkdirSync(HOME, { recursive: true });
+    const argvCapture = path.join(HOME, 'argv-capture.json');
+    const stdinCapture = path.join(HOME, 'stdin-capture.txt');
+    const LONG_MARKER = 'LONG_ROLE_MARKER_77';
+    fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
+      configSchema: 14, permissionMode: 'auto', configExplicitKeysV1: ['permissionMode'], defaultWorkspace: HOME, providers: [], activeProvider: '',
+      desktopMcp: { enabled: false },
+      agentRoleOverrides: [{ id: 'long-role', label: 'Long Role', prompt: LONG_MARKER + ' ' + 'x'.repeat(3000), toolTier: 'read' }],
+    }, null, 2));
+    const budget = Math.max(1000, longRoleArgvLength - 1500);
+    const wb = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(PORT)], {
+      cwd: WB, windowsHide: true,
+      env: { ...process.env, RUYI_HOME: HOME, WCW_FAKE_CLAUDE: FAKE_CLAUDE, WCW_FAKE_ARGV_CAPTURE: argvCapture, WCW_FAKE_STDIN_CAPTURE: stdinCapture, WCW_CLAUDE_CMDLINE_BUDGET: String(budget) },
+    });
+    try {
+      ok(longRoleArgvLength > 3000, `R0 measured the long-role command line (${longRoleArgvLength} chars; budget ${budget})`);
+      ok(await up(PORT), 'R ladder test server starts');
+      const token = await tokenFor(PORT); const hdr = { 'x-wcw-token': token };
+      const sid = (await post(PORT, '/api/sessions', { title: 'dag-ladder', cwd: HOME }, hdr)).session.id;
+      const res = await post(PORT, '/api/agent-workflow/launch', { token, sessionId: sid, nodes: [{ id: 'long_ladder', task: 'look', role: 'long-role', engine: 'claude' }] });
+      ok(res.ok === true && res.results[0].status === 'succeeded', 'R1 the long-role node still runs under a tight command-line budget');
+      const argv = JSON.parse(fs.readFileSync(argvCapture, 'utf8'));
+      const appendArg = String(argv[argv.indexOf('--append-system-prompt') + 1] || '');
+      ok(argv.includes('--append-system-prompt') && appendArg.includes('<response-language-policy>') && !appendArg.includes(LONG_MARKER),
+        'R2 the language policy stays on argv; only the role prompt left it');
+      ok(argv.includes('--disallowed-tools'), 'R3 the hard tier cap survives the ladder');
+      const stdinText = fs.existsSync(stdinCapture) ? fs.readFileSync(stdinCapture, 'utf8') : '';
+      ok(stdinText.includes(LONG_MARKER), 'R4 the role prompt moved into the first user message (stdin)');
     } finally { kill(wb); await sleep(200); fs.rmSync(HOME, { recursive: true, force: true }); }
   }
 

@@ -22,4 +22,5 @@ For this workbench repository (PowerShell scripts, Windows only; run in `ruyi-wo
 - `npm run package:offline:full:fresh`: rebuilds that runtime first (`-BuildAccOffline`), which needs Python and internet on the packaging machine.
 - `npm run package:offline:slim`: no desktop control runtime.
 - Every variant first runs `node app/build.js --check` and stops if `app/server.js` is stale. The exe build also runs `npm install` when `pkg` is not installed yet. Internet is only ever needed on the packaging machine; the resulting zip (`dist/Ruyi-<variant>.zip`) must install and run without it.
-- On the target machine, use `Ruyi.exe doctor` and `resources/scripts/install-workbench.ps1` as the baseline verification and install flow.
+- Packaging deletes the previous `dist/Ruyi-<variant>` folder and overwrites the zip: say which variant and output you are about to produce and get the user's go-ahead before running it.
+- On the target machine, use `Ruyi.exe doctor --human` and `resources/scripts/install-workbench.ps1` as the baseline verification and install flow.

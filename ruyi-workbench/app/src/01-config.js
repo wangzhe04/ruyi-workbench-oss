@@ -1978,6 +1978,12 @@ async function readConfig() {
       else return degrade('EJSON');
     }
   }
+  // 2026-10:没有可用配置(文件缺失 / 空文件 / {},且没有 .prev)不一定是全新安装 —— 数据目录里已经有会话,说明是一份
+  // 用过的安装丢了配置。这时不给出厂的智能自动,钉回最保守的 'default'(显式键,落盘后不再走这里)。
+  const rawEmpty = !raw || (typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).length === 0);
+  if (rawEmpty && (await fsp.readdir(paths.sessions).catch(() => [])).length > 0) {
+    raw = { permissionMode: 'default', configExplicitKeysV1: ['permissionMode'] };
+  }
   const { config, changed, persisted } = normalizeConfig(raw);
   configDegraded = false;
   lastGoodConfig = config;
@@ -2081,9 +2087,14 @@ async function syncClaudeCliSettings(config) {
       if (!settings || typeof settings !== 'object') settings = {};
     } catch { /* file doesn't exist or invalid JSON */ }
 
-    // 1. Permission mode
-    const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
-    settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    // 1. Permission mode —— 只在用户【选过】档位时同步(显式键)。2026-10 出厂档改成智能自动后,修前全新安装一启动就把
+    // 用户自己的 ~/.claude/settings.json 写成 defaultMode:auto,单独用 claude 的人被悄悄放宽、没经过任何确认。
+    // 出厂值不代表用户的意思,不碰它;存量用户经 to:14 迁移钉成显式 default,照旧同步。
+    const explicitMode = Array.isArray(config.configExplicitKeysV1) && config.configExplicitKeysV1.includes('permissionMode');
+    if (explicitMode) {
+      const cliMode = CLAUDE_PERMISSION_MODE_MAP[config.permissionMode] || config.permissionMode;
+      settings.permissions = { ...(settings.permissions || {}), defaultMode: cliMode };
+    }
     // 2. Model. 第36波(v1.7): 只删【自己写过的】model —— settings.json 是用户自己的配置,工作台未设模型时
     // 无条件 delete 会把用户手写的 settings.model 一并抹掉(越权接管,与本函数 "MERGE: existing keys are
     // preserved" 的契约直接冲突)。权属用工作台侧 sidecar(dataRoot, 非用户 ~/.claude)追踪:记住上次同步写入的

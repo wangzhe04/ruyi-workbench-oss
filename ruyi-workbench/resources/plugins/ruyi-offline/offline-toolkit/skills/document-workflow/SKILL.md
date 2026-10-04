@@ -12,7 +12,7 @@ description: 读取、摘要、对比与转换已有的 Word、PDF、Markdown �
 - 纯文本、Markdown 用 `file_read`；它按扩展名拒读 Office 和 PDF。
 - .docx/.pptx 用桌面控制 MCP 的 `read_document`（长文按 `offset`/`next_offset` 续读）；PDF 用 `pdf_read_pages`（按页读，可先看 `outline` 再选页）；.xlsx 用 `excel_read`。老 .doc/.xls/.ppt 请用户先另存为新版格式。
 - 写 Word 用 `write_document`，写 PDF 用 `write_pdf`；两者都是创建或覆盖。`script_run` 会拦下手写 docx/pdf 的脚本。
-- 找不到上述桌面控制 MCP 工具时停下来，说明缺少桌面控制组件，不要硬写解析或生成脚本。
+- 工具清单里没直接看到上述桌面控制 MCP 工具时，先用 `tool_search` 找（自适应装载下它们可能要经 `tool_invoke_read` / `tool_invoke_edit` 调用）；搜也搜不到才停下来，说明缺少桌面控制组件，不要硬写解析或生成脚本。
 
 ## 工作流程
 

@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3383,
-    "requiredSymbols": 3078,
+    "providedSymbols": 3387,
+    "requiredSymbols": 3079,
     "edges": 534,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -6599,7 +6599,11 @@
         "BRIDGED_TOOL_NAME_TERMS",
         "BRIDGED_TOOL_NAME_TERM_MAX_WORDS",
         "CLAUDE_PROGRESS_CHAR_STEP",
+        "CLAUDE_SUBAGENT_EDIT_TOOLS",
+        "CLAUDE_SUBAGENT_EXEC_TOOLS",
         "CLAUDE_SUBAGENT_PASSTHROUGH_MODES",
+        "CLAUDE_SUBAGENT_TIER_DENY",
+        "CLAUDE_SUBAGENT_TIER_RANK",
         "CLAUDE_SUBAGENT_TIER_TOOLS",
         "FAILOVER_CONNECT_CODES",
         "FAILOVER_HTTP_STATUSES",
@@ -7511,6 +7515,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
@@ -27606,6 +27617,7 @@
       "from": "08-agent-runs.js",
       "to": "02d-session-overrides.js",
       "symbols": [
+        "applySessionPermissionModeOverride",
         "liveSessionPermissionMode"
       ],
       "direction": "backward"

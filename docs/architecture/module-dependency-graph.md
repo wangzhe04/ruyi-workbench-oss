@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 70 | 3383 | 3078 | 534 | 67 | 0 | 1 |
+| 70 | 3387 | 3079 | 534 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -54,8 +54,8 @@
 | 36 | `06g-resource-leases.js` | engine | 20 | 5 | 3 |
 | 37 | `06j-scheduler-core.js` | engine | 44 | 0 | 0 |
 | 38 | `06k-config-patch.js` | engine | 1 | 21 | 8 |
-| 39 | `07-autonomy.js` | orchestration | 116 | 66 | 17 |
-| 40 | `08-agent-runs.js` | orchestration | 117 | 97 | 19 |
+| 39 | `07-autonomy.js` | orchestration | 120 | 66 | 17 |
+| 40 | `08-agent-runs.js` | orchestration | 117 | 98 | 19 |
 | 41 | `09b-replan-ledger.js` | orchestration | 8 | 4 | 1 |
 | 42 | `09d-token-estimation.js` | orchestration | 25 | 2 | 2 |
 | 43 | `09-workflow.js` | orchestration | 24 | 236 | 27 |
@@ -265,7 +265,7 @@
 | `08-agent-runs.js` | `01c-runtime-flags.js` | backward | `estimateBucketsEnabled` |
 | `08-agent-runs.js` | `01e-permission-modes.js` | backward | `resolvePermissionMode` |
 | `08-agent-runs.js` | `02-session-store.js` | backward | `MISSION_STALL_SIGNAL_WINDOW_MS`, `bridgedWriteRelativePathArg`, `isProviderToolArgsObject`, `missionSignalThrottleAllow`, `mutateSession`, `providerHistoryToolCalls`, `readInterventions`, `readSessionHeadResilient`, `registerIntervention`, `settleIntervention` |
-| `08-agent-runs.js` | `02d-session-overrides.js` | backward | `liveSessionPermissionMode` |
+| `08-agent-runs.js` | `02d-session-overrides.js` | backward | `applySessionPermissionModeOverride`, `liveSessionPermissionMode` |
 | `08-agent-runs.js` | `03-bridge-guard.js` | backward | `bridgedOfficeScriptGate`, `bridgedReadPathGate`, `guardWorkspacePath`, `journalBridgedWrite`, `normalizeCwd` |
 | `08-agent-runs.js` | `04-permission-runtime.js` | backward | `bridgedServerUnavailableMessage`, `collectBridgedTools`, `getBridgedClient`, `logEvent`, `redact`, `resolveBridge` |
 | `08-agent-runs.js` | `04h-provider-http.js` | backward | `providerBaseWithV1`, `providerCallIsTransient`, `withTransientRetry` |

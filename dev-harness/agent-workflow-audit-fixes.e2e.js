@@ -66,16 +66,19 @@ async function up(port, p = '/health') { // 117q:预算 50×120ms=6s 小于本�
     // E1/E2 保存口挡掉跑不起来的模板(修前环形依赖与不存在的角色都能存,到运行时才失败,文案也不说是哪一条)。
     const cyc = await post(WP, '/api/agent-workflows', { scope: 'personal', cwd: HOME, workflow: { id: 'audit-cycle', title: '环', nodes: [
       { id: 'a', task: 'A', dependsOn: ['c'] }, { id: 'b', task: 'B', dependsOn: ['a'] }, { id: 'c', task: 'C', dependsOn: ['b'] }] } }, hdr);
-    ok(cyc.ok === false && cyc.error && cyc.error.code === 'agent_workflow.invalid' && /依赖成环/.test(cyc.error.message) && /a → c → b → a/.test(cyc.error.message),
+    ok(cyc.ok === false && cyc.error && cyc.error.code === 'agent_workflow.cycle' && cyc.error.params && cyc.error.params.cycle === 'a → c → b → a' && /依赖成环/.test(cyc.error.message),
       'E1 saving a cyclic workflow is rejected and names the cycle (got ' + JSON.stringify(cyc.error) + ')');
     const badRole = await post(WP, '/api/agent-workflows', { scope: 'personal', cwd: HOME, workflow: { id: 'audit-badrole', title: '坏角色', nodes: [{ id: 'x', task: 'X', role: 'no-such-role' }] } }, hdr);
-    ok(badRole.ok === false && badRole.error && /不存在的角色/.test(badRole.error.message) && /no-such-role/.test(badRole.error.message), 'E2 saving a node with an unknown role is rejected');
+    ok(badRole.ok === false && badRole.error && badRole.error.code === 'agent_workflow.unknown_role' && /no-such-role/.test(String(badRole.error.params && badRole.error.params.nodes)), 'E2 saving a node with an unknown role is rejected');
     const listedE = await get(WP, '/api/agent-workflows?cwd=' + encodeURIComponent(HOME), hdr);
     ok(!listedE.workflows.some(w => w.id === 'audit-cycle' || w.id === 'audit-badrole'), 'E2b rejected workflows were not written');
     // E3 内置模板的节点任务不含主题:只传 workflowId、没有 context 的启动被拒,并说明要补什么。
     const noCtx = await post(WP, '/api/agent-workflow/launch', { token, sessionId: sid, workflowId: 'debate-and-judge' });
     const noCtxText = noCtx.error && typeof noCtx.error === 'object' ? String(noCtx.error.message || '') : String(noCtx.error || '');
     ok(noCtx.ok === false && /不含具体主题/.test(noCtxText), 'E3 launching a built-in template with no context is refused (got ' + JSON.stringify(noCtx.error) + ')');
+    // E3b 带了 nodes 时以 nodes 为准(编辑器「保存并运行」发的就是这种),workflowId 指向内置模板也不拦。
+    const withNodes = await post(WP, '/api/agent-workflow/launch', { token, sessionId: sid, workflowId: 'debate-and-judge', nodes: [{ id: 'e3b', task: '具体任务' }] });
+    ok(withNodes.ok === true, 'E3b an explicit nodes list is not blocked by the built-in template context rule');
     // E4 直接起的工作流按【这条线程】的生效权限档(全局是 bypass,线程收紧到 default)。
     const sidE = (await post(WP, '/api/sessions', { title: 'audit-thread-mode', cwd: HOME }, hdr)).session.id;
     const narrowed = await req(WP, 'PATCH', '/api/sessions/' + sidE, { permissionMode: 'default' }, hdr);

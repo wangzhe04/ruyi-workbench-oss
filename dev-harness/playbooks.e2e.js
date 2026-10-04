@@ -147,7 +147,7 @@ const DRAFT_JSON = JSON.stringify({
     const byId = new Map(((list && list.playbooks) || []).map(p => [p.id, p]));
     // 2026-10:内置清单从磁盘读(修前写死 8 个,后加的 8 个一个没钉)。
     const builtinDir = path.join(WB, 'resources', 'playbooks');
-    const builtinIds = fs.readdirSync(builtinDir).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(builtinDir, f), 'utf8').replace(/^﻿/, '')).id);
+    const builtinIds = fs.readdirSync(builtinDir).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(builtinDir, f), 'utf8').replace(/^\uFEFF/, '')).id);
     ok(builtinIds.length >= 16 && builtinIds.every(id => byId.has(id) && byId.get(id).builtin === true), '① every built-in under resources/playbooks is listed (' + builtinIds.length + ' on disk, ' + [...byId.keys()].length + ' total)');
     // 每个内置模板的占位符与 inputs 一一对应:写了没声明的占位不会被替换(原样漏给模型),声明了没用的输入白让用户填。
     const placeholderDrift = builtinIds.map(id => byId.get(id)).filter(Boolean).filter(pb => {
@@ -206,10 +206,15 @@ const DRAFT_JSON = JSON.stringify({
     // 2026-10:记事本「另存为 UTF-8」会带 BOM —— 修前这样的用户 playbook 被 JSON.parse 拒掉、静默不出现。
     const bomFile = path.join(HOME, 'playbooks', 'bom-user.json');
     fs.mkdirSync(path.dirname(bomFile), { recursive: true });
-    fs.writeFileSync(bomFile, '﻿' + JSON.stringify({ id: 'bom-user', title: '带 BOM 的模板', inputs: [], promptTemplate: '整理一下', requires: [] }));
+    fs.writeFileSync(bomFile, '\uFEFF' + JSON.stringify({ id: 'bom-user', title: '带 BOM 的模板', inputs: [], promptTemplate: '整理一下', requires: [] }));
+    // 记事本另存「Unicode」= 带 BOM 的 UTF-16LE。
+    const utf16File = path.join(HOME, 'playbooks', 'utf16-user.json');
+    fs.writeFileSync(utf16File, Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from(JSON.stringify({ id: 'utf16-user', title: 'UTF-16 模板', inputs: [], promptTemplate: '整理一下', requires: [] }), 'utf16le')]));
     const bomList = (await getJson(WB_PORT, '/api/playbooks')).json;
     ok(((bomList && bomList.playbooks) || []).some(p => p.id === 'bom-user'), '② a user playbook saved with a UTF-8 BOM still loads');
+    ok(((bomList && bomList.playbooks) || []).some(p => p.id === 'utf16-user'), '② a user playbook saved as UTF-16 (Notepad "Unicode") still loads');
     fs.rmSync(bomFile, { force: true });
+    fs.rmSync(utf16File, { force: true });
 
     // ── ③ user round-trip / override / delete / built-in delete 403 / no-token 403 ───────────────────
     // POST without token → 403.

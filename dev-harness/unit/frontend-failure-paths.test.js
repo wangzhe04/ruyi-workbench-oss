@@ -507,6 +507,43 @@ test('② 左栏置顶：写失败有人接 —— 报原因，不是一条没�
   rail.remove();
 });
 
+// 2026-10:playbook 弹窗的必填项 —— 标了 required 的输入留空时不发出去(修前清理下载这类卡片的文件夹留空照发),
+// 报一句缺哪一项、弹窗留着;没标 required 的仍可留空。
+test('⑦ playbook 弹窗：required 的输入留空不发出去，填上才发', async () => {
+  const { createSessionExperienceDomain } = await load('session-experience.js');
+  const { state } = await load('state.js');
+  const modal = await load('modal.js');
+  const sent = [];
+  state.streaming = false;
+  const domain = createSessionExperienceDomain({
+    buildModal: (title, body, foot) => modal.buildModal({ title, body, foot }),
+    sendPrompt: async prompt => { sent.push(prompt); },
+  });
+  const pb = { id: 'pb-demo', title: '清理', promptTemplate: '清理 {folder} 备注 {note}', inputs: [
+    { key: 'folder', label: '文件夹', type: 'folder', required: true }, { key: 'note', label: '备注', type: 'text' }] };
+  const before = document.body.querySelectorAll('.modal-backdrop').length;
+  domain.openPlaybookModal(pb);
+  await flush();
+  const all = document.body.querySelectorAll('.modal-backdrop');
+  const backdrop = all[all.length - 1];
+  assert.equal(all.length, before + 1, '弹窗开出来了');
+  const [folder] = backdrop.querySelectorAll('.pb-field-input');
+  const labels = backdrop.querySelectorAll('.pb-field-label').map(n => n.textContent);
+  assert.deepEqual(labels, ['文件夹 *', '备注'], '必填项标星,选填项不标');
+  const go = backdrop.querySelectorAll('button.primary')[0];
+  clearToasts();
+  go.onclick();
+  await flush();
+  assert.deepEqual(sent, [], '必填项空着不发');
+  assert.equal(backdrop.isConnected, true, '弹窗留着,填完还能发');
+  assert.equal(toasts().length, 1);
+  assert.equal(toasts()[0].kind, 'err');
+  folder.value = 'D:/Downloads';
+  go.onclick();
+  await flush();
+  assert.deepEqual(sent, ['清理 D:/Downloads 备注 '], '必填项填上就发;选填项留空照旧可以');
+});
+
 // ── ⑤⑥ 工作流：编辑器与运行监控（agent-workflows 域）────────────────────────────────────────────
 const WF = { id: 'wf_demo', title: '演示', description: '', source: 'personal', nodes: [{ id: 'step_1', task: '读 README', role: 'worker', dependsOn: [], failurePolicy: 'block' }] };
 async function workflowsDomain(extra = {}) {

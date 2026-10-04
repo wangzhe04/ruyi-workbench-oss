@@ -939,8 +939,11 @@ async function readPlaybooksFromDir(dir) {
   for (const f of files) {
     if (!f.toLowerCase().endsWith('.json')) continue;
     try {
-      // 去掉 UTF-8 BOM:记事本「另存为 UTF-8」会带上它,JSON.parse 认不得,修前这份 playbook 被静默丢弃(SKILL.md 那边早已兼容)。
-      const raw = safeJsonParse((await fsp.readFile(path.join(dir, f), 'utf8')).replace(/^﻿/, ''), null);
+      // 记事本另存的两种编码都认:「UTF-8」带 BOM、「Unicode」是带 BOM 的 UTF-16LE。修前 JSON.parse 认不得,这份 playbook
+      // 被静默丢弃(SKILL.md 那边早已兼容 UTF-8 BOM)。
+      const buf = await fsp.readFile(path.join(dir, f));
+      const text = (buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf8');
+      const raw = safeJsonParse(text.replace(/^\uFEFF/, ''), null);
       const pb = normalizePlaybook(raw);
       if (pb) out.set(pb.id, pb);
     } catch { /* skip unreadable/corrupt */ }
@@ -1104,7 +1107,7 @@ async function draftPlaybookFromSession(sessionId) {
     '你是一个把「一次成功完成的任务」抽象成可复用 playbook 模板的助手。',
     '根据下面这次任务,产出一个 playbook 的 JSON。要求:',
     '1. 把任务里的具体路径/文件名/参数,抽象成 inputs 里的占位参数(用 {key} 在 promptTemplate 中引用)。',
-    '2. inputs 每项形如 {"key":"folder","label":"中文标签","type":"text|folder|file"};文件夹参数用 type:"folder"。',
+    '2. inputs 每项形如 {"key":"folder","label":"中文标签","type":"text|folder|file"};文件夹参数用 type:"folder";留空就没法做的参数(要处理的文件夹、文件、主题)加 "required":true。',
     '3. promptTemplate 写成给 AI 助手的高质量任务指令(含步骤与验收标准),用 {key} 占位。',
     '4. 输出 JSON 字段:{ "id","title","icon","desc","inputs","promptTemplate","requires","engineHint","uiMode" }。',
     '   - id 用短横线小写英文(如 merge-excel);icon 用一个 emoji;requires 从 ["network","desktopMcp","vision"] 里选(通常为空数组 [])。',

@@ -12,7 +12,7 @@ requires: network
 
 - 动手前先确认能联网：frontmatter 的 `requires: network` 只有工作台会识别，Claude Code 里不生效。
 - 检索用 `web_search`（需要联网且配置了搜索后端，默认是内置 Bing/百度），读正文用 `web_fetch`（PDF、Office 等非网页会被拒，改用 `http_download`）。Claude Code 里名为 `mcp__ruyi__web_search` / `mcp__ruyi__web_fetch`。
-- `web_fetch` 离线时可能返回旧缓存（`fromCache: true`），引用时标注这一点。
+- `web_fetch` 网络不稳时可能返回旧缓存（`fromCache: true`），引用时标注这一点；彻底离线时工作台会直接收起联网工具。
 - 没网、工具不可用或检索失败时直说，不凭记忆补成事实；改用本地资料（`docs_search` 查文档，`file_search` 查其他文件），并在结论里注明“仅基于本地资料”。
 
 ## 工作流程

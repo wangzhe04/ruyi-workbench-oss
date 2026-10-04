@@ -415,7 +415,8 @@ function classifyNodeResumeRisk(node) {
 // 放宽了、全局档没变」会被判成权限面没变而自动续跑。
 async function agentRunPermissionMode(sessionId, config) {
   const head = safeSessionId(sessionId) ? await readSessionHeadResilient(sessionId).catch(() => null) : null;
-  return resolvePermissionMode({ session: head, config });
+  // 头读路径绕过 loadSession,要自己盖一层会话级权限档的内存覆盖(活回合中途切档、还没落盘时以它为准;同 13j stewardReadSessionHead)。
+  return resolvePermissionMode({ session: head && typeof head === 'object' ? applySessionPermissionModeOverride(head) : head, config });
 }
 function classifyRunResumeTier(run, currentPermissionMode) {
   const reasons = [];
@@ -538,7 +539,7 @@ async function markInterruptedAgentRuns() {
       }
       // 29b: 中断时就盖恢复分级戳(UI 有 tier 徽章可看;autoResumeInterruptedRuns 决策时【重算】,戳只做展示,
       // 不做信任来源 —— 分级函数才是单一事实源)。config 读不到则跳过,标死不受影响。
-      if (bootConfig) { const cls = classifyRunResumeTier(run, bootConfig.permissionMode); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
+      if (bootConfig) { const cls = classifyRunResumeTier(run, await agentRunPermissionMode(run.sessionId, bootConfig)); run.resumeTier = cls.tier; run.resumeTierReasons = cls.reasons; }
       await syncRunEventSeq(run);   // 对抗轮修: 崩溃窗口(事件已落、快照没跟上)装载旧 eventSeq → 先快进再 append
       appendAgentRunEvent(run, { type: 'run_interrupted', data: { nodes: (run.nodes || []).filter(n => n.status === 'interrupted').map(n => n.id) } });
       await saveAgentRun(run).catch(() => {}); // 29b 顺手修: boot 防炸(同上)
@@ -1938,10 +1939,11 @@ async function resolveOrchestrateNodes(args, cwd) {
 }
 // 2026-10:保存口就把跑不起来的模板挡回去,并说清哪里不对 —— 修前环形依赖与不存在的角色都能存进去,到运行时才以
 // dependency_cycle / 缺角色失败,而保存失败的文案「需要合法 DAG 节点」也不说明是哪一条。只在保存口判,读盘不判:
-// 已经存下的旧模板不会因此从列表里消失(运行时照旧报)。wf 是 normalizeAgentWorkflow 的输出;返回 '' = 没问题。
+// 已经存下的旧模板不会因此从列表里消失(运行时照旧报)。wf 是 normalizeAgentWorkflow 的输出;返回 null = 没问题,
+// 否则 { code, params, message }(前端按 code 本地化,params 带出是哪几个节点)。
 function agentWorkflowSaveProblem(wf, roleIds) {
   const unknown = wf.nodes.filter(n => n.role && !roleIds.has(n.role)).map(n => `${n.id}(${n.role})`);
-  if (unknown.length) return `节点引用了不存在的角色:${unknown.join('、')}`;
+  if (unknown.length) return { code: 'agent_workflow.unknown_role', params: { nodes: unknown.join(', ') }, message: `节点引用了不存在的角色:${unknown.join('、')}` };
   const deps = new Map(wf.nodes.map(n => [n.id, n.dependsOn || []]));
   const state = new Map(); // 1 = 正在走, 2 = 走完
   const stack = [];
@@ -1955,9 +1957,9 @@ function agentWorkflowSaveProblem(wf, roleIds) {
   };
   for (const node of wf.nodes) {
     const cycle = visit(node.id);
-    if (cycle) return `依赖成环(箭头指向所依赖的节点):${cycle.join(' → ')}`;
+    if (cycle) return { code: 'agent_workflow.cycle', params: { cycle: cycle.join(' → ') }, message: `依赖成环(箭头指向所依赖的节点):${cycle.join(' → ')}` };
   }
-  return '';
+  return null;
 }
 async function saveAgentWorkflow(scope, cwd, raw) {
   const wf = normalizeAgentWorkflow(raw, { source: scope }); if (!wf) return null;

@@ -203,8 +203,10 @@ Skills are reusable expert workflows. Use **Enable for chat** for temporary need
 skill available across chats. Resident skills still use progressive loading: only a compact index is always present,
 and the full guide is opened when relevant. Each skill card can show its complete workflow and quality checks.
 
-Commands work in both engines: Claude CLI keeps the native `/name` form, while Provider mode inserts the same
-command as an editable full task template. Playbook forms can also reveal their complete execution guide before run.
+Built-in commands insert the same editable full task template in both engines (in Claude Code they exist only as
+`/offline-toolkit:name`, once the installer has added the plugin); your own commands in `~/.claude/commands` insert
+`/name` under the Claude Code engine and the CLI expands them. Playbook forms can also reveal their complete execution
+guide before run.
 
 ### Browser and tool settings through conversation
 

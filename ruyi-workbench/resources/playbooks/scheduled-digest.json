@@ -8,7 +8,7 @@
     { "key": "folder", "label": "要定期汇总的文件夹", "type": "folder", "required": true },
     { "key": "output", "label": "摘要保存文件名(.md)", "type": "text" }
   ],
-  "promptTemplate": "请把 {folder} 里最近新攒下的记录汇总成一份摘要,写入 {output}。\n\n做法:\n1. 先定本次的时间范围:{output} 已存在时,读出它最新一期开头记下的「下次起点」,以那之后为本次范围;不存在就取最近 7 天。\n2. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -File -Recurse | Where-Object LastWriteTime -gt <起点>,找出范围内新增或改动的文件作为本期汇总对象。一个都没有就如实写「本期无新增」,不要硬凑。\n3. 逐个读懂内容,按主题归纳成几个板块,每条写清「是什么 + 要点」,并注明来自哪个文件。\n4. 只写文件里真实存在的内容,绝不编造或推测文件里没有的信息;读不了的文件如实列出。\n5. 用 Markdown 排版,本期开头写明覆盖的时间范围、文件数,以及「下次起点」(就是这次运行的时间)。{output} 已存在时,把本期加在最前面,保留以前各期,不要整份覆盖。\n\n验收标准:每条要点都能对应到具体文件;没有虚构内容;覆盖文件数与实际一致;以前各期内容还在。写完后把本期摘要也在对话里展示一份,方便快速过目。",
+  "promptTemplate": "请把 {folder} 里最近新攒下的记录汇总成一份摘要,写入 {output}。\n\n做法:\n1. 先定本次的时间范围:{output} 已存在时,读出它最新一期开头记下的「下次起点」,以那之后为本次范围;不存在就取最近 7 天。\n2. 用 powershell_run 跑 Get-ChildItem -LiteralPath '{folder}' -File -Recurse | Where-Object LastWriteTime -gt ([datetime]'<起点,如 2026-10-01 08:00>') | Select-Object FullName, Length, LastWriteTime | ConvertTo-Csv -NoTypeInformation(路径里有单引号时写成两个单引号),找出范围内新增或改动的文件作为本期汇总对象;{output} 自己若在这个文件夹里,把它排除在外。一个都没有就如实写「本期无新增」,不要硬凑。\n3. 逐个读懂内容,按主题归纳成几个板块,每条写清「是什么 + 要点」,并注明来自哪个文件。\n4. 只写文件里真实存在的内容,绝不编造或推测文件里没有的信息;读不了的文件如实列出。\n5. 用 Markdown 排版,本期开头写明覆盖的时间范围、文件数,以及「下次起点」(就是这次运行的时间)。{output} 已存在时,把本期加在最前面,保留以前各期,不要整份覆盖。\n\n验收标准:每条要点都能对应到具体文件;没有虚构内容;覆盖文件数与实际一致;以前各期内容还在。写完后把本期摘要也在对话里展示一份,方便快速过目。",
   "requires": [],
   "engineHint": "",
   "uiMode": "both"

@@ -498,10 +498,10 @@ async function handleApi(req, res, pathname) {
     const body = await readJsonBody(req); const scope = body && body.scope === 'project' ? 'project' : 'personal';
     const config = await readConfig(); const cwd = normalizeCwd(body && body.cwd || config.defaultWorkspace, config.defaultWorkspace);
     const draft = normalizeAgentWorkflow(body && body.workflow, { source: scope });
-    const problem = draft ? agentWorkflowSaveProblem(draft, new Set((await getAgentRoleLibrary(cwd, config)).map(r => r.id))) : '';
-    if (problem) return send(res, apiFailure('agent_workflow.invalid', { problem }, `无效工作流：${problem}`, 400));
+    const problem = draft ? agentWorkflowSaveProblem(draft, new Set((await getAgentRoleLibrary(cwd, config)).map(r => r.id))) : null;
+    if (problem) return send(res, apiFailure(problem.code, problem.params, `无效工作流：${problem.message}`, 400));
     const workflow = await saveAgentWorkflow(scope, cwd, body && body.workflow);
-    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id、标题和合法 DAG 节点' }, 400));
+    if (!workflow) return send(res, json({ ok: false, error: '无效工作流：需要唯一 id 和标题；节点 id 不重复、任务非空，依赖只能指向其它已有节点' }, 400));
     return send(res, json({ ok: true, scope, workflow }));
   }
   if (pathname.startsWith('/api/agent-workflows/') && (req.method === 'DELETE' || (req.method === 'POST' && req.headers['x-http-method'] === 'DELETE'))) {
@@ -1153,7 +1153,9 @@ async function handleApi(req, res, pathname) {
     // 2026-10:工作流按【这条线程】的生效权限档跑 —— 修前直接取全局 config.permissionMode,线程在自己的权限 chip 上收紧过也照
     // 全局放。有活着的父回合就用它起回合时解析出的档(请求级 > 会话级 > 全局,05/09 登记在 reg.permissionMode),否则按
     // 会话级 > 全局解析(与续跑、恢复分级 agentRunPermissionMode 同一个解析器)。
-    const launchPermissionMode = (reg && PERMISSION_MODES.includes(reg.permissionMode)) ? reg.permissionMode : resolvePermissionMode({ session, config });
+    // provider 回合登记了 effectivePermissionMode()(回合中途在线程 chip 上收紧会被它看到),优先用它;其次是起回合时的快照。
+    const liveMode = reg && typeof reg.effectivePermissionMode === 'function' ? (() => { try { return reg.effectivePermissionMode(); } catch { return ''; } })() : (reg && reg.permissionMode);
+    const launchPermissionMode = PERMISSION_MODES.includes(liveMode) ? liveMode : resolvePermissionMode({ session, config });
     // 代理模式 v2:事件只在【发起时的那个回合】仍是活回合时进它的流(回合结束后 run 继续跑,但不往关掉的 SSE
     // 写、也不串进后来的回合);run 自己的事件日志与 GET /api/agent-runs 始终是权威实时面。
     const onEvent = reg && reg.onEvent ? (evt => { const live = activeChildren.get(sessionId); if (live === reg && live.onEvent) live.onEvent(evt); }) : () => {};

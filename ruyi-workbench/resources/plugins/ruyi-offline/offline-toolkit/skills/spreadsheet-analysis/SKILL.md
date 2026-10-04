@@ -9,8 +9,8 @@ description: 清洗、合并、核对并分析 Excel、CSV 和 TSV 数据
 
 ## 工具
 
-- CSV/TSV/JSON/JSONL：先用 `data_profile` 看行列数、类型、空值和异常值。它只读文本数据，xlsx 会被拒；大文件只统计开头部分（看 `truncatedInput` / `sampled`）。
-- .xlsx/.xlsm：`file_read` 会拒读，用桌面控制 MCP 的 `excel_read`。它不支持老 .xls（请用户另存为 .xlsx）和 CSV；默认最多回 200 行，用 `max_rows` 调大，`truncated` 给出真实总行数；不传 `sheet` 时读活动表并在 `sheets` 列出全部工作表，再用 `sheet` 逐张读；`include_formulas: true` 才回读公式。
+- CSV/TSV/JSON/JSONL：先用 `data_profile` 看行列数、类型、空值和异常值。它只读文本数据，xlsx 会被拒；默认只统计前 2000 行（`maxRows` 可调到 50000），超出时 `sampled: true`，真实总行数看 `totalRowCount`；文件过大被截断时看 `truncatedInput`。
+- .xlsx/.xlsm：`file_read` 会拒读，用桌面控制 MCP 的 `excel_read`（工具清单里没直接看到时先用 `tool_search` 找，自适应装载下它可能要经 `tool_invoke_read` 调用）。它不支持老 .xls（请用户另存为 .xlsx）和 CSV；默认最多回 200 行，用 `max_rows` 调大，`truncated` 给出真实总行数；不传 `sheet` 时读活动表并在 `sheets` 列出全部工作表，再用 `sheet` 逐张读；`include_formulas: true` 才回读公式。
 - 更重的合并、清洗、复算用 `script_run`（Python）。脚本里同时出现 openpyxl 等 Office 库和 .xlsx 路径会被拦下（只读也一样）：优先处理 CSV 或 `excel_read` 读出的数据；输出 xlsx 用 `write_excel`；确需脚本直接读写 xlsx 时按提示加 `force: true`，并告诉用户该产出不可自动撤销。
 
 ## 工作流程

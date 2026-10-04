@@ -245,3 +245,26 @@ test('[O] readConfig 在同一个数据根上只建一次目录(修前每读 14 
   try { for (let i = 0; i < 5; i++) await readConfig(); } finally { fsp.mkdir = orig; }
   assert.equal(calls, 0, `之后的 5 次读不应再 mkdir(实测 ${calls} 次)`);
 });
+
+// 2026-10:没有可用配置不一定是全新安装 —— 数据目录里已经有会话,说明是一份用过的安装丢了配置(文件被删、截成 0 字节、
+// 写成 {}),这时不给出厂的智能自动,钉回最保守的 'default' 并显式落盘;真正的全新安装(没有会话)照旧吃到 'auto'([A])。
+test('[P] 配置丢了但已有会话:钉回 default 而不是出厂的智能自动', async () => {
+  const sessionsDir = path.join(root, 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const marker = path.join(sessionsDir, 'sess_existing.json');
+  fs.writeFileSync(marker, '{}');
+  try {
+    for (const lost of [null, '', '{}']) {
+      reset();
+      if (lost !== null) fs.writeFileSync(CFG, lost);
+      const cfg = await readConfig();
+      assert.equal(cfg.permissionMode, 'default', `配置为 ${JSON.stringify(lost)} 且已有会话时应钉 default`);
+      const disk = onDisk();
+      assert.equal(disk.permissionMode, 'default');
+      assert.ok(disk.configExplicitKeysV1.includes('permissionMode'), '钉回的档记成显式,落盘后不再走这条');
+    }
+  } finally {
+    fs.rmSync(marker, { force: true });
+    reset();
+  }
+});

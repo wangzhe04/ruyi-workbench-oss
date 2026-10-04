@@ -6509,7 +6509,11 @@
         "BRIDGED_TOOL_NAME_TERMS",
         "BRIDGED_TOOL_NAME_TERM_MAX_WORDS",
         "CLAUDE_PROGRESS_CHAR_STEP",
+        "CLAUDE_SUBAGENT_EDIT_TOOLS",
+        "CLAUDE_SUBAGENT_EXEC_TOOLS",
         "CLAUDE_SUBAGENT_PASSTHROUGH_MODES",
+        "CLAUDE_SUBAGENT_TIER_DENY",
+        "CLAUDE_SUBAGENT_TIER_RANK",
         "CLAUDE_SUBAGENT_TIER_TOOLS",
         "FAILOVER_CONNECT_CODES",
         "FAILOVER_HTTP_STATUSES",
@@ -7419,6 +7423,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "settleIntervention",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
           "kinds": [
             "call"
           ]
