@@ -26,16 +26,20 @@ const MCP_TOOLS = [
   },
   {
     name: 'workbench_memory_propose',
-    description: 'Submit one durable memory candidate for user review. It never saves directly: the user must confirm the card shown after the turn. Use when the user explicitly asks to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson that is not already in repository files. Never include secrets, transient status, guesses, or ordinary task output.',
+    // C3:一次可带 items[≤3](一张卡、用户逐条确认)。顶层不再写 required —— 批量形式不带顶层字段;单条形式六个字段
+    // 照旧都要,由描述说明、处理器逐字段校验(措辞与修前一致)。items 的元素不重抄六个属性的 schema(每回合常驻,
+    // 字符预算见 unit/tool-schema-budget),靠描述指回上面那六个。
+    description: 'Propose durable memories for user review, saved only after the user confirms the post-turn card. Use when the user explicitly asks to remember something, or for a stable preference, confirmed project convention/decision, or verified recurring lesson not in repository files. Never include secrets, transient status, guesses, or ordinary task output. One candidate: all six fields. 2-3 independent ones: items.',
     inputSchema: {
-      type: 'object', additionalProperties: false, required: ['name', 'description', 'type', 'scope', 'body', 'reason'],
+      type: 'object', additionalProperties: false,
       properties: {
-        name: { type: 'string', minLength: 1, maxLength: 120, description: 'short title' },
-        description: { type: 'string', minLength: 1, maxLength: 400, description: 'When this memory is useful.' },
+        name: { type: 'string', maxLength: 120, description: 'short title' },
+        description: { type: 'string', maxLength: 400, description: 'When this memory is useful.' },
         type: { type: 'string', enum: ['preference', 'convention', 'lesson', 'reference'], description: 'habit | project rule | pitfall | pointer, in enum order' },
         scope: { type: 'string', enum: ['project', 'global'], description: 'Use global only for an explicitly cross-project personal preference.' },
-        body: { type: 'string', minLength: 1, maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
-        reason: { type: 'string', minLength: 1, maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+        body: { type: 'string', maxLength: 4000, description: 'Concise Markdown with conclusion, applicability and concrete practice.' },
+        reason: { type: 'string', maxLength: 240, description: 'Why this will remain useful across future sessions.' },
+        items: { type: 'array', maxItems: 3, items: { type: 'object' }, description: 'Batch: 2-3 objects with the six fields above' },
       },
     },
   },

@@ -705,7 +705,8 @@ async function handleApi(req, res, pathname) {
     return send(res, json(r, r.ok ? 200 : 404));
   }
   // POST /api/memory/proposal/apply —— 用户在维护卡片上确认后,按候选 kind 落盘(memory_revise 覆盖 /
-  // relation_propose 写 confirmed 边 / relation_revoke 删边)。模型只 propose,此路由只由 UI 调用(用户批准)。
+  // relation_propose 写 confirmed 边 / relation_revoke 删边 / C3 memory_batch 按 accept[] 只存用户勾上的那几条)。
+  // 模型只 propose,此路由只由 UI 调用(用户批准)。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/apply') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
@@ -713,8 +714,9 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (!pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
-    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd);
-    return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : 404)));
+    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd, { accept: body && body.accept });
+    // 批量卡里有条目写盘失败(r.failed)是服务端故障,不是「候选不存在」:回 500,卡片留着让用户重试。
+    return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : (Array.isArray(r.failed) ? 500 : 404))));
   }
   // POST /api/memory/draft {sessionId} —— provider 起草(镜像 playbook/draft)。必须在通配 /api/memory/<id> 之前。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透

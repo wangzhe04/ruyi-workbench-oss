@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3427,
-    "requiredSymbols": 3100,
+    "providedSymbols": 3438,
+    "requiredSymbols": 3101,
     "edges": 533,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -5760,9 +5760,11 @@
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
+        "MEMORY_PROPOSAL_BATCH_MAX",
         "MEMORY_PROPOSAL_HISTORY_MAX",
         "MEMORY_PROPOSAL_MIN_JUDGE_GAP",
         "MEMORY_PROPOSAL_MIN_TURN_GAP",
+        "MEMORY_PROPOSAL_STATE_MAX_BYTES",
         "MEMORY_QUERY_STOP",
         "MEMORY_RELATION_CAP",
         "MEMORY_RELATION_TYPES",
@@ -5779,13 +5781,16 @@
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
         "analyzeMemoryMaintenance",
+        "applyMemoryBatchProposal",
         "applyMemoryRelationProposal",
         "buildCoreMemoryPromptSection",
         "buildMemoryCheckPrompt",
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
         "cleanMemoryDate",
+        "commitSingleMemoryProposal",
         "commitToolMemoryProposal",
+        "commitToolMemoryProposalUnlocked",
         "confirmMemoryRelation",
         "decideMemoryProposal",
         "deleteMemory",
@@ -5811,13 +5816,18 @@
         "memoryGlobalDir",
         "memoryIsExpired",
         "memoryProjectDir",
+        "memoryProposalBatchInput",
+        "memoryProposalDuplicateFailure",
+        "memoryProposalHistoryRows",
         "memoryProposalInFlight",
         "memoryProposalIsDuplicate",
         "memoryProposalLooksSensitive",
         "memoryProposalPrefilter",
         "memoryProposalSemanticKey",
         "memoryProposalSimilarity",
+        "memoryProposalStateChains",
         "memoryProposalStateFile",
+        "memoryProposeAlreadyPendingResult",
         "memoryRecallCorpus",
         "memoryRecallCorpusCache",
         "memoryRelationsFile",
@@ -5831,6 +5841,7 @@
         "migrateLegacyAccMemory",
         "migrateMemory",
         "mutateMemoryUsageState",
+        "normalizeMemoryProposalCandidate",
         "parseMemoryDraft",
         "parseMemoryProposalDecision",
         "planAgentInstructionEntries",
@@ -5958,6 +5969,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -27273,6 +27291,7 @@
         "os",
         "path",
         "paths",
+        "runKeyedChain",
         "safeJsonParse",
         "text",
         "tildePath"

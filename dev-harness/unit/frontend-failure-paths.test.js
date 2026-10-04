@@ -19,7 +19,8 @@
 //   ⑨ 设置 → 工作区：删掉唯一一行能真删掉（主工作区框跟着清空）；
 //   ⑩ i18n：连着两次 setLocale，最新那一次说了算；hasTranslation；
 //   ⑪ 大编辑器的「有没存的改动」确认（modal.js dirty 口）；
-//   ⑫ 读数：fmtTokens / ctxLenBadge 不出「1000K」；等待时限的复数；时间与千分位跟界面语言走。
+//   ⑫ 读数：fmtTokens / ctxLenBadge 不出「1000K」；等待时限的复数；时间与千分位跟界面语言走；
+//   ⑬ 批量记忆候选卡（61 号文 C3）：一张卡逐条勾选，保存只送勾上的下标；失败卡片与勾选都在、按钮还给用户；成功才收卡。
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -433,6 +434,92 @@ test('⑪ 大编辑器：改过内容后点背影／Esc 先问一句；答「不
   confirmAnswer = true;
   second.backdrop.__cancel();
   assert.equal(second.backdrop.isConnected, false, '答「是」才关');
+});
+
+// ── ⑬ 批量记忆候选卡（61 号文 C3）────────────────────────────────────────────────────────────────
+// 模型一次提议 2–3 条 → 回合后一张卡、逐条勾选。失败路径与记忆编辑同一条纪律：没存上就什么都别丢（卡片、勾选都在，
+// 按钮还给用户）；成功才收卡；「全部忽略」只记一次 dismissed、不走 apply。
+test('⑬ 批量记忆卡：一张卡逐条勾选；保存只送勾上的下标；失败卡片留着、勾选不丢；成功才收；「全部忽略」整张丢', async () => {
+  const { t, tCount } = await load('i18n.js');
+  const { state } = await load('state.js');
+  const { createSkillsMemoryDomain } = await load('skills-memory.js');
+  const domain = createSkillsMemoryDomain({ currentWorkspace: () => 'C:\\proj' });
+  const SID = 'sess_mem_batch';
+  state.currentSession = { id: SID };
+  const messages = document.getElementById('messages') || document.mount('div', 'messages');
+  const host = document.createElement('div');
+  messages.appendChild(host);
+  const items = [1, 2, 3].map(n => ({ name: `约定${n}`, description: `何时用 ${n}`, type: n === 2 ? 'lesson' : 'convention', scope: n === 3 ? 'global' : 'project',
+    body: `正文 ${n}`, reason: `原因 ${n}`, status: 'pending' }));
+  const proposal = { kind: 'memory_batch', items, sourceSessionId: SID, sourceTurnSeq: 1 };
+  const applyBodies = [];
+  const decisions = [];
+  let applyAnswer = () => ({ ok: false, error: 'disk full' });
+  apiHandler = (url, options = {}) => {
+    if (url.endsWith('/api/memory/proposal')) return { ok: true, proposalId: 'prop_b', proposal, replayed: true, reason: 'tool_proposal' };
+    if (url.endsWith('/api/memory/proposal/apply')) { applyBodies.push(JSON.parse(options.body)); return applyAnswer(); }
+    if (url.endsWith('/api/memory/proposal/decision')) { decisions.push(JSON.parse(options.body)); return { ok: true, status: 'dismissed' }; }
+    return { ok: true, memories: [] };
+  };
+  await domain.suggestMemoryFromTurn(SID, host);
+  await flush();
+  const cards = messages.querySelectorAll('.memory-proposal-card');
+  assert.equal(cards.length, 1, '三条候选是【一张】卡');
+  const card = cards[0];
+  assert.ok(card.classList.contains('memory-proposal-batch'));
+  assert.equal(card.querySelector('.memory-proposal-kicker').textContent, t('memory.proposal.kickerBatch', { count: 3 }));
+  const rows = card.querySelectorAll('.memory-proposal-item');
+  assert.equal(rows.length, 3, '每条一行');
+  assert.deepEqual(rows.map(r => r.querySelector('.memory-proposal-title').textContent), ['约定1', '约定2', '约定3']);
+  assert.ok(rows[2].textContent.includes(t('memory.scope.global')) && rows[1].textContent.includes('原因 2') && rows[0].querySelector('details').textContent.includes('正文 1'),
+    '范围标签、提议原因、折叠里的正文都画出来了');
+  const boxes = card.querySelectorAll('input');
+  assert.deepEqual(boxes.map(b => [b.type, b.checked]), [['checkbox', true], ['checkbox', true], ['checkbox', true]], '默认全勾');
+  const [dismiss, save] = card.querySelectorAll('.memory-proposal-actions button');
+  assert.equal(save.textContent, t('memory.proposal.saveSelected', { count: 3 }));
+  boxes[1].checked = false; boxes[1].dispatchEvent(fakeEvent('change'));
+  assert.equal(save.textContent, t('memory.proposal.saveSelected', { count: 2 }), '按钮上的数跟着勾选走');
+
+  // 失败：卡片留着、勾选不丢、按钮还给用户、报原因
+  clearToasts();
+  save.click(); save.click();                              // 连点：在飞时只发一发
+  await flush();
+  assert.equal(applyBodies.length, 1);
+  assert.deepEqual(applyBodies[0], { sessionId: SID, proposalId: 'prop_b', cwd: 'C:\\proj', accept: [0, 2] }, '只送勾上的下标');
+  assert.equal(card.isConnected, true, '失败：卡片留着');
+  assert.deepEqual(boxes.map(b => b.checked), [true, false, true], '勾选不丢');
+  assert.equal(save.disabled, false);
+  assert.equal(dismiss.disabled, false);
+  assert.ok(boxes.every(b => !b.disabled));
+  assert.deepEqual(toasts().map(x => x.kind), ['err']);
+
+  // 一条都不勾：「保存选中」不可点（要丢整张用「全部忽略」）
+  for (const b of boxes) { b.checked = false; b.dispatchEvent(fakeEvent('change')); }
+  assert.equal(save.disabled, true);
+  for (const i of [0, 2]) { boxes[i].checked = true; boxes[i].dispatchEvent(fakeEvent('change')); }
+
+  // 成功：报存了几条、收卡
+  applyAnswer = () => ({ ok: true, kind: 'memory_batch', status: 'saved', saved: [{ index: 0 }, { index: 2 }], dismissed: [{ index: 1 }] });
+  clearToasts();
+  save.click();
+  await flush();
+  assert.deepEqual(applyBodies[1].accept, [0, 2]);
+  assert.deepEqual(toasts().map(x => x.kind), ['ok']);
+  assert.equal(toasts()[0].text, tCount('memory.proposal.batchSaved', 2));
+  await new Promise(r => setTimeout(r, 220));
+  assert.equal(card.isConnected, false, '成功才收卡');
+
+  // 「全部忽略」：只记一次 dismissed，不走 apply
+  await domain.suggestMemoryFromTurn(SID, host);
+  await flush();
+  const card2 = messages.querySelector('.memory-proposal-card');
+  card2.querySelectorAll('.memory-proposal-actions button')[0].click();
+  await flush();
+  assert.deepEqual(decisions, [{ sessionId: SID, proposalId: 'prop_b', decision: 'dismissed' }]);
+  assert.equal(applyBodies.length, 2, '忽略不调 apply');
+  await new Promise(r => setTimeout(r, 220));
+  assert.equal(messages.querySelectorAll('.memory-proposal-card').length, 0);
+  host.remove();
 });
 
 // ── ② 会话改名 ／ ④ 删模型行（navigation-controls 域）────────────────────────────────────────────
