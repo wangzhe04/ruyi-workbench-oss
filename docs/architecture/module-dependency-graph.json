@@ -4,8 +4,8 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3438,
-    "requiredSymbols": 3101,
+    "providedSymbols": 3439,
+    "requiredSymbols": 3105,
     "edges": 533,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -5056,6 +5056,7 @@
         "maybeWriteThreadBrief",
         "metricsBucketIndex",
         "networkAnchors",
+        "neutralizeAuthoredText",
         "normalizeMetricsPath",
         "normalizePlaybook",
         "normalizeStoragePolicy",
@@ -11735,6 +11736,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
           "kinds": [
             "call"
@@ -11743,6 +11751,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "markNetworkOnline",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]
@@ -11812,9 +11827,23 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAssemblePlaybookPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPlaybookMissingInputs",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -28872,8 +28901,10 @@
         "buildRuntimeIdentityFacts",
         "evalPlaybookAvailability",
         "getCapabilities",
+        "listPlaybooksWithAvailability",
         "loadAllPlaybooks",
         "markNetworkOnline",
+        "neutralizeAuthoredText",
         "peekCapabilities"
       ],
       "direction": "backward"
@@ -28896,7 +28927,9 @@
       "to": "06i-steward-core.js",
       "symbols": [
         "StewardHooks",
-        "isStewardToolName"
+        "isStewardToolName",
+        "stewardAssemblePlaybookPrompt",
+        "stewardPlaybookMissingInputs"
       ],
       "direction": "backward"
     },

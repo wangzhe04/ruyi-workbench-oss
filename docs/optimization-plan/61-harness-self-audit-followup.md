@@ -90,6 +90,7 @@
 | A4 / A6 | 零命中 `note`；`tool_load` 回 `bridgedNotLoaded`＋hint；CLI 零命中不带 `next`；`fetch → web_fetch` | `harness-friction.e2e` [E][L] |
 | A5 分类器 v3 | 新类 `remote_blocked`；读 `failClass` / `statusCode` / `blocked` / `argsInvalid`；真机 49 条可配对失败重放 unknown 25（51%）→ 0，permission_denied 4 → 0（全是 403 误判），改动类 `retry_once` 仍为 0 —— **样本内结果**，泛化要看 v3 cohort 积累后的 unknown 占比 | `unit/runtime-failure-classifier`、`runtime-optimization.static`、对抗集 88 条 |
 | B1–B5 | 见 §2 | `harness-friction.e2e` [S][K][R][C]、`tool-invoke-promote` P8、`unit/tool-invoke-args-guide` G2、`prompt-snapshot.static` D15–D15d |
+| C1 Playbook / 技能只读工具（已实现） | 13f 三个 schema（`playbook_list` / `playbook_read` / `skill_list`，read 档、`skills` 包、不进起手工具）；12 `INTEGRATION_TOOL_HANDLERS` 里的 handler：`playbook_read` 复用 06i 的 `stewardAssemblePlaybookPrompt` / `stewardPlaybookMissingInputs` 填参与缺参判定（缺参回 `playbook_inputs_missing`+缺哪些，不可用回 `playbook_unavailable` 且不给步骤，未知 id 回 `playbook_not_found`），正文包 `<playbook-reference>` 围栏、尖括号经 06 `neutralizeAuthoredText` 中和（与索引段同一函数），结果 note 明说「只在用户点名或明确同意后照做」；`classifyToolPacks` 在 Playbook / 预置流程 / 流程模板等说法时带 skills 包；06b 两包 `playbookIndex.trailer` 改指向 `playbook_read`。**`skill_read` 不放开**：仍只读已启用技能、仍只在有启用技能时才 offer —— `skills-registry.e2e` (d)(f) 钉着这两条语义，且「启用」是用户对技能（含 `<cwd>/.ruyi/skills`、`~/.claude/skills` 等来源）的信任动作并带来源锁，放开等于让 read 档工具绕过它；`skill_list` 因此只列、并把 `enabled` 标出来 | `playbook-skill-tools.e2e`、`unit/playbook-skill-tools`、`prompt-snapshot.static` D14e–D14g、`unit/tool-schema-budget`（offeredDefault 一次性 +1483） |
 
 遗留缺口：
 

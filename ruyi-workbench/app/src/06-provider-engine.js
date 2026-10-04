@@ -1997,8 +1997,12 @@ function buildSkillsPromptSection(enabledSkills, engine, config) {
   return header + OPEN + text + CLOSE;
 }
 
-// 108b Playbook 精简索引: agent 没有运行 playbook 的工具(用户在「技能库」面板点运行),所以这里只给
-// 「有哪些、叫什么、干什么、去哪儿运行」,不给执行承诺。数据来自内置 resources/playbooks 与用户可写的
+// 作者写的文本(Playbook / 技能的标题、描述、正文)进模型前的统一中和:所有尖括号换成方括号,伪造围栏 / 伪造标签一并失效。
+// 单一事实源 —— Playbook 索引段(下)与 playbook_list / playbook_read / skill_list 三个只读工具(12)共用,不各抄一份。
+function neutralizeAuthoredText(t) { return String(t == null ? '' : t).replace(/[<>]/g, ch => (ch === '<' ? '[' : ']')); }
+
+// 108b Playbook 精简索引: 索引只给「有哪些、叫什么、干什么」;要看步骤用 playbook_read(只读,12 的 INTEGRATION_TOOL_HANDLERS),
+// 照做须用户点名或明确同意(尾行 playbookIndex.trailer 同口径)。数据来自内置 resources/playbooks 与用户可写的
 // dataRoot/playbooks/*.json, 标题与描述都是不可信文本,故沿用技能索引的不可信带纪律:整段包进
 // <playbook-index> 围栏,条目里的尖括号一律中和成方括号(伪造围栏/伪造标签一并失效),描述裁到 160 字。
 // 规模控制: 整行详情至多 12 条(available 优先,不可用项排后并标注),其余压成一行简列,整段硬顶 900 字符(见函数内
@@ -2009,7 +2013,7 @@ function buildPlaybookIndexSection(playbooks, config) {
   if (!list.length) return '';
   const pack = getPromptPack(config && config.locale).playbookIndex;
   // 不可信带中和: 所有尖括号 -> 方括号(比技能索引只中和 <skill-index> 更严,因为 playbook 描述常带示例文本)。
-  const fence = t => String(t).replace(/[<>]/g, ch => (ch === '<' ? '[' : ']'));
+  const fence = neutralizeAuthoredText;
   // 61-B5:修前硬顶 600 字、按整行装箱,16 个内置 Playbook 实测只放得下字母序前 6 个,weekly-report 之类永远不可见。
   // 改成两级:前 k 条给整行(标题 + id + 描述),其余压成一行「其余:标题 [id]、…」;k 取装得下的最大值,整段硬顶 900 字。
   // 连全压缩都装不下时才按整条截断并留省略行(被裁掉这件事不静默丢失)。

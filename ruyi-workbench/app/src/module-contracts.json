@@ -4988,6 +4988,7 @@
         "maybeWriteThreadBrief",
         "metricsBucketIndex",
         "networkAnchors",
+        "neutralizeAuthoredText",
         "normalizeMetricsPath",
         "normalizePlaybook",
         "normalizeStoragePolicy",
@@ -11629,6 +11630,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
           "kinds": [
             "call"
@@ -11637,6 +11645,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "markNetworkOnline",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]
@@ -11706,9 +11721,23 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAssemblePlaybookPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPlaybookMissingInputs",
+          "kinds": [
+            "call"
           ]
         },
         {

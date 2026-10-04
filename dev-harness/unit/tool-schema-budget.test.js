@@ -91,7 +91,10 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // 61 号文 C4:只读工具 checkpoint_list(files_write 包,402 字符:描述一句 + 两个入参)—— 这是【有意的、一次性的】上调:改代码回合
   // 30449→30851、默认 offered 53776→54178(实数),预算 30500→30900、53800→54200;闲聊回合不涨(写包不在 core)。
   // 说明与「撤销只能由用户做」的提醒放在工具结果的 note 里而不是描述里,schema 已压到只剩判别名字与入参所需的字。之后照旧只减不增。
-  const BUDGET = { chitchat: 12600, codeEdit: 30900, fullAll: 46500, offeredDefault: 54200 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // 61 号文 C1(playbook_list / playbook_read / skill_list,skills 包、不进起手工具):又一次【有意的、一次性的】上调,只涨「全部可用工具」
+  // 这一口径 —— 默认 offered 54178→55675(实数),预算 54200→55700;闲聊 / 改代码回合一字不涨。它们是给「新会话看不到任何 Playbook /
+  // 技能入口」补的只读入口,说到 Playbook / 预置流程 / 技能时才由 classifyToolPacks 装载。之后照旧只减不增。
+  const BUDGET = { chitchat: 12600, codeEdit: 30900, fullAll: 46500, offeredDefault: 55700 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   // 同轮 files 组:file_write.lineEnding + file_edit.oldText / glob.pattern 的 minLength:1(空串修前是抛异常)+151 字符,
   // 只把 offeredDefault 再抬 100(53700→53800);描述文字没有加(说明放在工具结果的 hint / note 里)。
   const chit = chars(loaded('你好').current());

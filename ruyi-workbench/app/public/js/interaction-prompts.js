@@ -338,6 +338,7 @@ const TOOL_VERB_MAP = {
   mission_update: 'tools.verb.mission_update', observation_recall: 'tools.verb.observation_recall', office_open: 'tools.verb.office_open',
   orchestrate_agents: 'tools.verb.orchestrate_agents', permission_prompt: 'tools.verb.permission_prompt', project_snapshot: 'tools.verb.project_snapshot',
   request_user_input: 'tools.verb.request_user_input', skill_read: 'tools.verb.skill_read', spawn_agent: 'tools.verb.spawn_agent',
+  playbook_list: 'tools.verb.playbook_list', playbook_read: 'tools.verb.playbook_read', skill_list: 'tools.verb.skill_list', // 61 号文 C1
   todo_write: 'tools.verb.todo_write', tool_invoke_read: 'tools.verb.tool_invoke', tool_invoke_edit: 'tools.verb.tool_invoke', tool_invoke_exec: 'tools.verb.tool_invoke',
   tool_load: 'tools.verb.tool_load', tool_search: 'tools.verb.tool_search', wait_agents: 'tools.verb.wait_agents', web_fetch: 'tools.verb.web_fetch',
   web_search: 'tools.verb.web_search', workbench_self_status: 'tools.verb.workbench_self_status',

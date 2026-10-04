@@ -382,6 +382,9 @@ const NATIVE_TOOL_TIER = {
   steward_schedule_create: 'edit', steward_schedule_pause: 'edit', steward_schedule_resume: 'edit',
   steward_schedule_run_now: 'edit', steward_schedule_delete: 'edit',
   skill_read: 'read', // v1 技能体系: 只读已启用技能的 SKILL.md + 目录清单(路径受限该技能目录内)→ auto-allow
+  // 61 号文 C1:Playbook / 技能清单与 Playbook 步骤文本 —— 只读如意自己的注册表与模板目录,零副作用 → auto-allow。
+  // 「读到模板」不等于「被授权照做」:照做须用户点名或明确同意,由结果 note + 系统提示尾行讲明,不靠把它们归成 edit。
+  playbook_list: 'read', playbook_read: 'read', skill_list: 'read',
   web_search: 'read', web_fetch: 'read', // v0.9-S9: read-only network reads (no local mutation) → auto-allow (SSRF-guarded)
   file_write: 'edit', file_edit: 'edit', file_delete: 'edit', // v0.8-S4a: delete is journaled (revertible) → edit tier
   // v1.1-W2 (T1): 移动/复制/压缩/解压/下载 —— 均落盘且经检查点(可撤销) → edit tier。
@@ -499,7 +502,7 @@ const TOOL_PACK_DESCRIPTIONS = Object.freeze({
   office: 'Excel, Word, PowerPoint and PDF document operations',
   archive: 'zip and unzip archives',
   agents: 'sub-agents and workflow orchestration',
-  skills: 'read enabled skill instructions',
+  skills: 'list installed skills and Playbooks, read enabled skill instructions and Playbook steps',
   integrations: 'inspect and configure MCP connectors and browser targets',
   memory: 'Workbench Memory maintenance: propose relations between memories, revise a confirmed memory, revoke a relation (plus external memory_save/read/list/delete)',
   thinking: 'step-by-step reasoning chains and sequential thinking',
@@ -534,6 +537,7 @@ const NATIVE_TOOL_PACKS = Object.freeze({
   web_search: 'web', web_fetch: 'web', http_request: 'web', http_download: 'web', browser_open: 'web',
   desktop_screenshot: 'desktop', keyboard_send_keys: 'desktop', office_open: 'office',
   archive_zip: 'archive', archive_unzip: 'archive', spawn_agent: 'agents', orchestrate_agents: 'agents', wait_agents: 'agents', agent_result: 'agents', skill_read: 'skills',
+  playbook_list: 'skills', playbook_read: 'skills', skill_list: 'skills', // 61 号文 C1:不进 PROVIDER_STARTER_TOOLS(起手工具影响前缀缓存),说到 Playbook/技能时 classifyToolPacks 带出
   mcp_list: 'integrations', mcp_configure: 'integrations',
   // 116c: 管家工具族全部归 steward 包 —— 普通会话的 classifyToolPacks 永远不会路由到这个包
   // (四个 offer 面在包路由【之前】就按 isStewardToolName 拦掉了,包只是目录归属的一致性声明)。
@@ -606,6 +610,9 @@ const TOOL_RETRIEVAL_HINTS = Object.freeze({
   wait_agents: { capabilities: ['agent.workflow.wait'], aliases: ['等待代理完成', '收代理结果', 'wait for agents'] },
   agent_result: { capabilities: ['agent.workflow.result'], aliases: ['读取代理产出全文', '代理结果', 'read agent result'] },
   skill_read: { capabilities: ['skill.instructions.read'], aliases: ['读取技能说明', '加载技能', 'read skill instructions'] },
+  playbook_list: { capabilities: ['playbook.catalog.list'], aliases: ['列出预置流程', '有哪些流程模板', '查看 playbook 清单', 'list playbooks'] },
+  playbook_read: { capabilities: ['playbook.steps.read'], aliases: ['读取预置流程步骤', '流程模板填参', '查看 playbook 步骤', 'read playbook steps'] },
+  skill_list: { capabilities: ['skill.catalog.list'], aliases: ['列出可用技能', '有哪些技能', '查看技能清单', 'list installed skills'] },
   workbench_memory_read: { capabilities: ['memory.read'], aliases: ['读取工作台记忆', '回忆信息', 'read memory'] },
   checkpoint_list: { capabilities: ['workspace.checkpoint.list'], aliases: ['查看检查点', '可撤销的修改', '哪些改动能撤销', '已撤销的修改', 'list checkpoints', 'what can be undone'] },
   observation_recall: { capabilities: ['context.observation.recall'], aliases: ['回读原始工具结果', '取回被省略的观察', 'recall reduced observation', 'restore tool result'] },
@@ -754,7 +761,8 @@ function classifyToolPacks(message, attachments) {
   if (/(截图|桌面|窗口|鼠标|键盘|点击|屏幕|ocr|screenshot|desktop|window|mouse|keyboard|click)/i.test(s)) add('desktop');
   if (/(压缩|解压|zip|archive|unzip)/i.test(s)) add('archive', 'files_read', 'files_write');
   if (/(子代理|多代理|工作流|并行|agent|orchestrat|delegate)/i.test(s)) add('agents');
-  if (/(技能|skill)/i.test(s)) add('skills');
+  // 61 号文 C1:Playbook / 预置流程 / 流程模板 / 操作流程 也带 skills 包(playbook_list / playbook_read / skill_list 住在那里)。
+  if (/(技能|skill|playbook|预置流程|预置操作|流程模板|模板流程|操作流程)/i.test(s)) add('skills');
   if (/(mcp|连接器|工具配置|浏览器目标|browser target|connector|tool config)/i.test(s)) add('integrations');
   // 「偏好 / preference」不再单独装 memory 包:记下一条偏好用的是 core 里的 workbench_memory_propose,memory 包是关系边 /
   // 修订 / 撤销这几件维护工具;修前「这两家模型谁更强…偏好」这类话题词就把它带进来、跟着整个会话。

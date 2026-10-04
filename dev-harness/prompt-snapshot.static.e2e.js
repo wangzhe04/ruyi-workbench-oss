@@ -136,7 +136,13 @@ const pbClose = (volatilePb.match(/<\/playbook-index>/g) || []).length;
 ok(pbOpen === 1 && pbClose === 1, 'D14 108b volatile 含 <playbook-index> 围栏各一次(开 ' + pbOpen + '/闭 ' + pbClose + ')');
 ok(/演示 Playbook/.test(volatilePb) && /\[demo\]/.test(volatilePb), 'D14b 108b 条目行含标题 + [id]');
 ok(!/<script>/.test(volatilePb) && /\[script\]/.test(volatilePb), 'D14c 108b 不可信描述里的尖括号被中和成方括号(伪造围栏/标签失效)');
-ok(/技能库/.test(volatilePb), 'D14d 108b 尾行说明由用户在技能库面板运行(agent 无执行工具)');
+ok(/技能库/.test(volatilePb), 'D14d 108b 尾行仍指路「技能库」面板(用户也可在那里点运行)');
+// 61 号文 C1:尾行不再说「你没有执行它的工具」,改为「用 playbook_read 读步骤;只在用户点名或明确同意后照做」(中英两包同口径)。
+ok(/playbook_read/.test(volatilePb) && /点名或明确同意/.test(volatilePb) && !/没有执行它的工具/.test(volatilePb),
+  'D14e 61-C1 中文尾行指向 playbook_read、要求用户点名或明确同意后才照做,且不再声称没有执行工具');
+const pbEn = srv.buildPlaybookIndexSection(pbOne, { locale: 'en-US' });
+ok(/playbook_read/.test(pbEn) && /names one or clearly agrees/.test(pbEn) && !/no tool to execute/.test(pbEn),
+  'D14f 61-C1 英文尾行同口径(playbook_read + 用户点名/同意后才照做)');
 const pbMany = Array.from({ length: 30 }, (_, i) => ({ id: 'pb' + i, title: '流程' + i, description: '描述'.repeat(20), available: i % 5 !== 0 }));
 const pbSecMany = srv.buildPlaybookIndexSection(pbMany, config);
 const pbLines = (pbSecMany.match(/^- /gm) || []).length;
@@ -149,6 +155,12 @@ const pbReal = Array.from({ length: 16 }, (_, i) => ({ id: 'playbook-id-' + i, t
 const pbSecReal = srv.buildPlaybookIndexSection(pbReal, config);
 ok(pbReal.every(p => pbSecReal.includes('[' + p.id + ']')) && !/已截断/.test(pbSecReal) && pbSecReal.length <= 900,
   'D15d 61-B5 16 条内置规模全部可见(整行 + 简列),不截断(got ' + pbSecReal.length + ' 字)');
+{
+  // 尾行变长后,16 个内置规模仍整行 + 简列全部可见(D15d 同口径,这里用真实英文包再核一遍硬顶)。
+  const pbRealEn = srv.buildPlaybookIndexSection(pbReal, { locale: 'en-US' });
+  ok(pbRealEn.length <= 900 && pbReal.every(p => pbRealEn.includes('[' + p.id + ']')) && !/truncated/.test(pbRealEn),
+    'D14g 61-C1 英文尾行下 16 条内置规模仍全部可见且 ≤900 字符(got ' + pbRealEn.length + ')');
+}
 ok(!/<playbook-index>/.test(volatile), 'D16 108b 不传 playbook 时 volatile 无索引段(既有夹具路径零漂移)');
 ok(volatile.length > 100 && volatile.length < 5000, 'D17 108b 既有夹具 volatile 仍满足 D6 闸(got ' + volatile.length + ')');
 // 108b 设置边界双语指引:mcp 工具在场时注入,中文包说清「能改什么、不能改什么、去哪儿改」。

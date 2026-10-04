@@ -1106,7 +1106,7 @@ function evaporateHistory(history, opts) {
 const COMPACTION_REFETCH_LIMITS = Object.freeze({ WARN_AT: 2, REFUSE_AT: 3 });
 const COMPACTION_REFETCH_TOOLS = new Set([
   'file_read', 'file_list', 'file_search', 'glob', 'docs_search', 'codebase_symbol_search', 'project_snapshot',
-  'dependency_inventory', 'git_log', 'web_fetch', 'web_search', 'skill_read', 'workbench_memory_read', 'observation_recall',
+  'dependency_inventory', 'git_log', 'web_fetch', 'web_search', 'skill_read', 'playbook_read', 'workbench_memory_read', 'observation_recall',
   'steward_file_read', 'steward_web_fetch', 'steward_web_search', 'steward_thread_read', 'steward_thread_artifact_read',
 ]);
 const COMPACTION_REFETCH_REFUSED = 'compaction_refetch_refused';
