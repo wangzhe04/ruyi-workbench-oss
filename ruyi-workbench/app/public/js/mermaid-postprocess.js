@@ -60,7 +60,7 @@ function restoreSankeyLabels(svg, labels) {
   if (!labels) return;
   for (const text of Array.from(svg.querySelectorAll('text'))) {
     const content = String(text.textContent || '');
-    const m = /^(N\d+x)/.exec(content);
+    const m = /^(N\d+x)(?=\s|$)/.exec(content);   // 只认整段代号(真实节点名 N1xa 不被当成 N1x)
     if (m && Object.prototype.hasOwnProperty.call(labels, m[1])) text.textContent = labels[m[1]] + content.slice(m[1].length);
   }
 }
@@ -173,10 +173,18 @@ function fadeSequenceRegions(svg, background, ink) {
     if (opacity < start) rect.style.setProperty('fill-opacity', String(Math.max(0.12, Number(opacity.toFixed(2)))));
   }
 }
+// 要判对比度的文字:SVG 里有 tspan 的按 tspan 判(它们常有自己的 fill 规则,在 <text> 上改色盖不住),
+// 没有的按 <text> 判;foreignObject 里取自己带文字节点的那一层。
+// 时序图 autonumber 的序号画在箭头标记(<marker>)那颗圆上,标记形状不计入「身后的底」,
+// 按图底判会把本来对的字色翻掉 —— 跳过。
 function textElements(svg) {
   const found = [];
-  for (const el of Array.from(svg.querySelectorAll('text'))) {
-    if (String(el.textContent || '').trim()) found.push({ el, html: false });
+  for (const text of Array.from(svg.querySelectorAll('text'))) {
+    if (text.closest('.sequenceNumber, marker, defs') || text.classList.contains('sequenceNumber')) continue;
+    const spans = Array.from(text.querySelectorAll('tspan')).filter(span => !span.querySelector('tspan'));
+    for (const el of spans.length ? spans : [text]) {
+      if (String(el.textContent || '').trim()) found.push({ el, html: false });
+    }
   }
   for (const fo of Array.from(svg.querySelectorAll('foreignObject'))) {
     for (const el of Array.from(fo.querySelectorAll('*'))) {

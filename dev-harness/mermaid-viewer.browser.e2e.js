@@ -591,6 +591,10 @@ try {
       seqRect: 'sequenceDiagram\\n A->>B: 去\\n rect rgb(191, 223, 255)\\n B->>A: 回\\n end',
       wide: 'flowchart LR\\n ' + Array.from({ length: 16 }, (_, i) => 'S' + i + '[第' + i + '步处理]').join(' --> '),
       bad: 'flowchart TD\\n A[未闭合',
+      // 走查复核(2026-10-04)抓到的三处「原本画对、被改坏」:
+      autonum: 'sequenceDiagram\\n autonumber\\n A->>B: 第一步\\n B->>A: 第二步',
+      annot: 'classDiagram\\n class Order{\\n  <<Aggregate Root>>\\n  +List<Item> items\\n }',
+      sankeyAscii: 'sankey-beta\\n\\nN1xa,注册用户,10\\n注册用户,付费,4',
     };
     for (const [id, source] of Object.entries(cases)) {
       const box = document.createElement('div');
@@ -625,6 +629,10 @@ try {
     out.seqRect = region ? Number(getComputedStyle(region).fillOpacity) : -1;
     const wideView = box('wide').querySelector('.mermaid-view');
     out.wide = { minWidth: svg('wide') ? svg('wide').style.minWidth : '', scrolls: wideView ? wideView.scrollWidth > wideView.clientWidth + 10 : false };
+    const digit = svg('autonum') && svg('autonum').querySelector('text.sequenceNumber');
+    out.autonum = digit ? { fill: getComputedStyle(digit).fill, inline: digit.style.getPropertyValue('fill') } : null;
+    out.annot = svg('annot') ? Array.from(svg('annot').querySelectorAll('.label, text, span, p')).map(n => n.textContent).join('|') : '';
+    out.sankeyAscii = svg('sankeyAscii') ? Array.from(svg('sankeyAscii').querySelectorAll('text')).map(n => n.textContent).join('|') : '';
     out.bad = {
       detail: (box('bad').querySelector('.mermaid-hint-detail') || {}).textContent || '',
       buttons: Array.from(box('bad').querySelectorAll('.mermaid-tools .mermaid-btn')).map(b => b.textContent),
@@ -635,7 +643,8 @@ try {
   const states = audit.states || {};
   ok(['special', 'xy', 'sankey'].every(id => states[id] === 'ok+repaired'),
     `B11a 模型常写错的三种（括号标签+行尾注释、中文 xychart、中文桑基图）自动修好再画（实得 ${JSON.stringify(states)}；修前全部回落成源码）`);
-  ok(['styled', 'click', 'arch', 'c4', 'seqRect', 'wide'].every(id => states[id] === 'ok') && states.bad === 'fallback',
+  ok(['styled', 'click', 'arch', 'c4', 'seqRect', 'wide', 'autonum', 'annot'].every(id => states[id] === 'ok')
+    && states.sankeyAscii === 'ok+repaired' && states.bad === 'fallback',
     'B11b 其余照常画；真写坏的那张仍回落成源码');
   ok(/线上渠道/.test(audit.sankeyText) && /注册用户/.test(audit.sankeyText) && !/N\d+x/.test(audit.sankeyText),
     `B11c 桑基图画完把代号换回中文节点名（${audit.sankeyText}）`);
@@ -648,6 +657,12 @@ try {
   ok(audit.seqRect > 0 && audit.seqRect < 1, `B11h 时序图浅色 rect 高亮块在暗色下变淡，字与箭头读得清（fill-opacity=${audit.seqRect}）`);
   ok(/^\d+px$/.test(audit.wide.minWidth) && audit.wide.scrolls === true,
     `B11i 16 步横向流程图不缩成一条：有最小宽度、改为横向滚动（min-width=${audit.wide.minWidth}）`);
+  ok(audit.autonum && audit.autonum.inline === '' && audit.autonum.fill === 'rgb(15, 21, 32)',
+    `B11k 时序图 autonumber 的序号字色不被对比度兜底翻掉（序号画在箭头标记的圆上；实得 ${JSON.stringify(audit.autonum)}）`);
+  ok(/«Aggregate Root»/.test(audit.annot) && !/<<Aggregate Root>>|#lt;/.test(audit.annot),
+    'B11l 带空格的类注解 <<Aggregate Root>> 仍画成注解（«…»），不被预处理转成实体');
+  ok(/N1xa/.test(audit.sankeyAscii) && /注册用户/.test(audit.sankeyAscii) && !/N\d+x(?!a)/.test(audit.sankeyAscii),
+    `B11m 桑基图真实 ASCII 节点 N1xa 不被当成代号换掉（${audit.sankeyAscii.replace(/\n/g, ' ')}）`);
   ok(/Parse error|line/i.test(audit.bad.detail) && audit.bad.buttons.join('|') === '复制',
     `B11j 真画不了的：回落里有解析器原话与「复制」钮（${audit.bad.detail}｜${audit.bad.buttons.join('|')}）`);
 

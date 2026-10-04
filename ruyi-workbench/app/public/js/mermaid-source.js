@@ -23,6 +23,14 @@ const TYPE_ALIASES = Object.freeze({
   sankey: 'sankey', 'sankey-beta': 'sankey', 'radar-beta': 'radar', treemap: 'treemap', 'treemap-beta': 'treemap',
 });
 
+// %%{ … }%% 指令可以跨好几行(「%%{init: {」……「}}%%」):返回第 i 行开始的那条指令占到哪一行(含),
+// 不是指令起点给 -1。
+function directiveEnd(lines, i) {
+  if (!/^\s*%%\{/.test(lines[i] || '')) return -1;
+  for (let j = i; j < lines.length; j += 1) if (lines[j].includes('}%%')) return j;
+  return lines.length - 1;
+}
+
 // 正文从哪一行开始:跳过开头空行与 --- frontmatter ---。
 function bodyStart(lines) {
   let i = 0;
@@ -39,6 +47,8 @@ function bodyStart(lines) {
 export function mermaidDiagramType(src) {
   const lines = String(src == null ? '' : src).split(/\r?\n/);
   for (let i = bodyStart(lines); i < lines.length; i += 1) {
+    const end = directiveEnd(lines, i);
+    if (end >= 0) { i = end; continue; }
     const line = lines[i].trim();
     if (!line || line.startsWith('%%')) continue;
     const word = (/^([A-Za-z][\w-]*)/.exec(line) || [])[1] || '';
@@ -47,11 +57,18 @@ export function mermaidDiagramType(src) {
   return '';
 }
 
-// 逐行改写正文;%% 注释/指令行与 frontmatter 原样保留。
+// 逐行改写正文;%% 注释、%%{ }%% 指令(含跨行的)与 frontmatter 原样保留。
 function mapBody(src, fn) {
   const lines = String(src).split('\n');
   const start = bodyStart(lines);
-  return lines.map((line, i) => (i < start || line.trim().startsWith('%%') ? line : fn(line, i))).join('\n');
+  let directiveUntil = -1;
+  return lines.map((line, i) => {
+    if (i < start) return line;
+    if (i <= directiveUntil) return line;
+    const end = directiveEnd(lines, i);
+    if (end >= 0) { directiveUntil = end; return line; }
+    return line.trim().startsWith('%%') ? line : fn(line, i);
+  }).join('\n');
 }
 
 const isWide = ch => ch.codePointAt(0) >= 0x2e80;
@@ -60,10 +77,14 @@ const isWide = ch => ch.codePointAt(0) >= 0x2e80;
 
 // <List<String>> 这类尖括号:mermaid 的 HTML 消毒把它当未知标签整段删掉(「List<String>」画成「List」)。
 // 改成 #lt;…#gt; 实体;<br>/<b> 等真 HTML 与 <<interface>> 这类构造型原样保留。
-const HTML_TAGS = new Set('br hr b i u s em strong small sub sup code span p div a img font mark del ins kbd ul ol li pre center h1 h2 h3 h4 h5 h6 table thead tbody tr td th blockquote'.split(' '));
+// 与 mermaid 的 DOMPurify 放行表对齐的常见 HTML 标签:这些原样留给它处理。
+const HTML_TAGS = new Set(('br hr b i u s em strong small big sub sup code tt kbd samp var dfn abbr cite q mark del ins strike '
+  + 'span p div a img font center pre blockquote h1 h2 h3 h4 h5 h6 ul ol li dl dt dd table thead tbody tfoot tr td th '
+  + 'caption col colgroup section article aside header footer nav figure figcaption details summary label time bdi bdo wbr ruby rt rp address').split(' '));
 function escapeAngles(line) {
   const masks = [];
-  let s = line.replace(/<<[A-Za-z]+>>/g, m => { masks.push(m); return `\u0001${masks.length - 1}\u0001`; });
+  // 构造型 / 注解:<<interface>>、<<Aggregate Root>>、<<Value_Object>>、<<fork>> …… 整段原样保留。
+  let s = line.replace(/<<[^<>\n]*>>/g, m => { masks.push(m); return `\u0001${masks.length - 1}\u0001`; });
   // 内容里不许有 < > - = " ( ):吞不进箭头(<-- / <|--)与带属性的 HTML。
   const RE = /<([A-Za-z][\p{L}\p{N}_\s,.?&|:*[\]#;]*)>/gu;
   for (let round = 0; round < 4; round += 1) {
@@ -82,9 +103,9 @@ function escapeAngles(line) {
 const GANTT_KEYWORDS = /^\s*(title|section|dateFormat|axisFormat|excludes|includes|todayMarker|tickInterval|weekday|weekend|accTitle|accDescr|displayMode)\b/;
 const CJK_UNITS = Object.freeze({ 天: 'd', 日: 'd', 周: 'w', 星期: 'w', 个月: 'M', 月: 'M', 小时: 'h', 年: 'y' });
 function ganttDurations(line) {
-  const m = /^(\s*[^:\n]+?\s*:)(.*)$/.exec(line);
-  if (!m || GANTT_KEYWORDS.test(line)) return line;
-  return m[1] + m[2].replace(/(^|,)\s*(\d+(?:\.\d+)?)\s*(天|日|星期|周|个月|月|小时|年)\s*(?=,|$)/g,
+  const colon = line.indexOf(':');
+  if (colon <= 0 || GANTT_KEYWORDS.test(line) || !/(天|日|周|星期|月|小时|年)/.test(line.slice(colon))) return line;
+  return line.slice(0, colon + 1) + line.slice(colon + 1).replace(/(^|,)\s*(\d+(?:\.\d+)?)\s*(天|日|星期|周|个月|月|小时|年)\s*(?=,|$)/g,
     (x, pre, num, unit) => `${pre} ${num}${CJK_UNITS[unit]}`);
 }
 
@@ -106,29 +127,32 @@ function ganttLeftPadding(src) {
   return needed > GANTT_DEFAULT_LEFT_PADDING ? Math.min(240, needed) : 0;
 }
 
-// 在 frontmatter 之后插一条 %%{init}%% 指令(mermaid 会把多条指令合并)。
+// 补一条 %%{init}%% 指令(mermaid 先把全文的指令摘出来合并、再解析,放在哪一行都一样)。
+// 放在末尾:前面每一行的行号不变,解析器报「第 N 行」时与用户看到 / 复制的原文对得上。
 function withInitDirective(src, config) {
-  const lines = String(src).split('\n');
-  const at = bodyStart(lines);
-  lines.splice(at, 0, `%%{init: ${JSON.stringify(config)}}%%`);
-  return lines.join('\n');
+  return `${String(src).replace(/\s+$/, '')}\n%%{init: ${JSON.stringify(config)}}%%`;
 }
 
-// 时间线只在空白处换行:一长串不带空格的中文画成一行、压到邻列。每 8 个字插一个 <br>。
+// 时间线只在空白处换行:一长串不带空格的中文画成一行、压到邻列。在一段不带空白的文字里,
+// 每满 8 个中文字、且下一个也是中文字时插一个 <br>。HTML 标签、#59; / &lt; 这类实体、英文单词一律整块不动,
+// 也不计数 —— 只在两个中文字之间断开。
+const ATOM = /<[^>]*>|&#?\w+;|#\w+;|[\s\S]/gu;
 function wrapCjkRuns(text, perLine = 8) {
   return text.split(/(<br\s*\/?>|\s+)/i).map(piece => {
     if (!piece || /^(<br\s*\/?>|\s+)$/i.test(piece)) return piece;
-    let units = 0;
-    for (const ch of piece) units += isWide(ch) ? 1 : 0.5;
-    if (units <= perLine + 2) return piece;
+    const atoms = piece.match(ATOM) || [];
+    const wide = atoms.filter(a => a.length === 1 || [...a].length === 1).filter(isWide).length;
+    if (wide <= perLine + 2) return piece;
     let out = '';
     let run = 0;
-    for (const ch of piece) {
-      const w = isWide(ch) ? 1 : 0.5;
-      if (run + w > perLine) { out += '<br>'; run = 0; }
-      out += ch;
-      run += w;
-    }
+    atoms.forEach((atom, i) => {
+      const single = [...atom].length === 1;
+      if (single && isWide(atom)) {
+        if (run >= perLine && i > 0) { out += '<br>'; run = 0; }
+        run += 1;
+      }
+      out += atom;
+    });
     return out;
   }).join('');
 }
@@ -146,7 +170,8 @@ function stateColon(line) {
 
 // ER 关系标签里带空格却没加引号:后半截被当成第二个实体名。
 function erLabel(line) {
-  const m = /^(\s*[\w\u0080-￿-]+\s+[|}o]{1,2}[-.]{2}[|{o]{1,2}\s+[\w\u0080-￿-]+\s*:\s*)([^"\n]*\s[^"\n]*)$/.exec(line);
+  if (line.includes('%%')) return line;
+  const m = /^(\s*[\w\u0080-\uffff-]+\s+[|}o]{1,2}[-.]{2}[|{o]{1,2}\s+[\w\u0080-\uffff-]+\s*:\s*)([^"\n]*\s[^"\n]*)$/.exec(line);
   return m && /\s/.test(m[2].trim()) ? `${m[1]}"${m[2].trim()}"` : line;
 }
 
@@ -187,7 +212,7 @@ function stripTrailingComment(line) {
 
 // 流程图标签里的括号 / 斜杠 / 竖线 / 引号 / @ / ; —— 整段加英文双引号(内层引号转 #quot;)。
 const RISKY = /[()[\]{}"|;@`]|^[/\\]|&&/;
-const MULTI = [['[(', ')]'], ['((', '))'], ['([', '])'], ['[[', ']]'], ['{{', '}}']];
+const MULTI = [['(((', ')))'], ['[(', ')]'], ['((', '))'], ['([', '])'], ['[[', ']]'], ['{{', '}}']];
 function quoteFlowLabels(line) {
   if (/^\s*(style|classDef|class|click|linkStyle|subgraph|direction|end|accTitle|accDescr|title)\b/.test(line)) return line;
   const fixed = line.replace(/(-{2,}[>ox]?|={2,}>?|-\.+-?>?)(\s*)\|([^|\n"]+)\|/g,
@@ -204,7 +229,7 @@ function quoteFlowLabels(line) {
       i = j + 1;
       continue;
     }
-    if ('[({'.includes(ch) && i > 0 && /[\w\u0080-￿-]/.test(fixed[i - 1])) {
+    if ('[({'.includes(ch) && i > 0 && /[\w\u0080-\uffff-]/.test(fixed[i - 1])) {
       const rest = fixed.slice(i);
       let consumed = 0;
       const stray = /^([[({]{1,2})"/.exec(rest);
@@ -251,7 +276,7 @@ function quoteFlowLabels(line) {
 function quoteSubgraphTitle(line) {
   const m = /^(\s*subgraph\s+)(.+?)\s*$/.exec(line);
   if (!m || m[2].startsWith('"')) return line;
-  const withId = /^([\w\u0080-￿-]+)\s*\[(.*)\]$/.exec(m[2]);
+  const withId = /^([\w\u0080-\uffff-]+)\s*\[(.*)\]$/.exec(m[2]);
   if (withId) return RISKY.test(withId[2]) && withId[2][0] !== '"' ? `${m[1]}${withId[1]}["${withId[2].replace(/"/g, '#quot;')}"]` : line;
   return /[()[\]{}|;]/.test(m[2]) ? `${m[1]}"${m[2].replace(/"/g, '#quot;')}"` : line;
 }
@@ -260,13 +285,16 @@ function endAsId(line) {
   if (/^\s*end\s*$/.test(line) || /^\s*subgraph\b/.test(line)) return line;
   let out = '';
   let quoted = false;
+  let piped = false;
   let depth = 0;
   for (let i = 0; i < line.length; i += 1) {
     const c = line[i];
     if (c === '"') quoted = !quoted;
+    if (c === '|' && !quoted && depth === 0) piped = !piped;   // |end| 是连线标签,不是节点名
     if (!quoted) { if ('[({'.includes(c)) depth += 1; else if ('])}'.includes(c)) depth = Math.max(0, depth - 1); }
+    if (piped) { out += c; continue; }
     if (!quoted && depth === 0 && line.startsWith('end', i)
-      && !/[\w\u0080-￿]/.test(line[i - 1] || ' ') && !/[\w\u0080-￿]/.test(line[i + 3] || ' ')) {
+      && !/[\w\u0080-\uffff]/.test(line[i - 1] || ' ') && !/[\w\u0080-\uffff]/.test(line[i + 3] || ' ')) {
       out += 'End';
       i += 2;
       continue;
@@ -416,8 +444,8 @@ function aliasSankey(src) {
 
 // 甘特:中文日期「2026年10月5日」;任务行全角冒号。
 function ganttRepair(src) {
-  let out = String(src)
-    .replace(/(\d{4})年(\d{1,2})月(\d{1,2})日?/g, (m, y, mo, d) => `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`)
+  let out = mapBody(String(src), line => (/^\s*(title|section|accTitle|accDescr)\b/.test(line) ? line
+    : line.replace(/(\d{4})年(\d{1,2})月(\d{1,2})日?/g, (m, y, mo, d) => `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`)))
     .replace(/^(\s*dateFormat\s+).*[年月日].*$/m, '$1YYYY-MM-DD');
   out = mapBody(out, line => (!GANTT_KEYWORDS.test(line) && !line.includes(':') && line.includes('：') ? line.replace('：', ' :') : line));
   return out;

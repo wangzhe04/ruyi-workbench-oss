@@ -387,7 +387,17 @@ export function ensureMermaid(opts = {}) {
 }
 
 // mermaid 11.17.2 默认的 secure 名单(指令改不动的键);在它之上再锁主题三件。
+// 运行时还会并上库自己报的那份(升级 vendor 后新增的键不会被这份写死的清单漏掉)。
 const MERMAID_SECURE_DEFAULTS = Object.freeze(['secure', 'securityLevel', 'startOnLoad', 'maxTextSize', 'suppressErrorRendering', 'maxEdges']);
+function secureKeys(lib) {
+  let fromLib = [];
+  try {
+    const api = lib && lib.mermaidAPI;
+    const site = api && typeof api.getSiteConfig === 'function' ? api.getSiteConfig() : null;
+    if (site && Array.isArray(site.secure)) fromLib = site.secure;
+  } catch { fromLib = []; }
+  return [...new Set([...MERMAID_SECURE_DEFAULTS, ...fromLib, 'theme', 'themeVariables', 'themeCSS'])];
+}
 
 // initialize 只在签名变化时重跑(首次 + 主题切换)。startOnLoad:false 阻止 mermaid 自行扫描全页。
 function initializeOnce(lib, theme, fontFamily) {
@@ -399,7 +409,7 @@ function initializeOnce(lib, theme, fontFamily) {
       theme: 'base', themeVariables: mermaidThemeVariables(theme, fontFamily), themeCSS: mermaidThemeCss(theme), fontFamily,
       // 图里的 %%{init}%% / frontmatter config 不许改主题:作者写 theme:forest 时,forest 写死的节点底色与我们
       // 钉住的字色混在一起(暗色下浅字压浅绿,1.14:1)。布局类配置(curve、htmlLabels、gantt 边距 ……)照常生效。
-      secure: [...MERMAID_SECURE_DEFAULTS, 'theme', 'themeVariables', 'themeCSS'],
+      secure: secureKeys(lib),
     });
     initSignature = signature;
   } catch { /* 初始化失败按未初始化处理,render 会随之失败并降级 */ }
@@ -728,6 +738,8 @@ function openMermaidViewer(doc, markup, t) {
   }, { passive: false });
   overlay.addEventListener('keydown', event => {
     const key = event && event.key;
+    // Ctrl/Alt/Meta 组合键留给浏览器(Ctrl± 页面缩放、Alt+← 后退),不抢。
+    if (event && (event.ctrlKey || event.altKey || event.metaKey) && key !== 'Escape') return;
     if (key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -925,6 +937,17 @@ function watchThemeChanges(doc) {
   } catch { /* 没有 MutationObserver 的宿主:不跟随切换,刷新页面后按新主题画 */ }
 }
 
+// 让一拍:优先 MessageChannel(后台标签页里 setTimeout 被节流到 1 s 一拍,8 张图要等 8 s),没有再退 setTimeout。
+function yieldToEventLoop() {
+  return new Promise(resolve => {
+    const Channel = globalThis.MessageChannel;
+    if (typeof Channel !== 'function') { setTimeout(resolve, 0); return; }
+    const channel = new Channel();
+    channel.port1.onmessage = () => { channel.port1.close(); channel.port2.close(); resolve(); };
+    channel.port2.postMessage(0);
+  });
+}
+
 // 宽图别缩成一条:.mermaid-view svg 的 max-width:100% 会把 30 个节点的横向流程图压到 0.2 倍(字 3px)。
 // 给 SVG 一个最小宽度 = 自然宽度的 0.6 倍,再宽就让 .mermaid-view(overflow-x:auto)横向滚;
 // 想看全貌点开放大。灯箱与导出各自写死宽高,不受它影响。
@@ -1012,7 +1035,7 @@ export async function renderMermaidBlocks(container, opts = {}) {
   let rendered = 0;
   for (const [index, item] of pending.entries()) {
     // 一条回复里有好几张图时,块与块之间让一拍主线程(修前 8 张图连着画,一个长任务卡 0.9 s)。
-    if (index > 0) await new Promise(resolve => setTimeout(resolve, 0));
+    if (index > 0) await yieldToEventLoop();
     blockRenderOptions.set(item.wrapper, { t: opts.t, toast: opts.toast, ensure: opts.ensure });
     let outcome = { markup: '', error: null, repaired: false };
     try { outcome = await enqueueRender(() => renderOneSvg(doc, lib, item, theme, fontFamily)); } catch { outcome = { markup: '', error: null, repaired: false }; }
