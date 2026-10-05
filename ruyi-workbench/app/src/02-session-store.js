@@ -53,6 +53,87 @@ async function readSessionNotes(id) {
   catch { return null; } // ENOENT 与其他读错同处理:notes 是旁车副本,缺文件不是错误
 }
 
+// ── C2(61 号文):会话草稿本 sessions/<id>.scratchpad.json ──────────────────────────────────────
+// 模型自己「写即生效、不进长期库」的短笔记:按 key 写/覆盖,text 为空即删。只发给模型服务商引擎普通会话的主回合
+// (工具 scratchpad_write:schema 在 13f、发放在 07 buildOpenAiTools 的 opts.scratchpadEnabled、handler 在 12);
+// 09 每回合把快照贴到末条 user 尾部(非持久,见那里的缓存账)。与 session-notes 分工:notes 由运行时在 L2 压缩后
+// 从摘要写出,模型没有写入口;草稿本只有模型写。长期偏好与项目约定仍走 workbench_memory_propose(确认制)。
+// 落盘走 DurableJsonStore(01):schema 1、清洗(限额对手改过的文件同样成立)、坏文件当空(quarantine:false ——
+// 草稿是易失副本,下一次写自愈,不留 .corrupt)、原子写。cache:false:每会话一个文件,store 按调用现建(构造只是
+// 几个闭包),读永远读盘 —— 删会话后不会有进程缓存把旧条目「复活」进下一次注入。同一会话的读-改-写由 runKeyedChain
+// 按会话 id 串行(store 自带的写链按实例,不跨实例,这里不依赖它)。
+const SESSION_SCRATCHPAD_SCHEMA = 1;
+const SESSION_SCRATCHPAD_LIMITS = Object.freeze({ maxEntries: 20, maxKeyChars: 40, maxTextChars: 500, maxTotalChars: 3000 });
+const sessionScratchpadChains = new Map();
+function sessionScratchpadPath(id) {
+  return path.join(paths.sessions, `${assertSessionIdForPath(id)}.scratchpad.json`);
+}
+// key:控制字符换空格、折叠空白、trim。不截断 —— 截断会让两个不同的 key 悄悄撞成一个,超长由调用方拒绝。
+function normalizeScratchpadKey(raw) {
+  return String(raw == null ? '' : raw).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+// text:统一换行、去掉 \n \t 以外的控制字符、trim(保留多行)。
+function normalizeScratchpadText(raw) {
+  return String(raw == null ? '' : raw).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+}
+// 总长只数正文(key 另有单条上限,20 × 40 有界)。
+function scratchpadTotalChars(entries) {
+  return (Array.isArray(entries) ? entries : []).reduce((n, e) => n + String((e && e.text) || '').length, 0);
+}
+// 盘上形状 { schema:1, updatedAt, entries:[{ key, text, at }] }。用数组保序:对象键里的 "1"、"42" 这类整数键会被 JS 重排。
+// 清洗丢掉手改坏的条目、同 key 留最后一条、超长正文截断、超出条目数 / 总长从最早的条目丢起 —— 于是注入块的大小
+// 只取决于限额,一份手改的大文件撑不大它。
+function sanitizeSessionScratchpad(value) {
+  const L = SESSION_SCRATCHPAD_LIMITS;
+  const byKey = new Map();
+  for (const raw of Array.isArray(value && value.entries) ? value.entries : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const key = normalizeScratchpadKey(raw.key);
+    const text = normalizeScratchpadText(raw.text).slice(0, L.maxTextChars);
+    if (!key || key.length > L.maxKeyChars || !text) continue;
+    byKey.delete(key);
+    byKey.set(key, { key, text, at: typeof raw.at === 'string' ? raw.at.slice(0, 40) : '' });
+  }
+  let entries = [...byKey.values()];
+  if (entries.length > L.maxEntries) entries = entries.slice(-L.maxEntries);
+  while (entries.length && scratchpadTotalChars(entries) > L.maxTotalChars) entries.shift();
+  return { schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: typeof (value && value.updatedAt) === 'string' ? value.updatedAt.slice(0, 40) : '', entries };
+}
+function sessionScratchpadStore(id) {
+  return DurableJsonStore.create({
+    id: 'session-scratchpad',
+    file: sessionScratchpadPath(id),   // 不合形的 id 在这里就抛(assertSessionIdForPath)
+    schemaVersion: SESSION_SCRATCHPAD_SCHEMA,
+    cache: false,
+    quarantine: false,
+    defaultValue: () => ({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: '', entries: [] }),
+    sanitize: sanitizeSessionScratchpad,
+    validate: value => value.schema === SESSION_SCRATCHPAD_SCHEMA && Array.isArray(value.entries),
+    onCorrupt(error) {
+      try { logEvent({ kind: 'session_scratchpad_corrupt', sessionId: String(id), error: String((error && error.message) || error).slice(0, 200) }); } catch { /* 诊断绝不阻断 */ }
+    },
+  });
+}
+// 读:缺文件 / 坏文件 / 读不动 / 不合形的 id 一律空表 —— 草稿是旁车副本,绝不阻断回合。
+async function readSessionScratchpad(id) {
+  try { return (await sessionScratchpadStore(id).read()).entries; }
+  catch { return []; }
+}
+// 读-改-写(按会话串行)。mutate 拿到条目副本,返回 { entries, changed, ...其余字段原样带回 };changed 为假 = 不落盘。
+// 会话已删除(墓碑,见 markSessionDeleted)时拒写:垂死回合里迟到的一次写不得在 unlink 之后把旁车写回来。
+async function updateSessionScratchpad(session, mutate) {
+  const id = String((session && session.id) || '');
+  const store = sessionScratchpadStore(id);
+  return runKeyedChain(sessionScratchpadChains, id, async () => {
+    if (sessionSaveIsTombstoned(session)) return { refused: 'session-deleted' };
+    const current = (await store.read()).entries.map(e => ({ ...e }));
+    const out = mutate(current) || {};
+    if (out.refused || !out.changed) return { entries: current, ...out };
+    const saved = await store.write({ schema: SESSION_SCRATCHPAD_SCHEMA, updatedAt: nowIso(), entries: out.entries });
+    return { ...out, entries: saved.entries };
+  });
+}
+
 // ── 第71波 EC-E 切片二:未决事项 Intervention 持久化(append-only NDJSON)──────────────────────────
 // permission/question/plan 三类未决事项此前是纯内存 Map(04-permission-runtime:191/194/199),进程重启即消失
 // -- 无审计、无终态化,/api/missions 的 missionPendingCounts(13d:59)前三类读空 Map 归零,与前端 stale 卡片
@@ -1702,6 +1783,9 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     }
     const inFlight = sessionWriteChains.get(id);
     if (inFlight) await inFlight.catch(() => {});
+    // C2:草稿本那一截写链同样先落完再 unlink(墓碑已立,之后排进来的写会被 updateSessionScratchpad 拒掉)。
+    const scratchpadInFlight = sessionScratchpadChains.get(id);
+    if (scratchpadInFlight) await scratchpadInFlight.catch(() => {});
   }
   try { revokeAllGrants(id, 'session-deleted'); } catch { /* best-effort */ } // 第27波:会话销毁 → 授权书全清
   // 116g:删线程 = 从它所在事项的反向索引里摘掉。**必须在删会话头之前读**(头没了就不知道它属于谁)。
@@ -1729,6 +1813,7 @@ async function deleteSession(id, { purgeAssociated = false } = {}) {
     fsp.unlink(missionChangeFilePath(id)).catch(() => {}),
     // hunt2-P9:会话笔记旁车与每会话 MCP 配置(内含 loopback token 与外部 MCP 的 env)同属这条会话的数据载体。
     fsp.unlink(sessionNotesPath(id)).catch(() => {}),
+    fsp.unlink(sessionScratchpadPath(id)).catch(() => {}),   // C2:会话草稿本旁车
     proposalSessionId ? fsp.unlink(path.join(paths.generated, `workbench.mcp.${proposalSessionId}.json`)).catch(() => {}) : Promise.resolve(),
     proposalSessionId ? fsp.unlink(path.join(paths.memory, 'proposals', proposalSessionId + '.json')).catch(() => {}) : Promise.resolve(),
     // hunt2 #19:后台任务账本(11 backgroundJobFile,同一 safeSessionId 闸)—— 含命令输出/代理信封,随会话一起删。
@@ -1984,10 +2069,25 @@ function normalizeMissionUpdateArgs(args) {
     return c ? { ...m, status: c === 'in_progress' ? 'pending' : c } : m;
   }) };
 }
+// C2 scratchpad_write 的字段同义词(13f 只认 op/key/text,additionalProperties:false):content/note/value → text,
+// name/title → key。只在规范字段缺席时补,补完把同义词拿掉(否则校验仍按多余字段拒)。
+function normalizeScratchpadWriteArgs(args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  const o = { ...args };
+  for (const [canon, alts] of [['text', ['content', 'note', 'value']], ['key', ['name', 'title']]]) {
+    for (const alt of alts) {
+      if (!Object.prototype.hasOwnProperty.call(o, alt)) continue;
+      if (o[canon] == null) o[canon] = o[alt];
+      delete o[alt];
+    }
+  }
+  return o;
+}
 // 分发前统一入口(12 toolCall 与 09 闭包特例共用)。
 function normalizeMetaToolArgs(name, args) {
   if (name === 'todo_write') return normalizeTodoWriteArgs(args);
   if (name === 'mission_update') return normalizeMissionUpdateArgs(args);
+  if (name === 'scratchpad_write') return normalizeScratchpadWriteArgs(args);
   return args;
 }
 function normalizeTodoItems(raw) {
@@ -4524,7 +4624,7 @@ async function dirSize(dir) {
 // modify→write `before` back; create→unlink the current file. skipped:true entries fail (no stored
 // content) and are listed in `failed` without aborting the rest. Reverted entries are REMOVED from the
 // index (idempotent: rolling back the same turn again → {ok:false,error:'no entries'}). The rollback
-// action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op}], failed:[{path,reason}]}.
+// action itself is NEVER journaled (anti-recursion). Returns {ok, reverted:[{path,op,turnSeq,entrySeq,tool,ts}], failed:[{path,reason}]}.
 async function journalRollback(sessionId, turnSeq, entrySeq) {
   const dir = journalDir(sessionId);
   const index = await journalReadIndex(sessionId);
@@ -4584,7 +4684,8 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
         await fsp.rename(tmpRestore, e.path);
         await fsp.unlink(path.join(dir, `${e.turnSeq}-${e.entrySeq}.gz`)).catch(() => {});
       }
-      reverted.push({ path: e.path, op: e.op });
+      // C4:turnSeq / entrySeq / tool / ts 是加字段(既有读者只看 path / op)—— 路由据此给 reverts.json 记「哪一回合的哪次修改被撤了」。
+      reverted.push({ path: e.path, op: e.op, turnSeq: Number(e.turnSeq), entrySeq: Number(e.entrySeq), tool: typeof e.tool === 'string' ? e.tool : '', ts: typeof e.ts === 'string' ? e.ts : '' });
       revertedKeys.add(key);
     } catch (err) {
       failed.push({ path: e.path, reason: (err && err.message) ? err.message : String(err) });
@@ -4595,6 +4696,118 @@ async function journalRollback(sessionId, turnSeq, entrySeq) {
   const remaining = index.filter(e => !revertedKeys.has(`${e.turnSeq}-${e.entrySeq}`));
   await journalWriteIndex(sessionId, remaining).catch(() => {});
   return { ok: reverted.length > 0, reverted, failed };
+}
+
+// ── C4(61 号文):检查点对模型可见 —— 「用户在界面撤销了什么」的记录 ──────────────────────────────────────
+// journalRollback 撤销成功的条目会从 index.json 里【删掉】:之后既没有地方回答「这一条已被用户撤销」,模型也无从知道用户
+// 撤过 —— 下一轮它可能基于已被撤回的内容接着干。这里在检查点目录里另起一个旁车 <checkpoints>/<sid>/reverts.json,记两件事:
+//   ① checkpoint_list(12)给撤销过的修改标 reverted:true;
+//   ② 「待告知」:announced:false 的记录由 09 在下一个 provider 回合的 user 消息落历史时读走、写成一行告知,会话落盘后 ack。
+// 为什么是旁车文件而不是会话头字段:会话头是【整份重写】的 —— 回合手里那份内存副本(以及任何 load→await→save 的旁路写者)
+// 收尾时会把头写回「没有该字段」的样子。02d 的覆盖表(权限档/桌面工具/引擎路由)就是为这种陈旧副本写的,但那是给「必须对活回合
+// 立即生效」的开关用的;本数据只在没有活回合时写(rollback 路由对活回合回 409,rewind 先停回合再等 settle),下一回合起跑时读,
+// 不需要对活回合生效。独立文件从根上与会话头的任何一次保存(含撤回代数闸 SESSION_STALE_SAVE 丢掉的那些)都不相交,也就没有
+// 「被回合的陈旧副本吞掉」这一类问题,不必再造一张覆盖表。随会话删除(deleteSession 清整个检查点目录)与全局体积清扫一起走。
+// 记录按 (turnSeq, tool, op) 分组而不是一个文件一条:一次解压几千个文件的撤销也只是一条记录,告知一行说得完。
+// 读失败/文件坏 = 当空(没有告知、没有已撤销标记,模型下一次读文件就会看到真实状态),不隔离、不抛。
+const JOURNAL_REVERT_LOG_MAX = 100;     // 每会话最多留这么多条记录(超出先丢已告知的、再丢最旧的)
+const JOURNAL_REVERT_PATHS_MAX = 5;     // 每条记录最多记几个样例路径(files 是真实个数)
+const journalRevertChains = new Map();  // sessionId -> Promise(同会话的读改写串行)
+function journalRevertLogPath(sessionId) { return path.join(journalDir(sessionId), 'reverts.json'); }
+function journalRevertRecordOf(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const seq = Number(raw.seq), turnSeq = Number(raw.turnSeq);
+  if (!Number.isSafeInteger(seq) || seq < 1 || !Number.isSafeInteger(turnSeq) || turnSeq < 0) return null;
+  const paths = (Array.isArray(raw.paths) ? raw.paths : []).filter(p => typeof p === 'string' && p).slice(0, JOURNAL_REVERT_PATHS_MAX).map(p => p.slice(0, 400));
+  const files = Number.isSafeInteger(Number(raw.files)) && Number(raw.files) > 0 ? Number(raw.files) : Math.max(1, paths.length);
+  return {
+    seq, turnSeq,
+    entrySeq: Number.isSafeInteger(Number(raw.entrySeq)) ? Number(raw.entrySeq) : -1,
+    tool: typeof raw.tool === 'string' ? raw.tool.slice(0, 64) : '',
+    op: raw.op === 'create' || raw.op === 'delete' ? raw.op : 'modify',
+    files, paths,
+    at: typeof raw.at === 'string' ? raw.at.slice(0, 40) : '',
+    revertedAt: typeof raw.revertedAt === 'string' ? raw.revertedAt.slice(0, 40) : '',
+    announced: raw.announced === true,
+  };
+}
+// 从不抛;文件不存在 / 读不动 / 不是预期形状 → []。
+async function journalRevertLogRead(sessionId) {
+  try {
+    const parsed = safeJsonParse(await fsp.readFile(journalRevertLogPath(sessionId), 'utf8'), null);
+    const rows = parsed && typeof parsed === 'object' && Array.isArray(parsed.items) ? parsed.items : [];
+    return rows.map(journalRevertRecordOf).filter(Boolean);
+  } catch { return []; }
+}
+async function journalRevertLogWrite(sessionId, items) {
+  await fsp.mkdir(journalDir(sessionId), { recursive: true });
+  await atomicWriteJson(journalRevertLogPath(sessionId), JSON.stringify({ schema: 1, items }), { retries: 3 });
+}
+// 路由在 journalRollback 成功后调:reverted = journalRollback 回的 [{path, op, turnSeq, entrySeq, tool, ts}]。
+// 同一次撤销里 (turnSeq, tool, op) 相同的并成一条;已有【还没告知】的同键记录就并进去(用户先撤 a 再撤 b,两次都发生在
+// 模型下一回合之前,告知一行说完)。已告知的不并(那次告知已经发出去了,这次是新的事实)。
+async function journalRevertLogRecord(sessionId, reverted) {
+  const rows = (Array.isArray(reverted) ? reverted : []).filter(r => r && typeof r.path === 'string' && r.path && Number.isSafeInteger(Number(r.turnSeq)));
+  if (!rows.length) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    const now = nowIso();
+    let nextSeq = items.reduce((m, r) => Math.max(m, r.seq), 0) + 1;
+    const groups = new Map();
+    for (const r of rows.slice().sort((a, b) => (Number(a.entrySeq) || 0) - (Number(b.entrySeq) || 0))) {   // 主路径 = 本组 entrySeq 最小的那条
+      const op = r.op === 'create' || r.op === 'delete' ? r.op : 'modify';
+      const key = `${Number(r.turnSeq)}|${r.tool || ''}|${op}`;
+      let g = groups.get(key);
+      if (!g) { g = { turnSeq: Number(r.turnSeq), entrySeq: Number.isSafeInteger(Number(r.entrySeq)) ? Number(r.entrySeq) : -1, tool: String(r.tool || ''), op, paths: [], at: '' }; groups.set(key, g); }
+      if (!g.paths.includes(r.path)) g.paths.push(r.path);
+      if (typeof r.ts === 'string' && r.ts > g.at) g.at = r.ts;
+    }
+    for (const g of groups.values()) {
+      const open = items.find(r => !r.announced && r.turnSeq === g.turnSeq && r.tool === g.tool.slice(0, 64) && r.op === g.op);
+      if (open) {
+        open.files += g.paths.length;
+        for (const p of g.paths) if (open.paths.length < JOURNAL_REVERT_PATHS_MAX && !open.paths.includes(p)) open.paths.push(p.slice(0, 400));
+        if (g.entrySeq >= 0 && (open.entrySeq < 0 || g.entrySeq < open.entrySeq)) open.entrySeq = g.entrySeq;
+        if (g.at > open.at) open.at = g.at;
+        open.revertedAt = now;
+        continue;
+      }
+      const rec = journalRevertRecordOf({ seq: nextSeq++, turnSeq: g.turnSeq, entrySeq: g.entrySeq, tool: g.tool, op: g.op, files: g.paths.length, paths: g.paths, at: g.at, revertedAt: now, announced: false });
+      if (rec) items.push(rec);
+    }
+    while (items.length > JOURNAL_REVERT_LOG_MAX) {
+      const i = items.findIndex(r => r.announced);
+      items.splice(i >= 0 ? i : 0, 1);   // 先丢最旧的已告知项,没有才丢最旧的待告知项
+    }
+    await journalRevertLogWrite(sessionId, items);
+  });
+}
+// 09 在 provider 回合起跑时读:还没告知的记录(回合升序)。读不到 = []。
+async function journalRevertNoticesPeek(sessionId) {
+  try { return (await journalRevertLogRead(sessionId)).filter(r => !r.announced).sort((a, b) => a.turnSeq - b.turnSeq || a.seq - b.seq); }
+  catch { return []; }
+}
+// 09 在带着告知的那条 user 消息【已落盘】之后调:只把 peek 到的那几条标成已告知(按 seq),期间新记的不动。
+// 先 peek、落盘后才 ack 的顺序是有意的:中途失败只会让告知多发一次(无害),不会让模型永远收不到。
+async function journalRevertNoticesAck(sessionId, seqs) {
+  const wanted = new Set((Array.isArray(seqs) ? seqs : []).map(Number));
+  if (!wanted.size) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    let touched = false;
+    for (const r of items) if (wanted.has(r.seq) && !r.announced) { r.announced = true; touched = true; }
+    if (touched) await journalRevertLogWrite(sessionId, items);
+  });
+}
+// rewindSession 截断成功后调:回合号 >= fromTurnSeq 的记录都属于已被丢弃的回合,留着只会给模型一句指向「不存在的回合」的告知。
+async function journalRevertLogPrune(sessionId, fromTurnSeq) {
+  const from = Number(fromTurnSeq);
+  if (!Number.isFinite(from)) return;
+  return runKeyedChain(journalRevertChains, String(sessionId || ''), async () => {
+    const items = await journalRevertLogRead(sessionId);
+    const kept = items.filter(r => r.turnSeq < from);
+    if (kept.length !== items.length) await journalRevertLogWrite(sessionId, kept);
+  });
 }
 
 // v0.8-S4b B2 — conversation REWIND (Claude Code-style "back up to just before this message"). Truncates
@@ -4746,6 +4959,12 @@ async function rewindSession(sessionId, targetTurnSeq, rollbackFiles) {
     }
     throw error;
   }
+  // C4:rewind【不】给模型记「用户撤销了文件」的待告知(rollbackFiles 撤的恰恰是被丢弃回合的改动)。理由:截断之后 providerHistory
+  // 清空、下一回合从幸存的展示消息重新播种,被丢弃的回合对模型而言根本没发生过;它们碰过的文件又被恢复到了修改前 —— 模型看到的
+  // 对话与磁盘是自洽的,再告知「第 N 回合的修改已被撤销」反而是在讲一个它看不到的回合。反过来,截断前已经在待告知里的记录
+  // (用户先在界面撤了第 4 回合的文件、没发消息就回退到第 3 回合)指向的回合同样被丢了,一并清掉,不留一句悬空的告知。
+  // 截断被代数闸顶掉(上面已 return rewind_superseded)时不走到这里。
+  await journalRevertLogPrune(sessionId, target).catch(() => {});
   await bumpMissionChangeSeq(sessionId, {
     type: 'rewind',
     cursor: { targetTurnSeq: target },

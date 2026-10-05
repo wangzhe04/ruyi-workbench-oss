@@ -50,33 +50,47 @@ const CASES = {
   'schema 12: string "true" killOnDisconnect untouched': { configSchema: 12, killOnDisconnect: 'true' },
   'garbage schema counts as 0': { configSchema: 'x', engineMode: 'legacy', killOnDisconnect: true, ...F3 },
   'schema 4 full old file': { configSchema: 4, version: '1.0.0', engineMode: 'print', killOnDisconnect: true, ...F3, defaultWorkspace: 'E:\\proj', recentWorkspaces: ['E:\\proj', 'E:\\other'], unknownFutureKey: 1 },
+  // to:14(2026-10 出厂权限档翻成智能自动):盘上已有配置却没存过档的钉回当年的默认 'default';存了的原样保留;
+  // 全新安装(null / 空对象)与 14 的稀疏文件吃到新默认 'auto';不认识的档仍回落最保守的 'default'。
+  'schema 13: no stored mode pins the old default': { configSchema: 13, killOnDisconnect: false },
+  'schema 13: explicit auto stays auto': { configSchema: 13, permissionMode: 'auto', configExplicitKeysV1: ['permissionMode'] },
+  'schema 12 full file: stored default stays default': { configSchema: 12, permissionMode: 'default' },
+  'schema 12 full file: stored bypass stays': { configSchema: 12, permissionMode: 'bypass' },
+  'schema 14 sparse: new default auto': { configSchema: 14 },
+  'schema 14: unknown mode falls back to default': { configSchema: 14, permissionMode: 'weird' },
 };
 
 const GOLDEN = {
-  "null (fresh install)": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
-  "empty object": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
-  "current schema, sparse": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":[],"changed":true},
-  "schema 8: legacy engine migrates": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
-  "schema 8: print engine migrates": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
-  "schema 8: explicit legacy stays": {"engineMode":"legacy","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["engineMode","workspaces"],"changed":true},
-  "schema 9: legacy stays legacy": {"engineMode":"legacy","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["engineMode","workspaces"],"changed":true},
-  "schema 9: print alias folds to legacy": {"engineMode":"legacy","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["engineMode","workspaces"],"changed":true},
-  "schema 13: bogus engine falls back": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":[],"changed":true},
-  "schema 9: no workspaces seeds default + recent": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"D:\\Work\\main","read":true,"write":true,"execute":true},{"path":"D:\\Work\\r1","read":true,"write":true,"execute":true},{"path":"D:\\Work\\r2","read":true,"write":true,"execute":true}],"defaultWorkspace":"D:\\Work\\main","explicit":["defaultWorkspace","recentWorkspaces","workspaces"],"changed":true},
-  "schema 9: only unusable rows still seeds": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"D:\\Quoted","read":true,"write":true,"execute":true}],"defaultWorkspace":"D:\\Quoted","explicit":["defaultWorkspace","workspaces"],"changed":true},
-  "schema 9: a usable row blocks the seed": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"D:\\Work\\kept","read":true,"write":false,"execute":true,"note":"notes"}],"defaultWorkspace":"D:\\Work\\kept","explicit":["defaultWorkspace","recentWorkspaces","workspaces"],"changed":true},
-  "schema 10: empty table is not reseeded": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"D:\\Work\\main","explicit":["defaultWorkspace","recentWorkspaces"],"changed":true},
-  "schema 9: blank default seeds home": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
-  "schema 11: explicit-off flags flip on": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":[],"changed":true},
-  "schema 11: string \"false\" is coerced then flipped": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":[],"changed":true},
-  "schema 11: flags in explicit set stay off": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,false,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["runtimeSummaryPromptI18nV1"],"changed":true},
-  "schema 12: off flags stay off": {"engineMode":"interactive","killOnDisconnect":false,"flags":[false,false,false],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["runtimeHistoryReadDedupV1","runtimeReseedTailUnitsV1","runtimeSummaryPromptI18nV1"],"changed":true},
-  "schema 12: old default killOnDisconnect=true folds to false": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":[],"changed":true},
-  "schema 12: explicit killOnDisconnect=true stays": {"engineMode":"interactive","killOnDisconnect":true,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["killOnDisconnect"],"changed":true},
-  "schema 13: killOnDisconnect=true stays": {"engineMode":"interactive","killOnDisconnect":true,"flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["killOnDisconnect"],"changed":true},
-  "schema 12: string \"true\" killOnDisconnect untouched": {"engineMode":"interactive","killOnDisconnect":"true","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["killOnDisconnect"],"changed":true},
-  "garbage schema counts as 0": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
-  "schema 4 full old file": {"engineMode":"interactive","killOnDisconnect":false,"flags":[true,true,true],"workspaces":[{"path":"E:\\proj","read":true,"write":true,"execute":true},{"path":"E:\\other","read":true,"write":true,"execute":true}],"defaultWorkspace":"E:\\proj","explicit":["defaultWorkspace","recentWorkspaces","workspaces"],"changed":true},
+  "null (fresh install)": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"auto","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
+  "empty object": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"auto","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["workspaces"],"changed":true},
+  "current schema, sparse": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 8: legacy engine migrates": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["permissionMode","workspaces"],"changed":true},
+  "schema 8: print engine migrates": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["permissionMode","workspaces"],"changed":true},
+  "schema 8: explicit legacy stays": {"engineMode":"legacy","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["engineMode","permissionMode","workspaces"],"changed":true},
+  "schema 9: legacy stays legacy": {"engineMode":"legacy","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["engineMode","permissionMode","workspaces"],"changed":true},
+  "schema 9: print alias folds to legacy": {"engineMode":"legacy","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["engineMode","permissionMode","workspaces"],"changed":true},
+  "schema 13: bogus engine falls back": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 9: no workspaces seeds default + recent": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"D:\\Work\\main","read":true,"write":true,"execute":true},{"path":"D:\\Work\\r1","read":true,"write":true,"execute":true},{"path":"D:\\Work\\r2","read":true,"write":true,"execute":true}],"defaultWorkspace":"D:\\Work\\main","explicit":["defaultWorkspace","permissionMode","recentWorkspaces","workspaces"],"changed":true},
+  "schema 9: only unusable rows still seeds": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"D:\\Quoted","read":true,"write":true,"execute":true}],"defaultWorkspace":"D:\\Quoted","explicit":["defaultWorkspace","permissionMode","workspaces"],"changed":true},
+  "schema 9: a usable row blocks the seed": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"D:\\Work\\kept","read":true,"write":false,"execute":true,"note":"notes"}],"defaultWorkspace":"D:\\Work\\kept","explicit":["defaultWorkspace","permissionMode","recentWorkspaces","workspaces"],"changed":true},
+  "schema 10: empty table is not reseeded": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"D:\\Work\\main","explicit":["defaultWorkspace","permissionMode","recentWorkspaces"],"changed":true},
+  "schema 9: blank default seeds home": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["permissionMode","workspaces"],"changed":true},
+  "schema 11: explicit-off flags flip on": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 11: string \"false\" is coerced then flipped": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 11: flags in explicit set stay off": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,false,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode","runtimeSummaryPromptI18nV1"],"changed":true},
+  "schema 12: off flags stay off": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[false,false,false],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode","runtimeHistoryReadDedupV1","runtimeReseedTailUnitsV1","runtimeSummaryPromptI18nV1"],"changed":true},
+  "schema 12: old default killOnDisconnect=true folds to false": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 12: explicit killOnDisconnect=true stays": {"engineMode":"interactive","killOnDisconnect":true,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["killOnDisconnect","permissionMode"],"changed":true},
+  "schema 13: killOnDisconnect=true stays": {"engineMode":"interactive","killOnDisconnect":true,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["killOnDisconnect","permissionMode"],"changed":true},
+  "schema 12: string \"true\" killOnDisconnect untouched": {"engineMode":"interactive","killOnDisconnect":"true","permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["killOnDisconnect","permissionMode"],"changed":true},
+  "garbage schema counts as 0": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"<HOME>","read":true,"write":true,"execute":true}],"defaultWorkspace":"<HOME>","explicit":["permissionMode","workspaces"],"changed":true},
+  "schema 4 full old file": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[{"path":"E:\\proj","read":true,"write":true,"execute":true},{"path":"E:\\other","read":true,"write":true,"execute":true}],"defaultWorkspace":"E:\\proj","explicit":["defaultWorkspace","permissionMode","recentWorkspaces","workspaces"],"changed":true},
+  "schema 13: no stored mode pins the old default": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 13: explicit auto stays auto": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"auto","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 12 full file: stored default stays default": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 12 full file: stored bypass stays": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"bypass","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
+  "schema 14 sparse: new default auto": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"auto","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":[],"changed":true},
+  "schema 14: unknown mode falls back to default": {"engineMode":"interactive","killOnDisconnect":false,"permissionMode":"default","flags":[true,true,true],"workspaces":[],"defaultWorkspace":"<HOME>","explicit":["permissionMode"],"changed":true},
 };
 
 const H = os.homedir();
@@ -84,6 +98,7 @@ const homeless = v => JSON.parse(JSON.stringify(v === undefined ? null : v).spli
 const project = r => homeless({
   engineMode: r.config.engineMode,
   killOnDisconnect: r.config.killOnDisconnect,
+  permissionMode: r.config.permissionMode,
   flags: FLAGS.map(k => r.config[k]),
   workspaces: r.config.workspaces,
   defaultWorkspace: r.config.defaultWorkspace,
@@ -101,7 +116,7 @@ test('[A] 迁移表按版本升序、每个版本恰好一条、不超过 CONFIG
   }
   for (let i = 1; i < tos.length; i++) assert.ok(tos[i] > tos[i - 1], `to 必须严格升序(不许重复),实得 ${tos.join(',')}`);
   assert.ok(tos[tos.length - 1] <= CONFIG_SCHEMA, `最大的 to(${tos[tos.length - 1]})不能超过 CONFIG_SCHEMA(${CONFIG_SCHEMA})`);
-  assert.deepEqual(tos, [9, 10, 12, 13], '迁移版本清单变了:确认新迁移的位置与读到的键,再更新这里与金样');
+  assert.deepEqual(tos, [9, 10, 12, 13, 14], '迁移版本清单变了:确认新迁移的位置与读到的键,再更新这里与金样');
 });
 
 test('[B] normalizeConfig 里不再有散落的 schema 阶梯,迁移只从一个点进', () => {

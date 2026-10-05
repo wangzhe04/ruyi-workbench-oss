@@ -10,7 +10,8 @@ Ruyi 默认使用 `toolLoadingMode: "auto"`，同时覆盖 OpenAI 兼容引擎�
 
 ## 权限边界
 
-- 动态代理按 `read`、`edit`、`exec` 拆分，调用前再次计算真实目标 tier；用低 tier 代理调用高 tier 工具会被拒绝。
+- 动态代理按 `read`、`edit`、`exec` 拆分，调用前再次计算真实目标 tier。OpenAI 兼容引擎里，低 tier 代理调用高 tier 工具会在权限闸之前被改写成目标 tier 的代理（只升不降，闸照常按真实 tier 判）；Claude CLI / MCP 路径里审批已在 CLI 侧按代理名发生，这类调用会被拒绝并提示正确的代理。高 tier 代理调用低 tier 工具照常放行。
+- `tool_search` 的前 3 个未装载命中带完整参数骨架，其余带精简骨架；零命中给出说明。`list_tools` 的 `tiers` 按档列出非 read 工具。`tool_load` 的包里有不随包装载的桥接工具时会点名。
 - 外部 Office 写操作仍要求绝对路径并进入检查点日志；原有权限模式、工作区护栏与桥接工具 tier 覆盖继续生效。
 - Claude exec-tier 工作流节点保留原有直接 MCP 白名单合同；主聊天回合使用紧凑代理面。
 

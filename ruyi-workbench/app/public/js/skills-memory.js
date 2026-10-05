@@ -6,6 +6,17 @@ import { api } from './net.js';
 import { $, el, escapeHtml, autoGrow, toast } from './util.js';
 import { icon } from './icons.js';
 import { t, tCount } from './i18n.js';
+import { agentCliMeta } from './agent-cli-registry.js';
+
+// 点选一条命令时往输入框里插什么。内置命令(随包 offline-toolkit)两种引擎都插展开后的任务模板:Claude Code 里
+// 它们只以插件命令 `/offline-toolkit:<id>` 存在,而且只有跑过 install-workbench.ps1 装上插件才有;裸 `/<id>` 永远
+// 解析不了(2026-10 走查实测:「no command with that name」)。用户自己的 ~/.claude/commands 只在认得它们的 Agent CLI
+// (agent-cli-registry 的 claudeUserCommands:Claude Code 是,Kimi Code 不是)下插 `/name`,由 CLI 自己展开;其余插正文。
+// unit/offline-plugin-bundle.test.js 钉着。
+export function commandInsertionText(entry, providerMode, agentCliType) {
+  const expand = providerMode || entry.source === 'builtin' || !agentCliMeta(agentCliType).claudeUserCommands;
+  return expand ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
+}
 
 export function createSkillsMemoryDomain({
   apiErrText = error => String(error && error.message || error || ''),
@@ -14,6 +25,7 @@ export function createSkillsMemoryDomain({
   openModal = () => {},
   buildModal = () => null,
   isProviderMode = () => false,
+  currentAgentCliType = () => '',
   openPlaybookModal = () => {},
   renderMarkdown = text => String(text || ''),
   saveConfigPartial = async () => false,
@@ -510,14 +522,15 @@ async function toggleResidentSkill(entry) {
   if (ok) toast(on ? t('skills.toast.residentDisabled', { name: skillDisplayName(entry) }) : t('skills.toast.residentEnabled', { name: skillDisplayName(entry) }));
   renderSkillList(); updateSkillBadge();
 }
-// 命令卡(仅 Claude 模式):中文名主显 + mono /insert 小字。点击插入 /name 到输入框(保留旧行为)。
+// 命令卡:中文名主显 + mono 小字标识。点击按 commandInsertionText 插 /name 或命令正文。内置命令在 Claude Code 里
+// 只有插件名下的 /offline-toolkit:<id>(装了插件才有),小字照实写这个,不印一个打不出来的 /<id>。
 function buildCommandRow(s, i) {
   const it = el('div', `skill-item sk-card${i === skillIndex ? ' sel' : ''}`);
   const head = el('div', 'sk-card-h');
   head.appendChild(skillCardIco('command', s));
   head.appendChild(el('span', 'sk-name', skillDisplayName(s)));
   it.appendChild(head);
-  it.appendChild(el('code', 'sk-id', s.insert || ('/' + s.id)));
+  it.appendChild(el('code', 'sk-id', s.source === 'builtin' ? `/offline-toolkit:${s.id}` : (s.insert || ('/' + s.id))));
   const description = skillDisplayDescription(s);
   if (description) it.appendChild(el('div', 'sk-desc', description));
   if (s.detail) {
@@ -531,7 +544,7 @@ function buildCommandRow(s, i) {
   return it;
 }
 function commandInsertion(entry) {
-  return isProviderMode() ? (entry.prompt || entry.description || entry.name || '') : (entry.insert || ('/' + entry.id));
+  return commandInsertionText(entry, isProviderMode(), currentAgentCliType());
 }
 // 一键任务卡(Playbook):中文名主显 + playbook emoji 图标。点击走既有 openPlaybookModal。不可用置灰 + 原因。
 function buildPlaybookRow(s, i) {
@@ -1037,6 +1050,8 @@ async function suggestMemoryFromTurn(sessionId, host) {
   for (const old of (messages ? messages.querySelectorAll('.memory-proposal-card') : [])) old.remove();
   const proposal = result.proposal;
   const kind = proposal.kind || 'memory';
+  // C3:一次提议里 2–3 条新记忆 → 一张批量卡(逐条勾选)。其余 kind 仍是下面这张单条卡,形状不变。
+  if (kind === 'memory_batch') { host.appendChild(buildMemoryBatchProposalCard(sessionId, result)); return; }
   const card = el('section', 'memory-proposal-card');
   card.setAttribute('aria-label', t('memory.proposal.aria'));
   const head = el('div', 'memory-proposal-head');
@@ -1095,6 +1110,84 @@ async function suggestMemoryFromTurn(sessionId, host) {
     }
   };
   host.appendChild(card);
+}
+// C3 批量候选卡:模型一次提议的 2–3 条相互独立的新记忆。每条一行(勾选框默认勾上、名称、范围/类型、何时有用、
+// 提议原因,正文收在「正文」折叠里);「保存选中」只存勾上的(后端按 accept 逐条落盘,其余记成忽略),「全部忽略」
+// 整张丢弃。和单条卡一样:不点就什么都不写。保存失败时卡片留着、勾选不丢,再点只重试还没存上的。
+function buildMemoryBatchProposalCard(sessionId, result) {
+  const proposal = result.proposal || {};
+  const items = Array.isArray(proposal.items) ? proposal.items : [];
+  const card = el('section', 'memory-proposal-card memory-proposal-batch');
+  card.setAttribute('aria-label', t('memory.proposal.aria'));
+  const head = el('div', 'memory-proposal-head');
+  head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerBatch', { count: items.length })));
+  card.appendChild(head);
+  const list = el('div', 'memory-proposal-items');
+  const checks = items.map((item, index) => {
+    const row = el('div', 'memory-proposal-item');
+    row.dataset.index = String(index);
+    const top = el('div', 'memory-proposal-item-head');
+    const pick = el('label', 'check memory-proposal-pick');
+    const box = el('input');
+    box.type = 'checkbox';
+    box.checked = true;
+    box.setAttribute('aria-label', t('memory.proposal.batchPick', { name: item.name || '' }));
+    pick.append(box, el('span', 'memory-proposal-title', item.name || ''));
+    const tags = el('span', 'memory-proposal-tags');
+    tags.append(
+      el('span', 'memory-proposal-tag', item.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+      el('span', 'memory-proposal-tag', memoryTypeLabel(item.type)),
+    );
+    top.append(pick, tags);
+    row.append(top, el('div', 'memory-proposal-desc', item.description || ''));
+    if (item.reason) row.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: item.reason })));
+    const more = el('details', 'memory-proposal-body');
+    more.append(el('summary', '', t('memory.proposal.batchBody')), el('div', 'memory-proposal-body-text', item.body || ''));
+    row.appendChild(more);
+    list.appendChild(row);
+    return box;
+  });
+  card.appendChild(list);
+  const actions = el('div', 'memory-proposal-actions');
+  const dismiss = el('button', 'mini', t('memory.proposal.dismissAll'));
+  const save = el('button', 'mini primary', '');
+  actions.append(dismiss, save);
+  card.appendChild(actions);
+  let busy = false;
+  const picked = () => checks.map((box, index) => (box.checked ? index : -1)).filter(index => index >= 0);
+  const sync = () => {
+    const count = picked().length;
+    save.textContent = t('memory.proposal.saveSelected', { count });
+    save.disabled = busy || count === 0;   // 一条都不勾 = 用「全部忽略」
+    dismiss.disabled = busy;
+    for (const box of checks) box.disabled = busy;
+  };
+  for (const box of checks) box.onchange = sync;
+  sync();
+  const removeCard = () => { card.classList.add('settled'); setTimeout(() => card.remove(), 160); };
+  dismiss.onclick = () => {
+    if (busy) return;
+    busy = true; sync();
+    settleMemoryProposal(sessionId, result.proposalId, 'dismissed');
+    removeCard();
+  };
+  save.onclick = async () => {
+    const accept = picked();
+    if (busy || !accept.length) return;
+    busy = true; sync();
+    try {
+      const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify({ sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '', accept }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
+      toast(tCount('memory.proposal.batchSaved', Array.isArray(r.saved) ? r.saved.length : accept.length), 'ok');
+      removeCard();
+      await refreshMemoryViews();
+    } catch (error) {
+      toast(t('memory.proposal.applyFailed', { err: apiErrText(error) }), 'err');
+      busy = false;
+      if (card.isConnected) sync();
+    }
+  };
+  return card;
 }
 // 编辑/新建弹窗。编辑现有项时先拉全文回填正文(注册表不带 body)。
 async function openMemoryEditModal(m) {

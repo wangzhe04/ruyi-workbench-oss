@@ -62,6 +62,7 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
   ok(/桌面控制：已开启/.test(cOn) && !/桌面控制：未开启/.test(cOn), 'A7 桌面开:如实写已开启');
   ok(/ripgrep 可用（如意随包自带/.test(cOn) && /直接用 rg/.test(cOn), 'A8 终端 rg:随包来源 + 可直接用 rg');
   ok(cOn.includes('```mermaid') && /画成图/.test(cOn), 'A9 界面渲染:mermaid 代码块画成图');
+  ok(/整段加双引号/.test(cOn) && /注释单独占一行/.test(cOn) && /竖排（TD）/.test(cOn), 'A9b mermaid 写法建议(引号 / 注释独占一行 / 竖排)CLI 版同样带上(不写 %% 字样:A13 管 % 与 !)');
   ok(/「每步都问」模式/.test(cOn) && /不要换工具或换写法绕过去/.test(cOn), 'A10 权限档含义 + 拒绝不可绕过');
   ok(/管家会看着各条线程/.test(cOn) && /这条线程是管家替用户开的/.test(cOn), 'A11 管家看管 + 管家代开(createdBy=steward)时补一句交付会被转述');
   ok(cOn.length <= 1800, 'A12 中文 Claude 版 ≤ 1800 字(实 ' + cOn.length + ')');
@@ -133,6 +134,7 @@ const brief = (engine, config, session, rg) => srv.buildEngineEnvBrief({ engine,
   ok(en.startsWith('<ruyi-environment>') && /You are Claude Code/.test(en) && /mcp__ruyi__/.test(en) && /```mermaid/.test(en)
     && /Desktop control: enabled/.test(en) && /The steward opened this thread/.test(en) && !/spawn_agent/.test(en) && !/[%!]/.test(en)
     && tagsOf(en).length === 2, 'E1 英文 Claude 版同构(身份/MCP/mermaid/桌面/管家代开;无 spawn_agent、无 % !、只有自身围栏)');
+  ok(/in double quotes/.test(en) && /comments on their own line/.test(en) && /top-down \(TD\)/.test(en), 'E1b 英文版同样带 mermaid 写法建议');
   const enKimi = brief('kimi', baseConfig({ locale: 'en-US', desktopMcp: { enabled: false } }), {}, null).text;
   ok(/You are Kimi Code/.test(enKimi) && /native AskUserQuestion/.test(enKimi) && /Desktop control: disabled/.test(enKimi) && /no usable ripgrep/.test(enKimi), 'E2 英文 Kimi 版(原生提问/桌面关/无 rg)');
 

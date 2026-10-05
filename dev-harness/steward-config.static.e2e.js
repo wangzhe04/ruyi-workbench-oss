@@ -148,9 +148,9 @@ ok(/String\(config\.stewardPersonaStyle \|\| ''\)\.trim\(\)\.slice\(0, 200\)/.te
 // CONFIG_SCHEMA:116a 自己不 bump(纪律未变),但常量全仓共用 —— 107-T1 为 126-111b/d/e 的一次性
 // 迁移把它 11 → 12(46 号文 §5)。本条继续钉【当前值】,好让「谁又动了它」还是红的;116a 真正要守的
 // 「管家那批键没有任何 schema 迁移分支」由下一条钉住。
-// 128a 又把它 12 → 13(稀疏落盘,48 号文 §2;13 本身不挂迁移)。
-ok(/const CONFIG_SCHEMA = 13;/.test(fs.readFileSync(path.join(SRC, '00-boot.js'), 'utf8')),
-  'CONFIG_SCHEMA 当前为 13(116a 自己不 bump;11→12 是 107-T1 为 126-111b/d/e 迁移抬的;12→13 是 128a 稀疏落盘)');
+// 128a 又把它 12 → 13(稀疏落盘,48 号文 §2;13 本身不挂迁移);2026-10 13 → 14(出厂权限档翻成智能自动,存量钉回 default)。
+ok(/const CONFIG_SCHEMA = 14;/.test(fs.readFileSync(path.join(SRC, '00-boot.js'), 'utf8')),
+  'CONFIG_SCHEMA 当前为 14(116a 自己不 bump;11→12 是 107-T1 为 126-111b/d/e 迁移抬的;12→13 是 128a 稀疏落盘;13→14 是出厂权限档翻成智能自动)');
 {
   const branches = configSrc.split(/\r?\n/).filter(l => /incomingConfigSchema\s*</.test(l));
   ok(branches.length >= 1, `扫得到 incomingConfigSchema 迁移分支（实得 ${branches.length} 处；扫不到 = 本条静默失效）`);

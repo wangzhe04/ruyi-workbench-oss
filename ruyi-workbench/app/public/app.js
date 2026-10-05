@@ -66,7 +66,7 @@ const chatScrollController = createChatScrollController({
   isStreaming: () => Boolean(state.streaming),
 });
 const {
-  maybeScrollToBottom, isStickyScroll,
+  maybeScrollToBottom, isStickyScroll, keepPinnedAcross,
   resetStickyScroll,
   scrollMessagesToBottom,
   syncStickToBottom,
@@ -85,7 +85,7 @@ const API_ERROR_I18N = {
   'request.action_unknown': 'error.api.actionUnknown',
   'session.id_invalid': 'error.api.sessionInvalid',
   'session.id_required': 'error.api.sessionRequired',
-  'session.not_found': 'error.api.sessionNotFound',
+  'session.not_found': 'error.api.sessionNotFound', 'agent_workflow.cycle': 'error.api.agentWorkflowCycle', 'agent_workflow.unknown_role': 'error.api.agentWorkflowUnknownRole',
   'checkpoint.not_found': 'error.api.checkpointNotFound',
   'checkpoint.reference_invalid': 'error.api.checkpointReferenceInvalid',
   'file.path_required': 'error.api.pathRequired',
@@ -203,7 +203,7 @@ const {
   closeModal: id => closeModal(id),
   openModal: id => openModal(id),
   buildModal: (...args) => buildModal(...args),
-  isProviderMode: () => isProviderMode(),
+  isProviderMode: () => isProviderMode(), currentAgentCliType: () => currentAgentCliType(),
   openPlaybookModal: playbook => openPlaybookModal(playbook),
   renderMarkdown: text => renderMarkdown(text),
   saveConfigPartial: patch => saveConfigPartial(patch),
@@ -214,7 +214,7 @@ const {
   activeProviderObj,
   addProviderFromPreset,
   addTemplateFromPrompt,
-  applyClaudeEndpointPreset,
+  applyClaudeEndpointPreset, currentAgentCliType,
   currentEngineMeta,
   currentModelId,
   engineLabel,
@@ -320,8 +320,8 @@ const {
   refreshToolPane: () => refreshToolPane(),   // 128f-⑫（审计 D）：回溯之后右栏页签重读
   renderCurrentSession: (...args) => renderCurrentSession(...args),
   renderAttachments: () => renderAttachments(),   // F9:编辑重发把原附件放回托盘
-  // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级)。
-  renderMermaidBlocks: (...args) => renderMermaidBlocks(...args),
+  // 109a: mermaid 图表渲染(懒加载 vendor,缺文件时原样降级);每张图换上去时经 keepPinnedAcross 保持贴底。
+  renderMermaidBlocks: (container, opts) => renderMermaidBlocks(container, { ...opts, withLayoutChange: keepPinnedAcross }),
   renderResumeBanner: (...args) => renderResumeBanner(...args),
   saveAsMemory: (...args) => saveAsMemory(...args),
   sendPrompt: (...args) => sendPrompt(...args),

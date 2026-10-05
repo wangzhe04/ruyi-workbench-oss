@@ -333,6 +333,38 @@ def _load_tool_modules() -> None:
 _load_tool_modules()
 
 
+# ACC_HIDE_TOOLS: comma-separated EXACT tool names to drop from the registry after the modules are loaded.
+# ACC_TOOLSETS only switches whole module groups (its "desktop" group also carries application/system/dialog),
+# which is too coarse for a host that gates single capabilities: the Ruyi workbench maps its "allow command tools"
+# / "allow desktop tools" switches to an exact name list. A hidden tool is absent from tools/list and cannot be
+# reached through batch_actions / macro_run either (batch._tool_map reads this same live registry). Unknown names
+# are ignored. Unset or empty = nothing hidden (backward compatible).
+def _hidden_tool_names() -> list[str]:
+    raw = _os.environ.get("ACC_HIDE_TOOLS", "")
+    return sorted({p.strip() for p in raw.split(",") if p.strip()})
+
+
+def _apply_hidden_tools() -> list[str]:
+    manager = mcp._tool_manager
+    removed = []
+    for name in _hidden_tool_names():
+        try:
+            if manager.get_tool(name) is None:
+                continue
+            remover = getattr(manager, "remove_tool", None)
+            if callable(remover):
+                remover(name)
+            else:  # older mcp releases: no public remover
+                manager._tools.pop(name, None)
+            removed.append(name)
+        except Exception as e:  # noqa: BLE001 — never take the server down over a hide request
+            print(f"[ai-computer-control] ACC_HIDE_TOOLS: could not hide '{name}': {exc_text(e)}", file=sys.stderr)
+    return removed
+
+
+HIDDEN_TOOLS: list[str] = _apply_hidden_tools()
+
+
 def main():
     """Run the MCP server."""
     mcp.run(transport="stdio")

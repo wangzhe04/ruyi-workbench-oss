@@ -12,10 +12,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 输出,而非 UTF-8。此前 runProcess 按 UTF-8 逐块 toString → 中文全乱码(GBK 字节 c2a6c9bd… 被读成「¦ɽ」)。
   // 修法:累积原始字节,收尾时智能解码——先按 UTF-8 解;若出现替换符(�,说明不是合法 UTF-8),退回 GBK。
   // 我们自己以 UTF-8 输出的工具不受影响(合法 UTF-8 无替换符,原样保留),GBK 原生命令输出也能正确还原。
-  // **headless 安全**:纯 Node 侧解码,不依赖控制台——[Console]::OutputEncoding 那类 PS 方案在无窗口 spawn 下
-  // 会因无有效控制台句柄而静默失效(实测端到端仍乱码),Node 侧解码无此坑。
   // 2026-09 起改为【按行】判定(00-boot decodeConsoleText):修前整段只要有一处不是合法 UTF-8 就整段按 GBK 解,
   // 混排输出(git 的 UTF-8 + 系统命令的 GBK)里总有一半是乱码。
+  // 2026-10 补【源头】一层:Node 侧解码只能还原「有损但可逆」的 GBK;en-US 等非中文代码页的机器上,PowerShell 按控制台代码页
+  // (OEM 437 / ANSI 1252)编码,中文在源头就变成 `?`,信息已丢。曾有注释称 [Console]::OutputEncoding 那类 PS 方案「在无窗口
+  // spawn 下会静默失效」—— 在 en-US 机器上实测【不成立】:windowsHide 起的子进程有自己的隐藏控制台,脚本头设置后中文输出 /
+  // 文件名 / cmd /c dir / Write-Host / stderr 全部正确。所以 withQuietProgress(见下)给脚本头加 UTF-8 输出编码前导
+  // (00-boot PS_UTF8_OUTPUT_PREAMBLE,含共享控制台副作用的调查结论),Node 侧按行解码保留为兜底
+  // (中文系统上设置失败、原生命令自己写 GBK 等;源头已是 UTF-8 时被 UTF-8 优先分支正确接住)。
   function decodeBestEffort(buf) {
     return decodeConsoleTextFn(buf);
   }
@@ -273,11 +277,14 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
   // 乱码由 runProcess 的 decodeBestEffort 兜底(先 UTF-8、有替换符退 GBK)。两侧合起来彻底解决中文乱码。
   // NE-15:Windows PowerShell 5.1 在有进度条时 Invoke-WebRequest / Expand-Archive 慢一个数量级,无头运行又没人看进度 —— 脚本头静音。
   // 写在【第一行同一行】不加换行(报错行号不漂);脚本里有 param()/using/#requires/[CmdletBinding] 时它们必须是第一条语句,不加。
+  // 2026-10:同一处再加 UTF-8 输出编码前导(PS_UTF8_OUTPUT_PREAMBLE,放在 $ProgressPreference 之前,同样同一行不换行),
+  // 给 powershell_run / script_run(PowerShell)/ runPowerShell 的内部调用方(截图、SendKeys 等)统一修源头编码;
+  // 豁免规则与静音进度条共用同一条 —— 豁免的脚本两样都不加(仍靠 Node 侧按行解码兜底)。
   function withQuietProgress(command) {
     const text = String(command == null ? '' : command);
     // 「第一条语句」前面可能有 <# 帮助注释 #>,所以不只看开头:任何行首出现 param( / [CmdletBinding / using / #requires 都不动脚本(宁可不静音也不破坏脚本)。
     if (/^\s*(?:param\s*\(|using\s|#requires|\[CmdletBinding)/im.test(text)) return text;
-    return "$ProgressPreference='SilentlyContinue'; " + text;
+    return PS_UTF8_OUTPUT_PREAMBLE + "$ProgressPreference='SilentlyContinue'; " + text;
   }
   // opts.shape:powershell_run 用 —— 结果按 runProcess 的整形模式(头+尾、键序、error/hint)返回;桌面截图等内部调用方要完整 stdout,不传。
   // NE-3:-NonInteractive —— Read-Host / pause / -Confirm 这类提示立刻抛错(模型能读到),不再挂到超时。
@@ -381,7 +388,9 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
     // v1.0.2 返修:无 owner 的 ShowDialog() 常被压在浏览器窗口后面 —— 用户以为「点了没反应」(真机反馈
     // 「工作区改不了」的一大来源)。造一个隐形 TopMost owner form,对话框随 owner 置顶到最前。纯 ASCII 脚本
     // (v1.0.1 编码教训:-Command 里不放中文)。
-    const script = "Add-Type -AssemblyName System.Windows.Forms; "
+    // 2026-10:前导 PS_UTF8_OUTPUT_PREAMBLE(纯 ASCII,见 00-boot)—— 选到中文路径时,非中文代码页(en-US)的机器上
+    // Write-Output 会把它写成 `?`,path.resolve 出一个不存在的目录;设成 UTF-8 后由 runProcess 的按行解码正确接住。
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "Add-Type -AssemblyName System.Windows.Forms; "
       + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
       + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
       + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "
@@ -422,7 +431,7 @@ const DesktopShell = ((fsModule, fspModule, pathModule, osModule, cpModule, kill
       return { ok: false, error: '原生文件选择器仅支持 Windows', hint: '请直接粘贴完整路径' };
     }
     const safeFilter = String(filter || 'All files|*.*').replace(/'/g, '');
-    const script = "Add-Type -AssemblyName System.Windows.Forms; "
+    const script = PS_UTF8_OUTPUT_PREAMBLE + "Add-Type -AssemblyName System.Windows.Forms; " // 前导同 pickFolder(中文文件路径不被写成 ?)
       + "$f = New-Object System.Windows.Forms.Form; $f.TopMost = $true; $f.ShowInTaskbar = $false; "
       + "$f.FormBorderStyle = 'None'; $f.Opacity = 0; "
       + "$f.StartPosition = 'CenterScreen'; $f.Show(); $f.Activate(); "

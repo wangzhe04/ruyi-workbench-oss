@@ -527,6 +527,19 @@ export function createChatStaticRenderer(deps = {}) {
   }
 
   function renderStaticMessage(msg, messageKey, renderSignature, options = {}) {
+    // 后台代理唤醒(服务端 10 scheduleAgentWake):那条 user 消息是工作台替模型起回合的系统通知,不是用户说的话 ——
+    // 画成一行系统提示(本地化的短句),不出「编辑重发 / 重试 / 回溯」这些只对用户原话有意义的按钮。
+    if (msg.role === 'user' && msg.meta && msg.meta.origin === 'agent_wake') {
+      const { row, main } = messageShell('system', msg.createdAt, null);
+      row.classList.add('agent-wake');
+      const runs = Array.isArray(msg.meta.runIds) ? msg.meta.runIds.length : 0;
+      const note = el('div', 'bubble plain', t('chat.agentWake', { n: Math.max(1, runs) }));
+      note.title = String(msg.content || '');
+      main.appendChild(note);
+      if (messageKey) row.dataset.messageKey = messageKey;
+      if (renderSignature) row.dataset.renderSignature = renderSignature;
+      return row;
+    }
     const meta = msg.role === 'assistant' ? metaFromMessage(msg) : null;
     const { row, main } = messageShell(msg.role, msg.createdAt, meta);
     const segments = validTurnSegments(msg);

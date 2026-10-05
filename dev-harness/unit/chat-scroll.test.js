@@ -92,4 +92,43 @@ describe('chat scroll controller', () => {
     scroll.updateJumpLatest();
     assert.equal(f.visibility.at(-1).hidden, true);
   });
+
+  // 2026-10-04:mermaid 图异步画完替换源码块,不走流式路径。修前没人重新贴底,8 张图的回复画完视图停在半途。
+  it('keeps the view pinned across an async layout change while following at the bottom', async () => {
+    const { createChatScrollController } = await loadModule();
+    const f = fixture();
+    f.setStreaming(false);
+    const scroll = createChatScrollController(f.options);
+    let ranInside = false;
+    scroll.keepPinnedAcross(() => { ranInside = true; f.box.scrollHeight = 1600; });
+    assert.equal(ranInside, true);
+    assert.equal(f.box.scrollTop, 1600);
+    assert.equal(scroll.isStickyScroll(), true);
+  });
+
+  it('leaves the view alone when the user scrolled up, or a jump moved it before its scroll event arrived', async () => {
+    const { createChatScrollController } = await loadModule();
+    const f = fixture();
+    const scroll = createChatScrollController(f.options);
+    // 用户上滑(真实 scroll 事件已到):不粘。
+    f.box.scrollTop = 300;
+    scroll.syncStickToBottom();
+    scroll.keepPinnedAcross(() => { f.box.scrollHeight = 1600; });
+    assert.equal(f.box.scrollTop, 300);
+    // 「加载更早」直接把 scrollTop 写成 0,滚动事件还没到:粘性仍是 true,但视图已不在底部 —— 不拽回去。
+    const g = fixture();
+    const fresh = createChatScrollController(g.options);
+    g.box.scrollTop = 0;
+    assert.equal(fresh.isStickyScroll(), true);
+    fresh.keepPinnedAcross(() => { g.box.scrollHeight = 1600; });
+    assert.equal(g.box.scrollTop, 0);
+  });
+
+  it('still pins when the layout change throws, and rethrows the error', async () => {
+    const { createChatScrollController } = await loadModule();
+    const f = fixture();
+    const scroll = createChatScrollController(f.options);
+    assert.throws(() => scroll.keepPinnedAcross(() => { f.box.scrollHeight = 1400; throw new Error('boom'); }), /boom/);
+    assert.equal(f.box.scrollTop, 1400);
+  });
 });

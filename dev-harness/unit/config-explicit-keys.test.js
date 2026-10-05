@@ -41,8 +41,8 @@ const FLIPPED = ['runtimeHistoryReadDedupV1', 'runtimeSummaryPromptI18nV1', 'run
 // 一份「旧版本写下的整份配置」:当前默认铺满,改几处 —— 与 2.8.0 及以前每一次写盘的形状相同。
 const fullOldFile = (patch = {}) => ({ ...JSON.parse(JSON.stringify(DEFAULTS)), configExplicitKeysV1: undefined, configSchema: 12, version: '2.8.0', ...patch });
 
-test('前提:schema 已抬到 13,默认表里有簿记键 configExplicitKeysV1', () => {
-  assert.equal(CONFIG_SCHEMA, 13);
+test('前提:schema 已抬到 14(13 是稀疏落盘,14 是出厂权限档翻成智能自动),默认表里有簿记键 configExplicitKeysV1', () => {
+  assert.equal(CONFIG_SCHEMA, 14);
   assert.deepEqual(srv.defaultConfig().configExplicitKeysV1, []);
 });
 
@@ -60,8 +60,9 @@ test('[A] 全新安装第一次读只落簿记键', async () => {
   assert.deepEqual(disk.configExplicitKeysV1, ['workspaces']);
   assert.ok(Array.isArray(disk.workspaces) && disk.workspaces.length === 1, '播种出来的那一行工作区落盘了');
   assert.deepEqual(Object.keys(disk).filter(k => !known.includes(k)).sort(), ['searchBackendMigrated', 'subagentBudgetMigrated']);
-  assert.equal(disk.configSchema, 13);
+  assert.equal(disk.configSchema, CONFIG_SCHEMA);
   assert.equal(cfg.permissionMode, DEFAULTS.permissionMode, '内存视图照旧是整份');
+  assert.equal(cfg.permissionMode, 'auto', '全新安装吃到出厂档智能自动(to:14 只钉存量文件,不碰全新安装)');
   assert.ok(Object.keys(cfg).length > 100, `内存视图的键数 ${Object.keys(cfg).length}`);
 });
 
@@ -164,7 +165,7 @@ test('[I] version 戳不被当成显式', async () => {
   const disk = onDisk();
   assert.ok(!disk.configExplicitKeysV1.includes('version'));
   assert.notEqual(disk.version, '2.7.0');
-  assert.equal(disk.configSchema, 13);
+  assert.equal(disk.configSchema, CONFIG_SCHEMA);
 });
 
 test('[J] mutator 删掉已知键 = 恢复默认', async () => {
@@ -243,4 +244,27 @@ test('[O] readConfig 在同一个数据根上只建一次目录(修前每读 14 
   fsp.mkdir = function (...args) { calls += 1; return orig.apply(this, args); };
   try { for (let i = 0; i < 5; i++) await readConfig(); } finally { fsp.mkdir = orig; }
   assert.equal(calls, 0, `之后的 5 次读不应再 mkdir(实测 ${calls} 次)`);
+});
+
+// 2026-10:没有可用配置不一定是全新安装 —— 数据目录里已经有会话,说明是一份用过的安装丢了配置(文件被删、截成 0 字节、
+// 写成 {}),这时不给出厂的智能自动,钉回最保守的 'default' 并显式落盘;真正的全新安装(没有会话)照旧吃到 'auto'([A])。
+test('[P] 配置丢了但已有会话:钉回 default 而不是出厂的智能自动', async () => {
+  const sessionsDir = path.join(root, 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const marker = path.join(sessionsDir, 'sess_existing.json');
+  fs.writeFileSync(marker, '{}');
+  try {
+    for (const lost of [null, '', '{}']) {
+      reset();
+      if (lost !== null) fs.writeFileSync(CFG, lost);
+      const cfg = await readConfig();
+      assert.equal(cfg.permissionMode, 'default', `配置为 ${JSON.stringify(lost)} 且已有会话时应钉 default`);
+      const disk = onDisk();
+      assert.equal(disk.permissionMode, 'default');
+      assert.ok(disk.configExplicitKeysV1.includes('permissionMode'), '钉回的档记成显式,落盘后不再走这条');
+    }
+  } finally {
+    fs.rmSync(marker, { force: true });
+    reset();
+  }
 });

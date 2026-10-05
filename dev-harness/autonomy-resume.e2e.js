@@ -49,7 +49,8 @@ ok(/try \{ await saveAgentRun\(run\); \} catch \{ guardPersisted = false; \}/.te
 ok((src.match(/await saveAgentRun\(run\)\.catch\(\(\) => \{\}\); \/\/ 29b 顺手修/g) || []).length >= 1 && /if \(dirty\) await saveAgentRun\(run\)\.catch\(\(\) => \{\}\);/.test(src), 'S boot 标死写盘防炸(磁盘故障不再放倒 startServer)');
 ok(/if \(interventionKind\) bumpRunIntervention\(run, interventionKind\);/.test(src) && /interventionKind: 'resume'/.test(src) && /interventionKind: 'retry_node'/.test(src), 'S 冷 resume/retry 计干预;boot 自动续跑不传(不计)');
 ok(/delete run\.resumeTier; delete run\.resumeTierReasons;/.test(src) && /delete run\.pendingReview;/.test(src), 'S resume 清分级戳 + 顺手清 28d pendingReview(此前只设不清)');
-ok(/if \(bootConfig\) \{ const cls = classifyRunResumeTier\(run, bootConfig\.permissionMode\);/.test(src), 'S 中断标记时盖分级戳(展示用;决策时重算)');
+// 2026-10:比对用线程的生效档(agentRunPermissionMode:会话级 > 全局),与续跑、自动续跑决策同一个解析。
+ok(/if \(bootConfig\) \{ const cls = classifyRunResumeTier\(run, await agentRunPermissionMode\(run\.sessionId, bootConfig\)\);/.test(src), 'S 中断标记时盖分级戳(展示用;决策时重算)');
 ok(/permissionModeAtLaunch: String\(permModeOverride \|\| config\.permissionMode \|\| ''\)/.test(src), 'S run 创建存档首跑权限面');
 ok(/type: 'run_resume_deferred'/.test(src) && /type: 'run_auto_resume'/.test(src), 'S 恢复决策入事件日志(取证)');
 

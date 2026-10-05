@@ -775,3 +775,32 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   内置表开关、只读的内置表)。颜色走既有 line/muted token,字号走 --fs-sm/--fs-xs,零新增动效。
 //   `css/views/settings.css`:「运行时画进来的三块也穿同一张卡」那条选择器添一个 `.asr-lexicon`(三块 → 四块)。
 // 算法自证:把两层换回 HEAD 重算 = 45ad3f9e…,与被替换的旧值逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 59 号文 §6 从修改里学续钉(前值 b0b677a3…＝59 号文语音词库续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-shell.css`:语音词库卡多了一个开关(「从我的修改里学」),两个开关共用一条 `.asr-lexicon-toggle`
+//   (原 `.asr-lexicon-base` 的两条规则改名合并;内置表那一行仍带 `.asr-lexicon-base` 这个类名给测试与读屏定位)。规则内容零改动。
+// 算法自证:拦截 fs.readFileSync 让本文件自己的 readLayerPayload() 读 `git show HEAD:<css>` 重算 = b0b677a3…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 词库框光标续钉(前值 6e88cdc0…＝59 号文 §6 从修改里学续钉):零新增、零删除层,改一层 ——
+//   `css/views/chat-shell.css`:`.asr-lexicon-text` 添一条 cursor —— 自带白描边的深色 I 形光标(SVG data URI,退回系统 text)。
+//   用户实报在设置弹窗的白底大框里系统反色 I 形光标被画成白色、看不见。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-shell.css>` 重算 = 6e88cdc0…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 全自动档回界面续钉(前值 cdcc8edd…＝2026-10 词库框光标续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-settings.css`:bypass(全自动)回到权限档位表 —— 盾牌 `[data-permission="bypass"]` 用警示色
+//   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
+// 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
+//   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
+//   js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+// 2026-10 mermaid 图表配色续钉(前值 5e1ed875…＝2026-10 chip 菜单往上翻续钉):零新增、零删除层,改两层 ——
+//   `css/views/chat-narrative.css`:mermaid 灯箱 —— 幕布从 `--glass-bg-3`(浅色下 46% 白毛玻璃)换成两套主题都压暗的
+//   `--viewer-scrim`;`.mermaid-lightbox-stage` 加实底卡片(`--panel-2` 底、`--line-2` 描边、圆角、投影;内边距由 JS 写)。
+//   用户实报浅色下点开放大后光标糊在发白的背景与透明底图里、看不见。
+//   `css/themes/color-schemes.css`:两套主题各加一个 `--viewer-scrim`(暗 rgba(8,12,20,.78) / 亮 rgba(20,28,44,.62))。
+//   其余规则零改动;图本身的配色在 js/mermaid-runtime.js 的色板里(mermaid 只认十六进制,不走 CSS 变量)。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 366ffa5:<两层>` 重算 = 5e1ed875…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。

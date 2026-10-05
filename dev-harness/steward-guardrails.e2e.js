@@ -1149,25 +1149,33 @@ try {
     ok(NATIVE_DESK.every(n => namesOf(ownOn).includes(n)),
       'R2b 会话覆盖 true -> 两个原生桌面工具回来(全局值不变)');
 
-    // R3 full 模式的注入面(07:722/743):合并点 09:1418 是 ownTools.concat(bridged.tools),这里照样合。
+    // 2026-10 能力总闸补桥接面(07 toolDisabledByPolicy,按服务器身份 'ai-computer-control' + ACC 裸名单判 —— 即上面
+    // 拍板项的第三种判据):本段原先钉住的「已知洞」已修,按本段自己的约定把 R3/R4/R5 翻成反向断言(R0-R2、R5a、R5b 原样)。
+    // 真回合 / MCP 子进程 / CLI 直挂面的端到端覆盖见 acc-capability-gates.e2e.js。
+    // R3 full 模式的注入面(07 createToolLoadingState):合并点 09 是 ownTools.concat(bridged.tools),这里照样合 ——
+    //    目录里只剩没被闸掉的部分,而 full 模式一次性注入目录里【全部】的 schema。
     const stateFull = srv.createToolLoadingState(cfgFull, '看一眼屏幕', [], ownOff.concat(accTools), accRoute, undefined);
     const liveFull = namesOf(stateFull.current());
-    ok(stateFull.fullCount === ownOff.length + accTools.length && liveFull.length === stateFull.fullCount,
-      `R3 full 模式一次性注入目录里【全部】schema(got live ${liveFull.length} / fullCount ${stateFull.fullCount})`);
-    // R4 【已知洞,登记债】:同一份工具面里,原生桌面工具已被闸掉,桥接的 ACC 桌面工具却原样在场。
+    ok(stateFull.fullCount === ownOff.length && liveFull.length === stateFull.fullCount,
+      `R3 full 模式一次性注入目录里【全部】schema,被闸掉的 ACC 桌面工具不在目录里(got live ${liveFull.length} / fullCount ${stateFull.fullCount} / own ${ownOff.length})`);
+    // R4 (已修,原「已知洞」):同一份工具面里,原生桌面工具与桥接的 ACC 桌面工具都被闸掉。
     const leaked = liveFull.filter(n => n.startsWith(`${ACC}__`));
-    ok(!liveFull.some(n => NATIVE_DESK.includes(n)) && leaked.length === accNames.length,
-      `R4 【已知洞】allowDesktopTools:false 的 full 模式工具面:原生桌面工具 0 个、桥接 ACC 桌面工具 ${leaked.length}/${accNames.length} 个照样注入(注入路不读闸;got ${JSON.stringify(leaked)})`);
-    // R5 【已知洞】auto 模式:默认不注入桥接 schema(O1 hb360),但 tool_load 按名字显式拉入照样进工具面,同样不看闸;
-    //     而 tool_invoke_exec 走 12:100 的档校验,mouse_click 的档正是 'exec' —— 同档即放行,那道校验挡不住它。
+    ok(!liveFull.some(n => NATIVE_DESK.includes(n)) && leaked.length === 0,
+      `R4 allowDesktopTools:false 的 full 模式工具面:原生桌面工具 0 个、桥接 ACC 桌面工具 0/${accNames.length} 个(got ${JSON.stringify(leaked)})`);
+    const stateFullOn = srv.createToolLoadingState(cfgFull, '看一眼屏幕', [], ownOn.concat(accTools), accRoute, undefined, { desktopOverride: true });
+    ok(accNames.every(n => namesOf(stateFullOn.current()).includes(`${ACC}__${n}`)),
+      'R4b 会话覆盖 true -> 桥接 ACC 桌面工具与原生的一起回来(全局值不变)');
+    // R5 (已修,原「已知洞」)auto 模式:默认不注入桥接 schema(O1 hb360),tool_load 按名字显式拉入也拉不进被闸掉的 ACC 工具;
+    //     tool_invoke_exec 那一路由 12 invokeAdaptiveMcpTool 在目录查找之前按同一判据回 tool-disabled(e2e 覆盖)。
     writeConfig({ allowDesktopTools: false, toolLoadingMode: 'auto' });
     const cfgAuto = srv.normalizeConfig(JSON.parse(fs.readFileSync(configFile, 'utf8'))).config;
     const stateAuto = srv.createToolLoadingState(cfgAuto, '看一眼屏幕', [], ownOff.concat(accTools), accRoute, undefined);
     ok(!namesOf(stateAuto.current()).some(n => n.startsWith(`${ACC}__`)),
       'R5a auto 模式默认不注入桥接 schema(O1 hb360 的既有行为,不是闸的功劳)');
     const pulled = stateAuto.load({ tools: [`${ACC}__mouse_click`] });
-    ok(pulled && pulled.ok === true && namesOf(stateAuto.current()).includes(`${ACC}__mouse_click`),
-      `R5 【已知洞】auto 模式 tool_load 显式拉入桥接 ACC 工具照样进工具面,不看闸(got ${JSON.stringify(pulled && pulled.loaded)})`);
+    ok(pulled && pulled.ok === true && !namesOf(stateAuto.current()).includes(`${ACC}__mouse_click`)
+      && Array.isArray(pulled.unknown) && pulled.unknown.includes(`${ACC}__mouse_click`),
+      `R5 auto 模式 tool_load 显式拉入被闸掉的桥接 ACC 工具:拉不进来,如实报 unknown(got ${JSON.stringify(pulled && { loaded: pulled.loaded, unknown: pulled.unknown })})`);
     const clickItem = catalog.find(x => x.name === `${ACC}__mouse_click`);
     ok(clickItem && clickItem.tier === 'exec',
       `R5b tool_invoke_exec 对它的档校验(12:100)是同档放行:mouse_click 的目录档 = 'exec'(got ${clickItem && clickItem.tier})`);

@@ -18,5 +18,5 @@ Workflow:
 Offline rules:
 
 - Do not call remote CI, registry, artifact, or package hosts.
-- If a step needs a missing runtime, name it and add it to the offline bundle manifest.
+- If a step needs a missing runtime or package, report its name and version to the user; the user decides whether to add it to the offline bundle. Do not edit packaging manifests yourself.
 - Prefer deterministic commands over shell aliases or profile-dependent state.

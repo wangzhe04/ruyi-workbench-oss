@@ -25,14 +25,17 @@
 内置工具与桌面/文档工具优先（受权限确认 + 一键撤销保护）；终端脚本兜底（不可自动撤销，现场发挥易出编码/兼容坑）。
 
 ### 3.4 子代理编排
-- `spawn_agent`：同阶段并行（cap `subagentMaxConcurrent`），依赖分阶段（`dependsOn`，前序结论自动注入后续子代理上下文）。
-- `orchestrate_agents`：一次提交全依赖图，运行时自动并行就绪节点、等待依赖、持久化进度，比逐轮 `spawn_agent` 更可靠。
+- `orchestrate_agents` 是唯一的启动入口：一次提交全依赖图（`nodes`，依赖用 `dependsOn`），或用 `workflowId` 复用模板（内置模板必须带 `context` 写清这次的主题，否则不启动；同时给了 `nodes` 时以 `nodes` 为准、模板被忽略）；单代理写顶层简写 `{task, role?, toolTier?, background?}`。运行时自动并行就绪节点（同阶段上限 `subagentMaxConcurrent`）、等待依赖、把前序结论注入后续节点、持久化进度。旧的 `spawn_agent` 已并入，仍调它的模型由运行时翻译成单节点。
+- **权限**：节点按所在线程的生效权限档运行（请求级 > 会话级 > 全局）。两种引擎同一判据：每步都问只放只读，改文件不问再放改文件，跑命令与桥接 MCP 被拒；智能自动、全自动、只做计划照常。角色自带的档（如只做计划）优先。
 - **资源感知**：操作同一文件/浏览器 Profile/桌面/Office 文档的节点须声明 `resources`（如 `desktop`、`browser:default`、`file:C:\项目\a.js`、`workspace:C:\项目`；只读共享加 `read:` 前缀）；冲突节点自动排队，工具参数调用时自动加锁兜底。
 
 ## 4. 检查
 
 ### 4.1 质量门（DAG 节点级）
-节点可配 `outputSchema`（结构化校验）+ `gate`（通过条件）；失败策略 `failurePolicy`（fail/retry/block）；降级策略 `degradedPolicy`（accept/fail/retry/request_review）。
+节点可配 `outputSchema`（结构化校验）+ `gate`（通过条件）；失败策略 `failurePolicy`（block/continue/retry）；降级策略 `degradedPolicy`（accept/fail/retry/request_review）。reviewer / verifier 角色的节点不写 `gate` 时自动加 review / verify 门（输出 verdict，不是 pass 就判驳回）；只产出发现、不该做通过/驳回判定的节点写 `gate: false`（内置模板里的三路审计与复现节点即如此）。
+
+### 4.1a 内置模板与角色
+内置 8 套模板（`08-agent-runs.js` 的 `BUILTIN_AGENT_WORKFLOWS`）：debate-and-judge、implement-review-fix-test、deep-research、design-and-decide、codebase-audit、debug-root-cause、doc-from-scratch、data-insights。节点任务是通用写法，不含主题，主题来自启动时的 `context`。内置 10 种角色（`01e-permission-modes.js` 的 `BUILTIN_AGENT_ROLES`）：explorer、worker、coder、reviewer、verifier、planner、researcher、critic、synthesizer、analyst；角色提示词在两种引擎下都进系统提示（Claude 引擎经 `--append-system-prompt`，命令行超长时改进首条消息）。个人模板与项目模板（`.ruyi/workflows.json`）同 id 时按 项目 > 个人 > 内置 覆盖；保存时拒绝环形依赖与不存在的角色。
 
 ### 4.2 回合级输出契约（规划中）
 长任务收尾输出「完成声明：做了什么/没做什么/验证方式」。先提示词约定，后机械校验（04 Phase D 规划项，未实现）。
@@ -66,8 +69,9 @@
 |---|---|---|
 | standard | 100 | 默认档，多数任务 |
 | long | 200 | 长任务（`isLongToolTask` 关键词启发式判定：首轮含大量 exec/read 自动升档） |
-| hard | 300 | 硬上限（`hardLimit`），不可超 |
-| extension | 50 | 动态扩展增量（`shouldExtendToolIterationBudget`：有进展时按需追加，封顶 hard） |
+| standardHard | 300 | 标准任务的硬上限（`hardLimit`），不可超 |
+| hard | 1000 | 长任务或代理团队（agent-team）回合的硬上限 |
+| extension | 50 | 动态扩展增量（`shouldExtendToolIterationBudget`：有进展时按需追加，封顶该回合的 `hardLimit`） |
 
 ### 6.2 子代理预算
 `subagentMaxConcurrent`（同阶段并行上限）、`subagentMaxPerTurn`（回合累计上限，0=禁用，工具不进 schema）。

@@ -147,6 +147,13 @@ async function applyConfigPatch(rawBody) {
     }
     await syncMcpServersToClaude(next);
     await syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true });
+  } else if (body && ['allowCommandTools', 'allowDesktopTools'].some(k => Object.prototype.hasOwnProperty.call(body, k)
+      && (current && current[k]) !== (next && next[k]))) {
+    // 2026-10 能力总闸:两个开关一变,写给 CLI 的直挂 ACC 条目里的 ACC_HIDE_TOOLS(01 desktopMcpPolicyEnv)就过时了 —— 推一次
+    // Claude 的用户级条目与 Kimi 的 mcp.json(同一次保存里 externalMcpServers 也改了的话上面那支已经推过)。不等它:claude mcp
+    // add-json 串行可达十几秒,开关的保存不该卡在这里;Kimi 每个回合起手还会再推一次(05b),这里只是把空窗缩短。
+    void syncMcpServersToClaude(next).catch(() => {});
+    void syncAgentCliMcpManifests(next, null, { requireWorkbenchMcp: true }).catch(() => {});
   }
   // 选中的 CLI 若从用户配置读 MCP(登记表 syncMcpManifest),推一次;从这样一家切走时把如意接管的条目清掉(见 01)。
   if (body && (Object.prototype.hasOwnProperty.call(body, 'agentCliType') || Object.prototype.hasOwnProperty.call(body, 'includeWorkbenchMcp'))) {
