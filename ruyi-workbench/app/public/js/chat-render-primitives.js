@@ -88,12 +88,14 @@ export function toolResultRichParts(result) {
 // 用自己的 Marked 实例而不是 marked.use：不改全局的 marked（vendor 是全仓共享的那一份）。纯函数，入参是 marked
 // 库本身（浏览器里是全局 marked，单测里 require vendor 那一份），建不出来返回 null（调用方回落 marked.parse）。
 const TILDE_DEL = /^~~(?=[^\s~])([\s\S]*?[^\s~])~~(?=[^~]|$)/;
-export function createMarkdownParser(markedLib) {
+// breaks:单个换行是否画成 <br>。对话里默认 true(聊天口吻,一行一回车);手册这类按段落硬折行写的英文文档要 false,
+// 否则每个源码折行都被画成断行(help-viewer.js 经 renderMarkdownInto 的 {breaks:false} 取用)。
+export function createMarkdownParser(markedLib, { breaks = true } = {}) {
   if (!markedLib || typeof markedLib.Marked !== 'function') return null;
   try {
     return new markedLib.Marked({
       gfm: true,
-      breaks: true,
+      breaks,
       tokenizer: {
         del(src) {
           const cap = TILDE_DEL.exec(src);
@@ -224,18 +226,26 @@ export function createChatRenderPrimitives(deps = {}) {
   }
   // 2026-10:只认 ~~双波浪~~ 的删除线(理由见模块级 createMarkdownParser 头注)。建一次、按需建。
   let mdParser;
-  function markdownParser() {
-    if (mdParser === undefined) mdParser = createMarkdownParser(typeof marked === 'undefined' ? null : marked);
-    return mdParser;
+  let mdParserNoBreaks;
+  function markdownParser(breaks = true) {
+    if (breaks) {
+      if (mdParser === undefined) mdParser = createMarkdownParser(typeof marked === 'undefined' ? null : marked);
+      return mdParser;
+    }
+    if (mdParserNoBreaks === undefined) mdParserNoBreaks = createMarkdownParser(typeof marked === 'undefined' ? null : marked, { breaks: false });
+    return mdParserNoBreaks;
   }
-  function renderMarkdown(text) {
+  // opts.breaks === false:单个换行不画成 <br>(手册用)。缓存键带上这一位 —— 同一段原文两种口径的输出不同,不能互相命中。
+  function renderMarkdown(text, opts) {
     const key = String(text || '');
+    const breaks = !(opts && opts.breaks === false);
+    const cacheKey = breaks ? key : '\u0000nobr\u0000' + key;
     const cacheable = key.length > 0 && key.length <= MD_CACHE_MAX_CHARS;
     if (cacheable) {
-      const hit = mdCache.get(key);
+      const hit = mdCache.get(cacheKey);
       if (hit !== undefined) {
         // Map 迭代序即插入序：命中后重插到末尾保持 LRU。
-        mdCache.delete(key); mdCache.set(key, hit);
+        mdCache.delete(cacheKey); mdCache.set(cacheKey, hit);
         return hit;
       }
     }
@@ -243,8 +253,8 @@ export function createChatRenderPrimitives(deps = {}) {
     try {
       if (typeof marked === 'undefined') out = `<div class="plain">${escapeHtml(key)}</div>`;
       else {
-        const parser = markdownParser();
-        const html = parser ? parser.parse(key) : marked.parse(key, { gfm: true, breaks: true });
+        const parser = markdownParser(breaks);
+        const html = parser ? parser.parse(key) : marked.parse(key, { gfm: true, breaks });
         const tpl = document.createElement('template');
         tpl.innerHTML = html;
         sanitizeNode(tpl.content);
@@ -253,17 +263,17 @@ export function createChatRenderPrimitives(deps = {}) {
       }
     } catch { out = `<div class="plain">${escapeHtml(key)}</div>`; }
     if (cacheable) {
-      mdCache.set(key, out);
+      mdCache.set(cacheKey, out);
       if (mdCache.size > MD_CACHE_MAX) mdCache.delete(mdCache.keys().next().value); // 淘汰最久未用
     }
     return out;
   }
-  function renderMarkdownInto(container, text) {
+  function renderMarkdownInto(container, text, opts) {
     if (!container) return container;
     // renderMarkdown has already parsed and sanitized the markup. Keeping the
     // trusted HTML assignment inside this shared renderer prevents consumers
     // from growing their own, less consistent Markdown/XSS paths.
-    container.innerHTML = renderMarkdown(text);
+    container.innerHTML = renderMarkdown(text, opts);
     return container;
   }
   function highlightCodeBlock(block) {
@@ -1221,7 +1231,7 @@ export function createChatRenderPrimitives(deps = {}) {
     if (!sid || targetTurnSeq == null) { toast(t("toast.rewindNoTurn"), 'err'); return; }
     const { turns, fileCount } = rewindImpact(msg);
     const body = el('div');
-    body.append(el('p', '', t('chat.rewindConfirm', { turns })));
+    body.append(el('p', '', tCount('chat.rewindConfirm', turns, { turns })));   // 英文 1 turn / N turns
     const preview = el('div', 'rewind-preview'); preview.textContent = (msg.content || '').slice(0, 300);
     body.append(preview);
     let fileBox = null;

@@ -152,11 +152,18 @@ export function createHelpMenuDomain({
     foot.append(copyBtn, openDirBtn, refreshBtn, done);
 
     let text = '';
+    // 序号保护:切行数/点刷新会连发多次请求,慢的旧响应(比如先点的 2000 行)不能盖掉后发的新结果。
+    let loadSeq = 0;
     async function load() {
+      const seq = ++loadSeq;
       pre.textContent = t('help.logs.loading');
       let res = null;
       try { res = await api(logTailRequestPath(select.value)); }
-      catch (error) { text = ''; pre.textContent = t('help.logs.loadFailed', { reason: apiErrText(error) }); fileLabel.textContent = ''; return; }
+      catch (error) {
+        if (seq !== loadSeq) return;
+        text = ''; pre.textContent = t('help.logs.loadFailed', { reason: apiErrText(error) }); fileLabel.textContent = ''; return;
+      }
+      if (seq !== loadSeq) return;
       if (!res || res.ok !== true) {
         text = '';
         fileLabel.textContent = '';
@@ -202,7 +209,24 @@ export function createHelpMenuDomain({
     ];
   }
 
+  // 关掉菜单后焦点要有去处。锚点「帮助」项住在齿轮菜单里,焦点一进这张浮层齿轮菜单就收起了(失焦即收),
+  // anchor.focus() 对不可见元素静默无效,焦点掉到 body —— 键盘用户得从页首重新 Tab,从菜单项打开的手册/日志面板
+  // 关闭时也没处可还。锚点还看得见就还给它,否则退到拥有那张菜单的齿轮钮 #appGearBtn。
+  function restoreFocusAfterMenu(anchor) {
+    try {
+      const doc = anchor.ownerDocument;
+      if (!doc) return;
+      if (doc.activeElement && doc.activeElement !== doc.body) return;   // 焦点已在某个控件上(锚点接住了,或用户点去了别处)
+      const visible = node => Boolean(node) && node.isConnected !== false
+        && (typeof node.getClientRects !== 'function' || node.getClientRects().length > 0);
+      const target = visible(anchor) ? anchor : doc.getElementById('appGearBtn');
+      if (target && typeof target.focus === 'function') target.focus();
+    } catch { /* 无 DOM(单测假壳)时跳过 */ }
+  }
+
   // 常驻入口:侧栏「帮助」按钮的弹层菜单。与顶栏「更多」菜单同一 popover 原语与 role 口径。
+  // 键盘:打开即聚焦第一项(popover 的 onOpen 钩子——节点真挂上文档之后才能 focus);↑/↓ 循环、Home/End 到头尾;
+  // Esc 由 popover 原语处理。
   function openHelpMenu(anchor) {
     if (!anchor) return null;
     return popover(anchor, close => {
@@ -217,7 +241,28 @@ export function createHelpMenuDomain({
         b.onclick = () => { close(); try { entry.run(); } catch { /* 单项失败不拖垮菜单 */ } };
         menu.append(b);
       }
+      if (typeof menu.addEventListener === 'function') {
+        menu.addEventListener('keydown', event => {
+          const items = [...menu.querySelectorAll('[role="menuitem"]')];
+          if (!items.length) return;
+          const at = items.indexOf(menu.ownerDocument.activeElement);
+          let next = -1;
+          if (event.key === 'ArrowDown') next = at + 1;
+          else if (event.key === 'ArrowUp') next = at <= 0 ? items.length - 1 : at - 1;
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = items.length - 1;
+          else return;
+          event.preventDefault();
+          items[((next % items.length) + items.length) % items.length].focus();
+        });
+      }
       return menu;
+    }, {
+      onOpen: node => {
+        const first = node && typeof node.querySelector === 'function' ? node.querySelector('[role="menuitem"]') : null;
+        if (first && typeof first.focus === 'function') first.focus();
+      },
+      onClose: () => restoreFocusAfterMenu(anchor),
     });
   }
 

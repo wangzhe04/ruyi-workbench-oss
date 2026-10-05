@@ -10,7 +10,7 @@
 //   · net.js    —— token 读取 + 带鉴权头的 api() 封装
 // index.html 的 <script src="/app.js"> 已加 type="module" 以启用 import(head 内预绘脚本不受影响)。
 import { state, MSG_WINDOW_THRESHOLD, MSG_WINDOW_TAIL, MSG_WINDOW_STEP } from './js/state.js';
-import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta } from './js/util.js';
+import { $, el, escapeHtml, fileBasename, fmtBytes, fmtTime, fmtTokens, toast, setStatus, autoGrow, paintSessionMeta, bindKeyboardClick } from './js/util.js';
 import { wcwToken, authHeaders, api, apiErrorInfo, apiErrText as rawApiErrText, initToken, setNetworkErrorMessage } from './js/net.js';
 import { icon, hydrateIcons } from './js/icons.js';
 import { getLocale, initI18n, setLocale, t, tCount } from './js/i18n.js';
@@ -1071,7 +1071,7 @@ function bindEvents() {
     const box = $(steward ? 'stewardComposerInput' : 'promptInput');
     if (box) { try { box.scrollIntoView({ block: 'nearest' }); } catch { /* 老宿主没有它 */ } box.focus(); }
   }; }
-  { const cm = $('contextMeter'); if (cm) cm.onclick = openContextPopover; }
+  { const cm = $('contextMeter'); if (cm) { cm.onclick = openContextPopover; bindKeyboardClick(cm); } }   // role=button 的 div:补 Enter/空格
   // v0.8-S6 capability matrix。122-L1b：**不能直接把函数当 handler** —— onclick 会把 MouseEvent
   // 当第一个实参（openCapPopover 的 anchorOverride）递进去，popover 拿它调 getBoundingClientRect
   // 当场抛。原先 #capBadge 是 display:none 的状态载体、点不到，这条才一直没发作；现在它是齿轮

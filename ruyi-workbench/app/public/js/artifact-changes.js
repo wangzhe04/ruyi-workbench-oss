@@ -7,7 +7,7 @@
 import { state } from './state.js';
 import { $, el, fileBasename, fmtBytes, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { t } from './i18n.js';
+import { t, tCount } from './i18n.js';
 
 export const ARTIFACT_KIND_ICON = {
   img: '🖼',
@@ -222,7 +222,7 @@ export function createArtifactChangesDomain({
       const card = el('div', 'change-card');
       const head = el('div', 'change-card-head');
       head.append(el('span', 'change-round-title', t('changes.roundTitle', { n: turnSeq })));
-      head.append(el('span', 'change-round-count muted', t('changes.roundCount', { n: items.length })));
+      head.append(el('span', 'change-round-count muted', tCount('changes.roundCount', items.length)));
       const roundActions = el('span', 'change-round-actions');
       if (items.some(entry => !entry.skipped)) {
         const undoAll = el('button', 'mini change-undo-all', t('changes.revertTurn'));

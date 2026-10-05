@@ -79,12 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 2026-10 mermaid 五路走查续钉(前值 331a296d…＝2026-10 mermaid 图表配色续钉):零新增、零删除层,改一层 ——
-//   `css/views/chat-narrative.css`:`.mermaid-view svg` / `.mermaid-lightbox-stage svg` 收窄成子选择器 `> svg`
-//   (修前 height:auto 也落在架构图 / 流程图图标那层嵌套 <svg> 上,计算高度撑成整图高、图标整排错位);
-//   新增 `.mermaid-hint-detail`(回落提示下面那行解析器原话:等宽字、长行可断)。其余规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-narrative.css>` 重算 = 331a296d…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
 // 61 号文 C3 记忆批量卡续钉(前值 18e23fa1…＝2026-10 mermaid 五路走查续钉):零新增、零删除层,改一层 ——
 //   `css/states/chat-live.css`:记忆候选卡下面加批量卡的几条(`.memory-proposal-items` / `-item` / `-item-head` / `-pick` /
 //   `-body` / `-body-text`):每条一行、行间细分隔线,勾选框与名称同一行,正文收在 <details> 里(限高可滚)。
@@ -101,7 +95,13 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `css/layout.css`:齿轮菜单里的能力矩阵去掉胶囊边框底色。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9bbe566:<css>` 重算 = ecad3e8f…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = 'c9f2039277a07c79084d82cc48970b66af7751264cd7f53d7f885ee0bf560471';
+// 2026-10 3.0 收口走查第一波 · 杂项续钉(前值 c9f20392…＝收口走查第一波续钉):零新增、零删除层,改两层 ——
+//   `css/views/workspace.css`:文件树文件行的 @ 钮不再吃 button 的 min-height / .tool-section 的 margin(文件行 42px → 22px,与目录行齐),
+//   新增 `.ftree-main`(文件行可聚焦主体)与 @ 钮 :focus-visible / 行 :focus-within 时可见;
+//   `css/views/settings.css`:竖排设置导航允许长英文标签折行、导航列不出横向滚动条,≤640px 横排仍 nowrap。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9f22cb4:<css>` 重算 = c9f20392…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '8c959d30b5bb83183e832ca30fb3fc35e68d043a1e87bdde4c6b15044109d136';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));
