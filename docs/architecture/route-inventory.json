@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-03T04:08:13.785Z",
+  "generatedAt": "2026-10-05T17:29:47.715Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -959,6 +959,7 @@
         "dev-harness\\settings-catalog.browser.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\simple-mode.browser.e2e.js",
         "dev-harness\\start-error-surface.e2e.js",
@@ -1127,6 +1128,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\onboarding-workspace.browser.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\workspace-resolve.e2e.js"
       ]
     },
@@ -1159,7 +1161,8 @@
       "domain": "core-inline",
       "auth": "token",
       "coveredBy": [
-        "dev-harness\\overlay-update-gui.static.e2e.js"
+        "dev-harness\\overlay-update-gui.static.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js"
       ]
     },
     {
@@ -1223,6 +1226,7 @@
         "dev-harness\\onboard.e2e.js",
         "dev-harness\\onboarding.e2e.js",
         "dev-harness\\onboarding.static.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
@@ -2028,6 +2032,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\model-menu-no-shift.browser.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
@@ -2409,6 +2414,7 @@
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\prefix-layout.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
@@ -3104,7 +3110,8 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\overlay-update-core.e2e.js",
-        "dev-harness\\overlay-update-gui.static.e2e.js"
+        "dev-harness\\overlay-update-gui.static.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js"
       ]
     },
     {
@@ -3233,6 +3240,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
@@ -3470,6 +3478,7 @@
         "dev-harness\\plan-mode.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
+        "dev-harness\\provider-no-model-locale.e2e.js",
         "dev-harness\\provider-pairing-repair.e2e.js",
         "dev-harness\\provider-turnloop-hardening.e2e.js",
         "dev-harness\\quiet-card-snooze.browser.e2e.js",
@@ -4931,6 +4940,7 @@
         "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler-ui.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -4958,6 +4968,7 @@
         "dev-harness\\scheduler-steward.e2e.js",
         "dev-harness\\scheduler-ui.browser.e2e.js",
         "dev-harness\\scheduler.e2e.js",
+        "dev-harness\\settings-wave1.browser.e2e.js",
         "dev-harness\\steward-exempt-delegation.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
