@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-04T08:36:23.375Z",
+  "generatedAt": "2026-10-04T13:55:42.757Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -891,6 +891,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\context-compact-v2.e2e.js",
         "dev-harness\\dom-smoke.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
@@ -919,6 +920,7 @@
       "domain": "core-inline",
       "auth": "open",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
         "dev-harness\\asr-transcribe.e2e.js",
         "dev-harness\\asr-warmup.e2e.js",
@@ -956,6 +958,7 @@
         "dev-harness\\repo-hygiene.e2e.js",
         "dev-harness\\session-atomic.e2e.js",
         "dev-harness\\session-id-path-guard.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\settings-catalog.browser.e2e.js",
         "dev-harness\\settings-ia.browser.e2e.js",
         "dev-harness\\settings-skills.browser.e2e.js",
@@ -1470,6 +1473,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -1506,7 +1510,9 @@
       "auth": "token-browser",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
-        "dev-harness\\memory-auto-proposal-api.e2e.js"
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1522,7 +1528,9 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\memory-auto-proposal-api.e2e.js"
+        "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1538,7 +1546,9 @@
       "domain": "core-inline",
       "auth": "token-browser",
       "coveredBy": [
-        "dev-harness\\action-feedback.static.e2e.js"
+        "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js"
       ]
     },
     {
@@ -1606,6 +1616,7 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
@@ -1712,6 +1723,8 @@
         "dev-harness\\agent-quality-workflow.e2e.js",
         "dev-harness\\auth-deny-default.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
+        "dev-harness\\unit\\frontend-failure-paths.test.js",
         "dev-harness\\unit\\http-input-hardening.test.js",
         "dev-harness\\workbench-memory.e2e.js"
       ]
@@ -2074,6 +2087,7 @@
         "dev-harness\\changes-diff.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\external-code-diff.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
@@ -2319,6 +2333,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\action-model-view.e2e.js",
         "dev-harness\\adaptive-budget.e2e.js",
@@ -2344,6 +2359,7 @@
         "dev-harness\\capabilities.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
@@ -2370,6 +2386,7 @@
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
@@ -2387,6 +2404,7 @@
         "dev-harness\\mcp-bridge.e2e.js",
         "dev-harness\\mcp-config.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-tools.e2e.js",
         "dev-harness\\migration-center.e2e.js",
@@ -2407,6 +2425,7 @@
         "dev-harness\\parallel-read-island.e2e.js",
         "dev-harness\\perm-v2.e2e.js",
         "dev-harness\\plan-mode.e2e.js",
+        "dev-harness\\playbook-skill-tools.e2e.js",
         "dev-harness\\playbooks.e2e.js",
         "dev-harness\\prefix-layout.e2e.js",
         "dev-harness\\provider-compact.e2e.js",
@@ -2431,6 +2450,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-turn-core.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
@@ -2793,6 +2813,7 @@
         "dev-harness\\action-feedback.static.e2e.js",
         "dev-harness\\artifacts.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\fake-mcp-contract.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
@@ -2813,6 +2834,7 @@
       "auth": "token",
       "coveredBy": [
         "dev-harness\\action-feedback.static.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\rewind.e2e.js",
         "dev-harness\\session-get-etag.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
@@ -3123,6 +3145,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
@@ -3162,6 +3185,7 @@
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
@@ -3185,6 +3209,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
@@ -3206,6 +3231,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
@@ -3256,6 +3282,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
@@ -3360,6 +3387,7 @@
       "coveredBy": [
         "dev-harness\\a11y-lint.browser.e2e.js",
         "dev-harness\\a11y-walkthrough.browser.e2e.js",
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\acceptance-provenance.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-deadlock-watchdog.e2e.js",
@@ -3399,6 +3427,7 @@
         "dev-harness\\chat-stream-remount.browser.e2e.js",
         "dev-harness\\checkpoint-coverage.e2e.js",
         "dev-harness\\checkpoint-mcpchild.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
@@ -3422,6 +3451,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\help-menu.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\index-dedup.e2e.js",
@@ -3443,6 +3473,7 @@
         "dev-harness\\loop-guard-read-exempt.e2e.js",
         "dev-harness\\loop-guard.e2e.js",
         "dev-harness\\memory-auto-proposal-api.e2e.js",
+        "dev-harness\\memory-batch-proposal.e2e.js",
         "dev-harness\\mermaid-viewer.browser.e2e.js",
         "dev-harness\\meta-guard.e2e.js",
         "dev-harness\\metrics-panel.e2e.js",
@@ -3493,6 +3524,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\shell-session.e2e.js",
@@ -3611,6 +3643,7 @@
       "domain": "session",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\action-feedback.browser.e2e.js",
         "dev-harness\\agent-mode-v2.e2e.js",
         "dev-harness\\agent-roles.e2e.js",
@@ -3623,6 +3656,7 @@
         "dev-harness\\autocompact.e2e.js",
         "dev-harness\\background-completion.e2e.js",
         "dev-harness\\chat-stream-remount.browser.e2e.js",
+        "dev-harness\\checkpoint-visibility.e2e.js",
         "dev-harness\\checkpoint.e2e.js",
         "dev-harness\\classic-window-live-steer.e2e.js",
         "dev-harness\\claude-context-continuity.e2e.js",
@@ -3637,6 +3671,7 @@
         "dev-harness\\focus-rail.browser.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\frontend-domains.static.e2e.js",
+        "dev-harness\\harness-friction.e2e.js",
         "dev-harness\\ia.e2e.js",
         "dev-harness\\interactive-question.e2e.js",
         "dev-harness\\intervention-mission-gate.e2e.js",
@@ -3678,6 +3713,7 @@
         "dev-harness\\session-index.e2e.js",
         "dev-harness\\session-notes-inject.e2e.js",
         "dev-harness\\session-permission-mode.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\session-search.e2e.js",
         "dev-harness\\shell-mode-late-config.browser.e2e.js",
         "dev-harness\\skills-registry.e2e.js",
@@ -4247,6 +4283,7 @@
       "domain": "intervention",
       "auth": "body-token",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
         "dev-harness\\claude-permission-bridge-mode.e2e.js"
       ]
@@ -4264,6 +4301,7 @@
       "domain": "intervention",
       "auth": "token-browser",
       "coveredBy": [
+        "dev-harness\\acc-capability-gates.e2e.js",
         "dev-harness\\autonomy-pause.e2e.js",
         "dev-harness\\claude-binary-live.e2e.js",
         "dev-harness\\claude-cli-bridged-read-guard.e2e.js",
@@ -4870,6 +4908,7 @@
         "dev-harness\\event-stream.e2e.js",
         "dev-harness\\foreign-turn-busy-guard.e2e.js",
         "dev-harness\\new-thread-engine-default.e2e.js",
+        "dev-harness\\session-scratchpad.e2e.js",
         "dev-harness\\steward-contract-guard.e2e.js",
         "dev-harness\\steward-conversation.e2e.js",
         "dev-harness\\steward-conversation.static.e2e.js",

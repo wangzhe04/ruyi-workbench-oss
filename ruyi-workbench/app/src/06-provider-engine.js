@@ -1824,6 +1824,11 @@ function buildStableSystemPrompt(provider, model, cwd, tools, identityOnly, conf
     }
     lines.push(getPromptPack(config && config.locale).toolProtocol.priority);
     lines.push(getPromptPack(config && config.locale).toolProtocol.contextBudget);
+    // C2(61 号文):会话草稿本何时用。工具表里有 scratchpad_write 才说(只有模型服务商普通会话主回合有;它常驻 core,
+    // 会话第一回合起就在,这一行在会话内逐字节稳定,不破稳定层缓存)。子代理、管家、Claude/Kimi 引擎没有这个工具,也就没有这一行。
+    if ((tools || []).some(t => t && t.function && t.function.name === 'scratchpad_write')) {
+      lines.push(getPromptPack(config && config.locale).toolProtocol.scratchpad);
+    }
   } else if (!identityOnly) {
     lines.push(getPromptPack(config && config.locale).noTools);
   }
@@ -2003,49 +2008,56 @@ function buildSkillsPromptSection(enabledSkills, engine, config) {
   return header + OPEN + text + CLOSE;
 }
 
-// 108b Playbook 精简索引: agent 没有运行 playbook 的工具(用户在「技能库」面板点运行),所以这里只给
-// 「有哪些、叫什么、干什么、去哪儿运行」,不给执行承诺。数据来自内置 resources/playbooks 与用户可写的
+// 作者写的文本(Playbook / 技能的标题、描述、正文)进模型前的统一中和:所有尖括号换成方括号,伪造围栏 / 伪造标签一并失效。
+// 单一事实源 —— Playbook 索引段(下)与 playbook_list / playbook_read / skill_list 三个只读工具(12)共用,不各抄一份。
+function neutralizeAuthoredText(t) { return String(t == null ? '' : t).replace(/[<>]/g, ch => (ch === '<' ? '[' : ']')); }
+
+// 108b Playbook 精简索引: 索引只给「有哪些、叫什么、干什么」;要看步骤用 playbook_read(只读,12 的 INTEGRATION_TOOL_HANDLERS),
+// 照做须用户点名或明确同意(尾行 playbookIndex.trailer 同口径)。数据来自内置 resources/playbooks 与用户可写的
 // dataRoot/playbooks/*.json, 标题与描述都是不可信文本,故沿用技能索引的不可信带纪律:整段包进
 // <playbook-index> 围栏,条目里的尖括号一律中和成方括号(伪造围栏/伪造标签一并失效),描述裁到 160 字。
-// 规模控制: 最多 12 条(available 优先,不可用项只在还有余量时补位并标注),整段硬顶 600 字符,按整行装箱,
-// 装不下的行丢弃并补一行省略标记(不做裸 slice,避免半截条目)。空列表返回 '' -> 零注入。
+// 规模控制: 整行详情至多 12 条(available 优先,不可用项排后并标注),其余压成一行简列,整段硬顶 900 字符(见函数内
+// 61-B5 注);连简列都装不下才按整条截断并补一行省略标记(不做裸 slice,避免半截条目)。空列表返回 '' -> 零注入。
 // 入参条目形状容错: { id | 'pb:id', title|name, description|desc, available, unavailableReason }。
 function buildPlaybookIndexSection(playbooks, config) {
   const list = (Array.isArray(playbooks) ? playbooks : []).filter(p => p && (p.id || p.title || p.name));
   if (!list.length) return '';
   const pack = getPromptPack(config && config.locale).playbookIndex;
   // 不可信带中和: 所有尖括号 -> 方括号(比技能索引只中和 <skill-index> 更严,因为 playbook 描述常带示例文本)。
-  const fence = t => String(t).replace(/[<>]/g, ch => (ch === '<' ? '[' : ']'));
-  const MAX_ENTRIES = 12, CAP = 600;
-  // available 优先: 不可用条目只在 12 条名额有余时补位(排序稳定,同组保持原顺序)。
-  const ordered = [...list.filter(p => p.available !== false), ...list.filter(p => p.available === false)].slice(0, MAX_ENTRIES);
-  const body = [];
-  for (const p of ordered) {
-    const id = fence(String(p.id || '').replace(/^pb:/, ''));
-    const name = fence(String(p.title || p.name || p.id || ''));
+  const fence = neutralizeAuthoredText;
+  // 61-B5:修前硬顶 600 字、按整行装箱,16 个内置 Playbook 实测只放得下字母序前 6 个,weekly-report 之类永远不可见。
+  // 改成两级:前 k 条给整行(标题 + id + 描述),其余压成一行「其余:标题 [id]、…」;k 取装得下的最大值,整段硬顶 900 字。
+  // 连全压缩都装不下时才按整条截断并留省略行(被裁掉这件事不静默丢失)。
+  const MAX_ENTRIES = 12, CAP = 900;
+  // available 优先: 不可用条目排在后面(排序稳定,同组保持原顺序)。
+  const ordered = [...list.filter(p => p.available !== false), ...list.filter(p => p.available === false)];
+  const fields = p => ({
+    id: fence(String(p.id || '').replace(/^pb:/, '')),
+    name: fence(String(p.title || p.name || p.id || '')),
+    mark: p.available === false ? pack.unavailable : '',
+  });
+  const detailLine = p => {
+    const { id, name, mark } = fields(p);
     const desc = fence(String(p.description || p.desc || '').replace(/\s+/g, ' ').trim().slice(0, 160));
-    const mark = p.available === false ? pack.unavailable : '';
-    body.push(`- ${name}${id ? ` [${id}]` : ''}：${desc}${mark}`);
-  }
+    return `- ${name}${id ? ` [${id}]` : ''}：${desc}${mark}`;
+  };
+  const briefItem = p => { const { id, name, mark } = fields(p); return `${name}${id ? ` [${id}]` : ''}${mark}`; };
   const OPEN = '\n<playbook-index>\n', CLOSE = '\n</playbook-index>\n';
   const shellRoom = CAP - (pack.header.length + OPEN.length + CLOSE.length + pack.trailer.length);
-  // 整行装箱(不做裸 slice,避免半截条目)。装不下时给省略行预留位置后重装; 否则"被裁掉了"这件事会静默丢失。
-  const pack1 = room => {
-    const kept = [];
-    for (const line of body) {
-      const need = (kept.length ? 1 : 0) + line.length;
-      if (need > room) break;
-      room -= need; kept.push(line);
-    }
-    return kept;
-  };
-  let kept = pack1(shellRoom);
-  if (kept.length < list.length) {
-    const withMark = pack1(shellRoom - (pack.truncated.length + 1));
-    if (withMark.length) kept = withMark.concat(pack.truncated);
+  const wrap = lines => pack.header + OPEN + lines.join('\n') + CLOSE + pack.trailer;
+  for (let k = Math.min(MAX_ENTRIES, ordered.length); k >= 0; k -= 1) {
+    const lines = ordered.slice(0, k).map(detailLine);
+    const rest = ordered.slice(k);
+    if (rest.length) lines.push(pack.more(rest.map(briefItem)));
+    if (lines.join('\n').length <= shellRoom) return wrap(lines);
   }
-  if (!kept.length) return ''; // 连一行都放不下 -> 整段丢(不留空围栏)
-  return pack.header + OPEN + kept.join('\n') + CLOSE + pack.trailer;
+  // 全压缩也装不下:压缩行按整条装,留省略行。
+  const room = shellRoom - (pack.truncated.length + 1);
+  const items = ordered.map(briefItem);
+  let n = items.length;
+  while (n > 0 && pack.more(items.slice(0, n)).length > room) n -= 1;
+  if (!n) return ''; // 连一条都放不下 -> 整段丢(不留空围栏)
+  return wrap([pack.more(items.slice(0, n)), pack.truncated]);
 }
 
 // 围栏感知截断(cmd8191 防线配套): 硬切可能切穿 <skill-index>/<workbench-memory>/<response-language-policy>

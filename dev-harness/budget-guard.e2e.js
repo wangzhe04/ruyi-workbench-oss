@@ -90,8 +90,10 @@ function toolContents(body) {
   return (((body && body.messages) || []).filter(m => m && m.role === 'tool').map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')));
 }
 // 逐字节等价比较前归一化已知易变字段(powershell_run 结果的 elapsedMs 是墙钟,两次运行必然不同)。
+// 61-A3:user 消息落历史时带一行本地时间(分钟粒度)—— 两个栈的请求恰好跨过分钟边界就不再逐字节相同(CI 实测偶发红),一并归一。
 function normalizeCapText(raw) {
-  return String(raw || '').replace(/elapsedMs(\\{0,2}")?:\s*\d+/g, 'elapsedMs$1:0');
+  return String(raw || '').replace(/elapsedMs(\\{0,2}")?:\s*\d+/g, 'elapsedMs$1:0')
+    .replace(/\[(本条消息发送于|Message sent) \d{4}-\d{2}-\d{2} \d{2}:\d{2} [^\]]*\]/g, '[$1 <turn-time>]');
 }
 
 (async () => {
@@ -127,7 +129,7 @@ function normalizeCapText(raw) {
     try {
       const ev = await postStream(A.WB_PORT, { message: '读两个文件' });
       ok(A.capCount() === 3 && !!(ev.find(e => e.type === 'result') || {}).ok, 'E1 开关关基线:3 次模型调用跑完整个工具序列');
-      baseCaps = [A.readCap(1), A.readCap(2), A.readCap(3)].map(c => JSON.stringify(c));
+      baseCaps = [A.readCap(1), A.readCap(2), A.readCap(3)].map(c => normalizeCapText(JSON.stringify(c)));
       ok(baseCaps.every(Boolean), 'E2 基线三次请求体均已捕获');
     } catch (e) { console.log('ERROR ' + (e && e.stack || e)); failures++; }
     finally { await A.cleanup(); }
@@ -137,7 +139,7 @@ function normalizeCapText(raw) {
     ok(B.healthy, 'E0b workbench B listening on :' + B.WB_PORT);
     try {
       const ev = await postStream(B.WB_PORT, { message: '读两个文件' });
-      const caps = [B.readCap(1), B.readCap(2), B.readCap(3)].map(c => JSON.stringify(c));
+      const caps = [B.readCap(1), B.readCap(2), B.readCap(3)].map(c => normalizeCapText(JSON.stringify(c)));
       ok(B.capCount() === 3 && !!(ev.find(e => e.type === 'result') || {}).ok, 'E3 开关开+大预算:3 次调用跑完(零触发)');
       ok(baseCaps && JSON.stringify(caps) === JSON.stringify(baseCaps), 'E4 零触发路径请求体与开关关逐字节一致');
       ok(!ev.some(e => e.type === 'budget_guard'), 'E5 零触发路径无 budget_guard 事件');

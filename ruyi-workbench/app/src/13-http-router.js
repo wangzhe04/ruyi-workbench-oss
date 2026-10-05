@@ -708,7 +708,8 @@ async function handleApi(req, res, pathname) {
     return send(res, json(r, r.ok ? 200 : 404));
   }
   // POST /api/memory/proposal/apply —— 用户在维护卡片上确认后,按候选 kind 落盘(memory_revise 覆盖 /
-  // relation_propose 写 confirmed 边 / relation_revoke 删边)。模型只 propose,此路由只由 UI 调用(用户批准)。
+  // relation_propose 写 confirmed 边 / relation_revoke 删边 / C3 memory_batch 按 accept[] 只存用户勾上的那几条)。
+  // 模型只 propose,此路由只由 UI 调用(用户批准)。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/proposal/apply') {
     const body = await readJsonBody(req);
     const sessionId = safeSessionId(body && body.sessionId);
@@ -716,8 +717,9 @@ async function handleApi(req, res, pathname) {
     const config = await readConfig();
     const cwd = normalizeCwd((body && body.cwd) || config.defaultWorkspace, config.defaultWorkspace);
     if (!pathWithinAnyRoot(path.resolve(cwd), fileAllowedRoots(null, config))) return send(res, json({ ok: false, error: 'cwd 不在允许的工作区内' }, 400));
-    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd);
-    return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : 404)));
+    const r = await applyMemoryRelationProposal(sessionId, String(body && body.proposalId || ''), cwd, { accept: body && body.accept });
+    // 批量卡里有条目写盘失败(r.failed)是服务端故障,不是「候选不存在」:回 500,卡片留着让用户重试。
+    return send(res, json(r, r.ok ? 200 : (r.conflict ? 409 : (Array.isArray(r.failed) ? 500 : 404))));
   }
   // POST /api/memory/draft {sessionId} —— provider 起草(镜像 playbook/draft)。必须在通配 /api/memory/<id> 之前。
   if (req.method === 'POST' && req.headers['x-http-method'] !== 'DELETE' && pathname === '/api/memory/draft') {   // 对抗轮 P3: 放行删除约定穿透
@@ -1148,7 +1150,9 @@ async function handleApi(req, res, pathname) {
     // Only reject up front when NEITHER engine could possibly run anything; a specific node explicitly
     // requesting an unavailable engine still fails gracefully per-node inside runAgentWorkflow.
     if (!provider && !claudeCliUsable) {
-      return send(res, json({ ok: false, error: 'Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI（Kimi Code 不能作为工作流节点的引擎）' }, 400));
+      // 61-C6:说清 Claude CLI 找的是哪(修前探测对不存在的 claude.cmd 也判可用,走不到这里;现在走得到,就要说得清)。
+      const where = claudeCli ? `找过 ${claudeCli},不可用` : '没有配置 claudePath,PATH 里也找不到 claude';
+      return send(res, json({ ok: false, error: `Agent DAG 需要至少配置一个 OpenAI 兼容 Provider，或安装并配置 Claude CLI(${where})（Kimi Code 不能作为工作流节点的引擎）` }, 400));
     }
     // 2026-10:工作流按【这条线程】的生效权限档跑 —— 修前直接取全局 config.permissionMode,线程在自己的权限 chip 上收紧过也照
     // 全局放。有活着的父回合就用它起回合时解析出的档(请求级 > 会话级 > 全局,05/09 登记在 reg.permissionMode),否则按

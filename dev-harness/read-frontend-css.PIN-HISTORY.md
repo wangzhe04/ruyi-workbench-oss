@@ -790,3 +790,9 @@ W8 重钉(前值 7e223312…＝137 集成续钉):零新增、零删除层,只改
 //   (--danger-fg/--danger-soft/--danger),盾牌菜单与线程 chip 菜单里那一项的档名同色。颜色全走既有 token,零新增动效。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = cdcc8edd…,与被替换的旧值
 // 逐字相同(先自证再替换);按工作区重算得下面这个值。
+// 2026-10 chip 菜单往上翻续钉(前值 16c9bd86…＝2026-10 全自动档回界面续钉):零新增、零删除层,改一层 ——
+//   `css/views/steward-drawer.css`:`.steward-chip-menu.is-flip-up`(top:auto / bottom:100% / 上下外边距互换)。权限菜单五档之后
+//   更高,左栏靠下那几行的菜单被线程列表(滚动容器)裁掉、底下的口袋叠上来(walkthrough-round1.browser E4,CI 实测);
+//   js/steward-chips.js 的 placeChipMenu 判「下面放不下、上面更宽敞」才加这个类。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<css>` 重算 = 16c9bd86…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。

@@ -1050,6 +1050,8 @@ async function suggestMemoryFromTurn(sessionId, host) {
   for (const old of (messages ? messages.querySelectorAll('.memory-proposal-card') : [])) old.remove();
   const proposal = result.proposal;
   const kind = proposal.kind || 'memory';
+  // C3:一次提议里 2–3 条新记忆 → 一张批量卡(逐条勾选)。其余 kind 仍是下面这张单条卡,形状不变。
+  if (kind === 'memory_batch') { host.appendChild(buildMemoryBatchProposalCard(sessionId, result)); return; }
   const card = el('section', 'memory-proposal-card');
   card.setAttribute('aria-label', t('memory.proposal.aria'));
   const head = el('div', 'memory-proposal-head');
@@ -1108,6 +1110,84 @@ async function suggestMemoryFromTurn(sessionId, host) {
     }
   };
   host.appendChild(card);
+}
+// C3 批量候选卡:模型一次提议的 2–3 条相互独立的新记忆。每条一行(勾选框默认勾上、名称、范围/类型、何时有用、
+// 提议原因,正文收在「正文」折叠里);「保存选中」只存勾上的(后端按 accept 逐条落盘,其余记成忽略),「全部忽略」
+// 整张丢弃。和单条卡一样:不点就什么都不写。保存失败时卡片留着、勾选不丢,再点只重试还没存上的。
+function buildMemoryBatchProposalCard(sessionId, result) {
+  const proposal = result.proposal || {};
+  const items = Array.isArray(proposal.items) ? proposal.items : [];
+  const card = el('section', 'memory-proposal-card memory-proposal-batch');
+  card.setAttribute('aria-label', t('memory.proposal.aria'));
+  const head = el('div', 'memory-proposal-head');
+  head.append(el('span', 'memory-proposal-kicker', t('memory.proposal.kickerBatch', { count: items.length })));
+  card.appendChild(head);
+  const list = el('div', 'memory-proposal-items');
+  const checks = items.map((item, index) => {
+    const row = el('div', 'memory-proposal-item');
+    row.dataset.index = String(index);
+    const top = el('div', 'memory-proposal-item-head');
+    const pick = el('label', 'check memory-proposal-pick');
+    const box = el('input');
+    box.type = 'checkbox';
+    box.checked = true;
+    box.setAttribute('aria-label', t('memory.proposal.batchPick', { name: item.name || '' }));
+    pick.append(box, el('span', 'memory-proposal-title', item.name || ''));
+    const tags = el('span', 'memory-proposal-tags');
+    tags.append(
+      el('span', 'memory-proposal-tag', item.scope === 'global' ? t('memory.scope.global') : t('memory.scope.project')),
+      el('span', 'memory-proposal-tag', memoryTypeLabel(item.type)),
+    );
+    top.append(pick, tags);
+    row.append(top, el('div', 'memory-proposal-desc', item.description || ''));
+    if (item.reason) row.appendChild(el('div', 'memory-proposal-reason', t('memory.proposal.reason', { reason: item.reason })));
+    const more = el('details', 'memory-proposal-body');
+    more.append(el('summary', '', t('memory.proposal.batchBody')), el('div', 'memory-proposal-body-text', item.body || ''));
+    row.appendChild(more);
+    list.appendChild(row);
+    return box;
+  });
+  card.appendChild(list);
+  const actions = el('div', 'memory-proposal-actions');
+  const dismiss = el('button', 'mini', t('memory.proposal.dismissAll'));
+  const save = el('button', 'mini primary', '');
+  actions.append(dismiss, save);
+  card.appendChild(actions);
+  let busy = false;
+  const picked = () => checks.map((box, index) => (box.checked ? index : -1)).filter(index => index >= 0);
+  const sync = () => {
+    const count = picked().length;
+    save.textContent = t('memory.proposal.saveSelected', { count });
+    save.disabled = busy || count === 0;   // 一条都不勾 = 用「全部忽略」
+    dismiss.disabled = busy;
+    for (const box of checks) box.disabled = busy;
+  };
+  for (const box of checks) box.onchange = sync;
+  sync();
+  const removeCard = () => { card.classList.add('settled'); setTimeout(() => card.remove(), 160); };
+  dismiss.onclick = () => {
+    if (busy) return;
+    busy = true; sync();
+    settleMemoryProposal(sessionId, result.proposalId, 'dismissed');
+    removeCard();
+  };
+  save.onclick = async () => {
+    const accept = picked();
+    if (busy || !accept.length) return;
+    busy = true; sync();
+    try {
+      const r = await api('/api/memory/proposal/apply', { method: 'POST', body: JSON.stringify({ sessionId, proposalId: result.proposalId, cwd: currentWorkspace() || '', accept }) });
+      if (!r || !r.ok) throw new Error((r && r.error) || t('common.unknownError'));
+      toast(tCount('memory.proposal.batchSaved', Array.isArray(r.saved) ? r.saved.length : accept.length), 'ok');
+      removeCard();
+      await refreshMemoryViews();
+    } catch (error) {
+      toast(t('memory.proposal.applyFailed', { err: apiErrText(error) }), 'err');
+      busy = false;
+      if (card.isConnected) sync();
+    }
+  };
+  return card;
 }
 // 编辑/新建弹窗。编辑现有项时先拉全文回填正文(注册表不带 body)。
 async function openMemoryEditModal(m) {

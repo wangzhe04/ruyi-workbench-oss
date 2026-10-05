@@ -641,6 +641,9 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
   // (含 config.bridgedToolTiers 用户覆盖)过滤:read 只带桥接 read 级,edit 加 edit 级,exec 全量(行为不变)。
   let bridged = { tools: [], route: {} };
   try { bridged = await collectBridgedTools(config); } catch { bridged = { tools: [], route: {} }; }
+  // 2026-10 能力总闸补桥接面:被 allowCommandTools / allowDesktopTools 关掉的内置桌面 MCP 工具不 offer —— 与上面 ownTools
+  // 同一个 desktopOverride:null(子代理的 offer 面跟随全局)。换新对象,不就地改 collectBridgedTools 的缓存值。
+  bridged = { tools: dropPolicyDisabledBridgedTools(bridged.tools, bridged.route, config, null), route: bridged.route };
   if (tier !== 'exec') {
     const rank = TOOL_TIER_RANK; // P2-9: 单一事实源见 00-boot.js(117q-B7 从 07-autonomy.js 移出)
     bridged.tools = bridged.tools.filter(t => { const n = t.function && t.function.name; const r = bridged.route[n]; return (rank[bridgedToolTier(r ? r.toolName : n, config)] ?? 2) <= rank[tier]; });
@@ -1051,7 +1054,12 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
             const roleMode = role && role.permissionMode && role.permissionMode !== 'inherit' ? role.permissionMode : '';
             const effMode = permModeOverride === 'plan' ? 'plan' : (roleMode || permModeOverride || liveParentPermissionMode() || config.permissionMode);
             const gate = nativeToolGate(effMode, ntier, tc.name, args);
-            if (gate !== 'allow') {
+            // 2026-10 能力总闸补桥接面:内置桌面 MCP 里被设置关掉的工具在分发点拒绝(原生工具由下面的 toolCall 按 ctx 判,
+            // 会话覆盖取 parentSession —— 这里取同一个,两边同口径)。
+            const bridgedPolicyOff = bridge ? toolDisabledByPolicy(tc.name, config, sessionDesktopToolsOf(parentSession), bridge) : '';
+            if (bridgedPolicyOff) {
+              resultObj = toolDisabledResult(tc.name, bridgedPolicyOff);
+            } else if (gate !== 'allow') {
               resultObj = { ok: false, error: `子代理无权执行 ${ntier} 级工具(权限模式 '${effMode}')` };
             } else if (bridge) {
               const client = await getBridgedClient(bridge.serverId, config); // 47b:死/缺自动重连(超时杀后自愈)

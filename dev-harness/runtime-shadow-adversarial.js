@@ -355,6 +355,21 @@ function failureAudit() {
   addResult('real_shape_exec_interrupted', 'side_effect_unknown', 'exec', { ok: false, code: 1, interrupted: true, steerInterrupted: true, error: '工具已因用户插话中断' }, 'stop_for_effect_check', true);
   addResult('real_shape_nonzero_stderr', 'execution_failed', 'exec', { ok: false, code: 1, timedOut: false, stderr: 'Traceback (most recent call last)' }, 'inspect_error_then_modify');
   addResult('real_shape_policy_code', 'policy_blocked', 'read', { ok: false, code: 'not-allowed', error: 'internal data access blocked' }, 'use_supported_tool');
+  // v3: structured envelopes the network / proxy / steward tools really return (failClass, statusCode, blocked, argsInvalid, error-as-code).
+  addResult('real_shape_web_403', 'remote_blocked', 'read', { ok: false, error: '网站拒绝了请求(HTTP 403,可能反爬)', failClass: 'http', statusCode: 403, hint: '可尝试用 web_search 搜索该内容替代' }, 'use_alternative_source');
+  addResult('real_shape_web_404', 'resource_not_found', 'read', { ok: false, error: '页面不存在(HTTP 404)', failClass: 'http', statusCode: 404, hint: '检查网址是否正确' }, 'reacquire_resource');
+  addResult('real_shape_web_reset_read', 'transient_read', 'read', { ok: false, error: '对方服务器中断了连接(可能有反爬限制)', failClass: 'reset', hint: '可尝试用 web_search 搜索该内容替代' }, 'retry_once');
+  addResult('real_shape_download_reset_edit', 'side_effect_unknown', 'edit', { ok: false, error: '对方服务器中断了连接(可能有反爬限制)', failClass: 'reset' }, 'stop_for_effect_check', true);
+  addResult('real_shape_http_request_hangup_exec', 'side_effect_unknown', 'exec', { ok: false, error: 'socket hang up', failClass: 'reset' }, 'stop_for_effect_check', true);
+  addResult('real_shape_ssrf_blocked', 'remote_blocked', 'read', { ok: false, error: '目标地址不允许(内网/回环)', blocked: '127.0.0.1' }, 'use_alternative_source');
+  addResult('real_shape_tier_mismatch', 'invalid_arguments', 'read', { ok: false, code: 'tier-mismatch', error: "risk tier mismatch: powershell_run is 'exec', higher than 'read'", hint: 'call tool_invoke_exec for this tool' }, 'modify_arguments');
+  addResult('real_shape_args_truncated', 'invalid_arguments', 'edit', { ok: false, argsInvalid: true, error: '工具调用参数不是完整的 JSON 对象,该调用未执行;请按工具的参数格式给出完整参数后重试' }, 'modify_arguments');
+  addResult('real_shape_plan_refused', 'policy_blocked', 'edit', { ok: false, error: '计划模式:请先提交 PLAN: 开头的计划' }, 'replan');
+  addResult('real_shape_steward_budget', 'policy_blocked', 'read', { ok: false, error: 'budget_exceeded', message: 'steward read budget exhausted for this visit; answer from the overview instead of retrying' }, 'diagnose_only');
+  addResult('real_shape_file_not_found', 'resource_not_found', 'read', { ok: false, error: '文件不存在', code: 'not_found' }, 'reacquire_resource');
+  addResult('real_shape_edit_ambiguous', 'edit_conflict', 'edit', { ok: false, code: 'ambiguous', error: 'oldText appears 3 times; set replaceAll=true' }, 'refresh_then_modify');
+  // Anti-misfire: a program's own stderr that merely mentions 403 / captcha / ENOENT stays an execution failure.
+  addResult('real_shape_stderr_mentions_http', 'execution_failed', 'exec', { ok: false, code: 1, stderr: 'curl: (22) The requested URL returned error: 403 captcha ENOENT' }, 'inspect_error_then_modify');
   // Mutating transport ambiguity must be side_effect_unknown even when wording is only a status/temporary code.
   const mutatingAmbiguous = ['HTTP 429', 'HTTP 502', 'HTTP 503 Service Unavailable', 'HTTP 504', 'temporary unavailable', 'EAI_AGAIN', 'connection reset by peer', 'remote host closed connection'];
   mutatingAmbiguous.forEach((error, index) => fixtures.push({ id: `mutating_transport_${index}`, expected: 'side_effect_unknown', tier: index % 2 ? 'exec' : 'edit', error, allowedRepair: 'stop_for_effect_check', safetyProbe: true, disposition: 'executed' }));

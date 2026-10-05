@@ -136,13 +136,31 @@ const pbClose = (volatilePb.match(/<\/playbook-index>/g) || []).length;
 ok(pbOpen === 1 && pbClose === 1, 'D14 108b volatile 含 <playbook-index> 围栏各一次(开 ' + pbOpen + '/闭 ' + pbClose + ')');
 ok(/演示 Playbook/.test(volatilePb) && /\[demo\]/.test(volatilePb), 'D14b 108b 条目行含标题 + [id]');
 ok(!/<script>/.test(volatilePb) && /\[script\]/.test(volatilePb), 'D14c 108b 不可信描述里的尖括号被中和成方括号(伪造围栏/标签失效)');
-ok(/技能库/.test(volatilePb), 'D14d 108b 尾行说明由用户在技能库面板运行(agent 无执行工具)');
+ok(/技能库/.test(volatilePb), 'D14d 108b 尾行仍指路「技能库」面板(用户也可在那里点运行)');
+// 61 号文 C1:尾行不再说「你没有执行它的工具」,改为「用 playbook_read 读步骤;只在用户点名或明确同意后照做」(中英两包同口径)。
+ok(/playbook_read/.test(volatilePb) && /点名或明确同意/.test(volatilePb) && !/没有执行它的工具/.test(volatilePb),
+  'D14e 61-C1 中文尾行指向 playbook_read、要求用户点名或明确同意后才照做,且不再声称没有执行工具');
+const pbEn = srv.buildPlaybookIndexSection(pbOne, { locale: 'en-US' });
+ok(/playbook_read/.test(pbEn) && /names one or clearly agrees/.test(pbEn) && !/no tool to execute/.test(pbEn),
+  'D14f 61-C1 英文尾行同口径(playbook_read + 用户点名/同意后才照做)');
 const pbMany = Array.from({ length: 30 }, (_, i) => ({ id: 'pb' + i, title: '流程' + i, description: '描述'.repeat(20), available: i % 5 !== 0 }));
 const pbSecMany = srv.buildPlaybookIndexSection(pbMany, config);
 const pbLines = (pbSecMany.match(/^- /gm) || []).length;
-ok(pbSecMany.length <= 600, 'D15 108b 整段硬顶 600 字符(30 条合成输入,got ' + pbSecMany.length + ')');
-ok(pbLines <= 12 && pbLines >= 1, 'D15b 108b 条目上限 12 条(got ' + pbLines + ')');
-ok(/已截断/.test(pbSecMany), 'D15c 108b 超限时留省略行(被裁掉这件事不静默丢失)');
+ok(pbSecMany.length <= 900, 'D15 61-B5 整段硬顶 900 字符(30 条合成输入,got ' + pbSecMany.length + ')');
+ok(pbLines <= 12 && pbLines >= 1, 'D15b 108b 整行详情上限 12 条(got ' + pbLines + ')');
+const pbAllVisible = pbMany.every(p => pbSecMany.includes('[' + p.id + ']'));
+ok(pbAllVisible || /已截断/.test(pbSecMany), 'D15c 61-B5 超出整行预算时其余压成简列;连简列都装不下才留省略行(被裁掉这件事不静默丢失)');
+// 61-B5:16 个内置 Playbook 规模(标题 6-12 字、描述 20-40 字)全部可见 —— 修前硬顶 600 字只放得下字母序前 6 个。
+const pbReal = Array.from({ length: 16 }, (_, i) => ({ id: 'playbook-id-' + i, title: '内置流程标题' + i, description: '一句话说明这个预置流程做什么'.repeat(2), available: true }));
+const pbSecReal = srv.buildPlaybookIndexSection(pbReal, config);
+ok(pbReal.every(p => pbSecReal.includes('[' + p.id + ']')) && !/已截断/.test(pbSecReal) && pbSecReal.length <= 900,
+  'D15d 61-B5 16 条内置规模全部可见(整行 + 简列),不截断(got ' + pbSecReal.length + ' 字)');
+{
+  // 尾行变长后,16 个内置规模仍整行 + 简列全部可见(D15d 同口径,这里用真实英文包再核一遍硬顶)。
+  const pbRealEn = srv.buildPlaybookIndexSection(pbReal, { locale: 'en-US' });
+  ok(pbRealEn.length <= 900 && pbReal.every(p => pbRealEn.includes('[' + p.id + ']')) && !/truncated/.test(pbRealEn),
+    'D14g 61-C1 英文尾行下 16 条内置规模仍全部可见且 ≤900 字符(got ' + pbRealEn.length + ')');
+}
 ok(!/<playbook-index>/.test(volatile), 'D16 108b 不传 playbook 时 volatile 无索引段(既有夹具路径零漂移)');
 ok(volatile.length > 100 && volatile.length < 5000, 'D17 108b 既有夹具 volatile 仍满足 D6 闸(got ' + volatile.length + ')');
 // 108b 设置边界双语指引:mcp 工具在场时注入,中文包说清「能改什么、不能改什么、去哪儿改」。
@@ -218,6 +236,20 @@ ok(/只说查证过的事/.test(zhPack.answerShape) && /Say only what you verifi
   'V6 138 answerShape 中英都补了「只说查证过的事」(没跑过的验证不说通过、没做完的不说做完、做不到的直说)');
 ok(/never call unverified work done/i.test(enPack.toolProtocol.rules) && /When to ask the user/i.test(enPack.toolProtocol.questioning),
   'V6b 138 英文包的 rules(改完核实)与 questioning(何时问)同步改了');
+
+console.log('── C2 段: 会话草稿本(61 号文) ──');
+// 工具表里有 scratchpad_write 才在稳定层说「何时用」;既有夹具(没有它)逐字节不变,上面 D3 的长度闸照旧量的是没有它的那份。
+const toolsWithPad = tools.concat([{ function: { name: 'scratchpad_write', description: 'pad', parameters: { type: 'object', properties: {} } } }]);
+const stablePad = srv.buildStableSystemPrompt(provider, model, cwd, toolsWithPad, false, config);
+const padLineZh = zhPack.toolProtocol.scratchpad;
+ok(typeof padLineZh === 'string' && typeof enPack.toolProtocol.scratchpad === 'string', 'C2-1 中英两包的 toolProtocol 都有 scratchpad 一句(结构对齐)');
+ok(stablePad.includes(padLineZh) && !stable.includes(padLineZh), 'C2-2 只在工具表里有 scratchpad_write 时进稳定层');
+ok(/中间结论/.test(padLineZh) && /已确认的事实/.test(padLineZh) && /下一步计划/.test(padLineZh) && /压缩后仍然可见/.test(padLineZh) && /workbench_memory_propose/.test(padLineZh),
+  'C2-3 中文:何时用(中间结论 / 已确认的事实 / 下一步计划)、压缩后仍可见、长期偏好仍走 workbench_memory_propose');
+ok(/interim conclusions/.test(enPack.toolProtocol.scratchpad) && /compaction/.test(enPack.toolProtocol.scratchpad) && /workbench_memory_propose/.test(enPack.toolProtocol.scratchpad),
+  'C2-4 英文是同义翻译');
+ok(srv.buildStableSystemPrompt(provider, model, cwd, toolsWithPad, false, config) === stablePad, 'C2-5 同输入两次构建逐字节相同(稳定层缓存前提)');
+ok(stablePad.length - stable.length <= 260, `C2-6 增量 ≤ 260 字符(got ${stablePad.length - stable.length})`);
 
 console.log('\nPROMPT SNAPSHOT STATIC E2E: ' + (fail ? 'FAIL (' + fail + ')' : 'ALL PASS'));
 process.exit(fail ? 1 : 0);

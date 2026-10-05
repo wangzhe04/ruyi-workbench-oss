@@ -44,6 +44,7 @@ const toolRepliesThisTurn = messages => {
   return messages.slice(lastUser + 1).filter(m => m && m.role === 'tool').length;
 };
 const toolNames = req => (req.tools || []).map(x => x && x.function && x.function.name).filter(Boolean);
+const parseJsonSafe = s => { try { return JSON.parse(s); } catch { return null; } };
 
 const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-tool-invoke-promote-'));
 const WS = path.join(HOME, 'ws');
@@ -169,7 +170,9 @@ try {
   const greqs = fake.requests.filter(r => r.stream && scenarioOf(r.messages) === 'GUIDE');
   const toolMsg = (req, id) => (req ? contentText((req.messages.find(m => m.role === 'tool' && m.tool_call_id === id) || {}).content) : '');
   const searchCard = toolMsg(greqs[1], 'g1');
-  ok(/"name":"archive_zip"/.test(searchCard) && /"args":"paths\*:array<string>, dest\*:string/.test(searchCard), `P8 tool_search 的目录卡带参数骨架(got ${searchCard.slice(0, 400)})`);
+  // 61-B1:排在前 3 的未装载命中给 full 骨架(「参数 — 用途; 参数 — 用途」),archive_zip 在其中。
+  const zipCard = ((parseJsonSafe(searchCard) || {}).matches || []).find(m => m && m.name === 'archive_zip') || {};
+  ok(/^paths\*:array<string>( — [^;]*)?; dest\*:string/.test(zipCard.args || ''), `P8 tool_search 的目录卡带参数骨架(got ${JSON.stringify(zipCard.args)})`);
   const wrong = toolMsg(greqs[2], 'g2');
   ok(/invalid-arguments/.test(wrong) && /missing required 'paths'/.test(wrong) && !/argsGuide/.test(wrong),
     `P8 内置目标漏了必填:不执行(校验在执行前);说明书已随整包进工具表,不重复递 argsGuide(got ${wrong.slice(0, 400)})`);
