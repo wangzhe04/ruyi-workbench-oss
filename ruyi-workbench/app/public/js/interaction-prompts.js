@@ -34,15 +34,23 @@ function sessionTitleOf(sessionId) {
   const hit = (state.sessions || []).find(s => s && String(s.id) === id) || (state.currentSession && String(state.currentSession.id) === id ? state.currentSession : null);
   return hit ? String(hit.title || '') : '';
 }
+// F4:提问弹窗里写了一半的回答。renderAskModal 每次都现建 DOM —— Esc / 点背景 / 「稍后处理」/ 自动收起后从右下角小窗
+// 重开,是另建的一份弹窗,选项、「其它」勾选、文字全丢。这里按 qid 记下 { 每道题的选项 / 其它 / 文字 },重开时回填;
+// 提交成功(ctx.done)或队列里这条被了结(settle:别处已答、超时、对账撤掉)就删。只在本页内存里,刷新即无(与弹窗同寿)。
+const askDrafts = new Map();   // qid -> { [questionId]: { selected: [optionId], otherChecked, otherText, text } }
 const promptQueue = createPromptQueue({
   api, t, el,
+  onSettled: id => { askDrafts.delete(String(id || '')); },
   humanizeToolName: name => humanizeToolName(name),
   sessionTitle: sessionTitleOf,
   onViewChange: () => viewingTracker.check(),
   openItem: (item, ctx) => (item.type === 'question' ? renderAskModal(item, ctx) : renderPermissionModal(item, ctx)),
+  // 批量「都允许」:返回【成功(或已了结)】的 requestId 清单 —— 队列只对这些出队。修前 Promise.all 之后无条件全部出队,
+  // 请求失败(网络、503)的那几条也被撤掉,申请永久丢失。
   allowToolForThread: async (sessionId, tool, payloads) => {
     sessionAllowAdd(sessionId, tool);
-    await Promise.all(payloads.map(p => decide(p.requestId, 'allow', { scope: 'session' })));
+    const results = await Promise.all(payloads.map(async p => ({ id: String(p.requestId || ''), ok: await decide(p.requestId, 'allow', { scope: 'session' }) })));
+    return results.filter(r => r.ok).map(r => r.id);
   },
 });
 setTimeout(() => promptQueue.start(), 1500);   // 首拍对账：刷新前就挂着的、别的页面发起的申请
@@ -280,14 +288,42 @@ function renderAskModal(item, ctx) {
     footHint.textContent = allAnswered ? t('ask.ready') : t('ask.answerAll');
     footHint.classList.toggle('ready', allAnswered);
   };
+  // F4:草稿回填 / 存档。存档挂在每一个会改答案的控件事件上(change / input),不靠关闭时的回调 ——
+  // 「稍后处理」、自动收起走的是 close() 而不是 cancel,没有收尾钩子可挂。
+  const saveDraft = () => {
+    const draft = {};
+    for (const state of states) {
+      draft[state.questionId] = {
+        selected: state.options.filter(option => option.input.checked).map(option => option.id),
+        otherChecked: Boolean(state.otherInput?.checked),
+        otherText: String(state.otherText?.value || ''),
+        text: String(state.textInput?.value || ''),
+      };
+    }
+    askDrafts.set(qid, draft);
+  };
+  const restoreDraft = () => {
+    const saved = askDrafts.get(qid);
+    if (!saved) return;
+    for (const state of states) {
+      const d = saved[state.questionId];
+      if (!d) continue;
+      for (const option of state.options) option.input.checked = d.selected.includes(option.id);
+      if (state.otherInput) state.otherInput.checked = d.otherChecked;
+      if (state.otherText) state.otherText.value = d.otherText;
+      if (state.textInput) state.textInput.value = d.text;
+    }
+  };
+  restoreDraft();
   for (const state of states) {
-    state.options.forEach(option => option.input.addEventListener('change', syncState));
-    state.otherInput?.addEventListener('change', syncState);
+    state.options.forEach(option => option.input.addEventListener('change', () => { syncState(); saveDraft(); }));
+    state.otherInput?.addEventListener('change', () => { syncState(); saveDraft(); });
     state.otherText?.addEventListener('input', () => {
       if (String(state.otherText.value || '').trim()) state.otherInput.checked = true;
       syncState();
+      saveDraft();
     });
-    state.textInput?.addEventListener('input', syncState);
+    state.textInput?.addEventListener('input', () => { syncState(); saveDraft(); });
   }
   body.addEventListener('keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !submit.disabled) {
@@ -305,7 +341,14 @@ function renderAskModal(item, ctx) {
     submit.disabled = true; submit.textContent = t('ask.sending');
     try {
       const r = await api('/api/chat/answer', { method: 'POST', body: JSON.stringify({ sessionId: sid, questionId: qid, answers, content }) });
-      if (!r?.ok || !r.delivered) throw new Error('answer was not delivered');
+      if (!r?.ok || !r.delivered) {
+        // 服务端回了 200 却没送达:修前 throw new Error('answer was not delivered'),经 toast.answerFail 在中文界面
+        // 上屏成「回答发送失败：answer was not delivered」。这里直接给人话,弹窗留着、按钮恢复,可以再点。
+        toast(t('toast.answerNotDelivered'), 'err');
+        submit.disabled = false; submit.textContent = prevLabel;
+        syncState();
+        return;
+      }
       markAnswered();
       ctx.done();   // 出队并关弹窗;队列里还有就轮到下一条
     } catch (e) {
@@ -372,22 +415,51 @@ const sessionAllow = new Map();
 function sessionAllowHas(sid, tool) { const s = sessionAllow.get(sid); return !!(s && s.has(tool)); }
 function sessionAllowAdd(sid, tool) { let s = sessionAllow.get(sid); if (!s) { s = new Set(); sessionAllow.set(sid, s); } s.add(tool); }
 
-function decide(requestId, behavior, extra) {
-  return api('/api/permission/decision', { method: 'POST', body: JSON.stringify({ requestId, behavior, ...(extra || {}) }) }).catch(e => toast(apiErrText(e), 'err'));
+// 返回 true = 这条申请已有结论(决定送达了,或服务端说它早已了结 / 过期 = 404);false = 请求失败(网络、落盘 503……),
+// 申请其实还在等。调用方只在 true 时把它从队列撤掉、把卡上的按钮留成已决;false 时留着它、恢复按钮。
+// 修前吞成一句 toast 就当没事,调用方照样出队 —— 请求失败的那条申请永久丢失,直到服务端超时自动拒绝。
+async function decide(requestId, behavior, extra) {
+  try {
+    await api('/api/permission/decision', { method: 'POST', body: JSON.stringify({ requestId, behavior, ...(extra || {}) }) });
+    return true;
+  } catch (e) {
+    if (e && e.status === 404) { toast(t('permission.request.gone'), 'err'); return true; }
+    toast(apiErrText(e), 'err');
+    return false;
+  }
 }
 // 135：streamSessionId 是【这条事件所属的会话】。修前取 state.currentSession —— 后台线程的申请一律不经这里,
 // 所以两者恒等;现在后台线程的申请也走这里(进队列),必须按事件自己的会话记「本次会话自动允许」。
+const autoAllowing = new Set();   // 「本次会话自动允许」正在发的 requestId
 function handlePermissionRequest(evt, streamSessionId) {
   const sid = String(streamSessionId || state.currentSession?.id || '');
   const id = String(evt && evt.requestId || '');
   if (!id || promptQueue.isSettled(id)) return;   // 回到线程时事件重放:已决定的不再弹
   const tool = evt.toolName || 'unknown';
   // Session-scoped auto-allow: skip the popup entirely for a tool the user already blessed this session.
-  if (sessionAllowHas(sid, tool)) { decide(id, 'allow'); promptQueue.settle(id); return; }
+  // 自动允许请求失败(网络、503)时不能当它已经放行:那条申请还在服务端等着,撤了队就再没人看见、直到超时被自动拒绝。
+  // 所以先等结果:成功才出队;失败就落回普通弹窗 / 小窗,由用户亲手点。在飞期间同一条的重放不再重复发。
+  if (sessionAllowHas(sid, tool)) {
+    if (autoAllowing.has(id)) return;
+    autoAllowing.add(id);
+    void decide(id, 'allow').then(ok => {
+      autoAllowing.delete(id);
+      if (ok) promptQueue.settle(id);
+      else promptQueue.offer({ id, type: 'permission', sessionId: sid, payload: { ...evt, requestId: id } });
+    });
+    return;
+  }
   promptQueue.offer({ id, type: 'permission', sessionId: sid, payload: { ...evt, requestId: id } });
 }
 // 事件流里看到了结果(permission_decision / question_answer):不论是谁、在哪儿决定的,出队。
 function settlePrompt(id) { promptQueue.settle(id); }
+// 对话卡里就地「允许 / 拒绝」(chat-static-renderer 的待决权限卡)。返回 true/false,卡据此决定按钮是留成已决还是恢复:
+// 修前 `void decide(); settlePrompt()` 不看结果,请求失败也出队、按钮也禁用,申请永久丢失。
+async function decidePermission(requestId, behavior) {
+  const ok = await decide(requestId, behavior);
+  if (ok) promptQueue.settle(requestId);
+  return ok;
+}
 
 // 体验走查 #12：修前弹窗正文是「file_write」＋ 整段 JSON 参数（右侧还被截断）—— 那是给程序员看的。先用一句人话说清
 // 「要干什么、对哪个文件」，要写入的内容给个预览；原始工具名与 JSON 收进「技术详情」（精简档默认收起，专业档默认展开）。
@@ -505,8 +577,7 @@ function renderPermissionModal(item, ctx) {
       for (const queued of promptQueue.list()) {
         if (queued.id === item.id || queued.type !== 'permission' || queued.sessionId !== sid) continue;
         if (String(queued.payload.toolName || '') !== tool) continue;
-        decide(queued.id, 'allow', { scope: 'session' });
-        promptQueue.settle(queued.id);
+        void decide(queued.id, 'allow', { scope: 'session' }).then(ok => { if (ok) promptQueue.settle(queued.id); });   // 失败的留在队里,不替它出队
       }
     }
     if (permBox && permBox.checked) {
@@ -627,6 +698,7 @@ function handleAgentWorkflowEvent(evt, live) {
   return Object.freeze({
     buildModal,
     decide,
+    decidePermission,
     decidePlan,
     focusFirstInteractive,
     handleAgentWorkflowEvent,

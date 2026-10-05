@@ -167,7 +167,14 @@ export function createChatStaticRenderer(deps = {}) {
       const deny = el('button', '', t('permission.deny'));
       for (const [btn, behavior] of [[allow, 'allow'], [deny, 'deny']]) {
         btn.type = 'button';
-        btn.addEventListener('click', () => { allow.disabled = true; deny.disabled = true; decidePermission(String(segment.requestId), behavior); });
+        btn.addEventListener('click', async () => {
+          allow.disabled = true; deny.disabled = true;
+          // decidePermission 返回 false = 请求没送达(网络 / 落盘失败),申请还在等:恢复按钮让用户再点。
+          // 成功(或已了结)时保持禁用 —— 结果事件到了这张卡会被整张重画。老形状(无返回值)按成功算。
+          let ok = true;
+          try { ok = await decidePermission(String(segment.requestId), behavior); } catch { ok = false; }
+          if (ok === false) { allow.disabled = false; deny.disabled = false; }
+        });
       }
       actions.append(allow, deny);
       card.append(actions);
@@ -467,7 +474,7 @@ export function createChatStaticRenderer(deps = {}) {
           img.src = url;
         }).catch(() => {});
         img.addEventListener('error', () => { if (btn.isConnected) btn.replaceWith(attachmentChip(att, name)); });
-        btn.onclick = () => { if (loadedUrl) openAttachmentViewer(name, loadedUrl); };
+        btn.onclick = () => { if (loadedUrl) openAttachmentViewer(name, loadedUrl, btn); };
         strip.appendChild(btn);
       } else {
         strip.appendChild(attachmentChip(att, name));
@@ -482,10 +489,12 @@ export function createChatStaticRenderer(deps = {}) {
     chip.title = String(att.path || name);
     return chip;
   }
-  function openAttachmentViewer(name, url) {
+  function openAttachmentViewer(name, url, trigger) {
     const backdrop = el('div', 'attachment-viewer-backdrop');
     backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
     backdrop.setAttribute('aria-label', t('chat.attachmentViewerAria'));
+    backdrop.tabIndex = -1;   // 打开时把焦点放进来(键盘用户不会还停在背后的缩略图上),关闭时再还给它
     const figure = el('figure', 'attachment-viewer');
     const img = document.createElement('img');
     img.src = url;
@@ -493,11 +502,28 @@ export function createChatStaticRenderer(deps = {}) {
     const caption = el('figcaption', 'attachment-viewer-caption', name);
     figure.append(img, caption);
     backdrop.appendChild(figure);
-    const close = () => { document.removeEventListener('keydown', onKey); backdrop.remove(); };
-    const onKey = e => { if (e.key === 'Escape') close(); };
+    const opener = trigger || document.activeElement;
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener('keydown', onKey, true);
+      backdrop.remove();
+      // 焦点还给触发它的缩略图(它可能已随会话重画被换掉,那就不动)。
+      if (opener && opener.isConnected && typeof opener.focus === 'function') { try { opener.focus(); } catch { /* ignore */ } }
+    };
+    // document 捕获相位 + stopPropagation(同 help-viewer):app.js 的全局 Esc 兜底挂在 window 冒泡相位,
+    // 修前这里只在冒泡相位听、不拦,按一下 Esc 关大图的同时会把正在跑的回合也停掉。
+    const onKey = e => {
+      if (e.key === 'Tab') { e.preventDefault(); return; }   // 里面没有别的可聚焦件,别让 Tab 把焦点漏到背后的页面
+      if (e.key !== 'Escape') return;
+      e.stopPropagation(); e.preventDefault();
+      close();
+    };
     backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) close(); });
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     document.body.appendChild(backdrop);
+    try { backdrop.focus(); } catch { /* ignore */ }
   }
 
   function renderStaticMessage(msg, messageKey, renderSignature, options = {}) {
