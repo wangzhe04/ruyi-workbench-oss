@@ -1119,7 +1119,8 @@ async function walkFiles(root, opts = {}) {
       for (const entry of entries) {
         if (patternTimedOut) break;
         if (++visited > maxVisited) { capped('maxVisited'); stopped = true; break; }
-        const isDir = entry.isDirectory();
+        let isDir = entry.isDirectory();
+        let linkedDir = false;   // 指向目录的符号链接/联接(仅 browse 模式下被认成目录,见下),不能下钻
         const rel = relDir ? relDir + path.sep + entry.name : entry.name;
         let entryHiddenOk = hiddenOk;
         if (skipHidden && !hiddenOk && entry.name.charCodeAt(0) === 46) {
@@ -1132,7 +1133,21 @@ async function walkFiles(root, opts = {}) {
         }
         const full = path.join(dir, entry.name);
         if (isSensitiveDataPath(full)) continue; // 敏感控制面文件/目录:不返回、不下钻
-        if (entry.isSymbolicLink() && !pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
+        if (entry.isSymbolicLink()) {
+          if (!pathWithinRoot(await realpathForContainment(full), baseReal)) { skippedLinks += 1; continue; }
+          // browse(file_list 非递归 = 目录浏览)下,指向目录的符号链接/联接(Windows 的 My Documents 之类)Dirent 报的是链接而不是目录,
+          // 修前被标成 file,前端点开报「is a directory」。已过上面的包含校验后 stat 一下:是目录就标 directory(也要过一遍剪枝名单)。
+          // 只改标记不下钻:递归遍历(browse 为假)不跟随符号链接 —— 防环,链接目标要列就以它为 root 单独列。
+          if (opts.browse === true && !isDir) {
+            const target = await fsp.stat(full).catch(() => null);
+            if (target && target.isDirectory()) {
+              isDir = true;
+              linkedDir = true;
+              const relSlash = toSlash(rel);
+              if (ignore.pruneName(entry.name, relSlash, dotnetDir)) { if (pruned.size < 12) pruned.add(relSlash); continue; }
+            }
+          }
+        }
         if ((emitDirs || !isDir) && (!accept || accept(rel, isDir))) {
           if (matcher) {
             deferred.push({ full, rel, isDir });
@@ -1143,8 +1158,8 @@ async function walkFiles(root, opts = {}) {
             await emit(full, rel, isDir);
           }
         }
-        if (recursive && isDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
-        else if (recursive && isDir) {
+        if (recursive && isDir && !linkedDir && depth < maxDepth) subdirs.push({ dir: full, relDir: rel, depth: depth + 1, hiddenOk: entryHiddenOk });
+        else if (recursive && isDir && !linkedDir) {
           // 2026-10 走查(R2):到了 maxDepth 的目录不再下钻 —— 修前这一刀完全静默,glob/file_list 在 12/8 层之下「什么都没有」,
           // 与「确实没有」无法区分。只在目录【非空】时才算被截(空目录没东西可漏),探查有上限(200 次 readdir),够给几个例子就停。
           if (depthExamples.length < 5 && depthProbes < 200) {
