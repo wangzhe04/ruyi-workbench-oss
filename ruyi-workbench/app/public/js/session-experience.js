@@ -30,6 +30,17 @@ import { confirmDanger } from './confirm-panel.js';
 // 121-K2b（34 号文 §6.2）：线上事件名的那一份登记表（与 13r 的显式登记一一对拍，不各写一遍）。
 import { EVENT_STREAM_ROW_EVENTS, EVENT_STREAM_LIVE_EVENT } from './event-stream.js';
 
+// 走查 S-11：run 的终态有 succeeded／failed／timed_out／cancelled／partial／stopped／interrupted 七种，而文案键修前只有前四种 ——
+// 其余三种显示成「[chat.background.partial]」，还一律红色。颜色按「这对用户意味着什么」分：成功＝绿、部分完成＝黄（warn）、
+// 用户自己停的（stopped／cancelled）＝中性、失败／超时／中断＝红；表外的状态不编文案，回落一句通用的「已结束」。
+export const BACKGROUND_TOAST_OUTCOMES = Object.freeze({
+  succeeded: 'ok', partial: 'warn', stopped: '', cancelled: '', failed: 'err', timed_out: 'err', interrupted: 'err',
+});
+export function backgroundToastOutcome(status) {
+  const name = String(status || '');
+  if (!Object.prototype.hasOwnProperty.call(BACKGROUND_TOAST_OUTCOMES, name)) return { key: 'chat.background.finished', kind: '' };
+  return { key: 'chat.background.' + name, kind: BACKGROUND_TOAST_OUTCOMES[name] };
+}
 export function createSessionExperienceDomain({
   // 121-K2b（34 号文 §6.2）：组合根那【一条】事件流。工作台视角用它两件事：①「它正在跑」那张卡
   // 改吃 thread.live（3 s 轮询降为断连兜底）；②换会话时报一次新的在场信号（§4.3 —— 服务端只在
@@ -231,6 +242,12 @@ function bindRailSessionActions() {
   return true;
 }
 
+// 在场信号(§4.3)读 state.currentSession：凡是改了「当前会话」的动作（打开／新建／删当前）都要调它，服务端的在场门才不会拿旧线程判。
+// sync 自己幂等（key 没变就什么都不做）、重连去抖，所以多调无害。
+function syncEventStreamPresence() {
+  if (eventStream && typeof eventStream.sync === 'function') eventStream.sync();
+}
+
 // 后发先至:两次刷新并发时,晚回来的旧列表不许盖掉已经画上的新列表(只认最后一次发出的那一发)。
 let refreshSessionsSeq = 0;
 async function refreshSessions() {
@@ -280,7 +297,7 @@ async function openSession(id, opts = {}) {
   mountActiveTurn(id);
   syncOwnTurnLiveIndicator(); // 137x：切回一条仍在跑的会话——这条路径不经过 sendPrompt，补一次同步
   syncLivePolling(); // 117m-A5: 唯一的开表入口 —— 该不该开由 liveTurnPollable() 一处判
-  if (switchedSession && eventStream && typeof eventStream.sync === 'function') eventStream.sync(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
+  if (switchedSession) syncEventStreamPresence(); // 121-K2b: 在场信号改了(§4.3) —— 服务端只在连接时读它,所以换会话就是重连(去抖 300ms)
   // The global status denominator describes the new-session default. Resolve this session's pinned route
   // after every switch so the context meter and model list do not lag behind until the next completed turn.
   api(`/api/status?sessionId=${encodeURIComponent(id)}`).then(fresh => {
@@ -799,6 +816,7 @@ async function newSession(options = {}) {
   state.currentSession = res.session;
   state.resumable = null; // fresh session never dangles
   try { localStorage.setItem('wcw.lastSession', res.session.id); } catch { /* ignore */ }
+  syncEventStreamPresence(); // 走查 S-04：新建也换了「坐在哪条线程」，在场信号要跟着重连（openSession 那一路有，这里补）
   await refreshSessions();
   updateEngineDependentUI();
   renderCurrentSession();
@@ -837,7 +855,7 @@ async function removeSession(id) {
   }
   removal.pending.delete(id);
   removal.done.add(id);
-  if (state.currentSession?.id === id) state.currentSession = null;
+  if (state.currentSession?.id === id) { state.currentSession = null; syncEventStreamPresence(); }   // 走查 S-04：当前会话没了，在场信号别停在已删的线程上
   await refreshSessions();
   renderCurrentSession();
   return true;
@@ -1003,7 +1021,8 @@ function bindLiveEventStream() {
   if (!eventStream || typeof eventStream.on !== 'function') return false;
   eventStream.on('background.completed', data => {
     if (!data || !data.sessionId) return;
-    toast(t('chat.background.' + data.status), data.status === 'succeeded' ? 'ok' : 'err');
+    const outcome = backgroundToastOutcome(data.status);
+    toast(t(outcome.key), outcome.kind);
     // Fetch only on completion push, never a polling timer. Do not replace a streaming message tree.
     void (async () => {
       const id = data.sessionId;
@@ -1665,8 +1684,10 @@ function openPlaybookModal(pb) {
       return;
     }
     const prompt = assemblePlaybookPrompt(pb, values);
-    modal.close();
+    // 走查 S-13：先判「这会儿能不能发」再关表单 —— 修前先 modal.close() 再判 streaming，当前回合还在跑时表单没了、
+    // 刚填好的几段话也跟着丢了。现在被拦下时表单原样留着，等回合收尾再点「开始」。
     if (state.streaming) { toast(t('chat.waitCurrentTurn'), ''); return; }
+    modal.close();
     sendPrompt(prompt);
   };
 }

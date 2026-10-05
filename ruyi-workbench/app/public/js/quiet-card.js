@@ -3,7 +3,8 @@
 import { byId, doc, el, clear } from './steward-chips.js';
 import { icon } from './icons.js';
 import { stewardThreadHueFor } from './steward-conversation.js';
-import { isQuietTime, readNotifySettings } from './notify-policy.js';
+import { isQuietSuppressed, readNotifySettings } from './notify-policy.js';
+import { apiErrorInfo, NETWORK_ERROR_CODE } from './net.js';   // 走查 S-10：候选答案失败要分「断网（卡留着可重试）」与「那件事已经过去了（撤卡）」
 
 // ─────────────────────────────────────────────────────────────────────────────
 // quiet-card.js — 安静卡（121 波 K6a，34 号文 §4.3「在场信号与打扰纪律」／§2.6）。
@@ -18,7 +19,8 @@ import { isQuietTime, readNotifySettings } from './notify-policy.js';
 //   · 视角必须是工作台（data-shell-mode==='classic'）——管家视角下服务端在场门③已经不会给这类
 //     事件打 quiet，这里只是双保险，不新起第二套判据；
 //   · 静默时段（js/notify-policy.js 的 quietStart／quietEnd）——不出卡，只让左栏（已经在吃
-//     thread.needs_you／thread.state 那几路推送）照常更新。
+//     thread.needs_you／thread.state 那几路推送）照常更新。走查 S-15：时段只在用户【开启了本机通知】时才生效
+//     （isQuietSuppressed）；默认 enabled:false 而时段默认 22:00–08:00，不这样限定，没动过设置的人夜里就收不到卡。
 //
 // 去重／基线／静默三件事全部问 notify-policy.js 要（isQuietTime 直接复用）；系统通知的「去重」
 // 没有套用它的 reconcileNotifications——那份 API 是为轮询快照设计的（每一拍给「当前完整待决集合」，
@@ -102,9 +104,16 @@ export function createQuietCard({
   function currentSessionId() {
     return state && state.currentSession ? String(state.currentSession.id || '') : '';
   }
+  // 桌面壳（WebView2）的宿主桥：有就返回那个 webview 对象（postMessage 住在上面），没有就 null。
+  // 走查 S-09：修前桌面壳里 notificationPermission() 恒报 'granted'，可投递仍只用 new Notification(...)，而 WebView2 里
+  // Notification 的真实权限是 default —— 静默不显示；宿主（RuyiDesktop.cs OnWebMessage）等的是
+  // chrome.webview.postMessage({ ruyiNotification:{ title, body } })，前端却再没有任何一处发送方。
+  function desktopBridge() {
+    const bridge = globalThis.chrome && globalThis.chrome.webview;
+    return globalThis.__ruyiDesktop === 1 && bridge && typeof bridge.postMessage === 'function' ? bridge : null;
+  }
   function notificationPermission() {
-    if (globalThis.__ruyiDesktop === 1 && globalThis.chrome?.webview
-      && typeof globalThis.chrome.webview.postMessage === 'function') return 'granted';
+    if (desktopBridge()) return 'granted';
     return notificationApi && typeof notificationApi.permission === 'string' ? notificationApi.permission : 'unsupported';
   }
 
@@ -130,6 +139,34 @@ export function createQuietCard({
     return true;
   }
 
+  // 走查 S-10：卡片的「该不该还在」此前只在【新帧 upsert】时才顺手核一次（dismissStale），问题在别处答了／线程收工了／
+  // 人已经点进那条线程，卡都不撤。下面几个撤卡口由事件流与会话切换驱动，不靠计时器。
+  function removeCardsOf(sessionId, kinds) {
+    const sid = String(sessionId || '');
+    if (!sid) return 0;
+    let removed = 0;
+    for (const [key, entry] of [...cards]) {
+      if (entry.sessionId !== sid) continue;
+      if (kinds && !kinds.includes(entry.kind)) continue;
+      if (removeCard(key)) removed += 1;
+    }
+    return removed;
+  }
+  // 人已经坐在这条线程上了：它的卡再留着只会重复说同一件事。
+  function dismissCurrent() {
+    return removeCardsOf(currentSessionId());
+  }
+  // thread.state：这条线程不再「等你」了（答完了／被停了／回合重新跑起来了）→ 撤它的 needs_you 卡。
+  // failed／stalled／budget 说的是别的事实，不由「是否在等你」决定，这里不碰。
+  function onThreadState(frame) {
+    if (!frame || String(frame.state || '') === 'needs_you') return;
+    removeCardsOf(frame.sessionId, ['needs_you']);
+  }
+  // 收工／线程没了：与它有关的卡都过期。
+  function onThreadGone(frame) {
+    removeCardsOf(frame && frame.sessionId);
+  }
+
   function dismissStale() {
     const cutoff = now() - QUIET_CARD_MERGE_WINDOW_MS;
     for (const [key, entry] of cards) if (entry.updatedAt < cutoff) removeCard(key);
@@ -138,8 +175,10 @@ export function createQuietCard({
   async function answerOption(entry, option) {
     const frame = entry.frame;
     if (!frame || !frame.interventionId || !frame.answerQuestionId || !option || !option.id) return null;
+    let response = null;
+    let failure = null;
     try {
-      const response = await api('/api/chat/answer', {
+      response = await api('/api/chat/answer', {
         method: 'POST',
         body: JSON.stringify({
           sessionId: frame.sessionId,
@@ -147,9 +186,18 @@ export function createQuietCard({
           answers: [{ questionId: frame.answerQuestionId, selectedOptionIds: [option.id] }],
         }),
       });
-      if (response && response.ok === true) removeCard(entry.key);
-      return response;
-    } catch { return null; }
+    } catch (error) { failure = error; }
+    if (response && response.ok === true) { removeCard(entry.key); return response; }
+    // 走查 S-10：修前失败被吞（没提示、卡也不动）。这张卡带的是当时那一个 questionId，问题多半已经在别处答了／线程已收工，
+    // 再点永远失败 —— 说一句并把卡收起来；只有断网（那件事可能还在等）才留着卡让人重试。
+    const info = failure ? apiErrorInfo(failure) : null;
+    if (info && info.code === NETWORK_ERROR_CODE) {
+      notifyFailure(t('quietCard.answerFailed', { reason: info.message }));
+      return null;
+    }
+    notifyFailure(t('quietCard.answerGone'));
+    removeCard(entry.key);
+    return response;
   }
 
   function buildActions(entry) {
@@ -160,7 +208,10 @@ export function createQuietCard({
       for (const option of frame.options.slice(0, 4)) {
         const button = el('button', 'quiet-card-btn quiet-card-btn-option', option.label);
         button.type = 'button';
-        button.onclick = () => { void answerOption(entry, option); };
+        button.onclick = () => {
+          button.disabled = true;   // 在飞期间别连点（一个 questionId 只能答一次）
+          void answerOption(entry, option).finally(() => { button.disabled = false; });
+        };
         wrap.appendChild(button);
       }
     }
@@ -263,10 +314,16 @@ export function createQuietCard({
     const settings = notifySettingsOf();
     if (settings.enabled !== true) return;
     if (notificationPermission() !== 'granted') return;
-    if (typeof notificationApi !== 'function') return;
     const row = missionRowOf(entry.sessionId) || {};
     const title = String(row.missionTitle || row.title || t('quietCard.fallbackTitle'));
     const body = quietCardHeadline(entry.kind, entry.frame && entry.frame.ask);
+    // 桌面壳走宿主托盘气泡（字段名对着 RuyiDesktop.cs 的解析：ruyiNotification.title／.body；id 宿主不读，带上方便对账）。
+    const bridge = desktopBridge();
+    if (bridge) {
+      try { bridge.postMessage({ ruyiNotification: { id: entry.key, title, body } }); } catch { /* 通知失败不影响卡片 */ }
+      return;
+    }
+    if (typeof notificationApi !== 'function') return;
     try { new notificationApi(title, { body, tag: entry.key }); } catch { /* 通知失败不影响卡片 */ }
   }
 
@@ -297,7 +354,7 @@ export function createQuietCard({
     if (!isEligible(frame)) return;
     // 静默时段（§4.3）：不出卡，只更新左栏——左栏已经在吃 thread.needs_you／thread.state 那几路
     // 推送（K2b 交付），本文件什么都不用做就是「只更新左栏」。
-    if (isQuietTime(new Date(now()), notifySettingsOf())) return;
+    if (isQuietSuppressed(new Date(now()), notifySettingsOf())) return;
     upsert(frame);
   }
 
@@ -317,7 +374,7 @@ export function createQuietCard({
   function onDeferred(frame) {
     const sessionId = String((frame && frame.sessionId) || '');
     if (!sessionId) return;
-    if (isQuietTime(new Date(now()), notifySettingsOf())) return;
+    if (isQuietSuppressed(new Date(now()), notifySettingsOf())) return;
     const ask = deferredAsk(frame);
     if (shellModeOf() === 'classic') {
       if (sessionId === currentSessionId()) return;          // 他就坐在这条线程上：请求是当面弹着的
@@ -339,7 +396,7 @@ export function createQuietCard({
     if (!text) return;
     const kind = String((frame && frame.kind) || 'needs_you');
     if (!QUIET_CARD_KINDS.includes(kind)) return;
-    if (isQuietTime(new Date(now()), notifySettingsOf())) return;
+    if (isQuietSuppressed(new Date(now()), notifySettingsOf())) return;
     const sessionId = String((frame && frame.sessionId) || '');
     if (shellModeOf() === 'classic') {
       if (sessionId && sessionId === currentSessionId()) return;   // 他就坐在这条线程上
@@ -357,6 +414,17 @@ export function createQuietCard({
     eventStream.on('inbox.appended', onFrame);
     eventStream.on('steward.deferred', onDeferred);   // 128f-⑪
     eventStream.on('steward.notify', onStewardNotify);   // 129f
+    // 走查 S-10：线程状态一变就核对卡片（答完／收工／删除 → 撤）；事件名见 event-stream.js 的 EVENT_STREAM_ROW_EVENTS。
+    eventStream.on('thread.state', onThreadState);
+    eventStream.on('thread.done', onThreadGone);
+    eventStream.on('thread.removed', onThreadGone);
+    // 打开某条会话时撤它的卡：#sessionTitle 由 session-experience 的 renderCurrentSession 单点写入，
+    // 观察它就知道「换了一条线程」（thread-head.js 的先例；MutationObserver 不是计时器）。
+    const title = byId('sessionTitle');
+    if (globalThis.MutationObserver && title) {
+      new globalThis.MutationObserver(() => { dismissCurrent(); })
+        .observe(title, { childList: true, characterData: true, subtree: true });
+    }
     return true;
   }
 
@@ -364,6 +432,9 @@ export function createQuietCard({
     bind,
     onFrame,
     onDeferred,   // 128f-⑪
+    onThreadState,   // 走查 S-10（真夹具直接喂帧）
+    onThreadGone,
+    dismissCurrent,
     // 供真夹具直接断言（不必去解析 DOM 文案）：当前有几张卡、某张卡的原始帧是什么。
     cardCount: () => cards.size,
     cardFor: sessionId => {

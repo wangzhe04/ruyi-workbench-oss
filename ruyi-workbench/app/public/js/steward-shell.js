@@ -271,6 +271,15 @@ export function createStewardShellDomain({
   function boardNeedsYouCount() {
     try { return Number(board.needsYouCount()) || 0; } catch { return 0; }
   }
+  // 走查 S-08：pendingCount 只在 enterVisit 写过一次（到访那一刻的快照），之后待决在别处处理完了它也不会减 ——
+  // 头像于是一直停在「等你确认」。待决与「需要你的线程」是同一批事实（visit.pending 就是各线程的未决干预，行上的
+  // needs_you 由它而来），所以看板每拿到新的一批行，就让头像的两个计数一起跟着看板那一份活计数走。
+  // 计数仍只有看板 renderStatusLine 那一处在算；两个字段的写法由看板的 presenceCounts() 一次给齐（本文件不再多一处
+  // 写「需要你的线程数」那个字段 —— steward-avatar.static I3 钉着它在壳层里只有「声明／取值／喂给 presence」三处）。
+  // 只在看板【真的取到过行】之后才跟：挂在 onRowsChanged 上，进壳那一刻看板还没取回行时不会拿一个空的 0 冲掉到访快照。
+  function syncPresenceFromBoard() {
+    try { return setPresenceInputs(board.presenceCounts()); } catch { return presenceState; }
+  }
   function stewardPollFast() {
     if (!isStewardMode() || (globalThis.document && globalThis.document.hidden)) return false;
     if (presenceInputs.inflight) return true;
@@ -514,7 +523,7 @@ export function createStewardShellDomain({
     searchState,
     // 117g/121-K5：左栏拿到新的一批行就让线程头重画 —— 任务名、线程数、来源、管家盯没盯、
     // 谁坐着，五样事实的唯一来源就是那批行（线程头因此零取数）。
-    onRowsChanged: () => threadHead.render(),
+    onRowsChanged: () => { threadHead.render(); syncPresenceFromBoard(); },
   });
   boardHandle = board;
   // 121-K6a（34 号文 §4.3）：安静卡。与线程头同一手法——不发第二发 /api/missions，问左栏已经取回来

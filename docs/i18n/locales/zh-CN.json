@@ -183,6 +183,10 @@
   "chat.background.failed": "后台任务失败，详情已送达所属线程",
   "chat.background.timed_out": "后台任务超时，详情已送达所属线程",
   "chat.background.cancelled": "后台任务已取消",
+  "chat.background.partial": "后台任务部分完成，详情已送达所属线程",
+  "chat.background.stopped": "后台任务已停止",
+  "chat.background.interrupted": "后台任务被中断，详情已送达所属线程",
+  "chat.background.finished": "后台任务已结束，详情已送达所属线程",
   "chat.steerDelivery.queue": "补充要求（保留当前工作）",
   "chat.steerDelivery.interrupt": "立即调整（中断当前工具）",
   "chat.steerInjectedBadge": "✓ 已注入",
@@ -2771,6 +2775,7 @@
   ,"stewardShell.settings.onlyTitle": "只看「{{name}}」"
   ,"stewardShell.settings.showAll": "显示全部管家设置"
   ,"stewardShell.compose.placeholder": "跟如意说点什么"
+  ,"stewardShell.compose.attachNeedsSteward": "附件只能发给如意，直接递给线程时带不过去 —— 先把目标换回「→ 如意」，或者先取下附件。"
   ,"stewardShell.compose.needModel": "先接一个模型，管家才能回话"
   ,"stewardShell.compose.placeholderChange": "告诉我怎么改"
   ,"stewardShell.compose.targetLabel": "递给谁"
@@ -2884,6 +2889,7 @@
   ,"stewardShell.drawer.rewindConfirm": "整单回退会把这条线程退回到第一句话之前，并撤销这期间改过的文件。要退吗？"
   ,"stewardShell.drawer.rewindDone": "已整单回退。"
   ,"stewardShell.drawer.rewindNoTarget": "这条线程还没有可回退的回合。"
+  ,"stewardShell.drawer.threadSwitchedCancelled": "确认期间你切换了线程，这次操作已取消，没有动任何东西。"
   ,"stewardShell.drawer.noPausableRun": "这条线程没有可暂停的编排运行。"
   ,"stewardShell.drawer.sent": "已发给它。"
   ,"stewardShell.drawer.steered": "已插话给它。"
@@ -3279,6 +3285,7 @@
   ,"rail.collapse": "收起"
   ,"rail.liveTool": "{{tool}} · {{elapsed}}前有输出"
   ,"rail.liveRunning": "运行中…"
+  ,"rail.liveToolAgo": "{{tool}} · {{ago}}有输出"
   ,"rail.justNow": "刚刚"
   ,"rail.origin.steward": "如意开的"
   ,"rail.origin.user": "我开的"
@@ -3309,6 +3316,8 @@
   ,"quietCard.snooze.title": "稍后再说：{{title}}"
   ,"quietCard.snooze.text": "来自你 {{minutes}} 分钟前按的「稍后」：{{ask}}"
   ,"quietCard.snooze.failed": "没能排上「稍后」，这张卡先留着"
+  ,"quietCard.answerGone": "这条已经不需要你回答了（可能在别处答过，或线程已经结束），卡片已收起。"
+  ,"quietCard.answerFailed": "没能提交回答：{{reason}}"
   ,"quietCard.fallbackTitle": "一条线程"
   ,"quietCard.deferred": "如意留给你了，还等 {{minutes}} 分钟：{{ask}}"
   ,"quietCard.deferredNoDeadline": "如意留给你了：{{ask}}"

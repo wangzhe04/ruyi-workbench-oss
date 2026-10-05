@@ -79,6 +79,15 @@ export function isQuietTime(date, settings) {
   return start < end ? now >= start && now < end : now >= start || now < end;
 }
 
+// 走查 S-15：「此刻要不要因为免打扰而压住提示」的唯一判据。免打扰时段属于「本机通知」这一组偏好（设置页「需要你时提醒我」
+// 下面那一块），而那一组默认 enabled:false、时段却默认 22:00–08:00 —— 修前安静卡直接问 isQuietTime，没动过设置的用户夜里
+// 什么提示都收不到，而且他根本不知道有这么个时段。所以：只有用户【开启了本机通知】，他调的免打扰时段才生效；
+// 没开就不压（界面内的安静卡照出）。isQuietTime 本身仍是纯时间判断，不看 enabled（单测钉着）。
+export function isQuietSuppressed(date, settings) {
+  const normalized = normalizeNotifySettings(settings);
+  return normalized.enabled === true && isQuietTime(date, normalized);
+}
+
 function uniqueIds(values) {
   return [...new Set((Array.isArray(values) ? values : []).map(value => String(value || '')).filter(Boolean))];
 }

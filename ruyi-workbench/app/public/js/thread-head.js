@@ -10,6 +10,7 @@ import { icon } from './icons.js';
 // 在工作台视角是 display:none 的），工作台这一侧走全站那一份 toast —— 与退役前 2.0 模型弹层
 // 的收尾（navigation-controls.js setEngineModel 末尾那一发 toast）是同一个位置、同一种材质。
 import { toast } from './util.js';
+import { apiErrText } from './net.js';   // 走查 S-05：交接写失败要说人话（请求抛的是整段 JSON／「Failed to fetch」）
 
 // ─────────────────────────────────────────────────────────────────────────────
 // thread-head.js — 工作台视角的线程头（121 波 K5，34 号文 §2.5／§3／§4.4）。
@@ -86,7 +87,8 @@ export function createThreadHead({
   }
   const chips = createQuickSwitchChips({
     api, t, state, modelMenuExtras,
-    noteSink: text => toast(text, 'ok'),
+    // 走查 S-05：chips 的失败回执带 kind==='err'，别再把「没改成」套成功样式的 toast。
+    noteSink: (text, kind) => toast(text, kind === 'err' ? 'err' : 'ok'),
     onChanged: session => {
       adoptSession(session);
       render();
@@ -161,14 +163,20 @@ export function createThreadHead({
     const draft = turningOn ? takeComposerDraftNote() : { note: '', clear: () => {} };
     watchBusy = true;
     let response = null;
+    let failure = null;
     try {
       response = await api(`/api/sessions/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ stewardWatch: turningOn, ...(turningOn && draft.note ? { stewardWatchNote: draft.note } : {}) }),
       });
-    } catch { response = null; }
+    } catch (error) { response = null; failure = error; }
     finally { watchBusy = false; }
-    if (!response || response.ok !== true) { render(); return null; }
+    if (!response || response.ok !== true) {
+      // 走查 S-05：写失败要出声（修前只静默把开关弹回去，用户不知道没盯成、也不知道为什么）。
+      try { toast(t('stewardShell.chips.changeFailed', { error: apiErrText(failure || (response && response.error) || 'failed') }), 'err'); } catch { /* 回执写不出去不该挡住按行重画 */ }
+      render();
+      return null;
+    }
     if (turningOn && draft.note) draft.clear();
     if (state && state.currentSession && String(state.currentSession.id) === id) {
       state.currentSession = response.session || state.currentSession;

@@ -2,6 +2,8 @@
 
 import './mission-state.js';
 import { apiRaw } from './net.js';
+// 注（走查 S-14）：elapsedLabel 自此本模块不再直接调用（左栏在跑行改说「3 分钟前」，不印 `2s` 缩写）；import 保留，
+// 因为 steward-board.static B3 逐字钉着「时长文案是 import 复用、不是复制」。
 import { acceptanceRecorded, dockToneForMissionState, elapsedLabel, focusThreadFor, missionStateSettled, threadIsBlank, threadLastTurnFailed, threadShownTitle } from './thread-facts.js';
 // 117u-G2 B3 →（117u-G3 搬家）：「这一行的权限与模型跟全局一样吗」这条判据 G2 是写在本模块闭包里的，
 // G3 把它原样搬进 steward-chips.js 给【看板与线程详情栏】共用（抽屉不能反过来 import 看板，见那边的
@@ -40,6 +42,7 @@ import { stewardErrorCode, stewardErrorText, stewardQueuedWaitLabel, stewardThre
 // 与焦点卡元信息一行、对话流卡头【同一个】实现（stewardAgoLabel → Intl.RelativeTimeFormat）——修前印的是
 // elapsedLabel 的时长写法「0s 前有动静」。单开一条 import 行：上面那行被 steward-board.static 逐字钉着。
 import { stewardAgoLabel } from './steward-conversation.js';
+import { stewardThreadToolLabel } from './steward-drawer.js';   // 走查 S-14：在跑行第二行的工具名走抽屉那张人话表（单开一行，同 D4 的理由）
 import { stewardEngineReady } from './steward-conversation.js';   // 走查 U12：空态按「接没接模型」说两种话
 // 33 号文 §4（M3-a）：危险操作确认四套收一套。本看板的「停掉占用者」修前走原生 globalThis.confirm
 // （全站唯一跳出式浮层：不跟主题、不跟语言、焦点不归壳管），现在走 js/confirm-panel.js 那一套。
@@ -173,6 +176,19 @@ export function railGroupFor(aggregateState, updatedAt, now = new Date(), lastTu
 // 都要读同一份纯函数，它就得住在两边都够得着的叶子里。**导出名不改**：看板对外仍然
 // 导出 focusThreadFor（steward-board.static C1/C3 与 focus-rail B1 钉的都是这个名字）。
 export { focusThreadFor };
+
+// 左栏在跑行第二行那句话（纯函数，dev-harness/unit/steward-shell-wave1.test.js 直接 import 跑）。
+// 走查 S-14：工具名不许把机器把手（mcp__playwright__browser_click）漏到左栏 —— 走抽屉同一张人话表（stewardThreadToolLabel）；
+// 「多久以前」走 ago（调用方传 railAgoLabel：刚刚／3 分钟前），不再印 elapsedLabel 的 `2s`／`1m 05s` 缩写混在中文里。
+// 137x：没有工具名（刚起跑／两次工具之间的间隙）给中性占位，这一行在运行期间恒有文本，行高不随每次工具调用增删。
+export function railRunningLine(row, { t, ago }) {
+  const tail = (row && row.liveTail && typeof row.liveTail === 'object') ? row.liveTail : null;
+  const tool = String((tail && tail.tool) || '');
+  if (!tool) return t('rail.liveRunning');
+  const label = stewardThreadToolLabel(tool, t);
+  const agoText = ago(String(tail.updatedAt || (row && row.updatedAt) || ''));
+  return agoText ? t('rail.liveToolAgo', { tool: label, ago: agoText }) : label;
+}
 
 export function createStewardBoard({
   api = async () => null,
@@ -552,6 +568,15 @@ export function createStewardBoard({
     button.setAttribute('aria-label', label);
     const glyph = icon('more', 13);
     if (glyph) button.appendChild(glyph);
+    // 走查 S-01：菜单开着时 renderRail 被暂缓（railInteractionLive，见下方 128f-⑫ 续那段），补画此前只挂在
+    // chip 的 onMenuIdle 上 —— 「⋯」这条路径关闭时没人补，置顶／删除／停止／优先之后左栏行就一直停在旧样子。
+    // 两处修：① 菜单里的动作按钮点下去先收菜单（改名例外：它要拿这枚按钮当锚点开自己的浮层，由 popover 顶掉我们）；
+    // ② 不论怎么关（Esc／点外／被别的浮层顶掉），onClose 末尾补画一次。
+    const closeAfterAction = event => {
+      const target = event && event.target && event.target.closest ? event.target.closest('button') : null;
+      if (!target || String(target.dataset.sessionAction || '') === 'rename') return;
+      if (popoverAnchor() === button) closePopover();
+    };
     button.onclick = () => {
       if (item.classList.contains('is-actions-open')) { closePopover(); return; }
       // popover(layer) 会把节点先清空再让 buildContent 填回去 —— 把原来那批按钮原样放回去，
@@ -559,8 +584,15 @@ export function createStewardBoard({
       const kept = [...actions.children];
       popover(button, () => { for (const child of kept) actions.appendChild(child); return null; }, {
         layer: { mount: item, node: actions },
-        onOpen: () => { item.classList.add('is-actions-open'); button.setAttribute('aria-expanded', 'true'); },
-        onClose: () => { item.classList.remove('is-actions-open'); button.setAttribute('aria-expanded', 'false'); },
+        onOpen: () => {
+          item.classList.add('is-actions-open'); button.setAttribute('aria-expanded', 'true');
+          actions.addEventListener('click', closeAfterAction);
+        },
+        onClose: () => {
+          actions.removeEventListener('click', closeAfterAction);
+          item.classList.remove('is-actions-open'); button.setAttribute('aria-expanded', 'false');
+          flushDeferredRailRender();
+        },
       });
     };
     return button;
@@ -592,7 +624,7 @@ export function createStewardBoard({
   }
 
   // §2.3「第二行只在有话可说时出现」。两态两句，都【只读】行上已有的事实：
-  //   在跑 → `工具 · N 秒前有输出`（row.liveTail：13e 的叠加层，K2b 让它随推送实时）
+  //   在跑 → `读文件 · 刚刚有输出`（工具名走人话表、时间走「刚刚／3 分钟前」，见 railRunningLine；row.liveTail：13e 的叠加层，K2b 让它随推送实时）
   //   等你 → 问句前 22 字（row.asksYou.text：06i 的 stewardPendingOneLine 单点算出）
   //   收工 → 不印（药丸已经说了；§2.3 原话）
   //   排队 → 这里【也不印】：等待原因由卡尾那一行 .steward-board-wait 渲染（116h 的 wait.label
@@ -605,11 +637,7 @@ export function createStewardBoard({
       // <p> 摘掉、下一次工具开始时再插回来 —— 行高跟着每一次 tool_use/tool_result 抖一次。改成
       // 有工具名给工具名、没有（刚起跑或两次工具之间的间隙）给中性占位，这一行只在【进/出运行态】
       // 各变一次高度，不再随每次工具调用增删。
-      const tail = (row && row.liveTail && typeof row.liveTail === 'object') ? row.liveTail : null;
-      const tool = String((tail && tail.tool) || '');
-      if (!tool) return t('rail.liveRunning');
-      const elapsed = elapsedLabel(String(tail.updatedAt || row.updatedAt || ''), new Date());
-      return elapsed ? t('rail.liveTool', { tool, elapsed }) : tool;
+      return railRunningLine(row, { t, ago: railAgoLabel });
     }
     if (state === 'needs_you') {
       const asks = (row && row.asksYou && typeof row.asksYou === 'object') ? row.asksYou : null;
@@ -1205,7 +1233,7 @@ export function createStewardBoard({
   //   · 语言：railLocaleStamp（<html lang> ＋ 行上用到的全部固定文案）一变就整栏重建。
   // 被就地改过的行（paintRailLive 改第二行）签名作废；background-tray 的 ⟳ 标记与 chip 自己对账，不进签名。
   const RAIL_STAMP_KEYS = Object.freeze(['session.untitled', 'common.more', 'stewardShell.board.updated',
-    'rail.liveRunning', 'rail.liveTool', 'rail.justNow', 'stewardShell.board.stopBlocker', 'stewardShell.board.prioritize',
+    'rail.liveRunning', 'rail.liveTool', 'rail.liveToolAgo', 'rail.justNow', 'stewardShell.board.stopBlocker', 'stewardShell.board.prioritize',
     'stewardShell.board.stop', 'stewardShell.board.openThread', 'stewardShell.board.newThread', 'session.pin',
     'session.unpin', 'session.rename', 'session.delete', 'rail.collapse', 'rail.expand',
     'stewardShell.drawer.missionUnfiled', 'mission.state.quick_ask', 'stewardShell.board.threadCount']);
@@ -1819,13 +1847,15 @@ export function createStewardBoard({
   // 现在只看「管家模式 && 页面可见」，与 121-K2b 删掉「看板关着不刷」那道门是同一个方向。
 
   // ── 刷新与轮询 ──────────────────────────────────────────────────────────────────
-  // 行没变（304）就不重画正文 —— 既省事，也不会在用户正开着某个 chip 菜单时把它连根拔掉。
+  // 行没变（304）时左栏仍要走一遍 renderRail：行右侧「刚刚／N 分钟前」与「今天／更早」分组是按【此刻】算的，
+  // 不随行数据变（走查 S-03：304 分支只刷状态行，停留的时间标签与跨午夜分组永远不动）。renderRail 按件签名复用
+  // （签名里已含 railAgoLabel／第二行），没变的件一个节点都不碰，成本很低；用户正开着某个行内菜单时它自己会暂缓
+  // （railInteractionLive），不会把菜单连根拔掉。
   async function refreshBoard() {
     lastRefreshAt = Date.now();   // 117j W2-5：手动刷新也重置节拍，不让下一拍紧跟着再拉一次
     const changed = await loadMissions();
     await loadArbiter();
-    if (changed) renderRail();
-    else { renderStatusLine(); renderArbiterFacts(); }
+    renderRail();
     syncNow();
     if (changed) { try { onRowsChanged(rows.length); } catch { /* 宿主重画失败不该把看板打回去 */ } }
     return rows.length;
@@ -2131,5 +2161,7 @@ export function createStewardBoard({
     // hasRunningThread 同一个先例:计数仍然只有 renderStatusLine 那一处算(needsYouIds 就是它的产物),
     // 不新开第二个计数源。
     needsYouCount: () => needsYouIds.length,
+    // 走查 S-08：头像的两个计数（待批提议数／需要你的线程数）跟着看板这一份活计数走，一次给齐（壳层在每批行变了之后取它）。
+    presenceCounts: () => ({ pendingCount: needsYouIds.length, needsYouCount: needsYouIds.length }),
   });
 }
