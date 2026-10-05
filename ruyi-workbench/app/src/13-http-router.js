@@ -1950,6 +1950,7 @@ async function startServerInner(opts) {
   if (config.importAgentInstructions !== false) await syncAgentInstructionImports({ auto: true }).catch(() => null);
   // v1.9 数据管家: boot sweep(fire-and-forget —— 慢盘/清理失败绝不阻塞 boot;结果落审计账 storage_sweep)。
   void storageSweep(config.storagePolicy).catch(() => {});
+  void sweepStaleScriptFiles().catch(() => {});   // 走查 W1·F10:script_run 遗留的脚本明文(强杀 / 杀毒占着没删成的)按龄清掉
   const requestedPort = Number(opts.port || process.env.PORT || DEFAULT_PORT);
   const host = opts.host || '127.0.0.1';
   const server = http.createServer(async (req, res) => {

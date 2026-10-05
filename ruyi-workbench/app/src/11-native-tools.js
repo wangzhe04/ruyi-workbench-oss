@@ -1777,32 +1777,56 @@ function gitHeadToJsonBudget(text, budget) {
 // 前置(commit 亦安全:它不读 fsmonitor;合法 pre-commit hook 走 core.hooksPath,未被触碰,仍在 exec 档权限门下)。
 // NE-7:core.quotepath=false —— 否则中文路径在 status/diff 里被写成 "\346\226\260..." 八进制转义,模型和用户都读不了。
 const GIT_SAFE_FLAGS = ['-c', 'core.fsmonitor=', '-c', 'core.fsmonitorHookVersion=0', '-c', 'core.quotepath=false'];
-// execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等) }。
+// execFile('git', args) 的 Promise 包装:无 shell。返回 { ok, code, stdout, stderr, error?(ENOENT等), timedOut?, timeoutMs? }。
 // 永不 reject —— 传输层错误(git 缺失、cwd 不存在)落在 result.error / result.code<0 上,由调用方转人话。
 // opts.encoding:'buffer' 时 stdout/stderr 是原字节(Buffer)—— 读文件内容(blob)必须走这条,按 utf8 解码会把
 // GBK 等非 UTF-8 字节变成 U+FFFD(hunt2 #4)。
+// 走查 W1·F6:超时由自己的计时器管,不用 execFile 的 timeout 选项 —— 后者只给 git 本身发 SIGTERM(Windows 上是 TerminateProcess),
+// pre-commit 钩子起的子进程(lint / 测试)成了孤儿,还攥着 stdout 管道,execFile 的回调要等它们退出才来;而且超时后的错误形状
+// (code:null、killed:true)被 gitCommit 当成「钩子拒绝」。现在:到点 → timedOut:true,用 killChildTree 整棵树杀(128i:只认
+// 自己的子孙);树杀不掉、管道仍不关(杀树命令失败 / 极端孤儿)时,5 秒后强行收尾,不让调用方永远挂着。
 function runGit(args, cwd, timeoutMs, opts = {}) {
   return new Promise(resolve => {
-    let child;
+    const limitMs = Math.min(GIT_TIMEOUT_MAX_MS, Math.max(1000, Number(timeoutMs || 15000)));
+    let child, timer = null, grace = null, timedOut = false, settled = false;
+    const settle = r => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer); clearTimeout(grace);
+      resolve(timedOut ? { ...r, ok: false, timedOut: true, timeoutMs: limitMs } : r);
+    };
     try {
       // 安全加固前缀(GIT_SAFE_FLAGS)必须在子命令之前;args 以 `-C <dir> <subcmd> …` 开头,故整体前置合法。
       child = cp.execFile('git', [...GIT_SAFE_FLAGS, ...args], {
         cwd: cwd || process.cwd(),
         windowsHide: true,
-        timeout: Math.max(1000, Number(timeoutMs || 15000)),
         maxBuffer: opts && opts.maxBuffer ? opts.maxBuffer : 24 * 1024 * 1024,
         encoding: opts && opts.encoding === 'buffer' ? 'buffer' : 'utf8',
       }, (error, stdout, stderr) => {
         const code = error && typeof error.code === 'number' ? error.code : (error ? -1 : 0);
-        resolve({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
+        settle({ ok: !error, code, stdout: stdout || '', stderr: stderr || '', error: error || null });
       });
     } catch (e) {
-      resolve({ ok: false, code: -1, stdout: '', stderr: '', error: e });
+      settle({ ok: false, code: -1, stdout: '', stderr: '', error: e });
       return;
     }
     child.on('error', () => { /* handled via the callback's `error` arg */ });
+    timer = setTimeout(() => {
+      timedOut = true;
+      try { killChildTree(child.pid); } catch { /* 已经退出 */ }
+      grace = setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch { /* 已经退出 */ }
+        try { if (child.stdout) child.stdout.destroy(); if (child.stderr) child.stderr.destroy(); } catch { /* ignore */ }
+        settle({ ok: false, code: -1, stdout: '', stderr: '', error: Object.assign(new Error('git 超时被终止'), { killed: true }) });
+      }, 5000);
+      if (grace.unref) grace.unref();
+    }, limitMs);
   });
 }
+// git 单条命令的超时上限(模型经 timeoutMs 能放宽到的最大值):钩子再慢也不该让一个工具调用挂过十分钟。
+const GIT_TIMEOUT_MAX_MS = 10 * 60 * 1000;
+// git_commit 默认超时:提交会跑 pre-commit / commit-msg 钩子(lint、测试常要几十秒),30s 对真实仓库偏紧;给 90s,模型可经 timeoutMs 放宽。
+const GIT_COMMIT_TIMEOUT_DEFAULT_MS = 90 * 1000;
 // 安全修复(审计 B):read 档的 git 调用还会执行仓库自带配置指定的【过滤器】—— `.gitattributes` 里一行
 // `* filter=x` 加 `.git/config` 里 `[filter "x"] clean = <命令>`,git status / git diff 在比对工作区文件时就会
 // spawn 那条命令(stat 变了就重算哈希,先过 clean)。子模块同理:status/diff 会在子模块里再起一个 git,
@@ -1858,6 +1882,17 @@ function gitHumanError(res, cwd) {
   const err = res && res.error;
   if (err && (err.code === 'ENOENT' || /ENOENT/.test(String(err.message || '')))) {
     return { ok: false, error: '未检测到 Git', hint: '请安装 Git for Windows(https://git-scm.com/download/win)后重试,或让 AI 用命令确认 git 是否在 PATH 上。', cwd };
+  }
+  // 走查 W1·F6:超时被杀(runGit 打 timedOut)—— 说「被终止」,不要落进下面的泛化报错,更不能被 gitCommit 归因成钩子拒绝。
+  if (res && res.timedOut) {
+    const sec = Math.round(Number(res.timeoutMs || 0) / 1000);
+    return {
+      ok: false, timedOut: true, timeoutMs: Number(res.timeoutMs) || undefined, cwd,
+      error: `git 命令超过 ${sec} 秒仍未结束,已被终止(进程树已一并结束)`,
+      hint: '这不是失败原因,只是没跑完:先用 git_status 确认当前状态(文件是否还在暂存区、提交有没有生成),再决定重试。'
+        + '常见原因:pre-commit / commit-msg 钩子(lint、测试)耗时过长或在等交互输入,或仓库很大。需要更久可传 timeoutMs(毫秒,最多 600000)重试。',
+      detail: String((res && res.stderr) || '').trim().slice(0, 2000) || undefined,
+    };
   }
   const stderr = String((res && res.stderr) || '').trim();
   const low = stderr.toLowerCase();
@@ -2153,7 +2188,7 @@ async function gitCommit(args = {}) {
   const commitArgs = paths.length
     ? ['-C', cwd, 'commit', '--only', '-m', message, '--', ...paths]
     : ['-C', cwd, 'commit', '-m', message];
-  const res = await runGit(commitArgs, cwd, args.timeoutMs || 30000);
+  const res = await runGit(commitArgs, cwd, args.timeoutMs || GIT_COMMIT_TIMEOUT_DEFAULT_MS);
   if (!res.ok) {
     // "nothing to commit" is a benign, common case — surface it as a clear 人话 result, not a scary error.
     const low = (String(res.stdout || '') + String(res.stderr || '')).toLowerCase();
@@ -2163,7 +2198,11 @@ async function gitCommit(args = {}) {
     // 暂存之后才失败(缺身份 / 钩子拒绝 / …):文件还留在暂存区,失败结果要说 —— 否则模型以为「什么都没发生」,下一次提交会把它们一起带走。
     const failure = gitHumanError(res, cwd);
     const merged = (String(res.stdout || '') + '\n' + String(res.stderr || '')).trim();
-    if (failure.error === 'Git 命令执行失败') {
+    if (res.timedOut) {
+      // 超时:可能是钩子慢(提示一句),但不是「被钩子拒绝」—— 不打 hookRejected。
+      const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
+      if (hooks.length) failure.hint += ` 这个仓库有 ${hooks.join(' / ')} 钩子,多半是钩子耗时过长(钩子进程已随超时一并结束)。`;
+    } else if (failure.error === 'Git 命令执行失败') {
       // 钩子拒绝:git 自己不打任何标签,只有钩子的输出;失败码非 0 且仓库里确有 pre-commit / commit-msg 钩子时归因于钩子。
       const hooks = await gitHookNames(cwd, ['pre-commit', 'commit-msg']);
       if (hooks.length && !/^fatal:/m.test(merged)) {
