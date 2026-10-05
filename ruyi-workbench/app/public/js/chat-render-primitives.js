@@ -151,6 +151,8 @@ export function createChatRenderPrimitives(deps = {}) {
     // 是因为若干单元测试用 vm 直接跑本文件的函数体,顶部 ESM import 会让它们编译失败。
     renderMermaidBlocks = () => Promise.resolve(0),
     renderResumeBanner,
+    // F9:「编辑重发」把原消息的附件放回托盘后重画托盘(组合根注入 app.js 的 renderAttachments;缺省空实现)。
+    renderAttachments = () => {},
     saveAsMemory,
     sendPrompt,
     state,
@@ -1105,10 +1107,37 @@ export function createChatRenderPrimitives(deps = {}) {
     copy.onclick = () => { navigator.clipboard?.writeText(msg.content || '').then(() => toast(t("toast.copied"), 'ok')); };
     bar.appendChild(copy);
     if (msg.role === 'user') {
+      // F9:这条消息发出去时带的附件。重试 / 编辑重发都要带上 —— 修前只重发文字,附件丢了。
+      // 去掉 previewUrl(托盘缩略图的 blob URL 只在原页面生命周期里有效,早被释放了)。
+      const sentAttachments = () => (Array.isArray(msg.attachments) ? msg.attachments : [])
+        .filter(a => a && (a.name || a.path))
+        .map(a => { const { previewUrl: _dead, ...rest } = a; return rest; });
       const edit = el('button', '', t('chat.editResend'));
-      edit.onclick = () => { $('promptInput').value = msg.content || ''; autoGrow($('promptInput')); $('promptInput').focus(); };
+      edit.onclick = () => {
+        const box = $('promptInput');
+        // 输入框里已经有一段没发出去的草稿:不覆盖它(修前一点就整段盖掉,草稿没了)。说一句,把光标留给用户自己决定。
+        if (String(box.value || '').trim()) { toast(t('chat.editResendKeepDraft'), ''); box.focus(); return; }
+        box.value = msg.content || ''; autoGrow(box);
+        const restored = sentAttachments();
+        if (restored.length) {
+          const key = a => String(a.id || a.path || a.name || '');
+          const have = new Set((state.attachments || []).map(key));
+          for (const a of restored) if (!have.has(key(a))) state.attachments.push(a);
+          renderAttachments();
+        }
+        // 触发 input:草稿存盘、「发送 / 插话 / 停止」按钮按新内容切态(直接改 value 不会发 input)。
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+        box.focus();
+      };
       const retry = el('button', '', t('chat.retry'));
-      retry.onclick = () => sendPrompt(msg.content || '');
+      retry.onclick = () => {
+        // 回合还在跑时 sendPrompt 会把这句话当【插话】递进去(它判的是「此刻有回合在跑」)—— 那不是「重试」。
+        const relay = state.sessionRelay;
+        const busy = state.streaming || Boolean(relay && state.currentSession && relay.sessionId === state.currentSession.id && relay.live === true);
+        if (busy) { toast(t('chat.retryWaitTurn'), ''); return; }
+        // 显式给 attachments(哪怕是空数组):不去动、也不会误带输入框托盘里别的附件。
+        sendPrompt(msg.content || '', { attachments: sentAttachments() });
+      };
       bar.append(edit, retry);
       // v0.8-S4b B2: 「⏪ 回溯到此处」— rewind the conversation to just before this message.
       const rewind = el('button', '', t('chat.rewindHere'));

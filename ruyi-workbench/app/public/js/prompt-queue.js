@@ -98,6 +98,8 @@ export function createPromptQueue({
   // 2026-10：「摆在用户面前的提问／权限」变了（弹窗开／关、小窗展开／收起、条目进出）就通知一声，
   // 组合根据此重算在场信号里的 viewing（js/presence-viewing.js）—— 用户看着的那几条，管家不插手。
   onViewChange = () => {},
+  // 一条被了结(答了 / 批了 / 别处决定了 / 超时 / 对账撤掉)时通知一声 —— 弹窗域据此丢掉那条提问的回答草稿(askDrafts)。
+  onSettled = () => {},
 } = {}) {
   const items = new Map();       // id -> { id, type, sessionId, requestedAt, deadlineAt, payload, addedAt }
   const settled = new Set();     // 已答/已决定的 id：重放与对账都不许把它复活
@@ -196,6 +198,7 @@ export function createPromptQueue({
     const key = String(id || '');
     if (!key) return;
     settled.add(key);
+    try { onSettled(key); } catch { /* 旁路 */ }
     const wasActive = active && active.id === key;
     items.delete(key);
     if (wasActive) {
@@ -435,8 +438,12 @@ export function createPromptQueue({
         bulk.onclick = async () => {
           bulk.disabled = true;
           try {
-            await allowToolForThread(group.sessionId, cand.tool, cand.items.map(i => i.payload));
-            for (const i of cand.items) settle(i.id);
+            const okIds = await allowToolForThread(group.sessionId, cand.tool, cand.items.map(i => i.payload));
+            // 只对成功(或已了结)的那几条出队;请求失败的留在队里、按钮恢复,可以再点或逐条处理。
+            // 回调没返回清单(老形状)就按全部成功算,与修前一致。
+            const done = Array.isArray(okIds) ? new Set(okIds.map(String)) : null;
+            for (const i of cand.items) if (!done || done.has(i.id)) settle(i.id);
+            if (done && done.size < cand.items.length) bulk.disabled = false;
           } catch { bulk.disabled = false; }
         };
         section.append(bulk);

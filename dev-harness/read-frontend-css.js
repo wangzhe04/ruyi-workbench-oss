@@ -79,12 +79,6 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //      并把最老的一条挪进 read-frontend-css.PIN-HISTORY.md 末尾(这里只留最近三条)。
 //   同一波里只让一处改 CSS 的改动自己重钉;几刀都动 CSS 时由主会话在都落地之后统一重钉一次。
 // 更早的全部记录(第66波起,七百多行)见同目录 read-frontend-css.PIN-HISTORY.md。最近三条:
-// 61 号文 C3 记忆批量卡续钉(前值 18e23fa1…＝2026-10 mermaid 五路走查续钉):零新增、零删除层,改一层 ——
-//   `css/states/chat-live.css`:记忆候选卡下面加批量卡的几条(`.memory-proposal-items` / `-item` / `-item-head` / `-pick` /
-//   `-body` / `-body-text`):每条一行、行间细分隔线,勾选框与名称同一行,正文收在 <details> 里(限高可滚)。
-//   颜色全走既有 token / color-mix,零新增动效;单条卡的规则零改动。
-// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show HEAD:<chat-live.css>` 重算 = 18e23fa1…,与被替换的旧值
-// 逐字相同(先自证再替换);按工作区重算得下面这个值。
 // 2026-10 3.0 收口走查第一波续钉(前值 ecad3e8f…＝61 号文 C3 记忆批量卡续钉):零新增、零删除层,真浏览器走查的布局修复改八层 ——
 //   `css/views/steward-shell.css`:≤1180 容器查询里补一条与基础规则同选择器的「右栏不占列」(修前特异度输掉,1024 宽中栏 364px＋392px 死列);
 //   `css/views/chat-shell.css`:线程头管家条可收(flex 0 4 auto)、线程名基准 10em(英文下线程名被挤成 0);
@@ -101,7 +95,12 @@ const CSS_COMPAT_ROUTES = Object.freeze(['css/views/chat.css']);
 //   `css/views/settings.css`:竖排设置导航允许长英文标签折行、导航列不出横向滚动条,≤640px 横排仍 nowrap。其余规则零改动。
 // 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show 9f22cb4:<css>` 重算 = c9f20392…,与被替换的旧值逐字相同
 // (先自证再替换);按工作区重算得下面这个值。
-const LEGACY_STYLES_SHA256 = '8c959d30b5bb83183e832ca30fb3fc35e68d043a1e87bdde4c6b15044109d136';
+// 2026-10 3.0 收口走查第一波 · 聊天区续钉(前值 8c959d30…＝2026-10 3.0 收口走查第一波 · 杂项续钉):零新增、零删除层,改两层 ——
+//   `css/components/chat-composer.css`:附件胶囊的「上传中」占位(`.attachment-pill.uploading`:没有 × 钮,右内边距补齐、半透明斜体);
+//   `css/components/chat-primitives.css`:附件大图查看器的暗幕打开时接焦点(Esc / 焦点归还),暗幕本身不画焦点框。其余规则零改动。
+// 算法自证:拦截 fs.readFileSync 让 readLayerPayload() 读 `git show ce7210c:<css>` 重算 = 8c959d30…,与被替换的旧值逐字相同
+// (先自证再替换);按工作区重算得下面这个值。
+const LEGACY_STYLES_SHA256 = '33d8aa55b408f13f72aea82baee822f33278b158ea7b48956f6a415a45fff99a';
 
 function cssSourceFiles() {
   return CSS_ROUTES.map(route => path.join(PUBLIC, ...route.split('/')));

@@ -7,7 +7,7 @@
 import { state } from './state.js';
 import { $, el, fileBasename, fmtBytes, toast } from './util.js';
 import { api, apiErrText as fallbackApiErrText } from './net.js';
-import { t, tCount } from './i18n.js';
+import { t, tCount, hasTranslation } from './i18n.js';
 
 export const ARTIFACT_KIND_ICON = {
   img: '🖼',
@@ -131,7 +131,8 @@ export function createArtifactChangesDomain({
 
   function changeToolLabel(entry) {
     const tool = String(entry && entry.tool || '').replace(/^.+?__/, '');
-    return tool ? (t('changes.tool.' + tool) || tool) : '';
+    // t() 对缺键回的是真值 `[key]`,`t(k) || tool` 永远走不到回落 —— 先问 hasTranslation,没有译文就显示工具原名。
+    return tool ? (hasTranslation('changes.tool.' + tool) ? t('changes.tool.' + tool) : tool) : '';
   }
 
   function changeSizeTransition(entry) {
@@ -242,7 +243,7 @@ export function createArtifactChangesDomain({
         const operation = ['create', 'modify', 'delete'].includes(entry.op) ? entry.op : 'unknown';
         const row = el('div', 'change-row' + (entry.skipped ? ' skipped' : ''));
         const rowHead = el('div', 'change-row-head');
-        rowHead.append(el('span', 'change-op ' + operation, t('changes.op.' + operation) || t('changes.op.modify')));
+        rowHead.append(el('span', 'change-op ' + operation, t(hasTranslation('changes.op.' + operation) ? 'changes.op.' + operation : 'changes.op.modify')));
         rowHead.append(el('span', 'change-icon', changeKindIcon(pathValue)));
         const name = el('span', 'change-name', fileBasename(pathValue));
         name.title = pathValue;
@@ -463,7 +464,7 @@ export function createArtifactChangesDomain({
       if (!result || !result.ok || (result.failed || []).length) {
         if (button) {
           button.disabled = false;
-          button.textContent = t('changes.revertTitle');
+          button.textContent = t('changes.revert');   // 按钮文字是 changes.revert(「撤销」);changes.revertTitle 是 tooltip 长句,不能当按钮文字
         }
         const reason = apiErrText(result && result.error)
           || (result && result.failed && result.failed[0] && result.failed[0].reason)
@@ -476,7 +477,7 @@ export function createArtifactChangesDomain({
     } catch (error) {
       if (button) {
         button.disabled = false;
-        button.textContent = t('changes.revertTitle');
+        button.textContent = t('changes.revert');
       }
       toast(t('toast.rollbackFail', { p1: apiErrText(error) }), 'err');
     }
