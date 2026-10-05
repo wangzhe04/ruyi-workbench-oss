@@ -51,7 +51,8 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
       if (config.betaInterleavedThinking) args.push('--betas', 'interleaved-thinking');
       if (config.includeWorkbenchMcp) {
         const claudeToolPacks = classifyToolPacks(basePrompt, attachments);
-        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks));
+        // 会话级 desktopTools 一并交过去:full 模式直挂的 ACC 按这条线程的桌面闸裁剪(01 desktopMcpPolicyEnv)。
+        args.push('--mcp-config', await generateSessionMcpConfig(session.id, config.mcpCommandMode, claudeToolPacks, { desktopOverride: sessionDesktopToolsOf(session) }));
         // In print mode the documented stream-json input accepts text user messages, not arbitrary tool_result
         // envelopes. Route questions through our MCP tool instead of Claude's terminal-only native prompt.
         if (interactive) args.push('--disallowedTools', 'AskUserQuestion');
@@ -211,7 +212,7 @@ const AGENT_CLI_ADAPTERS = Object.freeze({
 function agentCliAdapter(type) { return AGENT_CLI_ADAPTERS[normalizeAgentCliType(type)]; }
 
 async function runClaudeTurn({
-  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam,
+  session, message, attachments, cwd, onEvent, config: turnConfig, driverAuto, agentTeam, messageMeta,
   _resumeRecoveryAttempt = false, _recoveryHistoryOverride = null, _traceId = '', _workspaceBaseline = null,
 }) {
   const turnStartedAt = Date.now();
@@ -314,6 +315,8 @@ async function runClaudeTurn({
       traceId: activeTraceId,
       createdAt: nowIso(),
       ...(driverAuto ? { source: 'mission-driver' } : {}), // 第26波b: 标记账本驱动器自动续跑,前端可区分显示
+      // 「这条用户消息从哪来」(同 09 runOpenAiTurn 的 messageMeta):管家递话 origin:'steward'、后台代理唤醒 origin:'agent_wake'。
+      ...(messageMeta && typeof messageMeta === 'object' ? { meta: messageMeta } : {}),
     });
     // 122-§2.4:起跑这一存做落盘前合并(同 09 起跑那一存的头注)—— claude/kimi 两路都从这里起跑。
     await saveSession(session, { mergeMissionFromDisk: true });

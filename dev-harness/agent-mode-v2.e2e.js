@@ -87,6 +87,9 @@ try {
   fs.writeFileSync(path.join(HOME, 'config.json'), JSON.stringify({
     configSchema: 9, version: '3.0.0', permissionMode: 'bypass', toolLoadingMode: 'full',
     defaultWorkspace: HOME, subagentMaxPerTurn: 8, subagentMaxConcurrent: 2, agentWorkflowMaxNodes: 48,
+    // 本件验的是「信封随下一回合开头恰好送达一次」这条投递链;后台代理完成自动唤醒(agent-wake.e2e.js 验)关掉,
+    // 否则 run 在空闲时跑完会先被唤醒回合收走,C/F3 的「下一回合里恰好一条通知」就不再是这条链。
+    agentAutoWake: false,
     providers: [{ id: 'fake', label: 'Fake', type: 'openai-compat', baseUrl: `http://127.0.0.1:${FAKE_PORT}`, apiKey: 'k', model: 'fake-model', models: [{ id: 'fake-model', label: 'Fake' }] }], activeProvider: 'fake',
   }, null, 2));
   const script = JSON.stringify({

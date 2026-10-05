@@ -380,7 +380,7 @@
         "window": 10000
       }
     },
-    "promptSha256": "7be8925dec44c4ec5ec8f37603bdcd188174217a7cc77c79d6efbc91a012fcf2",
+    "promptSha256": "9ed04dcfba48e1550aeb063eafca0c394fbfca0732590c9b13a6276bbbd8ee9a",
     "requiredSections": [
       [
         "【目标】",
@@ -417,7 +417,7 @@
       "subagent": "10a288244c5a4dc5c4097d8f20717d32f65d72c252a150c86d9e8b8ce5ca5803"
     },
     "ruleSchema": 1,
-    "rulesSha256": "a2f67fdc09d2f51c51f1f87df17ce8b7ba50c8106a9694319ff9a76729aa11b8"
+    "rulesSha256": "106e4e4c3edcf91aade87e2dd41eb8d138ea32488bcd4ee42aa0de41525f4fc2"
   },
   "permission": {
     "modes": [
@@ -427,13 +427,13 @@
       "auto",
       "bypass"
     ],
-    "nativeToolCount": 109,
+    "nativeToolCount": 114,
     "tierCounts": {
       "edit": 25,
       "exec": 24,
-      "read": 60
+      "read": 65
     },
-    "tierMapSha256": "5f4d6fbbc19aa28d8b9a2b2ab6add44eb0e50a4b5f2347fb465d39263fefb329"
+    "tierMapSha256": "7c526dea35ec0c05a95b0def602e003fc55e68b43e5700232377af478dc1fe86"
   },
   "persistence": {
     "durableJsonStoreApi": [

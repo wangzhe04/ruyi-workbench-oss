@@ -168,7 +168,15 @@ ok(t1.classifyRuntimeToolFailure('file_read', { ok: false, code: 'not-allowed', 
 ok(t1.classifyRuntimeToolFailure('shell_send', { ok: false, error: "未知 shellId 'gone'" }, { tier: 'exec' }).failureClass === 'resource_not_found', 'F1 expired runtime handle → resource_not_found');
 ok(t1.classifyRuntimeToolFailure('file_edit', { ok: false, error: 'HTTP 503 Service Unavailable' }, { tier: 'edit' }).failureClass === 'side_effect_unknown', 'F1 mutating transport ambiguity never becomes retry_once');
 ok(t1.classifyRuntimeToolFailure('file_read', { ok: true, error: 'warning field present' }, { tier: 'read' }) === null, 'F1 ok:true warning does not become a failure');
-ok(timedExec.classifierVersion === 'deterministic-v2' && !JSON.stringify(timedExec).includes('process tree killed'), 'F1 v2 telemetry exposes version but not raw stderr');
+ok(timedExec.classifierVersion === 'deterministic-v3' && !JSON.stringify(timedExec).includes('process tree killed'), 'F1 v3 telemetry exposes version but not raw stderr');
+// v3:读结构化 failClass / statusCode / blocked / argsInvalid;逐条正反例在 unit/runtime-failure-classifier.test.js,这里只钉住「最先判安全分支」与「403 不再是权限拒绝」两个不变量。
+const webForbidden = t1.classifyRuntimeToolFailure('web_fetch', { ok: false, error: '网站拒绝了请求(HTTP 403,可能反爬)', failClass: 'http', statusCode: 403 }, { tier: 'read' });
+ok(webForbidden.failureClass === 'remote_blocked' && webForbidden.allowedRepair === 'use_alternative_source', 'F1 v3 web 403 → remote_blocked(不再是 permission_denied/request_authority)');
+ok(t1.classifyRuntimeToolFailure('web_fetch', { ok: false, error: '页面不存在(HTTP 404)', failClass: 'http', statusCode: 404 }, { tier: 'read' }).failureClass === 'resource_not_found', 'F1 v3 web 404 → resource_not_found');
+ok(t1.classifyRuntimeToolFailure('http_download', { ok: false, error: '对方服务器中断了连接(可能有反爬限制)', failClass: 'reset' }, { tier: 'edit' }).failureClass === 'side_effect_unknown', 'F1 v3 mutating disconnect stays side_effect_unknown before any new rule');
+ok(t1.classifyRuntimeToolFailure('tool_invoke_read', { ok: false, code: 'tier-mismatch', error: 'risk tier mismatch' }, { tier: 'read' }).failureClass === 'invalid_arguments', 'F1 v3 tier-mismatch → invalid_arguments');
+const v3Samples = [{ error: '网站拒绝了请求', statusCode: 403 }, { error: 'x', failClass: 'tls' }, { error: 'x', failClass: 'reset' }, { error: 'HTTP 500', statusCode: 500 }, { code: 'not_found', error: 'x' }];
+ok(['edit', 'exec'].every(tier => v3Samples.every(r => t1.classifyRuntimeToolFailure('t', { ok: false, ...r }, { tier }).allowedRepair !== 'retry_once')), 'F1 v3 no new rule maps an edit/exec result to retry_once');
 
 console.log('\n── [E0] three-layer call ledger shadow (21) ──');
 ok(/toolEconomicsShadowV1: true/.test(src), 'E0 economics shadow defaults true (sampled)');

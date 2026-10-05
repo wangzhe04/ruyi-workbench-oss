@@ -32,8 +32,9 @@ if (require.main === module) {
 }
 
 module.exports = {
-  // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调。
-  dispatchTestHooks: { validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
+  // 工具分发批(审计 N1/N4/N5/N6/N7/A2/A14/F3/NE-12;走查 W1·F10 的 sweepStaleScriptFiles)的纯函数与钩子,一个键收口 —— unit/tool-dispatch-hardening.test.js 直调(sweepStaleScriptFiles:unit/script-run-cleanup.test.js)。
+  // 2026-10 能力总闸补桥接面:toolDisabledByPolicy / accPolicyHiddenToolNames / dropPolicyDisabledBridgedTools / ACC_POLICY_TOOL_FAMILIES 同住这个键(unit/acc-capability-gates.test.js 直调)。
+  dispatchTestHooks: { sweepStaleScriptFiles, validateNativeToolArgs, suggestToolNames, toolFailureResult, nativeToolDisabledByPolicy, toolDisabledByPolicy, accPolicyHiddenToolNames, dropPolicyDisabledBridgedTools, ACC_POLICY_TOOL_FAMILIES, unwrapToolInvokeCall, toolInvokeEnvelopeRepair, toolArgsSkeleton, withToolArgsGuide, toolArgsMissingRequired, normalizeMcpToolResult, VisualPipeline, attachScreenshotImage, desktopAuditEntriesFromResult, bridgedDesktopLeaseMode, mcpChildExitResult, bridgedServerUnavailableMessage },
   apiSessionIdInvalid, apiSessionNotFound, // 架构还债批 1 #7:两句最常见的会话路由失败(unit/api-error-helpers.test.js)
   IRREVERSIBLE_NATIVE_KIND, TURN_SUMMARY_FILE_TOOLS, TURN_SUMMARY_COMMAND_TOOLS, // 架构还债批 1 #9:与工具注册表对账(unit/tool-metadata-consistency.test.js)
   runKeyedChain, // 架构还债批 1 #3:按 key 串行写链的唯一实现(unit/keyed-chain.test.js)

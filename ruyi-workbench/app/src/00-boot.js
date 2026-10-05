@@ -23,7 +23,7 @@ const zlib = require('zlib'); // v0.8-S4a: checkpoint journal gzips `before` con
 const { URL, pathToFileURL } = require('url');
 
 const APP_NAME = '如意 Ruyi'; // v0.8-S8 品牌落地(原 'Win Claude Workbench';去 Claude 化,开源商标合规)
-const VERSION = '3.0.0-preview.2'; // Pretender 3.0 预览版 2（2026-09-25）：128 偿债波起到 137 波（preview.1 只打了标签、没发 Release）；正式 3.0.0 仍按 50 号文三组门（55 号文）
+const VERSION = '3.0.0-preview.3'; // Pretender 3.0 预览版 3（2026-10-05）：预览版 2 之上并入 PR #1–#43（走查、偿债、性能、权限五档、61 号文等）；正式 3.0.0 仍按 50 号文三组门（55 号文）
 // Unique per running server instance; lets an updater prove the process actually restarted
 // after an overlay was applied (a version string alone can't prove a restart happened).
 const OVERLAY_ID = crypto.randomBytes(6).toString('hex');
@@ -33,11 +33,13 @@ const MAX_BODY_BYTES = 128 * 1024 * 1024;
 // (同一请求流里先撞哪条闸,决定 26 MB 夹具拿到的是 413 还是放行;反向:把本常量换成 MAX_BODY_BYTES
 // 或把判定挪到 readBody 之后,asr-transcribe.e2e.js 的 24.9/26 MB 返回码对照当场红)。
 const ASR_MAX_BODY_BYTES = 25 * 1024 * 1024;
+// 14(2026-10):出厂权限档翻成「智能自动」。<14 的存量文件里没存过档的,迁移钉回当年的默认 'default'
+// (01-config CONFIG_MIGRATIONS to:14)—— 新默认只给全新安装,不悄悄放开老用户。
 // 13(128a,48 号文 §2):配置只落「改过的键」——显式键集合 configExplicitKeysV1 ＋ 稀疏落盘,没碰过的设置跟随
 // 产品当前默认;迁移按显式键判。本号本身不挂迁移(推断每次读都跑),只标记「这份文件是稀疏格式写的」。
 // 12(v2.8 / 107-T1): 126-111b/111d/111e 三个压缩开关翻成默认开,并对 schema<12 的存量配置做一次性
 // 迁移(盘上显式写着的 false → true)。11 = v2.8 selectable Agent CLI driver (Claude Code / Kimi Code)。
-const CONFIG_SCHEMA = 13;
+const CONFIG_SCHEMA = 14;
 // v0.8-S0: session file schema. Bumped independently of CONFIG_SCHEMA; normalizeSession backfills.
 const SESSION_SCHEMA = 1;
 
@@ -342,13 +344,30 @@ function safeJsonParse(raw, fallback = null) {
 // chunk 边界不保证落在字符边界上,而 CJK 是 3 字节:对每个 chunk 单独 toString('utf8') 会把
 // 被切开的汉字静默变成 U+FFFD,后续续接字节也解码成垃圾。这是一个以中文为主的产品的主干道。
 // flush() 负责子进程关闭后把 decoder 里的残字与最后那半行交出去(三者协议都是「一行一个 JSON」)。
-// ── 控制台输出解码(PowerShell / cmd / 原生命令)────────────────────────────────────────────────────────
-// 中文 Windows 上,无控制台(windowsHide)起的 powershell.exe 往重定向的 stdout 写的是系统代码页(GBK/cp936),
-// 原生命令也多半如此;而 git、node、python(UTF-8 模式)写的是 UTF-8 —— 同一份输出里两种编码混着来很常见。
-// [Console]::OutputEncoding 那类 PS 侧方案在无控制台 spawn 下无效(04-desktop-shell 头注里实测过),所以在 Node 侧解:
-// 【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
-// 合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
-// 所以按它切是安全的。纯 ASCII 行两种解法结果一样。
+// ── 控制台输出:PowerShell 源头编码 + Node 侧按行解码(PowerShell / cmd / 原生命令)────────────────────────
+// 两层,各管一头:
+// ① 源头(PS_UTF8_OUTPUT_PREAMBLE,04 withQuietProgress 与 11 shellStart 的脚本头加上):powershell.exe 把输出按【控制台代码页】编码。
+//    非中文代码页的机器(en-US:OEM 437 / ANSI 1252)上中文在源头就被写成 `?`(0x3f)—— Write-Output '中文'、Get-ChildItem -Name
+//    列中文文件名、cmd /c dir 全是 `????`,信息已经丢了,Node 侧无从还原。2026-10 在 en-US 机器上实测:windowsHide 起的子进程
+//    有自己的隐藏控制台,脚本头设 [Console]::OutputEncoding 有效(中文输出 / 文件名 / cmd /c dir / Write-Host / stderr 全对)。
+//    旧注释说这类 PS 方案「在无窗口 spawn 下会静默失效」,在这台机器上不成立。必须用 UTF8Encoding($false)(无 BOM):
+//    [Text.Encoding]::UTF8 带 BOM,会污染首行;脚本里 `chcp 65001` 实测无效。设置失败(try/catch 吞掉)
+//    就退回修前行为,由下面 ② 兜底。`$OutputEncoding` 同步是管道往原生命令喂字符串时用的编码(5.1 默认 ASCII,中文也会变 `?`)。
+// ② Node 侧兜底:中文 Windows 上设置失败、个别原生命令自己写 GBK(不看控制台代码页)、git/node/python(UTF-8 模式)
+//    写 UTF-8 —— 同一份输出里两种编码混着来很常见。
+//    【按行】判定 —— 合法 UTF-8 就按 UTF-8,否则按 GB18030(GBK 的超集)。按行而不是整段:修前整段只要有一处不是
+//    合法 UTF-8 就整段按 GBK 解,混排输出里的 UTF-8 部分反被解坏。换行符 0x0A 在两种编码里都不会出现在多字节字符中间,
+//    所以按它切是安全的。纯 ASCII 行两种解法结果一样。源头设成 UTF-8 后输出被 UTF-8 优先分支正确接住。
+//
+// 共享控制台的副作用(2026-10 实测结论):[Console]::OutputEncoding 的 setter 最终是 SetConsoleOutputCP,理论上改的是
+// 【当前控制台】的代码页。但本进程起 PowerShell 一律是 windowsHide + 管道 stdio(libuv 此时加 CREATE_NO_WINDOW),子进程拿到的是
+// 【自己新建的隐藏控制台】,不与本进程共享。探针(node 挂真控制台,先 chcp 850 做哨兵):生产形态的子进程初始代码页是 437
+// (自己的控制台)、设完 65001,node 所在控制台仍是 850;对照组(stdin 继承 → 子进程共享 node 的控制台,初始看到 850)设 65001 后,
+// PS 进程退出时 node 的控制台也被还原回 850(Windows PowerShell 5.1 / .NET 在退出时还原代码页)。所以两种形态都碰不到
+// 启动本进程的那个终端:RuyiDesktop.exe(CreateNoWindow + 重定向)、Start-Workbench.cmd(Start-Process -WindowStyle Hidden)、
+// 直接 `node server.js serve`(可见控制台,是 node 自己的,子进程不共享)。即便将来有路径让它漏出去,Node 写 TTY 走
+// WriteConsoleW(UTF-16)不受代码页影响,后续子进程输出 UTF-8 也被 ② 正确解码,风险仅限于终端里别的程序的显示编码。
+const PS_UTF8_OUTPUT_PREAMBLE = 'try{[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)}catch{};$OutputEncoding=[Console]::OutputEncoding;';
 let _consoleGbDecoder = null;
 const _consoleUtf8Strict = new TextDecoder('utf-8', { fatal: true });
 function decodeConsoleSegment(buf) {
@@ -409,6 +428,26 @@ function createConsoleLineDecoder() {
     end: take,
     get pendingBytes() { return pending.length; },
   };
+}
+
+// 走查 W1·F4:【文本文件】字节 → 文本(附件 textPreview、/api/file/preview 用)。修前一律按 UTF-8 解:GBK 的 .txt/.csv(中文 Windows
+// 上最常见的「另存为」结果)、带 BOM 的 UTF-16LE(PowerShell Out-File 的默认输出)满屏 U+FFFD,而且附件预览还会原样进
+// 喂给模型的 <attached_files>。判据与 11b FileTextIo.sniffEncoding / decodeBuffer(…, 'auto') 同口径:BOM(UTF-8 / UTF-16LE / UTF-16BE)优先 →
+// 严格 UTF-8 → 严格 GB18030 → 都不是就宽松 UTF-8(坏字节显示 U+FFFD)。UTF-8 BOM 留在文本里(同修前与 file_read),UTF-16 的 BOM 剥掉。
+// 本函数住在 00-boot 而不直接用 FileTextIo:11b 是工具层,03/04(基础层)引用它会新增一条反向层级的依赖边(module-dependency-graph
+// 静态锁拒绝);改判据要两边同改,unit/text-file-decode.test.js 在一张字节样本网格上逐格比对两者的输出。
+// complete=false:buf 只是文件的前缀(被截断在 N 字节处),尾部切在多字节字符中间不算非法、也不留半个字符的 U+FFFD;
+// 修前截断预览是 toString('utf8'),切开的尾字符会多一个 U+FFFD。
+function decodeTextFileBytes(buf, complete = true) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf || '');
+  const stream = complete === false;
+  const td = (label, fatal) => new TextDecoder(label, { fatal, ignoreBOM: true });
+  if (b.length >= 3 && b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf) return td('utf-8', false).decode(b, { stream });
+  if (b.length >= 2 && b[0] === 0xff && b[1] === 0xfe) return td('utf-16le', false).decode(b.subarray(2), { stream });
+  if (b.length >= 2 && b[0] === 0xfe && b[1] === 0xff) return td('utf-16be', false).decode(b.subarray(2), { stream });
+  try { return td('utf-8', true).decode(b, { stream }); } catch { /* 不是合法 UTF-8 */ }
+  try { return td('gb18030', true).decode(b, { stream }); } catch { /* 也不是 GBK,或这个 Node 没带 GB18030 的 ICU */ }
+  return td('utf-8', false).decode(b, { stream });
 }
 
 function createNdjsonLineFeeder(onLine) {
@@ -725,6 +764,19 @@ function appendUsageLedger(entry) {
 function usageDayKey(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// 61-A3:给模型看的本地时间(provider 引擎每条 user 消息落历史时带一行,文案在 06b turnTime)。分钟粒度;
+// weekday 0 = 周日;offset 形如 UTC+08:00(日志 ts 是 UTC,模型要换算时靠它)。
+function localTurnTimeParts(ms) {
+  const d = new Date(ms);
+  const p2 = n => String(n).padStart(2, '0');
+  const off = -d.getTimezoneOffset();
+  const abs = Math.abs(off);
+  return {
+    stamp: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`,
+    weekday: d.getDay(),
+    offset: `UTC${off >= 0 ? '+' : '-'}${p2(Math.floor(abs / 60))}:${p2(abs % 60)}`,
+  };
 }
 // 性能批 P1:账大体按时间追加,相邻行多半同一天。记住上一次算出的那一天的 [本地 0 点, 次日 0 点),落在里面就复用日键 ——
 // 日键只由 ms 决定,区间内处处相同,所以结果与逐行 usageDayKey 相同(NaN 永远不落在区间里,照旧逐次现算)。

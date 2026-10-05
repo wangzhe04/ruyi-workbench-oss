@@ -53,6 +53,26 @@ export function visibleFavoriteWorkspaces(rows, ctx) {
   return (Array.isArray(rows) ? rows : []).filter(row => row && String(row.path || '') && !isRuyiOwnedWorkspace(row.path, ctx));
 }
 
+// 工作文件夹路径的两个纯判定（原在 workspace-preferences.js，设置页「添加/默认工作文件夹」要同一口径所以搬到这里）。
+// v1.0.2 返修:Windows「复制文件地址」会给路径包上双引号("C:\path"),部分终端复制还带单引号/全角引号——
+// 先剥掉成对的包裹引号再校验,否则用户按系统习惯复制的路径全被误拒。只剥【成对且在首尾】的引号,不动路径内部。
+export function stripWrappingQuotes(p) {
+  let s = String(p || '').trim();
+  const pairs = [['"', '"'], ["'", "'"], ['“', '”'], ['‘', '’']];
+  for (let guard = 0; guard < 3; guard++) { // 最多剥三层(防 ""C:\x"" 类粘贴),够用且防死循环
+    const hit = pairs.find(([a, b]) => s.length >= 2 && s.startsWith(a) && s.endsWith(b));
+    if (!hit) break;
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+export function looksAbsolutePath(p) {
+  const s = stripWrappingQuotes(p);
+  if (!s) return false;
+  // Windows 盘符 (C:\ / C:/) 或 UNC (\\server\share) 或 POSIX 绝对 (/foo)。
+  return /^[a-zA-Z]:[\\/]/.test(s) || /^\\\\/.test(s) || /^\//.test(s);
+}
+
 // HTML 转义(XSS 安全渲染兜底)。
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));

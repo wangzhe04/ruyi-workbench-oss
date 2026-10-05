@@ -93,7 +93,8 @@ const claudeDir = path.join(home, '.claude');
 const settingsPath = path.join(claudeDir, 'settings.json');
 const settingsSidecar = path.join(data, 'claude-settings-sync.json');
 const settingsReset = () => { rmrf(claudeDir); rmrf(settingsSidecar); fs.mkdirSync(claudeDir, { recursive: true }); };
-const settingsConfig = (patch = {}) => ({ permissionMode: 'default', model: '', thinkingBudget: 0, ...patch });
+// configExplicitKeysV1 含 permissionMode = 用户显式选过档位(出厂值不同步进用户的 settings.json,见 syncClaudeCliSettings 的 "1. Permission mode")。
+const settingsConfig = (patch = {}) => ({ permissionMode: 'default', model: '', thinkingBudget: 0, configExplicitKeysV1: ['permissionMode'], ...patch });
 const userSettings = { permissions: { allow: ['Bash(npm test)'] }, env: { MY_VAR: '1' }, hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo hi' }] }] }, statusLine: { type: 'command', command: 'keep-me' } };
 
 test('[C1] 带尾逗号的坏 settings.json 原样不动(旁账也不写)', async () => {

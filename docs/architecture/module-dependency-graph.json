@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3389,
-    "requiredSymbols": 3072,
-    "edges": 532,
+    "providedSymbols": 3504,
+    "requiredSymbols": 3136,
+    "edges": 536,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -33,6 +33,7 @@
         "MAX_BODY_BYTES",
         "MigrationHooks",
         "OVERLAY_ID",
+        "PS_UTF8_OUTPUT_PREAMBLE",
         "RUYI_DATA_DIR_NAME",
         "RUYI_EVENTS",
         "RUYI_EVENT_SUBSCRIBERS",
@@ -77,6 +78,7 @@
         "dataRootMemoKey",
         "decodeConsoleSegment",
         "decodeConsoleText",
+        "decodeTextFileBytes",
         "defaultDataRoots",
         "ensureDirs",
         "exePath",
@@ -94,6 +96,7 @@
         "isDirectServeInvocation",
         "isPkg",
         "json",
+        "localTurnTimeParts",
         "lstatOrNull",
         "makeId",
         "migrateLegacyDataRoot",
@@ -371,6 +374,7 @@
         "RUNTIME",
         "RUYI_AGENT_FILE_MARKER",
         "RUYI_AGENT_FILE_MARKER_RE",
+        "SCRIPT_FILE_MAX_AGE_MS",
         "SESSION_MCP_CONFIG_MAX_AGE_MS",
         "STEWARD_MANAGED_WORKSPACES_CAP",
         "STEWARD_WORKSPACE_LEGACY_NOTE",
@@ -439,6 +443,7 @@
         "desktopMcpFromRepoAsync",
         "desktopMcpInstalledEnv",
         "desktopMcpInstalledPickOptions",
+        "desktopMcpPolicyEnv",
         "desktopMcpRepoEnv",
         "desktopMcpRootPlan",
         "desktopMcpWarmInFlight",
@@ -519,6 +524,7 @@
         "spawnProbeAsync",
         "staticBase",
         "stewardManagedWorkspaceKey",
+        "sweepStaleScriptFiles",
         "sweepStaleSessionMcpConfigs",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
@@ -894,9 +900,23 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "accPolicyHiddenToolNames",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "claudePermissionMode",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -1024,6 +1044,8 @@
         "JOURNAL_KEEP_HISTORY_SNAPSHOTS",
         "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "JOURNAL_REVERT_LOG_MAX",
+        "JOURNAL_REVERT_PATHS_MAX",
         "JOURNAL_SWEEP_BACKOFF_MS",
         "MISSIONS_DIR_NAME",
         "MISSION_CHANGE_TYPES",
@@ -1055,6 +1077,8 @@
         "SESSION_META_STALE_REPLAYS",
         "SESSION_MUTATE_STALE_REPLAYS",
         "SESSION_NOTES_MAX_CHARS",
+        "SESSION_SCRATCHPAD_LIMITS",
+        "SESSION_SCRATCHPAD_SCHEMA",
         "SESSION_STORAGE_VERSION",
         "SESSION_TOMBSTONE",
         "STEWARD_WATCH_NOTE_MAX",
@@ -1138,6 +1162,15 @@
         "journalRecordManyUnlocked",
         "journalRecordUnlocked",
         "journalResolveTurnSeq",
+        "journalRevertChains",
+        "journalRevertLogPath",
+        "journalRevertLogPrune",
+        "journalRevertLogRead",
+        "journalRevertLogRecord",
+        "journalRevertLogWrite",
+        "journalRevertNoticesAck",
+        "journalRevertNoticesPeek",
+        "journalRevertRecordOf",
         "journalRollback",
         "journalSessionCtx",
         "journalSweepBackoffUntil",
@@ -1195,6 +1228,9 @@
         "normalizeMissionContainer",
         "normalizeMissionLastCheck",
         "normalizeMissionUpdateArgs",
+        "normalizeScratchpadKey",
+        "normalizeScratchpadText",
+        "normalizeScratchpadWriteArgs",
         "normalizeSession",
         "normalizeTodoItems",
         "normalizeTodoWriteArgs",
@@ -1215,6 +1251,7 @@
         "readSessionIndex",
         "readSessionNotes",
         "readSessionRouteHead",
+        "readSessionScratchpad",
         "rebaseStaleSessionBody",
         "reconcileMissionThreads",
         "reconcileWorkspaceTurnBaseline",
@@ -1232,9 +1269,11 @@
         "rewindSession",
         "safeMissionId",
         "sanitizeImportedSessionMessages",
+        "sanitizeSessionScratchpad",
         "saveSession",
         "saveTurnFinalSession",
         "scheduleSessionIndexUpdate",
+        "scratchpadTotalChars",
         "serializeSessionBody",
         "sessionBodyDanglingFromLines",
         "sessionBodyFileStamp",
@@ -1282,6 +1321,9 @@
         "sessionRewindGenHighWater",
         "sessionRewoundError",
         "sessionSaveIsTombstoned",
+        "sessionScratchpadChains",
+        "sessionScratchpadPath",
+        "sessionScratchpadStore",
         "sessionTodosSignature",
         "setSessionBodyState",
         "setSessionIndexRebuildScanHookForTest",
@@ -1294,6 +1336,7 @@
         "truncateSessionBody",
         "updateSessionMeta",
         "updateSessionMetaAttempt",
+        "updateSessionScratchpad",
         "waitMissionTurnSettled",
         "withJournalWriteLock",
         "withMissionContainerLock",
@@ -1448,6 +1491,13 @@
           "symbol": "atomicWriteJson",
           "kinds": [
             "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "DurableJsonStore",
+          "kinds": [
+            "read"
           ]
         },
         {
@@ -1859,6 +1909,7 @@
         "WRITE_PATH_ARGS",
         "WRITE_PROTECTED_DATA_DIRS",
         "WRITE_PROTECTED_DATA_FILES",
+        "WriteBoundaryHooks",
         "_dataRootReal",
         "_defaultBrowserExecutable",
         "_gitCliProbe",
@@ -1948,6 +1999,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "fs",
           "kinds": [
             "read"
@@ -2012,6 +2070,13 @@
         {
           "provider": "01d-win-cmdline.js",
           "symbol": "batchSafeSpawn",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01d-win-cmdline.js",
+          "symbol": "isBatchLauncher",
           "kinds": [
             "call"
           ]
@@ -2229,6 +2294,7 @@
         "logStreamDay",
         "makeAttachmentRecord",
         "maskUrlQueryCredentials",
+        "mcpBridgeError",
         "mcpChildExitResult",
         "mcpClientFailures",
         "mcpClientFingerprints",
@@ -2307,6 +2373,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "dataRoot",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "decodeTextFileBytes",
           "kinds": [
             "call"
           ]
@@ -2611,6 +2684,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "PS_UTF8_OUTPUT_PREAMBLE",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "spawnDetachedChecked",
           "kinds": [
             "call",
@@ -2735,6 +2815,13 @@
         {
           "provider": "04-permission-runtime.js",
           "symbol": "invalidateToolboxCache",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
+          "symbol": "killChildTree",
           "kinds": [
             "call"
           ]
@@ -3490,6 +3577,13 @@
         {
           "provider": "02c-turn-segments.js",
           "symbol": "createTurnSegmentBuilder",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -5014,6 +5108,7 @@
         "maybeWriteThreadBrief",
         "metricsBucketIndex",
         "networkAnchors",
+        "neutralizeAuthoredText",
         "normalizeMetricsPath",
         "normalizePlaybook",
         "normalizeStoragePolicy",
@@ -5457,7 +5552,11 @@
         "PROMPT_EN",
         "PROMPT_PACK_VERSION",
         "PROMPT_ZH",
-        "getPromptPack"
+        "REVERT_NOTICE_PATHS_MAX",
+        "REVERT_NOTICE_TURNS_MAX",
+        "getPromptPack",
+        "revertNoticeNames",
+        "revertNoticeTurns"
       ],
       "requires": [
         {
@@ -5714,9 +5813,11 @@
         "MEMORY_INDEX_CAP",
         "MEMORY_MAX",
         "MEMORY_METADATA_READ_CAP",
+        "MEMORY_PROPOSAL_BATCH_MAX",
         "MEMORY_PROPOSAL_HISTORY_MAX",
         "MEMORY_PROPOSAL_MIN_JUDGE_GAP",
         "MEMORY_PROPOSAL_MIN_TURN_GAP",
+        "MEMORY_PROPOSAL_STATE_MAX_BYTES",
         "MEMORY_QUERY_STOP",
         "MEMORY_RELATION_CAP",
         "MEMORY_RELATION_TYPES",
@@ -5734,13 +5835,16 @@
         "agentInstructionSourceKeyOf",
         "agentInstructionSources",
         "analyzeMemoryMaintenance",
+        "applyMemoryBatchProposal",
         "applyMemoryRelationProposal",
         "buildCoreMemoryPromptSection",
         "buildMemoryCheckPrompt",
         "buildMemoryConflictMap",
         "buildMemoryPromptSection",
         "cleanMemoryDate",
+        "commitSingleMemoryProposal",
         "commitToolMemoryProposal",
+        "commitToolMemoryProposalUnlocked",
         "confirmMemoryRelation",
         "decideMemoryProposal",
         "deleteMemory",
@@ -5767,13 +5871,18 @@
         "memoryHaystackHasTerm",
         "memoryIsExpired",
         "memoryProjectDir",
+        "memoryProposalBatchInput",
+        "memoryProposalDuplicateFailure",
+        "memoryProposalHistoryRows",
         "memoryProposalInFlight",
         "memoryProposalIsDuplicate",
         "memoryProposalLooksSensitive",
         "memoryProposalPrefilter",
         "memoryProposalSemanticKey",
         "memoryProposalSimilarity",
+        "memoryProposalStateChains",
         "memoryProposalStateFile",
+        "memoryProposeAlreadyPendingResult",
         "memoryRecallCorpus",
         "memoryRecallCorpusCache",
         "memoryRelationsFile",
@@ -5787,6 +5896,7 @@
         "migrateLegacyAccMemory",
         "migrateMemory",
         "mutateMemoryUsageState",
+        "normalizeMemoryProposalCandidate",
         "parseMemoryDraft",
         "parseMemoryProposalDecision",
         "planAgentInstructionEntries",
@@ -5914,6 +6024,13 @@
           "symbol": "paths",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "runKeyedChain",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -6332,6 +6449,7 @@
         "bridgedDesktopLeaseMode",
         "canonicalResourcePath",
         "drainResourceWaiters",
+        "groupHoldsLease",
         "inferToolResources",
         "normalizeAgentResource",
         "normalizeAgentResources",
@@ -6598,18 +6716,28 @@
       "layer": "orchestration",
       "note": "Provider 工具目录、权限 gate、failover 与 Agent 角色支撑",
       "provides": [
+        "ACC_COMMAND_TOOL_NAMES",
+        "ACC_DESKTOP_TOOL_NAMES",
+        "ACC_DISPATCHER_TOOL_NAMES",
+        "ACC_POLICY_TOOL_FAMILIES",
         "ACTION_VIEW_MIN_CHARS",
         "ACTION_VIEW_TOOLS",
         "AGENT_TOOL_NAMES",
         "BRIDGED_NOT_READ",
         "BRIDGED_READ_PREFIXES",
         "BRIDGED_READ_TOOLS",
+        "BRIDGED_SHADOWED_BY_NATIVE",
         "BRIDGED_TOOL_NAME_MODIFIERS",
         "BRIDGED_TOOL_NAME_TERMS",
         "BRIDGED_TOOL_NAME_TERM_MAX_WORDS",
         "CLAUDE_PROGRESS_CHAR_STEP",
-        "CLAUDE_SUBAGENT_SAFE_MODES",
+        "CLAUDE_SUBAGENT_EDIT_TOOLS",
+        "CLAUDE_SUBAGENT_EXEC_TOOLS",
+        "CLAUDE_SUBAGENT_PASSTHROUGH_MODES",
+        "CLAUDE_SUBAGENT_TIER_DENY",
+        "CLAUDE_SUBAGENT_TIER_RANK",
         "CLAUDE_SUBAGENT_TIER_TOOLS",
+        "DESKTOP_MCP_SERVER_ID",
         "FAILOVER_CONNECT_CODES",
         "FAILOVER_HTTP_STATUSES",
         "LOOP_GUARD_LIMITS",
@@ -6627,6 +6755,10 @@
         "POOL_MAX_TOTAL",
         "PROVIDER_STARTER_TOOLS",
         "REVERTIBLE_TOOLS",
+        "RUNTIME_CODE_BUDGET",
+        "RUNTIME_CODE_INVALID_ARGUMENTS",
+        "RUNTIME_CODE_NOT_FOUND",
+        "RUNTIME_FAILCLASS_TRANSPORT",
         "RUNTIME_FAILURE_CLASSIFIER_VERSION",
         "RUNTIME_TELEMETRY_KEY",
         "STEER_QUEUE_MAX",
@@ -6635,7 +6767,10 @@
         "TOOL_PACK_DESCRIPTIONS",
         "TOOL_RETRIEVAL_HINTS",
         "TOOL_SCHEMA_NAMES_MAX",
+        "TOOL_SEARCH_EMPTY_NOTE",
+        "TOOL_SEARCH_FULL_ARGS_TOP",
         "_nativeToolSchemaByName",
+        "accPolicyHiddenToolNames",
         "actionTargetMeta",
         "activeAgentRuns",
         "adaptiveMetaToolSchemas",
@@ -6645,7 +6780,9 @@
         "agentWorktreePathOwned",
         "applyAgentWorktree",
         "bridgedCallTierFloor",
+        "bridgedShadowNative",
         "bridgedToolAliases",
+        "bridgedToolDisabledByPolicy",
         "bridgedToolTier",
         "bridgedToolTierByName",
         "buildActionEnvelope",
@@ -6657,11 +6794,14 @@
         "classifyRuntimeToolFailure",
         "classifyToolPacks",
         "claudePermissionMode",
+        "claudeSubagentPermission",
         "cleanupAgentWorktree",
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
+        "desktopToolsDisabledReason",
         "drainSteerQueue",
+        "dropPolicyDisabledBridgedTools",
         "estimateToolSchemaTokens",
         "failoverConnectReason",
         "failoverStickyBase",
@@ -6706,12 +6846,14 @@
         "toolArgTypeText",
         "toolArgsResolveRef",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolDisabledResult",
         "toolIsRevertible",
         "toolPackForName",
         "toolSchemaFreezeBySessionMap",
         "toolSchemaFreezeFor",
         "toolSchemaSearchText",
+        "withShadowedBridgeHints",
         "withToolArgSkeletons"
       ],
       "requires": [
@@ -7178,6 +7320,13 @@
           "kinds": [
             "read"
           ]
+        },
+        {
+          "provider": "13f-native-tool-schemas.js",
+          "symbol": "PROVIDER_SESSION_TOOL_SCHEMAS",
+          "kinds": [
+            "read"
+          ]
         }
       ]
     },
@@ -7221,8 +7370,10 @@
         "agentRunEventChains",
         "agentRunEventsFile",
         "agentRunLastSavedStatus",
+        "agentRunPermissionMode",
         "agentRunResultSlice",
         "agentRunSaveFailures",
+        "agentWorkflowSaveProblem",
         "agentWorkflowStatusText",
         "aggregateAgentVote",
         "aggregateCoverage",
@@ -7445,6 +7596,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "bridgedWriteRelativePathArg",
           "kinds": [
@@ -7495,6 +7653,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "readSessionHeadResilient",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "registerIntervention",
           "kinds": [
             "call"
@@ -7509,7 +7674,21 @@
         },
         {
           "provider": "02d-session-overrides.js",
+          "symbol": "applySessionPermissionModeOverride",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
           "symbol": "liveSessionPermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02d-session-overrides.js",
+          "symbol": "sessionDesktopToolsOf",
           "kinds": [
             "call"
           ]
@@ -7775,6 +7954,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "fetchOpenAiModels",
           "kinds": [
             "call"
@@ -7832,6 +8018,20 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "runClaudeSubAgentOnce",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
           "kinds": [
             "call"
           ]
@@ -8078,6 +8278,7 @@
         "PLAN_DISCOVERY_BLOCKED_TOOLS",
         "PROXY_UNWRAP_AGENT_TARGETS",
         "PROXY_UNWRAP_TARGETS",
+        "RETIER_SKIP_TARGETS",
         "appendDisplayMessagesToProviderHistory",
         "canonicalToolInvokeCall",
         "commonPrefixChars",
@@ -8088,6 +8289,7 @@
         "legacySpawnToOrchestrateArgs",
         "planDiscoveryToolBatchAllowed",
         "planParallelReadIsland",
+        "retierToolInvokeCall",
         "runAgentWorkflow",
         "runOpenAiTurn",
         "settleWaitEnvelopes",
@@ -8142,6 +8344,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "localTurnTimeParts",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "makeId",
           "kinds": [
             "call"
@@ -8178,6 +8387,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "text",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "TOOL_TIER_RANK",
           "kinds": [
             "read"
           ]
@@ -8281,6 +8497,13 @@
           ]
         },
         {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "02-session-store.js",
           "symbol": "applyMissionUpdate",
           "kinds": [
@@ -8345,6 +8568,20 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "journalRevertNoticesAck",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertNoticesPeek",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "loadSession",
           "kinds": [
             "call"
@@ -8388,6 +8625,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "readSessionNotes",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionScratchpad",
           "kinds": [
             "call"
           ]
@@ -8841,6 +9085,13 @@
           ]
         },
         {
+          "provider": "06b-prompt-registry.js",
+          "symbol": "revertNoticeTurns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "06c-agent-loop-hooks.js",
           "symbol": "AgentLoopHooks",
           "kinds": [
@@ -9045,6 +9296,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "estimateToolSchemaTokens",
           "kinds": [
             "call"
@@ -9136,13 +9394,6 @@
         },
         {
           "provider": "07-autonomy.js",
-          "symbol": "nativeToolDisabledByPolicy",
-          "kinds": [
-            "call"
-          ]
-        },
-        {
-          "provider": "07-autonomy.js",
           "symbol": "nativeToolGate",
           "kinds": [
             "call"
@@ -9209,6 +9460,13 @@
           "symbol": "resumeInFlight",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -9627,6 +9885,13 @@
         },
         {
           "provider": "10-context-governance.js",
+          "symbol": "buildSessionScratchpadInjectPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "10-context-governance.js",
           "symbol": "compactionRefetchRefusal",
           "kinds": [
             "call"
@@ -9752,11 +10017,20 @@
       "layer": "orchestration",
       "note": "上下文窗口三级/摘要内核/L1 蒸发/L2 重播种",
       "provides": [
+        "AGENT_WAKE_CHAIN_MAX",
+        "AGENT_WAKE_DEBOUNCE_MS",
+        "AGENT_WAKE_SOURCE",
+        "COMPACTION_RAWREF_PATTERN",
         "COMPACTION_REFETCH_LIMITS",
         "COMPACTION_REFETCH_REFUSED",
         "COMPACTION_REFETCH_TOOLS",
         "COMPACTION_SUMMARY_FAILURE_COOLDOWN_MS",
         "COMPACTION_TASK_PREFIX",
+        "COMPACTION_TOOL_INDEX_HEADER",
+        "COMPACTION_TOOL_INDEX_MAX_CHARS",
+        "COMPACTION_TOOL_INDEX_MAX_ENTRIES",
+        "COMPACTION_TOOL_INDEX_ONESHOT",
+        "COMPACTION_TOOL_INDEX_SKIP",
         "COMPACT_MARKER_MIN_SAVED_TOKENS",
         "COMPACT_RESEED_TAIL_MAX_TOKENS",
         "CONTEXT_CALIBRATION_MAX",
@@ -9770,6 +10044,7 @@
         "CompactionPlan",
         "ECON_AUX_FLAG_CACHE",
         "ESTIMATION_RULES",
+        "EXCLUSIVE_TURN_SOURCES",
         "FILE_READ_HEAD",
         "FILE_READ_TAIL",
         "IMG_B64_TRIM_RE",
@@ -9784,6 +10059,7 @@
         "SESSION_NOTES_INJECT_MAX_CHARS",
         "SESSION_NOTES_SECTION_INDEXES",
         "SESSION_NOTES_TITLES",
+        "SESSION_SCRATCHPAD_INJECT_MAX_CHARS",
         "SUMMARY_CALL_CAP_CACHE",
         "SUMMARY_CALL_POLICY_RULE",
         "SUMMARY_EFFORT_ORDER",
@@ -9812,14 +10088,21 @@
         "_calibKey",
         "agentConversationContextMeta",
         "agentNodeContextWindow",
+        "agentWakeAttempted",
+        "agentWakeChain",
+        "agentWakeMessage",
+        "agentWakeSkipsStatus",
+        "agentWakeTimers",
         "aggregateSummaryCalls",
         "anySummarySignal",
         "appendPromptToLastUserMessage",
         "applySummaryCallPolicy",
         "applySummaryEntityCheck",
         "boundToolResultForDisplay",
+        "buildCompactionToolIndex",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "buildSessionScratchpadInjectPrompt",
         "buildSummaryFactTableMessages",
         "buildSummaryRefineMessages",
         "cacheContextLength",
@@ -9830,10 +10113,12 @@
         "collectToolResultLeaves",
         "compactHistoryFromSession",
         "compactObservationValue",
+        "compactionIndexText",
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
         "compactionSummaryFailures",
         "compactionTaskText",
+        "compactionToolArgsDigest",
         "configuredConversationWindow",
         "contextCalibrationStore",
         "contextWindowFromTable",
@@ -9856,6 +10141,7 @@
         "historyStartsWithCompactionSummary",
         "historyUnitStarts",
         "isContextOverflowError",
+        "isReducedObservationView",
         "lastAssistantTextOf",
         "lastSessionContextTokens",
         "learnedWindowCap",
@@ -9891,10 +10177,12 @@
         "resolveContextWindow",
         "resolveSummaryCallPolicy",
         "runAgentExternalCompact",
+        "runAgentWake",
         "runAutoCompaction",
         "runForcedOverflowCompaction",
         "runProviderCompact",
         "runSessionTurn",
+        "scheduleAgentWake",
         "shrinkSerializedToolResult",
         "shrinkToolResultArray",
         "shrinkToolResultForDisplay",
@@ -9961,6 +10249,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "crypto",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "EventStreamHooks",
           "kinds": [
             "read"
           ]
@@ -10338,6 +10633,13 @@
         },
         {
           "provider": "04-permission-runtime.js",
+          "symbol": "activeChildren",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-permission-runtime.js",
           "symbol": "driverAutoSessions",
           "kinds": [
             "read"
@@ -10589,6 +10891,7 @@
         "BROWSE_IGNORE_DIRS",
         "DEFAULT_IGNORE_DIRS",
         "DOTNET_PROJECT_RE",
+        "GIT_COMMIT_TIMEOUT_DEFAULT_MS",
         "GIT_DIFF_MAX_BUFFER",
         "GIT_DIFF_MAX_CHARS",
         "GIT_DIFF_STAT_MAX_CHARS",
@@ -10596,6 +10899,7 @@
         "GIT_REF_RE",
         "GIT_SAFE_FLAGS",
         "GIT_STATUS_MAX_LINES",
+        "GIT_TIMEOUT_MAX_MS",
         "GIT_UNTRACKED_LIST_MAX",
         "HARD_IGNORE_DIRS",
         "PATH_MATCH_WORKER_SRC",
@@ -10799,6 +11103,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "paths",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "PS_UTF8_OUTPUT_PREAMBLE",
           "kinds": [
             "read"
           ]
@@ -11013,10 +11324,16 @@
       "layer": "tools",
       "note": "invokeAdaptiveMcpTool/TOOL_DISPATCH 注册表/toolCall",
       "provides": [
+        "CHECKPOINT_LIST_LIMIT",
+        "CHECKPOINT_LIST_PATHS_MAX",
         "CORE_TOOL_HANDLERS",
         "EXEC_CACHE_ENTRY_MAX_BYTES",
         "EXEC_CACHE_MAX_SESSIONS",
         "EXEC_CACHE_WHITELIST",
+        "FILE_EDIT_ENCODING_HINT_NOT_ROUNDTRIP",
+        "FILE_EDIT_ENCODING_HINT_UNDECODABLE",
+        "FILE_EDIT_MAX_BYTES",
+        "FILE_EDIT_PS_ENCODING_TIP",
         "FILE_READ_CHAR_DEFAULT",
         "FILE_READ_CHAR_MAX",
         "FILE_READ_JSON_BUDGET",
@@ -11024,6 +11341,7 @@
         "FILE_TOOL_HANDLERS",
         "OBSERVATION_RECALL_MAX_CHARS",
         "OBSERVATION_RECALL_QUOTA",
+        "SCRATCHPAD_WRITE_NOTE",
         "STEWARD_GUARD_NOTE",
         "STEWARD_TOOL_HANDLERS",
         "TOOL_ARGS_ERROR_TEXT",
@@ -11035,6 +11353,7 @@
         "buildFileEditMiss",
         "buildNonAsciiReport",
         "buildWorkbenchSelfStatus",
+        "checkpointListResult",
         "defaultTextLineEnding",
         "detectTextLineEnding",
         "execCacheContext",
@@ -11064,8 +11383,11 @@
         "normalizeTextLineEndings",
         "observationRecallError",
         "observationRecallQuotaTake",
+        "policyDesktopOverrideFor",
+        "policySessionFor",
         "resolveFileToolPath",
         "resolveFileToolRoot",
+        "scratchpadWriteTool",
         "textFileWantsUtf8Bom",
         "toolArgPropertyLenient",
         "toolArgsMissingRequired",
@@ -11122,6 +11444,13 @@
           "symbol": "fsp",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "nowIso",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11245,6 +11574,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "safeSessionId",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "selectedAgentCli",
           "kinds": [
             "call"
@@ -11287,6 +11623,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "JOURNAL_KEEP_TURNS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "JOURNAL_MAX_BEFORE_BYTES",
           "kinds": [
             "read"
@@ -11301,6 +11644,13 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "journalReadIndex",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "journalRecord",
           "kinds": [
             "call"
@@ -11309,6 +11659,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "journalRecordMany",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertLogRead",
           "kinds": [
             "call"
           ]
@@ -11336,7 +11693,49 @@
         },
         {
           "provider": "02-session-store.js",
+          "symbol": "normalizeScratchpadKey",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "normalizeScratchpadText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
           "symbol": "normalizeTodoItems",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "readSessionScratchpad",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "scratchpadTotalChars",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "SESSION_SCRATCHPAD_LIMITS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "updateSessionScratchpad",
           "kinds": [
             "call"
           ]
@@ -11435,6 +11834,20 @@
         {
           "provider": "03-bridge-guard.js",
           "symbol": "REVEAL_OPEN_SAFE_EXTS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "03-bridge-guard.js",
+          "symbol": "WriteBoundaryHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "04-desktop-shell.js",
+          "symbol": "DesktopShell",
           "kinds": [
             "read"
           ]
@@ -11539,6 +11952,13 @@
         },
         {
           "provider": "06-provider-engine.js",
+          "symbol": "listPlaybooksWithAvailability",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
           "symbol": "loadAllPlaybooks",
           "kinds": [
             "call"
@@ -11547,6 +11967,13 @@
         {
           "provider": "06-provider-engine.js",
           "symbol": "markNetworkOnline",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06-provider-engine.js",
+          "symbol": "neutralizeAuthoredText",
           "kinds": [
             "call"
           ]
@@ -11616,9 +12043,23 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "stewardAssemblePlaybookPrompt",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "StewardHooks",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
+          "symbol": "stewardPlaybookMissingInputs",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -11687,6 +12128,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
           "kinds": [
             "call"
           ]
@@ -11771,6 +12219,13 @@
         },
         {
           "provider": "11-native-tools.js",
+          "symbol": "powershellMissingOr",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "11-native-tools.js",
           "symbol": "probeRgAsync",
           "kinds": [
             "call"
@@ -11798,7 +12253,8 @@
       "layer": "transport",
       "note": "110-1: 从 13-http-router.js 搬出 MCP_TOOLS 原生工具 schema 数组(纯搬家,零行为变更)",
       "provides": [
-        "MCP_TOOLS"
+        "MCP_TOOLS",
+        "PROVIDER_SESSION_TOOL_SCHEMAS"
       ],
       "requires": [
         {
@@ -12340,6 +12796,13 @@
         },
         {
           "provider": "01-config.js",
+          "symbol": "sweepStaleScriptFiles",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "01-config.js",
           "symbol": "syncAgentCliMcpManifests",
           "kinds": [
             "call"
@@ -12427,6 +12890,13 @@
           "symbol": "PERMISSION_MODES",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "01e-permission-modes.js",
+          "symbol": "resolvePermissionMode",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -13243,6 +13713,13 @@
         },
         {
           "provider": "08-agent-runs.js",
+          "symbol": "agentWorkflowSaveProblem",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
           "symbol": "autoResumeInterruptedRuns",
           "kinds": [
             "call"
@@ -13272,6 +13749,13 @@
         {
           "provider": "08-agent-runs.js",
           "symbol": "markInterruptedAgentRuns",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "normalizeAgentWorkflow",
           "kinds": [
             "call"
           ]
@@ -13756,6 +14240,13 @@
         {
           "provider": "02-session-store.js",
           "symbol": "bumpMissionChangeSeq",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "02-session-store.js",
+          "symbol": "journalRevertLogRecord",
           "kinds": [
             "call"
           ]
@@ -14971,6 +15462,13 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "DESKTOP_MCP_SERVER_ID",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "getAgentRoleLibrary",
           "kinds": [
             "call"
@@ -14995,6 +15493,20 @@
           "symbol": "STEER_QUEUE_MAX",
           "kinds": [
             "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledResult",
+          "kinds": [
+            "call"
           ]
         },
         {
@@ -17391,6 +17903,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "agentRunFile",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "08-agent-runs.js",
+          "symbol": "agentRunPermissionMode",
           "kinds": [
             "call"
           ]
@@ -20662,6 +21181,7 @@
         "schedulerTasksPath",
         "schedulerTick",
         "schedulerTickMs",
+        "schedulerTurnTimeoutMs",
         "startScheduler",
         "stopScheduler"
       ],
@@ -20843,6 +21363,13 @@
         },
         {
           "provider": "06i-steward-core.js",
+          "symbol": "StewardHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "06i-steward-core.js",
           "symbol": "stewardPermissionRank",
           "kinds": [
             "call"
@@ -20940,6 +21467,7 @@
         "schedulerPrepareThread",
         "schedulerToolFind",
         "schedulerToolGate",
+        "schedulerToolLoad",
         "schedulerToolRow",
         "schedulerToolSetEnabled",
         "stewardImplScheduleCreate",
@@ -21812,6 +22340,13 @@
         {
           "provider": "01-config.js",
           "symbol": "resolveClaudeLauncher",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01-config.js",
+          "symbol": "sweepStaleScriptFiles",
           "kinds": [
             "read"
           ]
@@ -24345,6 +24880,20 @@
         },
         {
           "provider": "07-autonomy.js",
+          "symbol": "ACC_POLICY_TOOL_FAMILIES",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "accPolicyHiddenToolNames",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
           "symbol": "adaptiveMetaToolSchemas",
           "kinds": [
             "read"
@@ -24423,6 +24972,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "createToolLoadingState",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "dropPolicyDisabledBridgedTools",
           "kinds": [
             "read"
           ]
@@ -24521,6 +25077,13 @@
         {
           "provider": "07-autonomy.js",
           "symbol": "toolArgsSkeleton",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "07-autonomy.js",
+          "symbol": "toolDisabledByPolicy",
           "kinds": [
             "read"
           ]
@@ -25796,7 +26359,9 @@
       "from": "01-config.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "DESKTOP_MCP_SERVER_ID",
         "TOOL_PACK_DESCRIPTIONS",
+        "accPolicyHiddenToolNames",
         "claudePermissionMode",
         "getAgentRoleLibrary",
         "nativeToolTier"
@@ -25847,6 +26412,7 @@
       "from": "02-session-store.js",
       "to": "01-config.js",
       "symbols": [
+        "DurableJsonStore",
         "assertSessionIdForPath",
         "atomicWriteJson",
         "mutateConfig",
@@ -26028,6 +26594,7 @@
         "crypto",
         "dataRoot",
         "dataRootAliases",
+        "decodeTextFileBytes",
         "fs",
         "fsp",
         "os",
@@ -26050,7 +26617,8 @@
       "from": "03-bridge-guard.js",
       "to": "01d-win-cmdline.js",
       "symbols": [
-        "batchSafeSpawn"
+        "batchSafeSpawn",
+        "isBatchLauncher"
       ],
       "direction": "backward"
     },
@@ -26097,6 +26665,7 @@
       "from": "04-desktop-shell.js",
       "to": "00-boot.js",
       "symbols": [
+        "PS_UTF8_OUTPUT_PREAMBLE",
         "cp",
         "decodeConsoleText",
         "fs",
@@ -26133,6 +26702,7 @@
         "cp",
         "crypto",
         "dataRoot",
+        "decodeTextFileBytes",
         "ensureDirs",
         "externalRoot",
         "fs",
@@ -26263,6 +26833,7 @@
         "ToolboxHooks",
         "enabledToolboxComponents",
         "invalidateToolboxCache",
+        "killChildTree",
         "logEvent",
         "redact",
         "scanToolboxComponents"
@@ -26427,6 +26998,14 @@
       "to": "02c-turn-segments.js",
       "symbols": [
         "createTurnSegmentBuilder"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "05-claude-engine.js",
+      "to": "02d-session-overrides.js",
+      "symbols": [
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -27027,6 +27606,7 @@
         "os",
         "path",
         "paths",
+        "runKeyedChain",
         "safeJsonParse",
         "text",
         "tildePath"
@@ -27496,7 +28076,8 @@
       "from": "07-autonomy.js",
       "to": "13f-native-tool-schemas.js",
       "symbols": [
-        "MCP_TOOLS"
+        "MCP_TOOLS",
+        "PROVIDER_SESSION_TOOL_SCHEMAS"
       ],
       "direction": "forward"
     },
@@ -27543,6 +28124,14 @@
     },
     {
       "from": "08-agent-runs.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "08-agent-runs.js",
       "to": "02-session-store.js",
       "symbols": [
         "MISSION_STALL_SIGNAL_WINDOW_MS",
@@ -27552,6 +28141,7 @@
         "mutateSession",
         "providerHistoryToolCalls",
         "readInterventions",
+        "readSessionHeadResilient",
         "registerIntervention",
         "settleIntervention"
       ],
@@ -27561,7 +28151,9 @@
       "from": "08-agent-runs.js",
       "to": "02d-session-overrides.js",
       "symbols": [
-        "liveSessionPermissionMode"
+        "applySessionPermissionModeOverride",
+        "liveSessionPermissionMode",
+        "sessionDesktopToolsOf"
       ],
       "direction": "backward"
     },
@@ -27656,6 +28248,7 @@
         "bridgedToolTier",
         "buildOpenAiTools",
         "classifyToolPacks",
+        "dropPolicyDisabledBridgedTools",
         "fetchOpenAiModels",
         "loopAbortExempt",
         "loopWarnOnly",
@@ -27664,6 +28257,8 @@
         "neutralizeInjectedPrefixes",
         "openAiStreamOnce",
         "runClaudeSubAgentOnce",
+        "toolDisabledByPolicy",
+        "toolDisabledResult",
         "toolPackForName"
       ],
       "direction": "backward"
@@ -27727,11 +28322,13 @@
       "symbols": [
         "EventStreamHooks",
         "RUYI_EVENTS",
+        "TOOL_TIER_RANK",
         "appendUsageLedger",
         "cachedInputTokensFromUsage",
         "computeProviderCost",
         "crypto",
         "fsp",
+        "localTurnTimeParts",
         "makeId",
         "neutralizeFenceTag",
         "nowIso",
@@ -27770,6 +28367,14 @@
     },
     {
       "from": "09-workflow.js",
+      "to": "01e-permission-modes.js",
+      "symbols": [
+        "resolvePermissionMode"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "09-workflow.js",
       "to": "02-session-store.js",
       "symbols": [
         "applyMissionUpdate",
@@ -27781,6 +28386,8 @@
         "isProviderToolArgsObject",
         "isUntitledSessionTitle",
         "journalReadIndex",
+        "journalRevertNoticesAck",
+        "journalRevertNoticesPeek",
         "loadSession",
         "mergeMissionBeforeSave",
         "mutateSession",
@@ -27788,6 +28395,7 @@
         "normalizeTodoItems",
         "providerHistoryToolCalls",
         "readSessionNotes",
+        "readSessionScratchpad",
         "reconcileWorkspaceTurnBaseline",
         "recordMissionBudgetTrippedChange",
         "recordMissionStalledChange",
@@ -27928,7 +28536,8 @@
       "symbols": [
         "PROMPT_EN",
         "PROMPT_PACK_VERSION",
-        "getPromptPack"
+        "getPromptPack",
+        "revertNoticeTurns"
       ],
       "direction": "backward"
     },
@@ -28008,6 +28617,7 @@
         "createAgentWorktree",
         "createToolLoadingState",
         "drainSteerQueue",
+        "dropPolicyDisabledBridgedTools",
         "estimateToolSchemaTokens",
         "failoverStickyBase",
         "finalizeAgentWorktree",
@@ -28016,7 +28626,6 @@
         "looksLikePlan",
         "loopAbortExempt",
         "loopWarnOnly",
-        "nativeToolDisabledByPolicy",
         "nativeToolGate",
         "nativeToolTier",
         "openAiStreamOnce",
@@ -28024,6 +28633,7 @@
         "requestNativePermission",
         "requestPlanApproval",
         "resumeInFlight",
+        "toolDisabledByPolicy",
         "toolDisabledResult"
       ],
       "direction": "backward"
@@ -28111,6 +28721,7 @@
         "boundToolResultForDisplay",
         "buildObservationRecallPrompt",
         "buildSessionNotesInjectPrompt",
+        "buildSessionScratchpadInjectPrompt",
         "compactionRefetchRefusal",
         "compactionRefetchWarning",
         "createCompactionRefetchGuard",
@@ -28169,6 +28780,7 @@
       "from": "10-context-governance.js",
       "to": "00-boot.js",
       "symbols": [
+        "EventStreamHooks",
         "URL",
         "apiSessionIdInvalid",
         "appendUsageLedger",
@@ -28269,6 +28881,7 @@
       "from": "10-context-governance.js",
       "to": "04-permission-runtime.js",
       "symbols": [
+        "activeChildren",
         "driverAutoSessions",
         "logEvent",
         "redact",
@@ -28381,6 +28994,7 @@
       "to": "00-boot.js",
       "symbols": [
         "EventStreamHooks",
+        "PS_UTF8_OUTPUT_PREAMBLE",
         "RUYI_EVENTS",
         "RUYI_PATH_BEFORE_VENDOR",
         "URL",
@@ -28472,6 +29086,7 @@
         "externalRoot",
         "fs",
         "fsp",
+        "nowIso",
         "os",
         "path",
         "paths",
@@ -28493,6 +29108,7 @@
         "ensureDesktopMcpWarm",
         "externalServerJs",
         "readConfig",
+        "safeSessionId",
         "selectedAgentCli",
         "staticBase"
       ],
@@ -28512,15 +29128,24 @@
       "from": "12-tool-dispatch.js",
       "to": "02-session-store.js",
       "symbols": [
+        "JOURNAL_KEEP_TURNS",
         "JOURNAL_MAX_BEFORE_BYTES",
+        "SESSION_SCRATCHPAD_LIMITS",
         "bridgedWriteRelativePathArg",
         "journalDropEntries",
+        "journalReadIndex",
         "journalRecord",
         "journalRecordMany",
+        "journalRevertLogRead",
         "journalSessionCtx",
         "loadSession",
         "normalizeMetaToolArgs",
-        "normalizeTodoItems"
+        "normalizeScratchpadKey",
+        "normalizeScratchpadText",
+        "normalizeTodoItems",
+        "readSessionScratchpad",
+        "scratchpadTotalChars",
+        "updateSessionScratchpad"
       ],
       "direction": "backward"
     },
@@ -28545,6 +29170,7 @@
       "to": "03-bridge-guard.js",
       "symbols": [
         "REVEAL_OPEN_SAFE_EXTS",
+        "WriteBoundaryHooks",
         "bridgedOfficeScriptGate",
         "bridgedReadPathGate",
         "buildBrowserOpenSpawn",
@@ -28556,6 +29182,14 @@
         "normalizeCwd",
         "pathWithinRoot",
         "realpathForContainment"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "12-tool-dispatch.js",
+      "to": "04-desktop-shell.js",
+      "symbols": [
+        "DesktopShell"
       ],
       "direction": "backward"
     },
@@ -28592,8 +29226,10 @@
         "buildRuntimeIdentityFacts",
         "evalPlaybookAvailability",
         "getCapabilities",
+        "listPlaybooksWithAvailability",
         "loadAllPlaybooks",
         "markNetworkOnline",
+        "neutralizeAuthoredText",
         "peekCapabilities"
       ],
       "direction": "backward"
@@ -28616,7 +29252,9 @@
       "to": "06i-steward-core.js",
       "symbols": [
         "StewardHooks",
-        "isStewardToolName"
+        "isStewardToolName",
+        "stewardAssemblePlaybookPrompt",
+        "stewardPlaybookMissingInputs"
       ],
       "direction": "backward"
     },
@@ -28634,6 +29272,7 @@
         "nativeToolsAcceptingArgKeys",
         "searchToolCatalog",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolDisabledResult"
       ],
       "direction": "backward"
@@ -28666,6 +29305,7 @@
         "gitStatus",
         "isBinaryReadPath",
         "levenshtein",
+        "powershellMissingOr",
         "probeRgAsync",
         "readIfExists"
       ],
@@ -28762,6 +29402,7 @@
         "send",
         "sendError",
         "serveStatic",
+        "sweepStaleScriptFiles",
         "syncAgentCliMcpManifests",
         "syncAgentRolesToClaude",
         "syncClaudeCliSettings",
@@ -28788,7 +29429,8 @@
       "symbols": [
         "BUILTIN_AGENT_ROLES",
         "PERMISSION_MODES",
-        "normalizeAgentRole"
+        "normalizeAgentRole",
+        "resolvePermissionMode"
       ],
       "direction": "backward"
     },
@@ -29003,11 +29645,13 @@
       "to": "08-agent-runs.js",
       "symbols": [
         "agentRunResultSlice",
+        "agentWorkflowSaveProblem",
         "autoResumeInterruptedRuns",
         "buildAgentRunEnvelope",
         "deleteAgentWorkflow",
         "getAgentWorkflows",
         "markInterruptedAgentRuns",
+        "normalizeAgentWorkflow",
         "resolveOrchestrateNodes",
         "saveAgentRun",
         "saveAgentWorkflow"
@@ -29154,6 +29798,7 @@
       "to": "02-session-store.js",
       "symbols": [
         "bumpMissionChangeSeq",
+        "journalRevertLogRecord",
         "journalRollback",
         "mutateSession",
         "rewindSession",
@@ -29464,6 +30109,7 @@
       "from": "13d-core-domain-routes.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "DESKTOP_MCP_SERVER_ID",
         "STEER_QUEUE_MAX",
         "activeAgentRuns",
         "agentRunFile",
@@ -29472,6 +30118,8 @@
         "getAgentRoleLibrary",
         "nativeToolGate",
         "nativeToolTier",
+        "toolDisabledByPolicy",
+        "toolDisabledResult",
         "toolIsRevertible"
       ],
       "direction": "backward"
@@ -30429,6 +31077,7 @@
       "from": "13l-steward-ops.js",
       "to": "08-agent-runs.js",
       "symbols": [
+        "agentRunPermissionMode",
         "classifyRunResumeTier",
         "listAgentRuns"
       ],
@@ -31293,6 +31942,7 @@
       "to": "06i-steward-core.js",
       "symbols": [
         "STEWARD_SESSION_ID",
+        "StewardHooks",
         "stewardPermissionRank"
       ],
       "direction": "backward"
@@ -31563,6 +32213,7 @@
         "readConfig",
         "readFileTail",
         "resolveClaudeLauncher",
+        "sweepStaleScriptFiles",
         "syncAgentCliMcpManifests",
         "syncMcpServersToKimi"
       ],
@@ -32120,8 +32771,10 @@
       "from": "14-main.js",
       "to": "07-autonomy.js",
       "symbols": [
+        "ACC_POLICY_TOOL_FAMILIES",
         "NATIVE_TOOL_PACKS",
         "NATIVE_TOOL_TIER",
+        "accPolicyHiddenToolNames",
         "adaptiveMetaToolSchemas",
         "applyAgentWorktree",
         "bridgedToolTier",
@@ -32134,6 +32787,7 @@
         "compareToolRetrievalShadow",
         "createAgentWorktree",
         "createToolLoadingState",
+        "dropPolicyDisabledBridgedTools",
         "fetchOpenAiModels",
         "finalizeAgentWorktree",
         "getAgentRoleLibrary",
@@ -32146,6 +32800,7 @@
         "schedulerAskWaitSessions",
         "searchToolCatalog",
         "toolArgsSkeleton",
+        "toolDisabledByPolicy",
         "toolPackForName"
       ],
       "direction": "backward"

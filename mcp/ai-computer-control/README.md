@@ -53,6 +53,7 @@
 
 - **新工具 7 件**：`edit_file`（局部精确替换——此前只能整文件 `write_file`，又险又费 token；唯一性安全闸 + 编码回环 + protected 护栏，入工作台检查点快照表天然可撤销）、`fetch`（http(s) 抓取，SSRF 防护镜像工作台原生模式：scheme 白名单 + 私网/回环/保留段/IPv4-mapped 拒绝 + 逐跳重定向重校验 + 字节预算）、`memory_save/read/list/delete`（独立持久记忆库，tmp+rename 防撕裂、腐败隔离 .corrupt，与如意工作台记忆库互补）、`sequential_thinking`（社区契约镜像：链式思考 + 修订 + 分支）。
 - **ACC_TOOLSETS 子集注册**：环境变量按能力族裁剪注册（如 `ACC_TOOLSETS=filesystem,shell`），独立部署可裁剪首 token 成本；未设置=全开（向后兼容）。
+- **ACC_HIDE_TOOLS 按名摘除**（2026-10 追加）：逗号分隔的**确切工具名**，注册完后从注册表摘掉（`tools/list` 里没有，`batch_actions` / `macro_run` 也转调不到；未知名字忽略；`diagnostics().hidden_tools` 报出摘了哪些）。如意工作台用它把「能力总闸」（命令工具 / 桌面工具开关）落到 CLI 直挂的 ACC 上；`ACC_TOOLSETS` 只能整族开关，粒度不够。未设置或为空 = 什么都不摘。
 - **读取栈收敛**：`read_document` 的 .pdf/.xlsx 分支标记弃用（响应带 `deprecated`/`successor`），分别指向 `pdf_read_pages`/`excel_read`；.docx 分支保留。
 - **pyproject 修正**：playwright/uiautomation/python-pptx/matplotlib 等可选依赖移入 extras（`browser`/`uia`/`pptx`/`charts`），硬依赖只剩真必需 9 件——依赖声明与「可选优雅降级」的实际行为对齐；`requirements_offline.txt` 保持全量不受影响。
 - **description 规范**：新工具全部遵守「何时用 + 何时别用 + 参数约定」；`tests/smoke_descriptions.py` 审计 108 件并硬锁新约定。

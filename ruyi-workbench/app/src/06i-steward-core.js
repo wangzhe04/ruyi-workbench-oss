@@ -786,16 +786,13 @@ const STEWARD_PLAYBOOK_CLOSE = '</playbook>';
 // 模板里冒出来的野 {foo} 原样留着(它不是参数,是正文)。两处各有一份实现(服务端产物是单文件
 // 拼接,拉不进浏览器模块),由 unit/steward-playbook-run.test.js 用同一组样例把两边钉在一起 ——
 // 与 06i 抄 mission-state.js 那份五态判据同一个模具。
+// 2026-10:单遍替换 —— 修前按 key 逐个 split/join,前一个值里恰好写着 {output} 这类字面量时会被后一轮再替换一次
+// (会议记录里的「{output}」被改成文件名)。现在只扫模板一遍,填进去的值不再被扫描。
 function stewardAssemblePlaybookPrompt(pb, values) {
-  let out = String((pb && pb.promptTemplate) || '');
+  const template = String((pb && pb.promptTemplate) || '');
   const v = (values && typeof values === 'object' && !Array.isArray(values)) ? values : {};
-  for (const inp of ((pb && Array.isArray(pb.inputs)) ? pb.inputs : [])) {
-    const key = String((inp && inp.key) || '');
-    if (!key) continue;
-    const val = v[key] == null ? '' : String(v[key]);
-    out = out.split('{' + key + '}').join(val);
-  }
-  return out;
+  const declared = new Set(((pb && Array.isArray(pb.inputs)) ? pb.inputs : []).map(inp => String((inp && inp.key) || '')).filter(Boolean));
+  return template.replace(/\{([^{}]+)\}/g, (whole, key) => (declared.has(key) ? (v[key] == null ? '' : String(v[key])) : whole));
 }
 
 // 哪些声明过的参数【没给值】。返回的是参数本身(key/label/type),不是一句话 —— 管家要拿它去问用户。
@@ -1541,7 +1538,7 @@ const STEWARD_CONFIG_TIER_CONFIRM = Object.freeze([
   'stewardContextBudgetRatio',
   // 132b:并发与班组 —— 同时跑几个就是同时花几份钱。
   'subagentMaxConcurrent', 'subagentMaxPerTurn', 'agentWorkflowMaxNodes', 'agentNodeWrapUpMs', 'agentTaskPoolPolicy', 'agentTaskPoolAutoCap',
-  'agentAutoModelTiering', 'shellSessionMax',
+  'agentAutoModelTiering', 'shellSessionMax', 'agentAutoWake',
   // 132b:模型清单(改了它,下一条线程可能跑在另一个模型上)。
   'knownModels', 'extraModels', 'discoverModelsFromProxy',
   // 132b:调度器与安静卡 —— 123 波原本留在 forbidden(「让模型决定用户多久看见」);按用户新拍板改成 confirm:
@@ -1684,6 +1681,7 @@ const STEWARD_CONFIG_HELP = Object.freeze(Object.fromEntries([
   ['openaiMaxToolIterations', 'OpenAI 兼容引擎一回合最多调几次工具(1–200)', 'Max tool iterations per turn on OpenAI-compatible engines (1–200)'],
   ['subagentMaxConcurrent', '子代理同时最多几个', 'Max concurrent sub-agents'],
   ['subagentMaxPerTurn', '一回合最多派几个子代理', 'Max sub-agents per turn'],
+  ['agentAutoWake', '后台代理跑完后自动唤醒对话', 'Wake the conversation when background agents finish'],
   ['agentWorkflowMaxNodes', '工作流最多多少个节点', 'Max workflow nodes'],
   ['agentNodeWrapUpMs', '节点收尾宽限,毫秒', 'Node wrap-up grace, ms'],
   ['agentTaskPoolPolicy', '任务池策略:manual / auto', 'Task pool policy: manual / auto'],

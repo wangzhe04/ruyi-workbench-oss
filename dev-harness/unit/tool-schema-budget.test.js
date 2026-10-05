@@ -18,8 +18,9 @@ const srv = require(path.resolve(__dirname, '../../ruyi-workbench/app/server.js'
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const cfg = srv.defaultConfig();
-const offered = srv.buildOpenAiTools(cfg, null, { skillsEnabled: true });
-const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, { skillsEnabled: true });
+// scratchpadEnabled:与 09 主回合对普通会话传的一致(C2 会话草稿本常驻 core),量的是模型真实收到的那份工具表。
+const offered = srv.buildOpenAiTools(cfg, null, { skillsEnabled: true, scratchpadEnabled: true });
+const full = srv.buildOpenAiTools({ ...cfg, toolLoadingMode: 'full', subagentMaxPerTurn: 4 }, null, { skillsEnabled: true, scratchpadEnabled: true });
 const byName = name => full.find(t => t.function.name === name);
 const loaded = msg => srv.createToolLoadingState(cfg, msg, null, offered, null, null);
 const chars = tools => JSON.stringify(tools).length;
@@ -88,15 +89,36 @@ test('N8-C 字符预算棘轮(只减不增)', () => {
   // 这是【有意的、一次性的】上调 —— 闲聊 10254→12531、改代码 28153→30430(实数),预算 10500→12600、28200→30500。
   // 理由在那张表的头注:本机这三个工具开局没装、中途补装时,提供方前缀缓存整段失效(命中率 97%→3%),一次的代价远大于每发多带的这点
   // (且基本命中缓存)。默认 offered 不变(它们本来就在里面)。之后照旧只减不增。
-  const BUDGET = { chitchat: 12600, codeEdit: 30500, fullAll: 46500, offeredDefault: 53800 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
+  // 61 号文 C4:只读工具 checkpoint_list(files_write 包,402 字符:描述一句 + 两个入参)—— 这是【有意的、一次性的】上调:改代码回合
+  // 30449→30851、默认 offered 53776→54178(实数),预算 30500→30900、53800→54200;闲聊回合不涨(写包不在 core)。
+  // 说明与「撤销只能由用户做」的提醒放在工具结果的 note 里而不是描述里,schema 已压到只剩判别名字与入参所需的字。之后照旧只减不增。
+  // 61 号文 C1(playbook_list / playbook_read / skill_list,skills 包、不进起手工具):又一次【有意的、一次性的】上调,只涨「全部可用工具」
+  // 这一口径 —— 默认 offered 54178→55675(实数),预算 54200→55700;闲聊 / 改代码回合一字不涨。它们是给「新会话看不到任何 Playbook /
+  // 技能入口」补的只读入口,说到 Playbook / 预置流程 / 技能时才由 classifyToolPacks 装载。之后照旧只减不增。
   // 同轮 files 组:file_write.lineEnding + file_edit.oldText / glob.pattern 的 minLength:1(空串修前是抛异常)+151 字符,
   // 只把 offeredDefault 再抬 100(53700→53800);描述文字没有加(说明放在工具结果的 hint / note 里)。
+  // 61 号文 C2 会话草稿本(scratchpad_write 常驻 core,+711 字符 ≈ 200 token):这是【有意的、一次性的】上调 ——
+  // 闲聊 12549→13260、改代码 30448→31159、默认 offered 53775→54486(实数),预算 12600→13300、30500→31200、53800→54500。
+  // 理由在 07 NATIVE_TOOL_PACKS 那一行的注释:笔记要在压缩【之前】记下,按需包里模型要么不知道它、要么中途装载断缓存。
+  // 之后照旧只减不增。
+  // 合并口径(C4 + C1 + C2 三项同在,2026-10-04 实测):闲聊 13274、改代码 31576、默认 offered 56386 → 预算 13300 / 31600 / 56400。
+  // 再合并 master(PR #43 的工具描述订正,+21 字符)后实测:改代码 31597、默认 offered 56407 → offered 预算 56400 → 56500。
+  const BUDGET = { chitchat: 13300, codeEdit: 31600, fullAll: 46500, offeredDefault: 56500 };   // 修前:13650 / 26526 / 48573(默认 63 工具) — 实数见各断言消息
   const chit = chars(loaded('你好').current());
   const edit = chars(loaded('请修改 src/a.js 修复 bug').current());
   assert.ok(chit <= BUDGET.chitchat, `闲聊回合 ${chit} > ${BUDGET.chitchat}`);
   assert.ok(edit <= BUDGET.codeEdit, `改代码回合 ${edit} > ${BUDGET.codeEdit}`);
   assert.ok(chars(offered) <= BUDGET.offeredDefault, `默认 offered ${chars(offered)} > ${BUDGET.offeredDefault}`);
   assert.ok(chars(byName('orchestrate_agents')) <= 9500, `orchestrate_agents ${chars(byName('orchestrate_agents'))} > 9500(修前 10706)`);
+});
+
+test('C2 scratchpad_write:只在显式 scratchpadEnabled 时发放、常驻 core、schema ≤ 750 字符', () => {
+  const sp = offered.find(t => t.function.name === 'scratchpad_write');
+  assert.ok(sp, '普通会话主回合的工具表里有它');
+  assert.ok(chars(sp) <= 750, `scratchpad_write schema ${chars(sp)} > 750`);
+  assert.ok(loaded('你好').current().some(t => t.function.name === 'scratchpad_write'), '闲聊回合也在(core)');
+  assert.ok(!srv.buildOpenAiTools(cfg, null, { skillsEnabled: true }).some(t => t.function.name === 'scratchpad_write'), '不传 scratchpadEnabled 就没有(子代理 / 探针)');
+  assert.ok(!srv.buildOpenAiTools(cfg, null, { scratchpadEnabled: true, stewardSession: true }).some(t => t.function.name === 'scratchpad_write'), '管家会话没有');
 });
 
 test('N8-D 核心编辑工具的描述带着模型学不到的行为', () => {

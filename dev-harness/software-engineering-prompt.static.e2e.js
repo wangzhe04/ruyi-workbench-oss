@@ -92,7 +92,8 @@ const workflowSrc = fs.readFileSync(path.join(SRC, '09-workflow.js'), 'utf8');
 const registrySrc = fs.readFileSync(path.join(SRC, '06b-prompt-registry.js'), 'utf8');
 ok(/appendTurnPolicies\('', config, agentTeam, appendLimit, true, promptTaskContext\)/.test(claudeSrc), 'Claude parent turn routes the current task into engineering policy selection');
 ok(/promptPack: PROMPT_PACK_VERSION/.test(claudeSrc) && /promptPolicies: \{ softwareEngineering: softwareEngineeringTaskProfile\(promptTaskContext\) \}/.test(claudeSrc), 'Claude turn trace records prompt-pack version and engineering routing decision');
-ok(/appendResponseLanguagePolicy\('', config, 0, task\)/.test(autonomySrc), 'Claude DAG node receives the same engineering policy');
+// 2026-10:基底从空串变成「角色提示(有就带)」,task 照旧决定工程策略的选取。
+ok(/appendResponseLanguagePolicy\(roleBrief \? roleBrief \+ '\\n\\n' : '', config, 0, task\)/.test(autonomySrc), 'Claude DAG node receives the same engineering policy');
 ok(/appendResponseLanguagePolicy\([\s\S]*task,[\s\S]*\);/.test(agentSrc), 'OpenAI sub-agent receives the same engineering policy');
 ok(/appendTurnPolicies\(volatileExtras, config, agentTeam, 0, false, promptTaskContext\)/.test(workflowSrc), 'Provider parent turn routes the current task into engineering policy selection');
 ok(/promptPack: PROMPT_PACK_VERSION/.test(workflowSrc) && /promptPolicies: \{ softwareEngineering: softwareEngineeringTaskProfile\(promptTaskContext\) \}/.test(workflowSrc), 'Provider turn trace records prompt-pack version and engineering routing decision');

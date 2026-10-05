@@ -14,7 +14,7 @@
 
 **Ruyi** is a clean-room, local AI workbench for Windows. Give it a model it can reach — any OpenAI-compatible endpoint (a cloud API, an on-prem vLLM, a local Ollama or LM Studio) or a locally installed Claude Code / Kimi Code CLI — and it **actually does the work on your machine**: reads and writes files, runs scripts, drives Office and the desktop, and dispatches teams of sub-agents. A **steward** keeps watch over everything in flight.
 
-> **Current release: 3.0 Preview `v3.0.0-preview.2`** (2026-09-25, GitHub pre-release). Features are frozen and the full automated regression plus offline-package smoke tests pass. The human sign-offs — an independent security red-team review, real screen-reader and human-factors walkthroughs — remain before 3.0 final (see [doc 55](docs/optimization-plan/55-release-3.0-preview.md)). The last full Release is `v2.6.2`; the 2.7.0 and 2.8.0 changes ship as part of this preview. Everything is in the [CHANGELOG](CHANGELOG.md).
+> **Current release: 3.0 Preview `v3.0.0-preview.3`** (2026-10-05, GitHub pre-release). It adds 43 pull requests on top of Preview 2: five permission levels again with Smart auto as the default for new installs; a model that works more smoothly (knows the current time, keeps a scratchpad, sees checkpoints, finds tools with fewer detours); a voice vocabulary; the Anthropic Messages protocol; a full Mermaid audit; plus several review, debt and long-session performance rounds. The full Windows CI regression and offline-package smoke tests pass. The human sign-offs — an independent security red-team review, real screen-reader and human-factors walkthroughs — remain before 3.0 final (see [doc 55](docs/optimization-plan/55-release-3.0-preview.md)). The last full Release is `v2.6.2`; the 2.7.0 and 2.8.0 changes ship as part of this preview. Everything is in the [CHANGELOG](CHANGELOG.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png" />
@@ -72,8 +72,8 @@ Most AI tools fall into one of three camps: cloud chat apps (they can only talk)
 | | |
 |---|---|
 | **One file, zero dependencies** | The backend runtime is a single `app/server.js` (about 63k lines, concatenated from 66 ordered modules in `app/src/`, byte-reproducible) with **zero npm runtime dependencies** — Node built-ins only. The frontend is 61 framework-free ES modules with no build step. The audit surface for an intranet security review is as small as it gets. |
-| **107 native tools · 108 ACC tools** | 65 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
-| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **453 e2e cases** (446 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 173 unit suites and 23 ACC smoke groups, run on Windows CI for every change. |
+| **112 native tools · 108 ACC tools** | 70 tools available to threads (files, terminal, search, Git, web, Office hand-off, sub-agent orchestration) plus 42 steward-only tools; the optional ACC desktop-control component adds 108 more (screenshot, OCR, UIA, keyboard and mouse, windows, browser, Office, PDF). |
+| **8 templates · 10 roles · tested** | 8 built-in multi-agent workflows and 10 node roles. The repository contains **467 e2e cases** (460 in the default regression; 7 live probes that need a real API or desktop are opt-in), plus 194 unit suites and 23 ACC smoke groups, run on Windows CI for every change. |
 
 > Formerly **Win Claude Workbench**, renamed **Ruyi** at v0.8 — partly for trademark caution, partly because an old system prompt made provider models introduce themselves as "Claude". *Ruyi* (如意) means "as you wish"; the mark is a blue-and-white *ruyi* cloud motif.
 
@@ -129,10 +129,10 @@ Letting the AI act only works if you can undo what it did:
 
 | Level | Behaviour | When to use it |
 |---|---|---|
-| **Ask me every step** (default) | Asks before editing files or running commands; reads are not asked | When you are getting started or handling important files |
+| **Ask me every step** | Asks before editing files or running commands; reads are not asked | When you are getting started or handling important files |
 | **Auto-apply small edits** | File edits run automatically; commands and other sensitive actions still ask | You trust its file edits but not free-running commands |
 | **Plan first** | Shows a complete plan and only acts after you approve it | Complex jobs where you want to see the approach first |
-| **Smart auto** | The AI judges risk: low-risk actions run, high-risk ones still ask | Everyday work the steward looks after (switching asks for confirmation) |
+| **Smart auto** (default for new installs) | The AI judges risk: low-risk actions run, high-risk ones still ask | Everyday work the steward looks after (switching to it asks for confirmation; upgraded installs keep their previous level) |
 | **Full auto** | Never asks (shown with a warning style) | Only when you fully understand the task and it is safe (switching asks for confirmation) |
 
 - **Three tool tiers**: read / edit / exec. Exec-tier actions can **never be allowed persistently**; read and edit tiers can be set to "allow for this thread".
@@ -152,7 +152,7 @@ Letting the AI act only works if you can undo what it did:
 | Capability | Summary | More |
 |---|---|---|
 | **Engines: any model endpoint** | OpenAI-compatible endpoints (Chat Completions or Responses API) and Anthropic Messages endpoints (Anthropic itself or a compatible gateway), with no bundled vendor presets; local Ollama / LM Studio need no key; Claude Code or Kimi Code as Agent CLIs; switch engines mid-thread and keep the context | [§1](#1-engines-and-models) |
-| **Native tool loop** | **107 native built-in tools** with read / edit / exec approval tiers, on-demand tool loading, batching of independent calls and staging of dependent ones | [§2](#2-native-tools) |
+| **Native tool loop** | **112 native built-in tools** with read / edit / exec approval tiers, on-demand tool loading, batching of independent calls and staging of dependent ones | [§2](#2-native-tools) |
 | **Structured questions** | Single choice, multiple choice, free text, "choices + other"; the card closes only once the answer reached the model | [§1](#1-engines-and-models) |
 | **Multi-agent orchestration** | 8 templates, 10 roles, 5 quality gates, conditions and loops, resource leases, worktree isolation, a graphical editor and live canvas; team mode; background sub-agents | [§3](#3-multi-agent-orchestration) |
 | **The steward** | Five thread states, a "waiting for you" queue, quiet cards, persona and voice, memory with expiry and scope, 124 changeable settings, propose-only after reading external content | [§4](#4-the-steward) |
@@ -189,12 +189,12 @@ Kimi Code is driven through its official ACP (JSON-RPC / NDJSON). Native tool ev
 
 ### 2. Native tools
 
-All tools are implemented with Node built-ins (zero dependencies). 65 are available to threads and 42 are steward-only. Tool descriptions load on demand by task; when the model lacks a capability it searches the tool catalog and loads more, so simple questions no longer carry the whole tool set (an "all resident" mode remains in Settings). Independent calls with fixed arguments are batched into one model response; calls that depend on earlier results wait for the next stage.
+All tools are implemented with Node built-ins (zero dependencies). 70 are available to threads and 42 are steward-only. Tool descriptions load on demand by task; when the model lacks a capability it searches the tool catalog and loads more, so simple questions no longer carry the whole tool set (an "all resident" mode remains in Settings). Independent calls with fixed arguments are batched into one model response; calls that depend on earlier results wait for the next stage.
 
 | Category | Tools |
 |---|---|
 | Reading files | `file_read` · `file_list` · `file_search` · `glob` · `project_snapshot` · `audio_transcribe` |
-| Writing files (checkpointed) | `file_write` · `file_edit` · `file_delete` · `file_move` · `file_copy` |
+| Writing files (checkpointed) | `file_write` · `file_edit` · `file_delete` · `file_move` · `file_copy` · `checkpoint_list` (read-only: which changes can be undone and which you already undid; only you can undo, in the UI, and the model gets a one-line notice on its next turn) |
 | Archives | `archive_zip` · `archive_unzip` (Zip-Slip safe) |
 | Terminal and scripts | `powershell_run` · `script_run` (temporary PowerShell / Python / Node scripts) · persistent terminals `shell_start` / `shell_send` / `shell_poll` / `shell_kill` / `shell_list` |
 | Desktop and Office hand-off | `desktop_screenshot` · `keyboard_send_keys` · `office_open` |
@@ -302,7 +302,7 @@ The Full offline package includes a verified CPython 3.12 runtime, wheel-only de
 
 ### 8. Skills, memory and Playbooks
 
-- **Skill library**: four sources — 20 built-in skills (code review, document processing, spreadsheet analysis, structured writing, research and synthesis, Office automation, Windows desktop control, API debugging, security hardening, offline packaging, local CI checks, project-memory management and more), a user library (`skills/` in the data directory), a project library (`.ruyi/skills/`), and skills read from Claude Code / Codex / Kimi plugins. Enable a skill for the current thread or keep it resident globally (up to 8 each); the system prompt carries only a compact index and full text loads on demand — **both engines share the same skills**. Built-in commands keep their `/name` meaning under Claude Code and insert the same task template under a provider. The library's search box also takes a plain sentence ("anything that tidies meeting notes?").
+- **Skill library**: four sources — 20 built-in skills (code review, document processing, spreadsheet analysis, structured writing, research and synthesis, Office automation, Windows desktop control, API debugging, security hardening, offline packaging, local CI checks, project-memory management and more), a user library (`skills/` in the data directory), a project library (`.ruyi/skills/`), and skills read from Claude Code / Codex / Kimi plugins. Enable a skill for the current thread or keep it resident globally (up to 8 each); the system prompt carries only a compact index and full text loads on demand — **both engines share the same skills**. Built-in commands insert the same editable task template under both engines (in Claude Code they exist only as `/offline-toolkit:name`, once the plugin is installed). The library's search box also takes a plain sentence ("anything that tidies meeting notes?").
 - **Workbench memory**: personal experience, project conventions and lessons across threads, stored only after **the AI drafts and you confirm** — it never writes behind your back. Memory is grouped by project, fenced when injected and limited to the current project by default; vector recall is on by default. It complements the `CLAUDE.md` that travels with a code repository.
 - **Playbooks (one-click tasks)**: save a task that went well as a Playbook — the AI drafts the steps and parameters, you confirm, and it becomes one click next time. 16 built in: archive files by content, batch rename, clean a CSV, clean up Downloads, compare two documents, open an app and operate it, build a folder inventory, tidy meeting minutes, merge Excel workbooks, OCR a scan, summarise PDFs, outline a presentation, summarise a folder on a schedule, translate a document, fill in a web form, draft a weekly report. Built-in templates are labelled by service type (research and comparison / material gathering / writing / code tasks / scheduled digests / change watching).
 

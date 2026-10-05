@@ -288,3 +288,50 @@ describe('安全审计 #8 · 检查点回滚重验 index.json 里的 path', () =
     } finally { fs.rmSync(outside, { recursive: true, force: true }); }
   });
 });
+
+describe('走查 W1·F2 · 子模块 / 链接工作树的 git 目录里的 hooks 与 config 同样写拒', () => {
+  const HIDDEN_HOOK_PATHS = [
+    '.git/modules/sub/hooks/pre-commit',
+    '.git/modules/libs/deep/name/hooks/post-checkout',      // 子模块名字里带斜杠
+    '.git/modules/a/modules/b/hooks/pre-commit',            // 嵌套子模块
+    '.git/modules/sub/config',
+    '.git/modules/sub/config.worktree',
+    '.git/modules/a/modules/b/config',
+    '.git/worktrees/wt1/config.worktree',
+    '.git/worktrees/wt1/config',
+    '.git/worktrees/wt1/hooks/pre-commit',
+    '.GIT/Modules/Sub/Hooks/Pre-Commit',                    // Windows 不分大小写
+  ];
+  it('AUTOEXEC_DENYLIST 命中这些路径(正反斜杠都认)', () => {
+    for (const rel of HIDDEN_HOOK_PATHS) {
+      for (const p of [path.join(root, 'ws', rel), path.win32.join('C:\\work\\repo', ...rel.split('/'))]) {
+        const norm = p.split(/[\\/]/).map(s => s.replace(/[. ]+$/, '')).join('/').toLowerCase();
+        assert.ok(srv.AUTOEXEC_DENYLIST.some(re => re.test(norm)), 'denylist must match ' + p);
+      }
+    }
+  });
+  it('guardFileToolPath / file_write:写拒(autoexec-denied),读照旧', async () => {
+    const ws = freshWs();
+    const ctx = ctxFor(ws, { permissionMode: 'acceptEdits' });
+    for (const rel of HIDDEN_HOOK_PATHS) {
+      const p = path.join(ws, ...rel.split('/'));
+      const g = await srv.guardFileToolPath(p, ctx, { tool: 'file_write', write: true });
+      assert.ok(denied(g) && g.code === 'autoexec-denied', 'write must be denied: ' + rel + ' → ' + JSON.stringify(g));
+      const gr = await srv.guardFileToolPath(p, ctx, { tool: 'file_read', write: false });
+      assert.strictEqual(gr.ok, true, 'read must stay allowed: ' + rel);
+    }
+    const hook = path.join(ws, '.git', 'modules', 'sub', 'hooks', 'pre-commit');
+    const r = await srv.toolCall('file_write', { path: hook, content: '#!/bin/sh\necho pwned\n' }, ctx);
+    assert.strictEqual(r.ok, false, JSON.stringify(r));
+    assert.strictEqual(fs.existsSync(hook), false, 'hook must not be written');
+  });
+  it('相邻的日常写照旧放行(不误伤)', async () => {
+    const ws = freshWs();
+    const ctx = ctxFor(ws, { permissionMode: 'acceptEdits' });
+    for (const rel of ['.git/modules/sub/HEAD', '.git/modules/sub/index', '.git/modules/sub/refs/heads/main', '.git/worktrees/wt1/HEAD',
+      '.git/COMMIT_EDITMSG', 'modules/sub/hooks.md', 'worktrees/wt1/config.json', 'docs/modules/x/config.yml', 'src/hooks/useThing.js']) {
+      const g = await srv.guardFileToolPath(path.join(ws, ...rel.split('/')), ctx, { tool: 'file_write', write: true });
+      assert.strictEqual(g.ok, true, 'ordinary path must stay writable: ' + rel + ' → ' + JSON.stringify(g));
+    }
+  });
+});

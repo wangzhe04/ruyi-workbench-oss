@@ -99,6 +99,8 @@
   --glass-highlight: inset 0 1px 0 rgba(210,225,255,.08);
   --glass-shadow: 0 24px 60px rgba(2,6,16,.55);
   --glass-shadow-soft: 0 10px 30px rgba(2,6,16,.35);
+  /* 全屏图片查看(mermaid 灯箱)的幕布:两套主题都压暗,白芯光标在上面才醒目。 */
+  --viewer-scrim: rgba(8,12,20,.78);
 }
 
 :root[data-theme="light"] {
@@ -192,6 +194,7 @@
   --glass-highlight: inset 0 1px 0 rgba(255,255,255,.75);
   --glass-shadow: 0 18px 50px rgba(20,28,48,.15);
   --glass-shadow-soft: 0 8px 28px rgba(20,28,48,.09);
+  --viewer-scrim: rgba(20,28,44,.62);
   /* engine accent colors, light variants (§3): slightly darker for contrast on the light surface. */
   --eng-claude: #c96442; --eng-deepseek: #4059d8; --eng-qwen: #6d3fd8;
   --eng-glm: #178f80; --eng-custom: #5c6570;

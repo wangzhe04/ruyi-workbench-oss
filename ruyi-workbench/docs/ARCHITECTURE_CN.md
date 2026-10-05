@@ -179,7 +179,7 @@ v1.5 团队模式(历史引入:v1.5;当前 v2.0.0)
 
 ### Skills 体系 v1
 
-`loadSkillRegistry(cwd, config)` 合并四源(内置 toolkit / 用户 `dataRoot/skills` / 项目 `.ruyi/skills/<id>/SKILL.md` / Playbook 并入,优先级 project>user>builtin)。会话级 `session.skills=[{id,source}]`(上限 8)。渐进注入:`buildSkillsPromptSection` 只把紧凑索引进 system prompt(不可信参考带 + `<skill-index>` 围栏),provider 引擎经 `skill_read` 只读工具按需拉全文(白名单 + `path.relative` 目录守卫),Claude 引擎经 `--append-system-prompt`(`clampAppendWithSkills` 与用户 append 合成、总钳 8000)+ 自带 Read 展开。
+`loadSkillRegistry(cwd, config)` 合并四源(内置 toolkit / 用户 `dataRoot/skills` / 项目 `.ruyi/skills/<id>/SKILL.md` / Playbook 并入,优先级 project>user>builtin)。会话级 `session.skills=[{id,source}]`(上限 8)。渐进注入:`buildSkillsPromptSection` 只把紧凑索引进 system prompt(不可信参考带 + `<skill-index>` 围栏),provider 引擎经 `skill_read` 只读工具按需拉全文(白名单 + `path.relative` 目录守卫),Claude 引擎经 `--append-system-prompt`(`clampAppendWithSkills` 与用户 append 合成、总钳 8000)+ 自带 Read 展开。 另有三个只读发现工具(`skills` 包,不进起手工具):`playbook_list` / `playbook_read`(填好参数的步骤,缺参回缺哪些、不可用回原因,正文围栏 + 尖括号经 06 `neutralizeAuthoredText` 中和,照做须用户点名或明确同意)与 `skill_list`(全部已装技能 + 本会话是否启用);`skill_read` 仍只读已启用技能。
 
 ### 跨会话工作台记忆
 

@@ -7,7 +7,7 @@
 //
 // 纪律:
 //   ① 绝不阻塞启动。startServer 里 void 调用;探活用 fetch(异步),拉起用 spawn(异步),一发 spawnSync 都没有
-//      (128f-⑬ 的教训:同步探测会把整个服务钉住)。只有进程退出那一刻的收尾用同步 taskkill —— 那时已经没有请求要服务了。
+//      (128f-⑬ 的教训:同步探测会把整个服务钉住)。进程退出那一刻的收尾也走 killChildTree(发出去就算,不等它)—— 那时已经没有请求要服务了。
 //   ② 已经有人起好了就不起第二个:端口上站着的 /health 回 component 对得上 → 直接用(owned:false,退出时也不杀它)。
 //   ③ 端口被【别人】占了 → 另挑空闲端口经 portEnv 告诉组件。component 对不上的端口绝不配成端点。
 //   ④ 不经 shell、不拼接参数、不展开变量;windowsHide;stdin 忽略;stderr 只留尾巴给设置页看,不进日志正文。
@@ -47,16 +47,13 @@ async function toolboxPortFree(port) { return (await toolboxListenOnce(port)) ==
 async function toolboxFreePort() { return toolboxListenOnce(0); }
 
 // 整棵树:Windows 上 venv 的 python.exe 是个启动器,真正的解释器是它的子进程 —— 只 kill 启动器会留下孤儿(还占着显存)。
-function toolboxKillTree(child, sync) {
+// 走查 W1·F12:收尸一律走 04 的 killChildTree(128i:按创建时间只认自己的子孙,动手前核启动时间;发出去就算,服务正在退出时也能跑完),
+// 不再自己 `taskkill /PID /T /F`(/T 按父号认子孙,父号过期撞号会带走别人的树 —— 128i 把其余 14 处调用点都换掉了,这一处当时漏了)。
+// 也不再接一句立即的 child.kill():Windows 上它会在 killChildTree 的 PowerShell 做进程表快照之前先把根杀掉,孙辈就认不出来了(ROOT-GONE)。
+// 进程退出那一刻的收尾同样走它(同步 / 异步没有区别,所以不再有 sync 形参)。
+function toolboxKillTree(child) {
   if (!child || !child.pid || child.exitCode !== null || child.signalCode) return;
-  if (process.platform === 'win32') {
-    const args = ['/PID', String(child.pid), '/T', '/F'];
-    try {
-      if (sync) cp.spawnSync('taskkill', args, { windowsHide: true, stdio: 'ignore', timeout: 5000 });
-      else cp.spawn('taskkill', args, { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
-    } catch { /* taskkill 不在也别抛:下面再补一刀 */ }
-  }
-  try { child.kill(); } catch { /* 已经没了 */ }
+  killChildTree(child.pid);
 }
 
 function toolboxEntry(component) {
@@ -88,7 +85,7 @@ function startToolboxService(component) {
         const stale = entry.child;
         logEvent({ kind: 'toolbox_service', action: 'stale-child', id: component.id, pid: entry.pid, port: entry.port });
         entry.child = null;                 // 旧子进程的 exit 回调据此认出自己已不是现任,不再改状态
-        toolboxKillTree(stale, false);      // 残留的启动器连同它的树一起收掉,别留孤儿
+        toolboxKillTree(stale);      // 残留的启动器连同它的树一起收掉,别留孤儿
       }
     }
     entry.error = ''; entry.stderrTail = ''; entry.stopping = false;
@@ -139,7 +136,7 @@ function startToolboxService(component) {
     }
     // 没起来:不重试到天荒地老。杀掉、记一笔、把 stderr 的尾巴留给设置页。
     entry.stopping = true;
-    toolboxKillTree(child, false);
+    toolboxKillTree(child);
     Object.assign(entry, { state: 'failed', error: spawnError || (child.exitCode !== null ? 'exit ' + child.exitCode : 'health-timeout') });
     logEvent({ kind: 'toolbox_service', action: 'fail', id: component.id, pid: entry.pid, reason: entry.error });
     return entry;
@@ -154,16 +151,16 @@ function startToolboxService(component) {
 // 设置页的显式启动与对账照旧立刻起。修前每按一次麦克风都重新拉起一遍,一直起不来的组件每次都让用户白等最长 20 s。
 function toolboxRetryCooldownMs(failures) { return Math.min(300000, 15000 * 2 ** Math.max(0, (Number(failures) || 1) - 1)); }
 
-function stopToolboxService(id, sync) {
+function stopToolboxService(id) {
   const entry = toolboxServices.get(id);
   if (!entry) return;
   entry.stopping = true;
-  if (entry.owned && entry.child) toolboxKillTree(entry.child, sync === true);   // 接管来的(用户自己起的)不杀
+  if (entry.owned && entry.child) toolboxKillTree(entry.child);   // 接管来的(用户自己起的)不杀
   if (entry.state !== 'failed') entry.state = 'stopped';
 }
 // 进程退出那一刻(13 cleanupMcp):同步杀干净自己拉起的。如意被强杀时走不到这里 —— 那种情况靠组件自己的父进程看门狗。
 function stopAllToolboxServicesSync() {
-  for (const id of toolboxServices.keys()) { try { stopToolboxService(id, true); } catch { /* 收尾绝不抛 */ } }
+  for (const id of toolboxServices.keys()) { try { stopToolboxService(id); } catch { /* 收尾绝不抛 */ } }
 }
 
 // 把启用的服务类组件的 provides 落成配置。只在真有变化时才写盘(mutateConfig 的 abort 支)。
@@ -265,7 +262,7 @@ function reconcileToolbox() {
     const enabled = enabledToolboxComponents(config).filter(c => c.kind === 'service');
     const keep = new Set(enabled.map(c => c.id));
     for (const [id, entry] of toolboxServices) {
-      if (!keep.has(id) && entry.state !== 'stopped') stopToolboxService(id, false);
+      if (!keep.has(id) && entry.state !== 'stopped') stopToolboxService(id);
     }
     await Promise.all(enabled.map(c => startToolboxService(c).catch(() => null)));
     await syncToolboxProviders().catch(err => { logEvent({ kind: 'toolbox_service', action: 'config-sync-failed', error: String(err && err.message || err).slice(0, 200) }); });
