@@ -491,6 +491,12 @@ try {
     await cdp.evaluate(`(() => { document.getElementById('cfgStewardScheduleSubmitBtn').click(); return true; })()`);
     const listed = await waitForHttp(appPort, 'GET', '/api/scheduler/tasks',
       result => ((result.json && result.json.tasks) || []).some(item => item.title === title), token);
+    // 走查 W1-14 起「建这一条」有在途锁：服务端落了盘不等于这一发请求在页面侧已收尾（按钮还禁着、表单还没收起）。
+    // 等它恢复可点再返回，下一次 submitWith 才不会点在一个还禁着的按钮上。
+    for (let i = 0; i < 100; i++) {
+      if (await cdp.evaluate(`(() => { const b = document.getElementById('cfgStewardScheduleSubmitBtn'); return Boolean(b) && !b.disabled; })()`)) break;
+      await sleep(50);
+    }
     return listed ? (listed.json.tasks.find(item => item.title === title) || null) : null;
   };
   const fastRow = await submitWith('表单选了快档', 'fast');
