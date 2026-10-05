@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 70,
-    "providedSymbols": 3504,
+    "providedSymbols": 3505,
     "requiredSymbols": 3136,
     "edges": 536,
     "forwardEdges": 67,
@@ -10020,6 +10020,7 @@
         "AGENT_WAKE_CHAIN_MAX",
         "AGENT_WAKE_DEBOUNCE_MS",
         "AGENT_WAKE_SOURCE",
+        "COMPACTION_PATH_ARG_KEYS",
         "COMPACTION_RAWREF_PATTERN",
         "COMPACTION_REFETCH_LIMITS",
         "COMPACTION_REFETCH_REFUSED",

@@ -109,7 +109,7 @@ const rowSel = id => `#railList li.steward-board-thread[data-session-id="${id}"]
       if (!streamUrls.length) return null;
       try { return new URL(streamUrls[streamUrls.length - 1]).searchParams.get('sessionId'); } catch { return null; }
     };
-    const waitStreamSession = async (predicate, ms = 9000) => {
+    const waitStreamSession = async (predicate, ms = 9 * 1000) => {
       const end = Date.now() + ms;
       while (Date.now() < end) { const value = lastStreamSession(); if (value !== null && predicate(value)) return value; await sleep(100); }
       return lastStreamSession();

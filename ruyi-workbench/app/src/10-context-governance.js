@@ -2562,10 +2562,15 @@ const COMPACTION_TOOL_INDEX_SKIP = new Set(['todo_write', 'scratchpad_write', 't
 // 事后重跑复现不了的那一类:联网、命令/脚本、子代理、桌面/浏览器操作;桥接的外部 MCP 工具(名字带 __)一律算。
 const COMPACTION_TOOL_INDEX_ONESHOT = /__|^(web_fetch|web_search|http_request|http_download|powershell_run|script_run|shell_start|shell_poll|shell_send|orchestrate_agents|agent_result|wait_agents)$|^(desktop|browser)_/;
 const COMPACTION_RAWREF_PATTERN = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
-function compactionIndexText(value, max) {
+// keepTail:路径类参数掐中间、留尾巴 —— 文件名在尾部,Windows 的临时目录/工作区前缀一长,从尾部截就只剩盘符和用户目录。
+function compactionIndexText(value, max, keepTail = false) {
   const flat = String(value == null ? '' : value).replace(/\s+/g, ' ').replace(/</g, '＜').replace(/>/g, '＞').trim();
-  return flat.length > max ? flat.slice(0, max) + '…' : flat;
+  if (flat.length <= max) return flat;
+  if (!keepTail) return flat.slice(0, max) + '…';
+  const head = Math.min(12, Math.floor(max / 4));
+  return flat.slice(0, head) + '…' + flat.slice(flat.length - (max - head - 1));
 }
+const COMPACTION_PATH_ARG_KEYS = new Set(['path', 'paths', 'dest', 'from', 'to', 'cwd', 'file', 'filePath', 'dir']);
 function compactionToolArgsDigest(rawArgs) {
   let args = null;
   try { args = typeof rawArgs === 'string' ? JSON.parse(rawArgs) : rawArgs; } catch { args = null; }
@@ -2577,7 +2582,7 @@ function compactionToolArgsDigest(rawArgs) {
     const v = args[key];
     if (v == null || v === '' || typeof v === 'boolean') continue;
     const text = Array.isArray(v) ? v.slice(0, 3).map(x => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(',') : (typeof v === 'object' ? JSON.stringify(v) : String(v));
-    parts.push(key + '=' + compactionIndexText(text, 60));
+    parts.push(key + '=' + compactionIndexText(text, 60, COMPACTION_PATH_ARG_KEYS.has(key)));
     if (parts.length >= 2) break;
   }
   return parts.join(' ');
