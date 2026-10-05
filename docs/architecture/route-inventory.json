@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "_comment": "第 103 波 103a 路由清册。由 dev-harness/route-inventory.js 机械生成,route-inventory.static.e2e.js 重算比对。改路由/鉴权后请跑生成器,不要手改本文件。",
-  "generatedAt": "2026-10-03T04:08:13.785Z",
+  "generatedAt": "2026-10-05T17:32:43.167Z",
   "sources": {
     "routeAuth": "ruyi-workbench/app/src/01b-route-auth.js",
     "routers": [
@@ -1739,6 +1739,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
         "dev-harness\\turn-stop-supersede.e2e.js",
         "dev-harness\\unit\\foreign-turn-composer.test.js"
@@ -1874,6 +1875,7 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
@@ -2455,6 +2457,7 @@
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-shell-pixels.browser.e2e.js",
         "dev-harness\\steward-shell-redesign.browser.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-side-collapse.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js",
@@ -2818,7 +2821,8 @@
         "dev-harness\\steward-conversation.static.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
-        "dev-harness\\steward-settings.static.e2e.js"
+        "dev-harness\\steward-settings.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js"
       ]
     },
     {
@@ -3288,6 +3292,7 @@
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\steward-shell-pixels.browser.e2e.js",
         "dev-harness\\steward-shell-redesign.browser.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-side-collapse.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
@@ -3525,6 +3530,7 @@
         "dev-harness\\steward-runner.static.e2e.js",
         "dev-harness\\steward-shell-pixels.browser.e2e.js",
         "dev-harness\\steward-shell-redesign.browser.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-side-collapse.browser.e2e.js",
         "dev-harness\\steward-signals.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
@@ -3699,6 +3705,7 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-runner.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\summary-entity-check.e2e.js",
         "dev-harness\\thread-brief.static.e2e.js",
@@ -3770,6 +3777,7 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -3831,6 +3839,7 @@
         "dev-harness\\steward-relay-channels.e2e.js",
         "dev-harness\\steward-runner.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-thread-order.e2e.js",
         "dev-harness\\steward-thread-title.e2e.js",
         "dev-harness\\thread-arbiter.e2e.js",
@@ -4145,6 +4154,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-viewing-gate.e2e.js",
         "dev-harness\\unit\\steward-quick-replies.test.js",
         "dev-harness\\walkthrough-round1.browser.e2e.js",
@@ -4200,6 +4210,7 @@
         "dev-harness\\steering-claude.e2e.js",
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\unit\\net-errors.test.js"
       ]
     },
@@ -4619,7 +4630,8 @@
         "dev-harness\\rail-pocket.browser.e2e.js",
         "dev-harness\\steward-memory.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
-        "dev-harness\\steward-settings.static.e2e.js"
+        "dev-harness\\steward-settings.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js"
       ]
     },
     {
@@ -4724,6 +4736,7 @@
         "dev-harness\\steward-decisions.e2e.js",
         "dev-harness\\steward-settings.e2e.js",
         "dev-harness\\steward-settings.static.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\workbench-thread-head.browser.e2e.js"
       ]
     },
@@ -4845,6 +4858,7 @@
         "dev-harness\\steward-drawer.e2e.js",
         "dev-harness\\steward-drawer.static.e2e.js",
         "dev-harness\\steward-relay-channels.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-stop-respected.e2e.js",
         "dev-harness\\steward-walkthrough.static.e2e.js"
       ]
@@ -4906,6 +4920,7 @@
         "dev-harness\\steward-board.e2e.js",
         "dev-harness\\steward-deferred-permission.e2e.js",
         "dev-harness\\steward-presence-gate.e2e.js",
+        "dev-harness\\steward-shell-wave1.browser.e2e.js",
         "dev-harness\\steward-viewing-gate.e2e.js",
         "dev-harness\\thread-switch-race.browser.e2e.js",
         "dev-harness\\unit\\http-input-hardening.test.js"
