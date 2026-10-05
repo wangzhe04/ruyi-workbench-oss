@@ -3474,6 +3474,26 @@ async function sweepStaleSessionMcpConfigs(nowMs = Date.now()) {
   return removed;
 }
 
+// 走查 W1·F10:script_run 把脚本明文落在 <generated>/scripts/,正常路径执行完立刻删(12 script_run 的 finally);进程被强杀 / 杀毒占着删不掉时
+// 会留下孤儿 —— 里面可能有模型嵌进去的密钥。这里按龄兜底:启动时扫一次(13 起服务处调),超过 SCRIPT_FILE_MAX_AGE_MS 没动过的删。
+// 脚本最长跑 30 分钟(timeoutMs 上限 1800000),一天的余量足够不碰在跑的。只删 scripts/ 下的普通文件,失败静默(旁路清理)。
+// screenshot-*.png 不在此列:聊天里的工具图片卡片经 /api/file/preview 按路径回读它们,清掉会让历史对话里的截图变成裂图。
+const SCRIPT_FILE_MAX_AGE_MS = 24 * 3600 * 1000;
+async function sweepStaleScriptFiles(nowMs = Date.now()) {
+  const dir = path.join(paths.generated, 'scripts');
+  let names = [];
+  try { names = await fsp.readdir(dir); } catch { return 0; }
+  let removed = 0;
+  for (const name of names) {
+    const file = path.join(dir, name);
+    try {
+      const st = await fsp.lstat(file);
+      if (st.isFile() && nowMs - st.mtimeMs > SCRIPT_FILE_MAX_AGE_MS) { await fsp.unlink(file); removed += 1; }
+    } catch { /* 并发删除 / 一时被锁:下个进程再扫 */ }
+  }
+  return removed;
+}
+
 // Per-session MCP config that injects the session id + loopback port/token into the MCP child's env,
 // so the permission-bridge tool (running in that child) can call back and be routed to the right UI stream.
 // opts.desktopOverride:这条线程的会话级 desktopTools(05 Claude 引擎按会话头传;子代理节点不传 = 跟随全局),只影响直挂 ACC

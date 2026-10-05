@@ -1,15 +1,31 @@
-// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;纯搬家,零行为变更)。
+// 01d-win-cmdline.js - 架构还债批 3·B: 从 01-config.js 搬出的 Windows 命令行包装与整行长度预算(batchSafeSpawn / cmd8191 防线;搬家时零行为变更,其后 quoteWinArg 补了 CRT 层反斜杠转义)。
 // Node >=18.20/20.12/22/24 refuse to spawn a .cmd/.bat with shell:false and throw "spawn EINVAL"
 // (CVE-2024-27980). The intranet `claude` is almost always claude.cmd, so route batch launchers
 // through cmd.exe with verbatim, manually-quoted args (the cross-spawn-proven pattern).
 function isBatchLauncher(command) {
   return process.platform === 'win32' && /\.(cmd|bat)$/i.test(String(command || ''));
 }
+// 一个实参要过【两层】解析,两层都得对(只顾一层是历史上的两类事故):
+//   ① cmd.exe(/d /s /c "整行" 与 .cmd 垫片里的 %*):只认 `"` 切换引号态 —— 引号态里 ^ & | < > ( ) 都是字面量。
+//      所以每个 `"` 必须成对地出现(写成 `""`,一进一出,引号态不被带歪),元字符才始终被护在引号里。
+//   ② 目标进程的 C 运行时(Node/Python/MSVCRT 2008+ 同规则):按 `2N 个反斜杠 + "` → N 个反斜杠并翻转引号态、
+//      `2N+1 个反斜杠 + "` → N 个反斜杠 + 字面 `"`;引号态内的 `""` → 一个字面 `"`;其余反斜杠原样。
+// 只做 `"`→`""` 过得了 ① 却过不了 ②:参数里本来就有「反斜杠 + 引号」(JSON.stringify 的 `\"`,--agents 里角色 prompt
+// 带双引号时必现)时,`\""` 在 ② 眼里是「转义引号 + 一个落单引号」—— 落单的那个把引号态关掉,后面的空格把参数劈开;
+// 含空格且以 `\` 结尾的路径(`C:\My Docs\`)同理,收尾的 `\"` 被当成转义引号吞掉。修法按 ② 的规则补反斜杠:
+// 每个 `"` 前面那一串反斜杠、以及结尾引号前面那一串反斜杠都加倍;`"` 仍写成 `""`(① 不变)。
+// %、! 在 cmd 里即使在引号内也会展开,这里没有通用的转义,保持原状(只在判据里触发加引号)。
 function quoteWinArg(a) {
   a = String(a);
   if (a === '') return '""';
   if (!/[\s"^&|<>()%!]/.test(a)) return a;
-  return '"' + a.replace(/"/g, '""') + '"';
+  let out = '"', backslashes = 0;   // 逐字符一遍过(反斜杠串先攒着,看到后一个字符再定怎么写),不用回溯正则
+  for (const ch of a) {
+    if (ch === '\\') { backslashes++; continue; }
+    out += ch === '"' ? '\\'.repeat(backslashes * 2) + '""' : '\\'.repeat(backslashes) + ch;
+    backslashes = 0;
+  }
+  return out + '\\'.repeat(backslashes * 2) + '"';
 }
 // Returns { command, args, opts } ready for cp.spawn/spawnSync — transparently wrapping .cmd/.bat.
 function batchSafeSpawn(command, args) {
